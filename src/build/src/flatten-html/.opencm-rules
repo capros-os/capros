@@ -1,0 +1,4 @@
+exclude BUILD
+exclude .*.m
+exclude flatten-html.c
+exclude flatten-html

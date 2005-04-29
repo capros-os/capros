@@ -1,0 +1,41 @@
+/* -*- c-mode -*- */
+
+  /* The following are all rvalues: */
+SYMCLASS(scope,1)		/* for scope records */
+SYMCLASS(builtin,0)		/* builtin constants */
+SYMCLASS(value,0)		/* computed constant values */ 
+
+  /* The following define new names: */ 
+SYMCLASS(const,0)		/* constant symbols, including enum values */
+
+SYMCLASS(primtype,0)		/* primtype names */
+SYMCLASS(enum,1)		/* enum type name */
+SYMCLASS(struct,1)		/* structure type name */
+SYMCLASS(union,1)		/* union type name */
+SYMCLASS(absinterface,1)	/* abstract interface name */
+SYMCLASS(interface,1)		/* interface name */
+SYMCLASS(typedef,0)		/* typedef name */
+SYMCLASS(package,1)		/* package name */
+
+SYMCLASS(member,0)		/* member field name */
+SYMCLASS(operation,1)		/* operation name */
+SYMCLASS(oneway,1)		/* oneway function name */
+SYMCLASS(formal,0)		/* formal parameter name */
+SYMCLASS(outformal,0)		/* OUT formal parameter name */
+SYMCLASS(exception,1)		/* exception name */
+SYMCLASS(switch,1)		/* switch scope */
+SYMCLASS(caseScope,1)		/* implied case discriminator scope */
+SYMCLASS(caseTag,0)		/* case discriminator */
+SYMCLASS(seqType,0)		/* variable length sequence type. Null
+				   value implies seq[*] */ 
+SYMCLASS(arrayType,0)           /* fixed length arrays. */
+SYMCLASS(bufType,0)             /* dynamically sized buffers. */
+
+SYMCLASS(symRef,0)		/* reference to named symbol */
+
+SYMCLASS(typecode,0)		/* interface type code */
+
+     /* arithmetic operators. If the expression is a + b then the
+	/value/ field of the sc_arithop symbol points to "a" and the
+	/children/ field points to b. */
+SYMCLASS(arithop,0)

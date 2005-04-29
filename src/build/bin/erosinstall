@@ -1,0 +1,202 @@
+#!/bin/sh
+#
+# Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+#
+# This file is part of the EROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+#
+# This script is command-line compatible with the LINUX install utility,
+# but avoids unnecessary copies by checking for actual changes before
+# installing the file.
+#
+# A useful trick that this program takes advantage of is that
+# running chmod/chown do NOT change a file's modification time.
+#
+# install can be invoked as:
+#
+#	install [options] -d dir_name ...
+#	install [options] [ -s ] file inst_file
+#	install [options] [ -s ] file... inst_dir
+#
+# where the 'options' are:
+#
+#	[-c] [-g group] [-m mode] [-o owner]
+#
+# we do not support the gnuish style options.
+#
+# Note that BSD install destroys the source file (idiots) unless
+# you pass '-c', so in non-directory cases we pass '-c'.
+#
+
+FLATTENHTML=${EROS_ROOT}/src/build/bin/flatten-html
+group=`id -n -g`
+owner=`id -n -u`
+if [ -e /bin/chown ]
+then
+	chown=/bin/chown
+elif [ -e /usr/sbin/chown ]
+then
+	chown=/usr/sbin/chown
+else
+	echo "chown not found"
+	exit 1
+fi
+
+cflag="-c"
+
+dfltmode=0644	# unless directory
+html=no
+
+set -- `getopt cdhg:m:o: $*`
+for i in $*
+do
+	case $i in
+	-c)	cflag=""; shift;;  # no sense passing it twice
+	-s)	strip="-s"; shift;;
+	-d)	dir="-d"; dfltmode="0755"; shift;;
+	-m)	mode=$2; shift; shift;;
+	-g)	group=$2; shift; shift;;
+	-o)	owner=$2; shift; shift;;
+	-h)	html="yes"; shift;;
+	--)	shift; break;;
+	esac
+done
+
+mode=${mode:-${dfltmode}}
+
+# SHELL FUNCTIONS NOT SUPPORTED UNDER TRUE /bin/sh!!!
+#
+#function install_file() {
+#    local src=$1
+#    local target=$2
+#
+#    if [ $html = "yes" ]
+#    then
+#	${EROS_ROOT}/src/build/bin/flatten-html < $src > inst-tmp.html
+#	src="inst-tmp.html"
+#    fi
+#
+#    if cmp -s $src $target
+#    then
+#	# content is identical - just make sure of the modes
+#	chmod $mode $target
+#	${chown} $owner.$group $target
+#    else
+#	install $cflag $strip -g $group -o $owner -m $mode $src $target
+#    fi
+#
+#    if [ $html = "yes" ]
+#    then
+#	rm -f inst-tmp.html
+#    fi
+#}
+
+if [ -n "$dir" ]
+then
+	if [ -n "$strip" ]
+	then
+		echo "erosinstall: -d and -s options mutually exclusive" >&2
+		exit 1
+	fi
+
+	for d in $*
+	do
+		if [ -d $d ]
+		then
+			chmod $mode $d;
+			${chown} $owner.$group $d
+		else
+			install -d -g $group -o $owner -m $mode $d
+		fi
+	done
+elif [ $# -eq 2 ]
+then
+	target=$2
+	src=$1
+
+	if [ -d $target ]
+	then
+		target=$target/`basename $src`
+	fi
+
+	# install_file $src $target
+
+	if [ $html = "yes" ]
+	then
+	    ${FLATTENHTML} < $src > inst-tmp.html
+	    src="inst-tmp.html"
+	fi
+
+	if cmp -s $src $target
+	then
+	    # content is identical - just make sure of the modes
+	    chmod $mode $target
+	    ${chown} $owner.$group $target
+	else
+	    install $cflag $strip -g $group -o $owner -m $mode $src $target
+	fi
+
+	if [ $html = "yes" ]
+	then
+	    rm -f inst-tmp.html
+	fi
+else
+	if [ $# -lt 2 ]
+	then
+		echo erosinstall: insufficent arguments >&2
+		exit 1
+	fi
+
+	while [ $# -gt 1 ]
+	do
+		# Following disGUSTing hack is to figure out what the
+		# last argument is:
+		for arg in $*
+		do
+			target=$arg;
+		done
+		# target is now last argument.
+
+		target=$target/`basename $1`
+		src=$1
+
+		#install_file $src $target
+
+		if [ $html = "yes" ]
+		then
+		    ${FLATTENHTML} < $src > inst-tmp.html
+		    src="inst-tmp.html"
+		fi
+
+		if cmp -s $src $target
+		then
+		    # content is identical - just make sure of the modes
+		    chmod $mode $target
+		    ${chown} $owner.$group $target
+		else
+		    install $cflag $strip -g $group -o $owner -m $mode $src $target
+		fi
+
+		if [ $html = "yes" ]
+		then
+		    rm -f inst-tmp.html
+		fi
+
+		shift
+	done
+fi

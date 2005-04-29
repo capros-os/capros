@@ -1,0 +1,13 @@
+exclude cross
+exclude host
+exclude doc
+exclude domain
+exclude idl
+exclude include
+exclude lib
+exclude pkg
+exclude bin
+exclude man
+exclude info
+exclude share
+exclude i486-unknown-eros

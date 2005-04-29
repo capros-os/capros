@@ -1,0 +1,206 @@
+#!/bin/sh
+#
+# Copyright (C) 1998, 1999, Jonathan Adams.
+# Copyright (C) 2001, The EROS Group
+#
+# This file is part of the EROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+usage() {
+   echo  usage: "$0" -o outfile [cppopts] imgfile genfile >&2
+   echo "        Should be the same options you send to mkimage, plus" >&2
+   echo "        the name that you want the dependancy file to have." >&2      
+   
+   exit 1
+}
+
+OUTFILE=""
+INFILE=""
+CPPARGS=""
+
+STDINC="-I${EROS_ROOT}/include"
+
+if [ -z "${EROS_ROOT}" ]; then
+  echo "Hey! You don't have EROS_ROOT in your environment!" >&2
+  exit 1;
+fi
+
+# this code relies on EROS_ROOT not containing :s and spaces.  
+# Let's check the assumption.
+if echo "${EROS_ROOT}" | grep -q '[: ]'; then
+  echo "Hey! Invalid EROS_ROOT (contains :s or spaces)" >&2
+  exit 1
+fi
+
+# NOTE:  This needs to be updated if the args to mkimage or it's processing
+#        of them change!
+#
+#    Also, this functionality may want to move into mkimage.
+#
+set -- `getopt o:dvn:I:A:D: "$@"`
+if test $? != 0; then
+   usage
+fi
+for i; do
+   case "$i"
+   in
+      -I)
+           CPPARGS="${CPPARGS} -I`echo $2 | sed 's:^/eros:'${EROS_ROOT}':'`"
+           shift 2;
+         ;;
+      -D|-A)
+           CPPARGS="${CPPARGS} $1$2"
+           shift 2;
+         ;;
+      -n)
+           if test "$2" = "ostdinc"; then
+             STDINC=""
+             CPPARGS="${CPPARGS} -nostdinc"
+             shift 2;
+           else
+             usage
+           fi
+         ;;
+      -d)
+           shift
+         ;;
+      -v)
+           shift
+         ;;
+      -o)
+           OUTFILE=$2
+           shift 2
+         ;;
+      --)
+           shift; break
+         ;;
+   esac
+done
+
+CPPARGS="${CPPARGS} ${STDINC}"
+
+if test $# -ne 2 -a $# -ne 1; then
+   usage
+fi
+
+INFILE="$1"
+GENFILE="$2"
+
+if test \! -f "${INFILE}"; then
+   echo "${INFILE}: not a regular file" >&2
+   exit 1;
+fi
+
+if test -z "${OUTFILE}"; then
+   echo "no target file specified!" >&2
+   exit 1;
+fi
+
+if echo "${INFILE}${OUTFILE}${GENFILE}" | grep -q '[@: ]'; then
+   echo "file names must not contain @, :, or spaces" >&2
+   exit 1;
+fi
+
+# open up GENFILE as stdout
+exec > "${GENFILE}" \
+  || { echo "Error opening ${GENFILE} for writing" >&2; exit 1; }
+
+ERRFILE="/tmp/.$$_mkimagedep_error"
+while [ -f "${ERRFILE}" ]; do ERRFILE="${ERRFILE}_`date`"; done
+
+# the || touch ${ERRFILE} stuff lets us detect any part of the pipe
+#returning an error code.
+
+# let cpp generate the include dependencies, and add the generated file to it.
+{ /lib/cpp -M ${CPPARGS} ${INFILE} || touch "${ERRFILE}"; } \
+  | { sed 's@'"${INFILE}"'.o:@'"${OUTFILE} ${GENFILE}:"'@g' \
+     || touch "${ERRFILE}" ;} 
+
+if [ -f "${ERRFILE}" ]; then
+  rm -f "${ERRFILE}"
+  exit 1
+fi
+
+echo "${OUTFILE}: ${INFILE} \\"
+# Comments are below.
+{ /lib/cpp ${CPPARGS} ${INFILE} || touch "${ERRFILE}"; } \
+  | { sed -e 's:number *(\( *\"[^\"]*\" *\)*)::g' \
+           -e '/^[^#]*\(\"[^\"]*\"[^\"]*\)\+$/ !d' \
+           -e 's:[^"]*\"\([^\"]*\)"[^\"]*:\1:g' \
+           -e 's:/eros/:'" ${EROS_ROOT}/"':g' \
+           -e 's:^\(.*\)$:\1 \\:g' \
+           -e 's:^\(.*\): \1:g' \
+      || touch "${ERRFILE}"; } \
+  | sort | uniq \
+  | { sed -e '$ s: \\$::g' || touch "${ERRFILE}"; }
+
+if [ -f "${ERRFILE}" ]; then
+  rm -f "${ERRFILE}"
+  exit 1
+fi
+
+# the above generates the file dependencies -- this uses a pipeline which:
+#   1.  Runs the input through cpp to put in all the included stuff, remove
+#      comments, and generally clean up the input
+#
+#   2.  Takes the preprocessed output and runs it through a complex
+#      sed script.  The actions of the script, line by line, are:
+#
+#        1. 's:number *(\( *\"[^\"]*\" *\)*)::g'
+#          Delete anything of the form 'number("string" "string"... )',
+#          because these really are strings, not file names.
+#
+#        2. '/^[^#]*\(\"[^\"]*\"[^\"]*\)\+$/ !d'
+#          KEEP all lines which do not have a # in their beginnings and 
+#         which have an even number of quotes in them. 
+#         (the # lines are the preprocessor's line number information)
+#         (the ! inverts the effect of the match)
+#
+#        3. 's:[^"]*\"\([^\"]*\)"[^\"]*:\1:g' 
+#          Removes all non-quoted parts of the line, resulting in 
+#         list consisting only of the quoted parts, with quotes removed.
+#
+#        4. 's:/eros/:'" ${EROS_ROOT}/"':g' 
+#          Replaces all references to /eros with the current value of
+#         ${EROS_ROOT}.
+#
+#        5. 's:^\(.*\)$:\1 \\:g'
+#          Adds a backslash to the end of each line
+#
+#        6. 's:^\(.*\): \1:g' \
+#          Adds a space at the beginning of all dependency lines for
+#         readability.
+#
+#   3.  pipe this through sort and uniq to get rid of duplicates.
+# 
+#   4.  Takes these results and passes them through a sed script which 
+#      removes the last backslash, since it is unneeded and wrong. 
+#
+# This script will work if the following assumptions are met:
+#   1.  The only quoted passages in preprocessed nmkimage files are the
+#      imported binary files.
+#
+#   2.  Quotes cannot be split as in C (i.e. "foo" "bar" is not valid)
+#
+#   3.  Quotations are not split across lines
+#
+#   4.  Filenames do *not* contain whitespace characters.
+#
+#   5.  EROS_ROOT does not contain ':'s
+#
+#   6.  INFILE, GENFILE, OUTFILE do not contain ':'s or '@'s.
+

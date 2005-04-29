@@ -1,0 +1,268 @@
+<!DOCTYPE doc SYSTEM "../../doc/www/DTD/doc.dtd">
+<doc>
+  <copyright>
+    <year>2001</year>
+    <copy-terms>For terms of redistribution, see the 
+      <a href="../legal/license/GPL.html">GNU General Public
+	License</a></copy-terms>
+  </copyright>
+  <front>
+    <title>Building Your First Program</title>
+    <subtitle>Hello, World in EROS</subtitle>
+    <author>
+      <name>Jonathan S. Shapiro</name>
+      <organization>Johns Hopkins University</organization>
+    </author>
+    <abstract>
+      <p>
+	This tutorial shows how to build a program in EROS, generate a
+	system image including the program, and run the resulting
+	system. The program it builds is the traditional ``hello
+	world'' program. The primary focus of the tutorial is on
+	simply getting started.
+      </p>
+    </abstract>
+  </front>
+  <body>
+    <h1>The EROS System Image</h1>
+    <p>
+      The overall objective of this tutorial is to teach you how to
+      create and run your first EROS system image. Building a system
+      image is similar to constructing a CD: everything needed to get
+      the system running must go into the image.
+    </p>
+    <p>
+      It may seem at first that there are a great many steps and
+      details to deal with, but the basic logic of the image
+      construction process has only three stages:
+    </p>
+    <ol>
+      <li>
+	<p>
+	  Create the programs that you need, including deciding how
+	  they will be linked together.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Decide how the disk or ROM image you are creating should be
+	  layed out, and create a file that exactly matches this
+	  image.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Write the applications onto the disk or ROM image.
+	</p>
+      </li>
+    </ol>
+    <p>
+      For the sake of simplicity, this tutorial will assume that you
+      are building a ROM image. If you are testing your image using a
+      PC, don't worry -- there is a way to write the ROM image to a
+      disk and boot from it.
+    </p>
+    <p>
+      In practice, of course, the three steps listed above require
+      expansion. Some of the programs you need, for example, will be
+      standard utilities; we will need to discuss how these are
+      incorporated into a system image. The ROM image needs to be
+      initialized; we need to discuss how to accomplish that. There
+      are rules for things that must be included in the ROM image if
+      the system is to execute; we need to describe what they are. In
+      later tutorials, we will need to describe how things like
+      <term>contructors</term> are created and get into some details
+      of address spaces.
+    </p>
+    <p>
+      But one step at a time! In this tutorial, we will cover:
+    </p>
+    <ul>
+      <li>
+	<p>
+	  Writing a simple program that will be contained in a ROM image.
+	  image.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Constructing an <defn>image map</defn>. An imag map
+	  identifies each program to be included in the final system
+	  image, and describes the capabilities that will connect them
+	  to each other when execution first begins.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Using the <tool>mkimage</tool> program to create an
+	  <defn>image file</defn> from the image map and your
+	  programs. The image file contains all of the applications
+	  that will be included in the final ROM image.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Writing a <defn>volume map</defn>, which describes the
+	  layout of the ROM (or disk) image that you are creating.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Using the <tool>mkvol</tool> program to create a file
+	  that matches the final ROM image, and specify the kernel
+	  that will be run.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Using the <tool>sysgen</tool> program to transfer the
+	  contents of the image file onto the final ROM image,
+	  creating an image you can run.
+	</p>
+      </li>
+    </ul>
+    <p>
+      Some of these steps are typically done just once in a
+      development cycle. We will explain each one in detail below.
+    </p>
+    <h1>Creating a Simple Program</h1>
+    <p>
+      EROS applications follow a typical pattern:
+    </p>
+    <ul>
+      <li>
+	<p>
+	  The <code>main()</code> procedure first performs some
+	  initialization to place the capabilities that the program
+	  will use into the desired capability registers.
+	</p>
+      </li>
+      <li>
+	<p>
+	  The <code>main()</code> procedure then executes an event
+	  loop, which loops until the client requests that the program
+	  exit.
+	</p>
+      </li>
+      <li>
+	<p>
+	  If necessary, the application now performs any appropriate
+	  cleanup actions before exiting.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <code>main()</code> then returns a result code to the
+	  runtime system with the client resume capability in
+	  <code>KR_RETURN</code>. After the client has been destroyed,
+	  this result code will be returned to the client.
+	</p>
+      </li>
+    </ul>
+    <p>
+      In this tutorial, we will do none of these things. Instead, we
+      will create the simplest possible program, because our main goal
+      is to understand how to build an image.
+    </p>
+    <h2>Hello, World, the <em>Wrong</em> Way</h2>
+    <p>
+      Here is the (now-traditional) ``Hello World'' program as written
+      for the EROS system:
+    </p>
+    <program>
+<![CDATA[/* Sample small program: the obligatory ``hello world'' sample. */
+
+#include <eros/target.h>
+#include <domain/domdbg.h>
+
+#define KR_SELF     2
+#define KR_BANK     4
+
+#define KR_OSTREAM  16
+
+int
+main(void)
+{
+  kprintf(KR_OSTREAM, "hello, world\n");
+
+  return 0;
+}]]>
+    </program>
+    <p>
+      As the section title for this section indicates, this is not
+      really the right way to build the hello world program, but it's
+      a enough to get us a program that will compile and run. Let's
+      look briefly at each line to see what it is for.
+    </p>
+    <h2>Line by Line</h2>
+    <p>
+      The first two lines:
+    </p>
+    <program>
+<![CDATA[#include <eros/target.h>
+#include <domain/domdbg.h>]]>
+    </program>
+    <p>
+      are standard include files. The <code>target.h</code> file
+      defines a number of useful machine-dependent macros and provides
+      standard names for machine-dependent data types. The
+      <code>domdbg.h</code> file will soon be replaced by a proper
+      stream protocol header. At present, <code>domdbg.h</code>
+      is where <code>kprintf</code> and <code>kdprintf</code> are defined.
+    </p>
+    <p>
+      The next two lines:
+    </p>
+    <program>
+<![CDATA[#define KR_SELF     2
+#define KR_BANK     4]]>
+    </program>
+    <p>
+      describe some capability register conventions that the runtime
+      system depends on. In particular, the <code>crt0</code> code
+      relies on finding a process capability in register 2
+      (<code>KR_SELF</code>) and a space bank capability in register 4
+      (<code>KR_BANK</code>). A list of the capability register
+      conventions expected by the runtime can be found in the <a
+      href="../../doc/www/devel/ProgGuide/Cover.html"><docname>EROS
+      Programmer's Guide</docname></a>.
+    </p>
+    <p>
+      Actually, these two lines are completely unnecessary -- they are
+      included only as an excuse to tell you where the runtime
+      documentation can be found. The program would run fine without
+      them, and the macros <code>KR_SELF</code> and
+      <code>KR_BANK</code> are already defined for you in a standard
+      header file.
+    </p>
+    <p>
+      The next line:
+    </p>
+    <program>
+<![CDATA[#define KR_OSTREAM  16]]>
+    </program>
+    <p>
+      Indicates that the capability we are most interested in -- the
+      one that will allow this program to talk to us -- can be found
+      in capability register 16.
+    </p>
+    <p>
+      Finally, the important line of the program:
+    </p>
+    <program>
+<![CDATA[kprintf(KR_OSTREAM, "hello, world\n");]]>
+    </program>
+    <p>
+      does all the work.
+    </p>
+    <h2>Some Things you Can't See</h2>
+    <p>
+      As with any programming environment, a great deal happens
+      ``behind the scenes.''
+    </p>
+    <p>
+      <em>Cannot remember what I wanted to say here...</em>
+    </p>
+    <h1>The Image Map</h1>
+  </body>
+</doc>
