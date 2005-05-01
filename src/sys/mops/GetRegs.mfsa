@@ -1,0 +1,4 @@
+label "Before calling proc_GetRegs32, must call proc_Prepare";
+fsa GetRegs.fsa;
+initialstate start "Initial state";
+finalstate error "Call proc_Prepare without calling proc_GetRegs32 first";

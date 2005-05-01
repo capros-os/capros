@@ -1,0 +1,6 @@
+label "sleepon and yield";
+fsa sleep.fsa;
+initialstate init "Initial state";
+finalstate badyield "Yield not following sleep";
+finalstate noyield "Sleep not followed by yield";
+finalstate doublesleep "Sleep followed by sleep";

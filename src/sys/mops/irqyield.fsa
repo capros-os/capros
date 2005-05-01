@@ -1,0 +1,94 @@
+// good states
+state enabled "Enabled";
+state disabled1 "Disabled level 1";
+state disabled2 "Disabled level 2";
+state disabled3 "Disabled level 3";
+state disabled4 "Disabled level 4";
+state yielded "Yielded";
+
+// bad states
+state toomanydisable "Too many disable";
+state doubleenable "Double enable";
+state badexit "Exit with mismatched enable/disable";
+state badyield "Yield while disabled";
+
+ast enable { function_call { identifier "irq_ENABLE" } { ellipsis } };
+ast disable { function_call { identifier "irq_DISABLE" } { ellipsis }
+};
+ast yield { function_call { identifier "act_Yield" } { ellipsis } };
+ast resume { function_call { identifier "resume_process" } { ellipsis
+} };
+ast idt_entry { function_entry 
+{ or
+{ function_declarator "idt_OnTrapOrInterrupt" { ellipsis } }
+{ function_declarator "idt_OnKeyInvocationTrap" { ellipsis } }
+} 
+{ ellipsis } };
+ast idt_exit { function_exit 
+{ or
+{ function_declarator "idt_OnTrapOrInterrupt" { ellipsis } }
+{ function_declarator "idt_OnKeyInvocationTrap" { ellipsis } }
+} 
+{ ellipsis } };
+ast act_exit { function_exit 
+{ function_declarator "act_HandleYieldEntry" { ellipsis } }
+{ ellipsis } };
+ast all_exit { function_exit 
+{ or 
+{ function_declarator "idt_OnTrapOrInterrupt" { ellipsis } }
+{ function_declarator "idt_OnKeyInvocationTrap" { ellipsis } }
+{ function_declarator "act_HandleYieldEntry" { ellipsis } }
+} 
+{ ellipsis } };
+ast other { other };
+
+//good
+transition enabled disabled1 disable;
+transition enabled disabled1 idt_entry;
+transition enabled yielded yield;
+//bad
+transition enabled doubleenable enable;
+transition enabled badexit idt_exit;
+transition enabled enabled other;
+
+//good
+transition disabled1 enabled enable;
+transition disabled1 disabled2 disable;
+//bad
+transition disabled1 badexit act_exit;
+transition disabled1 badyield yield;
+transition disabled1 disabled1 other;
+
+//good
+transition disabled2 disabled1 enable;
+transition disabled2 disabled3 disable;
+//bad
+transition disabled2 badexit all_exit;
+transition disabled2 badyield yield;
+transition disabled2 disabled2 other;
+
+//good
+transition disabled3 disabled2 enable;
+transition disabled3 disabled4 disable;
+//bad
+transition disabled3 badexit all_exit;
+transition disabled3 badyield yield;
+transition disabled3 disabled3 other;
+
+//good
+transition disabled4 disabled3 enable;
+transition disabled4 toomanydisable disable;
+//bad
+transition disabled4 badexit all_exit;
+transition disabled4 badyield yield;
+transition disabled4 disabled4 other;
+
+transition yielded yielded other;
+
+transition toomanydisable toomanydisable other;
+
+transition doubleenable doubleenable other;
+
+transition badexit badexit other;
+
+transition badyield badyield other;

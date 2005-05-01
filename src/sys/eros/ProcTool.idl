@@ -1,0 +1,21 @@
+package eros;
+
+/** Interface for process key creation/manipulation.
+ */
+interface ProcTool extends key {
+  /* FIX: Some of the key types here are wrong because Node/Process
+     haven't been converted yet. */
+
+  /** Make a process key from a node key */
+  eros.key makeProcess(eros.key krNode);
+
+  boolean compareOrigins(eros.key krProc0, eros.key krProc1);
+
+  void canOpener(eros.key gateKey, eros.key brand, out eros.key nodeKey,
+		 out unsigned long keyType, out unsigned long keyInfo);
+
+  void identWrapperKeeper(eros.key wrapper, eros.key brand, 
+			  out eros.key nodeKey, 
+			  out unsigned long keyType,
+			  out unsigned long keyInfo);
+};

@@ -1,0 +1,20 @@
+// Depend_AddKey() must be called before each pte_set()
+
+state init "Init";
+state key_added "Key added";
+state error "pte_set() did not follow Depend_AddKey()";
+
+ast depend_addkey { function_call { identifier "Depend_AddKey" } {
+ellipsis } }; 
+ast pte_set { function_call { identifier "pte_set" } { ellipsis }
+};
+ast other { other };
+
+transition init key_added depend_addkey;
+transition init error pte_set;
+transition init init other;
+
+transition key_added init pte_set;
+transition key_added key_added other;
+
+transition error error other;

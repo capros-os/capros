@@ -1,0 +1,120 @@
+package eros;
+
+/** Kernel interface to object ranges.
+ *
+ * The Range interface provides the primitive means for the allocation
+ * and deallocation of page and node keys.
+ */
+interface Range extends key raises(RangeErr, NotMounted, IoErr) {
+  exception RangeErr;
+  exception NotMounted;
+  exception IoErr;
+
+  typedef unsigned long long off_t;
+
+  /* Object types returned by identify: */
+  const unsigned long otPage = 0;
+  const unsigned long otNode = 1;
+  const unsigned long otNUM_TYPES = 2;
+  const unsigned long otInvalid = max(unsigned long);
+
+  /** Query a range.
+   *
+   * Reports the length of a given range.
+   */
+  unsigned long long query();
+
+  /** Identify an object.
+   *
+   * Determines whether an object originated from a give range, and if
+   * so, at what offset relative to the start of the range.
+   */
+  void identify(eros.key key, out unsigned long type, 
+  		out unsigned long long offset);
+
+  /** Rescind an object.
+   *
+   * Rescinds the passed key if and only if it is a read-write key to
+   * an object that was allocated from this range.
+   */
+  void rescind(eros.key key);
+
+  /** Create key to node.
+   *
+   * Creates a node key to the designated node if and only if the
+   * offset falls within the legal bounds of this range. If the range
+   * is dismounted or otherwise unavailable, this operation will throw
+   * the /RangeErr/ exception.
+   */
+  eros.key getNodeKey(unsigned long long offset);
+
+  /** Create key to page.
+   *
+   * Creates a page key to the designated page if and only if the
+   * offset falls within the legal bounds of this range. If the range
+   * is dismounted or otherwise unavailable, this operation will throw
+   * the /RangeErr/ exception.
+   */
+  eros.key getPageKey(unsigned long long offset);
+
+  /** Create key to node (blocking).
+   *
+   * Creates a node key to the designated node if and only if the
+   * offset falls within the legal bounds of this range. If the range
+   * is dismounted or otherwise unavailable, this operation will block
+   * until the range becomes available.
+   */
+  eros.key waitNodeKey(unsigned long long offset);
+
+  /** Create key to page (blocking).
+   *
+   * Creates a page key to the designated page if and only if the
+   * offset falls within the legal bounds of this range. If the range
+   * is dismounted or otherwise unavailable, this operation will block
+   * until the range becomes available.
+   */
+  eros.key waitPageKey(unsigned long long offset);
+
+  /** Compare two ranges for overlap or relative position.
+   *
+   * On return:
+   *
+   * if the ranges do not overlap:
+   *   /how/ is 0.
+   * if start(/krCmpRange/) > start(this):
+   *   /how/ is 1 and /offset/ = /krCmpRange/'s start relative to 
+   *   the start of /this/
+   * if start(/krCmpRange/) == start(this):
+   *   /how/ is 2 and /offset/ = 0
+   * if start(/krCmpRange/) < start(this):
+   *   /how/ is 3 and /offset/ = /this/'s start relative to
+   *   the start of /krCmpRange/
+   */
+
+  void compare(eros.Range krCmpRange, out unsigned long how,
+	       out unsigned long long offset);
+
+  /** Report next populated subrange.
+   *
+   * Returns the offset and length of then next subrange for which
+   * backing objects actually exist, starting the search at offset
+   * /startOffset/ of the passed range key.
+   *
+   * <b>Note</b>: This operation may be obsoleted in future versions
+   * of the interface, as the idea of OID to location correspondence
+   * is going away.
+   */
+  void nextSubrange(unsigned long long startOffset, 
+		    out unsigned long long offset, out unsigned long len);
+
+  /** Create a range key for a subrange of this range.
+   *
+   * Returns a range key for a subrange of the current range,
+   * begininng at /offset/ and extending for /len/ frames.
+   *
+   * <b>Note</b>: This operation may be obsoleted in future versions
+   * of the interface, as the idea of OID to location correspondence
+   * is going away.
+   */
+  eros.Range makeSubrange(unsigned long long offset, unsigned long len);
+};

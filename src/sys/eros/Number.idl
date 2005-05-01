@@ -1,0 +1,18 @@
+package eros;
+
+/** Kernel interface to number keys.
+ *
+ */
+interface Number extends key {
+  struct value {
+    array<unsigned long,3> value;
+  };
+
+  /** Retrieve value of number key */
+  void get(out unsigned long w0, out unsigned long w1, out unsigned long w2);
+
+  client void getValue(out value v);
+
+  client unsigned long getWord();
+  client unsigned long long getDoubleWord();
+};

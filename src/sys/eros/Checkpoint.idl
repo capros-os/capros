@@ -1,0 +1,16 @@
+package eros;
+
+/** Kernel interface to number keys.
+ *
+ */
+interface Checkpoint extends key raises(MigrationIncomplete) {
+  exception MigrationIncomplete;
+
+  /** Take a snapshot. Throws MigrationIncomplete if the previous
+      migrate has not completed. */
+  void snapshot();
+
+  /** Perform some migration. Return true if further migration is
+      needed. */
+  boolean migrate();
+};

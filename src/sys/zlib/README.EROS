@@ -1,0 +1,6 @@
+This code is taken from zlib-1.0.4, excluding only Makefiles and
+OS-specific files (*.def, *.rc, *.mms).   The patch for embedding
+has been applied.
+
+It is included in the kernel tree so as to be usable from the bootstrap code.
+We will be constructing a decompression utility domain from this code.

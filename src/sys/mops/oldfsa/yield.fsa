@@ -1,0 +1,11 @@
+state init "Init";
+state yielded "Yielded";
+
+ast yield { function_call { identifier "act_Yield" } { ellipsis } };
+ast other { other };
+
+transition init yielded yield;
+transition init init other;
+
+transition yielded yielded yield;
+transition yielded init other;

@@ -1,0 +1,4 @@
+label "Bogus";
+fsa Bogus.fsa;
+initialstate start "Initial state";
+finalstate error "Error";

@@ -1,0 +1,650 @@
+/*
+ * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#include <kerninc/kernel.h>
+#include <kerninc/Check.h>
+#include <kerninc/ObjectHeader.h>
+#include <kerninc/ObjectCache.h>
+#include <kerninc/Activity.h>
+#include <kerninc/SegWalk.h>
+#include <kerninc/Depend.h>
+#include <kerninc/memory.h>
+#include <arch-kerninc/PTE.h>
+
+#define dbg_rescind	0x1	/* steps in taking snapshot */
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   (0)
+
+#define DBCOND(x) (dbg_##x & dbg_flags)
+#define DEBUG(x) if DBCOND(x)
+#define DEBUG2(x,y) if ((dbg_##x|dbg_##y) & dbg_flags)
+
+
+/* If MAX_PIN is changed, may need to check for overflow on user
+ * thread invocation of Pin().
+ */
+uint8_t objH_CurrentTransaction = 1; /* guarantee nonzero! */
+
+#ifdef OPTION_DDB
+const char *ddb_obtype_name(uint8_t t)
+{
+  const char * names[] = {
+    "NtUnprep  ",
+    "NtSegment ",
+    "NtProcRoot",
+    "NtKeyRegs ",
+    "NtRegAnnex",
+    "NtFreeFrm ",
+    "PtDataPage",
+    "PtNewAlloc",
+    "PtKernHeap",
+#ifdef USES_MAPPING_PAGES
+    "PtMapPage ",
+#endif
+    "PtDevPage ",
+    "PtFreeFrm ",
+    0
+  };
+
+  return names[t];
+}
+#endif
+
+void
+objH_KernPin(ObjectHeader* thisPtr)
+{
+  assert(thisPtr->kernPin < BYTE_MAX);
+  thisPtr->kernPin++;
+
+#ifdef OFLG_PIN
+  SetFlags(OFLG_PIN);
+#endif
+}
+
+void
+objH_KernUnpin(ObjectHeader* thisPtr)
+{
+  assert(thisPtr->kernPin);
+  thisPtr->kernPin--;
+
+#ifdef OFLG_PIN
+  if (kernPin == 0 && userPin == 0)
+    ClearFlags(OFLG_PIN);
+#endif
+}
+
+/* Walk the node looking for an acceptable product: */
+ObjectHeader *
+objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi, uint32_t ndx, 
+                 bool rw, bool ca)
+{
+  uint32_t blss = wi->segBlss;
+
+#if 0
+  printf("Search for product blss=%d ndx=%d, rw=%c producerTy=%d\n",
+	       blss, ndx, rw ? 'y' : 'n', obType);
+#endif
+  
+  /* #define FINDPRODUCT_VERBOSE */
+
+  ObjectHeader *product = 0;
+  
+  for (product = thisPtr->prep_u.products; product; product = product->next) {
+    if ((uint32_t) product->producerBlss != blss) {
+#ifdef FINDPRODUCT_VERBOSE
+      printf("Producer BLSS not match\n");
+#endif
+      continue;
+    }
+    if (product->kt_u.mp.redSeg != wi->redSeg) {
+#ifdef FINDPRODUCT_VERBOSE
+      printf("Red seg not match\n");
+#endif
+      continue;
+    }
+    if (product->kt_u.mp.redSeg) {
+      if (product->kt_u.mp.wrapperProducer != wi->segObjIsWrapper) {
+#ifdef FINDPRODUCT_VERBOSE
+	printf("redProducer not match\n"); 
+#endif
+	continue;
+      }
+      if (product->kt_u.mp.redSpanBlss != wi->redSpanBlss) {
+#ifdef FINDPRODUCT_VERBOSE
+	printf("redSpanBlss not match: prod %d wi %d\n",
+		       product->mp.redSpanBlss, wi.redSpanBlss);
+#endif
+	continue;
+      }
+    }
+    if ((uint32_t) product->producerNdx != ndx) {
+#ifdef FINDPRODUCT_VERBOSE
+      printf("producerNdx not match\n");
+#endif
+      continue;
+    }
+    if (product->rwProduct != (rw ? 1 : 0)) {
+#ifdef FINDPRODUCT_VERBOSE
+      printf("rwProduct not match\n");
+#endif
+      continue;
+    }
+    if (product->caProduct != (ca ? 1 : 0)) {
+#ifdef FINDPRODUCT_VERBOSE
+      printf("caProduct not match\n");
+#endif
+      continue;
+    }
+
+    /* WE WIN! */
+    break;
+  }
+
+  if (product) {
+    assert(product->prep_u.producer == thisPtr);
+    assert(product->obType == ot_PtMappingPage);
+
+  }
+
+#if 0
+  if (wi.segBlss != wi.pSegKey->GetBlss())
+    dprintf(true, "Found product 0x%x segBlss %d prodKey 0x%x keyBlss %d\n",
+		    product, wi.segBlss, wi.pSegKey, wi.pSegKey->GetBlss());
+#endif
+
+#ifdef FINDPRODUCT_VERBOSE
+  printf("0x%08x->FindProduct(blss=%d,ndx=%d,rw=%c,ca=%c,"
+		 "producerTy=%d) => 0x%08x\n",
+		 this,
+		 blss, ndx, rw ? 'y' : 'n', ca ? 'y' : 'n', obType,
+		 product);
+#endif
+
+  return product;
+}
+
+void
+objH_AddProduct(ObjectHeader* thisPtr, ObjectHeader *product)
+{
+  product->next = thisPtr->prep_u.products;
+  product->prep_u.producer = thisPtr;
+  thisPtr->prep_u.products = product;
+}
+
+void
+objH_DelProduct(ObjectHeader* thisPtr, ObjectHeader *product)
+{
+  assert (product->prep_u.producer == thisPtr);
+  
+  if (thisPtr->prep_u.products == product) {
+    thisPtr->prep_u.products = product->next;
+  }
+  else {
+    ObjectHeader *curProd = thisPtr->prep_u.products;
+    while (curProd->next) {
+      if (curProd->next == product) {
+	curProd->next = product->next;
+	break;
+      }
+      curProd = curProd->next;
+    }
+  }
+
+  product->next = 0;
+  product->prep_u.producer = 0;
+}
+
+#if 0
+void
+ObjectHeader::DoCopyOnWrite()
+{
+  assert (obType > ObType::NtLAST_NODE_TYPE);
+#if 0
+  dprintf(true,
+		  "Trying copy on write, ty %d oid 0x%08x%08x "
+		  "hdr 0x%08x\n",
+		  obType, (uint32_t) (oid >> 32), (uint32_t) (oid), this);
+#endif
+
+  assert(GetFlags(OFLG_CKPT) && IsDirty());
+  
+  ObjectHeader *pObj = ObjectCache::GrabPageFrame();
+
+  assert (pObj->kr.IsEmpty());
+
+  kva_t from = ObjectCache::ObHdrToPage(this);
+  kva_t to = ObjectCache::ObHdrToPage(pObj);
+    
+  /* Copy the page data */
+  bcopy((const void *)from, (void *)to, EROS_PAGE_SIZE);
+
+  /* FIX -- the header needs to be copied with care -- perhaps this
+   * should be expanded in more explicit form?
+   */
+  
+  /* And the object header: */
+  bcopy(this, pObj, sizeof(ObjectHeader));
+
+  /* The key ring needs to be reset following the header bcopy */
+  pObj->kr.ResetRing();
+  
+  /* Because the original may already be queued up for I/O, the copy
+   * has to become the new version.  This poses a problem: we may have
+   * gotten here trying to mark an object dirty to satisfy a write
+   * fault, in which event there are very likely outstanding prepared
+   * capabilities to this object sitting on the stack somewhere.  In
+   * all such cases the object being copied will be pinned.  If the
+   * object being copied is pinned we Yield(), which will force the
+   * whole chain of events to be re-executed, this time arriving at
+   * the correct object.
+   */
+  
+  /* NOTE About the 'dirty' bit -- which I have 'fixed' twice now to
+   * my regret.  It really should be zero.  We are only running this
+   * code if the object was marked ckpt.  In that event, the
+   * checkpointed version of the object is dirty until flushed, but
+   * the COW'd version of the object is not dirty w.r.t the next
+   * checkpoint until something happens along to try and dirty it.  We
+   * are here because someone is trying to do that, but we must let
+   * MakeObjectDirty() handle the marking rather than do it here.  The
+   * prolem is that we haven't reserved a directory entry for the
+   * object.  This can (and probably should) be resolved by calling
+   * RegisterDirtyObject() from here to avoid the extra Yield(), but
+   * for now be lazy, since I know that will actually work.
+   */
+  
+  assert(kernPin == 0);
+  
+  ClearFlags(OFLG_CURRENT);
+  pObj->SetFlags(OFLG_CURRENT);
+  pObj->ClearFlags(OFLG_CKPT|OFLG_IO|OFLG_DIRTY|OFLG_REDIRTY|OFLG_PIN);
+#ifdef DBG_CLEAN
+  printf("Object 0x%08x ty %d oid=0x%08x%08x COW copy cleaned\n",
+		 pObj, pObj->obType,
+		 (uint32_t) (pObj->oid >> 32),
+		 (uint32_t) pObj->oid);
+#endif
+  pObj->SetFlags(GetFlags(OFLG_DISKCAPS));
+  pObj->ioCount = 0;
+  pObj->userPin = 0;
+  pObj->prstPin = 0;
+#ifdef OPTION_OB_MOD_CHECK
+  pObj->check = pObj->CalcCheck();
+#endif
+
+
+  /* Switch the keyring to the new object, and update all of the keys
+   * to point to the copy:
+   */
+
+  kr.ObjectMoved(pObj);
+
+  Unintern();			/* take us out of the hash chain */
+  pObj->Intern();		/* and put the copy in in our place. */
+  
+  /* we must now re-insert the old page as a log page, because the new
+   * page might conceivably get aged out before the old page, at which
+   * point we would find the wrong one.
+   */
+  
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    check_Consistency("Bottom DoCopyOnWrite()");
+#endif
+
+  /* Since we may have come here by way of the page fault code, we are
+   * now forced to Yield(), because there are almost certainly
+   * outstanding pointers to this object on the stack:
+   */
+  Thread::Current()->Yield();
+}
+#endif
+
+void
+objH_FlushIfCkpt(ObjectHeader* thisPtr)
+{
+#ifdef OPTION_PERSISTENT
+#error "This needs an implementation."
+  /* If this page is involved in checkpointing, run the COW logic. */
+  if (GetFlags(OFLG_CKPT) && IsDirty()) {
+    assert (IsFree() == false);
+    if (obType <= ObType::NtLAST_NODE_TYPE) {
+      Checkpoint::WriteNodeToLog((Node *) this);
+      assert (!IsDirty());
+    }
+    else  
+      Persist::WritePage(this, true);
+  }
+#else
+  assert(!objH_GetFlags(thisPtr, OFLG_CKPT));
+#endif
+}
+
+void
+objH_MakeObjectDirty(ObjectHeader* thisPtr)
+{
+#ifndef NDEBUG
+  extern bool InvocationCommitted;
+#endif
+
+  assertex(thisPtr, objH_IsUserPinned(thisPtr));
+  assertex(thisPtr, objH_GetFlags(thisPtr, OFLG_CURRENT));
+
+  if ( objH_IsDirty(thisPtr) && (objH_GetFlags(thisPtr, OFLG_CKPT|OFLG_IO) == 0) )
+    return;
+  
+  assert (InvocationCommitted == false);
+
+  if (thisPtr->obType == ot_PtDataPage ||
+      thisPtr->obType == ot_PtDevicePage ||
+      thisPtr->obType <= ot_NtLAST_NODE_TYPE)
+    assert(objH_IsUserPinned(thisPtr));
+  
+  objH_FlushIfCkpt(thisPtr);
+  
+  thisPtr->age = age_NewBorn;
+  
+#ifdef OPTION_OB_MOD_CHECK
+  if (objH_IsDirty(thisPtr) == 0 && thisPtr->kt_u.ob.check != objH_CalcCheck(thisPtr))
+    fatal("MakeObjectDirty(0x%08x): not dirty and bad checksum!\n",
+		  thisPtr);
+#endif
+
+#if 0
+  /* This was correct only because we were not reassigning new
+   * locations every time an object was dirtied.  Now that we are
+   * doing reassignment, we must reregister.
+   */
+  
+  if (IsDirty()) {
+    /* in case a write is in progress, mark reDirty, but must not do
+     * this before registration unless we know the object is already
+     * dirty.  Note that we already know this object to be current!
+     */
+    SetFlags(OFLG_REDIRTY);
+    return;
+  }
+#endif
+  
+#ifdef OPTION_PERSISTENT
+  Checkpoint::RegisterDirtyObject(this);
+#endif
+
+  objH_SetDirtyFlag(thisPtr);
+  objH_ClearFlags(thisPtr, OFLG_CKPT);
+  
+#if 0
+  /* FIX: Why should we ever do this here? */
+  ClearFlags(OFLG_REDIRTY);
+#endif
+
+#ifdef DBG_CLEAN
+  {
+    OID oid = thisPtr->kt_u.ob.oid;
+    dprintf(true,
+	    "Marked pObj=0x%08x oid=0x%08x%08x dirty. dirty: %c chk: %c\n",
+	    thisPtr,
+	    (uint32_t) (oid >> 32), (uint32_t) (oid),
+	    objH_GetFlags(thisPtr, OFLG_DIRTY) ? 'y' : 'n',
+	    objH_GetFlags(thisPtr, OFLG_CKPT) ? 'y' : 'n');
+  }
+#endif
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    check_Consistency("Top RegisterDirtyObject()");
+#endif
+
+#if 0  
+  uint32_t ocpl = IRQ::splhigh()
+  printf("** Object ");
+  print(oid);
+  printf(" marked dirty.\n");
+  IRQ::splx(ocpl);
+#endif
+}
+
+void
+objH_Rescind(ObjectHeader* thisPtr)
+{
+  bool hasCaps;
+
+  DEBUG(rescind)
+    dprintf(true, "Rescinding ot=%d oid=0x%08x%08x\n",
+		    thisPtr->obType, (uint32_t) (thisPtr->kt_u.ob.oid >> 32), (uint32_t) thisPtr->kt_u.ob.oid);
+
+  assert (objH_IsDirty(thisPtr) && objH_GetFlags(thisPtr, OFLG_IO|OFLG_CKPT) == 0);
+  assert (objH_GetFlags(thisPtr, OFLG_CURRENT) == OFLG_CURRENT);
+  
+#ifndef NDEBUG
+  if (!keyR_IsValid(&thisPtr->keyRing, thisPtr))
+    dprintf(true, "Keyring of oid 0x%08x%08x invalid!\n",
+		    (uint32_t)(thisPtr->kt_u.ob.oid>>32), (uint32_t)thisPtr->kt_u.ob.oid);
+#endif
+
+  hasCaps = objH_GetFlags(thisPtr, OFLG_DISKCAPS) ? true : false;
+  
+  keyR_RescindAll(&thisPtr->keyRing, hasCaps);
+
+  DEBUG(rescind)
+    dprintf(true, "After 'RescindAll()'\n");
+
+  /* If object has on-disk keys, must dirty the new object to ensure
+   * that it gets written.
+   */
+  if (hasCaps) {
+    thisPtr->kt_u.ob.allocCount++;
+    if (thisPtr->obType <= ot_NtLAST_NODE_TYPE)
+      ((Node *) thisPtr)->callCount++;
+
+    objH_ClearFlags(thisPtr, OFLG_DISKCAPS);
+    DEBUG(rescind)
+      dprintf(true, "After bump alloc count\n");
+  }
+
+  /* FIX: Explicitly zeroing defeats the sever operation. */
+
+  if (thisPtr->obType <= ot_NtLAST_NODE_TYPE) {
+    /* zeroing unprepares and invalidates products too */
+
+    node_DoClearThisNode((Node *) thisPtr);
+    assert ( thisPtr->obType == ot_NtUnprepared );
+  }
+  else if (thisPtr->obType == ot_PtDataPage) {
+    kva_t pPage;
+
+    objH_InvalidateProducts(thisPtr);
+
+    pPage = objC_ObHdrToPage(thisPtr);
+
+    bzero((void*)pPage, EROS_PAGE_SIZE);
+  }
+  else if (thisPtr->obType == ot_PtDevicePage) {
+    fatal("Rescind of device pages not tested -- see shap!\n");
+    objH_InvalidateProducts(thisPtr);
+
+    /* Do not explicitly zero device pages -- might be microcode! */
+  }
+  else
+    fatal("Rescind of non-object!\n");
+
+  DEBUG(rescind)
+    dprintf(true, "After zero object\n");
+}
+
+void
+objH_ZapResumeKeys(ObjectHeader* thisPtr)
+{
+  keyR_ZapResumeKeys(&thisPtr->keyRing);
+}
+
+#ifdef OPTION_OB_MOD_CHECK
+uint32_t
+objH_CalcCheck(const ObjectHeader* thisPtr)
+{
+  Node *pNode = 0;
+  uint32_t i = 0;
+  uint32_t ck = 0;
+  uint32_t *pageData = 0;
+  uint32_t w = 0;
+  
+#ifndef NDEBUG
+  uint8_t oflags = thisPtr->flags;
+#endif
+#if 0
+  printf("Calculating cksum for 0x%08x\n", this);
+  printf("OID is 0x%08x%08x, ty %d\n", (uint32_t) (oid>>32),
+		 (uint32_t) oid, obType);
+#endif
+  
+  if (thisPtr->obType <= ot_NtLAST_NODE_TYPE) {
+
+    assert (objC_ValidNodePtr((Node *) thisPtr));
+    /* Object is a node - compute XOR including allocation count, call
+     * counts, and key slots.
+     */
+
+
+    pNode = (Node *) thisPtr;
+#if 0
+    ck ^= ((uint32_t *) &allocCount)[0];
+    ck ^= ((uint32_t *) &allocCount)[1];
+    ck ^= ((uint32_t *) &(pNode->callCount))[0];
+    ck ^= ((uint32_t *) &(pNode->callCount))[1];
+#else
+    ck ^= thisPtr->kt_u.ob.allocCount;
+    ck ^= pNode->callCount;
+#endif
+    
+
+    for (i = 0; i < EROS_NODE_SIZE; i++)
+      ck ^= key_CalcCheck(node_GetKeyAtSlot(pNode, i));
+
+  }
+  else {
+
+    assert (objC_ValidPagePtr(thisPtr));
+
+    pageData = (uint32_t *) objC_ObHdrToPage(thisPtr);
+
+    for (w = 0; w < EROS_PAGE_SIZE/sizeof(uint32_t); w++)
+      ck ^= pageData[w];
+  }
+
+  assert(thisPtr->flags == oflags);
+
+  return ck;
+}
+#endif
+
+void
+objH_InvalidateProducts(ObjectHeader* thisPtr)
+{
+  if (thisPtr->obType == ot_PtDataPage ||
+      thisPtr->obType == ot_PtDevicePage ||
+      thisPtr->obType == ot_NtSegment) {
+    /* We need to zap the product chain (MAJOR bummer!) */
+    while (thisPtr->prep_u.products) {
+      ObjectHeader *pProd = thisPtr->prep_u.products;
+      assert( pProd->obType == ot_PtMappingPage );
+      thisPtr->prep_u.products = thisPtr->prep_u.products->next;
+
+      Depend_InvalidateProduct(pProd);
+      objC_ReleaseFrame(pProd);
+    }
+    thisPtr->prep_u.products = 0;
+  }
+}
+
+#ifdef OPTION_DDB
+void
+objH_ddb_dump(ObjectHeader* thisPtr)
+{
+  extern void db_printf(const char *fmt, ...);
+
+#ifdef OPTION_OB_MOD_CHECK
+  printf("Object Header 0x%08x (%s) calcCheck 0x%08x:\n", thisPtr,
+	 ddb_obtype_name(thisPtr->obType),
+	 /* CalcCheck() */ 0);
+  printf("    oid=0x%08x%08x ac=0x%08x check=0x%08x\n",
+	 (uint32_t) (thisPtr->kt_u.ob.oid >> 32), (uint32_t) thisPtr->kt_u.ob.oid,
+	 thisPtr->kt_u.ob.allocCount, thisPtr->kt_u.ob.check);
+#else
+  printf("Object Header 0x%08x (%s) oid=0x%08x%08x ac=0x%08x\n", thisPtr,
+	 ddb_obtype_name(thisPtr->obType),
+	 (uint32_t) (thisPtr->kt_u.ob.oid >> 32), (uint32_t) thisPtr->kt_u.ob.oid,
+	 thisPtr->kt_u.ob.allocCount);
+#endif
+  printf("    ioCount=0x%08x next=0x%08x flags=0x%02x obType=0x%02x age=0x%02x\n",
+	 thisPtr->kt_u.ob.ioCount, thisPtr->next, thisPtr->flags, thisPtr->obType, thisPtr->age);
+  printf("    prodNdx=%d prodBlss=%d rwProd=%c usrPin=%d kernPin=%d\n",
+	 thisPtr->producerNdx, thisPtr->producerBlss, thisPtr->rwProduct ? 'y' : 'n', thisPtr->userPin,
+	 thisPtr->kernPin);
+
+  switch(thisPtr->obType) {
+  case ot_PtMappingPage:
+    printf("    producer=0x%08x\n", thisPtr->prep_u.producer);
+    break;
+  case ot_PtDataPage:
+  case ot_PtDevicePage:
+  case ot_NtSegment:
+    {
+      ObjectHeader *oh = thisPtr->prep_u.products;
+      printf("    products= ", thisPtr->prep_u.products);
+      while (oh) {
+	printf(" 0x%08x", oh);
+	oh = oh->next;
+      }
+      printf("\n", thisPtr->prep_u.products);
+      break;
+    }
+  case ot_NtProcessRoot:
+  case ot_NtKeyRegs:
+  case ot_NtRegAnnex:
+    printf("    context=0x%08x\n", thisPtr->prep_u.context);
+    break;
+  }
+  printf("    pageAddr=0x%08x\n", thisPtr->pageAddr);
+}
+#endif
+
+/* #define PIN_DEBUG */
+
+#ifndef NDEBUG
+void
+objH_TransLock(ObjectHeader* thisPtr)
+{
+#ifdef PIN_DEBUG
+  printf("Pinning obhdr 0x%08x\n", this);
+#endif
+  thisPtr->userPin = objH_CurrentTransaction;
+}
+
+void
+objH_TransUnlock(ObjectHeader* thisPtr)
+{
+#ifdef PIN_DEBUG
+  printf("Un-pinning obhdr 0x%08x\n", this);
+#endif
+  thisPtr->userPin = 0;
+}
+#endif

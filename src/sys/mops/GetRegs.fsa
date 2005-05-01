@@ -1,0 +1,25 @@
+// GetRegs.fsa -- ensure that proc_Prepare() has been called
+// on the first argument to proc_GetRegs32()
+
+state start "Start";
+state prepped "Prepared";
+state okay "Okay";
+state error "Error";
+
+ast prepare { function_call { identifier "proc_Prepare"  } { var proc
+} };
+ast getreg32 { function_call { identifier "proc_GetRegs32"  } { var proc } { ellipsis } };
+ast other { other };
+
+transition start prepped prepare;
+transition start error getreg32;
+transition start start other;
+
+transition prepped okay getreg32;
+transition prepped prepped other;
+
+transition okay okay other;
+
+transition error error other;
+
+

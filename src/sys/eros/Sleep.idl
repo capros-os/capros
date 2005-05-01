@@ -1,0 +1,15 @@
+package eros;
+
+/** Interface to allow processes to sleep voluntarily.
+ */
+interface Sleep extends key {
+
+  /** Wake up the caller (i.e. do not sleep - this is a NO-OP) */
+  void wakeup();
+
+  /** Sleep until the specified number of milliseconds has passed */
+  void sleep(unsigned long long ms);
+
+  /** Sleep until the specified number of milliseconds from epoch */
+  void sleepTill(unsigned long long ms);
+};

@@ -1,0 +1,4 @@
+label "Must clear hazard before setting key";
+fsa keynhset.fsa;
+initialstate has_hazard "Has hazard";
+finalstate error "Set a key while hazardous";

@@ -1,0 +1,85 @@
+// YieldOrCommit.fsa -- every capability invocation is supposed to
+// either Commit() or Yield(). Commit indicates that all prerequisites
+// are satisfied, and that the invocation is now able to run to
+// completion. Yield indicates that some prerequisite could not be 
+// satisfied, or that some prerequisite condition may have been undone
+// (e.g. by the ager), and that the invocation must therefore be
+// retried from the beginning.
+//
+// This leads to two rules:
+//
+//   1. Every flow path through proc_DoKeyInvocation should call one of
+//      Yield() or Commit()
+//
+//   2. Following a call to Commit(), it is a bug to subsequently 
+//      call Yield().
+//
+// There is exactly one exception to rule (2): the sleep key. The
+// problem there is that the kernel needs to store the wakeup time
+// in process register state, and uses a sleezy retry-like trick to
+// actually accomplish the wakeup.
+// 
+
+state start "Start";
+state yielded "Yielded";
+state committed "Committed";
+state okay "Okay";
+state error "Error";
+
+ast yield { function_entry { function_declarator "thr_Yield" { ellipsis } } };
+ast fatal { function_entry { function_declarator "fatal" { ellipsis }
+} };
+ast dokeyinvocation { function_exit { function_declarator
+"proc_DoKeyInvocation" { ellipsis } } };
+ast commit { function_exit { function_declarator "inv_Commit" {
+ellipsis } } };
+ast invocationcommitted { expression_stmt { assign "=" { identifier
+"InvocationCommitted" } { lexical_cst "0" }}};
+ast other { other };
+
+// Go to okay state when thr_Yield is entered. This should perhaps be
+// when thr_Yield is called. Once yielded, we don't care what happens,
+// since Yield() performs what amounts to a longjmp()
+transition start yielded yield;
+// Calls to "fatal" are okay too -- this occurs on the path where a
+// bad disk key type is found -- this indicates a fatally bad system
+// image. I suppose we could implement a less draconian solution, but
+// we presently don't.
+transition start okay fatal;
+// If we make it from the beginning of proc_DoKeyInvocation to the end
+// without managing to call either thr_Yield or inv_Commit, we messed
+// up. This is true exactly when we are still in the <start> state at
+// the end of proc_DoKeyInvocation().
+//
+transition start error dokeyinvocation;
+// Go to commited state when inv_Commit returns:
+transition start committed commit;
+// Start until proven otherwise
+transition start start other;
+
+// If we make it to the end of proc_DoKeyInvocation() in the committed
+// state, things are good
+//
+transition committed okay dokeyinvocation;
+// After commit, better not call yield:
+transition committed error yield;
+// There is EXACTLY ONE place among the key handlers where a Yield()
+// after a commit is allowed: in the mk_SleepKey code. Until I have a
+// chance to review this and see if there isn't a better way, match it
+// by hand: 
+transition committed start invocationcommitted;
+transition committed committed other;
+
+transition yielded yielded other;
+
+transition okay okay other;
+
+transition error error other;
+
+
+
+
+
+
+
+

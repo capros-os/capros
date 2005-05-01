@@ -1,0 +1,5 @@
+idt_OnTrapOrInterrupt
+idt_OnKeyInvocationTrap
+act_HandleYieldEntry
+readyq_ReserveTimeout
+readyq_ReserveWakeup

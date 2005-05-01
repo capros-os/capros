@@ -1,0 +1,11 @@
+state start "Start";
+state error "Error";
+
+ast keyinvocation { function_entry { function_declarator
+"proc_DoGeneralKeyInvocation" { ellipsis } } { ellipsis } };
+ast other { other };
+
+// Go to error state when proc_DoGeneralKeyInvocation is called:
+transition start error keyinvocation; 
+// Start until proven otherwise
+transition start start other;

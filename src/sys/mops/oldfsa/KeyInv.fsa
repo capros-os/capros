@@ -1,0 +1,5 @@
+// Start until proven otherwise
+t start start { other }
+
+// After yield, better not call commit:
+t start error { function_call { identifier "proc_DoKeyInvocation" } { ellipsis }

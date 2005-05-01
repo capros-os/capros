@@ -1,0 +1,53 @@
+package eros;
+
+/** Kernel support for device drivers.
+ *
+ * The DevPrivs interface exports control over interrupts and device
+ * memory mapping for use by application-level device drivers.
+ *
+ * Any of these operations may fail with the AllocFail exception if
+ * the specified IRQ is not presently allocated.
+ */
+interface DevPrivs extends key raises(AllocFail) {
+  exception AllocFail;
+
+  /** Allocate an IRQ.
+   *
+   * Indicates to the kernel that the specified IRQ now has a driver
+   * that is listening for it.
+   */
+  void allocIRQ(unsigned long irq);
+
+  /** Release an IRQ.
+   *
+   * Indicates to the kernel that the specified IRQ no longer has a driver
+   * that is listening for it.
+   */
+  void releaseIRQ(unsigned long irq);
+
+  /** Enable an IRQ.
+   *
+   * Indicates to the kernel that the specified IRQ should be enabled.
+   */
+  void enableIRQ(unsigned long irq);
+
+  /** Disable an IRQ.
+   *
+   * Indicates to the kernel that the specified IRQ should be disabled.
+   */
+  void disableIRQ(unsigned long irq);
+
+  /** Wait for interrupt.
+   *
+   * Wait for a designated interrupt to arrive.
+   */
+  void waitIRQ(unsigned long irq);
+
+  /** Publish device memory.
+   *
+   * Inform the kernel that a hardware device publishes (presents to
+   * the bus) a physical memory region that was previously unknown to
+   * the kernel.
+   */
+  void publishMem(unsigned long start, unsigned long end, boolean readOnly);
+};

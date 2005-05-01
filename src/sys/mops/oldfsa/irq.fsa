@@ -1,0 +1,56 @@
+state enabled "Enabled";
+state disabled1 "Disabled level 1";
+state disabled2 "Disabled level 2";
+state disabled3 "Disabled level 3";
+state disabled4 "Disabled level 4";
+state disabled5 "Disabled level 5";
+state toomanydisable "Too many disable";
+state doubleenable "Double enable";
+state exitwhiledisabled "Exit while disabled";
+
+ast enable { function_call { identifier "irq_ENABLE" } { ellipsis } };
+ast disable { function_call { identifier "irq_DISABLE" } { ellipsis }
+};
+ast other { other };
+ast exit { function_exit 
+{ or 
+{ function_declarator "idt_OnTrapOrInterrupt" { ellipsis } }
+{ function_declarator "idt_OnKeyInvocationTrap" { ellipsis } }
+{ function_declarator "act_HandleYieldEntry" { ellipsis } }
+} 
+{ ellipsis } };
+
+transition enabled disabled1 disable;
+transition enabled doubleenable enable;
+transition enabled enabled other;
+
+transition disabled1 enabled enable;
+transition disabled1 disabled2 disable;
+transition disabled1 exitwhiledisabled exit;
+transition disabled1 disabled1 other;
+
+transition disabled2 disabled1 enable;
+transition disabled2 disabled3 disable;
+transition disabled2 exitwhiledisabled exit;
+transition disabled2 disabled2 other;
+
+transition disabled3 disabled2 enable;
+transition disabled3 disabled4 disable;
+transition disabled3 exitwhiledisabled exit;
+transition disabled3 disabled3 other;
+
+transition disabled4 disabled3 enable;
+transition disabled4 disabled5 disable;
+transition disabled4 exitwhiledisabled exit;
+transition disabled4 disabled4 other;
+
+transition disabled5 disabled4 enable;
+transition disabled5 toomanydisable disable;
+transition disabled5 exitwhiledisabled exit;
+transition disabled5 disabled5 other;
+
+transition toomanydisable toomanydisable other;
+
+transition doubleenable doubleenable other;
+
+transition exitwhiledisabled exitwhiledisabled other;
