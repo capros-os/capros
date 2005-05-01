@@ -1,0 +1,178 @@
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/* This file contains the functions that are called in the IPC path,
+ * in an attempt (probably vain) to minimize I-TLB misses.
+ */
+
+/* Define this so that all of the functions that are called from the
+ * IPC path will be exposed by their respective header files to be
+ * inlined: 
+ */
+
+#if !defined(NDEBUG) && !defined(OPTION_DDB)
+#define IPC_INTERRUPT_SUPPRESS
+#endif
+
+#define IPC_INLINES
+
+#include <kerninc/kernel.h>
+#include <kerninc/Check.h>
+#include <kerninc/Machine.h>
+#include <kerninc/IRQ.h>
+#include <kerninc/Activity.h>
+/*#include <kerninc/util.h>*/
+#include <kerninc/Debug.h>
+#include <kerninc/SysTimer.h>
+#include <kerninc/Process.h>
+#include <kerninc/KernStats.h>
+#include <eros/i486/io.h>
+#include "lostart.h"
+#include "IDT.h"
+#include "GDT.h"
+
+/* #define TIMING_DEBUG */
+
+/* Declared in IPC-vars.cxx */
+#if 0
+extern void Invoke();
+#endif
+
+/* Called from the interrupt entry point with interrupts disabled.
+   The interrupt handler assembly code has also incremented
+   DisableDepth, so we are running as though we had already called
+   IRQ::DISABLE().  Do any processing that must be done with
+   interrupts disabled here and then call IRQ::ENABLE() to allow
+   nested interrupts (when we get that working).
+
+   The saveArea pointer is passed in solely for use by the kernel
+   debugger in back-walking the stack.
+   */
+
+void
+idt_OnKeyInvocationTrap(savearea_t * saveArea)
+{
+#ifndef NDEBUG
+
+  uint32_t vecNumber = ((Process*) act_CurContext())->trapFrame.ExceptNo;
+
+  assert (vecNumber == iv_InvokeKey);
+#endif
+
+  KernStats.nInter++;
+      
+  assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
+  assert( irq_DISABLE_DEPTH() == 1 );
+
+#ifndef IPC_INTERRUPT_SUPPRESS
+  /* We have now done all of the processing that must be done with
+   * interrupts disabled.  Re-enable interrupts here:
+   */
+
+  irq_ENABLE();  
+  assert( irq_DISABLE_DEPTH() == 0 );
+
+#endif
+
+  assert (act_Current());
+
+#ifndef NDEBUG
+  if (dbg_inttrap)
+    Debugger();
+#endif
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    check_Consistency("Before Invoke");
+#endif
+
+  {
+    Process* sndContext = act_CurContext();
+
+    /* If IPC block validation is running in the IPC assembly path,
+       that path may have set a fault code, in which case we need to
+       bypass the actual invocation and let the thread scheduler
+       invoke the domain keeper. */
+    if (sndContext->faultCode == FC_NoFault)
+      proc_DoKeyInvocation(sndContext);
+  }
+  
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    check_Consistency("After Invoke()");
+#endif
+
+#ifndef IPC_INTERRUPT_SUPPRESS
+  assert( irq_DISABLE_DEPTH() == 0 );
+
+  /* On return from Invoke() we might NOT have a current thread
+   * because the invocation may have been a return to a kernel key.
+   * assert ( Thread::Current() );
+   */
+  irq_DISABLE();
+  assert( irq_DISABLE_DEPTH() == 1 );
+#endif
+    
+  /* 
+   * If the thread is yielding voluntarily, it MUST be rescheduled.
+   * 
+   * If the current thread is a user thread, it is possible that
+   * having completed the invocation means that the current thread
+   * needs to be reprepared, or that the thread has faulted. If the
+   * thread has faulted, it has not yielded, as we need to know in
+   * order to migrate the thread to the keeper.
+   * 
+   * It is also possible that in attempting to reprepare the current
+   * thread, we will discover that the thread has DIED.  This can
+   * happen if a domain rescinds itself, or if it returns to a kernel
+   * key.
+   * 
+   * Rather than try to deal with all of this in multiple places, we
+   * unconditionally call Thread::Resched().  If appropriate,
+   * Thread::Resched() will simply return the current thread in
+   * prepared form, and we will return to it.  If the thread should
+   * yield unconditionally, we tell Thread::Resched() so.
+   * 
+   */
+  
+  assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
+  assert( irq_DISABLE_DEPTH() == 1 );
+
+
+  act_Reschedule();
+
+  /* We succeeded (wonder of wonders) -- release pinned resources. */
+  objH_ReleasePinnedObjects();
+
+  /* After calling Reschedule we should at least have the idle thread. */
+
+  assert (act_Current());
+
+  /* We are about to do a return from interrupt, which path must not
+   * be interrupted.  Disable interrupts prior to return:
+   */
+  assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
+  assert( irq_DISABLE_DEPTH() == 1 );
+
+  /* Otherwise resume some thread.  Note that we may be returning to a
+   * non-user thread here.
+   */
+  act_Resume(act_Current());
+}

@@ -1,0 +1,85 @@
+#
+# Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+#
+# This file is part of the EROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+file("kernel/kern_main.c")
+
+file("arch/i486/kernel/memory.S")
+file("arch/i486/kernel/interrupt.S")
+file("arch/i486/kernel/IPC-vars.c")
+file("arch/i486/kernel/IpcTrap.c")
+file("arch/i486/kernel/IntTrap.c")
+file("arch/i486/kernel/setjmp.S")
+file("kernel/kern_Invoke.c")
+file("arch/i486/kernel/UserContextIPC.c")
+file("arch/i486/kernel/UserContextInvoke.c")
+file("arch/i486/kernel/gdtasm.S")
+file("arch/i486/kernel/GDT-table.c")
+file("kernel/kern_IRQ.c")
+
+#
+# Machine-specific debugger object files:
+#
+file("arch/i486/ddb/db_interface.c", ddb)
+file("arch/i486/ddb/db_disasm.c", ddb)
+file("arch/i486/ddb/db_trace.c", ddb)
+
+# Capability invocation stub for self-invocation by kernel processes:
+file("arch/i486/capstubs/call.S")
+
+# Driver-related _objects
+#file("arch/i486/device/net_3c509.cxx")
+file("arch/i486/device/net_3c59x.cxx", ifdevice("3c59x"))
+file("arch/i486/device/ide_ide.cxx", ifdevice("ide"))
+file("arch/i486/device/ide_drive.cxx", ifdevice("ide"))
+file("arch/i486/device/ide_chipset.cxx", ifdevice("ide"))
+
+# machine-specific objects not related to IPC
+file("arch/i486/kernel/IDT.c")
+file("arch/i486/kernel/TSS.c")
+file("arch/i486/kernel/HardClock.c")
+file("arch/i486/kernel/CMOS.c")
+file("arch/i486/kernel/Thread386.c")
+file("arch/i486/kernel/KernContext.c")
+file("arch/i486/kernel/ReservedFault.c")
+file("arch/i486/kernel/PageFault.c")
+file("arch/i486/kernel/PseudoInstr.c")
+file("arch/i486/kernel/DebugException.c")
+file("arch/i486/kernel/BadOpcode.c")
+file("arch/i486/kernel/DivZeroFault.c")
+file("arch/i486/kernel/GPFault.c")
+file("arch/i486/kernel/SSFault.c")
+file("arch/i486/kernel/SegPresFault.c")
+file("arch/i486/kernel/BptTrap.c")
+file("arch/i486/kernel/FpuTrap.c")
+file("arch/i486/kernel/UserContext.c")
+file("arch/i486/kernel/BIOS32.c")
+file("arch/i486/kernel/Machine.c")
+file("arch/i486/kernel/Mapping.c")
+file("arch/i486/kernel/SysTrace.S")
+file("arch/i486/kernel/IRQ386.c")
+file("arch/i486/kernel/GDT.c")
+file("arch/i486/kernel/longjmp.S")
+
+# This one is unconditionally included so that we can show status on
+# the way up:
+file("arch/i486/kernel/ConsoleStream.c")
+file("arch/i486/kernel/SerialStream.c", ddb_on_tty0)
+
+include("../../../files.common")

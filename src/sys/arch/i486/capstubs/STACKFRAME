@@ -1,0 +1,101 @@
+-*- text -*-
+
+OLD LOGIC:
+
+On entry to the stub procedure, the stack has a message structure
+pointer and a return PC.  We immediately do a PUSHA, reserve 4 words
+on the stack to hold the new IPC block, and then start diddling
+register values.  Once the PUSHA and the space reservation has been
+done, the stack looks like:
+
+	offset	item		size
+	52	Msg struct ptr
+	48	return PC
+	44	EAX
+	40	ECX
+	36	EDX
+	32	EBX
+	28	<unused>
+	24	EBP
+	20	ESI
+	16	EDI
+	12	rcv ptr		(32)
+	8	snd len		(32)
+	4	snd ptr		(32)
+	0	IPC type	(32)
+
+The Msg structure offsets are:
+
+	offset	item		        size
+
+	62	FILL			(16)
+	60	key info		(16)
+	58	FILL			(16)
+	56	rcv keys		(16)
+	52	rcv len			(32)
+	48	rcv data		(32)
+	44	rcv w[3]		(32)
+	40	rcv w[2]		(32)
+	36	rcv w[1]		(32)
+	32	rcv w[0] (return code)	(32)
+	28	invoked key		(32)
+	26	FILL			(16)
+	24	snd keys		(16)
+	20	snd len			(32, <= 64k)
+	16	snd data		(32)
+	12	snd w[3]		(32)
+	8	snd w[2]		(32)
+	4	snd w[1]		(32)
+	0	snd w[0] (order code)	(32)
+
+I debated the merits of having the kernel interface PLAN for the
+PUSHA, but it seems a bit wasteful.
+
+
+NEW LOGIC
+
+On entry to the stub procedure, the stack has a message structure
+pointer and a return PC.  We immediately do a PUSHA and load %EBP to
+point to the message structure, and then start diddling register
+values.  Once the PUSHA and the stack pointer adjustment has been
+done, the stack looks like:
+
+	offset	item
+	36	Msg struct ptr
+	32	return PC
+	28	EAX
+	24	ECX
+	20	EDX
+	16	EBX
+	12	<unused>
+	8	EBP
+	4	ESI
+	0	EDI
+
+The Msg structure offsets are:
+
+	offset	item		        size
+
+        64      rcv keyInfo             (16)
+        60      rcv w3                  (32)
+        56      rcv w2                  (32)
+        52      rcv w1                  (32)
+        48      rcv code                (32)
+        44      snd w3                  (32)
+        40      snd w2                  (32)
+        36      snd w1                  (32)
+        32      snd code                (32)
+        31      rcv key 3               (8)
+        30      rcv key 2               (8)
+        29      rcv key 1               (8)
+        28      rcv key 0               (8)
+        24      rcv data                (32)
+        20      rcv len                 (32)
+        19      snd key 3               (8)
+        18      snd key 2               (8)
+        17      snd key 1               (8)
+        16      snd key 0               (8)
+        12      snd data                (32)
+        8       snd len                 (32)
+        4       invoked key             (32)
+        0       invocation type         (32)
