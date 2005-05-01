@@ -1,0 +1,256 @@
+<html>
+  <head>
+    <link rel=STYLESHEET HREF="../CSS/stylesheet.css" type="text/css">
+    <title>User Mode Drivers in EROS 2.0</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <center>
+	    <h1 class="title">User Mode Drivers in EROS 2.0</h1>
+	  </center>
+	    <ul>
+	      <p>
+		Recent attempts to port drivers to EROS have motivated
+		the removal of drivers from the EROS kernel. This note
+		describes the necessary changes to the EROS kernel in
+		order to achieve this.
+	      </p>
+	    </ul>
+	    <h1>Introduction</h1>
+	    <p>
+	      User mode drivers are potentially more robust than their
+	      supervisor mode counterparts. Supporting them is a bit
+	      tricky, however:
+	    </p>
+	    <ol>
+	      <li>
+		<p>
+		  Initial drivers must be loaded before the kernel
+		  begins execution, and we must ensure that they are
+		  not removed from memory by the ageing logic.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  User-mode drivers must have sufficient privilege to
+		  issue commands to hardware-level I/O registers.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  DMA from user mode is challenging, because the DMA
+		  device generally wants physical addresses. This in
+		  turn tends to mean that there must be an arrangement
+		  by which the driver obtains some memory whose
+		  physical address(es) it knows.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Because of faulty hardware, user-mode drivers must
+		  sometimes be allowed to disable interrupts and
+		  prevent themselves from being preempted.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Interrupts must be demultiplexed to the appropriate
+		  process.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Because of the checkpoint mechanism, the kernel must
+		  sometimes be able to perform an ``upcall'' to a user
+		  mode driver. Also, the kernel must have an exclusive
+		  relationship with the disk drivers. These is the
+		  only issue that is particular to EROS.
+		</p>
+	      </li>
+	    </ol>
+	    <p>
+	      I will address each of these issues in turn.
+	    </p>
+	    <h1>Straightforward Issues</h1>
+	    <p>
+	      The first five of these issues are straightforward in
+	      principle.
+	    </p>
+	    <h2>Driver Load</h2>
+	    <p>
+	      We will revise the bootstrap process in such a way that
+	      the bootstrap loader, in addition to loading the kernel,
+	      also loads an initial object range that contains the
+	      drivers. This range will be a ``well known'' object
+	      range.
+	    </p>
+	    <p>
+	      Objects in this object range are exempt from checkpoint,
+	      ageing, and such, and the drivers in them therefore will
+	      not be accidentally removed. These objects can be
+	      <em>explicitly</em> released from memory by the driver
+	      manager once all drivers have been configured. After
+	      this their pages are subject to removal by ageing.
+	    </p>
+	    <p>
+	      For the sake of simplicity, we will assume for the
+	      moment that <em>no</em> drivers will be released from
+	      memory in this way. For embedded and set-top devices, we
+	      probably want to build system images that contain only
+	      necessary drivers in any case.
+	    </p>
+	    <h2>I/O Registers</h2>
+	    <p>
+	      We assume that these programs will be privileged, in
+	      that they are permitted to directly manipulate I/O
+	      registers. This is accomplished either by initial
+	      capability calls that validate portions of the I/O
+	      register space or by simply gifting these processes with
+	      extraordinarily privileges on the grounds that they live
+	      within this distinguished object range and are therefore
+	      part of the operating system.
+	    </p>
+	    <h2>User-Mode DMA</h2>
+	    <p>
+	      Drivers are expected to program DMA devices. We will
+	      implement a special kernel capability that allows a
+	      driver to say to the kernel: ``Here is a range of
+	      contiguous virtual pages. Arrange for them to be
+	      physically contiguous within the following physical
+	      address range and tell me what the resulting physical
+	      base address is. The resulting information is sufficient
+	      to allow the driver to directly program physical DMA
+	      devices.
+	    </p>
+	    <p>
+	      It is anticipated that some drivers will contrive to map these
+	      buffers in such a way that the driver virtual address is
+	      the same as the resulting physical address in order to
+	      avoid the need to translate between driver virtual and
+	      kernel physical addresses.
+	    </p>
+	    <h2>Faulty Hardware</h2>
+	    <p>
+	      Unfortunately, there is faulty hardware in the
+	      world. Some of this hardware requires that interrupts be
+	      disabled for reasons other than temporary mutual
+	      exclusions. The CMD640 PCI/IDE bridge for example, has a
+	      bug in which an interrupt occurring during data transfer
+	      can result in corrupted data being written to the disk.
+	    </p>
+	    <p>
+	      On such systems, we will provide means for driver
+	      processes to disable interrupts. This of course renders
+	      the entire system vulnerable, but it is a necessary
+	      response to the broken hardware. We can at least limit
+	      the number of drivers that require this authority.
+	    </p>
+	    <h2>Interrupt Demultiplexing</h2>
+	    <p>
+	      Drivers will register for the interrupts they wish to
+	      receive. The kernel will demultiplex interrupts and then
+	      wake up the appropriate process to handle the result.
+	    </p>
+	    <h1>Checkpoint and the Object Cache</h1>
+	    <p>
+	      For a long time it stumped me how to move disk drivers
+	      out of the kernel. Charlie Landau asserted in December
+	      that he thought he saw how it might be done, but I could
+	      not convince myself that I was happy about the only
+	      solutions I could envision. It now appears that there is
+	      actually a very natural ``cut line'' in the design for
+	      this, and a perfectly reasonable approach to the
+	      implementation.
+	    </p>
+	    <p>
+	      The idea is to entirely remove all responsibility for
+	      disk I/O from the kernel. The kernel retains
+	      responsibility for checkpoint directory management, but
+	      at the very bottom level it performs upcalls to
+	      accomplish the following operations:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  <b>ReadObFrame(oid)</b> requests that the storage
+		  system should read the object frame at OID and
+		  install the resulting page into the object cache via
+		  a kernel object cache capability call.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  <b>ReadLogFrame(lid)</b> similarly for log frames.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  <b>WriteObFrame(oid)</b> requests that the storage
+		  system should write the bytes passed via the
+		  associated IPC at the appropriate disk location(s) 
+		  for this oid.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  <b>WriteLogFrame(lid)</b> similarly for log frames.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      One or more processes sits outside of the kernel in the
+	      following loop:
+	    </p>
+	    <ul>
+<pre>
+for(;;) {
+  call kernel to get next upcall
+  process upcall
+  acknowledge completion and wait for next upcall
+}
+</pre>
+	    </ul>
+	    <h2>Why Use Upcalls?</h2>
+	    <p>
+	      In other parts of the EROS kernel, a different approach
+	      to upcalls is used. When a process takes a fault, for
+	      example, the kernel synthesizes a keeper invocation by
+	      making it appear that the faulting process has directly
+	      invoked the keeper. Unfortunately, this approach cannot
+	      be used for driver upcalls because the drivers are not
+	      persistent.
+	    </p>
+	    <p>
+	      When a CALL occurs or is synthesized, the recipient gets
+	      a resume key to the caller. The problem here is that
+	      drivers are not persistent, so this resume capability
+	      can be lost. Also, if driver capabilities are simply
+	      start capabilities, there is no simple way to rescind
+	      them on restart. The problem is inherent in any call
+	      that crosses the boundary from persistent to
+	      non-persistent code.
+	    </p>
+	    <p>
+	      The solution is to arrange a rendevous mechanism within
+	      the kernel for rendevous. The driver calls into the
+	      kernel and is queued waiting for a response (i.e. a
+	      <em>return</em> from the kernel. When the client invokes
+	      the driver key, it is in turn queued waiting for a
+	      response and the inbound message is passed to the
+	      driver. Later, when the driver calls back into the
+	      kernel, it's inbound message is passed to the client as
+	      a response.
+	    </p>
+	    <hr> <em>Copyright 2001 by Jonathan Shapiro.  All rights
+	    reserved.  For terms of redistribution, see the <a
+	    href="../legal/license/GPL.html">GNU General Public
+	    License</a></em>
+	  </td>
+	  <td width="10%">&nbsp;</td>
+	</tr valign=top>
+      </table>
+    </body>
+</html>

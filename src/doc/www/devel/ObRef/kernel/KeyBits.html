@@ -1,0 +1,95 @@
+<html>
+<head>
+<title>EOR: KeyBits</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Kernel.html">Kernel Objects</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Kernel Objects</H2>
+  </div>
+  <h2>KeyBits</h2>
+  <em>D R A F T</em>
+</div>
+<hr>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> The <strong>KeyBits</strong> key conveys the authority to
+  extract the bits of another key.  This authority compromises system
+  security by exposing facts about the physical location of the
+  objects on the disk, and is therefore closely held.
+  <p> <strong>KeyBits</strong> returns the version of the keybits key
+  and a 16 byte string which is the content of the key fields
+  expressed as data.
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Translate</strong> (OC = 1)
+    <dd> 
+	 <p> Returns the fields of the key as data.
+	 <table>
+	   <tr valign=top>
+	     <td>
+	       <strong>Request</strong>
+	     </td>
+	     <td>
+	       SK0
+	     </td>
+	     <td>
+	       The key to be examined.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan = 3>
+	       <strong>Reply</strong>
+	     </td>
+	     <td>
+	       W
+	     </td>
+	     <td>
+	       The version of the KeyBits key.  Later versions may
+	       return more information.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	       W
+	     </td>
+	     <td>
+	       Non-zero if the key is currently valid (future versions
+	       of keybits may expose internal information associated
+	       with rescinded keys).
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	       [W : 4]
+	     </td>
+	     <td>
+	       The content of the key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       RC_OK
+	     </td>
+	     <td>
+	       Operation completed successfully.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

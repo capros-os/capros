@@ -1,0 +1,142 @@
+<html>
+<head>
+<TITLE>CSE 40X Driver Design Document</TITLE>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<H2>CSE 400/401 DRIVER DESIGN</H2>
+<H2>EROS ETHERNET DRIVER FOR 3COM ETHERLINK III FAMILY</H2>
+
+<H3><a name = "General Overview">General Overview</a></H3>
+This project involves designing a device driver for 3Com's EtherLink III Ethernet adapter family under EROS. EROS is a new operating system being designed by University of Pennsylvania School of Engineering and Applied Science Department of Computer and Information Science. It is a capabilities-based, persistent operating system. The driver is to support higher-level software that will need to communicate with the adapter, such as sending and receiving information from the network card.<P>
+
+A network interface card (NIC) is an adapter that transmits and receives packets of information via some medium. It allows a computer to communicate with another and operates at the physical and data-link layers in the ISO OSI model of interconnectivity. The medium may be a physical wire or the adapter may operate wireless, transceiving information via photons. The adapter itself is generically composed of a controller, a transceiver, an encoder and a decoder, memory, and a host interface. An Ethernet adapter will have a controller that complies with the IEEE 802.2 LLC and IEEE 802.3/Ethernet standards. Typically the memory will be input and output buffers that are mapped into the host computer's address space for fast access by the host's processor. The transceiver, encoder, and decoder take care of converting the voltage or electromagnetic frequency signals on the wire or in space into digital data and vice-versa. The host interface connects the bus on the adapter to the host's bus.<P>
+
+The 3Com EtherLink III family consists of Ethernet adapters designed for PCs of several host bus types. Currently supported host buses are ISA, MCA, EISA, PC-Card, and PCI. The programmer of this project has access to a member of this family using the ISA bus, the 3C509-Combo. This adapter supports connection to UTP, thin coaxial, and thick coax wires via the RJ-45, BNC, and AUI connectors respectively. The adapter includes an Ethernet controller, encoder/decoder, 10BaseT transceiver, and host interface integrated into one 3Com designed ASIC. The adapter also has a 10Base2 transceiver, 4 KB packet buffers, a 16-bit ISA bus path, and a socket for an optional boot PROM.<P>
+
+An ELIII adapter has several components. With exception of the B versions, all members of the adapter family have 4 KB of buffer space. The buffer space appears as two FIFOs to the host. The two FIFOs are for receive and transmit. The version B family members have at least 8 KB of buffer space where the two FIFOs are of variable size. The network transceiver of the adapter is made up of a dedicated receiver and dedicated transmitter. Data transfer is supported via programmed input/output. An ELIII NIC can utilize interrupts to signal the CPU for various conditions and it also supports timer mechanisms.<P>
+
+<img src = "EtherLink3.gif" alt = "EL III Block Diagram"><P>
+
+For the ISA/EISA members of the family, the EEPROM sets all configuration options on the board. No physical jumper is needed. Although an EtherLink II adapter is set by jumpers, its state can be determined by software. EISA automatic configuration is supported. The adapter can provide board type and revision number. For manual configuration, the adapter supports changing the interrupt level, I/O base address, and the optional remote boot PROM's address. For B versions of the III family, the driver assumes that the adapters are not in PnP mode.<P>
+
+The driver intended to communicate with the network adapter will send and receive data via the adapter's two FIFOs. The two FIFOs are for transmit and receive: packets received are written to the RX FIFO by the adapter and packets to be sent are written to the TX FIFO by host software, which will be the driver. Each FIFO may contain more than one packet. Packets begin on and are padded to 32-bit boundaries. The register TX Free and RX Free reveal the amount of unused space.<P>
+
+<img src = "RXPacketStruct.gif" alt = "RX Packet Structure Diagram"><P>
+
+For reception, the driver will access the first 8-1792 bytes in the RX FIFO. Padding bytes for 32-bit boundary may be read, and very likely the driver will access the FIFO in 32 bits for efficiency and possibly read the padding bits, instead of in 8-bit values to read each byte one-by-one. If the driver reads beyond the end of the packet, the RX Status register of the NIC becomes negative. The driver transfers data from the FIFO to host memory via PIO and after the transfer must issue an RX Discard command. This command will update the RX Status register for the next packet. The driver may take interrupts when the number of bytes set in RX Early register has been received or when the whole packet has been received. The driver may determine the number of bytes received so far or the complete packet size, respectively, by reading the RX Status register. If errors occur during reception, the RX Status register is updated to reflect the error. Packet size can only be determined from RX Status when the packet is completely received.<P>
+
+<img src = "TXPacketStruct.gif" alt = "TX Packet Structure Diagram"><P>
+
+For transmission, each packet in the TX FIFO consists of a preamble followed by the data. This packet must be padded to a 32-bit boundary. The preamble is 32 bits long. The driver will place the transmit preamble into the TX FIFO before the packet data. The first 16 bits of the preamble determine the length of the packet in bytes, whether an interrupt on successful transmission is desired, and whether the driver wants to disable CRC generation. Since the next 16 bits of the preamble are "don't cares," the driver will place 0s for these bits in the FIFO. Packet data transferred to the driver will then be written to the FIFO. The driver will then pad the FIFO to a 32-bit boundary. If the length of the packet is less than 60 bytes, the minimum length for an Ethernet frame, the adapter will perform automatic padding to that length. During transmission, if an error occurs, the NIC will generate an interrupt and disable the transmitter. In this case, the driver must restart the transmitter by generating the TX Enable command to the adapter once it has emptied the TX Status stack.<P>
+
+<H3><a name = "Implementation">Implementation</a></H3>
+The driver will be programmed in C++. All common constants will be declared in a separate file. The plan for now is to implement the driver as one object that has all the variables and functions that the driver will need. Among those functions are reset, read, and write.<P>
+
+The main routine is a very simple function. It checks whether the RX buffer is not empty and if so, wakes up the read thread. It also checks whether the TX buffer is not full and if so, wakes up the write thread. It then sleeps and yields until re-awaken.<P>
+
+The read and write functions are very similar. They simply check whether their respective buffers are empty or full or not. For the read function, if the buffer is empty, the thread is put to sleep to be awaken later. For the write function, if the buffer is full, the thread is put to sleep. If the condition is false, or after being re-awakened, the situation is that the write buffer is not full or the read buffer is not empty. Each function will access its buffer appropriately and copy the data to the respective destinations. For the read function, data is copied from the RX buffer to a message to be transmitted to the domain that called it. For the write function, data is copied from the message that invoked it to the TX buffer.<P>
+
+<xmp>
+class eliii
+{
+	ThreadPile	read_q, write_q;
+	struct buffer_type
+	{
+		char buffer[BUFFER_SIZE];
+		unsigned int size;
+	}
+	buffer_type write_buffer;
+	buffer_type read_buffer;
+	bus_type bus_type_var;
+
+public:
+	int read(oc, &msg);
+	int write(oc, &msg);
+	int reset(oc);
+}
+</xmp>
+
+The object will be known as eliii. Although it will support a member in general from the EtherLink III family, in future, objects may be derived to implement special features that only specific members of the family supports. For example, PnP supporting adapters may derive objects from the main eliii object to inherit the general functions and then supply the auto-configuration functions.<P>
+
+
+<tt><i>This is a brief outline of the write thread.</i></tt>
+<xmp>
+int
+write():
+if full(write_buffer)	// Chk whether write buffer is full.
+	SleepOn(write_q);	// If so, block.
+	Yield();
+copy given data to buffer	// Write buffer not full, copy data from msg to buffer
+main.Wakeup();		// If main thread was blocked, unblock.
+</xmp>
+
+<tt><i>This is a brief outline of the read thread.</i></tt>
+<xmp>
+int
+read():
+if empty(read_buffer)	// Chk whether read buffer is empty.
+	SleepOn(read_q);	// If so, block.
+	Yield();
+copy recvd data to buffer	// Read buffer not empty, copy data from buffer to
+					// msg.
+main.Wakeup();
+</xmp>
+
+<tt><i>This is a brief outline of the main driver thread.</i></tt>
+<xmp>
+void
+main():
+if (!(empty(read_buffer)))	// If data in read buffer, wake up read thread.
+	read_q.Wakeup();
+if (!(full(write_buffer)))	// If space in write buffer, wake up write thread.
+	write_q.Wakeup();
+SleepOn();				// Block until called again.
+Yield();
+</xmp>
+
+<tt><i>This is a brief outline of the reset function.</i></tt>
+<xmp>
+void
+reset():
+output 0x0 to port 0xE of any reg window
+wait at least 1 ms before touching card again
+</xmp>
+
+For the reset function, the NIC will simply be given a general reset command via the control register of the card. No reconfiguration of the card is supported by this function. The global reset command as stated in the above pseudocode is compatible with all members of the EtherLink III family. The B-version and the MCA members of the family support a command argument that states which module of the NIC to reset, if a non-global reset is desired. Since the driver to be implemented currently in the short term is not to support advanced configuration options, reset is not to have a parameter indicating which module to specifically reset. Once called, reset will perform a global reset on the adapter. The driver must not use the NIC's Timer register and Command-in-Progress register to wait the necessary 1 ms.<P>
+
+<H3><a name = "Testing">Testing</a></H3>
+To test the functions of the read and write functions, a test domain will have to be written to invoke those functions with a set destination address. The domain will first write a packet to that address. The machine at the destination address will have a program running that will check whether the received data is what the programmer wanted to send. To test the receive function of the driver, the test domain will invoke receive. The machine at the set address will then transmit data back to the machine where the EtherLink III is installed within. The domain will then check whether the received data is the data that the programmer wanted to receive.<P>
+
+<xmp>
+void
+eros_eliii_test()
+	write(remote_machine, test_data)
+	receive(remote_machine, recv_data)
+	output whether test_data matches recv_data
+</xmp>
+
+The program running at the other test machine will utilize an already functioning driver and interface. It will probably be a program running on UNIX using Berkeley sockets.<P>
+
+<xmp>
+void
+unix_eliii_test()
+ready udp port
+	socket()
+	bind()
+recvfrom()
+	output data received
+sendto()
+	send data received back to source addr
+</xmp>
+
+Testing the reset function will likely be more difficult. Once the function is invoked and the invoker is returned to, nothing outside the adapter can know for sure that it has been reset. The one way to be sure that the card has actually received any command is to read the registers in the window after reset to ensure that the card is in its initial state. After power-up or global reset, the card will have Window 0 as the working register set. After that the driver will switch to Window 1 and use that as the current register set.<P>
+
+Since Ethernet is a protocol that does not guarantee reception, for errors regarding bad packets, the data is simply discarded. That means error codes are not currently planned for read and write, while later programming may dictate that error codes be returned to the invoker in order for the invoker to handle and respond to errors elegantly.<P>
+
+The driver's operations are summarized in the key interface.<P>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

@@ -1,0 +1,144 @@
+<html>
+<title>EROS Overview</title>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<A HREF="00Preface.html">Previous</A>
+<A HREF="02KernOverview.html">Next</A>
+<A HREF="Contents.html">Table of Contents</A>
+<h1 align=right>EROS Overview</h1>
+<p> There are a lot of differences between EROS and most
+commonly-known operating systems.  These differences significantly
+impact the architecture and design of the EROS kernel.  From the
+standpoint of the kernel design, the major differences between EROS
+and other systems are:
+<ul>
+  <li> EROS is a pure capability system.
+  <li> EROS is resource conserving.
+  <li> EROS is transparently persistent.
+  <li> Context switch and messaging are fast.
+</ul>
+<p> The implications of these issues are discussed below.
+<hr>
+<h2>A Pure Capability System</h2>
+<p> EROS is a pure capability system.  A capability is an object name
+combined with a set of access rights.  In the EROS system,
+capabilities are protected by the kernel.  Only the kernel has access
+to the bits of a capability, and it is the responsibility of the
+kernel to enforce the authority restrictions that a capability
+conveys.
+<p> A capability uniquely names a device, a kernel-provided service,
+or the location and type of an object on the disk, and identifies the
+access rights conveyed by that capability.  Capabilities provide the
+<em>only</em> namespace and security mechanism known to the EROS
+kernel.  Posession of a capability is a necessary and sufficient
+condition for using it; the kernel has no understanding of user
+identity.  Capabilities are invoked via the EROS IPC mechanism.  The
+caller names the capability to be invoked, the type of invocation, and
+any desired arguments and return values.  While it is possible (indeed
+common) to build the equivalent of conventional file systems on top of
+the substrate provided by the EROS kernel, the kernel has no knowledge
+of the semantics and/or authority models of these systems.
+<p> Disk-based objects have one of two representations: \textbf{pages}
+are the basic unit of user data storage, and contain an
+architecture-defined amount of user data. \textbf{Cgroups} are the
+basic unit of capability storage, and hold 16 capabilities.  Other
+disk-based object types, such as domains and segments, are created by
+assembling cgroups in well-defined arrangements and fabricating a
+capability whose type indicates the type of the object.
+<p> In the kernel design presented here, capabilities have meaning
+within a single host node, and are never exposed to the network.
+While we have a design for implementing a transparently persistent
+cluster the provides a single system image, that design is not
+described by this document.
+<hr>
+<h2>Resources are Conserved</h2>
+<p> It is a common practice in current operating systems to
+overallocate resources and rely on the fact that they will not all
+actually be demanded at once.  One example is dynamic allocation of
+memory within the operating system.  While it is unlikely that all OS
+components will need resources at the same time, it is surprisingly
+easy for fragmentation to take hold.  In the limit, this can lead to
+deadlock.
+<p> Another example is swap space.  Typical operating systems rely on
+the fact that only a fraction of most memory mappings will be dirtied,
+and that only dirty pages really require stack space.  They
+accordingly overcommit the available swap space, and are sometimes
+forced to kill hapless programs when they get caught.  Given the
+current cost of disk storage, the original economic arguments in favor
+of this approach are obsolete.
+<p> The major problem with resource overallocation deadlocks is that
+(by definition) they occur during exceptional situations.  Usually,
+these are the <em>exactly</em> those situations in which it is most
+important for your system not to fail. I'm not sure there is a good
+time for memory allocation deadlocks.  Taking one when the control
+rods need to go into the nuclear core to avoid a meltdown definitely
+isn't it.
+<p> A key point to keep in mind about resource overallocation is that
+it violates referential integrity.  The system has handed you a bunch
+of resources that it is not necessarily able to deliver.  This means
+that such errors cannot be corrected or readily worked around by
+software above the kernel in a general purpose computing system.
+<p> As a design principle, The EROS kernel does not overcommit
+resources.  For this reason, we say that the kernel is
+<strong>resource conservative</strong>.  Applications are still free
+to manage resources badly.  Under EROS, it is possible in for them to
+manage resources well.
+<p> Resource conservation has some implications:
+<ul>
+  <li> Processes can become broken, but they are not demolished by the
+       kernel.  That is a user-level responsibility.
+  <li> The kernel therefore cannot directly respond to fatal execution
+       errors.  Instead, it encapsulates them and reflects them to an
+       application-defined error handler known as a
+       <strong>domain keeper</strong>.
+  <li> The eros kernel implements a write ahead log to support paging
+       and rollback, but does not allocate swap space.  Access faults,
+       including not-present pages, are reflected to a segment-defined
+       error handled known as a <strong>segment keeper</strong>
+</ul>
+<p> We like to say that "The kernel neither creates nor destroys
+resources."  There is currently one exception to this rule (certain
+exception handling requires the temporary allocation of a new thread),
+and we consider this a bug.
+<p> Eliminating resource allocation has a desirable secondary
+consequences: if you don't misallocate resources in the first place,
+there is no need for complex recovery algorithms.  As complex as smart
+allocation strategies are, they are generally linear in the number of
+objects. The corresponding recovery algorithms are typically quadratic
+or cubic in the number of objects, and are invariably run when the
+system has already run out of computational headroom.  Fundamentally,
+the existence of a resource recovery algorithm means that the resource
+management policy was poorly thought out in the first place.
+<p> EROS has no resource recovery code because it doesn't need it.
+The only recovery code in the kernel is to resume after an underlying
+hardware or power failure.
+<hr>
+<h2>EROS is Transparently Persistent</h2>
+<p> EROS implements recoverable persistence by taking a periodic
+snapshot of the system and asynchronously writing that snapshot to the
+disk.  The critical part of this is the snapshot phase, which must
+proceed while the system is otherwise frozen.  Snapshot is
+accomplished by marking all objects in the system copy on write and
+allowing the next eligible procss to attempt to resume execution.  The
+supporting state tracking pervades the kernel data structures.
+<p> Because the system can fail for reasons beyond it's control,
+persistence is acheived by first writing a snapshot to a write-ahead
+log, and then migrating the dirty objects back to their "official"
+locations.  The EROS kernel implements what amounts to a write-ahead
+transaction log to support this.
+<hr>
+<h2>Context Switch is Fast</h2>
+<p> The entire EROS design is predicated on the assumption that
+context switches can be performed quickly.  As a result, the single
+most critical path in the kernel is the IPC path.  The IPC path
+therefore has influence on the layout and content of the
+process-related structures.
+<hr>
+<A HREF="00Preface.html">Previous</A>
+<A HREF="02KernOverview.html">Next</A>
+<A HREF="Contents.html">Table of Contents</A>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

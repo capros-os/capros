@@ -1,0 +1,68 @@
+<html>
+<head>
+  <title>ECG: sysgen Reference</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../eros.html"><em>EROS Web</em></a> 
+      <br>&nbsp;
+      <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Cross Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title><tt>sysgen</tt> Reference</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <h2>Name</h2>
+      <p><b>sysgen</b> -- make new EROS volume</p>
+      <h2>Synopsis</h2>
+      <p><b>sysgen</b> volume image_file</p>
+      <h2>Description</h2>
+      <p> The <b>sysgen</b> utility maps the content of the EROS image
+      file <b>image_file</b> (from <b>mkimage</b>) onto the specified
+      EROS <b>volume</b>.  Pages in the EROS image file are written to
+      divisions in the volume sequentially, followed by Nodes.  Any
+      capabilities within the image file are relocated to reflect the
+      final locations of these objects on the actual volume before
+      being written.
+      </p>
+      <p>
+      The principle reason for distinguising between image and volume
+      files is flexibility -- the image file captures the logical
+      relationships between pages and nodes, while the volume file
+      captures the representation of these objects on some particular
+      physical medium.  Separating the two files eliminates the need
+      to store images of zero pages, and also allows the choice of
+      volume to be made long after the system image has been
+      constructed.
+      </p>
+      <p>
+      One way to think of the <b>sysgen</b> utility is as a relocating
+      loader for EROS images.
+      </p>
+      <hr>
+      <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+      redistribution, see the 
+      <a href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+</body>
+</html>

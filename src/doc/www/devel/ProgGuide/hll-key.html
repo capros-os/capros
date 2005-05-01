@@ -1,0 +1,345 @@
+<html>
+  <head>
+    <title>EPG: Capability Support in High-Level Languages</title>
+  </head>
+
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <div class=nocss>
+      <br class=nocss>&nbsp;
+      <br class=nocss>&nbsp;
+    </div>
+    <table>
+      <tr>
+	<td width="10%" valign=top class=toc>
+	  <b>UP</b>
+	  <br>&nbsp;
+	  <br><a href="../../eros.html"><em>EROS Web</em></a> 
+	  <br>&nbsp;
+	  <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+	  <br>&nbsp;
+	  <br><a href="Cover.html"><em>Programmer's Guide</em></a> 
+	</td>
+	<td width="5%">&nbsp;</td>
+	<td valign=top>
+	  <center>
+	    <h1 class=title>Capability Support in High-Level
+	    Languages</h1>
+	    <p>
+	      <em>D R A F T</em>
+	    </p>
+	    <div class=nocss>
+	      <br class=nocss>&nbsp;
+	      <br class=nocss>&nbsp;
+	    </div>
+	  </center>
+	  <p>
+	    This note describes the support mechanisms provided to
+	    enable C and C++ programs to manipulate capabilities.  All 
+	    of the current EROS libraries are built using these
+	    conventions.
+	  </p>
+	  <h1>1. Introduction</h1>
+	  <p>
+	    Higher level languages such as C and C++.  do not directly
+	    support capabilities as a standard datatype.  While it is
+	    possible to extend these languages, such an extension
+	    represents a significant departure from the runtime
+	    expectations of existing programs.  Instead, the current
+	    EROS programming environment has adopted a compromise
+	    using a combination of preprocessor facilities and
+	    compiler extensions.
+	  </p>
+	  <h2>1.1 Slot References</h2>
+	  <p>
+	    The EROS capability support mechanism provides a data type
+	    for capability <em>slot references</em>.  Every capability 
+	    resides in a slot, and a slot reference names that slot.
+	  </p>
+	  <p>
+	    Two capability
+	    slot types are provided:
+	  </p>
+	  <table>
+	    <tr valign=top>
+	      <td>
+		<b>global</b>
+	      </td>
+	      <td>
+		<p>
+		  A global slot represents an object that is used
+		  throughout the program.  A global slot can be
+		  mentioned by name at any point in the application.
+		</p>
+	      </td>
+	    </tr>
+	    <tr valign=top>
+	      <td>
+		<b>temporary</b>
+	      </td>
+	      <td>
+		<p>
+		  A temporary slot can be used by a library routine
+		  that needs a place to put capabilities that are the
+		  interim results of computations.  These names of
+		  these slots follow the scoping rules of the
+		  language, but the slots themselves remain allocated
+		  <em>until the procedure exits</em>.
+		</p>
+	      </td>
+	    </tr>
+	  </table>
+	  <p>
+	    Both types of slot references can be passed as arguments
+	    to library routines, but procedures are not permitted to
+	    return them as results or to copy one slot reference to
+	    another.
+	  </p>
+	  <h2>1.2 The Key Cache Library</h2>
+	  <p>
+	    The key cache library provides an optional tool for
+	    managing large numbers of capabilities.  EROS processes
+	    have 31 effective capability registers (capability
+	    register zero cannot be modified).  For many applications
+	    this is ample.
+	  </p>
+	  <p>
+	    Other applications must support a larger number of
+	    capabilities.  The Key Cache Library transparently
+	    multiplexes this larger number of capability slots onto
+	    the available capability registers, allowing the
+	    application to be written as though a large number of
+	    capabilities were directly available.
+	  </p>
+	  <p>
+	    Because the EROS runtime libraries are written using the
+	    capability slot data type, they transparently take
+	    advantage of the key cache if it is present.
+	  </p>
+	  <h2>2.  C and C++ Interface</h2>
+	  <p>
+	    The C/C++ interface for capability slots involves three
+	    declarations and three new procedure calls.  
+	  </p>
+	  <h3>2.1  Slot Declarations</h3>
+	  <p>
+	    The declarations are:
+	  </p>
+	  <dl>
+	    <dt>
+	      <strong>DEF_SLOT(name)</strong>
+	      <br>
+	      <strong>DEF_SLOT(name, regno)</strong>
+	    </dt>
+	    <dd>
+	      <p>
+		Defines a new slot, and a reference to that slot
+		called <em>name</em>.  If the optional register number
+		is provided, the capability can initially be found in
+		register <em>regno</em>.
+	      </p>
+	      <p>
+		This declaration can only be used at file scope.
+	      </p>
+	    </dd>
+	    <dt>
+	      <strong>DECL_SLOT(name)</strong>
+	    </dt>
+	    <dd>
+	      <p>
+		Provides an external declaration for a slot that has
+		been defined elsewhere in the application.  This is
+		similar to an <code>extern</code> declaration, and
+		allows a single slot reference to be used in multiple
+		files.  It is an error to define two slots with the
+		same name in the same application; slots do not
+		conform to the usual rules about the C and C++
+		``common'' areas.
+	      </p>
+	    </dd>
+	    <dt>
+	      <strong>TEMP_SLOT(name)</strong>
+	    </dt>
+	    <dd>
+	      <p>
+		Declares a slot that is local to the declaring
+		procedure.  A currently unused slot number is
+		allocated and bound to <em>name</em>.  The identifier
+		<em>name</em> remains in scope according to the usual
+		C/C++ scoping rules.  The actual slot is not released
+		until the procedure returns.
+	      </p>
+	      <ul>
+		  <p>
+		    <em>The peculiarity of the slot release timing is
+		    an artifact of the implementation of
+		    <b>TEMP_SLOT</b>.  The runtime mechanism records
+		    the stack pointer of the procedure that allocated
+		    the slot.  It later compares this recorded stack
+		    pointer to the current stack pointer to determine
+		    of the slot has been freed.  Optimizing compilers
+		    go to some lenghts to avoid frequent adjustments
+		    to the stack pointer, so the scope of the
+		    allocation is not quite the same as the scope of
+		    the label.</em>
+		  </p>
+	      </ul>
+	      <p>
+		The <b>TEMP_SLOT</b> mechanism provides a ``holding
+		slot'' for interim results.  As an example, a routine
+		that creates a new process and returns a start
+		capability to it must briefly hold both the start
+		capability and the process capability to that process.
+		This means that it requires a place to store the
+		process capability that will not clobber a capability
+		that is actively in use.  The <b>temp_slot</b>
+		declaration is intended for this purpose.
+	      </p>
+	    </dd>
+	  </dl>
+	  <h3>2.2  Procedures</h3>
+	  <p>
+	    The three new procedures are <b>KCALL</b>, <b>KRETURN</b>,
+	    and <b>KSEND</b>.  Where the CALL, RETURN, and SEND
+	    procedures use a low-level message format, the KCALL,
+	    KRETURN, and KSEND procedures provide the binding layer
+	    between slot references and the capability registers in
+	    order for the invocation to succeed.  KCALL, KSEND, and
+	    KRETURN resolve the slots to registers and then invoke the
+	    lower-level primitives.
+	  </p>
+	  <h2>3. Typical Usage</h2>
+	  <p>
+	    C and C++ code that wishes to use this interface should
+	    first include
+	  </p>
+	  <ul>
+	    <code>#include &lt;domain/keyslot.h&gt</code>
+	  </ul>
+	  <p>
+	    For native EROS applications, some of the key registers will
+	    initially contain values placed there by the constructor.
+	    Most applications will therefore wish to include the
+	    following declarations in the main source code file:
+	  </p>
+	  <ul>
+	      <pre>
+DEF_SLOT(constituents, 1);   /* process constituents node */
+DEF_SLOT(self, 2);           /* domain key to this process */
+DEF_SLOT(proccre, 3);        /* our process creator */
+DEF_SLOT(mybank, 4);         /* our space bank */
+DEF_SLOT(mysched, 5);        /* our schedule capability */
+DEF_SLOT(caller, 31);        /* resume key to our caller */
+	      </pre>
+	  </ul>
+	  <p>
+	    Applications that wish to accept capability arguments as
+	    part of their invocations may also wish to declare:
+	  </p>
+	  <ul>
+	      <pre>
+DEF_SLOT(arg1);              /* process constituents node */
+DEF_SLOT(arg2);              /* domain key to this process */
+DEF_SLOT(arg3);              /* our process creator */
+	      </pre>
+	  </ul>
+	  <p>
+	    As an example of TEMP_SLOT, consider the
+	    <code>lwp_start</code> library routine, which releases a
+	    new lightweight process to run:
+	  </p>
+	  <ul>
+	      <pre>
+uint32_t lwp_start(KeySlot lwp /* a domain key */)
+{
+  uint32_t result;
+  TEMP_SLOT(lwp_fault);
+  KMessage km;
+
+  result = process_make_waiting(lwp, lwp_fault /* OUT */);
+  if (result != RC_OK)
+    return result;
+
+  km.snd_len = 0;
+  km.snd_slot0 = KR_ZERO;
+  km.snd_slot1 = KR_ZERO;
+  km.snd_slot2 = KR_ZERO;
+  km.snd_slot3 = KR_ZERO;
+  km.snd_code = RC_OK;
+  km.snd_invSlot = lwp_fault;
+
+  KSEND(&km);
+  return RC_OK;
+}
+	      </pre>
+	  </ul>
+	  <h2>4.  Special Situations</h2>
+	  <p>
+	    A special situation arises in the case where a program is
+	    converting itself into another program by replacing its
+	    address space.  The recipient program usually will have
+	    embedded assumptions about which of its initial
+	    capabilities are in what registers.  These assumptions
+	    must be satisfied by the original program before invoking
+	    the target program.
+	  </p>
+	  <p>
+	    This can be accomplished by means of the <b>BIND_SLOT</b>
+	    call:
+	  </p>
+	  <dl>
+	    <dt>
+	      <strong>BIND_SLOT(name, regno)</strong>
+	    </dt>
+	    <dd>
+	      <p>
+		Given a slot named by <em>name</em>, cause the
+		corresponding capability to be moved to <em>regno</em>
+		if it is not already there.  If the register
+		<em>regno</em> is currently bound to some other slot
+		name <em>name2</em>, this is accomplished by swapping
+		both the capabilities and the slots of the two
+		capabilities.  Thus, if <em>name1</em> is currently
+		bound to <em>reg1</em>, and <em>name2</em> is
+		currently bound to <em>reg2</em>, and the call
+		<code>BIND_SLOT(name1, reg2)</code> is made, the
+		effect is to exchange the two registers, rebind
+		<em>name1</em> to <em>reg2</em> and rebind
+		<em>name2</em> to <em>reg1</em>.
+	      </p>
+	      <p>
+		This is a long-winded way of saying the values are
+		swapped.
+	      </p>
+	    </dd>
+	  </dl>
+	  <p>
+	    It is therefore possible to achieve explicit placement of
+	    capabilities in desired registers by appropriate calls to
+	    BIND_SLOT.
+	  </p>
+	  <table>
+	    <tr valign=top>
+	      <td>
+		<img align=left src="../../img/caution.gif" alt="Caution!">
+	      </td>
+	      <td>
+		<p>
+		  Any subsequent call to KCALL, KRETURN, or KSEND is
+		  entitled to rearrange the capability registers, so
+		  the slot bindings do not remain in effect across
+		  such calls.
+		</p>
+	      </td>
+	    </tr>
+	  </table>
+	  <hr>
+	  <em>Copyright 1998 by Jonathan Shapiro.  All rights
+	  reserved.  For terms of redistribution, see the <a
+	  href="../../legal/license/GPL.html">EROS License
+	  Agreement</a></em>
+	</td>
+	<td valign=top width="15%">&nbsp;</td>
+      </tr>
+    </table>
+  </body>
+</html>

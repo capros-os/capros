@@ -1,0 +1,128 @@
+BODY {
+	/* The Microsoft boneheads don't support inheritance for this
+	   yet. */
+	/* background: #ffffe0; */
+	background: #ffffff;
+	line-height: 115%;
+	font-size: 100%;
+	margin-left: 2.25in;
+	margin-right: 0.5in;
+}
+
+DIV.note {
+	margin-left: 10%;
+	margin-right: 10%;
+}
+
+/* Netscape, regrettably, does not honor distinct text-decoration
+   properties between A:link and A:visited.  Better just to have no 
+   underlines and leave them all the same. */
+ 
+A:link	{
+	color: blue;
+	text-decoration: none;
+	/* font-weight: bold; */
+}
+
+A:visited {
+	color: purple;
+	text-decoration: none;
+	/* font-weight: bold; */
+}
+
+A:active {
+	color: red;
+	text-decoration: none;
+	/* font-weight: bold; */
+}
+
+P {
+	text-indent: 1em;	/* doesn't work on ie3.0.  Too bad. */
+	text-align: justify;
+	margin-top: 1.2em;
+	margin-bottom: 1.2em;
+}
+
+P.conclusion {
+	text-indent: 1em;	/* doesn't work on ie3.0.  Too bad. */
+	text-align: right;
+	margin-top: 2.4em;
+	margin-bottom: 2.4em;
+	margin-left: 1.5in;
+	font-size: large
+}
+
+P.author {
+	text-align: right;
+	font-style: italic;
+	margin-top: 36pt;
+	margin-bottom: 36pt;
+	text-indent: 0;		/* doesn't work on ie3.0.  Too bad. */
+}
+
+P.initial, P.continue {
+	text-indent: 0;
+}
+
+UL, DL, OL {
+	margin-right: 0.5in;
+	margin-top: 1.2em;
+}
+
+UL P, DL P, OL P {
+	text-indent: 0;	/* doesn't work on ie3.0.  Too bad. */
+	text-align: left;
+	margin-top: 0.3em;
+	margin-bottom: 0.3em;
+}
+
+H1 {
+	text-indent: 0;
+	text-transform: uppercase;
+	font-size: x-large;
+	font-family: sans-serif;
+	font-weight: bold;
+	margin-left: -2in;
+	margin-top: 12pt;
+	border-bottom-width: thin;
+	border-color: black;
+	border-style: solid;
+}
+
+H1.title {
+	text-align: right;
+	margin-top: 36pt;
+	margin-bottom: 36pt;
+	margin-left: 1in;
+	font-size: x-large;
+	border: none;
+}
+
+H2 {
+	text-indent: 0;
+	font-weight: normal;
+ 	margin-left: -2in;
+	float: left;
+	width: 1.5in;
+	clear: left;
+	font-size: large;
+}
+
+H3 {
+	text-indent: 0;
+	font-style: italic;
+	font-weight: normal;
+	color: brown;
+ 	margin-left: -2in;
+	float: left;
+	width: 1.5in;
+	clear: left;
+/*	font-size: medium; */
+	font-size: large;
+	text-align: right;
+	margin-top: 0;
+}
+
+UL {
+	list-style: disc;
+}

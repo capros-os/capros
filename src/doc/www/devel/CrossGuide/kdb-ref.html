@@ -1,0 +1,108 @@
+<html>
+<head>
+  <title>ECG: kdb Reference</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../eros.html"><em>EROS Web</em></a> 
+      <br>&nbsp;
+      <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Cross Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title><tt>kdb</tt> Reference</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <h2>Name</h2>
+      <p><b>kdb</b> -- Kernel Debugger</p>
+      <h2>Description</h2>
+      <b>kdb</b> is based on the Mach kernel debugger ddb.<p>
+      Typing control-alt-d while EROS is running will cause the kernel
+      debugger to be entered.<p>
+      This documentation is incomplete. 
+      Try <a href="http://www.gsp.com/cgi-bin/man.cgi?section=4&topic=ddb">this link</a>
+      for a formatted "man page", giving a description of most commands.
+      Here are a few useful commands:
+      <dl>
+        <dt>help
+        <dd>Print a list of commands.
+        <dt>trace
+        <dd>Print a stack trace.
+        <dt>c
+        <dd>Continue execution
+        <dt>show
+        <dd>Without any arguments, this command prints a list of arguments
+            you can give. Here are explanations of some of them:
+          <p>
+          <dl>
+          <dt>show inv
+          <dd>If an EROS invocation is active, this command prints 
+              some information in the inv structure.
+          <dt>show entry
+          <dd>If an EROS invocation is active, this command prints
+              the information in the inv.entry structure.
+          <dt>show exit
+          <dd>If an EROS invocation is active, this command prints
+              the information in the inv.exit structure.
+          <dt>show invokee
+          <dd>If an EROS invocation is active, this command prints
+              the context of the invokee.
+          <dt>show cckeys
+          <dd>Print the key registers of the current thread.
+          <dt>show invkeys
+          <dd>If an EROS invocation is active, this command prints
+              the key registers of the invokee.
+          <dt>show key &lt;address&gt
+          <dd>Print the key at the specified address.
+          <dt>show cckr [&lt;address&gt]
+          <dd>Print all the keys that refer to the process
+              context at the specified address (the keyring of the context).
+              If no address is specified, this command prints
+              the information for the current thread.
+          <dt>show thread [&lt;address&gt]
+          <dd>Print the thread at the specified address.
+              If no address is specified, this command prints
+              the current thread.
+          <dt>show uthreads
+          <dd>Print all the threads.
+          <dt>show ctxt [&lt;address&gt;]
+          <dd>Print the process context at the specified address.
+              If no address is specified, this command prints the current
+              thread's context.
+          <dt>show sa &lt;address&gt
+          <dd>Print the registers in the fixregs_t
+              save area at the specified address.
+          <dt>show node &lt;OID&gt;
+          <dd>Print the node with the specified OID.
+          <dt>show nodes
+          <dd>Print information about all the nodes in memory.
+          <dt>show pages
+          <dd>Print information about all the pages in memory.
+          </dl>
+      </dl>
+      <hr>
+      <em>Copyright 2000, 2001 by The EROS Group. For terms of 
+      redistribution, see the 
+      <a href="../../legal/license/GPL.html">GNU General Public License</a></em>
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+</body>
+</html>

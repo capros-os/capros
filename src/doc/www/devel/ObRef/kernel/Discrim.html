@@ -1,0 +1,210 @@
+<html>
+<head>
+<title>EOR: Discrim</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Kernel.html">Kernel Objects</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Kernel Objects</H2>
+  </div>
+  <h2>Discrim</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> The <strong>Discrim</strong> key enables the holder to discern
+  certain information concerning the type and discretion of other
+  keys.
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the key.
+	 <table>
+	   <tr valign=top>
+	     <td>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td>
+	       <em>AKT_Discrim</em>:
+	       Key is a discrim key
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       RC_OK
+	     </td>
+	     <td>
+	       Operation completed successfully.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Classify</strong> (OC = OC_Discrim_Classify (1))
+    <dd> 
+	 <p> Returns the category of the passed key.
+	 <table>
+	   <tr valign=top>
+	     <td>
+	       <strong>Request</strong>
+	     </td>
+	     <td>
+	       SK0
+	     </td>
+	     <td>
+	       The key to be classified.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan = 6>
+	       <strong>Reply</strong>
+	     </td>
+	     <td rowspan = 6>
+	       <strong>R1</strong>
+	     </td>
+	     <td><em>Discrim_Class_Void</em></td>
+	     <td>SK0 is a void key</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>Discrim_Class_Number</em></td>
+	     <td>SK0 is a number key</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>Discrim_Class_Resume</em></td>
+	     <td>SK0 is a resume key.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>Discrim_Class_Memory</em></td>
+	     <td>SK0 is a page, node, address space, or sense
+	       key.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td><em>Discrim_Class_Sched</em></td>
+	     <td>SK0 is a schedule key.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td><em>Discrim_Class_Other</em></td>
+	     <td>SK0 is some other type of key.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       RC_OK
+	     </td>
+	     <td>
+	       Operation completed successfully.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Verify Discretion</strong> (OC = OC_Discrim_Verify (2))
+    <dd> 
+	 <p> Determines whether the key in question is capable of
+	 leaking information:
+	 <table>
+	   <tr valign=top>
+	     <td>
+	       <strong>Request</strong>
+	     </td>
+	     <td>
+	       SK0
+	     </td>
+	     <td>
+	       The key to be checked.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Reply</strong>
+	     </td>
+	           <td rowspan=2><strong>R1</strong></td>
+	           <td>0: Key is some other key.</td>
+	   </tr>
+		 <tr valign=top>
+		   <td>1: Key is one of the following, which are
+		     discrete:
+		     <ul>
+		       <li> A read-only page key
+		       <li> A read-only, no-call segment key
+		       <li> A sense key
+		       <li> A number key
+		       <li> The discrim key
+		       <li> The void key
+		     </ul>
+		   </td> 
+		 </tr>
+	   <tr valign=top>
+	     <td>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       RC_OK
+	     </td>
+	     <td>
+	       Operation completed successfully.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Compare Keys</strong> (OC = OC_Discrim_Compare (3))
+    <dd> 
+	 <p> Determines whether two keys are identical.
+	 <table>
+	   <tr valign=top>
+	     <td>
+	       <strong>Request</strong>
+	     </td>
+	     <td>
+	       SK0, SK1
+	     </td>
+	     <td>
+	       The keys to be compared.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Reply</strong>
+	     </td>
+	     <td rowspan=2>
+	       <strong>R1</strong>
+	     </td>
+	     <td>0: Keys are different.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td>1: Keys are identical.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       RC_OK
+	     </td>
+	     <td>
+	       Operation completed successfully.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+  </dl>
+</div>
+<hr>
+<em>Copyright 2001 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

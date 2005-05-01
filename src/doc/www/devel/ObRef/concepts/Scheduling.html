@@ -1,0 +1,226 @@
+<html>
+<head>
+<title>EOR: Scheduling</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Concepts.html">Concepts</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Concepts</H2>
+  </div>
+  <h2>Scheduling</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> <img src="../../../img/construction.gif" align=left> This
+  description is still under construction.
+  <br clear=left>
+  <p> The EROS kernel implements a two-level scheduling mechanism.
+  The first tier is a scheduler based on processor capacity reserves
+  [<a href="#mercer">Mercer93</a>], while the second is
+  a conventional priority scheduling system.  Every process contains a
+  <a href=../primary/SchedClass.html>Schedule Key</a> under which it
+  runs.  Schedules come in three varieties:
+  <ul>
+    <li> A <em>reserve</em> schedule owns the processor during the
+	 time period defined by its processor capacity reserve, but
+	 does not authorize execution at any other time.
+	 <p> 	 
+    <li> A <em>hybrid</em> schedule combines a reserve and a priority.
+	 Hybrid schedules own the processor during the time period
+	 defined by its processor capacity reserve, and allows the
+	 process to run at the specified priority when no reserve is
+	 active.
+	 <p> 	 
+    <li> A <em>priority</em> schedule enables its process to run at
+	 the specified priority when no reserve is active.
+	 <p>
+  </ul>
+  <p> When a capacity reserve is in control of the processor and a
+  program operating under that schedule is ready to run, that process
+  will gain control of the processor.  If no process is ready to run,
+  or if no reserve is in control of the processor, cycles are
+  allocated according to priority.  Within a priority class, processes
+  are executed in round-robin fashion.
+  <h4>Processor Capacity Reserves</h4>
+  <p> A <strong>processor capacity reserve</strong> is defined by two
+  values: a <em>duration</em> (<strong>D</strong>) indicating how much
+  computation time is required, and a <em>period</em>
+  (<strong>P</strong>) describing how often this duration must be made
+  available.  The EROS scheduler assumes that activities are
+  preemtable provided that the requirements of their reserves are met.
+  In consequence, both the duration and the period impact the
+  scheduling of the process.  A (3 tick,10 tick) reserve and a (30
+  tick, 100 tick) reserve both allocate 30% of the processor, but the
+  variance permitted by the second reserve is much higher.
+  <blockquote>
+    <p> <img src="../../../img/construction.gif" align=left> <em>I am
+    contemplating altering the reserve abstraction to define a
+    duration, active period, and inactive period in order to
+    facilitate jitter control.  It is not clear if this is an
+    improvement.</em> <br clear=all>
+  </blockquote>
+  <p> Once a reserve has been successfully allocated, the holder is
+  entitled to <strong>D</strong> ticks out of every <strong>P</strong>
+  ticks.  Once these guaranteed ticks have been consumed, they are not
+  replenished until the period <strong>P</strong> has expired.
+  Depending on the reserve, the process may elect to run
+  opportunistically on a priority basis during the remainder of its
+  period.  Guaranteed ticks are always consumed in preference to
+  opportunistic ticks.
+  <p> Multiple processes may run under the same reserve.  Runnable
+  processes within a reserve are initiated in FIFO order. Once
+  activated, a process running under a reserve will continue until the
+  reserve runs out or the process performs some action causing it to
+  yield.  A process yields when:
+  <ul>
+    <li> It performs a non-prompt action, such as touching a page that
+	 must be faulted in from the disk.  Under normal
+	 circumstances, a real-time program will operate under one or
+	 more <a href="WorkingSets.html">working set</a> reserves,
+	 limiting this impact to startup overhead and/or explicit I/O.
+    <li> It performs a <strong>Call</strong>, <strong>Return</strong>,
+	 or <strong>Send</strong> to a process that is not entitled to
+	 execute under the same reserve.
+  </ul>
+  <blockquote>
+    <p> <img src="../../../img/construction.gif" align=left>
+    <em>Should reserves have a preemption </em>quanta<em> defining
+    when its active process should be rotated?  Would doing so
+    provide neater integration of reserves and preemption?</em> <br
+    clear=all>
+  </blockquote>
+  <p> In order to be eligable for guaranteed ticks during a given
+  period, the process must be in the <em>running</em> state at the
+  beginning of that period.  If a process running under a reserve
+  <strong>R</strong> invokes another process entitled to run under the
+  same reserve <strong>R</strong>, the behavior depends on the type of
+  the invocation:
+  <ul>
+    <table width="85%">
+      <tr valign=top>
+	<th align=left>Invocation</th>
+	<th align=left>Action</th>
+      </tr>
+      <tr valign=top>
+	<td><strong>Call</strong></td>
+	<td>Control flow passes to the invokee without preeption, unless
+	  the reserve's period expires in mid-call.</td>
+      </tr>
+      <tr valign=top>
+	<td><strong>Return</strong></td>
+	<td>Control flow passes to the invokee without preeption, unless
+	  the reserve's period expires in mid-call.</td>
+      </tr>
+      <tr valign=top>
+	<td><strong>Send</strong></td>
+	<td>Control flow continues with the invokee without
+	  preemption.  The invoker is placed at the tail of the
+	  activation queue for the reserve (i.e. in the last-in
+	  position).</td>
+      </tr>
+    </table>
+  </ul>
+  <blockquote>
+    <p> <img src="../../../img/construction.gif" align=left> <em>There
+    is an open issue concerning whether we need to add an</em>
+    <strong>Activate</strong> <em>invocation, in which control flow
+    continues with the invokee and the invoker is placed at the tail
+    of the FIFO.  It's a nearly trivial addition, and I would
+    appreciate feedback on whether it is needed.  My guess is that the
+    use of the</em> <strong>Send</strong> <em>primitive in real-time
+    programs should be fairly minimal.  Come to think of it, the </em>
+    <strong>Activate</strong> <em>Primitive would appear to be
+    necessary in the ethernet packet filter to ensure that a packet
+    destined for multiple protocol stacks is delivered to all of them
+    in time to ensure that they get a fair shot at executing within
+    their reserve period.</em> <br clear=all>
+  </blockquote>
+  <h4>Reserve Management</h4>
+  <p> Processor reserves are allocated and managed by the <a
+  href="../standard/ReserveAgent.html">Reserve Agent</a>, which in
+  turn holds a <a href="../kernel/SchedCreator.html">Schedule
+  Creator</a> key. Given a
+  request for a processor capacity reserve, the reserve agent either
+  constructs the requested reserve and returns a schedule key to it,
+  or indicates that the reserve cannot be constructed.  The reserve
+  agent in turn makes use of the primitive kernel reserve mechanism to
+  support the schedules it issues.
+  <p> Certain system processes, including the login agent and the
+  prime space bank, run under a pre-allocated reserve.  This reserve
+  grants 5ms out of every 200ms, and is generally underutilized.  The
+  purpose of this reserve is to ensure that an administrator desiring
+  to log in to the system will be able to do so.  <br clear=left>
+  <p> The current kernel implementation of reserves is based on a
+  fixed-priority mechanism.  This strategy was easy to implement, and
+  allows up to 69% of the total processing capacity to be allocated to
+  reserved tasks. While this should be be sufficient for the programs
+  we currently anticipate, future implementations may switch to
+  dynamic reprioritization using an earliest deadline first (EDF)
+  algorithm.
+  <h4>Priorities</h4>
+  <p>In addition to the capacity reserve mechanism, the EROS kernel
+  implements a conventional priority scheduler.  A process may run
+  under a reserve, under a given priority, or both.  Processes
+  entitled to time under a reserve are dispatched in preference to
+  priority based execution.  Within a priority level, processes are
+  dispatched in round-robin fashion according to a system-defined
+  quanta.  In all current implementations, the priority scheduling
+  quanta is approximately 10 ms.  The accuracy of quanta expiration is
+  subject to the limits of the underlying hardware.
+  <p> EROS provides 16 priority levels.  The conventional
+  interpretation of these priorities is:
+  <ul>
+    <table width="85%">
+      <tr>
+	<th align=left>Value</th>
+	<th align=left>Name</th>
+	<th align=left>Description</th>
+      </tr>
+      <tr valign=top>
+	<td>16</td>
+	<td>High</td>
+	<td>Process will run in preference to all lower priority
+	  processes.</td>
+      </tr>
+      <tr valign=top>
+	<td>8</td>
+	<td>Normal</td>
+	<td>The priority level assigned to most interactive processes.</td>
+      </tr>
+      <tr valign=top>
+	<td>0</td>
+	<td>Idle</td>
+	<td>Process will run only when there is nothing better to do.</td>
+      </tr>
+    </table>
+  </ul>
+  <p> A schedule key conveying the authority to run at a given
+  priority conveys the authority to fabricate schedule keys conveying
+  lesser or equal priority.  Processes with access to their own
+  schedule key are thereby able to construct other processes having
+  lesser priority.
+  <hr>
+  <h4>References</h4>
+  <table width="85%">
+    <tr valign=top>
+      <td><a label="mercer">[Mercer93]</a></td>
+      <td>Clifford W. Mercer, Stefan Savage,
+	and Hideyuki Tokuda. ``Processor Capacity Reserves: An
+	Abstraction for Managing Processor Usage,'' <em>Proceedings of
+	the Fourth Workshop on Workstation Operating Systems
+	(WWOS-IV)</em>, October 1993</td>
+    </tr>
+  </table>
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

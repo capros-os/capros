@@ -1,0 +1,373 @@
+<HTML>
+<HEAD>
+<TITLE>What's New About EROS?</TITLE>
+</HEAD>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <H1>EROS: A Novel Combination </H1>
+</center>
+<IMG src="../img/cupid1.gif" align=left>
+<p> EROS combines an unusual collection of facilities into a single
+package, hopefully in a novel way.  Each of these faclities is, in our
+view, essential to providing scalable reliability, and all of them
+have appeared in prior systems.  No prior system, however, has
+integrated this particular combination of features in quite the same
+way.
+<P> Architecturally, the EROS system is most closely descended from an
+earlier system known as KeyKOS.  We maintain a <A
+HREF="http://www.cis.upenn.edu/~KeyKOS">KeyKOS Home Page</A>
+containing a variety of public KeyKOS documents.
+<p> The key features of the EROS system are:
+<ul>
+<table>
+  <tr valign=top>
+    <td>
+      <em><a href="#capabilities">Pure Capability Architecture</a></em>
+    </td>
+    <td>
+      EROS is a pure capability system.  Authority in the system is
+      conveyed exclusivly by secure capabilities, down to the
+      granularity of individual pages.
+    </td>
+  </tr>
+  <tr valign=top>
+    <td>
+      <em><a href="#persistence">Orthogonal Global Persistence</a></em>
+    </td>
+    <td>
+      All user state, including both data and running programs, are
+      transparently saved on a periodic basis.  In the event of system
+      failure processes are resumed as of the last checkpoint.  No
+      special action or programming on the part of the application is
+      required.
+    </td>
+  </tr>
+  <tr valign=top>
+    <td>
+      <em><a href="#threads">Kernel Threads</a></em>
+    </td>
+    <td>
+      The EROS kernel itself is implemented using multiple kernel-mode
+      threads.  This improves the performance of EROS drivers, makes
+      them simpler to code, and greatly simplifies the design of the
+      kernel.  In addition, it enables selected kernel functionality
+      to be preempted by higher priority user activities.
+    </td>
+  </tr>
+  <!--
+  <tr valign=top>
+    <td>
+      <em><a href="#preemption">Preemptive Scheduling</a></em>
+    </td>
+    <td>
+      EROS implements a high performance context switching facility
+      supported by a preemptive scheduler.  This scheduler controls
+      both user and kernel threads, and is suitable for soft real-time
+      applications. The EROS scheduler operates at a granularity of 2 ms. 
+    </td>
+  </tr>
+  -->
+  <tr valign=top>
+    <td>
+      <em><a href="#security">Security</a></em>
+    </td>
+    <td>
+      Because EROS processes are persistent, processes can hold
+      authorities in their own right rather than inheriting them from
+      the user.  This enables a rich variety of options for security
+      and access control that are impossible in systems lacking
+      persistent processes.
+    </td>
+  </tr>
+  <tr valign=top>
+    <td>
+      <em><a href="#stateless">"Stateless" Supervisor</a></em>
+    </td>
+    <td>
+      While the EROS kernel caches user state in a variety of ways for
+      the sake of performance, essentially all of the state maintained
+      by the kernel is derived from user-provided information.  Only
+      two pieces of kernel state are saved in a persistent snapshot:
+      the list of running threads and the directory of objects in the
+      checkpoint log.
+    </td>
+  </tr>
+  <tr valign=top>
+    <td>
+      <em><a href="#deadlock-free">Deadlock-Free Supervisor</a></em>
+    </td>
+    <td>
+      fix: fill this in.
+    </td>
+  </tr>
+  <tr valign=top>
+    <td>
+      <em><a href="#size">Minimal Kernel</a></em>
+    </td>
+    <td>
+      The EROS kernel contains relatively little code.  The current
+      (incomplete) system is 24.3k of binary code.  The final,
+      non-distributed kernel is expected to weigh in at 50k to 60k on
+      completion.  The latter number includes critical drivers and the
+      persistence manager.  No size tuning has been done.
+    </td>
+  </tr>
+  <tr valign=top>
+    <td>
+      <em><a href="#distribution">Distribution</a></em>
+    </td>
+    <td>
+      EROS provides all of these facilities, including orthogonal
+      persistence, across a cluster of machines.
+    </td>
+  </tr>
+</table>
+</ul>
+<p> Each of these issues is discussed in greater detail in the
+sections below.
+<h1>1. <a name="capabilities">Pure Capability Architecture</a></h1>
+<p> EROS is a pure capability system.  A capability uniquely
+identifies an object and a set of access rights.  Processes holding a
+capability can perform the operations permitted by those access rights
+on the named object.  Holding a capability is a <em>necessary and
+sufficient</em> condition for accessing the associated object with the
+authority granted by that capability.  There is no other way to
+perform operations on an object.
+<p> One advantage to the capability approach is that the EROS kernel
+does not need to support any notion of user identity.  The login agent
+hands each user their initial authorities, from which they can access
+whatever objects are (transitively) reachable.
+<p> Most capabilities can be <em>rescinded</em>.  For example, a
+process holding access to a terminal port loses its authority on that
+port each time the system is restarted.  This is necessary to ensure
+that connections are re-established when appropriate.
+<p> A common confusion about capabilities is that they are
+incompatible with more conventional protection models.  While the EROS
+kernel knows nothing about capabilities, user domains (processes) are
+free to implement whatever authentication mechanisms they wish.  The
+EROS unix emulator, for example, implements the customary unix
+semantics based on user identity.
+<h1>2. <a name="persistence">Orthogonal Global Persistence</a></h1>
+<p> The basic idea of orthogonal global persistence is quite simple:
+on a periodic basis, or when requested by an authorized application, a
+<em>consistent snapshot</em> of the entire system state is taken.
+This consistent snapshot includes the state of all running programs,
+the contents of main memory, and any necessary supporting data
+structures.  
+<p> <em>Global</em> persistence means that the state of all processes
+is captured at one instant; in the event that the system is forced to
+recover from the snapshot, all applications are consistent with
+respect to each other.  Several research systems provide the ability
+to snapshot a single process.  EROS and a few others snapshot the
+entire system state.
+<p> <em>Orthogonal</em> persistence means that applications do not
+need to take any special action to be a consistent part of the
+snapshot.  The EROS unix emulator, for example, runs unmodified unix
+binaries.  When EROS performs a checkpoint, these programs are
+checkpointed without their ever being aware that a snapshot was
+taken.  Perhaps more important, no special action is needed by these
+applications to recover if the system fails.
+<p> EROS persistence is a kernel service.  While this makes the EROS
+kernel larger than non-persistent kernels such as QNX, non-persistent
+kernels do not provide a comparable means of transparent recovery.
+<p> A (true) story about keykos may provide some sense of the value of
+orthogonal persistence:
+<ul>
+  <p> At the 1990 uniforum vendor exhibition, key logic, inc. found
+  that their booth was next to the novell booth.  Novell, it seems,
+  had been bragging in their advertisements about their recovery
+  speed.  Being basically neighborly folks, the key logic team
+  suggested the following friendly challenge to the novell exhibitionists:
+  <em>let's both pull the plugs, and see who is up and running first.</em>
+  <p> Now one thing Novell is <em>not</em> is stupid. They refused.
+  <p> Somehow, the story of the challenge got around the exhibition
+  floor, and a crowd assembled.  Perhaps it was gremlins.  Never eager
+  to pass up an opportunity, the keykos staff happily spent the next
+  hour kicking their plug out of the wall.  Each time, the system
+  would come back within 30 seconds (15 of which were spent in the
+  bios prom, which was embarassing, but not really key logic's fault).
+  Each time key logic did this, more of the audience would give novell
+  a dubious look.
+  <p> Eventually, the novell folks couldn't take it anymore, and
+  gritting their teeth they carefully turned the power off on their
+  machine, hoping that nothing would go wrong.  As you might expect,
+  the machine successfully stopped running.  Very reliable.
+  <p> Having successfully stopped their machine, novell crossed their
+  fingers and turned the machine back on.  40 minutes later, they were
+  still checking their file systems.  Not a single useful program had
+  been started.
+  <p> Figuring they probably had made their point, and not wanting to
+  cause undeserved embarassment, the keykos folks stopped pulling the
+  plug after five or six recoveries.
+</ul>
+<p> In the end, the issue comes down to this.
+<p> Suppose you had <em>perfect</em> software and hardware (if you
+find some, be sure to let us know). Even so, your computer will fail
+four to five times a year due to random background radiation.
+<p> So when your computer fails, do you want to be told that all your
+files are intact and you can now resume your painstaking work (having
+lost your latest session), or would you rather have all of your
+windows, (complete with word processor, web browser, and solitaire)
+reappear with a few minutes lost work.  Take your pick.
+<h1>3. <a name="threads">Kernel Threads</a></h1>
+<p> The EROS kernel is multithreaded.  While this isn't obvious to an
+application user, it has several useful consequences to kernel and
+application developers:
+<ul>
+  <li> <em>Device drivers are greatly simplified.</em>  Conventional
+       designs make it difficult for device drivers to remember what
+       they were doing when they last executed.  By giving each
+       controller its own thread, such state is naturally preserved on
+       the stack.
+       <p> More important, the resulting source code is infinitely
+       more comprehensible. The core of colin mclean's floppy
+       controller driver fits on a single page, compared to roughly
+       three pages in the older (EROS93) kernel, which did not use
+       kernel threads.
+       <p>
+  <li> <em>Code size is reduced.</em>  Compared to the previous
+       generation of the EROS system (EROS93) at the same stage of
+       development, the current version has 30% fewer instructions
+       than the (12k savings).  Once the stack sizes on threads are
+       tuned, we expect that the corresponding threads will require a
+       total of 1.5k of stack space, so the overall memory footprint
+       has been reduced by 10.5k.  This savings comes in many parts,
+       including a simpler scheduling discipline, unified i/o
+       architecture for kernel and user tasks, and reduction in driver
+       size.
+       <p> In addition, reimplementing kernel tasks as first-class
+       threads shortened the interrupt path by approximately 5%.
+       <p>
+  <li> <em>Kernel activities are preemptible.</em> One challenge for
+       multimedia designers in conventional kernels is the inability
+       to defer kernel tasks.  this leads to difficult problems in
+       admission control and scheduling.
+       <p> Because EROS kernel tasks are scheduled using the same
+       scheduler as user tasks, it is possible for time-critical tasks
+       to run at higher priority than most parts of the kernel.
+       Examples of kernel services that can be selectively preempted
+       include:
+       <p> 
+       <ul>
+	 <li> Disk drivers,
+	 <li> Network drivers,
+	 <li> Checkpoint agent,
+	 <li> Core space ageing daemon (real-time domains will be
+	      pinned),
+	 <li> ... and so forth.
+       </ul>
+       <p> In fact, the only kernel services that are <em>not</em>
+       preemptible are key invocations, which are guaranteed (by
+       design) to involve predictable worst-case inter-yield latency.
+</ul>
+<p> The traditional objection to this of design has been the cost of
+context switches.  Context switch cost can be divided into three
+parts:
+<p> 
+<ol>
+  <li> Saving the old thread's register set (cheap).
+  <li> Switching to a new address space (very expensive).
+  <li> Loading the new thread's register set (cheap).
+</ol>
+<p> In spite of the apparent expense, threaded drivers offer a
+performance advantage over re-entrant drivers.  Each time it is
+entered, a re-entrant driver must check a series of conditions to
+determine the state of the hardware.  This typically requires tens of
+instructions.  By contrast, reloading the register set of the
+<strong>i486</strong> and <strong>pentium</strong> processors takes on
+the order of 10 cycles.  While less dramatic, an advantage still
+exists on processors with larger register sets
+(e.g. <strong>mips</strong>, <strong>sparc</strong>,
+<strong>alpha</strong>).
+<p> EROS avoids the cost of switching address spaces by running driver
+threads "parasitically."  Kernel threads run entirely within kernel
+space, and the EROS kernel is mapped into every process addess space
+at a common virtual address.  As a result, a context switch from a
+user thread to a kernel thread does not require an address space
+change.  Since the common case is that the same user thread is resumed
+when the kernel thread has completed, this is a crucial optimization.
+<!--
+<h1><a name="preemption">Preemptive Scheduling</a></h1>
+<p>
+-->
+<h1>4. <a name="security">Security</a></h1>
+<p> Security experts worry greatly about <em>confinment</em>.
+Confinement is the process of making sure that information does not
+leak to unauthorized users.
+<p> While confinement remains a crucial problem in secure and
+mission-critical applications, the confinement problem is not
+currently very important.  The on-going fall in hardware prices,
+coupled with the shift to client-server technology, has made this
+problem fairly easy to solve.  To build a secure server, buy a
+dedicated machine, turn off all network services except the one you
+intend to run, and let that service performs its own authorization.
+<p> Given this approach, the remaining security hazards come from
+three sources:
+<p> 
+<ol>
+  <li> Hardware bugs, some of which cannot be corrected by software.
+  <li> Implementation bugs, such as failure to check input buffer lengths.
+  <li> Misused authority, where a program operating with special
+       privilege is made to use that privilege at an inappropriate time.
+</ol>
+<p> Hardware bugs present important difficulties that have received
+inadequate attention.  Implementation bugs can usually be located by
+suitable quality assurance procedures, rapidly isolatable, and easily
+fixed.  Misused authority errors are extremely subtle, take a long
+time to locate, and sometimes require redesign of the software.  A
+clear example of a misused authority problem is presented in <a
+href="http://www.cis.upenn.edu:80/~KeyKOS/ConfusedDeputy.html"><em>The
+Confused Deputy</em></a>.
+<p> Because EROS domains (processes) are first-class objects, they are
+able to hold capabilities that are independent of the user's
+capabilities.  EROS has no equivalent of the UNIX <em>superuser</em>
+authority.  Capabilities refer to a specific object, so there is
+little risk of abuse in a typically-designed domain.  The EROS
+equivalent to <strong>sendmail</strong>, for example, holds specific
+authorities for mail boxes and the sendmail configuration files.  No
+matter how badly implemented <strong>sendmail</strong> may be, it is
+provably <em>impossible</em> for it to modify any other objects in the
+system.
+<h2>4.1. The Renaissance of Confinement</h2>
+<p> While confinement is not a terribly active problem in general
+computing today, we are moving inevitably to a world in which it is a
+vital concern.  Today's example is information services, which are
+profitable only if they can control what you access.  
+<p> In the next few years, however, we expect to see a rise in
+<em>algorithm services</em>.  Where an information services provides
+access to a data set, an algorithm service runs a program on demand,
+possibly on your data, but more likely on third party data.
+<p> As an example, consider an investment advisory program.  You (the
+user) propose a set of investments with buy and sell dates, and the
+program makes a prediction as to the expected profit from the
+transaction.  There are two important privacy issues in such a
+transaction:
+<p> 
+<ul>
+  <li> You think you have a hot idea, and you don't want anyone
+       else cashing in on your insight.  In particular, you want to
+       know that the prediction program is not comparing your proposed
+       strategies to everyone else's proposed strategies to benefit
+       the financial advisor.
+       <p>
+  <li> The financial advisor thinks they have a hot market model, and
+       they don't want you to be able to get your hands on it.
+</ul>
+<p> Neither side is willing to trust the other with their proprietary
+information, but both sides wish to engage in the transaction.  The
+EROS <strong>escrow agent</strong> mechanism provides a way to do this
+that guarantees security to both sides.
+<p> 
+<h1>5. <a name="stateless">Stateless Supervisor</a></h1>
+<p> <IMG src="../img/construction.gif" align=top> Forthcoming.
+<h1>6. <a name="deadlock-free">Deadlock-Free Supervisor</a></h1>
+<p> <IMG src="../img/construction.gif" align=top> Forthcoming.
+<H1>7. <a name="small">A Small Kernel</a></h1>
+<p> <IMG src="../img/construction.gif" align=top> Forthcoming.
+<H1>8. <a name="distribution">Distribution</a></h1>
+<p> <IMG src="../img/construction.gif" align=top> Forthcoming.
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>

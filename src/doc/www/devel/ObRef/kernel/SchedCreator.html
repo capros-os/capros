@@ -1,0 +1,214 @@
+<html>
+<head>
+<title>EOR: Schedule Creator</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Kernel.html">Kernel Objects</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Kernel Objects</H2>
+  </div>
+  <h2>Schedule Creator</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> The <strong>Schedule Creator</strong> key conveys the authority
+  to create and modify processor reserves.  Its holder is able to
+  alter the scheduling attributes of <em>any</em> process, and is
+  necessarily part of the trusted computing base.
+  <p> A more complete discussion of the EROS scheduling mechanism can
+  be found on the <a href="../concepts/Scheduling.html">Scheduling</a>
+  page of the concepts section.
+  <p> The schedule creator key is not rescindable.
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the key.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       <em>AKT_SchedCre</em>: 
+	       Key is a schedule creator key
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Get Max Reserve</strong> (OC = 1)
+    <dd>
+	 <p> Returns the number of kernel reserve structures.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right><strong>W</strong></td>
+	     <td>The number of reserves supported by this kernel
+	       image.  Reserves 0..15 are assumed to correspond to
+	       processes having no capacity reserve running at
+	       priorities 0 through 15 respectively.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success.  The returned offset is the offset of the
+	       object within the range.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Get Reserve Information</strong> (OC = 3)
+    <dd>
+	 <p> Retrieves the active and inactive priorities for this
+	 schedule.
+	 <p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right><strong>W</strong></td>
+	     <td>The reserve to be fetched.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=7>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right><strong>W</strong></td>
+	     <td>The index of the reserve.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>L</strong></td>
+	     <td>The period of this reserve, in milliseconds.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>L</strong></td>
+	     <td>The duration of this reserve, in milliseconds.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>L</strong></td>
+	     <td>The scheduling quanta of this reserve, in milliseconds.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>L</strong></td>
+	     <td>The start time for this reserve, in milliseconds.</td> 
+	   </tr>
+	   <tr>
+	     <td align=right><strong>I</strong></td>
+	     <td>The priority under which threads should run when
+	       this reserve is active.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>I</strong></td>
+	     <td>The priority under which threads should run when
+	       this reserve is inactive.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success.  The returned record contains information
+	       concerning this reserve.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <em>RC_RequestError</em>
+	     </td>
+	     <td>The specified reserve index exceeded the number of
+	       reserves supported by this kernel.
+	     </td>
+	   </tr>
+	 </table>
+    <dt> <strong>Set Reserve Information</strong> (OC = 4)
+    <dd>
+	 <p> Sets the active and inactive priorities for this
+	 schedule.
+	 <p> 
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=7>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right><strong>W</strong></td>
+	     <td>The index of the reserve to be modified.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>L</strong></td>
+	     <td>The period of this reserve, in milliseconds.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>L</strong></td>
+	     <td>The duration of this reserve, in milliseconds.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>L</strong></td>
+	     <td>The scheduling quanta of this reserve, in milliseconds.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>L</strong></td>
+	     <td>The start time for this reserve, in milliseconds.</td> 
+	   </tr>
+	   <tr>
+	     <td align=right><strong>I</strong></td>
+	     <td>The priority under which threads should run when
+	       this reserve is active.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>I</strong></td>
+	     <td>The priority under which threads should run when
+	       this reserve is inactive.</td> 
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success.  The provided values have been set.  The
+	       reserve is deactivated.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       <em>RC_RequestError</em>
+	     </td>
+	     <td>The specified reserve index exceeded the number of
+	       reserves supported by this kernel, or corresponded to a
+	       strict priority reserve, or the specified active
+	       priority was less than 16.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

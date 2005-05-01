@@ -1,0 +1,710 @@
+<html>
+<head>
+  <!-- following is a placeholder until I get a real style sheet -->
+  <!-- together -->
+  <style>
+  <!--
+    H3 {
+      font-weight: bold;
+      font-style: italic;
+    }
+    H4 {
+      font-weight: bold;
+      text-decoration: underline;
+    }
+  -->
+  </style>
+  <title>ECG: mkimage Reference</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../eros.html"><em>EROS Web</em></a> 
+      <br>&nbsp;
+      <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Cross Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title><tt>mkimage</tt> Reference</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <h2>Name</h2>
+      <p><b>mkimage</b> -- make new EROS volume</p>
+      <h2>Synopsis</h2>
+      <table>
+	<tr>
+	  <td valign=top><b>mkimage</b></td>
+	  <td valign=top>-o image [-d] [-v] [-nostdinc] [-nostddef] [-I
+	    directory] [-D<em>name</em>[=<em>definition</em>]]
+	    [-A<em>predicate[{value}]</em>] description_file
+	  </td>
+	</tr>
+      </table>
+      <h2>Description</h2> <p> The <b>mkimage</b> utility creates a
+      new EROS <b>image</b> file based on the description specified in
+      <b>description_file</b>.
+      </p>
+      <p>
+      Most of the input to <b>mkimage</b> comes from the
+      description_file file, which describes the image be
+      created.  The description_file is preprocessed using the
+      C Preprocessor (<b>cpp</b>); in consequence, C-style comments
+      are supported in the input description file.  Of the options
+      listed, only the <b>-v</b>, <b>-d</b>, <b>-nostddef</b>,
+      and <b>-o</b> options are
+      processed by <b>mkimage</b>.  All other options are passed
+      unmodified to <b>cpp</b>, and <b>description_file</b> is passed
+      as input to <b>cpp</b>.  The <b>mkimage</b> utility takes its
+      commands from the output of <b>cpp</b>.
+      </p>
+      <p>
+      The <b>-v</b> option ("verbose") prints the symbol table after
+      every statement is processed.
+      </p>
+      <p>
+      The <b>-d</b> option prints parse information for each statement.
+      </p>
+      <p>
+      The <b>-nostddef</b> option is passed to <b>cpp</b>.
+      It would also disable the automatic definition of symbols
+      by <b>mkimage</b>, if there were any.
+      </p>
+      <p>
+      Statements in the description file are semicolon-terminated, and
+      consist of directives, assignments, or diagnostics.
+      </p>
+      <p>
+      The balance of this page describes each statement in greater
+      detail.  <b>mkimage</b> grew in an ad-hoc fashion.  While its
+      facilities for capability manipulation are fairly well
+      regularized, its commands for register manipulation and
+      expression processing could be significantly enhanced.
+      </p>
+      <h3>Directives</h3>
+      <p>
+      A <b>mkimage</b> description file always begins with a
+      declaration of the processor architecture.  This tells mkimage
+      how processes are to be formed and what the register names are
+      for the active architecture.
+      </p>
+      <dl>
+	<dt>
+	     <b>arch</b> <i>keyword</i>
+	</dt>
+	<dd>
+	     <p>
+	     Declares the active processor architecture.  This tells
+	     mkimage how processes are to be formed and what the
+	     register names are for the active architecture.  The
+	     <b>arch</b> declaration should be the first declaration
+	     of the file, and should appear prior to the inclusion of
+	     domain image map files.
+	     </p>
+	     <p>
+	     <i>Keyword</i> is one of:
+	     </p>
+	     <center>
+	       <table width=85%>
+		 <tr>
+		   <th valign=top align=left>Keyword</th>
+		   <th valign=top align=left>Architecture</th>
+		 </tr>
+		 <tr>
+		   <td valign=top><b>i486</b></td>
+		   <td valign=top>Intel 486 and later architectures</td>
+		 </tr>
+	       </table>
+	     </center>
+	     <p>
+	     Other architectures are planned, and will be added to this list
+	     as they are implemented.
+	     </p>
+	</dd>
+	<dt>
+	     <b>hide</b> <i>name</i>
+	</dt>
+	<dd>
+	     <p>
+	     Removes <i>name</i> from the symbol table.  Used to
+	     minimize the number of symbols that are exported from an
+	     image map file or result from a macro expansion that
+	     required temporary names.
+	     </p>
+	</dd>
+	<dt>
+	     <b>run</b> <i>name</i>
+	</dt>
+	<dd>
+	     <p>
+	     Indicates that <i>name</i>, which must be a domain or
+	     start key, should be an initially running domain.
+	     </p>
+	</dd>
+      </dl>
+
+      <h3>Key Expressions</h3>
+      <p>
+      Key expressions include both basic key specification and
+      transformations on existing keys.
+      </p>
+      <dl>
+	<dt>
+	     <b>clone</b> <i>node</i>
+	</dt>
+	<dd>
+	     <p>
+	     Returns a copy (in a new node) of <i>node</i>, which can
+	     be either a name or a slot. The returned key to the new
+	     node has exactly the same type, subtype, lss, and so
+	     forth as the original.
+	     </p>
+	</dd>
+	<dt>
+	     <b>empty segment with</b> <i>number</i> <b>pages</b>
+	     <br><b>empty segtree with</b> <i>number</i> <b>pages</b>
+	</dt>
+	<dd>
+	     <p>
+	     Creates a segment containing slots for <i>number</i>
+	     pages (but no actual pages) at consecutive addresses.  If
+	     the <b>segment</b> form is used a segment key is
+	     returned.  Otherwise a node key is returned.
+	     </p>
+	     <p>
+	     This fabrication is useful for domains that will
+	     automatically populate a segment tree but need to know
+	     that all required nodes for the tree are preallocated --
+	     most notably, the space bank.
+	     </p>
+	</dd>
+	<dt>
+	     <i>key</i> <b>as</b> <i>qualifier</i> <b>segment key</b>
+	     <br><i>key</i> <b>as</b> <i>qualifier</i> <b>node key</b>
+	</dt>
+	<dd>
+	     <p>
+	     Returns a copy of <i>key</i> with the specified type and
+	     access restrictions.
+	     </p>
+	</dd>
+	<dt>
+	     <i>key</i> <b>with</b> <i>qualifier</i> <b>page at</b>
+	     <i>offset</i>
+	     <br><i>key</i> <b>with</b> <i>qualifier</i> <b>subseg</b>
+	     <i>segkey</i> <b>at</b>
+	     <i>offset</i>
+	</dt>
+	<dd>
+	     <p>
+	     Inserts a new page (subsegment) with the specified access
+	     restrictions at <i>offset</i> within the segment tree
+	     named by <i>key</i>.
+	     </p>
+	</dd>
+	<dt>
+	     <i>key</i> <b>with blss</b> <i>blss</i>
+	</dt>
+	<dd>
+	     <p>
+	     Returns a copy of <i>key</i> with the specified <i>blss</i>.
+	     </p>
+	</dd>
+	<dt>
+	     <b>misc</b> <i>name</i>
+	</dt>
+	<dt>
+	     <i>name</i>
+	</dt>
+	<dd>
+	     <p>
+	     Returns the key previously created by a name assignment
+	     to <i>name</i>
+	     </p>
+	</dd>
+	<dd>
+	     <p>
+	     A miscellaneous key.  The valid miscellaneous key names
+	     are listed in
+	     <tt>eros/src/base/sys/disk/MiscKey.def</tt>. 
+	     </p>
+	</dd>
+	<dt>
+	     <b>new process</b>
+	<dd>
+	     <p>
+	     Fabricates a new procss according to the rules for the
+	     current architecture and returns a key to it.
+	     </p>
+	</dd>
+	<dt>
+	     <i>process</i> <b>with constituents</b>
+	<dd>
+	     <p>
+		  Adds a constituents node to a pre-existing
+		  process. The result of this expression is the
+		  process key.
+	     </p>
+	</dd>
+	<dt>
+	     <b>new node</b>
+	     <br><b>new</b> <i>qualifier</i> <b>node</b>
+	<dd>
+	     <p>
+	     Fabricates a new node and returns a key to it.  The
+	     qualifiers <b>nc</b> (no-call), <b>ro</b> (read-only),
+	     and <b>weak</b> (weak) may be used to restrict the
+	     authority of the returned key.  Any, all, or none of
+	     these qualifiers may be used in any order.
+	     </p>
+	</dd>
+	<dt>
+	     <b>new page</b>
+	     <br><b>new</b> <i>qualifier</i> <b>page</b>
+	<dd>
+	     <p>
+	     Fabricates a new page and returns a key to it.  The
+	     qualifiers <b>nc</b> (no-call), <b>ro</b> (read-only),
+	     and <b>weak</b> (weak) may be used to restrict the
+	     authority of the returned key.  Any, all, or none of
+	     these qualifiers may be used in any order.
+	     </p>
+	</dd>
+	<dt>
+	     <b>null</b>
+	</dt>
+	<dd>
+	     <p>
+	     The zero number key. If you are using this
+	     to convey no authority, you should switch to the void key
+	     (below).
+	     </p>
+	</dd>
+	<dt>
+	     <b>number</b> ( <i>value</i> )
+	</dt>
+	<dd>
+	     <p>
+	     A number key with the designated value. 
+	     The value is a 32-bit unsigned integer.
+             <p> A number key actually holds three integers.
+                 The second and third integers are zero.
+	     </p>
+	</dd>
+	<dt>
+	     <b>number</b> ( <i>value1, value2, value3</i> )
+	</dt>
+	<dd>
+	     <p>
+	     A number key with the three designated values. 
+	     The values are 32-bit unsigned integers.
+	     </p>
+	</dd>
+	<dt>
+	     <b>number</b> ( "<i>string</i>" )
+	</dt>
+	<dd>
+	     <p>
+	     A number key with three integers containing the
+             string in little-endian form. 
+             In other words, the first character is in the low 8 bits
+             of the first word; the second character is in the next
+             higher 8 bits, the fifth character is in the low 8 bits
+             of the second word, etc. Any characters beyond 12 are ignored.
+             The string is padded with zero bytes if necessary. 
+	     </p>
+	</dd>
+	<dt>
+	     <b>program segment</b> "<i>filename</i>"
+	     <br><b>program segtree</b> "<i>filename</i>"
+	     <br><b>small program</b> "<i>filename</i>"
+	</dt>
+	<dd>
+	     <p>
+	     Fabricates a new segment tree containing the <em>load image</em>
+	     of the executable <i>file</i>.  If the <b>segment</b>
+	     form is used a segment key is returned.  Otherwise a node
+	     key is returned.  If the <b>small</b> variant is
+	     used, the returned key is a node key suitable for use
+	     with the small program runtime.
+	     </p>
+	</dd>
+	<dt>
+	     <b>range</b> ( <i>lo_oid</i> : <i>hi_oid</i> )
+	</dt>
+	<dd>
+	     <p>
+	     A range key granting authority over the range
+	     [<i>lo_oid</i>,<i>hi_oid</i>).
+	     </p>
+	</dd>
+	<dt>
+	     <b>wrapper with blss</b> <i>blss</i>
+	</dt>
+	<dd>
+	     <p>
+	     Fabricates a new wrapper with the given <i>blss</i>.
+	     </p>
+	</dd>
+	<dt>
+	     <b>segment</b> "<i>filename</i>"
+	     <br><b>segtree</b> "<i>filename</i>"
+	</dt>
+	<dd>
+	     <p>
+	     Fabricates a new segment tree containing the content of
+	     the named <i>file</i>.  If the <b>segment</b> form is
+	     used a segment key is returned.  Otherwise a node key is
+	     returned.
+	     </p>
+	</dd>
+	<dt>
+	     <b>start</b> <i>domain keydata</i>
+	<dd>
+	     <p>
+	     Fabricates a start key to the designated <i>domain</i>
+	     with the designated <i>keydata</i> value.
+	     </p>
+	</dd>
+	<dt>
+	     <b>symbol</b> "<i>filename</i>" <i>name</i>
+	</dt>
+	<dd>
+	     <p>
+	     Extracts the load address of the symbol <i>name</i>
+	     from the binary <i>filename</i>, and returns it as a
+	     number key suitable for assignment to a domain program
+	     counter.  While the most commonly used <i>name</i> is
+	     <tt>_start</tt>, other names can be used to provide
+	     multiple entry points into a single binary file.
+	     </p>
+	</dd>
+	<dt>
+	     <b>void</b>
+	</dt>
+	<dd>
+	     <p>
+	     The void key (a key conveying no authority).
+	     </p>
+	</dd>
+	<dt>
+	     <b>volsize</b>
+	</dt>
+	<dd>
+	     <p>
+	     A node key designating the reserved <i>volsize</i> node.
+	     The <b>mkimage</b> utility populates the volsize node
+	     with information concerning the total number of nodes and
+	     pages that are used in the image.  This information is
+	     used by the spacebank at initialization time to avoid
+	     reallocating these objects.
+	     </p>
+	</dd>
+	<dt>
+	     <b>zero segment with</b> <i>number</i> <b>pages</b>
+	     <br><b>zero segtree with</b> <i>number</i> <b>pages</b>
+	</dt>
+	<dd>
+	     <p>
+	     Creates a segment containing <i>number</i> pages at
+	     consecutive addresses.  Note that the newly created
+	     segment uses dedicated pages, which is not the same as
+	     using the primordial zero segment of the same size.
+	     </p>
+	     <p>
+	     If the <b>segment</b> form is
+	     used a segment key is returned.  Otherwise a node key is
+	     returned.
+	     </p>
+	</dd>
+      </dl>
+
+      <h3>Assignments</h3>
+      <p>
+      Assignments take the form:
+      </p>
+      <ul>
+	<em>name</em> = </b><em>qualified_key</em>;
+	<br><em>slot</em> = </b><em>qualified_key</em>;
+      </ul>
+      <p>
+      The first form creates a new directory (symbol table) entry, and
+      binds it to the value of <i>qualified_key</i>.  The second
+      traverses existing objects to find the designated slot, and
+      replaces the current key in the slot with <i>qualified_key</i>.
+      </p>
+      <h4>Simple Slot Designation</h4>
+      <p>
+      In its simplest form, a slot is designated by starting from any
+      key that designates a node and supplying slot indexes using
+      C-style array syntax:
+      </p>
+      <ul>
+	<b>nodekey[5]</b> = <i>key</i>
+      </ul>
+      <p>
+      Sets the fifth slot of the node named by <tt>nodekey</tt> to
+      <i>key</i>.
+      </p>
+      <p>
+      Array syntax can be applied recursively, as in:
+      </p>
+      <ul>
+	<b>nodekey[5][10]</b> = <i>key</i>
+      </ul>
+      <p>
+      Except for the last, all slots traversed in this fasion must
+      contain keys that designate a node.
+      </p>
+      <h4>Domain Slot Designation</h4>
+      <p>
+      Certain slots in the domain root are commonly set in image
+      description files, and it is useful to be able to check that the
+      assigned key is of an appropriate type.  For this reason,
+      <b>mkimage</b> provides a special syntax for setting such slots.
+      </p>
+      <p>
+      In all of the examples below, <i>Node</i> may be either a symbol
+      name designating the domain root node or a slot expression (as
+      described above) designating a domain root node.
+      </p>
+	<dt>
+	     <i>node</i> <b>space</b> = <i>segkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the address space slot of the designated <i>node</i>
+	     to <i>segkey</i>, which must be a node, segment, or page
+	     key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>pc</b> = <i>number_key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the program counter (resp. stack pointer) slot of
+	     the designated <i>node</i> to <i>number_key</i>, which
+	     must be a valid number key.
+	     </p>
+	     <p>
+	     Since the two slots are the same, overwriting one has the
+	     effect of clobbering the other.  For this reason, typical
+	     usage is to set the program counter slot in this fashion
+	     and then overwrite the stack pointer <em>field</em> of
+	     this slot using the numeric constant form (below).
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>pc</b> = <i>number</i>
+	     <br><i>node</i> <b>sp</b> = <i>number</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the program counter (resp. stack pointer)
+	     <em>field</em> of the program counter/stack pointer slot
+	     to the value of <em>number</em>, which is a constant.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>schedule</b> = <i>schedkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the schedule slot of the designated <i>node</i> to
+	     <i>schedkey</i>, which must be a valid schedule key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>brand</b> = <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the brand slot of the designated <i>node</i> to
+	     <i>key</i>.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>process keeper</b> = <i>startkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the process keeper slot of the designated <i>node</i>
+	     to <i>startkey</i>, which must be a start or resume key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>segment keeper</b> = <i>startkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the segment keeper slot of the designated <i>node</i>
+	     to <i>startkey</i>, which must be a start or resume key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>background segment</b> = <i>segkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the background segment slot of the designated
+	     <i>node</i> to <i>segkey</i>, which must be a node,
+	     segment, or page key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>key reg</b> <i>n</i> = <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets key register <i>n</i> of the domain designated by
+	     <i>node</i> to <i>key</i>.
+	     </p>
+	</dd>
+	<dt>
+	     <i>node</i> <b>all slots</b> = <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets all of the slots of the node named by <i>segmode</i>
+	     to <i>key</i>.
+	     </p>
+	</dd>
+	<dt>
+	     <i>slot</i> |= <i>numberkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets <i>slot</i> to the bitwise OR of its current value
+	     and the value of <i>numberkey</i>.  <i>Slot</i> must
+	     already hold a number key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>domain</i> <b>reg</b> register = <i>hex_number</i>
+	</dt>
+	<dd>
+	     <p>
+	     Sets the value of the architecture-specific register
+	     <tt>register</tt> in the designated <i>domain</i> to
+	     <i>number</i>.  Rarely used, as register initialization
+	     is usually better accomplished from the domain source
+	     code.
+	     </p>
+	     <p>
+	     The restriction to hex values is to allow register length
+	     checking, and should be corrected.
+	     </p>
+	</dd>
+      </dl>
+
+      <h3>Diagnostics</h3>
+      <p>
+      To support debugging, <b>mkimage</b> supports a number of
+      diagnostic commands that can be used to print various
+      structures.
+      </p>
+      <dl>
+	<dt>
+	     <b>print</b> "<i>your string here</i>"
+	</dt>
+	<dd>
+	     <p>
+	     Prints the supplied string to <tt>stdout</tt>, followed
+	     by a newline.  Most commonly used to provide a reminder
+	     description of the subsequent print output.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print directory</b>
+	</dt>
+	<dd>
+	     <p>
+	     Prints the list of all currently assigned names and their
+	     associated keys (i.e. the symbol table).  Note that the
+	     directory does not include names which have been hidden
+	     by a <b>hide</b> directive prior to the <b>print</b>
+	     statement.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print</b> <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Prints the specified <i>key</i>.  See below for a
+	     description of key syntax.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print segment</b> <i>segkey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Recursively prints the segment tree whose root is
+	     <i>segkey</i>.  <i>Segkey</i> must be a memory key (node,
+	     segment, or page).  For brevity, slots in the segment
+	     tree containing zero number keys are elided from the
+	     output.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print page</b> <i>pagekey</i>
+	</dt>
+	<dd>
+	     <p>
+	     Prints the content of the page named by <i>pagekey</i>,
+	     which  must be a page key.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print node</b> <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Prints the content of the node named by <i>key</i>, which
+	     must designate a node.  Segment, process, and gate keys
+	     are deemed to designate a node.
+	     </p>
+	</dd>
+	<dt>
+	     <b>print domain</b> <i>key</i>
+	</dt>
+	<dd>
+	     <p>
+	     Prints the domain rooted at <i>key</i>, which must
+	     designate a node.  Segment, process, and gate keys are
+	     deemed to designate a node.
+	     </p>
+	     <p>
+	     Note that this command makes no attempt to verify that
+	     <i>key</i> names a domain.  Using <b>print domain</b> on
+	     other structures may generate confusing output.
+	     </p>
+	</dd>
+      </dl>
+
+      <hr>
+      <em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights reserved.  For terms of 
+      redistribution, see the 
+      <a href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+</body>
+</html>

@@ -1,0 +1,289 @@
+<html>
+<head>
+<link rel=STYLESHEET HREF="../CSS/white-paper.css" type="text/css">
+<title>Towards Reliable Software Systems</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<H1 class=title>Towards Reliable Software Systems</h1>
+<p class=author><em class=author>Jonathan S. Shapiro</em></p>
+<p class=initial>
+One question about the EROS project that comes up again and again is:
+``Why build yet <em>another</em> operating system?''  It is perhaps
+more useful to ask the question in a slightly different way: ``What is
+<em>missing</em> in current operating systems and how does EROS
+address those shortcomings?''
+</p>
+<p>
+Popular general-purpose operating systems suffer from a number of
+shortcomings:
+</p>
+<ul>
+  <li> <p>They do not enforce fault containment or recovery.</p>
+  </li>
+  <li> <p>They do not support reusable, secure components.</p>
+  </li>
+  <li> <p>They are not designed for high-reliability.</p>
+  </li>
+  <li> <p>They do not support 24x7 operation.</p>
+  </li>
+  <li> <p>The mechanisms and policies that they <em>do</em> provide
+       cannot be adapted to the needs of specific applications.</p>
+  </li>
+</ul>
+<p class=continue>
+Previous attempts to provide all of these facilities within a single
+system have failed for reasons of low performance.
+</p>
+<p>
+EROS, the Extremely Reliable Operating System, solves each of these
+problems.  This paper expands on each of these challenges and why it
+is important, describes some of the features of EROS that address
+these problems, and describes some performance results from the
+current EROS system.
+</p>
+<p>
+The EROS system is designed to run on all general-purposes
+microprocessors.  The current implementation of EROS, whose
+performance is described here, runs on the Intel Pentium
+and higher processors.</P>
+<h1>The Challenges</h1>
+<h2>Fault Containment</h2>
+<p class=initial>
+A complex system fails more often than a simple system.  The larger
+the system, the harder it becomes to locate and solve problems in the
+design and implementation of that system.  In software, I have always
+applied the <em>rule of five</em>: if you need more than four or five
+developers on a project, break the project into pieces.  Where a five
+person team can keep in constant communication about a project, a
+fifty person team cannot.
+</p>
+<p>
+The only solution that works today is to break the project into pieces
+that can be handled by five people.  These pieces can be developed --
+and hopefully tested -- independently and then merged into a single,
+complete system.  As long as the pieces are independent, the
+interfaces are well defined, and each piece is completely tested, the
+integration should proceed without difficulty.
+</p>
+<p>
+In practice, the pieces are not independent.  Current programming
+languages and tools do not <em>enforce</em> the interfaces between
+components.  Under the pressures of a short development cycle it is
+common for one component to make use of the internal structure of
+another.  Provided the design documents and tests are updated to
+reflect this new interdependency, this is actually good engineering
+practice.
+</p>
+<p>
+In addition, the pieces are not completely tested.  At some point,
+further testing yields diminishing returns.  Where you stop depends on
+your application, but most testing efforts do not attempt to find
+every last flaw -- they settle for verifying that the application
+produces correct outputs when given correct inputs.  Stray memory
+references, in particular, are difficult to catch with conventional
+approaches to testing.
+</p>
+<p>
+The end result is that the pieces do not integrate well.  Component
+"A" contains some small problem breaks component "B" which in turn
+reports bad results to component "C". Pretty soon your multimillion
+dollar satelite is blown to dust when the launch vehicle decides that
+it is off course and self destructs.
+</p>
+<p>
+What we want is a way to catch these errors quickly, and either halt
+the system before damage can ensue or replace the component with one
+that works.  This is called <em>fault containment and recovery</em>.
+While Tandem Computer has done very good work on fault detection with
+its nonstop family of operating systems, their approach requires
+complex programming practices.  General-purpose operating systems
+offer no way to detect or replace failed components.  Neither do
+alternative systems like Java.
+<p class=conclusion>
+<em>A new approach is needed for building recoverable software
+components in mission-critical systems.</em>
+</p>
+<h2>Reusable, Secure Components</h2>
+<p class=initial>
+The second problem in large software systems is <em>reuse</em>. The
+same functionality is typically needed by multiple modules.  For
+example, many will need a sorting routine or a list management
+package.  In many cases, these packages are best constructed as
+carefully-tested libraries.
+</p>
+<p>
+Frequently, however, the common functionality can be broken into a
+separate module that does not share data with its clients.  In such
+cases, it is better to place the functionality in a reusable component
+that can be accessed by many other subsystems.  A component is simply
+a subsystem that can have separate, isolated <em>instances</em>.
+These instances are known as <em>objects</em>.  Each object has its
+own copy of the subsystem code and its own, private data.  Just
+because two objects provide the same function (e.g. they are both list
+management modules) does not mean they can communicate with each
+other.
+</p>
+<p>
+Object security must take into account the use of the object.  One
+list management object may contain a list of telephone numbers while
+another may contain the system password list.  The security
+requirements for these lists are very different, but the code that
+implements them is the same.  On what basis, then, should the right to
+access information be controlled?
+</p>
+<p>
+Access control clearly cannot be based on the <em>component</em>.  Two objects
+based on the same component can serve different masters with different
+security needs.
+</p>
+<p>
+Equally, access cannot be based on the <em>user</em>.  One use of
+objects is to embody controls on how data can be accessed.  It may be
+perfectly okay for a user to access a database, but we may wish to
+ensure that the user does so via an object which guarantees database
+integrity.  Another example is password update: all users must have
+access to the password database to be able to change their password,
+but this access must be mediated by trusted code.
+</p>
+<p>
+Access control can only be based on the object itself.  To provide
+flexible security, every object must carry with it a list of the other
+objects (n.b. <em>not</em> components) that it is permitted to access.
+</p>
+<p class=conclusion>
+<em>Security needs to be based on</em> objects, <em>not users, applications, or
+subsystems.</em>
+</p>
+<h2>High Reliability</h2>
+<p class=initial>
+Some systems simply cannot to go down.  When a business or research
+project depends on a server being continuously available, loss of that
+machine can be catastrophic.
+</p>
+<p>
+There are two conventional measures of system reliability:
+</p>
+<ul>
+  <dl>
+    <dt><p><b>Mean Time Between Failures</b> (MTBF)</p></dt>
+	 <dl><p>Describes how long, on
+	   average, the system runs between failures.  In less formal terms:
+	   how often your machine goes down.</p></dl>
+    <dt><p><b>Mean Time to Recovery</b> (MTR)</p></dt>
+    <dd><p>Describes how long, on average, the system takes to
+	 recover <em>after</em> it fails. In less formal terms: how long
+	 to get back to work.</p></dd>
+       </dl>
+</ul>
+<H3>Measuring MTBF Correctly</H3>
+<p class=initial>
+The way to measure MTBF is when the system is under load.  Put it in
+the production environment, beat the heck out of it, and see how long
+it lasts.  Most real applications are not characterized by steady,
+predictable load.  There are sudden transients when load can increase
+instantly by 25% or even 50% of the normal load for very brief
+periods.  These sudden shifts place systems under stress, and are a
+very common source of failure in production environments.  Many
+published measurements of MTBF either do not measure a system that is
+under load (less common) or measure a system that has been under
+constant load (<em>very</em> common).
+</p>
+<p>
+Measured correctly, most operating systems today have mean time
+between failures measured in <em>weeks</em>.  For some applications,
+the MTBF must be measured in <em>years</em>.
+</p>
+<H3>Measuring MTR Correctly</H3>
+<p class=initial>
+Most measurements of MTR measure the time from when the system is
+turned on to the time you get a login prompt.  This is a misleading
+measurement.  As a customer, you don't care when the login prompt
+shows up.  You want to know how long it will take for your critical
+application to be up and running.  This involves both system recovery
+time and application recovery time.  How long does it take your
+application to get launched, reload it's information about the world,
+clean up from the system failure (if necessary) and be ready to talk
+to you?
+</p>
+<p>
+Measured correctly, most operating systems today have mean time to
+recovery values between 10 and 15 minutes if large amounts of disk are
+attached to the system.  The applications themselves then take several
+minutes to get restarted and recover.  For some applications, a total
+restart time measured in seconds is desirable.  It would be
+interesting to know how many million dollars a minute in transactions
+Chase Manhattan Bank looses when the VISA transaction system crashes.
+</p>
+<p class=conclusion>
+<em>Production systems need to get running quickly and</em> keep
+<em>running.  Time is money.</em>
+</p>
+<h2>24x7 Operation</h2>
+<p class=initial>
+Once a system is in production, the time inevitably comes when it must
+be updated.  If service cannot be disrupted, this update must happen
+in place.  Conventional operating systems provide inadequate
+compartmentalization to support this.
+</p>
+<p>
+<em>This needs expansion...</em>
+</p>
+<p class=conclusion>
+<em>On-the fly application update is never easy.  Lack of support
+can make it impossible.</em>
+</p>
+<h2>Application Policy Definition</h2>
+<p class=initial>
+Standards, such as POSIX, are a powerful tool.  They ensure that
+software written for one machine can be compiled and executed on a
+range of other machines, which protects your investment in that
+software.
+</p>
+<p>
+Standards, of necessity, provide a one-size-fits-all solution --
+especially in low-level system software.  POSIX, for example, ensures
+that all files look alike regardless of where they are stored.
+Databases are routinely forced to use the less standardized raw disk
+interface for the sake of performance.  Any given POSIX implementation
+defines a particular policy for paging and swapping.  That policy is a
+good choice for most applications, but mission-critical server
+software doesn't act like most applications.
+</p>
+<p>
+These particular examples -- disk management policies (file systems)
+and memory management policies -- can have a factor of <em>ten</em>
+impact on the performance of mission-critical software.  In some
+cases, a small and carefully considered abandonment of portability in
+a critical portion of the software system can eliminate or defer the
+need for a complete replacement of equipment.  When talking about a
+single desktop PC this is not very important.  When talking about a
+multimillion dollar server installation this can make a significant
+difference in a company's bottom line.
+</p>
+<p>
+Enabling production applications to modify or replace the default
+system policies when they become a bottleneck, or to impose direct
+control on those policies, is essential for large scale system
+construction.  At the same time, the mechanisms for controlling those
+policies should be cleanly separated from the software itself,
+allowing the new policy to be tuned without replacing the application.
+</p>
+<p>
+While policy controls have been exported to applications by a number
+of microkernels, these controls have never been used in a production
+setting.  In part this is because the systems were too different: when
+an entire application must be rewritten to take advantage of a single
+feature it is easier to upgrade to a faster machine.
+</p>
+<p class=conclusion>
+<em>Policy controls must exist, and must be easy to use, but they must
+be equally easy</em> not <em>to use</em>.
+</p>
+    <hr>
+    <p>
+      <em>Copyright 1999 by Jonathan Shapiro.  All rights reserved.
+	For terms of redistribution, see the <a
+	  href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </p>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

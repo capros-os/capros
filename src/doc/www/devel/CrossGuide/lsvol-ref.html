@@ -1,0 +1,204 @@
+<html>
+<head>
+  <title>ECG: lsvol Reference</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../eros.html"><em>EROS Web</em></a> 
+      <br>&nbsp;
+      <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Cross Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title><tt>lsvol</tt> Reference</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <h2>Name</h2>
+      <p><b>lsvol</b> -- list volume attributes</p>
+      <h2>Synopsis</h2>
+      <p><b>lsvol</b> [-h] [-d] [-r] [-c] volume</p>
+      <h2>Description</h2>
+      <p> The <b>lsvol</b> utility displays various attributes and
+      structures associated with a volume image.  If no options are
+      specified, <b>lsvol</b> displays the volume header of the
+      designated volume.</p>
+      <p>The following options are available:</p>
+      <p>
+      <table width=100%>
+	<tr>
+	  <td valign=top width="10%"><b>-h</b></td>
+	  <td valign=top><p>Display volume header.</p>
+	    <p>The volume header identifies critical information about
+	    the EROS volume, including the native page size, the
+	    locations of the primary and optional secondary division
+	    tables, and the boot flags.
+	    <p>
+	    The currently supported volume header flags and their
+	    meanings are:
+	    </p>
+	    <center>
+	      <table width=100%>
+		<tr>
+		  <td valign=top><b>BOOT</b></td>
+		  <td valign=top>Volume is bootable, and contains a
+		    valid bootstrap image.</td>
+		</tr>
+		<tr>
+		  <td valign=top><b>IPL</b></td>
+		  <td valign=top>Volume is an IPL volume.  It contains no
+		    checkpoint area.  <em>This flag is obsolete and may be
+		    dropped in future system versions.</em></td>
+		</tr>
+		<tr>
+		  <td valign=top><b>RAMDISK</b></td>
+		  <td valign=top>Volume should be loaded into memory as a
+		    ramdisk.</td>
+		</tr>
+		<tr>
+		  <td valign=top><b>COMPRESSED</b></td>
+		  <td valign=top>Volume image following bootstrap is
+		    compressed.  Compressed images <em>must</em> be marked
+		    as ramdisk images.</td>
+		</tr>
+	      </table>
+	    </center>
+	  </td>
+	</tr>
+	<tr>
+	  <td valign=top width="10%"><b>-d</b></td>
+	  <td valign=top><p>Show division table.</p>
+	    <p>The division table shows the locations on the volumes
+	    of the various divisions.  The fields in the division
+	    table entry are:
+	    </p>
+	    <table width=100%>
+	      <tr>
+		<td valign=top><b>Start</b></td>
+		<td>Starting sector number of the division.</td>
+	      </tr>
+	      <tr>
+		<td valign=top><b>End</b></td>
+		<td>
+		  Bounding sector number (i.e. top plus one) of the
+		  division.</td> 
+	      </tr>
+	      <tr>
+		<td valign=top><b>Size</b></td>
+		<td>Size of the division in sectors.</td> 
+	      </tr>
+	      <tr>
+		<td valign=top><b>Type</b></td>
+		<td>Type of the division (see below).</td> 
+	      </tr>
+	    </table>
+	    <p>
+	    If the division is of type <b>Object</b>, <b>Log</b>, or
+	    <b>Kernel</b>, a range of OIDs will also be displayed.
+	    For object and kernel divisions, this is the range of
+	    object identifiers contained in the division.  For log
+	    divisions, this is the range of log locations contained in
+	    the division.
+	    </p>
+	    <p>
+	    There are several valid division types:
+	    </p>
+	    <table width=100%>
+	      <tr>
+		<td valign=top><b>Boot</b></td>
+		<td>The division holding the bootstrap code.  Always
+		  starts at sector zero.</td>
+	      </tr>
+	      <tr>
+		<td valign=top><b>DivTbl</b></td>
+		<td>
+		  The division holding the division table.  There may
+		  be up to two <b>DivTbl</b> divisions.
+		</td> 
+	      </tr>
+	      <tr>
+		<td valign=top><b>Spare</b></td>
+		<td>
+		  A division holding spare sectors for use in bad
+		  block relocation.  This is not currently used.
+		</td> 
+	      </tr>
+	      <tr>
+		<td valign=top><b>Object</b></td>
+		<td>
+		  A division that holds nodes or pages.
+		</td> 
+	      </tr>
+	      <tr>
+		<td valign=top><b>Kernel</b></td>
+		<td>
+		  A division that holds the bootable kernel image.
+		  This division is formatted just like an object
+		  division, and the kernel is layed out in consecutive
+		  pages within the division.  The kernel division is
+		  mounted by EROS as an object division.
+		</td> 
+	      </tr>
+	      <tr>
+		<td valign=top><b>Log</b></td>
+		<td>
+		  A division containing space used by the checkpoint
+		  log.
+		</td> 
+	      </tr>
+	      <tr>
+		<td valign=top><b>FailStart</b></td>
+		<td>
+		  The failstart entry is actually not a division at
+		  all.  It provides a means to boot a recovery or startup
+		  application on a system image that does not have a
+		  checkpoint area (at all).  This facility exists
+		  primarily to enable bootstrap floppies to go without
+		  a checkpoint area.
+		</td> 
+	      </tr>
+	    </table>
+	  </td>
+	</tr>
+	<tr>
+	  <td valign=top width="10%"><b>-r</b></td>
+	  <td valign=top>
+	    <p>Show reserve table.</p>
+	    <p>This option is mostly of use for kernel development.
+	    </p>
+	  </td>
+	</tr>
+	<tr>
+	  <td valign=top width="10%"><b>-c</b></td>
+	  <td valign=top>
+	    <p>Show checkpoint directory.</p>
+	    <p>This option is mostly of use for kernel development.
+	    </p>
+	  </td>
+	</tr>
+      </table>
+      <hr>
+      <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+      redistribution, see the 
+      <a href="../../legal/license/GPL.html">GNU General Public License</a></em>
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+</body>
+</html>

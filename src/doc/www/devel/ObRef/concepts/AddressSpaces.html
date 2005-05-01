@@ -1,0 +1,129 @@
+<html>
+  <head>
+    <title>EOR: Address Spaces</title>
+  </head>
+
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+    <div class=KeyName>
+      [<em><a href="../Cover.html">Return to Top</a></em>]
+      [<em><a href="00Concepts.html">Concepts</a></em>]
+      <div align=right>
+	<H2>EROS Object Reference</H2>
+	<H2>Concepts</H2>
+      </div>
+      <h2>Address Spaces</h2>
+      <em>D R A F T</em>
+      <hr>
+    </div>
+    <div class=KeyDescrip>
+      <h3>Description</h3>
+      <p> <img src="../../../img/construction.gif"> 
+	This page is still under construction.
+      <p>
+	An EROS address space is made up of a tree of <a
+	href="../primary/Node.html">nodes</a> whose leaves are <a
+	href="../primary/Page.html">pages</a>.  Pages may contain data 
+	or capabilities (but not both), according to the type of the
+	page.
+      </p>
+      <p>
+	To understand virtual address translation, it is useful to
+	think of an address as made up of a virtual page address and a
+	page offset:
+      </p>
+      <ul>
+	  <pre>
++----------------------+-------------+
+| Virtual Page Address | Page Offset |
++----------------------+-------------+
+	  </pre>
+      </ul>
+      <p>
+	Both the size of the page offset portion of the address and
+	the size of the complete virtual address are dictated by the
+	underlying hardware.
+      </p>
+      <p>
+	When a program references a memory address, the virtual page
+	address is interpreted by traversing the address space until
+	the appropriate page is found.  The page offset is then used
+	to reference the appropriate object (byte, halfword, word,
+	doubleword, quadword, or capability) within the page.
+      </p>
+      <p>
+	Because address space and node capabilities encode the size of 
+	their subspace, the algorithm for traversing the address space 
+	tree is slightly more complicated than the comparable hardware 
+	mechanism on most processors.  The 68881 MMU uses a fairly
+	similar approach.
+      </p>
+      <h3>Address Translation</h3>
+      <p>
+	Translation of an address begins by examining the key in the
+	address space slot of the process.  In traversing an address
+	space, a sequence of keys is examined in turn.  The action
+	taken depends on:
+      </p>
+      <ol>
+	<li>
+	  <p>
+	    The type of the key,
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    The size of the address space named by that key,
+	  </p>
+	</li>
+	<li>
+	  <p>
+	    The current offset relative to the start of the segment
+	    named by that key.
+	  </p>
+	</li>
+      </ol>
+      <p>
+	Sizes are measured in terms of <em>log space size</em>.  To
+	compute the log space size of a subspace, first determine how
+	many pages that subspace holds.  The log space size is then
+	<tt>ciel(log<sub>ndsz</sub>(npages))</tt>, where
+	<tt>ndsz</tt> is the number of slots in a node.  Thus, on a
+	32-bit address machine with 4096 byte pages and 32 slot nodes,
+	the lss values usually associated with address translation are
+	as follows:
+      </p>
+      <center>
+	<table>
+	  <tr valign=top>
+	    <th align=left width=30%>lss</th>
+	    <th align=left>Size in pages</th>
+	  </tr>
+	  <tr valign=top>
+	    <td>0</td>
+	    <td>1</td>
+	  </tr>
+	  <tr valign=top>
+	    <td>1</td>
+	    <td>2..32</td>
+	  </tr>
+	  <tr valign=top>
+	    <td>2</td>
+	    <td>33..1,024</td>
+	  </tr>
+	  <tr valign=top>
+	    <td>3</td>
+	    <td>1,025..32,768</td>
+	  </tr>
+	  <tr valign=top>
+	    <td>4</td>
+	    <td>32,769..1,048,576</td>
+	  </tr>
+	</table>
+      </center>
+    </div>
+    <hr>
+    <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+      redistribution, see the 
+      <a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+  </td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

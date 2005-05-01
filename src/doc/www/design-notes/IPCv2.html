@@ -1,0 +1,220 @@
+<html>
+<head>
+<title>Revised IPC Design</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <h1>Revised IPC Design</h1>
+</center>
+<p> This note describes the second iteration of the EROS IPC
+interface.  The revised IPC iterates on the first design to improve
+the performance of some common cases.  The change itself isn't
+especially earth shattering, but thinking through the implementation
+on a register starved architecture was tricky.
+<h2>1. The Original IPC</h2>
+<p> The first-round EROS IPC mechanism had the following interface:
+<center>
+  <table width=85%>
+    <tr valign=top>
+      <td><strong>Invocation</strong></td>
+      <td>Call, Return, or Fork + key space address of key to be
+	invoked</td> 
+    </tr>
+    <tr valign=top>
+      <td><strong>Entry Block</strong></td>
+      <td>Opcode, Slot numbers of the four keys to be sent, xmit data
+	buffer pointer, xmit data buffer length.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td><strong>Exit Block</strong></td>
+      <td>Opcode, Slot numbers of the four key slots to be
+	overwritten, rcv data buffer pointer, rcv data limit.
+      </td>
+    </tr>
+  </table>
+</center>
+<p> On return, the entry receive limit field is overwritten with
+<code>min(send_len,rcv_len)</code>, and the 16 bit <em>key
+data</em> field of the invoked key is provided to the receiver.  The
+send length is limited to 65535 bytes.
+<p> This interface suffers from a number of unfortunate limitations:
+<ul>
+  <li> The 65535 limit is awkward.  It would be preferable to permit a
+       65536 (or more generally some bounded power of 2) limit.
+       On register starved architectures the send and receive
+       length fields were regrettably limited to 16 bits.
+       <p>
+  <li> In many cases the buffer wants to be accompanied by a word or
+       two of descriptive information in addition to the opcode, such
+       as an object descriptor.  The lack of data words in addition to
+       the buffer was forcing a marginal copy of the data buffer.
+       <p>
+  <li> OS emulation was complicated by the need to contiguize (if
+       that's a word) the data.  Many UNIX and Win32 system calls
+       consist of a few arguments plus a single buffer.  The marginal
+       copy was hurting (this is really the previous case in
+       disguise).
+       <p> 
+  <li> Several performance-critical invocations, most notably of the
+       space bank and the segment keeper, required a data buffer to
+       transmit the values of one or two registers.  Unfortunately,
+       the overhead of validating the receive and send areas greatly
+       increases the message transfer cost.  On a 120Mhz Pentium, the
+       cost goes from 2.4us (no buffer) to 3.5us.  While this may not
+       seem like a lot, the marginal cost is entirely memory delay,
+       and will not scale with processor speed.
+       <p>
+</ul>
+<p> In consequence, we have redesigned the IPC interface.  The new
+interface transmits more information for essentially the same cost.
+For the most part, we have achieved this by trading off the cost of
+field extraction for cache-resident data motion.  The resulting
+interface is a bit slower in low frequency cases, but considerably
+faster in the cases that prove to matter.
+<h2>2. The Revised Interface</h2>
+<p> The revised EROS IPC mechanism has the following interface:
+<center>
+  <table width=85%>
+    <tr valign=top>
+      <td><strong>Invocation</strong></td>
+      <td>Call, Return, or Fork + key space address of key to be
+	invoked, number of registers sent and received.</td> 
+    </tr>
+    <tr valign=top>
+      <td><strong>Entry Block</strong></td>
+      <td>Four registers to be sent, Slot numbers of the four
+	keys to be sent, xmit data buffer pointer, xmit data buffer
+	length.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td><strong>Exit Block</strong></td>
+      <td>Four registers to be received, Slot numbers of the
+	four key slots to be overwritten, rcv data buffer pointer, rcv
+	data limit.
+      </td>
+    </tr>
+  </table>
+</center>
+<p> In the new interface, the receive buffer length has been extended
+to a 32 bit field.  While the current interface restricts the transfer
+to 64K, this limit could be compatibly increased in future
+implementations.
+<p> On register rich architectures, including most RISC machines,
+there is no problem with taking up more registers.  While the sender
+must save/restore and zero any of the transmitted registers that it
+does not wish to transmit, there are several ameliorating
+considerations:
+<ul>
+  <li> The save and restore are cache-resident with high likelihood.
+  <li> Given cache residence, the marginal cost of the save and
+       restore are balanced by a marginal savings obtained by
+       eliminating some bitfield extraction instructions in the kernel
+       IPC path.
+  <li> Many performance-critical cases that previously required a data
+       buffer no longer require one.  Memory latency is bad, so this
+       is a good tradeoff.
+</ul>
+<h2>3. Impact on Register-Poor Architectures</h2>
+<p> The main problem with this change is the impact on register-poor
+architectures.  Since the most widely deployed processor (x86) is
+register poor, this bares thinking on.  Since the x86 is probably the
+<em>most</em> register impoverished architecture, we will describe the
+implementation for the x86 and leave it to the reader to adapt to
+similarly deficient architectures.  
+<p> The main complication is that those invocations that do
+<em>not</em> require a data buffer should be executable from a
+read-only address space.  While this is not the common case, there is
+some bootstrap code in the EROS system that must be able to run in an
+immutable space to support certain confinement and security arguments.
+This means that any values that are mutated as a side-effect of the
+IPC (receive length, key data) must reside in registers.  In addition,
+the opcode and return code should reside in registers, though it is
+acceptable for them to be mapped to the same register.
+<p> The x86 provides only eight user-mode registers: %EAX, %EBX, %ECX,
+%EDX, %ESI, %EDI, %EBP, and %ESP.  With the exception of %ESP, all of
+these registers can be modified as part of the calling convention, and
+even %ESP can safely be used as a general-purpose register in an
+immutable address space.  Modifying %EBP presents a challenge to
+debuggers.  This is extremely unfortunate, but in practice the IPC
+trap is a readily identifiable leaf procedure, and can be recognized
+by the debugger as a special case (as a recovering debugger architect,
+I confess that this makes me shudder).
+<p> On the x86, the hardware will copy values off of the stack on
+entry into the kernel when performing a privilege crossing
+<code>CALL</code> instruction.  This allows us to place the send data
+pointer, send data length, sent key slots, receive key slots, and
+receive data pointer on the stack.  The remaining values are mapped to
+registers as follows:
+<p> 
+<center>
+  <table width=85%>
+    <tr valign=top>
+      <td><strong>%EAX .. %EDX</strong></td>
+      <td>Copied registers.  By convention, %EAX holds the opcode on
+	entry and the result code on exit.</td>
+    </tr>
+    <tr valign=top>
+      <td><strong>%EBP</strong></td>
+      <td>Key register numbers of invoked key and <em>received</em>,
+	assembled by concatenation:
+<pre>
+&lt;zeros&gt;:InvokedKey:rk3:rk2:rk1:rk0
+</pre>
+	Note that rk0 appears at the least significant bit position.
+	Because the received keys of the sender are not used in the
+	fast path, this layout has performance advantages.  Once the
+	register is saved to the save area it can be shifted in place.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td><strong>%ESI</strong></td>
+      <td>Send key registers, assembled by concatenation:
+<pre>
+&lt;zeros&gt;:sk3:sk2:sk1:sk0
+</pre>
+	On exit, this register holds the <strong>key info</strong>
+	field of the invoked gate key (if any) or zero.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td><strong>%EDI</strong></td>
+      <td>Receive length limit on entry, actual length on exit.</td>
+    </tr>
+  </table>
+</center>
+<p> The invocation type (call, return, send) is determined by the
+kernel entry point. The stack pointer (<code>%ESP</code>) points to a
+structure of the form:
+<ul>
+  <pre>
+  struct InvInfo {
+    Word invType;   /* IT_CALL, IT_SEND, or IT_RECEIVE */
+    Byte *sndPtr;
+    Word sndLen;
+    Byte *rcvPtr;
+  };
+  </pre>
+</ul>
+<p> In an immutable address space, this data structure must be
+suitably pre-allocated, and the stack pointer must be set to point to
+the instance appropriate to the invocation in question.  While the
+sndKeys and rcvKeys fields could be combined, the cost of the marignal
+shift and mask makes this a wash.  Better to keep it simple.
+<p> Originally, I thought it worthwhile to have a limit on the number
+of registers transferred or received so as to give the process at
+least <em>one</em> register that is not mutated by IPC.  For the most
+part this is only a problem in immutable address spaces. If it proves
+necessary, the applicable limits should be appended to the InvInfo
+structure. In practice, it turned out that only the process
+construction/destruction code needs to do even as much as a loop
+structure while making calls.  This loop can simply be unwound, so I
+decided to stick with the current interface and avoid the additional
+test in the IPC path.
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

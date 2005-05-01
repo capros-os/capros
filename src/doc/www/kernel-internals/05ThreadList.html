@@ -1,0 +1,453 @@
+<html>
+<title>The Thread List</title>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<p> A <strong>process</strong> is a domain that is currently occupied by a
+thread.  Every thread has an associated domain, and every domain has
+at most one associated thread.  Process management, then, is about
+figuring out which threads are eligable to execute.
+<p> In an ideal world, a computer will be running one thread on every
+processor that the machine has.  This thread retains control until it
+is no longer able to run.  Operating system designers are fond of
+cloaking the issue in obscurity, but in the final analysis there are
+only three reasons that a thread might be unable to run:
+<p>
+<ul>
+  <p>
+  <li> The thread is waiting it's turn to get access to some
+       <em>exclusive</em> resource.  There may be many threads waiting
+       for the same resource, and they will be set running access one
+       at a time as the resource becomes available.  For example, a
+       processor can only run one thread at a time.  If the processor
+       is currently occupied, the next thread must wait until a
+       processor becomes available.
+       <p>
+  <li> The thread is waiting for some <em>shared</em> resource to
+       become available.  In EROS, the only shared resources are the
+       primary objects: nodes and pages.  Many threads may be waiting
+       for the same object to be brought into memory.  When it
+       arrives, all of the waiting threads will be set running.
+       <p>
+  <li> The machine is turned off.  This book doesn't describe how to
+       solve this problem, but we're pretty sure you can work it out
+       for yourself.
+</ul>
+<p> Threads that are unable to run are said to be <strong>stalled</strong>.
+<p> One way to think of an operating system is that it is the piece of
+code that keeps track of all of the reasons why a thread cannot run,
+and gets the thread running when it is possible to do so.  In this
+view, everything in the operating system kernel exists for the purpose
+of managing threads.  Our experience suggests that this is an
+excellent way to think about the EROS kernel as well.  It's therefore
+a good place to begin describing the EROS kernel.
+<h1>1 What a Thread Is</h1>
+<p> A <strong>thread</strong> is the schedulable unit of execution in the EROS
+system.  Every thread occupies a domain, but the distinction between a
+thread and the domain it occupies is an important one.  Threads, by
+definition, are always running (though they may be stalled).  Domains
+may be running, available, or waiting.  Informally, we will sometimes
+speak of ``running domains,'' and about one domain ``calling''
+another.  Strictly speaking, it is the thread that is running, and the
+thread the executes the call operation.  This shorthand is very
+useful, and we will undoubtedly fall prey to it in this book, but it
+is essential when thinking about the kernel to keep the notions of
+threads and domains separate.
+<p> A thread carries three pieces of information:
+<p>
+<ul>
+  <p>
+  <li> A <strong>priority</strong>, which indicates how important this thread is
+       relative to other threads in the system.  Threads with higher
+       priority are preferred over threads with lower priority.
+       <p>
+  <li> A <strong>protection domain</strong>, which captures the environment in
+       which the thread executes.  Every thread has an associated
+       domain.
+       <p>
+  <li> A <strong>queue slot</strong>, which is used to keep track of which queue
+       a stalled thread is waiting on.
+</ul>
+<p> The thread class is shown in Figure 5.1..  Each
+thread occupies a slot in the <strong>thread list</strong>.  The thread list is
+saved every time the system takes a checkpoint, and is used as the
+basis for starting the system when the system is first powered on.
+<ul>
+<pre>
+struct ThreadLink {
+  ThreadLink *next;
+  ThreadLink *prev;
+  void Unlink();
+  ThreadLink()
+    { next = prev = 0; }
+};
+
+struct Thread : public ThreadLink {
+  // Thread priority is stored in the authority field of
+  // the pseudo-key.
+  Key domainKey;
+  CachedDomain* pCachedDomain;
+
+  void SleepOn(Queue&amp;);
+  Thread();
+  void Kill();
+  bool Prepare();
+  bool Unprepare();
+private:
+  friend class Queue;
+  friend void ReSchedule();
+  void Wakeup();
+};
+</pre>
+<strong>Figure 5.1: The thread class</strong>
+</ul>
+<p> Threads are the only resource in the EROS system that is created
+and destroyed.  When a thread performs a <em>fork</em> invocation, it
+causes a new thread to be created.  When a thread performs a
+<em>return</em> to most kernel keys, or when a domain key holder
+forcibly places a domain in the <em>waiting</em> or <em>available</em>
+states, the contained thread (if any) is destroyed.
+<note> I'm
+actually not at all happy with this model, and would prefer that
+threads be conserved like everything else in the system, but this
+seems to be the cleanest design we have arrived at to date.
+</note>
+<h1>2 Queues and Piles</h1>
+<p> A thread can be in one of two states: <em>running</em> or
+<em>stalled</em>.  A stalled thread is waiting for some resource to
+become available.  Regrettably, threads spend most of their lives in
+the stalled state.  Stalled threads are linked into the stall queue
+associated with the required resource.  Every resource that might
+become a source of blockage has an associated stall queue.
+<p> EROS implements two kinds of stall queues.  An <strong>queue</strong> is
+used to manage resources that can be used by only one thread at a
+time.  Every domain has an associated queue, because only one thread
+may occupy a domain at any given instant.  Threads that are placed on
+a queue are woken up one at a time in order of their priority.  Each
+thread queue maintains a doubly linked list of its queued threads, as
+shown in Figure 5.2.
+<note>
+It may seem odd, at first,
+that the queue insertion and removal procedures are not really
+implemented in the queue class.  The relationship between queues and
+threads is very close.  The insertion and removal operations could
+have been implemented in either class, but implementing the wakeup
+logic in the <code>QueueElement</code> class would require a virtual
+function.  We wish to be able to copy the thread list easily when a
+checkpoint operation occurs, and we don't want to have to reconstruct
+any virtual table pointers to do so, so we implemented the insertion
+and removal operators in the <code>Thread</code> class.  This sort of
+confusion arises because the two classes really implement a single
+abstraction.  It is one of the few places where the C++ implementation
+must be taken into account.
+</note>
+<ul>
+  <pre>
+struct Queue : public ThreadLink {
+  virtual void Wakeup()
+  { ((Thread*)next)-&gt;Wakeup(); }
+
+  Queue()
+  : ThreadLink()
+  { next = 0; prev = 0; }
+};
+
+struct Pile : public Queue {
+  void Wakeup()
+  {
+    while(next)
+       Queue::Wakeup();
+  }
+};
+</pre>
+  <strong>Figure 5.2: The queue classes</strong>
+</ul>
+<p> A <strong>pile</strong> is used to manage shared resources.  Threads that
+are are waiting for a shared object to become available are placed on
+the object's pile.  All threads in a pile are awakened simultaneously.
+As you can see from the implementation in Figure 5.2, a
+pile is merely a specialization of a queue.
+<p> Because EROS is designed as a real-time system, EROS does not
+implement any unordered queues.
+<h2>2.1 Stalling a Thread</h2>
+<p> Whenever a thread requires some resource that is unavailable, it
+is inserted onto the queue associated with that resource.  In order to
+allow threads to be removed from the queue easily, thread queues are
+doubly linked.
+<p> Threads in a queue are maintained in order of their priority.  The
+highest priority thread always appears at the front of the queue.
+Threads with lower priority appear later.  Threads with the same
+priorities are listed in ``first come, first served'' order.  Later
+arrivals are placed <em>behind</em> earlier arrivals. The
+implementation is shown in Figure 5.3.
+<ul>
+  <pre>
+void Thread::SleepOn(Queue&amp; q)
+{
+  ASSERT(next == 0);
+  ASSERT(prev == 0);
+
+  ThreadLink* ql = &amp;q;
+  Thread *nextThread = (Thread) ql-&gt;next;
+
+  while (nextThread &amp;&amp;
+         nextThread-&gt;priority &gt;= priority){
+    ql = (ThreadLink*) nextThread;
+    nextThread = (Thread) ql-&gt;next;
+  }
+
+  // Either there are no more threads, or we should
+  // be inserted after ql:
+
+  next = ql-&gt;next;
+  prev = ql;
+  ql-&gt;next = this;
+  if (next)
+    next-&gt;prev = this;
+}
+  </pre>
+  <strong>Figure 5.3: Putting a thread to sleep </strong>
+</ul>
+<h2>2.2 Waking a Thread Up</h2>
+<p> The more interesting part of the mechanism is what happens when a
+thread is removed from a resource queue because it is runnable.  You
+might think that such a thread is placed on a processor, but it isn't
+so.  Just because a thread is <em>prepared</em> to run doesn't
+necessarily guarantee that it <em>deserves</em> to run.  There may be
+higher priority threads that should be run first.
+<p> Waking up a thread, then, doesn't really wake the thread up at
+all.  It simply places the thread on another queue: the queue of
+threads that are waiting for the next available processor!  The thread
+wakeup routine is shown in Figure 5.4.
+<ul>
+  <pre>
+void Thread::Wakeup()
+{
+  Unlink();
+  SleepOn(ProcessorQueue);
+  if (priority &gt; LowestRunningPriority)
+    WantResched = true;
+}
+  </pre>
+  <strong>Figure 5.4: Waking a thread up</strong>
+</ul>
+<h1>3 Setting a Thread In Motion</h1>
+<p> Just because a thread exists doesn't mean we are able to set it
+running!  Many constraints need to be met before we can load a thread
+onto a processor and set it running.  The thread preparation routine
+is shown in Figure 5.5. The first step is to <em>prepare</em> the
+thread.
+<ul>
+  <pre>
+void Thread::Prepare()
+{
+  ActiveThread = this;
+  if (pCachedDomain)  // already prepared
+    return;
+
+  // force domain root into core
+  if (domainKey.Prepare() == false) {
+    // Domain root has been rescinded. Thread dies.
+    // Nobody to notify.
+    domainKey.Zero();
+    // zap it
+    SleepOn(FreeThreadList);
+    goto lose;
+  }
+
+  // Preparing the domain may have started an I/O
+  // rather than succeeding immediately.
+  if (!domainKey.Prepared)
+    goto lose;
+
+  // Attempt to prepare the domain root node
+  // as a domain:
+  domainKey.pObject-&gt;PrepAs(NtDomain);
+  if (next)
+    goto lose;
+
+  pCachedDomain = domainKey.pObject-&gt;CacheDomain();
+  pCachedDomain-&gt;SetThread(this);
+  return;
+
+lose:
+  ActiveThread = 0;
+  return;
+}
+  </pre>
+  <strong>Figure 5.5: Preparing a thread</strong>
+</ul>
+<p> The idea of ``preparing'' an object will appear again and again in
+the EROS kernel.  In a nutshell, the fact that an object is prepared
+tells us that various constraints are satisfied.  Once prepared,
+objects tend to stay prepared until circumstances force us to
+deprepare them.  A thread, for example, will stay prepared across
+timeslices, which allows us to efficiently verify that it is able to
+be run.  Domains and segments are also prepared in this fashion.
+<h2>3.3 Preparing the Thread to Run</h2>
+<p> If the thread has been waiting for a long time, or the system has
+just been restarted, it is altogether likely that the thread's domain
+will not be in memory.  Preparing a thread causes it's associated
+domain to be loaded into memory and prepared for execution.  If the
+domain associated with a prepared thread is ever removed from memory,
+the thread is <em>deprepared</em>.
+<p> An unprepared thread contains the object identifier (OID) of the
+domain that it occupies.  If the thread is unprepared, the <code>prepared</code> field will be <code>false</code>. The domain occupied by an
+unprepared thread may or may not be in memory.  If it <em>is</em> in
+memory, it may or may not be ready to run.
+<p> The only time that we attempt to prepare a thread is when we are
+getting set to run that thread, so the first step is to remove the
+thread from the <code>ProcessorQueue</code> on the assumption that we
+are about to hand it a processor.  If any of the following steps
+should fail, we will discover that the thread has ended up back on a
+sleep queue.
+<p> For the sake of completeness, we should say here that unpreparing
+a thread simply means forgetting the association between the thread
+and the domain cache entry.  The key is not deprepared.
+<h3>3.3.1 Locating the Domain Root</h3>
+<p> The first step is to locate the domain that the thread occupies by
+preparing the <code>domainKey</code>.  Preparing a key either locates
+the domain root node in memory or initiates an I/O operation and
+places the thread in the pile associated with that I/O operation.  If
+the domain key is successfully prepared, we know that the domain root
+is in memory and the <code>domainKey</code> contains a pointer to it.
+If the thread is now asleep, we stop -- the thread will be awakened
+when the I/O completes and we will start over again.
+<p> Preparing a key can have three outcomes:
+<p>
+<ul>
+  <p>
+  <li> The prepare can succeed, in which case the object is in memory
+       and the prepared key contains a pointer to it.  In this case,
+       the <code>Prepared</code> bit of the key will be set.
+       <p>
+  <li> The prepare can cause an I/O, in which case the thread is
+       placed on an I/O wait queue, and the <code>Prepared</code> bit
+       of the key will not be set.
+       <p>
+  <li> The prepare can fail because the domain has been rescinded.  In
+       this case <code>Key::Prepare()</code> returns
+       <code>false</code>.
+</ul>
+<p> Assuming the domain root is found, it is possible that the thread
+is occupying an obsolete version of the object.  This is discovered by
+checking the object's allocation count to make sure that the thread is
+still valid.  If the domain root is obsolete, the thread has died, and
+pushd is placed on the available thread list.
+<h3>3.3.2 Preparing the Domain</h3>
+<p> Once we have found a valid domain root, the next step is to make
+sure that the domain is ready to be used.  If it hasn't been already,
+the domain must be prepared.
+<p> The details of preparing a domain are the subject of the next
+chapter, so we will only outline the process here.  The three nodes
+associated with the domain must be found in memory.  Some validity
+checks are made on the domain to ensure that it is well formed.  When
+it is all over, the process of preparing the domain has three possible
+outcomes:
+<p>
+<ul>
+  <p>
+  <li> The domain will be successfully prepared, in which case the
+       thread can be run.
+       <p>
+  <li> Some I/O operation was necessary in order to prepare the
+       domain; the thread has been put to sleep waiting for the
+       operation to happen.
+       <p>
+  <li> The domain is not well formed, in which case the prepare
+       operation will fail.  <em>What to do in this case presents an
+       interesting challenge.</em>
+</ul>
+<p> If all goes well, a side effect of preparing the domain is that
+the domain's address space segment will also be prepared.
+<p> If the domain is <em>not</em> well formed, the thread
+<p> After attempting to prepare the domain, it is once again possible
+that the thread has been placed on a pile to wait for some object to
+appear.  If an object necessary to run the thread was not in memory,
+it will be fetched as a side effect of attempting to prepare the
+domain.
+<h3>3.3.3 Loading the Domain Cache</h3>
+<p> Once a domain is prepared, we have all of the information needed
+to begin execution.  Unfortunately, the format of a domain does not
+lend itself to efficient context switching.  To deal with this, we
+first load the domain's state into the domain cache, which is layed
+out to allow us to efficiently start up the domain.  If a domain is
+prepared, it can be loaded into the domain cache without further I/O
+delays.  The relationship between a domain and it's cache entry is
+shown in Figure 5.6.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- CachedDomain.eps -->
+  <p> Figure 5.6: A cached domain
+</ul>
+<p> Once the domain has been loaded into the domain cache, we store a
+pointer to the domain cache entry within the thread, and mark the
+thread prepared.  After it's all over, the relationship between a
+prepared thread, it's domain cache entry, and the domain itself are
+shown in Figure 5.7.  The pointer from the thread to
+the domain is held in the prepared DomainKey.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- PreppedThread.eps -->
+  <p> Figure 5.7: A prepared thread
+</ul>
+<h2>3.4 Performing A Context Switch</h2>
+<p> Finally, we now have a prepared thread.  Since the thread is
+prepared, we are able to context switch into its domain and set it
+running.  In a nutshell, this is done by loading the register set from
+the current thread's domain cache.  Domain preparation and the domain
+cache are the subjects of the next two chapters.
+<h1>4 Migrating Threads</h1>
+<p> <!-- FIX: This section properly belongs in the chapter on message
+passing, which doesn't exist yet. -->
+<p> One of the operations that a thread can perform while running in a
+domain is to <em>call</em> another domain.  EROS implements a
+so-called <strong>migrating threads</strong> model, which means that when a
+thread performs a <em>call</em> or <em>return</em>, it moves from one
+domain to the other.
+<p> Suppose a thread in domain <EM>A</EM> performs a call on a key to domain
+<EM>B</EM>.  Prior to the call, the thread occupies domain <EM>A</EM>, as shown in
+Figure 5.8.  Domain <EM>A</EM> is
+<em>running</em>, and domain <EM>B</EM> is <em>available</em>.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- ThreadMigratePreCall.eps -->
+  <p> Figure 5.8: Thread location before a call
+</ul>
+<p> Once the call operation has happened, the thread migrates into
+domain <EM>B</EM> (Figure 5.9).  The
+<code>domainKey</code> and <code>pCachedDomain</code> fields of the
+thread are updated to point to the new domain.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- ThreadMigratePostCall.eps -->
+  <p> Figure 5.8: Thread location after a call
+</ul>
+Domain <EM>A</EM>
+is left in the <em>waiting</em> state, and domain <EM>B</EM> is now
+<em>running</em>.  A return key has been fabricated by the kernel so
+that the thread can return to the original domain.
+<p> Eventually, the thread performs a <em>return</em> operation
+(Figure~5.9).  Domain <EM>B</EM> is once again left
+<em>available</em>, and domain <EM>B</EM> is once again <em>running</em>.
+The return key is consumed by the return operation.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- ThreadMigratePostRet.eps -->
+  <p> Figure 5.9: Thread location after returning
+</ul>
+<p> The details of message passing will be explored in detail in a
+later chapter.  For now, the important point is that threads are
+rarely created or destroyed, and that the thread identity remains the
+same throughout.  Since the priority moves with the thread, the thread
+in the new domain runs at the priority of the user.
+<p>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

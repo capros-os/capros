@@ -1,0 +1,314 @@
+<html>
+<head>
+<title>Disk Formatting and Layout</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <H1>Disk Formatting and Layout</H1>
+</center>
+<p> This note describes how the disk formatting logic works in the
+EROS system, and how EROS volumes are structured.  Both disk
+partitioning and range creation/deletion are covered.
+<p>
+Note that the current implementation does not provide for live
+creation of new volumes, so the discussion of partition creation
+should be taken with suitable skepticism; it snapshots what we intend
+to do when the online disk partitioning/formatting utility is written.
+<H2>1 Disks and Partitions</H2>
+<p> Disks can be divided into multiple, independent chunks known as
+<strong>partitions</strong>.  Each partition constitutes a logical
+disk volume.  EROS, for the most part, deals in terms of disk volumes.
+Volumes, in turn, are divided into <em>ranges</em>, each of which
+holds either a part of the checkpoint log or a  sequentially numbered
+collection of object frames.
+<p>
+Over the life of a disk, it may prove convenient to add or remove
+partitions/volumes, and to adjust the content of existing volumes.
+<h3>1.1 Adding New Partitions</h3>
+<p> Adding new volumes (paritions) must be done carefully for the sake
+of consistency, but it isn't especially difficult to do.  The
+principle challenge is to defend against disk failure during format.
+The creation of new EROS partitions proceeds in steps:
+<ol>
+  <li> Create a partition of non-EROS type.  This ensures that if a
+       failure occurs while partition format is in progress the
+       partition will not be seen as an EROS partition.
+       <p> 
+  <li> Obtain a raw disk range key to the new partition.  Use it to
+       write a proper EROS-formatted volume image to the new
+       partition.  At a minimum, this would include a boot block and
+       an empty pair of range tables.
+       <p>
+  <li> Delete the partition, and create a new partition covering the
+       same range of sectors that is really an EROS partition
+       (i.e. retype the partition).
+       <p> 
+  <li> Tell EROS to try and mount the newly created partition.
+</ol>
+<h3>1.2 Deleting Existing Partitions</h3>
+<p> Deleting partitions is more difficult than adding partitions.  The
+problem, in a nutshell, is that the partition may be in use when we go
+to delete it.  If the partition is idle, all is well.  Delete it and
+waste no further time on it.  If the partition is active, however, we
+must make a policy decision about what to do:
+<ul>
+  <li> We can model volume deletion as equivalent to loss of a drive.
+       In this view, we treat it as though the physical drive had
+       become unreachable due to removal or failure.  This reduces it
+       to a problem that we need to solve anyway.
+       <p> 
+  <li> We can endeavour to do an orderly detach of the volume.  This
+       entails quiescing the volume before deleting the partition, and
+       migrating the in-use data off of the volume.
+       <p> 
+</ul>
+<p> The first solution is graceless, but simple.  The principle
+problem with it is that it precludes recovery -- having caused the
+disk to disappear with I/O in progress, there is no way to recover the
+I/O that has been lost.  Perhaps worse, pending I/O to the dismounted
+volume will sit in the checkpoint log forever.  Finally, it can cause
+an existing system to break utterly.  In particular, the space bank
+may rely on the deleted storage for its map of what has been
+allocated. <em>The current space bank is not robust in the face of
+this.</em>
+<p>
+Unfortunately, if a partition is deleted using a non-EROS partition
+management tool (e.g. DOS FDISK) the EROS installation can be utterly
+destroyed.
+<p>
+The second solution can be done at two levels of detail:
+<ul>
+  <li> Give the spacebank a chance to move out of the way.
+       <p> 
+  <li> Optionally, relocate storage that is actively in use off of the
+       partition that is going away.  This is implemented by the space
+       bank anyway.
+       <p> 
+</ul>
+The current implementation does the first but not the second.
+Spacebank cleanup is necessary to the continued operation of the
+system. Object migration requires object forwarding, which is not
+currently implemented.
+<p>
+Given the above, the current steps in deleting a partition are as
+follows:
+<ol>
+  <li> For each range in the partition to be deleted, inform the space
+       bank that no further allocation should be done from that range.
+       This prevents objects from being relocated twice in the next
+       step.
+       <p>
+  <li> For each range in the partition to be deleted, inform the space
+       bank that the range is going away, and tell it (if appropriate)
+       to relocate all active storage in that range. <em>Note that
+       object relocation is not yet implemented.</em>
+       <p>
+  <li> Tell EROS to dismount the now unused partition.
+       <p>
+  <li> Delete the partition, and create a new partition covering the
+       same range of sectors that is really an EROS partition
+       (i.e. retype the partition).
+       <p> 
+</ol>
+<H2>2 Ranges</H2>
+<p>
+EROS views each logical volume as further divided into ranges, which
+come in a variety of flavors.  This section describes the range types,
+and the formatting of each range type <em>as seen by the kernel</em>.
+Higher level tools, most notably the space bank, may impose further
+structuring conventions on a given range.  All ranges are an exact
+multiple of the architecture page size; extra trailing sectors, if
+any, are unused.
+<H3>2.1 Range Types</H3>
+<p>
+Ranges come in a variety of types.
+<ul>
+  <TABLE>
+    <TR VALIGN=top>
+      <TD><B>Boot</B></TD>
+      <TD>The boot range contains the code that loads the kernel and boots EROS.  This
+	range is required, and must appear starting at sector 0 of every
+	volume.  The boot range, among other things, says where in the
+	volume the range table may be found.
+      </TD>
+    </TR>
+    <TR VALIGN=top>
+      <TD><B>Range Table</B></TD>
+      <TD>The range table contains the list of all ranges present on the
+	volume, including itself and for the boot range.  At least one
+	range table is required on every volume.  There may be multiple
+	range tables on a given volume (for redundancy).
+	<p>
+	Each range table entry contains the following information:
+	<ul>
+	  <table>
+	    <tr valign=top>
+	      <td><b>start</b></td>
+	      <td>The sector number, relative to the start of the volume,
+		at which the range begins.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td><b>end</b></td>
+	      <td>The (exclusive) sector number, relative to the start of
+		the volume, at which the range ends.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td><b>Start OID</b></td>
+	      <td>The unique object identifier (OID) of the first object
+		within the range.  Note that this is also the OID of the
+		first object <em>frame</em> within the range.
+	      </td>
+	    </tr>
+	    <tr valign=top>
+	      <td><b>End OID</b></td>
+	      <td>The (exclusive) unique object identifier (OID) of the last object
+		within the range.  Ranges never contain partial frames.
+	      </td>
+	    </tr>
+	    <tr valign=top>
+	      <td><b>Type</b></td>
+	      <td>The range type.
+	      </td>
+	    </tr>
+	    <tr valign=top>
+	      <td><b>Flags</b></td>
+	      <td>A flags field, which is currently unused.
+	      </td>
+	    </tr>
+	  </table>
+	</ul>
+      </TD>
+    </TR>
+
+
+    <TR VALIGN=top>
+      <TD><B>Object</B></TD>
+      <TD>An object range holds pages and nodes.
+	There can be multiple object ranges on a volume, and all
+	mounted object ranges act together as the data space for EROS.
+	Every object in EROS has a unique home location in some Object
+	Range.
+	<p>
+	Object ranges are made up of disk page frames, which are
+	organized into subranges.  Each disk frame holds a single type
+	of object (node or page).  Every subrange
+	begins with a page frame known as a <em>tag pot</em> which
+	gives the object type of the objects contained within the
+	respective subrange frames.  Where the object type covers a
+	full disk page frame (e.g. pages, cappages), the tag pot
+	also contains the object's allocation count.
+      </TD>
+    </TR>
+
+    <TR VALIGN=top>
+      <TD><B>Kernel</B></TD>
+      <TD>The  kernel range contains a complete copy of the EROS
+	kernel image.  Kernel ranges are structured the same way as
+	object ranges (i.e. they include range pots).  When mounting
+	ranges, EROS treats a kernel range as an ordinary range of
+	objects.  A kernel range can be flagged <em>active</em>, which
+	indicates that this is a bootable copy of the kernel.  The
+	flag permits kernels to be updated by deactivating a range,
+	updating its kernel, and flipping the <em>active</em> flags on
+	the old and new kernel ranges.
+      </TD>
+    </TR>
+    <TR VALIGN=top>
+      <TD><B>Log</B></TD>
+      <TD>Log ranges hold the log areas used for checkpointing. Modified
+	objects are periodically written to the log, and are later
+	migrated to their home locations.  There can be many log
+	ranges in a partition, and all mounted checkpoint log areas
+	act as a single log used for checkpointing.
+	<p>
+	Every EROS system <em>must</em> have a log range containing
+	log locations zero and one, which contain the most recent two
+	checkpoint headers.
+      </TD>
+    </TR>
+    <TR VALIGN=top>
+      <TD><B>Spare Ranges</B></TD>
+      <TD>Holds a set of backup frames, for use if some portion of the
+	disk has failed and the disk does not provide automatic spare
+	sector allocation. <em>Not currently implemented, because both
+	IDE and SCSI provide transparent sparing</em>.
+      </TD>
+    </TR>
+    <TR VALIGN=top>
+      <TD><B>Unused</B></TD>
+      <TD>The unused range type is used to indicate unused entries in
+	the range table.
+      </TD>
+    </TR>
+  </table>
+</ul>
+<H3>2.2 Object Ranges and Tag Pots</H3>
+<p>
+Object ranges are made up of a sequence of disk page frames, which are
+organized into groups of <b>object frames</b> preceeded by a <b>tag
+pot</b> describing them.  The size of the groups is determined by the
+number of Object Frames a Tag Pot can keep track of.  So the Object
+Range looks like:
+<p>
+<PRE>
+----------------------------------------------------------------------
+|TagPot|ObjFrm|ObjFrm|...Object Frames...|ObjFrm|TagPot|ObjFrm| . . .
+----------------------------------------------------------------------
+ \_____________________   _____________________/
+                       \ /
+                      group
+</PRE>
+<p>
+Each Object Frame contains one or more objects of a single type.  The
+type of the frame determines how the Frame is layed out, as follows:
+<OL>
+<LI>If the object is the size of a Frame (for instance, a Page),
+    the frame is completely taken up by the Object, and it's
+    allocation count is kept in the Tag Pot. For example, a Page frame
+    looks like:
+     <p>
+<PRE>
+ ------------------
+|//////////////////|
+|//////////////////|
+|//////////////////|
+|//////////////////|
+|///////Page///////|
+|//////////////////|
+|//////////////////|
+|//////////////////|
+|//////////////////|
+ ------------------
+</PRE>
+<p>
+<LI>
+If the object is smaller than a Frame (for instance, a Node),
+then the Object Frame is split into as many Objects as can
+fit.  Each object in the frame has to keep track of its own allocation
+count, and the Frame's Tag Pot allocation count is undefined (and
+is used for optimization).  For example, a Node frame looks like:
+<p>
+<PRE>
+ ------------------
+|///////Node///////|
+|\\\\\\\Node\\\\\\\|
+|///////Node///////|
+|\\\\\\\Node\\\\\\\|
+|///////Node///////|
+|\\\\\\\Node\\\\\\\|
+|///////Node///////|
+|\\\\\\\Node\\\\\\\|
+|                  |
+ ------------------
+</PRE>
+</OL>
+<p>
+If a new object is allocated in a given frame, and its type does not
+match the current frame type, all existing objects in the object frame
+are implicitly rescinded.
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

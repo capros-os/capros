@@ -1,0 +1,327 @@
+<HTML>
+<HEAD>
+<TITLE>Revised Key Format</TITLE>
+</HEAD>
+<BODY>
+<ADDRESS>
+Jonathan S. Shapiro
+<br> 870 North 28th St, Apt 101
+<br> Philadelphia, PA 19130
+</ADDRESS>
+<P>
+This document describes the changes in the key format between
+KeyKOS&#174 and EROS, and provides a discussion of some of the
+implications.
+<HR>
+<H1>1. EROS Key Format </H1>
+<P>
+One of the differences between EROS and it's predecessor KeyKOS is
+it's internal format for in-memory keys.  Originally, the motivation
+for this change was to speed up the performance of the context switch
+path.  In the process of doing this, a number of other things were
+simplified.  The end result is a system whose implementation is
+significantly simplified in a surprising number of places.
+<P>
+Like KeyKOS, EROS makes a distinction between keys that are
+<STRONG>prepared</STRONG> and keys that are in their on-disk format.
+For a few key types, most notably <STRONG>number keys</STRONG>, the
+prepared and on-disk formats are identical.  For the various forms of
+page and node keys, however, the prepared form is designed to provide
+fast access to the object named by a key.
+<P>
+In order for a key to be prepared, the corresponding object must be in
+memory and prepared.  In practice, key preparation is the principle
+operation that forces disk reads to happen.
+<P>
+In both KeyKOS and EROS, the on-disk form of a key is layed out as
+follows:
+<PRE>
++--------+--------+--------+--------+
+|    CDA HIWORD   |DataByte|Type RWP|
++--------+--------+--------+--------+
+|          Allocation Count         |
++--------+--------+--------+--------+
+|                CDA                |
++--------+--------+--------+--------+
+</PRE>
+<P>
+The 'P' bit indicates whether the key is prepared.  In the on-disk
+form it is always 0, indicating an unprepared key.
+<H2>1.1 KeyKOS Prepared Form</H2>
+<P>
+In KeyKOS, the prepared form of the key occupies 16 bytes:
+<PRE>
++--------+--------+--------+--------+
+| Sanity | UNUSED |DataByte|TYPE RWP|
++--------+--------+--------+--------+
+|   Pointer to Left Sibling Key     |
++--------+--------+--------+--------+
+|   Pointer to Right Sibling Key    |
++--------+--------+--------+--------+
+|   Pointer to ObHeader for object  |
++--------+--------+--------+--------+
+</PRE>
+The CDA and allocation count fields are maintained in the header of
+the prepared object.  The pointer to the ObHeader is in effect a
+pointer to the object itself.  The left and right sibling pointers are
+used to form a chain of all of the prepared keys associated with the
+object.  The object itself acts as the root of this chain, which is
+known as the <STRONG>key chain</STRONG>.  The key chain is used for
+several purposes in KeyKOS, and each will be addressed below.
+<P>
+While the key chain is leveraged by many kernel algorithms, there are
+some disadvantages to doubly linked keys:
+<UL>
+<LI>
+When prepared keys are copied from one domain to another, the key
+chain must be revised.  This requires several memory references to the
+sibling keys, which are otherwise unnecessary and impose a fairly
+hefty cost.
+<LI> 
+The keys occupy more space in core.  Not a lot, but decreasing the
+size of the key by 25% adds up given the number of keys in the system.
+<LI>
+The disparity in key sizes in turn means that on-disk nodes and
+in-core nodes are different sizes.  This requires their transfer into
+and out of memory to be buffered, and that the key be expanded and
+contracted during the transfer.  It may prove possible under the
+revised scheme not to buffer nodes or to buffer them more efficiently.
+</UL>
+<P>
+Of these, the compelling reason to look for an alternative structure
+is the problem with key copies.  Copying the keys turns out to be a
+significant performance drain in the system's IPC implementation.
+<H2>1.2 EROS Prepared Form</H2>
+<P>
+In EROS, the prepared form of the key has been reduced to 12 bytes:
+<PRE>
++--------+--------+--------+--------+
+| Sanity | UNUSED |DataByte|TYPE RWP|
++--------+--------+--------+--------+
+|     In-Core Allocation Count      |
++--------+--------+--------+--------+
+|   Pointer to ObHeader for object  |
++--------+--------+--------+--------+
+</PRE>
+<P>
+The pointer to the object is retained, but the sibling chain is
+discarded.  In order to handle object validity checking efficiently,
+the key keeps an in-core allocation count.
+<P>
+The essential advantage to this structure is that keys can be copied
+without regard to their content.  The disadvantage is that it is no
+longer possible, given a prepared object, to directly locate all of
+the prepared keys to that object.  As we'll describe in a moment, this
+requires a number of system algorithms to be replaced.
+<H1>2. Uses of the Key Chain</H1>
+<P>
+Before abandoning the key chain, it's worth understanding how it is
+used in the current system.  Without going into great detail, the key
+chain is used in four ways:
+<OL>
+<LI>
+To enable prepared keys to be deprepared when the object they point to
+is removed from memory.
+<LI>
+To enable in-core keys to be invalidated when an object is rescinded,
+which reduces the frequency with which the on-disk allocation count
+must be updated.
+<LI>
+To embody the queue of processes that are sleeping on an event (the
+so-called <STRONG>hook key</STRONG>.  Sleeping processes are chained
+in order of wakeup on the key chain of their object.  By convention,
+all hook keys are immediately to the left of the object to limit the
+search required to wake up the next sleeper.
+<LI>
+To find parents in the segment tree in support of page table entry
+invalidation.  When a slot in a segment is invalidated, one must walk
+up the segment tree finding a segment that dominates a page table in
+order to invalidate the correct page table entries.
+</OL>
+<P>
+Of these uses, the first and second can be handled easily by a
+integrating a mark pass over key space with the aging logic.
+Embodying the queue of sleeping processes in the hook key frankly
+always struck me as obscure, and not very well suited to dynamic
+priority adjustment (which is something we need to deal with in EROS).
+Even accepting that the hook chain concept was a good idea, it would
+be equally effective to run that chain through the in-core node
+header; the chain never goes to disk in any case.
+<P>
+The segment tree, however, poses some interesting challenges.
+<H2>2.1 Walking the Segment Trees</H2> 
+<P>
+When a process first starts, it has no valid page table entries.  It
+page faults, the effect of which is to walk the segment tree to find a
+page corresponding to the faulted address.  In the course of this
+walk, the kernel will traverse several segment slots and prepare the
+keys contained in those slots.  Assuming that a valid mapping is
+found, a page table entry (and possibly a page directory) will be
+constructed.
+<P>
+If one of those slots later changes, the kernel must be able to
+determine which page table entries are impacted.  A change to a slot
+close to the root of the segment tree will impact a large number of
+PTE's.  A change lower down may impact a small number.  In short, a
+mapping is required that maps from segment slots to PTE entries.  This
+mapping is called the <STRONG>depend table</STRONG>.
+<H3>Depend Table Size</H3>
+<P>
+In the simplest implementation, the depend table is fairly large.
+Given a 32 bit address space with 4K pages, there are 20 bits of
+virtual page address for each page.  Assuming a full segment tree,
+there are five segment slots that play a role in every leaf page table
+entry.
+<P>
+A saving grace is found in the fact that not all five dependencies
+need to be captured.  For each page table entry it is sufficient to
+capture information about the segments that stand <EM>between it and
+it's containing page directory</EM> in the translation tree.  Using
+this logic, every page directory slot will have 3 associated segment
+slots, and each page table entry will have an additional two.  In
+spite of all this, it's still a fairly unwieldy table.  This brings us
+to the segment-related uses of the key chain.
+<H3>Table Optimization</H3>
+<P>
+In practice, KeyKOS uses the depend table only for exceptional cases.
+When a segment slot is overwritten (or deprepared), KeyKOS uses the
+key chain to perform a breadth-first walk <EM>up</EM> the containing
+segment trees looking for segments that dominate a page directory.
+When it finds one, it combines the slot number with the number of
+levels traversed to determine which PTE entry or entries in that table
+to invalidate.  Because segments can share subsegments, there may be
+multiple "parent" segments that need to be invalidated.  Further
+complications are introduced by <STRONG>window keys</STRONG>, which we
+will not pursue here.
+<P>
+To augment the dominator search, KeyKOS stores certain exceptional
+cases in the depend table.  Any case that cannot easily be handled
+using the dominator walk is handled by the depend logic.
+<P>
+In principle, the depend logic could be extended to subsume all of the
+role of the upward tree walk.  On an architecture whose page tables
+are not tree structured this would be necessary in any case, since
+such an architecture has no page directories to dominate.
+<H3>Reengineering the Depend Logic</H3>
+<P>
+The depend logic comes into play in two situations:
+<UL>
+<LI>
+To capture the relationship between segment slots and mapping table
+entries.  In the optimized version, this information is managed using
+the segment tree walk.
+<LI> 
+To capture some unusual dependency cases induced by window keys.  A
+window key provides a "window" onto some other slot.  If the target
+slot is altered, the window must also be invalidated.
+</UL>
+<P>
+For the moment, I'm going to ignore the second problem, as it's a pain
+in the butt, and very much the exceptional case.  The more important
+problem is the segment to valid entry mapping.
+<P>
+For the purposes of the depend logic, we're not so much interested in
+the page table entries that were validated by a segment.  In reality,
+we're interested in the page tables that need to be
+<EM>invalidated</EM> if that segment is modified.  To support this,
+EROS maintains a <STRONG>segment project table</STRONG>
+<H2>What a Segment Projection Is</H2>
+<P>
+The segment mechanism implements a tree-structured mapping mechanism
+with short circuit tree traversal.  One way to think about the
+relationship between the segment tree and the page table structure is
+that the segment tree is <EM>projected</EM> onto the structures
+provided by the native hardware.  Under this projection, each node in
+the segment tree can be thought of as casting a <STRONG>shadow</STRONG>
+on the page tables that describes the entries it invalidates.  Because
+segments can be composed arbitrarily, a given segment may project many
+shadows simultaneously.
+<P>
+To make that concrete, imagine that we have just taken a virtual
+address fault on virtual page 19.  The page is valid according to the
+segment tree, but we need to build a page table entry for it.
+For simplicity, we'll assume that the segment tree maps the full
+32-bit address space, which means that the tree is five segments high.
+The path through the segment tree to locate the appropriate page key
+is therefore:
+<PRE>
+DR-3 :: S5-0 :: S4-0 :: S3-0:: S2-1 :: S1-3
+</PRE>
+That is, to get to page 19 you start at the domain root, follow slot 0
+of the top segment, slot zero of the next to top segment, and so
+forth.
+<P>
+The i[34]86 uses a two-level translation scheme.  In this scheme, the
+upper level is called the <STRONG>page directory</STRONG> and the
+lower level is called the <STRONG>page table</STRONG>.  The page
+directory is pointed to by the <STRONG>address space register</STRONG>
+<P>
+Each of the segments involved spans a number of page table or page
+directory entries:
+<PRE>
+DR-3    spans ASR-0 (handled in depend table)
+S5      spans PDE-0 through PDE-1024
+S4      spans PDE-0 through PDE-32
+S3      spans PTE-0 through PTE-1024 in page table 0
+S2      spans PTE-0 through PTE-256
+S1      spans PTE-16 through PTE-31
+</PRE>
+<P>
+By definition, the shadow of a segment is it's span under the segment
+projection.
+<H1>3. The Segment Projection Table</H1>
+<P>
+The Segment Projection Table is the structure in which information
+about the shadows of segments is stored.  Because the spans involved
+are contiguous, and occur in powers of 16, the information can be
+stored very densely.  Every entry in the segment projection table is 3
+words, layed out as follows:
+<PRE>
+kva of segment    ::   log16(span count)
+kva of page table ::   index of start of span
+kva of next segment project table entry
+</PRE>
+<P>
+This dense layout is made possible by the fact that log16(span count)
+can never exceed 5 and the segment size is a multiple of 8 bytes.
+<H2>3.1 Constructing the Table</H2>
+When a page fault occurs, the kernel attempts to walk the segment tree
+looking for a translation.  As the kernel traverses each key in the
+segment tree, it verifies that an appropriate projection table entry
+has been generated.  If not, it produces one.
+<P>
+Projection checking must be done during translation because keys can
+be prepared and deprepared independent of the address translation
+logic, and the entries can only be constructed if the relevant page
+table address is known.  The latter knowledge is in general available
+only to code that is walking down the segment tree.  Unless the
+segment is multiply mapped, the projection construction can be
+verified by examining a single projection table entry.
+<H2>3.2 Using the Table</H2>
+<P>
+Whenever a key in a segment is deprepared or overwritten, the
+projections of that segment are consulted, and all appropriate PTE
+entries are invalidated. It is not uncommon for those PTE entries to
+be shared by other processes due to shared subsegments; in that case,
+they will be revalidated in a later pass.
+<H2>3.3 Eliminating Stale Entries</H2>
+<P>
+Under some peculiar circumstances, it is possible for entries in the
+segment projection table to become very stale.  Usually, this arises
+because an actively used subsegment was briefly shared, and the old
+sharing has not been flushed from the table.
+<P>
+In order to manage this problem, a scavenger pass slowly works it's
+way through memory invalidating segment nodes.  Once all of the keys
+in a segment have been deprepared, all shadows of that segment are
+effectively empty, and can be safely removed from the projection
+table.  If the segment is actively used, the active projections will
+be quickly reconstructed.
+<P>
+In practice, we do not expect this to be a terribly serious problem,
+as the more common situation is that page table pages will be
+invalidated, whereupon all of the projections that refer to them
+become invalid.
+</BODY>
+</HTML>
+

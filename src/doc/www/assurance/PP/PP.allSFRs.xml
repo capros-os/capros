@@ -1,0 +1,3450 @@
+<!DOCTYPE ProtectionProfile SYSTEM "../../DTD/doc.dtd">
+<ProtectionProfile>
+  <copyright>
+    <year>2001</year> <organization>Johns Hopkins
+    University</organization> <copy-terms>For terms of redistribution,
+    see the <a href="../legal/license/GPL.html">GNU General Public
+    License</a>.</copy-terms>
+  </copyright>
+  <pp.front>
+    <title>ASP OS Protection Profile</title>
+    <author>
+      <name>Jonathan S. Shapiro</name>
+      <organization>
+	Johns Hopkins University Information Security Institute
+      </organization> <email>shap@eros-os.org</email>
+    </author>
+    <pp.front.ccversion>
+      Common Criteria version 2.1
+    </pp.front.ccversion>
+    <pp.front.label>
+      (none)
+    </pp.front.label>
+    <pp.front.keywords>
+      Application Service Provider
+    </pp.front.keywords>
+  </pp.front>
+  <pp.disclaimer>
+    <p>
+      This protection profile is a work in progress. If it is broken,
+      you get to keep all of the pieces.
+    </p>
+  </pp.disclaimer>
+  <pp.introduction>
+    <p>
+      <gripe>Fill me in someday.</gripe>
+    </p>
+  </pp.introduction>
+  <pp.toedescrip>
+    <h2>General Description</h2>
+    <p>
+      An Application Service Provider (ASP) is an operator of
+      computational facilities for contract customers, possibly
+      provided on a rented or leased basis. ASPs are distinguished
+      from conventional outsourcing operations by the fact that the
+      software running on the rented/leased resources is at least
+      partially dictated by the customer. That is, the operating basis
+      for such systems is that the customer has paid for a standard
+      arrangement of tools provided by the operator and may optionally
+      augment those tools with software provided by the customer, a
+      third party, or some combination thereof.
+    </p>
+    <p>
+      The operational requirements for an ASP include as subset cases:
+    </p>
+    <ol>
+      <li>
+	<p>
+	  Small-business servers, in which the operator is an agent of
+	  the user,
+	</p>
+      </li>
+      <li>
+	<p>
+	  Large-business servers, in which the operator is an agent of
+	  the company that owns the equipment, but may not be entitled
+	  to access the content of any particular user,
+	</p>
+      </li>
+      <li>
+	<p>
+	  Premises equipment in which the operator is a provider of
+	  some data-oriented service. This scenario has two further
+	  subcases:
+	</p>
+	<ol>
+	  <li>
+	    <p>
+	      Content delivery devices (including set top boxes) (such
+	      as multimedia content) in which the user is not
+	      generally offered the option to install software, or in
+	      which the enablement of available user options is
+	      accomplished through the intervention of the operator.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      Enhanced premises devices (such as connected gaming
+	      devices), in which either the user may cause the
+	      installation of new applications and/or services that
+	      the user can subsequently cause to run.
+	    </p>
+	  </li>
+	</ol>
+      </li>
+      <li>
+	<p>
+	  Handheld devices, in which the user is the operator, not all
+	  software is equally trusted, and the users wishe to protect
+	  sensitive or valuable information from software that later
+	  proves to be malicious, faulty, or both.
+	</p>
+      </li>
+    </ol>
+    <p>
+      The common, characterizing attribute of these applications is
+      that the computing platform is expected to run hostile software
+      without being compromised or substantially degraded in
+      performance.
+    </p>
+    <p>
+      An ASP Operating System (ASP OS) is an operating system capable
+      of supporting the application service provider application and
+      its subsets.
+    </p>
+    <p>
+      The stakeholders in an ASP OS fall into several categories:
+    </p>
+    <ol>
+      <li>
+	<p>
+	  The <em>operator</em>, who must meet obligations of specific
+	  performance to parties who have rented/leased service on a
+	  given compute platform. Simultaneously, the operator may
+	  wish for legal reasons to be distanced from liability
+	  resulting from the actions of users and/or developers. This
+	  requires that the ASP OS enforce certain types of
+	  separations between these stakeholders.
+	</p>
+      </li>
+      <li>
+	<p>
+	  The <em>user</em>, who has some application set they wish to
+	  run using the compute platform; presumably, but not
+	  necessarily, for the purpose of accomplishing some external
+	  goal.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <em>Developers</em> of software components and services
+	  installed by users or operators, who have warranties or
+	  contractual obligations that must be satisfied (contingent
+	  on operators, users, installers, and supplier developers
+	  meeting required preconditions). In addition to obligations
+	  of specific performance, a developer may optionally embody
+	  within their program content and algorithms that are
+	  proprietary, and therefore should not be disclosed to the
+	  user(s) of the system.
+	</p>
+      </li>
+      <li>
+	<p>
+	  The <em>installer</em>, who configures the operating system
+	  on specific target hardware and potentially ensures that
+	  applicable tamper-proofing requirements are satisfied. The
+	  installer must inherently be trusted by the other parties.
+	</p>
+      </li>
+      <li>
+	<p>
+	  The <em>system architect</em>, who architects, designs, and
+	  implements the ASP OS and its core runtime environment, and
+	  is inherently trusted by the other parties.
+	</p>
+      </li>
+    </ol>
+    <p>
+      It is beyond the scope of this protection profile to specify
+      means by which a secure bootstrap of the TOE is achieved prior
+      to the execution of the first instruction of the TOE.
+    </p>
+    <p>
+      It is beyond the scope of this protection profile to specify how
+      a developer may remotely determine whether the critical hardware
+      tamper-proofing function of the installer has been
+      satisfactorily met in the deployment of the TOE. This will
+      eventually be the subject of a separate PP/ST combination.
+    </p>
+    <h2>Possible Threats</h2>
+    <p>
+      There are three major attack categories to which an ASP OS is
+      subject:
+    </p>
+    <ul>
+      <li>
+	<p>
+	  Escape: Attempts by hostile software that is executing on
+	  the ASP OS to compromise their containment boundaries for
+	  the purpose of unauthorized disclosure.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Exhaustion: Attempts to exhaust resources in order to impose
+	  starvation on other applications.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Penetration: Attempts to bypass the normal mediation of
+	  software introduction in order to evade the security
+	  policies of the ASP OS. Alternatively, an attempt to
+	  compromise some element of the TSF.
+	</p>
+      </li>
+    </ul>
+  </pp.toedescrip>
+  <pp.securityenvironment>
+    <p>
+      The following paragraphs explain in greater detail the Security
+      Environment in which the ASP OS is expected to operate.
+    </p>
+    <h2>Assets</h2>
+    <p>
+      The primary assets of concern to this PP are...
+    </p>
+    <p>
+      <gripe>This section really deals with rationale. Should it
+	appear here, or in the rationale section?</gripe>
+    </p>
+    <pp.se.assumptions>
+      <pp.issues>
+	<pp.issue tag="A.GoodIPL">
+	  <pp.description>
+	    <p>
+	      An uncompromised installation and initial program load
+	      of the TOE has been performed.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    <p>
+	      In a case where the TOE implements multiple stages of
+	      initial program load, this assumption shall be taken to
+	      apply to the first of these stages. Once control of the
+	      bootstrap passes to the TOE, further assurance of
+	      correct execution are the responsibility of the TOE.
+	    </p>
+	  </pp.notes>
+	</pp.issue>
+	<pp.issue tag="A.MediatedDisk">
+	  <pp.description>
+	    <p>
+	      Examination and modification of the persistent storage
+	      media used by the TOE is exclusively performed by the
+	      TOE and the bootstrap mechanism.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="A.DiscreetIPL">
+	  <pp.description>
+	    <p>
+	      The bootstrap mechanism neither discloses nor modifies
+	      the content of the persistent storage media.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="A.DedicatedHardware">
+	  <pp.description>
+	    <p>
+	      Following bootstrap, the TOE is the only code loaded on
+	      its host system, and receives control from the bootstrap
+	      in a well-defined and uncompromised state.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="A.SafeHardware">
+	  <pp.description>
+	    <p>
+	      The hardware underlying the TOE provides no means by
+	      which non-privileged (in the eyes of the hardware)
+	      programs can execute hardware-privileged instructions
+	      without mediation by the hardware-privileged portion of
+	      the TOE.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="A.TrustedHypervisor">
+	  <pp.description>
+	    <p>
+	      Any hypervisor present on the hardware underlying the
+	      TOE honors all of the previous assumptions.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="A.Power">
+	  <pp.description>
+	    <p>
+	      Power to the TOE may be interrupted at any time.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="A.RollBack">
+	  <pp.description>
+	    <p>
+	      In the event of power loss, it is permissable for the
+	      TOE to discard a bounded amount of progress in order to
+	      re-establish a well defined, correct security state.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="A.Admin">
+	  <pp.description>
+	    <p>
+	      It is assumed that the TOE operator will make mistakes.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="A.Network">
+	  <pp.description>
+	    <p>
+	      The TOE operates in a networked environment.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="A.TrustedEnvironment">
+	  <pp.description>
+	    <p>
+	      No party shall improperly obtain authorized access to
+	      the TOE through non-technical means.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="A.LimitationsOnDOS">
+	  <pp.description>
+	    <p>
+	      It is not within the scope of TOE assurance to limit
+	      consumption, control, or guarantee availability of
+	      resources not under control of the TOE.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    <p>
+	      In this context, the phrase ``not under the control of
+	      the TOE'' shall be taken to include TOE behavior that is
+	      mandated by <em>de facto</em> compliance with applicable
+	      standards. For example, TCP Syn-Flood attacks can be
+	      reduced only by strategic technical violations of the
+	      TCP protocol standard, and then only partially.
+	    </p>
+	  </pp.notes>
+	</pp.issue>
+	<pp.issue tag="A.QuantumComputing">
+	  <pp.description>
+	    <p>
+	      The advent of quantum computing does not alter our
+	      understanding of computation in such a way as to
+	      invalidate the operational independence,
+	      non-simultaneity, and storage independence properties
+	      typically assumed of von Neuman computing devices.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    <p>
+	      This is a serious assumption. At the very least it has
+	      potential implications for selection of cryptographic
+	      techniques, as public key encryption based on prime
+	      factorization is known to be crackable using quantum
+	      computing techniques.
+	    </p>
+	  </pp.notes>
+	</pp.issue>
+      </pp.issues>
+    </pp.se.assumptions>
+    <pp.se.threats>
+      <pp.issues>
+	<pp.issue tag="T.Resource">
+	  <pp.description>
+	    <p>
+	      An attacker (either internal or external) may attempt to
+	      overconsume resources so as to deny them to legitemate
+	      users.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.BrainTransplant">
+	  <pp.description>
+	    <p>
+	      An attacker may exploit a flaw in the implementation of
+	      the TOE in order to cause that component to execute code
+	      determined by the attacker. In particular, this might
+	      include compromise of the TSF software.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.ResourceAnalysis">
+	  <pp.description>
+	    <p>
+	      An attacker may exploit resource availability
+	      information (quota reporting) so as to discover
+	      information about a computation that is supposed to be
+	      discreet.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.BadRollBack">
+	  <pp.description>
+	    <p>
+	      In the event of power loss, a rollback might occur in
+	      such a way that the TOE is not able to recover a well
+	      defined, correct security state.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.OperatorError">
+	  <pp.description>
+	    <p>
+	      Errors made by the operator might leave the system
+	      security state compromised.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.BadPolicy">
+	  <pp.description>
+	    <p>
+	      Through error or malice, an operator may put in place a
+	      system security policy that is incorrect or
+	      unenforceable.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.ProprietaryDisclosure">
+	  <pp.description>
+	    <p>
+	      The proprietary state of a program may be disclosed
+	      through a failure in the design or application of the
+	      TOE's security policies and mechanisms.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.Leakage">
+	  <pp.description>
+	    <p>
+	      The private state of a program may be disclosed by a
+	      serving component through a failure of confinement on
+	      that component.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.Masquerade">
+	  <pp.description>
+	    <p>
+	      An attacker may seek to defeat the TOE's authentication
+	      mechanisms in order to consume the resources of
+	      (masquerade as) a legitemate user.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.OperatorMalice">
+	  <pp.description>
+	    <p>
+	      A hostile operator may seek to examine the content of
+	      protected state owned by a user.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.OperatorLiability">
+	  <pp.description>
+	    <p>
+	      An operator may be exposed to liability and damages
+	      resulting from malicious or illegal actions.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.BadInstall">
+	  <pp.description>
+	    <p>
+	      An operator may seek to introduce compromised services
+	      into the system by altering the content of the
+	      installation media.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.Covert">
+	  <pp.description>
+	    <p>
+	      Two parties not having an authorized path of
+	      communication may seek to transmit data using covert
+	      channels of communication.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="T.Abuse">
+	  <pp.description>
+	    <p>
+	      A hostile program may use its authority in improper
+	      ways.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+      </pp.issues>
+    </pp.se.threats>
+    <pp.se.policies>
+      <pp.issues>
+	<pp.issue tag="P.BoundedAssurance">
+	  <pp.description>
+	    <p>
+	      Assurance in the TOE is bounded by the assurance with
+	      which the Operating Environment assumptions have been
+	      satisfied.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="P.OperatorExposure">
+	  <pp.description>
+	    <p>
+	      The operator shall not be exposed to the content of TOE
+	      users except where the operator <em>is</em> the user.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="P.AdminTools">
+	  <pp.description>
+	    <p>
+	      The administrative tools shall restrict the
+	      administrator to (de)allocation of system resources and
+	      monitoring the consumption of such resource.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="P.Authentication">
+	  <pp.description>
+	    <p>
+	      All nontrivial use of the TOE shall be mediated by
+	      authentication.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    <p>
+	      The degree of authentication required in the TOE itself
+	      may be mitigated by the target application. For example,
+	      an embedded premises device might plausibly rely on the
+	      physical protection of the premises as the principal
+	      means of authentication for users with direct physical
+	      access to the device.
+	    </p>
+	    <p>
+	      Note that the assurance of the TOE is bounded by the
+	      assurance of its authentication mechanism.
+	    </p>
+	  </pp.notes>
+	</pp.issue>
+	<pp.issue tag="P.AnonymousInterface">
+	  <pp.description>
+	    <p>
+	      The P.Authentication interface notwithstanding, the TOE
+	      may permit unauthenticated access to such facilities as
+	      may be necessary to perform authentication or (if
+	      unmediated account creation is permitted) establish a
+	      new identity for purposes of TOE authentication.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="P.WellDefinedState">
+	  <pp.description>
+	    <p>
+	      After IPL, the TOE shall always initiate execution from
+	      a well-defined security state.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="P.PolicyRigor">
+	  <pp.description>
+	    <p>
+	      The TOE shall not allege to enforce a security policy
+	      unless (a) it can be shown that there exists some means
+	      by which the policy is in principle enforceable given
+	      the protection mechanisms implemented by the TOE, and
+	      (b) the TOE in fact implements some embodiment that
+	      performs such enforcement using these mechanisms.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="P.LeastAuthority">
+	  <pp.description>
+	    <p>
+	      A program executing under the TOE shall have the least
+	      authority sufficient to perform its function.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    <p>
+	      A corollary to this is that components executing under
+	      the TOE shall have no inherent authority at the moment
+	      of their creation.
+	    </p>
+	  </pp.notes>
+	</pp.issue>
+	<pp.issue tag="P.Resource">
+	  <pp.description>
+	    <p>
+	      A program executing under the TOE shall have no inherent
+	      ability to allocate resources.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    <p>
+	      A corollary to this is that the resources authorized to
+	      a program must be provided by its instantiator. In the
+	      case of components corresponding to user sessions, the
+	      instantiator may be software operating as an agent of
+	      the system operator.
+	    </p>
+	  </pp.notes>
+	</pp.issue>
+	<pp.issue tag="P.Confinement">
+	  <pp.description>
+	    <p>
+	      Every untrusted program executing under the TOE shall
+	      execute within a confinement boundary.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="P.Suspicion">
+	  <pp.description>
+	    <p>
+	      The TOE shall treat all code outside the TOE as
+	      potentially hostile.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="P.RsrcAuth">
+	  <pp.description>
+	    <p>
+	      No program shall allocate or use a resource for which it
+	      lacks authorization.
+	    </p>
+	  </pp.description>
+	</pp.issue>
+	<pp.issue tag="P.RsrcMux">
+	  <pp.description>
+	    <p>
+	      The TOE shall reify interfaces for the exact control of
+	      resource multiplexing.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    
+	  </pp.notes>
+	</pp.issue>
+	<pp.issue tag="P.Conservation">
+	  <pp.description>
+	    <p>
+	      The TOE shall be resource-conservative.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    <p>
+	      The TOE operates from a finite pool of resources. It
+	      allocates and mediates access to these resources, but
+	      neither creates nor destroys them. The correctness of
+	      the TOE's execution must not rely on the assumption that
+	      available resources are unbounded.
+	    </p>
+	  </pp.notes>
+	</pp.issue>
+	<pp.issue tag="P.CommonCarrier">
+	  <pp.description>
+	    <p>
+	      The TOE shall be designed in such a way as to facilitate
+	      operation under ``common carrier'' status, where
+	      applicable.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    <p>
+	      The ``Common Carrier'' statute provides for reduction or
+	      elimination of operator liability where it can be shown
+	      that the operator lacked technical means to know or
+	      control the activities of users. The TOE should be
+	      designed in such a way as to preserve this separation so
+	      that the operator has the option of invoking this
+	      statutory protection where it applies.
+	    </p>
+	  </pp.notes>
+	</pp.issue>
+      </pp.issues>
+    </pp.se.policies>
+  </pp.securityenvironment>
+  <pp.securityobjectives>
+    <pp.so.toe>
+      <pp.objectives>
+	<pp.objective tag="SO.NoSuperUser">
+	  <pp.description>
+	    <p>
+	      Operators shall not have visibility into the operation
+	      and state of software running on behalf of users.
+	    </p>
+	  </pp.description>
+	  <pp.issue.ref tag="P.OperatorExposure"/> 
+	  <pp.issue.ref tag="P.CommonCarrier"/>
+	</pp.objective>
+	<pp.objective tag="SO.SeparationOfAllocation">
+	  <pp.description>
+	    <p>
+	      The ability to authorize the allocation of resources
+	      shall not imply the ability to examine the content of
+	      the resources allocated.
+	    </p>
+	  </pp.description>
+	  <pp.issue.ref tag="P.OperatorExposure"/>
+	  <pp.issue.ref tag="P.CommonCarrier"/>
+	</pp.objective>
+	<pp.objective tag="SO.FailSecure">
+	  <pp.description>
+	    <p>
+	      The TOE must be designed such that it is always able to
+	      recover a well-defined system state following a power
+	      failure or crash.
+	    </p>
+	  </pp.description>
+	  <pp.issue.ref tag="A.Power"/> 
+	  <pp.issue.ref tag="P.WellDefinedState"/>
+	</pp.objective>
+	<pp.objective tag="SO.Interfaces">
+	  <pp.description>
+	    <p>
+	      Code shall only interact with other code (including the
+	      TOE) through well-defined interfaces.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.IfEncap">
+	  <pp.description>
+	    <p>
+	      The TOE shall enforce encapsulation of the interfaces by
+	      which components communicate.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.IfSafe">
+	  <pp.description>
+	    <p>
+	      Every operation on each interface exported by the TOE
+	      shall transform the state of the TOE from one
+	      well-defined security state to another well-defined
+	      security state.
+	    </p>
+	  </pp.description>
+	  <pp.issue.ref tag="A.Power"/> 
+	  <pp.issue.ref tag="P.WellDefinedState"/>
+	</pp.objective>
+	<pp.objective tag="SO.Availability">
+	  <pp.description>
+	    <p>
+	      The TOE shall provide means by which the operator can
+	      establish minimal resource availability commitments. The
+	      TOE shall ensure that the resources bound under such
+	      commitments are always available for use by authorized
+	      programs.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.Quotas">
+	  <pp.description>
+	    <p>
+	      The TOE shall provide means by which the operator can
+	      establish maximal bounds on each resource availability
+	      commitment. The TOE shall ensure that the resources
+	      provided under each resource commitment do not exceed
+	      the bound on those authorized.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.Progress">
+	  <pp.description>
+	    <p>
+	      The TOE shall ensure that any program executing under
+	      the TOE shall continue to make progress so long as
+	      sufficient resources have been committed for its
+	      use. The TOE shall further ensure that the preconditions
+	      for progress are well-defined.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.LibFuns">
+	  <pp.description>
+	    <p>
+	      All core TOE library functions that read or write
+	      buffers shall include in their interface a
+	      specficiaction of the buffer length, and shall have
+	      well-defined behavior in the event that this limit is
+	      exceeded. All TOE components shall be built exclusively
+	      using core TOE librarys.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.Fuzziness">
+	  <pp.description>
+	    <p>
+	      Where feasible, the TOE resource management interfaces
+	      shall be designed to minimize the exposure of global
+	      resource availability information. Where this is not
+	      feasible, the TOE shall apply suitable countermeasures
+	      (including fuzzy reporting) in reporting these figures
+	      as a covert channel defense.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.Restart">
+	  <pp.description>
+	    <p>
+	      The TOE shall ensure that at all times there is a
+	      well-defined security state from which to restart after
+	      power loss, and that the interval between the execution
+	      of the first TOE instruction and the first user
+	      application instruction preserves this security.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.Confinement">
+	  <pp.description>
+	    <p>
+	      The TOE shall provide a mechanism by which a program can
+	      be prohibited from communicating via unauthorized
+	      channels.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.Authentication">
+	  <pp.description>
+	    <p>
+	      The TOE, with support from its environment, will ensure
+	      that each user is uniquely identified, and that the
+	      claimed identity is authentcated, before the user is
+	      granted access to the TOE facilities.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.NonDisclosure">
+	  <pp.description>
+	    <p>
+	      The TOE shall be so designed that a given user's content
+	      is protected from disclosure to any other party without
+	      the consent of some program running on behalf of the
+	      user. For purposes of this objective, the system
+	      operator is specifically included in the list of ``other
+	      parties.''
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.PositiveAgreement">
+	  <pp.description>
+	    <p>
+	      The TOE shall be designed to ensure that no user can
+	      make information available to another party unless the
+	      receiving party has agreed to accept that information.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    <p>
+	      The issue here is that in some systems I can alter the
+	      permissions on an object in such a way as to grant you
+	      access to the object, even though you have never heard
+	      of me. This lends itself to both liability issues and
+	      enticement errors.
+	    </p>
+	  </pp.notes>
+	</pp.objective>
+	<pp.objective tag="SO.AssuredInstall">
+	  <pp.description>
+	    <p>
+	      The TOE shall provide appropriate measures to confirm
+	      that code installed by any party has not been altered by
+	      the operator.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.MinimalAUthority">
+	  <pp.description>
+	    <p>
+	      The TOE shall be designed in such a way that each of its
+	      components holds the minimal authority needed to perform
+	      its function. The TOE shall facilitate in its interfaces
+	      and design the construction of application software that
+	      likewise satisfies this objective.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    <p>
+	      Trigger locks just ensure that gene pool pruning is
+	      suboptimal, but guns should be unloadable.
+	    </p>
+	  </pp.notes>
+	</pp.objective>
+	<pp.objective tag="SO.SoundAdministration">
+	  <pp.description>
+	    <p>
+	      The policy administration tools of the TOE shall only
+	      permit the construction of consistent and enforceable
+	      security policies.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+	<pp.objective tag="SO.NoDetect">
+	  <pp.description>
+	    <p>
+	      The TOE shall <em>not</em> provide any means by which
+	      the operator might detect the erroneous or malicious
+	      behavior of validly admitted programs.
+	    </p>
+	  </pp.description>
+	  <pp.notes>
+	    <p>
+	      Such detection violates confinement. There is a need for
+	      the operator to be able to observe aggregate conditions
+	      on the machine. For example, the operator needs to be
+	      able to learn both both (a) total available space with
+	      which to create accounts, and (b) amount of space
+	      currently under the control of a given user. The
+	      administrator should <em>not</em> be able to learn in
+	      any fine grain way the fraction of authorized space that
+	      has been allocated.
+	    </p>
+	    <p>
+	      Analogous issues arise with most security detection
+	      mechanisms. In general, the objective of this PP is to
+	      close security holes by making improper actions
+	      impossible <em>a priori</em> rather than providing
+	      <em>post hoc</em> mechanisms for discovery.
+	    </p>
+	    <p>
+	      A notable exception to this rule concerns the behavior
+	      of events <em>outside</em> the scope of legitemate user
+	      activity. For example, the system aggregate number of
+	      packets sent and received, and any information
+	      voluntarily logged by the networking subsystem with the
+	      consent of a user, is valid content for an administrator
+	      to observe and act upon.
+	    </p>
+	  </pp.notes>
+	</pp.objective>
+	<pp.objective tag="SO.PktFilter">
+	  <pp.description>
+	    <p>
+	      The TOE shall provide means by which the operator can
+	      filter the machine's interface to the outside, networked
+	      world. This means shall <em>not</em> provide the
+	      operator with authority to examine network traffic
+	      content.
+	    </p>
+	  </pp.description>
+	</pp.objective>
+      </pp.objectives>
+    </pp.so.toe>
+    <pp.so.environment>
+    </pp.so.environment>
+    <pp.so.rationale>
+    </pp.so.rationale>
+  </pp.securityobjectives>
+  <pp.itsecurityrequirements>
+    <pp.it.functional>
+      <pp.sfrs>
+	<pp.sfr tag="SFR.UnitsOfOperation">
+	  <pp.description>
+	    <p>
+	      The execution of the TOE shall be conceptually divisible
+	      into atomic units of operation, each of which shall
+	      transform the state of the TOE from one well-defined
+	      state into another well-defined state.
+	    </p>
+	  </pp.description>
+	  <pp.issue.ref tag="A.Power"/> 
+	  <pp.issue.ref tag="P.WellDefinedState"/>
+	</pp.sfr>
+	<pp.sfr tag="SFR.UserExecutionModel">
+	  <pp.description>
+	    <p>
+	      The execution of any user-mode instruction shall be
+	      expressable in the TOE security model as a sequence of
+	      TOE units of operation.
+	    </p>
+	  </pp.description>
+	  <pp.issue.ref tag="A.Power"/> 
+	  <pp.issue.ref tag="P.WellDefinedState"/> 
+	  <pp.issue.ref tag="SFR.UnitsOfOperation"/>
+	</pp.sfr>
+
+
+ 	<pp.sfr tag="FAU_ARP.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall take [assignment: list of the least
+	      disruptive actions ] upon detection of a potential
+	      security violation.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_GEN.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to generate an audit record of the
+	      following auditable events:
+	    </p>
+	    <ol>
+	      <li>
+		a) Start-up and shutdown of the audit functions;
+	      </li>
+	      <li>
+		b) All auditable events for the [selection: minimum, basic,
+		detailed, not specified ] level of audit; and
+	      </li>
+	      <li>
+		c) [assignment: other specifically defined auditable events
+		].
+	      </li>
+	    </ol>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_GEN.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall record within each audit record at least
+	      the following information :
+	    </p>
+	    <ol>
+	      <li>
+		a) Date and time of the event, type of event, subject
+		identity, and the outcome (success or failure) of the
+		event; and
+	      </li>
+	      <li>
+		b) For each audit event type, based on the auditable
+		event definitions of the functional components included
+		in the PP/ST, [assignment: other audit relevant
+		information ]
+	      </li>
+	    </ol>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_GEN.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to associate each auditable event
+	      with the identity of the user that caused the event.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAA.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to apply a set of rules in
+	      monitoring the audited events and based upon these rules
+	      indicate a potential violation of the TSP.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAA.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the following rules for monitoring
+	      audited events:
+	    </p>
+	    <ol>
+	      <li>
+		a) Accumulation or combination of [assignment: subset of
+		defined auditable events ] known to indicate a potential
+		security violation;
+	      </li>
+	      <li>
+		b) [assignment: any other rules ].
+	      </li>
+	    </ol>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAA.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to maintain profiles of system
+	      usage, where an individual profile represents the
+	      historical patterns of usage performed by the member(s)
+	      of [assignment: the profile target group ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAA.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to maintain a suspicion rating
+	      associated with each user whose activity is recorded in
+	      a profile, where the suspicion rating represents the
+	      degree to which the user's current activity is found
+	      inconsistent with the established patterns of usage
+	      represented in the profile.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAA.2.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to indicate an imminent violation
+	      of the TSP when a user's suspicion rating exceeds the
+	      following threshold conditions [assignment: conditions
+	      under which anomalous activity is reported by the TSF ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAA.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to maintain an internal
+	      representation of the following signature events
+	      [assignment: a subset of system events ] that may
+	      indicate a violation of the TSP.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAA.3.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to compare the signature events
+	      against the record of system activity discernible from
+	      an examination of [assignment: the information to be
+	      used to determine system activity ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAA.3.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to indicate an imminent violation
+	      of the TSP when a system event is found to match a
+	      signature event that indicates a potential violation of
+	      the TSP.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAA.4.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to maintain an internal
+	      representation of the following event sequences of known
+	      intrusion scenarios [assignment: list of sequences of
+	      system events whose occurrence are representative of
+	      known penetration scenarios ] and the following
+	      signature events [assignment: a subset of system events
+	      ] that may indicate a potential violation of the TSP.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAA.4.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to compare the signature events
+	      and event sequences against the record of system
+	      activity discernible from an examination of [assignment:
+	      the information to be used to determine system activity
+	      ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAA.4.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to indicate an imminent violation
+	      of the TSP when system activity is found to match a
+	      signature event or event sequence that indicates a
+	      potential violation of the TSP.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAR.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide [assignment: authorised users ]
+	      with the capability to read [assignment: list of audit
+	      information ] from the audit records.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAR.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the audit records in a manner
+	      suitable for the user to interpret the information.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAR.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall prohibit all users read access to the
+	      audit records, except those users that have been granted
+	      explicit read-access.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SAR.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the ability to perform [selection:
+	      searches, sorting, ordering ] of audit data based on
+	      [assignment: criteria with logical relations ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_SEL.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to include or exclude auditable
+	      events from the set of audited events based on the
+	      following attributes:
+	    </p>
+	    <ol>
+	      <li>
+		a) [selection: object identity, user identity, subject
+		identity, host identity, event type ]
+	      </li>
+	      <li>
+		b) [assignment: list of additional attributes that audit
+		selectivity is based upon ].
+	      </li>
+	    </ol>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_STG.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall protect the stored audit records from
+	      unauthorised deletion.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_STG.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to [selection: prevent, detect ]
+	      modifications to the audit records.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_STG.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall protect the stored audit records from
+	      unauthorised deletion.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_STG.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to [selection: prevent, detect ]
+	      modifications to the audit records.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_STG.2.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that [assignment: metric for saving
+	      audit records ] audit records will be maintained when
+	      the following conditions occur: [selection: audit
+	      storage exhaustion, failure, attack ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_STG.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall take [assignment: actions to be taken in
+	      case of possible audit storage failure ] if the audit
+	      trail exceeds [assignment: pre-defined limit ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FAU_STG.4.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall [selection: ` ignore auditable events',
+	      `prevent auditable events, except those taken by the
+	      authorised user with special rights', ` overwrite the
+	      oldest stored audit records' ] and [assignment: other
+	      actions to be taken in case of audit storage failure ]
+	      if the audit trail is full.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRO.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to generate evidence of origin for
+	      transmitted [assignment: list of information types ] at
+	      the request of the [selection: originator, recipient,
+	      [assignment: list of third parties ] ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRO.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to relate the [assignment: list of
+	      attributes ] of the originator of the information, and
+	      the [assignment: list of information fields ] of the
+	      information to which the evidence applies.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRO.1.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide a capability to verify the
+	      evidence of origin of information to [selection:
+	      originator, recipient, [assignment: list of third
+	      parties ]] given [assignment: limitations on the
+	      evidence of origin ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRO.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the generation of evidence of
+	      origin for transmitted [assignment: list of information
+	      types ] at all times .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRO.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to relate the [assignment: list of
+	      attributes ] of the originator of the information, and
+	      the [assignment: list of information fields ] of the
+	      information to which the evidence applies.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRO.2.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide a capability to verify the
+	      evidence of origin of information to [selection:
+	      originator, recipient, [assignment: list of third
+	      parties ]] given [assignment: limitations on the
+	      evidence of origin ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRR.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to generate evidence of receipt
+	      for received [assignment: list of information types ] at
+	      the request of the [selection: originator, recipient,
+	      [assignment: list of third parties ] ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRR.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to relate the [assignment: list of
+	      attributes ] of the recipient of the information, and
+	      the [assignment: list of information fields ] of the
+	      information to which the evidence applies.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRR.1.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide a capability to verify the
+	      evidence of receipt of information to [selection:
+	      originator, recipient, [assignment: list of third
+	      parties ]] given [assignment: limitations on the
+	      evidence of receipt ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRR.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the generation of evidence of
+	      receipt for received [assignment: list of information
+	      types ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRR.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to relate the [assignment: list of
+	      attributes ] of the recipient of the information, and
+	      the [assignment: list of information fields ] of the
+	      information to which the evidence applies.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCO_NRR.2.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide a capability to verify the
+	      evidence of receipt of information to [selection:
+	      originator, recipient, [assignment: list of third
+	      parties ]] given [assignment: limitations on the
+	      evidence of receipt ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCS_CKM.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall generate cryptographic keys in accordance
+	      with a specified cryptographic key generation algorithm
+	      [assignment: cryptographic key generation algorithm ]
+	      and specified cryptographic key sizes [assignment:
+	      cryptographic key sizes ] that meet the following:
+	      [assignment: list of standards ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCS_CKM.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall distribute cryptographic keys in
+	      accordance with a specified cryptographic key
+	      distribution method [assignment: cryptographic key
+	      distribution method ] that meets the following:
+	      [assignment: list of standards ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCS_CKM.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall perform [assignment: type of cryptographic
+	      key access ] in accordance with a specified
+	      cryptographic key access method [assignment:
+	      cryptographic key access method ] that meets the
+	      following: [assignment: list of standards ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCS_CKM.4.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall destroy cryptographic keys in accordance
+	      with a specified cryptographic key destruction method
+	      [assignment: cryptographic key destruction method ] that
+	      meets the following: [assignment: list of standards ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FCS_COP.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall perform [assignment: list of cryptographic
+	      operations ] in accordance with a specified
+	      cryptographic algorithm [assignment: cryptographic
+	      algorithm ] and cryptographic key sizes [assignment:
+	      cryptographic key sizes ] that meet the following:
+	      [assignment: list of standards ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ACC.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP ] on [assignment: list of subjects , objects, and
+	      operations among subjects and objects covered by the SFP
+	      ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ACC.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP ] on [assignment: list of subjects and objects ] and
+	      all operations among subjects and objects covered by the
+	      SFP.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ACC.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that all operations between any
+	      subject in the TSC and any object within the TSC are
+	      covered by an access control SFP.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ACF.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP ] to objects based on [assignment: security
+	      attributes , named groups of security attributes ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ACF.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the following rules to determine
+	      if an operation among controlled subjects and controlled
+	      objects is allowed: [assignment: rules governing access
+	      among controlled subjects and controlled objects using
+	      controlled operations on controlled objects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ACF.1.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall explicitly authorise access of subjects to
+	      objects based on the following additional rules:
+	      [assignment: rules, based on security attributes, that
+	      explicitly authorise access of subjects to objects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ACF.1.4">
+	  <pp.description>
+	    <p>
+	      The TSF shall explicitly deny access of subjects to
+	      objects based on the [assignment: rules, based on
+	      security attributes, that explicitly deny access of
+	      subjects to objects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_DAU.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide a capability to generate evidence
+	      that can be used as a guarantee of the validity of
+	      [assignment: list of objects or information types ] .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_DAU.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide [assignment: list of subjects ]
+	      with the ability to verify evidence of the validity of
+	      the indicated information .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_DAU.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide a capability to generate evidence
+	      that can be used as a guarantee of the validity of
+	      [assignment: list of objects or information types ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_DAU.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide [assignment: list of subjects ]
+	      with the ability to verify evidence of the validity of
+	      the indicated information and the identity of the user
+	      that generated the evidence.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ETC.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP(s) and/or information flow control SFP(s) ] when
+	      exporting user data, controlled under the SFP(s),
+	      outside of the TSC.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ETC.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall export the user data without the user
+	      data's associated security attributes .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ETC.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP(s) and/or information flow control SFP(s) ] when
+	      exporting user data, controlled under the SFP(s),
+	      outside of the TSC.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ETC.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall export the user data with the user data's
+	      associated security attributes.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ETC.2.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that the security attributes, when
+	      exported outside the TSC, are unambiguously associated
+	      with the exported user data.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ETC.2.4">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the following rules when user data
+	      is exported from the TSC: [assignment: additional
+	      exportation control rules ] .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFC.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: information flow
+	      control SFP ] on [assignment: list of subjects ,
+	      information, and operations that cause controlled
+	      information to flow to and from controlled subjects
+	      covered by the SFP ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFC.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: information flow
+	      control SFP ] on [assignment: list of subjects and
+	      information ] and all operations that cause that
+	      information to flow to and from subjects covered by the
+	      SFP.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFC.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that all operations that cause any
+	      information in the TSC to flow to and from any subject
+	      in the TSC are covered by an information flow control
+	      SFP.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: information flow
+	      control SFP ] based on the following types of subject
+	      and information security attributes: [assignment: the
+	      minimum number and type of security attributes ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall permit an information flow between a
+	      controlled subject and controlled information via a
+	      controlled operation if the following rules hold:
+	      [assignment: for each operation, the security
+	      attribute-based relationship that must hold between
+	      subject and information security attributes ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.1.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: additional
+	      information flow control SFP rules ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.1.4">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the following [assignment: list of
+	      additional SFP capabilities ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.1.5">
+	  <pp.description>
+	    <p>
+	      The TSF shall explicitly authorise an information flow
+	      based on the following rules: [assignment: rules, based
+	      on security attributes, that explicitly authorise
+	      information flows ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.1.6">
+	  <pp.description>
+	    <p>
+	      The TSF shall explicitly deny an information flow based
+	      on the following rules: [assignment: rules, based on
+	      security attributes, that explicitly deny information
+	      flows ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: information flow
+	      control SFP ] based on the following types of subject
+	      and information security attributes: [assignment: the
+	      minimum number and type of security attributes ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall permit an information flow between a
+	      controlled subject and controlled information via a
+	      controlled operation if the following rules, based on
+	      the ordering relationships between security attributes
+	      hold: [assignment: for each operation, the security
+	      attribute-based relationship that must hold between
+	      subject and information security attributes ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.2.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: additional
+	      information flow control SFP rules ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.2.4">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the following [assignment: list of
+	      additional SFP capabilities ]
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.2.5">
+	  <pp.description>
+	    <p>
+	      The TSF shall explicitly authorise an information flow
+	      based on the following rules: [assignment: rules, based
+	      on security attributes, that explicitly authorise
+	      information flows ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.2.6">
+	  <pp.description>
+	    <p>
+	      The TSF shall explicitly deny an information flow based
+	      on the following rules: [assignment: rules, based on
+	      security attributes, that explicitly deny information
+	      flows ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.2.7">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the following relationships for
+	      any two valid information flow control security
+	      attributes:
+	    </p>
+	    <ol>
+	      <li>
+		a) There exists an ordering function that, given two
+		valid security attributes, determines if the security
+		attributes are equal, if one security attribute is
+		greater than the other, or if the security attributes
+		are incomparable; and
+	      </li>
+	      <li>
+		b) There exists a \xd2 least upper bound\xd3 in the set
+		of security attributes, such that, given any two valid
+		security attributes, there is a valid security attribute
+		that is greater than or equal to the two valid security
+		attributes; and
+	      </li>
+	      <li>
+		c) There exists a \xd2 greatest lower bound\xd3 in the
+		set of security attributes, such that, given any two
+		valid security attributes, there is a valid security
+		attribute that is not greater than the two valid
+		security attributes.
+	      </li>
+	    </ol>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: information flow
+	      control SFP ] to limit the capacity of [assignment:
+	      types of illicit information flows ] to a [assignment:
+	      maximum capacity ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.4.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: information flow
+	      control SFP ] to limit the capacity of [assignment:
+	      types of illicit information flows ] to a [assignment:
+	      maximum capacity ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.4.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall prevent [assignment: types of illicit
+	      information flows ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.5.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that no illicit information flows
+	      exist to circumvent [assignment: name of information
+	      flow control SFP ] .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_IFF.6.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: information flow
+	      control SFP ] to monitor [assignment: types of illicit
+	      information flows ] when it exceeds the [ assignment:
+	      maximum capacity ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITC.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP and/or information flow control SFP ] when importing
+	      user data, controlled under the SFP, from outside of the
+	      TSC.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITC.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall ignore any security attributes associated
+	      with the user data when imported from outside the TSC.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITC.1.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the following rules when importing
+	      user data controlled under the SFP from outside the TSC:
+	      [assignment: additional importation control rules ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITC.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP and/or information flow control SFP ] when importing
+	      user data, controlled under the SFP, from outside of the
+	      TSC.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITC.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall use the security attributes associated
+	      with the imported user data.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITC.2.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that the protocol used provides for
+	      the unambiguous association between the security
+	      attributes and the user data received.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITC.2.4">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that interpretation of the security
+	      attributes of the imported user data is as intended by
+	      the source of the user data.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITC.2.5">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the following rules when importing
+	      user data controlled under the SFP from outside the TSC:
+	      [assignment: additional importation control rules ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITT.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP(s) and/or information flow control SFP(s) ] to
+	      prevent the [selection: disclosure, modification, loss
+	      of use ] of user data when it is transmitted between
+	      physically-separated parts of the TOE.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITT.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP(s) and/or information flow control SFP(s) ] to
+	      prevent the [selection: disclosure, modification, loss
+	      of use ] of user data when it is transmitted between
+	      physically-separated parts of the TOE.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITT.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall separate data controlled by the SFP(s)
+	      when transmitted between physically-separated parts of
+	      the TOE, based on the values of the following:
+	      [assignment: security attributes that require separation
+	      ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITT.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP(s) and/or information flow control SFP(s) ] to
+	      monitor user data transmitted between
+	      physically-separated parts of the TOE for the following
+	      errors: [assignment: integrity errors ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITT.3.2">
+	  <pp.description>
+	    <p>
+	      Upon detection of a data integrity error, the TSF shall
+	      [assignment: specify the action to be taken upon
+	      integrity error ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITT.4.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP(s) and/or information flow control SFP(s) ] to
+	      monitor user data transmitted between
+	      physically-separated parts of the TOE for the following
+	      errors: [assignment: integrity errors ], based on the
+	      following attributes: [assignment: security attributes
+	      that require separate transmission channels ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ITT.4.2">
+	  <pp.description>
+	    <p>
+	      Upon detection of a data integrity error, the TSF shall
+	      [assignment: specify the action to be taken upon
+	      integrity error ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_RIP.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that any previous information
+	      content of a resource is made unavailable upon the
+	      [selection: allocation of the resource to , deallocation
+	      of the resource from ] the following objects:
+	      [assignment: list of objects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_RIP.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that any previous information
+	      content of a resource is made unavailable upon the
+	      [selection: allocation of the resource to , deallocation
+	      of the resource from ] all objects .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ROL.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce [assignment: access control SFP(s)
+	      and/or information flow control SFP(s) ] to permit the
+	      rollback of the [assignment: list of operations ] on the
+	      [assignment: list of objects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ROL.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall permit operations to be rolled back within
+	      the [assignment: boundary limit to which rollback may be
+	      performed ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ROL.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce [assignment: access control SFP(s)
+	      and/or information flow control SFP(s) ] to permit the
+	      rollback of all the operations on the [assignment: list
+	      of objects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_ROL.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall permit operations to be rolled back within
+	      the [assignment: boundary limit to which rollback may be
+	      performed ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_SDI.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall monitor user data stored within the TSC
+	      for [assignment: integrity errors ] on all objects,
+	      based on the following attributes: [assignment: user
+	      data attributes ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_SDI.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall monitor user data stored within the TSC
+	      for [assignment: integrity errors ] on all objects,
+	      based on the following attributes: [assignment: user
+	      data attributes ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_SDI.2.2">
+	  <pp.description>
+	    <p>
+	      Upon detection of a data integrity error, the TSF shall
+	      [assignment: action to be taken ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_UCT.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP(s) and/or information flow control SFP(s) ] to be
+	      able to [selection : transmit, receive ] objects in a
+	      manner protected from unauthorised disclosure.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_UIT.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP(s) and/or i nformation flow control SFP(s) ] to be
+	      able to [selection : transmit, receive ] user data in a
+	      manner protected from [selection: modification,
+	      deletion, insertion, replay ] errors.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_UIT.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to determine on receipt of user
+	      data, whether [selection: modification , deletion,
+	      insertion, replay ] has occurred.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_UIT.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP(s) and/or information flow control SFP(s) ] to be
+	      able to recover from [assignment: list of recoverable
+	      errors ] with the help of the source trusted IT product.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FDP_UIT.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP(s) and/or information flow control SFP(s) ] to be
+	      able to recover from [assignment: list of recoverable
+	      errors ] without any help from the source trusted IT
+	      product.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_AFL.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall detect when [assignment: number ]
+	      unsuccessful authentication attempts occur related to
+	      [assignment: list of authentication events ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_AFL.1.2">
+	  <pp.description>
+	    <p>
+	      When the defined number of unsuccessful authentication
+	      attempts has been met or surpassed, the TSF shall
+	      [assignment: list of actions ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_ATD.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall maintain the following list of security
+	      attributes belonging to individual users: [assignment:
+	      list of security attributes ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_SOS.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide a mechanism to verify that secrets
+	      meet [assignment: a defined quality metric ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_SOS.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide a mechanism to generate secrets
+	      that meet [assignment: a defined quality metric ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_SOS.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to enforce the use of TSF
+	      generated secrets for [assignment: list of TSF functions
+	      ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UAU.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall allow [assignment: list of TSF mediated
+	      actions ] on behalf of the user to be performed before
+	      the user is authenticated.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UAU.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall require each user to be successfully
+	      authenticated before allowing any other TSF-mediated
+	      actions on behalf of that user.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UAU.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall require each user to be successfully
+	      authenticated before allowing any other TSF-mediated
+	      actions on behalf of that user.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UAU.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall [selection: detect, prevent ] use of
+	      authentication data that has been forged by any user of
+	      the TSF.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UAU.3.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall [selection: detect, prevent ] use of
+	      authentication data that has been copied from any other
+	      user of the TSF.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UAU.4.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall prevent reuse of authentication data
+	      related to [assignment: identified authentication
+	      mechanism( s)].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UAU.5.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide [assignment: list of multiple
+	      authentication mechanisms ] to support user
+	      authentication.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UAU.5.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall authenticate any user's claimed identity
+	      according to the [assignment: rules describing how the
+	      multiple authentication mechanisms provide
+	      authentication ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UAU.6.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall re-authenticate the user under the
+	      conditions [assignment: list of conditions under which
+	      re-authentication is required ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UAU.7.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide only [assignment: list of feedback
+	      ] to the user while the authentication is in progress.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UID.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall allow [assignment: list of TSF-mediated
+	      actions ] on behalf of the user to be performed before
+	      the user is identified.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UID.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall require each user to be succesfully
+	      identified before allowing any other TSF-mediated
+	      actions on behalf of that user.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_UID.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall require each user to identify itself
+	      before allowing any other TSF- mediated actions on
+	      behalf of that user.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FIA_USB.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall associate the appropriate user security
+	      attributes with subjects acting on behalf of that user.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_MOF.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall restrict the ability to [selection:
+	      determine the behaviour of, disable, enable, modify the
+	      behaviour of ] the functions [assignment: list of
+	      functions ] to [assignment: the authorised identified
+	      roles ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_MSA.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP, information flow control SFP ] to restrict the
+	      ability to [selection: change_default, query, modify,
+	      delete, [assignment: other operations ] ] the security
+	      attributes [assignment: list of security attributes ] to
+	      [assignment: the authorised identified roles ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_MSA.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that only secure values are
+	      accepted for security attributes.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_MSA.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the [assignment: access control
+	      SFP, information flow control SFP ] to provide
+	      [selection: restrictive, permissive, other property ]
+	      default values for security attributes that are used to
+	      enforce the SFP .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_MSA.3.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall allow the [assignment: the authorised
+	      identified roles ] to specify alternative initial values
+	      to override the default values when an object or
+	      information is created.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_MTD.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall restrict the ability to [selection:
+	      change_default, query, modify, delete, clear ,
+	      [assignment: other operations ] ] the [assignment: list
+	      of TSF data ] to [assignment: the authorised identified
+	      roles ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_MTD.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall restrict the specification of the limits
+	      for [assignment: list of TSF data ] to [assignment: the
+	      authorised identified roles ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_MTD.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall take the following actions, if the TSF
+	      data are at, or exceed, the indicated limits:
+	      [assignment: actions to be taken ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_MTD.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that only secure values are
+	      accepted for TSF data.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_REV.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall restrict the ability to revoke security
+	      attributes associated with the [selection: users,
+	      subjects, objects, other additional resources ] within
+	      the TSC to [assignment: the authorised identified roles
+	      ] .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_REV.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce the rules [assignment:
+	      specification of revocation rules ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_SAE.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall restrict the capability to specify an
+	      expiration time for [assignment: list of security
+	      attributes for which expiration is to be supported ] to
+	      [assignment: the authorised identified roles ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_SAE.1.2">
+	  <pp.description>
+	    <p>
+	      For each of these security attributes, the TSF shall be
+	      able to [assignment: list of actions to be taken for
+	      each security attribute ] after the expiration time for
+	      the indicated security attribute has passed.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_SMR.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall maintain the roles [assignment: the
+	      authorised identified roles ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_SMR.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to associate users with roles.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_SMR.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall maintain the roles: [assignment: the
+	      authorised identified roles ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_SMR.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to associate users with roles.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_SMR.2.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that the conditions [assignment:
+	      conditions for the different roles ] are satisfied.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FMT_SMR.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall require an explicit request to assume the
+	      following roles: [assignment: the roles ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_ANO.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that [assignment: set of users
+	      and/or subjects ] are unable to determine the real user
+	      name bound to [assignment: list of subjects and/or
+	      operations and/or objects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_ANO.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that [assignment: set of users
+	      and/or subjects are unable to determine the real user
+	      name bound to [assignment: list of subjects and/or
+	      operations and/or objects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_ANO.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide [assignment: list of services ] to
+	      [assignment: list of subjects ] without soliciting any
+	      reference to the real user name.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_PSE.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that [assignment: set of users
+	      and/or subjects ] are unable to determine the real user
+	      name bound to [assignment: list of subjects and/or
+	      operations and/or objects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_PSE.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to provide [assignment: number of
+	      aliases ] aliases of the real user name to [assignment:
+	      list of subjects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_PSE.1.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall [selection: determine an alias for a user,
+	      accept the alias from the user ] and verify that it
+	      conforms to the [assignment: alias metric ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_PSE.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that [assignment: set of users
+	      and/or subjects ] are unable to determine the real user
+	      name bound to [assignment: list of subjects and/or
+	      operations and/or objects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_PSE.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to provide [assignment: number of
+	      aliases ] aliases of the real user name to [assignment:
+	      list of subjects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_PSE.2.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall [selection: determine an alias for a user,
+	      accept the alias from the user ] and verify that it
+	      conforms to the [assignment: alias metric ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_PSE.2.4">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide [selection: an authorised user,
+	      [assignment : list of trusted subjects ]] a capability
+	      to determine the user identity based on the provided
+	      alias only under the following [assignment: list of
+	      conditions ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_PSE.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that [assignment: set of users
+	      and/or subjects ] are unable to determine the real user
+	      name bound to [assignment: list of subjects and/or
+	      operations and/or objects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_PSE.3.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to provide [assignment: number of
+	      aliases ] aliases of the real user name to [assignment:
+	      list of subjects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_PSE.3.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall [selection: determine an alias for a user,
+	      accept the alias from the user ] and verify that it
+	      conforms to the [assignment: alias metric ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_PSE.3.4">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide an alias to the real user name
+	      which shall be identical to an alias provided previously
+	      under the following [assignment: list of conditions ]
+	      otherwise the alias provided shall be unrelated to
+	      previously provided aliases.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_UNL.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that [assignment: set of users
+	      and/or subjects ] are unable to determine whether
+	      [assignment: list of operations ] [selection: were
+	      caused by the same user, are related as follows
+	      [assignment: list of relations ] ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_UNO.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that [assignment: list of users
+	      and/or subjects ] are unable to observe the operation
+	      [assignment: list of operations ] on [assignment: list
+	      of objects ] by [assignment: list of protected users
+	      and/or subjects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_UNO.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that [assignment: list of users
+	      and/or subjects ] are unable to observe the operation
+	      [assignment: list of operations ] on [assignment: list
+	      of objects ] by [assignment: list of protected users
+	      and/or subjects ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_UNO.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall allocate the [assignment: unobservability
+	      related information ] among different parts of the TOE
+	      such that the following conditions hold during the
+	      lifetime of the information: [assignment: list of
+	      conditions ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_UNO.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide [assignment: list of services ] to
+	      [assignment: list of subjects ] without soliciting any
+	      reference to [assignment: privacy related information ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPR_UNO.4.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide [assignment: set of authorised
+	      users ] with the capability to observe the usage of
+	      [assignment: list of resources and/or services ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_AMT.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall run a suite of tests [selection: during
+	      initial start-up, periodically during normal operation,
+	      at the request of an authorised user, other conditions ]
+	      to demonstrate the correct operation of the security
+	      assumptions provided by the abstract machine that
+	      underlies the TSF.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_FLS.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall preserve a secure state when the following
+	      types of failures occur: [assignment: list of types of
+	      failures in the TSF ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITA.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure the availability of [assignment:
+	      list of types of TSF data ] provided to a remote trusted
+	      IT product within [assignment: a defined availability
+	      metric ] given the following conditions [assignment:
+	      conditions to ensure availability ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITC.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall protect all TSF data transmitted from the
+	      TSF to a remote trusted IT product from unauthorised
+	      disclosure during transmission.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITI.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the capability to detect
+	      modification of all TSF data during transmission between
+	      the TSF and a remote trusted IT product within the
+	      following metric: [assignment: a defined modification
+	      metric ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITI.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the capability to verify the
+	      integrity of all TSF data transmitted between the TSF
+	      and a remote trusted IT product and perform [assignment:
+	      action to be taken ] if modifications are detected.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITI.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the capability to detect
+	      modification of all TSF data during transmission between
+	      the TSF and a remote trusted IT product within the
+	      following metric: [assignment: a defined modification
+	      metric ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITI.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the capability to verify the
+	      integrity of all TSF data transmitted between the TSF
+	      and a remote trusted IT product and perform [assignment:
+	      action to be taken ] if modifications are detected.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITI.2.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the capability to correct
+	      [assignment: type of modification ] of all TSF data
+	      transmitted between the TSF and a remote trusted IT
+	      product.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITT.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall protect TSF data from [selection:
+	      disclosure, modification ] when it is transmitted
+	      between separate parts of the TOE.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITT.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall protect TSF data from [selection:
+	      disclosure, modification ] when it is transmitted
+	      between separate parts of the TOE.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITT.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall separate user data from TSF data when such
+	      data is transmitted between separate parts of the TOE.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITT.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to detect [selection: modification
+	      of data, substitution of data, re-ordering of data,
+	      deletion of data, [assignment: other integrity errors ]]
+	      for TSF data transmitted between separate parts of the
+	      TOE.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_ITT.3.2">
+	  <pp.description>
+	    <p>
+	      Upon detection of a data integrity error, the TSF shall
+	      take the following actions: [assignment: specify the
+	      action to be taken ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_PHP.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide unambiguous detection of physical
+	      tampering that might compromise the TSF.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_PHP.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the capability to determine
+	      whether physical tampering with the TSF's devices or
+	      TSF's elements has occurred.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_PHP.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide unambiguous detection of physical
+	      tampering that might compromise the TSF .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_PHP.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the capability to determine
+	      whether physical tampering with the TSF's devices or
+	      TSF's elements has occurred.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_PHP.2.3">
+	  <pp.description>
+	    <p>
+	      For [assignment: list of TSF devices/elements for which
+	      active detection is required ], the TSF shall monitor
+	      the devices and elements and notify [assignment: a
+	      designated user or role ] when physical tampering with
+	      the TSF's devices or TSF's elements has occurred.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_PHP.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall resist [assignment: physical tampering
+	      scenarios ] to the [assignment: list of TSF
+	      devices/elements ] by responding automatically such that
+	      the TSP is not violated.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_RCV.1.1">
+	  <pp.description>
+	    <p>
+	      After a failure or service discontinuity, the TSF shall
+	      enter a maintenance mode where the ability to return the
+	      TOE to a secure state is provided.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_RCV.2.1">
+	  <pp.description>
+	    <p>
+	      When automated recovery from a failure or service
+	      discontinuity is not possible , the TSF shall enter a
+	      maintenance mode where the ability to return the TOE to
+	      a secure state is provided.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_RCV.2.2">
+	  <pp.description>
+	    <p>
+	      For [assignment: list of failures/service
+	      discontinuities ] , the TSF shall ensure the return of
+	      the TOE to a secure state using automated procedures.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_RCV.3.1">
+	  <pp.description>
+	    <p>
+	      When automated recovery from a failure or service
+	      discontinuity is not possible, the TSF shall enter a
+	      maintenance mode where the ability to return the TOE to
+	      a secure state is provided.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_RCV.3.2">
+	  <pp.description>
+	    <p>
+	      For [assignment: list of failures/service
+	      discontinuities ] , the TSF shall ensure the return of
+	      the TOE to a secure state using automated procedures.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_RCV.3.3">
+	  <pp.description>
+	    <p>
+	      The functions provided by the TSF to recover from
+	      failure or service discontinuity shall ensure that the
+	      secure initial state is restored without exceeding
+	      [assignment: quantification ] for loss of TSF data or
+	      objects within the TSC.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_RCV.3.4">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the capability to determine the
+	      objects that were or were not capable of being
+	      recovered.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_RCV.4.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that [assignment: list of SFs and
+	      failure scenarios ] have the property that the SF either
+	      completes successfully, or for the indicated failure
+	      scenarios, recovers to a consistent and secure state.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_RPL.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall detect replay for the following entities:
+	      [assignment: list of identified entities ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_RPL.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall perform [assignment: list of specific
+	      actions ] when replay is detected.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_RVM.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that TSP enforcement functions are
+	      invoked and succeed before each function within the TSC
+	      is allowed to proceed .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_SEP.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall maintain a security domain for its own
+	      execution that protects it from interference and
+	      tampering by untrusted subjects.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_SEP.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce separation between the security
+	      domains of subjects in the TSC.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_SEP.2.1">
+	  <pp.description>
+	    <p>
+	      The unisolated portion of the TSF shall maintain a
+	      security domain for its own execution that protects it
+	      from interference and tampering by untrusted subjects.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_SEP.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce separation between the security
+	      domains of subjects in the TSC.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_SEP.2.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall maintain the part of the TSF related to
+	      [assignment: list of access control and/or information
+	      flow control SFPs ] in a security domain for their own
+	      execution that protects them from interference and
+	      tampering by the remainder of the TSF and by subjects
+	      untrusted with respect to those SFPs.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_SEP.3.1">
+	  <pp.description>
+	    <p>
+	      The unisolated portion of the TSF shall maintain a
+	      security domain for its own execution that protects it
+	      from interference and tampering by untrusted subjects.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_SEP.3.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce separation between the security
+	      domains of subjects in the TSC.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_SEP.3.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall maintain the part of the TSF that enforces
+	      the access control and/ or information flow control SFPs
+	      in a security domain for its own execution that protects
+	      them from interference and tampering by the remainder of
+	      the TSF and by subjects untrusted with respect to the
+	      TSP .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_SSP.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall acknowledge, when requested by another
+	      part of the TSF, the receipt of an unmodified TSF data
+	      transmission.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_SSP.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall acknowledge, when requested by another
+	      part of the TSF, the receipt of an unmodified TSF data
+	      transmission.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_SSP.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that the relevant parts of the TSF
+	      know the correct status of transmitted data among its
+	      different parts, using acknowledgements.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_STM.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to provide reliable time stamps
+	      for its own use.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_TDC.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide the capability to consistently
+	      interpret [assignment: list of TSF data types ] when
+	      shared between the TSF and another trusted IT product.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_TDC.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall use [assignment: list of interpretation
+	      rules to be applied by the TSF ] when interpreting the
+	      TSF data from another trusted IT product.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_TRC.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that TSF data is consistent when
+	      replicated between parts of the TOE.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_TRC.1.2">
+	  <pp.description>
+	    <p>
+	      When parts of the TOE containing replicated TSF data are
+	      disconnected, the TSF shall ensure the consistency of
+	      the replicated TSF data upon reconnection before
+	      processing any requests for [assignment: list of SFs
+	      dependent on TSF data replication consistency ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_TST.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall run a suite of self tests [selection:
+	      during initial start-up, periodically during normal
+	      operation, at the request of the authorised user, at the
+	      conditions [assignment: conditions under which self test
+	      should occur ]] to demonstrate the correct operation of
+	      the TSF.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_TST.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide authorised users with the
+	      capability to verify the integrity of TSF data.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FPT_TST.1.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide authorised users with the
+	      capability to verify the integrity of stored TSF
+	      executable code.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FRU_FLT.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure the operation of [assignment: list
+	      of TOE capabilities ] when the following failures occur:
+	      [assignment: list of type of failures ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FRU_FLT.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure the operation of all the TOE's
+	      capabilities when the following failures occur
+	      :[assignment: list of type of failures ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FRU_PRS.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall assign a priority to each subject in the
+	      TSF.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FRU_PRS.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that each access to [assignment:
+	      controlled resources ] shall be mediated on the basis of
+	      the subjects assigned priority.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FRU_PRS.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall assign a priority to each subject in the
+	      TSF.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FRU_PRS.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure that each access to all shareable
+	      resources shall be mediated on the basis of the subjects
+	      assigned priority.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FRU_RSA.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce maximum quotas of the following
+	      resources: [assignment: controlled resources ] that
+	      [selection: individual user, defined group of users,
+	      subjects ] can use [selection: simultaneously, over a
+	      specified period of time ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FRU_RSA.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce maximum quotas of the following
+	      resources [assignment: controlled resources ] that
+	      [selection: individual user, defined group of users ]
+	      can use [selection: simultaneously, over a specified
+	      period of time ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FRU_RSA.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall ensure the provision of minimum quantity
+	      of each [assignment: controlled resource ] that is
+	      available for [selection: an individual user, defined
+	      group of users, subjects ] to use [selection:
+	      simultaneously, over a specified period of time ]
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_LSA.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall restrict the scope of the session security
+	      attributes [assignment: session security attributes ],
+	      based on [assignment: attributes ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_MCS.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall restrict the maximum number of concurrent
+	      sessions that belong to the same user.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_MCS.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce, by default, a limit of
+	      [assignment: default number ] sessions per user.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_MCS.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall restrict the maximum number of concurrent
+	      sessions that belong to the same user according to the
+	      rules [assignment: rules for the number of maximum
+	      concurrent sessions ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_MCS.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall enforce, by default, a limit of
+	      [assignment: default number ] sessions per user.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_SSL.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall lock an interactive session after
+	      [assignment: time interval of user inactivity ] by:
+	    </p>
+	    <ol>
+	      <li>
+		a) clearing or overwriting display devices, making the
+		current contents unreadable;
+	      </li>
+	      <li>
+		b) disabling any activity of the user's data
+		access/display devices other than unlocking the session.
+	      </li>
+	    </ol>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_SSL.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall require the following events to occur
+	      prior to unlocking the session: [assignment: events to
+	      occur ] .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_SSL.2.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall allow user-initiated locking of the user's
+	      own interactive session, by:
+	    </p>
+	    <ol>
+	      <li>
+		a) clearing or overwriting display devices, making the
+		current contents unreadable;
+	      </li>
+	      <li>
+		b) disabling any activity of the user's data
+		access/display devices other than unlocking the session.
+	      </li>
+	    </ol>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_SSL.2.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall require the following events to occur
+	      prior to unlocking the session: [assignment: events to
+	      occur ] .
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_SSL.3.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall terminate an interactive session after a
+	      [assignment: time interval of user inactivity ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_TAB.1.1">
+	  <pp.description>
+	    <p>
+	      Before establishing a user session, the TSF shall
+	      display an advisory warning message regarding
+	      unauthorised use of the TOE.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_TAH.1.1">
+	  <pp.description>
+	    <p>
+	      Upon successful session establishment, the TSF shall
+	      display the [selection: date, time, method, location ]
+	      of the last successful session establishment to the
+	      user.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_TAH.1.2">
+	  <pp.description>
+	    <p>
+	      Upon successful session establishment, the TSF shall
+	      display the [selection: date, time, method, location ]
+	      of the last unsuccessful attempt to session
+	      establishment and the number of unsuccessful attempts
+	      since the last successful session establishment.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_TAH.1.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall not erase the access history information
+	      from the user interface without giving the user an
+	      opportunity to review the information.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTA_TSE.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall be able to deny session establishment
+	      based on [assignment: attributes ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTP_ITC.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide a communication channel between
+	      itself and a remote trusted IT product that is logically
+	      distinct from other communication channels and provides
+	      assured identification of its end points and protection
+	      of the channel data from modification or disclosure.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTP_ITC.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall permit [selection: the TSF, the remote
+	      trusted IT product ] to initiate communication via the
+	      trusted channel.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTP_ITC.1.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall initiate communication via the trusted
+	      channel for [assignment: list of functions for which a
+	      trusted channel is required ].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTP_TRP.1.1">
+	  <pp.description>
+	    <p>
+	      The TSF shall provide a communication path between
+	      itself and [selection: remote, local ] users that is
+	      logically distinct from other communication paths and
+	      provides assured identification of its end points and
+	      protection of the communicated data from modification or
+	      disclosure.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTP_TRP.1.2">
+	  <pp.description>
+	    <p>
+	      The TSF shall permit [selection: the TSF, local users,
+	      remote users ] to initiate communication via the trusted
+	      path.
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+	<pp.sfr tag="FTP_TRP.1.3">
+	  <pp.description>
+	    <p>
+	      The TSF shall require the use of the trusted path for
+	      [selection: initial user authentication , [assignment:
+	      other services for which trusted path is required ]].
+	    </p>
+	  </pp.description>
+	</pp.sfr>
+      </pp.sfrs>
+    </pp.it.functional>
+    <pp.it.assurance>
+    </pp.it.assurance>
+  </pp.itsecurityrequirements>
+</ProtectionProfile>

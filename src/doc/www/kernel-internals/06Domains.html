@@ -1,0 +1,607 @@
+<html>
+<title>Domains</title>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<p> This chapter describes the EROS domain mechanism.  A domain
+provides the environment in which a thread executes.  It defines the
+program that the thread interprets, the current state of the
+execution, and the authorities that the program can reference.
+<h1>1 Structure of a Domain</h1>
+<p> A domain is composed of three nodes: the domain root, the general
+registers node, and the general keys node, as shown in
+Figure 6.1.  The general keys node defines the 16
+capabilities that are held by the domain.  The general registers node
+stores the register values of the domain.  The domain root identifies
+the domain's address space segment, keeper, and schedule authorities.
+In addition, any registers that would not fit in the general registers
+node overflow into the domain root.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- DomainRoot.eps -->
+  <p> Figure 6.1: Thread location after returning
+</ul>
+<p> While most of these fields have already been described, three of
+them have not been mentioned before: the brand, the trap code, and the
+message buffer key.  The message buffer key will be addressed in the
+chapter on message passing.
+<h2>1.1 The Trap Code</h2>
+<p> Occasionally, a thread will encounter an exceptional condition
+while interpreting the program of a domain.  Typically, these will be
+related to instructions:
+<p>
+<ul>
+  <p>
+  <li> Executing an illegal opcode,
+       <p>
+  <li> Executing an undefined opcode,
+       <p>
+  <li> Performing an operation with a range error, such as a divide by
+       zero,
+       <p>
+  <li> Executing a trap instruction,
+       <p>
+  <li> Accessing an address that falls outside the range defined by
+       the address space segment.
+       <p>
+  <li> Performing a system call trap in a domain marked for emulation.
+</ul>
+<p> Alternatively, the exception may reflect the discovery that the
+domain is not well-formed.  For example, it may lack a proper address
+space segment.  The definition of a well-formed domain is discussed
+below.
+<p> When an attempt to execute a thread within a domain leads to one
+of these conditions, the EROS kernel places a value in the <strong>trap
+code slot</strong> indicating the nature of the exception.  It then invokes
+the domain's keeper, passing it a message that appears to have been
+sent by the domain itself.  The message includes a <strong>domain key</strong>
+to the domain and a resume key with which the domain can be restarted.
+The domain keeper is expected to either fix the problem and resume the
+domain or take some other corrective action.
+<h2>1.2 Brands and the Domain Tool</h2>
+<p> One of the crucial elements of effective security is
+<strong>discretion</strong>.  A discrete service is one that is provably unable
+to give your data to any third party, because it has no way of
+transmitting information unless you give it one.
+<p> The brand key provides both a way to verify discretion and a way
+to verify the identity of a service.  Just because a domain
+<em>claims</em> to be the genuine mumblefratz service doesn't mean
+that it is, and a user might be justifiably concerned about handing
+their data to some random service that might steal it.  After all,
+there's no telling where that domain has been...
+<h3>1.2.1 Escrow Agents</h3>
+<p> In EROS, every trusted service has an associated escrow agent.  To
+construct a domain that performs the mumblefratz service, you go to
+the mumblefratz escrow agent and ask it to build one for you.  The
+escrow agent code is a trusted system component.  The mumblefratz
+escrow agent contains this code, plus a ``template'' that describes
+how to build mumblefratz service domains.  Every escrow agent stamps
+each of its product domains with a unique key (typically a start key
+to the escrow agent) that identifies the builder of the domain.
+<p> Now suppose you have a program that holds a key to a domain that
+alleges to provide the trusted mumblefratz service.  If you can manage
+to find the mumblefratz escrow agent, you can ask it if the key really
+names a mumblefratz service domain.  The remaining problem, then, is
+to make sure that you have your hands on the genuine mumblefratz
+escrow agent.
+<p> Escrow agents themselves are program instances, and are created by
+the escrow agent agent, which is a system-provided service.  Given a
+key to a domain that alleges to be the mumblefratz escrow agent, you
+can ask the escrow agent agent to validate that the mumblefratz escrow
+agent is really an escrow agent.  If it is, you know that it will not
+lie about the mumblefratz service's identity.
+<p> Once you know that the mumblefratz escrow agent is a genuine
+escrow agent, you can ask the escrow agent if it's products are
+discreet.  By careful construction, the escrow agent is able to tell
+you.
+<h3>1.2.2 Protecting the Brand</h3>
+<p> One small issue remains that needs to be addressed for the brand
+key to be believed.  A domain is simply a node, and since the user who
+constructs the domain supplies that node it is possible that they will
+retain a node key to the node.  If they hold a node key, they are in a
+position to alter the brand of the domain.
+<p> The domain tool is the mechanism that creates domains out of
+nodes.  If you hand a domain tool a node and a brand key, the domain
+tool returns a <strong>domain service key</strong> to the same node.  As long as
+the creator of the domain does not hand out any node keys, the brand
+cannot be altered.  In practice, the <code>domain creator</code> is
+the only holder of the domain tool.  Since the domain creator is
+trusted code, the brand is effectively unforgeable.
+<h1>2 Getting a Domain Ready to Run</h1>
+<p> In order for a thread to execute within a domain, the domain must
+be properly formed.  This is verified by <em>preparing</em> the
+domain.  Once prepared, the domain's associated information can be
+loaded into the domain cache so that context switching can be
+performed efficiently.
+<h2>2.3 Well-Formed Domains</h2>
+<p> To be well-formed, a domain must meet two constraints:
+<p>
+<ul>
+  <p>
+  <li> It must have a valid read-write node key in slot 15.
+       <p>
+  <li> It must have a valid read-write node key in slot 14, and all of
+       the keys in the corresponding node must be number keys.
+</ul>
+<p> You might expect that a well-formed domain would have some other
+requirements as well:
+<p>
+<ul>
+  <p>
+  <li> It might require a valid schedule key.
+       <p>
+  <li> It might require a start key to a keeper.
+       <p>
+  <li> It might require a page or segment key in the address space
+       slot.
+</ul>
+<p> A well-formed domain need not have a valid schedule key.  A domain
+that lacks a schedule key may be in the <em>running</em> state, and
+may contain a thread, but it will never receive any CPU cycles.  It is
+a common practice for debuggers to take advantage of this fact by
+inserting a zero number key into the schedule slot when they wish to
+halt a domain.
+<p> A well-formed domain need not have a valid start key to a keeper.
+If a program that lacks a keeper key encounters an exception, it
+simply stops without telling anyone.  The trap code is set to indicate
+the nature of the failure, and the domain is placed on a special queue
+of ``broken'' domains.  Threads within these domains remain running
+but unable to execute instructions.
+<p> A well-formed domain need not have a valid address space.  When
+such a domain goes to execute it's first instruction, it will take an
+address fault.
+<h2>2.4 Preparing the Domain</h2>
+<p> When a thread attempts to execute within a domain, the domain must
+first be <em>prepared</em>.  Preparing a domain verifies that the
+domain is well-formed, and ensures that any operation on the member
+nodes which would violate the domain contract will be detected.  The
+domain preparation algorithm is shown in Figure 6.2.
+<ul>
+  <pre>
+CachedDomain*
+Node::PrepareAsDomain()
+{
+  // if already prepared, we're done:
+  if (obPrepType == NtDomainRoot)
+    return cacheEntry ? cacheEntry : CacheDomain();
+  
+  Unprepare();
+
+  // Prepare the key to the general regs node
+  // to ensure that node is in core:
+
+  if (!slot[14].Prepare(KtNode))
+    return 0;
+
+  // Ditto for the key to the general keys node
+  if (!slot[15].Prepare(KtNode))
+    return 0;
+
+  if (!slot[14].Prepared || !slot[15].Prepared)
+    Resched();
+
+  Node&amp; genRegs = *((Node *) slot[14].pObject);
+  Node&amp; genKeys = *((Node *) slot[15].pObject);
+
+  if (genKeys.obPrepType != NtGenKeys || genKeys.domainRoot != this) {
+    genKeys.Unprepare();
+    genKeys.obPrepType = NtGenKeys;
+    genKeys.domainRoot = this;
+  }
+
+  if (genKeys.obPrepType != NtGenRegs || genKeys.domainRoot != this) {
+    genRegs.Unprepare();
+
+    for (int i = 0; i &lt; 16; i++)
+      if (genRegs[i].keyType != KtNumber)
+        return 0;
+
+    genRegs.obPrepType = NtGenRegs;
+    genRegs.domainRoot = this;
+  }
+
+  // We're done!
+  obPrepType = NtDomainRoot;
+  return CacheDomain();
+}
+  </pre>
+  <strong>Figure 6.2: Preparing a domain</strong>
+</ul>
+<p> In spite of the fact that this
+algorithm looks simple, there are a number of hidden assumptions
+buried in it, so let's go through it step by step.
+<h3>2.4.3 Validating the Domain Root</h3>
+<p> The first curiosity is the call to <code>Unprepare()</code>.
+While the only holder of the domain tool is the domain creator, the
+<em>kernel</em> does not assume that it can depend on the correctness
+of the domain creator.  It is therefore possible that the domain root
+node has been used in some other context, and therefore needs to be
+unprepared to invalidate any cached state.
+<p> It is also possible for any of the three nodes to be completely
+unprepared, in which case the node will show <code>NtNode</code> as
+its <code>obPrepType</code>.  This occurs when the node is first brought in
+to memory, and again as the node reaches the age where we are
+preparing to discard it.  Under these conditions, the kernel
+deprepares these nodes to ensure that outstanding pointers to them
+will be properly invalidated.
+<h3>2.4.4 Preparing the Keys</h3>
+<p> The next step is to prepare the keys to the general registers and
+general keys node.  This forces the respective nodes to be brought
+into memory if necessary, and places pointers to them in the
+respective keys.  If either prepare fails, the key is invalid, and the
+domain cannot be prepared.  The domain is now permanently broken, and
+any contained thread is lost.
+<h3>2.4.5 Preparing the Subsidiary Nodes</h3>
+<p> As with the domain root, the general keys node and general
+registers node may currently be interpreted as some other sort of
+node.  Perversely, they might be interpreted as you would expect but
+in the context of some other domain.  In either case they must be
+unprepared before we prepare them for use in this domain.
+<p> For the same reason, it is possible that the content of the
+general registers node is something other than number keys.  In this
+case the domain is broken, and preparation fails.
+<h3>2.4.6 A Design Choice</h3>
+<p> An interesting design question for <code>PrepareAsDomain()</code>
+is whether it should cache the domain automatically or simply perform
+the prepare step.  In turn, this depends on which copy of the domain
+state we expect to operate on more frequently - the cached copy or the
+copy in the domain root.  In one design, we would favor the domain
+root and decache the domain whenever we wanted to perform an operation
+on it.  In this design, <code>PrepareAsDomain()</code> should not
+cache the domain -- we will in fact have to <em>decache</em> it before
+the entries in the domain root and subsidiary domains can be believed.
+<p> In the other design, we would favor cacheing the domain in order
+to perform our operations.  A little thought reveals why this design
+is to be preferred.
+<p> The most common case of operations on a domain arise from
+recoverable segment faults.  The domain performs an access to a copy
+on write segment or to a page that it hasn't mapped into it's mapping
+tables yet.  Such a domain can be expected to run again soon, so it is
+preferable not to decache it.
+<h1>3 The Domain Cache</h1>
+<p> The domain structure conveniently places all state in nodes, which
+greatly simplifies the checkpoint logic.  While this choice of layout
+makes sense for squeezing the registers into number keys, it isn't
+exactly an efficient layout for a real processor.  Among other things,
+the registers are saved in two different nodes that may not be
+anywhere near each other in memory.  Enter the domain cache.
+<p> The purpose of the domain cache is to provide a register layout
+that can be efficiently loaded and stored by the processor during a
+context switch.  Loading the domain cache is simply a matter of
+copying the appropriate register values into the domain cache entry
+and marking the domain root as cached.  Information that has been
+placed in the domain cache will be moved back to the domain on demand.
+<p> The easiest way to understand why the domain cache is necessary is
+to look at a real example: the Intel 486.
+<h2>3.5 Entering the Kernel on the i486</h2>
+<p> The i486 implements 4 privilege levels.  Processes move inwards
+across these privilege levels under hardware control, which allows
+protection to be enforced.  Each privilege level has its own dedicated
+stack.
+<p> There are three mechanisms for crossing a privilege boundary:
+conventional interrupts (or traps), the virtual 8086 interrupt
+mechanism, and the call gate mechanism.  Each places different
+information on the inner stack, and each needs to be handled by the
+EROS kernel.  Further, the behavior of the conventional interrupt
+mechanism depends on the privilege level that was active when the
+interrupt occurred.
+<p> To simplify things a bit, the EROS kernel makes use of only two
+privilege levels.  Ring 3 (the least privileged) is used for domain
+code, and ring 0 for the kernel itself.  All interrupts and call gates
+are directed to ring 0.  In effect, we simply pretend that the
+processor implements only two privilege levels.
+<h3>3.5.7 Conventional Interrupts</h3>
+<p> When a conventional (protected mode) 486 task takes an interrupt,
+the processor loads a new program counter from the interrupt
+descriptor entry, and a new stack pointer from the hardware-defined
+task descriptor table.  Once it has loaded the new stack pointer, it
+creates the stack image shown in Figure 6.3.
+The error code is not pushed in all cases, so a zero error code must
+sometimes be added by the interrupt handler code.
+[<a href="#fn6-1">note</a>]
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- OuterIntStack486.eps -->
+  <p> Figure 6.3: 486 outer ring interrupt stack
+</ul>
+<p> When an interrupt occurs while running ring 0 (kernel) code, no
+privilege level change occurs.  The old flags and instruction pointer
+are simply pushed onto the existing stack, as shown in Figure 6.4.  A
+zero error code is sometimes supplied by software.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- InnerIntStack486.eps -->
+  <p> Figure 6.4: 486 inner ring interrupt stack
+</ul>
+<h3>3.5.8 Virtual 8086 Interrupts</h3>
+<p> One of the operating modes of the i486 is the so-called ``virtual
+8086'' mode.  In this mode, the machine executes in a way that is
+mostly compatible with old 16 bit code.  Virtual 8086 tasks are, by
+definition, tasks in ring 3, so entering the kernel requires a
+privilege change.  Because the segment registers of the 8086 are
+interpreted according to completely different rules from those of the
+protected mode i486, they must be saved specially by the interrupt
+logic.  The resulting stack image is shown in
+Figure 6.5.  The problem is those pesky segment
+registers, as we will see in a moment.  
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- V86IntStack486.eps -->
+  <p> Figure 6.5: Virtual 8086 interrupt stack
+</ul>
+<h3>3.5.9 Call Gates</h3>
+<p> The call gate mechanism leaves the stack looking very much like
+the conventional interrupt mechanism.  The resulting stack is shown in
+Figure 6.6.  The number of parameters is
+controlled by the call gate descriptor, and can be up to 31
+doublewords.  
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- CallGateStack486.eps -->
+  <p> Figure 6.6: 486 Call gate stack
+</ul>
+In practice, EROS does not accept any arguments through the call gate,
+so the call gate stack is nearly identical to the conventional
+interrupt stack.  So much so that the EROS kernel actually pushes a
+zero error code to make the stack structure look like the previous
+cases.
+<p> A slight sticking point is that the kernel must remember if the
+entry was due to a call or an interrupt so that the proper return
+instruction -- RET or IRET -- can be used.
+<p> EROS uses the call gate mechanism rather than the interrupt
+mechanism as the basic mechanism for domains that wish to invoke a
+kernel service.  There are several reasons for this:
+<p>
+<ul>
+  <p>
+  <li> The call gate mechanism is slightly faster than the interrupt
+       mechanism, particularly on older processors.
+       Table 6.1 shows the cycle counts when
+       everything hits in the cache.  Cache misses have roughly
+       equivalent impacts on both mechanisms.
+       <p>
+       <ul>
+	 <table width=90%>
+	   <tr valign=top>
+	     <th align=left>
+	       Processor
+	     </th>
+	     <th align=left>
+	       Interrupt
+	     </th>
+	     <th align=left>
+	       Call Gate
+	     </th>
+	   </tr>
+	   <tr valign=top>
+	     <td align=left>
+	       i486
+	     </td>
+	     <td align=left>
+	       75 cycles
+	     </td>
+	     <td align=left>
+	       69 cycles
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=left>
+	       Pentium
+	     </td>
+	     <td align=left>
+	       48 cycles
+	     </td>
+	     <td align=left>
+	       44 cycles
+	     </td>
+	   </tr>
+	 </table>
+	 <strong>Table 6.1: Cycles for interrupts and
+	 call gates</strong>
+       </ul>
+       <p>
+  <li> Virtual 8086 tasks have no way to perform a call gate
+       instruction, which allows the kernel to assume that the layout
+       of the stack is known without any work.
+       <p>
+  <li> The option to pass arguments to kernel calls may later prove
+       useful.
+</ul>
+<h2>3.6 The Domain Cache Structure</h2>
+<p> Context switching performance is critical in the EROS
+architecture.  One of the tricks to doing it quickly is to avoid
+unnecessary copying of registers during the context switch path.  We
+do this by making the stack pointer point directly to the area where
+the registers will ultimately be saved, so the structure of the domain
+cache entry follows closely from the exception stack frame.  The i486
+domain cache structure is illustrated in
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- DomainCache486.eps -->
+  <p> Figure 6.7: 486 domain cache layout
+</ul>
+<p> At first glance, it might appear that the different stack layout
+used by a Virtual 8086 mode interrupt would present a problem.  In
+practice it does not.  The only way for a task to enter Virtual 8086
+mode is by performing a kernel call.  As a result, the kernel always
+knows what sort of domain it is running, and can contrive to set the
+save area stack pointer to the proper place.
+<p> When a task first enters the kernel, it writes its register set to
+the kernel stack, which in practice always points to the domain cache
+entry.  Once the registers have been saved, the stack pointer is
+adjusted to point to a proper kernel stack.  When the kernel itself
+takes a further interrupt, execution proceeds undisturbed on the
+kernel stack.
+<p> The trailing fields in the domain cache entry structure are as
+follows:
+<center>
+  <table width=90%>
+    <tr>
+      <td>
+	</strong> Mapping Table Ptr </strong>
+      </td>
+      <td>
+	Contains a pointer to the root page table (if any) for this
+	domain's address space segment.  Used to load the processor's
+	mapping table register when the domain is run.
+      </td>
+    </tr>
+    <tr>
+      <td>
+	<strong> Scheduling Quanta </strong>
+      </td>
+      <td>
+	Indicates how many ticks this domain should be allowed to run
+	before it is descheduled. <em>This field may go away - it may
+	be more appriopriate to base quanta on the thread or have
+	fixed-size quanta for everything.  On the other hand, a domain
+	that is known to be CPU bound may want a quanta
+	adjustment.</em>
+      </td>
+    </tr>
+    <tr>
+      <td>
+	<strong> Domain Root Ptr </strong>
+      </td>
+      <td>
+	Points to the domain root node of the domain.
+      </td>
+    </tr>
+    <tr>
+      <td>
+	<strong> General Keys Node Ptr </strong>
+      </td>
+      <td>
+	Points to the general keys node of the domain.
+      </td>
+    </tr>
+    <tr>
+      <td>
+	<strong> General Regs Node Ptr </strong>
+      </td>
+      <td>
+	Points to the general registers node of the domain.
+      </td>
+    </tr>
+    <tr>
+      <td>
+	<strong> Fault Code </strong>
+      </td>
+      <td>
+	Provides information on the most recent exception taken by
+	this domain.
+      </td>
+    </tr>
+    <tr>
+      <td>
+	<strong> Fault Info </strong>
+      </td>
+      <td>
+	Provides some auxiliary fault-related information, such as the
+	virtual address of the fault.
+      </td>
+    </tr>
+  </table>
+</center>
+<h1>4 Keys Related to Domains</h1>
+<p> There are four kinds of keys that are associated with domains: the
+start key, the return key, the domain key, and the domain service key.
+All domain keys except the return key share the same basic structure,
+which is shown in Figure 6.8.  
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- DomainKey.eps -->
+  <p> Figure 6.8: Domain key structure
+</ul>
+<p> The details of the key fields are deferred to
+<a href="20ObjectCache.html">Chapter 20</a>.
+<h2>4.7 Start and Return Keys</h2>
+<p> A start key conveys the authority to invoke the program contained
+in a domain.  Anyone who holds a start key can send a message to the
+domain that it names.  The message can include up to one page of data
+and up to four keys.
+<p> Every start key contains within it's <em>authority</em> field a
+<strong>data byte</strong>.  When the start key is invoked, this byte is
+automatically passed to the receiving domain.  The data byte allows
+the domain to provide different services to different callers.  For
+example, the escrow agent uses the data byte to distinguish between
+the party installing items in the escrow and the party removing items
+from the escrow.
+<p> The return key has a different form than the start key, as shown
+in Figure 6.9.  
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- ReturnKey.eps -->
+  <p> Figure 6.9: Return key structure
+</ul>
+<p> Once again, the details of the key fields are deferred to
+<a href="20ObjectCache.html">Chapter 20</a>.  The authority field contains a data
+byte matching the data byte of the originally invoked key.  The call
+count is used to ensure that there is at most one return for every
+call.
+<h2>4.8 Domain Keys</h2>
+<p> When a domain is created by the domain tool, a <strong>domain key</strong>
+is returned to the domain creator, which in turn hands it back to the
+client who constructed the domain.  The domain key conveys essentially
+complete authority over a domain.  It conveys the authority to alter
+every slot of the domain root except the brand.  In addition, it can
+alter the contents of the general registers node and the general keys
+nodes, enabling it to change the values of registers and authorities.
+<p> From a practical perspective, the most important service performed
+by the domain key is the creation of start keys.  One of the
+operations that can be performed using the domain key is to create a
+start key with a specified data byte.  The start key can then be
+handed out to whoever should hold it.
+<h2>4.9 Domain Service Keys</h2>
+<p> The <strong>domain service key</strong> is a weaker version of the domain
+key.  Like start keys, a domain service key can be constructed using
+the domain key.  The domain service key conveys the authority to read
+and write the schedule and address segment key slots, and the trap
+code slot.  In addition, and most importantly, the domain service key
+has an operation that allows the keeper to resume a faulted domain.
+<p> The most common use of a domain service key occurs when a domain
+takes an execution fault.  When this happens, the kernel fabricates a
+domain service key and passes it, along with the fault information, to
+the faulting domain's keeper.  From the keeper's perspective, it
+appears that the faulted domain has <em>called</em> the keeper.
+Typically, the keeper returns via the domain service key rather than
+the resume key, restarting the domain.
+[<a href="#fn6-2">note</a>]
+<p>
+<H1>Notes</H1>
+<fn id=fn6-1>
+<p>
+A better
+interrupt design would have unconditionally placed an error code on
+the stack, pushing some well defined value (such as zero) when no
+error code was needed.  In addition, it would place the exception
+number on the stack.  The i486 design requires that this be corrected
+by software, at the cost of nearly an additional kilobyte of code.  In
+most operating systems this would be unnoticable.  In EROS, it
+represents 2% code size overhead!  Newer Intel processors, including
+the Pentium and the P6, implement a proprietary interrupt mechanism
+that is considerably more efficient.
+</fn>
+<fn id=fn6-2>
+<p> I'm not altogether
+happy with this design.  It feels to me like this situation should
+somehow generate a distinguished return key of some sort, so that the
+domain keeper logic could look like the logic of everything else.
+This distinguished key might, for lack of a better term, be called the
+<em>resume key</em>.  The problem with simply using a conventional
+return key is that the returned arguments will mess up the state of
+the faulted domain, which doesn't really know that it is effectively
+in the <em>waiting</em> state.
+</fn>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

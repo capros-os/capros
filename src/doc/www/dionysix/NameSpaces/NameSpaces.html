@@ -1,0 +1,847 @@
+<html>
+<head>
+<title>Object Servers in Dionysix</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <h1>Object Servers in Dionysix</h1>
+  Revision 0.2
+</center>
+<h2>1. Introduction</h2>
+<p> One of the more challenging issues in the design of Dionysix has
+been deciding what the mechanism should be for handling files, pipes,
+devices and the like.  The principle difficulty lies in the need to
+support asynchronous signalling, which EROS really isn't designed to
+support.
+<p> For several months, we adopted the view that since I/O
+interruption is rare, the basic design should be synchronous.  This
+was a dead end.  Eventually, we settled on the asynchronous interface
+described here.  The interface is designed to allow non-blocking I/O
+to complete with a single CALL/RETURN in the usual case, but supports
+both early abort of I/O's and callbacks for blocking I/O.  The design
+grew out of the 9P protocol of Plan 9 (see: <a
+href="http://achille.research.att.com/plan9/doc/names.html">The Use of
+Name Spaces in Plan 9</a> and the Plan 9 <a
+href="http://achille.research.att.com/plan9/vol1.html">Reference
+Manual</a>).
+<p> 9P lacks overt support for three features of UNIX:
+<ol>
+  <li> There is no support for any equivalent to a
+       <strong>superuser</strong> who has the authority to act as any
+       other user.
+  <li> There is no support for the <strong>setuid</strong> mechanism,
+       which allows a program to operate with authorities different
+       from the person running it.
+  <li> There is no direct support for a client program that operates
+       with the simultaneous authority of two (or more) users (as in
+       the setuid/setgid system calls).
+</ol>
+<p> The essential reason for these omissions is that the 9p server
+does not trust the client.
+<p> The omission of the superuser is probably a good thing.  The UNIX
+superuser carries far more authority than is good for it, and as a
+result is often abused.
+<p> The omission of the setuid bit and the setuid/setgid mechanism is
+more problematic.  The setuid bit is frequently used to ensure that
+generally accessable objects are accessed only through programs that
+maintain their consistency.  In Plan 9, such enforcement policies can
+only be implemented by file servers, while we would like them to be
+implementable by users in general.  For example, it is unclear to us
+how one would implement a revision control mechanism such as RCS as a
+general user.
+<p> Similarly, the omission of any mechanism for union authorities is
+significant.  In spite of the issues raised by <a
+href="http://www.cis.upenn.edu:80/~KeyKOS/ConfusedDeputy.html"><em>The
+Confused Deputy</em></a>, it is sometimes useful to act with multiple
+authorities.  A clean mechanism for doing so seems too useful to give
+up.
+<p> Given these problems, we have adopted a subset of the
+<strong>9p</strong> protocol, <strong>dp</strong> (for
+<strong>D</strong>ionysix <strong>P</strong>rotocol), which retains
+the facilities of UNIX within a protocol similar to
+<strong>9p</strong>.  This is the protocol used in the EROS POSIX
+environment.  <strong>dp</strong> retains some important features of
+<strong>9p</strong>:
+<ul>
+  <li> <strong>dp</strong> can be implemented with a fixed amount of
+       server memory per connection.
+  <li> <strong>dp</strong> is asynchronous.  While most I/O
+       transactions can be completed in a single EROS
+       <strong>call</strong> and <strong>return</strong>, the protocol
+       does not require synchronous RPC.
+</ul>
+Differences between <strong>dp</strong> and <strong>9p</strong>
+include:
+<ul>
+  <li> A single <strong>dp</strong> session can act on behalf of
+       multiple authorities.
+  <li> The <strong>dp</strong> server (at least in Version 0) trusts
+       the client rather more than it does in <strong>9p</strong>.
+  <li> <strong>dp</strong> provides a mechanism for early abort of an
+       I/O operation, the <strong>Tabort</strong> request.  This is
+       necessary in support of POSIX signals and other asynchronous
+       signalling mechanisms.
+</ul>
+These differences enable support of the full POSIX semantics on the
+client, provided that the client is suitably authorized to support
+<em>setuid</em>.
+<p> The version of the protocol described here is preliminary, and we
+expect will soon be discarded.  In particular, we are disastisfied
+with the need to trust the client, and believe that this is basically
+a bad idea.  Still, this version of the protocol is sufficient to get
+us started.
+<h2>2. The Protocol</h2>
+<p> A <strong>dp</strong> client holds a capability to the
+<strong>dp</strong> server.  The capability encapsulates a session.
+Given this, there is no real need for session level authentication as
+in <strong>9p</strong>.  Posession of a key to the server is a
+necessary and sufficient condition to speak to that server.  The
+design assumes that distinct clients will hold distinct keys to the
+server.
+<p> Clients and Servers communicate using a byte-stream protocol
+rather than the EROS call/return model.  This allows the server to
+operate asynchronously.  Request and responses are encoded into a
+sequence of bytes, and sent to the server using the call/return
+mechanism as a transport.
+<p> Each time the client invokes the object server, it sends an EROS
+message of the form:
+<ul>
+  <table>
+    <tr>
+      <td><strong>W</strong></td>
+      <td>Size of response buffer (must be greater than or
+	equal to 4)</td>
+    </tr>
+    <tr>
+      <td><strong>B*</strong></td>
+      <td>Server requests, expressed as a stream of bytes.</td> 
+    </tr>
+  </table>
+</ul>
+The server, in its turn, responds with a message of the form:
+<ul>
+  <table>
+    <tr>
+      <td><strong>W</strong></td>
+      <td>Number of request bytes accepted</td> 
+    </tr>
+    <tr>
+      <td><strong>B*</strong></td>
+      <td>Server responses, expressed as a byte stream.</td> 
+    </tr>
+  </table>
+</ul>
+<p> Requests are byte-formatted sequences having the following components:
+<ul>
+  <table>
+    <tr>
+      <td><strong>request</strong></td>
+      <td>A 16 bit field indicating the request.</td>
+    </tr>
+    <tr>
+      <td><strong>tag</strong></td>
+      <td>A 16 bit field whose content is specified by the client, and
+	will be contained in the reply message from the server.</td>
+    </tr>
+    <tr>
+      <td><em>arguments</em></td>
+      <td>Argument specific to a particular request.</td>
+    </tr>
+  </table>
+</ul>
+<p> Each transmitted data buffer should be thought of as appended to
+the stream of messages already sent.  Depending on how much space the
+server has available, it may elect to receive less than the full
+transmission.  In this event, it is the client's responsibility to
+drain the response buffer and try again.
+<p> Most arguments have a fixed length, which is indicated next to the
+name of the argument in the specification.  Some arguments are shown
+with the notation <strong>[*</strong><em>N</em><strong>]</strong>,
+indicating a variable-length argument of length less than or equal to
+<em>N</em>.  In the byte stream, such arguments are preceded by their
+byte count.  If the maximum will fit within a single byte, the length
+is encoded in a single byte.  Where the maximum will not fit within a
+single byte, it is encoded as a two byte size.
+<p> All numbers are encoded in the byte stream in <em>little
+endian</em> format, regardless of the encoding of the native hardware.
+<p> Most object servers respond to requests promptly.  Some object
+types do not guarantee that reads and writes will complete without
+blocking.  Read and write requests on such objects will eventually
+complete, but no timing guarantees are made by the server.  A
+mechanism is provided to allow the server to signal completion of
+blocking I/O.
+<h2>3  The Transport</h2>
+<p> The remainder of this note describes the protocol between the
+object server and the client.  It describes how to set up and tear
+down a connection, the transmit and receive mechanisms, and the
+formats of each individual message.
+<h3>3.1 Connection Setup and Teardown</h3> 
+<p> The first step in establishing communication between client and
+server is for the client to invoke the server with a
+<strong>connect</strong> invocation.  The connection is terminated by
+the <strong>disconnect</strong> invocation.
+<dl>
+  <dt> <strong>Connect</strong> (OC = 1)
+  <dd> 
+       <p> Initializes a connection between client and object server.
+       <table>
+	 <tr valign=top>
+	   <td rowspan=1>
+	     <strong>Reply</strong>
+	   </td>
+	   <td align=right>
+	     W
+	   </td>
+	   <td> If nonzero, indicates that the server implements
+	     asynchronous I/O.  The client should be prepared to
+	     perform the IOWait invocation to learn when such I/O is
+	     completed, or arrange to do periodic transfers.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td rowspan=1>
+	     <strong>Result</strong>
+	   </td>
+	   <td align=right>
+	     RC_OK
+	   </td>
+	   <td>
+	     Connection is established
+	   </td>
+	 </tr>
+       </table>
+       <p> 
+  <dt> <strong>Disconnect</strong> (OC = 2)
+  <dd> 
+       <p> Causes the connection to be torn down.  The client's key to
+       the server is rescinded.
+       <table>
+	 <tr valign=top>
+	   <td rowspan=1>
+	     <strong>Result</strong>
+	   </td>
+	   <td align=right>
+	     RC_OK
+	   </td>
+	   <td>
+	     Connection is established
+	   </td>
+	 </tr>
+       </table>
+       <p> 
+</dl>
+<h3>3.1 The Byte Stream</h3>
+<p> Requests and responses between client and server are transmitted
+as a sequence of byte-formatted messages.  The request and response
+byte streams are transmitted between client and server using the call
+and return mechanisms as a transport.
+<p> The basic invocation of this protocol is the
+<strong>transfer</strong> invocation, which moves bytes back and forth
+between client and server.
+<dl>
+  <dt> <strong>Transfer</strong> (OC = 3)
+  <dd> 
+       <p> Transmits requests to the server and collects responses.
+       The server may not accept all of the transmitted byte string,
+       but is guaranteed to accept an integral number (possibly 0) of
+       requests.
+       <table>
+	 <tr valign=top>
+	   <td rowspan=2>
+	     <strong>Request</strong>
+	   </td>
+	   <td align=right>
+	     W
+	   </td>
+	   <td> The space available in the response buffer.  It is
+	     preferable for this be as large as possible.  If the
+	     receive buffer size provided is less than 4, no requests
+	     will be accepted by the server.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td align=right>
+	     B*
+	   </td>
+	   <td> Server requests, formatted as a byte string.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td rowspan=2>
+	     <strong>Response</strong>
+	   </td>
+	   <td align=right>
+	     W
+	   </td>
+	   <td> The number of bytes accepted from the sent string.
+	     The server will accept requests only if there is
+	     available space in the output buffer to place the
+	     results, so a failure to accept requests generally means
+	     that the output buffer should be drained and the request
+	     should be reattempted.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td align=right>
+	     B*
+	   </td>
+	   <td> Server replies, formatted as a byte string.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td rowspan=4>
+	     <strong>Result</strong>
+	   </td>
+	   <td align=right>
+	     RC_OK
+	   </td>
+	   <td>
+	     Transmission succeeded, reply has emptied the response buffer.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td align=right>
+	     RC_OK+1
+	   </td>
+	   <td> Transmission succeeded, response buffer contained more
+	     responses than would fit in the response buffer provided
+	     by the client.  Client should <strong>transmit</strong>
+	     again (typically with a null request string) to collect
+	     remaining responses after processing the responses
+	     received.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td align=right>
+	     RC_OK+1
+	   </td>
+	   <td> Transmission succeeded, response buffer contained more
+	     responses than would fit in the response buffer provided
+	     by the client.  Client should <strong>transmit</strong>
+	     again (typically with a null request string) to collect
+	     remaining responses after processing the responses
+	     received.
+	   </td>
+	 </tr>
+	 <tr valign=top>
+	   <td align=right>
+	     KT+2
+	   </td>
+	   <td> Request format error. Either the caller did not
+	     provide for a returned acceptance count, or the
+	     transmitted message contained a malformed message
+	     sequence.
+	   </td>
+	 </tr>
+       </table>
+       <p> 
+  <dt> <strong>IoWait</strong> (OC = 4)
+  <dd> 
+       <p> Blocks until an asynchronous I/O completes and the client
+       is not expecting a response.  Used to indicate that the client
+       should perform a <strong>transfer</strong> operation to obtain
+       the result of the asynchronous I/O.
+       <p> The usual mechanism for handling asynchronous I/O is for
+       the client to establish a helper domain.  The helper domain
+       loops performing an IoWait invocation and then calling the
+       client to inform it that a transfer operation should be performed.
+       <table>
+	 <tr valign=top>
+	   <td rowspan=2>
+	     <strong>Result</strong>
+	   </td>
+	   <td align=right>
+	     RC_OK
+	   </td>
+	   <td> An asynchronous I/O has completed.</td>
+	 </tr>
+	 <tr valign=top>
+	   <td align=right>
+	     KT+1
+	   </td>
+	   <td>Connection has been torn down.</td>
+	 </tr>
+       </table>
+</dl>
+<p> The use of the <strong>IoWait</strong> invocation is optional.
+Clients may use periodic wakeup to accomplish the same result without
+an additional domain.
+
+<h2>4 The Protocol</h2>
+<p> Each <strong>dp</strong> message consists of a sequence of bytes
+containing the request number, a client-supplied tag, and the
+arguments to the request.  Each message is described in detail below.
+One area that requires further specification is the possible error
+values that can be returned by reply messages.
+<p> Every message has a corresponding reply message.  The reply
+message has a message number that is one higher than the request
+number, and contains the same tag as was specified by the client in
+the request.  The tag, in effect, acts as a sequence number for
+outstanding requests.  A message will either receive a corresponding
+reply with the identical tag or an Rerror response indicating that the
+request failed.
+<dl>
+  <dt> (0) <strong>Rerror</strong> <em>tag</em>[2] <em>err</em>[2]
+  <dd> This response is issued by the server to indicate that an error
+       occurred on the request with the corresponding tag.  This
+       message replaces the normal response message.  <em>err</em> is
+       an integer (values to be defined) indicating the error that
+       occurred.  <em>ename</em> is a text representation of the
+       corresponding error number
+       <p> 
+  <dt> (1) <strong>Tattach</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>credentials</em>[8] <em>aname</em>[*255]
+  <dd> 
+       <p> Requests that the object server bind the root of the hierarchy
+       named by <em>aname</em> to the given <em>cid</em>.
+       <p> 
+  <dt> (2) <strong>Rattach</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>uoid</em>[8]
+  <dd> 
+       <p> Response to the Tattach message.  The returned <em>cid</em>
+       should be the same as the <em>cid</em> named by the client.
+       The <em>uoid</em> is an 8-bit field that is unique among all
+       objects in this hierarchy.
+       <p> 
+  <dt> (3) <strong>Tclone</strong> <em>tag</em>[2] <em>oldcid</em>[2]
+       <em>newcid</em>[2]
+  <dd> 
+       <p> Requests that the object server make a duplicate of
+       <em>oldcid</em> in <em>newcid</em>.  This message is usually
+       issued prior to performing a walk operation.
+       <p> 
+  <dt> (4) <strong>Rclone</strong> <em>tag</em>[2] <em>cid</em>[2]
+  <dd> 
+       <p> Response to the Tclone message.  The returned <em>cid</em>
+       should be the same as the <em>newcid</em> named by the client.
+       <p> 
+  <dt> (5) <strong>Twalk</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>name</em>[*255]
+  <dd> 
+       <p> Performs a directory traversal.  The <em>cid</em> supplied
+       by the client must identify a directory.  On completion, it
+       identifies the component object named by <em>name</em> (if
+       any).
+       <p> 
+  <dt> (6) <strong>Rwalk</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>uoid</em>[8]
+  <dd> 
+       <p> Response to the Twalk message.  The returned <em>cid</em>
+       should be the same as the <em>cid</em> named by the client.
+       The <em>uoid</em> is an 8-bit field that is unique among all
+       objects in this hierarchy.
+       <p> 
+  <dt> (7) <strong>Topen</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>mode</em>[1]
+  <dd> 
+       <p> Opens the named <em>cid</em> for reading and/or writing,
+       according to <em>mode</em>.  Legal values for <em>mode</em>
+       are:
+       <ul>
+	 <table>
+	   <tr>
+	     <td>0</td>
+	     <td>Read access</td>
+	   </tr>
+	   <tr>
+	     <td>1</td>
+	     <td>Write access</td>
+	   </tr>
+	   <tr>
+	     <td>2</td>
+	     <td>Read and write access</td>
+	   </tr>
+	   <tr>
+	     <td>3</td>
+	     <td>Execute access</td>
+	   </tr>
+	 </table>
+       </ul>
+       In addition, the following values can be <em>or</em>'d with the
+       supplied mode, causing the indicated actions:
+       <ul>
+	 <table>
+	   <tr valign=top>
+	     <td>0x10</td>
+	     <td>Truncate.  If the file is not append only, and the
+	       sender of the message has write permissions (in version
+	       0 this is always true), the file is truncated.  If the
+	       file is append-only, the open will succeed but the file
+	       will not be truncated.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td>0x40</td>
+	     <td>Remove on close.  File should be removed when the fid
+	       is clunked, which requires write permission on the
+	       directory.</td>
+	   </tr>
+	 </table>
+       </ul>
+       <p> 
+  <dt> (8) <strong>Ropen</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>uoid</em>[8]
+  <dd> 
+       <p> Response to the Topen message.  The returned <em>cid</em>
+       should be the same as the <em>cid</em> named by the client.
+       The <em>uoid</em> is an 8-bit field that is unique among all
+       objects in this hierarchy.
+       <p> 
+  <dt> (9) <strong>Tcreate</strong> <em>tag</em>[2] <em>cid</em>[2]
+        <em>perm</em>[4] <em>mode</em>[1] <em>name</em>[*255]
+  <dd> 
+       <p> Creates a new object or directory in the directory named by
+       <em>cid</em>, opening it according to the mode specified by
+       <em>mode</em>.  for reading and/or writing, according to
+       <em>mode</em>.  Valid modes are as described in the
+       <strong>open</strong> message.
+       <p> The mode word indicates whether an object or directory is
+       to be created and the permissions to be associated with the
+       newly created object.  The file mode is composed of the
+       <strong>or</strong> of the following values:
+       <ul>
+	 <table>
+	   <tr valign=top>
+	     <td align=right>0x1</td>
+	     <td>Others (not user or group) can execute this
+	       file.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x2</td>
+	     <td>Others (not user or group) can write this
+	       file.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x4</td>
+	     <td>Others (not user or group) can read this
+	       file.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x8</td>
+	     <td>Members of the file's group (including the owner) can
+	       execute this file.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x10</td>
+	     <td>Members of the file's group (including the owner) can
+	       write this file.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x20</td>
+	     <td>Members of the file's group (including the owner) can
+	       read this file.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x40</td>
+	     <td>The file's owner can execute this file.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x80</td>
+	     <td>The file's owner can write this file.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x100</td>
+	     <td>The file's owner can read this file.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x2000000</td>
+	     <td>Object is "sticky".</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x4000000</td>
+	     <td>Object is setgid.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x8000000</td>
+	     <td>Object is setuid.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x20000000</td>
+	     <td>Created object requires exclusive access -- only one
+	       user can open the object at a time.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x40000000</td>
+	     <td>Created object is append only.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>0x80000000</td>
+	     <td>Created object is a directory.</td>
+	   </tr>
+	 </table>
+       </ul>
+       <p> Objects are initially created with the same group as their
+       containing directory, and the user implied by the <em>cid</em>.
+       If desired, the group can subsequently be changed via the
+       <strong>wstat</strong> message.
+       <p> 
+  <dt> (10) <strong>Rcreate</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>uoid</em>[8]
+  <dd> 
+       <p> Response to the Tcreate message.  The returned <em>cid</em>
+       should be the same as the <em>cid</em> named by the client.
+       The <em>uoid</em> is an 8-bit field that is unique among all
+       objects in this hierarchy.
+       <p> 
+  <dt> (11) <strong>Tread</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>offset</em>[8] <em>count</em>[2]
+  <dd> 
+       <p> Perform a read operation.  The count must be &lt;= 8192.
+       The number of bytes returned may be less than the number
+       requested if end of file is encountered during the read or the
+       read is aborted.
+       <p> 
+  <dt> (12) <strong>Rread</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>eof</em>[2] <em>pad</em>[1]
+       <em>data</em>[<em>*8192</em>]
+  <dd>
+       <p> Response to the Tread request.  The actual message will be
+       padded to a two-byte boundary.  If end of file was encountered,
+       the <em>eof</em> field will be nonzero.
+       <p> 
+  <dt> (13) <strong>Twrite</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>offset</em>[8] <em>data</em>[<em>*8192</em>]
+  <dd> 
+       <p> Perform a write operation.  The count must be &lt;= 8192.
+       The number of bytes written may be less than the number of
+       requested if the write is aborted by an abort message or the
+       associated connection is lost (e.g. user hangs up the phone).
+       <p> 
+  <dt> (14) <strong>Rwrite</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>eof</em>[2] <em>count</em>[2]
+  <dd>
+       <p> Response to the Twrite request.  The actual message will be
+       padded to a two-byte boundary.  If end of file was encountered,
+       the <em>eof</em> field will be nonzero.
+       <p> 
+  <dt> (15) <strong>Tclunk</strong> <em>tag</em>[2] <em>cid</em>[2]
+  <dd>
+       <p> Tells the server that the indicated <em>cid</em> will no
+       longer be used.
+       <p> 
+  <dt> (16) <strong>Rclunk</strong> <em>tag</em>[2] <em>cid</em>[2]
+  <dd>
+       <p> Reassures the client that the server has in fact forgotten
+       about <em>cid</em>.
+       <p> 
+  <dt> (17) <strong>Tremove</strong> <em>tag</em>[2] <em>cid</em>[2]
+  <dd>
+       <p> Tells the server that the object named by <em>cid</em>
+       should be removed.  This requires write permission on the
+       directory containing <em>cid</em>.  Whether or not the object
+       is removed, the <strong>remove</strong> operation implies a
+       <strong>clunk</strong> of <em>fid</em>.
+       <p> 
+  <dt> (18) <strong>Rremove</strong> <em>tag</em>[2] <em>cid</em>[2]
+  <dd>
+       <p> Informs the client that <em>cid</em> has indeed been
+       clunked (and possibly removed).
+       <p> 
+  <dt> (19) <strong>Tstat</strong> <em>tag</em>[2] <em>cid</em>[2]
+  <dd>
+       <p> Requests per-object information from the server.
+       <p> 
+  <dt> (20) <strong>Rstat</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>stat</em>[44]
+  <dd>
+       <p> Returns the state structure of the object named by <em>cid</em>.
+       The state structure contains the following information:
+       <ul>
+	 <table>
+	   <tr valign=top>
+	     <td><em>uoid</em>[8]</td>
+	     <td>The server's unique identifier for the object named
+	       by <em>cid</em>.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>size</em>[8]</td>
+	     <td>The size in bytes of the object named by
+	       <em>cid</em>.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>mode</em>[4]</td>
+	     <td>The mode field of the object named by
+	       <em>cid</em>.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>uid</em>[4]</td>
+	     <td>The user identifier of the owner of the object
+	       identified by <em>cid</em>.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>gid</em>[4]</td>
+	     <td>The group identifier of the group of the object
+	       identified by <em>cid</em>.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>atime</em>[4]</td>
+	     <td>The last access time of the object named by
+	       <em>cid</em>.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>mtime</em>[4]</td>
+	     <td>The last modification time of the object named by
+	       <em>cid</em>.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>ctime</em>[4]</td>
+	     <td>Time of last change of the object named by
+	       <em>cid</em>.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>type</em>[2]</td>
+	     <td>The type of the object named by <em>cid</em>. Not
+	       interpreted by the server.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td><em>minor</em>[2]</td>
+	     <td>The "minor number" of the object named by
+	       <em>cid</em>. Not interpreted by the server.</td>
+	   </tr>
+	 </table>
+       </ul>
+       <p> 
+  <dt> (21) <strong>Twstat</strong> <em>tag</em>[2] <em>cid</em>[2]
+       <em>stat</em>[44]
+  <dd>
+       <p> Rewrites some of the fields of the object's state
+       structure.  The <em>atime</em>, <em>mtime</em>, and directory
+       bit of the mode field cannot be revised.
+       <p> 
+  <dt> (22) <strong>Rwstat</strong> <em>tag</em>[2] <em>cid</em>[2]
+  <dd>
+       <p> Indicates that the object's state structure has been
+       updated.
+       <p> 
+  <dt> (23) <strong>Tflush</strong> <em>tag</em>[2] <em>oldtag</em>[2]
+  <dd>
+       <p> Causes the previous request named by <em>oldtag</em> to be
+       canceled if it has not already completed.  Indicates that the
+       client does not wish to receive a reply for the associated
+       operation, and will ignore any replies that may already have
+       been generated.  Flush operations are <em>always</em> processed
+       promptly.
+       <p> 
+  <dt> (24) <strong>Rflush</strong> <em>tag</em>[2]
+  <dd>
+       <p> Indicates that the flush operation has completed.
+       <p> 
+  <dt> (25) <strong>Tabort</strong> <em>tag</em>[2] <em>oldtag</em>[2]
+  <dd>
+       <p> Causes the previous read or write request named by
+       <em>oldtag</em> to be aborted prematurely if it has not already
+       completed.  If the operation is still in progress, it will be
+       terminated, and an <strong>Rwrite</strong> or
+       <strong>Rread</strong> indicating a short read will be
+       generated.  The effect of an abort operation is always achieved
+       promptly.
+       <p> 
+  <dt> (26) <strong>Rabort</strong> <em>tag</em>[2]
+  <dd>
+       <p> Indicates that the abort operation has completed.
+       <p> 
+  <dt> (27) <strong>Tcredclone</strong> <em>tag</em>[2]
+       <em>oldcid</em>[2] <em>credentials</em>[8] <em>newcid</em>[2]
+  <dd>
+       <p> A clone of the object identified by <em>oldcid</em> is
+       created, having the associated <em>credentials</em>, and named
+       <em>newcid</em>.  The new <em>cid</em> is not open, and does
+       not necessarily convey authority sufficient to let the new user
+       do anything with it.
+       <p> 
+  <dt> (28) <strong>Rcredclone</strong> <em>tag</em>[2]
+       <em>cid</em>[2]
+  <dd>
+       <p> Response to the Rcredclone message.  The returned
+       <em>cid</em> should be the same as the <em>newcid</em> named by
+       the client.
+       <p> 
+</dl>
+
+
+<h2>5 Usage Notes and Issues</h2>
+<p> One issue that is not overtly addressed by this protocol is the
+implementation of multiple groups.  The <strong>dp</strong> open
+message checks only one user and group at a time.
+<p> The effect of multiple groups can be achieved by issuing a series
+of <strong>clone</strong> and <strong>open</strong> messages, passing
+different credentials for each <strong>open</strong> message.  The
+file may end up multiply open.  The server can then clunk the
+<em>cids</em> that it doesn't use.
+<p> The current protocol does not support hard links.  Hard links are
+a bad idea, inducing a rich variety of puzzling behaviors for file
+system consistency checkers, and I don't really want to support them
+if I can avoid it.  It may be unavoidable.
+<h3>5.1 Pipes</h3>
+<p> Another issue that is not obviously addressed is how to deal with
+pipes and other objects that are really one objects with multiple
+connection points.  The general idea is that the pipe server simply
+serves up an infinite number of pipe hierarchies that are all named
+<strong>clone</strong>.  Opening a <strong>clone</strong> file has the
+effect of implicitly creating a new hierarchy rather than opening the
+existing one.  Each hierarchy is a directory supporting two names
+(e.g. <strong>0</strong> and <strong>1</strong>) corresponding to the
+end points of the pipe.
+<p> <em>Fill me in!</em>
+<h2>6 Background</h2>
+<p> The design of the Dionysix name space mechanism has proven
+challenging.  A number of options were debated along the way:
+<p> 
+<ul>
+  <li> One domain per disk file.
+  <li> One domain per <em>open</em> disk file.
+  <li> One domain per file system.
+</ul>
+<p> The "one domain per file" approach was used by KeyNIX (see: <a
+href="http://www.cis.upenn.edu:80/~KeyKOS/NanoKernel/NanoKernel.html">The
+KeyKOS Nanokernel&#174; Architecture</a>).  While this approach is
+probably simplest, each file domain requires at least one page for a
+stack.  On my linux system at home, the breakdown of files is as
+follows:
+<center>
+  <table>
+    <tr>
+      <th>Count</th>
+      <th align=left>Description</th>
+      <th align=right>Percentage</th>
+    </tr>
+    <tr>
+      <td align=right>31,071</td>
+      <td>All files</td>
+      <td align=right>100.0%</td>
+    </tr>
+    <tr>
+      <td align=right>18,789</td>
+      <td>Files &lt;= 4096 bytes</td>
+      <td align=right>60.5%</td>
+    </tr>
+    <tr>
+      <td align=right>13,134</td>
+      <td>Files &lt;= 2048 bytes</td>
+      <td align=right>42.3%</td>
+    </tr>
+    <tr>
+      <td align=right>5,301</td>
+      <td>Files &lt;= 1024 bytes</td>
+      <td align=right>17.0%</td>
+    </tr>
+  </table>
+</center>
+Given this, the one domain per file design seems prohibitive.
+<p> The "one domain per <em>open</em> file" approach is more
+promising. The principle problem with this approach lies in the need
+for reference counting.  If a UNIX server manages to die without
+closing its currently open files, the open file objects could last
+forever.  In the end, these dangling open files represent a serious
+challenge for robustness.
+<p> The final design is the one we have adopted.  File systems should
+not go away when the referencing UNIX server dies, so the dangling
+reference problem does not arise.  In addition, systems like Plan 9
+and NFS have adopted this approach successfully, so there is some
+reason to be optimistic that it will work correctly.
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

@@ -1,0 +1,363 @@
+<html>
+  <head>
+    <title>Capability Invocation Path</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <center>
+	    <h1>The Capability Invocation Path</h1>
+	  </center>
+	  <p>
+	    This note describes a significant reformulation of the
+	    EROS capability invocation path.  In particular, it
+	    describes how the difficult corner conditions are handled
+	    without impeding the main code.
+	  </p>
+	  <h2>1. Problem Statement</h2>
+	  <p>
+	    The EROS/KeyKOS/GNOSIS capability invocation path
+	    semantics is complex (perhaps too complex).  Here are some
+	    of the semantic complications:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		Invoking a process capability with a SEND operation
+		causes a new thread of control to be created.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Performing a RETURN on a kernel object capability with
+		a resume capability <b>rsm(xx)</b> in slot 3 causes
+		control to be returned to process <b>xx</b> rather
+		than to you.  This is in marked contrast to "system
+		call" style interfaces, where control returns to the
+		caller eventually (though POSIX fork/exec are
+		similar).
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Performing a RETURN on a kernel object capability
+		<em>without</em> a resume capability in slot 3 retires
+		the invoking thread of control <em>unless</em> it
+		proves that we have invoked a kept red segment key.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Performing a SEND on a kernel object where capability
+		argument 3 <em>is not</em> a resume capability causes
+		the return value(s) returned by the kernel object to be
+		made to vanish, even though the invoker continues to
+		execute (SEND returns no arguments).
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Performing a SEND on a kernel object where capability
+		argument 3 <em>is</em> a resume capability
+		<b>rsm(xx)</b> has the return values delivered to
+		<b>xx</b>, but also creates a new thread of control
+		for the invoker.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Performing <em>any</em> invocation on a red segment
+		key may invoke it's keeper, but unlike the previous
+		cases the fact that control is returning to another
+		process cannot be immediately discerned from the
+		arguments presented at the call.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		A few kernel objects permute or swap capabilities. If
+		the invoker and the invokee are the same then juggling
+		the capabilities can become very interesting.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		A few kernel operations can alter the runnability of a
+		process -- in particular can alter the runnability of
+		the invokee.  This means that a perfectly good invokee
+		may no longer be runnable by the time we are ready to
+		transfer control to it.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		If the invokee was named by a fault capability, all
+		result value(s) of the operation should be discarded.
+		More precisely, they should be treated as though they
+		are a fault capability invocation, which has
+		"distinctive" semantics.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    This note describes how these corner cases are handled by
+	    the kernel.
+	  </p>
+	  <h1>2. Synopsis of Solution</h1>
+	  <p>
+	    All of these cases can be reduced to a couple of bits of
+	    knowledge a few special cases:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		What capability is being invoked?
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Which process (if any) will receive control when the
+		invocation is done?
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		To which process (if any) should results go?
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Should the invoker continue execution (i.e. is this a
+		SEND operation)?
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Is the present operation one of the few that might
+		mangle the invokee?  If so, this is dealt with by the
+		code that implements the operation.  Handling this is
+		straightforward, so we will ignore this issue from
+		here on.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    In older implementations of EROS, all of this was managed
+	    by ensuring that results went to a temporary holding
+	    buffer.  A boolean was tracked indicating whether transfer
+	    of these results to the final recipient should be
+	    suppressed (to handle fault capabilities), and the output
+	    process could be nullified, signifying either that it had
+	    ceased to be runnable or that the invocation was a SEND on
+	    a kernel object.
+	  </p>
+	  <p>
+	    This implementation has several problems:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		Molasses in January is faster.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Results are copied even when it isn't necessary.  It
+		proves not to be necessary most of the time.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		A boatload of complexity is introduced into various
+		pieces of code to see that this side structure --
+		which can hold capabilities -- is properly handled
+		during consistency checking and key ring management.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The design necessitates setting up the side buffer in
+		the common path.
+	      </p>
+	    </li>
+	  </ol>
+	  <p>
+	    A conversation with Norm at one point suggested an
+	    extremely elegant alternative: <em>use a shadow
+	    process</em>.  In this design, the "context" of an
+	    invocation tracks four pieces of information:
+	  </p>
+	  <ul>
+	      <pre>
+struct Invocation {
+  Key     *key;     // the key invoked
+  Process *invoker; // the invoking process
+  Process *invokee; // the receiver of control
+  Process *target;  // the receiver of results
+};
+	      </pre>
+	  </ul>
+	  <p>
+	    An entry in the process cache (actually, one per processor
+	    on an SMP) is reserved to serve as a "shadow" process.
+	    The <tt>key</tt> and <tt>invoker</tt> fields are set in
+	    the obvious way.
+	    The <tt>invokee</tt> and <tt>target</tt> are initially set
+	    according to the invocation type:
+	  </p>
+	  <center>
+	    <table>
+	      <tr valign=top>
+		<td><b>Invocation</b></td>
+		<td><b>Invokee</b></td>
+		<td><b>Target</b></td>
+	      </tr>
+	      <tr valign=top>
+		<td>CALL</td>
+		<td><tt>invoker</tt></td>
+		<td><tt>invokee</tt></td>
+	      </tr>
+	      <tr valign=top>
+		<td>RETURN</td>
+		<td><tt>xx</tt></td>
+		<td><tt>xx</tt></td>
+		<td><em>if</em> <b>rsm(xx)</b> <em>in arg 3</em></td>
+	      </tr>
+	      <tr valign=top>
+		<td>RETURN</td>
+		<td><tt>xx</tt></td>
+		<td><tt>&amp;shadowProc</tt></td>
+		<td><em>if</em> <b>fault(xx)</b> <em>in arg 3</em></td>
+		<td>(unimplemented)</td>
+	      </tr>
+	      <tr valign=top>
+		<td>RETURN</td>
+		<td><tt>0</tt></td>
+		<td><tt>&amp;shadowProc</tt></td>
+		<td><em>otherwise</em></td>
+	      </tr>
+	      <tr valign=top>
+		<td>SEND</td>
+		<td><tt>xx</tt></td>
+		<td><tt>xx</tt></td>
+		<td><em>if</em> <b>rsm(xx)</b> <em>in arg 3</em></td>
+	      </tr>
+	      <tr valign=top>
+		<td>RETURN</td>
+		<td><tt>xx</tt></td>
+		<td><tt>&amp;shadowProc</tt></td>
+		<td><em>if</em> <b>fault(xx)</b> <em>in arg 3</em></td>
+		<td>(unimplemented)</td>
+	      </tr>
+	      <tr valign=top>
+		<td>SEND</td>
+		<td><tt>0</tt></td>
+		<td><tt>&amp;shadowProc</tt></td>
+		<td><em>otherwise</em></td>
+	      </tr>
+	    </table>
+	  </center>
+	  <p>
+	    The fault key cases are unimplemented primarily because I
+	    cannot really see a situation in which the results of a
+	    kernel object invocation can rationally be directed to a
+	    fault key.  A corollary of this is that the
+	    <em>returner</em> also should not permit this.
+	  </p>
+	  <p>
+	    If it is subsequently discovered that this was an
+	    invocation of a kept red segment key, then the
+	    <tt>key</tt> field is updated to name the gate key to the
+	    keeper, and both <tt>invokee</tt> and <tt>target</tt> are
+	    revised to name the process named by the gate key.
+	  </p>
+	  <h1>3. Invocation Processing</h1>
+	  <p>
+	    Given section (2) as preface, it is now possible to
+	    describe how invocation proceeds.
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		The invocation trap is taken and the process registers
+		are saved.  We switch to the kernel stack.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The capability invocation arguments are syntax
+		checked.  This involves bounds checking the capability
+		entry/exit vectors and verifying that the invocation
+		type falls in the range [0..2].  We also do an upper
+		bound check on the entry string, but not on the exit
+		string, as the upper bound on that is implied by the
+		presence of an upper bound on the entry string.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The invoked capability is determined.  The capability
+		type byte is extracted.  The invocation type is OR'd
+		into the resulting value.  We now have an index into a
+		table of the form:
+	      </p>
+	      <ul>
+		  <pre>
+captype 0:  { return_op, call_op, send_op, unused }
+		  </pre>
+	      </ul>
+	    </li>
+	    <li>
+	      <p>
+		We set the invoker state to <b>waiting</b> in the
+		optimistic hope that this is a CALL operation, write
+		the invocation context structure as described for the
+		CALL operation, and dispatch through the table.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		If it is <em>not</em> a call operation, we will end up
+		in the generic return handler or the generic send
+		handler.  These are wrappers that reset the invoker
+		state, examine the capability in slot 3, conditionally
+		reset the invokee and target, and then call the
+		handler specified in the CALL slot for that
+		capability.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		If the invocation was not a CALL, control eventually
+		returns to the SEND or RETURN wrapper.
+		The SEND wrapper fabricates a new thread for the invoker
+		if necessary.  Both wrappers return to the main path.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The main path now checks if <tt>invokee == 0</tt>, if
+		so, it branches to the Yield entry stub.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Control now returns to invokee.
+	      </p>
+	    </li>
+	  </ol>
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+    <hr>
+    <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+      redistribution, see the 
+      <a href="../legal/license/GPL.html">GNU General Public License</a></em>
+	</td width="10%">&nbsp;</td>
+      </tr valign=top>
+    </table>
+</body>
+</html>

@@ -1,0 +1,578 @@
+<html>
+<head>
+  <title>EPG: Kernel Configuration</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../eros.html"><em>EROS Web</em></a> 
+      <br>&nbsp;
+      <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Programmer's Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<h1 class=title>Kernel Configuration</h1>
+	<em>D R A F T</em>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <p>
+      <center>
+	<em>This note is still a work in progress</em>.
+      </center>
+      </p>
+      <p>
+      Configuring a kernel consists of deciding which options, drivers
+      and subsystems to include, which specific devices to define, and
+      establishing values for some key kernel parameters.  This note
+      describes how the configuration process works in EROS.  
+      </p>
+      <h2>1. Introduction</h2>
+      <p>
+      Configuring a kernel is complex and painful.  Certain devices do
+      not autoconfigure gracefully at all.  Others configure fine, but
+      can only be included if a supporting option is enabled.
+      Different machines have different CPU's, and in some cases it is
+      appropriate to build a kernel with CPU-specific dependencies.
+      Knowing that the kernel will be run on a Pentium Pro as opposed
+      to a Pentium makes a significant difference in how code is
+      generated in a few critical paths.  Certain kernel files are not
+      required unless the corresponding option has been enabled.
+      Sometimes it is desirable to build multiple variants on the
+      kernel simultaneously.n
+      </p>
+      <p>
+      The BSD 4.4 kernel has a flexible configuration system, but it
+      is extremely obscure.  For the most part, this obscurity is
+      caused by two factors:
+      </p>
+      <ul>
+	<li>
+	     <p>
+	     Nobody has bothered to document it properly, so it is
+	     hard to understand what it does.
+	     </p>
+	</li>
+	<li>
+	     <p>
+	     The BSD kernel design was predicated on the assumption
+	     that controllers cannot be automatically identified and
+	     configured by the kernel.  While there remain exceptional
+	     controllers, this is no longer true for most
+	     architectures.
+	     </p>
+	</li>
+      </ul>
+      <p>
+      What is required is a configuration system that can describe the
+      drivers and options to be included, and <em>where required</em>
+      the specific device instances to be created.
+      </p>
+      <p>
+      The current EROS configuration utility is a prototype, and is
+      implemented in python.  This has proven convenient for
+      experimentation, but has negative impacts on the syntax of the
+      configuration input files.  I expect at some point to
+      re-implement the configuration file parser using the kjParser
+      package.  If necessary, I'll go to a yacc grammar, but that has
+      its own problems; most notably it requires tools to be compiled
+      prior to the kernel build.  The current build assumes that only
+      a standard UNIX environment is required to start the kernel
+      build, and I am reluctant to start another bootstrap directory
+      hierarchy.
+      </p>
+      <h2>2. Configuration Output</h2>
+      <p>
+      Before describing what the configuration input looks like, it's
+      probably worth describing what the result of a successful
+      configuration is.  Obviously, a successful configuration
+      recognizes the devices that are present -- or at least the
+      present devices that are supported by this kernel.  In addition,
+      however, a configuration should yield an <em>equipment tree</em>
+      that describes how these devices are hooked together.  As an
+      example, here is the actual hardware configuration of the main
+      EROS development machine:
+      </p>
+<pre>
+root
+ |
+ +-- mainboard 0 (bus)
+ |   |
+ |   +-- memory                   (device)
+ |   +-- pic1                     (device)
+ |   +-- pic2                     (device)
+ |   +-- dma1                     (device)
+ |   +-- dma2                     (device)
+ |   +-- rtc                      (ctrlr)
+ |   +-- kbd                      (ctrlr)
+ |   +-- timer                    (ctrlr)
+ |   +-- npu                      (device)
+ |   +-- tty0                     (ctrlr)
+ |   +-- tty1                     (ctrlr)
+ |   +-- fd0                      (ctrlr)
+ |       |
+ |       +-- fd0.0                (device)
+ |
+ +-- Intel 82439HX Triton II      (bridge)
+     |
+     +-- pci0                     (bus)
+         |
+         +-- vga(S3)              (device)
+         +-- net0 (3c905)         (ctrlr)
+         +-- scsi0 (aic7871)      (bus)
+         |   |
+         |   +-- sd0.0            (device)
+         |       Quantum Maverick 540S Rev 0905
+         |
+         +-- Intel 82371SB Natoma (bridge)
+             |
+             +-- isa0             (bus)
+             |   |
+             |   +-- 3c509        (ctrlr)
+             |
+	     +-- ide0             (bus)
+	     |   |
+	     |   +-- ide0.0       (device)
+	     |   |   Quantum Fireball TM3840A, FwRev A6B.2400
+	     |   |
+	     |   +-- ide0.1       (device)
+	     |       Quantum Fireball 1280a, FwRev=A63.0E00
+	     |
+	     +-- ide1             (bus)
+	         |
+	         +-- ide1.0       (device)
+	         |   Maxtor 88400D8, FwRev=NAVX171F
+	         |
+	         +-- ide1.1       (device)
+	             ATAPI CD-ROM
+</pre>
+      <p>
+      The goal of the configuration process is to build something that
+      closely approximates this tree.  In practice, the configuration
+      mechanism gets pretty close to building the tree as described,
+      but in one area we have cheated: the primary disk interface.
+      </p>
+      <p>
+      For the sake of BIOS compatibility, the PC architecture provides
+      for an I/O register interface to the primary hard disk
+      controller.  If this controller is a floppy, RLL, ST506, ESDI,
+      or IDE controller, then it speaks primarily through this
+      interface (possibly using supporting DMA logic if it sits on a
+      PCI bus), and its presence is detected through the register
+      interface.
+      </p>
+      <p>
+      For SCSI controllers this presents a problem: we would like to
+      know that the device in question is a SCSI device and speak to
+      it accordingly.
+      </p>
+      <p>
+      To address this, all of the floppy, RLL, ST506, ESDI, and IDE
+      cases are described as "block devices" in the configuration
+      description.  Because block devices are configured after SCSI
+      devices, the legacy register interface will prevail only if the
+      controller has not already been detected as a SCSI controller.
+      If a block device is present, the configuration procss makes a
+      half-hearted attempt to attach the controller to the right bus
+      if it is able to detect it.  Failing that, the controller will
+      appear as a mainboard device.
+      </p>
+      <p>
+      <IMG src="../../img/construction.gif" align=left> At present,
+      the EROS kernel performs device configuration without actually
+      building the device tree, because doing so was not essential for
+      my thesis work.  The description above reflects where the
+      implementation should go, and will when I get a chance to make
+      it so.
+      </p>
+      <h2>2. Configuration File</h2>
+      <p>
+      The configuration file must accomplish four things:
+      <ol>
+	<li>
+	     <p>
+	     Identify the machine type, the processor
+	     implementations to be supported, and the bus types to be
+	     included.
+	     </p>
+	</li>
+	<li>
+	     <p>
+	     Define the options to be included in the constructed
+	     kernel, if any.  If necessary, defining those options
+	     that are specific to this machine.
+	     </p>
+	</li>
+	<li>
+	     <p>
+	     Define the drivers the devices that should be configured
+	     into the kernel, and how they are hooked into the bus
+	     hierarchy.  If necessary, this also describes any
+	     appropriate constraints on the probe logic.
+	     </p>
+	</li>
+	<li>
+	     <p>
+	     Specifying the files that will be compiled into the
+	     kernel on the basis of the included options and devices.
+	     </p>
+	</li>
+      </ol>
+      <h3>2.1 Describing the Machine, CPU, and Bus Types</h3>
+      <p>
+      The supported machines and their associated cpu types are known
+      to the configuration utility.  Currently supported machines and
+      CPUs are:
+      </p>
+      <center>
+	<table width=85%>
+	  <tr valign=top>
+	    <th align=left>Machine</td>
+	    <th align=left>CPU Types</td>
+	  </tr>
+	  <tr valign=top>
+	    <td>pc</td>
+	    <td>i386, i486, pentium, ppro</td>
+	  </tr>
+	</table>
+      </center>
+      <p>
+      In the most complete machine definition for the PC, the
+      supported machine and CPU types are described by the lines:
+      <ul>
+	<pre>
+include("../../../config.common")
+	
+machine("pc")       # basic machine category
+
+cpu("i386")         # ensure that each of these
+cpu("i486")         # processor types is supported
+cpu("pentium")
+cpu("ppro")
+
+bus(BT_PCI)         # handle machines including
+#bus(BT_EISA)       # these bus types
+bus(BT_ISA)
+#bus(BT_SCSI)
+#bus(BT_USB)
+	</pre>
+      </ul>
+      <p>
+      The EISA bus is not supported at present, and likely never will
+      be.  SCSI and USB support has not yet been implemented.
+      <h3>2.2 Architecture-Specific Options</h3>
+      <p>
+      The PC provides a machine-specific kernel feature that is
+      supported in a number of source files: small address spaces.
+      Since this option is not general to all processors, it must be
+      defined as an option for the PC family:
+      <ul>
+	<pre>
+defoption("small_spaces")
+	</pre>
+      </ul>
+      <p>
+      Having defined the options, the configuration file now specifies
+      which options are to be included in this configuration:
+      </p>
+      <ul>
+	<pre>
+option("ddb")
+option("small_spaces")
+option("inet")
+#option("npx")
+#option("scsi")
+	</pre>
+      </ul>
+      <p>
+      The set of machine-independent options is defined in the
+      <tt>config.common</tt> file, included at the head of the
+      configuration file.
+      </p>
+      <h3>2.3 Describe Configuration Templates</h3>
+      <p>
+      Having described the options supported and the options selected,
+      the next step is to identify the driver templates to be included
+      in this kernel.  For each driver, the associated bus type must
+      be identified, and the probe restrictions, if any, must be
+      described.  The commands for doing this are the
+      <tt>base_template()</tt>, <tt>pci_template()</tt>,
+      <tt>scsi_template()</tt>, <tt>isa_template()</tt>,
+      <tt>eisa_template()</tt>, and <tt>usb_template()</tt>
+      statements.  In addition, the basic kernel threads are
+      configured here.  An abbreviated configuration file is shown
+      below:
+      </p>
+      <ul>
+	<pre>
+#############################################
+#
+# Kernel threads
+#
+#############################################
+
+base_template("checker")
+base_template("idler")
+base_template("twiddler")
+
+#############################################
+# NPX "device" is always present if option
+# NPX is enabled, but in that case may be
+# implemented in software.  This template
+# lets us autoconfigure the emulation code
+# if the NPX unit is not present.
+#############################################
+if isoption("npx"):
+   base_template("npx")
+
+# RAM Disk pseudo-device:
+base_template("ramdisk")
+base_template("todclock")
+
+#############################################
+#
+# Devices associated with the main board
+#
+#############################################
+
+isa_template("kbd")
+
+base_template("ide")
+
+#############################################
+#
+# Network controllers:
+#
+#############################################
+
+pci_template("3c59x")
+	</pre>
+      </ul>
+      <h3>2.4 Files to be Included</h3>
+      <p>
+      Based on the specified machine type, the configuration script
+      examines the contents of a separate file describing how the
+      kernel is to be compiled.  For the machine 'pc', the file
+      examined if <tt>files.pc</tt>.  This configuration file contains
+      a series of <tt>file(...)</tt> statements, that take one of two
+      forms:
+      <ul>
+	<pre>
+file("arch/i486/device/net_3c59x.cxx")
+file("ddb/db_access.cxx", ddb)
+	</pre>
+      </ul>
+      <p>
+      More generally, the optional second argument can be any boolean
+      expression.  Option names (such as 'ddb') may be used as though
+      they were boolean variables.  Device configuration can be tested
+      using <tt>ifdevice</tt>, as in
+      </p>
+      <ul>
+	<pre>
+file("arch/i486/device/net_3c59x.cxx", ifdevice("3c59x"))
+	</pre>
+      </ul>
+      <h3>2.5 Probe Controls</h3>
+      <p>
+      <IMG src="../../img/construction.gif" align=left> <em>The
+      following is implemented, but unused and untested.</em>
+      </p>
+      <p>
+      Handling probe controls is more than a bit ugly.  Basically,
+      what we need is a vector of values indicating the I/O ports,
+      interrupt lines, and memory address to probe.  These are
+      specified by writing a list into the template description:
+      <ul>
+	<pre>
+base_template("ide", mem=[0xc8000, 0xd8000],
+	      irq = [ 5, 7 ], port = [ 0x230, 0x250 ])
+	</pre>
+      </ul>
+      <p>
+      (Note that the example numbers are randomly selected).  Since in
+      some cases there is exactly one legal IRQ value (usually
+      coprocessors), a single IRQ value can be provided as an integer.
+      </p>
+      Allocating storage for a list for every device is prohibitive,
+      so all such lists are merged into a single vector of integers,
+      with entries separated by the distinguished value '-1'.  A
+      device that should be probed for at I/O ports 5 and 10 and
+      memory addresses 0xc8000 and 0xd8000 would generate the
+      following entries in the probe vectors:
+      </p>
+      <ul>
+	<pre>
+int io_probe_vec[] = { ....., 5, 10, -1, .... };
+int mem_probe_vec[] = { ....., 0xc8000, 0xd8000, -1, .... };
+	</pre>
+      </ul>
+      <p>
+      The device structure contains an int* pointer into this vector,
+      whose value is zero if there is no device probe restriction.  If
+      a device should not be probed at all, it should have a probe
+      descriptor vector whose values are all -1.
+      </p>
+      <p>
+      Interrupt options are handled a bit differently, as IRQ probing
+      can be done by provoking an interrupt.  Instead, every device
+      instance template holds an unsigned value that is a bit-vector
+      describing which interrupts are acceptable.
+      </p>
+<!--       <h2>2. The Configuration Tree</h2> -->
+<!--       <p> -->
+<!--       Devices and equipment on current computers follow a hierarchical -->
+<!--       structure.  All of the actual equipment present descends from -->
+<!--       the distinguished node <b>root</b>, which is the top of the -->
+<!--       hierarchy.  The reason to have a distinguished root node is so -->
+<!--       that loosely coupled, parallel machines can be conveniently -->
+<!--       described. -->
+<!--       </p> -->
+<!--       <p> -->
+<!--       The configuration tree has four types of nodes.  These are -->
+<!--       <b>bus</b>, <b>bridge</b>, <b>controller</b>, and <b>device</b>. -->
+<!--       nodes.  A bus is a common protocol for speaking to devices or -->
+<!--       controllers.  A bridge is a piece of hardware that translates -->
+<!--       protocols between one bus type and another.  A controller is a -->
+<!--       piece of hardware to which devices are attached.  A device is a -->
+<!--       leaf node that is attached to either a controller or a bus. -->
+<!--       </p> -->
+<!--       <p> -->
+<!--       The distinction between busses, bridges, and controllers has -->
+<!--       grown a bit fuzzy in recent years.  For the most part, this -->
+<!--       reflects confused lay terminology: -->
+<!--       <ul> -->
+<!-- 	<li> -->
+<!-- 	     <p> -->
+<!-- 	     SCSI and IDE adaptors are commonly referred to as -->
+<!-- 	     "controllers", but they are really bridges: they -->
+<!-- 	     translate from one bus protocol (e.g. PCI) to another -->
+<!-- 	     (SCSI). -->
+<!-- 	     </p> -->
+<!-- 	</li> -->
+<!-- 	<li> -->
+<!-- 	     <p> -->
+<!-- 	     SCSI and IDE disks and tapes are commonly referred to as -->
+<!-- 	     ``devices.''  In both cases there is a controller -->
+<!-- 	     and a device integrated into a single package.  We have -->
+<!-- 	     continued to use the term <b>device</b> to refer to such -->
+<!-- 	     hardware. -->
+<!-- 	     </p> -->
+<!-- 	</li> -->
+<!-- 	<li> -->
+<!-- 	     <p> -->
+<!-- 	     Sound boards are most commonly a collection of devices -->
+<!-- 	     and bridges packaged onto a single board.  These often -->
+<!-- 	     have independent interrupt structures.  We typically  -->
+<!-- 	     described these as separate devices, though there is some  -->
+<!-- 	     argument that we should introduce a "package" notion into  -->
+<!-- 	     the configuration logic to indicate which devices appear -->
+<!-- 	     together or not at all. -->
+<!-- 	     </p> -->
+<!-- 	</li> -->
+<!--       </ul> -->
+<!--       </p> -->
+<!--       <p> -->
+<!--       With these confusions identified, here is how we have resolved -->
+<!--       the terminology dispute in the EROS configuration system: -->
+<!--       </p> -->
+<!--       <ol> -->
+<!-- 	<li> -->
+<!-- 	     <p> -->
+<!-- 	     Busses hang off of bridges or off of <b>root</b>.  A -->
+<!-- 	     brige <em>may</em> generate interrupts in its own right, -->
+<!-- 	     but is not required to do so.  For clarity: the ISA/PCI -->
+<!-- 	     bridge chip is generally responsible for generating -->
+<!-- 	     interrupts to the processor.  A PCI/PCI bridge generally -->
+<!-- 	     does <em>not</em> generate interrupts. -->
+<!-- 	     </p> -->
+<!-- 	</li> -->
+<!-- 	<li> -->
+<!-- 	     <p> -->
+<!-- 	     Controllers hang off of busses, and can generate -->
+<!-- 	     interrupts.  Controllers have one or more devices hung -->
+<!-- 	     off of them. -->
+<!-- 	     </p> -->
+<!-- 	</li> -->
+<!-- 	<li> -->
+<!-- 	     <p> -->
+<!-- 	     Devices hang off of controllers or busses.  Devices are -->
+<!-- 	     invariably leaf nodes.  They may or may not generate -->
+<!-- 	     interrupts according to whether there is an intervening -->
+<!-- 	     controller. -->
+<!-- 	     </p> -->
+<!-- 	</li> -->
+<!--       </ol> -->
+<!--       <p> -->
+<!--       The EROS conventions promote leave ambiguity about such things -->
+<!--       as coprocessors.  Our experience is that such devices do not -->
+<!--       follow any rules we can discern, and can best be handled outside -->
+<!--       of the configuration hierarchy. -->
+<!--       </p> -->
+<!--       <p> -->
+<!--       With all of that as preamble, here is the physical structure of -->
+<!--       the main EROS development machine: -->
+<!--       </p> -->
+<!--       <p> -->
+<!--       In practice, some machine configurations will not generate an -->
+<!--       accurate configuration tree due to backward-compatible busses. -->
+<!--       As a trivial example, the EISA bus is a superset of the ISA bus. -->
+<!--       Rather than try to build configuration logic that recognizes -->
+<!--       this, the EISA configuration logic simply installs a child node -->
+<!--       under the EISA bus capturing the ISA controllers. -->
+<!--       </p> -->
+<!--       <h2>3. The Configuration File</h2> -->
+<!--       <p> -->
+<!--       The configuration file consists of a header, a definitions -->
+<!--       section, a configuration section, and a files section.  By use -->
+<!--       of an <b>include</b> directive, portions of the configuration -->
+<!--       that are common to all platforms can be kept in separate files. -->
+<!--       </p> -->
+<!--       <h3>3.1 The Header</h3> -->
+<!--       <p> -->
+<!--       The configuration header identifies the machine class that the -->
+<!--       configuration covers, the processors to be supported, and the -->
+<!--       (human readable) name of this configuration.  It also identifies  -->
+<!--       any options associated with this configuration. -->
+<!--       </p> -->
+<!--       <p> -->
+<!--       The header section must begin with a <b>machine</b> declaration. -->
+<!--       This describes the general category of machine being described. -->
+<!--       The header must also provide at least one <b>cpu</b> statement, -->
+<!--       indicating which processor type(s) are to be supported. -->
+<!--       Recognized CPU types depend on the specified machine type. -->
+<!--       </p> -->
+<!--       <p> -->
+<!--       Following the <b>cpu</b> declaration, the header can declare one -->
+<!--       (or more) <em>options</em> that apply to this configuration. -->
+<!--       Options are used to describe software features that can be -->
+<!--       optionally compiled into the EROS kernel. -->
+<!--       </p> -->
+<!--       <p> -->
+<!--       Following the options section comes the pseudo-device section, -->
+<!--       which describes the purely software ``devices'' that should be -->
+<!--       included in the configuration. -->
+<!--       </p> -->
+      <hr>
+    <em>Copyright 1998 by Jonathan Shapiro.  All rights
+    reserved.  For terms of redistribution, see the <a
+href="../../legal/license/GPL.html">GNU General Public License</a></em> 
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+</body>
+</html>

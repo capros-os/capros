@@ -1,0 +1,274 @@
+<html>
+  <head>
+<!--     <link rel=STYLESHEET HREF="../CSS/stylesheet.css" type="text/css"> -->
+    <title>x86 Bootstrap</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+    <center>
+      <H1>x86 Bootstrap</H1>
+    </center>
+    <div>
+      &nbsp;<br>
+    </div>
+    <p class=initial>
+      This note describes how the new x86 bootstrap code works.  The
+      x86 bootstrap has been rewritten several times, and the code is
+      difficult to read because portions of it are in 16-bit
+      assembler.  I am writing this note both as a reminder to myself
+      and as a possible source of information for other x86 OS
+      authors.
+    </p>
+    <H2>1. Sequence of Operation</H2>
+    <p class=initial>
+      Here is a summary discussion of the sequence of events in
+      booting an x86 machine.
+    </p>
+    <h3>1.1 Load Master Boot Record</h3>
+    <p>
+      The BIOS first loads sector zero of the disk at (linear) 0x7c00, 
+      and branches to it by jumping to the segmented 16-bit address
+      0:0x7c00.  On entry to the MBR, the following values are in
+      registers:
+    </p>
+    <ul>
+	<table>
+	  <tr valign=top>
+	    <td>%CS:%EIP</td>
+	    <td>0x0:0x7c00</td>
+	  </tr>
+	  <tr valign=top>
+	    <td>%DL</td>
+	    <td>BIOS identifier of the booted drive</td>
+	  </tr>
+	</table>
+    </ul>
+    <p>
+      No assumptions should be made about other registers.  In
+      particular, I am not aware of any safe assumptions concerning
+      other segment registers.
+    </p>
+    <p>
+      If this is a floppy boot, then this is not an MBR, and execution
+      proceeds as described under <a href="#bootrecord">boot
+      record</a>, below.
+    </p>
+    <p>
+      If this is in fact an MBR sector, the code embedded in the MBR
+      record moves itself out of the way (where to is not documented,
+      and no safe assumptions can be made) and then searches the
+      partition table for the ``active'' partition.  If an active
+      partition is found, the MBR loads sector zero of that partition
+      at linear address 0x7c00 and branches to it.  If no partition is
+      active, processing halts at this point.
+    </p>
+    <h3><a name="bootrecord">1.2 Load Partition Boot Record</a></h3>
+    <p>
+      The partition (or floppy) boot record is entered with the
+      following register environment:
+    </p>
+    <ul>
+	<table>
+	  <tr valign=top>
+	    <td>%CS:%EIP</td>
+	    <td>0x0:0x7c00</td>
+	  </tr>
+	  <tr valign=top>
+	    <td>%DL</td>
+	    <td>BIOS identifier of the booted drive</td>
+	  </tr>
+	  <tr valign=top>
+	    <td>%ES:%SI</td> 
+	    <td>
+	      <em>Only in hard disk boot</em>. Points to partition table
+	      entry IFF this was a hard disk boot.  This is the only
+	      RELIABLE way to know which image was booted, as there may be
+	      multiple instances of EROS installed, and some MBR multiboot
+	      loaders do not set the active flag on the in-memory partition
+	      table.
+	    </td>
+	  </tr>
+	</table>
+    </ul>
+    <h3>1.3 Load Extended Bootstrap</h3>
+    <p class=initial>
+      From this point on, what happens is entirely the business of the
+      operating system-specific boot code.  The initial boot sector
+      has 512 bytes less some tables in which to load a more general
+      bootstrap.
+    </p>
+    <p>
+      A complication in reading the EROS bootstrap code is that it is
+      written using a 32-bit assembler.  Some operations can be coded
+      directly, but don't mean what they say they mean
+      (e.g. ``<code>mov %eax,%ebx</code>'' looks like a 32 bit
+      operation but is actually a 16 bit operation).  Others must be
+      prefixed by extended opcode bytes because the linker only gives
+      us 32-bit relocations.  Still others must be hand-coded as code
+      bytes, bypassing the assembler mechanisms almost entirely.
+    </p>
+    <p>
+      Suffice it to say that this is entirely unmaintainable, and an
+      utter pain in the ass to read.  Bryan Ford did us all a great
+      service by introducing the <code>code16</code> directive.
+      Unfortunately, not all Linux assemblers support this directive,
+      there are bugs in the current implementation (different in
+      different assembler versions), and it does not resolve the
+      linker's lack of support for 16 bit relocations.  For these
+      reason we do not use it.
+    </p>
+    <p>
+      For this reason, the EROS bootstrap logic loads the rest of the
+      primary bootstrap as fast as possible, gets into 32-bit code,
+      and then does it's best to stay there.
+    </p>
+    <p>
+      Some OS bootstraps load the secondary bootstrap cleverly, making 
+      use of the information in the partition table.  The EROS
+      bootstrap instead follows the *BSD convention: the sectors to be 
+      loaded are precomputed by a bootstrap installer utility.  The
+      EROS bootstrap code simply reads and applies this precomputed
+      table.  The table originally compiled in to the raw bootstrap
+      binary is suitable for use in a 1.44M floppy.
+    </p>
+    <p>
+      The extended bootstrap is loaded to a precompiled linear address
+      (presently 0x80000, controlled in <code>boot.h</code>).
+    </p>
+    <p>
+      I'ld love to claim some grand rationale for this, but the harsh
+      truth is that I was unable to squeeze the partition-sensitive
+      arithmetic into the available space given the constraints of the
+      32-bit assembler.  The necessary code is a little tricky,
+      because it amounts to mixed-base arithmetic. At some point I
+      will bite the bullet and bytecode the whole damn thing, at which 
+      point I shall have the space to do it better.
+    </p>
+    <h2>2. EROS Extended Bootstrap</h2>
+    <p class=initial>
+      The goal of the extended bootstrap is to enter the operating
+      system.  It proceeds in three steps:
+    </p>
+    <ol>
+      <li> 
+	<p>
+	  Enter 32-bit protected mode
+	</p>
+      </li>
+      <li> 
+	<p>
+	  See if a ramdisk image is to be loaded.  If so, load it.
+	  This may require decompression.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Load the kernel from the disk (or ramdisk).
+	</p>
+      </li>
+    </ol>
+    <h3>2.1 Entering 32-bit Protected Mode</h3>
+    <p>
+      On entry into the extended bootstrap code, the first thing done
+      is to enter 32-bit protected mode.  This allows us to use the
+      assembler straightforwardly, and more importantly to use the C
+      compiler to write much of the remaining bootstrap.
+    </p>
+    <p>
+      For the most part, the only tricky aspect to entering protected
+      mode is the number of constraints on the problem.  The global
+      descriptor table must contain the following:
+    </p>
+    <ul>
+      <li>
+	<p>
+	  Code and data descriptors for the bootstrap code as 32 bit
+	  code.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Code and data descriptors for a 32-bit mode flat linear
+	  mapping of the entire address space (to be used by the
+	  newly-loaded kernel).
+	</p>
+      </li>
+      <li>
+	<p>
+	  A code descriptor for the bootstrap code <em>as 16 bit
+	    code</em>.
+	</p>
+      </li>
+    </ul>
+    <p>
+      The last is required because we will need to switch back into
+      16-bit mode in order to call the BIOS to load further disk
+      sectors.  For a similar reason, the <em>stack</em> of the
+      secondary bootstrap must fall within the low 1Mbyte of real
+      memory (this is why we did not load the extended bootstrap above 
+      the 1Mbyte boundary.
+    </p>
+    <p>
+      Finally, the extended bootstrap places its heap at 1Mbyte
+      (growing upward).  This allows the decompression library to run, 
+      but means that malloc'd memory cannot be passed as a buffer to
+      the BIOS, because the BIOS cannot address such memory.
+    </p>
+    <h3>2.2 Balance of Extended Bootstrap</h3>
+    <p>
+      The balance of the extended bootstrap is written in a mix of
+      C/C++.  Experience suggests that the bootstrap code changes, and
+      that the C code serves as it's own best documentation.
+    </p>
+    <p>
+      In fact, all of this code should be written in C.  The
+      <em>only</em> reason that C++ was used was for compatibility
+      with some structure declarations used by the kernel proper.
+      Note, in particular, that the program is linked without the
+      standard runtime environment, and that <em>global constructors
+      are not executed</em>.  This isn't a problem, because there are
+      no globals requiring construction in the current bootstrap.
+    </p>
+    <h3>3 Compressed and Ramdisk Volumes</h3>
+    <p class=initial>
+      If the volume is marked as a ramdisk, it is loaded by the
+      extended bootstrap into the highest available physical memory.
+      This area is then reported to the kernel as unavailable.
+    </p>
+    <p>
+      A ramdisk image can be optionally compressed.  EROS volumes
+      compress favorably, because most of their space is initially
+      occupied by ``zero pages.''
+    </p>
+    <p>
+      The compression mechanism uses the
+      publicly available ZLIB library (as of this writing, version
+      1.4), minimally modified to add one <code>#ifdef</code> required
+      for EROS boot (which may no longer be necessary in v1.6).
+    </p>
+    <p>
+      Because EROS is persistent, a compressed volume must also be a
+      ramdisk volume.  The compression mechanism is not intended to
+      support a compressed low-level disk volume, and we have no plans 
+      to add such support.
+    </p>
+    <p>
+      If the disk image is compressed, this is indicated in a flags
+      word embodied in sector zero (the original primary bootstrap).
+      The structure of the compressed disk volume is shown below.  The
+      bootstrap also encodes the size of the bootstrap area and the
+      size of the <em>decompressed</em> disk image (needed to allocate
+      memory for the ramdisk image.
+    </p>
+    <center>
+      <pre>
++-----------------+----------------------------+
+| bootstrap area  | ZLIB-compressed disk image |
++-----------------+----------------------------+
+      </pre>
+    </center>
+    <hr>
+    <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.
+      For terms of redistribution, see the <a
+	href="../legal/license/GPL.html">GNU General Public License</a></em>
+  </td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

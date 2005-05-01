@@ -1,0 +1,518 @@
+<html>
+<head>
+<title>A Look at the EROS Kernel</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<p> Having taken a brief look at EROS as seen by a programmer, let's
+switch gears and have a look at EROS from the developer's perspective.
+<p> The core of the EROS system consists of the kernel and a small
+number of domains.  The i386 implementation of the EROS kernel takes
+up about 50k of code, and contains all of the supervisor-mode code in
+the system.  This kernel includes support for:
+<p>
+<ul>
+  <li> Startup and system initialization,
+       <p>
+  <li> Object I/O,
+       <p>
+  <li> Process scheduling,
+       <p>
+  <li> Disk drivers,
+       <p>
+  <li> Address space construction,
+       <p>
+  <li> Terminal I/O (not in kernel in all versions),
+       <p>
+  <li> Security (key) validation,
+       <p>
+  <li> Checkpoint, migration, and recovery,
+       <p>
+  <li> Message passing and context switch,
+       <p>
+  <li> Various other drivers,
+       <p>
+  <li> Exception handling,
+       <p>
+  <li> Miscellaneous kernel services
+</ul>
+<p> Each of these topics is introduced briefly in this chapter, and
+treated in detail in subsequent chapters.
+<p> Several critical services are implemented <em>outside</em> of the
+kernel as domains.  Such services include:
+<p>
+<ul>
+  <p>
+  <li> The <strong>login agent</strong>, which authorizes users to
+       access portions of the system.
+       <p>
+  <li> The <strong>space bank</strong>, which directly or indirectly
+       provides space allocation services for all users.
+       <p>
+  <li> Various <strong>line disciplines</strong>, which provide
+       different styles of terminal input handling.
+       <p>
+  <li> The <strong>escrow agents</strong>, which fabricate private
+       copies of various services on behalf of the user.
+       <p>
+  <li> The <strong>standard domain keeper</strong>, which provides
+       common management services for all domains.
+       <p>
+  <li> The <strong>standard segment keeper</strong>, which provides
+       common management services for all segments.
+       <p>
+  <li> The <strong>virtual copy agent</strong>, which provides copy on
+       write images of segments.
+       <p>
+  <li> The <strong>domain creator</strong>, which creates new domains
+       from nodes.
+       <p>
+  <li> The <strong>disk formatter</strong>, which formats new media
+       for use by the EROS system.
+       <p>
+  <li> The <strong>wait manager</strong>, which performs user-level
+       multiplexing of the kernel timers.
+</ul>
+<p> These services are implemented as user-mode code, but hold
+capabilities that grant them unusual degrees of authority in the
+system.
+<p> In addition to these fundamental agents, all EROS systems provide
+domains to implement some form of user interface suitable for use by
+developers and/or end users.
+<p> The heart of the EROS kernel can be divided into five core areas:
+<p>
+<ul>
+  <p>
+  <li> Process management,
+       <p>
+  <li> Address space management,
+       <p>
+  <li> Kernel-implemented objects,
+       <p>
+  <li> Object cache management, and
+       <p>
+  <li> Object I/O.
+</ul>
+<p> Supporting these core functional areas are the various device
+drivers.
+<h1>1 Process Management</h1>
+<p> The process management portion of the EROS kernel is divided into
+three parts: the thread list, the thread executive, and the domain
+cache.
+<h2>1.1 The Thread List</h2>
+<p> At the heart of the EROS kernel is the thread list.  Ultimately,
+this list drives all of the activities of the system, and is directly
+or indirectly responsible for everything that the system does.
+<p> Domains in EROS exist in one of three states: waiting, available,
+or running.  Running domains have an associated thread.  When one
+domain calls another, we view the thread as <em>migrating</em> from
+the caller to the recipient domain.  When the recipient domain
+replies, the thread migrates back.  Domains that are waiting or
+available do not.  Because the resume keys capture the call/return
+chains explicitly, the thread list only needs to keep track of domains
+that are running.
+<p> As seen by the kernel, a running domain may be stalled.  If domain
+<EM>A</EM> tries to call a domain <EM>B</EM> which is not currently available,
+domain <EM>A</EM> stalls.  During this (hopefully temporary) delay, domain
+<EM>A</EM> is deemed to be running, and retains a slot in the process list.
+Internal to the kernel, we therefore distinguish between threads that
+are running and threads that are stalled.
+<p> The thread list contains a small amount of information about each
+running thread.  This information includes:
+<p>
+<ul>
+  <p>
+  <li> The dynamic priority of each thread, used to determine which
+       thread to run next.
+       <p>
+  <li> For each thread, the identity of the domain that it currently
+       occupies.
+       <p>
+  <li> The identity of the queue, if any, that the thread is linked
+       on.
+       <p>
+  <li> For threads that are stalled, a doubly linked list that keeps
+       track of their prioritized order on the appropriate queue.
+</ul>
+<p> The inclusion of a queue list contrasts with the approach used by
+UNIX and derivative systems.  In UNIX, it is sufficient to keep track
+of the identity of the queue that a thread is stalled on.  Because
+EROS provides real-time services, the order of threads in the queue
+must be preserved.
+<p> The queue mechanism is used in an unconventional way in support of
+scheduling: threads that are runnable, but stalled by the fact that
+some other thread currently holds the processor, are deemed to be
+locked by the processor itself.
+<p> All told, each entry in the thread list occupies 24 bytes.  For
+simplicity of checkpoint, the current EROS implementation limits the
+size of the thread list to a single page.  The system can therefore
+manage up to 170 simultaneous threads.
+<note>
+This small number
+makes threads a relatively precious resource.  I therefore anticipate
+that this number will prove too restrictive, and that we will wish to
+expand the size of the process list, but it's a perfectly adequate
+place to start, and smaller is definitely better.
+</note>
+<p> The thread list is saved to the checkpoint log as each checkpoint
+is completed, and is used as the basis for restarting the machine from
+a checkpoint.  When the system restarts, it loads the thread list from
+the most recent successful checkpoint.  For each thread, it performs
+one of two actions:
+<p>
+<ul>
+  <p>
+  <li> If the thread is stalled (<code>pq != 0</code>), it faults in
+       the domain root of the domain on which the thread is stalled
+       and recreates the priority queue.
+       <p>
+  <li> If the thread is running (<code>pq == 0</code>), it faults in
+       the domain root of the domain occupied by the thread and sets
+       the thread running.
+</ul>
+<h2>1.2 The Thread Executive</h2>
+<p> The thread executive is distressingly simple.  As each processor
+becomes available, it takes the highest priority thread queued for
+that processor class and sets it running.  If the previously running
+thread is still running when preempted, it is simply stuck in the back
+of the processor queue at an appropriate priority.  When a thread is
+queued at a given priority <em>p</em>, it is queued <em>after</em> all other
+threads at prioty <em>p</em>, ensuring fairness within a priority class.
+<p> A long-standing challenge in operating system design is dynamic
+prioritization.  Given that the system has many demands on its
+resources, how should program execution be performed so as to maximize
+throughput while preserving any real-time guarantees.  Traditionally,
+the problem devolves to balancing load between CPU activity and disk
+activity.  With the arrival of high speed networking, network usage
+must now be considered as well.
+<p> As a first step to understanding this problem, we take the view
+that a disk drive or a network card is merely another sort of
+processor.  In this model, a CPU-bound domain is normally scheduled on
+a computation processor.  When it performs an I/O operation, it is
+temporarily rescheduled to a disk processor, and later returns to the
+computation processor.  If the goal is to maximize throughput, then we
+want to keep all of these sorts of processors busy.
+<p> A good rule of thumb is that the past behavior of a domain is a
+good predictor of its future behavior.  A domain that makes heavy use
+of the CPU is likely to continue to do so.  If throughput is to be
+maximized, traditional arguments suggest that such a domain should be
+given higher than usual priority on other classes of processors.  The
+idea is that this will get it back to the processor it primarily uses,
+which will ensure that that processor is utilized.
+<p> In interactive systems, this approach leads to quite a surprising
+number of problems.  It tends to favor CPU bound jobs over I/O bound
+jobs, and is extraordinarily bad for multimedia tasks that make
+balanced use of system resources.
+<p> The current EROS executive makes no attempt to bias priorities to
+favor I/O.  We do not yet understand what biasing strategy will prove
+appropriate in a system of this type.  If biasing proves appropriate,
+an additional <code>dynprio</code> field will be added the per-thread
+information and used as a criterion in queue management.
+<p> A thread's priority is determined as follows:
+<p>
+<ul>
+  <p>
+  <li> Initially, every thread runs at the priority of it's containing
+       domain. Changes in thread priorities become effective at the
+       next scheduling quanta.
+       <p>
+  <li> When a thread <EM>A</EM> becomes stalled on another thread <EM>B</EM>, and
+       <em>prio(b) &lt; prio(A)</em>, then the priority of <EM>B</EM> is temporarily
+       raised to the priority of <EM>A</EM>.  This helps to prevent priority
+       inversion.
+       <note>
+       There is a hairy issue here.  If <EM>A</EM> is
+       stalled on <EM>B</EM> who is <em>waiting</em> for <EM>C</EM>, there is no
+       straightforward way to transitively raise the priority of <EM>C</EM>
+       unless waiting domains are kept in the thread list.  Perhaps
+       Colin should solve this.
+       </note>
+</ul>
+<h2>1.3 The Domain Cache</h2>
+<p> While domains provide a convenient storage mechanism for process
+state, they rarely provide the most efficient layout for use by a real
+processor.  Typical processors are designed in such a way as to favor
+one register layout over another when performing context switches.
+The domain cache is designed to be optimal for the processor's use.
+<p> Rather than penalize the context switch path with a suboptimal
+layout, EROS caches domain content in the <strong>domain
+cache</strong>.  When cached, the current state of a domain is found
+in it's domain cache entry.  In addition to the information preserved
+in the domain itself, the domain cache entry contains things like the
+domain's address space pointer, which can be recomputed from other
+information in the domain.
+<p> In order to run, a domain must be cached in the domain cache.
+Whenever necessary, the information in the domain cache is flushed
+back into the domain.
+<p> This raises an issue that will appear again in the discussion of
+segments, which is the issue of <strong>key hazards</strong>.  A
+domain is constructed out of nodes, and the slots in these nodes can
+be read and written.  If this is done while the domain is cached, the
+results are at best inaccurate.  Every slot in a node therefore has a
+bit indicating whether the key can be safely read and written.  If a
+key can safely be read, but cannot be written without further action,
+we say that it is <strong>write hazarded</strong>.  If a key cannot be
+read without further action, we say that it is <strong>read
+hazarded</strong>.  All read hazarded keys are write hazarded.
+Hazards in the EROS system can always be cleared to allow the
+operation to proceed.  The hazard indicator simply allows the common
+case (no hazard) to proceed quickly.
+<p> In the case of domain keys, neither operation can be done while
+the domain is cached.  If a key read or write is performed, the kernel
+decaches the domain.  The next time the domain attempts to execute, it
+will be recached.
+<note>
+There was a brief discussion during the
+design of EROS of driving things the other way: whenever an operation
+is performed on a domain, force the domain <em>into</em> the domain
+cache and perform the operation there.  This discussion remains
+unresolved.
+</note>
+<p> Note that because of the design of the thread list, a domain need
+not be cached to retain it's position in a queue.
+<h1>2 Address Space Management</h1>
+<p> As with register layout in the domain cache, a given processor
+architecture typically implements a very particular interface for
+address space specification.  The i386 family, for example, uses a
+two-layer tree structured page table, while the RS6000 uses a hash
+table structure.
+<p> In EROS, a domain's address space is simply a segment, and the
+segment structure fully specifies all of the protections that apply to
+that segment.  In order to satisfy the requirements of the hardware,
+the EROS kernel incrementally constructs page tables that cache the
+segment protection information.  The page tables are <em>only</em> a
+cache.  The kernel is free (in principle) at any time to throw away
+all mapping tables, since they can be reconstructed from the segment
+information.
+<p> Like the domain cache, modifications to the key slots in a segment
+may require that the information in the mapping tables be modified.
+The relationship between segment slots and mapping table entries is
+preserved in a structure called the <strong>depend table</strong>.
+<p> Unlike the domain cache, processors do not generally rewrite the
+mapping tables, so information never needs to be rewritten back into
+the segment.  Also unlike the domain cache, subsegments are often
+shared.  Care is taken within the EROS kernel to ensure that redundant
+mapping tables are not constructed.
+<p> The details of mapping table construction and management are
+highly processor specific.  The key point to bear in mind is that
+mapping tables are merely a cache of the state captured in the address
+space segments of their associated domains.
+<h1>3 Kernel Implemented Objects</h1>
+<p> The EROS kernel implements all of the primary objects mentioned in
+<a href="01PrgView.html">Chapter 1</a>: number keys, schedule keys,
+pages, nodes, segments, and domains are all implemented by the kernel.
+In addition to these objects, the kernel implements several other
+important services.  The services are briefly identified here, but for
+the most part we would be getting ahead of ourselves to describe them
+at this point.
+<ul>
+  <table width=90%>
+    <tr valign=top>
+      <td>Node Ranges</td>
+      <td>
+	Nodes are
+	stored in contiguous ranges on the disk.  A <strong>node range
+	key</strong> permits a domain known as the <strong>space bank</strong>
+	to create keys to the individual nodes in a particular range, and to
+	rescind these keys when the node is returned to the space bank.  The
+	<strong>page range key</strong> performs the same function for
+	contiguous ranges of disk pages.  
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>Timers</td>
+      <td>
+	A <strong>timer
+	key</strong> allows a domain to sleep for a specified amount of time.
+	The kernel implements a small number of primitive timers, allowing
+	timer multiplexing to be performed by domain code..  
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>Device Allocator</td>
+      <td>
+	Just as node keys are created using a node range key,
+	device keys are created using a <strong>device allocator key</strong>.
+	On startup, all device keys are rescinded for security reasons.  The
+	device allocator is used to create fresh device keys when needed.
+
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>Keybits</td>
+      <td>
+	The <strong>keybits</strong> service allows the holder
+	to examine (but <em>not</em> to modify) the bits of a key.  This
+	authority is held by a very small number of domains, and is used
+	primarily for system debugging.  
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>Peek</td>
+      <td>
+	The <strong>peek
+	key</strong> allows the holder to examine (but <em>not</em> to modify)
+	the contents of physical memory.  This authority is held by a very
+	small number of domains, and is used primarily for system debugging.
+
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>Domain Tool</td>
+      <td>
+	The <strong>domain tool</strong> enables the holder
+	to construct a domain out of three nodes.  It rescinds all other
+	access to the nodes, and hands back a domain key to the newly crafted
+	domain.  The primary reason for having a domain tool is to enable
+	domains to be <em>branded</em> with the identity of their creator.
+	Branding is an important part of the EROS security model.
+
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>Discrim</td>
+      <td>
+	The <strong>discrim key</strong> compares two keys for
+	equality.  It can also be used to determine the type of a key.
+
+      </td>
+    </tr>
+    </table>
+  </ul>
+<h1>4 The Object Cache</h1>
+<p> As has previously been discussed, EROS provides a single level
+store as part of its base facilities.  The majority of physical memory
+is used as a cache of pages and nodes.  The object cache is
+responsible for loading objects into physical memory when needed, and
+flushing them out to disk when appropriate.
+<p> In-memory keys exist in one of two states:
+<strong>unprepared</strong> or <strong>prepared</strong>.  If a key is
+prepared, the object named by that key is known to be in memory, and
+the key contains a pointer directly to the object.  If a key is not
+prepared, the object may or may not be in memory.
+<h3>4.3.1 Object Loading and Aging</h3>
+<p> As execution proceeds, domains attempt to access objects that are
+not already in memory.  Either these objects have not been accessed
+before, or they have been flushed from memory to make room for other
+objects.  In either case, the access manifests itself as an invocation
+of an unprepared key.
+<p> When an unprepared key is invoked, the first step is to attempt to
+prepare it.  It is possible that the object named by the key is
+already in memory, so a hash table is searched in an attempt to find
+the object.  If the object is present, the key is simply converted
+into prepared form.
+<p> If the object is not present, the kernel initiates an I/O
+operation to bring the object into memory.  The domain becomes stalled
+on the pending I/O operation.  When the I/O completes, the domain is
+restarted with the instruction that referenced the key.  Since the
+object is now in memory, the key will be successfully prepared, and
+execution can proceed.
+<p> As time goes by, objects become stale, and should be removed from
+memory to make room for more actively used objects.  To support this,
+the object cache implements an aging policy.  When the kernel runs low
+on reallocatable frames, it invokes the ager in an attempt to create
+free space.
+<p> When an object first comes into memory, it is placed in the
+youngest generation.  When the ager runs, every object is moved into
+the next generation.  After bumping the generations on each object,
+the ager runs around and <em>deprepares</em> keys to any object that
+is in generation 7.  Objects in generation 8 are free to be
+reallocated to hold other objects.  Objects in this generation are
+marked to be written out to the checkpoint log.
+<p> Sometimes an object that is about to be discarded will be
+discovered to be in memory by the key preparation mechanism.  Such
+objects are promoted back into generation 0.
+<h3>4.3.2 The Cache Cleaner</h3>
+<p> The cache cleaner is a task that goes through all of the in-memory
+objects looking for objects that need to be written to disk.  When it
+finds one, it initiates the write operation for that object.  Until
+they are successfully written, objects marked to be written to disk
+can be read but not modified.
+<p> Modified objects are appended to the checkpoint log.  No object in
+memory is permitted to be modified unless space has been reserved for
+it in the log.
+<p> Each time the cleaner completes a pass through memory, it checks
+to see if it has completed a checkpoint operation.  If so, it causes
+the process list and checkpoint header to be written to the checkpoint
+log, and starts the migrator running.
+<h3>4.3.3 Checkpoint and Migration</h3>
+<p> At tunable intervals, or when the system runs out of free space in
+the log, the kernel initiates a <em>checkpoint</em> operation.  The
+checkpoint operation marks all dirty objects in the system as needing
+to be written, copies the process list, and performs a small amount of
+bookkeeping in memory to start a new log area.  Following this, the
+cleaner is started to flush these objects to the disk.
+<p> When the cleaner has successfully written all of the objects in a
+checkpoint generation to the disk, it initiates the migrator.  The
+migrator reads the objects in the log back into memory and copies them
+to their official home locations on the disk.  In practice, most of
+the checkpointed objects prove to still be in memory, so most of the
+time the extra read proves unnecessary.  When the migrator has
+successfully copied all of the checkpointed objects to their home
+locations, it marks that portion of the log as available for use.
+<p> Using a two-stage checkpoint and migration process ensures that
+there is always a consistent system image available to restart from.
+<h1>5 The Object I/O Subsystem</h1>
+<p> Supporting the object cache is the object I/O subsystem.  EROS
+divides it's disks into contiguous ranges of nodes and pages known as
+divisions.  The object I/O system keeps track of the location of these
+various divisions on disk, and reads and writes objects to disk as
+needed.  When the kernel first starts up, it finds all of the attached
+EROS volumes and reads a table on each volume that describes the
+locations of the ranges.
+<p> One aspect of this design is that EROS assumes ownership of the
+disk volumes that contain EROS objects.  While the disk formatting
+domain can obtain raw access to these volumes under carefully
+controlled circumstances, no other domains have raw access to an EROS
+volume.  This is required to ensure system security.
+<p> EROS implements duplexed I/O.  An object range can be duplicated
+on several volumes.  When an object is written back to its home
+location, it is written in parallel to all ranges.  When object ranges
+are replicated, both access times and reliability are substantially
+improved.
+<p> The object I/O subsystem includes the disk device drivers.  An
+unusual aspect of EROS is that it uses <em>mono</em>directional scan
+to access the disk.  Conventional wisdom would have it that the
+so-called ``elevator algorithm'' would be a more efficient approach.
+In practice, there is a dynamic tension between disk access efficiency
+and delay.  Because accesses to the disk tend to cluster, it is common
+for a block to be requested that is just behind the current position
+on the disk.  When the elevator algorithm is used, this leads to
+curious timing anomolies at the edges of the disk.
+<p> By using monodirectional scan, more disk requests are allowed to
+accumulate that fall ``ahead'' of the current disk arm position.  The
+net effect is that a single sweep over the disk surface is amortized
+over a larger number of accesses, reducing the effective overhead.
+<p> In support of this policy, EROS is fairly careful to write to disk
+in sequential order.  In particular, the checkpoint log is written in
+append-only fashion, and the migration mechanism rewrites blocks in
+order of their position on the disk.
+<p> The overall effect is that EROS is able to achieve better than 95%
+utilization of the available disk bandwidth with surprisingly low
+system overhead.
+<h1>6 Other Kernel Drivers</h1>
+<p> In general, other kernel drivers
+are kept to a minimum.  The basic view of the design is that the
+kernel should be minimized, and that most driver logic can be
+performed by user level code.  The principle exception to this is
+serial port drivers.
+<p> Past experience with the UNIX system indicates that terminal lines
+impose a substantial load on the processor, especially when high-speed
+modems are in use.  A 28.8 kilobaud modem link delivers a new
+character to the system three times per millisecond.  If we assume a
+four character input silo, the interrupt rate is still nearly one per
+millisecond.  Most commodity machines are simply unable to context
+switch fast enough to keep up with such data rates in user-level code.
+<p> As a result, EROS performs kernel buffering of serial data, and
+optionally performs echo processing.  After a certain number of
+characters have come in or a programmable interval has passed, the
+characters are delivered to the requesting domain.  In addition, the
+waiting domain is able to specify which characters should be treated
+as non-textual characters.  The arrival of a non-text character causes
+the terminal subsystem to immediately return to the requesting domain.
+<p>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

@@ -1,0 +1,38 @@
+<HTML>
+<HEAD>
+<TITLE>Support for Pinned Pages and Nodes</TITLE>
+</HEAD>
+<BODY>
+<P>
+One of the changes between EROS and KeyKOS is support for pinned
+processes.  EROS is designed to support time-critical applications
+that cannot be swapped out of memory.  This note describes how that
+mechanism works, and how it interacts with system startup.
+<P>
+All Pages and Nodes whose CDA's upper halfword value is 2^16-1 are
+<EM>pinned</EM>. The magnitude of the pinned range is deliberately
+chosen to span more physical memory than any real 32 bit machine is
+likely to have installed.
+<P>
+Once loaded, pages and nodes in this range will never be placed on the
+free list.  Pinned pages and nodes are checkpointed by the usual EROS
+mechanisms, but will never be removed from memory.  Processes that
+must be locked in core should therefore be constructed from Nodes and
+Pages in this range.  Pages and Nodes in the pinned range are handled
+with a dedicated space bank.
+<P>
+Processes whose correct operation depends on their being pinned in
+memory must run under a schedule key whose "pinned" bit is set.  A
+process that is pinned and runnable will not be executed until all
+pinned pages and nodes that have actually been allocated have been
+loaded into memory.
+<P>
+At system startup time, a special startup task is executed that holds
+a key to the pinned space bank.  When the system starts up, this task
+tells invokes the pined space space bank with a request to fault in
+all of the pages and nodes in the pinned range that have actually been
+allocated.  Once this has been completed, the task tells the kernel
+that it is okay to run pinned processes.
+<P>
+The net result is that pinned processes will not resume until all
+pinned pages and nodes have been reloaded.

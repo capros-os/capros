@@ -1,0 +1,95 @@
+<html>
+<head>
+<title>EOR: LogAppend</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Kernel.html">Kernel Objects</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Kernel Objects</H2>
+  </div>
+  <h2>LogAppend</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> The <strong>LogAppend</strong> key conveys the authority to
+  append bytes to the system log.  This is a relatively closely held
+  key, because appending notices to the system log is generally a
+  terrible way to deal with problems.
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the key.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       0x10000000:
+	       Key is a logappend key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Append String to Log</strong> (OC = 1)
+    <dd> 
+	 <p> Appends the passed string (up to 1024 bytes) to the
+	 kernel diagnostic log.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>B*</strong>
+	     </td>
+	     <td>
+	       Data to be written to the diagnostic log.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       0
+	     </td>
+	     <td>
+	       Write was successful.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       KT+1
+	     </td>
+	     <td>Unknown order code
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       KT+2
+	     </td>
+	     <td> Length limit exceeded
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

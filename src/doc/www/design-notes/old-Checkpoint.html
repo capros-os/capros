@@ -1,0 +1,691 @@
+<html>
+<head>
+<title>Notes on the Checkpoint Log Design</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<p> <em>NOTE: This design is supersceded.  We still use a circular log
+and reclaim it lazily, but supporting more than two checkpoints
+introduced difficulties in getting the thread and reserve lists saved.
+The current system permits only two checkpoints, but does not enforce
+a 50/50 dividing line between them.</em>
+<h1 align=right>Notes on the Checkpoint Log Design</h1>
+<p> EROS uses a circular checkpoint log rather than the KeyKOS
+oldspace/newspace approach.  Most of the conceptual framework of the
+KeyKOS checkpoint mechanism remains intact, but the circular log
+structure offers some advantages:
+<ul>
+  <li> It takes up less space overall, since the migrator can run
+       incrementally.  Paging in the next checkpoint can be done to
+       space freed by the migrator.
+       <p>
+  <li> It allows better handling of bursty object dirties.  A
+       single checkpoint can dirty (e.g.) 80% of the checkpoint space
+       rather than the 50% restriction imposed by KeyKOS.
+       <p> 
+  <li> It may possibly allow us to better characterize the
+       steady-state throughput rate of stream-oriented programs; the
+       checkpoint log can be viewed as an impedance matching buffer
+       between the ager/pageout program and the migrator.
+       <p>
+  <li> It allows us to have several checkpoints rather than just two
+       if doing so is advantageous.
+       <p> 
+  <li> It allows us to eventually do variable-weight checkpointing in
+       such a way as to leave many objects in place.
+       <p>
+  <li> The in-core bookkeeping is slightly simpler (at least
+       <em>I</em> think so, and I'm coding it this time).
+       <p>
+  <li> Information can be recovered more easily after migration until
+       the associated space is reused (the checkpoint directory entry
+       remains live), improving disk arm locality.
+       <p> 
+  <li> Because migration and checkpoint can be overlapped, this design
+       should require less disk space for a given level of
+       performance.
+       <p> 
+  <li> In the circular log design, checkpoints are easily mergeable,
+       (e.g.) to journal an object.
+       <p> 
+</ul>
+<p> Collectively, this seems like a compelling set of reasons to
+change given that we have to rebuild the code from scratch anyway.
+<h2> 1. Structure of the Checkpoint Log</h2>
+<p> The the checkpoint log is made up of four types of pages:
+<ul>
+  <li> Pages containing the data associated with a user page that has
+       not yet been migrated.
+       <p> 
+  <li> <strong>Log Pots</strong>: pages containing cgroups that have
+       been written to the checkpoint area.  The difference between
+       log pots and cgroup pots is that the cgroups in a log pot need not
+       be sequentiallty numbered.
+       <p> 
+  <li> <strong>Directory Pages</strong>, which contain the map of
+       where things have gone in the checkpoint area. Each object
+       version written to the checkpoint log is named by exactly one
+       directory page.  All directory pages must be readable in order
+       to have a valid checkpoint snapshot.
+       <p> 
+  <li> <strong>Checkpoint Headers</strong>, which are at known
+       locations in the checkpoint area.  A checkpoint header contains
+       a sequence number and the locations of the directory pages for
+       the current checkpoint. Checkpoint header pages are written in
+       alternating sequence, in order to ensure that the last
+       checkpoint is always available for use in recovery.
+</ul>
+<h3> 1.1. Log Space Management</h3>
+<p> Conceptually, the checkpoint log area is thought of as a
+sequential log.  Before any object is modified, space is reserved in
+the checkpoint for
+<ul>
+  <li> The object itself, which in the case of cgroups may require
+       allocating room for a new log pot.
+  <li> The directory entry for the object, which may require the
+       allocation of a new directory page.
+  <li> If a new directory page is allocated, a slot in the checkpoint
+       header page is reserved to give it's location.  The current
+       checkpoint header might be full, in which case a checkpoint is
+       immediately declared, and we proceed with the modification in
+       the next checkpoint.
+</ul>
+<p> Only if all of these items (as necessary) are successfully
+allocated is the object permitted to be mutated.  If any of them prove
+to be unavailable, a <em>forced checkpoint</em> is taken.  Given the
+usual sllocation policies for in-core directory entries, this
+generally means that the checkpoing log has been exhausted.
+<p> One of the <em>dis</em>advantages of the circular log scheme is
+that it is <em>possible</em> to exhaust checkpoint space.  If this
+occurs, computational progress will be delayed until migration
+completes.  Watermarking can be used to reduce the likelihood of this
+problem.
+<h3> 1.2. Cleaning and Multiple Versions</h3>
+<p> Because EROS implements object ageing, it is possible for an
+object to be forced to the log by the ageing logic and be dirtied
+again before the next checkpoint.  In the case of pages, writing the
+new version frees space for some other page (the space occupied by the
+old version can be reclaimed), but cgroups are aggregated into log
+pots before being written.  Therefore, no attempt is made to reclaim
+cgroup space in the log prior to migration.
+<p> Objects are written to the log sequentially, and an in-core log
+directory is fabricated to track their locations.  As entries are
+added to the in-core directory, space for the associated directory
+pages is also added.
+<p> Unlike KeyKOS, the in-core log describes the locations of
+<em>all</em> objects in the checkpoint log, whether or not they are
+assocaited with the current checkpoint.  This allows objects from
+previous checkpoints to be preferentially retrieved from the
+checkpoint log, improving arm latencies (<em>note: we should measure
+how much difference this makes -- in fact, we should do a paper
+exploring the performance impact of the whole logging approach in
+general</em>).
+<p> The checkpoint log directory reflects the location in the
+checkpoint log of the <em>most recent</em> version of the object.  In
+the event that an object is written to the log more than once, the
+in-core log directory entry is simply revised.
+
+<h3> 1.3. Flushing a Checkpoint</h3>
+<p> When a checkpoint is taken, a pass through memory is made marking
+all currently dirty objects as copy-on-write and
+frozen-by-checkpoint. Processing is then allowed to continue.  As the
+pageout agent encounters such objects, it writes them to the
+checkpoint log.  Pages can be written in any convenient order, but in
+order to allow reclamation of space in the log, cgroups from the last
+checkpoint and cgroups that are simply being paged out are never
+commingled in the same log pot.
+<p> Once all the dirty objects have drained, the checkpoint directory
+pages are fabricated and written to the disk.  The current proposal is
+to write directory entries in order of OID, since this is the order
+that minimizes arm motion during migration.  See, however, the notes
+on incremental migration below.
+<p> When all of the directory pages have been written to the disk, a
+new checkpoint header is fabricated and written to the checkpoint
+header location. A checkpoint is valid only if the checkpoint <em>and
+all associated directory pages</em> can be successfully read from the
+log area.
+<h3>1.4. Performing a Migration</h3>
+<p> Once all of the state associated with a checkpoint has been
+written to the checkpoint log, <strong>migration</strong> is begun.
+The migrate phase copies objects to their home locations
+<em>unless</em> one of the following conditions holds:
+<ol>
+  <li> The object has been modified since the last checkpoint, in
+       which case there is no need to migrate it.  The object will be
+       included in the next checkpoint.  Temporal locality means that
+       this is an exceptional case.
+       <p>
+  <li> The home location is not mounted, and the object has not since
+       been modified, in which case the object is simply included in
+       the next checkpoint.  This is clearly an exceptional case.
+</ol>
+<p> In KeyKOS, a subsequently modified object could be skipped,
+because it would either be written by the next checkpoint or copied
+when migration resumed on restart.  In EROS, where migration is
+incremental, care must be taken to preserve reachable versions.
+<p> If the home location is not mounted, the object is either left
+where it is in the checkpoint area or coalesced (if it is a cgroup in
+a partially migrated log pot) to reduce its effective footprint in the
+checkpoint log.
+<p> If the migrate completes successfully, a new checkpoint header is
+written indicating that migration was completed successfully, and all
+of the locations from which objects were migrated are placed on the
+list of reclaimable log locations.  Migration may be interrupted by a
+subsequent checkpoint, in which case things get more complicated.
+<h2> 2. Limitations in this Design</h2>
+The principle limitation in this design is the design of the
+checkpoint header pages.  Each checkpoint header carries a few words
+of overhead information (sequence number, system id, etc.); let us
+assume this is 64 bytes and consider the case of the 80x86 machines.
+The remaining 4032 bytes are occupied by metadirectory entries. Each
+metadirectory entry contains the location in the checkpoint log of a
+directory table.  Since such locations are 32 bit quantities, there
+can be 1008 directory pages per checkpoint.
+<p> There are 256 <code>CkptDirent</code> entries per directory, or a
+maximum of 258048 dirty objects per checkpoint.  Because cgroups and
+pages in practice are dirtied in roughly equal number, this supports
+just over 1 gigabyte of conventional data per checkpoint.  While not
+restrictive on desktop systems, one might argue that this is too small
+for a large-scale server with multiple gigabytes of main memory
+(consider the Alta Vista server).  We suspect that growing the
+checkpoint log beyond this would defeat it's locality advantages, but
+it can be done by using a hierarchical directory structure.  An
+additional layer of directory would let us go to 256 gigabytes of log
+storage.
+<p> The problem with this, in the limit, is that it's not sustainable
+growth.  The limiting factor is bus bandwidth, which peaks at about
+200 megabytes/sec in current-generation high-end designs.  If we
+assume that we can successfully use <em>all</em> of this bandwidth
+(which is ridiculous), we can migrate at most 6 gigabytes in a 5
+minute period, which is the checkpoint interval.
+<p> The principle performance advantage of the checkpoint log rests on
+the fact that it spans a small number of disk cylinders, and therefore
+reduces typical seek latency.  There is a tradeoff between growing the
+checkpoint area to permit more of a large memory to be dirtied and
+keeping is small to maximize it's effectiveness as a latency-reducing
+cache. To a limited degree, there is some advantage in the fact that
+much of this data is probably hot, and in the optimized migration
+strategy such data never gets migrated.
+<p>  
+<h2> 3. The In-Core Checkpoint Log Directory</h2>
+<p> The in-core directory keeps track of the locations of objects in
+the checkpoint log.  An entry exists in the in-core directory for
+every object that
+<ul>
+  <li> is currently in memory and dirty.
+  <li> has been paged to the checkpoint log.
+</ul>
+<p> For each object, the in-core directory records it's log location,
+it's allocation count, and (in the case of cgroups) whether a thread
+is present in the domain.
+<p> All entries in the in-core log directory are held in a red-black
+tree, which permits fast lookup, fast deletion, and inorder traversal
+(the last is necessary for efficient migration).  In addition, entries
+that have been migrated are kept in a hash table according to their
+log location.  The presence of an entry in the log location hash table
+indicates that the object in question has already been migrated, and
+that the storage it occupies can if necessary be reclaimed.
+<ul>
+  <p> <em>The overhead inherent in managing a red-black tree seems high.
+  For cgroups in particular, the directory entry is very nearly 12% of
+  the size of the cgroup itself.  Given this, we will probably want to
+  revise the red-black tree structure at some point.  The requirements
+  on this structure are:
+  </em>
+  <p>
+  <ul>
+    <li> <em>Fast insertion</em>
+    <li> <em>Fast deletion</em>
+    <li> <em>Ability to do a nearly inorder walk for purposes of migration
+	 support.</em>
+  </ul>
+  <p>   <em>Hash by OID clusters</em> might <em>be sufficient, and would
+  reduce the size of the directory structure by 25%.  For now, we have
+  gone with red-black trees because we know they work and they are
+  straightforward to implement.</em>
+</ul>
+<p> The in-core log directory data structure is:
+<pre>
+struct CklogDirent {  // 32 bytes
+  OID         oid;
+  Word        allocCount;
+  Word        state : 3;    // see below
+  Word        ckthread : 1; // threaded at time of ckpt
+  Word        red : 1;      // red tree node
+  LogLoc      loc : 27;     // zero means zero object
+  CklogDirent *lochash_next;
+  CklogDirent *parent;
+  CklogDirent *lchild;
+  CklogDirent *rchild;
+};
+</pre>
+<p> In the current implementation, the upper five bits are stolen from
+the <code>loc</code> field to encode information about the object
+version and type:
+<p> Reclaimable page frames in the log are tracked using a bitmap.  A
+count is kept of the number of available pages and the number of
+reserved pages.  When an object is first dirtied, space is reserved
+for it in the checkpoint log.  The actual location that will contain
+the object is determined later.
+<p> Directory entries for objects that have been successfully migrated
+<em>remain in the checkpoint directory</em>.  After migration, they
+are linked into a logloc hash table as well.  The <code>LogLoc</code>
+hash table allows us to find and reclaim the directory entries when we
+reallocate the log page, while leaving the entries in the directory as
+long as possible.
+The rule for including a directory entry in the
+checkpoint directory is that any object whose
+<code>next_lochash</code> field is zero is part of the current
+checkpoint.
+<h3> 3.1. Some Details </h3>
+<p> A few details require further discussion: handling of directory
+pages and handling of free cgroup directory entries.
+<p> As entries are added to the checkpoint log, the checkpoint logic
+keeps track of how many directory pages will be required to hold those
+entries, and reserves (but does not allocate) space for them in the
+log.  When a checkpoint is taken, all entries in the
+checkpoint log corresponding to current objects are coalesced into a
+directory in order of ascending OID.  These directory pages are
+written to the log, after which the checkpoint header can be written.
+Presorting by OID allows directory pages to be migrated one at a time.
+<p> Checkpoint directory entries are allocated dynamically by
+withdrawing pages from the page cache as "driver pages," which are not
+subject to ageing or reuse.  Eventually this stablizes after
+reclaiming a reasonably small number of pages.  As objects are
+migrated, their space in the log becomes reclaimable.  As space in the
+log is reclaimed, the corresponding directory entries are placed back
+on the free list.
+<h3> 3.2. Assessing Overhead </h3>
+<p> Consider a machine with 16 megabytes (4096 pages) of main memory
+and a 32 megabyte (8192 page) checkpoint log.  Assume further that
+cgroups and pages get written to the log in approximately equal
+numbers (as was so in KeyKOS).  Then a 30 megabyte checkpoint area can
+hold 7782 pages and 7790 cgroups, for a total of 15572 checkpoint log
+entries.
+<p> In the incremental design, 15572 checkpoint log entries take 24
+bytes a piece, for a total of 91 pages, or 2.2% of main memory.  This
+does not strike me as an unreasonable number.
+<p> One minor point is that the current design never shrinks the
+in-core checkpoint directory.  If one happens to take a checkpoint
+with an overabundance of nodes, this might prove to be a problem.
+Given the design of the data structure, a checkpoint directory
+shrinker is possible, but not straightforward.
+<h2> 4. The On-Disk Checkpoint Structure</h2>
+<p> The on-disk checkpoint contains essentially the same information
+as the in-core checkpoint, but is structured a bit differently.  Each
+checkpoint had a header page containing a sequence number, some
+bookkeeping information, and a list of checkpoint directory pages:
+<ul>
+<pre>
+struct DiskCheckpoint {
+  DblWord    sequenceNumber;
+  bool       migrateCompleted;
+  Word       nDirPage;
+
+  LogLoc     dirPage[maxDirPage];
+};
+</pre>
+</ul>
+<p> The directory pages in turn contain directory entries for the
+individual objects:
+<ul>
+  <pre>
+struct CkptDirent {  // 16 bytes
+  OID    oid;
+  Word   allocCount;
+  Word   type : 2;
+  LogLoc loc : 30;   // zero means zero page
+};
+  </pre>
+</ul>
+<p> As in the in-core directory, the two upper bits of the
+<code>LogLoc</code> field are borrowed to indicate the directory entry
+type.  The possible types are:
+<ul>
+  <table width=90%>
+    <tr valign=top>
+      <th align=left>MnemonicValue</th>
+      <th align=left>Value</th>
+      <th align=left>Description</th>
+    </tr>
+    <tr valign=top>
+      <td>CLD_UNUSED</td>
+      <td>0</td>
+      <td>This directory entry is unused.</td>
+    </tr>
+    <tr valign=top>
+      <td>CLD_PAGE</td>
+      <td>1</td>
+      <td>This directory entry describes a page.</td>
+    </tr>
+    <tr valign=top>
+      <td>CLD_CGROUP</td>
+      <td>2</td>
+      <td>This directory entry describes a cgroup.</td>
+    </tr>
+    <tr valign=top>
+      <td>CLD_THREAD</td>
+      <td>3</td>
+      <td>This directory entry describes a cgroup occupied by a thread.</td>
+    </tr>
+  </table>
+</ul>
+<p> These type values are straightforwardly constructed from the
+corresponding in-core log directory entry.
+<h2> 5. Startup Processing</h2>
+<p> Given the description above, we can now sketch the algorithm for
+machine startup.
+<p> EROS supports two startup "modes" -- persistent and
+non-persistent.  The system is assumed to be non-persistent if no
+checkpoint area can be found on any disk.  In this case, the kernel
+imposes no restrictions on in-core page dirties, and does not attempt
+to reserve checkpoint space for dirty objects.  We are concerned here
+with the case where a checkpoint area has been found.
+<p> If a checkpoint area is discovered, the kernel proceeds as
+follows:
+<ol>
+  <li> Construct a bitmap in which all checkpoint log pages are
+       initially "free" except for the checkpoint headers themselves.
+       <p> 
+  <li> Load both checkpoint area headers, which are found at
+       <strong>LogLoc=0</strong> and <strong>LogLoc=1</strong>,
+       respectively.  If either read fails, forge a valid checkpoint
+       header on the in-core copy with a checkpoint sequence number of
+       zero, which will guarantee that the failed read will not win
+       the age test below.
+       <p> 
+  <li> Compare the sequence numbers of the two resulting checkpoint
+       headers.  If they are equal, the checkpoint log is
+       irrecoverably corrupted.  Halt.  Otherwise, declare that the
+       checkpoint header with the higher sequence number is "current".
+       <p>
+  <li> Using the list embodied in the current checkpoint header, read
+       in all of the directory pages, and fabricate the corresponding
+       in-core <code>CklogDirent</code> structures.  Mark the
+       checkpoint locations associated with the directory page and the
+       objects it names used. For each object containing a thread,
+       allocate a entry in the initial thread table for that thread,
+       and place it on the run queue.
+       <p> If <em>any</em> directory page proves unreadable, the
+       checkpoint log is irrecoverably corrupted.  Halt.
+       <p> 
+  <li> Allow the scheduler to run the next runnable thread.
+</ol>
+<p> This builds a complete map of the checkpoint area, but it does not
+recover all of the information that was known at the time the system
+last checkpointed.  In particular, it omits the space occupied by
+objects that were part of the previous checkpoint.  These objects may
+still be valid in the checkpoint area, but there really isn't any way
+to know which ones have been overwritten by paging activity.
+Therefore, any <strong>LogLoc</strong> for which we have not
+explicitly constructed a directory entry is added to the free list.
+<h2> 6. Incremental Migration</h2>
+<p> One disadvantage to the circular log checkpoint design is that the
+migration mechanism must optimize for conflicting objectives:
+<ul>
+  <li> It should maximize disk bandwidth utilization, which is most
+       readily accomplished by migrating objects in order of their
+       OID.  In the absence of log space pressure, this is the
+       preferred mode of operation.
+       <p> 
+  <li> As available space in the checkpoint log becomes low (i.e. as
+       the next checkpoint begins to fill up), the migrator should
+       make new space available.  In the limit, the entire purpose of
+       migration is to free up space in the log.
+       <p>
+</ul>
+<p> A mechanism for incremental migration is needed, and a guarantee must
+exist that such migration will make progress and is restartable in the
+event of failure.
+<p> As long as all objects can be migrated, this presents no special
+problem, but there are conditions under which objects cannot or should
+not be migrated:
+<ul>
+  <li> The object has been modified since the checkpoint we are
+       migrating took place, and a new version will be written by the
+       next checkpoint.  As an efficiency, it is possible to skip the
+       migration of such objects.
+       <p> 
+  <li> The object's home location is not mounted, so we are unable to
+       migrate it.  The object version nonetheless must not be lost.
+       <p>
+</ul>
+<p> KeyKOS handled both of these cases by bringing the object into
+memory and marking it dirty.  One of three things would happen as a
+result:
+<ol>
+  <li> The next checkpoint would proceed successfully, in which case
+       the unmigratable object simply moves into it.
+       <p> 
+  <li> The machine fails, in which case migration restarts from the
+       beginning.
+       <p>
+  <li> There is no space in the next checkpoint that can be used to
+       mark the object dirty, so a soft-failure is declared and the
+       migration restarts from the beginning.
+       <p>
+</ol>
+<p> The third case presents a problem, as there is no guarantee that
+it converges.  The system may remain stuck in this state until the
+range is remounted.  If the media in question is physically lost,
+recovery is difficult.  In addition, the "mark it dirty" approach
+relies on the fact that migration is restartable.  
+<h3>6.1. Incremental Page Migration</h3>
+<p> For page frames, the situation is not so bad.  There are three
+cases, all straightforward:
+<ul>
+  <li> The home location is mounted.  The page can be migrated, but
+       the directory for this checkpoint must be rewritten before we
+       declare the space reusable by the next checkpoint.
+       <p>
+  <li> The home location is mounted, but the page has been
+       subsequently dirtied.  Three things can be done:
+       <p> 
+       <ol>
+	 <li> The page can be left alone, to be freed when the next
+	      checkpoint is taken.
+	      <p>
+	 <li> A new checkpoint can be forced, freeing the space
+	      occupied by this now-stale page.  The new checkpoint
+	      includes all of the as-yet-unmigrated objects, and
+	      migration of the previous checkpoint is simply
+	      abandoned.
+	      <p>
+	 <li> The page can be migrated (wasting bandwidth) to free up
+	      the space.
+	      <p> 
+       </ol>
+  <li> The home location is unmounted, in which case the page cannot
+       be migrated.  The page is simply left where it is (there is no
+       benefit to moving it).
+</ul>
+<h3>6.2. Incremental Cgroup Migration</h3>
+<p> For cgroups, the problem is a bit more complicated.  If the entire
+log pot is migratable, or fully non-migratable, then all can proceed
+as in the cases for pages above.  The problem is that a single
+non-migratable cgroup within a log pot ties the whole log pot down.
+It is necessary to coalesce such log pots.
+<p> Until just a moment ago, this seemed to me to be a rather hard
+problem, and I was prepared to adopt a variety of painful methods to
+resolve it.  However, it just dawned on me that there exists a
+relatively simple solution.
+<p> What is needed is to extend the KeyKOS idea of marking things
+dirty in a small way and reserve some overhead space in the log.  The
+revision goes as follows:
+<ul>
+  <li> A spare page is held in reserve in the checkpoint log area.
+       This is sufficient to guarantee progress.
+       <p>
+  <li> The migrator keeps track of the number of log pages that will
+       be freed by forcing a checkpoint at any given time.
+       <p> 
+  <li> As each log pot is read in for migration, a check is made to
+       see if <em>all</em> of it's entries can be added to the next
+       checkpoint (possibly requiring the use of the reserved page).
+       If not, a checkpoint is forced, and this migration is
+       abandoned.
+       <p> If all of the entries will fit in the next checkpoint, they
+       are added <em>but not marked dirty</em>, and the number of log
+       pages that will be freed by checkpoint is incremented.
+       <p>
+  <li> As each object is successfully migrated, it is removed from the
+       list of objects to be included in next checkpoint.
+</ul>
+<p> This mechanism works equally well for pages.  If the available
+space for the next checkpoint becomes exhausted, a checkpoint is
+immediately forced and migration is abandoned.
+<h3>6.2. States in the In-Core Directory</h3>
+<p> Given the above algorithmic revision, the in-core directory must
+carry the following information about each object:
+<ol>
+  <li> Version: Current, Checkpoint, or both
+  <li> Status: Dirty, Pending Migration, Clean, or Migrated
+  <li> Threaded at checkpoint time: yes or no
+</ol>
+<p> The simplest way to explain these bits is to describe in sequence
+the lifecycle of a dirtied object.
+<h4>6.2.1. States Up to the Declaration of a Checkpoint</h4>
+<ul>
+  <table>
+    <tr valign=top>
+      <th align=left>
+	<em>Log State</em>
+      </th>
+      <th align=left>
+	<em>Description</em>
+      </th>
+    </tr>
+    <tr valign=top>
+      <td><em>none</em></td>
+      <td>Object is initially clean</td>
+    </tr>
+    <tr valign=top>
+      <td><strong>current, dirty</strong></td>
+      <td>Object is dirtied in memory, has not yet been paged out.
+	Space has been reserved in the checkpoint log for the object,
+	but it's precise location in the log has not yet been
+	determined.</td>
+    </tr>
+    <tr valign=top>
+      <td><strong>current, clean</strong></td>
+      <td>Object has been paged out prior to the declaration of a
+	checkpoint, and will be included in the directory of the next
+	checkpoint.</td>
+    </tr>
+    <tr valign=top>
+      <td><strong>current, checkpoint, dirty</strong></td>
+      <td>Object was (<strong>current</strong>, <strong>dirty</strong>)
+	at the time a checkpoint was declared, and needs to be paged
+	out. This object version is now frozen, and a copy-on-write must
+	be performed before it can subsequently be modified.</td>
+    </tr>
+    <tr valign=top>
+      <td><strong>current, checkpoint, clean</strong></td>
+      <td>Object was (<strong>current</strong>,
+	<strong>checkpoint</strong>, <strong>dirty</strong>) after a
+	checkpoint was declared and has been paged out, or was
+	(<strong>current</strong>, <strong>clean</strong>) at the time a
+	checkpoint was declared.</td>
+    </tr>
+    <tr valign=top>
+      <td><strong>checkpoint, clean</strong></td>
+      <td>Object was (<strong>current</strong>,
+	<strong>checkpoint</strong>, <strong>clean</strong>), and was
+	subsequently dirtied inducing a copy-on-write.  There will also
+	be a (<strong>current</strong>, <strong>dirty</strong>) entry
+	for such an object.</td>
+    </tr>
+    <tr valign=top>
+      <td><strong>checkpoint, dirty</strong></td>
+      <td>Object was (<strong>current</strong>,
+	<strong>checkpoint</strong>, <strong>dirty</strong>), and was
+	subsequently dirtied inducing a copy-on-write.  There will also
+	be a (<strong>current</strong>, <strong>dirty</strong>) entry
+	for such an object.</td>
+    </tr>
+  </table>
+</ul>
+<p> Once a checkpoint has been declared, the dirty objects included in
+the checkpoint are slowly paged out to the disk.  Once all of the
+objects have been written to the disk, we write the checkpoint
+directory.  Finally, we write the new checkpoint header.
+<p> To ensure that loss of work is bounded, we do not permit another
+checkpoint to be declared until the current checkpoint has been fully
+written to the disk.
+<p> Note that once all objects have been written to the disk, there
+are no (<strong>dirty</strong>, <strong>checkpoint</strong>) objects
+in the checkpoint log directory, and all objects to be migrated have
+the <strong>checkpoint</strong> version bit set.
+<h4>6.2.2. Additional States After Migration Begins</h4>
+<ul>
+  <table>
+    <tr valign=top>
+      <th align=left>
+	<em>Log State</em>
+      </th>
+      <th align=left>
+	<em>Description</em>
+      </th>
+    </tr>
+    <tr valign=top>
+      <td><strong>current, checkpoint, pending migration</strong></td>
+      <td>Object has been read in from a log pot, but has not yet been
+	migrated.  If a checkpoint is forcibly declared, this object
+	should be treated as though it were dirty, written to a new
+	log pot, and included in the next checkpoint.  This state
+	exists for the purpose of coalescing cgroups.
+	</td>
+    </tr>
+    <tr valign=top>
+      <td><strong>current, migrated</strong></td>
+      <td>Object was successfully migrated by the last checkpoint.
+	This checkpoint log directory entry remains to allow us to
+	find the object within the log until such time as its space is
+	reclaimed. If a checkpoint is forcibly declared, this object
+	should not be included in the checkpoint directory.
+	</td>
+    </tr>
+  </table>
+</ul>
+<h4>6.2.3. Handling Forced Checkpoint</h4>
+<p> Because of the need to coalesce objects, it is possible that the
+log will run out of available space before migration completes, and a
+checkpoint will need to be forced.   If this occurs:
+<ul>
+  <li> The migration phase is terminated.
+       <p> 
+  <li> All objects that are dirty or pending migration are drained to
+       the log.
+       <p> 
+  <li> A new directory is created including only those objects that
+       are still current.
+       <p> 
+  <li> A new checkpoint header is written.
+       <p> 
+  <li> All space occupied by non-current objects is returned to the
+       available pool.
+       <p> 
+  <li> All space occupied by (<strong>current</strong>,
+       <strong>migrated</strong>) objects is returned to the
+       reclaimable pool.
+       <p> 
+</ul>
+<p> Forced checkpoints are highly undesirable, and a watermarking in
+the checkpoint log is normally used to eliminate the need for them.
+<h4>6.2.4. State Diagram</h4>
+<p> If all of this is as confusing to you as it was to figure out, the
+following state diagram may help to understand what is happening.
+<center>
+  <img src="ckpt-states.gif">
+</center>
+<p> Objects in the <em>unmodified</em> state have no entry in the
+checkpoint log directory.  Objects in the
+(<strong>Checkpoint</strong>, <strong>Clean</strong>) state (note
+<em>not</em> <strong>current</strong>) are discarded as a consequence
+of the next checkpoint being taken.
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

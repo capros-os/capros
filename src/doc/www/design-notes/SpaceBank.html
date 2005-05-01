@@ -1,0 +1,357 @@
+<HTML>
+<HEAD>
+
+<TITLE>Space Banks -- The New Generation</TITLE>
+
+<!-- RCS information:
+     RCS $Author$ $Date$ $Revision$
+  -->
+
+</HEAD>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <H1>Space Bank Design</H1>
+</center>
+This note describes the new design of the Space Bank, which is in
+response to the new conglomerated design for Object Ranges.  Readers
+should already be familiar with the structure of EROS volumes, which
+is described in the <a href="DiskFormatting.html">Disk Formatting and
+Layout</a> design note.
+
+<H2>1 Object Identifiers and Range Keys </H2>
+
+<p>
+Every object has a unique object identifier, which consists of an
+object frame number and an object number within that frame.  The
+number of valid objects per frame depends on the type of the objects
+currently residing in that frame.  The object number field is
+currently 5 bits, but this will probably be revised to 8 soon.
+<p>
+<PRE>
+ -----------------------------------------------------------
+|             Object Frame #              | Obj # w/i Frame |
+ -----------------------------------------------------------
+</PRE>
+<p>
+To create a new object, the space bank hands such object identifier to
+a range capability and asks for an object capability.  The created
+object's <em>true</em> OID will be relative to the base of the range.
+Since the space bank uses the superrange capability, it proves that it
+deals in true object identifiers, but this is not necessary to the
+design of the space bank; a correct design could be implemented using
+multiple range capabilities.  The KeyKOS space bank was in fact
+implemented that way.
+<P>
+A <em>range capability</em> conveys the authority to create and recind
+keys to objects of any type within its range by passing the offset
+OID.  If asked to create a key to an object in a frame of a different
+type than that of the current type of the frame, all objects currently
+in the frame are rescinded, and the frame is reinitialized to the new
+type.  <em>Caveat emptor</em>.  While it is common practice to have a
+one-to-one correspondance between range capabilities and disk ranges,
+adjacent ranges can be coalesced into a single range capability.
+<p>
+The space bank holds a range capability for each range that it is to
+manage.  More precisely, the space bank is <em>handed</em> a range
+capability for each range it is to manage when when the range is
+fabricated.  To simplify the internal design (which is plenty
+complicated enough, as you will see), the space bank used a single
+superrange capability conveying the authority to fabricate
+<em>any</em> object, and keeps track internally of which areas are
+``live.''
+<H2>2  Functional Overview </H2>
+<p>
+Before describing the space bank design, it may be useful to have a
+sense of what function the space bank provides and what requirements
+the design must meet.   The current design (which is the one described
+here) is a compromise on these requirements.
+<h3>2.1 Space Bank Services</h3>
+<p>
+The Space Bank handles allocation and deallocation of all EROS
+objects, which includes pages, nodes, cappages, and processes.
+Collectively, all of the space banks in the system conspire to keep a
+globally up to date list of the available object frames, and dole
+these out to individual banks as needed.  Every space bank has a
+parent, all of which are ultimately descended from the <b>prime space
+bank</b>.
+<ul>
+  <em>From a functional perspective, all banks are rooted at the prime
+  bank.  For convenience of internal implementation, there is a
+  co-equal internal bank known as <b>bank0</b> that is used by the
+  space bank itself to allocate internal storage.</em>
+</ul>
+<p>
+The most common operations requested of a space bank are the
+<b>allocate</b> and <b>deallocate</b> operations.  The <b>allocate</b>
+operation is on the fault handling path for heap and stack growth.
+Since heap growth is a performance critical operation for many
+programs, the allocate operation is especially time critical.
+<p>
+Every bank retains a list of the objects that it has allocated.  This
+list is used for two purposes:
+<ul>
+  <li> To verify that returned objects were actually allocated by this
+       bank.
+       <p>
+  <li> To allow <em>all</em> of the objects allocated by the space
+       bank to be rescinded when the bank is destroyed.
+<p>
+</ul>
+<p>
+The second item brings us to the second facility that space banks
+provide: the <b>destroy</b> operation.  When a space bank is
+destroyed, it (and all of its children) becomes unusable, and all
+capabilities to the bank are invalidated.  The objects allocated by
+these banks can be handled in two ways, depending on <em>how</em> the
+bank was destroyed:
+<ul>
+  <li> They can be rescinded.
+       <p>
+  <li> They can be inherited upwards to the parent of the destroyed
+       bank.
+       <p>
+</ul>
+<p>
+The first case (everything rescinded) is a useful way to perform
+recovery cleanup when an orderly cleanup has become impossible.  The
+second provides a way to do speculative allocation of objects where
+the result once constructed is to be retained, but allows the interim
+construct to be easily discarded if the available space proves
+insufficient.
+<h3>2.2 Bank Restrictions</h3>
+<p>
+Space banks impose two restrictions: limits and nodestroy.
+<p>
+Every bank imposes a <b>limit</b> that describes the total number of
+object frames that can be allocated via a given bank.  When an object
+frame is allocated by a bank, it is logically allocated (recursively)
+by all of its parent banks as well.  The applicable limit value is
+therefore the <em>most constraining</em> of the limits of all of the
+parent banks up to the prime bank.  The limit field provides a way to
+restrict the resource allocation of subsystems.  A common use is for
+there to exist a limited bank whose children impose no limit.
+<p>
+The limit is simply a counter, and can be reset on demand.  Every bank
+therefore provides the ability to create a restricted capability to
+the same bank that precludes changes to the limit field.  The limit of
+a limit-restricted bank cannot be altered.
+<p>
+For similar reasons, it is sometimes useful to ensure that a space
+bank cannot be destroyed.  For example, the space bank containing all
+of the space available to a given user should probably be
+nondestructible, lest the user accidentally destroy <em>all</em> of
+their storage (which would be nonrecoverable).  As with
+limit-restricted banks, every bank can create a restricted capability
+to the same bank that precludes bank destruction.
+<p>
+The two restrictions are independent; a given bank capability can
+enforce one, the other, or neither.
+<h3>2.3 Other Requirements</h3>
+<p>
+While the description given so far makes the bank functionality seem
+straightforward, there are a number of complications that make the
+actual implementation complex:
+<UL>
+  <li> The number of available frames in a large system cannot be
+       described within a single address space; the space bank must
+       carefully husband its virtual address space to maximize the
+       amount of space it is able to handle. <em>The current design
+       does not go as far in this direction as we would like.</em>
+       <p>
+  <li>
+       The global free list must be coordinated across banks.  This
+       requires a sleazy implementation trick.
+       <p>
+  <li>
+       Fabrication of a child bank should be relatively light weight
+       and require minimal essential overhead, since the bank
+       mechanism is used to simplify storage reclamation in the face
+       of an allocation error.
+       <p>
+  <LI> Allocating space needs to be *FAST* -- allocation is a frequent
+       operation on the critical path of many programs.  Once in to
+       the space bank proper, the time to allocate an object really
+       wants to be in the 1 to 2 microsecond range.
+       <p>
+  <LI> All allocated objects must be accounted for -- no loosing objects
+       for efficiency's sake.
+       <p>
+  <LI> Objects allocated by a given space bank should have good
+       locality of reference.  Disk locality is a significant
+       contributor to overall system performance.
+       <p>
+  <LI><I>not implemented</I> There should be ways for a program to
+       reserve a large amount of space for efficiency purposes (database
+       programs, etc)
+</UL>
+<p>
+Some other items should be noted as <em>not</em> being requrements:
+<UL>
+  <LI> The space bank is *not* a garbage collector.  If you allocated an
+       object, and lost the key, that is your problem.
+       <p>
+  <LI> The space bank is *not* a real bank.  You cannot hold up the
+       space bank.
+<p>
+</UL>
+<h2>3 The Implementation</h2>
+<p>
+The bank itself is fairly straightforward but for our sensitivity to
+address space size limits.  The major complexity of the space bank
+comes from the requirement for high-performance, clustered allocation.
+We will describe the overall design and the individual bank
+mechanisms, and then discuss how fast, well-localized allocation is
+managed.
+<h3>3.1 Structure</h3>
+<p>
+While there are many space banks, the actual implementation uses only
+one process.  Each individual space bank is actually a red segment
+node containing a start key to the bank process and some auxiliary
+information identifying the bank instance and the applicable
+restrictions.  In effect, the format capability of the red segment
+node is used to gain the effect of a large number of objects (the
+banks) implemented by a single server (the bank process).  In actual
+practice, the distinguishing "bank identifier" stored in the red
+segment node is simply a pointer to a bank structure within the
+virtual address space of the bank process.
+<p>
+A side effect of this design is mutual exclusion -- because there is
+only one bank process, it is guaranteed that access to the global free
+frame list is single-threaded.  Further, there is no need to manage
+the master list across multiple processes.
+<p>
+A single prime space bank is not a requirement of this design.  It
+would be quite possible to implement a design in which there were
+multiple banks representing the roots of distinct bank hierarchies.
+<h3>3.2 Per-Bank Information</h3>
+<p>
+Internally, the space bank process maintains a number of
+<code>Bank</code> structures allocated from the heap.  Every bank has
+a pointer to its parent bank, the next sibling in it's generation, and
+it's first child bank (if any).
+<p>
+Each bank has several restricted variants, and a separate red segment
+node is fabricated for each.  The bank keeps track of which restricted
+variants have been fabricated and what the node OID was for that
+variant, and reuses these nodes rather than fabricating new ones for
+each request for restriction.
+<p>
+The most essential information carried by the bank is the list of
+objects that it has allocated.  This is kept in a balanced binary
+tree, but here overhead becomes a problem. If every OID is stored in a
+separate tree node, the node overhead is 200%.  Obviously this will
+not do.
+<p>
+The first saving grace lies in the fact that nodes and processes are
+smaller than a page frame, and that a given page frame can only hold
+objects of a single type.  This allows us to implement tree nodes
+containing a page frame OID and a bitmap describing which of the
+contained objects is allocated.  This somewhat reduces the tree
+overhead.
+<p>
+A larger savings comes from ``clumping'' the tree nodes into multiple
+page frames.  We know that the bank must obtain well-localized
+allocation for performance reasons.  We bet that it will, and design
+the tree nodes to describe 8 adjacent frames using a single OID.  This
+yields a substantial reduction in overhead, but its effectiveness will
+need to be examined.
+<p>
+Finally, the bank must manage the fact that a given disk frame can
+only hold objects of a single type.  When a node is allocated
+into a new frame, the bank keeps track of the current frame for node
+allocation, and continues to use that frame until it is exhausted.
+<h3>3.3 Range Management</h3>
+<p>
+The space bank maintains a list of active ranges.  In the current
+implementation, this is a statically allocated list, but future
+versions will provide means for the list to grow.  Each element in the
+range list describes a starting and ending OID.  The current
+implementation can manage up to 4096 ranges.
+<p>
+In order to simplify the management of the master list of available
+frames, ranges are coalesced into a single numbering scheme; each new
+range is added at a start number that is congruent mod 32K to 0.  This
+ensures that the bitmap of available frames in that range can come
+from within the range itself.  The space bank preallocates a master
+bitmap that holds all ranges, and plugs the new objects into this
+master range as they become available.
+<h3>3.4 Free Frame Management</h3>
+<p>
+<h3>3.5 Minor Complications</h3>
+<p>
+
+<H3>How it does all this</H3>
+
+<I><B>NOTE ON BANK STRUCTURE (parent/child)</B></I>
+The underpinnings of the space bank are two structures, the Global
+Range Directories and the per-bank allocation maps.  These function
+together to keep track of all storage (allocated and unallocated)
+managed by the Space Bank.
+
+    <H4>Global Range Directories</H4>
+
+Each range is seen by the space bank to be a number of object frames.
+In order to keep track of what has been allocated, it needs to have a
+bitmap, called a "range map", which has one bit for each frame in the
+range, which keeps track of its allocation status. Since searching
+through a large bitmap is very slow, the range map is divided into
+page-size chunks, called "sub-range map"s.  In order to quickly find a
+sub-range map which is not completely allocated, there is a "Range
+directory", which has one bit for every sub-range map which keeps
+track of whether it is completely allocated.  
+
+<BR><I><B>figure "RangeMap.fig" here</B></I>
+<BR>
+<P>
+
+In the Range, the Directory occupies the first couple frames, and the
+sub-range maps take up the following few frames, and the allocatable
+frames take up the rest of the disk.  (It would take a 4 Terabyte disk
+to get the Range Directory larger than a single frame)
+
+<PRE>
+
+ Range
+ ----------------------------------------
+|Dir|Map|Map|...|Map|Frm|Frm|Frm|Frm|...
+ ----------------------------------------
+</pre>
+
+    <H4>Per-bank allocation map</H4>
+
+Each bank has to keep track of all storage allocated by it, for two reasons:
+
+<UL>
+<LI> A bank can be asked to destroy itself and all of its contents.
+<LI> If someone asks a bank to deallocate an object which wasn't 
+     allocated from the bank, it must be refused.
+</UL>
+
+
+
+  <H3>Complication:  Bank destruction</H3>
+
+  <H3>Complication:  Parent/Child interactions and Limits</H3>
+ 
+  <H3>Other issues</H3>
+ 
+    <H4>On-disk clustering</H4>
+ 
+    <H4>In-core address space size limits</H4>
+
+    <H4>Re-allocation of "Hot" Objects</H4>
+
+<H2>The Global Storage Map</H2>
+
+stuff.
+
+<H2>Per-Bank Structures</H2>
+
+<H2>Bank Destruction</H2>
+
+<P>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>

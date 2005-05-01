@@ -1,0 +1,144 @@
+<HTML>
+<HEAD>
+<TITLE>Automatic Kernel Configuration</TITLE>
+</HEAD>
+<BODY>
+<P>
+This note describes the automatic kernel configuration facility in
+EROS.
+<P>
+<H1>1. The Objective</H1>
+<P>
+The EROS kernel is fully event driven.  Hardware and software
+interrupts are encapsulated as <STRONG>Event</STRONG> objects, which
+are dispatched to event handlers.  The objective of autoconfiguration
+is to identify all of the event handlers that are present in a given
+machine, and to ensure that these handlers are properly initialized.
+Event handlers can be defined for processor exceptions, motherboard
+components, hardware controllers, units on controllers, etc.
+<P>
+The wording above is carefully chosen.  Autoconfiguration must do more
+than identify the sources of events, since a single event source may
+have multiple associated handlers.  For example, a disk controller is
+the source of disk interrupts, but the ultimate handler for these
+interrupts is some unit.
+<P>
+The EROS design currently provides for two kinds of event handlers.  A
+<STRONG>handler</STRONG> responds to events, but does not have an
+associated Key invocation interface.  An example is the page fault
+handler, which does not currently have any associated Key behavior.  A
+<STRONG>device</STRONG> provides all of the functionality of a
+handler, but in addition provides an externalized interface via one or
+more keys.  Devices are a specialization of handlers.  All of these
+handlers are initialized by the autoconfiguration mechanism.
+<P>
+While there are a very few kernel services that do not respond to
+events, I deem it wiser to implement an empty OnEvent stub for those
+services than to introduce multiple inheritance.  <EM>This decision is
+subject to change</EM>.
+<P>
+On the face of it, autoconfiguration ought to be simple.  Determine
+the busses implemented on your system, walk each bus looking for
+devices, configure the devices, and proceed happily onward. 
+Unfortunately, the PC architecture was never design with automatic
+configuration in mind (thus the difficulties of Plug and Play), and
+on some machines the configuration process must assign (in software)
+configuration parameters dynamically depending on information
+discovered elsewhere in the configuration process.
+<P>
+Just to add to the amusement, the probe procedures used to determine
+if one device is present will sometimes lock up another device
+completely.  On the PC, this is particularly true of ethernet cards
+and sound cards.
+<P>
+The saving grace is that the arrival of Plug and Play is finally
+beginning to dig us out of this mess.  Eventually we may be able to
+disregard ISA configuration altogether, but simply knowing that new
+machines are PCI-based is a big help.
+<H1>An Architecture for Configuration</H1>
+<P>
+Configuration itself is clearly machine dependent, but it would be
+very convenient to arrive at a configuration architecture that was
+machine independent.  For a long time, I despaired of ever finding
+such an architecture.  With some trepidation, I am now inclined to
+think that EROS has accomplished this.  At the moment, the
+architecture has been fleshed out for tightly and closely coupled
+multiprocessor architectures.  While I believe that EROS might be an
+interesting choice of node executive in a massively parallel machine,
+I have not given such architectures any great amount of thought.
+<P>
+Backwards compatibility introduces an added complication.  The good
+news is that the backwards compatible bus must be software compatible
+at the level of I/O mapping and programmability.  The bad news is that
+there are often ordering dependencies in how things are initialized.
+In the case of the PC,   while the
+backwards compatible bus is elect
+As with everything else in the world, there are compatibility
+complications in configuri
+One thing to keep in mind here is that we are concerned with the
+software aspects of configuration, and that there
+<P>
+The EROS configuration mechanism views the machine hardware as a
+hierarchy.  As an example, we show the abstract bus hierarchy for the
+PC family:
+<PRE>
+Interprocessor Bus
+  Processor 0
+  Processor 1  (symmetric design)
+  ...
+  Local Bus (Motherboard backplane)
+    Main Memory
+    Slave Processor 0 (assymetric multiprocessor)
+    Slave Processor 1 (assymetric multiprocessor)
+    ...
+    
+    Primary Bus
+    PCI Bus
+       PCI DMA
+       PCI Devices
+         Serial Card(s)
+         Disk Controller(s)
+         Network Controller(s)
+         Video Controller(s)
+       EISA Devices
+         Serial Card(s)
+         Disk Controller(s)
+         Network Controller(s)
+         Video Controller(s)
+       ISA Devices
+         Serial Card(s)
+         Disk Controller(s)
+         Network Controller(s)
+         Video Controller(s)
+    ISA Bus
+       ISA DMA
+       ISA Devices
+         Serial Card(s)
+         Disk Controller(s)
+         Network Controller(s)
+         Video Controller(s)
+    EISA Bus
+       EISA DMA
+       EISA Devices
+         Serial Card(s)
+         Disk Controller(s)
+         Network Controller(s)
+         Video Controller(s)
+       ISA Devices
+         Serial Card(s)
+         Disk Controller(s)
+         Network Controller(s)
+         Video Controller(s)
+</PRE>
+<P>
+In practice, of course, a machine will have either ISA or EISA busses,
+but not both (the difference is one of addre
+
+Configuration mechanisms vary widely from bus to bus, and
+from controller to controller.  In addition, there are issues of
+multiprocessors.  Logically, however, we can think of a TCMP Ignoring,
+for the momLogically, however, we can think of the machine as made up
+of a hierarchy of connections:
+
+</BODY>
+</HTML>

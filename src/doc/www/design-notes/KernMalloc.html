@@ -1,0 +1,300 @@
+<html>
+  <head>
+    <link rel=STYLESHEET HREF="../CSS/stylesheet.css" type="text/css">
+    <title>Kernel Malloc in EROS Version 2.0</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tbody>
+	<tr valign="top">
+	  <td width="10%">&nbsp;</td>
+	  <td>
+	    <center>
+	      <h1 class="title">Kernel Malloc in EROS Version 2.0</h1>
+	      <p class="subtitle">
+		<em>EROS Goes Dynamic Allocation</em>
+	      </p>
+	    </center>
+	    <ul>
+		<p>
+		  The move to user mode drivers has an ironic
+		  consequence: while the kernel now does almost
+		  <em>no</em> dynamic allocation of resources, it is
+		  now more important than ever to have a dynamic
+		  memory allocator. This note describes the design
+		  (and the design assumptions) of the new kernel
+		  memory allocator.
+		</p>
+	    </ul>
+	    <h1>Introduction</h1>
+	    <p>
+	      Since 1980 (or so), the KeyKOS/EROS family has
+	      successfully avoided incorporating a dynamic memory
+	      allocator in the kernel. Even as we are removing devices
+	      from the kernel, two forces are pushing us to now
+	      provide a kernel malloc() implementation, and to
+	      rejigger various parts of the implementation to use it:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  Several recent architectural ``enhancements'' (note
+		  skepticism) designed to extend the lifespace of 32
+		  bit architectures have led to machines whose
+		  physical memory may greatly exceed the size of the
+		  virtual address space. While this is a basically
+		  brain-dead idea, we wish to be able to support these
+		  machines well.
+		</p>
+		<p>
+		  Newer x86 machines, for example, can
+		  have up to 64 (16?) Gbytes of physical memory. Not
+		  all of this can be mapped into a 4Gb virtual address
+		  space, and certainly not all of this can be be
+		  mapped into the 1Gbyte reserved for the kernel and
+		  small spaces.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The move to user-mode drivers means that the kernel
+		  is completely unaware of device memory maps until
+		  well after bootstrap and memory initialization has
+		  occurred. Simultaneously, the approach to physical
+		  memory ranges (see <a
+		  href="EROSv2.html#physmem">Physical Memory
+		  Regions</a> in <a href="EROSv2.html">Changes in EROS
+		  Version 2.0</a>) in the version 2 kernel requires
+		  that core table entries must exist for all physical
+		  memory regions. This requires that core table
+		  entries be dynamically allocatable after system
+		  startup.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      This note attempts to resolve how all of this should work.
+	    </p>
+	    <h1>Requirements and Non-Requirements</h1>
+	    <p>
+	      Since the kernel is no longer responsible for DMA or
+	      programmed I/O (PIO), it is no longer necessary that
+	      there be <em>any</em> simple mapping from kernel virtual
+	      addresses to physical addresses in order to facilitate
+	      physical DMA (PDMA). That is, the old requirement that
+	      KVA=PA+<em>offset</em> is no longer relevant. Note that
+	      this requirement is unsupportable if the range of legal
+	      physical addresses exceeds the range of kernel virtual
+	      addresses. This was a known (and dreaded) problem with
+	      the old design. In the new design, PIO and PDMA are
+	      supported as follows
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  For PIO, the virtual/physical congruency problem is now
+		  an application-level virtual memory mapping problem. As
+		  long as no access based on physical addresses is
+		  required, there really isn't a mapping issue here at
+		  all.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  For DMA support, the kernel must still be able to
+		  allocate contiguous physical ranges so that driver
+		  applications can build DVA=PA+<em>offset</em>
+		  mappings.
+		</p>
+		<p>
+		  <b>Note:</b> This isn't strictly necessary, but
+		  simulating virtual DMA on architectures where the
+		  hardware provides only physical DMA is a royal pain
+		  in the ass. Given this, I've decided to support
+		  contiguous DMA to the extent of providing a
+		  physically contiguous page range allocation in the
+		  kernel.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      From the kernel perspective, the move to user-level
+	      drivers alters the mapping requirements fairly
+	      dramatically:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  It is no longer necessary for pages to be mapped by
+		  the kernel at all, except ephemerally (during bzero
+		  or copyin/copyout). Ephemeral mappings can be dealt
+		  with by providing a per-CPU (SMP issue) virtual page
+		  frame at which these copyin/copyout/zero activities
+		  can occur. No long term mapping of page space is
+		  required at all, because no kernel-initiated DMA
+		  exists in the driver-externalized kernel.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  In contrast, mapping tables are frequently updated by
+		  the kernel and therefore should be mapped in kernel
+		  virtual space. This suggests that mapping tables
+		  should no longer be part of page space.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Given that the KVA=PA+<em>offset</em> rule is now
+		  dinosaur fodder, the kernel requires a heap from
+		  which to allocate node space, page space, depend
+		  table entries, thread tables, and so forth.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Note that <em>none</em> of the kernel-allocated data
+		  structures are ever implicated by DMA, so there is
+		  no need for the kernel heap to be backed by
+		  contiguous physical pages. This implies that the
+		  heap can be allocated in response to demand, which
+		  is very useful (read on).
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  All of the kernel-allocated structures now need to
+		  come from the heap, which means that they are all
+		  now allocated using <code>malloc()</code> (or
+		  equivalent).
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Because the kernel no longer manages I/O space or
+		  driver memory, there is no longer a <em>general</em>
+		  need for dynamic allocation in the kernel. This is
+		  now a driver (i.e. and application) problem.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Because the kernel <em>must</em> implement physical
+		  memory ranges in support of drivers, and because
+		  these physical ranges cannot be known until the
+		  drivers run, and because these physical ranges
+		  require associated core table entries, it follows
+		  that:
+		</p>
+		<ul>
+		  <li>
+		    <p>
+		      Core table entries cannot be preallocated at
+		      kernel initialization time,
+		    </p>
+		  </li>
+		  <li>
+		    <p>
+		      Core table entries must therefore be dynamically
+		      allocated.
+		    </p>
+		  </li>
+		</ul>
+	      </li>
+	      <li>
+		<p>
+		  In contrast to UNIX, <em>all</em> calls to kernel
+		  <code>malloc()</code> can block.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      When hot-pluggable devices are taken into account, the
+	      move to dynamic allocation is not so much good as
+	      inevitable.
+	    </p>
+	    <h1>Pragmatic Impact</h1>
+	    <p>
+	      The pragmatic impact of these changes can be boiled down
+	      to two architectural changes:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  The old kernel divided memory at startup boot time into
+		  node space, page space, depend space, core tables, etc.;
+		  and treated these spaces as co-equal, in the sense that
+		  each was equally primary. The new kernel first allocates
+		  a grand page space consisting of all available physical
+		  pages, and then allocates other spaces from this.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The physical memory management logic and the kernel heap
+		  allocation logic must now be integrated, because the
+		  kernel heap allocator (i.e. the <code>malloc()</code>
+		  routine) may sometimes require the ability to allocate
+		  more physical pages to grow the heap. In the steady case
+		  these pages will be obtained from the page cache, by
+		  which we mean that they will be obtained by consulting
+		  the physical memory metadata structures and
+		  ``reclaiming'' pages that were allocated to the page
+		  cache.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      The second issue leads to a ``chicken and egg''
+	      problem. When initializing physical memory, we must
+	      construct core table entries corresponding to each
+	      physical page. These entries must be allocated by
+	      <code>malloc()</code>, but until we initialize physical
+	      memory, the <code>malloc()</code> routine has nothing to
+	      work from, because it obtains physical frames by
+	      selecting available frames using the core table entries.
+	    </p>
+	    <h2>Bootstrap</h2>
+	    <p>
+	      This circular bootstrap dependency is resolved at
+	      startup time while allocating the first physical memory
+	      region. A computation is performed to determine the size
+	      of the core table array corresponding to the highest
+	      physical memory region. The necessary number of pages
+	      are ``donated'' to the heap <em>before</em> the
+	      corresponding core tables are allocated.
+	    </p>
+	    <p>
+	      Once the kernel heap has been ``pre-expanded,'' the core
+	      table entries corresponding to the top physical region
+	      are then allocated using <code>malloc()</code>. Those
+	      core-table entries corresponding to the page frames that
+	      were pre-donated to the heap are marked (by hand) as
+	      <code>PtKernelHeap</code>. The remainder are placed on
+	      the free frame list.
+	    </p>
+	    <p>
+	      Now that there is a list of free frames, subsequent
+	      calls to the kernel <code>malloc()</code> routine can be
+	      satisfied by reclaiming frames using the core table.
+	    </p>
+	    <h1>Closing Thoughts</h1>
+	    <p>
+	      Assuming that the KeyKOS "1 node per page" rule
+	      continues to hold for EROS, and that there are 7 nodes
+	      per page, it seems promising that EROS should
+	      comfortably manage physical memories that are roughly 8
+	      times the size of the available kernel virtual address
+	      space.
+	    </p>
+	    <hr> <em>Copyright 2001 by Jonathan Shapiro.  All rights
+	    reserved.  For terms of redistribution, see the <a
+	    href="../legal/license/GPL.html">GNU General Public
+	    License</a></em>
+	  </td>
+	  <td width="10%">&nbsp;</td>
+	</tr>
+      </tbody>
+    </table>
+  </body>
+</html>

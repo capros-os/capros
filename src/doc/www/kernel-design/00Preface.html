@@ -1,0 +1,185 @@
+<html>
+<title>Preface</title>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+Previous
+<A HREF="01ErosOverview.html">Next</A>
+<A HREF="Contents.html">Table of Contents</A>
+<h1 align=right>Preface</h1>
+<p> This document describes the architecture and design of the EROS
+kernel from the standpoint of the kernel designer.
+The focal audience for this document
+includes:
+<ul>
+  <li> Myself, as the designer of the EROS kernel,
+  <li> The EROS team here at the University of Pennsylvania,
+  <li> Developers seeking to port the kernel to other architectures,
+  <li> Real-time system implementors who need to understand the design
+       and workings of the kernel,
+  <li> Driver writers who wish to understand the context in which EROS
+       drivers operate, and 
+  <li> Students interested in the design of a highly-reliable system.
+</ul>
+<p> EROS has been through several major design iterations, and each
+has benefitted from my attempts to capture the design in writing.  I
+am crafting this final design document because I am trying to get my
+thesis effort completed, and do not have time to do the job twice.
+While this document includes some explanatory material, it is not
+intended to be tutorial in nature.  The reader is assumed to have a
+strong background in operating systems.  At a later time I expect that
+we shall put together a book combining the content of this document
+and extensive elaboration with the source code itself.
+<hr>
+<h2>What is EROS?</h2>
+<p> EROS is a high-performance, secure, real-time kernel.  It's design
+borrows heavily from the KeyKOS system, which was commercially
+deployed but never received wide acceptance.  Like KeyKOS, EROS is a
+pure capability system.  Capabilities provide the sole naming
+mechanism known to the kernel, and authority is conveyed exclusively
+through the use of kernel-protected capabilities.
+<p> The design of the EROS system borrows heavily from the attitudes
+and philosophy of microkernel-style designs. The system design can be
+divided into three tiers:
+<ol>
+  <li> The <em>kernel core</em>, which contains all performance
+       critical paths and performs all machine-specific functions.
+       State managed by the kernel core is layed out and structured
+       according to the needs of the implementation architecture.
+  <li> The <em>object cache</em>, which provides a single-level object
+       store and implements the EROS object model.  State managed by
+       the object cache is in machine-independent form.
+  <li> The <em>persistence architecture</em>, which provides
+       recoverable transparent persistence and a logging mechanism
+       suitable for transaction support.
+</ol>
+<p> The kernel core includes the content of a classical microkernel,
+including scheduling, address space management, system service
+dispatch, and IPC primitives.  The object cache provides a
+machine-independent representation for application resources, which
+allows detailed space accounting policies to be efficiently enforced.
+The persistence architecture adds recoverable persistence, allowing
+applications to resume from a consistent snapshot in the event of
+system failure.
+<p> The division described is not merely pedagogical.  The principle
+difference between EROS/Lite and the full EROS system is the
+elimination of the persistence architecture.  In the absence of the
+persistence architecture, EROS is fully real-time, and offers better
+resource accounting and control than most functionally comparable
+systems. The EROS/Lite system is therefore well suited to
+non-persistent embedded applications where reliability is a principle
+concern.
+<p> In fact, the EROS architecture allows three distinct approaches to
+persistence:
+<ul>
+  <li> No persitence.  The kernel does not include support for
+       persistence and the associated drivers.
+  <li> Explicit persistence. Applications may arrange explicitly for
+       the transfer of dirty objects to disk, but transparent
+       persistence is disabled.  Dirty objects remain in memory until
+       explicitly flushed to disk.
+  <li> Transparent persistence, in which objects are recoverably saved
+       to persistent store without explicit action by the
+       application.  With proper planning, transparent persistence can
+       be implemented in a real-time system.
+</ul>
+<hr>
+<h2>Why EROS?</h2>
+<p> While we could offer a long set of excuses for constructing a new
+operating system, it seems wiser to confine ourselves to an
+observation made by Elliott Organick in 1983:
+<p>
+<blockquote>
+  <p> The failure to solve the general protection problem by prior
+  architectures (descriptor based or not) has had serious
+  consequences.  It has meant, for example, that system software
+  modules must be set apart and explicitly protected from application
+  programs; the former cannot be permitted to <em>trust</em> the
+  integrity of in-bound pointer arguments such as descriptors.  This
+  dispartiy has, in turn, made it imptactical and unsage to permit
+  users the freedom to substitute their own versions of selected
+  modules.  A frequent consequence has been that much software within
+  a system tends to be relegated to a small number of very large
+  (monolithic) <em>protection domains</em>.  This consequence, in
+  turn, leads to high software maintenance costs.
+  <p align=right>- Elliott I. Organick <br>
+
+  <p align=right><em>A Programmer's View of the Intel 432 System</em>
+</blockquote>
+<p>
+<!--  Organick's comments are novel only for being so clearly stated.
+Protection wasn't a new problem then, and it remains essentially
+unsolved in today's computing systems. -->
+<p> No widely available operating system today adequately solves the
+general protection problem.  As a result, these systems lack a number
+of critical features:
+<p> 
+<ul>
+  <p>
+  <li> <em>Graceful degradation</em> - When the going gets tough,
+       today's operating systems either crash or kill user programs.
+       This reflects some basic flaws in their underlying design.
+       <p>
+  <li> <em>Reliability</em> - Today's systems are embarassingly
+       unreliable.  A top of the line UNIX server, carefully
+       administered, may continue running for as long as one month
+       between crashes.  Failure times for other mainstream operating
+       systems are comparable.
+       <p>
+  <li> <em>Security</em> - We have invested a great deal of effort
+       into the so-called ``Orange Book'' security levels, which are
+       concerned with access prevention.  The real-world goal is not
+       to prevent all access to a system, but to provide carefully
+       controlled access in a hostile environment.  This is a much
+       harder problem, and today's systems really aren't designed for
+       it.
+       <p>
+  <li> <em>Accountability</em> - Only when resources are fully
+       acounted for does it become possible to speak about the
+       reliability of a systme.  The EROS model makes it relatively
+       easy to manage resources without unduly complicating applications.
+</ul>
+<p> 
+<hr>
+<H2>Acknowledgements</h2>
+<p> Quite a number of people deserve thanks and acknowledgement for
+their efforts and support in connection with the EROS project:
+<ul>
+  <li> <strong>Norm Hardy</strong> is the primary architect of KeyKOS,
+       from which EROS borrows.  Along with <strong>Bill
+       Frantz</strong> and <strong>Charlie Landau</strong>, Norm has
+       actively engaged in the discussions leading to the current EROS
+       system.  Norm in particular has spent countless hours sharing
+       his insights into KeyKOS in particular and capability systems
+       in general.
+  <li> <strong>Jonathan Smith</strong> and <strong>Dave
+       Farber</strong> have provided continual support and advice in
+       connection with this project.
+  <li><strong>Mike Berry</strong> Has done a lot of work toward the
+       design and implementation of dionysix,, and I'm hoping that he
+       will continue in this direction.  Would that every teacher
+       could have the benefit of such students.
+  <li> <strong>Bryan Ford</strong> of the University of Utah has also
+       put forward a lot of useful ideas.  His thoughts and
+       suggestions at various points were pivotal, and his experience
+       with the Intel architecture was extremely helpful in building
+       the first implementation.
+  <li> <strong>Ben Chen</strong> did the early ethernet driver
+       support, in the process helping to debug a number of issues in
+       device support.
+  <li> <strong>Charles Smith</strong> of Filoli Information Systems
+       provided an odd sort of moral support.  Though he often claimed
+       that he couldn't figure out why I thought <em>I</em> should be
+       doing this, he simultaneously maintained that building EROS was
+       a good idea and should be pursued.
+</ul>
+<p>There are many others who ought to be thanked as well; too many to
+name all of them individually.
+<hr>
+Previous
+<A HREF="01ErosOverview.html">Next</A>
+<A HREF="Contents.html">Table of Contents</A>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

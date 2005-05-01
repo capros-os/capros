@@ -1,0 +1,49 @@
+<html>
+<head>
+<title>EOR: SchedClass</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Primary.html">Primary Objects</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Primary Objects</H2>
+  </div>
+  <h2>SchedClass</h2>
+  <em>D R A F T</em>
+</div>
+<hr>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> A <strong>SchedClass Key</strong> conveys the authority to
+  execute instructions under the resource allotment of a particular
+  scheduling class.  Every process must posess a valid schedule key in
+  order to execute instructions.  A general description of the EROS
+  scheduling policy can be found in the <a
+  href="../concepts/Scheduling.html">Scheduling</a> page of the
+  concepts section.
+  <p> <img src="../../../img/caution.gif" align=left> The
+  implementation described here is a short-term placeholder intended
+  to allow us to get programs running quickly.  We will be replacing
+  it completely in the near future.
+  <p> EROS currently supports three scheduling classes:
+  <ul>
+    <li> <em>important</em> threads receive a larger share of the
+	 processor, and queue ahead of all lower classes.
+    <li> <em>normal</em> threads receive a more limited share of
+	 the processor, and queue ahead of idle processes
+    <li> <em>idle</em> processes run when there is nothing better
+	 to do.
+  </ul>
+  The current implementation is in fact a priority scheme, but this
+  will change in the future.
+  <p> No operations are currently defined on schedule keys.
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

@@ -1,0 +1,211 @@
+<html>
+<head>
+<title>EOR: LineDisc: Terminal Line Discipline</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Standard Processes</H2>
+  </div>
+  <h2>LineDisc: Terminal Line Discipline</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p>
+The line discipline process provides an interface between input/output
+devices and EROS applications.  It is guaranteed to be running or available
+at all times.  When the process is running, it is designed to return
+to the available state promptly.  Line discipline handles <b>raw</b>
+and <b>cooked</b> modes.  The default mode is cooked.
+<p>
+The line discipline is designed to handle simultaneous requests from
+a finite number of readers and writers.
+<br>
+<center>
+<img src="nomux.gif"><br>Figure 1: No MUX layer</center><br>
+
+The limit on simultaneous
+readers/writers is defined by the EROS address space size.  Hence, the
+line discipline is usually layered below a reader and writer
+multiplexor service.<br>
+<center>
+<img src="mux.gif"><br>Figure 2: Layered below MUX layer</center><br>
+
+The line discipline acts as a pseudo multi-threaded service and
+consists of two processes with shared memory.  One thread ("TTYin")
+monitors the input device and another thread
+("LineDisc") services requests.  The "TTYin" process must be
+started (no request arguments) before "LineDisc" can accept
+requests.
+<p>
+The current implemenation only supports a singleinput/output
+device: the console.
+<p>
+
+
+
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the object.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       <em>AKT_LD</em>:
+	       Object is a line discipline object.
+	 </td>
+	 </tr>
+	 </table>
+	 <p> 
+	 
+    <dt> <strong>Read characters from input device</strong> (OC = 0)
+    <dd> 
+	 <p> Read a specified number of characters from the input
+	 device.  Return only when the request can be fully satisfied.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>L</strong>
+	     </td>
+	     <td> Number of characters to read.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>B*</strong>
+	     </td>
+	     <td>Characters from the input device.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=4> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>RC_OK</strong>
+	     </td>
+	     <td> Sucessful completion of read.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> Request size error
+	 </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> Too many readers are already waiting for a response.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>3</strong>
+	     </td>
+	     <td> The number of characters requested is too large.
+	     </td>
+	   </tr>
+	 </table>
+
+	 
+    <dt> <strong>Write characters to the output device</strong> (OC = 1)
+    <dd> 
+	 <p> Write a sequence of characters to the output device.
+	 If in cooked mode, translate control characters.
+
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>B*</strong>
+	     </td>
+	     <td> Characters to write.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>RC_OK</strong>
+	     </td>
+	     <td> Sucessful completion of write.
+	     </td>
+	   </tr>
+	 </table>
+
+    <dt> <strong>Switch to cooked mode</strong> (OC = 2)
+    <dd>
+	 <p> Sets the line discipline process to process
+	 input from the input device in cooked mode.
+	 Characters will be echoed.
+	 Control characters will be translated as per the
+	 device specification.
+
+	 <table>
+	 <tr valign=top>
+	 <td rowspan=3> <strong>Results</strong>
+	 </td>
+	 <td align=right> <strong>RC_OK</strong>
+	 </td>
+	 <td> The operation was successful.  There is no other
+	 reply.
+	 </td>
+	 </tr>
+	 </table>
+	 <p>
+	 
+    <dt> <strong>Switch to raw mode</strong> (OC = 3)
+    <dd>
+	 <p> Sets the line discipline process to process
+	 input from the input device in raw mode.
+	 Characters will not be echoed or translated.
+	 
+	 <table>
+	 <tr valign=top>
+	 <td rowspan=3> <strong>Results</strong>
+	 </td>
+	 <td align=right> <strong>RC_OK</strong>
+	 </td>
+	 <td> The operation was successful.  There is no other
+	 reply.
+	 </td>
+	 </tr>
+	 </table>
+	 <p>
+
+
+  </dl>
+  <hr>
+  <address>
+  <a href="http://www.seas.upenn.edu/~berrym">Mike Berry &lt;berrym@eros-os.org&gt;</a>
+  </address>
+  <!-- hhmts start -->
+  <!-- hhmts end -->
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>
+
+
+
+
+
+
+
+

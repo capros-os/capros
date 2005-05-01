@@ -1,0 +1,584 @@
+<html>
+<head>
+  <title>ECG: The Cross Environment</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../eros.html"><em>EROS Web</em></a> 
+      <br>&nbsp;
+      <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Cross Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title>The Cross Environment</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <P> This document describes the programs used to generate an initial
+      bootable EROS environment.  It provides a brief description of the
+      cross environment and system generation tools.
+      </p>
+      <H1><a name="inst-reqt">1. Host Platform</a></H1>
+      <p>
+      EROS currently builds on Intel-based machines running Linux.
+      </p>
+      <h2>1.1. Hardware</h2>
+      <p>
+      With patience, the current system builds on a 75Mhz 486 portable
+      with 8 megabytes of memory, though we were surely happier after
+      upgrading the memory to 20 megabytes.
+      </p>
+      <p>
+      A 120 Mhz (or better) Pentium (or better) chip is recommended.
+      Compatible chips are untested, but should <em>build</em> the
+      system without difficulty.  We have had no opportunity to test
+      EROS itself on the Cyrix or AMD parts, and look forward to your
+      feedback.
+      </p>
+      <p>
+      We currently build on systems with as little as 16 megabytes of
+      main memory.  32 megabytes cuts the time required to complete
+      the build nearly in half.  64 megabytes makes it possible to do
+      other things (such as run emacs) without unduly slowing the
+      build.  We have seen no appreciable benefit past 64 megabytes.
+      At that point, it would seem that you are better off going for a
+      faster chip.
+      </p>
+      <p>
+      EROS itself presently supports only (E)IDE drives.  The driver
+      should in theory also support older drives, but this is
+      untested.  While we will adopt reasonable patches for supporting
+      older drives, we will not put engineering effort into supporting
+      them.  SCSI support is planned.
+      </p>
+      <h2>1.2. Operating System</h2>
+      <p>
+      The EROS build environment is currently designed to run on Linux
+      systems.  Compatibility with various Linux releases is
+      summarized below.  Additions to this list are welcome, and
+      should be sent to the <a
+      href="mailto:eros-doc@eros-os.org"><tt>eros-doc</tt></a>
+      alias.
+      </p>
+      <center>
+	<table width=85%>
+	  <tr>
+	    <th align=left>Provider</th>
+	    <th align=left>Version</th>
+	    <th align=left>Status</th>
+	  </tr>
+	  <tr>
+	    <td valign=top>RedHat</td>
+	    <td valign=top>4.2</td>
+	    <td valign=top>Works, modulo transfig out of date</td>
+	  </tr>
+	  <tr>
+	    <td valign=top>RedHat</td>
+	    <td valign=top>5.0 thru 5.2</td>
+	    <td valign=top>Works</td>
+	  </tr>
+	  <tr>
+	    <td colspan=2><em>All others</em></td>
+	    <td valign=top><em>Unknown</em></td>
+	  </tr>
+	</table>
+      </center>
+      <p class=continue>
+      While we have not tried to do so, it should not be
+      difficult to make this build environment operate from any UNIX
+      derivative using ELF-based object files and GNU make.
+      </p>
+      <p>
+      The development group is currently using the RedHat 4.2 and 5.0
+      releases.  If you are running an earlier release of RedHat, it
+      is very much worth upgrading for the sake of improved UNIX
+      security.
+      </p>
+      <p>
+      With some work the a.out file format could be accomodated, which
+      would facilitate development from FreeBSD or NetBSD.  It would
+      be very difficult to facilitate building from Microsoft operating
+      systems, and we have no plans to do so.
+      </p>
+      <p>
+      Our recommendation, if your circumstances permit it, is to work
+      from Linux, as a rehosted Linux environment will eventually be
+      distributed for the EROS system.
+      </p>
+      <H1>2. The Distribution</H1>
+      <p>
+      The EROS distribution will be available as a gzipped tar image
+      from the <a href="http://www.eros-os.org">EROS Home
+      Page</a>.  <h2>2.1. Space Requirements</h2>
+      <p>
+      To build the release, you will need approximately:
+      </p>
+      <center>
+	<table width=85%>
+	  <tr>
+	    <th align=left width=75%>Item</th>
+	    <th align=right>Mbytes</th>
+	  </tr>
+	  <tr>
+	    <td valign=top>Release tar files</td>
+	    <td valign=top align=right>2.7</td>
+	  </tr>
+	  <tr>
+	    <td valign=top>Source tree</td>
+	    <td valign=top align=right>8.0</td>
+	  </tr>
+	  <tr>
+	    <td valign=top>Documentation source tree</td>
+	    <td valign=top align=right>3.7</td>
+	  </tr>
+	  <tr>
+	    <td valign=top>Binaries and objects</td>
+	    <td valign=top align=right>5.0</td>
+	  </tr>
+	  <tr>
+	    <td valign=top>Installed Documentation</td>
+	    <td valign=top align=right>2.0</td>
+	  </tr>
+	  <tr>
+	    <td valign=top><b>Total</b></td>
+	    <td valign=top align=right>21.4</td>
+	  </tr>
+	</table>
+      </center>
+      <p>
+      If necessary, the documentation source tree (<tt>eros/src/doc</tt> can
+      be deleted before building, reducing the overall space
+      requirements to 15.7 megabytes.
+      </p>
+      <h2>2.2. Build Tree Organization</h2>
+      <p>
+      The top level of the build tree is the <tt>eros/</tt>
+      directory.  This directory may be placed anywhere that is
+      convenient.  All makefiles in the build tree locate this
+      directory by referencing the variable <tt>EROS_ROOT</tt>.  In my
+      own case, the build tree sits in my home directory, and the
+      <tt>EROS_ROOT</tt> variable is set to
+      <tt>"/home/shap/eros"</tt>.
+      <p>
+      Once built, the next level down in the tree contains several
+      further directories:
+      </p>
+      <center>
+	<table width=85%>
+	  <tr>
+	    <td colspan=2>
+	      <tt>eros</tt>
+	    </td>
+	    <td valign=top>
+	      Build tree root
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>cross</tt>
+	    </td>
+	    <td valign=top>
+	      Cross tools are installed here
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>doc</tt>
+	    </td>
+	    <td valign=top>
+	      Documentation is installed here
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>domain</tt>
+	    </td>
+	    <td valign=top>
+	      EROS 'domain' binaries are installed here, along with
+	      their map files (see the <a href="build-tut.html">build
+	      tutorial</a>).
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>include</tt>
+	    </td>
+	    <td valign=top>
+	      Include files are installed here as the build progresses.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>lib</tt>
+	    </td>
+	    <td valign=top>
+	      Library files are installed here as the build progresses.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>src</tt>
+	    </td>
+	    <td valign=top>
+	      Where the sources live.
+	    </td>
+	  </tr>
+	</table>
+      </center>
+      <p>
+      The source tree itself is organized by package:
+      </p>
+      <center>
+	<table width=85%>
+	  <tr>
+	    <td colspan=2>
+	      <tt>eros/src</tt>
+	    </td>
+	    <td valign=top>
+	      Source tree root
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>base</tt>
+	    </td>
+	    <td valign=top>
+	      The kernel, and the core domains and libraries reside
+	      here.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>doc</tt>
+	    </td>
+	    <td valign=top>
+	      The base documentation set lives here.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>legal</tt>
+	    </td>
+	    <td valign=top>
+	      License and copyright documents liver here.
+	    </td>
+	  </tr>
+	</table>
+      </center>
+      <p>
+      The documentation tree can be navigated through your web
+      browser.  <em>Some browsers do not work correctly unless the
+      document is compacted</em>.  We therefore recommend that you
+      install and navigate the <tt>eros/doc/www</tt> tree, and substitute
+      <tt>eros/<u><b>src</b></u>/doc/www</tt> when you need to locate the
+      corresponding source file.
+      </p>
+      <p>
+      The base tree is organized as follows:
+      </p>
+      <center>
+	<table width=85%>
+	  <tr>
+	    <td colspan=2>
+	      <tt>eros/src/base</tt>
+	    </td>
+	    <td valign=top>
+	      Base sources root
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>cross</tt>
+	    </td>
+	    <td valign=top>
+	      Source for all cross utilities (except
+	      <tt>erosinstall</tt>) and associated libraries reside
+	      here.  The <tt>erosinstall</tt> utility is a
+	      shellscript, and can be found in <tt>lib/make/</tt>
+	      along with the master <tt>make</tt> rules file.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>domain</tt>
+	    </td>
+	    <td valign=top>
+	      Source for all EROS domains.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>lib</tt>
+	    </td>
+	    <td valign=top>
+	      Various libraries used by certain of the EROS domains.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>sys</tt>
+	    </td>
+	    <td valign=top>
+	      Kernel source tree
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>sysimage</tt>
+	    </td>
+	    <td valign=top>
+	      Master EROS image is built here.
+	    </td>
+	  </tr>
+	  <tr>
+	    <td width=5%>&nbsp;</td>
+	    <td valign=top>
+	      <tt>test-domain</tt>
+	    </td>
+	    <td valign=top>
+	      Various test domains and performance timing tools.
+	    </td>
+	  </tr>
+	</table>
+      </center>
+      <p>
+      In most of the source tree, the build occurs directly in the
+      relevant directory.  In the kernel subtree, the build occurs in
+      <tt>sys/arch/XXX/build/</tt>, where <tt>XXX</tt> varies
+      according to the architecture name.
+      </p>
+      <p>
+      Other packages, including a port of XFree86 and a Linux
+      rehosting project, are currently underway.  Each of these
+      packages has an associated directory under <tt>eros/src</tt>,
+      and has its own conventions for build tree structure.  All of
+      these packages depend on a successfully built base package.
+      </p>
+      <h1>3. Environment Setup</h1>
+      <p>
+      Before building the EROS distribution, two environment variables
+      must be set:
+      </p>
+      <center>
+	<table width=85%>
+	  <tr>
+	    <th valign=top align=left>Variable</th>
+	    <th valign=top align=left>Description</th>
+	  </tr>
+	  <tr>
+	    <td valign=top><tt>EROS_ROOT</tt></td>
+	    <td valign=top>Identifies the top of the EROS tree.</td>
+	  </tr>
+	  <tr>
+	    <td valign=top><tt>EROS_TARGET</tt></td>
+	    <td valign=top>Indicates the target architecture to be
+	      build.  The only valid value at this time is
+	      <tt>i486</tt>.</td>
+	  </tr>
+	  <tr>
+	    <td valign=top><tt>EROS_CONFIG</tt></td>
+	    <td valign=top>Identifies the kernel configuration that
+	      you wish to use.  If this variable is not set, it will
+	      default to 'DEFAULT' in most of the build tree.  This
+	      name should be the name of a file in
+	      <tt>eros/src/base/sys/arch/$(EROS_TARGET)/conf</tt>.  By
+	      convention, all platforms provide a <tt>DEFAULT</tt>
+	      configuration.  Other plausible configurations include
+	      <tt>DEVEL</tt>, which includes kernel debugger and
+	      assertion checking, and <tt>DDB</tt>, which includes the
+	      kernel debugger, but <em>without</em> assertion checks.
+	    </td>
+	  </tr>
+	</table>
+      </center>
+      <p>
+      At some point, this list will be expanded to include an
+      environment variable describing the host environment for the
+      build.  At present, builds from non-i386 versions of Linux are
+      not supported by the build environment.
+      </p>
+      <p>
+      In my own build environment, the <tt>eros/</tt> directory sits
+      under my home directory.  For Bourne shell and <tt>bash</tt>
+      users, your login-time initialization file should contain:
+      </p>
+      <ul>
+	<tt>EROS_ROOT="${HOME}/eros"</tt>
+	<br> <tt>EROS_TARGET=i486</tt>
+	<br> <tt>EROS_CONFIG=DEFAULT</tt>
+	<br> <tt>export EROS_TARGET EROS_ROOT EROS_CONFIG</tt>
+      </ul>
+      <p>
+      Users of <tt>csh</tt> or <tt>tcsh</tt> should instead use:
+      </p>
+      <ul>
+	<tt>setenv EROS_ROOT $HOME/eros</tt>
+	<br> <tt>setenv EROS_TARGET i486</tt>
+	<br> <tt>setenv EROS_CONFIG DEFAULT</tt>
+      </ul>
+      <p>
+      I have found it useful <em>not</em> to set the
+      <tt>EROS_ROOT</tt> variable in my <tt>.cshrc</tt> or
+      <tt>.bashrc</tt> or equivalent.  Once in a while I want to
+      maintain two build trees, and this is rendered impossible if the
+      per-shell configuration file overrides the value of
+      <tt>EROS_ROOT</tt>.
+      Removing this value from the per-shell configuration file,
+      however, leads to two problems:
+      </p>
+      <ul>
+	<li> <p>
+	     Under the default configuration, the variable will not be
+	     correctly inherited by an <tt>emacs</tt> session invoked
+	     directly from a window manager menu.
+	     </p>
+	</li>
+	<li> <p>
+	     <tt>rsh</tt>/<tt>ssh</tt> can no longer be used to
+	     perform remote builds unless the login file or it's
+	     equivalent is ``sourced.''
+	     </p>
+	</li>
+      </ul>
+      <p>
+      The first problem can be solved by making a small repair to your
+      <tt>.xsession</tt> file.  If you do not have one, it may be
+      necessary to copy <tt>/usr/lib/X11/xdm/Xsession</tt> to
+      <tt>$HOME/.xsession</tt> so you can apply this fix.
+      </p>
+      <p>
+      Change the first line, which reads
+      </p>
+      <ul>
+	<tt>#!/bin/bash</tt>
+      </ul>
+      <p>
+      To read:
+      </p>
+      <ul>
+	<tt>#!/bin/bash -login</tt>
+      </ul>
+      <p>
+      This will cause your .login file to be read before the window
+      manager is started, after which all of your <tt>.login</tt>
+      environment variables will be inherited correctly by
+      applications started from the window manager.  The fact that the
+      default <tt>.xsession</tt> file does not do this is a
+      <em>bug</em>
+      </p>
+      <p>
+      An alternative workaround is to have your <tt>.cshrc</tt> or
+      <tt>.bashrc</tt> only set <tt>EROS_ROOT</tt> if it is not set
+      already.  This also solves the <tt>rsh</tt>/<tt>srsh</tt>
+      problem.
+      </p>
+      <p>
+      Both workarounds can safely be applied simultaneously.
+      </p>
+      <h1>3. Building the Distribution</h1>
+      <p>
+      At this point, you can build the distribution.  To do so:
+      </p>
+      <ul>
+	<tt> cd $EROS_ROOT/src </tt>
+	<br> <tt> make -k install </tt>
+      </ul>
+      <p>
+      If you choose to rebuild the tree you may find some other make
+      targets useful:
+      </p>
+      <center>
+	<table width=85%>
+	  <tr>
+	    <td valign=top nowrap>
+	      <tt>make clean</tt></td>
+	      <td valign=top>
+		Recursively removes all object files.
+	      </td>
+	  </tr>
+	  <tr>
+	    <td valign=top nowrap>
+	      <tt>make -k clobber</tt></td>
+	      <td valign=top>
+		Recursively removes all object files, binaries,
+		libraries, and links within the build tree.
+	      </td>
+	  </tr>
+	  <tr>
+	    <td valign=top nowrap><tt>make nodepend</tt></td>
+	    <td valign=top>
+	      Removes the dependency files which were automatically
+	      generated by previous build(s).
+	    </td>
+	  </tr>
+	  <tr>
+	    <td valign=top nowrap><tt>make -k clobber nodepend</tt></td>
+	    <td valign=top>
+	      Restores the build tree to pristine status.
+	    </td>
+	  </tr>
+	</table>
+      </center>
+      <h1>4. Generating the Installation Image</h1>
+      <p>
+      Instructions for producing new EROS images can be found in
+      <a href="build-tut.html"><em>Building an EROS Disk
+      Image</em></a>.  To build the generic installation image, you
+      can now:
+      </p>
+      <ul>
+	<tt> cd $EROS_ROOT/src/base/sysimage </tt>
+	<br> <tt> make -k floppy </tt>
+      </ul>
+      <p>
+      This command should be issued with a blank floppy in the floppy
+      drive, and you must have write permission on the floppy drive.
+      If you do not wish to actually write the floppy, you can use:
+      </p>
+      <ul>
+	<tt> cd $EROS_ROOT/src/base/sysimage </tt>
+	<br> <tt> make -k sysvol </tt>
+      </ul>
+      <p>
+      This will produce the system volume image, which can be copied
+      to a floppy or hard disk partition using the <tt>dd</tt>
+      utility.
+      <hr> <em>Copyright 1998 by Jonathan Shapiro.  All rights
+      reserved.  For terms of redistribution, see the <a
+      href="../legal/license/GPL.html">EROS License
+      Agreement</a></em>
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+</body>
+</html>

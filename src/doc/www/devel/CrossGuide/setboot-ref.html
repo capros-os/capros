@@ -1,0 +1,58 @@
+<html>
+<head>
+  <title>ECG: setboot Reference</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../eros.html"><em>EROS Web</em></a> 
+      <br>&nbsp;
+      <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Cross Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title><tt>setboot</tt> Reference</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <h2>Name</h2>
+      <p><b>setboot</b> -- maintain boot block table</p>
+      <h2>Synopsis</h2>
+      <p><b>setboot</b> -l volume</p>
+      <p><b>setboot</b> -g volume</p>
+      <p><b>setboot</b> [-w] volume</p>
+      <h2>Description</h2>
+      <p> The <b>setboot</b> utility displays and alters the block
+      table in the boot sector.
+      <p>With <b>-l</b>, <b>setboot</b> displays the block table that
+      is on the boot sector of the volume.
+      <p>With <b>-g</b>, <b>setboot</b> displays the actual geometry of
+      the volume.
+      <p> The third form recomputes the block table from the actual
+      geometry of the volume and displays the result.
+      If <b>-w</b> is specified, it writes the result to the
+      volume's boot sector.
+      <hr>
+      <em>Copyright 2000 by Charles Landau. For terms of 
+      redistribution, see the 
+      <a href="../../legal/license/GPL.html">GNU General Public License</a></em>
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+</body>
+</html>

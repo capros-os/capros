@@ -1,0 +1,110 @@
+<html>
+<head>
+<title>EOR: Number</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Primary.html">Primary Objects</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Primary Objects</H2>
+  </div>
+  <h2>Number</h2>
+  <em>D R A F T</em>
+</div>
+<hr>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+<p> A <strong>Number</strong> key represents three 32-bit integers.
+  It is used
+  primarily to describe address space offsets, or to store numeric values
+  within a Node.  For example, Number keys are used to store the
+  machine register values within the process root and general registers
+  Nodes when a process is not actually on the processor.
+  <p> Unlike other objects, a number object is self-contained within
+  its key. 
+  <p> An operation on the <a href="Node.html">Node key</a> can
+	 be used to create a number key with specified values and store
+	 it within the Node.
+  <p>While a number is a constant, holders of a Node key can overwrite
+  that number with a different number.
+  <p> <b>Note:</b> Formerly, number keys always returned
+  <strong>KT+1</strong> as the result code to any request.  With the
+  introduction of the <a href="../kernel/Void.html">void capability</a>, this is no longer true.
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd>
+         <p> Returns the alleged type of the key.
+         <table>
+           <tr valign=top>
+             <td rowspan=1>
+               <strong>Reply</strong>
+             </td>
+             <td align=right>
+               <strong>R1</strong>
+             </td>
+             <td align=right>
+               <em>AKT_Number</em>:
+               Key is a number key.
+             </td>
+           </tr>
+         </table>
+         <p>
+    <dt> <strong>GetValue</strong> (OC = OC_Number_Value (1))
+    <dd> 
+	 <p> Returns the number key values.  
+         </p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	      <strong>R1</strong>
+	     </td>
+	     <td>
+	       The first integer value.
+	     </td>
+	   </tr>
+           <tr valign=top>
+             <td align=right>
+               <strong>R2</strong>
+             </td>
+             <td>
+               The second integer value.
+             </td>
+           </tr>
+           <tr valign=top>
+             <td align=right>
+               <strong>R3</strong>
+             </td>
+             <td>
+               The third integer value.
+             </td>
+           </tr>
+	   <tr valign=top>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       <em>RC_OK</em>
+	     </td>
+	     <td>
+	       Operation completed successfully.
+	     </td>
+	   </tr>
+	 </table>
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

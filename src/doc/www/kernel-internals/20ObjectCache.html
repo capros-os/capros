@@ -1,0 +1,481 @@
+<html>
+<head>
+<title>The Object Cache</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<p> Nearly everything in the EROS system is constructed out of pages
+and nodes.  Because of this, we refer to pages and nodes as
+<em>primary objects</em>.  EROS uses most of the machine's main memory
+as a place to cache the active working set of primary
+objects. Periodically, EROS saves the modified working set back to the
+disk via a systemwide checkpoint.  In many ways, the object cache
+divides the system into an upper half that implements the semantics of
+program execution, and a lower half that implements object storage
+management.  Before proceeding on to the guts of the EROS kernel, it
+is therefore useful to understand how the cache is managed.
+<p> The current version of an object can reside in one of three
+places: its home location, the checkpoint log, or main memory.
+Modified objects that get paged out are placed in the checkpoint log,
+and remain there until the current state of the system is checkpointed
+and they can be safely migrated back to their home locations.
+<p> When the current version of an object needs to be located, the
+search is performed in three stages:
+<p>
+<ol>
+  <p>
+  <li> A hash table is consulted to determine if the object is
+       currently in memory.
+       <p>
+  <li> If the object is not in memory, the directory of the checkpoint
+       log is examined to see if the object has been paged out to the
+       checkpoint area.  This will also find the object if it was part
+       of a previous checkpoint that remains in the log.
+       <p>
+  <li> Finally, the home location on the disk is accessed to reload
+       the object into memory.
+</ol>
+<p> Odd though it may seem, it's simplest to describe these cases
+starting with objects on the disk.
+<h1>1 Objects on the Disk</h1>
+<p> Because EROS is a persistent system, there is a sense in which the
+``official'' versions of EROS objects are the ones on the disk.  While
+objects are manipulated in main memory, it is always possible that the
+version in memory will be lost due to power failure, stray alpha
+particles, or any number of other hardware failures.
+<p> In EROS, disks are referred to as <strong>volumes</strong>.  Depending on
+the hardware and firmware, a volume may be an entire disk or an
+individual disk partition.  From the EROS perspective, disks with
+multiple partitions are viewed as multiple volumes, some of which are
+EROS volumes and some of which are ``foreign'' volumes.
+<p> Every object in an EROS system has a unique identity that is
+derived from it's location on the disk.  This is the object's
+<strong>coded disk address</strong>, more commonly referred to as the
+<strong>CDA</strong>.  A coded disk address is simply a 48 bit unsigned integer,
+so the system can support up to 2<sup>48</sup> distinct pages.  That works
+out to 1,073,741,824 <em>giga</em>bytes of user data.
+<a href="#fn20-1">note</a>
+Since nodes and pages are
+numbered independently, the system can simultaneously support up to
+2<sup>48</sup> distinct nodes.
+<h2>1.1 Volume Divisions</h2>
+<p> EROS volumes are divided into contiguous <strong>divisions</strong>.
+Different kinds of disk divisions are used for different purposes.
+For the purposes of this chapter, we are concerned with the primary
+object divisions: node divisions and page divisions.
+<p> A node division holds a fixed number of EROS nodes.  Because all
+EROS disk I/O is done in page-sized units, nodes in a node division
+are never allowed to cross a page boundary.  A node on the disk
+occupies 208 bytes.  On most implementations, the page size is 4096
+bytes, so 19 nodes will fit into a page.  A page holding disk nodes is
+known as a <strong>node pot</strong>.
+<p> A page division holds a fixed number of EROS pages.  The number is
+determined by the size of the division.  Every page in a page division
+has two words of overhead information that must be stored somewhere on
+the disk.  This is done by using separate pages known as <strong>page
+pots</strong>.  Once again assuming a 4096 byte page size, there will be
+4096/8 or 256 data pages for every overhead page.  The overhead page
+contains an allocation count (described below), and a few flag bits.
+Of these, the most important is the <strong>zero page</strong> bit.  When EROS
+needs to load a page, it first loads the associated page pot.  If the
+zero page bit is set, the page is known to be zero filled, and no
+further I/O needs to be performed.  This is especially useful when
+pages are newly allocated.
+<p> Nodes and pages within a division have sequential CDAs.  The CDA
+of the first object in the division is specified in the volume's
+division table.  Divisions can be replicated.  If two divisions
+describe the same range of CDA's, they are assumed to be replicates.
+The EROS kernel will transparently arrange to write objects to both
+locations, and will fetch objects from whichever volume produces the
+object first.
+<h2>1.2 Object Versions</h2>
+<p> Over the course of it's life, a page or node may serve many
+masters.  A particular page may be acquired from a space bank and used
+by one program to store a text document.  When the document is later
+removed, the page is returned to the space bank.  A subsequent user
+may then purchase the same page and use it in some other way.
+<p> In order for this to be secure, we must take care of two problems:
+<p>
+<ul>
+  <p>
+  <li> The second user should not be able to access the first user's
+       information.
+       <p>
+  <li> The first user should not be able to access the second user's
+       information.
+</ul>
+<p> The first constraint is satisfied simply by filling the object
+with zeros if it is a page or zero number keys if it is a node.  The
+second is more difficult.
+<p> The problem is that the first user may retain keys that grant
+access to the page.  If such keys remain valid when the page is
+reallocated, the first user will be able to access the second user's
+data.
+<h3>1.2.1 Allocation Counts</h3>
+<p> To prevent this, every object has an associated <strong>allocation
+count</strong> that is incremented each time the object is handed out by the
+space bank.  Keys to a disk object contain the allocation count of the
+object they name.  If the allocation count in the capability and the
+allocation count for the object do not match, the capability is
+invalid and conveys no authority.
+<p> Allocation counts for nodes reside in the node data structure on
+the disk.  Allocation counts for pages on the disk reside in the
+associated page pot.
+<h3>1.2.2 Call Counts</h3>
+<p> EROS guarantees that every <em>call</em> operation receives at
+most one <em>return</em>.  This is accomplished by generating a
+special key known as a <em>resume key</em>.  The ``at most once''
+contract is enforced by means of a <strong>call count</strong>.  Whenever a
+domain performs a call, it's call count is incremented.  The resume
+key contains the call count rather than the allocation count.  If the
+call count of the resume key and the call count of the domain do not
+match, the resume key is invalid and conveys no authority.
+<p> Since there is no way to know in advance which nodes will end up
+as domain roots, all nodes have an associated call count field.
+Because there is no room for an allocation count in the resume key,
+the call count in a node is incremented whenever the allocation count
+is incremented.
+<h3>1.2.3 Counter Overflow</h3>
+<p> Both the allocation count and the call count are 32 bit numbers.
+In principle, it is possible for either of these fields to overflow.
+If this happens, the object becomes ``broken,'' and will no longer be
+allocated by the space bank.
+<p> In practice, the kernel performs an optimization to prevent
+overflow.  So long as no key for a particular object version gets
+written to disk, access to the object can be rescinded without
+incrementing the on-disk allocation count.  Whenever a valid key to an
+object is written to the disk, the object is marked as requiring a new
+on-disk allocation count.  The kernel uses this mark to minimize
+modifications to allocation and call counts.
+<p> Experience with a previous system, KeyKOS, suggests that a 32 bit
+field is adequate.  KeyKOS originally used a 16 bit allocation count,
+and they once did overflow their counts due to a kernel bug.  They
+switched to a 32 bit field to ensure that call counts would not
+overflow.  EROS improves on the earlier design with an in-core
+allocation count mechanism, which will be described in sections to
+follow, creates an effective allocation count field of 64 bits, which
+will certainly outlast the underlying hardware lifespan.
+<h1>2 Objects in the Checkpoint Log</h1>
+<p> Before any object in memory is modified, space is reserved for it
+in the checkpoint log.  As the in-memory copies of modified objects
+become stale, they are written out to the log.  Eventually, the system
+takes a checkpoint, at which point all dirty objects are incrementally
+dribbled out to the log.
+<p> Objects in the checkpoint log do not appear in any particular
+order.  Instead, a <strong>checkpoint log directory</strong> is maintained in
+kernel memory that describes the location of all of the objects in the
+checkpoint area.  The directory also contains the allocation counts,
+call counts, and flag bits for the objects in the log
+<p> When a checkpoint completes, a copy of this directory is appended
+to the checkpoint log so that objects in the log can be located on
+restart.  A snapshot of the thread list is also appended to the log,
+and a commit record is written describing where these two structures
+are located.  When the system restarts, the directory and thread list
+associated with the most recent commit record are loaded into memory,
+and the objects are faulted in lazily as the active threads are
+restarted.
+<h1>3 Objects in Memory</h1>
+<p> As execution proceeds, objects are loaded into main memory.
+Whenever an object is cached in memory, it is inserted into a hash
+table on the basis of it's CDA.  This allows the memory copy of the
+object to be located quickly whenever the object must be found.
+<p> Node in memory are placed in <strong>node frames</strong>, and pages in
+<strong>page frames</strong>.  Every in-memory object frame has an associated
+information block known as the <strong>core object structure</strong>.  For
+nodes, the core object structure is directly attached to the object.
+For pages, this structure is kept in a parallel structure called the
+<strong>core table</strong>.  Among other things, the core object structure
+contains:
+<p>
+<ul>
+  <p>
+  <li> The coded disk address of the object,
+       <p>
+  <li> The on-disk and in-core allocation counts for the object, and
+       <p>
+  <li> The doubly-linked list pointer fields to support the object
+       hash table.
+</ul>
+<p> Because EROS uses a checkpoint and migration system, it is
+possible for three versions of a node to be in memory simultaneously:
+<p>
+<ul>
+  <p>
+  <li> The current (active) version,
+       <p>
+  <li> The version from the last checkpoint, which may not yet have
+       been flushed from memory.
+       <p>
+  <li> The version from the home location (nodes only), which may have
+       been loaded into core temporarily by the migrator.
+</ul>
+<p> The first two versions of the object live in node frames, the last
+in a node pot.
+<p> Page frames can have two versions of the same object: current and
+last checkpoint.  Not all page frames hold objects, however. Core page
+frames have several other uses:
+<p>
+<ul>
+  <p>
+  <li> Node pots are read into page frames in order to fetch a node
+       from the disk or rewrite a node to the disk.
+       <p>
+  <li> Page pots are read into page frames in order to read the
+       allocation counts and flags associated with a particular page.
+       <p>
+  <li> Page table pages (on machines that implement page tables) are
+       allocated from the pool of page frames.
+       <p>
+  <li> Driver pages are sometimes allocated from the pool of page
+       frames.
+</ul>
+<p> The core object structure has a <em>type</em> field that is used
+to keep track of the current content of each frame.  In the case of
+node frames, the type field is also used to keep track of how the node
+is prepared (which is covered in a subsequent chapter).
+<h1>4 Loading Objects</h1>
+<p> All references to objects in the EROS system occur by invoking
+keys.  Even memory accesses can ultimately be thought of as
+invocations of page keys.
+<p> Keys that grant authority to kernel-implemented objects require no
+special attention.  Device keys, number keys, and kernel service keys
+fall under this category.  References to objects on the disk, however,
+may require that the associated object be read from the disk.
+<p> An object key stored on the disk is an <strong>unprepared key</strong>.
+Before a node containing prepared keys is written to the disk, the
+keys are first deprepared.  Unprepared object keys contain a type
+field, an allocation count, some access rights, and the CDA of the
+object they name, as shown in Figure 7.1.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- DiskObKey.eps -->
+  <p> Figure 20.1: Unprepared (on disk) object key structure
+</ul>
+<p> The type field indicates whether the object is a node or a page,
+and how that node is to be used.  The access field defines the
+permissable operations.
+<p> Before an object key can be used, it must first be
+<em>prepared</em>.  A <strong>Prepared key</strong> conveys exactly the same
+authority as the unprepared key, but has three important properties:
+<p>
+<ul>
+  <p>
+  <li> The current version of the object it names is guaranteed to be
+       in memory.
+       <p>
+  <li> Access to the object will be prompt, by which we mean that they
+       will not cause the kernel to schedule some other thread.
+       <p>
+  <li> Other data structures in memory are permitted to depend on the
+       current value of this key.
+</ul>
+<p> The first time that an unprepared object key is invoked, the key
+is prepared by the kernel.  The first step in doing so is to try to
+locate the current version of the object by searching the object hash
+table.  Often, the object will be found in core, and preparation can
+proceed without delay.
+<p> If the object is not in core, the kernel initiates an I/O
+operation to read it in from the disk.  If the object is a page, and
+the associated page pot is not present, the page pot will be read in
+first.
+<a href="#fn7-2">note</a>
+<p> The thread that performed the key
+invocation becomes stalled waiting for the object to be read, and will
+be restarted when it arrives.
+<p> Once the object has been found in core, the kernel can try to
+prepare the key on behalf of the invoking process.  A prepared key
+allows more efficient access to the object, because it contains a
+pointer directly to the object in memory.  The first step in preparing
+a key is to check that the unprepared key contains a valid allocation
+count.
+<p> As has previously been mentioned, objects in memory carry both a
+disk allocation count and a core allocation count.  When the object is
+first read from the disk, the core allocation count is set to zero.
+If the object is later rescinded, the core allocation count is
+incremented.  For an unprepared key to be valid, two conditions must
+be satisfied:
+<p>
+<ol>
+  <p>
+  <li> The disk allocation count in the key must match the disk
+       allocation count of the object.
+       <p>
+  <li> The core allocation count of the object must be zero.
+</ol>
+<p> If both of these conditions hold, the key is a valid key, and can
+be prepared.  If the key is <em>not valid</em>, appropriate action is
+taken by the kernel.
+<a href="#fn7-3">note</a>
+<p> The prepared form of the key contains a pointer to the object in
+place of the coded disk address, and the core allocation count in
+place of the disk allocation count, as shown in
+Figure 20.2.
+<ul>
+  <p> <img src="../img/construction.gif"><em>Pardon us while we figure
+  out what to do about figures in HTML</em>
+  <!-- MemObKey.eps -->
+  <p> Figure 20.2: Prepared object key structure
+</ul>
+<p> A prepared
+key is valid if the core allocation count in the key matches the core
+allocation count in the object.  When a prepared key is discovered to
+be invalid by the key cleaner, it is deprepared.
+<h1>5 The Grim Reaper</h1>
+<p align=right>It's a Mister Grim. He's come about the reaping.
+<br><em>- Monty Pyhton</em>
+<p> The key preparation mechanism is used to get objects loaded into
+memory, but it doesn't address the problem of deciding what objects to
+kick out to make room.  This is accomplished by the (grim) reaper,
+which implements the ageing policy.  With the exception of page frames
+allocated for use by drivers, all object frames are subject to the
+ageing policy.
+<p> Every object frame has an associated age field in the core object
+structure.  Objects are allowed to remain for 8 generations before
+being evicted from memory.  Whenever a new object is loaded into an
+object frame, the age field is set to 0.
+<p> When the system goes to read a new object into memory, it must
+first locate a suitable object frame to hold the new object.  If no
+frames of an appropriate type are found on the free frame list, the
+reaper is started.
+<p> Before an object can be discarded from the cache, all prepared
+keys to that object must be deprepared.  If prepared keys are allowed
+to remain, the pointers they contain will be left dangling.  The
+reaper passes through all of the keys objects in the system,
+incrementing their age fields.  Objects that reach generation 7 are
+assumed to be stale.  If they have been modified, they are marked for
+cleaning by the cleaning agent and appended to the free frame list.
+<p> The reaper then makes a pass through memory examining every key.
+If a key is prepared, and points to a stale object, the key is
+deprepared.  A side effect of depreparing the keys is that any cached
+state that depends on the key's validity is invalidated.  As an
+example, if a prepared page key points to a stale page that is
+currently mapped by a hardware mapping table, depreparing the key will
+zap the mapping entry as a side effect.  By the end of the reaper's
+execution, there are no prepared keys pointing to objects on the free
+list.
+<p>
+<!--  An important consequence of this is that there are
+never any prepared keys to objects in generation 7. -->
+<p> When the number of free object frames in generation 7 falls below
+a threshold, the reaper is started again.
+<h2>5.3 Life After Death</h2>
+<p> The ageing process provides a way to discover how long an object
+has been in memory, but it doesn't really give a good indication of
+how recently the object has been accessed.  Most of the objects that
+make it to generation 7 really are stale, but a few will be heavily
+used pages associated with long-running programs.  It is useful to
+avoid removing such objects from memory.
+<p> To make sure that active objects remain alive, the age field is
+examined whenever a key is prepared.  If the object is found in
+memory, but the object is currently on the free frame list
+(i.e. <code>age == 7</code>), and enough other free frames are
+available, the object is promoted to generation 0 to keep it in
+memory.
+<p> In effect, then, an object whose frame is on the free list isn't
+really gone; it can be reclaimed and kept in memory if it is actively
+in use.  The limitation on this is that we want to ensure that I/O
+makes progress, which requires that we always keep enough free frames
+to satisfy any pending I/O requests.  This is why we require a minimum
+number of object frames on the free list.  If revivifying an object
+would reduce the free list past this threshold, the reaper is invoked
+again.
+<h1>6 The Cleaner</h1>
+<p> The reaper places objects on the free list and marks them to be
+written to the checkpoint log, but it does not actually perform the
+``last writes.''
+<a href="#fn7-3">note</a>
+<p> 
+Object writes are performed
+by the cleaner.  An object frame cannot be reallocated until the
+contained object has been successfully written to the checkpoint log.
+<p> The cleaner runs whenever there are outstanding writes to be
+performed.  During cleaning, some portion of the system's I/O request
+structures are reserved for use by the cleaner.  The cleaner walks
+through memory looking for objects that need to be written, and
+schedules I/O operations on those objects until there are no more
+cleaner I/O request structures available.  Reserving I/O request
+structures in this way ensures that both the cleaner and user
+processes continue to make progress.  When the cleaner is not running,
+it's I/O request structures are made available for use by other
+programs.
+<p> Because of the log-structured nature of the checkpoint area,
+cleaner initiated writes (writes of cleansing?) are unusually
+efficient.  Writes performed by the cleaner invariably go to
+sequential disk locations, which minimizes head motion.  In addition,
+object reads tend to observe temporal locality.  Performing writes to
+the checkpoint log translates this temporal locality into spacial
+locality.  A consequence is that it is very likely for the disk arm to
+be somewhere within the log area already, and have only small distance
+to seek before performing the write.
+<h1>7 Summary</h1>
+<p> This chapter has described the purpose of most of the fields in
+the core object structure:
+<p>
+<ul>
+  <p>
+  <li> The coded disk address of the object,
+       <p>
+  <li> The hash chain pointer,
+       <p>
+  <li> The disk and core allocation counts,
+       <p>
+  <li> The next object pointer, which is used for the free list.  This
+       field does double duty to support the ``dirty object list,''
+       which is used by the cleaner.
+       <p>
+  <li> The age field.
+       <p>
+  <li> The object type field (indicates the current use of the object
+       frame).
+</ul>
+<p> A few miscellaneous fields have not been mentioned yet:
+<p>
+<ul>
+  <p>
+  <li> The <code>ioCount</code> field keeps track of how many pending
+       I/O requests are working on this object.  If there are any I/O
+       operations in progress, the object may not be modified.
+       <p>
+  <li> A pointer union field used to keep track of some cacheing
+       relationships.
+       <p>
+  <li> A flags field that indicates various attributes of the frame
+       that are discussed later.
+</ul>
+<p> We will go into greater detail on the mechanisms that support the
+object cache in later chapters.
+<p>
+<H1>Notes</H1>
+<fn id=fn20-1>
+<p> That
+number deserves some perspective.  If you were to take every disk
+drive manufactured since the computer industry began and hook them all
+to a single EROS system, you'ld still have plenty of room.  With some
+of the more recent storage technologies, though, we may well need a
+larger key format within the next decade.
+</fn>
+<fn id=fn7-2>
+<p> 
+It is possible that such an I/O operation is already
+in progress on behalf of some other user.  The kernel checks for this
+before initating an I/O request.
+</fn>
+<fn id=fn7-3>
+<p>
+What exactly constitutes appropriate
+action is currently a matter of debate.  One school holds that an
+invocation of an invalid key should hand control to the domain keeper.
+Another school holds that an invalid key should be transparenty
+converted to a zero number key.  I'm inclined to think it should go to
+the domain keeper.
+</fn>
+<fn id=fn7-3>
+<p> The author actually <em>was</em> shot for
+these puns, but unfortunately recovered.
+</fn>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

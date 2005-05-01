@@ -1,0 +1,79 @@
+<HTML>
+<HEAD>
+<TITLE>Driver Initialization in EROS</TITLE>
+</HEAD>
+<BODY>
+<P>
+This note describes the EROS kernel driver logic.  At the moment, I"m
+particularly focused on how drivers are initialized at boot time, but
+the note includes an overview of kernel drivers in general.
+<P>
+<H1>1. Overview: Types of EROS Drivers</H1>
+<P>
+An EROS driver is any piece of code that responds to a hardware event
+interrupt or implements a user-callable key.  This includes devices
+and few kernel-implemented services (such as
+<STRONG>discrim</STRONG>).  Ignoring the initialization entry points,
+each driver has two primary external interfaces:
+<STRONG>OnIntr</STRONG> and <STRONG>OnKeyCall</STRONG>.  These are
+invoked, respectively, when an interrupt registered to that driver has
+occurred or a user has invoked a key implemented by the driver.  All
+drivers are derived from a common <STRONG>Driver</STRONG> superclass.
+<P>
+Protection fault handlers are also implemented using the driver
+mechanism.
+<P>
+Drivers often have multiple instances.  In a system with two SCSI
+controllers, each card will have a distinct SCSI driver instance in
+the kernel.  If the driver instance manages a device that generates
+interrupts, the instance will register itself with interrupt
+dispatcher at initialization time.  Driver instances are either
+well-known to the kernel (e.g. number key driver) or are miscellaneous
+keys.  Miscellaneous keys are registered in a central kernel table.
+The table entry number corresponds to the key's miscellaneous type
+value.
+<H2>Disk Drivers</H2>
+<P>
+In a system with persistent store, disk devices have a much closer
+relationship to the kernel than other devices.  While these devices
+implement the <STRONG>OnIntr</STRONG> and <STRONG>OnKeyCall</STRONG>
+entry points, they also implement disk read and write entry points.
+Disk driver implementations in EROS are derived from
+<STRONG>DiskDriver</STRONG>, which is in turn derived from the basic
+<STRONG>Driver</STRONG> class.
+<H1>Driver Initialization</H1>
+On startup, the kernel establishes a basic memory map and proceeds to
+initialize all of the drivers that are present in the system.  This
+involves asking each driver to probe the system looking for devices,
+allocating driver storage for those devices that are found, and
+setting the associated devices to a known state.
+<H2>Order of Initialization</H2>
+<P>
+On most machines, there are ordering constraints on how drivers are
+initialized.  For example, the system timer must be initialized before
+almost anything else, since many other drivers make use of watchdog
+timers.
+<P>
+There are also some less obvious constraints.  Not all controllers are
+friendly to autoconfiguration, so it is sometimes important to probe
+for one kind of board before another.  On the i386, for example,
+ethernet boards are (in)famous for locking up if probed in certain
+ways.  Unfortunately, the usual CD-ROM controller probe logic locks up
+the ethernet boards.  The solution is to probe for the ethernet boards
+first.
+<P>
+In order to support this, the driver initialization logic makes
+several passes.  Each driver is marked with the pass in which its
+initialization should occur.
+<H1>Cascaded Devices</H1>
+Some cards, in particular disk drives, can support a variable number
+of devices.  In general, the kernel is built to assume the maximum,
+and unused drivers deconfigure themselves during initalization.  In a
+few cases, however, the variations are too many for this to make much
+sense.  One interesting case is DOS disk partitions.
+<P>
+A DOS SCSI controller can have up to 7 devices, per the SCSI standard.
+Each of these devices can supply an arbitrary number of partitions.
+
+</BODY>
+</HTML>

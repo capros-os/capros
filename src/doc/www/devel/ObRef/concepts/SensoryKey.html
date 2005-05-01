@@ -1,0 +1,98 @@
+<html>
+  <head>
+    <title>EOR: Sensory Keys</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b"
+    alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <div class=nocss>
+	    <br class=nocss>&nbsp;
+	      <br class=nocss>&nbsp;
+	  </div>
+	  <div class=KeyName>
+	    [<em><a href="../Cover.html">Return to Top</a></em>]
+	    [<em><a href="00Concepts.html">Concepts</a></em>]
+	    <div align=right>
+	      <H2>EROS Object Reference</H2>
+	      <H2>Concepts</H2>
+	    </div>
+	    <h2>Sensory Keys</h2>
+	    <em>D R A F T</em>
+	    <hr>
+	  </div>
+	  <div class=KeyDescrip>
+	    <h3>Description</h3>
+	    <p>
+	      A sensory key is similar to (in some cases identical
+	      with) a read-only key, with the additional property that
+	      all keys obtained through it will be weakened to sensory
+	      authority.  This provides a way to hand a client a key
+	      to an object and ensure that all of the objects that are
+	      <em>transitively</em> reachable through the initial key
+	      will be immutable to the client.  A sensory key conveys
+	      no authority to modify the designated object.
+	    </p>
+	    <p>
+	      The sensory version of a key is defined as follows:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  The sensory version of a node key is a node key to
+		  the same node with the same key info field, except
+		  that the no-call, read-only, and weak attributes are
+		  guaranteed to be set.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The sensory version of an address space key is a
+		  read-only, no-call, weak version of the address
+		  space key.  </p>
+	      </li>
+	      <li>
+		<p>
+		  The sensory version of a number key is the same key.
+		</p>
+	      </li>
+	      <li> 
+		<p>
+		  The sensory version of a page key is a read-only
+		  page key to the same page.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The sensory version of the <a
+		  href="../kernel/Discrim.html"><strong>discrim</strong></a>
+		  key is the same key.
+		</p>
+	      </li>
+	      <li> 
+		<p>
+		  The sensory version of all other keys is the <a
+		  href="../kernel/Void.html"><strong>void
+		  key</strong></a>.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      A significant difference between EROS and previous
+	      systems implementing this facility is that sensory keys
+	      are easily obtained.
+	    </p>
+	  </div>
+	  <hr>
+	    <em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights
+	      reserved.  For terms of redistribution, see the <a
+	      href="../../../legal/license/GPL.html">GNU General
+	      Public License</a></em> 
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </BODY>
+</html>

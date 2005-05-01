@@ -1,0 +1,154 @@
+<html>
+<head>
+<title>EOR: TimeOfDay</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Kernel.html">Kernel Objects</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Kernel Objects</H2>
+  </div>
+  <h2>TimeOfDay</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> The <strong>TimeOfDay</strong> key provides information about the
+  current time in various forms.  It can be used both to learn the
+  calendar day and date as reported by the underlying hardware, and
+  to discover the number of milliseconds since the system was last
+  restarted.
+  <p> Note that posession of the time of day allows a program to
+  coordinate its behavior with other programs even in the absence of
+  an overt channel.  In highly secure environments it may be
+  appropriate to restrict the availability of this key.
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the key.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       0x10000002: 
+	       Key is a TimeOfDay key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Get Hardware Time of Day</strong> (OC = 1)
+    <dd> 
+	 <p> Returns the current time of day as reported by the
+	 hardware's time of day clock.  The accuracy of this
+	 information is platform dependent, as is the handling of time
+	 zones and such.
+	 <p> 
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=8>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right><strong>W</strong></td>
+	     <td>Current year.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>W</strong></td>
+	     <td>Day of year.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>B</strong></td>
+	     <td>Day of week.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>B</strong></td>
+	     <td>Month.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>B</strong></td>
+	     <td>Day of month.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>B</strong></td>
+	     <td>Hour (24 hour format)</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>B</strong></td>
+	     <td>minute</td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right><strong>B</strong></td>
+	     <td>second</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       0
+	     </td>
+	     <td>
+	       Time returned okay.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       KT+1
+	     </td>
+	     <td>Unknown order code
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Get milliseconds since startup</strong> (OC = 16)
+    <dd> 
+	 <p> Returns the number of milliseconds that have passed since
+	 the machine was last powered up.  This can be used in
+	 conjunction with the sleep key to wake up at a particular time.
+	 <p> 
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right><strong>L</strong></td>
+	     <td>Milliseconds since startup</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       0
+	     </td>
+	     <td>
+	       Time returned okay.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	       KT+1
+	     </td>
+	     <td>Unknown order code
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

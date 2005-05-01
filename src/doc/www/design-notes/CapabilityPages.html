@@ -1,0 +1,385 @@
+<html>
+  <head>
+<!--     <link rel=STYLESHEET HREF="../CSS/stylesheet.css" type="text/css"> -->
+    <title>Capability Pages</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+    <center>
+      <H1>Capability Pages</H1>
+    </center>
+    <div>
+      &nbsp;<br>
+    </div>
+    <p class=initial>
+      This note describes the initial design for EROS capability
+      pages.
+      <p>Capability pages will not be implemented, for the following reasons:
+    <ul>
+      <li>They expose the size of the kernel implementation of a capability.
+          We prefer not to expose this, so the implementation can be
+          changed without affecting code outside the kernel.
+      <li>The simple implementation of capability pages has them mapped
+          into the process's address space, but with access permitted
+          only in kernel mode. The simple implementation of access checking
+          for strings passed in key invocations is to check that the string
+          is mapped and accessible. Since this check is done in the kernel,
+          it would be possible to send or receive a string in a
+          capability page, which is a no-no. 
+    </ul>
+    </p>
+    <h2>1. Basic Idea</h2>
+    <p class=initial>
+      Certain EROS processes want to manage a large number of
+      capabilities.  The base EROS system provides no mechanism to do
+      so <em>efficiently</em>.  While we could adopt the KeyKOS
+      approach and implement a supernode, this is fairly expensive on
+      machines with a slow privilege crossing mechanism.
+    </p>
+    <ul>
+	It should be noted that the x86 privilege crossing delay is a
+	disaster, and the KeyKOS supernode approach is entirely
+	appropriate for machines with lesser delays of this form
+	(e.g. most modern RISC machines).  The mechanism proposed here
+	would remain faster on such machines, but only by a factor of
+	4 or so rather than a factor of 400.  given a machine with a
+    </ul>
+    <p>
+      In addition to the performance issue, it is convenient to be
+      able to share a pool of such capabilities in the same way that
+      one shares memory.
+    </p>
+    <p>
+      Finally, it would in some instances be very convenient to have a
+      capability stack that it parallel to the data stack.
+    </p>
+    <p>
+      In an ideal world, capabilities would be a hardware-protected
+      first class data type (requiring a side bit in the memory).  The
+      proposed mechanism comes as close to realizing this as can be
+      practically accomplished on current generation hardware.
+    </p>
+    <h2>2. Capability Pages</h2>
+    <p class=initial>
+      Capability pages provide a page-sized equivalent to a node.  A
+      capability in 32-bit EROS systems occupies 16 bytes.  The number
+      of such capabilities in a page is architecture dependent, but
+      this design assumes that capabilities will be densely packed
+      within a page.
+    </p>
+    <p>
+      Capability pages are addressed in the same way as physical
+      pages: by inserting them into segments.
+    </p>
+    <p>
+      Because capability pages can be shared via segments, the KeyKOS
+      ``sensory'' notion must be replaced in EROS by a combination of
+      ``weak'' and ``read-only'' attributes.  A ``weak'' capability is
+      one that applies the sense transformation to all capabilities
+      fetched through it.  A read-only capability prohibits writing.
+      The combination of these two constraints is functionally
+      equivalent to the KeyKOS sensory capability.
+    </p>
+    <p>
+      Both attributes are interpreted hierarchically in a memory
+      context, which has the desired effect on controlling exposure
+      across an entire memory segment.
+    </p>
+    <h3>2.1 Page Types and Access Types</h3>
+    <p class=initial>
+      In the proposed design, a page frame holds either capabilities
+      or data, but never both.  Data references to a capability page
+      cause suitable access violations.  Capability references to a
+      data page similarly cause access violations.
+    </p>
+    <p>
+      The question of what to <em>do</em> about such faults remains a
+      policy decision to be made by a keeper.  This requires that the
+      kernel now report to the keeper some encoding of the following
+      information:
+    </p>
+    <ul>
+      <li> Whether a page exists at the referenced address.
+      <li> What type of page exists at the referenced address
+	(capability or data).
+      <li> What type of access was performed to that address
+	(capability or data).
+    </ul>
+    <p>
+      To handle this, we revise the existing segment fault codes to
+      the following:
+    </p>
+    <center>
+      <table>
+	<tr valign=top>
+	  <td><strong>FC_CapInvalidAddr</strong></th>
+	  <td>
+	    <p>
+	      A capability reference was made to a location 
+	      where no valid page (of any kind) exists.
+	    </p>
+	  </td>
+	</tr>
+	<tr valign=top>
+	  <td><strong>FC_DataInvalidAddr</strong></th>
+	  <td>
+	    <p>
+	      A capability reference was made to a location 
+	      where no valid page (of any kind) exists.
+	    </p>
+	  </td>
+	</tr>
+	<tr valign=top>
+	  <td><strong>FC_CapTypeError</strong></th>
+	  <td>
+	    <p>
+	      A capability operation was performed to a data page.
+	    </p>
+	  </td>
+	</tr>
+	<tr valign=top>
+	  <td><strong>FC_DataTypeError</strong></th>
+	  <td>
+	    <p>
+	      A data operation was performed to a capability page.
+	    </p>
+	  </td>
+	</tr>
+	<tr valign=top>
+	  <td><strong>FC_CapAccess</strong></th>
+	  <td>
+	    <p>
+	      A capability write was performed to a capability page
+	      along a mapping that is read-only.
+	    </p>
+	  </td>
+	</tr>
+	<tr valign=top>
+	  <td><strong>FC_DataAccess</strong></th>
+	  <td>
+	    <p>
+	      A data write was performed to a capability page
+	      along a mapping that is read-only.
+	    </p>
+	  </td>
+	</tr>
+      </table>
+    </center>
+    <p>
+      For reporting purposes, type errors have higher precedence than
+      access violations.  A data write to a read-only capability
+      therefore generates FC_DataTypeError rather than FC_DataAccess.
+    </p>
+    <h3>2.2 Implementation</h3>
+    <p class=initial>
+      Capability pages require that we extend the existing ``type
+      tag'' for disk pages from {page, log frame, node frame, alloc
+      pot} to {data page, capability page, log frame, node frame,
+      alloc pot}, and keep a type tag on pages in memory so that we
+      can keep track of what they hold.  The necessary tag fields are
+      already present; tracking the tag has no marginal data overhead.
+    </p>
+    <p>
+      Capability manipulations are performed by four kernel-emulated
+      instructions:
+    </p>
+    <center>
+      <table width="85%">
+	<tr valign=top>
+	  <td nowrap><strong>copycap %cr1,%cr2</strong></td>
+	  <td>
+	    <p>
+	      Copies a capability from capability register
+	      <code>%cr2</code> to capability register
+	      <code>%cr1</code>.  Has no effect if
+	      <code>%cr1</code> is capability register zero.
+	    <p>
+	      Because this is an indivisible instruction generating no 
+	      exceptions, it can be special-case coded in the kernel.
+	    </p>
+	  </td>
+	</tr>
+	<tr valign=top>
+	  <td nowrap><strong>xchgcap %cr1,%cr2</strong></td>
+	  <td>
+	    <p>
+	      Exchanges the values of <code>%cr1</code> and register
+	      <code>%cr2</code>.  If either register is capability
+	      register zero, it's value remains unchanged.
+	    <p>
+	      Because this is an indivisible instruction generating no 
+	      exceptions, it can be special-case coded in the kernel.
+	    </p>
+	  </td>
+	</tr>
+	<tr valign=top>
+	  <td nowrap><strong>cload %cr1, <em>address</em></strong></td>
+	  <td>
+	    <p>
+	      Loads the capability at <em>address</em> into capability 
+	      register <code>%cr1</code>.
+	    </p>
+	    <p>
+	      Exceptions:
+	    </p>
+	    <table>
+	      <tr valign=top>
+		<td><strong>FC_CapInvalidAddr</strong></th>
+		<td>
+		  <p>
+		    <em>address</em> has no mapping in the domain's
+		    address space.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td><strong>FC_CapTypeError</strong></th>
+		<td>
+		  <p>
+		    <em>address</em> names a data page in the domain's
+		    address space.
+		  </p>
+		</td>
+	      </tr>
+	    </table>
+	  </td>
+	</tr>
+	<tr valign=top>
+	  <td nowrap><strong>cstore %cr1, <em>address</em></strong></td>
+	  <td>
+	    <p>
+	      Stores the capability in capability register
+	      <code>%cr1</code> at <em>address</em>.
+	    </p>
+	    <p>
+	      Exceptions:
+	    </p>
+	    <table>
+	      <tr valign=top>
+		<td><strong>FC_CapInvalidAddr</strong></th>
+		<td>
+		  <p>
+		    <em>address</em> has no mapping in the domain's
+		    address space.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td><strong>FC_CapTypeError</strong></th>
+		<td>
+		  <p>
+		    <em>address</em> names a data page in the domain's
+		    address space.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td><strong>FC_CapAccess</strong></th>
+		<td>
+		  <p>
+		    <em>address</em> names a read-only capability page
+		    in the domain's address space.
+		  </p>
+		</td>
+	      </tr>
+	    </table>
+	  </td>
+	</tr>
+      </table>
+    </center>
+    <p>
+      It may prove useful in the future to introduce a related
+      pseudo instruction <strong>cprobe
+	<em>address</em></strong>, which initiates a page fault
+      but does not block the calling process.
+    </p>
+    <p>
+      It may also prove useful in the future to extend the current IPC 
+      invocation instructions with an instruction that permits the
+      invoked capability to reside in memory.
+    </p>
+    <h2>3. Other Proposals</h2>
+    <p class=initial>
+      Mark Miller has proposed an alternative to the above
+      instructions based on a memory-memory architecture rather than a
+      register-memory architecture.
+    </p>
+    <p>
+      In this proposal, a data load from a capability page returns the 
+      referenced address.  A data store of a value to a capability
+      page interprets the value as a <em>source</em> capability
+      address, and copies the capability at that address to the
+      referenced address.
+    </p>
+    <p>
+      This proposal has the advantage that it allows capability
+      references to be treated as first-class data structures by the
+      compiler with approximately the right semantics.
+    </p>
+    <p>
+      I have decided not to pursue this approach for now for two
+      reasons:
+    </p>
+    <ul>
+      <li>
+	<p>
+	  I am not convinced that the memory-memory architecture is
+	  what we want.
+	</p>
+      </li>
+      <li>
+	<p>
+	  Without careful thought, I am reluctant to do this by
+	  overloading the data instructions.  I am mildly concerned
+	  about the loss of fault reporting.
+	</p>
+      </li>
+    </ul>
+    <p>
+      I'm recording the proposal here because it is interesting, and
+      because it might significantly simplify the implementation of
+      the capability cache logic.
+    </p>
+    <h2>4. Issues in Implementation</h2>
+    <p class=initial>
+      The following issues have arisen in the course of implementing
+      this change.
+    </p>
+    <p>
+      There is a difficulty with allowing prepared keys in capability
+      pages.  The nature of the problem is that the page may be
+      involved in I/O, and the I/O might therefore cause the prepared
+      form of the key to be written to disk.  There are two ways to
+      solve this:
+    </p>
+    <ol>
+      <li> 
+	<p>
+	  Do not allow prepared keys within capability pages
+	</p>
+      </li>
+      <li> 
+	<p>
+	  Deprepare all keys in a capability page before performing
+	  I/O or page eviction.  Before preparing any key in a
+	  capability page, check for the I/O case (in which case the
+	  page is guaranteed to be dirty) and treat the page as
+	  requiring copy on write if a key must be prepared within it.
+	</p>
+      </li>
+    </ol>
+    <p>
+      The latter solution becomes utterly necessary if we allow the
+      invoked key to be specified by a memory address.
+    </p>
+    <p>
+      An ancillary performance issue arises, which is that unlike
+      nodes, the keys in capability pages must be forcibly deprepared
+      at every checkpoint, because there are no capability page pot
+      equivalents.
+    </p>
+    <hr>
+    <em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights reserved.
+      For terms of redistribution, see the <a
+	href="../legal/license/GPL.html">GNU General Public License</a></em>
+  </td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

@@ -1,0 +1,1464 @@
+<html>
+  <head>
+    <title>A Programmer's Introduction to EROS</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <div class=nocss>
+      <br class=nocss>&nbsp;
+	<br class=nocss>&nbsp;
+    </div>
+    <table width=100%>
+      <tr>
+	<td width="10%" valign=top class=toc>
+	  <b>UP</b>
+	  <br>&nbsp;
+	    <br><a href="../../eros.html"><em>EROS Web</em></a> 
+	      <br>&nbsp;
+		<br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+		  <br>&nbsp;
+		    <br>&nbsp;
+		      <br>&nbsp;
+	</td>
+	<td width=5%>&nbsp;</td>
+	<td valign=top>
+	  <center>
+	    <h1>A Programmer's Introduction to EROS</h1>
+	    <div class=nocss>
+	      <br class=nocss>&nbsp;
+		<br class=nocss>&nbsp;
+	    </div>
+	  </center>
+	  <ul> 
+	    <p>
+	      <em>Note: This document is a work in progress.  It's
+		current contents are mostly correct, but it remains
+		subject to substantial content revision. It should
+		stabilize by 2/7/96. </em>
+	    </p>
+	  </ul>
+	  <p>
+	    This document provides an introduction to the EROS system
+	    from a programmer's point of view.  If you are building
+	    programs that will run under an operating environment,
+	    such as Dionysix, see the documentation for that operating
+	    environment.
+	  </p>
+	  <p>
+	    This note does not try to provide an exhaustive
+	    description of the EROS environment.  Instead, it tries to
+	    provide enough information to get you started, leaving
+	    details to be addressed by other documents.
+	  </p>
+	  <h2>1. Processs</h2>
+	  <p>
+	    Applications in EROS are typically constructed out of
+	    several independent processes, which we call
+	    <dfn><strong>processs</strong></dfn>.  A process consists
+	    of:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		An <em>address space</em>, containing the program that
+		the process obeys and any data that the process may
+		construct.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		A set of <em>registers</em>, which change as the
+		process executes. The register set includes all of the
+		non-privileged registers of the underlying machine
+		architecture.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		A set of 16 capabilities, more commonly referred to as
+		<em>keys</em>, which name the services that the
+		process can invoke.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		A <em>keeper</em>, which is another process that is
+		invoked when a process takes an exception.  The keeper
+		is established when a process is first created.  Most
+		processs are unable to change their keeper.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    Each process implements a specific, well-defined
+	    collection of related services. Each process carries
+	    exactly the authority that it requires to perform its
+	    function <em>and no more</em>.
+	  </p>
+	  <p>
+	    While it is common to build several new processs for each
+	    application, the EROS system comes with a <a
+	      href="#toolkit">toolkit of useful processs</a>.  Some of
+	    these provide high-level facilities such as sorting and
+	    data management.  Others implement various supporting
+	    policies for such things as page fault handling.  In
+	    addition to constructing new components, an application
+	    designer will typically make use of several such ``off the
+	    shelf'' processs in constructing an application.
+	  </p>
+	  <p>
+	    Processs are more than just libraries.  In addition to
+	    code and data, each process has the ability to remember
+	    information from one session to the next, and runs in it's
+	    own protected environment.  Services implemented using
+	    processs can run in parallel with the application they
+	    serve.  We refer to such protected, independent services
+	    as <strong>active persistent agents</strong>.  They are
+	    one of the keys to EROS's reliability.
+	  </p>
+	  <p>
+	    Placing a service in a seperate process has several
+	    advantages:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		The service runs in its own address space.  If it does
+		fail the remainder of the program is unaffected, and
+		the guilty portion of the system is easily identified.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The service can be tested independently, because it's
+		interface is well defined and it's interaction with
+		the rest of the system is well understood.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The service can be used by non-trusted clients.  It is
+		possible (and quite common) to give a user the ability
+		to invoke a process without giving them the authority
+		to examine the code or data in that process.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    The primary disadvantage is that invoking a process is
+	    somewhat more expensive than performing a library call.
+	  </p>
+	  <h3>1.1. Persistence</h3>
+	  <p>
+	    All objects in EROS, including processs, are
+	    <strong>persistent</strong>.  If the system is shut down,
+	    or for some reason crashes, the state of all running
+	    programs is preserved by the <strong>checkpoint</strong>
+	    mechanism.  The EROS system periodically saves a
+	    consistent copy of the entire system state to disk.  When
+	    the system restarts, it resumes from the most recently
+	    saved system image.  Typically, no more than 5 minutes
+	    work is lost in such a failure.
+	  </p>
+	  <p>
+	    A consequence of persistence is that <em>processs exist
+	      forever.</em> Until a process is explicitly dismantled,
+	    the services it implements remain available to clients
+	    with suitable keys.
+	  </p>
+	  <p>
+	    Persistent processes enable a whole new aproach to
+	    application design.  Instead of building shared libraries,
+	    common services in EROS are placed in seperate, persistent
+	    processs.  Because processs are persistent, there is no
+	    need to recreate them each time an application is started,
+	    which would be necessary in a non-persistent system.  In
+	    addition, fault isolation and security are greatly
+	    improved by persistence.  For example, EROS programs can
+	    hold authorities that are different from the user's
+	    authorities (see <a
+	      HREF="http://www.cis.upenn.edu/~KeyKOS/ConfusedDeputy.html"><cite>The
+		Confused Deputy</cite></a> for a discussion of why this is
+	    so important).
+	  </p>
+	  <h3>1.2. Views of Processs</h3>
+	  <p>
+	    From the programmer's perspective, there are (at least)
+	    two useful views of processs:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		A process is an application running program that
+		invokes services 
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		A process is the implementor of one or more related
+		services.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    The first view is the traditional view of application
+	    programs: a UNIX application, for example, is a program
+	    that invokes operating system and other services to
+	    perform some (hopefully useful) task for a user.  EROS
+	    applications are no different.  When the user interface
+	    software starts a new application, such as a text editor,
+	    it does not wait for that application to return to the
+	    user interface program.  Application processs may retain a
+	    great deal of state, but are typically dismantled when the
+	    user is done with them.
+	  </p>
+	  <p>
+	    The vast majority of processs, however, are designed to
+	    operate as services, and retain minimal state from one
+	    invocation to the next.  A service process is typically a
+	    loop of the form:
+	  </p>
+	  <ul>
+	    <pre>
+	      forever
+	      wait for a request
+	      process the request, possibly invoking other processs
+	    </pre>
+	  </ul>
+	  <p>
+	    Service processs remain available for invocation
+	    indefinitely. Even shutting down the machine and
+	    restarting it will not clear out the state of a service
+	    process.  This means that process code must be written
+	    correctly; simply assuming that the program will exit
+	    before you get into trouble will not do.
+	  </p>
+	  <h3>1.3. Process States</h3>
+	  <p>
+	    In addition to providing services, processs provide a
+	    mechanism for synchronization.  A process can be occupied
+	    by at most one thread.  If a client invokes a process that
+	    is currently running, the client blocks until the process
+	    becomes available.  More precisely, processs can be in one
+	    of three states:
+	  </p>
+	  <ul>
+	    <table>
+	      <tr valign=top>
+		<th align=left>
+		  State
+		</th>
+		<th align=left>
+		  Description
+		</th>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <strong>Available</strong>
+		</td>
+		<td>
+		  <p>
+		    An <em>available</em> process is currently idle,
+		    an can be invoked by any holder of an appropriate
+		    <a HREF="#startkey">start key</a>.  This is the
+		    state of most of the processs in the system.  An
+		    available process is not occupied by any thread.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <strong>Running</strong>
+		</td>
+		<td>
+		  <p>
+		    Once it has been invoked, a process moves from the
+		    available state to the <em>running</em> state.  A
+		    running process is busy servicing an invocation,
+		    and is occupied by a thread.  If a process is
+		    invoked while it is running, the invoker will
+		    block until the process becomes
+		    <em>available</em>.  A process becomes available
+		    when it performs a <strong>return</strong>
+		    operation.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <strong>Waiting</strong>
+		</td>
+		<td>
+		  <p>
+		    A process that has invoked a key and is waiting
+		    for a response moves from the <em>running</em>
+		    state to the <em>waiting</em> state.  It remains
+		    in this state until it receives a reply to its
+		    invocation.  If a process is invoked while it is
+		    waiting, the invoker will block until the process
+		    becomes <em>available</em>.
+		  </p>
+		</td>
+	      </tr>
+	    </table>
+	  </ul>
+	  <p>
+	    A more detailed discussion of key invocation and process
+	    states can be found <a href="#messages">below</a>.
+	  </p>
+	  <h3>1.4. Process Keepers</h3>
+	  <p>
+	    Once in a while, the best of programs will take
+	    exceptions.  Some of these, such as misaligned reference
+	    faults, can be handled with software emulation.  Others
+	    indicate a flaw in the process that must be corrected by
+	    hand.  The EROS kernel does not directly handle such
+	    exceptions.  Instead, it reports them to the process's
+	    <strong>process keeper</strong>.  Most processs have an
+	    associated keeper.
+	  </p>
+	  <p>
+	    The basic idea behind keepers is that exceptions should be
+	    recoverable.  The kernel knows enough to be able to shoot
+	    the process in the head, but not enough to be able to fix
+	    it and allow it to proceed.  Since a distinct keeper can
+	    be established for each program, it is possible to
+	    construct a more knowledgeable fault handler that might be
+	    able to recover the process to a reasonable state.
+	  </p>
+	  <p>
+	    In practice, most faults delivered to the process keeper
+	    are address space access faults, which are described below
+	    along with the description of <a href="#spaces">address
+	      spaces</a>.
+	  </p>
+	  <H2>2. Keys and Objects</H2>
+	  <p>
+	    A <dfn><strong>key</strong></dfn> grants the authority to
+	    use a particular service or manipulate an object.  Keys
+	    can be loosely broken into a small number of categories:
+	  </p>
+	  <ul>
+	    <table>
+	      <tr valign=top>
+		<td>
+		  <em>Object Keys</em>
+		</td>
+		<td>
+		  <p>
+		    The primary objects in EROS are pages and nodes.
+		    All other objects in the system are constructed
+		    out of these primary object types.  Each of these
+		    objects has an associated key type.
+		  </p>
+		  <p>
+		    Primary objects are implemented directly by the
+		    EROS kernel.  When a program invokes a primary
+		    key, the action requested is performed directly by
+		    the EROS supervisor.
+		  </p>
+		  <p>
+		    Processs and address spaces are constructed out of
+		    nodes and pages, and the keys that manipulate
+		    these objects are also implemented by the kernel.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em><a name="startkey">Start Keys</a></em>
+		</td>
+		<td>
+		  <p>
+		    Processs can publish services to their clients.
+		    The creator of a new process can fabricate a
+		    <strong>start key</strong> to that process.  The
+		    start key includes:
+		  </p>
+		  <ul>
+		    <li>
+		      <p>
+			The identity of the process that implements
+			the service
+		      </p>
+		    </li>
+		    <li>
+		      <p>
+			A type field, known as the <strong>data
+			byte</strong>, indicating which service is to
+			be performed.
+		      </p>
+		    </li>
+		  </ul>
+		  <p>
+		    A program that holds a start key to a particular
+		    process can use the service by invoking the start
+		    key.  The message sent during the invocation is
+		    sent directly to the implementing process.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>Device Keys</em>
+		</td>
+		<td>
+		  <p>
+		    Access to hardware devices is provided through
+		    device keys.  Generally speaking, a device key is
+		    a thin layer over the raw hardware.  The kernel
+		    implementation of the device key does only enough
+		    checking to make sure that a request will not
+		    damage the rest of the kernel.
+		  </p>
+		  <p>
+		    A program that holds a device key has direct
+		    control over the underlying hardware.  Device keys
+		    are therefore <strong>closely held</strong>, which
+		    means that they are given out only to the programs
+		    that are supposed to manage the devices.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>Miscellaneous
+		    <br>Keys</em>
+		</td>
+		<td>
+		  <p>
+		    A few services are implemented by the kernel that
+		    do not have associated objects.  Examples of such
+		    services include the <strong>checkpoint
+		    key</strong> which allows a program to request
+		    that a checkpoint be taken; <strong>range
+		    keys</strong>, which allow the space banks to
+		    fabricate page and nodes keys for the ranges they
+		    manage; and <strong>number keys</strong>, which
+		    provide a way to store an unsigned integer as a
+		    Key.
+		  </p>
+		</td>
+	      </tr>
+	    </table>
+	  </ul>
+	  <p>
+	    Most programs use only object and start keys.  A few of
+	    the more commonly used objects and their keys are
+	    described below.  A discussion of address spaces and start
+	    keys can be found in subsequent sections.
+	  </p>
+	    <h3>2.1. Number Keys</h3>
+	    <p>
+	      A number key contains an 96 bit unsigned
+	      quantity. Number keys are used to describe offsets into
+	      memory address spaces, machine register values, and what
+	      have you.  The basic operations on a number key are to
+	      set its value and retrieve its value.
+	  </p>
+	  <h3>2.2. Pages</h3>
+	  <p>
+	    A <dfn><strong>page</strong></dfn> is the basic unit of
+	    data storage in EROS.  Every page holds an
+	    architecture-defined number of bytes (4096 on most
+	    implementations), and is manipulated through a
+	    <strong>page key</strong>.  The holder of a page key can
+	    install the page into a larger address space, or directly
+	    manipulate the content of the page by invoking the page
+	    key.  Address Spaces are discussed <a
+	    href="#spaces">below</a>.
+	  </p>
+	  <p>
+	    Page keys exist in both <em>read-write</em> and
+	    <em>read-only</em> forms.  A read-write page key conveys
+	    the right to read or modify the contents of a page of
+	    storage.  A read-only page key can read, but not modify,
+	    the content of a page.
+	  </p>
+	  <h3>2.3. Nodes</h3>
+	  <p>
+	    Just as a page holds a fixed number of bytes, a
+	    <dfn><strong>nodes</strong></dfn> holds a fixed number
+	    (currently 16 on all implementations) of keys, and is
+	    manipulated through a <strong>nodes key</strong>. As with
+	    page keys, node keys exist in read-write and read-only
+	    variants.
+	  </p>
+	  <p>
+	    Unlike pages, the content of a node is not directly
+	    accessable to the programmer.  Where a page can be memory
+	    mapped and manipulated directly with <code>load</code> and
+	    <code>store</code> instructions, the bits of a key are
+	    part of the system security architecture, and are visible
+	    only to the kernel.  The holder of a node key can
+	    <em>copy</em> a key from the node slot to a key register
+	    (or vice versa if the node key is read-write), and can
+	    <em>invoke</em> a key in a key register by naming the
+	    register.  The content of the key data structure is
+	    completely opaque to the program.
+	  </p>
+	  <ul>
+	    <p>
+	      <img src="../../img/caution.gif" align=left> This is not
+		strictly true.  The <strong>discrim</strong> key
+		enables some minimal amount of discrimination among
+		keys.  Using discrim, keys can be compared for
+		equality, and the general type of a key (page, node,
+		start) can be obtained.
+	    </p>
+	    <p>
+	      In addition, there is a <em>very</em> closly held key
+	      called <strong>keybits</strong> that allows the bits of
+	      a key to be examined directly.  This key is primarily
+	      used for debugging the system itself, and does not
+	      permit the keys to be modified.
+	    </p>
+	  </ul>
+	  <h4>2.3.1. Sensory Keys</h4>
+	  <p>
+	    A read-only node key does not permit a node to be
+	    modified, but if that node contains a read-write key, the
+	    read-write key can be copied into the application's key
+	    register and used to modify the object it denotes.  This
+	    is analogous to extracting a read-write pointer from a
+	    read-only structure in a language like C. Sometimes it is
+	    necessary to hand another party a key to a node with an
+	    assurance that no matter what they do they will be unable
+	    to obtain a read-write key through that initial key.
+	  </p>
+	  <p>
+	    To address this need, the EROS kernel provides a key known
+	    as a <strong>sensory</strong> key.  Sensory keys denote
+	    nodes, and are similar to read-only keys, but any
+	    read-write key returned by a sensory key will first be
+	    weakened.  If it is a read-write node key, a sensory key
+	    to that node will be returned instead.  Read-write page
+	    and address space keys will be weakened to read-only keys.
+	    Number keys are copied unchanged.
+	  </p>
+	  <ul>
+	    <p>
+	      <img src="../../img/caution.gif" align=left> This is an
+		open issue about what to do with process and start
+		keys when read through a sensory key.  For now, a zero
+		number key will be returned in place of these keys,
+		but a case could be made for a read-only process key
+		and a "don't-call" start key.
+	    </p>
+	  </ul>
+	  <h2><a name="spaces">3. Address Spaces</a></h2>
+	  <p>
+	    A <dfn><strong>address space</strong></dfn> provides a
+	    mechanism for assembling pages into a larger, addressable
+	    pool.  The current EROS implementation supports address
+	    space trees of up to 2<sup>64</sup> bytes, and 64 bit
+	    implementations will probably increase this limit (the
+	    current address space structure can handle 2<sup>128</sup>
+	    byte address spaces, but the number key size allows only
+	    96 bits of offset to be requested).
+	  </p>
+	  <h3>3.1. Address Space Trees</h3>
+	  <p>
+	    An address space tree is a tree of nodes whose leaves are
+	    pages.  For example, a two page address space tree
+	    consists of a single node containing page keys in slots 0
+	    and 1:
+	  </p>
+	  <center>
+	    <p>
+	      <img src="spc02pg.gif">
+	    </p>
+	  </center>
+	  <p>
+	    Similarly, a 19 page address space tree is made up of
+	    three nodes and 19 pages.  This one has a "hole" in it;
+	    pages 17 through 30 (inclusive) are not present.
+	  </p>
+	  <center>
+	    <p>
+	      <img src="spc19pg.gif">
+	    </p>
+	  </center>
+	  <p>
+	    In addition to page, node, and address space keys, a slot
+	    in an address space node may contain a number key.  A zero
+	    number key is used to identify an absent subaddress space,
+	    such as the hole in the above diagram.  Other number keys
+	    serve as <a href="#windowkeys">window keys</a>, which are
+	    described below.
+	  </p>
+	  <h4>3.1.1. Short-Circuit Address Space Trees</h4>
+	  <p>
+	    Every key to an address space tree has embedded within it
+	    the size of the address space it names.  More precisely,
+	    the key contains the <em>biased log</em> of the address
+	    space size.  The biased log is defined as
+	    (log<sub>16</sub>(size) - 1).  This isn't as hard to
+	    compute as it might seem. If an address space contains
+	    2<sup>20</sup> bytes, the biased log of the address space
+	    size is (20/4 - 1) or 4.
+	  </p>
+	  <p>
+	    The blss value can be used to allow address space trees to
+	    skip levels in certain cases.  Suppose that you are
+	    building the address space tree for an address space
+	    having two code pages starting at virtual address 0x1000
+	    and a single page of data starting at 0x80000000.  In the
+	    absence of short circuiting, this would require an address
+	    space tree with 9 nodes:
+	  </p>
+	  <center>
+	    <p>
+	      <img src="spc-noskip.gif">
+	    </p>
+	  </center>
+	  <p>
+	    By taking advantage of the short circuiting feature, nodes
+	    whose only valid slot is slot 0 can be removed:
+	  </p>
+	  <center>
+	    <p>
+	      <img src="spc-skip.gif">
+	    </p>
+	  </center>
+	  <p>
+	    Note that the BLSS values of the keys in the uppermost
+	    node are 3!  This is what tips off the kernel that the
+	    address space has been short-circuited.
+	  </p>
+	  <p>
+	    When an access is performed to a short circuited tree, the
+	    offset bits corresponding to the "missing" nodes must be
+	    zero.  If they are not, the address space's keeper (if
+	    any) is invoked to handle the error as though the offset
+	    was to an invalid page.
+	  </p>
+	  <h4>3.2. Access Rights</h4>
+	  <p>
+	    To access an address space, the program provides an offset
+	    into that address space, a byte count, a data buffer, and
+	    the operation that is to be performed (read or write).
+	    This information is bundled up into a message (described
+	    <a href="#message">below</a>), and the key to the address
+	    space is invoked with the message.
+	  </p>
+	  <p>
+	    To determine if the access is permitted, the kernel treats
+	    the offset as a path through the tree, and walks down the
+	    tree along that path.  As it traverses each node, the
+	    kernel uses the next 4 bits out of the offset to choose
+	    which slot to follow. Ultimately, the kernel arrives at a
+	    valid page key or a zero number key.  At this point, it
+	    has to determine if the access desired is allowed.
+	  </p>
+	  <p>
+	    When the kernel starts the address space traversal,
+	    read-write access is assumed.  If any key along the path,
+	    including the initial address space tree key, does not
+	    permit write access, the access authority for the
+	    operation is downgraded to read-only.
+	  </p>
+	  <p>
+	    If a zero number key is found, the offset is invalid, and
+	    the address space's <a href="#keptseg">keeper</a> is
+	    invoked.  If a page key is found, the operation is
+	    performed if the user has sufficient authority.  In either
+	    case the program will receive a reply message indicating
+	    the result of the operation.
+	  </p>
+	  <h4>3.3. Types of Address Space Keys</h4>
+	  <p>
+	    An address space is constructed out of nodes and pages.
+	    Once an address space is constructed, there are two sorts
+	    of keys that can be handed to clients: node keys and
+	    address space keys.  Given a node key to an address space
+	    tree, one can ask for an address space key for the same
+	    tree.
+	  </p>
+	  <p>
+	    A node key supports all of the address space protocol, but
+	    also allows a client to examine the internal construction
+	    of the address space.  Using the node key, the client can
+	    traverse the address space "by hand" to examine it's
+	    content.  If read-write authority to the address space is
+	    permitted, the client can also modify the structure of the
+	    address space.
+	  </p>
+	  <p>
+	    An address space key, by contrast, allows only address
+	    space accesses to the address space tree.  The client can
+	    request data from a particular offset in the address
+	    space, but is unable to traverse or modify the internal
+	    structure of the address space.  For this reason, the
+	    common convention is to construct the address space tree
+	    out of nodes, and hand the client an address space key to
+	    the root of the tree.
+	  </p>
+	  <h4><a name=keptseg>3.4. Kept Address Spaces</a></h4>
+	  <p>
+	    We have mentioned that an address space can have a keeper,
+	    but so far have given no indication as to how the keeper
+	    is identified.  Keepers are identified by a special sort
+	    of address space tree node known as a <strong>kept address
+	    space node</strong>.  A kept address space key is
+	    distinguished from an address space key by a bit in it's
+	    key data field.  As with all other nodes in an address
+	    space tree, the key to a kept address space node can be
+	    either an address space key or a node key.
+	  </p>
+	  <p>
+	    The contents of a kept address space node are interpreted
+	    according to a <strong>format key</strong> that is found
+	    in slot 15.  The format key contains three currently
+	    defined fields:
+	  </p>
+	  <ul>
+	    <table>
+	      <tr valign=top>
+		<th align=left>
+		  Field (Bits)
+		</th>
+		<th align=left>
+		  Interpretation
+		</th>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  [0:3]
+		</td>
+		<td>
+		  <p>
+		    Number of <strong>initial slots</strong>
+		    (<strong>I</strong>).  Describes how many of the
+		    keys in this node should be considered valid for
+		    purposes of address space traversal.  More
+		    precisely, slots in the range [0:I) will be
+		    traversed according to the usual address space
+		    traversal rules.  Slots whose number is >= I will
+		    be assumed to hold zero number keys for purposes
+		    of ordinary traversal.  This reserves these slots
+		    for use as the background key or keeper key.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  [4:7]
+		</td>
+		<td>
+		  <p>
+		    Invocation convention.  If an invocation is made
+		    on a kept address space key, the invocation is
+		    reflected to the keeper.  The value of this field
+		    determines what will be passed to the keeper in
+		    slot 2 (numbered from 0) of the message:
+		  </p>
+		  <table>
+		    <tr valign=top>
+		      <td>0</td>
+		      <td>
+			<p>
+			  A node key to this node will be passed as
+			  the third argument to the keeper.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td>1</td>
+		      <td>
+			<p>
+			  The third argument provided by the caller
+			  will be passed unaltered
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td><em>other</em></td>
+		      <td>The address space is malformed.</td>
+		    </tr>
+		  </table>
+		  <p>
+		    This field also determines what is received by the
+		    address space keeper if a fault occurs within this
+		    address space.  If the field is non-zero, a zero
+		    number key will be passed in slot 2 of the address
+		    space keeper invocation message.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  [8:11]
+		</td>
+		<td>
+		  <p>
+		    Slot number of the <strong>address space keeper
+		    key</strong>. (K).  The key in slot
+		    <strong>K</strong> is a start key to the keeper
+		    for this address space.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  [12:15]
+		</td>
+		<td>
+		  <p>
+		    Slot number of the <strong>background
+		    key</strong>. (B).  The key in slot
+		    <strong>B</strong> is an address space key to the
+		    background address space for this address space.
+		    Background address space are described in greater
+		    detail <a href="#windowkeys">below</a>.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>other</em>
+		</td>
+		<td>
+		  <p>
+		    All other bits of the format key are reserved for
+		    future use, and should be zero.
+		  </p>
+		</td>
+	      </tr>
+	    </table>
+	  </ul>
+	  <p>
+	    If an invalid access to an address space is made (invalid
+	    page or access violation), the kernel encapsulates a
+	    description of the fault into a message, and sends this
+	    information to the keeper.  The keeper receives the type
+	    of the invalid access (invalid, access violation), a key
+	    to the address space in question, and a number key giving
+	    the offset into the kept address space at which the access
+	    occurred.  In addition, the kernel synthesizes a special
+	    key called a <strong>restart key</strong> to the process
+	    that took the fault.  Using the restart key, the address
+	    space keeper can either resume the process as though it
+	    had not faulted or cause the fault information to be
+	    passed to the process keeper.  The restart key does
+	    <em>not</em> allow the address space keeper to send a
+	    message to the process itself.
+	  </p>
+	  <p>
+	    It is possible for kept address spaces to nest.  For
+	    example, one might define a region of an address space to
+	    have "heap" semantics, in which pages will be appended
+	    automatically by the keeper as they are referenced.  Such
+	    a heap would be a part of the larger data region of the
+	    program, and the entire data region might be subject to
+	    copy-on-write semantics.
+	  </p>
+	  <p>
+	    Though you might expect that it would be done the other
+	    way, access faults are reported to the <em>outermost</em>
+	    keeper.  The reason for this is simple: it is possible for
+	    the keeper to pass the fault on to an inner keeper, but
+	    not vice versa.
+	  </p>
+	  <p>
+	    If no address space keeper can be found that keeps the
+	    address space in which the access fault occurred, the
+	    acccess fault is reported to the process keeper.
+	  </p>
+	  <h3><a name="windowkeys">3.5. Window Keys</a></h3>
+	  <p>
+	    As mentioned above, number keys play multiple roles in
+	    address spaces:
+	  </p>
+	  <ul>
+	    <table>
+	      <tr valign=top>
+		<th align=left>
+		  Role
+		</th>
+		<th align=left>
+		  Description
+		</th>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>Invalid
+		    <br>Subaddress space</em>
+		</td>
+		<td>
+		  <p>
+		    A zero number key indicates that the address space
+		    tree from that point down is not populated.  Any
+		    reference to an address space offset that would
+		    traverse a zero number key is therefore invalid.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>Local
+		    <br>Window Key</em>
+		</td>
+		<td>
+		  <p>
+		    A <strong>local window key</strong> (not yet
+		    implemented) provides a mechanism to duplicate an
+		    address space without duplicating the entire tree.
+		    In effect, a window key identifies a window onto
+		    another address space that should appear where the
+		    window key was found.
+		  </p>
+		  <p>
+		    A local window key (bits [0:3] == 0010) names some
+		    other slot in the same node (bits [4:7]) that is
+		    the other address space, and names the offset
+		    (remaining bits) in that address space at which
+		    the window begins.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>Background
+		    <br>Window Key</em>
+		</td>
+		<td>
+		  <p>
+		    A <strong>background window key</strong> (not yet
+		    implemented) is similar to a local window key, but
+		    it describes a window on the most enclosing
+		    background address space key.  It can be
+		    distinguished from a local window key because the
+		    low nibble has a different value (bits [0:3] ==
+		    0011).  As with the local window key, the
+		    remaining bits describe the offset into the
+		    background address space at which this address
+		    space appears.
+		  </p>
+		</td>
+	      </tr>
+	    </table>
+	  </ul>
+	  <p>
+	    In order to be a valid window key, the offset must conform
+	    to certain constraints.  Specifically, if the window key
+	    is found in a node that spans a 2<sup>n</sup> byte address
+	    space, the offset must be a multiple of 2<sup>n-4</sup>.
+	    Conceptually, a node whose BLSS is <strong>B</strong> is
+	    expected to contain keys whose BLSS is
+	    <strong>B-1</strong>, and the window key must describe a
+	    window at a suitable offset.  Constraining the offset in
+	    this way does not in practice induce substantial
+	    complexity on keepers, and ensures that it possible to
+	    share mapping subtables.
+	  </p>
+	  <p>
+	    Use of number keys other than zero number keys and valid
+	    window keys is strongly discouraged, as new sorts of
+	    windows may be desirable in the future.
+	  </p>
+	  <p>
+	    One use of background address spaces is to support
+	    copy-on-write address spaces.  The new address space
+	    (i.e. the copy) is crafted as an initially empty kept
+	    address space, with a read-only background key to the
+	    original address space.  Initially, the only content of
+	    the new address space is a background window key in slot 0
+	    referencing the original address space.  Whenever a write
+	    reference occurs, the client will take an access
+	    violation, and the address space keeper will expand the
+	    kept address space as necessary.  It installs background
+	    keys to smaller and smaller windows on the original
+	    address space, and replaces the written pages with
+	    read-write page keys to copies of the original address
+	    space's pages.
+	  </p>
+	  <ul>
+	    <p>
+	      <em>Note: the above description is flawed, because once
+		the background address space is read-only it becomes
+		impossible to tell which pages ought to have been
+		read-write.  While it is possible to store a true
+		address space key in a non-initial slot of the kept
+		address space, there must surely be a better way.
+		Inclusion of read-write, read-only, and don't-call
+		attributes for window keys must be decided.</em>
+	    </p>
+	  </ul>
+	  <h2><a name=message>4. Messages and Key Invocation</a></h2>
+	  <p>
+	    A service is used by invoking a key to that service.
+	    Invoking a key is done by sending a message to the service
+	    denoted by that key.  A message contains:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		A <strong>request code</strong>, naming the operation that is
+				  to be performed.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Four keys, which may be zero number keys if the sender
+		wishes not to send a key.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Up to one page of data.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    In contrast to other microkernels, EROS messages are
+	    fairly minimal.  There is no way to directly send more
+	    than a single page of data or more than 4 keys.
+	  </p>
+	  <p>
+	    In practice, this minimal message is more than adequate
+	    for the vast majority of invocations.  If more data must
+	    be sent, the sender can construct an address space and
+	    send a key to the address space instead.  If more keys
+	    need to be sent, a node containing those keys can be
+	    transmitted.  In addition, there is a commonly implemented
+	    convention (which is beyond the scope of this document)
+	    for transmitting larger buffers by ping-ponging calls
+	    between the sender and the receiver.
+	  </p>
+	  <h3>4.1. Invocation Types</h3>
+	  <p>
+	    EROS implements three types of invocations: call, return,
+	    and send.
+	  </p>
+	  <h4>4.1.1. Call Invocations</h4>
+	  <p>
+	    The <strong>call</strong> invocation can send only three
+	    keys, because the kernel generates a <strong>resume
+	    key</strong> and places it in the fourth key slot of the
+	    message.  A unique return key is generated for each call,
+	    and the kernel guarantees that every call will receive at
+	    most one return.  Return keys are, in effect,
+	    self-consuming.  If any copy of a given return key is
+	    invoked all others are effectively invalidated.
+	  </p>
+	  <p>
+	    If the recipient is running or waiting for another
+	    process, the caller will block until the recipient becomes
+	    <em>available</em>.  Along with the caller's message, the
+	    recipient recieves a copy of the <strong>data
+	    byte</strong> from the service key, indicating which
+	    service was invoked.
+	  </p>
+	  <p>
+	    In addition to specifying the location and size of the
+	    keys and data to be sent, the caller specifies where any
+	    keys and data returned from the service should be placed.
+	    When the service returns, it's returned information will
+	    be placed in the buffer and key slots specified by the
+	    caller.
+	  </p>
+	  <p>
+	    <img src="call.gif" align=right> When a call invocation is
+	      performed, the calling process ceases to run, and is
+	      placed in the <em>waiting</em> state.  It will
+	      eventually resume execution when the resume key is
+	      invoked.  The recipient, meanwhile, transitions from the
+	      <em>available</em> state to the <em>running</em> state,
+	      and begins processing the service request.  We say that
+	      the thread which occupied the caller has
+	      <em>migrated</em> to the service process.
+	  </p>
+	  <h4 clear=all>4.1.2. Return Invocations</h4>
+	  <p>
+	    <img src="return.gif" align=right> The
+	      <strong>return</strong> invocation is the mirror to the
+	      call invocation.  The returning process specifies the
+	      message and result code to be returned, and also
+	      specifies the location and slots into which the next
+	      message should be received.  The returning process then
+	      switches from the <em>running</em> state back to the
+	      <em>available</em> state, and the caller (who performed
+	      the call that the returning to) switches from the
+	      <em>waiting</em> state back to the <em>running</em>
+	      state.  The thread has migrated back to the caller.
+	  </p>
+	  <h4 clear=all>4.1.3. Send Invocations</h4>
+	  <p>
+	    <img src="send.gif" align=right> It is sometimes necessary
+	      to send messages without blocking for a reply. The
+	      <strong>send</strong> invocation does this.  The caller
+	      sends a message as with the call instruction, and blocks
+	      until the recipient has received it.  Once the message
+	      has been transmitted, both the sender <em>and</em> the
+	      receiver are in the <em>running</em> state, and are able
+	      to execute instructions.
+	  </p>
+	  <p>
+	    As an example, the send invocation is used when the user
+	    interface wishes to initiate a new application.
+	  </p>
+	  <p>
+	    Note that the send invocation has the effect of creating a
+	    new, independent thread of execution.  The invoking thread
+	    remains in it's original process, and a new thread is
+	    allocated for the recipient.
+	  </p>
+	  <h3>4.2. Not Just Client Server</h3>
+	  <p>
+	    The call and return invocations are named for their most
+	    common usage, which is to handle client/server
+	    interactions between two processs, but this is not the
+	    only way in which these invocations can be used.  In
+	    particular, a call can be performed on a resume key, and a
+	    return can be performed on a start key.  This has some
+	    very useful implications.
+	  </p>
+	  <h4>4.2.1. Multithreaded Dispatch</h4>
+	  <p>
+	    One example is implementing a user level multiplexor.
+	    Suppose you have some service that must be low-latency.
+	    Because a process can only service one caller at a time,
+	    execution will serialize.  This may not meet the needs of
+	    the application.  To handle this problem, you decide to
+	    build a multithreaded service.  To do so, you construct
+	    several processs sharing a common address space.  If a way
+	    can be found to dispatch callers to a free process, delay
+	    will be reduced.  What is needed is a dispatcher process
+	    to route calls to available processs.
+	  </p>
+	  <p>
+	    To implement such a dispatcher process, you simply add one
+	    more process to the pool, and reserve a common page in
+	    memory.  This page has N words (one for each server
+	    thread). Just before the dispatcher starts one of the
+	    service threads it sets the word to zero to indicate that
+	    the service thread is in use.  Just before returning to
+	    the user, the service thread sets it back to a nonzero
+	    value to indicate that it is now available.
+	  </p>
+	  <p>
+	    The dispatcher itself will run very quickly, but it would
+	    be nice to let the service threads return directly to the
+	    caller rather than returning through the dispatcher.  With
+	    clever use of call, send, and return this is fairly easy
+	    to do.
+	  </p>
+	  <p>
+	    <img src="dispatch1.gif" align=right> Initially, the
+	      caller holds a key to the dispatcher, and both the
+	      dispatcher and the service threads are
+	      <em>available</em>.  The caller calls the
+	      dispatcher. which chooses an available service thread to
+	      handle the request.  The resume key is shown as a dashed
+	      arrow.  So far, there is nothing terribly unusual in
+	      this sequence of events.  The dispatcher holds keys to
+	      each of the service threads, and chooses one to
+	      run. Let's say it's the left one.  The trick lies in how
+	      the service process is set running.  <!-- Basically, we
+	      need a mechanism that will set the service running
+	      without needing to return through the dispatcher. -->
+	  </p>
+	  <p>
+	    <img clear=right src="dispatch2.gif" align=right> Now
+	      comes the fun part.  In order to set the service thread
+	      running, the dispatcher <em>returns</em> to it, passing
+	      the resume key to the original thread in the last key
+	      slot of the message.  The service thread is set running,
+	      and the dispatcher returns to the <em>available</em>
+	      state (surprise!).  Meanwhile, the service thread has
+	      received a proper resume key in the expected slot of the
+	      message. When this invocation has completed, the
+	      situation looks like the second figure.  Note that at
+	      this point, the service thread can return directly to
+	      the caller, and the caller has no way to know that the
+	      service has been dispatched across multiple threads.
+	  </p>
+	  <h2><a name="toolkit">5. Escrow Agents</a></h2>
+	  <p>
+	    One of the important features of the EROS system is the
+	    ability to provide controlled and secure access to
+	    programs and data.  <strong>Escrow Agents</strong> provide
+	    one of the mechanisms for doing this.  Escrow agents
+	    provide a new and unique solution to the <em><a
+	    href="http://www.cis.upenn.edu/~KeyKOS/Confinement.html">Confinement
+	    Problem</a></em>.  Simply stated, the confinement problem
+	    is this:
+	  </p>
+	  <ul>
+	    <p>
+	      <em>Given an untrusted program executing on behalf of a
+		user, ensure that the untrusted program is unable to
+		divulge information to an unauthorized third
+		party.</em>
+	    </p>
+	  </ul>
+	  <p>
+	    In practice, we implement a transitive version of this
+	    requirement.  The result is the same, but slightly more
+	    useful:
+	  </p>
+	  <ul>
+	    <p>
+	      <em>Given a subsystem, possibly made up of multiple
+		program, executing on behalf of a user, demonstrate
+		that the subsytem is unable to divulge information to
+		any party not authorized by the user.</em>
+	    </p>
+	  </ul>
+	  <p>
+	    We assume that the client user is trusted by themselves.
+	  </p>
+	  <p>
+	    An EROS escrow agent is a trusted process.  The provider
+	    of an untrusted program or object installs its pieces into
+	    an escrow agent along with an <strong>assembler</strong>.
+	    When the user wishes to obtain a confined version of the
+	    untrusted program, they ask the escrow agent to build one
+	    by applying the assembler to the components.
+	  </p>
+	  <p>
+	    In order to show that the resulting program is confined,
+	    the escrow agent must show that
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		The component objects are confined.  This is fairly
+		simple, as the key types can be examined to ensure
+		that they are sensory.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The assembler is confined, or operates through an
+		interface that allows confinement to be verified.  As
+		long as the assembler is confined, it cannot install
+		any method of disclosure during the assembly process.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    Provided that both of these constraints are satisfied, the
+	    escrow agent is able to certify that the constructed
+	    service is confined.
+	  </p>
+	  <p>
+	    The escrow agent holds sufficient authority to determine
+	    whether the pieces of the untrusted object are able to be
+	    a path for information disclosure.  To do this, it uses
+	    some simple rules:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		A sensory key cannot be written by the client, and
+		therefore cannot disclose information not already
+		known to the provider.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		The copy-on-write address space keeper is trusted.
+		This knowledge can be used to provide the client user
+		with a discreet, writable version of the objects.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    To determine that the assembler is discreet, the escrow
+	    agent simply asks (transitively) the escrow agent that
+	    built it.  The EROS system includes a few trivial
+	    assemblers that are trusted.
+	  </p>
+	  <p>
+	    This mechanism allows an untrusted provider to provide an
+	    arbitrarily complex service to a user while ensuring that
+	    the service is fully confined.  The mechanism is a more
+	    general variant of the
+	    <a
+					  href="http://www.cis.upenn.edu/~KeyKOS/agorics/KeyKos/Concepts/Chapter4.html">
+					  KeyKOS factory
+					  mechanism</a>.
+	  </p>
+	  <h2><a name="toolkit">6. Some Commonly Used Processs</a></h2>
+	  <p>
+	    As mentioned at the start of this document, there are some
+	    commonly used processs that provide generic services for
+	    use by application builders.  Detailed documentation of
+	    these processs is beyond the scope of this document, but a
+	    brief rundown of a random sample may be useful as an
+	    indication of what is available.
+	  </p>
+	  <ul>
+	    <table>
+	      <tr valign=top>
+		<th align=left>
+		  Process
+		</th>
+		<th align=left>
+		  Description
+		</th>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>Space Bank</em>
+		</td>
+		<td>
+		  <p>
+		    The manager of all pages and nodes in the system.
+		    A space bank can be used to purchase pages and
+		    nodes as they are needed, and the resulting pages
+		    and nodes can be sold back to the space bank when
+		    they are done.
+		  </p>
+		  <p>
+		    The most important function of the space bank is
+		    probably to create subspace banks.  A subspace
+		    bank allows the user to allocate a bounded number
+		    of nodes and pages.  When the subspace bank is
+		    destroyed, all of its allocated space is returned
+		    to it's parent space bank.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>Heap Manager</em>
+		</td>
+		<td>
+		  <p>
+		    Provides support for dynamically growing heap
+		    address spaces.  When an access violation due to
+		    an undefined page occurs within a specified
+		    distance of defined pages within the address
+		    space, obtains a new read-write page from a
+		    user-provided space bank and installs that page at
+		    the referenced location.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>COW Manager</em>
+		</td>
+		<td>
+		  <p>
+		    The COW manager implements copy-on-write services.
+		    When a write access is performed to a previously
+		    uncopied page, the COW manager purchases the
+		    necessary pages and nodes from a user-provided
+		    space bank and installs a writable copy of the
+		    referenced page at the appropriate address.
+		    Unwritten pages are obtained from a background
+		    address space.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>Generic Process
+		    <br>Keeper</em>
+		</td>
+		<td>
+		  <p>
+		    The generic process keeper provides handling for
+		    the recoverable faults defined by the processor.
+		    For example, it handles misaligned references and
+		    provides implementations of unimplemented hardware
+		    instructions that are not handled directly by the
+		    kernel.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>Escrow Agent
+		    <br>Builder</em>
+		</td>
+		<td>
+		  <p>
+		    The escrow agent builder is used to construct an
+		    escrow agent for a new program.  The user obtains
+		    a new escrow agent from the escrow agent builder,
+		    installs components and an assembler into the
+		    newly created escrow agent, and then seals the
+		    escrow agent.  The newly created escrow agent can
+		    be used to construct copies of the program, and
+		    will certify whether the created copies are
+		    confined.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>Supernode</em>
+		</td>
+		<td>
+		  <p>
+		    The supernode process implements a repository for
+		    keys.  It allows a large number of keys to be
+		    stored and retrieved by index, in effect
+		    constructing a node with more than 16 slots.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>KSAM</em>
+		</td>
+		<td>
+		  <p>
+		    Implements a Keyed Sequential Access Method
+		    database using either integer or string keys.
+		    Suitable for small to midrange databases such as
+		    authentication information.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>VILE</em>
+		</td>
+		<td>
+		  <p>
+		    Versatile Input Line Editor module. Provides input
+		    line editing services ranging from simple echo and
+		    kill processing to history and EMACS/VI style line
+		    editing support.  Unlike shell-based line editing,
+		    the VILE module can be used as a front end to any
+		    program that expects line-mode input.
+		  </p>
+		</td>
+	      </tr>
+	      <tr valign=top>
+		<td>
+		  <em>FIM</em>
+		</td>
+		<td>
+		  <p>
+		    Forms Input Manager module.  Provides a standard
+		    interface for forms-based input, which can be used
+		    on either windowed or non-windowed terminals.
+		  </p>
+		</td>
+	      </tr>
+	    </table>
+	  </ul>
+	  <p>
+	    This is not a complete list of services.  Others will be
+	    added as time goes on, and an object manual will be
+	    written to describe them.
+	  </p>
+	  <hr>
+	    <em>Copyright 1998 by Jonathan Shapiro.  All rights
+	      reserved.  For terms of redistribution, see the <a
+	      href="../../legal/license/GPL.html">GNU General Public
+	      License</a></em>
+	</td>
+	<td width=15% valign=top>
+	  &nbsp;
+	</td>
+      </tr>
+    </table>
+  </body>
+</html>

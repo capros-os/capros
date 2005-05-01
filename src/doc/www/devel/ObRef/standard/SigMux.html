@@ -1,0 +1,198 @@
+<html>
+<head>
+<title>EOR: Signal Multiplexor</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Standard Processes</H2>
+  </div>
+  <h2>Signal Multiplexor</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p>
+  A signal multiplexor serves as a distribution mechanism.  It
+  delivers 32 single-bit signals to up to 16 recipients.  One or more
+  recipients calls the signal multiplexor requesting to be woken up
+  when any of a specified set of signals has been raised.  A sender
+  calls the signal multiplexor to cause signals to be posted.  When a
+  signal is posted, it is placed in the input signal sets of all
+  receivers.
+  </p>
+  <p>
+  When a sleeping receiver has indicated a desire to receive a
+  newly-posted signal, it is awakened.  Whan a receiver indicates that
+  it would like to sleep until an already-posted signal has arrived,
+  it returns immediately.
+  </p>
+  <p>
+  Note that the signal multiplexor is designed to distribute
+  single-bit, level-triggered ``interrupts'' where the sender must not
+  be delayed.  This tool is not designed to serve as an event queue.
+  </p>
+</div>
+<hr>
+<h3>Operations</h3>
+<dl>
+  <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+  <dd> 
+       <p> Returns the alleged type of the object.
+       <table>
+	 <tr valign=top>
+	   <td rowspan=1>
+	     <strong>Reply</strong>
+	   </td>
+	   <td align=right>
+             <strong>R1</strong>
+	   </td>
+	   <td align=right>
+	     <em>AKT_SigMux</em>:
+	     Object is a signal multiplexor.
+	   </td>
+	 </tr>
+       </table>
+       <p> 
+    <dt> <strong>Post Signal(s)</strong> (OC = 1)
+    <dd>
+	 <p>
+	 Posts the specified set of signals to all recipients.
+	 Posted signals will be received at most once by every
+	 recipient who waits for them.  Once posted to a given
+	 recipient, the signal remains posting until received.
+	 </p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td>
+	       A 32-bit bit-set of signals to be posted.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       RC_OK
+	     </td>
+	     <td>
+	       Signals have been posted.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Wait for Signal(s)</strong> (OC = 2)
+    <dd>
+	 <p>
+	 Blocks the caller until one or more of the specified signals
+	 has been posted.
+	 </p>
+	 <p>
+	 If two callers request to wait for signals using the same
+	 recipient capability, the second will prevail, and the first
+	 will never be awakened by the signal multiplexor.  The resume
+	 key of the first requestor is overwriten by the resume key
+	 for the second.
+	 </p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td>
+	       A 32-bit bit-set of signals.  The caller will be
+	       awakened when any member of this set is posted.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td>
+	       The set of requested signals that were posted at the
+	       time this process was awakened.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       RC_OK
+	     </td>
+	     <td>
+	       Signals have been posted.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Fabricate Recipient Capability</strong> (OC = 128)
+    <dd>
+	 <p>
+	 Fabricates a recipient capability for the specified received
+	 index.  This capability can be used by the recipient to wait
+	 for signals to be posted.
+	 </p>
+	 <p>
+	 This order is not permitted on
+	 recipient capabilities.
+	 </p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td>
+	       The requested recipient index.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>RK0</strong>
+	     </td>
+	     <td>
+	       A recipient capability.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       RC_OK
+	     </td>
+	     <td>
+	       Recipient capability has been generated.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+</dl>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

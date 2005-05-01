@@ -1,0 +1,520 @@
+<html>
+<head>
+<link rel=STYLESHEET HREF="../CSS/stylesheet.css" type="text/css">
+<title>Kernel Virtual Memory</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <H1>Kernel Virtual Memory</H1>
+</center>
+<p class=initial> This note describes how EROS lays out kernel virtual
+memory at present, and explores a new design in which most user state
+is not mapped by the kernel.
+<H2>1. Physical Memory Model</H2>
+<p class=initial>
+The EROS kernel views memory as a list of contiguous ranges.  Because
+legacy DMA engines impose addressability constraints, each physical
+memory range has an associated memory ``class,'' (an integer)
+indicating how precious (i.e. how constrained) that memory is.  When
+memory allocation is performed, the allocating code specifies the
+required class.  Allocation will be performed from the least precious
+class matching the requirements.
+<div class=note>
+  <p class=initial>
+  <b>Note:</b> The importance of this convention is declining.  After
+  a while, I concluded that it was better to just integrate bounce
+  buffers into the DMA mangement software.  In the current kernel, I
+  believe that the only code which allocates memory under a constraint
+  is the DMA engine itself.
+  </p>
+</div>
+<H2>2. Current (before 5 Jan 1998) Kernel Memory Model</H2>
+<p class=initial>
+The EROS kernel uses main memory for several purposes.  In approximate
+order of allocation, these are:
+<ol>
+  <li>
+       <p class=initial>
+       <b>Kernel Mapping Table(s)</b>
+       </p>
+       <p class=initial>
+       The kernel mapping tables map all of the following space.  The
+       process ``owns'' the low 3 gigabytes of the virtual address
+       space, while the kernel owns the upper 1 gigabyte.  The kernel
+       map in the current design includes a redundant map of all of
+       physical memory.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       <b>Interrupt Management Structures.</b>
+       </p>
+       <p class=initial>
+       Any structures and tables necessary to handle interrupts.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       <b>Driver Buffers.</b>
+       </p>
+       <p class=initial>
+       Drivers are free to allocate kernel pages during startup.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       <b>User Thread Table</b>
+       </p>
+       <p class=initial>
+       The master thread table, containing all of the running or
+       sleeping threads in the system.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       <b>Context Cache</b>
+       </p>
+       <p class=initial>
+       The cache for active processes, used in context switching and IPC.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       <b>Inverted Mapping Table Table</b>
+       </p>
+       <p class=initial>
+       Used to invalidate mappings when the capability slots they
+       depend on are changed.  This data structure is referred to in
+       the EROS kernel as the <em class=term>Depend Table</em>
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       <b>Core Table</b>
+       </p>
+       <p class=initial>
+       The per-object header structures associated with physical
+       pages.  There is one core table entry for every page frame in
+       main memory.  In the current implementation, this includes the
+       page frames used for page directories and page tables.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       <b>Node Space</b>
+       </p>
+       <p class=initial>
+       The memory frames for in-core nodes, which space must be
+       generally accessable to the kernel.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       <b>Page Space</b>
+       </p>
+       <p class=initial>
+       All user pages reside here.  In the current implementation,
+       page space is mapped into the kernel's virtual memory map.
+       </p>
+  </li>
+</ul>
+<H2>3. Proposed Kernel Memory Model</H2>
+<p class=initial>
+There are two major problems with the model described above:
+<ul>
+  <li>
+       <p>
+       It limits <em>physical</em> memory to slightly less than 1GB.
+       </p>
+  </li>
+  <li>
+       <p>
+       It does not reserve any part of the address space for use as
+       ``small spaces.''
+       </p>
+  </li>
+</ul>
+<p class=initial>
+The first point may seem insignificant, but at the University of
+Pennsylvania we had a number of machines configured with 256 Mbytes of
+memory in 1997.  The price/density curve suggests that the 1GB
+boundary cannot be far away.  While the feature isn't widely used,
+current Pentium Pro processors (and possibly Pentium II -- I'm not
+sure, but I am told that they are essentially repackaged Pentium Pro
+dies) can support more than 4GB of physical memory already, which we
+would someday like to leverage.
+</p>
+<p>
+In addition to arguments about ongoing growth in physical memory
+sizes, there exist database and graphics applications for which large
+amounts of physical memory are highly desirable, at least one of which
+happens to be of some personal interest to me.
+</p>
+<p>
+With all of this in mind, I decided to try and redefine EROS memory
+conventions to allow for small spaces and large physical memories.
+</p>
+<h3>3.1. Kernel References to User Pages</h3>
+<p class=initial>
+There are a small number of places where the supervisor makes
+reference to the <em>content</em> of a data page:
+<ol>
+  <li>
+       <p class=initial>
+       <b>From Software.</b> There are several cases in which the
+       kernel makes a data reference from software:
+       </p>
+       <ul>
+	 <li>
+	      <p class=initial>
+	      <b>Source Mapped, Sink Unmapped.</b> The IPC path and
+	      the copy on write logic both copy data that is mapped in
+	      the current address space to one or more pages that are
+	      not mapped in either the sender or the kernel address
+	      space.
+	      </p>
+	 </li>
+	 <li>
+	      <p class=initial>
+	      <b>Neither Mapped.</b> In the data page clone operation,
+	      neither source nor destination is necessarily mapped.
+	      Note, however, that this operation returns no data to
+	      the user.
+	      </p>
+	 </li>
+	 <li>
+	      <p class=initial>
+	      <b>PIO.</b> Programmed I/O moves data to or from a page
+	      that is not necessarily related to the current process
+	      in any way.  This page must be temporarily mapped into
+	      the kernel before I/O can occur.  Bounce buffer copies
+	      are also a form of PIO.
+	      </p>
+	      <p>
+	      In the EROS kernel design, PIO occurs with interrupts
+	      disabled, and never occurs from a nested kernel
+	      interrupt.  This means that PIO does not interfere with
+	      other copies that may be in progress.
+	      </p>
+	 </li>
+       </ul>
+  <li>
+       <p class=initial>
+       <b>Physical DMA.</b> If the DMA hardware uses physical
+       addresses, the fact that the page frame is no mapped into the
+       kernel presents no special difficulties; the kernel merely
+       needs to know the physical address of the page frame.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       <b>Virtual DMA.</b>
+       If the DMA operation uses virtual addresses, then a mapping
+       must somehow be constructed.  In such architectures there is
+       generally an efficient way to shoot down stale mappings, or if
+       necessary a technique similar to the one used for programmed
+       I/O can be employed.
+       </p>
+  </li>
+</ol>
+<h3>3.2. TLB Management</h3>
+<p class=initial>
+By using a small number of dedicated kernel page table entries, these
+cases can be rendered independent.  The kernel guarantees that the
+maximum interrupt nesting depth is 2 (one from user, one within
+kernel), and that no PIO occurs from within a nested interrupt.  Given
+this constraint, the following combinations of data movement might
+occur:
+<center>
+  <table width=85%>
+    <tr valign=top>
+      <th align=left>Scenario</th>
+      <th align=left>Primary I/O</th>
+      <th align=left>Nested I/O</th>
+      <th align=left>Solution</th>
+    </tr>
+    <tr valign=top>
+      <td>Interrupt during Page Zero/COW</td>
+      <td>Demand Zero/COW</td>
+      <td>PIO (in or out)</td>
+      <td>Disable interrupts during copy</td>
+    </tr>
+    <tr valign=top>
+      <td>Page Zero/COW before slow IPC</td>
+      <td>Demand Zero/COW (many)</td>
+      <td>IPC</td>
+      <td>
+	Reserve separate PTEs for copy read and copy write and flush
+	selectively on each allocation <em>or</em>
+	<br>&nbsp;<br>
+	Reuse IPC destination PTEs and flush selectively on
+	<em>deallocation</em>.
+      </td>
+    </tr>
+    <tr valign=top>
+      <td>Interrupt during Page Clone</td>
+      <td>Page Clone</td>
+      <td>PIO (in or out)</td>
+      <td>Disable interrupts during clone operation</td>
+    </tr>
+  </table>
+</center>
+<p>
+If existing drivers (e.g. from Linux or FreeBSD) are to be used, then
+it may be necessary to allow the driver to perform PIO from within the
+nested interrupt.  In that case, we reserve three sets of PTEs: IPC
+(9), demand zero/copy (2), and PIO read/write (2).  The IPC PTEs need
+not be flushed on allocation, but the others must be flushed because
+they can be multiply reused.  If small spaces are implemented, the
+reuse exposure arises more often than it might at first appear,
+because many small spaces can exist within a single address space.
+</p>
+<p>
+Similar solutions can be used for tagged TLB designs lacking
+cross-space load/store instructions.  If cross-space instructions are
+available, a better design is to map all of physical memory in it's
+own space.
+</p>
+<h3>3.3. Revised Memory Layout</h3>
+<p class=initial>
+Given that the page references are cleanly definable, the revised
+kernel memory model excludes user pages from the kernel memory map.
+The new address space layout is as follows:
+</p>
+<center>
+<pre>
++--------------+--------------+----------------+
+| Large Space  | Small Spaces | Kernel Virtual |
+|   (unique)   |   (shared)   |    (shared)    |
++--------------+--------------+----------------+
+</pre>
+</center>
+<p>
+Small spaces and kernel space are shared across all virtual maps,
+enabling rapid transition to/from kernel and to/from small spaces.
+While nodes are directly accessable within kernel space, page data is
+not unless it is mapped into the user address space.  Note that
+capability load and store instructions always access pages that are
+read/write to the kernel but not to the user, so this falls under the
+user-accessible pages scenario.
+</p>
+<p>
+In this model, page table page frames are pre-reserved, and cannot be
+taken from the general memory pool.  More precisely: they could be
+taken from the general page pool, but the need to translate addresses
+means that it basically isn't worth it to do so because page table
+access wants to be fast.  A possible hybrid design is to steal page
+table pages only from the highest physical page frames, and
+redundantly map these into ``page table space'' in the kernel.  If
+preallocation of page tables should prove inconvenient, this is what
+we shall try next.
+</p>
+<h3>3.3. Kernel Virtual Memory</h3>
+<p class=initial>
+Nothing is ever as easy at it appears.  When I sat down to
+<em>implement</em> this new design, I learned that there were a number
+of factors I had failed to consider:
+<ul>
+  <li>
+       <p>
+       Page table update requires translation from physical addresses
+       to virtual addresses for page tables.
+       </p>
+  </li>
+  <li>
+       <p>
+       Depend table invalidation.
+
+       Translation from physical addresses to core table entries for
+       address translation.
+       </p>
+  </li>
+  <li>
+       <p>
+       Growing the kernel address map, and adding mappings to it.
+       </p>
+  </li>
+</ul>
+<h4>3.3.1 Page Table Update</h4>
+<p class=initial>
+When an address fault is satisfied, a page table entry must be
+constructed.  This page table entry must be written into the
+appropriate physical page, so a kernel virtual address for the page
+frame must exist or must already be established.
+<p>
+There are several ways to approach this problem.  Listed in order of
+performance:
+<ol>
+  <li>
+       <p class=initial>
+       Contrive for all user page tables to come out of a contiguously
+       allocated range of physical pages, and map these physical pages
+       at a contiguous range of virtual addresses.  If this is done,
+       the interconversion can be accomplished by adding or
+       subtracting a suitable constant.
+       </p>
+       <p>
+       This approach imposes a fixed limit on the number of page
+       tables available for user mappings.  This number can be
+       conditionalized on the amount of available memory, but it is
+       not obvious what a good heuristic would be.  Counter-balancing
+       that problem is the ease of identifying and managing mapping
+       pages and the performance advantages (due to virtual locality)
+       associated with TLB invalidation during checkpointing.
+       </p>
+       <p>
+       This is the approach I will probably try first, because the
+       speed of PTE invalidation during checkpoint really does matter.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       Build a kernel virtual mapping of the page table page
+       dynamically in order to perform the update.  In the relevant
+       code paths, the kernel cannot assume that the TLB is clean, so
+       it must selectively flush the relevant mapping from the TLB
+       before making a new mapping.
+       </p>
+       <p>
+       On the Pentium, the <code>INVLPG</code> instruction takes 25
+       cycles, which doesn't seem like a lot until you realize that it
+       is about 12% of the basic exception cost.  On pre-486 chips,
+       the entire data TLB must be flushed, with an effective cost of
+       roughly 140-160 cycles due to the need to reload everything.
+       Finally, there is some indication of chip bugs around selective
+       TLB flush in the Pentium Pro chips.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       Maintain an inverse mapping from user page table physical
+       addresses to the corresponding kernel virtual page addresses.
+       This can be done with a hash table or tree structure so as to
+       be decently fast, but it takes up space and the hash table walk
+       is unlikely to be any faster than the selective shootdown strategy.
+       </p>
+       <p>
+       One advantage to this approach is that it admits of hybrid
+       solutions, in which a kernel virtual range is fully reserved
+       for page tables but is only selectively populated with
+       corresponding physical pages.  This would allow page tables to
+       be dynamically allocated in response to load.
+       </p>
+  </li>
+</ol>
+<h4>3.3.2 Depend Table Invalidation</h4>
+<p class=initial>
+When a node slot is modified, the corresponding depend table entries
+must be invalidated.  To do this, the PTE entries must be updated and
+the TLB must be flushed.
+<p>
+If a permanent kernel virtual mapping of page table pages is
+maintained, this becomes fairly easy, as the depend table entry can
+simply contain the kernel virtual address of the relevant PTE.  If
+page tables come and go, then the physical address will almost
+certainly need to be retained.
+<p>
+For the most part, this is simply another variant on the PTE update
+problem, except that the depend operation tends to update more than
+one page at a time.  It is not clear if a single-page mapping approach
+or a TLB flushing approach is better; the answer depends on how many
+pages (on average) are touched by each depend invalidation.
+<p>
+Note also that there <em>may</em> be a further complication associated
+with depend entry invalidation.  If page tables are taken from the
+general page pool, the possibility exists that the page has been
+reclaimed for other purposes.  Since the depend table is not indexed
+by PTE address, the depend logic must verify that the page frame in
+question still holds page table entries.
+<h4>3.3.3 Kernel Address Map</h4>
+<p class=initial>
+A number of data structures must be mapped into the kernel virtual
+address space.  A few of these want to be mapped from contiguous
+physical memory, but this doesn't really pose special problems to the
+kernel mapping mechanism per se.  The question is: how is the kernel
+map itself to be updated.
+<p>
+One can imagine three designs for the kernel virtual memory map:
+<ol>
+  <li>
+       <p class=initial>
+       <b>Dedicated.</b> A memory map covering the entire physical
+       memory is constructed at startup time.  When the kernel must
+       update it's own mapping structures, it switches temporarily to
+       this map.  The dedicated map maps physical memory in what would
+       otherwise be per-process virtual space, and kernel memory
+       according to the normal kernel mapping(s).
+       </p>
+       <p>
+       This general approach works for memory designs that
+       feature load/store alternate space instructions or equivalent
+       functionality.
+       </p>
+       <p>
+       Of the options I have considered, this is far and away the
+       simplest.  It also provides a mapping that can be used by a
+       debugger to examine physical memory.  Given this, and given the
+       fact that kernel PTE manipulation does not happen after
+       initialization, it is the approach I am most likely to adopt.
+       </p>
+       <p>
+       The principle flaw in this approach is its overhead.  This map
+       will not be used under normal circumstances, and for large
+       physical memories it constitutes quite a waste.  On the other
+       hand, if you have a large physical memory you can afford it...
+       </p>
+       <p>
+       A secondary flaw in this approach arises with machines whose
+       physical memory is larger than the virtual memory, as is
+       possible in the Pentium Pro.  In practice, I do not anticipate
+       this being a serious problem, as the pages associated with the
+       kernel map can simply be taken from the mappable portion of the
+       physical address space.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       <b>Reflexive.</b> The kernel map appears in kernel virtual
+       memory, and is updated by making suitable read and write
+       operations via the mapped virtual addresses.
+       </p>
+       <p>
+       I have spent some time on this (because it is my preferred
+       approach), and concluded that it creates a lot of difficulty.
+       First, it has all the issues associated with user page table
+       management (above).  Second, it demands that one be able to
+       predict in advance how large a kernel map will be required so
+       that an appropriate number of page tables can be allocated.
+       The latter is a problem both because one would desperately like
+       to take advantage of variable-size pages and also because
+       dynamically allocated page tables must themselves be added to
+       the map (which can cause deadlock).
+       </p>
+       <p>
+       While this approach appeals to me greatly, I have decided not
+       to use it.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       <b>Non-reflexive.</b>  The kernel map does not appear in kernel
+       virtual memory.  This is just a pain in the ass all around, and
+       it raises a chicken and egg problem: if we haven't built the
+       mapping yet, how do we find the appropriate PTE slot to use to
+       build a temporary mapping so that we can update the kernel page
+       table so as to build a new mapping?
+       </p>
+       <p class=initial>
+       Sadly, I suspect that in the long term this is indeed the best
+       approach to take.  One solution to the temporary mapping
+       construction problem is to hand-construct a sufficient mapping
+       table to support building the temporary mapping, and then do
+       the rest by building temporary mappings.
+       </p>
+  </li>
+</ol>
+<hr> <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.
+For terms of redistribution, see the <a
+href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

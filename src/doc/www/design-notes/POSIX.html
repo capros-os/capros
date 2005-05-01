@@ -1,0 +1,58 @@
+<html>
+<head>
+<title>UNIX Compatibility Notes</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <h1>UNIX Compatibility Notes</h1>
+</center>
+<p> Some of the applications we want to port are POSIX-based, so we
+have set up a UNIX compatibility environment.  Many (though certainly
+not all) UNIX applications will cross-compile fairly readily.
+<p> The compability library makes a number of assumptions about the
+use of capability registers and other parts of the environment, which
+are documented here.
+<p>
+<table>
+  <tr valign=top>
+    <td>KR1</td>
+    <td>Constituents node</td>
+  </tr>
+  <tr valign=top>
+    <td>KR2</td>
+    <td>Key to self domain root</td>
+  </tr>
+  <tr valign=top>
+    <td>KR3</td>
+    <td>File system root (a directory)</td>
+  </tr>
+  <tr valign=top>
+    <td>KR4</td>
+    <td>Space bank</td>
+  </tr>
+  <tr valign=top>
+    <td>KR5</td>
+    <td>Schedule key</td>
+  </tr>
+  <tr valign=top>
+    <td>KR6</td>
+    <td>Open file list (a supernode)</td>
+  </tr>
+  <tr valign=top>
+    <td>KR7</td>
+    <td>Returner.</td>
+  </tr>
+  <tr valign=top>
+    <td>KR8</td>
+    <td>Reserved for use by the library as a scratch register.  When
+      no ``system call'' is in progress, can be used as a scratch
+      register by the process.</td>
+  </tr>
+</table>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

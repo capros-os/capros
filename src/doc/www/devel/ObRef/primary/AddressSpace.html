@@ -1,0 +1,574 @@
+<html>
+  <head>
+    <title>EOR: Address Space</title>
+  </head>
+
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee"
+    vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <div class=nocss>
+	    <br class=nocss>&nbsp;
+	      <br class=nocss>&nbsp;
+	  </div>
+	  <div class=KeyName>
+	    [<em><a href="../Cover.html">Return to Top</a></em>]
+	    [<em><a href="00Primary.html">Primary Objects</a></em>]
+	    <div align=right>
+	      <H2>EROS Object Reference</H2>
+	      <H2>Primary Objects</H2>
+	    </div>
+	    <h2>Address Space</h2>
+	    <em>D R A F T</em>
+	    <hr>
+	  </div>
+	  <div class=KeyDescrip>
+	    <h3>Description</h3>
+	    <p>
+	      An address space provides a mapping from offsets to
+	      pages.  Address spaces are the mechanism of data
+	      organization and access in the EROS system.  Address
+	      spaces are constructed as a tree of Nodes whose leaves
+	      are pages.  A description of how to build and use
+	      address spaces can be found in the <a
+	      href="../concepts/AddressSpaces.html">concepts</a>
+	      section.
+	    </p>
+	    <p>
+	      Address spaces are fabricated by the <a
+		href="Node.html#makeseg"><em>Make Address Space
+		Key</em></a> order on the <a
+		href="Node.html"><strong>Node</strong></a> key.
+	    </p>
+	    <p> 
+	      An address space key conveys the authority to read and
+	      write the content of the address space.  Write access
+	      can be prohibited by creating an address space key with
+	      the <strong>read only</strong> attribute.
+	    </p>
+	    <p>
+	      Address spaces come in two varieties: <em>black</em>
+	      address spaces and <em>red</em> address spaces:
+	    </p>
+	    <ul>
+	      <table>
+		<tr valign=top>
+		  <td><strong>Black Address Spaces</strong></td>
+		  <td>
+		    A black address space contains up to 32 subaddress
+		    spaces, and act as the basic building blocks of an
+		    address space tree.  Black address spaces are are
+		    <em>non-callable</em> address spaces.
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td><strong>Red Address Spaces</strong></td>
+		  <td> 
+		    Red address spaces serve to provide complex structuring
+		    and fault handling for address spaces by specifying keepers
+		    and background address spaces, and other complexities.  An
+		    address space key that names a red address space with a
+		    keeper is callable <em>unless</em> the <strong>don't
+		      call</strong> attribute of the address space key is set.
+		  </td>
+		</tr>
+	      </table>
+	    </ul>
+	    <p> 
+	      As with nodes, address spaces may carry read-only,
+	      no-call, and weak access restrictions.  Information on
+	      the read-only, no-call, and weak attributes can be found
+	      on the <a href="Node.html"><strong>Node</strong></a>
+	      page.
+	    </p>
+	    <p>
+	      Every access to an address space has an associated
+	      <em>responsible keeper</em> who will be notified in the
+	      event of an access fault.  The responsible keeper is
+	      determined by walking the address space from the root to
+	      the leaves to locate the <em>most enclosing callable
+	      keeper</em>.  The search terminates when a page is
+	      reached or a "don't call" address space key is
+	      encountered.  No keeper defined within the structure of
+	      a don't call address space will be invoked by any access
+	      to that address space.  If no other keeper can be found,
+	      access faults are reported to the process keeper.
+	    </p>
+	    <p>
+	      <strong>Callable</strong> address spaces are red
+	      address spaces whose NC bit is 0 (permitting calls) and
+	      which identify an address space keeper.  Invocations on
+	      a callable address space key are reflected to the
+	      associated keeper.  Callable address spaces therefore
+	      respond to any protocol defined by their address space
+	      keeper.
+	    </p>
+	    <p>
+	      All other address spaces respond only to the
+	      <strong>Check Alleged Key Type</strong> and <strong>make
+	      read only</strong> operations.  By convention, address
+	      space keepers are expected to respond to the
+	      <strong>Check Alleged Key Type</strong> and <strong>Make
+	      Read Only</strong> requests in a fashion that is
+	      consistent with the specification on this page; thus,
+	      these requests may be used on any address space.
+	    </p>
+	    <h4>Red Address Spaces</h4>
+	    <p> 
+	      The contents of a red address space Node are interpreted
+	      according to the <strong>format key</strong> that is
+	      found in slot RedSegFormat (31). The format key is a
+	      number key whose content is as follows:
+	    </p>
+	    <ul>
+	      <table>
+		<tr valign=top>
+		  <th align=left>
+		    Field (Bits)
+		  </th>
+		  <th align=left>
+		    Interpretation
+		  </th>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    [0:4]
+		  </td>
+		  <td>
+		    Number of <strong>initial slots</strong>
+		    (<strong>I</strong>).  Describes how many of the
+		    keys in this Node should be considered valid for
+		    purposes of address space traversal.  More
+		    precisely, slots in the range [0:I) will be
+		    traversed according to the usual address space
+		    traversal rules.  Slots whose number is >= I will
+		    be assumed to hold <a
+		    href="../kernel/Void.html"><strong>void
+		    key</strong></a>s for purposes of ordinary
+		    traversal.  This reserves these slots for use as
+		    the background key or keeper key.
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    [5:9]
+		  </td>
+		  <td>
+		    Invocation convention.  If an invocation is made
+		    on a kept address space key, the invocation is
+		    reflected to the keeper.  The value of this field
+		    determines what will be passed to the keeper in
+		    the third key slot of the message:
+		    <table>
+		      <tr valign=top>
+			<td>0</td>
+			<td>A Node key to this Node will be passed as the third
+			  argument to the keeper.</td>
+		      </tr>
+		      <tr valign=top>
+			<td>1</td>
+			<td>The third argument provided by the caller will be
+			  passed unaltered</td>
+		      </tr>
+		      <tr valign=top>
+			<td><em>other</em></td>
+			<td>The address space is malformed.</td>
+		      </tr>
+		    </table>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    [10:14]
+		  </td>
+		  <td>
+		    Slot number of the <strong>address space keeper
+		      key</strong>. (K). If <strong>K</strong> is not
+		      equal to RedSegFormat (31), the key in slot
+		      <strong>K</strong> is a start key to the keeper
+		      for this address space.
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    [15:19]
+		  </td>
+		  <td>
+		    Slot number of the <strong>background
+		    key</strong>. (B).  If <strong>B</strong> is not
+		    equal to RedSegFormat (31), the key in slot
+		    <strong>B</strong> is an address space key to the
+		    background address space for this address space.
+		    Background address spaces are described in greater
+		    detail <a href="#windowkeys">below</a>.
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    [20:31]
+		  </td>
+		  <td> 
+		    <strong>Biased log address space size</strong>.
+		    The blss value of a red address space resides in
+		    the format key.  This value must be greater than
+		    EROS_PAGE_BLSS (2), otherwise the address space is
+		    malformed.
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <em>other</em>
+		  </td>
+		  <td>
+		    All other bits of the format key are reserved for
+		    future use, and should be zero.
+		  </td>
+		</tr>
+	      </table>
+	    </ul>
+	    <p>
+	      If the format key is <em>not</em> a number key, the
+	      address space is malformed, and a suitable message will
+	      be send to the responsible keeper when the address space
+	      is accessed.
+	    </p>
+	    <h4>PROPOSED Red Address Spaces</h4>
+	    <p>
+	      <em>The problem with the existing red address space
+		design is that it will not go to 32 slot nodes
+		gracefully.  The following describes the proposed
+		design, which is in the process of being
+		implemented.</em>
+	    </p>
+	    <p>
+	      The contents of a red address space Node are interpreted
+	      according to a combination of predefined slot meanings
+	      and value of the <strong>format key</strong> that is
+	      found in slot 15.
+	    </p>
+	    <p> 
+	      Every red address space has some number of
+	      <strong>initial slots</strong> (<strong>I</strong>) that
+	      are considered vaild for purposes of address space
+	      traversal.  More precisely, slots in the range [0:I)
+	      will be traversed according to the usual address space
+	      traversal rules.  Traversals that pass through slots
+	      whose number is >= I will cause invalid address
+	      exceptions. 
+	    </p>
+	    <p>
+	      Every red address space also has some number of
+	      <strong>reserved slots</strong> that are designated by
+	      the EROS architecture for particular purposes:
+	    </p>
+	    <ul>
+	      <table>
+		<tr valign=top>
+		  <th align=left>
+		    Slot
+		  </th>
+		  <th align=left>
+		    Future Slot
+		  </th>
+		  <th align=left>
+		    Use
+		  </th>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>15</strong>
+		  </td>
+		  <td>
+		    <strong>31</strong>
+		  </td>
+		  <td>
+		    <strong>Format Key</strong>.  A number key
+		    describing various attributes of the red address
+		    space.  The content of the format key is as
+		    follows:
+		    <ul>
+		      <table>
+			<tr valign=top>
+			  <th align=left>
+			    Field (Bits)
+			  </th>
+			  <th align=left>
+			    Interpretation
+			  </th>
+			</tr>
+			<tr valign=top>
+			  <td>
+			    [0:7]
+			  </td>
+			  <td> Number of <strong>initial slots</strong>
+			    (<strong>I</strong>).
+			  </td>
+			</tr>
+			<tr valign=top>
+			  <td>
+			    [8:15]
+			  </td>
+			  <td>
+			    Index of first <strong>reserved
+			      slot</strong> (<strong>R</strong>).  A
+			    slot is interpreted as reserved only if
+			    its index is >= <strong>R</strong>.
+			    This permits the architecture to be
+			    extended by further reserved slots in
+			    the future without breaking
+			    compatibility.
+			  </td>
+			</tr>
+			<tr valign=top>
+			  <td>
+			    [16:30]
+			  </td>
+			  <td>
+			    <strong>Biased log address space
+			    size</strong>.  The blss value of a red
+			    address space resides in the format key.
+			  </td>
+			</tr>
+			<tr valign=top>
+			  <td>
+			    [31]
+			  </td>
+			  <td> 
+			    Invocation convention.  If an invocation is made
+			    on a kept address space key, the invocation is
+			    reflected to the keeper.  The value of this field
+			    determines what will be passed to the keeper in the
+			    third key slot of the message:
+			    <table>
+			      <tr valign=top>
+				<td>0</td>
+				<td>
+				  A Node key to this Node will be
+				  passed as the third argument to the
+				  keeper.</td>
+			      </tr>
+			      <tr valign=top>
+				<td>1</td>
+				<td>The third argument provided by the
+				  caller will be passed unaltered.
+				</td> 
+			      </tr>
+			    </table>
+			  </td>
+			</tr>
+			<tr valign=top>
+			  <td>
+			    <em>other</em>
+			  </td>
+			  <td>
+			    All other bits of the format key are
+			    reserved for future use, and should be
+			    zero.
+			  </td>
+			</tr>
+		      </table>
+		    </ul>
+		    <p>
+		      If the format key is <em>not</em> a number key,
+		      the address space is malformed, and a suitable
+		      message will be sent to the responsible keeper
+		      when the address space is accessed.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>14</strong>
+		  </td>
+		  <td>
+		    <strong>30</strong>
+		  </td>
+		  <td>
+		    <strong>Keeper Key</strong>.  A start or resume
+		    key naming the keeper of this address space.  If
+		    the key in this slot is a <a
+		    href="../kernel/Void.html"><strong>void
+		    key</strong></a>, no keeper is defined by this red
+		    address space.  If the key in this slot is neither
+		    a void key nor a gate key, the behavior is
+		    currently undefined, but such a red address may in
+		    the future be considered malformed.
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>13</strong>
+		  </td>
+		  <td>
+		    <strong>29</strong>
+		  </td>
+		  <td>
+		    <strong>Background Key</strong>.  The key in slot
+		    <strong>13</strong> is an address space key to the
+		    background address space for this address space.
+		    Background address spaces are described in greater
+		    detail <a href="#windowkeys">below</a>. If the key
+		    in this slot is a <a
+		    href="../kernel/Void.html"><strong>void
+		    key</strong></a>, no background space is defined
+		    by this red address space.  If the key in this
+		    slot is neither a void key nor a suitable memory
+		    key, the behavior is currently undefined, but such
+		    a red address may in the future be considered
+		    malformed.
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    <strong>12</strong>
+		  </td>
+		  <td>
+		    <strong>28</strong>
+		  </td>
+		  <td>
+		    <strong>Working Set Key</strong>.  The working set
+		    into which pages and nodes from this subsegment
+		    should be loaded.  If the key in this slot is a <a
+		    href="../kernel/Void.html"><strong>void
+		    key</strong></a>, no working set is defined by
+		    this red address space.  If the key in this slot
+		    is neither a void key nor a working set key, the
+		    behavior is currently undefined, but such a red
+		    address may in the future be considered malformed.
+		  </td>
+		</tr>
+	      </table>
+	    </ul>
+	    <p>
+	      To be interpreted as a reserved slot, the value of
+	      <strong>R</strong> must be at least the value of the
+	      slot number.  If <strong>R</strong> <
+	      <strong>I</strong>, the segment is malformed. If the
+	      format key is <em>not</em> a number key, or if the value
+	      of <strong>R</strong> does not indicate that the number
+	      key slot is reserved, the address space is malformed,
+	      and a suitable message will be send to the responsible
+	      keeper when the address space is accessed.
+	    </p>
+	    <hr></hr>
+	    <h3>Operations</h3>
+	    <p> 
+	      Note that the indicated results are returned by the keeper if
+	      the address space is callable.
+	    </p>
+	    <dl>
+	      <dt> <strong>Check Alleged Key Type</strong> (OC = KT)</dt>
+	      <dd> 
+		<p>
+		  Returns the alleged type of the key.  Note that
+		  while the <strong>R1</strong> return value is
+		  honored by all of the standard red segment keepers
+		  supplied with EROS, it is supplied by the keeper
+		  rather than the supervisor.  Developers are
+		  advised to check the relevant keeper documentation
+		  to see if this convention is honored by other
+		  keepers.
+		</p>
+		<table>
+		  <tr valign=top>
+		    <td rowspan=1>
+		      <strong>Reply</strong>
+		    </td>
+		    <td align=right>
+		      <strong>R1</strong>
+		    </td>
+		    <td align=right>
+		      <em>AKT_Space</em>:
+		      Key is some type of node key.
+		      <p>
+			<em>AKT_MalformedRedSeg</em>: Key is a
+			malformed red address space.
+		      </p>
+		      <p>
+			<em>AKT_FreshSeg</em>: Key is a <a
+			  href="../standard/FreshSpace.html">fresh
+			  address space</a>
+		      </p>
+		      <p>
+			<em>AKT_VcskSeg</em>: Key is a <a
+			  href="../standard/VirtCopySpace.html">
+			  virtual copy address space</a>
+		      </p>
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td rowspan=1>
+		      <strong>Reply</strong>
+		    </td>
+		    <td>
+		      <strong>R1</strong>
+		    </td>
+		    <td>
+		      Value of the key info field, as described above.
+		    </td>
+		  </tr>
+		</table>
+	      </dd>
+	      <dt> <strong>Make Address Space Key</strong> (OC = 1)</dt>
+	      <dd> 
+		<p> 
+		  Returns a new key whose attributes are the
+		  <strong>OR</strong> of the original key and the requested
+		  attributes.
+		</p>
+		<table>
+		  <tr valign=top>
+		    <td rowspan=1>
+		      <strong>Request</strong>
+		    </td>
+		    <td align=right>
+		      <strong>R1</strong>
+		    </td>
+		    <td> The desired attributes field for the newly
+		      created key, using the encoding shown above.  The BLSS
+		      value is ignored.  Must be <= 65535.
+		    </td>
+		  </tr>
+		  <tr>
+		  </tr>
+		  <tr valign=top>
+		    <td>
+		      <strong>Reply</strong>
+		    </td>
+		    <td align=right>
+		      RK0
+		    </td>
+		    <td>
+		      A copy of the invoked key, whose BLSS value is as
+		      specified in <strong>R1</strong> and whose attributes
+		      are the logical <strong>OR</strong> of the requested
+		      attributes and the attributes of the invoked key.
+		    </td>
+		  </tr>
+		  <tr valign=top>
+		    <td rowspan=1>
+		      <strong>Result</strong>
+		    </td>
+		    <td align=right>
+		      RC_OK
+		    </td>
+		    <td>
+		      Operation completed successfully.
+		    </td>
+		  </tr>
+		</table>
+	      </dd>
+	    </dl>
+	  </div>
+	  <hr>
+	    <em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights reserved.  For terms of 
+	      redistribution, see the 
+	      <a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </BODY>
+</html>

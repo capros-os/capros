@@ -1,0 +1,239 @@
+<html>
+<title>Kernel Design Principles</title>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<h1>1 The Ten Commandments of EROS</h1>
+<p> The EROS kernel design has been guided by a small number of
+architectural rules.  These rules are chosen to ensure that the kernel
+is reliable and recoverable, and have the force of law in the design
+of the kernel:
+<p>
+<ol>
+  <p>
+  <li> <em>Thou Shalt Not Deadlock</em>.  No kernel code will be
+       implemented in such a way as to create an unresolvable conflict
+       of resources.
+       <p> The justification for this is distressingly obvious:
+       systems that get into unresolvable resource conflicts are not,
+       by definition, reliable.
+       <p>
+  <li> <em>Thou Shalt Not Retain State</em>. No user state is retained
+       in the kernel for longer than the invocation of a key.  Drivers
+       that keep state in the kernel must be prepared to reconstruct
+       this state when the system is restarted.
+       <p> The more non-recoverable state the kernel maintains, the
+       more complicated it is to implement persistence and recovery.
+       In addition, this rule serves to enforce a minimalist
+       philosophy.  The EROS kernel contains only two tables that must
+       be saved across system shutdowns: the process list and the
+       checkpoint log directory.
+       <p>
+  <li> <em>Kernel invocations shall be satisfied in bounded time</em>.
+       Regardless of any other operations in progress, any kernel
+       operation requested by a running process must complete
+       successfully within a bounded amount of time.  For example, a
+       disk read must have bounded delay.
+       <p> Sometimes the hardware does not permit this.  An example is
+       network packet delivery.  Broadcast networks do not guarantee
+       bounded delivery time, so the kernel cannot provide such a
+       guarantee to the user.
+       <p> Note that since the process scheduler is not invoked
+       explicitly, this rule does not apply to it.
+       <p>
+  <li> <em>Thou Shalt Not Perform Dynamic Allocation</em>. A common
+       practice in kernel design is to have a fixed pool of resources
+       that is dynamically allocated by many tasks.  Typically, this
+       is done because the resource is precious and there isn't enough
+       of it to go around.  For example, kernel memory is often
+       allocated and deallocated in this way even though there is a
+       fixed amount of it.
+       <p> The problem with this approach is that you can temporarily
+       run out of the dynamically allocated resource.  When you run
+       out, one of two things happens:
+       <p>
+       <ul>
+	 <p>
+	 <li> The system deadlocks, which we have already decided is
+	      unacceptable,
+	      <p>
+	 <li> The second requestor is deferred. This leads to
+	      unpredictable starvation, which is not acceptable in a
+	      real-time kernel.  It also requires that the kernel
+	      implement recovery mechanisms.
+       </ul>
+       <p> For these reasons, dynamic resource allocation is
+       prohibited in the EROS kernel.  A few internal algorithms
+       temporarily allocate a small number of pages of storage out of
+       the general pool, but the total number of pages that might be
+       allocated in this way at one time is bounded and small.
+       Conceptually, these pages are statically allocated, but are
+       made available for cacheing use when not needed by the
+       algorithms they support.
+       <p>
+  <li> <em>Thou Shalt Not Abstract</em>. Where doing so does not
+       violate security, the kernel should fully expose the underlying
+       hardware to applications through suitable capabilities.
+       <p> The notable exception to this rule is the decision that the
+       kernel owns the disk and provides a single level store.  This
+       is a case where the demands of security and reliability were
+       deemed to outweigh the perils of abstraction.
+       <p>
+  <li> <em>Resources Shall Be Conserved</em>.  System resources are
+       neither created nor destroyed.  The kernel does not permit any
+       kernel-managed resource to be overallocated.  This is necessary
+       to prevent deadlock, and removes the need for complex recovery
+       algorithms in the kernel.
+       <p> A corollary to resource conservation is that the kernel
+       does not allocate resources on behalf of a user program.  Any
+       operation that requires the provision of a page or node is
+       reflected to an appropriate user-level agent.
+       <p>
+  <li> <em>Thou Shalt Not Allocate Resources</em>.  The EROS kernel
+       arbitrates access to pages and nodes, and provides primitive
+       facilities to allow programs to rescind such access, but it
+       does reallocate these resources unless directed to do so by
+       user-level code.
+       <p> A notable (and disagreeable) exception to this is process
+       scheduling.  User programs are responsible for assigning
+       program priorities, but the kernel determines the order in
+       which programs will run and how much time each will be given.
+       We have been unable to come up with a user-level scheduling
+       module that satisfies our real-time constraints, and have
+       reluctantly moved the implementation of scheduling policy into
+       the kernel.
+       <p>
+  <li> <em>Recovery Strategies Should Be Simple</em>.  The kernel
+       should never run complex algorithms when it is under pressure
+       to do something quickly.
+       <p>
+  <li> <em>Eight commandments is enough</em>.
+</ol>
+<p> In a nutshell, the kernel is not designed to be the solution to
+all problems in the system.  Rather, it is designed to let user-level
+code handle most of the policy decisions in a structured, secure way.
+<p> In addition to the iron-clad rules, there are some guidelines that
+are nearly as strong, but require some interpretation:
+<p>
+<ul>
+  <p>
+  <li> <em>Policy should be minimized</em>.  Constructing a secure
+       system demands that the kernel implement some collection of
+       fundamental policies. In EROS, these policies are designed to
+       facilitate the construction of higher-level policies in user
+       code.
+       <p>
+  <li> <em>Exception handling should be implemented in user level
+       code</em>.  This is really a corollary to the minimal policy
+       guideline.  Wherever the kernel handles exceptions on its own,
+       it deprives user level code of the ability to implement a
+       variety of policies.
+</ul>
+<h1>2 Policy Minimization</h1>
+<p> One of the design goals of the EROS system is to minimize the
+complexity of the policies that are implemented by the kernel.
+Wherever it is possible to do so, the kernel provides a simple,
+primitive policy that can be used by programs to implement more
+complex policies.  This simultaneously reduces the complexity of the
+kernel and increases the flexibility of the system.
+<p> As an example, let's look at the handling of the stack in UNIX and
+EROS.  As a UNIX process performs procedure calls, it's stack slowly
+grows. At some point the process runs off the bottom of the existing
+stack and a new page must be allocated.  The sequence of events when
+this happens to a UNIX process is as follows:
+<p>
+<ol>
+  <p>
+  <li> The process takes an access violation, because it accesses an
+       address below the current bottom of the stack for which no page
+       has been defined.
+       <p>
+  <li> The kernel determines if the access violation is really a page
+       fault.  If so, it brings the page in from the swap area and
+       resumes the process.
+       <p>
+  <li> Failing this, the access violation can mean one of two things:
+       <p>
+       <ul>
+	 <p>
+	 <li> An access has occured to a page that has been paged out.
+	      <p>
+	 <li> The stack (or the heap) needs to be grown.
+	      <p>
+	 <li> The program has an error, and has just dereferenced a
+	      pointer to a random place.
+       </ul>
+       <p> To decide between the last two cases, the kernel checks to
+       see if the access has happened within a threshold distance of
+       some existing memory region that is marked as ``growing'' in
+       the appropriate direction.
+       <p>
+  <li> Assuming that the access is within the stack (or heap), the
+       kernel now allocates a page out of the swap area and maps it
+       into the process address space.  It is possible that none is
+       available, in which case the UNIX system enters a crisis mode
+       and invokes a variety of subsidiary policies to attempt (and
+       usually fail) to recover.
+       <p>
+  <li> Assuming a page has been found, the kernel grows the stack (or
+       heap) region to reflect the addition of a new page.
+       <p>
+  <li> The page is cleared, to prevent other user's data from becoming
+       available to the running program.
+       <p>
+  <li> Finally, the process is restarted, now with a valid page.
+</ol>
+<p> When a program running under EROS reaches the end of it's current
+stack, here is the sequence of events:
+<p>
+<ol>
+  <p>
+  <li> The process takes an access violation, because it accesses an
+       address below the current bottom of the stack for which no page
+       has been defined.
+       <p>
+  <li> The kernel determines if the access violation is really a page
+       fault.  If so, it brings the page in from the swap area and
+       resumes the process.
+       <p>
+  <li> Failing this, the kernel sends a message to the segment keeper
+       that includes a key which will enable the segment keeper to
+       restart the process.
+</ol>
+<p> The difference is more than a matter of an extra four steps.  The
+UNIX approach requires substantial pieces of code to manage such
+things as memory regions, swap space allocation, and crisis recovery
+that EROS does not need.
+<h1>3 Per-Process State</h1>
+<p> A common practice in operating system design is for each process
+to have it's own kernel stack.  When a process enters the kernel, it
+executes on this stack.  In some operating systems, it is possible for
+a process to be rescheduled while in the kernel.
+<p> For a variety of reasons, EROS does not take this approach.
+Processes that are in the kernel often carry critical state in
+hard-to-find places, and may hold locks that block other processes.
+Indeed, systems that reschedule programs that are running in the
+kernel must take special care to release and reaquire any locks that
+the process may hold.
+<p> Instead, EROS is designed to that all system service invocations
+can be restarted.  If a process performs a read operation by invoking
+a page key, for example, and the page is not in memory, the kernel
+will initiate an I/O operation to bring in the page and cause the
+process to be stalled until the I/O operation completes.
+<p> <!--
+FIX: A stalled process, conceptually, is <em>not</em> in the
+kernel.  It's program counter points to the trap instruction that
+caused the system call.  When the process is restarted, it will
+perform the service call again, enter the kernel, and this time
+discover that the page is in memory.  Since the page is in memory the
+process will be able to proceed without further delay.  -->
+<h1>4 Static Allocation</h1>
+<p> At startup, the kernel partitions system resources and allocates
+driver storage.
+<p> Remaining space is used for bookkeeping or cacheing.
+<p> Problem with this is ``Plug and Play.''
+<p>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

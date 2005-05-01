@@ -1,0 +1,409 @@
+<HTML>
+<HEAD>
+<TITLE>Generating a Bootable EROS System</TITLE>
+</HEAD>
+<BODY>
+<P>
+This document describes the programs used to generate a bootable EROS
+floppy disk.  It provides a brief description of the cross environment
+system generation tools.  Mostly, it focuses on the syntax of the EROS
+sysgen file, which is used to write onto the floppy those domains that
+are needed during the "big bang".
+<H1>1. Introduction</H1>
+<P>
+EROS is usually cross developed from a substantial programming
+environment.  The original implementation of EROS (for the x86) was
+coded under LINUX.  Subsequent editions will hopefully be produced in
+an EROS-hosted environment, but the generated floppy image is always
+viewed by the running EROS as a "raw" floppy.  There are two reasons
+for this:
+<UL>
+<LI> 
+Domains placed on the initial boot volume run under some very unusual
+constraints, and generally need to be hand constructed.
+<LI> 
+The generated system is generally a different EROS version, either for
+a foreign architecture or for a different version of the same
+architecture, so the native tools (e.g. domain creator) are probably
+not suitable for creating the components on the generated system.
+</UL>
+<P>
+Creating a bootable system image entails the following steps:
+<OL>
+<LI>
+Creating, using a set of cross compilation tools, an EROS kernel image
+and boot sector(s) for the target architecture.
+<LI>
+Creating, using a set of cross compilation tools, the domains required
+during the initial system load (ISL).
+<LI> 
+Formatting a volume to include a boot sector, a kernel image and
+suitably prepared EROS divisions, including performing any necessary
+bad sector detection and remapping (<STRONG>mkvol</STRONG>).
+<LI>
+Writing the ISL domains onto the volume (<STRONG>sysgen</STRONG>).
+</OL>
+<P>
+This document describes the EROS volume structure and boot process,
+and the use of the sysgen tool.
+<H1>2. Structure of an EROS Volume</H1>
+<P>
+An EROS volume is a logical disk.  On an EROS-formatted floppy, the
+volume spans the entire disk.  On hard disks things are a bit more
+complicated.   Typically, the system firmware is designed to allow
+multiple independent operating systems to be loaded onto a single
+disk.  The disk is divided into non-overlapping regions, typically
+called <STRONG>partitions</STRONG>, and each operating system acts for
+the most part as it's partition was a single disk.  EROS is no
+different; it views it's partition as a single volume, and largely
+ignores the rest of the disk.
+<P>
+Every EROS volume has up to 64 non-overlapping areas.  To avoid
+collision with firmware terminology, we use the term
+<STRONG>division</STRONG>.  Divisions come in several types:
+<PRE>
+Unused      Empty. Placeholder for unallocated space.
+Boot        Contains the system-dependent boot code.
+DivTbl      A table describing the division layout.
+Kernel      The kernel's code.
+Spare       Division containing spare sectors.
+Swap        A swap area.
+Page        Holds EROS Pages.
+Node        Holds EROS Nodes.
+FailStart   Names the process to start if all else fails.
+</PRE>
+<P>
+The FailStart entry does not name a division on the disk.  Rather, it
+is a pseudo-entry used to bootstrap the system.  It's use is described
+in detail below.  Every volume has exactly one boot division at sector
+0.  Every volume has <EM>at most one</EM> kernel division.
+<P>
+Every disk technology that we know about reserves sector 0 of a
+partition the "boot sector."  The EROS boot sector has reserved
+locations from which the locations of the primary (and optional
+secondary) division tables can be read.
+<P>
+For each division, the division table describes the type, the starting
+sector, the ending sector, and a unique system identifier.  If the
+division is a Node, Page, or Swap division, the division table also
+contains the starting CDA or SwapLoc of the division.
+<H1>2.1 Formatting and Spare Sectors</H1> 
+<P>
+Volume formatting is performed by the <STRONG>mkvol</STRONG> utility.
+The <STRONG>mkvol</STRONG> program formats a raw volume for use as an
+EROS volume.  It takes as input a volume map file that describes how
+the disk should be formatted and the name of the volume file (on UNIX,
+the <EM>raw</EM> file corresponding to the EROS parition), and an
+optional disk descriptor type.  Currently valid descriptor types are
+<STRONG>fd144</STRONG> and <STRONG>fd</STRONG>.  Descriptor types are
+used to describe the desired layout of the target volume when not
+writing directly to the raw device.
+<P>
+In order for a volume to be usable, the <STRONG>kernel</STRONG>,
+<STRONG>boot</STRONG>, and <STRONG>divtbl</STRONG> divisions must be
+error free.  (We know how to remove this restriction for the kernel
+division, but have not done the necessary work in the boot loader to
+support sector remapping).
+<P>
+Some disk subsystems (SCSI, some IDE) provide automatic sector
+remapping.  On these subsystems, no <STRONG>spare</STRONG> division is
+required, and the EROS kernel relies on the underlying hardware to
+provide remapping services.  On disk subsystems that require OS-implemented
+remapping, the <STRONG>spare</STRONG> division will be used, if
+present, as a pool of spare sectors.  <EM>The spare division is always
+optional.</EM>  If it is not present, no remapping will be performed.
+The system generation process, for example, does not place a
+<STRONG>spare</STRONG> division on the ISL floppies, because we assume
+that the distribution media will be free of errors.
+<P>
+If a <STRONG>spare</STRONG> division is present, the bad sector
+remapping information is kept in the same disk page as the division
+table, and directly follows the division table entries.  This allows a
+disk to have up to 384 bad sectors.  Beyond that number, we think it's
+probably time to replace the disk.
+<P>
+As an EROS volume is formatted, a list of bad sectors is accumulated
+by the formatting program.  Bad sectors that are found in Page, Node,
+or Swap divisions are added to the BadMap.  Bad sectors that are found
+in other types of divisions cause formatting to fail.  Usually these
+failures can be worked around by rearranging the volume map to avoid
+the bad sectors.
+<H2>2.2 The mkvol Volume Map</H2>
+<P>
+The <STRONG>mkvol</STRONG> utility performs formatting according to a
+volume map.  The volume map is essentially a human-readable version of
+the division table to be created.  It describes the start and end of
+each division, and for some divisions it provides the file that should
+be used to initialize that division (for example: the file containing
+the code for the boot sector).
+<P>
+The <CODE>volmap</CODE> file syntax is very simple.  Comments are
+preceded by the '<KBD>#</KBD>' character.  Valid statements in the
+volmap file are:
+<DL>
+<DT>
+<STRONG>kernel</STRONG> [<EM>size</EM>] [ <EM>kernel file</EM> ]
+</STRONG>
+<DD>
+Describes the kernel division.  The size, if provided, indicates the
+number of pages that should be reserved for the kernel.  The kernel
+file, if provided, will be written into the kernel division after the
+a.out file header is stripped off.  If no kernel image name is
+provided, /eros/lib/boot/eros.image will be used.  If no size is
+provided, the smallest division that will hold the kernel image will
+be created.
+<P>
+At most one kernel division can be present per volume.
+<P>
+<DT>
+<STRONG>divtbl</STRONG>
+<DD>
+Indicates that a division table should be written at this point on the
+disk.  Up to two <STRONG>divtbl</STRONG> statements can appear in the
+volmap file.  The first will be used as the primary division table
+location.  The second will be used as the alternate division table
+location.
+<P>
+<DT>
+<STRONG>spare</STRONG> [<EM>secs</EM>]
+<DD>
+Indicates that a division of <EM>secs</EM> sectors (rounded up to the
+nearest page) should be reserved.  There can be only one spare
+division per volume.  If a volume contains a spare division, the EROS
+kernel will perform bad sector handling for that volume.
+<P>
+<DT>
+<STRONG>page</STRONG> <EM>count</EM> <STRONG>CDA=</STRONG><EM>cda</EM>
+<DD>
+Indicates that a page division containing <EM>count</EM> EROS pages
+should be created.  The <STRONG>mkvol</STRONG> utility automatically
+computes the number of sectors required to hold the pages and the
+associated page pots.  All pages are created with an initial
+allocation count of 0.
+All data space in the page division is
+initialized to zero.
+<P>
+<DT>
+<STRONG>node</STRONG> <EM>count</EM> <STRONG>CDA=</STRONG><EM>cda</EM>
+<DD>
+Indicates that a node division containing <EM>count</EM> EROS nodes
+should be created.  The <STRONG>mkvol</STRONG> utility automatically
+computes the number of sectors required to hold the pages and the
+associated page pots.  All nodes are created with an initial
+allocation count and call count of 0.  All keys in the node division
+are initialized to zero number keys.
+<P>
+<DT>
+<STRONG>swap</STRONG> <EM>count</EM>
+<DD>
+Indicates that a swap division countaining <EM>count</EM> pages
+should be created.  EROS uses a ring buffer approach to managing swap
+areas.  It is not necessary to specify what generation the swap area
+belongs to.
+<P>
+</DL>
+<P>
+Note that <STRONG>FailStart</STRONG> entries are not accepted by the
+<STRONG>mkvol</STRONG> utility.  These entries are added by the
+<STRONG>sysgen</STRONG> program, which is described below.
+<H1>3. The Sysgen Utility</H1>
+<P>
+By far the most complex part of generating a bootable EROS system is
+placing the necessary domains onto the boot image.  This is done using
+the <STRONG>sysgen</STRONG> utility.  Given a set of program
+executables that are to be run as domains on the target systems, and a
+descriptor file describing the interrelationships between these
+programs, <STRONG>sysgen</STRONG> produces a set of nodes and pages
+with appropriate keys, and adds any necessary
+<STRONG>FailStart</STRONG>entries to the division table to make sure
+that the appropriate startup programs are run.
+<P>
+The interprocess relationships during the initial system load process
+are distressingly complex.  The <STRONG>sysgen</STRONG> tool reflects
+this.  If you come up with a simpler mechanism, or even a way to
+simplify the syntax of the descriptor file, <EM>please</EM> let us
+know about it!
+<H2>3.1. Crafting Domains</H2>
+<P>
+In the LINUX cross environment, domains are created as
+<CODE>a.out</CODE> files.  These files are read by the
+<STRONG>sysgen</STRONG> utility, which constructs segments and domains
+from them.
+<P>
+The <STRONG>sysgen</STRONG> program has been designed for simplicity
+rather than for flexibility.  Given an <CODE>a.out</CODE> file, it is
+smart enough to create a suitable EROS segment.  The resulting segment
+will have no keeper unless one is explicitly specified for it.  The
+<STRONG>sysgen</STRONG> program will not automatically create segments
+that require any unusual keys, nor does it know how to combine
+segments (though the latter ability should probably be added).
+<H2>3.2. The Volmap File</H2>
+<P>
+The <CODE>volmap</CODE> file specifies the components that should be
+added to the EROS volume.  Each statement creates a domain, or
+modifies the state of an existing domain or segment.  As with the
+<CODE>volmap</CODE> file, comments are preceded by the '<KBD>#</KBD>'
+character.  Valid statements in the sysmap file are:
+<DL>
+<DT>
+<STRONG>domain</STRONG> <EM>name</EM> <EM>file</EM>
+</STRONG>
+<DD>
+Indicates that a domain should be created from <EM>file</EM>, which is
+a UNIX a.out file.  An appropriate segment is created from the file,
+and a domain is allocated.  Subsequent statements in the sysmap file
+regarding this domain will use <EM>name</EM> to identify it.  Names
+assigned in the sysmap file must be unique.
+<P>
+By default, a domain is created with a schedule key that grants it the
+default execution priority.  Unless one is specified, neither the
+domain nor its associated segment is given a keeper.
+<P>
+<DT>
+<EM>name</EM> <STRONG>priority</STRONG> <EM>value</EM>
+<DD>
+Replaces the schedule key in the named domain with a key conveying the
+priority indicated by <EM>value</EM>.  Valid priorities are in the
+range 1 to 16, with 8 being the default priority.
+<P>
+<DT>
+<EM>name</EM> <STRONG>keeper</STRONG> <EM>keeper_domain</EM>
+<DD>
+Replaces the keeper slot of the named domain with a start key to
+<EM>keeper_domain</EM>.
+<P>
+<DT>
+<EM>name</EM> <STRONG>segkeeper</STRONG> <EM>keeper_domain</EM>
+<DD>
+Makes <EM>keeper_domain</EM> the segment keeper for the address space
+segment of the named domain.  If the current address space segment is
+a <STRONG>black segment</STRONG> it is first converted to a
+<STRONG>red segment</STRONG>, if necessary by allocating a new node.
+A start key to <EM>keeper_domain</EM> is placed in the keeper slot of
+the resulting red segment node.
+<P>
+<DT>
+<EM>name</EM> <STRONG>key</STRONG> <EM>slot</EM> <STRONG>=</STRONG>
+<EM>key_description</EM>
+<DD>
+Replaces the indicated general key slot of the named domain with a key
+created from the indicated <EM>key_description</EM>.  Key descriptions
+are described in detail below.
+<P>
+<DT>
+<EM>name</EM> <STRONG>failstart</STRONG>
+<DD>
+Adds a failstart entry for the named domain to volume's division table.
+<P>
+</DL>
+The <STRONG>sysgen</STRONG> utility does not accept forward
+references.  No references can be made to a domain or segment until
+that domain has been defined.  Statements in the <CODE>sysmap</CODE>
+file are processed sequentially.  If the effects of a statement
+override the effects of a previous statement, no warning is given, and
+no space allocated by the previous statement will be reclaimed.
+<H1>4. The Boot Process</H1>
+<P>
+When the machine is powered up or reset, the firmware determines which
+volume (disk or partition) will be booted.  Though the details are
+machine specific, the firmware typically proceeds by loading a small
+machine-dependent boot sector from sector 0 of the boot volume.
+Usually, the boot sector must first load a larger bootstrap routine,
+which in turn examines the volume map and loads the kernel itself.
+At this point, the EROS kernel proceeds with it's own startup
+procedure.
+<P>
+At a high level, the EROS kernel startup proceeds as follows:
+<OL>
+<LI>
+Perform the minimum required hardware initialization.
+<LI>
+Determine the unique system identifier (USID) of the running kernel.
+<LI>
+Locate and mount all divisions on all disks whose USID matches the
+USID of the running kernel.
+<LI> 
+Locate the run list and begin executing the running processes.  The
+run list can come from one of two locations:
+<UL>
+<LI> 
+If a swap areas has been located, the list of running processes is
+obtained from the most recent valid checkpoint image in the swap area.
+<LI> 
+If no swap area exists, the FailStart entries in the boot volume's
+division table constitute the running process list.
+</UL>
+</OL>
+<P>
+The net effect of this is that EROS will restart the existing system
+image if possible.  If no existing system image can be found, it will
+load a minimal system starting set.  The intention is that this
+minimal process set will be sufficient to enable system recovery.
+<P>
+There are two security-related assumptions embedded in this bootstrap
+mechanism:
+<UL>
+<LI>
+If unauthorized users are able to physically access the boot media,
+the system is not secure.
+<LI>
+If unauthorized users are able to physically access the system
+console, and the swap area(s) have been damaged or do not exist, the
+system is not secure.
+</UL>
+<P>
+The intent of the FailStart mechanism is to simplify initial
+installation of the system.  It eliminates the need to construct a
+swap area on the installation floppy.  Being able to run the kernel
+before the swapping logic has been debugged greatly simplifies initial
+testing.
+<P>
+Some other potential uses of the FailStart mechanism include:
+<UL>
+<LI> 
+Degrading gracefully when a swap device cannot be found because it is
+offline.
+<EM>This is not implemented.</EM>
+<LI>
+Recovering from sector 0 failures on non-boot volumes.
+<EM>This is not implemented.</EM>
+<LI>
+Implementing system startup in embedded systems that boot from a ROM
+and do not have a swap area at all.
+</UL>
+<P>
+The FailStart mechanism was not present in the KeyKOS system.  It's
+uses and abuses have not been fully explored.
+<H2>3.1. Finding the Unique System Identifier</H2>
+<P>
+When the EROS kernel starts up, it performs some minimal hardware
+initialization and then locates the boot volume.  It loads the boot
+sector to learn the location of the division table on the boot volume,
+and then loads the division table itself.  From the kernel entry in
+the division table, it learns the system id of the kernel that was
+booted.
+<P>
+<I>An alternative would be to have the system ID passed to the kernel
+by the bootstrap routine, which has the information available in any
+case.</I>
+<H2>3.2. Mounting the Divisions</H2>
+<P>
+Having determined the unique system identifier, the kernel now loads
+the master partition table of every disk, and searches for EROS
+volumes.  For every EROS volume that it finds, it loads the division
+table.  For every Page, Node, and Swap division whose USID matches
+that of the running system, the division is mounted and the pages and
+nodes in that division are made available to the object loading
+subsystem.
+<H2>3.3. Finding the Run List</H2>
+<P>
+Once all of the divisions are known, the kernel must locate the list
+of processes to run.  If a swap area is available, the run list is
+loaded from the swap area.  If no swap area is available, then the
+FailStart entries from the boot volume's division table are used.  The
+processes named in the run list are swapped in and scheduled.
+<P>
+Once these processes have been started, the system is running
+normally, and bootstrap processing terminates.
+</BODY>
+</HTML>

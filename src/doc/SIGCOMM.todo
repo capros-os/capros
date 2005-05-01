@@ -1,0 +1,66 @@
+-*- indented-text -*-
+Work items necessary for SIGCOMM/SOSP papers:
+
+Status  ITEM      Who    Complete  Explanation
+
+x       SLOIPC    shap   10/13/96  C++-coded revised IPC path
+x       SOCKETIF  shap   10/13/96  Draft socket key interface writeup
+        GDB       shap   10/14/96  GDB plan detailed for berrym
+        SUPERNODE shap   10/16/96  Completed supernode implementation
+x       DOMKEEP   shap   10/18/96  Domain keeper invocation working
+x       SEGKEEP   shap   10/18/96  Segment keeper invocation working
+        AGEING    shap   10/23/96  Object pageout working
+        ENET      shap   10/25/96  Support for required enet order codes
+				   for interface control.
+        IWOOOS    shap   10/31/96  Shap away at IWOOOS
+        RTDESIGN  shap   11/8/96   Real-time scheduler design in place
+        RTSCHED	  shap	 11/15/96  Real-time scheduler implemented
+??      IOPORT    shap   11/20/96  User-level IO port access (needed for
+				   user level enet driver)
+??      USERENET  sjmuir 11/22/96  User level ethernet driver
+        SPCTEST   berrym ???       Space bank tests, any needed repair
+P       TTY       berrym ???       Terminal line discipline implementation
+P       DEBUG     berrym ???       User level domain debugger
+R       SMALLSPC  shap   11/29/96  Small address space support.
+R       FSTIPC    shap   12/6/96   Asm-coded revised IPC path
+        CKPT      shap   12/13/96  Take a checkpoint
+        MIGRATE   shap   12/20/96  Complete first migration (to ram disk)
+	IDE-DRV   shap   12/27/96  Fully working IDE driver
+	VCSK	  lau	 ???	   virtual copy seg kpr
+	FSK	  lau	 ???	   fresh seg kpr
+	DOMCRE	  lau	 ???	   domain creator
+	KID	  lau	 ???	   key indexed directory
+	DOMBLDR	  lau	 ???	   domain compositor
+	ESCROW	  lau	 ???	   working escrow agent
+        HELOWRLD  sjmuir 10/18/96  Simple hello-world domain
+        PKTSEND   sjmuir 10/23/96  Send packet via in-kernel enet
+				   drvr, confirm via pkt sniff or tcpdump
+	IPCHOOSE  sjmuir 10/23/96  Choose IP implementation to derive from
+	IPDESIGN  sjmuir 11/4/96   Detailed plan of attack, new IP 
+				   implementation
+	IPTEST    sjmuir 11/18/96  IP test programs ported
+	IPLIMP    sjmuir 12/9/96   IP limping
+	IPWORKS   sjmuir 1/3/96    IP flying
+	
+	DRAFT1	  all    1/10/96   draft version of SIGCOMM paper
+	REWORK    all    1/17/96   rebuild everything
+	DRAFT2    all    1/24/96   internal review draft
+	SUBMIT    all    1/31/96   submit paper
+
+        
+Notes: 
+   x  -- completed
+   R  -- estimate considered risky
+   P  -- dates by end 10/14
+   ?? -- not clear if needed
+
+SUPERNODE is both something we need and an exemplar for reference by
+Herman Lau for use in VCSK and FSK.
+
+IOPORT support is needed for user-level drivers, and includes the
+introduction of "event wait keys" into the kernel.  We can defer this
+by using/enhancing the current kernel enet driver.  The down side is
+that this makes user-level packet filtering harder.
+
+IDE-DRV completed is needed to support images larger than a floppy
+will hold.

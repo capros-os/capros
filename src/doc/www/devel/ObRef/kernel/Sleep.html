@@ -1,0 +1,158 @@
+<html>
+  <head>
+    <title>EOR: Sleep</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+    <div class=KeyName>
+      [<em><a href="../Cover.html">Return to Top</a></em>]
+      [<em><a href="00Kernel.html">Kernel Objects</a></em>]
+      <div align=right>
+	<H2>EROS Object Reference</H2>
+	<H2>Kernel Objects</H2>
+      </div>
+      <h2>Sleep</h2>
+      <em>D R A F T</em>
+      <hr>
+    </div>
+    <div class=KeyDescrip>
+      <h3>Description</h3>
+      <p>
+	The <strong>Sleep</strong> key enables the holder to delay for a
+	specified number of milliseconds, or until a particular number of
+	milliseconds from system startup has been reached.
+      <p>
+	Under no conditions will a sleep return immediately; it is
+	guaranteed that the caller will sleep for at least one hardware
+	clock interval.
+      <p>
+	Sleep invocations may return prematurely in the event of system
+	restart.
+      <hr>
+      <h3>Operations</h3>
+      <dl>
+	<dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+	<dd> 
+	  <p>
+	    Returns the alleged type of the key.
+	  </p>
+	  <table>
+	    <tr valign=top>
+	      <td rowspan=1>
+		<strong>Reply</strong>
+	      </td>
+	      <td align=right>
+	       <strong>R1</strong>
+	      </td>
+	      <td align=right>
+		0x10000001:
+		Key is a Sleep key.
+	      </td>
+	    </tr>
+	  </table>
+	  <p>
+
+	<dt> <strong>Wake Me Up</strong> (OC = 0)
+	<dd>
+	  <p>
+	    Causes the caller to resume immediately.  The kernel
+	    implements wakeup by placing the caller to sleep according to
+	    the order code (OC=1 or OC=2) and then adjusting the order
+	    code to OC=0.
+	  <p>
+	<dt> <strong>Sleep for N milliseconds</strong> (OC = 1)
+	<dd> 
+	  <p>
+	    Returns no later than N milliseconds from now, modulo the
+	    accuracy of the internal clock.
+	  <p>
+	  <table>
+	    <tr valign=top>
+	      <td rowspan=2>
+		<strong>Request</strong>
+	      </td>
+	      <td align=right><strong>R1</strong></td>
+	      <td>Low order 32 bits of milliseconds to sleep.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td align=right><strong>R2</strong></td>
+	      <td>High order 32 bits of milliseconds to sleep.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td rowspan=3>
+		<strong>Result</strong>
+	      </td>
+	      <td align=right>
+		0
+	      </td>
+	      <td>
+		No longer than N milliseconds have passed.
+	      </td>
+	    </tr>
+	    <tr valign=top>
+	      <td align=right>
+		KT+1
+	      </td>
+	      <td>Unknown order code
+	      </td>
+	    </tr>
+	    <tr valign=top>
+	      <td align=right>
+		KT+2
+	      </td>
+	      <td>An inappropriate number of bytes were passed (must be
+		either 4 or 8 bytes).
+	      </td>
+	    </tr>
+	  </table>
+	  <p>
+	<dt> <strong>Sleep till N milliseconds since startup</strong> (OC = 2)
+	<dd>
+	  <p>
+	    Returns no later than N milliseconds from the last
+	    restart of the system, modulo the accuracy of the internal
+	    clock.
+	  <table>
+	    <tr valign=top>
+	      <td rowspan=1>
+		<strong>Request</strong>
+	      </td>
+	      <td align=right><strong>W|L</strong></td>
+	      <td>Milliseconds to sleep. If a four byte string is
+		passed, the value is assumed to be a word value.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td rowspan=3>
+		<strong>Result</strong>
+	      </td>
+	      <td align=right>
+		0
+	      </td>
+	      <td>
+		No longer than N milliseconds have passed.
+	      </td>
+	    </tr>
+	    <tr valign=top>
+	      <td align=right>
+		KT+1
+	      </td>
+	      <td>Unknown order code
+	      </td>
+	    </tr>
+	    <tr valign=top>
+	      <td align=right>
+		KT+2
+	      </td>
+	      <td>An inappropriate number of bytes were passed (must be
+		either 4 or 8 bytes).
+	      </td>
+	    </tr>
+	  </table>
+	  <p>
+      </dl>
+    </div>
+    <hr>
+    <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+      redistribution, see the 
+      <a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+  </td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

@@ -1,0 +1,65 @@
+; Hey, EMACS! This is -*- indented-text -*-
+
+This note describes the machine startup process for EROS.  Bootstrap
+code is described elsewhere.  This note begins on entry into the
+kernel.
+
+Once we get into the kernel, there are several steps we need to take
+to get the system running.  These are:
+
+1. Initialize the motherboard to a known state.  This requires:
+
+   A) Main memory.  Main memory is paritioned into multiple classes by
+      the limitations of the DMA system on ISA/EISA systems.  Some DMA
+      channels can reach only up to the first 1M.  Others can reach up
+      to 16M.  If you have more memory than that, memory above 16M has
+      no DMA support at all.
+
+   B) Trivial console output is set up to allow diagnostics to be seen.
+
+   C) GDT, IDT, and dummy TSS are loaded.  This allows us to start
+      setting up interrupts and run safely in 32 bit mode.  Setting up
+      the IDT implies setting up the interrupt controllers and
+      initially disabling all external interrupts.  Interrupt
+      controller set up depends on whether this is an (E)ISA system or
+      an MCA system.
+
+   D) Initialize virtual memory, and create the kernel virtual memory
+      map. The kernel runs with virtual addresses equal to physical
+      addresses below 2G, and has some other things mapped above 2G.
+      There is some "sliding window" trickery here to make context
+      switch fast.  At this point the sliding windows are present but
+      not initialized.
+
+   E) Hardware time services are initialized. This includes the
+      on-board interval timer (SysTimer) and a time-of-day clock
+      (WallClock).
+
+2. Initialize any boards that we support:
+
+   A) The floppy controller is initialized to a known state.
+
+   B) A probe is done for hard disk controllers, which are
+      initialized.
+
+   C) The video subsystem is identified and set up for real.
+
+   D) The serial/parallel devices are set up, including the mouse.
+
+   *** At the end of this phase, all supported input devices will
+       field I/O interrupts, but incoming data will be silently
+       discarded ***
+
+3. Critical system tables are initialized.
+
+4. The remaining memory pool is divided into pages and nodes, and
+   the appropriate free lists are initialized.
+
+5. The swap division from the boot drive is examined. The
+   locked CDA list and the process list are loaded into memory.
+
+The EROS kernel never starts from scratch.  Conceptually, at least, it
+is always resuming from the state of some previous checkpoint image.
+In the case where we are first installing the machine, the checkpoint
+image is hand-crafted using the volume tools.
+

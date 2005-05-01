@@ -1,0 +1,110 @@
+<html>
+<head>
+<title>EOR: Fresh Address Space</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Standard Processes</H2>
+  </div>
+  <h2>Fresh Address Space</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> <img src="../../../img/construction.gif"> <em>Sorry.</em> This is a
+  placeholder page.
+  <h3>Operations</h3>
+  <p> The <strong>Fresh Address Space</strong> implements all of the
+  operations supported by the virtual copy space.
+  <p> Note that the indicated results are returned by the keeper if
+  the address space is callable.
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dt> <strong>Make Read Only Key</strong> (OC = 1)
+    <dt> <strong>Make Don't-Call Key</strong> (OC = 2)
+    <dt> <strong>Make Read Only, Don't-Call Key</strong> (OC = 3)
+    <dd> 
+	 <p> Implemented as per the description given in 
+	 the <a  href="../primary/AddressSpace.html">Address Space Key</a> page.
+	 <p>
+    <dt> <strong>Return Unused Pages</strong> (OC = 16)
+    <dd>
+	 <p> This operation returns to the space bank any pages that
+	 follow the last nonzero byte, and returns to the caller the
+	 address space offset of the the last nonzero byte <em>plus one</em>
+	 (i.e. the length of the content including the last nonzero
+	 byte).
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1><strong>Reply</strong></td>
+	     <td align=right><strong>N</strong></td>
+	     <td>The offset of the last nonzero byte plus one.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1><strong>Result</strong></td>
+	     <td align=right>RC_OK</td>
+	     <td>Operation completed successfully.</td>
+	   </tr>
+	 </table>
+    <dt> <strong>Truncate</strong> (OC = 17)
+    <dd>
+	 <p> Set all bytes in the address space beginning at the passed
+	 offset to zero.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1><strong>Request</strong></td>
+	     <td align=right><strong>W|L|N</strong></td>
+	     <td>The address from which bytes should be zeroed.  The
+	       address may be a word or longword quantity, in which
+	       case the offset is zero-extended.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1><strong>Result</strong></td>
+	     <td align=right>RC_OK</td>
+	     <td>Operation completed successfully.</td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Create Sibling Address Space</strong> (OC = 32)
+    <dd>
+	 <p> blah blah blah description
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1><strong>Request</strong></td>
+	     <td align=right><strong>SK0</strong></td>
+	     <td>A start key to a space bank from which the new
+	       address space's pages should be allocated.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1><strong>Reply</strong></td>
+	     <td align=right><strong>RK0</strong></td>
+	     <td>A fresh address space key sharing the same address space keeper
+	       as the original.</td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>RC_OK</td>
+	     <td>Operation completed successfully.</td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Destroy</strong> (OC = KT+4)
+    <dd>
+	 <p> Destroy the address space and it's associated address space keeper.
+  </dl>
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>
+

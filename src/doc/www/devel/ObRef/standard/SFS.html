@@ -1,0 +1,622 @@
+<html>
+<head>
+<title>EOR: SFS: Simple Filesystem</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>]
+  [<em><a href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Standard Processes</H2>
+  </div>
+  <h2>SFS: Simple Filesystem</h2>
+  <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p>
+SFS is a simple filesystem constisting of a tree of <b>directory</b>
+and <b>file</b> processes, which are differentiated by their
+alleged keytypes.  SFS is designed to provide just enough
+functionality to interact with many UNIX applications built
+using an <i>SFS-modified</i> C library.
+<p>
+Directory traversals begin with the <b>root</b> directory process.
+The first time <b>root</b> is CALLed, it initializes itself as an 
+empty directory process.
+<br><center>
+<img src="fs.gif"><br>Figure 1: Typical directory structure<br>
+</center>
+<p>
+Directory and file processes obtain space dynamically from a
+<a href="SpaceBank.html">space bank</a>.  SFS utilizes a
+<a href="ProcessCreator.html">process creator</a> for file
+and directory creation.
+
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd> 
+	 <p> Returns the alleged type of the object.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>R1</strong>
+	     </td>
+	     <td align=right>
+	       <em>AKT_SFSF</em>:
+	       Key is a file process.
+	       <p>
+	       <em>AKT_SFSD</em>:
+	       Key is a directory process.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Read</strong> (OC = 0)
+    <dd> 
+	 <p> Read from the file.  "rcv.len" indicates the number of
+	 bytes actually read.
+	 
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	       File descriptor.
+	     </td>
+
+	   </tr>	 
+	   <tr valign=top>
+	 <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	       Bytes to read.
+	     </td>
+	 </tr>
+	 <tr valign=top>
+	     <td rowspan=5>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <em>RC_OK</em>
+	     </td>
+	     <td>
+	 Read successful.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>1</strong>
+	     </td>
+	     <td>
+	 File is not open.
+	     </td>
+	   </tr>
+	 <tr valign=top>
+	     <td align=right>
+	 <strong>2</strong>
+	     </td>
+	     <td>
+	 This operation is only permitted on file processes.
+	     </td>
+	   </tr>
+	 <tr valign=top>
+	     <td align=right>
+	 <strong>3</strong>
+	     </td>
+	     <td>
+	 Generic error.
+	     </td>
+	   </tr>
+	 <tr valign=top>
+	     <td align=right>
+	 <strong>3</strong>
+	     </td>
+	     <td>
+	 The file descriptor's mode does not permit this operation.
+	     </td>
+	   </tr>	 	 
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>B*</strong>
+	     </td>
+	     <td>
+	       Bytes read.
+	     </td>
+	   </tr>	 
+	 </table>
+	 <p>
+    <dt> <strong>Write</strong> (OC = 1)
+    <dd> 
+	 <p> Write to the file
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	 File descriptor.
+	     </td>
+	 </tr>
+	 <tr valign=top>
+	     <td align=right>
+	       <strong>B*</strong>
+	     </td>
+	     <td>
+	       Up to one page of data.
+	     </td>
+	   </tr>	 
+	   <tr valign=top>
+	     <td rowspan=6>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <em>RC_OK</em>
+	     </td>
+	     <td>
+	 Write successful.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>1</strong>
+	     </td>
+	     <td>
+	 File is not open.
+	     </td>
+	   </tr>
+	 <tr valign=top>
+	     <td align=right>
+	 <strong>2</strong>
+	     </td>
+	     <td>
+	 This operation is only permitted on file processes.
+	     </td>
+	   </tr>
+	 <tr valign=top>
+	     <td align=right>
+	 <strong>3</strong>
+	     </td>
+	     <td>
+	 Generic error.
+	     </td>
+	   </tr>
+	 <tr valign=top>
+	     <td align=right>
+	 <strong>4</strong>
+	     </td>
+	     <td>
+	 File descriptor's mode does not permit this operation.
+	     </td>
+	   </tr>
+	 <tr valign=top>
+	     <td align=right>
+	 <strong>5</strong>
+	     </td>
+	     <td>
+	 Out of space.
+	     </td>
+	   </tr>	 	 	 
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	       Number of bytes actually written.
+	     </td>
+	   </tr>	 
+	 </table>
+	 <p>
+    <dt> <strong>Open</strong> (OC = 2)
+    <dd> 
+	 <p> Open a file for reading or writing
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	       Flags <blockquote>
+	 flags is one of O_RDONLY, O_WRONLY or O_RDWR which request
+	        opening the  file  read-only,  write-only  or
+	       read/write,
+	        respectively. </blockquote>
+	 
+	 </td>
+	   </tr>
+
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>L</strong>
+	     </td>
+	     <td>
+	 Mode (not currently implemented)
+	     </td>
+	   </tr>	 
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <em>RC_OK</em>
+	     </td>
+	     <td>
+	 Open successful.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>1</strong>
+	     </td>
+	     <td>
+	 Generic error.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>2</strong>
+	     </td>
+	     <td>
+	 File is already open.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	 File descriptor.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Close</strong> (OC = 3)
+    <dd> 
+	 <p> Close an open file.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	       File descriptor
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <em>RC_OK</em>
+	     </td>
+	     <td>
+	 Close successful.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>1</strong>
+	     </td>
+	     <td>
+	 Generic error.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>2</strong>
+	     </td>
+	     <td>
+	 File is not open.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Seek</strong> (OC = 4)
+    <dd> 
+	 <p> reposition file read/write offset
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	       File descriptor
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>L</strong>
+	     </td>
+	     <td>
+	 Offset
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>L</strong>
+	     </td>
+	     <td>
+	 Whence <blockquote>
+	  If  whence is SEEK_SET, the offset is set to offset
+	               bytes.
+<br>
+	               If whence is SEEK_CUR, the offset  is  set  to
+	               its
+	               current location plus offset bytes.
+<br>
+	               If  whence  is  SEEK_END,  the offset is set to
+	               the
+	               size of the file plus offset bytes.</blockquote>
+	     </td>
+	   </tr>	 	 
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <em>RC_OK</em>
+	     </td>
+	     <td>
+	 Seek successful.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>1</strong>
+	     </td>
+	     <td>
+	 Generic error.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>2</strong>
+	     </td>
+	     <td>
+	 Seek past EOF.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	 Resulting offset location.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Creat</strong> (OC = 5)
+    <dd> 
+	 <p> Create a new file or directory.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	       Flags (0=file, 1=directory)
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=4>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <em>RC_OK</em>
+	     </td>
+	     <td>
+	 Creat successful.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>1</strong>
+	     </td>
+	     <td>
+	 This operation is valid only on directory processes.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>2</strong>
+	     </td>
+	     <td>
+	 A file by that name already exists.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>3</strong>
+	     </td>
+	     <td>
+	 Out of space.
+	     </td>
+	   </tr>	 
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <em>SK0</em>
+	     </td>
+	     <td>
+	 Start key for new file/directory.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Remove</strong> (OC = 6)
+    <dd> 
+	 <p> Remove a file or directory.  Directories must be empty.
+	 
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	       Flags (0=normal, 1=force)
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <em>RC_OK</em>
+	     </td>
+	     <td>
+	 Remove successful.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>1</strong>
+	     </td>
+	     <td>
+	 Directory not empty.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>2</strong>
+	     </td>
+	     <td>
+	 Directory/file is still open and operation was not forced.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Readdir</strong> (OC = 7)
+    <dd> 
+	 <p> Read from a directory.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>L</strong>
+	     </td>
+	     <td>
+	       Flags (0=get start key, 1=get dir listing)
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>L</strong>
+	     </td>
+	     <td>
+	 FileID
+	     </td>
+	   </tr>	 
+	   <tr valign=top>
+	     <td rowspan=3>
+	       <strong>Result</strong>
+	     </td>
+	     <td align=right>
+	       <em>RC_OK</em>
+	     </td>
+	     <td>
+	 Read successful.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>1</strong>
+	     </td>
+	     <td>
+	 Generic error.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>2</strong>
+	     </td>
+	     <td>
+	 Directory is not open.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <em>SK0</em>
+	     </td>
+	     <td>
+	 Start key for given FileID
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right>
+	 <strong>B*</strong>
+	     </td>
+	     <td>
+	 Directory listing <code>(filename\255fileid\255filename\255fileid...)</code>
+	 </td>
+	   </tr>
+	 </table>
+	 <p>
+
+    <dd>
+  </dl>
+  <hr>
+  <address>
+  <a href="http://www.seas.upenn.edu/~berrym">Mike Berry &lt;berrym@eros-os.org&gt;</a>
+  </address>
+  <!-- hhmts start -->
+  <!-- hhmts end -->
+</div>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

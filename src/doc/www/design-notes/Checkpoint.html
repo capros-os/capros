@@ -1,0 +1,790 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+  <head>
+    <title>The Checkpoint Mechanism</title>
+    <meta name=linknotify content=all>
+    <meta name=author content="Jonathan Shapiro">
+    <link rel=author rev=made href="mailto:shap@eros-os.org" title="Jonathan S. Shapiro">
+  </head>
+
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <center>
+      <h1 class=title>The Checkpoint Mechanism</h1>
+      <div class=nocss>
+	&nbsp;<br>
+      </div>
+    </center>
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <p>
+	    The checkpoint code is the most complex code in the EROS kernel
+	    (perhaps the duplexed I/O code comes close, but that is going
+	    away soon).  It has undergone the greatest number of revisions
+	    and has been the source of the most frustrating (and difficult
+	    to locate) bugs.
+	  </p>
+	  <p>
+	    In this note, I'm documenting the final design for the
+	    checkpoint area, along with some explanatory notes.
+	  </p>
+	  <h2>1. Background</h2>
+	  <p>
+	    The EROS checkpoint design differs significantly from the
+	    KeyKOS design, but many of the <em>ideas</em> of the
+	    KeyKOS design still pertain.  The KeyKOS design is
+	    described in <a
+	      href="http://www.cis.upenn.edu/~KeyKOS/Checkpoint.html"><em>The 
+		Checkpoint Mechanism in KeyKOS</em></a>.  The
+	    differences between the two systems can be summarized as
+	    follows:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		KeyKOS uses two checkpoint areas of equal size (what
+		Landau calls the <em>checkpoint area</em> and the
+		<em>working area</em>).  It fills the working area up,
+		declares a checkpoint, swaps the checkpoint and the
+		working areas, and then drains (migrates) from what is
+		now the checkpoint area.
+	      </p>
+	      <p>
+		EROS uses a single checkpoint area in a circular
+		fashion, and divides this area dynamically into
+		several generations.  A generation is permitted to
+		occupy up to a fixed percentage of the checkpoint area
+		(typically 65%) before a checkpoint is declared.  A
+		new generation is then started while the checkpointed
+		generation is drained.  The checkpointed generation
+		then becomes the migrating generation.  This devolves
+		to the KeyKOS behavior under normal conditions, but
+		provides greater flexibility in the face of bursts of
+		object modifications.  It also allows the checkpoint
+		area to grow more easily.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		KeyKOS never reuses space in the checkpoint area; if
+		an object is modified a second time it gets a new
+		location.  The purpose of this is to avoid seeks and
+		head settling delays where possible.
+	      </p>
+	      <p>
+		EROS <em>does</em> reuse space in the checkpoint area,
+		but uses an allocation strategy that is designed to
+		maximize sequential allocation.  Our rationale is that
+		disk tracks are larger than they were a decade ago, so
+		we don't take as many seeks/settles.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Once KeyKOS begins to reuse a checkpoint area, all
+		memory of that area's prior content is discarded.
+	      <p>
+		EROS preserves a record of object locations in the
+		checkpoint area until their storage is actually
+		reused.  It should therefore perform fewer seeks to
+		areas outside the checkpoint area.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		KeyKOS has no equivalent to the EROS reserve table.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    The following sections describe how the EROS checkpoint
+	    area is managed in detail.
+	  </p>
+	  <h2>2. On-Disk Checkpoint Area</h2>
+	  <p>
+	    The EROS checkpoint area is made up of ranges of disk page
+	    frames that are sequentially numbered beginning at zero.
+	    These are referred to as <b>log ranges</b>.  Just as page
+	    frames in object ranges are referred to with <b>oid</b>s,
+	    frames in the log are referred to with <b>lid</b>s.  An
+	    <em>lid</em> is constructed by taking the page frame number
+	    and concatenating an 8-bit object offset.
+	  </p>
+	  <p>
+	    Frames zero and one hold the checkpoint headers of the two
+	    most recently stabilized checkpoints.  Either header A or
+	    header B may represent the most recently stabilized
+	    checkpoint.  The most recently written header can be
+	    determined by comparing the sequence numbers in the header
+	    pages.
+	  </p>
+	  <ul>
+	      <pre>
+ Frame 0    1    2                                        N
++-------+-------+----------------------------------------+
+| hdr A | hdr B | log page frames, dynamically allocated |
+|       |       | to various checkpoint generations      |
++-------+-------+----------------------------------------+
+ LID 0x0  0x100  0x200  ...                            N<<8
+	      </pre>
+	  </ul>
+	  <p>
+	    Log ranges may reside on multiple disks, but the present
+	    implementation requires that sequential numbering be
+	    preserved.  This presents some difficulties for checkpoint
+	    area rearrangement that we will need in due course to
+	    solve with suitable user-level applications.
+	  </p>
+	  <p>
+	    A checkpoint that has been completely written to the disk
+	    is said to be <b>stabilized</b>.  A stabilized checkpoint
+	    has an associated on-disk directory that describes where
+	    all of the objects in that checkpoint reside.  This
+	    information is stored in a two-level directory structure.
+	  </p>
+	  <h3>2.1 The Checkpoint Header</h3>
+	  <p>
+	    The root of each directory is the checkpoint header
+	    (either A or B).  The checkpoint header page contains
+	    begins with a header structure describing the checkpoint,
+	    followed by the <em>lid</em> values of each second-level
+	    header in the checkpoint area:
+	  </p>
+	  <ul>
+	      <pre>
++-----------------+
+|     Header      |
++-----------------+
+| reserve dir lid |
+|      ....       |
+| reserve dir lid |
++-----------------+
+| thread dir lid  |
+|      ....       |
+| thread dir lid  |
++-----------------+
+| object dir lid  |
+|      ....       |
+| object dir lid  |
++-----------------+
+	      </pre>
+	  </ul>
+	  <p>
+	    The header structure is:
+	  </p>
+	  <ul>
+	      <pre>
+struct DiskCheckpointHdr {
+  uint64_t   sequenceNumber;
+  bool       hasMigrated;
+  LogLoc     maxLogLoc;
+
+  uint32_t   nDirPage;
+  uint32_t   nThreadPage;
+  uint32_t   nRsrvPage;
+};
+	      </pre>
+	  </ul>
+	  <p>
+	    Each of the fields is explained below.
+	  </P>
+	  <dl>
+	    <dt><b>sequenceNumber</b></dt>
+	    <dd>
+	      <p>
+		The sequence number allows EROS to determine which
+		checkpoint is most recent.  When restarting, EROS
+		first loads the checkpoint headers at <tt>lid=0x0</tt>
+		and <tt>lid=0x100</tt>.  If a drive failure occurred
+		while writing a header (detected by bad CRC while
+		rereading the corresponding page frame), that header
+		is discarded.  Of the valid headers, EROS then chooses
+		the header with the largest sequence number as the
+		most recent checkpoint.
+	      </p>
+	      <p>
+		Note that on recovery EROS does not attempt to
+		reconstruct <em>all</em> of the checkpoint generations 
+		that may be present in the checkpoint area.  It loads
+		only the most recent one.
+	      </p>
+	    </dd>
+	    <dt><b>hasMigrated</b></dt>
+	    <dd>
+	      <p>
+		The ``has migrated'' field indicates whether migration 
+		completed for a given checkpoint generation.  If
+		migration has completed, all of the objects in that
+		generation have been successfully copied to their home 
+		locations.  If not, migration must be restarted.
+	      </p>
+	      <p>
+		Once migration <em>has</em> completed, EROS is free to
+		begin reusing the object storage associated with a
+		checkpoint area.  The reserve and thread directories
+		remain valid, but the object directory should be
+		considered invalid.
+	      <p>
+		<em>The migrator should perhaps reset the nDirPage
+		  field to zero under these conditions.</em>
+	      </p>
+	    </dd>
+	    <dt><b>maxLogLoc</b></dt>
+	    <dd>
+	      <p>
+		The <tt>maxLogLoc</tt> field allows the restart code
+		to verify that it has recovered all of the checkpoint
+		area.  <tt>maxLogLoc</tt> contains the number of log
+		frames that were known to the system at the time of
+		the last checkpoint.  If the restart process has not
+		managed to build a complete checkpoint area of at
+		least this number of frames, the system will not
+		restart.
+	      </p>
+	    </dd>
+	    <dt>
+	      <b>nRsrvPage</b>,
+	      <b>nThreadPage</b>,
+	      <b>nDirPage</b>
+	    </dt>
+	    <dd>
+	      <p>
+		The <tt>nRsrvPage</tt>, <tt>nThreadPage</tt>, and
+		<tt>nDirPage</tt> give (respectively) the number of
+		<em>lid</em> entries of each type in the remainder of
+		the checkpoint header.
+	      </p>
+	    </dd>
+	  </dl>
+	  <h3>2.2 The Reserve Directory</h3>
+	  <p>
+	    Each ``reserve directory lid'' in the checkpoint header 
+	    names the location of a reserve directory page.
+	    Every reserve directory page consists of a single word
+	    describing the number of following entries, and then some
+	    number of reserve descriptors:
+	  </p>
+	  <ul>
+	      <pre>
+struct CpuReserveInfo {
+  uint32_t index;
+  uint64_t period;
+  uint64_t duration;
+  uint64_t quanta;
+  uint64_t start;
+  int rsrvPrio;
+  int normPrio;
+};
+	      </pre>
+	  </ul>
+	  <p>
+	    The reserve entries from the most current valid checkpoint 
+	    are reloaded as part of the system startup process.
+	  </p>
+	  <h3>2.3 The Thread Directory</h3>
+	  <p>
+	    Each ``thread directory lid'' in the checkpoint header
+	    names the location of a thread directory page.  A thread
+	    directory page consists of a single word describing the
+	    number of following entries, and then some number of
+	    thread descriptors:
+	  </p>
+	  <ul>
+	      <pre>
+struct ThreadDirent {
+  OID      oid;
+  ObCount  allocCount;
+  uint16_t schedNdx;
+};
+	      </pre>
+	  </ul>
+	  <p>
+	    An entry in the thread directory corresponds to a thread
+	    that was running at the time the checkpoint was taken.
+	    The thread entries from the most current valid checkpoint
+	    are reloaded as part of the system startup process.
+	  </p>
+	  <p>
+	    The <tt>oid</tt> field identifies the process root node of
+	    the process currently occupied by this thread.  The
+	    <tt>allocCount</tt> field must match the allocation count
+	    of the node.  The allocation count must be preserved
+	    because threads can sleep for long periods of time during
+	    which the process they occupy may be rescinded.
+	  </p>
+	  <h3>2.4 The Object Directory</h3>
+	  <p>
+	    The remaining directory lids in the checkpoint header
+	    identify object directory pages.  Each entry holds an
+	    object identifier, an allocation count, the type of the
+	    object, and the <em>lid</em> at which the object can be
+	    found.
+	  </p>
+	  <ul>
+	      <pre>
+struct CkptDirent {
+  OID       oid;
+  ObCount   count;
+  LogLoc    logLoc : 24;
+  uint8_t   type;
+} ;
+	      </pre>
+	  </ul>
+	  <p>
+	    For pages, the count field contains the allocation count.
+	    For nodes, it contains the call count. <em>Is this
+	      correct?</em>
+	  </p>
+	  <p>
+	    If the lid field of the directory is zero, then the
+	    corresponding object is either a zero-filled page or a
+	    node filled with null keys whose call count is equal to
+	    its allocation count.  Which one can be determined by the
+	    value of the type field.
+	  </p>
+	  <p>
+	    If the lid field is nonzero, the corresponding checkpoint
+	    frame contains either page (or capability page) data or a
+	    ``log pot.''  A log pot is simply a page-sized cluster of
+	    nodes in the checkpoint area.  This is why the lid value
+	    is concatenated with an object index: the index indicates
+	    which entry in the log pot contains the relevant object.
+	  </p>
+	  <h2>3. Theory of Operation</h2>
+	  <p>
+	    The basic idea behind the EROS checkpoint design is that
+	    we will divide the information in the checkpoint area into
+	    several generations.  The <em>current</em> generation
+	    corresponds roughly to the paging area of conventional
+	    operating systems.  The <em>checkpoint</em> generation is
+	    the most recently declared checkpoint, which may be only
+	    partially written to the disk.  The <em>stable</em>
+	    generation is the most recent checkpoint that is entirely
+	    written to the disk.  At any given time, there is either a
+	    checkpoint generation or a stable generation.  The
+	    <em>migrated</em> generations remain in the checkpoint
+	    area until their storage is reclaimed, but have been fully
+	    copied to their home locations.
+	  </p>
+	  <center>
+	    <img src="ckpt-states.gif" alt="Checkpoint Generations">
+	  </center>
+	  <p>
+	    Whenever an object in memory is dirtied, space is reserved
+	    for it in the current checkpoint generation.  If
+	    necessary, space will be made available by throwing away
+	    objects in the oldest generation to create available
+	    storage.
+	  <p>
+	    Execution proceeds until the checkpoint interval
+	    (typically 5 minutes) has passed or the current generation
+	    has come to occupy more than some fixed percentage of the
+	    checkpoint area (typically 65%).  When either event
+	    occurs, a checkpoint is declared.  All generations move
+	    one step to the right, and the rightmost generation is
+	    discarded.  Objects may have been written to the current
+	    generation due to ageing, but at the time the checkpoint
+	    is declared many of these objects will still be in memory.
+	  </p>
+	  <p>
+	    Once the checkpoint is declared, the current generation
+	    becomes the checkpoint generation, and a new current
+	    generation is started.  Checkpointed objects in memory are
+	    marked ``copy on write,'' and execution resumes.  All of
+	    the in-memory objects associated with the current
+	    generation are then written out to the disk asynchronously
+	    by the checkpointer process.
+	  <p>
+	    At any given moment, there is either a checkpoint
+	    generation or a stable generation.  When the last
+	    in-memory object in the checkpoint generation has been
+	    written to disk, that generation becomes the stable
+	    generation.  Migration now begins.
+	  </p>
+	  <p>
+	    During the migration phase, objects in the stable
+	    generation are copied from the stable generation to their
+	    home locations on the disk.  Once this has completed, the
+	    generation is considered to have migrated, and the on-disk
+	    checkpoint header for this generation is rewritten to
+	    indicate that migration is done.
+	  </p>
+	  <p>
+	    In principle, EROS can be configured for any number of
+	    generations greater than three.  In practice, the current
+	    system is configured for exactly three.
+	  </p>
+	  <h2>4. The Checkpoint Map</h2>
+	  <p>
+	    The checkpoint area storage is interpreted simultaneously 
+	    at two layers:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		As a set of page frames, each of which is either
+		<em>allocated</em>, <em>reserved</em>, or
+		<em>free</em>.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		As a set of object containers, each of which is one
+		page in size.  A given object container may hold a
+		data page, a capability page, a node, or a directory
+		entry.  [They can also hold thread and reserve
+		entries, but these are handled as special cases by the 
+		checkpoint logic.]
+	      </p>
+	      <p>
+		If a frame is allocated, then there exists exactly one
+		checkpoint generation associated with that frame, and
+		there is at least one entry in the directory for that
+		generation naming an object in that frame.
+	      </p>
+	    </li>
+	  </ul>
+	  <h3>4.1 Frame Reservation</h3>
+	  <p>
+	    Before any object can be dirtied, space for it must be
+	    reserved in the current checkpoint.  Herein lies the first
+	    source of complexity.  Because there are multiple nodes
+	    (directory entries) per page, the checkpoint logic must
+	    maintain reservation information at two levels for such
+	    objects.  When allocating a new node (directory entry)
+	    would overflow the current frame, a new frame must be
+	    reserved.
+	  </p>
+	  <p>
+	    The catch is that we do not actually decide where to store
+	    the newly dirtied object when space for it is reserved.
+	    Instead, we simply keep a count of how many objects of
+	    each type have been reserved.  The reason for this is that
+	    a long time may go by between dirtying the object and
+	    writing it out to disk, and we would therefore like to
+	    decide as late as possible the location in the log at
+	    which the object will be written.
+	  </p>
+	  <h3>4.2 Frame Allocation</h3>
+	  <p>
+	    At some later time, we actually write the dirty object to
+	    the disk.  At this point we actually allocate the log
+	    frame that the object will go to.  If multiple objects
+	    will fit in the frame, a count of the number of slots
+	    allocated is kept in addition to the count of the number
+	    of allocated frames.
+	  </p>
+	  <p>
+	    Here we arrive at the second complication.  An object can
+	    be dirtied (reserving space), written out (consuming
+	    space), and subsequently <em>redirtied</em>.  When this
+	    occurs, there are two possible design options:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		Rewrite the object to its previously assigned
+		location.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Assign a new location to the object, and free the old
+		location (if any).
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    We adopt the second policy.  Since the bottom-level free
+	    frame logic simply needs to know whether a frame is in
+	    use, we have the frame allocation map keep a
+	    <em>count</em> of how many objects occupy a given frame.
+	    When this count goes to zero the frame can be reused.
+	  </p>
+	  <p>
+	    One reason for adopting the second policy is that a great
+	    many of the objects written to the checkpoint area will
+	    prove to be zero objects.  For our purposes, a zero object
+	    is any of the following:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		A zero-filled data page.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		A node filled with zero number capabilities.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		A capability page filled with zero number
+		capabilities.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    The reason these occur with such frequency is that
+	    returning storage to the space bank causes that storage to
+	    be zeroed.  <em>This is not currently true, but we should
+	    make it true.  The reason to do it is that objects
+	    returned to the space bank are generally dirty, and
+	    handling them this way obviates the need to rewrite
+	    now-dead data back to the checkpoint area (or, in the case
+	    of pages, to the home locations).  By storing them as zero
+	    objects, the write bandwidth requirements can be reduced
+	    significantly.</em>
+	  </p>
+	  <p>
+	    The advantage to handling zero objects specially is that
+	    they do not occupy any storage in the checkpoint log.  The 
+	    directory entry for a zero object suffices to indicate
+	    that the object is zeroed.
+	  </p>
+	  <h3><a name="cssize">4.3 Algorithms</a></h3>
+	  <p>
+	    There are two algorithms of interest in the checkpoint
+	    logic: reserving the storage for an object and writing an
+	    object to the disk.
+	  </p>
+	  <h4>4.3.1 Space Reservation</h4>
+	  <p>
+	    When an object is dirtied, the storage reservation
+	    algorithm goes as follows:
+	  </p>
+	  <ul>
+	      <pre>
+If no directory space for the object has been reserved
+    reserve in-core directory space for object
+    reserve on-disk directory space for object
+Reserve space for non-zero object
+If (reserved frames - released frames) exceeds 65%
+    unreserve everything
+    declare checkpoint
+If this object was previously written to disk
+    deallocate any previous storage
+	      </pre>
+	  </ul>
+	  <p>
+	    Note the check in the middle for checkpoint size limits.
+	    This is where a checkpoint will be declared for reasons of
+	    space exhaustion.  Until the time comes to actually write
+	    the new object, we must assume that it will be non-zero
+	    and allocate space accordingly.
+	  </p>
+	  <p>
+	    The deallocation of the on-disk object can, under one
+	    boundary condition, cause minor trouble.
+	  </p>
+	  <p>
+	    Nodes go to disk in page-sized chunks called <em>log
+	    pots</em>.  Suppose that a node is dirtied, written to the
+	    log pot that we are currently assembling (at which point
+	    the node is cleaned), and subsequently redirtied.  When it 
+	    is redirtied, the allocation count associated with the log 
+	    pot is decremented.  If it chances that this decrement
+	    causes the log pot allocation count to go to zero, the
+	    pending log pot will be incorrectly considered
+	    reclaimable.
+	  </p>
+	  <p>
+	    This can only arise under conditions of total memory
+	    starvation, and yes, we found this the hard way.  The
+	    solution is to simply maintain an ``extra'' allocation on
+	    the log pot while its construction is in progress.
+	  </p>
+	  <h4>4.3.2 Object Write</h4>
+	  <p>
+	    The other algorithm of major interest is the object write
+	    algorithm.  The main source of interest is the handling of
+	    objects that prove to be zero objects when the time comes
+	    to write them.
+	  </p>
+	  <ul>
+	      <pre>
+If object is zero object
+    unreserve disk space for object
+    update in-core checkpoint directory entry accordingly
+else
+    write object to disk
+	      </pre>
+	  </ul>
+	  <h3>4.4 Restart Actions</h3>
+	  <p>
+	    When EROS is restarted after a shutdown (orderly or
+	    otherwise), it first locates the most recent checkpoint
+	    header.  It reloads the thread and reserve directories,
+	    and then checks to see if the checkpoint has migrated.  If 
+	    not, it also reloads the object directory.
+	  </p>
+	  <p>
+	    While doing this, the restart logic builds an in-core map
+	    of which page frames in the checkpoint area are part of
+	    the current checkpoint, and are therefore not available
+	    for allocation.  This is called the <b>checkpoint map</b>.
+	  </p>
+	  <p>
+	    The checkpoint map maintains a <em>count</em>, for each
+	    page frame in the checkpoint area, of the number of
+	    objects currently stored in that frame.  If a frame has no
+	    objects stored, it is considered reclaimable.  The
+	    checkpoint headers and directory pages are each considered
+	    to contain one object.
+	  </p>
+	  <p>
+	    The original KeyKOS design did not reclaim checkpoint
+	    pages, and therefore used a simple bitmap rather than a
+	    counted map.  In EROS, we have observed that log pots
+	    containing ``hot'' nodes frequently empty themselves after
+	    being paged out, and it is beneficial to be able to reuse
+	    them.
+	  </p>
+	  <h2>5. The Core Generation Structure</h2>
+	  <p>
+	    Each checkpoint generation has an associated in-core
+	    structure.  This structure maintains book-keeping
+	    information concerning the checkpoint and contains the
+	    root pointer for the in-core checkpoint directory.
+	  </p>
+	  <ul>
+	      <pre>
+struct CoreGeneration {
+  bool canReclaim;
+  CoreDirent *oidTree;
+  uint32_t nCoreDirent;
+  uint32_t nDirent;
+  uint32_t nReservedFrames;
+  uint32_t nAllocatedFrames;
+
+  uint32_t nDirPage;
+  uint32_t nLogPot;
+
+  uint32_t nZeroPage;
+  uint32_t nZeroNode;
+  uint32_t nPage;
+  uint32_t nNode;
+  uint32_t nThread;
+  uint32_t nReserve;
+
+  // Record of storage we have released:
+  uint32_t nReleasedNode;
+  
+#ifdef PARANOID_CKPT
+  uint32_t nAllocDirPage;
+  uint32_t nAllocPage;
+  uint32_t nAllocLogPot;
+#endif
+  
+  LogLoc curLogPot;
+  uint32_t   nNodesInLogPot;
+};
+	      </pre>
+	  </ul>
+	  <p>
+	    For each type of object (page, zero page, node, zero node,
+	    thread, reserve), the core generation structure records
+	    how many of these objects have been allocated in this
+	    generation.  An object is allocated the first time it is
+	    written to the checkpoint area.  Nodes are 
+	  </p>
+	  <p>
+	    The various fields are:
+	  </p>
+	  <dl>
+	    <dt><b>canReclaim</b></dt>
+	    <dd>
+	      <p>
+		Indicates whether the objects in this checkpoint
+		generation have been migrated, and can therefore be
+		reclaimed.
+	      </p>
+	    </dd>
+	    <dt><b>oidTree</b></dt>
+	    <dd>
+	      <p>
+		Root pointer to a red-black tree of directory entries
+		for each object in this generation.
+	      </p>
+	    </dd>
+	    <dt><b>nCoreDirent</b></dt>
+	    <dd>
+	      <p>
+		Number of entries in the core directory tree for this
+		generation.
+	      </p>
+	    </dd>
+	    <dt><b>nCoreDirent</b></dt>
+	    <dd>
+	      <p>
+		Number of entries in the core directory tree for this
+		generation.
+	      </p>
+	    </dd>
+	    <dt><b>nDirent</b></dt>
+	    <dd>
+	      <p>
+		Number of on-disk directory entries that have been
+		reserved for this generation.  Should always be equal
+		to <tt>nCoreDirent</tt>.
+	      </p>
+	    </dd>
+	    <dt><b>nReservedFrames</b></dt>
+	    <dd>
+	      <p>
+		Number of disk frames that have been reserved for this 
+		generation.
+	      </p>
+	    </dd>
+	    <dt><b>nAllocatedFrames</b></dt>
+	    <dd>
+	      <p>
+		Number of disk frames that have been <em>allocated</em> for this 
+		generation.  Should always be less than or equal to
+		<tt>nReservedFrames</tt>.
+	      </p>
+	    </dd>
+	    <dt><b>nDirPage</b>,
+	      <b>nPage</b>,
+	      <b>nLogPot</b>,
+	    </dt>
+	    <dd>
+	      <p>
+		Number of directory pages, pages, and log pots
+		(respectively) that have been reserved in this
+		generation.  These should sum to <tt>nReservedFrames</tt>.
+	      </p>
+	    </dd>
+	  </dl>
+	  <ul>
+	      <pre>
+struct CoreDirent {
+  CoreDirent *left;
+  CoreDirent *right;
+  CoreDirent *parent;
+
+  OID         oid;
+  ObCount     count;
+  LogLoc      logLoc : 24;
+  uint8_t        type;
+
+
+  enum { red = 1, black = 0 };
+  
+  uint8_t        color;
+};
+	      </pre>
+	  </ul>
+	  <hr>
+	  <em>Copyright 1998 by Jonathan Shapiro.  All rights
+	    reserved.  For terms of redistribution, see the <a
+	      href="../legal/license/GPL.html">EROS License
+	      Agreement</a></em>
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </body>
+</html>

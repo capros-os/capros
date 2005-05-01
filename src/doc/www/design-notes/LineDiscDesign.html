@@ -1,0 +1,661 @@
+<html>
+<head>
+<title>Line Discipline Design Note</title>
+<style type="text/css">
+<!--
+     .CMacro        { font-family: monospace }
+     .ControlChar   { font-family: monospace }
+     TD.Heading     { font-weight: bold }
+     TD.Description { }
+  -->
+</style>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<h1>Line Discipline Design Note</h1>
+<P>
+This is a proposed design of the line discipline for EROS, the
+Extremely Reliable Operating System.
+
+ <H2>Basic Ideas (introduction?)</H2>
+<P>
+In this design, we view the Line Discipline as a "filtering" module
+which sits between a <em>Character Source</em>, which provides both a
+source of characters to process and a sink for writing output to.  In
+this view, there are two "sides" to the line discipline interface:
+
+<UL>
+  <LI> The interface the client sees, and
+  <LI> the interface to the character source (i.e. serial device,
+       console, etc) that the line discipline gets the characters it
+       processes from.
+</UL>
+
+This design note covers the requirements and design of both of these
+interfaces.
+
+</P>
+
+<H3>Prevailing Assumptions</H3>
+<P>
+This design was done with a few assumptions and biases:
+<UL>
+  <LI> Parts of the Unix termios functionality was used as both a guideline to
+       what basic functionality is needed in a line discipline.  The
+       Unix termios facility as a whole is also used as an example of
+       something which is going to have to be emulated as a client of the
+       line discipline.
+  <LI>others ...
+</UL>
+</P>
+
+ <H2>Requirements</H2>
+
+  <H3>Line Discipline Requirements</H3>
+
+<P>
+There are a few requirements we saw as important in the design of
+the EROS line discipline:
+
+<UL>
+  <li> Speed -- the line discipline should not have a large processing overhead
+  <li> The Line Discipline should provide basic erase processing,
+       including character, "word", and line erase.
+  <li> The line discipline should provide a way to select what input
+       and output processing is desired, including:
+       <UL>
+	 <LI>Whether or not to do erase processing 
+	 <LI>the presence of "stop" characters (i.e. characters whose
+	      reciept causes immediate notification)
+	 <LI>Whether or not to echo entered characters
+	 <LI>etc.
+       </UL>
+       These should be independently selectable.
+  <LI> The ability to pass on some control information to the
+       character source
+</ul>
+
+There were some other requirements that we felt were <em>not</em> the
+job of the EROS line discipline:
+
+<UL>
+  <li> Multiplexed input and output -- The EROS line discipline only
+       supports a single reader/writer/controller.
+</UL>
+
+</p>
+
+  <H3>Character Source Requirements</H3>
+<p>
+Character sources generate and accept characters.  Some examples of
+character sources are:
+<ul>
+  <li> Terminal devices
+  <li> The console in text mode
+  <li> Telnet/rlogin sessions.
+</ul>
+
+The general requirements for the character source interface are:
+<ul>
+  <li>Early termination of blocked requests -- There has to be a way
+       for a blocked request to return before being completely
+       fulfilled. (i.e. timeouts, "stop" characters, etc)
+  <li>There should be a generic way to control the character source.
+  <li>The interface must be implementable in a kernel key.
+</ul>
+
+</p>
+
+ <H2>Interface</h2>
+
+  <H3>Character Source Interface</H3>
+
+   <H4>Operations</H4>
+<P>
+The Character Source Interface consists of four operations:
+<TABLE>
+  <TR><B>
+    <TD class="Heading">Operation</TD>
+    <TD class="Heading">Description</TD>
+  </B></TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">OC_CharSrc_Write</TD>
+    <TD class="Description">
+      A Write is a <em>non-blocking</em> call which consists of a text
+      message containing the characters to write.  The character
+      source attempts to write as many characters as it can without
+      blocking.  It returns <EM class="CMacro">RC_OK</EM> when done,
+      with a count of how many characters were successfully written.
+      <P>
+      If the character source's write buffer fills (i.e. it wrote less
+      than you asked it to write), a
+      <EM class="CMacro">CharSrc_WriteSpaceAvailEvent</EM> event will be
+      posted when it has partially emptied.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">OC_CharSrc_WaitForEvent</TD>
+    <TD class="Description">
+      A WaitForEvent call consists of a message with a maximum read
+      count and an event mask.  If any of the events in the event mask
+      have already fired, the call returns immediately.  Otherwise,
+      the call blocks, waiting for an event in the event mask to
+      fire.  There can be a maximum of one reader blocked on each
+      Character Source.
+      <P>
+      On success, returns <EM class="CMacro">RC_OK</EM>, the events which
+      have fired, and any characters recieved, up to the number requested.
+      </P><P>
+      Returns <EM class="CMacro">RC_CharSrc_OneWaiterOnly</EM> if
+      there is already someone waiting on this Character Source.
+      </P>      
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">OC_CharSrc_PostEvent</TD>
+    <TD class="Description">
+      A PostEvent call consists of an event mask, which must only
+      consist of user-defined events.  The effect is to fire the
+      events specified.  The main use of this call is to notify a
+      thread blocked on WaitForEvent that something requires its
+      attention.
+      <P>
+      Returns <EM class="CMacro">RC_OK</EM> on success,
+      <EM class="CMacro">RC_RequestError</EM> if the event mask
+      contains non-user events.
+      </P>
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">OC_CharSrc_Control</TD>
+    <TD class="Description">
+      A Control call consists of a ControlMessageType plus additional
+      arguments, whose interpretation depends on the
+      ControlMessageType.  Some  specific control messages must be
+      implemented as part of the character source interface, and the
+      rest can be used for device-specific status and control
+      messages.
+      </P><P>
+      Returns <EM class="CMacro">RC_OK</EM> on success, with
+      additional data dependent upon the ControlMessageType.
+      </P>
+    </TD>
+  </TR>
+</TABLE>
+</P>
+
+   <H4>Events</H4>
+<P>
+The interface defines the following events:
+<TABLE>
+  <TR><B>
+    <TD class="Heading">Event</TD>
+    <TD class="Heading">Description</TD>
+  </B></TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">CharSrc_FilledBufferEvent</TD>
+    <TD class="Description">
+      Fired when the number of characters recieved reaches the minimum
+      of the number of characters asked for and the maximum buffer
+      size of the Character Source.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">CharSrc_TimeOutEvent</TD>
+    <TD class="Description">
+      Fired when the timeout parameters have been reached.  (see
+      <A HREF="#TimeoutControl">TimeoutControl</A>, below)  
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">CharSrc_SpecialCharEvent</TD>
+    <TD class="Description">
+      Fired when a special character is recieved. (see
+      <A HREF="#SpecialCharControl">SpecialCharactersControl</A>,
+      below)
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">CharSrc_WriteSpaceAvailEvent</TD>
+    <TD class="Description">
+      Fired when the character source, after refusing to accept some
+      characters in a Write call, is able to accept more
+      characters.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD><SPAN class="CMacro">CharSrc_UserEvent0</SPAN><BR>
+        through<BR>
+        <SPAN class="CMacro">CharSrc_UserEvent7</SPAN></TD>
+    <TD class="Description">
+      Eight distict events that are only fired when posted using
+      <A HREF="#PostEvent">PostEvent</A>.  These are used to wake up
+      the person waiting for an event when necessary.
+    </TD>
+  </TR>
+</TABLE>
+
+   <H4>Control Messages</H4>
+<P>
+The interface defines the following control messages:
+<TABLE>
+  <TR><B>
+    <TD class="Heading">Control Message Type</TD>
+    <TD class="Heading">Description</TD>
+  </B></TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">
+      <A NAME="TimeOutControl">CharSrc_Control_SetTimeout</A>
+    </TD>
+    <TD class="Description">
+      Uses the two register arguments.  The first argument,
+      <EM>InitialChars</EM> is the number of initial characters to be
+      recieved before the timeout begins.  (usually 1) The second
+      argument, <EM>Timeout</EM>, is the length of the timeout, in
+      milliseconds.  A <EM>Timeout</EM> of zero means an immediate
+      return after <EM>InitialChars</EM> characters have been read.
+      (This could be useful if you wanted to have characters returned
+      as they were typed, but also take advantage of any buffering
+      that occurred). A <EM>Timeout</EM> of
+      <EM class="CMacro">WORD_MAX</EM> disables the timeout mechanism.
+
+      </P><P>
+
+      The TimeOutEvent will be fired at least <EM>Timeout</EM>
+      milliseconds after <EM>InitialChars</EM> have been received.
+      The timeout is turned off after a successful WaitForEvents call
+      has completed.
+      </P>
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">CharSrc_Control_GetTimeout</TD>
+    <TD class="Description">
+      Returns the current Timeout parameters in two register
+      arguments.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">
+      <A NAME="SpecialCharControl">CharSrc_Control_SetSpecialCharacters</A>
+    </TD>
+    <TD class="Description">
+      Uses a string argument.  The string is a series of 2-byte
+      characters (Unicode) which should be recognized as Special
+      Characters.  No characters not included in the string will be
+      considered Special Characters.
+      </P><P>
+      The SpecialCharEvent will be fired immediately upon reciept of
+      any special character.  The special character <EM>is</EM>
+      inserted into the received character buffer.
+      </P><P>
+      Returns <EM class="CMacro">RC_OK</EM> on success,
+      <EM class="CMacro">RC_RequestError</EM> if either too many
+      special characters were sent or an unsupported character was
+      sent. (i.e. a non-ASCII Unicode character for an ASCII-based
+      device)  If the call fails, the special characters remain
+      unchanged..
+      </P>
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">CharSrc_Control_GetSpecialCharacters</TD>
+    <TD class="Description">
+      Returns the current special characters as a series of two-byte
+      characters in a string. The special characters may be in any
+      order.
+    </TD>
+  </TR>
+</TABLE>
+</P>
+
+  <H3> Line Discipline Interface</H3>
+<P>
+The Line Discipline follows the Character Source Protocol outlined
+above.  It acts as a "filter", taking in and writing out characters to
+a "background" character source which is passed in during
+initialization.  The Line Discipline module handles such things as
+echo processing, erase processing, etc.  The controls for the line
+discipline are implemented as additional ControlMessages.
+</P>
+   <H4>Modes of the Line Discipline</H4>
+<P>
+The LineDiscipline interface has two main modes:
+<TABLE>
+  <TR><B>
+    <TD class="Heading">Mode</TD>
+    <TD class="Heading">Description</TD>
+  </B></TR>
+  <TR VALIGN=top>
+    <TD>Raw Mode</TD>
+    <TD class="Description">Raw mode acts exactly like a standard
+      Character Source module, except that basic input and output
+      processing (like echoing) can be enabled.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD>Line Mode</TD>
+    <TD class="Description">When in Line Mode, the Line Discipline
+      acts a bit differently from a standard Character Source.
+      First, no data is returned to the reader until either a Special
+      character appears or the Line Discipline's buffer fills.  In
+      particular, the timeout parameters only effect the speed of the
+      LineDiscipline's response to its input.  In fact, the timeout
+      event will *never* be sent to the reader while in Line Mode.
+      Also, UserEvents will not cause any data to be returned.
+    </TD>
+  </TR>
+</TABLE>
+
+</P>
+
+   <H4>Line Discipline Control Messages</H4>
+<P>
+The line discipline has the following additional control messages:
+<TABLE>
+  <TR><B>
+    <TD class="Heading">Control Message</TD>
+    <TD class="Heading">Description</TD>
+  </B></TR>
+  <TR valign=top>
+    <TD class="CMacro">LineDisc_Control_SetInpProcessing</TD>
+    <TD class="Description">
+      Takes a Word of <A HREF="#InpProc">input processing flags</A>.
+      Sets the input processing to follow the new flags.
+    </TD>
+  </TR>
+  <TR valign=top>
+    <TD class="CMacro">LineDisc_Control_GetInpProcessing</TD>
+    <TD class="Description">
+      Returns a Word containing the current input processing flags.
+    </TD>
+  </TR>
+  <TR valign=top>
+    <TD class="CMacro">LineDisc_Control_SetOutpProcessing</TD>
+    <TD class="Description">
+      Takes a Word of <A HREF="#OutpProc">Output processing flags</A>.
+      Sets the output processing to follow the new flags.
+    </TD>
+  </TR>
+  <TR valign=top>
+    <TD class="CMacro">LineDisc_Control_GetOutpProcessing</TD>
+    <TD class="Description">
+      Returns a Word containing the current output processing flags.
+    </TD>
+  </TR>
+  <TR valign=top>
+    <TD class="CMacro">LineDisc_Control_SetControlChars</TD>
+    <TD class="Description">
+      Takes a String containing two-byte Unicode codes for the Control
+      characters.  Each control character should be placed at the
+      position defined by its <EM class="CMacro">LD_CC_*</EM> macro.
+      A zero character should be in any disabled CC slot. The String
+      should be 2*<EM class="CMacro">LD_Num_CC</EM> bytes long.  See
+      <A HREF="#ControlChars">Control Characters</A> for more details.
+    </TD>
+  </TR>
+  <TR valign=top>
+    <TD class="CMacro">LineDisc_Control_GetControlChars</TD>
+    <TD class="Description">
+      Returns a string in the exact form of SetControlChars.
+    </TD>
+  </TR>
+</table>
+
+   <H4>Processing flags</H4>
+    <H5><A NAME="InpProc">Input Processing Flags</A></H5>
+<TABLE>
+  <TR><B>
+    <TD class="Heading">Flag Name</TD>
+    <TD class="Heading">Description</TD>
+  </B></TR>
+  <TR VALIGN=Top>
+    <TD class="CMacro">LD_In_DoInpProc</TD>
+    <TD class="Description">
+      Enables input processing -- if not set, all other input flags are
+      effectively clear.
+    </TD>
+  </TR>
+  <TR VALIGN=Top>
+    <TD class="CMacro">LD_In_LineMode</TD>
+    <TD class="Description">
+      Enables <A HREF="#LineModeDesc">Line Mode</A>.  If not set,
+      the Line Discipline is in <A HREF="#RawModeDesc">Raw Mode</A>.
+    </TD>
+  </TR>
+  <TR VALIGN=Top>
+    <TD class="CMacro">LD_In_Echo</TD>
+    <TD class="Description">
+      Enables Echo processing.  If set, all characters recieved are
+      echoed back on the write channel.
+    </TD>
+  </TR>
+  <TR VALIGN=Top>
+    <TD class="CMacro">LD_In_EchoCtrl</TD>
+    <TD class="Description">
+      This flag has no effect if <EM class="CMacro">LD_In_Echo</EM> is
+      not set.  If this is set, all control characters but TAB, CR,
+      and NL are echoed as <SPAN class=ControlChars>^C</SPAN>
+      (where C is @ + the ASCII code of the control character).  If
+      this is not set, they are echoed back verbatim.
+    </TD>
+  </TR>
+  <TR VALIGN=Top>
+    <TD class="CMacro">LD_In_AlwEchoNL</TD>
+    <TD class="Description">
+      If set, NewLines are echoed regardless of
+      <EM class="CMacro">LD_In_Echo</EM>.
+    </TD>
+  </TR>
+  <TR VALIGN=Top>
+    <TD class="CMacro">LD_In_VisErase</TD>
+    <TD class="Description">
+      If set, when an Erase/EraseWord control character is processed,
+      the preceeding character/word is visually wiped out.  If not
+      set, the erase character is echoed.  If
+      <EM class="CMacro">LD_In_LineMode</EM> is not set, this flag has no
+      effect.
+    </TD>
+  </TR>
+  <TR VALIGN=Top>
+    <TD class="CMacro">LD_In_VisKill</TD>
+    <TD class="Description">
+      If set, when the KillLine control character is processed, the
+      preceeding Line is visually wiped out. If not set, the KillLine
+      character is echoed. If <EM class="CMacro">LD_In_LineMode</EM>
+      is not set, this flag has no effect.
+    </TD>
+  </TR>
+  <TR VALIGN=Top>
+    <TD class="CMacro">LD_In_SoftFlow</TD>
+    <TD class="Description">
+      Enables Software Flow Control on input
+    </TD>
+  </TR>
+  <TR VALIGN=Top>
+    <TD class="CMacro">LD_In_SwapCRNL</TD>
+    <TD class="Description">
+      If set, Carriage return and newline are swapped before any other
+      input processing is done (i.e. before Echo processing)
+    </TD>
+  </TR>
+</TABLE>
+
+    <H5><A NAME="OutpProc">Output Processing Flags</A></H5>
+<TABLE>
+  <TR><B>
+    <TD class="Heading">Flag Name</TD>
+    <TD class="Heading">Description</TD>
+  </B></TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_Out_DoOutpProc</TD>
+    <TD class="Description">
+      Enables output processing -- if not set, all other output flags are
+      effectively clear. 
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_Out_NLtoCR</TD>
+    <TD class="Description">
+      Enables translation of NL->CR. (The CR resulting from this
+      transformation will <EM>not</EM> be transformed back to NL by
+      <EM class="CMacro">LD_Out_CRtoNL</EM>)
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_Out_NLtoCRNL</TD>
+    <TD class="Description">
+      Enables translation of NewLines to CarriageReturn-NewLine.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_Out_CRtoNL</TD>
+    <TD class="Description">
+      Enables translation of CR->NL (if
+      <EM class="CMacro">LD_Out_NLtoCRNL</EM> is set, CR->CRNL)
+    </TD>
+  </TR>
+</TABLE>
+
+    <H5><A NAME="ControlChars">Control Characters</A></H5>
+<P>
+Note: Control characters are only recognized in
+<A HREF="#LineModeDesc">Line Mode</A>.  Also note the absence of a
+"end-of-line" characters.  Any character that should cause immediate
+return of the line should be set using CharSrc_Control_SetSpecialChars.  
+If any of the Control characters are set as Special Characters, they will 
+<EM>NOT</EM> cause the line to be returned.  At least one character (i.e.
+<SPAN class="ControlChar">^M</SPAN> (Carriage-Return)) should be set as
+a special character.
+</P><P>
+If an Erase or WordKill is sent with a write since either the first
+character in the line was typed or the last Erase command, the effect
+is as if the Retype character had been hit, then the Erase/WordKill
+was hit.  See <A HREF="#InterOutp">Interrupted Line Processing</A> for
+more details.
+</P><P>
+If a control character is set to 0, it is disabled. (^@ cannot be a
+control character)
+</P><P>
+The available control characters are:
+<TABLE>
+  <TR><B>
+    <TD class="Heading">Control Character</TD>
+    <TD class="Heading">Def</TD>
+    <TD class="Heading">Description</TD>
+  </B>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_CC_Erase</TD>
+    <TD class="ControlChar">^H</TD>
+    <TD class="Description">Removes the preceeding character.  If
+      <EM class="CMacro">LD_In_VisErase</EM> is set, the preceeding
+      character is visually wiped out.  Otherwise, the Erase character
+      is echoed to indicate a character has been erased.
+      <P>
+      The Erase character has <em>no</em> effect at the beginning of
+      the line.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_CC_AltErase</TD>
+    <TD class="ControlChar">DEL</TD>
+    <TD class="Description">
+      Same effect as <EM class="CMacro">LD_CC_Erase</EM>.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_CC_EraseWord</TD>
+    <TD class="ControlChar">^W</TD>
+    <TD class="Description">
+      Removes all space characters at the end of the input, then all
+      non-space characters up to the previous space character.  If
+      <EM class="CMacro">LD_In_VisErase</EM> is set, the "word" is visually
+      wiped out.  Otherwise, the KillWord character is echoed to
+      indicate that a word has been killed.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_CC_KillLine</TD>
+    <TD class="ControlChar">^U</TD>
+    <TD class="Description">Removes all characters in the curent line.  If
+      <EM class="CMacro">LD_In_VisKill</EM> is set, the line is
+      visually wiped out. Otherwise, the KillLine character is echoed,
+      then NL is echoed to go to the next line.
+      <P>
+      The KillLine character has <em>no</em> effect at the beginning of
+      the line.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_CC_Reprint</TD>
+    <TD class="ControlChar">^R</TD>
+    <TD class="Description"> Reprints the current input line.  First,
+      the Reprint character is echoed, a NL is echoed, then the entire input
+      line is printed.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_CC_Quote</TD>
+    <TD class="ControlChar">^V</TD>
+    <TD class="Description">The next character is accepted without
+      processing.  Not echoed.  If the following character is a
+      Special Character, it is treated as if it were a normal
+      character. The Quote character <EM>does</EM> appear in the read
+      string before the quoted character.
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_CC_SFStop</TD>
+    <TD class="ControlChar">^S</TD>
+    <TD class="Description">If <EM class="CMacro">LD_In_SoftFlow</EM>
+      is set, halts output.  Not echoed. 
+    </TD>
+  </TR>
+  <TR VALIGN=top>
+    <TD class="CMacro">LD_CC_SFStart</TD>
+    <TD class="ControlChar">^Q</TD>
+    <TD class="Description">If <EM class="CMacro">LD_In_SoftFlow</EM>
+      is set, restarts output.  If this is disabled (== 0), then
+      <em>ANY</em> character will restart output. 
+    </TD>
+  </TR>
+  
+</TABLE>
+
+</P>
+
+   <H4>Line Discipline Issues</H4>
+    <H5><A NAME="SoftFlow">Software Flow Control</A></H5>
+<P>
+
+</P>
+
+    <H5><A NAME="InterOutp">Interrupted Line Processing</A></H5>
+<P>
+
+</P>
+ <H2>References</H2>
+<P>
+In designing the Line Discipline and Character Source interfaces, the
+following sources were very helpful:
+<UL>
+  <LI><EM>UNIX&reg; System V Release 4 Interface Definition</EM>,
+       Prentice Hall, Third Ed., Vol 1, Chapter 8, pp38-54.
+  <LI>Goodheart, Berny and Cox, James,
+       <em>The Magic Garden Explained -- The Internals of UNIX&reg;
+       System V Release 4</em>, Prentice Hall, pp502-516.
+  <LI><em>UNIX&reg; System V Release 4 Programmer's Guide:
+       STREAMS</em>, Prentice Hall, Chapter 12, pp1-11.
+  <LI><TT>ftp://ftp.openbsd.org/pub/OpenBSD/src/sys/kern/tty.c</TT>
+       (<em>OpenBSD</em>'s TTY line discipline code)
+</UL>
+<!-- FOOTER -->
+<HR>
+<em>
+Copyright &copy; 1997,1998 by Jonathan Adams. All rights reserved.
+For terms of redistribution, see the
+<a href="../legal/license/GPL.html">GNU General Public License</a>.
+</em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

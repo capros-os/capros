@@ -1,0 +1,115 @@
+<html>
+<head>
+  <title>ECG: setvol Reference</title>
+</head>
+
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../eros.html"><em>EROS Web</em></a> 
+      <br>&nbsp;
+      <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Cross Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title><tt>setvol</tt> Reference</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <h2>Name</h2>
+      <p><b>setvol</b> -- modify volume bootstrap, kernel, and boot flags</p>
+      <h2>Synopsis</h2>
+      <p><b>setvol</b> [-r] [-R] [-z] [-Z] [-b image] [-B] [-k image] volume</p>
+      <h2>Description</h2>
+      <p> The <b>setvol</b> utility displays allows the bootstrap or
+      kernel image of an existing volume to be modified, and also
+      enables various volume flags to be set.  At least one of the
+      options must be used.
+      <p>The following options are available:</p>
+      <p>
+      <table width=100%>
+	<tr>
+	  <td valign=top width="10%"><b>-r</b></td>
+	  <td valign=top>
+	    <p>Mark the volume for ramdisk load.</p>
+	  </td>
+	</tr>
+	<tr>
+	  <td valign=top width="10%"><b>-R</b></td>
+	  <td valign=top>
+	    <p>Unmark the volume for ramdisk load.  If the volume is
+	    compressed, also decompressed the volume.</p>
+	  </td>
+	</tr>
+	<tr>
+	  <td valign=top width="10%"><b>-z</b></td>
+	  <td valign=top>
+	    <p>Mark the volume for compressed load.  Only
+	    ramdisk-loaded volumes may be compressed.</p>
+	  </td>
+	</tr>
+	<tr>
+	  <td valign=top width="10%"><b>-Z</b></td>
+	  <td valign=top>
+	    <p>Unmark the volume for uncompressed load.</p>
+	  </td>
+	</tr>
+	<tr>
+	  <td valign=top width="10%"><b>-d</b></td>
+	  <td valign=top>
+	    <p>Mark the volume for debug load. System will
+	    drop into the kernel debugger just beforg waking up the IPL thread.</p>
+	  </td>
+	</tr>
+	<tr>
+	  <td valign=top width="10%"><b>-D</b></td>
+	  <td valign=top>
+	    <p>Unmark the volume for debug load.</p>
+	  </td>
+	</tr>
+	<tr>
+	  <td valign=top width="10%" nowrap><b>-k image</b></td>
+	  <td valign=top>
+	    <p>Write the specified binary file <b>image</b> as the
+	    loadable kernel image.</p>
+	  </td>
+	</tr>
+	<tr>
+	  <td valign=top width="10%" nowrap><b>-b image</b></td>
+	  <td valign=top>
+	    <p>Write the specified binary file <b>image</b> as the
+	    bootstrap image.  Sets the <b>BOOT</b> flag in the volume
+	    header.</p>
+	  </td>
+	</tr>
+	<tr>
+	  <td valign=top width="10%" nowrap><b>-B</b></td>
+	  <td valign=top>
+	    <p>Make the volume non-bootable.</p>
+	  </td>
+	</tr>
+      </table>
+      <p>There needs to be an option to set the iplSysId.
+      <hr>
+      <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+      redistribution, see the 
+      <a href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+</body>
+</html>

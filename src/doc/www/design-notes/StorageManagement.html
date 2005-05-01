@@ -1,0 +1,456 @@
+<html>
+  <head>
+    <link rel=STYLESHEET HREF="../CSS/stylesheet.css" type="text/css">
+    <title>Storage Management</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee"
+    vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <div class=nocss><br class=nocss>&nbsp;<br
+	  class=nocss>&nbsp;</div>
+	  <center>
+	    <H1>Storage Management</H1>
+	  </center>
+	  <div>&nbsp;<br></div>
+	  <p class=initial>
+	    This note gives some history of the KeyKOS/EROS Object
+	    Identifier (OID) mapping, describes the problems with
+	    earlier schemes, and lays out a notional design for what
+	    to replace them with.
+	  </p>
+	  <H1>1. Background</H1>
+	  <P class="marginalia">
+	      KeyKOS called OIDs ``CDAs'' for ``Coded Disk Address''
+	  </P>
+	  </div>
+	  <p class="initial">
+	    The original KeyKOS design divided the disk into
+	    ``ranges.'' Each range was typed (node or page), and the
+	    OID namespaces were disjoint. That is, there could exist
+	    simultaneously a node OID 5 and a page OID 5 that referred
+	    to distinct objects. Each KeyKOS range corresponds to a
+	    contiguous sequence of blocks on the disk. The location of
+	    an object is determined by finding the containing range,
+	    computing the range-relative offset, and fetching the
+	    appropriate block. The main problem with this design was
+	    inflexibility: if you guessed wrong about how to partition
+	    your disk space between nodes and pages, it was difficult
+	    to rearrange the disk. Further, the direct mapping from
+	    OIDs to locations made object defragmentation quite
+	    difficult.
+	  </p>
+	  <p>
+	    In the original (monolithic) EROS design, we switched to a
+	    slightly different model. The OID was now divided into a
+	    frame number and an object within the frame. Each frame
+	    was individually typed and could hold either nodes or
+	    pages (but not both). The OID numbering space was
+	    therefore unified. Disk misconfiguration was recoverable,
+	    but disk defragmentation remained impractical.
+	  </p>
+	  <p>
+	    Both designs avoided a directory scheme. A directory
+	    scheme is one in which there is a (disk-based) table that
+	    maps OIDs to disk locations. Hardy (and later Shapiro)
+	    avoided this for two reasons:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		It introduces additional I/O operations. In a
+		directory scheme, we both believed that each object
+		fetch would first necessitate a directory page
+		fetch. Even if the directory page is found in the
+		first attempt, it seemed that this would double our
+		I/O costs. We considered this issue compelling.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		It complexifies the allocator. In a directory-based
+		scheme there are now two levels at which allocation
+		must be performed: allocating the OID and then
+		separately allocating the space to store the
+		object. This is an annoyance, but depending on the
+		complexity of allocation it may not be a compelling
+		annoyance.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    As EROS has evolved towards a microkernel, it has become
+	    clear that the frame-based design isn't a sustainable
+	    design. In the microkernel object system, objects are
+	    backed by servers, and no assumption can safely be made
+	    about the backing store that underlies these objects. For
+	    preloaded objects, there may be no backing store at
+	    all. For compressed stores, there may be no
+	    straightforward correspondence between objects and frames.
+	  </p>
+	  <p>
+	    This is leading us in the direction of finally separating
+	    OIDs from disk locations, and splitting the responsibility
+	    for storage allocation and management along new lines.
+	  </p>
+	  <p>
+	    Meanwhile, and independent of any of the above, I have
+	    been working intermittently with Christian Scheideler and
+	    Chris Riley on strategies for randomized block placement
+	    in a large scale storage system. Last week I woke up
+	    realizing that we had cheerfully solved (badly) the wrong
+	    problem, and that the same ideas could be successfully
+	    applied here.
+	  </p>
+	  <h1>2. Key Requirements</h1>
+	  <p>
+	    The requirements on the storage management are imposed at
+	    two levels: by the spacebank and by the storage layer.
+	  </p>
+	  <h2>2.1. Space Bank Requirements</h2>
+	  <p>
+	    Each space bank needs to be able to perform the following
+	    operations efficiently:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		Allocate a new object, assigning it an OID.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Deallocating an object, which requires checking
+		whether its OID is owned by the bank (i.e. a
+		membership test).
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Enumerating all of the OIDs allocated by a given
+		bank. This need not be done in any particular order,
+		but is needed when a bank is destroyed along with its
+		space.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    Note that these operations must be performed using some
+	    data structure that can operate conveniently in an ``out
+	    of memory'' form, since the size of the allocation
+	    information alone on a system with a large disk farm might
+	    exceed the virtual address range of a 32-bit machine.
+	  </p>
+	  <p>
+	    Curiously (or at least it seemed so to me), the space bank
+	    does <em>not</em> need to be aware of allocation
+	    counts. The space bank is responsible for knowing what
+	    objects are currently allocated, and for performing
+	    allocate and deallocate operations. The use of allocation
+	    counts is an implementation strategy that may be chosen by
+	    a particular object store to support efficient rescind. In
+	    particular, the object source that handles in-memory
+	    objects probably won't use allocation counts at all.
+	  </p>
+	  <h2>2.2. Storage Layer Requirements</h2>
+	  <p>
+	    The storage layer must be able to perform the following
+	    operations efficiently:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		Given an OID, load the associated per-object metadata,
+		including the allocation count and the location of the
+		object on the disk.
+	      </p>
+	    </li>
+	    <li>
+	      <P class="marginalia">
+		May not be needed, depending on defragmentation design.
+	      </P>
+	      <p>
+		Given a "region" of the disk, identify the objects
+		contained in that region. This is used for purposes of
+		object relocation when a disk needs to be removed from
+		service or defragmentation is to take place.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Keep track of the free space on the store so that
+		objects can be allocated to disk object frames.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Rearrange/reallocate space in response to varying
+		demand for pages vs. nodes. Not all systems need the
+		same ratio of nodes to pages.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Implement the logging and stabilization portion of the
+		checkpoint logic.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    Because of its interaction with the checkpoint system, any
+	    <em>persistent</em> object source must be prepared to deal
+	    with the checkpoint logic. More on this below.
+	  </p>
+	  <h2>2.3. Other Objectives</h2>
+	  <p>
+	    Many objects are (very) short lived. They are allocated,
+	    get manipulated in memory, and die without ever being
+	    written to disk. The storage system should not be involved
+	    in the allocation and destruction of such objects.
+	  </p>
+	  <p>
+	    This implies that the object storage layer must handle
+	    ``blind allocations.'' That is, an object makes it to the
+	    storage layer according to the following sequence of
+	    events:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		Space bank allocates a page (or node) and binds it to
+		some free OID.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Object is manipulated in memory, and survives to the
+		next checkpoint.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Later, the kernel attempts to evict the checkpoint
+		version of the object, and asks the object storage
+		layer to accept it for storage.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		At this point, the object storage layer attempts to
+		allocate permanent storage for this object, since it
+		has not previously seen this object.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    A consequence of this approach is that the storage system
+	    might end up with insufficient space. There are two
+	    possible ways to deal with this:
+	  </p>
+	  <ol>
+	    <li>
+	      <p>
+		Fail the subsequent checkpoint. This is very bad,
+		because it is likely to become impossible to run
+		programs long enough to <em>free</em> something.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Pre-plan the storage. Arrange a situation in which the
+		space bank knows how much total storage is available.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		Use bank limits and guarantees on the high level
+		banks. This preempts the problem through quotas, and
+		is my currently preferred approach.
+	      </p>
+	    </li>
+	  </ol>
+	  <p>
+	    Finally, we want a design that permanently divorces OID
+	    numbering from disk positions <em>if</em> this can be
+	    achieved with an acceptable degree of locality.
+	  </p>
+	  <h1>3. Randomized Placement</h1>
+	  <p>
+	    Since the use of the randomization-based cut and paste
+	    algorithm is essential to much of what follows, I will
+	    include here an explanation of the strategy. The key idea
+	    is easier to explain using real arithmetic, but can be
+	    implemented efficiently using an integer variant.
+	  </p>
+	  <p>
+	    The original objective is to place named items into
+	    buckets. To do so, we apply a randomizing hash function to
+	    the name of each item to arrive deterministically at a
+	    number in the [0, 1.0) real range. With this number in
+	    hand, we determine the bucket containing the item as
+	    follows:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		(Base case): If there is one bucket, all balls go in
+		that bucket.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		If there are bucket bins, items that hash into the
+		subrange [0, 0.5) go in bucket zero, while items that
+		hash into the subrange [0.5,1) go into bucket 1.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		If there are <em>k+1</em> buckets, first determine the
+		placement of the item as if there were <em>k</em> buckets,
+		then slice the top 1/k items from each bucket and
+		place them in bucket <em>k+1</em> in such a way that
+		the slice from bucket <em>k</em> goes at the
+		``bottom'' of bucket <em>k+1</em>, the slice from
+		bucket <em>k-1</em> goes above that, the slice from
+		<em>k-2</em> above that, and so forth. The effect of
+		the stacking order is to ensure each items moves only
+		(log <em>k</em>) times if there are <em>k</em> buckets.
+	      </p>
+	    </li>
+	  </ul>
+	  <p>
+	    In a real implementation, one chooses an appropriate
+	    number of buckets first, and then computes all of the item
+	    hops in a single integer computation. The number of
+	    buckets can be increased at need.
+	  </p>
+	  <p>
+	    I am aware that this description of the algorithm is
+	    inadequate. The key points are that a single hash
+	    algorithm followed by the integer cut and paste strategy
+	    can achieve a single probe hash.
+	  </p>
+	  <p>
+	    A particular advantage of this hash is that the overflows
+	    are finely calibrated. Given a <em>m</em> items and
+	    <em>n</em> buckets, the number of worst-case overflows is
+	    computed by
+	  </p>
+	  <ul>
+	    ovfl = squareRoot((m/n) ln n)
+	  </ul>
+	  <p>
+	    This means that by sacrificing some utilization we can
+	    assure negligable overflows.
+	  </p>
+	  <p>
+	    The mistake in our earlier work was to try this technique
+	    to place blocks onto the disk with high utilization. It
+	    doesn't work because we couldn't tolerate low utilization
+	    in that application. For something like an OID mapping
+	    directory, it is reasonable to say that ``on average, we
+	    plan that each directory page will be 70% utilized.'' If
+	    this is possible, we can do directories using the cut and
+	    paste technique.
+	  </p>
+	  <p>
+	    There are probably other viable single-probe
+	    techniques. This is the only one we know about that has
+	    the property that the directory can be rescaled as a
+	    function of total disk size with reasonable cost using a
+	    simple, online algorithm.
+	  </p>
+	  <h1>4. Revised Space Bank Design</h1>
+	  <p>
+	    Given the existence of the cut and paste strategy, here is
+	    the revised design of the space bank.
+	  </p>
+	  <p>
+	    The space bank is responsible for allocating OIDs and
+	    binding them to objects. The OID space is a 64 bit
+	    unsigned quantity. The range from 0xff00000000000000 to
+	    0xffffffffffffffff is reserved to denote physical pages;
+	    we will largely ignore this detail in the description that
+	    follows. Initially, all OIDs are assumed to be free.
+	  </p>
+	  <h2>4.1. OID Allocation</h2>
+	  <p>
+	    When a bank allocates its first object, we proceed by
+	    first allocating a sequential subrange of OID values that
+	    will be used by that bank. Our working proposal is to
+	    allocate 64 OID values beginning at a multiple of
+	    64. Thus, there are 2<sup>58</sup> distinct OID
+	    subranges. If stored in a flat allocation bitmap, these
+	    would occupy 2<sup>38</sup> pages, but we aren't going to
+	    do that. We will simply keep a watermark identifying the
+	    first never-allocated OID.
+	  </p>
+	  <p>
+	    So now we allocate the OID subrange to the bank. In doing
+	    so, we construct a 40 byte data structure that looks like
+	    this:
+	  </p>
+<pre>
++--------------------------------------+
+|             base OID (64)            |
++--------------------------------------+
+|    subrange allocation bitmap (64)   |
++--------------------------------------+
+|     base OID of prev chunk (64)      |
++--------------------------------------+
+|     base OID of next chunk (64)      |
++--------------------------------------+
+| bank identity (32) | unused (32)     |
++--------------------------------------+
+</pre>
+	  <p>
+	    All of the structures associated with a given bank form a
+	    doubly linked list.
+	  </p>
+	  <p>
+	    All of the structures (i.e. aggregated across all banks)
+	    are further organized into buckets.  Each bucket is the
+	    size of a page, and can therefore hold up to 102
+	    entries. Let us assume pessimistically an expected
+	    utilization of 70% or 70 items per bucket. A total of
+	    72,057,594,037,927,936 items are thus distributed over
+	    1,029,394,200,541,827 buckets, yielding a worst case
+	    overflow of
+	  </p>
+	  <ul>
+	    sqrt(70 * 34) = 48
+	  </ul>
+	  <p>
+	    Which is not quite good enough. Increasing the bucket size
+	    to two pages at the same utilization, howver, yields
+	  </p>
+	  <ul>
+	    sqrt(140 * 34) = 69
+	  </ul>
+	  <p>
+	    Dropping the utilization target to 60% yields a worst case
+	    overflow of 46 out of a possible 41. This overflow will
+	    occur in only a tiny percentage of buckets, and can be
+	    handled by an in-memory overflow cache.
+	  </p>
+	  <p>
+	    The end result of all this machination is that given an
+	    OID we can determine quickly whether (a) it is allocated
+	    and (b) if so, to what bank. When an entire subrange is
+	    allocated we simply migrate it to an internal bank that
+	    exists for the purpose of holding all free space.
+	  </p>
+	  <hr>
+	  <em>Copyright 2003 by Jonathan Shapiro.  All rights reserved.  For
+	    terms of redistribution, see the <a
+      href="../legal/license/GPL.html">GNU General Public
+	      License</a></em>
+	</td>
+	<td width="10%">&nbsp;</td>
+      </tr>
+    </table>
+  </BODY>
+</html>

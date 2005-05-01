@@ -1,0 +1,1121 @@
+<html>
+<head>
+<title>EOR: Space Bank</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>] [<em><a
+  href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2> <H2>Standard Processes</H2>
+  </div>
+  <h2>Space Bank</h2> <em>D R A F T</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p>Space banks are the basic storage allocator of the EROS system.
+  They are the source of unique keys to new nodes and pages.
+  <B><I>THIS NEEDS TO BE RE-WRITTEN</I></B>
+  <p>Space banks control access to pages and nodes over specific
+  ranges on eros volumes.  A single process may have access to multiple
+  space banks which will allow the process to chose where it's data
+  will be stored.  This is particularly useful when controlling the
+  use of removable media.  In addition this will allow different space
+  banks to control different levels of security within a system.
+  Space banks are arranged in a hierarchical system where a sub-space
+  bank controls a subset of the original space bank's ranges.</p>
+  <p>When a process is finished using a page or a node it returns it to
+  the space banks.  A page or node is only able to be reclaimed by a
+  space bank if that space bank (or one of it's sub-space banks)
+  originally assigned the space to the process.  The reclamation of a
+  node or page could also fail if the space specified by the key has
+  already been reclaimed.</p>
+  <p>Space banks may have the property of being official.  This
+  requires the bank to return the only key to a new node or page.
+  Sub-space banks inherit this property from their parent bank.  Space
+  banks may be prompt.  Banks with this feature will not be delayed by
+  calling time consuming processes.  This allows for fast response time
+  in real time systems.</p>
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd>
+	 <p>Returns the alleged type of the key.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td> <strong>R1</strong>
+	     </td>
+	     <td> <em>AKT_SpaceBank</em>:
+	     The alleged key type of the space bank.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Alloc One Node</strong> (OC = 1)
+    <dd>
+	 <p> Purchases a single node from the space bank.
+	 The returned
+	 key is guaranteed to be the only valid key in existence to
+	 the returned object.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>RK0</strong>
+	     </td>
+	     <td>New node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> Sucessful completion of node creation.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> The node limit has been reached.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Alloc Two Nodes</strong> (OC = 2)
+    <dd>
+	 <p> Purchases two nodes from the space bank.
+	 The returned
+	 keys are guaranteed to be the only valid keys in existence to
+	 the returned objects.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>RK0</strong>
+	     </td>
+	     <td>First new node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>RK1</strong>
+	     </td>
+	     <td> Second new node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> Sucessful completion of node creation.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> The node limit has been reached.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Alloc Three Nodes</strong> (OC = 3)
+    <dd>
+	 <p> Purchases three nodes from the space bank.
+	 The returned
+	 keys are guaranteed to be the only valid keys in existence to
+	 the returned objects.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>RK0</strong>
+	     </td>
+	     <td>First new node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>RK1</strong>
+	     </td>
+	     <td> Second new node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>RK2</strong>
+	     </td>
+	     <td> Third new node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> Sucessful completion of node creation.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td>The node limit has been reached.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Reclaim One Node</strong> (OC = 4)
+    <dd>
+	 <p> Restores the passed node key to the space bank to be
+	 handed out to another party.  All outstanding keys to the
+	 node are rescinded.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> A strong node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> All keys to the node have been removed.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> SK0 was not a strong node key, or this space bank
+	       does not have authority over the node specified by SK0.
+	       The key remains a valid node key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Reclaim Two Nodes</strong> (OC = 5)
+    <dd>
+	 <p> Restores the passed node keys to the space bank to be
+	 handed out to another party.  All outstanding keys to these
+	 nodes are rescinded.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> A strong node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>SK1</strong>
+	     </td>
+	     <td> A strong node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> All keys to the nodes have been removed.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1..3</strong>
+	     </td>
+	     <td> If bit 0 (1) of the return code is 0, the node
+	       denoted by SK0 (SK1) was successfully reclaimed,
+	       and all outstanding keys to this node have been
+	       rescinded.
+	     </td><td> If bit 0 (1) of the return code is 1, the node
+	       denoted by SK0 (SK1) was not a strong node key, or this
+	       space bank does not have authority over the node
+	       specified by SK0 (SK1).  Unreclaimed node keys
+	       remain valid.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Reclaim Three Nodes</strong> (OC = 6)
+    <dd>
+	 <p> Restores the passed node keys to the space bank to be
+	 handed out to another party.  All outstanding keys to these
+	 nodes are rescinded.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> A strong node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>SK1</strong>
+	     </td>
+	     <td> A strong node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>SK2</strong>
+	     </td>
+	     <td> A strong node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> All keys to the nodes have been removed.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1..7</strong>
+	     </td>
+	     <td> If bit 0 (1, 2) of the return code is 0, the node
+	       denoted by SK0 (SK1, SK2) was successfully reclaimed,
+	       and all outstanding keys to this node have been
+	       rescinded.
+	     </td><TD> If bit 0 (1, 2) of the return code is 1, the node
+	       denoted by SK0 (SK1, SK2) was not a strong node key, or this
+	       space bank does not have authority over the node
+	       specified by SK0 (SK1, SK2).  Unreclaimed node keys
+	       remain valid.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Reclaim Nodes From Node</strong> (OC = 7)
+    <dd>
+	 <p> Given a node key, iterates through the slots of the
+	 node.  If any slot contains a writable node key, the
+	 associated node is returned to the space bank to be
+	 handed out to another party.  All outstanding keys to these
+	 nodes are rescinded.  The node itself is not rescinded.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> A node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> All keys to the nodes have been removed.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>W</strong>
+	     </td>
+	     <td> If bit <strong>s</strong> (0, 1, ... ) of the return
+	       code is 0, then slot <strong>s</strong> contained a
+	       node key that was successfully reclaimed,
+	       and all outstanding keys to this node have been
+	       rescinded.
+	       <td> If bit <strong>s</strong> (0, 1, ... ) of the return
+	       is 1, then the key in slot <strong>s</strong> was not a
+	       strong node key, or this space bank does not have authority
+	       over the designated node.  Unreclaimed node keys
+	       remain valid.
+	     </td>
+	   </tr>
+	 </table>
+    <dt> <strong>Sever a Node</strong> (OC = 8)
+    <dd>
+	 <p><B><I>NOT CURRENTLY SUPPORTED</B></I>
+	 <p> Rescinds the node named by SK0, and returns to the caller
+	 a node key to the newly severed object.  The returned key is
+	 guaranteed to be the only valid key in existence to this
+	 object.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> Node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>RK0</strong>
+	     </td>
+	     <td>New node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> All keys have been removed to the node.  A new key
+	       has been issued (RK0).
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> The node key was not a node key or this space bank
+	       does not have authority over the node specified.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+<!--     <dt> <strong>Query Node Space</strong> (OC = 8) -->
+<!--     <dd> -->
+<!-- 	 <p> <em>This needs a description.</em> -->
+<!-- 	 <table> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=2> <strong>Request</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>L</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> The low range value. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>L</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> The high range value. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=1> <strong>Reply</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>W</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>The number of nodes that can be created in the -->
+<!-- 	       specified range. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=2> <strong>Results</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>0</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> The quantity of nodes has been returned. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>3</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> This bank, or one of it's superiors does not have -->
+<!-- 	       query rights. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	 </table> -->
+<!-- 	 <p> -->
+<!--     <dt> <strong>Query Node Statistics</strong> (OC = 9) -->
+<!--     <dd> -->
+<!-- 	 <p> <em>This needs a description.</em> -->
+<!-- 	 <table> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=2> <strong>Reply</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>W</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>The number of sucessful create node operations -->
+<!-- 	       performed on this space bank. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>W</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>The number of sucessful destroy node operations -->
+<!-- 	       performed on this space bank. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=2> <strong>Results</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>0</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> The statistics have been returned. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>3</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> This bank, or one of it's superiors does not have -->
+<!-- 	       query rights. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	 </table> -->
+<!-- 	 <p> -->
+<!--     <dt> <strong>Change Node Limit</strong> (OC = 10) -->
+<!--     <dd> -->
+<!-- 	 <p> <em>This needs a description.</em> -->
+<!-- 	 <table> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=1> <strong>Request</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>W</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> Change to the limit. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=1> <strong>Reply</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>W</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>The new limit -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=4> <strong>Results</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>0</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> The limit has been changed sucessfully -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>1</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>Attempt to change limit to negative number. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>2</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>Attempt to change limit to greater than 2^32-1 -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>3</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>Key does not have rights to change limit -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	 </table> -->
+<!-- 	 <p> -->
+    <dt> <strong>Alloc One Page</strong> (OC = 17)
+    <dd>
+	 <p> Purchases a single page from the space bank.
+	 The returned
+	 key is guaranteed to be the only valid key in existence to
+	 the returned object.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>RK0</strong>
+	     </td>
+	     <td>New page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> Sucessful completion of page creation.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> The page limit has been reached.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Alloc Two Pages</strong> (OC = 18)
+    <dd>
+	 <p> Purchases two pages from the space bank.
+	 The returned
+	 keys are guaranteed to be the only valid key in existence to
+	 the returned objects.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>RK0</strong>
+	     </td>
+	     <td>First new page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>RK1</strong>
+	     </td>
+	     <td> Second new page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> Sucessful completion of page creation.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> The page limit has been reached.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Alloc Three Pages</strong> (OC = 19)
+    <dd>
+	 <p> Purchases three pages from the space bank.
+	 The returned
+	 keys are guaranteed to be the only valid key in existence to
+	 the returned objects.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>RK0</strong>
+	     </td>
+	     <td>First new page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>RK1</strong>
+	     </td>
+	     <td> Second new page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>RK2</strong>
+	     </td>
+	     <td> Third new page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> Sucessful completion of page creation.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> The page limit has been reached.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Reclaim One Page</strong> (OC = 20)
+    <dd>
+	 <p> Restores the passed page key to the space bank to be
+	 handed out to another party.  All outstanding keys to the
+	 page are rescinded.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> A strong page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> All keys to the page have been removed.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> SK0 was not a strong page key, or this space bank does not
+	       have authority over the page specified by SK0.  The key
+	       remains a valid page key.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Reclaim Two Pages</strong> (OC = 21)
+    <dd>
+	 <p> Restores the passed page keys to the space bank to be
+	 handed out to another party.  All outstanding keys to the
+	 pages are rescinded.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> A strong page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>SK1</strong>
+	     </td>
+	     <td> A strong page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> All keys to the pages have been removed.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1..3</strong>
+	     </td>
+	     <td> If bit 0 (1) of the return code is 0, the page
+	       denoted by SK0 (SK1) was successfully reclaimed,
+	       and all outstanding keys to this page have been
+	       rescinded.
+	     </td><td> If bit 0 (1) of the return code is 1, the page
+	       denoted by SK0 (SK1) was not a strong page key, or this
+	       space bank does not have authority over the page
+	       specified by SK0 (SK1).  Unreclaimed page keys
+	       remain valid.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Reclaim Three Pages</strong> (OC = 22)
+    <dd>
+	 <p> Restores the passed page keys to the space bank to be
+	 handed out to another party.  All outstanding keys to the
+	 pages are rescinded.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> A strong page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>SK1</strong>
+	     </td>
+	     <td> A strong page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>SK2</strong>
+	     </td>
+	     <td> A strong page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> All keys to the pages have been removed.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1..7</strong>
+	     </td>
+	     <td> If bit 0 (1, 2) of the return code is 0, the page
+	       denoted by SK0 (SK1, SK2) was successfully reclaimed,
+	       and all outstanding keys to this page have been
+	       rescinded.
+	     </td><td> If bit 0 (1, 2) of the return code is 1, the node
+	       denoted by SK0 (SK1, SK2) was not a page key, or this
+	       space bank does not have authority over the page
+	       specified by SK0 (SK1, SK2).  Unreclaimed page keys
+	       remain valid.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Reclaim Pages From Node</strong> (OC = 23)
+    <dd>
+	 <p> Given a node key, iterates through the slots of the
+	 node.  If any slot contains a writable page key, the
+	 associated page is returned to the space bank to be
+	 handed out to another party.  All outstanding keys to these
+	 pages are rescinded.  The node itself is not rescinded
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> A node key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> All keys to the pages have been removed.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>W</strong>
+	     </td>
+	     <td> If bit <strong>s</strong> (0, 1, ... ) of the return
+	       code is 0, then slot <strong>s</strong> contained a
+	       page key that was successfully reclaimed,
+	       and all outstanding keys to this page have been
+	       rescinded.
+	       <td> If bit <strong>s</strong> (0, 1, ... ) of the return
+	       is 1, then the key in slot <strong>s</strong> was not a
+	       strong page key, or this space bank does not have authority
+	       over the designated page.  Unreclaimed page keys
+	       remain valid.
+	     </td>
+	   </tr>
+	 </table>
+    <dt> <strong>Sever a Page</strong> (OC = 24)
+    <dd>
+	 <p><B><I> NOT CURRENTLY SUPPORTED </I></B>
+	 <p> Rescinds the page named by SK0, and returns to the caller
+	 a page key to the newly severed object.  The returned key is
+	 guaranteed to be the only valid key in existence to this
+	 object.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> Page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>RK0</strong>
+	     </td>
+	     <td>New page key.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> All keys have been removed to the page.  A new key
+	       has been issued (RK0).
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>KT+2</strong>
+	     </td>
+	     <td> The key was not a page key or this space bank does
+	       not have authority over the node specified.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+<!--     <dt> <strong>Query Page Space</strong> (OC = 15) -->
+<!--     <dd> -->
+<!-- 	 <p> <em>This needs a description.</em> -->
+<!-- 	 <table> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=2> <strong>Request</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>L</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> The low range value. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>L</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> The high range value. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=1> <strong>Reply</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>W</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>The number of pages that can be created in the -->
+<!-- 	       specified range. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=2> <strong>Results</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>0</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> The quantity of pages has been returned. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>3</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> This bank, or one of it's superiors does not have -->
+<!-- 	       query rights. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	 </table> -->
+<!-- 	 <p> -->
+<!--     <dt> <strong>Query Page Statistics</strong> (OC = 16) -->
+<!--     <dd> -->
+<!-- 	 <p> <em>This needs a description.</em> -->
+<!-- 	 <table> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=2> <strong>Reply</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>W</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>The number of sucessful create page operations -->
+<!-- 	       performed on this space bank. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>W</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>The number of sucessful destroy page operations -->
+<!-- 	       performed on this space bank. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=2> <strong>Results</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>0</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> The statistics have been returned. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>3</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> This bank, or one of it's superiors does not have -->
+<!-- 	       query rights. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	 </table> -->
+<!-- 	 <p> -->
+<!--     <dt> <strong>Change Page Limit</strong> (OC = 20) -->
+<!--     <dd> -->
+<!-- 	 <p> <em>This needs a description.</em> -->
+<!-- 	 <table> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=1> <strong>Request</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>W</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> Change to the limit. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=1> <strong>Reply</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>W</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>The new limit -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td rowspan=4> <strong>Results</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td align=right> <strong>0</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td> The limit has been changed sucessfully -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr !valign=top> -->
+<!-- 	     <td align=right> <strong>1</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>Attempt to change limit to negative number. -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>2</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>Attempt to change limit to greater than 2^32-1 -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	   <tr valign=top> -->
+<!-- 	     <td align=right> <strong>3</strong> -->
+<!-- 	     </td> -->
+<!-- 	     <td>Key does not have rights to change limit -->
+<!-- 	     </td> -->
+<!-- 	   </tr> -->
+<!-- 	 </table> -->
+<!-- 	 <p> -->
+    <dt> <strong>Preclude destroy rights</strong> (OC = 257)
+    <dt> <strong>Preclude query Rights</strong> (OC = 258)
+    <dt> <strong>Preclude destroy and query rights</strong> (OC = 259)
+    <dt> <strong>Preclude limit change rights</strong> (OC = 260)
+    <dt> <strong>Preclude limit change and destroy rights</strong> (OC
+	 = 261)
+    <dt> <strong>Preclude limit change and query rights</strong> (OC =
+	 262)
+    <dt> <strong>Preclude limit change, destroy, and query
+	 rights</strong> (OC = 263)
+    <dd>
+	 <p> This call returns a restricted key to the space bank.
+	 Note that these restrictions are additive (if you have a key
+	 which is precluded from destroys, any key you make
+	 with this call will also be precluded from destroys).
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>RK0</strong>
+	     </td>
+	     <td> A key to the same space bank, except with reduced
+	       rights.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td>The requested precluded key has been returned
+	 </table>
+	 <p>
+    <dt> <strong>Verify Bank Key</strong> (OC = 1024)
+    <dd>
+	 <p>Verifies that a key is a key to an official space bank.
+	 Note that to be able to call this, you must have a key
+	 that you know is a key to an official space bank.  There is a
+	 publically available key, called the Bank Verifyer, which can
+	 be used to this purpose.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>SK0</strong>
+	     </td>
+	     <td> Key to be verified.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <b>R1</b>
+	     </td>
+	     <td> 
+                0: SK0 is <em>not</em> a key to an official space bank.
+                <p>1: SK0 is a key to an official space bank.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>-1</em>
+	     </td>
+	     <td> SK0 is <em>NOT</em> a key to an official space bank.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> Operation completed successfully.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Create Child Bank</strong> (OC = 528)
+    <dd>
+	 <p>Returns an unrestricted key to a newly created Space Bank.
+	 The new Bank's parent is the invoked Bank.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>RK0</strong>
+	     </td>
+	     <td> An unrestricted key to a new Space Bank.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td>The new Space Bank was successfully created.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>1</em>
+	     </td>
+	     <td>The new Space Bank could not be created due to either
+	       a node or page limit being reached.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Destroy</strong> (OC = KT + 4)
+    <dd>
+	 <p> Destroys the space bank.  All space handed out by this
+	 space bank remains valid, and is now managed by the space
+	 bank's parent bank.  <em>The prime space bank refuses this
+	 order.</em>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The space bank and it's subspace banks have been
+	       destroyed.  Any space allocated by them remains
+	       allocated.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_UnknownRequest</em>
+	     </td>
+	     <td> The invoked key did not have destroy rights.  No
+	       action is taken.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Destroy Bank and Space</strong> (OC = 536)
+    <dd>
+	 <p> Destroys the space bank.  All space handed out by this
+	 space bank is rescinded, and the resulting unallocated
+	 objects are now managed by the space bank's parent bank.
+	 <em>The prime space bank refuses this order.</em>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <em>RC_OK</em>
+	     </td>
+	     <td> The space bank and it's subspace banks have been
+	       destroyed.  Any space allocated has be destroyed by
+	       returning it to the superior space bank.
+	       <B><I>THE REST OF THIS IS A FALSEHOOD</I></B> All the
+	       resume keys contained in the nodes were invoked using
+	       KT+1 to notify their processes.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <em>RC_UnknownRequest</em>
+	     </td>
+	     <td> The invoked key did not have destroy rights.
+	       The space and banks are left unchanged.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+  </dl>	    
+</div>
+<hr>
+<em>Copyright 1998, 2001, Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

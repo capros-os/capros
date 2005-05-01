@@ -1,0 +1,162 @@
+<HTML>
+<HEAD>
+<TITLE>EROS Context Switch on the i386 family</TITLE>
+</HEAD>
+<BODY>
+<H1>1. Background</H1>
+The EROS context switch path is carefully tuned, and tries to get the
+best leverage possible out of the processor.  In the case of the i386,
+i486, and Pentium processors, the mechanism of kernel entry is
+regrettably complex.  Here are some reasons for the
+complexity:
+<UL>
+<LI> 
+There is an absurdly complex set of options for how tasks can be
+running.  EROS reduces this by fiat: we don't support a protected
+segmented code model.  Still, the presence of virtual 8086 mode does
+introduce some curious cases that need to be handled in the interrupt
+path.
+<LI>
+Not all interrupts leave the same information on the stack.  Some push
+an error code, others do not.  It is necessary to correct for this on
+the interrupt entry path to simplify later error handling.
+<LI>
+If a user-level process <EM>desires</EM> to enter the kernel (e.g. is
+performing a call, fork, or return operation), using a call gate is
+faster than executing an <CODE>int</CODE> instruction.  Unfortunately,
+the call gate does not create the same stack image as the
+<CODE>int</CODE> instruction.
+<LI> 
+The timing of certain instructions changes the preferred encoding of
+the context switch path.  On the i486 and earlier processors,
+the<CODE>pushad</CODE> instruction is slow; register save is better
+implemented by hand.  On the Pentium, using the <CODE>pusha</CODE>
+instruction is allegedly faster, though the effect of instruction
+pairing needs to be examined to be sure.
+</UL>
+<P>
+There is some humor to be had in the insanity of the kernel entry
+situation.  It's actually pretty easy to <EM>exit</EM> the kernel
+through a common path.  While the design of the call gate mechanism is
+clearly oriented towards use of the <CODE>ret</CODE> instruction, it
+is possible to abuse the <CODE>iret</CODE> instruction to handle the
+problem.
+<H1>2. Possible Running Modes</H1>
+An EROS process can be running in one of two modes:
+<UL>
+<LI>
+A flat, 32-bit, unsegmented address space.
+<LI>
+So-called <STRONG>virtual 8086</STRONG> mode, in which segment
+registers do not refer to the global descriptor tables.
+</UL>
+<P>
+EROS does not currently support any protected-mode segmented execution
+model.  The basic rationale for this is that by the time we get around
+to that people will have given up running such code and moved to the
+Win32 model.
+<P>
+<H2>2.1 Entering the Kernel from 32-bit Code</H2>
+There are two mechanisms for entering the kernel from 32-bit code:
+call gates and interrupts.  Since the common return logic uses the
+<CODE>iret</CODE> instruction, the stack created by the interrupt
+logic is defined to be the natural stack layout.
+<H3>2.1.1 Interrupts From 32-bit Mode</H3>
+<P>
+When an interrupt occurs in a 32-bit mode process, several register
+values are pushed onto the stack.  Depending on the interrupt taken,
+an error code may or may not pushed.  Whether the error code is pushed
+depends on which interrupt is taken and whether the interrupt
+originated in hardware or software.
+<P>
+The EROS interrupt dispatch configuration is designed to ensure that
+the stack layout is normalized.   Generally, software interrupts are
+precluded by the descriptor privilege level mechanism.  The entry
+points for hardware interrupts that do not push an error code correct
+this by explicitly pushing a 0 error code onto the stack.
+<P>
+The resulting stack looks like:
+<PRE>
+error code
+user EIP     <- top of stack
+user CS
+EFLAGS
+user ESP
+user SS
+</PRE>
+<P>
+<H3>2.1.1 Call Gates From 32-bit Mode</H3>
+<P>
+The <CODE>int</CODE> instruction is not the fastest way into the
+kernel by a substantial margin.  A call gate instruction is nearly 30
+cycles faster.  As a result, the EROS <STRONG>call</STRONG>,
+<STRONG>fork</STRONG>, and <STRONG>return</STRONG> operations are
+implemented on top of the call gate mechanism.  
+<P>
+Unfortunately, the call gate mechanism does not create the same stack
+image as the interupt mechanism.  After a call gate has been
+performed, the stack looks like:
+<PRE>
+user EIP     <- top of stack
+user CS
+user ESP
+user SS
+</PRE>
+<P>
+Note that EFLAGS is missing, and there is of course no error code.
+<P>
+If there is an elegant way to solve this, we haven't found it.
+Instead, the call path bumps the stack pointer, pushes a zero error
+code, and saves the processor registers:
+<PRE>
+fault address (0)
+EDI
+ESI
+EBP
+EBX
+EDX
+ECX
+EAX
+error code (0)
+hole
+user EIP
+user CS
+user ESP
+user SS
+</PRE>
+<P>
+Having created some working space, it then reaches back and rearranges
+things, forging an appropriate value for EFLAGS.  
+<P>
+The final stack image, which is the same as the image created by the
+interrupt entry points, looks like:
+<PRE>
+fault address (0)
+EDI
+ESI
+EBP
+EBX
+EDX
+ECX
+EAX
+error code (0)
+user EIP
+user CS
+EFLAGS (forged)
+user ESP
+user SS
+</PRE>
+<P>
+Rather than save these values and then copy them into the process
+table, the kernel connives things so that the supervisor stack pointer
+always points directly into the process save area.  It's ugly, but
+effective.
+
+<H2>2.2 Entering the Kernel from Virtual 8086 Mode</H2>
+
+Virtual 8086 mode processes are unable to invoke call gates, so the
+principle IPC path does not need to be concerned with them.
+
+
+</BODY>
+</HTML>

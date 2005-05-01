@@ -1,0 +1,542 @@
+<html>
+  <head>
+    <title>EOR: Process Creator</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee"
+    vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tr valign=top>
+	<td width="10%">&nbsp;</td>
+	<td>
+	  <div class=nocss>
+	    <br class=nocss>&nbsp;
+	      <br class=nocss>&nbsp;
+	  </div>
+	  <div class=KeyName>
+	    [<em><a href="../Cover.html">Return to Top</a></em>]
+	    [<em><a href="00Standard.html">Standard Processes</a></em>]
+	    <div align=right>
+	      <H2>EROS Object Reference</H2>
+	      <H2>Standard Processes</H2>
+	    </div>
+	    <h2>Process Creator</h2>
+	    <em>D R A F T</em>
+	    <hr>
+	  </div>
+	  <div class=KeyDescrip>
+	    <h3>Description</h3>
+	    <p>
+	      The <strong>process creator</strong> is the basic tool for
+	      building processes.  They are constructed by <a
+		href="PCC.html">DCC</a>. Process creators exist primarily for use by
+	      factories; most applications do not use process creators directly.
+	    </p>
+	    <p>
+	      Every process creator has an associated <em>brand</em>, which is
+	      unique to that process creator.  Every process root constructed by a
+	      process creator contains this brand, allowing process creators to
+	      identify their progeny.
+	    </p>
+	    <p>
+	      There are two types of process creator keys: one is full
+	      featured, while the other does not permit the destruction of a
+	      process.  This page describes both keys.
+	    </p>
+	    <hr>
+	      <h3>Operations</h3>
+	      <dl>
+		<dt>
+		  <strong>Check Alleged Key Type</strong> (OC = KT)
+		</dt>
+		<dd> 
+		  <p>
+		    Returns the alleged type of the object.
+		  </p>
+		  <table>
+		    <tr valign=top>
+		      <td rowspan=1>
+			<strong>Reply</strong>
+		      </td>
+		      <td align=right>
+			<strong>R1</strong>
+		      </td>
+		      <td align=right>
+			<em>AKT_DomCre</em>:
+			Key is a process creator key.
+		      </td>
+		    </tr>
+		  </table>
+		</dd>
+		<dt>
+		  <strong>Destroy</strong> (OC = KT + 4)
+		</dt>
+		<dd>
+		  <p>
+		    The process creator is destroyed provided that the key
+		    conveys the requisite authority.
+		  </p>
+		  <table>
+		    <tr valign=top>
+		      <td rowspan=3> <strong>Results</strong>
+		      </td>
+		      <td align=right> <em>RC_OK</em>
+		      </td>
+		      <td> The process creator is destroyed.  All outstanding
+			keys to it are now void keys.
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <strong>1</strong>
+		      </td>
+		      <td>
+			<p>
+			  The space bank from which the process creator was
+			  crafted no longer exists.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <em>RC_UnknownRequest</em>
+		      </td>
+		      <td> The process creator key does not convey destroy
+			rights.
+		      </td>
+		    </tr>
+		  </table>
+		</dd>
+		<dt>
+		  <strong>Create a Process</strong> (OC = 1)
+		</dt>
+		<dd>
+		  <p>
+		    Creates a new, unpopulated process branded by this
+		    process creator.  This invocation is prompt if the
+		    passed space bank is prompt.
+		  </p>
+		  <table>
+		    <tr valign=top>
+		      <td rowspan=1> <strong>Request</strong>
+		      </td>
+		      <td align=right> SK0
+		      </td>
+		      <td> A key to an official space bank.
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td rowspan=1> <strong>Reply</strong>
+		      </td>
+		      <td align=right> RK0
+		      </td>
+		      <td> 
+			<p>
+			  A process key to the new process if the operation
+			  succeeded, else a void key.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td rowspan=3> <strong>Results</strong>
+		      </td>
+		      <td align=right> <em>RC_OK</em>
+		      </td>
+		      <td> 
+			<p>
+			  The process was created.  RK0 is the only
+			  process key to the newly created process.
+			  The brand of this process creator has been
+			  placed in the brand slot of the process
+			  root.  The process has a key registers node
+			  and any annex nodes required by the
+			  architecture. All other slots hold zero
+			  number keys.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <strong>1</strong>
+		      </td>
+		      <td> 
+			<p>
+			  SK0 is not an official space bank.  No
+			  action is taken.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <em>RC_NoMoreNodes</em>
+		      </td>
+		      <td>
+			<p>
+			  The required nodes could not be allocated
+			  from the space bank.  All successfully
+			  allocated nodes have been returned to the
+			  space bank.
+			</p>
+		      </td>
+		    </tr>
+		  </table>
+		</dd>
+		<dt>
+		  <strong>Destroy a Process</strong> (OC = 2)
+		</dt>
+		<dd>
+		  <p>
+		    Given a process key and the space bank to which
+		    the process components can be returned,
+		    disassembles the process and returns it's
+		    components to the space bank.  All outstanding
+		    keys to this process become void keys.  The
+		    invocation is prompt if the provided space bank is
+		    prompt.
+		  </p>
+		  <table>
+		    <tr valign=top>
+		      <td rowspan=2> <strong>Request</strong>
+		      </td>
+		      <td align=right> SK0
+		      </td>
+		      <td> A key to an official space bank.
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> SK1
+		      </td>
+		      <td> A process key to the process to be destroyed.
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td rowspan=4> <strong>Results</strong>
+		      </td>
+		      <td align=right> <em>RC_OK</em>
+		      </td>
+		      <td>
+			<p>
+			  The process has been destroyed, and all of
+			  it's associated nodes have been returned to
+			  the caller-provided space bank.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <strong>1</strong>
+		      </td>
+		      <td> 
+			<p>
+			  SK0 is not an official space bank.  No
+			  action is taken.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <strong>2</strong>
+		      </td>
+		      <td>
+			<p>
+			  SK1 names a process whose brand does not
+			  match the brand of this process creator.  No
+			  action is taken.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <strong>3</strong>
+		      </td>
+		      <td>
+			<p>
+			  The attempt to destroy one of the
+			  constituents failed, because the provided
+			  space bank did not accept it.  Depending on
+			  when this error occurred, the process may
+			  remain valid or be malformed.  Outstanding
+			  keys to it may or may not be destroyed.
+			  <p>
+		      </td>
+		    </tr>
+		  </table>
+		</dd>
+		<dt> 
+		  <strong>Destroy Caller and Return</strong> (OC = 3)
+		</dt>
+		<dd>
+		  <p>
+		    The process designated by SK3 is destroyed.  This
+		    allows a process to destroy itself while returning
+		    to its invoker (e.g. in response to a
+		    <strong>Destroy</strong> order).  All outstanding
+		    keys to this process become void keys.  The
+		    invocation is prompt if the provided space bank is
+		    prompt.
+		  </p>
+		  <table>
+		    <tr valign=top>
+		      <td rowspan=4> <strong>Request</strong>
+		      </td>
+		      <td align=right> SK0
+		      </td>
+		      <td> A key to an official space bank.
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> SK2
+		      </td>
+		      <td>
+			<p>
+			  A return key to the process we should return
+			  to.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> SK3
+		      </td>
+		      <td> 
+			<p>
+			  A resume key to the process to be destroyed.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> W
+		      </td>
+		      <td> 
+			<p>
+			  The order code that should be used when
+			  invoking SK2.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td rowspan=4> <strong>Results</strong>
+		      </td>
+		      <td align=right> <em>RC_OK</em>
+		      </td>
+		      <td>
+			<p>
+			  The process has been destroyed, and all of
+			  it's associated nodes have been returned to
+			  the caller-provided space bank.  The process
+			  creator returns to the key designated by SK2
+			  using the provided order code.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <strong>1</strong>
+		      </td>
+		      <td>
+			<p>
+			  SK0 is not an official space bank.  No
+			  action is taken.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <strong>2</strong>
+		      </td>
+		      <td>
+			<p>
+			  SK3 names a process whose brand does not match the
+			  brand of this process creator.  No action is
+			  taken.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <strong>3</strong>
+		      </td>
+		      <td>
+			<p>
+			  The attempt to destroy one of the
+			  constituents failed, because the provided
+			  space bank did not accept it.  Depending on
+			  when this error occurred, the process may
+			  remain valid or be malformed.  Outstanding
+			  keys to it may or may not be destroyed.
+			</p>
+		      </td>
+		    </tr>
+		  </table>
+		</dd>
+		<dt>
+		  <strong>Remove Destroy Rights</strong> (OC = 8)
+		</dt>
+		<dd>
+		  <p>
+		    Returns a start key to the process creator that does not
+		    convey destroy rights to the holder.
+		  </p>
+		  <table>
+		    <tr valign=top>
+		      <td rowspan=1> <strong>Reply</strong>
+		      </td>
+		      <td align=right> RK0
+		      </td>
+		      <td> 
+			<p>
+			  A process creator key to this process
+			  creator that does not convey destroy rights.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td rowspan=1> <strong>Results</strong>
+		      </td>
+		      <td align=right> <em>RC_OK</em>
+		      </td>
+		      <td>
+			<p>
+			  Operation completed successfully.
+			</p>
+		      </td>
+		    </tr>
+		  </table>
+		</dd>
+		<dt>
+		  <strong>Amplify Gate Key</strong> (OC = 16)
+		</dt>
+		<dd>
+		  <p>
+		    Returns a process key to the process named by SK0.
+		  </p>
+		  <table>
+		    <tr valign=top>
+		      <td rowspan=1> <strong>Request</strong>
+		      </td>
+		      <td align=right> SK0
+		      </td>
+		      <td> A gate key to a process
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td rowspan=3> <strong>Response</strong>
+		      </td>
+		      <td align=right> RK0
+		      </td>
+		      <td> 
+			<p>
+			  A process key to the process named by SK0 if
+			  the operation succeeded, else a void key.
+			</p>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <b>R1</b></td>
+		      <td> 
+			<p>
+			  0: brand did not match.
+			</p>
+			<p>
+			  1: brand matched. the gate key is a start
+			  key.
+			</p>
+			  <p>
+			  2: brand matched. the gate key is a resume
+			  key.
+			</p>
+		      </td>
+		      <td>
+			<p>
+			  Key Info field if gate key, else zero.  If
+			  the gate key is a resume key, the key info
+			  field may be either zero or one:
+			</p>
+			<ul>
+			  <p>
+			    0: Normal resume capability.
+			  </p>
+			  <p>
+			    1: fault capability.
+			  </p>
+			</ul>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td rowspan=2> <strong>Results</strong>
+		      </td>
+		      <td align=right> RC_OK
+		      </td>
+		      <td> Operation succeeded.</td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <em>RC_RequestError</em>
+		      </td>
+		      <td>Key in SK0 was not a gate key.</td>
+		    </tr>
+		  </table>
+		</dd>
+		<dt>
+		  <strong>Amplify Address Space with Gate Key Keeper</strong> (OC = 17)
+		</dt>
+		<dd>
+		  <p>
+		    Returns a process key to the keeper of SK0 and a node key
+		    to the red address space node denoted
+		    by SK0.
+		  </p>
+		  <table>
+		    <tr valign=top>
+		      <td rowspan=1> <strong>Request</strong>
+		      </td>
+		      <td align=right> SK0
+		      </td>
+		      <td> A key to a red address space.
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td rowspan=4> <strong>Response</strong>
+		      </td>
+		      <td align=right> RK0
+		      </td>
+		      <td> A process key to the process named by SK0 if the
+			operation succeeded, else a void key.
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> RK1
+		      </td>
+		      <td> A node key to red address space node named by SK0 if the
+			operation succeeded, else a void key.
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <b>R1</b></td>
+		      <td> 0: brand did not match.
+			<p>1: brand matched. the gate key is a start key.
+			  <p>2: brand matched. the gate key is a resume key.
+		      </td>
+		      <td>
+			Key Info field if gate key, else zero.
+			If the
+			gate key is a resume key, the key info field may be
+			either zero or one:
+			<ul>
+			  0: Normal resume capability.
+			  <p>
+			    1: fault capability.
+			</ul>
+		      </td>
+		    </tr>
+		    <tr valign=top>
+		      <td rowspan=2> <strong>Results</strong>
+		      </td>
+		      <td align=right> RC_OK
+		      </td>
+		      <td> Operation succeeded.</td>
+		    </tr>
+		    <tr valign=top>
+		      <td align=right> <em>RC_RequestError</em>
+		      </td>
+		      <td> SK0 is not a red address space key, SK0 is no-call,
+			or SK0's keeper key is not a gate key.
+		      </td>
+		    </tr>
+		  </table>
+		</dd>
+	      </dl>
+	  </div>
+	  <hr>
+	    <em>Copyright 1998, 2001, Jonathan Shapiro.  All rights reserved.  For terms of 
+	      redistribution, see the 
+	      <a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+	</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

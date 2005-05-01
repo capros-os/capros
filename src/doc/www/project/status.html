@@ -1,0 +1,666 @@
+<HTML>
+  <HEAD>
+    <TITLE>Current Status of EROS </TITLE>
+  </HEAD>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+    <center>
+      <H1>EROS 0.8.3 (Pre)Released!!!</H1>
+    </center>
+    <p>
+      EROS version 0.8.3 has been released.  Please see the <a
+      href="release-notes.html">release notes</a> for details.
+    </p>
+    <center>
+      <H1>EROS 0.6 Completed!!!</H1>
+    </center>
+    <p>
+      <b>Code is now complete</b> for the 0.6 release of EROS.  I
+      (Jonathan) am currently working on the license, which will be
+      derived from MPL.  Unfortunately, I became aware of an
+      indemnification glitch as I was getting ready to publish the
+      license, and that needs to be straightened out first.
+    </p>
+    <p>
+      Meanwhile, I have accepted a position with IBM's T.J. Watson
+      Research Laboratory starting in mid November.  This means that I
+      am moving during the next month, which will delay the EROS
+      release -- I really don't want to release it just before I go
+      off the air for a month.  The first EROS release will occur as
+      soon as the computers are back up and running and my
+      dissertation is submitted.  You can reasonably expect it in mid
+      to late January of 1999.
+    </p>
+    <p>
+      Somewhere over the Christmass season I'll be working with people
+      on the eros-port and eros-arch lists (see <a
+      href="mailing-lists.html">mailing lists</a>). to verify that
+      they can check out and successfully build the EROS distribution.
+    </p>
+    <p>
+      EROS is a research project.  While it is more stable than most,
+      there are definitely bugs in the system.  While IBM has been
+      kind enough to agree to a grace period, I will have to stop work
+      on EROS code fairly soon.  I can continue working on
+      documentation.  <b>I'll therefore be looking for a group of
+      people to hand off EROS coordination to.</b> If you are
+      interested, please join the eros-port list.
+    </p>
+    <center>
+      <H1>Recent Accomplishments</H1>
+    </center>
+    <IMG src="../img/cupid1.gif" align=left>
+    <p>
+      The EROS research implementation is now complete, modulo a few
+      nits and one bug I want to clean up before release.  It is now
+      running long-haul stress tests successfully.
+    </p>
+    <br clear=left>
+    <h2>The Next Few Objectives</h2>
+    <p> Here's a quick list of the next few things we need to do:
+    <ul>
+      <li> Finish thesis.
+      <li> Clean up the documentation.
+      <li> Release this puppy.
+      <li> Get a <em>real</em> job.
+    </ul>
+    <h2>Recent Inch-Boulders</h2>
+    <p> (An inch-boulder is like an inch-pebble, only much heavier).
+    <table>
+      <tr valign=top>
+	<td>
+	  09/25/98
+	</td>
+	<td>
+	  <p>
+	    Results after semi-resurrecting the fast path IPC.
+	  </p>
+	  <table>
+	    <tr valign=top>
+	      <td><b>Benchmark</b></td>
+	      <td><b>Linux (kernel 2.0.34)</b></td>
+	      <td><b>EROS (C Path)</b></td>
+	      <td><b>EROS (Fast Path)</b></td>
+	      <td><b>Notes</b></td>
+	    </tr>
+	    <tr valign=top>
+	      <td>Page Fault</td>
+	      <td>122 us/page</td>
+	      <td>6.20 us/page</td>
+	      <td>6.18 us/page</td>
+	      <td>Misnamed. Measures cost of rebuilding mappings
+		after unmap/remap</td>
+	    </tr>
+	    <tr valign=top>
+	      <td>Trivial Call</td>
+	      <td>3.00 us (getppid)</td>
+	      <td>3.97 us (get key type)</td>
+	      <td>4.13 us (get key type)</td>
+	      <td>Measures cost of kernel entry/exit with minimal
+		in-kernel effort</td>
+	    </tr>
+	    <tr valign=top>
+	      <td>Null I/O</td>
+	      <td>4.20 us</td>
+	      <td>4.20 us</td>
+	      <td>4.41 us</td>
+	      <td>Measures cost of simplest kernel operation
+		involving actually <em>doing</em> something.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td>Grow Heap</td>
+	      <td>77.90 us/page</td>
+	      <td>79.44 us/page</td>
+	      <td>72.19 us/page</td>
+	      <td>Cost to extend heap by one page.  Not
+		performance critical in Linux, but was a serious
+		problem under the Mach external pager.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td>Pipe Latency</td>
+	      <td>25.00 us</td>
+	      <td>31.53 us</td>
+	      <td>18.65 us</td>
+	      <td>Time to transfer one byte through a pipe.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td>Pipe Bandwidth</td>
+	      <td>96.00 Mbytes/sec</td>
+	      <td>112.70 Mbytes/sec</td>
+	      <td>114.60 Mbytes/sec</td>
+	      <td>Bulk transfer rate.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td>Create Process</td>
+	      <td>3990.0 us</td>
+	      <td>2879.48 us</td>
+	      <td>2788.00 us</td>
+	      <td>Linux: 2 page working set, EROS: 9 or 10 page
+		working set built via constructor mechanism.</td>
+	    </tr>
+	    <tr valign=top>
+	      <td>Create 0 Kbyte file</td>
+	      <td>74.00 us</td>
+	      <td>91.84 us</td>
+	      <td>61.21 us</td>
+	    </tr>
+	    <tr valign=top>
+	      <td nowrap>Create 10 Kbyte file</td>
+	      <td>105.00 us</td>
+	      <td>250.50 us</td>
+	      <td>223.20 us</td>
+	      <td>Due to combination of slow IPC and lack of
+		scatter/gather.</td>
+	    </tr>
+	  </table>
+	  <p>
+	</td>      
+      </tr>
+      <tr valign=top>
+	<td>
+	  09/09/98
+	</td>
+	<td>
+	  <p>
+	    It sometimes seems that keeping the status page up to date 
+	    is harder than everything else combined...
+	  </p>
+	  <p>
+	    A lot has happened since the last update:
+	  </p>
+	  <ul>
+	    <li>
+	      <p>
+		EROS is now running endurance tests for long periods
+		(&gt;= 48 hrs).
+	      </p>
+	      </li>
+	    <li>
+	      <p>
+		We now have a set of microbenchmarks for EROS.  On the
+		current system (which at the moment lacks a fast IPC
+		implementation), these microbenchmarks suggest that an
+		<em>emulated</em> POSIX environment running on top of
+		EROS should do just as well as a native UNIX
+		environment:
+	      </p>
+	      <table>
+		<tr valign=top>
+		  <td><b>Benchmark</b></td>
+		  <td><b>Linux (kernel 2.0.34)</b></td>
+		  <td><b>EROS (Slow IPC)</b></td>
+		  <td><b>Notes</b></td>
+		</tr>
+		<tr valign=top>
+		  <td>Page Fault</td>
+		  <td>122 us/page</td>
+		  <td>6.20 us/page</td>
+		  <td>Misnamed. Measures cost of rebuilding mappings
+		    after unmap/remap</td>
+		</tr>
+		<tr valign=top>
+		  <td>Trivial Call</td>
+		  <td>3.00 us (getppid)</td>
+		  <td>3.97 us (get key type)</td>
+		  <td>Measures cost of kernel entry/exit with minimal
+		    in-kernel effort</td>
+		</tr>
+		<tr valign=top>
+		  <td>Null I/O</td>
+		  <td>4.20 us</td>
+		  <td>4.20 us</td>
+		  <td>Measures cost of simplest kernel operation
+		    involving actually <em>doing</em> something.</td>
+		</tr>
+		<tr valign=top>
+		  <td>Grow Heap</td>
+		  <td>77.90 us/page</td>
+		  <td>79.44 us/page</td>
+		  <td>Cost to extend heap by one page.  Not
+		    performance critical in Linux, but was a serious
+		    problem under the Mach external pager.</td>
+		</tr>
+		<tr valign=top>
+		  <td>Pipe Latency</td>
+		  <td>25.00 us</td>
+		  <td>31.53 us</td>
+		  <td>Time to transfer one byte through a pipe.</td>
+		</tr>
+		<tr valign=top>
+		  <td>Pipe Bandwidth</td>
+		  <td>96.00 Mbytes/sec</td>
+		  <td>112.70 Mbytes/sec</td>
+		  <td>Bulk transfer rate.</td>
+		</tr>
+		<tr valign=top>
+		  <td>Create Process</td>
+		  <td>3990.00 us</td>
+		  <td>2879.48 us</td>
+		  <td>Linux: 2 page working set, EROS: 9 or 10 page
+		    working set built via constructor mechanism.</td>
+		</tr>
+		<tr valign=top>
+		  <td>Create 0 Kbyte file</td>
+		  <td>74.00 us</td>
+		  <td>91.84 us</td>
+		</tr>
+		<tr valign=top>
+		  <td nowrap>Create 10 Kbyte file</td>
+		  <td>105.00 us</td>
+		  <td>250.50 us</td>
+		  <td>Due to combination of slow IPC and lack of
+		    scatter/gather.</td>
+		</tr>
+	      </table>
+	      <p>
+	    </li>
+	    <li>
+	      <p>
+		Several key system utilities -- most notably the space 
+		bank -- are completed and working.
+	      </p>
+	    </li>
+	  </ul>
+	</td>      
+      </tr>
+      <tr valign=top>
+	<td>
+	  04/17/98
+	</td>
+	<td>
+	  <p>
+	    It is a never-ending source of amazement to me how
+	    embarassed you can be by something as simple as an editor
+	    crash.  There actually <em>was</em> text that went with
+	    the 09/10/97 entry, but I sure can't remember now what it
+	    was.
+	  </p>
+	  <p>
+	    I am currently debugging the TCP/IP stack.  After that, I
+	    will be implementing a web server to use for thesis
+	    measurement.  Following a little bit of cleanup, I then
+	    plan to make the first EROS release.  Please keep in mind
+	    that doing all of this will take several weeks yet.
+	  </p>
+	  <p>
+	    A new FAQ that has been added on the main page.  Much of
+	    the content that is currently on this page will be
+	    migrating to the FAQ over the next several weeks.
+	  </p>
+	  <p>
+	    An informal note on why EROS is well-suited to reliable
+	    applications can be found on the essays page.
+	  </p>
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  09/10/97
+	</td>
+	<td>
+	  <p>
+	    It is a never-ending source of amazement to me...
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  02/02/97
+	</td>
+	<td>
+	  <p>
+	    A lot has happened since last we left our saga.  Those of you who have
+	    seen the Star Wars re-release will understand.  Here are some of the
+	    hiights:
+	  <p>
+	  <ul>
+	    <li> A CPU reserve scheduler has been implemented and tested. Once we
+	      put in working sets (after SIGCOMM), EROS will be a fully
+	      real-time system.
+	      <p>
+	    <li>
+	      Checkpoint and migration were working, until we stuck in in the
+	      CPU reserves.  At the moment the kernel is not saving reserve
+	      info. Once that is added (next week), checkpoint will work again
+	      -- a simple fix, delayed by our SIGCOMM submission.
+	      <p>
+	    <li>
+	      We have run our first interesting application.  A prototype Active
+	      Network router has been built on top of EROS, and it worked
+	      essentially on the first try.  Kudos to Steve Muir for a yoeman's
+	      job on this!  Look for further information in our next irregular
+	      update.
+	      <p>
+	    <li>
+	      We have designed, and will implement shortly, a revised kernel IPC
+	      interface.  The new interface transfers (exactly) 4 capabilities, a
+	      variable-length data buffer, and (exactly) 4 register values.
+	      There are a sufficient number of applications that will benefit
+	      from this change to justify it, notably dionysix, but also many
+	      EROS programs.
+	      <p>
+	    <li>
+	      We have taken the first steps toward formally proving a model of
+	      the EROS kernel semantics.  Much to my surprise, the EROS
+	      architecture appears to be proof-friendly.
+	      <p>
+	  </ul>
+	  <p>
+	    The dionysix group is making good progress.  They've decided on
+	    a binary-compatible LINUX emulator, and will be starting their
+	    implementation shortly.  Things are looking very good among the
+	    dyonisians.  (Dynosaurs?)
+	  <p>
+	    Various folks here at Penn are becoming interested in EROS as a
+	    platform for courses and research.  Having something they can see and
+	    touch is a big help.
+	  <p>
+	  <h3>HELP OUR RELEASE</h3>
+	  <p>
+	    We had originally hoped to release a system in March, and I had
+	    tentatively stated this date to several people.  Given the SOSP
+	    deadline of March 7, and the very real need to recover afterwards, I
+	    expect that our actual date will occur in April or May.  The main
+	    sources of delay will be integrating SCSI support into the kernel and
+	    testing the installation process.  This system will have limited
+	    support for network drivers and SCSI cards.  It seems likely that the
+	    following will be supported:
+	  <p>
+	  <ul>
+	    <li> EtherLink III 3c509 ISA cards
+	    <li> EtherLink 3c59x XL 10/100 PCI cards
+	    <li> SMC-based 10/100 cards (uncertain, highly unlikely)
+	    <li> Adaptec 2940/2940W (PCI) adaptor
+	    <li> NCR 5c3810 SCSI (PCI) adaptor
+	  </ul>
+	  <p>
+	    Our test machines have been purchased from XI, Inc., and use the TYAN
+	    Titan-II/III and Tomcat-II/II+ motherboards.  I don't want to err by
+	    endorsement, but the ability to use the parity bits as ECC is a useful
+	    feature in the Triton-II chip set.  The system will *run* on
+	    multiprocessors, but will not use more than one processor.
+	  <p>
+	    We've also run EROS on a hodgepodge of 486 machines.  Pentium machines
+	    are more better :-).
+	  <p>
+	    If you have a Pentium (Pro)/PCI machine, and would be willing to help
+	    test the EROS system, we would greatly appreciate your help.  You will
+	    need a 100 Mbyte available partition on *any* disk drive. It does not
+	    need to be on the boot drive.  We have not tested HD boot from
+	    non-boot drives, but booting from floppy will certainly be possible.
+	  <p>
+	    If you want to help test this first release, please send your machine
+	    configuration information to <a href="mailto:eros-port-request@eros-os.org">eros-port-request@eros-os.org</a>.  Be sure to
+	    include:
+	  <p>
+	  <ul>
+	    <li> Your computer make/model
+	    <li> CPU type and speed (e.g. Pentum 133 Mhz)
+	    <li> Motherboard type if known
+	    <li> Hard disk controller, if known (e.g. Adaptec SCSI 2940)
+	      -- we need manufacturer, type (SCSI/IDE) and model.
+	    <li> Amount of memory and type if known (EDO, DRAM, SRAM)
+	    <li> Disk(s) size
+	  </ul>
+	  <p>
+	    We will provide a sequence of floppy image(s) that will do an
+	    installation on an available partition.  The early floppies will
+	    simply attempt to identify your hardware and ask you to confirm that
+	    they got it right (i.e. they will not change anything on your disk).
+	    Later floppy images will install themselves on your disk.
+	  <p>
+	    
+	    When we are confident that the system works well, we will provide a
+	    cross-environment which will enable you to build your own programs
+	    from a linux-based cross environment.  Eventually, we look forward to
+	    rehosting the cross environment to EROS.
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  11/6/96
+	</td>
+	<td>
+	  <p> EROS has hit a major milestone.  Until yesterday, all of our
+	    running programs have been crafted on linux and a cross-tool has
+	    been used to generate the running image.
+	  <p> Yesterday, we crafted the first new domain from within the
+	    EROS system itself.  Our test involved successfully running five
+	    domains in collaboration:
+	  <ul>
+	      <table>
+		<tr valign=top>
+		  <th align=left>
+		    Domain
+		  </th>
+		  <th align=left>
+		    Purpose (role)
+		  </th>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    DomCreTest
+		  </td>
+		  <td>
+		    The test shell
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    DCC
+		  </td>
+		  <td>
+		    a primordial domain, the grandfather of most domains
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    Space Bank
+		  </td>
+		  <td>
+		    the disk space allocator
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    Domain Creator
+		  </td>
+		  <td>
+		    fabricated by DCC, a domain creator fabricates
+		    "unpopulated" domains
+		  </td>
+		</tr>
+		<tr valign=top>
+		  <td>
+		    Hello
+		  </td>
+		  <td>
+		    A domain that says "hello world" (running this
+		    is the goal of the test).
+		  </td>
+		</tr>
+	      </table>
+	  </ul>
+	  <p> The test consists of:
+	  <ul>
+	      <p> DomCreTest calls DCC to obtain a new domain creator
+	      <ul>
+		  <p> DCC buys space from the space bank
+		  <p> DCC fabricates a new domain creator from this space
+		  <p> DCC returns an "entry capability" to the new domain
+		    creator to the test shell
+	      </ul>
+	      <p> DomCreTest calls the new domain creator to obtain an
+		unpopulated domain
+	      <ul>
+		  <p> The domain creator buys space from the space bank
+		  <p> The domain creator fabricates a new domain from this
+		    space
+		  <p> The domain creator returns a "domain capability" to
+		    the new domain to the test shell
+	      </ul>
+
+	      <p> DomCreTest installs the "hello world" program segment, which
+		was built under linux.
+
+	      <p> DomCreTest initializes the startup registers of the hello
+		making it callable
+
+	      <p> DomCreTest calls the hello domain
+	      <ul>
+		  <p> The hello domain prints "hello from hello" and returns
+	      </ul>
+
+	      <p> DomCreTest exits
+	  </ul>
+	  <p> This test is significant for two reasons:
+	  <ol>
+	    <li> In order for this test to succeed, a great part of the
+	      kernel code must be working correctly:
+	      <ul>
+		<li> Simple and short-circuit segments
+		<li> The domain control interface
+		<li> The IPC mechanism
+		<li> The pagein mechanism (object fault-in)
+		<li> All of the state caching architecture.
+	      </ul>
+	      <p> 
+	    <li> We have built a program using the essential mechanisms
+	      of the EROS security model.  While the rest is not
+	      simple, it is straightforward.
+	  </ol>
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  9/26/96
+	</td>
+	<td>
+	  <p> As of today, we are now running a system with a checkpoint
+	    area.  Our latest generation of cross tools writes objects into
+	    the checkpoint area, which is then loaded and used by the
+	    running system.  The checkpoint and migration logic is the last
+	    large piece of work to be done in the kernel; it's mostly
+	    downhill from here.  This step means that we can restart
+	    correctly from the last successful checkpoint.
+	  <p> Now that the checkpoint recovery is working, ageing and
+	    migration (i.e. writing the <em>next</em> checkpoint) should be
+	    fairly straitghtforward.
+	  <p> Since the last update, we've also put out two papers, one at
+	    POS-96 discussing the kernel architecture and the other at
+	    IWOOOS-96 showing some of our early IPC performance figures.
+	    Copies of both are available through the <a
+	      href="../devel/00Devel.html">technical documentation</a> page.
+	  <p> Several new project team members have joined us, and we seem
+	    to have reached critical mass at last.  A Linux/EROS effort is
+	    now actively underway, along with a native TCP/IP and a native
+	    X11 system.
+	  <p> Finally, <a href="http://www.tandem.com">Tandem
+	      Computers</a> has agreed to donate some R4000 machines in order
+	    to let us do a MIPS port.
+	  <p> All in all, things are looking up!
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  2/17/96
+	</td>
+	<td>
+	  <p> We have performed the first successful call from one user domain
+	    to another.  The caller is a hand-crafter domain that passed
+	    four copies of the null key to the recipient.  The recipient is
+	    the general purpose ECHO domain, slightly modified by the
+	    addition of a HALT instruction so that I can verify that it ran.
+	  <p> The caller sets up the call, performs the message send entry
+	    trap, and enters the kernel.  The kernel analyzes the invocation
+	    type, copies all of the passed keys and the message data, and
+	    causes the thread to migrate into the recipient.
+	  <p> This is a <em>huge</em> step forward!
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  1/13/96
+	</td>
+	<td>
+	  <p> The first thread has gone to user land and taken a page
+	    fault. It then returns to the kernel, and a <em>correct</em>
+	    address space is built for it.  It resumes, and runs the HALT
+	    instruction (which is a supervisor instruction) and takes a
+	    general protection fault.
+	  <p> We have run the first user-mode instruction!
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  12/25/95
+	  <br> (25:30 pm)
+	</td>
+	<td>
+	  <p> We have partially initiated a user thread.  We've managed to
+	    have the first user thread successfully read the pieces of its
+	    domain off of the disk.  The object I/O logic was previously
+	    working; the new thing is that we are able to start user threads
+	    now, and they yield correctly (releasing all locks and their
+	    stack in the process).
+	  <p> At the moment, the first user thread successfully prepares
+	    its domain to run, and then goes to sleep (as a temporary
+	    debugging aid).  When it wakes up, it reprepares the domain,
+	    finds that an expected lock is missing, and craters.
+	  <p> There is a design issue in the locking discipline whose
+	    solution isn't immediately obvious at the moment.  What IS
+	    obvious is that I'm not up to trying to address it until
+	    tomorrow...
+	  <p> But cratering in this particular way is sure a nice holiday
+	    present.
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  12/12/95
+	</td>
+	<td>
+	  <p> We have successfully read the first piece of the first process
+	    off of the ramdisk.  This means that much of the I/O and object
+	    cache subsystem is working.
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  11/30/95
+	</td>
+	<td>
+	  <p> The tools to build the EROS boot image are complete, and
+	    have been used to generate a boot floppy containing a single
+	    runnable domain with a single instruction -- <code>halt</code>.
+	    The volume debugging utility says that the resulting volume
+	    contains all of the right things, so the next step is to try to
+	    run this domain.
+	  <p> If we can get as far as executing the <code>halt</code>
+	    instruction, we will know that object faulting and address space
+	    construction is working, which tests perhaps 85% of the kernel.
+	    Small really is beautiful.
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  11/22/95
+	</td>
+	<td>
+	  <p> The kernel thread scheduler and context switcher are
+	    working.  The kernel runs several threads at different
+	    priorities, some of which exercise the system in challenging
+	    ways.  
+	  <p> We have successfully mounted a ramdisk copied from a floppy,
+	    which indicates that the core of the disk I/O subsystem is
+	    working.
+	  <p> Basically, we're ahead of DOS - neither system runs useful
+	    applications, but the EROS kernel can walk and chew gum at the
+	    same time.
+	</td>
+      </tr>
+    </table>
+    <hr>
+    <em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+      redistribution, see the 
+      <a href="../legal/license/GPL.html">GNU General Public License</a></em>
+  </td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

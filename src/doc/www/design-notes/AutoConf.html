@@ -1,0 +1,182 @@
+<html>
+<head>
+<title>Autoconfiguration in the EROS Kernel</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <h1>Autoconfiguration in the EROS Kernel</h1>
+</center>
+<p> This note describes the autoconfiguration mechanism of the EROS
+kernel.  Unlike most kernels, EROS performs a minimal kernel
+configuration, and leaves it to user level code to configure the
+remainder of the system.  This simplifies the addition of new hardware
+by minimizing the opportunities for resource conflicts, and reduces
+the number of cards that the kernel must know about.
+<p> The autoconfiguration process must accomplish several tasks:
+<ul>
+  <li> It must establish the list of drivers that have been configured
+       into the kernel, and build a table that allows it to map from
+       device keys to the associated drivers.
+  <li> It must reserve resources, such as DMA buffers, that may be
+       needed by devices that will later be configured by a user-level
+       domain.
+  <li> It must identify the console port, which is usually a memory
+       mapped display but may in some cases turn out to be a serial
+       port.
+  <li> It must locate and initialize all disk controller cards, and
+       build the necessary tables that will allow it to later mount
+       these disk units.
+  <li> As it proceeds, it must construct a list of the resources that
+       have been reserved by each configured driver.
+</ul>
+<h2>1 How Configuration Works</h2>
+<p> Configuring an EROS system involves both compile-time and run-time
+decision making.  At compile time, the person building the kernel
+decides which kernel modules are to be included in the kernel.  Kernel
+modules include
+<ul>
+  <li> Kernel tasks which may not be needed in all implementations.
+       Some debugging related tasks, for example, can usefully be
+       configured in and out of the system.
+  <li> Drivers for kernel-managed devices.  This includes all disk
+       controllers and disk devices, terminal devices, low-level
+       network interfaces, and the console device.
+  <li> Drivers for user-managed devices.  User managed devices are not
+       started by the kernel, but can be initialized or shut down by
+       user level code.
+</ul>
+<p> The kernel module list determines what devices will be recognized
+by the EROS kernel.  In a typical configuration, there will be more
+drivers than actual devices.
+<p> The presence of a <em>driver</em> does not necessarily imply the
+presence of the corresponding <em>device</em>.  If the device driver
+is configured, the device can be recognized and manipulated if it is
+actually present.  Because different systems have radically different
+device configurations, the initially installed kernel configuration
+includes device drivers for many different types of disk controllers.
+Just one or two of these drivers will actually be used on most
+systems.
+<p> To decide what devices are actually present and configure the
+kernel properly, the kernel makes two passes through the list of
+kernel modules.  The first pass is the <em>probe</em> pass.  During
+this pass, the module should perform several actions:
+<ul>
+  <li> It should determine whether the module should be configured
+       into the kernel.  For kernel tasks, this is trivial (the answer
+       is always yes).  For device drivers, the driver should be
+       configured only if the corresponding device is present.
+  <li> It should reserve any necessary resources, such as interrupt
+       vectors, memory ranges, DMA channels, and regions in the I/O
+       address space.
+  <li> It should mark the module as <strong>present</strong>, which
+       will cause the second pass to be made for this device.
+</ul>
+<p> Once the kernel knows what modules are to be configured, it makes
+a second pass to actually <strong>attach</strong> the modules.  During
+this pass, the module is responsible for performing any necessary
+subsidiary configuration.  Disk controllers, for example, should probe
+for and attach any drives that are present.
+<p> The probe pass and the attach pass are separated for two reasons:
+<ul>
+  <li> On some machines, the results of the probe pass are needed to
+       properly initialize the bus (e.g. VAX Unibus)
+  <li> Some supporting code in the kernel makes use of the number of
+       various types of controller to make decisions about buffer
+       allocation at startup time.  These buffers must be allocated
+       before the attach pass, because they must be used by the attach
+       logic.
+</ul>
+<p> 
+<h2>2 The Module List</h2>
+<p> The master module list for a kernel is found in an architecture
+specific subdirectory (we're about to change where it lives, and I'll
+update this when it settles).  This list names the set of modules that
+are to be configured into the kernel.  The <code>CONFIG</code> file is
+included by various source files in the kernel code to cause the right
+sorts of configuration to happen.
+<p> Entries in this file take the form:
+<ul>
+  <strong>MODULE(name, "user readable name")</strong>
+</ul>
+<p> The <strong>name</strong> field indicates what kernel symbol name
+can be used to locate the module.  The entry:
+<p> Entries in this file take the form:
+<ul>
+  <strong>MODULE(IdleThread, "Idle Thread")</strong>
+</ul>
+says that some kernel object file publishes an <code>AutoConf</code>
+structure whose name is <code>AutoConfModule</code>.  In the
+corresponding module source file, there should be a source line that reads:
+<ul>
+  <strong>DEFMODULE(IdleThread,</strong>
+  <em>ProbeRoutine</em><strong>,</strong>
+  <em>AttachRoutine</em><strong>,</strong>);
+</ul>
+<p> Modules that require no interrupt, address space, DMA, or I/O port
+resources can specify <code>TrivialProbe</code> as their probe
+routine.
+<h3>2.1 The Probe Routine</h3>
+<p> The basic job of the <code>Probe()</code> routine is to determine
+if a particular module should be configured into the kernel, and to
+reserve any resources necessary for the support of that module.  In
+the case of device driver modules, the probe function must perform the
+following steps:
+<ol>
+  <li> Decide whether the hardware device is present, using whatever
+       means are appropriate for the target architecture.
+  <li> Reserve any necessary interrupt vector(s) for the device.
+  <li> Reserve the portion of the memory map used by the device.
+  <li> Reserve the motherboard DMA channel(s) (if any) used by the
+       device.
+  <li> Reserve the portion of the I/O port address space (if any) used
+       by the device.
+  <li> Register the device in the kernel device table so that
+       invocations of the associated device key can be directed to the
+       appropriate module.
+  <li> Mark the module as <strong>present</strong>, so that it's
+       <code>Attach()</code> routine will be run.
+</ol>
+<p> If any of these steps cannot be successfully performed, the probe
+routine should relinquish any allocated resources and should not mark
+the device as present.  This very important.  The IDE driver, for
+example, checks for the presence of IDE drives and an IDE-managed
+floppy disk.  If these are present, it allocates the associated port
+space and binds the FD and HD device keys. In this event, the HD and
+FD drivers must <em>not</em> be configured.  If no IDE controller is
+present, the HD and FD device drivers will find the corresponding
+ports unbound, and should proceed with configuration.
+<p> While it may be necessary to temporarily enable interrupts for the
+device during the probe phase, interrupts for the associated device
+should be <em>disabled</em> at the end of this phase.  In principle,
+the device is not prepared to handle interrupts until it's
+<code>Attach()</code> routine has been called.
+<p> Modules that are unconditionally configured can avoid the cost of
+providing individual probe routines by using the
+<code>TrivialProbe()</code> routine instead.  This is appropriate when
+all resources used by the module are preallocated by kernel
+convention.
+<p> A few modules provide support for motherboard components or
+exception handlers that must be present early in the system's
+configuration phase for error handling.  These modules violate the
+rule about interrupt enabling.  For example, the PageFault handler is
+a module that is fully ocnfigured and installed by it's probe phase,
+and supplies no <code>Attach()</code> routine.
+<h3>2.2 The Attach Routine</h3>
+<p> The <code>Attach()</code> routine complements the probe routine.
+Where the probe routine allocates system resources associated with a
+module, the attach routine initializes the module itself.  During the
+attach routine, the module (or device) should be set to an initial
+known state, and all necessary data structures should be allocated.
+If the module is a device driver for a controller, it should perform
+unit discovery during this phase.  For example, the IDE driver
+discovers what disk drives are attached on each channel during this
+phase.
+<p> Modules that provide low-level motherboard support, or that
+require no data structure initialization, can provide a NULL attach
+routine.
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.  For terms of 
+redistribution, see the 
+<a href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

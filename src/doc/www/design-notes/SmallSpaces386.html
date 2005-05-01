@@ -1,0 +1,218 @@
+<html>
+<head>
+<link rel=STYLESHEET HREF="../CSS/stylesheet.css" type="text/css">
+<title>Small Spaces for the x86 Family</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<center>
+  <H1>Small Spaces for the x86 Family</H1>
+</center>
+<p class=initial> This note describes how we have adapted the ideas
+from Liedtke's small address space paper [<a href="#ref1"
+target="references">1</a>] for EROS.
+<H2>1. The Small Spaces Idea</H2>
+<p class=initial>
+The basic idea behind small spaces relies on the availability of the
+x86 segmentation mechanism.  Just as the EROS kernel is mapped in
+common in all address spaces, we can map a number of <em>user</em>
+regions into all address spaces.  Access to these regions can be
+controlled with the segment registers.  A process can first be
+allocated to one of these regions, and can be moved to a traditional
+address space if it is discovered not to fit in the so-called ``small
+space.''
+<p>
+Norm Hardy and I first did a design for small address spaces for EROS
+in 1991.  This fell out of a larger conversation in which we were
+trying to figure out how to let an EROS process believe that it owned
+the full 4Gbyte virtual address space.  Our technique was to have a
+region that the kernel lived in, but bounce this region around on
+demand when the process wanted those virtual addresses.  In the end, I
+concluded that the complexity of the kernel bounce logic outweighed
+its benefit, and decided to settle for a 3 GByte address space for
+EROS processes on the x86.  This, at least, is 1 GByte more than any
+of the major operating systems, and leaves enough spare room for
+kernel emulation within the target process address space if desired.
+<p>
+A side effect was that we realized that small spaces were possible.
+We did <em>not</em> at that time appreciate their performance impact,
+or we would have implemented them at the time.  We did not publish
+this design.  Since I had many other things to implement at the time,
+I set it aside intending to go back to it later.  Jochen Liedtke
+arrived at the idea independently, and in 1995 put out a paper
+describing an implementation of it for L4.  His performance numbers
+were very impressive, and I resolved to implement them in EROS as
+well.
+<p>
+The existence of small spaces can be discovered by means of the
+<em>load segment limit</em> operation, but we consider this a
+reasonable tradeoff.  If it is helpful, the operating system can
+implement several sizes of small space (e.g. a large number of 128 Kbyte
+spaces and a smaller number of 1 Mbyte spaces).  The current EROS
+implementation includes only a single size: 128 Kbyte.
+<p>
+There are several advantages to small spaces:
+<ul>
+  <li>
+       <p class=initial>
+       Many programs, most notably keepers, will fit within them.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       A context switch into a small space or back to the most
+       recently active ordinary space does not need to flush the
+       TLB. This alone reduces the context switch cost by nearly 140
+       cycles in practice.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       Cross-space copy is simplified by eliminating the need to
+       walk the recipient address tables by hand.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       Since EROS is intended to promote an architectural discipline
+       of many small objects, a great many EROS domains fall within
+       the small space size limit.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       (Corollary)  Small spaces substantially reduce the demand for
+       page table page frames.
+       </p>
+  </li>
+</ul>
+A minor disadvantage is that a process must (in our current
+implementation) rebuild it's mapping tables when it exceeds the small
+space size limits.
+<h2>2. Planned Implementation</h2>
+<p class=initial>
+Much to my surprise, the implementation of small spaces looks to be
+very simple.  The address map for the kernel was rearranged, and I
+corrected a number of places where assumptions about the previous
+virtual address had managed to creep into the code.
+<h3>2.1. Changes to Address Mappings</h3>
+<p class=initial>
+In the EROS implementation of small spaces, the address space is
+divided into three regions:
+<center>
+<pre>
++--------------+--------------+----------------+
+| Large Space  | Small Spaces | Kernel Virtual |
+|   (unique)   |   (shared)   |    (shared)    |
++--------------+--------------+----------------+
+</pre>
+</center>
+Small spaces and kernel space are shared across all virtual maps,
+enabling rapid transition to/from kernel and to/from small spaces.
+<h3>2.1. Changes to the <tt>Process</tt> Structure</h3>
+<p class=initial>
+I added three new fields to the <tt>Process</tt>
+structure:
+<pre>
+struct Process {
+   ...
+   uva_t   limit;      /* uppermost virtual address */
+   uva_t   bias;       /* true VA = process VA + bias */
+   PTE     *smallPTE;  /* true VA = process VA + bias */
+};
+</pre>
+While the <tt>limit</tt> information can be obtained by inquiring of
+the segment register itself, it is faster to load it from the
+<tt>Process</tt> structure.  The <tt>bias</tt> is process specific,
+and must be applied to sent and received string addresses during
+string transfer in order for the kernel to reference the memory map in
+the correct place.  
+<p>
+Previous to this change, the lower bound of string addresses and
+argument blocks was not checked by the fast-path IPC code.  Since the
+uppermost pages of kernel virtual space were unmapped, arithmetic
+rollover guaranteed that an invalid lower bound would result in a page
+fault.  Rather than place unmapped buffer regions between small spaces
+I elected to pack them densely and start checking the lower bounds.
+<p>
+Every EROS <tt>Process</tt> might potentially be a small (128 Kbyte)
+space.  Since a 128 Kbyte space takes only 32 page tables to map, I
+decided to simply dedicate a special collection of page tables.  These
+page tables are mapped into every process and also into the
+kernel-special address space.  Every <tt>Process</tt> carries with it
+32 dedicated PTE entries.
+<p>
+When the <tt>Process</tt> structure is first loaded, the
+<tt>smallPTE</tt> field is initialized to point to the first entry.
+If this field is nonzero, the associated process resides in a small
+space, and no page table root pointer is loaded on return to the
+process.  The net effect is that the small space runs parasitically in
+all address spaces, which is what we wanted.
+<h3>2.2. Changes to Context Switch</h3>
+<p class=initial>
+The new context switch logic must update the global descriptor table
+with the correct base and bound for the small space before switching
+into it.  This amounts to rewriting four words, all of which prove to
+be in the same cache line.
+<h3>2.3. Small Process Page Faults</h3>
+<p class=initial>
+When a process performs a page fault, the page fault code must now
+check to see if the <tt>smallPTE</tt> field is nonzero.  If so, the
+faulting process is a small process, and should not attempt to share
+page tables.  A different path is taken for address resolution that
+sidesteps the efficiencies of the main path, because in most cases a
+small process will have only a single Node or Page as its entire
+address space.
+<p>
+If the fault address exceeds the bound for this process, then one of
+three things must be true:
+<ul>
+  <li>
+       <p class=initial>
+       The reference is into kernel space, and is therefore illegal.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       The address is bad, and a keeper must be invoked.
+       </p>
+  </li>
+  <li>
+       <p class=initial>
+       The address is valid, and the process must be transparently
+       converted into a large space process.
+       </p>
+  </li>
+</ul>
+We defer changing the process into a large address space until we
+discover a <em>valid</em> address outside the small space range.
+There is no sense converting a process that will shortly go away in
+any case.
+<h3>2.2. Changes to IPC</h3>
+<p class=initial>
+The only other piece of code that needs to be touched is the fast and
+slow IPC paths.  The slow IPC path needs to be updated to reflect the
+new mapping table traversal logic.  The fast path needs to be taught a
+new string transfer method.
+<h2>3. Results</h2>
+<p class=initial>
+<img src="../img/construction.gif" align=left> <em>This section will
+be filled in as the implementation progresses.</em>
+<br clear=left>
+<hr align=left width="15%">
+<ol>
+  <li>
+       <p class=initial>
+       <a name="ref1">Jochen Liedtke.  <em>Improved Address-Space
+       Switching on Pentium Processors by Transparently Multiplexing
+       User Address Spaces</em>.  GMD Technical Report No. 933.</a>
+       Further information about L3 and L4 can be found
+       <a href="http://os.inf.tu-dresden.de/L4/">here</a>.
+       </p>
+  </li>
+</ol>
+<hr>
+<em>Copyright 1998 by Jonathan Shapiro.  All rights reserved.
+For terms of redistribution, see the <a
+href="../legal/license/GPL.html">GNU General Public License</a></em>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

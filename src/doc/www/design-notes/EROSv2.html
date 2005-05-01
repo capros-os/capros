@@ -1,0 +1,747 @@
+<html>
+  <head>
+    <link rel=STYLESHEET HREF="../CSS/stylesheet.css" type="text/css">
+    <title>Changes in EROS Version 2.0</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <table>
+      <tbody>
+	<tr valign="top">
+	  <td width="10%">&nbsp;</td>
+	  <td>
+	    <center>
+	      <h1 class="title">Changes in EROS Version 2.0</h1>
+	      <p class="subtitle">
+		<em>EROS Goes Microkernel</em>
+	      </p>
+	    </center>
+	    <ul>
+		<p>
+		  A number of issues, including ease of driver
+		  porting, a strong desire for embedded real-time
+		  support, and the need to build a more flexible and
+		  configurable OS platform have led to significant
+		  design changes in what will become EROS version
+		  2.0. This note describes the motivation, the changes
+		  that have been made, and the issues that these
+		  changes raise for developers.
+		</p>
+	    </ul>
+	    <h1>Introduction</h1>
+	    <p>
+	      Several needs have been converging for some time in the
+	      EROS community:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  We need a wide array of drivers in order to make the
+		  system useful and usable.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Several critical early users of EROS need embedded
+		  and real-time support.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  From a research perspective, we need a system that
+		  is both more configurable and more easily modified
+		  than the original monolithic kernel design
+		  permitted.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  From a personal standpoint, I needed to get out of
+		  the kernel business so that students could make more
+		  effective use of the system and I could focus more
+		  effectively on my main jobs: research and teaching.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  There has been a need to look at issues of resource
+		  arbitration, both as a matter of real-time support
+		  and as a matter of research interest. Any monolithic
+		  kernel design inherently contains a large body of
+		  relatively non-preemptable code, which can be
+		  thought of as a preferred scheduling class. For
+		  effective real time support, it is useful if all
+		  activities can be controlled by the same
+		  scheduler. QNX, for example, gets a good deal of
+		  leverage out of this.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      In brief, meeting these goals essentially required that
+	      we move drivers from the kernel space to application
+	      space. 
+	    </p>
+	    <h2>User Space Drivers</h2>
+	    <p>
+	      Unfortunately, moving drivers to user space carries
+	      consequential damages: it breaks the persistence
+	      model. If the core disk drivers are not included in the
+	      kernel, then the kernel cannot rely on them for startup
+	      purposes, and therefore must not rely on reading the
+	      checkpoint area to get going.
+	    </p>
+	    <p>
+	      I briefly considered retaining disk drivers in the
+	      kernel, and moving only the other drivers out. This
+	      proves to be an undesirable hybrid, because keeping
+	      "only" the disk drivers is non-trivial. A SCSI disk, for
+	      example, carries a lot of supporting code. Supporting
+	      "only" SCSI disks would mean incorporating complete SCSI
+	      bus, device, and logical unit support into the
+	      kernel. There is then the problem of exporting
+	      canonicalized interfaces for all <em>other</em> devices
+	      on the SCSI bus. Worse, SCSI is a hot-pluggable
+	      interface, so the kernel would need to deal with hot
+	      plug policy.
+	    </p>
+	    <p>
+	      Ironically, this last point proved to be the final straw
+	      for the EROS v1.0 design. In thinking about the rising
+	      popularity of USB, FireWire(tm), wireless, and similar
+	      ad-hoc connectable bus technologies, I concluded that
+	      keeping the supporting policies out of the kernel was
+	      important, because it would need to change
+	      frequently.
+	    </p>
+	    <p>
+	      For these and other reasons, drivers in EROS v2.0 will
+	      be user-space applications. The bootstrap code has been
+	      modified to preload ranges containing the driver code,
+	      and the kernel has been modified to start a single IPL
+	      process that in turn starts all other drivers. That is,
+	      the kernel no longer has any direct knowledge of disks,
+	      disk-level object management, or storage representation.
+	    </p>
+	    <h2>Persistence</h2>
+	    <p>
+	      Removing drivers -- in particular the disk drivers --
+	      from the kernel immediately led to a second problem: how
+	      would checkpointing and persistence be implemented for
+	      those system configurations that needed them? This
+	      raised issues about where to make the "cut" between the
+	      kernel and the user-mode object store, and how to ensure
+	      that deadlocks did not occur between the kernel and the
+	      object management code. Getting this interface
+	      appropriately defined proved tricky.
+	    </p>
+	    <h2>Mixed-mode Programming</h2>
+	    <p>
+	      One consequence of moving drivers to user-land was the
+	      need to introduce a non-persistent programming model for
+	      EROS. To avoid deadlock, the kernel must not attempt to
+	      checkpoint the state of drivers. If, for example, the
+	      disk driver state were checkpointed, the kernel could
+	      conceivably get into a corner where the disk driver data
+	      had been marked copy on write but no page frames are
+	      available. In this circumstance, progress cannot be made
+	      until the disk driver runs, and the disk driver cannot
+	      run until the copy on write completes.
+	    </p>
+	    <p>
+	      Oddly enough, the deadlock problem above is probably
+	      solvable. The issue that convinced me to make drivers
+	      non-persistent was initialization. It is extremely
+	      awkward if drivers restart from partially checkpointed
+	      states, because you then cannot rely on the driver to
+	      correctly bootstrap the rest of the system. 
+	    </p>
+	    <p>
+	      Ultimately, the solution was to introduce a
+	      non-persistent programming mechanism. The kernel now can
+	      be compiled entirely without persistence. If the kernel
+	      compilation <em>includes</em> persistence support, it is
+	      now possible to have ranges of objects that are excluded
+	      from persistence and/or ageing. Objects excluded from
+	      persistence will remain resident in memory once
+	      dirtied. Objects excluded from ageing will remain in
+	      memory whether or not they are dirty.
+	    </p>
+	    <p>
+	      Non-persistent regions create still further
+	      complications: If a persistent process calls a
+	      non-persistent process directly, it can be checkpointed
+	      before the non-persistent process returns. If the system
+	      then crashes, the resume capability to this process can
+	      be lost, with the end result that the calling process
+	      will never restart. New mechanisms have been introduced
+	      to manage the boundary crossing between persistent and
+	      non-persistent regions.
+	    </p>
+	    <h2><a name="physmem">Physical Memory Regions</a></h2>
+	    <p>
+	      User-space drivers have also dictated a need for some
+	      way to publish physical memory for use by selected
+	      applications. Without knowing the physical addresses of
+	      certain pages, drivers cannot correctly program DMA
+	      subsystems. A well-known range of OIDs has been reserved
+	      for physical pages, and a new (user-mode) physical
+	      memory allocator has been introduced to permit drivers
+	      to allocate contiguous physical memory regions. This is
+	      described in greater detail below.
+	    </p>
+	    <h1>Object Sources</h1>
+	    <p>
+	      A reasonably pleasant solution to several of these
+	      problems emerged in the introduction of <b>object
+	      sources</b>. In EROS version 1, we used to say that the
+	      in-memory object cache was a cache of the disk ranges as
+	      modified by the checkpoint area. In EROS version 2, we
+	      now think of the object cache is a cache of object
+	      sources.
+	    </p>
+	    <p>
+	      An object source provides a relatively simple interface:
+	    </p>
+	    <table>
+	      <tbody>
+		<tr valign="top">
+		  <td>Method</td>
+		  <td>Purpose</td>
+		</tr>
+		<tr valign="top">
+		  <td><code>GetObject(oid, type,<br>&nbsp;count, useCount)</code></td>
+		  <td>
+		    <p>
+		      Return the object coresponding to
+		      <code>oid</code>, whose exected type is
+		      <code>type</code> (page or node). If
+		      <code>useCount</code> is true, the returned object
+		      should be returned only of the value of
+		      <code>count</code> matches the allocation count of
+		      the object.
+		    </p>
+		    <p>
+		      The kernel still makes the assumption that
+		      objects are divided into page frames. If the
+		      requested <code>type</code> does not match the
+		      current type of the containing page frame for
+		      this <code>oid</code>, the kernel is requesting
+		      that the object source retag the frame as
+		      containing objects of the requested type.
+		    </p>
+		    <p>
+		      When a retag is requested, the kernel is also
+		      promising that the kernel currently holds no
+		      objects residing in the relevant
+		      frame. Therefore, the object store may assume
+		      that it holds a consistent view of the current
+		      content of the frame.
+		    </p>
+		    <p>
+		      The object source may refuse to retag the
+		      frame. For example, the object range for
+		      physical memory pages will not retag. Since the
+		      spacebank implementation relies on retagging,
+		      such ranges should not be managed by the space
+		      bank.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign="top">
+		  <td><code>WriteBack(objectHeader)</code></td>
+		  <td>
+		    <p>
+		      Take the object identified by the kernel
+		      <code>objectHeader</code> and write it back to
+		      the object source. If the object source is
+		      read-only, this request may be refused.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign="top">
+		  <td><code>Invalidate(objectHeader)</code></td>
+		  <td>
+		    <p>
+		      Remove the specified object from the object
+		      cache, whether or not it is dirty. Some object
+		      sources, most notably the preload object source that
+		      contains drivers, insist that all preloaded
+		      objects remain resident, and will refuse this
+		      request.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign="top">
+		  <td><code>Rescind(objectHeader)</code></td>
+		  <td>
+		    <p>
+		      Destroy the specified object. Even
+		      non-invalidatable objects are removed when
+		      destroyed.
+		    </p>
+		  </td>
+		</tr>
+	      </tbody>
+	    </table>
+	    <p>
+	      While there are a few other supporting methods, these
+	      are the main ones.
+	    </p>
+	    <h2>How Object Sources are Managed</h2>
+	    <p>
+	      The kernel maintains a list of ``attached'' object
+	      sources. When searching for an object, this list is of
+	      sources is consulted in order from first to last. The
+	      first source that agrees to produce (consume) the object
+	      is accepted. Thes list always begins with the
+	      <code>ObCacheSource</code>, so objects that are already
+	      loaded into the object cache will be found there.
+	    </p>
+	    <p>
+	      Other object sources implemented by the version 2 kernel are:
+	    </p>
+	    <table>
+	      <tbody>
+		<tr valign="top">
+		  <td>Method</td>
+		  <td>Purpose</td>
+		</tr>
+		<tr valign="top">
+		  <td><code>RomObSource</code></td>
+		  <td>
+		    <p>
+		      <img src="../img/construction.gif" alt="Construction:"
+		      align="left"> This is not yet
+		      implemented, but is a simple derivative of the
+		      RamObRange. I am including its description now
+		      so that the embedded users can see how ROM will
+		      in due course be supported.
+		    </p>
+		    <br clear="left">
+		    <p>
+		      Implements ROM-based object ranges. Will allow
+		      <code>Invalidate()</code> operations because the
+		      objects can always be reloaded. Does not permit
+		      <code>WriteBack()</code> operations.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign="top">
+		  <td><code>PreloadObSource</code></td>
+		  <td>
+		    <p>
+		      Implements RAM-based object ranges. In the
+		      present implementation, allows both
+		      <code>Invalidate()</code> and
+		      <code>WriteBack()</code> operations.
+		    </p>
+		    <p>
+		      A future modification to the kernel will alter
+		      the behavior of this range type to refuse both
+		      invalidation and writeback. This is on the
+		      grounds that since these objects are going to
+		      remain in memory anyway it is better for them to
+		      be preloaded into the in-memory object cache,
+		      marked as non-evictable, and then reclaim the
+		      space from the preloaded region for use as more
+		      object cache space. That is, the current design
+		      effectively pays twice for these objects, and it
+		      shouldn't.
+		    </p>
+		    <p>
+		      The current implementation is done this way
+		      because it was the fastest way to get a version
+		      2 kernel working quickly, and we can live with
+		      the double payment for a brief window of time.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign="top">
+		  <td><code>PhysPageSource</code></td>
+		  <td>
+		    <p>
+		      <img src="../img/construction.gif" alt="Construction:"
+		      align="left"> This is not yet
+		      implemented, but will be very shortly.
+		    </p>
+		    <br clear="left">
+		    <p>
+		      The physical page source publishes a reserved
+		      range of object identifiers that have a 1:1
+		      correspondence with physical page frames. This
+		      range is populated only where the in-memory
+		      object cache has a valid frame for a page
+		      object.  This isn't quite as simple as it
+		      sounds.
+		    </p>
+		    <p>
+		      The complication with physical page ranges is
+		      that the kernel is already using much of
+		      physical memory, and it cannot simply move out
+		      of the way on demand (though we are working to
+		      improve on that to some degree). Also, any page
+		      object that is presented for application use
+		      must ahve an associated
+		      <code>ObjectHeader</code> structure. This
+		      structure is needed to hold the metadata (oid,
+		      allocation count, and so forth) associated with
+		      the page in question. The
+		      <code>PhysPageSource</code> therefore will not
+		      expose (e.g.) pages occupied by the kernel,
+		      because these pages have no associated
+		      <code>ObjectHeader</code> structures (we are
+		      also considering a design modification to change
+		      <em>that</em>, but less eagerly).
+		    </p>
+		    <p>
+		      Fortunately, the kernel already knows of a pool
+		      of real page frames that <em>do</em> have associated
+		      <code>ObjectHeader</code> structures: the page
+		      frames that make up the slots for page objects
+		      in the object cache. 
+		    </p>
+		    <p>
+		      Suppose that physical page frame
+		      402 (i.e. the page frame whose starting physical
+		      address is 402*PAGE_SIZE) is such a page frame.
+		      In order to obtain a page key corresponding to
+		      this page frame, the application wields the
+		      range key to fabricate a page key whose OID
+		      falls within the OID
+		      range that is reserved to designate physical
+		      page frames. That is, it attempts to fabricate a
+		      page key whose OID is 
+		      reserved_base + (402 << 8). The shift is to
+		      translate the frame number into an OID value for
+		      the corresponding frame.
+		    </p>
+		    <p>
+		      The requested capability will be fabricated
+		      <em>only</em> if frame 402 is a valid frame slot
+		      in the object cache. If so, the current resident
+		      of that object cache slot is evicted (possibly
+		      by claiming some <em>other</em> object cache
+		      slot for it) and the slot is subsequently
+		      claimed for use as a physical page. The
+		      <code>PhysPageSource</code> refuses both
+		      <code>WriteBack</code> and
+		      <code>Invalidate</code> requests.
+		    </p>
+		    <p>
+		      This may all seem rather convoluted, but it is
+		      sufficient to allow a relatively simple
+		      user-level management application to allocate
+		      and deallocate physical page ranges.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign="top">
+		  <td><code>ResidentObSource</code></td>
+		  <td>
+		    <p>
+		      <img src="../img/construction.gif"
+		      alt="Construction:" align="left"> This is not
+		      yet implemented, but is a simple derivative of
+		      the RamObRange. I am including its description
+		      now so that the embedded users can see how
+		      driver memory allocation will shortly be
+		      supported.
+		    </p>
+		    <br clear="left">
+		    <p>
+		      The <code>ResidentObSource</code> is similar to
+		      the <code>PreloadObSource</code> in that it's
+		      contents will remain resident in memory
+		      until/unless rescinded.  The
+		      <code>ResidentObSource</code> refuses both
+		      <code>WriteBack()</code> and
+		      <code>Invalidate</code> requests.
+		    </p>
+		    <p>
+		      The primary purpose of the
+		      <code>ResidentObSource</code> is to provide
+		      non-persistent applications with a range from
+		      which to allocate dynamic memory. By allocating
+		      from the OID range reserved for resident
+		      objects, drivers are able to perform run-time
+		      memory allocation with a guarantee that the
+		      allocated objects will remain in memory.
+		    </p>
+		    <p>
+		      While the <code>ResidentObSource</code> does not
+		      support frame retagging, it simulates the
+		      appearance of doing so by allocating requested
+		      OIDs without any regard to framing
+		      whatsoever. Clients that behave as though the
+		      objects were embodied within tagged frames (most
+		      notably including the space bank) will operate
+		      correctly.
+		    </p>
+		    <p>
+		      At some point in the future the kernel object
+		      cache may internally support frame retagging, at
+		      which point the <code>ResidentObSource</code>
+		      will also support frame retagging.
+		    </p>
+		  </td>
+		</tr>
+		<tr valign="top">
+		  <td><code>UserObSource</code></td>
+		  <td>
+		    <p>
+		      <img src="../img/construction.gif" alt="Construction:"
+		      align="left"> This is not yet
+		      implemented. It's implementation will be
+		      deferred until persistence support is restored.
+		    </p>
+		    <br clear="left">
+		    <p>
+		      Implements application-defined object ranges. A
+		      request on a <code>UserObSource</code> is
+		      reflected to the supporting application, which
+		      responds to the request using a privileged,
+		      capability-protected interface to the object
+		      cache. This mechanism allows a privileged
+		      application to directly insert pages and nodes
+		      into the object cache.
+		    </p>
+		    <p>
+		      Note that while a <code>UserObSource</code> is
+		      most commonly a front end to a disk drive, it
+		      can also be a front end to a remote network
+		      disk.
+		    </p>
+		    <p>
+		      <code>UserObSource</code> support is ommitted
+		      when the kernel is compiled without support for
+		      persistence.
+		    </p>
+		  </td>
+		</tr>
+	      </tbody>
+	    </table>
+	    <p>
+	      Collectively, these mechanisms provide sufficient
+	      support for embedded and persistent systems within the
+	      same kernel.
+	    </p>
+	    <h1>User Mode Drivers</h1>
+	    <p>
+	      A more detailed description of user-mode driver support
+	      is given in <a href="UserDrivers.html">User Mode Drivers
+	      in EROS 2.0</a>, but we will synopsize the key
+	      supporting points here.
+	    </p>
+	    <p>
+	      First, the bootstrap code has been enhanced to preload
+	      object ranges that have been marked with the
+	      <code>DF_PRELOAD</code> flag. Such ranges are preloaded
+	      into memory and the kernel is informed of their location
+	      and OID ranges.  The kernel in turn fabricates
+	      <code>PreloadObSource</code> instances for each of these
+	      preloaded ranges. This mechanism is used to preload
+	      drivers into memory. Drivers are started using the
+	      application and driver startup mechanism described <a
+	      href="#startup">below</a>. 
+	    </p>
+	    <p>
+	      In addition to the <code>PhysPageSource</code> support
+	      described above, the EROS v2.0 kernel has been modified
+	      to enable authorized applications to write device
+	      registers, and also to allow them to wait for
+	      interrupts. This allows drivers to block until an
+	      interrupt on the desired device occurse, and then
+	      perform appropriate programmed I/O and/or program a DMA
+	      controller to perform the I/O.
+	    </p>
+	    <h1><a name="startup">Application and Driver Startup</a></h1>
+	    <p>
+	      Because EROS may now run in diskless environments, it is
+	      no longer possible for the kernel to consult the
+	      checkpoint area in order to determine what processes
+	      should be started at boot time. In fact, the
+	      responsibility for these restarts has been moved out of
+	      the kernel entirely.
+	    </p>
+	    <p>
+	      In EROS v2.0, the idea of the "IPL Key" has been
+	      resurrected. The <b>IPL Key</b> is a process key stored
+	      in the boot sector of the boot disk. It is passed along
+	      from the bootstrap code to the kernel as part of the
+	      bootstrap logic. Once the kernel is initialized, it
+	      starts the process named by the IPL Key. The kernel
+	      assumes that this process should simply be set running
+	      and allowed to execute instructions.
+	    </p>
+	    <p>
+	      In our current tutorials, the most common use of the IPL
+	      Key is to include a copy of <code>ipltool.map</code into
+	      the system image description file.  This cause the
+	      <b>IPL Tool</b> process to be included in the system
+	      image, and tells the image generator that the <b>IPL Key</b>
+	      should be set to point to the <b>IPL Tool</b>
+	      process. 
+	    </p>
+	    <p>
+	      The <b>IPL Tool</b> works in cahoots with the image
+	      builder (the <b>mkimage</b> program). The <b>mkimage</b>
+	      program builds up a linked list of nodes whose contents
+	      are process keys. Wherever
+	      <b>mkimage</b> encounters a <code>run</code> statement
+	      in the image description. It appends a process key to
+	      the end of this list. The start of the chain is held by
+	      the <b>IPL Tool</b>. When the <b>IPL Tool</b> starts up,
+	      it fabricates a fault capability to each process in turn
+	      and then uses the fault capability to set that process
+	      in motion. At the end of the chain the <b>IPL Tool</b>
+	      exits.
+	    </p>
+	    <p>
+	      In a purely embedded system, the IPL tool will likely
+	      start all system processes. In a persistent system, the
+	      IPL tool will probably be used to start up the
+	      persistence layer, which may in turn start other
+	      processes.
+	    </p>
+	    <h1>Driver Rendevous</h1>
+	    <p>
+	      <img src="../img/construction.gif" alt="Construction:"
+		   align="left"> This description requires further
+		   enhancement.
+	    </p>
+	    <br clear="left">
+	    <p>
+	      The final enhancement in the the EROS v2.0 kernel
+	      architecture is the redesign of <b>Device</b>
+	      capabilities. In the v1.0 kernel, devices were
+	      implemented in the kernel, and a device capability was
+	      ultimately bound to a particular piece of hardware. In
+	      the v2.0 kernel, device capabilities simply reflect
+	      requests up to a responsible driver.
+	    </p>
+	    <p>
+	      The reason that device capabilities exist at all is the
+	      problem of thread loss. If a persistent process is ever
+	      permitted to directly invoke a non-persistent process,
+	      and a checkpoint occurs at the wrong time, the
+	      persistent process might never awaken. To resolve this,
+	      we have introduced in-kernel device rendevous
+	      objects. Device capabilities now name these rendevous
+	      objects.
+	    </p>
+	    <p>
+	      Rendevous objects provide a reflection service. The
+	      driver calls the provider half of the rendevous object
+	      with a <code>WaitForRequest</code> using one type of
+	      device capability. The client, which can be either
+	      persistent or non-persistent, calls a capability for the
+	      client half of the rendevous object. Within the kernel,
+	      control does not pass directly to the driver. Instead,
+	      the caller is blocked on a stall queue and the driver
+	      thread of control is released, receiving the information
+	      passed by the client.
+	    </p>
+	    <h1><a name="checkpoint">Revisions to Checkpoint Mechanism</a></h1>
+	    <p>
+	      In the EROS v2, checkpointing can be entirely compiled
+	      out. This may be appropriate for two types of
+	      applications:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  Purely ROMable applications, where there is no
+		  storage subsystem available.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  Applications in which the storage system does not
+		  play a central role in the integrity of the
+		  system.
+		</p>
+		<p>
+		  For example, a digital camera might reasonably
+		  manage its flash device in the style of a
+		  conventional file system rather than using
+		  checkpointing. As with a UNIX file system, this file
+		  system would need to be checked for consistency at
+		  power-up.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      If checkpointing is <em>included</em> in the kernel
+	      build, the division of labor changes a bit relative to
+	      the earlier kernel version:
+	    </p>
+	    <ul>
+	      <li>
+		<p>
+		  The snapshot and stabilization phases are still
+		  driven by the kernel, but of course all of the
+		  associated disk I/O is accomplished by making
+		  requests of the appropriate object source.
+		</p>
+	      </li>
+	      <li>
+		<p>
+		  The checkpoint directory, the log itself, and the
+		  entire migration process are now managed in
+		  user-level code.
+		</p>
+	      </li>
+	    </ul>
+	    <p>
+	      A new capability will be introduced that will allow a
+	      user-level object source to read and write objects into
+	      the object cache. <em>This is a security-critical
+	      interface,</em> because it essentially enables an
+	      application to convert data (disk frames) into
+	      capabilities by creating node objects from raw
+	      bits. <em>A fundamental assumption is being made
+	      here,</em> which is that the wielder of the object
+	      source capability is trusted in the same way that a disk
+	      driver would be.
+	    </p>
+	    <h2>Open Issue</H2>
+	    <p>
+	      There is an open issue in this design: placing the
+	      checkpoint directory in user level code may introduce an
+	      unacceptable performance delay, because the "fault on
+	      first modify" that is performed to verify that an object
+	      has enough space in the checkpoint area must now be
+	      reflected to user mode. This is potentially a
+	      bottleneck -- especially when restarting the system
+	      following a snapshot.
+	    </p>
+	    <p>
+	      For the moment, I'm going to try things as-is without
+	      doing any optimization against this potential
+	      bottleneck. If this proves to be a problem, the
+	      interface to the application-level object source can
+	      easily be redefined to move the responsibility for the
+	      checkpoint accounting back into the kernel. Note that
+	      the kernel does not need to know <em>where</em> the
+	      objects are going. It only needs to know the bound on
+	      the number of allowable dirty objects at any given
+	      time.
+	    </p>
+	    <h1><a name="checkpoint">Kernel Malloc</a></h1>
+	    <p>
+	      The move to user drivers carries with it the
+	      long-avoided adoption of a dynamic memory allocator for
+	      the kernel. This is described in the <a
+	      href="KernMalloc.html">Kernel Malloc</a> design note.
+	    </p>
+	    <hr> <em>Copyright 2001 by Jonathan Shapiro.  All rights
+	      reserved.  For terms of redistribution, see the 
+	      <a href="../legal/license/GPL.html">GNU General Public
+		License</a></em>
+	  </td>
+	  <td width="10%">&nbsp;</td>
+	</tr>
+      </tbody>
+    </table>
+  </body>
+</html>

@@ -1,0 +1,116 @@
+BODY {
+	/* The Microsoft boneheads don't support inheritance for this
+	   yet. */
+/*	background: #ffeedd; */
+	background: #ffeedd;
+	line-height: 115%;
+	font-size: 100%;
+}
+
+A { text-decoration: none }
+A:visited { text-decoration: none; color: blue }
+A:hover { text-decoration: none; color: red }
+A:active { text-decoration: none; color: purple }
+UL { list-style-type: disc; }
+UL UL { list-style-type: square; }
+OL OL { list-style-type: upper-alpha; }
+
+DIV.new {
+	color: blue;
+}
+
+SPAN.old {
+	color: red;
+	text-decoration: line-through;
+}
+SPAN.new {
+	color: blue;
+}
+
+
+DIV.old {
+	color: red;
+	text-decoration: line-through;
+}
+
+DIV.old TD {
+	color: red;
+	text-decoration: line-through;
+}
+DIV.old TH {
+	color: red;
+	text-decoration: line-through;
+}
+
+DIV.new TD {
+	color: blue;
+}
+DIV.new TH {
+	color: blue;
+}
+
+DIV.obsolete {
+	color: red;
+}
+
+DIV.note {
+	margin-left: 10%;
+	margin-right: 10%;
+}
+
+P.marginalia {
+        background: aqua;
+	float: right;
+	width: 30%;
+	text-align: right;
+        margin-right: 0;
+        margin-left: 2%;
+        margin-top: 0%;
+}
+
+UL {
+	margin-right: 2em;
+}
+
+OL {
+	margin-right: 4em;
+}
+
+OL.nomargin {
+	margin-right: 0;
+	margin-left: 0;
+}
+
+UL.LEADIN {
+	list-style: none;
+}
+
+H1 {
+	text-indent: 0;
+	font-size: large;
+	font-family: sans-serif;
+	margin-top: 12pt;
+	margin-bottom: 12pt;
+}
+H1.title {
+	font-size: x-large;
+}
+
+H2 {
+        text-size: "100%";
+	text-decoration: underline;
+	font-weight: normal;
+	text-indent: 0;
+	margin-top: 12pt;
+	font-size: large;
+	font-family: sans-serif;
+}
+
+H3 {
+	text-indent: 0;
+	margin-top: 12pt;
+	font-style: italic;
+	font-family: sans-serif;
+/*	font-size: large; */
+/*	font-weight: normal; */
+}

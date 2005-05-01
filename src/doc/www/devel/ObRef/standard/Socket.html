@@ -1,0 +1,1015 @@
+<html>
+<head>
+<title>EOR: Network Socket</title>
+</head>
+<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+<div class=KeyName>
+  [<em><a href="../Cover.html">Return to Top</a></em>] [<em><a
+  href="00Standard.html">Standard Processes</a></em>]
+  <div align=right>
+    <H2>EROS Object Reference</H2>
+    <H2>Standard Processes</H2>
+    (<a href="../../copyrights/BSD-Copyright.html">BSD Copyright
+    Notice</a>)
+  </div>
+  <h2>Network Socket</h2>
+  <em>N O T E: This design is not implemented and is considered a failed attempt. It is presented here for historical information only.</em>
+  <hr>
+</div>
+<div class=KeyDescrip>
+  <h3>Description</h3>
+  <p> Networks don't really exist.  They are a figment of some poor
+  Steve Muir's imagination.  The bits actually move from one machine
+  to the other by magic; the physical infrastructure merely serves to
+  establish the appropriate preconditions for belief in magic on the
+  part of the users.
+  <p> <em>Note that the UNIX-isms have not yet been cleaned out of
+  this page.</em>
+  <p> The <strong>Network Socket</strong> object encapsulates all of
+  the necessary functionality build and use network connections to
+  either remote or local hosts.  The current object interface is based
+  closely on the <strong>UNIX</strong> system call interface for
+  sockets, and was chosen for speed of implementation rather than for
+  the merits of the interface.  In some places the function of the
+  UNIX system calls should probably be merged into a single request.
+  <p> A <strong>Network Socket</strong> object has the following
+  internal states:
+  <ul>
+    <table width=90%>
+      <tr valign=top>
+	<th align=left>State</th>
+	<th align=left>Description</th>
+      </tr>
+      <tr valign=top>
+	<td><em>Unbound</em></td>
+	<td>Not bound to any particular network interface.  May be
+	  used to establish new connections</td>
+      </tr>
+      <tr valign=top>
+	<td><em>Bound</em></td>
+	<td>Bound by a connect or bind operation.</td>
+      </tr>
+    </table>    
+  </ul>
+  <p> Every socket has an associated <em>process</em> (protocol
+  family), <em>type</em>, and <em>protocol</em>. The supported
+  protocol families are:
+  <p>
+  <ul>
+    <table>
+      <tr valign=top>
+	<td width=25%><em>AF_UNIX</em></td>
+	<td>UNIX-style internal protocols</td>
+      </tr>
+      <tr valign=top>
+	<td><em>AF_EROS</em></td>
+	<td>EROS-style internal protocols.  Local connections only,
+	  but survives system restart.</td>
+      </tr>
+      <tr valign=top>
+	<td><em>AF_INET</em></td>
+	<td>ARPA Internet protocols</td>
+      </tr>
+      <tr valign=top>
+	<td><em>AF_ISO</em></td>
+	<td>ISO protocols</td>
+      </tr>
+      <tr valign=top>
+	<td><em>AF_NS</em></td>
+	<td>Xerox Network Systems protocols</td>
+      </tr>
+    </table>
+  </ul>
+  <p> The supported connection types are:
+  <p>
+  <ul>
+    <table>
+      <tr valign=top>
+	<td width=25%><em>SOCK_STREAM</em></td>
+	<td>Reliable byte stream connection</td>
+      </tr>
+      <tr valign=top>
+	<td><em>SOCK_DGRAM</em></td>
+	<td>Unreliable, connectionless datagrams service.</td>
+      </tr>
+      <tr valign=top>
+	<td><em>SOCK_RAW</em></td>
+	<td>Provides access to internal network protocols and
+	  interfaces. <em>It is not clear if this should be supported
+	  other than for reasons of compatibility.</em></td>
+      </tr>
+      <tr valign=top>
+	<td><em>SOCK_SEQPACKET</em></td>
+	<td>Reliable, connection-oriented sequenced datagram protocol.
+	  Supported only by AF_NS protocol family</td>
+      </tr>
+      <tr valign=top>
+	<td><em>SOCK_RDM</em></td>
+	<td>Not implemented.</td>
+      </tr>
+    </table>
+  </ul>
+  <p> A <strong>SOCK_STREAM</strong> type provides sequenced,
+  reliable, two-way connection based byte streams.  An out-of-band
+  data transmission mechanism may be supported.  A
+  <strong>SOCK_DGRAM</strong> socket supports datagrams
+  (connectionless, unreliable messages of a fixed (typically small)
+  maximum length).  A <strong>SOCK_SEQPACKET</strong> socket may
+  provide a sequenced, reliable, two-way connection-based data
+  transmission path for datagrams of fixed maximum length; a consumer
+  may be required to read an entire packet with each read system call.
+  This facility is protocol specific, and presently implemented only
+  for <strong>AF_NS</strong>.  <strong>SOCK_RAW</strong> sockets
+  provide access to internal network protocols and interfaces.  The
+  types <strong>SOCK_RAW</strong>, which is available only to the
+  super-user, and <strong>SOCK_RDM</strong>, which is planned, but not
+  yet implemented, are not described here.
+  <p> The <em>protocol</em> specifies a particular protocol to be used
+  with the socket.  Normally only a single protocol exists to support
+  a particular socket type within a given protocol family.  However,
+  it is possible that many protocols may exist, in which case a
+  particular protocol must be specified in this manner.  The protocol
+  number to use is particular to the ``communication process'' in which
+  communication is to take place.
+  <p> Sockets of type <strong>SOCK_STREAM</strong> are full-duplex
+  byte streams, similar to pipes. A stream socket must be in a
+  <em>connected</em> state before any data may be sent or received on
+  it. A connection to another socket is created with a <A
+  HREF="#connect">connect</A> invocation. Once connected, data may be
+  transferred using <A HREF="#read">read</A> and <A
+  HREF="#write">write</A> invocations or <A HREF="#send">send</a> and <a
+  HREF="#recv">recv</a> invocations.  When a session has been completed a
+  <A HREF="#close">close</A> invocation should be performed.
+  <p> Out-of-band data may also be transmitted as described in <A
+  HREF="#send">send</A> and received as described in <A
+  HREF="#recv">recv</A>.
+  <P> The communications protocols used to implement a
+  <strong>SOCK_STREAM</strong> insure that data is not lost or
+  duplicated.  If a piece of data for which the peer protocol has
+  buffer space cannot be successfully transmitted within a reasonable
+  length of time, then the connection is considered broken and calls
+  will indicate an error with -1 returns and with
+  <strong>ETIMEDOUT</strong> as the specific code in the global
+  variable <em>errno</em>. The protocols optionally keep sockets
+  <em>warm</em> by forcing transmissions roughly every minute in the
+  absence of other activity. An error is then indicated if no response
+  can be elicited on an otherwise idle connection for a extended
+  period (e.g. 5 minutes). A <strong>SIGPIPE</strong> signal is raised
+  if a process sends on a broken stream; this causes naive processes,
+  which do not handle the signal, to exit.
+  <P> <strong>SOCK_SEQPACKET</strong> sockets employ the same system
+  calls as <strong>SOCK_STREAM</strong> sockets. The only difference
+  is that <A HREF="#read">read</A> calls will return only the
+  amount of data requested, and any remaining in the arriving packet
+  will be discarded.
+  <P> <strong>SOCK_DGRAM</strong> and <strong>SOCK_RAW</strong>
+  sockets allow sending of datagrams to correspondents named in <A
+  HREF="#send">send</A> calls. Datagrams are generally received
+  with <A HREF="#recvfrom">recvfrom</A>, which returns the next
+  datagram with its return address.
+  <P> A <A HREF="#control">control</A> invocation can be used to
+  specify a process group to receive a <strong>SIGURG</strong> signal
+  when the out-of-band data arrives.  It may also enable non-blocking
+  I/O and asynchronous notification of I/O events via
+  <strong>SIGIO</strong>.
+  <P> The operation of sockets is controlled by socket level
+  <em>options</em>.  These options are defined in the file
+  <em>socket.h</em>. <A HREF="#setsockopt">Setsockopt</A> and <A
+  HREF="#getsockopt">getsockopt</A> are used to set and get
+  options, respectively.
+  <P><hr>
+
+<center><strong>Socket Options</strong></center>
+
+<P>
+	 The following options are recognized at the socket level.
+	 Except as noted, each may be examined with <B>getsockopt</B> and
+         set with <B>setsockopt</B>.
+       </DD>
+<B>SO_DEBUG</B> enables debugging in the underlying protocol modules.
+<B>SO_REUSEADDR</B> indicates that the rules used in validating
+addresses supplied in a <B>bind</B> call should allow
+reuse of local addresses. <B>SO_KEEPALIVE</B> enables the periodic
+transmission of messages on a connected socket.
+Should the connected party fail to respond to these
+messages, the connection is considered broken and processes
+using the socket are notified via a <B>SIGPIPE</B> signal
+when attempting to send data. <B>SO_DONTROUTE</B> indicates that
+outgoing messages should bypass the standard routing
+facilities. Instead, messages are directed to the appropriate
+network interface according to the network portion
+of the destination address. 
+<P>
+<B>SO_LINGER</B> controls the action taken when unsent messages
+are queued on socket and a <B>close</B> is performed. If the
+socket promises reliable delivery of data and <B>SO_LINGER</B> <B>is</B>
+<B>set,</B> the system will block the process on the <B>close</B>
+attempt until it is able to transmit the data or until it
+decides it is unable to deliver the information (a timeout
+period, termed the linger interval, is specified in the
+<B>setsockopt</B> call when <B>SO_LINGER</B> is requested). If
+<B>SO_LINGER</B> is disabled and a <B>close</B> is issued, the system
+will process the close in a manner that allows the process
+to continue as quickly as possible.
+<P>
+The option <B>SO_BROADCAST</B> requests permission to send broadcast
+datagrams on the socket. Broadcast was a privileged
+operation in earlier versions of the system. With protocols
+that support out-of-band data, the <B>SO_OOBINLINE</B>
+option requests that out-of-band data be placed in the
+normal data input queue as received; it will then be
+accessible with <B>recv</B> or <B>read</B> calls without the <B>MSG_OOB</B>
+flag. Some protocols always behave as if this option is
+set. <B>SO_SNDBUF</B> and <B>SO_RCVBUF</B> are options to adjust the
+normal buffer sizes allocated for output and input 
+buffers, respectively. The buffer size may be increased
+for high-volume connections, or may be decreased to limit
+the possible backlog of incoming data. The system places
+an absolute limit on these values.
+<P>
+<B>SO_SNDLOWAT</B> is an option to set the minimum count for output
+operations. Most output operations process all of the
+data supplied by the call, delivering data to the protocol
+for transmission and blocking as necessary for flow control.   
+Nonblocking output operations will process as much
+data as permitted subject to flow control without blocking,
+but will process no data if flow control does not
+allow the smaller of the low water mark value or the
+entesting the ability to write to a socket will return true
+only if the low water mark amount could be processed. The
+default value for <B>SO_SNDLOWAT</B> is set to a convenient size
+for network efficiency, often 1024. <B>SO_RCVLOWAT</B> is an
+option to set the minimum count for input operations. In
+general, receive calls will block until any (non-zero)
+amount of data is received, then return with smaller of
+the amount available or the amount requested. The default
+value for <B>SO_SNDLOWAT</B> is 1. If <B>SO_SNDLOWAT</B> is set to a
+larger value, blocking receive calls normally wait until
+they have received the smaller of the low water mark value
+or the requested amount. Receive calls may still return
+less than the low water mark if an error occurs, a signal
+is caught, or the type of data next in the receive queue
+is different than that returned.
+<P>
+<B>SO_SNDTIMEO</B> is an option to set a timeout value for output
+operations. It accepts a <I>struct</I> <I>timeval</I> parameter with
+the number of seconds and microseconds used to limit waits
+for output operations to complete. If a send operation
+has blocked for this much time, it returns with a partial
+count or with the error <B>EWOULDBLOCK</B> if no data were sent.   
+In the current implementation, this timer is restarted
+each time additional data are delivered to the protocol,  
+implying that the limit applies to output portions ranging     
+in size from the low water mark to the high water mark for
+output. <B>SO_RCVTIMEO</B> is an option to set a timeout value
+for input operations. It accepts a <I>struct</I> <I>timeval</I> parameter
+with the number of seconds and microseconds used to 
+limit waits for input operations to complete. In the current
+tire request to be processed. A <B>select</B> operation
+testing the ability to write to a socket will return true
+only if the low water mark amount could be processed. The
+default value for <B>SO_SNDLOWAT</B> is set to a convenient size
+for network efficiency, often 1024. <B>SO_RCVLOWAT</B> is an
+option to set the minimum count for input operations. In
+general, receive calls will block until any (non-zero)
+amount of data is received, then return with smaller of
+the amount available or the amount requested. The default
+value for <B>SO_SNDLOWAT</B> is 1. If <B>SO_SNDLOWAT</B> is set to a
+larger value, blocking receive calls normally wait until
+they have received the smaller of the low water mark value
+or the requested amount. Receive calls may still return
+less than the low water mark if an error occurs, a signal
+is caught, or the type of data next in the receive queue
+is different than that returned.
+<P>
+<B>SO_SNDTIMEO</B> is an option to set a timeout value for output
+operations. It accepts a <I>struct</I> <I>timeval</I> parameter with
+the number of seconds and microseconds used to limit waits
+for output operations to complete. If a send operation
+has blocked for this much time, it returns with a partial
+count or with the error <B>EWOULDBLOCK</B> if no data were sent.   
+In the current implementation, this timer is restarted
+each time additional data are delivered to the protocol,  
+implying that the limit applies to output portions ranging     
+in size from the low water mark to the high water mark for
+output. <B>SO_RCVTIMEO</B> is an option to set a timeout value
+for input operations. It accepts a <I>struct</I> <I>timeval</I> parameter
+with the number of seconds and microseconds used to 
+limit waits for input operations to complete. In the current
+implementation, this timer is restarted each time
+additional data are received by the protocol, and thus the
+limit is in effect an inactivity timer. If a receive
+operation has been blocked for this much time without
+receiving additional data, it returns with a short count
+or with the error <B>EWOULDBLOCK</B> if no data were received.
+<P>
+Finally, <B>SO_TYPE</B> and <B>SO_ERROR</B> are options used only with
+<I>setsockopt</I>. <B>SO_TYPE</B> returns the type of the socket, such
+as <B>SOCK_STREAM</B>; it is useful for servers that inherit
+sockets on startup. <B>SO_ERROR</B> returns any pending error on
+the socket and clears the error status. It may be used to
+check for asynchronous errors on connected datagram sockets
+or for other asynchronous errors.
+<P>
+   <center>
+
+    <table border width=90%>
+      <caption>
+	<strong>Socket Options</strong>
+      </caption>
+      <tr valign=top>
+	<th align=left width=5%>
+	  Option
+	</th>
+	<th align=left width=45%>
+	  Meaning
+	</th>
+	<th align=left width=5%>
+	  Option
+	</th>
+	<th align=left width=45%>
+	  Meaning
+	</th>
+      </tr>
+      <tr valign=top>
+	<td>
+	  SO_DEBUG
+	</td>
+	<td>
+	  enables recording of debugging information
+	</td>
+	<td>
+	  SO_REUSEADDR
+	</td>
+	<td>
+	   enables local address reuse 
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  SO_KEEPALIVE
+	</td>
+	<td>
+	    enables keep connections alive 
+	</td>
+	<td>
+	  SO_DONTROUTE
+       
+	</td>
+	<td>
+	   enables routing bypass for outgoing messages 
+
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  SO_LINGER
+
+	</td>
+	<td>
+	  linger on close if data present 
+
+	</td>
+	<td>
+	  SO_BROADCAST
+        
+	</td>
+	<td>
+	  enables permission to transmit broadcast messages 
+        </td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  SO_OOBINLINE
+          
+	</td>
+	<td>
+	  enables reception of out-of-band data in band 
+	</td>
+	<td>
+	  SO_SNDBUF
+          
+	</td>
+	<td>
+	  set buffer size for output 
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  SO_RCVBUF
+          
+	</td>
+	<td>
+	  set buffer size for input 
+
+	</td>
+	<td>
+	SO_SNDLOWAT
+        </td>
+	<td>
+	  set minimum count for output 
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  SO_RCVLOWAT
+          
+	</td>
+	<td>
+	  set minimum count for input 
+
+	</td>
+	<td>
+	  SO_SNDTIMEO
+	</td>
+	<td>
+	  set timeout value for output 
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  SO_RCVTIMEO
+           
+	</td>
+	<td>
+	  set timeout value for input
+	</td>
+	<td>
+	  SO_TYPE
+	</td>
+	<td>
+	   get the type of the socket (get only) 
+	</td>
+      </tr>
+      <tr valign=top>
+	<td>
+	  SO_ERROR
+  
+	</td>
+	<td>
+	   get and clear error on the socket (get only) 
+	</td>
+	<td>
+	  
+	</td>
+	<td>
+	  
+	</td>
+      </tr>
+    </table>
+  </center>
+
+  <hr> <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Check Alleged Key Type</strong> (OC = KT)
+    <dd>
+	 <p> Returns the alleged type of the key.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td>
+               <strong>R1</strong>
+	     </td>
+	     <td> ????  No type is assigned (yet).
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>SetSockType</strong> (OC = 1)
+    <dd>
+	 <p> Sets the network process, connection type, and protocol
+	 for this socket object.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>L</strong>
+	     </td>
+	     <td> Protocol family (a.k.a. protocol process).
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>L</strong>
+	     </td>
+	     <td> Connection type.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>L</strong>
+	     </td>
+	     <td> Protocol.  An integer identifying the
+	       family-specific subprotocol.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>0</strong>
+	     </td>
+	     <td> Sucessful completion.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> Socket is currently connected.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <a name="connect"><strong>Connect</strong> (OC = 2)</a>
+    <dd>
+	 <p> Sets the network process, connection type, and protocol
+	 for this socket object.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>W*</strong>
+	     </td>
+	     <td> A socket address structure.  The content of the
+	       socket address structure is protocol specific.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=4> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>0</strong>
+	     </td>
+	     <td> Connection established.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>1</strong>
+	     </td>
+	     <td> Socket is currently connected.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> Connection timed out.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>3</strong>
+	     </td>
+	     <td> Connection failed.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Close</strong> (OC = 3)
+    <dd>
+	 <p> Tears down the network connection, with or without
+	 waiting for the connection to drain.  Regardless of reported
+	 errors, the connection is torn down on return from this
+	 invocation.
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Request</strong>
+	     </td>
+	     <td align=right> <strong>W</strong>
+	     </td>
+	     <td> If 0, connection will be drained before it is torn
+	       down.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>0</strong>
+	     </td>
+	     <td> Connection closed.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>2</strong>
+	     </td>
+	     <td> Drain timed out, connection is closed.
+	     </td>
+	   </tr>
+	 </table>
+	 <p>
+    <dt> <strong>Read</strong> (OC = 4)
+    <dd>
+	 <p> Reads the requested number of bytes from the socket.
+	 Some protocols discard packet data if a read operation will
+	 not hold a complete packet.
+	 <p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>B*</strong>
+	     </td>
+	     <td>
+	       Bytes copied from the byte stream into the reply message.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>0</strong>
+	     </td>
+	     <td> Read completed successfully.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>4</strong>
+	     </td>
+	     <td> One or more packets were truncated.
+	     </td>
+	   </tr>
+	 </table>
+    <dt> <strong>Write</strong> (OC = 5)
+    <dd>
+	 <p> Writes some number of bytes to the socket.  For datagram
+	 protocols, the payload must be of a size that will fit within
+	 the datagram size limitations.
+	 <p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>B*</strong>
+	     </td>
+	     <td>
+	       Data to be written to the stream.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>0</strong>
+	     </td>
+	     <td> Read completed successfully.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>4</strong>
+	     </td>
+	     <td> One or more packets were truncated.
+	     </td>
+	   </tr>
+	 </table>
+    <dt> <strong>Send</strong> (OC = 6)
+
+    <dd>
+	 <p> Send, Sendto, Sendmsg - send a message to the socket.  For
+	 datagram protocols, the payload must be of a size that will fit within
+	 the datagram size limitations.
+	 <p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>B*</strong>
+	     </td>
+	     <td>
+	       Data to be written to the stream.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>0</strong>
+	     </td>
+	     <td> Read completed successfully.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>4</strong>
+	     </td>
+	     <td> One or more packets were truncated.
+	     </td>
+	   </tr>
+	 </table>
+    
+    <dd>
+
+ <p>
+    <dt> <strong>Recv</strong> (OC = 7)
+    <dd>
+	 <p> Receives the requested number of bytes from the socket. May be 
+	     used to receive data on a socket whether or not it is
+	     connection-oriented. <p>
+      	     Some protocols discard packet data if a read operation will
+	     not hold a complete packet.
+	 <p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>B</strong>
+	     </td>
+	     <td>
+		The flags argument to a recv call is formed by or'ing one or more of the values: 
+	       	<p>MSG_OOB process out-of-band data 
+		<p>MSG_PEEK peek at incoming message 
+		<p>MSG_WAITALL wait for full request or error <p>
+		The MSG_OOB flag requests receipt of out-of-band data that would not be received 
+		in the normal data stream. Some protocols place expedited data at the head of the 
+		normal data queue, and thus this flag cannot be used with such protocols. The 
+		MSG_PEEK flag causes the receive operation to return data from the beginning of 
+		the receive queue without removing that data from the queue. Thus, a subsequent 
+		receive call will return the same data. The MSG_WAITALL flag requests that the 
+		operation block until the full request is satisfied. However, the call may still 
+		return less data than requested if a signal is caught, an error or disconnect 
+		occurs, or the next data to be received is of a different type than that returned. 
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Reply</strong>
+	     </td>
+	     <td align=right>
+	       <strong>B*</strong>
+	     </td>
+	     <td>
+	       Bytes copied from the byte stream into the reply message.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>0</strong>
+	     </td>
+	     <td> Recv completed successfully.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td align=right> <strong>4</strong>
+	     </td>
+	     <td> One or more packets were truncated.
+	     </td>
+	   </tr>
+	 </table>
+
+<p>
+<dt> <strong>RecvFrom</strong> (OC = 8)
+    <dd>
+	 <p>
+
+
+
+<dt> <strong>GetSockOpt</strong>(OC = 16), <strong>SetSockOpt</strong> (OC = 17)
+     <dd><p>	 
+	 Manipulate the <I>options</I>
+	 associated with a socket. Options may exist at multiple protocol
+	 levels; they are always present at the uppermost
+	 <B>socket</B> level.
+	 <P>
+	 <I>Optname</I> and any specified options are passed uninterpreted
+	 to the appropriate protocol module for interpretation.
+	 For <B>setsockopt</B>, the parameter should be non-zero
+	 to enable a boolean option, or zero if the option is to be
+	 disabled. <B>SO_LINGER</B> uses a <I>struct</I> <I>linger</I>
+	 parameter, defined in <I>sys/socket.h</I>, which specifies the
+	 desired state of the option and the linger interval (see below).
+	 <B>SO_SNDTIMEO</B> and <B>SO_RCVTIMEO</B> use a <I>struct</I> <I>
+	 timeval</I> parameter defined in <I>sys/time.h</I>.
+	 <p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=2>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>H</strong>
+	     </td>
+	     <td>	       
+     Level at which the option resides.  To manipulate options at the socket level, 
+     level is specified as SOL_SOCKET. To manipulate options at any other level the protocol
+     number of the appropriate protocol controlling the option is supplied. For example, to 
+     indicate that an option is to be interpreted by the TCP protocol, level should be set to 
+     the protocol number of TCP; 
+	     </td>
+	   </tr>
+	   <tr>
+	     <td align=right>
+	       <strong>W</strong>
+	     </td>
+             <td>option name (see table above)
+             </td>
+           </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>0</strong>
+	     </td>
+	     <td> Bind completed successfully.
+	     </td>
+	   </tr>
+           <tr>
+	     <td align=right> <strong>9</strong>
+	     </td>
+	     <td>
+	 The option is unknown at the level indicated (<B>ENOPROTOOPT</B>)
+	     </td>
+           </tr>
+	 </table>	 
+    <dd><p>
+	 <p> As per UNIX manual pages<dd><p>
+    <dt> <strong>Control</strong> (OC = 33)
+    <dd>
+        <p>
+
+    <dt> <strong>Bind</strong> (OC = 48)
+     <dd><p>
+	 Gives local address to the socket. It "assigns a name to the socket". 
+	 When a socket is 
+	 created with <b>socket</b> it exists in a name space (address
+	 family) but has no name assigned. Binding a name creates a socket in
+	 the system that must be deleted when it is no longer needed
+	 <p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>W*</strong>
+	     </td>
+	     <td>
+	       the local address
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>0</strong>
+	     </td>
+	     <td> Bind completed successfully.
+	     </td>
+	   </tr>
+           <tr>
+	     <td align=right> <strong>8</strong>
+	     </td>
+	     <td>The socket is already bound to an address (<b>EINVAL<b>)
+	     </td>
+           </tr>
+	 </table>	 
+    <dd>
+	 <p>
+    <dt> <strong>Accept</strong> (OC = 49)
+    <dd>
+	 <P>
+	
+	 Is waiting for connections after a <B>listen</B>. The
+	 <B>accept</B> argument extracts the first connection request on the
+	 queue of pending connections,and creates a new socket with
+	 the same properties of <I>s</I> If no pending connections are present
+	 on the queue, and the socket is not marked as non-blocking,
+	 <B>accept</B> blocks the caller until a connection is present.
+	 If the socket is marked non-blocking and no pending
+	 connections are present <B>accept</B>
+	 The accepted socket may not be used to accept more connections.
+	 The original socket <I>s</I> remains open.<P> The argument <I>addr</I> 
+	 is a result parameter that is filled in
+	 with the address of the connecting entity, as known to the
+	 communications layer. The exact format of the <I>addr</I> parameter
+	 is determined by the process in which the communication  
+	 is occurring. This call is used with connection-based socket types, currently 
+	 with <B>SOCK_STREAM</B>.
+	 
+	 <p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1> <strong>Reply</strong>
+	     </td>
+	     <td align=right> <strong>W*</strong>
+	     </td>
+	     <td> result parameter that is filled in with the address of the connecting entity, 
+		  as known to the communications layer. The exact format of the addr parameter 
+ 		  is determined by the process in which the communication is occurring.
+	     </td>
+	   </tr>
+
+	   <tr valign=top>
+	     <td rowspan=3> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>0</strong>
+	     </td>
+	     <td> completed successfully.
+	     </td>
+	   </tr>
+           <tr>
+	     <td align=right> <strong>6</strong>
+	     </td>
+	     <td>
+   The referenced socket is not of type SOCK_STREAM 
+   (<b>EOPNOTSUPP</b>). 
+	     </td>
+	   </tr>
+	   <tr>
+	     <td align=right> <strong>7</strong>
+	     </td>
+	     <td> The socket is marked non-blocking 
+                  and no connections are present to 
+                  be accepted (<b>EWOULDBLOCK</b>).
+	     </td>
+	   </tr>
+	 </table>		  
+
+    <dd>
+	<p>	  
+    <dt> <strong>Listen</strong> (OC = 50)
+    <dd>
+	 <p> Listens for connections on a socket
+	 To accept connections, a socket is first created.
+	 a willingness to accept incoming connections
+	 and a queue limit for incoming connections are specified
+	 with <B>listen</B>, and then the connections are accepted with accept.
+	 The parameter defines the maximum length the queue
+	 of pending connections may grow to. If a connection
+	 request arrives with the queue full the client may receive
+	 an error with an indication of <B>ECONNREFUSED</B>, or, if the
+	 underlying protocol supports retransmission, the request
+	 may be ignored so that retries may succeed.
+	 
+	 <p>
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Request</strong>
+	     </td>
+	     <td align=right>
+	       <strong>W</strong>
+	     </td>
+	     <td>
+	 Queue limit
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=2> <strong>Results</strong>
+	     </td>
+	     <td align=right> <strong>0</strong>
+	     </td>
+	     <td> completed successfully
+	     </td>
+           </tr>
+           <tr>
+	     <td align=right> <strong>3</strong>
+	     </td>
+	     <td> 
+   The socket is not of a type that supports 
+   the operation listen (<b>EOPNOTSUPP<b>).
+	     </td> 
+	   </tr>
+	 </table>
+			  
+    <dd><p>
+    <dt> <strong>Shutdown</strong> (OC = 51)
+    <dd><p>	 
+	Causes all or part of a full-duplex connection
+	on the socket to be shut down. 		
+		<table>
+		<tr valign=top>
+		<td rowspan=1>
+		<strong>Request</strong>
+		</td>
+		<td align=right>
+		<strong>B</strong>
+		</td>
+		<td>How the socket should be shut down.
+		If <I>how</I> is 0, further receives will be disallowed. 
+		If 1, further sends will be disallowed. If 2, further sends and receives 
+		will be disallowed.
+		</td>
+		</tr>
+		<tr valign=top>
+		<td rowspan=2> <strong>Results</strong>
+		</td>
+		<td align=right> <strong>0</strong>
+		</td>
+		<td> completed successfully.
+		</td>
+		</tr>
+		<tr valign=top>
+		<td align=right> <strong><B>5</B></strong>
+		</td>
+		<td>
+	 The specified socket is not connected <b>(ENOTCONN)</b>.
+	     </td>
+	   </tr>
+	 </table>	 
+  </dl>
+</div>
+    <hr>
+    <p>
+      <em>Copyright 1999 by Jonathan Shapiro.  All rights reserved.
+	For terms of redistribution, see the <a
+	  href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </p>
+</td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>
