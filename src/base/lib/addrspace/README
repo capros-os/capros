@@ -1,0 +1,1 @@
+This library contains routines that are convenient when a domain needs to map memory.  These routines can prepare the domain's default address space for mapping as well as map supplied subspaces into the address space.
