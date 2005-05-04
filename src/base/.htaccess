@@ -1,0 +1,10 @@
+HeaderName DESCRIPTION
+IndexIgnore */DESCRIPTION.html
+AddDescription "GRAND EROS MAKEFILE" eros-src/Makefile
+AddDescription "Makefile for this tree" Makefile
+AddDescription "cross tools" eros-src/cross
+AddDescription "domain sources" eros-src/domain
+AddDescription "test cases" eros-src/test-domain
+AddDescription "kernel sources" eros-src/sys
+AddDescription "master system image" eros-src/sysimage
+AddDescription "supporting libraries" eros-src/lib

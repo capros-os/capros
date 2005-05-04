@@ -1,0 +1,21 @@
+package eros.domain.timer;
+
+interface manager extends eros.key {
+
+  /**
+   * Set the interval.
+   */
+  void set_interval(unsigned long interval);
+
+  /**
+   * Start the timer.
+   */
+  void start_timer();
+
+  /**
+   * Stop the timer.
+   */
+  void stop_timer();
+
+};
+

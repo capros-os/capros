@@ -1,0 +1,44 @@
+-*- text -*-
+#
+# Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+#
+# This file is part of the EROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+I have adopted some conventions in the kernel code, primarily out of
+self-defense. This is an attempt to list them so that other people
+deciding to work on the kernel will not stumble over some of the
+things that I have:
+
+NO BITFIELDS
+
+The current kernel uses bitfields very sparingly, and in most places I
+would prefer to entirely remove them.  While bitfield
+insertion/extraction seems to work okay, I have found bitfield logical
+operations to be unreliable.  My personal favorite was a piece of code
+that read:
+
+	if (pOb->flags.dirty == 0) {
+	   ...
+	   printf(" .... dirty: %c ... \n", pObj->flags.dirty ? 'y' : 'n');
+	   ...
+        }
+
+Sure enough the dman thing printed 'y'.
+
+More broadly, bitfields are a sufficiently underused feature that they
+tend to be badly tested and poorly optimized.

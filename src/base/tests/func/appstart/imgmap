@@ -1,0 +1,51 @@
+/* -*- C -*- */
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+
+
+#include <primebank.map>
+#include <pcc.map>
+#include <metacon.map>
+
+
+apptest = new process;
+
+son.seg   = small program "child";
+son.pc    = symbol "child" _start;
+
+apptest.seg = program segment "apptest";
+apptest.pc  = symbol "apptest" _start;
+apptest.seg = apptest.seg with page at 0x20000; /* for stack */
+
+apptest pc = apptest.pc;
+apptest sp = 0x21000;
+apptest space = apptest.seg;
+apptest schedule = sched(8);   /* normal */
+
+apptest key reg 7  = primebank;
+apptest key reg 8  = misc Console;
+apptest key reg 9  = misc Sleep;
+apptest key reg 10 = sched(8);
+apptest key reg 11 = metacon;
+apptest key reg 12 = son.seg;
+apptest key reg 13 = son.pc;
+
+run apptest;

@@ -1,0 +1,53 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2001, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#ifndef _PS2__
+#define _PS2__
+MAKE_VIRTUAL_COPIER(helper1_vcsk,"/eros/domain/drivers/ps2/helper1");
+BOOT_CONSTRUCTOR(helper1_c,helper1);
+PROD_SPACE(helper1_c) = helper1_vcsk_c;
+PROD_PC(helper1_c) = symbol "/eros/domain/drivers/ps2/helper1" _start;
+PROD_CONSTIT(helper1_c, KC_OSTREAM, 3) = misc Console;
+PROD_CONSTIT(helper1_c, KC_DEVPRIVS, 4) = misc DevicePrivs;
+
+MAKE_VIRTUAL_COPIER(helper12_vcsk,"/eros/domain/drivers/ps2/helper12");
+BOOT_CONSTRUCTOR(helper12_c,helper12);
+PROD_SPACE(helper12_c) = helper12_vcsk_c;
+PROD_PC(helper12_c) = symbol "/eros/domain/drivers/ps2/helper12" _start;
+PROD_CONSTIT(helper12_c, KC_OSTREAM, 3) = misc Console;
+PROD_CONSTIT(helper12_c, KC_DEVPRIVS, 4) = misc DevicePrivs;
+
+MAKE_VIRTUAL_COPIER(ps2reader_vcsk,"/eros/domain/drivers/ps2/ps2reader");
+BOOT_CONSTRUCTOR(ps2reader_c,ps2reader);
+PROD_SPACE(ps2reader_c) = ps2reader_vcsk_c;
+PROD_PC(ps2reader_c) = symbol "/eros/domain/drivers/ps2/ps2reader" _start;
+PROD_CONSTIT(ps2reader_c, KC_OSTREAM, 3) = misc Console;
+PROD_CONSTIT(ps2reader_c, KC_DEVPRIVS, 4) = misc DevicePrivs;
+PROD_CONSTIT(ps2reader_c, KC_SLEEP, 8) = misc Sleep;
+PROD_CONSTIT(ps2reader_c, KC_HELPER12, 12) = helper12_c;
+PROD_CONSTIT(ps2reader_c, KC_HELPER1, 13) = helper1_c;
+
+hide helper1_c;
+hide helper12_c;
+
+#endif
+

@@ -1,0 +1,117 @@
+/*
+ * Copyright (C) 2001, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/* Changes to these need to be matched by changes to the dispatch
+   table in kern_Invoke.cxx */
+primary	Start
+bindto Start Gate
+primary	Resume	/* last gate key */
+bindto Resume Gate
+primary Wrapper
+primary	Node
+primary	Segment
+primary	Process	/* last object key (i.e. things from the disk) */
+primary	Page
+primary	Device
+primary	Number
+akt Number 0x106a7e8f
+
+primary	Sched
+primary	Range       /* Representable base=64 bits, count=32 bits */
+akt Range 0x44d11b1a  /* Transitional */
+
+primary	PrimeRange  /* Full range, not elegantly subdivisible */
+noakt   PrimeRange
+bindto  PrimeRange Range
+
+primary	PhysRange   /* Physical page range, not elegantly subdivisible */
+noakt   PhysRange
+bindto  PhysRange Range
+
+primary	KeyBits
+akt KeyBits 0xdc007fec
+primary	Discrim
+akt Discrim 0x5a789281
+
+primary	Returner
+obsolete Returner
+
+primary	ProcessTool
+akt ProcessTool 0x98ef205c
+primary	Checkpoint
+
+primary	Void
+akt   Void 0xbb5c424b
+
+primary	Sleep
+akt Sleep 0x332142e3
+
+primary	Console
+
+primary	SchedCreator
+
+primary	SysTrace
+akt SysTrace 0xc484c078
+
+primary	DevicePrivs
+akt DevicePrivs 0x2bd7d3ce   /* Transitional */
+
+primary	TimePage
+reserved TimePage     /* Still deciding on this. */
+
+primary	TimeOfDay
+reserved TimeOfDay    /* Still deciding on this. */
+
+/* Following needs to go away, but only after I figure out how the kernel
+   debugger should be wired to avoid it. It might turn out that this
+   device really should be primitive when a kernel debugger is
+   present. */
+primary	Keyboard
+
+/* Following is highly experimental -- it is intended to let the
+   kernel invoke itself via the ordinary capability invocation
+   mechanism so that the Yield() logic can be safely unified. It is
+   NOT intended that this type of capability should ever be given to a
+   process, though doing so has no overt security consequences.  The
+   only operation performed by a LogPage key is to cause that log page
+   to get page-faulted into memory. It returns RC_OK on success.
+   Hmm.  I suppose that this might be used to learn the size of the
+   log, so it should probably return RC_OK if the requested frame is
+   out of range too; since the only legitemate client is the kernel,
+   we're not really going to pay attention anyway. */
+
+/* primary	LogFrame */
+
+/* primary	LogAppend */
+
+domain	PCC
+domain	MetaConstructor
+domain	SpaceBank
+domain	DomCre
+domain	VcskSeg
+domain	FreshSeg
+
+/* Constructor gets two: */
+domain	ConstructorBuilder
+domain	ConstructorRequestor
+
+domain	Directory
+domain	File
+domain	SigMux

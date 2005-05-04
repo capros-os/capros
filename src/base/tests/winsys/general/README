@@ -1,0 +1,5 @@
+This domain demonstrates the general functionality of the window
+system.  It creates three top-level windows, all within one session.
+The user can move, resize and kill the windows.  This test serves as a
+general regression test for any changes to the window system.
+

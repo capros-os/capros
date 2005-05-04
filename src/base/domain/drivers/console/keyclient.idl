@@ -1,0 +1,15 @@
+package console;
+
+/**
+ * This interface is to be used by the keyclient only.
+ * It is used for transferring ASCII characters to the
+ * console_in thread of the consolestream.
+ */
+interface keyclient extends eros.key {
+  /** Read a character 
+   *
+   * Returns an ASCII character
+   */
+  char getChar();
+  
+};

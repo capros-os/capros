@@ -1,0 +1,97 @@
+Jonathan:
+
+After looking through your code, I concluded three things:
+
+1. It was damn good.
+
+2. It was just slightly off the structure I *thought* I wanted.
+
+3. There remained some interactions between layers of the logic
+   that were backwards relative to what I thought would work
+   best.  For example, SubrangeMap being empty should not set
+   it's RangeMap bit from inside -- that should be done by
+   higher level function.
+
+   In particular, I am now introducing the SRM windows, which changes 
+   things somewhat.
+
+4. Given all of the above, there is a lot of stuff here I can use,
+   and the best thing to do (easiest way to make sure I understood)
+   was to start afresh and adapt your code wherever I could.
+
+We should do a post-mortem on this to compare the two and see what we
+can learn from the differences.  Please note that I'm NOT claiming
+that my version is any better.
+
+Following is a log of the changes I made and the way I went about it.
+At various points in the code I've introduced comments containing 'JA
+NOTE' that you might want to look at.
+
+SUBRANGE MAPS:
+
+I started by rebuilding the subrange map logic.  This rebuild effected
+several changes:
+
++ subrange maps no longer have a reference to their parent directory.
+  Parent is handled by whoever calls the subrange map.
+
++ subrange maps now keep a count of the number of available frames.
+
++ subrange maps no longer reset the current position when something is
+  returned.  The rationale is that if there is a sequence of available
+  frames at the current position and I have just returned a singleton,
+  I'ld prefer to snarf the sequence when reloading the allocation cache.
+
++ I implemented the subrange map windows, which I call the subrange
+  cache.
+
+All of this substantially simplified the subrange code.
+
+Shortly thereafter, I decided I should proceed top down, an started
+cleaning up the bank code a little.
+
+
+BANKS:
+
+Some minor interface changes -- allocate/deallocate objects now wants
+a key register index rather than an OID array, which lets it be used
+internally in several places.
+
+Some name truncations, simply because very long function names are a
+pain to type.
+
+Reduced nesting.  E.g.:
+
+	main
+	   BankCreateKeyWithLimits
+	      bank_CreateKeyForBankWithLimits
+
+The real function here is bank_CreateKeyForBankWithLimits. The extra
+wrapper is fluff, and adds to the cost of the operation.  Observation:
+real humans can only grok a limited degree of nesting. In the new code,
+
+   BankCreateKeyWithLimits + bank_CreateKeyForBankWithLimits => BankLimit
+
+
+GENERAL:
+
+Improved error checking throughout where I noticed issues.  Removed
+the 'internal error' code, as all of the cases where it was reported
+were cases where the system as a whole would be unrunnable and the
+bank should panic the machine.
+
+ALLOCTREE
+
+In going through the code, I came to be uncertain about the
+correctness of allocTree using counts rather than bitmaps.  More to
+the point, I became convinced that the insertFrame/removeFrame logic
+ought to be entirely internal to the allocation tree -- from the
+outside it should all be in terms of OIDs.  I modified things
+accordingly.
+
+Per our discussion, I shall also revise it to use bitmaps rather than
+counts, but that can wait.
+
+Finally, per our discussion, the removeOid operation now frees the
+frame internally when appropriate.  This violates encapsulation, but
+simplifies things elsewhere.

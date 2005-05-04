@@ -1,0 +1,39 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2003, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#ifndef _TIMER__
+#define _TIMER__
+MAKE_VIRTUAL_COPIER(timer_thread_vcsk, "/eros/domain/timer/timer_thread");
+BOOT_CONSTRUCTOR(timer_thread_c,timer_thread);
+PROD_SPACE(timer_thread_c) = timer_thread_vcsk_c;
+PROD_PC(timer_thread_c) = symbol "/eros/domain/timer/timer_thread" _start;
+PROD_CONSTIT(timer_thread_c, KC_OSTREAM, 3)  = misc Console;
+PROD_CONSTIT(timer_thread_c, KC_SLEEP, 4)    = misc Sleep;
+
+MAKE_VIRTUAL_COPIER(timer_vcsk, "/eros/domain/timer/timer_mgr");
+BOOT_CONSTRUCTOR(timer_c,timer);
+PROD_SPACE(timer_c) = timer_vcsk_c;
+PROD_PC(timer_c) = symbol "/eros/domain/timer/timer_mgr" _start;
+PROD_CONSTIT(timer_c, KC_OSTREAM, 3) = misc Console;
+PROD_CONSTIT(timer_c, KC_TIMER_THREAD, 4) = timer_thread_c;
+
+#endif

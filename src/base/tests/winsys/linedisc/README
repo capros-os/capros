@@ -1,0 +1,6 @@
+This domain demonstrates the line discipline domain logic, using an
+ETerm domain for display of text within a graphical window.  (Realize
+that the line discipline domain only needs a stream interface and
+doesn't care if that stream is graphical or not.)  This is a work in
+progress, but as of this writing, most keystrokes like CTRL-W, CTRL-U,
+Backspace, and left/right arrow keys seem to be working.

@@ -1,0 +1,53 @@
+/* -*- C -*- */
+
+serial.seg=small program "/eros/domain/drivers/serial";
+lower.seg = serial.seg;
+upper.seg = clone serial.seg with lss 1; /* fixme: workaround */
+
+lower.seg[31] = new page;
+upper.seg[31] = new page;	/* per-proc thread */
+
+print lower.seg;
+print upper.seg;
+
+lower=new domain;
+lower pc=symbol "/eros/domain/drivers/serial" _start;
+lower space=lower.seg;
+lower priority=sched(8);
+
+run lower;
+
+upper=new domain;
+upper pc=symbol "/eros/domain/drivers/serial" _start;
+/* 
+ * This copies the node that is the small program - but the stack is
+ * allocated at startup independently for each thread by crt0, so we
+ * share code and globals, but not stack.
+ */
+
+upper space = upper.seg;
+upper priority = sched(8);
+
+run upper;
+
+lower key reg 2=lower;
+lower key reg 4=primebank;
+lower key reg 5=sched(8);
+lower key reg 6 = number(0);
+lower key reg 7 = misc ConsoleCreator;
+
+upper key reg 2=upper;
+upper key reg 4=primebank;
+upper key reg 5=sched(8);
+upper key reg 6 = number(1);
+upper key reg 7 = misc ConsoleCreator;
+
+print lower;
+print upper;
+
+hide lower;
+serial=upper;
+hide upper;
+hide serial.seg;
+hide upper.seg;
+hide lower.seg;

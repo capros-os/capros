@@ -1,0 +1,65 @@
+#
+# Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+#
+# This file is part of the EROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+
+default: package
+
+EROS_SRC=../../..
+CROSS_BUILD=yes
+include $(EROS_SRC)/build/make/makevars.mk
+
+IDL=$(wildcard *.idl)
+TARGETS=$(BUILDDIR)/idltest
+OPTIM=-O
+OBJECTS=$(BUILDDIR)/idltest.o
+INC=-I$(EROS_ROOT)/include
+
+include $(EROS_SRC)/build/make/makerules.mk
+
+all: $(TARGETS)
+
+$(BUILDDIR)/idltest: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
+	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) $(DOMLIB) -o $@
+
+dotest: $(BUILDDIR)/idltest.c
+
+$(BUILDDIR)/idltest.c: $(BUILDDIR) $(IDL)
+	$(CAPIDL) -I$(EROS_ROOT)/idl -l c-server -o $@ $(IDL)
+
+$(BUILDDIR)/idltest.o: $(BUILDDIR)/idltest.c
+	$(C_BUILD)
+
+$(BUILDDIR)/.idltest.m: $(BUILDDIR)/idltest.c
+	$(C_DEP)
+
+interfaces: $(IDL)
+	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain
+	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain
+
+# This is a temporary expedient so that the tree build proceeds
+# unmolested:
+install:
+
+#install: all
+#	$(INSTALL) -d $(EROS_ROOT)/domain
+#	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain
+
+-include $(BUILDDIR)/.*.m

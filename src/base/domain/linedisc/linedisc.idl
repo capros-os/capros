@@ -1,0 +1,145 @@
+package eros.domain;
+
+interface linedisc extends eros.Stream {
+
+  typedef unsigned long tcflag_t;
+  typedef unsigned long speed_t;
+
+  const unsigned long NCCS = 32;
+
+  struct termios {
+    tcflag_t c_iflag;
+    tcflag_t c_oflag;
+    tcflag_t c_cflag;
+    tcflag_t c_lflag;
+    unsigned short c_line;
+    array<unsigned short,NCCS> c_cc;
+    speed_t c_ispeed;
+    speed_t c_ospeed;
+  };
+
+  /** c_iflag flag bits */
+  const unsigned long IGNBRK = 1;
+  const unsigned long BRKINT = 2;
+  const unsigned long IGNPAR = 4;
+  const unsigned long PARMRK = 8;
+  const unsigned long INPCK  = 16;
+  const unsigned long ISTRIP = 32;
+  const unsigned long INLCR  = 64;
+  const unsigned long IGNCR  = 128;
+  const unsigned long ICRNL  = 256;
+  const unsigned long IUCLC  = 512;
+  const unsigned long IXON   = 1024;
+  const unsigned long IXANY  = 2048;
+  const unsigned long IXOFF  = 4096;
+  const unsigned long IMAXBEL= 8192;
+
+  /** c_oflag bits */
+  const unsigned long OPOST  =        1;
+  const unsigned long OLCUC  =        2;
+  const unsigned long ONLCR  =        4;
+  const unsigned long OCRNL  =        8;
+  const unsigned long ONOCR  =       16;
+  const unsigned long ONLRET =       32;
+  const unsigned long OFILL  =       64;
+  const unsigned long OFDEF  =      128;
+  const unsigned long NLDLY  =      256;
+  const unsigned long NL0    =      512;
+  const unsigned long NL1    =     1024;
+  const unsigned long CRDLY  =     2048;
+  const unsigned long CR0    =     4096;
+  const unsigned long CR1    =     8192;
+  const unsigned long CR2    =    16384;
+  const unsigned long CR3    =    32768;
+  const unsigned long TABDLY =    65536;
+  const unsigned long TAB0   =   131072;
+  const unsigned long TAB1   =   262144;
+  const unsigned long TAB2   =   524288;
+  const unsigned long TAB3   =  1048576;
+  const unsigned long BSDLY  =  2097152;
+  const unsigned long BS0    =  4194304;
+  const unsigned long BS1    =  8388608;
+  const unsigned long FFDLY  = 16777216;
+  const unsigned long FF0    = 33554432;
+  const unsigned long FF1    = 67108864;
+
+  /** c_cflag bits */
+  const unsigned long B0       =            0;
+  const unsigned long B50      =            1;
+  const unsigned long B75      =            2;
+  const unsigned long B110     =            3;
+  const unsigned long B134     =            4;
+  const unsigned long B150     =            5;
+  const unsigned long B200     =            6;
+  const unsigned long B300     =            7;
+  const unsigned long B600     =            8;
+  const unsigned long B1200    =            9;
+  const unsigned long B1800    =           10;
+  const unsigned long B2400    =           11;
+  const unsigned long B4800    =           12;
+  const unsigned long B9600    =           13;
+  const unsigned long B19200   =           14;
+  const unsigned long B38400   =           15;
+  const unsigned long B57600   =           16;
+  const unsigned long B115200  =           17;
+  const unsigned long B230400  =           18;
+  const unsigned long B460800  =           19;
+  const unsigned long B500000  =           20;
+  const unsigned long B576000  =           21;
+  const unsigned long B921600  =           22;
+  const unsigned long B1000000 =           23;
+  const unsigned long B1152000 =           24;
+  const unsigned long B1500000 =           25;
+  const unsigned long B2000000 =           26;
+  const unsigned long B2500000 =           27;
+  const unsigned long B3000000 =           28;
+  const unsigned long B3500000 =           29;
+  const unsigned long B4000000 =           30;
+  const unsigned long MAX_BAUD = B4000000;
+  const unsigned long CSIZE  =      64;
+  const unsigned long CS5    =       0;
+  const unsigned long CS6    =      32;
+  const unsigned long CS7    =      40;
+  const unsigned long CS8    =      48;
+  const unsigned long CSTOPB =     128;
+  const unsigned long CREAD  =     256;
+  const unsigned long PARENB =     512;
+  const unsigned long PARODD =    1024;
+  const unsigned long HUPCL  =    2048;
+  const unsigned long CLOCAL =    4096;
+
+  /** c_lflag bits */
+  const unsigned long ISIG    =        1;
+  const unsigned long ICANON  =        2;
+  const unsigned long ECHO    =        4;
+  const unsigned long ECHOE   =        8;
+  const unsigned long ECHONL  =       16;
+  const unsigned long NOFLSH  =       32;
+  const unsigned long TOSTOP  =       64;
+  const unsigned long ECHOCTL =      128;
+  const unsigned long ECHOPRT =      256;
+  const unsigned long ECHOKE  =      512;
+  const unsigned long FLUSHO  =     1024;
+  const unsigned long PENDIN  =     2048;
+  const unsigned long ECHOK   =     4096;
+
+  /** c_cc indexes */
+  const unsigned short VINTR    =  0;
+  const unsigned short VQUIT    =  1;
+  const unsigned short VERASE   =  2;
+  const unsigned short VKILL    =  3;
+  const unsigned short VEOF     =  4;
+  const unsigned short VTIME    =  5;
+  const unsigned short VSTART   =  8;
+  const unsigned short VSTOP    =  9;
+  const unsigned short VEOL     = 11;
+  const unsigned short VREPRINT = 12;
+  const unsigned short VWERASE  = 14;
+  const unsigned short VEOL2    = 16;
+
+  void makeraw();
+  void makecooked();
+  void setattr(termios t);
+  termios getattr();
+};
+

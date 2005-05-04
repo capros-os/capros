@@ -1,0 +1,16 @@
+package eros.domain.winsys;
+
+interface session_creator extends eros.key raises (NoSessionAvailable) {
+
+  exception NoSessionAvailable;
+
+  /** New session
+   *
+   * Request a new session key.  The new session will inherit the
+   * trust of the session creator.  
+   *
+   */
+  eros.key new_session(eros.key bank);
+
+  eros.key constrained_creator(unsigned long window_id);
+};

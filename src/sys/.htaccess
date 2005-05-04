@@ -1,0 +1,16 @@
+AddDescription "duplexed IO core" eros-src/sys/IO
+AddDescription "GRAND KERNEL MAKEFILE" eros-src/sys/Makefile
+AddDescription "per-machine sources" eros-src/sys/arch
+#AddDescription "common config options" eros-src/sys/config.common
+AddDescription "kernel debugger" eros-src/sys/ddb
+AddDescription "on-disk key lib+hdrs" eros-src/sys/disk
+AddDescription "published headers" eros-src/sys/eros
+#AddDescription "common files" eros-src/sys/files.common
+AddDescription "MI sources" eros-src/sys/kernel
+AddDescription "MI private includes" eros-src/sys/kerninc
+AddDescription "key implementations" eros-src/sys/key
+AddDescription "key stub routines" eros-src/sys/libkey
+AddDescription "symlink to MD headers" eros-src/sys/machine
+AddDescription "PCI config code" eros-src/sys/pci
+AddDescription "configuration scripts" eros-src/sys/scripts
+AddDescription "compression lib" eros-src/sys/zlib

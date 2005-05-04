@@ -1,0 +1,115 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+/*********************************************************
+ * PRIMORDIAL VIRTUAL COPY SEGMENT/FRESH SEGMENT
+ *
+ *  In which we built up a read-only segment of zeros
+ *  of maximal LSS, which is currently 17 (spans a 96 bit 
+ *  address)
+ *********************************************************/
+
+zero_pg = new ro page;
+zero_01 = new sense node with lss 1; /* first level nodes... */
+zero_02 = new sense node with lss 2;
+zero_03 = new sense node with lss 3;
+zero_04 = new sense node with lss 4;
+zero_05 = new sense node with lss 5;
+zero_06 = new sense node with lss 6;
+zero_07 = new sense node with lss 7;
+zero_08 = new sense node with lss 8;
+zero_09 = new sense node with lss 9;
+zero_10 = new sense node with lss 10;
+primary_zero_seg = new sense node with lss 11;
+
+zero_01 all slots = zero_pg;
+zero_02 all slots = zero_01;
+zero_03 all slots = zero_02;
+zero_04 all slots = zero_03;
+zero_05 all slots = zero_04;
+zero_06 all slots = zero_05;
+zero_07 all slots = zero_06;
+zero_08 all slots = zero_07;
+zero_09 all slots = zero_08;
+zero_10 all slots = zero_09;
+primary_zero_seg all slots = zero_10;
+
+/*********************************************************
+ * INDEX on primordial zero segment
+ *
+ * This index is used by some segment keepers to provide
+ * an efficient way to populate subtrees with zeros.
+ *********************************************************/
+
+zindex = new sense node;
+  zindex[0] = zero_pg;
+  zindex[1] = zero_01;
+  zindex[2] = zero_02;
+  zindex[3] = zero_03;
+  zindex[4] = zero_04;
+  zindex[5] = zero_05;
+  zindex[6] = zero_06;
+  zindex[7] = zero_07;
+  zindex[8] = zero_08;
+  zindex[9] = zero_09;
+  zindex[10] = zero_10;
+  zindex[11] = primary_zero_seg;
+
+/********************************************************
+ * All VCS's ultimately derive from ZSF, which is built
+ * on the primordial zero space.
+ *
+ *   1. The primordial VCS needs a (VCSK) keeper.
+ *   2. That keeper must come from VCSF
+ *   3. All instances of VCSF are built by some instance
+ *      of VCSK.
+ *
+ * This circularity is resolved by pre-constructing the
+ * factory and the domain creator, and making it appear
+ * that the initial VCS was built by the appropriate proccre.
+ ********************************************************/
+
+/* These must be symbols because they need to be referenced later. */
+vcsk.seg = small program "/eros/domain/vcsk";
+vcsk.pc = symbol "/eros/domain/vcsk" _start;
+
+BOOT_CONSTRUCTOR(zs_c, zs);
+
+PROD_CONSTIT(zs_c, KC_OSTREAM, 0) = misc Console;
+PROD_CONSTIT(zs_c, KC_ZINDEX, 1) = zindex;
+PROD_CONSTIT(zs_c, KC_FROZEN_SEG, 2) = zero_pg;
+PROD_CONSTIT(zs_c, KC_PROTOSPC, 3) = protospace;
+PROD_SPACE(zs_c) = vcsk.seg;
+PROD_PC(zs_c) = vcsk.pc;
+/* no keeper, no symbol table */
+
+#define MAKE_VIRTUAL_COPIER(name, progfile) \
+   BOOT_CONSTRUCTOR(name##_c, name); \
+   PROD_CONSTIT(name##_c, KC_OSTREAM, 0) = misc Console; \
+   PROD_CONSTIT(name##_c, KC_ZINDEX, 1) = zindex; \
+   PROD_CONSTIT(name##_c, KC_FROZEN_SEG, 2) = sense program segtree progfile; \
+   PROD_CONSTIT(name##_c, KC_PROTOSPC, 3) = protospace; \
+   PROD_SPACE(name##_c) = vcsk.seg; \
+   PROD_PC(name##_c) = vcsk.pc;
+
+/* hide vcsk.seg; */
+/* hide vcsk.pc; */

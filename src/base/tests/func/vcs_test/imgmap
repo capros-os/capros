@@ -1,0 +1,76 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/* Test image for constructor/metaconstructor. */
+#define DEBUG
+
+
+/*********************************************
+ * PRIMORDIAL DOMAINS
+ *********************************************/
+
+#include <primebank.map>
+#include <pcc.map>
+#include <metacon.map>
+#include <vcs.map>
+
+#if 0
+/********************************************************
+ * A hand-constructed VCS for testing.
+ ********************************************************/
+vcs = new node with blss 1;	/* red space node */
+vcs[15] = number( 0x3fe01 );	/* 1 init slot, pass node, kpr in e,
+				   no bg seg, lss=3 */
+vcs[14] = start vcsk 0;
+vcs[0] = zero_pg;
+
+#endif
+/********************************************************
+ * Actual test case
+ ********************************************************/
+
+vcstest = new process;
+
+vcstest.seg = program segment "vcs_test";
+vcstest.pc = symbol "vcs_test" _start;
+vcstest.seg = vcstest.seg with page at 0xf000;
+
+vcstest pc = vcstest.pc;
+vcstest space = vcstest.seg;
+vcstest schedule = sched(8);	/* normal */
+/* vcstest brand = start pcc 65535; */
+
+/* vcstest registers: */
+vcstest key reg 1 = zs_c;
+vcstest key reg 2 = vcstest;
+vcstest key reg 3 = sched(8);
+vcstest key reg 4 = primebank;
+vcstest key reg 5 = misc Console;
+
+/* print domain vcstest.dom */
+hide vcstest.seg;
+hide vcstest.pc;
+
+run vcstest;
+
+
+print directory

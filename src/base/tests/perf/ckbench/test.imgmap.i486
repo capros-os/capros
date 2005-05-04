@@ -1,0 +1,67 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/* Test image for constructor/metaconstructor. */
+#define DEBUG
+
+arch i486
+
+/*********************************************
+ * PRIMORDIAL DOMAINS
+ *********************************************/
+
+#include <primebank.map>
+#include <pcc.map>
+#include <metacon.map>
+#include <vcs.map>
+
+/********************************************************
+ * Actual test case
+ ********************************************************/
+
+ckbench = new process;
+
+ckbench.seg = program segment "ckbench";
+ckbench.pc = symbol "ckbench" _start;
+ckbench.seg = ckbench.seg with page at 0xf000;
+
+ckbench pc = ckbench.pc;
+ckbench space = ckbench.seg;
+ckbench schedule = sched(8);	/* normal */
+/* ckbench brand = start pcc 65535; */
+
+/* ckbench registers: */
+ckbench key reg 1 = zs_c;
+ckbench key reg 2 = ckbench;
+ckbench key reg 3 = sched(8);
+ckbench key reg 4 = primebank;
+ckbench key reg 5 = misc Console;
+ckbench key reg 6 = misc SysTrace;
+
+/* print domain ckbench.dom */
+hide ckbench.seg;
+hide ckbench.pc;
+
+run ckbench;
+
+
+print directory

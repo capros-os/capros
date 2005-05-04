@@ -1,0 +1,179 @@
+/*
+ * Copyright (C) 2003, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+
+/* winsys-keeper. This is a specialized keeper that acts in cahoots
+ * with the window system to provide recovery from frame buffer
+ * faults.
+ */
+
+#include <stddef.h>
+#include <eros/target.h>
+#include <eros/Invoke.h>
+#include <eros/NodeKey.h>
+#include <eros/ProcessKey.h>
+#include <eros/ProcessState.h>
+
+#include <idl/eros/key.h>
+
+#include <domain/domdbg.h>
+#include <domain/Runtime.h>
+#include <eros/machine/Registers.h>
+
+#include "winsys-keeper.h"
+#include "constituents.h"
+
+#define KR_RK0         KR_ARG(0)
+#define KR_RK1         KR_ARG(1)
+#define KR_PROCESS     KR_ARG(2)
+
+#define KR_OSTREAM     KR_APP(0)
+#define KR_START       KR_APP(1)
+
+static unsigned long recoveryAddr;
+
+/* FIX: Need an opcode to set these values.  For now, hardcode them to
+   known max acceptable range for winsys clients. */
+#define _128MB_    (0x08000000u)
+#define BOUNDS_MIN (18 * _128MB_)
+#define BOUNDS_MAX (23 * _128MB_)
+
+static bool
+bounds_check(uint32_t fault_addr)
+{
+  return (fault_addr >= BOUNDS_MIN) && (fault_addr <= BOUNDS_MAX);
+}
+
+int
+ProcessRequest(Message *msg)
+{
+  /* This is not really much of a keeper. */
+
+  kprintf(KR_OSTREAM, "winsys-keeper INVOKED! with opcode = %u (0x%08x)\n",  
+	  msg->rcv_code, msg->rcv_code);
+
+  switch(msg->rcv_code) {
+  case OC_PROCFAULT:
+    {
+      struct Registers * regs = (struct Registers *) msg->rcv_data;
+
+      kprintf(KR_OSTREAM, "**** winsys-keeper: PROCFAULT! Regs:\n");
+
+      kprintf(KR_OSTREAM, "\tarch      = 0x%08x\n\tlen       = 0x%08x\n"
+	   "\tpc        = 0x%08x\n\tsp        = 0x%08x\n\tfaultCode = 0x%08x\n"
+	   "\tfaultInfo = 0x%08x\n\tdomState  = 0x%08x\n\tdomFlags  = 0x%08x\n"
+	   "\tnextPC    = 0x%08x\n",
+	      regs->arch, regs->len, regs->pc, regs->sp, regs->faultCode,
+	      regs->faultInfo, regs->domState, regs->domFlags, regs->nextPC);
+
+      /* Perform bounds check on the fault address. If outside the
+      acceptable range, return to KR_VOID (so at least winsys won't
+      get caught in an infinite loop!) */
+      if (!bounds_check(regs->faultInfo)) {
+	kprintf(KR_OSTREAM, "  #### fault address is out of bounds!\n");
+	msg->snd_invKey = KR_VOID;
+	return 1;
+      }
+
+      /* Whack the winsys PC to point to the recovery trampoline: */
+      regs->pc = recoveryAddr;
+      regs->nextPC = recoveryAddr;
+      regs->faultCode = 0;
+      regs->domFlags &= ~PF_Faulted;
+      process_set_regs(KR_PROCESS, regs);
+      msg->snd_invKey = KR_RETURN;
+      msg->snd_w1 = 0;		/* resume the victim */
+      msg->snd_code = RC_OK;
+      break;
+    }
+  case OC_WINSYS_KEEPER_SETUP:
+    {
+
+      kprintf(KR_OSTREAM, "winsys-keeper doing KEEPER_SETUP.\n");
+
+      recoveryAddr = msg->rcv_w1;
+      msg->snd_invKey = KR_RETURN;
+      msg->snd_code = RC_OK;
+      break;
+    }
+  default:
+    kprintf(KR_OSTREAM, "winsys-keeper: unknown request!\n");
+    msg->snd_code = RC_eros_key_UnknownRequest;
+    break;
+  }
+
+  /* Return 1 so that we will continue processing further requests: */
+  return 1;
+}
+
+int
+main ()
+{
+  Message msg;
+
+  struct Registers rcvData;
+
+  node_extended_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+
+  kprintf(KR_OSTREAM, "winsys-keeper says HI!\n");
+
+  /* Make a start key to return to constructor */
+  process_make_start_key(KR_SELF, 0, KR_START);
+
+  msg.snd_invKey = KR_RETURN;
+  msg.snd_key0 = KR_START;
+  msg.snd_key1 = KR_VOID;
+  msg.snd_key2 = KR_VOID;
+  msg.snd_data = 0;
+  msg.snd_len = 0;
+  msg.snd_code = 0;
+  msg.snd_w1 = 0;
+  msg.snd_w2 = 0;
+  msg.snd_w3 = 0;
+     
+  msg.rcv_key0 = KR_RK0;
+  msg.rcv_key1 = KR_RK1;
+  msg.rcv_key2 = KR_PROCESS;
+  msg.rcv_data = &rcvData;
+  msg.rcv_code = 0;
+  msg.rcv_w1 = 0;
+  msg.rcv_w2 = 0;
+  msg.rcv_w3 = 0;
+     
+  do {
+    msg.rcv_rsmkey = KR_RETURN;
+    msg.rcv_limit = sizeof (struct Registers);
+    RETURN(&msg);
+
+    /* If the ProcessRequest routine is actually able to correct the
+     * fault, it should override msg.snd_invKey with KR_RETURN. If we
+     * do not return to the faulter, the faulter will remain "stuck"
+     * in the waiting state, showing in its fault code and fault info
+     * pseudo-registers the fault code and fault info that the kernel
+     * just delivered to us (on its behalf).
+     *
+     * Note that we don't have the authority to kill the process in
+     * the absence of prior knowledge about its runtime environment.
+     */
+    msg.snd_invKey = KR_VOID;
+  } while ( ProcessRequest(&msg) );
+
+  return 0;
+}

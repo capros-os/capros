@@ -1,0 +1,83 @@
+package eros.domain.net.shared_ipv4;
+
+/** This is the interface to the network system, which 
+ *  is called by the timer and by application clients
+ *   needing network access.
+ */
+interface netsys extends eros.key {
+  
+  /** The various types of start keys specific for each 
+   * interface */
+  const unsigned short NETWORK_SYSTEM_INTERFACE  = 1;
+  const unsigned short SESSION_CREATOR_INTERFACE = 2;
+  const unsigned short SESSION_INTERFACE         = 3;
+  const unsigned short XMIT_HELPER_INTERFACE     = 4;
+  const unsigned short RECV_HELPER_INTERFACE     = 5;
+  const unsigned short TIMEOUT_AGENT_INTERFACE   = 6;
+
+  /** Timeout Agent call
+   * 
+   * Signal the network system end of a time tick. This is
+   * the means by which the network system maintains time
+   * for timeouts and tcp re-transmissions etc.
+   *
+   * FIX:: Check to see this function is not be called by clients
+   */
+  void timeout_call();
+  
+  /** Get Network Configuration 
+   *
+   * Returns the network configuration obtained by dhcp.
+   * Values returned are our ip address, netmask and 
+   *        ip address of the gateway.
+   */
+  void get_netconfig(out unsigned long ipaddr,out unsigned long netmask,
+		     out unsigned long gateway);
+
+  /** TCP bind
+   *
+   * Bind a local port to the specified port
+   * Returns an error if port is already used by some other client
+   */
+  void tcp_bind(long dummy,unsigned long local_ip,unsigned long local_port);
+
+  /** TCP Listen
+   *
+   * Set the state of the connection to LISTEN, so that we can accept
+   * incoming connections on the port pre-specified in tcp_bind.
+   * Returns an error if port is already used by some other client
+   */
+  void tcp_listen();
+  
+  /** TCP Connect
+   *
+   * Establish a TCP connection to the specified remote host on the remote
+   * port. This is a blocking call with a time out facility.
+   * FIX:: dummy is overwritten by the kernel during the wrapper invocation
+   * so cannot put anything in that
+   */
+  void tcp_connect(long dummy,unsigned long remote_ip,
+		   unsigned long remote_port);
+  
+  /** TCP Close
+   *
+   * Close the connection associated with the ssid.
+   */
+  void tcp_close();
+  
+
+  /* Max size of the buffer that can be written to a tcp stream */
+  const unsigned short MAX_WRT_BUF = 4096;
+  typedef buffer<char,MAX_WRT_BUF> wrtbuf;
+
+  /** TCP Write
+   *
+   * Write data on the tcp connection previously established using
+   * TCP Connect. Non-blocking call.
+   */
+  void tcp_write(wrtbuf s);
+  
+  
+  
+  
+};

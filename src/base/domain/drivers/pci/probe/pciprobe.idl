@@ -1,0 +1,47 @@
+
+/* -*- Mode: c -*- */
+
+package pci;
+
+interface probe extends eros.key{
+
+  /**
+   * Here is a list of supported Vendors
+   */
+
+  const unsigned short VENDOR_VMWARE = 5549;
+  const unsigned short VENDOR_INTEL  = 32902;
+
+  /**
+   * Here is a list of supported Class
+   */
+  const unsigned long  CLASS_VIDEO   = 196608;
+
+
+
+  /**
+   * The structure that is returned to client
+   */
+ 
+  struct pci_dev_data {
+    unsigned long devfn;          
+    unsigned short  vendor;
+    unsigned short  device;
+    unsigned long   classid;          
+    unsigned long   hdr_type;       
+    unsigned long   master;    
+    unsigned short  irq;           
+    sequence<unsigned long,6>  base_address;
+    unsigned long   rom_address; 
+  };
+  
+
+  void  scan();
+  unsigned long  vendor_total(unsigned long  vendor);
+  unsigned long  class_total(unsigned long  classid);
+  pci_dev_data  vendor_next(unsigned long vendor,unsigned long index);
+  unsigned long vendor_device_total(unsigned long vendor,unsigned long device);
+  pci_dev_data   vendor_device_next(unsigned long ,unsigned long device, unsigned long index);
+  pci_dev_data   class_device_next(unsigned long probe_key, unsigned long classid,unsigned long index);  
+};
+

@@ -1,0 +1,18 @@
+This is a demo file for the ETerm domain.  It's sufficiently large to
+demonstrate how ETerm handles scrolling.  It's textual content is
+based on a similar file used in the TFTP demonstration.
+
+If EROS were a real operating system, you would have been given procedures
+telling the machine where to go and what to do.
+
+Credits:
+	Network stack:  	Anshumal Sinha and Sandeep Sarat
+
+	Demo driver shell:	John Vanderburgh
+
+	Drawing demo:		Original: Ryan Goltry
+				Revised by John Vanderburgh
+
+	OpenCM:			Jonathan Shapiro and John Vanderburgh
+
+No animals were injured during the filming of this demonstration.

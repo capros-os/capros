@@ -1,0 +1,44 @@
+/* -*_ Mode:c -*- */
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+
+/*
+ * directory is a small program; this implies a page at 0x0
+ * so stack pointer should be 0x1000
+ */
+
+/**********************************************************
+ * Set up a directory constructor...
+ **********************************************************/
+
+BOOT_CONSTRUCTOR(dir_c, dir);
+
+/* mutex requires no special constituents */
+
+PROD_SPACE(dir_c) = small program "/eros/domain/directory";
+PROD_PC(dir_c) = symbol "/eros/domain/directory" _start;
+
+PROD_CONSTIT(dir_c, KC_ZSF, 1) = zs_c;
+PROD_CONSTIT(dir_c, KC_PROTOSPC, 2) = protospace;
+PROD_CONSTIT(dir_c, KC_OSTREAM, 3) = misc Console;
+PROD_CONSTIT(dir_c, KC_SNODEC, 4) = snode_c;
+
+/* no keeper, no symbol table */

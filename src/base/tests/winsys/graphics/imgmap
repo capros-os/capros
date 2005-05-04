@@ -1,0 +1,44 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2003, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#include <core_stuff_winsys.map>
+
+MAKE_VIRTUAL_COPIER(graphics_vcsk, BUILDDIR "graphics");
+BOOT_CONSTRUCTOR(graphics_c,graphics);
+PROD_SPACE(graphics_c) = graphics_vcsk_c;
+PROD_PC(graphics_c) = symbol BUILDDIR "graphics" _start;
+PROD_CONSTIT(graphics_c, KC_OSTREAM, 3) = misc Console;
+
+MAKE_VIRTUAL_COPIER(master_vcsk, BUILDDIR "master");
+BOOT_CONSTRUCTOR(master_c,master);
+PROD_SPACE(master_c) = master_vcsk_c;
+PROD_PC(master_c) = symbol BUILDDIR "master" _start;
+PROD_CONSTIT(master_c, KC_OSTREAM, 3)       = misc Console;
+PROD_CONSTIT(master_c, KC_SLEEP, 4)         = misc Sleep;
+PROD_CONSTIT(master_c, KC_EVENT_MGR_C, 6)     = eventmgr_c;
+PROD_CONSTIT(master_c, KC_WINDOW_SYS_C, 7)    = winsys_c;
+PROD_CONSTIT(master_c, KC_PCI_PROBE_C, 8)     = pci_probe_c;
+PROD_CONSTIT(master_c, KC_CLIENT_C, 9)     = graphics_c;
+
+run master_c;
+
+print directory;

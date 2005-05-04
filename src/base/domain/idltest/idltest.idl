@@ -1,0 +1,8 @@
+package eros.domain;
+
+interface idltest extends eros.key {
+  typedef buffer<char,4096> iobuf;
+
+  iobuf echo(iobuf s);
+};
+

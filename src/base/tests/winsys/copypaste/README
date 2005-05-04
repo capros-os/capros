@@ -1,0 +1,15 @@
+This is a demo of the copy/paste functionality of the window system.
+Two windows are created, one as the "copier" and one as the "paster".
+The domain that owns the "copier" window has some static text that is
+placed in the copy buffer whenever the user enters CTRL-C when the
+"copier" window has focus.  The domain that owns the "paster" window
+receives a capability to read that static text whenever CTRL-V is
+subsequently entered when its window has focus.  Note: as of this
+writing, there is a difference between a client window's decoration
+having focus and the client window itself having focus.  Thus, make
+sure you left click inside the client parts of the windows to set the
+appropriate focus!
+
+
+(Both domains (the "copier" and the "paster") use an ETerm domain to
+provide a graphical window into which text can easily be rendered.)

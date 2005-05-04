@@ -1,0 +1,33 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2003, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+MAKE_VIRTUAL_COPIER(ps2_mousehelper_vcsk, "/eros/domain/winsys/ps2/mousehelper");
+BOOT_CONSTRUCTOR(ps2_mousehelper_c, ps2_mousehelper);
+PROD_SPACE(ps2_mousehelper_c) = ps2_mousehelper_vcsk_c;
+PROD_PC(ps2_mousehelper_c) = symbol "/eros/domain/winsys/ps2/mousehelper" _start;
+PROD_CONSTIT(ps2_mousehelper_c, KC_OSTREAM, 3) = misc Console;
+
+MAKE_VIRTUAL_COPIER(ps2_keyhelper_vcsk, "/eros/domain/winsys/ps2/keyhelper");
+BOOT_CONSTRUCTOR(ps2_keyhelper_c,ps2_keyhelper);
+PROD_SPACE(ps2_keyhelper_c) = ps2_keyhelper_vcsk_c;
+PROD_PC(ps2_keyhelper_c) = symbol "/eros/domain/winsys/ps2/keyhelper" _start;
+PROD_CONSTIT(ps2_keyhelper_c, KC_OSTREAM, 3) = misc Console;

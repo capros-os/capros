@@ -1,0 +1,23 @@
+package console;
+
+interface textconsole extends eros.key {
+  /** Clear Screen
+   *
+   */
+  void clearScreen();       
+  
+  /** Write ASCII characters to the console
+   *
+   * Write 1 ASCII character at a time to the textconsole
+   */
+  void putChar(char c);
+  
+  /** Write ASCII characters to the console
+   *
+   * write /len/ bytes to the stream from the string s. Returns the 
+   * number of bytes successfully written.
+   */
+  typedef buffer<char,4096> chbuf;
+  unsigned long putCharArray(chbuf s);
+  
+};

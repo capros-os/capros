@@ -1,0 +1,30 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2003, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+#ifndef __LINEDISC_
+#define __LINEDISC_
+MAKE_VIRTUAL_COPIER(linedisc_vcsk, "/eros/domain/linedisc/linedisc");
+BOOT_CONSTRUCTOR(linedisc_c,linedisc);
+PROD_SPACE(linedisc_c) = linedisc_vcsk_c;
+PROD_PC(linedisc_c) = symbol "/eros/domain/linedisc/linedisc" _start;
+PROD_CONSTIT(linedisc_c, KC_OSTREAM, 3)  = misc Console;
+#endif

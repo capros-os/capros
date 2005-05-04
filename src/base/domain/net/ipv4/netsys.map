@@ -1,0 +1,75 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2001, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/*********************************************
+ * PRIMORDIAL DOMAINS
+ *********************************************/
+#include <memmap.map>
+#include <drivers/pci/pci_probe.map>
+#include <drivers/console/console.map>
+
+/* helpers are small programs */
+helper = new process with constituents;
+helper space = small program "/eros/domain/net/ipv4/helper";
+helper pc = symbol "/eros/domain/net/ipv4/helper" _start;
+helper iospace = misc DevicePrivs;
+helper schedule = sched(8);
+
+CONSTIT(helper, KC_OSTREAM, 3) = misc Console;
+CONSTIT(helper, KC_DEVPRIVS, 7) = misc DevicePrivs;
+
+helper key reg KR_SELF = helper;
+helper key reg KR_BANK = primebank;
+helper key reg KR_SCHED = sched(8);
+
+run helper;
+
+/*** A small program for Timeout_Agent ***/
+timeout_agent = new process with constituents;
+timeout_agent space = small program "/eros/domain/net/ipv4/timeout_agent";
+timeout_agent pc = symbol "/eros/domain/net/ipv4/timeout_agent" _start;
+timeout_agent iospace = misc DevicePrivs;
+timeout_agent schedule = sched(8);
+
+CONSTIT(timeout_agent, KC_OSTREAM, 3) = misc Console;
+CONSTIT(timeout_agent, KC_SLEEP, 4) = misc Sleep;
+
+timeout_agent key reg KR_SELF = timeout_agent;
+timeout_agent key reg KR_BANK = primebank;
+timeout_agent key reg KR_SCHED = sched(8);
+
+run timeout_agent;
+
+MAKE_VIRTUAL_COPIER(netsys_vcs, "/eros/domain/net/ipv4/netsys");
+BOOT_CONSTRUCTOR(netsys_c,netsys);
+PROD_SPACE(netsys_c) = netsys_vcs_c;
+PROD_PC(netsys_c) = symbol "/eros/domain/net/ipv4/netsys" _start;
+PROD_CONSTIT(netsys_c, KC_OSTREAM, 3) = misc Console;
+PROD_CONSTIT(netsys_c, KC_SLEEP, 4) = misc Sleep;
+PROD_CONSTIT(netsys_c, KC_HELPER, 5) = start helper 0;
+PROD_CONSTIT(netsys_c, KC_PCI_PROBE_C, 6) = pci_probe_c;
+PROD_CONSTIT(netsys_c, KC_DEVPRIVS, 7) = misc DevicePrivs;
+PROD_CONSTIT(netsys_c, KC_PHYSRANGE, 8) = physmem range;
+PROD_CONSTIT(netsys_c, KC_MEMMAP_C, 9) = memmap_c;
+PROD_CONSTIT(netsys_c, KC_CONSTREAM_C, 11) = consolestream_c;
+PROD_CONSTIT(netsys_c, KC_TIMEOUT_AGENT, 12) = start timeout_agent 0;
+

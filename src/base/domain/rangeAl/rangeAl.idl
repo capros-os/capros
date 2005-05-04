@@ -1,0 +1,38 @@
+package eros.domain.rangeAl;
+
+interface rangeAl extends eros.key raises(CreateFail,
+					DeleteFail,
+					GetFail,
+					DefineFail,
+					RangeTaken,
+					 ReleaseFail) {
+  exception CreateFail;
+  exception DeleteFail;
+  exception GetFail;
+  exception DefineFail;
+  exception RangeTaken;
+  exception ReleaseFail;
+
+  struct Range{
+	unsigned long start;
+	unsigned long size;
+	char free;
+  };
+  struct RA{
+	array<Range, 128> stack;
+	unsigned long size;
+	};
+  void SendCreateRangeAlloc();
+
+  RA SendGetRangeAlloc();
+
+  void SendDefineRange(unsigned long start, unsigned long size);
+
+  
+
+  unsigned long  SendRequestRange(unsigned long above, unsigned long below, 
+		unsigned long size, unsigned long alignment);
+
+  void SendReleaseRange(unsigned long start);
+};
+

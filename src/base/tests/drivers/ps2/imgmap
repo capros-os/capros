@@ -1,0 +1,69 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2001, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/*********************************************
+ * PRIMORDIAL DOMAINS
+ *********************************************/
+#include <drivers/ps2/ps2.map>
+
+/*** A small program which handles text mode screen drawing ***/
+textconsole = new process with constituents;
+textconsole space = small program BUILDDIR "textconsole";
+textconsole pc = symbol BUILDDIR "textconsole" _start;
+textconsole iospace = misc DevicePrivs;
+textconsole schedule = sched(8);
+/**************************************************************/
+
+CONSTIT(textconsole, KC_OSTREAM, 3) = misc Console;
+CONSTIT(textconsole, KC_DEVPRIVS, 4) = misc DevicePrivs;
+CONSTIT(textconsole, KC_PHYSRANGE,5) = physmem range;
+
+textconsole key reg KR_SELF = textconsole;
+textconsole key reg KR_BANK = primebank;
+textconsole key reg KR_SCHED = sched(8);
+
+run textconsole;
+
+MAKE_VIRTUAL_COPIER(mouseclient_vcsk,BUILDDIR "mouseclient");
+BOOT_CONSTRUCTOR(mouseclient_c,mouseclient);
+PROD_SPACE(mouseclient_c) = mouseclient_vcsk_c;
+PROD_PC(mouseclient_c) = symbol BUILDDIR "mouseclient" _start;
+PROD_CONSTIT(mouseclient_c, KC_OSTREAM, 3) = misc Console;
+
+MAKE_VIRTUAL_COPIER(keycli_vcsk,BUILDDIR "keyclient");
+BOOT_CONSTRUCTOR(keycli_c,keycli);
+PROD_SPACE(keycli_c) = keycli_vcsk_c;
+PROD_PC(keycli_c) = symbol BUILDDIR "keyclient" _start;
+PROD_CONSTIT(keycli_c, KC_OSTREAM, 3) = misc Console;
+
+MAKE_VIRTUAL_COPIER(ps2test_vcsk,BUILDDIR "ps2test");
+BOOT_CONSTRUCTOR(ps2test_c,ps2test);
+PROD_SPACE(ps2test_c) = ps2test_vcsk_c;
+PROD_PC(ps2test_c) = symbol BUILDDIR "ps2test" _start;
+PROD_CONSTIT(ps2test_c,KC_OSTREAM,3) = misc Console;
+PROD_CONSTIT(ps2test_c, KC_TEXCON_S, 12) = start textconsole 0;
+PROD_CONSTIT(ps2test_c, KC_KEYCLI_C, 13) = keycli_c;
+PROD_CONSTIT(ps2test_c, KC_MCLI_C, 14) = mouseclient_c;
+PROD_CONSTIT(ps2test_c, KC_PS2READER_C,15) = ps2reader_c;
+
+
+run ps2test_c;

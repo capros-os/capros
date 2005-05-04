@@ -1,0 +1,96 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+#ifdef __PCC_MAP__
+#error "pcc.map multiply included"
+#endif
+#define __PCC_MAP__
+
+#ifndef __PRIMEBANK_MAP__
+#error "pcc.map requires primebank.map"
+#endif
+
+/************************************************************
+ * PCC
+ ************************************************************/
+
+pcc = new process with constituents;
+
+proccre.seg = ro small program "/eros/domain/proccre";
+proccre.pc = symbol "/eros/domain/proccre" _start;
+
+pcc pc = symbol "/eros/domain/pcc" _start;
+pcc space = small program "/eros/domain/pcc";
+pcc schedule = sched(8);	/* normal */
+pcc symtab = number("pcc");
+
+/* Note that on teardown a proccre does not destroy it's constituents. */
+proccre_constit = pcc[ProcGenKeys][KR_CONSTIT];
+
+proccre_brand = start pcc 65535;
+
+CONSTIT(pcc, KC_OSTREAM,    0)     = misc Console;
+CONSTIT(pcc, KC_DOMTOOL,    1)     = misc ProcessTool;
+CONSTIT(pcc, KC_DOMCRE_PC,  2)     = proccre.pc;
+CONSTIT(pcc, KC_DOMCRE_SEG, 3)     = proccre.seg;
+CONSTIT(pcc, KC_OURBRAND,   4)     = proccre_brand;
+CONSTIT(pcc, KC_DOMCRE_CONSTIT, 5) = ro proccre_constit;
+
+/* RKT_DESTROY set in destroy.map */
+/* RKT_CNS_VERIFIER set in metacon.map */
+/* RKT_AUDIT_LOG set in in syslog.map */
+
+/* PCC registers: */
+pcc key reg KR_SELF   = pcc;
+pcc key reg KR_BANK   = primebank;	/* should be bank_verifier! */
+pcc key reg KR_SCHED  = sched(8);
+pcc key reg KR_RTBITS = primordial_runtime_bits;
+
+/* pcc key reg 15 = start pcc.dom 65535  brand of all proccre's */
+
+/* print domain pcc.dom */
+run pcc;
+
+pcc = start pcc 0;
+
+primordial_runtime_bits[RKT_CREATOR]      = start pcc 0;
+
+/***********************************************************************
+ * Various initially frozen factories need their own proccres.
+ * Such proccres are presumed to use the prime space bank for now.
+ * Make it easy to construct them:
+ ***********************************************************************/
+
+#define BOOT_DOMCRE(name) \
+   name##_proccre_process = new process; \
+   name##_proccre_process pc = proccre.pc; \
+   name##_proccre_process space = proccre.seg; \
+   name##_proccre_process schedule = sched(8); \
+   name##_proccre_process brand = proccre_brand; \
+   name##_proccre_process symtab = number("pcre " #name); \
+   name##_proccre_process key reg KR_CONSTIT = ro proccre_constit; \
+   name##_proccre_process key reg KR_SELF = name##_proccre_process; \
+   name##_proccre_process key reg KR_BANK = primebank; \
+   name##_proccre_process key reg KR_SCHED = sched(8); \
+   name##_proccre_process key reg KR_RTBITS = primordial_runtime_bits; \
+   run name##_proccre_process; \
+   name##_proccre = start name##_proccre_process 0;

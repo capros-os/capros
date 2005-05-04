@@ -1,0 +1,12 @@
+package eros.domain.timer;
+
+interface timer_client extends eros.key {
+
+/**
+ * This is the interface a client of the timer must implement in order
+ * to receive the signal that the interval expired. 
+ */
+  void wakeup();
+
+};
+

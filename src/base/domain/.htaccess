@@ -1,0 +1,24 @@
+AddDescription "DOMAIN TREE MAKEFILE" eros-src/domain/Makefile
+AddDescription "domain runtime" eros-src/domain/domain
+AddDescription "console front end" eros-src/domain/cons_front
+AddDescription "app builder" eros-src/domain/constructor
+AddDescription "crypo support (broken)" eros-src/domain/crypt
+AddDescription "volume debugger (broken)" eros-src/domain/dbvol
+AddDescription "teardown code" eros-src/domain/destroy
+AddDescription "UNIX-like directory" eros-src/domain/directory
+AddDescription "process creator" eros-src/domain/domcre
+AddDescription "trivial file sys" eros-src/domain/dumbfs
+AddDescription "echo test case" eros-src/domain/echo
+AddDescription "event queue" eros-src/domain/evtqueue
+AddDescription "file object" eros-src/domain/file
+AddDescription "hello test case" eros-src/domain/hello
+AddDescription "(broken) java runtime" eros-src/domain/kaffe
+AddDescription "set of caps" eros-src/domain/keyset
+AddDescription "line discipline" eros-src/domain/linedisc
+AddDescription "mutex object" eros-src/domain/mutex
+AddDescription "TCP/IP implementation" eros-src/domain/net
+AddDescription "signal multiplexor" eros-src/domain/sigmux
+AddDescription "space bank" eros-src/domain/spacebank
+AddDescription "supernode" eros-src/domain/supernode
+AddDescription "virt copy seg kpr" eros-src/domain/vcsk
+AddDescription "tar extractor" eros-src/domain/xtar

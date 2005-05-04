@@ -1,0 +1,171 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+#ifdef __METACON_MAP__
+#error "metacon.map multiply included"
+#endif
+#define __METACON_MAP__
+
+#ifndef __PCC_MAP__
+#error "metacon.map requires pcc.map"
+#endif
+
+
+/********************************************************
+ * Process Creator instance for all constructor-type
+ * objects. Note that if the constructor logic is included
+ * in the system image at all, then PCC is considered a
+ * constructor by special dispensation. The pcc brand is
+ * therefore back-patched here to be the same as the
+ * constructor brand.
+ *
+ * It is not immediately obvious that PCC *should* be
+ * considered a constructor. Arguably it should simply sit
+ * in a list of well-known ``holes''.
+ *
+ * When we move to the design where the space bank is
+ * responsible for process fabrication, the issue should
+ * largely disappear.
+ ********************************************************/
+
+constructor_proccre = new process;
+
+constructor_proccre pc = proccre.pc;
+constructor_proccre space = proccre.seg;
+constructor_proccre schedule = sched(8);	/* normal */
+constructor_proccre brand = proccre_brand;
+constructor_proccre symtab = number("pcre constructor");
+
+/* constructor_proccre registers: */
+constructor_proccre key reg KR_CONSTIT = ro proccre_constit;
+constructor_proccre key reg KR_SELF = constructor_proccre;
+constructor_proccre key reg KR_BANK = primebank;
+constructor_proccre key reg KR_SCHED = sched(8);
+
+run constructor_proccre;
+
+constructor_brand = start constructor_proccre 65535;
+
+constructor_proccre = start constructor_proccre 0;
+
+/************************************************************
+ * Back-patch the pcc brand here, so it is also considered
+ * a constructor for purposes of the ``is this a valid constructor''
+ * test:
+ ************************************************************/
+pcc brand = constructor_brand;
+
+
+/************************************************************
+ * MetaConstructor
+ ************************************************************/
+
+metacon = new process with constituents;
+
+constructor.seg = small program "/eros/domain/constructor";
+constructor.pc = symbol "/eros/domain/constructor" _start;
+
+protospace = ro program segtree "/eros/domain/protospace";
+protospace.pc = symbol "/eros/domain/protospace" _start;
+
+metacon pc = symbol "/eros/domain/metaconstructor" _start;
+metacon space = small program "/eros/domain/metaconstructor";
+metacon schedule = sched(8);	/* normal */
+metacon brand = constructor_brand;
+metacon symtab = number("metacon");
+
+/* Unlike proccre, constructors DO destroy their constituents
+   node */
+
+/* CONSTRUCTOR constituents: */
+con_constit = new node;
+con_constit[0] = misc Discrim;
+con_constit[2] = misc Console;
+con_constit[3] = pcc;	/* used in self-initialization */
+con_constit[4] = protospace;
+con_constit[5] = constructor_proccre;
+
+/* METACON constituents: */
+CONSTIT(metacon, KC_DISCRIM, 0) = misc Discrim;
+CONSTIT(metacon, KC_OSTREAM, 1) = misc Console;
+CONSTIT(metacon, KC_YIELDCRE, 2) = constructor_proccre;
+CONSTIT(metacon, KC_PROTOSPACE, 3) = protospace;
+CONSTIT(metacon, KC_PCC, 4) = pcc;
+CONSTIT(metacon, KC_CON_SEG, 5) = sense constructor.seg;
+CONSTIT(metacon, KC_CON_PC, 6) = constructor.pc;
+CONSTIT(metacon, KC_CON_CONSTIT, 7) = con_constit;
+
+/* METACON registers: */
+metacon key reg KR_SELF = metacon;
+metacon key reg KR_BANK = primebank;
+metacon key reg KR_SCHED = sched(8);
+metacon key reg KR_RTBITS = primordial_runtime_bits;
+
+run metacon;
+
+metacon = start metacon 0;
+constructor_verifier = start metacon 1;
+primordial_runtime_bits[RKT_CNS_VERIFIER] = constructor_verifier;
+
+/* print domain metacon.dom */
+/* hide constructor.seg; */
+/* hide constructor.pc; */
+hide protospace.pc;		/* well known to be zero */
+
+/* Note that a boot-time constructed factory doesn't get anyone to
+   return to -- KR15 is left NULL.  This is the right thing.  Note
+   also that a boot factory gets pre-built child constituent nodes in
+   constit slots 14, 15, and it's actual yield proccre in place of
+   DCC. */
+#define BOOT_CONSTRUCTOR(cname,yieldname) \
+   BOOT_DOMCRE(cname); \
+   cname##_process = new process; \
+   cname##_process pc = constructor.pc; \
+   cname##_process space = constructor.seg; \
+   cname##_process schedule = sched(8); \
+   cname##_process brand = constructor_brand; \
+   cname##_process symtab = number(#cname); \
+   cname##_process key reg KR_CONSTIT = clone con_constit; \
+   cname##_process key reg KR_SELF = cname##_process; \
+   cname##_process key reg KR_BANK = primebank; \
+   cname##_process key reg KR_SCHED = sched(8); \
+   cname##_process key reg KR_RTBITS = primordial_runtime_bits; \
+   CONSTIT(cname##_process, KC_DISCRIM, 0) = misc Discrim; \
+   CONSTIT(cname##_process, KC_OSTREAM, 1) = misc Console; \
+   CONSTIT(cname##_process, KC_YIELDCRE, 2) = cname##_proccre; \
+   CONSTIT(cname##_process, KC_PROTOSPACE, 3) = protospace; \
+   CONSTIT(cname##_process, KC_PROD_CON0, 14) = new node; \
+   CONSTIT(cname##_process, KC_PROD_XCON, 15) = new node; \
+   cname##_process[ProcGenKeys][KR_CONSTIT][15][2] = number(#yieldname); \
+   run cname##_process; \
+   cname = start cname##_process 0;
+
+/* The construct name[ProcGenKeys][1][x][y] traverses the named nodes
+   in turn.
+
+   All of this stuff needs to be revisited in light of new,
+   larger nodes, but that is a project for another day... */
+#define PROD_CONSTIT(c_name, KCname, slot) c_name[ProcGenKeys][KR_CONSTIT][14][slot]
+#define PROD_KPR(c_name)           c_name[ProcGenKeys][KR_CONSTIT][15][0]
+#define PROD_SPACE(c_name)         c_name[ProcGenKeys][KR_CONSTIT][15][1]
+#define PROD_SYM(c_name)           c_name[ProcGenKeys][KR_CONSTIT][15][2]
+#define PROD_PC(c_name)            c_name[ProcGenKeys][KR_CONSTIT][15][3]

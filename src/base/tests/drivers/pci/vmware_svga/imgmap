@@ -1,0 +1,56 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2001, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+/*********************************************
+ * PRIMORDIAL DOMAINS
+ *********************************************/
+#include <drivers/pci/vmware_svga.map>
+#include <drivers/ps2/ps2.map>
+#include <drivers/pci/pci_probe.map>
+
+MAKE_VIRTUAL_COPIER(ps2_mousehelper_vcsk, BUILDDIR "mousehelper");
+BOOT_CONSTRUCTOR(ps2_mousehelper_c, ps2_mousehelper);
+PROD_SPACE(ps2_mousehelper_c) = ps2_mousehelper_vcsk_c;
+PROD_PC(ps2_mousehelper_c) = symbol BUILDDIR "mousehelper" _start;
+PROD_CONSTIT(ps2_mousehelper_c, KC_OSTREAM, 3) = misc Console;
+
+MAKE_VIRTUAL_COPIER(ps2_keyhelper_vcsk, BUILDDIR "keyhelper");
+BOOT_CONSTRUCTOR(ps2_keyhelper_c, ps2_keyhelper);
+PROD_SPACE(ps2_keyhelper_c) = ps2_keyhelper_vcsk_c;
+PROD_PC(ps2_keyhelper_c) = symbol BUILDDIR "keyhelper" _start;
+PROD_CONSTIT(ps2_keyhelper_c, KC_OSTREAM, 3) = misc Console;
+
+MAKE_VIRTUAL_COPIER(test_vcsk, BUILDDIR "test");
+BOOT_CONSTRUCTOR(test_c,test);
+PROD_SPACE(test_c) = test_vcsk_c;
+PROD_PC(test_c) = symbol BUILDDIR "test" _start;
+PROD_CONSTIT(test_c, KC_OSTREAM, 3)       = misc Console;
+PROD_CONSTIT(test_c, KC_SLEEP, 4)         = misc Sleep;
+PROD_CONSTIT(test_c, KC_SVGA_DRIVER_C, 5) = vmware_svga_c;
+PROD_CONSTIT(test_c, KC_PS2READER, 6)     = ps2reader_c;
+PROD_CONSTIT(test_c, KC_PS2MOUSE_HELPER, 7)   = ps2_mousehelper_c;
+PROD_CONSTIT(test_c, KC_PS2KEY_HELPER, 8)     = ps2_keyhelper_c;
+PROD_CONSTIT(test_c, KC_PCI_PROBE_C, 9)       = pci_probe_c;
+
+run test_c;
+
+print directory;

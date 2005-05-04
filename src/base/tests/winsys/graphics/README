@@ -1,0 +1,6 @@
+This domain demonstrates the use of the rudimentary graphics library
+currently available.  The EROS graphics library (eros_gl) is based on
+OpenGL and purely serves as a model for how a real graphics library
+might be written for EROS.  This test renders different pixel patterns
+in one graphical window.  Between the rendering of each pixel pattern,
+the domain waits for the user to press a key before continuing.

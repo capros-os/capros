@@ -1,0 +1,41 @@
+/*
+ * Copyright (C) 1998, 1999, Jonathan Adams.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+
+#define dbg_init	0x01u   /* debug initialization logic */
+#define dbg_heap	0x02u   /* debug heap mgmt logic */
+#define dbg_dealloc     0x04u   /* debug deallocation logic */
+#define dbg_alloc       0x08u   /* debug allocation logic */
+#define dbg_malloc      0x10u   /* low-level mem alloc */
+#define dbg_tree        0x20u   /* tree code debugging */
+#define dbg_children    0x40u   /* child create/destroy code debugging */
+#define dbg_limit       0x80u   /* Bank limits debugging */
+#define dbg_realloc    0x100u   /* reallocation rate */
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u )
+
+#define CND_DEBUG(x) (dbg_##x & dbg_flags)
+#define DEBUG(x) if (CND_DEBUG(x))
+#define DEBUG2(x,y) if (((dbg_##x|dbg_##y) & dbg_flags) == (dbg_##x|dbg_##y))
+
+#ifdef TIMESTAMPS
+uint64_t rdtsc(void);
+#endif

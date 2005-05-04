@@ -1,0 +1,120 @@
+#
+# Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+#
+# This file is part of the EROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+file("kernel/kern_CoreObHash.c")
+file("kernel/kern_CoreObSleep.c")
+file("kernel/kern_Node.c")
+file("kernel/kern_DiskNode.c")
+file("kernel/kern_util.c")
+file("kernel/kern_rbtree.c")
+file("kernel/kern_CpuReserve.c")
+file("kernel/kern_Activity.c")
+file("kernel/kern_IoRegion.c")
+file("kernel/kern_Depend.c")
+file("kernel/kern_Segment.c")
+file("kernel/kern_Context.c")
+file("kernel/kern_SysTimer.c")
+# file("kernel/kern_WallClock.cxx")
+file("kernel/kern_main.c")
+file("kernel/kern_CPU.c")
+file("kernel/kern_eprintf.c")
+file("kernel/kern_KeyRing.c")
+file("kernel/kern_ObjectCache.c")
+file("kernel/kern_ObjectHeader.c")
+file("kernel/kern_ObjectSource.c")
+file("kernel/kern_PreloadObSource.c")
+file("kernel/kern_PhysPageSource.c")
+file("kernel/kern_PhysMem.c")
+file("kernel/kern_heap.c")
+file("kernel/kern_Check.c")
+file("kernel/kern_Checker.c")
+file("kernel/kern_IdleThread.c")
+#file("kernel/kern_Persist.cxx")
+file("kernel/kern_Profile.c")
+file("kernel/kern_qsort.c")
+file("kernel/kern_memory.c")
+file("kernel/kern_Invoke.c")
+file("kernel/kern_dma.c")
+file("kernel/kern_LogStream.c")
+file("kernel/kern_printf.c")
+file("kernel/kern_KernStream.c")
+#file("IO/io_Request.cxx")
+#file("IO/io_Partition.cxx")
+#file("IO/io_RequestQueue.cxx")
+#file("IO/io_BlockDev.cxx")
+#file("IO/io_BlockDevMount.cxx")
+file("disk/dsk_DivName.c")
+file("disk/dsk_DiskLSS.c")
+#file("ckpt/ck_CoreDir.cxx")
+#file("ckpt/ck_Checkpoint.cxx")
+#file("ckpt/ck_ReadWrite.cxx")
+#file("ckpt/ck_Retag.cxx")
+#file("ckpt/ck_Restart.cxx")
+#file("ckpt/ck_Generation.cxx")
+#file("ckpt/ck_CoreDirTree.cxx")
+#file("ckpt/ck_AllocMap.cxx")
+
+
+file("key/pk_GateKey.c")
+file("key/pk_NumberKey.c")
+file("key/pk_PageKey.c")
+file("key/pk_NodeKey.c")
+file("key/pk_SegmentKey.c")
+file("key/pk_WrapperKey.c")
+file("key/pk_ProcessKey.c")
+file("key/pk_SchedKey.c")
+file("key/pk_RangeKey.c")
+file("key/pk_DeviceKey.c")
+file("key/mk_DevicePrivs.c")
+#file("key/mk_LogFrameKey.cxx")
+file("key/mk_SleepKey.c")
+file("key/mk_TimeOfDay.c")
+file("key/mk_KeyBits.c")
+file("key/mk_Discrim.c")
+file("key/mk_ProcessTool.c")
+file("key/mk_TimePage.c")
+file("key/mk_Checkpoint.c")
+file("key/mk_Console.c")
+file("key/mk_SchedCreator.c")
+file("key/mk_SysTrace.c")
+file("key/mk_VoidKey.c")
+file("kernel/kern_Key.c")
+# file("pci/pci_PCI.cxx")
+# file("pci/pci_dev.cxx")
+
+
+# EROS uses elf, not a.out. Include one or the other -- the current debugger 
+# isn't smart enough to figure it out on the fly.
+file("ddb/db_access.c", ddb)
+file("ddb/db_break.c", ddb)
+file("ddb/db_command.c", ddb)
+file("ddb/db_examine.c", ddb)
+file("ddb/db_expr.c", ddb)
+file("ddb/db_input.c", ddb)
+file("ddb/db_lex.c", ddb)
+file("ddb/db_print.c", ddb)
+file("ddb/db_run.c", ddb)
+file("ddb/db_sym.c", ddb)
+file("ddb/db_trap.c", ddb)
+file("ddb/db_variables.c", ddb)
+file("ddb/db_write_cmd.c", ddb)
+file("ddb/db_eros.c", ddb)
+file("ddb/db_nmhack.c", ddb)
+file("ddb/db_watch.c", ddb_watch)

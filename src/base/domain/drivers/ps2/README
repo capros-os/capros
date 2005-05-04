@@ -1,0 +1,32 @@
+PS2 Driver Design:
+------------------
+HELPERS:
+--------
+	The helper processes are created by keyb. They lie in wait for
+IRQ1 & IRQ12 (helper1 & helper12 respectively. Waiting for IRQs is done 
+through a system call devprivs_waitIRQ). When IRQ1/IRQ12 arrives (waitIRQ
+returns) they turn around and knock keyb signalling that an IRQ has arrived,
+so that keyb can check the h/w buffer for new data. 
+	
+PS2 reader:
+-----------
+	This process is the core of the PS2 driver. It waits for signals from
+the helper processes & then reads the ps2 h/w buffer. Calls from "above" i.e
+from the keyboard helper or the mouse helper (of say the windows event manager)
+are "parked" if data is unavailable and call retried when there is data.
+Attempts to pass the "rawest" data possible. It is upto the clients to join the 
+mouse bytes into a mouse packet/keycodes into ASCII etc
+
+RETRY-PARKED
+------------
+	breakdown of the node_wake...  call:
+
+w1 = andBits (mask)
+w2 = orBits
+w3 = match
+
+To accomplish this:                 Use these inputs (w1, w2, w3):
+1.  Wakeup if ANY bit in B is set:            mask=B   orBits=B  match=B
+2.  Wakeup if ALL bits in B are set:          mask=B  orBits=0 match=B
+3.  Wakeup if wakeInfo contains the value B:  mask=0 orBits=0 match=B
+4.  Wakeup everyone:                          mask=0  orBits=~0u match=~0u

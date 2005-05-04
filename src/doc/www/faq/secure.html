@@ -1,0 +1,226 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html>
+  <head>
+    <title>EROS FAQ: Security and Reliability</title>
+  </head>
+  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000"><table><tr valign=top><td width="10%">&nbsp;</td><td><div class=nocss><br class=nocss>&nbsp;<br class=nocss>&nbsp;</div>
+    <center>
+      <h1>EROS FAQ: Security and Reliability</h1>
+    </center>
+    <p>
+      This document is part of the EROS Frequently Asked Questions
+      list.  To return to the main index, click <a
+      href="faq.html">here</a>.
+    </p>
+    <ol>
+      <li>
+	<p>
+	  <b><a name="unix-diff">How is EROS related to Linux or other
+	      UNIX systems?</a></b> 
+	</p>
+	<p>
+	  <b>Short Answer</b>: It isn't.
+	</p>
+	<p>
+	  <b>Longer Answer</b>:
+	</p>
+	<p>
+	  EROS and UNIX-derivatives come from very different schools
+	  about how operating systems should work.
+	</p>
+	<p>
+	  For starters, Dennis Ritchie and Ken Thomson (who built the
+	  first UNIX system) set out in the second and subsequent
+	  versions of UNIX to build an operating system that would
+	  provide compatibility across multiple platforms.  With
+	  considerable success, they build a system that provides a
+	  common source-level environment across many types of
+	  machines.  They accomplished this at a time when things as
+	  basic as the size of a byte were not universally agreed on.
+	</p>
+	<p>
+	  UNIX borrowed ideas heavily from MIT's Compatible Time
+	  Sharing System (CTSS) and also from Multics.  From these
+	  places came such ideas as files and directories, user
+	  identities, and binary executable files.  Each of these
+	  ideas, over the years, has proven to be a source of security
+	  challenges or flaws in the system.
+	</p>
+	<p>
+	  Where UNIX descends from CTSS and Multics, EROS descends
+	  from KeyKOS (Key Logic, Inc.), which in turn descends from
+	  Gnosis (Tymshare).  Gnosis was conceived from the ground up
+	  as a secure and reliable operating system platform.  Two key 
+	  decisions led the Gnosis effort in very different directions 
+	  than Multics: paging and persistence.  Almost all of the
+	  other differences in the system derive from these two
+	  choices early in the Gnosis architecture.
+	</p>
+	<p>
+	  When Multics was conceived, segmentation was the order of
+	  the day.  Started several years later, the Gnosis framework
+	  was based on paging rather than on segment loading.  The
+	  impact of this is visible at all levels of the respective
+	  designs:
+	</p>
+	<ul type=disc>
+	  <li>
+	    <p>
+	      Where UNIX focuses on protecting files (a derivative of
+	      segments), EROS defines protection at the granularity of
+	      pages.  This finer granularity of protection can be
+	      implemented on modern hardware MMUs directly, while
+	      files require software interpretation.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      Where UNIX was forced to introduce abstractions for
+	      storing these files and translating them into runnable
+	      process images (processes, file systems), EROS simply
+	      gives every page a unique identity and then introduced a
+	      different object -- the Node -- to hold capabilities to
+	      pages and nodes.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      Because UNIX processes are not preserved across restarts
+	      (doing this on a segment-based design is quite hard),
+	      some other means of validating access to files was
+	      needed.  This caused user identities and access control
+	      lists to be introduced.
+	    </p>
+	    <p>
+	      EROS, in contrast, simply preserves the processes across
+	      restarts.  This means that there is no need to
+	      revalidate authorities.  There is therefore no need to
+	      introduce any idea of user identity into the EROS
+	      supervisor.  Also, there is no need to have any notion
+	      of a ``file'' in the supervisor -- the connectivity
+	      established by Nodes and Pages doesn't disappear when
+	      the system crashes.
+	    </p>
+	  </li>
+	</ul>
+	<p>
+	  Almost the only place where the two systems are similar is
+	  in the area of networking.  A network connection is not
+	  persistent, because it must be re-authenticated after a
+	  system crash.  As a result, EROS has been able to borrow
+	  heavily from the UNIX networking code.
+	</p>
+      <li>
+	<p>
+	  <b><a name="unix-bin-compat"> Is it possible to run binaries
+	  from Linux or other UNIX systems under EROS?  </a></b>
+	</p>
+	<p>
+	  <b>Short Answer</b>: Not yet, but it will be.
+	</p>
+	<p>
+	  <b>Longer Answer</b>:
+	</p>
+	<p>
+	  It's possible to build a UNIX environment that runs <em>on
+	  top</em> of EROS, and we intend to do so.  That environment
+	  will run both conventional UNIX binaries and will also be
+	  able to access EROS-based services.
+	</p>
+	<p>
+	  In fact, it will be possible to run multiple UNIX
+	  environments at once.  If desired, each user can be given a
+	  UNIX system that they fully control and adminster, without
+	  compromising the security of the other UNIX environments on
+	  the machine.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b><a name="why-secure"> Why is EROS secure?  </a></b>
+	</p>
+	<p>
+	  The answer to this is involved.  Here are a few basic
+	  points:
+	</p>
+	<ul type=disc>
+	  <li>
+	    <p> 
+	      EROS protection is fine-grained.  Instead of granting
+	      programs all of the rights of some user, EROS grants
+	      programs access to specific resources.  Each program
+	      therefore runs with only the authority that it needs
+	      (the ``principle of least privilege''), which makes it
+	      inherently more secure.
+	    </p>
+	  </li>
+	  <li>
+	    <p> 
+	      EROS access rights are preserved across system
+	      restarts.  This makes it feasible to divide access
+	      rights across multiple processes without tearing out
+	      your hair to get the interrelationships between those
+	      processes right after every restart.
+	    </p>
+	    <p>
+	      Also, there is no need for a file system, which is a
+	      major source of security leaks.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      Invocations of authority are explicit.  When an EROS
+	      program invokes a capability, its authority comes from
+	      the capability that it names, not from some ambient
+	      status or authority that the process holds (i.e. not
+	      from any notion of user identity).  One result is that
+	      trusted programs are much harder to compromise.
+	    </p>
+	  </li>
+	  <li>
+	    <p>
+	      Because EROS is capability based, it is possible to
+	      strictly limit the communication channels that a program
+	      has.  Among other things, user A can safely run software
+	      from an untrusted user B and know that there are no
+	      overt communication leaks.  This is the kind of security
+	      that Java is trying (and failing) to provide.
+	    </p>
+	  </li>
+	</ul>
+	<p>
+	  In the end, all of this combines to lead to a different
+	  style of building programs.  EROS programs tend to be built
+	  out of small, testable components.
+	</p>
+      </li>
+      <li>
+	<p>
+	  <b><a name="why-reliable"> Why is EROS reliable?</a></b>
+	</p>
+	<p>
+	  Once again, the answer to this question is involved.  A more 
+	  complete answer can be found in one of the EROS white papers 
+	  <a href="../essays/00Essays.html">here</a>.
+	</p>
+	<p>
+	  EROS is reliable for basically the same reasons it is
+	  secure.  Each EROS component can be built to do exactly what 
+	  it should and no more.  This makes the components testable.
+	</p>
+	<p>
+	  At the same time, EROS components live inside a protection
+	  boundary.  This means that when they <em>do</em> go wrong it
+	  is much harder for them to corrupt other components and much
+	  easier to determine where the error really occurred.
+	</p>
+      </li>
+    </ol> 
+    <hr>
+    <p>
+      <em>Copyright 1999 by Jonathan Shapiro.  All rights reserved.
+	For terms of redistribution, see the <a
+	  href="../legal/license/GPL.html">GNU General Public License</a></em>
+    </p>
+  </td><td width="10%">&nbsp;</td></tr></table></BODY>
+</html>

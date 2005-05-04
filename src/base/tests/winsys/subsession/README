@@ -1,0 +1,20 @@
+This test demos the creation of a "subsession" and subsequent
+rendering by an external domain.  The green window represents the
+"parent" client that wishes to reserve a subset of its real estate for
+rendering by another domain.  To do that, the green client creates an
+invisible window as a bounding rectangle, fabricates a new session
+creator with the invisible window as its container, and hands that new
+session creator to an external domain.  That new domain creates a new
+session and a new window within that session and renders some pixel
+designs in that window.  The important thing to note in this test is
+that the invisible window is much smaller than the window the external
+domain creates.  This makes the "subsession" window appear to be
+irregularly clipped, but I wanted to clearly demonstrate the logic for
+subsession windows.  Note that the domain which renders the pixel
+designs has no knowledge of the invisible window.  Also, the "green
+client" domain has no knowledge of the window into which pixel designs
+are rendered.  
+
+In real life, the pixel design client would query the
+window system as to the dimensions of its session's container and thus
+cooperate with those dimensions.

@@ -1,0 +1,32 @@
+/* -*- Mode: c -*- */
+
+/*
+ * Copyright (C) 2003 Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+#ifndef __MEMMAP_MAP_
+#define __MEMMAP_MAP_
+MAKE_VIRTUAL_COPIER(memmap_vcsk, "/eros/domain/memmap");
+BOOT_CONSTRUCTOR(memmap_c, memmap);
+PROD_SPACE(memmap_c) = memmap_vcsk_c;
+PROD_PC(memmap_c) = symbol "/eros/domain/memmap" _start;
+PROD_CONSTIT(memmap_c, KC_OSTREAM, 3) = misc Console;
+PROD_CONSTIT(memmap_c, KC_ZINDEX, 4) = zindex;
+PROD_CONSTIT(memmap_c, KC_PROTOSPC, 5) = protospace;
+#endif

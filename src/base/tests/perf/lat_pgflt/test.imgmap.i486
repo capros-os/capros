@@ -1,0 +1,46 @@
+/* -*- C -*- */
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+
+/*
+ * map reconstruction latency test.
+ */
+arch i486;
+
+empty_seg = zero segtree with 2048 pages;
+
+lat_pgflt = new process;
+lat_pgflt.seg = program segment "lat_pgflt";
+lat_pgflt.pc = symbol "lat_pgflt" _start;
+lat_pgflt.seg = lat_pgflt.seg with page at 0xbffff000; /* for stack */
+lat_pgflt.seg = lat_pgflt.seg with subseg empty_seg at 0x08000000;
+
+lat_pgflt pc = lat_pgflt.pc;
+lat_pgflt sp = 0xc0000000;
+lat_pgflt space = lat_pgflt.seg;
+lat_pgflt schedule = sched(8);	/* normal */
+
+lat_pgflt key reg 4 = lat_pgflt;
+lat_pgflt key reg 9 = misc Sleep;
+lat_pgflt key reg 10 = misc Console;
+lat_pgflt key reg 11 = misc SysTrace;
+
+run lat_pgflt;

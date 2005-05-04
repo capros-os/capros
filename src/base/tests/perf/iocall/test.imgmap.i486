@@ -1,0 +1,60 @@
+/* -*- C -*- */
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+
+/*
+ * null call domain test case.  Times how fast we can invoke the null
+ * key.
+ */
+arch i486;
+
+echo = new process;
+echo.seg = program segment "echo";
+echo.pc = symbol "echo" _start;
+echo.seg = echo.seg with page at 0x80000000; /* for stack */
+
+echo pc = echo.pc;
+echo sp = 0x80001000;
+echo space = echo.seg;
+echo schedule = sched(8);	/* normal */
+
+echo key reg 9 = misc Sleep;
+echo key reg 10 = misc Console;
+echo key reg 11 = misc SysTrace;
+
+call = new process;
+call.seg = program segment "call";
+call.pc = symbol "call" _start;
+call.seg = call.seg with page at 0x80000000; /* for stack */
+
+call pc = call.pc;
+call sp = 0x80001000;
+call space = call.seg;
+call schedule = sched(8);	/* normal */
+
+call key reg 8 = start echo 0;
+call key reg 9 = misc Sleep;
+call key reg 10 = misc Console;
+call key reg 11 = misc SysTrace;
+
+run call;
+run echo;
+

@@ -1,0 +1,5 @@
+This is a demo of the ETerm domain, which is a text console inside a
+graphical window.  This test demonstrates ETerm's ability to handle
+ANSI escape sequences (for color, blinking, and underlining) as well
+as scrolling.  Note also the font selection ability in ETerm: change
+fonts via the <F1> key.

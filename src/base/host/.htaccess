@@ -1,0 +1,3 @@
+AddDescription "CROSS TREE MAKEFILE" cross/Makefile
+AddDescription "cross binaries" cross/bin
+AddDescription "supporting libraries" cross/lib

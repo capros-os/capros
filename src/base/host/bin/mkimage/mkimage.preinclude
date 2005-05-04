@@ -1,0 +1,1 @@
+#define CONSTIT(proc, name, slot) proc[ProcGenKeys][1][slot]

@@ -1,0 +1,78 @@
+#
+# Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+#
+# This file is part of the EROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+
+
+# Utility to convert a linux a.out file to a domain image file.
+default: package
+
+EROS_SRC=../../../..
+include $(EROS_SRC)/build/make/makevars.mk
+
+TARGETS=$(BUILDDIR)/mkimage
+#OPTIM=-O
+OPTIM=-g
+# Use MYOBJECTS, because automatic dependency generation doesn't work
+# for this.
+OBJECTS= $(BUILDDIR)/gram.o $(BUILDDIR)/lex.o $(BUILDDIR)/PtrMap.o
+DEF+=   -D_REVEAL_KERNEL_KEY_TYPES_
+INC=	-I$(BUILDDIR) -I. -I$(EROS_ROOT)/host/include $(XENV_INCLUDE)
+LIBS=	$(EROS_ROOT)/host/lib/liberos.a $(EROS_ROOT)/host/lib/libdisk.a
+LIBS+=	$(EROS_ROOT)/host/lib/libzlib.a
+OTHER_LIBS=	-lbfd -liberty
+DIRS=
+HEADERS=mkimage.preinclude
+CLEANLIST=gram.c gram.c.h lex.c
+
+include $(EROS_SRC)/build/make/makerules.mk
+
+all: $(TARGETS)
+
+$(BUILDDIR)/mkimage: $(OBJECTS) $(LIBS)
+	$(GPLUS) $(GPLUSFLAGS) -o $@ $(OBJECTS) $(XENV_LIBDIR) $(LIBS) $(OTHER_LIBS)
+
+$(BUILDDIR)/.gram.m: $(BUILDDIR)/gram.c $(MAKE_BUILDDIR)
+	$(C_DEP)
+
+$(BUILDDIR)/.lex.m: $(BUILDDIR)/lex.c $(MAKE_BUILDDIR)
+	$(C_DEP)
+
+$(BUILDDIR)/gram.o: $(BUILDDIR)/gram.c $(MAKE_BUILDDIR)
+	$(C_BUILD) 
+
+$(BUILDDIR)/lex.o: $(BUILDDIR)/lex.c $(BUILDDIR)/gram.c.h $(MAKE_BUILDDIR)
+	$(C_BUILD) 
+
+$(BUILDDIR)/gram.c $(BUILDDIR)/gram.c.h: gram.y $(MAKE_BUILDDIR)
+	(cd $(BUILDDIR); bison -v -d -y ../../gram.y)
+	(cd $(BUILDDIR); mv y.tab.c gram.c)
+	(cd $(BUILDDIR); mv y.tab.h gram.c.h)
+	#bison -v -d -o$@ gram.y
+
+$(BUILDDIR)/lex.c: lex.l $(BUILDDIR)/gram.c.h $(MAKE_BUILDDIR)
+	flex -d -o$@ lex.l
+
+install: all
+	$(INSTALL) -d $(EROS_ROOT)/host
+	$(INSTALL) -d $(EROS_ROOT)/host/bin
+	$(INSTALL) -d $(EROS_ROOT)/host/include
+	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/host/bin
+	$(INSTALL) -m 755 $(HEADERS) $(EROS_ROOT)/host/include
+
+-include $(BUILDDIR)/.*.m

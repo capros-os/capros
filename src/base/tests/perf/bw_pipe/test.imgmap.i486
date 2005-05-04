@@ -1,0 +1,74 @@
+/* -*- C -*- */
+/*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+arch i486
+
+/*********************************************
+ * PRIMORDIAL DOMAINS
+ *********************************************/
+
+#include <primebank.map>
+#include <pcc.map>
+#include <metacon.map>
+#include <pipe.map>
+
+
+/*
+ * null call domain test case.  Times how fast we can invoke the null
+ * key.
+ */
+arch i486;
+
+source.seg = program segment "source";
+
+source = new process;
+source.pc = symbol "source" _start;
+source.seg = source.seg with page at 0x40000;  /* for stack */
+source sp = 0x41000;
+source space = source.seg
+source schedule = sched(8);	/* normal */
+
+source key reg 9 = misc Sleep;
+source key reg 10 = misc Console;
+source key reg 11 = misc SysTrace;
+source key reg 12 = pipec;
+source key reg 13 = primebank;
+source key reg 14 = sched(8);
+
+
+sink.seg = program segment "sink";
+
+sink = new process;
+sink.pc = symbol "sink" _start;
+sink.seg = sink.seg with page at 0x40000;  /* for stack */
+sink sp = 0x41000;
+sink space = sink.seg
+sink schedule = sched(8);	/* normal */
+
+sink key reg 9 = misc Sleep;
+sink key reg 10 = misc Console;
+sink key reg 11 = misc SysTrace;
+
+source key reg 15 = start sink 1;
+
+run source;
+run sink;
+

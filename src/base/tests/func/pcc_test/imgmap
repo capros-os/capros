@@ -1,0 +1,62 @@
+/* -*- C -*- */
+/*
+ * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
+
+/*
+ * spacebank
+ */
+
+
+#define DEBUG_DCC
+
+#include <primebank.map>
+#include <pcc.map>
+
+/*
+ * Pcc test domain
+ */
+pcc_test_constit = new node;
+
+pcc_test_constit[0] = misc Console;
+pcc_test_constit[1] = misc ProcessTool;
+pcc_test_constit[2] = misc KeyBits;
+pcc_test_constit[3] = start pcc 65535;		/* pcc brand */
+pcc_test_constit[4] = pcc;		/* pcc start */
+
+pcc_test = new process;
+
+/* pcc_test sp = 0x10000; sp set by __rt_stack_pointer */
+pcc_test pc = symbol "pcc_test" _start;
+pcc_test space = small program "pcc_test";
+pcc_test schedule = sched(8);   /* normal */
+
+pcc_test key reg 1 = pcc_test_constit;
+pcc_test key reg 2 = pcc_test;
+pcc_test key reg 4 = primebank;
+pcc_test key reg 5 = sched(8);   /* normal */
+
+pcc_test key reg 7 = misc KeyBits;
+pcc_test key reg 8 = start pcc 65535;
+pcc_test key reg 9 = misc Console;
+pcc_test key reg 10 = start pcc 0;
+
+run pcc_test;
+
