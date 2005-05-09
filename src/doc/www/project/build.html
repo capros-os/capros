@@ -1,9 +1,9 @@
 <!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0 Level 1//EN">
 <HTML>
   <HEAD>
-    <TITLE>Getting and Building EROS</TITLE>
+    <TITLE>Getting and Building CapROS</TITLE>
   </HEAD>
-  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+  <BODY BGCOLOR="#fff4ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
     <table>
       <tr valign="top">
 	<td width="10%">&nbsp;</td>
@@ -13,174 +13,87 @@
 	      <br class=nocss>&nbsp;
 	  </div>
 	  <center>
-	    <H1>Getting and Building EROS</H1>
+	    <H1>Getting and Building CapROS</H1>
 	  </center>
+	  <h1>1. Obtaining CapROS</h1>
 	  <p>
-	    <IMG src="../img/small-new.gif" align="left"> The EROS
-	    project has switched over to the <a
-	    href="http://www.opencm.org">OpenCM</a> configuration
-	    management system. The following instructions have been
-	    updated to tell you how to use OpenCM to download the EROS
-	    system.
+	    If you just want to have a
+	    look at the code, you can simply go to the 
+	    <a href="http://sourceforge.net/projects/capros/">
+	    Project page</a>
+            and click on "Browse CVS".
+            SourceForge also has instructions for getting
+            anonymous access to CVS. 
 	  </p>
+	  <h1>2. Building CapROS</h1>
 	  <p>
-	    If you just want to download the sources and have a
-	    look. You can simply download tarballs for the <a
-	    href="http://www.eros-os.org/eros-xenv-src.tgz">cross
-	    environment</a> and the <a
-	    href="http://www.eros-os.org/eros-src.tgz">base system</a>.
+            This has been tested on the Fedora Core 2 version of Linux.
+            You may need to obtain and install the xfig and transfig
+            packages, if you don't already have them. 
+            I found them
+            <a href="ftp://epb.lbl.gov/xfig/alpha">here</a>.
 	  </p>
-	  <h1>1. Obtaining EROS</h1>
+	  <h2>2.1. Building the Cross Compilation Tools</h2>
 	  <p>
-	    To download a copy of EROS, you need access to the OpenCM
-	    repository on eros-os.org. The first thing to do is to
-	    download OpenCM from the <a
-	    href="http://www.opencm.org">OpenCM</a> website and
-	    install it on your machine. Be aware that OpenCM is still
-	    a ``work in progress.'' We haven't seen serious bugs in it
-	    in quite a while, but we still anticipate one or two
-	    backwards-incompatible updates in the wire protocol. The
-	    good news is that the OpenCM binary is smart enough to
-	    tell you when this has occurred.
-	  </p>
-	  <p>
-	    Unless you are an active EROS developer, you will need a
-	    copy of the anonymous access keys for our
-	    repository. These can be downloaded from <a
-	    href="eros-anon.key">eros-anon.key</a> and <a
-	    href="eros-anon.pem">eros-anon.pem</a>.  The files
-	    <tt>eros-anon.pem</tt> and <tt>eros-anon.key</tt> should
-	    be stored in <tt>$HOME/.opencm/users/</tt>. The anonymous
-	    access keys require no pass phrases.
-	  </p>
-	  <p>
-	    Once you have OpenCM installed and the keys copied, you
-	    can check out the EROS code. We recommend that you use a
-	    common containing directory for all of this. I (shap)
-	    personally use <tt>~/WORK/</tt> as my common working
-	    directory for source code projects.
+            CapROS uses its own Gnu-based cross-compilation tools 
+            for stability.
+            Go to the 
+	    <a href="http://sourceforge.net/projects/capros/">
+	    Project page</a>
+            and under "Latest File Releases", click on the download link for
+            the "capros-xenv" package. This will get you a .tgz file with the
+            cross-compilation tools needed to build CapROS. To build the tools:
 	  </p>
 	  <ul>
 <pre>
-cd ~/WORK
-export OPENCM_REPOSITORY=opencm://www.eros-os.org
-cm -u eros-anon -C eros-xenv checkout PUBLIC/EROS/DEV/eros-xenv
-cm -u eros-anon -C eros checkout PUBLIC/EROS/DEV/eros
-cm -u eros-anon -C eros/src/tutorials checkout PUBLIC/EROS/DEV/tutorials
+cd somewhere
+zcat capros-xenv-src-1.tgz | tar -xv
+cd eros-xenv-src
+make
 </pre>
 	  </ul>
 	  <p>
-	    The ``<b>-C</b>'' is important! Without it files will get
-	    checked out into your current directory. Unlike CVS,
-	    OpenCM keeps its metadata <em>above</em> your working tree
-	    - there is generally no per-directory information. We are
-	    planning to make checkout more convenient by introducing a
-	    notion of OpenCM ``packages,'' but that hasn't happened
-	    yet.
-	  </p>
-	  <h1>2. Building EROS</h1>
-	  <h2>2.1. Building the Cross Compilation Tools</h2>
-	  <p>
-	    Now <b>cd</b> into <tt>WORK/eros-xenv</tt>, and type
-	    <b>make</b>. Follow the instructions you are given.
+            and follow the instructions.
 	  </p>
 	  <p>
 	    If you have a number of people at your site who are all
-	    building EROS, you may wish to place the cross compilers
+	    building CapROS, you may wish to place the cross compilers
 	    in a commonly shared directory. This can be done by
 	    setting the environment variable <tt>EROS_XENV</tt> to the
 	    directory name <em>before</em> building the cross
 	    compilers.
-	    In our environment,
-	    we set <tt>EROS_XENV</tt> to <b>/user/eros-xenv</b>, because
-	    <tt>/user</tt> is cross mounted by all of the lab
-	    machines. If you do not override it, the default value for
-	    <tt>EROS_XENV</tt> will be <tt>$HOME/eros-xenv</tt>.
 	  </p>
 	  <p>
 	    Once the <b>make</b> command has completed, you are done
 	    with the cross compiler source code, and you can delete
-	    the <tt>eros-xenv-src</tt> directory. Note that if there
-	    are changes to the cross environment you will likely need
-	    to refetch the whole thing anyway, so there is no point to
-	    retaining these files unless you are installing on
-	    multiple machines.
+	    the <tt>eros-xenv-src</tt> directory. Note that 
+            the cross compiler tools are not currently in the CVS
+            repository, as we don't anticipate needing to change them.
+	  </p>
+	  <h2>2.2. Building CapROS</h2>
+	  <p>
+            Follow the instructions on SourceForge for accessing 
+            and downloading the CapROS CVS repository.
 	  </p>
 	  <p>
-	    Whenever you rebuild the cross-environment, it
-	    is very important to build it from scratch with the
-	    correct file timestamps. The correct sequence of commands
-	    to rebuild the cross environment is:
+	    Now you can build CapROS by
 	  </p>
 	  <ul>
 <pre>
-cd WORK/eros-xenv
-make clean
-
-# Fetch any updates:
-
-cm update
-
-# Fix the timestamps with:
-
-cm revert
-
-# Delete the install directory (VERY important).
-# This might possibly live in some other place
-# depending on how you built it.
-
-rm -rf $HOME/eros-xenv
-
-# Finally, remake the cross environment:
-
-make xenv
+cd somewhere/eros/src
+make
 </pre>
-	  </ul>
-	  <p>
-	    You need to delete the output directory because various
-	    stages of the build use previous stages by adding the
-	    output directory to the PATH used in later
-	    phases. Unfortunately, a 'gcc' command is installed in the
-	    output directory, which can lead to various kinds of
-	    confusion.
-	  </p>
-	  <h2>2.2. Building</h2>
-	  <p>
-	    Now that you have the cross environment compiled, you can
-	    rebuild the EROS sources by
-	  </p>
-	  <ul>
-<pre>
-cd ~/WORK/eros/src
-make install
-</pre>
-	  </ul>
-	  <h2>2.3. Keeping Up To Date</h2>
-	  <p>
-	    Once you have it, the EROS tree can be updated by changing
-	    to the <tt>eros/src</tt> directory and typing:
-	  </p>
-	  <ul>
-	      <b>make update</b>
-	  </ul>
-	  <p>
-	    <em>This is presently broken, but will be repaired soon.</em>
-	  </p>
-	  <p>
-	    Once <b>make update</b> becomes old hat, you may find that
-	    you prefer
-	  </p>
-	  <ul>
-	      <b>make quiet-update</b>
 	  </ul>
 	  <h1>3. Run-Time Requirements</h1>
 	  <p>
-	    In order to run this puppy, you'll need the
-	    following:
+	    The current status is that CapROS does not run on the hardware
+            I have for testing. It has run on Vmware but I haven't tested that.
+            The following notes give an idea of what we expect
+            will be needed.
 	  </p>
 	  <h2>3.1 Disk Space</h2>
 	  <p>
-	    The research release <em>can</em> run in as little as 20
+	    CapROS <em>can</em> run in as little as 20
 	    Mbytes.  Doing anything interesting with it will certainly
 	    require more.  At the moment we are suggesting a 100 Mbyte
 	    partition if you just want to fiddle with it, or a 250
@@ -192,16 +105,16 @@ make install
 	    <tt>fdisk</tt> equivalent to create a partition, and give it
 	    type 0x95.
 	  </p>
-	  To boot from the hard disk, the EROS partition
+	  To boot from the hard disk, the CapROS partition
 	  must fall within the bootable range of your machine.  It is
-	  also possible (even straightforward) to boot EROS from a
+	  also possible (even straightforward) to boot CapROS from a
 	  floppy, which allows non-bootable partitions to be used.
 	  The kernel theoretically groks extended partitions, but we
 	  have never tested this.
 	</p>
 	  <h2>3.2 Hardware</h2>
 	  <p>
-	    The research release will support the following hardware (all
+	    CapROS will support the following hardware (all
 	    trademarks belong to their respective owners):
 	  </p>
 	  <table>
@@ -212,7 +125,7 @@ make install
 		no way to test them and they are not a priority for us. If you
 		have them, we would be glad to hear what luck you have.  Up to
 		a point, we'll try to help get them working.
-		<p> EROS runs on all of the multiprocessor boards we have
+		<p> CapROS runs on all of the multiprocessor boards we have
 		  tried, but the first research release will not provide SMP
 		  support.
 	      </td>
@@ -233,7 +146,7 @@ make install
 	    </tr>
 	    <tr valign="top">
 	      <td><strong>Memory</strong></td>
-	      <td>We have run EROS successfully (albeit unintentionally) on a
+	      <td>We have run CapROS successfully (albeit unintentionally) on a
 		machine with only 640K of memory.  This is not a recommended
 		configuration.  8M should be fine for now, but 16M is better.
 	      </td>
@@ -272,22 +185,6 @@ make install
 	      </td>
 	    </tr>
 	  </table>
-	  <h2>3.3. Software</h2> 
-	  <p> 
-	    EROS does not yet have a
-	    self-hosted development environment.  We are actively
-	    working on bringing up a POSIX-compatible environment, but
-	    do not expect that this will make it into the first release.
-	    The irony is that we may get Java development support in
-	    first (!).
-	  </p>
-	  <p> 
-	    The EROS group currently cross-develops from LINUX.  We run RedHat
-	    7.0 (cutting over to 7.1 shortly), but any ELF-based LINUX system
-	    should do.  Building the EROS system requires G++ 2.7.2 or
-	    later.  Because EGCS has broken for years, we use cross
-	    compilers rather than reusing the native Linux compiler.
-	  </p>
 	</td>
 	<td width="10%">&nbsp;</td>
       </tr>
