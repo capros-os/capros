@@ -56,6 +56,7 @@ OTHER_DOCS= \
 	$(GENERATED)
 
 DIRS=DependencyMgmt EtherLink
+CLEANLIST=$(GENERATED)
 
 include $(EROS_SRC)/build/make/makerules.mk
 

@@ -24,6 +24,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 FIGS= $(notdir $(wildcard ./*.fig))
 GENERATED= $(FIGS:.fig=.gif)
+CLEANLIST=$(GENERATED)
 
 DOCS= \
 	NameSpaces.html \

@@ -56,6 +56,7 @@ HEADERS=\
 IDLSRC=$(wildcard *.idl)
 
 GENERATED=StdKeyType.h
+CLEANLIST=$(GENERATED)
 
 include $(EROS_SRC)/build/make/makerules.mk
 

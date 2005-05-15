@@ -32,6 +32,7 @@ CLEANLIST=idl.c idl.h idl.output idl.c.h idl.c.output
 CLEANLIST+= lex.c y.tab.c
 CLEANLIST+= prescan.c
 CLEANLIST+= applib/*~
+CLEANLIST+= ../../bin/capidl # uninstall
 #OPTIM=-O
 OPTIM=-g
 

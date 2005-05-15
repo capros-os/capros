@@ -28,7 +28,7 @@ default: world
 DIRS=legal sys base doc tutorial
 DIRS+=uncompleted dionysix
 DIRS+=tcp-ip muir-ip muir-tcp
-CLEANDIRS=build $(DIRS) webpp
+CLEANDIRS=build $(DIRS)
 
 STALE_DIRS=xenv examples
 

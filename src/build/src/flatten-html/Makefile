@@ -24,7 +24,8 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/flatten-html
 OBJECTS=$(BUILDDIR)/flatten-html.o
-CLEANLIST=flatten-html.c
+CLEANLIST=flatten-html.c flatten-html
+CLEANLIST+=../../bin/flatten-html
 
 include $(EROS_SRC)/build/make/makerules.mk
 

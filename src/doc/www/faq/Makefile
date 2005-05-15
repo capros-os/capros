@@ -31,6 +31,7 @@ HTML_DOCS= \
 
 FIGURES= $(wildcard *.fig)
 GIFS= $(FIGURES:.fig=.gif)
+CLEANLIST=$(GIFS)
 
 OTHER_DOCS=
 

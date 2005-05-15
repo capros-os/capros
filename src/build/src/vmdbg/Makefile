@@ -24,6 +24,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/vmdbg
 OBJECTS=$(BUILDDIR)/vmdbg.o
+CLEANLIST=vmdbg ../../bin/vmdbg
 
 include $(EROS_SRC)/build/make/makerules.mk
 

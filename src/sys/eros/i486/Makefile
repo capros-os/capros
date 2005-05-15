@@ -40,7 +40,7 @@ LOCAL_HEADERS=\
 HEADERS=\
 	$(LOCAL_HEADERS) $(GENERATED)
 
-CLEANLIST += fixregs.h floatregs.h pseudoregs.h
+CLEANLIST += fixregs.h floatregs.h pseudoregs.h traceregs.h
 
 include $(EROS_SRC)/build/make/makerules.mk
 

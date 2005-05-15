@@ -27,6 +27,7 @@ DOCS= \
 
 FIGS= $(notdir $(wildcard ./*.fig))
 GENERATED= $(FIGS:.fig=.gif)
+CLEANLIST=$(GENERATED)
 
 include $(EROS_SRC)/build/make/makerules.mk
 

@@ -42,6 +42,8 @@ OTHER= \
 
 include $(EROS_SRC)/build/make/makerules.mk
 
+CLEANLIST=UseCases.html # generated from UseCases.xml
+
 all: $(DOCS)
 
 install: $(DOCS)
