@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -50,11 +51,6 @@ INC+=-I.
 OPTIM=-O
 
 all: $(TARGETS)
-
-clean: local-clean
-
-local-clean:
-	-rm -fr idl
 
 $(BUILDDIR)/%.o: $(BUILDDIR)/%.c
 	$(C_BUILD)

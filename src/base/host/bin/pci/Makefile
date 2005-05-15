@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -35,6 +36,8 @@ TARGETS= \
 	cklist \
 	eros-genhdr
 
+CLEANLIST=boemler.list.c bgenvendor bgendev
+
 depend install: # do nothing
 package all: $(TARGETS)
 
@@ -66,10 +69,6 @@ cklist: cklist.o eros.pci.o
 
 eros-genhdr: eros-genhdr.o eros.pci.o
 	gcc $(CFLAGS) -o eros-genhdr eros-genhdr.o eros.pci.o
-
-clean:
-	-rm -f *.o *~ boemler.list.c bgenvendor bgendev
-	-rm -f $(TARGETS)
 
 tags:
 generated:

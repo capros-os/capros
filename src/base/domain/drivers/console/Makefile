@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -52,11 +53,6 @@ consolestream.c: $(BUILDDIR)/constituents.h
 textconsole.c:$(BUILDDIR)/constituents.h
 keyclient.c:$(BUILDDIR)/constituents.h
 mouseclient.c:$(BUILDDIR)/constituents.h
-
-clean: local-clean
-
-local-clean:
-	-rm -rf idl
 
 stub-depend: $(IDL) $(MAKE_BUILDDIR)
 	$(CAPIDL) -D $(BUILDDIR) -l c-stubs -I $(EROS_ROOT)/idl $(IDL)

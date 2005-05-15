@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -35,7 +36,7 @@ ETAGDIRS+= arch/$(EROS_TARGET)/kernel
 ETAGDIRS+= arch/$(EROS_TARGET)/machine
 
 DIRS=eros arch/$(EROS_TARGET)
-CLEANDIRS=eros
+#CLEANDIRS=eros
 
 include $(EROS_SRC)/build/make/pkgrules.mk
 
@@ -44,5 +45,5 @@ include $(EROS_SRC)/build/make/pkgrules.mk
 # ones do.  Create the symlink here so we can do recursive depends.
 #
 
-clean:
+nonrecursiveClean:
 	find . -name '*~' -exec rm {} \;

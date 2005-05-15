@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -90,6 +91,18 @@ recurse:
 		fi; \
 	done
 
+.PHONY: recurseClean
+recurseClean:
+	@for i in $(CLEANDIRS); do \
+		if [ -d "$$i" ]; then\
+			$(MAKE) -C $$i $(MAKERULES) recurseClean $(RECURSE_TARGET) ; \
+			if [ $$? -ne 0 ]; then\
+				echo "*** RECURSIVE BUILD STOPS ***";\
+				exit 1;\
+			fi; \
+		fi; \
+	done
+
 .PHONY: install
 install: RECURSE_TARGET=install
 install: recurse
@@ -112,19 +125,24 @@ interfaces: recurse
 ### 	done
 ### endif
 
+# Target clean removes generated files in the current directory
+# and CLEANDIRS recursively. 
+# It also removes files in CLEANLIST.
+# Local Makefiles can add dependencies to nonrecursiveClean. 
+
 .PHONY: clean
 
 clean: nodepend
-
-clean: RECURSE_TARGET=clean
-clean: recurse
-clean: generic-clean
+clean: RECURSE_TARGET=nonrecursiveClean
+clean: recurseClean 
+nonrecursiveClean: generic-clean
 
 .PHONY: generic-clean
 generic-clean:
 	-rm -f *.o core *~ new.Makefile  ".#"*
 	-rm -f .*.m sysgen.map $(TARGETS) TAGS
 	-rm -f *.dvi *.blg *.aux *.log *.toc $(CLEANLIST)
+	-rm -rf idl
 ifneq "$(CLEAN_BUILDDIR)" ""
 	-rm -rf $(CLEAN_BUILDDIR)
 endif

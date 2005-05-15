@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -89,9 +90,9 @@ LIBS=-lwrapper -laddrspace -lethread
 
 all: $(TARGETS)
 
-clean: local-clean
+nonrecursiveClean: local-clean
 local-clean:
-	-rm -fr idl *~ netif/*~ include/*~
+	-rm -fr *~ netif/*~ include/*~
 
 interfaces: $(IDL)
 	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain

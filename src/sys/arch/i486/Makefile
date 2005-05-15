@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -50,5 +51,5 @@ CLEANDIRS=$(COMMON_DIRS) mikeboot
 include $(EROS_SRC)/build/make/makerules.mk
 
 # The following works because the recursion step happens first.
-clean:
+nonrecursiveClean:
 	-rm -rf build BUILD

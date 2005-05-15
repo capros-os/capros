@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2003, The EROS Group, LLC.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -192,7 +193,7 @@ build/stamp.build-dir:
 
 newlib: build/stamp.newlib
 
-clean: clean-build
+nonrecursiveClean: clean-build
 
 clean-build:
 	if [ -d build ]; then rm -rf build; fi
