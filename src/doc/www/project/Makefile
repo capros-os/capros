@@ -36,10 +36,6 @@ DOCS= \
 	team.html \
 	UseCases.html
 
-OTHER= \
-	eros-anon.key \
-	eros-anon.pem
-
 include $(EROS_SRC)/build/make/makerules.mk
 
 CLEANLIST=UseCases.html # generated from UseCases.xml
@@ -51,6 +47,5 @@ install: $(DOCS)
 	$(INSTALL) -d $(EROS_ROOT)/doc/www
 	$(INSTALL) -d $(EROS_ROOT)/doc/www/project
 	$(INSTALL) -h -m 0644 $(DOCS) $(EROS_ROOT)/doc/www/project
-	$(INSTALL) -m 0644 $(OTHER) $(EROS_ROOT)/doc/www/project
 
 -include DEPEND

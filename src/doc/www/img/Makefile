@@ -25,8 +25,6 @@ include $(EROS_SRC)/build/make/makevars.mk
 DOCS= \
 	caution.gif \
 	construction.gif \
-	cupid1.gif \
-	cupid3.gif \
 	eniac-s.gif \
 	colin.jpg \
 	jms.jpg \

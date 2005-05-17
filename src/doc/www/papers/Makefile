@@ -23,7 +23,7 @@ EROS_SRC=../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 XML_DOCS=$(wildcard *.xml)
-HTML_DOCS=$(XMLDOCS:.xml=.html)
+HTML_DOCS=$(XML_DOCS:.xml=.html)
 OTHER_DOCS=$(wildcard *.ps) $(wildcard *.pdf)
 
 include $(EROS_SRC)/build/make/makerules.mk

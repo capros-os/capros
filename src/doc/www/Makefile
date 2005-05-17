@@ -24,7 +24,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 DOCS=eros.html
 
-DIRS=project assurance img design-notes dionysix devel papers essays legal faq CSS plan
+DIRS=project assurance img design-notes dionysix devel essays legal faq CSS plan
 
 include $(EROS_SRC)/build/make/makerules.mk
 
