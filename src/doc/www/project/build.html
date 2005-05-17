@@ -26,14 +26,27 @@
             anonymous access to CVS. 
 	  </p>
 	  <h1>2. Building CapROS</h1>
+          <h2>2.1. Package Requirements</h2>
 	  <p>
-            This has been tested on the Fedora Core 2 version of Linux.
-            You may need to obtain and install the xfig and transfig
-            packages, if you don't already have them. 
-            I found them
+            CapROS is built using Linux. If your system doesn't have the
+            following packages, you may need to obtain and install them. 
+          </p>
+          <h3>2.1.1. For Fedora Core 2</h3>
+            <ul>
+            <li>xfig
+            <li>transfig
+            </ul>
+            <p>
+            I found the xfig and transfig packages
             <a href="ftp://epb.lbl.gov/xfig/alpha">here</a>.
 	  </p>
-	  <h2>2.1. Building the Cross Compilation Tools</h2>
+          <h3>2.1.2. For Debian Sarge</h3>
+            <ul>
+            <li>libgmp3-dev -- Multiprecision arithmetic library</li>
+            <li>binutils-dev -- for libbfd</li>
+            <li>gawk</li>
+            </ul>
+	  <h2>2.2. Building the Cross Compilation Tools</h2>
 	  <p>
             CapROS uses its own Gnu-based cross-compilation tools 
             for stability.
@@ -70,7 +83,7 @@ make
             the cross compiler tools are not currently in the CVS
             repository, as we don't anticipate needing to change them.
 	  </p>
-	  <h2>2.2. Building CapROS</h2>
+	  <h2>2.3. Building CapROS</h2>
 	  <p>
             Follow the instructions on SourceForge for accessing 
             and downloading the CapROS CVS repository.
@@ -89,6 +102,15 @@ cd somewhere/eros/src
 make
 </pre>
 	  </ul>
+          <p>
+          Some make targets that may be useful:
+          </p>
+          <p>
+          clean - remove all generated files
+          </p>
+          <p>
+          distclean - clean, and also remove install directories under eros/
+          </p>
 	  <h1>3. Run-Time Requirements</h1>
 	  <p>
 	    The current status is that CapROS does not run on the hardware
