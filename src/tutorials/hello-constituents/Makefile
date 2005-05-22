@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -26,14 +27,14 @@ CROSS_BUILD=yes
 EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-GENERATED=$(BUILDDIR)/constituents.h
+#GENERATED=$(BUILDDIR)/constituents.h
 TARGETS=$(BUILDDIR)/hello
 OBJECTS=$(BUILDDIR)/hello.o
 
 include $(EROS_SRC)/build/make/makerules.mk
 include ../tutorial.mk
 
-install all: $(TARGETS)
+#install all: $(TARGETS)
 
 hello.c: $(BUILDDIR)/constituents.h
 
