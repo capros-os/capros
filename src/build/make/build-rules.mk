@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -149,12 +150,16 @@ endif
 # The following hack fixes up directory dependencies, and ALSO ensures
 # that the .m files will be rebuilt when appropriate:
 #DEPEND: $(patsubst %.o,$(BUILDDIR)/%.m,$(OBJECTS)) 
+# For all .o files in $(OBJECTS), the corresponding $(BUILDDIR)/.*.m file
+# is a prerequisite to DEPEND.
 DEPEND: $(addprefix $(BUILDDIR)/,$(patsubst %.o,.%.m,$(notdir $(OBJECTS))))
 DEPEND: $(addprefix $(BUILDDIR)/,$(patsubst %.xml,.%.xml.m,$(wildcard *.xml)))
 
 # When we are building, we need to generate dependencies
 install: DEPEND
 
+# Imagemap files may have lines defining constructor constituents.
+# This makes a C header file defining the constituent slot numbers.
 $(BUILDDIR)/constituents.h: $(IMGMAP) $(MAKE_BUILDDIR)
 	@grep 'CONSTIT(' $(IMGMAP) | \
 		grep -v '#define' | \
@@ -162,6 +167,6 @@ $(BUILDDIR)/constituents.h: $(IMGMAP) $(MAKE_BUILDDIR)
 		sed 's/^[^,]*, */#define /' | \
 		sed 's/)[^)]*$$//' | \
 		sed 's/,/ /' > $@
-	echo "Making $@"
+	@echo "Making $@"
 
 BUILDRULES_LOADED=1
