@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -27,6 +28,10 @@ ifndef VOLMAP
 VOLMAP=../volmap
 endif
 
+ifndef VOLMAPFD  # volmap for floppy disk
+VOLMAPFD=../volmapfd
+endif
+
 OPTIM=-O
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 MAPINC=-I$(EROS_ROOT)/domain -I$(EROS_ROOT)/include
@@ -47,7 +52,7 @@ MKIMAGEDEP=$(EROS_ROOT)/src/build/bin/mkimagedep
 DDBS=1440k
 SETVOL_FLAGS += -z
 
-install all: $(TARGETS) $(BUILDDIR)/sysimg
+install: $(TARGETS) $(BUILDDIR)/sysimg
 
 $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
 	$(EROS_ROOT)/host/bin/mkimage -a $(EROS_TARGET) -DBUILDDIR='\"$(BUILDDIR)/\"' -o $(BUILDDIR)/sysimg $(MAPINC) $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
@@ -64,17 +69,22 @@ $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(KERNDEP) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/sysvol $(BUILDDIR)/sysimg
 
-tstflop: all $(BUILDDIR)/sysvol
-	dd if=$(BUILDDIR)/sysvol of=$(EROS_FD) bs=$(DDBS)
+$(BUILDDIR)/sysvolfd: $(BUILDDIR)/sysimg $(KERNDEP) $(VOLMAPFD)
+	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAPFD) $(BUILDDIR)/sysvolfd
+	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/sysvolfd $(BUILDDIR)/sysimg
+
+tstflop: install $(BUILDDIR)/sysvolfd
+	dd if=$(BUILDDIR)/sysvolfd of=$(EROS_FD) bs=$(DDBS)
 	$(EROS_ROOT)/host/bin/setboot -w $(EROS_FD)
 	sync
 	sleep 5
 
+# zsysvol and ztstflop are for ramdisk load.
 $(BUILDDIR)/zsysvol: $(BUILDDIR)/sysvol
 	cp $(BUILDDIR)/sysvol $(BUILDDIR)/zsysvol
 	$(EROS_ROOT)/host/bin/setvol -r $(SETVOL_FLAGS) $(BUILDDIR)/zsysvol
 
-ztstflop: all $(BUILDDIR)/zsysvol
+ztstflop: install $(BUILDDIR)/zsysvol
 	dd if=$(BUILDDIR)/zsysvol of=$(EROS_FD) bs=$(DDBS)
 	$(EROS_ROOT)/host/bin/setboot -w $(EROS_FD)
 	sync
