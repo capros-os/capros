@@ -22,7 +22,7 @@ default: package
 EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-DOCS=eros.html
+DOCS=capros.html
 
 DIRS=project assurance img design-notes dionysix devel essays legal faq CSS plan
 
@@ -35,8 +35,8 @@ local-install:
 	$(INSTALL) -d $(EROS_ROOT)/doc/www
 	$(INSTALL) -h -m 0644 $(DOCS) $(EROS_ROOT)/doc/www
 	@if [ ! -e $(EROS_ROOT)/doc/www/index.html ]; then\
-		echo "(cd $(EROS_ROOT)/doc/www;ln -s eros.html index.html)";\
-		(cd $(EROS_ROOT)/doc/www;ln -s eros.html index.html);\
+		echo "(cd $(EROS_ROOT)/doc/www;ln -s capros.html index.html)";\
+		(cd $(EROS_ROOT)/doc/www;ln -s capros.html index.html);\
 	fi
 
 # This target updates the public www tree, and should only be run by shap.
