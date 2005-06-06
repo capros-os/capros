@@ -1,10 +1,9 @@
 <html>
 <head>
-  <TITLE>ECG: Crafting a System Image</TITLE>
+  <TITLE>Crafting a CapROS System Image</TITLE>
 </head>
-<BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
 <div class=nocss>
-  <br class=nocss>&nbsp;
   <br class=nocss>&nbsp;
 </div>
 <table>
@@ -12,11 +11,9 @@
     <td width="10%" valign=top class=toc>
       <b>UP</b>
       <br>&nbsp;
-      <br><a href="../../eros.html"><em>EROS Web</em></a> 
+      <br><a href="../../capros.html"><em>CapROS home</em></a> 
       <br>&nbsp;
-      <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
-      <br>&nbsp;
-      <br><a href="Cover.html"><em>Cross Development
+      <br><a href="Cover.html"><em>Kernel Development
       Guide</em></a> 
     </td>
     <td width=5%>&nbsp;</td>
@@ -28,30 +25,30 @@
 	</div>
       </center>
       <P> This document describes the programs used to generate an initial
-      bootable EROS environment.  It provides a brief description of
+      bootable CapROS environment.  It provides a brief description of
       the cross environment and system generation tools.
       <H1>1. Overview</H1>
       <P>
       Creating a bootable system image entails the following steps:
       <OL>
-	<LI> Creating, using a set of cross compilation tools, an EROS kernel
+	<LI> Creating, using a set of cross compilation tools, an CapROS kernel
 	     image and boot sector(s) for the target architecture.
 	<LI> Creating, using a set of cross compilation tools, the domains
 	     required during the initial system load (ISL).
-	<LI> Producing from these domains a single <em>eros image file</em>
+	<LI> Producing from these domains a single <em>CapROS image file</em>
 	     describing the relationships between the domains and all of the
 	     keys they hold.
 	     (<STRONG>mkimage</STRONG>).
 	<LI> Formatting a volume to include a boot sector, a kernel image
-	     and suitably prepared EROS divisions, including performing any
+	     and suitably prepared CapROS divisions, including performing any
 	     necessary bad sector detection and remapping
 	     (<STRONG>mkvol</STRONG>).
-	<LI> Mapping the master eros image file onto the nodes and pages
+	<LI> Mapping the master CapROS image file onto the nodes and pages
 	     that are actually available on a given volume
 	     (<STRONG>sysgen</STRONG>).
       </OL>
       <p> <strong>mkimage</strong> provides the necessary mechanisms to
-      convert UNIX a.out files into EROS segments, set the values of domain
+      convert UNIX a.out files into CapROS segments, set the values of domain
       and node registers, and generally wire up a family of collaborating
       domains.  
       <p> <strong>mkvol</strong> creates an initial volume image, including
@@ -60,27 +57,27 @@
       <strong>mkvol</strong> are initially empty.
       <p> The <strong>sysgen</strong> utility populates a volume created by
       <strong>mkvol</strong> with nodes and pages by loading one or more
-      EROS image files into the volume.  The EROS image files contain
+      CapROS image files into the volume.  The EROS image files contain
       relocatable node and page keys; the <strong>sysgen</strong> utility
       assigns final locations to these nodes and pages. <em>This is about to
       change - the ErosImage files will no longer hold relocatable page and
       node keys.  All system initialization nodes/pages will be numbered
       from oid 0.</em>
-      <P> This document describes the EROS volume structure and boot
+      <P> This document describes the CapROS volume structure and boot
       process, and the use of the <strong>mkimage</strong>,
       <strong>mkvol</strong>, and <strong>sysgen</strong> tools.
 
-      <h1>EROS Volume Structure</h1>
-      <P> An EROS volume is a logical disk.  On an EROS-formatted floppy,
+      <h1>CapROS Volume Structure</h1>
+      <P> An CapROS volume is a logical disk.  On an EROS-formatted floppy,
       the volume spans the entire disk.  On hard disks things are a bit more
       complicated.  Typically, the system firmware is designed to allow
       multiple independent operating systems to be loaded onto a single
       disk.  The disk is divided into non-overlapping regions, typically
       called <STRONG>partitions</STRONG>, and each operating system acts for
-      the most part as if its partition was a single disk.  EROS is no
+      the most part as if its partition was a single disk.  CapROS is no
       different; it views its partition as a single volume, and largely
       ignores the rest of the disk.
-      <P> Every EROS volume has up to 64 non-overlapping areas.  To avoid
+      <P> Every CapROS volume has up to 64 non-overlapping areas.  To avoid
       collision with firmware terminology, we use the term
       <STRONG>division</STRONG>.  Divisions come in several types:
       <ul>
@@ -138,7 +135,7 @@
 	      Object
 	    </td>
 	    <td>
-	      Holds EROS Pages and Nodes.
+	      Holds CapROS Pages and Nodes.
 	    </td>
 	  </tr>
 	</table>
@@ -146,13 +143,13 @@
       <P> Every volume has exactly one boot division at sector 0.  Every
       volume has <EM>at most one</EM> kernel division.
       <P> Every disk technology that we know about reserves sector 0 of a
-      partition as the "boot sector."  The EROS boot sector is defined by the
+      partition as the "boot sector."  The CapROS boot sector is defined by the
       VolHdr structure. It contains the following, among other things:
       <ul>
         <li>A unique system identifier (iplSysId). All the volumes
-        in a single EROS system
+        in a single CapROS system
         will have the same system identifier.
-        If the computer has volumes for more than one independent EROS system,
+        If the computer has volumes for more than one independent CapROS system,
         the iplSysId distinguishes them. Only volumes matching the iplSysId
         of the booted volume will be mounted.
         <li>The location of the primary (and optional secondary) division
@@ -163,8 +160,8 @@
       If the division is an Object or Log division, the division table
       also contains the starting OID or SwapLoc of the division.
 
-      <h1>2. Mkimage: Constructing EROS Images</h1>
-      <p> An EROS image file consists of sequentially numbered nodes and
+      <h1>2. Mkimage: Constructing CapROS Images</h1>
+      <p> An CapROS image file consists of sequentially numbered nodes and
       pages, and is constructed using the <strong>mkimage</strong> utility.
       <strong>mkimage</strong> provides the facilities to turn UNIX a.out
       files into domains, and to establish the initial contents of nodes and
@@ -173,7 +170,7 @@
       each having object identifiers starting at 0.  Node and page object
       identifiers are in independent name spaces, so there is no confusion
       of numbering.
-      <p> Every EROS image file has at least one node, whose contents are
+      <p> Every CapROS image file has at least one node, whose contents are
       used by the space bank.  The first key of this node is a number key
       giving the object identifier of the highest allocated (equivalently:
       first available) node.  The second key similarly gives the object
@@ -184,20 +181,20 @@
       gone to nodes and pages in the boot image.
       <h2>2.1. The Image Specification Language</h2>
       <p> <font color=red>This section needs to be rewritten</font>.
-      <p> <strong>mkimage</strong> produces an eros image file based on the
+      <p> <strong>mkimage</strong> produces an CapROS image file based on the
       instructions provided in a <em>description</em> file.
-      Statements in the description file either import an existing eros
+      Statements in the description file either import an existing CapROS
       image into the current image, declare new objects or modify existing
       objects.
       </p>
-      <H1>3. Mkvol: Building an EROS Volume</H1>
+      <H1>3. Mkvol: Building an CapROS Volume</H1>
       <H2>3.1 Formatting and Spare Sectors</H2> 
       <P> <em>How much of this is still true?</em>
       <P> Volume formatting is performed by the <STRONG>mkvol</STRONG>
       utility.  The <STRONG>mkvol</STRONG> program formats a raw volume for
-      use as an EROS volume.  It takes as input a volume map file that
+      use as an CapROS volume.  It takes as input a volume map file that
       describes how the disk should be formatted and the name of the volume
-      file (on UNIX, the <EM>raw</EM> file corresponding to the EROS
+      file (on UNIX, the <EM>raw</EM> file corresponding to the CapROS
       parition), and an optional disk descriptor type.  Currently valid
       descriptor types are <STRONG>fd144</STRONG> and <STRONG>fd</STRONG>.
       Descriptor types are used to describe the desired layout of the target
@@ -209,7 +206,7 @@
       support sector remapping).
       <P> Some disk subsystems (SCSI, some IDE) provide automatic sector
       remapping.  On these subsystems, no <STRONG>spare</STRONG> division is
-      required, and the EROS kernel relies on the underlying hardware to
+      required, and the CapROS kernel relies on the underlying hardware to
       provide remapping services.  On disk subsystems that require
       OS-implemented remapping, the <STRONG>spare</STRONG> division will be
       used, if present, as a pool of spare sectors.  <EM>The spare division
@@ -222,7 +219,7 @@
       table, and directly follows the division table entries.  This allows a
       disk to have up to 384 bad sectors.  Beyond that number, we think it's
       probably time to replace the disk.
-      <P> As an EROS volume is formatted, a list of bad sectors is
+      <P> As an CapROS volume is formatted, a list of bad sectors is
       accumulated by the formatting program.  Bad sectors that are found in
       Object or Log divisions are added to the BadMap.  Bad sectors
       that are found in other types of divisions cause formatting to fail.
@@ -240,16 +237,16 @@
       <a href="mkvol-ref.html">mkvol reference</a>.
       
       <H1>3. Sysgen: Mapping Eros Images Onto Volumes</H1>
-      <p> Once an EROS system image has been constructed and a volume has
+      <p> Once an CapROS system image has been constructed and a volume has
       been formatted, mapping one onto the other is fairly straightforward.
-      Pages from the EROS image are copied to the actual volume starting
+      Pages from the CapROS image are copied to the actual volume starting
       with the first page division, and nodes are copied starting with the
       first node division.
       <p> As a matter of practical simplicity, the sysgen utility assumes
       that only zero pages will need to be relocated.  When the time comes
       to actually write such pages to the volume, final OID's are assigned
       to these pages and the necessary keys are relocated.  All other
-      objects are assumed to end up at the OID's assigned in the eros image
+      objects are assumed to end up at the OID's assigned in the CapROS image
       volume, which precludes the need for any relocation.
       <p> A more sophisticated design would enable range placement, but I
       haven't the energy to build it at this time.
@@ -261,8 +258,8 @@
       small machine-dependent boot sector from sector 0 of the boot volume.
       Usually, the boot sector must first load a larger bootstrap routine,
       which in turn examines the volume map and loads the kernel itself.  At
-      this point, the EROS kernel proceeds with it's own startup procedure.
-      <P> At a high level, the EROS kernel startup proceeds as follows:
+      this point, the CapROS kernel proceeds with it's own startup procedure.
+      <P> At a high level, the CapROS kernel startup proceeds as follows:
       <OL>
 	<LI> Perform the minimum required hardware initialization.
 	<LI> Determine the unique system identifier (iplSysId) of the 
@@ -280,8 +277,8 @@
       information, to the kernel in a structure called SysInfo.
       <H2> Mounting the Divisions</H2>
       <P> Having determined the unique system identifier, the kernel now
-      loads the master partition table of every disk, and searches for EROS
-      volumes.  For every EROS volume that it finds with a matching iplSysId,
+      loads the master partition table of every disk, and searches for CapROS
+      volumes.  For every CapROS volume that it finds with a matching iplSysId,
       , it loads the division
       table.  For every Object and Log division,
        the division is mounted and the pages and
@@ -293,15 +290,24 @@
       The processes named in the run list are swapped in and scheduled.
       <P> Once these processes have been started, the system is running
       normally, and bootstrap processing terminates.
-      <hr>
-      <em>Copyright 1998 by Jonathan Shapiro.
-      <br>Portions copyright 2000 by Charles Landau.
-      All rights reserved.  For terms of 
-      redistribution, see the 
-      <a href="../legal/license/GPL.html">GNU General Public License</a></em>
     </td>
     <td valign=top width=15%>&nbsp;</td>
   </tr>
+</table>
+      <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 1998 by Jonathan Shapiro,
+         >Portions copyright 2000 by Charles Landau.
+          Copyright 2005 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="../../legal/license/GPL.html">GNU General Public License</a></em>
+   </td>
+</tr>
 </table>
 </body>
 </html>
