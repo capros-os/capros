@@ -45,9 +45,10 @@
       <table>
 	<tr>
 	  <td valign=top><b>mkimage</b></td>
-	  <td valign=top>-o image [-d] [-v] [-nostdinc] [-nostddef] [-I
-	    directory] [-D<em>name</em>[=<em>definition</em>]]
-	    [-A<em>predicate[{value}]</em>] description_file
+	  <td valign=top>-a <em>architecture</em> -o <em>image</em> [-d] [-v] 
+            [-nostdinc] [-nostddef]
+            [-I <em>directory</em>] [-D <em>name</em>[=<em>definition</em>]]
+	    [-A <em>predicate[{value}]</em>] description_file
 	  </td>
 	</tr>
       </table>
@@ -61,12 +62,24 @@
       created.  The description_file is preprocessed using the
       C Preprocessor (<b>cpp</b>); in consequence, C-style comments
       are supported in the input description file.  Of the options
-      listed, only the <b>-v</b>, <b>-d</b>, <b>-nostddef</b>,
-      and <b>-o</b> options are
-      processed by <b>mkimage</b>.  All other options are passed
-      unmodified to <b>cpp</b>, and <b>description_file</b> is passed
-      as input to <b>cpp</b>.  The <b>mkimage</b> utility takes its
+      listed, <b>-I <em>directory</em></b>, <b>-D <em>name</em>[=<em>definition</em>]</b>,
+      and <b>-A <em>predicate[{value}]</em></b>
+      are simply passed to <b>cpp</b>.
+      The input to <b>cpp</b> is a preinclude file
+      followed by <b>description_file</b>.
+      The preinclude file is located at
+      EROS_ROOT/host/include/mkimage.preinclude
+      if the environment variable EROS_ROOT is defined,
+      otherwise HOME/eros/host/include/mkimage.preinclude.
+      The <b>mkimage</b> utility takes its
       commands from the output of <b>cpp</b>.
+      </p>
+      <p>
+      The <b>-a <em>architecture</em></b> option defines the
+      architecture in the same way as the <b>arch</b> statement (see below).
+      </p>
+      <p>
+      The <b>-o <em>image</em></b> option specifies the output file.
       </p>
       <p>
       The <b>-v</b> option ("verbose") prints the symbol table after
@@ -79,6 +92,10 @@
       The <b>-nostddef</b> option is passed to <b>cpp</b>.
       It would also disable the automatic definition of symbols
       by <b>mkimage</b>, if there were any.
+      </p>
+      <p>
+      The <b>-nostdinc</b> option disables the use of
+      standard includes by <b>cpp</b>.
       </p>
       <p>
       Statements in the description file are semicolon-terminated, and
