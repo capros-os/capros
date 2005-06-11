@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -51,7 +52,7 @@ $(BUILDDIR)/test.sysimg: $(TARGETS) $(IMGMAP)
 init.hd: $(KERNDEP) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
 
-test.hd: test.sysimg $(KERNDEP) $(VOLMAP)
+test.hd: $(BUILDDIR)/test.sysimg $(KERNDEP) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/setvol -b $(BOOT) -k $(KERNPATH) $(EROS_HD)
 	$(EROS_ROOT)/host/bin/setboot -w $(EROS_HD)
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(EROS_HD) $(BUILDDIR)/test.sysimg | tee $(BUILDDIR)/sysgen.out
@@ -84,7 +85,7 @@ vmware: $(BUILDDIR) $(BUILDDIR)/vmfloppy
 	$(VMWARE) -x -s floppy0.fileType=file -s floppy0.fileName=`pwd`/$(BUILDDIR)/vmfloppy $(HOME)/vmware/EROS/EROS.cfg
 
 # depend stuff
-DEPEND: $(BUILDDIR)/.test.sysimg.$(EROS_TARGET).m
+DEPEND: $(BUILDDIR)/.test.sysimg.m
 
 # Handles test.sysimg dependencies.  This line *must* have all of the 
 #arguments from the "test.sysimg:" line, above.

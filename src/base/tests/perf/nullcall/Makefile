@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -26,9 +27,9 @@ CROSS_BUILD=yes
 EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-TARGETS=call echo
+TARGETS=$(BUILDDIR)/call $(BUILDDIR)/echo
 OPTIM=-O
-OBJECTS=call.o echo.o
+OBJECTS=$(BUILDDIR)/call.o $(BUILDDIR)/echo.o
 CLEANLIST=test.sysimg test.sysvol
 INC=-I$(EROS_ROOT)/include
 MAPINC=-I$(EROS_ROOT)/domain
@@ -42,10 +43,10 @@ install all: $(TARGETS)
 
 include ../bench.mk
 
-call: call.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o call $(DOMCRT0) call.o $(DOMLIB)
+$(BUILDDIR)/call: $(BUILDDIR)/call.o $(DOMLIB) $(DOMCRT0)
+	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/call.o $(DOMLIB)
 
-echo: echo.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o echo $(DOMCRT0) echo.o $(DOMLIB)
+$(BUILDDIR)/echo: $(BUILDDIR)/echo.o $(DOMLIB) $(DOMCRT0)
+	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/echo.o $(DOMLIB)
 
--include .*.m
+-include $(BUILDDIR)/.*.m
