@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -21,7 +22,7 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/SleepKey.h>
+#include <idl/eros/Sleep.h>
 #include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
@@ -60,7 +61,7 @@ void main()
   
   struct SysTrace st[NPASS];
   
-  sl_sleep(KR_SLEEP, 4000);
+  eros_Sleep_sleep(KR_SLEEP, 4000);
 
   if (spcbank_buy_data_pages(KR_BANK, 1, KR_PAGE, KR_VOID, KR_VOID))
 

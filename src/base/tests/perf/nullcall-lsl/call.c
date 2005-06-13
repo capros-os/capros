@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -21,7 +22,7 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/SleepKey.h>
+#include <idl/eros/Sleep.h>
 #include <domain/domdbg.h>
 #include <eros/SysTraceKey.h>
 
@@ -58,7 +59,7 @@ main()
   msg.snd_invKey = KR_ECHO;
   msg.snd_code = 1;
 
-  sl_sleep(KR_SLEEP, 4000);
+  eros_Sleep_sleep(KR_SLEEP, 4000);
 
   kprintf(KR_OSTREAM, "Beginning %d calls to middle domain\n", ITERATIONS);
 

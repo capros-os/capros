@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -21,7 +22,7 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/SleepKey.h>
+#include <idl/eros/Sleep.h>
 #include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
@@ -112,7 +113,7 @@ main()
   /* print result to avoid loop hoisting on unused x: */
   kprintf(KR_OSTREAM, "Pass zero, x result is %d\n", x);
 
-  sl_sleep(KR_SLEEP, 4000);
+  eros_Sleep_sleep(KR_SLEEP, 4000);
 
   kprintf(KR_OSTREAM, "Calibrating Touch Loop for %d pages\n",
 	  NPAGES);
@@ -122,7 +123,7 @@ main()
   dotrace(NOZAP, SysTrace_Mode_Cycles);
   dotrace(NOZAP, SysTrace_Mode_Cycles);
 
-  sl_sleep(KR_SLEEP, 4000);
+  eros_Sleep_sleep(KR_SLEEP, 4000);
 
 #if 0
   dotrace(ZAP, SysTrace_Mode_Instrs);

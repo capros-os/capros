@@ -1,3 +1,23 @@
+/*
+ * Copyright (C) 2005, Strawberry Development Group
+ *
+ * This file is part of the EROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+
 #include <eros/target.h>
 #include <domain/domdbg.h>
 #include <eros/KeyConst.h>
@@ -6,7 +26,7 @@
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
-#include <eros/SleepKey.h>
+#include <idl/eros/Sleep.h>
 #include <eros/i486/atomic.h>
 #include <domain/ConstructorKey.h>
 #include <domain/ProcessCreatorKey.h>
@@ -182,9 +202,9 @@ getLine(void)
     cur = lineHead;
     if (!cur) {
       
-      /* I was going to call sl_sleep here, but figured it would be
+      /* I was going to call eros_Sleep_sleep here, but figured it would be
 	 better not to block and have the function caller check for
-	 the return of a null pointer and call sl_sleep instead
+	 the return of a null pointer and call eros_Sleep_sleep instead
       */
       return 0;
     }
@@ -262,7 +282,7 @@ ldInit(void)
 
   msg.snd_invKey = KR_TEXCON_S;
   msg.snd_code = OC_clear_screen;
-  sl_sleep(KR_SLEEP,10);
+  eros_Sleep_sleep(KR_SLEEP,10);
   CALL(&msg); 
 
   /* Init line structs */
@@ -536,7 +556,7 @@ sharedMain(void)
     if (!ln) {
       ln = allocLine();
       while (!ln) {
-	sl_sleep(KR_SLEEP, 10);
+	eros_Sleep_sleep(KR_SLEEP, 10);
 	ln = allocLine();
       }
       for (i = 0; i < MAXLEN; i++) {

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -49,7 +50,7 @@ main ()
 #if 0
   kprintf(KR_OSTREAM, "Faulter is initialized and will sleep for 4 seconds.");
 
-  sl_sleep(KR_SLEEP, 4000);	/* sleep 4 secs */
+  eros_Sleep_sleep(KR_SLEEP, 4000);	/* sleep 4 secs */
 #endif
   
   kprintf(KR_OSTREAM, "Faulter faults...\n");

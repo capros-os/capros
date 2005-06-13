@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -204,7 +205,7 @@ hwif_DoReset1( struct ide_hwif *hwif,  uint8_t unit, bool suppressAtapi )
 		unmask = 0;
 	    SelectDrive(unit);
 
-	    sl_sleep( KR_SLEEP, 20 );
+	    eros_Sleep_sleep( KR_SLEEP, 20 );
 	    Put8(IDE_CMD, WIN_SRST);
 #ifdef OLD
 	    hwgroup->poll_timeout = jiffies + WAIT_WORSTCASE;
@@ -256,7 +257,7 @@ hwif_DoReset1( struct ide_hwif *hwif,  uint8_t unit, bool suppressAtapi )
      */
     OUT_BYTE(drive->ctl|6,IDE_CONTROL_REG);	/* set SRST and nIEN */
     //udelay(5);			/* more than enough time */
-    sl_sleep( KR_SLEEP, 1 );
+    eros_Sleep_sleep( KR_SLEEP, 1 );
     OUT_BYTE(drive->ctl|2,IDE_CONTROL_REG);	/* clear SRST, leave nIEN */
     hwgroup->poll_timeout = jiffies + WAIT_WORSTCASE;
     ide_set_handler (drive, &reset_pollfunc, HZ/20);

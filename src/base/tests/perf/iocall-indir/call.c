@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -21,7 +22,7 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/SleepKey.h>
+#include <idl/eros/Sleeph>
 #include <domain/domdbg.h>
 #include <eros/SysTraceKey.h>
 
@@ -81,7 +82,7 @@ void main()
 {
   int i;
 
-  sl_sleep(KR_SLEEP, 4000);
+  eros_Sleep_sleep(KR_SLEEP, 4000);
 
   kprintf(KR_OSTREAM, "SENDER ALIGNED\n");
 

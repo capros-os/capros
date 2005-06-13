@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -21,7 +22,7 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/SleepKey.h>
+#include <idl/eros/Sleep.h>
 #include <eros/SysTraceKey.h>
 #include <domain/domdbg.h>
 #include <domain/PipeKey.h>
@@ -92,7 +93,7 @@ main()
     kprintf(KR_OSTREAM, "Initialization read did not accept full buffer\n");
   
 #if 0
-  sl_sleep(KR_SLEEP, 4000);
+  eros_Sleep_sleep(KR_SLEEP, 4000);
 #endif
 
   bzero(&msg, sizeof(msg));
@@ -103,7 +104,7 @@ main()
   kprintf(KR_OSTREAM, "Sending RPIPE to SINK domain...\n");
   SEND(&msg);
 
-  sl_sleep(KR_SLEEP, 2000);
+  eros_Sleep_sleep(KR_SLEEP, 2000);
   
   for (i = 0; i < BUF_SZ; i++)
     buf[i] = i % 16;

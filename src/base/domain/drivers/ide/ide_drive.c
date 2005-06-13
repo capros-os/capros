@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -494,7 +495,7 @@ drive_Identify(struct ide_drive *drive, uint8_t cmd)
 	PUT8(IDE_CTL_ALTSTATUS, drive->ctl); /* enable device IRQ */
     }
     
-    sl_sleep( KR_SLEEP, DRIVE_DETECT_DELAY );
+    eros_Sleep_sleep( KR_SLEEP, DRIVE_DETECT_DELAY );
     
     
     if ((GET8(IDE_CTL_ALTSTATUS) ^
@@ -518,13 +519,13 @@ drive_Identify(struct ide_drive *drive, uint8_t cmd)
 		kprintf( KR_OSTREAM, "Drive timed out.\n");
 		return 1;	/* drive timed-out */
 	    }
-	sl_sleep( KR_SLEEP, DRIVE_DETECT_DELAY );
+	eros_Sleep_sleep( KR_SLEEP, DRIVE_DETECT_DELAY );
 	haveWaited += DRIVE_DETECT_DELAY;
 
     } while (GET8(hd_status) & BUSY_STAT);
 
     //    Machine::SpinWaitMs(DRIVE_DETECT_DELAY);	/* wait for IRQ and DRQ_STAT */
-    sl_sleep( KR_SLEEP, DRIVE_DETECT_DELAY );
+    eros_Sleep_sleep( KR_SLEEP, DRIVE_DETECT_DELAY );
     uint8_t status = GET8(IDE_STATUS);
     bits_print( "identify status", status  );
     if ( OK_STAT( status,DRQ_STAT,BAD_R_STAT ) ) {
@@ -599,7 +600,7 @@ drive_DoProbe(struct ide_drive *drive, uint8_t cmd)
   /* The following OUGHT to be redundant: */
   hwif_SelectDrive( drive->hwif, drive->ndx );
   //  Machine::SpinWaitMs(DRIVE_SELECT_DELAY);
-  sl_sleep( KR_SLEEP, DRIVE_SELECT_DELAY * 100 );
+  eros_Sleep_sleep( KR_SLEEP, DRIVE_SELECT_DELAY * 100 );
 
   ret = GET8( IDE_DRV_HD );
   bits_print( "ret", ret );
@@ -639,7 +640,7 @@ drive_DoProbe(struct ide_drive *drive, uint8_t cmd)
   if (drive->select.b.unit != 0) {	/* unit not 0 */
       kprintf( KR_OSTREAM, "Reselect drive 0. ");
       PUT8(IDE_DRV_HD, 0xa0); /* select drive 0 */
-      sl_sleep( KR_SLEEP, DRIVE_SELECT_DELAY);
+      eros_Sleep_sleep( KR_SLEEP, DRIVE_SELECT_DELAY);
 
       /* Make sure interrupt status is clear: */
       uint8_t result = GET8( IDE_CTL_ALTSTATUS );
@@ -1073,7 +1074,7 @@ drive_WaitStatus(struct ide_drive *drive, uint8_t good, uint8_t bad, uint32_t ti
 #endif
 
     //    Machine::SpinWaitUs(1);
-    sl_sleep( KR_SLEEP, 1 );
+    eros_Sleep_sleep( KR_SLEEP, 1 );
 
     uint8_t status = GET8(IDE_STATUS);
   
@@ -1107,7 +1108,7 @@ drive_DoRequest(struct ide_drive *drive, struct Request * req)
    *  Machine::SpinWaitMs(DRIVE_SELECT_DELAY);
    */
   // saw above note.  Is this sleep okay?
-  sl_sleep( KR_SLEEP, DRIVE_SELECT_DELAY );
+  eros_Sleep_sleep( KR_SLEEP, DRIVE_SELECT_DELAY );
 
 
   if ( drive_WaitStatus( drive, READY_STAT, BUSY_STAT|DRQ_STAT, WAIT_READY) ) {

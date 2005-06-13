@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -21,7 +22,7 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/SleepKey.h>
+#include <idl/eros/Sleep.h>
 #include <eros/NodeKey.h>
 #include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
@@ -109,7 +110,7 @@ main()
   /* kprintf(KR_OSTREAM, "\033[H\033[J\n\n");		clear screen */
   /* testSpaceBank( KR_SPACEBANK); */
 
-  sl_sleep( KR_SLEEP, 1000 );
+  eros_Sleep_sleep( KR_SLEEP, 1000 );
   
   /* create constructor */
   kprintf( KR_OSTREAM, "Requesting constructor: " );
@@ -133,7 +134,7 @@ main()
   };
   
   for(;;) {
-    sl_sleep( KR_SLEEP, 1000 );
+    eros_Sleep_sleep( KR_SLEEP, 1000 );
     
     kprintf( KR_OSTREAM, "Creating SubBank: " );
     if ( spcbank_create_subbank( KR_SPACEBANK, KR_SUBBANK ) != RC_OK ) {
@@ -176,7 +177,7 @@ main()
     }
 
     kprintf( KR_OSTREAM, "Product should be counting....\n" );
-    sl_sleep( KR_SLEEP, 2000 );
+    eros_Sleep_sleep( KR_SLEEP, 2000 );
 
     kprintf( KR_OSTREAM, "Going to destroy SubBank...\n" );
     if ( spcbank_destroy_bank( KR_SUBBANK, 1 ) == RC_OK ) {

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -27,7 +28,6 @@
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
-#include <eros/SleepKey.h>
 #include <eros/i486/io.h>
 #include <eros/DevicePrivs.h>
 #include <domain/ConstructorKey.h>

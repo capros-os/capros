@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -28,7 +29,7 @@
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
-#include <eros/SleepKey.h>
+#include <idl/eros/Sleep.h>
 #include <domain/domdbg.h>
 #if 0
 #include <eros/ProcessKey.h>
@@ -89,7 +90,7 @@ int ProcessRequest( Message *msg )
     kprintf( KR_OSTREAM, "child>> Going to count %d..%d, %d msec sleep...\n", start, end, wait );
     for( i=start; i <= end; i++ ) {
       kprintf( KR_OSTREAM, "child>> %d...\n", i );
-      sl_sleep( KR_SLEEP, wait );
+      eros_Sleep_sleep( KR_SLEEP, wait );
     };
     return 1;
   default:
