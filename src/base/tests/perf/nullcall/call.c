@@ -21,7 +21,7 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/SleepKey.h>
+#include <idl/eros/Sleep.h>
 #include <domain/domdbg.h>
 #include <eros/SysTraceKey.h>
 
@@ -53,12 +53,12 @@ main()
   msg.rcv_key1 = KR_VOID;
   msg.rcv_key2 = KR_VOID;
   msg.rcv_rsmkey = KR_VOID;
-  msg.rcv_len = 0;		/* no data returned */
+  msg.rcv_limit = 0;		/* no data returned */
 
   msg.snd_invKey = KR_ECHO;
   msg.snd_code = 1;
 
-  sl_sleep(KR_SLEEP, 4000);
+  eros_Sleep_sleep(KR_SLEEP, 4000);	// sleep 4000 ms
 
   kprintf(KR_OSTREAM, "Beginning %d calls to echo domain\n", ITERATIONS);
 

@@ -66,7 +66,7 @@ main()
   msg.rcv_key2 = KR_VOID;
   msg.rcv_rsmkey = KR_RETURN;
   msg.rcv_data = rcvData;
-  msg.rcv_len = 0;
+  msg.rcv_limit = 0;
   msg.rcv_code = 0;
   msg.rcv_w1 = 0;
   msg.rcv_w2 = 0;
