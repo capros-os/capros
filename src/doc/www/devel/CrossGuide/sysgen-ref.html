@@ -28,7 +28,7 @@
       <h2>Name</h2>
       <p><b>sysgen</b> -- make new CapROS volume</p>
       <h2>Synopsis</h2>
-      <p><b>sysgen</b> volume image_file</p>
+      <p><b>sysgen</b> [-m mapfile] volume image_file</p>
       <h2>Description</h2>
       <p> The <b>sysgen</b> utility maps the content of the CapROS image
       file <b>image_file</b> (from <b>mkimage</b>) onto the specified
@@ -38,6 +38,8 @@
       final locations of these objects on the actual volume before
       being written.
       </p>
+      <p>If mapfile is specified, sysgen outputs there the mapping
+      of indexes in the image_file to oid's in the volume. </p>
       <p>
       The principle reason for distinguising between image and volume
       files is flexibility -- the image file captures the logical
