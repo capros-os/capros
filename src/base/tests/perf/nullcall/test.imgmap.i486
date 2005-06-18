@@ -1,6 +1,7 @@
 /* -*- C -*- */
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -27,8 +28,8 @@
 arch i486;
 
 echo = new process;
-echo.seg = program segment "echo";
-echo.pc = symbol "echo" _start;
+echo.seg = program segment BUILDDIR "echo";
+echo.pc = symbol BUILDDIR "echo" _start;
 echo.seg = echo.seg with page at 0x20000; /* for stack */
 
 echo pc = echo.pc;
@@ -41,8 +42,8 @@ echo key reg 10 = misc Console;
 echo key reg 11 = misc SysTrace;
 
 call = new process;
-call.seg = program segment "call";
-call.pc = symbol "call" _start;
+call.seg = program segment BUILDDIR "call";
+call.pc = symbol BUILDDIR "call" _start;
 call.seg = call.seg with page at 0x20000; /* for stack */
 
 call pc = call.pc;
