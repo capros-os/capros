@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -18,6 +19,7 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 
+#include <stddef.h> // for size_t
 void kvprintf(uint32_t streamkey, const char *fmt, void *vap);
 void kprintf(uint32_t streamkey, const char *fmt, ...);
 void kdprintf(uint32_t streamkey, const char *fmt, ...);
