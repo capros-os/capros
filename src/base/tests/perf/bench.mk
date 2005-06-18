@@ -26,6 +26,13 @@
 ifndef VOLMAP
 VOLMAP=../bench.volmap
 endif
+
+ifndef VOLMAPFD
+VOLMAPFD=../bench.volmapfd
+endif
+
+IMGMAP=test.imgmap.$(EROS_TARGET)
+
 MAPINC=-I$(EROS_ROOT)/domain -I$(EROS_ROOT)/include
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(BOOTSTRAP)
 
@@ -44,7 +51,7 @@ DDBS=1440k
 SETVOL_FLAGS += -z
 
 
-install all: $(TARGETS) $(BUILDDIR)/test.sysimg
+install: $(TARGETS) $(BUILDDIR)/test.sysimg
 
 $(BUILDDIR)/test.sysimg: $(TARGETS) $(IMGMAP)
 	$(EROS_ROOT)/host/bin/mkimage -a $(EROS_TARGET) -DBUILDDIR='\"$(BUILDDIR)/\"' -o $(BUILDDIR)/test.sysimg $(MAPINC) $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
@@ -61,17 +68,22 @@ $(BUILDDIR)/test.sysvol: $(BUILDDIR)/test.sysimg $(KERNDEP) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/test.sysvol
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/test.sysvol $(BUILDDIR)/test.sysimg
 
-tstflop: all $(BUILDDIR)/test.sysvol
-	dd if=$(BUILDDIR)/test.sysvol of=$(EROS_FD) bs=$(DDBS)
+$(BUILDDIR)/test.sysvolfd: $(BUILDDIR)/test.sysimg $(KERNDEP) $(VOLMAPFD)
+	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAPFD) $(BUILDDIR)/test.sysvolfd
+	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/test.sysvolfd $(BUILDDIR)/test.sysimg
+
+tstflop: install $(BUILDDIR)/test.sysvolfd
+	dd if=$(BUILDDIR)/test.sysvolfd of=$(EROS_FD) bs=$(DDBS)
 	$(EROS_ROOT)/host/bin/setboot -w $(EROS_FD)
 	sync
 	sleep 5
 
+# zsysvol and ztstflop are for ramdisk load.
 $(BUILDDIR)/ztest.sysvol: $(BUILDDIR)/test.sysvol
 	cp $(BUILDDIR)/test.sysvol $(BUILDDIR)/ztest.sysvol
 	$(EROS_ROOT)/host/bin/setvol -r $(SETVOL_FLAGS) $(BUILDDIR)/ztest.sysvol
 
-ztstflop: all $(BUILDDIR)/ztest.sysvol
+ztstflop: install $(BUILDDIR)/ztest.sysvol
 	dd if=$(BUILDDIR)/ztest.sysvol of=$(EROS_FD) bs=$(DDBS)
 	$(EROS_ROOT)/host/bin/setboot -w $(EROS_FD)
 	sync
