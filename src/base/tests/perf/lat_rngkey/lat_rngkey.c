@@ -28,7 +28,7 @@
 #include <domain/domdbg.h>
 #include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
-#include <eros/SysTraceKey.h>
+#include <idl/eros/SysTrace.h>
 
 #define KR_SELF     2
 #define KR_SCHED    3
@@ -50,11 +50,11 @@ int
 main()
 {
   int i;
-  struct SysTrace st;
+  eros_SysTrace_info st;
 
   kprintf(KR_OSTREAM, "Begin warmup tracing\n");
 
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 
   for (i = 0; i < NPAGES; i++) {
     uint64_t oid = BASE_OID + (i * EROS_OBJECTS_PER_FRAME);
@@ -63,8 +63,8 @@ main()
       kprintf(KR_OSTREAM, "Couldn't get page key for submap\n");
   }
   
-  systrace_report(KR_SYSTRACE, &st);
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_reportCounter(KR_SYSTRACE, &st);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 
   st.cycles /= NPAGES;
   kprintf(KR_OSTREAM, "Done -- %d pages, each %u cycles.\n",
@@ -72,7 +72,7 @@ main()
 
   kprintf(KR_OSTREAM, "Begin rescind pass tracing\n");
 
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 
   /* Now destroy all of those objects: */
   for (i = 0; i < NPAGES; i++) {
@@ -84,8 +84,8 @@ main()
     range_rescind(KR_RANGE, KR_TMP);
   }
 
-  systrace_report(KR_SYSTRACE, &st);
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_reportCounter(KR_SYSTRACE, &st);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 
   st.cycles /= NPAGES;
   kprintf(KR_OSTREAM, "Done -- %d pages, each %u cycles.\n",
@@ -94,7 +94,7 @@ main()
 
   kprintf(KR_OSTREAM, "Begin warm page alloc tracing\n");
 
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 
   for (i = 0; i < NPAGES; i++) {
     uint64_t oid = BASE_OID + (i * EROS_OBJECTS_PER_FRAME);
@@ -103,8 +103,8 @@ main()
       kprintf(KR_OSTREAM, "Couldn't get page key for submap\n");
   }
   
-  systrace_report(KR_SYSTRACE, &st);
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_reportCounter(KR_SYSTRACE, &st);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 
   st.cycles /= NPAGES;
   kprintf(KR_OSTREAM, "Done -- %d pages, each %u cycles.\n",
@@ -124,7 +124,7 @@ main()
      of converting page frames to node frames: */
   kprintf(KR_OSTREAM, "Begin warm node alloc tracing\n");
 
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 
   for (i = 0; i < NPAGES; i++) {
     int j;
@@ -137,8 +137,8 @@ main()
     }
   }
   
-  systrace_report(KR_SYSTRACE, &st);
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_reportCounter(KR_SYSTRACE, &st);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 
   st.cycles /= (NPAGES*EROS_NODES_PER_FRAME);
   kprintf(KR_OSTREAM, "Done -- %d nodes (%d frames), each %u cycles.\n",

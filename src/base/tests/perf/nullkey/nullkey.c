@@ -24,7 +24,7 @@
 #include <eros/Invoke.h>
 #include <idl/eros/Sleep.h>
 #include <domain/domdbg.h>
-#include <eros/SysTraceKey.h>
+#include <idl/eros/SysTrace.h>
 
 #define KR_VOID 0
 
@@ -44,10 +44,10 @@ cycles_only(Message *pMsg, uint32_t nIter)
   
   uint64_t startcy, endcy;
 
-  systrace_getcycle(KR_SYSTRACE, &startcy);
+  eros_SysTrace_getCycle(KR_SYSTRACE, &startcy);
   for (i = 0; i < nIter; i++)
     (void) CALL(pMsg);
-  systrace_getcycle(KR_SYSTRACE, &endcy);
+  eros_SysTrace_getCycle(KR_SYSTRACE, &endcy);
 
   {
     uint64_t delta = endcy - startcy;
@@ -89,47 +89,47 @@ main()
 
   kprintf(KR_OSTREAM, "Beginning %d calls to Void Key\n", ITERATIONS);
 
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Instrs);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_instrs);
 
   for (i = 0; i < ITERATIONS; i++)
     (void) CALL(&msg);
 
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Imiss);
-
-  for (i = 0; i < ITERATIONS; i++)
-    (void) CALL(&msg);
-
-  systrace_stop(KR_SYSTRACE);
-
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Dmiss);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_Imiss);
 
   for (i = 0; i < ITERATIONS; i++)
     (void) CALL(&msg);
 
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
-
-  for (i = 0; i < ITERATIONS; i++)
-    (void) CALL(&msg);
-
-  systrace_stop(KR_SYSTRACE);
-
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Branches);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_Dmiss);
 
   for (i = 0; i < ITERATIONS; i++)
     (void) CALL(&msg);
 
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_BrTaken);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 
   for (i = 0; i < ITERATIONS; i++)
     (void) CALL(&msg);
 
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
+
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_branches);
+
+  for (i = 0; i < ITERATIONS; i++)
+    (void) CALL(&msg);
+
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
+
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_brTaken);
+
+  for (i = 0; i < ITERATIONS; i++)
+    (void) CALL(&msg);
+
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 
   kprintf(KR_OSTREAM, "Done\n");
 

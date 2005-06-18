@@ -29,7 +29,7 @@
 #include <domain/domdbg.h>
 #include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
-#include <eros/SysTraceKey.h>
+#include <idl/eros/SysTrace.h>
 
 #define KR_ZSF      1
 #define KR_SELF     2
@@ -71,7 +71,7 @@ setup()
 }
 
 void
-trace_pass(uint32_t mode, struct SysTrace *pst)
+trace_pass(uint32_t mode, eros_SysTrace_info *pst)
 {
   uint32_t result;
   char *addr;
@@ -97,8 +97,8 @@ trace_pass(uint32_t mode, struct SysTrace *pst)
   kprintf(KR_OSTREAM, "Begin warm-case tracing\n");
 #endif
 
-  systrace_clear_kstats(KR_SYSTRACE);
-  systrace_start(KR_SYSTRACE, mode);
+  eros_SysTrace_clearKernelStats(KR_SYSTRACE);
+  eros_SysTrace_startCounter(KR_SYSTRACE, mode);
 
   addr = (char *) TEST_ADDR;
   for (i = 0; i < NPAGES; i++) {
@@ -108,8 +108,8 @@ trace_pass(uint32_t mode, struct SysTrace *pst)
   }
     
   if (pst)
-    systrace_report(KR_SYSTRACE, pst);
-  systrace_stop(KR_SYSTRACE);
+    eros_SysTrace_reportCounter(KR_SYSTRACE, pst);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 }
 
 int
@@ -119,7 +119,7 @@ main()
   char *addr = (char *) TEST_ADDR;
   uint32_t sum=0;
   
-  struct SysTrace st;
+  eros_SysTrace_info st;
 
   setup();
 
@@ -127,7 +127,7 @@ main()
   eros_Sleep_sleep(KR_SLEEP, 4000);
   kprintf(KR_OSTREAM, "Begin cold-case tracing\n");
 
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 
   for (i = 0; i < NPAGES + 32; i++) {
     /* sum += *addr; */
@@ -135,8 +135,8 @@ main()
     addr += EROS_PAGE_SIZE;
   }
     
-  systrace_report(KR_SYSTRACE, &st);
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_reportCounter(KR_SYSTRACE, &st);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 
   addr = (char *) TEST_ADDR;
 
@@ -152,14 +152,14 @@ main()
 
   kprintf(KR_OSTREAM, "Begin warm-case tracing\n");
 
-  trace_pass(SysTrace_Mode_Imiss, 0);
-  trace_pass(SysTrace_Mode_Dmiss, 0);
-  trace_pass(SysTrace_Mode_ITLB, 0);
-  trace_pass(SysTrace_Mode_DTLB, 0);
+  trace_pass(eros_SysTrace_mode_Imiss, 0);
+  trace_pass(eros_SysTrace_mode_Dmiss, 0);
+  trace_pass(eros_SysTrace_mode_ITLB, 0);
+  trace_pass(eros_SysTrace_mode_DTLB, 0);
 
   st.cycles = 0;
 
-  trace_pass(SysTrace_Mode_Cycles, &st);
+  trace_pass(eros_SysTrace_mode_cycles, &st);
 
   st.cycles /= NPAGES;
   kprintf(KR_OSTREAM, "Done -- %d pages, each %u cycles.\n",

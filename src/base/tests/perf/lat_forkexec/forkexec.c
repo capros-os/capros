@@ -23,7 +23,7 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/eros/Sleep.h>
-#include <eros/SysTraceKey.h>
+#include <idl/eros/SysTrace.h>
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
 #include <memory.h>
@@ -85,8 +85,8 @@ main()
   int i;
   uint32_t result;
 
-  systrace_clear_kstats(KR_SYSTRACE);
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+  eros_SysTrace_clearKernelStats(KR_SYSTRACE);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 
   for (i = 0; i < ITERATIONS; i++) {
     result = create_hello(KR_HELLOCRE, KR_BANK, KR_SCHED, KR_HELLO);
@@ -95,7 +95,7 @@ main()
       kdprintf(KR_OSTREAM, "Hello creation failed\n");
   }
   
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 
   
   kprintf(KR_OSTREAM, "forkexec -- %d iterations\n", ITERATIONS);

@@ -23,7 +23,7 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/eros/Sleep.h>
-#include <eros/SysTraceKey.h>
+#include <idl/eros/SysTrace.h>
 #include <domain/domdbg.h>
 #include <domain/PipeKey.h>
 #include <memory.h>
@@ -110,11 +110,11 @@ main()
     buf[i] = i % 16;
   
     
-  systrace_getcycle(KR_SYSTRACE, &startcy);
+  eros_SysTrace_getCycle(KR_SYSTRACE, &startcy);
 
 #if 0
-  systrace_clear_kstats(KR_SYSTRACE);
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+  eros_SysTrace_clearKernelStats(KR_SYSTRACE);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 #endif
 
   pipe_read(KR_CRPIPE, sizeof(tot_mov), (uint8_t*) &tot_mov, &len);
@@ -128,9 +128,9 @@ main()
   }
   
 #if 0
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 #endif
-  systrace_getcycle(KR_SYSTRACE, &endcy);
+  eros_SysTrace_getCycle(KR_SYSTRACE, &endcy);
 
   {
     uint64_t delta = endcy - startcy;

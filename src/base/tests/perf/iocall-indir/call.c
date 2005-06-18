@@ -24,7 +24,7 @@
 #include <eros/Invoke.h>
 #include <idl/eros/Sleeph>
 #include <domain/domdbg.h>
-#include <eros/SysTraceKey.h>
+#include <idl/eros/SysTrace.h>
 
 #define KR_VOID 0
 #define KR_ECHO 8
@@ -69,13 +69,13 @@ dotrace(uint32_t nChar, int shouldAlign)
   msg.snd_code = 1;
 
   kprintf(KR_OSTREAM, "%d iterations of %d bytes (indirect)\n", ITERATIONS, nChar);
-  systrace_clear_kstats(KR_SYSTRACE);
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+  eros_SysTrace_clearKernelStats(KR_SYSTRACE);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 
   for (i = 0; i < ITERATIONS; i++)
     (void) CALL(&msg);
 
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 }
 
 void main()

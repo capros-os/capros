@@ -25,7 +25,7 @@
 #include <idl/eros/Sleep.h>
 #include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
-#include <eros/SysTraceKey.h>
+#include <idl/eros/SysTrace.h>
 #include <eros/KeyConst.h>
 #include <domain/domdbg.h>
 #include <domain/SpaceBankKey.h>
@@ -114,7 +114,7 @@ main()
   uint32_t len;
   int i, pass, file;
   
-  struct SysTrace st;
+  eros_SysTrace_info st;
 
 #if 0
   char *addr = (char *) TEST_ADDR;
@@ -139,8 +139,8 @@ main()
       DEBUG(passes)
 	kdprintf(KR_OSTREAM, "pass %d\n", pass);
 
-      systrace_clear_kstats(KR_SYSTRACE);
-      systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+      eros_SysTrace_clearKernelStats(KR_SYSTRACE);
+      eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 
       for (file = 0; file < NITER; file++)
 	{
@@ -150,17 +150,17 @@ main()
 	  node_swap(KR_TMPNODE, file, KR_FD0, KR_VOID);
 	}
 
-      systrace_report(KR_SYSTRACE, &st);
+      eros_SysTrace_reportCounter(KR_SYSTRACE, &st);
 #if 0
-      systrace_stop(KR_SYSTRACE);
+      eros_SysTrace_stopCounter(KR_SYSTRACE);
       kdprintf(KR_OSTREAM, "Done creating\n");
 #endif
       
       if (cre_cycles == 0 || cre_cycles > st.cycles)
 	cre_cycles = st.cycles;
 
-      systrace_clear_kstats(KR_SYSTRACE);
-      systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+      eros_SysTrace_clearKernelStats(KR_SYSTRACE);
+      eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
       for (file = 0; file < NITER; file++)
 	{
 	  node_copy(KR_TMPNODE, file, KR_FD0);
@@ -168,7 +168,7 @@ main()
 	  nfile_destroy(KR_FD0);
 	}
 
-      systrace_report(KR_SYSTRACE, &st);
+      eros_SysTrace_reportCounter(KR_SYSTRACE, &st);
       if (del_cycles == 0 || del_cycles > st.cycles)
 	del_cycles = st.cycles;
     }
@@ -180,7 +180,7 @@ main()
   }
   
 #if 0
-  systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+  eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 
   for (i = 0; i < NITER; i++)
   {
@@ -209,7 +209,7 @@ main()
 #endif
   }
   
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 #endif
 
   kprintf(KR_OSTREAM, "lat_fs: done %d iterations\n", NITER);

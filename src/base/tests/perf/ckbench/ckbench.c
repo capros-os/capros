@@ -28,7 +28,7 @@
 #include <domain/domdbg.h>
 #include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
-#include <eros/SysTraceKey.h>
+#include <idl/eros/SysTrace.h>
 
 #define KR_ZSF      1
 #define KR_SELF     2
@@ -77,7 +77,7 @@ main()
   uint32_t pat_counter = 0;
   uint64_t sum = 0;
   
-  struct SysTrace st;
+  eros_SysTrace_info st;
 
   setup();
 
@@ -86,15 +86,15 @@ main()
 
   for (i = 0; i < MBYTES; i++) {
     int pg;
-    systrace_clear_kstats(KR_SYSTRACE);
-    systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+    eros_SysTrace_clearKernelStats(KR_SYSTRACE);
+    eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
     for (pg = 0; pg < PPM; pg++) {
       int w;
       /* sum += *addr; */
       for (w = 0; w < (EROS_PAGE_SIZE/sizeof(uint32_t)); w++)
 	*addr++ = pat_counter++;
     }
-    systrace_stop(KR_SYSTRACE);
+    eros_SysTrace_stopCounter(KR_SYSTRACE);
 
     kprintf(KR_OSTREAM, "Allocated %d mbytes\n", i+1);
   }
@@ -111,8 +111,8 @@ main()
     }
   }
   
-  systrace_report(KR_SYSTRACE, &st);
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_reportCounter(KR_SYSTRACE, &st);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
 
   kprintf(KR_OSTREAM, "Done -- %d MB in %U cycles sum %U\n",
 	  MBYTES, st.cycles, sum);
@@ -124,14 +124,14 @@ main()
     pat_counter = 0;
     for (i = 0; i < MBYTES; i++) {
       int pg;
-      systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+      eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
       for (pg = 0; pg < PPM; pg++) {
 	int w;
 	/* sum += *addr; */
 	for (w = 0; w < (EROS_PAGE_SIZE/sizeof(uint32_t)); w++)
 	  *addr++ = pat_counter++;
       }
-      systrace_stop(KR_SYSTRACE);
+      eros_SysTrace_stopCounter(KR_SYSTRACE);
       kprintf(KR_OSTREAM, "Touched %d mbytes\n", i+1);
     }
   }

@@ -28,7 +28,7 @@
 #include <eros/KeyConst.h>
 #include <domain/domdbg.h>
 #include <domain/SpaceBankKey.h>
-#include <eros/SysTraceKey.h>
+#include <idl/eros/SysTrace.h>
 
 /* The purpose of this benchmark is to measure the cost of
    reconstructing page table entries.  It is designed on the
@@ -59,7 +59,7 @@ void main()
 {
   int i; int pass;
   
-  struct SysTrace st[NPASS];
+  eros_SysTrace_info st[NPASS];
   
   eros_Sleep_sleep(KR_SLEEP, 4000);
 
@@ -86,8 +86,8 @@ void main()
 	  NPAGES);
 
   for (pass = 0; pass < NPASS; pass++) {
-    systrace_clear_kstats(KR_SYSTRACE);
-    systrace_start(KR_SYSTRACE, SysTrace_Mode_Cycles);
+    eros_SysTrace_clearKernelStats(KR_SYSTRACE);
+    eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
 
     for (i = 0; i < NPAGES; i++) {
       node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
@@ -104,7 +104,7 @@ void main()
 
     }
 
-    systrace_report(KR_SYSTRACE, &st[pass]);
+    eros_SysTrace_reportCounter(KR_SYSTRACE, &st[pass]);
   }
 
   {

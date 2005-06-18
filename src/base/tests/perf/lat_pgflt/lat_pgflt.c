@@ -27,7 +27,7 @@
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
 #include <domain/domdbg.h>
-#include <eros/SysTraceKey.h>
+#include <idl/eros/SysTrace.h>
 
 /* The purpose of this benchmark is to measure the cost of
    reconstructing page table entries.  It is designed on the
@@ -91,14 +91,14 @@ dotrace(int zap, uint32_t mode)
     }
   }
 
-  systrace_start(KR_SYSTRACE, mode);
+  eros_SysTrace_startCounter(KR_SYSTRACE, mode);
 
   for (i = 0; i < NPAGES; i++) {
     x += *ptr;
     ptr += EROS_PAGE_SIZE;
   }
 
-  systrace_stop(KR_SYSTRACE);
+  eros_SysTrace_stopCounter(KR_SYSTRACE);
   return x;
 }
 
@@ -108,7 +108,7 @@ main()
   /* Pass 0: Touch every page in the map to ensure that the associated
      page is actually in core: */
 
-  uint32_t x = dotrace(NOZAP, SysTrace_Mode_Cycles);
+  uint32_t x = dotrace(NOZAP, eros_SysTrace_mode_cycles);
 
   /* print result to avoid loop hoisting on unused x: */
   kprintf(KR_OSTREAM, "Pass zero, x result is %d\n", x);
@@ -118,42 +118,42 @@ main()
   kprintf(KR_OSTREAM, "Calibrating Touch Loop for %d pages\n",
 	  NPAGES);
   
-  dotrace(NOZAP, SysTrace_Mode_Cycles);
-  dotrace(NOZAP, SysTrace_Mode_Cycles);
-  dotrace(NOZAP, SysTrace_Mode_Cycles);
-  dotrace(NOZAP, SysTrace_Mode_Cycles);
+  dotrace(NOZAP, eros_SysTrace_mode_cycles);
+  dotrace(NOZAP, eros_SysTrace_mode_cycles);
+  dotrace(NOZAP, eros_SysTrace_mode_cycles);
+  dotrace(NOZAP, eros_SysTrace_mode_cycles);
 
   eros_Sleep_sleep(KR_SLEEP, 4000);
 
 #if 0
-  dotrace(ZAP, SysTrace_Mode_Instrs);
+  dotrace(ZAP, eros_SysTrace_mode_instrs);
 
-  dotrace(ZAP, SysTrace_Mode_Imiss);
+  dotrace(ZAP, eros_SysTrace_mode_Imiss);
 
-  dotrace(ZAP, SysTrace_Mode_Dmiss);
+  dotrace(ZAP, eros_SysTrace_mode_Dmiss);
   
-  dotrace(ZAP, SysTrace_Mode_Branches);
+  dotrace(ZAP, eros_SysTrace_mode_branches);
 
-  dotrace(ZAP, SysTrace_Mode_BrTaken);
+  dotrace(ZAP, eros_SysTrace_mode_brTaken);
 #endif
 
   kprintf(KR_OSTREAM, "Beginning ZAPALL touch of %d pages\n", NPAGES);
 
-  dotrace(ZAPALL, SysTrace_Mode_Cycles);
-  dotrace(ZAPALL, SysTrace_Mode_Cycles);
-  dotrace(ZAPALL, SysTrace_Mode_Cycles);
-  dotrace(ZAPALL, SysTrace_Mode_Cycles);
+  dotrace(ZAPALL, eros_SysTrace_mode_cycles);
+  dotrace(ZAPALL, eros_SysTrace_mode_cycles);
+  dotrace(ZAPALL, eros_SysTrace_mode_cycles);
+  dotrace(ZAPALL, eros_SysTrace_mode_cycles);
 
   kprintf(KR_OSTREAM, "Beginning ZAP touch of %d pages\n", NPAGES);
 
-  dotrace(ZAP, SysTrace_Mode_Cycles);
-  dotrace(ZAP, SysTrace_Mode_Cycles);
-  dotrace(ZAP, SysTrace_Mode_Cycles);
-  dotrace(ZAP, SysTrace_Mode_Cycles);
+  dotrace(ZAP, eros_SysTrace_mode_cycles);
+  dotrace(ZAP, eros_SysTrace_mode_cycles);
+  dotrace(ZAP, eros_SysTrace_mode_cycles);
+  dotrace(ZAP, eros_SysTrace_mode_cycles);
 
-  systrace_clear_kstats(KR_SYSTRACE);
+  eros_SysTrace_clearKernelStats(KR_SYSTRACE);
 
-  dotrace(ZAP, SysTrace_Mode_Cycles);
+  dotrace(ZAP, eros_SysTrace_mode_cycles);
 
   kdprintf(KR_OSTREAM, "Done.  X is %d.  Last pass has valid kstats\n", x);
 
