@@ -20,12 +20,13 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <primebank.map>
+#include <ipltool.map>
 
 /*
  * null call domain test case.  Times how fast we can invoke the null
  * key.
  */
-arch i486;
 
 echo = new process;
 echo.seg = program segment BUILDDIR "echo";
