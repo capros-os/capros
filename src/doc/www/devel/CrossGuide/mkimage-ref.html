@@ -68,9 +68,9 @@
       The input to <b>cpp</b> is a preinclude file
       followed by <b>description_file</b>.
       The preinclude file is located at
-      EROS_ROOT/host/include/mkimage.preinclude
+      <tt>EROS_ROOT/host/include/mkimage.preinclude</tt>
       if the environment variable EROS_ROOT is defined,
-      otherwise HOME/eros/host/include/mkimage.preinclude.
+      otherwise <tt>HOME/eros/host/include/mkimage.preinclude</tt>.
       The <b>mkimage</b> utility takes its
       commands from the output of <b>cpp</b>.
       </p>
@@ -160,12 +160,23 @@
 	     </p>
 	</dd>
 	<dt>
+	     <b>ipl</b> <i>process</i>
+	</dt>
+	<dd>
+	     <p>
+	     Defines the IPL process. 
+             This is the only process that will be started at boot time.
+             Only one IPL process can be defined.
+	     </p>
+	</dd>
+	<dt>
 	     <b>run</b> <i>name</i>
 	</dt>
 	<dd>
 	     <p>
-	     Indicates that <i>name</i>, which must be a domain or
-	     start key, should be an initially running domain.
+	     Indicates that the process referred to by <i>name</i>, 
+	     which must be a process or
+	     start key, should be started by the IPL process.
 	     </p>
 	</dd>
       </dl>
@@ -238,8 +249,15 @@
 	     </p>
 	</dd>
 	<dt>
-	     <b>misc</b> <i>name</i>
+	     <b>misc</b> <i>misckeyname</i>
 	</dt>
+	<dd>
+	     <p>
+	     A miscellaneous key.  The valid miscellaneous key names
+	     are listed in
+	     <tt>eros/src/sys/KEYDEFS</tt>. 
+	     </p>
+	</dd>
 	<dt>
 	     <i>name</i>
 	</dt>
@@ -247,13 +265,6 @@
 	     <p>
 	     Returns the key previously created by a name assignment
 	     to <i>name</i>
-	     </p>
-	</dd>
-	<dd>
-	     <p>
-	     A miscellaneous key.  The valid miscellaneous key names
-	     are listed in
-	     <tt>eros/src/sys/KEYDEFS</tt>. 
 	     </p>
 	</dd>
 	<dt>
@@ -404,6 +415,20 @@
 	     counter.  While the most commonly used <i>name</i> is
 	     <tt>_start</tt>, other names can be used to provide
 	     multiple entry points into a single binary file.
+	     </p>
+	</dd>
+	<dt>
+	     <b>threadlist</b>
+	</dt>
+	<dd>
+	     <p>
+	     A node key designating the reserved <i>threadlist</i> node.
+             This is for the IPL process. 
+	     All but the last key in this node is a process key
+	     to a process to be started
+	     by the IPL process. [Or a constructor...] 
+	     The last key is a node key to the next node in the list,
+	     or void if none. 
 	     </p>
 	</dd>
 	<dt>
