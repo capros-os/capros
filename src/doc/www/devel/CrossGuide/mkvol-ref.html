@@ -38,6 +38,11 @@
       time.
       </p>
       <p>
+      The <b>volume</b> can be, for example, a partition on a hard disk,
+      a floppy disk,
+      or a normal file that is later copied to a partition or disk. 
+      </p>
+      <p>
       Most of the input to <b>mkvol</b> comes from the <b>volmap</b>
       file, which describes the layout of the volume to be created.
       Entries in the <b>volmap</b> file appear one per line.  All
@@ -98,6 +103,14 @@
 	     Object divisions can be replicated.
 	     </p>
 	</dd>
+	<dt><b>object preload</b> size OID=oid
+	</dt>
+	<dd>
+	     <p>
+             Same as the above, and also sets the <i>preload</i> 
+             flag in the division.
+	     </p>
+	</dd>
 	<dt><b>cklog</b> size LID=logloc
 	</dt>
 	<dd>
@@ -147,6 +160,10 @@
       There is no provision for explicitly adding a <b>boot</b>
       division.  Because the volume header resides in the boot
       division, the presence of a boot division is not optional.
+      The first division is always the boot division.
+      </p>
+      <p>
+      The second division is always the DivisionTable division. 
       </p>
       <p>
       There is no provision for specifying the name of the bootstrap
