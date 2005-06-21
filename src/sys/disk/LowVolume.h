@@ -127,10 +127,10 @@ typedef enum VolHdrFlags VolHdrFlags;
 
 struct VolHdr {
   char        code[8];		/* leading jump instr */
-  uint32_t    HdrVersion;
-  uint32_t    PageSize;
-  uint32_t    DivTable;
-  uint32_t    AltDivTable;
+  uint32_t    HdrVersion;	/* contains VOLHDR_VERSION */
+  uint32_t    PageSize;		/* contains EROS_PAGE_SIZE */
+  uint32_t    DivTable;		/* sector of first division table */
+  uint32_t    AltDivTable;	/* sector of alternate division table */
   uint32_t    BootFlags;
   uint32_t    BootSectors;	/* Boot block size */
   uint32_t    VolSectors;	/* number of sectors actually written

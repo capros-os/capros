@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -119,7 +120,7 @@
 	.text
 
 /* N.B.: The layout of the following variables MUST MATCH that of VolHdr
-         in disk/LowVolume.hxx */
+         in disk/LowVolume.h */
 
 ENTRY(_start)
 ENTRY(start)
@@ -130,11 +131,13 @@ ENTRY(start)
 
 	/* boot information needed by the EROS kernel: */
 ASMVAR16(Version)
-	.long   1		/* sector of first division table */
+	.long   1		/* this is version 1 */
 ASMVAR16(PageSize)
-	.long   EROS_PAGE_SIZE	/* sector of first division table */
+	.long   EROS_PAGE_SIZE
 ASMVAR16(DivTable)
 	.long   16		/* sector of first division table */
+				/* (Although defined as 16 here, this is
+				   actually intialized by sysgen.) */
 ASMVAR16(AltDivTable)
 	.long   0		/* sector of alternate division table */
 ASMVAR16(VolFlags)
@@ -147,7 +150,7 @@ ASMVAR16(VolSectors)
 ASMVAR16(ZipLen)
 	.long   0		/* Length of zipped portion of volume */
 ASMVAR16(IplKey)
-	.space 16		/* IPL process */
+	.space 16		/* key to IPL process */
 ASMVAR16(IplSysId)
 	.long 0			/* Unique System ID */
 	.long 0			/* Unique System ID */
