@@ -142,7 +142,7 @@ prescanlexer_create(const char *inputFileName,
   yyrestart(fin);
   yy_init = 1;		/* whether we need to initialize */
   yy_start = 0;	/* start state number */
-  YY_FLUSH_BUFFER;
+  yy_flush_buffer(YY_CURRENT_BUFFER);
 
   prescan__flex_debug = false;
   prescan_in = fin;

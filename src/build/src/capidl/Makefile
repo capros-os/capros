@@ -28,11 +28,7 @@ BUILDDIR=BUILD/$(EROS_TARGET)
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/capidl
-CLEANLIST=idl.c idl.h idl.output idl.c.h idl.c.output
-CLEANLIST+= lex.c y.tab.c
-CLEANLIST+= prescan.c
-CLEANLIST+= applib/*~
-CLEANLIST+= ../../bin/capidl # uninstall
+CLEANLIST= ../../bin/capidl # uninstall
 #OPTIM=-O
 OPTIM=-g
 
@@ -98,10 +94,12 @@ $(BUILDDIR)/idl.o: $(BUILDDIR)/idl.c
 	$(C_BUILD) 
 
 $(BUILDDIR)/lex.o: $(BUILDDIR)/lex.c $(BUILDDIR)/idl.h
-	$(C_BUILD) 
+# Can't use $(C_BUILD) because it has -Werror and lex.c generates warnings.
+	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
 
 $(BUILDDIR)/prescan.o: $(BUILDDIR)/prescan.c
-	$(C_BUILD) 
+# Can't use $(C_BUILD) because it has -Werror and prescan.c generates warnings.
+	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
 
 $(BUILDDIR)/idl.c $(BUILDDIR)/idl.h: idl.y $(MAKE_BUILDDIR)
 	(cd $(BUILDDIR);bison -v -d -y ../../idl.y)
@@ -112,8 +110,6 @@ $(BUILDDIR)/prescan.o: $(BUILDDIR)/prescan.c
 
 $(BUILDDIR)/prescan.c: prescan.l $(MAKE_BUILDDIR)
 	flex -d -o$@ prescan.l
-
-lex.o: lex.c $(BUILDDIR)/idl.hxx
 
 $(BUILDDIR)/lex.c: lex.l
 	flex -d -o$@ lex.l

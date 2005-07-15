@@ -277,7 +277,7 @@ mylexer_create(FILE *fin, bool isActiveUOC)
   yyrestart(fin);
   yy_init = 1;		/* whether we need to initialize */
   yy_start = 0;	/* start state number */
-  YY_FLUSH_BUFFER;
+  yy_flush_buffer(YY_CURRENT_BUFFER);
 
   mylexer_in = fin;
   mylexer__flex_debug = false;
