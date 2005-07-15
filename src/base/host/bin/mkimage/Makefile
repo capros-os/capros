@@ -38,7 +38,6 @@ LIBS+=	$(EROS_ROOT)/host/lib/libzlib.a
 OTHER_LIBS=	-lbfd -liberty
 DIRS=
 HEADERS=mkimage.preinclude
-CLEANLIST=gram.c gram.c.h lex.c
 
 include $(EROS_SRC)/build/make/makerules.mk
 
@@ -57,7 +56,8 @@ $(BUILDDIR)/gram.o: $(BUILDDIR)/gram.c $(MAKE_BUILDDIR)
 	$(C_BUILD) 
 
 $(BUILDDIR)/lex.o: $(BUILDDIR)/lex.c $(BUILDDIR)/gram.c.h $(MAKE_BUILDDIR)
-	$(C_BUILD) 
+# Can't use $(C_BUILD) because it has -Werror and lex.c generates warnings.
+	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@
 
 $(BUILDDIR)/gram.c $(BUILDDIR)/gram.c.h: gram.y $(MAKE_BUILDDIR)
 	(cd $(BUILDDIR); bison -v -d -y ../../gram.y)
