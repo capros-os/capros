@@ -40,16 +40,32 @@
 
 #ifdef __linux__
 #ifndef __FreeBSD__
-#include <linux/fs.h>
-#include <linux/major.h>
+
+/* taken from linux-2.2.26/include/linux/kdev_t.h: */
+
+#define MINORBITS       8
+#define MAJOR(dev)      ((unsigned int) ((dev) >> MINORBITS))
+
+/* taken from linux-2.2.26/include/linux/major.h: */
+
+#define FLOPPY_MAJOR    2
+#define IDE0_MAJOR      3
+#define SCSI_DISK0_MAJOR 8
+#define XT_DISK_MAJOR   13
+#define IDE1_MAJOR      22
+#define IDE2_MAJOR      33
+#define IDE3_MAJOR      34
+#define SCSI_DISK1_MAJOR        65
+#define SCSI_DISK7_MAJOR        71
+
+#define SCSI_DISK_MAJOR(M) ((M) == SCSI_DISK0_MAJOR || \
+  ((M) >= SCSI_DISK1_MAJOR && (M) <= SCSI_DISK7_MAJOR))
+
+/* end of code from linux headers */ 
 
 #define IS_FLOPPY(st) (MAJOR(st.st_rdev) == FLOPPY_MAJOR)
 
-#ifdef SCSI_DISK0_MAJOR
 #define IS_SCSI_DISK(m) (SCSI_DISK_MAJOR(m))
-#else
-#define IS_SCSI_DISK(m) (m == SCSI_DISK_MAJOR)
-#endif
 
 #define IS_HD(st) (MAJOR(st.st_rdev) == IDE0_MAJOR \
 		    || IS_SCSI_DISK(MAJOR(st.st_rdev)) \
