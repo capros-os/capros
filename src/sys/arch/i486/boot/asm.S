@@ -26,6 +26,14 @@
 #include <eros/i486/asm.h>
 #include "boot-asm.h"
 
+#define REL16(x) .word EXT(x)-0f; 0:;
+#define REL8(x)  .byte EXT(x)-0f; 0:;
+#define jc_16_short	.byte 0x72; 
+#define jne_16_short	.byte 0x75;
+#define jl_16_short	.byte 0x7c;
+#define jg_16_short	.byte 0x7f;
+#define jmp_16_short    .byte 0xeb;
+
 	.text
 
 /*
@@ -240,14 +248,6 @@ ENTRY(get_mem_map)
 	data32
 	movl	$0xe820, %eax
 	int	$0x15
-
-#define REL16(x) .word EXT(x)-0f; 0:;
-#define REL8(x)  .byte EXT(x)-0f; 0:;
-#define jc_16_short	.byte 0x72; 
-#define jne_16_short	.byte 0x75;
-#define jl_16_short	.byte 0x7c;
-#define jg_16_short	.byte 0x7f;
-#define jmp_16_short    .byte 0xeb;
 	
 	jc_16_short	REL8(xnosmap)
 
