@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -52,9 +53,6 @@ extern void etext();
 /*extern "C" {*/
 extern void EnableCounters(uint32_t ctl);
 extern void DisableCounters();
-#ifdef PPRO_TEST_CHECKS
-extern uint64_t rdmsr(uint32_t);
-#endif
 /*}*/
 extern void halt(char);
 

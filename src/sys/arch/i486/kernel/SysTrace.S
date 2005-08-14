@@ -34,26 +34,26 @@ ENTRY(mach_ClearCounters)
 	
 	/* disable the counters */
 	movl	$0x11,%ecx	/* CES */
-	.byte   0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 	pushl %eax
 	pushl %edx
 	andl	$0xFC00FC00,%eax
 	orl	$0x02000200,%eax
-	.byte   0xf, 0x30	/* write MSR */
+	wrmsr
 	
 	/* Zero the current counters: */
 	xorl	%edx,%edx
 	xorl	%eax,%eax
 	movl	$0x12,%ecx	/* Counter 0 */
-	.byte   0xf, 0x30	/* write MSR */
+	wrmsr
 	movl	$0x13,%ecx	/* Counter 1 */
-	.byte   0xf, 0x30	/* write MSR */
+	wrmsr
 
 	/* Reset the counters */
 	popl	%edx
 	popl	%eax
 	movl	$0x11,%ecx	/* CES */
-	.byte   0xf, 0x30	/* write MSR */
+	wrmsr
 	
 	jmp	2f
 	
@@ -61,25 +61,25 @@ ENTRY(mach_ClearCounters)
 	jne	2f
 		
 	movl	$0x186,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 	movl	%eax,%ebx
 	/* disable the counters */
 	andl	$0xFFBFFFFF,%EAX
-	.byte	0xf, 0x30	/* write MSR to %edx:%eax */
+	wrmsr
 	
 	/* Zero the current counters: */
 	xorl	%edx,%edx
 	xorl	%eax,%eax
 	movl	$0xc1,%ecx	/* Counter 0 */
-	.byte   0xf, 0x30	/* write MSR */
+	wrmsr
 	movl	$0xc2,%ecx	/* Counter 1 */
-	.byte   0xf, 0x30	/* write MSR */
+	wrmsr
 
 	/* Re-enable the counters if previously enabled */
 	movl	$0x186,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 	movl	%ebx,%eax
-	.byte	0xf, 0x30	/* write MSR to %edx:%eax */
+	wrmsr
 	
 2:	popa
 	leave
@@ -97,9 +97,9 @@ ENTRY(mach_DisableCounters)
 	
 	/* Disable both event counters: */
 	movl	$0x11,%ecx	/* CES */
-	.byte   0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 	andl	$0xff3fff3f,%eax
-	.byte   0xf, 0x30	/* write MSR */
+	wrmsr
 	
 
 1:	cmpl	$6,EXT(CpuType)
@@ -107,10 +107,10 @@ ENTRY(mach_DisableCounters)
 
 	/* program counter 0 */
 	movl	$0x186,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 	/* disable the counters */
 	andl	$0xffBfffff,%EAX
-	.byte	0xf, 0x30	/* write MSR to %edx:%eax */
+	wrmsr
 
 2:	popa
 	leave
@@ -127,9 +127,9 @@ ENTRY(mach_EnableCounters)
 	jne	1f
 	
 	movl	$0x11,%ecx
-	.byte   0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 	orl	$0x00c00040,%eax
-	.byte   0xf, 0x30	/* write MSR */
+	wrmsr
 
 	jmp 2f
 
@@ -138,9 +138,9 @@ ENTRY(mach_EnableCounters)
 
 	/* program counter 0 */
 	movl	$0x186,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 	orl	$0x00400000,%EAX
-	.byte	0xf, 0x30	/* write MSR to %edx:%eax */
+	wrmsr
 
 2:	popa
 	leave
@@ -165,10 +165,10 @@ ENTRY(Pentium_SetCounterMode)
 
 1:	
 	movl	$0x11,%ecx
-	.byte   0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 	andl	$0xFC00FC00,%eax
 	orl     %ebx,%eax
-	.byte   0xf, 0x30	/* write MSR */
+	wrmsr
 	
 	popa
 	leave	
@@ -197,21 +197,21 @@ ENTRY(PentiumPro_SetCounterMode)
 	
 	/* program counter 0 */
 	movl	$0x186,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 
 	movl	%ebx,EXT(setup_value)
 	movl	%ebx,%eax
-	.byte	0xf, 0x30	/* write MSR to %edx:%eax */
+	wrmsr
 	
 	/* Counter one should count both OS and US events */
 	orl	$0x10000,%ebx
 	
 	/* program counter 1 */
 	movl	$0x187,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 
 	movl	%EBX,%EAX
-	.byte	0xf, 0x30	/* write MSR to %edx:%eax */
+	wrmsr
 
 	popa
 	leave
@@ -240,10 +240,10 @@ ENTRY(SetupCounters)
 
 count_p5_events:	
 	movl	$0x11,%ecx
-	.byte   0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 	andl	$0xFC00FC00,%eax
 	orl     %EBX,%eax
-	.byte   0xf, 0x30	/* write MSR */
+	wrmsr
 	
 	jmp 2f
 
@@ -268,21 +268,21 @@ count_p6_events:
 	
 	/* program counter 0 */
 	movl	$0x186,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 
 	movl	%ebx,EXT(setup_value)
 	movl	%ebx,%eax
-	.byte	0xf, 0x30	/* write MSR to %edx:%eax */
+	wrmsr
 	
 	/* Counter one should count both OS and US events */
 	orl	$0x10000,%ebx
 	
 	/* program counter 1 */
 	movl	$0x187,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 
 	movl	%EBX,%EAX
-	.byte	0xf, 0x30	/* write MSR to %edx:%eax */
+	wrmsr
 
 2:	popa
 	leave
@@ -315,7 +315,7 @@ ENTRY(mach_ReadCounter)
 	
 	/* Fetch pentium pro counter value: */
 	movl	$0xc1,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 	andl	$0xff,%edx	/* 40 bit counter */
 
 	jmp	4f
@@ -326,7 +326,7 @@ ENTRY(mach_ReadCounter)
 	
 	/* Fetch pentium counter value: */
 	movl	$0x12,%ecx	/* Counter 0 */
-	.byte   0xf, 0x32	/* read MSR */
+	rdmsr
 	andl	$0xff,%edx	/* 40 bit counter */
 	
 	jmp	4f
@@ -338,7 +338,7 @@ ENTRY(mach_ReadCounter)
 	
 	/* Fetch pentium pro counter value: */
 	movl	$0xc2,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 	andl	$0xff,%edx	/* 40 bit counter */
 
 	jmp	4f
@@ -349,7 +349,7 @@ ENTRY(mach_ReadCounter)
 	
 	/* Fetch pentium counter value: */
 	movl	$0x13,%ecx	/* Counter 1 */
-	.byte   0xf, 0x32	/* read MSR */
+	rdmsr
 	andl	$0xff,%edx	/* 40 bit counter */
 
 	jmp	4f
@@ -372,7 +372,7 @@ ENTRY(rdcounter0)
 	
 	/* Fetch counter value: */
 	movl	$0x12,%ecx	/* Counter 0 */
-	.byte   0xf, 0x32	/* read MSR */
+	rdmsr
 
 	jmp	2f
 	
@@ -380,7 +380,7 @@ ENTRY(rdcounter0)
 	jne	2f
 
 	movl	$0xc1,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 
 2:	popl   %ecx
 	popl   %edx
@@ -400,13 +400,13 @@ ENTRY(rdcounter1)
 	
 	/* Fetch counter value: */
 	movl	$0x13,%ecx	/* Counter 1 */
-	.byte   0xf, 0x32	/* read MSR */
+	rdmsr
 
 1:	cmpl	$6,EXT(CpuType)
 	jne	2f
 
 	movl	$0xc2,%ecx
-	.byte	0xf, 0x32	/* read MSR to %edx:%eax */
+	rdmsr
 
 2:	popl   %ecx
 	popl   %edx

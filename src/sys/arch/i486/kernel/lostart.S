@@ -1,6 +1,7 @@
 	.file	"lostart.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -54,6 +55,16 @@
 
 #include <eros/i486/asm.h>
 #include <eros/i486/target-asm.h>
+
+#define REL16(x) .word EXT(x)-0f; 0:;
+#define REL8(x)  .byte EXT(x)-0f; 0:;
+#define jc_16_short     .byte 0x72;
+#define jne_16_short    .byte 0x75;
+#define jl_16_short     .byte 0x7c;
+#define jg_16_short     .byte 0x7f;
+#define jmp_16_short    .byte 0xeb;
+                                                                                
+#define HANG 0: jmp_16_short REL8(0b)
 
 	.text
 #ifdef __ELF__
@@ -114,7 +125,7 @@ ENTRY(start)
 	andl	$EROS_KSTACK_MASK,%esp
 
 	/*
-	 * %eax now contains a pointer to a properly-aligned BOTTOM of the 
+	 * %esp now contains a pointer to a properly-aligned BOTTOM of the 
 	 * stack. Add another EROS_KSTACK_SIZE to that so we actually have
 	 * a stack.
 	 */
@@ -135,6 +146,26 @@ ENTRY(start)
 	 */	
 	
 	call	EXT(GetCpuType)
+#if 0
+	pushl	%ecx
+/* Display CpuType */
+	movl	$0x000b8008,%ecx
+	cmpl	$9,%eax
+	ja      0f
+	addl	$0x07200730,%eax
+	movl	%eax,(%ecx)
+0:	
+/* Display features */
+	movl	$0x000b800c,%ecx
+	movl	EXT(CpuFeatures),%eax
+	rorl	$5,%eax
+	andl	$0x1,%eax
+	roll	$16,%eax
+	addl	$0x07300735,%eax
+	movl	%eax,(%ecx)
+	
+	popl	%ecx
+#endif
 	
 	/*
 	 * Put up the rest of "EROS" before we call main.
@@ -178,7 +209,7 @@ ENTRY(start)
 	movl	$0xe,%ecx	/* TR12 */
 	movl	$0x4,%eax
 	xorl	%edx,%edx
-	.byte   0xf, 0x30	/* write MSR */
+	wrmsr
 #endif
 
 #ifdef OPTION_ALLOW_USER_RDTSC
@@ -189,8 +220,9 @@ ENTRY(start)
 	movl	%eax,%cr4
 #endif
 	
-#define ALLOW_RDPMC
 #ifdef ALLOW_RDPMC
+	/* Note: This seems like a bad idea, because it opens
+	   a huge covert channel. */
 	/* Enable user mode access to PMC registers: */
 	movl	%cr4,%eax
 	orl     $0x100,%eax     /* Enable user mode rdpmc bit-8-cr4*/
@@ -200,14 +232,15 @@ ENTRY(start)
 	xorl %edx, %edx
 	xorl %eax, %eax
 	movl $0xC1, %ecx
-	wrmsr
+	wrmsr	/* AMD Athlon XP-M crashes here */
 	
 	/* Program PerfCtr0 to count user mode only, clock cycles */
+	/* Count clock cycles in counter0 */
 	movl $0x186, %ecx
-	.byte 0xf,0x32
+	rdmsr
 	andl  $0x00000000, %eax
 	orl   $0x00510079, %eax  /* User mode events only & enable counters */
-	.byte 0xf, 0x30          /* Count clock cycles in counter0 */
+	wrmsr
 
 	/* Zero PerfCtr1 */
 	xorl %edx, %edx
@@ -217,24 +250,13 @@ ENTRY(start)
 
 	/* Program PerfCtr1 to count kernel mode,segment register loads  */
 	movl $0x187, %ecx
-	.byte 0xf,0x32
+	rdmsr
 	andl  $0x00000000, %eax
 	orl   $0x00520006, %eax  /* Supervisor mode only & enable counters */
-	.byte 0xf, 0x30
+	wrmsr
 	
 #endif
 		
-		
-#ifdef PPRO_TEST_CHECKS 
-	/* TEMPORARY to find that bug.  Enable the "record last branch 
-	   before exception/interrupt" facility on the PPro:  */
-	movl	$0x1d9,%ecx
-	.byte   0xf, 0x32	/* read MSR to %edx:%eax */
-	orl	$0x1,%eax
-	.byte   0xf, 0x30	/* write MSR */
-
-#endif
-	
 	popl	%ecx
 	popl	%edx
 	popl	%eax
@@ -285,7 +307,7 @@ ENTRY(GetCpuType)
 	jne     4f
 
 	/*
-	 * Well, shit.  Need to do it the hard way.
+	 * First time, get the info from the processor.
 	 */
 	
 	/*
@@ -460,52 +482,11 @@ ENTRY(rdtsc)
 	cmpl	$5,EXT(CpuType)
 	jb	1f		/* don't call it if not supported */
 
-	.byte 0x0f
-	.byte 0x31		/* RDTSC instr - results to %edx:%eax */
+	rdtsc
 
 1:	leave
 	ret
 
-#ifdef PPRO_TEST_CHECKS 
-ENTRY(rdmsr)
-	pushl	%ebp
-	movl	%esp,%ebp
-	
-	xorl	%eax,%eax
-	xorl	%edx,%edx
-	
-	movl	8(%ebp),%ecx
-
-	.byte 0x0f
-	.byte 0x32		/* RDTSC instr - results to %edx:%eax */
-
-1:	leave
-	ret
-
-#endif
-ENTRY(GetSetupReg)
-	pushl	%ebp
-	movl	%esp,%ebp
-	pushl	%edx
-	pushl	%ecx
-		
-	cmpl	$6,EXT(CpuType)
-	je	1f
-	
-	movl	$0x11,%ecx
-	.byte   0xf, 0x32	/* read MSR to %edx:%eax */
-	
-	jmp	2f
-	
-1:	movl	$0x186,%ecx
-	.byte   0xf, 0x32	/* read MSR to %edx:%eax */
-	
-2:	popl	%ecx
-	popl	%edx
-	leave
-	ret
-	
-	
 /*
  * Halt the processor without rebooting, ensuring that the panic message will 
  * be seen. 
