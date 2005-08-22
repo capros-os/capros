@@ -17,6 +17,11 @@
     Here is how I think that can be done.
     </p>
     <p>
+    First, a Multiboot header must be included on the boot volume.
+    This could be right after the VolHdr. 
+    It can be created by <b>mkvol</b> and updated by <b>sysgen</b>. 
+    </p>
+    <p>
     GRUB can locate objects to load in two ways. 
     One is via a file name. Since CapROS doesn't have a file system
     that GRUB would understand, this won't work for us. We could dummy up a 
