@@ -32,6 +32,7 @@ HTML_DOCS= \
 	IPCv2.html \
 	IPCv3.html \
 	LineDiscDesign.html \
+	Multiboot.html \
 	SmallSpaces386.html \
 	POSIX.html \
 	Checkpoint.html \
