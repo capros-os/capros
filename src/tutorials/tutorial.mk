@@ -62,8 +62,8 @@ init.hd: $(KERNDEP) $(VOLMAP)
 
 hd: $(BUILDDIR)/sysimg $(KERNDEP) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/setvol -b $(BOOT) -k $(KERNPATH) $(EROS_HD)
-	$(EROS_ROOT)/host/bin/setboot -w $(EROS_HD)
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(EROS_HD) $(BUILDDIR)/sysimg | tee $(BUILDDIR)/sysgen.out
+	$(EROS_ROOT)/host/bin/setboot -w $(EROS_HD)
 
 $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(KERNDEP) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol
