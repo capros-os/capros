@@ -42,6 +42,17 @@
         <dd>Print a stack trace.
         <dt>c
         <dd>Continue execution
+        <dt>debug inttrap y
+        <dt>debug inttrap n
+        <dd>Turns the "dbg_inttrap" flag on and off. When on, the debugger
+            is entered at the beginning of the interrupt/trap handler.
+            The flag is off by default.
+        <dt>debug wild y
+        <dt>debug wild n
+        <dd>If the kernel is configured with DBG_WILD_PTR defined, this
+            command turns the "dbg_wild_ptr" flag on and off. 
+            When on, the kernel does extensive checking of pointers.
+            If configured, the flag is on by default.
         <dt>show
         <dd>Without any arguments, this command prints a list of arguments
             you can give. Here are explanations of some of them:
