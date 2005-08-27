@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -35,8 +36,6 @@ extern void start();
 
 PTE* KernPageDir /* = (PTE*) xKERNPAGEDIR */;
 kpmap_t KernPageDir_pa /* = xKERNPAGEDIR */;
-
-void i486_BuildKernelMap();
 
 #ifdef OPTION_SMALL_SPACES
 #include <kerninc/Invocation.h>
@@ -103,7 +102,7 @@ MakeSmallSpaces()
 /* FIX: This will need to turn into something more complex if Intel
    ever decides to build SMP machines in which only some processors
    support the global page feature. */
-static unsigned GlobalPage = 0u; /* until proven otherwise */
+static unsigned GlobalPage = 0u; /* or PTE_GLBL if supported */
 
 #ifdef NEW_KMAP
 static inline kpa_t 
@@ -121,7 +120,7 @@ MapKernelPage(kva_t va, kpa_t pa, uint32_t mode)
   PTE *pageDir = KernPageDir; /* kernel page directory */
   PTE *pageTab;
 
-  uint32_t tabndx = (KVTOL(va) >> 12) & 0x3ffu;
+  uint32_t tabndx;
   uint32_t dirndx = (KVTOL(va) >> 22);
 
   if (mode & PTE_PGSZ) {
@@ -131,6 +130,8 @@ MapKernelPage(kva_t va, kpa_t pa, uint32_t mode)
 
     return;
   }
+
+  tabndx = (KVTOL(va) >> 12) & 0x3ffu;
 
   if ( pte_is(&pageDir[dirndx], PTE_V) ) {
     pageTab = (PTE *) PTOV(pte_PageFrame(&pageDir[dirndx]));
@@ -415,7 +416,7 @@ i486_BuildKernelMap()
   PTE *pageDir = KernPageDir; /* kernel page directory */
 
 #ifndef NO_GLOBAL_PAGES
-  if (CpuIdHi > 1 && CpuFeatures & CPUFEAT_PGE)
+  if (CpuIdHi >= 1 && CpuFeatures & CPUFEAT_PGE)
     GlobalPage = PTE_GLBL;
 #endif
 
@@ -510,7 +511,7 @@ void
 i486_BuildKernelMap()
 {
   PTE *pageDir = KernPageDir; /* kernel page directory */
-  uint32_t physPages = 0;
+  uint32_t physPages;
   uint32_t increment = 0;
   uint32_t i = 0;
   unsigned heap_first_page;
@@ -545,13 +546,13 @@ i486_BuildKernelMap()
   increment = 1;		/* increment in pages by default */
 
 #ifndef NO_GLOBAL_PAGES
-  if (CpuIdHi > 1 && CpuFeatures & CPUFEAT_PGE)
+  if (CpuIdHi >= 1 && CpuFeatures & CPUFEAT_PGE)
     GlobalPage = PTE_GLBL;
 #endif
   
 
 #ifndef NO_LARGE_PAGES
-  if (CpuIdHi > 1 && CpuFeatures & CPUFEAT_PSE) {
+  if (CpuIdHi >= 1 && CpuFeatures & CPUFEAT_PSE) {
     supports_large_pages = true;
   }
 #endif
@@ -606,14 +607,13 @@ i486_BuildKernelMap()
     if (supports_large_pages) {
 #ifndef NDEBUG
       uint32_t tabndx = (vaddr >> 12) & 0x3ffu;
+      assert (tabndx == 0);
 #endif
 
       mode |= PTE_W|PTE_PGSZ;
 #ifdef WRITE_THROUGH
       mode |= PTE_WT;
 #endif
-
-      assert (tabndx == 0);
 
       MapKernelPage(PTOV(paddr), paddr, mode);
       pageDir[pdirndx] = pageDir[dirndx];
@@ -646,6 +646,7 @@ i486_BuildKernelMap()
   }
 
   heap_first_page = physPages;
+/*** Use align_up */
   heap_first_page += (1024 - 1);
   heap_first_page -= (heap_first_page % 1024);
 
@@ -799,6 +800,7 @@ i486_BuildKernelMap()
 #if 0
   printf("Built Kernel Page Map!\n");
 #endif
+  printf("CpuFeatures=0x%08x\n",CpuFeatures);
 }
 #endif /* NEW_KMAP */
 
@@ -812,7 +814,7 @@ mach_MapHeapPage(kva_t va, kpa_t paddr)
   mode = PTE_V|PTE_W;
 
 #ifndef NO_GLOBAL_PAGES
-  if (CpuIdHi > 1 && CpuFeatures & CPUFEAT_PGE)
+  if (CpuIdHi >= 1 && CpuFeatures & CPUFEAT_PGE)
     mode |= PTE_GLBL;
 #endif
 #ifdef WRITE_THROUGH

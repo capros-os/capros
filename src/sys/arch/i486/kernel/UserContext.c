@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -103,6 +104,7 @@ proc_AllocUserContexts()
 
     p->cpuStack = 0;
     p->procRoot = 0;
+    p->keysNode = 0;
     p->isUserContext = true;		/* until proven otherwise */
     /*p->priority = pr_Never;*/
     p->faultCode = FC_NoFault;
@@ -125,6 +127,8 @@ proc_AllocUserContexts()
 
   proc_ContextCache = contextCache;
 
+  check_Contexts("Initial check");
+
   printf("Allocated User Contexts: 0x%x at 0x%08x\n",
 		 sizeof(Process[KTUNE_NCONTEXT]),
 		 proc_ContextCache);
@@ -133,6 +137,7 @@ proc_AllocUserContexts()
 /* FIX: It is unfortunate that some of these checks require !NDEBUG.
  * Should they?
  */
+/* The string c is for diagnostic identification only. */
 bool
 check_Contexts(const char *c)
 {

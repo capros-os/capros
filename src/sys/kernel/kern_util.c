@@ -103,7 +103,7 @@ align_up(kpa_t addr, uint32_t alignment)
 {
     addr += alignment - 1;
     addr &= ~((uint64_t)alignment - 1);
-
+/*** Why uint64_t? */
     return addr;
 }
 

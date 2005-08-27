@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -42,11 +43,6 @@ static char *const logtop = diagbuf + (DIAG_BUF_PAGES * EROS_PAGE_SIZE);
 extern void halt(char c) NORETURN;
 
 void
-LogStream_Init()
-{
-}
-
-void
 LogStream_Put(uint8_t c)
 {
   if ((unsigned)(nextin - logbuf) > (DIAG_BUF_PAGES * EROS_PAGE_SIZE))
@@ -58,35 +54,14 @@ LogStream_Put(uint8_t c)
   *nextin++ = c;
 }
 
-#ifdef OPTION_DDB
-uint8_t
-LogStream_Get()
-{
-  fatal("LogStream::Get() should never be called!\n");
-  return 0;
-}
-
-void
-LogStream_SetDebugging(bool onOff)
-{
-  fatal("LogStream::SetDebugging() should never be called!\n");
-}
-
-void
-LogStream_EnableDebuggerInput()
-{
-  fatal("LogStream::EnableDebuggerInput() should never be called!\n");
-}
-#endif
-
 struct KernStream TheLogStream = {
-  LogStream_Init, 
+  0,	/* no initilization method needed */
   LogStream_Put 
 #ifdef OPTION_DDB 
   ,
-  LogStream_Get,
-  LogStream_SetDebugging,
-  LogStream_EnableDebuggerInput
+  0,	/* no Get method */
+  0,	/* no SetDebugging method */
+  0	/* no EnableDebuggerInput method */
 #endif /*OPTION_DDB*/
 };
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -32,7 +33,7 @@ KernStream *kstream_log_stream = 0;
 void
 kstream_InitStreams()
 {
-  kstream_LogStream->Init();
+  /* kstream_LogStream->Init();  LogStream needs no initialization */
   kstream_ConsoleStream->Init();
 #ifdef OPTION_DDB_ON_TTY0
   kstream_SerialStream->Init();
@@ -43,18 +44,14 @@ kstream_InitStreams()
 
 #if defined(OPTION_DDB_ON_CONSOLE)
   kstream_dbg_stream = kstream_ConsoleStream;
+  /* If the debugger stream is set to point to the console device,
+   * turn off the syscon_stream so that we do not see duplicated
+   * output. */
+  kstream_syscon_stream = 0;
 #elif defined(OPTION_DDB_ON_TTY0)
   kstream_dbg_stream = kstream_SerialStream;
 #endif
     
-#ifdef OPTION_DDB
-  /* If the debugger stream is set to point to the console device,
-   * turn off the syscon_stream so that we do not see duplicated
-   * output. */
-  if (kstream_dbg_stream == kstream_ConsoleStream)
-    kstream_syscon_stream = 0;
-#endif /* OPTION_DDB */
-
   printf("Kernel streams initialized...\n");
 }
 

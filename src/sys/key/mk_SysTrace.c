@@ -34,7 +34,6 @@
 
 extern void zapcounters();
 extern uint64_t rdtsc();
-extern uint32_t GetSetupReg();
 uint32_t setup_value;
 
 #ifdef OPTION_KERN_STATS

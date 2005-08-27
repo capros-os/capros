@@ -2,6 +2,7 @@
 #define __BOOTINFO_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -109,7 +110,7 @@ struct ConsoleInfo {
 typedef struct ConsoleInfo ConsoleInfo;
 
 struct BootInfo {
-  uint32_t  volFlags;		/* defined in LowVolume.h */
+  uint32_t  volFlags;		/* VolHdrFlags defined in LowVolume.h */
 
   Geometry  bootGeom;		/* boot geometry as seen by the bootstrap */
   uint32_t  bootDrive;		/* boot drive as seen by the bootstrap */

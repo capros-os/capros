@@ -69,6 +69,7 @@ db_examine_cmd(db_expr_t addr, int ha/* have_addr */,
 {
 	if (modif[0] != '\0')
 		strcpy(db_examine_format, modif);
+		/* else use the same format as previously */
 
 	if (count == -1)
 		count = 1;

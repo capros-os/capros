@@ -57,6 +57,7 @@
  *
  * On entry:	
  *
+ *	We are in real-address mode.
  *	CS:EIP are 0x0:0x7c00.  
  *      dl     holds BIOS id of boot drive.
  *	ES:SI  points to partition table entry IFF this was a 
@@ -315,8 +316,7 @@ LEXT(start_extended_bootstrap)
 	CMSG('\r')
 	CMSG('\n')
 	
-	/* extended bootstrap is now loaded.  Switch to 32-bit mode
-	   and start it! */
+	/* extended bootstrap is now loaded.  Start it! */
 	
 	pop	%edx		/* drive, head */
 	pop	%ecx		/* sec, cyl */

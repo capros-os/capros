@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -35,7 +36,9 @@
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 /* Implementation of Memory Constraints */
+/* physMem_pages: must be page aligned */
 PmemConstraint physMem_pages = { (kpa_t) 0u, ~((kpa_t)0u), EROS_PAGE_SIZE };
+/* physMem_pages: must be word aligned */
 PmemConstraint physMem_any = { (kpa_t) 0u, ~((kpa_t)0u), sizeof(uint32_t) };
 
 extern void end();

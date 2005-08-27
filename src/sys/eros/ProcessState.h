@@ -3,6 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -103,7 +104,9 @@
 #define FC_StackSeg           129 /* hardware protection violation */
 #define FC_Overflow           130 /* intel-specific overflow error */
 #define FC_Bounds             131 /* intel-specific bounds error */
-#define FC_SegNotPresent      132 /* intel-specific bounds error */
+#define FC_SegNotPresent      132 /* intel-specific error */
+#define FC_InvalidTSS         133 /* intel-specific error */
+#define FC_SIMDFloatingPointError 134 /* intel-specific error */
 
 /* RUN STATES -- it is desirable if RS_Waiting == KT_REPLY and
    RS_Available == KT_CALL to improve the hand-coded IPC path. */

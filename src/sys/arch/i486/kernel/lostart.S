@@ -28,8 +28,8 @@
  * maintainable and portable than assembly code. For more details, see
  * the documentation of kernel startup. 
  * 
- * On entry, the kernel is sitting at physical 0x101000, which puts it in 
- * upper memory and avoids DMA-constrained lower memory
+ * On entry, the kernel is sitting at physical 0x100000 (KERNPBASE),
+ * which puts it in upper memory and avoids DMA-constrained lower memory.
  *
  * The bootstrap loader transfers control to us in protected mode.  It has
  * loaded all segment registers with 32-bit, 4GB, non-offsetting segments

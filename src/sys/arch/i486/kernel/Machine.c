@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -82,18 +83,6 @@ void i486_BuildKernelMap();
 void 
 mach_BootInit()
 {
-  /* Set up the boot console by hand so that we can do kernel
-   * diagnostics during startup.  Note that the boot console is output
-   * only unless a kernel debugger is present, and we will enable
-   * debugger input later after interrupts have been initialized. 
-   */
-  kstream_InitStreams();
-
-  /* On the 386, this can be done before enabling VM, which
-   * is helpful.
-   */
-  physMem_Init();
-  
   /* The kernel address space must, however, be constructed and
    * enabled before the GDT, IDT, and TSS descriptors are loaded,
    * because these descriptors reference linear addresses that change

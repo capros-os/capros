@@ -56,7 +56,7 @@ void
 proc_Resume(Process* thisPtr)
 {
 #if 0
-  printf("Resume user thread 0x%08x\n", thread);
+  printf("Resume user process 0x%08x\n", thisPtr);
 #endif
   
 #ifndef NDEBUG
@@ -82,7 +82,7 @@ proc_Resume(Process* thisPtr)
 #endif
 
 #if 0
-  printf("Resume user activity savearea 0x%08x\n", saveArea);
+  printf("Resume user activity savearea 0x%08x\n", thisPtr->saveArea);
 #endif
 
   /* Need to have a valid directory or the machine reboots.  It's

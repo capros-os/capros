@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -195,17 +196,23 @@ VecFn IntVecEntry[IDT_ENTRIES];
 
 uint32_t IDTdescriptor[2];
 
-extern void BadOpcode(savearea_t *sa);
-extern void BptTrap(savearea_t *sa);
 extern void DivZeroFault(savearea_t *sa);
-extern void DeviceNotAvailException(savearea_t *sa);
-extern void PseudoInstrException(savearea_t *sa);
 extern void DebugException(savearea_t *sa);
-extern void SSFault(savearea_t *sa);
+extern void BptTrap(savearea_t *sa);
+extern void OverflowTrap(savearea_t *sa);
+extern void BoundsFault(savearea_t *sa);
+extern void BadOpcode(savearea_t *sa);
+extern void DeviceNotAvailException(savearea_t *sa);
+extern void InvalTSSFault(savearea_t *sa);
 extern void SegNotPresFault(savearea_t *sa);
-extern void ReservedException(savearea_t *sa);
+extern void SSFault(savearea_t *sa);
 extern void GPFault(savearea_t *sa);
 extern void PageFault(savearea_t *sa);
+extern void CoprocErrorFault(savearea_t *sa);
+extern void AlignCheckFault(savearea_t *sa);
+extern void SIMDFloatingPointFault(savearea_t *sa);
+extern void PseudoInstrException(savearea_t *sa);
+extern void ReservedException(savearea_t *sa);
 
 /* Note that the IDT gets set up immediately following the GDT, modulo
  * possibly being rounded up to an 8 byte boundary.  This causes them
@@ -231,31 +238,36 @@ idt_Init()
  
   for (vec = iv_IRQ0; vec <= iv_IRQ15; vec++)
     idt_WireVector(vec, irq_UnboundInterrupt);
-   
-  /* Hand-wire a couple of common cases: */
-  idt_WireVector(iv_Yield, idt_YieldVector);
 
   /* Hand-wire the processor-generated exceptions: */
-  idt_WireVector(iv_BadOpcode, BadOpcode);
   idt_WireVector(iv_DivZero, DivZeroFault);
-  idt_WireVector(iv_GeneralProtection, GPFault);
-  idt_WireVector(iv_StackSeg, SSFault);
-  idt_WireVector(iv_SegNotPresent, SegNotPresFault);
-  idt_WireVector(iv_BreakPoint, BptTrap);
-  idt_WireVector(iv_PageFault, PageFault);
   idt_WireVector(iv_Debug, DebugException);
+  idt_WireVector(iv_BreakPoint, BptTrap);
+  idt_WireVector(iv_Overflow, OverflowTrap);
+  idt_WireVector(iv_Bounds, BoundsFault);
+  idt_WireVector(iv_BadOpcode, BadOpcode);
   idt_WireVector(iv_DeviceNotAvail, DeviceNotAvailException);
+  idt_WireVector(iv_InvalTSS, InvalTSSFault);
+  idt_WireVector(iv_SegNotPresent, SegNotPresFault);
+  idt_WireVector(iv_StackSeg, SSFault);
+  idt_WireVector(iv_GeneralProtection, GPFault);
+  idt_WireVector(iv_PageFault, PageFault);
+  idt_WireVector(iv_CoprocError, CoprocErrorFault);
+  idt_WireVector(iv_AlignCheck, AlignCheckFault);
+  idt_WireVector(iv_SIMDFloatingPoint, SIMDFloatingPointFault);
+   
+  /* Hand-wire the software interrupts: */
+  idt_WireVector(iv_Yield, idt_YieldVector);
   idt_WireVector(iv_EmulPseudoInstr, PseudoInstrException);
+#if 0
+  /* This path no longer comes through here... */
+  idt_WireVector(iv_InvokeKey, Invoke);
+#endif
 
 
   idt_WireVector((intVecType) 0xf, ReservedException);
-  for (i = 0x11; i <= 0x1f; i++)
+  for (i = 0x14; i <= 0x1f; i++)
     idt_WireVector((intVecType) i, ReservedException);
-
-#if 0
-  /* This path no longer comes through here... */
-  WireVector(IntVec::InvokeKey, Invoke);
-#endif
   
   idt_SetupInterruptControllers();
   

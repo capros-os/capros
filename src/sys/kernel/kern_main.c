@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -126,6 +127,16 @@ main(int is/* isboot */, char **ch)
   act_curActivity = 0;
 
   /* Initialize the stuff we don't go anywhere without: */
+
+  /* Set up the boot console by hand so that we can do kernel
+   * diagnostics during startup.  Note that the boot console is output
+   * only unless a kernel debugger is present, and we will enable
+   * debugger input later after interrupts have been initialized.
+   */
+  kstream_InitStreams();
+
+  physMem_Init();
+
   mach_BootInit();
 
   cpu_BootInit();
@@ -138,10 +149,10 @@ main(int is/* isboot */, char **ch)
   
 #ifdef OPTION_DDB
   ddb_init();
-#endif
 
 #if 0
   Debugger();
+#endif
 #endif
 
   /* Initialize global variables */
@@ -194,4 +205,5 @@ main(int is/* isboot */, char **ch)
   irq_DISABLE();
   
   proc_Resume(idleActivity->context);
+  /* proc_Resume does not return */
 }

@@ -140,7 +140,7 @@ ENTRY(StartKernel)
 	   necessarily a good idea... */
 	mov	$KERNDATASEG, %ebx
 	movw	%bx, %ss
-	addl	$(BOOT2_SEG<<4),%esp
+	addl	$BOOT2_ADDR,%esp
 	
 	/* copy the arguments from the old stack to the new stack */
 	pushl	0x0C(%eax)		/* sysinfo */

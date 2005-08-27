@@ -134,10 +134,12 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
    * the kernel in nested fashion could trigger a context check while
    * something critical was being updated. */
   
-  if ((sa_IsProcess(saveArea) || 
-       ((vecNumber != iv_BreakPoint) && (vecNumber < iv_IRQ0))) &&
-      ! check_Contexts("on int entry") )
+  if (   (irq_DISABLE_DEPTH() == 1)	/* avoid recursive fault */
+      && (sa_IsProcess(saveArea)
+          || ((vecNumber != iv_BreakPoint) && (vecNumber < iv_IRQ0)) )
+      && ! check_Contexts("on int entry") ) {
     halt('a');
+  }
   
 #endif
   

@@ -2,6 +2,7 @@
 #define __IDT_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -38,7 +39,7 @@ enum intVecType {
   iv_BadOpcode 		= 0x6,
   iv_DeviceNotAvail	= 0x7,
   iv_DoubleFault 	= 0x8,
-  iv_CoprocessorOverrun = 0x9,
+  iv_CoprocessorOverrun = 0x9,	/* not used on 486 and above */
   iv_InvalTSS 		= 0xa,
   iv_SegNotPresent 	= 0xb,
   iv_StackSeg 		= 0xc,
@@ -47,6 +48,7 @@ enum intVecType {
   iv_CoprocError	= 0x10,
   iv_AlignCheck         = 0x11,
   iv_MachineCheck       = 0x12,
+  iv_SIMDFloatingPoint  = 0x13,
   
   iv_IRQ0 		= 0x20,
   iv_IRQ1 		= 0x21,

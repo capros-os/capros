@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -31,9 +32,6 @@
 #include "boot-asm.h"
 #include "debug.h"
 	
-#define REL16(x) .word EXT(x)-0f; 0:;
-#define CMSG(x) movb $x,%al; addr32;call cmsg 
-
 ENTRY(boot2_start)
 	cli
 	
@@ -41,10 +39,6 @@ ENTRY(boot2_start)
 	   first-stage boot module with impunity. */
 	
 	/* load %ds so that we can load the GDT table pointer */
-#if 0
-	CMSG('2')
-#endif
-	
 	push	%cs
 	pop	%ds
 	
@@ -52,18 +46,20 @@ ENTRY(boot2_start)
 	addr32
 	data32
 	lgdt	EXT(Gdtr)
-	
+
 	/* set the PE bit of CR0 */
 	mov	%cr0, %eax
 
 	data32
 	or	$CR0_PE_ON, %eax
 	mov	%eax, %cr0 
+	/* We are now in Protected mode. */
 	
 	data32
 	ljmp	$BOOTCODE32, $reload_segs
 	
 reload_segs:
+	/* We are now in 32-bit mode. */
 	
 	movw	$BOOTDATA32, %ax
 	mov	%ax, %ds
@@ -72,7 +68,7 @@ reload_segs:
 	mov	%ax, %gs
 	mov	%ax, %ss
 	
-	movl	$BOOT2_STACK,%ESP
+	movl	$BOOT2_STACK,%esp
 
 	movl	$0x000b8000,%eax	/* video address */
 	subl	$BOOT2_ADDR,%eax	/* bias correctly */

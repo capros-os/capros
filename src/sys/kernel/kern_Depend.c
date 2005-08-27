@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -74,6 +75,7 @@ uint32_t KeyBuckets;
 void
 Depend_InitKeyDependTable(uint32_t nNodes)
 {
+  kpsize_t len;
   uint32_t nEntries = nNodes * 8;
   nEntries += nEntries / 4;	/* extra 25% */
   
@@ -84,15 +86,21 @@ Depend_InitKeyDependTable(uint32_t nNodes)
 
   KeyBuckets = nEntries / KeyBucketSize;
 
-  KeyDependLRU = (uint32_t *)KPAtoP(void *, physMem_Alloc(KeyBuckets*sizeof(uint32_t), &physMem_any));;
-  KeyDependStats = (uint64_t *)KPAtoP(void *, physMem_Alloc(KeyBuckets*sizeof(uint64_t), &physMem_any));
+  len = KeyBuckets*sizeof(uint32_t);
+  KeyDependLRU = (uint32_t *)KPAtoP(void *, physMem_Alloc(len, &physMem_any));
+  bzero(KeyDependLRU, len);
+
+  len = KeyBuckets*sizeof(uint64_t);
+  KeyDependStats = (uint64_t *)KPAtoP(void *, physMem_Alloc(len, &physMem_any));
+  bzero(KeyDependStats, len);
 
   DEBUG(alloc)
     printf("Allocated KeyDependLRU: 0x%x at 0x%08x\n",
 		   sizeof(uint32_t[KeyBuckets]), KeyDependLRU);
 
-  KeyDependTable = (KeyDependEntry *)KPAtoP(void *, physMem_Alloc(nEntries*sizeof(KeyDependEntry), 
-                                                                  &physMem_any));
+  len = nEntries*sizeof(KeyDependEntry);
+  KeyDependTable = (KeyDependEntry *)KPAtoP(void *, physMem_Alloc(len, &physMem_any));
+  bzero(KeyDependTable, len);
 
   DEBUG(alloc)
     printf("Allocated KeyDependTable: 0x%x at 0x%08x\n",
