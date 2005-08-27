@@ -30,6 +30,18 @@ void abort(void) NORETURN;
 
 char hexdigit(uint8_t);
 
+INLINE uint32_t align_down_uint32(uint32_t x,
+  uint32_t alignment) /* alignment must be power of 2 */
+{
+  return x & ~(uint32_t)(alignment-1);
+}
+
+INLINE uint32_t align_up_uint32(uint32_t x,
+  uint32_t alignment) /* alignment must be power of 2 */
+{
+  return align_down_uint32(x + (alignment-1), alignment);
+}
+
 kpa_t align_up(kpa_t addr, uint32_t alignment); /* alignment must be power of 2 */
 kpa_t align_down(kpa_t addr, uint32_t alignment); /* alignment must be power of 2 */
 

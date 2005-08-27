@@ -102,16 +102,12 @@ kpa_t
 align_up(kpa_t addr, uint32_t alignment)
 {
     addr += alignment - 1;
-    addr &= ~((uint64_t)alignment - 1);
-/*** Why uint64_t? */
-    return addr;
+    return addr & ~(kpa_t)(alignment - 1);
 }
 
 kpa_t
 align_down(kpa_t addr, uint32_t alignment)
 {
-    addr &= ~((uint64_t)alignment - 1);
-
-    return addr;
+    return addr & ~(kpa_t)(alignment - 1);
 }
 

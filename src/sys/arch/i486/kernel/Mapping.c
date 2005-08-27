@@ -645,10 +645,7 @@ i486_BuildKernelMap()
     pageDir[pdirndx] = pageDir[dirndx];
   }
 
-  heap_first_page = physPages;
-/*** Use align_up */
-  heap_first_page += (1024 - 1);
-  heap_first_page -= (heap_first_page % 1024);
+  heap_first_page = align_up_uint32(physPages, 1024);
 
   printf("Last physpage at 0x%08x\n", EROS_PAGE_SIZE * physPages);
 
@@ -695,8 +692,7 @@ i486_BuildKernelMap()
     heap_bound += ((KTUNE_MAX_CARDMEM * 1024)/4096) * sizeof(ObjectHeader);
 
     /* Round up to nearest page: */
-    heap_bound += (EROS_PAGE_SIZE - 1);
-    heap_bound -= (heap_bound % EROS_PAGE_SIZE);
+    heap_bound = align_up_uint32(heap_bound, EROS_PAGE_SIZE);
 
     assert((heap_bound % EROS_PAGE_SIZE) == 0);
     assert((heap_start % EROS_PAGE_SIZE) == 0);
