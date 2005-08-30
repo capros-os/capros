@@ -35,10 +35,13 @@
 
 #include <kerninc/kernel.h>
 #include <eros/target.h>
-/* #include <sys/param.h> */
-/* #include <vm/vm.h> */
-/* #include <machine/trap.h> */
 #include <kerninc/Process.h>
+#include <kerninc/memory.h>
+
+INLINE int strncmp(const char *c1, const char *c2, uint32_t len)
+{
+  return memcmp(c1, c2, len);
+}
 
 #define kernel_map  KernPageDir_pa
 #define PSL_T	    0x100	/* trace trap bit */

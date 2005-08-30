@@ -1,6 +1,7 @@
 	.file	"memory.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -17,40 +18,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- */
-
-/*
- * The basic job of the startup code is to load known (reasonable) values
- * into all of the segment registers, create a stack, initialize the
- * first thread, establish a more permanent GDT, and branch into main
- * as quickly as possible. The theory is that C/C++ code is much more
- * maintainable and portable than assembly code. For more details, see
- * the documentation of kernel startup. 
- * 
- * On entry, the kernel is sitting at physical 0x1000.   Note that this may
- * shortly need to change, as the kernel is growing.  There is some incentive
- * to move it to 0x1001000, which would put it in upper memory and leave us
- * more room.  At some point I will probably re-engineer things so that the
- * kernel can be loaded in either place according to where it was linked.
- *
- * The bootstrap loader transfers control to us in protected mode.  It has
- * loaded all segment registers with 32-bit, 4GB, non-offsetting segments
- * of appropriate type, which were loaded from a temporary GDT that it 
- * built.  The A20 line has been enabled.
- *
- * In the latest design, no virtual mapping is established by the boot
- * loader, which shrinks it (the boot loader) somewhat.
- *
- * When we recieve control, interrupts are disabled.
-	
- * A single kernel argument, which is a pointer to the SysInfo structure, 
- * is sitting on a temporary stack in low memory.  The transfer mechanism
- * for this structure will soon need to change.
- *
- * While the GDT set up by the bootstrap loader is still valid and 
- * addressable, the kernel should set up an official one as quickly as 
- * possible.  The one created by the bootstrap loaded lives someplace
- * that the kernel is almost certainly just about to reclaim.
  */
 
 #include <eros/i486/asm.h>

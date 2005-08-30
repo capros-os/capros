@@ -20,6 +20,8 @@
     First, a Multiboot header must be included on the boot volume.
     This could be right after the VolHdr. 
     It can be created by <b>mkvol</b> and updated by <b>sysgen</b>. 
+    (I don't know how GRUB locates the Multiboot header; perhaps by
+    searching for the magic number?) 
     </p>
     <p>
     GRUB can locate objects to load in two ways. 
@@ -40,8 +42,10 @@
     and preloaded division(s). <b>setboot</b> would no longer be needed.
     </p>
     <p>
-    Perhaps we can write to the kernel division the kernel a.out or ELF
-    file (which GRUB understands) instead of the image as is now done. 
+    (We can't write to the kernel division the kernel a.out or ELF
+    file (which GRUB understands); we must write an image as is now done
+    because the division is a page range that has an extra frame every
+    DATA_PAGES_PER_PAGE_CLUSTER pages.) 
     </p>
     <p>
     I think we can drop support for booting from RAM disk. 
@@ -55,17 +59,17 @@
     </p>
     <ul>
       <li>bootStartSec, isRamImage: only used during boot, not used by the kernel
-      <li>memInfo: GRUB provides information on available RAM, but the
-      CapROS kernel uses other memory regions, for example MI_DEVICEMEM
-      and MI_BOOTROM. The kernel will have to query the BIOS
-      for this information. 
+      <li>memInfo: GRUB provides information on available RAM.
+      The kernel now uses only this information.
       <li>divInfo (information for preloaded divisions):
       CapROS needs more information than is provided by GRUB. 
       Possibly this information can be passed to the kernel
       in the string given with the GRUB "module" command. 
       <li>consInfo: not currently used by the kernel
-      <li>volFlags, iplSysId, iplKey: the kernel can get these
-      from the VolHdr of the booted volume. 
+      <li>volFlags, iplSysId, iplKey: the kernel could get these
+      from the VolHdr of the booted volume, but since the kernel
+      doesn't do disk I/O, that could be awkward. Better to pass the info
+      in the GRUB "command line" string. 
     </ul>
     <hr>
 <table>

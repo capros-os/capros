@@ -152,7 +152,6 @@ bios32_init()
   
   b32bottom = (Bios32Entry *) 0xe0000;
   b32top    = (Bios32Entry *) 0xffff0;
-  entry = 0;
 
   for (entry = b32bottom; entry < b32top; entry++) {
     if (entry->fields.signature != sig_bios32)

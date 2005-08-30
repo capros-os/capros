@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -20,6 +21,7 @@
 
 #include <disk/LowVolume.h>
 #include <kerninc/BootInfo.h>
+#include <kerninc/util.h>
 #include "boot.h"
 #include "boot-asm.h"
 #include "debug.h"
@@ -31,6 +33,7 @@ do_preload(BootInfo *bi, Division *div)
   void *pdest;
   uint32_t sectors = div->end - div->start;
   uint32_t start = div->start;
+  kpsize_t size;
   DivisionInfo *di = &bi->divInfo[bi->nDivInfo];
 
   if (bi->nDivInfo == MAX_PRELOAD) {
@@ -43,18 +46,21 @@ do_preload(BootInfo *bi, Division *div)
   /* Add bias for range header page with ckpt seq number */
   start += EROS_PAGE_SECTORS;
   sectors -= EROS_PAGE_SECTORS;
+  size = sectors * EROS_SECTOR_SIZE;
+  /* Round up to page size. */
+  size = (size + (EROS_PAGE_SIZE-1)) & ~(kpsize_t)(EROS_PAGE_SIZE-1);
 
   /* Allocate space for the preloaded range: */
   pdest = 
-    BootAlloc(sectors * EROS_SECTOR_SIZE, EROS_PAGE_SIZE);
+    BootAlloc(size, EROS_PAGE_SIZE);
 
   /* In this case, pdest really should be the physical destination. */
   pdest = BOOT2PA(pdest, void *);
-  BindRegion(bi, PtoKPA(pdest), sectors * EROS_SECTOR_SIZE, MI_PRELOAD);
+  BindRegion(bi, PtoKPA(pdest), size, MI_PRELOAD);
 
   if (bi->isRamImage) {
     uint32_t addr = RamDiskAddress + start * EROS_SECTOR_SIZE;
-    ppcpy((void *) addr, (void *) pdest, sectors * EROS_SECTOR_SIZE);
+    ppcpy((void *) addr, (void *) pdest, size);
   }
   else {
     read_sectors(bi->bootDrive, start + bi->bootStartSec,
@@ -66,6 +72,7 @@ do_preload(BootInfo *bi, Division *div)
   di->flags = div->flags;
   di->type = div->type;
   di->where = PtoKPA(pdest);
+  di->bound = di->where + size;
 }
 
 void

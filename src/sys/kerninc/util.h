@@ -20,8 +20,6 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#include <kerninc/memory.h>
-
 void halt(char c) NORETURN;
 void pause();
 void abort(void) NORETURN;
@@ -48,11 +46,6 @@ kpa_t align_down(kpa_t addr, uint32_t alignment); /* alignment must be power of 
 size_t strlen(const char *c1);
 int strcmp(const char *c1, const char *c2);
 char *strcpy(char *c1, const char *c2);
-
-INLINE int strncmp(const char *c1, const char *c2, uint32_t len)
-{
-  return memcmp(c1, c2, len);
-}
 
 extern void qsort(void *a, size_t n, size_t es, int (*cmp)(void *, void *));
 

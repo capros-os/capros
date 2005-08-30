@@ -23,7 +23,6 @@ EROS_SRC=..
 
 
 DIRS=KeyKOS old www
-CLEANDIRS=${DIRS} dissertation
 
 include $(EROS_SRC)/build/make/pkgrules.mk
 

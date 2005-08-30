@@ -2,6 +2,7 @@
 #define __PHYSMEM_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -42,6 +43,11 @@ struct PmemConstraint {
   unsigned align;
 } ;
 typedef struct PmemConstraint PmemConstraint;
+
+/* Values for PmemInfo.type */
+#define MI_MEMORY     1         /* allocatable */
+#define MI_DEVICEMEM  5         /* device memory region */
+#define MI_BOOTROM    6         /* System ROM area. */
 
 struct PmemInfo {
   kpa_t     base;

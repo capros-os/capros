@@ -50,25 +50,54 @@ static PmemInfo PhysicalMemoryInfo[MAX_MEMINFO];
 PmemInfo *physMem_pmemInfo = &PhysicalMemoryInfo[0];
 unsigned long physMem_nPmemInfo;
 
+/* The area we will reserve as ROM: */
+kpa_t ROMBase  =  0xc0000;
+kpa_t ROMBound = 0x100000;
+
+static void checkBounds(kpa_t base, kpa_t bound)
+{
+  if (bound > physMem_PhysicalPageBound) {        /* take max */
+    physMem_PhysicalPageBound = align_up(bound, EROS_PAGE_SIZE);
+  }
+
+  /* Check if it overlaps ROM area. */
+  if (   base < ROMBound
+      && bound > ROMBase ) {
+    /* We don't allow memory at 0xFFFFF, only ROM. */
+    if (bound >= ROMBound) {
+      printf("base=0x%x, bound=0x%x\n",
+             (unsigned long)base, (unsigned long)bound);
+      fatal("ROM conflict\n");
+    } else {
+      /* Truncate ROM area so as not to overlap. */
+      ROMBase = bound;
+    }
+  }
+}
 
 void
 physMem_Init()
 {
-  unsigned i = 0;
+  unsigned i;
 
   for (i = 0; i < BootInfoPtr->nMemInfo; i++) {
     MemInfo *pmi = &BootInfoPtr->memInfo[i];
 
-    bool readOnly = (pmi->type != MI_MEMORY);
+    if (pmi->type == MI_MEMORY) {
+      (void) physMem_AddRegion(pmi->base, pmi->bound, MI_MEMORY, false);
 
-    (void) physMem_AddRegion(pmi->base, pmi->bound, pmi->type, readOnly);
-
-    if ( (pmi->type == MI_MEMORY || pmi->type == MI_RAMDISK ||
-	  pmi->type == MI_PRELOAD) &&
-	 physMem_PhysicalPageBound < pmi->bound)
-      physMem_PhysicalPageBound = 
-	align_up(pmi->bound + EROS_PAGE_SIZE - 1, EROS_PAGE_SIZE);
+      checkBounds(pmi->base, pmi->bound);
+    }
   }
+
+  /* Get upper bound of preloaded memory. */
+  for (i = 0; i < BootInfoPtr->nDivInfo; i++) {
+    DivisionInfo *di = &BootInfoPtr->divInfo[i];
+
+    checkBounds(di->where, di->bound);
+  }
+
+  (void) physMem_AddRegion(ROMBase, ROMBound, MI_BOOTROM, true);
 
   DEBUG(init) physMem_PrintStatus();
 

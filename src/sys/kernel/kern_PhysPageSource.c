@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -23,12 +24,9 @@
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/ObjectSource.h>
 #include <eros/Device.h>
-/*#include <disk/PagePot.hxx>*/
-/*#include <disk/DiskNode.hxx>*/
-/*#include <kerninc/BootInfo.h>*/
+#include <kerninc/PhysMem.h>	/* get MI_DEVICEMEM */
 
 /* We simulate physical page allocation counters using a single
  * universal allocation counter that is bumped for each new
@@ -61,11 +59,6 @@ static ObCount PhysPageAllocCount = 0u;
  * The good news, such as it is, is that we actually can know the
  * right answer when the time comes to (de)allocate the actual pages.
  */
-
-/* This is from BootInfo.h. Temporarily here becase BootInfo.h has problems compiling
-   with the C compiler 
-*/
-#define MI_DEVICEMEM  5		/* device memory region */
 
 static inline bool
 ValidPhysPage(PmemInfo *pmi, kpa_t pgFrame)

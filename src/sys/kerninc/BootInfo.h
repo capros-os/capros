@@ -39,6 +39,8 @@
  * about it.
  */
 
+/* The following values are temporarily duplicated with PhysMem.h.
+   This copy will go away when we convert to the GRUB boot loader. */
 #define MI_UNUSED     0		/* unused entry */
 #define MI_MEMORY     1		/* allocatable */
 #define MI_RESERVED   2		/* architecturally reserved regions */
@@ -64,6 +66,7 @@ struct DivisionInfo {
   OID endOid;
 
   kpa_t   where;
+  kpa_t bound;
 
   /* for meaning of fields below, see LowVolume.hxx */
   uint8_t type;

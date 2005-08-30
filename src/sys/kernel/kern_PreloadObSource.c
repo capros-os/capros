@@ -23,6 +23,7 @@
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>
+#include <kerninc/memory.h>
 #include <kerninc/util.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/ObjectSource.h>
