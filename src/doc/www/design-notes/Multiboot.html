@@ -17,9 +17,9 @@
     Here is how I think that can be done.
     </p>
     <p>
-    First, a Multiboot header must be included on the boot volume.
-    This could be right after the VolHdr. 
-    It can be created by <b>mkvol</b> and updated by <b>sysgen</b>. 
+    First, a Multiboot header must be included near the beginning of
+    the kernel image.
+    This could be in lostart.S. 
     (I don't know how GRUB locates the Multiboot header; perhaps by
     searching for the magic number?) 
     </p>
@@ -40,6 +40,14 @@
     A CapROS tool, perhaps <b>mkvol</b>, would construct the 
     configuration file using the block numbers of the kernel division
     and preloaded division(s). <b>setboot</b> would no longer be needed.
+    </p>
+    <p>
+    To maintain consistency, there needs to be a primary config file
+    (referring to the primary kernel and preloaded ranges)
+    and a secondary config file (say at absolute block 2)
+    referring to the secondary kernel and preloaded ranges.
+    You keep one set consistent and unchanged while (non-atomically)
+    updating the other set. 
     </p>
     <p>
     (We can't write to the kernel division the kernel a.out or ELF
