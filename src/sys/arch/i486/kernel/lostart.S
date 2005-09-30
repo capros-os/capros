@@ -228,11 +228,12 @@ ENTRY(start)
 	orl     $0x100,%eax     /* Enable user mode rdpmc bit-8-cr4*/
 	movl	%eax,%cr4
 	
+#if HAVE_PERFCTRS	/* disabled, because not all models have it */
 	/* Zero PerfCtr0 */
 	xorl %edx, %edx
 	xorl %eax, %eax
 	movl $0xC1, %ecx
-	wrmsr	/* AMD Athlon XP-M crashes here */
+	wrmsr
 	
 	/* Program PerfCtr0 to count user mode only, clock cycles */
 	/* Count clock cycles in counter0 */
@@ -254,7 +255,7 @@ ENTRY(start)
 	andl  $0x00000000, %eax
 	orl   $0x00520006, %eax  /* Supervisor mode only & enable counters */
 	wrmsr
-	
+#endif	
 #endif
 		
 	popl	%ecx

@@ -29,6 +29,8 @@ ENTRY(mach_ClearCounters)
 	
 	xorl	%eax,%eax
 
+#if HAVE_PERFCTRS       /* disabled, because the tests of CpuType aren't
+			   sufficient for non-GenuineIntel processors */
 	cmpl	$5,EXT(CpuType)
 	jne	1f		/* don't call it if not supported */
 	
@@ -80,6 +82,7 @@ ENTRY(mach_ClearCounters)
 	rdmsr
 	movl	%ebx,%eax
 	wrmsr
+#endif /* HAVE_PERFCTRS */
 	
 2:	popa
 	leave
@@ -92,6 +95,8 @@ ENTRY(mach_DisableCounters)
 	movl	%esp,%ebp
 	pusha
 	
+#if HAVE_PERFCTRS       /* disabled, because the tests of CpuType aren't
+			   sufficient for non-GenuineIntel processors */
 	cmpl	$5,EXT(CpuType)
 	jne	1f
 	
@@ -111,6 +116,7 @@ ENTRY(mach_DisableCounters)
 	/* disable the counters */
 	andl	$0xffBfffff,%EAX
 	wrmsr
+#endif /* HAVE_PERFCTRS */
 
 2:	popa
 	leave
@@ -123,6 +129,8 @@ ENTRY(mach_EnableCounters)
 	movl	%esp,%ebp
 	pusha
 
+#if HAVE_PERFCTRS       /* disabled, because the tests of CpuType aren't
+			   sufficient for non-GenuineIntel processors */
 	cmpl	$5,EXT(CpuType)
 	jne	1f
 	
@@ -141,6 +149,7 @@ ENTRY(mach_EnableCounters)
 	rdmsr
 	orl	$0x00400000,%EAX
 	wrmsr
+#endif /* HAVE_PERFCTRS */
 
 2:	popa
 	leave
@@ -151,6 +160,8 @@ ENTRY(Pentium_SetCounterMode)
 	movl	%esp,%ebp
 	pusha
 
+#if HAVE_PERFCTRS       /* disabled, because the tests of CpuType aren't
+			   sufficient for non-GenuineIntel processors */
 	movl	8(%EBP),%EBX
 	shll	$16,%EBX
 	movw	8(%EBP),%BX
@@ -169,6 +180,7 @@ ENTRY(Pentium_SetCounterMode)
 	andl	$0xFC00FC00,%eax
 	orl     %ebx,%eax
 	wrmsr
+#endif /* HAVE_PERFCTRS */
 	
 	popa
 	leave	
@@ -179,6 +191,8 @@ ENTRY(PentiumPro_SetCounterMode)
 	movl	%esp,%ebp
 	pusha
 
+#if HAVE_PERFCTRS       /* disabled, because the tests of CpuType aren't
+			   sufficient for non-GenuineIntel processors */
 	movl	8(%ebp),%EBX
 	andl	$0xff,%ebx	/* only use event subfield */
 	/* Set PC to indicate overflow*/
@@ -212,6 +226,7 @@ ENTRY(PentiumPro_SetCounterMode)
 
 	movl	%EBX,%EAX
 	wrmsr
+#endif /* HAVE_PERFCTRS */
 
 	popa
 	leave
@@ -223,6 +238,8 @@ ENTRY(SetupCounters)
 	movl	%esp,%ebp
 	pusha
 
+#if HAVE_PERFCTRS       /* disabled, because the tests of CpuType aren't
+			   sufficient for non-GenuineIntel processors */
 	cmpl	$5,EXT(CpuType)
 	jne	1f
 	
@@ -283,6 +300,7 @@ count_p6_events:
 
 	movl	%EBX,%EAX
 	wrmsr
+#endif /* HAVE_PERFCTRS */
 
 2:	popa
 	leave
@@ -295,17 +313,15 @@ ENTRY(mach_ReadCounter)
 	movl	%esp,%ebp
 	pushl   %ecx
 
+#if HAVE_PERFCTRS       /* disabled, because the tests of CpuType aren't
+			   sufficient for non-GenuineIntel processors */
 	cmpl	$5,EXT(CpuType)
-	jl	1f		/* invalid counter or no counters */
+	jl	invalidCtr	/* invalid counter or no counters */
 	
 	cmpl	$1,8(%ebp)
 	jl	2f		/* counter 0 */
 	je	3f		/* counter 1 */
-
-	/* invalid counter -- return 0 */
-1:	xorl	%eax,%eax
-	xorl	%edx,%edx
-	jmp	4f
+	jg	invalidCtr
 
 	/* COUNTER ZERO PROCESSING */
 	
@@ -322,7 +338,7 @@ ENTRY(mach_ReadCounter)
 	
 2:	/* Is it a Pentum? */
 	cmpl	$5,EXT(CpuType)
-	jne	1b	/* unknown CPU */
+	jne	invalidCtr	/* unknown CPU */
 	
 	/* Fetch pentium counter value: */
 	movl	$0x12,%ecx	/* Counter 0 */
@@ -345,13 +361,19 @@ ENTRY(mach_ReadCounter)
 	
 3:	/* Is it a Pentum? */
 	cmpl	$5,EXT(CpuType)
-	jne	1b	/* unknown CPU */
+	jne	invalidCtr	/* unknown CPU */
 	
 	/* Fetch pentium counter value: */
 	movl	$0x13,%ecx	/* Counter 1 */
 	rdmsr
 	andl	$0xff,%edx	/* 40 bit counter */
 
+	jmp	4f
+#endif /* HAVE_PERFCTRS */
+
+invalidCtr:	/* invalid counter -- return 0 */
+	xorl	%eax,%eax
+	xorl	%edx,%edx
 	jmp	4f
 	
 4:	popl	%ecx
