@@ -24,9 +24,7 @@
  */
 
 #include <kerninc/kernel.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/KernStream.h>
-#include <eros/i486/io.h>
 
 #define DIAG_BUF_PAGES	1u
 

@@ -37,6 +37,7 @@
 #include <arch-kerninc/KernTune.h>
 /* #include "Blast.hxx" */
 #include <kerninc/PhysMem.h>
+#include <disk/PagePot.h>
 
 /* Following is here because we can't include LowVolume.hxx with the C compiler */
 enum DivType {
@@ -1621,15 +1622,23 @@ objC_InitObjectSources()
 
   for (i = 0; i < BootInfoPtr->nDivInfo; i++) {
     DivisionInfo *di = &BootInfoPtr->divInfo[i];
+    uint32_t nObFrames;
 
     assertex(di, di->flags & DF_PRELOAD);
     assert(di->type == dt_Object);
+
+    /* Calculate number of OIDs in this division. */
+    nObFrames = (di->bound - di->where)/EROS_PAGE_SIZE; /* size in pages */
+    nObFrames -= 1;	/* for the checkpoint seqno page */
+    /* Take out a pot for each whole or partial cluster. */
+    nObFrames -= (nObFrames + (PAGES_PER_PAGE_CLUSTER-1))
+                 / PAGES_PER_PAGE_CLUSTER;
 
     /* code for initializing PreloadObSource */
     source = (ObjectSource *)KPAtoP(void *, physMem_Alloc(sizeof(ObjectSource), &physMem_any));
     source->name = "preload";
     source->start = di->startOid;
-    source->end = di->endOid;
+    source->end = di->startOid + (nObFrames * EROS_OBJECTS_PER_FRAME);
     source->base = di->where;
     source->objS_Detach = PreloadObSource_Detach;
     source->objS_GetObject = PreloadObSource_GetObject;
