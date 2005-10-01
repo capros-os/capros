@@ -448,8 +448,6 @@ proc_allocate(bool isUser)
 {
   static uint32_t nextClobber = 0;
   Process* p = 0;
-  uint32_t ndx;
-  uint32_t pg;
 
   while (p == 0) {
     p = &proc_ContextCache[nextClobber++];
@@ -497,11 +495,12 @@ proc_allocate(bool isUser)
   p->faultInfo = 0;
   p->processFlags = 0;
   p->isUserContext = isUser;
-  p->hazards = 0;		/* for kernel contexts */
   /* FIX: what to do about runState? */
 
   if (isUser) {
 #ifdef OPTION_SMALL_SPACES
+    uint32_t ndx;
+    uint32_t pg;
     ndx = p - proc_ContextCache;
 
     p->limit = SMALL_SPACE_PAGES * EROS_PAGE_SIZE;
@@ -517,16 +516,6 @@ proc_allocate(bool isUser)
     for (pg = 0; pg < SMALL_SPACE_PAGES; pg++)
       pte_Invalidate(&p->smallPTE[pg]);
 #endif
-
-    p->hazards =
-      hz_DomRoot | hz_KeyRegs | hz_Schedule | hz_AddrSpace;
-#ifdef EROS_HAVE_FPU
-    /* Must be hazarded by float regs so that we can correctly re-issue
-     * floating point exceptions on restart:
-     */
-
-    p->hazards |= hz_FloatRegs;
-#endif
   }
 
   p->curActivity = 0;
@@ -539,6 +528,15 @@ void
 proc_Load(Node* procRoot)
 {
   Process *p = proc_allocate(true);
+
+  p->hazards =
+#ifdef EROS_HAVE_FPU
+  /* Must be hazarded by float regs so that we can correctly re-issue
+   * floating point exceptions on restart:
+   */
+    hz_FloatRegs |
+#endif
+    hz_DomRoot | hz_KeyRegs | hz_Schedule | hz_AddrSpace;
 
   assert(procRoot);
 

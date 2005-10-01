@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -55,6 +56,11 @@ kproc_Init(
   int i = 0;
   Process *p = proc_allocate(false);
 
+  p->hazards = 0;
+#ifdef OPTION_SMALL_SPACES
+  p->smallPTE = 0;	/* to satisfy logic in various places */
+  p->bias = 0;
+#endif
   /*p->priority = prio;*/
   p->readyQ = rq;
   /*
