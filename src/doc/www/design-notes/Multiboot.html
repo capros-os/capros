@@ -24,39 +24,44 @@
     searching for the magic number?) 
     </p>
     <p>
-    GRUB can locate objects to load in two ways. 
-    One is via a file name. Since CapROS doesn't have a file system
-    that GRUB would understand, this won't work for us. We could dummy up a 
-    file system containing the few files that GRUB needs to load,
-    but that would be a pain. 
+    GRUB likes to load from a filesystem, so as an interim measure, we will put
+    the things to be loaded into files located wherever GRUB is loading from
+    (disk, floppy, net, etc.). 
+    For the following we assume we are loading from a hard disk.
+    The disk should have a partition with a VFAT file system
+    mounted at /boot. The system generation process will put the following
+    files into /boot:
+    <ul>
+      <li>CapROS-kernel-0: an image of the kernel. It does not have OIDs
+      or page pots. "0" is a version number.
+      <li>CapROS-PL-nnnn: A preloaded range, as it would exist on disk,
+      with page pots. 
+      nnnn is the hex starting OID, for uniqueness. 
+      <li>CapROS-config: This file is loaded with the GRUB "configfile"
+      command. It contains commands to load the kernel and the modules it
+      requires, including "command line" parameters (see below).
+      A CapROS tool, perhaps <b>mkvol</b>, would construct the 
+      configuration file.
+    </ul>
     </p>
     <p>
-    The other way is as absolute block numbers. Since the location
-    and size of the kernel vary, the block numbers can't be
-    fixed in the GRUB menu. I propose that we have a GRUB
-    configuration file located at a fixed block (such as 1; the
-    VolHdr is in block 0).
-    GRUB can load this with the <b>configfile</b> command.
-    A CapROS tool, perhaps <b>mkvol</b>, would construct the 
-    configuration file using the block numbers of the kernel division
-    and preloaded division(s). <b>setboot</b> would no longer be needed.
+    <b>setboot</b> would no longer be needed.
     </p>
     <p>
     To maintain consistency, there needs to be a primary config file
-    (referring to the primary kernel and preloaded ranges)
-    and a secondary config file (say at absolute block 2)
-    referring to the secondary kernel and preloaded ranges.
+    (referring to the primary kernel and preloaded files)
+    and a secondary config file 
+    referring to the secondary kernel and preloaded files.
     You keep one set consistent and unchanged while (non-atomically)
     updating the other set. 
     </p>
     <p>
-    (We can't write to the kernel division the kernel a.out or ELF
-    file (which GRUB understands); we must write an image as is now done
-    because the division is a page range that has an extra frame every
-    DATA_PAGES_PER_PAGE_CLUSTER pages.) 
+    (We could write to the kernel file the kernel a.out or ELF
+    file (which GRUB understands), but we won't, we'll continue
+    using an image file.)
     </p>
     <p>
-    I think we can drop support for booting from RAM disk. 
+    We will drop support for booting from RAM disk. 
     </p>
     <p>
     The Multiboot specification provides some, but not all, of the information
@@ -66,18 +71,27 @@
     The following fields in BootInfo have issues:
     </p>
     <ul>
-      <li>bootStartSec, isRamImage: only used during boot, not used by the kernel
       <li>memInfo: GRUB provides information on available RAM.
       The kernel now uses only this information.
-      <li>divInfo (information for preloaded divisions):
-      CapROS needs more information than is provided by GRUB. 
-      Possibly this information can be passed to the kernel
+      <li>divInfo.startOid: This can be passed 
       in the string given with the GRUB "module" command. 
+      <li>divInfo.endOid: This is now calculated from the startOid and the size. 
       <li>consInfo: not currently used by the kernel
-      <li>volFlags, iplSysId, iplKey: the kernel could get these
-      from the VolHdr of the booted volume, but since the kernel
-      doesn't do disk I/O, that could be awkward. Better to pass the info
-      in the GRUB "command line" string. 
+      <li>volFlags.VF_DEBUG: This should be passed in the
+      GRUB "command line" string.
+      <li>iplKey: the OID of the process to start can be passed in the
+      GRUB "command line" string.
+      <li>iplSysId: The kernel could get this from the disk driver when 
+      it reads the VolHdr of the booted disk. (It's currently not used
+      because the disk logic is incomplete.)
+      <li>bootDrive: The Multiboot specification provides the boot_device,
+      but it is the partition containing the OS image,
+      which is in the /boot file system,
+      not the CapROS partition. We'll have to pass the information
+      in the "command line" string.
+      bootDrive is currently unused but will be needed by the code
+      to discover iplSysId.
+      <li>bootStartSec, isRamImage: only used during boot, not used by the kernel
     </ul>
     <hr>
 <table>
