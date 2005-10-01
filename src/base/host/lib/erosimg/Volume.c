@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 205, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -168,21 +169,18 @@ vol_AddDivisionWithOid(Volume *pVol, DivType type, uint32_t sz, OID oid)
   switch (type) {
   case dt_Kernel:
   case dt_Object:
-    nObFrames -= (nObFrames / PAGES_PER_PAGE_CLUSTER);
 
-    if (nObFrames < 1)
+    /* Must have at least space for the first page, one pot, and one frame. */
+    if (nObFrames < 3)
       diag_fatal(1, "Range too small\n");
 
-    if (nObFrames % PAGES_PER_PAGE_CLUSTER)
-      nObFrames -= 1;		/* at least one page pot */
-
-    if (nObFrames < 1)
-      diag_fatal(1, "Range too small\n");
-
-    /* Take out one more for the first page, which is used to capture
+    /* Take out one for the first page, which is used to capture
      * seqno of most recent checkpoint.
      */
     nObFrames--;
+
+    /* Take out a pot for each whole or partial cluster. */
+    nObFrames -= (nObFrames + (PAGES_PER_PAGE_CLUSTER-1)) / PAGES_PER_PAGE_CLUSTER;
 
     endOid = oid + (nObFrames * EROS_OBJECTS_PER_FRAME);
     break;
