@@ -32,12 +32,12 @@
     mounted at /boot. The system generation process will put the following
     files into /boot:
     <ul>
-      <li>CapROS-kernel-0: an image of the kernel. It does not have OIDs
-      or page pots. "0" is a version number.
-      <li>CapROS-PL-nnnn: A preloaded range, as it would exist on disk,
+      <li>CapROS-kernel-1: an image of the kernel. It does not have OIDs
+      or page pots.
+      <li>CapROS-PL-n-1: A preloaded range, as it would exist on disk,
       with page pots. 
-      nnnn is the hex starting OID, for uniqueness. 
-      <li>CapROS-config: This file is loaded with the GRUB "configfile"
+      n is a number to distinguish different preloaded ranges. 
+      <li>CapROS-config-1: This file is loaded with the GRUB "configfile"
       command. It contains commands to load the kernel and the modules it
       requires, including "command line" parameters (see below).
       A CapROS tool, perhaps <b>mkvol</b>, would construct the 
@@ -48,12 +48,14 @@
     <b>setboot</b> would no longer be needed.
     </p>
     <p>
-    To maintain consistency, there needs to be a primary config file
+    For reliability, there can be a primary config file
     (referring to the primary kernel and preloaded files)
     and a secondary config file 
     referring to the secondary kernel and preloaded files.
     You keep one set consistent and unchanged while (non-atomically)
     updating the other set. 
+    Secodary files have the same names as the primary 
+    but with "2" at the end instead of "1". 
     </p>
     <p>
     (We could write to the kernel file the kernel a.out or ELF
