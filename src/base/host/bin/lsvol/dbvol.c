@@ -369,7 +369,7 @@ int main(int argc, char *argv[])
   
   targname = *argv;
   
-  pVol = vol_Open(targname, false);
+  pVol = vol_Open(targname, false, 0, 0, 0);
   if ( !pVol )
     diag_fatal(1, "Could not open \"%s\"\n", targname);
   

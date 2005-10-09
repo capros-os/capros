@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 205, Strawberry Development Group.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -47,6 +47,30 @@
 #define RESERVE_BYTES (MAX_CPU_RESERVE * sizeof(CpuReserveInfo))
 #define RESERVES_PER_PAGE (EROS_PAGE_SIZE / sizeof(CpuReserveInfo))
 #define RESERVE_PAGES ((RESERVE_BYTES + EROS_PAGE_SIZE - 1) / EROS_PAGE_SIZE)
+    
+static uint32_t
+vol_GetOidFrameVolOffset(Volume *pVol, int ndx, OID oid)
+{
+  const Division *d = &pVol->divTable[ndx];
+  uint32_t relPage;
+  uint32_t divStart;
+  uint32_t pageOffset;
+
+  assert(div_contains(d, oid));
+
+  assert ((d->startOid % EROS_OBJECTS_PER_FRAME) == 0);
+
+  relPage = (uint32_t) ((oid - d->startOid) / EROS_OBJECTS_PER_FRAME);
+  relPage += (relPage / DATA_PAGES_PER_PAGE_CLUSTER);
+  relPage += 1;			/* clusters precede data */
+
+  relPage += 1;			/* skip ckpt sequence pg */
+  
+  divStart = d->start * EROS_SECTOR_SIZE;
+  pageOffset = relPage * EROS_PAGE_SIZE;
+
+  return divStart + pageOffset;
+}
 
 static void
 vol_InitVolume(Volume *pVol)
@@ -900,18 +924,25 @@ vol_InitDivisions(Volume *pVol)
 {
   int i;
 
-  for (i = 0; i < pVol->topDiv; i++)
+  for (i = 0; i < pVol->topDiv; i++) {
     if (pVol->divNeedsInit[i]) {
       vol_ZeroDivision(pVol, i);
 
-      if (pVol->divTable[i].type == dt_Object || pVol->divTable[i].type == dt_Kernel)
+      switch (pVol->divTable[i].type) {
+      case dt_Object:
+      case dt_Kernel:
 	vol_FormatObjectDivision(pVol, i);
+        break;
 
-      if (pVol->divTable[i].type == dt_Log)
+      case dt_Log:
 	vol_FormatLogDivision(pVol, i);
+        break;
+
+      }
 
       pVol->divNeedsInit[i] = false;
     }
+  }
 
   pVol->needDivInit = false;
 }
@@ -930,10 +961,12 @@ vol_Create(const char* targname, const char* bootName)
     diag_fatal(2, "Disk model undefined\n");
 #endif
   
+  pVol->grubDir = 0;
+  pVol->suffix = 0;
+  pVol->bootDrive = 0;
+
   assert(pVol->working_fd == -1);
   assert(pVol->target_fd == -1);
-  
-  vol_InitVolume(pVol);
   
   pVol->volHdr.HdrVersion = VOLHDR_VERSION;
   pVol->volHdr.PageSize = EROS_PAGE_SIZE;
@@ -998,18 +1031,22 @@ vol_Create(const char* targname, const char* bootName)
 }
 
 Volume *
-vol_Open(const char* targname, bool rewriting)
+vol_Open(const char* targname, bool rewriting,
+         const char * grubDir, const char * suffix,
+         uint32_t bootDrive)
 {
   int i;
 
   Volume *pVol = (Volume *) malloc(sizeof(Volume));
 
   vol_Init(pVol);
+  
+  pVol->grubDir = grubDir;
+  pVol->suffix = suffix;
+  pVol->bootDrive = bootDrive;
 
   assert(pVol->working_fd == -1);
   assert(pVol->target_fd == -1);
-  
-  vol_InitVolume(pVol);
   
   /* Open the target file descriptor -- we will do nothing to disturb
      its content until the call to Volume::Close() */
@@ -1284,6 +1321,13 @@ vol_ResetVolume(Volume *pVol)
   }
 }
 
+typedef struct PreloadedModule PreloadedModule;
+struct PreloadedModule {
+  PreloadedModule * next;
+  OID startOid;
+  char fname[FILENAME_MAX+1];
+};
+
 void
 vol_Close(Volume *pVol)
 {
@@ -1297,6 +1341,103 @@ vol_Close(Volume *pVol)
   vol_SyncHdr(pVol);
   vol_SyncDivTables(pVol);
   vol_SyncCkptLog(pVol);
+
+  if (pVol->grubDir) {
+    /* Write files for Grub. */
+    int fd;
+    FILE * file;
+    char configFname[FILENAME_MAX+1];
+    PreloadedModule * moduleList = 0;
+    PreloadedModule * pm;
+    int div;
+
+    for (div = 0; div < pVol->topDiv; div++) {
+      if (    pVol->divTable[div].type == dt_Object
+          && (pVol->divTable[div].flags & DF_PRELOAD)) {
+        /* Write module file. */
+        pm = (PreloadedModule *)malloc(sizeof(PreloadedModule));
+        if (!pm) {
+          diag_fatal(1, "Out of memory\n");
+        } else {
+          char indexStr[12];
+  
+          pm->next = moduleList;	/* link in */
+          moduleList = pm;
+          pm->startOid = pVol->divTable[div].startOid;
+          strncpy(pm->fname, pVol->grubDir, FILENAME_MAX);
+          strncat(pm->fname, "/CapROS-PL-", FILENAME_MAX-strlen(pm->fname));
+          sprintf(indexStr, "%d", div);
+          strncat(pm->fname, indexStr, FILENAME_MAX-strlen(pm->fname));
+          strncat(pm->fname, "-", FILENAME_MAX-strlen(pm->fname));
+          strncat(pm->fname, pVol->suffix, FILENAME_MAX-strlen(pm->fname));
+
+          /* Write file for Grub. */
+          fd = open(pm->fname, O_WRONLY | O_CREAT | O_TRUNC, 0744);
+          if (fd < 0) {
+            diag_fatal(1, "Can't open Grub file\n");
+          } else {
+            /* Copy the division to the file. */
+            int j;
+            for (j = pVol->divTable[div].start + EROS_PAGE_SECTORS;
+                     /* Adding EROS_PAGE_SECTORS above because
+                        we skip the ckpt seq number page. */
+                 j < pVol->divTable[div].end; j++) {
+              char buf[EROS_SECTOR_SIZE];
+              if (vol_Read(pVol, EROS_SECTOR_SIZE * j,
+                           buf, EROS_SECTOR_SIZE)) {
+                write(fd, buf, EROS_SECTOR_SIZE);
+              }
+            }
+            close(fd);
+          }
+        }
+      }
+      /* The kernel file is not written here.
+         It's copied as an ELF file. */
+    }
+    /* Write Grub configuration file. */
+    strncpy(configFname, pVol->grubDir, FILENAME_MAX);
+    strncat(configFname, "/CapROS-config-", FILENAME_MAX-strlen(configFname));
+    strncat(configFname, pVol->suffix, FILENAME_MAX-strlen(configFname));
+    if (! keyBits_IsType(&pVol->volHdr.iplKey, KKT_Process)) {
+      diag_fatal(1, "No IPL key.\n");
+    } else {
+      unsigned int nameSkip = strlen(pVol->grubDir);
+      OID iplOid;
+
+        iplOid = pVol->volHdr.iplKey.u.unprep.oid;
+        file = fopen(configFname, "w");
+        if (file == 0) {
+          diag_fatal(1, "Can't open Grub file\n");
+        } else {
+          fputs("default=0\n", file);
+          fputs("timeout=0\n", file);
+          fputs("title CapROS\n", file);
+          fputs("\troot (hd0,1)\n", file);	/* Hopefully, the /boot partition */
+          fputs("\tkernel --type=multiboot ", file);
+          fputs("/CapROS-kernel-", file);	/* kernel file name */
+          fputs(pVol->suffix, file);
+          fprintf(file, " 0x%08lx%08lx",
+                  (uint32_t) (iplOid >> 32),
+                  (uint32_t) iplOid);
+          fprintf(file, " 0x%08lx", pVol->bootDrive);
+          if (pVol->volHdr.BootFlags & VF_DEBUG) {
+            fputs(" debug", file);
+          }
+          fputs("\n", file);
+
+          /* Output module commands. */
+          for (pm = moduleList; pm; pm = pm->next) {
+            fputs("\tmodule ", file);
+            fputs(pm->fname+nameSkip, file);
+            fprintf(file, " 0x%08lx%08lx\n",
+                    (uint32_t) (pm->startOid >> 32),
+                    (uint32_t) pm->startOid);
+          }
+          fclose(file);
+        }
+    }
+  }
 
   if (pVol->working_fd == -1)
     return;
@@ -1335,30 +1476,6 @@ vol_GetLogFrameVolOffset(Volume *pVol, int ndx, OID loc)
 
   relPage = (uint32_t) (loc - d->startOid);
   relPage /= EROS_OBJECTS_PER_FRAME;
-  divStart = d->start * EROS_SECTOR_SIZE;
-  pageOffset = relPage * EROS_PAGE_SIZE;
-
-  return divStart + pageOffset;
-}
-    
-static uint32_t
-vol_GetOidFrameVolOffset(Volume *pVol, int ndx, OID oid)
-{
-  const Division *d = &pVol->divTable[ndx];
-  uint32_t relPage;
-  uint32_t divStart;
-  uint32_t pageOffset;
-
-  assert(div_contains(d, oid));
-
-  assert ((d->startOid % EROS_OBJECTS_PER_FRAME) == 0);
-
-  relPage = (uint32_t) ((oid - d->startOid) / EROS_OBJECTS_PER_FRAME);
-  relPage += (relPage / DATA_PAGES_PER_PAGE_CLUSTER);
-  relPage += 1;			/* clusters precede data */
-
-  relPage += 1;			/* skip ckpt sequence pg */
-  
   divStart = d->start * EROS_SECTOR_SIZE;
   pageOffset = relPage * EROS_PAGE_SIZE;
 

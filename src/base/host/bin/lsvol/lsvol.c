@@ -86,7 +86,7 @@ int main(int argc, char *argv[])
   
   targname = *argv;
   
-  pVol = vol_Open(targname, false);
+  pVol = vol_Open(targname, false, 0, 0, 0);
   
   if (showhdr) {
     extern void PrintVolHdr(Volume*);

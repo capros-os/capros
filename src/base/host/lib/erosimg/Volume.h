@@ -55,7 +55,10 @@ struct VolPagePot {
   
 typedef struct Volume Volume;
 struct Volume {
-  int working_fd;
+  int working_fd;	/* If target file is compressed, this is the
+			file descriptor of a temporary file containing
+			an uncompressed copy of the target file.
+			Otherwise this is the same as target_fd. */
   int target_fd;
   VolHdr volHdr;
   int needSyncHdr;
@@ -78,7 +81,11 @@ struct Volume {
    */
 
   bool rewriting;
-  
+
+  const char * grubDir;	/* directory to write Grub files into */
+  const char * suffix;	/* suffix for Grub files */
+  uint32_t bootDrive;	/* boot drive for kernel command, for Grub */
+
   DiskCheckpoint *dskCkptHdr0;
   DiskCheckpoint *dskCkptHdr1;
 
@@ -122,7 +129,9 @@ void vol_WriteImageAtDivisionOffset(Volume *, int div, const struct ExecImage *p
 bool vol_WriteNodeToLog(Volume *, OID oid, const DiskNodeStruct *pNode);
 
 Volume *vol_Create(const char* filename, const char* bootImage);
-Volume *vol_Open(const char* filename, bool forRewriting);
+Volume *vol_Open(const char* filename, bool forRewriting,
+                 const char * grubDir, const char * suffix,
+                 uint32_t bootDrive);
 void vol_Close(Volume *);
 
 /* For use by sysgen: */

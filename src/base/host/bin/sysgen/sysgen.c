@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -81,19 +82,22 @@ main(int argc, char *argv[])
   extern int optind;
   extern char *optarg;
   int opterr = 0;
+  const char * grubDir;
+  const char * suffix;
   ErosImage *image;
   uint32_t nSubMaps        = 0; /* number of pages of submaps */
   uint32_t nObjectRange = 0;
   int i;
   uint32_t nPages, nZeroPages, nNodes, nodeFrames;
   unsigned ndx;
+  unsigned int drive, partition;
   OID nodeBase, pageBase;
 
   KeyBits key;
   
   app_Init("sysgen");
 
-  while ((c = getopt(argc, argv, "m:")) != -1) {
+  while ((c = getopt(argc, argv, "m:g:v:")) != -1) {
     switch(c) {
     case 'm':
       map_file = fopen(optarg, "w");
@@ -102,6 +106,15 @@ main(int argc, char *argv[])
       
       app_AddTarget(optarg);
       break;
+
+    case 'g':
+      grubDir = optarg;
+      break;
+
+    case 'v':
+      suffix = optarg;
+      break;
+
     default:
       opterr++;
     }
@@ -114,12 +127,38 @@ main(int argc, char *argv[])
     opterr++;
   
   if (opterr)
-    diag_fatal(1, "Usage: sysgen [-m mapfile] volume-file eros-image\n");
+    diag_fatal(1, "Usage: sysgen [-m mapfile] [-g grubdir [-v suffix]] volume-file eros-image\n");
   
   targname = argv[0];
   erosimage = argv[1];
+
+  {
+    /* Kluge to derive boot volume drive and partition from target name. */
+    /* Assume last character of the name is a digit. */
+    char n;
+    int len = strlen(targname);
+    if (len < 3)
+      diag_fatal(1, "target file name too short\n");
+
+    n = targname[len-1];
+    if (n < '0' || n > '9')
+      diag_fatal(1, "target file name must end in a digit\n");
+
+    if (targname[len-3] == 'f') {	/* fdn */
+      drive = 0x00 + (n-'0');
+      partition = 0;
+    } else if (targname[len-3] == 'd') {	/* hdxn or ndxn */
+      if (n == '0')
+        diag_fatal(1, "Hard disk partion must start with 1\n");
+
+      drive = 0x80 + (targname[len-2]-'a');
+      partition = n-'1';
+    } else
+      diag_fatal(1, "target file name must be 'xdxn' or 'fdn'\n");
+  }
   
-  pVol = vol_Open(targname, true);
+  pVol = vol_Open(targname, true, grubDir, suffix,
+                  (drive << 24) + (partition << 16) );
   if ( !pVol )
     diag_fatal(1, "Could not open \"%s\"\n", targname);
   
@@ -151,7 +190,7 @@ main(int argc, char *argv[])
 	 */
 #define DIVRNDUP(x,y) (((x) + (y) - 1)/(y))
 	framesInRange = (d->endOid - d->startOid)/EROS_OBJECTS_PER_FRAME;
-
+	/* Allocate one bit per frame in the range. */
 	nSubMaps = DIVRNDUP(framesInRange,8*EROS_PAGE_SIZE);
 #undef DIVRNDUP
       }

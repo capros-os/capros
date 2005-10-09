@@ -20,6 +20,7 @@
 
 #include <getopt.h>
 #include <stdlib.h>
+/*#include <stdio.h>*/
 #include <erosimg/App.h>
 #include <erosimg/ExecImage.h>
 #include <erosimg/Volume.h>
@@ -102,7 +103,7 @@ main(int argc, char *argv[])
   
   targname = *argv;
   
-  pVol = vol_Open(targname, false);
+  pVol = vol_Open(targname, false, 0, 0, 0);
   
   if (kernel_name) {
     int i;
@@ -127,7 +128,6 @@ main(int argc, char *argv[])
 
     xi_destroy(kernelImage);
   }
-  
   if (wantBoot != 0)
     vol_WriteBootImage(pVol, boot_name);
   
