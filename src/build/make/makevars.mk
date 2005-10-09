@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -122,6 +123,11 @@ HOST_FD=/dev/fd0H1440
 
 ###############################################################
 #
+# EROS_HD is the disk device that will have a CapROS system
+# written to it.
+# CAPROS_BOOT_PARTITION is the name of a partition. Files used by GRUB
+# to boot the system will be located here. 
+#
 # DANGER, WILL ROBINSON!!!!
 #
 # The EROS_HD environment variable is defined to something
@@ -130,14 +136,15 @@ HOST_FD=/dev/fd0H1440
 # by setting a default.
 #
 # It is intended that the intrepid UNIX-based developer should
-# pick a hard disk partition, set that up with lilo or some
-# such, make it mode 666 from their UNIX environment, and
+# pick a hard disk partition, set that up with GRUB,
+# make it mode 666 from their UNIX environment, and
 # then set EROS_HD to name that partition device file.  This
 # is how *I* work, but you do this at your own risk!!
 #
 ###############################################################
 ifndef EROS_HD
 EROS_HD=/dev/null
+CAPROS_BOOT_PARTITION=/boot
 endif
 
 CAPIDL=$(EROS_SRC)/build/bin/capidl
