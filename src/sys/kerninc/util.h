@@ -2,6 +2,7 @@
 #define __UTIL_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -27,6 +28,8 @@ void abort(void) NORETURN;
   /* void Stall(uint32_t howLong); */
 
 char hexdigit(uint8_t);
+int charToHex(char c);
+uint64_t strToUint64(const char * * pp);
 
 INLINE uint32_t align_down_uint32(uint32_t x,
   uint32_t alignment) /* alignment must be power of 2 */

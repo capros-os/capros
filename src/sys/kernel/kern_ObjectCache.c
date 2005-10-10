@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -25,29 +26,18 @@
 #include <kerninc/Depend.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
-/*#include <disk/LowVolume.hxx>*/
-/*#include <disk/DiskKey.hxx>*/
-#include <kerninc/BootInfo.h>
 #include <kerninc/ObjectSource.h>
+#include <kerninc/multiboot.h>
 #ifdef USES_MAPPING_PAGES
 #include <arch-kerninc/PTE.h>
 #endif
 #include <kerninc/util.h>
 #include <kerninc/memory.h>
 #include <arch-kerninc/KernTune.h>
-/* #include "Blast.hxx" */
 #include <kerninc/PhysMem.h>
 #include <disk/PagePot.h>
 
-/* Following is here because we can't include LowVolume.hxx with the C compiler */
-enum DivType {
-
-#define __DIVDECL(x) dt_##x,
-#include <disk/DivTypes.h>
-#undef __DIVDECL
-
-  dt_NUMDIV,			/* highest numbered division type */
-};
+#define MAX_SOURCE 16
 
 #define dbg_cachealloc	0x1	/* steps in taking snapshot */
 #define dbg_ckpt	0x2	/* migration state machine */
@@ -56,7 +46,6 @@ enum DivType {
 #define dbg_pgalloc	0x10	/* page allocation */
 #define dbg_obsrc	0x20	/* addition of object sources */
 #define dbg_findfirst	0x40	/* finding first subrange */
-#define DF_PRELOAD  0x1		/* range should be preloaded */
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u )
@@ -82,7 +71,7 @@ uint32_t objC_nCommittedIoPageFrames = 0;
 ObjectHeader *objC_coreTable;
 
 /* initializes nodeTable. replaces call to Node constructor */
-Node *
+static Node *
 objC_InitNodeTable(int num)
 {
   int i = 0;
@@ -113,11 +102,9 @@ objC_InitNodeTable(int num)
 void
 objC_Init()
 {
-  uint32_t availBytes = 0;
-  uint32_t allocQuanta = 0;
-  uint32_t i = 0;
-  
-  objC_InitObjectSources();
+  uint32_t availBytes;
+  uint32_t allocQuanta;
+  uint32_t i;
 
   availBytes = physMem_AvailBytes(&physMem_any);
     
@@ -301,8 +288,6 @@ objC_AllocateUserPages()
   objC_coreTable[objC_nPages - 1].next = 0;
   objC_firstFreePage = &objC_coreTable[0];
 }
-
-extern void *malloc(size_t sz);
 
 void
 objC_AddDevicePages(PmemInfo *pmi)
@@ -1365,8 +1350,6 @@ objC_ReleaseFrame(ObjectHeader *pObHdr)
  *
  ****************************************************************/
 
-#define MAX_SOURCE (MAX_PRELOAD + 4)
-
 static DEFQUEUE(SourceWait);
 
 static ObjectSource *sources[MAX_SOURCE];
@@ -1604,7 +1587,8 @@ objC_ddb_DumpSources()
 void
 objC_InitObjectSources()
 {
-  unsigned i = 0;
+  unsigned i;
+  struct grub_mod_list * modp;
   ObjectSource *source = (ObjectSource *)KPAtoP(void *, physMem_Alloc(sizeof(ObjectSource), &physMem_any));
 
   /* code for initializing ObCacheSource */
@@ -1618,17 +1602,27 @@ objC_InitObjectSources()
   source->objS_Invalidate = ObCacheSource_Invalidate;
   source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
   objC_AddSource(source);
+
+  DEBUG (obsrc) printf("objC_InitObjectSources: Added obcache.\n");
   
-
-  for (i = 0; i < BootInfoPtr->nDivInfo; i++) {
-    DivisionInfo *di = &BootInfoPtr->divInfo[i];
+  for (i = MultibootInfoPtr->mods_count,
+         modp = KPAtoP(struct grub_mod_list *, MultibootInfoPtr->mods_addr);
+       i > 0;
+       --i, modp++) {
     uint32_t nObFrames;
+    const char * p = KPAtoP(char *, modp->cmdline);
+    OID startOid;
 
-    assertex(di, di->flags & DF_PRELOAD);
-    assert(di->type == dt_Object);
+    /* Skip module file name. */
+    while (*p != ' ' && *p != 0) p++;
+    assert(*p == ' ');
+    p++;
+
+    /* Get starting OID from "command line" string. */
+    startOid = strToUint64(&p);
 
     /* Calculate number of OIDs in this division. */
-    nObFrames = (di->bound - di->where)/EROS_PAGE_SIZE; /* size in pages */
+    nObFrames = (modp->mod_end - modp->mod_start)/EROS_PAGE_SIZE; /* size in pages */
     nObFrames -= 1;	/* for the checkpoint seqno page */
     /* Take out a pot for each whole or partial cluster. */
     nObFrames -= (nObFrames + (PAGES_PER_PAGE_CLUSTER-1))
@@ -1637,9 +1631,9 @@ objC_InitObjectSources()
     /* code for initializing PreloadObSource */
     source = (ObjectSource *)KPAtoP(void *, physMem_Alloc(sizeof(ObjectSource), &physMem_any));
     source->name = "preload";
-    source->start = di->startOid;
-    source->end = di->startOid + (nObFrames * EROS_OBJECTS_PER_FRAME);
-    source->base = di->where;
+    source->start = startOid;
+    source->end = startOid + (nObFrames * EROS_OBJECTS_PER_FRAME);
+    source->base = modp->mod_start;
     source->objS_Detach = PreloadObSource_Detach;
     source->objS_GetObject = PreloadObSource_GetObject;
     source->objS_IsRemovable = ObjectSource_IsRemovable;
@@ -1648,8 +1642,11 @@ objC_InitObjectSources()
     source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
   
     objC_AddSource(source);
-  }
 
+    DEBUG (obsrc) printf("objC_InitObjectSources: Added preloaded module, startOid=0x%08lx%08lx.\n",
+                         (uint32_t) (startOid >> 32),
+                         (uint32_t) startOid );
+  }                                                                              
   for (i = 0; i < physMem_nPmemInfo; i++) {
     PmemInfo *pmi = &physMem_pmemInfo[i];
 
@@ -1667,6 +1664,8 @@ objC_InitObjectSources()
       source->objS_Invalidate = PhysPageSource_Invalidate;
       source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
       objC_AddSource(source);
+
+      DEBUG (obsrc) printf("objC_InitObjectSources: Added physmem.\n");
     }
   }
 
@@ -1692,6 +1691,8 @@ objC_InitObjectSources()
       source->objS_Invalidate = PhysPageSource_Invalidate;
       source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;  
       objC_AddSource(source);
+
+      DEBUG (obsrc) printf("objC_InitObjectSources: Added BOOTROM.\n");
     }
   }
 }

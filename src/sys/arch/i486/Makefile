@@ -42,11 +42,11 @@ configs:
 		fi; \
 	done
 
-COMMON_DIRS=include boot gplus-lib $(CONFDIR)
+COMMON_DIRS=include gplus-lib $(CONFDIR)
 
 # builds KERNDIR even if it doesn't presently exist:
 DIRS=$(COMMON_DIRS) $(KERNDIRS)
-CLEANDIRS=$(COMMON_DIRS) mikeboot
+CLEANDIRS=$(COMMON_DIRS)
 
 include $(EROS_SRC)/build/make/makerules.mk
 

@@ -19,9 +19,6 @@
  */
 
 #include <kerninc/kernel.h>
-/*#include <disk/DiskKey.hxx>*/
-/*#include <disk/LowVolume.hxx>*/
-/*#include <kerninc/BootInfo.h>*/
 #include <kerninc/Node.h>
 #include <kerninc/ObjectSource.h>
 

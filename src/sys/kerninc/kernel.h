@@ -38,7 +38,7 @@ INLINE void Debugger() {}
 extern void Debugger();
 #endif
 
-/* fatal() and printf() are implemented in kernel/kern_printf.cxx */
+/* fatal() and printf() are implemented in kernel/kern_printf.c */
 #ifdef OPTION_DDB
 extern void fatal(const char* msg, ...);
 #else

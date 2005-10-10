@@ -2,6 +2,7 @@
 #define __PROCESS_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -330,7 +331,15 @@ proc_SetFault(Process* thisPtr, uint32_t code, uint32_t info, bool needRevalidat
 
 INLINE void 
 proc_SetMalformed(Process* thisPtr)
-{ proc_SetFault(thisPtr, FC_MalformedProcess, 0, true);  thisPtr->hazards |= hz_Malformed; }
+{
+#ifdef OPTION_DDB
+  /* This error is most likely of interest to the kernel developer,
+     so for now: */
+  dprintf(true, "Process is malformed\n");
+#endif
+  proc_SetFault(thisPtr, FC_MalformedProcess, 0, true);
+  thisPtr->hazards |= hz_Malformed; 
+}
 
 /* USED ONLY BY INTERRUPT HANDLERS: */
 INLINE void 

@@ -2,6 +2,7 @@
 #define __OBJECTCACHE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -75,9 +76,7 @@ void objC_AllocateUserPages();
 /* Initialization */
 void objC_Init();
 
-Node *objC_InitNodeTable(int num);
-
-ObjectHeader *objC_InitObjectHeaders(int num);
+void objC_InitObjectSources();
 
 /* Page management: */
 ObjectHeader *objC_PhysPageToObHdr(kpa_t pagepa);
@@ -187,8 +186,6 @@ bool objC_DetachSource(ObjectSource *);
 #ifdef OPTION_DDB
 void objC_ddb_DumpSources();
 #endif
-
-void objC_InitObjectSources();
 
 ObjectHeader *
 objC_GetObject(OID oid, ObType obType, ObCount count, bool useCount);

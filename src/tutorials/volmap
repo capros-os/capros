@@ -19,6 +19,7 @@
 #
 
 
-kernel 160 OID=0xFFFF000000000000
-object preload 2148 OID=0x0
+kernel 140 OID=0xFFFF000000000000
+object preload 512 OID=0x0
+#object 2148 OID=0x20000
 #spare 15

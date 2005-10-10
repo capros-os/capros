@@ -19,14 +19,11 @@
  */
      
 #include <kerninc/kernel.h>
-/*#include <disk/DiskKey.hxx>*/
 #include <kerninc/Check.h>
 #include <kerninc/Process.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Node.h>
 #include <kerninc/ObjectCache.h>
-/*#include <kerninc/util.h>*/
-/*#include <kerninc/ObjectSource.h>*/
 #include <kerninc/KernStats.h>
 
 #define dbg_prepare	0x1	/* steps in taking snapshot */

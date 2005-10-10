@@ -25,36 +25,23 @@
  * into all of the segment registers, create a stack, initialize the
  * first thread, establish a more permanent GDT, and branch into main
  * as quickly as possible. The theory is that C/C++ code is much more
- * maintainable and portable than assembly code. For more details, see
- * the documentation of kernel startup. 
+ * maintainable and portable than assembly code. 
  * 
  * On entry, the kernel is sitting at physical 0x100000 (KERNPBASE),
  * which puts it in upper memory and avoids DMA-constrained lower memory.
  *
- * The bootstrap loader transfers control to us in protected mode.  It has
- * loaded all segment registers with 32-bit, 4GB, non-offsetting segments
- * of appropriate type, which were loaded from a temporary GDT that it 
- * built.  The A20 line has been enabled.
- *
- * In the latest design, no virtual mapping is established by the boot
- * loader, which shrinks it (the boot loader) somewhat.
- *
- * When we recieve control, interrupts are disabled.
-	
- * A single kernel argument, which is a pointer to the BootInfo structure, 
- * is sitting on a temporary stack in low memory.  The BootInfo structure 
- * sits in a region of physical memory that has been reserved by the
- * bootstrap code for its exclusive use, along with all of the other
- * bootstrap-related data structures.
- *
- * While the GDT set up by the bootstrap loader is still valid and 
- * addressable, the kernel should set up an official one as quickly as 
- * possible.  The one created by the bootstrap loaded lives someplace
- * that the kernel is almost certainly just about to reclaim.
+   The kernel is multiboot compliant. On entry, register EBX contains
+   the physical address of the Multiboot Information structure. 
+   We are in protected mode (not virtual 8086 mode). Paging is disabled. 
+   All segment registers define 32-bit 4GB flat segments (virtual = physical). 
+   Interrupts are disabled.
+   The A20 gate is enabled. 
  */
 
 #include <eros/i486/asm.h>
 #include <eros/i486/target-asm.h>
+#define ASM_FILE
+#include <kerninc/multiboot.h>
 
 #define REL16(x) .word EXT(x)-0f; 0:;
 #define REL8(x)  .byte EXT(x)-0f; 0:;
@@ -72,74 +59,33 @@ GEXT(_start)
 #endif
 ENTRY(start)
 
-	/*
-	 * Zero the bss section.  If any of BSS got put in the data section,
-	 * that was already zeroed by the compiler, but the BSS section needs
-	 * to be zapped by us.
-	 *
-	 * It is very important to do this BEFORE we run from our own stack!
-	 * It is also important that the BootInfo structure passed by the 
-	 * bootstrap reside in a "safe" place.
-	 */
+	/* Throw something on the screen so we know we got here: */
+	movl	$0x000b8000,%ecx
+	movl	$0x07610743,(%ecx)	/* "Ca" */
 
-	cld
+	cmpl	$GRUB_MB_MAGIC2,%eax
+0:	jne	0b	/* hang here if not multiboot-loaded */
 
-	movl	$ EXT(edata), %edi	/* destination */
-	movl	$ EXT(end), %ecx	/* count */
-	subl	$ EXT(edata), %ecx
-	mov	$0x0, %eax		/* value */
+	/* Throw something on the screen so we know we got here: */
+	movl	$0x000b8004,%ecx
+	movl	$0x07520770,(%ecx)	/* "pR" */
 
-	rep
-	stosb
+	movl	%ebx,EXT(MultibootInfoPtr)
 
-	/*
-	 * Throw something on the screen so we know we got here:
-	 */
+	/* Check required flags. */
+#define REQUIRED_FLAGS (GRUB_MB_INFO_BOOTDEV+GRUB_MB_INFO_CMDLINE+GRUB_MB_INFO_MODS+GRUB_MB_INFO_MEM_MAP)
+	movl	(%ebx),%eax	/* Multiboot flags */
+	andl	$REQUIRED_FLAGS,%eax
+	cmpl	$REQUIRED_FLAGS,%eax
+0:	jne	0b	/* hang here if some flags are zero */
 
-	movl	$0x000b8000,%eax
-	movl	$0x07520745,(%eax)	/* "ER" */
+	/* Throw something on the screen so we know we got here: */
+	movl	$0x000b8008,%ecx
+	movl	$0x0753074F,(%ecx)	/* "OS" */
 
-	/*
-	 * Copy the sysinfo pointer to a safe place before we
-	 * rearrange things too drastically.  If the address
-	 * looks odd, keep in mind that we got here via a branch,
-	 * not through the usual and customary calling
-	 * convention.
-	 */
-
-	movl	(%esp),%eax
-	movl	%eax,EXT(BootInfoPtr)
-
-	/* Now set up the stack for the first CPU (CPU0). This lives
-	 * just above the /end/. Stacks for other CPUs will be set up
-	 * by the C code.
-	 */
-	movl	$ EXT(end), %esp
-	/* Add one page to /end/, because the page after end is used by the
-	   master kernel mapping directory: */
-	addl	$EROS_PAGE_SIZE,%esp
-	/* Now round up to the next legal CPU stack boundary for the CPU0 
-	   stack */
-	addl	$EROS_KSTACK_SIZE,%esp
-	sub	$1,%esp
-	andl	$EROS_KSTACK_MASK,%esp
-
-	/*
-	 * %esp now contains a pointer to a properly-aligned BOTTOM of the 
-	 * stack. Add another EROS_KSTACK_SIZE to that so we actually have
-	 * a stack.
-	 */
-	addl	$EROS_KSTACK_SIZE,%esp
+	/* Now set up the stack (for this CPU). */
+	movl	$(EXT(kernelStack)+EROS_KSTACK_SIZE),%esp
 	
-#if 0
-	/*
-	 * Reserve some room at the top of this stack so that when the 
-	 * kernel thread gets initialized it will not overwrite the
-	 * __main return address.
-	 */
-
-	subl	$32,%ESP
-#endif	
 	/* 
 	 * Now that we have a proper stack, go figure out
 	 * the CPU type:
@@ -265,10 +211,9 @@ ENTRY(start)
 1:	
 	/*
 	 * Congratulations. We now have a stack.
- 	 * Push the arguments to main and let's get going!
 	 */
 
-	pushl	$1	/* isboot = 1 */
+	xorl	%ebp,%ebp	/* mark the end of the stack */
 
 	call	EXT(main)
 
@@ -278,7 +223,11 @@ ENTRY(start)
 
 	call	EXT(halt)
 
-
+	/* Multiboot header */
+	.align 4
+	.long	GRUB_MB_MAGIC
+	.long	GRUB_MB_PAGE_ALIGN + GRUB_MB_MEMORY_INFO
+	.long	- GRUB_MB_MAGIC - GRUB_MB_PAGE_ALIGN - GRUB_MB_MEMORY_INFO
 	
 	.data
 ENTRY(CpuType)	
@@ -293,7 +242,7 @@ ENTRY(CpuVendor)
 	.space	20	/* CPU origin code */
 	
 	/*
-	 * GetCpuType -- memoizes the result, so that we only have to
+	 * GetCpuType -- memorizes the result, so that we only have to
 	 * do it the hard way at system startup.
 	 */	
 	.text

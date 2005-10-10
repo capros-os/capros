@@ -28,7 +28,6 @@
 #include <kerninc/util.h>
 #include <kerninc/PhysMem.h>
 #include <kerninc/SysTimer.h>
-#include <kerninc/BootInfo.h>
 #include <kerninc/PCI.h>
 #include <kerninc/KernStats.h>
 #include <kerninc/memory.h>
@@ -98,9 +97,6 @@ mach_BootInit()
   (void) mach_EnableVirtualMapping();
 
   printf("FB updated -- now virtual\n");
-
-  if (BootInfoPtr->useGraphicsFB || BootInfoPtr->consInfo)
-    fatal("x86 implementation does not support graphics FB\n");
 
   printf("About to load GDT\n");
 
@@ -191,19 +187,6 @@ mach_BootInit()
   InitKernelProfiler();
 #endif
 
-#if 0
-  if (BootInfoPtr->ramdiskSz) {
-    printf("Machine::init(): %d sector ramdisk found at 0x%x\n",
-		 SysConfig.ramdiskSz,
-		 SysConfig.ramdiskAddress);
-  }
-  else {
-    printf("Machine::init(): no ramdisk\n",
-		 SysConfig.ramdiskSz,
-		 SysConfig.ramdiskAddress);
-  }
-#endif
-
 #ifdef EROS_HAVE_FPU
   mach_InitializeFPU();
 #endif
@@ -217,26 +200,6 @@ mach_BootInit()
 #endif
 
   printf("Motherboard interrupts initialized\n");
-
-#if defined(OPTION_CONSFB) && 0
-  if (BootInfoPtr->useGraphicsFB) {
-    int i;
-
-    extern void animate();
-    extern void redrawLogos();
-
-    for (i = 0; i < 4; i++) {
-      animate();
-      redrawLogos();
-    }
-  }
-#endif
-}
-
-uint64_t
-mach_GetIplSysId()
-{
-  return BootInfoPtr->iplSysId;
 }
 
 static inline
@@ -442,23 +405,6 @@ mach_EnableFPU()
 		       : "ax" /* eax smashed */);
 }
 #endif
-
-/* VF_DEBUG is from LowVolume.hxx. This is here because LowVolume
-   can't be included with the C compiler.
-*/
-#define VF_DEBUG  0x80000000	/* Debugging boot */
-bool
-mach_IsDebugBoot()
-{
-#ifdef DBG_WILD_PTR
-  return true;
-#endif
-
-  if (BOOL(BootInfoPtr->volFlags & VF_DEBUG))
-    return true;
-
-  return false;
-}
 
 extern uint32_t CpuType;
 extern const char CpuVendor[];

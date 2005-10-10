@@ -26,8 +26,6 @@
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/PhysMem.h>
 #include <kerninc/Machine.h>
-/*#include <disk/DiskKey.hxx>*/
-/*#include <kerninc/BootInfo.h>*/
      
 #define dbg_init	0x1u
 #define dbg_avail	0x2u

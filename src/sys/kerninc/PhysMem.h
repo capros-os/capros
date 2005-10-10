@@ -73,6 +73,7 @@ extern PmemConstraint physMem_any;
 
 extern PmemInfo *physMem_pmemInfo;
 extern unsigned long physMem_nPmemInfo;
+#define MAX_PMEMINFO 128
 
 extern kpa_t physMem_PhysicalPageBound;
 
@@ -104,7 +105,6 @@ kpsize_t physMem_TotalPhysicalPages();
  */
 void physMem_ReservePhysicalMemory();
   
-void physMem_PrintStatus();
 #ifdef OPTION_DDB
 void physMem_ddb_dump();
 #endif

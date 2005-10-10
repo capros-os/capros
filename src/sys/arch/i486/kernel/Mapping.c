@@ -23,7 +23,6 @@
 #include <kerninc/Process.h>
 #include <kerninc/PhysMem.h>
 #include <kerninc/Depend.h>
-#include <kerninc/BootInfo.h>
 #include <kerninc/Machine.h>
 #include <kerninc/util.h>
 #include <arch-kerninc/PTE.h>
@@ -353,41 +352,20 @@ InitMappingWindow(MappingWindow *mw, kva_t addr)
 }
 #endif /* NEW_KMAP */
 
-/* There are several regions of physical memory that we must not step
-   on, because (e.g.) key items are grabbed from these regions prior
-   to the creation of the kernel heap. Such data structures include
-   the code/data of the kernel itself, the kernel mapping table, the
-   various CPU stacks, and so forth. Reserve the physical regions for
-   them here. */
+/* Reserve machine-specific memory. */
 void
 physMem_ReservePhysicalMemory()
 {
   PmemConstraint constraint;
 
-  /* Reserve the region that contains the kernel code and data: */
-  constraint.base = align_down((uint32_t) start, EROS_PAGE_SIZE);
-  constraint.bound = align_up((uint32_t) end, EROS_PAGE_SIZE);
+  /* Master kernel directory */
+  constraint.base = KERNPBASE;	/* no particular reason for this value */
+  constraint.bound = 0x01000000; /* no particular reason for this value */
   constraint.align = EROS_PAGE_SIZE;
 
-  physMem_Alloc(constraint.bound - constraint.base, &constraint);
-
-  /* Master kernel directory starts immediately above that: */
-  constraint.base = align_up(constraint.bound, EROS_PAGE_SIZE);
-  constraint.bound = constraint.base + EROS_PAGE_SIZE;
-  constraint.align = EROS_PAGE_SIZE;
-
-  physMem_Alloc(constraint.bound - constraint.base, &constraint);
-  KernPageDir_pa = constraint.base;
+  KernPageDir_pa = physMem_Alloc(EROS_PAGE_SIZE, &constraint);
   KernPageDir = KVAtoV(PTE *, KernPageDir_pa);
   printf("Grabbed kernel directory at 0x%08x\n", (uint32_t) KernPageDir_pa);
-
-  /* The CPU0 stack starts at the next EROS_KSTACK_SIZE boundary: */
-  constraint.base = align_up(constraint.bound, EROS_KSTACK_SIZE);
-  constraint.bound = constraint.base + EROS_KSTACK_SIZE;
-  constraint.align = EROS_KSTACK_SIZE;
-
-  physMem_Alloc(constraint.bound - constraint.base, &constraint);
-  printf("Grabbed kernel stack at 0x%08x\n", (uint32_t) constraint.base);
 }
 
 
@@ -455,9 +433,8 @@ i486_BuildKernelMap()
     paddr += EROS_PAGE_SIZE;
   }
 
-  /* Create mappings for the per-CPU stacks. This placment for the
-     kernel stack is known in lostart.S, so if it changes, we need to
-     revise it there as well. */
+  /* Create mappings for the per-CPU stacks. 
+     N.B.: CPU0 stack is the array kernStack in bss. */
   {
     uint32_t limit = NCPU * EROS_KSTACK_SIZE;
     paddr = align_up(paddr, EROS_KSTACK_SIZE);
@@ -506,7 +483,7 @@ i486_BuildKernelMap()
   MakeSmallSpaces();
 #endif
 }
-#else
+#else	/* not NEW_KMAP (this is the case) */
 void
 i486_BuildKernelMap()
 {
@@ -574,7 +551,7 @@ i486_BuildKernelMap()
 
 #ifndef NO_GLOBAL_PAGES
   if (GlobalPage) {
-    /* Enable the page size extensions: */
+    /* Enable the page global extensions: */
     
     __asm__ __volatile__ ("\tmov %%cr4,%%eax\n"
 			  "\torl $0x80,%%eax\n"
@@ -621,8 +598,10 @@ i486_BuildKernelMap()
     }
 #endif
 
+    /* not supports_large_pages */
     assert((paddr & EROS_PAGE_MASK) == 0);
 
+    /* Make writeable, except for kernel code. */
     if (paddr < (uint32_t) start ||
 	paddr >= ((uint32_t)etext & PTE_FRAMEBITS)){
       mode |= PTE_W;
@@ -736,7 +715,7 @@ i486_BuildKernelMap()
    {
      /* Cannot just store this to proc_ContextCache, since the
 	checking logic tests that against NULL to see if it should run
-	concistency checks. */
+	consistency checks. */
      extern kva_t proc_ContextCacheRegion;
      proc_ContextCacheRegion = cache_va;
    }

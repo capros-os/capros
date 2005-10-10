@@ -3,6 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -49,10 +50,8 @@
 
 #if 0
 #define EROS_KSTACK_SIZE	_ASM_U(0x2000) /* two pages */
-#define EROS_KSTACK_MASK	_ASM_U(0xffffe000)
 #else
-#define EROS_KSTACK_SIZE	_ASM_U(0x1000) /* two pages */
-#define EROS_KSTACK_MASK	_ASM_U(0xfffff000)
+#define EROS_KSTACK_SIZE	_ASM_U(0x1000) /* one page */
 #endif
 
 #define EROS_PAGE_SIZE		_ASM_U(0x1000)

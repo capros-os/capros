@@ -30,7 +30,6 @@
 #include <eros/Device.h>
 #include <disk/PagePot.h>
 #include <disk/DiskNodeStruct.h>
-/*#include <kerninc/BootInfo.h>*/
 
 /* The current implementation isn't quite kosher, as the current
  * implementation is built to assume a preloaded ramdisk, and the

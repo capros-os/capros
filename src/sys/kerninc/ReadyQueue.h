@@ -35,6 +35,7 @@ struct ReadyQueue {
   /* When an activity is waking up and needs to be placed on this ReadyQ, the
      per-ReadyQ doWakeup function is called to place the activity on the target
      readyQ. */
+  /* This field has readyq_GenericWakeup or readyq_ReserveWakeup. */
   void (*doWakeup)(ReadyQueue *, struct Activity *);
 
   /* When the quanta of a activity has run out, call this function to place the

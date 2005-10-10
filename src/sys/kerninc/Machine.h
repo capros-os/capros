@@ -2,6 +2,7 @@
 #define __MACHINE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -74,7 +75,6 @@ void mach_SpinWaitUs(uint32_t us);
   /* Generic interfaces, but machine-specific routines */
 uint32_t mach_GetCpuType();
 const char *mach_GetCpuVendor();
-uint64_t mach_GetIplSysId();
 
   /* Hardware event tracing support: */
 const char *mach_ModeName(uint32_t mode);
@@ -94,8 +94,6 @@ void mach_EnableFPU();
 #endif
 
 /*typedef struct TimeOfDay TimeOfDay;*/
-
-bool mach_IsDebugBoot();
 
 void mach_GetHardwareTimeOfDay(TimeOfDay*);
 

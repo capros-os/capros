@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -1080,8 +1081,8 @@ act_Prepare(Activity* thisPtr)
       /* Domain root may have been rescinded.... */
 
 #if 0
-      printf("prepping dom key ");
-      processKey.Print();
+      printf("Prepping dom key ");
+      key_Print(&thisPtr->processKey);
 #endif
     
       key_Prepare(&thisPtr->processKey);

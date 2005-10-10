@@ -19,7 +19,7 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* main.cxx - initialization and startup for EROS.
+/* kern_main.c - initialization and startup for EROS.
  * 
  * One of the design rules for EROS was that no global class should
  * require construction.  It is assumed that any classes that have
@@ -28,10 +28,7 @@
  * interrupts are disabled.
  */
 
-/* currently, no arguments to the EROS kernel: */
-
 #include <kerninc/kernel.h>
-/* #include "lostart.hxx" */
 #include <kerninc/KernStream.h>
 #include <kerninc/Machine.h>
 #include <kerninc/ObjectCache.h>
@@ -39,21 +36,20 @@
 #include <kerninc/Activity.h>
 #include <kerninc/IRQ.h>
 #include <kerninc/Debug.h>
-/*#include <kerninc/BlockDev.h>*/
-/*#include <kerninc/Partition.h>*/
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>
-/*#include <disk/DiskKey.hxx>*/
-#include <kerninc/BootInfo.h>
+#include <kerninc/multiboot.h>
 #include <kerninc/ObjectSource.h>
 #include <kerninc/CPU.h>
 #include <kerninc/CpuReserve.h>
 
 
-int main(int,char**);
+int main(void);
 
-/* NOTE: this is NOT an extern declaration! */
-BootInfo *BootInfoPtr;
+/* Allocate the kernel stack in the bss section. */
+uint32_t kernelStack[EROS_KSTACK_SIZE/sizeof(uint32_t)];
+
+struct grub_multiboot_info * MultibootInfoPtr;
 
 extern void ioReg_Init();
 extern void UserIrqInit();
@@ -74,8 +70,8 @@ ReadyQueue iplRQ = {
 };
 #endif
 
-void
-StartIplActivity()
+static void
+StartIplActivity(OID iplOid)
 {
   Activity *activity = 0;
   Key *k = 0;
@@ -86,22 +82,16 @@ StartIplActivity()
   assert (keyBits_IsUnprepared(&activity->processKey));
   assert( keyBits_IsHazard(&activity->processKey) == false );
 
-#ifdef OPTION_DDB
-  if ( mach_IsDebugBoot() )
-    dprintf(true, "Stopping before waking up IPL activity.\n");
-#endif
+  printf("IPL OID = 0x%08lx%08lx.\n",
+         (uint32_t) (iplOid >> 32),
+         (uint32_t) iplOid );
 
   /* Forge a domain key for this activity: */
   k = &activity->processKey; /*@ not null @*/
 
-  if(keyBits_IsType(&BootInfoPtr->iplKey, KKT_Process)) {
-    keyBits_InitType(k, KKT_Process);
-    k->u.unprep.oid = BootInfoPtr->iplKey.u.unprep.oid;
-    k->u.unprep.count = BootInfoPtr->iplKey.u.unprep.count;
-  }
-  else {
-    printf("No IPL key!\n");
-  }
+  keyBits_InitType(k, KKT_Process);
+  k->u.unprep.oid = iplOid;
+  k->u.unprep.count = 0;	/* Is this right? */
 
   /* The process prepare logic will appropriately adjust this priority
      if it is wrong -- this guess only has to be good enough to get
@@ -120,13 +110,17 @@ StartIplActivity()
 }
 
 int
-main(int is/* isboot */, char **ch)
+main(void)
 {
+  const char * p;
+  int i;
+  OID iplOid;
+  uint32_t bootDrive;
+  bool debugBoot;
+
   Activity *idleActivity;
 
   act_curActivity = 0;
-
-  /* Initialize the stuff we don't go anywhere without: */
 
   /* Set up the boot console by hand so that we can do kernel
    * diagnostics during startup.  Note that the boot console is output
@@ -135,9 +129,47 @@ main(int is/* isboot */, char **ch)
    */
   kstream_InitStreams();
 
+  /* Parse the "command line" parameters. */
+  p = KPAtoP(const char *, MultibootInfoPtr->cmdline);
+
+  /* Skip kernel file name. */
+  while (*p != ' ' && *p != 0) p++;
+  assert(*p == ' ');
+  p++;
+
+  /* String begins with 0xnnnnnnnnnnnnnnnn for ipl key OID. */
+  iplOid = strToUint64(&p);
+
+  /* Next argument is 0xnnnnnnnn for boot drive. */
+  assert(*p == ' ');
+  p++;
+  assert(*p == '0');
+  p++;
+  assert(*p == 'x');
+  p++;
+  bootDrive = 0;
+  for (i = 0; i < 8; i++, p++) {
+    assert(*p != 0);	/* ensure against a short string */
+    bootDrive = (bootDrive << 4) + charToHex(*p);
+  }
+
+  /* Next argument if any is debug flag. */
+  debugBoot = (*p != 0);
+
   physMem_Init();
 
   mach_BootInit();
+  
+#ifdef OPTION_DDB
+  ddb_init();
+
+  if (debugBoot)
+    dprintf(true, "Stopping due to kernel Debug option.\n");
+#endif
+
+  objC_InitObjectSources();
+  /* Multiboot structures not needed after this point
+     (but alas remain reserved). */
 
   cpu_BootInit();
 
@@ -146,14 +178,6 @@ main(int is/* isboot */, char **ch)
   sysT_BootInit();
 
   inv_BootInit();
-  
-#ifdef OPTION_DDB
-  ddb_init();
-
-#if 0
-  Debugger();
-#endif
-#endif
 
   /* Initialize global variables */
   keyBits_InitToVoid(&key_VoidKey);
@@ -195,7 +219,7 @@ main(int is/* isboot */, char **ch)
   sysT_InitTimePage();
 #endif
 
-  StartIplActivity();
+  StartIplActivity(iplOid);
 
   act_Dequeue(idleActivity);
 

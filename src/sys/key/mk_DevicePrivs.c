@@ -24,8 +24,6 @@
 #include <kerninc/Invocation.h>
 #include <kerninc/IRQ.h>
 #include <kerninc/PhysMem.h>
-/*#include <disk/DiskKey.hxx>*/
-#include <kerninc/BootInfo.h>
 #include <kerninc/ObjectSource.h>
 #include <kerninc/ObjectCache.h>
 #include <eros/target.h>

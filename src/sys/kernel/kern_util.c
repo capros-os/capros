@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -51,6 +52,41 @@ char
 hexdigit(uint8_t b)
 {
   return hexdigits[b];
+}
+
+int
+charToHex(char c)
+{
+  if (c >= '0' && c <= '9') {
+    return c - '0';
+  } else if (c >= 'A' && c <= 'F') {
+    return c - 'A' + 10;
+  } else if (c >= 'a' && c <= 'a') {
+    return c - 'a' + 10;
+  } else return -1;
+}
+
+/* *pp is a pointer to a string containing "0xnnnnnnnnnnnnnnnn".
+   This procedure returns the hex value, and sets *pp to point
+   to the next character. */
+uint64_t
+strToUint64(const char * * pp)
+{
+  int i;
+  const char * p = *pp;
+  uint64_t val64 = 0;
+
+  assert(*p == '0');
+  p++;
+  assert(*p == 'x');
+  p++;
+  for (i = 0; i < 16; i++, p++) {
+    assert(*p != 0);    /* ensure against a short string */
+    val64 = (val64 << 4) + charToHex(*p);
+  }
+
+  *pp = p;
+  return val64;
 }
 
 int

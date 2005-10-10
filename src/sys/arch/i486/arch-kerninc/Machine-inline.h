@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -136,10 +137,8 @@ mach_MarkMappingsForCOW()
 INLINE kva_t
 mach_GetCPUStackTop()
 {
-  kva_t sp;
-  __asm__("andl %%esp,%0; ":"=r" (sp) : "0" (EROS_KSTACK_MASK));
-  sp += EROS_KSTACK_SIZE;
-  return sp;
+  extern uint32_t kernelStack[];
+  return (kva_t)&kernelStack + EROS_KSTACK_SIZE;
 }
 
 #endif/*__MACHINE_INLINE_H__*/

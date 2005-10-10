@@ -22,8 +22,10 @@
 #include <kerninc/kernel.h>
 #include <kerninc/util.h>
 #include <kerninc/PhysMem.h>
-/*#include <disk/DiskKey.hxx>*/
-#include <kerninc/BootInfo.h>
+#include <kerninc/multiboot.h>
+
+extern void start();	/* start of kernel code */
+extern void end();	/* end of kernel data */
      
 #define dbg_init	0x1u
 #define dbg_avail	0x2u
@@ -38,7 +40,7 @@
 /* Implementation of Memory Constraints */
 /* physMem_pages: must be page aligned */
 PmemConstraint physMem_pages = { (kpa_t) 0u, ~((kpa_t)0u), EROS_PAGE_SIZE };
-/* physMem_pages: must be word aligned */
+/* physMem_any: must be word aligned */
 PmemConstraint physMem_any = { (kpa_t) 0u, ~((kpa_t)0u), sizeof(uint32_t) };
 
 extern void end();
@@ -46,7 +48,7 @@ extern void end();
 
 kpa_t physMem_PhysicalPageBound = 0;
 
-static PmemInfo PhysicalMemoryInfo[MAX_MEMINFO];
+static PmemInfo PhysicalMemoryInfo[MAX_PMEMINFO];
 PmemInfo *physMem_pmemInfo = &PhysicalMemoryInfo[0];
 unsigned long physMem_nPmemInfo;
 
@@ -78,28 +80,88 @@ static void checkBounds(kpa_t base, kpa_t bound)
 void
 physMem_Init()
 {
-  unsigned i;
+  uint32_t mmapLength;
+  struct grub_mmap * mp;
+  int i;
+  PmemConstraint constraint;
+  kpsize_t size;
+  struct grub_mod_list * modp;
 
-  for (i = 0; i < BootInfoPtr->nMemInfo; i++) {
-    MemInfo *pmi = &BootInfoPtr->memInfo[i];
+  DEBUG (init) printf("MultibootInfoPtr = %x\n", MultibootInfoPtr);
 
-    if (pmi->type == MI_MEMORY) {
-      (void) physMem_AddRegion(pmi->base, pmi->bound, MI_MEMORY, false);
+  for (mmapLength = MultibootInfoPtr->mmap_length,
+         mp = (struct grub_mmap *) MultibootInfoPtr->mmap_addr;
+       mmapLength > 0;
+       ) {
+    kpa_t base = ((kpa_t)mp->base_addr_high << 32) + (kpa_t)mp->base_addr_low;
+    kpsize_t bound;
+    size = ((kpsize_t)mp->length_high << 32) + (kpsize_t)mp->length_low;
+    bound = base + size;
 
-      checkBounds(pmi->base, pmi->bound);
+    DEBUG (init) printf("0x%08lx 0x%08lx 0x%08lx 0x%08lx 0x%08lx 0x%08lx\n",
+       mp->size,
+       mp->base_addr_low,
+       mp->base_addr_high,
+       mp->length_low,
+       mp->length_high,
+       mp->type);
+
+    if (mp->type == 1) {	/* available RAM */
+      (void) physMem_AddRegion(base, bound, MI_MEMORY, false);
+      checkBounds(base, bound);
     }
+    /* On to the next. */
+    /* mp->size does not include the size of the size field itself,
+       so add 4. */
+    mmapLength -= (mp->size + 4);
+    mp = (struct grub_mmap *) (((char *)mp) + (mp->size + 4));
   }
 
-  /* Get upper bound of preloaded memory. */
-  for (i = 0; i < BootInfoPtr->nDivInfo; i++) {
-    DivisionInfo *di = &BootInfoPtr->divInfo[i];
-
-    checkBounds(di->where, di->bound);
-  }
+  /* Preloaded modules are contained in mmap memory,
+     so no need to add regions for them. */
 
   (void) physMem_AddRegion(ROMBase, ROMBound, MI_BOOTROM, true);
 
-  DEBUG(init) physMem_PrintStatus();
+  DEBUG(init) {
+    /* Print status */
+  }
+
+  /* Reserve regions of physical memory that are already used. */
+
+  /* Reserve kernel code and data and bss.
+     The kernel stack is within the bss. */
+  constraint.base = (kpa_t)start;
+  constraint.bound = (kpa_t)end;
+  constraint.align = 1;
+  physMem_Alloc(constraint.bound - constraint.base, &constraint);
+                                                                                
+  /* Reserve space occupied by modules. */
+  for (i = MultibootInfoPtr->mods_count,
+         modp = KPAtoP(struct grub_mod_list *, MultibootInfoPtr->mods_addr);
+       i > 0;
+       --i, modp++) {
+    constraint.base = modp->mod_start;
+    constraint.bound = modp->mod_end;
+    constraint.align = 1;
+    physMem_Alloc(constraint.bound - constraint.base, &constraint);
+    printf("Grabbed module at 0x%08x\n", (uint32_t) constraint.base);
+  }
+
+  /* Reserve Multiboot information that we will need later. */
+  /* The Multiboot structure itself. */
+  constraint.base = PtoKPA(MultibootInfoPtr);
+  size = (kpsize_t)sizeof(struct grub_multiboot_info);
+  constraint.bound = constraint.base + size;
+  constraint.align = 1;
+  physMem_Alloc(size, &constraint);
+
+  /* The modules list. */
+  constraint.base = (kpa_t)MultibootInfoPtr->mods_addr;
+  size = (kpsize_t) (MultibootInfoPtr->mods_count 
+                     * sizeof(struct grub_mod_list));
+  constraint.bound = constraint.base + size;
+  constraint.align = 1;
+  physMem_Alloc(size, &constraint);
 
   physMem_ReservePhysicalMemory();
 }
@@ -122,7 +184,7 @@ physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly)
     }
   }
 
-  assert (physMem_nPmemInfo < MAX_MEMINFO);
+  assert (physMem_nPmemInfo < MAX_PMEMINFO);
 
   kmi->base = base;
   kmi->bound = bound;
@@ -158,7 +220,7 @@ physMem_MemAvailable(PmemConstraint *mc, unsigned unitSize, bool contiguous)
   unsigned nUnits = 0;
   unsigned rgn = 0;
 
-  for (rgn = 0; rgn < BootInfoPtr->nMemInfo; rgn++) {
+  for (rgn = 0; rgn < physMem_nPmemInfo; rgn++) {
     PmemInfo *kmi = &physMem_pmemInfo[rgn];
     uint32_t base = kmi->allocBase;
     uint32_t bound = kmi->allocBound;
@@ -216,7 +278,7 @@ physMem_ChooseRegion(kpsize_t nBytes, PmemConstraint *mc)
   PmemInfo *allocTarget = 0;
   unsigned rgn = 0;
 
-  for (rgn = 0; rgn < BootInfoPtr->nMemInfo; rgn++) {
+  for (rgn = 0; rgn < physMem_nPmemInfo; rgn++) {
     PmemInfo *kmi = &physMem_pmemInfo[rgn];
     kpa_t base = kmi->allocBase;
     kpa_t bound = kmi->allocBound;
@@ -280,18 +342,39 @@ physMem_Alloc(kpsize_t nBytes, PmemConstraint *mc)
         /* The following value is used in the "grab from end" case.
            We assign it here to avoid a compiler warning. */
         = allocTargetBoundAligned - nBytes;
-    if (bound == allocTargetBoundAligned) { /* grab from end */
-      /* where = allocTargetBoundAligned - nBytes; */
+    if (bound == allocTargetBoundAligned) {
+      /* We can grab from the end, discarding only bytes lost to alignment. */
+      where = bound - nBytes;
       allocTarget->allocBound = where;
-    } else if (base == allocTargetBaseAligned) { /* grab from beginning */
-      where = allocTargetBaseAligned;
+    } else if (base == allocTargetBaseAligned) {
+      /* We can grab from the beginning,
+         discarding only bytes lost to alignment. */
+      where = base;
       allocTarget->allocBase = where + nBytes;
     } else {
-      printf("0x%x 0x%x 0x%x 0x%x\n",
-                     (unsigned)allocTarget->allocBase,
-                     (unsigned)allocTarget->allocBound,
-                     (unsigned)mc->base, (unsigned)mc->bound );
-      fatal("Physical memory allocator will not split memory regions\n");
+      /* May need to split the region. */
+      /* Physical memory must be split on a page boundary: */
+      const kpa_t split = align_up(base, EROS_PAGE_SIZE);
+      if (split < allocTarget->allocBound) {
+        /* Split the region */
+        PmemInfo * newPmi;
+        printf("Splitting: 0x%x 0x%x 0x%x 0x%x\n",
+                       (unsigned)allocTarget->allocBase,
+                       (unsigned)allocTarget->allocBound,
+                       (unsigned)mc->base, (unsigned)mc->bound );
+        where = base;
+        /* Add the region with its full physical memory. */
+        newPmi = physMem_AddRegion(split, allocTarget->allocBound,
+                                   MI_MEMORY, allocTarget->readOnly);
+        newPmi->allocBase = max(split, where + nBytes);
+        allocTarget->bound = split;
+        allocTarget->allocBound = where;
+      } else {
+        /* Just allocate from the end, discarding fewer than
+           EROS_PAGE_SIZE bytes. */
+        where = bound - nBytes;
+        allocTarget->allocBound = where;
+      }
     }
 
     assert(where >= base);
