@@ -24,6 +24,7 @@
 /*********************************************
  * PRIMORDIAL DOMAINS
  *********************************************/
+#include <core_stuff.map>
 #include <drivers/pci/pci_probe.map>
 
 test = new process with constituents;
