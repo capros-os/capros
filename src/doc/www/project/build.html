@@ -30,6 +30,8 @@
 	  <p>
             CapROS is built using Linux. If your system doesn't have the
             following packages, you may need to obtain and install them. 
+            You must also have GRUB installed, because CapROS is
+            loaded by GRUB using the Multiboot specification.
           </p>
           <h3>2.1.1. For Fedora Core 2</h3>
             <ul>
@@ -109,10 +111,64 @@ make
           <li>clean - remove all generated files
           <li>distclean - clean, and also remove install directories under eros/
           </ul>
+	  <h2>2.4. Running a test program</h2>
+	  <p> 
+            To run CapROS, you must have a hard disk partition formatted
+            for CapROS. 
+	    Use your handy
+	    <tt>fdisk</tt> equivalent to create a partition, and give it
+	    type 0x95.
+            Define the shell variable EROS_HD as the device name
+            for this partition. For example:
+	  </p>
+<pre>
+export EROS_HD=/dev/hda1
+</pre>
+	  <p>
+            You must also have a boot partition with a file system where
+            GRUB will find the files to load. Define
+            CAPROS_BOOT_PARTITION as the name of this partition.
+            For example:
+	  </p>
+<pre>
+export CAPROS_BOOT_PARTITION=/boot
+</pre>
+	  <p>
+            Before using the CapROS partition for the first time,
+            you must format it:
+	  </p>
+	  <ul>
+<pre>
+cd somewhere/eros/src/tutorials/hello-large
+make init.hd
+</pre>
+	  </ul>
+	  <p>
+            Then to compile and load the test program into the CapROS
+            system:
+	  </p>
+	  <ul>
+<pre>
+cd somewhere/eros/src/tutorials/hello-large
+make hd
+</pre>
+	  </ul>
+	  <p>
+            To run the test program, boot the computer, and type the
+            following commands to GRUB:
+	  </p>
+<pre>
+root (hd0,1)     # or the appropriate value for your boot partition
+configfile /CapROS-config-1
+</pre>
+	  <p>
+            You may wish to add an item to your GRUB menu.lst file
+            with these commands. 
+	  </p>
 	  <h1>3. Run-Time Requirements</h1>
 	  <p>
-	    The current status is that CapROS does not run on the hardware
-            I have for testing. It has run on Vmware but I haven't tested that.
+	    CapROS has been tested on a Pentium II, a Mobile AMD Athlon,
+            and Vmware. 
             The following notes give an idea of what we expect
             will be needed.
 	  </p>
@@ -124,11 +180,6 @@ make
 	    partition if you just want to fiddle with it, or a 250
 	    Mbyte partition if you have something more serious in
 	    mind.
-	  </p>
-	  <p> 
-	    If you feel like planning ahead, use your handy
-	    <tt>fdisk</tt> equivalent to create a partition, and give it
-	    type 0x95.
 	  </p>
 	  To boot from the hard disk, the CapROS partition
 	  must fall within the bootable range of your machine.  It is

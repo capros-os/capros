@@ -28,7 +28,8 @@
       <h2>Name</h2>
       <p><b>sysgen</b> -- make new CapROS volume</p>
       <h2>Synopsis</h2>
-      <p><b>sysgen</b> [-m mapfile] volume image_file</p>
+      <p><b>sysgen</b> [-m mapfile] [-g grubdir [-v suffix]]
+         volume image_file</p>
       <h2>Description</h2>
       <p> The <b>sysgen</b> utility maps the content of the CapROS image
       file <b>image_file</b> (from <b>mkimage</b>) onto the specified
@@ -37,6 +38,16 @@
       capabilities within the image file are relocated to reflect the
       final locations of these objects on the actual volume before
       being written.
+      </p>
+      <p>If grubdir is specified, it must be the filename of a partition,
+      for example /boot.
+      The kernel and preloaded ranges will be
+      written to files in the top-level directory of that partition.
+      A Grub configuration file will also be written.
+      The suffix should be "1" (default)
+      for primary files or "2" for secondary files. The boot drive
+      specified when the kernel is booted will be derived from the name
+      of the volume file.
       </p>
       <p>If mapfile is specified, sysgen outputs there the mapping
       of indexes in the image_file to oid's in the volume. </p>
