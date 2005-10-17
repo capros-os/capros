@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -36,14 +37,3 @@
 
 /* GNU assembler does not accept trailing 'u' in constants. */
 #define _ASM_U(x) x
-
-#ifdef __KERNEL__
-
-#define data32	.byte 0x66
-#define addr32	.byte 0x67
-
-#define	ENTRY16(x)	.globl EXT(x); LEXT(x)
-#define	ASMVAR16(x)	.globl EXT(x); LEXT(x)
-
-#define IOSTALL   outb %al,$0x80
-#endif

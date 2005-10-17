@@ -42,30 +42,6 @@ outb(uint8_t value, uint16_t port)
 #endif
 }
 
-#ifdef __KERNEL__
-
-INLINE void
-old_outb(uint16_t port, uint8_t value)
-{
-  outb(value, port);
-}
-
-#if 0
-INLINE void
-outw(uint16_t value, uint16_t port)
-{
-  outw(value, port);
-}
-
-INLINE void
-outl(uint32_t value, uint16_t port)
-{
-  outl(value, port);
-}
-#endif
-
-#endif
-
 INLINE uint8_t
 inb(uint16_t port)
 {

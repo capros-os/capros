@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -280,7 +281,7 @@ KbdCmd(uint8_t command)
 
     KbdWait();
 
-    old_outb(KbdDataPort, command);
+    outb(command, KbdDataPort);
 
     while (i--) {
       if (inb(KbdStatusPort) & kbd_BufFull) {

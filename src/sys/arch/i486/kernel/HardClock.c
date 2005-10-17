@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 205, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -184,9 +185,9 @@ mach_InitHardClock()
   uint64_t calibrateDone;
 
   /* Set up the hardware clock: */
-  old_outb(TIMER_MODE, SQUARE_WAVE0);
-  old_outb(TIMER_PORT_0, SOFT_TICK_DIVIDER & 0xff);
-  old_outb(TIMER_PORT_0, (SOFT_TICK_DIVIDER >> 8) & 0xff);
+  outb(SQUARE_WAVE0, TIMER_MODE);
+  outb(SOFT_TICK_DIVIDER & 0xff, TIMER_PORT_0);
+  outb((SOFT_TICK_DIVIDER >> 8) & 0xff, TIMER_PORT_0);
     
   irq_SetHandler(irq_HardClock, sysT_Wakeup);
   irq_Enable(irq_HardClock);

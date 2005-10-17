@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -48,30 +49,30 @@ SerialStream_Init()
 
   /* set DLAB bit      */
   /* b7=1              */
-  old_outb(dlab, inb(dlab) | 0x80);
+  outb(inb(dlab) | 0x80, dlab);
 
   /* set 16-bit divisor to 12 (0Ch = 9600 baud) */
-  old_outb(COMBASE, 0x0C);
-  old_outb(COMBASE + 1, 0);
+  outb(0x0C, COMBASE);
+  outb(0, COMBASE + 1);
 
   /* set data bits to 8 */
   /* b0=1 b1=1          */
-  old_outb(dlab, inb(dlab) | 0x03);
+  outb(inb(dlab) | 0x03, dlab);
 
   /* set parity to None */
   /* b3=0 b4=0 b5=0     */
-  old_outb(dlab, inb(dlab) & 0xC7);
+  outb(inb(dlab) & 0xC7, dlab);
 
   /* set stop bits to 1 */
   /* b2=0               */
-  old_outb(dlab, inb(dlab) & 0xFB);
+  outb(inb(dlab) & 0xFB, dlab);
 
   /* unset DLAB bit     */
   /* b7=0               */
-  old_outb(COMBASE + 3, inb(COMBASE + 3) & 0x7f);
+  outb(inb(COMBASE + 3) & 0x7f, COMBASE + 3);
 
   /* tell COM port to report INTs on received char */
-  old_outb(COMBASE + 1, 1);
+  outb(1, COMBASE + 1);
 }
 
 uint8_t
@@ -99,7 +100,7 @@ SerialStream_Put(uint8_t c)
     /* wait for the serial port to be ready . . . maybe we should
        run faster than 9600 baud :p */
   }
-  old_outb(COMBASE, c);
+  outb(c, COMBASE);
 
   return;
 }

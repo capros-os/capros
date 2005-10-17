@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -32,9 +33,9 @@ cmos_cmosByte(unsigned byte)
   uint8_t b1, b2;
   
   do {
-    old_outb(0x70, byte);
+    outb(byte, 0x70);
     b1 = inb(0x71);
-    old_outb(0x70, byte);
+    outb(byte, 0x70);
     b2 = inb(0x71);
   } while (b1 != b2);
   return b1;

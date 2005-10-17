@@ -286,20 +286,20 @@ idt_SetupInterruptControllers()
 {
   /* Set up the interrupt controller chip: */
 
-  old_outb(0x20, 0x11);		/* ctrlr1 init - edge triggered */
-  old_outb(0x21, 0x20);		/* interrupts from 0x20 to 0x27 */
-  old_outb(0x21, 0x4);		/* cascade on IRQ2 */
-  old_outb(0x21, 0x1);		/* 8086 mode */
-  old_outb(0x21, 0xff);		/* disable interrupts on pic1 */
+  outb(0x11, 0x20);		/* ctrlr1 init - edge triggered */
+  outb(0x20, 0x21);		/* interrupts from 0x20 to 0x27 */
+  outb(0x04, 0x21);		/* cascade on IRQ2 */
+  outb(0x01, 0x21);		/* 8086 mode */
+  outb(0xff, 0x21);		/* disable interrupts on pic1 */
 
-  old_outb(0xa0, 0x11);		/* ctrlr2 init - edge triggered */
-  old_outb(0xa1, 0x28);		/* interrupts from 0x28 to 0x2f */
-  old_outb(0xa1, 0x2);		/* cascade on IRQ2 */
-  old_outb(0xa1, 0x1);		/* 8086 mode */
-  old_outb(0xa1, 0xff);		/* disable interrupts on pic1 */
+  outb(0x11, 0xa0);		/* ctrlr2 init - edge triggered */
+  outb(0x28, 0xa1);		/* interrupts from 0x28 to 0x2f */
+  outb(0x02, 0xa1);		/* cascade on IRQ2 */
+  outb(0x01, 0xa1);		/* 8086 mode */
+  outb(0xff, 0xa1);		/* disable interrupts on pic1 */
 
-  old_outb(0x20,0x20);		/* reset pic1 */
-  old_outb(0xa0,0x20);		/* reset pic2 */
+  outb(0x20, 0x20);		/* reset pic1 */
+  outb(0x20, 0xa0);		/* reset pic2 */
 }
 
 

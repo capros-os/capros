@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -57,7 +58,7 @@ irq_Enable(uint32_t irq)
 
   if (irq >= 8) {
     pic2_mask &= ~(1u << (irq-8));
-    old_outb(0xa1, pic2_mask);
+    outb(pic2_mask, 0xa1);
     /* Make sure that the cascade entry on PIC1 is enabled as well (I
      * got caught by this at one point)
      */
@@ -67,7 +68,7 @@ irq_Enable(uint32_t irq)
   
   if (irq < 8) {
     pic1_mask &= ~(1u << irq);
-    old_outb(0x21, pic1_mask);
+    outb(pic1_mask, 0x21);
   }
 
 #ifdef INTRDEBUG
@@ -91,11 +92,11 @@ irq_Disable(uint32_t irq)
 
   if (irq < 8) {
     pic1_mask |= (1u << irq);
-    old_outb(0x21, pic1_mask);
+    outb(pic1_mask, 0x21);
   }
   else {
     pic2_mask |= (1u << (irq-8));
-    old_outb(0xa1, pic2_mask);
+    outb(pic2_mask, 0xa1);
   }
 
 #ifdef INTRDEBUG
