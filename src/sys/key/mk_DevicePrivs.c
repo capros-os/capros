@@ -26,7 +26,6 @@
 #include <kerninc/PhysMem.h>
 #include <kerninc/ObjectSource.h>
 #include <kerninc/ObjectCache.h>
-#include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #if 0

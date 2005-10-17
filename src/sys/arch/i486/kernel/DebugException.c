@@ -20,7 +20,6 @@
 
 /* Driver for 386 debugger traps/faults */
 
-#include <eros/target.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Debug.h>

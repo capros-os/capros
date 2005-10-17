@@ -19,7 +19,6 @@
  */
 
 #include <kerninc/kernel.h>
-#include <eros/target.h>
 #include <kerninc/util.h>
 
 #if 0

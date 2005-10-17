@@ -19,9 +19,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#include <eros/target.h>
-#include <kerninc/memory.h>
 #include <kerninc/kernel.h>
+#include <kerninc/memory.h>
 #include <kerninc/Process.h>
 #include <kerninc/Activity.h>
 #include <kerninc/IRQ.h>

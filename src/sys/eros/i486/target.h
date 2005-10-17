@@ -3,6 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -49,25 +50,6 @@
 #define BITFIELD_PACK_LOW	/* bitfields pack low-order bits first */
 
 #define EROS_HAVE_FPU
-
-#ifdef __KERNEL__
-
-#define USES_MAPPING_PAGES
-#define MAPPING_ENTRIES_PER_PAGE 1024
-
-/* The current version of the x86 kernel uses the segment mechanism to
-   remap the kernel.  We will want it that way for the windowing
-   tricks later anyway.
-
-   On the plus side, this means that a kernel virtual address is also
-   a kernel physical address. On the minus side, this means that
-   domain virtual addresses must now be referenced through the domain
-   segment selector. */
-#define VTOP(va) ((uint32_t) (va))
-#define PTOV(pa) ((uint32_t) (pa))
-#define KVTOL(kva) (kva + KVA)
-
-#endif /* __KERNEL__ */
 
 #ifndef NULL
 #define NULL (0L)
@@ -123,10 +105,6 @@ typedef uint80_t floatval_t;
 
 #endif /* !_STDINT_H */
 
-#if defined(__EROS__) && defined(__KERNEL__)
-typedef unsigned int   size_t;	/* should be 32 bits */
-#endif
-
 typedef uint32_t	io_t;	/* io address */
 typedef uint32_t	klva_t;	/* kernel linear virtual address */
 typedef uint32_t        kva_t;	/* kernel virtual address */
@@ -160,9 +138,5 @@ typedef uint32_t	fixreg_t; /* fixed-point natural register size */
 #define TARGET_LONG_MAX (2147483647) /* max value of a "long int" */
 #define TARGET_LONG_MIN (-TARGET_LONG_MAX-1) /* min value of a "long int" */
 #define TARGET_ULONG_MAX 4294967295u
-
-#ifdef __KERNEL__
-#define IRQ_FROM_EXCEPTION(vector) ((vector) - 0x20u)
-#endif
 
 #endif /* __TARGET_I486_H__ */

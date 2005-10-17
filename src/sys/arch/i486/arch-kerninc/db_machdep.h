@@ -34,7 +34,6 @@
  */
 
 #include <kerninc/kernel.h>
-#include <eros/target.h>
 #include <kerninc/Process.h>
 #include <kerninc/memory.h>
 

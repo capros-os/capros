@@ -20,7 +20,6 @@
 
 /* Drivers for 386 protection faults */
 
-#include <eros/target.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Debug.h>
 #include <kerninc/Activity.h>
