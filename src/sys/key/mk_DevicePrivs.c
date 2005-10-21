@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -50,7 +51,7 @@
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 struct UserIrq {
-  bool       isPending;
+  bool       isPending;	/* only valid if isAlloc */
   bool       isAlloc;
   StallQueue sleepers;
 } UserIrqEntries[NUM_HW_INTERRUPT];
@@ -58,10 +59,12 @@ struct UserIrq {
 void 
 UserIrqInit()
 {
-  int i = 0;
+  int i;
 
-  for (i = 0; i < NUM_HW_INTERRUPT; i++)
+  for (i = 0; i < NUM_HW_INTERRUPT; i++) {
+    UserIrqEntries[i].isAlloc = false;
     sq_Init(&UserIrqEntries[i].sleepers);
+  }
 }
 
 static void
@@ -111,15 +114,11 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 	break;
       }
       
+      uirq->isAlloc = true;
       uirq->isPending = false;
 
       irq_SetHandler(irq, DoUsermodeInterrupt);
       irq_Enable(irq);
-
-#if 0
-      static bool WireShared(IntAction*);
-      static void Unwire(IntAction*);
-#endif
     }
   
     inv->exit.code = RC_OK;
@@ -140,8 +139,7 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       }
       
       irq_UnsetHandler(irq);
-
-      uirq->isPending = false;
+      uirq->isAlloc = false;
   
       inv->exit.code = RC_OK;
       break;
@@ -189,11 +187,23 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
     
   case OC_eros_DevPrivs_waitIRQ:
     {
+      if (irq >= NUM_HW_INTERRUPT) {
+        COMMIT_POINT();
+	inv->exit.code = RC_eros_key_RequestError;
+	break;
+      }
+      
+      if (!uirq->isAlloc) {
+        COMMIT_POINT();
+	inv->exit.code = RC_eros_DevPrivs_AllocFail;
+	break;
+      }
+
       irq_Enable(irq);
 
       irq_DISABLE();
       
-      if (irq < NUM_HW_INTERRUPT && !uirq->isPending) {
+      if (!uirq->isPending) {
 	DEBUG(sleep)
 	  printf("DevPrivs: Sleeping for IRQ %d\n", irq);
         act_SleepOn(act_Current(), &uirq->sleepers);
@@ -206,13 +216,6 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 
       COMMIT_POINT();
 
-      if (irq >= NUM_HW_INTERRUPT) {
-	DEBUG(error)
-	  printf("IRQ %d is invalid, bogon\n", irq);
-	inv->exit.code = RC_eros_key_RequestError;
-	break;
-      }
-
       assert(uirq->isPending);
       DEBUG(sleep)
 	printf("IRQ %d was pending already\n", irq);
@@ -221,7 +224,6 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       uirq->isPending = false;
       irq_ENABLE();
 	
-      /* Else return RC_OK per below */
       inv->exit.code = RC_OK;
       break;
     }
@@ -233,19 +235,17 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       kpa_t bound = inv->entry.w2;
       bool readOnly = inv->entry.w3;
 
+      COMMIT_POINT();
+
       if ((base % EROS_PAGE_SIZE) || (bound % EROS_PAGE_SIZE)) {
-	COMMIT_POINT();
 	inv->exit.code = RC_eros_key_RequestError;
 	break;
       }
 
       if (base >= bound) {
-	COMMIT_POINT();
 	inv->exit.code = RC_eros_key_RequestError;
 	break;
       }
-
-      COMMIT_POINT();
 
       pmi = physMem_AddRegion(base, bound, MI_DEVICEMEM, readOnly);
 
@@ -271,7 +271,6 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 	inv->exit.code = RC_OK;
       }
       else {
-	COMMIT_POINT();
 	inv->exit.code = RC_eros_key_NoAccess;
       }
 
@@ -279,11 +278,13 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
     }
 
   case OC_eros_key_getType:
+    COMMIT_POINT();
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_DevicePrivs;
     break;
 
   default:
+    COMMIT_POINT();
     inv->exit.code = RC_eros_key_UnknownRequest;
     break;
   }
