@@ -1,0 +1,356 @@
+<HTML>
+  <HEAD>
+    <TITLE>CapROS DevicePrivs Object</TITLE>
+  </HEAD>
+  <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+    <center>
+      <H1>CapROS DevicePrivs Object</H1>
+    </center>
+<a href="../../../capros.html">CapROS Home</a> >
+<a href="../Cover.html">Object Reference</a> >
+<a href="00Kernel.html">Restricted Objects</a> >
+DevicePrivs Object
+<hr>
+  <h3>Description</h3>
+  <p> The <strong>DevicePrivs</strong> key is used by device drivers
+  to reserve IRQs, receive interrupts, and access device memory
+  that is mapped as physical memory.
+  </p><p>Many operations have an <strong>irq</strong> parameter.
+  This is a number identifying
+  a source of interrupts that can be separately identified and
+  enabled/disabled. The precise meaning is platform-dependent. 
+  <hr>
+  <h3>Operations</h3>
+  <dl>
+    <dt> <strong>Allocate IRQ</strong>
+    <dt> IDL C definition: result_t eros_DevPrivs_allocIRQ(cap_t _self, uint32_t irq);
+    <dd> 
+	 <p>This operation reserves the specified IRQ, so that if
+         another driver attempts to allocate the same IRQ, it will be told
+         that it is not available. (However, only courtesy prevents
+         the other driver from going ahead and using the IRQ.)
+	 <p> 
+         <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success. Any pending interrupt is cleared, and interrupts
+               are enabled for the specified IRQ.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_key_RequestError</strong>
+	     </td>
+	     <td>
+	       The specified <strong>irq</strong> exceeded the number
+               of IRQs available in the hardware.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_DevPrivs_AllocFail</strong>
+	     </td>
+	     <td>
+	       The specified <strong>irq</strong> was already allocated
+               or already has a handler.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Release IRQ</strong>
+    <dt> IDL C definition: result_t eros_DevPrivs_releaseIRQ(cap_t _self, uint32_t irq);
+    <dd> 
+	 <p>This operation releases the specified IRQ so that other drivers
+         may allocate it.
+	 <p> 
+         <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success. Any pending interrupt is cleared, and interrupts
+               are disabled for the specified IRQ.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_key_RequestError</strong>
+	     </td>
+	     <td>
+	       The specified <strong>irq</strong> exceeded the number
+               of IRQs available in the hardware.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_DevPrivs_AllocFail</strong>
+	     </td>
+	     <td>
+	       The specified <strong>irq</strong> was already free.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Enable IRQ</strong>
+    <dt> IDL C definition: result_t eros_DevPrivs_enableIRQ(cap_t _self, uint32_t irq);
+    <dd> 
+	 <p>This operation enables interrupts on the specified IRQ. 
+         <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_key_RequestError</strong>
+	     </td>
+	     <td>
+	       The specified <strong>irq</strong> exceeded the number
+               of IRQs available in the hardware.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_DevPrivs_AllocFail</strong>
+	     </td>
+	     <td>
+	       The specified <strong>irq</strong> is not allocated.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Disable IRQ</strong>
+    <dt> IDL C definition: result_t eros_DevPrivs_disableIRQ(cap_t _self, uint32_t irq);
+    <dd> 
+	 <p>This operation disables interrupts on the specified IRQ. 
+         <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_key_RequestError</strong>
+	     </td>
+	     <td>
+	       The specified <strong>irq</strong> exceeded the number
+               of IRQs available in the hardware.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_DevPrivs_AllocFail</strong>
+	     </td>
+	     <td>
+	       The specified <strong>irq</strong> is not allocated.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Wait IRQ</strong>
+    <dt> IDL C definition: result_t eros_DevPrivs_waitIRQ(cap_t _self, uint32_t irq);
+    <dd> 
+	 <p> This operation enables interrupts on the specified IRQ and then
+         waits until an interrupt occurs. If there is a pending interrupt
+         the operation returns immediately. 
+	 <p> 
+         <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success. The pending interrupt flag for the specified IRQ
+               is cleared.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_key_RequestError</strong>
+	     </td>
+	     <td>
+	       The specified <strong>irq</strong> exceeded the number
+               of IRQs available in the hardware.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_DevPrivs_AllocFail</strong>
+	     </td>
+	     <td>
+	       The specified <strong>irq</strong> is not allocated.
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Publish Memory</strong>
+    <dt> IDL C definition: result_t eros_DevPrivs_publishMem(cap_t _self, uint32_t start, uint32_t end, bool_t readOnly);
+    <dd> 
+	 <p>This operation instructs the kernel to allow a range of
+         physical addresses to be mapped into virtual memory.
+         (Of course you must have keys to the physical pages before
+         you can map them.)
+         The physical pages will be available at OIDs beginning with
+         OID_RESERVED_PHYSRANGE + (<strong>start</strong> / EROS_PAGE_SIZE)
+           * EROS_OBJECTS_PER_FRAME.
+         <p>If the kernel can't allocate the data structures to track the
+         memory, the kernel crashes.
+	 <p> 
+	 <table>
+	   <tr valign=top>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>start</strong>
+	     </td>
+	     <td>
+	       The first physical address of the range. 
+               Only 32-bit addresses are supported.
+	     </td>
+	   </tr>
+	     <td rowspan=1>
+	       <strong>end</strong>
+	     </td>
+	     <td>
+	       The last physical address in the range, plus one. 
+               Only 32-bit addresses are supported.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>readOnly</strong>
+	     </td>
+	     <td>
+	       (The read-only status of the memory seems to be tracked
+               by the kernel but not used.)
+	     </td>
+	   </tr>
+         </table>
+         <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_key_RequestError</strong>
+	     </td>
+	     <td>
+               <strong>start</strong> or <strong>end</strong> 
+               was not on a page boundary, or <strong>end</strong>
+               was not greater than <strong>start</strong>.
+	     </td>
+	   </tr>
+	   <tr valign=top>
+	     <td>
+	     </td>
+	     <td>
+	       <strong>RC_eros_key_NoAccess</strong>
+	     </td>
+	     <td>
+	       The specified memory region overlaps with a region
+               already known to the kernel. For the overlapping addresses,
+               this operation is unnecessary because the kernel already
+               supports mapping the addresses. 
+	     </td>
+	   </tr>
+	 </table>
+	 <p> 
+    <dt> <strong>Get Alleged Type Code</strong>
+    <dt> IDL C definition: result_t eros_key_getType(cap_t _self, eros_key_type *_retVal);
+    <dd> 
+	 <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>_retVal</strong>
+	     </td>
+	     <td>
+	       The variable at the address in <strong>_retVal</strong>
+               receives the value AKT_DevicePrivs.
+	     </td>
+	   </tr>
+         </table>
+         <table>
+	   <tr valign=top>
+	     <td rowspan=1>
+	       <strong>Result</strong>
+	     </td>
+	     <td>
+	       <strong>RC_OK</strong>
+	     </td>
+	     <td>
+	       Success.
+	     </td>
+	   </tr>
+	 </table>
+  </dl>
+    <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 2005 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="./legal/license/GPL.html">GNU General Public License</a></em>
+   </td>
+</tr>
+</table>
+  </BODY>
+</html>
