@@ -2,6 +2,7 @@
 #define __LOWVOLUME_HXX__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -113,14 +114,9 @@ enum {
 #if defined(i386) || defined(i486)
 #define VOLHDR_VERSION 1
 
-/* N.B.: The layout of VolHdr MUST MATCH that of the
-   variables at the beginning of i486/boot/boot1.S */
-
+/* Bits in BootFlags: */
 enum VolHdrFlags {
-  VF_BOOT       = 0x1,		/* load volume image as ramdisk */
-  VF_RAMDISK    = 0x2,		/* load volume image as ramdisk */
-  /* 0x4 is unused */
-  VF_COMPRESSED = 0x8,		/* Volume is compressed. */
+  VF_BOOT       = 0x1,
   VF_DEBUG      = 0x80000000,	/* Debugging boot */
 };
 typedef enum VolHdrFlags VolHdrFlags;
@@ -136,7 +132,7 @@ struct VolHdr {
   uint32_t    VolSectors;	/* number of sectors actually written
 				 * to this volume by the formatter.
 				 */
-  uint32_t    zipLen;		/* length of zipped portion of volume */
+  uint32_t    zipLen;		/* unused */
   KeyBits     iplKey;		/* unique singleton process to start */
   uint64_t    iplSysId;		/* Unique system identifier */
 

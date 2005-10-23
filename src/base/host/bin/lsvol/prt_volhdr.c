@@ -51,14 +51,6 @@ PrintVolHdr(Volume* pVol)
       diag_printf("%sBOOT", haveshown ? "," : "");
       haveshown = true;
     }
-    if (vh->BootFlags & VF_RAMDISK) {
-      diag_printf("%sRAMDISK", haveshown ? "," : "");
-      haveshown = true;
-    }
-    if (vh->BootFlags & VF_COMPRESSED) {
-      diag_printf("%sCOMPRESSED", haveshown ? "," : "");
-      haveshown = true;
-    }
     if (vh->BootFlags & VF_DEBUG) {
       diag_printf("%sDEBUG", haveshown ? "," : "");
       haveshown = true;
@@ -68,9 +60,7 @@ PrintVolHdr(Volume* pVol)
   else
     diag_printf("\n");
 
-  diag_printf("  %-20s %d\n", "Boot Sectors", vh->BootSectors);
   diag_printf("  %-20s %d\n", "Vol Sectors", vh->VolSectors);
-  diag_printf("  %-20s %d\n", "Zipped Length", vh->zipLen);
   diag_printf("  %-20s '%c%c%c%c'\n", "Signature",
 	       vh->signature[0],
 	       vh->signature[1],

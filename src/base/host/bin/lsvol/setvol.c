@@ -28,8 +28,6 @@
 
 const char* targname;
 
-int wantRamDisk = 0;
-int wantCompress = 0;
 int wantBoot = 0;
 int wantDebug = 0;
 const char *kernel_name = 0;
@@ -50,20 +48,8 @@ main(int argc, char *argv[])
   
   app_Init("setvol");
 
-  while ((c = getopt(argc, argv, "dDzZrRk:b:B")) != -1) {
+  while ((c = getopt(argc, argv, "dDk:b:B")) != -1) {
     switch(c) {
-    case 'r':
-      wantRamDisk = 1;
-      break;
-    case 'R':
-      wantRamDisk = -1;
-      break;
-    case 'z':
-      wantCompress = 1;
-      break;
-    case 'Z':
-      wantCompress = -1;
-      break;
     case 'k':
       kernel_name = optarg;
       break;
@@ -90,8 +76,7 @@ main(int argc, char *argv[])
   argc -= optind;
   argv += optind;
   
-  if (wantCompress == 0 && wantRamDisk == 0
-      && kernel_name == 0 && wantBoot == 0
+  if (kernel_name == 0 && wantBoot == 0
       && wantDebug == 0)
     opterr++;
   
@@ -131,30 +116,12 @@ main(int argc, char *argv[])
   if (wantBoot != 0)
     vol_WriteBootImage(pVol, boot_name);
   
-  if (wantRamDisk > 0)
-    vol_SetVolFlag(pVol, VF_RAMDISK);
-  else if (wantRamDisk < 0) {
-    vol_ClearVolFlag(pVol, VF_COMPRESSED);
-    vol_ClearVolFlag(pVol, VF_RAMDISK);
-  }
-  
   if (wantDebug > 0)
     vol_SetVolFlag(pVol, VF_DEBUG);
   else if (wantDebug < 0) {
     vol_ClearVolFlag(pVol, VF_DEBUG);
   }
   
-  if (wantCompress > 0) {
-    const VolHdr *vh = vol_GetVolHdr(pVol);
-    if ((vh->BootFlags & VF_RAMDISK) == 0)
-      diag_error(1,
-		  "Compressed volumes must presently be "
-		  "ramdisks. Use '-r'!\n");
-    vol_SetVolFlag(pVol, VF_COMPRESSED);
-  }
-  else if (wantCompress < 0)
-    vol_ClearVolFlag(pVol, VF_COMPRESSED);
-
   vol_Close(pVol);
   free(pVol);
 

@@ -28,7 +28,7 @@
       <h2>Name</h2>
       <p><b>setvol</b> -- modify volume bootstrap, kernel, and boot flags</p>
       <h2>Synopsis</h2>
-      <p><b>setvol</b> [-r] [-R] [-z] [-Z] [-b image] [-B] [-k image] volume</p>
+      <p><b>setvol</b> [-b image] [-B] [-k image] volume</p>
       <h2>Description</h2>
       <p> The <b>setvol</b> utility displays allows the bootstrap or
       kernel image of an existing volume to be modified, and also
@@ -37,32 +37,6 @@
       <p>The following options are available:</p>
       <p>
       <table width=100%>
-	<tr>
-	  <td valign=top width="10%"><b>-r</b></td>
-	  <td valign=top>
-	    <p>Mark the volume for ramdisk load.</p>
-	  </td>
-	</tr>
-	<tr>
-	  <td valign=top width="10%"><b>-R</b></td>
-	  <td valign=top>
-	    <p>Unmark the volume for ramdisk load.  If the volume is
-	    compressed, also decompressed the volume.</p>
-	  </td>
-	</tr>
-	<tr>
-	  <td valign=top width="10%"><b>-z</b></td>
-	  <td valign=top>
-	    <p>Mark the volume for compressed load.  Only
-	    ramdisk-loaded volumes may be compressed.</p>
-	  </td>
-	</tr>
-	<tr>
-	  <td valign=top width="10%"><b>-Z</b></td>
-	  <td valign=top>
-	    <p>Unmark the volume for uncompressed load.</p>
-	  </td>
-	</tr>
 	<tr>
 	  <td valign=top width="10%"><b>-d</b></td>
 	  <td valign=top>

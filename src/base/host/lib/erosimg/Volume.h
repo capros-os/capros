@@ -113,8 +113,6 @@ struct Volume {
 extern "C" {
 #endif
 
-/* Compressed volume support functions: */
-int vol_DecompressTarget(Volume *);
 int vol_CompressTarget(Volume *);
 
 void vol_WriteBootImage(Volume *, const char*);

@@ -139,16 +139,6 @@ ProcessVolMap()
       vol_AddDivisionWithOid(pVol, dt_Log, diskPages * EROS_PAGE_SECTORS, oid);
     }
     else if (parse_MatchStart(&rest, buf) &&
-	     parse_MatchKeyword(&rest, "ramdisk") &&
-	     parse_MatchEOL(&rest) ) {
-      vol_SetVolFlag(pVol, VF_RAMDISK);
-    }
-    else if (parse_MatchStart(&rest, buf) &&
-	     parse_MatchKeyword(&rest, "compressed") &&
-	     parse_MatchEOL(&rest) ) {
-      vol_SetVolFlag(pVol, VF_COMPRESSED);
-    }
-    else if (parse_MatchStart(&rest, buf) &&
 	     parse_MatchKeyword(&rest, "divtable") &&
 	     parse_MatchEOL(&rest) ) {
       int diskPages = (sz + (DISK_NODES_PER_PAGE - 1)) / DISK_NODES_PER_PAGE;

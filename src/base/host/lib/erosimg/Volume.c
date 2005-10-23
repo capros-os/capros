@@ -975,7 +975,6 @@ vol_Create(const char* targname, const char* bootName)
   pVol->volHdr.BootFlags = 0;
   pVol->volHdr.BootSectors = DISK_BOOTSTRAP_SECTORS;
   pVol->volHdr.VolSectors = 0;
-  pVol->volHdr.zipLen = 0;
   keyBits_InitToVoid(&pVol->volHdr.iplKey);
   pVol->volHdr.iplSysId = time(NULL); /* get a random value, hopefully unique  */
   pVol->volHdr.signature[0] = 'E';
@@ -1060,8 +1059,6 @@ vol_Open(const char* targname, bool rewriting,
   if (! vol_Read(pVol, 0, &pVol->volHdr, sizeof(pVol->volHdr)) )
     diag_fatal(3, "Couldn't read volume header\n");
 
-  vol_DecompressTarget(pVol);
-  
   pVol->needSyncHdr = 0;
   
   if ( !vol_Read(pVol, EROS_SECTOR_SIZE * pVol->volHdr.DivTable,
