@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
+# Copyright (C) 2005, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -53,12 +54,12 @@ $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
 	$(EROS_ROOT)/host/bin/mkimage -a $(EROS_TARGET) -DBUILDDIR='\"$(BUILDDIR)/\"' -o $(BUILDDIR)/sysimg $(MAPINC) $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
 
 init.hd: $(KERNDEP) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
+	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
 
 hd: $(BUILDDIR)/sysimg $(KERNDEP) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/setvol -b $(BOOT) -k $(KERNPATH) $(EROS_HD)
-	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(EROS_HD) $(BUILDDIR)/sysimg | tee $(BUILDDIR)/sysgen.out
-	$(EROS_ROOT)/host/bin/setboot -w $(EROS_HD)
+	$(EROS_ROOT)/host/bin/setvol -D $(EROS_HD)
+	cp $(KERNPATH) $(CAPROS_BOOT_PARTITION)/CapROS-kernel-1
+	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map -g $(CAPROS_BOOT_PARTITION) -v 1 $(EROS_HD) $(BUILDDIR)/sysimg | tee $(BUILDDIR)/sysgen.out
 
 $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(KERNDEP) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol

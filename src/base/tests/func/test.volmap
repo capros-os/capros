@@ -19,7 +19,6 @@
 #
 
 
-kernel 160 OID=0xFFFF000000000000
-ramdisk
-object preload 2048 OID=0x0
+kernel 140 OID=0xFFFF000000000000
+object preload 512 OID=0x0
 #spare 15
