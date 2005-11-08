@@ -24,7 +24,8 @@ default: package
 EROS_SRC=../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-KERNEL_CONFIGS=DEFAULT NOKBD
+# currently not using NOKBD
+KERNEL_CONFIGS=DEFAULT	# NOKBD
 
 ifeq ($(findstring $(EROS_CONFIG),$(KERNEL_CONFIGS)),)
 KERNEL_CONFIGS += $(EROS_CONFIG)
