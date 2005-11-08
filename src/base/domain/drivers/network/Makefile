@@ -27,6 +27,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 DIRS=
 DIRS+=3com
 DIRS+=lance
+DIRS+=tg3
 
 include $(EROS_SRC)/build/make/makerules.mk
 
