@@ -44,6 +44,7 @@ NF == 2 {
 END {
   for (i = 0; i < nFile; i++) {
     print "Processing " fn[i];
+    print "/* This file is generated. Do not edit. */\n" > fn[i];
     printf("#ifndef __EROS_MACHINE_%s__\n", nmgen(fn[i])) > fn[i];
     printf("#define __EROS_MACHINE_%s__\n", nmgen(fn[i])) > fn[i];
 
