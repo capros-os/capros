@@ -262,4 +262,6 @@ inv_SetExitKey(Invocation* thisPtr, uint32_t ndx, Key* k /*@ not null @*/)
 #endif
 }
 
+#define INVTYPE_ISVALID(x) ((x) < IT_NUM_INVTYPES)
+
 #endif /* __KERNINC_INVOCATION_H__ */

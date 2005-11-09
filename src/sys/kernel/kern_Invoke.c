@@ -1184,7 +1184,8 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   if ( DDB_STOP(all) ||
        ( DDB_STOP(gate) && invoked_gate_key ) ||
        ( DDB_STOP(keeper) && inv.suppressXfer) ||
-       ( DDB_STOP(return) && (ISRETURN(inv.invType)) ) ||
+       ( DDB_STOP(return) && (   inv.invType == IT_NPReturn
+                              || inv.invType == IT_PReturn ) ) ||
        (DDB_STOP(pflag) && 
 	( (thisPtr->processFlags & PF_DDBINV) ||
 	  (inv.invokee && inv.invokee->processFlags & PF_DDBINV) )) ||

@@ -33,7 +33,7 @@
 /* comment-column:34 */
 /* End: */
 
-#if !defined(__ASSEMBLER__) /* && !defined(__KERNEL__) */
+#if !defined(__ASSEMBLER__)
 
 #ifndef BITFIELD_PACK_LOW
 # error "Check bitfield packing"
@@ -120,11 +120,6 @@ extern fixreg_t INVOKECAP(Message*);
 
 #define RETRY_SET_LIK      1u
 #define RETRY_SET_WAKEINFO 2u
-
-#ifdef __KERNEL__
-#define INVTYPE_ISVALID(x) ((x) < IT_NUM_INVTYPES)
-#define ISRETURN(x) ((x) == IT_NPReturn || (x) == IT_PReturn)
-#endif
 
 /* Predefinition of KR_VOID is a kernel matter */
 #define KR_VOID  0
