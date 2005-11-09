@@ -3,6 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -84,17 +85,6 @@ typedef unsigned char bool;
 #define OID_RESERVED_PHYSRANGE 0xff00000000000000ull
 #define EROS_FRAME_FROM_OID(oid) (oid & ~(EROS_OBJECTS_PER_FRAME-1))
 #define EROS_OBNDX_IN_FRAME(oid) (oid & (EROS_OBJECTS_PER_FRAME-1))
-
-#ifdef __KERNEL__
-/* If sizeof(kpa_t)!=sizeof(void*) */
-#define PtoKPA(x) ((kpa_t)(unsigned long) (x))
-#define KPAtoP(ty,x) ((ty)(unsigned long) (x))
-#define VtoKVA(x) ((kva_t)(unsigned long) (x))
-#define KVAtoV(ty,x) ((ty)(unsigned long) (x))
-/* Otherwise: */
-/* #define KPA(x) ((kpa_t) (x)) */
-/* #define KPAtoP(ty,x) ((ty) (x)) */
-#endif
 
 typedef unsigned long cap_t;
 typedef fixreg_t result_t;
