@@ -70,7 +70,7 @@ typedef unsigned char bool;
 
 #endif
 
-#define BOOL(x) ((x) ? true : false)
+#define BOOL(x) ((x) != 0)
 
 /*#endif CONVERSION*/
 
