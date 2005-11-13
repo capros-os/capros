@@ -133,7 +133,7 @@ buffer_append(Buffer *buf, const void *vp, off_t len)
   unsigned char *bp = (unsigned char *) vp;
 
   while (BLKNDX(end) >= vec_len(CMGET(buf,vec))) {
-    unsigned char* block = VMALLOC(char, BUFFER_BLOCK_SIZE);
+    void * block = VMALLOC(void, BUFFER_BLOCK_SIZE);
     ptrvec_append(CMCLOBBER(buf,vec), block);
   }
   
