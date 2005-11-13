@@ -1051,6 +1051,7 @@ vol_Open(const char* targname, bool rewriting,
      its content until the call to Volume::Close() */
   if ((pVol->target_fd = open(targname, O_RDWR)) < 0) {
     free(pVol);
+    diag_fatal(3, "Couldn't open target file.\n");
     return 0;
   }
 
