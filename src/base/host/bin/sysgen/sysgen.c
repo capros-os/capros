@@ -147,14 +147,15 @@ main(int argc, char *argv[])
     if (targname[len-3] == 'f') {	/* fdn */
       drive = 0x00 + (n-'0');
       partition = 0;
-    } else if (targname[len-3] == 'd') {	/* hdxn or ndxn */
+    } else if (targname[len-3] == 'd'
+               || targname[len-3] == 'b' ) {	/* hdxn or nbdn */
       if (n == '0')
         diag_fatal(1, "Hard disk partion must start with 1\n");
 
       drive = 0x80 + (targname[len-2]-'a');
       partition = n-'1';
     } else
-      diag_fatal(1, "target file name must be 'xdxn' or 'fdn'\n");
+      diag_fatal(1, "Target file name must be 'hdxn' or 'nbdn' or 'fdn'\n");
   }
   
   pVol = vol_Open(targname, true, grubDir, suffix,
