@@ -32,8 +32,8 @@
    things. The last EROS commit that contained working fast IPC code
    was PUBLIC/EROS/DEV/eros/72 */
 	
-#include <eros/i486/asm.h>
-#include <eros/i486/target-asm.h>
+#include <eros/arch/i486/asm.h>
+#include <eros/arch/i486/target-asm.h>
 #include <arch-kerninc/PTE.h>
 #include <eros/ProcessState.h>
 #include <eros/Invoke.h>
@@ -764,10 +764,10 @@ LEXT(intr_common_fx)
 	 * If we interrupted the kernel, there is no need to
 	 * redundantly save/restore the segment registers.  Once we
 	 * know that we did not take a V86 interrupt, we can test the
-	 * low 3 bits of the saved CS to determine the privilege level
+	 * low 2 bits of the saved CS to determine the privilege level
 	 * that we interrupted:
 	 */
-	testl	$3,FX_OFF_CS(%ebp)		/* move interrupted CS to %eax */
+	testl	$3,FX_OFF_CS(%ebp)
 	jz	L_dispatch_interrupt
 
 L_application_fault:	
@@ -791,6 +791,8 @@ L_application_fault:
 	adcl %edx,94(%esp)
 	
 	mov	%esp,%eax	/* pointer to save area */
+	/* I don't think the above line is needed. 
+           The save area pointer is in %ebp. */
 1:	
 #endif
 	
@@ -831,7 +833,7 @@ L_dispatch_interrupt:
 	/*
 	 * WATCH OUT for come-from coding out of bad_ipc_block!!!
 	 *
-	 * %eax now holds the save area pointer, which is valid in both
+	 * %ebp now holds the save area pointer, which is valid in both
 	 * the kernel and user address spaces.
 	 *
 	 * If we aren't already running on the kernel stack, switch to

@@ -24,7 +24,7 @@
 #include <kerninc/Machine.h>
 #include <kerninc/Activity.h>
 #include <kerninc/SysTimer.h>
-#include <eros/i486/io.h>
+#include <eros/arch/i486/io.h>
 #include "IDT.h"
 
 /* The timer chip on the PC has three channels. There is a fourth on

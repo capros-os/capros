@@ -19,7 +19,7 @@
  */
 
 
-#include <eros/i486/asm.h>
+#include <eros/arch/i486/asm.h>
 
 #ifdef TIMESTAMPS
 ENTRY(rdtsc)

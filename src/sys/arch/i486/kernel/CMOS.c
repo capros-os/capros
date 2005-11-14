@@ -20,7 +20,7 @@
  */
 
 #include <kerninc/kernel.h>
-#include <eros/i486/io.h>
+#include <eros/arch/i486/io.h>
 #include "CMOS.h"
 
 /* Models the CMOS parameter memory of a PC. This includes only those

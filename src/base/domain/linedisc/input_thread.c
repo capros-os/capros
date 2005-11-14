@@ -25,7 +25,7 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
-#include <eros/i486/cap-instr.h>
+#include <eros/cap-instr.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 

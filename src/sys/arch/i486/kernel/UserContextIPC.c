@@ -34,7 +34,7 @@
 #include <eros/Invoke.h>
 #include <eros/ProcessState.h>
 #include <eros/Registers.h>
-#include <eros/i486/Registers.h>
+#include <eros/arch/i486/Registers.h>
 /*#include <kerninc/PhysMem.h>*/
 #include <kerninc/Invocation.h>
 #include <kerninc/Machine.h>

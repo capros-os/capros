@@ -27,7 +27,7 @@
 #include <kerninc/SysTimer.h>
 /*#include <kerninc/Task.h>*/
 #include <kerninc/Process.h>
-#include <eros/i486/io.h>
+#include <eros/arch/i486/io.h>
 #include "lostart.h"
 #include "IDT.h"
 #include "GDT.h"
@@ -182,7 +182,7 @@ idt_SetEntry(int entry, void (*procPtr)(void), bool allowUser)
   IdtTable[entry].loOffset = (uint16_t) wProcPtr;
   IdtTable[entry].selector = sel_KernelCode;
   IdtTable[entry].zero = 0;
-  IdtTable[entry].type = 0xeu;
+  IdtTable[entry].type = 0xeu;	/* 32 bit interrupt gate */
   IdtTable[entry].system = 0;
   /* Use RPL==1 for non-user so kernel threads can call them. */
   IdtTable[entry].dpl = allowUser ? 3 : 1;

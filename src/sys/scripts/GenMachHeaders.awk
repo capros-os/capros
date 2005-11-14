@@ -58,7 +58,7 @@ END {
         printf("#elif defined(%s)\n", test[a]) > fn[i];
       }
 
-      printf("#include \"../%s/%s\"\n", arch[a], fn[i]) > fn[i];
+      printf("#include \"../arch/%s/%s\"\n", arch[a], fn[i]) > fn[i];
     }
     printf("#endif\n\n") > fn[i];
 

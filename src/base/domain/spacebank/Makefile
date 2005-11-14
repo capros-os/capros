@@ -1,6 +1,7 @@
 #
 # Copyright (C) 1998, 1999, Jonathan Adams.
 # Copyright (C) 2001, Jonathan S. Shapiro
+# Copyright (C) 2005, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -40,14 +41,18 @@ SOURCES=spacebank.c	\
 	heap.c		\
 	malloc.c
 
-ASM_SOURCES=rdtsc.S
-
 OBJECTS=$(addprefix $(BUILDDIR)/,$(SOURCES:.c=.o))
-OBJECTS+=$(addprefix $(BUILDDIR)/,$(ASM_SOURCES:.S=.o))
 
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
-# possibilities include -DNDEBUG, -DPARANIOD, -DTIMESTAMPS
+# DEFS possibilities include -DNDEBUG, -DPARANIOD
 DEFS= -DNDEBUG 
+
+ifeq "$(EROS_TARGET)" "i486" # only for i486 target
+ASM_SOURCES=rdtsc.S
+OBJECTS+=$(addprefix $(BUILDDIR)/,$(ASM_SOURCES:.S=.o))
+# DEFS possibilities include -DTIMESTAMPS
+endif
+
 CFLAGS= -Wmissing-prototypes $(DEFS)
 
 include $(EROS_SRC)/build/make/makerules.mk

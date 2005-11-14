@@ -25,7 +25,7 @@
 #include <kerninc/kernel.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/IRQ.h>
-#include <eros/i486/io.h>
+#include <eros/arch/i486/io.h>
 #include "IDT.h"
 
 #define COMIRQ   irq_Serial0

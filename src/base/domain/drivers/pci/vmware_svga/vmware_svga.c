@@ -20,7 +20,7 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/i486/io.h>
+#include <eros/machine/io.h>
 #include <eros/KeyConst.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>

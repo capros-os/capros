@@ -39,7 +39,7 @@
 #include <eros/ProcessState.h>
 #include <eros/SegKeeperInfo.h>
 #include <eros/Registers.h>
-#include <eros/i486/Registers.h>
+#include <eros/arch/i486/Registers.h>
 /*#include <kerninc/PhysMem.h>*/
 #include <eros/ProcessKey.h>
 #include <kerninc/KernStats.h>

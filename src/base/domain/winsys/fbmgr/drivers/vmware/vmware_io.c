@@ -19,7 +19,7 @@
  */
 
 #include <eros/target.h>
-#include <eros/i486/io.h>
+#include <eros/machine/io.h>
 
 #include "vmware_io.h"
 #include "svga_reg.h"

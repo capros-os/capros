@@ -21,7 +21,7 @@
 #include <kerninc/kernel.h>
 #include "GDT.h"
 #include "TSS.h"
-#include <eros/i486/pseudoregs.h>
+#include <eros/arch/i486/pseudoregs.h>
 
 uint32_t gdt_GdtTable[GDT_ENTRIES*2] = {
 				/* Entry 0 - Null Segment */

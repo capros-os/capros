@@ -28,7 +28,7 @@
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
-#include <eros/i486/io.h>
+#include <eros/machine/io.h>
 #include <eros/DevicePrivs.h>
 #include <domain/ConstructorKey.h>
 #include <domain/Runtime.h>

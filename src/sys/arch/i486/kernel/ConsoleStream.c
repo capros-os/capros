@@ -29,7 +29,7 @@
 #include <kerninc/Machine.h>
 #include <kerninc/IRQ.h>
 /*#include <kerninc/util.h>*/
-#include <eros/i486/io.h>
+#include <eros/arch/i486/io.h>
 #include "IDT.h"
 
 #define SCREEN_START PTOV(0xb8000u)

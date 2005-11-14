@@ -25,7 +25,7 @@
  * such a fault means that the client has reclaimed the space.
  */
 
-#include <eros/i486/asm.h>
+#include <eros/arch/i486/asm.h>
 
 	.text
 ENTRY(fbfault_trampoline)

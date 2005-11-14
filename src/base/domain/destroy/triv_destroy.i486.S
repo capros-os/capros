@@ -42,7 +42,7 @@
    */
 
 
-#include <eros/i486/asm.h>
+#include <eros/arch/i486/asm.h>
 	
 #include <eros/target-asm.h>
 #include <eros/Invoke.h>

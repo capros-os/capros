@@ -24,7 +24,7 @@
 #include <eros/KeyConst.h>
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
-#include <eros/i486/io.h>
+#include <eros/machine/io.h>
 
 #include <idl/eros/DevPrivs.h>
 #include <idl/eros/Sleep.h>

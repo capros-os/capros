@@ -22,7 +22,7 @@
 #include <kerninc/kernel.h>
 #include <kerninc/IRQ.h>
 #include "IDT.h"
-#include <eros/i486/io.h>
+#include <eros/arch/i486/io.h>
 
 uint8_t pic1_mask = 0xffu;
 uint8_t pic2_mask = 0xffu;

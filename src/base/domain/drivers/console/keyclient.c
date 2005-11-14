@@ -32,7 +32,7 @@
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
-#include <eros/i486/atomic.h>
+#include <eros/machine/atomic.h>
 
 #include <idl/eros/Number.h>
 #include <idl/eros/key.h>

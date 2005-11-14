@@ -23,7 +23,7 @@ EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=
-DIRS=i486 machine
+DIRS=arch/$(EROS_TARGET) machine
 HEADERS=\
 	target.h \
 	target-asm.h \

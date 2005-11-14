@@ -38,8 +38,8 @@
    The A20 gate is enabled. 
  */
 
-#include <eros/i486/asm.h>
-#include <eros/i486/target-asm.h>
+#include <eros/arch/i486/asm.h>
+#include <eros/arch/i486/target-asm.h>
 #define ASM_FILE
 #include <kerninc/multiboot.h>
 

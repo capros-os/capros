@@ -40,7 +40,7 @@
 #include <kerninc/SysTimer.h>
 #include <kerninc/Process.h>
 #include <kerninc/KernStats.h>
-#include <eros/i486/io.h>
+#include <eros/arch/i486/io.h>
 #include "lostart.h"
 #include "IDT.h"
 #include "GDT.h"

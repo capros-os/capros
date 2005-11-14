@@ -25,7 +25,7 @@
 #include <eros/KeyConst.h>
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
-#include <eros/i486/io.h>
+#include <eros/machine/io.h>
 #include <eros/cap-instr.h>
 
 #include <idl/eros/key.h>

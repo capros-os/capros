@@ -25,8 +25,8 @@
  * of the small space keeper.
  */
 
-#include <eros/i486/asm.h>
-#include <eros/i486/target-asm.h>
+#include <eros/arch/i486/asm.h>
+#include <eros/arch/i486/target-asm.h>
 #include <eros/StdKeyType.h>
 #include <eros/KeyConst.h>
 #include <eros/NodeKey.h>
