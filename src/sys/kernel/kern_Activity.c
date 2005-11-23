@@ -1122,35 +1122,6 @@ act_Prepare(Activity* thisPtr)
     }
 
     /* The context could not be prepared. */
-
-#ifdef OLD_DORESCHED
-    /* Either context could not be prepared or the resulting context had
-     * a fault of some kind.  Invoke the domain keeper:
-     */
-  
-#if 1
-    printf("Invoking domain keeper on Activity 0x%08x pfcount=%d\n",
-		   thisPtr, ((DomainContext*)thisPtr->context)->pfCount);
-#endif
-
-    ((ArchContext *)thisPtr->context)->InvokeDomainKeeper();
-
-#ifdef ACTIVITYDEBUG
-    dprintf(true, "After kpr invoke, ctxt=0x%08x, svArea=0x%08x\n",
-		    thisPtr->context, thisPtr->context->saveArea);
-#endif
-
-#if 0
-    printf("User activity is prepared!\n");
-    /* startActivity->Wakeup(); */
-#endif
-  
-    /* Invoking the domain keeper either stuck us on a sleep queue, in
-     * which case we Yielded(), or migrated the current activity to a
-     * new domain.  In the latter case, go back to the top of this
-     * mess to prepare the new context.
-     */
-#endif
   }
 
   dprintf(true, "Activity start loop exceeded\n");

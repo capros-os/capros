@@ -44,16 +44,14 @@ StartIdleActivity()
   act_Wakeup(idleActivity);	/* let it initialize itself... */
 
   
-  printf("IdleActivity...\n");
+  printf("Initialized IdleActivity (activity 0x%x,context 0x%x)\n",
+	 idleActivity, idleActivity->context );
 
   return idleActivity;
 }
 
-/* Unlike all other activities, this one runs once and then exits (or at
- * least sleeps forever).
- */
 void
-IdleActivity_Start()
+IdleActivity_Start(void)
 {
   int stack;
   printf("Start IdleActivity (activity 0x%x,context 0x%x,stack 0x%x)\n",
@@ -69,13 +67,8 @@ IdleActivity_Start()
      *    Machine::SpinWaitUs(50);
      */
 
-    act_DirectedYield(act_curActivity, false);
+    /* Note: on i386, we cannot execut a hlt instruction here, because
+       that requires privilege level 0. */
 
   }
-
-  /* We will never wake up again... */
-
-  act_SleepOn(act_curActivity, &KernIdleQ);
-
-  act_DirectedYield(act_curActivity, false);
 }

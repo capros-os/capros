@@ -367,7 +367,7 @@ mach_HardReset()
 		       : "memory");
 
   /* now force an interrupt: */
-  __asm__ ("int $0x30");
+  __asm__ ("int $0x30");	/* iv_Yield */
 }
 
 #ifdef EROS_HAVE_FPU

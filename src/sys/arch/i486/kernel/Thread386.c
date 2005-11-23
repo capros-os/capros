@@ -74,7 +74,7 @@ act_DirectedYield(Activity* thisPtr, bool verbose)
 		 thisPtr, UserActivityRecoveryBlock[0].pc);
 #endif
 
-  __asm__("int $0x30");
+  __asm__("int $0x30");	/* iv_Yield */
 
   if (verbose)
     printf("Activity 0x%x resumes\n", thisPtr);

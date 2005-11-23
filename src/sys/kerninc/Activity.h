@@ -134,6 +134,9 @@ Activity * kact_InitKernActivity(const char * name,
 INLINE void 
 act_Resume(Activity* thisPtr) 
 {
+#if 0
+  printf("Resume activity 0x%08x\n", thisPtr);
+#endif
   assert (thisPtr->context);
   proc_Resume(thisPtr->context);
 }
@@ -244,7 +247,7 @@ act_IsRunnable(Activity* thisPtr)
 }
 
 INLINE void 
-act_Reschedule() 
+act_Reschedule(void) 
 {
   //printf("in initial Reschedule()...%d\n", act_curActivity->readyQ->mask);
   if (act_curActivity && (act_yieldState != ys_ShouldYield)

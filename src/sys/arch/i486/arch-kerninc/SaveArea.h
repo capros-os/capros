@@ -27,6 +27,11 @@
 INLINE bool
 sa_IsProcess(const savearea_t* fx)
 {
+  /* Get the requested privilege level of the code segment selector.
+     0 is for kernel
+     1 is for kernel "processes"
+     3 is for user code
+   */
   if ( ((fx->CS & 0x3u) != 0x0u) || (fx->EFLAGS & MASK_EFLAGS_Virt8086) )
     return true;
   return false;

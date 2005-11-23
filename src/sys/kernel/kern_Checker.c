@@ -23,8 +23,15 @@
  * etc. making sure that things look kosher.
  */
 
+/* NOTE: this is no longer used.
+   It did not work, because kernel activities are preemptible
+   and checking must not be preempted. 
+   The checking loop should be moved to a preloaded process
+   that invokes a (new) miscellaneous capability to do checking.
+ */
+
 #include <kerninc/kernel.h>
-/*#include <kerninc/Check.h>*/
+#include <kerninc/Check.h>
 #include <kerninc/Activity.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Node.h>
@@ -32,19 +39,11 @@
 
 #ifdef STRESS_TEST
 #define DELAY 2ll
-#define INVAL_MODULUS 1
 #else
 #define DELAY 7000ll
-#define INVAL_MODULUS 4
 #endif
 
-/* Once main() exits and activitys are started, this activity drives the
- * completion of the bootup process.
- */
-
 #define StackSize 1024
-
-extern void check_Consistency(const char *); 
 
 void CheckActivity_Start();
 
@@ -66,11 +65,8 @@ StartCheckActivity()
 
 static uint32_t pass = 0;
 
-void CheckActivity_UnprepareObjects();
+static void CheckActivity_UnprepareObjects();
 
-/* Unlike all other activities, this one runs once and then exits (or at
- * least sleeps forever).
- */
 void
 CheckActivity_Start()
 {
@@ -107,16 +103,9 @@ CheckActivity_Start()
     /* is this correct?? */
     act_DirectedYield(act_curActivity, false);
   }
-
-    /* We will never wake up again... */
-  act_SleepOn(act_curActivity, &DeepSleepQ);
-
-  /* is this correct?? */
-  act_DirectedYield(act_curActivity, false);
-
 }
 
-void
+static void
 CheckActivity_UnprepareObjects()
 {
   uint32_t nd = 0;

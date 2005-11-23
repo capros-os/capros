@@ -59,7 +59,6 @@ extern void ddb_init();
 #endif
 
 extern Activity *StartIdleActivity();
-extern void StartCheckActivity();
 
 #if 0
 ReadyQueue iplRQ = {
@@ -82,9 +81,10 @@ StartIplActivity(OID iplOid)
   assert (keyBits_IsUnprepared(&activity->processKey));
   assert( keyBits_IsHazard(&activity->processKey) == false );
 
-  printf("IPL OID = 0x%08lx%08lx.\n",
+  printf("IPL OID = 0x%08lx%08lx, activity = 0x%08x .\n",
          (uint32_t) (iplOid >> 32),
-         (uint32_t) iplOid );
+         (uint32_t) iplOid,
+         activity );
 
   /* Forge a domain key for this activity: */
   k = &activity->processKey; /*@ not null @*/
@@ -200,8 +200,6 @@ main(void)
 
   idleActivity = StartIdleActivity();
  
-  StartCheckActivity();
-  
   /* NOTE: If we need to reserve extra space for the kernel heap, this
      is where to do it, though we *should* be able to steal frames
      from the object cache at some point. */
@@ -219,15 +217,17 @@ main(void)
   sysT_InitTimePage();
 #endif
 
-  StartIplActivity(iplOid);
-
   act_Dequeue(idleActivity);
 
   act_curActivity = idleActivity;
   act_curActivity->state = act_Running;
 
+  StartIplActivity(iplOid);
+
   irq_DISABLE();
   
-  proc_Resume(idleActivity->context);
-  /* proc_Resume does not return */
+  act_Reschedule();
+  /* objH_ReleasePinnedObjects() not necessary */
+  act_Resume(act_Current());
+  /* act_Resume() does not return. */
 }
