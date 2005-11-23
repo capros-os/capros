@@ -88,8 +88,6 @@ CheckActivity_Start()
     
     assert(act_curActivity->state == act_Running);
 
-    assert( act_CAN_PREEMPT(0) ); /* the parameter is unused in act_CAN_PREEMPT() */
-
     irq_DISABLE();   
     act_WakeUpIn(act_curActivity, DELAY);
 

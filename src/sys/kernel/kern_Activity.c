@@ -423,8 +423,6 @@ act_SleepOn(Activity* thisPtr, StallQueue* q /*@ not null @*/)
     fatal("Activity 0x%08x (%s) REqueues q=0x%08x lastq=0x%08x state=%d\n",
 		  thisPtr, act_Name(thisPtr), &q, thisPtr->lastq, thisPtr->state);
 
-  act_DO_NOT_PREEMPT();
-
   thisPtr->lastq = q;
   
   assert(thisPtr->q_link.next == &thisPtr->q_link);
@@ -460,8 +458,6 @@ act_SleepOn(Activity* thisPtr, StallQueue* q /*@ not null @*/)
 void 
 act_WakeUpIn(Activity* thisPtr, uint64_t ms)
 {
-  act_DO_NOT_PREEMPT();
-
   assert (thisPtr->state == act_Running);
 
 
@@ -479,7 +475,6 @@ act_WakeUpIn(Activity* thisPtr, uint64_t ms)
 void 
 act_WakeUpAtTick(Activity* thisPtr, uint64_t tick) 
 {  
-  act_DO_NOT_PREEMPT();
   thisPtr->wakeTime = tick;
   sysT_AddSleeper(thisPtr);
 }
@@ -663,18 +658,6 @@ act_DoReschedule()
   if (dbg_wild_ptr && 0)
     check_Consistency("In DoReschedule()");
 #endif
-
-  /* DoReschedule may be called from the timer interrupt when kernel
-   * interrupts are enabled.  If so, suppress if we are in a
-   * no-preempt state, as in this event the activity will shortly yield
-   * in any case:
-   */
-  //printf("starting DoReschedule(). yield state = ..%d\n", act_yieldState);
-  if (act_yieldState == (ys_ShouldYield | ys_NoPreempt)) {
-    printf("0x%08x Preempt suppressed, state=%d\n",
-		   act_curActivity, act_curActivity->state);
-    return;
-  }
 
   /* On the way out of an invocation trap there may be no current
    * activity, in which case we may need to choose a new one:

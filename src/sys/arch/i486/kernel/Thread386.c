@@ -34,53 +34,6 @@
 extern void kernel_thread_yield();
 
 void 
-act_DirectedYield(Activity* thisPtr, bool verbose)
-{
-  assert (InvocationCommitted == false);
-  
-#ifdef DBG_WILD_PTR
-  /* This is VERY problematic, because kernel activities can now be preempted! */
-  if (dbg_wild_ptr)
-    check_Consistency("Before Yield");
-#endif
-  
-  assert (act_IsUser(thisPtr) == false);
-
-  if (verbose)
-    printf("Activity 0x%x yields state %d\n", thisPtr, thisPtr->state);
-
-  if (act_Current() != thisPtr)
-    fatal("Bad current activity! Activity::Current()=0x%08x, this=0x%08x\n",
-	       act_Current(), thisPtr);
-  
-  /* Cannot verify interrupts disabled here -- might be preemption. */
-    
-#if defined(OPTION_DDB)
-  {
-    extern bool ddb_uyield_debug;
-    if ( ddb_uyield_debug )
-      dprintf(true, "User activity 0x%08x yields\n",
-	      act_Current()); 
-  }
-#endif
-
-#if 0
-  ObjectHeader::ReleaseActivityResources(this);
-  ObjectCache::ReleaseUncommittedIoPageFrames();
-#endif
-
-#ifdef ACTIVITY386DEBUG
-  printf("Process 0x%08x yields -- longjmp to 0x%08x\n",
-		 thisPtr, UserActivityRecoveryBlock[0].pc);
-#endif
-
-  __asm__("int $0x30");	/* iv_Yield */
-
-  if (verbose)
-    printf("Activity 0x%x resumes\n", thisPtr);
-}
-
-void 
 act_HandleYieldEntry(Activity *thisPtr)
 {
   /* This routine is really another kernel entry point.  When called,

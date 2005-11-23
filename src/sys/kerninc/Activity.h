@@ -53,8 +53,7 @@ enum State {
 };
  
 enum {
-  ys_ShouldYield = 0x1,
-  ys_NoPreempt = 0x2
+  ys_ShouldYield = 0x1
 };
 
 #define AF_RETRYLIK 0x1u
@@ -168,18 +167,6 @@ INLINE void
 act_Yield(Activity* thisPtr) 
 {
   __asm__ __volatile__ ("jmp LowYield");
-}
-
-INLINE void  
-act_DO_NOT_PREEMPT() 
-{
-  act_yieldState |= ys_NoPreempt;
-}
-  
-INLINE bool 
-act_CAN_PREEMPT(Activity* thisPtr) 
-{
-  return (act_yieldState & ys_NoPreempt) == 0;
 }
 
 INLINE void 
@@ -307,9 +294,6 @@ act_MigrateTo(Activity* thisPtr, Process *dc)
 }
 
 void act_HandleYieldEntry(Activity* thisPtr) NORETURN;
-
-/* Called by kernel activity when it wishes to yield the processor: */
-void act_DirectedYield(Activity* thisPtr, bool verbose /*@ default false @*/);
 
 void act_WakeUpIn(Activity* thisPtr, uint64_t ms);
 
