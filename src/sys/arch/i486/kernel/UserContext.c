@@ -1244,14 +1244,14 @@ proc_DoPrepare(Process* thisPtr)
 
       switch(t->state) {
       case act_Running:
-        act_Preempt(t);
+        act_ForceResched();
         act_Wakeup(t);
         break;
       case act_Ready:
         /* need to move the activity to the proper ready Q: */
         act_Dequeue(t);
+        act_ForceResched();
         act_Wakeup(t);
-        act_Preempt(t);
         break;
       case act_Free:
         assert("Rescheduling free activity");

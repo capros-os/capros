@@ -1075,7 +1075,7 @@ kern_seg_load:
 	/* See if this is a LIK_RETRY invocation. If so, bypass the 
 	 * LIK register overwrite: */
 	movl	act_curActivity,%edx
-	testb	$1,17(%edx)
+	testb	$1,17(%edx)	/* Activity.flags AF_RETRYLIK */
 	jnz	L_check_invoked_key
 	
 	/* This is NOT a LIK_RETRY invocation. Set up %edi to point to the

@@ -330,14 +330,10 @@ idt_UnboundVector(savearea_t *saveArea)
 
 
 void
-idt_YieldVector(savearea_t * sa/* sa */)
+idt_YieldVector(savearea_t * sa)
 {
-  /* Simply set the global that indicates we must reschedule.  This
-   * could be inlined, but since it only happens in kernel-mode
-   * interrupts (and then infrequently) it's better not to stick more
-   * tests on the common interrupt path.
-   */
-  act_ForceResched(0); /* parameter is unused in act_ForceResched */
+  /* Simply set the global that indicates we must reschedule. */
+  act_ForceResched();
 }
 
 

@@ -37,8 +37,6 @@
 #include <kerninc/ReadyQueue.h>
 #include <eros/ProcessState.h>
 
-struct CpuReserve;
-
 /* Prototypes for former member functions of Activity */
 void act_DoReschedule();
 
@@ -56,6 +54,7 @@ enum {
   ys_ShouldYield = 0x1
 };
 
+/* Bits in Activity.flags: */
 #define AF_RETRYLIK 0x1u
 
 /* The activity structure captures the portion of a process's state
@@ -170,12 +169,6 @@ act_Yield(Activity* thisPtr)
 }
 
 INLINE void 
-act_Preempt(Activity* thisPtr)
-{
-  act_yieldState |= ys_ShouldYield;
-}
-
-INLINE void 
 act_SetCurActivity(Activity* thisPtr)
 {
   act_curActivity = thisPtr;
@@ -212,14 +205,10 @@ void act_Wakeup(Activity* thisPtr);
 
 void act_InvokeMyKeeper(Activity* thisPtr);
 
-INLINE bool 
-act_ShouldYield(Activity* thisPtr)
-{
-  return (act_yieldState & ys_ShouldYield);
-}
-
+/* Set the global variable that will force rescheduling
+   on the next return to user mode. */
 INLINE void 
-act_ForceResched(Activity* thisPtr)
+act_ForceResched(void)
 {
   act_yieldState = ys_ShouldYield;
 }
@@ -285,7 +274,7 @@ act_MigrateTo(Activity* thisPtr, Process *dc)
       //if (thisPtr->readyQ->mask & (1u<<pr_Reserve))
        
       //if (thisPtr->readyQ->mask < dc->readyQ->mask)
-      //act_Preempt(0);
+      //act_ForceResched();
     }    
   }
   else {

@@ -500,7 +500,7 @@ act_Wakeup(Activity* thisPtr)
 		   this, canPreempt ? 'y' : 'n');
 #endif
  
-    act_Preempt(act_curActivity);
+    act_ForceResched();
   }
   irq_ENABLE();
 
@@ -550,7 +550,7 @@ sysT_ActivityTimeout()
   }
 
   DoNeedReplenish();
-  act_Preempt(0);
+  act_ForceResched();
 }
 
 inline void 
@@ -795,9 +795,6 @@ act_DoReschedule()
   sysT_ResetWakeTime();
 
   assert( irq_DISABLE_DEPTH() == 1 );
- 
-  
-  assert(act_Current() == act_curActivity);
 }
 
 void 
