@@ -311,6 +311,8 @@ act_AllocActivityTable()
 
   printf("Allocated User Activitys: 0x%x at 0x%08x\n",
 	 sizeof(Activity[KTUNE_NACTIVITY]), act_ActivityTable);
+
+  act_curActivity = 0;
 }
 
 void
@@ -325,6 +327,8 @@ act_DeleteActivity(Activity *t)
     printf("curactivity 0x%08x is deleted\n", t);
 #endif
     act_curActivity = 0;
+    /* act_curActivity == 0 ==> act_yieldState == ys_ShouldYield */
+    act_yieldState = ys_ShouldYield;
   }
 
   if (t->readyQ->mask & (1u<<pr_Reserve)) {
@@ -419,15 +423,12 @@ act_SleepOn(Activity* thisPtr, StallQueue* q /*@ not null @*/)
     check_Consistency("In Activity::SleepOn()");
 #endif
 
-  if (thisPtr->state != act_Running && thisPtr->q_link.prev != &thisPtr->q_link)
+  if (thisPtr->state != act_Running && ! link_isSingleton(&thisPtr->q_link) )
     fatal("Activity 0x%08x (%s) REqueues q=0x%08x lastq=0x%08x state=%d\n",
 		  thisPtr, act_Name(thisPtr), &q, thisPtr->lastq, thisPtr->state);
 
   thisPtr->lastq = q;
   
-  assert(thisPtr->q_link.next == &thisPtr->q_link);
-  /*    assert(thisPtr->q_link.prev == 0);*/
-
   act_Enqueue(thisPtr, q);
 
   thisPtr->state = act_Stall;
@@ -484,8 +485,6 @@ act_Wakeup(Activity* thisPtr)
 {
   irq_DISABLE();
   
-  /*assert(link_isSingleton(&thisPtr->q_link));*/
- 
   thisPtr->readyQ->doWakeup(thisPtr->readyQ, thisPtr);
 
   /* Do not set activityShouldYield until the first activity runs!
@@ -605,17 +604,11 @@ act_ChooseNewCurrentActivity()
     act_RunQueueMap &= ~ (1u << runQueueNdx);
   }
 
-  /* Now know we have the least non-empty queue. Yank the activity. */
-  //if (runQueueNdx > 1)
-  //printf("run queue ndx = %d\n", runQueueNdx);
-  act_curActivity = act_DequeueNext(&dispatchQueues[runQueueNdx]->queue);
-
   /* If we dispatch pr_Never, something is really wrong: */
-  assertex(act_curActivity, runQueueNdx > pr_Never);
+  assert(runQueueNdx > pr_Never);
 
-  assert(act_curActivity);
-
-  act_curActivity->state = act_Running;
+  /* Now know we have the least non-empty queue. Yank the activity. */
+  act_SetRunning((Activity *)(dispatchQueues[runQueueNdx]->queue.q_head.next));
 
   if (sq_IsEmpty(&dispatchQueues[runQueueNdx]->queue)) {
     /* watch out for the case where a activity from a reserve is chosen */
@@ -667,21 +660,11 @@ act_DoReschedule()
     act_ChooseNewCurrentActivity();
     act_yieldState = 0;
   }
-
-  if (act_yieldState == ys_ShouldYield) {
+  else if (act_yieldState == ys_ShouldYield) {
     /* Current activity may be stalled or dead; if so, don't stick it
      * back on the run list!
      */
     if ( act_curActivity->state == act_Running ) {
-      //act_curActivity->state = act_Ready;
-#if 0
-      if (act_curActivity->readyQ->mask & (1u<<pr_Reserve)) {
-        printf("Active activity goes to end of run queue %d\n", 
-               act_curActivity->readyQ->mask);
-      }
-      act_Wakeup(act_curActivity);	/* perverse, but correct. */
-#endif
-      /* this call replaces the above wakeup */
       act_curActivity->readyQ->doQuantaTimeout(act_curActivity->readyQ,
                                              act_curActivity);
 #ifdef ACTIVITYDEBUG

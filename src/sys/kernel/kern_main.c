@@ -120,8 +120,6 @@ main(void)
 
   Activity *idleActivity;
 
-  act_curActivity = 0;
-
   /* Set up the boot console by hand so that we can do kernel
    * diagnostics during startup.  Note that the boot console is output
    * only unless a kernel debugger is present, and we will enable
@@ -217,14 +215,11 @@ main(void)
   sysT_InitTimePage();
 #endif
 
-  act_Dequeue(idleActivity);
+  irq_DISABLE();
 
-  act_curActivity = idleActivity;
-  act_curActivity->state = act_Running;
+  act_SetRunning(idleActivity);
 
   StartIplActivity(iplOid);
-
-  irq_DISABLE();
   
   act_Reschedule();
   /* objH_ReleasePinnedObjects() not necessary */

@@ -40,12 +40,14 @@
 /* Prototypes for former member functions of Activity */
 void act_DoReschedule();
 
-enum State {
-  act_Free,			/* free activity */
-  act_Ready,			/* can be scheduled */
-  act_Running,			/* active on a processor */
-  act_Stall,			/* blocked on an event, not expecting
-				   result(s) */
+/* Values for Activity.state */
+enum {
+  act_Free,		/* Free activity. On the FreeActivityList. */
+  act_Ready,		/* On a ReadyQueue */
+  act_Running,		/* Active on a processor. Not on any queue.
+                           The activity is act_curActivity. */
+  act_Stall,		/* blocked on an event, not expecting result(s).
+                           On a StallQueue. */
 
   act_NUM_STATES,
 };
@@ -168,10 +170,13 @@ act_Yield(Activity* thisPtr)
   __asm__ __volatile__ ("jmp LowYield");
 }
 
+/* Must be under irq_DISABLE */
 INLINE void 
-act_SetCurActivity(Activity* thisPtr)
+act_SetRunning(Activity* thisPtr)
 {
+  link_Unlink(&thisPtr->q_link);
   act_curActivity = thisPtr;
+  thisPtr->state = act_Running;
 }
 
 INLINE Process* 
@@ -225,14 +230,10 @@ act_IsRunnable(Activity* thisPtr)
 INLINE void 
 act_Reschedule(void) 
 {
-  //printf("in initial Reschedule()...%d\n", act_curActivity->readyQ->mask);
-  if (act_curActivity && (act_yieldState != ys_ShouldYield)
-      && act_IsRunnable(act_curActivity)) {
-    //printf("not rescheduling...%d\n", act_curActivity->readyQ->mask);
-    return;
+  if ((act_yieldState != 0)
+      || ! act_IsRunnable(act_curActivity) ) {
+    act_DoReschedule();
   }
-  //printf("doing actual Reschedule()...%d\n", act_curActivity->readyQ->mask);
-  act_DoReschedule();
 }
 
 
