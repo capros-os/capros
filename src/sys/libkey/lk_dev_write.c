@@ -21,7 +21,6 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/DeviceKey.h>
-#include <string.h>
 
 uint32_t
 device_write(uint32_t krDevice, uint32_t startSec, uint32_t nSec, uint8_t *buf)
