@@ -21,22 +21,18 @@
 
 default: world
 
+EROS_SRC=.
 
 # DIRS are ordered:
 # build must be made before others. base and doc can be in either order.
 # Nothing depends on legal.
 DIRS=legal sys base doc tutorial
-DIRS+=uncompleted dionysix
-DIRS+=tcp-ip muir-ip muir-tcp
 CLEANDIRS=build $(DIRS)
 
-STALE_DIRS=xenv examples
-
-UPDATE_DIRS=$(DIRS) xenv examples
+UPDATE_DIRS=$(DIRS)
 
 TARDIRS=$(DIRS)
 
-EROS_SRC=.
 include $(EROS_SRC)/build/make/pkgrules.mk
 
 distclean: targdir-clean clean
@@ -44,13 +40,13 @@ distclean: targdir-clean clean
 targdir-clean:
 	-rm -rf $(EROS_ROOT)/include $(EROS_ROOT)/lib $(EROS_ROOT)/idl
 	-rm -rf $(EROS_ROOT)/domain $(EROS_ROOT)/doc
-	-rm -rf $(EROS_ROOT)/cross $(EROS_ROOT)/host
+	-rm -rf $(EROS_ROOT)/host
 
-ifeq "$(NEED_CROSS_BOOTSTRAP)" "yes"
-cross-bootstrap:
-	$(MAKE) -C base/ccs PACKAGE=base $(MAKERULES) cross-bootstrap
-endif
-
+#ifeq "$(NEED_CROSS_BOOTSTRAP)" "yes"
+#cross-bootstrap:
+#	$(MAKE) -C base/ccs PACKAGE=base $(MAKERULES) cross-bootstrap
+#endif
+#
 packages:
 	$(MAKE) interfaces
 	$(MAKE) libs
