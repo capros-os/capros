@@ -50,7 +50,7 @@ $(BUILDDIR)/metaconstructor: $(BUILDDIR)/metaconstructor.o $(DOMCRT0) $(DOMLIB)
 #	objdump --headers metaconstructor
 
 $(BUILDDIR)/protospace: $(BUILDDIR)/protospace.o $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) -nostdlib $(BUILDDIR)/protospace.o $(DOMLIB) -o $@
+	$(DOMLINK) $(DOMLINKOPT) $(BUILDDIR)/protospace.o $(DOMLIB) -o $@
 #	objdump --headers protospace
 
 install: all

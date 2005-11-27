@@ -67,8 +67,10 @@ $(BUILDDIR)/%.o: $(BUILDDIR)/%.c
 idl: idl-headers stub-depend
 	$(MAKE) $(BUILDDIR)/idl.a
 
-$(BUILDDIR)/consolestream: $(CONSOLESTREAM) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(CONSOLESTREAM) $(LIBS) $(DOMLIB) $(BUILDDIR)/idl.a
+$(BUILDDIR)/consolestream: $(CONSOLESTREAM) $(DOMLIB) $(DOMCRT0) $(DOMSBRK)
+# Temporarily including sbrk.o explicitly.
+# It should be in libc. It is required by malloc.
+	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(CONSOLESTREAM) $(DOMSBRK) $(LIBS) $(DOMLIB) $(BUILDDIR)/idl.a
 
 $(BUILDDIR)/textconsole: $(TEXTCON) $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(TEXTCON) -lsmall $(DOMLIB)

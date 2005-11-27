@@ -23,7 +23,7 @@ default: package
 EROS_SRC=..
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=ccs host lib domain # sysimage
+DIRS=host lib domain
 CLEANDIRS=$(DIRS) sysimage tests
 
 TARDIRS=$(DIRS)

@@ -50,40 +50,61 @@
             </ul>
 	  <h2>2.2. Building the Cross Compilation Tools</h2>
 	  <p>
-            CapROS uses its own Gnu-based cross-compilation tools 
+            CapROS uses its own cross-compilation tools 
             for stability.
-            Go to the 
-	    <a href="http://sourceforge.net/projects/capros/">
-	    Project page</a>
-            and under "Latest File Releases", click on the download link for
-            the "capros-xenv" package. This will get you a .tgz file with the
-            cross-compilation tools needed to build CapROS. To build the tools:
-	  </p>
-	  <ul>
-<pre>
-cd somewhere
-zcat capros-xenv-src-1.tgz | tar -xv
-cd eros-xenv-src
-make
+            We acknowledge and thank the Coyotos project
+            at Johns Hopkins Univerity for hosting these tools. 
+      <h3>2.2.1 Setting up on Linux/YUM Systems</h3>
+      <p>
+	First, import the RPM signing key used by The EROS
+	Group, LLC. This key is used to sign all of the Coyotos packages.
+        It can be imported by:
+      </p>
+      <pre>
+rpm --import http://srl.cs.jhu.edu/YUM/EROS-Group-LLC.rpm-pubkey.asc
 </pre>
-	  </ul>
-	  <p>
-            and follow the instructions.
-	  </p>
-	  <p>
-	    If you have a number of people at your site who are all
-	    building CapROS, you may wish to place the cross compilers
-	    in a commonly shared directory. This can be done by
-	    setting the environment variable <tt>EROS_XENV</tt> to the
-	    directory name <em>before</em> building the cross
-	    compilers.
-	  </p>
-	  <p>
-	    Once the <b>make</b> command has completed, you are done
-	    with the cross compiler source code, and you can delete
-	    the <tt>eros-xenv-src</tt> directory. Note that 
-            the cross compiler tools are not currently in the CVS
-            repository, as we don't anticipate needing to change them.
+      <p>
+	If you are running Fedora Core 4, you can add the YUM
+	repository to your <tt>yum</tt> and
+	<tt>up2date</tt> configurations by executing (as
+	root):
+      </p>
+      <pre>
+rpm -ivh http://srl.cs.jhu.edu/YUM/coyotos/4/i386/Coyotos-Repository-3.0-3.noarch.rpm
+</pre>
+      <p>
+	You can then install the cross compilation
+	tools by running (as root):
+      </p>
+      <pre>
+yum install capros-i386-xenv
+</pre>
+      <p>
+	The <tt>capros-i386-xenv</tt> package is a
+	"virtual" package - it simply supplies the necessary
+	dependencies so that YUM will find all of the pieces you need.
+        All of the CapROS cross environment tools install into
+	the top-level directory <tt>/capros/</tt>.
+      </p>
+      <p>
+        For more information, including a more secure method of 
+        getting the signing key 
+        and a method of removing the packages, refer to the 
+        <a href="http://www.coyotos.org/docs/build/build.html#1.3">
+        Coyotos build instructions</a>, substituting "capros" where
+        appropriate.
+      </p>
+      <h3>2.2.2 Setting up on Other UNIX's</h3>
+      <p>
+	If you are building on some other UNIX
+	derivative that does not support YUM, you may find
+	that nothing will do but to build the cross environment for
+	yourself. 
+        For instructions, go to the
+        <a href="http://www.coyotos.org/docs/build/build.html#1.4">
+        Coyotos build instructions</a> for guidance.
+        You may need to set COYOTOS_XENV to /capros/host and substitute
+        "capros" where appropriate elsewhere. 
 	  </p>
 	  <h2>2.3. Building CapROS</h2>
 	  <p>

@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -35,7 +36,7 @@ VPATH=$(KERNDIR):$(CAPSTUBDIR):domgcc:domdbg:key:crt/$(EROS_TARGET):crt:monitor:
 INC=-Iinclude -I$(EROS_ROOT)/include
 OPTIM=-O
 DIRS=
-COMMON_TARGETS=$(BUILDDIR)/libdomain.a 
+COMMON_TARGETS=$(BUILDDIR)/libdomain.a $(BUILDDIR)/sbrk.o
 ifeq "$(EROS_HOSTENV)" "linux-xenv-gcc3"
 MACHINE_OBJECTS=
 else

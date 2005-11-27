@@ -20,6 +20,7 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <stddef.h>
 #include <eros/target.h>
 #include <arch-kerninc/kern-target.h>
 #include <arch-kerninc/kern-target-asm.h>

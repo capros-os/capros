@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -43,8 +44,10 @@ interfaces: $(IDL)
 	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain/rangeAl
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain/rangeAl
 
-$(BUILDDIR)/rangeAl: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS)  $(DOMLIB) -o $@
+$(BUILDDIR)/rangeAl: $(OBJECTS) $(DOMCRT0) $(DOMSBRK) $(DOMLIB)
+# Temporarily including sbrk.o explicitly.
+# It should be in libc. It is required by malloc.
+	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) $(DOMSBRK) $(DOMLIB) -o $@
 
 rangeAl.c: $(BUILDDIR)/constituents.h
 

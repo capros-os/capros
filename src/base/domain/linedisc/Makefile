@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -51,10 +52,10 @@ $(BUILDDIR)/%.o: $(BUILDDIR)/%.c
 
 $(SOURCES): $(BUILDDIR)/constituents.h
 
-$(TARGETS): $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-
-$(LDMAIN):
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) $(LIBS) $(DOMLIB)
+$(LDMAIN): $(OBJECTS) $(DOMLIB) $(DOMCRT0) $(DOMSBRK)
+# Temporarily including sbrk.o explicitly.
+# It should be in libc. It is required by malloc.
+	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) $(DOMSBRK) $(LIBS) $(DOMLIB)
 
 interfaces: $(IDL)
 	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain

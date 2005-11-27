@@ -57,7 +57,8 @@ endif
 ifndef EROS_ROOT
 endif
 ifndef EROS_XENV
-EROS_XENV=$(HOME)/eros-xenv
+# EROS_XENV=$(HOME)/eros-xenv
+EROS_XENV=/capros/host
 endif
 ifndef EROS_CONFIG
 EROS_CONFIG=DEFAULT
@@ -225,7 +226,7 @@ endif
 DOMLIB= $(EROS_ROOT)/lib/libdomain.a
 DOMLIB += $(EROS_ROOT)/lib/libidlstub.a
 DOMLIB += $(EROS_ROOT)/lib/libdomgcc.a
-DOMLIB += $(EROS_ROOT)/lib/libc.a
+DOMLIB += -lc # libc.a
 
 ifeq "$(EROS_HOSTENV)" "linux-xenv-gcc3"
 #DOMCRT0=$(EROS_ROOT)/lib/gcc-lib/$(EROS_TARGET)-unknown-eros/3.3/crt1.o
@@ -235,7 +236,9 @@ DOMLINK=$(GCC)
 else
 DOMCRT0=$(EROS_ROOT)/lib/crt0.o
 DOMCRTN=$(EROS_ROOT)/lib/crtn.o
-DOMLINKOPT=-N -Ttext 0x0 -nostdlib -static -e _start -L$(EROS_ROOT)/lib -L$(EROS_ROOT)/lib/$(EROS_TARGET)
+DOMSBRK=$(EROS_ROOT)/lib/sbrk.o
+# DOMLINKOPT=-N -Ttext 0x0 -nostdlib -static -e _start -L$(EROS_ROOT)/lib -L$(EROS_ROOT)/lib/$(EROS_TARGET)
+DOMLINKOPT=-N -Ttext 0x0 -static -e _start -L$(EROS_ROOT)/lib -L$(EROS_ROOT)/lib/$(EROS_TARGET)
 DOMLINK=$(EROS_LD)
 endif
 
@@ -278,16 +281,9 @@ endif
 showme:
 	@echo "EROS_ROOT: " $(EROS_ROOT)
 	@echo "EROS_SRCDIR: " $(EROS_SRCDIR)
+	@echo "EROS_XENV: " $(EROS_XENV)
 	@echo "PKG_ROOT:" $(PKG_ROOT)
 	@echo "PKG_SRC:" $(PKG_SRC)
 	@echo "BUILDDIR:" $(BUILDDIR)
-
-#root:
-#	@echo $(PWD)
-#	@echo $(firstword $(subst /eros/src, ,$(PWD)))
-#	@echo $(patsubst eros/src%,eros/src,$(PWD))
-#	@echo $(patsubst eros/src,eros,$(patsubst eros/src/%,eros/src,$(PWD)))
-#	@echo $(EROS_ROOT)
-
 
 MAKEVARS_LOADED=1
