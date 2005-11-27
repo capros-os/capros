@@ -30,6 +30,7 @@
  */
 
 #include <arch-kerninc/db_machdep.h>		/* type definitions */
+#include <limits.h>
 
 #include <ddb/db_lex.h>
 #include <ddb/db_output.h>
@@ -262,7 +263,7 @@ db_search_cmd(db_expr_t det, int it, db_expr_t dtt, char* chr)
 	int		size;
 	db_expr_t	value;
 	db_expr_t	mask;
-	unsigned int	count;
+	db_expr_t	count;
 
 	t = db_read_token();
 	if (t == tSLASH) {
@@ -304,18 +305,18 @@ db_search_cmd(db_expr_t det, int it, db_expr_t dtt, char* chr)
 
 	t = db_read_token();
 	if (t == tCOMMA) {
-		if (!db_expression((db_expr_t *) &count)) {
+		if (!db_expression(&count)) {
 			db_printf("Count missing\n");
 			db_flush_lex();
 			return;
 		}
 	} else {
 		db_unread_token(t);
-		count = (unsigned) -1; /* effectively forever */
+		count = INT_MAX; /* effectively forever */
 	}
 	db_skip_to_eol();
 
-	db_search(addr, size, value, mask, count);
+	db_search(addr, size, value, mask, (unsigned int)count);
 }
 
 void

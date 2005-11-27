@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System distribution.
  *
@@ -41,12 +42,13 @@ static inline uint32_t
 chksum(void *dataptr, int len)
 {
   uint32_t acc = 0;
+  uint16_t * ptr16 = (uint16_t *)dataptr;
     
   for(acc = 0; len > 1; len -= 2)  
-    acc += *((uint16_t *)dataptr)++;
+    acc += *ptr16++;
   
   /* add up any odd byte */
-  if(len == 1)  acc += htons((uint16_t)((*(uint8_t *)dataptr) & 0xff) << 8);
+  if(len == 1)  acc += htons((uint16_t)((*(uint8_t *)ptr16) & 0xff) << 8);
   
   acc = (acc >> 16) + (acc & 0xffffu);
   

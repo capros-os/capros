@@ -201,7 +201,7 @@ db_set_temp_breakpoint(db_addr_t addr)
 	    return 0;
 	}
 
-	bkpt->map = NULL;
+	bkpt->map = 0;
 	bkpt->address = addr;
 	bkpt->flags = BKPT_TEMP;
 	bkpt->init_count = 1;
@@ -286,8 +286,8 @@ bool
 db_map_equal(vm_map_t map1, vm_map_t map2)
 {
 	return ((map1 == map2) ||
-		((map1 == NULL) && (map2 == kernel_map)) ||
-		((map1 == kernel_map) && (map2 == NULL)));
+		((map1 == 0) && (map2 == kernel_map)) ||
+		((map1 == kernel_map) && (map2 == 0)));
 }
 
 bool

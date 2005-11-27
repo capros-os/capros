@@ -49,7 +49,7 @@ void keycache_move_to_cache(keyreg_t slot, keyaddr_t k)
 }
 
 static unsigned 
-ffs(uint32_t u)
+FindFirstSet(uint32_t u)
 {
   unsigned i = 1;
   static uint32_t pos[16] = {
@@ -160,7 +160,7 @@ keycache_lru_alloc()
 
   /* Find the first set bit: */
   {
-    keyreg_t slot = ffs(candidates) - 1;
+    keyreg_t slot = FindFirstSet(candidates) - 1;
     slot /= 2;
     slot += FIRST_CACHE_REG;
 

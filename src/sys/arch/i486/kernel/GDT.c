@@ -59,40 +59,19 @@ gdt_SetupTSS(SegEntryName entry, uint32_t base)
   uint32_t linearBase;
   
 #ifndef NDEBUG
-  SegDescriptor tssSeg;
-  uint32_t * wTssSeg = 0;
-  uint32_t * wseg = 0;
-  tssSeg.loLimit = sizeof(i386TSS)-1;
-  tssSeg.loBase = 0;
-  tssSeg.midBase = 0;
-  tssSeg.hiBase = 0;
-  tssSeg.type = 0x9;
-  tssSeg.system = 0;
-  tssSeg.dpl = 0;
-  tssSeg.present = 1;
-  tssSeg.hiLimit = 0;
-  tssSeg.avl = 0;
-  tssSeg.zero = 0;
-  tssSeg.sz = 0;
-  tssSeg.granularity = 0;
-
-  wTssSeg = (uint32_t *) &tssSeg;
-  wseg = (uint32_t *) seg;
-
-#if 0
-  /* We THOUGHT that the following printf worked around a CSE bug in
-     gcc-3.2. It proves that there are OTHER bugs in gcc-3.2, and we
-     have decided not to use that compiler version. */
-  printf("wseg == 0x%08x wTssSeg == 0x%08x\n", wseg, wTssSeg );
-
-  if (wseg[0] != wTssSeg[0])
-    fatal("wseg[0] == 0x%08x , wTssSeg[0] == 0x%08x\n", wseg[0], wTssSeg[0] );
-  if (wseg[1] != wTssSeg[1])
-    fatal("wseg[1] == 0x%08x , wTssSeg[1] == 0x%08x\n", wseg[1], wTssSeg[1] );
-#endif
-
-  assert(wseg[0] == wTssSeg[0]);
-  assert(wseg[1] == wTssSeg[1]);
+  assert(seg->loLimit == sizeof(i386TSS)-1);
+  assert(seg->loBase == 0);
+  assert(seg->midBase == 0);
+  assert(seg->hiBase == 0);
+  assert(seg->type == 0x9);
+  assert(seg->system == 0);
+  assert(seg->dpl == 0);
+  assert(seg->present == 1);
+  assert(seg->hiLimit == 0);
+  assert(seg->avl == 0);
+  assert(seg->zero == 0);
+  assert(seg->sz == 0);
+  assert(seg->granularity == 0);
 #endif
   
   linearBase = KVTOL(base);

@@ -599,7 +599,11 @@ Initialize(state_t *state)
   supernode_swap(KR_SNODE, 0, KR_ARG0, KR_VOID);
 
   state->ndirent = 2;
-  state->dir_top = (struct direct *) ((uint8_t *)first_entry+EROS_PAGE_SIZE);
+  {	/* the compiler doesn't seem to be able to do this in one statement. */
+    char * foo = (char *)first_entry;
+    foo = foo + EROS_PAGE_SIZE;
+    state->dir_top = (struct direct *) foo;
+  }
   bzero(state->freeMap, EROS_PAGE_SIZE * N_FREEMAP_PAGE);
 
   bcopy(&template, first_entry, sizeof(template));

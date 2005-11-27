@@ -4434,8 +4434,8 @@ altima_probe()
 
 
   
-  kprintf(KR_OSTREAM,"Tigon3 [partno(%s) rev %04x PHY(%s)] (PCI%s:%s:%s)
- %sBaseT Ethernet, mtu = %d ",
+  kprintf(KR_OSTREAM,"Tigon3 [partno(%s) rev %04x PHY(%s)] (PCI%s:%s:%s)"
+" %sBaseT Ethernet, mtu = %d ",
 	  tp->board_part_number,
 	  tp->pci_chip_rev_id,
 	  tg3_phy_string(tp),

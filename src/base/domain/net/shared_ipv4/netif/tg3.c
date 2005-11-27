@@ -6,6 +6,7 @@
  */
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System distribution.
  *
@@ -283,7 +284,7 @@ init_mapped_memory_tg3(uint32_t *base, uint32_t size)
   }
 }
 
-inline void
+/* inline */ void
 tg3_write_indirect_reg32(struct tg3 *tp, uint32_t off, uint32_t val)
 {
   if ((tp->tg3_flags & TG3_FLAG_PCIX_TARGET_HWBUG) != 0) {
