@@ -36,6 +36,10 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 all: $(TARGETS)
 
+$(BUILDDIR)/keycache.o: keycache.c $(MAKE_BUILDDIR)
+# Need to use -ansi option, so ffs will not be declared builtin. 
+	$(GCC) $(GCCFLAGS) $(GCCWARN) -ansi -D$(EROS_TARGET) -c $< -o $@
+
 $(TARGETS): $(OBJECTS)
 	$(AR) -crv $(TARGETS) $(OBJECTS)
 	$(RANLIB) $(TARGETS)

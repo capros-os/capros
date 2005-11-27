@@ -49,7 +49,7 @@ void keycache_move_to_cache(keyreg_t slot, keyaddr_t k)
 }
 
 static unsigned 
-FindFirstSet(uint32_t u)
+ffs(uint32_t u)
 {
   unsigned i = 1;
   static uint32_t pos[16] = {
@@ -160,7 +160,7 @@ keycache_lru_alloc()
 
   /* Find the first set bit: */
   {
-    keyreg_t slot = FindFirstSet(candidates) - 1;
+    keyreg_t slot = ffs(candidates) - 1;
     slot /= 2;
     slot += FIRST_CACHE_REG;
 
@@ -358,7 +358,7 @@ extern fixreg_t __rt_do_SEND(Message *);
 fixreg_t RETURN(Message *in)
 {
   Message msg;
-  bcopy(in, &msg, sizeof(msg));
+  memcpy(&msg, in, sizeof(msg));
 
   msg.snd_invKey = keycache_load(in->snd_invKey);
 
@@ -380,7 +380,7 @@ fixreg_t RETURN(Message *in)
 fixreg_t NPRETURN(Message *in)
 {
   Message msg;
-  bcopy(in, &msg, sizeof(msg));
+  memcpy(&msg, in, sizeof(msg));
 
   msg.snd_invKey = keycache_load(in->snd_invKey);
 
@@ -403,7 +403,7 @@ fixreg_t CALL(Message *in)
 {
   Message msg;
 
-  bcopy(in, &msg, sizeof(msg));
+  memcpy(&msg, in, sizeof(msg));
 
   msg.snd_invKey = keycache_load(in->snd_invKey);
 
@@ -425,7 +425,7 @@ fixreg_t CALL(Message *in)
 fixreg_t SEND(Message *in)
 {
   Message msg;
-  bcopy(in, &msg, sizeof(msg));
+  memcpy(&msg, in, sizeof(msg));
 
   msg.snd_invKey = keycache_load(in->snd_invKey);
 
