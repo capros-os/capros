@@ -31,8 +31,6 @@
 #include <erosimg/App.h>
 #include <erosimg/Volume.h>
 
-#include "zlib.h"
-
 static unsigned char in_buf[EROS_SECTOR_SIZE];
 
 #define min(x,y) ((x) > (y) ? (y) : (x))
@@ -40,7 +38,6 @@ static unsigned char in_buf[EROS_SECTOR_SIZE];
 int
 vol_CompressTarget(Volume *pVol)
 {
-  int err = Z_OK;
   char buf[EROS_PAGE_SIZE];
 
   {
@@ -77,6 +74,7 @@ vol_CompressTarget(Volume *pVol)
 
   }    
 
+  /* Copy volHdr to target file. */
   if (lseek(pVol->target_fd, (int) 0, SEEK_SET) < 0)
     diag_fatal(3, "Cannot seek target file\n");
 
@@ -89,6 +87,6 @@ vol_CompressTarget(Volume *pVol)
 
   write(pVol->target_fd, buf, EROS_PAGE_SIZE);
 
-  return err;
+  return 0;
 }
 

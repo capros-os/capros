@@ -32,7 +32,6 @@ OBJECTS=$(BUILDDIR)/sysgen.o
 DEF+=   -D_REVEAL_KERNEL_KEY_TYPES_
 INC=	-I$(EROS_ROOT)/host/include $(XENV_INCLUDE)
 LIBS=	$(EROS_ROOT)/host/lib/liberos.a $(EROS_ROOT)/host/lib/libdisk.a
-LIBS+=	$(EROS_ROOT)/host/lib/libzlib.a
 DIRS=
 
 include $(EROS_SRC)/build/make/makerules.mk

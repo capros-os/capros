@@ -34,7 +34,6 @@ OBJECTS= $(BUILDDIR)/gram.o $(BUILDDIR)/lex.o $(BUILDDIR)/PtrMap.o
 DEF+=   -D_REVEAL_KERNEL_KEY_TYPES_
 INC=	-I$(BUILDDIR) -I. -I$(EROS_ROOT)/host/include $(XENV_INCLUDE)
 LIBS=	$(EROS_ROOT)/host/lib/liberos.a $(EROS_ROOT)/host/lib/libdisk.a
-LIBS+=	$(EROS_ROOT)/host/lib/libzlib.a
 OTHER_LIBS=	-lbfd -liberty
 DIRS=
 HEADERS=mkimage.preinclude

@@ -25,7 +25,7 @@ EROS_SRC=../../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=zlib disk erosimg # libapp libvolume
+DIRS=disk erosimg # libapp libvolume
 
 include $(EROS_SRC)/build/make/makerules.mk
 
