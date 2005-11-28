@@ -26,11 +26,9 @@ uint32_t
 device_write(uint32_t krDevice, uint32_t startSec, uint32_t nSec, uint8_t *buf)
 {
   Message msg;
-  bzero(&msg, sizeof(msg));
 
   msg.snd_w1 = startSec;
   msg.snd_w2 = nSec;
-
   msg.snd_w3 = 0;
 
   msg.snd_key0 = KR_VOID;
