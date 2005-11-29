@@ -30,6 +30,8 @@
  * to be handled carefully.
  */
 
+#include <stdbool.h>
+
 #ifndef __GNUC__
 #error "This code uses GCC extensions. It is bloody unlikely to compile without GCC"
 #endif
@@ -47,32 +49,7 @@
 #define INLINE static inline
 #endif
 
-/*#if CONVERSION*/
-#ifndef __cplusplus
-/* FIX: This is a temporary expedient. We need to add stdbool.h to the 
-   system header file tree. We also need to switch over to using
-   stdint.h throughout. -- shap */
-
-/* FIX (again): Looks like ANSI screwed up big time, in that
-   their _Bool type as defined is not size-compatible with the
-   corresponding C++ bool type. Somebody ought to rant at them
-   about this. As a result, we can't use the ANSI type until we
-   are completely done with C++. */
-
-#ifndef bool
-
-#define false 0
-#define true 1
-
-typedef unsigned char bool;
-
-#endif
-
-#endif
-
 #define BOOL(x) ((x) != 0)
-
-/*#endif CONVERSION*/
 
 #include "target-asm.h"
 
