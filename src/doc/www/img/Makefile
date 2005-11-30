@@ -30,6 +30,7 @@ DOCS= \
 	jms.jpg \
 	chase.jpg \
 	pooh1.jpg \
+	PolabearSmall.gif \
 	natasha-standin.jpg \
 	danielbr.jpg \
 	shap.jpg \
