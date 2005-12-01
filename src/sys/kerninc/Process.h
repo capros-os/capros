@@ -40,7 +40,9 @@
 #ifdef EROS_HAVE_ARCH_REGS
 #include <eros/machine/archregs.h>
 #endif
+#ifdef OPTION_PSEUDO_REGS
 #include <eros/machine/pseudoregs.h>
+#endif
 #include <eros/machine/traceregs.h>
 
 /* This file requires #include <kerninc/kernel.h> */
@@ -114,7 +116,9 @@ struct Process {
   kpmap_t          MappingTable;
 
   savearea_t	    trapFrame;
+#ifdef OPTION_PSEUDO_REGS
   pseudoregs_t      pseudoRegs;
+#endif
   traceregs_t       traceRegs;
 
   /* This should immediately follow fixRegs: */
