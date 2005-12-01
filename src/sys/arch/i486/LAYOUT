@@ -80,8 +80,6 @@
  * domain separately.
  */
 
-#include <eros/i486/target-asm.h>
-
 /* arch identifies the architecture for the erosimg library, and also
    the architecture-specific register names corresponding to PC and SP
    for the Registers structure. 
