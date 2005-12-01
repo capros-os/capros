@@ -70,6 +70,7 @@
    */
 
 #include <stddef.h>
+#include <stdbool.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
@@ -167,7 +168,7 @@
 #define false 0
 
 typedef struct {
-  bool_t was_access;
+  bool was_access;
   uint64_t last_offset;		/* last offset we modified */
   uint64_t first_zero_offset;	/* first known-zero offset */
   int frozen;
@@ -176,12 +177,6 @@ typedef struct {
 
 void Sepuku();
 void DestroySegment(state *);
-
-#if CONVERSION
-typedef int bool;
-#define true 1
-#define false 0
-#endif
 
 uint32_t
 BiasedLSS(uint64_t offset)
@@ -506,7 +501,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
       uint32_t result;
       uint32_t orig_offset = offset;
       
-      bool_t needTraverse = true;
+      bool needTraverse = true;
 
       DEBUG(access)
 	kdprintf(KR_OSTREAM, "FC_Access at 0x%08x %08x\n",

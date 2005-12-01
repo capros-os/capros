@@ -243,7 +243,7 @@ symdump(Symbol *s, int indent)
 	break;
       case lt_bool:
 	{
-	  diag_printf("bool_t");
+	  diag_printf("bool");
 	  break;
 	}
       case lt_void:

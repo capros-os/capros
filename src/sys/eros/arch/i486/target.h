@@ -95,8 +95,6 @@ typedef unsigned long       uint32_t;
 #endif
 typedef unsigned long long  uint64_t;
 
-typedef unsigned char       bool_t;
-
 typedef struct uint80_t {
   uint16_t	v[5];
 }                           uint80_t;

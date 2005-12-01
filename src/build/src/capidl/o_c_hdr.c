@@ -468,7 +468,7 @@ output_c_type(Symbol *s, FILE *out, int indent)
 	break;
       case lt_bool:
 	{
-	  fprintf(out, "bool_t");
+	  fprintf(out, "bool");
 	  break;
 	}
       case lt_void:

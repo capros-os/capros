@@ -318,7 +318,7 @@ VerifyAndGetSegmentOfSet(uint32_t krOtherSet,
   Message msg;
   uint32_t result;
   uint32_t keyInfo;
-  bool_t isEqual;
+  bool isEqual;
 
   /* it's got to be a KEYDATA 0u start key */
   result = proccre_amplify_gate(KR_CREATOR, krOtherSet, KR_SCRATCH2,

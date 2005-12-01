@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -37,6 +38,7 @@
  */
 
 #include <string.h>
+#include <stdbool.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
@@ -92,7 +94,7 @@ CheckDiscretion(uint32_t kr, ConstructorInfo *ci)
 {
   uint32_t result;
   uint32_t keyInfo;
-  bool_t isDiscreet;
+  bool isDiscreet;
   
   node_copy(KR_CONSTIT, KC_DISCRIM, KR_SCRATCH);
 
@@ -337,7 +339,7 @@ is_not_discreet(uint32_t kr, ConstructorInfo *ci)
 {
   uint32_t result;
   uint32_t keyInfo;
-  bool_t isDiscreet;
+  bool isDiscreet;
   
   node_copy(KR_CONSTIT, KC_DISCRIM, KR_SCRATCH);
   

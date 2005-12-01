@@ -112,7 +112,7 @@
    of these are issues in the performance path.  */
 
 typedef struct {
-  bool_t was_access;
+  bool was_access;
   uint64_t last_offset;		/* last offset we modified */
   uint64_t first_zero_offset;	/* first known-zero offset */
   int frozen;
