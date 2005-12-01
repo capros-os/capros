@@ -189,7 +189,7 @@ kdbprinttrap(int type, int code)
  * Read bytes from kernel address space for debugger.
  */
 void
-db_read_bytes(vm_offset_t addr, register int size, register char *data)
+db_read_bytes(db_addr_t addr, register int size, register char *data)
 {
 	register char	*src;
 
@@ -206,7 +206,7 @@ pt_entry_t *pmap_pte __P((pmap_t, vm_offset_t));
  * Write bytes to kernel address space for debugger.
  */
 void
-db_write_bytes(vm_offset_t addr, register int size,
+db_write_bytes(db_addr_t addr, register int size,
 			   register char * data) 
 {
 #if 0

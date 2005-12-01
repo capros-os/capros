@@ -55,55 +55,13 @@
 #define NULL (0L)
 #endif
 
-/* This is needed for cross-build compatibility */
-#ifndef __BIT_TYPES_DEFINED__
-#if defined(__FreeBSD__) && defined(_MACHINE_TYPES_H_)
-#define __BIT_TYPES_DEFINED__
-#endif /* defined(__FreeBSD__) && defined(_MACHINE_TYPES_H_) */
-#endif /* __BIT_TYPES_DEFINED__ */
-
-#ifndef _STDINT_H
-
-/* Basic EROS type definitions: */
-#ifndef __BIT_TYPES_DEFINED__	
-/* avoid conflict with linux hdrs in cross code: */
-typedef signed char         int8_t;
-typedef signed short        int16_t;
-typedef signed long         int32_t;
-typedef signed long long    int64_t;
-
-/* EROS does not use these, but UNIX does.  Define them here so that
-   we can just define __BIT_TYPES_DEFINED__ without conflict: */
-typedef unsigned char       u_int8_t;
-typedef unsigned short      u_int16_t;
-typedef unsigned long       u_int32_t;
-typedef unsigned long long  u_int64_t;
-#define __BIT_TYPES_DEFINED__
-
-#endif /* __BIT_TYPES_DEFINED__ */
-
-typedef unsigned char       uint8_t;
-typedef unsigned short      uint16_t;
-/* The Linux weenies cannot make up their minds about how uint32_t
-   should be defined.  The definition is conditionalized here in a
-   linux-sensitive way because I'm tired of twiddling it one way or
-   the other. */
-#if defined(linux) && defined(_STDINT_H)
-typedef unsigned int        uint32_t;
-#else
-typedef unsigned long       uint32_t;
-#endif
-typedef unsigned long long  uint64_t;
-
 typedef struct uint80_t {
   uint16_t	v[5];
-}                           uint80_t;
+} uint80_t;
 
 typedef uint80_t floatval_t;
 
-#endif /* !_STDINT_H */
-
-typedef uint32_t	fixreg_t; /* fixed-point natural register size */
+typedef uint32_t fixreg_t; /* fixed-point natural register size */
 
 /* Number of hardware interrupt lines */
 #define NUM_HW_INTERRUPT 16

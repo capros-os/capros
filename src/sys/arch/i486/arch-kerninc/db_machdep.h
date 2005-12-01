@@ -56,7 +56,9 @@ INLINE int strncmp(const char *c1, const char *c2, uint32_t len)
 
 /* #define SOFTWARE_SSTEP */
 
-typedef	kva_t		db_addr_t;	/* address - unsigned */
+/* db_addr_t should be typedef'ed to kva_t, but that causes
+   too many type mismatches. */
+typedef	unsigned long	db_addr_t;	/* address - unsigned */
 typedef	long		db_expr_t;	/* expression - signed */
 typedef uint32_t	vm_map_t;	/* mapping table id */
 typedef kva_t		vm_offset_t;	/* VM offset */

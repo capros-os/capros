@@ -31,6 +31,7 @@
  */
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifndef __GNUC__
 #error "This code uses GCC extensions. It is bloody unlikely to compile without GCC"
