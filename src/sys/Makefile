@@ -36,6 +36,7 @@ ETAGDIRS+= arch/$(EROS_TARGET)/kernel
 ETAGDIRS+= arch/$(EROS_TARGET)/machine
 
 DIRS=eros arch/$(EROS_TARGET)
+# Directory libkey is located here, but is actually built in base/lib/domain.
 #CLEANDIRS=eros
 
 include $(EROS_SRC)/build/make/pkgrules.mk
