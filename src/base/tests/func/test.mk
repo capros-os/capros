@@ -21,10 +21,12 @@
 
 # test.makeinc -- should be included right after makerules.mk
 
-#CLEANLIST+= test.sysimg test.sysvol ztest.sysvol .test.sysimg.m.* *.map tstflop ztstflop vmfloppy
+#CLEANLIST+= test.sysimg test.sysvol .test.sysimg.m.* *.map
 ifndef VOLMAP
 VOLMAP=../test.volmap
 endif
+
+IMGMAP=test.imgmap.$(EROS_TARGET)
 
 MAPINC=-I$(EROS_ROOT)/domain -I$(EROS_ROOT)/include
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(BOOTSTRAP)
@@ -41,10 +43,9 @@ KERNDEP=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(KERNEL)
 
 # so shap can see it better when necessary:
 DDBS=1440k
-SETVOL_FLAGS += -r -z
 
 
-install all: $(TARGETS) $(BUILDDIR)/test.sysimg
+install: $(TARGETS) $(BUILDDIR)/test.sysimg
 
 $(BUILDDIR)/test.sysimg: $(TARGETS) $(IMGMAP)
 	$(EROS_ROOT)/host/bin/mkimage -a $(EROS_TARGET) -DBUILDDIR='\"$(BUILDDIR)/\"' -o $(BUILDDIR)/test.sysimg $(MAPINC) $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
@@ -52,7 +53,7 @@ $(BUILDDIR)/test.sysimg: $(TARGETS) $(IMGMAP)
 init.hd: $(KERNDEP) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
 
-hd: test.sysimg $(KERNDEP) $(VOLMAP)
+test.hd: $(BUILDDIR)/test.sysimg $(KERNDEP) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/setvol -D $(EROS_HD)
 	cp $(KERNPATH) $(CAPROS_BOOT_PARTITION)/CapROS-kernel-1
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map -g $(CAPROS_BOOT_PARTITION) -v 1 $(EROS_HD) $(BUILDDIR)/test.sysimg | tee $(BUILDDIR)/sysgen.out
@@ -66,20 +67,6 @@ tstflop: all $(BUILDDIR)/test.sysvol
 	$(EROS_ROOT)/host/bin/setboot -w $(EROS_FD)
 	sync
 	sleep 5
-
-$(BUILDDIR)/ztest.sysvol: $(BUILDDIR)/test.sysvol
-	cp $(BUILDDIR)/test.sysvol $(BUILDDIR)/ztest.sysvol
-	$(EROS_ROOT)/host/bin/setvol $(SETVOL_FLAGS) $(BUILDDIR)/ztest.sysvol
-
-ztstflop: all $(BUILDDIR)/ztest.sysvol
-	dd if=$(BUILDDIR)/ztest.sysvol of=$(EROS_FD) bs=$(DDBS)
-	$(EROS_ROOT)/host/bin/setboot -w $(EROS_FD)
-	sync
-	sleep 5
-
-$(BUILDDIR)/vmfloppy: $(BUILDDIR)/ztest.sysvol
-	dd if=/dev/zero of=$(BUILDDIR)/vmfloppy bs=1024 count=1440
-	dd if=$(BUILDDIR)/ztest.sysvol of=$(BUILDDIR)/vmfloppy conv=notrunc
 
 vmware: $(BUILDDIR) $(BUILDDIR)/vmfloppy
 	$(VMWARE) -x -s floppy0.fileType=file -s floppy0.fileName=`pwd`/$(BUILDDIR)/vmfloppy $(HOME)/vmware/EROS/EROS.cfg
