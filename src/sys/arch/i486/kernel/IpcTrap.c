@@ -69,9 +69,10 @@ extern void Invoke();
 void
 idt_OnKeyInvocationTrap(savearea_t * saveArea)
 {
+  assert(saveArea == &(act_CurContext()->trapFrame));
 #ifndef NDEBUG
 
-  uint32_t vecNumber = ((Process*) act_CurContext())->trapFrame.ExceptNo;
+  uint32_t vecNumber = act_CurContext()->trapFrame.ExceptNo;
 
   assert (vecNumber == iv_InvokeKey);
 #endif
