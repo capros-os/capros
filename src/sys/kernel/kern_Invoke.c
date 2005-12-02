@@ -599,6 +599,7 @@ proc_DoKeyInvocation(Process* thisPtr)
    */
   proc_SetupExitBlock(inv.invokee, &inv);
 #ifdef OPTION_PURE_EXIT_STRINGS
+#error conversion required here
   if (inv.validLen != 0)
     inv.invokee->SetupExitString(inv, inv.validLen);
 #endif

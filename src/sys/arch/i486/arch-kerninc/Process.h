@@ -87,6 +87,7 @@ INLINE void
 proc_ValidateEntryBlock(Process* thisPtr)
 {
   /* Check valid invocation type field + uppermost part of control field: */
+#error fixRegs is undefined
   if (!INVTYPE_ISVALID(fixRegs.invType))
     goto bogus;
 
