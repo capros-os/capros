@@ -111,6 +111,7 @@ proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/, uint32_
 	pte0 = proc_BuildMapping(thisPtr, ula, true, true);
 
       if (pte0 == 0) {
+        /* here be bugs */
 	uint32_t lenHere = ula - thisPtr->trapFrame.EDI;
 	if (lenHere < inv->validLen)
 	  inv->validLen = lenHere;
@@ -171,6 +172,7 @@ proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/, uint32_
 	pte0 = proc_BuildMapping(thisPtr, cur_ula, true, false);
 
       if (pte0 == 0) {
+        /* here be bugs */
 	uint32_t lenHere = ula - thisPtr->trapFrame.EDI;
 
 	if (lenHere < inv->validLen)
