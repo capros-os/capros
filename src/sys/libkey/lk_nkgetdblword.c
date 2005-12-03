@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -26,8 +27,10 @@
 uint32_t
 eros_Number_getDoubleWord(uint32_t krNumber, uint64_t *pDW)
 {
-  unsigned long w0, w1, w2;
+  uint32_t w0, w1, w2;
   uint32_t result = eros_Number_get(krNumber, &w0, &w1, &w2);
+
+  if (result != RC_OK) return result;
 
   (*pDW) = (((uint64_t) w1) << 32) | ((uint64_t) w0);
 

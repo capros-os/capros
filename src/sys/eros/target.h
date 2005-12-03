@@ -64,7 +64,7 @@
 #define EROS_FRAME_FROM_OID(oid) (oid & ~(EROS_OBJECTS_PER_FRAME-1))
 #define EROS_OBNDX_IN_FRAME(oid) (oid & (EROS_OBJECTS_PER_FRAME-1))
 
-typedef unsigned long cap_t;
+typedef uint32_t cap_t;
 typedef fixreg_t result_t;
 
 #endif /* __TARGET_H__ */
