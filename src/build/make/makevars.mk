@@ -57,7 +57,6 @@ endif
 ifndef EROS_ROOT
 endif
 ifndef EROS_XENV
-# EROS_XENV=$(HOME)/eros-xenv
 EROS_XENV=/capros/host
 endif
 ifndef EROS_CONFIG
@@ -225,7 +224,7 @@ endif
 
 DOMLIB= $(EROS_ROOT)/lib/libdomain.a
 DOMLIB += $(EROS_ROOT)/lib/libidlstub.a
-DOMLIB += $(EROS_ROOT)/lib/libdomgcc.a
+DOMLIB += $(EROS_LIBGCC)
 DOMLIB += -lc # libc.a
 
 ifeq "$(EROS_HOSTENV)" "linux-xenv-gcc3"

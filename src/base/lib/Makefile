@@ -25,7 +25,7 @@ EROS_SRC=../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=idlstub domgcc domain keycache rbtree util
+DIRS=idlstub domain keycache rbtree util
 DIRS+=graphics wrapper addrspace xsprintf
 DIRS+=ethread
 # DIRS += libc unix

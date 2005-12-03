@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -20,10 +21,11 @@
 
 # Cross tools use i386 not i486.
 ifeq "$(EROS_TARGET)" "i486"
-CROSS_PREFIX=i386-unknown-capros-
+EROS_CROSS_TARGET=i386
 else
-CROSS_PREFIX=$(EROS_TARGET)-unknown-capros-
+EROS_CROSS_TARGET=$(EROS_TARGET)
 endif
+CROSS_PREFIX=$(EROS_CROSS_TARGET)-unknown-capros-
 
 EROS_GCC=$(EROS_XENV)/bin/$(CROSS_PREFIX)gcc
 EROS_GPLUS=$(EROS_XENV)/bin/$(CROSS_PREFIX)g++
@@ -32,6 +34,8 @@ EROS_AR=$(EROS_XENV)/bin/$(CROSS_PREFIX)ar
 EROS_SIZE=$(EROS_XENV)/bin/$(CROSS_PREFIX)size
 EROS_OBJDUMP=$(EROS_XENV)/bin/$(CROSS_PREFIX)objdump
 EROS_RANLIB=$(EROS_XENV)/bin/$(CROSS_PREFIX)ranlib
+
+EROS_LIBGCC=$(EROS_XENV)/lib/gcc/$(EROS_CROSS_TARGET)-unknown-capros/3.4.4/libgcc.a
 
 EROS_GCC_KERNEL_ALIGN=-falign-functions=4
 
