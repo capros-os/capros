@@ -43,7 +43,7 @@ configs:
 		fi; \
 	done
 
-COMMON_DIRS=gplus-lib $(CONFDIR)
+COMMON_DIRS=$(CONFDIR)
 
 # builds KERNDIR even if it doesn't presently exist:
 DIRS=$(COMMON_DIRS) $(KERNDIRS)

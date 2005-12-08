@@ -95,7 +95,7 @@ endif
 
 OPTIM += $(EROS_GCC_KERNEL_ALIGN)
 
-LIBS=../../gplus-lib/gplus-lib.a # libkey.a
+LIBS=$(EROS_LIBGCC)
 
 # %targets
 
@@ -113,8 +113,9 @@ endif
 
 OPTIM += -fno-builtin
 
-CRT1=../../gplus-lib/gnu_crt1.o
-CRTN=../../gplus-lib/gnu_crtn.o
+# The following are no longer needed because there is no C++ in the kernel. */
+CRT1= #../../gplus-lib/gnu_crt1.o
+CRTN= #../../gplus-lib/gnu_crtn.o
 
 CLEANLIST=fd.image boot.image symnames.s image.* # libkey.a
 CLEANLIST += process_asm_offsets.h machine
@@ -203,10 +204,6 @@ $(BUILDDIR)/symnames.o: $(BUILDDIR)/symnames.s
 # the moment.
 $(BUILDDIR)/symnames.s: $(CONFIG).eros
 	$(OBJDUMP) --syms --stabs $(CONFIG).eros | $(GAWK) -f $(TOP)/scripts/symtab.awk > $@
-
-
-../../gplus-lib/gplus-lib.a:
-	cd ../../gplus-lib; $(MAKE)
 
 
 %depend

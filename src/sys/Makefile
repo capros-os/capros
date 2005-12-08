@@ -30,7 +30,6 @@ ETAGDIRS=IO arch ddb disk eros kernel kerninc key libkey pci ckpt
 ETAGDIRS+= arch/$(EROS_TARGET)/ddb
 ETAGDIRS+= arch/$(EROS_TARGET)/device
 ETAGDIRS+= arch/$(EROS_TARGET)/eros
-ETAGDIRS+= arch/$(EROS_TARGET)/gplus-lib
 ETAGDIRS+= arch/$(EROS_TARGET)/include
 ETAGDIRS+= arch/$(EROS_TARGET)/kernel
 ETAGDIRS+= arch/$(EROS_TARGET)/machine
