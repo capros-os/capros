@@ -79,10 +79,6 @@ typedef uint32_t        kpmap_t; /* mapping table physical address */
 #define PTOV(pa) ((uint32_t) (pa))
 #define KVTOL(kva) (kva + KVA)
 
-#if defined(__EROS__)
-typedef unsigned int   size_t;	/* should be 32 bits */
-#endif
-
 #define IRQ_FROM_EXCEPTION(vector) ((vector) - 0x20u)
 
 #endif /* __KERN_TARGET_I486_H__ */

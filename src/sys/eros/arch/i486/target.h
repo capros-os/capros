@@ -66,8 +66,4 @@ typedef uint32_t fixreg_t; /* fixed-point natural register size */
 /* Number of hardware interrupt lines */
 #define NUM_HW_INTERRUPT 16
 
-#define TARGET_LONG_MAX (2147483647) /* max value of a "long int" */
-#define TARGET_LONG_MIN (-TARGET_LONG_MAX-1) /* min value of a "long int" */
-#define TARGET_ULONG_MAX 4294967295u
-
 #endif /* __TARGET_I486_H__ */

@@ -35,8 +35,6 @@
 #error "Inappropriate target file"
 #endif
 
-#ifdef __KERNEL__
-
 /* The addresses starting at KVA_FSTBUF are for the fast path to map
  * the recipient page DIRECTORY. Two slots might be needed, so this
  * occupies 3F000000 through 3F400000 (inclusive).
@@ -84,6 +82,5 @@
 #define LARGE_SPACE_PAGES 0xC0000         /* 3 Gbytes */
 
 #define KERNPBASE	_ASM_U(0x00100000) /* phys addr where kernel is loaded */
-#endif
 
 #endif /* __KERN_TARGET_ASM_I486_H__ */

@@ -22,10 +22,6 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 
-#ifndef __STDKEYTYPE_H__
-#include <eros/StdKeyType.h>
-#endif
-
 /*
  * Basic type declarations for the target platform, used pervasively
  * within the kernel code and the volume construction utilities.
@@ -42,11 +38,6 @@
 #ifndef _ASM_U
 #define _ASM_U(x) x##u
 #endif
-
-#define EROS_REG_MAX  UINT32_MAX
-#define EROS_SREG_MAX INT32_MAX
-#define EROS_SREG_MIN INT32_MIN
-#define EROS_REG_BITS UINT32_BITS
 
 #if 0
 #define EROS_KSTACK_SIZE	_ASM_U(0x2000) /* two pages */
