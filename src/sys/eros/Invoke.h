@@ -29,15 +29,7 @@
  * stubs in lib/domain/ARCH/...S
  */
 
-/* Local Variables: */
-/* comment-column:34 */
-/* End: */
-
 #if !defined(__ASSEMBLER__)
-
-#ifndef BITFIELD_PACK_LOW
-# error "Check bitfield packing"
-#endif
 
 #define RESUME_SLOT 3
 
