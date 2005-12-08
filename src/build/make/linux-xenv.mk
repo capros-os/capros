@@ -37,7 +37,9 @@ EROS_RANLIB=$(EROS_XENV)/bin/$(CROSS_PREFIX)ranlib
 
 EROS_LIBGCC=$(EROS_XENV)/lib/gcc/$(EROS_CROSS_TARGET)-unknown-capros/3.4.4/libgcc.a
 
+ifeq "$(EROS_TARGET)" "i486"
 EROS_GCC_KERNEL_ALIGN=-falign-functions=4
+endif
 
 EROS_CPP=/lib/cpp -undef -nostdinc -D$(EROS_TARGET)
 
