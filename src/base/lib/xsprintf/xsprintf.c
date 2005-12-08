@@ -2,6 +2,7 @@
 #include <eros/stdarg.h>
 
 #include <string.h>
+#include <limits.h>
 
 #include "xsprintf.h"
 
@@ -122,8 +123,8 @@ doprintf(buf *pBuf, const uint8_t *fmt, void *vap)
 
 	  ul = (l < 0) ? (unsigned) -l : (unsigned) l;
 
-	  if (l == TARGET_LONG_MIN)
-	    ul = ((unsigned long) TARGET_LONG_MAX) + 1ul;
+	  if (l == LONG_MIN)
+	    ul = ((unsigned long) LONG_MAX) + 1ul;
 
 	  while(ul) {
 	    *(--p) = '0' + (ul % 10);

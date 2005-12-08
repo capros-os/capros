@@ -24,6 +24,7 @@
    */
 
 #include <stddef.h>
+#include <limits.h>
 #include <eros/target.h>
 #include <eros/stdarg.h>
 #include <eros/Invoke.h>
@@ -172,8 +173,8 @@ printf_guts(void (putc)(char c, buf *buffer),
 
 	  ul = (l < 0) ? (unsigned) -l : (unsigned) l;
 
-	  if (l == TARGET_LONG_MIN)
-	    ul = ((unsigned long) TARGET_LONG_MAX) + 1ul;
+	  if (l == LONG_MIN)
+	    ul = ((unsigned long) LONG_MAX) + 1ul;
 
 	  while(ul) {
 	    *(--p) = '0' + (ul % 10);
