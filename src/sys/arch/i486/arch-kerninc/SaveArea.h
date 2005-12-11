@@ -22,7 +22,6 @@
 
 #include "gen.SaveArea.h" 
 
-#ifdef __KERNEL__
 /* Could be either a kernel-mode or a user-mode process. */
 INLINE bool
 sa_IsProcess(const savearea_t* fx)
@@ -55,7 +54,5 @@ void DumpFixRegs(const savearea_t*);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __KERNEL__ */
 
 #endif /* __SAVEAREA_H__ */

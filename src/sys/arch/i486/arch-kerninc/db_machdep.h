@@ -34,13 +34,7 @@
  */
 
 #include <kerninc/kernel.h>
-#include <kerninc/Process.h>
-#include <kerninc/memory.h>
-
-INLINE int strncmp(const char *c1, const char *c2, uint32_t len)
-{
-  return memcmp(c1, c2, len);
-}
+#include <arch-kerninc/SaveArea.h>
 
 #define kernel_map  KernPageDir_pa
 #define PSL_T	    0x100	/* trace trap bit */
