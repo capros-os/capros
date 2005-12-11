@@ -303,7 +303,7 @@ END {
   numsymbols = 0;
   
   for (i in funtab) {
-    printf("\t.long 0\t\t#profile counter\n");
+    printf("\t.long 0\n");
     printf("\t.long 0x%08x\n", funpc[i]);
     printf("\t.long .LM%d\n", i);
     printf("\t.long .LH%d\n", i);
