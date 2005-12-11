@@ -33,6 +33,7 @@
  * Breakpoints.
  */
 #include <arch-kerninc/db_machdep.h>		/* type definitions */
+#include <arch-kerninc/PTE.h>
 
 #include <ddb/db_lex.h>
 #include <ddb/db_break.h>

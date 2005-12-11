@@ -20,6 +20,7 @@
 
 #ifndef DB_NO_NMHACK
 
+#include <string.h>
 #include <arch-kerninc/db_machdep.h>		/* data types */
 
 #include <ddb/db_sym.h>
