@@ -95,7 +95,7 @@ endif
 
 OPTIM += $(EROS_GCC_KERNEL_ALIGN)
 
-LIBS=$(EROS_LIBGCC)
+LIBS=$(EROS_LIBGCC) -lc
 
 # %targets
 
@@ -120,7 +120,7 @@ CRTN= #../../gplus-lib/gnu_crtn.o
 CLEANLIST=fd.image boot.image symnames.s image.* # libkey.a
 CLEANLIST += process_asm_offsets.h machine
 
-LINK=$(LD) -static -N -Ttext $(KERNENTRY) -nostdlib # -debug
+LINK=$(LD) -static -N -Ttext $(KERNENTRY) # -nostdlib # -debug
 
 %options
 
