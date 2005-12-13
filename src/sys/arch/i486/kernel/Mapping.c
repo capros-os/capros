@@ -19,6 +19,7 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Process.h>
 #include <kerninc/PhysMem.h>

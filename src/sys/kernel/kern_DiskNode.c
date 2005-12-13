@@ -18,6 +18,7 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Node.h>
 #include <kerninc/util.h>
@@ -56,6 +57,6 @@ node_SetEqualTo(Node *thisPtr, const DiskNodeStruct *other)
     assert( keyBits_IsUnprepared(&thisPtr->slot[i]) );
   }
 
-  bcopy(&other->slot[0], &thisPtr->slot[0], 
+  memcpy(&thisPtr->slot[0], &other->slot[0], 
 	EROS_NODE_SIZE * sizeof(thisPtr->slot[0]));
 }

@@ -2,6 +2,7 @@
 #define __KERNINC_INVOCATION_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -20,9 +21,7 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* This file requires #include <eros/memory.h> (for bcopy) */
 #include <kerninc/Key.h>
-#include <kerninc/memory.h>
 /* This file requires #include <disk/KeyStruct.hxx> */
 /* This file requires #include <kerninc/kernel.h> */
 
@@ -149,46 +148,11 @@ uint64_t inv_KeyHandlerCounts[PRIMARY_KEY_TYPES][3];
 
 
 typedef struct Invocation Invocation;
-/* Copy at most COUNT bytes out to the process.  If the process
- * receive length is less than COUNT, silently truncate the outgoing
- * bytes.  Rewrite the process receive count field to indicate the
- * number of bytes actually transferred.
- */
-INLINE uint32_t 
-inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data)
-{
-  assert(InvocationCommitted);
 
-  thisPtr->sentLen = len;
-
-  if (thisPtr->validLen < len)
-    len = thisPtr->validLen;
-
-  thisPtr->exit.len = len;
-  
-  if (thisPtr->exit.len)
-    bcopy(data, thisPtr->exit.data, thisPtr->exit.len);
-
-  return thisPtr->exit.len;
-}
-
-/* Copy at most COUNT bytes in from the process.  If the process
- * send length is less than COUNT, copy the number of bytes in the
- * send buffer.  Return the number of bytes transferred.
- */
-INLINE uint32_t 
-inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data)
-{
-  assert(InvocationCommitted);
-  
-  if (thisPtr->entry.len < len)
-    len = thisPtr->entry.len;
-  
-  if (thisPtr->entry.len)
-    bcopy(thisPtr->entry.data, data, len);
-
-  return len;
-}
+uint32_t 
+inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data);
+uint32_t 
+inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data);
 
 extern Invocation inv;
 

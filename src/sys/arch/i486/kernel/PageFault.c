@@ -20,9 +20,9 @@
 
 /* Drivers for 386 protection faults */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <eros/ProcessState.h>
-#include <kerninc/memory.h>
 #include <kerninc/Check.h>
 #include <kerninc/KernStats.h>
 #include <kerninc/Activity.h>

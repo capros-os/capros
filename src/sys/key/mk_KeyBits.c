@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +19,7 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Key.h>
 #include <kerninc/Activity.h>
@@ -116,7 +118,7 @@ KeyBitsKey(Invocation* inv /*@ not null @*/)
       }
 
 
-      bcopy(&dupKey, &kbi.w, sizeof(kbi.w));
+      memcpy(&kbi.w, &dupKey, sizeof(kbi.w));
 
       inv_CopyOut(inv, sizeof(kbi), &kbi);
 

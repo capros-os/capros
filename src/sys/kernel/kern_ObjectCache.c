@@ -19,6 +19,7 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Check.h>
 #include <kerninc/ObjectCache.h>
@@ -32,7 +33,6 @@
 #include <arch-kerninc/PTE.h>
 #endif
 #include <kerninc/util.h>
-#include <kerninc/memory.h>
 #include <arch-kerninc/KernTune.h>
 #include <kerninc/PhysMem.h>
 #include <disk/PagePot.h>
@@ -867,7 +867,7 @@ objC_CopyObject(ObjectHeader *pObj)
     fromAddr = objC_ObHdrToPage(pObj);
     toAddr = objC_ObHdrToPage(newObj);
 
-    bcopy((void *) fromAddr, (void *) toAddr, EROS_PAGE_SIZE);
+    memcpy((void *) toAddr, (void *) fromAddr, EROS_PAGE_SIZE);
   }
   else { /* It's a node */
     assert (pObj->obType <= ot_NtLAST_NODE_TYPE);

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +19,7 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <string.h>
 #include <arch-kerninc/db_machdep.h>
 #include <ddb/db_output.h>
 #include <ddb/db_lex.h>
@@ -1129,7 +1131,7 @@ db_kstat_fast_cmd(db_expr_t, int, db_expr_t, char*)
 void
 db_kstat_clear_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 {
-  bzero(&KernStats, sizeof(KernStats));
+  memset(&KernStats, 0, sizeof(KernStats));
 #ifdef OPTION_KERN_TIMING_STATS
   Invocation::ZeroStats();
 #endif

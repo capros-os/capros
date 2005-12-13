@@ -19,8 +19,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <string.h>
 #include <kerninc/kernel.h>
-#include <kerninc/memory.h>
 #include <arch-kerninc/KernTune.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Depend.h>

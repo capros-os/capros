@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +19,7 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Check.h>
 #include <kerninc/ObjectHeader.h>
@@ -25,7 +27,6 @@
 #include <kerninc/Activity.h>
 #include <kerninc/SegWalk.h>
 #include <kerninc/Depend.h>
-#include <kerninc/memory.h>
 #include <arch-kerninc/PTE.h>
 
 #define dbg_rescind	0x1	/* steps in taking snapshot */
@@ -234,16 +235,16 @@ ObjectHeader::DoCopyOnWrite()
   kva_t to = ObjectCache::ObHdrToPage(pObj);
     
   /* Copy the page data */
-  bcopy((const void *)from, (void *)to, EROS_PAGE_SIZE);
+  memcpy((void *)to, (const void *)from, EROS_PAGE_SIZE);
 
   /* FIX -- the header needs to be copied with care -- perhaps this
    * should be expanded in more explicit form?
    */
   
   /* And the object header: */
-  bcopy(this, pObj, sizeof(ObjectHeader));
+  memcpy(pObj, this, sizeof(ObjectHeader));
 
-  /* The key ring needs to be reset following the header bcopy */
+  /* The key ring needs to be reset following the header copy */
   pObj->kr.ResetRing();
   
   /* Because the original may already be queued up for I/O, the copy

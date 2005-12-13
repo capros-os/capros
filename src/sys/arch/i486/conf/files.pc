@@ -20,7 +20,6 @@
 
 file("kernel/kern_main.c")
 
-file("arch/i486/kernel/memory.S")
 file("arch/i486/kernel/interrupt.S")
 file("arch/i486/kernel/IPC-vars.c")
 file("arch/i486/kernel/IpcTrap.c")

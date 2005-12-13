@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,12 +19,12 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Key.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/ObjectCache.h>
-#include <kerninc/memory.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <eros/PageKey.h>
@@ -129,7 +130,7 @@ PageKey(Invocation* inv /*@ not null @*/)
       copiedPage = objC_ObHdrToPage(key_GetObjectPtr(inv->entry.key[0]));
 
 
-      bcopy((void *) copiedPage, (void *) invokedPage, EROS_PAGE_SIZE);
+      memcpy((void *) invokedPage, (void *) copiedPage, EROS_PAGE_SIZE);
 						    
       inv->exit.code = RC_OK;
       return;

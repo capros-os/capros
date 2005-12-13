@@ -25,7 +25,6 @@
 #include <kerninc/Node.h>
 #include <kerninc/Process.h>
 #include <kerninc/SegWalk.h>
-#include <kerninc/memory.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <eros/NodeKey.h>

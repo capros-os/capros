@@ -23,7 +23,6 @@
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Machine.h>
-#include <kerninc/memory.h>
 
 #include <eros/PageKey.h>
 #include <eros/Invoke.h>

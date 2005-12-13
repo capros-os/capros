@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -20,6 +21,7 @@
 
 /* Driver for key invocation */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Debug.h>
@@ -428,6 +430,47 @@ inv_IsCorrupted(Invocation* thisPtr)
   return false;
 }
 #endif
+
+/* Copy at most COUNT bytes out to the process.  If the process
+ * receive length is less than COUNT, silently truncate the outgoing
+ * bytes.  Rewrite the process receive count field to indicate the
+ * number of bytes actually transferred.
+ */
+uint32_t 
+inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data)
+{
+  assert(InvocationCommitted);
+
+  thisPtr->sentLen = len;
+
+  if (thisPtr->validLen < len)
+    len = thisPtr->validLen;
+
+  thisPtr->exit.len = len;
+  
+  if (thisPtr->exit.len)
+    memcpy(thisPtr->exit.data, data, thisPtr->exit.len);
+
+  return thisPtr->exit.len;
+}
+
+/* Copy at most COUNT bytes in from the process.  If the process
+ * send length is less than COUNT, copy the number of bytes in the
+ * send buffer.  Return the number of bytes transferred.
+ */
+uint32_t 
+inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data)
+{
+  assert(InvocationCommitted);
+  
+  if (thisPtr->entry.len < len)
+    len = thisPtr->entry.len;
+  
+  if (thisPtr->entry.len)
+    memcpy(data, thisPtr->entry.data, len);
+
+  return len;
+}
 
 void 
 proc_BuildResumeKey(Process* thisPtr, Key* resumeKey /*@ not null @*/)

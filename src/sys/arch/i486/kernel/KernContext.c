@@ -19,8 +19,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <string.h>
 #include <kerninc/kernel.h>
-#include <kerninc/memory.h>
 #include <kerninc/Process.h>
 #include <kerninc/Activity.h>
 #include <kerninc/IRQ.h>
@@ -76,7 +76,7 @@ kproc_Init(
   p->curActivity = theActivity;
   p->runState = RS_Running;
 
-  bzero(&p->trapFrame, sizeof(p->trapFrame));
+  memset(&p->trapFrame, 0, sizeof(p->trapFrame));
   
   p->hazards = 0;
 

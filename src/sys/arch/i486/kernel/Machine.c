@@ -19,6 +19,7 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/Machine.h>
@@ -30,7 +31,6 @@
 #include <kerninc/SysTimer.h>
 #include <kerninc/PCI.h>
 #include <kerninc/KernStats.h>
-#include <kerninc/memory.h>
 #include <eros/TimeOfDay.h>
 #include <idl/eros/SysTrace.h>
 /*#include "Log386.hxx"*/

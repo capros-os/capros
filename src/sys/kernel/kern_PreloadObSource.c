@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -20,10 +21,10 @@
 
 /* ObjectRange driver for preloaded ram ranges */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>
-#include <kerninc/memory.h>
 #include <kerninc/util.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/ObjectSource.h>
@@ -104,7 +105,7 @@ FetchPage(ObjectSource *src, ObjectHeader *pObj)
     kva_t pageBase = src->base;
     pageBase += (fi.obFrameNo * EROS_PAGE_SIZE);
 
-    bcopy((void *) pageBase, dest, EROS_PAGE_SIZE);
+    memcpy(dest, (void *) pageBase, EROS_PAGE_SIZE);
     return true;
   }
   else if (pp->type[fi.tagEntry] == FRM_TYPE_ZDPAGE) {
