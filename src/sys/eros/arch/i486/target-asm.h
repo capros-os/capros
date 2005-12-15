@@ -26,12 +26,13 @@
  * Basic type declarations for the target platform, used pervasively
  * within the kernel code and the volume construction utilities.
  *
- * This file is included from Assembler, C and C++ code, so it needs
+ * This file is included from Assembler, C and C++ code, 
+   and from both host and target code, so it needs
  * to be handled very carefully.  In particular, parentheses mean
  * something in assembler and should be avoided.
  */
 
-#if !(defined(i386) || defined(i486))
+#if !(defined(EROS_TARGET_i486))
 #error "Inappropriate target file"
 #endif
 

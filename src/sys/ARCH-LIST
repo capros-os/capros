@@ -1,9 +1,6 @@
-# This file is of the form
-#
-#        architecture-name    test-symbol
-#
-# It is important that neither contain whitespace, as awk will trip
+# This file lists the architecture names.
+# It is important that they do not contain whitespace, as awk will trip
 # over entries that do.
 
-i486   __i386__
-arm    __arm__
+i486 
+arm

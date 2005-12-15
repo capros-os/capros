@@ -25,10 +25,11 @@
 /* Basic type declarations for the target platform, used pervasively
    within the kernel code and the volume construction utilities.
  
-   This file is included from both C and C++ code, so it needs to be
-   handled carefully.  */
+   This file is included from both C and C++ code, 
+   and from both host and target code,
+   so it needs to be handled carefully.  */
 
-#if !(defined(i386) || defined(i486))
+#if !(defined(EROS_TARGET_i486))
 #error "Wrong target file included"
 #endif
 

@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
+# Copyright (C) 2005, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -18,9 +19,8 @@
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 
-# program to generate ArchDescrip stuff for EROSIMG library.
-# Note that this version handles only one architecture, which
-# is something we really should fix someday.
+# program to generate headers in machine/ that include the appropriate
+# architecture-specific header.
 
 BEGIN {
   for (i = 1; i < ARGC; i++)
@@ -35,9 +35,8 @@ BEGIN {
 
 /^[ \t]*$/   { next; }
 
-NF == 2 {
+NF == 1 {
   arch[nArch] = $1;
-  test[nArch] = $2;
   nArch = nArch + 1;
 }
 
@@ -52,11 +51,12 @@ END {
       print "Processing " arch[a];
 
       if (a == 0) {
-        printf("\n#if defined(%s)\n", test[a]) > fn[i];
+        printf("\n#if") > fn[i];
       }
       else {
-        printf("#elif defined(%s)\n", test[a]) > fn[i];
+        printf("#elif") > fn[i];
       }
+      printf(" defined(EROS_TARGET_%s)\n", arch[a]) > fn[i];
 
       printf("#include \"../arch/%s/%s\"\n", arch[a], fn[i]) > fn[i];
     }

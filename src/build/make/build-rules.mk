@@ -24,8 +24,8 @@ include $(EROS_SRC)/build/make/makevars.mk
 endif
 
 # The following variables depend on things set in the makefile:
-GCCFLAGS=$(CFLAGS) $(OPTIM) $(GCC_OPTIM) $(INC) $(DEF)
-GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(OPTIM) $(GPLUS_OPTIM) $(INC) $(DEF)
+GCCFLAGS=$(CFLAGS) $(OPTIM) $(GCC_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
+GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(OPTIM) $(GPLUS_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
 
 DEP_SEDHACK=sed 's,^[^:]*:[:]*,'$@' '$(BUILDDIR)/'&,g'
 
