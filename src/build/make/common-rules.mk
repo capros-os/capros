@@ -83,7 +83,7 @@ subdirs:
 recurse:
 	@for i in $(DIRS); do \
 		if [ -d "$$i" ]; then\
-			$(MAKE) -C $$i $(MAKERULES) $(RECURSE_TARGET) recurse; \
+			$(MAKE) -C $$i $(MAKERULES) $(RECURSE_TARGET) ; \
 			if [ $$? -ne 0 ]; then\
 				echo "*** RECURSIVE BUILD STOPS ***";\
 				exit 1;\
