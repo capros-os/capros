@@ -57,7 +57,7 @@ EMUL_486=-DNO_LARGE_PAGES -DWRITE_THROUGH -DSINGLE_PIPE
 
 OPTIM= -g -O2 -march=i486 $(EROS_GCC_OPTIM) # $(PACK_OPTIM)
 
-INC=-include kernel-config.h -I../../include -I$(EROS_ROOT)/include -I../.. -I$(TOP) -I.
+INC=-include kernel-config.h -I$(EROS_ROOT)/include -I../.. -I$(TOP) -I.
 
 DEF+=-DNCPU=1
 DEF+=-D__KERNEL__ -DTRACE=$(TRACE) #
