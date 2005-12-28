@@ -34,6 +34,7 @@ LOCAL_HEADERS=\
 	asm.h \
 	atomic.h \
 	cap-instr.h \
+	Invoke.h \
 	endian.h \
 	target-asm.h \
 	Registers.h \
@@ -72,7 +73,7 @@ traceregs.h: $(LAYOUT) $(GENTRACEREGS) .FORCE
 
 
 # NOTE that target-asm.h also gets installed in the domain include tree!
-install: $(GENERATED)
+install: $(GENERATED) Makefile
 	$(INSTALL) -d $(EROS_ROOT)/include
 	$(INSTALL) -d $(EROS_ROOT)/include/eros
 	$(INSTALL) -d $(EROS_ROOT)/include/eros/arch/$(EROS_TARGET)

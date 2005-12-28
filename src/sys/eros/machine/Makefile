@@ -30,6 +30,7 @@ HEADERS=\
 	asm.h \
 	atomic.h \
 	cap-instr.h \
+	Invoke.h \
 	endian.h \
 	target-asm.h \
 	pseudoregs.h \
@@ -47,7 +48,7 @@ GENMACHHEADERS=../../scripts/GenMachHeaders.awk
 
 .FORCE:
 
-$(GENERATED): ../../ARCH-LIST
+$(GENERATED): ../../ARCH-LIST Makefile
 	$(GAWK) -f $(GENMACHHEADERS) $@ < ../../ARCH-LIST
 
 

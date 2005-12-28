@@ -24,63 +24,11 @@
 /*
  * This file resides in eros/ because the kernel and the invocation
  * library must agree on the values.
- *
- * Changes to the Message structure must be reflected in the assembler
- * stubs in lib/domain/ARCH/...S
  */
 
 #if !defined(__ASSEMBLER__)
 
-#define RESUME_SLOT 3
-
-typedef struct Message {
-  fixreg_t invType;
-  fixreg_t snd_invKey;		  /* key to be invoked */
-
-  fixreg_t snd_len;
-  const void *snd_data;
-  
-#if RESUME_SLOT == 0
-  uint8_t snd_rsmkey;
-  uint8_t snd_key0;
-  uint8_t snd_key1;
-  uint8_t snd_key2;
-#else
-  uint8_t snd_key0;
-  uint8_t snd_key1;
-  uint8_t snd_key2;
-  uint8_t snd_rsmkey;
-#endif
-
-  fixreg_t rcv_limit;
-  void *rcv_data;
-  
-#if RESUME_SLOT == 0
-  uint8_t rcv_rsmkey;
-  uint8_t rcv_key0;
-  uint8_t rcv_key1;
-  uint8_t rcv_key2;
-#else
-  uint8_t rcv_key0;
-  uint8_t rcv_key1;
-  uint8_t rcv_key2;
-  uint8_t rcv_rsmkey;
-#endif
-
-  fixreg_t snd_code;		  /* called this for compatibility */
-  fixreg_t snd_w1;
-  fixreg_t snd_w2;
-  fixreg_t snd_w3;
-
-
-  fixreg_t rcv_code;			  /* called this for compatibility */
-  fixreg_t rcv_w1;
-  fixreg_t rcv_w2;
-  fixreg_t rcv_w3;
-
-  uint16_t rcv_keyInfo;
-  fixreg_t rcv_sent;
-} Message;
+#include "machine/Invoke.h"
 
 #ifdef __cplusplus
 extern "C" {
