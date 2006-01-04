@@ -20,8 +20,6 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#include <kerninc/Set.h>
-
 #ifndef _ASM_U
 #define _ASM_U(x) (x##u)
 #endif
@@ -78,25 +76,25 @@ struct PTE {
 INLINE bool
 pte_is(PTE *pte, unsigned flg)
 {
-  return WSET_IS(pte->w_value, flg);
+  return pte->w_value & flg;
 }
 
 INLINE bool
 pte_isnot(PTE *pte, unsigned flg)
 {
-  return WSET_ISNOT(pte->w_value, flg);
+  return !(pte->w_value & flg);
 }
 
 INLINE void
 pte_set(PTE *pte, unsigned flg)
 {
-  WSET_SET(pte->w_value, flg);
+  pte->w_value |= flg;
 }
 
 INLINE void
 pte_clr(PTE *pte, unsigned flg)
 {
-  WSET_CLR(pte->w_value, flg);
+  pte->w_value &= ~flg;
 }
 
 /* Defined in Mapping.c: */

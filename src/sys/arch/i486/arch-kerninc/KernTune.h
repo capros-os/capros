@@ -124,12 +124,6 @@
 #define KTUNE_NIOREGION     32	 /* Number of reservable I/O address
 				    space regions */
 
-/* Number of interrupts you can wire up.  PC has 16 interrupts plus
-   umpteen exception vectors plus 3 kernel syscalls.  This needs to
-   cover all of those. */
-#define KTUNE_NINTACTION    40	 /* Number of interrupt action registry
-				    structures. */
-
 /* Max number of partitions we need to remember across all disks.
    Might need to go up if you have a farm.
 
