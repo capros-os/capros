@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group
+# Copyright (C) 2005, 2006, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -38,9 +38,7 @@ all install: configs
 
 configs:
 	for kc in $(KERNEL_CONFIGS); do \
-		if [ ! -d BUILD/$$kc ]; then\
-			$(MAKE) -C conf KERNEL_CONFIG=$$kc active_config; \
-		fi; \
+		$(MAKE) -C conf KERNEL_CONFIG=$$kc install; \
 	done
 
 COMMON_DIRS=$(CONFDIR)
