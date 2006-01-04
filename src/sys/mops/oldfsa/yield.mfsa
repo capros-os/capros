@@ -1,4 +1,0 @@
-label "Should not yieled while disabled";
-fsa yield.fsa;
-initialstate init "Init";
-finalstate yielded "yield while disabled";

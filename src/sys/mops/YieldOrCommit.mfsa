@@ -1,4 +1,0 @@
-label "Yield or commit";
-fsa YieldOrCommit.fsa;
-initialstate start "Initial state";
-finalstate error "Error";

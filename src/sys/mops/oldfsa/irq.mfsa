@@ -1,6 +1,0 @@
-label "irq_ENABLE and irq_DISABLE are properly bracketed";
-fsa irq.fsa;
-initialstate disabled1 "Disabled Level 1";
-finalstate toomanydisable "Too many disables";
-finalstate doubleenable "Double enable";
-finalstate exitwhiledisabled "Exit while disabled";

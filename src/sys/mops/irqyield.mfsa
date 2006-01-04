@@ -1,7 +1,0 @@
-label "Check for yield and IRQ";
-fsa irqyield.fsa;
-initialstate enabled "Enabled";
-finalstate toomanydisable "Too many disable";
-finalstate doubleenable "Double enable";
-finalstate badexit "Exit with mismatched enable/disable";
-finalstate badyield "Yield while disabled";

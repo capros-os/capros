@@ -1,9 +1,0 @@
-label "Should not yieled while disabled";
-fsa irq.fsa yield.fsa;
-initialstate disabled1 init "Init";
-finalstate disabled1 yielded "yield while disabled";
-finalstate disabled2 yielded "yield while disabled";
-finalstate disabled3 yielded "yield while disabled";
-finalstate disabled4 yielded "yield while disabled";
-finalstate disabled5 yielded "yield while disabled";
-finalstate toomanydisable yielded "yield while disabled";

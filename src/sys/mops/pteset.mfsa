@@ -1,4 +1,0 @@
-label "Depend_AddKey() must be called before each pte_set()";
-fsa pteset.fsa;
-initialstate init "Init";
-finalstate error "pte_set() did not follow Depend_AddKey()";
