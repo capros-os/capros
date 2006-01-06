@@ -26,11 +26,11 @@ EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 BUILDDIR=.
 
-install all: BUILD/$(KERNEL_CONFIG)/Makefile
+install all: ../BUILD/$(KERNEL_CONFIG)/Makefile
 
 # The dependencies "files.pc" and "Makefile.pc" are a temporary expedient;
 # they really should depend on the machine("xxx") configuration.
-BUILD/$(KERNEL_CONFIG)/Makefile: $(KERNEL_CONFIG) ALL ../../../config.common files.pc Makefile.pc
+../BUILD/$(KERNEL_CONFIG)/Makefile: $(KERNEL_CONFIG) ALL ../../../config.common files.pc Makefile.pc
 	$(PYTHON) ../../../scripts/config.py $(KERNEL_CONFIG)
 
 include $(EROS_SRC)/build/make/makerules.mk
