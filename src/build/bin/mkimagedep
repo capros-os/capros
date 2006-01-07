@@ -51,7 +51,7 @@ fi
 #
 #    Also, this functionality may want to move into mkimage.
 #
-set -- `getopt o:dvn:I:A:D: "$@"`
+set -- `getopt a:o:dvn:I:A:D: "$@"`
 if test $? != 0; then
    usage
 fi
@@ -83,6 +83,10 @@ for i; do
          ;;
       -o)
            OUTFILE=$2
+           shift 2
+         ;;
+      -a)
+           # ignore architecture option
            shift 2
          ;;
       --)
