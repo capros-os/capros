@@ -30,7 +30,6 @@ TARGETS=$(BUILDDIR)/nullkey
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/nullkey.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
-MAPINC=-I$(EROS_ROOT)/domain
 VOLMAP=../bench.volmap
 
 include $(EROS_SRC)/build/make/makerules.mk

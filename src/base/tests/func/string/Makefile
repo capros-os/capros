@@ -30,7 +30,6 @@ TARGETS=$(BUILDDIR)/call $(BUILDDIR)/echo
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/call.o $(BUILDDIR)/echo.o
 INC=-I$(EROS_ROOT)/include
-#MAPINC=-I$(EROS_ROOT)/domain
 
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/boot
 VOLMAP=../test.volmap

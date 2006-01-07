@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2005, Strawberry Development Group.
+# Copyright (C) 2005, 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -28,7 +28,6 @@ endif
 
 IMGMAP=test.imgmap.$(EROS_TARGET)
 
-MAPINC=-I$(EROS_ROOT)/domain -I$(EROS_ROOT)/include
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(BOOTSTRAP)
 
 # Following is picked up from environment variable if present.
@@ -48,7 +47,7 @@ DDBS=1440k
 install: $(TARGETS) $(BUILDDIR)/test.sysimg
 
 $(BUILDDIR)/test.sysimg: $(TARGETS) $(IMGMAP)
-	$(EROS_ROOT)/host/bin/mkimage -a $(EROS_TARGET) -DBUILDDIR='\"$(BUILDDIR)/\"' -o $(BUILDDIR)/test.sysimg $(MAPINC) $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
+	$(EROS_ROOT)/host/bin/mkimage $(MKIMAGEFLAGS) -o $(BUILDDIR)/test.sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
 
 init.hd: $(KERNDEP) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
@@ -78,7 +77,7 @@ DEPEND: $(BUILDDIR)/.test.sysimg.m
 #arguments from the "test.sysimg:" line, above.
 
 $(BUILDDIR)/.test.sysimg.m: $(TARGETS) $(IMGMAP)
-	-$(MKIMAGEDEP) -DBUILDDIR='"$(BUILDDIR)/"' -o $(BUILDDIR)/test.sysimg $(MAPINC) $(IMGMAP) $(BUILDDIR)/.test.sysimg.m >/dev/null 2>&1
+	-$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/test.sysimg $(IMGMAP) $(BUILDDIR)/.test.sysimg.m >/dev/null 2>&1
 
 -include $(BUILDDIR)/.*.m
 

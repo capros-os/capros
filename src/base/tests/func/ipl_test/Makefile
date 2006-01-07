@@ -35,7 +35,6 @@ DEF=-D_POSIX_SOURCE -DEROS
 UXLIB=$(EROS_ROOT)/lib/libunix.a
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/boot
 KERNEL=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(EROS_CONFIG).eros.debug
-MAPINC=-I$(EROS_ROOT)/domain
 #CFLAGS+=-DDEBUG
 VOLMAP=volmap
 

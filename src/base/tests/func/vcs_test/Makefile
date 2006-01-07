@@ -31,7 +31,6 @@ OPTIM=-O
 OBJECTS=vcs_test.o
 CLEANLIST=test.sysimg test.sysvol
 INC=-I$(EROS_ROOT)/include
-MAPINC=-I$(EROS_ROOT)/domain
 #SETVOL_FLAGS = -d
 
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/boot

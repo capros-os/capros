@@ -32,7 +32,6 @@ OPTIM=-O
 OBJECTS=pcc_test.o
 CLEANLIST=test.sysimg test.sysvol
 INC=-I$(EROS_ROOT)/include
-MAPINC=-I$(EROS_ROOT)/domain
 
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/boot
 

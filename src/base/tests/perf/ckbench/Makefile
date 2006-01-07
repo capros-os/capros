@@ -31,7 +31,6 @@ OPTIM=-O
 OBJECTS=ckbench.o
 CLEANLIST=test.sysimg test.sysvol
 INC=-I$(EROS_ROOT)/include
-MAPINC=-I$(EROS_ROOT)/domain
 VOLMAP=bench.volmap
 
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/boot

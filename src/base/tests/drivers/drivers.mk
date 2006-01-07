@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2005, Strawberry Development Group.
+# Copyright (C) 2005, 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -30,7 +30,6 @@ endif
 
 OPTIM=-O
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
-MAPINC=-I$(EROS_ROOT)/domain -I$(EROS_ROOT)/include
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(BOOTSTRAP)
 
 # Following is picked up from environment variable if present.
@@ -43,7 +42,6 @@ endif
 KERNPATH=$(KERNDIR)/$(KERNEL)
 KERNDEP=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(KERNEL)
 
-MKIMAGEDEP=$(EROS_ROOT)/src/build/bin/mkimagedep
 # so shap can see it better when necessary:
 DDBS=1440k
 SETVOL_FLAGS += -z
@@ -51,7 +49,7 @@ SETVOL_FLAGS += -z
 install all: $(TARGETS) $(BUILDDIR)/sysimg
 
 $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
-	$(EROS_ROOT)/host/bin/mkimage -a $(EROS_TARGET) -DBUILDDIR='\"$(BUILDDIR)/\"' -o $(BUILDDIR)/sysimg $(MAPINC) $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
+	$(EROS_ROOT)/host/bin/mkimage $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
 
 init.hd: $(KERNDEP) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
@@ -98,6 +96,6 @@ DEPEND: $(BUILDDIR)/.sysimg.m
 #arguments from the "sysimg:" line, above.
 
 $(BUILDDIR)/.sysimg.m: $(TARGETS) $(IMGMAP)
-	-$(MKIMAGEDEP) -DBUILDDIR='"$(BUILDDIR)/"' -o $(BUILDDIR)/sysimg $(MAPINC) $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
+	-$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
 
 -include $(BUILDDIR)/.*.m
