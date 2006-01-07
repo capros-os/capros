@@ -33,7 +33,6 @@ OPTIM=-O
 OBJECTS=
 CLEANLIST=sysvol sysimg zsysvol sysgen.map vmfloppy
 INC=-I$(EROS_ROOT)/include
-MAPINC=-I$(EROS_ROOT)/domain
 IPLCRT0=$(EROS_ROOT)/lib/$(EROS_TARGET)/ipldomcrt0.o
 
 KERNDIR=$(EROS_ROOT)/lib/$(EROS_TARGET)/image
@@ -59,7 +58,7 @@ install all: $(TARGETS)
 .force:
 
 $(BUILDDIR)/sysimg: imgmap # .force
-	$(EROS_ROOT)/host/bin/mkimage -DBUILDDIR='\"$(BUILDDIR)/\"' -a $(EROS_TARGET) -o $(BUILDDIR)/sysimg $(MAPINC) imgmap
+	$(EROS_ROOT)/host/bin/mkimage $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg imgmap
 
 $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg  $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol
@@ -88,7 +87,7 @@ vmware: $(BUILDDIR)/vmfloppy
 	$(VMWARE) -x -s floppy0.fileType=file -s floppy0.fileName=`pwd`/$(BUILDDIR)/vmfloppy $(HOME)/vmware/EROS/EROS.cfg
 
 $(BUILDDIR)/.sysimg.m: $(TARGETS) $(IMGMAP)
-	@-$(MKIMAGEDEP) -DBUILDDIR='"$(BUILDDIR)/"' -o test.sysimg $(MAPINC) $(IMGMAP) .sysimg.m >/dev/null  2>&1
+	@-$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o test.sysimg $(IMGMAP) .sysimg.m >/dev/null  2>&1
 
 # only include the depend file for this target
 -include $(BUILDDIR)/.*.m
