@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group
+# Copyright (C) 2005, 2006, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
