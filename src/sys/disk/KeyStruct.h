@@ -2,6 +2,7 @@
 #define __DISK_KEYSTRUCT_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -76,9 +77,6 @@ typedef enum Priority Priority;
 struct ObjectTable;
 
 typedef struct KeyBits KeyBits;
-#ifdef __KERNEL__
-typedef struct KeyBits Key;
-#endif
 
 #define KFL_PREPARED       _ASM_U(0x4)
 #define KFL_RHAZARD        _ASM_U(0x2)

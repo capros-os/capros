@@ -131,14 +131,6 @@ struct Invocation {
 #endif
 
   Process *invokee;		/* extracted from the key for efficiency */
-
-#if CONVERSION
-  Invocation();
-#endif
-
-#if 0
-  ~Invocation();
-#endif
 };
 
 #if defined(OPTION_KERN_TIMING_STATS)
@@ -190,10 +182,8 @@ void inv_RetryInvocation(Invocation* thisPtr);
 INLINE void 
 inv_MaybeDecommit(Invocation* thisPtr)
 {
-  /* CONVERSION */
   if (inv_CanCommit() == false)
     inv_RetryInvocation(thisPtr);
-  /* END CONVERSION */
 }
 
 void inv_Commit(Invocation* thisPtr);

@@ -2,7 +2,7 @@
 #define __MACHINE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -25,23 +25,6 @@
  * machine independent initialization.
  */
 #include <eros/TimeOfDay.h>
-
-
-#if CONVERSION
-class Machine {
-public:
-  
-#if 0
-  static void AutoConfigure();	/* machine DEPENDENT */
-#endif
-  
-#if 0
-  /* Used to map send and receive buffers: */
-  static void MapBuffer(kva_t va, kpa_t p0, kpa_t p1);
-#endif
-
-};
-#endif /*CONVERSION*/
 
 
 enum mach_BusType {

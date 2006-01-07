@@ -2,6 +2,7 @@
 #define __KERNINC_KEY_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -102,38 +103,7 @@
  * 
  */
 
-#if CONVERSION
-class Key : public KeyBits {
-  /* BOOK: The reason to separate rHazard and wHazard is that it
-   * lets PTE's dangle in the wind, which is sometimes profitable.
-   * This is an optimization we might wish to leave out of the book.
-   */
-
-public:
-#if 0
-  Key(KeyType kt, uint8_t db);	/* This is wrong - need more args. */
-#endif
-  Key();
-  
-#if 0
-  ~Key();
-#endif
-  
-  /* The following two calls should NEVER be used, and I occasionally
-   * forget.  By including declarations for them here, I suppress
-   * automatic generation by the compiler and guarantee that a link
-   * error will result if you use them.
-   * 
-   * The solution is to use NH_Set instead, NOT to insert definitions
-   * for these functions.  It makes a HUGE difference in performance
-   * to use NH_Set vs. the general case set!
-   */
-  Key& operator =(const Key& that);
-  Key(const Key& that);
-
-} ;
-#endif
-
+typedef struct KeyBits Key;
 
 extern Key key_VoidKey;
 
