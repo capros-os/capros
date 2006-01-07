@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group.
+# Copyright (C) 2005, 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -60,6 +60,8 @@ END {
 
       printf("#include \"../arch/%s/%s\"\n", arch[a], fn[i]) > fn[i];
     }
+    printf("#else\n") > fn[i];
+    printf("#error \"Unknown target\"\n") > fn[i];
     printf("#endif\n\n") > fn[i];
 
     printf("#endif /* __EROS_MACHINE_%s__ */\n", nmgen(fn[i])) > fn[i];
