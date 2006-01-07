@@ -34,7 +34,7 @@
 	
 #include <eros/arch/i486/asm.h>
 #include <eros/arch/i486/target-asm.h>
-#include <arch-kerninc/PTE.h>
+#include "PTE486.h"
 #include <eros/ProcessState.h>
 #include <eros/Invoke.h>
 

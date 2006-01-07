@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -73,7 +74,8 @@ DeviceNotAvailException(savearea_t *sa)
     dprintf(false, "Forcing numerics load for ctxt 0x%08x...\n",
 		    Thread::CurContext());
 #endif
-    proc_ForceNumericsLoad(act_CurContext());
+    act_CurContext()->hazards |= hz_NumericsUnit;
+    act_CurContext()->saveArea = 0;
   }
 
 #endif

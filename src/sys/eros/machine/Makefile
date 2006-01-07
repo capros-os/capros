@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System runtime library.
 #
@@ -48,7 +49,7 @@ GENMACHHEADERS=../../scripts/GenMachHeaders.awk
 
 .FORCE:
 
-$(GENERATED): ../../ARCH-LIST Makefile
+$(GENERATED): ../../ARCH-LIST Makefile $(GENMACHHEADERS)
 	$(GAWK) -f $(GENMACHHEADERS) $@ < ../../ARCH-LIST
 
 

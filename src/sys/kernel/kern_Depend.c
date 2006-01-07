@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2006, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -235,6 +235,8 @@ Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
 void
 KeyDependEntry_Invalidate(KeyDependEntry * kde)
 {
+  /* Much of this is architecture-specific.
+     It should be reorganized as such. */
   kva_t mapping_page_kva;
   ObjectHeader *pMappingPage = 0;
   PTE *ptePage = 0;
@@ -314,6 +316,7 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
   }
 
 #if defined(OPTION_SMALL_SPACES) && !defined(NDEBUG)
+#if 0 /* architecture-specific; disabled for now */
   if (pMappingPage && pMappingPage->producerNdx == EROS_NODE_LGSIZE) {
     PTE *kpgdir = KernPageDir;
     uint32_t i;
@@ -327,11 +330,12 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
 	dprintf(true,
 			"uPDE 0x%08x (at 0x%08x) != "
 			"kPDE 0x%08x (at 0x%08x) uObHdr 0x%08x\n",
-			ptePage[i].w_value, ptePage + i, 
-			kpgdir[i].w_value, kpgdir +i,
+			pte_AsWord(&ptePage[i]), ptePage + i, 
+			pte_AsWord(&kpgdir[i]), kpgdir +i,
 			pMappingPage); 
     }
   }
+#endif
 #endif
 
   kde->start = 0;

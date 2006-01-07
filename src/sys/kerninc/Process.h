@@ -2,7 +2,7 @@
 #define __PROCESS_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -233,17 +233,6 @@ proc_GetSegRoot(Process* thisPtr)
 {
   return node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace);
 }
-
-#ifdef OPTION_SMALL_SPACES
-INLINE void              
-proc_SwitchToLargeSpace(Process* thisPtr)
-{
-  thisPtr->smallPTE = 0;
-  thisPtr->bias = 0;
-  thisPtr->limit = UMSGTOP;
-  thisPtr->MappingTable = KernPageDir_pa;
-}
-#endif
 
 #ifdef EROS_HAVE_FPU
 /* FPU support: */
@@ -476,52 +465,6 @@ void proc_FlushFixRegs(Process* thisPtr);
 void proc_FlushFloatRegs(Process* thisPtr);
 #endif
 void proc_FlushKeyRegs(Process* thisPtr);
-
-INLINE void 
-proc_SetPC(Process* thisPtr, uint32_t oc)
-{
-  thisPtr->trapFrame.EIP = oc;
-}
-
-/* Called before AdjustInvocationPC() to capture the address of the
- * next instruction to run if the invocation is successful.
- */
-INLINE uint32_t 
-proc_CalcPostInvocationPC(Process* thisPtr)
-{
-  return thisPtr->trapFrame.EIP;
-}
-
-/* Called in the IPC path to reset the PC to point to the invocation
- * trap instruction...
- */
-INLINE void 
-proc_AdjustInvocationPC(Process* thisPtr)
-{
-  thisPtr->trapFrame.EIP -= 2;
-}
-
-INLINE uint32_t 
-proc_GetPC(Process* thisPtr)
-{
-  return thisPtr->trapFrame.EIP;
-}
-
-INLINE void 
-proc_SetInstrSingleStep(Process* thisPtr)
-{
-  thisPtr->hazards |= hz_SingleStep;
-  thisPtr->saveArea = 0;
-}
-
-#ifdef EROS_HAVE_FPU
-INLINE void 
-proc_ForceNumericsLoad(Process* thisPtr)
-{
-  thisPtr->hazards |= hz_NumericsUnit;
-  thisPtr->saveArea = 0;
-}
-#endif
 
 #ifdef OPTION_SMALL_SPACES
 void proc_WriteDisableSmallSpaces();

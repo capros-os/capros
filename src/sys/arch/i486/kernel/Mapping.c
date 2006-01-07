@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -831,3 +831,63 @@ mach_EnableVirtualMapping()
 		       : /* no inputs */
 		       : "ax" /* eax smashed */);
 }
+
+/* Procedure used by Check: */
+
+#ifdef USES_MAPPING_PAGES
+/* This is x86 specific, and needs to go in an architecture file when
+ * I get it working!
+ */
+#include <kerninc/ObjectCache.h>
+bool
+check_MappingPage(ObjectHeader *pPage)
+{
+  PTE* pte = 0;
+  uint32_t ent = 0;
+  PTE* thePTE = 0; /*@ not null @*/
+  ObjectHeader* thePageHdr = 0;
+
+  if (pPage->producerNdx == EROS_NODE_LGSIZE)
+    return true;
+
+  pte = (PTE*) objC_ObHdrToPage(pPage);
+
+  for (ent = 0; ent < MAPPING_ENTRIES_PER_PAGE; ent++) {
+    thePTE = &pte[ent];
+
+    if ((thePTE->w_value & (PTE_V|PTE_W)) == (PTE_V|PTE_W)) { /* writeable */
+      uint32_t pageFrame = pte_PageFrame(thePTE);
+      kva_t thePage = PTOV(pageFrame);
+
+      if (thePage >= KVTOL(KVA_FROMSPACE))
+	continue;
+
+
+      thePageHdr = objC_PhysPageToObHdr(pageFrame);
+
+
+      if (objH_GetFlags(thePageHdr, OFLG_CKPT)) {
+	printf("Writable PTE=0x%08x (map page 0x%08x), ckpt pg"
+		       " 0x%08x%08x\n",
+		       pte_AsWord(thePTE), pte,
+		       (uint32_t) (thePageHdr->kt_u.ob.oid >> 32),
+		       (uint32_t) thePageHdr->kt_u.ob.oid);
+
+	return false;
+      }
+      if (!objH_IsDirty(thePageHdr)) {
+	printf("Writable PTE=0x%08x (map page 0x%08x), clean pg"
+		       " 0x%08x%08x\n",
+		       pte_AsWord(thePTE), pte,
+		       (uint32_t) (thePageHdr->kt_u.ob.oid >> 32),
+		       (uint32_t) thePageHdr->kt_u.ob.oid);
+
+	return false;
+      }
+
+    }
+  }
+
+  return true;
+}
+#endif

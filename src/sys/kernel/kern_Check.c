@@ -25,6 +25,12 @@
 #include <kerninc/Node.h>
 #include <kerninc/IRQ.h>
 
+#ifdef USES_MAPPING_PAGES
+/* This architecture specific. */
+bool
+check_MappingPage(ObjectHeader *pPage);
+#endif
+
 void
 check_Consistency(const char *msg)
 {
@@ -184,61 +190,3 @@ check_Pages()
 
   return result;
 }
-
-#ifdef USES_MAPPING_PAGES
-/* This is x86 specific, and needs to go in an architecture file when
- * I get it working!
- */
-#include <arch-kerninc/PTE.h>
-bool
-check_MappingPage(ObjectHeader *pPage)
-{
-  PTE* pte = 0;
-  uint32_t ent = 0;
-  PTE* thePTE = 0; /*@ not null @*/
-  ObjectHeader* thePageHdr = 0;
-
-  if (pPage->producerNdx == EROS_NODE_LGSIZE)
-    return true;
-
-  pte = (PTE*) objC_ObHdrToPage(pPage);
-
-  for (ent = 0; ent < MAPPING_ENTRIES_PER_PAGE; ent++) {
-    thePTE = &pte[ent];
-
-    if (pte_is(thePTE, PTE_V|PTE_W)) {
-      uint32_t pageFrame = pte_PageFrame(thePTE);
-      kva_t thePage = PTOV(pageFrame);
-
-      if (thePage >= KVTOL(KVA_FROMSPACE))
-	continue;
-
-
-      thePageHdr = objC_PhysPageToObHdr(pageFrame);
-
-
-      if (objH_GetFlags(thePageHdr, OFLG_CKPT)) {
-	printf("Writable PTE=0x%08x (map page 0x%08x), ckpt pg"
-		       " 0x%08x%08x\n",
-		       pte_AsWord(thePTE), pte,
-		       (uint32_t) (thePageHdr->kt_u.ob.oid >> 32),
-		       (uint32_t) thePageHdr->kt_u.ob.oid);
-
-	return false;
-      }
-      if (!objH_IsDirty(thePageHdr)) {
-	printf("Writable PTE=0x%08x (map page 0x%08x), clean pg"
-		       " 0x%08x%08x\n",
-		       pte_AsWord(thePTE), pte,
-		       (uint32_t) (thePageHdr->kt_u.ob.oid >> 32),
-		       (uint32_t) thePageHdr->kt_u.ob.oid);
-
-	return false;
-      }
-
-    }
-  }
-
-  return true;
-}
-#endif

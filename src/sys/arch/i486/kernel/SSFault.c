@@ -26,6 +26,7 @@
 #include <kerninc/Machine.h>
 /*#include <kerninc/util.h>*/
 #include <kerninc/Process.h>
+#include <arch-kerninc/Process.h>
 #include "IDT.h"
 
 extern void halt(char);

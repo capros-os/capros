@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -21,6 +22,7 @@
 #include <kerninc/kernel.h>
 #include <kerninc/Key.h>
 #include <kerninc/Process.h>
+#include <arch-kerninc/Process.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -29,6 +29,7 @@
 #include <kerninc/Check.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Process.h>
+#include <arch-kerninc/Process.h>
 #include <kerninc/SegWalk.h>
 #include <kerninc/Activity.h>
 #include <kerninc/util.h>
@@ -1696,7 +1697,7 @@ db_show_mappings_cmd(db_expr_t addr, int have_addr, db_expr_t det, char* ch)
 
     PTE* pde = space + hi;
     pte_print(base, "PDE ", pde);
-    if (pte_isnot(pde, PTE_V))
+    if (!pte_isValid(pde))
       db_printf("0x%08x PTE <invalid>\n", base);
     else {
       PTE *pte = KPAtoP(PTE *,pte_PageFrame(pde));
