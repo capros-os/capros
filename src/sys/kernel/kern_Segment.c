@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -148,6 +149,7 @@ segwalk_init(SegWalk *wi /*@ not null @*/, Key *pSegKey)
 
 
 #ifdef SEPARATE_NODE_HANDLER
+#error This is not the case.
 static fixreg_t
 walkseg_handle_node_key(Process * p, SegWalk* wi, uint32_t stopBlss,
 			PTE* pPTE0, PTE* pPTE1, bool canMerge)
@@ -226,6 +228,7 @@ bool
 proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
 	     PTE* pPTE0, PTE* pPTE1, bool canMerge)
 {
+/* BUG: needs to ensure UpdateTLB is called in all cases, including Yield. */
   const uint32_t MAX_SEG_DEPTH = 20;
   Key *pFormatKey = 0;
   KernStats.nWalkSeg++;
@@ -333,6 +336,7 @@ proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
       case KKT_Void:
 	goto invalid_addr;
 #ifdef KKT_TimePage
+#error This is not the case.
       case KKT_TimePage:
 	{
 	  wi.canWrite = false;
@@ -356,6 +360,7 @@ proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
       case KKT_Wrapper:
       case KKT_Page:
 #ifdef SEPARATE_NODE_HANDLER
+#error This is not the case.
 	{
 	  fixreg_t result = 
 	    walkseg_handle_node_key(p, wi, stopBlss,

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -43,11 +43,6 @@
 #include <kerninc/CPU.h>
 #include <kerninc/CpuReserve.h>
 
-
-int main(void);
-
-/* Allocate the kernel stack in the bss section. */
-uint32_t kernelStack[EROS_KSTACK_SIZE/sizeof(uint32_t)];
 
 struct grub_multiboot_info * MultibootInfoPtr;
 

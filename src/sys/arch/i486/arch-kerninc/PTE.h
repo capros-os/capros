@@ -43,8 +43,6 @@ pte_isValid(PTE *pte)
   return pte->w_value & PTE_V;
 }
 
-/* Former member functions of PTE */
-
 INLINE void 
 pte_Invalidate(PTE* thisPtr)
 {
@@ -95,5 +93,12 @@ pte_ZapMappingPage(kva_t pva)
     pte_Invalidate(pte);
 }
 #endif
+
+INLINE void
+UpdateTLB(void)
+{
+  if (PteZapped)
+    mach_FlushTLB();
+}
 
 #endif /* __PTE_H__ */

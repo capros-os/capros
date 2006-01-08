@@ -38,26 +38,14 @@ enum mach_BusType {
 } ;
 
 
-/* Former member functions of Machine */
-
 void mach_BootInit();	/* machine DEPENDENT */
 void mach_InitCoreSpace();	/* machine DEPENDENT */
 void mach_InitHardClock();	/* machine DEPENDENT */
 
-INLINE void mach_FlushTLB();
-INLINE void mach_FlushTLBWith(klva_t va);
-  
-INLINE void mach_MarkMappingsForCOW();
-
 /* Hardware clock support: */
 uint64_t mach_MillisecondsToTicks(uint64_t ms);
 uint64_t mach_TicksToMilliseconds(uint64_t ticks);
-void mach_SpinWaitMs(uint32_t ms);
 void mach_SpinWaitUs(uint32_t us);
-
-  /* Generic interfaces, but machine-specific routines */
-uint32_t mach_GetCpuType();
-const char *mach_GetCpuVendor();
 
   /* Hardware event tracing support: */
 const char *mach_ModeName(uint32_t mode);
@@ -91,11 +79,7 @@ void mach_MountDisk(DiskUnit*);
  */
 uint32_t mach_BusArchitecture();
 
-INLINE uint16_t mach_htonhw(uint16_t hw);
-INLINE uint32_t mach_htonw(uint32_t w);
-INLINE uint16_t mach_ntohhw(uint16_t hw);
-INLINE uint32_t mach_ntohw(uint32_t w);
-INLINE int mach_FindFirstZero(uint32_t w);
+/* INLINE int mach_FindFirstZero(uint32_t w); */
 
 #if 0
 /* Used to map send and receive buffers: */
@@ -122,11 +106,6 @@ extern struct MappingWindow *TempMapWindow;
 kva_t mach_winmap(struct MappingWindow* mw, kva_t lastva, kpa_t pa);
 void mach_winunmap(struct MappingWindow* mw, kva_t va);
 #else
-
-/* Compatibility kludge while kernel conversion is in progress: */
-#define PageDirWindow 0
-#define TempMapWindow 1
-
 kva_t mach_winmap(int mw, kva_t lastva, kpa_t pa);
 void mach_winunmap(int mw, kva_t va);
 #endif

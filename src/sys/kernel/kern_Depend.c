@@ -384,7 +384,7 @@ Depend_InvalidateKey(Key* pKey)
 
   if (didZap) {
     KernStats.nDepZap++;
-    mach_FlushTLB();
+    UpdateTLB();
   }
 }
 

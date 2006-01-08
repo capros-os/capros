@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -968,10 +969,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       pte_set(thePTE, PTE_CD);
   }
     
-
-  if (PteZapped)
-    mach_FlushTLB();
-
+  UpdateTLB();
     
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)

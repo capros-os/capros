@@ -104,6 +104,34 @@ pte_WriteProtect(PTE* thisPtr)
   PteZapped = true;
 }
 
+INLINE void
+mach_FlushTLB()
+{
+  __asm__ __volatile__("mov %%cr3,%%eax;mov %%eax,%%cr3"
+		       : /* no output */
+		       : /* no input */
+		       : "eax");
+}
+
+INLINE void
+mach_FlushTLBWith(klva_t lva)
+{
+#ifdef SUPPORT_386
+  if (CpuType > 3)
+    __asm__ __volatile__("invlpg  (%0)"
+			 : /* no output */
+			 : "r" (lva)
+			 );
+  else
+    mach_FlushTLB();
+#else
+  __asm__ __volatile__("invlpg  (%0)"
+		       : /* no output */
+		       : "r" (lva)
+		       );
+#endif
+}
+
 /* Notes on EROS page map usage:
  * 
  * Page is present if either AuxPresent or Present is set. Present is

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -56,3 +57,6 @@ PTE* pte_kern_fstbuf  __attribute__((aligned(4),
 				      section(".data")));
 PTE* pte_kern_ptebuf  __attribute__((aligned(4),
 				      section(".data")));
+
+/* Allocate the kernel stack in the bss section. */
+uint32_t kernelStack[EROS_KSTACK_SIZE/sizeof(uint32_t)];
