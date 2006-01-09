@@ -2,6 +2,7 @@
 #define __LOSTART_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -27,6 +28,7 @@ uint32_t SetFlags(uint32_t);
 uint64_t rdtsc();
 uint32_t rdcounter0();
 uint32_t rdcounter1();
+extern uint32_t CpuType;
 extern uint32_t CpuIdHi;
 extern uint32_t CpuFeatures;
 

@@ -2,6 +2,7 @@
 #define __ACTIVITY_H__
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -163,13 +164,6 @@ act_ZapContext(Activity *thisPtr)
   thisPtr->context = 0;
 }
 
-/* Called by the activity when it wishes to yield the processor: */
-INLINE void 
-act_Yield(Activity* thisPtr) 
-{
-  __asm__ __volatile__ ("jmp LowYield");
-}
-
 /* Must be under irq_DISABLE */
 INLINE void 
 act_SetRunning(Activity* thisPtr)
@@ -283,7 +277,10 @@ act_MigrateTo(Activity* thisPtr, Process *dc)
   }
 }
 
-void act_HandleYieldEntry(Activity* thisPtr) NORETURN;
+/* Called by the activity when it wishes to yield the processor: */
+void act_Yield(Activity* thisPtr /*unused*/) NORETURN;
+
+void act_HandleYieldEntry(void) NORETURN;
 
 void act_WakeUpIn(Activity* thisPtr, uint64_t ms);
 

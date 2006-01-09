@@ -33,6 +33,8 @@
 #include <kerninc/KernStats.h>
 #include <arch-kerninc/PTE.h>
 
+/* KeyDependEntry_Invalidate is in the architecture-specific file Mapping.c. */
+
 #define dbg_alloc	0x1u
 #define dbg_reuse	0x2u
 
@@ -229,119 +231,6 @@ Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Depend_AddKey(): after new entry");
-#endif
-}
-
-void
-KeyDependEntry_Invalidate(KeyDependEntry * kde)
-{
-  /* Much of this is architecture-specific.
-     It should be reorganized as such. */
-  kva_t mapping_page_kva;
-  ObjectHeader *pMappingPage = 0;
-  PTE *ptePage = 0;
-  uint32_t from;
-  uint32_t to;
-
-  if (kde->start == 0) {
-#ifdef DBG_WILD_PTR
-    if (dbg_wild_ptr)
-      check_Consistency("KeyDependEntry_Invalidate(): unused entry");    
-#endif
-    return;
-  }
-  
-  KernStats.nDepInval++;
-  
-#ifdef DEPEND_DEBUG
-  printf("Invalidating key entries start=0x%08x, count=%d\n",
-	      kde->start, kde->pteCount);
-#endif
-
-  mapping_page_kva = ((kva_t)kde->start & ~EROS_PAGE_MASK);
-  pMappingPage =
-    objC_PhysPageToObHdr(VTOP(mapping_page_kva));
-
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("KeyDependEntry_Invalidate(): got mapping page");    
-#endif
-
-  /* If it is no longer a mapping page, stop. */
-  if (pMappingPage && (pMappingPage->obType != ot_PtMappingPage)) {
-    kde->start = 0;
-    return;
-  }
-
-  ptePage = (PTE*) mapping_page_kva;
-
-  assert (((uint32_t) kde->start) >= ((uint32_t) ptePage));
-  
-  from = kde->start - ptePage;
-  to = from + kde->pteCount;
-
-  assert (from <= NPTE_PER_PAGE);
-  assert (to <= NPTE_PER_PAGE);
-  
-  assert (from < to);
-  
-  /* It is possible that this frame got retasked into a page directory 
-     with stale depend entries still live.  Those entries may span PTE 
-     slots that we should not zap under any conditions (kernel pages,
-     small space directory pointers).  Make sure we don't zap those: */
-
-  if (pMappingPage && pMappingPage->producerNdx == EROS_NODE_LGSIZE)
-    to = min(to, (UMSGTOP >> 22));
-  
-#if 0
-  printf("Invalidating PTE (hdr 0x%08x) from 0x%08x to 0x%08x\n",
-		 pMappingPage, &ptePage[from], &ptePage[to]);
-#endif
-  
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("KeyDependEntry_Invalidate(): pre pte zap");
-#endif
-
-  while (from < to) {
-    PTE *pPTE = &ptePage[from];
-    
-    pte_Invalidate(pPTE);
-#ifdef DBG_WILD_PTR
-    if (dbg_wild_ptr)
-      check_Consistency("KeyDependEntry_Invalidate(): post pte zap");
-#endif
-
-    from++;
-  }
-
-#if defined(OPTION_SMALL_SPACES) && !defined(NDEBUG)
-#if 0 /* architecture-specific; disabled for now */
-  if (pMappingPage && pMappingPage->producerNdx == EROS_NODE_LGSIZE) {
-    PTE *kpgdir = KernPageDir;
-    uint32_t i;
-    
-    /* Some of the kernel-related entries may not match, because the
-     * fast mapping buffers cause them to change.
-     */
-    for (i = (UMSGTOP >> 22); i < (KVA >> 22); i++) {
-      /* used to be  if (ptePage[i] != kpgdir[i]) */
-      if (pte_NotEqualTo(&ptePage[i], &kpgdir[i]))
-	dprintf(true,
-			"uPDE 0x%08x (at 0x%08x) != "
-			"kPDE 0x%08x (at 0x%08x) uObHdr 0x%08x\n",
-			pte_AsWord(&ptePage[i]), ptePage + i, 
-			pte_AsWord(&kpgdir[i]), kpgdir +i,
-			pMappingPage); 
-    }
-  }
-#endif
-#endif
-
-  kde->start = 0;
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("KeyDependEntry_Invalidate(): end");
 #endif
 }
 

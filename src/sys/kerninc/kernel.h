@@ -22,8 +22,8 @@
 
 #include <stddef.h>
 #include <eros/target.h>
-#include <arch-kerninc/kern-target.h>
 #include <arch-kerninc/kern-target-asm.h>
+#include <arch-kerninc/kern-target.h>
 #include <disk/ErosTypes.h>
      
 #define DOWNCAST(child, parent) (parent *) (child)

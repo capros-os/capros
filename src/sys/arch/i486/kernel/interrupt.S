@@ -1,7 +1,7 @@
 	.file	"interrupt.S"
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -1733,7 +1733,7 @@ L_v86_iret_pc:
 
 .text
 	.align 16
-ENTRY(LowYield)
+ENTRY(act_Yield)
 	/* FIX -- this stack pointer needs to be rewound to 
 	   top arithmetically. */
 	movl	$(EXT(kernelStack)+EROS_KSTACK_SIZE),%esp

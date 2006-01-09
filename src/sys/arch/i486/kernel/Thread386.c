@@ -35,7 +35,7 @@
 extern void kernel_thread_yield();
 
 void 
-act_HandleYieldEntry(Activity *thisPtr)
+act_HandleYieldEntry(void)
 {
   /* This routine is really another kernel entry point.  When called,
      the current process is giving up the processor, and is most

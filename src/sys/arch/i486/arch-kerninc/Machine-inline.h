@@ -1,3 +1,5 @@
+#ifndef __MACHINE_INLINE_H__
+#define __MACHINE_INLINE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, Strawberry Development Group.
@@ -18,11 +20,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-#ifndef __MACHINE_INLINE_H__
-#define __MACHINE_INLINE_H__
-
-extern uint32_t CpuType;
-
 
 INLINE int
 mach_FindFirstZero(uint32_t w)
