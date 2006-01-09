@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -373,5 +373,23 @@ irq_UnsetHandler(uint32_t irq)
 
   printf("Unsetting irq %d\n", irq);
   idt_WireVector(iv_IRQ0 + irq, irq_UnboundInterrupt);
+}
+
+/* Handler for interrupts using the DevicePrivs key. */
+void
+DoUsermodeInterrupt(savearea_t *ia)
+{
+  uint32_t irq = IRQ_FROM_EXCEPTION(ia->ExceptNo);
+
+  struct UserIrq *uirq = &UserIrqEntries[irq];
+  
+  assert(irq_GetHandler(irq) == DoUsermodeInterrupt);
+
+#if 0
+  printf("Waking sleepers for IRQ %d\n", irq);
+#endif
+
+  uirq->isPending = true;
+  sq_WakeAll(&uirq->sleepers, false);
 }
 

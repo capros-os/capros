@@ -2,6 +2,7 @@
 #define __IRQ_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -21,9 +22,17 @@
  */
 
 #include <arch-kerninc/SaveArea.h>
+#include <kerninc/StallQueue.h>
 
 /*struct fixregs_t;*/
 typedef void (*InterruptHandler)(savearea_t*);
+
+struct UserIrq {
+  bool       isPending;	/* only valid if isAlloc */
+  bool       isAlloc;
+  StallQueue sleepers;
+};
+extern struct UserIrq UserIrqEntries[NUM_HW_INTERRUPT];
 
 
 #include <arch-kerninc/IRQ-inline.h>
@@ -63,5 +72,7 @@ irq_IsEnabled(uint32_t irq)
 }
 
 void irq_UnboundInterrupt(savearea_t *);
+
+void DoUsermodeInterrupt(savearea_t *ia);
 
 #endif /* __IRQ_H__ */

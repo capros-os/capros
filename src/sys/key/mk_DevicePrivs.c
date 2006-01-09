@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -40,7 +40,6 @@
 #include <idl/eros/key.h>
 #include <idl/eros/DevPrivs.h>
 
-#define dbg_wakeup	0x1u
 #define dbg_alloc	0x2u
 #define dbg_sleep	0x4u
 #define dbg_error	0x8u
@@ -50,11 +49,7 @@
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-struct UserIrq {
-  bool       isPending;	/* only valid if isAlloc */
-  bool       isAlloc;
-  StallQueue sleepers;
-} UserIrqEntries[NUM_HW_INTERRUPT];
+struct UserIrq UserIrqEntries[NUM_HW_INTERRUPT];
 
 void 
 UserIrqInit()
@@ -65,22 +60,6 @@ UserIrqInit()
     UserIrqEntries[i].isAlloc = false;
     sq_Init(&UserIrqEntries[i].sleepers);
   }
-}
-
-static void
-DoUsermodeInterrupt(savearea_t *ia)
-{
-  uint32_t irq = IRQ_FROM_EXCEPTION(ia->ExceptNo);
-
-  struct UserIrq *uirq = &UserIrqEntries[irq];
-  
-  assert(irq_GetHandler(irq) == DoUsermodeInterrupt);
-
-  DEBUG(wakeup)
-    printf("Waking sleepers for IRQ %d\n", irq);
-
-  uirq->isPending = true;
-  sq_WakeAll(&uirq->sleepers, false);
 }
 
 extern void *malloc(size_t sz);

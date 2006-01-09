@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -78,7 +78,5 @@ typedef uint32_t        kpmap_t; /* mapping table physical address */
 #define VTOP(va) ((uint32_t) (va))
 #define PTOV(pa) ((uint32_t) (pa))
 #define KVTOL(kva) (kva + KVA)
-
-#define IRQ_FROM_EXCEPTION(vector) ((vector) - 0x20u)
 
 #endif /* __KERN_TARGET_I486_H__ */

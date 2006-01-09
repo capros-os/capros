@@ -2,7 +2,7 @@
 #define __IDT_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -25,6 +25,7 @@
 /* If IDT_ENTRIES is revised, the size of the IDT table in interrupt.S
  * must be updated also.
  */
+
 #define IDT_ENTRIES 0x33
 #define HW_ENTRIES 0x30
 
@@ -70,6 +71,8 @@ enum intVecType {
   iv_InvokeKey		= 0x31,
   iv_EmulPseudoInstr	= 0x32,
 };
+
+#define IRQ_FROM_EXCEPTION(vector) ((vector) - 0x20u)
 
 typedef enum intVecType intVecType;
 

@@ -2,6 +2,7 @@
 #define __SYSTIMER_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -21,6 +22,7 @@
  */
 
 struct Activity;
+extern struct Activity * ActivityChain;
 
 extern volatile uint64_t sysT_now;
 extern volatile uint64_t sysT_wakeup;

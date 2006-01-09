@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 205, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -26,6 +26,7 @@
 #include <kerninc/SysTimer.h>
 #include <eros/arch/i486/io.h>
 #include "IDT.h"
+#include <kerninc/CPU.h>
 
 /* The timer chip on the PC has three channels. There is a fourth on
  * the PS/2, but for the moment I am ignoring that platform.
@@ -174,6 +175,44 @@ mach_TicksToMilliseconds(uint64_t ticks)
   ms >>= 20;			/* divide by (1024*1024) */
 
   return (uint32_t) ms;
+}
+
+void
+sysT_Wakeup(savearea_t *sa)
+{
+  irq_DISABLE();
+  
+#if 0
+  extern intDepth;
+  printf("Wakeup() at intDepth %d, sleepers? %c\n",
+	       intDepth, ActivityChain ? 'y' : 'n');
+#endif
+
+#if 0
+  printf("SysTimer::Tick() resets waketime at %d\n", (long) now);
+#endif
+  /* The awkward loop must be used because calling t->wakeup()
+   * mutates the sleeper list.
+   */
+    
+  if (cpu->preemptTime <= sysT_now) {
+    cpu->preemptTime = ~0llu;
+    sysT_ActivityTimeout();
+  }
+
+  while (ActivityChain && ActivityChain->wakeTime <= sysT_now) {
+    register Activity *t = ActivityChain;
+    ActivityChain = ActivityChain->nextTimedActivity;
+    act_Dequeue(t);
+    act_Wakeup(t);
+  }
+
+  //printf("at end of sysT_Wakeup %u\n", sysT_now);
+  sysT_ResetWakeTime();
+
+  irq_ENABLE();
+
+  irq_Enable(IRQ_FROM_EXCEPTION(sa->ExceptNo));
 }
 
 #ifdef GNU_INLINE_ASM
