@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -54,6 +55,7 @@ file("arch/i486/kernel/IDT.c")
 file("arch/i486/kernel/TSS.c")
 file("arch/i486/kernel/HardClock.c")
 file("arch/i486/kernel/CMOS.c")
+file("arch/i486/kernel/PhysMem.c")
 file("arch/i486/kernel/Thread386.c")
 file("arch/i486/kernel/KernContext.c")
 file("arch/i486/kernel/ReservedFault.c")

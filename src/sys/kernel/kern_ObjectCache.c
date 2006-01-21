@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -1058,7 +1058,6 @@ objC_AgePageFrames()
   static uint32_t curPage = 0;
   uint32_t count = 0;
   ObjectHeader *pObj = 0;
-  ObjectHeader *pProducer = 0;
   ObjectHeader *reclaimedObject = 0;
 
   uint32_t nStuck = 0;
@@ -1105,8 +1104,8 @@ objC_AgePageFrames()
        * because they are likely to be involved in page translation.
        */
       if (pObj->obType == ot_PtMappingPage) {
+        ObjectHeader * pProducer = pObj->prep_u.producer;
 	assert(objH_IsDirty(pObj) == false);
-	pProducer = pObj->prep_u.producer;
 
 	if (objH_IsUserPinned(pProducer))
 	  continue;
@@ -1122,7 +1121,9 @@ objC_AgePageFrames()
 	 * has the desirable consequence of keeping their associated
 	 * nodes in memory if the process is still active.
 	 */
+#ifdef USES_MAPPING_PAGES
 	assert(pObj->obType != ot_PtMappingPage);
+#endif
 
 	if (objC_CleanFrame(pObj, true) == false)
 	  continue;

@@ -212,6 +212,12 @@ Process *kproc_Init(const char * name,
 
 /* Former member functions of Process */
 
+bool
+proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt);
+
+PTE*
+proc_BuildMapping(Process* p, ula_t ula, bool forWriting, bool prompt);
+
 INLINE bool 
 proc_IsWellFormed(Process* thisPtr)
 {

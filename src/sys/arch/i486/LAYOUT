@@ -1,6 +1,7 @@
 /* -*- indented-text -*-  */
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -21,12 +22,6 @@
 
 /*
  * This file is processed by:
- * - GenFixRegs.awk to produce
- *	   eros/arch/(EROS_TARGET)/fixregs.h
- *         which defines fixregs_t (and some masks)
- * - GenFloatRegs.awk to produce
- *         eros/arch/(EROS_TARGET)/floatregs.h
- *         which defines floatregs_t (and some masks)
  * - GenPseudoRegs.awk to produce
  *         eros/arch/(EROS_TARGET)/pseudoregs.h
  *         which defines pseudoregs_t
@@ -46,6 +41,14 @@
  *         between the process's nodes and the Process structure
  * - GenArchDescrip.awk to produce
  *         base/host/lib/erosimg/BUILD/(EROS_CONFIG)/gen.RegisterDescriptions.c
+
+ * This file is no longer processed by:
+ * - GenFixRegs.awk to produce
+ *	   eros/arch/(EROS_TARGET)/fixregs.h
+ *         which defined fixregs_t (and some masks)
+ * - GenFloatRegs.awk to produce
+ *         eros/arch/(EROS_TARGET)/floatregs.h
+ *         which defined floatregs_t (and some masks)
  *
  * The most important entries are /opaque/, /proc/, /fix/, /fpu/,
  * which define the fields in the Process structure, and generate

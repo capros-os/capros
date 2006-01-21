@@ -26,10 +26,7 @@
 #include <kerninc/Invocation.h>
 #include <kerninc/Activity.h>
 
-/* Machine-specific helper functions for process operations: */
-
-PTE*
-proc_BuildMapping(Process* p, ula_t ula, bool forWriting, bool prompt);
+/* Machine-specific inline helper functions for process operations: */
 
 /* Return 0 if no mapping can be found with the desired access,
  * otherwise return the kernel *virtual* PAGE address containing the
@@ -79,9 +76,6 @@ proc_TranslatePage(Process *p, ula_t ula, uint32_t mode, bool forWriting)
 fail:
   return 0;
 }
-
-bool
-proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt);
 
 #ifndef ASM_ARG_VALIDATE
 
