@@ -36,6 +36,7 @@
 #include <kerninc/Process.h>
 #include <kerninc/SegWalk.h>
 #include <arch-kerninc/Process.h>
+#include "Process486.h"
 #include <arch-kerninc/PTE.h>
 #include "IDT.h"
 #include "lostart.h"

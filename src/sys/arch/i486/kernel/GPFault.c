@@ -26,6 +26,7 @@
 #include <kerninc/Debug.h>
 /*#include <kerninc/util.h>*/
 #include <kerninc/Process.h>
+#include "Process486.h"
 #include <arch-kerninc/Process.h>
 #include "Segment.h"
 #include "IDT.h"

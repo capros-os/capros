@@ -2,7 +2,7 @@
 #define __KERNINC_INVOCATION_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2005, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -25,10 +25,10 @@
 /* This file requires #include <disk/KeyStruct.hxx> */
 /* This file requires #include <kerninc/kernel.h> */
 
-/* There are real speed advantages to the assymetry in these
- * structures.  The entry keys do not need to be copied from their key
- * registers, and every key you don't have to copy saves about 60
- * instructions in the IPC path.
+/* The "Entry Block" describes the invocation parameters for entry to the
+   kernel (exit from the user code). 
+   The "Exit Block" describes the invocation parameters for exit from 
+   the kernel (reentry to the user code).
  */
 struct EntryBlock {
   fixreg_t code;
@@ -55,24 +55,6 @@ struct ExitBlock {
 };
 
 typedef struct ExitBlock ExitBlock;
-
-INLINE void
-entryBlock_init(EntryBlock *thisPtr)
-{
-  thisPtr->key[0] = 0;
-  thisPtr->key[1] = 0;
-  thisPtr->key[2] = 0;
-  thisPtr->key[3] = 0;
-}
-
-INLINE void
-exitBlock_init(ExitBlock *thisPtr)
-{
-  thisPtr->pKey[0] = 0;
-  thisPtr->pKey[1] = 0;
-  thisPtr->pKey[2] = 0;
-  thisPtr->pKey[3] = 0;
-}
 
 #ifndef NDEBUG
 extern bool InvocationCommitted;
@@ -146,6 +128,8 @@ inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data);
 uint32_t 
 inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data);
 
+/* This is the only instance of Invocation.
+   I think the plan was to have one instance for each CPU. */
 extern Invocation inv;
 
 extern bool PteZapped;

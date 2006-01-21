@@ -1,6 +1,7 @@
 # -*- makefile-mode -*-
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -61,7 +62,6 @@ INC=-include kernel-config.h -I$(EROS_ROOT)/include -I../.. -I$(TOP) -I.
 
 DEF+=-DNCPU=1
 DEF+=-D__KERNEL__ -DTRACE=$(TRACE) #
-DEF+=-DASM_ARG_VALIDATE
 
 #DEF+=$(EMUL_486)
 DEF += $(EROS_TEST_DEFS)

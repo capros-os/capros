@@ -427,12 +427,6 @@ void proc_DoRetryInvocation(Process* thisPtr);
 void proc_DoGeneralKeyInvocation(Process* thisPtr);
 void proc_DoKeyInvocation(Process* thisPtr);
 
-/* Following is only needed if assembly code is not used to validate
-   the entry block. */
-#ifndef ASM_ARG_VALIDATE
-INLINE void proc_ValidateEntryBlock(Process* thisPtr);	/* may throw */
-#endif
-
 struct Invocation;
 
 #ifdef ASM_VALIDATE_STRINGS

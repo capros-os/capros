@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -332,32 +332,15 @@ inv_IsInvocationKey(Invocation* thisPtr, const Key* pKey)
   return false;
 }
 
-/* replaces Invocation constructor */
+/* Some fields in Invocation are assumed to be initialized at the
+   beginning of an invocation. Initialize them here, and also in inv_Cleanup. */
 void
 inv_InitInv(Invocation *thisPtr)
 {
-  keyBits_InitToVoid(&thisPtr->scratchKey);
-  keyBits_InitToVoid(&thisPtr->redNodeKey);
-  entryBlock_init(&thisPtr->entry);
-  exitBlock_init(&thisPtr->exit);
-  thisPtr->entry.key[0] = 0;
-  thisPtr->entry.key[1] = 0;
-  thisPtr->entry.key[2] = 0;
-  thisPtr->entry.key[3] = 0;
-
-  thisPtr->exit.len = 0;
-  thisPtr->exit.w1 = 0;
-  thisPtr->exit.w2 = 0;
-  thisPtr->exit.w3 = 0;
-  /* exit.code is always set explicitly, so don't bother. */
-
-  thisPtr->key = 0;
-
 #ifndef NDEBUG
   InvocationCommitted = false;
 #endif
 
-  thisPtr->invokee = 0;
   thisPtr->flags = 0;
 }
 

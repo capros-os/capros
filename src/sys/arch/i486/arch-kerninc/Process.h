@@ -21,103 +21,17 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-#include <arch-kerninc/PTE.h>
 #include <eros/Invoke.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Activity.h>
 
 /* Machine-specific inline helper functions for process operations: */
 
-/* Return 0 if no mapping can be found with the desired access,
- * otherwise return the kernel *virtual* PAGE address containing the
- * virtual BYTE address uva.
- * 
- * Note that successive calls to this, after inlining, should
- * successfully CSE the page directory part of the computation.
- */
-INLINE PTE*
-proc_TranslatePage(Process *p, ula_t ula, uint32_t mode, bool forWriting)
-{
-  PTE *pte = 0;
-#ifdef OPTION_SMALL_SPACES
-  if (p->MappingTable == KernPageDir_pa && p->smallPTE == 0)
-    return 0;
-#else
-  if (p->MappingTable == KernPageDir_pa)
-    return 0;
-#endif
-  
-  assert(p->MappingTable);
-  
-  if (p->MappingTable) {
-    PTE* pde = (PTE*) PTOV(p->MappingTable);
-    uint32_t ndx0 = (ula >> 22) & 0x3ffu;
-    uint32_t ndx1 = (ula >> 12) & 0x3ffu;
-
-    pde += ndx0;
-
-    if (pte_is(pde, mode)) {
-      if (forWriting && pte_isnot(pde, PTE_W))
-	goto fail;
-
-
-      pte = (PTE*) PTOV( (pte_AsWord(pde) & ~EROS_PAGE_MASK) );
-
-      pte += ndx1;
-  
-      if (pte_is(pte, mode)) {
-	if (forWriting && pte_isnot(pte, PTE_W))
-	  goto fail;
-
-	return pte;
-      }
-    }
-  }
-fail:
-  return 0;
-}
-
-#ifndef ASM_ARG_VALIDATE
-
-INLINE void 
-proc_ValidateEntryBlock(Process* thisPtr)
-{
-  /* Check valid invocation type field + uppermost part of control field: */
-#error fixRegs is undefined
-  if (!INVTYPE_ISVALID(fixRegs.invType))
-    goto bogus;
-
-  if (fixRegs.invKey >= EROS_NODE_SIZE)
-    goto bogus;
-
-  if (fixRegs.sndKeys & 0xe0e0e0e0u) /* high bits must be clear */
-    goto bogus;
-
-  if (fixRegs.invType != IT_Send && fixRegs.rcvKeys & 0xe0e0e0e0u) /* high bits must be clear */
-    goto bogus;
-
-  /* Check valid string len: */
-  if (fixRegs.sndLen > EROS_MESSAGE_LIMIT)
-    goto bogus;
-
-  return;
-
-bogus:
-  SetFault(FC_BadEntryBlock, fixRegs.EIP);
-  act_Current()->Yield();
-}
-
-#endif
-
-
 INLINE void 
 proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 {
   uint8_t *sndKeys = 0;
   uint32_t len = 0;
-#ifndef ASM_ARG_VALIDATE
-  ValidateEntryBlock();
-#endif
   
 #if 1
   /* If PF_RetryLik is set, we will reuse the same key that was
@@ -320,17 +234,6 @@ proc_SetupEntryString(Process* thisPtr, struct Invocation* inv /*@ not null @*/)
   inv.entry.data = (uint8_t *) addr;
 }
 
-#endif
-
-#ifdef OPTION_SMALL_SPACES
-INLINE void              
-proc_SwitchToLargeSpace(Process* thisPtr)
-{
-  thisPtr->smallPTE = 0;
-  thisPtr->bias = 0;
-  thisPtr->limit = UMSGTOP;
-  thisPtr->MappingTable = KernPageDir_pa;
-}
 #endif
 
 INLINE void 

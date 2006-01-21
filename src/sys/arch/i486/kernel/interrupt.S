@@ -45,7 +45,6 @@
 	
 /* Following are now in the Makefile:	
 	
-   ASM_ARG_VALIDATE
    ASM_VALIDATE_STRINGS
  */
 
@@ -1010,10 +1009,8 @@ L_ipc_block_lo:
 	movl	IPC_sndKeys(%ebx),%edx	/* NOTE via CALLER %DS */
 	movl	%edx,FX_OFF_sndKeys(%ebp)   /* NOTE via KERNEL %SS */
 	
-#ifdef ASM_ARG_VALIDATE
 	/* First need to make sure that we have a well-formed IPC 
-	 * invocation.  Following are essentially the tests in 
-	 * ValidateEntryBlock()
+	 * invocation.
 	 *
 	 * EAX presently points to active process structure
 	 * ECX holds xmit length
@@ -1032,7 +1029,6 @@ L_ipc_block_lo:
 
 	cmpb	$IT_NUM_INVTYPES,FX_OFF_invType(%ebp)
 	jae	bogus_ipc_arg_block
-#endif
 	
 kern_seg_load:
 	/*

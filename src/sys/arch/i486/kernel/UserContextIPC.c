@@ -39,6 +39,7 @@
 #include <kerninc/Invocation.h>
 #include <kerninc/Machine.h>
 #include <arch-kerninc/Process.h>
+#include "Process486.h"
 
 /* #define MSGDEBUG
  * #define RESUMEDEBUG

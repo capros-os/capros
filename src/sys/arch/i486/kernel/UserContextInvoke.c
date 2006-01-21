@@ -27,6 +27,7 @@
 #include <kerninc/Machine.h>
 #include <kerninc/ObjectCache.h>
 #include <arch-kerninc/Process.h>
+#include "Process486.h"
 
 #ifndef OPTION_SMALL_SPACES
 const uint32_t bias = 0;
