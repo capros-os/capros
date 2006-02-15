@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -38,7 +39,6 @@ strbuf_grow(StrBuf *sb)
 {
   sb->bound += STRBUF_BUFSZ;
   sb->buf = realloc(sb->buf, sb->bound);
-  sb->buf[0] = 0;	/* this looks wrong - CRL */
 }
 
 StrBuf *

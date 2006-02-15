@@ -204,7 +204,7 @@ vol_AddDivisionWithOid(Volume *pVol, DivType type, uint32_t sz, OID oid)
 
     /* Must have at least space for the first page, one pot, and one frame. */
     if (nObFrames < 3)
-      diag_fatal(1, "Range too small\n");
+      diag_fatal(1, "Range must have at least 3 frames.\n");
 
     /* Take out one for the first page, which is used to capture
      * seqno of most recent checkpoint.
