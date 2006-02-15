@@ -38,7 +38,7 @@ strbuf_grow(StrBuf *sb)
 {
   sb->bound += STRBUF_BUFSZ;
   sb->buf = realloc(sb->buf, sb->bound);
-  sb->buf[0] = 0;
+  sb->buf[0] = 0;	/* this looks wrong - CRL */
 }
 
 StrBuf *

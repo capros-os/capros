@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -28,6 +29,9 @@ ExecArch_FromString(const char * name)
 {
   if (strcmp(name, "i486") == 0) {
     return ExecArch_i486;
+  }
+  else if (strcmp(name, "arm") == 0) {
+    return ExecArch_arm;
   }
   else {
     diag_fatal(1, "Unknown architecture \"%s\"\n", name);

@@ -2,6 +2,7 @@
 #define __EXECARCH_H__
 /*
  * Copyright (C) 1998, 1999, 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -36,6 +37,7 @@ enum ExecArchitecture {
   ExecArch_unknown,
   ExecArch_neutral,
   ExecArch_i486,
+  ExecArch_arm,
   ExecArch_NUM_ARCH
 };
 
