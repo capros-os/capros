@@ -43,7 +43,8 @@ $(TARGETS): $(OBJECTS)
 
 install: all
 	$(INSTALL) -d $(EROS_ROOT)/lib
-	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib
+	$(INSTALL) -d $(EROS_ROOT)/lib/$(EROS_TARGET)
+	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)
 	$(INSTALL) -d $(EROS_ROOT)/include/wrapper
 	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/wrapper
 

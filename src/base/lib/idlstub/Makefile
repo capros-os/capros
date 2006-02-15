@@ -44,6 +44,7 @@ all: stub-src
 
 install: all
 	$(INSTALL) -d $(EROS_ROOT)/lib
-	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib
+	$(INSTALL) -d $(EROS_ROOT)/lib/$(EROS_TARGET)
+	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)
 
 include $(EROS_SRC)/build/make/makerules.mk

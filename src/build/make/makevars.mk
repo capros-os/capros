@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group.
+# Copyright (C) 2005, 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -222,22 +222,19 @@ EROS_CPP=$(EROS_XENV)/bin/cpp -nostdinc -D$(EROS_TARGET)
 endif
 
 
-DOMLIB= $(EROS_ROOT)/lib/libdomain.a
-DOMLIB += $(EROS_ROOT)/lib/libidlstub.a
+DOMLIB= $(EROS_ROOT)/lib/$(EROS_TARGET)/libdomain.a
+DOMLIB += $(EROS_ROOT)/lib/$(EROS_TARGET)/libidlstub.a
 DOMLIB += $(EROS_LIBGCC)
 DOMLIB += -lc # libc.a
 
 ifeq "$(EROS_HOSTENV)" "linux-xenv-gcc3"
-#DOMCRT0=$(EROS_ROOT)/lib/gcc-lib/$(EROS_TARGET)-unknown-eros/3.3/crt1.o
-#DOMCRTN=$(EROS_ROOT)/lib/gcc-lib/$(EROS_TARGET)-unknown-eros/3.3/crtn.o
 DOMLINKOPT=-N -static -Ttext 0x0 -L$(EROS_ROOT)/lib
 DOMLINK=$(GCC)
 else
-DOMCRT0=$(EROS_ROOT)/lib/crt0.o
-DOMCRTN=$(EROS_ROOT)/lib/crtn.o
-DOMSBRK=$(EROS_ROOT)/lib/sbrk.o
-# DOMLINKOPT=-N -Ttext 0x0 -nostdlib -static -e _start -L$(EROS_ROOT)/lib -L$(EROS_ROOT)/lib/$(EROS_TARGET)
-DOMLINKOPT=-N -Ttext 0x0 -static -e _start -L$(EROS_ROOT)/lib -L$(EROS_ROOT)/lib/$(EROS_TARGET)
+DOMCRT0=$(EROS_ROOT)/lib/$(EROS_TARGET)/crt0.o
+DOMCRTN=$(EROS_ROOT)/lib/$(EROS_TARGET)/crtn.o
+DOMSBRK=$(EROS_ROOT)/lib/$(EROS_TARGET)/sbrk.o
+DOMLINKOPT=-N -Ttext 0x0 -static -e _start -L$(EROS_ROOT)/lib/$(EROS_TARGET)
 DOMLINK=$(EROS_LD)
 endif
 

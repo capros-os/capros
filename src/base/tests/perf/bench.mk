@@ -21,17 +21,13 @@
 
 # test.makeinc -- should be included right after makerules.mk
 
-#CLEANLIST+= test.sysimg test.sysvol ztest.sysvol .test.sysimg.m.* 
+#CLEANLIST+= sysimg sysvol .sysimg.m.* 
 #CLEANLIST+= tstflop ztstflop vmfloppy
 ifndef VOLMAP
 VOLMAP=../bench.volmap
 endif
 
-ifndef VOLMAPFD
-VOLMAPFD=../bench.volmapfd
-endif
-
-IMGMAP=test.imgmap.$(EROS_TARGET)
+IMGMAP=imgmap.$(EROS_TARGET)
 
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(BOOTSTRAP)
 
@@ -43,66 +39,9 @@ else
 KERNEL=$(EROS_CONFIG).eros.debug
 endif
 KERNPATH=$(KERNDIR)/$(KERNEL)
-KERNDEP=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(KERNEL)
 
 # so shap can see it better when necessary:
 DDBS=1440k
 SETVOL_FLAGS += -z
 
-
-install: $(TARGETS) $(BUILDDIR)/test.sysimg
-
-$(BUILDDIR)/test.sysimg: $(TARGETS) $(IMGMAP)
-	$(EROS_ROOT)/host/bin/mkimage $(MKIMAGEFLAGS) -o $(BUILDDIR)/test.sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
-
-init.hd: $(KERNDEP) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
-
-test.hd: $(BUILDDIR)/test.sysimg $(KERNDEP) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/setvol -D $(EROS_HD)
-	cp $(KERNPATH) $(CAPROS_BOOT_PARTITION)/CapROS-kernel-1
-	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map -g $(CAPROS_BOOT_PARTITION) -v 1 $(EROS_HD) $(BUILDDIR)/test.sysimg | tee $(BUILDDIR)/sysgen.out
-
-$(BUILDDIR)/test.sysvol: $(BUILDDIR)/test.sysimg $(KERNDEP) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/test.sysvol
-	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/test.sysvol $(BUILDDIR)/test.sysimg
-
-$(BUILDDIR)/test.sysvolfd: $(BUILDDIR)/test.sysimg $(KERNDEP) $(VOLMAPFD)
-	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAPFD) $(BUILDDIR)/test.sysvolfd
-	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/test.sysvolfd $(BUILDDIR)/test.sysimg
-
-tstflop: install $(BUILDDIR)/test.sysvolfd
-	dd if=$(BUILDDIR)/test.sysvolfd of=$(EROS_FD) bs=$(DDBS)
-	$(EROS_ROOT)/host/bin/setboot -w $(EROS_FD)
-	sync
-	sleep 5
-
-# zsysvol and ztstflop are for ramdisk load.
-$(BUILDDIR)/ztest.sysvol: $(BUILDDIR)/test.sysvol
-	cp $(BUILDDIR)/test.sysvol $(BUILDDIR)/ztest.sysvol
-	$(EROS_ROOT)/host/bin/setvol -r $(SETVOL_FLAGS) $(BUILDDIR)/ztest.sysvol
-
-ztstflop: install $(BUILDDIR)/ztest.sysvol
-	dd if=$(BUILDDIR)/ztest.sysvol of=$(EROS_FD) bs=$(DDBS)
-	$(EROS_ROOT)/host/bin/setboot -w $(EROS_FD)
-	sync
-	sleep 5
-
-$(BUILDDIR)/vmfloppy: $(BUILDDIR)/ztest.sysvol
-	dd if=/dev/zero of=$(BUILDDIR)/vmfloppy bs=1024 count=1440
-	dd if=$(BUILDDIR)/ztest.sysvol of=$(BUILDDIR)/vmfloppy conv=notrunc
-
-vmware: $(BUILDDIR) $(BUILDDIR)/vmfloppy
-	$(VMWARE) -x -s floppy0.fileType=file -s floppy0.fileName=`pwd`/$(BUILDDIR)/vmfloppy $(HOME)/vmware/EROS/EROS.cfg
-
-# depend stuff
-DEPEND: $(BUILDDIR)/.test.sysimg.m
-
-# Handles test.sysimg dependencies.  This line *must* have all of the 
-#arguments from the "test.sysimg:" line, above.
-
-$(BUILDDIR)/.test.sysimg.m: $(TARGETS) $(IMGMAP)
-	-$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/test.sysimg $(IMGMAP) $(BUILDDIR)/.test.sysimg.m >/dev/null 2>&1
-
-# only include the depend file for this target
--include $(BUILDDIR)/.*.m
+include $(EROS_SRC)/build/make/sys.$(EROS_TARGET).mk
