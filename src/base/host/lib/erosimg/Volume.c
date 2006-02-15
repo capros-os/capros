@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -154,13 +154,21 @@ vol_SetReserve(Volume *pVol, const CpuReserveInfo *pCri)
 static bool
 vol_Read(Volume *pVol, uint32_t offset, void *buf, uint32_t sz)
 {
+  int e;
+
   assert(pVol->working_fd >= 0);
 
-  if (lseek(pVol->working_fd, (int) offset, SEEK_SET) < 0)
+  e = lseek(pVol->working_fd, (int) offset, SEEK_SET);
+  if (e < 0) {
+    diag_debug(0, "lseek got %d\n", e);
     return false;
+  }
 
-  if (read(pVol->working_fd, buf, (int) sz) != (int) sz)
+  e = read(pVol->working_fd, buf, (int) sz);
+  if (e != (int) sz) {
+    diag_debug(0, "read, offset=%d, size=%d, got %d\n", offset, sz, e);
     return false;
+  }
 
   return true;
 }
