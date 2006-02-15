@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006 Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -27,7 +28,9 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=idlstub domain keycache rbtree util
 DIRS+=graphics wrapper addrspace xsprintf
+ifeq "$(EROS_TARGET)" "i486"	# only for i486 so far
 DIRS+=ethread
+endif
 # DIRS += libc unix
 
 include $(EROS_SRC)/build/make/makerules.mk
