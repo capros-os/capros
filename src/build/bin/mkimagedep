@@ -178,6 +178,7 @@ fi
 #        3. 's:[^"]*\"\([^\"]*\)"[^\"]*:\1:g' 
 #          Removes all non-quoted parts of the line, resulting in 
 #         list consisting only of the quoted parts, with quotes removed.
+#         Quotes may be split as in C (i.e. "foo" "bar" is valid).
 #
 #        4. 's:/eros/:'" ${EROS_ROOT}/"':g' 
 #          Replaces all references to /eros with the current value of
@@ -196,16 +197,14 @@ fi
 #      removes the last backslash, since it is unneeded and wrong. 
 #
 # This script will work if the following assumptions are met:
-#   1.  The only quoted passages in preprocessed nmkimage files are the
+#   *  The only quoted passages in preprocessed nmkimage files are the
 #      imported binary files.
 #
-#   2.  Quotes cannot be split as in C (i.e. "foo" "bar" is not valid)
+#   *  Quotations are not split across lines
 #
-#   3.  Quotations are not split across lines
+#   *  Filenames do *not* contain whitespace characters.
 #
-#   4.  Filenames do *not* contain whitespace characters.
+#   *  EROS_ROOT does not contain ':'s
 #
-#   5.  EROS_ROOT does not contain ':'s
-#
-#   6.  INFILE, GENFILE, OUTFILE do not contain ':'s or '@'s.
+#   *  INFILE, GENFILE, OUTFILE do not contain ':'s or '@'s.
 

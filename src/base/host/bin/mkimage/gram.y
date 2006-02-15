@@ -1,6 +1,7 @@
 %{
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -1912,7 +1913,18 @@ main(int argc, char *argv[])
       /* no spaces in what we hand to cpp: */
       strbuf_append_char(cpp_cmd_args, '-');
       strbuf_append_char(cpp_cmd_args, cc);
-      strbuf_append(cpp_cmd_args, optarg);
+      { /* Append optarg, escaping special characters. 
+           They will be consumed by popen() below. */
+        char * p = optarg;
+        while (*p) {
+          switch (*p) {
+            case '"':
+              /* escape with backslash */
+              strbuf_append_char(cpp_cmd_args, '\\');
+          }
+          strbuf_append_char(cpp_cmd_args, *p++);
+        }
+      }
       strbuf_append_char(cpp_cmd_args, ' ');
       break;
     case 'n':
