@@ -1,7 +1,7 @@
 	.file	"lostart.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -215,6 +215,12 @@ ENTRY(start)
 
 	xorl	%ebp,%ebp	/* mark the end of the stack */
 
+  /* Set up the boot console by hand so that we can do kernel
+   * diagnostics during startup.  Note that the boot console is output
+   * only unless a kernel debugger is present, and we will enable
+   * debugger input later after interrupts have been initialized.
+   */
+	call	EXT(kstream_InitStreams)
 	call	EXT(main)
 
 	/*

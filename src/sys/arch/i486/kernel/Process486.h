@@ -28,6 +28,8 @@
 
 /* Machine-specific functions for process operations private to the HAL: */
 
+bool proc_HasDevicePriveleges(Process* thisPtr);
+
 /* Return 0 if no mapping can be found with the desired access,
  * otherwise return the kernel *virtual* PAGE address containing the
  * virtual BYTE address uva.

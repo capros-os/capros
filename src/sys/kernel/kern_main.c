@@ -115,15 +115,8 @@ main(void)
 
   Activity *idleActivity;
 
-  /* Set up the boot console by hand so that we can do kernel
-   * diagnostics during startup.  Note that the boot console is output
-   * only unless a kernel debugger is present, and we will enable
-   * debugger input later after interrupts have been initialized.
-   */
-  kstream_InitStreams();
-
   /* Parse the "command line" parameters. */
-  p = KPAtoP(const char *, MultibootInfoPtr->cmdline);
+  p = (const char *)MultibootInfoPtr->cmdline;
 
   /* Skip kernel file name. */
   while (*p != ' ' && *p != 0) p++;

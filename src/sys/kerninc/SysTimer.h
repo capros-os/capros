@@ -59,4 +59,6 @@ void sysT_InitTimePage();
 extern struct ObjectHeader *sysT_TimePageHdr;
 #endif
 
+bool IsLeapYear(uint32_t yr);
+
 #endif /* __SYSTIMER_H__ */

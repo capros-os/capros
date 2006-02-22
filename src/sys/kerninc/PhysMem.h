@@ -40,7 +40,7 @@
 struct PmemConstraint {
   kpa_t base;
   kpa_t bound;
-  unsigned align;
+  unsigned align;	/* must be a power of 2 */
 } ;
 typedef struct PmemConstraint PmemConstraint;
 

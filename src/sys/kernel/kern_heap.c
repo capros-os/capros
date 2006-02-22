@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -41,17 +42,11 @@
 extern int end;
 extern kpa_t align_up(kpa_t addr, uint32_t alignment);
 
-
-/* /heap_end/ identifies the first available byte in the heap.
- * /heap_bound/ identifies the first unmapped byte following the heap.
- *
- * THESE VALUES ARE RESET IN THE MACHINE-DEPENDENT KERNEL MAP BUILDING
- * CODE.
- */
-kva_t heap_start = (kva_t) &end;
-kva_t heap_end = (kva_t) &end;	/* pointer to next alloc ignoring freelist */
-kva_t heap_defined = (kva_t) &end; /* validly mapped map out to here */
-kva_t heap_bound = (kva_t) &end;
+/* The following are initialized as part of mach_BootInit. */
+kva_t heap_start;
+kva_t heap_end;		/* pointer to next byte to allocate */
+kva_t heap_defined;	/* physical pages are allocated to here */
+kva_t heap_bound;	/* virtual addresses are allocated to here */
 
 void
 heap_init()
@@ -67,8 +62,13 @@ heap_init()
 	  (unsigned)heap_start, (unsigned) heap_bound);
 }
 
+/* If possible, it's always better to grab a real physical page
+ * rather than steal one from the page cache. This ensures that
+ * the early allocations work.  Failing that, we'll try grabbing a
+ * page from the page cache instead.
+ */
 kpa_t
-acquire_heap_page()
+acquire_heap_page(void)
 {
   if (physMem_ChooseRegion(EROS_PAGE_SIZE, &physMem_pages)) {
     return physMem_Alloc(EROS_PAGE_SIZE, &physMem_pages);
@@ -90,28 +90,6 @@ acquire_heap_page()
   }
 }
 
-/* grow_heap() must find (or clear) an available physical page and
- * cause it to become mapped at the end of the physical memory map.
- */
-void
-grow_heap(kva_t target)
-{
-  assert((heap_defined & EROS_PAGE_MASK) == 0);
-
-  while (heap_defined < target) {
-    /* If possible, it's always better to grab a real physical page
-     * rather than steal one from the page cache. This ensures that
-     * the early allocations work.  Failing that, we'll try grabbing a
-     * page from the page cache instead.
-     */
-    kpa_t pa = acquire_heap_page();
-
-    mach_MapHeapPage(heap_defined, pa);
-
-    heap_defined += EROS_PAGE_SIZE;
-  }
-}
-
 /* FIX: This implementation of malloc() is a placeholder, since free()
  * clearly would not work correcly without maintaining some sort of
  * record of what was allocated where.
@@ -120,6 +98,7 @@ void *
 malloc(size_t nBytes)
 {
   void *vp = 0;
+  /* We are going to allocate the nBytes bytes beginning at heap_end. */
 
   DEBUG(alloc)
     printf("malloc: heap_end, heap_def, heap_limit now 0x%08x 0x%08x 0x%08x\n",
@@ -127,13 +106,12 @@ malloc(size_t nBytes)
 		   (unsigned) heap_defined,
 		   (unsigned) heap_bound);
 
+  /* Make sure there are enough virtual addresses available. */
   if (heap_bound - heap_end < nBytes)
     fatal("Heap space exhausted. %d wanted %d avail\n", nBytes, heap_bound - heap_end);
 
-  if (heap_defined - heap_end < nBytes)
-    grow_heap(heap_end + nBytes);
-
-  assert(heap_defined - heap_end >= nBytes);
+  /* Make sure there are enough physical pages allocated. */
+  mach_EnsureHeap(heap_end + nBytes, &acquire_heap_page);
 
   /* FIX: get the alignment right! */
   vp = (void *) heap_end;

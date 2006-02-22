@@ -74,11 +74,6 @@ void mach_HardReset();
 typedef struct DiskUnit DiskUnit;
 void mach_MountDisk(DiskUnit*);
 
-/* Return the bus architecture of the *primary* system bus -- this
- * tends to influence things like DMA bounce buffers.
- */
-uint32_t mach_BusArchitecture();
-
 /* INLINE int mach_FindFirstZero(uint32_t w); */
 
 #if 0
@@ -86,7 +81,9 @@ uint32_t mach_BusArchitecture();
 static void MapBuffer(kva_t va, kpa_t p0, kpa_t p1);
 #endif
 
-void mach_MapHeapPage(kva_t va, kpa_t page);
+void mach_EnsureHeap(kva_t target,
+       kpa_t (*acquire_heap_page)(void) );
+
 void mach_ZeroUnmappedPage(kpa_t page);
 
 #ifdef USES_MAPPING_PAGES

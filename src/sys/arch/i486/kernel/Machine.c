@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -52,6 +52,7 @@ extern void end();
 extern void start();
 
 void i486_BuildKernelMap();
+uint32_t mach_BusArchitecture();
 
 /* Machine::BootInit() -- first routine called by main() if we
  * came into the kernel via the bootstrap code.
@@ -206,17 +207,6 @@ static inline
 uint32_t BcdToBin(uint32_t val)
 {
   return ((val)=((val)&15) + ((val)>>4)*10);
-}
-
-inline bool IsLeapYear(uint32_t yr)
-{
-  if (yr % 400 == 0)
-    return true;
-  if (yr % 100 == 0)
-    return false;
-  if (yr % 4 == 0)
-    return true;
-  return false;
 }
 
 inline static uint32_t yeartoday(unsigned year)

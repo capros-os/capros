@@ -478,8 +478,6 @@ void proc_LoadAddressSpace(Process* thisPtr, bool prompt);
 
 void proc_ValidateRegValues(Process* thisPtr);	/* returns false if faulted */
 
-bool proc_HasDevicePriveleges(Process* thisPtr);
-
 void proc_FlushProcessSlot(Process* thisPtr, uint32_t whichKey);
 
 #ifdef OPTION_DDB

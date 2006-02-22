@@ -34,6 +34,11 @@ extern void etext();
 extern void end();
 extern void start();
 
+extern kva_t heap_start;
+extern kva_t heap_end;
+extern kva_t heap_defined;
+extern kva_t heap_bound;
+
 PTE* KernPageDir /* = (PTE*) xKERNPAGEDIR */;
 kpmap_t KernPageDir_pa /* = xKERNPAGEDIR */;
 
@@ -496,10 +501,6 @@ i486_BuildKernelMap()
 #ifndef NO_LARGE_PAGES
   bool supports_large_pages = false;
 #endif
-  extern kva_t heap_start;
-  extern kva_t heap_end;
-  extern kva_t heap_defined;
-  extern kva_t heap_bound;
   unsigned nPages;
   unsigned va;
   
@@ -691,28 +692,22 @@ i486_BuildKernelMap()
   }
 
 #if 1
-  /* Allocate the context cache by hand from pages, since we need to
-     map it specially. Mark this portion of memory user accessable as
-     a special case. */
+  /* Allocate the context cache by hand, rather than use the heap. */
  {
    uint32_t i;
    uint32_t len = align_up(KTUNE_NCONTEXT * sizeof(Process), EROS_PAGE_SIZE);
    uint32_t nPage = len/EROS_PAGE_SIZE;
    kva_t cache_va = heap_bound;
 
-   /* Align up to next page directory to guarantee that the user bits
-      get set. This works around a bug in MapKernelPage in which
-      PTE_USER permissions don't get propagated to the directory. I
-      don't want to "fix" that until I can think about it a bit. */
+   /* Align up to next page directory - this is probably unnecessary. */
    cache_va = align_up(cache_va, EROS_PAGE_SIZE * 1024);
 
    for (i = 0; i < nPage; i++) {
      kpa_t pa = physMem_Alloc(EROS_PAGE_SIZE, &physMem_pages);
      kva_t va = cache_va + (i * EROS_PAGE_SIZE);
-     MapKernelPage(va, pa, PTE_W|PTE_V|PTE_USER|GlobalPage);
+     MapKernelPage(va, pa, PTE_W|PTE_V|GlobalPage);
    }
 
-#if 1
    {
      /* Cannot just store this to proc_ContextCache, since the
 	checking logic tests that against NULL to see if it should run
@@ -720,7 +715,6 @@ i486_BuildKernelMap()
      extern kva_t proc_ContextCacheRegion;
      proc_ContextCacheRegion = cache_va;
    }
-#endif
  }
 #endif
   /* Note that the kernel space does NOT have a FROMSPACE recursive
@@ -780,24 +774,33 @@ i486_BuildKernelMap()
 }
 #endif /* NEW_KMAP */
 
-void 
-mach_MapHeapPage(kva_t va, kpa_t paddr)
+/* mach_EnsureHeap() must find (or clear) an available physical page and
+ * cause it to become mapped at the end of the physical memory map.
+ */
+void
+mach_EnsureHeap(kva_t target,
+  kpa_t (*acquire_heap_page)(void) )
 {
-  uint32_t mode = 0;
+  assert((heap_defined & EROS_PAGE_MASK) == 0);
 
-  assert((paddr & EROS_PAGE_MASK) == 0);
-    
-  mode = PTE_V|PTE_W;
+  while (heap_defined < target) {
+    uint32_t mode = PTE_V|PTE_W;
+    kpa_t paddr = (*acquire_heap_page)();
+
+    assert((paddr & EROS_PAGE_MASK) == 0);
 
 #ifndef NO_GLOBAL_PAGES
-  if (CpuIdHi >= 1 && CpuFeatures & CPUFEAT_PGE)
-    mode |= PTE_GLBL;
+    if (CpuIdHi >= 1 && CpuFeatures & CPUFEAT_PGE)
+      mode |= PTE_GLBL;
 #endif
 #ifdef WRITE_THROUGH
-  mode |= PTE_WT;
+    mode |= PTE_WT;
 #endif
 
-  MapKernelPage(va, paddr, mode);
+    MapKernelPage(heap_defined, paddr, mode);
+
+    heap_defined += EROS_PAGE_SIZE;
+  }
 }
 
 /* Note that the RETURN from this procedure flushes the I prefetch
