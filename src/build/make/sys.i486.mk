@@ -27,7 +27,7 @@ $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
 	$(EROS_ROOT)/host/bin/mkimage $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
 
 init.hd: $(KERNPATH) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
+	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
 
 hd: $(BUILDDIR)/sysimg $(KERNPATH)
 	$(EROS_ROOT)/host/bin/setvol -D $(EROS_HD)
@@ -35,11 +35,11 @@ hd: $(BUILDDIR)/sysimg $(KERNPATH)
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map -g $(CAPROS_BOOT_PARTITION) -v 1 $(EROS_HD) $(BUILDDIR)/sysimg | tee $(BUILDDIR)/sysgen.out
 
 $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(KERNPATH) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol
+	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/sysvol $(BUILDDIR)/sysimg
 
 $(BUILDDIR)/sysvolfd: $(BUILDDIR)/sysimg $(KERNPATH) $(VOLMAPFD)
-	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAPFD) $(BUILDDIR)/sysvolfd
+	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAPFD) $(BUILDDIR)/sysvolfd
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/sysvolfd $(BUILDDIR)/sysimg
 
 tstflop: install $(BUILDDIR)/sysvolfd
