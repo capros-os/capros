@@ -39,7 +39,7 @@
 
 #define MAX_SOURCE 16
 
-#define dbg_cachealloc	0x1	/* steps in taking snapshot */
+#define dbg_cachealloc	0x1	/* initialization */
 #define dbg_ckpt	0x2	/* migration state machine */
 #define dbg_map		0x4	/* migration state machine */
 #define dbg_ndalloc	0x8	/* node allocation */
@@ -80,6 +80,7 @@ objC_InitNodeTable(int num)
   Node *temp = (Node *)KPAtoP(void *, physMem_Alloc(num*sizeof(Node), &physMem_any));
   for (i = 0; i < num; i++) {
     Node *n = &temp[i];
+    /* FIXME: Init keys the first time node is used. */
     for (j = 0; j < EROS_NODE_SIZE; j++)
       keyBits_InitToVoid(&n->slot[j]);
     keyR_ResetRing(&n->node_ObjHdr.keyRing);
@@ -109,12 +110,12 @@ objC_Init()
   availBytes = physMem_AvailBytes(&physMem_any);
     
   DEBUG(cachealloc)
-    printf("%d bytes of available storage.\n", availBytes);
+    printf("%d bytes of available storage, sizeof(Node) = %d,"
+           " sizeof(ObjectHeader) = %d.\n",
+           availBytes, sizeof(Node), sizeof(ObjectHeader));
 
   allocQuanta =
     sizeof(Node) + EROS_PAGE_SIZE + sizeof(ObjectHeader);
-    
-  availBytes = physMem_AvailBytes(&physMem_any);
 
   objC_nNodes = availBytes / allocQuanta;
     
@@ -124,7 +125,7 @@ objC_Init()
   
   objC_nodeTable = objC_InitNodeTable(objC_nNodes);
 
-  DEBUG(ndalloc)
+  DEBUG(cachealloc)
     printf("Allocated Nodes: 0x%x at 0x%08x\n",
 		   sizeof(Node[objC_nNodes]), objC_nodeTable);
 
