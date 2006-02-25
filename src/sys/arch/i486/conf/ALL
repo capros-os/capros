@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -58,8 +59,8 @@ option("small_spaces")
 
 # pseudo_device("bpfilter", count=8)
 
-if isoption("ddb") and not isoption("ddb_on_console") and  not isoption("ddb_on_tty0"):
-   option("ddb_on_console")
+if not isoption("output_on_console") and not isoption("output_on_tty0"):
+   option("output_on_console")
 
 #####################################################################
 #

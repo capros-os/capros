@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -20,38 +20,22 @@
  */
 
 #include <kerninc/kernel.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/KernStream.h>
 
 #ifdef OPTION_DDB
 bool kstream_debuggerIsActive = false;
-KernStream *kstream_dbg_stream = 0;
 #endif
-KernStream *kstream_syscon_stream = 0;
-KernStream *kstream_log_stream = 0;
+bool userUsingConsole = false;
 
 void
 kstream_InitStreams()
 {
-  /* kstream_LogStream->Init();  LogStream needs no initialization */
+  /* LogStream needs no initialization */
   kstream_ConsoleStream->Init();
-#ifdef OPTION_DDB_ON_TTY0
+#ifdef OPTION_OUTPUT_ON_TTY0
   kstream_SerialStream->Init();
 #endif
 
-  kstream_syscon_stream = kstream_ConsoleStream;
-  kstream_log_stream = kstream_LogStream;
-
-#if defined(OPTION_DDB_ON_CONSOLE)
-  kstream_dbg_stream = kstream_ConsoleStream;
-  /* If the debugger stream is set to point to the console device,
-   * turn off the syscon_stream so that we do not see duplicated
-   * output. */
-  kstream_syscon_stream = 0;
-#elif defined(OPTION_DDB_ON_TTY0)
-  kstream_dbg_stream = kstream_SerialStream;
-#endif
-    
   printf("Kernel streams initialized...\n");
 }
 
@@ -91,17 +75,30 @@ kstream_IsPrint(uint8_t c)
   }
 }
 
+/* Send character to up to 3 destinations:
+To Console during boot, and also if debugger is using console.
+To Serial if OPTION_OUTPUT_ON_TTY0.
+To Log if Debugger not active. */
 void
 kstream_do_putc(char c)
 {
-#ifdef OPTION_DDB
-  if (kstream_dbg_stream) kstream_dbg_stream->Put(c);
-#endif
-  if (kstream_syscon_stream) kstream_syscon_stream->Put(c);
-#ifdef OPTION_DDB
-  if (kstream_log_stream && !kstream_debuggerIsActive) kstream_log_stream->Put(c);
+#if (defined(OPTION_DDB) && defined(OPTION_OUTPUT_ON_CONSOLE))
+  /* In this case always use the console. */
+  kstream_ConsoleStream->Put(c);
 #else
-  if (kstream_log_stream) kstream_log_stream->Put(c);
+  /* Use console until user needs it. */
+  if (! userUsingConsole) kstream_ConsoleStream->Put(c);
+#endif
+
+#ifdef OPTION_OUTPUT_ON_TTY0
+  kstream_SerialStream->Put(c);
+#endif
+
+  /* Non-debugger output goes to log. */
+#ifdef OPTION_DDB
+  if (!kstream_debuggerIsActive) LogStream_Put(c);
+#else
+  LogStream_Put(c);
 #endif
 }
 
@@ -138,9 +135,14 @@ KernStream_SetDebugging(bool onOff)
 }
 #endif
 
+/* should be BeginUsingConsole */
 void 
 kstream_BeginUserActivities()
 {
+#if (defined(OPTION_DDB) && defined(OPTION_OUTPUT_ON_CONSOLE))
+  printf("Starting first thread...\n");
+#else
   printf("Starting first thread. Console output now disabled...\n");
-  kstream_syscon_stream = 0;
+#endif
+  userUsingConsole = true;
 }

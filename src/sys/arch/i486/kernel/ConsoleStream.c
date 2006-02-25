@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -213,7 +213,7 @@ ConsoleStream_Put(uint8_t c)
  *
  *************************************************************************/
 
-#if defined(OPTION_DDB_ON_CONSOLE)
+#if (defined(OPTION_DDB) && defined(OPTION_OUTPUT_ON_CONSOLE))
 
 const uint8_t KbdDataPort    = 0x60u;
 const uint8_t KbdCtrlPort   = 0x64u;
@@ -702,24 +702,24 @@ ConsoleStream_EnableDebuggerInput()
 void
 ConsoleStream_EnableDebuggerInput()
 {
-  fatal("EnableDebuggerInput on console when not DDB_ON_CONSOLE\n");
+  fatal("EnableDebuggerInput on console when not OUTPUT_ON_CONSOLE\n");
 }
 
 void
 ConsoleStream_SetDebugging(bool onOff)
 {
-  fatal("SetDebugging() on console when not DDB_ON_CONSOLE\n");
+  fatal("SetDebugging() on console when not OUTPUT_ON_CONSOLE\n");
 }
 
 
 uint8_t
 ConsoleStream_Get()
 {
-  fatal("Get() on console when not DDB_ON_CONSOLE\n");
+  fatal("Get() on console when not OUTPUT_ON_CONSOLE\n");
   return 0;
 }
 
-#endif /* OPTION_DDB_ON_CONSOLE */
+#endif /* OPTION_OUTPUT_ON_CONSOLE */
 
 struct KernStream TheConsoleStream = {
   ConsoleStream_Init,

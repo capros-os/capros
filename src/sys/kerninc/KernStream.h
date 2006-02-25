@@ -93,22 +93,15 @@ extern bool kstream_debuggerIsActive;
 #define kstream_debuggerIsActive 0
 #endif
 
-/* I would like to make these references, but the global constructor
- * code generator is screwing up the pointer initialization. */
-extern KernStream* kstream_LogStream;
+extern void LogStream_Put(uint8_t c);
 extern KernStream* kstream_ConsoleStream;
-#ifdef OPTION_DDB_ON_TTY0
-extern KernStream* kstream_SerialStream;
+
+#if defined(OPTION_OUTPUT_ON_CONSOLE)
+#define kstream_dbg_stream kstream_ConsoleStream
+#elif defined(OPTION_OUTPUT_ON_TTY0)
+#define kstream_dbg_stream kstream_SerialStream
+extern KernStream * kstream_SerialStream;
 #endif
-
-
-#ifdef OPTION_DDB
-extern KernStream *kstream_dbg_stream;
-#endif
-extern KernStream *kstream_syscon_stream;
-extern KernStream *kstream_log_stream;
-
-/* Former non virtual members of KernStream */
 
 void kstream_PutBuf(uint8_t *s, uint32_t len);
 

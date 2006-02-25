@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -17,10 +17,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- */
-
-/* The LogStream is a consolidation of the various previous logging
- * mechanisms.
  */
 
 #include <kerninc/kernel.h>
@@ -51,16 +47,3 @@ LogStream_Put(uint8_t c)
   
   *nextin++ = c;
 }
-
-struct KernStream TheLogStream = {
-  0,	/* no initilization method needed */
-  LogStream_Put 
-#ifdef OPTION_DDB 
-  ,
-  0,	/* no Get method */
-  0,	/* no SetDebugging method */
-  0	/* no EnableDebuggerInput method */
-#endif /*OPTION_DDB*/
-};
-
-KernStream* kstream_LogStream = &TheLogStream;

@@ -1,6 +1,7 @@
 # -*- python -*-
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -38,16 +39,14 @@ depends("ddb_watch", "ddb")
 
 #####################################################################
 #
-# Determine what device the kernel debugger, if present, should use as
-# its input/output device. At most one of these should be set at a
-# time. If no selection is made here, and the debugger is enabled,
-# the debugger defaults to using the first serial port (tty0).
+# Determine what device the kernel diagnostic output (printf)
+# and kernel debugger (if present) should use as their
+# input/output device. Exactly one of these should be set.
+# If no selection is made, it defaults to using the console.
 #
 #####################################################################
-defoption("ddb_on_console")
-depends("ddb_on_console", "ddb")
-defoption("ddb_on_tty0")
-depends("ddb_on_tty0", "ddb")
+defoption("output_on_console")
+defoption("output_on_tty0")
 
 defoption("ndebug", 1)
 defoption("inet")

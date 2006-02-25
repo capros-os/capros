@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -78,8 +78,6 @@ kproc_Init(
 
   memset(&p->trapFrame, 0, sizeof(p->trapFrame));
   
-  p->hazards = 0;
-
   /* Initialize the per-activity save area so that we can schedule this
    * activity.  When the activity is initiated by resume_process() for the
    * first time, it will execute the first instruction of it's Start

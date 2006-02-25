@@ -81,6 +81,6 @@ file("arch/i486/kernel/longjmp.S")
 # This one is unconditionally included so that we can show status on
 # the way up:
 file("arch/i486/kernel/ConsoleStream.c")
-file("arch/i486/kernel/SerialStream.c", ddb_on_tty0)
+file("arch/i486/kernel/SerialStream.c", output_on_tty0)
 
 include("../../../files.common")
