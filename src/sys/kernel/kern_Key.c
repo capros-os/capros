@@ -35,6 +35,10 @@
 #define DEBUG(x) if DBCOND(x)
 #define DEBUG2(x,y) if ((dbg_##x|dbg_##y) & dbg_flags)
 
+#ifndef NDEBUG
+extern bool InvocationCommitted;
+#endif
+
 ObjectHeader *
 key_GetObjectPtr(const Key* thisPtr)
 {
@@ -229,7 +233,6 @@ key_DoPrepare(Key* thisPtr)
 void
 key_Prepare(Key* thisPtr)
 {
-  extern bool InvocationCommitted;
   assert (InvocationCommitted == false);
 
   assert(thisPtr);
@@ -245,9 +248,6 @@ key_Prepare(Key* thisPtr)
 bool
 key_PrepareWithType(Key* thisPtr, KeyType ty)
 {
-#ifndef NDEBUG
-  extern bool InvocationCommitted;
-#endif
   assert (InvocationCommitted == false);
 
   /* printf("Key::Prepare(ty) -- want ty %d\n", ty); */
