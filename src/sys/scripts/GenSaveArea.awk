@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -18,7 +19,7 @@
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 
-# program to generate fixregs.h from LAYOUT file
+# program to generate gen.SaveArea.h from LAYOUT file
 
 BEGIN {
   nfxdef = 0;
@@ -47,8 +48,10 @@ BEGIN {
       thismask *= 2;
     }
 
-    mask[nmask] = sprintf("#define MASK_%s_%-16s  0x%08xu\n", $2, $3, value);
-    maskshift[nmask] = sprintf("#define SHIFT_%s_%-16s 0x%08xu\n", $2, $3, $4);
+    mask[nmask] = sprintf("#define MASK_%s_%-16s  _ASM_U(0x%08x)\n",
+                          $2, $3, value);
+    maskshift[nmask] = sprintf("#define SHIFT_%s_%-16s _ASM_U(0x%08x)\n",
+                               $2, $3, $4);
     nmask++;
   }
 }  
