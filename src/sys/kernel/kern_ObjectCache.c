@@ -784,6 +784,7 @@ objC_AgeNodeFrames()
 void
 objC_ReleaseMappingFrame(ObjectHeader *pObj)
 {
+  assert(pObj->obType == ot_PtMappingPage);
   ObjectHeader * pProducer = pObj->prep_u.producer;
 
   assert(pProducer);
@@ -1635,7 +1636,7 @@ objC_InitObjectSources()
     source->name = "preload";
     source->start = startOid;
     source->end = startOid + (nObFrames * EROS_OBJECTS_PER_FRAME);
-    source->base = modp->mod_start;
+    source->base = KPAtoP(kva_t, modp->mod_start);
     source->objS_Detach = PreloadObSource_Detach;
     source->objS_GetObject = PreloadObSource_GetObject;
     source->objS_IsRemovable = ObjectSource_IsRemovable;
