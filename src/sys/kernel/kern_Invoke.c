@@ -45,11 +45,6 @@
  * #define KPRDEBUG
  */
 
-int checkme(KeyBits *k)
-{
-  return k->keyData;
-}
-
 /* #define TESTING_INVOCATION */
 
 #ifdef TESTING_INVOCATION
