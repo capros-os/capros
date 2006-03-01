@@ -65,12 +65,6 @@ void irq_UnsetHandler(uint32_t irq);
 void irq_Enable(uint32_t irq);
 void irq_Disable(uint32_t irq);
 
-INLINE bool 
-irq_IsEnabled(uint32_t irq)
-{
-  return (irq_enableMask & (1u << irq)) ? true : false;
-}
-
 void irq_UnboundInterrupt(savearea_t *);
 
 void DoUsermodeInterrupt(savearea_t *ia);
