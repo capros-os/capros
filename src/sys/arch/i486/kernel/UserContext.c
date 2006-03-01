@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2006, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -542,8 +542,8 @@ proc_Load(Node* procRoot)
 
   p->procRoot = procRoot;
   
-  procRoot->node_ObjHdr.prep_u.context = p;
   procRoot->node_ObjHdr.obType = ot_NtProcessRoot;
+  procRoot->node_ObjHdr.prep_u.context = p;
 }
 
 /* ValidateRegValues() -- runs last to validate that the loaded context
@@ -771,8 +771,8 @@ proc_LoadKeyRegs(Process* thisPtr)
   }
   
   /* Node is now known to be valid... */
-  kn->node_ObjHdr.prep_u.context = thisPtr;
   kn->node_ObjHdr.obType = ot_NtKeyRegs;
+  kn->node_ObjHdr.prep_u.context = thisPtr;
   thisPtr->keysNode = kn;
 
   keyBits_SetWrHazard(&thisPtr->procRoot->slot[ProcGenKeys]);

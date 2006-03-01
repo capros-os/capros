@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -78,6 +78,7 @@
 
 #endif /* OPTION_SMALL_SPACES */
 
+/* Addresses above UMSGTOP are reserved for small spaces and the kernel. */
 #define UMSGTOP         _ASM_U(0xC0000000)
 #define LARGE_SPACE_PAGES 0xC0000         /* 3 Gbytes */
 

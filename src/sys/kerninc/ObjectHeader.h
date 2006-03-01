@@ -2,6 +2,7 @@
 #define __OBJECTHEADER_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -50,14 +51,14 @@ enum ObType {
   ot_NtRegAnnex,
   ot_NtFreeFrame,		/* unallocated */
   ot_NtLAST_NODE_TYPE = ot_NtFreeFrame,
-  ot_PtDataPage,			/* page holding a user data Page */
-  ot_PtNewAlloc,			/* newly allocated frame, not yet typed */
+  ot_PtDataPage,		/* page holding a user data Page */
+  ot_PtNewAlloc,		/* newly allocated frame, not yet typed */
   ot_PtKernelHeap,		/* in use as kernel heap */
 #ifdef USES_MAPPING_PAGES
   ot_PtMappingPage,		/* used in a virtual mapping table */
 #endif
   ot_PtDevicePage,		/* data page, but device memory */
-  ot_PtFreeFrame			/* unallocated */
+  ot_PtFreeFrame		/* unallocated */
 };
 typedef enum ObType ObType;
 
@@ -119,10 +120,12 @@ struct ObjectHeader {
 
   union {
     /* Special relationship pointers if prepared node or mapping page */
-    ObjectHeader  *producer;	/* if mapping page */
-    ObjectHeader  *products;	/* if segment or page */
-    Process	  *context;	/* if prepared as Domain */
-    /*    ObjectHeader  *prevFree; */
+    ObjectHeader  *producer;	/* if obType == ot_PtMappingPage */
+    ObjectHeader  *products;	/* if obType == ot_NtSegment
+				             or ot_PtDataPage or ... */
+    Process	  *context;	/* if obType == ot_NtProcessRoot
+                                             or ot_NtKeyRegs
+				             (or ot_NtRegAnnex if used) */
   } prep_u;
 
   kva_t   pageAddr;		/* speed up ObHdrToPage! */
@@ -146,27 +149,17 @@ struct ObjectHeader {
 #if 0
       uint32_t	refCount;	/* for mapping pages */
 #endif
-    } ob;
+    } ob;	/* if obType is NOT one of the following:
+		ot_NtFreeFrame, ot_PtNewAlloc, ot_PtKernelHeap,
+		ot_PtMappingPage, ot_PtFreeFrame */
 
     struct {
       struct Node *redSeg;	/* pointer to slot of keeper that
 				 * dominated this mapping frame */
-      uint64_t     redSpanBlss;	/* blss of seg spanned by redSeg */
+      unsigned char redSpanBlss;	/* blss of seg spanned by redSeg */
       bool         wrapperProducer;
-    } mp;
+    } mp;	/* if obType == ot_PtMappingPage */
     
-    /* The structure above is relevant to nodes also.  The structures
-     * below are only relevant to page-sized frames.
-     */
-    struct {
-      int32_t  sz;		/* object size.  -1 means encoded internally */
-      uint32_t mtype;		/* malloc type */
-    } malloc;
-    struct {
-      /* NOTE THIS IS NOT YET USED, AND REPRESENTS VERY TENTATIVE IDEAS */
-      ObjectHeader *first;	/* first frame in physical range */
-      uint32_t npage;		/* number of pages in physical range */
-    } p_range;
   } kt_u;
   
   uint8_t		flags;
@@ -174,6 +167,7 @@ struct ObjectHeader {
   uint8_t	obType;		/* page type or node prepcode */
   uint8_t	age;
 
+  /* The following four are for obType == ot_PtMappingPage only. */
   /* FIX: producerNdx isn't really big enough given 32-slot nodes; on
      machines that need this, it must hold log2(ndsz). */
   uint8_t	producerNdx : 3; /* deal with map tbl/node non-congruence. */

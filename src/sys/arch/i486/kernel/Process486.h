@@ -28,6 +28,24 @@
 
 /* Machine-specific functions for process operations private to the HAL: */
 
+#ifdef USES_MAPPING_PAGES
+void mach_SetMappingTable(kpmap_t pAddr);
+kpmap_t mach_GetMappingTable();
+#endif
+
+#ifdef NEW_KMAP
+struct MappingWindow;
+#define WM_NOKVA ~0u
+extern struct MappingWindow *PageDirWindow;
+extern struct MappingWindow *TempMapWindow;
+
+kva_t mach_winmap(struct MappingWindow* mw, kva_t lastva, kpa_t pa);
+void mach_winunmap(struct MappingWindow* mw, kva_t va);
+#else
+kva_t mach_winmap(int mw, kva_t lastva, kpa_t pa);
+void mach_winunmap(int mw, kva_t va);
+#endif
+
 bool proc_HasDevicePriveleges(Process* thisPtr);
 
 /* Return 0 if no mapping can be found with the desired access,

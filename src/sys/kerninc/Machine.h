@@ -76,35 +76,11 @@ void mach_MountDisk(DiskUnit*);
 
 /* INLINE int mach_FindFirstZero(uint32_t w); */
 
-#if 0
-/* Used to map send and receive buffers: */
-static void MapBuffer(kva_t va, kpa_t p0, kpa_t p1);
-#endif
-
 void mach_EnsureHeap(kva_t target,
        kpa_t (*acquire_heap_page)(void) );
 
 void mach_ZeroUnmappedPage(kpa_t page);
 
-#ifdef USES_MAPPING_PAGES
-void mach_SetMappingTable(kpmap_t pAddr);
-kpmap_t mach_GetMappingTable();
-#endif
-void mach_EnableVirtualMapping();
-
 #include <arch-kerninc/Machine-inline.h>
-
-#ifdef NEW_KMAP
-struct MappingWindow;
-#define WM_NOKVA ~0u
-extern struct MappingWindow *PageDirWindow;
-extern struct MappingWindow *TempMapWindow;
-
-kva_t mach_winmap(struct MappingWindow* mw, kva_t lastva, kpa_t pa);
-void mach_winunmap(struct MappingWindow* mw, kva_t va);
-#else
-kva_t mach_winmap(int mw, kva_t lastva, kpa_t pa);
-void mach_winunmap(int mw, kva_t va);
-#endif
 
 #endif /* __MACHINE_H__ */

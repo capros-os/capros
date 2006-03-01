@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -109,6 +109,7 @@ objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi, uint32_t ndx,
   ObjectHeader *product = 0;
   
   for (product = thisPtr->prep_u.products; product; product = product->next) {
+    assert(product->obType == ot_PtMappingPage);
     if ((uint32_t) product->producerBlss != blss) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("Producer BLSS not match\n");
@@ -160,9 +161,8 @@ objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi, uint32_t ndx,
   }
 
   if (product) {
-    assert(product->prep_u.producer == thisPtr);
     assert(product->obType == ot_PtMappingPage);
-
+    assert(product->prep_u.producer == thisPtr);
   }
 
 #if 0
@@ -185,6 +185,7 @@ objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi, uint32_t ndx,
 void
 objH_AddProduct(ObjectHeader* thisPtr, ObjectHeader *product)
 {
+  /* assert(product->obType == ot_PtMappingPage); */
   product->next = thisPtr->prep_u.products;
   product->prep_u.producer = thisPtr;
   thisPtr->prep_u.products = product;
@@ -193,7 +194,8 @@ objH_AddProduct(ObjectHeader* thisPtr, ObjectHeader *product)
 void
 objH_DelProduct(ObjectHeader* thisPtr, ObjectHeader *product)
 {
-  assert (product->prep_u.producer == thisPtr);
+  assert(product->obType == ot_PtMappingPage);
+  assert(product->prep_u.producer == thisPtr);
   
   if (thisPtr->prep_u.products == product) {
     thisPtr->prep_u.products = product->next;
@@ -592,13 +594,16 @@ objH_ddb_dump(ObjectHeader* thisPtr)
 #else
   printf("Object Header 0x%08x (%s) oid=0x%08x%08x ac=0x%08x\n", thisPtr,
 	 ddb_obtype_name(thisPtr->obType),
-	 (uint32_t) (thisPtr->kt_u.ob.oid >> 32), (uint32_t) thisPtr->kt_u.ob.oid,
-	 thisPtr->kt_u.ob.allocCount);
+	 (uint32_t) (thisPtr->kt_u.ob.oid >> 32),
+         (uint32_t) thisPtr->kt_u.ob.oid,
+         thisPtr->kt_u.ob.allocCount);
 #endif
   printf("    ioCount=0x%08x next=0x%08x flags=0x%02x obType=0x%02x age=0x%02x\n",
-	 thisPtr->kt_u.ob.ioCount, thisPtr->next, thisPtr->flags, thisPtr->obType, thisPtr->age);
+	 thisPtr->kt_u.ob.ioCount, thisPtr->next,
+         thisPtr->flags, thisPtr->obType, thisPtr->age);
   printf("    prodNdx=%d prodBlss=%d rwProd=%c usrPin=%d kernPin=%d\n",
-	 thisPtr->producerNdx, thisPtr->producerBlss, thisPtr->rwProduct ? 'y' : 'n', thisPtr->userPin,
+	 thisPtr->producerNdx, thisPtr->producerBlss,
+         thisPtr->rwProduct ? 'y' : 'n', thisPtr->userPin,
 	 thisPtr->kernPin);
 
   switch(thisPtr->obType) {

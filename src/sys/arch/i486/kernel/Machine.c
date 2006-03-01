@@ -33,11 +33,11 @@
 #include <kerninc/KernStats.h>
 #include <eros/TimeOfDay.h>
 #include <idl/eros/SysTrace.h>
-/*#include "Log386.hxx"*/
 #include <arch-kerninc/PTE.h>
 #include "CpuFeatures.h"
 #include <kerninc/Process.h>
 #include <kerninc/Depend.h>
+#include "Process486.h"
 #include "CMOS.h"
 #include "lostart.h"
 
@@ -45,14 +45,14 @@
 #include "IDT.h"
 #include "TSS.h"
 
-/*#include <disk/LowVolume.hxx>	for VolFlags */
-
 extern void etext();
 extern void end();
 extern void start();
 
 void i486_BuildKernelMap();
 uint32_t mach_BusArchitecture();
+
+void mach_EnableVirtualMapping();
 
 /* Machine::BootInit() -- first routine called by main() if we
  * came into the kernel via the bootstrap code.

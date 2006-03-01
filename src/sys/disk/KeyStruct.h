@@ -246,6 +246,8 @@ INLINE void
 keyBits_InitType(KeyBits *thisPtr /*@ not null @*/, uint8_t t)
 {
   thisPtr->keyType = (KeyType)t; /* not hazard, not prepared */
+  /* FIXME: With keyFlags and keyPerms as separate bit fields,
+     this is slow. */
   thisPtr->keyFlags = 0;
   thisPtr->keyPerms = 0;
   thisPtr->keyData = 0;

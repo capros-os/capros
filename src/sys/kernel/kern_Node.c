@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -389,9 +390,8 @@ node_PrepAsSegment(Node* thisPtr)
     return false;
   }
 
-  thisPtr->node_ObjHdr.prep_u.products = 0;
-	
   thisPtr->node_ObjHdr.obType = ot_NtSegment;
+  thisPtr->node_ObjHdr.prep_u.products = 0;
 
   return true;
 }
@@ -440,11 +440,6 @@ node_Unprepare(Node* thisPtr, bool zapMe)
 
     if (thisPtr->node_ObjHdr.prep_u.context)
       proc_Unload(thisPtr->node_ObjHdr.prep_u.context);
-
-
-#if 0
-    printf("Returned okay\n");
-#endif
     assert (thisPtr->node_ObjHdr.prep_u.context == 0);
   }
   else if (thisPtr->node_ObjHdr.obType == ot_NtKeyRegs || thisPtr->node_ObjHdr.obType == ot_NtRegAnnex) {
@@ -472,8 +467,6 @@ node_Unprepare(Node* thisPtr, bool zapMe)
 
     if (thisPtr->node_ObjHdr.prep_u.context)
       proc_Unload(thisPtr->node_ObjHdr.prep_u.context);
-
-
     assert (thisPtr->node_ObjHdr.prep_u.context == 0);
   }
   else if (thisPtr->node_ObjHdr.obType == ot_NtSegment) {

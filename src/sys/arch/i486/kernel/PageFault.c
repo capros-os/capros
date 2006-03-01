@@ -175,6 +175,9 @@ Depend_InvalidateProduct(ObjectHeader* page)
   }
   
   if (page->producerNdx == EROS_NODE_LGSIZE) {
+    /* FIXME: This does not scale. 
+       I think the Depend relationship can be used to find the
+       pointers that need to be zapped. */
     for (i = 0; i < KTUNE_NCONTEXT; i++)
       if (proc_ContextCache[i].MappingTable == mp_pa)
 	proc_ContextCache[i].MappingTable = 0;
@@ -700,6 +703,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
 	  pTable = KPAtoP(PTE *, pte_PageFrame(thePDE));
 	  pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
+          assert(pTableHdr->obType == ot_PtMappingPage);
         
 	  
 	  wi.offset = wi.vaddr & ((1u << 22) - 1u);
@@ -745,6 +749,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       }
     }
 #endif /* FAST_TRAVERSAL */
+    assert(pTableHdr->obType == ot_PtMappingPage);
     
     wi.offset = wi.vaddr;
     wi.segBlss = pTableHdr->producerBlss;
@@ -820,6 +825,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 #ifndef NDEBUG
   {
     ObjectHeader *pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
+    assert(pTableHdr->obType == ot_PtMappingPage);
 
     assert(wi.segBlss == pTableHdr->producerBlss);
     assert(wi.segObj == pTableHdr->prep_u.producer);
@@ -872,6 +878,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
       if (pTableHdr == 0)
 	pTableHdr = proc_MakeNewPageTable(&wi, productNdx);
+      assert(pTableHdr->obType == ot_PtMappingPage);
 
       assert(wi.segBlss == pTableHdr->producerBlss);
       assert(wi.segObj == pTableHdr->prep_u.producer);
