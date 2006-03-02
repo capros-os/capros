@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -29,7 +30,7 @@ file("kernel/kern_Activity.c")
 file("kernel/kern_IoRegion.c")
 file("kernel/kern_Depend.c")
 file("kernel/kern_Segment.c")
-file("kernel/kern_Context.c")
+file("kernel/kern_Process.c")
 file("kernel/kern_SysTimer.c")
 # file("kernel/kern_WallClock.cxx")
 file("kernel/kern_main.c")

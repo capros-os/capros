@@ -249,7 +249,9 @@ void proc_DumpFloatRegs(Process* thisPtr);
 #endif
 
 #ifndef NDEBUG
-bool proc_ValidKeyReg(const Key *pKey);
+bool ValidCtxtPtr(const Process * ctxt);
+bool ValidCtxtKeyRingPtr(const KeyRing* kr);
+bool proc_ValidKeyReg(const Key * pKey);
 #endif
 
 INLINE bool 
@@ -454,10 +456,6 @@ void proc_DoEmulatedInstr(Process* thisPtr, const EmulatedInstr* instr /*@ not n
  * End new code in support of emulated instructions
  ******************************************************/
 
-void proc_LoadFixRegs(Process* thisPtr);
-#ifdef EROS_HAVE_FPU
-void proc_LoadFloatRegs(Process* thisPtr);
-#endif
 void proc_LoadKeyRegs(Process* thisPtr);
 
 void proc_FlushFixRegs(Process* thisPtr);
@@ -475,8 +473,6 @@ Process *proc_allocate(bool isUser);
 void proc_Load(Node* procRoot);
 
 void proc_LoadAddressSpace(Process* thisPtr, bool prompt);
-
-void proc_ValidateRegValues(Process* thisPtr);	/* returns false if faulted */
 
 void proc_FlushProcessSlot(Process* thisPtr, uint32_t whichKey);
 

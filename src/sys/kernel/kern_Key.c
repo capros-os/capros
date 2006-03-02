@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -386,7 +387,6 @@ key_NH_Unprepare(Key* thisPtr)
   
     if (keyBits_IsGateKey(thisPtr) ) {
 #ifndef NDEBUG
-      extern bool ValidCtxtPtr(const Process *);
       if (ValidCtxtPtr(thisPtr->u.gk.pContext) == false)
 	fatal("Key 0x%08x Kt %d, 0x%08x not valid ctxt ptr\n",
               thisPtr, keyBits_GetType(thisPtr), thisPtr->u.gk.pContext);
@@ -586,9 +586,6 @@ key_IsValid(const Key* thisPtr)
 #endif
       
   if ( keyBits_IsPreparedObjectKey(thisPtr) ) {
-    extern bool ValidCtxtPtr(const Process *);
-    extern bool ValidCtxtKeyRingPtr(const KeyRing *);
-	
 #ifndef NDEBUG
     if ( keyBits_IsGateKey(thisPtr) ) {
       Process *ctxt = thisPtr->u.gk.pContext;
