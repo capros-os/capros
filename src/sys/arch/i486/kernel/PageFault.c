@@ -32,7 +32,6 @@
 #include <kerninc/Depend.h>
 #include <kerninc/Machine.h>
 #include <kerninc/Debug.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/Process.h>
 #include <kerninc/SegWalk.h>
 #include <arch-kerninc/Process.h>
@@ -52,7 +51,7 @@
 /* Possible outcomes of a user-level page fault:
  * 
  * 1. Fault was due to a not-present page, and address is not valid in
- * address space segment.  Domain should be faulted and an attempt
+ * address space segment.  Process should be faulted and an attempt
  * made to invoke appropriate keeper.
  * 
  * 2. Fault was due to a not-present page, but address IS valid in
@@ -62,7 +61,7 @@
  * the object is in principle writable. Restart the process.
  * 
  * 3. Fault was an access violation due to writing a page that in
- * principle was read-only.  Domain should be faulted and an attempt
+ * principle was read-only.  Process should be faulted and an attempt
  * made to invoke appropriate keeper.
  * 
  * 4. Fault was an access violation due to writing a page that has a
@@ -301,7 +300,7 @@ PageFault(savearea_t *sa)
   ula_t la = sa->ExceptAddr;
   uint32_t error = sa->Error;
   bool writeAccess = (error & 2) ? true : false;
-  Process *ctxt = 0;
+  Process *ctxt;
 
   /* sa->Dump(); */
 
@@ -328,12 +327,9 @@ PageFault(savearea_t *sa)
 		  la, error, sa->CS);
   }
 
-  /* Domain page fault.  If we take this from kernel mode we are in
-   * deep kimchee.
-   */
+  /* Process page fault. */
 
-  ctxt = (Process*) act_CurContext();
-
+  ctxt = act_CurContext();
 
   assert(& ctxt->trapFrame == sa);
 
@@ -346,7 +342,6 @@ PageFault(savearea_t *sa)
 
   objH_BeginTransaction();
 
-
   (void) proc_DoPageFault(ctxt, la, writeAccess, false);
 
   /* We succeeded (wonder of wonders) -- release pinned resources. */
@@ -356,9 +351,7 @@ PageFault(savearea_t *sa)
    * not be any.
    */
 
-
   assert(act_CurContext());
-
 
 #ifdef OPTION_KERN_TIMING_STATS
   {
@@ -596,7 +589,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   const int walk_top_blss = 2 + EROS_PAGE_BLSS;
   uva_t va;
   SegWalk wi;
-  PTE *pTable = 0;
+  PTE *pTable;
   
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)

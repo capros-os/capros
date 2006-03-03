@@ -125,7 +125,7 @@ struct Process {
   Key               keyReg[EROS_PROCESS_KEYREGS];
   Key               lastInvokedKey;
 
-  kva_t             cpuStack;
+  kva_t             cpuStack;	/* architecture-dependent */
 
   uint32_t          faultCode;
   uint32_t          faultInfo;

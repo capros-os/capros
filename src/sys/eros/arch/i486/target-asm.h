@@ -76,21 +76,10 @@
 #define EROS_NODES_PER_FRAME	7
 
 /* This is for 32 slot nodes and 64 bit address spaces */
-#if EROS_PAGE_BLSS == 0
+/* EROS_PAGE_BLSS == 0 */
 #define MAX_BLSS       11	/* 2^96 byte space */
 #define MAX_RED_BLSS   12	/* above + keeper */
 #define EROS_ADDRESS_BLSS	4
-#elif EROS_PAGE_BLSS == 1
-#define MAX_BLSS       12	/* 2^96 byte space */
-#define MAX_RED_BLSS   13	/* above + keeper */
-#define EROS_ADDRESS_BLSS	5
-#elif EROS_PAGE_BLSS == 2
-#define MAX_BLSS       13	/* 2^96 byte space */
-#define MAX_RED_BLSS   14	/* above + keeper */
-#define EROS_ADDRESS_BLSS	6
-#else
-#error "Bad page BLSS value!"
-#endif
 
 #define EROS_ADDRESS_LSS (EROS_ADDRESS_BLSS - EROS_PAGE_BLSS)
 

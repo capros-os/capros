@@ -41,8 +41,8 @@ typedef uint32_t        kva_t;	/* kernel virtual address */
 typedef uint64_t	kpa_t;	/* kernel physical address */
 typedef uint64_t	kpsize_t; /* kernel physical address range
 				   * size */
-typedef uint32_t        uva_t;	/* user virtual address */
-typedef uint32_t        ula_t;	/* user virtual address */
+typedef uint32_t        uva_t;	/* user logical (virtual) address */
+typedef uint32_t        ula_t;	/* user linear address */
 
 /* On most architectures, kpmap_t == kpa_t, but on the x86, the
    processor may be in PAE mode, in which case physical addresses are

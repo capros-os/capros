@@ -224,6 +224,7 @@ walkseg_handle_node_key(Process * p, SegWalk* wi, uint32_t stopBlss,
 }
 #endif
 
+/* Returns true if successful, false if wi->faultCode set. */
 bool
 proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
 	     PTE* pPTE0, PTE* pPTE1, bool canMerge)
@@ -541,6 +542,7 @@ proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
   return false;
 }
 
+/* Always returns false. */
 bool 
 proc_InvokeSegmentKeeper(Process* thisPtr, SegWalk* wi /*@ not null @*/)
 {
@@ -667,7 +669,7 @@ proc_InvokeSegmentKeeper(Process* thisPtr, SegWalk* wi /*@ not null @*/)
 		 0, 0);
 
   
-  /* NOTREACHED */
+  /* NOTREACHED - this seems wrong */
 
   return false;
 }

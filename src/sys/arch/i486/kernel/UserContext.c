@@ -210,10 +210,6 @@ proc_FlushAll()
   }
 }
 
-extern void resume_from_kernel_interrupt(savearea_t *);
-extern void resume_process(Process *);
-extern void resume_v86_process(Process *);
-
 void 
 proc_DumpFixRegs(Process* thisPtr)
 {
