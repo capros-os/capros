@@ -692,20 +692,35 @@ i486_BuildKernelMap()
   }
 
 #if 1
-  /* Allocate the context cache by hand, rather than use the heap. */
+  /* Allocate and map the context caches. These were previously
+     allocated from the heap, but with the new "virtual registers"
+     extension we will need to be able to map this region as a
+     user-accessable region, so we need to do it here where we can
+     map it as page frames rather than as bytes. 
+
+     Making the context cache entries accessable from user mode
+     certainly SEEMS like a security violation, but it isn't. While there
+     is definitely security sensitive state in the context cache, the
+     context cache region is rendered inaccessable by the segmentation
+     mechanism. We will then separately enable access in a given
+     process to a small, security-insensitive subregion that contains
+     the pseudo-registers. */
  {
    uint32_t i;
    uint32_t len = align_up(KTUNE_NCONTEXT * sizeof(Process), EROS_PAGE_SIZE);
    uint32_t nPage = len/EROS_PAGE_SIZE;
    kva_t cache_va = heap_bound;
 
-   /* Align up to next page directory - this is probably unnecessary. */
+   /* Align up to next page directory to guarantee that the user bits
+      get set. This works around a bug in MapKernelPage in which
+      PTE_USER permissions don't get propagated to the directory. I
+      don't want to "fix" that until I can think about it a bit. */
    cache_va = align_up(cache_va, EROS_PAGE_SIZE * 1024);
 
    for (i = 0; i < nPage; i++) {
      kpa_t pa = physMem_Alloc(EROS_PAGE_SIZE, &physMem_pages);
      kva_t va = cache_va + (i * EROS_PAGE_SIZE);
-     MapKernelPage(va, pa, PTE_W|PTE_V|GlobalPage);
+     MapKernelPage(va, pa, PTE_W|PTE_V|PTE_USER|GlobalPage);
    }
 
    {
