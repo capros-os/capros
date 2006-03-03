@@ -48,9 +48,9 @@ BEGIN {
       thismask *= 2;
     }
 
-    mask[nmask] = sprintf("#define MASK_%s_%-16s  _ASM_U(0x%08x)\n",
+    mask[nmask] = sprintf("#define MASK_%s_%-16s  0x%08x\n",
                           $2, $3, value);
-    maskshift[nmask] = sprintf("#define SHIFT_%s_%-16s _ASM_U(0x%08x)\n",
+    maskshift[nmask] = sprintf("#define SHIFT_%s_%-16s 0x%08x\n",
                                $2, $3, $4);
     nmask++;
   }
