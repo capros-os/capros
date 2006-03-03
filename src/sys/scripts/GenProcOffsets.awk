@@ -72,7 +72,7 @@ BEGIN {
 
   for (b in bases) {
     offset = cur_offset - bases[b];
-    defs[ndef] = sprintf("#define %s_OFF_%-16s _ASM_U(0x%x) /* %u */\n",
+    defs[ndef] = sprintf("#define %s_OFF_%-16s 0x%x /* %u */\n",
 			 b, $4, offset, offset);
     defbase[ndef] = b;
     ndef++;

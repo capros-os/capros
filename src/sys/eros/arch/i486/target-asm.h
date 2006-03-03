@@ -36,32 +36,28 @@
 #error "Inappropriate target file"
 #endif
 
-#ifndef _ASM_U
-#define _ASM_U(x) x##u
-#endif
-
 #if 0
-#define EROS_KSTACK_SIZE	_ASM_U(0x2000) /* two pages */
+#define EROS_KSTACK_SIZE	0x2000) /* two pages */
 #else
-#define EROS_KSTACK_SIZE	_ASM_U(0x1000) /* one page */
+#define EROS_KSTACK_SIZE	0x1000 /* one page */
 #endif
 
-#define EROS_PAGE_SIZE		_ASM_U(0x1000)
-#define EROS_MESSAGE_LIMIT	_ASM_U(0x10000)
+#define EROS_PAGE_SIZE		0x1000
+#define EROS_MESSAGE_LIMIT	0x10000
 #define EROS_SECTOR_SIZE	512
 #define EROS_PAGE_SECTORS	8 /* Page_size / sector_size */
 
 #define EROS_PAGE_ADDR_BITS 12
-#define EROS_PAGE_MASK _ASM_U(0xfff)
-#define EROS_L0ADDR_MASK _ASM_U(0x3fffff)
+#define EROS_PAGE_MASK 0xfff
+#define EROS_L0ADDR_MASK 0x3fffff
 
 /* Trying to get this down to 0... */
 #define EROS_PAGE_BLSS 		0
 
-#define EROS_NODE_SIZE		_ASM_U(0x20)
-#define EROS_NODE_LGSIZE	_ASM_U(0x5)
-#define EROS_NODE_SLOT_MASK	_ASM_U(0x1f)
-#define EROS_PROCESS_KEYREGS    _ASM_U(32)
+#define EROS_NODE_SIZE		0x20
+#define EROS_NODE_LGSIZE	0x5
+#define EROS_NODE_SLOT_MASK	0x1f
+#define EROS_PROCESS_KEYREGS    32
 
 /* The following should be a multiple of EROS_PAGE_SECTORS */
 #define DISK_BOOTSTRAP_SECTORS	64

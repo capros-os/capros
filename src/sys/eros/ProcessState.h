@@ -115,10 +115,10 @@
 #define RS_Running   2
 
 /* PROCESS FLAGS */
-#define PF_Faulted   _ASM_U(0x1) /* process currently has a fault */
+#define PF_Faulted   0x1 /* process currently has a fault */
 /* NOTE that PF_Foreign is not yet implemented, though it won't be
    hard to do now that the flag is defined. */
-#define PF_Foreign   _ASM_U(0x2) /* process should not make invocations */
+#define PF_Foreign   0x2 /* process should not make invocations */
 
 /* NOTE that PF_DDBINV is a temporary expedient until we are able to
    get a minimal per-process debugger running. Domain code should NOT
@@ -126,9 +126,9 @@
    careful always to use appropriate AND and OR operations when
    manipulating the flags field, as new flags may need to be defined
    in the future. */
-#define PF_DDBINV    _ASM_U(0x80) /* process invocations should be
+#define PF_DDBINV    0x80 /* process invocations should be
 				     reported by DDB */
-#define PF_DDBTRAP   _ASM_U(0x40) /* process invocations should be
+#define PF_DDBTRAP   0x40 /* process invocations should be
 				     reported by DDB */
 
 /* Fault classifications used by the kernel when reporting faults: */

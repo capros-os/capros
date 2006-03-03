@@ -34,6 +34,3 @@
 #define	VAR(x)		ALIGNEDVAR(x,4)
 #define	ENTRY(x)	.globl EXT(x); .type EXT(x),@function; LEXT(x)
 #define	GDATA(x)	.globl EXT(x); .align ALIGN; LEXT(x)
-
-/* GNU assembler does not accept trailing 'u' in constants. */
-#define _ASM_U(x) x

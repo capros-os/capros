@@ -53,35 +53,35 @@
 
 /* Reserve 0.25 Gbytes of address space from 0xC000000..0xCFFFFFF for
    use as small spaces */
-#define KVA		_ASM_U(0xD0000000)
-#define KUVA		_ASM_U(0x30000000) /* user va 0 as kernel sees it */
+#define KVA		0xD0000000
+#define KUVA		0x30000000 /* user va 0 as kernel sees it */
 
-#define KVA_FROMSPACE   _ASM_U(0x2e800000) /* kernel-readable page tables */
-#define KVA_TOSPACE     _ASM_U(0x2ec00000)
-#define KVA_FSTBUF	_ASM_U(0x2f000000) /* top kva - 4096 pages.  Used 
+#define KVA_FROMSPACE   0x2e800000 /* kernel-readable page tables */
+#define KVA_TOSPACE     0x2ec00000
+#define KVA_FSTBUF	0x2f000000 /* top kva - 4096 pages.  Used 
 					   to map page *directories* */
-#define KVA_BZEROBUF	_ASM_U(0x2f800000) /* top kva - 2048 pages */
-#define KVA_PTEBUF	_ASM_U(0x2fc00000) /* top kva - 1024 pages */
+#define KVA_BZEROBUF	0x2f800000 /* top kva - 2048 pages */
+#define KVA_PTEBUF	0x2fc00000 /* top kva - 1024 pages */
 #define SMALL_SPACE_PAGES 32         /* 128 Kbytes */
 
 #else /* OPTION_SMALL_SPACES */
 
-#define KVA		_ASM_U(0xC0000000)
-#define KUVA		_ASM_U(0x40000000) /* user va 0 as kernel sees it */
+#define KVA		0xC0000000
+#define KUVA		0x40000000 /* user va 0 as kernel sees it */
 
-#define KVA_FROMSPACE   _ASM_U(0x3e800000) /* kernel-readable page tables */
-#define KVA_TOSPACE     _ASM_U(0x3ec00000)
-#define KVA_FSTBUF	_ASM_U(0x3f000000) /* top kva - 4096 pages.  Used 
+#define KVA_FROMSPACE   0x3e800000 /* kernel-readable page tables */
+#define KVA_TOSPACE     0x3ec00000
+#define KVA_FSTBUF	0x3f000000 /* top kva - 4096 pages.  Used 
 					   to map page *directories* */
-#define KVA_BZEROBUF	_ASM_U(0x3f800000) /* top kva - 2048 pages */
-#define KVA_PTEBUF	_ASM_U(0x3fc00000) /* top kva - 1024 pages */
+#define KVA_BZEROBUF	0x3f800000 /* top kva - 2048 pages */
+#define KVA_PTEBUF	0x3fc00000 /* top kva - 1024 pages */
 
 #endif /* OPTION_SMALL_SPACES */
 
 /* Addresses above UMSGTOP are reserved for small spaces and the kernel. */
-#define UMSGTOP         _ASM_U(0xC0000000)
+#define UMSGTOP         0xC0000000
 #define LARGE_SPACE_PAGES 0xC0000         /* 3 Gbytes */
 
-#define KERNPBASE	_ASM_U(0x00100000) /* phys addr where kernel is loaded */
+#define KERNPBASE	0x00100000 /* phys addr where kernel is loaded */
 
 #endif /* __KERN_TARGET_ASM_I486_H__ */

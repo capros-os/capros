@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -624,7 +625,7 @@ symdump(Symbol *s, FILE *out, int indent)
     {
       unsigned long sig = symbol_CodedName(s);
 
-      fprintf(out, "#define RC_%s _ASM_U(0x%x)\n",
+      fprintf(out, "#define RC_%s 0x%x\n",
 	      symbol_QualifiedName(s,'_'),
 	      sig);
 
@@ -673,7 +674,7 @@ symdump(Symbol *s, FILE *out, int indent)
 
       fprintf(out, "\n");
 
-      fprintf(out, "#define IKT_%s _ASM_U(0x%x)\n\n",
+      fprintf(out, "#define IKT_%s 0x%x\n\n",
 	      symbol_QualifiedName(s,'_'),
 	      sig);
 
@@ -694,7 +695,7 @@ symdump(Symbol *s, FILE *out, int indent)
 		    ((s->ifDepth << 24) | opr_ndx++));
 	  }
 	  else {
-	    fprintf(out, "\n#define OC_%s _ASM_U(0x%x)\n",
+	    fprintf(out, "\n#define OC_%s 0x%x\n",
 		    symbol_QualifiedName(child,'_'),
 		    ((s->ifDepth << 24) | opr_ndx++));
 	  }

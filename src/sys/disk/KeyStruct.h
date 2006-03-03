@@ -78,22 +78,22 @@ struct ObjectTable;
 
 typedef struct KeyBits KeyBits;
 
-#define KFL_PREPARED       _ASM_U(0x4)
-#define KFL_RHAZARD        _ASM_U(0x2)
-#define KFL_WHAZARD        _ASM_U(0x1)
-#define KFL_HAZARD_BITS    _ASM_U(0x3)
-#define KFL_ALL_FLAG_BITS  _ASM_U(0x7)
+#define KFL_PREPARED       0x4
+#define KFL_RHAZARD        0x2
+#define KFL_WHAZARD        0x1
+#define KFL_HAZARD_BITS    0x3
+#define KFL_ALL_FLAG_BITS  0x7
 
 /* For the moment, these are kernel-internal only. These values apply
    only for segmode keys. */
-#define KPRM_RO		   _ASM_U(0x4)
-#define KPRM_NC		   _ASM_U(0x2)
-#define KPRM_WEAK	   _ASM_U(0x1)
+#define KPRM_RO		   0x4
+#define KPRM_NC		   0x2
+#define KPRM_WEAK	   0x1
 #define EXTRACT_PRM(d) ((d) >> 13)
 #define ENCODE_PRM(p) ( ((uint32_t) (p)) << 13 )
 
 /* A fault key is a resume key whose permissions are marked KPRM_FAULT */
-#define KPRM_FAULT         _ASM_U(0x1)
+#define KPRM_FAULT         0x1
 
 
 struct KeyBits {

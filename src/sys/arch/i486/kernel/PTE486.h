@@ -23,17 +23,17 @@
 
 #include <eros/machine/target-asm.h>
 
-#define PTE_V	 _ASM_U(0x001)	/* valid (Intel: 'present') */
-#define PTE_W    _ASM_U(0x002)	/* writable */
-#define PTE_USER _ASM_U(0x004)	/* user-accessable page */
-#define PTE_WT   _ASM_U(0x008)	/* write through */
-#define PTE_CD   _ASM_U(0x010)	/* cache disable */
-#define PTE_ACC  _ASM_U(0x020)	/* accessed */
-#define PTE_DRTY _ASM_U(0x040)	/* dirty */
-#define PTE_PGSZ _ASM_U(0x080)	/* large page  (PDE, >=Pentium only) */
-#define PTE_GLBL _ASM_U(0x100)	/* global page (PDE,PTE, >= PPro only) */
+#define PTE_V	 0x001	/* valid (Intel: 'present') */
+#define PTE_W    0x002	/* writable */
+#define PTE_USER 0x004	/* user-accessable page */
+#define PTE_WT   0x008	/* write through */
+#define PTE_CD   0x010	/* cache disable */
+#define PTE_ACC  0x020	/* accessed */
+#define PTE_DRTY 0x040	/* dirty */
+#define PTE_PGSZ 0x080	/* large page  (PDE, >=Pentium only) */
+#define PTE_GLBL 0x100	/* global page (PDE,PTE, >= PPro only) */
 
-#define PTE_FRAMEBITS _ASM_U(0xfffff000)
+#define PTE_FRAMEBITS 0xfffff000
 
 /* The following value is used during mapping construction to detect
  * dependency zaps on the PTE under construction. When building a PTE,
@@ -42,8 +42,8 @@
  * PTE_ZAPPED before overwriting. Note that this value represents an
  * INVALID PTE, but one that can be readily distinguished from the
  * result of a call to PTE::Invalidate(). */
-#define PTE_IN_PROGRESS  _ASM_U(0xfffff000)
-#define PTE_ZAPPED       _ASM_U(0x0)
+#define PTE_IN_PROGRESS  0xfffff000
+#define PTE_ZAPPED       0x0
 
 #ifndef __ASSEMBLER__
 

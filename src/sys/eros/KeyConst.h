@@ -47,15 +47,15 @@
        information is now stored in the 'subType' field.
 */
 /* User-visible attributes of a key: */
-#define SEGMODE_RO		_ASM_U(0x8000)
-#define SEGMODE_NC		_ASM_U(0x4000)
-#define SEGMODE_WEAK		_ASM_U(0x2000)
-#define SEGMODE_BLSS_MASK	_ASM_U(0x1fff)
-#define SEGMODE_ATTRIBUTE_MASK  _ASM_U(0xe000)
+#define SEGMODE_RO		0x8000
+#define SEGMODE_NC		0x4000
+#define SEGMODE_WEAK		0x2000
+#define SEGMODE_BLSS_MASK	0x1fff
+#define SEGMODE_ATTRIBUTE_MASK  0xe000
 
-#define SEGPRM_RO	   _ASM_U(0x4)
-#define SEGPRM_NC	   _ASM_U(0x2)
-#define SEGPRM_WEAK	   _ASM_U(0x1)
+#define SEGPRM_RO	   0x4
+#define SEGPRM_NC	   0x2
+#define SEGPRM_WEAK	   0x1
 
 /* Slots of a Red Segment:
 
@@ -91,11 +91,11 @@
 #define WrapperKeeper         30
 #define WrapperFormat         31
 
-#define WRAPPER_SEND_NODE     _ASM_U(0x00010000)
-#define WRAPPER_SEND_WORD     _ASM_U(0x00020000)
-#define WRAPPER_KEEPER        _ASM_U(0x00040000)
-#define WRAPPER_BACKGROUND    _ASM_U(0x00080000)
-#define WRAPPER_BLOCKED       _ASM_U(0x00100000)
+#define WRAPPER_SEND_NODE     0x00010000
+#define WRAPPER_SEND_WORD     0x00020000
+#define WRAPPER_KEEPER        0x00040000
+#define WRAPPER_BACKGROUND    0x00080000
+#define WRAPPER_BLOCKED       0x00100000
 
 #define WRAPPER_SET_BLSS(nkv, blss) \
   do { \
