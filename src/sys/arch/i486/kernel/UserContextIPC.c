@@ -92,8 +92,8 @@ proc_Resume(Process* thisPtr)
    * simply make sure the mapping table value at least maps the kernel
    */
  
-  if (thisPtr->MappingTable == 0)
-    thisPtr->MappingTable = KernPageDir_pa;
+  if (thisPtr->md.MappingTable == 0)
+    thisPtr->md.MappingTable = KernPageDir_pa;
   
   assert( irq_DISABLE_DEPTH() == 1 );
 
@@ -103,17 +103,17 @@ proc_Resume(Process* thisPtr)
   {
 #ifdef OPTION_SMALL_SPACES
     uint32_t nPages = 
-      (thisPtr->smallPTE) ? SMALL_SPACE_PAGES : LARGE_SPACE_PAGES;
+      (thisPtr->md.smallPTE) ? SMALL_SPACE_PAGES : LARGE_SPACE_PAGES;
 #else
     uint32_t nPages = LARGE_SPACE_PAGES;
 #endif
 
     /* Either both should be nonzero or both should be zero. */
-    assert( (thisPtr->smallPTE && thisPtr->bias) ||
-	    (!thisPtr->smallPTE && !thisPtr->bias) );
+    assert( (thisPtr->md.smallPTE && thisPtr->md.bias) ||
+	    (!thisPtr->md.smallPTE && !thisPtr->md.bias) );
 
-    gdt_SetupPageSegment(seg_DomainCode, thisPtr->bias, nPages-1);
-    gdt_SetupPageSegment(seg_DomainData, thisPtr->bias, nPages-1);
+    gdt_SetupPageSegment(seg_DomainCode, thisPtr->md.bias, nPages-1);
+    gdt_SetupPageSegment(seg_DomainData, thisPtr->md.bias, nPages-1);
     gdt_SetupByteSegment(seg_DomainPseudo, 
 			 KVAtoV(uva_t, &thisPtr->pseudoRegs) - KUVA,
 			 sizeof(thisPtr->pseudoRegs)-1);
@@ -130,7 +130,7 @@ proc_Resume(Process* thisPtr)
   }
 #endif
   
-  thisPtr->cpuStack = mach_GetCPUStackTop();
+  thisPtr->md.cpuStack = mach_GetCPUStackTop();
 
 #ifdef V86_SUPPORT
   if ((thisPtr->fixRegs.EFLAGS & EFLAGS::Virt8086) == 0)

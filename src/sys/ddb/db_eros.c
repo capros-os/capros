@@ -29,7 +29,7 @@
 #include <kerninc/Check.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Process.h>
-#include <arch-kerninc/Process.h>
+#include <arch-kerninc/Process-inline.h>
 #include <kerninc/SegWalk.h>
 #include <kerninc/Activity.h>
 #include <kerninc/util.h>
@@ -307,7 +307,7 @@ db_eros_print_context(Process *cc)
 	      cc->hazards, /*cc->priority*/cc->readyQ->mask);
 #ifdef OPTION_SMALL_SPACES
     db_printf(" smallPTE=0x%08x bias=0x%08x lim=0x%08x\n",
-	      cc->smallPTE, cc->bias, cc->limit);
+	      cc->md.smallPTE, cc->md.bias, cc->md.limit);
 #else
     db_printf("\n");
 #endif

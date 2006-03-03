@@ -57,8 +57,8 @@ kproc_Init(
 
   p->hazards = 0;
 #ifdef OPTION_SMALL_SPACES
-  p->smallPTE = 0;	/* to satisfy logic in various places */
-  p->bias = 0;
+  p->md.smallPTE = 0;	/* to satisfy logic in various places */
+  p->md.bias = 0;
 #endif
   /*p->priority = prio;*/
   p->readyQ = rq;
@@ -84,7 +84,7 @@ kproc_Init(
    * routine.
    */
 
-  p->MappingTable = KernPageDir_pa; /* kern procs run in kernel space */
+  p->md.MappingTable = KernPageDir_pa; /* kern procs run in kernel space */
   p->trapFrame.EFLAGS = KERN_EFLAGS;
 
   p->trapFrame.CS = sel_KProcCode;

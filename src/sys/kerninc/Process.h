@@ -21,22 +21,15 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-/* This is the revised (improved?) process structure, with reduced
- * architecture-dependent complexity.  Note that we are moving towards
- * C-style architecture-dependent helper functions, so this is not a
- * class.
- */
-
 /* CHANGES TO THIS FILE ****MUST**** BE MADE IN THE
- * ARCHITECTURE-SPECIFIC LAYOUT FILES TOO!!!  When the kernel is
- * converted to C we will be switching to using the LAYOUT file as the
- * ``official'' source.
+ * ARCHITECTURE-SPECIFIC LAYOUT FILE TOO!!!
  */
 
 #include <eros/ProcessState.h>
 #include <eros/ProcStats.h>
 #include <arch-kerninc/SaveArea.h>
 #include <arch-kerninc/PTE.h>
+#include <arch-kerninc/Process.h>
 #ifdef EROS_HAVE_ARCH_REGS
 #include <eros/machine/archregs.h>
 #endif
@@ -113,7 +106,7 @@ struct Process {
 
   struct Activity   *curActivity;
 
-  kpmap_t          MappingTable;
+  ProcMD md;	/* Machine-Dependent stuff */
 
   savearea_t	    trapFrame;
 #ifdef OPTION_PSEUDO_REGS
@@ -125,20 +118,12 @@ struct Process {
   Key               keyReg[EROS_PROCESS_KEYREGS];
   Key               lastInvokedKey;
 
-  kva_t             cpuStack;	/* architecture-dependent */
-
   uint32_t          faultCode;
   uint32_t          faultInfo;
   uint32_t          nextPC;
 
   uint8_t           runState;
   uint8_t           processFlags;
-  
-#ifdef OPTION_SMALL_SPACES
-  uva_t             limit;
-  ula_t             bias;
-  struct PTE        *smallPTE;
-#endif
   
 #ifdef EROS_HAVE_FPU
   /* FPU support: */

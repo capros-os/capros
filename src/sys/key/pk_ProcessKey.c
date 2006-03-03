@@ -21,7 +21,7 @@
 #include <kerninc/kernel.h>
 #include <kerninc/Key.h>
 #include <kerninc/Process.h>
-#include <arch-kerninc/Process.h>
+#include <arch-kerninc/Process-inline.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Node.h>
 #include <kerninc/Activity.h>

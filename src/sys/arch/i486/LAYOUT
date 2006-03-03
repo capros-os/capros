@@ -193,6 +193,17 @@ proc	uint32_t   *          readyQ
 proc	uint32_t   *          curThread
 
 proc	uint32_t   *          MappingTable
+proc	uint32_t   *          cpuStack
+
+#ifdef OPTION_SMALL_SPACES
+/*
+ * Following may not actually be present, but if present they appear 
+ * at this offset:
+ */
+proc	uint32_t   *          limit
+proc	uint32_t   *          bias
+proc	uint32_t   *          smallPTE
+#endif
 
 BEGIN SaveArea
 
@@ -257,7 +268,6 @@ END   PseudoRegs
 
 proc    KEYREGS    *          keyregs
 proc    KEY        *          lastInvokedKey
-proc	uint32_t   *          cpuStack
 
 /* Following are "generic" fixRegs that are present in all
    architectures under these names. It is not at all clear that these
@@ -269,16 +279,6 @@ gen	uint32_t   uint32_t   faultInfo
 gen     uint32_t   uint32_t   nextPC
 gen	uint8_t    uint8_t    runState
 gen	uint8_t    uint8_t    processFlags
-
-#ifdef OPTION_SMALL_SPACES
-/*
- * Following may not actually be present, but if present they appear 
- * at this offset:
- */
-proc	uint32_t   *          limit
-proc	uint32_t   *          bias
-proc	uint32_t   *          smallPTE
-#endif
 
 /* 
  * The order of appearance for these values is dictated by the layout 

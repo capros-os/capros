@@ -29,7 +29,7 @@
 /*#include <kerninc/util.h>*/
 #include <kerninc/Invocation.h>
 #include <kerninc/IRQ.h>
-#include <arch-kerninc/Process.h>
+#include <arch-kerninc/Process-inline.h>
 #include <eros/Invoke.h>
 #ifdef OPTION_DDB
 #include <eros/StdKeyType.h>

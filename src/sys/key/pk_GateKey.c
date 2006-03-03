@@ -25,7 +25,7 @@
 #include <kerninc/Invocation.h>
 #include <kerninc/Activity.h>
 #include <kerninc/KernStats.h>
-#include <arch-kerninc/Process.h>
+#include <arch-kerninc/Process-inline.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 

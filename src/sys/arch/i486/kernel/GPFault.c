@@ -107,7 +107,7 @@ GPFault(savearea_t *sa)
    */
 #ifdef OPTION_SMALL_SPACES
 
-  if (act_CurContext()->smallPTE) {
+  if (act_CurContext()->md.smallPTE) {
 #if 0
     dprintf(true, "Small Space domain takes GP fault\n");
 #endif

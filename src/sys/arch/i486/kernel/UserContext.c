@@ -102,7 +102,7 @@ proc_AllocUserContexts()
     for (k = 0; k < EROS_PROCESS_KEYREGS; k++)
       keyBits_InitToVoid(&p->keyReg[k]);
 
-    p->cpuStack = 0;
+    p->md.cpuStack = 0;
     p->procRoot = 0;
     p->keysNode = 0;
     p->isUserContext = true;		/* until proven otherwise */
@@ -216,7 +216,7 @@ proc_DumpFixRegs(Process* thisPtr)
   if (thisPtr->saveArea == 0)
     printf("Note: context is NOT runnable\n");
   printf("ASID   = 0x%08x  VASID = 0x%08x  nextPC=0x%08x\n",
-	 thisPtr->MappingTable, thisPtr->MappingTable, thisPtr->nextPC);
+	 thisPtr->md.MappingTable, thisPtr->md.MappingTable, thisPtr->nextPC);
   DumpFixRegs(&thisPtr->trapFrame); 
 }
 
@@ -414,7 +414,7 @@ proc_allocate(bool isUser)
   
   assert(p->procRoot == 0 || p->procRoot->node_ObjHdr.obType == ot_NtProcessRoot);
 
-  p->cpuStack = 0;
+  p->md.cpuStack = 0;
   p->procRoot = 0;		/* for kernel contexts */
   p->saveArea = 0;		/* make sure not runnable! */
   p->faultCode = FC_NoFault;
@@ -429,23 +429,23 @@ proc_allocate(bool isUser)
     uint32_t pg;
     ndx = p - proc_ContextCache;
 
-    p->limit = SMALL_SPACE_PAGES * EROS_PAGE_SIZE;
-    p->bias = UMSGTOP + (ndx * SMALL_SPACE_PAGES * EROS_PAGE_SIZE);
-    p->smallPTE = &proc_smallSpaces[SMALL_SPACE_PAGES * ndx];
+    p->md.limit = SMALL_SPACE_PAGES * EROS_PAGE_SIZE;
+    p->md.bias = UMSGTOP + (ndx * SMALL_SPACE_PAGES * EROS_PAGE_SIZE);
+    p->md.smallPTE = &proc_smallSpaces[SMALL_SPACE_PAGES * ndx];
 
 #if 0
     dprintf(true, "Loading small space process 0x%X bias 0x%x "
 	    "limit 0x%x\n",
-	    procRoot->oid, cc.bias, cc.limit);
+	    procRoot->oid, cc.md.bias, cc.md.limit);
 #endif
   
     for (pg = 0; pg < SMALL_SPACE_PAGES; pg++)
-      pte_Invalidate(&p->smallPTE[pg]);
+      pte_Invalidate(&p->md.smallPTE[pg]);
 #endif
   }
 
   p->curActivity = 0;
-  p->MappingTable = KernPageDir_pa;
+  p->md.MappingTable = KernPageDir_pa;
 
   return p;
 }
@@ -846,7 +846,7 @@ proc_Unload(Process* thisPtr)
       halt('b');
 #endif
   
-  thisPtr->MappingTable = 0;
+  thisPtr->md.MappingTable = 0;
   thisPtr->saveArea = 0;
   thisPtr->curActivity = 0;
 
@@ -1213,7 +1213,7 @@ proc_FlushProcessSlot(Process* thisPtr, uint32_t whichKey)
     Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, whichKey));
     keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, whichKey));
     thisPtr->hazards |= hz_AddrSpace;
-    assert(thisPtr->MappingTable == 0);
+    assert(thisPtr->md.MappingTable == 0);
     thisPtr->saveArea = 0;
 
     break;

@@ -29,10 +29,6 @@
 #include <arch-kerninc/Process.h>
 #include "Process486.h"
 
-#ifndef OPTION_SMALL_SPACES
-const uint32_t bias = 0;
-#endif
-
 #ifndef ASM_VALIDATE_STRINGS
 void 
 proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
@@ -47,7 +43,7 @@ proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   /* Make sure the string gets mapped if there is one: */
 
-  ula = thisPtr->pseudoRegs.sndPtr + thisPtr->bias;
+  ula = thisPtr->pseudoRegs.sndPtr + thisPtr->md.bias;
 
   ulaTop = ula + inv->entry.len;
   ula &= ~EROS_PAGE_MASK;
@@ -60,7 +56,7 @@ proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
     ula += EROS_PAGE_SIZE;
   }
 
-  addr = (uint32_t) thisPtr->pseudoRegs.sndPtr + thisPtr->bias + KUVA;
+  addr = (uint32_t) thisPtr->pseudoRegs.sndPtr + thisPtr->md.bias + KUVA;
   
   inv->entry.data = (uint8_t *) addr;
 }
@@ -94,12 +90,12 @@ proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/, uint32_
 	 yield due to PTE zap. */
 
 #ifdef OPTION_SMALL_SPACES
-      thisPtr->smallPTE ||
+      thisPtr->md.smallPTE ||
 #endif
-      (act_CurContext()->MappingTable == thisPtr->MappingTable)
+      (act_CurContext()->md.MappingTable == thisPtr->md.MappingTable)
       ) {
 #ifdef OPTION_SMALL_SPACES
-    ula_t ula = thisPtr->trapFrame.EDI + thisPtr->bias;
+    ula_t ula = thisPtr->trapFrame.EDI + thisPtr->md.bias;
 #else
     ula_t ula = trapFrame.EDI;
 #endif
@@ -123,7 +119,7 @@ proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/, uint32_
     }
 
 #ifdef OPTION_SMALL_SPACES
-    addr = thisPtr->trapFrame.EDI + thisPtr->bias + KUVA;
+    addr = thisPtr->trapFrame.EDI + thisPtr->md.bias + KUVA;
 #else
     addr = trapFrame.EDI + KUVA;
 #endif
@@ -138,7 +134,7 @@ proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/, uint32_
     ula_t cur_ula;
     ula_t ulaTop;
 #ifdef OPTION_SMALL_SPACES
-    ula_t ula = thisPtr->trapFrame.EDI + thisPtr->bias;
+    ula_t ula = thisPtr->trapFrame.EDI + thisPtr->md.bias;
 #else
     ula_t ula = trapFrame.EDI;
 #endif

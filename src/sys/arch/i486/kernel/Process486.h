@@ -60,17 +60,17 @@ proc_TranslatePage(Process *p, ula_t ula, uint32_t mode, bool forWriting)
 {
   PTE *pte = 0;
 #ifdef OPTION_SMALL_SPACES
-  if (p->MappingTable == KernPageDir_pa && p->smallPTE == 0)
+  if (p->md.MappingTable == KernPageDir_pa && p->md.smallPTE == 0)
     return 0;
 #else
-  if (p->MappingTable == KernPageDir_pa)
+  if (p->md.MappingTable == KernPageDir_pa)
     return 0;
 #endif
   
-  assert(p->MappingTable);
+  assert(p->md.MappingTable);
   
-  if (p->MappingTable) {
-    PTE* pde = (PTE*) PTOV(p->MappingTable);
+  if (p->md.MappingTable) {
+    PTE* pde = (PTE*) PTOV(p->md.MappingTable);
     uint32_t ndx0 = (ula >> 22) & 0x3ffu;
     uint32_t ndx1 = (ula >> 12) & 0x3ffu;
 
@@ -101,10 +101,10 @@ fail:
 INLINE void              
 proc_SwitchToLargeSpace(Process* thisPtr)
 {
-  thisPtr->smallPTE = 0;
-  thisPtr->bias = 0;
-  thisPtr->limit = UMSGTOP;
-  thisPtr->MappingTable = KernPageDir_pa;
+  thisPtr->md.smallPTE = 0;
+  thisPtr->md.bias = 0;
+  thisPtr->md.limit = UMSGTOP;
+  thisPtr->md.MappingTable = KernPageDir_pa;
 }
 #endif
 

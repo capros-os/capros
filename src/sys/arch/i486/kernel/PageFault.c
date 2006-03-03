@@ -178,8 +178,8 @@ Depend_InvalidateProduct(ObjectHeader* page)
        I think the Depend relationship can be used to find the
        pointers that need to be zapped. */
     for (i = 0; i < KTUNE_NCONTEXT; i++)
-      if (proc_ContextCache[i].MappingTable == mp_pa)
-	proc_ContextCache[i].MappingTable = 0;
+      if (proc_ContextCache[i].md.MappingTable == mp_pa)
+	proc_ContextCache[i].md.MappingTable = 0;
   }
   
   mach_FlushTLB();
@@ -383,13 +383,13 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
 {
 #if 0
   dprintf(true, "SmallPgFlt w/ la=0x%08x, bias=0x%08x,"
-		  " limit=0x%08x\n", la, p->bias, p->limit);
+		  " limit=0x%08x\n", la, p->md.bias, p->md.limit);
 #endif
 
   /* Address is a linear address.  Subtract the base and check the
    * bound.
    */
-  uva_t va = la - p->bias;
+  uva_t va = la - p->md.bias;
 
 #if 0
   /* This assertion can be false given that the process can run from
@@ -398,7 +398,7 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
    * record of the fact that this may be untrue so that I do not
    * forget and re-insert the assertion.
    */
-  assert ( fixRegs.MappingTable == KERNPAGEDIR );
+  assert ( fixRegs.md.MappingTable == KERNPAGEDIR );
 #endif
 
   SegWalk wi;
@@ -420,7 +420,7 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
   segwalk_init(&wi, proc_GetSegRoot(p));
 
 
-  thePTE /*@ not null @*/ = &p->smallPTE[(va >> EROS_PAGE_ADDR_BITS) % SMALL_SPACE_PAGES];
+  thePTE /*@ not null @*/ = &p->md.smallPTE[(va >> EROS_PAGE_ADDR_BITS) % SMALL_SPACE_PAGES];
 
   if (pte_isnot(thePTE, PTE_V))
     thePTE->w_value = PTE_IN_PROGRESS;
@@ -466,7 +466,7 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
    * allowing the correct computation to be done in the next pass.
    */
 
-  if (va >= p->limit) {
+  if (va >= p->md.limit) {
 #if 0
     dprintf(true, "!! la=0x%08x va=0x%08x\n"
 		    "Switching process 0x%X to large space\n",
@@ -608,7 +608,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   }
   
 #ifdef OPTION_SMALL_SPACES
-  va = la - p->bias;
+  va = la - p->md.bias;
 #else
   uva_t va = la;
 #endif
@@ -622,7 +622,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   }
 
 #ifdef OPTION_SMALL_SPACES
-  if (p->smallPTE)
+  if (p->md.smallPTE)
     return proc_DoSmallPageFault(p, la, isWrite, prompt);
 #endif
 			    
@@ -637,8 +637,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
    * table register was voided, we substituted KERNPAGEDIR.  Notice
    * that here:
    */
-  if ( p->MappingTable == KernPageDir_pa )
-    p->MappingTable = PTE_ZAPPED;
+  if ( p->md.MappingTable == KernPageDir_pa )
+    p->md.MappingTable = PTE_ZAPPED;
 
   /* Set up a WalkInfo structure and start building the necessary
    * mapping table, PDE, and PTE entries.
@@ -657,7 +657,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   segwalk_init(&wi, proc_GetSegRoot(p));
 
   /* See if there is already a page table. If not, go find/build one. */
-  pTable = (PTE *) (PTOV(p->MappingTable) & ~EROS_PAGE_MASK);
+  pTable = (PTE *) (PTOV(p->md.MappingTable) & ~EROS_PAGE_MASK);
 
 #ifdef WALK_LOUD
   dprintf(false, "pTable is 0x%x\n", pTable);
@@ -766,11 +766,11 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   /* No page directory was found, so we need to construct a page
    * directory. */
   
-  p->MappingTable = PTE_IN_PROGRESS;
+  p->md.MappingTable = PTE_IN_PROGRESS;
   
   /* Begin the traversal... */
   if ( !proc_WalkSeg(p, &wi, walk_root_blss,
-		     (PTE *)&p->MappingTable, 0, false) ) { 
+		     (PTE *)&p->md.MappingTable, 0, false) ) { 
     proc_SetFault(p, wi.faultCode, va, false);
 
     return false;
@@ -778,7 +778,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
   /* If the wrong depend entry was reclaimed, we may have just lost
    * the mapping table entry. If we are still good to go, : */
-  if (p->MappingTable == PTE_ZAPPED)
+  if (p->md.MappingTable == PTE_ZAPPED)
     act_Yield(act_Current());
 
   /* Since the address space pointer register lacks permission bits,
@@ -786,10 +786,10 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
    * level. Therefore, if we are processing this path at all the
    * mapping table must have been invalid, in which case it should now
    * be PTE_IN_PROGRESS. */
-  assert (p->MappingTable == PTE_IN_PROGRESS);
+  assert (p->md.MappingTable == PTE_IN_PROGRESS);
 
   /* We can now reset the value to the zap guard. */
-  p->MappingTable = PTE_ZAPPED;
+  p->md.MappingTable = PTE_ZAPPED;
   
   assert (pTable == 0);
   if (pTable == 0) {
@@ -810,7 +810,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
     pTable = (PTE *) objC_ObHdrToPage(pTableHdr);
 
-    p->MappingTable = VTOP(pTable);
+    p->md.MappingTable = VTOP(pTable);
   }
 
  have_pgdir:
