@@ -156,8 +156,7 @@ $(BUILDDIR)/gen.SaveArea.h: ../../LAYOUT $(TOP)/scripts/GenSaveArea.awk
 
 $(BUILDDIR)/gen.REGMOVE.h: ../../LAYOUT $(TOP)/scripts/GenRegMove.awk
 	$(EROS_CPP) -I$(TOP) ../../LAYOUT | \
-	$(GAWK) -f $(TOP)/scripts/GenRegMove.awk > $@.tmp
-	$(REPLACE) $@.tmp $@
+	$(GAWK) -f $(TOP)/scripts/GenRegMove.awk > $@
 
 # The following is a false dependency. It exists for the purpose of
 # getting the .h file generated so that the dependency's will get
