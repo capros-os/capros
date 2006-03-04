@@ -908,7 +908,7 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
      slots that we should not zap under any conditions (kernel pages,
      small space directory pointers).  Make sure we don't zap those: */
 
-  if (pMappingPage && pMappingPage->producerNdx == EROS_NODE_LGSIZE)
+  if (pMappingPage && pMappingPage->kt_u.mp.tableSize == 1)
     to = min(to, (UMSGTOP >> 22));
   
 #if 0
@@ -935,7 +935,7 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
 
 #if defined(OPTION_SMALL_SPACES) && !defined(NDEBUG)
 #if 0 /* architecture-specific; disabled for now */
-  if (pMappingPage && pMappingPage->producerNdx == EROS_NODE_LGSIZE) {
+  if (pMappingPage && pMappingPage->kt_u.mp.tableSize == 1) {
     PTE *kpgdir = KernPageDir;
     uint32_t i;
     
@@ -974,7 +974,7 @@ check_MappingPage(ObjectHeader *pPage)
   PTE* thePTE = 0; /*@ not null @*/
   ObjectHeader* thePageHdr = 0;
 
-  if (pPage->producerNdx == EROS_NODE_LGSIZE)
+  if (pPage->kt_u.mp.tableSize == 1)
     return true;
 
   pte = (PTE*) objC_ObHdrToPage(pPage);

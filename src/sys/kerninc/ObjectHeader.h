@@ -119,8 +119,7 @@ struct ObjectHeader {
   KeyRing	keyRing;
 
   union {
-    /* Special relationship pointers if prepared node or mapping page */
-    ObjectHeader  *producer;	/* if obType == ot_PtMappingPage */
+    /* Special relationship pointers if prepared node */
     ObjectHeader  *products;	/* if obType == ot_NtSegment
 				             or ot_PtDataPage or ... */
     Process	  *context;	/* if obType == ot_NtProcessRoot
@@ -146,35 +145,35 @@ struct ObjectHeader {
        */
 
       uint32_t	ioCount;	/* for object frames */
-#if 0
-      uint32_t	refCount;	/* for mapping pages */
-#endif
     } ob;	/* if obType is NOT one of the following:
 		ot_NtFreeFrame, ot_PtNewAlloc, ot_PtKernelHeap,
 		ot_PtMappingPage, ot_PtFreeFrame */
 
     struct {
+      ObjectHeader * producer;
       struct Node *redSeg;	/* pointer to slot of keeper that
 				 * dominated this mapping frame */
       unsigned char redSpanBlss;	/* blss of seg spanned by redSeg */
-      bool         wrapperProducer;
+      bool wrapperProducer;
+      uint8_t producerBlss; /* biased lss of map tbl producer.
+			       NOTE: not the key, the object. */
+      uint8_t rwProduct    : 1;	/* indicates mapping page is RW version */
+      uint8_t caProduct    : 1;	/* indicates mapping page is callable version */
+      /* The following fields are architecture-dependent,
+         but I'm not going to reorganize them now,
+         because this whole structure is architecture-dependent.
+         A page could have more than one mapping table, or fewer than one. */
+      uint8_t tableSize    : 1;
+      uint8_t producerNdx  : 4;
+      ula_t tableCacheAddr;
     } mp;	/* if obType == ot_PtMappingPage */
     
   } kt_u;
   
-  uint8_t		flags;
+  uint8_t	flags;
   
   uint8_t	obType;		/* page type or node prepcode */
   uint8_t	age;
-
-  /* The following four are for obType == ot_PtMappingPage only. */
-  /* FIX: producerNdx isn't really big enough given 32-slot nodes; on
-     machines that need this, it must hold log2(ndsz). */
-  uint8_t	producerNdx : 3; /* deal with map tbl/node non-congruence. */
-  uint8_t       producerBlss : 5; /* biased lss of map tbl producer. NOTE
-				     not the key, the object. */
-  uint8_t	rwProduct : 1;	/* indicates mapping image is RW version */
-  uint8_t	caProduct : 1;	/* indicates mapping image is callable version */
 
   uint8_t		userPin;
   uint8_t		kernPin;
@@ -316,11 +315,7 @@ void		objH_MakeObjectDirty(ObjectHeader* thisPtr);
 void		objH_Rescind(ObjectHeader* thisPtr);
 void		objH_ZapResumeKeys(ObjectHeader* thisPtr);
 
-
 void            objH_InvalidateProducts(ObjectHeader* thisPtr);
-
-ObjectHeader   *objH_FindProduct(ObjectHeader* thisPtr, SegWalk *wi /*@not null@*/, uint32_t ndx, 
-                                 bool rw, bool ca);
 void            objH_AddProduct(ObjectHeader* thisPtr, ObjectHeader *product);
 void            objH_DelProduct(ObjectHeader* thisPtr, ObjectHeader *product);
 

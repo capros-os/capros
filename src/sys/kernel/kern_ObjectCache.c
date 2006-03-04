@@ -545,10 +545,10 @@ objC_ddb_dump_pages()
 
       
     if (pObj->obType == ot_PtMappingPage) {
-      if (pObj->prep_u.producer == 0) {
+      if (pObj->kt_u.mp.producer == 0) {
 	producerType = '?';
       }
-      else if (pObj->prep_u.producer->obType <= ot_NtLAST_NODE_TYPE) {
+      else if (pObj->kt_u.mp.producer->obType <= ot_NtLAST_NODE_TYPE) {
 	producerType = 'n';
       }
       else {
@@ -785,7 +785,7 @@ void
 objC_ReleaseMappingFrame(ObjectHeader *pObj)
 {
   assert(pObj->obType == ot_PtMappingPage);
-  ObjectHeader * pProducer = pObj->prep_u.producer;
+  ObjectHeader * pProducer = pObj->kt_u.mp.producer;
 
   assert(pProducer);
   assert ( keyR_IsValid(&pProducer->keyRing, pProducer) );
@@ -817,10 +817,6 @@ objC_ReleaseMappingFrame(ObjectHeader *pObj)
     kva_t pgva = objC_ObHdrToPage(pObj);
     DEBUG(map)
       printf("Blasting mapping page at 0x%08x\n", pgva);
-#if defined(OPTION_SMALL_SPACES) && 0
-    if (pObj->producerNdx == EROS_NODE_LGSIZE)
-      printf("Blasting pg dir 0x%08x\n", pgva);
-#endif
     pte_ZapMappingPage(pgva);
   }
 
@@ -1106,7 +1102,7 @@ objC_AgePageFrames()
        * because they are likely to be involved in page translation.
        */
       if (pObj->obType == ot_PtMappingPage) {
-        ObjectHeader * pProducer = pObj->prep_u.producer;
+        ObjectHeader * pProducer = pObj->kt_u.mp.producer;
 	assert(objH_IsDirty(pObj) == false);
 
 	if (objH_IsUserPinned(pProducer))

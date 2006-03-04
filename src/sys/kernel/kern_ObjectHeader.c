@@ -92,102 +92,12 @@ objH_KernUnpin(ObjectHeader* thisPtr)
 #endif
 }
 
-/* Walk the node looking for an acceptable product: */
-ObjectHeader *
-objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi, uint32_t ndx, 
-                 bool rw, bool ca)
-{
-  uint32_t blss = wi->segBlss;
-
-#if 0
-  printf("Search for product blss=%d ndx=%d, rw=%c producerTy=%d\n",
-	       blss, ndx, rw ? 'y' : 'n', obType);
-#endif
-  
-  /* #define FINDPRODUCT_VERBOSE */
-
-  ObjectHeader *product = 0;
-  
-  for (product = thisPtr->prep_u.products; product; product = product->next) {
-    assert(product->obType == ot_PtMappingPage);
-    if ((uint32_t) product->producerBlss != blss) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("Producer BLSS not match\n");
-#endif
-      continue;
-    }
-    if (product->kt_u.mp.redSeg != wi->redSeg) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("Red seg not match\n");
-#endif
-      continue;
-    }
-    if (product->kt_u.mp.redSeg) {
-      if (product->kt_u.mp.wrapperProducer != wi->segObjIsWrapper) {
-#ifdef FINDPRODUCT_VERBOSE
-	printf("redProducer not match\n"); 
-#endif
-	continue;
-      }
-      if (product->kt_u.mp.redSpanBlss != wi->redSpanBlss) {
-#ifdef FINDPRODUCT_VERBOSE
-	printf("redSpanBlss not match: prod %d wi %d\n",
-		       product->mp.redSpanBlss, wi.redSpanBlss);
-#endif
-	continue;
-      }
-    }
-    if ((uint32_t) product->producerNdx != ndx) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("producerNdx not match\n");
-#endif
-      continue;
-    }
-    if (product->rwProduct != (rw ? 1 : 0)) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("rwProduct not match\n");
-#endif
-      continue;
-    }
-    if (product->caProduct != (ca ? 1 : 0)) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("caProduct not match\n");
-#endif
-      continue;
-    }
-
-    /* WE WIN! */
-    break;
-  }
-
-  if (product) {
-    assert(product->obType == ot_PtMappingPage);
-    assert(product->prep_u.producer == thisPtr);
-  }
-
-#if 0
-  if (wi.segBlss != wi.pSegKey->GetBlss())
-    dprintf(true, "Found product 0x%x segBlss %d prodKey 0x%x keyBlss %d\n",
-		    product, wi.segBlss, wi.pSegKey, wi.pSegKey->GetBlss());
-#endif
-
-#ifdef FINDPRODUCT_VERBOSE
-  printf("0x%08x->FindProduct(blss=%d,ndx=%d,rw=%c,ca=%c,"
-		 "producerTy=%d) => 0x%08x\n",
-		 this,
-		 blss, ndx, rw ? 'y' : 'n', ca ? 'y' : 'n', obType,
-		 product);
-#endif
-
-  return product;
-}
-
 void
 objH_AddProduct(ObjectHeader* thisPtr, ObjectHeader *product)
 {
   /* assert(product->obType == ot_PtMappingPage); */
   product->next = thisPtr->prep_u.products;
-  product->prep_u.producer = thisPtr;
+  product->kt_u.mp.producer = thisPtr;
   thisPtr->prep_u.products = product;
 }
 
@@ -195,7 +105,7 @@ void
 objH_DelProduct(ObjectHeader* thisPtr, ObjectHeader *product)
 {
   assert(product->obType == ot_PtMappingPage);
-  assert(product->prep_u.producer == thisPtr);
+  assert(product->kt_u.mp.producer == thisPtr);
   
   if (thisPtr->prep_u.products == product) {
     thisPtr->prep_u.products = product->next;
@@ -212,7 +122,7 @@ objH_DelProduct(ObjectHeader* thisPtr, ObjectHeader *product)
   }
 
   product->next = 0;
-  product->prep_u.producer = 0;
+  product->kt_u.mp.producer = 0;
 }
 
 #if 0
@@ -601,14 +511,14 @@ objH_ddb_dump(ObjectHeader* thisPtr)
   printf("    ioCount=0x%08x next=0x%08x flags=0x%02x obType=0x%02x age=0x%02x\n",
 	 thisPtr->kt_u.ob.ioCount, thisPtr->next,
          thisPtr->flags, thisPtr->obType, thisPtr->age);
-  printf("    prodNdx=%d prodBlss=%d rwProd=%c usrPin=%d kernPin=%d\n",
-	 thisPtr->producerNdx, thisPtr->producerBlss,
-         thisPtr->rwProduct ? 'y' : 'n', thisPtr->userPin,
+  printf("    prodBlss=%d rwProd=%c usrPin=%d kernPin=%d\n",
+	 thisPtr->kt_u.mp.producerBlss,
+         thisPtr->kt_u.mp.rwProduct ? 'y' : 'n', thisPtr->userPin,
 	 thisPtr->kernPin);
 
   switch(thisPtr->obType) {
   case ot_PtMappingPage:
-    printf("    producer=0x%08x\n", thisPtr->prep_u.producer);
+    printf("    producer=0x%08x\n", thisPtr->kt_u.mp.producer);
     break;
   case ot_PtDataPage:
   case ot_PtDevicePage:

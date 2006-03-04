@@ -48,6 +48,13 @@
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
+INLINE bool
+obj_IsDirectory(ObjectHeader * ob) /* ob->obType must be ot_PtMappingPage */
+{
+  /* tableSize is 0 for page table, 1 for page directory */
+  return ob->kt_u.mp.tableSize /* == 1 */ ;
+}
+
 /* Possible outcomes of a user-level page fault:
  * 
  * 1. Fault was due to a not-present page, and address is not valid in
@@ -92,7 +99,7 @@ extern void start();
 bool PteZapped = false;
 
 static ObjectHeader *
-proc_MakeNewPageTable(SegWalk* wi /*@ not null @*/, uint32_t ndx); 
+proc_MakeNewPageTable(SegWalk* wi /*@ not null @*/ ); 
 static ObjectHeader*
 proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/); 
 
@@ -172,8 +179,8 @@ Depend_InvalidateProduct(ObjectHeader* page)
     mach_SetMappingTable(KernPageDir_pa);
 
   }
-  
-  if (page->producerNdx == EROS_NODE_LGSIZE) {
+
+  if (obj_IsDirectory(page)) {
     /* FIXME: This does not scale. 
        I think the Depend relationship can be used to find the
        pointers that need to be zapped. */
@@ -229,7 +236,7 @@ pte_ObIsNotWritable(ObjectHeader *pObj)
     ptepg = (PTE *) objC_ObHdrToPage(pHdr);
     
     limit = NPTE_PER_PAGE;
-    if (pHdr->producerNdx == EROS_NODE_LGSIZE)
+    if (obj_IsDirectory(pHdr))
       limit = (UMSGTOP >> 22);	/* PAGE_ADDR_BITS + PAGE_TABLE_BITS */
 
     for (ent = 0; ent < limit; ent++) {
@@ -272,12 +279,102 @@ Depend_WriteDisableProduct(ObjectHeader *pObj)
    */
 
   limit = NPTE_PER_PAGE;
-  if (pObj->producerNdx == EROS_NODE_LGSIZE)
+  if (obj_IsDirectory(pObj))
     limit = (UMSGTOP >> 22);	/* PAGE_ADDR_BITS + PAGE_TABLE_BITS */
 
   pte = (PTE*) mp_va;
   for (entry = 0; entry < limit; entry++)
     pte_WriteProtect(&pte[entry]);
+}
+
+/* Walk the node looking for an acceptable product: */
+ObjectHeader *
+objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi /*@not null@*/ ,
+                 unsigned int tblSize, 
+                 bool rw, bool ca)
+{
+  uint32_t blss = wi->segBlss;
+
+#if 0
+  printf("Search for product blss=%d ndx=%d, rw=%c producerTy=%d\n",
+	       blss, ndx, rw ? 'y' : 'n', obType);
+#endif
+  
+  /* #define FINDPRODUCT_VERBOSE */
+
+  ObjectHeader *product = 0;
+  
+  for (product = thisPtr->prep_u.products; product; product = product->next) {
+    assert(product->obType == ot_PtMappingPage);
+    if ((uint32_t) product->kt_u.mp.producerBlss != blss) {
+#ifdef FINDPRODUCT_VERBOSE
+      printf("Producer BLSS not match\n");
+#endif
+      continue;
+    }
+    if (product->kt_u.mp.redSeg != wi->redSeg) {
+#ifdef FINDPRODUCT_VERBOSE
+      printf("Red seg not match\n");
+#endif
+      continue;
+    }
+    if (product->kt_u.mp.redSeg) {
+      if (product->kt_u.mp.wrapperProducer != wi->segObjIsWrapper) {
+#ifdef FINDPRODUCT_VERBOSE
+	printf("redProducer not match\n"); 
+#endif
+	continue;
+      }
+      if (product->kt_u.mp.redSpanBlss != wi->redSpanBlss) {
+#ifdef FINDPRODUCT_VERBOSE
+	printf("redSpanBlss not match: prod %d wi %d\n",
+		       product->mp.redSpanBlss, wi.redSpanBlss);
+#endif
+	continue;
+      }
+    }
+    if ((uint32_t) product->kt_u.mp.tableSize != tblSize) {
+#ifdef FINDPRODUCT_VERBOSE
+      printf("tableSize not match\n");
+#endif
+      continue;
+    }
+    if (product->kt_u.mp.rwProduct != (rw ? 1 : 0)) {
+#ifdef FINDPRODUCT_VERBOSE
+      printf("rwProduct not match\n");
+#endif
+      continue;
+    }
+    if (product->kt_u.mp.caProduct != (ca ? 1 : 0)) {
+#ifdef FINDPRODUCT_VERBOSE
+      printf("caProduct not match\n");
+#endif
+      continue;
+    }
+
+    /* WE WIN! */
+    break;
+  }
+
+  if (product) {
+    assert(product->kt_u.mp.producer == thisPtr);
+  }
+
+#if 0
+  if (wi.segBlss != wi.pSegKey->GetBlss())
+    dprintf(true, "Found product 0x%x segBlss %d prodKey 0x%x keyBlss %d\n",
+		    product, wi.segBlss, wi.pSegKey, wi.pSegKey->GetBlss());
+#endif
+
+#ifdef FINDPRODUCT_VERBOSE
+  printf("0x%08x->FindProduct(blss=%d,ndx=%d,rw=%c,ca=%c,"
+		 "producerTy=%d) => 0x%08x\n",
+		 this,
+		 blss, ndx, rw ? 'y' : 'n', ca ? 'y' : 'n', obType,
+		 product);
+#endif
+
+  return product;
 }
 
 #ifdef INVOKE_TIMING
@@ -668,13 +765,14 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   
   {
     ObjectHeader *pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
+    assert(pTableHdr->obType == ot_PtMappingPage);
    
-    if (isWrite && !pTableHdr->rwProduct) {
-      dprintf(true, "DoPageFault(): isWrite && !pTableHdr->rwProduct hdr 0x%x\n", pTableHdr);
+    if (isWrite && !pTableHdr->kt_u.mp.rwProduct) {
+      dprintf(true, "DoPageFault(): isWrite && !pTableHdr->kt_u.mp.rwProduct hdr 0x%x\n", pTableHdr);
       goto access_fault;
     }
 
-    wi.canCall = BOOL(pTableHdr->caProduct);
+    wi.canCall = BOOL(pTableHdr->kt_u.mp.caProduct);
     
 #ifdef FAST_TRAVERSAL
     /* We have a page directory conveying suitable access rights from
@@ -700,8 +798,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
         
 	  
 	  wi.offset = wi.vaddr & ((1u << 22) - 1u);
-	  wi.segBlss = pTableHdr->producerBlss;
-	  wi.segObj = pTableHdr->prep_u.producer;
+	  wi.segBlss = pTableHdr->kt_u.mp.producerBlss;
+	  wi.segObj = pTableHdr->kt_u.mp.producer;
 	  wi.redSeg = pTableHdr->kt_u.mp.redSeg;
 	  if (wi.redSeg) {
 	    wi.redSpanBlss = pTableHdr->kt_u.mp.redSpanBlss;
@@ -709,8 +807,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 	      ((uint64_t) wi.vaddr) & BLSS_MASK64(wi.redSpanBlss, wi.frameBits);
 	  }
 	  wi.segObjIsWrapper = BOOL(pTableHdr->kt_u.mp.wrapperProducer);
-	  wi.canWrite = BOOL(pTableHdr->rwProduct);
-	  wi.canCall = BOOL(wi.canCall && pTableHdr->caProduct);
+	  wi.canWrite = BOOL(pTableHdr->kt_u.mp.rwProduct);
+	  wi.canCall = BOOL(wi.canCall && pTableHdr->kt_u.mp.caProduct);
 
 #if 0
 	  if (wi.redSeg && wi.offset != wi.redSegOffset) {
@@ -745,8 +843,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     assert(pTableHdr->obType == ot_PtMappingPage);
     
     wi.offset = wi.vaddr;
-    wi.segBlss = pTableHdr->producerBlss;
-    wi.segObj = pTableHdr->prep_u.producer;
+    wi.segBlss = pTableHdr->kt_u.mp.producerBlss;
+    wi.segObj = pTableHdr->kt_u.mp.producer;
     wi.redSeg = pTableHdr->kt_u.mp.redSeg;
     if (wi.redSeg) {
       wi.redSpanBlss = pTableHdr->kt_u.mp.redSpanBlss;
@@ -754,7 +852,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 	((uint64_t) wi.vaddr) & BLSS_MASK64(wi.redSpanBlss, wi.frameBits);
     }
     wi.segObjIsWrapper = pTableHdr->kt_u.mp.wrapperProducer;
-    wi.canWrite = BOOL(pTableHdr->rwProduct);
+    wi.canWrite = BOOL(pTableHdr->kt_u.mp.rwProduct);
 
 #ifdef WALK_LOUD
     dprintf(false, "have_pgdir\n");
@@ -820,10 +918,10 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     ObjectHeader *pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
     assert(pTableHdr->obType == ot_PtMappingPage);
 
-    assert(wi.segBlss == pTableHdr->producerBlss);
-    assert(wi.segObj == pTableHdr->prep_u.producer);
+    assert(wi.segBlss == pTableHdr->kt_u.mp.producerBlss);
+    assert(wi.segObj == pTableHdr->kt_u.mp.producer);
     assert(wi.redSeg == pTableHdr->kt_u.mp.redSeg);
-    assert(BOOL(wi.canWrite) == BOOL(pTableHdr->rwProduct));
+    assert(BOOL(wi.canWrite) == BOOL(pTableHdr->kt_u.mp.rwProduct));
   }
 #endif
 
@@ -861,25 +959,23 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       }
     }
     else {
-      uint32_t productNdx = 0;
-
       /* Level 0 product need never be a read-only product.  We use
        * the write permission bit at the PDE level.
        */
       ObjectHeader *pTableHdr =
-	objH_FindProduct(wi.segObj, &wi, productNdx, true, true);
+	objH_FindProduct(wi.segObj, &wi, 0, true, true);
 
       if (pTableHdr == 0)
-	pTableHdr = proc_MakeNewPageTable(&wi, productNdx);
+	pTableHdr = proc_MakeNewPageTable(&wi);
       assert(pTableHdr->obType == ot_PtMappingPage);
 
-      assert(wi.segBlss == pTableHdr->producerBlss);
-      assert(wi.segObj == pTableHdr->prep_u.producer);
+      assert(wi.segBlss == pTableHdr->kt_u.mp.producerBlss);
+      assert(wi.segObj == pTableHdr->kt_u.mp.producer);
       assert(wi.redSeg == pTableHdr->kt_u.mp.redSeg);
 
       /* On x86, the page table is always RW product, and we rely on
 	 the write permission bit at the PDE level: */
-      assert(pTableHdr->rwProduct == true);
+      assert(pTableHdr->kt_u.mp.rwProduct);
 
       pTable = (PTE *) objC_ObHdrToPage(pTableHdr);
     }
@@ -1004,14 +1100,14 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
   kva_t tableAddr;
   assert (keyR_IsValid(&pTable->keyRing, pTable));
   pTable->obType = ot_PtMappingPage;
-  pTable->producerNdx = EROS_NODE_LGSIZE;
-  pTable->producerBlss = wi->segBlss;
+  pTable->kt_u.mp.tableSize = 1;
+  pTable->kt_u.mp.producerBlss = wi->segBlss;
 
   pTable->kt_u.mp.redSeg = wi->redSeg;
   pTable->kt_u.mp.wrapperProducer = wi->segObjIsWrapper;
   pTable->kt_u.mp.redSpanBlss = wi->redSpanBlss;
-  pTable->rwProduct = BOOL(wi->canWrite);
-  pTable->caProduct = BOOL(wi->canCall);
+  pTable->kt_u.mp.rwProduct = BOOL(wi->canWrite);
+  pTable->kt_u.mp.caProduct = BOOL(wi->canCall);
   objH_SetDirtyFlag(pTable);
 
   tableAddr = objC_ObHdrToPage(pTable);
@@ -1043,21 +1139,21 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 }
 
 static ObjectHeader*
-proc_MakeNewPageTable(SegWalk* wi /*@ not null @*/, uint32_t ndx)
+proc_MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
 {
   /* Need to make a new mapping table: */
   ObjectHeader *pTable = objC_GrabPageFrame();
   kva_t tableAddr;
   assert (keyR_IsValid(&pTable->keyRing, pTable));
   pTable->obType = ot_PtMappingPage;
-  pTable->producerNdx = ndx;
-  pTable->producerBlss = wi->segBlss;
+  pTable->kt_u.mp.tableSize = 0;
+  pTable->kt_u.mp.producerBlss = wi->segBlss;
   
   pTable->kt_u.mp.redSeg = wi->redSeg;
   pTable->kt_u.mp.wrapperProducer = wi->segObjIsWrapper;
   pTable->kt_u.mp.redSpanBlss = wi->redSpanBlss;
-  pTable->rwProduct = 1;
-  pTable->caProduct = 1;	/* we use spare bit in PTE */
+  pTable->kt_u.mp.rwProduct = 1;
+  pTable->kt_u.mp.caProduct = 1;	/* we use spare bit in PTE */
   objH_SetDirtyFlag(pTable);
 
   tableAddr = objC_ObHdrToPage(pTable);
