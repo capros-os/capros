@@ -2,6 +2,7 @@
 #define __KERNEL_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -26,7 +27,7 @@
 #include <arch-kerninc/kern-target.h>
 #include <disk/ErosTypes.h>
      
-#define DOWNCAST(child, parent) (parent *) (child)
+#define DOWNCAST(child, parent) ((parent *) (child))
 
 /* These could be inline functions, but this way it works for C as
    well: */

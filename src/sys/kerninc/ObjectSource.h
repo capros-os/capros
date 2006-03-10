@@ -33,7 +33,7 @@
 struct ObjectSource {
   const char *name;
   OID start;
-  OID end;
+  OID end;	/* last OID +1 */
   kva_t base;
   uint32_t nsecs;
   PmemInfo *pmi;

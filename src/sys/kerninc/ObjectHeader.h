@@ -177,6 +177,10 @@ struct ObjectHeader {
 
   uint8_t		userPin;
   uint8_t		kernPin;
+
+  uint8_t ssid;		/* (Machine-dependent)
+                           used if obType == ot_NtSegment
+                                             or ot_PtDataPage or ... */
   
   ObjectHeader* hashChainNext;
 
