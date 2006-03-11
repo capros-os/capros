@@ -392,6 +392,7 @@ node_PrepAsSegment(Node* thisPtr)
 
   thisPtr->node_ObjHdr.obType = ot_NtSegment;
   thisPtr->node_ObjHdr.prep_u.products = 0;
+  thisPtr->node_ObjHdr.ssid = 0;	/* machine-dependent! */
 
   return true;
 }

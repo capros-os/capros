@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -68,14 +68,14 @@ FetchPage(ObjectSource *src, ObjectHeader *pObj)
 {
   OID oid = pObj->kt_u.ob.oid;
   FrameInfo fi;
-  void *dest = 0;
+  void *dest;
   PagePot *pp = 0;
   OID relOid;
   kva_t ppaddr;
 
   assert(src->start <= oid && oid < src->end);
 
-  dest = (uint8_t *) objC_ObHdrToPage(pObj);
+  dest = (void *) objC_ObHdrToPage(pObj);
 
   relOid = oid - src->start;		/* convert to relative terms */
 
@@ -205,6 +205,10 @@ PreloadObSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 {
   ObjectHeader * pObj;
   bool result;
+#if 0
+  printf("PreloadObSource_GetObject OID=0x%08x %08x\n",
+         (uint32_t)(oid >> 32), (uint32_t)oid );
+#endif
 
   if (obType == ot_PtDataPage) {
     pObj = objC_GrabPageFrame();

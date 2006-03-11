@@ -99,7 +99,7 @@ extern void start();
 bool PteZapped = false;
 
 static ObjectHeader *
-proc_MakeNewPageTable(SegWalk* wi /*@ not null @*/ ); 
+MakeNewPageTable(SegWalk* wi /*@ not null @*/ ); 
 static ObjectHeader*
 proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/); 
 
@@ -753,7 +753,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   
   segwalk_init(&wi, proc_GetSegRoot(p));
 
-  /* See if there is already a page table. If not, go find/build one. */
+  /* See if there is already a page directory. If not, go find/build one. */
   pTable = (PTE *) (PTOV(p->md.MappingTable) & ~EROS_PAGE_MASK);
 
 #ifdef WALK_LOUD
@@ -966,7 +966,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 	objH_FindProduct(wi.segObj, &wi, 0, true, true);
 
       if (pTableHdr == 0)
-	pTableHdr = proc_MakeNewPageTable(&wi);
+	pTableHdr = MakeNewPageTable(&wi);
       assert(pTableHdr->obType == ot_PtMappingPage);
 
       assert(wi.segBlss == pTableHdr->kt_u.mp.producerBlss);
@@ -1139,7 +1139,7 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 }
 
 static ObjectHeader*
-proc_MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
+MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
 {
   /* Need to make a new mapping table: */
   ObjectHeader *pTable = objC_GrabPageFrame();

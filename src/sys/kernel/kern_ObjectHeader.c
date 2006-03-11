@@ -28,6 +28,7 @@
 #include <kerninc/SegWalk.h>
 #include <kerninc/Depend.h>
 #include <arch-kerninc/PTE.h>
+#include <arch-kerninc/Machine-inline.h>
 
 #define dbg_rescind	0x1	/* steps in taking snapshot */
 
@@ -111,6 +112,8 @@ objH_DelProduct(ObjectHeader* thisPtr, ObjectHeader *product)
     thisPtr->prep_u.products = product->next;
   }
   else {
+    /* Not the first thing on the products list. Find it.
+       Note: the list of products is usually quite short. */
     ObjectHeader *curProd = thisPtr->prep_u.products;
     while (curProd->next) {
       if (curProd->next == product) {
@@ -470,7 +473,7 @@ objH_CalcCheck(const ObjectHeader* thisPtr)
 #endif
 
 void
-objH_InvalidateProducts(ObjectHeader* thisPtr)
+objH_InvalidateProducts(ObjectHeader * thisPtr)
 {
   if (thisPtr->obType == ot_PtDataPage ||
       thisPtr->obType == ot_PtDevicePage ||
@@ -485,6 +488,7 @@ objH_InvalidateProducts(ObjectHeader* thisPtr)
       objC_ReleaseFrame(pProd);
     }
     thisPtr->prep_u.products = 0;
+    mach_InvalidateProducts(thisPtr);
   }
 }
 

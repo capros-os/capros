@@ -21,6 +21,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+struct ObjectHeader;
+
 INLINE int
 mach_FindFirstZero(uint32_t w)
 {
@@ -36,6 +38,11 @@ mach_GetCPUStackTop()
 {
   extern uint32_t kernelStack[];
   return (kva_t)&kernelStack + EROS_KSTACK_SIZE;
+}
+
+INLINE void
+mach_InvalidateProducts(struct ObjectHeader * thisPtr)
+{ /* nothing to do */
 }
 
 #endif/*__MACHINE_INLINE_H__*/

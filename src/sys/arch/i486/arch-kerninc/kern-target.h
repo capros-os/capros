@@ -50,6 +50,15 @@ typedef uint32_t        ula_t;	/* user linear address */
    directories must still be representable within a 32 bit value. */
 typedef uint32_t        kpmap_t; /* mapping table physical address */
 
+/* The current version of the x86 kernel uses the segment mechanism to
+   remap the kernel.  We will want it that way for the windowing
+   tricks later anyway.
+
+   On the plus side, this means that a kernel virtual address is also
+   a kernel physical address. On the minus side, this means that
+   domain virtual addresses must now be referenced through the domain
+   segment selector. */
+
 /* There is a portability problem with casting pointers to kpa_t if
  * they are of different size. The compiler complains. This impedes
  * portability, and it's a REALLY dumb idea. Therefore, you should
@@ -60,23 +69,18 @@ typedef uint32_t        kpmap_t; /* mapping table physical address */
  * or not:
  */
 /* If sizeof(kpa_t)!=sizeof(void*) */
+/* Convert kernel virtual address to physical address. */
+#define VTOP(va) ((kpa_t) (va))
+/* Convert physical address to kernel virtual address. */
+#define PTOV(pa) ((kva_t) (pa))
+#define KVTOL(kva) (kva + KVA)
 #define PtoKPA(x) ((kpa_t)(unsigned long) (x))
-#define KPAtoP(ty,x) ((ty)(unsigned long) (x))
 #define VtoKVA(x) ((kva_t)(unsigned long) (x))
 #define KVAtoV(ty,x) ((ty)(unsigned long) (x))
 /* Otherwise: */
-/* #define KPAtoP(ty,x) ((ty) (x)) */
+/* #define PTOV(pa) (pa) */
 
-/* The current version of the x86 kernel uses the segment mechanism to
-   remap the kernel.  We will want it that way for the windowing
-   tricks later anyway.
-
-   On the plus side, this means that a kernel virtual address is also
-   a kernel physical address. On the minus side, this means that
-   domain virtual addresses must now be referenced through the domain
-   segment selector. */
-#define VTOP(va) ((uint32_t) (va))
-#define PTOV(pa) ((uint32_t) (pa))
-#define KVTOL(kva) (kva + KVA)
+/* (Kernel) Physical Address to Pointer (typed kernel virtual address) */
+#define KPAtoP(ty,x) ((ty) (PTOV(x)))
 
 #endif /* __KERN_TARGET_I486_H__ */

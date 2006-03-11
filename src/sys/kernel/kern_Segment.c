@@ -96,8 +96,6 @@
    I have temporarily removed the support for capability pages to get
    one thing right at a time.
 */
-#define BLSS_SHIFT(lss, frameBits) \
-  (((lss) - EROS_PAGE_BLSS - 1) * EROS_NODE_LGSIZE + frameBits)
 
 INLINE uint64_t
 BLSS_MASK64(uint32_t blss, uint32_t frameBits)
@@ -106,9 +104,7 @@ BLSS_MASK64(uint32_t blss, uint32_t frameBits)
     (blss - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + frameBits; 
 
   uint64_t mask = (1ull << bits_to_shift);
-  mask -= 1ull;
-  
-  return mask;
+  return mask - 1ull;
 }
 
 #ifdef OPTION_DDB
@@ -293,13 +289,14 @@ proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
 
       wi->traverseCount++;	
 
-      shiftAmt = BLSS_SHIFT(wi->segBlss, wi->frameBits);
+      shiftAmt = (wi->segBlss - EROS_PAGE_BLSS - 1) * EROS_NODE_LGSIZE
+                 + wi->frameBits;
       ndx = wi->offset >> shiftAmt;
 
       if (ndx > initialSlots)
 	goto invalid_addr;
 
-      wi->offset &= BLSS_MASK64(wi->segBlss - 1, wi->frameBits);
+      wi->offset &= (1ull << shiftAmt) - 1ull;
 
       wi->pSegKey = &segNode->slot[ndx];
     }

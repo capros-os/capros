@@ -844,6 +844,9 @@ objC_CopyObject(ObjectHeader *pObj)
   Node *newNode = 0;
   unsigned i = 0;
 
+  DEBUG(ndalloc)
+    printf("objC_CopyObject obj=0x%08x\n", pObj);
+
   assert(pObj->prep_u.products == 0);
   assert(keyR_IsEmpty(&pObj->keyRing));
 
@@ -916,6 +919,9 @@ objC_CopyObject(ObjectHeader *pObj)
 bool
 objC_EvictFrame(ObjectHeader *pObj)
 {
+  DEBUG(ndalloc)
+    printf("objC_EvictFrame obj=0x%08x type=%d\n", pObj, pObj->obType);
+
   /* This logic probably will not work for nodes, because we might
    * well be zapping the current process. If you change this, be sure
    * to appropriately conditionalize various checks below. */
@@ -1178,8 +1184,11 @@ objC_GrabPageFrame()
   assert (objC_nFreePageFrames > 0);
 
   assert(objC_firstFreePage);
-
   pObHdr = objC_firstFreePage;
+
+  DEBUG(ndalloc)
+    printf("objC_GrabPageFrame obj=0x%08x type=%d\n", pObHdr, pObHdr->obType);
+
   objC_GrabThisFrame(pObHdr);
 
   return pObHdr;
@@ -1290,6 +1299,10 @@ objC_GrabNodeFrame()
   assert(objC_nFreeNodeFrames);
   
   pNode = objC_firstFreeNode;
+  DEBUG(ndalloc)
+    printf("objC_GrabNodeFrame obj=0x%08x type=%d\n", pNode,
+           DOWNCAST(pNode, ObjectHeader)->obType);
+
   objC_GrabThisFrame(DOWNCAST(pNode, ObjectHeader));
 
   return pNode;
@@ -1301,6 +1314,9 @@ objC_ReleaseFrame(ObjectHeader *pObHdr)
 #ifndef NDEBUG
   uint32_t i = 0;
 #endif
+
+  DEBUG(ndalloc)
+    printf("objC_ReleaseFrame obj=0x%08x\n", pObHdr);
 
   assert(pObHdr);
   
@@ -1622,7 +1638,7 @@ objC_InitObjectSources()
 
     /* Calculate number of OIDs in this division. */
     nObFrames = (modp->mod_end - modp->mod_start)/EROS_PAGE_SIZE; /* size in pages */
-    nObFrames -= 1;	/* for the checkpoint seqno page */
+    /* Preloaded module does not have a checkpoint seqno page. */
     /* Take out a pot for each whole or partial cluster. */
     nObFrames -= (nObFrames + (PAGES_PER_PAGE_CLUSTER-1))
                  / PAGES_PER_PAGE_CLUSTER;
@@ -1632,7 +1648,7 @@ objC_InitObjectSources()
     source->name = "preload";
     source->start = startOid;
     source->end = startOid + (nObFrames * EROS_OBJECTS_PER_FRAME);
-    source->base = KPAtoP(kva_t, modp->mod_start);
+    source->base = PTOV(modp->mod_start);
     source->objS_Detach = PreloadObSource_Detach;
     source->objS_GetObject = PreloadObSource_GetObject;
     source->objS_IsRemovable = ObjectSource_IsRemovable;
