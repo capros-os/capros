@@ -18,6 +18,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+/* This file is processed by GenKeyTypes.awk to produce eros/StdKeyType.h. */
+
 /* Changes to these need to be matched by changes to the dispatch
    table in kern_Invoke.cxx */
 primary	Start

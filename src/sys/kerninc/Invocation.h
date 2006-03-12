@@ -2,7 +2,7 @@
 #define __KERNINC_INVOCATION_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -131,11 +131,13 @@ inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data);
 /* This is the only instance of Invocation.
    I think the plan was to have one instance for each CPU. */
 extern Invocation inv;
+struct Activity;
+extern struct Activity * activityToRelease;
 
 extern bool PteZapped;
 
 typedef void (*KeyHandler)(Invocation*);
-extern void FaultGate(Invocation*);
+void FaultGate(Invocation*);
 
 /* Commit point appears in each invocation where the invocation should
  * now be able to proceed without impediment. At some point in the

@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group.
+# Copyright (C) 2005, 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System runtime library.
 #
@@ -27,7 +27,6 @@ include $(EROS_SRC)/build/make/makevars.mk
 BUILDDIR=.
 TARGETS=
 DIRS=
-#GENERATED=fixregs.h floatregs.h
 GENERATED=pseudoregs.h traceregs.h
 LOCAL_HEADERS=\
 	target.h \
@@ -43,33 +42,19 @@ LOCAL_HEADERS=\
 HEADERS=\
 	$(LOCAL_HEADERS) $(GENERATED)
 
-CLEANLIST += fixregs.h floatregs.h pseudoregs.h traceregs.h
+CLEANLIST += pseudoregs.h traceregs.h
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-GENFIXREGS=$(EROS_SYS)/scripts/GenFixRegs.awk
-GENFLOATREGS=$(EROS_SYS)/scripts/GenFloatRegs.awk
 GENPSEUDOREGS=$(EROS_SYS)/scripts/GenPseudoRegs.awk
 GENTRACEREGS=$(EROS_SYS)/scripts/GenTraceRegs.awk
 LAYOUT=$(EROS_SYS)/arch/i486/LAYOUT
 
-.FORCE:
+pseudoregs.h: $(LAYOUT) $(GENPSEUDOREGS)
+	$(EROS_CPP) -I$(EROS_SRC)/sys $(LAYOUT) | $(GAWK) -f $(GENPSEUDOREGS) > $@
 
-fixregs.h: $(LAYOUT) $(GENFIXREGS) .FORCE
-	$(EROS_CPP) -I$(EROS_SRC)/sys $(LAYOUT) | $(GAWK) -f $(GENFIXREGS) > $@.tmp
-	$(REPLACE) $@.tmp $@
-
-floatregs.h: $(LAYOUT) $(GENFLOATREGS) .FORCE
-	$(EROS_CPP) -I$(EROS_SRC)/sys $(LAYOUT) | $(GAWK) -f $(GENFLOATREGS) > $@.tmp
-	$(REPLACE) $@.tmp $@
-
-pseudoregs.h: $(LAYOUT) $(GENPSEUDOREGS) .FORCE
-	$(EROS_CPP) -I$(EROS_SRC)/sys $(LAYOUT) | $(GAWK) -f $(GENPSEUDOREGS) > $@.tmp
-	$(REPLACE) $@.tmp $@
-
-traceregs.h: $(LAYOUT) $(GENTRACEREGS) .FORCE
-	$(EROS_CPP) -I$(EROS_SRC)/sys $(LAYOUT) | $(GAWK) -f $(GENTRACEREGS) > $@.tmp
-	$(REPLACE) $@.tmp $@
+traceregs.h: $(LAYOUT) $(GENTRACEREGS)
+	$(EROS_CPP) -I$(EROS_SRC)/sys $(LAYOUT) | $(GAWK) -f $(GENTRACEREGS) > $@
 
 
 # NOTE that target-asm.h also gets installed in the domain include tree!

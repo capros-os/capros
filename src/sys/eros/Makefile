@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System runtime library.
 #
@@ -63,11 +64,8 @@ include $(EROS_SRC)/build/make/makerules.mk
 GENKEYTYPES=../scripts/GenKeyTypes.awk
 KEYDEFS=../KEYDEFS
 
-.FORCE:
-
-StdKeyType.h: $(KEYDEFS)  .FORCE
-	$(EROS_CPP) $(KEYDEFS) | $(GAWK) -f $(GENKEYTYPES) > $@.tmp
-	$(REPLACE) $@.tmp $@
+StdKeyType.h: $(KEYDEFS) $(GENKEYTYPES)
+	$(EROS_CPP) $(KEYDEFS) | $(GAWK) -f $(GENKEYTYPES) > $@
 
 install: $(GENERATED)
 	$(INSTALL) -d $(EROS_ROOT)/include

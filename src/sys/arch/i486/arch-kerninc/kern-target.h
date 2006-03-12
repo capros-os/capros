@@ -70,7 +70,7 @@ typedef uint32_t        kpmap_t; /* mapping table physical address */
  */
 /* If sizeof(kpa_t)!=sizeof(void*) */
 /* Convert kernel virtual address to physical address. */
-#define VTOP(va) ((kpa_t) (va))
+#define VTOP(va) ((kpa_t) (kva_t) (va))
 /* Convert physical address to kernel virtual address. */
 #define PTOV(pa) ((kva_t) (pa))
 #define KVTOL(kva) (kva + KVA)

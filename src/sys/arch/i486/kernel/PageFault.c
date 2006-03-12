@@ -908,7 +908,9 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
     pTable = (PTE *) objC_ObHdrToPage(pTableHdr);
 
-    p->md.MappingTable = VTOP(pTable);
+    /* Note, the physical address of the page directory must be
+       representable in 32 bits, even in PAE mode. */
+    p->md.MappingTable = (kpmap_t)VTOP(pTable);
   }
 
  have_pgdir:
@@ -1128,7 +1130,10 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
     PTE *udir = (PTE *)tableAddr;
     /* Set up fromspace recursive mapping. Note that this is a
        supervisor-only mapping: */
-    pte_set(&udir[KVTOL(KVA_FROMSPACE) >> 22], (VTOP(udir) & PTE_FRAMEBITS) );
+    /* Note, we are not using PAE or PSE-36, so can only use 
+       32-bit physical address. */
+    pte_set(&udir[KVTOL(KVA_FROMSPACE) >> 22],
+            ((uint32_t)(VTOP(udir)) & PTE_FRAMEBITS) );
     pte_set(&udir[KVTOL(KVA_FROMSPACE) >> 22], PTE_W|PTE_V );
   }
 
