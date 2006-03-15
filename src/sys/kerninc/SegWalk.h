@@ -29,33 +29,27 @@
 /* #define SW_CANTRAVERSE 0x10u */
 
 struct SegWalk {
-  uint32_t   frameBits;		/* number of bits in frame offset */
-  uva_t      vaddr;		/* in case invoking domain keeper */
+  uint32_t frameBits;	/* number of bits in frame offset */
+  uva_t vaddr;		/* in case invoking domain keeper */
 
-  Key        *pSegKey;
-  uint32_t   segBlss;
-  struct ObjectHeader
-             *segObj;
-  bool       segObjIsWrapper;
-  uint64_t   offset;
-  Node       *redSeg;
-  uint64_t   redSegOffset;
-  uint32_t   redSpanBlss;	/* blss of segment spanned by red seg */
+  Key * pSegKey;
+  uint32_t segBlss;
+  struct ObjectHeader * segObj;
+  bool segObjIsWrapper;
+  uint64_t offset;
+  Node * redSeg;
+  uint64_t redSegOffset;
+  uint32_t redSpanBlss;	/* blss of segment spanned by red seg */
 
-#if 0
-  uint32_t   flags;
-#else
-  bool       writeAccess;
+  bool writeAccess;
+  bool canCall;
+  bool canWrite;
+  bool canFullFetch;	/* not a sensory path */
+  bool canCache;	/* cache disable handling */
+  bool invokeKeeperOK;
+  bool invokeProcessKeeperOK;
 
-  bool       canCall;
-  bool       canWrite;
-  bool       canFullFetch;	/* not a sensory path */
-  bool       canCache;		/* cache disable handling */
-#endif
-  bool       invokeKeeperOK;
-  bool       invokeProcessKeeperOK;
-
-  bool       wantLeafNode;
+  bool wantLeafNode;
 
   uint32_t   faultCode;
   uint32_t   traverseCount;

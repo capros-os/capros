@@ -22,6 +22,7 @@
 file("kernel/kern_main.c")
 
 file("arch/i486/kernel/interrupt.S")
+file("arch/i486/kernel/IdleThread.c")
 file("arch/i486/kernel/IPC-vars.c")
 file("arch/i486/kernel/IpcTrap.c")
 file("arch/i486/kernel/IntTrap.c")

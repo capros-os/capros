@@ -218,6 +218,7 @@ proc_DeliverGateResult(Process* thisPtr, Invocation* inv /*@ not null @*/, bool 
 
 
 #ifdef ASM_VALIDATE_STRINGS
+#error This is not the case.
 /* The reason to do this is that until OPTION_PURE_ENTRY_STRINGS is removed
    there are a whole lot of places where this gets called.
    The net effect is that ASM_VALIDATE_STRINGS implies

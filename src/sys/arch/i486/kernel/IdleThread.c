@@ -29,10 +29,10 @@
  * reducing it's stack, though.
  */
 
-void IdleActivity_Start();
+void IdleActivity_Start(void);
 
 Activity *
-StartIdleActivity()
+StartIdleActivity(void)
 {
   fixreg_t *stack = MALLOC(fixreg_t, StackSize);
 
@@ -54,6 +54,7 @@ void
 IdleActivity_Start(void)
 {
   int stack;
+
   printf("Start IdleActivity (activity 0x%x,context 0x%x,stack 0x%x)\n",
 	 act_curActivity, act_curActivity->context, &stack);
 

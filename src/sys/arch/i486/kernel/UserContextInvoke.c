@@ -29,7 +29,7 @@
 #include <arch-kerninc/Process.h>
 #include "Process486.h"
 
-#ifndef ASM_VALIDATE_STRINGS
+#ifndef ASM_VALIDATE_STRINGS /* This is the case. */
 void 
 proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
 {
