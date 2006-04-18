@@ -983,7 +983,7 @@ check_MappingPage(ObjectHeader *pPage)
     thePTE = &pte[ent];
 
     if ((thePTE->w_value & (PTE_V|PTE_W)) == (PTE_V|PTE_W)) { /* writeable */
-      uint32_t pageFrame = pte_PageFrame(thePTE);
+      kpa_t pageFrame = pte_PageFrame(thePTE);
       kva_t thePage = PTOV(pageFrame);
 
       if (thePage >= KVTOL(KVA_FROMSPACE))
