@@ -553,7 +553,7 @@ proc_DoKeyInvocation(Process* thisPtr)
 #endif
 
   /* Send is a pain in the butt.  Fuck 'em if they can't take a joke. */
-  if (inv.invType == IT_Send || inv.invType == IT_Retry)
+  if (inv.invType == IT_Send)
     goto general_path;
 
   if (!keyBits_IsPrepared(inv.key))
@@ -793,7 +793,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     RS_Available,		/* IT_PReturn */
     RS_Waiting,			/* IT_Call */
     RS_Running,			/* IT_Send */
-    RS_Available,		/* IT_Retry */
   };
 
 #ifdef OPTION_KERN_TIMING_STATS
@@ -823,19 +822,12 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
   assert(keyBits_IsPrepared(inv.key));
   
-  /* Pick off valid retry invocations, which are handled specially: */
-  if (inv.invType == IT_Retry && inv.invKeyType == KKT_Resume) {
-    proc_DoRetryInvocation(thisPtr);
-    return;
-  }
-
-  /* If this is a prompt return or a retry, it MUST be done on a
+  /* If this is a prompt return, it MUST be done on a
    * resume key. If it isn't, behave as for prompt return on void key.
    */
-  if (((inv.invType == IT_PReturn) || (inv.invType == IT_Retry))
+  if ((inv.invType == IT_PReturn)
       && (inv.invKeyType != KKT_Resume)) {
     /* dprintf(true, "PTRETURN on non-resume key!\n"); */
-    /* Whack the invType in case this is IT_Retry on bad key */
     inv.invType = IT_PReturn;
     inv.key = &key_VoidKey;
 #ifndef invKeyType
@@ -1333,93 +1325,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     }
     else
       inv_delta_reset = 0;
-  }
-#endif
-}
-
-void
-proc_DoRetryInvocation(Process* thisPtr)
-{
-#if defined(OPTION_DDB) && !defined(NDEBUG)
-  bool invoked_gate_key;
-#endif
-
-  /* When this is entered, we know (because the general path checked)
-   * that we have an IT_Retry invocation on a prepared resume
-   * key. Also, we know that the entry block has been set up.
-   *
-   * We hijack the invocation because it is SO different from all the
-   * other cases. In fact, we may want to pick this off in the fast
-   * path at some point because it is likely to become part of the SMP
-   * demux support -- not high frequency for most programs, but when
-   * you do need it you need it to be fast.
-   */
-
-  inv.invokee = inv.key->u.gk.pContext;
-  proc_Prepare(inv.invokee);	/* may yield */
-
-  /* We could ignore the distinction between resume and fault keys,
-     because the IT_Retry operation does not change any externally
-     visible state in any case. We track it here only for the sake of
-     the debugging halt below. */
-
-  if (inv.key->keyPerms == KPRM_FAULT)
-    inv.suppressXfer = true;
-
-  if ( proc_IsWellFormed(inv.invokee) ) {
-    assert(proc_IsRunnable(inv.invokee));
-
-    /********************************************************************
-     * AT THIS POINT we know that the invocation will complete.
-     *********************************************************************/
-
-    thisPtr->runState = RS_Available;
-
-    /* We don't bother to prepare the recipient exit block, because the
-       recipient does not know that they are being returned to. */
-
-#if defined(OPTION_DDB) && !defined(NDEBUG)
-    invoked_gate_key = keyBits_IsGateKey(inv.key);
-  
-#if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
-    if (dbg_wild_ptr)
-      check_Consistency("DoKeyInvocation() before invoking handler\n");
-#endif
-
-    /* suppressXfer only gets set if this was a fault key, in which case 
-     * this is likely a re-invocation of the process by the keeper.
-     */
-    if ( DDB_STOP(all) ||
-	 (DDB_STOP(gate) && invoked_gate_key) ||
-	 (DDB_STOP(keeper) && inv.suppressXfer) ||
-	 (DDB_STOP(pflag) && 
-	  ( (thisPtr->processFlags & PF_DDBINV) ||
-	    (inv.invokee && inv.invokee->processFlags & PF_DDBINV) ))
-	 )
-      dprintf(true, "About to do RETRY invocation ic=%d\n",  KernStats.nInvoke);
-#endif
-
-    inv.invokee->nextPC = proc_GetPC(inv.invokee);
-    proc_SetPC(inv.invokee, inv.invokee->nextPC);
-    inv.invokee->runState = RS_Running;
-
-  }
-
-  if (inv.invokee != thisPtr)
-    keyR_ZapResumeKeys(&inv.invokee->keyRing);
-
-  /* No need whether to check if proc is no longer runnable, since we
-     checked it above and we haven't done anything that would change
-     the answer. */
-
-  inv_Cleanup(&inv);
-  act_MigrateTo(act_Current(), inv.invokee);
-  sq_WakeAll(&thisPtr->stallQ, false);
-
-#ifdef DBG_WILD_PTR
-  {
-    extern void ValidateAllActivities();
-    ValidateAllActivities();
   }
 #endif
 }

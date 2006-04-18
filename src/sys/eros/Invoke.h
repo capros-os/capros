@@ -38,7 +38,6 @@ extern "C" {
 extern fixreg_t CALL(Message*);
 extern fixreg_t SEND(Message*);
 extern fixreg_t RETURN(Message*);
-extern fixreg_t RETRY(Message*);
 
   /* Generic form: */
 extern fixreg_t INVOKECAP(Message*);
@@ -55,9 +54,8 @@ extern fixreg_t INVOKECAP(Message*);
 #define IT_PReturn  1
 #define IT_Call     2
 #define IT_Send     3
-#define IT_Retry    4
 
-#define IT_NUM_INVTYPES 5
+#define IT_NUM_INVTYPES 4
 
 /* Predefinition of KR_VOID is a kernel matter */
 #define KR_VOID  0
