@@ -44,7 +44,7 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
     return;
 
   /* Could be processes blocked on a wrapper node: */
-  if (ndx == WrapperFormat || ndx == WrapperFilter)
+  if (ndx == WrapperFormat)
     sq_WakeAll(ObjectStallQueueFromObHdr(&thisPtr->node_ObjHdr), false);
 
   switch(thisPtr->node_ObjHdr.obType) {
@@ -52,7 +52,7 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
       /* If this is read hazard, the world is in a very very
        * inconsistent state.
        */
-    if ((ndx != WrapperFormat) && (ndx != WrapperFilter))
+    if (ndx != WrapperFormat)
       fatal("Unprepared Node 0x%08x%08x Corrupted (slot %d).\n",
 	    (uint32_t) (thisPtr->node_ObjHdr.kt_u.ob.oid>>32), 
 	    (uint32_t) thisPtr->node_ObjHdr.kt_u.ob.oid, ndx);

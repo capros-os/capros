@@ -267,7 +267,6 @@ END   PseudoRegs
 
 
 proc    KEYREGS    *          keyregs
-proc    KEY        *          lastInvokedKey
 
 /* Following are "generic" fixRegs that are present in all
    architectures under these names. It is not at all clear that these

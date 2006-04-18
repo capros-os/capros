@@ -1064,24 +1064,12 @@ kern_seg_load:
 	 *  %eax,%ebx,%ecx,%edx,%esi,%edi
 	 ***********************************************/
 	
-	/* Since we are going to use it a lot, and need it below,
-	 * load the LIK register address into %edi */
-	leal	FX_OFF_lastInvokedKey(%ebp),%edi
-	
-	/* See if this is a LIK_RETRY invocation. If so, bypass the 
-	 * LIK register overwrite: */
-	movl	act_curActivity,%edx
-	testb	$1,17(%edx)	/* Activity.flags AF_RETRYLIK */
-	jnz	L_check_invoked_key
-	
-	/* This is NOT a LIK_RETRY invocation. Set up %edi to point to the
-	 * invoked key instead. */
+	/* Set up %edi to point to the invoked key. */
 	movl    FX_OFF_invKey(%ebp),%edi
 	shll	$4,%edi
 	addl	$FX_OFF_keyregs,%edi
 	addl	%ebp,%edi
 		
-L_check_invoked_key:	
 	/* If invoked key not prepared start or resume key, give up */
 	testl	$4,13(%edi)	/* test prepared bit */
 	jz	Standard_Gate_Path
@@ -1103,7 +1091,7 @@ L_check_invoked_key:
 	je	L_resume_key
 	ja	Standard_Gate_Path	/* neither start nor resume */
 
-	/* LIK holds prepared start key. 
+	/* Invoked key is a prepared start key. 
 	 * Need to check that invokee is in the available state. */
 
 	cmpb	$RS_Available,PR_OFF_runState(%eax)
@@ -1420,9 +1408,6 @@ L_done_keys:
 	subl	$2,FX_OFF_EIP(%ebp)
 #endif /* OPTION_NEW_PC_ADVANCE */
 	
-	/* Clear the RETRYLIK flag */
-	movb	$0,17(%edx)
-
 	/* Deal with invoker run state. Three possible types of interest:
 	 *
 	 * 0:	non-prompt return

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -70,7 +71,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       if (slot >= EROS_NODE_SIZE)
 	dprintf(true, "Copy slot out of range\n");
 
-      if (slot == ProcBrand || slot == ProcLastInvokedKey ||
+      if (slot == ProcBrand || 
 	  slot >= EROS_NODE_SIZE) {
 	inv->exit.code = RC_eros_key_RequestError;
 	return;
@@ -97,8 +98,8 @@ ProcessKey(Invocation* inv /*@ not null @*/)
 
       slot = inv->entry.w1;
 
-      if (slot == ProcBrand || slot == ProcLastInvokedKey
-	  || slot >= EROS_NODE_SIZE) {
+      if (slot == ProcBrand || 
+	  slot >= EROS_NODE_SIZE) {
 	COMMIT_POINT();
 
 	inv->exit.code = RC_eros_key_RequestError;

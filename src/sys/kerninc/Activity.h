@@ -57,9 +57,6 @@ enum {
   ys_ShouldYield = 0x1
 };
 
-/* Bits in Activity.flags: */
-#define AF_RETRYLIK 0x1u
-
 /* The activity structure captures the portion of a process's state
  * that MUST remain in core while the process is logically running or
  * blocked.  An idle process is free to go out of core.
@@ -77,32 +74,10 @@ struct Activity {
   StallQueue *lastq;
 
   uint8_t state;
-  uint8_t flags;
 
   Key processKey;		/* type==KtProcess */
 
-  
-  /* The wakeInfo field is a bit perverse. I initially thought that it
-   * ought to be considered a per-process register. Eventually I
-   * realized that this was wrong. If the process is running, then the
-   * definitive version of the WakeInfo field *must* reside in the
-   * activity, because the context can be swapped out. The wakeInfo
-   * field is altogether meaningless if the process is available or
-   * waiting.
-   *
-   * The only time we need to consider the wakeInfo field, then, is
-   * when we consider the implementation of the decongester. I'm
-   * taking the architectural position that decongestion is a rare
-   * concern, and that it is okay to allow nominally "blocked" activities
-   * to retry when they are restarted after being decongested.
-   *
-   * The wakeInfo register is CLEARED on every successful invocation
-   * in any case, except for the RETRY invocation, which sets it
-   * explicitly.
-   */
-
-  uint32_t wakeInfo;
-
+  uint32_t unused;	/* keep until we fix assembler ofsets */
 
   struct ReadyQueue *readyQ;	/* readyQ info for this activity */  
 

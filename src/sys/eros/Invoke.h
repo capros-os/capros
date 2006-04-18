@@ -3,6 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -57,9 +58,6 @@ extern fixreg_t INVOKECAP(Message*);
 #define IT_Retry    4
 
 #define IT_NUM_INVTYPES 5
-
-#define RETRY_SET_LIK      1u
-#define RETRY_SET_WAKEINFO 2u
 
 /* Predefinition of KR_VOID is a kernel matter */
 #define KR_VOID  0

@@ -297,13 +297,6 @@ inv_Commit(Invocation* thisPtr)
 	       act_Current()->context->nextPC);
 #endif
   }
-
-  /* Reaching commit point is a guarantee of success. It's as good a
-     time as any to zap the wakeInfo field. There is no need to do
-     anything special for the SEND case because that is done with a
-     newly allocated thread of control, and the newly thread of
-     control is initialized with a zero /wakeInfo/ field. */
-  act_Current()->wakeInfo = 0;
 }
 
 bool 
@@ -705,7 +698,6 @@ proc_DoKeyInvocation(Process* thisPtr)
   /* dprintf(false, "Advancing PC in fast path\n"); */
 
   proc_SetPC(inv.invokee, inv.invokee->nextPC);
-  act_Current()->flags &= ~AF_RETRYLIK;
 #endif
 
   if (!inv.suppressXfer) {
@@ -895,16 +887,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
        * preassigned slots for the keeper, address space, and so
        * forth.
        */
-
-      Key *filterKey /*@ not null @*/ = &wrapperNode->slot[WrapperFilter];
-      if (keyBits_IsType(filterKey, KKT_Number) &&
-	  ((act_Current()->wakeInfo | 1u) & filterKey->u.nk.value[0])) {
-	keyBits_SetWrHazard(filterKey);
-
-	act_SleepOn(act_Current(), 
-		    ObjectStallQueueFromObHdr(&wrapperNode->node_ObjHdr));
-	act_Yield(act_Current());
-      }
 
       if (fmtKey->u.nk.value[0] & WRAPPER_BLOCKED) {
 	keyBits_SetWrHazard(fmtKey);
@@ -1248,7 +1230,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
        in the waiting state nonetheless. */
     /* dprintf(false, "Advancing PC in slow path\n"); */
     proc_SetPC(inv.invokee, inv.invokee->nextPC);
-    activityToMigrate->flags &= ~AF_RETRYLIK;
 #endif
 
     if (!inv.suppressXfer) {
@@ -1271,7 +1252,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   if (inv.invType == IT_Send) {
     /* dprintf(false, "Advancing SENDer PC in slow path\n"); */
     proc_SetPC(thisPtr, thisPtr->nextPC);
-    act_Current()->flags &= ~AF_RETRYLIK;
   }
 #endif
 
@@ -1418,31 +1398,6 @@ proc_DoRetryInvocation(Process* thisPtr)
 	 )
       dprintf(true, "About to do RETRY invocation ic=%d\n",  KernStats.nInvoke);
 #endif
-
-    /* FIX: should retry use w1 or order code? */
-
-    /* /w1/ controls whether the recipient will retry their LIK register
-     * or their originally invoked key. The two options are justified
-     * because
-     *
-     * 1. We already know that the process is willing to invoke the
-     * original key, because that is how it called us in the first
-     * place, and
-     *
-     * 2. We are in a position to forward the request arbitrarily, so
-     * we are already in a position to effectively call an arbitrary
-     * LIK value on behalf of the client. The only difference
-     * introduced here is controlling who will block.
-     */
-    if (inv.entry.w1 & RETRY_SET_LIK) {
-      act_Current()->flags |= AF_RETRYLIK;
-      key_NH_Set(&inv.invokee->lastInvokedKey, inv.entry.key[0]);
-    }
-    else
-      act_Current()->flags &= ~AF_RETRYLIK;
-
-    if (inv.entry.w1 & RETRY_SET_WAKEINFO)
-      act_Current()->wakeInfo = inv.entry.w2;
 
     inv.invokee->nextPC = proc_GetPC(inv.invokee);
     proc_SetPC(inv.invokee, inv.invokee->nextPC);
@@ -1625,7 +1580,6 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
        in the waiting state nonetheless. */
     /* dprintf(false, "Advancing PC in gate key path\n"); */
     proc_SetPC(invokee, invokee->nextPC);
-    act_Current()->flags &= ~AF_RETRYLIK;
 #endif
 
     if (!inv.suppressXfer) {

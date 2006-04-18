@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -47,7 +48,7 @@ DIRS+=echo
 DIRS+=hello
 DIRS+=idltest
 DIRS+=keyset
-DIRS+=linedisc
+# DIRS+=linedisc # broken due to RETRY_SET_LIK
 DIRS+=mutex
 DIRS+=nfile
 DIRS+=pipe
@@ -55,10 +56,10 @@ DIRS+=sigmux
 DIRS+=supernode
 DIRS+=vcsk
 #DIRS+=displaymgr
-DIRS+=winsys
+# DIRS+=winsys # broken due to RETRY_SET_WAKEINFO
 DIRS+=memmap
 DIRS+=net 
-DIRS+=eterm 
+# DIRS+=eterm # broken due to RETRY_SET_LIK
 DIRS+=rangeAl
 DIRS+=timer
 

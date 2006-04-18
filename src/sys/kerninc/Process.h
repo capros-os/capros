@@ -116,7 +116,6 @@ struct Process {
 
   /* This should immediately follow fixRegs: */
   Key               keyReg[EROS_PROCESS_KEYREGS];
-  Key               lastInvokedKey;
 
   uint32_t          faultCode;
   uint32_t          faultInfo;

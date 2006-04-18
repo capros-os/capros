@@ -425,7 +425,7 @@ db_eros_print_activity(Activity *t)
     
   db_printf("0x%08x %c %s ctxt=0x%08x dr=%c0x%08x%08x\n"
 	    "       q=0x%08x lnkd? %c wake=0x%08x%08x shouldwake? %c\n"
-	    "       readyQ %d readyMask 0x%x wakeInfo 0x%x\n",
+	    "       readyQ %d readyMask 0x%x\n",
 	    t,
 	    act_IsUser(t) ? 'u' : 'k',
 	    act_stateNames[t->state], t->context,
@@ -436,8 +436,7 @@ db_eros_print_activity(Activity *t)
 	    (uint32_t) (t->wakeTime >> 32), (uint32_t) t->wakeTime,
 	    t->wakeTime <= sysT_Now() ? 'y' : 'n',
 	    t->readyQ,
-            t->readyQ->mask,
-	    t->wakeInfo);
+            t->readyQ->mask);
 }
 
 #ifdef DBG_WILD_PTR

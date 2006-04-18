@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -37,11 +38,6 @@ proc_LoadKeyRegs(Process* thisPtr)
     proc_SetMalformed(thisPtr);
     return;
   }
-
-  /* Load the "Last Invoked Key" register value */
-  key_NH_Set(&thisPtr->lastInvokedKey, 
-	     &thisPtr->procRoot->slot[ProcLastInvokedKey]);
-  keyBits_SetRwHazard(node_GetKeyAtSlot(thisPtr->procRoot ,ProcLastInvokedKey));
 
   key_Prepare(&thisPtr->procRoot->slot[ProcGenKeys]);
   kn = (Node *) key_GetObjectPtr(&thisPtr->procRoot->slot[ProcGenKeys]);
@@ -133,14 +129,10 @@ proc_ValidKeyReg(const Key *pKey)
 
   p = &proc_ContextCache[ctxt];
   
-  if ( ((uint32_t) pKey == (uint32_t) &p->lastInvokedKey) )
-    goto check_offset;
-
   if ( ((uint32_t) pKey < (uint32_t) &p->keyReg[0] ) || 
        ((uint32_t) pKey >= (uint32_t) &p->keyReg[EROS_PROCESS_KEYREGS]) )
     return false;
 
- check_offset:
   offset = ((uint32_t) pKey) - ((uint32_t) &p->keyReg[0]);
 
   offset %= sizeof(Key);

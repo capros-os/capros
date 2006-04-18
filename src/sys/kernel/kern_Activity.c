@@ -249,8 +249,6 @@ act_InitActivity(Activity *thisPtr)
   link_Init(&thisPtr->q_link);
   keyBits_InitToVoid(&thisPtr->processKey);
   thisPtr->context = 0;
-  thisPtr->wakeInfo = 0;
-  thisPtr->flags = 0;
   thisPtr->state = act_Stall;
   thisPtr->readyQ = dispatchQueues[pr_Never];
 }
@@ -778,89 +776,6 @@ act_DoReschedule()
   sysT_ResetWakeTime();
 
   assert( irq_DISABLE_DEPTH() == 1 );
-}
-
-void 
-sq_WakeSome(StallQueue* q, unsigned long mask, 
-	    unsigned long orBits,
-	    unsigned long match, 
-	    bool cancelRetry,
-	    bool verbose)
-{
-  StallQueue scratchQ;		/* temporary copy */
-  Activity *t;
-
-  sq_Init(&scratchQ);
-
-  irq_DISABLE();
-
-  while ((t = act_DequeueNext(q))) {
-    /* Use scratchQ as a holding queue for the elements that are going
-       to remain sleeping.
-
-       Select logic: if mask is nonzero, use it to select bits from
-       t->wakeInfo. If no bits match, there is nothing to be done.
-       Conversely, if mask is zero we do not consider the mask-based
-       select at all. 
-
-       In either case, OR the bits provided in /orBits/ into the
-       result, and compare that to the supplied match parameter. 
-
-       The end result is that this single operation can accomplish any
-       of the following operations:
-
-       1. Wakeup if ANY bit in B is set:
-                  mask = B orBits = B match = B
-       2. Wakeup if ALL bits in B are set: 
-                  mask = B orBits = 0 match = B
-       3. Wakeup if wakeInfo contains the value B:
-                  mask = 0 orBits = 0 match = B
-       4. Wakeup unconditionally:
-                  mask = 0 orBits = ~0u match = ~0u
-
-    */
-    uint32_t tmp = t->wakeInfo;
-    if (mask) tmp &= mask;
-
-    if ( (mask && !tmp) ||
-	 ((tmp | orBits) != match) ) {
-      act_Enqueue(t, &scratchQ);
-      continue;
-    }
-
-#ifdef OPTION_DDB
-    {
-	extern bool ddb_activity_uqueue_debug;
-        
-	if (ddb_activity_uqueue_debug && act_IsUser(t) )
-	  dprintf(true, "Waking up activity 0x%08x (%s)\n",
-		  t, act_Name(t));
-    }
-#endif
-
-#ifndef NDEBUG
-    act_ValidateActivity(t);
-#endif
-
-    if (cancelRetry) {
-      /* If the activity is runnable, cancel the retry directly in the
-	 context structure. Otherwise, mark the activity itself as
-	 TF_NORETRY and force it through the long prepare path which
-	 will cancel the PF_RetryLik bit when the activity next runs.
-	 
-	 The second option has the unfortunate property that a race is
-	 possible between third-party operations on the process and
-	 the cancellation. That will be fixed elsewhere. */
-      t->flags &= ~AF_RETRYLIK;
-    }
-
-    act_Wakeup(t);
-  }
-
-  while ((t = act_DequeueNext(&scratchQ)))
-    act_Enqueue(t, q);
-
-  irq_ENABLE();
 }
 
 void 

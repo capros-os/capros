@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -570,22 +571,6 @@ NodeKey(Invocation* inv /*@ not null @*/)
       return;
     }
 #endif
-
-  case OC_Node_WakeSome:
-  case OC_Node_WakeSomeNoRetry:
-    {
-      uint32_t andBits = inv->entry.w1;
-      uint32_t orBits = inv->entry.w2;
-      uint32_t match = inv->entry.w3;
-      StallQueue *stallQ = ObjectStallQueueFromObHdr(&theNode->node_ObjHdr);
-
-      COMMIT_POINT();
-
-      sq_WakeSome(stallQ, andBits, orBits, match, 
-		  (inv->entry.code == OC_Node_WakeSomeNoRetry), false);
-
-      break;
-    }
 
   default:
     COMMIT_POINT();

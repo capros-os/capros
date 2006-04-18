@@ -738,12 +738,6 @@ proc_FlushKeyRegs(Process* thisPtr)
 
   assert ( node_Validate(thisPtr->keysNode) );
 
-  /* Load the "Last Invoked Key" register value */
-  keyBits_UnHazard(&thisPtr->procRoot->slot[ProcLastInvokedKey]);
-  key_NH_Set(&thisPtr->procRoot->slot[ProcLastInvokedKey],
-	     &thisPtr->lastInvokedKey);
-  key_NH_SetToVoid(&thisPtr->lastInvokedKey);
-
 #if 0
   printf("Flushing key regs on ctxt=0x%08x\n", this);
   if (inv.IsActive() && inv.invokee == this)
@@ -1203,7 +1197,6 @@ proc_FlushProcessSlot(Process* thisPtr, uint32_t whichKey)
   assert(thisPtr->procRoot);
   
   switch (whichKey) {
-  case ProcLastInvokedKey:
   case ProcGenKeys:
     assert ((thisPtr->hazards & hz_KeyRegs) == 0);
     proc_FlushKeyRegs(thisPtr);

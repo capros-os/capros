@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -26,9 +27,9 @@ EROS_SRC=../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=
-DIRS+=ipv4
+# DIRS+=ipv4 # broken due to RETRY_SET_LIK
 DIRS+=tftp
-DIRS+=shared_ipv4
+# DIRS+=shared_ipv4 # broken due to RETRY_SET_LIK
 
 include $(EROS_SRC)/build/make/makerules.mk
 

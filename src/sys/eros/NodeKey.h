@@ -3,6 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -53,9 +54,6 @@
 #define OC_Node_WriteNumbers     75
 #endif
 #define OC_Node_Clone		 80
-
-#define OC_Node_WakeSome	 90
-#define OC_Node_WakeSomeNoRetry	 91
 
 
 #define RC_Node_Range		 1

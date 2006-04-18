@@ -2,6 +2,7 @@
 #define __EROS_KEY_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -76,7 +77,7 @@
 #define ProcIoSpace           4	/* unimplemented */
 #define ProcSymSpace          5
 #define ProcBrand             6
-#define ProcLastInvokedKey    7
+/*			      7    unused */
 #define ProcTrapCode          8
 #define ProcPCandSP           9
 #define ProcFirstRootRegSlot  8
@@ -86,7 +87,6 @@
 /* #define ProcAltMsgBuf         6 */
 
 #define WrapperSpace          0
-#define WrapperFilter         28
 #define WrapperBackground     29
 #define WrapperKeeper         30
 #define WrapperFormat         31

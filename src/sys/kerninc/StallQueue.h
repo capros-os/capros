@@ -2,6 +2,7 @@
 #define __STALLQUEUE_H__
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -42,11 +43,6 @@ sq_Init(StallQueue *thisPtr)
 bool sq_IsEmpty(StallQueue* thisPtr);
 
 void sq_WakeAll(StallQueue* thisPtr, bool verbose /*@ default false @*/);
-void sq_WakeSome(StallQueue* thisPtr, unsigned long mask,
-		 unsigned long orBits,
-		 unsigned long match, 
-		 bool cancelRetry, bool verbose);
-
 
 #define INITQUEUE(name) { &name.q_head, &name.q_head }
 #define DEFQUEUE(name) \

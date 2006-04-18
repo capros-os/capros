@@ -34,25 +34,8 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   uint8_t *sndKeys = 0;
   uint32_t len = 0;
   
-#if 1
-  /* If PF_RetryLik is set, we will reuse the same key that was
-     invoked last time. Otherwise, copy the invoked key into the
-     lastInvokedKey slot. */
-
-  if ((act_Current()->flags && AF_RETRYLIK) == 0) {
-#if 0
-    key_NH_Set(&thisPtr->lastInvokedKey, 
-	       &thisPtr->keyReg[thisPtr->pseudoRegs.invKey]);
-#endif
-    inv->key = &thisPtr->keyReg[thisPtr->pseudoRegs.invKey];
-  }
-  else {
-    inv->key = &thisPtr->lastInvokedKey;
-  }
-#else
   /* Not hazarded because invocation key */
   inv->key = &thisPtr->keyReg[thisPtr->pseudoRegs.invKey];
-#endif
 
   key_Prepare(inv->key);
 #ifndef invKeyType
