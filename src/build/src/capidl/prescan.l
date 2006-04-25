@@ -85,7 +85,7 @@ package           {  /* ignore */         }
 			 intern_concat(lexer->pkgName,
 				       intern_concat(".", yytext));
 		       ptrvec_append(lexer->map, topsym_create(topName, lexer->fileName, lexer->isCmdLine));
-		       // Diag::printf("Found %s.%s\n", pkgName.str(), yytext);
+// diag_printf("Found %s %s %s\n", lexer->pkgName, yytext, lexer->fileName);
 
                        BEGIN(TOSEMI);
                     }
