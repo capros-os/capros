@@ -1172,6 +1172,7 @@ L_resume_key:
 	addl	$PR_OFF_keyregs,%edi
 	addl	%eax,%edi
 	
+	/* keyBits_Unchain(%edi) */
 	testl	$4,13(%edi)	/* test receive key prepared */
 	jz	L_skip_unlink_0
 	cmpb	$KKT_Page,12(%edi)
@@ -1206,11 +1207,11 @@ L_skip_unlink_0:
 	jmp	L_copy_key_1
 	
 L_copy_key_0:
-	/* Load address of first source key reg into %edx: */
+	/* Load address of first source key reg into %esi: */
 	movzbl	FX_OFF_sndKeys(%ebp),%esi
 	shll	$4,%esi
 	addl	$FX_OFF_keyregs,%esi
-	addl	%ebp,%edi
+	addl	%ebp,%esi
 
 	movl	(%esi),%ebx
 	movl	8(%esi),%ecx
@@ -1391,9 +1392,9 @@ L_done_keys:
 	jmp	Standard_Gate_Path /* PROBE */
 #endif
 	/* Migrate the thread */
-	movl	PR_OFF_curThread-PR_OFF_FIXREGS(%ebp),%edx
-	movl	$0,PR_OFF_curThread-PR_OFF_FIXREGS(%ebp)
-	movl	%edx,PR_OFF_curThread(%eax)
+	movl	PR_OFF_curActivity-PR_OFF_FIXREGS(%ebp),%edx
+	movl	$0,PR_OFF_curActivity-PR_OFF_FIXREGS(%ebp)
+	movl	%edx,PR_OFF_curActivity(%eax)
 	movl	%eax,8(%edx)
 
 	movl	PR_OFF_readyQ(%eax),%ebx
@@ -1421,7 +1422,7 @@ L_done_keys:
 	movb	%cl,FX_OFF_runState(%ebp)
 
 	/* FIX:	 Gotta zap invokee resume keys:	*/
-	leal	PR_OFF_keyRing(%eax),%edx
+	leal	PR_OFF_keyRing(%eax),%ecx
 	pushl	%ecx
 	call	keyR_ZapResumeKeys
 	
