@@ -262,7 +262,7 @@ keyBits_SetType(KeyBits *thisPtr /*@ not null @*/, KeyType kt)
 INLINE bool 
 keyBits_IsNoCall(const KeyBits *thisPtr)
 {
-  return (thisPtr->keyPerms & (KPRM_NC|KPRM_WEAK)) ? true : false;
+  return (thisPtr->keyPerms & (KPRM_NC|KPRM_WEAK));
 }
   
 INLINE void 
@@ -274,13 +274,13 @@ keyBits_SetNoCall(KeyBits *thisPtr)
 INLINE bool 
 keyBits_IsReadOnly(const KeyBits *thisPtr)
 {
-  return (thisPtr->keyPerms & KPRM_RO) ? true : false;
+  return (thisPtr->keyPerms & KPRM_RO);
 }
 
 INLINE bool 
 keyBits_IsWeak(const KeyBits *thisPtr)
 {
-  return (thisPtr->keyPerms & KPRM_WEAK) ? true : false;
+  return (thisPtr->keyPerms & KPRM_WEAK);
 }
 
 INLINE void 
@@ -292,24 +292,20 @@ keyBits_SetWeak(KeyBits *thisPtr)
 INLINE bool 
 keyBits_IsPrepared(const KeyBits *thisPtr)
 {
-  if (thisPtr->keyFlags & KFL_PREPARED)
-    return true;
-  return false;
+  return (thisPtr->keyFlags & KFL_PREPARED);
 }
 
 INLINE bool 
 keyBits_IsUnprepared(const KeyBits *thisPtr)
 {
-  if ((thisPtr->keyFlags & KFL_PREPARED) == 0)
-    return true;
-  return false;
+  return ! (thisPtr->keyFlags & KFL_PREPARED);
 }
 
 INLINE bool 
 keyBits_IsPreparedResumeKey(const KeyBits *thisPtr)
 {
   /* Resume keys are never hazarded... */
-  return (keyBits_IsType(thisPtr, KKT_Resume) && keyBits_IsPrepared(thisPtr)) ? true : false;
+  return (keyBits_IsType(thisPtr, KKT_Resume) && keyBits_IsPrepared(thisPtr));
 }
 
 INLINE void 
@@ -321,13 +317,13 @@ keyBits_SetReadOnly(KeyBits *thisPtr)
 INLINE bool 
 keyBits_IsGateKey(const KeyBits *thisPtr)
 {
-  return (keyBits_GetType(thisPtr) <= LAST_GATE_KEYTYPE) ? true : false;
+  return (keyBits_GetType(thisPtr) <= LAST_GATE_KEYTYPE);
 }
   
 INLINE bool 
 keyBits_IsObjectKey(const KeyBits *thisPtr)
 {
-  return (keyBits_GetType(thisPtr) <= LAST_OBJECT_KEYTYPE) ? true : false;
+  return (keyBits_GetType(thisPtr) <= LAST_OBJECT_KEYTYPE);
 }
 
 INLINE bool 
@@ -339,19 +335,19 @@ keyBits_NeedsPrepare(const KeyBits *thisPtr)
 INLINE bool 
 keyBits_IsPreparedObjectKey(const KeyBits *thisPtr)
 {
-  return (keyBits_IsObjectKey(thisPtr) && keyBits_IsPrepared(thisPtr)) ? true : false;
+  return (keyBits_IsObjectKey(thisPtr) && keyBits_IsPrepared(thisPtr));
 }
       
 INLINE bool 
 keyBits_NeedsPin(const KeyBits *thisPtr)
 {
-  return (keyBits_IsObjectKey(thisPtr) && !keyBits_IsGateKey(thisPtr)) ? true : false;
+  return (keyBits_IsObjectKey(thisPtr) && !keyBits_IsGateKey(thisPtr));
 }
   
 INLINE bool 
 keyBits_IsMiscKey(const KeyBits *thisPtr)
 {
-  return (keyBits_GetType(thisPtr) >= FIRST_MISC_KEYTYPE) ? true : false;
+  return (keyBits_GetType(thisPtr) >= FIRST_MISC_KEYTYPE);
 }
 
 INLINE bool
