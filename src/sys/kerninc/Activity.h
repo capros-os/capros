@@ -289,6 +289,5 @@ act_IsActivityKey(const Key *pKey)
 
 Activity * act_AllocActivity();
 void act_AllocActivityTable();
-void act_Unprepare(Activity * thisPtr);
 
 #endif /* __ACTIVITY_H__ */

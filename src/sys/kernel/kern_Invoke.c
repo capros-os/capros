@@ -443,22 +443,17 @@ inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data)
   return len;
 }
 
+/* Fabricate a prepared resume key. */
 void 
-proc_BuildResumeKey(Process* thisPtr, Key* resumeKey /*@ not null @*/)
+proc_BuildResumeKey(Process* thisPtr,	/* resume key to this process */
+  Key* resumeKey /*@ not null @*/)	/* must be not hazarded */
 {
-  /* Fabricate a prepared resume key.  The mere existence of this key is
-   * technically an error, but we will blow it away at the end of the
-   * invocation, and nothing we call from here will notice it's
-   * presence.
-   */
-
 #ifndef NDEBUG
   if (!keyR_IsValid(&thisPtr->keyRing, thisPtr))
     fatal("Key ring screwed up\n");
 #endif
 
-  /* not hazarded because it is an invocation key */
-  key_NH_Unprepare(resumeKey);
+  key_NH_Unchain(resumeKey);
   
   keyBits_InitType(resumeKey, KKT_Resume);
   keyBits_SetPrepared(resumeKey);

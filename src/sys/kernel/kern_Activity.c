@@ -1019,21 +1019,6 @@ act_InvokeMyKeeper(Activity* thisPtr)
 }
 
 void 
-act_Unprepare(Activity* thisPtr)
-{
-  if (thisPtr->context) {
-    proc_SyncActivity(thisPtr->context);
-    proc_Deactivate(thisPtr->context);
-    thisPtr->context = 0;
-    /*thisPtr->priority = pr_Never;*/
-    thisPtr->readyQ = dispatchQueues[pr_Never];
-  }
-
-  /* not hazarded because activity key */
-  key_NH_Unprepare(&thisPtr->processKey);
-}
-
-void 
 act_HandleYieldEntry(void)
 {
   /* This routine is really another kernel entry point.  When called,

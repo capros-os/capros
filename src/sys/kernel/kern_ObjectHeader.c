@@ -357,7 +357,7 @@ objH_Rescind(ObjectHeader* thisPtr)
 		    (uint32_t)(thisPtr->kt_u.ob.oid>>32), (uint32_t)thisPtr->kt_u.ob.oid);
 #endif
 
-  hasCaps = objH_GetFlags(thisPtr, OFLG_DISKCAPS) ? true : false;
+  hasCaps = objH_GetFlags(thisPtr, OFLG_DISKCAPS);
   
   keyR_RescindAll(&thisPtr->keyRing, hasCaps);
 

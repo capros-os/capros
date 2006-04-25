@@ -134,7 +134,7 @@ bool key_PrepareWithType(Key* thisPtr, KeyType kt);
 
 /* ALL OF THE NH ROUTINES MUST BE CALLED ON NON-HAZARDED KEYS */
 
-/* Unprepare current key with intention to overwrite immediately, so
+/* Unprepare key with intention to overwrite immediately, so
  * no need to remember that the key was unprepared.
  */
 

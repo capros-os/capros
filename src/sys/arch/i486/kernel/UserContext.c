@@ -783,8 +783,7 @@ proc_SyncActivity(Process* thisPtr)
   assert (keyBits_IsHazard(procKey) == false);
 
   /* Not hazarded because activity key */
-  if (keyBits_IsPrepared(procKey))
-    key_NH_Unprepare(procKey);
+  key_NH_Unchain(procKey);
 
   keyBits_InitType(procKey, KKT_Process);
   procKey->u.unprep.oid = thisPtr->procRoot->node_ObjHdr.kt_u.ob.oid;

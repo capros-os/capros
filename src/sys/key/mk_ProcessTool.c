@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -231,7 +232,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       if (inv->exit.pKey[0]) {
 	inv_SetExitKey(inv, 0, inv->entry.key[0]);
 
-	key_NH_Unprepare(inv->exit.pKey[0]);
+	key_NH_Unprepare(inv->exit.pKey[0]);	/* Why? */
 	keyBits_SetType(inv->exit.pKey[0], KKT_Node);
 	inv->exit.pKey[0]->keyData = 0;
       }

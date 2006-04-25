@@ -419,9 +419,9 @@ ProcessKey(Invocation* inv /*@ not null @*/)
   case OC_Process_MkFaultKey:
     COMMIT_POINT();
 
-    inv_SetExitKey(inv, 0, inv->key);
     if (inv->exit.pKey[0]) {
-      key_NH_Unprepare(inv->exit.pKey[0]);
+      inv_SetExitKey(inv, 0, inv->key);
+      key_NH_Unprepare(inv->exit.pKey[0]);	/* Why? */
       keyBits_InitType(inv->exit.pKey[0], KKT_Resume);
       inv->exit.pKey[0]->keyPerms =
 	(inv->entry.code == OC_Process_MkResumeKey) ? 0 : KPRM_FAULT;
