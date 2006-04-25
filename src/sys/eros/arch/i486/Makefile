@@ -42,6 +42,8 @@ LOCAL_HEADERS=\
 HEADERS=\
 	$(LOCAL_HEADERS) $(GENERATED)
 
+IDLSRC=$(wildcard *.idl)
+
 CLEANLIST += pseudoregs.h traceregs.h
 
 include $(EROS_SRC)/build/make/makerules.mk
@@ -68,5 +70,11 @@ install: $(GENERATED) Makefile
 	$(INSTALL) -d $(EROS_ROOT)/host/include/eros
 	$(INSTALL) -d $(EROS_ROOT)/host/include/eros/arch/$(EROS_TARGET)
 	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/host/include/eros/arch/$(EROS_TARGET)
+
+interfaces:
+	$(INSTALL) -d $(EROS_ROOT)/idl
+	$(INSTALL) -d $(EROS_ROOT)/idl/eros
+	$(INSTALL) -d $(EROS_ROOT)/idl/eros/arch/$(EROS_TARGET)
+	$(INSTALL) -m 0644 $(IDLSRC) $(EROS_ROOT)/idl/eros/arch/$(EROS_TARGET)
 
 .PRECIOUS: $(LOCAL_HEADERS)

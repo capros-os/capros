@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -76,7 +77,6 @@ GateKey(Invocation* inv /*@ not null @*/)
 #endif
 
   COMMIT_POINT();
-  KernStats.nGateJmp++;
 
   /* Transfer the data: */
 #ifdef GK_DEBUG
@@ -85,10 +85,10 @@ GateKey(Invocation* inv /*@ not null @*/)
   
   inv_CopyOut(inv, inv->entry.len, inv->entry.data);
 
-  {
-    extern uint64_t bytes_moved;
-    bytes_moved += inv->exit.len;
-  }
+#ifdef OPTION_KERN_STATS
+  KernStats.nGateJmp++;
+  KernStats.bytesMoved += inv->exit.len;
+#endif
 
   /* Note that the following will NOT work in the returning to self
    * case, which is presently messed up anyway!!!

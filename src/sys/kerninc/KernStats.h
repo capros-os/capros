@@ -2,6 +2,7 @@
 #define __KERNINC_KERNSTATS_H__
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -41,6 +42,7 @@ struct KernStats_s {
 
   uint64_t nGateJmp;
   uint64_t nInvRetry;
+  uint64_t bytesMoved;
 
   uint64_t nRetag;
 };

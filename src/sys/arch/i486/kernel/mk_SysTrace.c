@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 206, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -31,7 +32,7 @@
 #include <eros/StdKeyType.h>
 
 #include <idl/eros/key.h>
-#include <idl/eros/SysTrace.h>
+#include <idl/eros/arch/i486/SysTrace.h>
 
 extern void zapcounters();
 extern uint64_t rdtsc();
@@ -90,8 +91,8 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
   static int32_t activeMode = 0;
   
 #ifndef OPTION_PURE_EXIT_STRINGS
-  if (inv->entry.code == OC_eros_SysTrace_reportCounter)
-    proc_SetupExitString(inv->invokee, inv, sizeof(struct eros_SysTrace_info));
+  if (inv->entry.code == OC_eros_arch_i486_SysTrace_reportCounter)
+    proc_SetupExitString(inv->invokee, inv, sizeof(struct eros_arch_i486_SysTrace_info));
 #endif
 
   COMMIT_POINT();
@@ -105,7 +106,7 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
   default:
     inv->exit.code = RC_eros_key_UnknownRequest;
     break;
-  case OC_eros_SysTrace_startCounter:
+  case OC_eros_arch_i486_SysTrace_startCounter:
     {
       /* Start counted behavior */
 
@@ -169,9 +170,9 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_eros_SysTrace_reportCounter:
+  case OC_eros_arch_i486_SysTrace_reportCounter:
     {
-      struct eros_SysTrace_info st;
+      struct eros_arch_i486_SysTrace_info st;
       uint64_t endcy;
 
       if (activeMode == -1) {
@@ -199,8 +200,9 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_eros_SysTrace_stopCounter:
+  case OC_eros_arch_i486_SysTrace_stopCounter:
     {
+#if 0 // Performance test of check.
       uint64_t endcy;
       uint64_t cy;
       uint64_t endInvoke;
@@ -304,10 +306,19 @@ v		       modeName,  kpr_delta_cnt0, kpr_delta_cnt1);
       }
 #endif
 
+#else
+// Performance test of check.
+#include <kerninc/Check.h>
+int i;
+for (i=0; i<10; i++) {
+  check_Consistency("systrace");
+}
+#endif
+
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_eros_SysTrace_stopCounterVerbose:
+  case OC_eros_arch_i486_SysTrace_stopCounterVerbose:
     {
       uint64_t endcy;
       uint64_t cy;
@@ -412,7 +423,7 @@ v		       modeName,  kpr_delta_cnt0, kpr_delta_cnt1);
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_eros_SysTrace_clearKernelStats:
+  case OC_eros_arch_i486_SysTrace_clearKernelStats:
     {
 #ifdef OPTION_KERN_TIMING_STATS
       Invocation::ZeroStats();
@@ -422,7 +433,7 @@ v		       modeName,  kpr_delta_cnt0, kpr_delta_cnt1);
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_eros_SysTrace_getCycle:
+  case OC_eros_arch_i486_SysTrace_getCycle:
     {
       uint64_t cy = rdtsc();
       inv->exit.code = RC_OK;
