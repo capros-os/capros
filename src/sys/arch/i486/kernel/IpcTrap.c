@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -175,5 +176,5 @@ idt_OnKeyInvocationTrap(savearea_t * saveArea)
   /* Otherwise resume some thread.  Note that we may be returning to a
    * non-user thread here.
    */
-  act_Resume(act_Current());
+  proc_Resume();
 }

@@ -211,6 +211,5 @@ main(void)
   
   act_Reschedule();
   /* objH_ReleasePinnedObjects() not necessary */
-  act_Resume(act_Current());
-  /* act_Resume() does not return. */
+  proc_Resume();		/* does not return. */
 }

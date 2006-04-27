@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -54,8 +55,9 @@ extern void resume_v86_process(Process *) NORETURN;
 /*};*/
 
 void 
-proc_Resume(Process* thisPtr)
+proc_Resume(void)
 {
+  Process * thisPtr = act_CurContext();
 #if 0
   printf("Resume user process 0x%08x\n", thisPtr);
 #endif

@@ -38,20 +38,6 @@ void sysT_CancelAlarm(struct Activity *);
 
 void sysT_ActivityTimeout();
 
-INLINE uint64_t 
-sysT_Now()
-{
-  uint64_t t1;
-  uint64_t t2;
-  
-  do {
-    t1 = sysT_now;
-    t2 = sysT_now;
-  } while (t1 != t2);
-  
-  return t1;
-}
-
 void sysT_BootInit();
 
 #ifdef KT_TIMEPAGE

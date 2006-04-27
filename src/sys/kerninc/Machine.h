@@ -74,8 +74,6 @@ void mach_HardReset();
 typedef struct DiskUnit DiskUnit;
 void mach_MountDisk(DiskUnit*);
 
-/* INLINE int mach_FindFirstZero(uint32_t w); */
-
 void mach_EnsureHeap(kva_t target,
        kpa_t (*acquire_heap_page)(void) );
 

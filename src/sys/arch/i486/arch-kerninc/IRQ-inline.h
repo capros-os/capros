@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -19,8 +20,6 @@
  */
 
 extern uint32_t irq_DisableDepth;
-
-extern uint32_t irq_enableMask;
 
 #ifdef GNU_INLINE_ASM
 INLINE void

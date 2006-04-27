@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2006, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -376,7 +376,7 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
 
   /* Otherwise resume interrupted activity: */
   if (sa_IsProcess(saveArea)) {
-    act_Resume(act_Current());
+    proc_Resume();
   }
   else
     resume_from_kernel_interrupt(saveArea);

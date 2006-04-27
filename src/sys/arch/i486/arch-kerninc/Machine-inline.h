@@ -22,7 +22,9 @@
  */
 
 struct ObjectHeader;
+extern volatile uint64_t sysT_now;
 
+#if 0 /* this is unused */
 INLINE int
 mach_FindFirstZero(uint32_t w)
 {
@@ -31,7 +33,7 @@ mach_FindFirstZero(uint32_t w)
 	  :"r" (~w));
   return w;
 }
-
+#endif
 
 INLINE kva_t
 mach_GetCPUStackTop()
@@ -43,6 +45,20 @@ mach_GetCPUStackTop()
 INLINE void
 mach_InvalidateProducts(struct ObjectHeader * thisPtr)
 { /* nothing to do */
+}
+
+INLINE uint64_t 
+sysT_Now()
+{
+  uint64_t t1;
+  uint64_t t2;
+  
+  do {
+    t1 = sysT_now;
+    t2 = sysT_now;
+  } while (t1 != t2);
+  
+  return t1;
 }
 
 #endif/*__MACHINE_INLINE_H__*/

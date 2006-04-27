@@ -107,16 +107,6 @@ Activity * kact_InitKernActivity(const char * name,
 			     void (*pc)(void), 
 			     uint32_t *StackBottom, uint32_t *StackTop);
 
-INLINE void 
-act_Resume(Activity* thisPtr) 
-{
-#if 0
-  printf("Resume activity 0x%08x\n", thisPtr);
-#endif
-  assert (thisPtr->context);
-  proc_Resume(thisPtr->context);
-}
-
 INLINE Activity* 
 act_Current() 
 {
@@ -204,7 +194,6 @@ act_Reschedule(void)
     act_DoReschedule();
   }
 }
-
 
 #ifndef NDEBUG
 void act_ValidateActivity(Activity* thisPtr);

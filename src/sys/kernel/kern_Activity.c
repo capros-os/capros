@@ -1077,5 +1077,5 @@ act_HandleYieldEntry(void)
   assert( irq_DISABLE_DEPTH() == 1 );
   //printf("about to call act_Reschedule...%d\n", act_curActivity->readyQ->mask);
   act_Reschedule();
-  act_Resume(act_Current());
+  proc_Resume();
 }
