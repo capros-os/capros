@@ -293,6 +293,7 @@ inv_Commit(Invocation* thisPtr)
      * assert ( act_CurContext()->IsRunnable() );
      */
 #ifdef OLD_PC_UPDATE
+#error this is not the case
     proc_SetPC((Process *) act_Current()->context , 
 	       act_Current()->context->nextPC);
 #endif
@@ -649,10 +650,12 @@ proc_DoKeyInvocation(Process* thisPtr)
     assert (InvocationCommitted);
 
 #if !defined(OPTION_NEW_PC_ADVANCE) && !defined(OLD_PC_UPDATE)
+#error this is not the case
     proc_SetPC(thisPtr, thisPtr->nextPC);
 #endif
     assert(act_Current()->context == thisPtr);
 #ifndef OPTION_NEW_PC_ADVANCE
+#error this is not the case
     assertex(thisPtr, thisPtr->trapFrame.EIP == thisPtr->nextPC);
 #endif
 
@@ -693,6 +696,7 @@ proc_DoKeyInvocation(Process* thisPtr)
   /* dprintf(false, "Advancing PC in fast path\n"); */
 
   proc_SetPC(inv.invokee, inv.invokee->nextPC);
+  proc_ClearNextPC(inv.invokee);
 #endif
 
   if (!inv.suppressXfer) {
@@ -1156,10 +1160,12 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   assert (InvocationCommitted);
 
 #if !defined(OLD_PC_UPDATE) && !defined(OPTION_NEW_PC_ADVANCE)
+#error this is not the case
   proc_SetPC(thisPtr, thisPtr->nextPC);
 #endif
   assert(act_Current()->context == thisPtr);
 #ifndef OPTION_NEW_PC_ADVANCE
+#error this is not the case
   assertex(thisPtr, thisPtr->trapFrame.EIP == thisPtr->nextPC);
 #endif
 
@@ -1217,6 +1223,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
        in the waiting state nonetheless. */
     /* dprintf(false, "Advancing PC in slow path\n"); */
     proc_SetPC(inv.invokee, inv.invokee->nextPC);
+    proc_ClearNextPC(inv.invokee);
 #endif
 
     if (!inv.suppressXfer) {
@@ -1239,6 +1246,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   if (inv.invType == IT_Send) {
     /* dprintf(false, "Advancing SENDer PC in slow path\n"); */
     proc_SetPC(thisPtr, thisPtr->nextPC);
+    proc_ClearNextPC(inv.invokee);
   }
 #endif
 
@@ -1464,10 +1472,12 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
     assert (InvocationCommitted);
 
 #if !defined(OLD_PC_UPDATE) && !defined(OPTION_NEW_PC_ADVANCE)
+#error this is not the case
     proc_SetPC(thisPtr, thisPtr->nextPC);
 #endif
     assert(act_Current()->context == thisPtr);
 #ifndef OPTION_NEW_PC_ADVANCE
+#error this is not the case
     assertex(thisPtr, thisPtr->trapFrame.EIP == thisPtr->nextPC);
 #endif
 
@@ -1480,6 +1490,7 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
        in the waiting state nonetheless. */
     /* dprintf(false, "Advancing PC in gate key path\n"); */
     proc_SetPC(invokee, invokee->nextPC);
+    proc_ClearNextPC(inv.invokee);
 #endif
 
     if (!inv.suppressXfer) {

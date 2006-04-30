@@ -643,7 +643,12 @@ act_ChooseNewCurrentActivity()
 void 
 act_DoReschedule()
 {
-  assert( irq_DISABLE_DEPTH() == 1 );
+#ifndef NDEBUG
+  if (irq_DISABLE_DEPTH() != 1) {
+    printf("irq_DISABLE_DEPTH = %d ", irq_DISABLE_DEPTH());
+    assert(irq_DISABLE_DEPTH() == 1);
+  }
+#endif
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr && 0)

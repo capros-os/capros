@@ -389,7 +389,9 @@ proc_Name(Process* thisPtr)
 void proc_FlushAll();
 
 void proc_DumpFixRegs(Process* thisPtr);
+#ifdef OPTION_PSEUDO_REGS
 void proc_DumpPseudoRegs(Process* thisPtr);
+#endif
 
 /* Generic keeper invoker: */
 void proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,

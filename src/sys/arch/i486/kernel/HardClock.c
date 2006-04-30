@@ -28,6 +28,9 @@
 #include "IDT.h"
 #include <kerninc/CPU.h>
 
+volatile uint64_t sysT_now = 0llu;
+volatile uint64_t sysT_wakeup = ~(0llu);
+
 /* The timer chip on the PC has three channels. There is a fourth on
  * the PS/2, but for the moment I am ignoring that platform.
  * 
@@ -53,11 +56,11 @@
  * this is very much too fast for the x86 hardware.
  */
 
-/* The hardware clock is tricky - we configure a hardware clock, but
- * give SysTimer::Wakeup() as the handler function.  We're going to
- * build a fast path interrupt filter such that the only interrupts
+/* The hardware clock is tricky - we configure a hardware clock, and
+ * give sysT_Wakeup() as the handler function.
+ * There is a fast path interrupt filter such that the only interrupts
  * that actually make it to the interrupt dispatch mechanism are the
- * ones where a wake up is really required.
+ * ones where a wake up is really required (wakeup > now).
  */
 
 /* Speed of the actual base tick rate, in ticks/sec */
@@ -188,31 +191,22 @@ sysT_Wakeup(savearea_t *sa)
 	       intDepth, ActivityChain ? 'y' : 'n');
 #endif
 
-#if 0
-  printf("SysTimer::Tick() resets waketime at %d\n", (long) now);
-#endif
-  /* The awkward loop must be used because calling t->wakeup()
-   * mutates the sleeper list.
-   */
-    
-  if (cpu->preemptTime <= sysT_now) {
-    cpu->preemptTime = ~0llu;
-    sysT_ActivityTimeout();
-  }
+  sysT_WakeupAt(sysT_now);
 
-  while (ActivityChain && ActivityChain->wakeTime <= sysT_now) {
-    register Activity *t = ActivityChain;
-    ActivityChain = ActivityChain->nextTimedActivity;
-    act_Dequeue(t);
-    act_Wakeup(t);
-  }
-
-  //printf("at end of sysT_Wakeup %u\n", sysT_now);
   sysT_ResetWakeTime();
 
   irq_ENABLE();
 
   irq_Enable(IRQ_FROM_EXCEPTION(sa->ExceptNo));
+}
+
+void
+sysT_ResetWakeTime(void)
+{
+  sysT_wakeup = cpu->preemptTime;
+
+  if (ActivityChain && ActivityChain->wakeTime < sysT_wakeup)
+    sysT_wakeup = ActivityChain->wakeTime;
 }
 
 #ifdef GNU_INLINE_ASM

@@ -24,14 +24,9 @@
 struct Activity;
 extern struct Activity * ActivityChain;
 
-extern volatile uint64_t sysT_now;
-extern volatile uint64_t sysT_wakeup;
-
-/* Former member functions of SysTimer and Timer */
-
 void sysT_ResetWakeTime();
 
-void sysT_Wakeup(savearea_t *);
+void sysT_WakeupAt(uint64_t now);
   
 void sysT_AddSleeper(struct Activity *);
 void sysT_CancelAlarm(struct Activity *);

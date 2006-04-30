@@ -23,29 +23,9 @@
 #include <kerninc/IRQ.h>
 #include <kerninc/Machine.h>
 #include <kerninc/Activity.h>
-/*#include <kerninc/Task.h>*/
 #include <kerninc/ObjectCache.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/CPU.h>
-
-/* SysTimer is a very special sort of device, in that it is only KIND
- * of an interrupt handler.  When the system hardware clock is
- * configured, it gives SysTimer::Wakeup() as the routine to call when
- * the clock interrupt occurs.  That's not really what happens.
- * 
- * The clock interrupt needs to be fast when there is nothing to do,
- * so there is a machine specific fast path interrupt handler for the
- * clock interrupt that is written in assembly language.  When the
- * clock interrupt goes off, the fast path handler increments the
- * value of 'now'.  It then checks to see if wakeup > now, in which
- * case there is nothing to wake up.  If that condition holds, the
- * fast path handler returns from the interrupt immediately WITHOUT
- * running the general interrupt dispatch logic.
- * 
- * The end effect is that SysTimer::Wakeup() is only called when there
- * is really something to wake up.
- */
-
 
 /* For EROS, the desired timer granularity is milliseconds.
  * Unfortunately this is very much too fast for some hardware.  The
@@ -55,9 +35,6 @@
  */
 
 struct Activity *ActivityChain = 0;
-volatile uint64_t sysT_now = 0llu;
-volatile uint64_t sysT_wakeup = ~(0llu);
-
 
 bool
 IsLeapYear(uint32_t yr)
@@ -69,15 +46,6 @@ IsLeapYear(uint32_t yr)
   if (yr % 4 == 0)
     return true;
   return false;
-}
-
-void
-sysT_ResetWakeTime()
-{
-  sysT_wakeup = cpu->preemptTime;
-
-  if (ActivityChain && ActivityChain->wakeTime < sysT_wakeup)
-    sysT_wakeup = ActivityChain->wakeTime;
 }
 
 void
@@ -162,6 +130,29 @@ sysT_CancelAlarm(Activity* t)
 void
 sysT_BootInit()
 {
+}
+
+/* Perform all wakeups to be done at (or before) the specified time.
+   On exit, sysT_ResetWakeTime will set the wakeup time to a value > now.
+   This procedure is called with IRQ disabled.  */
+void
+sysT_WakeupAt(uint64_t now)
+{
+  if (cpu->preemptTime <= now) {
+    cpu->preemptTime = ~0llu;
+    sysT_ActivityTimeout();
+  }
+
+  /* The awkward loop must be used because calling act_Wakeup
+   * mutates the sleeper list.
+   */
+    
+  while (ActivityChain && ActivityChain->wakeTime <= now) {
+    register Activity *t = ActivityChain;
+    ActivityChain = ActivityChain->nextTimedActivity;
+    act_Dequeue(t);
+    act_Wakeup(t);
+  }
 }
 
 #ifdef KKT_TIMEPAGE

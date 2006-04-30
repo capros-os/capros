@@ -252,6 +252,12 @@ proc_GetPC(Process* thisPtr)
 }
 
 INLINE void 
+proc_ClearNextPC(Process* thisPtr)
+{
+  thisPtr->nextPC = 0xffffffff;	/* hopefully this PC value will trap if used */
+}
+
+INLINE void 
 proc_SetInstrSingleStep(Process* thisPtr)
 {
   thisPtr->hazards |= hz_SingleStep;

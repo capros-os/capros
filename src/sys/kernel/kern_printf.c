@@ -33,6 +33,7 @@
 #include <kerninc/util.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/IRQ.h>
+#include <kerninc/Activity.h>
 #include <eros/stdarg.h>
 
 #ifdef OPTION_DDB
@@ -533,6 +534,10 @@ fatal(const char *fmt, ...)
 #ifdef OPTION_DDB
   Debugger();
 #else
+#ifndef NDEBUG
+  Activity * act = act_Current();
+  if (act) proc_DumpFixRegs(act->context);
+#endif
 #if 0
   Debug::Backtrace(0, false);
   

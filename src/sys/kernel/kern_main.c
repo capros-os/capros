@@ -144,6 +144,8 @@ main(void)
 
   physMem_Init();
 
+  cpu_BootInit();
+
   mach_BootInit();
   
 #ifdef OPTION_DDB
@@ -156,8 +158,6 @@ main(void)
   objC_InitObjectSources();
   /* Multiboot structures not needed after this point
      (but alas remain reserved). */
-
-  cpu_BootInit();
 
   UserIrqInit();
 
