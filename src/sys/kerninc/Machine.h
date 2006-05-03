@@ -47,16 +47,6 @@ uint64_t mach_MillisecondsToTicks(uint64_t ms);
 uint64_t mach_TicksToMilliseconds(uint64_t ticks);
 void mach_SpinWaitUs(uint32_t us);
 
-  /* Hardware event tracing support: */
-const char *mach_ModeName(uint32_t mode);
-bool mach_SetCounterMode(uint32_t mode);
-
-
-void mach_ClearCounters();
-void mach_EnableCounters();
-void mach_DisableCounters();
-uint64_t mach_ReadCounter(uint32_t which);
-
 #ifdef EROS_HAVE_FPU
 /* FPU support */
 void mach_InitializeFPU();

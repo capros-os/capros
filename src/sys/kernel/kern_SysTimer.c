@@ -156,6 +156,7 @@ sysT_WakeupAt(uint64_t now)
 }
 
 #ifdef KKT_TIMEPAGE
+#error this is not the case.
 /* This is hopelessly stale! */
 #include <eros/TimePage.h>
 #include <eros/TimeOfDay.h>

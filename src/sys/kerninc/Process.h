@@ -416,6 +416,16 @@ void proc_DoKeyInvocation(Process* thisPtr);
 
 struct Invocation;
 
+void proc_SetupEntryBlock(Process* thisPtr,
+                          struct Invocation * inv /*@ not null @*/);
+
+void proc_SetupExitBlock(Process* thisPtr,
+                         struct Invocation * inv /*@ not null @*/);
+
+void proc_DeliverGateResult(Process* thisPtr,
+                            struct Invocation* inv /*@ not null @*/,
+                            bool wantFault);
+
 #ifdef ASM_VALIDATE_STRINGS
 INLINE
 #endif

@@ -281,18 +281,6 @@ mach_BusArchitecture()
   return busType;
 }
 
-void
-mach_SpinWaitMs(uint32_t ms)
-{
-  uint64_t ticks = mach_MillisecondsToTicks(ms);
-
-  uint64_t start = sysT_Now();
-  uint64_t end = start + ticks + 1;
-
-  while (sysT_Now() < end)
-    ;
-}
-
 #if 0
 /* Map the passed physical pages starting at the designated kernel
  * virtual address:

@@ -34,6 +34,13 @@
 #include <idl/eros/key.h>
 #include <idl/eros/arch/i486/SysTrace.h>
 
+const char *mach_ModeName(uint32_t mode);
+bool mach_SetCounterMode(uint32_t mode);
+void mach_ClearCounters();
+void mach_EnableCounters();
+void mach_DisableCounters();
+uint64_t mach_ReadCounter(uint32_t which);
+
 extern void zapcounters();
 extern uint64_t rdtsc();
 uint32_t setup_value;

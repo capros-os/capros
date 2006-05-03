@@ -35,7 +35,6 @@
 #define USES_MAPPING_PAGES
 #define MAPPING_ENTRIES_PER_PAGE 1024
 
-typedef uint32_t	io_t;	/* io address */
 typedef uint32_t	klva_t;	/* kernel linear virtual address */
 typedef uint32_t        kva_t;	/* kernel virtual address */
 typedef uint64_t	kpa_t;	/* kernel physical address */

@@ -118,6 +118,9 @@ main(void)
   /* Parse the "command line" parameters. */
   p = (const char *)MultibootInfoPtr->cmdline;
 
+#if 0
+  printf("Cmd line %s\n", p);
+#endif
   /* Skip kernel file name. */
   while (*p != ' ' && *p != 0) p++;
   assert(*p == ' ');
@@ -147,6 +150,7 @@ main(void)
   cpu_BootInit();
 
   mach_BootInit();
+  /* Interrupts are now enabled. */
   
 #ifdef OPTION_DDB
   ddb_init();
