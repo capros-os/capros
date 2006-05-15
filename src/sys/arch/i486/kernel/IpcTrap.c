@@ -37,14 +37,13 @@
 #include <kerninc/kernel.h>
 #include <kerninc/Check.h>
 #include <kerninc/Machine.h>
-#include <kerninc/IRQ.h>
 #include <kerninc/Activity.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/Debug.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/Process.h>
 #include <kerninc/KernStats.h>
 #include <eros/arch/i486/io.h>
+#include <arch-kerninc/IRQ-inline.h>
 #include "lostart.h"
 #include "IDT.h"
 #include "GDT.h"

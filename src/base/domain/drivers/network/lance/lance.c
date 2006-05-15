@@ -1049,7 +1049,7 @@ ProcessRequest(Message *msg)
       }
       
       /* Allocate the IRQ in the pci device structure */
-      result = eros_DevPrivs_allocIRQ(KR_DEVPRIVS,NETDEV.irq);
+      result = eros_DevPrivs_allocIRQ(KR_DEVPRIVS,NETDEV.irq, 0);
       if(result != RC_OK) {
 	msg->snd_code = RC_IRQ_ALLOC_FAILED;
 	kprintf(KR_OSTREAM,"IRQ %d not allocated",NETDEV.irq);

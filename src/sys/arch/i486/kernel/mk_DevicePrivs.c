@@ -23,7 +23,6 @@
 #include <kerninc/Key.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
-#include <kerninc/IRQ.h>
 #include <kerninc/PhysMem.h>
 #include <kerninc/ObjectSource.h>
 #include <kerninc/ObjectCache.h>
@@ -39,6 +38,7 @@
 
 #include <idl/eros/key.h>
 #include <idl/eros/DevPrivs.h>
+#include "IRQ386.h"
 
 #define dbg_alloc	0x2u
 #define dbg_sleep	0x4u
@@ -48,19 +48,6 @@
 #define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
-
-struct UserIrq UserIrqEntries[NUM_HW_INTERRUPT];
-
-void 
-UserIrqInit()
-{
-  int i;
-
-  for (i = 0; i < NUM_HW_INTERRUPT; i++) {
-    UserIrqEntries[i].isAlloc = false;
-    sq_Init(&UserIrqEntries[i].sleepers);
-  }
-}
 
 extern void *malloc(size_t sz);
 

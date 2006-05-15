@@ -23,7 +23,6 @@
 #include <kerninc/kernel.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/Machine.h>
-#include <kerninc/IRQ.h>
 #include <kerninc/dma.h>
 #include <kerninc/Activity.h>
 #include <kerninc/util.h>
@@ -34,6 +33,7 @@
 #include <eros/TimeOfDay.h>
 #include <idl/eros/arch/i486/SysTrace.h>
 #include <arch-kerninc/PTE.h>
+#include <arch-kerninc/IRQ-inline.h>
 #include "CpuFeatures.h"
 #include <kerninc/Process.h>
 #include <kerninc/Depend.h>

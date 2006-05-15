@@ -134,7 +134,7 @@ interfaces: recurse
 
 clean: nodepend
 clean: RECURSE_TARGET=nonrecursiveClean
-clean: recurseClean 
+clean: nonrecursiveClean recurseClean 
 nonrecursiveClean: generic-clean
 
 .PHONY: generic-clean

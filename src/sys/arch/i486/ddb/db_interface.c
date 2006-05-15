@@ -39,9 +39,8 @@
 #include <ddb/db_command.h>
 #include <ddb/db_output.h>
 #include <ddb/db_access.h>
-#include <kerninc/IRQ.h>
-/* #include <kerninc/Console.hxx> */
 #include <kerninc/KernStream.h>
+#include <arch-kerninc/IRQ-inline.h>
 
 #define cnpollc(x) kstream_dbg_stream->SetDebugging((x))
 

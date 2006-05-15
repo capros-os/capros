@@ -20,17 +20,15 @@
  */
 
 #include <kerninc/kernel.h>
-#include <kerninc/IRQ.h>
 #include <kerninc/Activity.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/Debug.h>
 #include <kerninc/SysTimer.h>
-/*#include <kerninc/Task.h>*/
 #include <kerninc/Process.h>
 #include <eros/arch/i486/io.h>
 #include "lostart.h"
 #include "IDT.h"
 #include "GDT.h"
+#include "IRQ386.h"
 
 /* #define TIMING_DEBUG */
 

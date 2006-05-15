@@ -23,7 +23,6 @@
 #include <kerninc/kernel.h>
 #include <kerninc/Process.h>
 #include <kerninc/Activity.h>
-#include <kerninc/IRQ.h>
 #include "Segment.h"
 #include "lostart.h"
 

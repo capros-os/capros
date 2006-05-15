@@ -27,10 +27,9 @@
 #include <kerninc/kernel.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/Machine.h>
-#include <kerninc/IRQ.h>
-/*#include <kerninc/util.h>*/
 #include <eros/arch/i486/io.h>
 #include "IDT.h"
+#include "IRQ386.h"
 
 #define SCREEN_START PTOV(0xb8000u)
 #define SCREEN_ROWS 25

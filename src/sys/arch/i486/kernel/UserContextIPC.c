@@ -23,10 +23,8 @@
 #include <kerninc/Node.h>
 #include <arch-kerninc/KernTune.h>
 #include <kerninc/Activity.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Machine.h>
-#include <kerninc/IRQ.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Process.h>
 #include <arch-kerninc/PTE.h>
@@ -36,10 +34,10 @@
 #include <eros/ProcessState.h>
 #include <eros/Registers.h>
 #include <eros/arch/i486/Registers.h>
-/*#include <kerninc/PhysMem.h>*/
 #include <kerninc/Invocation.h>
 #include <kerninc/Machine.h>
 #include <arch-kerninc/Process.h>
+#include <arch-kerninc/IRQ-inline.h>
 #include "Process486.h"
 
 /* #define MSGDEBUG

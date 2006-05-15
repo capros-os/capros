@@ -1,8 +1,10 @@
+#ifndef __IRQ486_H__
+#define __IRQ486_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2006, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -20,44 +22,18 @@
  */
 
 #include <arch-kerninc/SaveArea.h>
-#include <kerninc/StallQueue.h>
+#include <arch-kerninc/IRQ-inline.h>
 
-typedef void (*InterruptHandler)(savearea_t*);
+  /* Interrupt initialization */
+void irq_SetHandler(uint32_t irq, InterruptHandler);
+InterruptHandler irq_GetHandler(uint32_t irq);
+void irq_UnsetHandler(uint32_t irq);
 
-struct UserIrq {
-  bool       isPending;	/* only valid if isAlloc */
-  bool       isAlloc;
-  StallQueue sleepers;
-};
-extern struct UserIrq UserIrqEntries[NUM_HW_INTERRUPT];
+void irq_Enable(uint32_t irq);
+void irq_Disable(uint32_t irq);
 
-extern uint32_t irq_DisableDepth;
+void irq_UnboundInterrupt(savearea_t *);
 
-INLINE uint32_t 
-irq_DISABLE_DEPTH(void)
-{
-  return irq_DisableDepth;
-}
+void DoUsermodeInterrupt(savearea_t *ia);
 
-#ifdef GNU_INLINE_ASM
-INLINE void
-irq_DISABLE(void)
-{
-  /* Disable BEFORE updating disabledepth */
-  GNU_INLINE_ASM ("cli");
-  irq_DisableDepth++;
-}
-
-#endif /* GNU_INLINE_ASM */
-
-#ifdef GNU_INLINE_ASM
-INLINE void
-irq_ENABLE(void)
-{
-  /* Adjust disabledepth before re-enabling  */
-  irq_DisableDepth--;
-  if (irq_DisableDepth == 0)
-    GNU_INLINE_ASM ("sti");
-}
-
-#endif /* GNU_INLINE_ASM */
+#endif /* __IRQ486_H__ */

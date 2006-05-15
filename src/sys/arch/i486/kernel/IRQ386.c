@@ -20,15 +20,17 @@
  */
 
 #include <kerninc/kernel.h>
-#include <kerninc/IRQ.h>
-#include "IDT.h"
 #include <eros/arch/i486/io.h>
+#include <arch-kerninc/IRQ-inline.h>
+#include "IDT.h"
 
 uint8_t pic1_mask = 0xffu;
 uint8_t pic2_mask = 0xffu;
 
 uint32_t irq_DisableDepth = 1;	/* interrupts disabled on kernel entry */
 uint32_t irq_enableMask = 0;
+
+struct UserIrq UserIrqEntries[NUM_HW_INTERRUPT];
 
 
 /* #define INTRDEBUG */
@@ -104,5 +106,16 @@ irq_Disable(uint32_t irq)
 #endif
 
   irq_ENABLE();
+}
+
+void 
+UserIrqInit(void)
+{
+  int i;
+
+  for (i = 0; i < NUM_HW_INTERRUPT; i++) {
+    UserIrqEntries[i].isAlloc = false;
+    sq_Init(&UserIrqEntries[i].sleepers);
+  }
 }
 

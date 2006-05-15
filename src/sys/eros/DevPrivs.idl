@@ -15,8 +15,9 @@ interface DevPrivs extends key raises(AllocFail) {
    *
    * Indicates to the kernel that the specified IRQ now has a driver
    * that is listening for it.
+   * priority is architecture-specific
    */
-  void allocIRQ(unsigned long irq);
+  void allocIRQ(unsigned long irq, long priority);
 
   /** Release an IRQ.
    *

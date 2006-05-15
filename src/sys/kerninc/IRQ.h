@@ -23,50 +23,6 @@
 
 #include <arch-kerninc/SaveArea.h>
 #include <kerninc/StallQueue.h>
-
-/*struct fixregs_t;*/
-typedef void (*InterruptHandler)(savearea_t*);
-
-struct UserIrq {
-  bool       isPending;	/* only valid if isAlloc */
-  bool       isAlloc;
-  StallQueue sleepers;
-};
-extern struct UserIrq UserIrqEntries[NUM_HW_INTERRUPT];
-
-
 #include <arch-kerninc/IRQ-inline.h>
-
-/* Former member functions of IRQ */
-
-INLINE bool 
-irq_INTERRUPTS_ENABLED()
-{
-  return (irq_DisableDepth == 0) ? true : false;
-}
-
-INLINE uint32_t 
-irq_DISABLE_DEPTH()
-{
-  return irq_DisableDepth;
-}
-
-INLINE bool 
-irq_InterruptsAreEnabled()
-{
-  return (irq_DisableDepth ==0 ) ? true : false;
-}
-
-  /* Interrupt initialization */
-void irq_SetHandler(uint32_t irq, InterruptHandler);
-InterruptHandler irq_GetHandler(uint32_t irq);
-void irq_UnsetHandler(uint32_t irq);
-
-void irq_Enable(uint32_t irq);
-void irq_Disable(uint32_t irq);
-
-void irq_UnboundInterrupt(savearea_t *);
-
-void DoUsermodeInterrupt(savearea_t *ia);
 
 #endif /* __IRQ_H__ */

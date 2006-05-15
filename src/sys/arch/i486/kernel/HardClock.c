@@ -20,12 +20,12 @@
  */
 
 #include <kerninc/kernel.h>
-#include <kerninc/IRQ.h>
 #include <kerninc/Machine.h>
 #include <kerninc/Activity.h>
 #include <kerninc/SysTimer.h>
 #include <eros/arch/i486/io.h>
 #include "IDT.h"
+#include "IRQ386.h"
 #include <kerninc/CPU.h>
 
 volatile uint64_t sysT_now = 0llu;

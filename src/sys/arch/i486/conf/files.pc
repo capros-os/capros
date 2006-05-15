@@ -78,6 +78,7 @@ file("arch/i486/kernel/IRQ386.c")
 file("arch/i486/kernel/GDT.c")
 file("arch/i486/kernel/longjmp.S")
 file("arch/i486/kernel/mk_SysTrace.c")
+file("arch/i486/kernel/mk_DevicePrivs.c")
 
 # This one is unconditionally included so that we can show status on
 # the way up:

@@ -70,7 +70,7 @@ AllocIRQ(unsigned int irq)
 {
   uint32_t result;
 
-  result = eros_DevPrivs_allocIRQ(KR_DEVPRIVS, irq);
+  result = eros_DevPrivs_allocIRQ(KR_DEVPRIVS, irq, 0);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Alloc of IRQ %d failed\n", irq);
   }

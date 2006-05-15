@@ -23,9 +23,8 @@
  */
 
 #include <kerninc/kernel.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/PCI.h>
-#include <kerninc/IRQ.h>
+#include <arch-kerninc/IRQ-inline.h>
 #include "Segment.h"
 
 #define dbg_bios32	0x1	/* steps in taking snapshot */

@@ -27,13 +27,13 @@
 #include <kerninc/util.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Machine.h>
-#include <kerninc/IRQ.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Check.h>
 #include <kerninc/Process.h>
 #include <kerninc/CpuReserve.h>
 #include <arch-kerninc/Process.h>
 #include <arch-kerninc/PTE.h>
+#include <arch-kerninc/IRQ-inline.h>
 #include "TSS.h"
 #include <eros/Invoke.h>
 #include <eros/ProcessState.h>
