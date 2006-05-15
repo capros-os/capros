@@ -27,6 +27,7 @@ EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 DOCS=hello-small.html
+CLEANLIST=$(DOCS)
 TARGETS=$(BUILDDIR)/hello hello-small.html
 OBJECTS=$(BUILDDIR)/hello.o
 
