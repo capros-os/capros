@@ -415,8 +415,13 @@ stmt:	/* IMPORT STRING {
 	     YYERROR;
 	   }
 	   k = ei_GetNodeSlot(image, $1, ProcPCandSP);
+	   if (keyBits_IsType(&k, KKT_Number) == false) {
+	     diag_printf("%s:%d: Slot did not hold number key\n",
+			 current_file, current_line);
+	     num_errors++;
+	     YYERROR;
+	   }
 	   k.u.nk.value[0] = $4.u.nk.value[0];
-	   k.u.nk.value[1] = $4.u.nk.value[0];
 	   ei_SetNodeSlot(image, $1, ProcPCandSP, k);
         }
 

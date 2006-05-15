@@ -536,16 +536,10 @@
 	</dt>
 	<dd>
 	     <p>
-	     Sets the program counter (resp. stack pointer) slot of
-	     the designated <i>node</i> to <i>number_key</i>, which
-	     must be a valid number key.
-	     </p>
-	     <p>
-	     Since the two slots are the same, overwriting one has the
-	     effect of clobbering the other.  For this reason, typical
-	     usage is to set the program counter slot in this fashion
-	     and then overwrite the stack pointer <em>field</em> of
-	     this slot using the numeric constant form (below).
+	     Sets the program counter
+	     field of the program counter/stack pointer slot
+             of the designated <i>node</i>
+	     to the 32-bit value of <em>number_key</em>.
 	     </p>
 	</dd>
 	<dt>
@@ -554,8 +548,9 @@
 	</dt>
 	<dd>
 	     <p>
-	     Sets the program counter (resp. stack pointer)
-	     <em>field</em> of the program counter/stack pointer slot
+	     Sets the program counter (respectively, stack pointer)
+	     field of the program counter/stack pointer slot
+             of the designated <i>node</i>
 	     to the value of <em>number</em>, which is a constant.
 	     </p>
 	</dd>

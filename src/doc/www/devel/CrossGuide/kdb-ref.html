@@ -53,6 +53,8 @@
             command turns the "dbg_wild_ptr" flag on and off. 
             When on, the kernel does extensive checking of pointers.
             If configured, the flag is on by default.
+        <dt>node &lt;OID&gt;
+        <dd>Print the node with the specified OID.
         <dt>show
         <dd>Without any arguments, this command prints a list of arguments
             you can give. Here are explanations of some of them:
@@ -95,8 +97,8 @@
           <dt>show sa &lt;address&gt
           <dd>Print the registers in the fixregs_t
               save area at the specified address.
-          <dt>show node &lt;OID&gt;
-          <dd>Print the node with the specified OID.
+          <dt>show node &lt;address&gt;
+          <dd>Print the node at the specified address.
           <dt>show nodes
           <dd>Print information about all the nodes in memory.
           <dt>show pages
@@ -114,8 +116,8 @@
 <a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
   </td>
   <td>
-  <em>Copyright 2000, 2001 by The EROS Group, 2005 by Strawberry Development Group.  All rights reserved.
-	 
+  <em>Copyright 2000, 2001 by The EROS Group,
+      2005, 2006 by Strawberry Development Group.  All rights reserved.
 	      For terms of redistribution, see the <a
       href="../../legal/license/GPL.html">GNU General Public License</a></em>
    </td>
