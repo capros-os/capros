@@ -1,256 +1,180 @@
 <html>
   <head>
-    <link rel=STYLESHEET HREF="../CSS/stylesheet.css" type="text/css">
-    <title>User Mode Drivers in EROS 2.0</title>
+    <title>Persistence, Non-persistence, and Device Drivers</title>
   </head>
-  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
-    <table>
-      <tr valign=top>
-	<td width="10%">&nbsp;</td>
-	<td>
-	  <center>
-	    <h1 class="title">User Mode Drivers in EROS 2.0</h1>
-	  </center>
-	    <ul>
-	      <p>
-		Recent attempts to port drivers to EROS have motivated
-		the removal of drivers from the EROS kernel. This note
-		describes the necessary changes to the EROS kernel in
-		order to achieve this.
-	      </p>
-	    </ul>
-	    <h1>Introduction</h1>
-	    <p>
-	      User mode drivers are potentially more robust than their
-	      supervisor mode counterparts. Supporting them is a bit
-	      tricky, however:
-	    </p>
-	    <ol>
-	      <li>
-		<p>
-		  Initial drivers must be loaded before the kernel
-		  begins execution, and we must ensure that they are
-		  not removed from memory by the ageing logic.
-		</p>
-	      </li>
-	      <li>
-		<p>
-		  User-mode drivers must have sufficient privilege to
-		  issue commands to hardware-level I/O registers.
-		</p>
-	      </li>
-	      <li>
-		<p>
-		  DMA from user mode is challenging, because the DMA
-		  device generally wants physical addresses. This in
-		  turn tends to mean that there must be an arrangement
-		  by which the driver obtains some memory whose
-		  physical address(es) it knows.
-		</p>
-	      </li>
-	      <li>
-		<p>
-		  Because of faulty hardware, user-mode drivers must
-		  sometimes be allowed to disable interrupts and
-		  prevent themselves from being preempted.
-		</p>
-	      </li>
-	      <li>
-		<p>
-		  Interrupts must be demultiplexed to the appropriate
-		  process.
-		</p>
-	      </li>
-	      <li>
-		<p>
-		  Because of the checkpoint mechanism, the kernel must
-		  sometimes be able to perform an ``upcall'' to a user
-		  mode driver. Also, the kernel must have an exclusive
-		  relationship with the disk drivers. These is the
-		  only issue that is particular to EROS.
-		</p>
-	      </li>
-	    </ol>
-	    <p>
-	      I will address each of these issues in turn.
-	    </p>
-	    <h1>Straightforward Issues</h1>
-	    <p>
-	      The first five of these issues are straightforward in
-	      principle.
-	    </p>
-	    <h2>Driver Load</h2>
-	    <p>
-	      We will revise the bootstrap process in such a way that
-	      the bootstrap loader, in addition to loading the kernel,
-	      also loads an initial object range that contains the
-	      drivers. This range will be a ``well known'' object
-	      range.
-	    </p>
-	    <p>
-	      Objects in this object range are exempt from checkpoint,
-	      ageing, and such, and the drivers in them therefore will
-	      not be accidentally removed. These objects can be
-	      <em>explicitly</em> released from memory by the driver
-	      manager once all drivers have been configured. After
-	      this their pages are subject to removal by ageing.
-	    </p>
-	    <p>
-	      For the sake of simplicity, we will assume for the
-	      moment that <em>no</em> drivers will be released from
-	      memory in this way. For embedded and set-top devices, we
-	      probably want to build system images that contain only
-	      necessary drivers in any case.
-	    </p>
-	    <h2>I/O Registers</h2>
-	    <p>
-	      We assume that these programs will be privileged, in
-	      that they are permitted to directly manipulate I/O
-	      registers. This is accomplished either by initial
-	      capability calls that validate portions of the I/O
-	      register space or by simply gifting these processes with
-	      extraordinarily privileges on the grounds that they live
-	      within this distinguished object range and are therefore
-	      part of the operating system.
-	    </p>
-	    <h2>User-Mode DMA</h2>
-	    <p>
-	      Drivers are expected to program DMA devices. We will
-	      implement a special kernel capability that allows a
-	      driver to say to the kernel: ``Here is a range of
-	      contiguous virtual pages. Arrange for them to be
-	      physically contiguous within the following physical
-	      address range and tell me what the resulting physical
-	      base address is. The resulting information is sufficient
-	      to allow the driver to directly program physical DMA
-	      devices.
-	    </p>
-	    <p>
-	      It is anticipated that some drivers will contrive to map these
-	      buffers in such a way that the driver virtual address is
-	      the same as the resulting physical address in order to
-	      avoid the need to translate between driver virtual and
-	      kernel physical addresses.
-	    </p>
-	    <h2>Faulty Hardware</h2>
-	    <p>
-	      Unfortunately, there is faulty hardware in the
-	      world. Some of this hardware requires that interrupts be
-	      disabled for reasons other than temporary mutual
-	      exclusions. The CMD640 PCI/IDE bridge for example, has a
-	      bug in which an interrupt occurring during data transfer
-	      can result in corrupted data being written to the disk.
-	    </p>
-	    <p>
-	      On such systems, we will provide means for driver
-	      processes to disable interrupts. This of course renders
-	      the entire system vulnerable, but it is a necessary
-	      response to the broken hardware. We can at least limit
-	      the number of drivers that require this authority.
-	    </p>
-	    <h2>Interrupt Demultiplexing</h2>
-	    <p>
-	      Drivers will register for the interrupts they wish to
-	      receive. The kernel will demultiplex interrupts and then
-	      wake up the appropriate process to handle the result.
-	    </p>
-	    <h1>Checkpoint and the Object Cache</h1>
-	    <p>
-	      For a long time it stumped me how to move disk drivers
-	      out of the kernel. Charlie Landau asserted in December
-	      that he thought he saw how it might be done, but I could
-	      not convince myself that I was happy about the only
-	      solutions I could envision. It now appears that there is
-	      actually a very natural ``cut line'' in the design for
-	      this, and a perfectly reasonable approach to the
-	      implementation.
-	    </p>
-	    <p>
-	      The idea is to entirely remove all responsibility for
-	      disk I/O from the kernel. The kernel retains
-	      responsibility for checkpoint directory management, but
-	      at the very bottom level it performs upcalls to
-	      accomplish the following operations:
-	    </p>
-	    <ul>
-	      <li>
-		<p>
-		  <b>ReadObFrame(oid)</b> requests that the storage
-		  system should read the object frame at OID and
-		  install the resulting page into the object cache via
-		  a kernel object cache capability call.
-		</p>
-	      </li>
-	      <li>
-		<p>
-		  <b>ReadLogFrame(lid)</b> similarly for log frames.
-		</p>
-	      </li>
-	      <li>
-		<p>
-		  <b>WriteObFrame(oid)</b> requests that the storage
-		  system should write the bytes passed via the
-		  associated IPC at the appropriate disk location(s) 
-		  for this oid.
-		</p>
-	      </li>
-	      <li>
-		<p>
-		  <b>WriteLogFrame(lid)</b> similarly for log frames.
-		</p>
-	      </li>
-	    </ul>
-	    <p>
-	      One or more processes sits outside of the kernel in the
-	      following loop:
-	    </p>
-	    <ul>
-<pre>
-for(;;) {
-  call kernel to get next upcall
-  process upcall
-  acknowledge completion and wait for next upcall
-}
-</pre>
-	    </ul>
-	    <h2>Why Use Upcalls?</h2>
-	    <p>
-	      In other parts of the EROS kernel, a different approach
-	      to upcalls is used. When a process takes a fault, for
-	      example, the kernel synthesizes a keeper invocation by
-	      making it appear that the faulting process has directly
-	      invoked the keeper. Unfortunately, this approach cannot
-	      be used for driver upcalls because the drivers are not
-	      persistent.
-	    </p>
-	    <p>
-	      When a CALL occurs or is synthesized, the recipient gets
-	      a resume key to the caller. The problem here is that
-	      drivers are not persistent, so this resume capability
-	      can be lost. Also, if driver capabilities are simply
-	      start capabilities, there is no simple way to rescind
-	      them on restart. The problem is inherent in any call
-	      that crosses the boundary from persistent to
-	      non-persistent code.
-	    </p>
-	    <p>
-	      The solution is to arrange a rendevous mechanism within
-	      the kernel for rendevous. The driver calls into the
-	      kernel and is queued waiting for a response (i.e. a
-	      <em>return</em> from the kernel. When the client invokes
-	      the driver key, it is in turn queued waiting for a
-	      response and the inbound message is passed to the
-	      driver. Later, when the driver calls back into the
-	      kernel, it's inbound message is passed to the client as
-	      a response.
-	    </p>
-	    <hr> <em>Copyright 2001 by Jonathan Shapiro.  All rights
-	    reserved.  For terms of redistribution, see the <a
-	    href="../legal/license/GPL.html">GNU General Public
-	    License</a></em>
-	  </td>
-	  <td width="10%">&nbsp;</td>
-	</tr valign=top>
-      </table>
-    </body>
+  <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+  <center>
+    <h1 class="title">Persistence, Non-persistence, and Device Drivers</h1>
+  </center>
+    <h1>Device Drivers</h1>
+    <p>
+       The ability to port drivers from Linux is very important, because
+       there are very many drivers. The ability to port them with
+       minimal changes is important because they have a high rate of change. 
+    </p>
+    <p>
+      Device drivers, in most cases, have the same security properties
+      as the kernel - they must be trusted by everyone,
+      because they direct hardware that has write access to all
+      of physical memory. 
+      In KeyKOS and early versions of EROS, device drivers executed
+      as part of the kernel. 
+    </p>
+    <p>
+      However, there are several advantages to having drivers execute
+      in user processes:
+    </p>
+    <ul>
+    <li>
+      User mode provides some protection from accidental damage. 
+    </li>
+    <li>
+      To port drivers from Linux with a minimum of rewriting, you need to
+      run them in an environment that looks like the Linux kernel
+      (with, for example, a per-process stack). 
+      Building such an environment is, like most everything, easier
+      in processes than in the kernel. 
+    </li>
+    <li>
+      If a GPL-licensed driver is linked with the kernel, 
+      there is an argument that the kernel is at risk of being considered
+      a derived work of the driver and therefore subject to GPL.
+      Placing the driver in a user-mode process reduces this risk.
+    </li>
+    </ul>
+    <p>
+      On the other hand, there is a performance cost in putting drivers
+      outside the kernel, as there is for most code. 
+      But today, virtually all devices are architected in a way
+      (such as using DMA) that 
+      does not place a high penalty on user-mode drivers .
+      See <a href="http://www.coyotos.org/pipermail/coyotos-dev/2005-October/000181.html">
+      this email thread</a> for a discussion of this.
+    </p>
+    <p>
+      Therefore in CapROS virtually all drivers will run in user processes. 
+    </p>
+    <h1>Persistence and Non-Persistence</h1>
+    <p>
+      The CapROS model is that all user data and capabilities are persistent,
+      meaning their state is preserved even when the system is rebooted.
+      This assures that the security state (the state of the capabilities)
+      is valid and consistent. 
+      Persistence is accomplished by checkpointing the state to disk
+      (or other nonvolatile storage). 
+      The difficulty arises because the disk driver is part of the user state. 
+    </p>
+    <p>
+      The solution is to exempt drivers from the persistence contract.
+      Several reasons motivate this:
+    </p>
+    <ul>
+    <li>
+      The disk driver cannot load itself, so it must be loaded by the
+      boot loader. 
+      Available boot loaders can't decipher the checkpoint log
+      to find the correct version of the data to load. 
+    </li>
+    <li>
+      It is awkwared, though theoretically possible,
+      for the disk driver to checkpoint itself.
+      At a checkpoint, we would do copy-on-write of the driver data
+      (this logic already exists). 
+      It would be necessary to ensure that enough available memory
+      exists to do all the copies in memory. 
+      Making the disk driver non-persistent removes this constraint. 
+    </li>
+    <li>
+      There is little reason for drivers to be persistent,
+      because on reboot the device state is either reset or unknown.
+      Drivers could in theory use something like the KeyKOS journaling
+      mechanism to remember the device state, but this mechanism
+      is generally better applied at a higher level. 
+    </li>
+    </ul>
+    <p>
+      Most of these reasons apply specifically to disk drivers,
+      but since disks can be attached
+      via most any bus or network, the reasons apply to all those drivers too.
+    </p>
+    <p>
+      Therefore, all device drivers will be non-persistent. 
+      They will live in OID ranges that are marked as such.
+      These ranges will be loaded by the boot loader
+      (in GRUB, they are considered to be "modules") 
+      and pinned so they cannot be removed from memory. 
+      Drivers will of course be granted whatever
+      privileges are needed to to their job (this is architecture-dependent). 
+      The DevicePrivs key allows drivers to field interrupts. 
+      The DevicePrivs key will also make it possible for a driver
+      to obtain contiguous physical memory for use with DMA. 
+    </p>
+    <p>
+      Now the difficulty is, what is the consistency contract between
+      the persistent and non-persistent worlds? For example, we want
+      to avoid the following scenario:
+    </p>
+    <ol>
+    <li>
+      A persistent user process P calls a driver. The driver receives a 
+      resume key to P.
+    </li>
+    <li>
+      A checkpoint is taken and a restart occurs. Because the driver is
+      non-persistent, it reverts to its initial state
+      and loses the resume key. It never returns to process P. 
+    </li>
+    </ol>
+    <p>
+      Here is the design for the interaction of the persistent and
+      non-persistent worlds. 
+    </p>
+    <ul>
+    <li>
+      Persistent processes may call non-persisten processes, and
+      non-persistent nodes may hold capabilities to persistent objects. 
+      When a checkpoint is taken, the non-persistent nodes are examined.
+      Any resume keys found there to persistent processes
+      will cause the target process to be
+      treated as though it had not yet executed its call.
+      Thus on a restart the persistent process will run and reexecute its call. 
+      OR, the target process will be checkpointed with a state
+      such that on restart it will run as though the call returned an error. 
+    </li>
+    <li>
+      Non-persistent nodes are initialized with no capabilities to
+    <li>
+      Persistent nodes may hold capabilities to non-persistent objects.
+      It is the responsibility of the non-persistent world to make sure
+      that the only capabilities that can find their way to the
+      non-persistent world are ones whose authority does not change
+      on a restart from checkpoint - namely, start keys to the
+      "front door" of a driver. [Be more precise.]
+    </li>
+    </ul>
+    <p>
+      It remains to be seen how this will play out.
+      Note that a device driver could have a persistent part and
+      a non-persistent part (but that may make porting more difficult).
+      The only requirement is that
+      any part used by the kernel for paging must be non-persistent. 
+    </p>
+    <p>
+      The interface between the kernel and the disk driver(s)
+      has yet to be designed, but should be straightforward. 
+    </p>
+  <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 2006 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="./legal/license/GPL.html">GNU General Public License</a></em>
+   </td>
+</tr>
+</table>
+  </body>
 </html>
