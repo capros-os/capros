@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -129,10 +130,9 @@ check_Pages()
 
     ObjectHeader *pPage = objC_GetCorePageFrame(pg);
 
-    if (objH_IsFree(pPage))
-      continue;
+    assert(pPage->obType > ot_NtLAST_NODE_TYPE);
 
-    if (pPage->obType == ot_PtNewAlloc)
+    if (pPage->obType == ot_PtFreeFrame || pPage->obType == ot_PtNewAlloc)
       continue;
 
 #ifndef NDEBUG

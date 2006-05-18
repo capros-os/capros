@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -124,7 +125,7 @@ CheckActivity_UnprepareObjects()
 
       Node *pNode = objC_GetCoreNodeFrame(nd);
 
-      if (objH_IsFree(DOWNCAST(pNode, ObjectHeader)))
+      if (pNode->node_ObjHdr.obType == ot_NtFreeFrame)
 	continue;
 
 #if 0

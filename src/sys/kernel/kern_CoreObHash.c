@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -90,12 +91,12 @@ objH_ddb_dump_bucket(uint32_t bucket)
 }
 #endif
 
+/* thisPtr must not be a free object. */
 void
 objH_Intern(ObjectHeader* thisPtr)
 {
   uint32_t ndx = 0;
   assert(objH_GetFlags(thisPtr, OFLG_CURRENT));
-  assert(objH_IsFree(thisPtr) == false);
   
   ndx = bucket_ndx(thisPtr->kt_u.ob.oid);
   

@@ -246,7 +246,6 @@ PreloadObSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
   objH_ResetKeyRing(pObj);
   objH_Intern(pObj);
 
-
   return pObj;
 }
 

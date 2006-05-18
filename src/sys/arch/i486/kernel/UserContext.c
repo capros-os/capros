@@ -172,13 +172,15 @@ check_Contexts(const char *c)
       }
 #endif
 
-      if (p->procRoot && objH_IsFree(DOWNCAST(p->procRoot, ObjectHeader))) {
+      if (p->procRoot
+          && p->procRoot->node_ObjHdr.obType == ot_NtFreeFrame ) {
 	dprintf(true, "Context 0x%08x has free process root 0x%08x\n",
 			p, p->procRoot);
 	result = false;
       }
 
-      if (p->keysNode && objH_IsFree(DOWNCAST(p->keysNode, ObjectHeader))) {
+      if (p->keysNode
+          && p->keysNode->node_ObjHdr.obType == ot_NtFreeFrame ) {
 	dprintf(true, "Context 0x%08x has free keys node 0x%08x\n",
 			p, p->keysNode);
 	result = false;

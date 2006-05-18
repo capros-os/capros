@@ -80,7 +80,7 @@ objC_InitNodeTable(int num)
   Node *temp = (Node *)KPAtoP(void *, physMem_Alloc(num*sizeof(Node), &physMem_any));
   for (i = 0; i < num; i++) {
     Node *n = &temp[i];
-    /* FIXME: Init keys the first time node is used. */
+    /* Possibly: Init keys the first time node is used. */
     for (j = 0; j < EROS_NODE_SIZE; j++)
       keyBits_InitToVoid(&n->slot[j]);
     keyR_ResetRing(&n->node_ObjHdr.keyRing);
@@ -538,7 +538,7 @@ objC_ddb_dump_pages()
   for (pg = 0; pg < objC_nPages; pg++) {
     ObjectHeader *pObj = objC_GetCorePageFrame(pg);
 
-    if (objH_IsFree(pObj)) {
+    if (pObj->obType == ot_PtFreeFrame) {
       nFree++;
       continue;
     }
@@ -592,7 +592,7 @@ objC_ddb_dump_nodes()
   for (nd = 0; nd < objC_nNodes; nd++) {
     ObjectHeader *pObj = DOWNCAST(objC_GetCoreNodeFrame(nd), ObjectHeader);
 
-    if (objH_IsFree(pObj)) {
+    if (pObj->obType == ot_NtFreeFrame) {
       nFree++;
       continue;
     }
@@ -662,7 +662,7 @@ objC_AgeNodeFrames()
 	continue;
       }
     
-      if (objH_IsFree(DOWNCAST(pObj, ObjectHeader)))
+      if (pObj->node_ObjHdr.obType == ot_NtFreeFrame)
 	continue;
 
 #ifdef OPTION_DISKLESS
@@ -781,6 +781,7 @@ objC_AgeNodeFrames()
 }
 
 #ifdef USES_MAPPING_PAGES
+/* This procedure may Yield. */
 void
 objC_ReleaseMappingFrame(ObjectHeader *pObj)
 {
@@ -852,9 +853,8 @@ objC_CopyObject(ObjectHeader *pObj)
 
   objH_TransLock(pObj);
 
-  assert( pObj->obType != ot_PtDevicePage );
-
   if (pObj->obType == ot_PtDataPage) {
+    /* Copy data page only, not ot_PtDevicePage. */
     /* Object is now free of encumberance, but it wasn't an evictable
      * object, and it may be dirty. We need to find another location
      * for it.
@@ -871,7 +871,8 @@ objC_CopyObject(ObjectHeader *pObj)
     memcpy((void *) toAddr, (void *) fromAddr, EROS_PAGE_SIZE);
   }
   else { /* It's a node */
-    assert (pObj->obType <= ot_NtLAST_NODE_TYPE);
+    assert (pObj->obType <= ot_NtLAST_NODE_TYPE
+            && pObj->obType != ot_NtFreeFrame);
 
     oldNode = (Node *) pObj;
     newNode = objC_GrabNodeFrame();
@@ -911,39 +912,57 @@ objC_CopyObject(ObjectHeader *pObj)
   return newObj;
 }
 
-/* Evict the current resident of the node/page frame. This is called
- * when we need to claim a particular object frame in the object
- * cache. It is satisfactory to accomplish this by grabbing some
+/* Evict the current resident of a page frame. This is called
+ * when we need to claim a particular physical page frame.
+ * It is satisfactory to accomplish this by grabbing some
  * other frame and moving the object to it. 
  */
+/* This procedure may Yield. */
 bool
 objC_EvictFrame(ObjectHeader *pObj)
 {
   DEBUG(ndalloc)
     printf("objC_EvictFrame obj=0x%08x type=%d\n", pObj, pObj->obType);
 
-  /* This logic probably will not work for nodes, because we might
-   * well be zapping the current process. If you change this, be sure
-   * to appropriately conditionalize various checks below. */
-  assert(pObj->obType > ot_NtLAST_NODE_TYPE);
+  switch (pObj->obType) {
+  case ot_PtFreeFrame:
+    break;
 
-  if (!objC_CleanFrame(pObj, true)) {
-    (void) objC_CopyObject(pObj);
+#ifdef USES_MAPPING_PAGES
+  case ot_PtMappingPage:
+    objC_ReleaseMappingFrame(pObj);
+    break;
+#endif
 
-    /* Since we could not write the old frame out, we assume that it
-     * is not backed by anything. In this case, the right thing to do
-     * is to simply mark the old one clean, turn off it's checkpoint
-     * bit if any (it's not writable anyway), and allow ReleaseFrame()
-     * to release it.
-     */
+  case ot_PtKernelHeap:
+    return false;	// not implemented yet: FIXME
 
-    objH_ClearFlags(pObj, OFLG_CKPT | OFLG_DIRTY);
+  case ot_PtNewAlloc:
+    assert(false);	// should not have this now
+
+  case ot_PtDevicePage: // can't evict this
+    return false;
+
+  case ot_PtDataPage:
+    if (!objC_CleanFrame(pObj, true)) {
+      (void) objC_CopyObject(pObj);
+  
+      /* Since we could not write the old frame out, we assume that it
+       * is not backed by anything. In this case, the right thing to do
+       * is to simply mark the old one clean, turn off it's checkpoint
+       * bit if any (it's not writable anyway), and allow ReleaseFrame()
+       * to release it.
+       */
+
+      objH_ClearFlags(pObj, OFLG_CKPT | OFLG_DIRTY);
+    }
+    objC_ReleaseFrame(pObj);
+    break;
+
+  default: assert(false);	// must be a page, not a node
   }
 
-  objC_ReleaseFrame(pObj);
-
   objC_GrabThisFrame(pObj);
-
   return true;
 }
 
@@ -1094,8 +1113,8 @@ objC_AgePageFrames()
 	continue;
       }
     
-      if (objH_IsFree(pObj))
-	  continue;
+      if (pObj->obType == ot_PtFreeFrame)
+	continue;
 	  
       /* Some pages cannot be aged because they are active or pinned: */
       if (objH_IsUserPinned(pObj))
@@ -1235,7 +1254,8 @@ objC_GrabThisFrame(ObjectHeader *pObj)
     objC_nFreeNodeFrames--;
 
     /* Rip it off the hash chain, if need be: */
-    objH_Unintern(DOWNCAST(pNode, ObjectHeader));		/* Should it ever be interned? */
+    objH_Unintern(DOWNCAST(pNode, ObjectHeader));	/* Should it ever be interned? */
+    assert(keyR_IsEmpty(&pObj->keyRing));
     bzero(pNode, sizeof(ObjectHeader));
 
     pNode->node_ObjHdr.obType = ot_NtUnprepared;

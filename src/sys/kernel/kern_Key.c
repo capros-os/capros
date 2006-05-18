@@ -600,7 +600,7 @@ key_IsValid(const Key* thisPtr)
 		       thisPtr, pObject);
 	return false;
       }
-      if ( objH_IsFree(pObject) ) {
+      if (pObject->obType == ot_PtFreeFrame) {
 	key_Print(thisPtr);
 	printf("Prepared key 0x%08x names free pObject 0x%08x\n",
 		       thisPtr, pObject);
@@ -615,7 +615,7 @@ key_IsValid(const Key* thisPtr)
 	printf("0x%x is not a valid node ptr\n", pNode);
 	return false;
       }
-      if ( objH_IsFree(DOWNCAST(pNode, ObjectHeader)) ) {
+      if (pNode->node_ObjHdr.obType == ot_NtFreeFrame) {
 	key_Print(thisPtr);
 	printf("Prepared key 0x%08x names free pObject 0x%08x\n",
 		       thisPtr, pNode);

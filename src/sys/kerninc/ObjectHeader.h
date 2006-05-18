@@ -183,21 +183,6 @@ struct ObjectHeader {
                                              or ot_PtDataPage or ... */
   
   ObjectHeader* hashChainNext;
-
-#if 0
-  /* This is very important, but I am still sorting out
-   * implementation. In any case, it is probably an ObjectCache
-   * function rather than an ObjectHeader function.
-   */
-  void          DoCopyOnWrite();
-#endif
-  
-#if 0
-  void StartIO();
-  void FinishObjectIO(bool wasInbound, ObType oty, OID oid,
-		      ObCount allocCount);
-#endif
-  
 };
 
 extern uint8_t objH_CurrentTransaction; /* current transaction number */
@@ -239,12 +224,6 @@ objH_IsDirty(const ObjectHeader* thisPtr)
   return objH_GetFlags(thisPtr, OFLG_DIRTY|OFLG_REDIRTY);
 }
 
-INLINE bool 
-objH_IsFree(const ObjectHeader* thisPtr) 
-{
-  return (thisPtr->obType == ot_NtFreeFrame || thisPtr->obType == ot_PtFreeFrame);
-}
-  
   /* Object pin counts.  For the moment, there are several in order to
    * let me debug the logic.  Eventually they should all be mergeable.
    * 

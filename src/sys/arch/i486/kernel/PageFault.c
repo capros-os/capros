@@ -1100,7 +1100,6 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 {
   ObjectHeader *pTable = objC_GrabPageFrame();
   kva_t tableAddr;
-  assert (keyR_IsValid(&pTable->keyRing, pTable));
   pTable->obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 1;
   pTable->kt_u.mp.producerBlss = wi->segBlss;
@@ -1149,7 +1148,6 @@ MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
   /* Need to make a new mapping table: */
   ObjectHeader *pTable = objC_GrabPageFrame();
   kva_t tableAddr;
-  assert (keyR_IsValid(&pTable->keyRing, pTable));
   pTable->obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 0;
   pTable->kt_u.mp.producerBlss = wi->segBlss;

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2006, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -108,7 +108,8 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
   assert(pObj == &thisPtr->pmi->firstObHdr[relFrameNdx]);
 #endif
 
-  objC_EvictFrame(pObj);
+  if (! objC_EvictFrame(pObj))
+    return 0;	// could not evict
 
   pObj->kt_u.ob.oid = oid;
   pObj->kt_u.ob.allocCount = PhysPageAllocCount;
@@ -125,7 +126,6 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
      * memory is always considered dirty. */
     objH_SetFlags(pObj, OFLG_DIRTY);
   }
-
   else {
     pObj->obType = ot_PtDataPage;
 #ifdef OPTION_OB_MOD_CHECK
