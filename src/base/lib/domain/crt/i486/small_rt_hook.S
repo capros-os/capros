@@ -1,6 +1,7 @@
 	.file	"small_rt_hook.S"
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -124,8 +125,6 @@ buy_first_page:
 	.long	0		/* rcv data */
 	.long	KEYS(KR_NEWPAGE,KR_VOID,KR_VOID,KR_VOID)	/* rcv keys */
 
-	xorl	%edi,%edi		/* rcv len */
-	
 fetch_cur_space:	
 	.long	IT_Call
 	.long	KR_SELF
@@ -250,7 +249,7 @@ ENTRY(__rt_small_startup)
 	
 	/* stick the stack page we bought into the new node */
 	movl	$OC_Node_Swap,%eax		/* r0 */
-	movl	$EROS_NODE_SLOT_MASK,%ebx	/* r1 */
+	movl	$(EROS_NODE_SIZE-1),%ebx	/* r1 */
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */
 
@@ -284,7 +283,7 @@ ENTRY(__rt_small_startup)
 	movl	EXT(__rt_stack_pages),%eax
 	movl	%eax,NUMPG
 	movl	$CALLBUF,%ebp
-	movl	$EROS_NODE_SLOT_MASK,PGSLOT	/* next slot to write */
+	movl	$(EROS_NODE_SIZE-1),PGSLOT	/* next slot to write */
 	
 LEXT(buy_stack)
 	decl	NUMPG
@@ -329,7 +328,7 @@ LEXT(buy_stack)
 
 	jmp	EXT(buy_stack)
 	
-ENTRY(__stack_ready)
+LEXT(__stack_ready)
 	call	EXT(__rt_buy_data_space)
         movl	$0,__rt_runtime_hook
 
