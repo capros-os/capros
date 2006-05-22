@@ -53,7 +53,8 @@
 
 /* Reserve 0.25 Gbytes of address space from 0xC000000..0xCFFFFFF for
    use as small spaces */
-#define KVA		0xD0000000
+#define KVA		0xD0000000 /* kernel virtual/linear address of
+					physical address 0 */
 #define KUVA		0x30000000 /* user va 0 as kernel sees it */
 
 #define KVA_FROMSPACE   0x2e800000 /* kernel-readable page tables */
