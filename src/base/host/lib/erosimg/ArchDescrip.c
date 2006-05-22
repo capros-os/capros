@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -238,6 +239,11 @@ RD_WriteValue(const RegDescrip *rd, ErosImage* pImage,
     if (strcmp(Layout[i].name, rd->name) != 0)
       continue;
 
+#if 0
+    diag_printf("Annex %d slot %d ofs %d len %d valofs %d val 0x%x\n", 
+      Layout[i].annex, Layout[i].slot, Layout[i].slotOffset, Layout[i].len,
+      Layout[i].valueOffset, *(uint32_t *)binary_value);
+#endif
     memcpy(&nodeKey, &rootNodeKey, sizeof(KeyBits));
 
     if (Layout[i].annex)
