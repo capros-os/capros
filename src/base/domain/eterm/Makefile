@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group
+# Copyright (C) 2005, 2006, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -71,9 +71,8 @@ interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain/eterm
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/eterm
-	$(INSTALL) -d $(EROS_ROOT)/domain/eterm
-	$(INSTALL) -m 755 $(EOUT) $(EMAIN) $(EROS_ROOT)/domain/eterm
-	$(INSTALL) -m 644 $(IMGMAP) $(EROS_ROOT)/domain/eterm
+	$(INSTALL) -d $(CAPROS_DOMAIN)/eterm
+	$(INSTALL) -m 755 $(EOUT) $(EMAIN) $(CAPROS_DOMAIN)/eterm
+	$(INSTALL) -m 644 $(IMGMAP) $(CAPROS_DOMAIN)/eterm
 
 -include $(BUILDDIR)/.*.m

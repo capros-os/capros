@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -25,10 +26,10 @@
  *********************************************/
 #include <net/ipv4/netsys.map>
 
-MAKE_VIRTUAL_COPIER(tftp_vcs,"/eros/domain/net/tftp/tftp");
+MAKE_VIRTUAL_COPIER(tftp_vcs,LIBDIR "net/tftp/tftp");
 BOOT_CONSTRUCTOR(tftp_c,tftp);
 PROD_SPACE(tftp_c) = tftp_vcs_c;
-PROD_PC(tftp_c) = symbol "/eros/domain/net/tftp/tftp" _start;
+PROD_PC(tftp_c) = symbol LIBDIR "net/tftp/tftp" _start;
 PROD_CONSTIT(tftp_c,KC_OSTREAM,3) = misc Console;
 PROD_CONSTIT(tftp_c,KC_NETSYS_C,4) = netsys_c;
 PROD_CONSTIT(tftp_c,KC_SLEEP,5) = misc Sleep;

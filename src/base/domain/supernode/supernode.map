@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -27,8 +28,8 @@ BOOT_CONSTRUCTOR(snode_c, snode);
 
 /* mutex requires no special constituents */
 
-PROD_SPACE(snode_c) = small program "/eros/domain/supernode";
-PROD_PC(snode_c) = symbol "/eros/domain/supernode" _start;
+PROD_SPACE(snode_c) = small program LIBDIR "supernode";
+PROD_PC(snode_c) = symbol LIBDIR "supernode" _start;
 
 PROD_CONSTIT(snode_c, KC_OSTREAM, 1) = misc Console;
 PROD_CONSTIT(snode_c, KC_PROTOSPC, 2) = protospace;

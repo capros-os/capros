@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -43,9 +44,9 @@ $(BUILDDIR)/tftp: $(TFTP) $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(TFTP) $(DOMLIB) 
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/net/tftp
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain/net/tftp
-	$(INSTALL) -m 644 tftp.map $(EROS_ROOT)/domain/net/tftp
+	$(INSTALL) -d $(CAPROS_DOMAIN)/net/tftp
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/net/tftp
+	$(INSTALL) -m 644 tftp.map $(CAPROS_DOMAIN)/net/tftp
 
 
 -include $(BUILDDIR)/.*.m

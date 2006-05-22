@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -23,10 +24,10 @@
 #include <drivers/ps2/ps2.map>
 #include <winsys/ps2/helpers.map>
 
-MAKE_VIRTUAL_COPIER(eventmgr_vcsk, "/eros/domain/winsys/eventmgr");
+MAKE_VIRTUAL_COPIER(eventmgr_vcsk, LIBDIR "winsys/eventmgr");
 BOOT_CONSTRUCTOR(eventmgr_c,eventmgr);
 PROD_SPACE(eventmgr_c) = eventmgr_vcsk_c;
-PROD_PC(eventmgr_c) = symbol "/eros/domain/winsys/eventmgr" _start;
+PROD_PC(eventmgr_c) = symbol LIBDIR "winsys/eventmgr" _start;
 PROD_CONSTIT(eventmgr_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(eventmgr_c, KC_PS2READER, 4) = ps2reader_c;
 PROD_CONSTIT(eventmgr_c, KC_PS2MOUSE, 5) = ps2_mousehelper_c;

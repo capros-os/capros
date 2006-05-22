@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -29,8 +30,8 @@
 
 /* helpers are small programs */
 helper = new process with constituents;
-helper space = small program "/eros/domain/net/ipv4/helper";
-helper pc = symbol "/eros/domain/net/ipv4/helper" _start;
+helper space = small program LIBDIR "net/ipv4/helper";
+helper pc = symbol LIBDIR "net/ipv4/helper" _start;
 helper iospace = misc DevicePrivs;
 helper schedule = sched(8);
 
@@ -45,8 +46,8 @@ run helper;
 
 /*** A small program for Timeout_Agent ***/
 timeout_agent = new process with constituents;
-timeout_agent space = small program "/eros/domain/net/ipv4/timeout_agent";
-timeout_agent pc = symbol "/eros/domain/net/ipv4/timeout_agent" _start;
+timeout_agent space = small program LIBDIR "net/ipv4/timeout_agent";
+timeout_agent pc = symbol LIBDIR "net/ipv4/timeout_agent" _start;
 timeout_agent iospace = misc DevicePrivs;
 timeout_agent schedule = sched(8);
 
@@ -59,10 +60,10 @@ timeout_agent key reg KR_SCHED = sched(8);
 
 run timeout_agent;
 
-MAKE_VIRTUAL_COPIER(netsys_vcs, "/eros/domain/net/ipv4/netsys");
+MAKE_VIRTUAL_COPIER(netsys_vcs, LIBDIR "net/ipv4/netsys");
 BOOT_CONSTRUCTOR(netsys_c,netsys);
 PROD_SPACE(netsys_c) = netsys_vcs_c;
-PROD_PC(netsys_c) = symbol "/eros/domain/net/ipv4/netsys" _start;
+PROD_PC(netsys_c) = symbol LIBDIR "net/ipv4/netsys" _start;
 PROD_CONSTIT(netsys_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(netsys_c, KC_SLEEP, 4) = misc Sleep;
 PROD_CONSTIT(netsys_c, KC_HELPER, 5) = start helper 0;

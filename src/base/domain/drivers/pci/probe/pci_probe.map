@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -22,11 +23,11 @@
 
 #ifndef __PCI_PROBE__
 #define __PCI_PROBE__
-MAKE_VIRTUAL_COPIER(pci_probe_vcsk, "/eros/domain/drivers/pci/pci_probe");
+MAKE_VIRTUAL_COPIER(pci_probe_vcsk, LIBDIR "drivers/pci/pci_probe");
 
 BOOT_CONSTRUCTOR(pci_probe_c,pci_probe);
 PROD_SPACE(pci_probe_c) = pci_probe_vcsk_c;
-PROD_PC(pci_probe_c) = symbol "/eros/domain/drivers/pci/pci_probe" _start;
+PROD_PC(pci_probe_c) = symbol LIBDIR "drivers/pci/pci_probe" _start;
 PROD_CONSTIT(pci_probe_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(pci_probe_c, KC_DEVPRIVS, 4) = misc DevicePrivs;;
 PROD_CONSTIT(pci_probe_c, KC_PHYSRANGE,5)= physmem range;

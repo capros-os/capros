@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group.
+# Copyright (C) 2005, 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -52,8 +52,8 @@ $(BUILDDIR)/rangeAl: $(OBJECTS) $(DOMCRT0) $(DOMSBRK) $(DOMLIB)
 rangeAl.c: $(BUILDDIR)/constituents.h
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain
-	$(INSTALL) -m 644 rangeAl.map $(EROS_ROOT)/domain
+	$(INSTALL) -d $(CAPROS_DOMAIN)
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 rangeAl.map $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m

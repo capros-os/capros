@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -44,8 +45,8 @@ $(BUILDDIR)/sound: $(SOUND_OBJECTS) $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(SOUND_OBJECTS)  $(DOMLIB)
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/drivers/sound
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain/drivers/sound
-	$(INSTALL) -m 644 sound.map $(EROS_ROOT)/domain/drivers/sound
+	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/sound
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers/sound
+	$(INSTALL) -m 644 sound.map $(CAPROS_DOMAIN)/drivers/sound
 
 -include $(BUILDDIR)/.*.m

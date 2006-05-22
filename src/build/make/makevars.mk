@@ -63,6 +63,8 @@ ifndef EROS_CONFIG
 EROS_CONFIG=DEFAULT
 endif
 
+CAPROS_DOMAIN=$(EROS_ROOT)/lib/$(EROS_TARGET)
+
 VMWARE=$(EROS_ROOT)/src/build/bin/vmdbg
 export EROS_ROOT
 export EROS_TARGET

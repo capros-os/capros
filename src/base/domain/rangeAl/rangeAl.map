@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -30,11 +31,11 @@
 #include <vcs.map>
 #include <ipltool.map>
 
-MAKE_VIRTUAL_COPIER(rangeAl_vcsk, "/eros/domain/rangeAl");
+MAKE_VIRTUAL_COPIER(rangeAl_vcsk, LIBDIR "rangeAl");
 
 BOOT_CONSTRUCTOR(rangeAl_c,rangeAl);
 PROD_SPACE(rangeAl_c) = rangeAl_vcsk_c;
-PROD_PC(rangeAl_c) = symbol "/eros/domain/rangeAl" _start;
+PROD_PC(rangeAl_c) = symbol LIBDIR "rangeAl" _start;
 PROD_CONSTIT(rangeAl_c, KC_OSTREAM, 3) = misc Console;
 
 

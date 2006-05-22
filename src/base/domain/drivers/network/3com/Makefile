@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -47,8 +48,8 @@ $(BUILDDIR)/helper: $(HELPER) $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(HELPER) $(DOMLIB) 
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/drivers/network/3com
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain/drivers/network/3com
-	$(INSTALL) -m 644 _3c905c.map $(EROS_ROOT)/domain/drivers/network/3com
+	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/network/3com
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers/network/3com
+	$(INSTALL) -m 644 _3c905c.map $(CAPROS_DOMAIN)/drivers/network/3com
 
 -include $(BUILDDIR)/.*.m

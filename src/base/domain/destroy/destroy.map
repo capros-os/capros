@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2001, The EROS Group.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -29,4 +30,4 @@
  * PRIMORDIAL DESTROY SPACE
  *********************************************/
 
-destroy_space = ro program segtree "/eros/domain/triv_destroy";
+destroy_space = ro program segtree LIBDIR "triv_destroy";

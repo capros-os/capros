@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2003 Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -22,10 +23,10 @@
 
 #ifndef __MEMMAP_MAP_
 #define __MEMMAP_MAP_
-MAKE_VIRTUAL_COPIER(memmap_vcsk, "/eros/domain/memmap");
+MAKE_VIRTUAL_COPIER(memmap_vcsk, LIBDIR "memmap");
 BOOT_CONSTRUCTOR(memmap_c, memmap);
 PROD_SPACE(memmap_c) = memmap_vcsk_c;
-PROD_PC(memmap_c) = symbol "/eros/domain/memmap" _start;
+PROD_PC(memmap_c) = symbol LIBDIR "memmap" _start;
 PROD_CONSTIT(memmap_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(memmap_c, KC_ZINDEX, 4) = zindex;
 PROD_CONSTIT(memmap_c, KC_PROTOSPC, 5) = protospace;

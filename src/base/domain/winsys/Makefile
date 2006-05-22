@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group
+# Copyright (C) 2005, 2006, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -76,8 +76,8 @@ $(BUILDDIR)/winsys: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
              $(FBMOBJS) $(VMWAREOBJS) $(LIBS) $(DOMLIB)
 
 install: $(TARGETS)
-	$(INSTALL) -d $(EROS_ROOT)/domain/winsys
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain/winsys
-	$(INSTALL) -m 644 winsys.map $(EROS_ROOT)/domain/winsys
+	$(INSTALL) -d $(CAPROS_DOMAIN)/winsys
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/winsys
+	$(INSTALL) -m 644 winsys.map $(CAPROS_DOMAIN)/winsys
 
 -include $(BUILDDIR)/.*.m

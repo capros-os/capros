@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -22,17 +23,17 @@
 #include <drivers/pci/pci_probe.map>
 #include <memmap.map>
 
-MAKE_VIRTUAL_COPIER(helper_vcsk,"/eros/domain/drivers/network/tg3/helper");
+MAKE_VIRTUAL_COPIER(helper_vcsk,LIBDIR "drivers/network/tg3/helper");
 BOOT_CONSTRUCTOR(helper_c,helper);
 PROD_SPACE(helper_c) = helper_vcsk_c;
-PROD_PC(helper_c) = symbol "/eros/domain/drivers/network/tg3/helper" _start;
+PROD_PC(helper_c) = symbol LIBDIR "drivers/network/tg3/helper" _start;
 PROD_CONSTIT(helper_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(helper_c, KC_DEVPRIVS, 6) = misc DevicePrivs;
 
-MAKE_VIRTUAL_COPIER(tg3_vcsk,"/eros/domain/drivers/network/tg3/tg3");
+MAKE_VIRTUAL_COPIER(tg3_vcsk,LIBDIR "drivers/network/tg3/tg3");
 BOOT_CONSTRUCTOR(tg3_c,tg3);
 PROD_SPACE(tg3_c) = tg3_vcsk_c;
-PROD_PC(tg3_c) = symbol "/eros/domain/drivers/network/tg3/tg3" _start;
+PROD_PC(tg3_c) = symbol LIBDIR "drivers/network/tg3/tg3" _start;
 PROD_CONSTIT(tg3_c,KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(tg3_c,KC_PCI_PROBE_C, 4) = pci_probe_c;
 PROD_CONSTIT(tg3_c,KC_DEVPRIVS,6) = misc DevicePrivs;

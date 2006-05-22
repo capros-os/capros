@@ -3,6 +3,7 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
  * Copyright (C) 2001, The EROS Group.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -51,7 +52,7 @@
 
 spacebank = new process with constituents;
 
-spacebank.seg = program segment "/eros/domain/spacebank";
+spacebank.seg = program segment LIBDIR "spacebank";
 
 /* add a page for the stack: */
 spacebank.seg = spacebank.seg with page at 0xff000;
@@ -74,7 +75,7 @@ primeseg[0] = spacebank.seg;
 spacebank.seg = primeseg;
 hide primeseg;
 
-spacebank pc = symbol "/eros/domain/spacebank" _start;
+spacebank pc = symbol LIBDIR "spacebank" _start;
 spacebank space = spacebank.seg;
 spacebank schedule = sched(8);   /* normal */
 spacebank symtab = number("spacebank");

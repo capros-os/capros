@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -64,7 +65,7 @@ $(BUILDDIR)/keyclient: $(KEYCLIENT) $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@  $(DOMCRT0) $(KEYCLIENT) $(DOMLIB)
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/drivers/ps2
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain/drivers/ps2
-	$(INSTALL) -m 644 ps2.map $(EROS_ROOT)/domain/drivers/ps2
+	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/ps2
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers/ps2
+	$(INSTALL) -m 644 ps2.map $(CAPROS_DOMAIN)/drivers/ps2
 -include $(BUILDDIR)/.*.m

@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -34,10 +35,10 @@
 
 #include <memmap.map>
 
-MAKE_VIRTUAL_COPIER(vmware_svga_vcsk, "/eros/domain/drivers/pci/vmware_svga");
+MAKE_VIRTUAL_COPIER(vmware_svga_vcsk, LIBDIR "drivers/pci/vmware_svga");
 BOOT_CONSTRUCTOR(vmware_svga_c,vmware_svga);
 PROD_SPACE(vmware_svga_c) = vmware_svga_vcsk_c;
-PROD_PC(vmware_svga_c) = symbol "/eros/domain/drivers/pci/vmware_svga" _start;
+PROD_PC(vmware_svga_c) = symbol LIBDIR "drivers/pci/vmware_svga" _start;
 PROD_CONSTIT(vmware_svga_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(vmware_svga_c, KC_DEVPRIVS, 4) = misc DevicePrivs;
 PROD_CONSTIT(vmware_svga_c, KC_PHYSRANGE, 5) = physmem range;

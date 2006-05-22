@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -38,9 +39,9 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain
-	$(INSTALL) -m 644 nfile.map $(EROS_ROOT)/domain
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain
+	$(INSTALL) -d $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 nfile.map $(CAPROS_DOMAIN)
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
 
 all: $(TARGETS)
 

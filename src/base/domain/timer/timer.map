@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -22,17 +23,17 @@
 
 #ifndef _TIMER__
 #define _TIMER__
-MAKE_VIRTUAL_COPIER(timer_thread_vcsk, "/eros/domain/timer/timer_thread");
+MAKE_VIRTUAL_COPIER(timer_thread_vcsk, LIBDIR "timer/timer_thread");
 BOOT_CONSTRUCTOR(timer_thread_c,timer_thread);
 PROD_SPACE(timer_thread_c) = timer_thread_vcsk_c;
-PROD_PC(timer_thread_c) = symbol "/eros/domain/timer/timer_thread" _start;
+PROD_PC(timer_thread_c) = symbol LIBDIR "timer/timer_thread" _start;
 PROD_CONSTIT(timer_thread_c, KC_OSTREAM, 3)  = misc Console;
 PROD_CONSTIT(timer_thread_c, KC_SLEEP, 4)    = misc Sleep;
 
-MAKE_VIRTUAL_COPIER(timer_vcsk, "/eros/domain/timer/timer_mgr");
+MAKE_VIRTUAL_COPIER(timer_vcsk, LIBDIR "timer/timer_mgr");
 BOOT_CONSTRUCTOR(timer_c,timer);
 PROD_SPACE(timer_c) = timer_vcsk_c;
-PROD_PC(timer_c) = symbol "/eros/domain/timer/timer_mgr" _start;
+PROD_PC(timer_c) = symbol LIBDIR "timer/timer_mgr" _start;
 PROD_CONSTIT(timer_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(timer_c, KC_TIMER_THREAD, 4) = timer_thread_c;
 

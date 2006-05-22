@@ -70,6 +70,6 @@ CLEANDIRS=$(DIRS) file
 include $(EROS_SRC)/build/make/makerules.mk
 
 install:
-	$(INSTALL) -d $(EROS_ROOT)/domain
-	$(INSTALL) -m 644 $(COREMAP) $(EROS_ROOT)/domain
-	$(INSTALL) -m 644 $(COREMAPWINSYS) $(EROS_ROOT)/domain
+	$(INSTALL) -d $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 $(COREMAP) $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 $(COREMAPWINSYS) $(CAPROS_DOMAIN)

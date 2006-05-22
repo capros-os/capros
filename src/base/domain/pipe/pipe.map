@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -26,8 +27,8 @@
 
 BOOT_CONSTRUCTOR(pipe_c, pipe);
 
-PROD_SPACE(pipe_c) = small program "/eros/domain/pipe";
-PROD_PC(pipe_c) = symbol "/eros/domain/pipe" _start;
+PROD_SPACE(pipe_c) = small program LIBDIR "pipe";
+PROD_PC(pipe_c) = symbol LIBDIR "pipe" _start;
 
 PROD_CONSTIT(pipe_c, KC_PROTOSPC, 1) = protospace;
 PROD_CONSTIT(pipe_c, KC_OSTREAM, 2) = misc Console;

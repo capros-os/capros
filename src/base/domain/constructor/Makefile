@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -54,8 +55,8 @@ $(BUILDDIR)/protospace: $(BUILDDIR)/protospace.o $(DOMCRT0) $(DOMLIB)
 #	objdump --headers protospace
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain
-	$(INSTALL) -m 644 metacon.map $(EROS_ROOT)/domain
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain
+	$(INSTALL) -d $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 metacon.map $(CAPROS_DOMAIN)
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m

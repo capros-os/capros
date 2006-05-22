@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -51,8 +52,8 @@ $(BUILDDIR)/ide_ide: $(IDE_IDE_OBJECTS) $(DOMLIB) $(DOMCRT0)
 
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/drivers/ide
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain/drivers/ide
-	$(INSTALL) -m 644 
+	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/ide
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers/ide
+#	$(INSTALL) -m 644 
 
 -include $(BUILDDIR)/.*.m\

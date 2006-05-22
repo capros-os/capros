@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -42,8 +43,8 @@ $(BUILDDIR)/pipe: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB) -o $@
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain
-	$(INSTALL) -m 644 pipe.map $(EROS_ROOT)/domain
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain
+	$(INSTALL) -d $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 pipe.map $(CAPROS_DOMAIN)
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m

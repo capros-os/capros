@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group
+# Copyright (C) 2005, 2006, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -82,7 +82,7 @@ $(BUILDDIR)/mouseclient: $(MOUSECLIENT) $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@  $(DOMCRT0) $(MOUSECLIENT) $(DOMLIB)
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/drivers/console
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain/drivers/console
-	$(INSTALL) -m 644 console.map $(EROS_ROOT)/domain/drivers/console
+	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/console
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers/console
+	$(INSTALL) -m 644 console.map $(CAPROS_DOMAIN)/drivers/console
 -include $(BUILDDIR)/.*.m

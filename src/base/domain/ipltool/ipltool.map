@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -28,11 +29,11 @@
  *  address)
  *********************************************************/
 
-ipltool.space = small program "/eros/domain/ipltool";
+ipltool.space = small program LIBDIR "ipltool";
 ipltool.space = ipltool.space with page at 0x1f000;
 
 ipltool = new process with constituents;
-ipltool pc = symbol "/eros/domain/ipltool" _start;
+ipltool pc = symbol LIBDIR "ipltool" _start;
 ipltool space = ipltool.space;
 ipltool schedule = sched(15);	/* high */
 ipltool symtab = number("ipltool");

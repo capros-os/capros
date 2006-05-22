@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -47,8 +48,8 @@ $(BUILDDIR)/helper: $(HELPER) $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(HELPER) $(DOMLIB) 
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/drivers/network/tg3
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain/drivers/network/tg3
-	$(INSTALL) -m 644 tg3.map $(EROS_ROOT)/domain/drivers/network/tg3
+	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/network/tg3
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers/network/tg3
+	$(INSTALL) -m 644 tg3.map $(CAPROS_DOMAIN)/drivers/network/tg3
 
 -include $(BUILDDIR)/.*.m

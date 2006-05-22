@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group.
+# Copyright (C) 2005, 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -63,9 +63,8 @@ interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain/linedisc
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/linedisc
-	$(INSTALL) -d $(EROS_ROOT)/domain/linedisc
-	$(INSTALL) -m 755 $(LDOUT) $(LDMAIN) $(EROS_ROOT)/domain/linedisc
-	$(INSTALL) -m 644 $(IMGMAP) $(EROS_ROOT)/domain/linedisc
+	$(INSTALL) -d $(CAPROS_DOMAIN)/linedisc
+	$(INSTALL) -m 755 $(LDOUT) $(LDMAIN) $(CAPROS_DOMAIN)/linedisc
+	$(INSTALL) -m 644 $(IMGMAP) $(CAPROS_DOMAIN)/linedisc
 
 -include $(BUILDDIR)/.*.m

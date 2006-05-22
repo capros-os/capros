@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group
+# Copyright (C) 2005, 2006, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -102,8 +102,8 @@ $(BUILDDIR)/%.o: netif/%.c
 
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/net/ipv4
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain/net/ipv4
-	$(INSTALL) -m 644 netsys.map $(EROS_ROOT)/domain/net/ipv4
+	$(INSTALL) -d $(CAPROS_DOMAIN)/net/ipv4
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/net/ipv4
+	$(INSTALL) -m 644 netsys.map $(CAPROS_DOMAIN)/net/ipv4
 
 -include $(BUILDDIR)/.*.m

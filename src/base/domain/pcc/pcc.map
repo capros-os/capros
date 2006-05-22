@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -35,11 +36,11 @@
 
 pcc = new process with constituents;
 
-proccre.seg = ro small program "/eros/domain/proccre";
-proccre.pc = symbol "/eros/domain/proccre" _start;
+proccre.seg = ro small program LIBDIR "proccre";
+proccre.pc = symbol LIBDIR "proccre" _start;
 
-pcc pc = symbol "/eros/domain/pcc" _start;
-pcc space = small program "/eros/domain/pcc";
+pcc pc = symbol LIBDIR "pcc" _start;
+pcc space = small program LIBDIR "pcc";
 pcc schedule = sched(8);	/* normal */
 pcc symtab = number("pcc");
 

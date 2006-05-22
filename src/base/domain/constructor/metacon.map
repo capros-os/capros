@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -81,14 +82,14 @@ pcc brand = constructor_brand;
 
 metacon = new process with constituents;
 
-constructor.seg = small program "/eros/domain/constructor";
-constructor.pc = symbol "/eros/domain/constructor" _start;
+constructor.seg = small program LIBDIR "constructor";
+constructor.pc = symbol LIBDIR "constructor" _start;
 
-protospace = ro program segtree "/eros/domain/protospace";
-protospace.pc = symbol "/eros/domain/protospace" _start;
+protospace = ro program segtree LIBDIR "protospace";
+protospace.pc = symbol LIBDIR "protospace" _start;
 
-metacon pc = symbol "/eros/domain/metaconstructor" _start;
-metacon space = small program "/eros/domain/metaconstructor";
+metacon pc = symbol LIBDIR "metaconstructor" _start;
+metacon space = small program LIBDIR "metaconstructor";
 metacon schedule = sched(8);	/* normal */
 metacon brand = constructor_brand;
 metacon symtab = number("metacon");

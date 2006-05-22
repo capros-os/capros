@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -24,8 +25,8 @@
 
 BOOT_CONSTRUCTOR(keyset_c, keyset);
 
-PROD_SPACE(keyset_c) = small program "/eros/domain/keyset";
-PROD_PC(keyset_c) = symbol "/eros/domain/keyset" _start;
+PROD_SPACE(keyset_c) = small program LIBDIR "keyset";
+PROD_PC(keyset_c) = symbol LIBDIR "keyset" _start;
 
 PROD_CONSTIT(keyset_c, KC_ZSF, 1) = zs_c;
 PROD_CONSTIT(keyset_c, KC_PROTOSPC, 2) = protospace;

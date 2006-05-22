@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
-# Copyright (C) 2005, Strawberry Development Group
+# Copyright (C) 2005, 2006, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -44,8 +44,8 @@ $(BUILDDIR)/pci_probe: $(PCI_PROBE_OBJECTS) $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(PCI_PROBE_OBJECTS)  $(DOMLIB)
 
 install: $(TARGETS)
-	$(INSTALL) -d $(EROS_ROOT)/domain/drivers/pci
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain/drivers/pci
-	$(INSTALL) -m 644 pci_probe.map $(EROS_ROOT)/domain/drivers/pci
+	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/pci
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers/pci
+	$(INSTALL) -m 644 pci_probe.map $(CAPROS_DOMAIN)/drivers/pci
 
 -include $(BUILDDIR)/.*.m

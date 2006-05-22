@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -40,8 +41,8 @@ $(BUILDDIR)/triv_destroy: $(OBJECTS)
 	$(DOMLINK) -nostdlib $(DOMLINKOPT) $(OBJECTS) -o $@
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain
-	$(INSTALL) -m 644 destroy.map $(EROS_ROOT)/domain
+	$(INSTALL) -d $(CAPROS_DOMAIN)
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 destroy.map $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m

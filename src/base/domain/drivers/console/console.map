@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -24,8 +25,8 @@
 
 /*** A small program which handles text mode screen drawing ***/
 textconsole = new process with constituents;
-textconsole space = small program "/eros/domain/drivers/console/textconsole";
-textconsole pc = symbol "/eros/domain/drivers/console/textconsole" _start;
+textconsole space = small program LIBDIR "drivers/console/textconsole";
+textconsole pc = symbol LIBDIR "drivers/console/textconsole" _start;
 textconsole iospace = misc DevicePrivs;
 textconsole schedule = sched(8);
 /**************************************************************/
@@ -41,22 +42,22 @@ textconsole key reg KR_SCHED = sched(8);
 run textconsole;
 
 
-MAKE_VIRTUAL_COPIER(mouseclient_vcsk,"/eros/domain/drivers/console/mouseclient");
+MAKE_VIRTUAL_COPIER(mouseclient_vcsk,LIBDIR "drivers/console/mouseclient");
 BOOT_CONSTRUCTOR(mouseclient_c,mouseclient);
 PROD_SPACE(mouseclient_c) = mouseclient_vcsk_c;
-PROD_PC(mouseclient_c) = symbol "/eros/domain/drivers/console/mouseclient" _start;
+PROD_PC(mouseclient_c) = symbol LIBDIR "drivers/console/mouseclient" _start;
 PROD_CONSTIT(mouseclient_c, KC_OSTREAM, 3) = misc Console;
 
-MAKE_VIRTUAL_COPIER(keycli_vcsk,"/eros/domain/drivers/console/keyclient");
+MAKE_VIRTUAL_COPIER(keycli_vcsk,LIBDIR "drivers/console/keyclient");
 BOOT_CONSTRUCTOR(keycli_c,keycli);
 PROD_SPACE(keycli_c) = keycli_vcsk_c;
-PROD_PC(keycli_c) = symbol "/eros/domain/drivers/console/keyclient" _start;
+PROD_PC(keycli_c) = symbol LIBDIR "drivers/console/keyclient" _start;
 PROD_CONSTIT(keycli_c, KC_OSTREAM, 3) = misc Console;
 
-MAKE_VIRTUAL_COPIER(consolestream_vcsk,"/eros/domain/drivers/console/consolestream");
+MAKE_VIRTUAL_COPIER(consolestream_vcsk,LIBDIR "drivers/console/consolestream");
 BOOT_CONSTRUCTOR(consolestream_c,consolestream);
 PROD_SPACE(consolestream_c) = consolestream_vcsk_c;
-PROD_PC(consolestream_c) = symbol "/eros/domain/drivers/console/consolestream" _start;
+PROD_PC(consolestream_c) = symbol LIBDIR "drivers/console/consolestream" _start;
 PROD_CONSTIT(consolestream_c,KC_OSTREAM,3) = misc Console;
 PROD_CONSTIT(consolestream_c, KC_TEXCON_S, 12) = start textconsole 0;
 PROD_CONSTIT(consolestream_c, KC_KEYCLI_C, 13) = keycli_c;

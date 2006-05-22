@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -29,6 +30,6 @@ BOOT_CONSTRUCTOR(mutex_c,mutex);
 
 /* mutex requires no special constituents */
 
-PROD_SPACE(mutex_c) = small program "/eros/domain/mutex";
-PROD_PC(mutex_c) = symbol "/eros/domain/mutex" _start;
+PROD_SPACE(mutex_c) = small program LIBDIR "mutex";
+PROD_PC(mutex_c) = symbol LIBDIR "mutex" _start;
 /* no keeper, no symbol table */

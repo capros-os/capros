@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -68,9 +69,8 @@ interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain/timer
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/timer
-	$(INSTALL) -d $(EROS_ROOT)/domain/timer
-	$(INSTALL) -m 755 $(TIMER_THREAD) $(TIMER) $(EROS_ROOT)/domain/timer
-	$(INSTALL) -m 644 $(IMGMAP) $(EROS_ROOT)/domain/timer
+	$(INSTALL) -d $(CAPROS_DOMAIN)/timer
+	$(INSTALL) -m 755 $(TIMER_THREAD) $(TIMER) $(CAPROS_DOMAIN)/timer
+	$(INSTALL) -m 644 $(IMGMAP) $(CAPROS_DOMAIN)/timer
 
 -include $(BUILDDIR)/.*.m

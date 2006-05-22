@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -20,14 +21,14 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-MAKE_VIRTUAL_COPIER(ps2_mousehelper_vcsk, "/eros/domain/winsys/ps2/mousehelper");
+MAKE_VIRTUAL_COPIER(ps2_mousehelper_vcsk, LIBDIR "winsys/ps2/mousehelper");
 BOOT_CONSTRUCTOR(ps2_mousehelper_c, ps2_mousehelper);
 PROD_SPACE(ps2_mousehelper_c) = ps2_mousehelper_vcsk_c;
-PROD_PC(ps2_mousehelper_c) = symbol "/eros/domain/winsys/ps2/mousehelper" _start;
+PROD_PC(ps2_mousehelper_c) = symbol LIBDIR "winsys/ps2/mousehelper" _start;
 PROD_CONSTIT(ps2_mousehelper_c, KC_OSTREAM, 3) = misc Console;
 
-MAKE_VIRTUAL_COPIER(ps2_keyhelper_vcsk, "/eros/domain/winsys/ps2/keyhelper");
+MAKE_VIRTUAL_COPIER(ps2_keyhelper_vcsk, LIBDIR "winsys/ps2/keyhelper");
 BOOT_CONSTRUCTOR(ps2_keyhelper_c,ps2_keyhelper);
 PROD_SPACE(ps2_keyhelper_c) = ps2_keyhelper_vcsk_c;
-PROD_PC(ps2_keyhelper_c) = symbol "/eros/domain/winsys/ps2/keyhelper" _start;
+PROD_PC(ps2_keyhelper_c) = symbol LIBDIR "winsys/ps2/keyhelper" _start;
 PROD_CONSTIT(ps2_keyhelper_c, KC_OSTREAM, 3) = misc Console;

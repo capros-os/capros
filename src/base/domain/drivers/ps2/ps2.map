@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -22,24 +23,24 @@
 
 #ifndef _PS2__
 #define _PS2__
-MAKE_VIRTUAL_COPIER(helper1_vcsk,"/eros/domain/drivers/ps2/helper1");
+MAKE_VIRTUAL_COPIER(helper1_vcsk,LIBDIR "drivers/ps2/helper1");
 BOOT_CONSTRUCTOR(helper1_c,helper1);
 PROD_SPACE(helper1_c) = helper1_vcsk_c;
-PROD_PC(helper1_c) = symbol "/eros/domain/drivers/ps2/helper1" _start;
+PROD_PC(helper1_c) = symbol LIBDIR "drivers/ps2/helper1" _start;
 PROD_CONSTIT(helper1_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(helper1_c, KC_DEVPRIVS, 4) = misc DevicePrivs;
 
-MAKE_VIRTUAL_COPIER(helper12_vcsk,"/eros/domain/drivers/ps2/helper12");
+MAKE_VIRTUAL_COPIER(helper12_vcsk,LIBDIR "drivers/ps2/helper12");
 BOOT_CONSTRUCTOR(helper12_c,helper12);
 PROD_SPACE(helper12_c) = helper12_vcsk_c;
-PROD_PC(helper12_c) = symbol "/eros/domain/drivers/ps2/helper12" _start;
+PROD_PC(helper12_c) = symbol LIBDIR "drivers/ps2/helper12" _start;
 PROD_CONSTIT(helper12_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(helper12_c, KC_DEVPRIVS, 4) = misc DevicePrivs;
 
-MAKE_VIRTUAL_COPIER(ps2reader_vcsk,"/eros/domain/drivers/ps2/ps2reader");
+MAKE_VIRTUAL_COPIER(ps2reader_vcsk,LIBDIR "drivers/ps2/ps2reader");
 BOOT_CONSTRUCTOR(ps2reader_c,ps2reader);
 PROD_SPACE(ps2reader_c) = ps2reader_vcsk_c;
-PROD_PC(ps2reader_c) = symbol "/eros/domain/drivers/ps2/ps2reader" _start;
+PROD_PC(ps2reader_c) = symbol LIBDIR "drivers/ps2/ps2reader" _start;
 PROD_CONSTIT(ps2reader_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(ps2reader_c, KC_DEVPRIVS, 4) = misc DevicePrivs;
 PROD_CONSTIT(ps2reader_c, KC_SLEEP, 8) = misc Sleep;

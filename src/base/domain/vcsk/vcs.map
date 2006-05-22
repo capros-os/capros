@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -89,8 +90,8 @@ zindex = new sense node;
  ********************************************************/
 
 /* These must be symbols because they need to be referenced later. */
-vcsk.seg = small program "/eros/domain/vcsk";
-vcsk.pc = symbol "/eros/domain/vcsk" _start;
+vcsk.seg = small program LIBDIR "vcsk";
+vcsk.pc = symbol LIBDIR "vcsk" _start;
 
 BOOT_CONSTRUCTOR(zs_c, zs);
 

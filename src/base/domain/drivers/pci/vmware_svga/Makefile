@@ -1,5 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -50,8 +51,8 @@ $(BUILDDIR)/vmware_svga: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
 
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/domain/drivers/pci
-	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/domain/drivers/pci
-	$(INSTALL) -m 644 vmware_svga.map $(EROS_ROOT)/domain/drivers/pci
+	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/pci
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers/pci
+	$(INSTALL) -m 644 vmware_svga.map $(CAPROS_DOMAIN)/drivers/pci
 
 -include $(BUILDDIR)/.*.m\

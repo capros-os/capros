@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -22,16 +23,16 @@
 
 #include <memmap.map>
 
-MAKE_VIRTUAL_COPIER(winsys_keeper_vcs, "/eros/domain/winsys/winsys-keeper");
+MAKE_VIRTUAL_COPIER(winsys_keeper_vcs, LIBDIR "winsys/winsys-keeper");
 BOOT_CONSTRUCTOR(winsys_keeper_c,winsys_keeper);
 PROD_SPACE(winsys_keeper_c) = winsys_keeper_vcs_c;
-PROD_PC(winsys_keeper_c) = symbol "/eros/domain/winsys/winsys-keeper" _start;
+PROD_PC(winsys_keeper_c) = symbol LIBDIR "winsys/winsys-keeper" _start;
 PROD_CONSTIT(winsys_keeper_c, KC_OSTREAM, 3) = misc Console;
 
-MAKE_VIRTUAL_COPIER(winsys_vcs, "/eros/domain/winsys/winsys");
+MAKE_VIRTUAL_COPIER(winsys_vcs, LIBDIR "winsys/winsys");
 BOOT_CONSTRUCTOR(winsys_c,winsys);
 PROD_SPACE(winsys_c) = winsys_vcs_c;
-PROD_PC(winsys_c) = symbol "/eros/domain/winsys/winsys" _start;
+PROD_PC(winsys_c) = symbol LIBDIR "winsys/winsys" _start;
 
 PROD_CONSTIT(winsys_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(winsys_c, KC_SLEEP, 4) = misc Sleep;

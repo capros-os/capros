@@ -2,6 +2,7 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -32,8 +33,8 @@
 
 /* helpers are small programs */
 helper = new process with constituents;
-helper space = small program "/eros/domain/net/shared_ipv4/helper";
-helper pc = symbol "/eros/domain/net/shared_ipv4/helper" _start;
+helper space = small program LIBDIR "net/shared_ipv4/helper";
+helper pc = symbol LIBDIR "net/shared_ipv4/helper" _start;
 helper iospace = misc DevicePrivs;
 helper schedule = sched(8);
 
@@ -47,10 +48,10 @@ helper key reg KR_SCHED = sched(8);
 run helper;
 
 
-MAKE_VIRTUAL_COPIER(enet_vcs,"/eros/domain/net/shared_ipv4/enet");
+MAKE_VIRTUAL_COPIER(enet_vcs,LIBDIR "net/shared_ipv4/enet");
 BOOT_CONSTRUCTOR(enet_c,enet);
 PROD_SPACE(enet_c) = enet_vcs_c;
-PROD_PC(enet_c) = symbol "/eros/domain/net/shared_ipv4/enet" _start;
+PROD_PC(enet_c) = symbol LIBDIR "net/shared_ipv4/enet" _start;
 PROD_CONSTIT(enet_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(enet_c, KC_SLEEP, 4) = misc Sleep;
 PROD_CONSTIT(enet_c, KC_PCI_PROBE_C, 6) = pci_probe_c;
@@ -62,8 +63,8 @@ PROD_CONSTIT(enet_c, KC_HELPER_C, 10) = start helper 0;
 
 /*** A small program for Timeout_Agent ***/
 timeout_agent = new process with constituents;
-timeout_agent space = small program "/eros/domain/net/shared_ipv4/timeout_agent";
-timeout_agent pc = symbol "/eros/domain/net/shared_ipv4/timeout_agent" _start;
+timeout_agent space = small program LIBDIR "net/shared_ipv4/timeout_agent";
+timeout_agent pc = symbol LIBDIR "net/shared_ipv4/timeout_agent" _start;
 timeout_agent iospace = misc DevicePrivs;
 timeout_agent schedule = sched(8);
 
@@ -78,8 +79,8 @@ run timeout_agent;
 
 /*** A small program for Xmit_Helper ***/
 xmit_helper = new process with constituents;
-xmit_helper space = small program "/eros/domain/net/shared_ipv4/xmit_helper";
-xmit_helper pc = symbol "/eros/domain/net/shared_ipv4/xmit_helper" _start;
+xmit_helper space = small program LIBDIR "net/shared_ipv4/xmit_helper";
+xmit_helper pc = symbol LIBDIR "net/shared_ipv4/xmit_helper" _start;
 xmit_helper iospace = misc DevicePrivs;
 xmit_helper schedule = sched(8);
 
@@ -93,8 +94,8 @@ run xmit_helper;
 
 /*** A small program for Recv_Helper ***/
 recv_helper = new process with constituents;
-recv_helper space = small program "/eros/domain/net/shared_ipv4/recv_helper";
-recv_helper pc = symbol "/eros/domain/net/shared_ipv4/recv_helper" _start;
+recv_helper space = small program LIBDIR "net/shared_ipv4/recv_helper";
+recv_helper pc = symbol LIBDIR "net/shared_ipv4/recv_helper" _start;
 recv_helper iospace = misc DevicePrivs;
 recv_helper schedule = sched(8);
 
@@ -106,10 +107,10 @@ recv_helper key reg KR_SCHED = sched(8);
 
 run recv_helper;
 
-MAKE_VIRTUAL_COPIER(netsys_vcs, "/eros/domain/net/shared_ipv4/netsys");
+MAKE_VIRTUAL_COPIER(netsys_vcs, LIBDIR "net/shared_ipv4/netsys");
 BOOT_CONSTRUCTOR(netsys_c,netsys);
 PROD_SPACE(netsys_c) = netsys_vcs_c;
-PROD_PC(netsys_c) = symbol "/eros/domain/net/shared_ipv4/netsys" _start;
+PROD_PC(netsys_c) = symbol LIBDIR "net/shared_ipv4/netsys" _start;
 PROD_CONSTIT(netsys_c, KC_OSTREAM, 3) = misc Console;
 PROD_CONSTIT(netsys_c, KC_SLEEP, 4) = misc Sleep;
 PROD_CONSTIT(netsys_c, KC_MEMMAP_C, 9) = memmap_c;
