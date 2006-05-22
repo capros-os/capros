@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -25,7 +26,7 @@ default: package
 EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-TARGETS=$(BUILDDIR)/mkimage
+TARGETS=$(BUILDDIR)/$(EROS_TARGET)-mkimage
 #OPTIM=-O
 OPTIM=-g
 # Use MYOBJECTS, because automatic dependency generation doesn't work
@@ -42,7 +43,7 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 all: $(TARGETS)
 
-$(BUILDDIR)/mkimage: $(OBJECTS) $(LIBS)
+$(BUILDDIR)/$(EROS_TARGET)-mkimage: $(OBJECTS) $(LIBS)
 	$(GPLUS) $(GPLUSFLAGS) -o $@ $(OBJECTS) $(XENV_LIBDIR) $(LIBS) $(OTHER_LIBS)
 
 $(BUILDDIR)/.gram.m: $(BUILDDIR)/gram.c $(MAKE_BUILDDIR)

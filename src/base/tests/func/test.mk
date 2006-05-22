@@ -43,41 +43,4 @@ KERNDEP=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(KERNEL)
 # so shap can see it better when necessary:
 DDBS=1440k
 
-
-install: $(TARGETS) $(BUILDDIR)/test.sysimg
-
-$(BUILDDIR)/test.sysimg: $(TARGETS) $(IMGMAP)
-	$(EROS_ROOT)/host/bin/mkimage $(MKIMAGEFLAGS) -o $(BUILDDIR)/test.sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
-
-init.hd: $(KERNDEP) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
-
-test.hd: $(BUILDDIR)/test.sysimg $(KERNDEP) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/setvol -D $(EROS_HD)
-	cp $(KERNPATH) $(CAPROS_BOOT_PARTITION)/CapROS-kernel-1
-	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map -g $(CAPROS_BOOT_PARTITION) -v 1 $(EROS_HD) $(BUILDDIR)/test.sysimg | tee $(BUILDDIR)/sysgen.out
-
-$(BUILDDIR)/test.sysvol: $(BUILDDIR)/test.sysimg $(KERNDEP) $(VOLMAP)
-	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/test.sysvol
-	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/test.sysvol $(BUILDDIR)/test.sysimg
-
-tstflop: all $(BUILDDIR)/test.sysvol
-	dd if=$(BUILDDIR)/test.sysvol of=$(EROS_FD) bs=$(DDBS)
-	$(EROS_ROOT)/host/bin/setboot -w $(EROS_FD)
-	sync
-	sleep 5
-
-vmware: $(BUILDDIR) $(BUILDDIR)/vmfloppy
-	$(VMWARE) -x -s floppy0.fileType=file -s floppy0.fileName=`pwd`/$(BUILDDIR)/vmfloppy $(HOME)/vmware/EROS/EROS.cfg
-
-# depend stuff
-DEPEND: $(BUILDDIR)/.test.sysimg.m
-
-# Handles test.sysimg dependencies.  This line *must* have all of the 
-#arguments from the "test.sysimg:" line, above.
-
-$(BUILDDIR)/.test.sysimg.m: $(TARGETS) $(IMGMAP)
-	-$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/test.sysimg $(IMGMAP) $(BUILDDIR)/.test.sysimg.m >/dev/null 2>&1
-
--include $(BUILDDIR)/.*.m
-
+include $(EROS_SRC)/build/make/sys.$(EROS_TARGET).mk

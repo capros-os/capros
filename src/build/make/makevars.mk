@@ -71,6 +71,7 @@ export EROS_CONFIG
 
 INSTALL=$(EROS_SRC)/build/bin/erosinstall
 REPLACE=$(EROS_SRC)/build/bin/move-if-change
+MKIMAGE=$(EROS_ROOT)/host/bin/$(EROS_TARGET)-mkimage
 MKIMAGEDEP=$(EROS_SRC)/build/bin/mkimagedep
 
 #

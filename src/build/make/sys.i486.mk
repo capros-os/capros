@@ -24,7 +24,7 @@
 install: $(BUILDDIR)/sysimg
 
 $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
-	$(EROS_ROOT)/host/bin/mkimage $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
+	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
 
 init.hd: $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
@@ -48,8 +48,20 @@ tstflop: install $(BUILDDIR)/sysvolfd
 	sync
 	sleep 5
 
+$(BUILDDIR)/zsysvol: $(BUILDDIR)/sysvol	# this is broken
+	cp $(BUILDDIR)/sysvol $(BUILDDIR)/zsysvol
+	$(EROS_ROOT)/host/bin/setvol -r $(SETVOL_FLAGS) $(BUILDDIR)/zsysvol
+
+$(BUILDDIR)/vmfloppy: $(BUILDDIR)/zsysvol
+	dd if=/dev/zero of=$(BUILDDIR)/vmfloppy bs=1024 count=1440
+	dd if=$(BUILDDIR)/zsysvol of=$(BUILDDIR)/vmfloppy conv=notrunc
+
 vmware: $(BUILDDIR) $(BUILDDIR)/vmfloppy
-	vmware -x -s floppy0.fileType=file -s floppy0.fileName=`pwd`/$(BUILDDIR)/vmfloppy $(HOME)/vmware/EROS/EROS.cfg
+	$(VMWARE) -x -s floppy0.fileType=file -s floppy0.fileName=`pwd`/$(BUILDDIR)/vmfloppy $(HOME)/vmware/EROS/EROS.cfg
+
+bochs: $(BUILDDIR) $(BUILDDIR)/vmfloppy
+	bochs -q -f $(EROS_ROOT)/src/build/scripts/bochsrc.eros \
+		'boot:a' "floppya: 1_44=$(BUILDDIR)/vmfloppy, status=inserted"
 
 # depend stuff
 DEPEND: $(BUILDDIR)/.sysimg.m

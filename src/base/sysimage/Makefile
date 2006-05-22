@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -58,7 +59,7 @@ install all: $(TARGETS)
 .force:
 
 $(BUILDDIR)/sysimg: imgmap # .force
-	$(EROS_ROOT)/host/bin/mkimage $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg imgmap
+	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg imgmap
 
 $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg  $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol
