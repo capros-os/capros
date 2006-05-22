@@ -801,12 +801,15 @@ void
 db_activity_print_cmd(db_expr_t addr, int have_addr,
 		    db_expr_t cnt/* count */, char * mdf/* modif */)
 {
-  Activity *t = act_Current();
-  const char * cur_str = "current ";
+  Activity *t;
+  const char * cur_str;
 
   if (have_addr) {
     t = (Activity *) addr;
     cur_str="";
+  } else {
+    t = act_Current();
+    cur_str="current ";
   }
   
   if (t) {
@@ -814,7 +817,7 @@ db_activity_print_cmd(db_expr_t addr, int have_addr,
     if (t->context && act_IsUser(t))
       proc_SyncActivity((Process *) t->context);
     
-    db_eros_print_activity(t);
+//    db_eros_print_activity(t);
 
     db_printf("%sactivity 0x%08x (%s) ctxt 0x%08x (%s) prio=%d\n",
 	      cur_str,

@@ -64,11 +64,11 @@ db_trap(int type, int code)
 	      db_activity_print_cmd(0, 0, 0, 0);
 	    }
 	    if (bkpt)
-		db_printf("Breakpoint at\t");
+		db_printf("Breakpoint at ");
 	    else if (watchpt)
-		db_printf("Watchpoint at\t");
+		db_printf("Watchpoint at ");
 	    else
-		db_printf("Stopped at\t");
+		db_printf("Stopped at ");
 	    db_dot = PC_REGS(OPTION_DDB_REGS);
 	    db_print_loc_and_inst(db_dot);
 
