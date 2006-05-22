@@ -58,7 +58,6 @@ proc_WriteDisableSmallSpaces()
 static void
 MakeSmallSpaces()
 {
-  uint32_t nFrames = 0;
   PTE *pageTab = 0;
   uint32_t vaddr = 0;
   uint32_t dirndx = 0;
@@ -67,16 +66,18 @@ MakeSmallSpaces()
 
   assert (KTUNE_NCONTEXT % 32 == 0);
 
-  /* Allocate the page *tables* for the small spaces. */
+  /* Allocate the page *tables* for the small spaces.
+     We want to have one small space for every context/process. */
   
-  nFrames = KTUNE_NCONTEXT / 32;
+  uint32_t nFrames = KTUNE_NCONTEXT * SMALL_SPACE_PAGES;	/* number
+		of pages in the small spaces */
+  nFrames = nFrames / 0x400;	/* number of page *tables* */
   
   proc_smallSpaces = 
     KPAtoP(PTE *,physMem_Alloc(nFrames * EROS_PAGE_SIZE, &physMem_pages));
+  assert (((uint32_t)proc_smallSpaces & EROS_PAGE_MASK) == 0);
 
   bzero(proc_smallSpaces, nFrames * EROS_PAGE_SIZE);
-
-  assert (((uint32_t)proc_smallSpaces & EROS_PAGE_MASK) == 0);
 
   pageTab = proc_smallSpaces;
   
@@ -119,6 +120,10 @@ GetKernelPageTable(kva_t va)
 }
 #endif
 
+/* Map the page at physical address pa to linear address va.
+   If mode contains PTE_PGSZ, the page size is 4MB.
+   Otherwise the page size is 4KB, and a page table is allocated if necessary. 
+   mode contains other bits for the PTE. */
 static void 
 MapKernelPage(kva_t va, kpa_t pa, uint32_t mode)
 {
@@ -151,8 +156,6 @@ MapKernelPage(kva_t va, kpa_t pa, uint32_t mode)
 
     assert (((uint32_t)pageTab & EROS_PAGE_MASK) == 0);
       
-    /* pageTab = ::new PTE[NPTE_PER_PAGE]; */
-
 #if 0
     printf("Allocated new page table at 0x%x, dirndx 0x%x\n",
 		   pageTab, dirndx);
@@ -387,6 +390,7 @@ physMem_ReservePhysicalMemory()
    are supervisor-only.
    */
 #ifdef NEW_KMAP
+#error This is not the case.
 kpa_t DirectoryCache;
 PTE * DirectoryPTECache;
 
@@ -408,7 +412,7 @@ i486_BuildKernelMap()
 
   /* Note that the master kernel mapping page itself is mapped
      read-only. We would not map it at all, but we need to be able to
-     copy entries from it when creating per-page directories. By the
+     copy entries from it when creating per-process directories. By the
      time we have exited from the BuildKernelMap() procedure, we will
      be done with all modifications to the master kernel mapping
      page.  */
@@ -616,7 +620,7 @@ i486_BuildKernelMap()
      * directory, but is never referenced by virtual addresses once
      * we load the new mapping table pointer:
      */
-    if (vaddr == 0)
+    if (vaddr == 0)	// FIXME: should this be paddr?
       mode = 0;
 
     MapKernelPage(PTOV(paddr), paddr, mode);

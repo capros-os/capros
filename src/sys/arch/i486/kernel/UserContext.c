@@ -60,7 +60,8 @@ Process *proc_ContextCache = NULL;
 Process *proc_fpuOwner;
 #endif
 #ifdef OPTION_SMALL_SPACES
-PTE *proc_smallSpaces = 0;
+/* Pointer to the (contiguous) page tables for small spaces. */
+PTE * proc_smallSpaces = 0;
 #endif
 
 bool
@@ -535,14 +536,11 @@ proc_ValidateRegValues(Process* thisPtr)
   
 #undef validate
   
-  if ( (thisPtr->trapFrame.EFLAGS & MASK_EFLAGS_Interrupt) == 0 ) {
-    /* interrupts must be enabled, various others not: */
-    code = FC_RegValue;
-  }
-  else if ( thisPtr->trapFrame.EFLAGS & MASK_EFLAGS_Nested ) {
-    code = FC_RegValue;
-  }
-  else if ( iopl != 0 && !proc_HasDevicePriveleges(thisPtr) ) {
+  /* Interrupts must be enabled. Just set the bit rather than bitch. */
+  thisPtr->trapFrame.EFLAGS |= MASK_EFLAGS_Interrupt;
+  thisPtr->trapFrame.EFLAGS &= ~MASK_EFLAGS_Nested;
+
+  if ( iopl != 0 && !proc_HasDevicePriveleges(thisPtr) ) {
     code = FC_RegValue;
   }
 
