@@ -131,7 +131,7 @@
     </p>
     <ul>
     <li>
-      Persistent processes may call non-persisten processes, and
+      Persistent processes may call non-persistent processes, and
       non-persistent nodes may hold capabilities to persistent objects. 
       When a checkpoint is taken, the non-persistent nodes are examined.
       Any resume keys found there to persistent processes
@@ -143,13 +143,14 @@
     </li>
     <li>
       Non-persistent nodes are initialized with no capabilities to
+      persisten objects. 
     <li>
       Persistent nodes may hold capabilities to non-persistent objects.
       It is the responsibility of the non-persistent world to make sure
       that the only capabilities that can find their way to the
       non-persistent world are ones whose authority does not change
       on a restart from checkpoint - namely, start keys to the
-      "front door" of a driver. [Be more precise.]
+      "front door" of a driver. 
     </li>
     </ul>
     <p>
