@@ -98,8 +98,6 @@ void objC_AgePageFrames();
 void objC_WaitForAvailablePageFrame();
 ObjectHeader *objC_GrabPageFrame();
 
-bool objC_GrabThisFrame(ObjectHeader *);
-
 void objC_AddDevicePages(PmemInfo *);
 
 INLINE uint32_t 

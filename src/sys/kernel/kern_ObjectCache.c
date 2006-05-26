@@ -52,6 +52,8 @@
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
+static void objC_GrabThisPageFrame(ObjectHeader *);
+
 struct PageInfo {
   uint32_t nPages;
   uint32_t basepa;
@@ -962,7 +964,13 @@ objC_EvictFrame(ObjectHeader *pObj)
   default: assert(false);	// must be a page, not a node
   }
 
-  objC_GrabThisFrame(pObj);
+  // Unlink from free list.
+  ObjectHeader * * pp = &objC_firstFreePage;
+  while (*pp != pObj)
+    pp = &(*pp)->next;
+  (*pp) = pObj->next;
+
+  objC_GrabThisPageFrame(pObj);
   return true;
 }
 
@@ -1196,21 +1204,22 @@ objC_WaitForAvailablePageFrame()
 ObjectHeader *
 objC_GrabPageFrame()
 {
-  ObjectHeader *pObHdr = 0;
+  ObjectHeader *pObj = 0;
 
   objC_WaitForAvailablePageFrame();
 
   assert (objC_nFreePageFrames > 0);
 
   assert(objC_firstFreePage);
-  pObHdr = objC_firstFreePage;
+  pObj = objC_firstFreePage;
+  objC_firstFreePage = objC_firstFreePage->next;
 
   DEBUG(ndalloc)
-    printf("objC_GrabPageFrame obj=0x%08x type=%d\n", pObHdr, pObHdr->obType);
+    printf("objC_GrabPageFrame obj=0x%08x\n", pObj);
 
-  objC_GrabThisFrame(pObHdr);
+  objC_GrabThisPageFrame(pObj);
 
-  return pObHdr;
+  return pObj;
 }
 
 void
@@ -1229,82 +1238,24 @@ ObjectCache::RequirePageFrames(uint32_t n)
 }
 #endif
 
-bool
-objC_GrabThisFrame(ObjectHeader *pObj)
+static void
+objC_GrabThisPageFrame(ObjectHeader *pObj)
 {
-#ifndef NDEBUG
-  uint32_t i = 0;
-#endif
-  kva_t kva;
+  assert(pObj->obType == ot_PtFreeFrame);
+  objC_nFreePageFrames--;
 
-  if (pObj->obType == ot_NtFreeFrame) {
-    Node *pNode = (Node *) pObj;
+  assert(keyR_IsEmpty(&pObj->keyRing));
 
-    if (pNode == objC_firstFreeNode) {
-      objC_firstFreeNode = (Node *) objC_firstFreeNode->node_ObjHdr.next;
-    }
-    else {
-      Node *nodeChain = objC_firstFreeNode;
-      while (nodeChain->node_ObjHdr.next != DOWNCAST(pNode, ObjectHeader))
-	nodeChain = (Node *) nodeChain->node_ObjHdr.next;
-      
-      nodeChain->node_ObjHdr.next = nodeChain->node_ObjHdr.next->next;
-    }
+  kva_t kva = pObj->pageAddr;	// preserve this field
+  bzero(pObj, sizeof(*pObj));
+  pObj->pageAddr = kva;
 
-    objC_nFreeNodeFrames--;
+  pObj->obType = ot_PtNewAlloc; /* until further notice */
 
-    /* Rip it off the hash chain, if need be: */
-    objH_Unintern(DOWNCAST(pNode, ObjectHeader));	/* Should it ever be interned? */
-    assert(keyR_IsEmpty(&pObj->keyRing));
-    bzero(pNode, sizeof(ObjectHeader));
-
-    pNode->node_ObjHdr.obType = ot_NtUnprepared;
-    
-#ifndef NDEBUG
-    for (i = 0; i < EROS_NODE_SIZE; i++) {
-      if (keyBits_IsUnprepared(&pNode->slot[i]) == false)
-	dprintf(true, "Virgin node 0x%08x had prepared slot %d\n",
-			pNode, i);
-    }
-#endif
-    assert(objC_ValidNodePtr(pNode));
-
-    DEBUG(ndalloc)
-      printf("Allocated node=0x%08x nfree=%d\n", pNode, objC_nFreeNodeFrames);
-  }
-  else if (pObj->obType == ot_PtFreeFrame) {
-    if (pObj == objC_firstFreePage) {
-      objC_firstFreePage = objC_firstFreePage->next;
-    }
-    else {
-      ObjectHeader *pgChain = objC_firstFreePage;
-      while (pgChain->next != pObj)
-	pgChain = pgChain->next;
-      
-      pgChain->next = pgChain->next->next;
-    }
-    objC_nFreePageFrames--;
-
-    assert(keyR_IsEmpty(&pObj->keyRing));
-
-
-    kva = pObj->pageAddr;
-    bzero(pObj, sizeof(*pObj));
-    pObj->pageAddr = kva;
-
-    pObj->obType = ot_PtNewAlloc; /* until further notice */
-  
-    assert ( pte_ObIsNotWritable(pObj) );
-  }
-  else {
-    assertex(pObj, "GrabThisFrame() on non-free frame" && false);
-    return false;
-  }
+  assert(pte_ObIsNotWritable(pObj));
 
   pObj->age = age_NewBorn;
   objH_ResetKeyRing(pObj);
-
-  return true;
 }
 
 Node *
@@ -1319,12 +1270,35 @@ objC_GrabNodeFrame()
   assert(objC_nFreeNodeFrames);
   
   pNode = objC_firstFreeNode;
+  objC_firstFreeNode = (Node *) objC_firstFreeNode->node_ObjHdr.next;
+  objC_nFreeNodeFrames--;
+
+  ObjectHeader * const pObj = &pNode->node_ObjHdr;
+  assert(pObj->obType == ot_NtFreeFrame);
+
+  /* Rip it off the hash chain, if need be: */
+  objH_Unintern(pObj);	/* Should it ever be interned? */
+  assert(keyR_IsEmpty(&pObj->keyRing));
+  bzero(pObj, sizeof(ObjectHeader));
+
+  pNode->node_ObjHdr.obType = ot_NtUnprepared;
+
+#ifndef NDEBUG
+  uint32_t i;
+  for (i = 0; i < EROS_NODE_SIZE; i++) {
+    if (keyBits_IsUnprepared(&pNode->slot[i]) == false)
+      dprintf(true, "Virgin node 0x%08x had prepared slot %d\n",
+		pNode, i);
+  }
+#endif
+  assert(objC_ValidNodePtr(pNode));
+
   DEBUG(ndalloc)
-    printf("objC_GrabNodeFrame obj=0x%08x type=%d\n", pNode,
-           DOWNCAST(pNode, ObjectHeader)->obType);
+    printf("Allocated node=0x%08x nfree=%d\n", pNode, objC_nFreeNodeFrames);
 
-  objC_GrabThisFrame(DOWNCAST(pNode, ObjectHeader));
-
+  pObj->age = age_NewBorn;
+  objH_ResetKeyRing(pObj);
+    
   return pNode;
 }
 
