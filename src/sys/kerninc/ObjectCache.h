@@ -125,9 +125,6 @@ ObjectHeader *objC_CopyObject(ObjectHeader *pObj);
  */
 bool objC_EvictFrame(ObjectHeader *pObj);
 
-/* Clean out the node/page frame, but do not remove it from memory. */
-bool objC_CleanFrame(ObjectHeader *pObj, bool invalidateProducts /*@ default true @*/);
-
 /* Releases node/page frame to free list */
 void objC_ReleaseFrame(ObjectHeader *);
 

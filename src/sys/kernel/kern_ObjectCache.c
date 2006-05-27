@@ -54,6 +54,8 @@
 
 static void objC_GrabThisPageFrame(ObjectHeader *);
 
+static bool objC_CleanFrame(ObjectHeader * pObj, bool invalidateProducts);
+
 struct PageInfo {
   uint32_t nPages;
   uint32_t basepa;
@@ -170,6 +172,14 @@ objC_ContainingNode(void *vp)
   return &nnt[nuint8_ts/sizeof(Node)];
 }
 
+/* Temporary - see if the keyring is used */
+static void
+NullKeyRing(KeyRing * kr)
+{
+  kr->next = NULL;
+  kr->prev = NULL;
+}
+
 void
 objC_AllocateUserPages()
 {
@@ -194,7 +204,7 @@ objC_AllocateUserPages()
     KPAtoP(void *, physMem_Alloc(objC_nPages*sizeof(ObjectHeader), &physMem_any));
   for (j = 0; j < objC_nPages; j++) {
     ObjectHeader *temp = &objC_coreTable[j];
-    keyR_ResetRing(&temp->keyRing);
+    NullKeyRing(&temp->keyRing);
     temp->flags = 0;
     temp->userPin = 0;
     temp->obType = ot_PtFreeFrame;
@@ -284,7 +294,7 @@ objC_AllocateUserPages()
   /* Link all of the resulting core table entries onto the free page list: */
   
   for (i = 0; i < objC_nPages; i++) {
-    objC_coreTable[i].obType = ot_PtFreeFrame;
+    objC_coreTable[i].obType = ot_PtFreeFrame;	/* redundant? */
     objC_coreTable[i].next = &objC_coreTable[i+1];
   }
 
@@ -308,7 +318,7 @@ objC_AddDevicePages(PmemInfo *pmi)
   pmi->firstObHdr = MALLOC(ObjectHeader, pmi->nPages);
   for (j = 0; j < pmi->nPages; j++) {
     ObjectHeader *temp = &pmi->firstObHdr[j];
-    keyR_ResetRing(&temp->keyRing);
+    NullKeyRing(&temp->keyRing);
     temp->flags = 0;
     temp->userPin = 0;
     temp->obType = ot_PtFreeFrame;
@@ -759,6 +769,7 @@ objC_AgeNodeFrames()
       curNode++;
 
       assert (!objH_IsDirty(DOWNCAST(pObj, ObjectHeader)));
+      assert(keyR_IsEmpty(&pObj->node_ObjHdr.keyRing));
     
       /* Remove this page from the cache and return it to the free page
        * list:
@@ -851,11 +862,11 @@ objC_CopyObject(ObjectHeader *pObj)
     printf("objC_CopyObject obj=0x%08x\n", pObj);
 
   assert(pObj->prep_u.products == 0);
-  assert(keyR_IsEmpty(&pObj->keyRing));
 
   objH_TransLock(pObj);
 
   if (pObj->obType == ot_PtDataPage) {
+    assert(keyR_IsEmpty(&pObj->keyRing));
     /* Copy data page only, not ot_PtDevicePage. */
     /* Object is now free of encumberance, but it wasn't an evictable
      * object, and it may be dirty. We need to find another location
@@ -875,6 +886,7 @@ objC_CopyObject(ObjectHeader *pObj)
   else { /* It's a node */
     assert (pObj->obType <= ot_NtLAST_NODE_TYPE
             && pObj->obType != ot_NtFreeFrame);
+    assert(keyR_IsEmpty(&pObj->keyRing));
 
     oldNode = (Node *) pObj;
     newNode = objC_GrabNodeFrame();
@@ -958,6 +970,7 @@ objC_EvictFrame(ObjectHeader *pObj)
 
       objH_ClearFlags(pObj, OFLG_CKPT | OFLG_DIRTY);
     }
+    assert(keyR_IsEmpty(&pObj->keyRing));
     objC_ReleaseFrame(pObj);
     break;
 
@@ -974,6 +987,8 @@ objC_EvictFrame(ObjectHeader *pObj)
   return true;
 }
 
+/* Clean out the node/page frame, but do not remove it from memory. */
+/* pObj->obType must be node or ot_PtDataPage. */
 bool
 objC_CleanFrame(ObjectHeader *pObj, bool invalidateProducts)
 {
@@ -1089,7 +1104,6 @@ objC_AgePageFrames()
   static uint32_t curPage = 0;
   uint32_t count = 0;
   ObjectHeader *pObj = 0;
-  ObjectHeader *reclaimedObject = 0;
 
   uint32_t nStuck = 0;
   uint32_t nPasses = 200;	/* arbitrary - catches kernel bugs and */
@@ -1108,21 +1122,35 @@ objC_AgePageFrames()
       pObj = objC_GetCorePageFrame(curPage);
       
       /* Some page types do not get aged: */
-      if (pObj->obType == ot_PtNewAlloc) {
+      switch (pObj->obType) {
+      case ot_PtNewAlloc:
+      case ot_PtDevicePage:
+      case ot_PtKernelHeap:
 	nStuck++;
+      case ot_PtFreeFrame:
 	continue;
+
+#ifdef USES_MAPPING_PAGES
+      case ot_PtMappingPage:
+	assert(objH_IsDirty(pObj) == false);
+
+        /* Mapping pages cannot go out if their producer is pinned,
+        because they are likely to be involved in page translation. */
+
+        ObjectHeader * pProducer = pObj->kt_u.mp.producer;
+	if (objH_IsUserPinned(pProducer))
+	  continue;
+	if (objH_IsKernelPinned(pProducer))
+	  continue;
+        break;
+#endif
+
+      case ot_PtDataPage:
+        break;
+
+      default:
+        assert(false);
       }
-      if (pObj->obType == ot_PtDevicePage) {
-	nStuck++;
-	continue;
-      }
-      if (pObj->obType == ot_PtKernelHeap) {
-	nStuck++;
-	continue;
-      }
-    
-      if (pObj->obType == ot_PtFreeFrame)
-	continue;
 	  
       /* Some pages cannot be aged because they are active or pinned: */
       if (objH_IsUserPinned(pObj))
@@ -1130,21 +1158,6 @@ objC_AgePageFrames()
       if (objH_IsKernelPinned(pObj))
 	continue;
     
-#ifdef USES_MAPPING_PAGES
-      /* Or because their producer is pinned -- these cannot go out
-       * because they are likely to be involved in page translation.
-       */
-      if (pObj->obType == ot_PtMappingPage) {
-        ObjectHeader * pProducer = pObj->kt_u.mp.producer;
-	assert(objH_IsDirty(pObj) == false);
-
-	if (objH_IsUserPinned(pProducer))
-	  continue;
-	if (objH_IsKernelPinned(pProducer))
-	  continue;
-      }
-#endif
-
       if (pObj->age == age_PageOut) {
 	/* Mapping pages should never make it to PageOut age, because
 	 * they should be zapped at the invalidate age. It's
@@ -1165,7 +1178,8 @@ objC_AgePageFrames()
 	 * list:
 	 */
 	curPage++;
-	objC_ReleaseFrame(reclaimedObject);
+        assert(keyR_IsEmpty(&pObj->keyRing));
+	objC_ReleaseFrame(pObj);
 
 	return;
       }
@@ -1244,8 +1258,6 @@ objC_GrabThisPageFrame(ObjectHeader *pObj)
   assert(pObj->obType == ot_PtFreeFrame);
   objC_nFreePageFrames--;
 
-  assert(keyR_IsEmpty(&pObj->keyRing));
-
   kva_t kva = pObj->pageAddr;	// preserve this field
   bzero(pObj, sizeof(*pObj));
   pObj->pageAddr = kva;
@@ -1255,7 +1267,7 @@ objC_GrabThisPageFrame(ObjectHeader *pObj)
   assert(pte_ObIsNotWritable(pObj));
 
   pObj->age = age_NewBorn;
-  objH_ResetKeyRing(pObj);
+  NullKeyRing(&pObj->keyRing);
 }
 
 Node *
@@ -1314,8 +1326,6 @@ objC_ReleaseFrame(ObjectHeader *pObHdr)
 
   assert(pObHdr);
   
-  assert(keyR_IsEmpty(&pObHdr->keyRing));
-
   /* Not certain that *anything* handed to ReleaseFrame() should be
    * dirty, but...
    */
@@ -1345,6 +1355,7 @@ objC_ReleaseFrame(ObjectHeader *pObHdr)
   else {
     pObHdr->obType = ot_PtFreeFrame;
     pObHdr->next = objC_firstFreePage;
+    NullKeyRing(&pObHdr->keyRing);
 
     objC_firstFreePage = pObHdr;
   

@@ -130,16 +130,27 @@ check_Pages()
 
     ObjectHeader *pPage = objC_GetCorePageFrame(pg);
 
-    assert(pPage->obType > ot_NtLAST_NODE_TYPE);
-
-    if (pPage->obType == ot_PtFreeFrame || pPage->obType == ot_PtNewAlloc)
+    switch (pPage->obType) {
+    case ot_PtFreeFrame:
+    case ot_PtNewAlloc:
+    case ot_PtKernelHeap:
       continue;
 
-#ifndef NDEBUG
-    if ( !keyR_IsValid(&pPage->keyRing, pPage) ) {
-      result = false;
+#ifdef USES_MAPPING_PAGES
+    case ot_PtMappingPage:
+      if (! check_MappingPage(pPage)) {
+	result = false;
+      }
       break;
-    }
+#endif
+
+    case ot_PtDevicePage:
+    case ot_PtDataPage:
+#ifndef NDEBUG
+      if ( !keyR_IsValid(&pPage->keyRing, pPage) ) {
+        result = false;
+        break;
+      }
 #endif
 
 #ifdef OPTION_OB_MOD_CHECK
@@ -171,19 +182,17 @@ check_Pages()
 		       (objH_GetFlags(pPage, OFLG_DIRTY) ? 'y' : 'n'),
 		       (objH_GetFlags(pPage, OFLG_REDIRTY) ? 'y' : 'n'));
 	result = false;
-	break;
+        break;
       }
     }
-
 #endif
+      break;
 
-#ifdef USES_MAPPING_PAGES
-    if (pPage->obType == ot_PtMappingPage)
-      if ( check_MappingPage(pPage) == false ) {
-	result = false;
-	break;
-      }
-#endif
+    default:
+      assert(false);	// should not be a node type
+    }
+
+    if (! result) break;	// no point continuing the loop
   }
 
   irq_ENABLE();
