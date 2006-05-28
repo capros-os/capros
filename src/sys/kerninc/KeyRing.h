@@ -2,6 +2,7 @@
 #define __KEYRING_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -22,12 +23,6 @@
 
 /* KeyRing is an overlay on both the KeyBits structure and the
  * ObjectHeader structure.
- * The uint32_t filler is a kludge: it allows the first word of the
- * KeyBits structure to be used for the key type, etc.
- * The key type is more frequently accessed, and on some machines
- * the first word can be more efficiently addressed. 
- * The filler can be unioned with a one-word object
- * to avoid wasting the space of the first field.
  */
 #include <kerninc/Link.h>
 
@@ -53,7 +48,7 @@ bool keyR_IsValid(const KeyRing *thisPtr, const void *);
 INLINE bool 
 keyR_IsEmpty(const KeyRing *thisPtr)
 {
-  return (thisPtr->next == thisPtr) ? true : false;
+  return (thisPtr->next == thisPtr);
 }
   
 INLINE void 

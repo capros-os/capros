@@ -288,7 +288,7 @@ Depend_WriteDisableProduct(ObjectHeader *pObj)
 }
 
 /* Walk the node looking for an acceptable product: */
-ObjectHeader *
+static ObjectHeader *
 objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi /*@not null@*/ ,
                  unsigned int tblSize, 
                  bool rw, bool ca)
