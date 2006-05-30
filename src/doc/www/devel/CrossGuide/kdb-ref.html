@@ -61,39 +61,39 @@
           <p>
           <dl>
           <dt>show inv
-          <dd>If an CapROS invocation is active, this command prints 
+          <dd>If a CapROS invocation is active, this command prints 
               some information in the inv structure.
           <dt>show entry
-          <dd>If an CapROS invocation is active, this command prints
+          <dd>If a CapROS invocation is active, this command prints
               the information in the inv.entry structure.
           <dt>show exit
-          <dd>If an CapROS invocation is active, this command prints
+          <dd>If a CapROS invocation is active, this command prints
               the information in the inv.exit structure.
           <dt>show invokee
-          <dd>If an CapROS invocation is active, this command prints
+          <dd>If a CapROS invocation is active, this command prints
               the context of the invokee.
-          <dt>show cckeys
-          <dd>Print the key registers of the current thread.
+          <dt>show keyregs [&lt;address&gt]
+          <dd>Print the key registers of the current or specified process.
           <dt>show invkeys
-          <dd>If an CapROS invocation is active, this command prints
+          <dd>If a CapROS invocation is active, this command prints
               the key registers of the invokee.
           <dt>show key &lt;address&gt
           <dd>Print the key at the specified address.
-          <dt>show cckr [&lt;address&gt]
+          <dt>show keyring [&lt;address&gt]
           <dd>Print all the keys that refer to the process
               context at the specified address (the keyring of the context).
               If no address is specified, this command prints
               the information for the current thread.
-          <dt>show thread [&lt;address&gt]
-          <dd>Print the thread at the specified address.
+          <dt>show activity [&lt;address&gt]
+          <dd>Print the Activity at the specified address.
               If no address is specified, this command prints
-              the current thread.
-          <dt>show uthreads
-          <dd>Print all the threads.
+              the current activity.
+          <dt>show activities
+          <dd>Print all the Activitys.
           <dt>show ctxt [&lt;address&gt;]
-          <dd>Print the process context at the specified address.
+          <dd>Print the Process at the specified address.
               If no address is specified, this command prints the current
-              thread's context.
+              Process.
           <dt>show sa &lt;address&gt
           <dd>Print the registers in the fixregs_t
               save area at the specified address.
@@ -103,6 +103,21 @@
           <dd>Print information about all the nodes in memory.
           <dt>show pages
           <dd>Print information about all the pages in memory.
+          <dt>show pmem
+          <dd>Print information about all the regions of physical memory
+              (PmemInfo).
+          <dt>show obhdr &lt;address&gt
+          <dd>Print the ObjectHeader structure at the specified address.
+          <dt>show pins
+          <dd>Print information about all pinned objects.
+          <dt>show pte &lt;address&gt;
+          <dd>Print the page table entry at the specified address.
+          <dt>show sizes
+          <dd>Print the sizes of some kernel structures.
+          <dt>show sources
+          <dd>Print information about all the ObjectSources.
+          <dt>show walkinfo &lt;address&gt
+          <dd>Print the SegWalk structure at the specified address.
           </dl>
       </dl>
     </td>
