@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -69,19 +70,6 @@ function basename(s) {
   return s;
 }
 
-# Some function names were permitted to be aliased, but with explicit
-# binding this is no longer necessary.
-function resolve_alias(pc, old, new) {
-  if (debug) 
-    printf("pc 0x%08x old %s new %s\n", pc, old, new);
-
-  #if (old == "GateKey")
-  #  return old;
-  #else if (new == "GateKey")
-  #  return new;
-  return 0;
-}
-
 # Strangely enough, gawk does not appear to grok hex numbers for
 # purposes of conversion...
 function hextodec(s) {
@@ -102,38 +90,40 @@ function hextodec(s) {
   return value;
 }
 
+# array indices greater than 0x7fffffff do not work - perhaps
+# it considers them negative?
+# Get a value that works reliably as an array index.
+function toindex(value) {
+  return value % 2147483648;
+}
+
 # Following is to pick functions out of the --syms output:
 $2=="l" && $3=="F" && $4==".text" {
-  pc = hextodec($1);
+  truepc = hextodec($1);
+  pc = toindex(truepc);
   fun_name = $6;
   
   if (debug)
-    printf("0x%08x FUN  %s\n", pc, fun_name);
-
-  # The GateKey function is aliased, and that is okay:
+    printf("0x%08x FUN  %s\n", truepc, fun_name);
 
   if (funtab[pc] && funtab[pc] != fun_name) {
-    resolution = resolve_alias(pc, funtab[pc], fun_name);
-    if (resolution == 0) {
       printf("[SYMS] Function table mismatch at 0x%08x old=%s new=%s\n",
-	     pc, funtab[pc], fun_name);
+	     truepc, funtab[pc], fun_name);
       exit(1);
-    }
-
-    fun_name = resolution;
   }
 
   funtab[pc] = fun_name;
-  funpc[pc] = pc;
+  funpc[pc] = truepc;
   funclass[pc] = "l";
 }
 
 $2=="g" && $3=="F" && $4==".text" {
-  pc = hextodec($1);
+  truepc = hextodec($1);
+  pc = toindex(truepc);
   fun_name = $6;
   
   if (debug)
-    printf("0x%08x FUN  %s\n", pc, fun_name);
+    printf("0x%08x FUN  %s\n", truepc, fun_name);
 
   # Perversely, a weak symbol name should be accepted over a global
   # symbol name, because the weak symbol name is the one that actually
@@ -142,55 +132,48 @@ $2=="g" && $3=="F" && $4==".text" {
     next;
   }
    
-  if (funtab[pc] && funtab[pc] != fun_name) {
-    resolution = resolve_alias(pc, funtab[pc], fun_name);
-    if (resolution == 0) {
-      printf("[SYMS] Function table mismatch at 0x%08x old=%s new=%s\n",
-	     pc, funtab[pc], fun_name);
-      exit(1);
-    }
-
-    fun_name = resolution;
-  }
+# Mismatch does happen here; ignore it.
+#  if (funtab[pc] && funtab[pc] != fun_name) {
+#      printf("[SYMS] Function table mismatch at 0x%08x old=%s new=%s\n",
+#	     truepc, funtab[pc], fun_name);
+#      exit(1);
+#  }
 
   funtab[pc] = fun_name;
-  funpc[pc] = pc;
+  funpc[pc] = truepc;
   funclass[pc] = "g";
 }
 
 $2=="w" && $3=="F" && $4==".text" {
-  pc = hextodec($1);
+  truepc = hextodec($1);
+  pc = toindex(truepc);
   fun_name = $6;
   
   if (debug)
-    printf("0x%08x FUN  %s\n", pc, fun_name);
+    printf("0x%08x FUN  %s\n", truepc, fun_name);
 
   # Perversely, a weak symbol name should be accepted over a global
   # symbol name, because the weak symbol name is the one that actually
   # resolved.
   if (funtab[pc] && funtab[pc] != "g" && funtab[pc] != fun_name) {
-    resolution = resolve_alias(pc, funtab[pc], fun_name);
-    if (resolution == 0) {
       printf("[SYMS] Function table mismatch at 0x%08x old=%s new=%s\n",
-	     pc, funtab[pc], fun_name);
+	     truepc, funtab[pc], fun_name);
       exit(1);
-    }
-
-    fun_name = resolution;
   }
 
   funtab[pc] = fun_name;
-  funpc[pc] = pc;
+  funpc[pc] = truepc;
   funclass[pc] = "w";
 }
 
 $2=="SO" && NF==7 {
-  pc = hextodec($5);
+  truepc = hextodec($1);
+  pc = toindex(truepc);
 
   bn = basename($7);
 
   if (debug)
-    printf("0x%08x FILE %s\n", pc, bn);
+    printf("0x%08x FILE %s\n", truepc, bn);
 
   if (bn in file_list) {
     file_sym_ndx = file_list[bn];
@@ -209,18 +192,20 @@ $2=="SO" && NF==6 {
   # End of compilation unit.  Add an entry to the table to bound line
   # numbers and the like.
 
-  pc = hextodec($5);
+  truepc = hextodec($1);
+  pc = toindex(truepc);
 
   if (debug)
-    printf("0x%08x EOCU <%s>\n", pc, compunit);
+    printf("0x%08x EOCU <%s>\n", truepc, compunit);
 }
 
 $2=="SOL"   {
-  pc = hextodec($5);
+  truepc = hextodec($1);
+  pc = toindex(truepc);
   bn = basename($7);
   
   if (debug)
-    printf("0x%08x INC  %s\n", pc, bn);
+    printf("0x%08x INC  %s\n", truepc, bn);
 
   if (bn in file_list) {
     file_sym_ndx = file_list[bn];
@@ -235,7 +220,8 @@ $2=="SOL"   {
 }
 
 $2=="FUN"   {
-  pc = hextodec($5);
+  truepc = hextodec($1);
+  pc = toindex(truepc);
 
   fun_name = cleanfun($7)
     
@@ -244,14 +230,14 @@ $2=="FUN"   {
   # would in turn cause invalid line numbers.
   #if (funtab[pc] != fun_name) {
   #  printf("[FUN] Uncaught function 0x%08x old=%s new=%s\n",
-  #         pc, funtab[pc], fun_name);
+  #         truepc, funtab[pc], fun_name);
   #  exit(1);
   #}
 
 #  fun_name = cleanfun($7);
 #  
 #  if (debug)
-#    printf("0x%08x FUN  %s\n", pc, fun_name);
+#    printf("0x%08x FUN  %s\n", truepc, fun_name);
 #
 #  if (funtab[$6] && funtab[$6] != fun_name) {
 #    printf("String table mismatch at %d old=%s new=%s\n",
@@ -260,10 +246,10 @@ $2=="FUN"   {
 #  }
 #
 #  funtab[$6] = fun_name;
-#  funpc[$6] = pc;
+#  funpc[$6] = truepc;
 
   if (funtab[pc] == fun_name) {
-    cur_funpc = pc
+    cur_funpc = truepc
   }
 
 #  if (funtab[pc])
@@ -272,13 +258,14 @@ $2=="FUN"   {
 
 $2=="SLINE" || $2=="DSLINE" || $2=="BSLINE" {
   delta = hextodec($5);
-  pc = delta + cur_funpc;
+  truepc = delta + cur_funpc;
+  pc = toindex(truepc);
   
   line_no[pc] = $4;
   line_file[pc] = curfile;
     
   if (debug)
-    printf("0x%08x LINE %s:%d\n", pc, basename(file_list[curfile]), $4);
+    printf("0x%08x LINE %s:%d\n", truepc, basename(file_list[curfile]), $4);
 }
 
 
