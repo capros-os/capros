@@ -190,9 +190,6 @@ $(CONFIG).eros.cfg: $(CFGFILES)
 	java -Xmx1024M -cp :$(MOPS)/src/class:$(MOPS)/lib/java-getopt-1.0.9.jar CfgMerge -o $@ $(CFGFILES)
 endif
 
-$(BUILDDIR)/symnames.o: $(BUILDDIR)/symnames.s
-	$(ASM_BUILD)
-
 #libkey.a: $(LIBKEY_OBJECTS)
 #	$(AR) -crv libkey.a $(LIBKEY_OBJECTS)
 #	$(RANLIB) libkey.a
@@ -201,8 +198,11 @@ $(BUILDDIR)/symnames.o: $(BUILDDIR)/symnames.s
 # This way of obtaining symnames.s is quite slow. I should undoubtedly
 # replace the awk script with a C program.  Time, however, is short at 
 # the moment.
-$(BUILDDIR)/symnames.s: $(CONFIG).eros
+$(BUILDDIR)/symnames.s: $(CONFIG).eros $(TOP)/scripts/symtab.awk
 	$(OBJDUMP) --syms --stabs $(CONFIG).eros | $(GAWK) -f $(TOP)/scripts/symtab.awk > $@
+
+$(BUILDDIR)/symnames.o: $(BUILDDIR)/symnames.s
+	$(ASM_BUILD)
 
 
 %depend
