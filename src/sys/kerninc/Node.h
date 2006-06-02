@@ -52,6 +52,18 @@ node_ToObj(Node * pNode)
   return &pNode->node_ObjHdr;
 }
 
+INLINE bool
+node_IsKernelPinned(Node * thisPtr)
+{
+  return (thisPtr->node_ObjHdr.kernPin != 0);
+}
+
+INLINE void
+node_MakeDirty(Node * pNode)
+{
+  objH_MakeObjectDirty(node_ToObj(pNode));
+}
+
 INLINE Key *
 node_GetKeyAtSlot(Node *thisPtr, int n)
 {
@@ -88,7 +100,7 @@ void node_DoClearThisNode(Node* thisPtr);
 INLINE void 
 node_ClearThisNode(Node* thisPtr)
 {
-  objH_MakeObjectDirty(DOWNCAST(thisPtr, ObjectHeader));
+  node_MakeDirty(thisPtr);
   node_DoClearThisNode(thisPtr);
 }
 

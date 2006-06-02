@@ -906,7 +906,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
       /* Prepared resume keys can only reside in dirty objects! */
       if (inv.invKeyType == KKT_Resume)
-	objH_MakeObjectDirty(DOWNCAST(wrapperNode, ObjectHeader));
+	node_MakeDirty(wrapperNode);
 	    
       key_Prepare(inv.key);	/* MAY YIELD!!! */
     }

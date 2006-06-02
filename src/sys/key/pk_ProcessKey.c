@@ -109,9 +109,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       /* All of these complete ok. */
       inv->exit.code = RC_OK;
       
-
-      objH_MakeObjectDirty(DOWNCAST(theNode, ObjectHeader));
-
+      node_MakeDirty(theNode);
 
       COMMIT_POINT();
       

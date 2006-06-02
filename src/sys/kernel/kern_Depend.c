@@ -110,11 +110,6 @@ Depend_InitKeyDependTable(uint32_t nNodes)
 void
 Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
 {
-#ifndef NDEBUG
-  kva_t mapping_page_kva;
-  ObjectHeader *pMappingPage = 0;
-  bool reallyAllowMerge;
-#endif
   uint32_t whichBucket;
   KeyDependEntry* entry = 0;
   uint32_t i;
@@ -130,9 +125,9 @@ Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
   keyBits_SetWrHazard(pKey);
   
 #ifndef NDEBUG
-  mapping_page_kva = ((kva_t)pte & ~EROS_PAGE_MASK);
-  pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
-  reallyAllowMerge = pMappingPage ? true : false;
+  kva_t mapping_page_kva = ((kva_t)pte & ~EROS_PAGE_MASK);
+  PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
+  bool reallyAllowMerge = pMappingPage ? true : false;
 
   if (reallyAllowMerge != allowMerge)
     fatal("pPTE=0x%08x pObj=0x%08x -- merge bug!\n", pte, pMappingPage);

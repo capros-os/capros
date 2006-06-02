@@ -299,7 +299,7 @@ node_PrepAsDomain(Node* thisPtr)
   if (thisPtr->node_ObjHdr.obType == ot_NtProcessRoot)
     return;
 
-  objH_MakeObjectDirty(DOWNCAST(thisPtr, ObjectHeader));
+  node_MakeDirty(thisPtr);
 
   node_Unprepare(thisPtr, false);
 

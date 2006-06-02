@@ -646,7 +646,7 @@ proc_InvokeSegmentKeeper(Process* thisPtr, SegWalk* wi /*@ not null @*/)
    */
 
   if (keyBits_IsType(keeperKey, KKT_Resume))
-    objH_MakeObjectDirty(DOWNCAST(wi->redSeg, ObjectHeader));
+    node_MakeDirty(wi->redSeg);
 
 #ifdef OPTION_DDB
   if (ddb_segwalk_debug) {

@@ -510,7 +510,7 @@ objC_ddb_dump_pinned_objects()
   for (nd = 0; nd < objC_nNodes; nd++) {
     Node * pNode = objC_GetCoreNodeFrame(nd);
     ObjectHeader * pObj = node_ToObj(pNode);
-    if (objH_IsUserPinned(pObj) || objH_IsKernelPinned(pObj)) {
+    if (objH_IsUserPinned(pObj) || node_IsKernelPinned(pNode)) {
       if (objH_IsUserPinned(pObj))
 	userPins++;
       printf("node 0x%08x%08x\n",
@@ -669,7 +669,8 @@ objC_AgeNodeFrames()
     
       assert (objH_GetFlags(DOWNCAST(pObj, ObjectHeader), OFLG_IO) == 0);
     
-      if (objH_IsUserPinned(DOWNCAST(pObj, ObjectHeader)) || objH_IsKernelPinned(DOWNCAST(pObj, ObjectHeader))) {
+      if (objH_IsUserPinned(DOWNCAST(pObj, ObjectHeader))
+          || node_IsKernelPinned(pObj) ) {
 	nPinned++;
 	nStuck++;
 	continue;

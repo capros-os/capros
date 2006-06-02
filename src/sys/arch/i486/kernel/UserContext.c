@@ -583,7 +583,7 @@ proc_LoadFixRegs(Process* thisPtr)
   assert(thisPtr->hazards & hz_DomRoot);
 
   assert(thisPtr->procRoot);
-  objH_MakeObjectDirty(DOWNCAST(thisPtr->procRoot, ObjectHeader));
+  node_MakeDirty(thisPtr->procRoot);
 
 #ifdef ProcAltMsgBuf
 #error "Type checks need revision"
@@ -764,30 +764,6 @@ proc_FlushKeyRegs(Process* thisPtr)
 
   keyBits_UnHazard(&thisPtr->procRoot->slot[ProcGenKeys]);
   thisPtr->saveArea = 0;
-}
-
-/* Rewrite the process key back to our current activity.  Note that
- * the activity's process key is not reliable unless this unload has
- * been performed.
- */
-void
-proc_SyncActivity(Process* thisPtr)
-{
-  Key *procKey = 0;
-  assert(thisPtr->curActivity);
-  assert(thisPtr->procRoot);
-  assert (thisPtr->curActivity->context == thisPtr);
-  
-  procKey /*@ not null @*/ = &thisPtr->curActivity->processKey;
-
-  assert (keyBits_IsHazard(procKey) == false);
-
-  /* Not hazarded because activity key */
-  key_NH_Unchain(procKey);
-
-  keyBits_InitType(procKey, KKT_Process);
-  procKey->u.unprep.oid = thisPtr->procRoot->node_ObjHdr.kt_u.ob.oid;
-  procKey->u.unprep.count = thisPtr->procRoot->node_ObjHdr.kt_u.ob.allocCount; 
 }
 
 void
@@ -1237,21 +1213,6 @@ proc_FlushProcessSlot(Process* thisPtr, uint32_t whichKey)
 
   thisPtr->saveArea = 0;
 }
-
-#ifdef OPTION_DDB
-void
-proc_WriteBackKeySlot(Process* thisPtr, uint32_t k)
-{
-  /* Write back a single key in support of DDB getting the display correct */
-  assert ((thisPtr->hazards & hz_KeyRegs) == 0);
-  assert (objH_IsDirty(DOWNCAST(thisPtr->keysNode, ObjectHeader)));
-
-  keyBits_UnHazard(&thisPtr->keysNode->slot[k]);
-  key_NH_Set(&thisPtr->keysNode->slot[k], &thisPtr->keyReg[k]);
-
-  keyBits_SetRwHazard(&thisPtr->keysNode->slot[k]);
-}
-#endif
 
 #if 0
 void

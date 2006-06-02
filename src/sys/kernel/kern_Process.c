@@ -24,6 +24,7 @@
 #include <kerninc/Key.h>
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/Node.h>
+#include <kerninc/Activity.h>
 
 void 
 proc_LoadKeyRegs(Process* thisPtr)
@@ -52,7 +53,7 @@ proc_LoadKeyRegs(Process* thisPtr)
     return;
   }
 
-  objH_MakeObjectDirty(DOWNCAST(kn, ObjectHeader));
+  node_MakeDirty(kn);
 
   for (k = 0; k < EROS_NODE_SIZE; k++) {
 #ifndef NDEBUG
@@ -93,6 +94,45 @@ proc_LoadKeyRegs(Process* thisPtr)
 
   thisPtr->hazards &= ~hz_KeyRegs;
 }
+
+/* Rewrite the process key back to our current activity.  Note that
+ * the activity's process key is not reliable unless this unload has
+ * been performed.
+ */
+void
+proc_SyncActivity(Process * thisPtr)
+{
+  Key *procKey = 0;
+  assert(thisPtr->curActivity);
+  assert(thisPtr->procRoot);
+  assert (thisPtr->curActivity->context == thisPtr);
+  
+  procKey /*@ not null @*/ = &thisPtr->curActivity->processKey;
+
+  assert (keyBits_IsHazard(procKey) == false);
+
+  /* Not hazarded because activity key */
+  key_NH_Unchain(procKey);
+
+  keyBits_InitType(procKey, KKT_Process);
+  procKey->u.unprep.oid = thisPtr->procRoot->node_ObjHdr.kt_u.ob.oid;
+  procKey->u.unprep.count = thisPtr->procRoot->node_ObjHdr.kt_u.ob.allocCount; 
+}
+
+#ifdef OPTION_DDB
+void
+proc_WriteBackKeySlot(Process* thisPtr, uint32_t k)
+{
+  /* Write back a single key in support of DDB getting the display correct */
+  assert ((thisPtr->hazards & hz_KeyRegs) == 0);
+  assert (objH_IsDirty(node_ToObj(thisPtr->keysNode)));
+
+  keyBits_UnHazard(&thisPtr->keysNode->slot[k]);
+  key_NH_Set(&thisPtr->keysNode->slot[k], &thisPtr->keyReg[k]);
+
+  keyBits_SetRwHazard(&thisPtr->keysNode->slot[k]);
+}
+#endif
 
 #ifndef NDEBUG
 bool

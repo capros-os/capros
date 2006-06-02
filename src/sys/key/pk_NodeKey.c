@@ -177,7 +177,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
       /* All of these complete ok. */
       inv->exit.code = RC_OK;
 
-      objH_MakeObjectDirty(DOWNCAST(theNode, ObjectHeader));
+      node_MakeDirty(theNode);
       
       COMMIT_POINT();			/* advance the PC! */
       
@@ -244,7 +244,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
       /* If this is a write operation, we need to mark the node dirty. */
       if (wi.writeAccess)
-	objH_MakeObjectDirty(DOWNCAST(theNode, ObjectHeader));
+	node_MakeDirty(theNode);
 
       COMMIT_POINT();
 
@@ -384,9 +384,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
 	return;
       }
 
-
-      objH_MakeObjectDirty(DOWNCAST(theNode, ObjectHeader));
-
+      node_MakeDirty(theNode);
 
       /* If we zero it, we're going to nail all of it's dependencies
        * anyway:
@@ -445,11 +443,9 @@ NodeKey(Invocation* inv /*@ not null @*/)
       
       inv->exit.code = RC_OK;
 
-      objH_MakeObjectDirty(DOWNCAST(theNode, ObjectHeader));
-
+      node_MakeDirty(theNode);
 
       COMMIT_POINT();
-	
 
       inv_CopyIn(inv, inv->entry.len, &nkv);
 
@@ -481,7 +477,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
 
       /* Mark the object dirty. */
-      objH_MakeObjectDirty(DOWNCAST(theNode, ObjectHeader));
+      node_MakeDirty(theNode);
 
 
       key_Prepare(inv->entry.key[0]);
