@@ -508,13 +508,14 @@ objC_ddb_dump_pinned_objects()
   uint32_t nd, pg;
 
   for (nd = 0; nd < objC_nNodes; nd++) {
-    Node *pObj = objC_GetCoreNodeFrame(nd);
-    if (objH_IsUserPinned(DOWNCAST(pObj, ObjectHeader)) || objH_IsKernelPinned(DOWNCAST(pObj, ObjectHeader))) {
-      if (objH_IsUserPinned(DOWNCAST(pObj, ObjectHeader)))
+    Node * pNode = objC_GetCoreNodeFrame(nd);
+    ObjectHeader * pObj = node_ToObj(pNode);
+    if (objH_IsUserPinned(pObj) || objH_IsKernelPinned(pObj)) {
+      if (objH_IsUserPinned(pObj))
 	userPins++;
       printf("node 0x%08x%08x\n",
-	     (uint32_t) (pObj->node_ObjHdr.kt_u.ob.oid >> 32),
-	     (uint32_t) pObj->node_ObjHdr.kt_u.ob.oid);
+	     (uint32_t) (pObj->kt_u.ob.oid >> 32),
+	     (uint32_t) pObj->kt_u.ob.oid);
     }
   }
 

@@ -26,12 +26,6 @@
 #include <kerninc/Node.h>
 #include <kerninc/IRQ.h>
 
-#ifdef USES_MAPPING_PAGES
-/* This architecture specific. */
-bool
-check_MappingPage(ObjectHeader *pPage);
-#endif
-
 void
 check_Consistency(const char *msg)
 {
@@ -128,9 +122,9 @@ check_Pages()
   for (pg = 0; pg < objC_NumCorePageFrames(); pg++) {
     /*  printf("CheckPage(%d)\n", frame); */
 
-    ObjectHeader *pPage = objC_GetCorePageFrame(pg);
+    PageHeader * pPage = objC_GetCorePageFrame(pg);
 
-    switch (pPage->obType) {
+    switch (pageH_GetObType(pPage)) {
     case ot_PtFreeFrame:
     case ot_PtNewAlloc:
     case ot_PtKernelHeap:

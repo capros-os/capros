@@ -2,6 +2,7 @@
 #define __CHECK_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -38,7 +39,7 @@ bool check_Nodes();
 bool check_Contexts(const char *);
 
 #ifdef USES_MAPPING_PAGES
-bool check_MappingPage(ObjectHeader *);
+bool check_MappingPage(PageHeader *);
 #endif
 
 #endif /* __CHECK_H__ */

@@ -2,6 +2,7 @@
 #define __NODE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -37,22 +38,19 @@ struct Node /*: public ObjectHeader*/ {
   ObCount callCount;
   
   Key slot[EROS_NODE_SIZE];
-    
-#if 0
-  void InvokeDomainKeeper();	/* using existing fault code */
-  void SetDomainFault(uint32_t code, uint32_t auxInfo = 0);
-  static void InvokeSegmentKeeper(uint32_t code, uva_t vaddr = 0);
-#endif
+};
 
+INLINE Node *
+objH_ToNode(ObjectHeader * pObj)
+{
+  return (Node *)pObj;	// the ObjectHeader is the first component of Node
+}
 
-#if 0
-  void ObMovedHazardedSlot(uint32_t ndx, ObjectHeader *pNewLoc);
-#endif
-  
-} ;
-
-
-/* Former member functions of Node */
+INLINE ObjectHeader *
+node_ToObj(Node * pNode)
+{
+  return &pNode->node_ObjHdr;
+}
 
 INLINE Key *
 node_GetKeyAtSlot(Node *thisPtr, int n)

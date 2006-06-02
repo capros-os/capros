@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -105,7 +105,7 @@ KeyBitsKey(Invocation* inv /*@ not null @*/)
 	  pObj = DOWNCAST(inv->entry.key[0]->u.gk.pContext->procRoot, ObjectHeader);
 
 	if ( keyBits_IsType(inv->entry.key[0], KKT_Resume) )
-	  dupKey.u.unprep.count = ((Node *) pObj)->callCount;
+	  dupKey.u.unprep.count = objH_ToNode(pObj)->callCount;
 	else
 	  dupKey.u.unprep.count = pObj->kt_u.ob.allocCount;
 

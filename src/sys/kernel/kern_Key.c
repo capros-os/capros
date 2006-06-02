@@ -450,7 +450,7 @@ key_Print(const Key* thisPtr)
 #else
       printf("0x%08x rsm 0x%08x 0x%08x 0x%08x 0x%08x\n",
 		     thisPtr,
-		     pWKey[0], ((Node *)pObj)->callCount,
+		     pWKey[0], objH_ToNode(pObj)->callCount,
 		     pOID[0], pOID[1]);
 #endif
     }
@@ -633,16 +633,16 @@ key_IsValid(const Key* thisPtr)
       KeyRing * krp = thisPtr->u.ok.kr.prev;
 
       if ( ! ( objC_ValidKeyPtr((Key *) krn) ||
-	       objC_ValidPagePtr((ObjectHeader*) krn) ||
-	       objC_ValidNodePtr((Node *) krn) ||
+	       objC_ValidPagePtr(keyR_ToObj(krn)) ||
+	       objC_ValidNodePtr(objH_ToNode(keyR_ToObj(krn))) ||
 	       ValidCtxtKeyRingPtr(krn) ) ) {
 	printf("key 0x%x nxt key 0x%x bogus\n", thisPtr, krn);
 	return false;
       }
       
       if ( ! ( objC_ValidKeyPtr((Key *) krp) ||
-	       objC_ValidPagePtr((ObjectHeader *) krp) ||
-	       objC_ValidNodePtr((Node *) krp) ||
+	       objC_ValidPagePtr(keyR_ToObj(krp)) ||
+	       objC_ValidNodePtr(objH_ToNode(keyR_ToObj(krp))) ||
 	       ValidCtxtKeyRingPtr(krp) ) ) {
 	printf("key 0x%x prv key 0x%x bogus\n", thisPtr, krp);
 	return false;

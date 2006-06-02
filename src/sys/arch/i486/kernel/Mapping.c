@@ -860,7 +860,6 @@ void
 KeyDependEntry_Invalidate(KeyDependEntry * kde)
 {
   kva_t mapping_page_kva;
-  ObjectHeader *pMappingPage = 0;
   PTE *ptePage = 0;
   uint32_t from;
   uint32_t to;
@@ -881,8 +880,15 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
 #endif
 
   mapping_page_kva = ((kva_t)kde->start & ~EROS_PAGE_MASK);
-  pMappingPage =
-    objC_PhysPageToObHdr(VTOP(mapping_page_kva));
+  PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
+  if (!pMappingPage) {	// somehow, no longer a page
+#if 0	//// this does not work
+    printf("DependInvalidate pa=0x%08x, no header!\n",
+           (uint32_t)VTOP(mapping_page_kva) );
+    kde->start = 0;
+    return;
+#endif
+  }
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
@@ -890,7 +896,7 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
 #endif
 
   /* If it is no longer a mapping page, stop. */
-  if (pMappingPage && (pMappingPage->obType != ot_PtMappingPage)) {
+  if (pMappingPage && (pageH_GetObType(pMappingPage) != ot_PtMappingPage)) {
     kde->start = 0;
     return;
   }
@@ -971,17 +977,16 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
 
 #ifdef USES_MAPPING_PAGES
 bool
-check_MappingPage(ObjectHeader *pPage)
+check_MappingPage(PageHeader * pPage)
 {
   PTE* pte = 0;
   uint32_t ent = 0;
   PTE* thePTE = 0; /*@ not null @*/
-  ObjectHeader* thePageHdr = 0;
 
   if (pPage->kt_u.mp.tableSize == 1)
     return true;
 
-  pte = (PTE*) objC_ObHdrToPage(pPage);
+  pte = (PTE*) pageH_GetPageVAddr(pPage);
 
   for (ent = 0; ent < MAPPING_ENTRIES_PER_PAGE; ent++) {
     thePTE = &pte[ent];
@@ -993,11 +998,10 @@ check_MappingPage(ObjectHeader *pPage)
       if (thePage >= KVTOL(KVA_FROMSPACE))
 	continue;
 
+      ObjectHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);
+      assert(pageH_IsObjectType(thePageHdr));
 
-      thePageHdr = objC_PhysPageToObHdr(pageFrame);
-
-
-      if (objH_GetFlags(thePageHdr, OFLG_CKPT)) {
+      if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_CKPT)) {
 	printf("Writable PTE=0x%08x (map page 0x%08x), ckpt pg"
 		       " 0x%08x%08x\n",
 		       pte_AsWord(thePTE), pte,

@@ -93,9 +93,9 @@ enum {
 
 typedef struct SegWalk SegWalk;
 typedef struct ObjectTable ObjectTable;
-typedef struct ObjectHeader ObjectHeader;
 typedef struct Process Process;
 typedef struct Node Node;
+typedef struct ObjectHeader PageHeader;
 
 #define OHAZARD_NONE      0x1u
 #define OHAZARD_WRITE     0x1u
@@ -115,12 +115,13 @@ typedef struct Node Node;
 #define OFLG_DISKCAPS	0x40u	/* capabilities to this version exist */
 				/* on disk */
 
+typedef struct ObjectHeader ObjectHeader;
 struct ObjectHeader {
   KeyRing	keyRing;
 
   union {
     /* Special relationship pointers if prepared node */
-    ObjectHeader  *products;	/* if obType == ot_NtSegment
+    PageHeader * products;	/* if obType == ot_NtSegment
 				             or ot_PtDataPage or ... */
     Process	  *context;	/* if obType == ot_NtProcessRoot
                                              or ot_NtKeyRegs
@@ -184,6 +185,39 @@ struct ObjectHeader {
   
   ObjectHeader* hashChainNext;
 };
+
+INLINE unsigned int
+pageH_GetObType(PageHeader * pageH)
+{
+  return pageH->obType;
+}
+
+INLINE bool
+pageH_IsObjectType(PageHeader * pageH)
+{
+  unsigned int type = pageH_GetObType(pageH);
+  return (type == ot_PtDataPage) || (type == ot_PtDevicePage);
+}
+
+INLINE PageHeader *
+objH_ToPage(ObjectHeader * pObj)
+{
+  return (PageHeader *)pObj;
+}
+
+INLINE ObjectHeader *
+pageH_ToObj(PageHeader * pageH)
+{
+  return (ObjectHeader *)pageH;
+}
+
+#ifndef NDEBUG
+INLINE ObjectHeader *
+keyR_ToObj(KeyRing * kr)
+{
+  return (ObjectHeader *) ((char *)kr - offsetof(ObjectHeader, keyRing));
+}
+#endif
 
 extern uint8_t objH_CurrentTransaction; /* current transaction number */
 
@@ -332,6 +366,14 @@ void objH_ddb_dump(ObjectHeader* thisPtr);
 void objH_ddb_dump_hash_hist();
 void objH_ddb_dump_bucket(uint32_t bucket);
 #endif
+
+/* PageHeader functions */
+
+INLINE kva_t
+pageH_GetPageVAddr(const PageHeader * pHdr)
+{
+  return pHdr->pageAddr;
+}
 
 /* MEANINGS OF FLAGS FIELDS:
  * 

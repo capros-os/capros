@@ -49,10 +49,10 @@
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 INLINE bool
-obj_IsDirectory(ObjectHeader * ob) /* ob->obType must be ot_PtMappingPage */
+obj_IsDirectory(PageHeader * pageH) /* pageH->obType must be ot_PtMappingPage */
 {
   /* tableSize is 0 for page table, 1 for page directory */
-  return ob->kt_u.mp.tableSize /* == 1 */ ;
+  return pageH->kt_u.mp.tableSize /* == 1 */ ;
 }
 
 /* Possible outcomes of a user-level page fault:
@@ -98,9 +98,9 @@ extern void start();
 
 bool PteZapped = false;
 
-static ObjectHeader *
+static PageHeader *
 MakeNewPageTable(SegWalk* wi /*@ not null @*/ ); 
-static ObjectHeader*
+static PageHeader*
 proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/); 
 
 
@@ -144,7 +144,7 @@ pte_ddb_dump(PTE* thisPtr)
 #endif
 
 void
-Depend_InvalidateProduct(ObjectHeader* page)
+Depend_InvalidateProduct(PageHeader * page)
 {
   /* InvalidateProduct is always called after the producing Node has
    * been unprepared (and thus zapped).  If this is a page table, we
@@ -161,9 +161,9 @@ Depend_InvalidateProduct(ObjectHeader* page)
   kpa_t curmap;
   uint32_t i;
   
-  assert (page->obType == ot_PtMappingPage);
+  assert (pageH_GetObType(page) == ot_PtMappingPage);
 
-  mp_pa = VTOP(objC_ObHdrToPage(page));
+  mp_pa = VTOP(pageH_GetPageVAddr(page));
 	       
   /* MUST BE CAREFUL -- if this product is the active mapping table we
    * need to reset the mapping pointer to the native kernel map!
@@ -194,7 +194,7 @@ Depend_InvalidateProduct(ObjectHeader* page)
 
 #ifndef NDEBUG
 bool
-pte_ObIsNotWritable(ObjectHeader *pObj)
+pte_ObIsNotWritable(PageHeader * pageH)
 {
   uint32_t nFrames;
   PTE *pte = 0;
@@ -206,7 +206,7 @@ pte_ObIsNotWritable(ObjectHeader *pObj)
   uint32_t ent;
   
   /* Start by building a writable PTE for the page: */
-  uint32_t kvaw = objC_ObHdrToPage(pObj);
+  uint32_t kvaw = pageH_GetPageVAddr(pageH);
 
   kvaw |= PTE_W;
 
@@ -220,20 +220,20 @@ pte_ObIsNotWritable(ObjectHeader *pObj)
       dprintf(true,
 		      "Checking pobj 0x%x with frame at 0x%x\n"
 		      "Pg hdr 0x%x retains writable small PTE at 0x%x\n",
-		      pObj, kvaw,
-		      pObj, &pte[i]);
+		      pageH, kvaw,
+		      pageH, &pte[i]);
       result = false;
     }
   }
 #endif
 
   for (pf = 0; pf < objC_TotalPages(); pf++) {
-    ObjectHeader *pHdr = objC_GetCorePageFrame(pf);
+    PageHeader *pHdr = objC_GetCorePageFrame(pf);
 
-    if (pHdr->obType != ot_PtMappingPage)
+    if (pageH_GetObType(pHdr) != ot_PtMappingPage)
       continue;
 
-    ptepg = (PTE *) objC_ObHdrToPage(pHdr);
+    ptepg = (PTE *) pageH_GetPageVAddr(pHdr);
     
     limit = NPTE_PER_PAGE;
     if (obj_IsDirectory(pHdr))
@@ -244,7 +244,7 @@ pte_ObIsNotWritable(ObjectHeader *pObj)
 	dprintf(true,
 			"Checking pobj 0x%x with frame at 0x%x\n"
 			"Page hdr 0x%x retains writable PTE at 0x%x\n",
-			pObj, kvaw,
+			pageH, kvaw,
 			pHdr, &ptepg[ent]);
 	result = false;
       }
@@ -256,7 +256,7 @@ pte_ObIsNotWritable(ObjectHeader *pObj)
 #endif /* !NDEBUG */
 
 void
-Depend_WriteDisableProduct(ObjectHeader *pObj)
+Depend_WriteDisableProduct(PageHeader *pObj)
 {
   /* This is trickier than the case above, since we must not
    * write-disable kernel mappings.  On the other hand, we don't need
@@ -267,9 +267,9 @@ Depend_WriteDisableProduct(ObjectHeader *pObj)
   PTE* pte = 0;
   uint32_t entry;
 
-  assert (pObj->obType == ot_PtMappingPage);
+  assert (pageH_GetObType(pObj) == ot_PtMappingPage);
 
-  mp_va = objC_ObHdrToPage(pObj);
+  mp_va = pageH_GetPageVAddr(pObj);
 
   /* Each mapping table holds 1024 entries, but the uppermost portion
    * of the address space is reserved for the kernel and the small
@@ -288,7 +288,7 @@ Depend_WriteDisableProduct(ObjectHeader *pObj)
 }
 
 /* Walk the node looking for an acceptable product: */
-static ObjectHeader *
+static PageHeader *
 objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi /*@not null@*/ ,
                  unsigned int tblSize, 
                  bool rw, bool ca)
@@ -302,10 +302,11 @@ objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi /*@not null@*/ ,
   
   /* #define FINDPRODUCT_VERBOSE */
 
-  ObjectHeader *product = 0;
+  PageHeader *product = 0;
   
-  for (product = thisPtr->prep_u.products; product; product = product->next) {
-    assert(product->obType == ot_PtMappingPage);
+  for (product = thisPtr->prep_u.products;
+       product; product = product->next) {
+    assert(pageH_GetObType(product) == ot_PtMappingPage);
     if ((uint32_t) product->kt_u.mp.producerBlss != blss) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("Producer BLSS not match\n");
@@ -501,7 +502,6 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
   SegWalk wi;
   PTE *thePTE = 0;
   kpa_t pageAddr;
-  ObjectHeader *pPageHdr = 0;
   bool needInvalidate;
 
   wi.faultCode = FC_NoFault;
@@ -534,6 +534,7 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
     proc_SetFault(p, wi.faultCode, va, false);
     return false;
   }
+  assert(wi.segObj->obType > ot_NtLAST_NODE_TYPE); /* should be a page */
 
   /* If the wrong dependency entry was reclaimed, we may lost
    * one of the depend entries for the PTE that is under construction,
@@ -577,13 +578,12 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
      
   pageAddr = 0;
   
-  pPageHdr = wi.segObj;
-    
+  PageHeader * pPageHdr = wi.segObj;
 
   if (isWrite)
     objH_MakeObjectDirty(pPageHdr);
 
-  pageAddr = VTOP(objC_ObHdrToPage(pPageHdr));
+  pageAddr = VTOP(pageH_GetPageVAddr(pPageHdr));
 
   assert ((pageAddr & EROS_PAGE_MASK) == 0);
   assert (pageAddr < PtoKPA(start) || pageAddr >= PtoKPA(end));
@@ -764,8 +764,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     goto need_pgdir;
   
   {
-    ObjectHeader *pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
-    assert(pTableHdr->obType == ot_PtMappingPage);
+    PageHeader * pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
+    assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
    
     if (isWrite && !pTableHdr->kt_u.mp.rwProduct) {
       dprintf(true, "DoPageFault(): isWrite && !pTableHdr->kt_u.mp.rwProduct hdr 0x%x\n", pTableHdr);
@@ -794,7 +794,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
 	  pTable = KPAtoP(PTE *, pte_PageFrame(thePDE));
 	  pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
-          assert(pTableHdr->obType == ot_PtMappingPage);
+          assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
         
 	  
 	  wi.offset = wi.vaddr & ((1u << 22) - 1u);
@@ -840,7 +840,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       }
     }
 #endif /* FAST_TRAVERSAL */
-    assert(pTableHdr->obType == ot_PtMappingPage);
+    assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
     
     wi.offset = wi.vaddr;
     wi.segBlss = pTableHdr->kt_u.mp.producerBlss;
@@ -898,7 +898,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
      * directory will no longer matter.
      */
 
-    ObjectHeader *pTableHdr =
+    PageHeader * pTableHdr =
       objH_FindProduct(wi.segObj, &wi, EROS_NODE_LGSIZE /* ndx */,
                        wi.canWrite, wi.canCall);
 
@@ -906,7 +906,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     if (pTableHdr == 0)
       pTableHdr = proc_MakeNewPageDirectory(&wi);
 
-    pTable = (PTE *) objC_ObHdrToPage(pTableHdr);
+    pTable = (PTE *) pageH_GetPageVAddr(pTableHdr);
 
     /* Note, the physical address of the page directory must be
        representable in 32 bits, even in PAE mode. */
@@ -917,8 +917,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   
 #ifndef NDEBUG
   {
-    ObjectHeader *pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
-    assert(pTableHdr->obType == ot_PtMappingPage);
+    PageHeader * pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
+    assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
 
     assert(wi.segBlss == pTableHdr->kt_u.mp.producerBlss);
     assert(wi.segObj == pTableHdr->kt_u.mp.producer);
@@ -964,12 +964,12 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       /* Level 0 product need never be a read-only product.  We use
        * the write permission bit at the PDE level.
        */
-      ObjectHeader *pTableHdr =
+      PageHeader *pTableHdr =
 	objH_FindProduct(wi.segObj, &wi, 0, true, true);
 
       if (pTableHdr == 0)
 	pTableHdr = MakeNewPageTable(&wi);
-      assert(pTableHdr->obType == ot_PtMappingPage);
+      assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
 
       assert(wi.segBlss == pTableHdr->kt_u.mp.producerBlss);
       assert(wi.segObj == pTableHdr->kt_u.mp.producer);
@@ -979,7 +979,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 	 the write permission bit at the PDE level: */
       assert(pTableHdr->kt_u.mp.rwProduct);
 
-      pTable = (PTE *) objC_ObHdrToPage(pTableHdr);
+      pTable = (PTE *) pageH_GetPageVAddr(pTableHdr);
     }
 
     /* The level 0 page table is still contentless - there is no
@@ -1007,7 +1007,6 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   {
     uint32_t pteNdx = (la >> 12) & 0x3ffu;
     PTE* thePTE /*@ not null @*/ = &pTable[pteNdx];
-    kpa_t pageAddr = 0;
 
     if (pte_isnot(thePTE, PTE_V))
       thePTE->w_value = PTE_IN_PROGRESS;
@@ -1026,20 +1025,14 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     assert(wi.segObj);
     assert(wi.segObj->obType == ot_PtDataPage ||
 	   wi.segObj->obType == ot_PtDevicePage);
-    
-   
 
     if (isWrite)
       objH_MakeObjectDirty(wi.segObj);
 
-
-    pageAddr = VTOP(objC_ObHdrToPage(wi.segObj));
-
-    if (pageAddr == 0)
-      dprintf(true, "wi.segObj 0x%08x at addr 0x%08x!! (wi=0x%08x)\n",
-		      wi.segObj, pageAddr, &wi);
+    kpa_t pageAddr = VTOP(pageH_GetPageVAddr(objH_ToPage(wi.segObj)));
 
     assert ((pageAddr & EROS_PAGE_MASK) == 0);
+    // Must not be within the kernel:
     assert (pageAddr < PtoKPA(start) || pageAddr >= PtoKPA(end));
 	  
     if (isWrite && pte_is(thePTE, PTE_V)) {
@@ -1095,10 +1088,10 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   return false;
 }
 
-static ObjectHeader*
+static PageHeader *
 proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 {
-  ObjectHeader *pTable = objC_GrabPageFrame();
+  PageHeader * pTable = objC_GrabPageFrame();
   kva_t tableAddr;
   pTable->obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 1;
@@ -1111,7 +1104,7 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
   pTable->kt_u.mp.caProduct = BOOL(wi->canCall);
   objH_SetDirtyFlag(pTable);
 
-  tableAddr = objC_ObHdrToPage(pTable);
+  tableAddr = pageH_GetPageVAddr(pTable);
 
   bzero((void *) tableAddr, EROS_PAGE_SIZE);
 
@@ -1137,16 +1130,15 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
   }
 
   objH_AddProduct(wi->segObj, pTable);
- 
 
   return pTable;
 }
 
-static ObjectHeader*
+static PageHeader *
 MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
 {
   /* Need to make a new mapping table: */
-  ObjectHeader *pTable = objC_GrabPageFrame();
+  PageHeader * pTable = objC_GrabPageFrame();
   kva_t tableAddr;
   pTable->obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 0;
@@ -1159,7 +1151,7 @@ MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
   pTable->kt_u.mp.caProduct = 1;	/* we use spare bit in PTE */
   objH_SetDirtyFlag(pTable);
 
-  tableAddr = objC_ObHdrToPage(pTable);
+  tableAddr = pageH_GetPageVAddr(pTable);
 
   bzero((void *)tableAddr, EROS_PAGE_SIZE);
 

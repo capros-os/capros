@@ -370,7 +370,7 @@ objH_Rescind(ObjectHeader* thisPtr)
   if (hasCaps) {
     thisPtr->kt_u.ob.allocCount++;
     if (thisPtr->obType <= ot_NtLAST_NODE_TYPE)
-      ((Node *) thisPtr)->callCount++;
+      objH_ToNode(thisPtr)->callCount++;
 
     objH_ClearFlags(thisPtr, OFLG_DISKCAPS);
     DEBUG(rescind)
@@ -380,9 +380,10 @@ objH_Rescind(ObjectHeader* thisPtr)
   /* FIX: Explicitly zeroing defeats the sever operation. */
 
   if (thisPtr->obType <= ot_NtLAST_NODE_TYPE) {
+    Node * thisNode = objH_ToNode(thisPtr);
     /* zeroing unprepares and invalidates products too */
 
-    node_DoClearThisNode((Node *) thisPtr);
+    node_DoClearThisNode(thisNode);
     assert ( thisPtr->obType == ot_NtUnprepared );
   }
   else if (thisPtr->obType == ot_PtDataPage) {
