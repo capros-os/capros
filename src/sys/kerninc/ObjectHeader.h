@@ -258,6 +258,19 @@ objH_IsDirty(const ObjectHeader* thisPtr)
   return objH_GetFlags(thisPtr, OFLG_DIRTY|OFLG_REDIRTY);
 }
 
+INLINE uint32_t 
+pageH_IsDirty(PageHeader * thisPtr)
+{
+  return objH_IsDirty(pageH_ToObj(thisPtr));
+}
+
+void objH_MakeObjectDirty(ObjectHeader* thisPtr);
+INLINE void
+pageH_MakeDirty(PageHeader * pageH)
+{
+  objH_MakeObjectDirty(pageH_ToObj(pageH));
+}
+
   /* Object pin counts.  For the moment, there are several in order to
    * let me debug the logic.  Eventually they should all be mergeable.
    * 
@@ -328,7 +341,6 @@ void 		objH_Intern(ObjectHeader* thisPtr);	/* intern object on the ObList. */
 void 		objH_Unintern(ObjectHeader* thisPtr);	/* remove object from the ObList. */
 
 void		objH_FlushIfCkpt(ObjectHeader* thisPtr);
-void		objH_MakeObjectDirty(ObjectHeader* thisPtr);
 void		objH_Rescind(ObjectHeader* thisPtr);
 void		objH_ZapResumeKeys(ObjectHeader* thisPtr);
 
@@ -338,10 +350,10 @@ void            objH_DelProduct(ObjectHeader* thisPtr, ObjectHeader *product);
 
 ObjectHeader  * objH_Lookup(ObType, OID oid);
 
-INLINE Node *         
-objH_LookupNode(OID oid)
+INLINE PageHeader *         
+objH_LookupPage(OID oid)
 {
-  return (Node *) objH_Lookup(ot_NtUnprepared, oid);
+  return objH_ToPage(objH_Lookup(ot_PtDataPage, oid));
 }
   
 void objH_StallQueueInit();

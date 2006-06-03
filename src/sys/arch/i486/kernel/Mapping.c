@@ -1006,7 +1006,7 @@ check_MappingPage(PageHeader * pPage)
 
 	return false;
       }
-      if (!objH_IsDirty(thePageHdr)) {
+      if (!pageH_IsDirty(thePageHdr)) {
 	printf("Writable PTE=0x%08x (map page 0x%08x), clean pg"
 		       " 0x%08x%08x\n",
 		       pte_AsWord(thePTE), pte,

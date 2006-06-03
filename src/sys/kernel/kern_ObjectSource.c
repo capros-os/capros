@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -24,24 +25,20 @@
 
 #include <kerninc/Activity.h>
 
+/* Should this be reorganized to keep nodes and pages separate? */
 ObjectHeader *
 ObCacheSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType, 
 			 ObCount count, bool useCount)
 {
-  ObjectHeader *pObj = 0;
-
   if (obType == ot_NtUnprepared) {
-
-    pObj = objH_Lookup(ot_NtUnprepared, oid);
-    assertex(pObj, (pObj == 0) || node_Validate((Node *) pObj));
-
+    Node * pObj = objH_LookupNode(oid);
+    assertex(pObj, (pObj == 0) || node_Validate(pObj));
+    return node_ToObj(pObj);
   }
   else {
-    pObj = objH_Lookup(ot_PtDataPage, oid);
-
+    PageHeader * pObj = objH_LookupPage(oid);
+    return pageH_ToObj(pObj);
   }
-
-  return pObj;
 }
 
 bool

@@ -577,7 +577,7 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
   PageHeader * pPageHdr = (PageHeader *)wi.segObj;
 
   if (isWrite)
-    objH_MakeObjectDirty(pPageHdr);
+    pageH_MakeDirty(pPageHdr);
 
   pageAddr = VTOP(pageH_GetPageVAddr(pPageHdr));
 
@@ -1023,7 +1023,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 	   wi.segObj->obType == ot_PtDevicePage);
 
     if (isWrite)
-      objH_MakeObjectDirty(wi.segObj);
+      pageH_MakeDirty(objH_ToPage(wi.segObj));
 
     kpa_t pageAddr = VTOP(pageH_GetPageVAddr(objH_ToPage(wi.segObj)));
 

@@ -1175,7 +1175,7 @@ objC_AgePageFrames()
 	if (objC_CleanFrame(pObj, true) == false)
 	  continue;
     
-	assert (!objH_IsDirty(pObj));
+	assert(!pageH_IsDirty(pObj));
 
 	/* Remove this page from the cache and return it to the free page
 	 * list:

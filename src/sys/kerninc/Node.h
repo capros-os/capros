@@ -52,6 +52,12 @@ node_ToObj(Node * pNode)
   return &pNode->node_ObjHdr;
 }
 
+INLINE Node *         
+objH_LookupNode(OID oid)
+{
+  return objH_ToNode(objH_Lookup(ot_NtUnprepared, oid));
+}
+
 INLINE bool
 node_IsKernelPinned(Node * thisPtr)
 {

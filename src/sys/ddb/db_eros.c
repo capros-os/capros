@@ -1594,7 +1594,7 @@ db_page_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
     /*NOTREACHED*/
   }
   
-  pageH = objH_Lookup(ot_PtDataPage, oid);
+  pageH = objH_LookupPage(oid);
   if (pageH == 0)
     db_error("not in core\n");
 

@@ -85,9 +85,7 @@ PageKey(Invocation* inv /*@ not null @*/)
     }
 
     /* Mark the object dirty. */
-
-    objH_MakeObjectDirty(key_GetObjectPtr(inv->key));
-
+    pageH_MakeDirty(pageH);
 
     COMMIT_POINT();
 
@@ -114,8 +112,7 @@ PageKey(Invocation* inv /*@ not null @*/)
       }
 
       /* Mark the object dirty. */
-    
-      objH_MakeObjectDirty(key_GetObjectPtr(inv->key));
+      pageH_MakeDirty(pageH);
 
       key_Prepare(inv->entry.key[0]);
 
