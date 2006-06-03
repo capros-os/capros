@@ -52,27 +52,27 @@
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-static void objC_GrabThisPageFrame(ObjectHeader *);
+static void objC_GrabThisPageFrame(PageHeader *);
 
 static bool objC_CleanFrame(ObjectHeader * pObj, bool invalidateProducts);
 
 struct PageInfo {
   uint32_t nPages;
   uint32_t basepa;
-  ObjectHeader *firstObHdr;
+  PageHeader * firstObHdr;
 };
 
 uint32_t objC_nNodes;
 uint32_t objC_nFreeNodeFrames;
 Node *objC_nodeTable;
 Node *objC_firstFreeNode;
-ObjectHeader *objC_firstFreePage;
+PageHeader * objC_firstFreePage;
 
 uint32_t objC_nPages;
 uint32_t objC_nFreePageFrames;
 uint32_t objC_nReservedIoPageFrames = 0;
 uint32_t objC_nCommittedIoPageFrames = 0;
-ObjectHeader *objC_coreTable;
+PageHeader * objC_coreTable;
 
 /* initializes nodeTable. replaces call to Node constructor */
 static Node *
@@ -200,21 +200,21 @@ objC_AllocateUserPages()
     
   objC_nPages = physMem_AvailPages(&physMem_pages);
 
-  objC_coreTable = (ObjectHeader *)
-    KPAtoP(void *, physMem_Alloc(objC_nPages*sizeof(ObjectHeader), &physMem_any));
+  objC_coreTable = KPAtoP(PageHeader *,
+             physMem_Alloc(objC_nPages*sizeof(PageHeader), &physMem_any));
+  assert(objC_coreTable);
+
   for (j = 0; j < objC_nPages; j++) {
-    ObjectHeader *temp = &objC_coreTable[j];
+    PageHeader * temp = &objC_coreTable[j];
     NullKeyRing(&temp->keyRing);
     temp->flags = 0;
     temp->userPin = 0;
     temp->obType = ot_PtFreeFrame;
   }
 
-  assert(objC_coreTable);
-
   DEBUG(pgalloc)
     printf("Allocated Page Headers: 0x%x at 0x%08x\n",
-		   sizeof(ObjectHeader[objC_nPages]), objC_coreTable);
+		   sizeof(PageHeader[objC_nPages]), objC_coreTable);
 
   /* Block the pages by class, allocate them, and recompute nPages.
    * Link all pages onto the appropriate free list:
@@ -268,10 +268,7 @@ objC_AllocateUserPages()
    */
 
   {
-#if 0
-    ObjectHeader *pObHdr = coreTable;
-#endif
-    ObjectHeader *pObHdr = 0;
+    PageHeader *pObHdr = 0;
     kpa_t framePa;
     uint32_t pg = 0;
     
@@ -308,16 +305,15 @@ objC_AddDevicePages(PmemInfo *pmi)
   uint32_t j = 0;
   uint32_t pg = 0;
   kpa_t framePa;
-  ObjectHeader *pObHdr = 0;
+  PageHeader * pObHdr = 0;
 
   /* Not all BIOS's report a page-aligned start address for everything. */
   pmi->basepa = (pmi->base & ~EROS_PAGE_MASK);
   pmi->nPages = (pmi->bound - pmi->basepa) / EROS_PAGE_SIZE;
 
-  /* About to call operator new(): */
-  pmi->firstObHdr = MALLOC(ObjectHeader, pmi->nPages);
+  pmi->firstObHdr = MALLOC(PageHeader, pmi->nPages);
   for (j = 0; j < pmi->nPages; j++) {
-    ObjectHeader *temp = &pmi->firstObHdr[j];
+    PageHeader * temp = &pmi->firstObHdr[j];
     NullKeyRing(&temp->keyRing);
     temp->flags = 0;
     temp->userPin = 0;
@@ -344,7 +340,7 @@ objC_OIDtoObHdr(uint32_t cdaL/*cdaLo*/, uint16_t cdaH/*cdaHi*/)
   return 0;
 }
 
-ObjectHeader *
+PageHeader *
 objC_GetCorePageFrame(uint32_t ndx)
 {
   unsigned rgn = 0;
@@ -368,10 +364,10 @@ objC_GetCoreNodeFrame(uint32_t ndx)
   return &objC_nodeTable[ndx];
 }
 
-ObjectHeader *
+PageHeader *
 objC_PhysPageToObHdr(kpa_t pagepa)
 {
-  ObjectHeader *pHdr = 0;
+  PageHeader * pHdr = 0;
   unsigned rgn = 0;
   kva_t startpa;
   kva_t endpa;
@@ -402,7 +398,7 @@ objC_PhysPageToObHdr(kpa_t pagepa)
 
 #ifndef NDEBUG
 bool
-objC_ValidPagePtr(const ObjectHeader *pObj)
+objC_ValidPagePtr(const ObjectHeader * pObj)
 {
   uint32_t wobj = (uint32_t) pObj;
   unsigned rgn = 0;
@@ -424,7 +420,7 @@ objC_ValidPagePtr(const ObjectHeader *pObj)
       continue;
 
     delta = wobj - wbase;
-    if (delta % sizeof(ObjectHeader))
+    if (delta % sizeof(PageHeader))
       return false;
     return true;
   }
@@ -520,7 +516,8 @@ objC_ddb_dump_pinned_objects()
   }
 
   for (pg = 0; pg < objC_nPages; pg++) {
-    ObjectHeader *pObj = objC_GetCorePageFrame(pg);
+    PageHeader * pageH = objC_GetCorePageFrame(pg);
+    ObjectHeader * pObj = pageH_ToObj(pageH);
     if (objH_IsUserPinned(pObj) || objH_IsKernelPinned(pObj)) {
       if (objH_IsUserPinned(pObj))
 	userPins++;
@@ -549,32 +546,43 @@ objC_ddb_dump_pages()
   extern void db_printf(const char *fmt, ...);
 
   for (pg = 0; pg < objC_nPages; pg++) {
-    ObjectHeader *pObj = objC_GetCorePageFrame(pg);
+    PageHeader * pageH = objC_GetCorePageFrame(pg);
 
-    if (pObj->obType == ot_PtFreeFrame) {
+    switch (pageH_GetObType(pageH)) {
+    case ot_PtFreeFrame:
       nFree++;
-      continue;
-    }
-
+      break;
       
-    if (pObj->obType == ot_PtMappingPage) {
-      if (pObj->kt_u.mp.producer == 0) {
+    case ot_PtMappingPage:
+      if (pageH->kt_u.mp.producer == 0) {
 	producerType = '?';
       }
-      else if (pObj->kt_u.mp.producer->obType <= ot_NtLAST_NODE_TYPE) {
+      else if (pageH->kt_u.mp.producer->obType <= ot_NtLAST_NODE_TYPE) {
 	producerType = 'n';
       }
       else {
 	producerType = 'p';
       }
-    }
-    
+      printf("%02d: %s prod %c\n",
+             pg,
+             ddb_obtype_name(pageH_GetObType(pageH)),
+             producerType );
+      break;
+
+    case ot_PtNewAlloc:
+    case ot_PtKernelHeap:
+      break;
+
+    case ot_PtDataPage:
+    case ot_PtDevicePage:
+    {
+      ObjectHeader * pObj = pageH_ToObj(pageH);
 #ifdef OPTION_OB_MOD_CHECK
-    goodSum = (pObj->kt_u.ob.check == objH_CalcCheck(pObj)) ? 'y' : 'n';
+      goodSum = (pObj->kt_u.ob.check == objH_CalcCheck(pObj)) ? 'y' : 'n';
 #else
-    goodSum = '?';
+      goodSum = '?';
 #endif
-    printf("%02d: %s oid %c0x%08x%08x up:%c cr:%c ck:%c drt:%c%c io:%c sm:%c dc:%c\n",
+      printf("%02d: %s oid %c0x%08x%08x up:%c cr:%c ck:%c drt:%c%c io:%c sm:%c dc:%c\n",
 	   pg,
 	   ddb_obtype_name(pObj->obType),
 	   producerType,
@@ -588,6 +596,12 @@ objC_ddb_dump_pages()
 	   objH_GetFlags(pObj, OFLG_IO) ? 'y' : 'n',
 	   goodSum,
 	   objH_GetFlags(pObj, OFLG_DISKCAPS) ? 'y' : 'n');
+      break;
+    }
+
+    default:
+      assert(false);
+    }
   }
 
   printf("Total of %d pages, of which %d are free\n", objC_nPages, nFree);
@@ -827,6 +841,9 @@ objC_ReleaseMappingFrame(ObjectHeader *pObj)
 
     node_Unprepare((Node *)pProducer, false);
 
+  } else {
+    assert((pProducer->obType == ot_PtDataPage)
+           || (pProducer->obType == ot_PtDevicePage) );
   }
 
   if (pageH_GetObType(pObj) == ot_PtMappingPage) {
@@ -856,8 +873,6 @@ objC_CopyObject(ObjectHeader *pObj)
   ObjectHeader *newObj;
   kva_t fromAddr;
   kva_t toAddr;
-  Node *oldNode = 0;
-  Node *newNode = 0;
   unsigned i = 0;
 
   DEBUG(ndalloc)
@@ -874,7 +889,7 @@ objC_CopyObject(ObjectHeader *pObj)
      * object, and it may be dirty. We need to find another location
      * for it.
      */
-    assert (pte_ObIsNotWritable(pObj));
+    assert(pte_ObIsNotWritable(objH_ToPage(pObj)));
 
     PageHeader * newPage = objC_GrabPageFrame();
     newObj = pageH_ToObj(newPage);
@@ -891,9 +906,9 @@ objC_CopyObject(ObjectHeader *pObj)
             && pObj->obType != ot_NtFreeFrame);
     assert(keyR_IsEmpty(&pObj->keyRing));
 
-    oldNode = (Node *) pObj;
-    newNode = objC_GrabNodeFrame();
-    newObj = DOWNCAST(newNode, ObjectHeader);
+    Node * oldNode = (Node *) pObj;
+    Node * newNode = objC_GrabNodeFrame();
+    newObj = node_ToObj(newNode);
 
     assert(newObj != pObj);
 
@@ -936,12 +951,12 @@ objC_CopyObject(ObjectHeader *pObj)
  */
 /* This procedure may Yield. */
 bool
-objC_EvictFrame(ObjectHeader *pObj)
+objC_EvictFrame(PageHeader * pObj)
 {
   DEBUG(ndalloc)
-    printf("objC_EvictFrame obj=0x%08x type=%d\n", pObj, pObj->obType);
+    printf("objC_EvictFrame obj=0x%08x type=%d\n", pObj, pageH_GetObType(pObj));
 
-  switch (pObj->obType) {
+  switch (pageH_GetObType(pObj)) {
   case ot_PtFreeFrame:
     break;
 
@@ -973,7 +988,7 @@ objC_EvictFrame(ObjectHeader *pObj)
 
       objH_ClearFlags(pObj, OFLG_CKPT | OFLG_DIRTY);
     }
-    assert(keyR_IsEmpty(&pObj->keyRing));
+    assert(keyR_IsEmpty(&pageH_ToObj(pObj)->keyRing));
     objC_ReleaseFrame(pObj);
     break;
 
@@ -981,7 +996,7 @@ objC_EvictFrame(ObjectHeader *pObj)
   }
 
   // Unlink from free list.
-  ObjectHeader * * pp = &objC_firstFreePage;
+  PageHeader * * pp = &objC_firstFreePage;
   while (*pp != pObj)
     pp = &(*pp)->next;
   (*pp) = pObj->next;
@@ -1015,6 +1030,7 @@ objC_CleanFrame(ObjectHeader *pObj, bool invalidateProducts)
 
 
   if (pObj->obType <= ot_NtLAST_NODE_TYPE)
+    /* FIXME: shouldn't we write back the node *before* clearing it? */
     node_DoClearThisNode((Node *)pObj);
 
   else
@@ -1106,7 +1122,6 @@ objC_AgePageFrames()
 {
   static uint32_t curPage = 0;
   uint32_t count = 0;
-  ObjectHeader *pObj = 0;
 
   uint32_t nStuck = 0;
   uint32_t nPasses = 200;	/* arbitrary - catches kernel bugs and */
@@ -1122,10 +1137,10 @@ objC_AgePageFrames()
       if (curPage >= objC_nPages)
 	curPage = 0;
 
-      pObj = objC_GetCorePageFrame(curPage);
+      PageHeader * pObj = objC_GetCorePageFrame(curPage);
       
       /* Some page types do not get aged: */
-      switch (pObj->obType) {
+      switch (pageH_GetObType(pObj)) {
       case ot_PtNewAlloc:
       case ot_PtDevicePage:
       case ot_PtKernelHeap:
@@ -1135,6 +1150,7 @@ objC_AgePageFrames()
 
 #ifdef USES_MAPPING_PAGES
       case ot_PtMappingPage:
+      {
 	assert(objH_IsDirty(pObj) == false);
 
         /* Mapping pages cannot go out if their producer is pinned,
@@ -1146,6 +1162,7 @@ objC_AgePageFrames()
 	if (objH_IsKernelPinned(pProducer))
 	  continue;
         break;
+      }
 #endif
 
       case ot_PtDataPage:
@@ -1156,7 +1173,7 @@ objC_AgePageFrames()
       }
 	  
       /* Some pages cannot be aged because they are active or pinned: */
-      if (objH_IsUserPinned(pObj))
+      if (objH_IsUserPinned(pageH_ToObj(pObj)))
 	continue;
       if (objH_IsKernelPinned(pObj))
 	continue;
@@ -1169,10 +1186,10 @@ objC_AgePageFrames()
 	 * nodes in memory if the process is still active.
 	 */
 #ifdef USES_MAPPING_PAGES
-	assert(pObj->obType != ot_PtMappingPage);
+	assert(pageH_GetObType(pObj) != ot_PtMappingPage);
 #endif
 
-	if (objC_CleanFrame(pObj, true) == false)
+	if (objC_CleanFrame(pageH_ToObj(pObj), true) == false)
 	  continue;
     
 	assert(!pageH_IsDirty(pObj));
@@ -1181,7 +1198,7 @@ objC_AgePageFrames()
 	 * list:
 	 */
 	curPage++;
-        assert(keyR_IsEmpty(&pObj->keyRing));
+        assert(keyR_IsEmpty(&pageH_ToObj(pObj)->keyRing));
 	objC_ReleaseFrame(pObj);
 
 	return;
@@ -1194,14 +1211,14 @@ objC_AgePageFrames()
 	/* It's a lot cheaper to regenerate a mapping page than to
 	 * read some other page back in from the disk...
 	 */
-	if (pObj->obType == ot_PtMappingPage) {
+	if (pageH_GetObType(pObj) == ot_PtMappingPage) {
 	  curPage++;
 	  objC_ReleaseMappingFrame(pObj);
 	  return;
 	}
 #endif
 	
-	objC_CleanFrame(pObj, false);
+	objC_CleanFrame(pageH_ToObj(pObj), false);
       }
     }
   } while (--nPasses);
@@ -1218,17 +1235,16 @@ objC_WaitForAvailablePageFrame()
   assert (objC_nFreePageFrames > objC_nReservedIoPageFrames);
 }
 
-ObjectHeader *
+PageHeader *
 objC_GrabPageFrame()
 {
-  ObjectHeader *pObj = 0;
-
   objC_WaitForAvailablePageFrame();
 
   assert (objC_nFreePageFrames > 0);
 
   assert(objC_firstFreePage);
-  pObj = objC_firstFreePage;
+
+  PageHeader * pObj = objC_firstFreePage;
   objC_firstFreePage = objC_firstFreePage->next;
 
   DEBUG(ndalloc)
@@ -1256,9 +1272,9 @@ ObjectCache::RequirePageFrames(uint32_t n)
 #endif
 
 static void
-objC_GrabThisPageFrame(ObjectHeader *pObj)
+objC_GrabThisPageFrame(PageHeader *pObj)
 {
-  assert(pObj->obType == ot_PtFreeFrame);
+  assert(pageH_GetObType(pObj) == ot_PtFreeFrame);
   objC_nFreePageFrames--;
 
   kva_t kva = pObj->pageAddr;	// preserve this field
@@ -1270,7 +1286,7 @@ objC_GrabThisPageFrame(ObjectHeader *pObj)
   assert(pte_ObIsNotWritable(pObj));
 
   pObj->age = age_NewBorn;
-  NullKeyRing(&pObj->keyRing);
+  NullKeyRing(&pageH_ToObj(pObj)->keyRing);
 }
 
 Node *
