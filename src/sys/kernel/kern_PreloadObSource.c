@@ -74,8 +74,6 @@ FetchPage(ObjectSource * src, PageHeader * pageH)
 
   assert(src->start <= oid && oid < src->end);
 
-  void * dest = (void *) pageH_GetPageVAddr(pageH);
-
   relOid = oid - src->start;		/* convert to relative terms */
 
   InitFrameInfo(&fi, relOid);
@@ -100,6 +98,8 @@ FetchPage(ObjectSource * src, PageHeader * pageH)
     pp->type[fi.tagEntry] = FRM_TYPE_ZDPAGE;
   }
 
+  void * dest = (void *) pageH_GetPageVAddr(pageH);
+
   if (pp->type[fi.tagEntry] == FRM_TYPE_DPAGE) {
     kva_t pageBase = src->base;
     pageBase += (fi.obFrameNo * EROS_PAGE_SIZE);
@@ -118,9 +118,9 @@ FetchPage(ObjectSource * src, PageHeader * pageH)
 }
 
 static bool
-FetchNode(ObjectSource *src, ObjectHeader *pObj)
+FetchNode(ObjectSource * src, Node * pNode)
 {
-  OID oid = pObj->kt_u.ob.oid;
+  OID oid = node_ToObj(pNode)->kt_u.ob.oid;
   OID relOid;
   FrameInfo fi;
   PagePot * pp = 0;
@@ -193,7 +193,7 @@ FetchNode(ObjectSource *src, ObjectHeader *pObj)
   dn = (DiskNodeStruct *) pageBase;
   dn += fi.obFrameNdx;
 
-  node_SetEqualTo((Node *)pObj, dn);
+  node_SetEqualTo(pNode, dn);
 
   return true;
 }
@@ -210,28 +210,37 @@ PreloadObSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 #endif
 
   if (obType == ot_PtDataPage) {
-    pObj = objC_GrabPageFrame();
+    PageHeader * pageH = objC_GrabPageFrame();
+    pObj = pageH_ToObj(pageH);
     pObj->kt_u.ob.oid = oid;
 
-    result = FetchPage(thisPtr, pObj);
+    result = FetchPage(thisPtr, pageH);
+
+    if (!result || (useCount && pObj->kt_u.ob.allocCount != count)) {
+      objC_ReleaseFrame(pObj);
+      return 0;
+    }
+
+    pObj->age = age_NewBorn;
   }
   else {
     assert(obType == ot_NtUnprepared);
 
-    pObj = DOWNCAST(objC_GrabNodeFrame(), ObjectHeader);
+    Node * pNode = objC_GrabNodeFrame();
+    pObj = node_ToObj(pNode);
     pObj->kt_u.ob.oid = oid;
 
-    result = FetchNode(thisPtr, pObj);
-  }
+    result = FetchNode(thisPtr, pNode);
 
-  if (!result || (useCount && pObj->kt_u.ob.allocCount != count)) {
-    objC_ReleaseFrame(pObj);
-    return 0;
+    if (!result || (useCount && pObj->kt_u.ob.allocCount != count)) {
+      objC_ReleaseFrame(pObj);
+      return 0;
+    }
+
+    pObj->age = age_NewBorn;
   }
 
   assert (pObj->kt_u.ob.oid == oid);
-
-  pObj->age = age_NewBorn;
 
   objH_SetFlags(pObj, OFLG_CURRENT|OFLG_DISKCAPS);
   assert (objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);

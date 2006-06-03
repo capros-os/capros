@@ -94,7 +94,7 @@ objH_KernUnpin(ObjectHeader* thisPtr)
 }
 
 void
-objH_AddProduct(ObjectHeader* thisPtr, ObjectHeader *product)
+objH_AddProduct(ObjectHeader * thisPtr, PageHeader * product)
 {
   /* assert(product->obType == ot_PtMappingPage); */
   product->next = thisPtr->prep_u.products;
@@ -103,9 +103,9 @@ objH_AddProduct(ObjectHeader* thisPtr, ObjectHeader *product)
 }
 
 void
-objH_DelProduct(ObjectHeader* thisPtr, ObjectHeader *product)
+objH_DelProduct(ObjectHeader * thisPtr, PageHeader * product)
 {
-  assert(product->obType == ot_PtMappingPage);
+  assert(pageH_GetObType(product) == ot_PtMappingPage);
   assert(product->kt_u.mp.producer == thisPtr);
   
   if (thisPtr->prep_u.products == product) {
@@ -114,7 +114,7 @@ objH_DelProduct(ObjectHeader* thisPtr, ObjectHeader *product)
   else {
     /* Not the first thing on the products list. Find it.
        Note: the list of products is usually quite short. */
-    ObjectHeader *curProd = thisPtr->prep_u.products;
+    PageHeader * curProd = thisPtr->prep_u.products;
     while (curProd->next) {
       if (curProd->next == product) {
 	curProd->next = product->next;
@@ -364,11 +364,12 @@ objH_Rescind(ObjectHeader* thisPtr)
   DEBUG(rescind)
     dprintf(true, "After 'RescindAll()'\n");
 
-  /* If object has on-disk keys, must dirty the new object to ensure
-   * that it gets written.
-   */
   if (hasCaps) {
     thisPtr->kt_u.ob.allocCount++;
+
+    /* If object has on-disk keys, must dirty the new object to ensure
+     * that the new counts get written.
+     */
     if (thisPtr->obType <= ot_NtLAST_NODE_TYPE)
       objH_ToNode(thisPtr)->callCount++;
 
@@ -416,7 +417,7 @@ objH_ZapResumeKeys(ObjectHeader* thisPtr)
 
 #ifdef OPTION_OB_MOD_CHECK
 uint32_t
-objH_CalcCheck(const ObjectHeader* thisPtr)
+objH_CalcCheck(const ObjectHeader * thisPtr)
 {
   Node *pNode = 0;
   uint32_t i = 0;
@@ -481,9 +482,9 @@ objH_InvalidateProducts(ObjectHeader * thisPtr)
       thisPtr->obType == ot_NtSegment) {
     /* We need to zap the product chain (MAJOR bummer!) */
     while (thisPtr->prep_u.products) {
-      ObjectHeader *pProd = thisPtr->prep_u.products;
-      assert( pProd->obType == ot_PtMappingPage );
-      thisPtr->prep_u.products = thisPtr->prep_u.products->next;
+      PageHeader * pProd = thisPtr->prep_u.products;
+      assert(pageH_GetObType(pProd) == ot_PtMappingPage);
+      thisPtr->prep_u.products = pProd->next;
 
       Depend_InvalidateProduct(pProd);
       objC_ReleaseFrame(pProd);
@@ -495,7 +496,7 @@ objH_InvalidateProducts(ObjectHeader * thisPtr)
 
 #ifdef OPTION_DDB
 void
-objH_ddb_dump(ObjectHeader* thisPtr)
+objH_ddb_dump(ObjectHeader * thisPtr)
 {
   extern void db_printf(const char *fmt, ...);
 
@@ -513,20 +514,20 @@ objH_ddb_dump(ObjectHeader* thisPtr)
          (uint32_t) thisPtr->kt_u.ob.oid,
          thisPtr->kt_u.ob.allocCount);
 #endif
-  printf("    ioCount=0x%08x next=0x%08x flags=0x%02x obType=0x%02x age=0x%02x\n",
+  printf("    ioCount=0x%08x next=0x%08x flags=0x%02x obType=0x%02x usrPin=%d\n",
 	 thisPtr->kt_u.ob.ioCount, thisPtr->next,
-         thisPtr->flags, thisPtr->obType, thisPtr->age);
-  printf("    prodBlss=%d rwProd=%c usrPin=%d kernPin=%d\n",
-	 thisPtr->kt_u.mp.producerBlss,
-         thisPtr->kt_u.mp.rwProduct ? 'y' : 'n', thisPtr->userPin,
-	 thisPtr->kernPin);
+         thisPtr->flags, thisPtr->obType, thisPtr->userPin );
 
   switch(thisPtr->obType) {
   case ot_PtMappingPage:
-    printf("    producer=0x%08x\n", thisPtr->kt_u.mp.producer);
+    printf("    prodBlss=%d rwProd=%c producer=0x%08x\n",
+	 objH_ToPage(thisPtr)->kt_u.mp.producerBlss,
+         objH_ToPage(thisPtr)->kt_u.mp.rwProduct ? 'y' : 'n',
+         objH_ToPage(thisPtr)->kt_u.mp.producer );
     break;
   case ot_PtDataPage:
   case ot_PtDevicePage:
+    printf("    pageAddr=0x%08x\n", objH_ToPage(thisPtr)->pageAddr);
   case ot_NtSegment:
     {
       ObjectHeader *oh = thisPtr->prep_u.products;

@@ -241,9 +241,15 @@ objH_GetFlags(const ObjectHeader* thisPtr, uint32_t w)
 }
 
 INLINE void 
-objH_ClearFlags(ObjectHeader* thisPtr, uint32_t w)
+objH_ClearFlags(ObjectHeader * thisPtr, uint32_t w)
 {
     thisPtr->flags &= ~w;
+}
+
+INLINE void 
+pageH_ClearFlags(PageHeader * thisPtr, uint32_t w)
+{
+  objH_ClearFlags(pageH_ToObj(thisPtr), w);
 }
 
 INLINE void 
@@ -337,16 +343,16 @@ objH_ResetKeyRing(ObjectHeader* thisPtr)
   keyR_ResetRing(&thisPtr->keyRing);
 }
 
-void 		objH_Intern(ObjectHeader* thisPtr);	/* intern object on the ObList. */
-void 		objH_Unintern(ObjectHeader* thisPtr);	/* remove object from the ObList. */
+void objH_Intern(ObjectHeader* thisPtr);	/* intern object on the ObList. */
+void objH_Unintern(ObjectHeader* thisPtr);	/* remove object from the ObList. */
 
-void		objH_FlushIfCkpt(ObjectHeader* thisPtr);
-void		objH_Rescind(ObjectHeader* thisPtr);
-void		objH_ZapResumeKeys(ObjectHeader* thisPtr);
+void objH_FlushIfCkpt(ObjectHeader* thisPtr);
+void objH_Rescind(ObjectHeader* thisPtr);
+void objH_ZapResumeKeys(ObjectHeader* thisPtr);
 
-void            objH_InvalidateProducts(ObjectHeader* thisPtr);
-void            objH_AddProduct(ObjectHeader* thisPtr, ObjectHeader *product);
-void            objH_DelProduct(ObjectHeader* thisPtr, ObjectHeader *product);
+void objH_InvalidateProducts(ObjectHeader* thisPtr);
+void objH_AddProduct(ObjectHeader * thisPtr, PageHeader * product);
+void objH_DelProduct(ObjectHeader * thisPtr, PageHeader * product);
 
 ObjectHeader  * objH_Lookup(ObType, OID oid);
 

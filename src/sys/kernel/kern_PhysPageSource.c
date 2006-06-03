@@ -80,10 +80,6 @@ ObjectHeader *
 PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType, 
 		       ObCount count, bool useCount)
 {
-  ObjectHeader *pObj = 0;
-#ifndef NDEBUG
-  kpa_t relFrameNdx;
-#endif
   kpa_t pgFrame = (oid - OID_RESERVED_PHYSRANGE) / EROS_OBJECTS_PER_FRAME;
   
   pgFrame *= EROS_PAGE_SIZE;
@@ -95,16 +91,15 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
     return 0;
   }
 
-
-  pObj = objC_PhysPageToObHdr(pgFrame);
+  PageHeader * pObj = objC_PhysPageToObHdr(pgFrame);
 
   if (pObj == 0) {
     dprintf(true, "PhysPageSource::GetObject(): No header!\n");
-    return pObj;
+    return 0;
   }
 
 #ifndef NDEBUG
-  relFrameNdx = (pgFrame - thisPtr->pmi->basepa) / EROS_PAGE_SIZE;
+  kpa_t relFrameNdx = (pgFrame - thisPtr->pmi->basepa) / EROS_PAGE_SIZE;
   assert(pObj == &thisPtr->pmi->firstObHdr[relFrameNdx]);
 #endif
 
@@ -115,8 +110,9 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
   pObj->kt_u.ob.allocCount = PhysPageAllocCount;
   pObj->age = age_NewBorn;
 
-  objH_SetFlags(pObj, OFLG_CURRENT|OFLG_DISKCAPS);
-  assert (objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
+  objH_SetFlags(pageH_ToObj(pObj), OFLG_CURRENT|OFLG_DISKCAPS);
+  assert (objH_GetFlags(pageH_ToObj(pObj),
+                        OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
  
   pObj->kt_u.ob.ioCount = 0;
   if (thisPtr->pmi->type == MI_DEVICEMEM) {
@@ -124,7 +120,7 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 
     /* Do not bother with calculating the checksum value, as device
      * memory is always considered dirty. */
-    objH_SetFlags(pObj, OFLG_DIRTY);
+    objH_SetFlags(pageH_ToObj(pObj), OFLG_DIRTY);
   }
   else {
     pObj->obType = ot_PtDataPage;
@@ -133,10 +129,10 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 #endif
   }
 
-  objH_ResetKeyRing(pObj);
-  objH_Intern(pObj);
+  objH_ResetKeyRing(pageH_ToObj(pObj));
+  objH_Intern(pageH_ToObj(pObj));
 
-  return pObj;
+  return pageH_ToObj(pObj);
 }
 
 bool
@@ -146,11 +142,9 @@ PhysPageSource_Invalidate(ObjectSource *thisPtr, ObjectHeader *pObj)
     fatal("PhysPageSource::Invalidate(PtDevicePage) is nonsense\n");
   }
   else {
-    kpa_t pgFrame;
-
     assert(pObj->obType == ot_PtDataPage);
 
-    pgFrame = pObj->pageAddr;
+    kpa_t pgFrame = objH_ToPage(pObj)->pageAddr;
 
     if (!ValidPhysPage(thisPtr->pmi, pgFrame))
       return false;

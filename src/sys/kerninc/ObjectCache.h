@@ -58,7 +58,7 @@ extern uint32_t objC_nNodes;
 extern Node *objC_nodeTable;
 
 extern uint32_t objC_nPages;
-extern ObjectHeader *objC_coreTable;
+extern PageHeader * objC_coreTable;
 
 extern uint32_t objC_nFreeNodeFrames;
 extern uint32_t objC_nFreePageFrames;
@@ -66,7 +66,7 @@ extern uint32_t objC_nReservedIoPageFrames;
 extern uint32_t objC_nCommittedIoPageFrames;
   
 extern Node *objC_firstFreeNode;
-extern ObjectHeader *objC_firstFreePage;
+extern PageHeader * objC_firstFreePage;
 
 
 /* Former member functions of ObjectCache */
@@ -79,7 +79,7 @@ void objC_Init();
 void objC_InitObjectSources();
 
 /* Page management: */
-ObjectHeader *objC_PhysPageToObHdr(kpa_t pagepa);
+PageHeader * objC_PhysPageToObHdr(kpa_t pagepa);
 
 ObjectHeader *objC_OIDtoObHdr(uint32_t oidLo, uint16_t oidHi);
 
@@ -90,7 +90,7 @@ Node *objC_GrabNodeFrame();
 
 void objC_AgePageFrames();
 void objC_WaitForAvailablePageFrame();
-ObjectHeader *objC_GrabPageFrame();
+PageHeader * objC_GrabPageFrame();
 
 void objC_AddDevicePages(PmemInfo *);
 
@@ -112,12 +112,12 @@ objC_TotalNodes()
  * version. */
 ObjectHeader *objC_CopyObject(ObjectHeader *pObj);
 
-/* Evict the current resident of the node/page frame. This is called
- * when we need to claim a particular object frame in the object
+/* Evict the current resident of the page frame. This is called
+ * when we need to claim a particular page frame in the object
  * cache. It is satisfactory to accomplish this by grabbing some
- * other frame and moving the object to it. 
+ * other frame and moving the page to it. 
  */
-bool objC_EvictFrame(ObjectHeader *pObj);
+bool objC_EvictFrame(PageHeader * pObj);
 
 /* Releases node/page frame to free list */
 void objC_ReleaseFrame(ObjectHeader *);
@@ -137,15 +137,11 @@ objC_NumCoreNodeFrames()
   return objC_nNodes;
 }
 
- 
-/* FIX: These need to be replaced when we go to the more flexible
- * core allocator, but for now they are still needed.
- */
-ObjectHeader *objC_GetCorePageFrame(uint32_t ndx);
+PageHeader * objC_GetCorePageFrame(uint32_t ndx);
 Node *objC_GetCoreNodeFrame(uint32_t ndx);
 
 #ifdef USES_MAPPING_PAGES
-void objC_ReleaseMappingFrame(ObjectHeader *pObj);
+void objC_ReleaseMappingFrame(PageHeader * pObj);
 #endif
 
 #ifndef NDEBUG
