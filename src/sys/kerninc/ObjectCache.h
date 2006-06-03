@@ -2,7 +2,7 @@
 #define __OBJECTCACHE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -80,12 +80,6 @@ void objC_InitObjectSources();
 
 /* Page management: */
 ObjectHeader *objC_PhysPageToObHdr(kpa_t pagepa);
-
-INLINE kva_t 
-objC_ObHdrToPage(const ObjectHeader *pHdr)
-{
-  return pHdr->pageAddr;
-}
 
 ObjectHeader *objC_OIDtoObHdr(uint32_t oidLo, uint16_t oidHi);
 

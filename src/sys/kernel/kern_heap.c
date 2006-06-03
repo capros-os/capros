@@ -73,17 +73,13 @@ acquire_heap_page(void)
     return physMem_Alloc(EROS_PAGE_SIZE, &physMem_pages);
   }
   else {
-    ObjectHeader *pHdr = 0;
-    kpa_t pa;
-
     printf("Trying to allocate from object heap.\n");
 
+    PageHeader * pageH = objC_GrabPageFrame();
 
-    pHdr = objC_GrabPageFrame();
-
-    pa = VTOP(objC_ObHdrToPage(pHdr));
-    pHdr->obType = ot_PtKernelHeap;
-    objH_SetFlags(pHdr, OFLG_DIRTY);	/* always */
+    kpa_t pa = VTOP(pageH_GetPageVAddr(pageH));
+    pageH->obType = ot_PtKernelHeap;
+    objH_SetFlags(pageH, OFLG_DIRTY);	/* always */
 
     return pa;
   }

@@ -96,7 +96,7 @@ bool PteZapped = false;
 
 static PageHeader *
 MakeNewPageTable(SegWalk* wi /*@ not null @*/ ); 
-static PageHeader*
+static PageHeader *
 proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/); 
 
 
@@ -224,7 +224,7 @@ pte_ObIsNotWritable(PageHeader * pageH)
 #endif
 
   for (pf = 0; pf < objC_TotalPages(); pf++) {
-    PageHeader *pHdr = objC_GetCorePageFrame(pf);
+    PageHeader * pHdr = objC_GetCorePageFrame(pf);
 
     if (pageH_GetObType(pHdr) != ot_PtMappingPage)
       continue;
@@ -574,7 +574,7 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
      
   pageAddr = 0;
   
-  PageHeader * pPageHdr = wi.segObj;
+  PageHeader * pPageHdr = (PageHeader *)wi.segObj;
 
   if (isWrite)
     objH_MakeObjectDirty(pPageHdr);

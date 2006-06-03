@@ -166,7 +166,7 @@ sysT_WakeupAt(uint64_t now)
  * SUPPORT FOR THE TIME PAGE
  **************************************************/
 static volatile TimePageStruct *eros_tod_struct = 0;
-ObjectHeader *sysT_TimePageHdr = 0;
+PageHeader * sysT_TimePageHdr = 0;
 
 Timer TimePageTimer;
 
@@ -213,7 +213,7 @@ sysT_InitTimePage()
   sysT_TimePageHdr = objC_GrabPageFrame();
   
   eros_tod_struct = (TimePageStruct *)
-    objC_ObHdrToPage(sysT_TimePageHdr);
+    pageH_GetPageVAddr(sysT_TimePageHdr);
 
   eros_tod_struct->tps_version = TIMEPAGE_VERSION;
   eros_tod_struct->tps_sinceboot.tv_secs = 0;

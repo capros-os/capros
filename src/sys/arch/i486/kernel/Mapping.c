@@ -994,7 +994,7 @@ check_MappingPage(PageHeader * pPage)
       if (thePage >= KVTOL(KVA_FROMSPACE))
 	continue;
 
-      ObjectHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);
+      PageHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);
       assert(pageH_IsObjectType(thePageHdr));
 
       if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_CKPT)) {

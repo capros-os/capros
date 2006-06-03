@@ -64,18 +64,17 @@ static inline void InitFrameInfo(FrameInfo *thisPtr, OID oid)
 }
 
 static bool
-FetchPage(ObjectSource *src, ObjectHeader *pObj)
+FetchPage(ObjectSource * src, PageHeader * pageH)
 {
-  OID oid = pObj->kt_u.ob.oid;
+  OID oid = pageH->kt_u.ob.oid;
   FrameInfo fi;
-  void *dest;
   PagePot *pp = 0;
   OID relOid;
   kva_t ppaddr;
 
   assert(src->start <= oid && oid < src->end);
 
-  dest = (void *) objC_ObHdrToPage(pObj);
+  void * dest = (void *) pageH_GetPageVAddr(pageH);
 
   relOid = oid - src->start;		/* convert to relative terms */
 
@@ -113,7 +112,7 @@ FetchPage(ObjectSource *src, ObjectHeader *pObj)
     return true;
   }
 
-  pObj->kt_u.ob.allocCount = pp->count[fi.tagEntry];
+  pageH->kt_u.ob.allocCount = pp->count[fi.tagEntry];
 
   return false;
 }

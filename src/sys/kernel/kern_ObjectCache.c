@@ -829,8 +829,8 @@ objC_ReleaseMappingFrame(ObjectHeader *pObj)
 
   }
 
-  if (pObj->obType == ot_PtMappingPage) {
-    kva_t pgva = objC_ObHdrToPage(pObj);
+  if (pageH_GetObType(pObj) == ot_PtMappingPage) {
+    kva_t pgva = pageH_GetPageVAddr(pObj);
     DEBUG(map)
       printf("Blasting mapping page at 0x%08x\n", pgva);
     pte_ZapMappingPage(pgva);
@@ -876,12 +876,13 @@ objC_CopyObject(ObjectHeader *pObj)
      */
     assert (pte_ObIsNotWritable(pObj));
 
-    newObj = objC_GrabPageFrame();
+    PageHeader * newPage = objC_GrabPageFrame();
+    newObj = pageH_ToObj(newPage);
 
     assert(newObj != pObj);
 
-    fromAddr = objC_ObHdrToPage(pObj);
-    toAddr = objC_ObHdrToPage(newObj);
+    fromAddr = pageH_GetPageVAddr(objH_ToPage(pObj));
+    toAddr = pageH_GetPageVAddr(newPage);
 
     memcpy((void *) toAddr, (void *) fromAddr, EROS_PAGE_SIZE);
   }

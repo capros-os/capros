@@ -391,7 +391,7 @@ objH_Rescind(ObjectHeader* thisPtr)
 
     objH_InvalidateProducts(thisPtr);
 
-    pPage = objC_ObHdrToPage(thisPtr);
+    pPage = pageH_GetPageVAddr(objH_ToPage(thisPtr));
 
     bzero((void*)pPage, EROS_PAGE_SIZE);
   }
@@ -421,7 +421,6 @@ objH_CalcCheck(const ObjectHeader* thisPtr)
   Node *pNode = 0;
   uint32_t i = 0;
   uint32_t ck = 0;
-  uint32_t *pageData = 0;
   uint32_t w = 0;
   
 #ifndef NDEBUG
@@ -461,7 +460,8 @@ objH_CalcCheck(const ObjectHeader* thisPtr)
 
     assert (objC_ValidPagePtr(thisPtr));
 
-    pageData = (uint32_t *) objC_ObHdrToPage(thisPtr);
+    const uint32_t *  pageData = (const uint32_t *)
+      pageH_GetPageVAddr(objH_ToPage((ObjectHeader *)thisPtr));
 
     for (w = 0; w < EROS_PAGE_SIZE/sizeof(uint32_t); w++)
       ck ^= pageData[w];

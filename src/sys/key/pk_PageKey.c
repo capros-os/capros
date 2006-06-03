@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -34,10 +34,8 @@
 void
 PageKey(Invocation* inv /*@ not null @*/)
 {
-  kva_t invokedPage;
-  kva_t copiedPage;
-  kva_t pageAddress =
-    objC_ObHdrToPage(key_GetObjectPtr(inv->key));
+  PageHeader * pageH = objH_ToPage(key_GetObjectPtr(inv->key));
+  kva_t pageAddress = pageH_GetPageVAddr(pageH);
 
 
   /* First handle the Read and Write order codes */
@@ -125,12 +123,9 @@ PageKey(Invocation* inv /*@ not null @*/)
 
       COMMIT_POINT();
 
+      kva_t copiedPage = pageH_GetPageVAddr(objH_ToPage(key_GetObjectPtr(inv->entry.key[0])));
 
-      invokedPage = objC_ObHdrToPage(key_GetObjectPtr(inv->key));
-      copiedPage = objC_ObHdrToPage(key_GetObjectPtr(inv->entry.key[0]));
-
-
-      memcpy((void *) invokedPage, (void *) copiedPage, EROS_PAGE_SIZE);
+      memcpy((void *) pageAddress, (void *) copiedPage, EROS_PAGE_SIZE);
 						    
       inv->exit.code = RC_OK;
       return;

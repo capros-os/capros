@@ -1579,7 +1579,7 @@ db_page_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 {
   int	t;
   OID     oid;
-  ObjectHeader *pObj = 0;
+  PageHeader * pageH = 0;
   kva_t kva;
 
   t = db_read_token();
@@ -1594,19 +1594,19 @@ db_page_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
     /*NOTREACHED*/
   }
   
-  pObj = objH_Lookup(ot_PtDataPage, oid);
-  if (pObj == 0)
+  pageH = objH_Lookup(ot_PtDataPage, oid);
+  if (pageH == 0)
     db_error("not in core\n");
 
-  kva = objC_ObHdrToPage(pObj);
+  kva = pageH_GetPageVAddr(pageH);
   
   db_printf("Page (hdr=0x%08x, data=0x%08x) 0x%08x%08x ac=0x%08x ot=%d\n",
-	    pObj,
+	    pageH,
 	    kva,
-	    (uint32_t) (pObj->kt_u.ob.oid >> 32),
-	    (uint32_t) (pObj->kt_u.ob.oid),
-	    pObj->kt_u.ob.allocCount,
-	    pObj->obType);
+	    (uint32_t) (pageH->kt_u.ob.oid >> 32),
+	    (uint32_t) (pageH->kt_u.ob.oid),
+	    pageH->kt_u.ob.allocCount,
+	    pageH->obType);
 }
 
 void
@@ -1614,7 +1614,6 @@ db_pframe_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 {
   int	t;
   uint32_t  frame;
-  ObjectHeader *pObj = 0;
   kva_t kva;
 
   t = db_read_token();
@@ -1629,19 +1628,21 @@ db_pframe_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
     /*NOTREACHED*/
   }
 
-  pObj = objC_GetCorePageFrame(frame);
+  PageHeader * pObj = objC_GetCorePageFrame(frame);
   if (pObj == 0)
     db_error("not in core\n");
 
-  kva = objC_ObHdrToPage(pObj);
+  kva = pageH_GetPageVAddr(pObj);
 
-  db_printf("Frame (hdr=0x%08x, data=0x%08x) 0x%08x%08x ac=0x%08x ot=%d\n",
+  db_printf("Frame (hdr=0x%08x, data=0x%08x) ot=%d\n",
 	    pObj,
 	    kva,
-	    (uint32_t) (pObj->kt_u.ob.oid >> 32),
-	    (uint32_t) (pObj->kt_u.ob.oid),
-	    pObj->kt_u.ob.allocCount,
-	    pObj->obType);
+	    pageH_GetObType(pObj));
+  if (pageH_IsObjectType(pObj))
+    db_printf("    oid=0x%08x%08x ac=0x%08x\n",
+              (uint32_t) (pObj->kt_u.ob.oid >> 32),
+              (uint32_t) (pObj->kt_u.ob.oid),
+              pObj->kt_u.ob.allocCount );
 }
 
 void
@@ -1698,16 +1699,15 @@ db_show_mappings_cmd(db_expr_t addr, int have_addr, db_expr_t det, char* ch)
     else {
       PTE *pte = KPAtoP(PTE *,pte_PageFrame(pde));
       uint32_t frm = 0;
-      ObjectHeader *pHdr = 0;
       pte += lo;
 
       pte_print(base, "PTE ", pte);
       frm = pte_PageFrame(pte);
-      pHdr = objC_PhysPageToObHdr(frm);
+      PageHeader * pHdr = objC_PhysPageToObHdr(frm);
 
       if (pHdr == 0)
 	db_printf("*** NOT A VALID USER FRAME!\n");
-      else if (pHdr->obType != ot_PtDataPage)
+      else if (pageH_GetObType(pHdr) != ot_PtDataPage)
 	db_printf("*** FRAME IS INVALID TYPE!\n");
 
     }

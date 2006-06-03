@@ -21,12 +21,6 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 
-/* Basic type declarations for the target platform, used pervasively
-   within the kernel code and the volume construction utilities.
- 
-   This file is included from both C and C++ code, so it needs to be
-   handled carefully.  */
-
 #if !(defined(i386) || defined(i486))
 #error "Wrong target file included"
 #endif
