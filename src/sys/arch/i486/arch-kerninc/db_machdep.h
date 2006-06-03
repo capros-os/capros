@@ -122,6 +122,8 @@ bool db_phys_eq(/* task_t, vm_offset_t, task_t, vm_offset_t */);
 #define DB_NULL_TASK_NAME	"?                      "
 
 void		db_task_name(/* task_t */);
+struct Process;
+void db_eros_print_context_md(struct Process * cc);
 
 /* macro for checking if a thread has used floating-point */
 

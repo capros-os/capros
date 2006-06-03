@@ -40,6 +40,7 @@
 #include <ddb/db_output.h>
 #include <ddb/db_access.h>
 #include <kerninc/KernStream.h>
+#include <kerninc/Process.h>
 #include <arch-kerninc/IRQ-inline.h>
 
 #define cnpollc(x) kstream_dbg_stream->SetDebugging((x))
@@ -258,4 +259,16 @@ void
 Debugger()
 {
 	asm("int $3");
+}
+
+/* Print the machine-dependent part of the Process structure. */
+void
+db_eros_print_context_md(Process * cc)
+{
+#ifdef OPTION_SMALL_SPACES
+  db_printf(" smallPTE=0x%08x bias=0x%08x lim=0x%08x\n",
+            cc->md.smallPTE, cc->md.bias, cc->md.limit);
+#else
+  db_printf("\n");
+#endif
 }

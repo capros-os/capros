@@ -29,7 +29,7 @@
 #include "IDT.h"
 
 #ifdef OPTION_DDB
-bool continue_user_bpt;
+extern bool continue_user_bpt;
 #endif
 
 bool

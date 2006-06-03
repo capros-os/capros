@@ -50,6 +50,8 @@
 #include <ddb/db_output.h>
 #include <arch-kerninc/PTE.h>
 
+bool continue_user_bpt;
+
 void
 db_eros_print_key(Key* key /*@ not null @*/)
 {
@@ -305,12 +307,7 @@ db_eros_print_context(Process *cc)
 	      "  haz=0x%x prio=%d",
 	      cc->faultCode, cc->faultInfo, cc->processFlags,
 	      cc->hazards, /*cc->priority*/cc->readyQ->mask);
-#ifdef OPTION_SMALL_SPACES
-    db_printf(" smallPTE=0x%08x bias=0x%08x lim=0x%08x\n",
-	      cc->md.smallPTE, cc->md.bias, cc->md.limit);
-#else
-    db_printf("\n");
-#endif
+    db_eros_print_context_md(cc);
  
     if (cc->procRoot && 
 	keyBits_IsType(&cc->procRoot->slot[ProcSymSpace], KKT_Number)) {
@@ -1496,7 +1493,6 @@ db_show_nodes_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 void
 db_user_continue_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 {
-  extern bool continue_user_bpt;
   continue_user_bpt = true;
 }
 
