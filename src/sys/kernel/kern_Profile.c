@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -27,18 +28,13 @@
 #include <eros/memory.h>
 
 extern "C" {
-  extern void etext();
-#if 0
-  extern void start();
-#endif
-  
   extern uint32_t* KernelProfileTable;
 }
 
 void
 InitKernelProfiler()
 {
-  uint32_t kernelCodeLength = (uint32_t) etext;
+  uint32_t kernelCodeLength = (uint32_t) &etext;
 
   /* One profile word for every 16 bytes: */
   

@@ -45,10 +45,6 @@
 #include "IDT.h"
 #include "TSS.h"
 
-extern void etext();
-extern void end();
-extern void start();
-
 void i486_BuildKernelMap();
 uint32_t mach_BusArchitecture();
 

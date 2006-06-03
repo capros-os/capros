@@ -95,11 +95,6 @@ X_db_lookup(db_symtab_t * srb/*stab */, const char * symstr)
   return 0;
 }
 
-extern int _start;
-extern int etext;
-extern int end;
-
-
 
 db_sym_t
 X_db_search_symbol(db_symtab_t * smtb/* symtab */,
@@ -116,7 +111,7 @@ X_db_search_symbol(db_symtab_t * smtb/* symtab */,
   uint32_t i = 0;
   uint32_t newOffset = 0;
   
-  if ( (address < (uint32_t) &_start) || (address >= (uint32_t) &etext) )
+  if ( (address < (uint32_t) &_start) || (address >= (uint32_t) &db_etext) )
     return 0;
 
   for (i = 0; i < funcSym_count; i++) {
@@ -168,7 +163,7 @@ X_db_line_at_pc(db_symtab_t * smtb/* symtab */, db_sym_t  csym/* cursym */,
 
   struct LineSym *pEntry = 0;
   
-  if ( (address < (uint32_t) &_start) || (address >= (uint32_t) &etext) )
+  if ( (address < (uint32_t) &_start) || (address >= (uint32_t) &db_etext) )
     return false;
 
   for (i = 0; i < lineSym_count; i++) {

@@ -346,8 +346,7 @@ db_symbol_values(db_sym_t sym, const char **namep, db_expr_t *valuep)
  * add support for symbols in loadable driver modules.
  */
 
-extern char end[];
-db_expr_t	db_lastsym = (db_expr_t)end;
+db_expr_t	db_lastsym = (db_expr_t)&db_end;
 db_expr_t	db_maxoff = 0x10000000;
 
 

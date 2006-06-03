@@ -46,9 +46,6 @@
 
 /* #define TIMING_DEBUG */
 
-extern void _start();
-extern void etext();
-
 /*extern "C" {*/
 extern void EnableCounters(uint32_t ctl);
 extern void DisableCounters();
@@ -62,7 +59,7 @@ inline static bool
 ValidEIP(uint32_t eip)
 {
   /* Kernel text is okay: */
-  if (eip >= (uint32_t)_start && eip < (uint32_t)etext)
+  if (eip >= (uint32_t)&_start && eip < (uint32_t)&etext)
     return true;
 
   /* BIOS prom is okay (PCI BIOS): */
@@ -125,7 +122,8 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
 
 #ifndef NDEBUG
   if (dbg_inttrap)
-    Debugger();
+    Debugger();		/* This cannot work, because Debugger() causes
+			an interrupt, which recurses. */
 #endif
 
 #ifndef NDEBUG

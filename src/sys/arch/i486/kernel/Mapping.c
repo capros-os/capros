@@ -30,10 +30,6 @@
 #include "CpuFeatures.h"
 #include "lostart.h"
 
-extern void etext();
-extern void end();
-extern void start();
-
 extern kva_t heap_start;
 extern kva_t heap_end;
 extern kva_t heap_defined;
@@ -419,11 +415,11 @@ i486_BuildKernelMap()
   MapKernelPage(VtoKVA(KernPageDir), KernPageDir_pa, GlobalPage|PTE_V);
 
   /* Create valid mappings for kernel code, data, bss. */
-  for (paddr=align_down(PtoKPA(start), EROS_PAGE_SIZE); 
-       paddr < align_up(PtoKPA(end), EROS_PAGE_SIZE); paddr += EROS_PAGE_SIZE) {
+  for (paddr=align_down(PtoKPA(&_start), EROS_PAGE_SIZE); 
+       paddr < align_up(PtoKPA(&end), EROS_PAGE_SIZE); paddr += EROS_PAGE_SIZE) {
     uint32_t mode = GlobalPage | PTE_V;
 
-    if (paddr >= align_down(PtoKPA(etext), EROS_PAGE_SIZE))
+    if (paddr >= align_down(PtoKPA(&etext), EROS_PAGE_SIZE))
       mode |= RWMODE;
 
     /* Hand-protect kernel page zero, which holds the kernel page
@@ -608,8 +604,8 @@ i486_BuildKernelMap()
     assert((paddr & EROS_PAGE_MASK) == 0);
 
     /* Make writeable, except for kernel code. */
-    if (paddr < (uint32_t) start ||
-	paddr >= ((uint32_t)etext & PTE_FRAMEBITS)){
+    if (paddr < (uint32_t)&_start ||
+	paddr >= ((uint32_t)&etext & PTE_FRAMEBITS)){
       mode |= PTE_W;
 #ifdef WRITE_THROUGH
       mode |= PTE_WT;

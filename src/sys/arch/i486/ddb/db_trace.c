@@ -64,14 +64,10 @@ struct db_variable *db_eregs = db_regs + sizeof(db_regs)/sizeof(db_regs[0]);
  * Stack trace.
  */
 #define EIP_INBIOS(eip) (eip >= 0xe0000u && eip < 0xfffff)
-#define EIP_INKTEXT(eip) (eip >= (kva_t)_start && eip < (kva_t)etext)
+#define EIP_INKTEXT(eip) (eip >= (kva_t)&_start && eip < (kva_t)&etext)
 #define EIP_INKERNEL(eip) (EIP_INKTEXT(eip) || EIP_INBIOS(eip))
 #define KERNEL_TRAP(frame) EIP_INKERNEL(((savearea_t *)frame)->EIP)
 			 
-
-extern char _start[];
-extern char etext[];
-
 
 struct i386_frame {
 	struct i386_frame	*f_frame;
@@ -113,10 +109,9 @@ db_numargs(struct i386_frame * fpp/* fp */)
 	int	*argp;
 	int	inst;
 	int	args;
-	extern char	etext[];
 
 	argp = (int *)db_get_value((int)&fp->f_retaddr, 4, false);
-	if (argp < (int *)VM_MIN_KERNEL_ADDRESS || argp > (int *)etext) {
+	if (argp < (int *)VM_MIN_KERNEL_ADDRESS || argp > (int *)&etext) {
 		args = 5;
 	} else {
 		inst = db_get_value((int)argp, 4, false);

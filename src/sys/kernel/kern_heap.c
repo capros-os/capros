@@ -39,7 +39,6 @@
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 
-extern int end;
 extern kpa_t align_up(kpa_t addr, uint32_t alignment);
 
 /* The following are initialized as part of mach_BootInit. */

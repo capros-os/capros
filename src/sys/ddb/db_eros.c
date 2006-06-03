@@ -1018,8 +1018,6 @@ db_reboot_cmd(db_expr_t dt, int it , db_expr_t det, char* ch)
  * don't really want to sort the symbol table to do it.
  */
 
-extern void etext();
-extern void start();
 #ifdef OPTION_KERN_PROFILE
 extern uint32_t *KernelProfileTable;
 #endif
@@ -1239,7 +1237,7 @@ ddb_SortFunsByCount()
 void
 db_prof_clear_cmd(db_expr_t, int, db_expr_t, char*)
 {
-  uint32_t kernelCodeLength = (uint32_t) etext;
+  uint32_t kernelCodeLength = (uint32_t) &db_etext;
   uint32_t tableSizeInWords = (kernelCodeLength >> 4);
   
   for (uint32_t i = 0; i < tableSizeInWords; i++)
@@ -1260,7 +1258,7 @@ prep_prof()
   for (int i = 0; i < topsz; i++)
     top[i] = 0;
 
-  uint32_t kernelCodeLength = (uint32_t) etext;
+  uint32_t kernelCodeLength = (uint32_t) &db_etext;
   uint32_t tableSizeInWords = (kernelCodeLength >> 4);
   
   for (uint32_t i = 0; i < tableSizeInWords; i++)
@@ -1271,7 +1269,7 @@ prep_prof()
   /* Symbol table is sorted by address.  We take advantage of that
    * here for efficiency:
    */
-  uint32_t limit = (uint32_t) etext;
+  uint32_t limit = (uint32_t) &db_etext;
 
   for (uint32_t i = 0; i < FuncSym::count; i++) {
     if (FuncSym::table[i].address >= limit)

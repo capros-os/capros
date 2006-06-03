@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2006, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -24,9 +24,6 @@
 #include <kerninc/PhysMem.h>
 #include <kerninc/multiboot.h>
 
-extern void start();	/* start of kernel code */
-extern void end();	/* end of kernel data */
-     
 #define dbg_init	0x1u
 
 /* Following should be an OR of some of the above */
@@ -115,8 +112,8 @@ physMem_Init()
 
   /* Reserve kernel code and data and bss.
      The kernel stack is within the bss. */
-  constraint.base = (kpa_t)start;
-  constraint.bound = (kpa_t)end;
+  constraint.base = (kpa_t)&_start;
+  constraint.bound = (kpa_t)&end;
   constraint.align = 1;
   physMem_Alloc(constraint.bound - constraint.base, &constraint);
                                                                                 

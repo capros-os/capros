@@ -91,10 +91,6 @@ obj_IsDirectory(PageHeader * pageH) /* pageH->obType must be ot_PtMappingPage */
  */
 
 extern uint32_t CpuType;
-#ifndef NDEBUG
-extern void end();
-extern void start();
-#endif
 
 bool PteZapped = false;
 
@@ -586,7 +582,7 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
   pageAddr = VTOP(pageH_GetPageVAddr(pPageHdr));
 
   assert ((pageAddr & EROS_PAGE_MASK) == 0);
-  assert (pageAddr < PtoKPA(start) || pageAddr >= PtoKPA(end));
+  assert (pageAddr < PtoKPA(&_start) || pageAddr >= PtoKPA(&end));
 	  
   assert (va < (SMALL_SPACE_PAGES * EROS_PAGE_SIZE));
 
@@ -1033,7 +1029,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
     assert ((pageAddr & EROS_PAGE_MASK) == 0);
     // Must not be within the kernel:
-    assert (pageAddr < PtoKPA(start) || pageAddr >= PtoKPA(end));
+    assert (pageAddr < PtoKPA(&_start) || pageAddr >= PtoKPA(&end));
 	  
     if (isWrite && pte_is(thePTE, PTE_V)) {
       /* We are doing this because the old PTE had insufficient

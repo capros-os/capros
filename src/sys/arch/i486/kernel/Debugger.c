@@ -28,10 +28,6 @@
 #include <kerninc/Activity.h>
 #include <kerninc/SymNames.h>
 
-
-extern int _start;
-extern int etext;
-extern int end;
 extern void intr_entry();
 
 

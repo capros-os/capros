@@ -32,6 +32,10 @@
 #error "Wrong target file included"
 #endif
 
+extern const char _start,	/* start of kernel text section */
+  etext,			/* end of kernel (text and rodata) */
+  end;				/* end of kernel (data and bss) */
+
 #define USES_MAPPING_PAGES
 #define MAPPING_ENTRIES_PER_PAGE 1024
 

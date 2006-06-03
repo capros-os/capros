@@ -36,6 +36,11 @@
 #include <kerninc/kernel.h>
 #include <arch-kerninc/SaveArea.h>
 
+/* For the debugger, define the symbol marking the end of the
+   kernel text and rodata sections. */
+#define db_etext etext
+#define db_end end	/* end of kernel data and bss sections */
+
 #define kernel_map  KernPageDir_pa
 #define PSL_T	    0x100	/* trace trap bit */
 #define PSL_VM	    0x20000	/* VM86 bit */
