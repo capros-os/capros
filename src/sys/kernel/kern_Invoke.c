@@ -1548,7 +1548,7 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
   }
   else {
 #ifndef NDEBUG
-    OID oid = act_CurContext()->procRoot->node_ObjHdr.kt_u.ob.oid;
+    OID oid = act_CurContext()->procRoot->node_ObjHdr.oid;
     printf("No keeper for OID 0x%08x%08x, FC %d FINFO 0x%08x\n",
 		   (uint32_t) (oid >> 32),
                    (uint32_t) oid,

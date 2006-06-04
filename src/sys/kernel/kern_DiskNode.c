@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -48,8 +49,8 @@ node_SetEqualTo(Node *thisPtr, const DiskNodeStruct *other)
 
   /* The invocation does not need to be committed for this one. */
   
-  thisPtr->node_ObjHdr.kt_u.ob.oid = other->oid;
-  thisPtr->node_ObjHdr.kt_u.ob.allocCount = other->allocCount;
+  thisPtr->node_ObjHdr.oid = other->oid;
+  thisPtr->node_ObjHdr.allocCount = other->allocCount;
   thisPtr->callCount = other->callCount;
 
   for (i = 0; i < EROS_NODE_SIZE; i++) {

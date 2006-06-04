@@ -54,8 +54,8 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
        */
     if (ndx != WrapperFormat)
       fatal("Unprepared Node 0x%08x%08x Corrupted (slot %d).\n",
-	    (uint32_t) (thisPtr->node_ObjHdr.kt_u.ob.oid>>32), 
-	    (uint32_t) thisPtr->node_ObjHdr.kt_u.ob.oid, ndx);
+	    (uint32_t) (thisPtr->node_ObjHdr.oid>>32), 
+	    (uint32_t) thisPtr->node_ObjHdr.oid, ndx);
 
     keyBits_UnHazard(&thisPtr->slot[ndx]);
     break;
@@ -187,7 +187,7 @@ node_UnprepareHazardedSlot(Node* thisPtr, uint32_t ndx)
 
 #ifdef OPTION_OB_MOD_CHECK
   if (!objH_IsDirty(DOWNCAST(thisPtr, ObjectHeader)))
-    thisPtr->node_ObjHdr.kt_u.ob.check = objH_CalcCheck(DOWNCAST(thisPtr, ObjectHeader));
+    thisPtr->node_ObjHdr.check = objH_CalcCheck(DOWNCAST(thisPtr, ObjectHeader));
 #endif
 }
 
@@ -229,7 +229,7 @@ node_RescindHazardedSlot(Node* thisPtr, uint32_t ndx, bool mustUnprepare)
   
 #ifdef OPTION_OB_MOD_CHECK
   if (!objH_IsDirty(DOWNCAST(thisPtr, ObjectHeader)))
-    thisPtr->node_ObjHdr.kt_u.ob.check = objH_CalcCheck(DOWNCAST(thisPtr, ObjectHeader));
+    thisPtr->node_ObjHdr.check = objH_CalcCheck(DOWNCAST(thisPtr, ObjectHeader));
 #endif
 }
 
@@ -385,8 +385,8 @@ node_PrepAsSegment(Node* thisPtr)
   if(!node_Unprepare(thisPtr, false)) {
     /* FIX: this is temporary! */
     fatal("Couldn't unprepare oid 0x%08x%08x. Was ot=%d\n",
-          (uint32_t) (thisPtr->node_ObjHdr.kt_u.ob.oid>>32), 
-          (uint32_t) thisPtr->node_ObjHdr.kt_u.ob.oid, ot);
+          (uint32_t) (thisPtr->node_ObjHdr.oid>>32), 
+          (uint32_t) thisPtr->node_ObjHdr.oid, ot);
     return false;
   }
 
@@ -430,8 +430,8 @@ node_Unprepare(Node* thisPtr, bool zapMe)
     if (zapMe == false && node_IsCurrentDomain(thisPtr)) {
       dprintf(true, "(0x%08x) Domroot 0x%08x%08x no zapme\n",
               thisPtr,
-              (uint32_t) (thisPtr->node_ObjHdr.kt_u.ob.oid >> 32), 
-              (uint32_t) thisPtr->node_ObjHdr.kt_u.ob.oid);
+              (uint32_t) (thisPtr->node_ObjHdr.oid >> 32), 
+              (uint32_t) thisPtr->node_ObjHdr.oid);
       return false;
     }
 
@@ -460,7 +460,8 @@ node_Unprepare(Node* thisPtr, bool zapMe)
     if (zapMe == false && node_IsCurrentDomain(thisPtr)) {
       dprintf(true, "(0x%08x) keys/annex 0x%08x%08x no zapme\n",
 		      thisPtr,
-		      (uint32_t) (thisPtr->node_ObjHdr.kt_u.ob.oid >> 32), (uint32_t) thisPtr->node_ObjHdr.kt_u.ob.oid);
+		      (uint32_t) (thisPtr->node_ObjHdr.oid >> 32),
+                      (uint32_t) thisPtr->node_ObjHdr.oid);
       return false;
     }
 
@@ -535,10 +536,10 @@ node_Validate(Node* thisPtr)
   if (objH_IsDirty(DOWNCAST(thisPtr, ObjectHeader)) == false) {
     uint32_t chk = objH_CalcCheck(DOWNCAST(thisPtr, ObjectHeader));
   
-    if ( thisPtr->node_ObjHdr.kt_u.ob.check != chk ) {
+    if ( thisPtr->node_ObjHdr.check != chk ) {
       printf("Invalid Frame 0x%08x Chk=0x%x CalcCheck=0x%x on node ",
-		     thisPtr, thisPtr->node_ObjHdr.kt_u.ob.check, chk);
-      printOid(thisPtr->node_ObjHdr.kt_u.ob.oid);
+		     thisPtr, thisPtr->node_ObjHdr.check, chk);
+      printOid(thisPtr->node_ObjHdr.oid);
       printf("\n");
 
 #if 0

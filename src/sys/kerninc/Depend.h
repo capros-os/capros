@@ -2,6 +2,7 @@
 #define __DEPEND_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -202,8 +203,8 @@ void Depend_InvalidatePage(struct ObjectHeader *page);
   /* Machine dependent -- generally accompanies the page fault
    * handling code
    */
-void Depend_InvalidateProduct(ObjectHeader *page);
-void Depend_WriteDisableProduct(struct ObjectHeader *page);
+void Depend_InvalidateProduct(PageHeader * page);
+void Depend_WriteDisableProduct(PageHeader * page);
 
 void Depend_InitKeyDependTable(uint32_t nNodes);
 #if 0

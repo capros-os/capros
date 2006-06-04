@@ -108,24 +108,24 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 
   pObj->kt_u.ob.oid = oid;
   pObj->kt_u.ob.allocCount = PhysPageAllocCount;
-  pObj->age = age_NewBorn;
+  pObj->objAge = age_NewBorn;
 
   objH_SetFlags(pageH_ToObj(pObj), OFLG_CURRENT|OFLG_DISKCAPS);
-  assert (objH_GetFlags(pageH_ToObj(pObj),
-                        OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
+  assert(objH_GetFlags(pageH_ToObj(pObj),
+                       OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
  
   pObj->kt_u.ob.ioCount = 0;
   if (thisPtr->pmi->type == MI_DEVICEMEM) {
-    pObj->obType = ot_PtDevicePage;
+    pObj->kt_u.ob.obType = ot_PtDevicePage;
 
     /* Do not bother with calculating the checksum value, as device
      * memory is always considered dirty. */
     objH_SetFlags(pageH_ToObj(pObj), OFLG_DIRTY);
   }
   else {
-    pObj->obType = ot_PtDataPage;
+    pObj->kt_u.ob.obType = ot_PtDataPage;
 #ifdef OPTION_OB_MOD_CHECK
-    pObj->kt_u.ob.check = objH_CalcCheck(pObj);
+    pObj->kt_u.ob.check = objH_CalcCheck(pageH_ToObj(pObj));
 #endif
   }
 

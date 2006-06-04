@@ -71,7 +71,7 @@ const char *ddb_obtype_name(uint8_t t)
 #endif
 
 void
-objH_KernPin(ObjectHeader* thisPtr)
+pageH_KernPin(PageHeader * thisPtr)
 {
   assert(thisPtr->kernPin < BYTE_MAX);
   thisPtr->kernPin++;
@@ -82,7 +82,7 @@ objH_KernPin(ObjectHeader* thisPtr)
 }
 
 void
-objH_KernUnpin(ObjectHeader* thisPtr)
+pageH_KernUnpin(PageHeader * thisPtr)
 {
   assert(thisPtr->kernPin);
   thisPtr->kernPin--;
@@ -97,7 +97,7 @@ void
 objH_AddProduct(ObjectHeader * thisPtr, PageHeader * product)
 {
   /* assert(product->obType == ot_PtMappingPage); */
-  product->next = thisPtr->prep_u.products;
+  product->kt_u.mp.next = thisPtr->prep_u.products;
   product->kt_u.mp.producer = thisPtr;
   thisPtr->prep_u.products = product;
 }
@@ -109,22 +109,22 @@ objH_DelProduct(ObjectHeader * thisPtr, PageHeader * product)
   assert(product->kt_u.mp.producer == thisPtr);
   
   if (thisPtr->prep_u.products == product) {
-    thisPtr->prep_u.products = product->next;
+    thisPtr->prep_u.products = product->kt_u.mp.next;
   }
   else {
     /* Not the first thing on the products list. Find it.
        Note: the list of products is usually quite short. */
     PageHeader * curProd = thisPtr->prep_u.products;
-    while (curProd->next) {
-      if (curProd->next == product) {
-	curProd->next = product->next;
+    while (curProd->kt_u.mp.next) {
+      if (curProd->kt_u.mp.next == product) {
+	curProd->kt_u.mp.next = product->kt_u.mp.next;
 	break;
       }
-      curProd = curProd->next;
+      curProd = curProd->kt_u.mp.next;
     }
   }
 
-  product->next = 0;
+  product->kt_u.mp.next = 0;
   product->kt_u.mp.producer = 0;
 }
 
@@ -277,10 +277,8 @@ objH_MakeObjectDirty(ObjectHeader* thisPtr)
   
   objH_FlushIfCkpt(thisPtr);
   
-  thisPtr->age = age_NewBorn;
-  
 #ifdef OPTION_OB_MOD_CHECK
-  if (objH_IsDirty(thisPtr) == 0 && thisPtr->kt_u.ob.check != objH_CalcCheck(thisPtr))
+  if (objH_IsDirty(thisPtr) == 0 && thisPtr->check != objH_CalcCheck(thisPtr))
     fatal("MakeObjectDirty(0x%08x): not dirty and bad checksum!\n",
 		  thisPtr);
 #endif
@@ -315,7 +313,7 @@ objH_MakeObjectDirty(ObjectHeader* thisPtr)
 
 #ifdef DBG_CLEAN
   {
-    OID oid = thisPtr->kt_u.ob.oid;
+    OID oid = thisPtr->oid;
     dprintf(true,
 	    "Marked pObj=0x%08x oid=0x%08x%08x dirty. dirty: %c chk: %c\n",
 	    thisPtr,
@@ -346,7 +344,8 @@ objH_Rescind(ObjectHeader* thisPtr)
 
   DEBUG(rescind)
     dprintf(true, "Rescinding ot=%d oid=0x%08x%08x\n",
-		    thisPtr->obType, (uint32_t) (thisPtr->kt_u.ob.oid >> 32), (uint32_t) thisPtr->kt_u.ob.oid);
+	    thisPtr->obType,
+            (uint32_t) (thisPtr->oid >> 32), (uint32_t) thisPtr->oid);
 
   assert (objH_IsDirty(thisPtr) && objH_GetFlags(thisPtr, OFLG_IO|OFLG_CKPT) == 0);
   assert (objH_GetFlags(thisPtr, OFLG_CURRENT) == OFLG_CURRENT);
@@ -354,7 +353,7 @@ objH_Rescind(ObjectHeader* thisPtr)
 #ifndef NDEBUG
   if (!keyR_IsValid(&thisPtr->keyRing, thisPtr))
     dprintf(true, "Keyring of oid 0x%08x%08x invalid!\n",
-		    (uint32_t)(thisPtr->kt_u.ob.oid>>32), (uint32_t)thisPtr->kt_u.ob.oid);
+	    (uint32_t)(thisPtr->oid>>32), (uint32_t)thisPtr->oid);
 #endif
 
   hasCaps = objH_GetFlags(thisPtr, OFLG_DISKCAPS);
@@ -365,13 +364,15 @@ objH_Rescind(ObjectHeader* thisPtr)
     dprintf(true, "After 'RescindAll()'\n");
 
   if (hasCaps) {
-    thisPtr->kt_u.ob.allocCount++;
+    thisPtr->allocCount++;
 
     /* If object has on-disk keys, must dirty the new object to ensure
      * that the new counts get written.
      */
-    if (thisPtr->obType <= ot_NtLAST_NODE_TYPE)
-      objH_ToNode(thisPtr)->callCount++;
+    if (thisPtr->obType <= ot_NtLAST_NODE_TYPE) {
+      Node * thisNode = objH_ToNode(thisPtr);
+      thisNode->callCount++;
+    }
 
     objH_ClearFlags(thisPtr, OFLG_DISKCAPS);
     DEBUG(rescind)
@@ -448,7 +449,7 @@ objH_CalcCheck(const ObjectHeader * thisPtr)
     ck ^= ((uint32_t *) &(pNode->callCount))[0];
     ck ^= ((uint32_t *) &(pNode->callCount))[1];
 #else
-    ck ^= thisPtr->kt_u.ob.allocCount;
+    ck ^= thisPtr->allocCount;
     ck ^= pNode->callCount;
 #endif
     
@@ -484,7 +485,7 @@ objH_InvalidateProducts(ObjectHeader * thisPtr)
     while (thisPtr->prep_u.products) {
       PageHeader * pProd = thisPtr->prep_u.products;
       assert(pageH_GetObType(pProd) == ot_PtMappingPage);
-      thisPtr->prep_u.products = pProd->next;
+      thisPtr->prep_u.products = pProd->kt_u.mp.next;
 
       Depend_InvalidateProduct(pProd);
       ReleasePageFrame(pProd);
@@ -505,17 +506,16 @@ objH_ddb_dump(ObjectHeader * thisPtr)
 	 ddb_obtype_name(thisPtr->obType),
 	 /* CalcCheck() */ 0);
   printf("    oid=0x%08x%08x ac=0x%08x check=0x%08x\n",
-	 (uint32_t) (thisPtr->kt_u.ob.oid >> 32), (uint32_t) thisPtr->kt_u.ob.oid,
-	 thisPtr->kt_u.ob.allocCount, thisPtr->kt_u.ob.check);
+	 (uint32_t) (thisPtr->oid >> 32), (uint32_t) thisPtr->oid,
+	 thisPtr->allocCount, thisPtr->check);
 #else
   printf("Object Header 0x%08x (%s) oid=0x%08x%08x ac=0x%08x\n", thisPtr,
 	 ddb_obtype_name(thisPtr->obType),
-	 (uint32_t) (thisPtr->kt_u.ob.oid >> 32),
-         (uint32_t) thisPtr->kt_u.ob.oid,
-         thisPtr->kt_u.ob.allocCount);
+	 (uint32_t) (thisPtr->oid >> 32), (uint32_t) thisPtr->oid,
+         thisPtr->allocCount);
 #endif
   printf("    ioCount=0x%08x next=0x%08x flags=0x%02x obType=0x%02x usrPin=%d\n",
-	 thisPtr->kt_u.ob.ioCount, thisPtr->next,
+	 thisPtr->ioCount, thisPtr->next,
          thisPtr->flags, thisPtr->obType, thisPtr->userPin );
 
   switch(thisPtr->obType) {
@@ -530,11 +530,11 @@ objH_ddb_dump(ObjectHeader * thisPtr)
     printf("    pageAddr=0x%08x\n", objH_ToPage(thisPtr)->pageAddr);
   case ot_NtSegment:
     {
-      ObjectHeader *oh = thisPtr->prep_u.products;
+      PageHeader * oh = thisPtr->prep_u.products;
       printf("    products= ", thisPtr->prep_u.products);
       while (oh) {
 	printf(" 0x%08x", oh);
-	oh = oh->next;
+	oh = oh->kt_u.mp.next;
       }
       printf("\n", thisPtr->prep_u.products);
       break;
@@ -545,7 +545,6 @@ objH_ddb_dump(ObjectHeader * thisPtr)
     printf("    context=0x%08x\n", thisPtr->prep_u.context);
     break;
   }
-  printf("    pageAddr=0x%08x\n", thisPtr->pageAddr);
 }
 #endif
 

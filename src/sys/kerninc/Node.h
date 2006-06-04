@@ -31,11 +31,12 @@ struct DiskNodeStruct;
 
 /*typedef struct Node Node;*/
 
-struct Node /*: public ObjectHeader*/ {
-  /* bool PrepAsDomainSubnode(ObType, Node *parent); */
-  
+struct Node {
   ObjectHeader node_ObjHdr;
   ObCount callCount;
+
+  uint8_t objAge;
+  uint8_t kernPin;
   
   Key slot[EROS_NODE_SIZE];
 };
@@ -61,13 +62,14 @@ objH_LookupNode(OID oid)
 INLINE bool
 node_IsKernelPinned(Node * thisPtr)
 {
-  return (thisPtr->node_ObjHdr.kernPin != 0);
+  return (thisPtr->kernPin != 0);
 }
 
 INLINE void
 node_MakeDirty(Node * pNode)
 {
   objH_MakeObjectDirty(node_ToObj(pNode));
+  pNode->objAge = age_NewBorn;
 }
 
 INLINE Key *

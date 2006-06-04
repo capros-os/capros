@@ -78,9 +78,9 @@ void pte_ddb_dump(PTE* thisPtr);
 #endif
   
 #ifndef NDEBUG
-/* Following lives in PageFault.cxx: */
-struct ObjectHeader;
-bool pte_ObIsNotWritable(struct ObjectHeader *pObj);
+/* Following lives in PageFault.c: */
+struct PageHeader;
+bool pte_ObIsNotWritable(struct PageHeader * pObj);
 #endif
 
 #ifdef USES_MAPPING_PAGES

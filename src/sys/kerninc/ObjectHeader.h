@@ -95,7 +95,7 @@ typedef struct SegWalk SegWalk;
 typedef struct ObjectTable ObjectTable;
 typedef struct Process Process;
 typedef struct Node Node;
-typedef struct ObjectHeader PageHeader;
+typedef struct PageHeader PageHeader;
 
 #define OHAZARD_NONE      0x1u
 #define OHAZARD_WRITE     0x1u
@@ -117,40 +117,61 @@ typedef struct ObjectHeader PageHeader;
 
 typedef struct ObjectHeader ObjectHeader;
 struct ObjectHeader {
+/* N.B.: obType must be the first item in ObjectHeader.
+   This puts it in the same location as PageHeader.kt_u.mp.obType. */
+  uint8_t	obType;		/* page type or node prepcode */
+    
+  uint8_t	flags;
+
+  uint8_t	userPin;
+
   KeyRing	keyRing;
 
   union {
     /* Special relationship pointers if prepared node */
+    /* Mapping tables produced by this object. */
     PageHeader * products;	/* if obType == ot_NtSegment
 				             or ot_PtDataPage or ... */
-    Process	  *context;	/* if obType == ot_NtProcessRoot
+    Process * context;		/* if obType == ot_NtProcessRoot
                                              or ot_NtKeyRegs
 				             (or ot_NtRegAnnex if used) */
   } prep_u;
-
-  kva_t   pageAddr;		/* speed up ObHdrToPage! */
   
-  ObjectHeader   *next;		/* used by various chains */
+  ObjectHeader * next;		/* used by various chains */
+/* "next" field is used as follows:
+   if obType == ot_NtSegment or ot_PtDataPage or ot_PtDevicePage:
+     next product
+   ...
+ */
   
-  union {
-    struct {
-      ObCount	allocCount;
-      OID   	oid;
+  ObCount	allocCount;
+  OID   	oid;
 
 #ifdef OPTION_OB_MOD_CHECK
-      uint32_t		check;		/* check field */
+  uint32_t	check;		/* check field */
 #endif
 
-      /* Note: when I do background keys they should be unioned with the
-       * allocation count, since they only apply to mapping pages.
-       */
+  uint32_t	ioCount;	/* for object frames */
+  
+  uint8_t ssid;		/* (Machine-dependent)
+                           used if obType == ot_NtSegment
+                                             or ot_PtDataPage or ... */
+  
+  ObjectHeader * hashChainNext;
+};
 
-      uint32_t	ioCount;	/* for object frames */
-    } ob;	/* if obType is NOT one of the following:
-		ot_NtFreeFrame, ot_PtNewAlloc, ot_PtKernelHeap,
-		ot_PtMappingPage, ot_PtFreeFrame */
+struct PageHeader {
+/* N.B.: kt_u must be the first item in PageHeader,
+  so all the obType fields are in the same location. */
+  union {
+    ObjectHeader ob;
 
     struct {
+/* N.B.: obType must be the first item in this structure.
+   This puts it in the same location as PageHeader.kt_u.ob.obType. */
+      uint8_t obType;		/* only ot_PtMappingPage */
+    
+      PageHeader * next;	/* next product of this producer */
       ObjectHeader * producer;
       struct Node *redSeg;	/* pointer to slot of keeper that
 				 * dominated this mapping frame */
@@ -168,28 +189,24 @@ struct ObjectHeader {
       uint8_t producerNdx  : 4;
       ula_t tableCacheAddr;
     } mp;	/* if obType == ot_PtMappingPage */
+
+    struct {
+      uint8_t obType;		/* only ot_PtFreeFrame */
     
+      PageHeader * next;	/* next page on free list */
+    } free;	/* if obType == ot_PtFreeFrame */
   } kt_u;
-  
-  uint8_t	flags;
-  
-  uint8_t	obType;		/* page type or node prepcode */
-  uint8_t	age;
 
-  uint8_t		userPin;
-  uint8_t		kernPin;
-
-  uint8_t ssid;		/* (Machine-dependent)
-                           used if obType == ot_NtSegment
-                                             or ot_PtDataPage or ... */
-  
-  ObjectHeader* hashChainNext;
+  kva_t pageAddr;		/* speed up ObHdrToPage! */
+  uint8_t objAge;
+  uint8_t kernPin;
 };
 
 INLINE unsigned int
 pageH_GetObType(PageHeader * pageH)
 {
-  return pageH->obType;
+  /* obType is in the same location in all variants of kt_u. */
+  return pageH->kt_u.ob.obType;
 }
 
 INLINE bool
@@ -202,13 +219,13 @@ pageH_IsObjectType(PageHeader * pageH)
 INLINE PageHeader *
 objH_ToPage(ObjectHeader * pObj)
 {
-  return (PageHeader *)pObj;
+  return (PageHeader *)pObj;	// the ObjectHeader is the first component of PageHeader 
 }
 
 INLINE ObjectHeader *
 pageH_ToObj(PageHeader * pageH)
 {
-  return (ObjectHeader *)pageH;
+  return &pageH->kt_u.ob;
 }
 
 #ifndef NDEBUG
@@ -221,8 +238,6 @@ keyR_ToObj(KeyRing * kr)
 
 extern uint8_t objH_CurrentTransaction; /* current transaction number */
 
-
-/* Former member functions of ObjectHeader */
 
 #ifdef OPTION_OB_MOD_CHECK
 uint32_t objH_CalcCheck(const ObjectHeader* thisPtr);
@@ -243,7 +258,7 @@ objH_GetFlags(const ObjectHeader* thisPtr, uint32_t w)
 INLINE void 
 objH_ClearFlags(ObjectHeader * thisPtr, uint32_t w)
 {
-    thisPtr->flags &= ~w;
+  thisPtr->flags &= ~w;
 }
 
 INLINE void 
@@ -275,6 +290,7 @@ INLINE void
 pageH_MakeDirty(PageHeader * pageH)
 {
   objH_MakeObjectDirty(pageH_ToObj(pageH));
+  pageH->objAge = age_NewBorn;
 }
 
   /* Object pin counts.  For the moment, there are several in order to
@@ -301,8 +317,8 @@ objH_BeginTransaction()
   objH_CurrentTransaction += 2;
 }
     
-void          objH_KernPin(ObjectHeader* thisPtr);	/* object is pinned for kernel reasons */
-void          objH_KernUnpin(ObjectHeader* thisPtr);	/* object is pinned for kernel reasons */
+void pageH_KernPin(PageHeader *);   /* object is pinned for kernel reasons */
+void pageH_KernUnpin(PageHeader *);
 
 #ifdef NDEBUG
 INLINE void 
@@ -370,7 +386,7 @@ ObjectStallQueueFromOID(OID oid)
 INLINE struct StallQueue*
 ObjectStallQueueFromObHdr(ObjectHeader* thisPtr)
 {
-  return ObjectStallQueueFromOID(thisPtr->kt_u.ob.oid);
+  return ObjectStallQueueFromOID(thisPtr->oid);
 }
 
 #ifdef OPTION_DDB
@@ -390,7 +406,7 @@ pageH_GetPageVAddr(const PageHeader * pHdr)
 INLINE bool   
 pageH_IsKernelPinned(PageHeader * thisPtr)
 {
-  return (pageH_ToObj(thisPtr)->kernPin != 0);
+  return (thisPtr->kernPin != 0);
 }
 
 /* MEANINGS OF FLAGS FIELDS:

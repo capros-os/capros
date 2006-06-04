@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -122,7 +123,7 @@ GPFault(savearea_t *sa)
 
   domRoot = ((Process*) act_CurContext())->procRoot;
   printf("Domain ");
-  printOid(domRoot->node_ObjHdr.kt_u.ob.oid);
+  printOid(node_ToObj(domRoot)->oid);
   printf(" takes GP fault. error=0x%x eip=0x%08x\n",
 	      sa->Error, sa->EIP);
 

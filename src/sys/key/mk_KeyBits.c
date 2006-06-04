@@ -107,9 +107,9 @@ KeyBitsKey(Invocation* inv /*@ not null @*/)
 	if ( keyBits_IsType(inv->entry.key[0], KKT_Resume) )
 	  dupKey.u.unprep.count = objH_ToNode(pObj)->callCount;
 	else
-	  dupKey.u.unprep.count = pObj->kt_u.ob.allocCount;
+	  dupKey.u.unprep.count = pObj->allocCount;
 
-	dupKey.u.unprep.oid = pObj->kt_u.ob.oid;
+	dupKey.u.unprep.oid = pObj->oid;
       }
       else {
 	dupKey.u.nk.value[0] = inv->entry.key[0]->u.nk.value[0];

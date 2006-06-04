@@ -31,13 +31,17 @@ ObCacheSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 			 ObCount count, bool useCount)
 {
   if (obType == ot_NtUnprepared) {
-    Node * pObj = objH_LookupNode(oid);
-    assertex(pObj, (pObj == 0) || node_Validate(pObj));
-    return node_ToObj(pObj);
+    Node * pNode = objH_LookupNode(oid);
+    if (!pNode) return 0;
+    assertex(pNode, node_Validate(pNode));
+    pNode->objAge = age_NewBorn;
+    return node_ToObj(pNode);
   }
   else {
-    PageHeader * pObj = objH_LookupPage(oid);
-    return pageH_ToObj(pObj);
+    PageHeader * pageH = objH_LookupPage(oid);
+    if (!pageH) return 0;
+    pageH->objAge = age_NewBorn;
+    return pageH_ToObj(pageH);
   }
 }
 

@@ -2,7 +2,7 @@
 #define __PHYSMEM_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2006, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -63,7 +63,7 @@ struct PmemInfo {
   uint32_t  nPages;		/* number of pages allocated to the
 				 * object cache */
   uint32_t  basepa;		/* base pa of that page range */
-  struct ObjectHeader *firstObHdr;	/* obHdr corresponding to baseva */
+  PageHeader * firstObHdr;	/* obHdr corresponding these pages */
 } ;
 
 typedef struct PmemInfo PmemInfo;

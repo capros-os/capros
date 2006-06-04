@@ -60,7 +60,8 @@ proc_LoadKeyRegs(Process* thisPtr)
     if ( keyBits_IsHazard(node_GetKeyAtSlot(kn, k)))
       dprintf(true, "Key register slot %d is hazarded in node 0x%08x%08x\n",
 		      k,
-		      (uint32_t) (kn->node_ObjHdr.kt_u.ob.oid >> 32), (uint32_t) kn->node_ObjHdr.kt_u.ob.oid);
+		      (uint32_t) (kn->node_ObjHdr.oid >> 32),
+                      (uint32_t) kn->node_ObjHdr.oid);
 
     /* We know that the context structure key registers are unhazarded
      * and unprepared by virtue of the fact that they are unloaded,
@@ -102,10 +103,10 @@ proc_LoadKeyRegs(Process* thisPtr)
 void
 proc_SyncActivity(Process * thisPtr)
 {
-  Key *procKey = 0;
+  Key * procKey = 0;
   assert(thisPtr->curActivity);
   assert(thisPtr->procRoot);
-  assert (thisPtr->curActivity->context == thisPtr);
+  assert(thisPtr->curActivity->context == thisPtr);
   
   procKey /*@ not null @*/ = &thisPtr->curActivity->processKey;
 
@@ -115,8 +116,8 @@ proc_SyncActivity(Process * thisPtr)
   key_NH_Unchain(procKey);
 
   keyBits_InitType(procKey, KKT_Process);
-  procKey->u.unprep.oid = thisPtr->procRoot->node_ObjHdr.kt_u.ob.oid;
-  procKey->u.unprep.count = thisPtr->procRoot->node_ObjHdr.kt_u.ob.allocCount; 
+  procKey->u.unprep.oid = thisPtr->procRoot->node_ObjHdr.oid;
+  procKey->u.unprep.count = thisPtr->procRoot->node_ObjHdr.allocCount; 
 }
 
 #ifdef OPTION_DDB

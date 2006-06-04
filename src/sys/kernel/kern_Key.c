@@ -56,7 +56,7 @@ key_GetKeyOid(const Key* thisPtr)
   assert (keyBits_IsObjectKey(thisPtr));
   
   if ( keyBits_IsPreparedObjectKey(thisPtr) )
-    return key_GetObjectPtr(thisPtr)->kt_u.ob.oid;
+    return key_GetObjectPtr(thisPtr)->oid;
   return thisPtr->u.unprep.oid;
 }
 
@@ -67,7 +67,7 @@ key_GetAllocCount(const Key* thisPtr)
   assert (keyBits_GetType(thisPtr) <= LAST_OBJECT_KEYTYPE);
   
   if ( keyBits_IsPreparedObjectKey(thisPtr) )
-    return key_GetObjectPtr(thisPtr)->kt_u.ob.allocCount;
+    return key_GetObjectPtr(thisPtr)->allocCount;
   return thisPtr->u.unprep.count;
 }
 
@@ -410,12 +410,12 @@ key_NH_Unprepare(Key* thisPtr)
     key_NH_Unchain(thisPtr);
 
     objH_SetFlags(pObj, OFLG_DISKCAPS);
-    thisPtr->u.unprep.oid = pObj->kt_u.ob.oid;
+    thisPtr->u.unprep.oid = pObj->oid;
 
     if ( keyBits_IsType(thisPtr, KKT_Resume) )
       thisPtr->u.unprep.count = ((Node *) pObj)->callCount;
     else
-      thisPtr->u.unprep.count = pObj->kt_u.ob.allocCount;
+      thisPtr->u.unprep.count = pObj->allocCount;
   }
 
   keyBits_SetUnprepared(thisPtr);
@@ -439,7 +439,7 @@ key_Print(const Key* thisPtr)
   if ( keyBits_IsPreparedObjectKey(thisPtr) ) {
     ObjectHeader * pObj = key_GetObjectPtr(thisPtr);
     
-    uint32_t * pOID = (uint32_t *) &pObj->kt_u.ob.oid;
+    uint32_t * pOID = (uint32_t *) &pObj->oid;
 
     if (keyBits_IsType(thisPtr, KKT_Resume)) {
 #if 0
@@ -462,7 +462,7 @@ key_Print(const Key* thisPtr)
 #else
       printf("0x%08x pob 0x%08x 0x%08x 0x%08x 0x%08x\n",
 		     thisPtr,
-		     pWKey[0], ((Node *)pObj)->node_ObjHdr.kt_u.ob.allocCount,
+		     pWKey[0], pObj->allocCount,
 		     pOID[0], pOID[1]);
 #endif
     }
@@ -523,21 +523,21 @@ key_CalcCheck(Key* thisPtr)
        */
     
       Node *pDomain = thisPtr->u.gk.pContext->procRoot;
-      uint32_t *pOID = (uint32_t *) &pDomain->node_ObjHdr.kt_u.ob.oid;
+      uint32_t *pOID = (uint32_t *) &pDomain->node_ObjHdr.oid;
       ck ^= pOID[0];
       ck ^= pOID[1];
 
-      ck ^= pDomain->node_ObjHdr.kt_u.ob.allocCount;
+      ck ^= pDomain->node_ObjHdr.allocCount;
     }
     else {
       /* This pointer hack is simply so that I don't have to remember
        * machine specific layout conventions for long long
        */
-      uint32_t *pOID = (uint32_t *) &thisPtr->u.ok.pObj->kt_u.ob.oid;
+      uint32_t *pOID = (uint32_t *) &thisPtr->u.ok.pObj->oid;
     
       ck ^= pOID[0];
       ck ^= pOID[1];
-      ck ^= thisPtr->u.ok.pObj->kt_u.ob.allocCount;
+      ck ^= thisPtr->u.ok.pObj->allocCount;
     }
   }
   else {

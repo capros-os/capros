@@ -298,8 +298,6 @@ db_set_single_step(register db_regs_t *regs)
 void
 db_clear_single_step(register db_regs_t *regs)
 {
-	register db_breakpoint_t	bkpt;
-
 	if (db_taken_bkpt != 0) {
 	    db_delete_temp_breakpoint(db_taken_bkpt);
 	    db_taken_bkpt = 0;

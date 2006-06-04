@@ -98,7 +98,7 @@ objH_Intern(ObjectHeader* thisPtr)
   uint32_t ndx = 0;
   assert(objH_GetFlags(thisPtr, OFLG_CURRENT));
   
-  ndx = bucket_ndx(thisPtr->kt_u.ob.oid);
+  ndx = bucket_ndx(thisPtr->oid);
   
 #ifdef OBHASHDEBUG
   printf("Interning obhdr 0x%08x\n", this);
@@ -115,7 +115,7 @@ objH_Intern(ObjectHeader* thisPtr)
 void
 objH_Unintern(ObjectHeader* thisPtr)
 {
-  uint32_t ndx = bucket_ndx(thisPtr->kt_u.ob.oid);
+  uint32_t ndx = bucket_ndx(thisPtr->oid);
   
   /*  assert(!isLocked()); */
   
@@ -142,6 +142,7 @@ objH_Unintern(ObjectHeader* thisPtr)
   }
 }
 
+/* ty must be ot_NtUnprepared or ot_PtDataPage. */
 ObjectHeader *
 objH_Lookup(ObType ty, OID oid)
 {
@@ -163,7 +164,7 @@ objH_Lookup(ObType ty, OID oid)
     printf("\n", pOb);
 #endif
 
-    if (pOb->kt_u.ob.oid != oid)
+    if (pOb->oid != oid)
       continue;
     
     obType = (ObType) pOb->obType;
@@ -176,23 +177,10 @@ objH_Lookup(ObType ty, OID oid)
 
     if (obType == ty) {
 #if 0
-      /* FIX: check free list to see if this object can safely be
-       * reclaimed!
-       */
-      assert(pOb->age != Age::Free);
-#endif
-      
-#if 0
-      /* FIX: Check the aging logic! */
-      if (pOb->age >= Age::Reclaim)
-	pOb->age = Age::NewBorn;
-#endif
-#if 0
-      dprintf(true, "Rejuvenate oid 0x%08x%08x\n",
+      dprintf(true, "Found oid 0x%08x%08x\n",
 		      (uint32_t) (oid>>32),
 		      (uint32_t) oid);
 #endif
-      pOb->age = age_NewBorn;
 
 #ifdef OBHASHDEBUG
       printf("Found it\n");

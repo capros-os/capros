@@ -184,9 +184,7 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
 		  "   EIP=0x%08x CurActivity = %s ctxt=0x%08x\n",
 		  saveArea, vecNumber,
 		  saveArea ? saveArea->EIP : 0,
-    
                   act_Name(curActivity), act_CurContext());
-    
   }
 #endif
   

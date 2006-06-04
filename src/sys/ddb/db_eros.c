@@ -60,8 +60,8 @@ db_eros_print_key(Key* key /*@ not null @*/)
   if ( keyBits_IsPreparedObjectKey(key) ) {
     ObjectHeader * pObj = key_GetObjectPtr(key);
     
-    uint32_t oidlo = (uint32_t) pObj->kt_u.ob.oid;
-    uint32_t oidhi = (uint32_t) (pObj->kt_u.ob.oid >> 32);
+    uint32_t oidlo = (uint32_t) pObj->oid;
+    uint32_t oidhi = (uint32_t) (pObj->oid >> 32);
 
     if (keyBits_IsType(key, KKT_Resume))
       db_printf("rsum 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x ctxt=0x%08x)\n",
@@ -73,7 +73,7 @@ db_eros_print_key(Key* key /*@ not null @*/)
 		oidhi, oidlo, pObj, key->u.gk.pContext);
     else if (keyBits_IsObjectKey(key))
       db_printf("pobj 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x)\n",
-		pWKey[3], pObj->kt_u.ob.allocCount,
+		pWKey[3], pObj->allocCount,
 		oidhi, oidlo, pObj);
     else
       db_printf("pkt  0x%08x 0x%08x 0x%08x 0x%08x\n",
@@ -131,12 +131,12 @@ db_eros_print_key_details(Key* key /*@ not null @*/)
       count = key->u.unprep.count;
     }
     else if (keyBits_IsType(key, KKT_Resume)) {
-      oid = key->u.gk.pContext->procRoot->node_ObjHdr.kt_u.ob.oid;
+      oid = key->u.gk.pContext->procRoot->node_ObjHdr.oid;
       count = key->u.gk.pContext->procRoot->callCount;
     }
     else if (keyBits_IsType(key, KKT_Start)) {
-      oid = key->u.gk.pContext->procRoot->node_ObjHdr.kt_u.ob.oid;
-      count = key->u.gk.pContext->procRoot->node_ObjHdr.kt_u.ob.allocCount;
+      oid = key->u.gk.pContext->procRoot->node_ObjHdr.oid;
+      count = key->u.gk.pContext->procRoot->node_ObjHdr.allocCount;
     }
     else {
       oid = key_GetKeyOid(key);
@@ -200,9 +200,9 @@ db_eros_print_node(Node *pNode)
 
   db_printf("Node (0x%08x) 0x%08x%08x ac=0x%08x cc=0x%08x ot=%d\n",
 	    pNode,
-	    (uint32_t) (pNode->node_ObjHdr.kt_u.ob.oid >> 32),
-	    (uint32_t) (pNode->node_ObjHdr.kt_u.ob.oid),
-	    pNode->node_ObjHdr.kt_u.ob.allocCount,
+	    (uint32_t) (pNode->node_ObjHdr.oid >> 32),
+	    (uint32_t) (pNode->node_ObjHdr.oid),
+	    pNode->node_ObjHdr.allocCount,
 	    pNode->callCount, pNode->node_ObjHdr.obType);
 
 #if !defined(NDEBUG) && 0
@@ -294,8 +294,8 @@ db_eros_print_context(Process *cc)
       db_printf("domain root=0x%08x", cc->procRoot);
 
       if (cc->procRoot) {
-	uint32_t oidhi = (uint32_t) (cc->procRoot->node_ObjHdr.kt_u.ob.oid >> 32);
-	uint32_t oidlo = (uint32_t) cc->procRoot->node_ObjHdr.kt_u.ob.oid;
+	uint32_t oidhi = (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32);
+	uint32_t oidlo = (uint32_t) cc->procRoot->node_ObjHdr.oid;
 
 	db_printf("  oid=0x%08x%08x\n", oidhi, oidlo);
       }
@@ -317,7 +317,9 @@ db_eros_print_context(Process *cc)
     }
 
     proc_DumpFixRegs(cc);
+#ifdef OPTION_PSEUDO_REGS
     proc_DumpPseudoRegs(cc);
+#endif
   }
 }
 
@@ -341,6 +343,8 @@ db_show_sizes_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
 {
   db_printf("sizeof(ObjectHeader) = 0x%x (%d)\n",
 	    sizeof(ObjectHeader), sizeof(ObjectHeader));
+  db_printf("sizeof(PageHeader) = 0x%x (%d)\n",
+            sizeof(PageHeader), sizeof(PageHeader));
   db_printf("sizeof(Node) = 0x%x (%d)\n",
 	    sizeof(Node), sizeof(Node));
   db_printf("sizeof(Process) = 0x%x (%d)\n",
@@ -402,7 +406,7 @@ db_eros_print_activity(Activity *t)
   if ( act_IsUser(t) ) {
 
     if (t->context) {
-      oid = ((Process *) (t->context))->procRoot->node_ObjHdr.kt_u.ob.oid;
+      oid = ((Process *) (t->context))->procRoot->node_ObjHdr.oid;
       isGoodOid = 'u';
     }
     else if (keyBits_IsObjectKey(&t->processKey)) {
@@ -565,15 +569,15 @@ db_eros_mesg_procinv_cmd(db_expr_t addr, int have_addr,
     cc->processFlags &= ~PF_DDBINV;
     db_printf("Invocation traps for context 0x%08x (OID 0x%08x%08x) disabled\n",
 	      cc, 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.kt_u.ob.oid >> 32), 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.kt_u.ob.oid));  
+	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
+	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
   }
   else {
     cc->processFlags |= PF_DDBINV;
     db_printf("Invocation traps for context 0x%08x (OID 0x%08x%08x) enabled\n",
 	      cc, 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.kt_u.ob.oid >> 32), 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.kt_u.ob.oid));  
+	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
+	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
  
     /* Once set, this is forever: */
     ddb_inv_flags |= DDB_INV_pflag;
@@ -591,15 +595,15 @@ db_eros_mesg_proctrap_cmd(db_expr_t addr, int have_addr,
     cc->processFlags &= ~PF_DDBTRAP;
     db_printf("Exception traps for context 0x%08x (OID 0x%08x%08x) disabled\n",
 	      cc, 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.kt_u.ob.oid >> 32), 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.kt_u.ob.oid));  
+	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
+	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
   }
   else {
     cc->processFlags |= PF_DDBTRAP;
     db_printf("Exception traps for context 0x%08x (OID 0x%08x%08x) enabled\n",
 	      cc, 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.kt_u.ob.oid >> 32), 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.kt_u.ob.oid));  
+	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
+	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
  
     /* Once set, this is forever: */
     ddb_inv_flags |= DDB_INV_pflag;
@@ -1547,9 +1551,9 @@ db_show_counters_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
     db_error("not in core\n");
 
   db_printf("Node 0x%08x%08x ac=0x%08x cc=0x%08x\n",
-	    (uint32_t) (pNode->node_ObjHdr.kt_u.ob.oid >> 32),
-	    (uint32_t) (pNode->node_ObjHdr.kt_u.ob.oid),
-	    pNode->node_ObjHdr.kt_u.ob.allocCount,
+	    (uint32_t) (pNode->node_ObjHdr.oid >> 32),
+	    (uint32_t) (pNode->node_ObjHdr.oid),
+	    pNode->node_ObjHdr.allocCount,
 	    pNode->callCount);
 
 #ifndef NDEBUG
@@ -1606,7 +1610,7 @@ db_page_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 	    (uint32_t) (pageH->kt_u.ob.oid >> 32),
 	    (uint32_t) (pageH->kt_u.ob.oid),
 	    pageH->kt_u.ob.allocCount,
-	    pageH->obType);
+	    pageH_GetObType(pageH));
 }
 
 void

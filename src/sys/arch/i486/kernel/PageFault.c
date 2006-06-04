@@ -301,7 +301,7 @@ objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi /*@not null@*/ ,
   PageHeader *product = 0;
   
   for (product = thisPtr->prep_u.products;
-       product; product = product->next) {
+       product; product = product->kt_u.mp.next) {
     assert(pageH_GetObType(product) == ot_PtMappingPage);
     if ((uint32_t) product->kt_u.mp.producerBlss != blss) {
 #ifdef FINDPRODUCT_VERBOSE
@@ -1089,7 +1089,7 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 {
   PageHeader * pTable = objC_GrabPageFrame();
   kva_t tableAddr;
-  pTable->obType = ot_PtMappingPage;
+  pTable->kt_u.mp.obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 1;
   pTable->kt_u.mp.producerBlss = wi->segBlss;
 
@@ -1098,7 +1098,7 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
   pTable->kt_u.mp.redSpanBlss = wi->redSpanBlss;
   pTable->kt_u.mp.rwProduct = BOOL(wi->canWrite);
   pTable->kt_u.mp.caProduct = BOOL(wi->canCall);
-  objH_SetDirtyFlag(pTable);
+  // objH_SetDirtyFlag(pTable);
 
   tableAddr = pageH_GetPageVAddr(pTable);
 
@@ -1136,7 +1136,7 @@ MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
   /* Need to make a new mapping table: */
   PageHeader * pTable = objC_GrabPageFrame();
   kva_t tableAddr;
-  pTable->obType = ot_PtMappingPage;
+  pTable->kt_u.mp.obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 0;
   pTable->kt_u.mp.producerBlss = wi->segBlss;
   
@@ -1145,7 +1145,7 @@ MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
   pTable->kt_u.mp.redSpanBlss = wi->redSpanBlss;
   pTable->kt_u.mp.rwProduct = 1;
   pTable->kt_u.mp.caProduct = 1;	/* we use spare bit in PTE */
-  objH_SetDirtyFlag(pTable);
+  // objH_SetDirtyFlag(pTable);
 
   tableAddr = pageH_GetPageVAddr(pTable);
 

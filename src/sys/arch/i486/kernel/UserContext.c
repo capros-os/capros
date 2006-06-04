@@ -1152,8 +1152,8 @@ proc_InvokeProcessKeeper(Process* thisPtr)
   
 
   keyBits_InitType(&processKey, KKT_Process);
-  processKey.u.unprep.oid = thisPtr->procRoot->node_ObjHdr.kt_u.ob.oid;
-  processKey.u.unprep.count = thisPtr->procRoot->node_ObjHdr.kt_u.ob.allocCount;
+  processKey.u.unprep.oid = thisPtr->procRoot->node_ObjHdr.oid;
+  processKey.u.unprep.count = thisPtr->procRoot->node_ObjHdr.allocCount;
 
   /* Guarantee that prepared resume key will be in dirty object -- see
    * comment in kern_Invoke.cxx:

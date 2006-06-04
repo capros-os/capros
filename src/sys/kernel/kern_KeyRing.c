@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -141,7 +142,7 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
 	 * which means we can rely on a valid domain root pointer:
 	 */
 	assert( pContext->procRoot );
-	assert ( pContext->procRoot->node_ObjHdr.kt_u.ob.oid != key_GetKeyOid(pKey) );
+	assert ( pContext->procRoot->node_ObjHdr.oid != key_GetKeyOid(pKey) );
 	proc_SyncActivity(pContext);
 	continue;
       }      
@@ -154,7 +155,7 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
 	 !act_IsActivityKey(pKey) &&
 	 !proc_IsKeyReg(pKey) ) {
       Node *pNode = objC_ContainingNode(pKey);
-      pNode->node_ObjHdr.kt_u.ob.check = objH_CalcCheck(DOWNCAST(pNode, ObjectHeader));
+      pNode->node_ObjHdr.check = objH_CalcCheck(DOWNCAST(pNode, ObjectHeader));
     }
 #endif
   }
@@ -468,7 +469,7 @@ keyR_UnprepareAll(KeyRing *thisPtr)
 	 !act_IsActivityKey(pKey) &&
 	 !proc_IsKeyReg(pKey) ) {
       Node *pNode = objC_ContainingNode(pKey);
-      pNode->node_ObjHdr.kt_u.ob.check = objH_CalcCheck(DOWNCAST(pNode, ObjectHeader));
+      pNode->node_ObjHdr.check = objH_CalcCheck(DOWNCAST(pNode, ObjectHeader));
     }
 #endif
   }

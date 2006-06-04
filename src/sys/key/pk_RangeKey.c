@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -278,12 +279,9 @@ RangeKey(Invocation* inv /*@ not null @*/)
     }
   case OC_eros_Range_rescind:
     {
-      OID oid;
-      Key* key /*@ not null @*/ = inv->entry.key[0];
-      ObjectHeader *pObject = 0;
+      Key * key /*@ not null @*/ = inv->entry.key[0];
    
       key_Prepare(key);
-   
 
       inv->exit.code = RC_OK;
       
@@ -303,37 +301,26 @@ RangeKey(Invocation* inv /*@ not null @*/)
 	return;
       }
 	  
-
-      oid = key_GetKeyOid(key);
-
+      OID oid = key_GetKeyOid(key);
       
 #ifdef DEBUG_PAGERANGEKEY
-      dprintf(true, "Rescinding page OID 0x%08x%08x\n",
+      dprintf(true, "Rescinding OID 0x%08x%08x\n",
 		      (uint32_t) (oid>>32),
 		      (uint32_t) oid);
 #endif
       
-      if ( oid < start ) {
-	inv->exit.code = RC_eros_Range_RangeErr;
-	COMMIT_POINT();
-
-	return;
-      }
-      else if ( oid >= end ) {
+      if ( oid < start || oid >= end ) {
 	inv->exit.code = RC_eros_Range_RangeErr;
 	COMMIT_POINT();
 
 	return;
       }
 
-
-      pObject = key_GetObjectPtr(key);
-
+      ObjectHeader * pObject = key_GetObjectPtr(key);
 
       objH_FlushIfCkpt(pObject);
   
       objH_MakeObjectDirty(pObject);
-     
 
       COMMIT_POINT();
       
