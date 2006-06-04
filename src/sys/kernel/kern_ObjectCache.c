@@ -518,7 +518,7 @@ objC_ddb_dump_pinned_objects()
   for (pg = 0; pg < objC_nPages; pg++) {
     PageHeader * pageH = objC_GetCorePageFrame(pg);
     ObjectHeader * pObj = pageH_ToObj(pageH);
-    if (objH_IsUserPinned(pObj) || objH_IsKernelPinned(pObj)) {
+    if (objH_IsUserPinned(pObj) || pageH_IsKernelPinned(pageH)) {
       if (objH_IsUserPinned(pObj))
 	userPins++;
       printf("page 0x%08x%08x\n",
@@ -819,7 +819,6 @@ objC_ReleaseMappingFrame(PageHeader * pObj)
   assert ( keyR_IsValid(&pProducer->keyRing, pProducer) );
 
   assert (objH_IsUserPinned(pProducer) == false);
-  assert (objH_IsKernelPinned(pProducer) == false);
     
   /* Zapping the key ring will help if producer was a page or
    * was of perfect height -- ensures that the PTE in the next
@@ -828,6 +827,7 @@ objC_ReleaseMappingFrame(PageHeader * pObj)
   keyR_UnprepareAll(&pProducer->keyRing);
 
   if ( pProducer->obType == ot_NtSegment ) {
+    assert(! node_IsKernelPinned(objH_ToNode(pProducer)));
     /* FIX: What follows is perhaps a bit too strong:
      * 
      * Unpreparing the producer will have invalidated ALL of it's
@@ -842,6 +842,7 @@ objC_ReleaseMappingFrame(PageHeader * pObj)
   } else {
     assert((pProducer->obType == ot_PtDataPage)
            || (pProducer->obType == ot_PtDevicePage) );
+    assert(! pageH_IsKernelPinned(objH_ToPage(pProducer)));
   }
 
   if (pageH_GetObType(pObj) == ot_PtMappingPage) {
@@ -1157,8 +1158,7 @@ objC_AgePageFrames()
         ObjectHeader * pProducer = pObj->kt_u.mp.producer;
 	if (objH_IsUserPinned(pProducer))
 	  continue;
-	if (objH_IsKernelPinned(pProducer))
-	  continue;
+	// if (objH_IsKernelPinned(pProducer)) continue;
         break;
       }
 #endif
@@ -1173,7 +1173,7 @@ objC_AgePageFrames()
       /* Some pages cannot be aged because they are active or pinned: */
       if (objH_IsUserPinned(pageH_ToObj(pObj)))
 	continue;
-      if (objH_IsKernelPinned(pObj))
+      if (pageH_IsKernelPinned(pObj))
 	continue;
     
       if (pObj->age == age_PageOut) {

@@ -330,12 +330,6 @@ objH_IsUserPinned(ObjectHeader* thisPtr)
 {
   return (thisPtr->userPin == objH_CurrentTransaction);
 }
-
-INLINE bool   
-objH_IsKernelPinned(ObjectHeader* thisPtr)
-{
-  return (thisPtr->kernPin != 0);
-}
   
 INLINE void 
 objH_ResetKeyRing(ObjectHeader* thisPtr)
@@ -391,6 +385,12 @@ INLINE kva_t
 pageH_GetPageVAddr(const PageHeader * pHdr)
 {
   return pHdr->pageAddr;
+}
+
+INLINE bool   
+pageH_IsKernelPinned(PageHeader * thisPtr)
+{
+  return (pageH_ToObj(thisPtr)->kernPin != 0);
 }
 
 /* MEANINGS OF FLAGS FIELDS:
