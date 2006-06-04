@@ -217,7 +217,7 @@ PreloadObSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
     result = FetchPage(thisPtr, pageH);
 
     if (!result || (useCount && pObj->kt_u.ob.allocCount != count)) {
-      objC_ReleaseFrame(pObj);
+      ReleasePageFrame(pageH);
       return 0;
     }
 
@@ -233,7 +233,7 @@ PreloadObSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
     result = FetchNode(thisPtr, pNode);
 
     if (!result || (useCount && pObj->kt_u.ob.allocCount != count)) {
-      objC_ReleaseFrame(pObj);
+      ReleaseNodeFrame(pNode);
       return 0;
     }
 

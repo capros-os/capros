@@ -487,7 +487,7 @@ objH_InvalidateProducts(ObjectHeader * thisPtr)
       thisPtr->prep_u.products = pProd->next;
 
       Depend_InvalidateProduct(pProd);
-      objC_ReleaseFrame(pProd);
+      ReleasePageFrame(pProd);
     }
     thisPtr->prep_u.products = 0;
     mach_InvalidateProducts(thisPtr);

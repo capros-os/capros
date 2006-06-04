@@ -120,7 +120,8 @@ ObjectHeader *objC_CopyObject(ObjectHeader *pObj);
 bool objC_EvictFrame(PageHeader * pObj);
 
 /* Releases node/page frame to free list */
-void objC_ReleaseFrame(ObjectHeader *);
+void ReleasePageFrame(PageHeader * pageH);
+void ReleaseNodeFrame(Node * pNode);
 
 Node *objC_ContainingNode(void *);
 

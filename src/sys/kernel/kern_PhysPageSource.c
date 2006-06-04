@@ -162,7 +162,7 @@ PhysPageSource_Invalidate(ObjectSource *thisPtr, ObjectHeader *pObj)
 
   /* FIX: What about transaction lock? */
 
-    objC_ReleaseFrame(pObj);
+    ReleasePageFrame(objH_ToPage(pObj));
 
     PhysPageAllocCount ++;
 

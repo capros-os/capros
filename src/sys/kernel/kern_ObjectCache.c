@@ -787,11 +787,9 @@ objC_AgeNodeFrames()
       assert (!objH_IsDirty(DOWNCAST(pObj, ObjectHeader)));
       assert(keyR_IsEmpty(&pObj->node_ObjHdr.keyRing));
     
-      /* Remove this page from the cache and return it to the free page
-       * list:
-       */
-    
-      objC_ReleaseFrame(DOWNCAST(pObj, ObjectHeader));
+      /* Remove this node from the cache and return it to the free page
+       * list: */
+      ReleaseNodeFrame(pObj);
 
 #if defined(TESTING_AGEING) && 0
       dprintf(true, "AgeNodeFrame(): Object evicted\n");
@@ -812,9 +810,9 @@ objC_AgeNodeFrames()
 #ifdef USES_MAPPING_PAGES
 /* This procedure may Yield. */
 void
-objC_ReleaseMappingFrame(ObjectHeader *pObj)
+objC_ReleaseMappingFrame(PageHeader * pObj)
 {
-  assert(pObj->obType == ot_PtMappingPage);
+  assert(pageH_GetObType(pObj) == ot_PtMappingPage);
   ObjectHeader * pProducer = pObj->kt_u.mp.producer;
 
   assert(pProducer);
@@ -853,7 +851,7 @@ objC_ReleaseMappingFrame(ObjectHeader *pObj)
     pte_ZapMappingPage(pgva);
   }
 
-  objC_ReleaseFrame(pObj);
+  ReleasePageFrame(pObj);
 
   /* This product (and all it's siblings) are now on the free
    * list.  The possibility exists, however, that we contrived
@@ -976,8 +974,8 @@ objC_EvictFrame(PageHeader * pObj)
     return false;
 
   case ot_PtDataPage:
-    if (!objC_CleanFrame(pObj, true)) {
-      (void) objC_CopyObject(pObj);
+    if (!objC_CleanFrame(pageH_ToObj(pObj), true)) {
+      (void) objC_CopyObject(pageH_ToObj(pObj));
   
       /* Since we could not write the old frame out, we assume that it
        * is not backed by anything. In this case, the right thing to do
@@ -986,10 +984,10 @@ objC_EvictFrame(PageHeader * pObj)
        * to release it.
        */
 
-      objH_ClearFlags(pObj, OFLG_CKPT | OFLG_DIRTY);
+      pageH_ClearFlags(pObj, OFLG_CKPT | OFLG_DIRTY);
     }
     assert(keyR_IsEmpty(&pageH_ToObj(pObj)->keyRing));
-    objC_ReleaseFrame(pObj);
+    ReleasePageFrame(pObj);
     break;
 
   default: assert(false);	// must be a page, not a node
@@ -1199,7 +1197,7 @@ objC_AgePageFrames()
 	 */
 	curPage++;
         assert(keyR_IsEmpty(&pageH_ToObj(pObj)->keyRing));
-	objC_ReleaseFrame(pObj);
+	ReleasePageFrame(pObj);
 
 	return;
       }
@@ -1334,53 +1332,62 @@ objC_GrabNodeFrame()
 }
 
 void
-objC_ReleaseFrame(ObjectHeader *pObHdr)
+ReleasePageFrame(PageHeader * pageH)
 {
-#ifndef NDEBUG
-  uint32_t i = 0;
-#endif
-
   DEBUG(ndalloc)
-    printf("objC_ReleaseFrame obj=0x%08x\n", pObHdr);
+    printf("ReleasePageFrame pageH=0x%08x\n", pageH);
 
-  assert(pObHdr);
+  assert(pageH);
   
-  /* Not certain that *anything* handed to ReleaseFrame() should be
+  /* Not certain that *anything* handed to ReleasePageFrame() should be
    * dirty, but...
    */
-  if (objH_GetFlags(pObHdr, OFLG_CKPT))
-    assert (!objH_IsDirty(pObHdr));
+  if (objH_GetFlags(pageH_ToObj(pageH), OFLG_CKPT))
+    assert (!objH_IsDirty(pageH_ToObj(pageH)));
 
 #ifndef NDEBUG
-  if (pObHdr->obType <= ot_NtLAST_NODE_TYPE) {
-    Node *pNode = (Node *) pObHdr;
-
-    for (i = 0; i < EROS_NODE_SIZE; i++)
-      assertex (pNode, keyBits_IsUnprepared(&pNode->slot[i]));
-  }
-  else
-    assert ( pte_ObIsNotWritable(pObHdr) );
+  assert(pte_ObIsNotWritable(pageH));
 #endif
 
-  objH_Unintern(pObHdr);
+  objH_Unintern(pageH_ToObj(pageH));
     
-  if (pObHdr->obType <= ot_NtLAST_NODE_TYPE) {
-    pObHdr->obType = ot_NtFreeFrame;
+  pageH->obType = ot_PtFreeFrame;
+  pageH->next = objC_firstFreePage;	// kt_u.free
+  objC_firstFreePage = pageH;
 
-    pObHdr->next = DOWNCAST(objC_firstFreeNode, ObjectHeader);
-    objC_firstFreeNode = (Node *) pObHdr;
-    objC_nFreeNodeFrames++;
-  }
-  else {
-    pObHdr->obType = ot_PtFreeFrame;
-    pObHdr->next = objC_firstFreePage;
-    NullKeyRing(&pObHdr->keyRing);
+  NullKeyRing(&pageH_ToObj(pageH)->keyRing);
 
-    objC_firstFreePage = pObHdr;
-  
-    objC_nFreePageFrames++;
-    sq_WakeAll(&PageAvailableQueue, false);
-  }
+  objC_nFreePageFrames++;
+  sq_WakeAll(&PageAvailableQueue, false);
+}
+
+void
+ReleaseNodeFrame(Node * pNode)
+{
+  DEBUG(ndalloc)
+    printf("ReleaseNodeFrame node=0x%08x\n", pNode);
+
+  assert(pNode);
+
+  /* Not certain that *anything* handed to ReleaseNodeFrame() should be
+   * dirty, but...
+   */
+  if (objH_GetFlags(node_ToObj(pNode), OFLG_CKPT))
+    assert(!objH_IsDirty(node_ToObj(pNode)));
+
+#ifndef NDEBUG
+  uint32_t i = 0;
+  for (i = 0; i < EROS_NODE_SIZE; i++)
+    assertex (pNode, keyBits_IsUnprepared(&pNode->slot[i]));
+#endif
+
+  objH_Unintern(node_ToObj(pNode));
+    
+  node_ToObj(pNode)->obType = ot_NtFreeFrame;
+
+  node_ToObj(pNode)->next = node_ToObj(objC_firstFreeNode);
+  objC_firstFreeNode = pNode;
+  objC_nFreeNodeFrames++;
 }
 
 /****************************************************************
