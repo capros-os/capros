@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -76,7 +76,7 @@ SerialStream_Init()
 }
 
 uint8_t
-SerialStream_Get()
+SerialStream_Get(void)
 {
   uint8_t c;
 
@@ -111,7 +111,7 @@ SerialStream_SetDebugging(bool onOff)
 {
   kstream_debuggerIsActive = onOff;
   
-  if (kstream_debuggerIsActive == false)
+  if (! onOff)
     irq_Enable(COMIRQ);
 }
 
@@ -139,7 +139,7 @@ SerialInterrupt(savearea_t *sa)
 }
 
 void
-SerialStream_EnableDebuggerInput()
+SerialStream_EnableDebuggerInput(void)
 {
   irq_SetHandler(COMIRQ, SerialInterrupt);
   printf("Set up keyboard (console) interrupt handler!\n");

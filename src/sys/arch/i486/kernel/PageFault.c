@@ -761,7 +761,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   
   {
     PageHeader * pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
-    assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+    assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
    
     if (isWrite && !pTableHdr->kt_u.mp.rwProduct) {
       dprintf(true, "DoPageFault(): isWrite && !pTableHdr->kt_u.mp.rwProduct hdr 0x%x\n", pTableHdr);
@@ -790,7 +790,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
 	  pTable = KPAtoP(PTE *, pte_PageFrame(thePDE));
 	  pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
-          assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+          assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
         
 	  
 	  wi.offset = wi.vaddr & ((1u << 22) - 1u);
@@ -914,7 +914,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 #ifndef NDEBUG
   {
     PageHeader * pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
-    assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+    assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
 
     assert(wi.segBlss == pTableHdr->kt_u.mp.producerBlss);
     assert(wi.segObj == pTableHdr->kt_u.mp.producer);

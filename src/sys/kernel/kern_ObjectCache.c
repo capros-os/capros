@@ -172,14 +172,6 @@ objC_ContainingNode(void *vp)
   return &nnt[nuint8_ts/sizeof(Node)];
 }
 
-/* Temporary - see if the keyring is used */
-static void
-NullKeyRing(KeyRing * kr)
-{
-  kr->next = NULL;
-  kr->prev = NULL;
-}
-
 void
 objC_AllocateUserPages()
 {
@@ -206,10 +198,7 @@ objC_AllocateUserPages()
 
   for (j = 0; j < objC_nPages; j++) {
     PageHeader * temp = &objC_coreTable[j];
-    NullKeyRing(&temp->kt_u.ob.keyRing);
-    temp->kt_u.ob.flags = 0;
-    temp->kt_u.ob.userPin = 0;
-    temp->kt_u.ob.obType = ot_PtFreeFrame;
+    temp->kt_u.free.obType = ot_PtFreeFrame;
   }
 
   DEBUG(pgalloc)
@@ -314,10 +303,7 @@ objC_AddDevicePages(PmemInfo *pmi)
   pmi->firstObHdr = MALLOC(PageHeader, pmi->nPages);
   for (j = 0; j < pmi->nPages; j++) {
     PageHeader * temp = &pmi->firstObHdr[j];
-    NullKeyRing(&temp->kt_u.ob.keyRing);
-    temp->kt_u.ob.flags = 0;
-    temp->kt_u.ob.userPin = 0;
-    temp->kt_u.ob.obType = ot_PtFreeFrame;
+    temp->kt_u.free.obType = ot_PtFreeFrame;
   }
 
   framePa = pmi->basepa;
@@ -367,7 +353,6 @@ objC_GetCoreNodeFrame(uint32_t ndx)
 PageHeader *
 objC_PhysPageToObHdr(kpa_t pagepa)
 {
-  PageHeader * pHdr = 0;
   unsigned rgn = 0;
   kva_t startpa;
   kva_t endpa;
@@ -388,12 +373,10 @@ objC_PhysPageToObHdr(kpa_t pagepa)
 
     pageNo = (pagepa - pmi->basepa) / EROS_PAGE_SIZE;
 
-    pHdr = &pmi->firstObHdr[pageNo];
-
-    break;
+    return &pmi->firstObHdr[pageNo];
   }
 
-  return pHdr;
+  return 0;
 }
 
 #ifndef NDEBUG
@@ -787,7 +770,7 @@ objC_AgeNodeFrames()
       assert (!objH_IsDirty(DOWNCAST(pObj, ObjectHeader)));
       assert(keyR_IsEmpty(&pObj->node_ObjHdr.keyRing));
     
-      /* Remove this node from the cache and return it to the free page
+      /* Remove this node from the cache and return it to the free node
        * list: */
       ReleaseNodeFrame(pObj);
 
@@ -1283,7 +1266,6 @@ objC_GrabThisPageFrame(PageHeader *pObj)
   assert(pte_ObIsNotWritable(pObj));
 
   pObj->objAge = age_NewBorn;
-  NullKeyRing(&pageH_ToObj(pObj)->keyRing);
 }
 
 Node *
@@ -1353,8 +1335,6 @@ ReleasePageFrame(PageHeader * pageH)
   pageH->kt_u.free.obType = ot_PtFreeFrame;
   pageH->kt_u.free.next = objC_firstFreePage;
   objC_firstFreePage = pageH;
-
-  NullKeyRing(&pageH_ToObj(pageH)->keyRing);
 
   objC_nFreePageFrames++;
   sq_WakeAll(&PageAvailableQueue, false);

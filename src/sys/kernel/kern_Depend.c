@@ -110,6 +110,10 @@ Depend_InitKeyDependTable(uint32_t nNodes)
 void
 Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
 {
+#if 0
+  printf("Dep_Add key=0x%08x pte=0x%08x\n", pKey, pte);
+#endif
+
   uint32_t whichBucket;
   KeyDependEntry* entry = 0;
   uint32_t i;

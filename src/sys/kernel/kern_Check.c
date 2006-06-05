@@ -148,28 +148,28 @@ check_Pages()
 #endif
 
 #ifdef OPTION_OB_MOD_CHECK
-    ObjectHeader * pObj = pageH_ToObj(pPage);
-    if (!objH_GetFlags(pObj, OFLG_DIRTY)) {
-      assert (objH_GetFlags(pObj, OFLG_DIRTY) == 0);
-      if (objH_GetFlags(pObj, OFLG_REDIRTY))
-	printf("Frame %d ty=%d, flg=0x%02x redirty but not dirty!!\n",
+      ObjectHeader * pObj = pageH_ToObj(pPage);
+      if (!objH_GetFlags(pObj, OFLG_DIRTY)) {
+        assert (objH_GetFlags(pObj, OFLG_DIRTY) == 0);
+        if (objH_GetFlags(pObj, OFLG_REDIRTY))
+          printf("Frame %d ty=%d, flg=0x%02x redirty but not dirty!!\n",
 		       pg, pObj->obType, pObj->flags);
 
-      chk = objH_CalcCheck(pObj);
+        chk = objH_CalcCheck(pObj);
 
-      if (pObj->check != chk) {
-	printf("Frame %d Chk=0x%x CalcCheck=0x%x flgs=0x%02x ty=%d on pg ",
-		       pg, pObj->check, chk, pObj->flags, pObj->obType);
-	printOid(pObj->oid);
-	printf("\n");
-	printf("  pPage 0x%08x dirty: %c reDirty: %c\n",
+        if (pObj->check != chk) {
+          printf("Frame %d Chk=0x%x CalcCheck=0x%x flgs=0x%02x ty=%d on pg ",
+                 pg, pObj->check, chk, pObj->flags, pObj->obType);
+	  printOid(pObj->oid);
+	  printf("\n");
+	  printf("  pPage 0x%08x dirty: %c reDirty: %c\n",
 		       pPage,
 		       (objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n'),
 		       (objH_GetFlags(pObj, OFLG_REDIRTY) ? 'y' : 'n'));
-	result = false;
-        break;
+	  result = false;
+          break;
+        }
       }
-    }
 #endif
       break;
 

@@ -62,8 +62,8 @@ struct PmemInfo {
 
   uint32_t  nPages;		/* number of pages allocated to the
 				 * object cache */
-  uint32_t  basepa;		/* base pa of that page range */
-  PageHeader * firstObHdr;	/* obHdr corresponding these pages */
+  uint32_t  basepa;		/* base pa of pages allocated to ob cache*/
+  PageHeader * firstObHdr;	/* pgHdrs for those pages */
 } ;
 
 typedef struct PmemInfo PmemInfo;

@@ -877,14 +877,9 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
 
   mapping_page_kva = ((kva_t)kde->start & ~EROS_PAGE_MASK);
   PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
-  if (!pMappingPage) {	// somehow, no longer a page
-#if 0	//// this does not work
-    printf("DependInvalidate pa=0x%08x, no header!\n",
-           (uint32_t)VTOP(mapping_page_kva) );
-    kde->start = 0;
-    return;
-#endif
-  }
+  /* pMappingPage could be zero, if the mapping page was allocated
+     at kernel initialization and therefore doesn't have an
+     associated PageHeader. */
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
@@ -995,7 +990,7 @@ check_MappingPage(PageHeader * pPage)
 	continue;
 
       PageHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);
-      assert(pageH_IsObjectType(thePageHdr));
+      assert(thePageHdr && pageH_IsObjectType(thePageHdr));
 
       if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_CKPT)) {
 	printf("Writable PTE=0x%08x (map page 0x%08x), ckpt pg"
