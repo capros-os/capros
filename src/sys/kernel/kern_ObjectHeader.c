@@ -347,7 +347,7 @@ objH_Rescind(ObjectHeader* thisPtr)
 	    thisPtr->obType,
             (uint32_t) (thisPtr->oid >> 32), (uint32_t) thisPtr->oid);
 
-  assert (objH_IsDirty(thisPtr) && objH_GetFlags(thisPtr, OFLG_IO|OFLG_CKPT) == 0);
+  assert (objH_GetFlags(thisPtr, OFLG_IO|OFLG_CKPT) == 0);
   assert (objH_GetFlags(thisPtr, OFLG_CURRENT) == OFLG_CURRENT);
   
 #ifndef NDEBUG
@@ -372,6 +372,9 @@ objH_Rescind(ObjectHeader* thisPtr)
     if (thisPtr->obType <= ot_NtLAST_NODE_TYPE) {
       Node * thisNode = objH_ToNode(thisPtr);
       thisNode->callCount++;
+      node_MakeDirty(thisNode);
+    } else {
+      pageH_MakeDirty(objH_ToPage(thisPtr));
     }
 
     objH_ClearFlags(thisPtr, OFLG_DISKCAPS);
@@ -386,6 +389,7 @@ objH_Rescind(ObjectHeader* thisPtr)
     /* zeroing unprepares and invalidates products too */
 
     node_DoClearThisNode(thisNode);
+    node_MakeDirty(thisNode);
     assert ( thisPtr->obType == ot_NtUnprepared );
   }
   else if (thisPtr->obType == ot_PtDataPage) {
@@ -394,8 +398,8 @@ objH_Rescind(ObjectHeader* thisPtr)
     objH_InvalidateProducts(thisPtr);
 
     pPage = pageH_GetPageVAddr(objH_ToPage(thisPtr));
-
     bzero((void*)pPage, EROS_PAGE_SIZE);
+    pageH_MakeDirty(objH_ToPage(thisPtr));
   }
   else if (thisPtr->obType == ot_PtDevicePage) {
     fatal("Rescind of device pages not tested -- see shap!\n");
