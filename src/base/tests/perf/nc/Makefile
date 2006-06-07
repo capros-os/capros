@@ -1,0 +1,52 @@
+#
+# Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2006, Strawberry Development Group
+#
+# This file is part of the CapROS Operating System.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2,
+# or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+#
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-06-C-0040.
+
+default: install
+
+CROSS_BUILD=yes
+
+EROS_SRC=../../../..
+include $(EROS_SRC)/build/make/makevars.mk
+
+TARGETS=$(BUILDDIR)/call $(BUILDDIR)/echo
+OPTIM=-O
+OBJECTS=$(BUILDDIR)/call.o $(BUILDDIR)/echo.o
+INC=-I$(EROS_ROOT)/include
+
+VOLMAP=volmap
+
+include $(EROS_SRC)/build/make/makerules.mk
+
+install all: $(TARGETS)
+
+include ../bench.mk
+
+$(BUILDDIR)/call: $(BUILDDIR)/call.o $(DOMLIB) $(DOMCRT0)
+	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/call.map -o $@ $(DOMCRT0) $(BUILDDIR)/call.o $(DOMLIB)
+# Temporarily strip symbols to reduce size.
+#	$(EROS_STRIP) --strip-all --keep-symbol=_start $(BUILDDIR)/call
+
+$(BUILDDIR)/echo: $(BUILDDIR)/echo.o $(DOMLIB) $(DOMCRT0)
+	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/echo.map -o $@ $(DOMCRT0) $(BUILDDIR)/echo.o $(DOMLIB)
+# Temporarily strip symbols to reduce size.
+#	$(EROS_STRIP) --strip-all --keep-symbol=_start $(BUILDDIR)/echo
