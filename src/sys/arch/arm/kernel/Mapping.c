@@ -171,7 +171,7 @@ mach_EnsureHeap(kva_t target,
     PTE * cpt = KPAtoP(PTE *, FLPT_FCSEVA[FLPTIndex] & L1D_COARSE_PT_ADDR);
     PTE_Set(&cpt[CPTIndex],
             paddr + 0x550	/* AP=0b01 */
-              + PTE_CACHEABLE + PTE_BUFFERED + PTE_SMALLPAGE);
+              + PTE_CACHEABLE + PTE_BUFFERABLE + PTE_SMALLPAGE);
 
     heap_defined += EROS_PAGE_SIZE;
   }
@@ -182,18 +182,17 @@ mach_EnsureHeap(kva_t target,
 
 #ifdef USES_MAPPING_PAGES
 bool
-check_MappingPage(ObjectHeader *pPage)
+check_MappingPage(PageHeader * pPage)
 {
   PTE* pte;
   uint32_t ent;
   PTE* thePTE;
-  ObjectHeader* thePageHdr;
 
   if (pPage->kt_u.mp.tableSize == 1)
     return true;
 
   // Check a second-level mapping table.
-  pte = (PTE*) objC_ObHdrToPage(pPage);
+  pte = (PTE*) pageH_GetPageVAddr(pPage);
 
   for (ent = 0; ent < MAPPING_ENTRIES_PER_PAGE; ent++) {
     thePTE = &pte[ent];
@@ -209,9 +208,10 @@ check_MappingPage(ObjectHeader *pPage)
   	continue;
 #endif
 
-        thePageHdr = objC_PhysPageToObHdr(pageFrame);
+        PageHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);
+        assert(thePageHdr && pageH_IsObjectType(thePageHdr));
 
-        if (objH_GetFlags(thePageHdr, OFLG_CKPT)) {
+        if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_CKPT)) {
   	  printf("Writable PTE=0x%08x (map page 0x%08x), ckpt pg"
   		       " 0x%08x%08x\n",
 		       pteWord, pte,
@@ -220,7 +220,7 @@ check_MappingPage(ObjectHeader *pPage)
 
 	  return false;
         }
-        if (!objH_IsDirty(thePageHdr)) {
+        if (!pageH_IsDirty(thePageHdr)) {
   	  printf("Writable PTE=0x%08x (map page 0x%08x), clean pg"
 		         " 0x%08x%08x\n",
 		         pteWord, pte,

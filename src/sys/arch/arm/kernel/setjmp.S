@@ -17,18 +17,31 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-/* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+	
+#include <eros/arch/arm/asm.h>
 
-extern uint32_t irq_DisableDepth;
+#ifdef OPTION_DDB	// these are only used by ddb
 
-INLINE uint32_t 
-irq_DISABLE_DEPTH(void)
+	.text
+
+/*
+typedef struct
 {
-  return irq_DisableDepth;
-}
+  uint32_t r4tor11[10];
+  uint32_t sp, pc;
+} jmp_buf[1];
+ */
 
-/* These are inline in some architectures, but not this one,
-   where calling a leaf procedure adds only two instructions. */
-void irq_ENABLE(void);
-void irq_DISABLE(void);
+/* int setjmp(jmp_buf); */
+ENTRY(setjmp)
+	stmia r0,{r4-r11,sp,lr}
+	mov r0,#0	// return 0 the first time
+	mov pc,lr
+
+/* void longjmp(jmp_buf, int value) NORETURN; */
+ENTRY(longjmp)
+	ldmia r0,{r4-r11,sp,lr}
+	movs r0,r1	// value to return
+        moveq r0,#1	// if r1 is zero, return 1
+	mov pc,lr
+#endif

@@ -35,6 +35,7 @@ SerialStream_Init(void)
   /* It is assumed that the boot loader left UART1 in a good state. */
 #else
 #define BaudRate 57600
+//#define BaudRate 9600	// for SWCA test
 #define BaudRateDivisor (UARTCLK/(16*BaudRate)-1)
   UART1.LinCtrlLow = BaudRateDivisor & 0xff;
   UART1.LinCtrlMid = (BaudRateDivisor >> 8) & 0xff;
@@ -55,6 +56,35 @@ SerialStream_Put(uint8_t c)
   while (UART1.Flag & UARTFlag_TXFF) ;
   UART1.Data = c;
 }
+
+void
+SerialStream_Flush(void)
+{
+  while (UART1.Flag & UARTFlag_BUSY) ;
+}
+
+#ifdef OPTION_DDB
+uint8_t
+SerialStream_Get(void)
+{
+//printf("ssg ");////
+  /* Wait until receive buffer not empty. */
+  while (UART1.Flag & UARTFlag_RXFE) ;
+  uint8_t c = UART1.Data;
+  return c;
+}
+
+void
+SerialStream_SetDebugging(bool onOff)
+{
+  kstream_debuggerIsActive = onOff;
+}
+
+void
+SerialStream_EnableDebuggerInput(void)
+{
+}
+#endif
 
 struct KernStream TheSerialStream = {
   SerialStream_Init,

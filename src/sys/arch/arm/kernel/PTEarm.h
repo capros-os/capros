@@ -59,8 +59,8 @@
 #define PTE_ACC  0x020	/* accessed */
 #define PTE_DRTY 0x040	/* dirty */
 #endif
-#define PTE_CACHEABLE 0x8
-#define PTE_BUFFERED  0x4
+#define PTE_CACHEABLE  0x8
+#define PTE_BUFFERABLE 0x4
 #define PTE_VALIDBITS 0x003
 #define PTE_SMALLPAGE 0x002 /* "small" is 4KB, the size we use */
 /* We never use large or tiny pages. */

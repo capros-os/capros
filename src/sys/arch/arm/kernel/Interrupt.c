@@ -21,6 +21,8 @@
    Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
 
 #include <kerninc/kernel.h>
+#include <kerninc/StallQueue.h>
+#include <arch-kerninc/IRQ-inline.h>
 #include "ep93xx-vic.h"
 #include "Interrupt.h"
 
@@ -33,21 +35,7 @@ void InitExceptionHandlers(void);
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-/* Stuff for the EP93xx Vectored Interrupt Controller (VIC) */
-typedef struct VICIntSource {
-  /* priority is:
-     -1 if assigned to FIQ
-      0 if assigned to vectored interrupt 0 (relative to its VIC)
-      ...
-      15 if assigned to vectored interrupt 15 (relative to its VIC)
-      16 if nonvectored IRQ */
-  signed char priority;
-  /* Enabled state and software interrupt state are stored only in
-     the corresponding VIC register. */
-  ISRType ISRAddr;	// if nonvectored
-} VICIntSource;
-
-VICIntSource VICIntSources[64];
+VICIntSource VICIntSources[NUM_INTERRUPT_SOURCES];
 
 typedef struct VICVectoredInt {
   /* source is 
@@ -58,6 +46,9 @@ typedef struct VICVectoredInt {
 
 /* There is a VICInfo structure for each of the two VICs. */
 typedef struct VICInfo {
+  /* ISRAddr must be the first item. */
+  void (*ISRAddr)(struct VICInfo *); // contains &VICNonvectoredHandler
+
   volatile struct VICRegisters * regs;
   VICIntSource * sourceArray;
   uint32_t nonvectoredSources;
@@ -78,31 +69,52 @@ VICNonvectoredHandler(VICInfo * vicInfo)
   uint32_t intStatus = vicInfo->regs->IRQStatus & vicInfo->nonvectoredSources;
   for (i = 0; i < 32; i++) {
     if (intStatus & 0x1) {	// found one
-      (*vicInfo->sourceArray[i].ISRAddr)();	// Call the ISR
+      VICIntSource * vis = &vicInfo->sourceArray[i];
+      (vis->ISRAddr)(vis);	// Call the ISR
     }
     intStatus >>= 1;
   }
 }
 
+/* Handler for interrupts using the DevicePrivs key. */
 void
-VIC1NonvectoredHandler(void)
+DoUsermodeInterrupt(VICIntSource * vis)
 {
-  VICNonvectoredHandler(&VICInfos[0]);
-}
+  unsigned int sourceNum = vis->sourceNum;
+  if (sourceNum >= 32) {	// if on VIC2
+    // read VectAddr to mask interrupts of lower or equal priority
+    (void)VIC2.VectAddr;	
+  }
+  irq_ENABLE();
+#if 1
+  printf("Waking sleeper for int source %d\n", sourceNum);
+#endif
 
-void
-VIC2NonvectoredHandler(void)
-{
-  VICNonvectoredHandler(&VICInfos[1]);
+  // Disable the interrupt so it does not recur immediately.
+  InterruptSourceDisable(sourceNum);
+
+  vis->isPending = true;
+  sq_WakeAll(&vis->sleeper, false);
+
+  irq_DISABLE();
+
+  // write VectAddr to reenable interrupts of lower or equal priority
+  if (sourceNum >= 32) {	// if on VIC2
+    VIC2.VectAddr = 0;;
+  } else {
+    VIC1.VectAddr = 0;;
+  }
 }
 
 static void
-VICInit(VICInfo * info, volatile struct VICRegisters * VIC,
-        unsigned int firstSource, ISRType dva)
+VICInit(unsigned vicNum, volatile struct VICRegisters * VIC)
 {
+  VICInfo * info = &VICInfos[vicNum];
   int i;
+
+  info->ISRAddr = &VICNonvectoredHandler;
   info->regs = VIC;
-  info->sourceArray = &VICIntSources[firstSource];
+  info->sourceArray = &VICIntSources[vicNum * 32];
 
   /* All sources are initially considered nonvectored, but since they
      are disabled, we don't need to include them in nonvectoredSources. */
@@ -111,7 +123,7 @@ VICInit(VICInfo * info, volatile struct VICRegisters * VIC,
     info->vectors[i].source = -1;
     /* Vectors are disabled at reset. */
   }
-  VIC->DefVectAddr = (uint32_t)dva;
+  VIC->DefVectAddr = (uint32_t)info;
   // IntSelect defaults to IRQ.
   /* After reset, VIC->Protection defaults to allowing User mode access.
      That's OK, because we use the MMU to control access, not the mode. */
@@ -122,17 +134,26 @@ InterruptInit(void)
 {
   int i;
   InitExceptionHandlers();
-  VICInit(&VICInfos[0], &VIC1, 0, &VIC1NonvectoredHandler);
-  VICInit(&VICInfos[1], &VIC2, 32, &VIC2NonvectoredHandler);
+  VICInit(0, &VIC1);
+  VICInit(1, &VIC2);
 /* Note, for reference, the following two values enable interrupts
    that are not observed to occur right after reset.
    Other interrupts will occur if enabled.
   VIC1.IntEnable = 0xebfffff0;
   VIC2.IntEnable = 0xfefff8e6;
   */
-  for (i=0; i < 64; i++) {
-    VICIntSources[i].priority = 16;	// by default, not vectored
+  for (i=0; i < NUM_INTERRUPT_SOURCES; i++) {
+    VICIntSource * vis = &VICIntSources[i];
+    vis->priority = PRIO_Unallocated;
+    vis->sourceNum = i;
+    sq_Init(&vis->sleeper);
   }
+}
+
+void
+UserIrqInit(void)
+{
+  // We initialized this as part of InterruptInit above.
 }
 
 /* priority is the priority within this source's VIC. */
@@ -149,9 +170,9 @@ InterruptSourceSetup(unsigned int source, int priority, ISRType handler)
     vicInfo->regs->IntSelect |= sourceBit;
     /* handler is not used */
   } else {		// IRQ
+    vicSource->ISRAddr = handler;
     vicInfo->regs->IntSelect &= ~sourceBit;
     if (priority == 16) {	// nonvectored
-      vicSource->ISRAddr = handler;
       vicInfo->nonvectoredSources |= sourceBit;
     } else {		// vectored
       if (vicInfo->vectors[priority].source != -1)
@@ -162,10 +183,32 @@ InterruptSourceSetup(unsigned int source, int priority, ISRType handler)
       printf("Init Vect Int source %d vect %d\n", source, priority);
 #endif
       vicInfo->vectors[priority].source = source;
-      vicInfo->regs->VectAddrN[priority] = (uint32_t)handler;
+      vicInfo->regs->VectAddrN[priority] = (uint32_t)vicSource;
       vicInfo->regs->VectCntlN[priority] = VIC_VectCntl_Enable + source32;
     }
   }
+}
+
+void
+InterruptSourceUnset(unsigned int source)
+{
+  VICIntSource * vicSource = &VICIntSources[source];
+  unsigned int source32 = source & 0x1f;
+  uint32_t sourceBit = 1ul << source32;
+  VICInfo * vicInfo = &VICInfos[source >> 5];
+
+  vicInfo->regs->IntEnClear = sourceBit;	// disable the interrupt
+
+  const int priority = vicSource->priority;
+  if (priority < 0) {
+    // Was FIQ, nothing to do
+  } else if (priority == 16) {	// was nonvectored
+    vicInfo->nonvectoredSources &= ~sourceBit;
+  } else {				// was vectored
+    vicInfo->vectors[priority].source = -1;
+    vicInfo->regs->VectCntlN[priority] = 0;	// disable vector
+  }
+  vicSource->priority = PRIO_Unallocated;
 }
 
 void

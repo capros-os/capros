@@ -22,7 +22,7 @@
 
 #include <eros/arch/arm/asm.h>
 #include <eros/Invoke.h>
-#include "../kernel/SWI.h"
+#include <eros/arch/arm/SWI.h>
 
 /* Note: Offsets in this code depend on the Message structure
    declared in Invoke.h:

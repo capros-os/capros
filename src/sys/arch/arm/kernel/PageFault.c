@@ -49,10 +49,10 @@ unsigned int EnsureSSDomain(unsigned int ssid);
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 INLINE bool
-obj_IsFLPT(ObjectHeader * ob) /* ob->obType must be ot_PtMappingPage */
+obj_IsFLPT(PageHeader * pageH) /* pageH->obType must be ot_PtMappingPage */
 {
   /* tableSize is 0 for page table, 1 for first level page table */
-  return ob->kt_u.mp.tableSize /* == 1 */ ;
+  return pageH->kt_u.mp.tableSize /* == 1 */ ;
 }
 
 /* Possible outcomes of a user-level page fault:
@@ -90,49 +90,69 @@ pte_ddb_dump(PTE* thisPtr)
 {
   extern void db_printf(const char *fmt, ...);
 
-  char attrs[64];
-  char *nxtAttr = attrs;
-  printf("Pg Frame 0x%08x [", pte_PageFrame(thisPtr));
-
-#define ADDATTR(s) do { const char *sp = (s); *nxtAttr++ = ','; while (*sp) *nxtAttr++ = *sp++; } while (0)
+  uint32_t pte = pte_AsWord(thisPtr);
   
-  if (pte_is(thisPtr, PTE_V))
-    ADDATTR("V");
-  else
-    ADDATTR("!V");
+  switch (pte & PTE_VALIDBITS) {
+  case 1:
+  case 3:
+    printf("bad 0x%08x\n", pte);
+    break;
 
-  if (pte_is(thisPtr, PTE_W)) ADDATTR("W");
-  if (pte_is(thisPtr, PTE_USER))
-    ADDATTR("U");
-  else
-    ADDATTR("S");
-  if (pte_is(thisPtr, PTE_ACC)) ADDATTR("A");
-  if (pte_is(thisPtr, PTE_DRTY)) ADDATTR("D");
-  if (pte_is(thisPtr, PTE_PGSZ)) ADDATTR("L");
-  if (pte_is(thisPtr, PTE_GLBL)) ADDATTR("G");
-  if (pte_is(thisPtr, PTE_WT))
-    ADDATTR("WT");
-  else
-    ADDATTR("!WT");
-  if (pte_is(thisPtr, PTE_CD)) ADDATTR("CD");
-
-#undef ADDATTR
-
-  *nxtAttr++ = 0;
-  printf("%s]\n", attrs);
+  case 0:
+    if (pte & PTE_CACHEABLE) {
+      printf("tracking LRU ");	// and fall into the valid case
+    } else if (pte & PTE_BUFFERABLE) {
+      printf("in progress\n");
+      break;
+    } else {
+      printf("no access\n");
+      break;
+    }
+  case PTE_SMALLPAGE:
+  {
+    // All AP fields should match.
+    unsigned int ap = (pte >> 10) & 3;
+    if (((pte >> 8) & 3) != ap
+        || ((pte >> 6) & 3) != ap
+        || ((pte >> 4) & 3) != ap ) {
+      printf("bad 0x%08x\n", pte);
+    } else {
+      printf("Pg Frame 0x%08x ap=%d %c%c",
+             pte_PageFrame(thisPtr), ap,
+             (pte & PTE_CACHEABLE  ? 'C' : ' '),
+             (pte & PTE_BUFFERABLE ? 'B' : ' ') );
+      switch (ap) {
+      case 0:
+        printf(" kro\n");
+        break;
+      case 1:
+        printf(" krw\n");
+        break;
+      case 2:
+        if (pte & PTE_BUFFERABLE) {
+          printf(" uro\n");
+        } else {
+          printf(" uro tracking dirty\n");
+        }
+        break;
+      case 3:
+        printf(" urw\n");
+      }
+    }
+  }
+  }
 }
 #endif
 
 #ifndef NDEBUG
-/* pObj must be a page type. */
 bool
-pte_ObIsNotWritable(ObjectHeader *pObj)
+pte_ObIsNotWritable(PageHeader * pageH)
 {
   uint32_t pf;
   uint32_t ent;
   
   /* Start by building a writable PTE for the page: */
-  uint32_t pagePA = VTOP(objC_ObHdrToPage(pObj));
+  uint32_t pagePA = VTOP(pageH_GetPageVAddr(pageH));
 
 #ifdef OPTION_SMALL_SPACES
   /* Check small spaces first: */
@@ -147,12 +167,12 @@ pte_ObIsNotWritable(ObjectHeader *pObj)
 #endif
 
   for (pf = 0; pf < objC_TotalPages(); pf++) {
-    ObjectHeader *pHdr = objC_GetCorePageFrame(pf);
+    PageHeader * pHdr = objC_GetCorePageFrame(pf);
 
-    if (pHdr->obType != ot_PtMappingPage)
+    if (pageH_GetObType(pHdr) != ot_PtMappingPage)
       continue;
 
-    uint32_t * ptepg = (uint32_t *) objC_ObHdrToPage(pHdr);
+    uint32_t * ptepg = (uint32_t *) pageH_GetPageVAddr(pHdr);
     
     if (obj_IsFLPT(pHdr)) {
       /* Scan the entries in this FLPT. */
@@ -184,14 +204,13 @@ pte_ObIsNotWritable(ObjectHeader *pObj)
 
 /* Make a new second-level page table.
 Note: as a temporary expedient, we allocate a page and waste 75% of it. */
-static ObjectHeader *
+static PageHeader *
 MakeNewPageTable(SegWalk * wi /*@ not null @*/, uint32_t ndx)
 {
   DEBUG(pgflt) printf("MakeNewPageTable ");
-  ObjectHeader *pTable = objC_GrabPageFrame();
+  PageHeader * pTable = objC_GrabPageFrame();
   kva_t tableAddr;
-  assert (keyR_IsValid(&pTable->keyRing, pTable));
-  pTable->obType = ot_PtMappingPage;
+  pTable->kt_u.mp.obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 0;
   pTable->kt_u.mp.producerBlss = wi->segBlss;
   pTable->kt_u.mp.producerNdx = ndx;
@@ -201,9 +220,8 @@ MakeNewPageTable(SegWalk * wi /*@ not null @*/, uint32_t ndx)
   pTable->kt_u.mp.redSpanBlss = wi->redSpanBlss;
   pTable->kt_u.mp.rwProduct = 1;
   pTable->kt_u.mp.caProduct = 1;
-  objH_SetDirtyFlag(pTable);
 
-  tableAddr = objC_ObHdrToPage(pTable);
+  tableAddr = pageH_GetPageVAddr(pTable);
   DEBUG(pgflt) printf("physAddr=0x%08x\n", VTOP(tableAddr));
 
   bzero((void *)tableAddr, EROS_PAGE_SIZE);
@@ -222,7 +240,7 @@ MakeNewPageTable(SegWalk * wi /*@ not null @*/, uint32_t ndx)
 }
 
 /* Walk the node's products looking for an acceptable product: */
-ObjectHeader *
+static PageHeader *
 objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
                  unsigned int tblSize, 
                  unsigned int producerNdx, 
@@ -237,10 +255,11 @@ objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
   
 /* #define FINDPRODUCT_VERBOSE */
 
-  ObjectHeader * product;
+  PageHeader * product;
   
-  for (product = thisPtr->prep_u.products; product; product = product->next) {
-    assert(product->obType == ot_PtMappingPage);
+  for (product = thisPtr->prep_u.products;
+       product; product = product->kt_u.mp.next) {
+    assert(pageH_GetObType(product) == ot_PtMappingPage);
     if ((uint32_t) product->kt_u.mp.producerBlss != blss) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("Producer BLSS not match\n");
@@ -570,7 +589,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
    * the write permission bit at the PDE level.
      ???
    */
-  ObjectHeader * pTableHdr =
+  PageHeader * pTableHdr =
     objH_FindProduct(wi.segObj, &wi, 0, productNdx, true, true, 
                      la >> L1D_ADDR_SHIFT);
 
@@ -578,7 +597,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     pTableHdr = MakeNewPageTable(&wi, productNdx);
     pTableHdr->kt_u.mp.tableCacheAddr = la >> L1D_ADDR_SHIFT;
   }
-  assert(pTableHdr->obType == ot_PtMappingPage);
+  assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
   assert(wi.segBlss == pTableHdr->kt_u.mp.producerBlss);
   assert(wi.segObj == pTableHdr->kt_u.mp.producer);
   assert(wi.redSeg == pTableHdr->kt_u.mp.redSeg);
@@ -587,7 +606,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
      the write permission bit at the PDE level: ??? */
   assert(pTableHdr->kt_u.mp.rwProduct);
 
-  pTable = (PTE *) objC_ObHdrToPage(pTableHdr);
+  pTable = (PTE *) pageH_GetPageVAddr(pTableHdr);
 
   /* Set the entry in the first-level page table to refer to
      the second-level table. */
@@ -607,13 +626,10 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 	   wi.segObj->obType == ot_PtDevicePage);
 
     if (isWrite)
-      objH_MakeObjectDirty(wi.segObj);
+      pageH_MakeDirty(objH_ToPage(wi.segObj));
 
-    kpa_t pageAddr = VTOP(objC_ObHdrToPage(wi.segObj));
+    kpa_t pageAddr = VTOP(pageH_GetPageVAddr(objH_ToPage(wi.segObj)));
 
-    if (pageAddr == 0)
-      dprintf(true, "wi.segObj 0x%08x at addr 0x%08x!! (wi=0x%08x)\n",
-		      wi.segObj, pageAddr, &wi);
   pte_Invalidate(thePTE);	/* if it was valid, remember to purge TLB */
 #if 0
   printf("Setting PTE 0x%08x addr 0x%08x write %c cache %c\n",
@@ -623,7 +639,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 #endif
   PTE_Set(thePTE, pageAddr + PTE_SMALLPAGE
           + (isWrite ? 0xff0 : 0xaa0)	/* AP bits, 11 for write, 10 for read */
-          + (wi.canCache ? PTE_CACHEABLE | PTE_BUFFERED : 0) );
+          + (wi.canCache ? PTE_CACHEABLE | PTE_BUFFERABLE : 0) );
 
   UpdateTLB();
 

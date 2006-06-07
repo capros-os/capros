@@ -27,6 +27,7 @@
 #include <kerninc/dma.h>
 #include <kerninc/Key.h>
 #include <kerninc/SysTimer.h>
+#include <kerninc/KernStream.h>
 #include "ep9315-syscon.h"
 
 void map_HeapInit(void);

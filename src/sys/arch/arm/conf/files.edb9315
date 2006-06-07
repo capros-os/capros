@@ -23,6 +23,7 @@
 #file("kernel/kern_main.c")
 
 file("arch/arm/kernel/asm.S")
+file("arch/arm/kernel/db_interface.c")
 file("arch/arm/kernel/exception.S")
 file("arch/arm/kernel/GrubEmul.c")
 file("arch/arm/kernel/HardClock.c")
@@ -32,13 +33,16 @@ file("arch/arm/kernel/InvokeArm.c")
 file("arch/arm/kernel/KernelVars.c")
 file("arch/arm/kernel/Machine.c")
 file("arch/arm/kernel/Mapping.c")
+file("arch/arm/kernel/mk_SysTrace.c")
+file("arch/arm/kernel/mk_DevicePrivs.c")
 file("arch/arm/kernel/PageFault.c")
 file("arch/arm/kernel/PhysMem.c")
 file("arch/arm/kernel/Process.c")
-file("arch/arm/kernel/mk_SysTrace.c")
+file("arch/arm/kernel/setjmp.S")
 file("arch/arm/kernel/Stubs.c") ##temporary
-#file("arch/arm/kernel/mainTemp.c") ##temporary
-#file("arch/arm/kernel/onewire.c") ##temporary
+file("arch/arm/kernel/mainTemp.c") ##temporary
+file("arch/arm/kernel/onewire.c") ##temporary
+#file("arch/arm/kernel/invmon.c") ##temporary
 #file("kernel/kern_Invoke.c")
 #file("kernel/kern_IRQ.c")
 

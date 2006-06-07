@@ -30,16 +30,22 @@
 #define	_ARM_DB_MACHDEP_H_
 
 /*
- * Machine-dependent defines for new kernel debugger.
+ * Machine-dependent defines for kernel debugger.
  */
 
 #include <kerninc/kernel.h>
 #include <arch-kerninc/SaveArea.h>
 
-#define kernel_map  KernPageDir_pa
+/* For the debugger, define the symbol marking the end of the
+   kernel text and rodata sections. */
+#define db_etext _etext
+#define db_end _end	/* end of kernel data and bss sections */
+
+#define kernel_map  FLPT_FCSEPA
+#define T_BPTFLT    3	// breakpoint trap type
+#if 0
 #define PSL_T	    0x100	/* trace trap bit */
 #define PSL_VM	    0x20000	/* VM86 bit */
-#define T_BPTFLT    3
 #define T_TRCTRAP   1
 
 #define SEL_KPL   0		/* kernel privilege level */
@@ -47,8 +53,9 @@
 #define SEL_RPL   3		/* requestor's privilege level mask */
 #define ISPL(c) ((c) & SEL_RPL)
 #define KERNELMODE(c, f) ((ISPL(c) == SEL_KPL) && (((f) & PSL_VM) == 0))
+#endif
 
-/* #define SOFTWARE_SSTEP */
+#define SOFTWARE_SSTEP
 
 /* db_addr_t should be typedef'ed to kva_t, but that causes
    too many type mismatches. */
@@ -63,34 +70,40 @@ typedef struct savearea db_regs_t;
 extern db_regs_t	ddb_regs;	/* register state */
 #define	OPTION_DDB_REGS	(&ddb_regs)
 
-#define	PC_REGS(regs)	((regs)->EIP)
+#define	PC_REGS(regs)	((regs)->r15)
 
-#define	BKPT_INST	0xcc		/* breakpoint instruction */
-#define	BKPT_SIZE	(1)		/* size of breakpoint inst */
+//#define BKPT_INST	0xe1200070	/* breakpoint instruction */
+#define BKPT_INST	0xef000004	/* breakpoint instruction:
+					 SWI SWI_Bpt */
+#define	BKPT_SIZE	(4)		/* size of breakpoint inst */
 #define	BKPT_SET(inst)	(BKPT_INST)
 
-#if 0
-#define	FIXUP_PC_AFTER_BREAK		ddb_regs.EIP -= BKPT_SIZE;
+#if 1
+#define	FIXUP_PC_AFTER_BREAK		ddb_regs.r15 -= BKPT_SIZE;
 #endif
 
+#define	IS_BREAKPOINT_TRAP(type, code)	((type) == T_BPTFLT)
+#define IS_WATCHPOINT_TRAP(type, code)	false
+
+// There is no identifiable instruction to return from a trap.
+#define	inst_trap_return(ins)	false
+// There is no identifiable instruction to return from a call.
+#define	inst_return(ins)	false
+#define	inst_call(ins)		((ins & 0x0f000000) == 0x0b000000)
+			// should check BLX too
+#define	inst_branch(ins)	((ins & 0x0f000000) == 0x0a000000)
+			// should check BX too
+
+#define inst_load(ins)		((ins & 0x0c500000) == 0x04100000)
+#define inst_store(ins)		((ins & 0x0c500000) == 0x04000000)
+unsigned int branch_taken(unsigned int inst, db_addr_t pc,
+     unsigned int (*getreg_val)(void), db_regs_t * regs);
+#define next_instr_address(pc,bd) (bd ? pc : pc+4)	// ?
+
+#if 0
 #define	db_clear_single_step(regs)	((regs)->EFLAGS &= ~PSL_T)
 #define	db_set_single_step(regs)	((regs)->EFLAGS |=  PSL_T)
 
-#define	IS_BREAKPOINT_TRAP(type, code)	((type) == T_BPTFLT)
-#define IS_WATCHPOINT_TRAP(type, code)	((type) == T_TRCTRAP && (code) & 15)
-
-#define	I_CALL		0xe8
-#define	I_CALLI		0xff
-#define	I_RET		0xc3
-#define	I_IRET		0xcf
-
-#define	inst_trap_return(ins)	(((ins)&0xff) == I_IRET)
-#define	inst_return(ins)	(((ins)&0xff) == I_RET)
-#define	inst_call(ins)		(((ins)&0xff) == I_CALL || \
-				 (((ins)&0xff) == I_CALLI && \
-				  ((ins)&0x3800) == 0x1000))
-#define inst_load(ins)		0
-#define inst_store(ins)		0
 
 /* access capability and access macros */
 
@@ -108,6 +121,7 @@ extern db_regs_t	ddb_regs;	/* register state */
 
 bool db_check_access(/* vm_offset_t, int, task_t */);
 bool db_phys_eq(/* task_t, vm_offset_t, task_t, vm_offset_t */);
+#endif
 
 /* macros for printing OS server dependent task name */
 
@@ -117,9 +131,11 @@ bool db_phys_eq(/* task_t, vm_offset_t, task_t, vm_offset_t */);
 #define DB_NULL_TASK_NAME	"?                      "
 
 void		db_task_name(/* task_t */);
+struct Process;
+void db_eros_print_context_md(struct Process * cc);
 
 /* macro for checking if a thread has used floating-point */
 
-#define db_thread_fp_used(thread)	((thread)->pcb->ims.ifps != 0)
+//#define db_thread_fp_used(thread)	((thread)->pcb->ims.ifps != 0)
 
 #endif	/* _ARM_DB_MACHDEP_H_ */

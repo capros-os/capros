@@ -25,7 +25,8 @@
 /* Architecture-specific declarations for key invocation. */
 
 /* Changes to the Message structure must be reflected in the assembler
- * stubs in sys/arch/.../capstubs/....S and other assembler files. */
+ * stubs in sys/arch/.../capstubs/....S,
+   base/lib/domain/crt/.../small_rt_hook.S, and other assembler files. */
 
 #define RESUME_SLOT 3
 

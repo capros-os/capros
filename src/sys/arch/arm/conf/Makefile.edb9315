@@ -99,7 +99,7 @@ LINK=$(LD) -static -N -Ttext 0xfe000000 -Tdata 0xfe100000
 
 # NOTE: it is assumed the end of the kernel code is less than the following constant. If not, increase this constant.
 # The constant in kern-target-asm.h and sys.arm.mk must match.
-KDataPackedAddr=0xfe020000
+KDataPackedAddr=0xfe030000
 
 %options
 
@@ -120,8 +120,11 @@ $(BUILDDIR)/lostart.o: ../../kernel/lostart.S
 $(BUILDDIR)/etext.o: ../../kernel/etext.S
 	   $(ASM_BUILD)
 
-NODEBUG_OBJECTS=#DebuggerStubs.o
-DEBUG_OBJECTS=#Debugger.o symnames.o
+NODEBUG_OBJECTS=DebuggerStubs.o
+DEBUG_OBJECTS=symnames.o #Debugger.o
+
+$(BUILDDIR)/DebuggerStubs.o: ../../kernel/DebuggerStubs.c
+	$(C_BUILD)
 
 $(BUILDDIR)/process_asm_offsets.h: ../../LAYOUT $(TOP)/scripts/GenProcOffsets.awk
 	$(EROS_CPP) -I$(TOP) $(DEF) -include kernel-config.h ../../LAYOUT | \
@@ -164,6 +167,7 @@ $(CONFIG).eros: $(BUILDDIR)/lostart.o $(OBJECTS) $(NODEBUG_OBJECTS) $(LIBS) $(BU
 $(CONFIG).eros.debug: $(BUILDDIR)/lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(LIBS) $(BUILDDIR)/etext.o
 	$(LINK) -o $(CONFIG).eros.debug lostart.o $(OBJECTS) \
 		$(DEBUG_OBJECTS) $(LIBS) etext.o
+	$(OBJDUMP) --syms --stabs $(CONFIG).eros.debug > objdumpout.debug ## debug
 	$(SIZE) $(CONFIG).eros
 	$(SIZE) $(CONFIG).eros.debug
 
@@ -171,9 +175,6 @@ ifeq "$(OPT_MOPS)" "1"
 $(CONFIG).eros.cfg: $(CFGFILES)
 	java -Xmx1024M -cp :$(MOPS)/src/class:$(MOPS)/lib/java-getopt-1.0.9.jar CfgMerge -o $@ $(CFGFILES)
 endif
-
-#$(BUILDDIR)/symnames.o: $(BUILDDIR)/symnames.s
-#	$(ASM_BUILD)
 
 #libkey.a: $(LIBKEY_OBJECTS)
 #	$(AR) -crv libkey.a $(LIBKEY_OBJECTS)
@@ -183,8 +184,11 @@ endif
 # This way of obtaining symnames.s is quite slow. I should undoubtedly
 # replace the awk script with a C program.  Time, however, is short at 
 # the moment.
-$(BUILDDIR)/symnames.s: $(CONFIG).eros
+$(BUILDDIR)/symnames.s: $(CONFIG).eros $(TOP)/scripts/symtab.awk
 	$(OBJDUMP) --syms --stabs $(CONFIG).eros | $(GAWK) -f $(TOP)/scripts/symtab.awk > $@
+
+$(BUILDDIR)/symnames.o: $(BUILDDIR)/symnames.s
+	$(ASM_BUILD)
 
 
 %depend

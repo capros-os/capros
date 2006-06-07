@@ -24,4 +24,5 @@
 #define SWI_CSwap32	1
 #define SWI_CopyKeyReg	2
 #define SWI_XchgKeyReg	3
-#define SWI_MaxSWI	3
+#define SWI_Bpt		4
+#define SWI_MaxSWI	4

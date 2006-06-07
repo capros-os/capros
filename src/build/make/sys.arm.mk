@@ -26,14 +26,14 @@
 install: $(BUILDDIR)/sysimg
 
 $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
-	$(EROS_ROOT)/host/bin/mkimage $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
+	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
 
 init.hd: $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol $(VOLMAP) $(EROS_HD)
 
 BOOTMODULE=$(CAPROS_BOOT_PARTITION)/CapROS-PL-3-1
 
-KDataPackedAddr=0xfe020000
+KDataPackedAddr=0xfe030000
 ARM_SYS=/tftpboot/capros-kernel
 
 hd: $(BUILDDIR)/sysimg $(KERNPATH)

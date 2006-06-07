@@ -274,7 +274,7 @@ load	r13	     LTL     root   9     8		"0x0"
 load	r14	     LTL     root   10    4		"0x0"
 /* The program counter must go in root slot 9 offset 0. See eros/KeyConst.h. */
 load	r15	     LTL     root   9     0		"0x0"
-load	CPSR         LTL     root   13    0		"0x0200"
+load	CPSR         LTL     root   13    0		"0x00000010"
 
 load    faultCode    LTL     root   8     0		"0x0"
 load    faultInfo    LTL     root   8     4		"0x0"

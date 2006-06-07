@@ -64,7 +64,7 @@ mach_TicksToMilliseconds(uint64_t ms)
    When it does, this interrupt service routine increments the
    high-order word of the time. */
 void
-TC3OIHandler(void)
+TC3OIHandler(VICIntSource * vis)
 {
   (void)VIC2.VectAddr;	// read it to mask interrupts of lower or equal priority
   irq_ENABLE();
@@ -154,7 +154,7 @@ sysT_ResetWakeTime(void)
 }
 
 void
-TC1OIHandler(void)
+TC1OIHandler(VICIntSource * vis)
 {
   // We are on VIC1, no need to read VIC1VectAddr.
   irq_ENABLE();

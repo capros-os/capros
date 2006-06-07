@@ -26,8 +26,9 @@
 #include <kerninc/Activity.h>
 #include <kerninc/KernStats.h>
 #include <eros/Invoke.h>
-#include <kerninc/IRQ.h>
+//#include <kerninc/IRQ.h>
 #include <arch-kerninc/Process-inline.h>
+#include <arch-kerninc/IRQ-inline.h>
 
 #define dbg_init	0x1u
 

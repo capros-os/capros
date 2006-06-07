@@ -107,9 +107,9 @@ and map it at MVA KTextVA + 1MB.
 
 //#define EARLY_CONSOLE 1
 #ifdef EARLY_CONSOLE
-	bl ConsoleStream_Init	// this doesn't use data or bss and is PIC
+	bl SerialStream_Init	// this doesn't use data or bss and is PIC
 	mov r0,#'2
-	bl ConsoleStream_Put
+	bl SerialStream_Put
 #endif
 
 	ldr r3,=(0x4000-1)
@@ -136,7 +136,7 @@ and map it at MVA KTextVA + 1MB.
 
 #ifdef EARLY_CONSOLE
 	mov r0,#'4
-	bl ConsoleStream_Put
+	bl SerialStream_Put
 #endif
 
 /* Map whole sections (1MB). */
@@ -235,7 +235,7 @@ and map it at MVA KTextVA + 1MB.
 
 #ifdef EARLY_CONSOLE
 	mov r0,#'6
-	bl ConsoleStream_Put
+	bl SerialStream_Put
 #endif
 
 	mrc p15,0,r8,c1,c0,0	// read control register 1
@@ -252,7 +252,7 @@ and map it at MVA KTextVA + 1MB.
 
 #ifdef EARLY_CONSOLE
 	mov r0,#'C
-	bl ConsoleStream_Put
+	bl SerialStream_Put
 #endif
 
 	ldr r0,=(kernelStackBot)	// initialize kernelStackBot
@@ -263,17 +263,22 @@ and map it at MVA KTextVA + 1MB.
 
 #ifdef EARLY_CONSOLE
 	mov r0,#'7
-	bl ConsoleStream_Put
+	bl SerialStream_Put
 #endif
 
 	bl kstream_InitStreams
 
-#if 0
+#if 1
 	/* Print some interesting values. */
+#if 1
+	ldr r4,=0x80930000
+	ldr r1,[r4,#0x20]
+#else
 	ldr r4,=0x80080000	// Static Mem Controller regs
 	ldr r1,[r4,#0x00]
 	ldr r2,[r4,#0x18]
 	ldr r3,[r4,#0x18]
+#endif
 	ldr r0,=print_values_string
 	bl printf
 	b 1f
@@ -305,6 +310,14 @@ We want to crank it up to the max, which is 200 MHz except for the EP9301.
 
 	ldr r0,=EP93xxMsg
 	bl printf
+
+	/* Changing clocks messes up the UART, so let it finish. */
+	bl SerialStream_Flush
+
+#if 0
+	b NoClockConfig
+#endif
+
 /*
 Configure PLL1 to output:
   14.7456 MHz * 21 * (1/24) * 31 * (1/2) = 199.987 MHz
@@ -313,7 +326,9 @@ Configure PLL1 to output:
   Divide that by 2 to get 50 MHz for PCLK.
  */
 	ldr r2,=0x80930000
-	ldr r0,=0x0095a3d7
+	ldr r0,=0x0095a3d7	// for 200 MHz
+//	ldr r0,=0x0099a3d7	// for 100 MHz
+//	ldr r0,=0x008398e7	// reset value + nBYP1
 	str r0,[r2,#0x20]	// ClkSet1 register
 // After writing to ClkSet1, must flush the instruction pipeline:
 	nop
@@ -321,6 +336,9 @@ Configure PLL1 to output:
 	nop
 	nop
 	nop
+
+	ldr r0,=EP93xxMsg
+	bl printf
 
 /* Change from FastBus mode to Asynchronous mode.
    This will run the CPU at the faster FCLK instead of HCLK/BCLK.
@@ -358,14 +376,15 @@ NoClockConfig:
 
 //	bl eraseFlash
 	bl GrubEmul
+#if 1
 	bl main		// does not return
-
-#if 0
+#else
 	mrc p15,0,r0,c1,c0	// get CP15 reg 1 for display
 	bl mainTemp
+//	bl invmon
 
 	mov r0,#'9
-	bl ConsoleStream_Put
+	bl SerialStream_Put
 #if 1
 // Blink the green LED.
 	ldr r3,=0x80840020	// Port E data register

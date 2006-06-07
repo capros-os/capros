@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -17,18 +17,33 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-/* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
 
-extern uint32_t irq_DisableDepth;
+/* Stub versions of debugger interfaces, so that we don't have
+ * to do a full recompile to get a debugging-enabled kernel:
+ */
 
-INLINE uint32_t 
-irq_DISABLE_DEPTH(void)
+#include <kerninc/kernel.h>
+#include <kerninc/util.h>
+#include <kerninc/Debug.h>
+#include <kerninc/SymNames.h>
+
+#ifdef OPTION_DDB
+uint32_t funcSym_count = 0;
+struct FuncSym funcSym_table[0];	/* defined in symnames.s */
+
+uint32_t lineSym_count = 0;
+struct LineSym lineSym_table[0];	/* defined in symnames.s */
+
+void 
+debug_Backtrace(const char *msg, bool shouldHalt)
 {
-  return irq_DisableDepth;
+  if (msg)
+    printf("%s\n", msg);
+  else
+    printf("Stub backtrace called\n");
+  
+  if (shouldHalt)
+    halt('a');
 }
+#endif
 
-/* These are inline in some architectures, but not this one,
-   where calling a leaf procedure adds only two instructions. */
-void irq_ENABLE(void);
-void irq_DISABLE(void);

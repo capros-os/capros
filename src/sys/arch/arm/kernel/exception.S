@@ -23,7 +23,7 @@
 	
 #include <eros/arch/arm/asm.h>
 #include <arch-kerninc/kern-target-asm.h>
-#include "SWI.h"
+#include <eros/arch/arm/SWI.h>
 #include "arm.h"
 #include "process_asm_offsets.h"
 
@@ -167,19 +167,19 @@ However we DO need to save r14_abt.
 	mov r10,r14	// save r14_abt
 
 	ldr r2,=0x800b0000	// VIC1 base
-	ldr r3,[r2,#0x30]	// VIC1VectAddr
-	ldr r0,=irq_DisableDepth
+	ldr r0,[r2,#0x30]	// VIC1VectAddr
+	ldr r3,=irq_DisableDepth
 	mov r1,#1
-	str r1,[r0]
+	str r1,[r3]
 #if 0
-	str r3,[sp,#-4]!	// save r3 on stack
-	mov r1,r3
+	str r0,[sp,#-4]!	// save r0 on stack
+	mov r1,r0
 	ldr r3,[r2,#0x13c]	// VectAddr15
 	ldr r0,=vectMsg
 	ldr r2,[r2,#0]	// IRQStatus
 	bl printf
 	ldr r0,=vectMsg
-	ldr r3,[sp],#4		// pop r3
+	ldr r0,[sp],#4		// pop r0
 	b 1f
 vectMsg: .asciz "IRQ vectoring to 0x%08x, status=0x%08x, Vec15=0x%08x\n"
 	.balign 4
@@ -188,8 +188,11 @@ vectMsg: .asciz "IRQ vectoring to 0x%08x, status=0x%08x, Vec15=0x%08x\n"
 #ifdef CHECKREGS
 	stmfd sp!,{r4-r11}	// we will check that C saves these
 #endif
+// The VectAddr register has the address of a VICIntSource or a VICInfo.
+// In both cases the first word is the ISR address.
+// Call it passing the structure address in r0.
 	mov r14,pc		// return address for handler
-	mov pc,r3		// go to interrupt vector handler
+	ldr pc,[r0]		// go to interrupt vector handler
 
 // The interrupt service routine must do the following:
 // If it is an interrupt source attached to VIC2, it must
@@ -197,7 +200,7 @@ vectMsg: .asciz "IRQ vectoring to 0x%08x, status=0x%08x, Vec15=0x%08x\n"
 // (If it is on VIC1, we have already read VIC1VectAddr.)
 // Then it can enable IRQ.
 // Then it services the interrupt, which must include clearing
-// the interrupt so it does not recur immediately.
+// or disabling the interrupt so it does not recur immediately.
 // The, if it enabled IRQ above, it disables IRQ.
 // Then it must write (anything) to its VICxVectAddr
 // to reenable interrupts of equal or lower priority. 
@@ -350,6 +353,7 @@ supStackMsg:	.asciz "Supervisor Stack is 0x%x should be 0x%x\n"
 	Handler(SWI_CSwap32)	// 1
 	Handler(SWI_CopyKeyReg)	// 2
 	Handler(SWI_XchgKeyReg)	// 3
+	Handler(SWI_Bpt)	// 4
 
 SWI_Invoke_Handler:
 	/* r12 still has spsr */
@@ -386,6 +390,48 @@ SWI_Invoke_Handler:
 	bl InvokeArm		// continue in C
 	// does not return
 	b SwiBadMode		// in case it does
+
+SWI_Bpt_Handler:
+/* The bkpt instruction is designed for use with debug hardware.
+   Without such hardware, it causes a Prefetch Abort, which is
+   awkward to handle.
+   That is why we use a SWI instead. */
+/* Note, SWI is not allowed in Supervisor mode, i.e. in the kernel.
+   Call Debugger() instead. */
+/* Save registers in a savearea on the stack.
+   Stack has:
+     user r12
+     user pc
+   Savearea has:
+     CPSR
+     r15
+     r0-r14
+     three more words
+ */
+	mov lr,sp
+	sub sp,sp,#80
+	str r12,[sp]		// save his CPSR
+	str r0,[sp,#8]		// save r0
+	add r0,sp,#8		// ptr to r0 in savearea
+	ldmfd lr,{r12,lr}	// get saved r12 and user pc
+	str lr,[r0,#-4]		// save user pc
+	stmib r0,{r1-r14}^	// save user r1-r14
+	/* Caution: must not follow this with an instruction that
+        uses a banked register. */
+
+	mov r0,#3	// T_BPTFLT
+	mov r1,#0	// not used
+	mov r2,sp		// ptr to savearea
+	bl kdb_trap
+
+	/* Return using the savearea on the stack. */
+	ldmia sp!,{r12,r14}	// CPSR and pc
+	msr spsr_fsxc,r12	// load SPSR
+	ldmia sp,{r0-r14}^	// load r0-r12, r13_usr, r14_usr
+	nop		// Cannot use banked register immediately
+			// after User mode ldm
+	add sp,sp,#80
+	movs pc,r14	// restore pc and transfer SPSR -> CPSR
 
 SWI_CSwap32_Handler:
 /*

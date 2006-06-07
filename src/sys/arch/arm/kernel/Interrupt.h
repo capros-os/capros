@@ -1,3 +1,5 @@
+#ifndef __INTERRUPT_H__
+#define __INTERRUPT_H__
 /*
  * Copyright (C) 2006, Strawberry Development Group.
  *
@@ -30,10 +32,63 @@
 
  */
 
-typedef void (*ISRType)();	/* pointer to function returning void */
+#define NUM_INTERRUPT_SOURCES 64
+
+struct VICIntSource;
+
+typedef void (*ISRType)(struct VICIntSource *);
+	/* pointer to function returning void */
+
+/* Stuff for the EP93xx Vectored Interrupt Controller (VIC) */
+typedef struct VICIntSource {
+  /* ISRAddr must be the first item, to match struct VICNonVect. */
+  ISRType ISRAddr;
+
+  /* priority is:
+     -2 if unallocated
+     -1 if assigned to FIQ
+      0 if assigned to vectored interrupt 0 (relative to its VIC)
+      ...
+      15 if assigned to vectored interrupt 15 (relative to its VIC)
+      16 if nonvectored IRQ */
+#define PRIO_Unallocated (-2)
+  signed char priority;
+
+  unsigned char sourceNum;
+
+  /* Enabled state and software interrupt state are stored only in
+     the corresponding VIC register. */
+
+  // The following are used if the source is allocated to a user-mode handler.
+
+  // The queue where the interrupt waiter sleeps.
+  // There can be only one waiter,
+  // because one wakeup consumes the isPending flag.
+  StallQueue sleeper;
+  bool isPending;
+} VICIntSource;
+
+static inline bool
+vis_IsAlloc(VICIntSource * vis)
+{
+  return vis->priority != PRIO_Unallocated;
+}
+
+extern VICIntSource VICIntSources[NUM_INTERRUPT_SOURCES];
+
+struct VICInfo;
+
+struct VICNonVect {
+  /* ISRAddr must be the first item. */
+  ISRType ISRAddr;
+  struct VICInfo * vicInfo;
+};
 	
 void InterruptSourceSetup(unsigned int source, int priority, ISRType handler);
+void InterruptSourceUnset(unsigned int source);
 void InterruptSourceEnable(unsigned int source);
 void InterruptSourceDisable(unsigned int source);
 void InterruptSourceSoftwareIntGen(unsigned int source);
 void InterruptSourceSoftwareIntClear(unsigned int source);
+void DoUsermodeInterrupt(VICIntSource * vis);
+#endif /* __INTERRUPT_H__ */

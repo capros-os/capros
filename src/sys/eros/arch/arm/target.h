@@ -68,7 +68,7 @@ typedef uint80_t floatval_t;
 
 typedef uint32_t fixreg_t; /* fixed-point natural register size */
 
-/* Number of hardware interrupt lines */
-#define NUM_HW_INTERRUPT 16
+/* Number of hardware interrupt lines (sources) */
+#define NUM_HW_INTERRUPT 64
 
 #endif /* __TARGET_ARM_H__ */

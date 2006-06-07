@@ -117,3 +117,33 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 	ldr sp,=(kstackBot)	/* Empty the stack! */
 	b act_HandleYieldEntry
 
+	ENTRY(Debugger)
+	sub sp,sp,#80	// space for a register save area
+/*
+   Savearea has:
+     CPSR
+     r15
+     r0-r14
+     three more words
+ */
+	str r0,[sp,#8]
+	str r14,[sp,#4]	// pc to return to
+	add r0,sp,#8
+	stmib r0!,{r1-r12}
+	mrs r1,cpsr
+	str r1,[sp]
+	add r1,sp,#80	// sp at time of call
+	ldr r2,=0xbadbad14	// r14 at time of call unknown
+	stmib r0,{r1,r2}
+
+	mov r0,#3	// T_BPTFLT
+	mov r1,#0	// not used
+	mov r2,sp
+	bl kdb_trap
+
+	// Return per savearea on stack.
+	ldmia sp!,{r0,r14}	// cpsr and pc
+	msr cpsr,r0
+	ldmia sp,{r0-r13}
+	mov pc,r14
+

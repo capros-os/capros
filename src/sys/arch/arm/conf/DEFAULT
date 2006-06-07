@@ -22,7 +22,7 @@
 
 include("../../../config.common")
 
-##option("ddb")
+option("ddb")
 option("output_on_tty0")
 
 # option("kern_profile")

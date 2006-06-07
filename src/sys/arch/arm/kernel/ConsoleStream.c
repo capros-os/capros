@@ -34,6 +34,27 @@ ConsoleStream_Put(uint8_t c)
   /* No console on EDB9315 - use OPTION_OUTPUT_ON_TTY0 */
 }
 
+#ifdef OPTION_DDB
+uint8_t
+ConsoleStream_Get(void)
+{
+  /* No console on EDB9315 - use OPTION_OUTPUT_ON_TTY0 */
+  return 0;
+}
+
+void
+ConsoleStream_SetDebugging(bool onOff)
+{
+  /* No console on EDB9315 - use OPTION_OUTPUT_ON_TTY0 */
+}
+
+void
+ConsoleStream_EnableDebuggerInput(void)
+{
+  /* No console on EDB9315 - use OPTION_OUTPUT_ON_TTY0 */
+}
+#endif
+
 struct KernStream TheConsoleStream = {
   ConsoleStream_Init,
     ConsoleStream_Put
