@@ -125,13 +125,19 @@ struct ObjectHeader {
 
   uint8_t	userPin;
 
+  /* ssid is architecture-dependent and belongs with prep_u.products,
+     because it is used only for producers of mapping tables. 
+     But it fits here in an otherwise-unused byte, so here it is. */
+  uint8_t ssid;		/* used if obType == ot_NtSegment
+				        or ot_PtDataPage or ot_PtDevicePage */
+  
   KeyRing	keyRing;
 
   union {
     /* Special relationship pointers if prepared node */
     /* Mapping tables produced by this object. */
     PageHeader * products;	/* if obType == ot_NtSegment
-				             or ot_PtDataPage or ... */
+				        or ot_PtDataPage or ot_PtDevicePage */
     Process * context;		/* if obType == ot_NtProcessRoot
                                              or ot_NtKeyRegs
 				             (or ot_NtRegAnnex if used) */
@@ -152,10 +158,6 @@ struct ObjectHeader {
 #endif
 
   uint32_t	ioCount;	/* for object frames */
-  
-  uint8_t ssid;		/* (Machine-dependent)
-                           used if obType == ot_NtSegment
-                                             or ot_PtDataPage or ... */
   
   ObjectHeader * hashChainNext;
 };
