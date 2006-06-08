@@ -26,6 +26,10 @@
             anonymous access to CVS. 
 	  </p>
 	  <h1>2. Building CapROS</h1>
+	  <p>
+          These instructions are for building for the Intel architecture.
+          A port also exists for the ARM architecture; see below. 
+	  </p>
           <h2>2.1. Package Requirements</h2>
 	  <p>
             CapROS is built using Linux. If your system doesn't have the
@@ -308,6 +312,21 @@ configfile /CapROS-config-1
 	      </td>
 	    </tr>
 	  </table>
+	  <h1>4. Building for ARM</h1>
+	  <p>
+          CapROS can run on the ARMv4 architecture.
+          To build for ARM, you need to:
+	  </p>
+<pre>
+export EROS_TARGET=arm
+</pre>
+	  <p>
+          The system has been tested on a Cirrus EDB9315 development board,
+          which uses the Cirrus EP9315,
+          which is based on the ARM920T microprocessor.
+          The kernel and initial system state are loaded together in a file
+          that you need to load into your system's memory and execute.
+	  </p>
 	</td>
 	<td width="10%">&nbsp;</td>
       </tr>
