@@ -1,51 +1,54 @@
 <HTML>
   <HEAD>
-    <TITLE>Multiboot plan</TITLE>
+    <TITLE>Multiboot design</TITLE>
     <meta name="keywords" content="CapROS, Multiboot, GRUB">
   </HEAD>
   <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
     <center>
-      <H1>A Plan for Booting CapROS using Multiboot</H1>
+      <H1>The design for Booting CapROS using Multiboot</H1>
     </center>
     <p>
     <a href=""></a>
     </p>
     <p>
+    At the suggestion of 
     <a href="http://sourceforge.net/mailarchive/message.php?msg_id=11700357">
-    This email thread</a> suggests changing CapROS to use the
+    this email thread</a>, CapROS now uses the
     Multiboot specification supported by the GRUB boot loader. 
-    Here is how I think that can be done.
+    Here are some notes on how that is done.
     </p>
     <p>
-    First, a Multiboot header must be included near the beginning of
-    the kernel image.
-    This could be in lostart.S. 
-    (I don't know how GRUB locates the Multiboot header; perhaps by
-    searching for the magic number?) 
+    First, a Multiboot header is included near the beginning of
+    the kernel image, in lostart.S. 
+    (Presumably GRUB locates the Multiboot header by
+    searching for the magic number.) 
     </p>
     <p>
-    GRUB likes to load from a filesystem, so as an interim measure, we will put
+    GRUB likes to load from a filesystem, so as an interim measure, we put
     the things to be loaded into files located wherever GRUB is loading from
     (disk, floppy, net, etc.). 
     For the following we assume we are loading from a hard disk.
     The disk should have a partition with a VFAT file system
-    mounted at /boot. The system generation process will put the following
+    mounted at /boot. The system generation process puts the following
     files into /boot:
     <ul>
       <li>CapROS-kernel-1: an image of the kernel. It does not have OIDs
       or page pots.
+      (We could write to the kernel file the kernel a.out or ELF
+      file (which GRUB understands), but we don't, we use an image file.)
       <li>CapROS-PL-n-1: A preloaded range, as it would exist on disk,
       with page pots. 
       n is a number to distinguish different preloaded ranges. 
       <li>CapROS-config-1: This file is loaded with the GRUB "configfile"
       command. It contains commands to load the kernel and the modules it
-      requires, including "command line" parameters (see below).
-      A CapROS tool, perhaps <b>mkvol</b>, would construct the 
-      configuration file.
+      requires, including "command line" parameters.
+The command line for loading the kernel includes 
+the OID of the process to start (the IPL process),
+the identification of which drive is to be booted,
+and an optional keyword to enter the debugger when the kernel starts.
+The command line for loading modules includes their starting OID.
+      The CapROS tool <b>sysgen</b> constructs the configuration file.
     </ul>
-    </p>
-    <p>
-    <b>setboot</b> would no longer be needed.
     </p>
     <p>
     For reliability, there can be a primary config file
@@ -58,43 +61,13 @@
     but with "2" at the end instead of "1". 
     </p>
     <p>
-    (We could write to the kernel file the kernel a.out or ELF
-    file (which GRUB understands), but we won't, we'll continue
-    using an image file.)
+    GRUB and Multiboot are specified and implemented only for
+    the IA-32 architecture. 
+    For ARM, the build process packs the three files into one file,
+    which you write to your system's flash memory.
+    When the kernel boots, just before main() is called,
+    CapROS code initializes the system the way GRUB would have. 
     </p>
-    <p>
-    We will drop support for booting from RAM disk. 
-    </p>
-    <p>
-    The Multiboot specification provides some, but not all, of the information
-    the kernel currently gets in the BootInfo structure. (I'm assuming that
-    GRUB actually provides all the information specified as optional
-    in the Multiboot specification, but I haven't verified this.)
-    The following fields in BootInfo have issues:
-    </p>
-    <ul>
-      <li>memInfo: GRUB provides information on available RAM.
-      The kernel now uses only this information.
-      <li>divInfo.startOid: This can be passed 
-      in the string given with the GRUB "module" command. 
-      <li>divInfo.endOid: This is now calculated from the startOid and the size. 
-      <li>consInfo: not currently used by the kernel
-      <li>volFlags.VF_DEBUG: This should be passed in the
-      GRUB "command line" string.
-      <li>iplKey: the OID of the process to start can be passed in the
-      GRUB "command line" string.
-      <li>iplSysId: The kernel could get this from the disk driver when 
-      it reads the VolHdr of the booted disk. (It's currently not used
-      because the disk logic is incomplete.)
-      <li>bootDrive: The Multiboot specification provides the boot_device,
-      but it is the partition containing the OS image,
-      which is in the /boot file system,
-      not the CapROS partition. We'll have to pass the information
-      in the "command line" string.
-      bootDrive is currently unused but will be needed by the code
-      to discover iplSysId.
-      <li>bootStartSec, isRamImage: only used during boot, not used by the kernel
-    </ul>
     <hr>
 <table>
 <tr valign=top>
@@ -103,7 +76,7 @@
   </td>
   <td>
     Authored by Charles Landau. <br>
-      <em>Copyright 2005 by Strawberry Development Group.  All rights reserved.
+      <em>Copyright 2005, 2006 by Strawberry Development Group.  All rights reserved.
       For terms of redistribution, see the <a
       href="./legal/license/GPL.html">GNU General Public License</a></em>
    </td>
