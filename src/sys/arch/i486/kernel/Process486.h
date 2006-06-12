@@ -22,16 +22,11 @@
  */
 
 #include <arch-kerninc/PTE.h>
-//#include <eros/Invoke.h>
-//#include <kerninc/Invocation.h>
-//#include <kerninc/Activity.h>
 
 /* Machine-specific functions for process operations private to the HAL: */
 
-#ifdef USES_MAPPING_PAGES
 void mach_SetMappingTable(kpmap_t pAddr);
 kpmap_t mach_GetMappingTable();
-#endif
 
 #ifdef NEW_KMAP
 struct MappingWindow;

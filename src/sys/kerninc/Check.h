@@ -38,8 +38,4 @@ bool check_Nodes();
 
 bool check_Contexts(const char *);
 
-#ifdef USES_MAPPING_PAGES
-bool check_MappingPage(PageHeader *);
-#endif
-
 #endif /* __CHECK_H__ */

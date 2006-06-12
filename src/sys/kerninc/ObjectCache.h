@@ -141,10 +141,6 @@ objC_NumCoreNodeFrames()
 PageHeader * objC_GetCorePageFrame(uint32_t ndx);
 Node *objC_GetCoreNodeFrame(uint32_t ndx);
 
-#ifdef USES_MAPPING_PAGES
-void objC_ReleaseMappingFrame(PageHeader * pObj);
-#endif
-
 #ifndef NDEBUG
 bool objC_ValidNodePtr(const Node *pNode);
 bool objC_ValidPagePtr(const ObjectHeader *pObj);

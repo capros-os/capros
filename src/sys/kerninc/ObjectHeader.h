@@ -29,6 +29,13 @@
 #include <eros/StdKeyType.h>
 #endif
 
+typedef struct Process Process;
+typedef struct Node Node;
+typedef struct ObjectHeader ObjectHeader;
+typedef struct PageHeader PageHeader;
+
+#include <arch-kerninc/PageHeader.h>
+
 /* Enable the option OB_MOD_CHECK **in your configuration file** if
  * you are debugging the kernel, and want to verify that modified bits
  * are getting properly set.  Note that this option causes the
@@ -54,11 +61,10 @@ enum ObType {
   ot_PtDataPage,		/* page holding a user data Page */
   ot_PtNewAlloc,		/* newly allocated frame, not yet typed */
   ot_PtKernelHeap,		/* in use as kernel heap */
-#ifdef USES_MAPPING_PAGES
-  ot_PtMappingPage,		/* used in a virtual mapping table */
-#endif
   ot_PtDevicePage,		/* data page, but device memory */
-  ot_PtFreeFrame		/* unallocated */
+  ot_PtFreeFrame,		/* unallocated */
+  ot_PtLAST_COMMON_PAGE_TYPE = ot_PtFreeFrame
+  MD_PAGE_OBTYPES		// machine-dependent types from PageHeader.h
 };
 typedef enum ObType ObType;
 
@@ -91,12 +97,6 @@ enum {
 /*};*/
 
 
-typedef struct SegWalk SegWalk;
-typedef struct ObjectTable ObjectTable;
-typedef struct Process Process;
-typedef struct Node Node;
-typedef struct PageHeader PageHeader;
-
 #define OHAZARD_NONE      0x1u
 #define OHAZARD_WRITE     0x1u
 #define OHAZARD_READ      0x2u
@@ -115,10 +115,9 @@ typedef struct PageHeader PageHeader;
 #define OFLG_DISKCAPS	0x40u	/* capabilities to this version exist */
 				/* on disk */
 
-typedef struct ObjectHeader ObjectHeader;
 struct ObjectHeader {
 /* N.B.: obType must be the first item in ObjectHeader.
-   This puts it in the same location as PageHeader.kt_u.mp.obType. */
+   This puts it in the same location as PageHeader.kt_u.*.obType. */
   uint8_t	obType;		/* page type or node prepcode */
     
   uint8_t	flags;
@@ -169,34 +168,13 @@ struct PageHeader {
     ObjectHeader ob;
 
     struct {
-/* N.B.: obType must be the first item in this structure.
-   This puts it in the same location as PageHeader.kt_u.ob.obType. */
-      uint8_t obType;		/* only ot_PtMappingPage */
-    
-      PageHeader * next;	/* next product of this producer */
-      ObjectHeader * producer;
-      struct Node *redSeg;	/* pointer to slot of keeper that
-				 * dominated this mapping frame */
-      unsigned char redSpanBlss;	/* blss of seg spanned by redSeg */
-      bool wrapperProducer;
-      uint8_t producerBlss; /* biased lss of map tbl producer.
-			       NOTE: not the key, the object. */
-      uint8_t rwProduct    : 1;	/* indicates mapping page is RW version */
-      uint8_t caProduct    : 1;	/* indicates mapping page is callable version */
-      /* The following fields are architecture-dependent,
-         but I'm not going to reorganize them now,
-         because this whole structure is architecture-dependent.
-         A page could have more than one mapping table, or fewer than one. */
-      uint8_t tableSize    : 1;
-      uint8_t producerNdx  : 4;
-      ula_t tableCacheAddr;
-    } mp;	/* if obType == ot_PtMappingPage */
-
-    struct {
       uint8_t obType;		/* only ot_PtFreeFrame */
     
       PageHeader * next;	/* next page on free list */
     } free;	/* if obType == ot_PtFreeFrame */
+
+    MD_PAGE_VARIANTS
+
   } kt_u;
 
   kva_t pageAddr;		/* speed up ObHdrToPage! */
@@ -362,6 +340,15 @@ void objH_FlushIfCkpt(ObjectHeader* thisPtr);
 void objH_Rescind(ObjectHeader* thisPtr);
 void objH_ZapResumeKeys(ObjectHeader* thisPtr);
 
+/* Procedures for handling machine-dependent page ObTypes. */
+bool pageH_mdType_CheckPage(PageHeader * pageH);
+void pageH_mdType_dump_pages(PageHeader * pageH);
+void pageH_mdType_dump_header(PageHeader * pageH);
+void pageH_mdType_EvictFrame(PageHeader * pageH);
+bool pageH_mdType_AgingExempt(PageHeader * pageH);
+bool pageH_mdType_AgingClean(PageHeader * pageH);
+bool pageH_mdType_AgingSteal(PageHeader * pageH);
+
 void objH_InvalidateProducts(ObjectHeader* thisPtr);
 void objH_AddProduct(ObjectHeader * thisPtr, PageHeader * product);
 void objH_DelProduct(ObjectHeader * thisPtr, PageHeader * product);
@@ -412,9 +399,6 @@ pageH_IsKernelPinned(PageHeader * thisPtr)
 }
 
 /* MEANINGS OF FLAGS FIELDS:
- * 
- * free     object is on free list, and may be reclaimed. ObjectTable*
- *          points to a free list linkage.
  * 
  * dirty    object has been mutated, and needs to be written to disk.
  * 

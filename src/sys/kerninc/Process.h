@@ -42,6 +42,8 @@
 #include <kerninc/Node.h>
 #include <kerninc/StallQueue.h>
 
+typedef struct SegWalk SegWalk;
+
 /* Every running activity has an associated process structure.  The
  * process structure for user activities has a lot more state.  Process
  * structures for kernel activities are dedicated to the activity.  Process

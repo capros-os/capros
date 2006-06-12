@@ -29,9 +29,6 @@
 #include <kerninc/Invocation.h>
 #include <kerninc/ObjectSource.h>
 #include <kerninc/multiboot.h>
-#ifdef USES_MAPPING_PAGES
-#include <arch-kerninc/PTE.h>
-#endif
 #include <kerninc/util.h>
 #include <arch-kerninc/KernTune.h>
 #include <kerninc/PhysMem.h>
@@ -523,7 +520,6 @@ objC_ddb_dump_pages()
 {
   uint32_t nFree = 0;
   uint32_t pg = 0;
-  char producerType = 'p';
   char goodSum;
   
   extern void db_printf(const char *fmt, ...);
@@ -534,22 +530,6 @@ objC_ddb_dump_pages()
     switch (pageH_GetObType(pageH)) {
     case ot_PtFreeFrame:
       nFree++;
-      break;
-      
-    case ot_PtMappingPage:
-      if (pageH->kt_u.mp.producer == 0) {
-	producerType = '?';
-      }
-      else if (pageH->kt_u.mp.producer->obType <= ot_NtLAST_NODE_TYPE) {
-	producerType = 'n';
-      }
-      else {
-	producerType = 'p';
-      }
-      printf("%02d: %s prod %c\n",
-             pg,
-             ddb_obtype_name(pageH_GetObType(pageH)),
-             producerType );
       break;
 
     case ot_PtNewAlloc:
@@ -565,10 +545,9 @@ objC_ddb_dump_pages()
 #else
       goodSum = '?';
 #endif
-      printf("%02d: %s oid %c0x%08x%08x up:%c cr:%c ck:%c drt:%c%c io:%c sm:%c dc:%c\n",
+      printf("%02d: %s oid 0x%08x%08x up:%c cr:%c ck:%c drt:%c%c io:%c sm:%c dc:%c\n",
 	   pg,
 	   ddb_obtype_name(pObj->obType),
-	   producerType,
 	   (uint32_t) (pObj->oid >> 32),
 	   (uint32_t) (pObj->oid),
 	   objH_IsUserPinned(pObj) ? 'y' : 'n',
@@ -581,9 +560,13 @@ objC_ddb_dump_pages()
 	   objH_GetFlags(pObj, OFLG_DISKCAPS) ? 'y' : 'n');
       break;
     }
-
+      
     default:
-      assert(false);
+      printf("%02d: %s ",
+             pg,
+             ddb_obtype_name(pageH_GetObType(pageH)) );
+      pageH_mdType_dump_pages(pageH);
+      break;
     }
   }
 
@@ -790,65 +773,6 @@ objC_AgeNodeFrames()
 		nStuck, nPinned);
 }
 
-#ifdef USES_MAPPING_PAGES
-/* This procedure may Yield. */
-void
-objC_ReleaseMappingFrame(PageHeader * pObj)
-{
-  assert(pageH_GetObType(pObj) == ot_PtMappingPage);
-  ObjectHeader * pProducer = pObj->kt_u.mp.producer;
-
-  assert(pProducer);
-  assert ( keyR_IsValid(&pProducer->keyRing, pProducer) );
-
-  assert (objH_IsUserPinned(pProducer) == false);
-    
-  /* Zapping the key ring will help if producer was a page or
-   * was of perfect height -- ensures that the PTE in the next
-   * higher level of the table gets zapped.
-   */
-  keyR_UnprepareAll(&pProducer->keyRing);
-
-  if ( pProducer->obType == ot_NtSegment ) {
-    assert(! node_IsKernelPinned(objH_ToNode(pProducer)));
-    /* FIX: What follows is perhaps a bit too strong:
-     * 
-     * Unpreparing the producer will have invalidated ALL of it's
-     * products, including this one.  We should probably just be
-     * disassociating THIS product from the producer.
-     * 
-     * While this is overkill, it definitely works...
-     */
-
-    node_Unprepare((Node *)pProducer, false);
-
-  } else {
-    assert((pProducer->obType == ot_PtDataPage)
-           || (pProducer->obType == ot_PtDevicePage) );
-    assert(! pageH_IsKernelPinned(objH_ToPage(pProducer)));
-  }
-
-  if (pageH_GetObType(pObj) == ot_PtMappingPage) {
-    kva_t pgva = pageH_GetPageVAddr(pObj);
-    DEBUG(map)
-      printf("Blasting mapping page at 0x%08x\n", pgva);
-    pte_ZapMappingPage(pgva);
-  }
-
-  ReleasePageFrame(pObj);
-
-  /* This product (and all it's siblings) are now on the free
-   * list.  The possibility exists, however, that we contrived
-   * to invalidate some address associated with the current
-   * activity by yanking this mapping table, so we need to do a
-   * Yield() here to force the current process to retry:
-   */
-  /* Activity::Current() changed to act_Current() */
-  act_Wakeup(act_Current());
-  act_Yield(act_Current());
-}
-#endif
-
 ObjectHeader *
 objC_CopyObject(ObjectHeader *pObj)
 {
@@ -943,12 +867,6 @@ objC_EvictFrame(PageHeader * pObj)
   case ot_PtFreeFrame:
     break;
 
-#ifdef USES_MAPPING_PAGES
-  case ot_PtMappingPage:
-    objC_ReleaseMappingFrame(pObj);
-    break;
-#endif
-
   case ot_PtKernelHeap:
     return false;	// not implemented yet: FIXME
 
@@ -975,7 +893,9 @@ objC_EvictFrame(PageHeader * pObj)
     ReleasePageFrame(pObj);
     break;
 
-  default: assert(false);	// must be a page, not a node
+  default:
+    pageH_mdType_EvictFrame(pObj);
+    break;
   }
 
   // Unlink from free list.
@@ -1131,25 +1051,12 @@ objC_AgePageFrames()
       case ot_PtFreeFrame:
 	continue;
 
-#ifdef USES_MAPPING_PAGES
-      case ot_PtMappingPage:
-      {
-        /* Mapping pages cannot go out if their producer is pinned,
-        because they are likely to be involved in page translation. */
-
-        ObjectHeader * pProducer = pObj->kt_u.mp.producer;
-	if (objH_IsUserPinned(pProducer))
-	  continue;
-	// if (objH_IsKernelPinned(pProducer)) continue;
-        break;
-      }
-#endif
-
       case ot_PtDataPage:
         break;
 
       default:
-        assert(false);
+        if (pageH_mdType_AgingExempt(pObj))
+          continue;
       }
 	  
       /* Some pages cannot be aged because they are active or pinned: */
@@ -1159,46 +1066,39 @@ objC_AgePageFrames()
 	continue;
     
       if (pObj->objAge == age_PageOut) {
-	/* Mapping pages should never make it to PageOut age, because
-	 * they should be zapped at the invalidate age. It's
-	 * relatively cheap to rebuild them, and zapping them eagerly
-	 * has the desirable consequence of keeping their associated
-	 * nodes in memory if the process is still active.
-	 */
-#ifdef USES_MAPPING_PAGES
-	assert(pageH_GetObType(pObj) != ot_PtMappingPage);
-#endif
-
-	if (objC_CleanFrame(pageH_ToObj(pObj), true) == false)
-	  continue;
+        if (pageH_GetObType(pObj) > ot_PtLAST_COMMON_PAGE_TYPE) {
+          // It's a machine-dependent frame type.
+          if (! pageH_mdType_AgingSteal(pObj))
+            continue;	// couldn't steal it
+        } else {
+	  if (objC_CleanFrame(pageH_ToObj(pObj), true) == false)
+	    continue;
     
-	assert(!pageH_IsDirty(pObj));
+	  assert(!pageH_IsDirty(pObj));
 
-	/* Remove this page from the cache and return it to the free page
-	 * list:
-	 */
+	  /* Remove this page from the cache and return it to the free page
+	   * list:
+	   */
+          assert(keyR_IsEmpty(&pageH_ToObj(pObj)->keyRing));
+	  ReleasePageFrame(pObj);
+        }
+
 	curPage++;
-        assert(keyR_IsEmpty(&pageH_ToObj(pObj)->keyRing));
-	ReleasePageFrame(pObj);
-
 	return;
       }
       
       pObj->objAge++;
 
       if (pObj->objAge == age_Invalidate) {
-#ifdef USES_MAPPING_PAGES
-	/* It's a lot cheaper to regenerate a mapping page than to
-	 * read some other page back in from the disk...
-	 */
-	if (pageH_GetObType(pObj) == ot_PtMappingPage) {
-	  curPage++;
-	  objC_ReleaseMappingFrame(pObj);
-	  return;
-	}
-#endif
-	
-	objC_CleanFrame(pageH_ToObj(pObj), false);
+        if (pageH_GetObType(pObj) > ot_PtLAST_COMMON_PAGE_TYPE) {
+          // It's a machine-dependent frame type.
+          if (pageH_mdType_AgingClean(pObj)) {
+	    curPage++;	// it was freed
+	    return;
+          }
+        } else {
+	  objC_CleanFrame(pageH_ToObj(pObj), false);
+        }
       }
     }
   } while (--nPasses);

@@ -41,9 +41,6 @@ extern const char _start,	/* start of kernel text section */
 				beginning of bss */
   _end;				/* end of bss */
 
-#define USES_MAPPING_PAGES
-#define MAPPING_ENTRIES_PER_PAGE 1024
-
 typedef uint32_t        kva_t;	/* kernel virtual address */
 typedef uint32_t	kpa_t;	/* physical address */
 typedef uint32_t	kpsize_t; /* kernel physical address range

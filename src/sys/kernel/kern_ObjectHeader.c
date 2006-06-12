@@ -58,12 +58,10 @@ const char *ddb_obtype_name(uint8_t t)
     "PtDataPage",
     "PtNewAlloc",
     "PtKernHeap",
-#ifdef USES_MAPPING_PAGES
-    "PtMapPage ",
-#endif
     "PtDevPage ",
-    "PtFreeFrm ",
-    0
+    "PtFreeFrm "
+    MD_PAGE_OBNAMES
+    , 0
   };
 
   return names[t];
@@ -523,12 +521,6 @@ objH_ddb_dump(ObjectHeader * thisPtr)
          thisPtr->flags, thisPtr->obType, thisPtr->userPin );
 
   switch(thisPtr->obType) {
-  case ot_PtMappingPage:
-    printf("    prodBlss=%d rwProd=%c producer=0x%08x\n",
-	 objH_ToPage(thisPtr)->kt_u.mp.producerBlss,
-         objH_ToPage(thisPtr)->kt_u.mp.rwProduct ? 'y' : 'n',
-         objH_ToPage(thisPtr)->kt_u.mp.producer );
-    break;
   case ot_PtDataPage:
   case ot_PtDevicePage:
     printf("    pageAddr=0x%08x\n", objH_ToPage(thisPtr)->pageAddr);
@@ -547,6 +539,10 @@ objH_ddb_dump(ObjectHeader * thisPtr)
   case ot_NtKeyRegs:
   case ot_NtRegAnnex:
     printf("    context=0x%08x\n", thisPtr->prep_u.context);
+    break;
+  default:
+    if (thisPtr->obType > ot_PtLAST_COMMON_PAGE_TYPE)
+      pageH_mdType_dump_header(objH_ToPage(thisPtr));
     break;
   }
 }

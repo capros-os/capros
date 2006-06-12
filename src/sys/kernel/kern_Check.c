@@ -130,14 +130,6 @@ check_Pages()
     case ot_PtKernelHeap:
       continue;
 
-#ifdef USES_MAPPING_PAGES
-    case ot_PtMappingPage:
-      if (! check_MappingPage(pPage)) {
-	result = false;
-      }
-      break;
-#endif
-
     case ot_PtDevicePage:
     case ot_PtDataPage:
 #ifndef NDEBUG
@@ -174,7 +166,10 @@ check_Pages()
       break;
 
     default:
-      assert(false);	// should not be a node type
+      if (! pageH_mdType_CheckPage(pPage)) {
+	result = false;
+      }
+      break;
     }
 
     if (! result) break;	// no point continuing the loop
