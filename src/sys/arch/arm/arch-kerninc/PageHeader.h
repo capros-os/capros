@@ -38,7 +38,7 @@ struct MapTabHeader {
   uint8_t obType;		/* only ot_PtMappingPage */
     
 /* The fields next and producer are required by the machine-independent code. */
-  PageHeader * next;	/* next product of this producer */
+  MapTabHeader * next;	/* next product of this producer */
   ObjectHeader * producer;
   struct Node * redSeg;	/* pointer to slot of keeper that
 			 * dominated this mapping frame */

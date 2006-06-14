@@ -140,8 +140,9 @@ pte_ddb_dump(PTE* thisPtr)
 #endif
 
 void
-Depend_InvalidateProduct(PageHeader * page)
+Depend_InvalidateProduct(MapTabHeader * mth)
 {
+  PageHeader * page = MapTab_ToPageH(mth);
   /* InvalidateProduct is always called after the producing Node has
    * been unprepared (and thus zapped).  If this is a page table, we
    * therefore know that all of it's entries are dead.
@@ -186,6 +187,8 @@ Depend_InvalidateProduct(PageHeader * page)
   }
   
   mach_FlushTLB();
+
+  ReleasePageFrame(page);
 }
 
 #ifndef NDEBUG
@@ -251,38 +254,6 @@ pte_ObIsNotWritable(PageHeader * pageH)
 }
 #endif /* !NDEBUG */
 
-void
-Depend_WriteDisableProduct(PageHeader *pObj)
-{
-  /* This is trickier than the case above, since we must not
-   * write-disable kernel mappings.  On the other hand, we don't need
-   * to worry about blasting the current mapping table either.
-   */
-  kva_t mp_va;
-  uint32_t limit;
-  PTE* pte = 0;
-  uint32_t entry;
-
-  assert (pageH_GetObType(pObj) == ot_PtMappingPage);
-
-  mp_va = pageH_GetPageVAddr(pObj);
-
-  /* Each mapping table holds 1024 entries, but the uppermost portion
-   * of the address space is reserved for the kernel and the small
-   * spaces.  Kernel pages should not be write disabled, nor should
-   * the small space directory entries (small space page table entries 
-   * are write disabled as a special case at the page table level).
-   */
-
-  limit = NPTE_PER_PAGE;
-  if (obj_IsDirectory(pObj))
-    limit = (UMSGTOP >> 22);	/* PAGE_ADDR_BITS + PAGE_TABLE_BITS */
-
-  pte = (PTE*) mp_va;
-  for (entry = 0; entry < limit; entry++)
-    pte_WriteProtect(&pte[entry]);
-}
-
 /* Walk the node looking for an acceptable product: */
 static PageHeader *
 objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi /*@not null@*/ ,
@@ -298,51 +269,51 @@ objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi /*@not null@*/ ,
   
   /* #define FINDPRODUCT_VERBOSE */
 
-  PageHeader *product = 0;
+  MapTabHeader * product;
   
   for (product = thisPtr->prep_u.products;
-       product; product = product->kt_u.mp.next) {
-    assert(pageH_GetObType(product) == ot_PtMappingPage);
-    if ((uint32_t) product->kt_u.mp.producerBlss != blss) {
+       product; product = product->next) {
+    assert(pageH_GetObType(MapTab_ToPageH(product)) == ot_PtMappingPage);
+    if ((uint32_t) product->producerBlss != blss) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("Producer BLSS not match\n");
 #endif
       continue;
     }
-    if (product->kt_u.mp.redSeg != wi->redSeg) {
+    if (product->redSeg != wi->redSeg) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("Red seg not match\n");
 #endif
       continue;
     }
-    if (product->kt_u.mp.redSeg) {
-      if (product->kt_u.mp.wrapperProducer != wi->segObjIsWrapper) {
+    if (product->redSeg) {
+      if (product->wrapperProducer != wi->segObjIsWrapper) {
 #ifdef FINDPRODUCT_VERBOSE
 	printf("redProducer not match\n"); 
 #endif
 	continue;
       }
-      if (product->kt_u.mp.redSpanBlss != wi->redSpanBlss) {
+      if (product->redSpanBlss != wi->redSpanBlss) {
 #ifdef FINDPRODUCT_VERBOSE
 	printf("redSpanBlss not match: prod %d wi %d\n",
-		       product->mp.redSpanBlss, wi.redSpanBlss);
+		       product->redSpanBlss, wi.redSpanBlss);
 #endif
 	continue;
       }
     }
-    if ((uint32_t) product->kt_u.mp.tableSize != tblSize) {
+    if ((uint32_t) product->tableSize != tblSize) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("tableSize not match\n");
 #endif
       continue;
     }
-    if (product->kt_u.mp.rwProduct != (rw ? 1 : 0)) {
+    if (product->rwProduct != (rw ? 1 : 0)) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("rwProduct not match\n");
 #endif
       continue;
     }
-    if (product->kt_u.mp.caProduct != (ca ? 1 : 0)) {
+    if (product->caProduct != (ca ? 1 : 0)) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("caProduct not match\n");
 #endif
@@ -354,7 +325,7 @@ objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi /*@not null@*/ ,
   }
 
   if (product) {
-    assert(product->kt_u.mp.producer == thisPtr);
+    assert(product->producer == thisPtr);
   }
 
 #if 0
@@ -371,7 +342,7 @@ objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi /*@not null@*/ ,
 		 product);
 #endif
 
-  return product;
+  return MapTab_ToPageH(product);
 }
 
 #ifdef INVOKE_TIMING
@@ -1125,7 +1096,7 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
     pte_set(&udir[KVTOL(KVA_FROMSPACE) >> 22], PTE_W|PTE_V );
   }
 
-  objH_AddProduct(wi->segObj, pTable);
+  objH_AddProduct(wi->segObj, &pTable->kt_u.mp);
 
   return pTable;
 }
@@ -1159,7 +1130,7 @@ MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
 		 pTable);
 #endif
 
-  objH_AddProduct(wi->segObj, pTable);
+  objH_AddProduct(wi->segObj, &pTable->kt_u.mp);
 
   return pTable;
 }

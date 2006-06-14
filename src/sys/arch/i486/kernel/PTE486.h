@@ -104,6 +104,14 @@ pte_WriteProtect(PTE* thisPtr)
   PteZapped = true;
 }
 
+struct PageHeader;
+struct MapTabHeader;
+INLINE struct PageHeader *
+MapTab_ToPageH(struct MapTabHeader * mth)
+{
+  return (struct PageHeader *)mth;
+}
+
 INLINE void
 mach_FlushTLB()
 {

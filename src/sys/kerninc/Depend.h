@@ -203,8 +203,7 @@ void Depend_InvalidatePage(struct ObjectHeader *page);
   /* Machine dependent -- generally accompanies the page fault
    * handling code
    */
-void Depend_InvalidateProduct(PageHeader * page);
-void Depend_WriteDisableProduct(PageHeader * page);
+void Depend_InvalidateProduct(MapTabHeader * page);
 
 void Depend_InitKeyDependTable(uint32_t nNodes);
 #if 0

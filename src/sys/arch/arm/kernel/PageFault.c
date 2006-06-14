@@ -209,19 +209,20 @@ MakeNewPageTable(SegWalk * wi /*@ not null @*/, uint32_t ndx)
 {
   DEBUG(pgflt) printf("MakeNewPageTable ");
   PageHeader * pTable = objC_GrabPageFrame();
-  kva_t tableAddr;
-  pTable->kt_u.mp.obType = ot_PtMappingPage;
-  pTable->kt_u.mp.tableSize = 0;
-  pTable->kt_u.mp.producerBlss = wi->segBlss;
-  pTable->kt_u.mp.producerNdx = ndx;
-  
-  pTable->kt_u.mp.redSeg = wi->redSeg;
-  pTable->kt_u.mp.wrapperProducer = wi->segObjIsWrapper;
-  pTable->kt_u.mp.redSpanBlss = wi->redSpanBlss;
-  pTable->kt_u.mp.rwProduct = 1;
-  pTable->kt_u.mp.caProduct = 1;
+  MapTabHeader * mth = &pTable->kt_u.mp;
 
-  tableAddr = pageH_GetPageVAddr(pTable);
+  pTable->kt_u.mp.obType = ot_PtMappingPage;
+  mth->tableSize = 0;
+  mth->producerBlss = wi->segBlss;
+  mth->producerNdx = ndx;
+  
+  mth->redSeg = wi->redSeg;
+  mth->wrapperProducer = wi->segObjIsWrapper;
+  mth->redSpanBlss = wi->redSpanBlss;
+  mth->rwProduct = 1;
+  mth->caProduct = 1;
+
+  kva_t tableAddr = pageH_GetPageVAddr(pTable);
   DEBUG(pgflt) printf("physAddr=0x%08x\n", VTOP(tableAddr));
 
   bzero((void *)tableAddr, EROS_PAGE_SIZE);
@@ -234,7 +235,7 @@ MakeNewPageTable(SegWalk * wi /*@ not null @*/, uint32_t ndx)
 		 pTable);
 #endif
 
-  objH_AddProduct(wi->segObj, pTable);
+  objH_AddProduct(wi->segObj, mth);
 
   return pTable;
 }
@@ -255,63 +256,63 @@ objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
   
 /* #define FINDPRODUCT_VERBOSE */
 
-  PageHeader * product;
+  MapTabHeader * product;
   
   for (product = thisPtr->prep_u.products;
-       product; product = product->kt_u.mp.next) {
-    assert(pageH_GetObType(product) == ot_PtMappingPage);
-    if ((uint32_t) product->kt_u.mp.producerBlss != blss) {
+       product; product = product->next) {
+    assert(pageH_GetObType(MapTab_ToPageH(product)) == ot_PtMappingPage);
+    if ((uint32_t) product->producerBlss != blss) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("Producer BLSS not match\n");
 #endif
       continue;
     }
-    if (product->kt_u.mp.redSeg != wi->redSeg) {
+    if (product->redSeg != wi->redSeg) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("Red seg not match\n");
 #endif
       continue;
     }
-    if (product->kt_u.mp.redSeg) {
-      if (product->kt_u.mp.wrapperProducer != wi->segObjIsWrapper) {
+    if (product->redSeg) {
+      if (product->wrapperProducer != wi->segObjIsWrapper) {
 #ifdef FINDPRODUCT_VERBOSE
 	printf("redProducer not match\n"); 
 #endif
 	continue;
       }
-      if (product->kt_u.mp.redSpanBlss != wi->redSpanBlss) {
+      if (product->redSpanBlss != wi->redSpanBlss) {
 #ifdef FINDPRODUCT_VERBOSE
 	printf("redSpanBlss not match: prod %d wi %d\n",
-		       product->kt_u.mp.redSpanBlss, wi->redSpanBlss);
+		       product->redSpanBlss, wi->redSpanBlss);
 #endif
 	continue;
       }
     }
-    if ((uint32_t) product->kt_u.mp.tableSize != tblSize) {
+    if ((uint32_t) product->tableSize != tblSize) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("tableSize not match\n");
 #endif
       continue;
     }
-    if ((uint32_t) product->kt_u.mp.producerNdx != producerNdx) {
+    if ((uint32_t) product->producerNdx != producerNdx) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("producerNdx not match\n");
 #endif
       continue;
     }
-    if ((uint32_t) product->kt_u.mp.tableCacheAddr != cacheAddr) {
+    if ((uint32_t) product->tableCacheAddr != cacheAddr) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("cacheAddr not match\n");
 #endif
       continue;
     }
-    if (product->kt_u.mp.rwProduct != (rw ? 1 : 0)) {
+    if (product->rwProduct != (rw ? 1 : 0)) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("rwProduct not match\n");
 #endif
       continue;
     }
-    if (product->kt_u.mp.caProduct != (ca ? 1 : 0)) {
+    if (product->caProduct != (ca ? 1 : 0)) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("caProduct not match\n");
 #endif
@@ -323,7 +324,7 @@ objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
   }
 
   if (product) {
-    assert(product->kt_u.mp.producer == thisPtr);
+    assert(product->producer == thisPtr);
   }
 
 #if 0
@@ -341,7 +342,7 @@ objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
 		 product);
 #endif
 
-  return product;
+  return MapTab_ToPageH(product);
 }
 
 /* Handle page fault from user or system mode.

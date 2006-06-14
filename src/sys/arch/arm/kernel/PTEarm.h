@@ -133,6 +133,14 @@ INLINE void PTE_Set(PTE * pte, uint32_t val)
 extern PTE* pte_kern_ptebuf;
 #endif
 
+struct PageHeader;
+struct MapTabHeader;
+INLINE struct PageHeader *
+MapTab_ToPageH(struct MapTabHeader * mth)
+{
+  return (struct PageHeader *)mth;
+}
+
 void mach_FlushBothTLBs(void);
 bool LoadWordFromUserSpace(uva_t userAddr, uint32_t * resultP);
 

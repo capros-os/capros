@@ -92,38 +92,30 @@ pageH_KernUnpin(PageHeader * thisPtr)
 }
 
 void
-objH_AddProduct(ObjectHeader * thisPtr, PageHeader * product)
+objH_AddProduct(ObjectHeader * thisPtr, MapTabHeader * product)
 {
-  /* assert(product->obType == ot_PtMappingPage); */
-  product->kt_u.mp.next = thisPtr->prep_u.products;
-  product->kt_u.mp.producer = thisPtr;
+  product->next = thisPtr->prep_u.products;
+  product->producer = thisPtr;
   thisPtr->prep_u.products = product;
 }
 
 void
-objH_DelProduct(ObjectHeader * thisPtr, PageHeader * product)
+objH_DelProduct(ObjectHeader * thisPtr, MapTabHeader * product)
 {
-  assert(pageH_GetObType(product) == ot_PtMappingPage);
-  assert(product->kt_u.mp.producer == thisPtr);
+  assert(product->producer == thisPtr);
   
-  if (thisPtr->prep_u.products == product) {
-    thisPtr->prep_u.products = product->kt_u.mp.next;
-  }
-  else {
-    /* Not the first thing on the products list. Find it.
-       Note: the list of products is usually quite short. */
-    PageHeader * curProd = thisPtr->prep_u.products;
-    while (curProd->kt_u.mp.next) {
-      if (curProd->kt_u.mp.next == product) {
-	curProd->kt_u.mp.next = product->kt_u.mp.next;
-	break;
-      }
-      curProd = curProd->kt_u.mp.next;
+  // Unchain it.
+  MapTabHeader * * mthpp = &thisPtr->prep_u.products;
+  while (*mthpp) {
+    if (*mthpp == product) {	// found this one
+      *mthpp = product->next;	// unchain it
+      break;
     }
+    mthpp = &(*mthpp)->next;
   }
-
-  product->kt_u.mp.next = 0;
-  product->kt_u.mp.producer = 0;
+  
+  product->next = 0;
+  product->producer = 0;
 }
 
 #if 0
@@ -485,12 +477,10 @@ objH_InvalidateProducts(ObjectHeader * thisPtr)
       thisPtr->obType == ot_NtSegment) {
     /* We need to zap the product chain (MAJOR bummer!) */
     while (thisPtr->prep_u.products) {
-      PageHeader * pProd = thisPtr->prep_u.products;
-      assert(pageH_GetObType(pProd) == ot_PtMappingPage);
-      thisPtr->prep_u.products = pProd->kt_u.mp.next;
+      MapTabHeader * pProd = thisPtr->prep_u.products;
+      thisPtr->prep_u.products = pProd->next;	// unchain
 
       Depend_InvalidateProduct(pProd);
-      ReleasePageFrame(pProd);
     }
     thisPtr->prep_u.products = 0;
     mach_InvalidateProducts(thisPtr);
@@ -526,13 +516,13 @@ objH_ddb_dump(ObjectHeader * thisPtr)
     printf("    pageAddr=0x%08x\n", objH_ToPage(thisPtr)->pageAddr);
   case ot_NtSegment:
     {
-      PageHeader * oh = thisPtr->prep_u.products;
-      printf("    products= ", thisPtr->prep_u.products);
+      MapTabHeader * oh = thisPtr->prep_u.products;
+      printf("    products=");
       while (oh) {
 	printf(" 0x%08x", oh);
-	oh = oh->kt_u.mp.next;
+	oh = oh->next;
       }
-      printf("\n", thisPtr->prep_u.products);
+      printf("\n");
       break;
     }
   case ot_NtProcessRoot:

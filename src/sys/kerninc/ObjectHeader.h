@@ -128,14 +128,14 @@ struct ObjectHeader {
      because it is used only for producers of mapping tables. 
      But it fits here in an otherwise-unused byte, so here it is. */
   uint8_t ssid;		/* used if obType == ot_NtSegment
-				        or ot_PtDataPage or ot_PtDevicePage */
+		        or ot_PtDataPage or ot_PtDevicePage */
   
   KeyRing	keyRing;
 
   union {
     /* Special relationship pointers if prepared node */
     /* Mapping tables produced by this object. */
-    PageHeader * products;	/* if obType == ot_NtSegment
+    MapTabHeader * products;	/* if obType == ot_NtSegment
 				        or ot_PtDataPage or ot_PtDevicePage */
     Process * context;		/* if obType == ot_NtProcessRoot
                                              or ot_NtKeyRegs
@@ -349,9 +349,9 @@ bool pageH_mdType_AgingExempt(PageHeader * pageH);
 bool pageH_mdType_AgingClean(PageHeader * pageH);
 bool pageH_mdType_AgingSteal(PageHeader * pageH);
 
-void objH_InvalidateProducts(ObjectHeader* thisPtr);
-void objH_AddProduct(ObjectHeader * thisPtr, PageHeader * product);
-void objH_DelProduct(ObjectHeader * thisPtr, PageHeader * product);
+void objH_InvalidateProducts(ObjectHeader * thisPtr);
+void objH_AddProduct(ObjectHeader * thisPtr, MapTabHeader * product);
+void objH_DelProduct(ObjectHeader * thisPtr, MapTabHeader * product);
 
 ObjectHeader  * objH_Lookup(ObType, OID oid);
 

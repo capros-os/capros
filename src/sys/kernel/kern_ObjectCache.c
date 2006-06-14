@@ -890,7 +890,7 @@ objC_EvictFrame(PageHeader * pObj)
       pageH_ClearFlags(pObj, OFLG_CKPT | OFLG_DIRTY);
     }
     assert(keyR_IsEmpty(&pageH_ToObj(pObj)->keyRing));
-    ReleasePageFrame(pObj);
+    ReleaseObjPageFrame(pObj);
     break;
 
   default:
@@ -1080,7 +1080,7 @@ objC_AgePageFrames()
 	   * list:
 	   */
           assert(keyR_IsEmpty(&pageH_ToObj(pObj)->keyRing));
-	  ReleasePageFrame(pObj);
+	  ReleaseObjPageFrame(pObj);
         }
 
 	curPage++;
@@ -1212,15 +1212,16 @@ objC_GrabNodeFrame()
   return pNode;
 }
 
+/* Release a page that has an ObjectHeader. */
 void
-ReleasePageFrame(PageHeader * pageH)
+ReleaseObjPageFrame(PageHeader * pageH)
 {
   DEBUG(ndalloc)
-    printf("ReleasePageFrame pageH=0x%08x\n", pageH);
+    printf("ReleaseObjPageFrame pageH=0x%08x\n", pageH);
 
   assert(pageH);
   
-  /* Not certain that *anything* handed to ReleasePageFrame() should be
+  /* Not certain that *anything* handed to ReleaseObjPageFrame() should be
    * dirty, but...
    */
   if (objH_GetFlags(pageH_ToObj(pageH), OFLG_CKPT))
@@ -1232,6 +1233,13 @@ ReleasePageFrame(PageHeader * pageH)
 
   objH_Unintern(pageH_ToObj(pageH));
     
+  ReleasePageFrame(pageH);
+}
+
+/* Put a page on the free list. */
+void
+ReleasePageFrame(PageHeader * pageH)
+{
   pageH->kt_u.free.obType = ot_PtFreeFrame;
   pageH->kt_u.free.next = objC_firstFreePage;
   objC_firstFreePage = pageH;

@@ -155,14 +155,11 @@ PhysPageSource_Invalidate(ObjectSource *thisPtr, ObjectHeader *pObj)
     assert(keyR_IsEmpty(&pObj->keyRing));
     assert(pObj->prep_u.products == 0);
     
-
-    objH_Unintern(pObj);
     objH_ClearFlags(pObj, OFLG_DIRTY);
-
 
   /* FIX: What about transaction lock? */
 
-    ReleasePageFrame(objH_ToPage(pObj));
+    ReleaseObjPageFrame(objH_ToPage(pObj));
 
     PhysPageAllocCount ++;
 
