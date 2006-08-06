@@ -31,7 +31,7 @@
 
    An "item" is a slot of a node that was consulted in building
    the mapping table entry.
-   At that time, the key in the slot was read-hazarded.
+   At that time, the key in the slot was write-hazarded.
    Such slots are either in nodes prepared as a segment,
    or the slot ProcAddrSpace of a node prepared as a process root.
 
@@ -139,7 +139,7 @@
    that is stolen or evicted. 
    All such entries resulted from consulting a set of key slots.
    Either that set contains a key to the producer of the stolen object,
-   in which case un-read-hazarding all keys to the producer will invalidate
+   in which case un-write-hazarding all keys to the producer will invalidate
    the entry,
    or the set is empty and the producer also produces a (degenerate) 
    higher-level mapping table, in which case zapping the higher-level

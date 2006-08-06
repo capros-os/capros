@@ -65,12 +65,9 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
       fatal("Segment Node Corrupted!\n");
 
     Depend_InvalidateKey(&thisPtr->slot[ndx]);
-    keyBits_UnHazard(&thisPtr->slot[ndx]);
     break;
+
   case ot_NtKeyRegs:
-    /* If this is write hazard, the world is in a very very
-     * inconsistent state.
-     */
     proc_FlushKeyRegs(thisPtr->node_ObjHdr.prep_u.context);
     break;
       
@@ -82,7 +79,6 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
 
     if (ndx == ProcAddrSpace) {
       Depend_InvalidateKey(&thisPtr->slot[ndx]);
-      keyBits_UnHazard(&thisPtr->slot[ndx]);
     }
     else if ( ndx == ProcGenKeys ) {
       /* This hazard exists to ensure that the domain remains well
@@ -109,6 +105,15 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
   if (keyBits_IsHazard(&thisPtr->slot[ndx]) != false)
     fatal("Error. Node ty=%d slot=%d still hazarded\n",
 		  thisPtr->node_ObjHdr.obType, ndx);
+}
+     
+static void
+node_ClearAllHazards(Node * thisPtr)
+{
+  unsigned int k;
+  for (k = 0; k < EROS_NODE_SIZE; k++) {
+    node_ClearHazard(thisPtr, k);
+  }
 }
 
 /* CAREFUL -- this operation can have the side effect of blowing away
@@ -417,7 +422,7 @@ node_IsCurrentDomain(Node* thisPtr)
 bool
 node_Unprepare(Node* thisPtr, bool zapMe)
 {
-  uint32_t k = 0;
+//  uint32_t k = 0;
 
   if (thisPtr->node_ObjHdr.obType == ot_NtUnprepared)
     return true;
@@ -435,9 +440,7 @@ node_Unprepare(Node* thisPtr, bool zapMe)
       return false;
     }
 
-      
-    /* Invalidate mapping dependencies on the address space slot: */
-    Depend_InvalidateKey(&thisPtr->slot[ProcAddrSpace]);
+    node_ClearAllHazards(thisPtr);
 
     if (thisPtr->node_ObjHdr.prep_u.context)
       proc_Unload(thisPtr->node_ObjHdr.prep_u.context);
@@ -478,14 +481,7 @@ node_Unprepare(Node* thisPtr, bool zapMe)
 	halt('a');
 #endif
 
-    for (k = 0; k < EROS_NODE_SIZE; k++) {
-      if ( keyBits_IsHazard(&thisPtr->slot[k]) ) {
-	assert ( keyBits_IsType(&thisPtr->slot[k], KKT_Void) == false );
-
-	Depend_InvalidateKey(&thisPtr->slot[k]);
-	keyBits_UnHazard(&thisPtr->slot[k]);
-      }
-    }
+    node_ClearAllHazards(thisPtr);
 
 #ifdef DBG_WILD_PTR
     if (dbg_wild_ptr)
@@ -497,9 +493,6 @@ node_Unprepare(Node* thisPtr, bool zapMe)
   }
 
   thisPtr->node_ObjHdr.obType = ot_NtUnprepared;
-#if 0
-  dprintf(true, "Node deprepared okay\n");
-#endif
   return true;
 }
 

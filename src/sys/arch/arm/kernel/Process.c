@@ -220,7 +220,6 @@ printf("Unimplemented proc_Unload");
   
   if ( keyBits_IsHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace)) ) {
     Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace));
-    keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace));
     thisPtr->hazards |= hz_AddrSpace;
   }
 

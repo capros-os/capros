@@ -78,6 +78,31 @@ struct ObjectTable;
 
 typedef struct KeyBits KeyBits;
 
+/*
+When KFL_RHAZARD is set, we say the key is "read-hazarded".
+This means that the logical value of the key is different from
+the actual value.
+Before fetching the key you must get the logical state from wherever it is
+and restore the actual value.
+The following cases occur:
+In a node prepared as a domain root, slots for register values.
+In a node prepared as a domain root, slots for key registers.
+
+When KFL_WHAZARD is set, we say the key is "write-hazarded". 
+This means that there is state elsewhere that depends on the key.
+Before changing the key you must clear that other state. 
+The following cases occur:
+In a node prepared as a domain root, slots for register values.
+In a node prepared as a domain root, slots for key registers.
+In a node prepared as a domain root, the ProcSched slot.
+In a node prepared as a domain root, the ProcGenKeys slot.
+In a node prepared as a domain root, the ProcAddrSpace slot.
+In a node prepared as a segment, a slot used to build a mapping table entry.
+The WrapperFormat slot of a wrapper node (not necessarily prepared).
+
+node_ClearHazard() handles all these cases.
+ */
+
 #define KFL_PREPARED       0x4
 #define KFL_RHAZARD        0x2
 #define KFL_WHAZARD        0x1

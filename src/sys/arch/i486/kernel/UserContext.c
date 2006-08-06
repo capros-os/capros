@@ -833,7 +833,6 @@ proc_Unload(Process* thisPtr)
   
   if ( keyBits_IsHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace)) ) {
     Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace));
-    keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace));
     thisPtr->hazards |= hz_AddrSpace;
   }
 
@@ -1179,7 +1178,6 @@ proc_FlushProcessSlot(Process* thisPtr, uint32_t whichKey)
 
   case ProcAddrSpace:
     Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, whichKey));
-    keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, whichKey));
     thisPtr->hazards |= hz_AddrSpace;
     assert(thisPtr->md.MappingTable == 0);
     thisPtr->saveArea = 0;

@@ -321,6 +321,8 @@ Depend_InvalidateKey(Key* pKey)
     KernStats.nDepZap++;
     UpdateTLB();
   }
+
+  keyBits_UnHazard(pKey);
 }
 
 #ifdef OPTION_DDB

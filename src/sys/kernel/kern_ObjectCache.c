@@ -51,7 +51,8 @@
 
 static void objC_GrabThisPageFrame(PageHeader *);
 
-static bool objC_CleanFrame(ObjectHeader * pObj, bool invalidateProducts);
+static void objC_CleanFrame1(ObjectHeader * pObj);
+static bool objC_CleanFrame2(ObjectHeader * pObj);
 
 struct PageInfo {
   uint32_t nPages;
@@ -728,7 +729,7 @@ objC_AgeNodeFrames()
 	/* Clean the frame, but do not invalidate products yet,
 	 * because the object may get resurrected.
 	 */
-	objC_CleanFrame(DOWNCAST(pObj, ObjectHeader), false);
+	objC_CleanFrame1(node_ToObj(pObj));
 
       if (pObj->objAge < age_PageOut) {
 	pObj->objAge++;
@@ -743,7 +744,8 @@ objC_AgeNodeFrames()
 			(uint32_t) (pObj->node_ObjHdr.oid >> 32),
 			(uint32_t) (pObj->node_ObjHdr.oid));
 
-      objC_CleanFrame(DOWNCAST(pObj, ObjectHeader), true);
+      objC_CleanFrame1(node_ToObj(pObj));
+      objC_CleanFrame2(node_ToObj(pObj));
 
       /* Make sure that the next process that wants a frame is
        * unlikely to choose the same node frame:
@@ -877,7 +879,8 @@ objC_EvictFrame(PageHeader * pObj)
     return false;
 
   case ot_PtDataPage:
-    if (!objC_CleanFrame(pageH_ToObj(pObj), true)) {
+    objC_CleanFrame1(pageH_ToObj(pObj));
+    if (!objC_CleanFrame2(pageH_ToObj(pObj))) {
       (void) objC_CopyObject(pageH_ToObj(pObj));
   
       /* Since we could not write the old frame out, we assume that it
@@ -910,8 +913,8 @@ objC_EvictFrame(PageHeader * pObj)
 
 /* Clean out the node/page frame, but do not remove it from memory. */
 /* pObj->obType must be node or ot_PtDataPage. */
-bool
-objC_CleanFrame(ObjectHeader *pObj, bool invalidateProducts)
+void
+objC_CleanFrame1(ObjectHeader *pObj)
 {
   /* If this object is due to go out and actively involved in I/O,
    * then we are still waiting for the effects of the last call to
@@ -927,11 +930,12 @@ objC_CleanFrame(ObjectHeader *pObj, bool invalidateProducts)
   /* Clean up the object we are reclaiming so we can free it: */
 
   keyR_UnprepareAll(&pObj->keyRing);	/* This zaps any PTE's as a side effect. */
+}
 
-  if (invalidateProducts == false)
-    return true;
-
-
+/* pObj->obType must be node or ot_PtDataPage. */
+bool
+objC_CleanFrame2(ObjectHeader *pObj)
+{
   if (pObj->obType <= ot_NtLAST_NODE_TYPE)
     /* FIXME: shouldn't we write back the node *before* clearing it? */
     node_DoClearThisNode((Node *)pObj);
@@ -956,7 +960,7 @@ objC_CleanFrame(ObjectHeader *pObj, bool invalidateProducts)
 		      (uint32_t) pObj->oid,
 		      ObjectStallQueueFromObHdr(pObj));
     
-    objC_WriteBack(pObj, false);
+    objC_WriteBack(pObj, false);	/*** return value not used? */
   }
 
   return true;
@@ -1071,7 +1075,8 @@ objC_AgePageFrames()
           if (! pageH_mdType_AgingSteal(pObj))
             continue;	// couldn't steal it
         } else {
-	  if (objC_CleanFrame(pageH_ToObj(pObj), true) == false)
+          objC_CleanFrame1(pageH_ToObj(pObj));
+	  if (objC_CleanFrame2(pageH_ToObj(pObj)) == false)
 	    continue;
     
 	  assert(!pageH_IsDirty(pObj));
@@ -1097,7 +1102,7 @@ objC_AgePageFrames()
 	    return;
           }
         } else {
-	  objC_CleanFrame(pageH_ToObj(pObj), false);
+	  objC_CleanFrame1(pageH_ToObj(pObj));
         }
       }
     }
