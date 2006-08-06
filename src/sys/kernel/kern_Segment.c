@@ -34,11 +34,10 @@
  * complicated. 
  */
 #define ADD_DEPEND(pKey) \
-    assert ((wi->frameBits != EROS_PAGE_ADDR_BITS) || pPTE0); \
     if (pPTE0) \
       Depend_AddKey(pKey, pPTE0, canMerge); \
-    if (pPTE1) \
-      Depend_AddKey(pKey, pPTE1, canMerge);
+    else if (pPTE1) \
+      Depend_AddTopTable(pKey, pPTE1);
 
 /* proc_WalkSeg() is a performance-critical path.  The segment walk
    logic is complex, and it occurs in the middle of page faulting
@@ -223,7 +222,7 @@ walkseg_handle_node_key(Process * p, SegWalk* wi, uint32_t stopBlss,
 /* Returns true if successful, false if wi->faultCode set. */
 bool
 proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
-	     PTE* pPTE0, PTE* pPTE1, bool canMerge)
+	     PTE* pPTE0, Process * pPTE1, bool canMerge)
 {
 /* BUG: needs to ensure UpdateTLB is called in all cases, including Yield. */
   const uint32_t MAX_SEG_DEPTH = 20;

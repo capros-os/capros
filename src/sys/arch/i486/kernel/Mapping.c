@@ -863,12 +863,10 @@ mach_EnableVirtualMapping()
 void
 KeyDependEntry_Invalidate(KeyDependEntry * kde)
 {
-  kva_t mapping_page_kva;
-  PTE *ptePage = 0;
   uint32_t from;
   uint32_t to;
 
-  if (kde->start == 0) {
+  if (kde->start == 0) {	// unused entry
 #ifdef DBG_WILD_PTR
     if (dbg_wild_ptr)
       check_Consistency("KeyDependEntry_Invalidate(): unused entry");    
@@ -882,8 +880,21 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
   printf("Invalidating key entries start=0x%08x, count=%d\n",
 	      kde->start, kde->pteCount);
 #endif
+  if (kde->pteCount == 0) {
+    assert(IsInProcess(kde->start));
+    ((Process *) kde->start) ->md.MappingTable = KernPageDir_pa;
+	       
+     /* MUST BE CAREFUL -- if this product is the active mapping table we
+     * need to reset the mapping pointer to the native kernel map!
+     */
+  
+    if (((Process *) kde->start) == act_CurContext()) {
+      mach_SetMappingTable(KernPageDir_pa);
+    }
+  } else {
+  // Begin indenting preserved.
 
-  mapping_page_kva = ((kva_t)kde->start & ~EROS_PAGE_MASK);
+  kva_t mapping_page_kva = ((kva_t)kde->start & ~EROS_PAGE_MASK);
   PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
   /* pMappingPage could be zero, if the mapping page was allocated
      at kernel initialization and therefore doesn't have an
@@ -900,11 +911,11 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
     return;
   }
 
-  ptePage = (PTE*) mapping_page_kva;
+  PTE * ptePage = (PTE*) mapping_page_kva;
 
   assert (((uint32_t) kde->start) >= ((uint32_t) ptePage));
   
-  from = kde->start - ptePage;
+  from = (PTE *)kde->start - ptePage;
   to = from + kde->pteCount;
 
   assert (from <= NPTE_PER_PAGE);
@@ -964,6 +975,8 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
   }
 #endif
 #endif
+  // End indenting preserved.
+  }
 
   kde->start = 0;
 #ifdef DBG_WILD_PTR

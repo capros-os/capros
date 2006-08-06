@@ -139,6 +139,7 @@ pte_ddb_dump(PTE* thisPtr)
 }
 #endif
 
+//// Is this procedure necessary?
 void
 Depend_InvalidateProduct(MapTabHeader * mth)
 {
@@ -146,47 +147,24 @@ Depend_InvalidateProduct(MapTabHeader * mth)
   /* InvalidateProduct is always called after the producing Node has
    * been unprepared (and thus zapped).  If this is a page table, we
    * therefore know that all of it's entries are dead.
-   * 
-   * If this is a page directory, however, we must find all of the
-   * mapping table pointers that name it and zap those.
    */
 
 #if 0
   dprintf(true, "NAILING product 0x%08x\n", page);
 #endif
-  kpa_t mp_pa;
-  kpa_t curmap;
-  uint32_t i;
   
   assert (pageH_GetObType(page) == ot_PtMappingPage);
 
+  kpa_t mp_pa;
   mp_pa = VTOP(pageH_GetPageVAddr(page));
 	       
   /* MUST BE CAREFUL -- if this product is the active mapping table we
    * need to reset the mapping pointer to the native kernel map!
    */
-  
-  curmap = mach_GetMappingTable();
-  
-  if (mp_pa == curmap) {
-#if 0
-    dprintf(true, "Nailing active mapping table!\n");
-#endif
-  
-    mach_SetMappingTable(KernPageDir_pa);
 
-  }
-
-  if (obj_IsDirectory(page)) {
-    /* FIXME: This does not scale. 
-       I think the Depend relationship can be used to find the
-       pointers that need to be zapped. */
-    for (i = 0; i < KTUNE_NCONTEXT; i++)
-      if (proc_ContextCache[i].md.MappingTable == mp_pa)
-	proc_ContextCache[i].md.MappingTable = 0;
-  }
+  assert(mp_pa != mach_GetMappingTable());
   
-  mach_FlushTLB();
+  mach_FlushTLB();	// probably redundant
 
   ReleasePageFrame(page);
 }
@@ -835,7 +813,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   
   /* Begin the traversal... */
   if ( !proc_WalkSeg(p, &wi, walk_root_blss,
-		     (PTE *)&p->md.MappingTable, 0, false) ) { 
+		     0, p, false) ) { 
     proc_SetFault(p, wi.faultCode, va, false);
 
     return false;
@@ -854,7 +832,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   assert (p->md.MappingTable == PTE_IN_PROGRESS);
 
   /* We can now reset the value to the zap guard. */
-  p->md.MappingTable = PTE_ZAPPED;
+  p->md.MappingTable = PTE_ZAPPED;	// not needed?
   
   assert (pTable == 0);
   if (pTable == 0) {

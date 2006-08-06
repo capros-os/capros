@@ -107,6 +107,61 @@ Depend_InitKeyDependTable(uint32_t nNodes)
 		   sizeof(KeyDependEntry[nEntries]), KeyDependTable);
 }
 
+static void
+NewDependEntry(void * start, unsigned count, Key * pKey)
+{
+#ifdef DEPEND_DEBUG
+  printf("new\n");
+#endif
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    check_Consistency("Depend_AddKey(): allocate new entry");
+#endif
+    
+  /* Allocate new entry. */
+  KernStats.nDepend++;
+  uint32_t whichBucket = keybucket_ndx(pKey);
+  KeyDependEntry * entry = &KeyDependTable[whichBucket * KeyBucketSize];
+  entry += KeyDependLRU[whichBucket];
+  KeyDependLRU[whichBucket]++;
+  KeyDependLRU[whichBucket] %= KeyBucketSize;
+
+  /* We only want to measure the distributions of unmerged
+   * allocations.  Mergeable buckets are a good thing, and would only
+   * serve to bias the histogram BADLY.
+   */
+  KeyDependStats[whichBucket]++;
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    check_Consistency("Depend_AddKey(): post select LRU");
+#endif
+    
+  if (KeyDependEntry_InUse(entry)) {
+    DEBUG(reuse)
+      dprintf(true, "Reusing depend entry at 0x%08x\n"
+		      "start = 0x%08x count= 0x%08x\n",
+		      entry, entry->start, entry->pteCount);
+  
+    KeyDependEntry_Invalidate(entry);
+  }
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    check_Consistency("Depend_AddKey(): after invalidate");
+#endif
+    
+  entry->start = start;
+  entry->pteCount = count;
+  entry->slotTag = SLOT_TAG(pKey);
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    check_Consistency("Depend_AddKey(): after new entry");
+#endif
+}
+
 void
 Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
 {
@@ -114,8 +169,6 @@ Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
   printf("Dep_Add key=0x%08x pte=0x%08x\n", pKey, pte);
 #endif
 
-  uint32_t whichBucket;
-  KeyDependEntry* entry = 0;
   uint32_t i;
 
   assert(KeyBuckets);
@@ -144,8 +197,8 @@ Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
 	       pKey, pte);
 #endif
 
-  whichBucket = keybucket_ndx(pKey);
-  entry = &KeyDependTable[whichBucket * KeyBucketSize];
+  uint32_t whichBucket = keybucket_ndx(pKey);
+  KeyDependEntry * entry = &KeyDependTable[whichBucket * KeyBucketSize];
 
   for (i = 0; i < KeyBucketSize; i++) {
     if (entry[i].slotTag == SLOT_TAG(pKey)) {
@@ -183,54 +236,48 @@ Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
       }
     }
   }
-#ifdef DEPEND_DEBUG
-  printf("new\n");
-#endif
+
+  NewDependEntry(pte, 1, pKey);
+}
+
+void
+Depend_AddTopTable(Key * pKey, Process * proc)
+{
+  uint32_t i;
+
+  assert(KeyBuckets);
+  assert(KeyBucketSize);
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
-    check_Consistency("Depend_AddKey(): allocate new entry");
+    check_Consistency("Depend_AddKey(): top");
 #endif
-    
-  /* Allocate new entry. */
-  KernStats.nDepend++;
-  entry += KeyDependLRU[whichBucket];
-  KeyDependLRU[whichBucket]++;
-  KeyDependLRU[whichBucket] %= KeyBucketSize;
 
-  /* We only want to measure the distributions of unmerged
-   * allocations.  Mergeable buckets are a good thing, and would only
-   * serve to bias the histogram BADLY.
-   */
-  KeyDependStats[whichBucket]++;
-
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("Depend_AddKey(): post select LRU");
-#endif
-    
-  DEBUG(reuse)
-    if (entry->start)
-      dprintf(true, "Reusing depend entry at 0x%08x\n"
-		      "start = 0x%08x count= 0x%08x\n",
-		      entry, entry->start, entry->pteCount);
+  keyBits_SetWrHazard(pKey);
   
-  if (KeyDependEntry_InUse(entry))
-    KeyDependEntry_Invalidate(entry);
-
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("Depend_AddKey(): after invalidate");
+#ifdef DEPEND_DEBUG
+  printf("Add slot depend entry for slot=0x%08x proc=0x%08x: ",
+	       pKey, proc);
 #endif
-    
-  entry->start = pte;
-  entry->pteCount = 1;
-  entry->slotTag = SLOT_TAG(pKey);
 
+  uint32_t whichBucket = keybucket_ndx(pKey);
+  KeyDependEntry * entry = &KeyDependTable[whichBucket * KeyBucketSize];
+
+  for (i = 0; i < KeyBucketSize; i++) {
+    if (entry[i].slotTag == SLOT_TAG(pKey)) {
+      /* If the current start matches, we are done in all cases: */
+      if (entry[i].start == proc) {
+        assert(entry[i].pteCount == 0);
 #ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("Depend_AddKey(): after new entry");
+	if (dbg_wild_ptr)
+	  check_Consistency("Depend_AddKey(): start matches PTE");
 #endif
+	return;			/* already got it */
+      }
+    }
+  }
+
+  NewDependEntry(proc, 0, pKey);
 }
 
 void

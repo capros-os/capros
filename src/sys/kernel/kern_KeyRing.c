@@ -28,6 +28,12 @@
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Invocation.h>
 
+static inline bool
+proc_IsKeyReg(const Key * pKey)
+{
+  return IsInProcess(pKey);
+}
+
 void
 keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
 {

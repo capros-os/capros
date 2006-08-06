@@ -184,7 +184,7 @@ struct PTE;
 
 /*extern*/ bool
 proc_WalkSeg(Process * p,SegWalk* wi /*@ NOT NULL @*/, uint32_t stopBlss,
-	     struct PTE* pPTE0, struct PTE* pPTE1, bool canMerge);
+	     struct PTE* pPTE0, Process * proc, bool canMerge);
 
 /* Former member functions of KernProcess */
 typedef struct KernProcess KernProcess;
@@ -240,17 +240,13 @@ bool ValidCtxtKeyRingPtr(const KeyRing* kr);
 bool proc_ValidKeyReg(const Key * pKey);
 #endif
 
+/* Returns true iff p points within the Process area. */
 INLINE bool 
-proc_IsKeyReg(const Key *pKey)
+IsInProcess(const void * p)
 {
-  /* This isn't quite right, as it will return TRUE for any random
-   * pointer in to the process area, but that's good enough for all
-   * the places that we use it.
-   */
-  
-  if ( ((uint32_t) pKey >= (uint32_t) proc_ContextCache) &&
-       ((uint32_t) pKey <
-        (uint32_t) &proc_ContextCache[KTUNE_NCONTEXT]) ) {
+  if ( ((uint32_t) p >= (uint32_t) proc_ContextCache) &&
+       ((uint32_t) p <
+        (uint32_t) &proc_ContextCache[KTUNE_NCONTEXT] ) ) {
     return true;
   }
   return false;

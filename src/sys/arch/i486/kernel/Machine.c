@@ -111,20 +111,6 @@ mach_BootInit()
   
 /*    printf("main(): loaded TSS\n"); */
 
-#if 0
-  /* Enable the following when you dork the process structure to
-   * recompute the important offsets.
-   */
-  printf("PROCESS_FIXREGS_OFFSET = %d\n",
-		 offsetof(Process, fixRegs));
-  printf("PROCESS_MAPTABLE_OFFSET = %d\n",
-		 offsetof(Process, fixRegs.MappingTable));
-  printf("PROCESS_V86_FIXREGS_TOP = %d\n",
-		 offsetof(Process, fixRegs) + offsetof(fixregs_t, sndPtr));
-  fatal("PROCESS_FIXREGS_TOP = %d\n",
-		 offsetof(Process, fixRegs) + offsetof(fixregs_t, ES));
-#endif
-  
   switch(mach_BusArchitecture()) {
   case bt_Unknown:
     printf("Unknown bus type!\n");
