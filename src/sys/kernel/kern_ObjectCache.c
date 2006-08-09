@@ -159,15 +159,14 @@ objC_Init()
 }
 
 Node *
-objC_ContainingNode(void *vp)
+objC_ContainingNode(void * vp)
 {
-  uint8_t *bp = (uint8_t *) vp;
-  uint8_t *nt = (uint8_t *) objC_nodeTable;
-  int nuint8_ts = bp - nt;
-
-  Node *nnt = (Node *) objC_nodeTable;
-
-  return &nnt[nuint8_ts/sizeof(Node)];
+  char * bp = (char *) vp;
+  char * nt = (char *) objC_nodeTable;
+  int nchars = bp - nt;
+  Node * pNode = &objC_nodeTable[nchars/sizeof(Node)];
+  assert(objC_ValidNodePtr(pNode));
+  return pNode;
 }
 
 void
@@ -1242,6 +1241,7 @@ ReleaseObjPageFrame(PageHeader * pageH)
 }
 
 /* Put a page on the free list. */
+/* Caller must have already removed all previous entanglements. */
 void
 ReleasePageFrame(PageHeader * pageH)
 {

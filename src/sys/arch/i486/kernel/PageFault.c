@@ -51,7 +51,6 @@
 INLINE bool
 obj_IsDirectory(PageHeader * pageH) /* pageH->obType must be ot_PtMappingPage */
 {
-  /* tableSize is 0 for page table, 1 for page directory */
   return pageH->kt_u.mp.tableSize /* == 1 */ ;
 }
 
@@ -138,36 +137,6 @@ pte_ddb_dump(PTE* thisPtr)
   printf("%s]\n", attrs);
 }
 #endif
-
-//// Is this procedure necessary?
-void
-Depend_InvalidateProduct(MapTabHeader * mth)
-{
-  PageHeader * page = MapTab_ToPageH(mth);
-  /* InvalidateProduct is always called after the producing Node has
-   * been unprepared (and thus zapped).  If this is a page table, we
-   * therefore know that all of it's entries are dead.
-   */
-
-#if 0
-  dprintf(true, "NAILING product 0x%08x\n", page);
-#endif
-  
-  assert (pageH_GetObType(page) == ot_PtMappingPage);
-
-  kpa_t mp_pa;
-  mp_pa = VTOP(pageH_GetPageVAddr(page));
-	       
-  /* MUST BE CAREFUL -- if this product is the active mapping table we
-   * need to reset the mapping pointer to the native kernel map!
-   */
-
-  assert(mp_pa != mach_GetMappingTable());
-  
-  mach_FlushTLB();	// probably redundant
-
-  ReleasePageFrame(page);
-}
 
 #ifndef NDEBUG
 bool

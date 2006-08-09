@@ -183,11 +183,6 @@ KeyDependEntry_InUse(KeyDependEntry const * kde)
 void Depend_AddKey(Key*, struct PTE*, bool allowMerge);
 void Depend_AddTopTable(Key *, Process *);
 void Depend_InvalidateKey(Key *key);
-  
-  /* Machine dependent -- generally accompanies the page fault
-   * handling code
-   */
-void Depend_InvalidateProduct(MapTabHeader * page);
 
 void Depend_InitKeyDependTable(uint32_t nNodes);
 

@@ -475,14 +475,9 @@ objH_InvalidateProducts(ObjectHeader * thisPtr)
   if (thisPtr->obType == ot_PtDataPage ||
       thisPtr->obType == ot_PtDevicePage ||
       thisPtr->obType == ot_NtSegment) {
-    /* We need to zap the product chain (MAJOR bummer!) */
     while (thisPtr->prep_u.products) {
-      MapTabHeader * pProd = thisPtr->prep_u.products;
-      thisPtr->prep_u.products = pProd->next;	// unchain
-
-      Depend_InvalidateProduct(pProd);
+      ReleaseProduct(thisPtr->prep_u.products);
     }
-    thisPtr->prep_u.products = 0;
     mach_InvalidateProducts(thisPtr);
   }
 }

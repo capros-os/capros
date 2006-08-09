@@ -83,15 +83,6 @@ struct PageHeader;
 bool pte_ObIsNotWritable(struct PageHeader * pObj);
 #endif
 
-INLINE void 
-pte_ZapMappingPage(kva_t pva)
-{
-  uint32_t entry = 0;
-  PTE *pte = (PTE*) pva;
-  for (entry = 0; entry < NPTE_PER_PAGE; entry++)
-    pte_Invalidate(pte);
-}
-
 INLINE void
 UpdateTLB(void)
 {

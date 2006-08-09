@@ -352,6 +352,9 @@ bool pageH_mdType_AgingSteal(PageHeader * pageH);
 void objH_InvalidateProducts(ObjectHeader * thisPtr);
 void objH_AddProduct(ObjectHeader * thisPtr, MapTabHeader * product);
 void objH_DelProduct(ObjectHeader * thisPtr, MapTabHeader * product);
+  
+  /* Machine dependent -- defined in Mapping.c */
+void ReleaseProduct(MapTabHeader * mth);
 
 ObjectHeader  * objH_Lookup(ObType, OID oid);
 

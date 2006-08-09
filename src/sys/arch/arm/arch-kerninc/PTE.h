@@ -79,18 +79,6 @@ struct PageHeader;
 bool pte_ObIsNotWritable(struct PageHeader * pObj);
 #endif
 
-INLINE void 
-pte_ZapMappingPage(kva_t pva)
-{
-  uint32_t entry = 0;
-  printf("pte_ZapMappingPage called - need to code it right");
-  PTE *pte = (PTE*) pva;
-
-#define NPTE_PER_PAGE (EROS_PAGE_SIZE / sizeof (PTE))
-  for (entry = 0; entry < NPTE_PER_PAGE; entry++)
-    pte_Invalidate(pte);
-}
-
 INLINE void
 UpdateTLB(void)
 {

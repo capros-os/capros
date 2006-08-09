@@ -31,7 +31,29 @@
 static inline bool
 proc_IsKeyReg(const Key * pKey)
 {
-  return IsInProcess(pKey);
+  return IsInProcess(pKey);	// this check is good enough
+}
+
+/* Clear any conditions causing keys in this KeyRing to be
+   write hazarded.
+   Does NOT clear if the key is also read-hazarded.
+   This will clear all keys involved in memory mapping. */
+void
+keyR_ClearWriteHazard(KeyRing * thisPtr)
+{
+  KeyRing * cur = thisPtr->next;
+  for (cur = thisPtr->next;
+       cur != thisPtr;
+       cur = cur->next) {
+    Key * pKey = (Key *) cur;
+    if ( keyBits_IsWrHazard(pKey)
+         && ! keyBits_IsRdHazard(pKey) ) {
+      /* By excluding read-hazarded keys, we ensure that clearing the
+         hazard will not disturb the chain. */
+      Node * pNode = objC_ContainingNode(cur);
+      node_ClearHazard(pNode, pKey - pNode->slot);
+    }
+  }
 }
 
 void
@@ -54,7 +76,7 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
     dprintf(true, "Keyring 0x%08x is invalid\n");
 #endif
   
-  while (thisPtr->next != (KeyRing*) thisPtr) {
+  while (thisPtr->next != thisPtr) {
     Key *pKey = (Key *) thisPtr->next;
 
 #ifndef NDEBUG
@@ -82,7 +104,6 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
       assert ( act_IsActivityKey(pKey) == false );
       assert ( proc_IsKeyReg(pKey) == false );
       pNode = objC_ContainingNode(pKey);
-      assert ( objC_ValidNodePtr(pNode) );
       slot = pKey - pNode->slot;
 
 
@@ -426,7 +447,6 @@ keyR_UnprepareAll(KeyRing *thisPtr)
       assert ( act_IsActivityKey(pKey) == false );
       assert ( proc_IsKeyReg(pKey) == false );
       pNode = objC_ContainingNode(pKey);
-      assert ( objC_ValidNodePtr(pNode) );
       slot = pKey - pNode->slot;
 
       node_UnprepareHazardedSlot(pNode, slot);

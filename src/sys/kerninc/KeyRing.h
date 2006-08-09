@@ -34,6 +34,7 @@ typedef struct Link KeyRing;
  * guarantees that prepared resume keys only reside in dirty objects.
  */
 
+void keyR_ClearWriteHazard(KeyRing * thisPtr);
 void keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare);
 void keyR_ZapResumeKeys(KeyRing *thisPtr);
 void keyR_UnprepareAll(KeyRing *thisPtr);

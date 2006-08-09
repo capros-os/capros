@@ -46,6 +46,36 @@ extern kva_t heap_bound;
 PTE* KernPageDir /* = (PTE*) xKERNPAGEDIR */;
 kpmap_t KernPageDir_pa /* = xKERNPAGEDIR */;
 
+INLINE struct PTE *
+MapTabHeaderToKVA(struct MapTabHeader * mth)
+{
+  struct PageHeader * pageH = MapTab_ToPageH(mth);
+  return (struct PTE *) pageH_GetPageVAddr(pageH);
+}
+
+/* Zap all references to this mapping table. */
+void
+MapTab_ClearRefs(MapTabHeader * mth)
+{
+  ObjectHeader * const producer = mth->producer;
+  keyR_ClearWriteHazard(& producer->keyRing);
+
+  /* If the producer produces a higher table, there could be
+     a reference from that table to this one. */
+  if (mth->tableSize == 0) {
+    MapTabHeader * product;
+    for (product = producer->prep_u.products;
+         product;
+         product = product->next) {
+      if (product->tableSize) {	// if a directory
+        PTE * pte = MapTabHeaderToKVA(product);
+        /* It's always in entry zero. */
+        pte_Invalidate(pte);
+      }
+    }
+  }
+}
+
 #ifdef OPTION_SMALL_SPACES
 #include <kerninc/Invocation.h>
 void 
@@ -1038,68 +1068,25 @@ pageH_mdType_CheckPage(PageHeader * pPage)
   return true;
 }
 
-/* This procedure may Yield. */
-static void
-ReleaseMappingFrame(PageHeader * pObj)
+void
+ReleaseProduct(MapTabHeader * mth)
 {
-  assert(pageH_GetObType(pObj) == ot_PtMappingPage);
-  ObjectHeader * pProducer = pObj->kt_u.mp.producer;
+  MapTab_ClearRefs(mth);
 
-  assert(pProducer);
-  assert(keyR_IsValid(&pProducer->keyRing, pProducer));
+  objH_DelProduct(mth->producer, mth);
 
-  assert(objH_IsUserPinned(pProducer) == false);
-    
-  /* Zapping the key ring will help if producer was a page or
-   * was of perfect height -- ensures that the PTE in the next
-   * higher level of the table gets zapped.
-   */
-  keyR_UnprepareAll(&pProducer->keyRing);
+  /* Don't need to invalidate the entries in the page. */
 
-  if ( pProducer->obType == ot_NtSegment ) {
-    assert(! node_IsKernelPinned(objH_ToNode(pProducer)));
-    /* FIX: What follows is perhaps a bit too strong:
-     * 
-     * Unpreparing the producer will have invalidated ALL of it's
-     * products, including this one.  We should probably just be
-     * disassociating THIS product from the producer.
-     * 
-     * While this is overkill, it definitely works...
-     */
+  ReleasePageFrame(MapTab_ToPageH(mth));
 
-    node_Unprepare((Node *)pProducer, false);
-
-  } else {
-    assert((pProducer->obType == ot_PtDataPage)
-           || (pProducer->obType == ot_PtDevicePage) );
-    assert(! pageH_IsKernelPinned(objH_ToPage(pProducer)));
-  }
-
-  if (pageH_GetObType(pObj) == ot_PtMappingPage) {
-    kva_t pgva = pageH_GetPageVAddr(pObj);
-    DEBUG(map)
-      printf("Blasting mapping page at 0x%08x\n", pgva);
-    pte_ZapMappingPage(pgva);
-  }
-
-  ReleasePageFrame(pObj);
-
-  /* This product (and all it's siblings) are now on the free
-   * list.  The possibility exists, however, that we contrived
-   * to invalidate some address associated with the current
-   * activity by yanking this mapping table, so we need to do a
-   * Yield() here to force the current process to retry:
-   */
-  /* Activity::Current() changed to act_Current() */
-  act_Wakeup(act_Current());
-  act_Yield(act_Current());
+  UpdateTLB();	// not sure if this is done elsewhere
 }
 
 void
 pageH_mdType_EvictFrame(PageHeader * pageH)
 {
   assert(pageH_GetObType(pageH) == ot_PtMappingPage);
-  ReleaseMappingFrame(pageH);
+  ReleaseProduct(& pageH->kt_u.mp);
 }
 
 bool
@@ -1123,7 +1110,7 @@ pageH_mdType_AgingClean(PageHeader * pageH)
   /* It's a lot cheaper to regenerate a mapping page than to
    * read some other page back in from the disk...
    */
-  ReleaseMappingFrame(pageH);
+  ReleaseProduct(& pageH->kt_u.mp);
   return true;
 }
 

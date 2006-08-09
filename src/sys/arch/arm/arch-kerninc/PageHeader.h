@@ -52,7 +52,7 @@ struct MapTabHeader {
      but I'm not going to reorganize them now,
      because this whole structure is architecture-dependent.
      A page could have more than one mapping table, or fewer than one. */
-  uint8_t tableSize    : 1;
+  uint8_t tableSize    : 1;	/* 1 for first level table, 0 for page table */
   uint8_t producerNdx  : 4;
   ula_t tableCacheAddr;
 };
