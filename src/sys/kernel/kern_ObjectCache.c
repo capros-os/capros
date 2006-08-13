@@ -902,8 +902,10 @@ objC_EvictFrame(PageHeader * pObj)
 
   // Unlink from free list.
   PageHeader * * pp = &objC_firstFreePage;
-  while (*pp != pObj)
+  while (*pp != pObj) {
+    assert(*pp);	// else not found in list
     pp = &(*pp)->kt_u.free.next;
+  }
   (*pp) = pObj->kt_u.free.next;
 
   objC_GrabThisPageFrame(pObj);

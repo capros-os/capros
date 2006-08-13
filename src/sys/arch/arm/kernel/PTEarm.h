@@ -24,6 +24,7 @@
    Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
 
 #include <eros/machine/target-asm.h>
+#include <kerninc/ObjectHeader.h>
 
 #define PID_SHIFT 25
 #define PID_MASK 0xfe000000
@@ -133,16 +134,26 @@ INLINE void PTE_Set(PTE * pte, uint32_t val)
 extern PTE* pte_kern_ptebuf;
 #endif
 
-struct PageHeader;
-struct MapTabHeader;
-INLINE struct PageHeader *
-MapTab_ToPageH(struct MapTabHeader * mth)
+INLINE PageHeader *
+MapTab_ToPageH(MapTabHeader * mth)
 {
-  return (struct PageHeader *)mth;
+  PageHeader * pageH = (PageHeader *)
+    ((char *)mth - offsetof(PageHeader, kt_u.mp.hdrs[mth->ndxInPage]));
+  assert(pageH_GetObType(pageH) == ot_PtMappingPage2);
+  return pageH;
+}
+
+INLINE void *
+MapTabHeaderToKVA(MapTabHeader * mth)
+{
+  PageHeader * pageH = MapTab_ToPageH(mth);
+  kva_t va = pageH_GetPageVAddr(pageH);
+  return (void *) (va + (mth->ndxInPage)*CPT_SIZE);
 }
 
 void mach_FlushBothTLBs(void);
 bool LoadWordFromUserSpace(uva_t userAddr, uint32_t * resultP);
+MapTabHeader * AllocateCPT(void);
 
 #endif /* __ASSEMBLER__  */
 #endif /* __PTEARM_H__ */

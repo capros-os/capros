@@ -22,6 +22,7 @@
  */
 
 #include <eros/machine/target-asm.h>
+#include <kerninc/ObjectHeader.h>
 
 #define PTE_V	 0x001	/* valid (Intel: 'present') */
 #define PTE_W    0x002	/* writable */
@@ -110,6 +111,13 @@ INLINE struct PageHeader *
 MapTab_ToPageH(struct MapTabHeader * mth)
 {
   return (struct PageHeader *)mth;
+}
+
+INLINE struct PTE *
+MapTabHeaderToKVA(struct MapTabHeader * mth)
+{
+  struct PageHeader * pageH = MapTab_ToPageH(mth);
+  return (struct PTE *) pageH_GetPageVAddr(pageH);
 }
 
 INLINE void

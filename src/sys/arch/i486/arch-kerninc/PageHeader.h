@@ -48,13 +48,7 @@ struct MapTabHeader {
 			   NOTE: not the key, the object. */
   uint8_t rwProduct    : 1;	/* indicates mapping page is RW version */
   uint8_t caProduct    : 1;	/* indicates mapping page is callable version */
-  /* The following fields are architecture-dependent,
-     but I'm not going to reorganize them now,
-     because this whole structure is architecture-dependent.
-     A page could have more than one mapping table, or fewer than one. */
   uint8_t tableSize    : 1;	/* 0 for page table, 1 for page directory */
-  uint8_t producerNdx  : 4;
-  ula_t tableCacheAddr;
 };
 
 #endif // __MACHINE_PAGEHEADER_H__

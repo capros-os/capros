@@ -23,23 +23,21 @@
 /* Machine-dependent data for the ObjectHeader. */ 
 
 #define MD_PAGE_OBTYPES \
-  , ot_PtMappingPage
+  , ot_PtMappingPage2	// second-level page table
 
 #define MD_PAGE_OBNAMES \
-  , "PtMapPage "
+  , "PtMapPage2"
 
 #define MD_PAGE_VARIANTS \
-  struct MapTabHeader mp;
+  struct MapTabsVariant mp;
 
 typedef struct MapTabHeader MapTabHeader;
 struct MapTabHeader {
-/* N.B.: obType must be the first item in this structure.
-   This puts it in the same location as PageHeader.kt_u.ob.obType. */
-  uint8_t obType;		/* only ot_PtMappingPage */
-    
 /* The fields next and producer are required by the machine-independent code. */
-  MapTabHeader * next;	/* next product of this producer */
+  MapTabHeader * next;	/* next product of this producer,
+			   or next in free list */
   ObjectHeader * producer;
+
   struct Node * redSeg;	/* pointer to slot of keeper that
 			 * dominated this mapping frame */
   unsigned char redSpanBlss;	/* blss of seg spanned by redSeg */
@@ -48,13 +46,24 @@ struct MapTabHeader {
 			   NOTE: not the key, the object. */
   uint8_t rwProduct    : 1;	/* indicates mapping page is RW version */
   uint8_t caProduct    : 1;	/* indicates mapping page is callable version */
-  /* The following fields are architecture-dependent,
-     but I'm not going to reorganize them now,
-     because this whole structure is architecture-dependent.
-     A page could have more than one mapping table, or fewer than one. */
   uint8_t tableSize    : 1;	/* 1 for first level table, 0 for page table */
+  uint8_t isFree       : 1;
   uint8_t producerNdx  : 4;
+  uint8_t ndxInPage    : 2;	/* mp.hdrs[ndxInPage] == this */
   ula_t tableCacheAddr;
+};
+
+struct MapTabsVariant {
+  /* N.B.: obType must be the first item in this structure.
+     This puts it in the same location as PageHeader.kt_u.ob.obType. */
+  uint8_t obType;		/* only ot_PtMappingPage2 */
+
+  MapTabHeader hdrs[4];
+    /* For a First Level page table, only hdrs[0] is used, and
+       hdrs[0].tableSize == 1.
+       For Second Level page tables, hdrs[i].tableSize == 0 
+       for all 0 <= i <= 3. */
+    /* First level page tables are not fully implemented. */
 };
 
 #endif // __MACHINE_PAGEHEADER_H__

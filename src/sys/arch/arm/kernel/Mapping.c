@@ -38,8 +38,6 @@
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u )
 
-struct ObjectHeader;
-
 extern kva_t heap_start;
 extern kva_t heap_end;
 extern kva_t heap_defined;
@@ -52,6 +50,8 @@ kva_t kernelStackBot;	/* the highest address of the kernel stack +1 */
    used for processes using the Fast Context Switch Extension. */
 kpa_t FLPT_FCSEPA;
 uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
+
+MapTabHeader * freeCPTs = 0;	// list of free coarse page tables
 
 /* MMU Domains
 
@@ -69,17 +69,9 @@ A process using a small address space runs with the Process ID for that space.
 
 */
 struct SmallSpace {
-  struct ObjectHeader * producer;	/* or NULL if space is not assigned */
+  ObjectHeader * producer;	/* or NULL if space is not assigned */
   unsigned char domain;	/* the domain owned by this PID, 0 if none */
 } SmallSpaces[NumSmallSpaces];
-
-INLINE void *
-MapTabHeaderToKVA(struct MapTabHeader * mth)
-{
-//// This will change when we put 4 page tables in a page.
-  struct PageHeader * pageH = MapTab_ToPageH(mth);
-  return (void *)pageH_GetPageVAddr(pageH);
-}
 
 /* Zap all references to this mapping table. */
 void
@@ -225,49 +217,47 @@ pageH_mdType_CheckPage(PageHeader * pPage)
   uint32_t ent;
   PTE* thePTE;
 
-  assert(pageH_GetObType(pPage) == ot_PtMappingPage);
+  assert(pageH_GetObType(pPage) == ot_PtMappingPage2);
+  assert(pPage->kt_u.mp.hdrs[0].tableSize == 0);
+	// top level table not fully implemented
 
-  if (pPage->kt_u.mp.tableSize == 1)
-    return true;
+  int i;
+  for (i=0; i<4; i++) {
+    MapTabHeader * mth = & pPage->kt_u.mp.hdrs[i];
+    if (mth->isFree) {
+    } else {
+      // Check a second-level mapping table (coarse page table).
+      pte = (PTE*) pageH_GetPageVAddr(pPage);
 
-  // Check a second-level mapping table.
-  pte = (PTE*) pageH_GetPageVAddr(pPage);
+      for (ent = 0; ent < CPT_ENTRIES; ent++) {
+        thePTE = &pte[ent];
+        if (pte_isValid(thePTE)) {
+          uint32_t pteWord = pte_AsWord(thePTE);
 
-#define MAPPING_ENTRIES_PER_PAGE 1024	// this is wrong
-  for (ent = 0; ent < MAPPING_ENTRIES_PER_PAGE; ent++) {
-    thePTE = &pte[ent];
-    if (pte_isValid(thePTE)) {
-      uint32_t pteWord = pte_AsWord(thePTE);
+          if ((pteWord & 0x30) == 0x30) {	// writeable by some user
+            kpa_t pageFrame = pte_PageFrame(thePTE);
+            PageHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);
+            assert(thePageHdr && pageH_IsObjectType(thePageHdr));
 
-      if ((pteWord & 0x30) == 0x30) {	// writeable by some user
-        kpa_t pageFrame = pte_PageFrame(thePTE);
-
-#if 0
-        kva_t thePage = PTOV(pageFrame);
-        if (thePage >= KVTOL(KVA_FROMSPACE))
-  	continue;
-#endif
-
-        PageHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);
-        assert(thePageHdr && pageH_IsObjectType(thePageHdr));
-
-        if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_CKPT)) {
-  	  printf("Writable PTE=0x%08x (map page 0x%08x), ckpt pg"
+            if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_CKPT)) {
+              printf("Writable PTE=0x%08x (map page 0x%08x), ckpt pg"
   		       " 0x%08x%08x\n",
 		       pteWord, pte,
 		       (uint32_t) (thePageHdr->kt_u.ob.oid >> 32),
 		       (uint32_t) thePageHdr->kt_u.ob.oid);
 
-	  return false;
-        }
-        if (!pageH_IsDirty(thePageHdr)) {
-  	  printf("Writable PTE=0x%08x (map page 0x%08x), clean pg"
+              return false;
+            }
+            if (!pageH_IsDirty(thePageHdr)) {
+              printf("Writable PTE=0x%08x (map page 0x%08x), clean pg"
 		         " 0x%08x%08x\n",
 		         pteWord, pte,
 		         (uint32_t) (thePageHdr->kt_u.ob.oid >> 32),
 		         (uint32_t) thePageHdr->kt_u.ob.oid);
 
-	  return false;
+              return false;
+            }
+          }
         }
       }
     }
@@ -276,56 +266,131 @@ pageH_mdType_CheckPage(PageHeader * pPage)
   return true;
 }
 
-void
-ReleaseProduct(MapTabHeader * mth)
+// Free a coarse page table.
+// Caller must check if this is the last free table in its page.
+static void
+FreeCPT(MapTabHeader * mth)
 {
+  mth->isFree = 1;
+  mth->next = freeCPTs;
+  freeCPTs = mth;
+}
+
+// Allocate a coarse page table.
+// May Yield?
+MapTabHeader *
+AllocateCPT(void)
+{
+  MapTabHeader * mth;
+
+  if (! freeCPTs) {
+    PageHeader * pageH = objC_GrabPageFrame();
+    pageH->kt_u.mp.obType = ot_PtMappingPage2;
+    int i;
+    for (i=0; i<4; i++) {
+      mth = &pageH->kt_u.mp.hdrs[i];
+      mth->tableSize = 0;
+      mth->ndxInPage = i;
+      FreeCPT(mth);
+    }
+  }
+  // Grab a CPT from the free list.
+  mth = freeCPTs;
+  freeCPTs = mth->next;
+  return mth;
+}
+
+// If all the mapping tables in this page are free, free the page.
+void
+Check2ndLevelMappingTableFree(PageHeader * pageH)
+{
+  int i;
+  for (i=0; i<4; i++) {
+    if (! pageH->kt_u.mp.hdrs[i].isFree)
+      return;
+  }
+  // unchain them from free list
+  for (i=0; i<4; i++) {
+    MapTabHeader * mth = & pageH->kt_u.mp.hdrs[i];
+    MapTabHeader * * mthpp = &freeCPTs;
+    while (*mthpp != mth) {
+      assert(*mthpp);	// else not found in list
+      mthpp = &(*mthpp)->next;
+    }
+    *mthpp = mth->next;	// unchain it
+  }
+  ReleasePageFrame(pageH);
+}
+
+/* After calling this procedure, the caller must call
+Check2ndLevelMappingTableFree(MapTab_ToPageH(mth)). */
+static void
+Release2ndLevelMappingTable(MapTabHeader * mth)
+{
+  if (mth->isFree) return;	// nothing to do
+
   MapTab_ClearRefs(mth);
 
   objH_DelProduct(mth->producer, mth);
 
   /* Don't need to invalidate the entries in the page. */
 
-  ReleasePageFrame(MapTab_ToPageH(mth));
-
+  FreeCPT(mth);
   UpdateTLB();	// not sure if this is done elsewhere
+}
+
+void
+ReleaseProduct(MapTabHeader * mth)
+{
+  /* First level tables not supported yet. */
+  Release2ndLevelMappingTable(mth);
+  Check2ndLevelMappingTableFree(MapTab_ToPageH(mth));
 }
 
 void
 pageH_mdType_EvictFrame(PageHeader * pageH)
 {
-  assert(pageH_GetObType(pageH) == ot_PtMappingPage);
-  ReleaseProduct(& pageH->kt_u.mp);
+  assert(pageH_GetObType(pageH) == ot_PtMappingPage2);
+	// first level page tables not fully implemented yet.
+  int i;
+  for (i=0; i<4; i++) {
+    Release2ndLevelMappingTable(&pageH->kt_u.mp.hdrs[i]);
+  }
+  // Page can now be freed. The following call cleans up and frees the page:
+  Check2ndLevelMappingTableFree(pageH);
 }
 
 bool
 pageH_mdType_AgingExempt(PageHeader * pageH)
 {
-  assert(pageH_GetObType(pageH) == ot_PtMappingPage);
-  /* Mapping pages cannot go out if their producer is pinned,
-  because they are likely to be involved in page translation. */
+  assert(pageH_GetObType(pageH) == ot_PtMappingPage2);
+  /* Pinning a page or node also pins any produced mapping tables. */
 
-  ObjectHeader * pProducer = pageH->kt_u.mp.producer;
-  if (objH_IsUserPinned(pProducer))
-    return true;
-  // if (objH_IsKernelPinned(pProducer)) return true;
+  int i;
+  for (i=0; i<4; i++) {
+    MapTabHeader * mth = & pageH->kt_u.mp.hdrs[i];
+    if (objH_IsUserPinned(mth->producer))
+      return true;
+    // if (objH_IsKernelPinned(mth->producer)) return true;
+  }
   return false;
 }
 
 bool	// return true iff page was freed
 pageH_mdType_AgingClean(PageHeader * pageH)
 {
-  assert(pageH_GetObType(pageH) == ot_PtMappingPage);
+  assert(pageH_GetObType(pageH) == ot_PtMappingPage2);
   /* It's a lot cheaper to regenerate a mapping page than to
    * read some other page back in from the disk...
    */
-  ReleaseProduct(& pageH->kt_u.mp);
+  pageH_mdType_EvictFrame(pageH);
   return true;
 }
 
 bool
 pageH_mdType_AgingSteal(PageHeader * pageH)
 {
-  assert(pageH_GetObType(pageH) == ot_PtMappingPage);
+  assert(pageH_GetObType(pageH) == ot_PtMappingPage2);
   /* Mapping pages should never make it to PageOut age, because
    * they should be zapped at the invalidate age. It's
    * relatively cheap to rebuild them, and zapping them eagerly
@@ -341,29 +406,32 @@ pageH_mdType_AgingSteal(PageHeader * pageH)
 void
 pageH_mdType_dump_pages(PageHeader * pageH)
 {
-  char producerType;
+  assert(pageH_GetObType(pageH) == ot_PtMappingPage2);
+}
 
-  assert(pageH_GetObType(pageH) == ot_PtMappingPage);
-
-  if (pageH->kt_u.mp.producer == 0) {
-    producerType = '?';
-  }
-  else if (pageH->kt_u.mp.producer->obType <= ot_NtLAST_NODE_TYPE) {
-    producerType = 'n';
-  }
-  else {
-    producerType = 'p';
-  }
-  printf("prod %c\n", producerType);
+void
+DumpMapTabHdr(MapTabHeader * mth)
+{
+  printf("    prodBlss=%d rwProd=%c producer=0x%08x\n",
+	 mth->producerBlss,
+         mth->rwProduct ? 'y' : 'n',
+         mth->producer );
 }
 
 void
 pageH_mdType_dump_header(PageHeader * pageH)
 {
-  printf("    prodBlss=%d rwProd=%c producer=0x%08x\n",
-	 pageH->kt_u.mp.producerBlss,
-         pageH->kt_u.mp.rwProduct ? 'y' : 'n',
-         pageH->kt_u.mp.producer );
+  if (pageH->kt_u.mp.hdrs[0].tableSize) {
+    // First Level mapping table
+    DumpMapTabHdr(&pageH->kt_u.mp.hdrs[0]);
+  } else {
+    // Second Level mapping table
+    int i;
+    for (i=0; i<4; i++) {
+      printf("    tbl[%d]: ", i);
+      DumpMapTabHdr(&pageH->kt_u.mp.hdrs[i]);
+    }
+  }
 }
 
 #endif

@@ -106,13 +106,11 @@ objH_DelProduct(ObjectHeader * thisPtr, MapTabHeader * product)
   
   // Unchain it.
   MapTabHeader * * mthpp = &thisPtr->prep_u.products;
-  while (*mthpp) {
-    if (*mthpp == product) {	// found this one
-      *mthpp = product->next;	// unchain it
-      break;
-    }
+  while (*mthpp != product) {
+    assert(*mthpp);	// else not found in list
     mthpp = &(*mthpp)->next;
   }
+  *mthpp = product->next;	// unchain it
   
   product->next = 0;
   product->producer = 0;

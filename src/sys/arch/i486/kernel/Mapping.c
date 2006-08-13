@@ -46,13 +46,6 @@ extern kva_t heap_bound;
 PTE* KernPageDir /* = (PTE*) xKERNPAGEDIR */;
 kpmap_t KernPageDir_pa /* = xKERNPAGEDIR */;
 
-INLINE struct PTE *
-MapTabHeaderToKVA(struct MapTabHeader * mth)
-{
-  struct PageHeader * pageH = MapTab_ToPageH(mth);
-  return (struct PTE *) pageH_GetPageVAddr(pageH);
-}
-
 /* Zap all references to this mapping table. */
 void
 MapTab_ClearRefs(MapTabHeader * mth)

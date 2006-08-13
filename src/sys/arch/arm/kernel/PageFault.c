@@ -48,13 +48,6 @@ unsigned int EnsureSSDomain(unsigned int ssid);
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-INLINE bool
-obj_IsFLPT(PageHeader * pageH) /* pageH->obType must be ot_PtMappingPage */
-{
-  /* tableSize is 0 for page table, 1 for first level page table */
-  return pageH->kt_u.mp.tableSize /* == 1 */ ;
-}
-
 /* Possible outcomes of a user-level page fault:
  * 
  * 1. Fault was due to a not-present page, and address is not valid in
@@ -169,13 +162,14 @@ pte_ObIsNotWritable(PageHeader * pageH)
   for (pf = 0; pf < objC_TotalPages(); pf++) {
     PageHeader * pHdr = objC_GetCorePageFrame(pf);
 
-    if (pageH_GetObType(pHdr) != ot_PtMappingPage)
+    if (pageH_GetObType(pHdr) != ot_PtMappingPage2)
       continue;
 
-    uint32_t * ptepg = (uint32_t *) pageH_GetPageVAddr(pHdr);
+    uint32_t * ptepg;
     
-    if (obj_IsFLPT(pHdr)) {
+    if (pHdr->kt_u.mp.hdrs[0].tableSize) {
       /* Scan the entries in this FLPT. */
+      ptepg = (uint32_t *) pageH_GetPageVAddr(pHdr);
       for (ent = 0; ent < (UserEndVA >> L1D_ADDR_SHIFT); ent++) {
         if ((ptepg[ent] & L1D_VALIDBITS) == (L1D_COARSE_PT & L1D_VALIDBITS)) {
           if ((ptepg[ent] & L1D_COARSE_PT_ADDR) == pagePA) {
@@ -185,13 +179,20 @@ pte_ObIsNotWritable(PageHeader * pageH)
         }
       }
     } else {
-      /* Scan the entries in this page table. */
-      for (ent = 0; ent < 256; ent++) {
-        if ((ptepg[ent] & CPT_VALIDBITS) == CPT_SMALL_PAGE) {
-          if ((ptepg[ent] & CPT_PAGE_MASK) == pagePA	/* this page */
-              && (ptepg[ent] & 0xff0) == 0xff0 ) {	/* and writeable */
-            dprintf(true, "ObIsNotWriteable failed\n");
-            return false;
+      int i;
+      for (i=0; i<4; i++) {
+        MapTabHeader * mth = & pHdr->kt_u.mp.hdrs[i];
+        if (! mth->isFree) {
+          ptepg = (uint32_t *) MapTabHeaderToKVA(mth);
+          /* Scan the entries in this page table. */
+          for (ent = 0; ent < CPT_ENTRIES; ent++) {
+            if ((ptepg[ent] & CPT_VALIDBITS) == CPT_SMALL_PAGE) {
+              if ((ptepg[ent] & CPT_PAGE_MASK) == pagePA	/* this page */
+                  && (ptepg[ent] & 0xff0) == 0xff0 ) {	/* and writeable */
+                dprintf(true, "ObIsNotWriteable failed\n");
+                return false;
+              }
+            }
           }
         }
       }
@@ -202,46 +203,35 @@ pte_ObIsNotWritable(PageHeader * pageH)
 }
 #endif /* !NDEBUG */
 
-/* Make a new second-level page table.
-Note: as a temporary expedient, we allocate a page and waste 75% of it. */
-static PageHeader *
+/* Make a new second-level page table. */
+static MapTabHeader *
 MakeNewPageTable(SegWalk * wi /*@ not null @*/, uint32_t ndx)
 {
   DEBUG(pgflt) printf("MakeNewPageTable ");
-  PageHeader * pTable = objC_GrabPageFrame();
-  MapTabHeader * mth = &pTable->kt_u.mp;
 
-  pTable->kt_u.mp.obType = ot_PtMappingPage;
-  mth->tableSize = 0;
+  MapTabHeader * mth = AllocateCPT();
+
   mth->producerBlss = wi->segBlss;
   mth->producerNdx = ndx;
-  
   mth->redSeg = wi->redSeg;
   mth->wrapperProducer = wi->segObjIsWrapper;
   mth->redSpanBlss = wi->redSpanBlss;
   mth->rwProduct = 1;
   mth->caProduct = 1;
+  void * tableAddr = MapTabHeaderToKVA(mth);
 
-  kva_t tableAddr = pageH_GetPageVAddr(pTable);
-  DEBUG(pgflt) printf("physAddr=0x%08x\n", VTOP(tableAddr));
+  DEBUG(pgflt) printf("physAddr=0x%08x\n", VTOP((kva_t)tableAddr));
 
-  bzero((void *)tableAddr, EROS_PAGE_SIZE);
-
-#if 0
-  printf("0x%08x->MkPgTbl(blss=%d,ndx=%d,rw=%c,ca=%c,"
-		 "producerTy=%d) => 0x%08x\n",
-		 wi.segObj,
-		 wi.segBlss, ndx, 'y', 'y', wi.segObj->obType,
-		 pTable);
-#endif
+  // PTE_ZAPPED == 0, so we can just clear the table:
+  bzero(tableAddr, CPT_SIZE);
 
   objH_AddProduct(wi->segObj, mth);
 
-  return pTable;
+  return mth;
 }
 
 /* Walk the node's products looking for an acceptable product: */
-static PageHeader *
+static MapTabHeader *
 objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
                  unsigned int tblSize, 
                  unsigned int producerNdx, 
@@ -260,7 +250,6 @@ objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
   
   for (product = thisPtr->prep_u.products;
        product; product = product->next) {
-    assert(pageH_GetObType(MapTab_ToPageH(product)) == ot_PtMappingPage);
     if ((uint32_t) product->producerBlss != blss) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("Producer BLSS not match\n");
@@ -342,7 +331,7 @@ objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
 		 product);
 #endif
 
-  return MapTab_ToPageH(product);
+  return product;
 }
 
 /* Handle page fault from user or system mode.
@@ -583,31 +572,26 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
                      (PTE *)theFLPTEntry, 0, true) )
     return false;
 
-////printf("wi.offset=0x%08x ", wi.offset);////
+  // printf("wi.offset=0x%08x ", wi.offset);
   uint32_t productNdx = wi.offset >> 20;
 
-  /* Level 0 product need never be a read-only product.  We use
-   * the write permission bit at the PDE level.
-     ???
-   */
-  PageHeader * pTableHdr =
+  MapTabHeader * mth =
     objH_FindProduct(wi.segObj, &wi, 0, productNdx, true, true, 
                      la >> L1D_ADDR_SHIFT);
 
-  if (pTableHdr == 0) {
-    pTableHdr = MakeNewPageTable(&wi, productNdx);
-    pTableHdr->kt_u.mp.tableCacheAddr = la >> L1D_ADDR_SHIFT;
+  if (mth == 0) {
+    mth = MakeNewPageTable(&wi, productNdx);
+    mth->tableCacheAddr = la >> L1D_ADDR_SHIFT;
   }
-  assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
-  assert(wi.segBlss == pTableHdr->kt_u.mp.producerBlss);
-  assert(wi.segObj == pTableHdr->kt_u.mp.producer);
-  assert(wi.redSeg == pTableHdr->kt_u.mp.redSeg);
+  assert(wi.segBlss == mth->producerBlss);
+  assert(wi.segObj == mth->producer);
+  assert(wi.redSeg == mth->redSeg);
 
   /* On x86, the page table is always RW product, and we rely on
      the write permission bit at the PDE level: ??? */
-  assert(pTableHdr->kt_u.mp.rwProduct);
+  assert(mth->rwProduct);
 
-  pTable = (PTE *) pageH_GetPageVAddr(pTableHdr);
+  pTable = (PTE *) MapTabHeaderToKVA(mth);
 
   /* Set the entry in the first-level page table to refer to
      the second-level table. */
