@@ -32,11 +32,11 @@
 
 /* On entry to SEND, r0 has a pointer to a Message structure. */
 __rt_do_SEND:	.globl __rt_do_SEND
-	stmfd sp!,{r4,r14}
+	stmfd sp!,{r4,r5,r14}
 /* Here we load into registers the most commonly used fields of
    the Message structure, because that is the fastest way to get
    the information into the kernel. */
-	ldmia r0,{r1-r4}
+	ldmia r0,{r1-r5}
 	and r1,r1,#0xff
 	orr r1,r1,#(IT_Send << 8)
 /* r0 - ptr to Message structure
@@ -46,6 +46,7 @@ __rt_do_SEND:	.globl __rt_do_SEND
    r2 - keys to send
    r3 - snd_len
    r4 - snd_code
+   r5 - snd_w1
  */
 	swi SWI_Invoke
 /* When we get back:
@@ -54,4 +55,4 @@ __rt_do_SEND:	.globl __rt_do_SEND
  */
 	str r1,[r0,#48]	// store rcv_code in Message structure
 	mov r0,r1	// rcv_code also returned as value in r0
-	ldmfd sp!,{r4,pc}	// return
+	ldmfd sp!,{r4,r5,pc}	// return

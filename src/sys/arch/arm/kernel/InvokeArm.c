@@ -90,10 +90,8 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 /* We may be able to eliminate the copy of w1, w2, and w3 when invoking
    kernel keys that don't use those parameters. 
    For now, just copy them. */
+  inv->entry.w1 = thisPtr->trapFrame.r5;
   /* Current process's address map is still loaded. */
-  if (! LoadWordFromUserSpace(entryMessage + offsetof(Message, snd_w1),
-                              &inv->entry.w1))
-    fatal("Error loading w1-w3");	/* do we need to handle this? */
   if (! LoadWordFromUserSpace(entryMessage + offsetof(Message, snd_w2),
                               &inv->entry.w2))
     fatal("Error loading w1-w3");
@@ -140,6 +138,10 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   }
 
   /* /thisPtr/ is valid. Decode the exit block. */
+  /* Note, we can't easily get the exit block from the Message structure,
+  because that process's address map isn't loaded now.
+  Fortunately we have stashed the values in registers. */
+
   rcvKeys = (uint8_t *) &thisPtr->trapFrame.r14;
 
   if (thisPtr->trapFrame.r14) {		/* if any nonzero */
@@ -257,13 +259,13 @@ void /* does not return */
 InvokeArm(Process * invokerProc,
           uint32_t typeAndKey,	/* invoked key in low byte, type in next */
           uint32_t snd_keys,
-          uint32_t snd_len, uint32_t snd_code)
+          uint32_t snd_len)
 {
   Process * invokee;
 
 #if 0
   printf("Inv p=%x, type.key %x, oc 0x%x, psr=%x, pc=0x%08x, r0=%x, sp=0x%08x\n",
-         invokerProc, typeAndKey, snd_code,
+         invokerProc, typeAndKey, invokerProc->trapFrame.r4,
          invokerProc->trapFrame.CPSR, invokerProc->trapFrame.r15,
          invokerProc->trapFrame.r0, invokerProc->trapFrame.r13);
 #endif

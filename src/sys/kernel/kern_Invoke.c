@@ -543,6 +543,11 @@ proc_DoKeyInvocation(Process* thisPtr)
   
   proc_SetupEntryBlock(thisPtr, &inv);
 
+#if 0
+  printf("Invoking proc=0x%08x invSlot=%d oc=%d\n",
+         thisPtr, inv.key - &thisPtr->keyReg[0], inv.entry.code);
+#endif
+
 #ifdef OPTION_DDB
   if ( ddb_inv_flags )
     goto general_path;

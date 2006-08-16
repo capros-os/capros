@@ -384,9 +384,13 @@ SWI_Invoke_Handler:
    r2 - keys to send
    r3 - snd_len
    r4 - snd_code
+   r5 - snd_w1
+   r12 - rcv_limit
+   user's r14 in Process block - rcv_keys
  */
+/* Note: snd_w1 must be passed to the kernel in a register,
+   because it is used by code running in read-only memory. */
 	sub r0,r0,#(PR_OFF_CPSR + 8)	// point to Process structure
-	str r4,[sp,#-4]!	// push snd_code
 	bl InvokeArm		// continue in C
 	// does not return
 	b SwiBadMode		// in case it does

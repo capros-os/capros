@@ -50,8 +50,8 @@
 
 /* On entry to INVOKECAP, r0 has a pointer to a Message structure. */
 ENTRY(__rt_do_INVOKECAP)
-	stmfd sp!,{r4,r14}
-	ldmia r0,{r1-r4}
+	stmfd sp!,{r4,r5,r14}
+	ldmia r0,{r1-r5}
 	b invokeCommon	// go with invType from Message structure
 	
 	.weak	EXT(NPRETURN)
@@ -59,8 +59,8 @@ ENTRY(__rt_do_INVOKECAP)
 
 /* On entry to NPRETURN, r0 has a pointer to a Message structure. */
 ENTRY(__rt_do_NPRETURN)
-	stmfd sp!,{r4,r14}
-	ldmia r0,{r1-r4}
+	stmfd sp!,{r4,r5,r14}
+	ldmia r0,{r1-r5}
 	and r1,r1,#0xff
 	orr r1,r1,#(IT_NPReturn<< 8)
 	b invokeCommon
@@ -70,8 +70,8 @@ ENTRY(__rt_do_NPRETURN)
 
 /* On entry to RETURN, r0 has a pointer to a Message structure. */
 ENTRY(__rt_do_RETURN)
-	stmfd sp!,{r4,r14}
-	ldmia r0,{r1-r4}
+	stmfd sp!,{r4,r5,r14}
+	ldmia r0,{r1-r5}
 	and r1,r1,#0xff
 	orr r1,r1,#(IT_PReturn<< 8)
 	b invokeCommon
@@ -81,11 +81,11 @@ ENTRY(__rt_do_RETURN)
 
 /* On entry to CALL, r0 has a pointer to a Message structure. */
 ENTRY(__rt_do_CALL)
-	stmfd sp!,{r4,r14}
+	stmfd sp!,{r4,r5,r14}
 /* Here we load into registers the most commonly used fields of
    the Message structure, because that is the fastest way to get
    the information into the kernel. */
-	ldmia r0,{r1-r4}
+	ldmia r0,{r1-r5}
 	and r1,r1,#0xff
 	orr r1,r1,#(IT_Call << 8)
 invokeCommon:
@@ -96,6 +96,7 @@ invokeCommon:
    r2 - keys to send
    r3 - snd_len
    r4 - snd_code
+   r5 - snd_w1
  */
 	ldr r14,[r0,#32]	// rcv_keys
 	ldr r12,[r0,#36]	// rcv_limit
@@ -113,4 +114,4 @@ invokeCommon:
 	add r0,r0,#44
 	stmia r0,{r1-r4,r12,r14}	// store values in Message structure
 	mov r0,r1	// rcv_code also returned as value in r0
-	ldmfd sp!,{r4,pc}	// return
+	ldmfd sp!,{r4,r5,pc}	// return

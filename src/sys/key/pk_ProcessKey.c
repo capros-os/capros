@@ -319,7 +319,6 @@ ProcessKey(Invocation* inv /*@ not null @*/)
 
   case OC_Process_SwapMemory32:
     {
-      Process* ac = 0;
       inv->exit.w1 = inv->entry.w1;
       inv->exit.w2 = inv->entry.w2;
       inv->exit.w3 = inv->entry.w3;
@@ -327,7 +326,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       /* All of these complete ok. */
       inv->exit.code = RC_OK;
       
-      ac = node_GetDomainContext(theNode);
+      Process * ac = node_GetDomainContext(theNode);
       proc_Prepare(ac);
 
       COMMIT_POINT();
