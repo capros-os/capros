@@ -89,12 +89,12 @@ label:	.byte snd_invKey, IT_Call, 0, 0 ;\
 	/* that are returned in registers, not in the structure. */ \
 	.text ;\
 	ldr r0,=label ;\
-	ldmia r0,{r1-r4} ;\
+	ldmia r0,{r1-r5} ;\
 	ldr r14,[r0,#32] ;\
 	ldr r12,[r0,#36] ;\
 	swi SWI_Invoke
 
-#define InvConstants(label, snd_invKey, snd_code, snd_key0, rcv_key0) \
+#define InvConstants(label, snd_invKey, snd_code, snd_w1, snd_key0, rcv_key0) \
 	.section .rodata ;\
 	.balign 4 ;\
 /* Just declare the values to be loaded into registers. */ \
@@ -102,15 +102,16 @@ label:	.byte snd_invKey, IT_Call, 0, 0 ;\
 	.byte snd_key0,KR_VOID,KR_VOID,KR_VOID ;\
 	.long 0		/* snd_len */ ;\
 	.long snd_code ;\
+	.long snd_w1 ;\
 /* #if RESUME_SLOT == 3 */ \
 	.long 0		/* rcv_limit */ ;\
 	.byte rcv_key0,KR_VOID,KR_VOID,KR_VOID ;\
 	.text
 
 #define simpleCall(label, snd_invKey, snd_code, snd_key0, rcv_key0) \
-	InvConstants(label, snd_invKey, snd_code, snd_key0, rcv_key0) ;\
+	InvConstants(label, snd_invKey, snd_code, 0, snd_key0, rcv_key0) ;\
 	ldr r0,=label ;\
-	ldmia r0,{r1-r4,r12,r14} ;\
+	ldmia r0,{r1-r5,r12,r14} ;\
 	ldr r0,=mk_node_key	/* a handy Message structure */ ;\
 	swi SWI_Invoke
 	
@@ -174,16 +175,16 @@ ENTRY(__rt_small_startup)
 #define sizeof_Message 68
 #define MessageAddr (EROS_PAGE_SIZE * EROS_NODE_SIZE - sizeof_Message)
 
-	ldr r5,=__rt_stack_pages
+	ldr r8,=__rt_stack_pages
 	ldr r0,=MessageAddr	// r0 is preserved by invocation
-	ldr r5,[r5]		// number of pages left to create +1
+	ldr r8,[r8]		// number of pages left to create +1
 	mov r6,#(EROS_NODE_SIZE-1)	// next slot to write +1
 
 	// Most fields in the Message structure are don't cares.
 
 	/* buy any remaining stack pages we may need */
 buy_stack:
-	subs r5,r5,#1
+	subs r8,r8,#1
 	beq stack_ready
 	subs r6,r6,#1		// slot to write
 #if 0
@@ -197,13 +198,11 @@ buy_stack:
 	movl	$EROS_NODE_SLOT_MASK,PGSLOT	/* next slot to write */
 #endif
 	
-	mov r1,#0
-	str r1,[r0,#16]		// snd_w1
 	InvConstants(buy_later_page, KR_BANK,
-                     OC_SpaceBank_Alloc1DataPage, KR_VOID,
-                     KR_NEWPAGE)
+                     OC_SpaceBank_Alloc1DataPage, 0,
+                     KR_VOID, KR_NEWPAGE)
 	ldr r7,=buy_later_page
-	ldmia r7,{r1-r4,r12,r14}
+	ldmia r7,{r1-r5,r12,r14}
 	swi SWI_Invoke
 #if 0
 	cmp r1,#0	/* check return value */
@@ -211,12 +210,12 @@ buy_stack:
 #endif
 
 	/* stick the stack page we bought into the new node */
-	str r6,[r0,#16]		// snd_w1, slot to write
 	InvConstants(set_later_page, KR_NEWSPACE,
-                     OC_Node_Swap, KR_NEWPAGE,
-                     KR_VOID)	// don't want the old contents
+                     OC_Node_Swap, 0,
+                     KR_NEWPAGE, KR_VOID)	// don't want the old contents
 	ldr r7,=set_later_page
 	ldmia r7,{r1-r4,r12,r14}
+	mov r5,r6	// snd_w1, slot to write
 	swi SWI_Invoke
 
 	b buy_stack

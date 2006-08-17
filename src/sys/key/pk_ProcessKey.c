@@ -336,22 +336,19 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       
       node_ClearHazard(theNode, ProcAddrSpace);
 
-
       {
 	Key k;
 
         keyBits_InitToVoid(&k);
         key_NH_Set(&k, &theNode->slot[ProcAddrSpace]);
-	
 
 	key_NH_Set(node_GetKeyAtSlot(theNode, ProcAddrSpace), inv->entry.key[0]);
-	inv_SetExitKey(inv, 0, &k);
+	inv_SetExitKey(inv, 0, &k);	// return old AddrSpace
 
 	/* Unchain, but do not unprepare -- the objects do not have
 	 * on-disk keys. 
 	 */
 	key_NH_Unchain(&k);
-
       }
       
       ac->nextPC = proc_GetPC(ac);

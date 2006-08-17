@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -63,7 +64,7 @@ typedef struct {
 #define KR_OSTREAM	  KR_APP(3)	/* so PCC can tell us what's up */
 #define KR_PROCTOOL	  KR_APP(4)	/* domain tool */
 #define KR_DOMCRE_SEG	  KR_APP(5)	/* code seg for DomCre (RO) */
-#define KR_NEWKEYREGS	  KR_APP(6)	/* new key regs node */
+#define KR_SCRATCH0	  KR_APP(6)
 #define KR_OURBRAND	  KR_APP(7)	/* distinguished start key to PCC */
 #define KR_ARG0		  KR_ARG(0)	/* space bank */
 #define KR_ARG1		  KR_ARG(1)	/* schedule */
@@ -75,8 +76,10 @@ typedef struct {
 
 uint32_t create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t domKeyReg,
 		       domcre_info *pInfo);
-uint32_t create_new_domain(uint32_t krBank, uint32_t domKeyReg);
 uint32_t identify_domcre(uint32_t krDomCre);
+
+#define RC_ProcCre_BadBank RC_PCC_BadBank // for create_new_process.h
+#include "create_new_process.h"
 
 int
 ProcessRequest(Message *argmsg, domcre_info *pInfo)
@@ -167,16 +170,23 @@ main()
 }
 
 
-#ifdef TARGET_i486
-
 int
 destroy_domain(uint32_t krBank, uint32_t krDomKey)
 {
   if (eros_ProcTool_canOpener(KR_PROCTOOL, krDomKey, KR_OURBRAND, krDomKey, 0, 0) != RC_OK)
     return FALSE;
 
-  (void) node_copy(krDomKey, ProcGenKeys, KR_NEWKEYREGS);
-  (void) spcbank_return_node(krBank, KR_NEWKEYREGS);
+#if defined(EROS_TARGET_i486)
+
+  (void) node_copy(krDomKey, ProcGenKeys, KR_SCRATCH0);
+  (void) spcbank_return_node(krBank, KR_SCRATCH0);
+
+#elif defined(EROS_TARGET_arm)
+
+  (void) node_copy(krDomKey, ProcGenKeys, KR_SCRATCH0);
+  (void) spcbank_return_node(krBank, KR_SCRATCH0);
+
+#endif
 
   (void) spcbank_return_node(krBank, krDomKey);
       
@@ -186,56 +196,14 @@ destroy_domain(uint32_t krBank, uint32_t krDomKey)
 }
 
 uint32_t
-create_new_domain(uint32_t krBank, uint32_t krDomKey)
-{
-  uint32_t isGood;
-  int i;
-  const eros_Number_value zeroNumber = {{0, 0, 0}};
-
-  DEBUG kdprintf(KR_OSTREAM, "Check official bank...\n");
-
-  if (spcbank_verify_bank(KR_BANK, krBank, &isGood) != RC_OK ||
-      isGood == 0)
-    return RC_PCC_BadBank;
-  
-  DEBUG kdprintf(KR_OSTREAM, "OK -- buy domain nodes\n");
-
-  /* Bank is okay, try to buy the space: */
-  if (spcbank_buy_nodes(krBank, 2, krDomKey, KR_NEWKEYREGS,
-			KR_VOID) != RC_OK)
-    return RC_eros_key_NoMoreNodes;
-
-  DEBUG kdprintf(KR_OSTREAM, "Assemble them\n");
-  /* We have the nodes.  Make the second the key registers node of the
-     first: */
-  (void) node_swap(krDomKey, ProcGenKeys, KR_NEWKEYREGS, KR_VOID);
-
-  /* Initialize the fixed registers to zero number keys. */
-  for (i = ProcFirstRootRegSlot; i <= ProcLastRootRegSlot; i++)
-    (void) node_write_number(krDomKey, i, &zeroNumber);
-  
-  /* Now install the brand: */
-  (void) node_swap(krDomKey, ProcBrand, KR_OURBRAND, KR_VOID);
-
-  DEBUG kdprintf(KR_OSTREAM, "Build domain key:\n");
-
-  /* Now make a domain key of this: */
-  (void) eros_ProcTool_makeProcess(KR_PROCTOOL, krDomKey, krDomKey);
-
-  DEBUG kdprintf(KR_OSTREAM, "Return from create_new_domain()\n");
-
-  return RC_OK;
-}
-
-uint32_t
 create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
 		  domcre_info *pInfo)
 {
   uint32_t result;
   struct Registers regs;
 
-  DEBUG kdprintf(KR_OSTREAM, "About to call create_new_domain()\n");
-  result = create_new_domain(krBank, krDomKey);
+  DEBUG kdprintf(KR_OSTREAM, "About to call create_new_process()\n");
+  result = create_new_process(krBank, krDomKey);
   DEBUG kdprintf(KR_OSTREAM, "Result = 0x%08x\n", result);
 
   if (result != RC_OK)
@@ -302,9 +270,9 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
 
   DEBUG kdprintf(KR_OSTREAM, "Got regs\n");
 
-  /* Unless we set them otherwise, the register values are zero.  The
-     PC has already been set.  We now need to initialize the stack
-     pointer and the segment registers. */
+#if defined(EROS_TARGET_i486)
+  /* Unless we set them otherwise, the register values are zero.
+     We now need to initialize the stack pointer and the segment registers. */
   regs.pc = pInfo->domcre_pc;
   regs.nextPC = pInfo->domcre_pc;
   regs.CS = DOMAIN_CODE_SEG;
@@ -318,6 +286,17 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
   regs.faultInfo = 0;
   regs.domState = RS_Waiting;
   regs.domFlags = 0;
+#elif defined(EROS_TARGET_arm)
+  /* Unless we set them otherwise, the register values are zero.
+     The stack pointer is initialized at run time.
+     We now need to initialize the stack pointer and the segment registers. */
+  regs.pc = pInfo->domcre_pc;
+  regs.CPSR = 0;	/* ARM execution. System will force user mode. */
+  regs.faultCode = 0;
+  regs.faultInfo = 0;
+  regs.domState = RS_Waiting;
+  regs.domFlags = 0;
+#endif
   
   /* Set the new register values. */
   (void) process_set_regs(krDomKey, &regs);
@@ -353,7 +332,6 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
   DEBUG kdprintf(KR_OSTREAM, "Got start key\n");
   return RC_OK;
 }
-#endif
 
 int
 is_our_progeny(uint32_t krStart, uint32_t krNode)

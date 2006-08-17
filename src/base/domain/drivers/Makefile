@@ -26,11 +26,13 @@ EROS_SRC=../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=
+ifeq "$(EROS_TARGET)" "i486"	# drivers are for i486 only so far
 DIRS+=pci
 # DIRS+=ps2 # broken due to RETRY_SET_WAKEINFO
 DIRS+=sound
 DIRS+=network
 # DIRS+=console # broken due to RETRY_SET_LIK
+endif
 
 include $(EROS_SRC)/build/make/makerules.mk
 

@@ -32,7 +32,6 @@ TARGETS=$(BUILDDIR)/proccre $(BUILDDIR)/pcc
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/proccre.o $(BUILDDIR)/pcc.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
-DEF+= -DTARGET_$(EROS_TARGET)
 
 include $(EROS_SRC)/build/make/makerules.mk
 

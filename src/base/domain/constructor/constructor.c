@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -242,9 +242,8 @@ MakeNewProduct(Message *msg)
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Populate new domain\n");
 
-  (void) node_copy(KR_CONSTIT, KC_PROTOSPACE, KR_SCRATCH);
-
   /* Install protospace into the domain root: */
+  (void) node_copy(KR_CONSTIT, KC_PROTOSPACE, KR_SCRATCH);
   (void) process_swap(KR_NEWDOM, ProcAddrSpace, KR_SCRATCH, KR_VOID);
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Installed protospace\n");
@@ -265,6 +264,12 @@ MakeNewProduct(Message *msg)
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Got regs\n");
 
+  regs.faultCode = 0;
+  regs.faultInfo = 0;
+  regs.domState = RS_Waiting;
+  regs.domFlags = 0;
+  regs.pc = 0;			/* Place Holder!! */
+#if defined(EROS_TARGET_i486)
   /* Unless we set them otherwise, the register values are zero.  The
      PC has already been set.  We now need to initialize the stack
      pointer and the segment registers. */
@@ -274,13 +279,12 @@ MakeNewProduct(Message *msg)
   regs.ES = DOMAIN_DATA_SEG;
   regs.FS = DOMAIN_DATA_SEG;
   regs.GS = DOMAIN_PSEUDO_SEG;
-  regs.pc = 0;			/* Place Holder!! */
-  regs.nextPC = 0;			/* Place Holder!! */
+  regs.nextPC = 0;		/* Place Holder!! */
   regs.EFLAGS = 0x200;
-  regs.faultCode = 0;
-  regs.faultInfo = 0;
-  regs.domState = RS_Waiting;
-  regs.domFlags = 0;
+#elif defined(EROS_TARGET_arm)
+#else
+#error unknown target
+#endif
   
   /* Set the new register values. */
   (void) process_set_regs(KR_NEWDOM, &regs);

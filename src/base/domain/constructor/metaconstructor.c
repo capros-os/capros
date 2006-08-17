@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -153,6 +154,12 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
 
   DEBUG kdprintf(KR_OSTREAM, "Got regs\n");
 
+  regs.faultCode = 0;
+  regs.faultInfo = 0;
+  regs.domState = RS_Waiting;
+  regs.domFlags = 0;
+  regs.pc = mci->constructor_pc;
+#if defined(EROS_TARGET_i486)
   /* Unless we set them otherwise, the register values are zero.
      We now need to set the PC and the segment registers. */
   regs.CS = DOMAIN_CODE_SEG;
@@ -161,13 +168,12 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
   regs.ES = DOMAIN_DATA_SEG;
   regs.FS = DOMAIN_DATA_SEG;
   regs.GS = DOMAIN_PSEUDO_SEG;
-  regs.pc = mci->constructor_pc;
   regs.nextPC = mci->constructor_pc;
   regs.EFLAGS = 0x200;
-  regs.faultCode = 0;
-  regs.faultInfo = 0;
-  regs.domState = RS_Waiting;
-  regs.domFlags = 0;
+#elif defined(EROS_TARGET_arm)
+#else
+#error unknown target
+#endif
   
   /* Set the new register values. */
   (void) process_set_regs(KR_NEWDOM, &regs);

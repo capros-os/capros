@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -87,6 +88,7 @@ protospace_destroy(uint32_t krReturner, uint32_t krProto, uint32_t krMyDom,
     msg.snd_key2 = KR_VOID;
     msg.snd_rsmkey = KR_VOID;
     msg.snd_w1 = 0;		/* well known protospace address */
+    /* snd_w2 will be returned in rcv_w2 */
     msg.snd_w2 = (smallSpace ? 2 : 1);
     msg.snd_w3 = 0;
     msg.snd_data = 0;

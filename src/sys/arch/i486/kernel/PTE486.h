@@ -22,7 +22,6 @@
  */
 
 #include <eros/machine/target-asm.h>
-#include <kerninc/ObjectHeader.h>
 
 #define PTE_V	 0x001	/* valid (Intel: 'present') */
 #define PTE_W    0x002	/* writable */
@@ -47,6 +46,7 @@
 #define PTE_ZAPPED       0x0
 
 #ifndef __ASSEMBLER__
+#include <kerninc/ObjectHeader.h>
 
 extern bool PteZapped;
 

@@ -26,3 +26,4 @@
 #define SWI_XchgKeyReg	3
 #define SWI_Bpt		4
 #define SWI_MaxSWI	4
+#define SWI_halt	255

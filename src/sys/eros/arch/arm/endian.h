@@ -65,30 +65,9 @@ unsigned short  ntohs (unsigned short);
 
 #ifdef __GNUC__
 
-#if 0
-#if defined(_KERNEL) && !defined(I386_CPU)
-#define	__byte_swap_long_variable(x) \
-({ register unsigned long __x = (x); \
-   __asm ("bswap %1" \
-	: "=r" (__x) \
-	: "0" (__x)); \
-   __x; })
-#else
-#define	__byte_swap_long_variable(x) \
-({ register unsigned long __x = (x); \
-   __asm ("rorw $8, %w1\n\trorl $16, %1\n\trorw $8, %w1" \
-	: "=r" (__x) \
-	: "0" (__x)); \
-   __x; })
-#endif	/* _KERNEL && ... */
-
-#define	__byte_swap_word_variable(x) \
-({ register unsigned short __x = (x); \
-   __asm ("rorw $8, %w1" \
-	: "=r" (__x) \
-	: "0" (__x)); \
-   __x; })
-#endif
+// The following are defined in sys/arch/arm/capstubs/endian.S
+unsigned long _byte_swap_long_variable(unsigned long);
+unsigned short _byte_swap_word_variable(unsigned short);
 
 #ifdef __OPTIMIZE__
 
@@ -102,15 +81,15 @@ unsigned short  ntohs (unsigned short);
 	 (((x) & 0x00ff) << 8))
 #define	__byte_swap_long(x) \
 	(__builtin_constant_p((x)) ? \
-	 __byte_swap_long_constant(x) : __byte_swap_long_variable(x))
+	 __byte_swap_long_constant(x) : _byte_swap_long_variable(x))
 #define	__byte_swap_word(x) \
 	(__builtin_constant_p((x)) ? \
-	 __byte_swap_word_constant(x) : __byte_swap_word_variable(x))
+	 __byte_swap_word_constant(x) : _byte_swap_word_variable(x))
 
 #else /* __OPTIMIZE__ */
 
-#define	__byte_swap_long(x)	__byte_swap_long_variable(x)
-#define	__byte_swap_word(x)	__byte_swap_word_variable(x)
+#define	__byte_swap_long(x)	_byte_swap_long_variable(x)
+#define	__byte_swap_word(x)	_byte_swap_word_variable(x)
 
 #endif /* __OPTIMIZE__ */
 

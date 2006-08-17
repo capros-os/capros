@@ -1,6 +1,7 @@
 	.file "protospace.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -85,6 +86,8 @@ swap_space_and_pc:
 	.long	KEYS(PSKR_SPACE,KR_VOID,KR_VOID,KR_VOID)	/* snd keys */
 	.long	0		/* rcv len */
 	.long	0		/* rcv data */
+	/* rcv_key1 is returned as void. Accept it in PSKR_PROC_PC
+	to clear that slot that we used temporarily. */
 	.long	KEYS(PSKR_SPACE,PSKR_PROC_PC,KR_VOID,KR_VOID)	/* rcv keys */
 	
 sb_reclaim_pages_from_node:	
@@ -133,8 +136,12 @@ ENTRY(_start)
 #else
 ENTRY(start)
 #endif
-	/* This program may be re-entered by the active domain during
-	   teardown, in which event EAX will have a non-zero value */
+	/* On entry, if we came from the constructor, ECX has zero.
+	If we came from protospace_destroy(),
+	ECX (which is where rcv_w2 ends up) will have 
+	1 if destroying a ??, or
+	2 if destroying a small space.
+	(Not sure where 3 comes from.) */
 	cmpl	$2,%ecx
 	je	EXT(delete_small_space)
 	

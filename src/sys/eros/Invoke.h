@@ -61,6 +61,6 @@ extern fixreg_t INVOKECAP(Message*);
 #define KR_VOID  0
 
 /* see ObRef introduction */ 
-#define RC_OK   	    0u
+#define RC_OK 0
 
 #endif /* __EROS_INVOKE_H__ */
