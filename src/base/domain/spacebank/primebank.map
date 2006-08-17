@@ -27,12 +27,6 @@
 #endif
 #define __PRIMEBANK_MAP__
 
-/* This is a temporary expedient to avoid rebuilding multiple test
- * cases until I am sure this is all correct. */
-#ifndef __DESTROY_MAP__
-#include <destroy.map>
-#endif
-
 /*********************************************
  * PRIME SPACE BANK
  *********************************************/
@@ -40,15 +34,6 @@
 #include <eros/machine/target-asm.h>
 #include <eros/KeyConst.h>
 #include <domain/Runtime.h>
-
-/* Format key value indicating presence of no initial slots plus
-   keeper key in keeper slot, invocation convention to NOT send node key: */
-
-/* BLSS=0x3u BG=0x1fu KPR=0x1eu SEND=0 (no) initial=0
- *  0011 11111 11110 00000 00000
- *  0011 1111 1111 1000 0000 0000
- */
-#define BARE_REDSPACE_FORMAT 0x3FF800
 
 spacebank = new process with constituents;
 
@@ -92,7 +77,8 @@ CONSTIT(spacebank, KC_OSTREAM, 2) = misc Console;
 CONSTIT(spacebank, KC_DOMTOOL, 3) = misc ProcessTool;
 
 /* Set up a distinguished node that will hold the "runtime bits" for
- * all of the primordial processes. Various slots of this will be set
+ * all of the primordial processes. ("Bits" here means "pieces".)
+   Various slots of this will be set
  * up in later places, so we need to be careful to reuse this node
  * rather than clone it, and the boot constructor logic has to clone
  * this node by hand.
@@ -102,23 +88,19 @@ CONSTIT(spacebank, KC_DOMTOOL, 3) = misc ProcessTool;
  * of the primordial domains (spacebank, pcc, metacontstructor) ever
  * exits, and none ever test constructors. In spite of this, pcc.map
  * back-patches the creator slot to PCC so that process creators can
- * simply reuse primordial_runtime_bits as their runtime node. We
- * include the destroy space for the same reason.
+ * simply reuse primordial_runtime_bits as their runtime node.
  *
  * Finally note that we use lss 0 explicitly to allow/encourage use of
  * the extended node copy/swap operations. This will allow us to
  * expand the tree of runtime bits later in a compatible way. */
 
 primordial_runtime_bits = new ro node with lss 0;
-primordial_runtime_bits[RKT_CREATOR]       = misc Void; /* never exit */
-primordial_runtime_bits[RKT_DESTROY_SPACE] = destroy_space;
-   /* RKT_SB_VERIFIER reset below in primebank.map */
-primordial_runtime_bits[RKT_SB_VERIFIER]   = misc Void;
+  /* RKT_CREATOR is set in pcc.map. */
+  /* RKT_SB_VERIFIER is set below. */
   /* Note that RKT_CNS_VERIFIER is not used by any of the primordial
-   * domains, but is reset in metacon.map so that the constructor can
+   * domains, but is set in metacon.map so that the constructor can
    * clone this node, override the creator, and pass the result to new
    * yields as their runtime environment. */
-primordial_runtime_bits[RKT_CNS_VERIFIER]  = misc Void;
   /* RKT_AUDIT_LOG temporarily set here to KR_OSTREAM, but will
    * eventually be overridden in syslog.map */
 primordial_runtime_bits[RKT_AUDIT_LOG]     = misc Console;

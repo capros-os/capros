@@ -3,6 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -71,19 +72,6 @@
      * process creator a process has no means to return a result from
      * the OC_Destroy operation. */
 #define RKT_CREATOR        0
-
-    /* Capability to the destroy space. The destroy space is a
-     * primordial read-only address space that is used briefly during
-     * the final stages of process self-destruction. When a process
-     * has otherwise deallocated all of its resources, it places its
-     * own address space and its desired return value in a well-known
-     * capability register and proceeds with execution from the
-     * destroy space. The destroy space tears down the process address
-     * space and in turn invokes the process creator on behalf of the
-     * dying process to arrange for the process itself to be destroyed
-     * and for the final result code to be returned to the
-     * requestor. */
-#define RKT_DESTROY_SPACE  1
 
     /* Space Bank verifier. Used to determine whether a capability
      * that alleges to be a valid space bank capability is in fact a

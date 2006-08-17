@@ -337,9 +337,6 @@ Configure PLL1 to output:
 	nop
 	nop
 
-	ldr r0,=EP93xxMsg
-	bl printf
-
 /* Change from FastBus mode to Asynchronous mode.
    This will run the CPU at the faster FCLK instead of HCLK/BCLK.
    (Not sure whether Synchronous mode is better or possible.) */

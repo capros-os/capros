@@ -31,7 +31,6 @@ DIRS=
 
 DIRS+=spacebank
 DIRS+=pcc
-DIRS+=destroy
 DIRS+=constructor
 DIRS+=ipltool
 
