@@ -407,6 +407,7 @@ void
 pageH_mdType_dump_pages(PageHeader * pageH)
 {
   assert(pageH_GetObType(pageH) == ot_PtMappingPage2);
+  printf("\n");
 }
 
 void

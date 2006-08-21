@@ -33,11 +33,7 @@
 /* Extracted as macro for clarity of code below, which is already too
  * complicated. 
  */
-#define ADD_DEPEND(pKey) \
-    if (pPTE0) \
-      Depend_AddKey(pKey, pPTE0, canMerge); \
-    else if (pPTE1) \
-      Depend_AddTopTable(pKey, pPTE1);
+#define ADD_DEPEND(pKey) Depend_AddKey(pKey, pPTE, mapLevel);
 
 /* proc_WalkSeg() is a performance-critical path.  The segment walk
    logic is complex, and it occurs in the middle of page faulting
@@ -47,9 +43,6 @@
    traversals.  This is mainly to keep the code machine-independent; a
    machine-dependent specialization of this routine could avoid a
    couple of procedure calls.
-
-   The /pPTE0/ and /pPTE1/ arguments and the /canMerge/ argument
-   should unquestionably be merged into the SegWalkInfo structure.
 
    The depth of the walk is bounded by MAX_SEG_DEPTH to detect
    possible loops in the segment tree.  Because the routine is
@@ -222,7 +215,7 @@ walkseg_handle_node_key(Process * p, SegWalk* wi, uint32_t stopBlss,
 /* Returns true if successful, false if wi->faultCode set. */
 bool
 proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
-	     PTE* pPTE0, Process * pPTE1, bool canMerge)
+	     void * pPTE, int mapLevel)
 {
 /* BUG: needs to ensure UpdateTLB is called in all cases, including Yield. */
   const uint32_t MAX_SEG_DEPTH = 20;

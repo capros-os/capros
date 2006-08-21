@@ -444,7 +444,7 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
    */
   
   /* Do the traversal... */
-  if ( !proc_WalkSeg(p, &wi, EROS_PAGE_BLSS, thePTE, 0, false) ) { 
+  if ( !proc_WalkSeg(p, &wi, EROS_PAGE_BLSS, thePTE, 2) ) { 
     proc_SetFault(p, wi.faultCode, va, false);
     return false;
   }
@@ -782,7 +782,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   
   /* Begin the traversal... */
   if ( !proc_WalkSeg(p, &wi, walk_root_blss,
-		     0, p, false) ) { 
+		     p, 0) ) { 
     proc_SetFault(p, wi.faultCode, va, false);
 
     return false;
@@ -850,7 +850,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       thePDE->w_value = PTE_IN_PROGRESS;
 
     /* Translate the top 8 (10) bits of the address: */
-    if ( !proc_WalkSeg(p, &wi, walk_top_blss, thePDE, 0, true) )
+    if ( !proc_WalkSeg(p, &wi, walk_top_blss, thePDE, 1) )
       return false;
 
     if (thePDE->w_value == PTE_ZAPPED)
@@ -926,7 +926,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       thePTE->w_value = PTE_IN_PROGRESS;
     
     /* Translate the remaining bits of the address: */
-    if ( !proc_WalkSeg(p, &wi, EROS_PAGE_BLSS, thePTE, 0, true) )
+    if ( !proc_WalkSeg(p, &wi, EROS_PAGE_BLSS, thePTE, 2) )
       return false;
 
     /* Depend entry triggered -- retry the fault */

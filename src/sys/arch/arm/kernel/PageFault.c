@@ -534,9 +534,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
 	/* for now, just get it working */
   /* Begin the traversal... */
-  if ( !proc_WalkSeg(p, &wi, walk_root_blss,
-  /* bug: following isn't really a PTE */
-		     (PTE *)&p->md.firstLevelMappingTable, 0, false) ) { 
+  if ( !proc_WalkSeg(p, &wi, walk_root_blss, p, 0) ) {
     proc_SetFault(p, wi.faultCode, va, false);
 
     return false;
@@ -568,8 +566,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   uint32_t * theFLPTEntry = & FLPT_FCSEVA[la >> L1D_ADDR_SHIFT];
 
   /* Translate the top 10 bits of the address: */
-  if ( !proc_WalkSeg(p, &wi, walk_top_blss,
-                     (PTE *)theFLPTEntry, 0, true) )
+  if ( !proc_WalkSeg(p, &wi, walk_top_blss, theFLPTEntry, 1) )
     return false;
 
   // printf("wi.offset=0x%08x ", wi.offset);
@@ -603,7 +600,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   PTE * thePTE = &pTable[pteNdx];
     
     /* Translate the remaining bits of the address: */
-    if ( !proc_WalkSeg(p, &wi, EROS_PAGE_BLSS, thePTE, 0, true) )
+    if ( !proc_WalkSeg(p, &wi, EROS_PAGE_BLSS, thePTE, 2) )
       return false;
     
     assert(wi.segObj);

@@ -239,7 +239,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
       /* Begin the traversal... */
 
       result = proc_WalkSeg(act_CurContext(), &wi, EROS_PAGE_BLSS,
-			    0, 0, false);
+			    0, 0);
 
 
       /* If this is a write operation, we need to mark the node dirty. */

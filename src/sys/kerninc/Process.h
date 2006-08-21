@@ -184,7 +184,7 @@ struct PTE;
 
 /*extern*/ bool
 proc_WalkSeg(Process * p,SegWalk* wi /*@ NOT NULL @*/, uint32_t stopBlss,
-	     struct PTE* pPTE0, Process * proc, bool canMerge);
+	     void * pPTE, int mapLevel);
 
 /* Former member functions of KernProcess */
 typedef struct KernProcess KernProcess;

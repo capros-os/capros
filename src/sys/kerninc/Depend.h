@@ -43,10 +43,6 @@
      mapping table. 
    - An entry in a mapping table of any level. 
 
-   One key slot can influence several adjacent entries in a mapping
-   table. As an optimization, a depend entry has a count of the number
-   of adjacent entries associated with that slot. 
-
  * Whenever a page address translation fault occurs, the kernel walks
  * the segment tree, adding depend entries as it proceeds down the
  * tree.  In many (indeed most) cases, the necessary entry will
@@ -81,9 +77,40 @@
    The probability of this should be low enough so as to not significantly
    impact performance.
 
-   Conversely, if a dependency entry refers to something that is no longer
-   a mapping table entry, it is ignored.
-   I don't know if this can happen, but the code allows for it.
+   MERGING
+
+   One key slot can influence several adjacent entries in a mapping
+   table. As an optimization, a depend entry has a count of the number
+   of adjacent entries associated with that slot. 
+
+   Adjacent entries are recognized when the same slot generates a new
+   entry in the same mapping table. More precisely, entries are merged
+   iff slots with the same *hash* generate entries in the same table. 
+   If two different slots have a hash collision and their entries
+   get merged, that is unfortunate, but harmless. 
+
+   INVALIDATING
+
+   Mapping tables are never moved. (This includes the one-entry 
+   "mapping table" that is the field in the Process structure
+   that points to its top-level mapping table.)
+   Consequently, either the memory that a dependency entry points to
+   is still the entry that needs to be invalidated, or the entry that
+   needed to be invalidated no longer exists. 
+
+   A page containing a mapping table can be stolen and put to other use.
+   There may remain dependency entries referring to that memory.
+   Consequently, KeyDependEntry_Invalidate must take care not to clobber
+   anything that is not in a mapping table. 
+   It does this by checking the PageHeader of the page containing the
+   entry to see if the memory is currently a mapping table. 
+   If a page is stolen and reused for a different mapping table,
+   KeyDependEntry_Invalidate will invalidate the entry in the new table,
+   which is useless but harmless. 
+   If the table entry is in an area of memory that has no PageHeader,
+   it is either in a Process structure or in a mapping table that
+   was allocated early in system initialization; in neither case is the
+   memory ever repurposed, so it is safe to invalidate the entry. 
  *
  * HASH STRUCTURED MAPPING
  *
@@ -159,10 +186,10 @@
 struct PTE;	/*  PTE is an OPAQUE type! */
 
 typedef struct KeyDependEntry {
-  void * start;		/* First entry to zap */
-			/* zero if entry is not in use */
+  void * start;		/* First mapping table entry to zap */
+			/* zero if this KeyDependEntry is not in use */
 
-  uint32_t pteCount : 12;	/* Number of entries */
+  uint32_t pteCount : 12;	/* Number of mapping table entries */
 	/* pteCount is zero iff the "start" field really points to
 	a Process structure and this entry pertains to the field
 	that points to the top-level mapping table. */
@@ -180,8 +207,7 @@ KeyDependEntry_InUse(KeyDependEntry const * kde)
   return kde->start != 0;
 }
 
-void Depend_AddKey(Key*, struct PTE*, bool allowMerge);
-void Depend_AddTopTable(Key *, Process *);
+void Depend_AddKey(Key *, void *, int mapLevel);
 void Depend_InvalidateKey(Key *key);
 
 void Depend_InitKeyDependTable(uint32_t nNodes);

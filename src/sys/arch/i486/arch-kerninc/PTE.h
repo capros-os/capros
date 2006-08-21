@@ -62,14 +62,14 @@ pte_AsWord(PTE* thisPtr)
   return thisPtr->w_value;
 }
 
+/* Return true iff the mapping table entry pointed to by MTE1,
+   which is in a table whose level is mapLevel,
+   is in the same table as MTE2. */
 INLINE bool 
-pte_CanMergeWith(PTE* thisPtr, PTE *pte)
+mte_InSameTable(void * MTE1, void * MTE2, int mapLevel)
 {
-  /**** BUG: should dereference the pointers */
-  uint32_t w = ((uint32_t) thisPtr) ^ ((uint32_t) pte);
-  if (w & ~EROS_PAGE_MASK)
-    return false;
-  return true;
+  uint32_t w = ((uint32_t) MTE1) ^ ((uint32_t) MTE2);
+  return !(w & ~EROS_PAGE_MASK);
 }
 
 #ifdef OPTION_DDB

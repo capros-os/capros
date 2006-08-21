@@ -163,11 +163,16 @@ NewDependEntry(void * start, unsigned count, Key * pKey)
 }
 
 void
-Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
+Depend_AddKey(Key * pKey, void * mte, int mapLevel)
 {
 #if 0
-  printf("Dep_Add key=0x%08x pte=0x%08x\n", pKey, pte);
+  printf("Dep_Add key=0x%08x mte=0x%08x\n", pKey, mte);
 #endif
+
+  /* The operations OC_Node_Extended_Copy and OC_Node_Extended_Swap
+  do not build mapping table entries, but they use proc_WalkSeg,
+  which calls us, so check for that case. */
+  if (!mte) return;
 
   uint32_t i;
 
@@ -181,20 +186,9 @@ Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
 
   keyBits_SetWrHazard(pKey);
   
-#ifndef NDEBUG
-  kva_t mapping_page_kva = ((kva_t)pte & ~EROS_PAGE_MASK);
-  PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
-  bool reallyAllowMerge = pMappingPage ? true : false;
-
-  if (reallyAllowMerge != allowMerge)
-    fatal("pPTE=0x%08x pObj=0x%08x -- merge bug!\n", pte, pMappingPage);
-#endif
-
-  assert(reallyAllowMerge == allowMerge);
-
 #ifdef DEPEND_DEBUG
-  printf("Add slot depend entry for slot=0x%08x pte=0x%08x: ",
-	       pKey, pte);
+  printf("Add slot depend entry for slot=0x%08x mte=0x%08x: ",
+	       pKey, mte);
 #endif
 
   uint32_t whichBucket = keybucket_ndx(pKey);
@@ -203,10 +197,10 @@ Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
   for (i = 0; i < KeyBucketSize; i++) {
     if (entry[i].slotTag == SLOT_TAG(pKey)) {
       PTE *curStart = entry[i].start;
-      PTE *curEnd =   entry[i].start + entry[i].pteCount;
 
       /* If the current start matches, we are done in all cases: */
-      if (curStart == pte) {
+      if (curStart == mte) {
+        assert(mapLevel != 0 || entry[i].pteCount == 0);
 #ifdef DBG_WILD_PTR
 	if (dbg_wild_ptr)
 	  check_Consistency("Depend_AddKey(): start matches PTE");
@@ -214,15 +208,21 @@ Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
 	return;			/* already got it */
       }
 
-      if ( allowMerge && pte_CanMergeWith(entry[i].start, pte) ) {
+      /* mapLevel == 0 means the mte is the top level mapping table pointer
+      in the Process structure, which can never be merged. 
+      We check for that here so mte_InSameTable doesn't have to. */
+      if ( (mapLevel != 0)
+           && mte_InSameTable(curStart, mte, mapLevel) ) {
+        PTE * curEnd = curStart + entry[i].pteCount;
 	KernStats.nDepMerge++;
-	if ( (kva_t) pte < (kva_t) curStart ) {
-	  entry[i].start = pte;
-	  entry[i].pteCount = curEnd - pte;
+	if ( (kva_t) mte < (kva_t) curStart ) {
+          curStart = (PTE *)mte;
+	  entry[i].start = curStart;
 	}
-	else if ( (kva_t) pte >= (kva_t) curEnd ) {
-	  entry[i].pteCount = ( (pte - curStart) + 1);
+	else if ( (kva_t) mte >= (kva_t) curEnd ) {
+          curEnd = ((PTE *)mte) + 1;
 	}
+	entry[i].pteCount = curEnd - curStart;
         
 	/* otherwise falls within existing range -- do nothing */
 #ifdef DEPEND_DEBUG
@@ -237,47 +237,7 @@ Depend_AddKey(Key *pKey, PTE* pte, bool allowMerge)
     }
   }
 
-  NewDependEntry(pte, 1, pKey);
-}
-
-void
-Depend_AddTopTable(Key * pKey, Process * proc)
-{
-  uint32_t i;
-
-  assert(KeyBuckets);
-  assert(KeyBucketSize);
-
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("Depend_AddKey(): top");
-#endif
-
-  keyBits_SetWrHazard(pKey);
-  
-#ifdef DEPEND_DEBUG
-  printf("Add slot depend entry for slot=0x%08x proc=0x%08x: ",
-	       pKey, proc);
-#endif
-
-  uint32_t whichBucket = keybucket_ndx(pKey);
-  KeyDependEntry * entry = &KeyDependTable[whichBucket * KeyBucketSize];
-
-  for (i = 0; i < KeyBucketSize; i++) {
-    if (entry[i].slotTag == SLOT_TAG(pKey)) {
-      /* If the current start matches, we are done in all cases: */
-      if (entry[i].start == proc) {
-        assert(entry[i].pteCount == 0);
-#ifdef DBG_WILD_PTR
-	if (dbg_wild_ptr)
-	  check_Consistency("Depend_AddKey(): start matches PTE");
-#endif
-	return;			/* already got it */
-      }
-    }
-  }
-
-  NewDependEntry(proc, 0, pKey);
+  NewDependEntry(mte, mapLevel != 0, pKey);
 }
 
 void

@@ -599,7 +599,7 @@ objC_ddb_dump_nodes()
 #else
     goodSum = '?';
 #endif
-    printf("%02d: %s oid 0x%08x%08x up:%c cr:%c ck:%c drt:%c%c io:%c sm:%d dc:%c\n",
+    printf("%02d: %s oid 0x%08x%08x up:%c cr:%c ck:%c drt:%c%c io:%c sm:%c dc:%c\n",
 	   nd,
 	   ddb_obtype_name(pObj->obType),
 	   (uint32_t) (pObj->oid >> 32),
