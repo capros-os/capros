@@ -32,191 +32,69 @@
 #include <disk/PagePot.h>
 #include <disk/DiskNodeStruct.h>
 
-/* The current implementation isn't quite kosher, as the current
- * implementation is built to assume a preloaded ramdisk, and the
- * ramdisk boot sector is inherently machine dependent. At some point
- * in the (near) future, I am going to implement the range preload
- * flag, and the need for this hack will go away.
- */
-/*#include <disk/LowVolume.hxx>*/
+#define dbg_fetch	0x1
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u )
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
 
 struct FrameInfo {
   uint32_t obFrameNdx;
   uint64_t obFrameNo;
   uint32_t clusterNo;
   uint32_t tagEntry;
-
-  /*FrameInfo(OID oid);*/
 };
 
-typedef struct FrameInfo FrameInfo;
-
-static inline void InitFrameInfo(FrameInfo *thisPtr, OID oid)
-{
-  thisPtr->obFrameNdx = oid % EROS_OBJECTS_PER_FRAME;
-  thisPtr->obFrameNo = oid / EROS_OBJECTS_PER_FRAME;
-  thisPtr->clusterNo = thisPtr->obFrameNo / DATA_PAGES_PER_PAGE_CLUSTER;
-  thisPtr->tagEntry = thisPtr->obFrameNo % DATA_PAGES_PER_PAGE_CLUSTER;
-
-  thisPtr->obFrameNo += thisPtr->clusterNo;
-  thisPtr->obFrameNo++;		/* add one for cluster pot in first cluster */
-
-}
-
-static bool
-FetchPage(ObjectSource * src, PageHeader * pageH)
-{
-  OID oid = pageH->kt_u.ob.oid;
-  FrameInfo fi;
-  PagePot *pp = 0;
-  OID relOid;
-  kva_t ppaddr;
-
-  assert(src->start <= oid && oid < src->end);
-
-  relOid = oid - src->start;		/* convert to relative terms */
-
-  InitFrameInfo(&fi, relOid);
-
-  assert(fi.obFrameNdx < DISK_NODES_PER_PAGE);
-
-  ppaddr = src->base;
-  ppaddr += (fi.clusterNo * PAGES_PER_PAGE_CLUSTER * EROS_PAGE_SIZE);
-
-  pp = (PagePot *) ppaddr;
-
-  if (pp->type[fi.tagEntry] == FRM_TYPE_NODE ||
-      pp->type[fi.tagEntry] == FRM_TYPE_ZNODE) {
-
-    /* Retag the existing frame to be a page frame. Do not bump the
-     * allocation count when converting TO pages. 
-     *
-     * Note an assumption here: when WriteObject(obj) is called it will
-     * preserve the invariant that the count field in the page pot
-     * will be max(pp->count[x], obj->ob.allocCount, obj->callCount).
-     */
-    pp->type[fi.tagEntry] = FRM_TYPE_ZDPAGE;
-  }
-
-  void * dest = (void *) pageH_GetPageVAddr(pageH);
-
-  if (pp->type[fi.tagEntry] == FRM_TYPE_DPAGE) {
-    kva_t pageBase = src->base;
-    pageBase += (fi.obFrameNo * EROS_PAGE_SIZE);
-
-    memcpy(dest, (void *) pageBase, EROS_PAGE_SIZE);
-    return true;
-  }
-  else if (pp->type[fi.tagEntry] == FRM_TYPE_ZDPAGE) {
-    bzero(dest, EROS_PAGE_SIZE);
-    return true;
-  }
-
-  pageH->kt_u.ob.allocCount = pp->count[fi.tagEntry];
-
-  return false;
-}
-
-static bool
-FetchNode(ObjectSource * src, Node * pNode)
-{
-  OID oid = node_ToObj(pNode)->oid;
-  OID relOid;
-  FrameInfo fi;
-  PagePot * pp = 0;
-  kva_t ppaddr;
-  unsigned i = 0;
-  DiskNodeStruct *dn = 0;
-  OID frameOid;
-  uint32_t ndx = 0;
-  kva_t pageBase;
-
-  assert(src->start <= oid && oid < src->end);
-
-  relOid = oid - src->start;			/* convert to relative terms */
-
-  InitFrameInfo(&fi, relOid);
-
-  assert(fi.obFrameNdx < DISK_NODES_PER_PAGE);
-
-  ppaddr = src->base;
-  ppaddr += (fi.clusterNo * PAGES_PER_PAGE_CLUSTER * EROS_PAGE_SIZE);
-
-  pp = (PagePot *) ppaddr;
-
-  if (pp->type[fi.tagEntry] == FRM_TYPE_DPAGE ||
-      pp->type[fi.tagEntry] == FRM_TYPE_ZDPAGE) {
-
-    /* Retag the existing frame to be a node frame. When converting
-     * from pages to something else, we MUST bump the allocation
-     * count.
-     *
-     * Note an assumption here: when WriteObject(obj) is called it will
-     * preserve the invariant that the count field in the page pot
-     * will be max(pp->count[x], obj->ob.allocCount, obj->callCount).
-     */
-    pp->type[fi.tagEntry] = FRM_TYPE_ZNODE;
-  }
-
-  /* The first time we actually touch a ZNODE frame, convert it to a
-   * proper node frame.
-   */
-  if (pp->type[fi.tagEntry] == FRM_TYPE_ZNODE) {
-    pageBase = src->base;
-    pageBase += (fi.obFrameNo * EROS_PAGE_SIZE);
-
-    dn = (DiskNodeStruct *) pageBase;
-    frameOid = EROS_FRAME_FROM_OID(oid);
-
-    for (i = 0; i < DISK_NODES_PER_PAGE; i++) {
-      DiskNodeStruct *pNode = dn + i;
-
-      pNode->allocCount = pp->count[fi.tagEntry];
-      pNode->callCount = pp->count[fi.tagEntry];
-      pNode->oid = frameOid + i;
-
-      for (ndx = 0; ndx < EROS_NODE_SIZE; ndx++) {
-	assert (keyBits_IsUnprepared(&pNode->slot[ndx]));
-	/* not hazarded because newly loaded node */
-	keyBits_InitToVoid(&pNode->slot[ndx]);
-      }
-    }
-
-    pp->type[fi.tagEntry] = FRM_TYPE_NODE;
-  }
-
-  assert(pp->type[fi.tagEntry] == FRM_TYPE_NODE);
-
-  pageBase = src->base;
-  pageBase += (fi.obFrameNo * EROS_PAGE_SIZE);
-
-  dn = (DiskNodeStruct *) pageBase;
-  dn += fi.obFrameNdx;
-
-  node_SetEqualTo(pNode, dn);
-
-  return true;
-}
-
 ObjectHeader *
-PreloadObSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType, 
+PreloadObSource_GetObject(ObjectSource * src, OID oid, ObType obType, 
                           ObCount count, bool useCount)
 {
   ObjectHeader * pObj;
-  bool result;
-#if 0
+#if 1
   printf("PreloadObSource_GetObject OID=0x%08x %08x\n",
          (uint32_t)(oid >> 32), (uint32_t)oid );
 #endif
 
+  assert(src->start <= oid && oid < src->end);
+  OID relOid = oid - src->start;	/* convert to relative terms */
+
+  struct FrameInfo fi;
+  fi.obFrameNdx = relOid % EROS_OBJECTS_PER_FRAME;
+  fi.obFrameNo = relOid / EROS_OBJECTS_PER_FRAME;
+  fi.clusterNo = fi.obFrameNo / DATA_PAGES_PER_PAGE_CLUSTER;
+  fi.tagEntry = fi.obFrameNo % DATA_PAGES_PER_PAGE_CLUSTER;
+
+  fi.obFrameNo += fi.clusterNo;
+  fi.obFrameNo++;		/* add one for cluster pot in first cluster */
+
+  assert(fi.obFrameNdx < DISK_NODES_PER_PAGE);
+
+  kva_t ppaddr = src->base;
+  ppaddr += (fi.clusterNo * PAGES_PER_PAGE_CLUSTER * EROS_PAGE_SIZE);
+  PagePot * pp = (PagePot *) ppaddr;
+  /* FIXME: I think the PagePot needs to be read and kept in a page frame
+  and updated there. */
+
+  kva_t pageBase = src->base;
+  pageBase += (fi.obFrameNo * EROS_PAGE_SIZE);
+
   if (obType == ot_PtDataPage) {
     PageHeader * pageH = objC_GrabPageFrame();
     pObj = pageH_ToObj(pageH);
-    pObj->oid = oid;
 
-    result = FetchPage(thisPtr, pageH);
+    void * dest = (void *) pageH_GetPageVAddr(pageH);
 
-    if (!result || (useCount && pObj->allocCount != count)) {
+    if (pp->type[fi.tagEntry] == FRM_TYPE_DPAGE) {
+      memcpy(dest, (void *) pageBase, EROS_PAGE_SIZE);
+    } else {	// FRM_TYPE_ZDPAGE, FRM_TYPE_NODE, or FRM_TYPE_ZNODE
+      // If the type was NODE or ZNODE, the frame was converted from node
+      // to page, and there is no data to load.
+      bzero(dest, EROS_PAGE_SIZE);
+    }
+
+    // FIXME: pObj->allocCount not set.
+    if (useCount && pObj->allocCount != count) {
       ReleasePageFrame(pageH);
       return 0;
     }
@@ -228,11 +106,34 @@ PreloadObSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 
     Node * pNode = objC_GrabNodeFrame();
     pObj = node_ToObj(pNode);
-    pObj->oid = oid;
 
-    result = FetchNode(thisPtr, pNode);
+    DEBUG (fetch)
+      printf("FetchNode OID=0x%08x%08x base=%08x pp=%08x typ=%d\n",
+             (uint32_t) (oid >> 32), (uint32_t) oid,
+             src->base, ppaddr,
+             pp->type[fi.tagEntry] );
 
-    if (!result || (useCount && pObj->allocCount != count)) {
+    if (pp->type[fi.tagEntry] == FRM_TYPE_NODE) {
+      DiskNodeStruct * dn = (DiskNodeStruct *) pageBase;
+      dn += fi.obFrameNdx;
+
+      node_SetEqualTo(pNode, dn);
+    } else {	// FRM_TYPE_DPAGE, FRM_TYPE_ZDPAGE, or FRM_TYPE_ZNODE
+      // If the type was DPAGE or ZDPAGE, the frame was converted from page
+      // to node, and there is no data to load.
+
+      pObj->allocCount = pp->count[fi.tagEntry];
+      pNode->callCount = pp->count[fi.tagEntry];
+
+      uint32_t ndx;
+      for (ndx = 0; ndx < EROS_NODE_SIZE; ndx++) {
+	assert (keyBits_IsUnprepared(&pNode->slot[ndx]));
+	/* not hazarded because newly loaded node */
+	keyBits_InitToVoid(&pNode->slot[ndx]);
+      }
+    }
+
+    if (useCount && pObj->allocCount != count) {
       ReleaseNodeFrame(pNode);
       return 0;
     }
@@ -240,7 +141,7 @@ PreloadObSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
     pNode->objAge = age_NewBorn;
   }
 
-  assert (pObj->oid == oid);
+  pObj->oid = oid;
 
   objH_SetFlags(pObj, OFLG_CURRENT|OFLG_DISKCAPS);
   assert (objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);

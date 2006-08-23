@@ -2,6 +2,7 @@
 #define __DISK_DISKFRAME_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -24,6 +25,5 @@
 #define FRM_TYPE_DPAGE		1
 #define FRM_TYPE_ZNODE		2 /* zero node -- only in ckpt area */
 #define FRM_TYPE_NODE		3
-#define FRM_TYPE_INVALID	0xf
 
 #endif /* __DISK_DISKFRAME_H__ */

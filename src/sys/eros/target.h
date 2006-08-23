@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -61,7 +61,6 @@
 #include "machine/target.h"
 
 #define OID_RESERVED_PHYSRANGE 0xff00000000000000ull
-#define EROS_FRAME_FROM_OID(oid) (oid & ~(EROS_OBJECTS_PER_FRAME-1))
 #define EROS_OBNDX_IN_FRAME(oid) (oid & (EROS_OBJECTS_PER_FRAME-1))
 
 typedef uint32_t cap_t;
