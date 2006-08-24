@@ -45,13 +45,13 @@ spacebank.seg = spacebank.seg with page at 0xff000;
 /* Need to do this in several chunks so that we don't run afoul of
    segment insertion rules: */
 rangemap.seg = empty segtree with 1024 pages;
+spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x00400000;
+rangemap.seg = empty segtree with 1024 pages;
+spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x00800000;
+rangemap.seg = empty segtree with 1024 pages;
+spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x00c00000;
+rangemap.seg = empty segtree with 1024 pages;
 spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x01000000;
-rangemap.seg = empty segtree with 1024 pages;
-spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x01400000;
-rangemap.seg = empty segtree with 1024 pages;
-spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x01800000;
-rangemap.seg = empty segtree with 1024 pages;
-spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x01c00000;
 
 hide rangemap.seg;
 

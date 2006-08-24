@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -17,7 +18,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
 
 #ifndef SPACEBANK_H
 #define SPACEBANK_H
@@ -47,16 +47,23 @@ bool heap_insert_page(uint32_t addr, uint32_t pageKR);
 
 #define MAX_RANGES 256
 
+/* Layout of memory. */
 /* Following MUST agree with values in primebank.map: */
 #define STACK_TOP           0x100000
-#define SRM_BASE           0x1000000
-#define HEAP_BASE          0x2000000
+#define SRM_BASE            0x400000
+#define SRM_TOP            0x1400000
+#define HEAP_BASE          SRM_TOP
+#if defined(EROS_TARGET_arm)
+#define HEAP_TOP           0x2000000	// to fit in a small space
+#else
+#define HEAP_TOP           0xc000000
+#endif
+
 #define SB_BRAND_KEYDATA       65535
 
 /* Key registers */
 #define KR_WALK0      KR_APP(0)	/* used internally by malloc */
 #define KR_WALK1      KR_APP(1)	/* used internally by malloc */
-
 #define KR_SRANGE     KR_APP(2)   /* Super Range key -- what fun! */
 
 /* The following definitions MUST match those in primebank.map */

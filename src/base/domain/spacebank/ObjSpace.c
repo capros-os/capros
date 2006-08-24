@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -17,7 +18,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
 
 #include <string.h>
 #include <eros/target.h>
@@ -50,7 +50,7 @@ typedef struct Range_s {
 
   /* for optimization */
   uint32_t    nFrames;		/* number of frames this range covers    */
-  uint64_t nAvailFrames;		/* number of AVAILABLE frames */
+  uint64_t nAvailFrames;	/* number of AVAILABLE frames */
   uint32_t    nSubmaps;		/* number of SubRangeMaps covering
 				   this range */
 } Range;
@@ -359,8 +359,6 @@ range_install(uint32_t kr)
   uint64_t oid, endOID;
   uint32_t nFrames;
   uint32_t nSubMaps;
-  
-  uint32_t* srmBase;
 
   Range *myRange;
   
@@ -407,11 +405,12 @@ range_install(uint32_t kr)
     }  
   }
 #endif
-
-  srmBase = (uint32_t *) (SRM_BASE + (NextRangeSrmFrame * EROS_PAGE_SIZE));
   
   nFrames = len / EROS_OBJECTS_PER_FRAME;
   nSubMaps = DIVRNDUP(nFrames, EROS_PAGE_SIZE * 8);
+
+  if (NextRangeSrmFrame + nSubMaps > (SRM_TOP - SRM_BASE) / EROS_PAGE_SIZE)
+    kpanic(KR_OSTREAM, "No more room at SRM_BASE!\n");
 
   myRange = &RangeTable[curRanges++]; /* already checked bounds */
   
@@ -419,7 +418,8 @@ range_install(uint32_t kr)
   myRange->endOID = endOID;
   myRange->length = len;
   myRange->allocBase = NextRangeSrmFrame;
-  myRange->srmBase = srmBase;
+  myRange->srmBase
+    = (uint32_t *) (SRM_BASE + (NextRangeSrmFrame * EROS_PAGE_SIZE));
   myRange->nFrames = nFrames;
   myRange->nAvailFrames = nFrames - nSubMaps;
   myRange->nSubmaps = nSubMaps;

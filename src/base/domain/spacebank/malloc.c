@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -38,7 +39,7 @@
 
 /* static uint32_t base = HEAP_BASE; */
 static uint32_t top = HEAP_BASE;
-static uint32_t bound = HEAP_BASE;
+static uint32_t bound = HEAP_BASE;	// heap is grown up to here
 
 static bool grow_heap(void);
 
@@ -69,6 +70,10 @@ static bool
 grow_heap()
 {
   assert( (bound & EROS_PAGE_MASK) == 0 );
+
+  if (bound >= HEAP_TOP)
+    return false;	// no more address space for the heap
+
   if (BankAllocObjects(&bank0, eros_Range_otPage, 1, KR_TMP) != RC_OK)
     return false;
 
@@ -86,7 +91,7 @@ grow_heap()
  *
  * The basic assumption of this code is that the malloc heap sits
  * after everything else, and can freely be permitted to grow upward
- * until it hits the process address space limit.  This is a VERY
+ * until it hits HEAP_TOP.  This is a VERY
  * SIMPLE implementation -- the working assumption is that STORAGE
  * WILL NEVER BE FREED.  This means that the allocator returns exactly
  * as much as you asked for, and no more.  It is the responsibility of
