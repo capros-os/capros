@@ -89,6 +89,7 @@ PmemInfo * physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type,
 			     bool readOnly);
 
 kpa_t physMem_Alloc(kpsize_t sz, PmemConstraint *);
+void physMem_ReserveExact(kpa_t base, kpsize_t size);
 
 /* FIX: This is called from the x86 code that builds the kernel
  * virtual map, and it is wrong that it should be so. The kernel

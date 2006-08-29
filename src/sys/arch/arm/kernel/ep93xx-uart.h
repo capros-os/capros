@@ -91,8 +91,6 @@ typedef struct UARTRegisters {
 #define UART2 (*(volatile struct UARTRegisters *)UART2_BASE)
 #define UART3 (*(volatile struct UARTRegisters *)UART3_BASE)
 
-#define UARTCLK 7372800 /* Hz */
-
 #define UART2TMR (*(volatile uint32_t *)(UART2_BASE + 0x84))
 
 /* Bits in Ctrl */

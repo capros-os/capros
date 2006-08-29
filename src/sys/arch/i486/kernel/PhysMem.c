@@ -65,8 +65,6 @@ physMem_Init()
   uint32_t mmapLength;
   struct grub_mmap * mp;
   int i;
-  PmemConstraint constraint;
-  kpsize_t size;
   struct grub_mod_list * modp;
 
   DEBUG (init) printf("MultibootInfoPtr = %x\n", MultibootInfoPtr);
@@ -76,9 +74,9 @@ physMem_Init()
        mmapLength > 0;
        ) {
     kpa_t base = ((kpa_t)mp->base_addr_high << 32) + (kpa_t)mp->base_addr_low;
-    kpsize_t bound;
-    size = ((kpsize_t)mp->length_high << 32) + (kpsize_t)mp->length_low;
-    bound = base + size;
+    kpsize_t size = ((kpsize_t)mp->length_high << 32)
+                    + (kpsize_t)mp->length_low;
+    kpsize_t bound = base + size;
 
     DEBUG (init) printf("0x%08lx 0x%08lx 0x%08lx 0x%08lx 0x%08lx 0x%08lx\n",
        mp->size,
@@ -112,38 +110,25 @@ physMem_Init()
 
   /* Reserve kernel code and data and bss.
      The kernel stack is within the bss. */
-  constraint.base = (kpa_t)&_start;
-  constraint.bound = (kpa_t)&end;
-  constraint.align = 1;
-  physMem_Alloc(constraint.bound - constraint.base, &constraint);
+  physMem_ReserveExact((kpa_t)&_start, (kpa_t)&end - (kpa_t)&_start);
                                                                                 
   /* Reserve space occupied by modules. */
   for (i = MultibootInfoPtr->mods_count,
          modp = KPAtoP(struct grub_mod_list *, MultibootInfoPtr->mods_addr);
        i > 0;
        --i, modp++) {
-    constraint.base = modp->mod_start;
-    constraint.bound = modp->mod_end;
-    constraint.align = 1;
-    physMem_Alloc(constraint.bound - constraint.base, &constraint);
-    printf("Grabbed module at 0x%08x\n", (uint32_t) constraint.base);
+    physMem_ReserveExact(modp->mod_start, modp->mod_end - modp->mod_start);
+    printf("Grabbed module at 0x%08x\n", (uint32_t) modp->mod_start);
   }
 
   /* Reserve Multiboot information that we will need later. */
   /* The Multiboot structure itself. */
-  constraint.base = PtoKPA(MultibootInfoPtr);
-  size = (kpsize_t)sizeof(struct grub_multiboot_info);
-  constraint.bound = constraint.base + size;
-  constraint.align = 1;
-  physMem_Alloc(size, &constraint);
+  physMem_ReserveExact(PtoKPA(MultibootInfoPtr),
+                       sizeof(struct grub_multiboot_info));
 
   /* The modules list. */
-  constraint.base = (kpa_t)MultibootInfoPtr->mods_addr;
-  size = (kpsize_t) (MultibootInfoPtr->mods_count 
-                     * sizeof(struct grub_mod_list));
-  constraint.bound = constraint.base + size;
-  constraint.align = 1;
-  physMem_Alloc(size, &constraint);
+  physMem_ReserveExact(MultibootInfoPtr->mods_addr,
+             MultibootInfoPtr->mods_count * sizeof(struct grub_mod_list) );
 
   physMem_ReservePhysicalMemory();
 }

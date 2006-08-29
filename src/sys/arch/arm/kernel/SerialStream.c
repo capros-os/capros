@@ -25,15 +25,26 @@
 
 #include <kerninc/KernStream.h>
 #include "ep93xx-uart.h"
+#include "ep9315-syscon.h"
 
 void SerialStream_Put(uint8_t c);
 
 void
+SerialStream_Flush(void)
+{
+  while (UART1.Flag & UARTFlag_BUSY) ;
+}
+
+void
 SerialStream_Init(void)
 {
-#if 0
-  /* It is assumed that the boot loader left UART1 in a good state. */
-#else
+  SerialStream_Flush();
+
+  /* Set the UARTCLK to the low frequency, which give a max baud rate
+  of only 230 Kbps, but saves power. */
+  SYSCON.PwrCnt &= ~SYSCONPwrCnt_UARTBAUD;
+#define UARTCLK 7372800 /* Hz */
+
 #define BaudRate 57600
 //#define BaudRate 9600	// for SWCA test
 #define BaudRateDivisor (UARTCLK/(16*BaudRate)-1)
@@ -46,7 +57,6 @@ SerialStream_Init(void)
   { int i;
     for (i = 55; i > 0; i--) ;
   }
-#endif
 }
 
 void
@@ -55,12 +65,6 @@ SerialStream_Put(uint8_t c)
   /* Wait until transmit buffer not full. */
   while (UART1.Flag & UARTFlag_TXFF) ;
   UART1.Data = c;
-}
-
-void
-SerialStream_Flush(void)
-{
-  while (UART1.Flag & UARTFlag_BUSY) ;
 }
 
 #ifdef OPTION_DDB

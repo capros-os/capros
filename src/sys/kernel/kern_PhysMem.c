@@ -180,7 +180,7 @@ physMem_ChooseRegion(kpsize_t nBytes, PmemConstraint *mc)
 
 /* Allocate nBytes from available physical memory with constraint mc.
    nBytes must be a multiple of mc->align. */
-kpa_t
+kpa_t	// returns -1 if can't allocate
 physMem_Alloc(kpsize_t nBytes, PmemConstraint *mc)
 {
   PmemInfo *allocTarget;
@@ -263,7 +263,19 @@ physMem_Alloc(kpsize_t nBytes, PmemConstraint *mc)
     return where;
   }
 
-  return 0;
+  return - (kpa_t)1;
+}
+
+void
+physMem_ReserveExact(kpa_t base, kpsize_t size)
+{
+  PmemConstraint constraint;
+  
+  constraint.base = base;
+  constraint.align = 1;
+  constraint.bound = base + size;
+  kpa_t mem = physMem_Alloc(size, &constraint);
+  assert(mem == base);	// failed to allocate it?
 }
 
 #ifdef OPTION_DDB

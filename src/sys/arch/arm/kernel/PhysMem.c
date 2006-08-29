@@ -48,9 +48,7 @@ physMem_Init()
 {
   int32_t mmapLength;
   struct grub_mmap * mp;
-  PmemConstraint constraint;
-  kpa_t constraintSize;
-  kpsize_t size;
+  unsigned int i;
 
   DEBUG (init) printf("MultibootInfoPtr = %x\n", MultibootInfoPtr);
 
@@ -70,9 +68,8 @@ physMem_Init()
     /* This machine has only 32 bits of phys mem. */
     assert(mp->base_addr_high == 0 && mp->length_high == 0);
     kpa_t base = (kpa_t)mp->base_addr_low;
-    kpsize_t bound;
-    size = (kpsize_t)mp->length_low;
-    bound = base + size;
+    kpsize_t size = (kpsize_t)mp->length_low;
+    kpsize_t bound = base + size;
 
     if (mp->type == 1) {	/* available RAM */
       (void) physMem_AddRegion(base, bound, MI_MEMORY, false);
@@ -91,33 +88,35 @@ physMem_Init()
   /* Reserve regions of physical memory that are already used. */
 
   /* Reserve kernel code and rodata. */
-  constraint.base = (kpa_t)KTextPA;
-  constraintSize = (&_etext - &_start);
-  constraint.align = 1;
-  constraint.bound = constraint.base + constraintSize;
-  physMem_Alloc(constraintSize, &constraint);
+  physMem_ReserveExact(KTextPA, (&_etext - &_start));
+  kpa_t cursor = KTextPA + (&_etext - &_start);
 
   /* Reserve kernel data and bss.
      The kernel stack is within the data section. */
-  constraint.base = align_up(constraint.bound, 0x100000); /* 1MB boundary */
-  constraintSize = (&_end - &__data_start);
-  constraint.align = 1;
-  constraint.bound = constraint.base + constraintSize;
-  physMem_Alloc(constraint.bound - constraint.base, &constraint);
+  cursor = align_up(cursor, 0x100000); /* 1MB boundary */
+  physMem_ReserveExact(cursor, (&_end - &__data_start));
+  cursor += (&_end - &__data_start);
 
   /* Reserve kernel mapping tables. */
-  constraint.base = align_up(constraint.bound, 0x4000);	/* 16KB boundary */
-  constraintSize = 0x4000 + 0x1000;
-  constraint.align = 0x1000;
-  constraint.bound = constraint.base + constraintSize;
-  physMem_Alloc(constraint.bound - constraint.base, &constraint);
-                                                                                
-  /* Modules are in flash memory; no need to reserve RAM. */
+  cursor = align_up(cursor, 0x4000);	/* 16KB boundary */
+  physMem_ReserveExact(cursor, 0x4000 + 0x1000);
 
   /* Multiboot information is in data/bss, no need to reserve. */
-
-  /* physMem_ReservePhysicalMemory();
-     Map was set up by lostart.S. */
+ 
+  // Reserve RAM occupied by modules.
+  struct grub_mod_list * modp;
+  for (i = MultibootInfoPtr->mods_count,
+         modp = KPAtoP(struct grub_mod_list *, MultibootInfoPtr->mods_addr);
+       i > 0;
+       --i, modp++) {
+    kva_t modVA = PTOV(modp->mod_start);	// virt addr of start of module
+    // (See comments in GrubEmul for why we use the virtual address here.)
+    assert(FlashMemVA < PhysMapVA);	// else test below is wrong
+    if (modVA >= PhysMapVA) {	// if in RAM, not flash memory
+printf("reserving module space at 0x%08x\n", modp->mod_start); ////
+      physMem_ReserveExact(modp->mod_start, modp->mod_end - modp->mod_start);
+    }
+  }
 }
 
 kpsize_t

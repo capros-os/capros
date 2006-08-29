@@ -51,7 +51,7 @@ PreloadObSource_GetObject(ObjectSource * src, OID oid, ObType obType,
                           ObCount count, bool useCount)
 {
   ObjectHeader * pObj;
-#if 1
+#if 0
   printf("PreloadObSource_GetObject OID=0x%08x %08x\n",
          (uint32_t)(oid >> 32), (uint32_t)oid );
 #endif

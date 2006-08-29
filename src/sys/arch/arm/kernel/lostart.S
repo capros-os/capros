@@ -26,23 +26,39 @@
 
 	.text
 	ENTRY(_start)
-//#define REDBOOT
+#define REDBOOT
 #ifndef REDBOOT
 	.ascii "CRUS"	// magic header for Boot ROM
+#else
+	msr cpsr_c,#0xd3	// disable IRQ, FIQ, enter supervisor mode
+// Redboot starts us with MMU enabled, disable it now.
+	mrc p15,0,r8,c1,c0,0	// read control register 1
+	bic r8,r8,#0x1200	// disenable ICache, clear R bit
+	orr r8,r8,#0x2100	// high exception vectors, set S bit
+	bic r8,r8,#0x007	// disenable DCache, alignmt fault, MMU
+	mcr p15,0,r8,c1,c0,0	// write control register 1
+#endif
 /* Enter here from boot loader. */
 /* When we get here from the boot ROM, we are in Supervisor mode,
    in ARM (not Thumb) execution state, with IRQ and FIQ both disabled. */
-/* We start running here in the Flash memory.
-   We are linked to run at KTextVA, so until we copy the code to RAM
+getpc:	mov r6,pc	// record the pc
+	sub r6,r6,#(getpc+8-_start)
+	// r6 has phys addr of start of .text section.
+/* If started by the boot ROM, we are running out of flash memory.
+   Presumably this is at FlashMemPA, but rather than assume that,
+   we use the value in the PC. 
+
+   If started by Redboot, we are running out of RAM, presumably at
+   0x00100000, but rather than assume that,
+   we use the value in the PC.
+   We do assume that the address Redboot loads us at, plus KTextPackedSize,
+   is greater than 1MB (otherwise the copy of the .data section will break). */
+
+/* We are linked to run at KTextVA, so until we copy the code to RAM
    and set up the MMU,
    all code must be position independent, and we must not
    use any global variables. */
 
-/*
-The kernel text section is loaded into address FlashMemPA in the ROM.
-We will copy it to physical address KTextPA
-and map it at MVA KTextVA.
- */
 /* Check that KTextPackedSize isn't too small. */
 	ldr r0,=_etext
 	ldr r1,=_start
@@ -51,26 +67,25 @@ and map it at MVA KTextVA.
 	blo 1f
 	b .	/* hang here if KTextPackedSize is too small */
 1:
-/* Copy text section to RAM. */
-	ldr r6,=FlashMemPA	// Copy from here
+
+/* Copy the kernel text section (where we are running)
+   to physical address KTextPA in RAM and map it at MVA KTextVA. */
 	ldr r4,=KTextPA	// Copy to here
-	ldr r5,=(FlashMemPA + KTextPackedSize)	// endpoint in ROM
+	ldr r5,=(KTextPA + KTextPackedSize)	// endpoint in RAM
+	sub r8,r4,r6	// distance we are moving the text section
+
 1:	ldr r7,[r6],#4
 	str r7,[r4],#4
-	cmp r6,r5
+	cmp r4,r5
 	blo 1b
 
 /* Jump to this code in RAM. */
-	add pc,pc,#(KTextPA-FlashMemPA)
+	add pc,pc,r8
 	nop
 
-/*
-The kernel data section is loaded into address 
-(FlashMemPA + KTextPackedSize) in the ROM.
-We will copy it to physical address KTextPA + 1MB
-and map it at MVA KTextVA + 1MB.
- */
-/* Copy data section to RAM. */
+/* The kernel data section is loaded following the text section. */
+/* We will copy the kernel data section to physical address KTextPA + 1MB
+and map it at MVA KTextVA + 1MB.  */
 	ldr r3,=(1024*1024 - 1)
 	add r4,r4,r3	// round up to section boundary
 	bic r4,r4,r3	// ...
@@ -78,13 +93,12 @@ and map it at MVA KTextVA + 1MB.
 	ldr r0,=__data_start
 	sub r5,r5,r0	// size of data section
 	add r5,r5,r4
-1:	ldr r7,[r6],#4
-	str r7,[r4],#4
+1:	ldr r0,[r6],#4
+	str r0,[r4],#4
 	cmp r4,r5
 	blo 1b
-#else
-	ldr r4,=_edata	// this is wrong
-#endif
+
+// r6 now points to Grub info and module, which follow kernel data section.
 
 /* Set the kernel stack pointer. */
 	ldr sp,=(kstackBot)
@@ -117,16 +131,19 @@ and map it at MVA KTextVA + 1MB.
 	bic r4,r4,r3	// ...
 // TODO: it would be nice to use the space we skipped over for pages or CPTs.
 	mov r5,r4	// First Level Page Table
-	ldr r0,=0x4000	// size of FLPT
-	add r4,r4,r0
-	mov r6,r4	// Coarse Page Table for exception vectors
-	ldr r7,=0x400	// size of coarse page table
-	add r4,r4,r7	// 
-/* At this point:
-	r4 - end of CPT for exception vectors, beginning of free RAM (used?)
+	add r4,r4,#0x4000	// size of FLPT
+	mov r7,r4	// Coarse Page Table for exception vectors
+	add r4,r4,#0x400	// size of coarse page table
+/* At this point (all are physical addresses):
+	r4 - end of CPT for exception vectors
 	r5 - FLPT
-	r6 - CPT for exception vectors
+	r6 - beginning of Grub info and module
+	r7 - CPT for exception vectors
  */
+#ifdef REDBOOT
+	cmp r6,r4
+	blo .		// hang here if CPT overlaps loaded module
+#endif
 /* Clear the FLPT and CPT */
 	mov r0,#0
 	mov r1,r5
@@ -214,13 +231,13 @@ and map it at MVA KTextVA + 1MB.
 /* Set up CPT for exception vectors. */
 // domain=0 CPT descriptor
 	ldr r0,=0x11
-	add r0,r0,r6	// PA of CPT
+	add r0,r0,r7	// PA of CPT
 	ldr r1,=(0xfff00000 >> (20-2))
 	str r0,[r5, r1]
 /* Set up page for exception vectors, referring to physical address zero. */
 /* Note, the vectors aren't there yet. They will be written below. */
 	ldr r0,=(0x9 + KTextPA)	// AP=0b00, C=1, B=0
-	str r0,[r6, #(0xf0 << 2)]
+	str r0,[r7, #(0xf0 << 2)]
 
 /* Enable the MMU. */
 	mcr p15,0,r5,c2,c0,0	// write TTBR
@@ -372,6 +389,13 @@ NoClockConfig:
 	mcr p15,0,r0,c7,c10,4
 
 //	bl eraseFlash
+
+#ifdef REDBOOT
+	ldr r0,=PhysMapVA
+#else
+	ldr r0,=(FlashMemVA-FlashMemPA)
+#endif
+	add r0,r0,r6	// pass virt addr of GrubEmulStuff
 	bl GrubEmul
 #if 1
 	bl main		// does not return
@@ -382,18 +406,19 @@ NoClockConfig:
 
 	mov r0,#'9
 	bl SerialStream_Put
+
 #if 1
 // Blink the green LED.
 	ldr r3,=0x80840020	// Port E data register
 	mov r1,#0x3
 	mov r2,#7
-loop:	mov r0,r2
-inner:	str r1,[r3]
+2:	mov r0,r2
+1:	str r1,[r3]
 	subs r0,r0,#1
-	bne inner
+	bne 1b
 	eor r1,r1,#1
 	add r2, r2, r2, LSR #2	// slower next time
-	b loop
+	b 2b
 #endif
 #endif
 
