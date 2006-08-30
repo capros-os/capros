@@ -28,7 +28,8 @@
 	  <h1>2. Building CapROS</h1>
 	  <p>
           These instructions are for building for the Intel architecture.
-          A port also exists for the ARM architecture; see below. 
+          A port also exists for the ARM architecture; see
+          <a href="#ARMBuild">below</a>. 
 	  </p>
           <h2>2.1. Package Requirements</h2>
 	  <p>
@@ -312,7 +313,7 @@ configfile /CapROS-config-1
 	      </td>
 	    </tr>
 	  </table>
-	  <h1>4. Building for ARM</h1>
+	  <h1><a name="ARMBuild">4. Building for ARM</a></h1>
 	  <p>
           CapROS can run on the ARMv4 architecture.
           To build for ARM, you need to:
@@ -324,8 +325,36 @@ export EROS_TARGET=arm
           The system has been tested on a Cirrus EDB9315 development board,
           which uses the Cirrus EP9315,
           which is based on the ARM920T microprocessor.
+          </p><p>
+          To run on the EDB9315:
+          <ol><li>
+          Build the system for ARM.
+          </li><li>
+          Define EROS_HD to some
+          file (it will be used temporarily while building the
+          system image). 
+<pre>
+export EROS_HD=/tftpboot/hdz9
+</pre>
+          </li><li>
+          Go to the directory containing the test case you want to run,
+          for example src/base/tests/perf/nc.
           The kernel and initial system state are loaded together in a file
-          that you need to load into your system's memory and execute.
+          (/tftpboot/capros-kernel)
+          that will be loaded into the system's memory. Build it:
+<pre>
+make init.hd
+make hd
+</pre>
+          </li><li>
+          Set up Redboot according to the instructions that came with
+          the EDB9315. Boot the EDB9315 to execute Redboot. 
+          Give Redboot the commands:
+<pre>
+load -v -r -b 0x00100000 capros-kernel
+go
+</pre>
+          </li></ol>
 	  </p>
 	</td>
 	<td width="10%">&nbsp;</td>
