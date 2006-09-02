@@ -97,6 +97,18 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 	mcr p15,0,r0,c8,c7,0
 	mov pc,lr
 
+	ENTRY(mach_LoadTTBR)
+	mcr p15,0,r0,c2,c0	// load translation table base register
+	mov pc,lr
+
+	ENTRY(mach_LoadPID)
+	mcr p15,0,r0,c13,c0	// load Process ID register
+	mov pc,lr
+
+	ENTRY(mach_LoadDACR)
+	mcr p15,0,r0,c3,c0	// load domain access control register, DACR
+	mov pc,lr
+
 /* LoadWordFromUserSpace
    Returns true iff successful. */
 	ENTRY(LoadWordFromUserSpace)

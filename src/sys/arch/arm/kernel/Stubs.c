@@ -29,8 +29,4 @@ void proc(void) { \
 }
 
 stub(proc_FlushKeyRegs)
-stub(proc_FlushProcessSlot)
 stub(proc_InvokeProcessKeeper)
-stub(KeyDependEntry_Invalidate)
-stub(proc_GetRegs32)
-stub(proc_SetRegs32)

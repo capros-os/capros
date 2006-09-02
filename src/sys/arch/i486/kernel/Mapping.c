@@ -936,15 +936,11 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
 
   PTE * ptePage = (PTE*) mapping_page_kva;
 
-  assert (((uint32_t) kde->start) >= ((uint32_t) ptePage));
-  
   from = (PTE *)kde->start - ptePage;
   to = from + kde->pteCount;
 
   assert (from <= NPTE_PER_PAGE);
   assert (to <= NPTE_PER_PAGE);
-  
-  assert (from < to);
   
   /* It is possible that this frame got retasked into a page directory 
      with stale depend entries still live.  Those entries may span PTE 

@@ -198,9 +198,6 @@ Process *kproc_Init(const char * name,
 
 /* Former member functions of Process */
 
-bool
-proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt);
-
 PTE*
 proc_BuildMapping(Process* p, ula_t ula, bool forWriting, bool prompt);
 
@@ -467,7 +464,7 @@ void proc_Load(Node* procRoot);
 
 void proc_LoadAddressSpace(Process* thisPtr, bool prompt);
 
-void proc_FlushProcessSlot(Process* thisPtr, uint32_t whichKey);
+void proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey);
 
 #ifdef OPTION_DDB
 void proc_WriteBackKeySlot(Process* thisPtr, uint32_t whichKey);

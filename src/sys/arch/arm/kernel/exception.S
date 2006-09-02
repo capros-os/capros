@@ -116,8 +116,26 @@ CommonAbortHandler:
 	b .		// should never return
 
 AbortBadMode:
+	and r1,r12,#0b11111	// get just mode bits
+	cmp r1,#0b10011		// supervisor mode?
+	cmpeq r0,#0		// and data abort?
+	bne AbortError		// no, something seriously wrong
+	// A data abort from supervisor mode.
+	ldr r1,=LoadWordFromUserSpace
+	cmp r1,lr		// abort from this location?
+	ldreq lr,=LoadWordFromUserSpaceReturn
+	beq SupTransfer		// yes, handle it
+	ldr r1,=SWI_CSwap32_Ref
+	cmp r1,lr		// abort from this location?
+////	ldreq lr,=where?
+////	beq SupTransfer		// yes, handle it
+AbortError:
 	ldr r0,=AbortMsg
 	b handlerCommon
+
+SupTransfer:
+	str lr,[sp,#12]
+	ldmfd sp!,{r0-r1,r12,pc}^
 
 /***********************************************************************
  Unused exception handler
@@ -454,8 +472,8 @@ r2 has new_val
 
 IRQ is disabled here, but *NOT* FIQ.
  */
-	ldrt r12,[r0],#0
 ENTRY(SWI_CSwap32_Ref)	/* handle fault here */
+	ldrt r12,[r0],#0
 	cmp r12,r1
 	streq r2,[r0]
 	mov r0,r12
@@ -486,7 +504,7 @@ r0-r14
 	ldmia r1!,{r2,r3,r4,r12,r14}
 	mcr p15,0,r2,c2,c0	// load translation table base register
 	mcr p15,0,r3,c13,c0	// load Process ID register
-	mcr p15,0,r4,c3,c0	// load domain access control register
+	mcr p15,0,r4,c3,c0	// load domain access control register, DACR
 	msr spsr_fsxc,r12	// load SPSR
 	ldmia r1,{r0-r14}^	// load r0-r12, r13_usr, r14_usr
 	nop		// Cannot use banked register immediately

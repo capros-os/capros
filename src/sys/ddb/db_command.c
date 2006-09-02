@@ -389,7 +389,7 @@ struct db_command db_show_cmds[] = {
 	/* 	{ "count",	db_show_counters_cmd,	0,	0 }, */
 	{ "entry",      db_entry_print_cmd,	0,	0 },
 	{ "exit",       db_exit_print_cmd,	0,	0 },
-#ifdef ARCH_X86
+#ifdef EROS_TARGET_i486
 	{ "gdt",	db_show_gdt,	 	0,	0 },
 #endif
 	{ "inv",        db_inv_print_cmd,	0,	0 },

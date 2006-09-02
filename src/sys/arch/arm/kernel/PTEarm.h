@@ -152,8 +152,13 @@ MapTabHeaderToKVA(MapTabHeader * mth)
 }
 
 void mach_FlushBothTLBs(void);
+void mach_LoadTTBR(kpa_t ttbr);
+void mach_LoadPID(uint32_t pid);
+void mach_LoadDACR(uint32_t dacr);
 bool LoadWordFromUserSpace(uva_t userAddr, uint32_t * resultP);
 MapTabHeader * AllocateCPT(void);
+
+bool proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt);
 
 #endif /* __ASSEMBLER__  */
 #endif /* __PTEARM_H__ */

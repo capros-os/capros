@@ -25,6 +25,8 @@
 #include <kerninc/KernStream.h>
 #include <kerninc/Machine.h>
 #include <kerninc/Process.h>
+#include <kerninc/Depend.h>
+#include <kerninc/KernStats.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Activity.h>
 #include <arch-kerninc/PTE.h>
@@ -72,6 +74,54 @@ struct SmallSpace {
   ObjectHeader * producer;	/* or NULL if space is not assigned */
   unsigned char domain;	/* the domain owned by this PID, 0 if none */
 } SmallSpaces[NumSmallSpaces];
+
+void
+KeyDependEntry_Invalidate(KeyDependEntry * kde)
+{
+  if (kde->start == 0) {	// unused entry
+    return;
+  }
+  
+  KernStats.nDepInval++;
+  
+#ifdef DEPEND_DEBUG
+  printf("Invalidating key entries start=0x%08x, count=%d\n",
+	      kde->start, kde->pteCount);
+#endif
+  if (kde->pteCount == 0) {
+    assert(IsInProcess(kde->start));
+    ((Process *) kde->start) ->md.firstLevelMappingTable = FLPT_FCSEPA;
+	       
+     /* MUST BE CAREFUL -- if this product is the active mapping table we
+     * need to reset the mapping pointer to the native kernel map!
+     */
+  
+    if (((Process *) kde->start) == act_CurContext()) {
+      mach_LoadTTBR(FLPT_FCSEPA);
+    }
+  } else {
+    kva_t mapping_page_kva = ((kva_t)kde->start & ~EROS_PAGE_MASK);
+    PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
+    /* pMappingPage could be zero, if the mapping page was allocated
+       at kernel initialization and therefore doesn't have an
+       associated PageHeader. */
+
+    /* If it is no longer a mapping page, stop. */
+    // FIXME: support first level mapping pages too.
+    if (pMappingPage && (pageH_GetObType(pMappingPage) != ot_PtMappingPage2)) {
+      kde->start = 0;
+      return;
+    }
+
+    PTE * pPTE = (PTE *)kde->start;
+    int i;
+    for (i = 0; i < kde->pteCount; i++, pPTE++) {
+      pte_Invalidate(pPTE);
+    }
+  }
+
+  kde->start = 0;
+}
 
 /* Zap all references to this mapping table. */
 void

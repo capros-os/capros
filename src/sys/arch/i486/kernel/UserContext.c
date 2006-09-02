@@ -635,34 +635,25 @@ proc_LoadFloatRegs(Process* thisPtr)
 #endif
 
 void 
-proc_FlushFixRegs(Process* thisPtr)
+proc_FlushFixRegs(Process * thisPtr)
 {
-  uint32_t k;
-  uint8_t *rootkey0 = 0;
   assert((thisPtr->hazards & hz_DomRoot) == 0);
   
   assert(thisPtr->procRoot);
-  assert(objH_IsDirty(DOWNCAST(thisPtr->procRoot, ObjectHeader)));
+  assert(objH_IsDirty(node_ToObj(thisPtr->procRoot)));
   assert(thisPtr->isUserContext);
 
-#ifdef ProcAltMsgBuf
-#error "Type checks need revision"
-#endif
-  
+  unsigned int k;
   for (k = ProcFirstRootRegSlot; k <= ProcLastRootRegSlot; k++) {
     assert ( keyBits_IsRdHazard(node_GetKeyAtSlot(thisPtr->procRoot, k)));
     assert ( keyBits_IsWrHazard(node_GetKeyAtSlot(thisPtr->procRoot, k)));
     keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, k));
   }
 
-  rootkey0 = (uint8_t *)  (node_GetKeyAtSlot(thisPtr->procRoot, 0));
+  uint8_t * rootkey0 = (uint8_t *) (node_GetKeyAtSlot(thisPtr->procRoot, 0));
 
   UNLOAD_FIX_REGS;
 
-  /* ISSUE: If this process has IOPL privileges, it is not clear that
-   * we should ever be recording them back to the domain root, as this
-   * makes them fairly well permanent. */
-  
   keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcSched));
 
   thisPtr->hazards |= (hz_DomRoot | hz_Schedule);
@@ -1166,7 +1157,7 @@ proc_InvokeProcessKeeper(Process* thisPtr)
 }
 
 void
-proc_FlushProcessSlot(Process* thisPtr, uint32_t whichKey)
+proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
 {
   assert(thisPtr->procRoot);
   
@@ -1249,7 +1240,6 @@ Process::SetFault(uint32_t code, uint32_t info, bool needRevalidate)
 }
 #endif
 
-/* On entry. inv.rcv.code == RC_OK */
 bool
 proc_GetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
 {  
@@ -1270,8 +1260,6 @@ proc_GetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
   regs->faultCode = thisPtr->faultCode;
   regs->faultInfo = thisPtr->faultInfo;
   regs->domState = thisPtr->runState;
-
-  /* RetryLik bit is NOT exposed via this interface */
   regs->domFlags = thisPtr->processFlags;
   regs->nextPC  = thisPtr->nextPC;
 
@@ -1293,7 +1281,6 @@ proc_GetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
   return true;
 }
 
-/* On entry. inv.rcv.code == RC_OK */
 bool
 proc_SetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
 {
@@ -1317,8 +1304,6 @@ proc_SetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
   thisPtr->faultCode        = regs->faultCode;
   thisPtr->faultInfo        = regs->faultInfo;
   thisPtr->runState         = regs->domState;
-
-  /* RetryLik cannot be changed via this interface: */
   thisPtr->processFlags     = regs->domFlags;
   thisPtr->nextPC           = regs->nextPC;
 

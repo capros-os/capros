@@ -120,6 +120,8 @@ MapTabHeaderToKVA(struct MapTabHeader * mth)
   return (struct PTE *) pageH_GetPageVAddr(pageH);
 }
 
+bool proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt);
+
 INLINE void
 mach_FlushTLB()
 {

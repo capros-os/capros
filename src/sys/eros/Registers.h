@@ -23,6 +23,7 @@
 
 /* Architecture neutral overlay for 32 bit architecture registers */
 
+#define ARCH_ARMProcess    0xa00000a0
 #define ARCH_I386   0xb00000b0
 
 struct CommonRegisters32 {

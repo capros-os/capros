@@ -350,11 +350,11 @@ load	EBX	     LTL     root   11    4		"0x0"
 load	EDX	     LTL     root   10    0		"0x0"
 load	ECX	     LTL     root   12    0		"0x0"
 load	EAX	     LTL     root   11    0		"0x0"
-/* The program counter must go in root slot 8 offset 0. See eros/Key.h. */
+/* The program counter must go in root slot 9 offset 0. See eros/KeyConst.h. */
 load	EIP	     LTL     root   9     0		"0x0"
 load	CS	     LTL     root   13    4		"0x23"
 load	EFLAGS       LTL     root   13    0		"0x0200"
-/* The stack pointer must go in root slot 8 offset 4. See eros/Key.h. */
+/* The stack pointer must go in root slot 9 offset 8. See eros/KeyConst.h. */
 load	ESP	     LTL     root   9     8		"0x0"
 load	SS	     LTL     root   13    6		"0x2b"
 

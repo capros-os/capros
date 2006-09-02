@@ -62,6 +62,14 @@ Process * proc_ContextCacheRegion = NULL;
 PTE *proc_smallSpaces = 0;
 #endif
 
+#define userCPSRBits (0xff000000 | MASK_CPSR_Thumb)
+		/* bits that the user can play with */
+static uint32_t
+ForceValidUserCPSR(uint32_t cpsr)
+{
+  return (cpsr & userCPSRBits) | CPSRMode_User;
+}
+
 void 
 proc_AllocUserContexts()
 {
@@ -396,6 +404,16 @@ proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
 }
 #endif /* ASM_VALIDATE_STRINGS */
 
+#if 0 // unused so far
+ula_t
+proc_VAtoMVA(Process * thisPtr, uva_t va)
+{
+  if (va < 0x02000000)
+    return va + thisPtr->md.pid;
+  else return va;
+}
+#endif
+
 void 
 proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/,
                      uint32_t bound)
@@ -404,7 +422,69 @@ proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/,
   if (inv->validLen == 0)
     return;
 #endif
-  printf("proc_SetupExitString unimplemented!\n");
+
+  if (inv->validLen > bound)
+    inv->validLen = bound;
+
+  assert( proc_IsRunnable(thisPtr) );
+
+revalidate:
+  if (act_CurContext()->md.firstLevelMappingTable
+      == thisPtr->md.firstLevelMappingTable ) {
+    // Processes are using the same map.
+    mach_LoadPID(thisPtr->md.pid);
+    mach_LoadDACR(thisPtr->md.dacr);
+    // Ensure the destination is mapped.
+    uva_t va = thisPtr->trapFrame.r0;	// VA of Message structure
+    // FIXME: who checks that this is word-aligned?
+    va += offsetof(Message, rcv_data);	// VA of Message.rcv_data
+    if (! LoadWordFromUserSpace(va, (uint32_t *)&va)) {
+      // Not mapped, try to map it.
+      // FIXME: Does proc_DoPageFault check access (wrong domain)?
+      if (! proc_DoPageFault(thisPtr, va,
+            false /* read only */, true /* prompt */ )) {
+        fatal("proc_SetupExitString needs to fault, unimplemented!");
+      } else {
+        // We repaired the fault. BUT, in so doing, we may have
+        // invalidated some other map needed for this operation.
+        // Therefore start validating all over again.
+        // NOTE this may even need to go back to the caller.
+        // FIXME: need a retry count
+        goto revalidate;
+      }
+    }
+    // Got rcv_data in va.
+    uva_t vaTop = va + inv->validLen;
+    uva_t pgPtr = va & ~EROS_PAGE_MASK;
+    // Validate every destination page.
+    for (; pgPtr < vaTop; pgPtr += EROS_PAGE_SIZE) {
+      uint32_t word;
+      if (! LoadWordFromUserSpace(pgPtr, &word)) {
+        // Not mapped, try to map it.
+        if (! proc_DoPageFault(thisPtr, pgPtr,
+              true /* write */, true /* prompt */ )) {
+          fatal("proc_SetupExitString needs to fault, unimplemented!");
+        } else {
+          goto revalidate;
+        }
+      }
+    }
+    // Restore PID and DACR of current process.
+    mach_LoadPID(act_CurContext()->md.pid);
+    mach_LoadDACR(act_CurContext()->md.dacr);
+    // Current process's map is current, so destination addr is too.
+    inv->exit.data = (uint8_t *)va;
+  } else {
+    // Processes are using different maps.
+    fatal("proc_SetupExitString cross-space unimplemented!\n");
+  }
+
+  /* The segment walking logic may have set a fault code.  Clear it
+   * here, since no segment keeper invocation should happen as a
+   * result of the above.  We know this was the prior state, as the
+   * domain would not otherwise have been runnable.  */
+  // FIXME: Prevent setting the fault.
+  proc_SetFault(thisPtr, FC_NoFault, 0, false);
 }
 
 extern void resume_from_kernel_interrupt(savearea_t *) NORETURN;
@@ -434,6 +514,159 @@ proc_DumpFixRegs(Process* thisPtr)
 }
 
 void 
+proc_FlushFixRegs(Process * thisPtr)
+{
+  assert((thisPtr->hazards & hz_DomRoot) == 0);
+  
+  assert(thisPtr->procRoot);
+  assert(objH_IsDirty(node_ToObj(thisPtr->procRoot)));
+  assert(thisPtr->isUserContext);
+
+  unsigned int k;
+  for (k = ProcFirstRootRegSlot; k <= ProcLastRootRegSlot; k++) {
+    assert ( keyBits_IsRdHazard(node_GetKeyAtSlot(thisPtr->procRoot, k)));
+    assert ( keyBits_IsWrHazard(node_GetKeyAtSlot(thisPtr->procRoot, k)));
+    keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, k));
+  }
+
+  uint8_t * rootkey0 = (uint8_t *) (node_GetKeyAtSlot(thisPtr->procRoot, 0));
+
+  UNLOAD_FIX_REGS;
+
+  keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcSched));
+
+  thisPtr->hazards |= (hz_DomRoot | hz_Schedule);
+  thisPtr->saveArea = 0;
+}
+
+void
+proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
+{
+  assert(thisPtr->procRoot);
+  
+  switch (whichKey) {
+  case ProcGenKeys:
+    assert ((thisPtr->hazards & hz_KeyRegs) == 0);
+    proc_FlushKeyRegs(thisPtr);
+    break;
+
+  case ProcAddrSpace:
+    Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, whichKey));
+    assert(thisPtr->md.firstLevelMappingTable == FLPT_FCSEPA);
+    break;
+
+  case ProcSched:
+    /* We aren't demolishing the process (probably), but after a schedule
+       slot change the new schedule key may be invalid, in which case
+       process will cease to execute and _may_ cease to be occupied by a
+       activity.
+
+       At a minimum, however, we need to mark a schedule hazard. */
+    keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, whichKey));
+    thisPtr->hazards |= hz_Schedule;
+    break;
+
+  default:
+#ifdef EROS_HAVE_FPU
+    if ( (thisPtr->hazards & hz_FloatRegs) == 0 )
+      proc_FlushFloatRegs(thisPtr);
+#endif
+    
+    assert ((thisPtr->hazards & hz_DomRoot) == 0);
+    proc_FlushFixRegs(thisPtr);
+    break;
+  }
+
+  thisPtr->saveArea = 0;
+}
+
+bool
+proc_GetRegs32(Process * thisPtr, struct Registers * regs /*@ not null @*/)
+{  
+  assert (proc_IsRunnable(thisPtr));
+
+  if (thisPtr->hazards & hz_DomRoot) {
+    return false;
+  }
+  
+  regs->arch   = ARCH_ARMProcess;
+  regs->len    = sizeof(*regs);
+  regs->pc     = thisPtr->trapFrame.r15;
+  regs->sp     = thisPtr->trapFrame.r13;
+  regs->faultCode = thisPtr->faultCode;
+  regs->faultInfo = thisPtr->faultInfo;
+  regs->domState = thisPtr->runState;
+  regs->domFlags = thisPtr->processFlags;
+  regs->nextPC  = thisPtr->nextPC;
+
+  regs->registers[0]  = thisPtr->trapFrame.r0;
+  regs->registers[1]  = thisPtr->trapFrame.r1;
+  regs->registers[2]  = thisPtr->trapFrame.r2;
+  regs->registers[3]  = thisPtr->trapFrame.r3;
+  regs->registers[4]  = thisPtr->trapFrame.r4;
+  regs->registers[5]  = thisPtr->trapFrame.r5;
+  regs->registers[6]  = thisPtr->trapFrame.r6;
+  regs->registers[7]  = thisPtr->trapFrame.r7;
+  regs->registers[8]  = thisPtr->trapFrame.r8;
+  regs->registers[9]  = thisPtr->trapFrame.r9;
+  regs->registers[10] = thisPtr->trapFrame.r10;
+  regs->registers[11] = thisPtr->trapFrame.r11;
+  regs->registers[12] = thisPtr->trapFrame.r12;
+  regs->registers[13] = thisPtr->trapFrame.r13;
+  regs->registers[14] = thisPtr->trapFrame.r14;
+  regs->registers[15] = thisPtr->trapFrame.r15;
+  regs->CPSR  = thisPtr->trapFrame.CPSR;
+
+  return true;
+}
+
+bool
+proc_SetRegs32(Process * thisPtr, struct Registers * regs /*@ not null @*/)
+{
+#if 0
+  dprintf(true, "ctxt=0x%08x: Call to SetRegs32\n", this);
+#endif
+
+  assert (proc_IsRunnable(thisPtr));
+
+  if (thisPtr->hazards & hz_DomRoot) {
+    dprintf(true, "ctxt=0x%08x: No root regs\n", thisPtr);
+    return false;
+  }
+  
+  /* Done with len, architecture */
+  thisPtr->trapFrame.r15    = regs->pc;
+  thisPtr->trapFrame.r13    = regs->sp;
+  thisPtr->faultCode        = regs->faultCode;
+  thisPtr->faultInfo        = regs->faultInfo;
+  thisPtr->runState         = regs->domState;
+  thisPtr->processFlags     = regs->domFlags;
+  thisPtr->nextPC           = regs->nextPC;
+
+  thisPtr->trapFrame.r0  = regs->registers[0];
+  thisPtr->trapFrame.r1  = regs->registers[1];
+  thisPtr->trapFrame.r2  = regs->registers[2];
+  thisPtr->trapFrame.r3  = regs->registers[3];
+  thisPtr->trapFrame.r4  = regs->registers[4];
+  thisPtr->trapFrame.r5  = regs->registers[5];
+  thisPtr->trapFrame.r6  = regs->registers[6];
+  thisPtr->trapFrame.r7  = regs->registers[7];
+  thisPtr->trapFrame.r8  = regs->registers[8];
+  thisPtr->trapFrame.r9  = regs->registers[9];
+  thisPtr->trapFrame.r10 = regs->registers[10];
+  thisPtr->trapFrame.r11 = regs->registers[11];
+  thisPtr->trapFrame.r12 = regs->registers[12];
+  // thisPtr->trapFrame.r13 = regs->registers[13];
+  thisPtr->trapFrame.r14 = regs->registers[14];
+  // thisPtr->trapFrame.r15 = regs->registers[15];
+  thisPtr->trapFrame.CPSR = ForceValidUserCPSR(regs->CPSR);
+
+  proc_NeedRevalidate(thisPtr);	// needed?
+    
+  return true;
+}
+
+void 
 proc_Load(Node* procRoot)
 {
   Process *p = proc_allocate(true);
@@ -460,17 +693,13 @@ proc_Load(Node* procRoot)
 void
 proc_ValidateRegValues(Process* thisPtr)
 {
-  const uint32_t userCPSRBits = 0xff000000 | MASK_CPSR_Thumb;
-		/* bits that the user can play with */
-  
   if (thisPtr->processFlags & PF_Faulted)
     return;
 
   if (thisPtr->isUserContext) {
     /* Rather than force the programmer to set the correct CPSR bits,
        we just set them correctly here. */
-    thisPtr->trapFrame.CPSR = (thisPtr->trapFrame.CPSR & userCPSRBits)
-                              | CPSRMode_User;
+    thisPtr->trapFrame.CPSR = ForceValidUserCPSR(thisPtr->trapFrame.CPSR);
   } else {
     /* Privileged processes might disable IRQ, but we will never see it,
        because the process won't be preempted until IRQ is reenabled. */
