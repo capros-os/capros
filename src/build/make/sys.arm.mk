@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2006, Strawberry Development Group.
+# Copyright (C) 2006, 2007, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -36,7 +36,10 @@ BOOTMODULE=$(CAPROS_BOOT_PARTITION)/CapROS-PL-3-1
 KDataPackedAddr=0xfe030000
 ARM_SYS=/tftpboot/capros-kernel
 
-hd: $(BUILDDIR)/sysimg $(KERNPATH)
+$(CAPROS_BOOT_PARTITION)/pad3:
+	echo "12"|cat>$@	# a 3-byte file
+
+hd: $(BUILDDIR)/sysimg $(KERNPATH) $(CAPROS_BOOT_PARTITION)/pad3
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map -g $(CAPROS_BOOT_PARTITION) -v 1 $(EROS_HD) $(BUILDDIR)/sysimg | tee $(BUILDDIR)/sysgen.out
 # Construct $(ARM_SYS) with:
 #  kernel,
@@ -49,7 +52,7 @@ hd: $(BUILDDIR)/sysimg $(KERNPATH)
 	$(EROS_OBJCOPY) -O binary --change-section-lma .data=$(KDataPackedAddr) $(KERNPATH) $(ARM_SYS)
 	cp $(ARM_SYS) /tftpboot/kernel-only # so CRL can see the size
 	ls -go $(BOOTMODULE) | gawk '{printf ("%08x", $$3)}' >> $(ARM_SYS)
-	cat $(CAPROS_BOOT_PARTITION)/CapROS-config-1 /tftpboot/pad3 $(BOOTMODULE) >> $(ARM_SYS)
+	cat $(CAPROS_BOOT_PARTITION)/CapROS-config-1 $(CAPROS_BOOT_PARTITION)/pad3 $(BOOTMODULE) >> $(ARM_SYS)
 
 $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -b $(BOOT) -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol
