@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2007, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -50,7 +51,7 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 all: $(TARGETS)
 
-$(BUILDDIR)/liberos.a: $(OBJECTS)
+$(BUILDDIR)/liberos.a: $(OBJECTS) $(BUILDDIR)
 	$(AR) -crv $@ $(OBJECTS)
 	$(RANLIB) $@
 
@@ -65,7 +66,7 @@ install: all
 
 LAYOUT = $(EROS_SRC)/sys/arch/$(EROS_TARGET)/LAYOUT
 GENDESCRIP = $(EROS_SRC)/sys/scripts/GenArchDescrip.awk
-$(BUILDDIR)/gen.RegisterDescriptions.c: $(LAYOUT) $(GENDESCRIP)
+$(BUILDDIR)/gen.RegisterDescriptions.c: $(LAYOUT) $(GENDESCRIP) $(BUILDDIR)
 	$(EROS_CPP) -I$(EROS_SRC)/sys $(LAYOUT) | $(GAWK) -f $(GENDESCRIP) > $@
 
 ArchDescrip.c: $(BUILDDIR)/gen.RegisterDescriptions.c
