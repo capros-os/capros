@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
-# Copyright (C) 2005, 2006, Strawberry Development Group.
+# Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -37,7 +37,8 @@ EROS_OBJDUMP=$(EROS_XENV)/bin/$(CROSS_PREFIX)objdump
 EROS_RANLIB=$(EROS_XENV)/bin/$(CROSS_PREFIX)ranlib
 EROS_STRIP=$(EROS_XENV)/bin/$(CROSS_PREFIX)strip
 
-EROS_LIBGCC=$(EROS_XENV)/lib/gcc/$(EROS_CROSS_TARGET)-unknown-capros/3.4.4/libgcc.a
+# Kludge - should not have to have version number here
+EROS_LIBGCC=$(EROS_XENV)/lib/gcc/$(EROS_CROSS_TARGET)-unknown-capros/3.4.6/libgcc.a
 
 ifeq "$(EROS_TARGET)" "i486"
 EROS_GCC_KERNEL_ALIGN=-falign-functions=4
