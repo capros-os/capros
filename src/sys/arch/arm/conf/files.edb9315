@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006 Strawberry Development Group.
+# Copyright (C) 2006, 2007 Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -40,8 +40,8 @@ file("arch/arm/kernel/PhysMem.c")
 file("arch/arm/kernel/Process.c")
 file("arch/arm/kernel/setjmp.S")
 file("arch/arm/kernel/Stubs.c") ##temporary
-file("arch/arm/kernel/mainTemp.c") ##temporary
-file("arch/arm/kernel/onewire.c") ##temporary
+#file("arch/arm/kernel/mainTemp.c") ##temporary
+#file("arch/arm/kernel/onewire.c") ##temporary
 #file("arch/arm/kernel/invmon.c") ##temporary
 #file("kernel/kern_Invoke.c")
 #file("kernel/kern_IRQ.c")
