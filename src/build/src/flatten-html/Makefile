@@ -1,5 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2007, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -38,5 +39,9 @@ $(BUILDDIR)/flatten-html.o: flatten-html.c $(BUILDDIR)
 
 $(BUILDDIR)/flatten-html: $(OBJECTS)
 	$(GCC) -o $@ $(OBJECTS) -lfl
+
+# Don't try to build a file with a star in the name!
+# Not sure why this works - seems like it ought to be .\*.m
+$(BUILDDIR)/.*.m: ;
 
 -include $(BUILDDIR)/.*.m
