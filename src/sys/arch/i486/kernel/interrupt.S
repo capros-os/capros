@@ -1,7 +1,7 @@
 	.file	"interrupt.S"
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -806,10 +806,10 @@ L_application_fault:
 	/* We could push these, but doing things this way eliminates AGEN 
 	 * interlocks on the Pentium and later
 	 */
-	movl	%gs,FX_OFF_GS(%ebp)
-	movl	%fs,FX_OFF_FS(%ebp)
-	movl	%ds,FX_OFF_DS(%ebp)
-	movl	%es,FX_OFF_ES(%ebp)
+	movw	%gs,FX_OFF_GS(%ebp)
+	movw	%fs,FX_OFF_FS(%ebp)
+	movw	%ds,FX_OFF_DS(%ebp)
+	movw	%es,FX_OFF_ES(%ebp)
 
 L_load_kernel_segments:
 	/*
@@ -902,10 +902,10 @@ ENTRY(intr_InvokeKey)
 	/* We could push these, but doing things this way eliminates AGEN 
 	 * interlocks on the Pentium and later
 	 */
-	movl	%gs,FX_OFF_GS(%ebp)
-	movl	%fs,FX_OFF_FS(%ebp)
-	movl	%ds,FX_OFF_DS(%ebp)
-	movl	%es,FX_OFF_ES(%ebp)
+	movw	%gs,FX_OFF_GS(%ebp)
+	movw	%fs,FX_OFF_FS(%ebp)
+	movw	%ds,FX_OFF_DS(%ebp)
+	movw	%es,FX_OFF_ES(%ebp)
 
 	movl	PR_OFF_cpuStack-PR_OFF_FIXREGS(%ebp),%esp
 	
@@ -1586,13 +1586,13 @@ L_return_from_fast_path:
 	 */
 
 L_reload_es:	
-	movl	FX_OFF_ES-FX_OFF_EIP(%esp),%es
+	movw	FX_OFF_ES-FX_OFF_EIP(%esp),%es
 L_reload_ds:	
-	movl	FX_OFF_DS-FX_OFF_EIP(%esp),%ds
+	movw	FX_OFF_DS-FX_OFF_EIP(%esp),%ds
 L_reload_fs:	
-	movl	FX_OFF_FS-FX_OFF_EIP(%esp),%fs
+	movw	FX_OFF_FS-FX_OFF_EIP(%esp),%fs
 L_reload_gs:	
-	movl	FX_OFF_GS-FX_OFF_EIP(%esp),%gs
+	movw	FX_OFF_GS-FX_OFF_EIP(%esp),%gs
 	
 	/*
 	 * ONCE BELOW THIS POINT, ALL REFERENCES MUST BE TO THE CODE
@@ -1776,7 +1776,7 @@ ENTRY(intr_CapInstr)
 	/* Save user %ds and load kernel %ds so that we can call 
 	   kernel code. */
 
-	movl	%ds,FX_OFF_DS(%esp)
+	movw	%ds,FX_OFF_DS(%esp)
 	/*
 	 * Now load the kernel segments.
 	 */
@@ -1803,7 +1803,7 @@ ENTRY(intr_CapInstr)
 	call	*%edx
 
 	movl	%ebp,%esp
-	movl	FX_OFF_DS(%esp),%ds
+	movw	FX_OFF_DS(%esp),%ds
 #if FX_OFF_PUSHA != 0
 	addl	$FX_OFF_PUSHA,%esp
 #endif
