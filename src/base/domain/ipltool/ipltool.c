@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -44,10 +45,10 @@
 #define KR_FAULT      KR_APP(4)
 
 /* This program is one shot with no backing environment -- stack page
- * is provided in the map file. Override __rt_small_process so that we
- * do not get the space initialization behavior that normally goes
- * with small processes. */
-uint32_t __rt_small_process = 0;
+ * is provided in the map file.
+ * Bypass all the usual initialization. */
+unsigned long __rt_stack_pointer = 0x20000;
+unsigned long __rt_runtime_hook = 0;
 uint32_t __rt_unkept = 1;
 
 int
