@@ -1,6 +1,6 @@
 	.file	"exception.S"
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -19,7 +19,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 	
 #include <eros/arch/arm/asm.h>
 #include <arch-kerninc/kern-target-asm.h>
@@ -490,7 +491,13 @@ SWI_XchgKeyReg_Handler:
 
 	ENTRY(resume_process)
 /* r0 has a pointer to the Process structure. */
-	ldr sp,=(kstackBot)	// empty the stack!
+	ldr sp,=(kstackBot)	// empty the kernel stack!
+#if 0	// if trying to find a bug
+	mov r4,r0
+	bl mach_FlushBothTLBs
+	bl mach_FlushBothCaches
+	mov r0,r4
+#endif
 
 	add r1,r0,#PR_OFF_firstLevelMappingTable
 /* Process structure has, in order:

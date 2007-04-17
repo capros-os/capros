@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group
+ * Copyright (C) 2006, 2007, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -19,7 +19,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/util.h>
@@ -35,6 +36,11 @@
 
 
 kpa_t physMem_PhysicalPageBound = 0;
+unsigned int logDataCacheLineLength;
+unsigned int logDataCacheAssociativity;	// rounded up to an integer
+unsigned int logDataCacheNSets;
+uint32_t cacheSetIndexIncrement;
+uint32_t cacheSetIndexCarry;
 
 static void checkBounds(kpa_t base, kpa_t bound)
 {
@@ -49,6 +55,29 @@ physMem_Init()
   int32_t mmapLength;
   struct grub_mmap * mp;
   unsigned int i;
+
+uint32_t mach_ReadCacheType(void);
+  uint32_t cacheType = mach_ReadCacheType();
+  assert((cacheType & 0x01000000));	// unified cache not supported
+  assert((cacheType >> 25) >= 2);	// We only support write-back,
+			// cleaning with register 7 operations.
+  logDataCacheLineLength = ((cacheType >> 12) & 0x3) + 3;
+  logDataCacheAssociativity = ((cacheType >> 15) & 0x7);
+  logDataCacheNSets = ((cacheType >> 18) & 0x7) + 9
+    - logDataCacheLineLength - logDataCacheAssociativity;
+  if (cacheType & 0x4000)	// M bit is one, associativity is 50% higher
+    logDataCacheAssociativity++;	// round log up
+
+  // Calculate constants for the cleaning code in mach_FlushBothCaches.
+  cacheSetIndexIncrement = 1ul << logDataCacheLineLength;
+  cacheSetIndexCarry = (1ul << (32-logDataCacheAssociativity))
+    - (1ul << (logDataCacheLineLength + logDataCacheNSets));
+
+  DEBUG (init) printf("CacheType %x, lll=%d, lassoc=%d, lnsets=%d\n",
+         cacheType, logDataCacheLineLength, logDataCacheAssociativity,
+         logDataCacheNSets);
+  DEBUG (init) printf("SetIndex incr=%x, carry=%x\n",
+         cacheSetIndexIncrement, cacheSetIndexCarry);
 
   DEBUG (init) printf("MultibootInfoPtr = %x\n", MultibootInfoPtr);
 

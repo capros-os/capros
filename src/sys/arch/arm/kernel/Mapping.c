@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -18,7 +18,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
@@ -66,14 +67,42 @@ struct MMUDomain {
 
 One address space (FLPT_FCSE) uses the Fast Context Switch Extension to divide 
 the space into multiple small spaces. 
-(This lets us avoid flushing the cache and TLB.)
+(This lets us avoid flushing the cache and TLB when switching from one
+small space to another.)
 A process using a small address space runs with the Process ID for that space.
 
+SmallSpaces[0] is unused.
+
+For 0 < i < NumSmallSpaces,
+the following states are possible for SmallSpaces[i]:
+1. producer is zero. Nothing is mapped in this small space. 
+2. producer is nonzero and domain is nonzero. 
+   This domain is assigned to this space.
+   Page tables may be mapped in this space using this domain. 
+   SmallSpaces[i].producer->ssid == i.
+3. producer is nonzero and domain is zero. 
+   This space has no domain assigned.
+   This space may have second-level descriptors that are like maps to page
+   tables, but with zero in the domain field and 0b00 in the valid bits.
+   SmallSpaces[i].producer->ssid == i.
+
+For all ObjectHeaders objH,
+objH->ssid is zero or SmallSpace[objH->ssid].producer == objH.
 */
 struct SmallSpace {
   ObjectHeader * producer;	/* or NULL if space is not assigned */
   unsigned char domain;	/* the domain owned by this PID, 0 if none */
 } SmallSpaces[NumSmallSpaces];
+
+void
+proc_ResetMappingTable(Process * p)
+{
+  p->md.flmtProducer = NULL;
+  p->md.firstLevelMappingTable = FLPT_FCSEPA;
+  p->md.dacr = 0x1;	/* client access for domain 0 only,
+	which means all user-mode accesses will fault. */
+  p->md.pid = 0;
+}
 
 void
 KeyDependEntry_Invalidate(KeyDependEntry * kde)
@@ -89,16 +118,19 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
 	      kde->start, kde->pteCount);
 #endif
   if (kde->pteCount == 0) {
+    Process * const p = (Process *) kde->start;
     assert(IsInProcess(kde->start));
-    ((Process *) kde->start) ->md.firstLevelMappingTable = FLPT_FCSEPA;
+    proc_ResetMappingTable(p);
 	       
-     /* MUST BE CAREFUL -- if this product is the active mapping table we
-     * need to reset the mapping pointer to the native kernel map!
-     */
+#if 0
+     /* If this product is the active mapping table:
+     Nothing to be done; TTBR, PID, and DACR will be reloaded
+     when we next go to user mode. */
   
-    if (((Process *) kde->start) == act_CurContext()) {
-      mach_LoadTTBR(FLPT_FCSEPA);
+    if (p == act_CurContext()) {
+      //// mach_LoadTTBR(FLPT_FCSEPA);
     }
+#endif
   } else {
     kva_t mapping_page_kva = ((kva_t)kde->start & ~EROS_PAGE_MASK);
     PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
@@ -199,22 +231,50 @@ EnsureSSDomain(unsigned int ssid)
          /* Found an unused domain. */
          MMUDomains[i].pid = ssid;
          SmallSpaces[ssid].domain = i;
+#if 0
+         printf("Allocating domain %d\n", i);
+#endif
          return i;
        }
     }
-    fatal("Unimplemented: need to steal a domain\n");
+    // Need to steal a domain.
+    /* FIXME: before stealing resources (such as a domain)
+    from other processes, we should temporarily disfavor running
+    this process, giving the other processes more opportunity
+    to use the resources before they are stolen. */
+    /* Since we have to flush TLB and cache here, we might as well
+    steal all the domains at once. */
+#if 0
+    printf("Recycling domains\n");
+#endif
+    for (i = 1; i < 16; i++) {
+      unsigned int pid = MMUDomains[i].pid; // nonzero
+      assert(SmallSpaces[pid].domain == i);
+      /* Invalidate all level 1 descriptors for this pid. */
+      /* Note: we invalidate the descriptors, but leave some information
+      behind so they can be quickly revalidated if we assign a new
+      domain to this pid. */
+      int j;
+      for (j = 0; j < 1ul << (PID_SHIFT - L1D_ADDR_SHIFT); j++) {
+        /* In a user pid's map, there are no section descriptors,
+        so an invalid nonzero descriptor is always for a coarse PT. */
+        // Invalidate the descriptor and clear the domain field.
+        FLPT_FCSEVA[(pid << (PID_SHIFT - L1D_ADDR_SHIFT)) + j]
+          &= ~(L1D_DOMAIN_MASK | L1D_VALIDBITS);
+      }
+      SmallSpaces[pid].domain = 0;	// no longer has it
+      MMUDomains[i].pid = 0;
+    }
+    PteZapped = true;
+    mach_FlushBothCaches();	// here or elsewhere?
+    // Assign domain 1 for the caller.
+    MMUDomains[1].pid = ssid;
+    SmallSpaces[ssid].domain = 1;
+#if 0
+    printf("Allocating domain 1\n");
+#endif
   }
   return SmallSpaces[ssid].domain;
-}
-
-void
-proc_ResetMappingTable(Process * p)
-{
-  p->md.flmtProducer = NULL;
-  p->md.firstLevelMappingTable = FLPT_FCSEPA;
-  p->md.dacr = 0x1;	/* client access for domain 0 only,
-	which means all user-mode accesses will fault. */
-  p->md.pid = 0;
 }
 
 /* mach_EnsureHeap() must find (or clear) an available physical page and
@@ -251,7 +311,10 @@ mach_EnsureHeap(kva_t target,
     PTE * cpt = KPAtoP(PTE *, FLPT_FCSEVA[FLPTIndex] & L1D_COARSE_PT_ADDR);
     PTE_Set(&cpt[CPTIndex],
             paddr + 0x550	/* AP=0b01 */
-              + PTE_CACHEABLE + PTE_BUFFERABLE + PTE_SMALLPAGE);
+              + PTE_CACHEABLE + PTE_SMALLPAGE);
+    /* The heap might be a good candidate for using write-back mode
+    (PTE_BUFFERABLE),
+    but if we did that we would have to clean the cache when we flush it. */
 
     heap_defined += EROS_PAGE_SIZE;
   }

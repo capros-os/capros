@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -19,7 +19,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
@@ -186,8 +187,8 @@ pte_ObIsNotWritable(PageHeader * pageH)
           ptepg = (uint32_t *) MapTabHeaderToKVA(mth);
           /* Scan the entries in this page table. */
           for (ent = 0; ent < CPT_ENTRIES; ent++) {
-            if ((ptepg[ent] & CPT_VALIDBITS) == CPT_SMALL_PAGE) {
-              if ((ptepg[ent] & CPT_PAGE_MASK) == pagePA	/* this page */
+            if ((ptepg[ent] & PTE_VALIDBITS) == PTE_SMALLPAGE) {
+              if ((ptepg[ent] & PTE_FRAMEBITS) == pagePA	/* this page */
                   && (ptepg[ent] & 0xff0) == 0xff0 ) {	/* and writeable */
                 dprintf(true, "ObIsNotWriteable failed\n");
                 return false;
@@ -511,7 +512,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   }
   /* Small space only for now. */
   if (va >= 0x02000000) {
-    dprintf(true, "Process accessed large space\n");
+    dprintf(true, "Process accessed large space at 0x%08x\n", va);
     proc_SetFault(p, FC_InvalidAddr, va, false);
     return false;
   }
@@ -560,25 +561,33 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   unsigned int domain = EnsureSSDomain(ssid);
   p->md.dacr = (0x1 << (domain * 2)) | 0x1 /* include domain 0 for kernel */;
 
-  ula_t la = va + p->md.pid;
+  const ula_t mva = va + p->md.pid;
 
   /* Small space only for now. */
-  uint32_t * theFLPTEntry = & FLPT_FCSEVA[la >> L1D_ADDR_SHIFT];
+  uint32_t * theFLPTEntry = & FLPT_FCSEVA[mva >> L1D_ADDR_SHIFT];
 
-  /* Translate the top 10 bits of the address: */
+  if (*theFLPTEntry & L1D_VALIDBITS) {	// already valid
+    assert((*theFLPTEntry & L1D_VALIDBITS) == (L1D_COARSE_PT & L1D_VALIDBITS));
+  } else {
+    if (*theFLPTEntry & ~L1D_VALIDBITS) {
+      printf("L1D temporarily invalid - need to optimize.\n");
+    }
+  }
+
+  /* Translate bits 31:22 of the address: */
   if ( !proc_WalkSeg(p, &wi, walk_top_blss, theFLPTEntry, 1) )
     return false;
 
   // printf("wi.offset=0x%08x ", wi.offset);
-  uint32_t productNdx = wi.offset >> 20;
+  uint32_t productNdx = wi.offset >> L1D_ADDR_SHIFT;
 
   MapTabHeader * mth =
     objH_FindProduct(wi.segObj, &wi, 0, productNdx, true, true, 
-                     la >> L1D_ADDR_SHIFT);
+                     mva >> L1D_ADDR_SHIFT);
 
   if (mth == 0) {
     mth = MakeNewPageTable(&wi, productNdx);
-    mth->tableCacheAddr = la >> L1D_ADDR_SHIFT;
+    mth->tableCacheAddr = mva >> L1D_ADDR_SHIFT;
   }
   assert(wi.segBlss == mth->producerBlss);
   assert(wi.segObj == mth->producer);
@@ -596,7 +605,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     VTOP((kva_t)pTable) + (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
   
   /* Now find the page and fill in the PTE. */
-  uint32_t pteNdx = (va >> 12) & 0xff;
+  uint32_t pteNdx = (mva >> 12) & 0xff;
   PTE * thePTE = &pTable[pteNdx];
     
     /* Translate the remaining bits of the address: */
@@ -620,8 +629,15 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
          (wi.canCache ? 'y' : 'n') );
 #endif
   PTE_Set(thePTE, pageAddr + PTE_SMALLPAGE
-          + (isWrite ? 0xff0 : 0xaa0)	/* AP bits, 11 for write, 10 for read */
-          + (wi.canCache ? PTE_CACHEABLE | PTE_BUFFERABLE : 0) );
+	/* AP bits, 11 for write, 10 for read */
+          + (isWrite ? 0xff0
+                       + (wi.canCache ? PTE_CACHEABLE : 0) 
+// we never use write-back mode
+                     : 0xaa0
+                       + (wi.canCache ? PTE_CACHEABLE | PTE_BUFFERABLE : 0)
+// for read-only access, PTE_BUFFERABLE is not significant.
+// See comments in PTEarm.h for why we set it here.
+         ) );
 
   UpdateTLB();
 

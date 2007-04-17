@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -18,7 +18,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 	
 #include <eros/arch/arm/asm.h>
 
@@ -95,6 +96,29 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 	ENTRY(mach_FlushBothTLBs)
 	mov r0,#0
 	mcr p15,0,r0,c8,c7,0
+	mov pc,lr
+
+	ENTRY(mach_ReadCacheType)
+	mrc p15,0,r0,c0,c0,1	// read cache type register to r0
+	mov pc,lr
+
+/* "Flush" here means "clean and invalidate".
+   However, since we never use writeback, we never have to clean. */
+	ENTRY(mach_FlushBothCaches)
+#if 0	// if we *were* to use writeback, here's how to clean:
+	ldr r1,=cacheSetIndexIncrement
+	ldr r2,=cacheSetIndexCarry
+	ldr r1,[r1]
+	ldr r2,[r2]
+	mov r0,#0
+0:	mcr p15,0,r0,c7,c14,2	// clean and invalidate data cache
+	add r0,r0,r1	// add increment for next set
+	add r0,r0,r2	// propagate any carry to index field
+	bics r0,r0,r2	// prepare for next carry
+	bne 0b
+#endif
+	mov r0,#0
+	mcr p15,0,r0,c7,c7,0	// invalidate entire cache(s)
 	mov pc,lr
 
 	ENTRY(mach_LoadTTBR)

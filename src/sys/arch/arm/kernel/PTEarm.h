@@ -2,7 +2,7 @@
 #define __PTEARM_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -21,7 +21,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <eros/machine/target-asm.h>
 #include <kerninc/ObjectHeader.h>
@@ -29,41 +30,47 @@
 #define PID_SHIFT 25
 #define PID_MASK 0xfe000000
 
+/* FLPT_FCSEPA is the physical address of the First Level Page Table that is
+   used for the kernel
+   and for processes using the Fast Context Switch Extension. */
+extern kpa_t FLPT_FCSEPA;
+extern uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
+
 /* For Level 1 descriptors: */
 #define L1D_ADDR_SHIFT 20
 #define L1D_VALIDBITS 0x03
 #define L1D_COARSE_PT 0x11 /* the 0x10 bit is required by ARM920 */
 #define L1D_SECTION   0x12 /* the 0x10 bit is required by ARM920 */
 #define L1D_DOMAIN_SHIFT 5
+#define L1D_DOMAIN_MASK 0x1e0
 #define L1D_COARSE_PT_ADDR 0xfffffc00
-
-/* CPT: Coarse Page Table */
-#define CPT_ADDR_MASK 0x000ff000
-#define CPT_ENTRIES 0x100	/* number of entries in a CPT */
-#define CPT_SIZE 0x400		/* size of a coarse page table */
-#define CPT_SPAN 0x100000	/* virtual memory defined by a CPT */
-#define CPT_VALIDBITS  0x3
-#define CPT_SMALL_PAGE 0x2
-#define CPT_PAGE_MASK 0xfffff000
 
 /* If a level 1 descriptor is all zero, there is nothing mapped there. 
    If L1D_VALIDBITS are zero but there are other bits nonzero,
    then it should be a coarse page table descriptor (as though
-   L1D_VALIDBITS were 0b01), but it is temporarily invalid because
-   we are tracking whether the page table is recently used. 
-   (There are always nonzero bits in this case because the page table
-   address is never zero.) */
+   L1D_VALIDBITS were 0b01),
+   but it is temporarily invalid for one of two reasons.
+   (There are always nonzero bits in these two cases
+   because the page table address is never zero.) 
+   Either (a) the domain field is nonzero, and
+   we are tracking whether the page table is recently used, 
+   or (b) the domain field is zero (and the descriptor is in the FLPT_FCSE)
+   and this PID has no domain assigned (the domain was stolen after
+   the descriptor was built).
+*/
 /* We never use fine page tables. */
 
+/* CPT: Coarse Page Table */
+#define CPT_ADDR_MASK 0x000ff000
+#define CPT_SPAN 0x100000	/* virtual memory defined by a CPT */
+#define CPT_ENTRIES 0x100	/* number of entries in a CPT */
+#define CPT_SIZE 0x400		/* size of a coarse page table */
+
 /* For Level 2 descriptors (PTEs): */
-#if 0
-#define PTE_ACC  0x020	/* accessed */
-#define PTE_DRTY 0x040	/* dirty */
-#endif
 #define PTE_CACHEABLE  0x8
 #define PTE_BUFFERABLE 0x4
-#define PTE_VALIDBITS 0x003
-#define PTE_SMALLPAGE 0x002 /* "small" is 4KB, the size we use */
+#define PTE_VALIDBITS 0x3
+#define PTE_SMALLPAGE 0x2 /* "small" is 4KB, the size we use */
 /* We never use large or tiny pages. */
 #define PTE_FRAMEBITS 0xfffff000
 
@@ -114,12 +121,6 @@ Note 3:
 
 extern bool PteZapped;
 
-/* FLPT_FCSEPA is the physical address of the First Level Page Table that is
-   used for the kernel
-   and for processes using the Fast Context Switch Extension. */
-extern kpa_t FLPT_FCSEPA;
-extern uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
-
 struct PTE {
   uint32_t w_value;
 };
@@ -152,6 +153,7 @@ MapTabHeaderToKVA(MapTabHeader * mth)
 }
 
 void mach_FlushBothTLBs(void);
+void mach_FlushBothCaches(void);
 void mach_LoadTTBR(kpa_t ttbr);
 void mach_LoadPID(uint32_t pid);
 void mach_LoadDACR(uint32_t dacr);
