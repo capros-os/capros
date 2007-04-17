@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -22,15 +22,11 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 
-/*
- * This header captures a number of runtime conventions. It should
- * probably live among the domain library headers, and will probably
- * soon move there.
- */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
-/* Local Variables: */
-/* comment-column:34 */
-
+/* This header captures a number of runtime conventions. */
 
 /* Conventions assumed by the runtime. This is the state of the world
  * on entry to main(). See Programmers Guide for explanation.
