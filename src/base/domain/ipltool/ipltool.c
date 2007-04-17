@@ -88,7 +88,7 @@ main()
 
       result = eros_key_getType(KR_FAULT, &keyType);
       if (result == RC_eros_key_Void)
-	keyType = AKT_Void;
+        continue;
 
       if (keyType == AKT_Process) {
 	/* If the key is a process key, fabricate a fault key to it in
