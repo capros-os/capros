@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Driver for key invocation */
 
@@ -544,8 +548,14 @@ proc_DoKeyInvocation(Process* thisPtr)
   proc_SetupEntryBlock(thisPtr, &inv);
 
 #if 0
-  printf("Invoking proc=0x%08x invSlot=%d oc=%d\n",
-         thisPtr, inv.key - &thisPtr->keyReg[0], inv.entry.code);
+  printf("Ivk proc=0x%08x ", thisPtr);
+  if (thisPtr->procRoot &&
+      keyBits_IsType(&thisPtr->procRoot->slot[ProcSymSpace], KKT_Number)) {
+    void db_eros_print_number_as_string(Key* k);
+    db_eros_print_number_as_string(&thisPtr->procRoot->slot[ProcSymSpace]);
+  }
+  printf(" invSlot=%d oc=%d\n",
+         inv.key - &thisPtr->keyReg[0], inv.entry.code);
 #endif
 
 #ifdef OPTION_DDB
@@ -1411,7 +1421,8 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
   dprintf(true, "Populated invocation block\n");
 #endif
 
-  if (keyBits_IsType(keeperKey, KKT_Resume) && keeperKey->keyPerms == KPRM_FAULT) {
+  if (keyBits_IsType(keeperKey, KKT_Resume)
+      && keeperKey->keyPerms == KPRM_FAULT) {
     inv.suppressXfer = true;
     printf("Suppress xfer -- key is restart key\n");
   }
