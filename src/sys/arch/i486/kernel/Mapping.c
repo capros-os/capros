@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -92,6 +92,9 @@ MakeSmallSpaces()
   PTE *pageDir = 0;
 
   assert (KTUNE_NCONTEXT % 32 == 0);
+  assert((KTUNE_NCONTEXT * SMALL_SPACE_PAGES * EROS_PAGE_SIZE)
+         < (KVA - UMSGTOP) );	// else small spaces don't fit in
+		// the virtual addresses reserved for them
 
   /* Allocate the page *tables* for the small spaces.
      We want to have one small space for every context/process. */
@@ -904,14 +907,17 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
 	      kde->start, kde->pteCount);
 #endif
   if (kde->pteCount == 0) {
+    Process * const p = (Process *) kde->start;
     assert(IsInProcess(kde->start));
-    ((Process *) kde->start) ->md.MappingTable = KernPageDir_pa;
+    p->md.MappingTable = PTE_ZAPPED;
+    PteZapped = true;
 	       
      /* MUST BE CAREFUL -- if this product is the active mapping table we
      * need to reset the mapping pointer to the native kernel map!
+       (Why? -CRL)
      */
   
-    if (((Process *) kde->start) == act_CurContext()) {
+    if (p == act_CurContext()) {
       mach_SetMappingTable(KernPageDir_pa);
     }
   } else {

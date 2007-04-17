@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -1022,7 +1022,7 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 
   bzero((void *) tableAddr, EROS_PAGE_SIZE);
 
-  {
+  {	// Copy the kernel address space from UMSGTOP up.
     uint32_t *kpgdir = (uint32_t *) KernPageDir;
     uint32_t *upgdir = (uint32_t *) tableAddr;
     uint32_t i;

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -92,8 +92,14 @@ proc_Resume(void)
    * simply make sure the mapping table value at least maps the kernel
    */
  
-  if (thisPtr->md.MappingTable == 0)
+  if (thisPtr->md.MappingTable == PTE_ZAPPED) {
     thisPtr->md.MappingTable = KernPageDir_pa;
+#ifdef OPTION_SMALL_SPACES
+    thisPtr->md.smallPTE = 0;
+    thisPtr->md.bias = 0;
+    thisPtr->md.limit = UMSGTOP;
+#endif
+  }
   
   assert( irq_DISABLE_DEPTH() == 1 );
 

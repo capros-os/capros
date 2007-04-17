@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -806,7 +806,7 @@ proc_Unload(Process* thisPtr)
       halt('b');
 #endif
   
-  thisPtr->md.MappingTable = 0;
+  thisPtr->md.MappingTable = 0;	// for cleanliness
   thisPtr->saveArea = 0;
   thisPtr->curActivity = 0;
 
@@ -1170,7 +1170,7 @@ proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
   case ProcAddrSpace:
     Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, whichKey));
     thisPtr->hazards |= hz_AddrSpace;
-    assert(thisPtr->md.MappingTable == 0);
+    assert(thisPtr->md.MappingTable == PTE_ZAPPED);
     thisPtr->saveArea = 0;
 
     break;

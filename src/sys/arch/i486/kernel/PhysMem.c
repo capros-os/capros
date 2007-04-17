@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,7 +32,7 @@
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 
-kpa_t physMem_PhysicalPageBound = 0;
+kpa_t physMem_PhysicalPageBound = 0;	// highest physical address of RAM +1
 
 /* The area we will reserve as ROM: */
 kpa_t ROMBase  =  0xc0000;
