@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <arch-kerninc/db_machdep.h>
@@ -260,6 +264,8 @@ db_eros_print_string(uint8_t *data, uint32_t len)
   
     if (kstream_IsPrint(c) || c == '\n')
       db_printf("%c", c);
+    else if (c == 0)	// terminate on NUL
+      break;
     else
       db_printf("\\x%02x", c);
   }
