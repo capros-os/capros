@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Drivers for 386 protection faults */
 
@@ -90,8 +93,6 @@ obj_IsDirectory(PageHeader * pageH) /* pageH->obType must be ot_PtMappingPage */
  */
 
 extern uint32_t CpuType;
-
-bool PteZapped = false;
 
 static PageHeader *
 MakeNewPageTable(SegWalk* wi /*@ not null @*/ ); 
@@ -349,8 +350,6 @@ PageFault(savearea_t *sa)
 
   KernStats.nPfTraps++;
   if (writeAccess) KernStats.nPfAccess++;
-
-  PteZapped = false;
 
   objH_BeginTransaction();
 
@@ -974,8 +973,6 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     if (!wi.canCache)
       pte_set(thePTE, PTE_CD);
   }
-    
-  UpdateTLB();
     
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)

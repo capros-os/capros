@@ -18,7 +18,6 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
 /* This material is based upon work supported by the US Defense Advanced
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
@@ -539,10 +538,6 @@ proc_DoKeyInvocation(Process* thisPtr)
 
   inv.suppressXfer = false;  /* suppress compiler bitching */
   
-  /* If preparation causes a depend entry to get zapped, it may be US
-   * that gets zapped.  Set up to check for that...
-   */
-  PteZapped = false;
   objH_BeginTransaction();
   
   proc_SetupEntryBlock(thisPtr, &inv);
@@ -1381,11 +1376,6 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
   dprintf(true, "Enter InvokeMyKeeper\n");
 #endif
   canInvoke = true;
-  
-  /* If preparation causes a depend entry to get zapped, it may be US
-   * that gets zapped.  Set up to check for that...
-   */
-  PteZapped = false;
   
   /* Do not call BeginTransaction here -- the only way we can be here
    * is if we are already in some transaction, and it's okay to let

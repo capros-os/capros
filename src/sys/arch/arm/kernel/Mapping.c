@@ -266,7 +266,6 @@ EnsureSSDomain(unsigned int ssid)
       MMUDomains[i].pid = 0;
     }
     PteZapped = true;
-    mach_FlushBothCaches();	// here or elsewhere?
     // Assign domain 1 for the caller.
     MMUDomains[1].pid = ssid;
     SmallSpaces[ssid].domain = 1;
@@ -449,7 +448,6 @@ Release2ndLevelMappingTable(MapTabHeader * mth)
   /* Don't need to invalidate the entries in the page. */
 
   FreeCPT(mth);
-  UpdateTLB();	// not sure if this is done elsewhere
 }
 
 void

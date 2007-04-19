@@ -2,7 +2,7 @@
 #define __PTE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -21,7 +21,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 struct PTE;
 typedef struct PTE PTE;
@@ -30,7 +31,7 @@ typedef struct PTE PTE;
 /* PTEarm.h has declarations private to the architecture (HAL). 
    This file, arch-kerninc/PTE.h, has declarations exported outside the HAL. */
 
-extern bool PteZapped;
+extern bool PteZapped, flushCache;
 
 INLINE bool
 pte_isValid(PTE *pte)
@@ -41,10 +42,16 @@ pte_isValid(PTE *pte)
 INLINE void 
 pte_Invalidate(PTE* thisPtr)
 {
-  if (thisPtr->w_value & PTE_VALIDBITS)	/* if it wasn't already invalid */
-    PteZapped = true;
-  /* Set to PTE_ZAPPED unconditionally, because we may be changing
-  it from some other invalid state such as PTE_IN_PROGRESS. */
+  const uint32_t pteval = thisPtr->w_value;
+  if (pteval & PTE_VALIDBITS) {	// it was valid
+    PteZapped = flushCache = true;
+  } else {
+    // It was invalid, but could there be cache entries dependent on it?
+    if (pteval == PTE_ZAPPED) return;
+    if (pteval != PTE_IN_PROGRESS)
+      flushCache = true;
+    // Even if it was invalid, we want to change it to PTE_ZAPPED.
+  }
   thisPtr->w_value = PTE_ZAPPED;
 }
 
@@ -86,6 +93,8 @@ UpdateTLB(void)
 {
   if (PteZapped)
     mach_FlushBothTLBs();
+  if (flushCache)
+    mach_FlushBothCaches();
 }
 
 #endif /* __PTE_H__ */

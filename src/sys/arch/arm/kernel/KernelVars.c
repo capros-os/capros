@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -18,7 +18,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/KernStats.h>
@@ -29,7 +30,24 @@
 uint32_t irq_DisableDepth = 1;
 struct Activity * act_curActivity;
 uint32_t act_yieldState;
+
+/* PteZapped serves two purposes.
+   1. It says whether the TLB needs to be flushed. This allows us to defer,
+      and thus possibly combine, TLB flushes. The procedure UpdateTLB()
+      checks PteZapped; if true, it flushes the cache and clears PteZapped.
+   2. It says whether some mapped memory may have been invalidated 
+      during the dry run of some kernel operation.
+   These two uses are compatible because UpdateTLB is only called right
+   before returning to user mode. 
+   If you are considering calling it elsewhere, because you want the TLB
+   up to date, do this instead: if PteZapped, act_Yield (which will retry
+   the operation). 
+ */
 bool PteZapped = false;
+
+/* Flushing the TLB does not necessarily require flushing the cache,
+   so use a separate flag for that. */
+bool flushCache = false;
 
 #ifdef OPTION_KERN_STATS
 struct KernStats_s  KernStats;

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,10 +18,30 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
 #include <arch-kerninc/PTE.h>
+
+/* Here we gather some kernel variables.
+   Keeping them together helps reduce their cache footprint. */
+
+/* PteZapped serves two purposes.
+   1. It says whether the TLB needs to be flushed. This allows us to defer,
+      and thus possibly combine, TLB flushes. The procedure UpdateTLB()
+      checks PteZapped; if true, it flushes the cache and clears PteZapped.
+   2. It says whether some mapped memory may have been invalidated 
+      during the dry run of some kernel operation.
+   These two uses are compatible because UpdateTLB is only called right
+   before returning to user mode. 
+   If you are considering calling it elsewhere, because you want the TLB
+   up to date, do this instead: if PteZapped, act_Yield (which will retry
+   the operation). 
+ */
+bool PteZapped = false;
 
 Activity *act_curActivity  __attribute__((aligned(4),
 						   section(".data")));

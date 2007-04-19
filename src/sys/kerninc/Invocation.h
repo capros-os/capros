@@ -2,7 +2,7 @@
 #define __KERNINC_INVOCATION_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -20,6 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/Key.h>
 /* This file requires #include <disk/KeyStruct.hxx> */
@@ -81,6 +84,9 @@ extern uint32_t ddb_inv_flags;
 #endif /* OPTION_DDB */
 
 /* Former member functions of Invocation */
+
+/* If preparation causes a depend entry to get zapped, it may be something
+ * vital to the current operation that got zapped.  Check for that. */
 INLINE bool 
 inv_CanCommit()
 {
@@ -133,8 +139,6 @@ inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data);
 extern Invocation inv;
 struct Activity;
 extern struct Activity * activityToRelease;
-
-extern bool PteZapped;
 
 typedef void (*KeyHandler)(Invocation*);
 void FaultGate(Invocation*);

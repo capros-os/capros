@@ -96,6 +96,8 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 	ENTRY(mach_FlushBothTLBs)
 	mov r0,#0
 	mcr p15,0,r0,c8,c7,0
+	ldr r1,=flushTLB
+	str r0,[r1]	// clear the flag
 	mov pc,lr
 
 	ENTRY(mach_ReadCacheType)
@@ -119,6 +121,8 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 #endif
 	mov r0,#0
 	mcr p15,0,r0,c7,c7,0	// invalidate entire cache(s)
+	ldr r1,=flushCache
+	str r0,[r1]	// clear the flag
 	mov pc,lr
 
 	ENTRY(mach_LoadTTBR)

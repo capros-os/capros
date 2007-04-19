@@ -443,8 +443,6 @@ PageFault(bool prefetch,	/* else data abort */
   KernStats.nPfTraps++;
   if (writeAccess) KernStats.nPfAccess++;
 
-  PteZapped = false;
-
   objH_BeginTransaction();
 
   (void) proc_DoPageFault(proc, va, writeAccess, false);
@@ -638,8 +636,6 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 // for read-only access, PTE_BUFFERABLE is not significant.
 // See comments in PTEarm.h for why we set it here.
          ) );
-
-  UpdateTLB();
 
   return true;
 }

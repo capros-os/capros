@@ -45,20 +45,47 @@ extern uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
 #define L1D_DOMAIN_MASK 0x1e0
 #define L1D_COARSE_PT_ADDR 0xfffffc00
 
-/* If a level 1 descriptor is all zero, there is nothing mapped there. 
-   If L1D_VALIDBITS are zero but there are other bits nonzero,
-   then it should be a coarse page table descriptor (as though
-   L1D_VALIDBITS were 0b01),
-   but it is temporarily invalid for one of two reasons.
-   (There are always nonzero bits in these two cases
-   because the page table address is never zero.) 
-   Either (a) the domain field is nonzero, and
-   we are tracking whether the page table is recently used, 
-   or (b) the domain field is zero (and the descriptor is in the FLPT_FCSE)
-   and this PID has no domain assigned (the domain was stolen after
-   the descriptor was built).
+/*
+  This table shows all the various types of access control used
+  in level 1 descriptors.
+
+[1:0] [3:2] domain [31:10] meaning
+  00    00     0      0    PTE_ZAPPED Nothing mapped there (note D)
+  00    01     0      0    PTE_IN_PROGRESS (notes A,D)
+  00    00     0     !=0   domain stolen (note B)
+  00    00    !=0    !=0   tracking LRU (note C)
+  01    00    any    !=0   coarse page table descriptor
+  10    CB     0     any   section descriptor (kernel only)
+  (we never use fine page tables)
+
+Note A:
+  PTE_IN_PROGRESS is used during mapping construction to detect dependency
+  zaps on the descriptor under construction. When building a descriptor,
+  if the existing descriptor is invalid, first set it to this value, then do
+  the necessary translation, then check that the descriptor is not
+  PTE_ZAPPED before overwriting. Note that this value represents an
+  INVALID descriptor, but one that can be readily distinguished from the
+  result of a call to l1d_Invalidate().
+  There are no cache entries dependent on this descriptor.
+
+Note B:
+  This is a coarse page table descriptor that is temporarily invalid
+  because it is for a small space (PID) that does not have a domain assigned
+  (the domain was stolen after the descriptor was built).
+  (This descriptor must be in the FLPT_FCSE.)
+  This provides a mechanism to efficiently restore the access. 
+  There may be cache entries dependent on this descriptor.
+
+Note C:
+  This is a coarse page table descriptor that is temporarily invalid
+  because we are tracking whether the page table is recently used.
+  This provides a mechanism to efficiently restore the access. 
+  There may be cache entries dependent on this descriptor.
+
+Note D:
+   There are no cache entries dependent on this descriptor
+   (or there is a pending cache flush).
 */
-/* We never use fine page tables. */
 
 /* CPT: Coarse Page Table */
 #define CPT_ADDR_MASK 0x000ff000
@@ -82,8 +109,8 @@ extern uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
 Domain    Descriptor     Access   Meaning
           [1:0] C B  AP Priv User
 
- n/a       00   0 0  00 none none PTE_ZAPPED Nothing mapped there.
- n/a       00   0 1  00 none none PTE_IN_PROGRESS (note 1)
+ n/a       00   0 0  00 none none PTE_ZAPPED Nothing mapped there. (note 4)
+ n/a       00   0 1  00 none none PTE_IN_PROGRESS (notes 1,4)
  n/a       00   1 x  xx none none tracking LRU (note 2)
 no access  10   x x  xx none none something mapped but not for this process
  manager   10   x x  xx  rw  n/a  for kernel copy across 2 small spaces?
@@ -107,19 +134,22 @@ Note 2:
    but is temporarily invalid because we are tracking whether the page is
    recently referenced.
    This provides a mechanism to efficiently restore the access. 
+   There may be cache entries dependent on this PTE.
 
 Note 3:
    This PTE should grant write access (as though AP=0b11 and B=1),
    but is temporarily read-only because we are tracking whether the page
    is dirty, or because of some other write hazard.
    This provides a mechanism to efficiently restore the access. 
+
+Note 4:
+   There are no cache entries dependent on this PTE
+   (or there is a pending cache flush).
  */
 #define PTE_ZAPPED       0x0	/* designates nothing */
-#define PTE_IN_PROGRESS  PTE_BUFFERED
+#define PTE_IN_PROGRESS  PTE_BUFFERABLE
 
 #ifndef __ASSEMBLER__
-
-extern bool PteZapped;
 
 struct PTE {
   uint32_t w_value;
