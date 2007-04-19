@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Node.h>
@@ -842,118 +845,6 @@ proc_Unload(Process* thisPtr)
   sq_WakeAll(&thisPtr->stallQ, false);
 }
 
-/* If the process has an invalid address space slot, it would probably
- * be more efficient to simply invoke the keeper right here rather
- * than start up a activity we know will fault.  There are three reasons
- * not to do so:
- * 
- * 1. It might get fixed before it runs.
- * 2. It is more modular to let the pagefault handler do it, since
- *    that handler needs to deal with this situation already.
- * 3. This code is goddamn well hairy enough as it is.
- * 
- * To load the mapping table pointer, we walk down the address space
- * segment looking for a node spanning 2^32 bits (blss=7).  We then
- * examine it's products looking for a suitable mapping table.
- * 
- * If we do not find one, we can't just build one on the spot, because
- * we must fabricate suitable depend entries for the new mapping
- * table.
- */
-
-
-
-
-/* This is somewhat misnamed, as loading the address space on the x86
- * doesn't really load the address space at all -- it locates and
- * loads the page directory, which need not contain any valid entries.
- * Further faults will be handled in the page fault path.
- * 
- * In loading the page directory, the LoadAddressSpace logic does not
- * need to construct any dependency table entries for the BLSS::bit32
- * node.  That node is a producer, and if it is taken out of core or
- * its keys are deprepared we can (and must) walk the producer chain
- * in any case.
- * 
- * The address space segment slot may contain a segment key to a
- * segment whose span is larger than the span of the hardware address
- * space.  For example, the segment might span 2^40 bits while the
- * hardware address space is only 2^32 bits.  In interpreting such a
- * segment, we take the view that the address space of the process
- * starts at offset 0 in the larger segment, and is only as big as the
- * hardware will support.
- * 
- * In the event that the address space segment is oversized in this
- * way, however, LoadAddressSpace() must create depend entries for all
- * nodes whose BLSS is > BLSS::bit32.  We commit a slight bit of
- * silliness in doing this, which in practice works out okay.  A page
- * directory holds 1024 entries.  For nodes whose BLSS is >
- * BLSS::bit32, we know that the only key acting in a memory context
- * is the key in slot 0.  We therefore claim (lying through our teeth)
- * that these nodes span a range of 16 * 1024 == 16k entries in the
- * page directory.  We check for out of range invalidation in the
- * invalidate logic, so we never get caught by this.  Also, the
- * invalidate logic knows the difference between page directories and
- * page tables, and never zaps the kernel entries.
- * 
- */
-
-void
-proc_LoadAddressSpace(Process* thisPtr, bool prompt)
-{
-  assert (thisPtr->hazards & hz_AddrSpace);
-  
-  /* It's possible that we will end up invalidating exactly the
-   * entries we are after!
-   */
-  if ( proc_DoPageFault(thisPtr, thisPtr->trapFrame.EIP, false, prompt) ) {
-    thisPtr->hazards &= ~hz_AddrSpace;
-  }
-}
-
-/* Fault code is tricky.  It is conceivable that the process does not
- * posess a number key in the fault code slot.  In that event we set
- * the fault code to FC_MalformedProcess.  Unless the process node
- * posesses a number key in the fault code slot, the fault code will
- * not be written back to the process root.  Note that it is not
- * possible for a process with faultCode = FC_MalformedProcess to
- * achieve any other fault code without first resolving that one, so
- * it is okay to fail to write FC_MalformedProcess back to the process
- * root.
- * 
- * Note the runstate is not loaded here.  If the process root is
- * malformed it's runstate is intrinsically undefined.  Such a process
- * cannot execute instructions.  It's malformedness is discovered in
- * one of two ways:
- * 
- *   1. It was running and somehow became malformed, in which case it
- *      invokes it's keeper on it's own behalf.
- *   2. It was invoked by a third party, who is made to invoke its
- *      keeper on its behalf.
- * 
- * If the process root later becomes well formed we will be able to
- * load its run state at that time.
- */
-#if 0
-void
-Process::LoadFaultCode()
-{
-  assert (procRoot);
-  
-  if ( procRoot->slot[ProcTrapCode].IsType(KKT_Number) ) {
-    DomRegLayout* pDomRegs = (DomRegLayout*) & ((*procRoot)[0]);
-
-    faultCode = pDomRegs->faultCode;
-    faultInfo = pDomRegs->faultInfo;
-  }
-  else {
-    faultCode = FC_MalformedProcess;
-    faultInfo = 0;
-  }
-  
-  hazards &= ~State::DomFaultCode;
-}
-#endif
 
 /* The DoPrepare() logic has changed, now that we have merged the
  * process prep logic into it...
@@ -1114,6 +1005,7 @@ proc_DoPrepare(Process* thisPtr)
   sq_WakeAll(&thisPtr->stallQ, false);
 }
 
+/* May Yield. */
 void 
 proc_InvokeProcessKeeper(Process* thisPtr)
 {
