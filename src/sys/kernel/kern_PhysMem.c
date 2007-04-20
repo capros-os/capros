@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/util.h>
@@ -313,59 +316,3 @@ physMem_ddb_dump()
   }
 }
 #endif
-
-#define NEW_STOP false
-
-#ifndef __KERNEL__
-#error This is not the case.
-void *
-operator new[](size_t sz, void *place)
-{
-  void *v = 0;
-  
-  if (place == 0)
-    v = KPAtoP(void *, physMem_Alloc(sz, &physMem_any));
-  else if (place == (void *) 1)
-    v = malloc(sz);
-
-  DEBUG(new)
-    dprintf(NEW_STOP, "placement vec new grabs "
-		    "0x%x (%d) at 0x%08x\n", sz,
-		    sz, v);
-
-  return v;
-}
-
-void *
-operator new(size_t sz, void * place)
-{
-  void *v = 0;
-  
-  if (place == 0)
-    v = KPAtoP(void *, physMem_Alloc(sz, &physMem_any));
-  else if (place == (void *) 1)
-    v = malloc(sz);
-    
-  DEBUG(new)
-    dprintf(NEW_STOP, "placement new grabs "
-		    "0x%x (%d) at 0x%08x\n", sz,
-		    sz, v);
-
-  return v;
-}
-
-void *
-operator new(size_t sz)
-{
-  fatal("Inappropriate call to non-placement operator new\n");
-
-  return KPAtoP(void *, physMem_Alloc(sz, &physMem_any));
-}
-
-void *
-operator new [](size_t sz)
-{
-  fatal("Inappropriate call to non-placement operator vector new\n");
-  return KPAtoP(void *, physMem_Alloc(sz, &physMem_any));
-}
-#endif /*__KERNEL__*/
