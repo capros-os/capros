@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Node.h>
@@ -310,39 +313,6 @@ node_PrepAsDomain(Node* thisPtr)
 
   thisPtr->node_ObjHdr.obType = ot_NtProcessRoot;
   thisPtr->node_ObjHdr.prep_u.context = 0;
-}
-
-/* May Yield. */
-bool
-node_PrepAsDomainSubnode(Node* thisPtr, ObType nt, Process *ctxt)
-{
-  uint32_t i = 0;
-
-  assert(objH_IsDirty(DOWNCAST(thisPtr, ObjectHeader)));
-
-#if 0
-  dprintf(false, "Preparing OID=0x%08x%08x as domsubnode ty %d\n",
-		  (uint32_t) (oid>>32), (uint32_t) oid, nt);
-#endif
-  
-  if (nt == thisPtr->node_ObjHdr.obType && thisPtr->node_ObjHdr.prep_u.context == ctxt)
-    return true;
-
-  if (nt != ot_NtUnprepared)
-    if (!node_Unprepare(thisPtr, false))
-      return false;
-
-  if (nt == ot_NtRegAnnex) {
-    for (i = 0; i < EROS_NODE_SIZE; i++) {
-      if ( key_PrepareWithType(&thisPtr->slot[i], KKT_Number) == false )
-	return false;
-    }
-  }
-
-  thisPtr->node_ObjHdr.obType = nt;
-  thisPtr->node_ObjHdr.prep_u.context = ctxt;
-
-  return true;
 }
 
 void

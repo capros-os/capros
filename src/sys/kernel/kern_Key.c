@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
      
 #include <kerninc/kernel.h>
 #include <kerninc/Check.h>
@@ -247,35 +250,6 @@ key_Prepare(Key* thisPtr)
     objH_TransLock(thisPtr->u.ok.pObj);
 }
 #endif
-
-/* May Yield. */
-bool
-key_PrepareWithType(Key* thisPtr, KeyType ty)
-{
-  assert (InvocationCommitted == false);
-
-  /* printf("Key::Prepare(ty) -- want ty %d\n", ty); */
-
-  if (keyBits_IsType(thisPtr, ty) == false) {
-    key_Print(thisPtr);
-    fatal("Key::Prepare(kt) -- wrong keytype 0x%x (wanted 0x%x)\n",
-		  keyBits_GetType(thisPtr), ty);
-    return false;
-  }
-
-  if (keyBits_NeedsPrepare(thisPtr))
-    key_DoPrepare(thisPtr);
-
-  if (keyBits_NeedsPin(thisPtr))
-    objH_TransLock(thisPtr->u.ok.pObj);
-  
-  if (keyBits_IsType(thisPtr, KKT_Number) && (ty != KKT_Number)) {
-    printf("Key::Prepare(ty) -- number key. Key rescinded?\n");
-    return false;
-  }
-
-  return true;
-}
 
 void
 key_NH_Set(KeyBits *thisPtr, KeyBits* kb)
