@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
@@ -309,8 +312,6 @@ act_AllocActivityTable()
 
   printf("Allocated User Activitys: 0x%x at 0x%08x\n",
 	 sizeof(Activity[KTUNE_NACTIVITY]), act_ActivityTable);
-
-  act_curActivity = 0;
 }
 
 void

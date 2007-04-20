@@ -933,8 +933,13 @@ objC_CleanFrame1(ObjectHeader *pObj)
    * object:
    */
   if (objH_GetFlags(pObj, OFLG_IO)) {
-    act_SleepOn(act_Current(), ObjectStallQueueFromObHdr(pObj));
-    act_Yield(act_Current());
+    Activity * curAct = act_Current();
+    if (!curAct)
+      fatal("Insufficient memory for initialization\n");
+    else {
+      act_SleepOn(curAct, ObjectStallQueueFromObHdr(pObj));
+      act_Yield(curAct);
+    }
     assert (false);
   }
 

@@ -43,8 +43,13 @@ Approved for public release, distribution unlimited. */
  */
 bool PteZapped = false;
 
+/* act_curActivity must be initialized (to 0) early, because during
+initialization, we call malloc, which under some circumstances can
+call act_Yield. We catch that problem by checking for a nonzero
+value in act_curActivity. */
+/* Eventually act_curActivity should be per-CPU. */
 Activity *act_curActivity  __attribute__((aligned(4),
-						   section(".data")));
+						   section(".data"))) = 0;
 uint32_t act_yieldState __attribute__((aligned(4),
 						   section(".data")));
 #ifdef OPTION_KERN_TIMING_STATS

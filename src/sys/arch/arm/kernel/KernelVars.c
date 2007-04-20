@@ -28,7 +28,13 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
    Keeping them together helps reduce their cache footprint. */
 
 uint32_t irq_DisableDepth = 1;
-struct Activity * act_curActivity;
+
+/* act_curActivity must be initialized (to 0) early, because during
+initialization, we call malloc, which under some circumstances can
+call act_Yield. We catch that problem by checking for a nonzero
+value in act_curActivity. */
+/* Eventually act_curActivity should be per-CPU. */
+struct Activity * act_curActivity = 0;
 uint32_t act_yieldState;
 
 /* PteZapped serves two purposes.
