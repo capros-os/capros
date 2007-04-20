@@ -262,8 +262,9 @@ IsInProcess(const void * p)
 void proc_DoPrepare(Process* thisPtr);
 
 /* Fast-path inline version.  See comment above on DoPrepare().
- * MUST NOT yield if IsRunnable() would return true.
+ * MUST NOT yield if IsRunnable() would return true. (Why not? -CRL)
  */
+// May Yield.
 INLINE void 
 proc_Prepare(Process* thisPtr)
 {

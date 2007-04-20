@@ -104,6 +104,7 @@ StartIplActivity(OID iplOid)
   act_Wakeup(activity);
 }
 
+// Does not return.
 int
 main(void)
 {

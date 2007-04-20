@@ -641,8 +641,9 @@ act_ChooseNewCurrentActivity()
 /* FIX: Somewhere in here the context pins are not getting updated
  * correctly.  It's not important until we do SMP.
  */
+// May Yield.
 void 
-act_DoReschedule()
+act_DoReschedule(void)
 {
 #ifndef NDEBUG
   if (irq_DISABLE_DEPTH() != 1) {
@@ -717,6 +718,7 @@ act_DoReschedule()
     assert (act_curActivity);
 
     /* Activity might have gone to sleep as a result of context being prepared. */
+    /* But in that case, wouldn't we have gone to act_Yield, not here? CRL */
     if (act_curActivity->state != act_Running)
       act_ChooseNewCurrentActivity();
 
@@ -1025,7 +1027,7 @@ act_InvokeMyKeeper(Activity* thisPtr)
    */
 }
 
-void 
+void // does not return
 act_HandleYieldEntry(void)
 {
   /* This routine is really another kernel entry point.  When called,

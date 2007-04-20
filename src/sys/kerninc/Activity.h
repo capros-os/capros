@@ -186,6 +186,7 @@ act_IsRunnable(Activity* thisPtr)
 	  && (thisPtr->context->processFlags & PF_Faulted) == 0);
 }
 
+// May Yield.
 INLINE void 
 act_Reschedule(void) 
 {
