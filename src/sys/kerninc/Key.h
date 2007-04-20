@@ -115,6 +115,7 @@ void key_DoPrepare(Key* thisPtr);
 bool key_IsValid(const Key* thisPtr);
 #endif
 
+/* key_Prepare may Yield. */
 #ifdef NDEBUG
 INLINE void 
 key_Prepare(Key* thisPtr)

@@ -28,6 +28,7 @@
 #include <idl/eros/key.h>
 #include <idl/eros/Discrim.h>
 
+/* May Yield. */
 void
 DiscrimKey(Invocation* inv /*@ not null @*/)
 {

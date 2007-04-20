@@ -35,6 +35,7 @@
 
 /* #define DEBUG */
 
+/* May Yield. */
 void
 ProcessKey(Invocation* inv /*@ not null @*/)
 {

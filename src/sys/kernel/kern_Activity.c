@@ -922,6 +922,7 @@ act_Name(Activity* thisPtr)
  * case it's not being prepared.
  */
 
+/* May Yield. */
 bool 
 act_Prepare(Activity* thisPtr)
 {

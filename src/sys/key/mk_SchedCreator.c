@@ -31,6 +31,7 @@
 
 #include <idl/eros/key.h>
 
+/* May Yield. */
 void
 SchedCreatorKey(Invocation* inv /*@ not null @*/)
 {

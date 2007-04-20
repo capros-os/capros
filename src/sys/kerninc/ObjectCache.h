@@ -2,7 +2,7 @@
 #define __OBJECTCACHE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -20,6 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include "ObjectHeader.h"
 #include "PhysMem.h"
@@ -83,13 +86,9 @@ PageHeader * objC_PhysPageToObHdr(kpa_t pagepa);
 
 ObjectHeader *objC_OIDtoObHdr(uint32_t oidLo, uint16_t oidHi);
 
-void objC_AgeNodeFrames();
 void objC_WaitForAvailableNodeFrame();
-void objC_RequireNodeFrames(uint32_t n);
 Node *objC_GrabNodeFrame();
 
-void objC_AgePageFrames();
-void objC_WaitForAvailablePageFrame();
 PageHeader * objC_GrabPageFrame();
 
 void objC_AddDevicePages(PmemInfo *);
@@ -105,12 +104,6 @@ objC_TotalNodes()
 {
   return objC_nNodes;
 }
-
-/* This is used for copy on write processing, and also for frame
- * eviction. The copy becomes current, and is initially clean. The
- * original is no longer current, but may still be the checkpoint
- * version. */
-ObjectHeader *objC_CopyObject(ObjectHeader *pObj);
 
 /* Evict the current resident of the page frame. This is called
  * when we need to claim a particular page frame in the object
@@ -162,7 +155,6 @@ void objC_ddb_dump_nodes();
 
 bool objC_AddSource(ObjectSource *);
 bool objC_HaveSource(OID oid);
-void objC_WaitForSource();
 bool objC_DetachSource(ObjectSource *);
 
 

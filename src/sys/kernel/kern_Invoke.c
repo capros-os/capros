@@ -279,6 +279,7 @@ Invocation inv;
 bool InvocationCommitted = false;
 #endif
 
+/* May Yield. */
 void 
 inv_Commit(Invocation* thisPtr)
 {
@@ -380,6 +381,7 @@ inv_Cleanup(Invocation* thisPtr)
   thisPtr->flags = 0;
 }
 
+/* Yields, does not return. */
 void 
 inv_RetryInvocation(Invocation* thisPtr)
 {
@@ -512,6 +514,7 @@ extern uint64_t rdtsc();
  * does only the fast version of the string test.
  */
 
+/* May Yield. */
 void 
 proc_DoKeyInvocation(Process* thisPtr)
 {
@@ -784,6 +787,7 @@ proc_DoKeyInvocation(Process* thisPtr)
 
 Activity *activityToRelease = 0;
 
+/* May Yield. */
 void
 proc_DoGeneralKeyInvocation(Process* thisPtr)
 {
@@ -1347,6 +1351,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
  * the keeper invocation code is able to make a variety of useful
  * assumptions about abandonment that the general path cannot make.
  */
+/* May Yield. */
 void
 proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
                     uint32_t warg1,

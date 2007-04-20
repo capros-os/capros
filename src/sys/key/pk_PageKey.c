@@ -31,6 +31,7 @@
 
 #include <idl/eros/key.h>
 
+/* May Yield. */
 void
 PageKey(Invocation* inv /*@ not null @*/)
 {

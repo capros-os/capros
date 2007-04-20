@@ -213,11 +213,11 @@ walkseg_handle_node_key(Process * p, SegWalk* wi, uint32_t stopBlss,
 #endif
 
 /* Returns true if successful, false if wi->faultCode set. */
+/* May Yield. */
 bool
 proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
 	     void * pPTE, int mapLevel)
 {
-/* BUG: needs to ensure UpdateTLB is called in all cases, including Yield. */
   const uint32_t MAX_SEG_DEPTH = 20;
   Key *pFormatKey = 0;
   KernStats.nWalkSeg++;
@@ -532,6 +532,7 @@ proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
 }
 
 /* Always returns false. */
+/* May Yield. */
 bool 
 proc_InvokeSegmentKeeper(Process* thisPtr, SegWalk* wi /*@ not null @*/)
 {

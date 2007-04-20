@@ -169,6 +169,7 @@ extern uint32_t rdtsr();
  * panic.
  */
 
+/* May Yield. */
 PTE*
 proc_BuildMapping(Process *p, ula_t ula, bool writeAccess, bool prompt)
 {

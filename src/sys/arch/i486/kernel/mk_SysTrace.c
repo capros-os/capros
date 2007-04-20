@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 206, Strawberry Development Group.
+ * Copyright (C) 2006, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -88,6 +88,7 @@ uint32_t state_ok = 0;
 uint32_t totmov = 0;
 uint64_t bytes_moved = 0;
 
+/* May Yield. */
 void
 SysTraceKey(Invocation* inv /*@ not null @*/)
 {

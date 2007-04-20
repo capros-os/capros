@@ -76,6 +76,7 @@ Key key_VoidKey;	/* default constructor */
 /* NOTE: if we are running OB_MOD_CHECK, the key prepare logic does an
  * incremental recomputation on the check field in the containing object.
  */
+/* May Yield. */
 void
 key_DoPrepare(Key* thisPtr)
 {
@@ -231,6 +232,7 @@ key_DoPrepare(Key* thisPtr)
 }
 
 #ifndef NDEBUG
+/* May Yield. */
 void
 key_Prepare(Key* thisPtr)
 {
@@ -246,6 +248,7 @@ key_Prepare(Key* thisPtr)
 }
 #endif
 
+/* May Yield. */
 bool
 key_PrepareWithType(Key* thisPtr, KeyType ty)
 {

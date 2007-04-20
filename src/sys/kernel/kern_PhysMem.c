@@ -315,9 +315,9 @@ physMem_ddb_dump()
 #endif
 
 #define NEW_STOP false
-extern void *malloc(size_t sz);
 
 #ifndef __KERNEL__
+#error This is not the case.
 void *
 operator new[](size_t sz, void *place)
 {

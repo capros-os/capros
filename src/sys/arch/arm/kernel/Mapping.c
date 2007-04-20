@@ -279,6 +279,7 @@ EnsureSSDomain(unsigned int ssid)
 /* mach_EnsureHeap() must find (or clear) an available physical page and
  * cause it to become mapped at the end of the physical memory map.
  */
+// May Yield.
 void
 mach_EnsureHeap(kva_t target,
   kpa_t (*acquire_heap_page)(void) )
@@ -389,7 +390,7 @@ FreeCPT(MapTabHeader * mth)
 }
 
 // Allocate a coarse page table.
-// May Yield?
+// May Yield.
 MapTabHeader *
 AllocateCPT(void)
 {

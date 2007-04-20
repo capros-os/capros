@@ -46,6 +46,7 @@ struct FrameInfo {
   uint32_t tagEntry;
 };
 
+/* May Yield. */
 ObjectHeader *
 PreloadObSource_GetObject(ObjectSource * src, OID oid, ObType obType, 
                           ObCount count, bool useCount)

@@ -38,6 +38,7 @@
  * Iff CompareBrand returns TRUE, then it also updates inv.exit_w1 and
  * inv.exit_w2 to hold the capability type (start or resume) and the
  * key info field, respectively. */
+/* May Yield. */
 static bool
 CompareBrand(Invocation* inv /*@ not null @*/, Key* pDomKey, Key* pBrand)
 {
@@ -142,6 +143,7 @@ CompareBrand(Invocation* inv /*@ not null @*/, Key* pDomKey, Key* pBrand)
   return true;
 }
 
+/* May Yield. */
 void
 ProcessToolKey(Invocation* inv /*@ not null @*/)
 {

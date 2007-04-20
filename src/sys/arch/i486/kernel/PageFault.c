@@ -299,6 +299,7 @@ extern "C" {
 };
 #endif
 
+/* May Yield. */
 bool
 PageFault(savearea_t *sa)
 {
@@ -388,7 +389,8 @@ PageFault(savearea_t *sa)
 #define DATA_PAGE_FLAGS  (PTE_ACC|PTE_USER|PTE_V)
 
 #ifdef OPTION_SMALL_SPACES
-bool
+/* May Yield. */
+static bool
 proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
 		      bool prompt)
 {
@@ -592,6 +594,7 @@ BLSS_MASK64(uint32_t blss, uint32_t frameBits)
 
 /* #define WALK_LOUD */
 #define FAST_TRAVERSAL
+/* May Yield. */
 bool
 proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 {
@@ -999,6 +1002,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   return false;
 }
 
+/* May Yield. */
 static PageHeader *
 proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 {
@@ -1045,6 +1049,7 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
   return pTable;
 }
 
+/* May Yield. */
 static PageHeader *
 MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
 {

@@ -205,6 +205,7 @@ pte_ObIsNotWritable(PageHeader * pageH)
 #endif /* !NDEBUG */
 
 /* Make a new second-level page table. */
+// May Yield.
 static MapTabHeader *
 MakeNewPageTable(SegWalk * wi /*@ not null @*/, uint32_t ndx)
 {
@@ -337,7 +338,7 @@ objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
 
 /* Handle page fault from user or system mode.
    This is called from the Abort exception handlers.
-   This procedure does not return - it should call proc_Resume().  */
+   This procedure does not return - it calls proc_Resume().  */
 void
 PageFault(bool prefetch,	/* else data abort */
           uint32_t fsr,	/* fault status */
@@ -477,6 +478,7 @@ BLSS_MASK64(uint32_t blss, uint32_t frameBits)
 #define WALK_LOUD
 #define FAST_TRAVERSAL
 /* Returns ... */
+// May Yield.
 bool
 proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 {

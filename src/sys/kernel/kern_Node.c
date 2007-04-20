@@ -312,6 +312,7 @@ node_PrepAsDomain(Node* thisPtr)
   thisPtr->node_ObjHdr.prep_u.context = 0;
 }
 
+/* May Yield. */
 bool
 node_PrepAsDomainSubnode(Node* thisPtr, ObType nt, Process *ctxt)
 {

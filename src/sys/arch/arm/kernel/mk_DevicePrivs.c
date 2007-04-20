@@ -43,8 +43,7 @@
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-extern void *malloc(size_t sz);
-
+/* May Yield. */
 void
 DevicePrivsKey(Invocation* inv /*@ not null @*/)
 {

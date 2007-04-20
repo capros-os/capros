@@ -85,6 +85,7 @@
 
 /* #define DEBUG_RANGEKEY */
 
+/* May Yield. */
 void
 RangeKey(Invocation* inv /*@ not null @*/)
 {

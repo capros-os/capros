@@ -56,6 +56,7 @@
  * debuggers, this may prove useful.
  */
 
+/* May Yield. */
 void
 KeyBitsKey(Invocation* inv /*@ not null @*/)
 {

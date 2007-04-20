@@ -66,6 +66,7 @@ extern void Invoke();
    debugger in back-walking the stack.
    */
 
+/* Yields, does not return. */
 void
 idt_OnKeyInvocationTrap(savearea_t * saveArea)
 {

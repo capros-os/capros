@@ -849,6 +849,7 @@ proc_Unload(Process* thisPtr)
 /* The DoPrepare() logic has changed, now that we have merged the
  * process prep logic into it...
  */
+// May Yield.
 void 
 proc_DoPrepare(Process* thisPtr)
 {

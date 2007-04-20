@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
@@ -621,7 +624,8 @@ objC_ddb_dump_nodes()
 /* Queue for activitys that are waiting for available page frames: */
 static DEFQUEUE(PageAvailableQueue);
 
-void
+/* May Yield. */
+static void
 objC_AgeNodeFrames()
 {
   static uint32_t curNode = 0;
@@ -774,7 +778,12 @@ objC_AgeNodeFrames()
 		nStuck, nPinned);
 }
 
-ObjectHeader *
+/* This is used for copy on write processing, and also for frame
+ * eviction. The copy becomes current, and is initially clean. The
+ * original is no longer current, but may still be the checkpoint
+ * version. */
+/* May Yield. */
+static ObjectHeader *
 objC_CopyObject(ObjectHeader *pObj)
 {
   ObjectHeader *newObj;
@@ -914,6 +923,7 @@ objC_EvictFrame(PageHeader * pObj)
 
 /* Clean out the node/page frame, but do not remove it from memory. */
 /* pObj->obType must be node or ot_PtDataPage. */
+/* May Yield. */
 void
 objC_CleanFrame1(ObjectHeader *pObj)
 {
@@ -1025,7 +1035,7 @@ objC_CleanFrame2(ObjectHeader *pObj)
  * number (currently 5) of additional writes to initiate.
  */
 
-void
+static void
 objC_AgePageFrames()
 {
   static uint32_t curPage = 0;
@@ -1110,21 +1120,17 @@ objC_AgePageFrames()
   } while (--nPasses);
 }
 
-void
-objC_WaitForAvailablePageFrame()
+/* May Yield. */
+PageHeader *
+objC_GrabPageFrame()
 {
+  // WaitForAvailablePageFrame
   assert (objC_nFreePageFrames >= objC_nReservedIoPageFrames);
   
   if (objC_nFreePageFrames == objC_nReservedIoPageFrames)
     objC_AgePageFrames();
 
   assert (objC_nFreePageFrames > objC_nReservedIoPageFrames);
-}
-
-PageHeader *
-objC_GrabPageFrame()
-{
-  objC_WaitForAvailablePageFrame();
 
   assert (objC_nFreePageFrames > 0);
 
@@ -1139,13 +1145,6 @@ objC_GrabPageFrame()
   objC_GrabThisPageFrame(pObj);
 
   return pObj;
-}
-
-void
-objC_RequireNodeFrames(uint32_t n)
-{
-  while (objC_nFreeNodeFrames < n)
-    objC_AgeNodeFrames();
 }
 
 #if 0
@@ -1295,13 +1294,6 @@ static DEFQUEUE(SourceWait);
 static ObjectSource *sources[MAX_SOURCE];
 static uint32_t nSource = 0;
 
-void
-objC_WaitForSource()
-{
-  act_SleepOn(act_Current(), &SourceWait);
-  act_Yield(act_Current());
-}
-
 bool
 objC_AddSource(ObjectSource *source)
 {
@@ -1353,6 +1345,7 @@ objC_HaveSource(OID oid)
   return false;
 }
 
+/* May Yield. */
 ObjectHeader *
 objC_GetObject(OID oid, ObType obType,
                ObCount count, bool useCount)
@@ -1365,7 +1358,8 @@ objC_GetObject(OID oid, ObType obType,
     dprintf(true, "No source for OID 0x%08x%08x...\n",
 		    (unsigned long) (oid >> 32),
 		    (unsigned long) (oid));
-    objC_WaitForSource();
+    act_SleepOn(act_Current(), &SourceWait);
+    act_Yield(act_Current());
   }
 
   for (i = 0; !pObj && i < nSource; i++) {

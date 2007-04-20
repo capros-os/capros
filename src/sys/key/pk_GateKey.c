@@ -32,6 +32,7 @@
 
 /* #define GK_DEBUG */
 
+/* May Yield. */
 void
 GateKey(Invocation* inv /*@ not null @*/)
 {

@@ -90,6 +90,7 @@ Desensitize(Key *k)
   }
 }
 
+/* May Yield. */
 void
 NodeKey(Invocation* inv /*@ not null @*/)
 {

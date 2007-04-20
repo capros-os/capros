@@ -415,6 +415,7 @@ proc_VAtoMVA(Process * thisPtr, uva_t va)
 }
 #endif
 
+// May Yield.
 void 
 proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/,
                      uint32_t bound)
@@ -758,6 +759,7 @@ proc_LoadFixRegs(Process* thisPtr)
 /* The DoPrepare() logic has changed, now that we have merged the
  * process prep logic into it...
  */
+// May Yield.
 void 
 proc_DoPrepare(Process* thisPtr)
 {

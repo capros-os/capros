@@ -26,6 +26,7 @@
 #include <kerninc/Node.h>
 #include <kerninc/Activity.h>
 
+/* May Yield. */
 void 
 proc_LoadKeyRegs(Process* thisPtr)
 {

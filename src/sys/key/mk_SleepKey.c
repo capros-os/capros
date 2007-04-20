@@ -33,6 +33,7 @@
 #include <idl/eros/key.h>
 #include <idl/eros/Sleep.h>
 
+/* May Yield. */
 void
 SleepKey(Invocation* inv /*@ not null @*/)
 {

@@ -33,6 +33,7 @@
 extern void kstream_PutBuf(uint8_t *s, uint32_t len);
 
 
+/* May Yield. */
 void
 ConsoleKey(Invocation* inv /*@ not null @*/)
 {

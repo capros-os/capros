@@ -829,6 +829,7 @@ i486_BuildKernelMap()
 /* mach_EnsureHeap() must find (or clear) an available physical page and
  * cause it to become mapped at the end of the physical memory map.
  */
+// May Yield.
 void
 mach_EnsureHeap(kva_t target,
   kpa_t (*acquire_heap_page)(void) )

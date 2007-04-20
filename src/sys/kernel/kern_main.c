@@ -171,7 +171,7 @@ main(void)
 
   /* Initialize global variables */
   keyBits_InitToVoid(&key_VoidKey);
-  key_Prepare(&key_VoidKey);
+  key_Prepare(&key_VoidKey);	// will never Yield
 
   inv_InitInv(&inv);
   objH_StallQueueInit();

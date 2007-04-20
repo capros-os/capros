@@ -64,7 +64,7 @@ heap_init()
 /* If possible, it's always better to grab a real physical page
  * rather than steal one from the page cache. This ensures that
  * the early allocations work.  Failing that, we'll try grabbing a
- * page from the page cache instead.
+ * page from the page cache instead, in which case we may Yield.
  */
 kpa_t
 acquire_heap_page(void)
@@ -89,6 +89,7 @@ acquire_heap_page(void)
  * clearly would not work correcly without maintaining some sort of
  * record of what was allocated where.
  */
+// May Yield.
 void *
 malloc(size_t nBytes)
 {

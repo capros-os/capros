@@ -76,6 +76,7 @@ ValidPhysPage(PmemInfo *pmi, kpa_t pgFrame)
   return true;
 }
 
+/* May Yield. */
 ObjectHeader *
 PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType, 
 		       ObCount count, bool useCount)

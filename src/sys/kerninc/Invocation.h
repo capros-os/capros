@@ -144,9 +144,7 @@ typedef void (*KeyHandler)(Invocation*);
 void FaultGate(Invocation*);
 
 /* Commit point appears in each invocation where the invocation should
- * now be able to proceed without impediment. At some point in the
- * near future I shall NDEBUG this so as to check the invariant in the
- * debug kernel.
+ * now be able to proceed without impediment. It may Yield. 
  */
 
 #define COMMIT_POINT() \
@@ -167,12 +165,13 @@ void inv_InitInv(Invocation *thisPtr);
 
 bool inv_IsInvocationKey(Invocation* thisPtr, const Key *);
 
-void inv_RetryInvocation(Invocation* thisPtr);
+void inv_RetryInvocation(Invocation* thisPtr) NORETURN;
 
+/* May Yield. */
 INLINE void 
 inv_MaybeDecommit(Invocation* thisPtr)
 {
-  if (inv_CanCommit() == false)
+  if (! inv_CanCommit())
     inv_RetryInvocation(thisPtr);
 }
 

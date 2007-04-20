@@ -30,6 +30,7 @@
 #include <arch-kerninc/Process.h>
 #include "Process486.h"
 
+/* May Yield. */
 void 
 proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 {
@@ -200,6 +201,7 @@ proc_DeliverGateResult(Process* thisPtr, Invocation* inv /*@ not null @*/, bool 
 }
 
 #ifndef ASM_VALIDATE_STRINGS /* This is the case. */
+/* May Yield. */
 void 
 proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
 {
@@ -232,7 +234,7 @@ proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
 }
 #endif /* ASM_VALIDATE_STRINGS */
 
-
+/* May Yield. */
 void 
 proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/, uint32_t bound)
 {
