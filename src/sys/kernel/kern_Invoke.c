@@ -389,6 +389,11 @@ inv_RetryInvocation(Invocation* thisPtr)
   act_CurContext()->runState = RS_Running;
 
   act_Yield(act_Current());
+  /* Returning all the way to user mode and taking an invocation exception
+  into the kernel again is very expensive on IA-32. 
+  We could optimize out the change to and from user mode, if we can
+  prove the process will just reexecute its invocation. 
+  Don't forget to do what this path does, such as calling UpdateTLB. */
 }
 
 #ifndef NDEBUG
