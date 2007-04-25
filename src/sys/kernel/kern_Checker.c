@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Low priority background activity to do consistency checking on kernel
  * data structures.  Runs through the object cache, the activity list,
@@ -95,12 +98,12 @@ CheckActivity_Start()
     /* printf("Checkactivity pass %d state %d\n", pass, Activity::state); */
     assert(act_curActivity->state == act_Running);
 
-    act_SleepOn(act_curActivity, &DeepSleepQ);
+    act_SleepOn(&DeepSleepQ);
     
     irq_ENABLE();
 
     /* is this correct?? */
-    act_DirectedYield(act_curActivity, false);
+    act_Yield();
   }
 }
 
@@ -116,7 +119,7 @@ CheckActivity_UnprepareObjects()
 	continue;
 
       pPage->DiscardObTableEntry(false);
-      act_DirectedYield(act_curActivity, false);
+      act_Yield();
     }
   }
 #endif
@@ -133,7 +136,7 @@ CheckActivity_UnprepareObjects()
 	pNode->DiscardObTableEntry(false);
 #endif
 
-      act_DirectedYield(act_curActivity, false);
+      act_Yield();
     }
   }
 }

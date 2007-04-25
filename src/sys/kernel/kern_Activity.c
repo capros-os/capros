@@ -409,8 +409,9 @@ act_DequeueNext(StallQueue *q)
 }
  
 void 
-act_SleepOn(Activity* thisPtr, StallQueue* q /*@ not null @*/)
+act_SleepOn(StallQueue * q /*@ not null @*/)
 {
+  Activity * thisPtr = act_Current();
 #ifndef NDEBUG
   act_ValidateActivity(thisPtr);
 #endif

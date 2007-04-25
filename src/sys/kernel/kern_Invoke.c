@@ -388,7 +388,7 @@ inv_RetryInvocation(Invocation* thisPtr)
   inv_Cleanup(thisPtr);
   act_CurContext()->runState = RS_Running;
 
-  act_Yield(act_Current());
+  act_Yield();
   /* Returning all the way to user mode and taking an invocation exception
   into the kernel again is very expensive on IA-32. 
   We could optimize out the change to and from user mode, if we can
@@ -901,9 +901,8 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
       if (fmtKey->u.nk.value[0] & WRAPPER_BLOCKED) {
 	keyBits_SetWrHazard(fmtKey);
 
-	act_SleepOn(act_Current(), 
-		    ObjectStallQueueFromObHdr(&wrapperNode->node_ObjHdr));
-	act_Yield(act_Current());
+	act_SleepOn(ObjectStallQueueFromObHdr(&wrapperNode->node_ObjHdr));
+	act_Yield();
       }
 
       if (fmtKey->u.nk.value[0] & WRAPPER_SEND_NODE) {
@@ -973,8 +972,8 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     }
 #endif
     else if (inv.invKeyType == KKT_Start && p->runState != RS_Available) {
-      act_SleepOn(act_Current(), &p->stallQ);
-      act_Yield(act_Current());
+      act_SleepOn(&p->stallQ);
+      act_Yield();
     }
 #if 0
     else if ( inv.invType == IT_Call ) {
@@ -1457,8 +1456,8 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
 #endif
 
     if (keyBits_IsType(keeperKey, KKT_Start) && invokee->runState != RS_Available) {
-      act_SleepOn(act_Current(), &invokee->stallQ);
-      act_Yield(act_Current());
+      act_SleepOn(&invokee->stallQ);
+      act_Yield();
     }
 
     if (keyBits_IsType(keeperKey, KKT_Resume) && keeperKey->keyPerms == KPRM_FAULT)
@@ -1578,7 +1577,7 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
     act_MigrateTo(act_Current(), 0);
 #if 0
     act_Current()->SleepOn(procRoot->ObjectStallQueue());
-    act_Yield(act_Current());
+    act_Yield();
 #endif
   }
 

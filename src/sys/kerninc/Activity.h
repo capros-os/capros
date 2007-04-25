@@ -2,7 +2,7 @@
 #define __ACTIVITY_H__
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -20,6 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* EROS activity list management.  For every process that is runnable
  * or stalled, an entry exists in the activity table list.  When one
@@ -118,7 +121,7 @@ void act_WakeUpAtTick(Activity* thisPtr, uint64_t ms);
 void act_Enqueue(Activity *t, StallQueue *);
 void act_Dequeue(Activity *t);
 Activity *act_DequeueNext(StallQueue *q);
-void act_SleepOn(Activity* thisPtr, StallQueue*);
+void act_SleepOn(StallQueue *);
 
 /* This relies on the fact that the context will overwrite our process
  * key slot if it is unloaded!
@@ -243,7 +246,7 @@ act_MigrateTo(Activity* thisPtr, Process *dc)
 }
 
 /* Called by the activity when it wishes to yield the processor: */
-void act_Yield(Activity* thisPtr /*unused*/) NORETURN;
+void act_Yield(void) NORETURN;
 
 void act_HandleYieldEntry(void) NORETURN;
 

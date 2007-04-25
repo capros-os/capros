@@ -933,12 +933,12 @@ objC_CleanFrame1(ObjectHeader *pObj)
    * object:
    */
   if (objH_GetFlags(pObj, OFLG_IO)) {
-    Activity * curAct = act_Current();
-    if (!curAct)
+    if (! act_Current() )
+      // act_Current() is generally only zero during initialization.
       fatal("Insufficient memory for initialization\n");
     else {
-      act_SleepOn(curAct, ObjectStallQueueFromObHdr(pObj));
-      act_Yield(curAct);
+      act_SleepOn(ObjectStallQueueFromObHdr(pObj));
+      act_Yield();
     }
     assert (false);
   }
@@ -1363,8 +1363,8 @@ objC_GetObject(OID oid, ObType obType,
     dprintf(true, "No source for OID 0x%08x%08x...\n",
 		    (unsigned long) (oid >> 32),
 		    (unsigned long) (oid));
-    act_SleepOn(act_Current(), &SourceWait);
-    act_Yield(act_Current());
+    act_SleepOn(&SourceWait);
+    act_Yield();
   }
 
   for (i = 0; !pObj && i < nSource; i++) {

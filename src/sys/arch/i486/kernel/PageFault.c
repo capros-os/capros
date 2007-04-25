@@ -456,7 +456,7 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
    * in which case we must yield and retry. This is low-likelihood. */
   if (thePTE->w_value == PTE_ZAPPED)
 
-    act_Yield(act_Current());
+    act_Yield();
 
 
   /* If we get this far, there is a valid translation at this address,
@@ -488,7 +488,7 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
 #endif
 
     proc_SwitchToLargeSpace(p);
-    act_Yield(act_Current());
+    act_Yield();
   }
      
   pageAddr = 0;
@@ -793,7 +793,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   /* If the wrong depend entry was reclaimed, we may have just lost
    * the mapping table entry. If we are still good to go, : */
   if (p->md.MappingTable == PTE_ZAPPED)
-    act_Yield(act_Current());
+    act_Yield();
 
   /* Since the address space pointer register lacks permission bits,
    * we cannot be here due to lack of permissions at this
@@ -856,7 +856,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       return false;
 
     if (thePDE->w_value == PTE_ZAPPED)
-      act_Yield(act_Current());
+      act_Yield();
 
     if (thePDE->w_value == PTE_IN_PROGRESS)
       thePDE->w_value = PTE_ZAPPED;    
@@ -933,7 +933,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
     /* Depend entry triggered -- retry the fault */
     if (thePTE->w_value == PTE_ZAPPED)
-      act_Yield(act_Current());
+      act_Yield();
 
     if (thePTE->w_value == PTE_IN_PROGRESS)
       thePTE->w_value = PTE_ZAPPED;    
