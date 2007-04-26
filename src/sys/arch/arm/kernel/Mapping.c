@@ -220,6 +220,8 @@ AllocateSmallSpace(ObjectHeader * producer)
   return 0;
 }
 
+unsigned int lastDomainAssigned = 1;
+unsigned int lastDomainStolen = 1;
 unsigned int
 EnsureSSDomain(unsigned int ssid)
 {
@@ -227,29 +229,27 @@ EnsureSSDomain(unsigned int ssid)
 
   if (SmallSpaces[ssid].domain == 0) {
     for (i = 1; i < 16; i++) {
-       if (MMUDomains[i].pid == 0) {
-         /* Found an unused domain. */
-         MMUDomains[i].pid = ssid;
-         SmallSpaces[ssid].domain = i;
-#if 0
-         printf("Allocating domain %d\n", i);
-#endif
-         return i;
-       }
+      // Advance the cursor, counting down and wrapping.
+      if (--lastDomainAssigned == 0) lastDomainAssigned = 15;
+      if (MMUDomains[lastDomainAssigned].pid == 0) {
+        /* Found an unused domain. */
+        goto assignDomain;
+      }
     }
     // Need to steal a domain.
     /* FIXME: before stealing resources (such as a domain)
     from other processes, we should temporarily disfavor running
     this process, giving the other processes more opportunity
     to use the resources before they are stolen. */
-    /* Since we have to flush TLB and cache here, we might as well
-    steal all the domains at once. */
 #if 0
     printf("Recycling domains\n");
 #endif
-    for (i = 1; i < 16; i++) {
-      unsigned int pid = MMUDomains[i].pid; // nonzero
-      assert(SmallSpaces[pid].domain == i);
+    for (i = 0; i < KTUNE_NDOMAINSTEAL; i++) {
+      // Advance the cursor, counting down and wrapping.
+      if (--lastDomainStolen == 0) lastDomainStolen = 15;
+      if (i == 0) lastDomainAssigned = lastDomainStolen;
+      unsigned int pid = MMUDomains[lastDomainStolen].pid; // nonzero
+      assert(SmallSpaces[pid].domain == lastDomainStolen);
       /* Invalidate all level 1 descriptors for this pid. */
       /* Note: we invalidate the descriptors, but leave some information
       behind so they can be quickly revalidated if we assign a new
@@ -263,15 +263,18 @@ EnsureSSDomain(unsigned int ssid)
           &= ~(L1D_DOMAIN_MASK | L1D_VALIDBITS);
       }
       SmallSpaces[pid].domain = 0;	// no longer has it
-      MMUDomains[i].pid = 0;
+      MMUDomains[lastDomainStolen].pid = 0;
     }
-    PteZapped = true;
-    // Assign domain 1 for the caller.
-    MMUDomains[1].pid = ssid;
-    SmallSpaces[ssid].domain = 1;
+    PteZapped = true;	// remember to flush the TLB
+
+assignDomain:
+    // Assign the domain we found.
+    MMUDomains[lastDomainAssigned].pid = ssid;
+    SmallSpaces[ssid].domain = lastDomainAssigned;
 #if 0
-    printf("Allocating domain 1\n");
+    printf("Allocating domain %d\n", lastDomainAssigned);
 #endif
+    return lastDomainAssigned;
   }
   return SmallSpaces[ssid].domain;
 }

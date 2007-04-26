@@ -2,6 +2,7 @@
 #define __KERNTUNE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -20,7 +21,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 /* Kernel parameters. These are used to tune the sizes of
  * various internal tables according to the machine.
@@ -169,5 +171,12 @@
    byte is needed for each page in the checkpoint log area. */
 #define CKPT_MAXSUBMAP \
      ((CKPT_MAP_BYTES + EROS_PAGE_SIZE - 1) / EROS_PAGE_SIZE)
+
+/* KTUNE_NDOMAINSTEAL is the number of ARM domains we will steal when
+   we have run out of the 15. 
+   Too small, and you'll be doing more TLB flushes.
+   Too large, and you'll be taking more page faults to reallocate domains.
+   A TLB flush is fairly cheap, so this is set small. */
+#define KTUNE_NDOMAINSTEAL 2
 
 #endif /* __KERNTUNE_H__ */
