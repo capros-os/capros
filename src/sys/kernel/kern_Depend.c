@@ -173,7 +173,7 @@ Depend_AddKey(Key * pKey, void * mte, int mapLevel)
 #endif
 
   /* The operations OC_Node_Extended_Copy and OC_Node_Extended_Swap
-  do not build mapping table entries, but they use proc_WalkSeg,
+  do not build mapping table entries, but they use WalkSeg,
   which calls us, so check for that case. */
   if (!mte) return;
 

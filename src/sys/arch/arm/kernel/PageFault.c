@@ -535,7 +535,10 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
 	/* for now, just get it working */
   /* Begin the traversal... */
-  if ( !proc_WalkSeg(p, &wi, walk_root_blss, p, 0) ) {
+  if ( ! WalkSeg(&wi, walk_root_blss, p, 0) ) {
+    if (wi.invokeKeeperOK)
+      proc_InvokeSegmentKeeper(p, &wi);
+    /* The following looks wrong; do this only if no seg keeper. */
     proc_SetFault(p, wi.faultCode, va, false);
 
     return false;
@@ -575,8 +578,11 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   }
 
   /* Translate bits 31:22 of the address: */
-  if ( !proc_WalkSeg(p, &wi, walk_top_blss, theFLPTEntry, 1) )
+  if ( ! WalkSeg(&wi, walk_top_blss, theFLPTEntry, 1) ) {
+    if (wi.invokeKeeperOK)
+      proc_InvokeSegmentKeeper(p, &wi);
     return false;
+  }
 
   // printf("wi.offset=0x%08x ", wi.offset);
   uint32_t productNdx = wi.offset >> L1D_ADDR_SHIFT;
@@ -609,8 +615,11 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   PTE * thePTE = &pTable[pteNdx];
     
     /* Translate the remaining bits of the address: */
-    if ( !proc_WalkSeg(p, &wi, EROS_PAGE_BLSS, thePTE, 2) )
+    if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) {
+      if (wi.invokeKeeperOK)
+        proc_InvokeSegmentKeeper(p, &wi);
       return false;
+    }
     
     assert(wi.segObj);
     assert(wi.segObj->obType == ot_PtDataPage ||

@@ -38,7 +38,7 @@ Approved for public release, distribution unlimited. */
  */
 #define ADD_DEPEND(pKey) Depend_AddKey(pKey, pPTE, mapLevel);
 
-/* proc_WalkSeg() is a performance-critical path.  The segment walk
+/* WalkSeg() is a performance-critical path.  The segment walk
    logic is complex, and it occurs in the middle of page faulting
    activity, which for obvious reasons is performance-critical.
 
@@ -126,7 +126,7 @@ segwalk_init(SegWalk *wi /*@ not null @*/, Key *pSegKey)
 #ifdef OPTION_DDB
 #define WALK_DBG_MSG(prefix) \
   if (ddb_segwalk_debug) dprintf(true, prefix \
-      " proc_WalkSeg: wi.producer 0x%x, wi.segBlss %d wi.isWrap %d\n" \
+      " WalkSeg: wi.producer 0x%x, wi.segBlss %d wi.isWrap %d\n" \
       "wi.vaddr 0x%x wi.offset 0x%X flt %d  wa %d segKey 0x%x\n" \
       "canCall %d canWrite %d stopBlss %d\n" \
       "redSeg 0x%x redSpanBlss %d redOffset 0x%X\n", \
@@ -218,7 +218,7 @@ walkseg_handle_node_key(Process * p, SegWalk* wi, uint32_t stopBlss,
 /* Returns true if successful, false if wi->faultCode set. */
 /* May Yield. */
 bool
-proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
+WalkSeg(SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
 	     void * pPTE, int mapLevel)
 {
   const uint32_t MAX_SEG_DEPTH = 20;
@@ -528,15 +528,11 @@ proc_WalkSeg(Process * p, SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
 
  fault_exit:
   WALK_DBG_MSG("flt");
-  if (wi->invokeKeeperOK)
-    return proc_InvokeSegmentKeeper(p, wi);
-
   return false;
 }
 
-/* Always returns false. */
 /* May Yield. */
-bool 
+void
 proc_InvokeSegmentKeeper(Process* thisPtr, SegWalk* wi /*@ not null @*/)
 {
   Key *keeperKey = 0;
@@ -573,7 +569,7 @@ proc_InvokeSegmentKeeper(Process* thisPtr, SegWalk* wi /*@ not null @*/)
   }
   
   if (keeperKey == 0 && BOOL(wi->invokeProcessKeeperOK) == false)
-    return false;
+    return;
 
   /* Ensure retry on yield.  All segment faults are fast-path
    * restartable.
@@ -660,8 +656,5 @@ proc_InvokeSegmentKeeper(Process* thisPtr, SegWalk* wi /*@ not null @*/)
 		 keeperKey, keyToPass,
 		 0, 0);
 
-  
   /* NOTREACHED - this seems wrong */
-
-  return false;
 }

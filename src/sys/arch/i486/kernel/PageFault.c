@@ -445,7 +445,10 @@ proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
    */
   
   /* Do the traversal... */
-  if ( !proc_WalkSeg(p, &wi, EROS_PAGE_BLSS, thePTE, 2) ) { 
+  if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) { 
+    if (wi.invokeKeeperOK)
+      proc_InvokeSegmentKeeper(p, &wi);
+    /* The following looks wrong; do this only if no seg keeper. */
     proc_SetFault(p, wi.faultCode, va, false);
     return false;
   }
@@ -728,7 +731,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
 #if 0
 	  if (wi.redSeg && wi.offset != wi.redSegOffset) {
-      dprintf(false, "pdr proc_WalkSeg: wi.producer 0x%x, wi.prodBlss %d wi.isRed %d\n"
+      dprintf(false, "pdr WalkSeg: wi.producer 0x%x, wi.prodBlss %d wi.isRed %d\n"
 		      "wi.vaddr 0x%x wi.offset 0x%X flt %d  wa %d segKey 0x%x\n"
 		      "canCall %d canWrite %d\n"
 		      "redSeg 0x%x redOffset 0x%X\n",
@@ -783,8 +786,11 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   p->md.MappingTable = PTE_IN_PROGRESS;
   
   /* Begin the traversal... */
-  if ( !proc_WalkSeg(p, &wi, walk_root_blss,
+  if ( ! WalkSeg(&wi, walk_root_blss,
 		     p, 0) ) { 
+    if (wi.invokeKeeperOK)
+      proc_InvokeSegmentKeeper(p, &wi);
+    /* The following looks wrong; do this only if no seg keeper. */
     proc_SetFault(p, wi.faultCode, va, false);
 
     return false;
@@ -852,8 +858,11 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       thePDE->w_value = PTE_IN_PROGRESS;
 
     /* Translate the top 8 (10) bits of the address: */
-    if ( !proc_WalkSeg(p, &wi, walk_top_blss, thePDE, 1) )
+    if ( ! WalkSeg(&wi, walk_top_blss, thePDE, 1) ) {
+      if (wi.invokeKeeperOK)
+        proc_InvokeSegmentKeeper(p, &wi);
       return false;
+    }
 
     if (thePDE->w_value == PTE_ZAPPED)
       act_Yield();
@@ -928,8 +937,11 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       thePTE->w_value = PTE_IN_PROGRESS;
     
     /* Translate the remaining bits of the address: */
-    if ( !proc_WalkSeg(p, &wi, EROS_PAGE_BLSS, thePTE, 2) )
+    if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) {
+      if (wi.invokeKeeperOK)
+        proc_InvokeSegmentKeeper(p, &wi);
       return false;
+    }
 
     /* Depend entry triggered -- retry the fault */
     if (thePTE->w_value == PTE_ZAPPED)
@@ -990,7 +1002,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
  fault_exit:
 #ifdef WALK_LOUD
-    dprintf(true, "flt proc_WalkSeg: wi.producer 0x%x, wi.prodBlss %d wi.isRed %d\n"
+    dprintf(true, "flt WalkSeg: wi.producer 0x%x, wi.prodBlss %d wi.isRed %d\n"
 		    "wi.vaddr 0x%x wi.offset 0x%X flt %d  wa %d\n"
 		    "canCall %d canWrite %d\n",
 		    wi.segObj, wi.segBlss, wi.segObjIsRed,
@@ -998,7 +1010,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 		    wi.canCall, wi.canWrite);
 #endif
   if (wi.invokeKeeperOK)
-    return proc_InvokeSegmentKeeper(p, &wi);
+    proc_InvokeSegmentKeeper(p, &wi);
   return false;
 }
 

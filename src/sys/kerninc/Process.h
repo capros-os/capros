@@ -185,10 +185,6 @@ extern Process *proc_ContextCache;
   
 struct PTE;
 
-/*extern*/ bool
-proc_WalkSeg(Process * p,SegWalk* wi /*@ NOT NULL @*/, uint32_t stopBlss,
-	     void * pPTE, int mapLevel);
-
 /* Former member functions of KernProcess */
 typedef struct KernProcess KernProcess;
 
@@ -400,7 +396,7 @@ void proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
                          Key *keeperKey, Key* keyArg2,
                          uint8_t *data, uint32_t len);
 
-bool proc_InvokeSegmentKeeper(Process* thisPtr, /*uint32_t code, */ SegWalk* /*@ not null @*/);
+void proc_InvokeSegmentKeeper(Process * thisPtr, SegWalk * /*@ not null @*/);
 
 void proc_InvokeProcessKeeper(Process* thisPtr);
 
