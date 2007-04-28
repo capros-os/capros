@@ -54,10 +54,14 @@ Approved for public release, distribution unlimited. */
 extern bool PteZapped;
 
 struct PTE {
-  /* Declared in IPC-vars.cxx: */
-
   uint32_t w_value;
 };
+
+#ifdef OPTION_SMALL_SPACES
+extern struct PTE * proc_smallSpaces;	/* This is the kernel virtual address
+  of the beginning of the page tables for small spaces.
+  These tables are all consecutive in both virtual and physical space. */
+#endif
 
 INLINE bool
 pte_is(PTE *pte, unsigned flg)

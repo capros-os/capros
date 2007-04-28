@@ -59,10 +59,6 @@ void resume_process(Process * p) NORETURN;
 Process * proc_ContextCache = NULL;
 Process * proc_ContextCacheRegion = NULL;
 
-#ifdef OPTION_SMALL_SPACES
-PTE *proc_smallSpaces = 0;
-#endif
-
 #define userCPSRBits (0xff000000 | MASK_CPSR_Thumb)
 		/* bits that the user can play with */
 static uint32_t

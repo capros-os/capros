@@ -943,6 +943,11 @@ objC_CleanFrame1(ObjectHeader *pObj)
     assert (false);
   }
 
+  /* We know the object isn't pinned.
+  Set its transaction ID to zero so it won't inadvertently be considered
+  pinned when objH_CurrentTransaction overflows. */
+  pObj->userPin = 0;
+
   /* Clean up the object we are reclaiming so we can free it: */
 
   keyR_UnprepareAll(&pObj->keyRing);	/* This zaps any PTE's as a side effect. */

@@ -155,10 +155,6 @@ struct Process {
 extern Process*   proc_fpuOwner;	/* FIX: This is not SMP-feasible. */
 #endif
 
-#ifdef OPTION_SMALL_SPACES
-extern struct PTE *proc_smallSpaces;
-#endif
-
 extern Process *proc_ContextCache;
 /* End static members */
 
