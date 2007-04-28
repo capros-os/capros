@@ -343,7 +343,6 @@ supStackMsg:	.asciz "Supervisor Stack is 0x%x should be 0x%x\n"
 #endif
 
 	bl act_DoReschedule
-	// bl objH_ReleasePinnedObjects	// needed?
 	b proc_Resume
 
 /***********************************************************************

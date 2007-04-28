@@ -215,6 +215,5 @@ main(void)
   StartIplActivity(iplOid);
   
   act_Reschedule();
-  /* objH_ReleasePinnedObjects() not necessary */
   proc_Resume();		/* does not return. */
 }

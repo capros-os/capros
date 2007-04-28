@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* This file contains the functions that are called in the IPC path,
  * in an attempt (probably vain) to minimize I-TLB misses.
@@ -151,17 +154,12 @@ idt_OnKeyInvocationTrap(savearea_t * saveArea)
    * Thread::Resched() will simply return the current thread in
    * prepared form, and we will return to it.  If the thread should
    * yield unconditionally, we tell Thread::Resched() so.
-   * 
    */
   
   assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
   assert( irq_DISABLE_DEPTH() == 1 );
 
-
   act_Reschedule();
-
-  /* We succeeded (wonder of wonders) -- release pinned resources. */
-  objH_ReleasePinnedObjects();
 
   /* After calling Reschedule we should at least have the idle thread. */
 

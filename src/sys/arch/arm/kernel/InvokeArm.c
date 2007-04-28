@@ -397,7 +397,6 @@ InvokeArm(Process * invokerProc,
   invokee->runState = RS_Running;
 
   act_Reschedule();	/* Correct? */
-  objH_ReleasePinnedObjects();
   proc_Resume();	/* does not return */
   assert(false);
 
@@ -421,7 +420,6 @@ general_path1:
   irq_DISABLE();
 
   act_Reschedule();
-  objH_ReleasePinnedObjects();
   proc_Resume();	/* does not return */
 
 return;

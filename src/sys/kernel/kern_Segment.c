@@ -533,7 +533,12 @@ WalkSeg(SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
 
 /* May Yield. */
 void
-proc_InvokeSegmentKeeper(Process* thisPtr, SegWalk* wi /*@ not null @*/)
+proc_InvokeSegmentKeeper(
+  Process * thisPtr,	// the process that is to invoke the keeper
+	/* (This might be different from act_CurContext(), if in the future
+	we allow a CALL on a gate key to cause the callee to handle
+	page faults.) */
+  SegWalk * wi /*@ not null @*/)
 {
   Key *keeperKey = 0;
   Key *pFormatKey = 0;

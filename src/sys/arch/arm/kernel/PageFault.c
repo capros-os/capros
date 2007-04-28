@@ -448,9 +448,6 @@ PageFault(bool prefetch,	/* else data abort */
 
   (void) proc_DoPageFault(proc, va, writeAccess, false);
 
-  /* We succeeded (wonder of wonders) -- release pinned resources. */
-  objH_ReleasePinnedObjects();
-
   /* No need to release uncommitted I/O page frames -- there should
    * not be any.
    */

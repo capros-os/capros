@@ -1059,8 +1059,6 @@ act_HandleYieldEntry(void)
   act_ValidateActivity(act_Current());
 #endif
 
-  objH_ReleasePinnedObjects();
-
   inv_Cleanup(&inv);
 
   /* If we were in a SEND invocation, release the activity: */
