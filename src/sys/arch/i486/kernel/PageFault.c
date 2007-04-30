@@ -385,171 +385,6 @@ PageFault(savearea_t *sa)
 
 #define DATA_PAGE_FLAGS  (PTE_ACC|PTE_USER|PTE_V)
 
-#ifdef OPTION_SMALL_SPACES
-/* May Yield. */
-static bool
-proc_DoSmallPageFault(Process * p, ula_t la, bool isWrite,
-		      bool prompt)
-{
-#if 0
-  dprintf(true, "SmallPgFlt w/ la=0x%08x, bias=0x%08x,"
-		  " limit=0x%08x\n", la, p->md.bias, p->md.limit);
-#endif
-
-  /* Address is a linear address.  Subtract the base and check the
-   * bound.
-   */
-  uva_t va = la - p->md.bias;
-
-#if 0
-  /* This assertion can be false given that the process can run from
-   * any address space and the save logic may subsequently save that
-   * address space pointer. The code is preserved here to keep a
-   * record of the fact that this may be untrue so that I do not
-   * forget and re-insert the assertion.
-   */
-  assert ( fixRegs.md.MappingTable == KERNPAGEDIR );
-#endif
-
-  SegWalk wi;
-  PTE *thePTE = 0;
-  kpa_t pageAddr;
-  bool needInvalidate;
-
-  wi.faultCode = FC_NoFault;
-  wi.traverseCount = 0;
-  wi.segObj = 0;
-  wi.vaddr = va;
-  wi.frameBits = EROS_PAGE_ADDR_BITS;
-  wi.writeAccess = isWrite;
-  wi.invokeKeeperOK = BOOL(!prompt);
-  wi.invokeProcessKeeperOK = BOOL(!prompt);
-  wi.wantLeafNode = false;
-
-  segwalk_init(&wi, proc_GetSegRoot(p));
-
-
-  thePTE /*@ not null @*/ = &p->md.smallPTE[(va >> EROS_PAGE_ADDR_BITS) % SMALL_SPACE_PAGES];
-
-  if (pte_isnot(thePTE, PTE_V))
-    thePTE->w_value = PTE_IN_PROGRESS;
-    
-  /* If the virtual address falls outside the small range and is
-   * valid, this walk will result in depend entries that blast the
-   * wrong PTE.  No real harm can come of that, since either the
-   * address is bad or we will in that case be switching to a large
-   * space anyway.
-   */
-  
-  /* Do the traversal... */
-  if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) { 
-    if (wi.invokeKeeperOK)
-      proc_InvokeSegmentKeeper(p, &wi);
-    /* The following looks wrong; do this only if no seg keeper. */
-    proc_SetFault(p, wi.faultCode, va, false);
-    return false;
-  }
-  assert(wi.segObj->obType > ot_NtLAST_NODE_TYPE); /* should be a page */
-
-  /* If the wrong dependency entry was reclaimed, we may lost
-   * one of the depend entries for the PTE that is under construction,
-   * in which case we must yield and retry. This is low-likelihood. */
-  if (thePTE->w_value == PTE_ZAPPED)
-
-    act_Yield();
-
-
-  /* If we get this far, there is a valid translation at this address,
-   * but if the address exceeds the small space limit we need to
-   * convert the current address space into a large space.
-   * 
-   * If this is necessary, set smallPTE to zero and YIELD, because we
-   * might have been called from unside the IPC code.  This will
-   * induce another page fault, which will follow the large spaces
-   * path.
-   */
-
-  /* This should not happen on the invoker side, where the addresses
-   * were validated during page probe (causing SS fault or GP fault).
-   * On the invokee side, however, it is possible that we forced the
-   * invokee to reload, in which case it loaded as a small space, and
-   * we then tried to validate the receive address.  In that case,
-   * PopulateExitBlock() called us here with an out of bounds virtual
-   * address.  We reset the process mapping state and Yield(),
-   * allowing the correct computation to be done in the next pass.
-   */
-
-  if (va >= p->md.limit) {
-#if 0
-    dprintf(true, "!! la=0x%08x va=0x%08x\n"
-		    "Switching process 0x%X to large space\n",
-		    la, va,
-		    procRoot->ob.oid);
-#endif
-
-    proc_SwitchToLargeSpace(p);
-    act_Yield();
-  }
-     
-  pageAddr = 0;
-  
-  PageHeader * pPageHdr = (PageHeader *)wi.segObj;
-
-  if (isWrite)
-    pageH_MakeDirty(pPageHdr);
-
-  pageAddr = VTOP(pageH_GetPageVAddr(pPageHdr));
-
-  assert ((pageAddr & EROS_PAGE_MASK) == 0);
-  assert (pageAddr < PtoKPA(&_start) || pageAddr >= PtoKPA(&end));
-	  
-  assert (va < (SMALL_SPACE_PAGES * EROS_PAGE_SIZE));
-
-  needInvalidate = false;
-  
-  if (isWrite && pte_is(thePTE, PTE_V)) {
-    /* We are doing this because the old PTE had insufficient
-     * permission, so we must zap the TLB.
-     */
-    needInvalidate = true;
-  }
-  
-  pte_Invalidate(thePTE);
-  pte_set(thePTE, (pageAddr & PTE_FRAMEBITS) | DATA_PAGE_FLAGS);
-  if (isWrite)
-    pte_set(thePTE, PTE_W);
-#ifdef WRITE_THROUGH
-  if (CpuType >= 5)
-    pte_set(thePTE, PTE_WT);
-#endif
-
-#if 0
-  if ((wi.segObj->kt_u.ob.oid & OID_RESERVED_PHYSRANGE) 
-      == OID_RESERVED_PHYSRANGE)
-    wi.canCache = false;
-#endif
-
-  if (!wi.canCache)
-    pte_set(thePTE, PTE_CD);
-
-#if 0
-  dprintf(true, "Built PTE at 0x%08x\n", &thePTE);
-#endif
-  
-
-  if (needInvalidate)
-    mach_FlushTLBWith(la);
-
-    
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("End of DoSmallPageFault()");
-#endif
-
-  return true;
-}
-#endif
-
 uint32_t DoPageFault_CallCounter;
 
 /* At some point, this logic will need to change to account for
@@ -600,9 +435,9 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 {
   const int walk_root_blss = 4 + EROS_PAGE_BLSS;
   const int walk_top_blss = 2 + EROS_PAGE_BLSS;
-  uva_t va;
   SegWalk wi;
   PTE *pTable;
+  PTE * thePTE;
   
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
@@ -621,37 +456,56 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   }
   
 #ifdef OPTION_SMALL_SPACES
-  va = la - p->md.bias;
+  uva_t va = la - p->md.bias;
+  if (va >= p->md.limit) {
+    /* If va is simply out of range, then forget the whole thing: */
+    if (va >= UMSGTOP) {
+      dprintf(true, "Process accessed va 0x%08x, too high.\n",
+	      (uint32_t) va);
+      proc_SetFault(p, FC_InvalidAddr, va, false);  
+      return false;
+    } else {
+      /* If the address exceeds the small space limit we need to
+      convert the current address space into a large space.
+    
+      If this is necessary, set smallPTE to zero and YIELD, because we
+      might have been called from unside the IPC code.  This will
+      induce another page fault, which will follow the large spaces path.
+
+      This should not happen on the invoker side, where the addresses
+      were validated during page probe (causing SS fault or GP fault).
+      On the invokee side, however, it is possible that we forced the
+      invokee to reload, in which case it loaded as a small space, and
+      we then tried to validate the receive address.  In that case,
+      proc_SetupExitString() called us here with an out of bounds virtual
+      address.  We reset the process mapping state and Yield(),
+      allowing the correct computation to be done in the next pass.
+      */
+
+      if (va >= p->md.limit) {
+#if 0
+        dprintf(true, "!! la=0x%08x va=0x%08x\n"
+		    "Switching process 0x%X to large space\n",
+		    la, va,
+		    procRoot->ob.oid);
+#endif
+
+        proc_SwitchToLargeSpace(p);
+        act_Yield();
+      }
+    }
+  }
 #else
   uva_t va = la;
-#endif
   
-  /* If LA is simply out of range, then forget the whole thing: */
-  if ( la >= KVA ) {
-    dprintf(true, "Domain accessed kernel or small space la 0x%08x\n",
-	    (uint32_t) la);
+  /* If va is simply out of range, then forget the whole thing: */
+  if (va >= UMSGTOP) {
+    dprintf(true, "Process accessed va 0x%08x, too high.\n",
+	    (uint32_t) va);
     proc_SetFault(p, FC_InvalidAddr, va, false);  
     return false;
   }
-
-#ifdef OPTION_SMALL_SPACES
-  if (p->md.smallPTE)
-    return proc_DoSmallPageFault(p, la, isWrite, prompt);
 #endif
-			    
-  /* If LA is simply out of range, then forget the whole thing: */
-  if ( la >= UMSGTOP ) {
-    dprintf(true, "Large domain accessed small space la\n");
-    proc_SetFault(p, FC_InvalidAddr, va, false);
-    return false;
-  }
-
-  /* If we discover on the way to load the process that it's mapping
-   * table register was voided, we substituted KERNPAGEDIR.  Notice
-   * that here:
-   */
-  if ( p->md.MappingTable == KernPageDir_pa )
-    p->md.MappingTable = PTE_ZAPPED;
 
   /* Set up a WalkInfo structure and start building the necessary
    * mapping table, PDE, and PTE entries.
@@ -668,6 +522,41 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   wi.wantLeafNode = false;
   
   segwalk_init(&wi, proc_GetSegRoot(p));
+
+#ifdef OPTION_SMALL_SPACES
+  if (p->md.smallPTE) {
+    assert (va < (SMALL_SPACE_PAGES * EROS_PAGE_SIZE));
+
+#if 0
+    dprintf(true, "SmallPgFlt w/ la=0x%08x, bias=0x%08x,"
+		  " limit=0x%08x\n", la, p->md.bias, p->md.limit);
+#endif
+
+#if 0
+    /* This assertion can be false given that the process can run from
+     * any address space and the save logic may subsequently save that
+     * address space pointer. The code is preserved here to keep a
+     * record of the fact that this may be untrue so that I do not
+     * forget and re-insert the assertion.
+     */
+    assert ( fixRegs.md.MappingTable == KERNPAGEDIR );
+#endif
+
+    /* All the page directories for this small space are contiguous,
+       so just index into the lot. */
+    thePTE /*@ not null @*/ = &p->md.smallPTE[(va >> EROS_PAGE_ADDR_BITS)
+                                              % SMALL_SPACE_PAGES ];
+  }
+  else	// the large space case follows
+#endif
+  {	// beginning of large space case
+    // Indenting preserved to avoid insignificant changes.
+  /* If we discover on the way to load the process that it's mapping
+   * table register was voided, we substituted KERNPAGEDIR.  Notice
+   * that here:
+   */
+  if ( p->md.MappingTable == KernPageDir_pa )
+    p->md.MappingTable = PTE_ZAPPED;
 
   /* See if there is already a page directory. If not, go find/build one. */
   pTable = (PTE *) (PTOV(p->md.MappingTable) & ~EROS_PAGE_MASK);
@@ -787,8 +676,6 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 		     p, 0) ) { 
     if (wi.invokeKeeperOK)
       proc_InvokeSegmentKeeper(p, &wi);
-    /* The following looks wrong; do this only if no seg keeper. */
-    proc_SetFault(p, wi.faultCode, va, false);
 
     return false;
   }
@@ -926,14 +813,20 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
  have_good_pde:
 #endif
   
-  {
-    uint32_t pteNdx = (la >> 12) & 0x3ffu;
-    PTE* thePTE /*@ not null @*/ = &pTable[pteNdx];
+  thePTE /*@ not null @*/ = &pTable[(la >> 12) & 0x3ff];
+  }	// end of large space case
+
+  {	// indenting preserved to avoid insignificant changes
 
     if (pte_isnot(thePTE, PTE_V))
       thePTE->w_value = PTE_IN_PROGRESS;
-    
-    /* Translate the remaining bits of the address: */
+    else {
+      if (! isWrite || pte_is(thePTE, PTE_W)) {
+        return true;	/* This PTE already has everything we need. */
+      }
+    }
+  
+    /* Do the traversal... */
     if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) {
       if (wi.invokeKeeperOK)
         proc_InvokeSegmentKeeper(p, &wi);
@@ -950,7 +843,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     assert(wi.segObj);
     assert(wi.segObj->obType == ot_PtDataPage ||
 	   wi.segObj->obType == ot_PtDevicePage);
-
+  
     if (isWrite)
       pageH_MakeDirty(objH_ToPage(wi.segObj));
 
@@ -959,7 +852,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     assert ((pageAddr & EROS_PAGE_MASK) == 0);
     // Must not be within the kernel:
     assert (pageAddr < PtoKPA(&_start) || pageAddr >= PtoKPA(&end));
-	  
+  
     if (isWrite && pte_is(thePTE, PTE_V)) {
       /* We are doing this because the old PTE had insufficient
        * permission, so we must zap the TLB.
@@ -967,13 +860,12 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       pte_Invalidate(thePTE);
     }
   
-    pte_set(thePTE, (pageAddr & PTE_FRAMEBITS) );
-    pte_set(thePTE, DATA_PAGE_FLAGS);
+    pte_set(thePTE, (pageAddr & PTE_FRAMEBITS) | DATA_PAGE_FLAGS );
     if (isWrite)
       pte_set(thePTE, PTE_W);
 #ifdef WRITE_THROUGH
     if (CpuType >= 5)
-      pte_set(thePTE, PTE_W);
+      pte_set(thePTE, PTE_WT);
 #endif
 
 #if 0
