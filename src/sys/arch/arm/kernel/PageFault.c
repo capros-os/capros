@@ -521,11 +521,9 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   wi.faultCode = FC_NoFault;
   wi.traverseCount = 0;
   wi.segObj = 0;
-  wi.vaddr = va;
+  wi.offset = va;
   wi.frameBits = EROS_PAGE_ADDR_BITS;
   wi.writeAccess = isWrite;
-  wi.invokeKeeperOK = BOOL(!prompt);
-  wi.invokeProcessKeeperOK = BOOL(!prompt);
   wi.wantLeafNode = false;
   
   segwalk_init(&wi, proc_GetSegRoot(p));
@@ -533,8 +531,8 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 	/* for now, just get it working */
   /* Begin the traversal... */
   if ( ! WalkSeg(&wi, walk_root_blss, p, 0) ) {
-    if (wi.invokeKeeperOK)
-      proc_InvokeSegmentKeeper(p, &wi);
+    if (!prompt)
+      proc_InvokeSegmentKeeper(p, &wi, true, va);
     /* The following looks wrong; do this only if no seg keeper. */
     proc_SetFault(p, wi.faultCode, va, false);
 
@@ -576,8 +574,8 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
   /* Translate bits 31:22 of the address: */
   if ( ! WalkSeg(&wi, walk_top_blss, theFLPTEntry, 1) ) {
-    if (wi.invokeKeeperOK)
-      proc_InvokeSegmentKeeper(p, &wi);
+    if (!prompt)
+      proc_InvokeSegmentKeeper(p, &wi, true, va);
     return false;
   }
 
@@ -613,8 +611,8 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     
     /* Translate the remaining bits of the address: */
     if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) {
-      if (wi.invokeKeeperOK)
-        proc_InvokeSegmentKeeper(p, &wi);
+      if (!prompt)
+        proc_InvokeSegmentKeeper(p, &wi, true, va);
       return false;
     }
     

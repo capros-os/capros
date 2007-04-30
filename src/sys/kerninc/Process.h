@@ -392,7 +392,10 @@ void proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
                          Key *keeperKey, Key* keyArg2,
                          uint8_t *data, uint32_t len);
 
-void proc_InvokeSegmentKeeper(Process * thisPtr, SegWalk * /*@ not null @*/);
+void
+ proc_InvokeSegmentKeeper(Process * thisPtr, SegWalk * /*@ not null @*/,
+                          bool invokeProcessKeeperOK,
+                          uva_t vaddr );
 
 void proc_InvokeProcessKeeper(Process* thisPtr);
 

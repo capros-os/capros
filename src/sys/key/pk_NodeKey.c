@@ -231,11 +231,9 @@ NodeKey(Invocation* inv /*@ not null @*/)
       wi.faultCode = FC_NoFault;
       wi.traverseCount = 0;
       wi.segObj = 0;
-      wi.vaddr = inv->entry.w1;
+      wi.offset = inv->entry.w1;
       wi.frameBits = EROS_NODE_LGSIZE;
       wi.writeAccess = BOOL(inv->entry.code == OC_Node_Extended_Swap);
-      wi.invokeKeeperOK = true;	/* seg keeper can be invoked */
-      wi.invokeProcessKeeperOK = false;	/* but not process keeper */
       wi.wantLeafNode = true;
 
       segwalk_init(&wi, inv->key);
@@ -252,12 +250,14 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
       if ( result == false ) {
 	fatal("Node tree traversal fails without keeper.!\n");
-        if (wi.invokeKeeperOK)
-          proc_InvokeSegmentKeeper(act_CurContext(), &wi);
+        // Invoke segment keeper (do we really want this?)
+        proc_InvokeSegmentKeeper(act_CurContext(), &wi,
+                      false /* no proc keeper */,
+                      inv->entry.w1 /* orignal vaddr */ );
 
 	inv->exit.code = RC_eros_key_NoAccess;
 	inv->exit.w1 = wi.faultCode;
-	inv->exit.w2 = wi.vaddr;
+	inv->exit.w2 = inv->entry.w1;	// original "address"
 	return;
       }
 

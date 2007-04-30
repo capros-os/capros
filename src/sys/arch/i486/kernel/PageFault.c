@@ -514,11 +514,9 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   wi.faultCode = FC_NoFault;
   wi.traverseCount = 0;
   wi.segObj = 0;
-  wi.vaddr = va;
+  wi.offset = va;
   wi.frameBits = EROS_PAGE_ADDR_BITS;
   wi.writeAccess = isWrite;
-  wi.invokeKeeperOK = BOOL(!prompt);
-  wi.invokeProcessKeeperOK = BOOL(!prompt);
   wi.wantLeafNode = false;
   
   segwalk_init(&wi, proc_GetSegRoot(p));
@@ -602,14 +600,14 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
           assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
         
 	  
-	  wi.offset = wi.vaddr & ((1u << 22) - 1u);
+	  wi.offset = va & ((1u << 22) - 1u);
 	  wi.segBlss = pTableHdr->kt_u.mp.producerBlss;
 	  wi.segObj = pTableHdr->kt_u.mp.producer;
 	  wi.redSeg = pTableHdr->kt_u.mp.redSeg;
 	  if (wi.redSeg) {
 	    wi.redSpanBlss = pTableHdr->kt_u.mp.redSpanBlss;
 	    wi.redSegOffset =
-	      ((uint64_t) wi.vaddr) & BLSS_MASK64(wi.redSpanBlss, wi.frameBits);
+	      ((uint64_t)va) & BLSS_MASK64(wi.redSpanBlss, wi.frameBits);
 	  }
 	  wi.segObjIsWrapper = BOOL(pTableHdr->kt_u.mp.wrapperProducer);
 	  wi.canWrite = BOOL(pTableHdr->kt_u.mp.rwProduct);
@@ -618,11 +616,11 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 #if 0
 	  if (wi.redSeg && wi.offset != wi.redSegOffset) {
       dprintf(false, "pdr WalkSeg: wi.producer 0x%x, wi.prodBlss %d wi.isRed %d\n"
-		      "wi.vaddr 0x%x wi.offset 0x%X flt %d  wa %d segKey 0x%x\n"
+		      "wi.offset 0x%X flt %d  wa %d segKey 0x%x\n"
 		      "canCall %d canWrite %d\n"
 		      "redSeg 0x%x redOffset 0x%X\n",
 		      wi.segObj, wi.segBlss, wi.segObjIsRed,
-		      wi.vaddr, wi.offset, wi.segFault, wi.writeAccess,
+		      wi.offset, wi.segFault, wi.writeAccess,
 		      0x0,
 		      wi.canCall, wi.canWrite,
 		      wi.redSeg, wi.redSegOffset);
@@ -647,14 +645,14 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 #endif /* FAST_TRAVERSAL */
     assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
     
-    wi.offset = wi.vaddr;
+    wi.offset = va;
     wi.segBlss = pTableHdr->kt_u.mp.producerBlss;
     wi.segObj = pTableHdr->kt_u.mp.producer;
     wi.redSeg = pTableHdr->kt_u.mp.redSeg;
     if (wi.redSeg) {
       wi.redSpanBlss = pTableHdr->kt_u.mp.redSpanBlss;
       wi.redSegOffset =
-	((uint64_t) wi.vaddr) & BLSS_MASK64(wi.redSpanBlss, wi.frameBits);
+	((uint64_t)va) & BLSS_MASK64(wi.redSpanBlss, wi.frameBits);
     }
     wi.segObjIsWrapper = pTableHdr->kt_u.mp.wrapperProducer;
     wi.canWrite = BOOL(pTableHdr->kt_u.mp.rwProduct);
@@ -674,8 +672,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   /* Begin the traversal... */
   if ( ! WalkSeg(&wi, walk_root_blss,
 		     p, 0) ) { 
-    if (wi.invokeKeeperOK)
-      proc_InvokeSegmentKeeper(p, &wi);
+    if (!prompt)
+      proc_InvokeSegmentKeeper(p, &wi, true, va);
 
     return false;
   }
@@ -743,8 +741,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
     /* Translate the top 8 (10) bits of the address: */
     if ( ! WalkSeg(&wi, walk_top_blss, thePDE, 1) ) {
-      if (wi.invokeKeeperOK)
-        proc_InvokeSegmentKeeper(p, &wi);
+      if (!prompt)
+        proc_InvokeSegmentKeeper(p, &wi, true, va);
       return false;
     }
 
@@ -828,8 +826,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   
     /* Do the traversal... */
     if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) {
-      if (wi.invokeKeeperOK)
-        proc_InvokeSegmentKeeper(p, &wi);
+      if (!prompt)
+        proc_InvokeSegmentKeeper(p, &wi, true, va);
       return false;
     }
 
@@ -892,14 +890,14 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
  fault_exit:
 #ifdef WALK_LOUD
     dprintf(true, "flt WalkSeg: wi.producer 0x%x, wi.prodBlss %d wi.isRed %d\n"
-		    "wi.vaddr 0x%x wi.offset 0x%X flt %d  wa %d\n"
+		    "wi.offset 0x%X flt %d  wa %d\n"
 		    "canCall %d canWrite %d\n",
 		    wi.segObj, wi.segBlss, wi.segObjIsRed,
-		    wi.vaddr, wi.offset, wi.segFault, wi.writeAccess,
+		    wi.offset, wi.segFault, wi.writeAccess,
 		    wi.canCall, wi.canWrite);
 #endif
-  if (wi.invokeKeeperOK)
-    proc_InvokeSegmentKeeper(p, &wi);
+  if (!prompt)
+    proc_InvokeSegmentKeeper(p, &wi, true, va);
   return false;
 }
 

@@ -1730,12 +1730,12 @@ void
 db_print_segwalk(const SegWalk *wi)
 {
 #define BOOLC(x) ((x) ? 'y' : 'n')
-  db_printf("wi: vaddr 0x%08x  segBlss %d segObj 0x%08x\n"
+  db_printf("wi: segBlss %d segObj 0x%08x\n"
 	    "segObjIsWrapper: %c offset: 0x%08x%08x\n"
 	    "redSpanBlss %d redSegOffset 0x%08x%08x\n"
-	    "writeAccess: %c kprOK: %c canCall: %c\n"
+	    "writeAccess: %c canCall: %c\n"
 	    "canWrite: %c segFault %d traverseCount %d\n",
-	    wi->vaddr, wi->segBlss, wi->segObj,
+	    wi->segBlss, wi->segObj,
 	    BOOLC(wi->segObjIsWrapper),
 	    (uint32_t) (wi->offset >> 32),
 	    (uint32_t) (wi->offset),
@@ -1743,7 +1743,6 @@ db_print_segwalk(const SegWalk *wi)
 	    (uint32_t) (wi->redSegOffset >> 32),
 	    (uint32_t) (wi->redSegOffset),
 	    BOOLC(wi->writeAccess),
-	    BOOLC(wi->invokeKeeperOK),
 	    BOOLC(wi->canCall),
 	    BOOLC(wi->canWrite),
 	    wi->faultCode, wi->traverseCount);

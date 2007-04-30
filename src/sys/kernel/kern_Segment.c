@@ -111,7 +111,6 @@ segwalk_init(SegWalk *wi /*@ not null @*/, Key *pSegKey)
 {
   wi->pSegKey = pSegKey;
   wi->segBlss = EROS_ADDRESS_BLSS + 1;	/* until proven otherwise */
-  wi->offset = wi->vaddr;
   wi->redSeg = 0;
   wi->redSegOffset = 0;
   wi->redSpanBlss = 0;
@@ -127,11 +126,11 @@ segwalk_init(SegWalk *wi /*@ not null @*/, Key *pSegKey)
 #define WALK_DBG_MSG(prefix) \
   if (ddb_segwalk_debug) dprintf(true, prefix \
       " WalkSeg: wi.producer 0x%x, wi.segBlss %d wi.isWrap %d\n" \
-      "wi.vaddr 0x%x wi.offset 0x%X flt %d  wa %d segKey 0x%x\n" \
+      "wi.offset 0x%X flt %d  wa %d segKey 0x%x\n" \
       "canCall %d canWrite %d stopBlss %d\n" \
       "redSeg 0x%x redSpanBlss %d redOffset 0x%X\n", \
       wi->segObj, wi->segBlss, wi->segObjIsWrapper, \
-      wi->vaddr, wi->offset, wi->faultCode, wi->writeAccess, wi->pSegKey, \
+      wi->offset, wi->faultCode, wi->writeAccess, wi->pSegKey, \
       wi->canCall, wi->canWrite, stopBlss, \
       wi->redSeg, wi->redSpanBlss, wi->redSegOffset)
 #else
@@ -538,7 +537,9 @@ proc_InvokeSegmentKeeper(
 	/* (This might be different from act_CurContext(), if in the future
 	we allow a CALL on a gate key to cause the callee to handle
 	page faults.) */
-  SegWalk * wi /*@ not null @*/)
+  SegWalk * wi /*@ not null @*/,
+  bool invokeProcessKeeperOK,
+  uva_t vaddr )
 {
   Key *keeperKey = 0;
   Key *pFormatKey = 0;
@@ -573,14 +574,14 @@ proc_InvokeSegmentKeeper(
     }
   }
   
-  if (keeperKey == 0 && BOOL(wi->invokeProcessKeeperOK) == false)
+  if (keeperKey == 0 && ! invokeProcessKeeperOK)
     return;
 
   /* Ensure retry on yield.  All segment faults are fast-path
    * restartable.
    */
 
-  proc_SetFault(thisPtr, wi->faultCode, wi->vaddr, false);
+  proc_SetFault(thisPtr, wi->faultCode, vaddr, false);
 
 
   if (keeperKey == 0) {

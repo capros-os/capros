@@ -34,7 +34,6 @@ Approved for public release, distribution unlimited. */
 
 struct SegWalk {
   uint32_t frameBits;	/* number of bits in frame offset */
-  uva_t vaddr;		/* in case invoking domain keeper */
 
   Key * pSegKey;
   uint32_t segBlss;
@@ -50,8 +49,6 @@ struct SegWalk {
   bool canWrite;
   bool canFullFetch;	/* not a sensory path */
   bool canCache;	/* cache disable handling */
-  bool invokeKeeperOK;
-  bool invokeProcessKeeperOK;
 
   bool wantLeafNode;
 
