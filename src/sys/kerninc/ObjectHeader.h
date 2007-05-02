@@ -109,9 +109,6 @@ enum {
 #define OFLG_DIRTY	0x01u	/* object has been modified */
 #define OFLG_REDIRTY	0x02u	/* object has been modified since */
 				/* write initiated */
-#if 0
-#define OFLG_PIN	0x04u	/* object pinned in memory */
-#endif
 #define OFLG_CURRENT	0x08u	/* current version */
 #define OFLG_CKPT	0x10u	/* checkpoint version */
 #define OFLG_IO		0x20u	/* object has active I/O in progress */
@@ -313,14 +310,8 @@ objH_TransLock(ObjectHeader* thisPtr)	/* lock for current transaction */
 {
   thisPtr->userPin = objH_CurrentTransaction;
 }
-INLINE void 
-objH_TransUnlock(ObjectHeader* thisPtr)
-{
-  thisPtr->userPin = 0;
-}
 #else
 void objH_TransLock(ObjectHeader* thisPtr);  /* lock for current transaction */
-void objH_TransUnlock(ObjectHeader* thisPtr);
 #endif
 
 INLINE bool   

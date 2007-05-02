@@ -684,6 +684,8 @@ act_DoReschedule(void)
   }
   
   do {
+    /* Clear all previous user pins. 
+       Otherwise this loop could pin an unbounded number of objects. */
     objH_BeginTransaction();
     
 #ifdef DBG_WILD_PTR

@@ -73,10 +73,6 @@ pageH_KernPin(PageHeader * thisPtr)
 {
   assert(thisPtr->kernPin < BYTE_MAX);
   thisPtr->kernPin++;
-
-#ifdef OFLG_PIN
-  SetFlags(OFLG_PIN);
-#endif
 }
 
 void
@@ -84,11 +80,6 @@ pageH_KernUnpin(PageHeader * thisPtr)
 {
   assert(thisPtr->kernPin);
   thisPtr->kernPin--;
-
-#ifdef OFLG_PIN
-  if (kernPin == 0 && userPin == 0)
-    ClearFlags(OFLG_PIN);
-#endif
 }
 
 void
@@ -179,7 +170,7 @@ ObjectHeader::DoCopyOnWrite()
   
   ClearFlags(OFLG_CURRENT);
   pObj->SetFlags(OFLG_CURRENT);
-  pObj->ClearFlags(OFLG_CKPT|OFLG_IO|OFLG_DIRTY|OFLG_REDIRTY|OFLG_PIN);
+  pObj->ClearFlags(OFLG_CKPT|OFLG_IO|OFLG_DIRTY|OFLG_REDIRTY);
 #ifdef DBG_CLEAN
   printf("Object 0x%08x ty %d oid=0x%08x%08x COW copy cleaned\n",
 		 pObj, pObj->obType,
@@ -541,14 +532,5 @@ objH_TransLock(ObjectHeader* thisPtr)
   printf("Pinning obhdr 0x%08x\n", this);
 #endif
   thisPtr->userPin = objH_CurrentTransaction;
-}
-
-void
-objH_TransUnlock(ObjectHeader* thisPtr)
-{
-#ifdef PIN_DEBUG
-  printf("Un-pinning obhdr 0x%08x\n", this);
-#endif
-  thisPtr->userPin = 0;
 }
 #endif
