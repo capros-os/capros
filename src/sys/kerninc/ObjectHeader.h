@@ -122,7 +122,7 @@ struct ObjectHeader {
     
   uint8_t	flags;
 
-  uint8_t	userPin;
+  uint16_t	userPin;
 
   KeyRing	keyRing;
 
@@ -211,7 +211,7 @@ keyR_ToObj(KeyRing * kr)
 }
 #endif
 
-extern uint8_t objH_CurrentTransaction; /* current transaction number */
+extern uint16_t objH_CurrentTransaction; /* current transaction number */
 
 
 #ifdef OPTION_OB_MOD_CHECK

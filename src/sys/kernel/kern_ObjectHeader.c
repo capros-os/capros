@@ -43,7 +43,7 @@ Approved for public release, distribution unlimited. */
 #define DEBUG2(x,y) if ((dbg_##x|dbg_##y) & dbg_flags)
 
 
-uint8_t objH_CurrentTransaction = 1; /* guarantee nonzero! */
+uint16_t objH_CurrentTransaction = 1; /* guarantee nonzero! */
 
 #ifdef OPTION_DDB
 const char *ddb_obtype_name(uint8_t t)
