@@ -39,7 +39,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <arch-kerninc/PTE.h>
 #include <arch-kerninc/IRQ-inline.h>
 
-unsigned int AllocateSmallSpace(ObjectHeader * producer);
+MapTabHeader * AllocateSmallSpace(void);
 unsigned int EnsureSSDomain(unsigned int ssid);
 
 #define dbg_pgflt	0x1	/* steps in taking snapshot */
@@ -204,41 +204,32 @@ pte_ObIsNotWritable(PageHeader * pageH)
 }
 #endif /* !NDEBUG */
 
-/* Make a new second-level page table. */
-// May Yield.
-static MapTabHeader *
-MakeNewPageTable(SegWalk * wi /*@ not null @*/, uint32_t ndx)
+/* Initialize a new MapTabHeader. */
+static void
+InitMapTabHeader(MapTabHeader * mth,
+                 SegWalk * wi /*@ not null @*/, uint32_t ndx)
 {
-  DEBUG(pgflt) printf("MakeNewPageTable ");
-
-  MapTabHeader * mth = AllocateCPT();
+  DEBUG(pgflt) printf("InitMapTabHeader ");
 
   mth->producerBlss = wi->segBlss;
   mth->producerNdx = ndx;
   mth->redSeg = wi->redSeg;
   mth->wrapperProducer = wi->segObjIsWrapper;
   mth->redSpanBlss = wi->redSpanBlss;
-  mth->rwProduct = 1;
-  mth->caProduct = 1;
-  void * tableAddr = MapTabHeaderToKVA(mth);
-
-  DEBUG(pgflt) printf("physAddr=0x%08x\n", VTOP((kva_t)tableAddr));
-
-  // PTE_ZAPPED == 0, so we can just clear the table:
-  bzero(tableAddr, CPT_SIZE);
+  mth->rwProduct = BOOL(wi->canWrite);
+  mth->caProduct = BOOL(wi->canCall);
 
   objH_AddProduct(wi->segObj, mth);
-
-  return mth;
 }
 
-/* Walk the node's products looking for an acceptable product: */
+/* Walk the current object's products looking for an acceptable product: */
 static MapTabHeader *
-objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
-                 unsigned int tblSize, 
-                 unsigned int producerNdx, 
-                 bool rw, bool ca, ula_t cacheAddr)
+FindProduct(SegWalk * wi /*@not null@*/ ,
+            unsigned int tblSize, 
+            unsigned int producerNdx, 
+            bool rw, bool ca, ula_t va)
 {
+  ObjectHeader * thisPtr = wi->segObj;
   uint32_t blss = wi->segBlss;
 
 #if 0
@@ -246,29 +237,20 @@ objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
 	       blss, ndx, rw ? 'y' : 'n', obType);
 #endif
   
-/* #define FINDPRODUCT_VERBOSE */
+// #define FINDPRODUCT_VERBOSE
 
   MapTabHeader * product;
   
   for (product = thisPtr->prep_u.products;
        product; product = product->next) {
     if ((uint32_t) product->producerBlss != blss) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("Producer BLSS not match\n");
-#endif
       continue;
     }
     if (product->redSeg != wi->redSeg) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("Red seg not match\n");
-#endif
       continue;
     }
     if (product->redSeg) {
       if (product->wrapperProducer != wi->segObjIsWrapper) {
-#ifdef FINDPRODUCT_VERBOSE
-	printf("redProducer not match\n"); 
-#endif
 	continue;
       }
       if (product->redSpanBlss != wi->redSpanBlss) {
@@ -281,32 +263,42 @@ objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
     }
     if ((uint32_t) product->tableSize != tblSize) {
 #ifdef FINDPRODUCT_VERBOSE
-      printf("tableSize not match\n");
+	printf("tableSize not match: prod %d caller %d\n",
+		       product->tableSize, tblSize);
 #endif
       continue;
+    }
+    if (tblSize == 0) {	// second level page table
+      // va is the MVA where the table will be mapped.
+      // FIXME: need to handle sharing RO at different addresses.
+      if (product->tableCacheAddr != va) {
+#ifdef FINDPRODUCT_VERBOSE
+	printf("cacheAddr not match: prod 0x%08x caller 0x%08x\n",
+		       product->tableCacheAddr, va);
+#endif
+        continue;
+      }
+    } else {	// first level page table
+      // va is the unmodified virtual address referenced.
+      if (va & PID_MASK) {	// referenced a large address
+        if (product->tableCacheAddr != 0)	// must have a large table
+          continue;
+      } else {
+        // Can use either a large or small table.
+        // FIXME: Prefer a small table if both exist.
+      }
     }
     if ((uint32_t) product->producerNdx != producerNdx) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("producerNdx not match\n");
-#endif
-      continue;
-    }
-    if ((uint32_t) product->tableCacheAddr != cacheAddr) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("cacheAddr not match\n");
-#endif
       continue;
     }
     if (product->rwProduct != (rw ? 1 : 0)) {
 #ifdef FINDPRODUCT_VERBOSE
-      printf("rwProduct not match\n");
+	printf("rw not match: prod %d caller %d\n",
+		       product->rwProduct, rw);
 #endif
       continue;
     }
     if (product->caProduct != (ca ? 1 : 0)) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("caProduct not match\n");
-#endif
       continue;
     }
 
@@ -325,9 +317,9 @@ objH_FindProduct(ObjectHeader * thisPtr, SegWalk * wi /*@not null@*/ ,
 #endif
 
 #ifdef FINDPRODUCT_VERBOSE
-  printf("0x%08x->FindProduct(blss=%d,ndx=%d,rw=%c,ca=%c,"
-		 "producerTy=%d) => 0x%08x\n",
-		 thisPtr,
+  printf("0x%08x->FindProduct(sz=%d,blss=%d,ndx=%d,rw=%c,ca=%c,"
+		 "producrTy=%d) => 0x%08x\n",
+		 thisPtr, tblSize,
 		 blss, producerNdx, rw ? 'y' : 'n', ca ? 'y' : 'n',
                  thisPtr->obType,
 		 product);
@@ -507,12 +499,6 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     proc_SetFault(p, FC_InvalidAddr, va, false);
     return false;
   }
-  /* Small space only for now. */
-  if (va >= 0x02000000) {
-    dprintf(true, "Process accessed large space at 0x%08x\n", va);
-    proc_SetFault(p, FC_InvalidAddr, va, false);
-    return false;
-  }
 
   /* Set up a WalkInfo structure and start building the necessary
    * mapping table, PDE, and PTE entries.
@@ -538,19 +524,26 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
     return false;
   }
-  
-  /* Is it a small or full space? */
-  /* (For now, small space only.) */
-  /* Does the object produce a small space? */
-  unsigned int ssid;
-  if (wi.segObj->ssid == 0) {
-    /* This object needs to produce a small space. */
-    ssid = AllocateSmallSpace(wi.segObj);
-    if (ssid == 0) fatal("Could not allocate small space?\n");
-    wi.segObj->ssid = ssid;
-  } else {
-    ssid = wi.segObj->ssid;
+
+  uint32_t productNdx = wi.offset >> 32;
+  MapTabHeader * mth1 =
+    FindProduct(&wi, 1, productNdx, wi.canWrite, wi.canCall/**?**/, 
+                va);
+
+  if (mth1 == 0) {
+    if (va & PID_MASK) {
+      // large space not implemented yet
+      fatal("Process accessed large space at 0x%08x\n", va);
+    }
+    mth1 = AllocateSmallSpace();
+    if (mth1 == 0) fatal("Could not allocate small space?\n");
+    InitMapTabHeader(mth1, &wi, productNdx);
   }
+
+  // Have a large or small space?
+  unsigned int ssid = mth1->tableCacheAddr >> PID_SHIFT;
+  if (ssid == 0)	// if large space
+    assert(false);	// because large space not implemented yet
   p->md.flmtProducer = wi.segObj;
   p->md.firstLevelMappingTable = FLPT_FCSEPA;
   p->md.pid = ssid << PID_SHIFT;
@@ -580,23 +573,26 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   }
 
   // printf("wi.offset=0x%08x ", wi.offset);
-  uint32_t productNdx = wi.offset >> L1D_ADDR_SHIFT;
-
+  productNdx = wi.offset >> L1D_ADDR_SHIFT;
+  ula_t cacheAddr = mva >> L1D_ADDR_SHIFT << L1D_ADDR_SHIFT;
   MapTabHeader * mth =
-    objH_FindProduct(wi.segObj, &wi, 0, productNdx, true, true, 
-                     mva >> L1D_ADDR_SHIFT);
+    FindProduct(&wi, 0, productNdx, wi.canWrite, wi.canCall/**?**/, 
+                cacheAddr);
 
   if (mth == 0) {
-    mth = MakeNewPageTable(&wi, productNdx);
-    mth->tableCacheAddr = mva >> L1D_ADDR_SHIFT;
+    mth = AllocateCPT();
+    InitMapTabHeader(mth, &wi, productNdx);
+    mth->tableCacheAddr = cacheAddr;
+    void * tableAddr = MapTabHeaderToKVA(mth);
+
+    DEBUG(pgflt) printf("physAddr=0x%08x\n", VTOP((kva_t)tableAddr));
+
+    // PTE_ZAPPED == 0, so we can just clear the table:
+    bzero(tableAddr, CPT_SIZE);
   }
   assert(wi.segBlss == mth->producerBlss);
   assert(wi.segObj == mth->producer);
   assert(wi.redSeg == mth->redSeg);
-
-  /* On x86, the page table is always RW product, and we rely on
-     the write permission bit at the PDE level: ??? */
-  assert(mth->rwProduct);
 
   pTable = (PTE *) MapTabHeaderToKVA(mth);
 

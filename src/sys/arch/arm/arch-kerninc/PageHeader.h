@@ -1,7 +1,7 @@
 #ifndef __MACHINE_PAGEHEADER_H__
 #define __MACHINE_PAGEHEADER_H__
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -19,6 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Machine-dependent data for the ObjectHeader. */ 
 
@@ -31,12 +34,42 @@
 #define MD_PAGE_VARIANTS \
   struct MapTabsVariant mp;
 
+/*
+There are three types of MapTabHeaders:
+
+For a coarse (second level) page table:
+  tableSize is 0
+  ndxInPage tells where the table is in its containing page
+
+For a first level page table (not yet implemented):
+  tableSize is 1
+  tableCacheAddr is 0
+  ndxInPage is unused.
+
+For a small space:
+  tableSize is 1
+  tableCacheAddr is nonzero and tells which small space this represents.
+  ndxInPage is unused.
+*/
+
 typedef struct MapTabHeader MapTabHeader;
 struct MapTabHeader {
 /* The fields next and producer are required by the machine-independent code. */
   MapTabHeader * next;	/* next product of this producer,
 			   or next in free list */
   ObjectHeader * producer;
+
+  /* If tableCacheAddr is odd, this mapping table (which must be a second
+     level page table) may be mapped at various modified virtual addresses.
+     Therefore for cache coherency its PTEs must not grant write access. 
+     (The data may be logically writeable, but if written, a new maptab
+     must be used, and the cache flushed.)
+
+     If tableCacheAddr is even, this mapping table is mapped only at
+     that MVA, and cache entries dependent on this mapping table have
+     only that MVA. */
+  // FIXME: implement this
+  ula_t tableCacheAddr;
 
   struct Node * redSeg;	/* pointer to slot of keeper that
 			 * dominated this mapping frame */
@@ -50,7 +83,6 @@ struct MapTabHeader {
   uint8_t isFree       : 1;
   uint8_t producerNdx  : 4;
   uint8_t ndxInPage    : 2;	/* mp.hdrs[ndxInPage] == this */
-  ula_t tableCacheAddr;
 };
 
 struct MapTabsVariant {
@@ -61,8 +93,9 @@ struct MapTabsVariant {
   MapTabHeader hdrs[4];
     /* For a First Level page table, only hdrs[0] is used, and
        hdrs[0].tableSize == 1.
-       For Second Level page tables, hdrs[i].tableSize == 0 
-       for all 0 <= i <= 3. */
+       For Second Level page tables, for all 0 <= i <= 3,
+             hdrs[i].tableSize == 0 
+         and hdrs[i].ndxInPage == i . */
     /* First level page tables are not fully implemented. */
 };
 

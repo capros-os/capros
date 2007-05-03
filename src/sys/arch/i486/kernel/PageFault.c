@@ -202,12 +202,13 @@ pte_ObIsNotWritable(PageHeader * pageH)
 }
 #endif /* !NDEBUG */
 
-/* Walk the node looking for an acceptable product: */
+/* Walk the current object's products looking for an acceptable product: */
 static PageHeader *
-objH_FindProduct(ObjectHeader* thisPtr, SegWalk* wi /*@not null@*/ ,
-                 unsigned int tblSize, 
-                 bool rw, bool ca)
+FindProduct(SegWalk* wi /*@not null@*/ ,
+            unsigned int tblSize, 
+            bool rw, bool ca)
 {
+  ObjectHeader* thisPtr = wi->segObj;
   uint32_t blss = wi->segBlss;
 
 #if 0
@@ -703,8 +704,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
      */
 
     PageHeader * pTableHdr =
-      objH_FindProduct(wi.segObj, &wi, EROS_NODE_LGSIZE /* ndx */,
-                       wi.canWrite, wi.canCall);
+      FindProduct(&wi, EROS_NODE_LGSIZE /* ndx */,
+                  wi.canWrite, wi.canCall);
 
     
     if (pTableHdr == 0)
@@ -772,7 +773,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
        * the write permission bit at the PDE level.
        */
       PageHeader *pTableHdr =
-	objH_FindProduct(wi.segObj, &wi, 0, true, true);
+	FindProduct(&wi, 0, true, true);
 
       if (pTableHdr == 0)
 	pTableHdr = MakeNewPageTable(&wi);

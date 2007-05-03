@@ -467,7 +467,6 @@ objH_InvalidateProducts(ObjectHeader * thisPtr)
     while (thisPtr->prep_u.products) {
       ReleaseProduct(thisPtr->prep_u.products);
     }
-    mach_InvalidateProducts(thisPtr);
   }
 }
 

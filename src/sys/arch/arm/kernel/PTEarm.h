@@ -165,15 +165,19 @@ INLINE void PTE_Set(PTE * pte, uint32_t val)
 extern PTE* pte_kern_ptebuf;
 #endif
 
+// mth cannot be for a small space.
+// (Large space not implemented yet, so that leaves CPT.)
 INLINE PageHeader *
 MapTab_ToPageH(MapTabHeader * mth)
 {
+  assert(mth->tableSize == 0);
   PageHeader * pageH = (PageHeader *)
     ((char *)mth - offsetof(PageHeader, kt_u.mp.hdrs[mth->ndxInPage]));
   assert(pageH_GetObType(pageH) == ot_PtMappingPage2);
   return pageH;
 }
 
+// mth cannot be for a small space.
 INLINE void *
 MapTabHeaderToKVA(MapTabHeader * mth)
 {

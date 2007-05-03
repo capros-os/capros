@@ -75,22 +75,21 @@ SmallSpaces[0] is unused.
 
 For 0 < i < NumSmallSpaces,
 the following states are possible for SmallSpaces[i]:
-1. producer is zero. Nothing is mapped in this small space. 
-2. producer is nonzero and domain is nonzero. 
+1. mth.isFree is nonzero. Nothing is mapped in this small space. 
+2. mth.isFree is zero and domain is nonzero. 
    This domain is assigned to this space.
    Page tables may be mapped in this space using this domain. 
    SmallSpaces[i].producer->ssid == i.
-3. producer is nonzero and domain is zero. 
+3. mth.isFree is zero and domain is zero. 
    This space has no domain assigned.
    This space may have second-level descriptors that are like maps to page
    tables, but with zero in the domain field and 0b00 in the valid bits.
    SmallSpaces[i].producer->ssid == i.
 
-For all ObjectHeaders objH,
-objH->ssid is zero or SmallSpace[objH->ssid].producer == objH.
+Invariant: SmallSpaces[i].mth.tableCacheAddr == i << PID_SHIFT.
 */
 struct SmallSpace {
-  ObjectHeader * producer;	/* or NULL if space is not assigned */
+  MapTabHeader mth;
   unsigned char domain;	/* the domain owned by this PID, 0 if none */
 } SmallSpaces[NumSmallSpaces];
 
@@ -162,14 +161,14 @@ MapTab_ClearRefs(MapTabHeader * mth)
   ObjectHeader * const producer = mth->producer;
   keyR_ClearWriteHazard(& producer->keyRing);
 
-  /* If the producer produces a higher table, there could be
+  /* If the producer also produces a higher table, there could be
      a reference from that table to this one. */
   if (mth->tableSize == 0) {
     MapTabHeader * product;
     for (product = producer->prep_u.products;
          product;
          product = product->next) {
-      if (product->tableSize) {	// if a directory
+      if (product->tableSize) {	// if a first level table
         // void * pte = MapTabHeaderToKVA(product);
         assert(false); //// FIXME need to find th right entry and invalidate it
       }
@@ -180,7 +179,7 @@ MapTab_ClearRefs(MapTabHeader * mth)
 void
 map_HeapInit(void)
 {
-  int i;
+  unsigned int i;
 
   FLPT_FCSEVA = KPAtoP(uint32_t *, FLPT_FCSEPA);
 
@@ -198,22 +197,27 @@ map_HeapInit(void)
 
   /* Initialize SmallSpaces */
   for (i = 0; i < NumSmallSpaces; i++) {
-    SmallSpaces[i].producer = 0;
+    SmallSpaces[i].mth.isFree = 1;
+    SmallSpaces[i].mth.tableCacheAddr = i << PID_SHIFT;
+    SmallSpaces[i].mth.tableSize = 1;
     SmallSpaces[i].domain = 0;
   }
 }
 
 /* Some day this might have to return failure? */
-unsigned int
-AllocateSmallSpace(ObjectHeader * producer)
+MapTabHeader *
+AllocateSmallSpace(void)
 {
   int i;
 
   for (i = 1; i < NumSmallSpaces; i++) {
-    if (SmallSpaces[i].producer == 0) {
-      SmallSpaces[i].producer = producer; /* grab it */
+    if (SmallSpaces[i].mth.isFree) {
+      SmallSpaces[i].mth.isFree = 0;	/* grab it */
       assert(SmallSpaces[i].domain == 0);
-      return i;
+#if 0
+      printf("Allocating small space %d\n", i);
+#endif
+      return &SmallSpaces[i].mth;
     }
   }
   fatal("AllocateSmallSpace: stealing space unimplemented\n");
@@ -457,9 +461,20 @@ Release2ndLevelMappingTable(MapTabHeader * mth)
 void
 ReleaseProduct(MapTabHeader * mth)
 {
-  /* First level tables not supported yet. */
-  Release2ndLevelMappingTable(mth);
-  Check2ndLevelMappingTableFree(MapTab_ToPageH(mth));
+  if (mth->tableSize == 0) {	// second level table
+    Release2ndLevelMappingTable(mth);
+    Check2ndLevelMappingTableFree(MapTab_ToPageH(mth));
+  } else {
+    if (mth->tableCacheAddr == 0) {
+      assert(false);	/* FIXME: First level tables not supported yet. */
+    } else {	// product is a small space
+      assert(mth->isFree == 0);
+      objH_DelProduct(mth->producer, mth);
+      // Do we need to invalidate the PTEs in the space?
+      assert(false);// FIXME: Need to find any Processes holding this pid.
+      mth->isFree = 1;	// anything else to do?
+    }
+  }
 }
 
 void
