@@ -559,9 +559,21 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
   if (*theFLPTEntry & L1D_VALIDBITS) {	// already valid
     assert((*theFLPTEntry & L1D_VALIDBITS) == (L1D_COARSE_PT & L1D_VALIDBITS));
+    // FIXME: can avoid the table walk since we already have the CPT
   } else {
     if (*theFLPTEntry & ~L1D_VALIDBITS) {
-      printf("L1D temporarily invalid - need to optimize.\n");
+      assert(*theFLPTEntry != PTE_IN_PROGRESS);	// should not be in progress now
+      if (*theFLPTEntry & L1D_DOMAIN_MASK) {
+        printf("tracking LRU - need to implement.\n");
+      } else {
+        // This small space has had its domain stolen.
+        unsigned int domain = EnsureSSDomain(mva >> PID_SHIFT);
+        printf("Reassigning domain to L1D.\n");
+        * theFLPTEntry |= (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
+        // FIXME: can avoid the table walk since we already have the CPT
+      }
+    } else {
+      assert(*theFLPTEntry == PTE_ZAPPED);
     }
   }
 
