@@ -514,16 +514,38 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   
   segwalk_init(&wi, proc_GetSegRoot(p));
 
+  if (p->md.firstLevelMappingTable == FLPT_FCSEPA) {
+    if (p->md.pid != 0 && p->md.pid != PID_IN_PROGRESS) {
+      // has a small space
+      // FIXME: can avoid the table walk since we already have the FLPT
+    } else {
+    }
+  } else {		// has a full space
+    if (p->md.dacr & 0xc) {	// has access to domain 1
+      // FIXME: can avoid the table walk since we already have the FLPT
+    } else {		// tracking LRU
+    }
+  }
+
 	/* for now, just get it working */
+  proc_ResetMappingTable(p);
+  p->md.pid = PID_IN_PROGRESS;
+  /* Note: WalkSeg below may Yield, so the state of p->md has to be
+     valid for execution. */
+  
   /* Begin the traversal... */
   if ( ! WalkSeg(&wi, walk_root_blss, p, 0) ) {
     if (!prompt)
       proc_InvokeSegmentKeeper(p, &wi, true, va);
-    /* The following looks wrong; do this only if no seg keeper. */
-    proc_SetFault(p, wi.faultCode, va, false);
 
     return false;
   }
+
+  /* It is unlikely but possible that one of the depend entries created
+  in walking this portion of the tree was reclaimed by a later entry
+  created in walking this portion. Check for that here. */
+  if (p->md.pid != PID_IN_PROGRESS)
+    act_Yield();	// try again
 
   uint32_t productNdx = wi.offset >> 32;
   MapTabHeader * mth1 =
@@ -577,12 +599,24 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     }
   }
 
+  if (*theFLPTEntry & L1D_VALIDBITS) {	// it was valid
+    PteZapped = flushCache = true;
+  } else {
+    // It was invalid, but could there be cache entries dependent on it?
+    if (*theFLPTEntry & L1D_COARSE_PT_ADDR)
+      flushCache = true;
+  }
+  * theFLPTEntry = PTE_IN_PROGRESS;
+
   /* Translate bits 31:22 of the address: */
   if ( ! WalkSeg(&wi, walk_top_blss, theFLPTEntry, 1) ) {
     if (!prompt)
       proc_InvokeSegmentKeeper(p, &wi, true, va);
     return false;
   }
+
+  if (* theFLPTEntry != PTE_IN_PROGRESS)
+    act_Yield();
 
   // printf("wi.offset=0x%08x ", wi.offset);
   productNdx = wi.offset >> L1D_ADDR_SHIFT;
@@ -616,6 +650,9 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   /* Now find the page and fill in the PTE. */
   uint32_t pteNdx = (mva >> 12) & 0xff;
   PTE * thePTE = &pTable[pteNdx];
+
+  pte_Invalidate(thePTE);	/* if it was valid, remember to purge TLB */
+  thePTE->w_value = PTE_IN_PROGRESS;
     
     /* Translate the remaining bits of the address: */
     if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) {
@@ -623,6 +660,9 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
         proc_InvokeSegmentKeeper(p, &wi, true, va);
       return false;
     }
+
+  if (thePTE->w_value != PTE_IN_PROGRESS)
+    act_Yield();
     
     assert(wi.segObj);
     assert(wi.segObj->obType == ot_PtDataPage ||
@@ -633,7 +673,6 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
     kpa_t pageAddr = VTOP(pageH_GetPageVAddr(objH_ToPage(wi.segObj)));
 
-  pte_Invalidate(thePTE);	/* if it was valid, remember to purge TLB */
 #if 0
   printf("Setting PTE 0x%08x addr 0x%08x write %c cache %c\n",
          thePTE, pageAddr,

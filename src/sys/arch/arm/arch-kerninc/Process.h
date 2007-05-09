@@ -1,7 +1,7 @@
 #ifndef __MACHINE_PROCESS_H__
 #define __MACHINE_PROCESS_H__
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -20,36 +20,49 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 struct ObjectHeader;
 
 /* Machine-dependent data that go in the Process structure. */
+
+/*
+This table shows all the possible states of the ProcMD data.
+
+  flmt     FLMT     dacr
+Producer    *1       *2       pid       Meaning
+  NULL  FLPT_FCSEPA   0        0        Producer of the space is not known
+  NULL  FLPT_FCSEPA   0 PID_IN_PROGRESS *3
+  !=0   FLPT_FCSEPA   0        0        Producer known, maptab not known *4
+  !=0   FLPT_FCSEPA   *5      !=0       Producer known, small space *7
+  !=0   full maptab   0        0        Full space, tracking LRU *6, *7
+  !=0   full maptab  0, 1      0        Full space *7
+
+Notes:
+
+*1 firstLevelMappingTable must always be FLPT_FCSEPA or another valid table
+   so the kernel will be mapped when the process faults.
+
+*2 The DACR gives client access to some domains and no access to all others.
+   This column shows the domains that have client access.
+   Domain 0 always has client access, so the kernel can access kernel memory.
+
+*3 This case is analogous to PTE_IN_PROGRESS. See comments for that.
+
+*4 Is this case of any use, without flags like wi.canWrite?
+
+*5 dacr gives client access to domain 0 and, if the small space has a domain
+   assigned, that domain.
+
+*6 Access to domain 1 is temporarily withheld because we are tracking
+   whether the FLPT is recently used.
+   This provides a mechanism to efficiently restore the access. 
+
+*7 There may be cache entries dependent on this ProcMD.
+*/
+
 typedef struct ProcMD {
-  /*
-     If the top level object of the process's address space is NOT known,
-       flmtProducer has NULL,
-       firstLevelMappingTable has FLPT_FCSEPA (to map the kernel),
-       dacr has domain 0 client, no access to others (to fault user accesses),
-       and pid has 0 (to not modify the virtual address).
-     If the top level object of the process's address space IS known,
-     flmtProducer points to it.
-     If the producer's top level table is NOT known,
-       firstLevelMappingTable has FLPT_FCSEPA (to map the kernel),
-       dacr has domain 0 client, no access to others (to fault user accesses),
-       and pid has 0 (to not modify the virtual address).
-     If the producer's top level table IS known, and it is a small space,
-       firstLevelMappingTable has FLPT_FCSEPA
-         (to map the kernel and small spaces),
-       and pid has the pid for that small space.
-       If the small space has a domain assigned, dacr reflects that, otherwise
-       dacr has domain 0 client, no access to others (to fault user accesses),
-     If the producer's top level table IS known, and it is a full space,
-       firstLevelMappingTable has the physical address of the full space,
-       dacr has domain 0 client (for kernel) and domain 1 client (for user),
-       no access to others,
-       and pid has 0 (to not modify the virtual address).
-  */
   struct ObjectHeader * flmtProducer;
   /* The following are cached from the above: */
   kpa_t firstLevelMappingTable;

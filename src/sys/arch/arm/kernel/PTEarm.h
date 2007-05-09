@@ -29,6 +29,9 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #define PID_SHIFT 25
 #define PID_MASK 0xfe000000
+#define PID_IN_PROGRESS 0xfe000000	/* This value is stored in
+	Process.md.pid while we are traversing the memory tree.
+	This is not a valid small space. */
 
 /* FLPT_FCSEPA is the physical address of the First Level Page Table that is
    used for the kernel
@@ -54,7 +57,8 @@ extern uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
   00    01     0      0    PTE_IN_PROGRESS (notes A,D)
   00    00     0     !=0   domain stolen (note B)
   00    00    !=0    !=0   tracking LRU (note C)
-  01    00    any    !=0   coarse page table descriptor
+  01    00     0     !=0   coarse page table descriptor (kernel only)
+  01    00    !=0    !=0   coarse page table descriptor (user space)
   10    CB     0     any   section descriptor (kernel only)
   (we never use fine page tables)
 
@@ -195,6 +199,7 @@ bool LoadWordFromUserSpace(uva_t userAddr, uint32_t * resultP);
 MapTabHeader * AllocateCPT(void);
 
 bool proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt);
+void proc_ResetMappingTable(Process * p);
 
 #endif /* __ASSEMBLER__  */
 #endif /* __PTEARM_H__ */

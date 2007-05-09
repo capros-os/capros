@@ -53,7 +53,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
  * #define RESUMEDEBUG
  * #define XLATEDEBUG
  */
-void proc_ResetMappingTable(Process * p);
 void resume_process(Process * p) NORETURN; 
 
 Process * proc_ContextCache = NULL;

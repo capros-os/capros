@@ -92,7 +92,6 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 	msreq cpsr_c,r0
 	mov pc,lr
 
-
 	ENTRY(mach_FlushBothTLBs)
 	mov r0,#0
 	mcr p15,0,r0,c8,c7,0
@@ -103,6 +102,13 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 	ENTRY(mach_ReadCacheType)
 	mrc p15,0,r0,c0,c0,1	// read cache type register to r0
 	mov pc,lr
+
+	ENTRY(mach_FlushTLBsCaches)
+	mov r0,#0
+	mcr p15,0,r0,c8,c7,0
+	ldr r1,=PteZapped
+	strb r0,[r1]	// clear the flag
+	// fall into mach_FlushBothCaches
 
 /* "Flush" here means "clean and invalidate".
    However, since we never use writeback, we never have to clean. */

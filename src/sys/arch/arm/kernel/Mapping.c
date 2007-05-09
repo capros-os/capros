@@ -100,7 +100,7 @@ proc_ResetMappingTable(Process * p)
   p->md.firstLevelMappingTable = FLPT_FCSEPA;
   p->md.dacr = 0x1;	/* client access for domain 0 only,
 	which means all user-mode accesses will fault. */
-  p->md.pid = 0;
+  p->md.pid = 0;	// this may overwrite PID_IN_PROGRESS
 }
 
 void
@@ -121,15 +121,9 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
     assert(IsInProcess(kde->start));
     proc_ResetMappingTable(p);
 	       
-#if 0
      /* If this product is the active mapping table:
      Nothing to be done; TTBR, PID, and DACR will be reloaded
      when we next go to user mode. */
-  
-    if (p == act_CurContext()) {
-      //// mach_LoadTTBR(FLPT_FCSEPA);
-    }
-#endif
   } else {
     kva_t mapping_page_kva = ((kva_t)kde->start & ~EROS_PAGE_MASK);
     PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));

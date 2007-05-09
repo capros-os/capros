@@ -507,8 +507,12 @@ CPSR
 r15
 r0-r14
  */
-	ldmia r1!,{r2,r3,r4,r12,r14}
+	ldmia r1!,{r2,r3,r4}
+	mrc p15,0,r5,c2,c0	// read translation table base register
 	mcr p15,0,r2,c2,c0	// load translation table base register
+	cmp r2,r5		// if changing the TTBR,
+	blne mach_FlushTLBsCaches	// flush TLB and cache
+	ldmia r1!,{r12,r14}
 	mcr p15,0,r3,c13,c0	// load Process ID register
 	mcr p15,0,r4,c3,c0	// load domain access control register, DACR
 	msr spsr_fsxc,r12	// load SPSR
