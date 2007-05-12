@@ -75,13 +75,11 @@ db_eros_print_key(Key* key /*@ not null @*/)
       db_printf("strt 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x ctxt=0x%08x)\n",
 		pWKey[3], ((Node *)pObj)->callCount,
 		oidhi, oidlo, pObj, key->u.gk.pContext);
-    else if (keyBits_IsObjectKey(key))
-      db_printf("pobj 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x)\n",
+    else
+      db_printf("pobj type=%d 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x)\n",
+                keyBits_GetType(key), 
 		pWKey[3], pObj->allocCount,
 		oidhi, oidlo, pObj);
-    else
-      db_printf("pkt  0x%08x 0x%08x 0x%08x 0x%08x\n",
-		pWKey[3], pWKey[1], pWKey[2], pWKey[3]);
   }
   else if (keyBits_IsObjectKey(key)) {
     db_printf("uobj 0x%08x cnt=%u 0x%016X\n",
@@ -847,8 +845,9 @@ db_inv_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
   static char *invTypeName[] = { "npreturn", "preturn", "call", "send", "retry" };
   char* theTypeName = "???";
 
+  db_printf("Inv 0x%08x: ", &inv);
   if (inv_IsActive(&inv) == false) {
-    db_printf("No active invocation\n");
+    db_printf("Not active\n");
     return;
   }
   
