@@ -1,7 +1,7 @@
 # -*- makefile-mode -*-
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
-# Copyright (C) 2006, Strawberry Development Group.
+# Copyright (C) 2006, 2007, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -20,7 +20,8 @@
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
 # This material is based upon work supported by the US Defense Advanced
-# Research Projects Agency under Contract No. W31P4Q-06-C-0040.
+# Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+# W31P4Q-07-C-0070.  Approved for public release, distribution unlimited.
 
 # The use of install rather than package is intentional -- building
 # down inside a kernel directory is standalone, and should only build
@@ -162,7 +163,7 @@ $(CONFIG).eros: $(BUILDDIR)/lostart.o $(OBJECTS) $(NODEBUG_OBJECTS) $(LIBS) $(BU
 	$(LINK) -o $(CONFIG).eros lostart.o $(OBJECTS) \
 		$(NODEBUG_OBJECTS) $(LIBS) etext.o
 	$(SIZE) $(CONFIG).eros
-	$(OBJDUMP) --syms --stabs $(CONFIG).eros > objdumpout ## debug
+	# $(OBJDUMP) --syms --stabs $(CONFIG).eros > objdumpout ## debug
 
 $(CONFIG).eros.debug: $(BUILDDIR)/lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(LIBS) $(BUILDDIR)/etext.o
 	$(LINK) -o $(CONFIG).eros.debug lostart.o $(OBJECTS) \
