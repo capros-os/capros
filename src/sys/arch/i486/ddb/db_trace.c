@@ -207,7 +207,7 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
     db_find_trace_symbols();
 #endif
 
-  {
+  {	// scan modifiers
     register char *cp = modif;
     register char c;
 
