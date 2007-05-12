@@ -441,7 +441,12 @@ objH_CalcCheck(const ObjectHeader * thisPtr)
       ck ^= key_CalcCheck(node_GetKeyAtSlot(pNode, i));
 
   }
-  else {
+  else {		// it's a page
+    /* Note, we access the page via the physical map, which can cause
+       cache incoherency if the page was written via some other
+       virtual address. But this should not matter, because we only
+       use the resultant checksum if we expect the page is not modified.
+    */
 
     assert (objC_ValidPagePtr(thisPtr));
 
@@ -479,7 +484,12 @@ objH_ddb_dump(ObjectHeader * thisPtr)
 #ifdef OPTION_OB_MOD_CHECK
   printf("Object Header 0x%08x (%s) calcCheck 0x%08x:\n", thisPtr,
 	 ddb_obtype_name(thisPtr->obType),
-	 /* CalcCheck() */ 0);
+#if 1
+         objH_CalcCheck(thisPtr)
+#else
+         0xbadbad00
+#endif
+        );
   printf("    oid=0x%08x%08x ac=0x%08x check=0x%08x\n",
 	 (uint32_t) (thisPtr->oid >> 32), (uint32_t) thisPtr->oid,
 	 thisPtr->allocCount, thisPtr->check);

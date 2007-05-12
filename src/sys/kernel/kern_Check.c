@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Check.h>
@@ -150,16 +153,14 @@ check_Pages()
         chk = objH_CalcCheck(pObj);
 
         if (pObj->check != chk) {
-          printf("Frame %d Chk=0x%x CalcCheck=0x%x flgs=0x%02x ty=%d on pg ",
+          printf("Frame %d Chk=0x%x CalcCheck=0x%x flgs=0x%02x ty=%d\n on pg OID ",
                  pg, pObj->check, chk, pObj->flags, pObj->obType);
 	  printOid(pObj->oid);
-	  printf("\n");
 	  printf("  pPage 0x%08x dirty: %c reDirty: %c\n",
 		       pPage,
 		       (objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n'),
 		       (objH_GetFlags(pObj, OFLG_REDIRTY) ? 'y' : 'n'));
 	  result = false;
-          break;
         }
       }
 #endif

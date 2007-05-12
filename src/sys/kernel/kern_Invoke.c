@@ -1285,8 +1285,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     act_MigrateTo(activityToMigrate, inv.invokee);
 
 #ifdef OPTION_DDB
-    /*if (inv.invokee->priority == pr_Never)*/
-    if (inv.invokee->readyQ == &prioQueues[pr_Never])
+    if (inv.invokee && inv.invokee->readyQ == &prioQueues[pr_Never])
       dprintf(true, "Activity now in ctxt 0x%08x w/ bad schedule\n", 
 		      inv.invokee);
 #endif

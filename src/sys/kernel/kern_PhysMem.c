@@ -307,7 +307,7 @@ physMem_ddb_dump()
       printf("  allocBase 0x%08x allocBound 0x%08x\n",
 	     (unsigned long) (kmi->allocBase),
 	     (unsigned long) (kmi->allocBound));
-      printf("  nPages 0x%08x (%d) basepa 0x%08x firstPgHdr 0x%08x\n",
+      printf("  nPages 0x%08x (%d) basepa 0x%08x firstObHdr 0x%08x\n",
 	     kmi->nPages,
 	     kmi->nPages,
 	     kmi->basepa,
