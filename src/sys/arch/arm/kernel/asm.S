@@ -161,6 +161,9 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 
 	ENTRY(act_Yield)
 	ldr sp,=(kstackBot)	/* Empty the stack! */
+#ifndef NDEBUG
+	mov fp,#0		// to terminate stack traceback
+#endif
 	b act_HandleYieldEntry
 
 	ENTRY(Debugger)

@@ -27,6 +27,9 @@
  *
  *	db_interface.c,v 2.4 1991/02/05 17:11:13 mrt (CMU)
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* #define DB_DEBUG */
 
@@ -40,7 +43,9 @@
 #include <ddb/db_command.h>
 #include <ddb/db_output.h>
 #include <ddb/db_access.h>
+#include <ddb/db_sym.h>
 #include <ddb/db_variables.h>
+#include <kerninc/Activity.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/Process.h>
 #include <arch-kerninc/IRQ-inline.h>
@@ -154,11 +159,109 @@ db_eros_print_context_md(Process * cc)
             cc->md.pid, cc->md.dacr);
 }
 
+typedef uint32_t FramePtr;
+
+db_expr_t
+FramePtr_GetRetAddr(FramePtr fp)
+{
+  return db_get_value((int)(fp-4), 4, false);
+}
+
+db_expr_t
+FramePtr_GetNextFrame(FramePtr fp)
+{
+  return db_get_value((int)(fp-12), 4, false);
+}
+
 void
 db_stack_trace_cmd(db_expr_t addr, int have_addr,
 		   db_expr_t count, char *modif)
 {
-  db_printf("Stack trace not implemented.\n");
+  bool	kernel_only = true;
+  bool	trace_thread = false;
+
+  {	// scan modifiers
+    register char *cp = modif;
+    register char c;
+
+    while ((c = *cp++) != 0) {
+      if (c == 't')
+	trace_thread = true;
+      if (c == 'u')
+	kernel_only = false;
+    }
+  }
+
+  if (count == -1)
+    count = 65535;
+
+  db_addr_t callpc = 0;
+  FramePtr frame = 0;
+
+  if (!have_addr) {
+    frame = (FramePtr)ddb_regs.r11;	// fp register
+    callpc = (db_addr_t)ddb_regs.r15;	// pc register
+  } else if (trace_thread) {
+    db_printf ("db_interface.c: can't trace thread\n");
+  } else {
+    frame = (FramePtr)addr;
+    callpc = (db_addr_t) FramePtr_GetRetAddr(frame);
+  }
+
+  while (count && frame != 0) {
+    const char * name;
+    db_expr_t	offset;
+    db_sym_t	sym;
+
+    sym = db_search_symbol(callpc, DB_STGY_ANY, &offset);
+    db_symbol_values(sym, &name, NULL);
+
+#if 0
+    if (name) {
+      db_printf("%s\n", name);
+    }
+#endif
+
+    if (frame <= 7) {
+      // Values of the frame pointer from 1 through 7 are used to signal an
+      // exception.
+      FramePtr oldFrame = frame;
+      callpc = frame = 0;	// by default, this is the end of the line
+      switch (oldFrame) {
+        case 1: printf("[Undefined instr exception]"); goto tryCurrent;
+        case 2: printf("[SWI exception]"); goto tryCurrent;
+        case 3: printf("[Prefetch abort exception]"); goto tryCurrent;
+        case 4: printf("[Data abort exception]"); goto tryCurrent;
+tryCurrent:
+          if (act_Current()) {
+            Process * p = act_CurContext();
+            if (p) {
+              frame = p->trapFrame.r11;
+              callpc = p->trapFrame.r15;
+            }
+          }
+          break;
+
+        case 5: assert(false);	// no such exception
+        case 6: printf("[IRQ exception]"); break;
+        case 7: printf("[FIQ exception]"); break;
+      }
+    } else {
+      db_printf("0x%08x: ", callpc);
+      db_printf("[FP=0x%08x] ", frame);
+      db_printsym(callpc, DB_STGY_PROC);
+      callpc = (db_addr_t) FramePtr_GetRetAddr(frame);
+      frame = (FramePtr) FramePtr_GetNextFrame(frame);
+    }
+    db_printf("\n");
+
+    if (frame == 0) {
+      /* end of chain */
+      break;
+    }
+
+    --count;
+  }
 }
 
 /*

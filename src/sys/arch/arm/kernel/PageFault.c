@@ -494,8 +494,8 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   
   /* If va is simply out of range, then forget the whole thing: */
   if (va >= UserEndVA) {
-    dprintf(true, "Process accessed kernel space, pc=0x%08x\n",
-            p->trapFrame.r15);
+    dprintf(true, "Process accessed kernel space at 0x%08x, pc=0x%08x\n",
+            va, p->trapFrame.r15);
     proc_SetFault(p, FC_InvalidAddr, va, false);
     return false;
   }

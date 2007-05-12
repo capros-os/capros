@@ -37,6 +37,10 @@
 	orr r8,r8,#0x2100	// high exception vectors, set S bit
 	bic r8,r8,#0x007	// disenable DCache, alignmt fault, MMU
 	mcr p15,0,r8,c1,c0,0	// write control register 1
+// Redboot leaves Ethernet controller active. Reset it.
+	ldr r1,=0x80010000
+	mov r0,#1		// RESET bit
+	str r0,[r1,#0x20]	// SelfCtl register
 #endif
 /* Enter here from boot loader. */
 /* When we get here from the boot ROM, we are in Supervisor mode,

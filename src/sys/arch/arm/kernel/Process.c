@@ -621,7 +621,7 @@ bool
 proc_SetRegs32(Process * thisPtr, struct Registers * regs /*@ not null @*/)
 {
 #if 0
-  dprintf(true, "ctxt=0x%08x: Call to SetRegs32\n", this);
+  dprintf(true, "ctxt=0x%08x: Call to SetRegs32\n", thisPtr);
 #endif
 
   assert (proc_IsRunnable(thisPtr));

@@ -113,6 +113,9 @@ CommonAbortHandler:
 	/* Get abort info to pass to C code. */
 	mrc p15,0,r1,c5,c0	// get fault status register
 	mrc p15,0,r2,c6,c0	// get fault address register
+#ifndef NDEBUG
+	add r11,r0,#3	// for stack traceback
+#endif
 	bl PageFault
 	b .		// should never return
 
@@ -131,8 +134,20 @@ AbortBadMode:
 ////	ldreq lr,=where?
 ////	beq SupTransfer		// yes, handle it
 AbortError:
+	stmfd sp!,{r0,r2,r3,r12}	// save registers
+
+	// Set up the stack like a procedure prolog.
+	// If the abort was from supervisor mode, this will allow
+	// tracing the stack.
+	mov ip,sp		// note ip === r12
+	stmfd sp!,{fp,ip,lr,pc}
+	sub fp,ip,#4
+
 	ldr r0,=AbortMsg
-	b handlerCommon
+	mov r1,r14	// exception pc
+	bl printf
+0:	bl Debugger
+	b 0b
 
 SupTransfer:
 	str lr,[sp,#12]
@@ -192,12 +207,11 @@ However we DO need to save r14_abt.
 	str r1,[r3]
 #if 0
 	str r0,[sp,#-4]!	// save r0 on stack
-	mov r1,r0
+	ldr r1,[r0]		// get interrupt vector handler
 	ldr r3,[r2,#0x13c]	// VectAddr15
 	ldr r0,=vectMsg
 	ldr r2,[r2,#0]	// IRQStatus
 	bl printf
-	ldr r0,=vectMsg
 	ldr r0,[sp],#4		// pop r0
 	b 1f
 vectMsg: .asciz "IRQ vectoring to 0x%08x, status=0x%08x, Vec15=0x%08x\n"
@@ -207,11 +221,36 @@ vectMsg: .asciz "IRQ vectoring to 0x%08x, status=0x%08x, Vec15=0x%08x\n"
 #ifdef CHECKREGS
 	stmfd sp!,{r4-r11}	// we will check that C saves these
 #endif
+#ifndef NDEBUG
+	stmfd sp!,{r11}
+	mov r11,#6	// for stack traceback
+#endif
+#if 0	// Note, this is not reliable because kernel structures
+	// can be in intermediate states while IRQ is enabled.
+	str r0,[sp,#-4]!	// save r0 on stack
+	ldr r0,=2f
+	bl check_Consistency
+	ldr r0,[sp],#4		// pop r0
+	b 1f
+2:	.asciz "b4 int dispatch"
+	.balign 4
+1:
+#endif
 // The VectAddr register has the address of a VICIntSource or a VICInfo.
 // In both cases the first word is the ISR address.
 // Call it passing the structure address in r0.
 	mov r14,pc		// return address for handler
 	ldr pc,[r0]		// go to interrupt vector handler
+
+#if 0	// Note, this is not reliable because kernel structures
+	// can be in intermediate states while IRQ is enabled.
+	ldr r0,=2f
+	bl check_Consistency
+	b 1f
+2:	.asciz "after int dispatch"
+	.balign 4
+1:
+#endif
 
 // The interrupt service routine must do the following:
 // If it is an interrupt source attached to VIC2, it must
@@ -225,6 +264,9 @@ vectMsg: .asciz "IRQ vectoring to 0x%08x, status=0x%08x, Vec15=0x%08x\n"
 // to reenable interrupts of equal or lower priority. 
 
 // handler returns here.
+#ifndef NDEBUG
+	ldmfd sp!,{r11}
+#endif
 // r10 still has saved r14_abt
 // r11 still has interrupted cpsr
 #ifdef CHECKREGS
@@ -406,6 +448,9 @@ SWI_Invoke_Handler:
    r12 - rcv_limit
    user's r14 in Process block - rcv_keys
  */
+#ifndef NDEBUG
+	mov r11,#2	// for stack tracebank.
+#endif
 /* Note: snd_w1 must be passed to the kernel in a register,
    because it is used by code running in read-only memory. */
 	sub r0,r0,#(PR_OFF_CPSR + 8)	// point to Process structure
@@ -444,6 +489,9 @@ SWI_Bpt_Handler:
 	mov r0,#3	// T_BPTFLT
 	mov r1,#0	// not used
 	mov r2,sp		// ptr to savearea
+#ifndef NDEBUG
+	mov r11,#0	// for stack tracebank.
+#endif
 	bl kdb_trap
 
 	/* Return using the savearea on the stack. */
@@ -524,7 +572,7 @@ r0-r14
 ResetMsg:	.asciz "Reset Exception! at 0x%08x"
 UndefinedMsg:	.asciz "Undefined Exception! at 0x%08x"
 SWIMsg:	.asciz "SWI Exception! at 0x%08x"
-AbortMsg:	.asciz "Abort Exception! at 0x%08x"
+AbortMsg:	.asciz "Abort Exception! at 0x%08x\n"
 UnusedMsg:	.asciz "Unused Exception! at 0x%08x"
 FIQMsg:	.asciz "FIQ Exception! at 0x%08x"
 	.balign 4
