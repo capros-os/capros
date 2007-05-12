@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -22,7 +22,8 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 /*
  * Basic type declarations for the target platform, used pervasively
@@ -65,8 +66,12 @@ Fast Context Switch Extension (FCSE))
 If a memory space is loaded that does not entirely fit below 0x0200....,
 then it is mapped from 0x0000.... to 0xc000.... and FCSE is disabled.
 Otherwise, the FCSE memory space is mapped:
-0x0000.... unused, inaccessible when FCSE enabled and PID != 0.
-           Also guards against using null pointer.
+0x0000.... unused
+           Note, this range of modified virtual addresses is inaccessible
+           when FCSE enabled and PID != 0, but this range of
+           *unmodified* virtual addresses *is* accessible. 
+           Thus, if the kernel uses a NULL pointer, it will be caught
+           only if it would have been caught in the current small space. 
 0x0200.... 87 (63 temporarily) recently-used small memory spaces
 
 (UserEndVA) All the following addresses are mapped in every
