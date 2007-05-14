@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
-# Copyright (C) 2005, 2006, Strawberry Development Group.
+# Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -17,7 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 # Cancel the old suffix list, because the order matters.  We want assembly 
 # source to be recognized in preference to ordinary source code, so the
@@ -230,16 +233,13 @@ DOMLIB += $(EROS_ROOT)/lib/$(EROS_TARGET)/libidlstub.a
 DOMLIB += $(EROS_LIBGCC)
 DOMLIB += -lc # libc.a
 
-ifeq "$(EROS_HOSTENV)" "linux-xenv-gcc3"
-DOMLINKOPT=-N -static -Ttext 0x0 -L$(EROS_ROOT)/lib
-DOMLINK=$(GCC)
-else
 DOMCRT0=$(EROS_ROOT)/lib/$(EROS_TARGET)/crt0.o
 DOMCRTN=$(EROS_ROOT)/lib/$(EROS_TARGET)/crtn.o
 DOMSBRK=$(EROS_ROOT)/lib/$(EROS_TARGET)/sbrk.o
 DOMLINKOPT=-N -Ttext 0x0 -static -e _start -L$(EROS_ROOT)/lib/$(EROS_TARGET)
+# the following would help catch use of NULL pointers: (use under NDEBUG)
+#DOMLINKOPT=-N -Ttext 0x1000 -static -e _start -L$(EROS_ROOT)/lib/$(EROS_TARGET)
 DOMLINK=$(EROS_LD)
-endif
 
 DOMLIB += $(DOMCRTN)
 
