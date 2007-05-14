@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2005, 2006, Strawberry Development Group.
+# Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -17,7 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 # Set up a kernel and domain state for execution. 
  
@@ -43,7 +46,7 @@ $(BUILDDIR)/sysvolfd: $(BUILDDIR)/sysimg $(KERNPATH) $(VOLMAPFD)
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map $(BUILDDIR)/sysvolfd $(BUILDDIR)/sysimg
 
 tstflop: install $(BUILDDIR)/sysvolfd
-	dd if=$(BUILDDIR)/sysvolfd of=$(EROS_FD) bs=$(DDBS)
+	dd if=$(BUILDDIR)/sysvolfd of=$(EROS_FD) bs=1440K
 	$(EROS_ROOT)/host/bin/setboot -w $(EROS_FD)
 	sync
 	sleep 5
