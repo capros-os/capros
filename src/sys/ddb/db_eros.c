@@ -1612,9 +1612,9 @@ db_page_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
   db_printf("Page (hdr=0x%08x, data=0x%08x) 0x%08x%08x ac=0x%08x ot=%d\n",
 	    pageH,
 	    kva,
-	    (uint32_t) (pageH->kt_u.ob.oid >> 32),
-	    (uint32_t) (pageH->kt_u.ob.oid),
-	    pageH->kt_u.ob.allocCount,
+	    (uint32_t) (pageH_ToObj(pageH)->oid >> 32),
+	    (uint32_t) (pageH_ToObj(pageH)->oid),
+	    pageH_ToObj(pageH)->allocCount,
 	    pageH_GetObType(pageH));
 }
 
@@ -1649,9 +1649,9 @@ db_pframe_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 	    pageH_GetObType(pObj));
   if (pageH_IsObjectType(pObj))
     db_printf("    oid=0x%08x%08x ac=0x%08x\n",
-              (uint32_t) (pObj->kt_u.ob.oid >> 32),
-              (uint32_t) (pObj->kt_u.ob.oid),
-              pObj->kt_u.ob.allocCount );
+              (uint32_t) (pageH_ToObj(pObj)->oid >> 32),
+              (uint32_t) (pageH_ToObj(pObj)->oid),
+              pageH_ToObj(pObj)->allocCount );
 }
 
 void

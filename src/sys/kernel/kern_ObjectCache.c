@@ -1182,7 +1182,7 @@ objC_GrabThisPageFrame(PageHeader *pObj)
   bzero(pObj, sizeof(*pObj));
   pObj->pageAddr = kva;
 
-  pObj->kt_u.ob.obType = ot_PtNewAlloc; /* until further notice */
+  pageH_ToObj(pObj)->obType = ot_PtNewAlloc; /* until further notice */
 
   assert(pte_ObIsNotWritable(pObj));
 

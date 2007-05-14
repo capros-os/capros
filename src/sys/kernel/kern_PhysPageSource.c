@@ -111,26 +111,26 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
   if (! objC_EvictFrame(pObj))
     return 0;	// could not evict
 
-  pObj->kt_u.ob.oid = oid;
-  pObj->kt_u.ob.allocCount = PhysPageAllocCount;
+  pageH_ToObj(pObj)->oid = oid;
+  pageH_ToObj(pObj)->allocCount = PhysPageAllocCount;
   pObj->objAge = age_NewBorn;
 
   objH_SetFlags(pageH_ToObj(pObj), OFLG_CURRENT|OFLG_DISKCAPS);
   assert(objH_GetFlags(pageH_ToObj(pObj),
                        OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
  
-  pObj->kt_u.ob.ioCount = 0;
+  pageH_ToObj(pObj)->ioCount = 0;
   if (thisPtr->pmi->type == MI_DEVICEMEM) {
-    pObj->kt_u.ob.obType = ot_PtDevicePage;
+    pageH_ToObj(pObj)->obType = ot_PtDevicePage;
 
     /* Do not bother with calculating the checksum value, as device
      * memory is always considered dirty. */
     objH_SetFlags(pageH_ToObj(pObj), OFLG_DIRTY);
   }
   else {
-    pObj->kt_u.ob.obType = ot_PtDataPage;
+    pageH_ToObj(pObj)->obType = ot_PtDataPage;
 #ifdef OPTION_OB_MOD_CHECK
-    pObj->kt_u.ob.check = objH_CalcCheck(pageH_ToObj(pObj));
+    pageH_ToObj(pObj)->check = objH_CalcCheck(pageH_ToObj(pObj));
 #endif
   }
 

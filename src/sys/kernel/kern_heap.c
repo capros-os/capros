@@ -78,7 +78,7 @@ acquire_heap_page(void)
     PageHeader * pageH = objC_GrabPageFrame();
 
     kpa_t pa = VTOP(pageH_GetPageVAddr(pageH));
-    pageH->kt_u.ob.obType = ot_PtKernelHeap;
+    pageH_ToObj(pageH)->obType = ot_PtKernelHeap;
     // objH_SetFlags(pageH, OFLG_DIRTY);	/* always */
 
     return pa;
