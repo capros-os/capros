@@ -1046,8 +1046,8 @@ pageH_mdType_CheckPage(PageHeader * pPage)
 	printf("Writable PTE=0x%08x (map page 0x%08x), ckpt pg"
 		       " 0x%08x%08x\n",
 		       pte_AsWord(thePTE), pte,
-		       (uint32_t) (thePageHdr->kt_u.ob.oid >> 32),
-		       (uint32_t) thePageHdr->kt_u.ob.oid);
+		       (uint32_t) (pageH_ToObj(thePageHdr)->oid >> 32),
+		       (uint32_t) pageH_ToObj(thePageHdr)->oid);
 
 	return false;
       }
@@ -1055,8 +1055,8 @@ pageH_mdType_CheckPage(PageHeader * pPage)
 	printf("Writable PTE=0x%08x (map page 0x%08x), clean pg"
 		       " 0x%08x%08x\n",
 		       pte_AsWord(thePTE), pte,
-		       (uint32_t) (thePageHdr->kt_u.ob.oid >> 32),
-		       (uint32_t) thePageHdr->kt_u.ob.oid);
+		       (uint32_t) (pageH_ToObj(thePageHdr)->oid >> 32),
+		       (uint32_t) pageH_ToObj(thePageHdr)->oid);
 
 	return false;
       }
