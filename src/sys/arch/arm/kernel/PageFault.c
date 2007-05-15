@@ -281,26 +281,6 @@ FindProduct(SegWalk * wi /*@not null@*/ ,
 #endif
       continue;
     }
-    if (tblSize == 0) {	// second level page table
-      // va is the MVA where the table will be mapped.
-      // FIXME: need to handle sharing RO at different addresses.
-      if (product->tableCacheAddr != va) {
-#ifdef FINDPRODUCT_VERBOSE
-	printf("cacheAddr not match: prod 0x%08x caller 0x%08x\n",
-		       product->tableCacheAddr, va);
-#endif
-        continue;
-      }
-    } else {	// first level page table
-      // va is the unmodified virtual address referenced.
-      if (va & PID_MASK) {	// referenced a large address
-        if (product->tableCacheAddr != 0)	// must have a large table
-          continue;
-      } else {
-        // Can use either a large or small table.
-        // FIXME: Prefer a small table if both exist.
-      }
-    }
     if ((uint32_t) product->producerNdx != producerNdx) {
       continue;
     }
@@ -313,6 +293,29 @@ FindProduct(SegWalk * wi /*@not null@*/ ,
     }
     if (product->caProduct != (ca ? 1 : 0)) {
       continue;
+    }
+
+    if (tblSize == 0) {	// second level page table
+      // va is the MVA where the table will be mapped.
+      if (rw) {
+        // If writeable, tableCacheAddr must match.
+        if (product->tableCacheAddr != va) {
+#ifdef FINDPRODUCT_VERBOSE
+          printf("tableCacheAddr not match: prod 0x%08x caller 0x%08x\n",
+		       product->tableCacheAddr, va);
+#endif
+          continue;
+        }
+      }
+    } else {	// first level page table
+      // va is the unmodified virtual address referenced.
+      if (va & PID_MASK) {	// referenced a large address
+        if (product->tableCacheAddr != 0)	// must have a large table
+          continue;
+      } else {
+        // Can use either a large or small table.
+        // FIXME: Prefer a small table if both exist.
+      }
     }
 
     /* WE WIN! */
@@ -689,13 +692,24 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
   switch (cacheClass) {
   case CACHEADDR_NONE:	// not previously mapped
-    DEBUG(cache) printf("0x%08x CACHEADDR_NONE to %s\n", pageH,
-      isWrite ? "WRITEABLE" : "ONEREADER");
-    pageH->kt_u.ob.cacheAddr = (isWrite ? mva | CACHEADDR_WRITEABLE : mva);
+    if (isWrite) {
+      assert(mth->rwProduct);
+      DEBUG(cache) printf("0x%08x CACHEADDR_NONE to WRITEABLE\n", pageH);
+      pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_WRITEABLE;
 			// Note, mva has low bits clear
+    } else {
+      if (mth->rwProduct) {
+        DEBUG(cache) printf("0x%08x CACHEADDR_NONE to ONEREADER\n", pageH);
+        pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_ONEREADER;
+      } else {	// page table could be mapped at multiple MVAs
+        DEBUG(cache) printf("0x%08x CACHEADDR_NONE to READERS\n", pageH);
+        pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_READERS;
+      }
+    }
     break;
-  case 0:			// read only at one MVA
-    if (pageH->kt_u.ob.cacheAddr == mva) {
+  case CACHEADDR_ONEREADER:	// read only at one MVA
+    if (mth->rwProduct	// table is at a single MVA
+        && pageH->kt_u.ob.cacheAddr == mva) {
       if (isWrite) {
         DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to WRITEABLE\n", pageH);
         pageH->kt_u.ob.cacheAddr |= CACHEADDR_WRITEABLE;
@@ -712,7 +726,8 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     }
     break;
   case CACHEADDR_WRITEABLE:	// writeable at one MVA
-    if ((pageH->kt_u.ob.cacheAddr & ~EROS_PAGE_MASK) == mva) {
+    if (mth->rwProduct  // table is at a single MVA
+        && (pageH->kt_u.ob.cacheAddr & ~EROS_PAGE_MASK) == mva) {
       // Nothing to do.
     } else {	// different address
       if (isWrite) {

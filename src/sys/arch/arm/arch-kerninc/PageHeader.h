@@ -39,6 +39,7 @@ Approved for public release, distribution unlimited. */
 /* cacheAddr applies only to pages with obType ==
    ot_PtDataPage or ot_PtDevicePage. */
 
+#define CACHEADDR_ONEREADER 0
 #define CACHEADDR_WRITEABLE 1
 #define CACHEADDR_NONE 2
 #define CACHEADDR_READERS 3
@@ -47,7 +48,8 @@ Approved for public release, distribution unlimited. */
 MVA means modified virtual address. A page's MVA may be zero.
 
 1. Not mapped at any MVA. cacheAddr has CACHEADDR_NONE.
-2. Mapped readonly at one MVA. cacheAddr has the MVA (low bit is zero).
+2. Mapped readonly at one MVA. cacheAddr has the MVA
+   (low bit is CACHEADDR_ONEREADER).
 3. Mapped writeable at one MVA. cacheAddr has the MVA, with the
    low bit set to CACHEADDR_WRITEABLE.
 4. Mapped readonly at multiple MVAs. cacheAddr has CACHEADDR_READERS.
@@ -80,16 +82,12 @@ struct MapTabHeader {
 			   or next in free list */
   ObjectHeader * producer;
 
-  /* If tableCacheAddr is odd, this mapping table (which must be a second
-     level page table) may be mapped at various modified virtual addresses.
-     Therefore for cache coherency its PTEs must not grant write access. 
-     (The data may be logically writeable, but if written, a new maptab
-     must be used, and the cache flushed.)
-
-     If tableCacheAddr is even, this mapping table is mapped only at
-     that MVA, and cache entries dependent on this mapping table have
-     only that MVA. */
-  // FIXME: implement this
+	/* If this is a first level table, tableCacheAddr == 0.
+	If this is a small space, tableCacheAddr == the PID.
+	If this is a second level page table and rwProduct == 1,
+	tableCacheAddr has the single MVA at which this table may be mapped.
+	If this is a second level page table and rwProduct == 0,
+	tableCacheAddr is unused. */
   ula_t tableCacheAddr;
 
   struct Node * redSeg;	/* pointer to slot of keeper that
@@ -100,7 +98,8 @@ struct MapTabHeader {
 			   NOTE: not the key, the object. */
   uint8_t rwProduct    : 1;	/* indicates mapping page is RW version */
   uint8_t caProduct    : 1;	/* indicates mapping page is callable version */
-  uint8_t tableSize    : 1;	/* 1 for first level table, 0 for page table */
+  uint8_t tableSize    : 1;	/* 1 for first level table or small space,
+				0 for second level page table */
   uint8_t isFree       : 1;
   uint8_t producerNdx  : 4;
   uint8_t ndxInPage    : 2;	/* mp.hdrs[ndxInPage] == this */
