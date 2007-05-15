@@ -1,10 +1,9 @@
-#ifndef __KERNINC_KERNSTATS_H__
-#define __KERNINC_KERNSTATS_H__
+#ifndef __MACHINE_KERNSTATS_H__
+#define __MACHINE_KERNSTATS_H__
 /*
- * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -24,36 +23,9 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#ifdef OPTION_KERN_STATS
-#include <arch-kerninc/KernStats.h>
+/* Machine-dependent declarations for KernStats. */ 
 
-struct KernStats_s {
-  uint64_t nDepend;
-  uint64_t nDepMerge;
-  uint64_t nDepInval;
-  uint64_t nDepZap;
+#define MD_KERN_STATS_FIELDS \
+  uint64_t nPageUncache;	// number of times we made a page uncached
 
-  uint64_t nInvoke;	// number of key invocations started
-  uint64_t nInvKpr;
-  uint64_t nInter;	// number of interrupts
-  uint64_t nKeyPrep;
-
-  uint64_t nWalkSeg;
-  uint64_t nWalkLoop;
-
-  uint64_t nPfTraps;
-  uint64_t nPfAccess;
-
-  uint64_t nGateJmp;
-  uint64_t nInvRetry;
-  uint64_t bytesMoved;
-
-  MD_KERN_STATS_FIELDS
-};
-extern struct KernStats_s KernStats;
-
-void KernStats_PrintMD(void);
-
-#endif
-
-#endif /* __KERNINC_KERNSTATS_H__ */
+#endif // __MACHINE_KERNSTATS_H__

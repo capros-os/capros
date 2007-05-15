@@ -46,6 +46,7 @@ Approved for public release, distribution unlimited. */
 #include <ddb/db_sym.h>
 #include <ddb/db_variables.h>
 #include <kerninc/Activity.h>
+#include <kerninc/KernStats.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/Process.h>
 #include <arch-kerninc/IRQ-inline.h>
@@ -274,4 +275,13 @@ db_disasm(db_addr_t loc, bool altfmt)
 {
   // not implemented yet
   return loc+4;
+}
+
+#define DB64(x) ((uint32_t)((x)>>32)), (uint32_t)(x)
+void
+KernStats_PrintMD(void)
+{
+  db_printf("nPageUncache 0x%08x%08x\n",
+            DB64(KernStats.nPageUncache)
+            );
 }

@@ -1054,9 +1054,7 @@ db_kstat_show_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 	    "nInter    0x%08x%08d\n"
 
 	    "nGateJmp  0x%08x%08x  "
-	    "nInvRetry 0x%08x%08x\n"
-
-	    "nRetag    0x%08x%08x\n ",
+	    "nInvRetry 0x%08x%08x\n",
 
 	    DB64(KernStats.nDepend),
 	    DB64(KernStats.nDepMerge),
@@ -1077,10 +1075,9 @@ db_kstat_show_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 	    DB64(KernStats.nInter),
 
 	    DB64(KernStats.nGateJmp),
-	    DB64(KernStats.nInvRetry),
-
-	    DB64(KernStats.nRetag)
+	    DB64(KernStats.nInvRetry)
 	    );
+  KernStats_PrintMD();
 }
 
 #ifdef FAST_IPC_STATS

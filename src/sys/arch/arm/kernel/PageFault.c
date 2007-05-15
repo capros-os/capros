@@ -226,6 +226,8 @@ InitMapTabHeader(MapTabHeader * mth,
 static void
 pageH_MakeUncached(PageHeader * pageH)
 {
+  KernStats.nPageUncache++;
+
   /* Unmap all references to this page, because they are cacheable. */
   keyR_UnmapAll(&pageH_ToObj(pageH)->keyRing);
   pageH->kt_u.ob.cacheAddr = CACHEADDR_UNCACHED;

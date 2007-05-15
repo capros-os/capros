@@ -27,6 +27,9 @@
  *
  *	db_interface.c,v 2.4 1991/02/05 17:11:13 mrt (CMU)
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* #define DB_DEBUG */
 
@@ -271,4 +274,9 @@ db_eros_print_context_md(Process * cc)
 #else
   db_printf("\n");
 #endif
+}
+
+void
+KernStats_PrintMD(void)
+{
 }
