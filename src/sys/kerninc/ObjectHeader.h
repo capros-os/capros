@@ -160,7 +160,10 @@ struct PageHeader {
 /* N.B.: kt_u must be the first item in PageHeader,
   so all the obType fields are in the same location. */
   union {
-    ObjectHeader ob;
+    struct {
+      ObjectHeader obh;
+      MD_PAGE_OBFIELDS
+    } ob;
 
     struct {
       uint8_t obType;		/* only ot_PtFreeFrame */
@@ -177,20 +180,6 @@ struct PageHeader {
   uint8_t kernPin;
 };
 
-INLINE unsigned int
-pageH_GetObType(PageHeader * pageH)
-{
-  /* obType is in the same location in all variants of kt_u. */
-  return pageH->kt_u.ob.obType;
-}
-
-INLINE bool
-pageH_IsObjectType(PageHeader * pageH)
-{
-  unsigned int type = pageH_GetObType(pageH);
-  return (type == ot_PtDataPage) || (type == ot_PtDevicePage);
-}
-
 INLINE PageHeader *
 objH_ToPage(ObjectHeader * pObj)
 {
@@ -200,7 +189,21 @@ objH_ToPage(ObjectHeader * pObj)
 INLINE ObjectHeader *
 pageH_ToObj(PageHeader * pageH)
 {
-  return &pageH->kt_u.ob;
+  return &pageH->kt_u.ob.obh;
+}
+
+INLINE unsigned int
+pageH_GetObType(PageHeader * pageH)
+{
+  /* obType is in the same location in all variants of kt_u. */
+  return pageH_ToObj(pageH)->obType;
+}
+
+INLINE bool
+pageH_IsObjectType(PageHeader * pageH)
+{
+  unsigned int type = pageH_GetObType(pageH);
+  return (type == ot_PtDataPage) || (type == ot_PtDevicePage);
 }
 
 #ifndef NDEBUG

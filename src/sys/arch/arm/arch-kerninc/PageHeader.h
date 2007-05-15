@@ -34,6 +34,27 @@ Approved for public release, distribution unlimited. */
 #define MD_PAGE_VARIANTS \
   struct MapTabsVariant mp;
 
+#define MD_PAGE_OBFIELDS \
+  ula_t cacheAddr;
+/* cacheAddr applies only to pages with obType ==
+   ot_PtDataPage or ot_PtDevicePage. */
+
+#define CACHEADDR_WRITEABLE 1
+#define CACHEADDR_NONE 2
+#define CACHEADDR_READERS 3
+#define CACHEADDR_UNCACHED 4
+/* To support cache coherency, a data page is in one of the following states.
+MVA means modified virtual address. A page's MVA may be zero.
+
+1. Not mapped at any MVA. cacheAddr has CACHEADDR_NONE.
+2. Mapped readonly at one MVA. cacheAddr has the MVA (low bit is zero).
+3. Mapped writeable at one MVA. cacheAddr has the MVA, with the
+   low bit set to CACHEADDR_WRITEABLE.
+4. Mapped readonly at multiple MVAs. cacheAddr has CACHEADDR_READERS.
+5. Mapped writeable at some MVA, and also mapped at a different MVA.
+   cacheAddr has CACHEADDR_UNCACHED.
+*/
+
 /*
 There are three types of MapTabHeaders:
 

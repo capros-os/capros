@@ -43,6 +43,7 @@ MapTabHeader * AllocateSmallSpace(void);
 unsigned int EnsureSSDomain(unsigned int ssid);
 
 #define dbg_pgflt	0x1	/* steps in taking snapshot */
+#define dbg_cache	0x2
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u )
@@ -220,6 +221,16 @@ InitMapTabHeader(MapTabHeader * mth,
   mth->caProduct = BOOL(wi->canCall);
 
   objH_AddProduct(wi->segObj, mth);
+}
+
+static void
+pageH_MakeUncached(PageHeader * pageH)
+{
+  /* Unmap all references to this page, because they are cacheable. */
+  keyR_UnmapAll(&pageH_ToObj(pageH)->keyRing);
+  pageH->kt_u.ob.cacheAddr = CACHEADDR_UNCACHED;
+  /* If and when PTEs to this page are rebuilt, they will be uncached. */
+  flushCache = true;
 }
 
 /* Walk the current object's products looking for an acceptable product: */
@@ -574,7 +585,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   unsigned int domain = EnsureSSDomain(ssid);
   p->md.dacr = (0x1 << (domain * 2)) | 0x1 /* include domain 0 for kernel */;
 
-  const ula_t mva = va + p->md.pid;
+  const ula_t mva = (va + p->md.pid) & ~EROS_PAGE_MASK;
 
   /* Small space only for now. */
   uint32_t * theFLPTEntry = & FLPT_FCSEVA[mva >> L1D_ADDR_SHIFT];
@@ -648,7 +659,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     VTOP((kva_t)pTable) + (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
   
   /* Now find the page and fill in the PTE. */
-  uint32_t pteNdx = (mva >> 12) & 0xff;
+  uint32_t pteNdx = (mva >> EROS_PAGE_ADDR_BITS) & 0xff;
   PTE * thePTE = &pTable[pteNdx];
 
   pte_Invalidate(thePTE);	/* if it was valid, remember to purge TLB */
@@ -664,14 +675,76 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   if (thePTE->w_value != PTE_IN_PROGRESS)
     act_Yield();
     
-    assert(wi.segObj);
-    assert(wi.segObj->obType == ot_PtDataPage ||
-	   wi.segObj->obType == ot_PtDevicePage);
+  assert(wi.segObj);
+  assert(wi.segObj->obType == ot_PtDataPage ||
+         wi.segObj->obType == ot_PtDevicePage);
+  PageHeader * const pageH = objH_ToPage(wi.segObj);
 
-    if (isWrite)
-      pageH_MakeDirty(objH_ToPage(wi.segObj));
+  // Ensure cache coherency. 
+  unsigned int cacheClass = pageH->kt_u.ob.cacheAddr & EROS_PAGE_MASK;
+  if (isWrite)
+    pageH_MakeDirty(pageH);
 
-    kpa_t pageAddr = VTOP(pageH_GetPageVAddr(objH_ToPage(wi.segObj)));
+  switch (cacheClass) {
+  case CACHEADDR_NONE:	// not previously mapped
+    DEBUG(cache) printf("0x%08x CACHEADDR_NONE to %s\n", pageH,
+      isWrite ? "WRITEABLE" : "ONEREADER");
+    pageH->kt_u.ob.cacheAddr = (isWrite ? mva | CACHEADDR_WRITEABLE : mva);
+			// Note, mva has low bits clear
+    break;
+  case 0:			// read only at one MVA
+    if (pageH->kt_u.ob.cacheAddr == mva) {
+      if (isWrite) {
+        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to WRITEABLE\n", pageH);
+        pageH->kt_u.ob.cacheAddr |= CACHEADDR_WRITEABLE;
+      }
+    } else {	// different address
+      if (isWrite) {
+        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to UNCACHED\n", pageH);
+        pageH_MakeUncached(pageH);
+        wi.canCache = false;
+      } else {
+        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to READERS\n", pageH);
+        pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
+      }
+    }
+    break;
+  case CACHEADDR_WRITEABLE:	// writeable at one MVA
+    if ((pageH->kt_u.ob.cacheAddr & ~EROS_PAGE_MASK) == mva) {
+      // Nothing to do.
+    } else {	// different address
+      if (isWrite) {
+        DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to UNCACHED\n", pageH);
+        pageH_MakeUncached(pageH);
+        wi.canCache = false;
+      } else {
+        /* This page was previously written.
+        We could go to the CACHEADDR_UNCACHED state.
+        But since the writer may have stopped writing, let's try
+        going to CACHEADDR_READERS. */
+        /* We must unmap all writeable PTEs. The following unmaps
+        read-only PTEs too, which is somewhat unfortunate. */
+        DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to READERS\n", pageH);
+        keyR_UnmapAll(&pageH_ToObj(pageH)->keyRing);
+        pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
+      }
+    }
+    break;
+  case CACHEADDR_READERS:	// readers at muiltiple MVAs
+    if (isWrite) {
+      DEBUG(cache) printf("0x%08x CACHEADDR_READERS to UNCACHED\n", pageH);
+      pageH_MakeUncached(pageH);
+      wi.canCache = false;
+    }
+    // else nothing to do
+    break;
+  case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
+    wi.canCache = false;
+    break;
+  default: assert(false);
+  }
+
+  kpa_t pageAddr = VTOP(pageH_GetPageVAddr(pageH));
 
 #if 0
   printf("Setting PTE 0x%08x addr 0x%08x write %c cache %c\n",

@@ -193,6 +193,14 @@ Process *kproc_Init(const char * name,
 
 /* Former member functions of Process */
 
+#ifndef NDEBUG
+INLINE Process *
+keyR_ToProc(KeyRing * kr)
+{
+  return (Process *) ((char *)kr - offsetof(Process, keyRing));
+}
+#endif
+
 PTE*
 proc_BuildMapping(Process* p, ula_t ula, bool forWriting, bool prompt);
 
