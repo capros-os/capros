@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/KeyRing.h>
@@ -27,12 +30,28 @@
 #include <kerninc/Activity.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Invocation.h>
+#include <kerninc/Depend.h>
 
 static inline bool
 proc_IsKeyReg(const Key * pKey)
 {
   return IsInProcess(pKey);	// this check is good enough
 }
+
+#ifndef NDEBUG
+// This is like keyR_IsValid, but only requires one parameter.
+static bool
+keyR_IsValid1(const KeyRing * thisPtr)
+{
+  const void * pObj;
+  if (ValidCtxtKeyRingPtr(thisPtr)) {
+    pObj = keyR_ToProc((KeyRing *)thisPtr);
+  } else {
+    pObj = keyR_ToObj((KeyRing *)thisPtr);
+  }
+  return keyR_IsValid(thisPtr, pObj);
+}
+#endif
 
 /* Clear any conditions causing keys in this KeyRing to be
    write hazarded.
@@ -72,7 +91,7 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
 #endif
 
 #ifndef NDEBUG
-  if (keyR_IsValid(thisPtr, thisPtr) == false)
+  if (! keyR_IsValid1(thisPtr))
     dprintf(true, "Keyring 0x%08x is invalid\n");
 #endif
   
@@ -277,21 +296,22 @@ keyR_IsValid(const KeyRing *thisPtr, const void *pObj)
   const KeyRing *nxt = thisPtr->next;
   
   while (nxt != thisPtr) {
-    assert ( (Key *) nxt );
+    assert(nxt);
+    Key * const nxtKey = (Key *)nxt;
 
-    if ( ! objC_ValidKeyPtr((Key *) nxt) ) {
+    if ( ! objC_ValidKeyPtr(nxtKey) ) {
       dprintf(true, "Key 0x%08x is not valid in keyring 0x%08x\n",
 		    nxt, thisPtr);
       return false;
     }
 
-    if ( keyBits_IsUnprepared((Key*)nxt))  {
+    if ( keyBits_IsUnprepared(nxtKey))  {
       dprintf(true, "Key 0x%08x is unprepared in keyring 0x%08x (cur 0x%08x)\n",
 		    nxt, thisPtr, cur);
       return false;
     }
     
-    if ( keyBits_IsPreparedObjectKey((Key*)nxt) == false) {
+    if (! keyBits_IsPreparedObjectKey(nxtKey)) {
       dprintf(true, "Key 0x%08x is not object key in keyring 0x%08x\n",
 		    nxt, thisPtr);
       return false;
@@ -303,13 +323,7 @@ keyR_IsValid(const KeyRing *thisPtr, const void *pObj)
       return false;
     }
     
-    if (cur->next != nxt) {
-      dprintf(true, "Next of key 0x%08x is not nxt in keyring 0x%08x\n",
-		    nxt, thisPtr);
-      return false;
-    }
-
-    if (((Key *)nxt)->u.ok.pObj!=pObj) {
+    if (nxtKey->u.ok.pObj != pObj) {
       dprintf(false,
 		      "nxt->ok.pObj=0x%08x pObj=0x%08x nxt=0x%08x\n",
 		      ((Key *)nxt)->u.ok.pObj, pObj, nxt);
@@ -409,13 +423,8 @@ void
 keyR_UnprepareAll(KeyRing *thisPtr)
 {
 #ifndef NDEBUG
-  KeyRing *nxt = 0;
-#endif
-  Node *pNode = 0;
-  uint32_t slot = 0;
-#ifndef NDEBUG
-  if (keyR_IsValid(thisPtr, thisPtr) == false)
-    dprintf(true, "Keyring 0x%08x is invalid\n");
+  if (! keyR_IsValid1(thisPtr))
+    dprintf(true, "Keyring 0x%08x is invalid\n", thisPtr);
 #endif
   
   while (thisPtr->next != (KeyRing*) thisPtr) {
@@ -436,7 +445,7 @@ keyR_UnprepareAll(KeyRing *thisPtr)
     
 #ifndef NDEBUG
     /* Following works fine for gate keys too - representation pun! */
-    nxt = pKey->u.ok.kr.next;
+    KeyRing * nxt = pKey->u.ok.kr.next;
 #endif
 #if 0
     printf("UnprepareAll kr=0x%08x pKey=0x%08x *pKey=0x%08x\n",
@@ -446,11 +455,10 @@ keyR_UnprepareAll(KeyRing *thisPtr)
     if ( keyBits_IsHazard(pKey) ) {
       assert ( act_IsActivityKey(pKey) == false );
       assert ( proc_IsKeyReg(pKey) == false );
-      pNode = objC_ContainingNode(pKey);
-      slot = pKey - pNode->slot;
+      Node * pNode = objC_ContainingNode(pKey);
+      uint32_t slot = pKey - pNode->slot;
 
       node_UnprepareHazardedSlot(pNode, slot);
-
 
       /* Having cleared the hazard, the key we are presently examining 
 	 may not even be on this ring any more -- it may be a
@@ -494,7 +502,7 @@ keyR_UnprepareAll(KeyRing *thisPtr)
     if ( !(inv_IsActive(&inv) && inv_IsInvocationKey(&inv, pKey)) && 
 	 !act_IsActivityKey(pKey) &&
 	 !proc_IsKeyReg(pKey) ) {
-      Node *pNode = objC_ContainingNode(pKey);
+      Node * pNode = objC_ContainingNode(pKey);
       pNode->node_ObjHdr.check = objH_CalcCheck(DOWNCAST(pNode, ObjectHeader));
     }
 #endif
@@ -504,5 +512,53 @@ keyR_UnprepareAll(KeyRing *thisPtr)
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Bottom UnprepareAll()");
+#endif
+}
+
+/* Unmap all address space mapping entries dependent on keys to this object,
+which must be a page or node (not a Process). */
+void
+keyR_UnmapAll(KeyRing * thisPtr)
+{
+  Key * pKey = (Key *) thisPtr->next;
+
+#if 0
+  printf("UnmapAll kr=0x%08x pKey=0x%08x\n", thisPtr, pKey); 
+#endif
+    
+#ifndef NDEBUG
+  if (! keyR_IsValid(thisPtr, keyR_ToObj(thisPtr)))
+    dprintf(true, "Keyring 0x%08x is invalid\n", thisPtr);
+#endif
+  
+  while ((KeyRing *)pKey != thisPtr) {
+    assert(objC_ValidKeyPtr(pKey));
+    assert(keyBits_IsPreparedObjectKey(pKey));
+    
+    if ( keyBits_IsHazard(pKey) ) {
+      Node * pNode = objC_ContainingNode(pKey);
+      uint32_t ndx = pKey - pNode->slot;
+
+      switch(pNode->node_ObjHdr.obType) {
+      case ot_NtSegment:
+        Depend_InvalidateKey(&pNode->slot[ndx]);
+        break;
+
+      case ot_NtProcessRoot:
+        if (ndx == ProcAddrSpace) {
+          Depend_InvalidateKey(&pNode->slot[ndx]);
+        }
+        break;
+      default:
+        break;
+      }
+    }
+    /* Following works fine for gate keys too - representation pun! */
+    pKey = (Key *)pKey->u.ok.kr.next;
+  }
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    check_Consistency("Bottom UnmapAll()");
 #endif
 }

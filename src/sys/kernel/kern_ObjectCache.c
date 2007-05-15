@@ -34,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/multiboot.h>
 #include <kerninc/util.h>
 #include <arch-kerninc/KernTune.h>
+#include <arch-kerninc/Page-inline.h>
 #include <kerninc/PhysMem.h>
 #include <disk/PagePot.h>
 
@@ -822,6 +823,7 @@ objC_CopyObject(ObjectHeader *pObj)
 
     memcpy((void *) toAddr, (void *) fromAddr, EROS_PAGE_SIZE);
     newPage->objAge = age_NewBorn;	/* FIX: is this right? */
+    pageH_MDInitDataPage(newPage);
   }
   else { /* It's a node */
     assert (pObj->obType <= ot_NtLAST_NODE_TYPE
@@ -1138,7 +1140,7 @@ objC_AgePageFrames()
 
 /* May Yield. */
 PageHeader *
-objC_GrabPageFrame()
+objC_GrabPageFrame(void)
 {
   // WaitForAvailablePageFrame
   assert (objC_nFreePageFrames >= objC_nReservedIoPageFrames);

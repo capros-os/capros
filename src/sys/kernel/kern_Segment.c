@@ -191,6 +191,7 @@ walkseg_handle_node_key(Process * p, SegWalk* wi, uint32_t stopBlss,
       return FC_SegMalformed;
           
     pFormatKey = &segNode->slot[WrapperFormat];
+    // FIXME: need to check that it is a number key.
 
     ADD_DEPEND(pFormatKey);
 
@@ -275,6 +276,7 @@ WalkSeg(SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
       if (wi->segObjIsWrapper) {
 	assertex (&wi, segNode->node_ObjHdr.obType == ot_NtSegment);
 	pFormatKey = &segNode->slot[WrapperFormat];
+    // FIXME: need to check that it is a number key.
 
 	ADD_DEPEND(pFormatKey);
 
@@ -409,6 +411,7 @@ WalkSeg(SegWalk* wi /*@ not null @*/, uint32_t stopBlss,
 	      goto seg_malformed;
           
 	    pFormatKey = &segNode->slot[WrapperFormat];
+    // FIXME: need to check that it is a number key.
 
 	    ADD_DEPEND(pFormatKey);
 
@@ -552,6 +555,7 @@ proc_InvokeSegmentKeeper(
     assert(wi->redSeg->node_ObjHdr.obType == ot_NtSegment);
 
     pFormatKey = &wi->redSeg->slot[WrapperFormat];
+    // FIXME: need to check that it is a number key.
 
     if (pFormatKey->u.nk.value[0] & WRAPPER_BLOCKED) {
       keyBits_SetWrHazard(pFormatKey);

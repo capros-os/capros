@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <eros/Device.h>
 #include <kerninc/PhysMem.h>	/* get MI_DEVICEMEM */
+#include <arch-kerninc/Page-inline.h>
 
 /* We simulate physical page allocation counters using a single
  * universal allocation counter that is bumped for each new
@@ -133,6 +134,7 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
     pageH_ToObj(pObj)->check = objH_CalcCheck(pageH_ToObj(pObj));
 #endif
   }
+  pageH_MDInitDataPage(pObj);
 
   objH_ResetKeyRing(pageH_ToObj(pObj));
   objH_Intern(pageH_ToObj(pObj));
