@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Process.h>
@@ -185,16 +188,15 @@ proc_ValidKeyReg(const Key *pKey)
 }
 
 bool
-ValidCtxtKeyRingPtr(const KeyRing* kr)
+ValidCtxtKeyRingPtr(const KeyRing * kr)
 {
-  uint32_t c;
-  for (c = 0; c < KTUNE_NCONTEXT; c++) {
-    Process *ctxt = &proc_ContextCache[c];
-
-    if (kr == &ctxt->keyRing)
-      return true;
-  }
-
-  return false;
+  uint32_t const kri = (uint32_t)kr;
+  if (kri < (uint32_t)&proc_ContextCache[0])
+    return false;		// before the table
+  if (kri >= (uint32_t)&proc_ContextCache[KTUNE_NCONTEXT])
+    return false;		// after the table
+  if ((kri - (uint32_t)&proc_ContextCache[0].keyRing) % sizeof(Process))
+     return false;		// not a keyRing pointer
+  return true;
 }
 #endif	// NDEBUG
