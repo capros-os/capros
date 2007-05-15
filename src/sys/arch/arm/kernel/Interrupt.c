@@ -263,7 +263,7 @@ DoIRQException(void)
   VICIntSource * vis = (VICIntSource *)VIC1.VectAddr;
   ISRType isr = vis->ISRAddr;
 
-#if 1
+#if 0
   printf("IRQ vectoring to 0x%08x, status=0x%08x, Vec15=0x%08x\n",
          isr, VIC1.IRQStatus, VIC1.VectAddrN[15]);
 #endif
