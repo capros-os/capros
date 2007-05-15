@@ -2,7 +2,7 @@
 #define __DISK_KEYSTRUCT_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -20,7 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <disk/ErosTypes.h>
 #include <eros/StdKeyType.h>
@@ -85,20 +87,22 @@ the actual value.
 Before fetching the key you must get the logical state from wherever it is
 and restore the actual value.
 The following cases occur:
-In a node prepared as a domain root, slots for register values.
-In a node prepared as a domain root, slots for key registers.
+In a node prepared as a process root, slots for register values.
+In a node prepared as a process key registers, slots for key registers
+  (not necessarily prepared).
 
 When KFL_WHAZARD is set, we say the key is "write-hazarded". 
 This means that there is state elsewhere that depends on the key.
 Before changing the key you must clear that other state. 
 The following cases occur:
-In a node prepared as a domain root, slots for register values.
-In a node prepared as a domain root, slots for key registers.
-In a node prepared as a domain root, the ProcSched slot.
-In a node prepared as a domain root, the ProcGenKeys slot.
-In a node prepared as a domain root, the ProcAddrSpace slot.
+In a node prepared as a process root, slots for register values.
+In a node prepared as a process root, the ProcSched slot.
+In a node prepared as a process root, the ProcGenKeys slot.
+In a node prepared as a process root, the ProcAddrSpace slot.
+In a node prepared as a process key registers, slots for key registers
+  (not necessarily prepared).
 In a node prepared as a segment, a slot used to build a mapping table entry.
-The WrapperFormat slot of a wrapper node (not necessarily prepared).
+The WrapperFormat slot of a wrapper node (a number key).
 
 node_ClearHazard() handles all these cases.
  */
