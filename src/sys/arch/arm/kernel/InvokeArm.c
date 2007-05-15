@@ -407,8 +407,6 @@ general_path1:
   assert(irq_DisableDepth == 0);
   irq_DisableDepth = 1;	/* disabled by the exception */
 
-  KernStats.nInter++;
-
   /* Enable IRQ interrupts. */
   irq_ENABLE();
 

@@ -43,14 +43,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/SegKeeperInfo.h>
 #include <eros/Registers.h>
 #include <eros/arch/i486/Registers.h>
-/*#include <kerninc/PhysMem.h>*/
 #include <eros/ProcessKey.h>
-#include <kerninc/KernStats.h>
 #include <kerninc/Invocation.h>
-#if 0
-#include <machine/RegLayout.hxx>
-#endif
-/*#include <disk/DiskLSS.hxx>*/
 
 #include "gen.REGMOVE.h"
 /* #define MSGDEBUG

@@ -81,8 +81,6 @@ idt_OnKeyInvocationTrap(savearea_t * saveArea)
   assert (vecNumber == iv_InvokeKey);
 #endif
 
-  KernStats.nInter++;
-      
   assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
   assert( irq_DISABLE_DEPTH() == 1 );
 

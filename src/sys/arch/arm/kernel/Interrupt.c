@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, Strawberry Development Group
+ * Copyright (C) 2006, 2007, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -18,7 +18,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/StallQueue.h>
@@ -251,3 +252,40 @@ InterruptSourceSoftwareIntClear(unsigned int source)
   vicInfo->regs->SoftIntClear = sourceBit;
 }
 
+void
+DoIRQException(void)
+{
+  KernStats.nInter++;
+
+  // The VectAddr register has the address of a VICIntSource or a VICInfo.
+  // In both cases the first word is the ISR address.
+  VICIntSource * vis = (VICIntSource *)VIC1.VectAddr;
+  ISRType isr = vis->ISRAddr;
+
+#if 1
+  printf("IRQ vectoring to 0x%08x, status=0x%08x, Vec15=0x%08x\n",
+         isr, VIC1.IRQStatus, VIC1.VectAddrN[15]);
+#endif
+#if 0	// Note, this is not reliable, because kernel structures
+	// can be in intermediate states while IRQ is enabled.
+  check_Consistency("b4 int dispatch");
+#endif
+
+  // Call the ISR.
+  (*isr)(vis);
+
+  // The interrupt service routine must do the following:
+  // If it is an interrupt source attached to VIC2, it must
+  // read VIC2VectAddr to disable interrupts of equal or lower priority.
+  // (If it is on VIC1, we have already read VIC1VectAddr.)
+  // Then it can enable IRQ.
+  // Then it services the interrupt, which must include clearing
+  // or disabling the interrupt so it does not recur immediately.
+  // The, if it enabled IRQ above, it disables IRQ.
+  // Then it must write (anything) to its VICxVectAddr
+  // to reenable interrupts of equal or lower priority.
+
+#if 0	// Note, this is not reliable.
+  check_Consistency("b4 int dispatch");
+#endif
+}

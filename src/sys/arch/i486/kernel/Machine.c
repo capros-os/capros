@@ -29,7 +29,6 @@
 #include <kerninc/PhysMem.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/PCI.h>
-#include <kerninc/KernStats.h>
 #include <eros/TimeOfDay.h>
 #include <idl/eros/arch/i486/SysTrace.h>
 #include <arch-kerninc/PTE.h>

@@ -200,75 +200,21 @@ However we DO need to save r14_abt.
 	msr cpsr_c,#(MASK_CPSR_IRQDisable + CPSRMode_Abort)
 	mov r10,r14	// save r14_abt
 
-	ldr r2,=0x800b0000	// VIC1 base
-	ldr r0,[r2,#0x30]	// VIC1VectAddr
 	ldr r3,=irq_DisableDepth
 	mov r1,#1
 	str r1,[r3]
-#if 0
-	str r0,[sp,#-4]!	// save r0 on stack
-	ldr r1,[r0]		// get interrupt vector handler
-	ldr r3,[r2,#0x13c]	// VectAddr15
-	ldr r0,=vectMsg
-	ldr r2,[r2,#0]	// IRQStatus
-	bl printf
-	ldr r0,[sp],#4		// pop r0
-	b 1f
-vectMsg: .asciz "IRQ vectoring to 0x%08x, status=0x%08x, Vec15=0x%08x\n"
-	.balign 4
-1:
-#endif
-#ifdef CHECKREGS
-	stmfd sp!,{r4-r11}	// we will check that C saves these
-#endif
+
 #ifndef NDEBUG
 	stmfd sp!,{r11}
 	mov r11,#6	// for stack traceback
 #endif
-#if 0	// Note, this is not reliable because kernel structures
-	// can be in intermediate states while IRQ is enabled.
-	str r0,[sp,#-4]!	// save r0 on stack
-	ldr r0,=2f
-	bl check_Consistency
-	ldr r0,[sp],#4		// pop r0
-	b 1f
-2:	.asciz "b4 int dispatch"
-	.balign 4
-1:
-#endif
-// The VectAddr register has the address of a VICIntSource or a VICInfo.
-// In both cases the first word is the ISR address.
-// Call it passing the structure address in r0.
-	mov r14,pc		// return address for handler
-	ldr pc,[r0]		// go to interrupt vector handler
-
-#if 0	// Note, this is not reliable because kernel structures
-	// can be in intermediate states while IRQ is enabled.
-	ldr r0,=2f
-	bl check_Consistency
-	b 1f
-2:	.asciz "after int dispatch"
-	.balign 4
-1:
+#ifdef CHECKREGS
+	stmfd sp!,{r4-r11}	// we will check that C saves these
 #endif
 
-// The interrupt service routine must do the following:
-// If it is an interrupt source attached to VIC2, it must
-// read VIC2VectAddr to disable interrupts of equal or lower priority.
-// (If it is on VIC1, we have already read VIC1VectAddr.)
-// Then it can enable IRQ.
-// Then it services the interrupt, which must include clearing
-// or disabling the interrupt so it does not recur immediately.
-// The, if it enabled IRQ above, it disables IRQ.
-// Then it must write (anything) to its VICxVectAddr
-// to reenable interrupts of equal or lower priority. 
+	bl DoIRQException	// go to C code
 
 // handler returns here.
-#ifndef NDEBUG
-	ldmfd sp!,{r11}
-#endif
-// r10 still has saved r14_abt
-// r11 still has interrupted cpsr
 #ifdef CHECKREGS
 	ldmfd sp!,{r0-r3}
 	cmp r0,r4
@@ -288,6 +234,11 @@ regMsg:	.asciz "ISR not saving regs!\n"
 	.balign 4
 1:
 #endif
+#ifndef NDEBUG
+	ldmfd sp!,{r11}
+#endif
+// r10 still has saved r14_abt
+// r11 has interrupted cpsr
 	mov r14,r10	// restore r14_abt
 	msr cpsr_c,#(MASK_CPSR_IRQDisable + CPSRMode_IRQ)
 			// Go to IRQ mode. IRQ still disabled.
