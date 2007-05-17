@@ -855,16 +855,6 @@ db_inv_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
     theTypeName = invTypeName[invType];
   
   if (inv.key) {
-#ifdef INV_NEXTPC
-    db_printf("Invoked key 0x%08x ity=%d(%s) ikt=%d kd=%d st=%d inv count=%U\n"
-	      " OC=0x%08x (%d) nextPC=0x%08x\n",
-	      inv.key, invType, theTypeName, inv.invKeyType,
-	      keyBits_GetType(inv.key), inv.key->keyData,
-	      KernStats.nInvoke,
-	      inv.entry.code,
-	      inv.entry.code,
-	      inv.nextPCx);
-#else
     db_printf("Invoked key 0x%08x ity=%d(%s) ikt=%d kd=%d st=%d inv count=%U\n"
 	      " OC=0x%08x (%d)\n",
 	      inv.key, invType, theTypeName, inv.invKeyType,
@@ -872,7 +862,6 @@ db_inv_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
 	      KernStats.nInvoke,
 	      inv.entry.code,
 	      inv.entry.code);
-#endif
     db_printf("(0x%08x): ", inv.key);
     db_eros_print_key(inv.key);
   }
