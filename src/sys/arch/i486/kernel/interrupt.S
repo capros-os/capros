@@ -19,6 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* To do
 
@@ -690,10 +693,6 @@ ENTRY(intr_clock)
 	ss
 	incl (%edx)
 no_profiling:
-#endif
-#if 0
-	/* enable for testing:	 */	
-	jmp EXT(intr_common)
 #endif
 	/*
 	 * Check to see if there is anything worth waking up:
@@ -1730,10 +1729,7 @@ ENTRY(act_Yield)
 	
 	
 	/* Implementation of capability-related kernel-emulated 
-	 * pseudo instructions.  After some thought, I decided to go
-	 * ahead and proceed with a faster version that simulates a page
-	 * fault trap.
-	 */
+	 * pseudo instructions. */
 .text
 	.align 16
 ENTRY(intr_CapInstr)
@@ -1745,28 +1741,23 @@ ENTRY(intr_CapInstr)
 	subl    $FX_OFF_PUSHA,%esp
 #endif
 	
-	cmpl	$4,%eax		/* check emulation opcode */
-	jae	3f		/* simulate illegal instruction fault */
+	cmpl	$2,%eax		/* check emulation opcode */
+	jae	doGeneralPseudoInstr	// not one we handle
+	// copycap or xchgcap
 
 	/* All of the valid, emulated instructions encode a cap reg in
 	   %ebx.  Do a bounds check on cr0: */
 	cmpl	$EROS_NODE_SIZE,%ebx
-	jae	3f		/* simulate illegal instruction fault */
+	jae	doGeneralPseudoInstr	// let C code give the fault
 	
-	/* compute cap reg offset of cr0 */
-	shl	$4,%ebx		/* offset within cap regs to desired reg */
-	
-	cmpl	$2,%eax		/* check opcode */
-	
-	jb	1f		/* it's copycap or xchgcap */
-	jmp	load_store_cap
-
-1:	/* copycap or xchgcap.  Check for invalid r2: */
+	// Check for invalid r2:
 	
 	/* bounds check on cr1:	*/
 	cmpl	$EROS_NODE_SIZE,%ecx
-	jae	3f		/* simulate illegal instruction fault */
+	jae	doGeneralPseudoInstr	// let C code give the fault
 	
+	/* compute cap reg offset of cr0 */
+	shl	$4,%ebx		/* offset within cap regs to desired reg */
 	/* compute cap reg offset of cr1 */
 	shl	$4,%ecx		/* offset within cap regs to desired reg */
 	
@@ -1812,13 +1803,9 @@ ENTRY(intr_CapInstr)
 	addl	$8,%esp		/* skip exno, intvec */
 	iret
 
-3:	/* opcode or register number was out of bounds.  Pass this to
-	   the general handler, which will simulate an illegal instruction 
-	   fault.  We have already pushed a (proper) zero error code. */
-	
-load_store_cap:
-	addl	$8,%esp
-	jmp	EXT(intr_common)
+// Let the C procedure PseudoInstrException() handle this.
+doGeneralPseudoInstr:
+	jmp	EXT(intr_common_fx)
 	
 #ifdef TRAP_DEBUG
 dump_state:	
