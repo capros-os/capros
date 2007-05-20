@@ -34,22 +34,17 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
+#include <domain/Runtime.h>
 
 /* It is intended that this should be a small space domain */
 const uint32_t __rt_stack_pages = 0;
 const uint32_t __rt_stack_pointer = 0x21000;
 const uint32_t __rt_unkept = 1;	/* do not mess with keeper */
 
-#define KR_VOID 0
-#define KR_RK0     12
-#define KR_RK1     13
-#define KR_RK2     14
-#define KR_RETURN  15
-
 static uint8_t rcvData[EROS_PAGE_SIZE];
 
 int
-main()
+main(void)
 {
   Message msg;
   msg.snd_invKey = KR_VOID;
