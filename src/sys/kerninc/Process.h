@@ -124,7 +124,6 @@ struct Process {
 
   uint32_t          faultCode;
   uint32_t          faultInfo;
-  uint32_t          nextPC;
 
   uint8_t           runState;
   uint8_t           processFlags;
@@ -365,6 +364,12 @@ proc_SetActivity(Process* thisPtr, struct Activity *activity)
 }
   
 void proc_Resume(void) NORETURN;
+
+INLINE bool 
+proc_IsExpectingMsg(Process * thisPtr)
+{
+  return thisPtr->processFlags & PF_ExpectingMsg;
+}
 
 INLINE bool 
 proc_IsUser(Process* thisPtr)

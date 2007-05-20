@@ -1,7 +1,7 @@
 /* -*- indented-text -*-  */
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -19,6 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*
  * This file is processed by:
@@ -275,7 +278,6 @@ proc    KEYREGS    *          keyregs
    values in these fields. */
 gen	uint32_t   uint32_t   faultCode
 gen	uint32_t   uint32_t   faultInfo
-gen     uint32_t   uint32_t   nextPC
 gen	uint8_t    uint8_t    runState
 gen	uint8_t    uint8_t    processFlags
 
@@ -374,8 +376,6 @@ load    faultCode    LTL     root   8     0		"0x0"
 load    faultInfo    LTL     root   8     4		"0x0"
 load	runState     LTL     root   8     8		"0x0"
 load	processFlags LTL     root   8     9		"0x0"
-
-load	nextPC       LTL     root   9     4		"0x0"
 
 load  	f_ctrl	     LTL     root   25    10      	"0x37f"
 load  	f_status     LTL     root   25    8		"0x0"

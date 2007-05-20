@@ -215,8 +215,8 @@ proc_DumpFixRegs(Process* thisPtr)
 {
   if (thisPtr->saveArea == 0)
     printf("Note: context is NOT runnable\n");
-  printf("ASID   = 0x%08x  VASID = 0x%08x  nextPC=0x%08x\n",
-	 thisPtr->md.MappingTable, thisPtr->md.MappingTable, thisPtr->nextPC);
+  printf("ASID   = 0x%08x  VASID = 0x%08x\n",
+	 thisPtr->md.MappingTable, thisPtr->md.MappingTable);
   DumpFixRegs(&thisPtr->trapFrame); 
 }
 
@@ -804,7 +804,6 @@ proc_Unload(Process* thisPtr)
 #endif
   
   thisPtr->md.MappingTable = 0;	// for cleanliness
-  thisPtr->saveArea = 0;
   thisPtr->curActivity = 0;
 
 #ifdef EROS_HAVE_FPU
@@ -1148,7 +1147,6 @@ proc_GetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
   regs->faultInfo = thisPtr->faultInfo;
   regs->domState = thisPtr->runState;
   regs->domFlags = thisPtr->processFlags;
-  regs->nextPC  = thisPtr->nextPC;
 
   regs->EDI    = thisPtr->trapFrame.EDI;
   regs->ESI    = thisPtr->trapFrame.ESI;
@@ -1184,15 +1182,11 @@ proc_SetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
   
   /* Done with len, architecture */
   thisPtr->trapFrame.EIP    = regs->pc;
-#if 0
-  nextPC         = regs.pc;
-#endif
   thisPtr->trapFrame.ESP    = regs->sp;
   thisPtr->faultCode        = regs->faultCode;
   thisPtr->faultInfo        = regs->faultInfo;
   thisPtr->runState         = regs->domState;
   thisPtr->processFlags     = regs->domFlags;
-  thisPtr->nextPC           = regs->nextPC;
 
   thisPtr->trapFrame.EDI    = regs->EDI;
   thisPtr->trapFrame.ESI    = regs->ESI;

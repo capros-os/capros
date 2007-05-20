@@ -29,7 +29,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Debug.h>
 #include <kerninc/Check.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/Invocation.h>
 #include <kerninc/IRQ.h>
 #include <arch-kerninc/Process-inline.h>
@@ -40,9 +39,6 @@ Approved for public release, distribution unlimited. */
 
 #include <kerninc/Machine.h>
 #include <kerninc/KernStats.h>
-#if 0
-#include <machine/PTE.hxx>
-#endif
 
 /* #define GATEDEBUG 5
  * #define KPRDEBUG
@@ -53,8 +49,6 @@ Approved for public release, distribution unlimited. */
 #ifdef TESTING_INVOCATION
 const dbg_wild_ptr = 1;
 #endif
-
-// #define OLD_PC_UPDATE
 
 #ifdef OPTION_DDB
 uint32_t ddb_inv_flags = 0;
@@ -288,20 +282,6 @@ inv_Commit(Invocation* thisPtr)
 #ifndef NDEBUG
   InvocationCommitted = true;
 #endif
-
-  if (act_Current()->context) {
-    /* This is bogus, because this gets called from GateKey(), which
-     * can in turn be called from InvokeMyKeeper, within which
-     * CurContext is decidedly NOT runnable.
-     *
-     * assert ( act_CurContext()->IsRunnable() );
-     */
-#ifdef OLD_PC_UPDATE
-#error this is not the case
-    proc_SetPC((Process *) act_Current()->context , 
-	       act_Current()->context->nextPC);
-#endif
-  }
 }
 
 bool 
@@ -538,10 +518,7 @@ proc_DoKeyInvocation(Process* thisPtr)
   InvocationCommitted = false;
 #endif
 
-  thisPtr->nextPC = proc_CalcPostInvocationPC(thisPtr);
-
-  /* Roll back the invocation PC in case we need to restart this
-     operation */
+  /* Roll back the invocation PC in case we need to restart this operation */
   proc_AdjustInvocationPC(thisPtr);
 
   inv.suppressXfer = false;  /* suppress compiler bitching */
@@ -550,7 +527,7 @@ proc_DoKeyInvocation(Process* thisPtr)
   
   proc_SetupEntryBlock(thisPtr, &inv);
 
-#if 0
+#ifdef GATEDEBUG
   printf("Ivk proc=0x%08x ", thisPtr);
   if (thisPtr->procRoot &&
       keyBits_IsType(&thisPtr->procRoot->slot[ProcSymSpace], KKT_Number)) {
@@ -621,9 +598,10 @@ proc_DoKeyInvocation(Process* thisPtr)
   /* At this point, the only possible invocations we could be handling
      are CALL, RETURN, and PRETURN, so the following is correct: */
   thisPtr->runState = (inv.invType == IT_Call) ? RS_Waiting : RS_Available;
+  thisPtr->processFlags |= PF_ExpectingMsg;
+  // FIXME: Don't change runstate until after committed!
 
   /* It does not matter if the invokee fails to prepare!
-   * Note that we may be calling this with 'this == 0'
    */
   proc_SetupExitBlock(inv.invokee, &inv);
 #ifdef OPTION_PURE_EXIT_STRINGS
@@ -646,6 +624,11 @@ proc_DoKeyInvocation(Process* thisPtr)
 #else	
     keyHandler[inv.invKeyType](&inv);
 #endif
+
+#ifdef GATEDEBUG
+  dprintf(GATEDEBUG>2, "fast path, after key dispatch\n");
+#endif
+  
 #if defined(OPTION_KERN_TIMING_STATS)
     {
       extern uint32_t inv_delta_reset;
@@ -667,15 +650,7 @@ proc_DoKeyInvocation(Process* thisPtr)
 
     assert (InvocationCommitted);
 
-#if !defined(OPTION_NEW_PC_ADVANCE) && !defined(OLD_PC_UPDATE)
-#error this is not the case
-    proc_SetPC(thisPtr, thisPtr->nextPC);
-#endif
     assert(act_Current()->context == thisPtr);
-#ifndef OPTION_NEW_PC_ADVANCE
-#error this is not the case
-    assertex(thisPtr, thisPtr->trapFrame.EIP == thisPtr->nextPC);
-#endif
 
 #ifndef NDEBUG
     InvocationCommitted = false;    
@@ -699,11 +674,7 @@ proc_DoKeyInvocation(Process* thisPtr)
 
   inv.invokee->runState = RS_Running;
 
-#ifdef OPTION_NEW_PC_ADVANCE
   /* 
-     Invokee is resuming from either waiting or available state, so
-     advance their PC past the trap instruction.
-
      If this was a kernel key invocation in the fast path, we never
      bothered to actually set them waiting, but they were logically in
      the waiting state nonetheless.
@@ -711,11 +682,8 @@ proc_DoKeyInvocation(Process* thisPtr)
      This is the C fast path, so we don't need to worry about the SEND
      case.
   */
-  /* dprintf(false, "Advancing PC in fast path\n"); */
-
-  proc_SetPC(inv.invokee, inv.invokee->nextPC);
-  proc_ClearNextPC(inv.invokee);
-#endif
+  if (inv.invokee && proc_IsExpectingMsg(inv.invokee))
+    proc_AdvancePostInvocationPC(inv.invokee);
 
   if (!inv.suppressXfer) {
     proc_DeliverResult(inv.invokee, &inv);
@@ -779,12 +747,20 @@ proc_DoKeyInvocation(Process* thisPtr)
   return;
 
  general_path:
-  thisPtr->runState = RS_Running;
+#ifdef GATEDEBUG
+  dprintf(GATEDEBUG>2, "taking slow path\n");
+#endif
+  
+  thisPtr->runState = RS_Running;	// needed?
   /* This path has its own, entirely separate recovery logic.... */
   proc_DoGeneralKeyInvocation(thisPtr);
   return;
   
  invokee_died:
+#ifdef GATEDEBUG
+  dprintf(GATEDEBUG>2, "invokee died\n");
+#endif
+  
   inv.invokee = 0;
   inv_Cleanup(&inv);
   act_MigrateTo(act_Current(), 0);
@@ -835,7 +811,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 #endif
 
 #ifdef GATEDEBUG
-  dprintf(true, "Populated entry block\n");
+  dprintf(GATEDEBUG>2, "Populated entry block\n");
 #endif
 
   assert(keyBits_IsPrepared(inv.key));
@@ -1028,6 +1004,13 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     else
       assert (inv.invokee == 0);
   }
+  
+#ifdef GATEDEBUG
+  if (inv.invokee)
+    dprintf(GATEDEBUG>2, "Invokee exists\n");
+  else
+    dprintf(GATEDEBUG>2, "Invokee doesn't exist\n");
+#endif
 
   /* Pointer to the domain root (if any) whose sleepers we should
    * awaken on successful completion:
@@ -1036,6 +1019,9 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
 
   thisPtr->runState = newState[inv.invType];
+  thisPtr->processFlags |= PF_ExpectingMsg;
+  // FIXME: Don't change runstate until after committed!
+
   if (thisPtr->runState == RS_Available)
     /* Ensure that we awaken the sleeping activityies (if any). */
     wakeRoot = thisPtr;
@@ -1058,8 +1044,13 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 #endif
 
 
-  if (inv.invokee && proc_IsWellFormed(inv.invokee) == false)
+  if (inv.invokee && proc_IsWellFormed(inv.invokee) == false) {
+#ifdef GATEDEBUG
+    dprintf(GATEDEBUG>2, "Invokee malformed\n");
+#endif
+
     inv.invokee = 0;
+  }
 
 
   assert(keyBits_IsPrepared(inv.key));
@@ -1085,7 +1076,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   
 #ifdef GATEDEBUG
   if (inv.suppressXfer)
-    dprintf(true, "xfer is suppressed\n");
+    dprintf(GATEDEBUG>2, "xfer is suppressed\n");
 #endif
   
   /* Identify the activity that will migrate to the recipient.  Normally
@@ -1117,7 +1108,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
       activityToRelease = activityToMigrate;
       activityToMigrate->state = act_Ready;
 #ifdef GATEDEBUG
-      dprintf(true, "Built new activity for fork\n");
+      dprintf(GATEDEBUG>2, "Built new activity for fork\n");
 #endif
     }
     else
@@ -1177,15 +1168,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
   assert (InvocationCommitted);
 
-#if !defined(OLD_PC_UPDATE) && !defined(OPTION_NEW_PC_ADVANCE)
-#error this is not the case
-  proc_SetPC(thisPtr, thisPtr->nextPC);
-#endif
   assert(act_Current()->context == thisPtr);
-#ifndef OPTION_NEW_PC_ADVANCE
-#error this is not the case
-  assertex(thisPtr, thisPtr->trapFrame.EIP == thisPtr->nextPC);
-#endif
 
 #ifndef NDEBUG
   InvocationCommitted = false;    
@@ -1232,17 +1215,12 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     /* Invokee is okay.  Deliver the result: */
     inv.invokee->runState = RS_Running;
 
-#ifdef OPTION_NEW_PC_ADVANCE
-    /* Invokee is resuming from either waiting or available state, so
-       advance their PC past the trap instruction.
-
-       If this was a kernel key invocation in the fast path, we never
+    /* If this was a kernel key invocation in the fast path, we never
        bothered to actually set them waiting, but they were logically
        in the waiting state nonetheless. */
-    /* dprintf(false, "Advancing PC in slow path\n"); */
-    proc_SetPC(inv.invokee, inv.invokee->nextPC);
-    proc_ClearNextPC(inv.invokee);
-#endif
+
+    if (inv.invokee && proc_IsExpectingMsg(inv.invokee))
+      proc_AdvancePostInvocationPC(inv.invokee);
 
     if (!inv.suppressXfer) {
       proc_DeliverResult(inv.invokee, &inv);
@@ -1260,13 +1238,10 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   }
  bad_invokee:
   
-#ifdef OPTION_NEW_PC_ADVANCE
   if (inv.invType == IT_Send) {
     /* dprintf(false, "Advancing SENDer PC in slow path\n"); */
-    proc_SetPC(thisPtr, thisPtr->nextPC);
-    proc_ClearNextPC(inv.invokee);
+    proc_AdvancePostInvocationPC(thisPtr);
   }
-#endif
 
   /* ONCE DELIVERRESULT IS CALLED, NONE OF THE INPUT CAPABILITIES
      REMAINS ALIVE!!! */
@@ -1293,7 +1268,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     if (inv.invType == IT_Send && inv.invokee) {
       act_Wakeup(activityToMigrate);
 #ifdef GATEDEBUG
-      dprintf(true, "Woke up forkee\n");
+      dprintf(GATEDEBUG>2, "Woke up forkee\n");
 #endif
     }
   }
@@ -1413,8 +1388,6 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
   inv.invKeyType = keyBits_GetType(keeperKey);
 #endif
 
-  thisPtr->nextPC = proc_GetPC(thisPtr);
-
 #ifdef KPRDEBUG
   dprintf(true, "Populated invocation block\n");
 #endif
@@ -1449,9 +1422,8 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
 #endif
 
 #ifndef NDEBUG
-    if (keyBits_IsType(keeperKey, KKT_Resume) && invokee->runState != RS_Waiting)
-      /* Bad resume key! */
-      canInvoke = false;
+    if (keyBits_IsType(keeperKey, KKT_Resume))
+      assert (invokee->runState == RS_Waiting);
 #endif
 
     if (keyBits_IsType(keeperKey, KKT_Start) && invokee->runState != RS_Available) {
@@ -1482,30 +1454,18 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
     COMMIT_POINT();
     
     thisPtr->runState = RS_Waiting;
+    thisPtr->processFlags &= ~PF_ExpectingMsg;
   
     assert (InvocationCommitted);
 
-#if !defined(OLD_PC_UPDATE) && !defined(OPTION_NEW_PC_ADVANCE)
-#error this is not the case
-    proc_SetPC(thisPtr, thisPtr->nextPC);
-#endif
     assert(act_Current()->context == thisPtr);
-#ifndef OPTION_NEW_PC_ADVANCE
-#error this is not the case
-    assertex(thisPtr, thisPtr->trapFrame.EIP == thisPtr->nextPC);
-#endif
 
-#ifdef OPTION_NEW_PC_ADVANCE
-    /* Invokee is resuming from either waiting or available state, so
-       advance their PC past the trap instruction.
-
-       If this was a kernel key invocation in the fast path, we never
+    /* If this was a kernel key invocation in the fast path, we never
        bothered to actually set them waiting, but they were logically
        in the waiting state nonetheless. */
-    /* dprintf(false, "Advancing PC in gate key path\n"); */
-    proc_SetPC(invokee, invokee->nextPC);
-    proc_ClearNextPC(inv.invokee);
-#endif
+
+    if (inv.invokee && proc_IsExpectingMsg(inv.invokee))
+      proc_AdvancePostInvocationPC(inv.invokee);
 
     if (!inv.suppressXfer) {
       inv_CopyOut(&inv, len, data);

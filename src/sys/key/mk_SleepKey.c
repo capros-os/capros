@@ -72,7 +72,9 @@ SleepKey(Invocation* inv /*@ not null @*/)
 	 If this was a kernel key invocation in the fast path, we never
 	 bothered to actually set them waiting, but they were logically
 	 in the waiting state nonetheless. */
-      proc_SetPC(act_CurContext(), act_CurContext()->nextPC);
+	// FIXME: all this code is completely wrong if invoker != invokee
+	// and needs to be redone.
+      proc_AdvancePostInvocationPC(act_CurContext());
 
       /* The following is an ugly lie.  We have committed the
        * invocation, and therefore advanced the PC.  The sleep call,

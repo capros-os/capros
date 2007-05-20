@@ -150,6 +150,7 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
     if (thisPtr->trapFrame.r14 & 0xe0e0e0e0) {	/* if any too large */
       proc_SetFault(thisPtr, FC_BadExitBlock, 0, false);
       inv->suppressXfer = true;
+      inv->invokee->processFlags &= ~PF_ExpectingMsg;
       return;
     }
     else {
@@ -202,12 +203,12 @@ proc_DeliverGateResult(Process* thisPtr,
     
     if (inv->exit.pKey[RESUME_SLOT]) {
       if (inv->invType == IT_Call) {
-	proc_BuildResumeKey(act_CurContext(), inv->exit.pKey[3]);
+	proc_BuildResumeKey(act_CurContext(), inv->exit.pKey[RESUME_SLOT]);
 	if (wantFault)
 	  inv->exit.pKey[RESUME_SLOT]->keyPerms = KPRM_FAULT;
       }
       else
-	key_NH_Set(inv->exit.pKey[RESUME_SLOT], inv->entry.key[3]);
+	key_NH_Set(inv->exit.pKey[RESUME_SLOT], inv->entry.key[RESUME_SLOT]);
     }
   }
 
@@ -382,10 +383,8 @@ InvokeArm(Process * invokerProc,
   act->context = invokee;
   act->readyQ = invokee->readyQ;
 
-#ifdef OPTION_NEW_PC_ADVANCE
   /* Leave invokee's PC advanced. */
   proc_AdjustInvocationPC(invokerProc);	/* back up invoker PC */
-#endif
 
   invokerProc->runState = invokerFinalState;
   /* keyR_ZapResumeKeys is only needed if the invoked key was KKT_Resume.

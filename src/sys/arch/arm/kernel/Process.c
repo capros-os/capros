@@ -341,7 +341,6 @@ kproc_Init(
   proc_ResetMappingTable(p);	/* kernel access only */
   p->trapFrame.CPSR = 0x1f;	/* System mode */
   p->trapFrame.r15 = (uint32_t) pc;
-  p->nextPC = (uint32_t) pc;
 
   /* YES the first of these is dead code.  It suppresses the unused
    * argument warning if DBG_WILD_PTR is not enabled.
@@ -504,8 +503,8 @@ proc_DumpFixRegs(Process* thisPtr)
 {
   if (thisPtr->saveArea == 0)
     printf("Note: context is NOT runnable\n");
-  printf("Process = 0x%08x  PID   = 0x%08x  nextPC=0x%08x\n",
-	 thisPtr, thisPtr->md.pid, thisPtr->nextPC);
+  printf("Process = 0x%08x  PID   = 0x%08x\n",
+	 thisPtr, thisPtr->md.pid);
   DumpFixRegs(&thisPtr->trapFrame); 
 }
 
@@ -593,7 +592,6 @@ proc_GetRegs32(Process * thisPtr, struct Registers * regs /*@ not null @*/)
   regs->faultInfo = thisPtr->faultInfo;
   regs->domState = thisPtr->runState;
   regs->domFlags = thisPtr->processFlags;
-  regs->nextPC  = thisPtr->nextPC;
 
   regs->registers[0]  = thisPtr->trapFrame.r0;
   regs->registers[1]  = thisPtr->trapFrame.r1;
@@ -637,7 +635,6 @@ proc_SetRegs32(Process * thisPtr, struct Registers * regs /*@ not null @*/)
   thisPtr->faultInfo        = regs->faultInfo;
   thisPtr->runState         = regs->domState;
   thisPtr->processFlags     = regs->domFlags;
-  thisPtr->nextPC           = regs->nextPC;
 
   thisPtr->trapFrame.r0  = regs->registers[0];
   thisPtr->trapFrame.r1  = regs->registers[1];

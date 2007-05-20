@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Key.h>
@@ -311,7 +314,6 @@ ProcessKey(Invocation* inv /*@ not null @*/)
 
       inv_CopyIn(inv, sizeof(regs), &regs);
 
-
       if (proc_SetRegs32(ac, &regs) == false)
 	inv->exit.code = RC_Process_Malformed;
 
@@ -334,6 +336,13 @@ ProcessKey(Invocation* inv /*@ not null @*/)
 
 
       proc_SetPC(ac, inv->entry.w1);
+      if (proc_IsExpectingMsg(ac)) {
+        /* If the process is expecting a message, then when it becomes
+        Running, its PC will be incremented. 
+        Counteract that here, so the process will start executing
+        at the specified PC. */
+        proc_AdjustInvocationPC(ac);
+      }
       
       node_ClearHazard(theNode, ProcAddrSpace);
 
@@ -352,8 +361,6 @@ ProcessKey(Invocation* inv /*@ not null @*/)
 	key_NH_Unchain(&k);
       }
       
-      ac->nextPC = proc_GetPC(ac);
-
       return;
     }
 

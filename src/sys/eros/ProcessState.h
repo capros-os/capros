@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System runtime library.
  *
@@ -21,6 +21,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* This file resides in eros/ because the kernel and various sorts of
    keepers must agree on the values.
@@ -119,6 +122,9 @@
 /* NOTE that PF_Foreign is not yet implemented, though it won't be
    hard to do now that the flag is defined. */
 #define PF_Foreign   0x2 /* process should not make invocations */
+#define PF_ExpectingMsg 0x4 /* if process is RS_Available or RS_Waiting,
+			it is expecting to receive a message.
+			(Cleared on a call to a keeper.) */
 
 /* NOTE that PF_DDBINV is a temporary expedient until we are able to
    get a minimal per-process debugger running. Domain code should NOT

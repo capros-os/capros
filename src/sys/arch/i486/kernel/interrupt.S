@@ -1399,14 +1399,11 @@ L_done_keys:
 	movl	PR_OFF_readyQ(%eax),%ebx
 	movl	%ebx,36(%edx)	/* update readyQ */
 
-#ifdef OPTION_NEW_PC_ADVANCE
 	/* Advance the recipient PC */
-	movl	PR_OFF_nextPC(%eax),%ebx
-	movl	%ebx,PR_OFF_EIP(%eax)
+	addl	$2,PR_OFF_EIP(%eax)	// proc_AdvancePostInvocationPC
 
 	/* Back up the sender PC */
 	subl	$2,FX_OFF_EIP(%ebp)
-#endif /* OPTION_NEW_PC_ADVANCE */
 	
 	/* Deal with invoker run state. Three possible types of interest:
 	 *

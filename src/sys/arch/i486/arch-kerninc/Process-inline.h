@@ -2,7 +2,7 @@
 #define __MACHINE_PROCESS_INLINE_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -20,6 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/Invoke.h>
 #include <kerninc/Invocation.h>
@@ -55,34 +58,25 @@ proc_SetPC(Process* thisPtr, uint32_t oc)
   thisPtr->trapFrame.EIP = oc;
 }
 
-/* Called before AdjustInvocationPC() to capture the address of the
- * next instruction to run if the invocation is successful.
- */
-INLINE uint32_t 
-proc_CalcPostInvocationPC(Process* thisPtr)
-{
-  return thisPtr->trapFrame.EIP;
-}
-
-/* Called in the IPC path to reset the PC to point to the invocation
- * trap instruction...
- */
+/* Called in the IPC path to back up the PC to point to the invocation
+ * trap instruction. */
 INLINE void 
 proc_AdjustInvocationPC(Process* thisPtr)
 {
   thisPtr->trapFrame.EIP -= 2;
 }
 
+/* and this advances it: */
+INLINE void 
+proc_AdvancePostInvocationPC(Process * thisPtr)
+{
+  thisPtr->trapFrame.EIP += 2;
+}
+
 INLINE uint32_t 
 proc_GetPC(Process* thisPtr)
 {
   return thisPtr->trapFrame.EIP;
-}
-
-INLINE void 
-proc_ClearNextPC(Process* thisPtr)
-{
-  thisPtr->nextPC = 0xffffffff;	/* hopefully this PC value will trap if used */
 }
 
 INLINE void 
