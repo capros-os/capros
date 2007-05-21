@@ -38,10 +38,13 @@
       <dl>
         <dt>help
         <dd>Print a list of commands.
+        <p>
         <dt>trace
         <dd>Print a stack trace.
+        <p>
         <dt>c
         <dd>Continue execution
+        <p>
         <dt>debug inttrap y
         <dt>debug inttrap n
         <dd>Turns the "dbg_inttrap" flag on and off. When on, the debugger
@@ -53,8 +56,24 @@
             command turns the "dbg_wild_ptr" flag on and off. 
             When on, the kernel does extensive checking of pointers.
             If configured, the flag is on by default.
+        <p>
         <dt>node &lt;OID&gt;
         <dd>Print the node with the specified OID.
+        <p>
+        <dt>kstat show
+        <dd>Print the kernel statistics.
+        <dt>kstat fast
+        <dd>Print the fast IPC statistics.
+        <dt>kstat clear
+        <dd>Clear the kernel statistics counters.
+        <dt>kstat hist depend
+        <dd>Print usage counts for all depend buckets.
+        <dt>kstat hist depend &lt;bucket&gt;
+        <dd>Print data for the specified depend bucket.
+        <dt>kstat hist object
+        <dd>Print usage counts for all objhash buckets.
+        <dt>kstat hist object &lt;bucket&gt;
+        <dd>Print data for the specified objhash bucket.
         <dt>show
         <dd>Without any arguments, this command prints a list of arguments
             you can give. Here are explanations of some of them:
