@@ -439,7 +439,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
       }
 
 #ifndef OPTION_PURE_ENTRY_STRINGS
-      proc_SetupEntryString(act_CurContext(), inv);
+      proc_SetupEntryString();
 #endif
 
       /* If we overwrite it, we're going to nail all of it's

@@ -39,7 +39,7 @@ Approved for public release, distribution unlimited. */
    OPTION_PURE_ENTRY_STRINGS whether OPTION_PURE_ENTRY_STRINGS is set or not. */
 
 INLINE void 
-proc_SetupEntryString(Process* thisPtr, struct Invocation* inv /*@ not null @*/)
+proc_SetupEntryString(void)
 {
 #ifndef OPTION_SMALL_SPACES
   const uint32_t bias = 0;

@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,7 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
@@ -203,13 +206,14 @@ proc_DeliverGateResult(Process* thisPtr, Invocation* inv /*@ not null @*/, bool 
 #ifndef ASM_VALIDATE_STRINGS /* This is the case. */
 /* May Yield. */
 void 
-proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
+proc_SetupEntryString(void)
 {
+  Process * thisPtr = act_CurContext();
   ula_t ula;
   ula_t ulaTop;
   uint32_t addr;
 #ifndef OPTION_PURE_ENTRY_STRINGS
-  if (inv->entry.len == 0)
+  if (inv.entry.len == 0)
     return;
 #endif
 
@@ -217,7 +221,7 @@ proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   ula = thisPtr->pseudoRegs.sndPtr + thisPtr->md.bias;
 
-  ulaTop = ula + inv->entry.len;
+  ulaTop = ula + inv.entry.len;
   ula &= ~EROS_PAGE_MASK;
 
   while (ula < ulaTop) {
@@ -230,7 +234,7 @@ proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   addr = (uint32_t) thisPtr->pseudoRegs.sndPtr + thisPtr->md.bias + KUVA;
   
-  inv->entry.data = (uint8_t *) addr;
+  inv.entry.data = (uint8_t *) addr;
 }
 #endif /* ASM_VALIDATE_STRINGS */
 

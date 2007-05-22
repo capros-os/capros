@@ -436,8 +436,7 @@ void proc_DeliverGateResult(Process* thisPtr,
 #ifdef ASM_VALIDATE_STRINGS
 INLINE
 #endif
-void proc_SetupEntryString(Process* thisPtr, struct Invocation* inv /*@ not null @*/);
-
+void proc_SetupEntryString(void);
 void proc_SetupExitString(Process* thisPtr, struct Invocation* inv /*@ not null @*/, uint32_t bound);
 
 void proc_DeliverResult(Process* thisPtr, struct Invocation* inv /*@ not null @*/);

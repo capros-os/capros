@@ -355,10 +355,11 @@ kproc_Init(
 
 #ifndef ASM_VALIDATE_STRINGS /* This is the case. */
 void 
-proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
+proc_SetupEntryString(void)
 {
+  Process * thisPtr = act_CurContext();
 #ifndef OPTION_PURE_ENTRY_STRINGS
-  if (inv->entry.len == 0)
+  if (inv.entry.len == 0)
     return;
 #endif
 
@@ -375,7 +376,7 @@ proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   snd_data += thisPtr->md.pid;
   ula = snd_data;
-  ula_t ulaTop = ula + inv->entry.len;	/* MVA of last byte +1 */
+  ula_t ulaTop = ula + inv.entry.len;	/* MVA of last byte +1 */
 
   /* Ensure each page of the string is mapped. */
   ula &= ~EROS_PAGE_MASK;
@@ -394,7 +395,7 @@ proc_SetupEntryString(Process* thisPtr, Invocation* inv /*@ not null @*/)
     ula += EROS_PAGE_SIZE;
   }
 
-  inv->entry.data = (uint8_t *) snd_data;
+  inv.entry.data = (uint8_t *) snd_data;
 }
 #endif /* ASM_VALIDATE_STRINGS */
 
