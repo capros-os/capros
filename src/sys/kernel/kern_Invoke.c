@@ -81,10 +81,9 @@ UnimplementedKey(Invocation* inv /*@ not null @*/)
 #define KeyboardKey VoidKey
 #endif
 
-#define FNDISPATCH
 #define  KKT_TimePage 24
 #define KKT_TimeOfDay 25
-#ifdef FNDISPATCH
+
 INLINE void 
 proc_KeyDispatch(Invocation *pInv)
 {
@@ -96,59 +95,6 @@ proc_KeyDispatch(Invocation *pInv)
       break;
   }
 }
-
-#else
-const KeyHandler keyHandler[KKT_NUM_KEYTYPE] = {
-#if 1
-#define __EROS_PRIMARY_KEYDEF(x, isValid, bindTo) bindTo##Key,
-#include <eros/StdKeyType.h>
-#else
-  StartKey,			/* KKT_Start */
-  ResumeKey,			/* KKT_Resume */
-  WrapperKey,			/* KKT_Wrapper */
-  NodeKey,			/* KKT_Node */
-  SegmentKey,			/* KKT_Segment */
-  ProcessKey,			/* KKT_Process */
-  PageKey,			/* KKT_Page */
-  DeviceKey,			/* KKT_Device */
-  NumberKey,			/* KKT_Number */
-  UnimplementedKey,		/* KKT_Timer */
-  SchedKey,			/* KKT_Sched */
-  RangeKey,			/* KKT_Range */
-  RangeKey,			/* KKT_PrimeRange */
-  RangeKey,			/* KKT_PhysRange */
-  KeyBitsKey,			/* KKT_KeyBits */
-  DiscrimKey,			/* KKT_Discrim */
-  UnimplementedKey,		/* KKT_Returner */
-  ProcessToolKey,		/* KKT_ProcessTools */
-  CheckpointKey,		/* KKT_CheckpointKey */
-  VoidKey,			/* KKT_VoidKey */
-  SleepKey,			/* KKT_SleepKey */
-  ConsoleKey,			/* KKT_ConsoleKey */
-  SchedCreatorKey,		/* KKT_SchedCreator */
-  SysTraceKey,			/* KKT_SysTrace */
-  DevicePrivsKey,		/* KKT_DeviceProvs */
-
-#ifdef KKT_TimePageKey
-  TimePageKey,			/* KKT_TimePage */
-#else
-  UnknownKey,			/* (unassigned) */
-#endif
-
-#ifdef KKT_TimeOfDayKey
-  TimeOfDayKey,			/* KKT_TimeOfDay */
-#else
-  UnknownKey,			/* (unassigned) */
-#endif
-
-#ifdef OPTION_KBD
-  KeyboardKey,			/* KKT_Keyboard */
-#else
-  UnknownKey,			/* (unassigned) */
-#endif
-#endif
-};
-#endif
 
 #ifdef OPTION_KERN_TIMING_STATS
 uint64_t inv_KeyHandlerCycles[PRIMARY_KEY_TYPES][IT_NUM_INVTYPES];
@@ -619,11 +565,7 @@ proc_DoKeyInvocation(Process* thisPtr)
 #if defined(OPTION_KERN_TIMING_STATS)
     pre_handler = rdtsc();
 #endif
-#ifdef FNDISPATCH
     proc_KeyDispatch(&inv);
-#else	
-    keyHandler[inv.invKeyType](&inv);
-#endif
 
 #ifdef GATEDEBUG
   dprintf(GATEDEBUG>2, "fast path, after key dispatch\n");
@@ -1141,11 +1083,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   pre_handler = rdtsc();
 #endif
 
-#ifdef FNDISPATCH
   proc_KeyDispatch(&inv);
-#else	
-  keyHandler[inv.invKeyType](&inv);
-#endif
   
 #if defined(OPTION_KERN_TIMING_STATS)
   {
