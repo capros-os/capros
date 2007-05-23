@@ -40,6 +40,8 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Machine.h>
 #include <kerninc/KernStats.h>
 
+//#define GATEDEBUG 5
+#define KPRDEBUG
 /* #define GATEDEBUG 5
  * #define KPRDEBUG
  */
@@ -472,6 +474,8 @@ proc_DoKeyInvocation(Process* thisPtr)
   objH_BeginTransaction();
   
   proc_SetupEntryBlock(thisPtr, &inv);
+  // Set up to get the string from the invoker:
+  inv.setupEntryStringProc = &proc_SetupEntryString;
 
 #ifdef GATEDEBUG
   printf("Ivk proc=0x%08x ", thisPtr);
@@ -742,12 +746,12 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
   activityToRelease = 0;
   
-  /* Set up the entry block, faulting in any necessary data pages and
-   * constructing an appropriate kernel mapping:
-   */
   proc_SetupEntryBlock(thisPtr, &inv);
 
 #ifdef OPTION_PURE_ENTRY_STRINGS
+  /* Set up the entry string, faulting in any necessary data pages and
+   * constructing an appropriate kernel mapping:
+   */
   if (inv.entry.len != 0)
     SetupEntryString(inv);
 #endif
@@ -1083,6 +1087,18 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   pre_handler = rdtsc();
 #endif
 
+  /* The key handler must do the following:
+  1. Complete the dry run, faulting in objects, preparing them, and
+     Yielding if necessary.
+  2. Commit the invocation. 
+  3. Perform the (side) effects of the object. 
+  4. Return 4 keys to the invokee. (I want to change this: it should return to the caller of proc_KeyDispatch the number of keys returned; this code will then
+return void keys in the rest)
+  5. Return any string to the invokee, setting inv.sentLen.
+  6. Set any return words in inv.
+  7. Set keyData if any in inv.
+   */
+
   proc_KeyDispatch(&inv);
   
 #if defined(OPTION_KERN_TIMING_STATS)
@@ -1262,6 +1278,10 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 #endif
 }
 
+void
+NullProc(void)
+{}
+
 /* KEEPER INVOCATION -- this looks a lot like key invocation, and the
  * code for the two should probably be merged.  The difficulty is that
  * the keeper invocation code is able to make a variety of useful
@@ -1286,6 +1306,33 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
 #endif
 #endif
 
+  // Set up the entry block.
+
+  /* Not hazarded because invocation key */
+  inv.key = keeperKey;
+  inv.invType = IT_Call;
+  
+  key_Prepare(keeperKey);
+#ifndef invKeyType
+  inv.invKeyType = keyBits_GetType(keeperKey);
+#endif
+  
+  inv.entry.code = oc;
+  inv.entry.w1 = warg1;
+  inv.entry.w2 = warg2;
+  inv.entry.w3 = warg3;
+
+  inv.entry.key[0] = &key_VoidKey;
+  inv.entry.key[1] = &key_VoidKey;
+  inv.entry.key[2] = keyArg2;
+  inv.entry.key[3] = &key_VoidKey;
+
+  inv.entry.len = len;
+  inv.sentLen = 0;
+  inv.entry.data = data;
+  // The entry string is already set up:
+  inv.setupEntryStringProc = &NullProc;
+
   inv.suppressXfer = false;
   KernStats.nInvoke++;
   KernStats.nInvKpr++;
@@ -1302,8 +1349,6 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
    * is if we are already in some transaction, and it's okay to let
    * that transaction prevail.
    */
-  
-  key_Prepare(keeperKey);
 
   if (keyBits_IsGateKey(keeperKey) == false)
     canInvoke = false;
@@ -1318,12 +1363,6 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
 
 #ifndef NDEBUG
   InvocationCommitted = false;
-#endif
-  /* Not hazarded because invocation key */
-  inv.key = keeperKey;
-  inv.invType = IT_Call;
-#ifndef invKeyType
-  inv.invKeyType = keyBits_GetType(keeperKey);
 #endif
 
 #ifdef KPRDEBUG
@@ -1340,6 +1379,8 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
 
   if (invokee) {
     inv.invokee = invokee;
+
+    proc_SetupExitBlock(invokee, &inv);
     
 #ifdef KPRDEBUG
     dprintf(true, "Prepare invokee\n");
@@ -1378,55 +1419,21 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
     dprintf(true, "Keeper in right state\n");
 #endif
 
-    /* Now have valid invokee in proper state.  Build exit block: */
-    proc_SetupExitBlock(invokee, &inv);
-    if (inv.validLen != 0)
-      proc_SetupExitString(invokee, &inv, len);
-
-#ifdef KPRDEBUG
-    dprintf(true, "Populated exit block\n");
-#endif
-
     assert(thisPtr == act_Current()->context);
-
-    COMMIT_POINT();
     
     thisPtr->runState = RS_Waiting;
     thisPtr->processFlags &= ~PF_ExpectingMsg;
   
-    assert (InvocationCommitted);
-
     assert(act_Current()->context == thisPtr);
 
-    /* If this was a kernel key invocation in the fast path, we never
-       bothered to actually set them waiting, but they were logically
-       in the waiting state nonetheless. */
+    GateKey(&inv);
+
+#ifdef KPRDEBUG
+    dprintf(true, "After keeper dispatch\n");
+#endif
 
     if (inv.invokee && proc_IsExpectingMsg(inv.invokee))
       proc_AdvancePostInvocationPC(inv.invokee);
-
-    if (!inv.suppressXfer) {
-      inv_CopyOut(&inv, len, data);
-    
-      /* This is weird, because we are using DeliverGateResult(): */
-      
-      inv.entry.code = oc;
-      inv.entry.w1 = warg1;
-      inv.entry.w2 = warg2;
-      inv.entry.w3 = warg3;
-
-      inv.entry.key[0] = &key_VoidKey;
-      inv.entry.key[1] = &key_VoidKey;
-      inv.entry.key[2] = keyArg2;
-      inv.entry.key[3] = &key_VoidKey;
-      
-      proc_DeliverGateResult(invokee, &inv, true);
-    
-#if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
-      if (dbg_wild_ptr)
-	check_Consistency("DoKeyInvocation() after invoking keeper\n");
-#endif
-    }
     
 #ifndef NDEBUG
     InvocationCommitted = false;    
@@ -1440,7 +1447,6 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
     /* Clean up the invocation block: */
     inv_Cleanup(&inv);
  
-
 #ifdef GATEDEBUG
     dprintf(GATEDEBUG>2, "Cleaned up invocation\n");
 #endif
@@ -1454,7 +1460,8 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
 		      invokee);
 #endif
 #ifdef KPRDEBUG
-    dprintf(true, "Activity %s has migrated\n", act_Current()->Name());
+    assert(act_Current());
+    dprintf(true, "Activity %s has migrated\n", act_Name(act_Current()));
 #endif
     inv.invokee = 0;
   }

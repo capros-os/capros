@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/Node.h>
 #include <kerninc/Activity.h>
+#include <eros/machine/Registers.h>
 
 /* May Yield. */
 void 
@@ -122,6 +123,46 @@ proc_SyncActivity(Process * thisPtr)
   keyBits_InitType(procKey, KKT_Process);
   procKey->u.unprep.oid = thisPtr->procRoot->node_ObjHdr.oid;
   procKey->u.unprep.count = thisPtr->procRoot->node_ObjHdr.allocCount; 
+}
+
+/* May Yield. */
+void 
+proc_InvokeProcessKeeper(Process * thisPtr)
+{
+  Registers regs;
+  Key processKey;
+
+  keyBits_InitToVoid(&processKey);
+
+#if 0
+  dprintf(false, "Fetching register values for InvokeProcessKeeper()\n");
+#endif
+  proc_GetRegs32(thisPtr, &regs);
+
+  // Show the state as it will be after the keeper invocation.
+  regs.domState = RS_Waiting;
+  regs.domFlags &= ~PF_ExpectingMsg;
+
+#if 0
+  dprintf(false, "  ExNo: 0x%08x, Error: 0x%08x  Info: 0x%08x  FVA 0x%08x\n",
+		  trapFrame.ExceptNo,
+		  trapFrame.Error,
+		  faultInfo,
+		  trapFrame.ExceptAddr);
+#endif
+
+  keyBits_InitType(&processKey, KKT_Process);
+  processKey.u.unprep.oid = thisPtr->procRoot->node_ObjHdr.oid;
+  processKey.u.unprep.count = thisPtr->procRoot->node_ObjHdr.allocCount;
+
+  /* Guarantee that prepared resume key will be in dirty object -- see
+   * comment in kern_Invoke.cxx:
+   */
+  assert (objH_IsDirty(DOWNCAST(thisPtr->procRoot, ObjectHeader)));
+
+  proc_InvokeMyKeeper(thisPtr, OC_PROCFAULT, 0, 0, 0,
+                      &thisPtr->procRoot->slot[ProcKeeper],
+                      &processKey, (uint8_t *) &regs, sizeof(regs));
 }
 
 #ifdef OPTION_DDB

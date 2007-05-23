@@ -872,7 +872,7 @@ act_ValidateActivity(Activity* thisPtr)
 const char* 
 act_Name(Activity* thisPtr)
 {
-  static char * userActivityName = "userXXX\0";
+  static char userActivityName[] = "userXXX\0";
   uint32_t ndx = 0;
 
   if ( !act_IsUser(thisPtr) )
