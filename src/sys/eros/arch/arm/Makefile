@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, Strawberry Development Group.
+# Copyright (C) 2006, 2007, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System runtime library.
 #
@@ -19,7 +19,8 @@
 # Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
 #
 # This material is based upon work supported by the US Defense Advanced
-# Research Projects Agency under Contract No. W31P4Q-06-C-0040.
+# Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+# W31P4Q-07-C-0070.  Approved for public release, distribution unlimited.
 default: package
 
 EROS_SRC=../../../..
@@ -52,7 +53,7 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 GENPSEUDOREGS=$(EROS_SYS)/scripts/GenPseudoRegs.awk
 GENTRACEREGS=$(EROS_SYS)/scripts/GenTraceRegs.awk
-LAYOUT=$(EROS_SYS)/arch/i486/LAYOUT
+LAYOUT=$(EROS_SYS)/arch/arm/LAYOUT
 
 pseudoregs.h: $(LAYOUT) $(GENPSEUDOREGS)
 	$(EROS_CPP) -I$(EROS_SRC)/sys $(LAYOUT) | $(GAWK) -f $(GENPSEUDOREGS) > $@
