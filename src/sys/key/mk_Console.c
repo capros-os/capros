@@ -46,7 +46,7 @@ ConsoleKey(Invocation* inv /*@ not null @*/)
   case OC_Console_Put:
     {
 #ifndef OPTION_PURE_ENTRY_STRINGS
-      proc_SetupEntryString();
+      inv_SetupEntryString();
 #endif
 
       COMMIT_POINT();

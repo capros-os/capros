@@ -110,6 +110,7 @@ struct Invocation {
   EntryBlock entry;
   ExitBlock exit;
 
+  void (*setupEntryStringProc)(void);
   uint32_t validLen;		/* bytes that can be validly received */
   uint32_t sentLen;		/* amount actually sent */
   
@@ -152,6 +153,12 @@ void FaultGate(Invocation*);
      extern Invocation inv; \
      inv_Commit(&inv); \
    } while (0) 
+
+INLINE void
+inv_SetupEntryString(void)
+{
+  (*inv.setupEntryStringProc)();
+}
 
 /* Former member functions of Invocation */
 

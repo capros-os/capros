@@ -73,7 +73,7 @@ GateKey(Invocation* inv /*@ not null @*/)
 #endif
   
 #ifndef OPTION_PURE_ENTRY_STRINGS
-  proc_SetupEntryString();
+  inv_SetupEntryString();
 #endif
 #ifndef OPTION_PURE_EXIT_STRINGS
   proc_SetupExitString(inv->invokee, inv, inv->entry.len);
@@ -83,7 +83,9 @@ GateKey(Invocation* inv /*@ not null @*/)
 
   /* Transfer the data: */
 #ifdef GK_DEBUG
-  printf("Send %d bytes, Valid Rcv %d bytes\n", inv->entry.len, inv->validLen);
+  dprintf(true, "Send %d bytes at 0x%08x, Valid Rcv %d bytes at 0x%08x\n",
+         inv->entry.len, inv->entry.data,
+         inv->validLen, inv->exit.data);
 #endif
   
   inv_CopyOut(inv, inv->entry.len, inv->entry.data);
@@ -96,6 +98,30 @@ GateKey(Invocation* inv /*@ not null @*/)
   /* Note that the following will NOT work in the returning to self
    * case, which is presently messed up anyway!!!
    */
+  
+  if (proc_GetRcvKeys(invokee)) {
+    if (proc_GetRcvKeys(invokee) & 0x1f1f1fu) {
+      if (inv->exit.pKey[0])
+        key_NH_Set(inv->exit.pKey[0], inv->entry.key[0]);
+      if (inv->exit.pKey[1])
+	key_NH_Set(inv->exit.pKey[1], inv->entry.key[1]);
+      if (inv->exit.pKey[2])
+	key_NH_Set(inv->exit.pKey[2], inv->entry.key[2]);
+    }
+    
+    if (inv->exit.pKey[RESUME_SLOT]) {
+      if (inv->invType == IT_Call) {
+	proc_BuildResumeKey(act_CurContext(), inv->exit.pKey[RESUME_SLOT]);
+        /* The following is temporary until I get rid of the Fault key.
+           wantFault is unused. */
+        void NullProc(void);
+	if (inv->setupEntryStringProc == NullProc)
+	  inv->exit.pKey[RESUME_SLOT]->keyPerms = KPRM_FAULT;
+      }
+      else
+	key_NH_Set(inv->exit.pKey[RESUME_SLOT], inv->entry.key[RESUME_SLOT]);
+    }
+  }
 
   proc_DeliverGateResult(invokee, inv, false);
   

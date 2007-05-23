@@ -45,7 +45,7 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
 #endif
 #ifndef OPTION_PURE_ENTRY_STRINGS
   if (inv->entry.code == OC_SchedCre_Set)
-    proc_SetupEntryString();
+    inv_SetupEntryString();
 #endif
 
   COMMIT_POINT();

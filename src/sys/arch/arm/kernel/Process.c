@@ -466,9 +466,15 @@ revalidate:
       }
     }
     // Restore PID and DACR of current process.
-    mach_LoadPID(act_CurContext()->md.pid);
-    mach_LoadDACR(act_CurContext()->md.dacr);
+    // ? mach_LoadPID(act_CurContext()->md.pid);
+    // ? mach_LoadDACR(act_CurContext()->md.dacr);
+    mach_LoadDACR(0x55555555);	// need access to both from and to domains
+    // FIXME: Figure out when the DACR has what. 
     // Current process's map is current, so destination addr is too.
+    // Get the modified virtual address, so address will be correct
+    // regardless of the current PID.
+    if ((va & PID_MASK) == 0)
+      va += thisPtr->md.pid;
     inv->exit.data = (uint8_t *)va;
   } else {
     // Processes are using different maps.

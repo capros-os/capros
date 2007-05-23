@@ -999,49 +999,6 @@ proc_DoPrepare(Process* thisPtr)
   sq_WakeAll(&thisPtr->stallQ, false);
 }
 
-/* May Yield. */
-void 
-proc_InvokeProcessKeeper(Process* thisPtr)
-{
-  Registers regs;
-  Key processKey;
-
-  keyBits_InitToVoid(&processKey);
-
-#if 0
-  dprintf(false, "Fetching register values for InvokeProcessKeeper()\n");
-#endif
-  proc_GetRegs32(thisPtr, &regs);
-
-  /* Override the current domain state, as this is about to change in
-     the course of the invocation. */ 
-  regs.domState = RS_Waiting;
-
-#if 0
-  dprintf(false, "  ExNo: 0x%08x, Error: 0x%08x  Info: 0x%08x  FVA 0x%08x\n",
-		  trapFrame.ExceptNo,
-		  trapFrame.Error,
-		  faultInfo,
-		  trapFrame.ExceptAddr);
-#endif
-  /* Must be unprepared in case we throw()! */
-  
-
-  keyBits_InitType(&processKey, KKT_Process);
-  processKey.u.unprep.oid = thisPtr->procRoot->node_ObjHdr.oid;
-  processKey.u.unprep.count = thisPtr->procRoot->node_ObjHdr.allocCount;
-
-  /* Guarantee that prepared resume key will be in dirty object -- see
-   * comment in kern_Invoke.cxx:
-   */
-  assert (objH_IsDirty(DOWNCAST(thisPtr->procRoot, ObjectHeader)));
- 
-
-  proc_InvokeMyKeeper(thisPtr, OC_PROCFAULT, 0, 0, 0, &thisPtr->procRoot->slot[ProcKeeper],
-		 &processKey, (uint8_t *) &regs, sizeof(regs));
-
-}
-
 void
 proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
 {

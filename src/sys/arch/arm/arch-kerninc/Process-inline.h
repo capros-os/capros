@@ -28,6 +28,12 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 /* Machine-specific inline helper functions for process operations: */
 
+INLINE uint32_t
+proc_GetRcvKeys(Process * thisPtr)
+{
+  return thisPtr->trapFrame.r14;
+}
+
 INLINE void 
 proc_SetPC(Process* thisPtr, uint32_t oc)
 {

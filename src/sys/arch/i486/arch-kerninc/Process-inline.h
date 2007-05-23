@@ -52,6 +52,12 @@ proc_SetupEntryString(void)
 
 #endif
 
+INLINE uint32_t
+proc_GetRcvKeys(Process * thisPtr)
+{
+  return thisPtr->pseudoRegs.rcvKeys;
+}
+
 INLINE void 
 proc_SetPC(Process* thisPtr, uint32_t oc)
 {

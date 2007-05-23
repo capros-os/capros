@@ -130,7 +130,6 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 void 
 proc_DeliverGateResult(Process* thisPtr, Invocation* inv /*@ not null @*/, bool wantFault)
 {
-  uint32_t rcvBase = 0;
   /* No need to call Prepare() here -- it has already been  called in
    * the invocation path.
    */
@@ -143,27 +142,6 @@ proc_DeliverGateResult(Process* thisPtr, Invocation* inv /*@ not null @*/, bool 
    */
   
   uint16_t keyData = inv->key->keyData;
-  
-  if (thisPtr->pseudoRegs.rcvKeys) {
-    if (thisPtr->pseudoRegs.rcvKeys & 0x1f1f1fu) {
-      if (inv->exit.pKey[0])
-        key_NH_Set(inv->exit.pKey[0], inv->entry.key[0]);
-      if (inv->exit.pKey[1])
-	key_NH_Set(inv->exit.pKey[1], inv->entry.key[1]);
-      if (inv->exit.pKey[2])
-	key_NH_Set(inv->exit.pKey[2], inv->entry.key[2]);
-    }
-    
-    if (inv->exit.pKey[RESUME_SLOT]) {
-      if (inv->invType == IT_Call) {
-	proc_BuildResumeKey(act_CurContext(), inv->exit.pKey[3]);
-	if (wantFault)
-	  inv->exit.pKey[RESUME_SLOT]->keyPerms = KPRM_FAULT;
-      }
-      else
-	key_NH_Set(inv->exit.pKey[RESUME_SLOT], inv->entry.key[3]);
-    }
-  }
 
   /* copy return code and words */
   thisPtr->trapFrame.EAX = inv->entry.code;
@@ -179,8 +157,6 @@ proc_DeliverGateResult(Process* thisPtr, Invocation* inv /*@ not null @*/, bool 
   inv->exit.w3 = inv->entry.w3;
 #endif
 
-  rcvBase = thisPtr->trapFrame.EDI;
-  
   thisPtr->trapFrame.EDI = keyData;
 
   /* Data has already been copied out, so don't need to copy here.  DO
@@ -193,8 +169,10 @@ proc_DeliverGateResult(Process* thisPtr, Invocation* inv /*@ not null @*/, bool 
    * are gonna get FC_ParmLack:
    */
 
-  if (inv->validLen < inv->exit.len)
+  if (inv->validLen < inv->exit.len) {
+    uint32_t rcvBase = thisPtr->trapFrame.EDI;
     proc_SetFault(thisPtr, FC_ParmLack, rcvBase + inv->validLen, false);
+  }
 
 
   /* Make sure it isn't later overwritten by the general delivery

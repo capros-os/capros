@@ -307,7 +307,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       proc_Prepare(ac);
 
 #ifndef OPTION_PURE_ENTRY_STRINGS
-      proc_SetupEntryString();
+      inv_SetupEntryString();
 #endif
 
       COMMIT_POINT();

@@ -27,7 +27,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/KernStats.h>
 #include <eros/Invoke.h>
-//#include <kerninc/IRQ.h>
 #include <arch-kerninc/Process-inline.h>
 #include <arch-kerninc/IRQ-inline.h>
 
@@ -190,27 +189,6 @@ proc_DeliverGateResult(Process* thisPtr,
    */
   
   uint16_t keyData = inv->key->keyData;
-  
-  if (thisPtr->trapFrame.r14) {		/* rcv_keys */
-    if (thisPtr->trapFrame.r14 & 0x1f1f1fu) {
-      if (inv->exit.pKey[0])
-        key_NH_Set(inv->exit.pKey[0], inv->entry.key[0]);
-      if (inv->exit.pKey[1])
-	key_NH_Set(inv->exit.pKey[1], inv->entry.key[1]);
-      if (inv->exit.pKey[2])
-	key_NH_Set(inv->exit.pKey[2], inv->entry.key[2]);
-    }
-    
-    if (inv->exit.pKey[RESUME_SLOT]) {
-      if (inv->invType == IT_Call) {
-	proc_BuildResumeKey(act_CurContext(), inv->exit.pKey[RESUME_SLOT]);
-	if (wantFault)
-	  inv->exit.pKey[RESUME_SLOT]->keyPerms = KPRM_FAULT;
-      }
-      else
-	key_NH_Set(inv->exit.pKey[RESUME_SLOT], inv->entry.key[RESUME_SLOT]);
-    }
-  }
 
   /* copy return code and words */
   thisPtr->trapFrame.r1 = inv->entry.code;

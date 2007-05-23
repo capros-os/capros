@@ -40,8 +40,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Machine.h>
 #include <kerninc/KernStats.h>
 
-//#define GATEDEBUG 5
-#define KPRDEBUG
 /* #define GATEDEBUG 5
  * #define KPRDEBUG
  */
@@ -1460,7 +1458,6 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
 		      invokee);
 #endif
 #ifdef KPRDEBUG
-    assert(act_Current());
     dprintf(true, "Activity %s has migrated\n", act_Name(act_Current()));
 #endif
     inv.invokee = 0;
