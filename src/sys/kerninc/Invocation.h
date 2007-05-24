@@ -25,6 +25,7 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <kerninc/Key.h>
+#include <eros/Invoke.h>
 /* This file requires #include <disk/KeyStruct.hxx> */
 /* This file requires #include <kerninc/kernel.h> */
 
@@ -106,6 +107,7 @@ struct Invocation {
   bool suppressXfer;		/* should transfer be suppressed? */
   
   uint32_t invType;		/* extracted for efficiency */
+#define IT_KeeperCall 6		// in this field only, not in a Message
 
   EntryBlock entry;
   ExitBlock exit;
@@ -121,12 +123,6 @@ struct Invocation {
 
   Process *invokee;		/* extracted from the key for efficiency */
 };
-
-#if defined(OPTION_KERN_TIMING_STATS)
-uint64_t inv_KeyHandlerCycles[PRIMARY_KEY_TYPES][3];
-uint64_t inv_KeyHandlerCounts[PRIMARY_KEY_TYPES][3];
-#endif
-
 
 typedef struct Invocation Invocation;
 
@@ -213,5 +209,16 @@ inv_SetExitKey(Invocation* thisPtr, uint32_t ndx, Key* k /*@ not null @*/)
 }
 
 #define INVTYPE_ISVALID(x) ((x) < IT_NUM_INVTYPES)
+INLINE bool
+invType_IsCall(unsigned int t)
+{
+  return t & IT_Call;	// IT_Call, IT_PCall, or IT_KeeperCall
+}
+
+INLINE bool
+invType_IsPrompt(unsigned int t)
+{
+  return t & IT_PReturn;	// low order bit means prompt
+}
 
 #endif /* __KERNINC_INVOCATION_H__ */

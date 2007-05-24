@@ -3,9 +3,9 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -21,6 +21,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*
  * This file resides in eros/ because the kernel and the invocation
@@ -49,13 +52,16 @@ extern fixreg_t INVOKECAP(Message*);
 #endif /* !ASSEMBLER */
 
 /* INVOCATION TYPES */
+/* N.B.: invType_IsCall relies on this encoding. */
 
 #define IT_NPReturn 0
 #define IT_PReturn  1
 #define IT_Call     2
-#define IT_Send     3
+#define IT_PCall    3
+#define IT_Send     4
+#define IT_PSend    5
 
-#define IT_NUM_INVTYPES 4
+#define IT_NUM_INVTYPES 6
 
 /* Predefinition of KR_VOID is a kernel matter */
 #define KR_VOID  0

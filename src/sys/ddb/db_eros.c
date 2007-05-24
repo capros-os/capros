@@ -842,7 +842,9 @@ db_inv_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
 		 db_expr_t cnt/* count */, char * mdf/* modif */)
 {
   uint32_t invType = inv.invType;
-  static char *invTypeName[] = { "npreturn", "preturn", "call", "send", "retry" };
+  static char *invTypeName[] = { "npreturn", "preturn",
+    "call", "pcall",
+    "send", "psend", "keeper" };
   char* theTypeName = "???";
 
   db_printf("Inv 0x%08x: ", &inv);

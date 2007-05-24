@@ -32,10 +32,6 @@ Approved for public release, distribution unlimited. */
    any C structures must be suitably ifdef'd
    */
 
-/* Local Variables: */
-/* comment-column:34 */
-/* End: */
-
 /* We have departed from the KeyKOS design in our handling of fault
    codes.  In KeyKOS, the process fault code space and the segment
    error code space were separate namespaces.  Since the segment
@@ -111,8 +107,6 @@ Approved for public release, distribution unlimited. */
 #define FC_InvalidTSS         133 /* intel-specific error */
 #define FC_SIMDFloatingPointError 134 /* intel-specific error */
 
-/* RUN STATES -- it is desirable if RS_Waiting == KT_REPLY and
-   RS_Available == KT_CALL to improve the hand-coded IPC path. */
 #define RS_Available 0
 #define RS_Waiting   1
 #define RS_Running   2

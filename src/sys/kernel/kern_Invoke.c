@@ -32,7 +32,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/IRQ.h>
 #include <arch-kerninc/Process-inline.h>
-#include <eros/Invoke.h>
 #ifdef OPTION_DDB
 #include <eros/StdKeyType.h>
 #endif
@@ -97,8 +96,9 @@ proc_KeyDispatch(Invocation *pInv)
 }
 
 #ifdef OPTION_KERN_TIMING_STATS
-uint64_t inv_KeyHandlerCycles[PRIMARY_KEY_TYPES][IT_NUM_INVTYPES];
-uint64_t inv_KeyHandlerCounts[PRIMARY_KEY_TYPES][IT_NUM_INVTYPES];
+// The +1 below is for the internal type IT_KeeperCall.
+uint64_t inv_KeyHandlerCycles[PRIMARY_KEY_TYPES][IT_NUM_INVTYPES+1];
+uint64_t inv_KeyHandlerCounts[PRIMARY_KEY_TYPES][IT_NUM_INVTYPES+1];
 
 void 
 inv_ZeroStats()
@@ -491,6 +491,10 @@ proc_DoKeyInvocation(Process* thisPtr)
     goto general_path;
 #endif
 
+  if (invType_IsPrompt(inv.invType) && inv.invKeyType != KKT_Resume)
+    goto general_path;
+  inv.invType &= ~IT_PReturn;	// clear low bit, convert to nonprompt type
+
   /* Send is a pain in the butt.  Fuck 'em if they can't take a joke. */
   if (inv.invType == IT_Send)
     goto general_path;
@@ -507,9 +511,6 @@ proc_DoKeyInvocation(Process* thisPtr)
   /* If it's a wrapper key, take the long way:
    */
   if (inv.invKeyType == KKT_Wrapper)
-    goto general_path;
-
-  if ((inv.invType == IT_PReturn) && inv.invKeyType != KKT_Resume)
     goto general_path;
 
   if (keyBits_IsGateKey(inv.key)) {
@@ -730,6 +731,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     RS_Available,		/* IT_Return */
     RS_Available,		/* IT_PReturn */
     RS_Waiting,			/* IT_Call */
+    RS_Waiting,			/* IT_PCall */
     RS_Running,			/* IT_Send */
   };
 
@@ -760,22 +762,17 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
   assert(keyBits_IsPrepared(inv.key));
   
-  /* If this is a prompt return, it MUST be done on a
-   * resume key. If it isn't, behave as for prompt return on void key.
-   */
-  if ((inv.invType == IT_PReturn)
-      && (inv.invKeyType != KKT_Resume)) {
-    /* dprintf(true, "PTRETURN on non-resume key!\n"); */
-    inv.invType = IT_PReturn;
-    inv.key = &key_VoidKey;
+  /* If this is a prompt invocation, it MUST be done on a
+   * resume key. If it isn't, behave as for invoking a void key.  */
+  if (invType_IsPrompt(inv.invType)) {
+    inv.invType &= ~IT_PReturn;	// clear low bit, convert to nonprompt type
+    if (inv.invKeyType != KKT_Resume) {
+      /* dprintf(true, "PTRETURN on non-resume key!\n"); */
+      inv.key = &key_VoidKey;
 #ifndef invKeyType
-    inv.invKeyType = KKT_Void;
+      inv.invKeyType = KKT_Void;
 #endif
-    inv.invokee = thisPtr;
-
-#if 0
-    key_Prepare(inv.key);	/* MAY YIELD!!! */
-#endif
+    }
   }
 
   /* There are two cases where the actual invocation may proceed on a
@@ -903,7 +900,8 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     }
 #endif
   }
-  else if (inv.invType == IT_Call) {
+  else if (invType_IsCall(inv.invType)) {
+    // FIXME: this may not be a good idea for IT_KeeperCall.
     /* Call on non-gate key always returns to caller and requires no
      * resume key.
      *
@@ -1134,8 +1132,7 @@ return void keys in the rest)
   if ( DDB_STOP(all) ||
        ( DDB_STOP(gate) && invoked_gate_key ) ||
        ( DDB_STOP(keeper) && inv.suppressXfer) ||
-       ( DDB_STOP(return) && (   inv.invType == IT_NPReturn
-                              || inv.invType == IT_PReturn ) ) ||
+       ( DDB_STOP(return) && (inv.invType == IT_NPReturn)) ||
        (DDB_STOP(pflag) && 
 	( (thisPtr->processFlags & PF_DDBINV) ||
 	  (inv.invokee && inv.invokee->processFlags & PF_DDBINV) )) ||
@@ -1308,7 +1305,7 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
 
   /* Not hazarded because invocation key */
   inv.key = keeperKey;
-  inv.invType = IT_Call;
+  inv.invType = IT_KeeperCall;
   
   key_Prepare(keeperKey);
 #ifndef invKeyType

@@ -110,7 +110,7 @@ GateKey(Invocation* inv /*@ not null @*/)
     }
     
     if (inv->exit.pKey[RESUME_SLOT]) {
-      if (inv->invType == IT_Call) {
+      if (invType_IsCall(inv->invType)) {
 	proc_BuildResumeKey(act_CurContext(), inv->exit.pKey[RESUME_SLOT]);
         /* The following is temporary until I get rid of the Fault key.
            wantFault is unused. */
