@@ -73,22 +73,21 @@ printf("Unimplemented ParmLack\n");
 void 
 proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 {
-  uint8_t *sndKeys;
   uva_t const entryMessage = thisPtr->trapFrame.r0;
   uint32_t const invKeyAndType = thisPtr->trapFrame.r1;
   
   /* Not hazarded because invocation key */
-  inv->key = &thisPtr->keyReg[invKeyAndType & 0xff];
+  unsigned int invSlot = invKeyAndType & 0xff;
+  if (invSlot >= EROS_NODE_SIZE) {
+    fatal("Invalid invKey: should fault the user"); // FIXME
+  }
+  inv->key = &thisPtr->keyReg[invSlot];
+
   unsigned int typ = (invKeyAndType >> 8) & 0xff;
   if (!INVTYPE_ISVALID(typ)) {
     fatal("Invalid invType: should fault the user"); // FIXME
   }
   inv->invType = typ;
-
-  key_Prepare(inv->key);
-#ifndef invKeyType
-  inv->invKeyType = keyBits_GetType(inv->key);
-#endif
 
   inv->entry.code = thisPtr->trapFrame.r4;
 /* We may be able to eliminate the copy of w1, w2, and w3 when invoking
@@ -103,7 +102,10 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
                               &inv->entry.w3))
     fatal("Error loading w1-w3");
 
-  sndKeys = (uint8_t *) &thisPtr->trapFrame.r2;
+  uint8_t * sndKeys = (uint8_t *) &thisPtr->trapFrame.r2;
+  if (*(uint32_t *)sndKeys & 0xe0e0e0e0) {
+    fatal("Invalid sndKeys: should fault the user"); // FIXME
+  }
   
   /* Not hazarded because invocation key */
   inv->entry.key[0] = &thisPtr->keyReg[sndKeys[0]];
@@ -113,6 +115,11 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   inv->entry.len = thisPtr->trapFrame.r3;
   inv->sentLen = 0;		/* set in CopyOut */
+
+  key_Prepare(inv->key);
+#ifndef invKeyType
+  inv->invKeyType = keyBits_GetType(inv->key);
+#endif
 }
 
 /* NOTE that this can be called with /thisPtr/ == 0, and must guard
