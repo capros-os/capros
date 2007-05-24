@@ -26,7 +26,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/Activity.h>
 #include <kerninc/KernStats.h>
-#include <eros/Invoke.h>
 #include <arch-kerninc/Process-inline.h>
 #include <arch-kerninc/IRQ-inline.h>
 
@@ -80,7 +79,11 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   
   /* Not hazarded because invocation key */
   inv->key = &thisPtr->keyReg[invKeyAndType & 0xff];
-  inv->invType = (invKeyAndType >> 8) & 0xff;
+  unsigned int typ = (invKeyAndType >> 8) & 0xff;
+  if (!INVTYPE_ISVALID(typ)) {
+    fatal("Invalid invType: should fault the user"); // FIXME
+  }
+  inv->invType = typ;
 
   key_Prepare(inv->key);
 #ifndef invKeyType
