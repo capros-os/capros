@@ -1132,7 +1132,7 @@ return void keys in the rest)
   if ( DDB_STOP(all) ||
        ( DDB_STOP(gate) && invoked_gate_key ) ||
        ( DDB_STOP(keeper) && inv.suppressXfer) ||
-       ( DDB_STOP(return) && (inv.invType == IT_NPReturn)) ||
+       ( DDB_STOP(return) && (inv.invType == IT_Return)) ||
        (DDB_STOP(pflag) && 
 	( (thisPtr->processFlags & PF_DDBINV) ||
 	  (inv.invokee && inv.invokee->processFlags & PF_DDBINV) )) ||

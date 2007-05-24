@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -18,7 +18,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <eros/arch/arm/asm.h>
 #include <eros/Invoke.h>
@@ -62,7 +63,7 @@ ENTRY(__rt_do_NPRETURN)
 	stmfd sp!,{r4,r5,r14}
 	ldmia r0,{r1-r5}
 	and r1,r1,#0xff
-	orr r1,r1,#(IT_NPReturn<< 8)
+	orr r1,r1,#(IT_Return<< 8)
 	b invokeCommon
 	
 	.weak	EXT(RETURN)

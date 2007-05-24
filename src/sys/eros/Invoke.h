@@ -54,7 +54,7 @@ extern fixreg_t INVOKECAP(Message*);
 /* INVOCATION TYPES */
 /* N.B.: invType_IsCall relies on this encoding. */
 
-#define IT_NPReturn 0
+#define IT_Return 0
 #define IT_PReturn  1
 #define IT_Call     2
 #define IT_PCall    3
