@@ -50,3 +50,5 @@ $(BUILDDIR)/proc2: $(BUILDDIR)/proc2.o $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/proc2.map -o $@ $(DOMCRT0) $(BUILDDIR)/proc2.o $(DOMLIB)
 # Temporarily strip symbols to reduce size.
 #	$(EROS_STRIP) --strip-all --keep-symbol=_start $(BUILDDIR)/proc2
+
+-include $(BUILDDIR)/.*.m

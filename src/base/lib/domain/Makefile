@@ -100,4 +100,4 @@ install: all
 
 .PRECIOUS: $(KERNSRC) $(LOCALSRC)
 
--include .*.m
+-include $(BUILDDIR)/.*.m

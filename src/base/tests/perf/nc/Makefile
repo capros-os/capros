@@ -51,3 +51,5 @@ $(BUILDDIR)/echo: $(BUILDDIR)/echo.o $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/echo.map -o $@ $(DOMCRT0) $(BUILDDIR)/echo.o $(DOMLIB)
 # Temporarily strip symbols to reduce size.
 #	$(EROS_STRIP) --strip-all --keep-symbol=_start $(BUILDDIR)/echo
+
+-include $(BUILDDIR)/.*.m
