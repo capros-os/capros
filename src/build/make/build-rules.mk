@@ -64,20 +64,20 @@ endif
 #
 
 $(BUILDDIR)/%.o: %.S $(MAKE_BUILDDIR)
-	$(ASM_DEP)
 	$(ASM_BUILD) 
+	$(ASM_DEP)
 
 $(BUILDDIR)/%.o: %.c $(MAKE_BUILDDIR)
-	$(C_DEP) 
 	$(C_BUILD) 
+	$(C_DEP) 
 
 $(BUILDDIR)/%.cfg: %.c $(MAKE_BUILDDIR)
-	$(MOPS_DEP)
 	$(MOPS_BUILD) 
+	$(MOPS_DEP)
 
 $(BUILDDIR)/%.o: %.cxx $(MAKE_BUILDDIR)
-	$(CXX_DEP)
 	$(CXX_BUILD) 
+	$(CXX_DEP)
 
 
 # Rules to process XML files to produce HTML:
