@@ -59,6 +59,8 @@ uint32_t ddb_inv_flags = 0;
 #define __EROS_PRIMARY_KEYDEF(x, isValid, bindTo) void bindTo##Key (Invocation* msg);
 #include <eros/StdKeyType.h>
 
+Activity * activityToRelease = 0;
+
 #if 0
 static void
 UnknownKey(Invocation* inv /*@ not null @*/)
@@ -107,13 +109,17 @@ inv_ZeroStats()
     inv_KeyHandlerCycles[i][IT_Return] = 0;
     inv_KeyHandlerCycles[i][IT_PReturn] = 0;
     inv_KeyHandlerCycles[i][IT_Call] = 0;
+    inv_KeyHandlerCycles[i][IT_PCall] = 0;
     inv_KeyHandlerCycles[i][IT_Send] = 0;
-    inv_KeyHandlerCycles[i][IT_Post] = 0;
+    inv_KeyHandlerCycles[i][IT_PSend] = 0;
+    inv_KeyHandlerCycles[i][IT_KeeperCall] = 0;
     inv_KeyHandlerCounts[i][IT_Return] = 0;
     inv_KeyHandlerCounts[i][IT_PReturn] = 0;
     inv_KeyHandlerCounts[i][IT_Call] = 0;
+    inv_KeyHandlerCounts[i][IT_PCall] = 0;
     inv_KeyHandlerCounts[i][IT_Send] = 0;
-    inv_KeyHandlerCounts[i][IT_Post] = 0;
+    inv_KeyHandlerCounts[i][IT_PSend] = 0;
+    inv_KeyHandlerCounts[i][IT_KeeperCall] = 0;
   }
 }
 #endif
@@ -429,6 +435,32 @@ extern "C" {
 extern uint64_t rdtsc();
 #endif
 
+#ifdef OPTION_KERN_TIMING_STATS
+uint64_t top_time;
+#ifdef OPTION_KERN_EVENT_TRACING
+uint64_t top_cnt0;
+uint64_t top_cnt1;
+#endif
+#endif
+
+static void
+BeginInvocation(void)
+{
+#ifdef OPTION_KERN_TIMING_STATS
+  top_time = rdtsc();
+#ifdef OPTION_KERN_EVENT_TRACING
+  top_cnt0 = mach_ReadCounter(0);
+  top_cnt1 = mach_ReadCounter(1);
+#endif
+#endif
+
+  KernStats.nInvoke++;
+
+#ifndef NDEBUG
+  InvocationCommitted = false;
+#endif
+}
+
 /* This is a carefully coded routine, probably less than clear.  The
  * version that handles all of the necessary cases is
  * DoGeneralKeyInvocation; this version is trying to cherry pick the
@@ -449,31 +481,25 @@ extern uint64_t rdtsc();
 void 
 proc_DoKeyInvocation(Process* thisPtr)
 {
-#ifdef OPTION_KERN_TIMING_STATS
-  uint64_t pre_handler;
-  uint64_t top_time = rdtsc();
-#ifdef OPTION_KERN_EVENT_TRACING
-  uint64_t top_cnt0 = mach_ReadCounter(0);
-  uint64_t top_cnt1 = mach_ReadCounter(1);
-#endif
-#endif
-
-  KernStats.nInvoke++;
-
-#ifndef NDEBUG
-  InvocationCommitted = false;
-#endif
+  BeginInvocation();
+  
+  objH_BeginTransaction();
 
   /* Roll back the invocation PC in case we need to restart this operation */
   proc_AdjustInvocationPC(thisPtr);
 
   inv.suppressXfer = false;  /* suppress compiler bitching */
   
-  objH_BeginTransaction();
-  
   proc_SetupEntryBlock(thisPtr, &inv);
   // Set up to get the string from the invoker:
   inv.setupEntryStringProc = &proc_SetupEntryString;
+  
+#ifdef OPTION_PURE_ENTRY_STRINGS
+  /* Set up the entry string, faulting in any necessary data pages and
+   * constructing an appropriate kernel mapping: */
+  if (inv.entry.len != 0)
+    SetupEntryString(inv);
+#endif
 
 #ifdef GATEDEBUG
   printf("Ivk proc=0x%08x ", thisPtr);
@@ -532,11 +558,6 @@ proc_DoKeyInvocation(Process* thisPtr)
     
     inv.invokee = thisPtr;
   }
-  
-#ifdef OPTION_PURE_ENTRY_STRINGS
-  if (inv.entry.len != 0)
-    SetupEntryString(inv);
-#endif
 
   if (proc_IsRunnable(inv.invokee) == false)
     goto general_path;
@@ -566,7 +587,7 @@ proc_DoKeyInvocation(Process* thisPtr)
 #endif
 
 #if defined(OPTION_KERN_TIMING_STATS)
-    pre_handler = rdtsc();
+    uint64_t pre_handler = rdtsc();
 #endif
     proc_KeyDispatch(&inv);
 
@@ -696,7 +717,6 @@ proc_DoKeyInvocation(Process* thisPtr)
   dprintf(GATEDEBUG>2, "taking slow path\n");
 #endif
   
-  thisPtr->runState = RS_Running;	// needed?
   /* This path has its own, entirely separate recovery logic.... */
   proc_DoGeneralKeyInvocation(thisPtr);
   return;
@@ -711,19 +731,11 @@ proc_DoKeyInvocation(Process* thisPtr)
   act_MigrateTo(act_Current(), 0);
 }
 
-Activity *activityToRelease = 0;
-
+/* On entry, inv entry block has been set up. */
 /* May Yield. */
 void
 proc_DoGeneralKeyInvocation(Process* thisPtr)
 {
-  Process *p = 0;
-  Process *wakeRoot = 0;
-  Activity *activityToMigrate = 0;
-#if defined(OPTION_DDB) && !defined(NDEBUG)
-  bool invoked_gate_key;
-#endif
-  
   /* Revise the invoker runState to what it will be when this is all
    * over.  We'll fix it above if we yield.
    */
@@ -735,39 +747,16 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     RS_Running,			/* IT_Send */
   };
 
-#ifdef OPTION_KERN_TIMING_STATS
-  uint64_t top_time = rdtsc();
-  uint64_t pre_handler;
-#ifdef OPTION_KERN_EVENT_TRACING
-  uint64_t top_cnt0 = mach_ReadCounter(0);
-  uint64_t top_cnt1 = mach_ReadCounter(1);
-#endif
-#endif
-
   activityToRelease = 0;
-  
-  proc_SetupEntryBlock(thisPtr, &inv);
-
-#ifdef OPTION_PURE_ENTRY_STRINGS
-  /* Set up the entry string, faulting in any necessary data pages and
-   * constructing an appropriate kernel mapping:
-   */
-  if (inv.entry.len != 0)
-    SetupEntryString(inv);
-#endif
-
-#ifdef GATEDEBUG
-  dprintf(GATEDEBUG>2, "Populated entry block\n");
-#endif
 
   assert(keyBits_IsPrepared(inv.key));
   
-  /* If this is a prompt invocation, it MUST be done on a
-   * resume key. If it isn't, behave as for invoking a void key.  */
+  /* If this is a prompt invocation, it MUST be done on a resume key.
+     If it isn't a resume key, treat it like a void key. */
   if (invType_IsPrompt(inv.invType)) {
     inv.invType &= ~IT_PReturn;	// clear low bit, convert to nonprompt type
     if (inv.invKeyType != KKT_Resume) {
-      /* dprintf(true, "PTRETURN on non-resume key!\n"); */
+      /* dprintf(true, "Prompt invocation on non-resume key!\n"); */
       inv.key = &key_VoidKey;
 #ifndef invKeyType
       inv.invKeyType = KKT_Void;
@@ -858,9 +847,8 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
    */
   
   if ( keyBits_IsGateKey(inv.key) ) {
-    assert (keyBits_IsPrepared(inv.key));
     /* Make a local copy (subvert alias analysis pessimism) */
-    p = inv.key->u.gk.pContext;
+    Process * p = inv.key->u.gk.pContext;
     inv.invokee = p;
     proc_Prepare(p);		/* may yield */
 
@@ -875,8 +863,8 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 #ifndef invKeyType
       inv.invKeyType = KKT_Void;
 #endif
-      inv.invokee = thisPtr;
-      inv.entry.key[RESUME_SLOT] = &key_VoidKey;
+      inv.invokee = thisPtr;	// Huh? FIXME
+      inv.entry.key[RESUME_SLOT] = &key_VoidKey;	// Huh? FIXME
 #ifndef NDEBUG
       printf("Jumpee malformed\n");
 #endif
@@ -957,11 +945,13 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   /* Pointer to the domain root (if any) whose sleepers we should
    * awaken on successful completion:
    */
-  wakeRoot = 0;
-
+  Process * wakeRoot = 0;
 
   thisPtr->runState = newState[inv.invType];
-  thisPtr->processFlags |= PF_ExpectingMsg;
+  if (inv.invType == IT_KeeperCall)
+    thisPtr->processFlags &= ~PF_ExpectingMsg;
+  else
+    thisPtr->processFlags |= PF_ExpectingMsg;
   // FIXME: Don't change runstate until after committed!
 
   if (thisPtr->runState == RS_Available)
@@ -1026,8 +1016,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
    * new activity.  Populate this activity consistent with the invokee.
    */
   
-  
-  activityToMigrate = act_Current();
+  Activity * activityToMigrate = act_Current();
   
 
   if (inv.invType == IT_Send) {
@@ -1058,7 +1047,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   }
   
 #if defined(OPTION_DDB) && !defined(NDEBUG)
-  invoked_gate_key = keyBits_IsGateKey(inv.key);
+  bool invoked_gate_key = keyBits_IsGateKey(inv.key);
   
 #if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
   if (dbg_wild_ptr)
@@ -1080,7 +1069,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 #endif
 
 #if defined(OPTION_KERN_TIMING_STATS)
-  pre_handler = rdtsc();
+  uint64_t pre_handler = rdtsc();
 #endif
 
   /* The key handler must do the following:
@@ -1291,26 +1280,19 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
                     Key *keeperKey,
                     Key* keyArg2, uint8_t *data, uint32_t len)
 {
-  bool canInvoke;
-  Process * /*const*/ invokee;
-#ifdef OPTION_KERN_TIMING_STATS
-  uint64_t top_time = rdtsc();
-#ifdef OPTION_KERN_EVENT_TRACING
-  uint64_t top_cnt0 = mach_ReadCounter(0);
-  uint64_t top_cnt1 = mach_ReadCounter(1);
-#endif
-#endif
+  BeginInvocation();
+  KernStats.nInvKpr++;
+  
+  /* Do not call BeginTransaction here -- the only way we can be here
+   * is if we are already in some transaction, and it's okay to let
+   * that transaction prevail.
+   */
 
   // Set up the entry block.
 
   /* Not hazarded because invocation key */
   inv.key = keeperKey;
   inv.invType = IT_KeeperCall;
-  
-  key_Prepare(keeperKey);
-#ifndef invKeyType
-  inv.invKeyType = keyBits_GetType(keeperKey);
-#endif
   
   inv.entry.code = oc;
   inv.entry.w1 = warg1;
@@ -1324,13 +1306,15 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
 
   inv.entry.len = len;
   inv.sentLen = 0;
+  
+  key_Prepare(keeperKey);
+#ifndef invKeyType
+  inv.invKeyType = keyBits_GetType(keeperKey);
+#endif
+
   inv.entry.data = data;
   // The entry string is already set up:
   inv.setupEntryStringProc = &NullProc;
-
-  inv.suppressXfer = false;
-  KernStats.nInvoke++;
-  KernStats.nInvKpr++;
   
   if ( DDB_STOP(keeper) )
     dprintf(true, "About to invoke process keeper\n");
@@ -1338,128 +1322,20 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
 #ifdef KPRDEBUG
   dprintf(true, "Enter InvokeMyKeeper\n");
 #endif
-  canInvoke = true;
   
-  /* Do not call BeginTransaction here -- the only way we can be here
-   * is if we are already in some transaction, and it's okay to let
-   * that transaction prevail.
-   */
-
-  if (keyBits_IsGateKey(keeperKey) == false)
-    canInvoke = false;
-  
+  // We should allow this also for a wrapper of a gate key.
+  if (keyBits_IsGateKey(keeperKey)) {
 #ifdef KPRDEBUG
-  dprintf(true, "Kpr key is gate key? '%c'\n", canInvoke ? 'y' : 'n');
+    dprintf(true, "Kpr key is gate key");
 #endif
 
-  /* A recovery context has already been established, either by a call
-   * to PageFault handler or by act_Resched().
-   */
-
-#ifndef NDEBUG
-  InvocationCommitted = false;
-#endif
-
+    proc_DoGeneralKeyInvocation(thisPtr);	/* For better performance,
+	we could instead call the guts of proc_DoKeyInvocation. */
+  } else {	// keeper is not a gate key
 #ifdef KPRDEBUG
-  dprintf(true, "Populated invocation block\n");
+    dprintf(true, "Kpr key is NOT a gate key!");
 #endif
 
-  if (keyBits_IsType(keeperKey, KKT_Resume)
-      && keeperKey->keyPerms == KPRM_FAULT) {
-    inv.suppressXfer = true;
-    printf("Suppress xfer -- key is restart key\n");
-  }
-
-  invokee = canInvoke ? keeperKey->u.gk.pContext : 0;
-
-  if (invokee) {
-    inv.invokee = invokee;
-
-    proc_SetupExitBlock(invokee, &inv);
-    
-#ifdef KPRDEBUG
-    dprintf(true, "Prepare invokee\n");
-#endif
-
-    /* Make sure invokee is valid */
-    proc_Prepare(invokee);
-  
-#ifdef KPRDEBUG
-    dprintf(true, "Invokee prepare completed\n");
-#endif
-
-    if ( proc_IsWellFormed(invokee) == false )
-      canInvoke = false;
-
-#ifdef KPRDEBUG
-    dprintf(true, "Have good keeper, ctxt=0x%08x\n", invokee);
-#endif
-
-#ifndef NDEBUG
-    if (keyBits_IsType(keeperKey, KKT_Resume))
-      assert (invokee->runState == RS_Waiting);
-#endif
-
-    if (keyBits_IsType(keeperKey, KKT_Start) && invokee->runState != RS_Available) {
-      act_SleepOn(&invokee->stallQ);
-      act_Yield();
-    }
-
-    if (keyBits_IsType(keeperKey, KKT_Resume) && keeperKey->keyPerms == KPRM_FAULT)
-      inv.suppressXfer = true;
-  }
-
-  if (canInvoke) {
-#ifdef KPRDEBUG
-    dprintf(true, "Keeper in right state\n");
-#endif
-
-    assert(thisPtr == act_Current()->context);
-    
-    thisPtr->runState = RS_Waiting;
-    thisPtr->processFlags &= ~PF_ExpectingMsg;
-  
-    assert(act_Current()->context == thisPtr);
-
-    GateKey(&inv);
-
-#ifdef KPRDEBUG
-    dprintf(true, "After keeper dispatch\n");
-#endif
-
-    if (inv.invokee && proc_IsExpectingMsg(inv.invokee))
-      proc_AdvancePostInvocationPC(inv.invokee);
-    
-#ifndef NDEBUG
-    InvocationCommitted = false;    
-#endif
-
-    invokee->runState = RS_Running;
-
-    if (keyBits_IsType(keeperKey, KKT_Resume))
-      keyR_ZapResumeKeys(&invokee->keyRing);
-
-    /* Clean up the invocation block: */
-    inv_Cleanup(&inv);
- 
-#ifdef GATEDEBUG
-    dprintf(GATEDEBUG>2, "Cleaned up invocation\n");
-#endif
-
-    act_MigrateTo(act_Current(), invokee);
-
-#ifdef OPTION_DDB
-    /*if (invokee->priority == pr_Never)*/
-    if (invokee->readyQ == &prioQueues[pr_Never])
-      dprintf(true, "Activity now in ctxt 0x%08x w/ bad schedule\n", 
-		      invokee);
-#endif
-#ifdef KPRDEBUG
-    dprintf(true, "Activity %s has migrated\n", act_Name(act_Current()));
-#endif
-    inv.invokee = 0;
-  }
-  else {
 #ifndef NDEBUG
     OID oid = act_CurContext()->procRoot->node_ObjHdr.oid;
     printf("No keeper for OID 0x%08x%08x, FC %d FINFO 0x%08x\n",
