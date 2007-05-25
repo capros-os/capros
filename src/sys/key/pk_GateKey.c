@@ -44,13 +44,38 @@ GateKey(Invocation* inv /*@ not null @*/)
   printf("Enter GateKey(), invokedKey=0x%08x\n", inv->key);
 #endif
 
-  if (keyBits_IsType(inv->key, KKT_Resume)) {
-    if (inv->key->keyPerms == KPRM_FAULT) {
-      inv->suppressXfer = true;
+  assert(! keyBits_IsType(inv->key, KKT_Resume)
+         || invokee->runState == RS_Waiting );
+  
+#ifndef OPTION_PURE_ENTRY_STRINGS
+  inv_SetupEntryString();
+#endif
+#ifndef OPTION_PURE_EXIT_STRINGS
+  // this is the case
+  proc_SetupExitString(inv->invokee, inv, inv->entry.len);
+#endif
 
-      COMMIT_POINT();
+  COMMIT_POINT();
+
+#ifdef OPTION_KERN_STATS
+  KernStats.nGateJmp++;
+  KernStats.bytesMoved += inv->exit.len;
+#endif
+
+  assert(inv->invokee);	// FIXME: what about invoking gate key to malformed?
+
+  /* Make sure it isn't later overwritten by the general delivery
+   * mechanism.  */
+  inv->suppressXfer = true;
+
+  if (! proc_IsExpectingMsg(inv->invokee)) {
+#if 0
+    dprintf(true, "Invoking fault key, code=%d\n", inv->entry.code);
+#endif
+    // Invokee not expecting a message.
+    // FIXME: want the following behavior if returning to fault key too.
     
-      if (inv->entry.code) {
+    if (inv->entry.code) {
 	/* Regardless of what the fault code may be, there is no
 	 * action that a keeper can take via the fault key that can
 	 * require an uncleared fault demanding slow-path validation
@@ -59,27 +84,11 @@ GateKey(Invocation* inv /*@ not null @*/)
 	 */
 	proc_SetFault(invokee, invokee->faultCode, invokee->faultInfo,
 			  false);
-      }
-      else
-	proc_SetFault(invokee, FC_NoFault, 0, false);
-      return;
     }
-    
-    assert (invokee->runState == RS_Waiting);
+    else
+	proc_SetFault(invokee, FC_NoFault, 0, false);
+    return;
   }
-
-#ifdef GK_DEBUG
-  printf("Gate: Copying keys\n");
-#endif
-  
-#ifndef OPTION_PURE_ENTRY_STRINGS
-  inv_SetupEntryString();
-#endif
-#ifndef OPTION_PURE_EXIT_STRINGS
-  proc_SetupExitString(inv->invokee, inv, inv->entry.len);
-#endif
-
-  COMMIT_POINT();
 
   /* Transfer the data: */
 #ifdef GK_DEBUG
@@ -90,14 +99,13 @@ GateKey(Invocation* inv /*@ not null @*/)
   
   inv_CopyOut(inv, inv->entry.len, inv->entry.data);
 
-#ifdef OPTION_KERN_STATS
-  KernStats.nGateJmp++;
-  KernStats.bytesMoved += inv->exit.len;
-#endif
-
   /* Note that the following will NOT work in the returning to self
    * case, which is presently messed up anyway!!!
    */
+
+#ifdef GK_DEBUG
+  printf("Gate: Copying keys\n");
+#endif
   
   if (proc_GetRcvKeys(invokee)) {
     if (proc_GetRcvKeys(invokee) & 0x1f1f1fu) {

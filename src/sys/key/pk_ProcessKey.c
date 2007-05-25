@@ -236,7 +236,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
 
 #if 0
       printf("GetRegs32: invokee is 0x%08x, IsActive? %c\n",
-		     inv.invokee, inv.IsActive() ? 'y' : 'n');
+		     inv->invokee, inv_IsActive(inv) ? 'y' : 'n');
 #endif
 
       ac = node_GetDomainContext(theNode);

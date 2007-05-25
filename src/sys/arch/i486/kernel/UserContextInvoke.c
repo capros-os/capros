@@ -76,7 +76,6 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 void 
 proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 {
-  uint8_t *rcvKeys = 0;
   /* NOTE THAT THIS PROCEEDS EVEN IF THE EXIT BLOCK IS INVALID!!! */
   
   /* inv.exit.code may be overwritten by the actual key handler: */
@@ -92,17 +91,18 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   inv->exit.pKey[2] = 0;
   inv->exit.pKey[3] = 0;
 
-  if (thisPtr == 0) {
+  if (thisPtr == 0
+      || ! proc_IsExpectingMsg(thisPtr) ) {
     inv->suppressXfer = true;
     return;
   }
 
   /* /thisPtr/ is valid. Decode the exit block. */
-  rcvKeys = (uint8_t *) &thisPtr->pseudoRegs.rcvKeys;
-
+  uint8_t * rcvKeys = (uint8_t *) &thisPtr->pseudoRegs.rcvKeys;
   if (thisPtr->pseudoRegs.rcvKeys) {
     if (thisPtr->pseudoRegs.rcvKeys & 0xe0e0e0e0) {
       proc_SetFault(thisPtr, FC_BadExitBlock, 0, false);
+      inv->invokee = 0;
       inv->suppressXfer = true;
       return;
     }
@@ -173,12 +173,6 @@ proc_DeliverGateResult(Process* thisPtr, Invocation* inv /*@ not null @*/, bool 
     uint32_t rcvBase = thisPtr->trapFrame.EDI;
     proc_SetFault(thisPtr, FC_ParmLack, rcvBase + inv->validLen, false);
   }
-
-
-  /* Make sure it isn't later overwritten by the general delivery
-   * mechanism.
-   */
-  inv->suppressXfer = true;
 }
 
 #ifndef ASM_VALIDATE_STRINGS /* This is the case. */

@@ -488,7 +488,7 @@ proc_DoKeyInvocation(Process* thisPtr)
   /* Roll back the invocation PC in case we need to restart this operation */
   proc_AdjustInvocationPC(thisPtr);
 
-  inv.suppressXfer = false;  /* suppress compiler bitching */
+  inv.suppressXfer = false;
   
   proc_SetupEntryBlock(thisPtr, &inv);
   // Set up to get the string from the invoker:
@@ -562,9 +562,6 @@ proc_DoKeyInvocation(Process* thisPtr)
   if (proc_IsRunnable(inv.invokee) == false)
     goto general_path;
   
-  if (inv.invKeyType == KKT_Resume && inv.key->keyPerms == KPRM_FAULT)
-    inv.suppressXfer = true;
-
   /* At this point, the only possible invocations we could be handling
      are CALL, RETURN, and PRETURN, so the following is correct: */
   thisPtr->runState = (inv.invType == IT_Call) ? RS_Waiting : RS_Available;
@@ -648,16 +645,18 @@ proc_DoKeyInvocation(Process* thisPtr)
      This is the C fast path, so we don't need to worry about the SEND
      case.
   */
-  if (inv.invokee && proc_IsExpectingMsg(inv.invokee))
-    proc_AdvancePostInvocationPC(inv.invokee);
+  if (proc_IsExpectingMsg(inv.invokee)) {
+    if (!inv.suppressXfer) {
+      proc_DeliverResult(inv.invokee, &inv);
+    }
+    // else this was done by GateKey
 
-  if (!inv.suppressXfer) {
-    proc_DeliverResult(inv.invokee, &inv);
-#if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
-    if (dbg_wild_ptr)
-      check_Consistency("DoKeyInvocation() after DeliverResult()\n");
-#endif
+    proc_AdvancePostInvocationPC(inv.invokee);
   }
+#if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
+  if (dbg_wild_ptr)
+    check_Consistency("DoKeyInvocation() after DeliverResult()\n");
+#endif
 
   if (inv.invokee != thisPtr) {
     /* Following is only safe because we handle non-call on primary
@@ -852,10 +851,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     inv.invokee = p;
     proc_Prepare(p);		/* may yield */
 
-    /* This is now checked in pk_GateKey.cxx */
-    if (inv.invKeyType == KKT_Resume && inv.key->keyPerms == KPRM_FAULT)
-      inv.suppressXfer = true;
-
     if (proc_IsWellFormed(p) == false) {
       /* Not hazarded because invocation key */
       /* Pretend we invoked a void key. */
@@ -877,6 +872,10 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     }
 #endif
     else if (inv.invKeyType == KKT_Start && p->runState != RS_Available) {
+#ifdef GATEDEBUG
+      dprintf(GATEDEBUG>2, "Start key, not Available\n");
+#endif
+  
       act_SleepOn(&p->stallQ);
       act_Yield();
     }
@@ -912,7 +911,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     Key* rk /*@ not null @*/ = inv.entry.key[3];
     key_Prepare(rk);
 
-    /* Kernel keys return as though via the returner, so the key in
+    /* Kernel keys do a prompt return, so the key in
      * slot four must be a resume key to a party in the right state.
      */
 
@@ -924,12 +923,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
       assert(p->runState == RS_Waiting);
       inv.invokee = p;
-
-      /* it can, however, be a fault key.  Since we are not going via
-       * GateKey(), request xfer suppression here.
-       */
-      if (rk->keyPerms == KPRM_FAULT)
-	inv.suppressXfer = true;
     }
     else
       assert (inv.invokee == 0);
@@ -1006,11 +999,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   dprintf(GATEDEBUG>2, "Populated exit block\n");
 #endif
   
-#ifdef GATEDEBUG
-  if (inv.suppressXfer)
-    dprintf(GATEDEBUG>2, "xfer is suppressed\n");
-#endif
-  
   /* Identify the activity that will migrate to the recipient.  Normally
    * it's the current activity.  If this is a SEND invocation, it's a
    * new activity.  Populate this activity consistent with the invokee.
@@ -1054,12 +1042,10 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     check_Consistency("DoKeyInvocation() before invoking handler\n");
 #endif
 
-  /* suppressXfer only gets set if this was a fault key, in which case 
-   * this is likely a re-invocation of the process by the keeper.
-   */
   if ( DDB_STOP(all) ||
        (DDB_STOP(gate) && invoked_gate_key) ||
-       (DDB_STOP(keeper) && inv.suppressXfer) ||
+       (DDB_STOP(keeper)
+        && ! proc_IsExpectingMsg(inv.invokee)) ||
        (DDB_STOP(pflag) && 
 	( (thisPtr->processFlags & PF_DDBINV) ||
 	  (inv.invokee && inv.invokee->processFlags & PF_DDBINV) ))
@@ -1083,6 +1069,9 @@ return void keys in the rest)
   6. Set any return words in inv.
   7. Set keyData if any in inv.
    */
+#ifdef GATEDEBUG
+  dprintf(GATEDEBUG>2, "Before proc_KeyDispatch\n");
+#endif
 
   proc_KeyDispatch(&inv);
   
@@ -1114,13 +1103,10 @@ return void keys in the rest)
 #endif
   
 #if defined(OPTION_DDB) && !defined(NDEBUG)
-  /* inv.suppressXfer only gets set if this was a fault key, in which
-   * case this is likely a re-invocation of the process by the keeper.
-   * FIX: This is no longer true
-   */
   if ( DDB_STOP(all) ||
        ( DDB_STOP(gate) && invoked_gate_key ) ||
-       ( DDB_STOP(keeper) && inv.suppressXfer) ||
+       (DDB_STOP(keeper)
+        && ! proc_IsExpectingMsg(inv.invokee)) ||
        ( DDB_STOP(return) && (inv.invType == IT_Return)) ||
        (DDB_STOP(pflag) && 
 	( (thisPtr->processFlags & PF_DDBINV) ||
@@ -1157,16 +1143,19 @@ return void keys in the rest)
        bothered to actually set them waiting, but they were logically
        in the waiting state nonetheless. */
 
-    if (inv.invokee && proc_IsExpectingMsg(inv.invokee))
-      proc_AdvancePostInvocationPC(inv.invokee);
+    if (proc_IsExpectingMsg(inv.invokee)) {
+      if (!inv.suppressXfer) {
+        proc_DeliverResult(inv.invokee, &inv);
+      }
+      // else this was done by GateKey
 
-    if (!inv.suppressXfer) {
-      proc_DeliverResult(inv.invokee, &inv);
-#if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
-      if (dbg_wild_ptr)
-	check_Consistency("DoKeyInvocation() after DeliverResult()\n");
-#endif
+      proc_AdvancePostInvocationPC(inv.invokee);
     }
+
+#if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
+    if (dbg_wild_ptr)
+      check_Consistency("DoKeyInvocation() after DeliverResult()\n");
+#endif
 
     /* If we are returning to ourselves, the resume key was never
      * generated.
@@ -1320,20 +1309,20 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
     dprintf(true, "About to invoke process keeper\n");
 
 #ifdef KPRDEBUG
-  dprintf(true, "Enter InvokeMyKeeper\n");
+  dprintf(false, "Enter InvokeMyKeeper\n");
 #endif
   
   // We should allow this also for a wrapper of a gate key.
   if (keyBits_IsGateKey(keeperKey)) {
 #ifdef KPRDEBUG
-    dprintf(true, "Kpr key is gate key");
+    dprintf(true, "Kpr key is gate key\n");
 #endif
 
     proc_DoGeneralKeyInvocation(thisPtr);	/* For better performance,
 	we could instead call the guts of proc_DoKeyInvocation. */
   } else {	// keeper is not a gate key
 #ifdef KPRDEBUG
-    dprintf(true, "Kpr key is NOT a gate key!");
+    dprintf(true, "Kpr key is NOT a gate key!\n");
 #endif
 
 #ifndef NDEBUG

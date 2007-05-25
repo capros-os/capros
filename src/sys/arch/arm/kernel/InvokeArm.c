@@ -103,7 +103,7 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
     fatal("Error loading w1-w3");
 
   uint8_t * sndKeys = (uint8_t *) &thisPtr->trapFrame.r2;
-  if (*(uint32_t *)sndKeys & 0xe0e0e0e0) {
+  if (thisPtr->trapFrame.r2 & 0xe0e0e0e0) {
     fatal("Invalid sndKeys: should fault the user"); // FIXME
   }
   
@@ -127,7 +127,6 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 void 
 proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 {
-  uint8_t *rcvKeys;
   /* NOTE THAT THIS PROCEEDS EVEN IF THE EXIT BLOCK IS INVALID!!! */
   
   /* inv.exit.code may be overwritten by the actual key handler: */
@@ -143,7 +142,8 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   inv->exit.pKey[2] = 0;
   inv->exit.pKey[3] = 0;
 
-  if (thisPtr == 0) {
+  if (thisPtr == 0
+      || ! proc_IsExpectingMsg(thisPtr) ) {
     inv->suppressXfer = true;
     return;
   }
@@ -153,13 +153,12 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   because that process's address map isn't loaded now.
   Fortunately we have stashed the values in registers. */
 
-  rcvKeys = (uint8_t *) &thisPtr->trapFrame.r14;
-
+  uint8_t * rcvKeys = (uint8_t *) &thisPtr->trapFrame.r14;
   if (thisPtr->trapFrame.r14) {		/* if any nonzero */
     if (thisPtr->trapFrame.r14 & 0xe0e0e0e0) {	/* if any too large */
       proc_SetFault(thisPtr, FC_BadExitBlock, 0, false);
+      inv->invokee = 0;
       inv->suppressXfer = true;
-      inv->invokee->processFlags &= ~PF_ExpectingMsg;
       return;
     }
     else {
@@ -238,12 +237,6 @@ proc_DeliverGateResult(Process* thisPtr,
     proc_SetFault(thisPtr, FC_ParmLack, rcvBase + inv->validLen, false);
 #endif
   }
-
-
-  /* Make sure it isn't later overwritten by the general delivery
-   * mechanism.
-   */
-  inv->suppressXfer = true;
 }
 
 void /* does not return */
