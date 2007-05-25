@@ -1238,49 +1238,12 @@
 	 <p> 
     <dt> <strong>Make Fault Key</strong> (OC = 162)
     <dd>
-	 <p> Fabricates a fault key to the process, placing the process
-	 in the <em>waiting</em> state.
-	 <table>
-	   <tr valign=top>
-	     <td>
-	       <strong>Reply</strong>
-	     </td>
-	     <td align=right>
-	       RK0
-	     </td>
-	     <td>
-	       A fault key to the process, or a void key.
-	     </td>
-	   </tr>
-	   <tr valign=top>
-	     <td rowspan=3>
-	       <strong>Result</strong>
-	     </td>
-	     <td align=right>
-	       RC_OK
-	     </td>
-	     <td>
-	       Operation completed successfully.
-	     </td>
-	   </tr>
-	   <tr valign=top>
-	     <td align=right>
-	       1
-	     </td>
-	     <td> The process was running or waiting. No action
-	       was taken, and the returned key is a void key.
-	     </td>
-	   </tr>
-	   <tr valign=top>
-	     <td align=right>
-	       2
-	     </td>
-	     <td>
-	       The process was malformed. No action was taken, and
-	       the returned key is a void key.
-	     </td>
-	   </tr>
-	 </table>
+	 <p> This operation is identical to <strong>Make Resume Key</strong>,
+         except it also puts the process in a state in which it will not accept
+         any message. Specifically, it clears the PF_ExpectingMsg bit in
+         the process's processFlags field. You use this operation when the
+         process's state is not set up to receive a message; invoking the
+         Resume key simply puts the process in the Running state. 
 	 <p> 
     <dt> <strong>Make Process Available</strong> (OC = 176)
     <dd>
@@ -1385,9 +1348,26 @@
 	 <p> 
   </dl>
 </div>
+</td>
+<td width="10%">&nbsp;</td>
+</tr>
+</table>
 <hr>
-<em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights reserved.  For terms of 
-redistribution, see the 
-<a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
-</td><td width="10%">&nbsp;</td></tr></table></BODY>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+<em>Copyright 1998, 2001 by Jonathan Shapiro,
+2007 by Strawberry Development Group.
+All rights reserved.  For terms of redistribution, see the 
+<a href="../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+</BODY>
 </html>
