@@ -236,9 +236,10 @@ DOMLIB += -lc # libc.a
 DOMCRT0=$(EROS_ROOT)/lib/$(EROS_TARGET)/crt0.o
 DOMCRTN=$(EROS_ROOT)/lib/$(EROS_TARGET)/crtn.o
 DOMSBRK=$(EROS_ROOT)/lib/$(EROS_TARGET)/sbrk.o
-DOMLINKOPT=-N -Ttext 0x0 -static -e _start -L$(EROS_ROOT)/lib/$(EROS_TARGET)
-# the following would help catch use of NULL pointers: (use under NDEBUG)
-#DOMLINKOPT=-N -Ttext 0x1000 -static -e _start -L$(EROS_ROOT)/lib/$(EROS_TARGET)
+# DOMBASE could be zero, but this value helps catch use of NULL pointers
+# by both user code and kernel code.
+DOMBASE=0x1000
+DOMLINKOPT=-N -Ttext $(DOMBASE) -static -e _start -L$(EROS_ROOT)/lib/$(EROS_TARGET)
 DOMLINK=$(EROS_LD)
 
 DOMLIB += $(DOMCRTN)

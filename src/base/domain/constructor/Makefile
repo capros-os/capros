@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, Strawberry Development Group.
+# Copyright (C) 2006, 2007, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -17,7 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 
 default: package
@@ -51,7 +54,8 @@ $(BUILDDIR)/metaconstructor: $(BUILDDIR)/metaconstructor.o $(DOMCRT0) $(DOMLIB)
 #	objdump --headers metaconstructor
 
 $(BUILDDIR)/protospace: $(BUILDDIR)/protospace.o $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(BUILDDIR)/protospace.o $(DOMLIB) -o $@
+# Protospace is well-known to start at zero, so override DOMLINKOPT.
+	$(DOMLINK) -Ttext 0 $(DOMLINKOPT) $(BUILDDIR)/protospace.o $(DOMLIB) -o $@
 #	objdump --headers protospace
 
 install: all

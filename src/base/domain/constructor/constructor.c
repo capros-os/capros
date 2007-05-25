@@ -271,7 +271,7 @@ MakeNewProduct(Message *msg)
   regs.faultInfo = 0;
   regs.domState = RS_Waiting;
   regs.domFlags = 0;
-  regs.pc = 0;			/* Place Holder!! */
+  regs.pc = 0;			/* Protospace pc, well known to be zero */
 #if defined(EROS_TARGET_i486)
   /* Unless we set them otherwise, the register values are zero.  The
      PC has already been set.  We now need to initialize the stack
