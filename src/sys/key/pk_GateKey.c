@@ -120,11 +120,6 @@ GateKey(Invocation* inv /*@ not null @*/)
     if (inv->exit.pKey[RESUME_SLOT]) {
       if (invType_IsCall(inv->invType)) {
 	proc_BuildResumeKey(act_CurContext(), inv->exit.pKey[RESUME_SLOT]);
-        /* The following is temporary until I get rid of the Fault key.
-           wantFault is unused. */
-        void NullProc(void);
-	if (inv->setupEntryStringProc == NullProc)
-	  inv->exit.pKey[RESUME_SLOT]->keyPerms = KPRM_FAULT;
       }
       else
 	key_NH_Set(inv->exit.pKey[RESUME_SLOT], inv->entry.key[RESUME_SLOT]);

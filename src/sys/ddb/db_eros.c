@@ -160,9 +160,6 @@ db_eros_print_key_details(Key* key /*@ not null @*/)
 
       db_printf(" blss=%d", keyBits_GetBlss(key));
     }
-    else if (keyBits_IsType(key, KKT_Resume) && key->keyPerms & KPRM_FAULT) {
-      db_printf(" (fault)");
-    }
     db_printf("\n");
   }
   else if (keyBits_IsType(key, KKT_Range) || keyBits_IsType(key, KKT_PrimeRange) ||

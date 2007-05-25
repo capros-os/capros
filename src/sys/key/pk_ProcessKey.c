@@ -417,16 +417,27 @@ ProcessKey(Invocation* inv /*@ not null @*/)
     inv->exit.code = RC_eros_key_UnknownRequest;
     return;
 
-  case OC_Process_MkResumeKey:
   case OC_Process_MkFaultKey:
+    {
+      Process * p = node_GetDomainContext(theNode);
+      proc_Prepare(p);
+
+      COMMIT_POINT();
+
+      p->processFlags &= ~PF_ExpectingMsg;
+    
+      goto makeResumeKey;
+    }
+
+  case OC_Process_MkResumeKey:
     COMMIT_POINT();
 
+makeResumeKey:
     if (inv->exit.pKey[0]) {
       inv_SetExitKey(inv, 0, inv->key);
       key_NH_Unprepare(inv->exit.pKey[0]);	/* Why? */
       keyBits_InitType(inv->exit.pKey[0], KKT_Resume);
-      inv->exit.pKey[0]->keyPerms =
-	(inv->entry.code == OC_Process_MkResumeKey) ? 0 : KPRM_FAULT;
+      inv->exit.pKey[0]->keyPerms = 0;
     }
 
     inv->exit.code = RC_OK;

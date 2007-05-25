@@ -121,10 +121,6 @@ node_ClearHazard() handles all these cases.
 #define EXTRACT_PRM(d) ((d) >> 13)
 #define ENCODE_PRM(p) ( ((uint32_t) (p)) << 13 )
 
-/* A fault key is a resume key whose permissions are marked KPRM_FAULT */
-#define KPRM_FAULT         0x1
-
-
 struct KeyBits {
   union {
     struct {
