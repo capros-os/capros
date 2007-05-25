@@ -853,7 +853,7 @@ db_inv_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
     return;
   }
   
-  if (INVTYPE_ISVALID(invType))
+  if (invType <= 6)
     theTypeName = invTypeName[invType];
   
   if (inv.key) {
