@@ -234,6 +234,31 @@ inv_Commit(Invocation* thisPtr)
 #ifndef NDEBUG
   InvocationCommitted = true;
 #endif
+
+  /* Revise the invoker runState. */
+  Process * invoker = act_CurContext();
+
+  switch (inv.invType) {
+    // Note, prompt types have been converted to nonprompt by this time.
+  case IT_Return:
+    invoker->runState = RS_Available;
+#if 0
+    dprintf(false, "Wake up the waiters sleeping on dr=0x%08x\n", invoker);
+#endif
+    sq_WakeAll(&invoker->stallQ, false);
+    break;
+
+  case IT_Send:
+    // invoker remains RS_Running
+    break;
+
+  case IT_Call:
+  case IT_KeeperCall:
+    invoker->runState = RS_Waiting;
+    break;
+
+  default: assert(false);
+  }
 }
 
 bool 
@@ -561,13 +586,12 @@ proc_DoKeyInvocation(Process* thisPtr)
 
   if (proc_IsRunnable(inv.invokee) == false)
     goto general_path;
-  
-  /* At this point, the only possible invocations we could be handling
-     are CALL, RETURN, and PRETURN, so the following is correct: */
-  thisPtr->runState = (inv.invType == IT_Call) ? RS_Waiting : RS_Available;
-  thisPtr->processFlags |= PF_ExpectingMsg;
-  // FIXME: Don't change runstate until after committed!
 
+  /* PF_ExpectingMsg isn't significant while RS_Running, so it is OK
+  to change it before the invocation is committed. */
+  assert(inv.invType != IT_KeeperCall);
+  thisPtr->processFlags |= PF_ExpectingMsg;
+  
   /* It does not matter if the invokee fails to prepare!
    */
   proc_SetupExitBlock(inv.invokee, &inv);
@@ -674,9 +698,6 @@ proc_DoKeyInvocation(Process* thisPtr)
 #endif
   }
   
-  if (thisPtr->runState == RS_Available)
-    sq_WakeAll(&thisPtr->stallQ, false);
-
   inv_Cleanup(&inv);
   inv.invokee = 0;
 
@@ -735,17 +756,6 @@ proc_DoKeyInvocation(Process* thisPtr)
 void
 proc_DoGeneralKeyInvocation(Process* thisPtr)
 {
-  /* Revise the invoker runState to what it will be when this is all
-   * over.  We'll fix it above if we yield.
-   */
-  static const uint8_t newState[IT_NUM_INVTYPES] = {
-    RS_Available,		/* IT_Return */
-    RS_Available,		/* IT_PReturn */
-    RS_Waiting,			/* IT_Call */
-    RS_Waiting,			/* IT_PCall */
-    RS_Running,			/* IT_Send */
-  };
-
   activityToRelease = 0;
 
   assert(keyBits_IsPrepared(inv.key));
@@ -935,22 +945,14 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     dprintf(GATEDEBUG>2, "Invokee doesn't exist\n");
 #endif
 
-  /* Pointer to the domain root (if any) whose sleepers we should
-   * awaken on successful completion:
-   */
-  Process * wakeRoot = 0;
-
-  thisPtr->runState = newState[inv.invType];
+  /* PF_ExpectingMsg isn't significant while RS_Running, so it is OK
+  to change it before the invocation is committed.
+  Need to set it now in case the invoker is also the invokee. */
   if (inv.invType == IT_KeeperCall)
     thisPtr->processFlags &= ~PF_ExpectingMsg;
   else
     thisPtr->processFlags |= PF_ExpectingMsg;
-  // FIXME: Don't change runstate until after committed!
 
-  if (thisPtr->runState == RS_Available)
-    /* Ensure that we awaken the sleeping activityies (if any). */
-    wakeRoot = thisPtr;
-  
   /********************************************************************
    * AT THIS POINT we know that the invocation will complete in
    * principle. It is still possible that the invoker will block while
@@ -1198,13 +1200,6 @@ return void keys in the rest)
       dprintf(GATEDEBUG>2, "Woke up forkee\n");
 #endif
     }
-  }
-  
-  if (wakeRoot) {
-#if 0
-    dprintf(false, "Wake up all of the losers sleeping on dr=0x%08x\n", wakeRoot);
-#endif
-    sq_WakeAll(&wakeRoot->stallQ, false);
   }
   
 #ifdef DBG_WILD_PTR
