@@ -242,9 +242,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       ac = node_GetDomainContext(theNode);
       proc_Prepare(ac);
 
-#ifndef OPTION_PURE_EXIT_STRINGS
       proc_SetupExitString(inv->invokee, inv, sizeof(regs));
-#endif
 
       COMMIT_POINT();
 

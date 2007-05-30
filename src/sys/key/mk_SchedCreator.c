@@ -39,10 +39,8 @@ Approved for public release, distribution unlimited. */
 void
 SchedCreatorKey(Invocation* inv /*@ not null @*/)
 {
-#ifndef OPTION_PURE_EXIT_STRINGS
   if (inv->entry.code == OC_SchedCre_Get)
     proc_SetupExitString(inv->invokee, inv, sizeof(struct CpuReserveInfo));
-#endif
 
   COMMIT_POINT();
       

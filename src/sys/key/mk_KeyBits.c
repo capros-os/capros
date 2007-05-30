@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
@@ -73,9 +76,7 @@ KeyBitsKey(Invocation* inv /*@ not null @*/)
       struct eros_KeyBits_info kbi;
       KeyBits dupKey;
 
-#ifndef OPTION_PURE_EXIT_STRINGS
       proc_SetupExitString(inv->invokee, inv, sizeof(kbi));
-#endif
 
       /* This is dirty - we need to arrive at the *unprepared* version
        * of the key, but without creaming the actual key:
@@ -83,10 +84,8 @@ KeyBitsKey(Invocation* inv /*@ not null @*/)
 
       kbi.version = eros_KeyBits_VERSION;
       kbi.valid = 1;
-      
 
       key_Prepare(inv->entry.key[0]);
-
       
       COMMIT_POINT();
       
