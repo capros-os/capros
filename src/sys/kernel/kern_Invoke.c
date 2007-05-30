@@ -949,8 +949,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     thisPtr->processFlags |= PF_ExpectingMsg;
 
   /********************************************************************
-   * AT THIS POINT we know that the invocation will complete in
-   * principle. It is still possible that the invoker will block while
+   * It is still possible that the invoker will block while
    * some part of the invokee gets paged in or while waiting for an
    * available Activity structure.  The latter is a problem, and needs
    * to be dealt with.  Note that the finiteness of the activity pool
@@ -960,12 +959,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
    * with this, but that can wait.
    *********************************************************************/
 
-
-#ifdef GATEDEBUG
-  dprintf(GATEDEBUG>3, "Checked for well-formed recipient\n");
-#endif
-
-
   if (inv.invokee && proc_IsWellFormed(inv.invokee) == false) {
 #ifdef GATEDEBUG
     dprintf(GATEDEBUG>2, "Invokee malformed\n");
@@ -973,7 +966,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
     inv.invokee = 0;
   }
-
 
   assert(keyBits_IsPrepared(inv.key));
   
@@ -1175,10 +1167,6 @@ return void keys in the rest)
 #ifdef GATEDEBUG
   dprintf(GATEDEBUG>2, "Cleaned up invocation\n");
 #endif
-
-#ifdef GATEDEBUG
-  dprintf(GATEDEBUG>2, "Updated invokee runstate\n");
-#endif
   
   if (activityToMigrate) {
     act_MigrateTo(activityToMigrate, inv.invokee);
@@ -1202,15 +1190,6 @@ return void keys in the rest)
     extern void ValidateAllActivityies();
     ValidateAllActivities();
   }
-#endif
-
-#ifdef GATEDEBUG
-  dprintf(GATEDEBUG>2, "Migrated the activity\n");
-#else
-#if 0
-  if ( invoked_gate_key )
-    dprintf(true, "Migrated the activity\n");
-#endif
 #endif
 
   inv.invokee = 0;
@@ -1241,15 +1220,6 @@ return void keys in the rest)
 #endif
 }
 
-void
-NullProc(void)
-{}
-
-/* KEEPER INVOCATION -- this looks a lot like key invocation, and the
- * code for the two should probably be merged.  The difficulty is that
- * the keeper invocation code is able to make a variety of useful
- * assumptions about abandonment that the general path cannot make.
- */
 /* May Yield. */
 void
 proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,

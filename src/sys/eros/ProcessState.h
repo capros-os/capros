@@ -91,7 +91,7 @@ Approved for public release, distribution unlimited. */
 #define FC_ForeignInvocation  41  /* Process has no key registers */
 #define FC_BadEntryBlock      42  /* Invocation had bad entry block */
 #define FC_BadExitBlock       43  /* Invocation had bad exit block */
-#define FC_ParmLack           44  /* Some part of exit data is block missing */
+//			44
 #define FC_BadSegReg          45  /* Segment register holds invalid value */
 #define FC_NoFPU              46  /* Floating point unit not present */
 #define FC_FloatingPointError 47  /* Floating point exception or fault */

@@ -181,15 +181,6 @@ proc_DeliverGateResult(Process* thisPtr, Invocation* inv /*@ not null @*/, bool 
    */
 
   thisPtr->trapFrame.ESI = inv->sentLen;
-
-  /* If the recipient specified an invalid receive area, though, they
-   * are gonna get FC_ParmLack:
-   */
-
-  if (inv->validLen < inv->exit.len) {
-    uint32_t rcvBase = thisPtr->trapFrame.EDI;
-    proc_SetFault(thisPtr, FC_ParmLack, rcvBase + inv->validLen, false);
-  }
 }
 
 /* May Yield. */
@@ -373,11 +364,5 @@ proc_DeliverResult(Process* thisPtr, Invocation* inv /*@ not null @*/)
    */
 
   thisPtr->trapFrame.ESI = inv->sentLen;
-
-  /* If the recipient specified an invalid receive area, though, they
-   * are gonna get FC_ParmLack:
-   */
-  if (inv->validLen < inv->exit.len)
-    proc_SetFault(thisPtr, FC_ParmLack, rcvPtr + inv->validLen, false);
 }
 

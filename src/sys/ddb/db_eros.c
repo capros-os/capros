@@ -881,9 +881,6 @@ db_entry_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
   if (inv_IsActive(&inv) == false)
     db_printf("WARNING: no active invocation\n");
   
-  db_printf("Entry: 0x%08x, data 0x%08x len %d invocation %U\n",
-	    inv.entry.code, inv.entry.data, inv.entry.len,
-	    (uint32_t) KernStats.nInvoke);
   for (i = 0; i < 4; i++) {
     if (inv.entry.key[i]) {
       db_printf("%d: (0x%08x): ", i, inv.entry.key[i]);
@@ -894,6 +891,9 @@ db_entry_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
   db_printf("w0: 0x%08x w1: 0x%08x w2: 0x%08x w3: 0x%08x\n",
 	    inv.entry.code, inv.entry.w1, inv.entry.w2, inv.entry.w3);
 
+  db_printf("String: data 0x%08x len %d inv count=%u\n",
+	    inv.entry.data, inv.entry.len,
+	    (uint32_t) KernStats.nInvoke);
   db_printf(" str: ");
   db_eros_print_string(inv.entry.data, inv.entry.len);
 }
@@ -907,9 +907,6 @@ db_exit_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
   if (inv_IsActive(&inv) == false)
     db_printf("WARNING: No active invocation\n");
   
-  db_printf("Exit: 0x%08x, data 0x%08x len %d valid len %d invocation %u\n",
-	    inv.exit.code, inv.exit.data, inv.exit.len, inv.validLen,
-	    (uint32_t) KernStats.nInvoke);
   for (i = 0; i < 4; i++) {
     if (inv.exit.pKey[i]) {
       db_printf("%d: (0x%08x): ", i, inv.exit.pKey[i]);
@@ -919,6 +916,9 @@ db_exit_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
 
   db_printf("w0: 0x%08x w1: 0x%08x w2: 0x%08x w3: 0x%08x\n",
 	    inv.exit.code, inv.exit.w1, inv.exit.w2, inv.exit.w3);
+  db_printf("String: data 0x%08x len %d valid len %d inv count=%u\n",
+	    inv.exit.data, inv.exit.len, inv.validLen,
+	    (uint32_t) KernStats.nInvoke);
 }
 
 void

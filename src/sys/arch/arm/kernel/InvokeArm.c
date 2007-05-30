@@ -63,18 +63,6 @@ proc_DeliverResult(Process * thisPtr, Invocation * inv /*@ not null @*/)
    */
 
   thisPtr->trapFrame.r14 = inv->sentLen;
-
-  /* If the recipient specified an invalid receive area, though, they
-   * are gonna get FC_ParmLack:
-   */
-  if (inv->validLen < inv->exit.len) {
-#if 1
-printf("Unimplemented ParmLack\n");
-#else
-    uint32_t rcvPtr = thisPtr->trapFrame.EDI;
-    proc_SetFault(thisPtr, FC_ParmLack, rcvPtr + inv->validLen, false);
-#endif
-  }
 }
 
 /* May Yield. */
@@ -344,23 +332,6 @@ proc_DeliverGateResult(Process* thisPtr,
    */
 
   thisPtr->trapFrame.r14 = inv->sentLen;
-
-  /* If the recipient specified an invalid receive area, though, they
-   * are gonna get FC_ParmLack:
-   */
-
-  /* BUG? This seems wrong, since exit.len is set to no more than validLen
-     in inv_CopyOut. */
-  if (inv->validLen < inv->exit.len) {
-#if 1
-    fatal("Setting FC_ParmLack");
-#else
-    uint32_t rcvBase;
-    rcvBase = thisPtr->trapFrame.EDI;
-
-    proc_SetFault(thisPtr, FC_ParmLack, rcvBase + inv->validLen, false);
-#endif
-  }
 }
 
 void /* does not return */
