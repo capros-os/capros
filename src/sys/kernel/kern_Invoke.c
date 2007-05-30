@@ -375,22 +375,23 @@ inv_IsCorrupted(Invocation* thisPtr)
  * bytes.  Rewrite the process receive count field to indicate the
  * number of bytes actually transferred.
  */
-uint32_t 
+void
 inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data)
 {
   assert(InvocationCommitted);
+  // sentLen should have been set up by a call to proc_SetupExitString.
+  assert(thisPtr->sentLen == len);
 
-  thisPtr->sentLen = len;
+  if (thisPtr->exit.rcvLen < len)
+    len = thisPtr->exit.rcvLen;	// take minimum
 
-  if (thisPtr->validLen < len)
-    len = thisPtr->validLen;
+  if (len) {
+    memcpy(thisPtr->exit.data, data, len);
 
-  thisPtr->exit.len = len;
-  
-  if (thisPtr->exit.len)
-    memcpy(thisPtr->exit.data, data, thisPtr->exit.len);
-
-  return thisPtr->exit.len;
+#ifdef OPTION_KERN_STATS
+    KernStats.bytesMoved += len;
+#endif
+  }
 }
 
 /* Copy at most COUNT bytes in from the process.  If the process
@@ -588,12 +589,6 @@ proc_DoKeyInvocation(Process* thisPtr)
   proc_SetupExitBlock(inv.invokee, &inv);
 #ifdef GATEDEBUG
   dprintf(true, "Fast path, set up exit block\n");
-#endif
-
-#ifdef OPTION_PURE_EXIT_STRINGS
-#error conversion required here
-  if (inv.validLen != 0)
-    inv.invokee->SetupExitString(inv, inv.validLen);
 #endif
 
   {
@@ -979,10 +974,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
    * Note that we may be calling this with 'this == 0'
    */
   proc_SetupExitBlock(inv.invokee, &inv);
-#ifdef OPTION_PURE_EXIT_STRINGS
-  if (inv.validLen != 0)
-    inv.invokee->SetupExitString(inv, inv.validLen);
-#endif
 
 #ifdef GATEDEBUG
   dprintf(GATEDEBUG>2, "Populated exit block\n");

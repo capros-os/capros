@@ -100,8 +100,6 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   inv->exit.w1 = 0;
   inv->exit.w2 = 0;
   inv->exit.w3 = 0;
-  inv->exit.len = 0;		/* setting this twice cheaper than branch */
-  inv->validLen = 0;		/* until proven otherwise. */
 
   inv->exit.pKey[0] = 0;
   inv->exit.pKey[1] = 0;
@@ -110,7 +108,8 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   if (thisPtr == 0
       || ! proc_IsExpectingMsg(thisPtr) ) {
-    inv->suppressXfer = true;
+    inv->exit.rcvLen = 0;	/* needed because I think invokee==0 is not
+			checked before xfer */
     return;
   }
 
@@ -120,7 +119,8 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
     if (thisPtr->pseudoRegs.rcvKeys & 0xe0e0e0e0) {
       proc_SetFault(thisPtr, FC_BadExitBlock, 0, false);
       inv->invokee = 0;
-      inv->suppressXfer = true;
+      inv->exit.rcvLen = 0;	/* needed because I think invokee==0 is not
+			checked before xfer */
       return;
     }
     else {
@@ -135,11 +135,11 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
     }
   }
   
-  inv->validLen = thisPtr->trapFrame.ESI;
+  inv->exit.rcvLen = thisPtr->trapFrame.ESI;
 
   /* Should this set a fault code? */
-  if (inv->validLen > EROS_MESSAGE_LIMIT)
-    inv->validLen = EROS_MESSAGE_LIMIT;
+  if (inv->exit.rcvLen > EROS_MESSAGE_LIMIT)
+    inv->exit.rcvLen = EROS_MESSAGE_LIMIT;
 
   assert( proc_IsRunnable(thisPtr) );
 }
@@ -185,16 +185,19 @@ proc_DeliverGateResult(Process* thisPtr, Invocation* inv /*@ not null @*/, bool 
 
 /* May Yield. */
 void 
-proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/, uint32_t bound)
+proc_SetupExitString(Process* thisPtr,
+                     Invocation* inv /*@ not null @*/, uint32_t senderLen)
 {
-  ula_t addr;
-#ifndef OPTION_PURE_EXIT_STRINGS
-  if (inv->validLen == 0)
+  inv->sentLen = senderLen; // amount that is sent
+  
+  if (senderLen > inv->exit.rcvLen) {
+    senderLen = inv->exit.rcvLen;   // take minimum
+  }
+  
+  if (senderLen == 0)
     return;
-#endif
 
-  if (inv->validLen > bound)
-    inv->validLen = bound;
+  ula_t addr;
 
   /* In the case where we are going cross-space, we need to do some
    * fairly hairy crud here, but for device drivers it is important to
@@ -220,7 +223,7 @@ proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/, uint32_
 #else
     ula_t ula = trapFrame.EDI;
 #endif
-    ula_t ulaTop = ula + inv->validLen;
+    ula_t ulaTop = ula + senderLen;
     ula &= ~EROS_PAGE_MASK;
 
     while (ula < ulaTop) {
@@ -229,11 +232,13 @@ proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/, uint32_
 	pte0 = proc_BuildMapping(thisPtr, ula, true, true);
 
       if (pte0 == 0) {
-        /* here be bugs */
+        /* FIXME: here be bugs */
+#if 0
 	uint32_t lenHere = ula - thisPtr->trapFrame.EDI;
-	if (lenHere < inv->validLen)
+	if (lenHere < senderLen)
 	  inv->validLen = lenHere;
 	break;
+#endif
       }
       
       ula += EROS_PAGE_SIZE;
@@ -280,7 +285,7 @@ proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/, uint32_
 
     inv->exit.data = (uint8_t *) addr;
 
-    ulaTop = ula + inv->validLen;
+    ulaTop = ula + senderLen;
 
     ula &= ~EROS_PAGE_MASK;
 
@@ -291,12 +296,12 @@ proc_SetupExitString(Process* thisPtr, Invocation* inv /*@ not null @*/, uint32_
 
       if (pte0 == 0) {
         /* here be bugs */
+#if 0
 	uint32_t lenHere = ula - thisPtr->trapFrame.EDI;
-
 	if (lenHere < inv->validLen)
 	  inv->validLen = lenHere;
-
 	break;
+#endif
       }
     
 #ifdef KVA_PTEBUF

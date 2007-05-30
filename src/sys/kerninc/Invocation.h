@@ -52,8 +52,8 @@ struct ExitBlock {
   fixreg_t w1;
   fixreg_t w2;
   fixreg_t w3;
-  uint8_t  *data;
-  uint32_t len;
+  uint32_t rcvLen;
+  uint8_t * data;
 
   Key      *pKey[4];
 };
@@ -112,8 +112,7 @@ struct Invocation {
   EntryBlock entry;
   ExitBlock exit;
 
-  uint32_t validLen;		/* bytes that can be validly received */
-  uint32_t sentLen;		/* amount actually sent */
+  uint32_t sentLen;		/* amount sent (may be more than received) */
   
   // #define invKeyType key->keyType
 #ifndef invKeyType
@@ -125,7 +124,7 @@ struct Invocation {
 
 typedef struct Invocation Invocation;
 
-uint32_t 
+void
 inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data);
 uint32_t 
 inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data);

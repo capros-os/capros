@@ -56,7 +56,6 @@ GateKey(Invocation* inv /*@ not null @*/)
 
 #ifdef OPTION_KERN_STATS
   KernStats.nGateJmp++;
-  KernStats.bytesMoved += inv->exit.len;
 #endif
 
   assert(inv->invokee);	// FIXME: what about invoking gate key to malformed?

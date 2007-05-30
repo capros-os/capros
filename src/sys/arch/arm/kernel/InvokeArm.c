@@ -167,8 +167,6 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   inv->exit.w1 = 0;
   inv->exit.w2 = 0;
   inv->exit.w3 = 0;
-  inv->exit.len = 0;		/* setting this twice cheaper than branch */
-  inv->validLen = 0;		/* until proven otherwise. */
 
   inv->exit.pKey[0] = 0;
   inv->exit.pKey[1] = 0;
@@ -177,7 +175,8 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   if (thisPtr == 0
       || ! proc_IsExpectingMsg(thisPtr) ) {
-    inv->suppressXfer = true;
+    inv->exit.rcvLen = 0;	/* needed because I think invokee == 0 is not
+			checked before xfer */
     return;
   }
 
@@ -191,7 +190,8 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
     if (thisPtr->trapFrame.r14 & 0xe0e0e0e0) {	/* if any too large */
       proc_SetFault(thisPtr, FC_BadExitBlock, 0, false);
       inv->invokee = 0;
-      inv->suppressXfer = true;
+      inv->exit.rcvLen = 0;	/* needed because I think invokee == 0 is not
+			checked before xfer */
       return;
     }
     else {
@@ -206,11 +206,11 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
     }
   }
   
-  inv->validLen = thisPtr->trapFrame.r12;	/* rcv_limit */
+  inv->exit.rcvLen = thisPtr->trapFrame.r12;	/* rcv_limit */
 
   /* Should this set a fault code? */
-  if (inv->validLen > EROS_MESSAGE_LIMIT)
-    inv->validLen = EROS_MESSAGE_LIMIT;
+  if (inv->exit.rcvLen > EROS_MESSAGE_LIMIT)
+    inv->exit.rcvLen = EROS_MESSAGE_LIMIT;
 
   assert( proc_IsRunnable(thisPtr) );
 }
@@ -218,15 +218,16 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 // May Yield.
 void 
 proc_SetupExitString(Process * thisPtr, Invocation * inv /*@ not null @*/,
-                     uint32_t bound)
+                     uint32_t senderLen)
 {
-#ifndef OPTION_PURE_EXIT_STRINGS
-  if (inv->validLen == 0)
-    return;
-#endif
+  inv->sentLen = senderLen;	// amount that is sent
 
-  if (inv->validLen > bound)
-    inv->validLen = bound;
+  if (senderLen > inv->exit.rcvLen) {
+    senderLen = inv->exit.rcvLen;	// take minimum
+  }
+
+  if (senderLen == 0)
+    return;
 
   assert( proc_IsRunnable(thisPtr) );
 
@@ -260,7 +261,7 @@ revalidate:
     // Got rcv_data in va.
     va = proc_VAToMVA(thisPtr, va);
 	// FIXME: string could cross into 0x02000000!
-    uva_t vaTop = va + inv->validLen;
+    uva_t vaTop = va + senderLen;
     uva_t pgPtr = va & ~EROS_PAGE_MASK;
     // Validate every destination page.
     for (; pgPtr < vaTop; pgPtr += EROS_PAGE_SIZE) {

@@ -916,8 +916,8 @@ db_exit_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
 
   db_printf("w0: 0x%08x w1: 0x%08x w2: 0x%08x w3: 0x%08x\n",
 	    inv.exit.code, inv.exit.w1, inv.exit.w2, inv.exit.w3);
-  db_printf("String: data 0x%08x len %d valid len %d inv count=%u\n",
-	    inv.exit.data, inv.exit.len, inv.validLen,
+  db_printf("String: data 0x%08x len %d inv count=%u\n",
+	    inv.exit.data, inv.exit.rcvLen,
 	    (uint32_t) KernStats.nInvoke);
 }
 
