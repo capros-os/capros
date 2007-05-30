@@ -46,15 +46,6 @@ Approved for public release, distribution unlimited. */
 #define DEBUG_NESTED_IRET
 #define TRAP_DEBUG
 	
-/* Following are now in the Makefile:	
-	
-   ASM_VALIDATE_STRINGS
- */
-
-#ifdef ASM_VALIDATE_STRINGS
-#error "ASM_VALIDATE_STRINGS not implemented"
-#endif
-
 #include "process_asm_offsets.h"
 
 /* Offsets into a virgin trap frame */

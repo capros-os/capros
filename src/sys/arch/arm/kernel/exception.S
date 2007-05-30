@@ -35,10 +35,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 //#define CHECKREGS
 #endif
 
-#ifdef ASM_VALIDATE_STRINGS
-#error "ASM_VALIDATE_STRINGS not implemented"
-#endif
-
 	.text
 // InitExceptionHandlers is entered and exits in Supervisor mode
 // with IRQ and FIQ disabled.

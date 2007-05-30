@@ -143,7 +143,7 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
                               &addr)) {
     /* Try to map the address. */
     /* This should be a procedure ... */
-    printf("proc_SetupEntryString fault, unimplemented\n");
+    printf("SetupEntryString fault, unimplemented\n");
   }
 
   /* Since this is the UNmodified virtual address, the sender's PID
@@ -162,7 +162,7 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
                                 &unused)) {
       /* Try to map the address. */
       /* This should be a procedure ... */
-      printf("proc_SetupEntryString fault, unimplemented\n");
+      printf("SetupEntryString fault, unimplemented\n");
     }
   }
 }

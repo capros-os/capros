@@ -31,23 +31,6 @@ Approved for public release, distribution unlimited. */
 
 /* Machine-specific inline helper functions for process operations: */
 
-#ifdef ASM_VALIDATE_STRINGS
-#error This is not the case.
-
-INLINE void 
-proc_SetupEntryString(void)
-{
-#ifndef OPTION_SMALL_SPACES
-  const uint32_t bias = 0;
-#endif
-      
-  uint32_t addr = (uint32_t) trapFrame.sndPtr + bias + KUVA;
-  
-  inv.entry.data = (uint8_t *) addr;
-}
-
-#endif
-
 INLINE uint32_t
 proc_GetRcvKeys(Process * thisPtr)
 {
