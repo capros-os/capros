@@ -1,7 +1,8 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+# Copyright (C) 2007, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,7 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 # Python script to configure a kernel.
 #
@@ -641,25 +645,19 @@ for line in template.readlines():
 	    ofile = os.path.splitext(ofile)[0]
 	    out.write("$(BUILDDIR)/%s.o: $(TOP)/%s\n" % (ofile, f))
 	    if (suffix == ".c"):
-		out.write("\t$(C_BUILD)\n\n")
-	    elif (suffix == ".cxx"):
-		out.write("\t$(CXX_BUILD)\n\n")
-	    elif (suffix == ".S"):
-		out.write("\t$(ASM_BUILD)\n\n")
-
-	    out.write("$(BUILDDIR)/.%s.m: $(TOP)/%s\n" % (ofile, f))
-	    if (suffix == ".c"):
+		out.write("\t$(C_BUILD)\n")
 		out.write("\t$(C_DEP)\n\n")
 	    elif (suffix == ".cxx"):
+		out.write("\t$(CXX_BUILD)\n")
 		out.write("\t$(CXX_DEP)\n\n")
 	    elif (suffix == ".S"):
+		out.write("\t$(ASM_BUILD)\n")
 		out.write("\t$(ASM_DEP)\n\n")
 
             if (suffix == ".c"):
-                out.write("$(BUILDDIR)/.%s.cfg.m: $(TOP)/%s\n" % (ofile, f))
-		out.write("\t$(MOPS_DEP)\n\n")
                 out.write("$(BUILDDIR)/%s.cfg: $(TOP)/%s\n" % (ofile, f))
-		out.write("\t$(MOPS_BUILD)\n\n")
+		out.write("\t$(MOPS_BUILD)\n")
+		out.write("\t$(MOPS_DEP)\n\n")
     else:
 	out.write(line)
 
