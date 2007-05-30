@@ -516,15 +516,6 @@ proc_DoKeyInvocation(Process* thisPtr)
   inv.suppressXfer = false;
   
   proc_SetupEntryBlock(thisPtr, &inv);
-  // Set up to get the string from the invoker:
-  inv.setupEntryStringProc = &proc_SetupEntryString;
-  
-#ifdef OPTION_PURE_ENTRY_STRINGS
-  /* Set up the entry string, faulting in any necessary data pages and
-   * constructing an appropriate kernel mapping: */
-  if (inv.entry.len != 0)
-    SetupEntryString(inv);
-#endif
 
 #ifdef GATEDEBUG
   printf("Ivk proc=0x%08x ", thisPtr);
@@ -595,6 +586,10 @@ proc_DoKeyInvocation(Process* thisPtr)
   /* It does not matter if the invokee fails to prepare!
    */
   proc_SetupExitBlock(inv.invokee, &inv);
+#ifdef GATEDEBUG
+  dprintf(true, "Fast path, set up exit block\n");
+#endif
+
 #ifdef OPTION_PURE_EXIT_STRINGS
 #error conversion required here
   if (inv.validLen != 0)
@@ -1297,8 +1292,6 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
 #endif
 
   inv.entry.data = data;
-  // The entry string is already set up:
-  inv.setupEntryStringProc = &NullProc;
   
   if ( DDB_STOP(keeper) )
     dprintf(true, "About to invoke process keeper\n");

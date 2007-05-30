@@ -38,7 +38,6 @@ void
 proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 {
   uint8_t *sndKeys = 0;
-  uint32_t len = 0;
   
   /* Not hazarded because invocation key */
   inv->key = &thisPtr->keyReg[thisPtr->pseudoRegs.invKey];
@@ -62,12 +61,30 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   inv->entry.key[2] = &thisPtr->keyReg[sndKeys[2]];
   inv->entry.key[3] = &thisPtr->keyReg[sndKeys[3]];
 
-  /* Figure out the string length: */
-  
-  len = thisPtr->pseudoRegs.sndLen;
-
-  inv->entry.len = len;
   inv->sentLen = 0;		/* set in CopyOut */
+  
+  /* Set up the entry string, faulting in any necessary data pages and
+   * constructing an appropriate kernel mapping: */
+  uint32_t len = thisPtr->pseudoRegs.sndLen;
+  inv->entry.len = len;
+
+  if (len == 0)
+    return;
+
+  /* Make sure the string gets mapped if there is one: */
+
+  ula_t ula = thisPtr->pseudoRegs.sndPtr + thisPtr->md.bias;
+  inv->entry.data = (uint8_t *) (ula + KUVA);
+
+  ula_t ulaTop = ula + len;
+
+  for (ula &= ~EROS_PAGE_MASK;
+       ula < ulaTop;
+       ula += EROS_PAGE_SIZE) {
+    PTE * pte0 = proc_TranslatePage(thisPtr, ula, PTE_V|PTE_USER, false);
+    if (pte0 == 0)
+      pte0 = proc_BuildMapping(thisPtr, ula, false, false);
+  }
 }
 
 
@@ -174,41 +191,6 @@ proc_DeliverGateResult(Process* thisPtr, Invocation* inv /*@ not null @*/, bool 
     proc_SetFault(thisPtr, FC_ParmLack, rcvBase + inv->validLen, false);
   }
 }
-
-#ifndef ASM_VALIDATE_STRINGS /* This is the case. */
-/* May Yield. */
-void 
-proc_SetupEntryString(void)
-{
-  Process * thisPtr = act_CurContext();
-  ula_t ula;
-  ula_t ulaTop;
-  uint32_t addr;
-#ifndef OPTION_PURE_ENTRY_STRINGS
-  if (inv.entry.len == 0)
-    return;
-#endif
-
-  /* Make sure the string gets mapped if there is one: */
-
-  ula = thisPtr->pseudoRegs.sndPtr + thisPtr->md.bias;
-
-  ulaTop = ula + inv.entry.len;
-  ula &= ~EROS_PAGE_MASK;
-
-  while (ula < ulaTop) {
-    PTE *pte0 = proc_TranslatePage(thisPtr, ula, PTE_V|PTE_USER, false);
-    if (pte0 == 0)
-      pte0 = proc_BuildMapping(thisPtr, ula, false, false);
-
-    ula += EROS_PAGE_SIZE;
-  }
-
-  addr = (uint32_t) thisPtr->pseudoRegs.sndPtr + thisPtr->md.bias + KUVA;
-  
-  inv.entry.data = (uint8_t *) addr;
-}
-#endif /* ASM_VALIDATE_STRINGS */
 
 /* May Yield. */
 void 

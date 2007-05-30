@@ -45,10 +45,6 @@ ConsoleKey(Invocation* inv /*@ not null @*/)
   switch(inv->entry.code) {
   case OC_Console_Put:
     {
-#ifndef OPTION_PURE_ENTRY_STRINGS
-      inv_SetupEntryString();
-#endif
-
       COMMIT_POINT();
 
       if (inv->entry.len > 1024) {

@@ -36,6 +36,14 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
+INLINE ula_t
+proc_VAToMVA(Process * thisPtr, uva_t va)
+{
+  if ((va & PID_MASK) == 0)
+    return va + thisPtr->md.pid;
+  else return va;
+}
+
 void 
 proc_DeliverResult(Process * thisPtr, Invocation * inv /*@ not null @*/)
 {
@@ -73,6 +81,9 @@ printf("Unimplemented ParmLack\n");
 void 
 proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 {
+  /* Note, sender's DACR and PID are loaded, so we can reference the
+  user's memmory without adding the PID or checking access. */
+
   uva_t const entryMessage = thisPtr->trapFrame.r0;
   uint32_t const invKeyAndType = thisPtr->trapFrame.r1;
   
@@ -113,13 +124,47 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   inv->entry.key[2] = &thisPtr->keyReg[sndKeys[2]];
   inv->entry.key[3] = &thisPtr->keyReg[sndKeys[3]];
 
-  inv->entry.len = thisPtr->trapFrame.r3;
   inv->sentLen = 0;		/* set in CopyOut */
 
   key_Prepare(inv->key);
 #ifndef invKeyType
   inv->invKeyType = keyBits_GetType(inv->key);
 #endif
+
+  /* Set up the entry string, faulting in any necessary data pages and
+   * constructing an appropriate kernel mapping: */
+  uint32_t sndLen = inv->entry.len = thisPtr->trapFrame.r3;
+  if (sndLen == 0)
+    return;
+
+  /* Get user's snd_addr from his Message structure. */
+  ula_t addr;
+  if (! LoadWordFromUserSpace(entryMessage + offsetof(Message, snd_data),
+                              &addr)) {
+    /* Try to map the address. */
+    /* This should be a procedure ... */
+    printf("proc_SetupEntryString fault, unimplemented\n");
+  }
+
+  /* Since this is the UNmodified virtual address, the sender's PID
+  must remain loaded as long as we might need the string. */
+  inv->entry.data = (uint8_t *) addr;
+
+  /* Ensure each page of the string is mapped. */
+  ula_t ulaTop = addr + sndLen;	/* addr of last byte +1 */
+  for (addr &= ~EROS_PAGE_MASK;
+       addr < ulaTop;
+       addr += EROS_PAGE_SIZE) {
+    /* Fastest way to see if it is mapped is to try to fetch it.
+       We don't use the value fetched. */
+    uint32_t unused;
+    if (! LoadWordFromUserSpace(addr,
+                                &unused)) {
+      /* Try to map the address. */
+      /* This should be a procedure ... */
+      printf("proc_SetupEntryString fault, unimplemented\n");
+    }
+  }
 }
 
 /* NOTE that this can be called with /thisPtr/ == 0, and must guard
@@ -180,6 +225,85 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
     inv->validLen = EROS_MESSAGE_LIMIT;
 
   assert( proc_IsRunnable(thisPtr) );
+}
+
+// May Yield.
+void 
+proc_SetupExitString(Process * thisPtr, Invocation * inv /*@ not null @*/,
+                     uint32_t bound)
+{
+#ifndef OPTION_PURE_EXIT_STRINGS
+  if (inv->validLen == 0)
+    return;
+#endif
+
+  if (inv->validLen > bound)
+    inv->validLen = bound;
+
+  assert( proc_IsRunnable(thisPtr) );
+
+revalidate:
+  if (act_CurContext()->md.firstLevelMappingTable
+      == thisPtr->md.firstLevelMappingTable ) {
+    // Processes are using the same map.
+    // The PID of act_CurContext() is loaded.
+    mach_LoadDACR(thisPtr->md.dacr);
+    // Ensure the destination is mapped.
+    uva_t va = thisPtr->trapFrame.r0; // VA of Message structure
+    // FIXME: who checks that this is word-aligned?
+    va += offsetof(Message, rcv_data);	// VA of Message.rcv_data
+    // Must calculate MVA because this proc's PID may not be loaded.
+    va = proc_VAToMVA(thisPtr, va);
+    if (! LoadWordFromUserSpace(va, (uint32_t *)&va)) {
+      // Not mapped, try to map it.
+      // FIXME: Does proc_DoPageFault check access (wrong domain)?
+      if (! proc_DoPageFault(thisPtr, va,
+            false /* read only */, true /* prompt */ )) {
+        fatal("proc_SetupExitString needs to fault, unimplemented!");
+      } else {
+        // We repaired the fault. BUT, in so doing, we may have
+        // invalidated some other map needed for this operation.
+        // Therefore start validating all over again.
+        // NOTE this may even need to go back to the caller.
+        // FIXME: need a retry count
+        goto revalidate;
+      }
+    }
+    // Got rcv_data in va.
+    va = proc_VAToMVA(thisPtr, va);
+	// FIXME: string could cross into 0x02000000!
+    uva_t vaTop = va + inv->validLen;
+    uva_t pgPtr = va & ~EROS_PAGE_MASK;
+    // Validate every destination page.
+    for (; pgPtr < vaTop; pgPtr += EROS_PAGE_SIZE) {
+      uint32_t word;
+      if (! LoadWordFromUserSpace(pgPtr, &word)) {
+        // Not mapped, try to map it.
+        if (! proc_DoPageFault(thisPtr, pgPtr,
+              true /* write */, true /* prompt */ )) {
+          fatal("proc_SetupExitString needs to fault, unimplemented!");
+        } else {
+          goto revalidate;
+        }
+      }
+    }
+    // Restore DACR of current process.
+    // ? mach_LoadDACR(act_CurContext()->md.dacr);
+    mach_LoadDACR(0x55555555);	// need access to both from and to domains
+    // FIXME: Figure out when the DACR has what. 
+    // Current process's map is current, so destination addr is too.
+    inv->exit.data = (uint8_t *)va;
+  } else {
+    // Processes are using different maps.
+    fatal("proc_SetupExitString cross-space unimplemented!\n");
+  }
+
+  /* The segment walking logic may have set a fault code.  Clear it
+   * here, since no segment keeper invocation should happen as a
+   * result of the above.  We know this was the prior state, as the
+   * domain would not otherwise have been runnable.  */
+  // FIXME: Prevent setting the fault.
+  proc_SetFault(thisPtr, FC_NoFault, 0, false);
 }
 
 void 

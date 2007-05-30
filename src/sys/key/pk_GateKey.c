@@ -47,9 +47,6 @@ GateKey(Invocation* inv /*@ not null @*/)
   assert(! keyBits_IsType(inv->key, KKT_Resume)
          || invokee->runState == RS_Waiting );
   
-#ifndef OPTION_PURE_ENTRY_STRINGS
-  inv_SetupEntryString();
-#endif
 #ifndef OPTION_PURE_EXIT_STRINGS
   // this is the case
   proc_SetupExitString(inv->invokee, inv, inv->entry.len);

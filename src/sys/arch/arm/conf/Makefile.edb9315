@@ -72,10 +72,6 @@ DEF += $(EROS_TEST_DEFS)
 # a mops installation locally, don't build the MOPS files.
 OPT_MOPS=0
 
-ifeq "$(OPT_PURE_ENTRY_STRINGS)" "1"
-DEF+=-DASM_VALIDATE_STRINGS
-endif
-
 OPTIM += $(EROS_GCC_KERNEL_ALIGN)
 
 LIBS=$(EROS_LIBGCC) -lc

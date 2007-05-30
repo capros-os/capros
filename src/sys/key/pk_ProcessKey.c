@@ -271,10 +271,6 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       ArchContext* ac = theNode->GetDomainContext();
       ac->Prepare();
       
-#ifndef OPTION_PURE_ENTRY_STRINGS
-      Thread::CurContext()->SetupEntryString(inv);
-#endif
-
       COMMIT_POINT();
 
       inv.CopyIn(sizeof(info), &info);
@@ -305,10 +301,6 @@ ProcessKey(Invocation* inv /*@ not null @*/)
 
       ac = node_GetDomainContext(theNode);
       proc_Prepare(ac);
-
-#ifndef OPTION_PURE_ENTRY_STRINGS
-      inv_SetupEntryString();
-#endif
 
       COMMIT_POINT();
 

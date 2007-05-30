@@ -894,12 +894,8 @@ db_entry_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
   db_printf("w0: 0x%08x w1: 0x%08x w2: 0x%08x w3: 0x%08x\n",
 	    inv.entry.code, inv.entry.w1, inv.entry.w2, inv.entry.w3);
 
-#ifdef OPTION_PURE_ENTRY_STRINGS
   db_printf(" str: ");
   db_eros_print_string(inv.entry.data, inv.entry.len);
-#else
-  db_printf(" (impure entry strings)\n");
-#endif
 }
 
 void

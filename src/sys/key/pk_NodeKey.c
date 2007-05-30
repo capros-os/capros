@@ -438,10 +438,6 @@ NodeKey(Invocation* inv /*@ not null @*/)
 	return;
       }
 
-#ifndef OPTION_PURE_ENTRY_STRINGS
-      inv_SetupEntryString();
-#endif
-
       /* If we overwrite it, we're going to nail all of it's
        * dependencies anyway:
        */
@@ -548,10 +544,6 @@ NodeKey(Invocation* inv /*@ not null @*/)
       theNode->Unprepare(true);
 
       theNode->MakeObjectDirty();
-
-#ifndef OPTION_PURE_ENTRY_STRINGS
-      Thread::CurContext()->SetupEntryString(inv);
-#endif
 
       COMMIT_POINT();
 

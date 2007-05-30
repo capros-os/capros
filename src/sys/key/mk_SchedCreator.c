@@ -43,10 +43,6 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
   if (inv->entry.code == OC_SchedCre_Get)
     proc_SetupExitString(inv->invokee, inv, sizeof(struct CpuReserveInfo));
 #endif
-#ifndef OPTION_PURE_ENTRY_STRINGS
-  if (inv->entry.code == OC_SchedCre_Set)
-    inv_SetupEntryString();
-#endif
 
   COMMIT_POINT();
       

@@ -33,10 +33,6 @@ Approved for public release, distribution unlimited. */
 
 #ifdef ASM_VALIDATE_STRINGS
 #error This is not the case.
-/* The reason to do this is that until OPTION_PURE_ENTRY_STRINGS is removed
-   there are a whole lot of places where this gets called.
-   The net effect is that ASM_VALIDATE_STRINGS implies
-   OPTION_PURE_ENTRY_STRINGS whether OPTION_PURE_ENTRY_STRINGS is set or not. */
 
 INLINE void 
 proc_SetupEntryString(void)
