@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group
+ * Copyright (C) 2006, 2007, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -19,7 +19,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
@@ -72,10 +73,6 @@ main()
 
 //  eros_Sleep_sleep(KR_SLEEP, 4000);	// sleep 4000 ms
 
-#define INCR_ITERATIONS 150000000
-  kprintf(KR_OSTREAM, "Beginning %d increments\n", INCR_ITERATIONS);
-  for (i = INCR_ITERATIONS; i > 0; i--) ;
-
   kprintf(KR_OSTREAM, "Beginning %d calls to echo domain\n", ITERATIONS);
 
   for (i = 0; i < ITERATIONS; i++)
@@ -84,6 +81,10 @@ main()
   kprintf(KR_OSTREAM, "Beginning %d calls to check\n", CheckInterations);
   for (i = 0; i < CheckInterations; i++)
     eros_arch_arm_SysTrace_CheckConsistency(KR_SYSTRACE);
+
+#define INCR_ITERATIONS 150000000
+  kprintf(KR_OSTREAM, "Beginning %d increments\n", INCR_ITERATIONS);
+  for (i = INCR_ITERATIONS; i > 0; i--) ;
 
   kprintf(KR_OSTREAM, "Done\n");
 
