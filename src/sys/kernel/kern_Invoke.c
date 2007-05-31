@@ -38,6 +38,7 @@ Approved for public release, distribution unlimited. */
 
 #include <kerninc/Machine.h>
 #include <kerninc/KernStats.h>
+#include <eros/KeyConst.h>	// segment and wrapper defs
 
 /* #define GATEDEBUG 5
  * #define KPRDEBUG

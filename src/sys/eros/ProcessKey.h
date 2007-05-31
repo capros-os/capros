@@ -3,8 +3,9 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -20,15 +21,32 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*
  * This file resides in eros/ because the kernel and the invocation
  * library various must agree on the values.
  */
 
-/* Local Variables: */
-/* comment-column:34 */
-/* End: */
+
+/* Slots of a process root. Changes here should be matched in the
+ * architecture-dependent layout files and also in the mkimage grammar
+ * restriction checking logic. */
+#define ProcSched             0
+#define ProcKeeper            1
+#define ProcAddrSpace         2
+#define ProcCapSpace          3	/* unimplemented */
+#define ProcGenKeys           3 /* for now */
+#define ProcIoSpace           4	/* unimplemented */
+#define ProcSymSpace          5
+#define ProcBrand             6
+/*			      7    unused */
+#define ProcTrapCode          8
+#define ProcPCandSP           9
+#define ProcFirstRootRegSlot  8
+#define ProcLastRootRegSlot   31
 
 /* ORDER and RESULT code values: */
 
@@ -60,8 +78,9 @@
 #define RC_Process_NoKeys	 	3
 
 #ifndef __ASSEMBLER__
+#ifndef __KERNEL__	// these are not kernel procedures
 
-#include <eros/machine/Registers.h>
+struct Registers;
 
 uint32_t process_make_start_key(uint32_t procKey, uint16_t keyData, uint32_t toReg);
 uint32_t process_make_fault_key(uint32_t procKey, uint32_t toReg);
@@ -72,6 +91,7 @@ uint32_t process_copy(uint32_t krProcess, uint32_t slot, uint32_t krTo);
 uint32_t process_copy_keyreg(uint32_t krProcess, uint32_t slot, uint32_t krTo);
 uint32_t process_swap_keyreg(uint32_t krProcess, uint32_t slot, uint32_t krFrom, uint32_t krTo);
 
+#endif // __KERNEL__
 #endif /* __ASSEMBLER__ */
 
 #endif /* __PROCESSKEY_H__ */

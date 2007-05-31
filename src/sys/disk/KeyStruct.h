@@ -26,7 +26,6 @@ Approved for public release, distribution unlimited. */
 
 #include <disk/ErosTypes.h>
 #include <eros/StdKeyType.h>
-#include <eros/KeyConst.h>
 #ifdef __KERNEL__
 #include <kerninc/Link.h>
 #endif

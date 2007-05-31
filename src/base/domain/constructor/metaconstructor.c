@@ -37,6 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/StdKeyType.h>
 #include <eros/ProcessState.h>
 #include <eros/NodeKey.h>
+#include <eros/machine/Registers.h>
 
 #include <idl/eros/key.h>
 #include <idl/eros/Number.h>

@@ -2,9 +2,9 @@
 #define __EROS_KEY_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -20,6 +20,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifndef __STDKEYTYPE_H__
 #include <eros/StdKeyType.h>
@@ -65,26 +68,6 @@
    14: Background Key (variable - determined by format key)
    15: Format Key
    */
-
-/* Slots of a process root. Changes here should be matched in the
- * architecture-dependent layout files and also in the mkimage grammar
- * restriction checking logic. */
-#define ProcSched             0
-#define ProcKeeper            1
-#define ProcAddrSpace         2
-#define ProcCapSpace          3	/* unimplemented */
-#define ProcGenKeys           3 /* for now */
-#define ProcIoSpace           4	/* unimplemented */
-#define ProcSymSpace          5
-#define ProcBrand             6
-/*			      7    unused */
-#define ProcTrapCode          8
-#define ProcPCandSP           9
-#define ProcFirstRootRegSlot  8
-#define ProcLastRootRegSlot   31
-
-
-/* #define ProcAltMsgBuf         6 */
 
 #define WrapperSpace          0
 #define WrapperBackground     29

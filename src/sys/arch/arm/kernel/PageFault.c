@@ -24,6 +24,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
+#include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
 #include <kerninc/Check.h>
 #include <kerninc/KernStats.h>
@@ -530,7 +531,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   wi.writeAccess = isWrite;
   wi.wantLeafNode = false;
   
-  segwalk_init(&wi, proc_GetSegRoot(p));
+  segwalk_init(&wi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace));
 
   if (p->md.firstLevelMappingTable == FLPT_FCSEPA) {
     if (p->md.pid != 0 && p->md.pid != PID_IN_PROGRESS) {

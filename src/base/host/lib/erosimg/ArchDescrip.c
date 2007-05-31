@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include <eros/target.h>
+#include <eros/ProcessKey.h>
 #include <erosimg/ArchDescrip.h>
 #include <erosimg/ErosImage.h>
 #include <erosimg/Diag.h>

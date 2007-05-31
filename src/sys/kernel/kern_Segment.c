@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
 #include <arch-kerninc/PTE.h>
+#include <eros/KeyConst.h>	// segment and wrapper defs
 
 /* Extracted as macro for clarity of code below, which is already too
  * complicated. 

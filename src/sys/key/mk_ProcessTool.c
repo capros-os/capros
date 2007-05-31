@@ -27,6 +27,8 @@
 #include <kerninc/Node.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
+#include <eros/ProcessKey.h>
+#include <eros/KeyConst.h>	// segment and wrapper defs
 
 #include <idl/eros/key.h>
 #include <idl/eros/ProcTool.h>

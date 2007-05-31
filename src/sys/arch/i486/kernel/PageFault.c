@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
+#include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
 #include <kerninc/Check.h>
 #include <kerninc/KernStats.h>
@@ -520,7 +521,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   wi.writeAccess = isWrite;
   wi.wantLeafNode = false;
   
-  segwalk_init(&wi, proc_GetSegRoot(p));
+  segwalk_init(&wi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace));
 
 #ifdef OPTION_SMALL_SPACES
   if (p->md.smallPTE) {

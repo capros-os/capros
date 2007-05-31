@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Depend.h>
+#include <eros/ProcessKey.h>
 
 static inline bool
 proc_IsKeyReg(const Key * pKey)

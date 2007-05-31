@@ -219,12 +219,6 @@ proc_IsWellFormed(Process* thisPtr)
     return true;
 }
 
-INLINE Key* 
-proc_GetSegRoot(Process* thisPtr)
-{
-  return node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace);
-}
-
 #ifdef EROS_HAVE_FPU
 /* FPU support: */
 

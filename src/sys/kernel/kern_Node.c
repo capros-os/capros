@@ -24,6 +24,7 @@ Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Node.h>
+#include <eros/ProcessKey.h>
 #include <kerninc/util.h>
 #include <kerninc/Check.h>
 #include <kerninc/Process.h>
@@ -33,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/IRQ.h>
 #include <kerninc/ObjectCache.h>
+#include <eros/KeyConst.h>	// segment and wrapper defs
 
 #define PREPDEBUG
 
