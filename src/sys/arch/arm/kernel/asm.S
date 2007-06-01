@@ -159,7 +159,39 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 	mov r0,#0	/* return false */
 	mov pc,lr
 
-	ENTRY(act_Yield)
+/* SafeLoadByte
+   Returns true iff successful. */
+	ENTRY(SafeLoadByte)
+/* The following instruction will fault if the user does not have access.
+   The fault handler recognizes this instruction address. */
+	ENTRY(SafeLoadByteInstr)
+	ldrb r2,[r0]
+	strb r2,[r1]
+	mov r0,#1	/* successful, return true */
+	mov pc,lr
+
+/* If the above access failed, we get here. */
+	ENTRY(SafeLoadByteReturn)
+	mov r0,#0	/* return false */
+	mov pc,lr
+
+/* SafeStoreByte
+   Returns true iff successful. */
+	ENTRY(SafeStoreByte)
+/* The following instruction will fault if the user does not have access.
+   The fault handler recognizes this instruction address. */
+	ENTRY(SafeStoreByteInstr)
+	strb r1,[r0]
+	mov r0,#1	/* successful, return true */
+	mov pc,lr
+
+/* If the above access failed, we get here. */
+	ENTRY(SafeStoreByteReturn)
+	mov r0,#0	/* return false */
+	mov pc,lr
+
+
+	ENTRY(mach_Yield)
 	ldr sp,=(kstackBot)	/* Empty the stack! */
 #ifndef NDEBUG
 	mov fp,#0		// to terminate stack traceback

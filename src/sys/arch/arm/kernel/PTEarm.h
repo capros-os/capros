@@ -196,6 +196,8 @@ void mach_LoadTTBR(kpa_t ttbr);
 void mach_LoadPID(uint32_t pid);
 void mach_LoadDACR(uint32_t dacr);
 bool LoadWordFromUserSpace(uva_t userAddr, uint32_t * resultP);
+bool SafeLoadByte(uint8_t * addr, uint8_t * resultP);
+bool SafeStoreByte(uint8_t * addr, uint8_t value);
 MapTabHeader * AllocateCPT(void);
 
 bool proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt);

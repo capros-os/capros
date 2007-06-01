@@ -157,20 +157,5 @@ idt_OnKeyInvocationTrap(savearea_t * saveArea)
   assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
   assert( irq_DISABLE_DEPTH() == 1 );
 
-  act_Reschedule();
-
-  /* After calling Reschedule we should at least have the idle thread. */
-
-  assert (act_Current());
-
-  /* We are about to do a return from interrupt, which path must not
-   * be interrupted.  Disable interrupts prior to return:
-   */
-  assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
-  assert( irq_DISABLE_DEPTH() == 1 );
-
-  /* Otherwise resume some thread.  Note that we may be returning to a
-   * non-user thread here.
-   */
-  proc_Resume();
+  ExitTheKernel();
 }

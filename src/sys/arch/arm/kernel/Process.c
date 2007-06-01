@@ -52,7 +52,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
  * #define RESUMEDEBUG
  * #define XLATEDEBUG
  */
-void resume_process(Process * p) NORETURN; 
 
 Process * proc_ContextCache = NULL;
 Process * proc_ContextCacheRegion = NULL;
@@ -332,12 +331,6 @@ kproc_Init(
 
   memset(&p->trapFrame, 0, sizeof(p->trapFrame));
   
-  /* Initialize the per-activity save area so that we can schedule this
-   * activity.  When the activity is initiated by resume_process() for the
-   * first time, it will execute the first instruction of its Start
-   * routine.
-   */
-
   proc_ResetMappingTable(p);	/* kernel access only */
   p->trapFrame.CPSR = 0x1f;	/* System mode */
   p->trapFrame.r15 = (uint32_t) pc;
@@ -744,43 +737,17 @@ proc_DoPrepare(Process* thisPtr)
   sq_WakeAll(&thisPtr->stallQ, false);
 }
 
+/* Architecture-dependent C code for resuming a process. */
 void 
-proc_Resume(void)
+ExitTheKernel_MD(Process * thisPtr)
 {
-  Process * thisPtr = act_CurContext();
-#ifndef NDEBUG
-  if ( thisPtr->curActivity != act_Current() )
-    fatal("Context 0x%08x (%d) not for current activity 0x%08x (%d)\n",
-	       thisPtr, thisPtr - proc_ContextCache,
-		  act_Current(),
-		  act_Current() - act_ActivityTable);
-
-  if ( act_CurContext() != thisPtr )
-    fatal("Activity context 0x%08x not me 0x%08x\n",
-	       act_CurContext(), thisPtr);
-
-#endif
-
   /* must have kernel access */
   assert(thisPtr->md.firstLevelMappingTable != 0);
   assert((thisPtr->md.dacr & 0x3) == 1);
-
-  UpdateTLB();
   
 #if 1
 if (thisPtr->trapFrame.r15 & 0x3)
   printf("Resume user process 0x%08x pc=0x%08x pid=0x%08x\n", thisPtr,
          thisPtr->trapFrame.r15, thisPtr->md.pid);
 #endif
-  
-  /* IRQ must be disabled here. */
-  assert( irq_DISABLE_DEPTH() == 1 );
-
-  /* While a process is running, irq_DisableDepth is zero.
-     After all, IRQ is enabled. 
-     irq_DisableDepth is incremented again on an exception. 
-     But no one should be looking at that, except maybe privileged
-     processes. */
-  irq_DisableDepth--;
-  resume_process(thisPtr);	/* continue in assembly code */
 }

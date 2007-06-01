@@ -1494,6 +1494,11 @@ bogus_ipc_arg_block:
 	/* INTERRUPTS MUST BE DISABLED ON ENTRY TO THIS FUNCTION */
 	.align 16
 ENTRY(resume_process)
+#ifdef V86_SUPPORT
+#error need to implement:
+  if ((thisPtr->fixRegs.EFLAGS & EFLAGS::Virt8086))
+    goto resume_v86_process
+#endif
 	pushl	%ebp
 	movl	%esp,%ebp
 
@@ -1702,7 +1707,7 @@ L_v86_iret_pc:
 
 .text
 	.align 16
-ENTRY(act_Yield)
+ENTRY(mach_Yield)
 	/* FIX -- this stack pointer needs to be rewound to 
 	   top arithmetically. */
 	movl	$(EXT(kernelStack)+EROS_KSTACK_SIZE),%esp

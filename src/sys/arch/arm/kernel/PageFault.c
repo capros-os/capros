@@ -31,7 +31,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Node.h>
 #include <kerninc/ObjectCache.h>
-#include <kerninc/Depend.h>
 #include <kerninc/Machine.h>
 #include <kerninc/Debug.h>
 #include <kerninc/Process.h>
@@ -347,7 +346,7 @@ FindProduct(SegWalk * wi /*@not null@*/ ,
 
 /* Handle page fault from user or system mode.
    This is called from the Abort exception handlers.
-   This procedure does not return - it calls proc_Resume().  */
+   This procedure does not return - it calls ExitTheKernel().  */
 void
 PageFault(bool prefetch,	/* else data abort */
           uint32_t fsr,	/* fault status */
@@ -461,8 +460,7 @@ PageFault(bool prefetch,	/* else data abort */
    * not be any.
    */
 
-  act_Reschedule();
-  proc_Resume();
+  ExitTheKernel();
 }
 
 #define DATA_PAGE_FLAGS  (PTE_ACC|PTE_USER|PTE_V)
@@ -560,6 +558,9 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     return false;
   }
 
+  DEBUG(pgflt)
+    printf("Traversed to top level\n");
+
   /* It is unlikely but possible that one of the depend entries created
   in walking this portion of the tree was reclaimed by a later entry
   created in walking this portion. Check for that here. */
@@ -634,6 +635,9 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     return false;
   }
 
+  DEBUG(pgflt)
+    printf("Traversed to second level\n");
+
   if (* theFLPTEntry != PTE_IN_PROGRESS)
     act_Yield();
 
@@ -679,6 +683,9 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
         proc_InvokeSegmentKeeper(p, &wi, true, va);
       return false;
     }
+
+  DEBUG(pgflt)
+    printf("Traversed to page\n");
 
   if (thePTE->w_value != PTE_IN_PROGRESS)
     act_Yield();

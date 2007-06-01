@@ -789,6 +789,48 @@ act_DoReschedule(void)
   assert( irq_DISABLE_DEPTH() == 1 );
 }
 
+// May Yield.
+void
+ExitTheKernel(void)
+{
+  UpdateTLB();
+  
+  if ((act_yieldState != 0)
+      || ! act_IsRunnable(act_curActivity) ) {
+    act_DoReschedule();
+  }
+  assert(act_Current());
+
+  Process * thisPtr = act_CurContext();
+#ifndef NDEBUG
+  if ( thisPtr->curActivity != act_Current() )
+    fatal("Context 0x%08x (%d) not for current activity 0x%08x (%d)\n",
+	       thisPtr, thisPtr - proc_ContextCache,
+		  act_Current(),
+		  act_Current() - act_ActivityTable);
+
+  if ( act_CurContext() != thisPtr )
+    fatal("Activity context 0x%08x not me 0x%08x\n",
+	       act_CurContext(), thisPtr);
+
+#endif
+
+  /* IRQ must be disabled here. */
+  assert( irq_DISABLE_DEPTH() == 1 );
+
+  /* While a process is running, irq_DisableDepth is zero.
+     After all, IRQ is enabled. 
+     irq_DisableDepth is incremented again on an exception. 
+     But no one should be looking at that, except maybe privileged
+     processes. */
+
+  // Call architecture-dependent C code for resuming a process.
+  ExitTheKernel_MD(thisPtr);
+
+  // Call architecture-dependent assembly code for resuming a process.
+  resume_process(thisPtr);	// does not return
+}
+
 void 
 sq_WakeAll(StallQueue* q, bool b/* verbose*/)
 {
@@ -1085,7 +1127,5 @@ act_HandleYieldEntry(void)
     irq_DISABLE();
   
   assert( irq_DISABLE_DEPTH() == 1 );
-  //printf("about to call act_Reschedule...%d\n", act_curActivity->readyQ->mask);
-  act_Reschedule();
-  proc_Resume();
+  ExitTheKernel();
 }

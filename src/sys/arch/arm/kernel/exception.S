@@ -121,14 +121,25 @@ AbortBadMode:
 	cmpeq r0,#0		// and data abort?
 	bne AbortError		// no, something seriously wrong
 	// A data abort from supervisor mode.
-	ldr r1,=LoadWordFromUserSpace
-	cmp r1,lr		// abort from this location?
-	ldreq lr,=LoadWordFromUserSpaceReturn
-	beq SupTransfer		// yes, handle it
-	ldr r1,=SWI_CSwap32_Ref
-	cmp r1,lr		// abort from this location?
-////	ldreq lr,=where?
-////	beq SupTransfer		// yes, handle it
+	// Look up the PC in a table.
+	add r0,pc,#(TransferTable - (.+8))	// table addr to r0
+1:	ldr r1,[r0],#8		// first word of a pair
+	cmp r1,#0
+	beq AbortError		// end of table
+	cmp r1,lr		// does the PC match?
+	bne 1b			// no, try next entry in table
+// Found a match.
+	ldr lr,[r0,#-4]	// second word of the pair - where to transfer to
+	str lr,[sp,#12]
+	ldmfd sp!,{r0-r1,r12,pc}^
+
+TransferTable:
+	.long LoadWordFromUserSpaceInstr,LoadWordFromUserSpaceReturn
+	.long SafeLoadByteInstr,SafeLoadByteReturn
+	.long SafeStoreByteInstr,SafeStoreByteReturn
+////	.long SWI_CSwap32_Ref, ???
+	.long 0		// end of table
+
 AbortError:
 	stmfd sp!,{r0,r2,r3,r12}	// save registers
 
@@ -144,10 +155,6 @@ AbortError:
 	bl printf
 0:	bl Debugger
 	b 0b
-
-SupTransfer:
-	str lr,[sp,#12]
-	ldmfd sp!,{r0-r1,r12,pc}^
 
 /***********************************************************************
  Unused exception handler
@@ -279,15 +286,21 @@ stackMsg:	.asciz "IRQ Stack is off"
 	.balign 4
 1:
 #endif
+
+	// What follows is an optimized version of ExitTheKernel().
+
+	// Interrupt handlers should never invalidate mappings,
+	// so it's not necessary to call UpdateTLB().
+
 	// Do we need to run a different process?
-	// This is the same test as in act_Reschedule(), except that
-	// interrupts can only wake up Processes; the current Process
-	// cannot become unrunnable.
+	// This is the same test as in ExitTheKernel(), except that
+	// interrupts can only wake up Processes, not suspend them;
+	// the current Process cannot become unrunnable.
 	ldr r0,=act_yieldState
 	ldr r0,[r0]
 	cmp r0,#0
-IRQReturnToKernel:
-	/* If eq, we are restoring a CPSR that has IRQ enabled,
+	/* If eq, we can quickly return to the process we interrupted.
+	We are restoring a CPSR that has IRQ enabled,
 	therefore we set irq_DisableDepth zero. */
 	ldreq r0,=irq_DisableDepth
 	moveq r1,#0
@@ -332,7 +345,12 @@ supStackMsg:	.asciz "Supervisor Stack is 0x%x should be 0x%x\n"
 #endif
 
 	bl act_DoReschedule
-	b proc_Resume
+
+	ldr lr,=act_curActivity
+	ldr lr,[lr]		// current Activity
+	/* Process field in the Activity follows the Link, so at offset 8. */
+	ldr r0,[lr,#8]		// current Process
+	b resume_process
 
 /***********************************************************************
  FIQ handler
@@ -485,6 +503,12 @@ SWI_XchgKeyReg_Handler:
 
 	ENTRY(resume_process)
 /* r0 has a pointer to the Process structure. */
+// irq_DisableDepth ==1 on entry
+
+	ldr r2,=irq_DisableDepth	// decrement it to zero
+	mov r1,#0
+	str r1,[r2]
+
 	ldr sp,=(kstackBot)	// empty the kernel stack!
 #if 0	// if trying to find a bug
 	mov r4,r0

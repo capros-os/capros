@@ -189,15 +189,9 @@ act_IsRunnable(Activity* thisPtr)
 	  && (thisPtr->context->processFlags & PF_Faulted) == 0);
 }
 
-// May Yield.
-INLINE void 
-act_Reschedule(void) 
-{
-  if ((act_yieldState != 0)
-      || ! act_IsRunnable(act_curActivity) ) {
-    act_DoReschedule();
-  }
-}
+void ExitTheKernel(void) NORETURN;
+void ExitTheKernel_MD(Process *);		// architecture-dependent
+void resume_process(Process *) NORETURN;	// architecture-dependent
 
 #ifndef NDEBUG
 void act_ValidateActivity(Activity* thisPtr);
@@ -246,7 +240,16 @@ act_MigrateTo(Activity* thisPtr, Process *dc)
 }
 
 /* Called by the activity when it wishes to yield the processor: */
-void act_Yield(void) NORETURN;
+INLINE void act_Yield(void) NORETURN;
+INLINE void
+act_Yield(void)
+{
+#if 0
+  dprintf(false, "act_Yield\n");
+#endif
+  extern void mach_Yield(void) NORETURN;
+  mach_Yield();
+}
 
 void act_HandleYieldEntry(void) NORETURN;
 

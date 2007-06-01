@@ -44,6 +44,10 @@ Approved for public release, distribution unlimited. */
  * #define KPRDEBUG
  */
 
+#ifdef GATEDEBUG
+#include <eros/ProcessKey.h>
+#endif
+
 /* #define TESTING_INVOCATION */
 
 #ifdef TESTING_INVOCATION
@@ -344,7 +348,7 @@ void
 inv_RetryInvocation(Invocation* thisPtr)
 {
   inv_Cleanup(thisPtr);
-  act_CurContext()->runState = RS_Running;
+  act_CurContext()->runState = RS_Running;	// FIXME: still needed?
 
   act_Yield();
   /* Returning all the way to user mode and taking an invocation exception

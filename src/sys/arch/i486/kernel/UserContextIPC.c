@@ -48,34 +48,10 @@ Approved for public release, distribution unlimited. */
  * #define XLATEDEBUG
  */
 
-/*extern "C" {*/
-extern void resume_process(Process *) NORETURN;
-#ifdef V86_SUPPORT
-extern void resume_v86_process(Process *) NORETURN;
-#endif
-/*};*/
-
 void 
-proc_Resume(void)
+ExitTheKernel_MD(Process * thisPtr)
 {
-  Process * thisPtr = act_CurContext();
-#if 0
-  printf("Resume user process 0x%08x\n", thisPtr);
-#endif
-  
-#ifndef NDEBUG
-  if ( thisPtr->curActivity != act_Current() )
-    fatal("Context 0x%08x (%d) not for current activity 0x%08x (%d)\n",
-	       thisPtr, thisPtr - proc_ContextCache,
-		  act_Current(),
-		  act_Current() - act_ActivityTable);
-
-  if ( act_CurContext() != thisPtr )
-    fatal("Activity context 0x%08x not me 0x%08x\n",
-	       act_CurContext(), thisPtr);
-
-#endif
-
+  assert(proc_UnsafeSaveArea(act_CurContext()) != 0);
 #if 0
   if (fixRegs.ReloadUnits) {
     printf("Don't know how to reload fpu regs yet\n");
@@ -103,9 +79,6 @@ proc_Resume(void)
     thisPtr->md.limit = UMSGTOP;
 #endif
   }
-  UpdateTLB();
-  
-  assert( irq_DISABLE_DEPTH() == 1 );
 
   /* We will be reloading the user segment descriptors on the way out.
    * Set up here for those to have the proper base and bound.
@@ -141,15 +114,6 @@ proc_Resume(void)
 #endif
   
   thisPtr->md.cpuStack = mach_GetCPUStackTop();
-
-#ifdef V86_SUPPORT
-  if ((thisPtr->fixRegs.EFLAGS & EFLAGS::Virt8086) == 0)
-    resume_process(thisPtr);
-  else
-    resume_v86_process(thisPtr);
-#else
-  resume_process(thisPtr);
-#endif
 }
 
 extern uint32_t cycnt0;

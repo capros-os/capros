@@ -80,12 +80,6 @@ kproc_Init(
 
   memset(&p->trapFrame, 0, sizeof(p->trapFrame));
   
-  /* Initialize the per-activity save area so that we can schedule this
-   * activity.  When the activity is initiated by resume_process() for the
-   * first time, it will execute the first instruction of it's Start
-   * routine.
-   */
-
   p->md.MappingTable = KernPageDir_pa; /* kern procs run in kernel space */
   p->trapFrame.EFLAGS = KERN_EFLAGS;
 

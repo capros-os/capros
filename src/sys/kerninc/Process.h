@@ -357,8 +357,6 @@ proc_SetActivity(Process* thisPtr, struct Activity *activity)
   thisPtr->curActivity = activity;
 }
   
-void proc_Resume(void) NORETURN;
-
 INLINE bool 
 proc_IsExpectingMsg(Process * thisPtr)
 {

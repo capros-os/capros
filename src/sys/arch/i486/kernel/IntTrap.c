@@ -118,8 +118,6 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
    */
 
   curActivity = act_Current();
-
-  
   assert(curActivity || !sa_IsProcess(saveArea));
 #endif
 
@@ -180,7 +178,7 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
   }
 #endif /* #if 0 */
 
-  if ( saveArea == 0 ||
+  if ( saveArea == 0 ||	// FIXME: can't be zero!?
        ( sa_IsKernel(saveArea) && !ValidEIP(saveArea->EIP) ) ) {
     /* halt('e'); */
     fatal("Bogus save area 0x%08x vecno %d\n"
@@ -191,7 +189,6 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
   }
 #endif
   
-
   /* If we interrupted a activity, remember where the saved context
    * was.  For user activities, this is redundant, because it is the same
    * as the context that is already saved.  For kernel activities, this
@@ -299,81 +296,23 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
    */
   
   assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
-  assert( irq_DISABLE_DEPTH() == 1 || vecNumber < iv_IRQ0 );
-
-  
-  if (sa_IsProcess(saveArea)) {
-    act_Reschedule();
-
-#if 0
-    /* Since we succeeded, there are no uncommitted I/O page frames: */
-    ObjectCache::ReleaseUncommittedIoPageFrames();
-#endif
-
-#if 0
-    printf("Return from resched\n");
-#endif
- 
-    assert ( act_Current());
- 
-    saveArea = proc_UnsafeSaveArea(act_CurContext());
- 
-
-    if (saveArea == 0)
-      fatal("Activity 0x%08x is not runnable (no saveArea)\n",
-	    act_Current()); 
-  }
-  
-  assert( irq_DISABLE_DEPTH() == 1 || vecNumber < iv_IRQ0 );
-
-#ifndef NDEBUG
-  if ( saveArea == 0 ) {
-    printf("Restore from invalid save area 0x%08x\n"
-           "   EIP=0x%08x CurActivity = %s ctxt=0x%08x\n",
-               saveArea, saveArea ? saveArea->EIP : 0,
-               act_Name(act_Current()),
-          
-               act_CurContext());
-   
-    printf("  CS=0x%02x, int#=0x%x, err=0x%x, flg=0x%08x\n",
-                 saveArea->CS,
-		 saveArea->ExceptNo,
-		 saveArea->Error,
-		 saveArea->EFLAGS);
-    debug_Backtrace(0, true);
-  }
-#endif
-    
-  /* We are returning to a previous interrupt or to a activity, and we
-   * need to restore the interrupt level that was effective in that
-   * context.  CATCH: if interrupts were enabled in that context we do
-   * not want them to get enabled here; we'ld rather wait until the
-   * RETI which will enable them when EFLAGS is restored.  We
-   * therefore call setspl() rather than splx().  setspl() adjusts the
-   * PIC masks appropriately [or it eventually will], but does not
-   * enable interrupts.
-   * 
-   * Note that a yielding activity should always be running at
-   * splyield() [all interrupts enabled], so the fact that we may not
-   * be returning to the same activity is not a problem in restoring the
-   * current spl.
-   */
-
-  /* We are about to do a return from interrupt, which path must not
-   * be interrupted.  Disable interrupts prior to return:
-   */
-  assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
-  assert( irq_DISABLE_DEPTH() == 1 || vecNumber < iv_IRQ0 );
 
 #ifndef NDEBUG
   assert ( oDisableDepth == irq_DISABLE_DEPTH() );
 #endif
 
-  /* Otherwise resume interrupted activity: */
+  assert(saveArea);
   if (sa_IsProcess(saveArea)) {
-    proc_Resume();
+    ExitTheKernel();	// does not return
   }
-  else
-    resume_from_kernel_interrupt(saveArea);
+
+  assert( irq_DISABLE_DEPTH() == 1 || vecNumber < iv_IRQ0 );
+
+  /* We are about to do a return from interrupt, which path must not
+   * be interrupted.  Disable interrupts prior to return:
+   */
+  assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
+
+  resume_from_kernel_interrupt(saveArea);
 }
 

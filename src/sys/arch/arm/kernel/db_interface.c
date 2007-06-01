@@ -120,9 +120,16 @@ kdb_trap(int type,	// always T_BPTFLT
 void
 db_read_bytes(db_addr_t addr, register int size, register char *data)
 {
-	register char * src = (char *)addr;
-	while (--size >= 0)
-		*data++ = *src++;
+  uint8_t * src = (uint8_t *)addr;
+  while (--size >= 0) {
+    if (! SafeLoadByte(src++, (uint8_t *)data)) {
+      // Couldn't load. Fill the rest with zero.
+      printf("Read failure\n");	// no other way to signal this
+      memset(data, 0, size+1);
+      break;
+    }
+    data++;
+  }
 }
 
 /*
@@ -130,11 +137,15 @@ db_read_bytes(db_addr_t addr, register int size, register char *data)
  */
 void
 db_write_bytes(db_addr_t addr, register int size,
-			   register char * data) 
+		  register char * data) 
 {
-	register char * dest = (char *)addr;
-	while (--size >= 0)
-		*dest++ = *data++;
+  uint8_t * dest = (uint8_t *)addr;
+  while (--size >= 0) {
+    if (! SafeStoreByte(dest++, *data++)) {
+      printf("Write failure\n");	// no other way to signal this
+      break;	// couldn't store
+    }
+  }
 }
 
 unsigned int

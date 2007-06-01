@@ -472,8 +472,7 @@ InvokeArm(Process * invokerProc,
 
   invokee->runState = RS_Running;
 
-  act_Reschedule();	/* Correct? */
-  proc_Resume();	/* does not return */
+  ExitTheKernel();
   assert(false);
 
 general_path0:
@@ -493,8 +492,7 @@ general_path1:
   assert( irq_DISABLE_DEPTH() == 0 );
   irq_DISABLE();
 
-  act_Reschedule();
-  proc_Resume();	/* does not return */
+  ExitTheKernel();
 
 return;
 
