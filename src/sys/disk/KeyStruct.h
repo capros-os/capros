@@ -113,9 +113,10 @@ node_ClearHazard() handles all these cases.
 #define KFL_ALL_FLAG_BITS  0x7
 
 /* These values apply only for segmode keys. */
-#define eros_Memory_readOnly	   0x4
-#define eros_Memory_noCall	   0x2
-#define eros_Memory_weak	   0x1
+// This duplicates definitions in Memory.idl.
+#define eros_Memory_readOnly	   4
+#define eros_Memory_noCall	   2
+#define eros_Memory_weak	   1
 
 struct KeyBits {
   union {
