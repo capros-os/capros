@@ -112,13 +112,10 @@ node_ClearHazard() handles all these cases.
 #define KFL_HAZARD_BITS    0x3
 #define KFL_ALL_FLAG_BITS  0x7
 
-/* For the moment, these are kernel-internal only. These values apply
-   only for segmode keys. */
-#define KPRM_RO		   0x4
-#define KPRM_NC		   0x2
-#define KPRM_WEAK	   0x1
-#define EXTRACT_PRM(d) ((d) >> 13)
-#define ENCODE_PRM(p) ( ((uint32_t) (p)) << 13 )
+/* These values apply only for segmode keys. */
+#define eros_Memory_readOnly	   0x4
+#define eros_Memory_noCall	   0x2
+#define eros_Memory_weak	   0x1
 
 struct KeyBits {
   union {
@@ -286,31 +283,31 @@ keyBits_SetType(KeyBits *thisPtr /*@ not null @*/, KeyType kt)
 INLINE bool 
 keyBits_IsNoCall(const KeyBits *thisPtr)
 {
-  return (thisPtr->keyPerms & (KPRM_NC|KPRM_WEAK));
+  return (thisPtr->keyPerms & (eros_Memory_noCall|eros_Memory_weak));
 }
   
 INLINE void 
 keyBits_SetNoCall(KeyBits *thisPtr)
 {
-  thisPtr->keyPerms |= KPRM_NC;
+  thisPtr->keyPerms |= eros_Memory_noCall;
 }
 
 INLINE bool 
 keyBits_IsReadOnly(const KeyBits *thisPtr)
 {
-  return (thisPtr->keyPerms & KPRM_RO);
+  return (thisPtr->keyPerms & eros_Memory_readOnly);
 }
 
 INLINE bool 
 keyBits_IsWeak(const KeyBits *thisPtr)
 {
-  return (thisPtr->keyPerms & KPRM_WEAK);
+  return (thisPtr->keyPerms & eros_Memory_weak);
 }
 
 INLINE void 
 keyBits_SetWeak(KeyBits *thisPtr)
 {
-  thisPtr->keyPerms |= KPRM_WEAK;
+  thisPtr->keyPerms |= eros_Memory_weak;
 }
   
 INLINE bool 
@@ -335,7 +332,7 @@ keyBits_IsPreparedResumeKey(const KeyBits *thisPtr)
 INLINE void 
 keyBits_SetReadOnly(KeyBits *thisPtr)
 {
-  thisPtr->keyPerms |= KPRM_RO;
+  thisPtr->keyPerms |= eros_Memory_readOnly;
 }
   
 INLINE bool 
