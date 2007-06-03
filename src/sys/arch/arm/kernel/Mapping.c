@@ -112,7 +112,7 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
   
   KernStats.nDepInval++;
   
-#ifdef DEPEND_DEBUG
+#if 0
   printf("Invalidating key entries start=0x%08x, count=%d\n",
 	      kde->start, kde->pteCount);
 #endif

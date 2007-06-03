@@ -552,8 +552,12 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   
   /* Begin the traversal... */
   if ( ! WalkSeg(&wi, walk_root_blss, p, 0) ) {
-    if (!prompt)
+    if (!prompt) {
+      /* We could clear PID_IN_PROGRESS here, but it's not necessary,
+      as we already have to handle the possibility of the entry being
+      left as PID_IN_PROGRESS if WalkSeg Yields. */
       proc_InvokeSegmentKeeper(p, &wi, true, va);
+    }
 
     return false;
   }
@@ -604,15 +608,20 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     // FIXME: can avoid the table walk since we already have the CPT
   } else {
     if (*theFLPTEntry & ~L1D_VALIDBITS) {
-      assert(*theFLPTEntry != PTE_IN_PROGRESS);	// should not be in progress now
-      if (*theFLPTEntry & L1D_DOMAIN_MASK) {
-        printf("tracking LRU - need to implement.\n");
-      } else {
-        // This small space has had its domain stolen.
-        unsigned int domain = EnsureSSDomain(mva >> PID_SHIFT);
-        printf("Reassigning domain to L1D.\n");
-        * theFLPTEntry |= (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
+      // The entry is not valid, but it has other bits on.
+
+      /* It's possible for an entry to be left as PTE_IN_PROGRESS.
+         If so, ignore it as if it were PTE_ZAPPED. */
+      if (*theFLPTEntry != PTE_IN_PROGRESS) {
+        if (*theFLPTEntry & L1D_DOMAIN_MASK) {
+          printf("tracking LRU - need to implement.\n");
+        } else {
+          // This small space has had its domain stolen.
+          unsigned int domain = EnsureSSDomain(mva >> PID_SHIFT);
+          printf("Reassigning domain to L1D.\n");
+          * theFLPTEntry |= (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
         // FIXME: can avoid the table walk since we already have the CPT
+        }
       }
     } else {
       assert(*theFLPTEntry == PTE_ZAPPED);
@@ -630,8 +639,12 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
   /* Translate bits 31:22 of the address: */
   if ( ! WalkSeg(&wi, walk_top_blss, theFLPTEntry, 1) ) {
-    if (!prompt)
+    if (!prompt) {
+      /* We could clear PTE_IN_PROGRESS here, but it's not necessary,
+      as we already have to handle the possibility of the entry being
+      left as PTE_IN_PROGRESS if WalkSeg Yields. */
       proc_InvokeSegmentKeeper(p, &wi, true, va);
+    }
     return false;
   }
 
@@ -679,8 +692,12 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     
     /* Translate the remaining bits of the address: */
     if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) {
-      if (!prompt)
+      if (!prompt) {
+        /* We could clear PTE_IN_PROGRESS here, but it's not necessary,
+        as we already have to handle the possibility of the entry being
+        left as PTE_IN_PROGRESS if WalkSeg Yields. */
         proc_InvokeSegmentKeeper(p, &wi, true, va);
+      }
       return false;
     }
 
