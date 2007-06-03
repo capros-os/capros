@@ -1,8 +1,8 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, Strawberry Development Group.
+# Copyright (C) 2006, 2007, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,7 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 
 # Utility to convert a linux a.out file to a domain image file.
@@ -46,18 +49,14 @@ all: $(TARGETS)
 $(BUILDDIR)/$(EROS_TARGET)-mkimage: $(OBJECTS) $(LIBS)
 	$(GPLUS) $(GPLUSFLAGS) -o $@ $(OBJECTS) $(XENV_LIBDIR) $(LIBS) $(OTHER_LIBS)
 
-$(BUILDDIR)/.gram.m: $(BUILDDIR)/gram.c $(MAKE_BUILDDIR)
-	$(C_DEP)
-
-$(BUILDDIR)/.lex.m: $(BUILDDIR)/lex.c $(MAKE_BUILDDIR)
-	$(C_DEP)
-
 $(BUILDDIR)/gram.o: $(BUILDDIR)/gram.c $(MAKE_BUILDDIR)
 	$(C_BUILD) 
+	$(C_DEP)
 
 $(BUILDDIR)/lex.o: $(BUILDDIR)/lex.c $(BUILDDIR)/gram.c.h $(MAKE_BUILDDIR)
 # Can't use $(C_BUILD) because it has -Werror and lex.c generates warnings.
 	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@
+	$(C_DEP)
 
 $(BUILDDIR)/gram.c $(BUILDDIR)/gram.c.h: gram.y $(MAKE_BUILDDIR)
 	(cd $(BUILDDIR); bison -v -d -y ../../gram.y)
