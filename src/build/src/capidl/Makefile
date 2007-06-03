@@ -1,7 +1,8 @@
 #
 # Copyright (C) 2001, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2007, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,8 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
 
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 default: install
 
@@ -81,25 +84,19 @@ $(BUILDDIR)/libapp.a: $(LIBAPP_OBJECTS)
 $(BUILDDIR)/capidl: $(CAPIDL_OBJECTS) $(LIBS)
 	$(GPLUS) $(GPLUSFLAGS) -o $@ $(CAPIDL_OBJECTS) $(XENV_LIBDIR) $(LIBS) $(OTHER_LIBS)
 
-$(BUILDDIR)/.idl.m: $(BUILDDIR)/idl.c
-	$(C_DEP)
-
-$(BUILDDIR)/.lex.m: $(BUILDDIR)/lex.c
-	$(C_DEP)
-
-$(BUILDDIR)/.prescan.m: $(BUILDDIR)/prescan.c
-	$(C_DEP)
-
 $(BUILDDIR)/idl.o: $(BUILDDIR)/idl.c
 	$(C_BUILD) 
+	$(C_DEP)
 
 $(BUILDDIR)/lex.o: $(BUILDDIR)/lex.c $(BUILDDIR)/idl.h
 # Can't use $(C_BUILD) because it has -Werror and lex.c generates warnings.
 	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
+	$(C_DEP)
 
 $(BUILDDIR)/prescan.o: $(BUILDDIR)/prescan.c
 # Can't use $(C_BUILD) because it has -Werror and prescan.c generates warnings.
 	$(GCC) $(GCCFLAGS) $(MOPSWARN) -c $< -o $@ 
+	$(C_DEP)
 
 $(BUILDDIR)/idl.c $(BUILDDIR)/idl.h: idl.y $(MAKE_BUILDDIR)
 	(cd $(BUILDDIR);bison -v -d -y ../../idl.y)
