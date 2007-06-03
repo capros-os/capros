@@ -1,0 +1,20 @@
+package eros;
+
+/** Kernel interface to page and segment keys.
+ *
+ */
+interface Memory extends key {
+  /* Restrictions: */
+  const unsigned long weak = 1;
+  const unsigned long noCall = 2;
+  const unsigned long readOnly = 4;
+
+  /* Returns a key to the memory object with reduced permissions. */
+//  eros.key reduce();
+
+  /* Returns the memory object's lss and restrictions. */
+  void lssAndPerms(out unsigned long lss, out unsigned long restrictions);
+
+  /* Returns a read only key to the memory object. */
+  eros.key makeReadOnly();
+};

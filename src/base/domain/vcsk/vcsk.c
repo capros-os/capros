@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* VCSK -- Virtual copy space keeper/Zero space keeper (they are
    actually the same!
@@ -74,7 +78,7 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
-#include <eros/PageKey.h>
+#include <idl/eros/Page.h>
 #include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
 #include <eros/cap-instr.h>
@@ -142,16 +146,16 @@
 
    VCSK serves to implement both demand-copy and demand-zero
    segments.  Of the cycles spent invoking capabilities, it proves
-   that about 45% of them are spent in page_clone, and another 45% in
+   that about 45% of them are spent in eros_Page_clone, and another 45% in
    range key calls (done by the space bank).  The only call to
-   page_clone is here.  It is unavoidable when we are actually doing a
+   eros_Page_clone is here.  It is unavoidable when we are actually doing a
    virtual copy, but very much avoidable if we are doing demand-zero
    extension on an empty or short segment -- the page we get from the
    space bank is already zeroed.
 
    We therefore remember in the VCSK state the offset of the *end* of
    the last non-zero page.  Anything past this is known to be zero.
-   We take advantage of this to know when the page_clone() operation
+   We take advantage of this to know when the eros_Page_clone() operation
    can be skipped.  The variable is /first_zero_offset/.
 
    When a VCS is frozen, we stash this number in a number key in the
@@ -697,7 +701,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	if (kr == KR_VOID)
 	  return RC_eros_key_NoMorePages;
 
-	page_clone(kr, KR_SCRATCH);
+	eros_Page_clone(kr, KR_SCRATCH);
 	    
 	/* Replace the old page with the new */
 	node_swap(KR_L1_NODE, slot, kr, KR_VOID);
