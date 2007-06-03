@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <string.h>
 
 #include <eros/target.h>
+#include <eros/machine/Registers.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
