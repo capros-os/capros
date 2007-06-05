@@ -46,18 +46,36 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 64 rcv_keyInfo
  */
 	
-	.weak	EXT(CALL)
-	.set	EXT(CALL),EXT(__rt_do_CALL)
+	.weak	EXT(INVOKECAP)
+	.set	EXT(INVOKECAP),EXT(__rt_do_INVOKECAP)
 
-/* On entry to CALL, r0 has a pointer to a Message structure. */
-ENTRY(__rt_do_CALL)
+/* On entry to INVOKECAP, r0 has a pointer to a Message structure. */
+ENTRY(__rt_do_INVOKECAP)
 	stmfd sp!,{r4,r5,r14}
-/* Here we load into registers the most commonly used fields of
-   the Message structure, because that is the fastest way to get
-   the information into the kernel. */
+	ldmia r0,{r1-r5}
+	b returnCommon	// go with invType from Message structure
+	
+	.weak	EXT(NPRETURN)
+	.set	EXT(NPRETURN),EXT(__rt_do_NPRETURN)
+
+/* On entry to NPRETURN, r0 has a pointer to a Message structure. */
+ENTRY(__rt_do_NPRETURN)
+	stmfd sp!,{r4,r5,r14}
 	ldmia r0,{r1-r5}
 	and r1,r1,#0xff
-	orr r1,r1,#(IT_Call << 8)
+	orr r1,r1,#(IT_Return<< 8)
+	b returnCommon
+	
+	.weak	EXT(RETURN)
+	.set	EXT(RETURN),EXT(__rt_do_RETURN)
+
+/* On entry to RETURN, r0 has a pointer to a Message structure. */
+ENTRY(__rt_do_RETURN)
+	stmfd sp!,{r4,r5,r14}
+	ldmia r0,{r1-r5}
+	and r1,r1,#0xff
+	orr r1,r1,#(IT_PReturn<< 8)
+returnCommon:
 /* r0 - ptr to Message structure
    r1 - low byte has snd_invKey
         next byte has invType
@@ -78,9 +96,9 @@ ENTRY(__rt_do_CALL)
    r3 - rcv_w2
    r4 - rcv_w3
    r12 - rcv_sent
-   (no rcv_keyInfo)
+   r14 - rcv_keyInfo
  */
 	add r0,r0,#44
-	stmia r0,{r1-r4,r12}	// store values in Message structure
+	stmia r0,{r1-r4,r12,r14}	// store values in Message structure
 	mov r0,r1	// rcv_code also returned as value in r0
 	ldmfd sp!,{r4,r5,pc}	// return

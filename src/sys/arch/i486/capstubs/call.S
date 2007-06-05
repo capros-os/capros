@@ -1,8 +1,9 @@
 	.file	"call.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/arch/i486/asm.h>
 #include <eros/arch/i486/target-asm.h>
@@ -74,7 +78,6 @@ ENTRY(__rt_do_CALL)
 	movl	%ecx,56(%ebp)		/* rcv w2 */
 	movl	%edx,60(%ebp)		/* rcv w3 */
 
-	movw	%di,64(%ebp)		/* key info */
 	movl	%esi,68(%ebp)		/* actual len received */
 
 	/* rcv code also the return value, so stash that in the

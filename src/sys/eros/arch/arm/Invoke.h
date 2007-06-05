@@ -1,7 +1,7 @@
 #ifndef __INVOKE_ARM_H__
 #define ___INVOKE_ARM_H__
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -20,7 +20,8 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 /* Architecture-specific declarations for key invocation. */
 
@@ -77,8 +78,8 @@ typedef struct Message {
   fixreg_t rcv_w2;
   fixreg_t rcv_w3;
 
-  fixreg_t rcv_keyInfo;
   fixreg_t rcv_sent;
+  fixreg_t rcv_keyInfo;
 } Message;
 
 #endif /* __INVOKE_ARM_H__ */

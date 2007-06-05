@@ -56,13 +56,12 @@ proc_DeliverResult(Process * thisPtr, Invocation * inv /*@ not null @*/)
   thisPtr->trapFrame.r2 = inv->exit.w1;
   thisPtr->trapFrame.r3 = inv->exit.w2;
   thisPtr->trapFrame.r4 = inv->exit.w3;
-  thisPtr->trapFrame.r12 = 0;		/* key info field */
 
   /* Data has already been copied out, so don't need to copy here.  DO
    * need to deliver the data length, however:
    */
 
-  thisPtr->trapFrame.r14 = inv->sentLen;
+  thisPtr->trapFrame.r12 = inv->sentLen;
 }
 
 /* May Yield. */
@@ -326,13 +325,13 @@ proc_DeliverGateResult(Process* thisPtr,
   inv->exit.w3 = inv->entry.w3;
 #endif
   
-  thisPtr->trapFrame.r12 = keyData;
+  thisPtr->trapFrame.r14 = keyData;
 
   /* Data has already been copied out, so don't need to copy here.  DO
    * need to deliver the data length, however:
    */
 
-  thisPtr->trapFrame.r14 = inv->sentLen;
+  thisPtr->trapFrame.r12 = inv->sentLen;
 }
 
 void /* does not return */
@@ -390,8 +389,6 @@ InvokeArm(Process * invokerProc,
   if (invokee->processFlags & PF_Faulted) goto general_path1;
   /* Do we need to check invokee has an address space? */
 
-  invokee->trapFrame.r12 = invKey->keyData;
-
   if (invokee->trapFrame.r14) {	/* invokee is receiving some keys */
     unsigned int rcvKeyNdx = invokee->trapFrame.r14 & (EROS_NODE_SIZE -1);
     unsigned int sndKeyNdx;
@@ -437,6 +434,8 @@ InvokeArm(Process * invokerProc,
     }
   }
 
+  invokee->trapFrame.r14 = invKey->keyData;
+
   /* Move data registers. */
   invokee->trapFrame.r1 = invokerProc->trapFrame.r4;	/* snd_code */
   /* Current process's address map is still loaded. */
@@ -452,7 +451,7 @@ InvokeArm(Process * invokerProc,
     fatal("Error loading w1-w3");
 
   /* Set returned length to zero. */
-  invokee->trapFrame.r14 = 0;
+  invokee->trapFrame.r12 = 0;
   /* Migrate the Activity. */
   Activity * act = invokerProc->curActivity;
   invokee->curActivity = act;

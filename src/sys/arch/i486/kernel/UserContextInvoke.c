@@ -362,8 +362,6 @@ proc_DeliverResult(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   rcvPtr = thisPtr->trapFrame.EDI;
   
-  thisPtr->trapFrame.EDI = 0;		/* key info field */
-
   /* Data has already been copied out, so don't need to copy here.  DO
    * need to deliver the data length, however:
    */
