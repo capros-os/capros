@@ -1,2 +1,3 @@
-// Requires #include <eros/KeyConst.h>
+#define __ASSEMBLER__	// avoid extraneous stuff in headers
+#include <eros/ProcessKey.h>	// for ProcGenKeys
 #define CONSTIT(proc, name, slot) proc[ProcGenKeys][1][slot]
