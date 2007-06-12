@@ -3,7 +3,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -1101,8 +1101,8 @@ L_resume_key:
 	cmpl	$0,PR_OFF_MappingTable(%eax)
 	je	Standard_Gate_Path
 	
-	cmpl	$0,PR_OFF_saveArea(%eax)
-	je	Standard_Gate_Path
+	cmpb	$0,PR_OFF_hazards(%eax)
+	jne	Standard_Gate_Path
 	
 	testl	$PF_Faulted,PR_OFF_processFlags(%eax)
 	jnz	Standard_Gate_Path

@@ -64,6 +64,34 @@ ForceValidUserCPSR(uint32_t cpsr)
   return (cpsr & userCPSRBits) | CPSRMode_User;
 }
 
+/* ValidateRegValues() -- runs last to validate that the loaded context
+ * will not violate protection rules if it is run.  This routine must
+ * be careful not to overwrite an existing fault condition. To avoid
+ * this, it must only alter the fault code value if there isn't
+ * already a fault code.  Basically, think of this as meaning that bad
+ * register values are the lowest priority fault that will be reported
+ * to the user.
+ */
+static void
+proc_ValidateRegValues(Process* thisPtr)
+{
+  if (thisPtr->processFlags & PF_Faulted)
+    return;
+
+  if (thisPtr->isUserContext) {
+    /* Rather than force the programmer to set the correct CPSR bits,
+       we just set them correctly here. */
+    thisPtr->trapFrame.CPSR = ForceValidUserCPSR(thisPtr->trapFrame.CPSR);
+  } else {
+    /* Privileged processes might disable IRQ, but we will never see it,
+       because the process won't be preempted until IRQ is reenabled. */
+    /* Check this as an assertion rather than a process fault.
+       The kernel depends on it being correct and fail-fast is
+       easier to diagnose. */
+    assert((thisPtr->trapFrame.CPSR & ~userCPSRBits) == CPSRMode_System);
+  }
+}
+
 void 
 proc_AllocUserContexts()
 {
@@ -222,7 +250,6 @@ printf("Unimplemented proc_Unload");
   
   if ( keyBits_IsHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace)) ) {
     Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace));
-    thisPtr->hazards |= hz_AddrSpace;
   }
 
   thisPtr->procRoot->node_ObjHdr.prep_u.context = 0;
@@ -518,7 +545,7 @@ proc_SetRegs32(Process * thisPtr, struct Registers * regs /*@ not null @*/)
   // thisPtr->trapFrame.r15 = regs->registers[15];
   thisPtr->trapFrame.CPSR = ForceValidUserCPSR(regs->CPSR);
 
-  proc_NeedRevalidate(thisPtr);	// needed?
+  proc_ValidateRegValues(thisPtr);
     
   return true;
 }
@@ -528,8 +555,7 @@ proc_Load(Node* procRoot)
 {
   Process *p = proc_allocate(true);
 
-  p->hazards =
-    hz_DomRoot | hz_KeyRegs | hz_Schedule | hz_AddrSpace;
+  p->hazards = hz_DomRoot | hz_KeyRegs | hz_Schedule;
 
   assert(procRoot);
 
@@ -537,34 +563,6 @@ proc_Load(Node* procRoot)
   
   procRoot->node_ObjHdr.prep_u.context = p;
   procRoot->node_ObjHdr.obType = ot_NtProcessRoot;
-}
-
-/* ValidateRegValues() -- runs last to validate that the loaded context
- * will not violate protection rules if it is run.  This routine must
- * be careful not to overwrite an existing fault condition. To avoid
- * this, it must only alter the fault code value if there isn't
- * already a fault code.  Basically, think of this as meaning that bad
- * register values are the lowest priority fault that will be reported
- * to the user.
- */
-void
-proc_ValidateRegValues(Process* thisPtr)
-{
-  if (thisPtr->processFlags & PF_Faulted)
-    return;
-
-  if (thisPtr->isUserContext) {
-    /* Rather than force the programmer to set the correct CPSR bits,
-       we just set them correctly here. */
-    thisPtr->trapFrame.CPSR = ForceValidUserCPSR(thisPtr->trapFrame.CPSR);
-  } else {
-    /* Privileged processes might disable IRQ, but we will never see it,
-       because the process won't be preempted until IRQ is reenabled. */
-    /* Check this as an assertion rather than a process fault.
-       The kernel depends on it being correct and fail-fast is
-       easier to diagnose. */
-    assert((thisPtr->trapFrame.CPSR & ~userCPSRBits) == CPSRMode_System);
-  }
 }
 
 /* Both loads the register values and validates that the process root
@@ -632,7 +630,7 @@ proc_DoPrepare(Process* thisPtr)
     = (thisPtr->hazards & (hz_DomRoot | hz_FloatRegs | hz_KeyRegs)); 
 
 #if 0
-  printf("Enter Process::DoPrepare()\n");
+  dprintf(true,"Enter proc_DoPrepare()\n");
 #endif
   /* The order in which these are tested is important, because
    * sometimes satisfying one condition imposes another (e.g. floating

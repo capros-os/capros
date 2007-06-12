@@ -66,7 +66,7 @@ enum Hazards {
   hz_KeyRegs      = 0x04u,
   hz_FloatRegs    = 0x08u,
   hz_Schedule     = 0x10u,
-  hz_AddrSpace    = 0x20u,
+  // unused         0x20u,
 #ifdef EROS_HAVE_FPU
   hz_NumericsUnit = 0x40u,	/* need to load FPU */
 #endif
@@ -88,7 +88,7 @@ struct Process {
    * can make progress.
    */
   
-  uint32_t  hazards;
+  uint8_t  hazards;
 
   /* END MACHINE DEPENDENT */
 
@@ -261,29 +261,14 @@ void proc_DoPrepare(Process* thisPtr);
 INLINE void 
 proc_Prepare(Process* thisPtr)
 {
-  /* Anything that invalidates the context will zap the saveArea
-   * pointer, so this is a quick test, which is useful for fast
-   * reload.
+  /* Anything that invalidates the context will set a hazard,
+   * so this is a quick test, which is useful for fast reload.
    */
-  if (thisPtr->saveArea)
-    return;
-  
-  proc_DoPrepare(thisPtr);
+  if (thisPtr->hazards)
+    proc_DoPrepare(thisPtr);
 }
 
-INLINE void 
-proc_NeedRevalidate(Process* thisPtr)
-{
-  thisPtr->saveArea = 0;
-}
-
-/* needRevalidate means that the fault is due to a structural
- * problem in the process, and cannot be cleared without
- * revalidating the context cache.  Another way to think about this
- * is that any fault for which /needRevalidate/ is true is a fault
- * that cannot be cleared on the fast path.
- */
-
+/* needRevalidate is always false and should be deleted. */
 INLINE void 
 proc_SetFault(Process* thisPtr, uint32_t code, uint32_t info, bool needRevalidate)
 {
@@ -297,8 +282,7 @@ proc_SetFault(Process* thisPtr, uint32_t code, uint32_t info, bool needRevalidat
   else
     thisPtr->processFlags &= ~PF_Faulted;
   
-  if (needRevalidate)
-    proc_NeedRevalidate(thisPtr);
+  assert(!needRevalidate);
   
 #ifdef OPTION_DDB
   if (thisPtr->processFlags & PF_DDBTRAP)
@@ -314,8 +298,9 @@ proc_SetMalformed(Process* thisPtr)
      so for now: */
   dprintf(true, "Process is malformed\n");
 #endif
-  proc_SetFault(thisPtr, FC_MalformedProcess, 0, true);
+  proc_SetFault(thisPtr, FC_MalformedProcess, 0, false);
   thisPtr->hazards |= hz_Malformed; 
+  thisPtr->saveArea = 0;
 }
 
 /* USED ONLY BY INTERRUPT HANDLERS: */
@@ -334,13 +319,13 @@ proc_UnsafeSaveArea(Process* thisPtr)
 INLINE bool 
 proc_IsRunnable(Process* thisPtr)
 {
-  return thisPtr->saveArea ? true : false;
+  return ! thisPtr->hazards;
 }
 
 INLINE bool 
 proc_IsNotRunnable(Process* thisPtr)
 {
-  return (thisPtr->saveArea == 0) ? true : false;
+  return thisPtr->hazards;
 }
 
 INLINE void 

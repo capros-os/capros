@@ -462,7 +462,7 @@ proc_Load(Node* procRoot)
    */
     hz_FloatRegs |
 #endif
-    hz_DomRoot | hz_KeyRegs | hz_Schedule | hz_AddrSpace;
+    hz_DomRoot | hz_KeyRegs | hz_Schedule;
 
   assert(procRoot);
 
@@ -558,9 +558,10 @@ proc_ValidateRegValues(Process* thisPtr)
      and need not be checked. */
 #endif
   
- fault:
-  if (code)
-    proc_SetFault(thisPtr, code, info, true);
+  if (code) {
+    fault:
+    proc_SetFault(thisPtr, code, info, false);
+  }
   
 #if 0
   if (faultCode)
@@ -820,7 +821,6 @@ proc_Unload(Process* thisPtr)
   
   if ( keyBits_IsHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace)) ) {
     Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace));
-    thisPtr->hazards |= hz_AddrSpace;
   }
 
   thisPtr->procRoot->node_ObjHdr.prep_u.context = 0;
@@ -1012,10 +1012,7 @@ proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
 
   case ProcAddrSpace:
     Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, whichKey));
-    thisPtr->hazards |= hz_AddrSpace;
     assert(thisPtr->md.MappingTable == PTE_ZAPPED);
-    thisPtr->saveArea = 0;
-
     break;
 
   case ProcSched:
@@ -1164,7 +1161,7 @@ proc_SetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
   dprintf(true, "SetRegs(): ctxt=0x%08x: EFLAGS now 0x%08x\n", this, trapFrame.EFLAGS);
 #endif
 
-  proc_NeedRevalidate(thisPtr);
+  proc_ValidateRegValues(thisPtr);
     
   return true;
 }
