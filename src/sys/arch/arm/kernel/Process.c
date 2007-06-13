@@ -123,7 +123,6 @@ proc_AllocUserContexts()
     p->faultCode = FC_NoFault;
     p->faultInfo = 0;
     p->processFlags = 0;
-    p->saveArea = 0;
     p->hazards = 0u;	/* deriver should change this! */
     p->curActivity = 0;
     
@@ -238,7 +237,6 @@ printf("Unimplemented proc_Unload");
 #endif
   
   thisPtr->MappingTable = 0;
-  thisPtr->saveArea = 0;
   thisPtr->curActivity = 0;
 
   if ((thisPtr->hazards & hz_KeyRegs) == 0)
@@ -260,7 +258,6 @@ printf("Unimplemented proc_Unload");
   keyR_UnprepareAll(&thisPtr->keyRing);
   thisPtr->hazards = 0;
   thisPtr->procRoot = 0;
-  thisPtr->saveArea = 0;
 
   dprintf(false,  "Unload of context 0x%08x complete\n", thisPtr);
 
@@ -313,7 +310,6 @@ proc_allocate(bool isUser)
          || p->procRoot->node_ObjHdr.obType == ot_NtProcessRoot);
 
   p->procRoot = 0;		/* for kernel contexts */
-  p->saveArea = 0;		/* make sure not runnable! */
   p->faultCode = FC_NoFault;
   p->faultInfo = 0;
   p->processFlags = 0;
@@ -368,8 +364,6 @@ kproc_Init(
   (void) stkBottom;
   p->trapFrame.r13 = (uint32_t) stkTop;
     
-  p->saveArea = &p->trapFrame;
-
   return p;
 }
 
@@ -392,8 +386,8 @@ DumpFixRegs(const savearea_t * sa)
 void 
 proc_DumpFixRegs(Process* thisPtr)
 {
-  if (thisPtr->saveArea == 0)
-    printf("Note: context is NOT runnable\n");
+  if (proc_IsNotRunnable(thisPtr))
+    printf("Note: process is NOT runnable\n");
   printf("Process = 0x%08x  PID   = 0x%08x\n",
 	 thisPtr, thisPtr->md.pid);
   DumpFixRegs(&thisPtr->trapFrame); 
@@ -422,7 +416,6 @@ proc_FlushFixRegs(Process * thisPtr)
   keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcSched));
 
   thisPtr->hazards |= (hz_DomRoot | hz_Schedule);
-  thisPtr->saveArea = 0;
 }
 
 void
@@ -462,8 +455,6 @@ proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
     proc_FlushFixRegs(thisPtr);
     break;
   }
-
-  thisPtr->saveArea = 0;
 }
 
 bool
@@ -627,7 +618,11 @@ proc_DoPrepare(Process* thisPtr)
   thisPtr->hazards &= ~hz_Malformed;	/* until proven otherwise */
   
   check_disjoint
-    = (thisPtr->hazards & (hz_DomRoot | hz_FloatRegs | hz_KeyRegs)); 
+    = (thisPtr->hazards & (hz_DomRoot | hz_KeyRegs
+#ifdef EROS_HAVE_FPU
+                           | hz_FloatRegs
+#endif
+                          )); 
 
 #if 0
   dprintf(true,"Enter proc_DoPrepare()\n");
@@ -731,7 +726,6 @@ proc_DoPrepare(Process* thisPtr)
    * and prepare correctly.
    */
 
-  thisPtr->saveArea = &thisPtr->trapFrame;
   sq_WakeAll(&thisPtr->stallQ, false);
 }
 

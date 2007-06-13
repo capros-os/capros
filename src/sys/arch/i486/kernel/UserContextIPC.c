@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -51,7 +51,7 @@ Approved for public release, distribution unlimited. */
 void 
 ExitTheKernel_MD(Process * thisPtr)
 {
-  assert(proc_UnsafeSaveArea(act_CurContext()) != 0);
+  assert(proc_IsRunnable(act_CurContext()));
 #if 0
   if (fixRegs.ReloadUnits) {
     printf("Don't know how to reload fpu regs yet\n");
@@ -59,10 +59,6 @@ ExitTheKernel_MD(Process * thisPtr)
     fixRegs.Dump();
     halt();
   }
-#endif
-
-#if 0
-  printf("Resume user activity savearea 0x%08x\n", thisPtr->saveArea);
 #endif
 
   /* Need to have a valid directory or the machine reboots.  It's

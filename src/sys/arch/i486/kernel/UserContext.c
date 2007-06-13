@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -108,7 +108,6 @@ proc_AllocUserContexts()
     p->faultCode = FC_NoFault;
     p->faultInfo = 0;
     p->processFlags = 0;
-    p->saveArea = 0;
     p->hazards = 0u;	/* deriver should change this! */
     p->curActivity = 0;
     
@@ -213,8 +212,8 @@ proc_FlushAll()
 void 
 proc_DumpFixRegs(Process* thisPtr)
 {
-  if (thisPtr->saveArea == 0)
-    printf("Note: context is NOT runnable\n");
+  if (proc_IsNotRunnable(thisPtr))
+    printf("Note: process is NOT runnable\n");
   printf("ASID   = 0x%08x  VASID = 0x%08x\n",
 	 thisPtr->md.MappingTable, thisPtr->md.MappingTable);
   DumpFixRegs(&thisPtr->trapFrame); 
@@ -416,7 +415,6 @@ proc_allocate(bool isUser)
 
   p->md.cpuStack = 0;
   p->procRoot = 0;		/* for kernel contexts */
-  p->saveArea = 0;		/* make sure not runnable! */
   p->faultCode = FC_NoFault;
   p->faultInfo = 0;
   p->processFlags = 0;
@@ -655,7 +653,6 @@ proc_FlushFixRegs(Process * thisPtr)
   keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcSched));
 
   thisPtr->hazards |= (hz_DomRoot | hz_Schedule);
-  thisPtr->saveArea = 0;
 }
 
 #ifdef EROS_HAVE_FPU
@@ -673,7 +670,6 @@ proc_SaveFPU(Process* thisPtr)
   mach_DisableFPU();
 }
 
-#ifdef EROS_HAVE_FPU
 void 
 proc_LoadFPU(Process* thisPtr)
 {
@@ -696,7 +692,6 @@ proc_LoadFPU(Process* thisPtr)
 
   thisPtr->hazards &= ~hz_NumericsUnit;
 }
-#endif
 
 /* This version requires no annex node. */
 void 
@@ -712,7 +707,6 @@ proc_FlushFloatRegs(Process* thisPtr)
   UNLOAD_FLOAT_REGS;
 
   thisPtr->hazards |= hz_FloatRegs;
-  thisPtr->saveArea = 0;
 }
 #endif
 
@@ -752,7 +746,6 @@ proc_FlushKeyRegs(Process* thisPtr)
   thisPtr->hazards |= hz_KeyRegs;
 
   keyBits_UnHazard(&thisPtr->procRoot->slot[ProcGenKeys]);
-  thisPtr->saveArea = 0;
 }
 
 void
@@ -831,7 +824,6 @@ proc_Unload(Process* thisPtr)
   keyR_UnprepareAll(&thisPtr->keyRing);
   thisPtr->hazards = 0;
   thisPtr->procRoot = 0;
-  thisPtr->saveArea = 0;
 
   dprintf(false,  "Unload of context 0x%08x complete\n", thisPtr);
 
@@ -857,7 +849,11 @@ proc_DoPrepare(Process* thisPtr)
   thisPtr->hazards &= ~hz_Malformed;	/* until proven otherwise */
   
   check_disjoint
-    = (thisPtr->hazards & (hz_DomRoot | hz_FloatRegs | hz_KeyRegs)); 
+    = (thisPtr->hazards & (hz_DomRoot | hz_KeyRegs
+#ifdef EROS_HAVE_FPU
+                           | hz_FloatRegs
+#endif
+                          )); 
 
 #if 0
   printf("Enter Process::DoPrepare()\n");
@@ -995,7 +991,6 @@ proc_DoPrepare(Process* thisPtr)
    * and prepare correctly.
    */
 
-  thisPtr->saveArea = &thisPtr->trapFrame;
   sq_WakeAll(&thisPtr->stallQ, false);
 }
 
@@ -1024,7 +1019,6 @@ proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
        At a minimum, however, we need to mark a schedule hazard. */
     keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, whichKey));
     thisPtr->hazards |= hz_Schedule;
-    thisPtr->saveArea = 0;
 
     break;
 
@@ -1039,8 +1033,6 @@ proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
 
     break;
   }
-
-  thisPtr->saveArea = 0;
 }
 
 #if 0

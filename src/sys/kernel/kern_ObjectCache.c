@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -687,8 +687,7 @@ objC_AgeNodeFrames()
        * capability the process context will not go out due to ageing.
        * 
        * The reason this is an issue is because we short-circuit the
-       * pin of the constituents in Process::Prepare() by testing for
-       * a valid saveArea.
+       * pin of the constituents in Process::Prepare().
        * 
        * In SMP implementations we will need to pin contexts in the
        * same way that we pin nodes, in order to ensure that one

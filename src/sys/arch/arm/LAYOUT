@@ -168,8 +168,6 @@ proc	SLEEPQ     *          stallQ
 proc	uint32_t   *          procRoot
 opaque	uint8_t    *          isUserContext
 opaque	uint8_t    *          hazards
-proc	uint32_t   *          saveArea
-/*opaque	uint32_t   *          priority*/
 proc	uint32_t   *          readyQ
 proc	uint32_t   *          curThread
 

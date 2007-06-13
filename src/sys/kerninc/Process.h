@@ -4,7 +4,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -59,20 +59,19 @@ typedef struct SegWalk SegWalk;
  * to be a dumb thing to do.  Kernel processes are not reallocated.
  */
 
- /* MACHINE DEPENDENT */
+ /* Hazards are architecture-dependent and should perhaps be moved. */
 enum Hazards {
   hz_Malformed    = 0x01u,
   hz_DomRoot      = 0x02u,
   hz_KeyRegs      = 0x04u,
-  hz_FloatRegs    = 0x08u,
+  // unused         0x08u,
   hz_Schedule     = 0x10u,
-  // unused         0x20u,
 #ifdef EROS_HAVE_FPU
+  hz_FloatRegs    = 0x20u,
   hz_NumericsUnit = 0x40u,	/* need to load FPU */
 #endif
   hz_SingleStep   = 0x80u 	/* context may have a live activity */
 };
-typedef enum Hazards Hazards;
 
 struct Process {
   /* Pieces of the currently loaded domain: */
@@ -90,16 +89,7 @@ struct Process {
   
   uint8_t  hazards;
 
-  /* END MACHINE DEPENDENT */
-
-  /* SaveArea is nonzero exactly when the context has a valid save
-   * image -- i.e. it is fully cached and the resulting context image
-   * is RUNNABLE (i.e. doesn't violate processor privilege constraints).
-   */
-
-  savearea_t  *saveArea;
   struct ReadyQueue *readyQ;   /* ready queue info for this process */
-
 
   /* Processor we last ran on, to recover FP regs
    * Processor     *lastProcessor;
@@ -209,11 +199,13 @@ proc_IsWellFormed(Process* thisPtr)
 #ifndef NDEBUG
   if (thisPtr->faultCode == FC_MalformedProcess) {
     assert (thisPtr->processFlags & PF_Faulted);
-    assert (thisPtr->saveArea == 0);
   }
 #endif
-  if (thisPtr->hazards & (hz_DomRoot|hz_KeyRegs|hz_FloatRegs|hz_Malformed)) {
-    assert (thisPtr->saveArea == 0);
+  if (thisPtr->hazards & (hz_DomRoot | hz_KeyRegs | hz_Malformed
+#ifdef EROS_HAVE_FPU
+                          | hz_FloatRegs
+#endif
+                         )) {
     return false;
   }
     return true;
@@ -245,18 +237,9 @@ IsInProcess(const void * p)
   return false;
 }
 
-
-/* Returns true if the context has been successfully cached. A
- * context can be successfully cached without being runnable.  If
- * possible, sets the saveArea pointer to a valid save area.  The
- * saveArea pointer cannot be set if (e.g.) it's privileged
- * registers have improper values.
- */
 void proc_DoPrepare(Process* thisPtr);
 
-/* Fast-path inline version.  See comment above on DoPrepare().
- * MUST NOT yield if IsRunnable() would return true. (Why not? -CRL)
- */
+/* MUST NOT yield if IsRunnable() would return true. (Why not? -CRL) */
 // May Yield.
 INLINE void 
 proc_Prepare(Process* thisPtr)
@@ -300,20 +283,6 @@ proc_SetMalformed(Process* thisPtr)
 #endif
   proc_SetFault(thisPtr, FC_MalformedProcess, 0, false);
   thisPtr->hazards |= hz_Malformed; 
-  thisPtr->saveArea = 0;
-}
-
-/* USED ONLY BY INTERRUPT HANDLERS: */
-INLINE void 
-proc_SetSaveArea(Process* thisPtr, savearea_t *sa)
-{
-  thisPtr->saveArea = sa;
-}
-
-INLINE savearea_t *
-proc_UnsafeSaveArea(Process* thisPtr)
-{
-  return thisPtr->saveArea;
 }
 
 INLINE bool 

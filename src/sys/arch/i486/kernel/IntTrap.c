@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -189,37 +189,7 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
   }
 #endif
   
-  /* If we interrupted a activity, remember where the saved context
-   * was.  For user activities, this is redundant, because it is the same
-   * as the context that is already saved.  For kernel activities, this
-   * is vital, as without it we won't be able to restart the activity.
-   * Careful, though -- if this is a nested fault we don't want to
-   * overwrite the old value.
-   */
-  
-  if (sa_IsProcess(saveArea)) {
-#ifndef NDEBUG
-    
-    savearea_t *oldsa = proc_UnsafeSaveArea(act_CurContext());
-    
-    
-    if ( oldsa != saveArea ) {
-      printf("ex=0x%x err=0x%x, eip=0x%08x\n",
-	     saveArea->ExceptNo,
-	     saveArea->Error,
-	     saveArea->EIP);
-      fatal("in: CurActivity is 0x%08x old saveArea 0x%08x, "
-		    "saveArea = 0x%08x\n",
-		 curActivity, oldsa, saveArea);
-    }
-#endif
-    
-    proc_SetSaveArea(act_CurContext(), saveArea);
-  }
-  
- 
   assert( irq_DISABLE_DEPTH() == 1 || vecNumber < iv_IRQ0 );
- 
 
   /* We have now done all of the processing that must be done with
    * interrupts disabled.  Re-enable interrupts here:
