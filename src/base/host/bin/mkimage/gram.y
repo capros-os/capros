@@ -3,7 +3,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -95,6 +95,10 @@ AddEmptySegment(ErosImage *image,
 
 bool
 GetMiscKeyType(const char *, uint32_t *ty);
+
+bool
+CheckSubsegOffset(const ErosImage * image, uint64_t offset,
+                  KeyBits rootkey, KeyBits subSeg);
 
 const char *strcons(const char *s1, const char * s2);
 
@@ -584,7 +588,7 @@ stmt:	/* IMPORT STRING {
 
 	   if (ei_GetPageInSegment(image, $1, $2, &pageKey) == false) {
 	     pageKey = ei_AddZeroDataPage(image, false);
-	     ei_AddPageToSegment(image, $1, $2, pageKey);
+	     ei_AddSubsegToSegment(image, $1, $2, pageKey);
 	   }
 	  
 	   pageOffset = $2 & EROS_PAGE_MASK;
@@ -745,7 +749,7 @@ key:   NULLKEY {
 	    YYERROR;
 	  }
 
-	  if ($1)
+	  if ($1)	// SEGMENT, not SEGTREE
 	    keyBits_SetType(&key, KKT_Segment);
 	  $$ = key;
        }
@@ -783,19 +787,10 @@ key:   NULLKEY {
 	     YYERROR;
 	   }
 
-	   if ($2) {
-	     if ( keyBits_IsType(&key, KKT_Page) ) {
-	       KeyBits segKey = ei_AddNode(image, false);
-	       keyBits_SetBlss(&segKey, keyBits_GetBlss(&key) + 1);
-	       keyBits_InitType(&segKey, KKT_Segment);
-	       keyBits_SetUnprepared(&segKey);
-
-	       ei_SetNodeSlot(image, segKey, 0, key);
-
-	       key = segKey;
+	   if ($2) {	// SEGMENT, not SEGTREE
+	     if ( keyBits_IsType(&key, KKT_Node) ) {
+	       keyBits_SetType(&key, KKT_Segment);
 	     }
-      
-	     keyBits_SetType(&key, KKT_Segment);
 	   }
 
 	   $$ = key;
@@ -843,7 +838,7 @@ key:   NULLKEY {
 	    YYERROR;
 	  }
 	  
-	  if ($2)
+	  if ($2)	// SEGMENT, not SEGTREE
 	    keyBits_SetType(&key, KKT_Segment);
 	  $$ = key;
        }
@@ -858,7 +853,7 @@ key:   NULLKEY {
 	    YYERROR;
 	  }
 	  
-	  if ($2)
+	  if ($2)	// SEGMENT, not SEGTREE
 	    keyBits_SetType(&key, KKT_Segment);
 	  $$ = key;
        }
@@ -1146,21 +1141,12 @@ key:   NULLKEY {
 	     ei_AddZeroDataPage(image, $3 & (ATTRIB_RO) ? true : false);
       
 	   offset = $6;
-	   {
-	     uint32_t segOffsetBLSS = lss_BiasedLSS(offset);
-	     uint32_t rootBLSS = keyBits_GetBlss(&key);
-	     uint32_t segBLSS = keyBits_GetBlss(&pageKey);
+           if (! CheckSubsegOffset(image, offset, key, pageKey)) {
+	     num_errors++;
+	     YYERROR;
+           }
 
-	     if (segOffsetBLSS <= segBLSS && rootBLSS <= segOffsetBLSS) {
-	       diag_printf("%s:%d: Inserted page and offset would "
-			    "replace existing segment.\n",
-			    current_file, current_line);
-	       num_errors++;
-	       YYERROR;
-	     }
-	   }
-
-	   key = ei_AddPageToSegment(image, key, offset, pageKey);
+	   key = ei_AddSubsegToSegment(image, key, offset, pageKey);
       
 	   $$ = key;
         }
@@ -1200,19 +1186,10 @@ key:   NULLKEY {
 	  }
 
 	  offset = $7;
-	  {
-	    uint32_t segOffsetBLSS = lss_BiasedLSS(offset);
-	    uint32_t rootBLSS = keyBits_GetBlss(&key);
-	    uint32_t segBLSS = keyBits_GetBlss(&subSeg);
-
-	    if (segOffsetBLSS <= segBLSS && rootBLSS <= segOffsetBLSS) {
-	      diag_printf("%s:%d: Inserted segment and offset would "
-			   "replace existing segment.\n",
-			   current_file, current_line);
-	      num_errors++;
-	      YYERROR;
-	    }
-	  }
+           if (! CheckSubsegOffset(image, offset, key, subSeg)) {
+	     num_errors++;
+	     YYERROR;
+           }
 
 	  if ( !QualifyKey($3, subSeg, &subSeg) ) {
 	    num_errors++;
@@ -2096,7 +2073,7 @@ AddRawSegment(ErosImage *image,
   for (pg = 0;  pg < nPages; pg++) {
     uint32_t pageAddr = pg * EROS_PAGE_SIZE;
     KeyBits pageKey = ei_AddDataPage(image, &buf[pg * EROS_PAGE_SIZE], false);
-    *segKey = ei_AddPageToSegment(image, *segKey, pageAddr, pageKey);
+    *segKey = ei_AddSubsegToSegment(image, *segKey, pageAddr, pageKey);
   }
 
   return true;
@@ -2114,7 +2091,7 @@ AddZeroSegment(ErosImage *image,
   for (pg = 0;  pg < nPages; pg++) {
     uint32_t pageAddr = pg * EROS_PAGE_SIZE;
     KeyBits pageKey = ei_AddZeroDataPage(image, false);
-    *segKey = ei_AddPageToSegment(image, *segKey, pageAddr, pageKey);
+    *segKey = ei_AddSubsegToSegment(image, *segKey, pageAddr, pageKey);
   }
 
   return true;
@@ -2133,7 +2110,7 @@ AddEmptySegment(ErosImage *image,
   
   for (pg = 0;  pg < nPages; pg++) {
     uint32_t pageAddr = pg * EROS_PAGE_SIZE;
-    *segKey = ei_AddPageToSegment(image, *segKey, pageAddr, voidKey);
+    *segKey = ei_AddSubsegToSegment(image, *segKey, pageAddr, voidKey);
   }
 
   return true;
@@ -2307,7 +2284,7 @@ AddProgramSegment(ErosImage *image,
 	}
       }
 
-      *segKey = ei_AddPageToSegment(image, *segKey, va, pageKey);
+      *segKey = ei_AddSubsegToSegment(image, *segKey, va, pageKey);
     }
   }
 
@@ -2550,3 +2527,32 @@ NumberFromString(const char *is)
   init_NumberKey(&nk, w0, w1, w2);
   return nk;
 }
+
+bool	// returns false iff error
+CheckSubsegOffset(const ErosImage * image, uint64_t offset,
+                  KeyBits rootkey, KeyBits subSeg)
+{
+  uint32_t rootBLSS = ei_GetAnyBlss(image, rootkey);
+  uint32_t segBLSS = ei_GetAnyBlss(image, subSeg);
+  uint32_t segOffsetBLSS;
+  if (offset == 0) {
+    segOffsetBLSS = segBLSS;
+  } else {
+    if (offset & lss_Mask(segBLSS)) {
+      diag_printf("%s:%d: Inserted segment cannot be aligned to offset.\n",
+                  current_file, current_line);
+      return false;
+    }
+    segOffsetBLSS = lss_BiasedLSS(offset);
+  }
+  // Now segBLSS <= segOffsetBLSS.
+ 
+  if (segOffsetBLSS == segBLSS && rootBLSS <= segOffsetBLSS) {
+    diag_printf("%s:%d: Inserted segment and offset would "
+                "replace existing segment.\n",
+                current_file, current_line);
+    return false;
+  }
+  return true;
+}
+

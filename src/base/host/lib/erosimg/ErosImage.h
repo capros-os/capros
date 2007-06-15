@@ -2,8 +2,9 @@
 #define __EROSIMAGE_H__
 /*
  * Copyright (C) 1998, 1999, 2001, 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,6 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <erosimg/DiskKey.h>
@@ -201,9 +205,7 @@ extern "C" {
   /* Construction support for segments.  Given a segment root key and
    * an offset, hand back a new segment root key:
    */
-  KeyBits ei_AddPageToSegment(ErosImage *, KeyBits segRoot,
-			      uint64_t segOffset,
-			      KeyBits pageKey);
+  int ei_GetAnyBlss(const ErosImage *, KeyBits segRoot);
 
   KeyBits ei_AddSubsegToSegment(ErosImage *, KeyBits segRoot,
 				uint64_t segOffset,

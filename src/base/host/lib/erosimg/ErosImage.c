@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <assert.h>
 #include <sys/fcntl.h>
@@ -63,8 +67,8 @@ extern "C" {
 }
 #endif
 
-static unsigned int
-GetAnyBlss(KeyBits key)
+int
+ei_GetAnyBlss(const ErosImage * ei, KeyBits key)
 {
   if (keyBits_IsVoidKey(&key)) return EROS_PAGE_BLSS;
   return keyBits_GetBlss(&key);
@@ -385,7 +389,7 @@ ei_AddZeroDataPage(ErosImage *ei, bool readOnly)
   KeyBits key;
 
   init_DataPageKey(&key, oid, readOnly);
-  keyBits_SetPrepared(&key);
+  keyBits_SetPrepared(&key);	// prepared bit means it's a zero page
 
   return key;
 }
@@ -868,31 +872,38 @@ ei_ReadFromFile(ErosImage *ei, const char *source)
  * 
  */
 static KeyBits
-ei_DoAddPageToBlackSegment(ErosImage *ei, KeyBits segRoot,
+ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
 			   uint64_t segOffset,
-			   KeyBits pageKey,
+			   KeyBits segKey,
 			   uint64_t path,
 			   bool expandRedSegment)
 {
-  /* segOffsetBLSS holds the LSS of the smallest segment that could
-   * conceivably contain segOffset.
-   */
-  uint32_t segOffsetBLSS = lss_BiasedLSS(segOffset);
-  uint32_t rootBLSS = GetAnyBlss(segRoot);
+  uint32_t rootBLSS = ei_GetAnyBlss(ei, segRoot);
+  uint32_t segBLSS = ei_GetAnyBlss(ei, segKey);
+  uint32_t segOffsetBLSS;
+  if (segOffset == 0) {
+    segOffsetBLSS = segBLSS;
+  } else {
+    if (segOffset & lss_Mask(segBLSS)) {
+      diag_fatal(4, "AddPageToSegment: seg cannot be aligned to offset\n");
+    }
+    segOffsetBLSS = lss_BiasedLSS(segOffset);
+  }
+  // Now segBLSS <= segOffsetBLSS.
   
 #if 0
-  diag_debug(2, "pageAddr=0x%04x%08x%08x\n",
-	   pageAddr.hi, pageAddr.mid, pageAddr.lo);
+  diag_printf("AddSubseg, lss root=%d ofs=%d seg=%d\n",
+             rootBLSS, segOffsetBLSS, segBLSS);
+  diag_debug(2, "AddSubseg, lss root=%d ofs=%d seg=%d\n",
+             rootBLSS, segOffsetBLSS, segBLSS);
 #endif
 
   if ( keyBits_IsType(&segRoot, KKT_Wrapper) || keyBits_IsType(&segRoot, KKT_Segment) )
     diag_fatal(4, "AddPageToSegment: Cannot traverse subsegment\n");
 
   if (rootBLSS < segOffsetBLSS) {
-    /* Inserting a page whose offset BLSS is too large - need to grow
-     * the subsegment.  The code for altering the path is a bit
-     * tricky, since in effect we are backing up in the path
-     * traversal.
+    /* Inserting a segment whose offset BLSS is too large - need to
+     * grow a new root.
      */
 
     KeyBits newRoot = ei_AddNode(ei, false);
@@ -923,47 +934,43 @@ ei_DoAddPageToBlackSegment(ErosImage *ei, KeyBits segRoot,
     
     ei_SetNodeSlot(ei, newRoot, 0, segRoot);
     
-    return ei_DoAddPageToBlackSegment(ei, newRoot, segOffset, pageKey, path,
+    return ei_DoAddSubsegToBlackSegment(ei, newRoot, segOffset, segKey, path,
 				      expandRedSegment);
   }
+  // Now segOffsetBLSS <= rootBLSS.
+  // Therefore segBLSS <= segOffsetBLSS <= rootBLSS.
 
-  if (rootBLSS > segOffsetBLSS) {
-    uint32_t slot = 0; /* segOffset.blssSlotNdx(segOffsetBLSS); */
-    KeyBits subSeg = ei_GetNodeSlot(ei, segRoot, slot);
-	
-    KeyBits newSlotKey =
-      ei_DoAddPageToBlackSegment(ei, subSeg, segOffset, pageKey, path,
-				 expandRedSegment);
+  /* The segment key might replace the current key: */
+  if (rootBLSS == segBLSS)
+    return segKey;
 
-    ei_SetNodeSlot(ei, segRoot, slot, newSlotKey);
-      
+  if ((rootBLSS -1) == segBLSS) {
+    // Seg fits exactly in a slot of root.
+    uint32_t slot = lss_SlotNdx(segOffset, rootBLSS);
+    ei_SetNodeSlot(ei, segRoot, slot, segKey);
     return segRoot;
   }
 
-  /* The page key might replace the current key: */
-  if (rootBLSS == EROS_PAGE_BLSS && segOffsetBLSS == EROS_PAGE_BLSS)
-    return pageKey;
-	 
-  {
-    /* page key goes somewhere beneath current tree: */
-    uint32_t slot = lss_SlotNdx(segOffset, segOffsetBLSS);
-    uint64_t subSegOffset = segOffset;
-    KeyBits subSeg;
-    KeyBits newSubSeg;
+  // Traverse deeper in the tree.
+  uint32_t slot = lss_SlotNdx(segOffset, rootBLSS);
+  uint64_t subSegOffset = segOffset & lss_Mask(rootBLSS -1);
+  KeyBits subSeg = ei_GetNodeSlot(ei, segRoot, slot);
 
-    segOffsetBLSS--;
-    subSegOffset &= lss_Mask(segOffsetBLSS);
+  KeyBits newSlotKey =
+    ei_DoAddSubsegToBlackSegment(ei, subSeg, subSegOffset, segKey, path,
+		 expandRedSegment);
 
-    subSeg = ei_GetNodeSlot(ei, segRoot, slot);
-    newSubSeg =
-      ei_DoAddPageToBlackSegment(ei, subSeg, subSegOffset,
-				 pageKey, path, expandRedSegment);
-    ei_SetNodeSlot(ei, segRoot, slot, newSubSeg);
-  }
-
+  ei_SetNodeSlot(ei, segRoot, slot, newSlotKey);
   return segRoot;
 }
 
+/* 
+If segKey designates a page, the page must be in the image.
+If segKey designates a node, the node must be in the image
+  and the key must be a Node, Segment, or Wrapper key.
+segKey may be a void key.
+Other miscellaneous keys are not checked.
+ */
 static void
 ValidateSegKey(const ErosImage *ei, KeyBits segKey)
 {
@@ -1002,8 +1009,8 @@ PrepareToAddObjectToSegment(ErosImage * ei,
   ValidateSegKey(ei, segRoot);
 
   segOffsetBLSS = lss_BiasedLSS(segOffset);
-  rootBLSS = GetAnyBlss(segRoot);
-  segBLSS = GetAnyBlss(objKey);
+  rootBLSS = ei_GetAnyBlss(ei, segRoot);
+  segBLSS = ei_GetAnyBlss(ei, objKey);
 
   if (! keyBits_IsVoidKey(&segRoot)) {
     if (segOffsetBLSS <= segBLSS &&
@@ -1049,107 +1056,6 @@ PrepareToAddObjectToSegment(ErosImage * ei,
 }
 
 KeyBits
-ei_AddPageToSegment(ErosImage *ei, KeyBits segRoot,
-		    uint64_t segOffset,
-		    KeyBits pageKey)
-{
-  KeyBits rootKey;
-  bool wasSeg = false;
-  KeyBits newSegRoot;
-
-  keyBits_InitToVoid(&rootKey);
-  
-  if (! keyBits_IsType(&pageKey, KKT_Page) &&
-      ! keyBits_IsVoidKey(&pageKey) )
-    diag_fatal(4, "AddPageToSegment expects data page or void key\n");
-
-  PrepareToAddObjectToSegment(ei, segRoot, segOffset, pageKey,
-			      &rootKey /* output */ );
-
-  if (keyBits_IsType(&rootKey, KKT_Segment)) {
-    wasSeg = true;
-    keyBits_SetType(&rootKey, KKT_Node);
-  }
-  
-  newSegRoot =
-    ei_DoAddPageToBlackSegment(ei, rootKey, segOffset, pageKey, segOffset,
-			       keyBits_IsType(&segRoot, KKT_Wrapper) ? true : false);
-
-  if (wasSeg)
-    keyBits_SetType(&newSegRoot, KKT_Segment);
-  
-  if ( keyBits_IsType(&segRoot, KKT_Wrapper) )
-    return segRoot;
-
-  return newSegRoot;
-}
-
-static KeyBits
-ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
-			     uint64_t segOffset,
-			     KeyBits segKey)
-{
-  /* segOffsetBLSS holds the BLSS of the smallest segment that could
-   * conceivably contain segOffset.
-   */
-  uint32_t segOffsetBLSS = lss_BiasedLSS(segOffset);
-  uint32_t rootBLSS = GetAnyBlss(segRoot);
-  uint32_t segBLSS = keyBits_GetBlss(&segKey);
-  
-#if 0
-  diag_debug(2, "pageAddr=0x%04x%08x%08x\n",
-	   pageAddr.hi, pageAddr.mid, pageAddr.lo);
-#endif
-
-  if ( keyBits_IsType(&segRoot, KKT_Wrapper) || keyBits_IsType(&segRoot, KKT_Segment) )
-    diag_fatal(4, "AddPageToSegment: Cannot traverse subsegment\n");
-
-  if (rootBLSS < segOffsetBLSS) {
-    /* Inserting a segment whose offset BLSS is too large - need to
-     * grow a new root.
-     */
-
-    KeyBits newRoot = ei_AddNode(ei, false);
-    keyBits_SetBlss(&newRoot, segOffsetBLSS);
-    ei_SetNodeSlot(ei, newRoot, 0, segRoot);
-    
-    return ei_DoAddSubsegToBlackSegment(ei, newRoot, segOffset, segKey);
-  }
-
-  if (rootBLSS > segOffsetBLSS && rootBLSS > segBLSS) {
-    uint32_t slot = lss_SlotNdx(segOffset, segOffsetBLSS);
-    KeyBits subSeg = ei_GetNodeSlot(ei, segRoot, slot);
-	
-    KeyBits newSlotKey = ei_DoAddSubsegToBlackSegment(ei, subSeg, segOffset, segKey);
-
-    ei_SetNodeSlot(ei, segRoot, slot, newSlotKey);
-      
-    return segRoot;
-  }
-
-  /* The new segment might replace the current segment: */
-  if ( rootBLSS <= segBLSS )
-    return segKey;
-	 
-  {
-    /* segment key goes somewhere beneath current tree: */
-    uint32_t slot = lss_SlotNdx(segOffset, segOffsetBLSS);
-    uint64_t subSegOffset = segOffset;
-    KeyBits subSeg;
-    KeyBits newSubSeg;
-
-    segOffsetBLSS--;
-    subSegOffset &= lss_Mask(segOffsetBLSS);
-
-    subSeg = ei_GetNodeSlot(ei, segRoot, slot);
-    newSubSeg = ei_DoAddSubsegToBlackSegment(ei, subSeg, subSegOffset, segKey);
-    ei_SetNodeSlot(ei, segRoot, slot, newSubSeg);
-  }
-
-  return segRoot;
-}
-
-KeyBits
 ei_AddSubsegToSegment(ErosImage *ei, KeyBits segRoot,
 		      uint64_t segOffset,
 		      KeyBits segKey)
@@ -1159,26 +1065,29 @@ ei_AddSubsegToSegment(ErosImage *ei, KeyBits segRoot,
 
   ValidateSegKey(ei, segKey);
 
-  if (keyBits_IsType(&segKey, KKT_Node) == false &&
-      keyBits_IsType(&segKey, KKT_Segment) == false &&
-      keyBits_IsType(&segKey, KKT_Page) == false)
+  if (! keyBits_IsType(&segKey, KKT_Node) &&
+      ! keyBits_IsType(&segKey, KKT_Segment) &&
+      ! keyBits_IsType(&segKey, KKT_Page) &&
+      ! keyBits_IsVoidKey(&segKey) )
     diag_fatal(4, "AddSubsegToSegment: added subseg must be segment, "
-		"segtree, or page\n");
-
-#if 0
-  if (segKey.IsSegModeType() == false)
-    diag_fatal(4, "AddSubsegToSegment expects segment key\n");
-#endif
+		"segtree, page, or void\n");
 
   keyBits_InitToVoid(&rootKey);
 
   PrepareToAddObjectToSegment(ei, segRoot, segOffset, segKey,
                               &rootKey /* output */ );
 
-  if (keyBits_IsType(&rootKey, KKT_Segment))
+  bool wasSeg = keyBits_IsType(&rootKey, KKT_Segment);
+  if (wasSeg) {
     keyBits_SetType(&rootKey, KKT_Node);
+  }
   
-  newSegRoot = ei_DoAddSubsegToBlackSegment(ei, rootKey, segOffset, segKey);
+  newSegRoot =
+    ei_DoAddSubsegToBlackSegment(ei, rootKey, segOffset, segKey, segOffset,
+		       keyBits_IsType(&segRoot, KKT_Wrapper) ? true : false);
+
+  if (wasSeg)
+    keyBits_SetType(&newSegRoot, KKT_Segment);
 
   if ( keyBits_IsType(&segRoot, KKT_Wrapper) )
     return segRoot;
@@ -1195,7 +1104,7 @@ ei_DoGetPageInSegment(ErosImage *ei, KeyBits segRoot,
    * conceivably contain pageAddr.
    */
   uint32_t segOffsetBLSS = lss_BiasedLSS(segOffset);
-  uint32_t rootBLSS = GetAnyBlss(segRoot);
+  uint32_t rootBLSS = ei_GetAnyBlss(ei, segRoot);
   
   if (segOffsetBLSS > rootBLSS)
     return false;
@@ -1216,11 +1125,8 @@ ei_DoGetPageInSegment(ErosImage *ei, KeyBits segRoot,
      * page key goes somewhere beneath current tree:
      */
     uint32_t slot = lss_SlotNdx(segOffset, segOffsetBLSS);
-    uint64_t subSegOffset = segOffset;
+    uint64_t subSegOffset = segOffset & lss_Mask(segOffsetBLSS -1);
     KeyBits subSeg;
-
-    segOffsetBLSS--;
-    subSegOffset &= lss_Mask(segOffsetBLSS);
 
     subSeg = ei_GetNodeSlot(ei, segRoot, slot);
     return ei_DoGetPageInSegment(ei,subSeg, subSegOffset, pageKey);
@@ -1271,7 +1177,7 @@ ei_SetPageWord(ErosImage *ei, KeyBits *pageKey, uint32_t offset,
       for (keyNdx = 0; keyNdx < EROS_NODE_SIZE; keyNdx++) {
 	KeyBits *key = &ei->nodeImages[nodeNdx].slot[keyNdx];
 
-	if (keyBits_IsType(key, KKT_Page) == false || keyBits_IsPrepared(key) == false)
+	if (! keyBits_IsType(key, KKT_Page) || ! keyBits_IsPrepared(key))
 	  continue;
 	
 	/* It's a zero page key.  May need relocation:  */
@@ -1295,8 +1201,8 @@ ei_SetPageWord(ErosImage *ei, KeyBits *pageKey, uint32_t offset,
     for (dirNdx = 0; dirNdx < ei->hdr.nDirEnt; dirNdx++) {
 	KeyBits *key = &ei->dir[dirNdx].key;
 
-	if (keyBits_IsType(key, KKT_Page) == false || 
-	    keyBits_IsPrepared(key) == false)
+	if (! keyBits_IsType(key, KKT_Page) || 
+	    ! keyBits_IsPrepared(key) )
 	  continue;
 	
 	/* It's a zero page key.  May need relocation:  */
