@@ -3,9 +3,9 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
  * Copyright (C) 2001, The EROS Group.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -21,6 +21,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifdef __PRIMEBANK_MAP__
 #error "primebank.map multiply included"
@@ -46,6 +49,7 @@ spacebank.seg = spacebank.seg with page at 0xff000;
    segment insertion rules: */
 rangemap.seg = empty segtree with 1024 pages;
 spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x00400000;
+spacebank.seg = spacebank.seg as node key;	// so we can modify the heap
 rangemap.seg = empty segtree with 1024 pages;
 spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x00800000;
 rangemap.seg = empty segtree with 1024 pages;
