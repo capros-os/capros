@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Check.h>
@@ -95,11 +98,11 @@ RangeKey(Invocation* inv /*@ not null @*/)
   
   if (inv->key->keyType == KKT_PrimeRange) {
     start = 0ll;
-    end = (UINT64_MAX * EROS_OBJECTS_PER_FRAME) + EROS_NODES_PER_FRAME;
+    end = OID_RESERVED_PHYSRANGE;
   }
   else if (inv->key->keyType == KKT_PhysRange) {
     start = OID_RESERVED_PHYSRANGE;
-    end = (UINT64_MAX * EROS_OBJECTS_PER_FRAME);
+    end = UINT64_MAX;
   }
   
   range = end - start;
@@ -192,7 +195,8 @@ RangeKey(Invocation* inv /*@ not null @*/)
       newEnd = newLen + newStart;
 
       /* REMEMBER: malicious arithmetic might wrap! */
-      if ((newStart < start) ||
+      if ((newEnd < newStart) ||
+          (newStart < start) ||
 	  (newStart >= end) ||
 	  (newEnd <= start) ||
 	  (newEnd > end)) {
@@ -351,7 +355,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       /* Figure out the OID for the new key: */
       oid = start + offset;
 
-      if (oid > end) {	/* comparing ranges: INclusive */
+      if (oid >= end) {
 	dprintf(true, "oid 0x%X top 0x%X\n", oid, end);
 	inv->exit.code = RC_eros_Range_RangeErr;
 	return;
