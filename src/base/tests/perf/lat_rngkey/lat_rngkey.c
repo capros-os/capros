@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2007, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,16 +18,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
-#include <eros/NodeKey.h>
+#define _REVEAL_KERNEL_KEY_TYPES_
+#include <disk/DiskNodeStruct.h>
 #include <eros/KeyConst.h>
 #include <domain/domdbg.h>
-#include <domain/SpaceBankKey.h>
-#include <domain/ConstructorKey.h>
 #include <idl/eros/SysTrace.h>
 
 #define KR_SELF     2
@@ -128,7 +129,7 @@ main()
 
   for (i = 0; i < NPAGES; i++) {
     int j;
-    for (j = 0; j < EROS_NODES_PER_FRAME; j++) {
+    for (j = 0; j < DISK_NODES_PER_PAGE; j++) {
 
       uint64_t oid = BASE_OID + (i * EROS_OBJECTS_PER_FRAME) + j;
 
@@ -140,9 +141,9 @@ main()
   eros_SysTrace_reportCounter(KR_SYSTRACE, &st);
   eros_SysTrace_stopCounter(KR_SYSTRACE);
 
-  st.cycles /= (NPAGES*EROS_NODES_PER_FRAME);
+  st.cycles /= (NPAGES*DISK_NODES_PER_PAGE);
   kprintf(KR_OSTREAM, "Done -- %d nodes (%d frames), each %u cycles.\n",
-	  (NPAGES*EROS_NODES_PER_FRAME),
+	  (NPAGES*DISK_NODES_PER_PAGE),
 	  NPAGES, (uint32_t) st.cycles);
 
 
