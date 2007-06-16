@@ -29,6 +29,8 @@
 
 #include <stddef.h>
 #include <eros/target.h>
+#define _REVEAL_KERNEL_KEY_TYPES_
+#include <disk/DiskNodeStruct.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
@@ -524,7 +526,7 @@ InitSpaceBank(void)
 			     }
 
   SETUP_TYPE(Page, 1u);
-  SETUP_TYPE(Node, EROS_NODES_PER_FRAME);
+  SETUP_TYPE(Node, DISK_NODES_PER_PAGE);
 #undef SETUP_TYPE
 
 #if 0
