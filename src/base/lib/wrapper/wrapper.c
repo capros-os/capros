@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime distribution.
+ * This file is part of the CapROS Operating System runtime distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
@@ -39,15 +43,12 @@ wrapper_create(uint32_t bank, uint32_t wrapper_key,
   uint32_t result;
   eros_Number_value nkv;
 
-  result = spcbank_buy_nodes(bank, 1, wrapper_key, KR_VOID, KR_VOID);
+  result = spcbank_buy_nodes(bank, 1, node_key, KR_VOID, KR_VOID);
   if (result != RC_OK)
     return result;
 
-  result = node_make_node_key(wrapper_key, 1, 0, wrapper_key);
-  if (result != RC_OK)
-    return result;
-
-  result = process_copy_keyreg(KR_SELF, wrapper_key, node_key);
+  // Set BLSS to 1. Probably not necessary. 
+  result = node_make_node_key(node_key, 1, 0, node_key);
   if (result != RC_OK)
     return result;
 
@@ -55,15 +56,15 @@ wrapper_create(uint32_t bank, uint32_t wrapper_key,
   nkv.value[1] = value1;
   nkv.value[2] = value2;
 
-  result = node_write_number(wrapper_key, WrapperFormat, &nkv);
+  result = node_write_number(node_key, WrapperFormat, &nkv);
   if (result != RC_OK)
     return result;
 
-  result = node_swap(wrapper_key, WrapperKeeper, key_to_wrap, KR_VOID);
+  result = node_swap(node_key, WrapperKeeper, key_to_wrap, KR_VOID);
   if (result != RC_OK)
     return result;
 
-  result = node_make_wrapper_key(wrapper_key, 0, 0, wrapper_key);
+  result = node_make_wrapper_key(node_key, 0, 0, wrapper_key);
   return result;
 }
 
