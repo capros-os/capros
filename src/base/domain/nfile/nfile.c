@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 
 /*
@@ -57,6 +61,8 @@
 #include <stdlib.h>
 
 #include "constituents.h"
+
+#include <wrapper/wrapper.h>
 
 #define min(a,b) ((a) <= (b) ? (a) : (b))
 
@@ -515,36 +521,6 @@ create_new_file(server_state *ss, ino_s** outFile)
   return RC_OK;
 }
 
-uint32_t
-make_file_seg(ino_s* ino)
-{
-  uint32_t result;
-  eros_Number_value myKeyval;
-  
-  result = spcbank_buy_nodes(KR_BANK, 1, KR_CURFILE, KR_VOID,
-			       KR_VOID);
-  if (result != RC_OK)
-    return result;
-  
-  /* Set up the format key for the red segment.  Use SEND_NODE so that
-     it is easy to delete the file when we need to. */
-  myKeyval.value[0] = WRAPPER_SEND_NODE | WRAPPER_SEND_WORD | WRAPPER_KEEPER;
-  /* Any valid BLSS will do, since there are no initial slots. */
-  WRAPPER_SET_BLSS(myKeyval, 0);
-  myKeyval.value[1] = (uint32_t)ino;     /* pointer to /ino/ */
-  myKeyval.value[2] = 0;
-
-  /* new node is in /KR_CURFILE/. fill it with the information */
-  result = node_write_number(KR_CURFILE, WrapperFormat, &myKeyval);
-
-  result = node_swap(KR_CURFILE, WrapperKeeper, KR_FILESTART, KR_VOID);
-
-  /* now we have everything set up -- make the segment key */
-  result = node_make_wrapper_key(KR_CURFILE, 0, 0, KR_CURFILE);
-
-  return RC_OK;
-}
-
 void
 reclaim_ino_pages(server_state *ss, uint32_t lvl, uint32_t *blockTable)
 {
@@ -604,7 +580,9 @@ ProcessRequest(Message *msg, server_state *ss)
       if (result != RC_OK)
 	break;
 
-      result = make_file_seg(newFile);
+      result = wrapper_create(KR_BANK, KR_CURFILE, KR_SCRATCH, KR_FILESTART,
+                 WRAPPER_SEND_NODE | WRAPPER_SEND_WORD | WRAPPER_KEEPER,
+                 (uint32_t)newFile, 0);
       if (result != RC_OK)
 	break;
 
