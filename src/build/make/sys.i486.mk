@@ -28,6 +28,7 @@ install: $(BUILDDIR)/sysimg
 
 $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
 	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
+	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
 
 init.hd: $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
@@ -65,14 +66,5 @@ vmware: $(BUILDDIR) $(BUILDDIR)/vmfloppy
 bochs: $(BUILDDIR) $(BUILDDIR)/vmfloppy
 	bochs -q -f $(EROS_ROOT)/src/build/scripts/bochsrc.eros \
 		'boot:a' "floppya: 1_44=$(BUILDDIR)/vmfloppy, status=inserted"
-
-# depend stuff
-DEPEND: $(BUILDDIR)/.sysimg.m
-
-# Handles sysimg dependencies.  This line *must* have all of the 
-#arguments from the "sysimg:" line, above.
-
-$(BUILDDIR)/.sysimg.m: $(TARGETS) $(IMGMAP)
-	-$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
 
 -include $(BUILDDIR)/.*.m

@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
 # This material is based upon work supported by the US Defense Advanced
 # Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 # W31P4Q-07-C-0070.  Approved for public release, distribution unlimited.
@@ -28,6 +28,7 @@ install: $(BUILDDIR)/sysimg
 
 $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
 	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
+	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
 
 init.hd: $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol $(VOLMAP) $(EROS_HD)
@@ -71,14 +72,5 @@ tstflop: install $(BUILDDIR)/sysvolfd
 
 vmware: $(BUILDDIR) $(BUILDDIR)/vmfloppy
 	vmware -x -s floppy0.fileType=file -s floppy0.fileName=`pwd`/$(BUILDDIR)/vmfloppy $(HOME)/vmware/EROS/EROS.cfg
-
-# depend stuff
-DEPEND: $(BUILDDIR)/.sysimg.m
-
-# Handles sysimg dependencies.  This line *must* have all of the 
-#arguments from the "sysimg:" line, above.
-
-$(BUILDDIR)/.sysimg.m: $(TARGETS) $(IMGMAP)
-	-$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
 
 -include $(BUILDDIR)/.*.m
