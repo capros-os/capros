@@ -203,22 +203,6 @@ inv_BootInit()
  *      If already consumed copy a null key
  *      else construct resume key
  *    Migrate the outbound thread to the invokee.
- * 
- * 
- * NOTE DELICATE ISSUE
- * 
- *   Wrapper invocation is the only place where a resume key can
- *   become prepared without it's containing object being dirty (the
- *   other case -- key registers -- guarantees that the object is
- *   already dirty.  Preparing a resume key without guaranteeing dirty
- *   object causes resume key rescind to violate the checkpoint
- *   constraint by creating a situation in which the resume key may
- *   get turned into void before the containing node is stabilized.
- *   The code here is careful to check -- if the keeper gate key is a
- *   resume key, we mark the containing node dirty.
- * 
- *   In practice, if you use a resume key in a keeper slot you are a
- *   bogon anyway, so I'm not real worried about it...
  */
 
 Invocation inv;
@@ -830,10 +814,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
       inv.invKeyType = keyBits_GetType(inv.key);
 #endif
 
-      /* Prepared resume keys can only reside in dirty objects! */
-      if (inv.invKeyType == KKT_Resume)
-	node_MakeDirty(wrapperNode);
-	    
       key_Prepare(inv.key);	/* MAY YIELD!!! */
     }
   } 
