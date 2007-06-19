@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
@@ -38,7 +41,6 @@
 
 #include <disk/DiskNodeStruct.h>
 
-/* replacement for overloaded operator = in Node */
 void 
 node_SetEqualTo(Node *thisPtr, const DiskNodeStruct *other)
 {
@@ -52,6 +54,7 @@ node_SetEqualTo(Node *thisPtr, const DiskNodeStruct *other)
   thisPtr->node_ObjHdr.oid = other->oid;
   thisPtr->node_ObjHdr.allocCount = other->allocCount;
   thisPtr->callCount = other->callCount;
+  thisPtr->nodeData = other->nodeData;
 
   for (i = 0; i < EROS_NODE_SIZE; i++) {
     assert(keyBits_IsHazard(&thisPtr->slot[i]) == false);

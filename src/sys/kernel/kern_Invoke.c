@@ -803,6 +803,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
     if (keyBits_IsType(fmtKey, KKT_Number)
 	&& keyBits_IsGateKey(&wrapperNode->slot[WrapperKeeper]) ) {
+      // FIXME: check WRAPPER_KEEPER
       /* Unlike the older red segment logic, the format key has
        * preassigned slots for the keeper, address space, and so
        * forth.
