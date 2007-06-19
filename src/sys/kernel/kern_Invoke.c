@@ -87,9 +87,6 @@ UnimplementedKey(Invocation* inv /*@ not null @*/)
 #define KeyboardKey VoidKey
 #endif
 
-#define  KKT_TimePage 24
-#define KKT_TimeOfDay 25
-
 INLINE void 
 proc_KeyDispatch(Invocation *pInv)
 {

@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, Strawberry Development Group.
+# Copyright (C) 2006, 2007, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -17,9 +17,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
 # This material is based upon work supported by the US Defense Advanced
-# Research Projects Agency under Contract No. W31P4Q-06-C-0040.
+# Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+# W31P4Q-07-C-0070.  Approved for public release, distribution unlimited.
 
 # inherits DFLT_CONFIG from makefile in parent directory
 
@@ -31,7 +32,7 @@ BUILDDIR=.
 
 install all: ../BUILD/$(KERNEL_CONFIG)/Makefile
 
-../BUILD/$(KERNEL_CONFIG)/Makefile: $(KERNEL_CONFIG) ALL ../../../config.common files.edb9315 Makefile.edb9315
+../BUILD/$(KERNEL_CONFIG)/Makefile: $(KERNEL_CONFIG) ALL ../../../config.common files.edb9315 Makefile.edb9315 ../../../files.common
 	$(PYTHON) ../../../scripts/config.py $(KERNEL_CONFIG)
 
 include $(EROS_SRC)/build/make/makerules.mk
