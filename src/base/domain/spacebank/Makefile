@@ -70,8 +70,8 @@ $(BUILDDIR)/spacebank: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) $(DOMLIB) -o $@
 
 IDL=$(wildcard *.idl)
-interfaces: $(IDL)
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros
+#interfaces: $(IDL)
+#	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
