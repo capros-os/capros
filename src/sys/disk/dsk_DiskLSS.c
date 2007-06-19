@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* All of this is in a separate file so that it won't get linked into
  * the kernel:
@@ -26,9 +30,6 @@
 
 #include <eros/target.h>
 #include <disk/DiskLSS.h>
-
-#define ROUND_UP(x, y) ( ((x) % (y)) ? ( ((x) % (y)) + (y) ) : (x) )
-#define ROUND_DOWN(x, y) ((x) - ((x) % (y)))
 
 uint32_t
 lss_SlotNdx(uint64_t offset, uint32_t blss)
@@ -86,7 +87,7 @@ lss_BiasedLSS(uint64_t offset)
 {
   /* Shouldn't this be using fcs()? */
   uint32_t bits = 0;
-  uint32_t w0 = (uint32_t) offset;
+  uint32_t w0;
   
   static uint32_t hexbits[16] = {
     0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4
@@ -96,6 +97,8 @@ lss_BiasedLSS(uint64_t offset)
   if (offset >= 0x100000000ull) {
     bits += 32;
     w0 = (offset >> 32);
+  } else {
+    w0 = (uint32_t) offset;
   }
 
   if (w0 >= 0x10000u) {
@@ -113,6 +116,7 @@ lss_BiasedLSS(uint64_t offset)
 
   /* Table lookup for the last part: */
   bits += hexbits[w0];
+  // offset fits in bits bits.
   
   if (bits < EROS_PAGE_ADDR_BITS)
     return EROS_PAGE_BLSS;
