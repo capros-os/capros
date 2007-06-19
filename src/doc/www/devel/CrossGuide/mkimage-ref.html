@@ -361,7 +361,10 @@
 	<dd>
 	     <p>
 	     Fabricates a new segment tree containing the <em>load image</em>
-	     of the executable <i>file</i>.  If the <b>segment</b>
+	     of the executable <i>file</i>. If the load image fits in a
+             single page, a page key is returned and it makes no difference
+             whether <b>segment</b> or <b>segtree</b> is used.
+             Otherwise, if the <b>segment</b>
 	     form is used a segment key is returned.  Otherwise a node
 	     key is returned.  If the <b>small</b> variant is
 	     used, the returned key is a node key suitable for use
