@@ -36,7 +36,7 @@ INC= -I$(EROS_ROOT)/include
 
 .PHONY: stubs
 stub-src:
-	rm $(CLEANLIST)
+	rm -f *.c
 	$(CAPIDL) -D . -l c-stubs `find $(EROS_ROOT)/idl -name '*.idl'`
 
 $(BUILDDIR)/libidlstub.a: $(OBJECTS)
