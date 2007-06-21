@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -103,15 +103,6 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
   Node *theNode = (Node *) key_GetObjectPtr(inv->key);
 
-
-  if (inv->invokee && theNode == inv->invokee->procRoot
-      && OC_Node_Swap == inv->entry.code)
-    dprintf(true, "Modifying invokee domain root\n");
-
-  if (inv->invokee && theNode == inv->invokee->keysNode
-      && OC_Node_Swap == inv->entry.code)
-    dprintf(true, "Modifying invokee keys node\n");
-
   switch (inv->entry.code) {
   case OC_eros_key_getType:
     {
@@ -159,10 +150,14 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
   case OC_Node_Swap:
     {
-      uint32_t slot;
+      if (inv->invokee && theNode == inv->invokee->procRoot)
+        dprintf(true, "Modifying invokee domain root\n");
+
+      if (inv->invokee && theNode == inv->invokee->keysNode)
+        dprintf(true, "Modifying invokee keys node\n");
+
       if (theNode == act_CurContext()->keysNode)
 	dprintf(true, "Swap involving sender keys\n");
-
 
       if (isFetch) {
 	COMMIT_POINT();
@@ -170,7 +165,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
 	return;
       }
 	
-      slot = inv->entry.w1;
+      uint32_t slot = inv->entry.w1;
 
       if (slot >= EROS_NODE_SIZE) {
 	COMMIT_POINT();
@@ -326,10 +321,9 @@ NodeKey(Invocation* inv /*@ not null @*/)
 	
       inv->exit.code = RC_OK;
       
-
-      inv_SetExitKey(inv, 0, inv->key);
-
       if (inv->exit.pKey[0]) {
+        inv_SetExitKey(inv, 0, inv->key);
+
 	inv->exit.pKey[0]->keyData = w;
 	inv->exit.pKey[0]->keyPerms = p;
 

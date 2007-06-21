@@ -15,8 +15,9 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
   /* Object types returned by identify: */
   const unsigned long otPage = 0;
   const unsigned long otNode = 1;
-  const unsigned long otNUM_TYPES = 2;
-  const unsigned long otInvalid = max(unsigned long);
+  const unsigned long otForwarder = 2;
+  const unsigned long otGPT = 3;
+  const unsigned long otNUM_TYPES = 4;
 
   /** Query a range.
    *
@@ -28,6 +29,8 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    *
    * Determines whether an object originated from a give range, and if
    * so, at what offset relative to the start of the range.
+     Raises RangeErr if key is not a Page, Node, Forwarder, or GPT key,
+     or it is opaque, or the object is not in this range.
    */
   void identify(eros.key key, out unsigned long type, 
   		out unsigned long long offset);
@@ -39,15 +42,6 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    */
   void rescind(eros.key key);
 
-  /** Create key to node.
-   *
-   * Creates a node key to the designated node if and only if the
-   * offset falls within the legal bounds of this range. If the range
-   * is dismounted or otherwise unavailable, this operation will throw
-   * the /RangeErr/ exception.
-   */
-  eros.key getNodeKey(unsigned long long offset);
-
   /** Create key to page.
    *
    * Creates a page key to the designated page if and only if the
@@ -56,6 +50,24 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * the /RangeErr/ exception.
    */
   eros.key getPageKey(unsigned long long offset);
+
+  /** Create key to page (blocking).
+   *
+   * Creates a page key to the designated page if and only if the
+   * offset falls within the legal bounds of this range. If the range
+   * is dismounted or otherwise unavailable, this operation will block
+   * until the range becomes available.
+   */
+  eros.key waitPageKey(unsigned long long offset);
+
+  /** Create key to node.
+   *
+   * Creates a node key to the designated node if and only if the
+   * offset falls within the legal bounds of this range. If the range
+   * is dismounted or otherwise unavailable, this operation will throw
+   * the /RangeErr/ exception.
+   */
+  eros.key getNodeKey(unsigned long long offset);
 
   /** Create key to node (blocking).
    *
@@ -66,14 +78,8 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    */
   eros.key waitNodeKey(unsigned long long offset);
 
-  /** Create key to page (blocking).
-   *
-   * Creates a page key to the designated page if and only if the
-   * offset falls within the legal bounds of this range. If the range
-   * is dismounted or otherwise unavailable, this operation will block
-   * until the range becomes available.
-   */
-  eros.key waitPageKey(unsigned long long offset);
+  eros.key getCap(unsigned long type, unsigned long long offset);
+  eros.key waitCap(unsigned long type, unsigned long long offset);
 
   /** Compare two ranges for overlap or relative position.
    *

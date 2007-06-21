@@ -23,25 +23,23 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
-#include <kerninc/Check.h>
 #include <kerninc/Key.h>
-/*#include <kerninc/BlockDev.h>*/
-#include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/ObjectCache.h>
 #include <disk/DiskNodeStruct.h>
-#include <disk/DiskFrame.h>
 
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
 #include <idl/eros/key.h>
 #include <idl/eros/Range.h>
+#include <idl/eros/Memory.h>
+#include <idl/eros/Forwarder.h>
 
 /*
  * There is a problem with range keys that is pretty well
  * fundamental. In a nutshell, the key representation only gives us
- * 112 bits of storage (3*32 + 16 in keyInfo), and we need to
+ * 112 bits of storage (3*32 + 16 in keyData), and we need to
  * represent 128 bits of information (base and bound).
  *
  * In the final analysis, there are really only two viable solutions:
@@ -54,9 +52,9 @@ Approved for public release, distribution unlimited. */
  * 2. You can restrict range keys to a representable subrange, and
  *    require some applications to manage multiple range keys. This
  *    would give base=64 bits and length=48 bits, using the
- *    keyInfo field for the extra 16 bits of the length. At the
+ *    keyData field for the extra 16 bits of the length. At the
  *    moment, I'm restricting things to 32 bits of representable range
- *    and avoiding the keyInfo field.
+ *    and avoiding the keyData field.
  *
  * 3. You can introduce a "superrange" capability that uses a
  *    distinctive key type to actually cover the full range.
@@ -80,32 +78,147 @@ Approved for public release, distribution unlimited. */
  * I cannot imagine this actually arising much in the next several
  * years, though current (year 2001) disk drives are currently
  * implementing on the close order of 2^25 pages. This takes a minimum
- * of 2^29 oids (16 bits for object index), so I expect we will blow
+ * of 2^29 oids (4 bits for object index), so I expect we will blow
  * past the 2^32 oid limit within the next year or two and I will need
- * to eat into the keyInfo field. I'm deferring that primarily for
+ * to eat into the keyData field. I'm deferring that primarily for
  * time reasons.
  */
 
 /* #define DEBUG_RANGEKEY */
 
+OID rngStart, rngEnd;
+      
+// Returns object type or -1
+static int
+ValidateKey(Key * key)
+{
+  if (keyBits_IsType(key, KKT_Page))	// maybe test readOnly
+    return eros_Range_otPage;
+  else if (keyBits_IsType(key, KKT_Node))	// maybe test readOnly
+    return eros_Range_otNode;
+  else if (keyBits_IsType(key, KKT_Forwarder)
+           && ! (key->keyData & eros_Forwarder_opaque) )
+    return eros_Range_otForwarder;
+  else if (keyBits_IsType(key, KKT_GPT)
+           && ! (key->keyData & eros_Memory_opaque) )
+    return eros_Range_otGPT;
+  else return -1;
+}
+
+static uint64_t
+w1w2Offset(Invocation * inv)
+{
+  return (((uint64_t) inv->entry.w2) << 32) | ((uint64_t) inv->entry.w1);
+}
+
+static uint64_t
+w2w3Offset(Invocation * inv)
+{
+  return (((uint64_t) inv->entry.w3) << 32) | ((uint64_t) inv->entry.w2);
+}
+
+static void
+MakeObjectKey(Invocation * inv, uint64_t offset,
+  bool wait, ObType obType, uint8_t kkt)
+{
+  uint32_t obNdx;
+  ObjectHeader *pObj = 0;
+
+  /* Figure out the OID for the new key: */
+  OID oid = rngStart + offset;
+
+  if (oid >= rngEnd) {
+    dprintf(true, "oid 0x%X top 0x%X\n", oid, rngEnd);
+    COMMIT_POINT();
+    inv->exit.code = RC_eros_Range_RangeErr;
+    return;
+  }
+
+  obNdx = offset % EROS_OBJECTS_PER_FRAME;
+
+  Key * key = inv->exit.pKey[0];
+  inv->flags |= INV_EXITKEY0;
+
+  if (! wait && ! objC_HaveSource(oid)) {
+    COMMIT_POINT();
+    inv->exit.code = RC_eros_Range_RangeErr;
+    return;
+  }
+
+  const unsigned int objPerPage =
+    obType == ot_PtDataPage ? 1 : DISK_NODES_PER_PAGE;
+  if (obNdx >= objPerPage) {
+    COMMIT_POINT();
+    inv->exit.code = RC_eros_Range_RangeErr;
+    return;
+  }
+
+  /* If we don't get the object back, it's because of bad frame
+   * type:
+   */
+
+  pObj = objC_GetObject(oid, obType, 0, false);
+
+  assert(inv_CanCommit());
+  assert(pObj);
+
+  COMMIT_POINT();
+
+  /* It's definitely an object key.  Pin the object it names. */
+
+  objH_TransLock(pObj);
+  
+  if (key) {
+    /* Unchain the old key so we can overwrite it... */
+    key_NH_Unchain(key);
+
+    keyBits_InitType(key, kkt);
+  
+    /* Link as next key after object */
+    key->u.ok.pObj = pObj;
+    link_insertAfter(&pObj->keyRing, &key->u.ok.kr);
+    keyBits_SetPrepared(key);
+  
+    key->keyData = kkt == KKT_Page ? EROS_PAGE_BLSS : 0;
+  }
+
+#ifdef DEBUG_PAGERANGEKEY
+  dprintf(true, "pObject is 0x%08x\n", pObj);
+#endif
+
+  inv->exit.code = RC_OK;  /* set the exit code */
+  
+  return;
+}
+
+OID /* returns end of range */
+key_GetRange(Key * key, /* out */ OID * rngStart)
+{
+  if (key->keyType == KKT_PrimeRange) {
+    *rngStart = 0ll;
+    return OID_RESERVED_PHYSRANGE;
+  }
+  else if (key->keyType == KKT_PhysRange) {
+    *rngStart = OID_RESERVED_PHYSRANGE;
+    return UINT64_MAX;
+  }
+  else {
+    *rngStart = key->u.rk.oid;
+    return key->u.rk.oid + key->u.rk.count;
+  }
+}
+
 /* May Yield. */
 void
 RangeKey(Invocation* inv /*@ not null @*/)
 {
-  OID start = inv->key->u.rk.oid;
-  OID end = inv->key->u.rk.oid + inv->key->u.rk.count;
+  bool waitFlag;
+
   eros_Range_off_t range;
   
-  if (inv->key->keyType == KKT_PrimeRange) {
-    start = 0ll;
-    end = OID_RESERVED_PHYSRANGE;
-  }
-  else if (inv->key->keyType == KKT_PhysRange) {
-    start = OID_RESERVED_PHYSRANGE;
-    end = UINT64_MAX;
-  }
+  rngEnd = key_GetRange(inv->key, &rngStart);
   
-  range = end - start;
+  range = rngEnd - rngStart;
 
 
   switch(inv->entry.code) {
@@ -137,29 +250,25 @@ RangeKey(Invocation* inv /*@ not null @*/)
     {
       OID subStart;
       OID subEnd;
-      OID startOffset;
 
       COMMIT_POINT();
 
-      startOffset = inv->entry.w2;
-      startOffset <<= 32;
-      startOffset |= inv->entry.w1;
-      startOffset += start;
+      OID startOffset = w1w2Offset(inv) + rngStart;
 
-      if (startOffset >= end) {
+      if (startOffset >= rngEnd) {
 	inv->exit.code = RC_eros_Range_RangeErr;
 	return;
       }
 
       /* FIX: This only works for 32-bit subranges */
 
-      objC_FindFirstSubrange(startOffset, end, &subStart, &subEnd);
+      objC_FindFirstSubrange(startOffset, rngEnd, &subStart, &subEnd);
 
       range = subEnd - subStart;
       if (range >= (uint64_t) UINT32_MAX)
 	range = UINT32_MAX;
 
-      subStart -= start;
+      subStart -= rngStart;
 
       inv->exit.w1 = subStart;
       inv->exit.w2 = (fixreg_t) (subStart >> 32);
@@ -172,7 +281,6 @@ RangeKey(Invocation* inv /*@ not null @*/)
     
   case OC_eros_Range_makeSubrange:
     {
-      OID newStart;
       OID newLen;
       OID newEnd;
       Key *key = 0;
@@ -181,10 +289,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 
       /* This implementation allows for 64 bit offsets, but only 32
        * bit limits, which is nuts! */
-      newStart = inv->entry.w2;
-      newStart <<= 32;
-      newStart |= inv->entry.w1;
-      newStart += start;
+      OID newStart = w1w2Offset(inv) + rngStart;
 
       /* This is not an issue with the broken interface, but with the
        * 48 bit length representation and a fixed interface we could
@@ -196,10 +301,10 @@ RangeKey(Invocation* inv /*@ not null @*/)
 
       /* REMEMBER: malicious arithmetic might wrap! */
       if ((newEnd < newStart) ||
-          (newStart < start) ||
-	  (newStart >= end) ||
-	  (newEnd <= start) ||
-	  (newEnd > end)) {
+          (newStart < rngStart) ||
+	  (newStart >= rngEnd) ||
+	  (newEnd <= rngStart) ||
+	  (newEnd > rngEnd)) {
 	inv->exit.code = RC_eros_Range_RangeErr;
 	return;
       }
@@ -226,49 +331,30 @@ RangeKey(Invocation* inv /*@ not null @*/)
     
   case OC_eros_Range_identify:
     {
-      OID oid;
       /* Key to identify is in slot 0 */
       Key* key /*@ not null @*/ = inv->entry.key[0];
 
       key_Prepare(key);
 
-
       COMMIT_POINT();
 
-      inv->exit.code = RC_OK;
-      
-      if (keyBits_IsType(key, KKT_Page) == false &&
-	  keyBits_IsType(key, KKT_Node) == false) {
+      int t = ValidateKey(key);
+      if (t < 0) {
 	inv->exit.code = RC_eros_Range_RangeErr;
 	return;
       }
 
-#if 0
-      /* There is no reason why these should fail to identify. */
-      if (key.keyData & SEGMODE_ATTRIBUTE_MASK) {
-	inv.exit.code = RC_eros_key_RequestError;
-	return;
+      inv->exit.w1 = t;
+
+      OID oid = key_GetKeyOid(key);
+
+      inv->exit.code = RC_OK;	// default
+      
+      if ( oid < rngStart || oid >= rngEnd ) {
+	inv->exit.code = RC_eros_Range_RangeErr;
+        return;
       }
-#endif
-	
-
-      oid = key_GetKeyOid(key);
-
-      
-      if ( oid < start )
-	inv->exit.code = RC_eros_Range_RangeErr;
-      else if ( oid >= end )
-	inv->exit.code = RC_eros_Range_RangeErr;
-      else
-	range = oid - start;
-      
-      /* ALERT: output convention depends on register size! */
-      if (keyBits_IsType(key, KKT_Page))
-	inv->exit.w1 = eros_Range_otPage;
-      else if (keyBits_IsType(key, KKT_Node))
-	inv->exit.w1 = eros_Range_otNode;
-      else
-	inv->exit.w1 = eros_Range_otInvalid;
+      range = oid - rngStart;
       
       /* FIX: there is a register size assumption here! */
       assert (sizeof(range) == sizeof(uint64_t));
@@ -290,22 +376,13 @@ RangeKey(Invocation* inv /*@ not null @*/)
 
       inv->exit.code = RC_OK;
       
-      if (keyBits_IsType(key, KKT_Page) == false &&
-	  keyBits_IsType(key, KKT_Node) == false) {
+      if (ValidateKey(key) < 0) {
 	inv->exit.code = RC_eros_Range_RangeErr;
 	COMMIT_POINT();
 
 	return;
       }
 
-      /* FIX: Not clear this test should really be here. */
-      if (key->keyPerms) {
-	inv->exit.code = RC_eros_key_RequestError;
-	COMMIT_POINT();
-
-	return;
-      }
-	  
       OID oid = key_GetKeyOid(key);
       
 #ifdef DEBUG_PAGERANGEKEY
@@ -314,7 +391,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 		      (uint32_t) oid);
 #endif
       
-      if ( oid < start || oid >= end ) {
+      if ( oid < rngStart || oid >= rngEnd ) {
 	inv->exit.code = RC_eros_Range_RangeErr;
 	COMMIT_POINT();
 
@@ -337,150 +414,62 @@ RangeKey(Invocation* inv /*@ not null @*/)
     }
 
   case OC_eros_Range_waitPageKey:
-  case OC_eros_Range_waitNodeKey:
+    MakeObjectKey(inv, w1w2Offset(inv),
+      true, ot_PtDataPage, KKT_Page);
+    return;
+
   case OC_eros_Range_getPageKey:
+    MakeObjectKey(inv, w1w2Offset(inv),
+      false, ot_PtDataPage, KKT_Page);
+    return;
+
+  case OC_eros_Range_waitNodeKey:
+    MakeObjectKey(inv, w1w2Offset(inv),
+      true, ot_NtUnprepared, KKT_Node);
+    return;
+
   case OC_eros_Range_getNodeKey:
+    MakeObjectKey(inv, w1w2Offset(inv),
+      false, ot_NtUnprepared, KKT_Node);
+    return;
+
+  case OC_eros_Range_getCap:
+    waitFlag = false;
+    goto rangeGetWaitCap;
+
+  case OC_eros_Range_waitCap:
+    waitFlag = true;
+rangeGetWaitCap:
     {
-      uint64_t offset;
-      uint32_t obNdx;
-      ObjectHeader *pObj = 0;
-      Key *key = 0;
-      OID oid;
+      uint32_t ot = inv->entry.w1;
 
-      inv->exit.code = RC_OK;  /* set the exit code */
-
-      offset =
-	(((uint64_t) inv->entry.w2) << 32) | ((uint64_t) inv->entry.w1);
-
-      /* Figure out the OID for the new key: */
-      oid = start + offset;
-
-      if (oid >= end) {
-	dprintf(true, "oid 0x%X top 0x%X\n", oid, end);
-	inv->exit.code = RC_eros_Range_RangeErr;
-	return;
+      if (ot >= eros_Range_otNUM_TYPES) {
+        COMMIT_POINT();
+        inv->exit.code = RC_eros_Range_RangeErr;
+        return;
       }
 
-      obNdx = offset % EROS_OBJECTS_PER_FRAME;
-      
-     
+      static ObType baseType[eros_Range_otNUM_TYPES] = {
+        [eros_Range_otPage]=ot_PtDataPage,
+        [eros_Range_otNode]=ot_NtUnprepared,
+        [eros_Range_otForwarder]=ot_NtUnprepared,
+        [eros_Range_otGPT]=ot_NtUnprepared,
+      };
+      static uint8_t obKKT[eros_Range_otNUM_TYPES] = {
+        [eros_Range_otPage]=KKT_Page,
+        [eros_Range_otNode]=KKT_Node,
+        [eros_Range_otForwarder]=KKT_Forwarder,
+        [eros_Range_otGPT]=KKT_GPT,
+      };
 
-      key = inv->exit.pKey[0];
-      inv->flags |= INV_EXITKEY0;
-
-
-      if (((inv->entry.code == OC_eros_Range_getPageKey) ||
-	   (inv->entry.code == OC_eros_Range_getNodeKey)) &&
-	  !objC_HaveSource(oid)) {
-	COMMIT_POINT();
-	inv->exit.code = RC_eros_Range_RangeErr;
-	return;
-      }
-
-      switch(inv->entry.code) {
-      case OC_eros_Range_getPageKey:
-      case OC_eros_Range_waitPageKey:
-	{
-          uint8_t kt;
-
-	  if (obNdx != 0) {
-	    COMMIT_POINT();
-	    inv->exit.code = RC_eros_Range_RangeErr;
-	    return;
-	  }
-	
-	  kt = KKT_Page;
-
-	  /* If we don't get the object back, it's because of bad frame
-	   * type:
-	   */
-
-	  pObj = objC_GetObject(oid, ot_PtDataPage, 0, false);
-
-
-          assert(inv_CanCommit());
-	  assert(pObj);
-
-	  COMMIT_POINT();
-
-	  /* It's definitely an object key.  Pin the object it names. */
-
-	  objH_TransLock(pObj);
-
-	  
-	  if (key) {
-	    /* Unchain the old key so we can overwrite it... */
-
-	    if (key)
-	      key_NH_Unchain(key);
-
-
-	    keyBits_InitType(key, kt);
-	    keyBits_SetPrepared(key);
-	    key->keyData = EROS_PAGE_BLSS;
-	  }
-	  break;
-	}
-      case OC_eros_Range_getNodeKey:
-      case OC_eros_Range_waitNodeKey:
-	if (obNdx >= DISK_NODES_PER_PAGE) {
-	  COMMIT_POINT();
-	  inv->exit.code = RC_eros_Range_RangeErr;
-	  return;
-	}
-	
-	/* If we don't get the object back, it's because of bad frame
-	 * type:
-	 */
-
-	pObj = objC_GetObject(oid, ot_NtUnprepared, 0, false);
-
-
-        assert(inv_CanCommit());
-	assert(pObj);
-
-	COMMIT_POINT();
-
-	/* It's definitely an object key.  Pin the object it names. */
-
-	objH_TransLock(pObj);
-
-
-	if (key) {
-	  /* Unchain the old key so we can overwrite it... */
-
-	  if (key)
-	    key_NH_Unchain(key);
-
-
-	  keyBits_InitType(key, KKT_Node);
-	  keyBits_SetPrepared(key);
-	}
-	break;
-      }
-      
-      if (key) {
-	key->u.ok.pObj = pObj;
-  
-	/* Link as next key after object */
-	key->u.ok.pObj = pObj;
-  
-	link_insertAfter(&pObj->keyRing, &key->u.ok.kr);
-      }
-
-#ifdef DEBUG_PAGERANGEKEY
-      dprintf(true, "pObject is 0x%08x\n", pObj);
-#endif
-      
-      
+      MakeObjectKey(inv, w2w3Offset(inv),
+        waitFlag, baseType[ot], obKKT[ot]);
       return;
     }
-    
+
   case OC_eros_Range_compare:
     {
       Key* key /*@ not null @*/ = inv->entry.key[0];
-      OID kstart;
-      OID kend;
 
       key_Prepare(key);
 
@@ -493,36 +482,31 @@ RangeKey(Invocation* inv /*@ not null @*/)
       if (!keyBits_IsType(key, KKT_Range) && !keyBits_IsType(key, KKT_PrimeRange))
 	return;			/* RC_OK in this case probably wrong thing. */
 
-      kstart = key->u.rk.oid;
-      kend = key->u.rk.oid + key->u.rk.count;
-
-      if (key->keyType == KKT_PrimeRange) {
-	kstart = 0ll;
-	kend = UINT64_MAX;
-      }
+      OID kstart;
+      OID kend = key_GetRange(key, &kstart);
   
-      if (kstart >= end || kend <= start)
+      if (kstart >= rngEnd || kend <= rngStart)
 	return;
 
       /* They overlap; need to figure out how. */
       inv->exit.w1 = 1;
       inv->exit.w3 = 0;
       
-      if (kstart < start) {
+      if (kstart < rngStart) {
 	inv->exit.w1 = 3;
-	inv->exit.w2 = (fixreg_t) (start - kstart);
+	inv->exit.w2 = (fixreg_t) (rngStart - kstart);
 	if (sizeof(inv->exit.w2) == sizeof(uint32_t)) /* 32 bit system */
-	  inv->exit.w3 = (fixreg_t) ((start - kstart) >> 32);
+	  inv->exit.w3 = (fixreg_t) ((rngStart - kstart) >> 32);
       }
-      else if (kstart == start) {
+      else if (kstart == rngStart) {
 	inv->exit.w1 = 1;
 	inv->exit.w2 = 0;
       }
       else {
 	inv->exit.w1 = 2;
-	inv->exit.w2 = (fixreg_t) (kstart - start);
+	inv->exit.w2 = (fixreg_t) (kstart - rngStart);
 	if (sizeof(inv->exit.w2) == sizeof(uint32_t)) /* 32 bit system */
-	  inv->exit.w3 = (fixreg_t) ((kstart - start) >> 32);
+	  inv->exit.w3 = (fixreg_t) ((kstart - rngStart) >> 32);
       }
       return;
     }

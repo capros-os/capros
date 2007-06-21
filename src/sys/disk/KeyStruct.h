@@ -4,7 +4,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -116,9 +116,9 @@ node_ClearHazard() handles all these cases.
 
 /* These values apply only for segmode keys. */
 // This duplicates definitions in Memory.idl.
-#define eros_Memory_readOnly	   4
-#define eros_Memory_noCall	   2
-#define eros_Memory_weak	   1
+#define eros_Memory_readOnly	   8
+#define eros_Memory_noCall	   4
+#define eros_Memory_weak	   2
 
 struct KeyBits {
   union {

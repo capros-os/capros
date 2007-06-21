@@ -5,9 +5,10 @@ package eros;
  */
 interface Memory extends key {
   /* Restrictions: */
-  const unsigned long weak = 1;
-  const unsigned long noCall = 2;
-  const unsigned long readOnly = 4;
+  const unsigned long opaque = 1;
+  const unsigned long weak = 2;
+  const unsigned long noCall = 4;
+  const unsigned long readOnly = 8;
 
   /* Returns a key to the memory object with reduced permissions. */
 //  eros.key reduce();

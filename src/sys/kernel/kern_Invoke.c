@@ -40,6 +40,9 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <eros/KeyConst.h>	// segment and wrapper defs
 
+#include <kerninc/Forwarder.h>
+#include <idl/eros/Forwarder.h>
+
 /* #define GATEDEBUG 5
  * #define KPRDEBUG
  */
@@ -531,15 +534,12 @@ proc_DoKeyInvocation(Process* thisPtr)
   if (!keyBits_IsPrepared(inv.key))
     goto general_path;
 
-  /* If it's a segment key, it might be a red segment key.  Take the
-   * long way:
-   */
-  if (inv.invKeyType == KKT_Segment)
+  /* If it's a segment key, it might have a keeper.  Take the long way: */
+  if (inv.invKeyType == KKT_Segment || inv.invKeyType == KKT_GPT)
     goto general_path;
 
-  /* If it's a wrapper key, take the long way:
-   */
-  if (inv.invKeyType == KKT_Wrapper)
+  /* If it's a wrapper key, take the long way: */
+  if (inv.invKeyType == KKT_Wrapper || inv.invKeyType == KKT_Forwarder)
     goto general_path;
 
   if (keyBits_IsGateKey(inv.key)) {
@@ -761,13 +761,47 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
    * 
    * The red seg test is done first because the extracted gate key (if
    * any) needs to pass the well-formed test too.
-   *
-   * In the latest revised kernel, the Wrapper node is beginning to
-   * subsume the role of the red segment node. We do either/or logic
-   * here because we don't want them to nest.
    */
   
-  if ( inv.invKeyType == KKT_Wrapper
+  if (inv.invKeyType == KKT_Forwarder
+      && (inv.key->keyData & eros_Forwarder_opaque) ) {
+    Node * wrapperNode = (Node *) key_GetObjectPtr(inv.key);
+
+    if (keyBits_IsGateKey(&wrapperNode->slot[ForwarderTargetSlot]) ) {
+      if (wrapperNode->nodeData & ForwarderBlocked) {
+	act_SleepOn(ObjectStallQueueFromObHdr(&wrapperNode->node_ObjHdr));
+	act_Yield();
+      }
+
+      if (inv.key->keyData & eros_Forwarder_sendNode) {
+	/* Not hazarded because invocation key */
+	key_NH_Set(&inv.scratchKey, inv.key);
+	keyBits_SetType(&inv.scratchKey, KKT_Forwarder);
+        inv.scratchKey.keyData = 0;	// not eros_Forwarder_opaque
+	inv.entry.key[2] = &inv.scratchKey;
+	inv.flags |= INV_SCRATCHKEY;
+      }
+
+      if (inv.key->keyData & eros_Forwarder_sendWord) {
+        Key * dataKey = &wrapperNode->slot[ForwarderDataSlot];
+        assert(keyBits_IsType(dataKey, KKT_Number));
+	inv.entry.w1 = dataKey->u.nk.value[0];
+      }
+
+      /* Not hazarded because invocation key */
+      inv.key = &(wrapperNode->slot[ForwarderTargetSlot]);
+      inv.invKeyType = keyBits_GetType(inv.key);
+
+      key_Prepare(inv.key);	/* MAY YIELD!!! */
+    } else {
+      // Target is not a gate key - treat as void. 
+      keyBits_InitToVoid(&inv.scratchKey);
+      inv.key = &inv.scratchKey;
+      inv.invKeyType = keyBits_GetType(inv.key);
+      // Don't set INV_SCRATCHKEY; no need to clean up
+    }
+  }
+  else if ( inv.invKeyType == KKT_Wrapper
        && keyBits_IsReadOnly(inv.key) == false
        && keyBits_IsNoCall(inv.key) == false
        && keyBits_IsWeak(inv.key) == false ) {

@@ -1,0 +1,29 @@
+package eros;
+
+/* Interface to Forwarder keys.
+ */
+interface Forwarder extends key {
+  /* Restrictions: */
+  const unsigned long opaque = 1;
+  /* Flags: */
+  const unsigned long sendNode = 2;
+  const unsigned long sendWord = 4;
+
+  eros.key getTarget();
+  eros.key swapTarget(eros.key target);
+
+  const unsigned short maxSlot = 14;
+  /* These two raise key.RequestError if slot > maxSlot. */
+  eros.key getSlot(unsigned short slot);
+  eros.key swapSlot(unsigned short slot, eros.key key);
+
+  unsigned long getDataWord();
+  unsigned long swapDataWord(unsigned long data);
+
+  void setBlocked();
+  void clearBlocked();
+
+  /* Returns an opaque key to the forwarder. */
+  /* Raises key.RequestError if flags has bits other than the two above. */
+  eros.key getOpaqueForwarder(unsigned long flags);
+};

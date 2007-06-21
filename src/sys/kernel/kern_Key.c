@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -255,7 +255,7 @@ void
 key_NH_Set(KeyBits *thisPtr, KeyBits* kb)
 {
   /* Skip copy if src == dest (surprisingly often!) */
-  if (kb == (KeyBits*) thisPtr)
+  if (kb == thisPtr)
     return;
     
 #ifdef __KERNEL__
