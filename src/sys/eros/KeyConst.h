@@ -63,13 +63,11 @@ Approved for public release, distribution unlimited. */
 
 /* Slots of a Red Segment:
 
-   12: By CONVENTION where the red seg keeper puts its space bank
    13: Keeper Key (variable - determined by format key)
    14: Background Key (variable - determined by format key)
    15: Format Key
    */
 
-#define WrapperSpace          0
 #define WrapperBackground     29
 #define WrapperKeeper         30
 #define WrapperFormat         31

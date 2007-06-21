@@ -1393,9 +1393,6 @@ ei_DoPrintSegment(const ErosImage *ei, uint32_t slot, KeyBits segKey,
 		 (fmtKey.u.nk.value[0] & WRAPPER_BACKGROUND)) {
 	  annotation = "background";
 	}
-	else if (i == WrapperSpace) {
-	  annotation = "space";
-	}
 	else if (i == WrapperKeeper &&
 		 (fmtKey.u.nk.value[0] & WRAPPER_KEEPER)) {
 	  annotation = "keeper";

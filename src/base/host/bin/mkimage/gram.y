@@ -2383,16 +2383,10 @@ hex_value(char c)
 uint32_t
 CalcWrapperRestriction(KeyBits segKey, uint32_t slot)
 {
-  KeyBits fmtKey;
-
   if (slot == WrapperFormat)
     return RESTRICT_NUMBER;
   
-  fmtKey = ei_GetNodeSlot(image, segKey, WrapperFormat);
-
-  if (slot == 0 ||
-      slot == WrapperSpace ||
-      slot == WrapperBackground)
+  if (slot == WrapperBackground)
     return RESTRICT_SEGMODE;
     
   if (slot == WrapperKeeper)
