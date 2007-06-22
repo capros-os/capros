@@ -42,11 +42,6 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   /* Not hazarded because invocation key */
   inv->key = &thisPtr->keyReg[thisPtr->pseudoRegs.invKey];
 
-  key_Prepare(inv->key);
-#ifndef invKeyType
-  inv->invKeyType = keyBits_GetType(inv->key);
-#endif
-
   inv->invType = thisPtr->pseudoRegs.invType;
   inv->entry.code = thisPtr->trapFrame.EAX;
   inv->entry.w1 = thisPtr->trapFrame.EBX;

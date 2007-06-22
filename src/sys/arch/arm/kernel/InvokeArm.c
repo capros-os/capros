@@ -113,11 +113,6 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   inv->sentLen = 0;		/* set in CopyOut */
 
-  key_Prepare(inv->key);
-#ifndef invKeyType
-  inv->invKeyType = keyBits_GetType(inv->key);
-#endif
-
   /* Set up the entry string, faulting in any necessary data pages and
    * constructing an appropriate kernel mapping: */
   uint32_t sndLen = inv->entry.len = thisPtr->trapFrame.r3;
