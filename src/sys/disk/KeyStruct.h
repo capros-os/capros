@@ -386,6 +386,8 @@ keyBits_IsNodeKeyType(const KeyBits *thisPtr)
   case KKT_Process:
   case KKT_Start:
   case KKT_Resume:
+  case KKT_Forwarder:
+  case KKT_GPT:
     return true;
   default:
     return false;
@@ -397,6 +399,7 @@ keyBits_IsSegKeyType(const KeyBits *thisPtr)
 {
   return (keyBits_IsType(thisPtr, KKT_Node) ||
           keyBits_IsType(thisPtr, KKT_Wrapper) ||
+          keyBits_IsType(thisPtr, KKT_GPT) ||
           keyBits_IsType(thisPtr, KKT_Segment));
 }
 
