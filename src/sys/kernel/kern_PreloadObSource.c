@@ -2,7 +2,7 @@
  * Copyright (C) 2001, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -57,8 +57,8 @@ PreloadObSource_GetObject(ObjectSource * src, OID oid, ObType obType,
 {
   ObjectHeader * pObj;
 #if 0
-  printf("PreloadObSource_GetObject OID=0x%08x %08x\n",
-         (uint32_t)(oid >> 32), (uint32_t)oid );
+  printf("PreloadObSource_GetObject OID=0x%08x %08x type %d\n",
+         (uint32_t)(oid >> 32), (uint32_t)oid, obType );
 #endif
 
   assert(src->start <= oid && oid < src->end);

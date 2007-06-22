@@ -102,8 +102,6 @@ key_DoPrepare(Key* thisPtr)
 #ifdef MEM_OB_CHECK
   uint32_t ck = thisPtr->CalcCheck();
 #endif
-    
-
   
   switch(keyBits_GetType(thisPtr)) {		/* not prepared, so not hazarded! */
   case KKT_Resume:
@@ -185,6 +183,8 @@ key_DoPrepare(Key* thisPtr)
   case KKT_Segment:
   case KKT_Process:
   case KKT_Wrapper:
+  case KKT_Forwarder:
+  case KKT_GPT:
     pObj = objC_GetObject(thisPtr->u.unprep.oid, ot_NtUnprepared, 
                           thisPtr->u.unprep.count, true);
     break;

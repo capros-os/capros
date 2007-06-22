@@ -72,6 +72,7 @@ Desensitize(Key *k)
   case KKT_Node:
   case KKT_Segment:
   case KKT_Wrapper:
+  case KKT_GPT:
     keyBits_SetReadOnly(k);
     keyBits_SetNoCall(k);
     keyBits_SetWeak(k);
@@ -344,9 +345,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
     
   case OC_Node_CompareKey:
     {
-
       key_Prepare(inv->entry.key[0]);
-
 
       COMMIT_POINT();
 
@@ -363,14 +362,11 @@ NodeKey(Invocation* inv /*@ not null @*/)
 	return;
       }
 
-
       if (key_GetKeyOid(inv->entry.key[0]) != key_GetKeyOid(inv->key))
 	return;
       if (key_GetAllocCount(inv->entry.key[0]) !=
 	  key_GetAllocCount(inv->key)) 
 	return;
-
-
 	
       inv->exit.w1 = 1;
       return;

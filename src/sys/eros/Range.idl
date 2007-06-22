@@ -13,11 +13,13 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
   typedef unsigned long long off_t;
 
   /* Object types returned by identify: */
-  const unsigned long otPage = 0;
-  const unsigned long otNode = 1;
-  const unsigned long otForwarder = 2;
-  const unsigned long otGPT = 3;
-  const unsigned long otNUM_TYPES = 4;
+  typedef unsigned byte obType;
+  const obType otPage = 0;
+  const obType otNode = 1;
+  const obType otForwarder = 2;
+  const obType otGPT = 3;
+  const obType otNUM_TYPES = 4;
+  const obType otNone = 255;
 
   /** Query a range.
    *
@@ -32,7 +34,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
      Raises RangeErr if key is not a Page, Node, Forwarder, or GPT key,
      or it is opaque, or the object is not in this range.
    */
-  void identify(eros.key key, out unsigned long type, 
+  void identify(eros.key key, out obType type, 
   		out unsigned long long offset);
 
   /** Rescind an object.
@@ -78,8 +80,8 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    */
   eros.key waitNodeKey(unsigned long long offset);
 
-  eros.key getCap(unsigned long type, unsigned long long offset);
-  eros.key waitCap(unsigned long type, unsigned long long offset);
+  eros.key getCap(obType type, unsigned long long offset);
+  eros.key waitCap(obType type, unsigned long long offset);
 
   /** Compare two ranges for overlap or relative position.
    *

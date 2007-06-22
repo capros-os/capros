@@ -25,7 +25,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Node.h>
-#include <kerninc/Forwarder.h>
+#include <disk/Forwarder.h>
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
 
@@ -182,7 +182,7 @@ swapSlot:
       COMMIT_POINT();
 
       uint32_t w = inv->entry.w1; /* the flags */
-      if (w & ~(eros_Forwarder_sendNode | eros_Forwarder_sendWord)) {
+      if (w & ~(eros_Forwarder_sendCap | eros_Forwarder_sendWord)) {
 	inv->exit.code = RC_eros_key_RequestError;
 	return;
       }

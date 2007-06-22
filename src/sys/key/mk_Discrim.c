@@ -54,6 +54,7 @@ DiscrimKey(Invocation* inv /*@ not null @*/)
     case KKT_Node:
     case KKT_Segment:
     case KKT_Wrapper:		/* FIX: Is this correct? */
+    case KKT_GPT:
       inv->exit.w1 = eros_Discrim_clMemory;
       break;
     case KKT_Sched:
@@ -73,7 +74,6 @@ DiscrimKey(Invocation* inv /*@ not null @*/)
  
     key_Prepare(inv->entry.key[0]);
  
-
     COMMIT_POINT();
   
     inv->exit.code = RC_OK;
@@ -86,6 +86,7 @@ DiscrimKey(Invocation* inv /*@ not null @*/)
     case KKT_Wrapper:
     case KKT_Segment:
     case KKT_Node:
+    case KKT_GPT:
       if (keyBits_IsReadOnly(inv->entry.key[0]) &&
 	  keyBits_IsNoCall(inv->entry.key[0]) &&
 	  keyBits_IsWeak(inv->entry.key[0]))	  

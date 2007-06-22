@@ -40,7 +40,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <eros/KeyConst.h>	// segment and wrapper defs
 
-#include <kerninc/Forwarder.h>
+#include <disk/Forwarder.h>
 #include <idl/eros/Forwarder.h>
 
 /* #define GATEDEBUG 5
@@ -507,6 +507,11 @@ proc_DoKeyInvocation(Process* thisPtr)
   
   proc_SetupEntryBlock(thisPtr, &inv);
 
+  key_Prepare(inv.key);
+#ifndef invKeyType
+  inv.invKeyType = keyBits_GetType(inv.key);
+#endif
+
 #ifdef GATEDEBUG
   printf("Ivk proc=0x%08x ", thisPtr);
   if (thisPtr->procRoot &&
@@ -529,9 +534,6 @@ proc_DoKeyInvocation(Process* thisPtr)
 
   /* Send is a pain in the butt.  Fuck 'em if they can't take a joke. */
   if (inv.invType == IT_Send)
-    goto general_path;
-
-  if (!keyBits_IsPrepared(inv.key))
     goto general_path;
 
   /* If it's a segment key, it might have a keeper.  Take the long way: */
@@ -773,7 +775,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 	act_Yield();
       }
 
-      if (inv.key->keyData & eros_Forwarder_sendNode) {
+      if (inv.key->keyData & eros_Forwarder_sendCap) {
 	/* Not hazarded because invocation key */
 	key_NH_Set(&inv.scratchKey, inv.key);
 	keyBits_SetType(&inv.scratchKey, KKT_Forwarder);
@@ -785,14 +787,12 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
       if (inv.key->keyData & eros_Forwarder_sendWord) {
         Key * dataKey = &wrapperNode->slot[ForwarderDataSlot];
         assert(keyBits_IsType(dataKey, KKT_Number));
-	inv.entry.w1 = dataKey->u.nk.value[0];
+	inv.entry.w3 = dataKey->u.nk.value[0];
       }
 
       /* Not hazarded because invocation key */
       inv.key = &(wrapperNode->slot[ForwarderTargetSlot]);
       inv.invKeyType = keyBits_GetType(inv.key);
-
-      key_Prepare(inv.key);	/* MAY YIELD!!! */
     } else {
       // Target is not a gate key - treat as void. 
       keyBits_InitToVoid(&inv.scratchKey);
@@ -800,6 +800,8 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
       inv.invKeyType = keyBits_GetType(inv.key);
       // Don't set INV_SCRATCHKEY; no need to clean up
     }
+
+    key_Prepare(inv.key);	/* MAY YIELD!!! */
   }
   else if ( inv.invKeyType == KKT_Wrapper
        && keyBits_IsReadOnly(inv.key) == false

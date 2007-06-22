@@ -3,11 +3,9 @@ package eros;
 /* Interface to Forwarder keys.
  */
 interface Forwarder extends key {
-  /* Restrictions: */
-  const unsigned long opaque = 1;
   /* Flags: */
-  const unsigned long sendNode = 2;
-  const unsigned long sendWord = 4;
+  const unsigned long sendCap = 2;	// transmit non-opaque key in key[2]
+  const unsigned long sendWord = 4;	// transmit word in w3
 
   eros.key getTarget();
   eros.key swapTarget(eros.key target);
