@@ -18,4 +18,9 @@ interface ProcTool extends key {
 			  out eros.key nodeKey, 
 			  out unsigned long keyType,
 			  out unsigned long keyInfo);
+
+  void identForwarderTarget(eros.key forwarder, eros.key brand, 
+			  out eros.key nonOpaqueForwarder, 
+			  out unsigned long keyType, // 1 start, 2 resume
+			  out unsigned long keyInfo);
 };

@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
@@ -25,6 +28,7 @@
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Node.h>
+#include <disk/Forwarder.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <eros/ProcessKey.h>
@@ -32,6 +36,7 @@
 
 #include <idl/eros/key.h>
 #include <idl/eros/ProcTool.h>
+#include <idl/eros/Forwarder.h>
 
 /* CompareBrand(inv, pDomKey, pBrand) returns TRUE if the passed keys
  * were of the right type and it was feasible to compare their
@@ -346,6 +351,55 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       COMMIT_POINT();
       return;
     }
+  case OC_eros_ProcTool_identForwarderTarget:
+    {
+      key_Prepare(inv->entry.key[0]);
+
+      if (! keyBits_IsType(inv->entry.key[0], KKT_Forwarder)
+#if 0	// disabled so spacebank will work
+          || ! (inv->entry.key[0]->keyData & eros_Forwarder_sendCap)
+#endif
+         ) {
+	COMMIT_POINT();
+	return;
+      }
+
+      Node * theNode = objH_ToNode(key_GetObjectPtr(inv->entry.key[0]));
+      Key * domKey = node_GetKeyAtSlot(theNode, ForwarderTargetSlot);
+
+      key_Prepare(domKey);
+      
+      if (! keyBits_IsType(domKey, KKT_Start)
+	  && ! keyBits_IsType(domKey, KKT_Resume) ) {
+        COMMIT_POINT();
+	return;
+      }
+      
+      if (! CompareBrand(inv, domKey, inv->entry.key[1])) {
+        COMMIT_POINT();
+	return;
+      }
+
+      COMMIT_POINT();
+      
+      inv->exit.code = RC_OK;
+
+      if (keyBits_IsType(domKey, KKT_Resume)) {
+        inv->exit.w1 = 2;
+      } else {
+	inv->exit.w2 = domKey->keyData;
+        inv->exit.w1 = 1;
+      }
+
+      if (inv->exit.pKey[0]) {
+	inv_SetExitKey(inv, 0, inv->entry.key[0]);
+	keyBits_SetType(inv->exit.pKey[0], KKT_Forwarder);
+	inv->exit.pKey[0]->keyData = 0;	// not opaque
+      }
+
+      return;
+    }
+
   case OC_eros_ProcTool_compareOrigins:
     {
       Node *domain0 = 0;

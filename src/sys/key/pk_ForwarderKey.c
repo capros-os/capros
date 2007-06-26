@@ -140,10 +140,10 @@ swapSlot:
     {
       KeyBits * dataKey = node_GetKeyAtSlot(theNode, ForwarderDataSlot);
       assert(keyBits_IsType(dataKey, KKT_Number));
-      
-      COMMIT_POINT();
 
       node_MakeDirty(theNode);
+      
+      COMMIT_POINT();
 
       inv->exit.w1 = dataKey->u.nk.value[0];
       dataKey->u.nk.value[0] = inv->entry.w1;
@@ -153,9 +153,9 @@ swapSlot:
 
   case OC_eros_Forwarder_clearBlocked:
     {
-      COMMIT_POINT();
-
       node_MakeDirty(theNode);
+
+      COMMIT_POINT();
 
       theNode->nodeData &= ~ForwarderBlocked;
 
@@ -168,9 +168,9 @@ swapSlot:
 
   case OC_eros_Forwarder_setBlocked:
     {
-      COMMIT_POINT();
-
       node_MakeDirty(theNode);
+
+      COMMIT_POINT();
 
       theNode->nodeData |= ForwarderBlocked;
       inv->exit.code = RC_OK;
