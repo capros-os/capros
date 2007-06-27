@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,40 +18,34 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <domain/SpaceBankKey.h>
+#include <idl/eros/SpaceBank.h>
 
-/* Copy key from node slot to key register */
 uint32_t
 spcbank_buy_data_pages(uint32_t krBank, uint32_t count,
 		       uint32_t krTo0,
 		       uint32_t krTo1,
 		       uint32_t krTo2)
 {
-  Message msg;
-
-  msg.snd_w1 = 0;
-  msg.snd_w2 = 0;
-  msg.snd_w3 = 0;
-
-  msg.snd_key0 = KR_VOID;
-  msg.snd_key1 = KR_VOID;
-  msg.snd_key2 = KR_VOID;
-  msg.snd_rsmkey = KR_VOID;
-  msg.snd_len = 0;		/* no data sent */
-
-  msg.rcv_key0 = krTo0;
-  msg.rcv_key1 = krTo1;
-  msg.rcv_key2 = krTo2;
-  msg.rcv_rsmkey = KR_VOID;
-  msg.rcv_limit = 0;		/* no data returned */
-
-  /* No string arg == I'll take anything */
-  msg.snd_invKey = krBank;
-  msg.snd_code = OC_SpaceBank_AllocDataPage(count);
-
-  return CALL(&msg);
+  switch (count) {
+  case 1:
+    return eros_SpaceBank_alloc1(krBank, eros_Range_otPage, krTo0);
+  case 2:
+    return eros_SpaceBank_alloc2(krBank,
+      eros_Range_otPage | (eros_Range_otPage << 8),
+      krTo0, krTo1);
+  case 3:
+    return eros_SpaceBank_alloc3(krBank,
+      eros_Range_otPage | ((eros_Range_otPage | (eros_Range_otPage << 8)) << 8),
+      krTo0, krTo1, krTo2);
+  default:
+    return RC_eros_key_RequestError;
+  }
 }
 

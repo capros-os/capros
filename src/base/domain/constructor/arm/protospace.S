@@ -1,7 +1,7 @@
 	.file "protospace.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -19,6 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* protospace -- trampoline code that lets a process initialize its 
  * own address space so that the constructor isn't tied up by
@@ -36,11 +39,11 @@
 
 #include <idl/eros/key.h>
 #include <idl/eros/Number.h>
+#include <idl/eros/SpaceBank.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/ProcessCreatorKey.h>
 #include <domain/ProtoSpace.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/Runtime.h>
 #include <eros/arch/arm/SWI.h>
 	
@@ -153,12 +156,12 @@ perform_lobotomy:
 	
 delete_small_space:
 	simpleCall(sb_reclaim_pages_from_node, KR_BANK,
-                   OC_SpaceBank_ReclaimDataPagesFromNode, 0,
+                   OC_eros_SpaceBank_ReclaimDataPagesFromNode, 0,
 		   PSKR_SPACE, KR_VOID, KR_VOID)
 	
 	/* Sell back the node itself */
 	simpleCall(sb_reclaim_small_space_node, KR_BANK,
-		   OC_SpaceBank_Reclaim1Node, 0,
+		   OC_eros_SpaceBank_free1, 0,
 		   PSKR_SPACE, KR_VOID, KR_VOID)
 
 	b sepuku

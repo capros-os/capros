@@ -35,7 +35,6 @@ Approved for public release, distribution unlimited. */
  *********************************************/
 
 #include <eros/machine/target-asm.h>
-#include <eros/KeyConst.h>
 #include <domain/Runtime.h>
 
 spacebank = new process with constituents;
@@ -117,28 +116,25 @@ hide volsize; /* for my eyes only */
 run spacebank;
 
 /* set up the precreated bank keys
- * NOTE:  The space bank initialization code will overwrite these nodes
+ * NOTE:  The space bank initialization code will overwrite these objects
  * with all of the correct values.  However, it is necessary that these
- * be a valid segment keys with a valid keeper key in slot zero which
+ * be valid forwarder keys with a valid target key which
  * is a start key to the spacebank, so that calls before
  * initialization is complete will not fail.
  *
  * The names and key registers must match /premade_keys/ in Bank.c
  */
-primebank = new node;
-primebank[WrapperKeeper] = start spacebank 0x03; /* no destroy, no chg limits */
-primebank[WrapperFormat] = number (WRAPPER_KEEPER);
+primebank = new forwarder;
+primebank target = start spacebank 0x03; /* no destroy, no chg limits */
 
-CONSTIT(spacebank, KC_PRIMEBANK, 4) = primebank; /* a NODE key */
-primebank = primebank as wrapper key;
+CONSTIT(spacebank, KC_PRIMEBANK, 4) = primebank;
+primebank = primebank as sendWord opaque forwarder key;
 
-bank_verifier = new node;
-bank_verifier[WrapperKeeper] = start spacebank 0x03; /* no destroy, no chg limits */
-bank_verifier[WrapperFormat] = number (WRAPPER_KEEPER);
+bank_verifier = new forwarder;
+bank_verifier target = start spacebank 0x03; /* no destroy, no chg limits */
 
-CONSTIT(spacebank, KC_VERIFIER, 5) = bank_verifier as node key;
-
-bank_verifier = bank_verifier as wrapper key;
+CONSTIT(spacebank, KC_VERIFIER, 5) = bank_verifier;
+bank_verifier = bank_verifier as sendWord opaque forwarder key;
 
 primordial_runtime_bits[RKT_SB_VERIFIER] = bank_verifier;
 

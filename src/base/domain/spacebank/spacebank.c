@@ -1,8 +1,9 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* SpaceBank -- Controls allocation of nodes and pages.
  *
@@ -40,7 +44,6 @@
 #include <idl/eros/Range.h>
 #include <idl/eros/ProcTool.h>
 
-#include <domain/SpaceBankKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 #include <stdlib.h>
@@ -58,6 +61,13 @@
 uint32_t objects_per_frame[eros_Range_otNUM_TYPES];
 uint32_t objects_map_mask[eros_Range_otNUM_TYPES];
 static const char *type_names[eros_Range_otNUM_TYPES];
+
+uint8_t typeToBaseType[eros_Range_otNUM_TYPES] = {
+  [eros_Range_otPage]      = eros_Range_otPage,
+  [eros_Range_otNode]      = eros_Range_otNode,
+  [eros_Range_otForwarder] = eros_Range_otNode,
+  [eros_Range_otGPT]       = eros_Range_otNode,
+};
 
 /* functions */
 int
@@ -84,7 +94,7 @@ int
 main(void)
 {
   Message msg;
-  char buff[sizeof(struct bank_limits) + 2]; /* two extra for failure
+  char buff[sizeof(eros_SpaceBank_limits) + 2]; /* two extra for failure
 						detection */
   
   node_copy(KR_CONSTIT, KC_PRIMERANGE, KR_SRANGE);
@@ -146,38 +156,6 @@ main(void)
   }
 }
 
-static int request_ob_type[] = {
-  -1,				/* none */ 
-
-  eros_Range_otNode,		/* OC_SpaceBank_Alloc1Node */
-  eros_Range_otNode,		/* OC_SpaceBank_Alloc2Nodes */
-  eros_Range_otNode,		/* OC_SpaceBank_Alloc3Nodes */
-  eros_Range_otNode,		/* OC_SpaceBank_Reclaim1Node */
-  eros_Range_otNode,		/* OC_SpaceBank_Reclaim2Nodes */
-  eros_Range_otNode,		/* OC_SpaceBank_Reclaim3Nodes */
-  eros_Range_otNode,	       /* OC_SpaceBank_ReclaimNodesFromNode */
-  eros_Range_otNode,		/* OC_SpaceBank_SeverNode */
-	      
-  eros_Range_otPage,		/* OC_SpaceBank_Alloc1DataPage */
-  eros_Range_otPage,		/* OC_SpaceBank_Alloc2DataPages */
-  eros_Range_otPage,		/* OC_SpaceBank_Alloc3DataPages */
-  eros_Range_otPage,		/* OC_SpaceBank_Reclaim1DataPage */
-  eros_Range_otPage,		/* OC_SpaceBank_Reclaim2DataPages */
-  eros_Range_otPage,		/* OC_SpaceBank_Reclaim3DataPages */
-  eros_Range_otPage,	        /* OC_SpaceBank_ReclaimDataPagesFromNode */
-  eros_Range_otPage,		/* OC_SpaceBank_SeverDataPage */
-	      
-  -1,-1,-1,-1,-1,-1,-1,-1,      /* 16-23, unused */
-	      
-  eros_Range_otNode,		/* OC_SpaceBank_Identify1Node */
-  eros_Range_otNode,		/* OC_SpaceBank_Identify2Nodes */
-  eros_Range_otNode,		/* OC_SpaceBank_Identify3Nodes */
-
-  eros_Range_otPage,		/* OC_SpaceBank_Identify1DataPage */
-  eros_Range_otPage,		/* OC_SpaceBank_Identify2DataPages */
-  eros_Range_otPage,		/* OC_SpaceBank_Identify3DataPages */
-};
-
 /* General note on workings of functions called by ProcessRequest:
  *
  *    Before ProcessRequest calls a function, it zeroes the code of the
@@ -194,12 +172,11 @@ ProcessRequest(Message *argmsg)
 {
   uint32_t result = RC_OK;
   uint32_t code = argmsg->rcv_code;
+  OID oids[3];
   
-  Bank *bank = BankFromInvocation(argmsg);
+  Bank * bank = (Bank *) argmsg->rcv_w3;	// from Forwarder key
   BankPrecludes preclude = PrecludesFromInvocation(argmsg);
     
-  uint32_t count = 0;
-
   argmsg->snd_len = 0;
   argmsg->snd_w1 = 0;
   argmsg->snd_w2 = 0;
@@ -218,34 +195,48 @@ ProcessRequest(Message *argmsg)
   
   switch (code) {
     /* ALLOCATIONS */
-  case OC_SpaceBank_Alloc3DataPages:
-  case OC_SpaceBank_Alloc3Nodes:
-    argmsg->snd_key2 = KR_ARG2;
-    count ++;
-    /* fall through */
-  case OC_SpaceBank_Alloc2DataPages:
-  case OC_SpaceBank_Alloc2Nodes:
-    argmsg->snd_key1 = KR_ARG1;
-    count ++;
-    /* fall through */
-  case OC_SpaceBank_Alloc1DataPage:
-  case OC_SpaceBank_Alloc1Node:
-    {      
-      uint8_t type = request_ob_type[code];
-
-      count ++;
-
+  case OC_eros_SpaceBank_alloc1:
+    result = BankAllocObject(bank, argmsg->rcv_w1, KR_ARG0, &oids[0]);
+    if (result == RC_OK)
       argmsg->snd_key0 = KR_ARG0;
-      result = BankAllocObjects(bank, type, count, KR_ARG0);
-
-      if (result != RC_OK) {
-	argmsg->snd_key0 = KR_VOID;
-	argmsg->snd_key1 = KR_VOID;
-	argmsg->snd_key2 = KR_VOID;
+    goto allocExit;
+  case OC_eros_SpaceBank_alloc2:
+    result = BankAllocObject(bank, argmsg->rcv_w1 & 0xff, KR_ARG0, &oids[0]);
+    if (result == RC_OK) {
+      result = BankAllocObject(bank, argmsg->rcv_w1 >> 8, KR_ARG1, &oids[1]);
+      if (result == RC_OK) {
+        /* Got both objects. */
+        argmsg->snd_key0 = KR_ARG0;
+        argmsg->snd_key1 = KR_ARG1;
+        goto allocExit;
+      }
+      bank_deallocOID(bank, argmsg->rcv_w1, oids[0]);
+    }
+    goto allocExit;
+  case OC_eros_SpaceBank_alloc3:
+    {
+      result = BankAllocObject(bank, argmsg->rcv_w1 & 0xff, KR_ARG0, &oids[0]);
+      if (result == RC_OK) {
+        result = BankAllocObject(bank,
+                   (argmsg->rcv_w1 >> 8) & 0xff, KR_ARG1, &oids[1]);
+        if (result == RC_OK) {
+          result = BankAllocObject(bank,
+                     argmsg->rcv_w1 >> 16, KR_ARG2, &oids[2]);
+          if (result == RC_OK) {
+            /* Got all three objects. */
+            argmsg->snd_key0 = KR_ARG0;
+            argmsg->snd_key1 = KR_ARG1;
+            argmsg->snd_key2 = KR_ARG2;
+            goto allocExit;
+          }
+          // Didn't get them all. Deallocate the ones we got.
+          bank_deallocOID(bank, argmsg->rcv_w2, oids[1]);
+        }
+        bank_deallocOID(bank, argmsg->rcv_w1, oids[0]);
       }
 
+allocExit:
       argmsg->snd_code = result;
-
       DEBUG(realloc) {
 	if ( ((bank->allocs[eros_Range_otPage] % 20) == 0) ||
 	     ((bank->deallocs[eros_Range_otPage] % 20) == 0) )
@@ -258,38 +249,37 @@ ProcessRequest(Message *argmsg)
     }
 
   /* DEALLOCATIONS */
-  case OC_SpaceBank_Reclaim3DataPages:
-  case OC_SpaceBank_Reclaim3Nodes:
-    count++;
-    /* fall through */
-  case OC_SpaceBank_Reclaim2DataPages:
-  case OC_SpaceBank_Reclaim2Nodes:
-    count++;
-    /* fall through */
-  case OC_SpaceBank_Reclaim1DataPage:
-  case OC_SpaceBank_Reclaim1Node:
+  case OC_eros_SpaceBank_free1:
+    result = BankDeallocObject(bank, KR_ARG0);
+    goto freeExit;
+  case OC_eros_SpaceBank_free2:
+    result = BankDeallocObject(bank, KR_ARG0);
+    if (result == RC_OK) {
+      result = BankDeallocObject(bank, KR_ARG1);
+    }
+    goto freeExit;
+  case OC_eros_SpaceBank_free3:
     {
-      uint8_t type = request_ob_type[code];
-
-      count++;
-
-      result = BankDeallocObjects(bank, type, count, KR_ARG0);
-
+      result = BankDeallocObject(bank, KR_ARG0);
+      if (result == RC_OK) {
+        result = BankDeallocObject(bank, KR_ARG1);
+        if (result == RC_OK) {
+          result = BankDeallocObject(bank, KR_ARG2);
+        }
+      }
+freeExit:
       if (result != RC_OK) {
 	DEBUG(dealloc)
-	  kdprintf(KR_OSTREAM, "Spacebank: dealloc of %s failed (0x%1x)\n",
-		   type_name(type),
+	  kdprintf(KR_OSTREAM, "Spacebank: dealloc failed (0x%1x)\n",
 		   result);
-	argmsg->snd_code = result;
       }
-
+      argmsg->snd_code = result;
       break;
     }
 
-  case OC_SpaceBank_ReclaimDataPagesFromNode:
-  case OC_SpaceBank_ReclaimNodesFromNode:
+  case OC_eros_SpaceBank_ReclaimDataPagesFromNode:
     {
-      uint32_t type;
+      eros_Range_obType type;
       
       /* verify that they actually passed us a node key */
       if (eros_Range_identify(KR_SRANGE, KR_ARG0, &type, NULL) != RC_OK
@@ -309,20 +299,18 @@ ProcessRequest(Message *argmsg)
 	  if (result != RC_OK) {
 	    DEBUG(dealloc)
 	      kdprintf(KR_OSTREAM,
-		       "Spacebank: copy of %s from slot %d failed (0x%1x)\n",
-		       type_name(type),
+		       "Spacebank: copy from slot %d failed (0x%1x)\n",
 		       slot,
 		       result);
 	    mask |= (1u << slot);
 	    continue;
 	  }
-	  result = BankDeallocObjects(bank, type, 1, KR_ARG1);
+	  result = BankDeallocObject(bank, KR_ARG1);
 
 	  if (result != RC_OK) {
 	    DEBUG(dealloc)
 	      kdprintf(KR_OSTREAM,
-		       "Spacebank: dealloc of %s in slot %d failed (0x%1x)\n",
-		       type_name(type),
+		       "Spacebank: dealloc in slot %d failed (0x%1x)\n",
 		       slot,
 		       result);
 	    mask |= (1u << slot);
@@ -334,44 +322,10 @@ ProcessRequest(Message *argmsg)
 	break;
       }
     }
-  /* IDENTIFICATIONS */
-  case OC_SpaceBank_Identify3DataPages:
-  case OC_SpaceBank_Identify3Nodes:
-    count++;
-    /* fall through */
-  case OC_SpaceBank_Identify2DataPages:
-  case OC_SpaceBank_Identify2Nodes:
-    count++;
-    /* fall through */
-  case OC_SpaceBank_Identify1DataPage:
-  case OC_SpaceBank_Identify1Node:
+
+  case OC_eros_SpaceBank_reduce:
     {
-      uint8_t type = request_ob_type[code];
-
-      count++;
-      result = BankIdentifyObjects(bank, type, count, KR_ARG0);
-
-      if (result != RC_OK) {
-	argmsg->snd_code = result;
-      }
-
-      break;
-    }
-  case OC_SpaceBank_SeverDataPage:
-  case OC_SpaceBank_SeverNode:
-    {
-#if 0
-      uint8_t type = request_ob_type[code];
-#endif
-
-      /* not implemented yet */
-      argmsg->snd_code = RC_eros_key_UnknownRequest;
-      break;
-    }
-
-  case OC_SpaceBank_Preclude:
-    {
-      preclude |= argmsg->rcv_w3;
+      preclude |= argmsg->rcv_w1;
       if (preclude > BANKPREC_MASK) {
 	argmsg->snd_code = RC_eros_key_RequestError;
 	break;
@@ -395,7 +349,7 @@ ProcessRequest(Message *argmsg)
     }
 
 
-  case OC_SpaceBank_DestroyBankAndSpaces:
+  case OC_eros_SpaceBank_destroyBankAndSpace:
     {
       /* destroy bank, deallocating space */
 
@@ -407,16 +361,16 @@ ProcessRequest(Message *argmsg)
       break;
     } 
       
-  case OC_SpaceBank_SetLimits:
+  case OC_eros_SpaceBank_setLimits:
     {
       fixreg_t got = min(argmsg->rcv_limit, argmsg->rcv_sent);
 
       if ( !BANKPREC_CAN_MOD_LIMIT(preclude) ) 
 	argmsg->snd_code = RC_eros_key_UnknownRequest;
-      else if (got != sizeof(struct bank_limits))
+      else if (got != sizeof(eros_SpaceBank_limits))
 	argmsg->snd_code = RC_eros_key_RequestError;
       else {
-	struct bank_limits *limPtr = (struct bank_limits *)argmsg->rcv_data;
+	eros_SpaceBank_limits * limPtr = (eros_SpaceBank_limits *)argmsg->rcv_data;
 
 	argmsg->snd_code = BankSetLimits(bank, limPtr);
       }
@@ -424,9 +378,9 @@ ProcessRequest(Message *argmsg)
       break;
     }
 
-  case OC_SpaceBank_GetLimits:
+  case OC_eros_SpaceBank_getLimits:
     {
-      static struct bank_limits retLimits;
+      static eros_SpaceBank_limits retLimits;
       /* static so it survives the return */
 
       /* FIXME: can this be precluded? */
@@ -440,7 +394,7 @@ ProcessRequest(Message *argmsg)
       break;
     }
 
-  case OC_SpaceBank_CreateChild:
+  case OC_eros_SpaceBank_createSubBank:
     {
       argmsg->snd_code = BankCreateChild(bank, KR_ARG0);
       if (argmsg->snd_code == RC_OK) argmsg->snd_key0 = KR_ARG0;
@@ -448,10 +402,10 @@ ProcessRequest(Message *argmsg)
       break;
     } 
 
-  case OC_SpaceBank_VerifyBank:
+  case OC_eros_SpaceBank_verify:
     {
-      uint32_t brandMatches;
-      
+      uint32_t keyType;
+
       /* verify that KR_ARG0 is a key to a valid spacebank */
 
       /* use my domain key to create the brand key */
@@ -467,22 +421,22 @@ ProcessRequest(Message *argmsg)
       /* get the DomainTool key */
       node_copy(KR_CONSTIT, KC_DOMTOOL, KR_TMP2);
       
-      /* use it to replace the brand key with the node key from
+      /* use it to replace the brand key with the forwarder key from
        * KR_ARG0 (assuming KR_ARG0 is a valid spacebank key)
        */
-      result = eros_ProcTool_identWrapperKeeper(KR_TMP2, KR_ARG0, KR_TMP, KR_TMP, 
-				  &brandMatches, 0);
-      if (result != RC_OK) {
+      result = eros_ProcTool_identForwarderTarget(KR_TMP2, KR_ARG0, KR_TMP, KR_TMP, 
+				  &keyType, 0);
+      if (result != RC_OK || keyType != 1) {
 	kpanic(KR_OSTREAM,
-	       "SpaceBank: IdentSegKpr failed to match brand key! (0x%08x, %d)\n", result, brandMatches);
+	       "SpaceBank: IdentSegKpr failed to match brand key! (0x%08x, %d)\n", result, keyType);
       }
 
       /* Return RC_OK if the operation succeeded (i.e. this is a valid
-       * segment key), -1 otherwise
+       * spacebank key), -1 otherwise
        */
 
       argmsg->snd_code = RC_OK;
-      argmsg->snd_w1 = (result == RC_OK && brandMatches) ? 1 : 0;
+      argmsg->snd_w1 = (result == RC_OK) ? 1 : 0;
       
       break;
     }

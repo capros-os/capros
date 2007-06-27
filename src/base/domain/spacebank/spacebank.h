@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,11 +18,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifndef SPACEBANK_H
 #define SPACEBANK_H
 
-#include <domain/SpaceBankKey.h>
+#include <idl/eros/SpaceBank.h>
 
 // #define NEW_DESTROY_LOGIC
 
@@ -39,6 +42,7 @@ extern const char *type_name(int t);
 extern bool valid_type(int t);
 extern uint32_t objects_per_frame[eros_Range_otNUM_TYPES];
 extern uint32_t objects_map_mask[eros_Range_otNUM_TYPES];
+extern uint8_t typeToBaseType[eros_Range_otNUM_TYPES];
 extern int ffs(int);
 
 #define kpanic kdprintf

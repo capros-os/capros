@@ -1,8 +1,9 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
  * Copyright (C) 2001, The EROS Group.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 
 #ifndef BANK_H
@@ -105,12 +109,12 @@ bank_UnreserveFrames(Bank *bank, uint32_t count);
  */
 
 uint32_t
-BankSetLimits(Bank *bank, const struct bank_limits *newLimits);
+BankSetLimits(Bank * bank, const eros_SpaceBank_limits * newLimits);
 /* BankSetLimits:
  */
 
 uint32_t
-BankGetLimits(Bank *bank, /*OUT*/ struct bank_limits *getLimit);
+BankGetLimits(Bank * bank, /*OUT*/ eros_SpaceBank_limits * getLimit);
 /* BankGetLimits:
  */
 
@@ -125,17 +129,6 @@ bank_MarkAllocated(uint32_t type, uint64_t oid);
  *             2 on failure
  */
 
-Bank *BankFromInvocation(struct Message *argMsg);
-#define BankFromInvocation(argMsg) \
-  ( (Bank*) (argmsg)->rcv_w1 )
-/* BankFromInvocation:
- *     Given invocation message /argMsg/, recovers pointer to
- *     internal bank data structure.
- *
- *     Cannot fail, because spacebank fabricates the red seg nodes
- *     with proper values at all times. (also, it's a macro)
- */
-
 BankPrecludes PrecludesFromInvocation(struct Message *argMsg);
 #define PrecludesFromInvocation(argMsg) \
   ( (BankPrecludes) (argmsg)->rcv_keyInfo )
@@ -146,40 +139,30 @@ BankPrecludes PrecludesFromInvocation(struct Message *argMsg);
  *     with proper values at all times. (also, it's a macro)
  */
 
-
 uint32_t
-BankAllocObjects(Bank *bank, uint8_t type, uint8_t number, uint32_t kr);
-/* BankAllocObjects:
- *     Allocates /number/ objects of type /type/ from /bank/.  Places
- *   the key slots into kr, kr+1, kr+2...
+BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, /*OUT*/ OID * oidRet);
+/* BankAllocObject:
+ *     Allocates an object of type /type/ from /bank/, putting
+ *     the key into kr and the OID into *oid.
  *
  *     Returns RT_OK on success, error code if some error occurs.
  */
 
 uint32_t
-BankDeallocObjects(Bank *bank, uint8_t type, uint8_t number, uint32_t kr);
-/* BankDeallocObjects:
- *     Deallocates /number/ objects that were allocated from /bank/.
+BankDeallocObject(Bank * bank, uint32_t kr);
+/* BankDeallocObject:
+ *     Deallocates an object that was allocated from /bank/.
  *
  *     An object will fail to deallocate if it is not an object key,
  *   it was not allocated from /bank/, or if it is not a strong
  *   (read/write) key to the object. 
- *
- *     The lower /number/ bits of the returned word indicate
- *   success/failure for each of the objects. 
  */
 
 uint32_t
-BankIdentifyObjects(Bank *bank, uint8_t type, uint8_t number, uint32_t kr);
-/* BankDeallocObjects:
- *     Deallocates /number/ objects that were allocated from /bank/.
- *
- *     An object will fail to deallocate if it is not an object key,
- *   it was not allocated from /bank/, or if it is not a strong
- *   (read/write) key to the object. 
- *
- *     The lower /number/ bits of the returned word indicate
- *   success/failure for each of the objects. 
+bank_deallocOID(Bank * bank, uint8_t type, OID oid);
+/* bank_deallocOID:
+ *     Returns the object described by /oid/ with type /type/ to the
+ *     available object pool.
  */
 
 uint32_t

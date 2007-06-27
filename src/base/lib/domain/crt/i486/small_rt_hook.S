@@ -1,9 +1,9 @@
 	.file	"small_rt_hook.S"
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -19,6 +19,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*
  * small_rt_hook.S implements the startup-time hooks for small space
@@ -40,10 +43,6 @@
 #define KR_OLDSPACE KR_APP(0)
 #define KR_NEWSPACE KR_APP(1)
 #define KR_NEWPAGE  KR_APP(2)
-	
-#define KEYS(k0, k1, k2, k3) (k0 + k1 << 8 + k2 << 16 + k3 << 24)
-	
-#define NO_KEYS KEYS(KR_VOID, KR_VOID, KR_VOID, KR_VOID)
 	
 /* Startup code for processes.  Handles four cases:
 
@@ -93,77 +92,43 @@
    This code must not damage key registers 0xf (resume key) or 0xc 
    (first key arg).
    */
+	
+#define KEYS(k0, k1, k2, k3) (k0 + k1 << 8 + k2 << 16 + k3 << 24)
+	
+#define NO_KEYS KEYS(KR_VOID, KR_VOID, KR_VOID, KR_VOID)
+
+#define MSG(label, snd_invKey, sndKey, rcvKey) \
+	.section .rodata ;\
+label:	.long	IT_Call ;\
+	.long	snd_invKey ;\
+	.long	0		/* snd len */ ;\
+	.long	0		/* snd ptr */ ;\
+	.long	KEYS(sndKey, KR_VOID, KR_VOID, KR_VOID)	/* snd keys */ ;\
+	.long	0		/* rcv len */ ;\
+	.long	0		/* rcv data */ ;\
+	.long	KEYS(rcvKey, KR_VOID, KR_VOID, KR_VOID)	/* rcv keys */
+
+#define IVK1(msgLabel, code, snd_w1) \
+	movl	$msgLabel,%ebp ;\
+	movl	$code,%eax	/* w0 */ ;\
+	movl	$snd_w1,%ebx	/* w1 */ ;\
+	xorl	%ecx,%ecx	/* w2 */ ;\
+	xorl	%edx,%edx	/* w3 */ ;\
+	int	$0x31		/* invocation trap */
    
-	.section .rodata
-sb_alloc_root_node:
-	.long	IT_Call
-	.long	KR_BANK
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	NO_KEYS		/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	KEYS(KR_NEWSPACE,KR_VOID,KR_VOID,KR_VOID)	/* rcv keys */
-	
-mk_node_key:
-	.long	IT_Call
-	.long	KR_NEWSPACE
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	NO_KEYS		/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	KEYS(KR_NEWSPACE,KR_VOID,KR_VOID,KR_VOID)	/* rcv keys */
-
-buy_first_page:	
-	.long	IT_Call
-	.long	KR_BANK
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	NO_KEYS		/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	KEYS(KR_NEWPAGE,KR_VOID,KR_VOID,KR_VOID)	/* rcv keys */
-
-fetch_cur_space:	
-	.long	IT_Call
-	.long	KR_SELF
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	NO_KEYS		/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	KEYS(KR_OLDSPACE,KR_VOID,KR_VOID,KR_VOID)	/* rcv keys */
-	
-clone_cur_space:	
-	.long	IT_Call
-	.long	KR_NEWSPACE
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	KEYS(KR_OLDSPACE,KR_VOID,KR_VOID,KR_VOID)	/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	NO_KEYS		/* rcv keys */
-	
-insert_stack_page:	
-	.long	IT_Call
-	.long	KR_NEWSPACE
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	KEYS(KR_NEWPAGE,KR_VOID,KR_VOID,KR_VOID)	/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	NO_KEYS		/* rcv keys */
-	
-set_my_addr_space:	
-	.long	IT_Call
-	.long	KR_SELF
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	KEYS(KR_NEWSPACE,KR_VOID,KR_VOID,KR_VOID)	/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	NO_KEYS		/* rcv keys */
+	MSG(sb_alloc_root_node, KR_BANK, KR_VOID, KR_NEWSPACE)
+   
+	MSG(mk_node_key, KR_NEWSPACE, KR_VOID, KR_NEWSPACE)
+   
+	MSG(buy_first_page, KR_BANK, KR_VOID, KR_NEWPAGE)
+   
+	MSG(fetch_cur_space, KR_SELF, KR_VOID, KR_OLDSPACE)
+   
+	MSG(clone_cur_space, KR_NEWSPACE, KR_OLDSPACE, KR_VOID)
+   
+	MSG(insert_stack_page, KR_NEWSPACE, KR_NEWPAGE, KR_VOID)
+   
+	MSG(set_my_addr_space, KR_SELF, KR_NEWSPACE, KR_VOID)
 	
 	
 	.text
@@ -175,53 +140,17 @@ ENTRY(__rt_small_startup)
 	cmpl	$0,EXT(__rt_stack_pages)
         jz	EXT(__stack_ready)
 	
-	movl	$sb_alloc_root_node,%ebp
+	IVK1(sb_alloc_root_node, OC_eros_SpaceBank_alloc1, eros_Range_otNode)
 	
-	movl	$OC_SpaceBank_Alloc1Node,%eax	/* r0 */
-	xorl	%ebx,%ebx			/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
-
-	int	$0x31			/* invocation trap */
-
-	
-	movl	$mk_node_key,%ebp
-	
-	movl	$OC_Node_MakeNodeKey,%eax	/* r0 */
-#if EROS_PAGE_BLSS == 2
-	movl	$3,%ebx				/* Desired BLSS */
-#elif EROS_PAGE_BLSS == 1
-	movl	$2,%ebx				/* Desired BLSS */
-#elif EROS_PAGE_BLSS == 0
-	movl	$1,%ebx				/* Desired BLSS */
-#endif
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
-
-	int	$0x31			/* invocation trap */
-
+	IVK1(mk_node_key, OC_Node_MakeNodeKey, (EROS_PAGE_BLSS+1))
 	
 	/* buy the page while the space bank is still hot in
 	   the data cache */
-	movl	$buy_first_page,%ebp
-	
-	movl	$OC_SpaceBank_Alloc1DataPage,%eax	/* r0 */
-	xorl	%ebx,%ebx			/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
-
-	int	$0x31			/* invocation trap */
+	IVK1(buy_first_page, OC_eros_SpaceBank_alloc1, eros_Range_otPage)
 
 	/* fetch current (immutable) address space from our
 	   process slot */
-	movl	$fetch_cur_space,%ebp
-	
-	movl	$OC_Process_Copy,%eax		/* r0 */
-	movl	$ProcAddrSpace,%ebx		/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
-
-	int	$0x31			/* invocation trap */
+	IVK1(fetch_cur_space, OC_Process_Copy, ProcAddrSpace)
 
 #if 0
 	/* check return value */
@@ -229,15 +158,7 @@ ENTRY(__rt_small_startup)
 	jnz	EXT(delete_kept_space)
 #endif
 	
-
-	movl	$clone_cur_space,%ebp
-	
-	movl	$OC_Node_Clone,%eax		/* r0 */
-	xorl	%ebx,%ebx			/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
-
-	int	$0x31			/* invocation trap */
+	IVK1(clone_cur_space, OC_Node_Clone, 0)
 
 #if 0
 	/* check return value */
@@ -245,16 +166,8 @@ ENTRY(__rt_small_startup)
 	jnz	EXT(delete_kept_space)
 #endif
 
-	movl	$insert_stack_page,%ebp
-	
 	/* stick the stack page we bought into the new node */
-	movl	$OC_Node_Swap,%eax		/* r0 */
-	movl	$(EROS_NODE_SIZE-1),%ebx	/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
-
-	int	$0x31			/* invocation trap */
-
+	IVK1(insert_stack_page, OC_Node_Swap, (EROS_NODE_SIZE-1))
 	
 #if 0
 	/* check return value */
@@ -262,17 +175,7 @@ ENTRY(__rt_small_startup)
 	jnz	EXT(delete_kept_space)
 #endif
 
-
-	movl	$set_my_addr_space,%ebp
-	
-	/* Switch to newly copied space -- note no need to change PC! */
-	movl	$OC_Process_Swap,%eax		/* r0 */
-	movl	$ProcAddrSpace,%ebx		/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
-
-	int	$0x31			/* invocation trap */
-
+	IVK1(set_my_addr_space, OC_Process_Swap, ProcAddrSpace)
 
 #define NUMPG  0x1FFFC
 #define PGSLOT 0x1FFF8
@@ -292,10 +195,10 @@ LEXT(buy_stack)
 	decl	PGSLOT
 	
 
-	movl	$OC_SpaceBank_Alloc1DataPage,%eax	/* r0 */
-	xorl	%ebx,%ebx			/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
+	movl	$OC_eros_SpaceBank_alloc1,%eax	/* w0 */
+	movl	$eros_Range_otPage,%ebx		/* w1 */
+	xorl	%ecx,%ecx			/* w2 */
+	xorl	%edx,%edx			/* w3 */
 
 	movl	$IT_Call,(%ebp)		/* inv type */
 	movl	$KR_BANK,4(%ebp)	/* invoked key */
@@ -309,14 +212,14 @@ LEXT(buy_stack)
 	int	$0x31			/* invocation trap */
 	
 	/* stick the stack page we bought into the new node */
-	movl	$OC_Node_Swap,%eax		/* r0 */
-	movl	PGSLOT,%ebx			/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
+	movl	$OC_Node_Swap,%eax	/* w0 */
+	movl	PGSLOT,%ebx		/* w1 */
+	xorl	%ecx,%ecx		/* w2 */
+	xorl	%edx,%edx		/* w3 */
 
-	movl	$NO_KEYS,28(%ebp)		/* refuse old pg */
+	movl	$NO_KEYS,28(%ebp)	/* refuse old pg */
 	movl	$KEYS(KR_NEWPAGE,KR_VOID,KR_VOID,KR_VOID),16(%ebp)		/* snd new pg */
-	movl	$KR_NEWSPACE,4(%ebp)		/* into new node */
+	movl	$KR_NEWSPACE,4(%ebp)	/* into new node */
 	
 	int	$0x31			/* invocation trap */
 

@@ -1,7 +1,7 @@
 	.file	"small_rt_hook.S"
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -19,6 +19,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/arch/arm/asm.h>
 #include <eros/arch/arm/target-asm.h>
@@ -108,8 +111,8 @@ label:	.byte snd_invKey, IT_Call, 0, 0 ;\
 	.byte rcv_key0,KR_VOID,KR_VOID,KR_VOID ;\
 	.text
 
-#define simpleCall(label, snd_invKey, snd_code, snd_key0, rcv_key0) \
-	InvConstants(label, snd_invKey, snd_code, 0, snd_key0, rcv_key0) ;\
+#define simpleCall(label, snd_invKey, snd_code, snd_w1, snd_key0, rcv_key0) \
+	InvConstants(label, snd_invKey, snd_code, snd_w1, snd_key0, rcv_key0) ;\
 	ldr r0,=label ;\
 	ldmia r0,{r1-r5,r12,r14} ;\
 	ldr r0,=mk_node_key	/* a handy Message structure */ ;\
@@ -125,8 +128,9 @@ ENTRY(__rt_small_startup)
 	cmp r0,#0
 	beq stack_ready
 	
-	simpleCall(sb_alloc_root_node,
-               KR_BANK, OC_SpaceBank_Alloc1Node, KR_VOID, KR_NEWSPACE)
+	simpleCall(sb_alloc_root_node, KR_BANK,
+               OC_eros_SpaceBank_alloc1,
+               eros_Range_otNode, KR_VOID, KR_NEWSPACE)
 // FIXME: If any of these allocations fails, what to do?
 
 	Call1(mk_node_key, KR_NEWSPACE,
@@ -136,8 +140,8 @@ ENTRY(__rt_small_startup)
 	/* buy the page while the space bank is still hot in
 	   the cache */
 	simpleCall(buy_first_page, KR_BANK,
-                   OC_SpaceBank_Alloc1DataPage, KR_VOID,
-                   KR_NEWPAGE)
+                   OC_eros_SpaceBank_alloc1,
+                   eros_Range_otPage, KR_VOID, KR_NEWPAGE)
 
 	/* fetch current (immutable) address space from our
 	   process slot */
@@ -150,7 +154,7 @@ ENTRY(__rt_small_startup)
 #endif
 	
 	simpleCall(clone_cur_space, KR_NEWSPACE,
-                   OC_Node_Clone, KR_OLDSPACE,
+                   OC_Node_Clone, 0, KR_OLDSPACE,
                    KR_VOID)
 #if 0
 	cmp r1,#0	/* check return value */
@@ -199,7 +203,8 @@ buy_stack:
 #endif
 	
 	InvConstants(buy_later_page, KR_BANK,
-                     OC_SpaceBank_Alloc1DataPage, 0,
+                     OC_eros_SpaceBank_alloc1,
+                     eros_Range_otPage,
                      KR_VOID, KR_NEWPAGE)
 	ldr r7,=buy_later_page
 	ldmia r7,{r1-r5,r12,r14}

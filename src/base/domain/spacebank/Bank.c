@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan Adams.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 
 #include <stdlib.h>
@@ -29,10 +33,9 @@
 
 #include <idl/eros/key.h>
 #include <idl/eros/Range.h>
-#include <idl/eros/Number.h>
+#include <idl/eros/Forwarder.h>
 
 #include <domain/domdbg.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/Runtime.h>
 
 #include <string.h>
@@ -89,13 +92,6 @@ static Bank* alloc_bank(void);
 static void free_bank(Bank *);
 
 static uint32_t
-bank_deallocOID(Bank *bank, uint8_t type, OID oid);
-/* bank_deallocOID:
- *     Returns the object described by /oid/ with type /type/ to the
- *     available object pool.
- */
-
-static uint32_t
 bank_containsOID(Bank *bank, uint8_t type, OID oid);
 
 void
@@ -139,29 +135,24 @@ bank_initKeyNode(uint32_t krNode, Bank *bank, BankPrecludes limits);
  */
      
 static uint32_t
-bank_initKeyNode(uint32_t krNode, Bank *bank, BankPrecludes limits)
+bank_initKeyNode(uint32_t krForwarder, Bank * bank, BankPrecludes limits)
 {
-  eros_Number_value myKeyval;
   uint32_t retval;
+  uint32_t oldWord;
 
   assert(limits < BANKPREC_NUM_PRECLUDES); /* make sure limits is valid */
-  
 
-  myKeyval.value[0] = WRAPPER_KEEPER | WRAPPER_SEND_WORD;
-  myKeyval.value[1] = (uint32_t)bank;     /* pointer to /bank/ */
-  myKeyval.value[2] = 0;
-
-  /* new node is in /kr/. fill it with the information */
-  retval = node_write_number(krNode, WrapperFormat, &myKeyval);
-
-  assert ( "writing format number into node" && retval == RC_OK );
+  retval = eros_Forwarder_swapDataWord(krForwarder,
+             (uint32_t)bank,	// pointer to /bank/
+             &oldWord);
+  assert ( "writing word into forwarder" && retval == RC_OK );
 
   /* use my domain key to make a start key with keyInfo /limits/ */
   retval = process_make_start_key(KR_SELF, limits, KR_TMP);
   assert ( "making start key" && retval == RC_OK );
 
-  retval = node_swap(krNode, WrapperKeeper, KR_TMP, KR_VOID);
-  assert ( "swapping start key into node" && retval == RC_OK );
+  retval = eros_Forwarder_swapTarget(krForwarder, KR_TMP, KR_VOID);
+  assert ( "swapping start key into forwarder" && retval == RC_OK );
 
   return RC_OK;
 }
@@ -238,7 +229,7 @@ bank_init(void)
            curInfo++) {
     
     uint64_t offset;
-    uint32_t obType;
+    eros_Range_obType obType;
     uint32_t result;
     
     /* identify the node and shove it's OID into the bank's
@@ -255,9 +246,9 @@ bank_init(void)
 	     curInfo->keyReg,
 	     result);
     }
-    if (obType != eros_Range_otNode) {
+    if (obType != eros_Range_otForwarder) {
       kpanic(KR_OSTREAM,
-	     "Spacebank: Hey! preall key in slot %u is not a node! "
+	     "Spacebank: Hey! preall key in slot %u is not a forwarder! "
 	     "(is 0x%08x)\n",
 	     curInfo->keyReg,
 	     obType);
@@ -326,7 +317,7 @@ bank_ReserveFrames(Bank *bank, uint32_t count)
       bank->allocCount -= count;
     }
     /* return failure */
-    return RC_SB_LimitReached;
+    return RC_eros_SpaceBank_LimitReached;
   }
   return RC_OK;
 }
@@ -359,14 +350,14 @@ bank_UnreserveFrames(Bank *bank, uint32_t count)
 }
 
 uint32_t
-BankSetLimits(Bank *bank, const struct bank_limits *newLimits)
+BankSetLimits(Bank * bank, const eros_SpaceBank_limits * newLimits)
 {
   bank->limit = newLimits->frameLimit;
   return RC_OK;
 }
 
 uint32_t
-BankGetLimits(Bank *bank, /*OUT*/ struct bank_limits *getLimits)
+BankGetLimits(Bank * bank, /*OUT*/ eros_SpaceBank_limits * getLimits)
 {
   uint64_t effFrameLimit = UINT64_MAX;
   uint64_t effAllocLimit = UINT64_MAX;
@@ -407,29 +398,25 @@ BankCreateKey(Bank *bank, BankPrecludes limits, uint32_t kr)
   assert(limits < BANKPREC_NUM_PRECLUDES);
   
   if (bank->exists[limits]) {
-    /* we've already fab.ed the node, just make a new red segment key */
+    /* we've already fab'ed the node, just make a new forwarder key */
     
-    retval = eros_Range_getNodeKey(KR_SRANGE,
-				   bank->limitedKey[limits],
-				   kr);
-
+    retval = eros_Range_getCap(KR_SRANGE, eros_Range_otForwarder,
+			       bank->limitedKey[limits],
+			       kr);
     if (retval != RC_OK) return retval;
   }
   else {
     OID oid;
     /* Fabricate a new node. */
 
-    retval = BankAllocObjects(bank, eros_Range_otNode, 1u, kr);
+    retval = BankAllocObject(bank, eros_Range_otForwarder, kr, &oid);
 
     if (retval != RC_OK)
       return retval;
 
-    retval = eros_Range_identify(KR_SRANGE, kr, NULL, &oid);
-
-    assert( "range_identifying alloced node" && retval == RC_OK );
-    
     retval = bank_initKeyNode(kr, bank, limits);
-    assert( "calling bank_initKeyNode on alloced node" && retval == RC_OK );
+    assert("calling bank_initKeyNode on alloced forwarder"
+           && retval == RC_OK );
 
     bank->exists[limits] = true;
     bank->limitedKey[limits] = oid;
@@ -438,26 +425,12 @@ BankCreateKey(Bank *bank, BankPrecludes limits, uint32_t kr)
   /* now we have everything set up -- make the segment key */
     
   /* FIX: This is wrong -- what about permissions? */
-  retval = node_make_wrapper_key(kr, 0, 0, kr);
 
+  retval = eros_Forwarder_getOpaqueForwarder(kr,
+             eros_Forwarder_sendWord, kr);
   assert( retval == RC_OK );
 
   return RC_OK;    
-
-#if 0
-cleanup:
-  {
-    uint32_t retval2 = BankDeallocObjects(bank, eros_Range_otNode, 1, kr);
-
-    if (retval2 != RC_OK) {
-      kpanic(KR_OSTREAM,
-	     "SpaceBank: BankCreateKey failed to deallocate failed "
-	     "node from failed bank_initKeyNode.\n");	     
-    }
-  }
-  /* return why the initKeyNode failed. */
-  return retval;
-#endif  
 }
 
 uint32_t
@@ -466,7 +439,7 @@ BankCreateChild(Bank *parent, uint32_t kr)
   Bank *newBank = alloc_bank();
   uint32_t retval;
   
-  if (!newBank) return RC_SB_LimitReached;
+  if (!newBank) return RC_eros_SpaceBank_LimitReached;
 
   bank_initializeBank(newBank,     /* newBank */
 		      parent,      /* newBank's parent is /parent/ */
@@ -742,121 +715,153 @@ BankDestroyBankAndStorage(Bank *bank, bool andStorage)
   return RC_OK;
 }
 
-/* FIXED BY SHAP -- this function has no need to grok the message
-   structure. */
 uint32_t
-BankAllocObjects(Bank *bank, uint8_t type, uint8_t number, uint32_t kr)
+BankDeallocObject(Bank * bank, uint32_t kr)
 {
-  int retval = 0;
-
-  struct Bank_MOFrame *obj_frame;
-  uint32_t count = 0;
-  uint32_t i;
-  uint64_t oids[3];
-
-#ifdef PARANOID  
-  if (number < 1 || number > 3) {
-    kpanic(KR_OSTREAM,
-	     "SpaceBank: asked for strange number (%i) of"
-	     " objects of type %i\n",
-	     (int)number,(int)type);
+  OID oid;
+  eros_Range_obType obType;
+  uint32_t code;
+    
+  code = eros_Range_identify(KR_SRANGE, kr, &obType, &oid);
+  if (code != RC_OK) {
+    DEBUG(dealloc)
+	kdprintf(KR_OSTREAM,
+		 "SpaceBank: range_identify failed (%u)\n",
+		 code);
+    return code;
   }
-#endif
+    
+  if (! bank_containsOID(bank, obType, oid)) {
+    DEBUG (dealloc)
+      kdprintf(KR_OSTREAM, "Bank does not contain %s 0x"DW_HEX"\n",
+	       type_name(obType),
+	       DW_HEX_ARG(oid));
+    return RC_eros_Range_RangeErr;
+  }
+  /* It's ours */
+  code = eros_Range_rescind(KR_SRANGE,kr);
+  if (code != RC_OK) {
+     return code; /* "not a strong key" */ 
+  }
+  if ( ! bank_deallocOID(bank, obType, oid)) {
+     kpanic(KR_OSTREAM,
+            "SpaceBank: Dealloc failed after contains succeeded!\n");
+  }
 
-  obj_frame = bank_getTypeFrame(bank, type);
+  DEBUG(dealloc) {
+    uint32_t result, nType;
 
-  if (obj_frame == NULL) {
-    /* single frame per object type -- preallocate all objects */
-    if (bank_ReserveFrames(bank, number) != RC_OK) {
-      return RC_SB_LimitReached;
+    result = eros_key_getType(kr, &nType);
+
+    if (result != RC_OK || nType != RC_eros_key_Void) {
+      /* Didn't dealloc! */
+      kpanic(KR_OSTREAM,
+             "spacebank: rescind successful but new keytype not Number\n"
+             "           (passed in type %s, new type %d, OID "
+             "0x"DW_HEX")\n",
+             obType,
+             nType,
+             DW_HEX_ARG(oid));
     }
   }
-  
-  while(count < number) {
-    uint64_t newFrame;
-    uint32_t retVal;
 
-    /* take care of frame stuff */
-    if (obj_frame) {
-      if (obj_frame->frameMap != 0u) {
-	uint32_t offset = ffs(obj_frame->frameMap) - 1;
-	OID oid = obj_frame->frameOid | offset;
+  return RC_OK;
+}
 
-	obj_frame->frameMap &= ~(1u << offset);
-	oids[count++] = oid;
+uint32_t
+BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
+{
+  OID oid;
+  int retval = 0;
+  uint32_t retVal;
+  uint64_t newFrame;
+  const uint8_t baseType = typeToBaseType[type];
 
-	DEBUG(alloc)
-	  kprintf(KR_OSTREAM,
+  struct Bank_MOFrame * obj_frame = bank_getTypeFrame(bank, baseType);
+
+  if (obj_frame) {
+    if (obj_frame->frameMap == 0) {
+      /* need to grab another frame. -- reserve it first */
+      if (bank_ReserveFrames(bank, 1) != RC_OK) 
+	goto cleanup;
+    
+      DEBUG(alloc) kprintf(KR_OSTREAM, "spacebank: allocating new frame\n");
+      assert(baseType == eros_Range_otNode);
+      retVal = ob_AllocNodeFrame(bank, &newFrame);
+      if (retVal != RC_OK)
+        goto cleanup;
+
+      /* got some space in newFrame */
+      if (bank != &bank0)
+        allocTree_insertOIDs(&bank->allocTree,
+			   baseType,
+			   newFrame,
+			   objects_per_frame[baseType]);
+
+      /* shove the frame into the cache */
+      obj_frame->frameOid = newFrame;
+      obj_frame->frameMap = objects_map_mask[baseType];
+    }
+    uint32_t offset = ffs(obj_frame->frameMap) - 1;
+    oid = obj_frame->frameOid | offset;
+
+    obj_frame->frameMap &= ~(1u << offset);
+
+    DEBUG(alloc)
+      kprintf(KR_OSTREAM,
 		   "Allocated %s oid=0x%08x%08x. Map now 0x%08x\n",
 		   type_name(type),
 		   (uint32_t) (oid >> 32),
 		   (uint32_t) oid,
 		   obj_frame->frameMap);
-
-	continue;
-      }
-      /* need to grab another frame. -- reserve it first */
-      if (bank_ReserveFrames(bank, 1u) != RC_OK) 
-	goto cleanup;
+  } else {	// no obj_frame
+    /* single frame per object type -- preallocate the object */
+    if (bank_ReserveFrames(bank, 1) != RC_OK) {
+      return RC_eros_SpaceBank_LimitReached;
     }
     
     DEBUG(alloc) kprintf(KR_OSTREAM, "spacebank: allocating new frame\n");
-    if (type == eros_Range_otNode)
-      retVal = ob_AllocNodeFrame(bank, &newFrame);
-    else
-      retVal = ob_AllocPageFrame(bank, &newFrame);
-
+    assert(baseType == eros_Range_otPage);
+    retVal = ob_AllocPageFrame(bank, &newFrame);
     if (retVal != RC_OK)
       goto cleanup;
 
     /* got some space in newFrame */
     if (bank != &bank0)
       allocTree_insertOIDs(&bank->allocTree,
-			   type,
+			   baseType,
 			   newFrame,
-			   objects_per_frame[type]);
+			   objects_per_frame[baseType]);
 
-    if (obj_frame) {
-      /* shove the frame into the cache, then go back to the top to
-	 do the allocation */
-      obj_frame->frameOid = newFrame;
-      obj_frame->frameMap = objects_map_mask[type];
-      continue; /*CONTINUE*/
-    } else {
-      oids[count++] = newFrame;
-      continue; /*CONTINUE*/
-    }
+    oid = newFrame;
   }
   
-  /* now oids contains the /count/ oids -- create the keys */
+  /* now create the key */
 
-  for (i = 0; i < number; i++) { 
-    DEBUG(alloc)
-      kprintf(KR_OSTREAM,
+  DEBUG(alloc)
+    kprintf(KR_OSTREAM,
 	      "spacebank: getting object key "DW_HEX"\n",
-	      DW_HEX_ARG(oids[i]));
+	      DW_HEX_ARG(oid));
     
-    if (type == eros_Range_otNode)
-      retval = eros_Range_getNodeKey(KR_SRANGE,oids[i],kr+i);
-    else
-      retval = eros_Range_getPageKey(KR_SRANGE,oids[i],kr+i);
+  retval = eros_Range_getCap(KR_SRANGE, type, oid, kr);
 
-    DEBUG(alloc)
-      kprintf(KR_OSTREAM,
-	      "spacebank: got back %x\n",
-	      retval);
+  DEBUG(alloc)
+    kprintf(KR_OSTREAM,
+	    "spacebank: got back %x\n",
+	    retval);
     
-    if (retval != RC_OK) {
-      /* ack! we've got to undo everything!
-       * note that we don't need to rescind the keys we made, since they
-       * point to a zero object
-       */
-      goto cleanup;
-    }
+  if (retval != RC_OK) {
+    /* ack! we've got to undo everything!
+     * note that we don't need to rescind the key we made, since it
+     * points to a zero object
+     */
+    bank_deallocOID(bank, baseType, oid);
+    goto cleanup;
   }
 
-  bank->allocs[type] += number;  
-  return retval;
+  bank->allocs[type] ++;
+  *oidRet = oid;
+  return RC_OK;
 
 cleanup:
 
@@ -864,144 +869,9 @@ cleanup:
     kdprintf(KR_OSTREAM,
 	     "spacebank: Out of frames.\n");
 
-  while (count--)
-    bank_deallocOID(bank, type, oids[count]);
-  
-  return RC_SB_LimitReached;
-}
-  
-
-uint32_t
-BankDeallocObjects(Bank *bank, uint8_t type, uint8_t count, uint32_t kr)
-{
-  int i;
-  uint32_t retval = (1<<count) - 1; /* assume failure until proven innocent. */
-
-#ifdef PARANOID
-  if (count < 1 || count > 3) {
-    kpanic(KR_OSTREAM,
-	     "SpaceBank: asked to dealloc strange number (%i) of"
-	     " objects of type %i\n",
-	     (int)count,(int)type);
-  }
-#endif
-
-  for (i = 0; i < count; i++) {
-    OID oid;
-    uint32_t obType;
-    uint32_t k = kr + i;
-    uint32_t code;
-    
-    code = eros_Range_identify(KR_SRANGE, k, &obType, &oid);
-    if (code != RC_OK) {
-      DEBUG(dealloc)
-	kdprintf(KR_OSTREAM,
-		 "SpaceBank: range_identify failed (%u)\n",
-		 code);
-      continue;
-    }
-    if (obType != type) {
-      DEBUG(dealloc)
-	kdprintf(KR_OSTREAM,
-		 "SpaceBank: Key %u has type %s, which is not the "
-		 "deallocation type (%s)\n",
-		 i,
-		 type_name(obType),
-		 type_name(type));
-      continue;
-    }
-    
-    if (bank_containsOID(bank,type,oid)) {
-      /* It's ours */
-      if (eros_Range_rescind(KR_SRANGE,k) != RC_OK) {
-         continue; /* CONTINUE "not a strong key" */ 
-      }
-      if ( ! bank_deallocOID(bank,type,oid)) {
-         kpanic(KR_OSTREAM,
-                "SpaceBank: Dealloc failed after contains succedded!\n");
-      }
-
-      DEBUG(dealloc) {
-	uint32_t result, nType;
-
-	result = eros_key_getType(k, &nType);
-	
-	if (result != RC_OK || nType != RC_eros_key_Void) {
-	  /* Didn't dealloc! */
-	  kpanic(KR_OSTREAM,
-		 "spacebank: rescind successful but new keytype not "
-		 "Number\n"
-		 "           (passed in type %s, new type %d, OID "
-		 "0x"DW_HEX")\n",
-		 type,
-		 nType,
-		 DW_HEX_ARG(oid));
-	}
-      }
-      retval &= ~(1u << i); /* mark success */
-    }
-    else DEBUG (dealloc) {
-      kdprintf(KR_OSTREAM, "Bank does not contain %s 0x"DW_HEX"\n",
-	       type_name(type),
-	       DW_HEX_ARG(oid));
-    }
-  }
-
-  return retval;
+  return RC_eros_SpaceBank_LimitReached;
 }
 
-uint32_t
-BankIdentifyObjects(Bank *bank, uint8_t type, uint8_t count, uint32_t kr)
-{
-  int i;
-  uint32_t retval = (1<<count) - 1; /* assume failure until proven innocent. */
-
-#ifdef PARANOID
-  if (count < 1 || count > 3) {
-    kpanic(KR_OSTREAM,
-	     "SpaceBank: asked to dealloc strange number (%i) of"
-	     " objects of type %i\n",
-	     (int)count,(int)type);
-  }
-#endif
-
-  for (i = 0; i < count; i++) {
-    OID oid;
-    uint32_t obType;
-    uint32_t k = kr + i;
-    uint32_t code;
-    
-    code = eros_Range_identify(KR_SRANGE, k, &obType, &oid);
-    if (code != RC_OK) {
-      DEBUG(dealloc)
-	kdprintf(KR_OSTREAM,
-		 "SpaceBank: range_identify failed (%u)\n",
-		 code);
-      continue;
-    }
-    if (obType != type) {
-      DEBUG(dealloc)
-	kdprintf(KR_OSTREAM,
-		 "SpaceBank: Key %u has type %s, which is not the "
-		 "identification type (%s)\n",
-		 i,
-		 type_name(obType),
-		 type_name(type));
-      continue;
-    }
-    
-    if (bank_containsOID(bank,type,oid)) {
-      retval &= ~(1u << i); /* mark success */
-    }
-    else DEBUG (dealloc) {
-      kdprintf(KR_OSTREAM, "Bank does not contain %s 0x"DW_HEX"\n",
-	       type_name(type),
-	       DW_HEX_ARG(oid));
-    }
-  }
-
-  return retval;
-}
 
 uint32_t
 bank_containsOID(Bank *bank, uint8_t type, OID oid)

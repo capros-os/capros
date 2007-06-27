@@ -1,9 +1,9 @@
 	.file "protospace.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,8 +19,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
-/* protospace -- trampoline code that lets a process initialize it's 
+/* protospace -- trampoline code that lets a process initialize its
  * own address space so that the constructor isn't tied up by
  * initialization time.  This code is truster by the constructor,
  * and runs in an immutable space.
@@ -36,11 +39,11 @@
 
 #include <idl/eros/key.h>
 #include <idl/eros/Number.h>
+#include <idl/eros/SpaceBank.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/ProcessCreatorKey.h>
 #include <domain/ProtoSpace.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/Runtime.h>
 	
 #define KEYS(k0, k1, k2, k3) (k0 + k1 << 8 + k2 << 16 + k3 << 24)
@@ -218,7 +221,7 @@ LEXT(delete_small_space)
 	
 	movl	$sb_reclaim_pages_from_node,%ebp
 	
-	movl	$OC_SpaceBank_ReclaimDataPagesFromNode,%eax	/* r0 */
+	movl	$OC_eros_SpaceBank_ReclaimDataPagesFromNode,%eax	/* r0 */
 	xorl	%ebx,%ebx			/* r1 */
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */
@@ -228,7 +231,7 @@ LEXT(delete_small_space)
 	/* Sell back the node itself */
 	movl	$sb_reclaim_small_space_node,%ebp
 	
-	movl	$OC_SpaceBank_Reclaim1Node,%eax	/* r0 */
+	movl	$OC_eros_SpaceBank_free1,%eax	/* r0 */
 	xorl	%ebx,%ebx			/* r1 */
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */
