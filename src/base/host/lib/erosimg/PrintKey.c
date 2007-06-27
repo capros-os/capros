@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <assert.h>
 #include <sys/fcntl.h>
@@ -38,6 +42,22 @@ static const char *KeyNames[KKT_NUM_KEYTYPE] = {
 #include <eros/StdKeyType.h>
 };
 
+static void
+PrintNodeKey(KeyBits key)
+{
+  diag_printf("(OID=");
+  diag_printOid(key.u.unprep.oid);
+  if (keyBits_GetBlss(&key))
+    diag_printf(",blss=%d", keyBits_GetBlss(&key));
+  if (keyBits_IsNoCall(&key))
+    diag_printf(",NC");
+  if (keyBits_IsReadOnly(&key))
+    diag_printf(",RO");
+  if (keyBits_IsWeak(&key))
+    diag_printf(",WK");
+  diag_printf(")");
+}
+
 void
 PrintDiskKey(KeyBits key)
 {
@@ -57,27 +77,21 @@ PrintDiskKey(KeyBits key)
     diag_printf(")");
     break;
   case KKT_Node:
+    diag_printf("KKT_Node");
+    PrintNodeKey(key);
+    break;
   case KKT_Segment:
-    {
-      char *typeName = 0;
-      if (keyBits_GetType(&key) == KKT_Node)
-	typeName = "KKT_Node";
-      else
-	typeName = "KKT_Segment";
-
-      diag_printf("%s(OID=", typeName);
-      diag_printOid(key.u.unprep.oid);
-      if (keyBits_GetBlss(&key))
-	diag_printf(",blss=%d", keyBits_GetBlss(&key));
-      if (keyBits_IsNoCall(&key))
-	diag_printf(",NC");
-      if (keyBits_IsReadOnly(&key))
-	diag_printf(",RO");
-      if (keyBits_IsWeak(&key))
-	diag_printf(",WK");
-      diag_printf(")");
-      break;
-    }
+    diag_printf("KKT_Segment");
+    PrintNodeKey(key);
+    break;
+  case KKT_Forwarder:
+    diag_printf("KKT_Forwarder");
+    PrintNodeKey(key);
+    break;
+  case KKT_GPT:
+    diag_printf("KKT_GPT");
+    PrintNodeKey(key);
+    break;
   case KKT_Process:
     diag_printf("KKT_Process(OID=");
     diag_printOid(key.u.unprep.oid);

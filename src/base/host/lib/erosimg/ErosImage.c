@@ -44,6 +44,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/DiskLSS.h>
 
 #include <idl/eros/Range.h>
+#include <idl/eros/Memory.h>
 
 /* Following is included as a special case so that AddProcess()
    register conventions stay in sync with the expectations of the
@@ -620,7 +621,7 @@ ei_SetNodeSlot(ErosImage *ei, KeyBits nodeKey, uint32_t slot,
     diag_fatal(5,"Slot value too high\n");
   
   if (keyBits_IsNodeKeyType(&nodeKey) == false)
-    diag_fatal(5,"GetNodeSlot expects node key!\n");
+    diag_fatal(5,"SetNodeSlot expects node key!\n");
 
   ndx = nodeKey.u.unprep.oid;
   ei->nodeImages[ndx].slot[slot] = key;
@@ -898,7 +899,7 @@ ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
              rootBLSS, segOffsetBLSS, segBLSS);
 #endif
 
-  if ( keyBits_IsType(&segRoot, KKT_Wrapper) || keyBits_IsType(&segRoot, KKT_Segment) )
+  if ( keyBits_IsType(&segRoot, KKT_Wrapper) )
     diag_fatal(4, "AddPageToSegment: Cannot traverse subsegment\n");
 
   if (rootBLSS < segOffsetBLSS) {
@@ -933,7 +934,7 @@ ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
     }
     
     ei_SetNodeSlot(ei, newRoot, 0, segRoot);
-    
+
     return ei_DoAddSubsegToBlackSegment(ei, newRoot, segOffset, segKey, path,
 				      expandRedSegment);
   }
@@ -955,6 +956,11 @@ ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
   uint32_t slot = lss_SlotNdx(segOffset, rootBLSS);
   uint64_t subSegOffset = segOffset & lss_Mask(rootBLSS -1);
   KeyBits subSeg = ei_GetNodeSlot(ei, segRoot, slot);
+
+  if ( keyBits_IsType(&subSeg, KKT_Segment) 
+       || (keyBits_IsType(&subSeg, KKT_GPT)
+           && (subSeg.keyData & eros_Memory_opaque) ) )
+    diag_fatal(4, "AddPageToSegment: Cannot traverse subsegment\n");
 
   KeyBits newSlotKey =
     ei_DoAddSubsegToBlackSegment(ei, subSeg, subSegOffset, segKey, path,
@@ -1065,29 +1071,19 @@ ei_AddSubsegToSegment(ErosImage *ei, KeyBits segRoot,
 
   ValidateSegKey(ei, segKey);
 
-  if (! keyBits_IsType(&segKey, KKT_Node) &&
-      ! keyBits_IsType(&segKey, KKT_Segment) &&
-      ! keyBits_IsType(&segKey, KKT_Page) &&
+  if (! keyBits_IsSegModeType(&segKey) &&
       ! keyBits_IsVoidKey(&segKey) )
     diag_fatal(4, "AddSubsegToSegment: added subseg must be segment, "
-		"segtree, page, or void\n");
+		"segtree, page, GPT, or void\n");
 
   keyBits_InitToVoid(&rootKey);
 
   PrepareToAddObjectToSegment(ei, segRoot, segOffset, segKey,
                               &rootKey /* output */ );
 
-  bool wasSeg = keyBits_IsType(&rootKey, KKT_Segment);
-  if (wasSeg) {
-    keyBits_SetType(&rootKey, KKT_Node);
-  }
-  
   newSegRoot =
     ei_DoAddSubsegToBlackSegment(ei, rootKey, segOffset, segKey, segOffset,
 		       keyBits_IsType(&segRoot, KKT_Wrapper) ? true : false);
-
-  if (wasSeg)
-    keyBits_SetType(&newSegRoot, KKT_Segment);
 
   if ( keyBits_IsType(&segRoot, KKT_Wrapper) )
     return segRoot;
@@ -1316,9 +1312,7 @@ ei_PrintDomain(const ErosImage *ei, KeyBits domRoot)
 
     /* address space key must be segmode key: */
     if (i == ProcAddrSpace &&
-	keyBits_IsType(&key, KKT_Segment) == false &&
-	keyBits_IsType(&key, KKT_Node) == false &&
-	keyBits_IsType(&key, KKT_Page) == false)
+	! keyBits_IsSegModeType(&key))
       diag_printf(" (malformed)");
       
     if (i == ProcGenKeys && !keyBits_IsNodeKeyType(&key))
@@ -1358,6 +1352,8 @@ ei_DoPrintSegment(const ErosImage *ei, uint32_t slot, KeyBits segKey,
   switch(keyBits_GetType(&segKey)) {
   case KKT_Node:
   case KKT_Segment:
+  case KKT_Wrapper:
+  case KKT_GPT:
     diag_printf("[%2d] :", slot);
     PrintDiskKey(segKey);
     if (annotation)
