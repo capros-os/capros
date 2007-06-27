@@ -218,12 +218,14 @@
 	     </p>
 	</dd>
 	<dt>
-	     <i>key</i> <b>as</b> <b>opaque forwarder key</b>
+	     <i>key</i> <b>as</b> <i>qualifier</i> <b>opaque forwarder key</b>
 	</dt>
 	<dd>
 	     <p>
-	     Returns a copy of <i>key</i>, which must be a forwarder key,
-             with the opaque restriction.
+	     Returns an opaque copy of <i>key</i> with the specified qualifiers,
+             which may include <b>sendCap</b> and/or <b>sendWord</b>
+             (or neither).
+             <i>key</i> must be a forwarder key.
 	     </p>
 	</dd>
 	<dt>
