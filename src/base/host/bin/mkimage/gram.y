@@ -43,7 +43,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessState.h>
 #include <eros/ProcessKey.h>
 #include <disk/DiskLSS.h>
+#include <disk/Forwarder.h>
 #include <eros/StdKeyType.h>
+#include <idl/eros/Memory.h>
+#include <idl/eros/Forwarder.h>
 #include "PtrMap.h"
 #include "../../../lib/domain/include/domain/Runtime.h"
 
@@ -106,9 +109,13 @@ const char *strcons(const char *s1, const char * s2);
 bool QualifyKey(uint32_t, KeyBits in, KeyBits *out);
 KeyBits NumberFromString(const char *);
 
-#define ATTRIB_RO    0x1
-#define ATTRIB_NC    0x2
-#define ATTRIB_WEAK  0x4
+#define ATTRIB_RO    eros_Memory_readOnly
+#define ATTRIB_NC    eros_Memory_noCall
+#define ATTRIB_WEAK  eros_Memory_weak
+#define ATTRIB_OPAQUE eros_Memory_opaque
+
+#define ATTRIB_SENDCAP eros_Forwarder_sendCap
+#define ATTRIB_SENDWORD eros_Forwarder_sendWord
 
 #define YYSTYPE ParseType
 
@@ -161,14 +168,15 @@ bool CheckRestriction(uint32_t restriction, KeyBits key);
 /* Following will not work until I hand-rewrite the lexer */
 /* %pure_parser */
 
-%token <NONE> RO NC WEAK SENSE NODE PAGE NEW HIDE PROGRAM SMALL
+%token <NONE> RO NC WEAK SENSE OPAQUE SENDCAP SENDWORD
+%token <NONE> NODE PAGE FORWARDER GPT NEW HIDE PROGRAM SMALL
 %token <NONE> CHAIN APPEND
 %token PROCESS DOMAIN
 /* %token <NONE> IMPORT */
 %token <NONE> SEGMENT SEGTREE NULLKEY ZERO WITH PAGES RED EMPTY
 %token <NONE> KW_BLSS KW_LSS CONSTITUENTS
 %token <NONE> WRAPPER
-%token <NONE> ARCH PRINT SPACE REG KEEPER START BACKGROUND IOSPACE SYMTAB
+%token <NONE> ARCH PRINT SPACE REG KEEPER TARGET START BACKGROUND IOSPACE SYMTAB
 %token PRIORITY SCHEDULE
 %token <NONE> BRAND GENREG SLOT ROOT OREQ KEY SUBSEG AT CLONE COPY
 %token <NONE> PC SP ALL SLOTS KEYS STRING LIMIT RUN IPL AS
@@ -180,12 +188,12 @@ bool CheckRestriction(uint32_t restriction, KeyBits key);
 %token <is> MISC_KEYNAME
 
 %type <key> key segkey domain startkey
-%type <key> qualified_key node
+%type <key> qualified_key node forwarderkey GPTkey
 %type <key> schedkey numberkey
 /* Following are bare key names of appropriate type -- need to be
    distinguished to avoid shift/reduce errors: */
 %type <key> segmode slot
-%type <w> qualifier segtype blss keyData slotno
+%type <w> qualifier fwd_qualifier segtype blss keyData slotno
 %type <w> number numeric_constant arith_expr add_expr mul_expr bit_expr
 %type <w> offset priority
 %type <oid> oid
@@ -524,6 +532,28 @@ stmt:	/* IMPORT STRING {
 	   key = ei_GetNodeSlot(image, $1, WrapperFormat);
 	   key.u.nk.value[0] |= WRAPPER_BACKGROUND;
 	   ei_SetNodeSlot(image, $1, WrapperFormat, key);
+        }
+
+       | forwarderkey TARGET '=' startkey {
+	   SHOWPARSE("=== stmt -> forwarderkey TARGET = startkey\n");
+	   if ( !CheckRestriction(RESTRICT_START, $4) ) {
+	     diag_printf("%s:%d: key does not meet slot restriction\n",
+			 current_file, current_line);
+	     num_errors++;
+	     YYERROR;
+	   }
+	   ei_SetNodeSlot(image, $1, ForwarderTargetSlot, $4);
+        }
+
+       | GPTkey GPT KEEPER '=' startkey {
+	   SHOWPARSE("=== stmt -> GPTkey GPT KEEPER = startkey\n");
+	   if ( !CheckRestriction(RESTRICT_START, $5) ) {
+	     diag_printf("%s:%d: key does not meet slot restriction\n",
+			 current_file, current_line);
+	     num_errors++;
+	     YYERROR;
+	   }
+	   ei_SetNodeSlot(image, $1, WrapperKeeper, $5);
         }
 
        | slot OREQ numberkey {
@@ -919,6 +949,21 @@ key:   NULLKEY {
 	  $$ = key;
         }
 
+       | NEW FORWARDER {
+	  KeyBits key;
+	  KeyBits fmtKey;
+
+	  SHOWPARSE("=== key -> NEW qualifier FORWARDER\n");
+	  key = ei_AddNode(image, false);
+
+	  init_SmallNumberKey(&fmtKey, 0);
+	  ei_SetNodeSlot(image, key, ForwarderDataSlot, fmtKey);
+
+	  keyBits_SetType(&key, KKT_Forwarder);
+
+	  $$ = key;
+        }
+
        | NEW qualifier CHAIN {
 	  KeyBits key;
 	  SHOWPARSE("=== key -> NEW qualifier NODE\n");
@@ -1085,6 +1130,50 @@ key:   NULLKEY {
 	    num_errors++;
 	    YYERROR;
 	  }
+
+	  $$ = key;
+        }
+
+       | key AS fwd_qualifier OPAQUE FORWARDER KEY {
+	  KeyBits key;
+
+	  SHOWPARSE("=== key -> key AS OPAQUE FORWARDER KEY\n");
+      
+	  key = $1;
+
+	  if (! keyBits_IsType(&key, KKT_Forwarder)) {
+	    diag_printf("%s:%d: must be forwarder key\n",
+			 current_file, current_line);
+	    num_errors++;
+	    YYERROR;
+	  }
+
+          key.keyData |= eros_Forwarder_opaque;
+          if ($3 & ATTRIB_SENDCAP) {
+            key.keyData |= eros_Forwarder_sendCap;
+          }
+          if ($3 & ATTRIB_SENDWORD) {
+            key.keyData |= eros_Forwarder_sendWord;
+          }
+
+	  $$ = key;
+        }
+
+       | key AS OPAQUE GPT KEY {
+	  KeyBits key;
+
+	  SHOWPARSE("=== key -> key AS OPAQUE GPT KEY\n");
+      
+	  key = $1;
+
+	  if (! keyBits_IsType(&key, KKT_GPT)) {
+	    diag_printf("%s:%d: must be GPT key key\n",
+			 current_file, current_line);
+	    num_errors++;
+	    YYERROR;
+	  }
+
+          // key.keyData |= eros_Memory_opaque;
 
 	  $$ = key;
         }
@@ -1386,6 +1475,32 @@ segkey:  key {
         }
         ;
 
+forwarderkey:  key {
+	  SHOWPARSE("=== forwarderkey -> key\n");
+          if (! keyBits_IsType(&$1, KKT_Forwarder)) {
+	     diag_printf("%s:%d: must be forwarder key\n",
+			 current_file, current_line);
+	     num_errors++;
+	     YYERROR;
+	   }
+
+	   $$ = $1;
+        }
+        ;
+
+GPTkey:  key {
+	  SHOWPARSE("=== GPTkey -> key\n");
+          if (! keyBits_IsType(&$1, KKT_GPT)) {
+	     diag_printf("%s:%d: must be GPT key\n",
+			 current_file, current_line);
+	     num_errors++;
+	     YYERROR;
+	   }
+
+	   $$ = $1;
+        }
+        ;
+
 schedkey:  key {
 	  SHOWPARSE("=== schedkey -> key\n");
           if (keyBits_IsType(&$1, KKT_Sched) == false) {
@@ -1438,6 +1553,28 @@ segtype:  SEGMENT {
 	   SHOWPARSE("=== segtype -> SEGTREE\n");
 	  $$ = 0;
 	}
+        ;
+
+fwd_qualifier:  SENDCAP {
+	  SHOWPARSE("=== fwd_qualifier -> SENDCAP\n");
+          $$ = ATTRIB_SENDCAP;
+	   }
+        |  SENDWORD {
+	  SHOWPARSE("=== fwd_qualifier -> SENDWORD\n");
+	  $$ =  ATTRIB_SENDWORD;
+	   }
+        |  SENDCAP SENDWORD {
+	  SHOWPARSE("=== fwd_qualifier -> SENDCAP SENDWORD\n");
+	  $$ =  ATTRIB_SENDCAP | ATTRIB_SENDWORD;
+	   }
+        |  SENDWORD SENDCAP {
+	  SHOWPARSE("=== fwd_qualifier -> SENDWORD SENDCAP\n");
+	  $$ =  ATTRIB_SENDCAP | ATTRIB_SENDWORD;
+	   }
+        | /* nothing */ {
+	  SHOWPARSE("=== fwd_qualifier -> <nothing>\n");
+	  $$ = 0;
+	   }
         ;
 
 qualifier:  RO {
@@ -2433,6 +2570,7 @@ QualifyKey(uint32_t qualifier, KeyBits key, KeyBits *out)
     switch(keyBits_GetType(&key)) {
     case KKT_Node:
     case KKT_Segment:
+    case KKT_GPT:
       keyBits_SetWeak(&key);
       break;
 
@@ -2453,6 +2591,7 @@ QualifyKey(uint32_t qualifier, KeyBits key, KeyBits *out)
     case KKT_Node:
     case KKT_Page:
     case KKT_Segment:
+    case KKT_GPT:
       keyBits_SetReadOnly(&key);
       break;
 
@@ -2471,6 +2610,7 @@ QualifyKey(uint32_t qualifier, KeyBits key, KeyBits *out)
     switch(keyBits_GetType(&key)) {
     case KKT_Node:
     case KKT_Segment:
+    case KKT_GPT:
       keyBits_SetNoCall(&key);
       break;
 
