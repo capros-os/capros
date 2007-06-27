@@ -34,8 +34,6 @@ OPTIM=-O
 OBJECTS=$(BUILDDIR)/call.o $(BUILDDIR)/echo.o
 INC=-I$(EROS_ROOT)/include
 
-VOLMAP=volmap
-
 include $(EROS_SRC)/build/make/makerules.mk
 
 install all: $(TARGETS)

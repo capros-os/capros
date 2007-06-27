@@ -22,11 +22,17 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
+# If VOLMAP is defined, use that,
+# otherwise use a local target-specific volmap file if there is one,
+# otherwise use the local target-independent volmap file if there is one,
+# otherwise use the generic file test.volmap here.
 ifndef VOLMAP
-VOLMAP=../../test.volmap
+VOLMAP=$(if $(wildcard volmap.$(EROS_TARGET)), volmap.$(EROS_TARGET), $(if $(wildcard volmap), volmap, ../../test.volmap))
 endif
 
-IMGMAP=imgmap.$(EROS_TARGET)
+# Use a target-specific image file if there is one,
+# otherwise the target-independent one.
+IMGMAP=$(if $(wildcard imgmap.$(EROS_TARGET)), imgmap.$(EROS_TARGET), imgmap)
 
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(BOOTSTRAP)
 
