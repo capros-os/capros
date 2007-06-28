@@ -19,7 +19,6 @@
 #
 
 
-kernel 160 OID=0xFFFF000000000000
-cklog 1024 LID=0x0
-object 2148 OID=0x0
+kernel 140 OID=0xFFFF000000000000
+object preload 300 OID=0x0
 #spare 15
