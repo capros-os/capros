@@ -45,6 +45,13 @@
         <dt>c
         <dd>Continue execution
         <p>
+        <dt>check nodes
+        <dd>Checks the validity of all Node structures.
+        <dt>check pages
+        <dd>Checks the validity of all pages.
+        <dt>check procs
+        <dd>Checks the validity of all Process structures.
+        <p>
         <dt>debug inttrap y
         <dt>debug inttrap n
         <dd>Turns the "dbg_inttrap" flag on and off. When on, the debugger
@@ -59,6 +66,8 @@
         <p>
         <dt>node &lt;OID&gt;
         <dd>Print the node with the specified OID.
+        <dt>pframe &lt;OID&gt;
+        <dd>Print information about the page with the specified OID.
         <p>
         <dt>kstat show
         <dd>Print the kernel statistics.
@@ -74,6 +83,23 @@
         <dd>Print usage counts for all objhash buckets.
         <dt>kstat hist object &lt;bucket&gt;
         <dd>Print data for the specified objhash bucket.
+        <p>
+        <dt>mesg <i>flag</i>
+        <dd>Toggle a flag, which must be one of:
+            allinv, gate, keyerr, keeper, return,
+            segwalk, uqueue, uyield. These flags enable debugging
+            stops throughout the kernel.
+        <dt>mesg procinv [<i>addr</i>]
+        <dd>Toggle a flag that enables a debugging stop when the process
+            at the specified <i>addr</i> performs an invocation.
+            If <i>addr</i> is omitted, the current process is used.
+        <dt>mesg proctrap [<i>addr</i>]
+        <dd>Toggle a flag that enables a debugging stop when the process
+            at the specified <i>addr</i> traps.
+            If <i>addr</i> is omitted, the current process is used.
+        <dt>mesg show
+        <dd>Print the flags that are currently set.
+        <p>
         <dt>show
         <dd>Without any arguments, this command prints a list of arguments
             you can give. Here are explanations of some of them:
@@ -104,14 +130,19 @@
           <dd>Print all the keys that refer to the process
               context at the specified address (the keyring of the context).
               If no address is specified, this command prints
-              the information for the current thread.
+              the information for the current process.
           <dt>show activity [&lt;address&gt]
           <dd>Print the Activity at the specified address.
               If no address is specified, this command prints
               the current activity.
           <dt>show activities
           <dd>Print all the Activitys.
-          <dt>show ctxt [&lt;address&gt;]
+          <dt>show mappings &lt;space&gt &lt;base&gt &lt;nPages&gt
+          <dd>&lt;space&gt must be the virtual address of the beginning
+              of an IA32 page directory.
+              For the &lt;nPages&gt pages beginning at virtual address
+              &lt;base&gt, this command prints the PTEs for each address.
+          <dt>show proc [&lt;address&gt;]
           <dd>Print the Process at the specified address.
               If no address is specified, this command prints the current
               Process.
@@ -140,6 +171,14 @@
           <dt>show walkinfo &lt;address&gt
           <dd>Print the SegWalk structure at the specified address.
           </dl>
+        <p>
+        <dt>profile clear
+        <dd>
+        <dt>profile all
+        <dd>
+        <dt>profile top
+        <dd>These commands are available when the kernel profiling option
+            is configured.
       </dl>
     </td>
     <td valign=top width=15%>&nbsp;</td>
