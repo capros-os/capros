@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -69,11 +69,11 @@ db_eros_print_key(Key* key /*@ not null @*/)
     uint32_t oidhi = (uint32_t) (pObj->oid >> 32);
 
     if (keyBits_IsType(key, KKT_Resume))
-      db_printf("rsum 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x ctxt=0x%08x)\n",
+      db_printf("rsum 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x proc=0x%08x)\n",
 		pWKey[3], ((Node *)pObj)->callCount,
 		oidhi, oidlo, pObj, key->u.gk.pContext);
     else if (keyBits_IsType(key, KKT_Start))
-      db_printf("strt 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x ctxt=0x%08x)\n",
+      db_printf("strt 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x proc=0x%08x)\n",
 		pWKey[3], ((Node *)pObj)->callCount,
 		oidhi, oidlo, pObj, key->u.gk.pContext);
     else
@@ -285,7 +285,7 @@ db_eros_print_context(Process *cc)
   if (cc == 0)
     db_printf("invokee=0x%08x\n", cc);
   else {
-    db_printf("ctxt=0x%08x (%s)", cc, proc_Name(cc));
+    db_printf("proc=0x%08x (%s)", cc, proc_Name(cc));
     db_printf(" (%s) ",
 	      ((cc->runState == RS_Running)
 	       ? "Running"
@@ -426,7 +426,7 @@ db_eros_print_activity(Activity *t)
   else
     db_printf("[kern] ", ndx);
     
-  db_printf("0x%08x %c %s ctxt=0x%08x dr=%c0x%08x%08x\n"
+  db_printf("0x%08x %c %s proc=0x%08x dr=%c0x%08x%08x\n"
 	    "       q=0x%08x lnkd? %c wake=0x%08x%08x shouldwake? %c\n"
 	    "       readyQ %d readyMask 0x%x\n",
 	    t,
@@ -569,14 +569,14 @@ db_eros_mesg_procinv_cmd(db_expr_t addr, int have_addr,
   
   if (cc->processFlags & PF_DDBINV) {
     cc->processFlags &= ~PF_DDBINV;
-    db_printf("Invocation traps for context 0x%08x (OID 0x%08x%08x) disabled\n",
+    db_printf("Invocation traps for process 0x%08x (OID 0x%08x%08x) disabled\n",
 	      cc, 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
   }
   else {
     cc->processFlags |= PF_DDBINV;
-    db_printf("Invocation traps for context 0x%08x (OID 0x%08x%08x) enabled\n",
+    db_printf("Invocation traps for process 0x%08x (OID 0x%08x%08x) enabled\n",
 	      cc, 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
@@ -595,14 +595,14 @@ db_eros_mesg_proctrap_cmd(db_expr_t addr, int have_addr,
  
   if (cc->processFlags & PF_DDBTRAP) {
     cc->processFlags &= ~PF_DDBTRAP;
-    db_printf("Exception traps for context 0x%08x (OID 0x%08x%08x) disabled\n",
+    db_printf("Exception traps for process 0x%08x (OID 0x%08x%08x) disabled\n",
 	      cc, 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
   }
   else {
     cc->processFlags |= PF_DDBTRAP;
-    db_printf("Exception traps for context 0x%08x (OID 0x%08x%08x) enabled\n",
+    db_printf("Exception traps for process 0x%08x (OID 0x%08x%08x) enabled\n",
 	      cc, 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
@@ -822,7 +822,7 @@ db_activity_print_cmd(db_expr_t addr, int have_addr,
     
 //    db_eros_print_activity(t);
 
-    db_printf("%sactivity 0x%08x (%s) ctxt 0x%08x (%s) prio=%d\n",
+    db_printf("%sactivity 0x%08x (%s) proc 0x%08x (%s) prio=%d\n",
 	      cur_str,
 	      t, act_stateNames[t->state], t->context,
 	      (act_IsKernel(t) ? "kernel" : "user"),
@@ -1413,9 +1413,9 @@ void
 db_check_ctxt_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 {
   if (check_Contexts("ddb"))
-    db_printf("contexts are okay\n");
+    db_printf("processes are okay\n");
   else
-    db_printf("contexts are crocked\n");
+    db_printf("processes are crocked\n");
 }
 
 void

@@ -385,7 +385,7 @@ struct db_command db_show_cmds[] = {
 	{ "all",	0,			0,	db_show_all_cmds },
 	{ "breaks",	db_listbreak_cmd, 	0,	0 },
 	{ "cckr",       db_ctxt_kr_print_cmd,	0,	0 },
-	{ "ctxt",       db_ctxt_print_cmd,	0,	0 },
+	{ "proc",       db_ctxt_print_cmd,	0,	0 },
 	/* 	{ "count",	db_show_counters_cmd,	0,	0 }, */
 	{ "entry",      db_entry_print_cmd,	0,	0 },
 	{ "exit",       db_exit_print_cmd,	0,	0 },
@@ -537,7 +537,7 @@ extern void	db_check_pages_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_check_nodes_cmd(db_expr_t, int, db_expr_t, char*);
 
 struct db_command db_check_cmds[] = {
-	{ "ctxt",	db_check_ctxt_cmd,	0,		0 },
+	{ "procs",	db_check_ctxt_cmd,	0,		0 },
 	{ "nodes",	db_check_nodes_cmd,	0,		0 },
 	{ "pages",	db_check_pages_cmd,     0,		0 },
 	{ (char *)0, }
