@@ -809,3 +809,21 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
   return true;
 }
+
+// May Yield.
+void
+LoadWordFromUserVirtualSpace(uva_t userAddr, uint32_t * resultP)
+{
+  // Try a simple load first.
+  if (LoadWordFromUserSpace(userAddr, resultP))
+    return;
+
+  (void) proc_DoPageFault(act_CurContext(), userAddr,
+           false /* not isWrite */ , false);
+
+  // Should work now.
+  if (LoadWordFromUserSpace(userAddr, resultP))
+    return;
+
+  assert(false);	// DoPageFault didn't Yield and didn't fix it?
+}

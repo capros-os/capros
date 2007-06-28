@@ -1749,14 +1749,6 @@ ENTRY(intr_CapInstr)
 	cmpl	$EROS_NODE_SIZE,%ecx
 	jae	doGeneralPseudoInstr	// let C code give the fault
 	
-	/* compute cap reg offset of cr0 */
-	shl	$4,%ebx		/* offset within cap regs to desired reg */
-	/* compute cap reg offset of cr1 */
-	shl	$4,%ecx		/* offset within cap regs to desired reg */
-	
-	leal	PR_OFF_keyregs-PR_OFF_FIXREGS(%esp,%ecx),%ecx
-	leal	PR_OFF_keyregs-PR_OFF_FIXREGS(%esp,%ebx),%ebx
-	
 	/* Save user %ds and load kernel %ds so that we can call 
 	   kernel code. */
 

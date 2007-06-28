@@ -4,6 +4,10 @@ package eros;
  */
 interface Sleep extends key {
 
+  /* Returns the time in nanoseconds since some time in the past. 
+     FIXME: Is this monotonic over checkpoint/restart? */
+  unsigned long long getTimeMonotonic();
+
   /** Wake up the caller (i.e. do not sleep - this is a NO-OP) */
   void wakeup();
 

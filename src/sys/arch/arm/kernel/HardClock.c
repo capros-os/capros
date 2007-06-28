@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -19,7 +19,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Machine.h>
@@ -47,16 +48,23 @@ volatile uint32_t sysT_now_high;
 volatile uint64_t sysT_wakeup = ~(0llu);
 static uint32_t usec_calibration_count = 0;
 
+// 501530 is 1000000 ns / 1.9939 kHz.
 uint64_t
 mach_MillisecondsToTicks(uint64_t ms)
 {
-  return (ms * 19939) / 10000;
+  return (ms * 100000) / 50153;
 }
 
 uint64_t
 mach_TicksToMilliseconds(uint64_t ms)
 {
-  return (ms * 10000) / 19939;
+  return (ms * 50153) / 100000;
+}
+
+uint64_t
+mach_TicksToNanoseconds(uint64_t ms)
+{
+  return ms * 501530;
 }
 
 /* Timer 3 counts down in 32 bits at 2 kHz, so it will underflow in

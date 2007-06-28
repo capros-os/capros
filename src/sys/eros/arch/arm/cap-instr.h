@@ -1,7 +1,7 @@
 #ifndef __ARM_CAP_INSTR_H__
 #define __ARM_CAP_INSTR_H__
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -20,23 +20,16 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 /*
  * Routines to support direct capability register manipulation.
  * All of these are kernel-implemented pseudo-instructions.
  */
 
-INLINE void
-COPY_KEYREG(unsigned from, unsigned to)
-{
-  __asm__ __volatile__ ("swi 2");	/* SWI_CopyKeyReg */
-}
+void COPY_KEYREG(unsigned from, unsigned to);
      
-INLINE void
-XCHG_KEYREG(unsigned cr0, unsigned cr1)
-{
-  __asm__ __volatile__ ("swi 3");	/* SWI_XchgKeyReg */
-}
+void XCHG_KEYREG(unsigned cr0, unsigned cr1);
      
 #endif /* __ARM_CAP_INSTR_H__ */

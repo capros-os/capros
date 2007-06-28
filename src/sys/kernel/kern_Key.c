@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Node.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/KernStats.h>
+#include <eros/Invoke.h>
 
 #define dbg_prepare	0x1	/* steps in taking snapshot */
 
@@ -299,51 +300,37 @@ key_SetToNumber(KeyBits *thisPtr, uint32_t hi, uint32_t mid, uint32_t lo)
   thisPtr->u.nk.value[2] = hi;
 }
 
-#define CAP_REGMOVE
-#ifdef CAP_REGMOVE
-/* save_key(from, to) -- given a key address /from/ that is within a
- * capability register, copy that key to the key address /to/, which
- * is a slot in a capability page.
- * 
- * Note that all functions called by save_key() are prompt and do not
- * yield.  This is important, as we are running on an interrupt stack.
- */
-
-void copy_key(Key *fromKeyReg, Key *toKeyReg);
-void xchg_key(Key *kr0, Key *kr1);
-
-
 void
-copy_key(Key *from, Key *to)
+copy_key(uint32_t fromSlot, uint32_t toSlot)
 {
-  if (to == &act_CurContext()->keyReg[0])
-    return;
-  
-  /* Do not bother to deprepare dest key, as it isn't going to disk as
-   * a result of this operation.
-   */
-  key_NH_Set(to, from);
+  if (toSlot != KR_VOID) {
+    Process * p = act_CurContext();
+    key_NH_Set(&p->keyReg[toSlot], &p->keyReg[fromSlot]);
+  }
 }
 
 void
-xchg_key(Key *cr0, Key *cr1)
+xchg_key(uint32_t slot0, uint32_t slot1)
 {
-  Key tmp;
+  // Never overwrite KR_VOID.
+  if (slot0 == KR_VOID) {
+    copy_key(slot0, slot1);
+  } else {
+    Process * p = act_CurContext();
+    Key * key0 = &p->keyReg[slot0];
 
-  keyBits_InitToVoid(&tmp);
-  key_NH_Set(&tmp, cr0);
+    Key tmp;
+    keyBits_InitToVoid(&tmp);
+    key_NH_Set(&tmp, key0);
 
-  if (cr0 != &act_CurContext()->keyReg[0]) {
-    key_NH_Set(cr0, cr1);
-  }
-  if (cr1 != &act_CurContext()->keyReg[0]) {
-    key_NH_Set(cr1, &tmp);
-  }
+    Key * key1 = &p->keyReg[slot1];
+    key_NH_Set(key0, key1);
+    if (slot1 != KR_VOID)
+      key_NH_Set(key1, &tmp);
   
-  key_NH_Unchain(&tmp);
+    key_NH_Unchain(&tmp);
+  }
 }
-
-#endif /* CAP_REGMOVE */
 
 void
 key_NH_Unprepare(Key* thisPtr)

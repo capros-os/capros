@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Machine.h>
@@ -82,10 +85,6 @@ volatile uint64_t sysT_wakeup = ~(0llu);
  * Here's where it all starts to become interesting.  
  * 
  * We need to convert milliseconds to ticks using integer arithmetic. 
- * One year is longer than we are going to go without a reboot (random
- * alpha hits, if nothing else), so we set that as an upper bound on the
- * sleep call.  One year is just less than 2^35 milliseconds, and 64 bit
- * integer arithmetic is the largest convenient kind on this machine.
  * What we're going to do is take the milliseconds number handed us,
  * multiply that by 2^20 * (ticks/ms), and then divide the whole mess
  * by 2^20 giving ticks.  The end result will be to correct for tick
@@ -111,34 +110,42 @@ volatile uint64_t sysT_wakeup = ~(0llu);
 # define SOFT_TICK_DIVIDER	298
 # define TICK_MULTIPLIER	4198463ll
 # define TICK_TO_MS_MULTIPLIER  261884ll
+#define TICK_TO_NS_MULTIPLIER	249752ll
 #elif (BASETICK == 2000)
 # define SOFT_TICK_DIVIDER	596
 # define TICK_MULTIPLIER	2099231ll
 # define TICK_TO_MS_MULTIPLIER  523768ll
+#define TICK_TO_NS_MULTIPLIER	499504ll
 #elif (BASETICK == 1000)
 # define SOFT_TICK_DIVIDER	1193
 # define TICK_MULTIPLIER	1048736ll
 # define TICK_TO_MS_MULTIPLIER  1048416ll
+#define TICK_TO_NS_MULTIPLIER	999847ll
 #elif (BASETICK == 500)
 # define SOFT_TICK_DIVIDER	2386
 # define TICK_MULTIPLIER	524368ll
 # define TICK_TO_MS_MULTIPLIER  2096832ll
+#define TICK_TO_NS_MULTIPLIER	1999695ll
 #elif (BASETICK == 200)
 # define SOFT_TICK_DIVIDER	5965
 # define TICK_MULTIPLIER	209747ll
 # define TICK_TO_MS_MULTIPLIER  5242080ll
+#define TICK_TO_NS_MULTIPLIER	4999237ll
 #elif (BASETICK == 100)
 # define SOFT_TICK_DIVIDER	11931
 # define TICK_MULTIPLIER	104865ll
 # define TICK_TO_MS_MULTIPLIER  10485039ll
+#define TICK_TO_NS_MULTIPLIER	9999312ll
 #elif (BASETICK == 60)
 # define SOFT_TICK_DIVIDER	19886
 # define TICK_MULTIPLIER	62912ll
 # define TICK_TO_MS_MULTIPLIER  17475944ll
+#define TICK_TO_NS_MULTIPLIER	16666359ll
 #elif (BASETICK == 50)
 # define SOFT_TICK_DIVIDER	23863
 # define TICK_MULTIPLIER	52430ll
 # define TICK_TO_MS_MULTIPLIER  20991457ll
+#define TICK_TO_NS_MULTIPLIER	20019013ll
 #else
 # error "BASETICK not properly defined"
 #endif
@@ -153,9 +160,6 @@ uint64_t
 mach_MillisecondsToTicks(uint64_t ms)
 {
   uint64_t ticks;
-  if ((ms >> 35) > 0)
-    ms = 1ll << 35;	/* don't sleep more than a year */
-
   ticks = ms;
   ticks *= TICK_MULTIPLIER;
   ticks >>= 20;			/* divide by (1024*1024) */
@@ -164,7 +168,7 @@ mach_MillisecondsToTicks(uint64_t ms)
    * least one tick interval before being woken up.
    */
   
-  return (uint32_t) ticks;
+  return ticks;
 }
 
 /* Pragmatically, this only works if the machine has been up for less
@@ -177,7 +181,13 @@ mach_TicksToMilliseconds(uint64_t ticks)
   ms *= TICK_TO_MS_MULTIPLIER;
   ms >>= 20;			/* divide by (1024*1024) */
 
-  return (uint32_t) ms;
+  return ms;
+}
+
+uint64_t
+mach_TicksToNanoseconds(uint64_t ticks)
+{
+  return ticks * TICK_TO_NS_MULTIPLIER;
 }
 
 void

@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -43,6 +43,14 @@ SleepKey(Invocation* inv /*@ not null @*/)
   COMMIT_POINT();
       
   switch (inv->entry.code) {
+  case OC_eros_Sleep_getTimeMonotonic:
+    {
+      uint64_t nsec = mach_TicksToNanoseconds(sysT_Now());
+      inv->exit.w1 = (uint32_t) nsec;	// low word
+      inv->exit.w2 = nsec >> 32;
+      inv->exit.code = RC_OK;
+      return;
+    }
   case OC_eros_Sleep_wakeup:
     {
       /* This is NOT a no-op.  The wakeup logic hacks wakeup by

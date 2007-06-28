@@ -93,12 +93,10 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
    For now, just copy them. */
   inv->entry.w1 = thisPtr->trapFrame.r5;
   /* Current process's address map is still loaded. */
-  if (! LoadWordFromUserSpace(entryMessage + offsetof(Message, snd_w2),
-                              &inv->entry.w2))
-    fatal("Error loading w1-w3");
-  if (! LoadWordFromUserSpace(entryMessage + offsetof(Message, snd_w3),
-                              &inv->entry.w3))
-    fatal("Error loading w1-w3");
+  LoadWordFromUserVirtualSpace(entryMessage + offsetof(Message, snd_w2),
+                               &inv->entry.w2);
+  LoadWordFromUserVirtualSpace(entryMessage + offsetof(Message, snd_w3),
+                               &inv->entry.w3);
 
   uint8_t * sndKeys = (uint8_t *) &thisPtr->trapFrame.r2;
   if (thisPtr->trapFrame.r2 & 0xe0e0e0e0) {
@@ -121,12 +119,8 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   /* Get user's snd_addr from his Message structure. */
   ula_t addr;
-  if (! LoadWordFromUserSpace(entryMessage + offsetof(Message, snd_data),
-                              &addr)) {
-    /* Try to map the address. */
-    /* This should be a procedure ... */
-    printf("SetupEntryString fault, unimplemented\n");
-  }
+  LoadWordFromUserVirtualSpace(entryMessage + offsetof(Message, snd_data),
+                               &addr);
 
   /* Since this is the UNmodified virtual address, the sender's PID
   must remain loaded as long as we might need the string. */
@@ -140,12 +134,7 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
     /* Fastest way to see if it is mapped is to try to fetch it.
        We don't use the value fetched. */
     uint32_t unused;
-    if (! LoadWordFromUserSpace(addr,
-                                &unused)) {
-      /* Try to map the address. */
-      /* This should be a procedure ... */
-      printf("SetupEntryString fault, unimplemented\n");
-    }
+    LoadWordFromUserVirtualSpace(addr, &unused);
   }
 }
 
@@ -335,8 +324,6 @@ InvokeArm(Process * invokerProc,
           uint32_t snd_keys,
           uint32_t snd_len)
 {
-  Process * invokee;
-
 #if 0
   printf("Inv p=%x, type.key %x, oc 0x%x, psr=%x, pc=0x%08x, r0=%x, sp=0x%08x\n",
          invokerProc, typeAndKey, invokerProc->trapFrame.r4,
@@ -346,7 +333,9 @@ InvokeArm(Process * invokerProc,
 
 #if 1
   goto general_path1;	/* bypass fast path */
-#endif
+#else
+
+  Process * invokee;
 
   /* Instead of validating parameters, just ignore any cruft. It's faster. */
 #define InvTypeMask 0x7	/* must be >= IT_NUM_INVTYPES */
@@ -470,7 +459,10 @@ InvokeArm(Process * invokerProc,
   assert(false);
 
 general_path0:
-  if (snd_len > EROS_MESSAGE_LIMIT) goto badInvocation;
+  if (snd_len > EROS_MESSAGE_LIMIT) {
+    fatal("snd_len too big.\n");	// FIXME
+  }
+#endif
 general_path1:
   
   assert(irq_DisableDepth == 0);
@@ -487,9 +479,5 @@ general_path1:
   irq_DISABLE();
 
   ExitTheKernel();
-
-return;
-
-badInvocation:
-  fatal("snd_len too big.\n");	// FIXME
+  return;
 }

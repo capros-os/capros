@@ -421,7 +421,7 @@ SWI_Invoke_Handler:
 	sub r0,r0,#(PR_OFF_CPSR + 8)	// point to Process structure
 	bl InvokeArm		// continue in C
 	// does not return
-	b SwiBadMode		// in case it does
+0:	b 0b		// in case it does
 
 SWI_Bpt_Handler:
 /* The bkpt instruction is designed for use with debug hardware.
@@ -440,6 +440,12 @@ SWI_Bpt_Handler:
      r0-r14
      three more words
  */
+#ifndef NDEBUG
+	/* Was fault from user mode? */
+	add lr,r12,#1		// add 1 to mode bits of SPSR
+	tst lr,#0b01110		// magic calculation
+	bne SwiBadMode	// Neither user nor system mode
+#endif
 	mov lr,sp
 	sub sp,sp,#80
 	str r12,[sp]		// save his CPSR
@@ -486,20 +492,71 @@ r2 has new_val
 IRQ is disabled here, but *NOT* FIQ.
  */
 ENTRY(SWI_CSwap32_Ref)	/* handle fault here */
-	ldrt r12,[r0],#0
+#ifndef NDEBUG
+	/* Was fault from user mode? */
+	add lr,r12,#1		// add 1 to mode bits of SPSR
+	tst lr,#0b01110		// magic calculation
+	bne SwiBadMode	// Neither user nor system mode
+#endif
+	ldrt r12,[r0]//,#0
 	cmp r12,r1
 	streq r2,[r0]
 	mov r0,r12
 	/* Never need to switch contexts here. Just quickly return. */
 	ldmfd sp!,{r12,pc}^     // restore regs, and SPSR to CPSR
 
-/**** to be implemented */
-SwiBadMode:
-SWIOutOfRange:
+// r0 has "from" slot number.
+// r1 has "to" slot number.
 SWI_CopyKeyReg_Handler:
+#ifndef NDEBUG
+	/* Was fault from user mode? */
+	add lr,r12,#1		// add 1 to mode bits of SPSR
+	tst lr,#0b01110		// magic calculation
+	bne SwiBadMode	// Neither user nor system mode
+#endif
+
+	// Ignore extraneous bits in the slot numbers.
+	and r0,r0,#(EROS_NODE_SIZE-1)	// from
+	ands r1,r1,#(EROS_NODE_SIZE-1)	// to
+	/* It's not important to optimize the case of r1 == KR_VOID,
+	but the "ne" below costs nothing. */
+	blne copy_key
+	/* Never need to switch contexts here. Just quickly return. */
+	ldmfd sp!,{r12,pc}^     // restore regs, and SPSR to CPSR
+
+// r0 and r1 have the two slot numbers.
 SWI_XchgKeyReg_Handler:
+#ifndef NDEBUG
+	/* Was fault from user mode? */
+	add lr,r12,#1		// add 1 to mode bits of SPSR
+	tst lr,#0b01110		// magic calculation
+	bne SwiBadMode	// Neither user nor system mode
+#endif
+
+	// Ignore extraneous bits in the slot numbers.
+	and r0,r0,#(EROS_NODE_SIZE-1)	// from
+	and r1,r1,#(EROS_NODE_SIZE-1)	// to
+	bl xchg_key 
+	/* Never need to switch contexts here. Just quickly return. */
+	ldmfd sp!,{r12,pc}^     // restore regs, and SPSR to CPSR
+
+SWIOutOfRange:
+// The above deserves a better handler, but until then:
+SwiBadMode:
+	stmfd sp!,{r0,r2,r3,r12}	// save registers
+
+	// Set up the stack like a procedure prolog.
+	// If the exception was from supervisor mode, this will allow
+	// tracing the stack.
+	mov ip,sp		// note ip === r12
+	stmfd sp!,{fp,ip,lr,pc}
+	sub fp,ip,#4
+
 	ldr r0,=SWIMsg
-	b handlerCommon
+	ldr r1,[ip,#20]	// exception pc
+	bl printf
+0:	bl Debugger
+	b 0b
 
 	ENTRY(resume_process)
 /* r0 has a pointer to the Process structure. */
