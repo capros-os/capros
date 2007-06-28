@@ -110,6 +110,7 @@ const uint32_t __rt_stack_pages = NSTACK;
 /* Following is temporary!!! */
 typedef uint32_t f_size_t;
 
+/* Storage begins at base_addr and grows upwards (without limit!). */
 #define base_addr ((uint8_t *) 0x08000000)
 
 #define INO_NINDIR 11
@@ -480,19 +481,19 @@ grow_inode_table(server_state *ss)
   DEBUG(inogrow)
     kdprintf(KR_OSTREAM, "ino: growing inode table\n");
   
-  {
-    /* Extends the file with a new zero page: */
-    uint32_t **ppPage = find_file_page(ss, &ss->root, ss->root.u.sz, GROW);
-    uint32_t *pPage = *ppPage;
-    ino_s *pIno = (ino_s *) pPage;
+  /* Extends the file with a new zero page: */
+  uint32_t ** ppPage = find_file_page(ss, &ss->root, ss->root.u.sz, GROW);
+  ino_s * pIno = (ino_s *) *ppPage;
+  
+  DEBUG(inogrow)
+    kdprintf(KR_OSTREAM, "ino: pIno=0x%x, %d, %d\n", pIno, BLOCK_SIZE, sizeof(ino_s));
 
-    for (i = 0; i < BLOCK_SIZE / sizeof(ino_s); i++)
-      pIno[i].u.nxt_free = &pIno[i+1];
+  for (i = 0; i < BLOCK_SIZE / sizeof(ino_s); i++)
+    pIno[i].u.nxt_free = &pIno[i+1];
 
-    pIno[i-1].u.nxt_free = 0;
+  pIno[i-1].u.nxt_free = 0;
 
-    ss->first_free_inode = &pIno[0];
-  }
+  ss->first_free_inode = &pIno[0];
 }
 
 uint32_t
