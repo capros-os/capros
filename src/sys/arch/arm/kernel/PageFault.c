@@ -362,6 +362,10 @@ PageFault(bool prefetch,	/* else data abort */
   if (prefetch) {
     writeAccess = false;
     va = proc->trapFrame.r15;	/* his pc */
+
+    if (dbg_inttrap)
+      printf("Prefetch PageFault fa=0x%08x pc=0x%08x",
+             va, proc->trapFrame.r15);
     DEBUG(pgflt)
       printf("Prefetch PageFault fa=0x%08x pc=0x%08x",
              va, proc->trapFrame.r15);
@@ -375,6 +379,11 @@ PageFault(bool prefetch,	/* else data abort */
     } else {
       va = fa;
     }
+
+    if (dbg_inttrap)
+      printf("Data PageFault fa=0x%08x fsr=0x%08x pc=0x%08x r12=0x%08x sp=0x%08x r14=0x%08x\n",
+             va, fsr, proc->trapFrame.r15, proc->trapFrame.r12,
+             proc->trapFrame.r13, proc->trapFrame.r14);
     DEBUG(pgflt)
       printf("Data PageFault fa=0x%08x fsr=0x%08x pc=0x%08x r12=0x%08x sp=0x%08x r14=0x%08x\n",
              va, fsr, proc->trapFrame.r15, proc->trapFrame.r12,
@@ -598,6 +607,9 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   unsigned int domain = EnsureSSDomain(ssid);
   p->md.dacr = (0x1 << (domain * 2)) | 0x1 /* include domain 0 for kernel */;
 
+  if (dbg_inttrap)
+    printf("Got small space\n");
+
   const ula_t mva = (va + p->md.pid) & ~EROS_PAGE_MASK;
 
   /* Small space only for now. */
@@ -648,10 +660,13 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     return false;
   }
 
+  if (dbg_inttrap)
+    printf("Traversed to second level\n");
   DEBUG(pgflt)
     printf("Traversed to second level\n");
 
   if (* theFLPTEntry != PTE_IN_PROGRESS)
+    // Entry was zapped, try all over again.
     act_Yield();
 
   // printf("wi.offset=0x%08x ", wi.offset);
@@ -692,6 +707,9 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     
     /* Translate the remaining bits of the address: */
     if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) {
+      if (dbg_inttrap)
+        dprintf(true, "Fault at page, prompt=%d, wi=0x%08x\n", prompt, &wi);
+
       if (!prompt) {
         /* We could clear PTE_IN_PROGRESS here, but it's not necessary,
         as we already have to handle the possibility of the entry being
@@ -704,8 +722,14 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   DEBUG(pgflt)
     printf("Traversed to page\n");
 
-  if (thePTE->w_value != PTE_IN_PROGRESS)
+  if (thePTE->w_value != PTE_IN_PROGRESS) {
+    // Entry was zapped, try all over again.
+
+    if (dbg_inttrap)
+      printf("Depend zap at page\n");
+
     act_Yield();
+  }
     
   assert(wi.segObj);
   assert(wi.segObj->obType == ot_PtDataPage ||
@@ -789,6 +813,9 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   }
 
   kpa_t pageAddr = VTOP(pageH_GetPageVAddr(pageH));
+
+  if (dbg_inttrap)
+    printf("Traversed to page at 0x%08x\n", pageAddr);
 
 #if 0
   printf("Setting PTE 0x%08x addr 0x%08x write %c cache %c\n",

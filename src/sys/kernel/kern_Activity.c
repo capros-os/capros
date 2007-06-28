@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -802,6 +802,10 @@ ExitTheKernel(void)
   assert(act_Current());
 
   Process * thisPtr = act_CurContext();
+
+  if (dbg_inttrap)
+    dprintf(true, "Resuming proc 0x%08x\n", thisPtr);
+
 #ifndef NDEBUG
   if ( thisPtr->curActivity != act_Current() )
     fatal("Context 0x%08x (%d) not for current activity 0x%08x (%d)\n",

@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -1274,7 +1274,7 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
   inv.entry.data = data;
   
   if ( DDB_STOP(keeper) )
-    dprintf(true, "About to invoke process keeper\n");
+    dprintf(true, "About to invoke keeper, key=0x%08x\n", keeperKey);
 
 #ifdef KPRDEBUG
   dprintf(false, "Enter InvokeMyKeeper\n");
