@@ -62,7 +62,7 @@ Approved for public release, distribution unlimited. */
 
 #include "constituents.h"
 
-#include <wrapper/wrapper.h>
+#include <forwarder.h>
 
 #define min(a,b) ((a) <= (b) ? (a) : (b))
 
@@ -581,9 +581,9 @@ ProcessRequest(Message *msg, server_state *ss)
       if (result != RC_OK)
 	break;
 
-      result = wrapper_create(KR_BANK, KR_CURFILE, KR_SCRATCH, KR_FILESTART,
-                 WRAPPER_SEND_NODE | WRAPPER_SEND_WORD | WRAPPER_KEEPER,
-                 (uint32_t)newFile, 0);
+      result = forwarder_create(KR_BANK, KR_CURFILE, KR_SCRATCH, KR_FILESTART,
+                 eros_Forwarder_sendWord,
+                 (uint32_t)newFile);
       if (result != RC_OK)
 	break;
 
@@ -592,7 +592,7 @@ ProcessRequest(Message *msg, server_state *ss)
     }
   case OC_NFile_Destroy:
     {
-      ino_s *ino = (ino_s *)msg->rcv_w1;
+      ino_s *ino = (ino_s *)msg->rcv_w3;
 
       DEBUG(req)
 	kdprintf(KR_OSTREAM, "NFILE: ino 0x%X destroy\n",
@@ -605,9 +605,9 @@ ProcessRequest(Message *msg, server_state *ss)
     
   case OC_NFile_Read:
     {
-      ino_s *ino = (ino_s *)msg->rcv_w1;
-      f_size_t len = msg->rcv_w2;
-      f_size_t at = msg->rcv_w3;
+      ino_s *ino = (ino_s *)msg->rcv_w3;
+      f_size_t len = msg->rcv_w1;
+      f_size_t at = msg->rcv_w2;
       
       DEBUG(req)
 	kdprintf(KR_OSTREAM, "NFILE: ino 0x%X read %d at %d\n",
@@ -621,9 +621,9 @@ ProcessRequest(Message *msg, server_state *ss)
 
   case OC_NFile_Write:
     {
-      ino_s *ino = (ino_s *)msg->rcv_w1;
+      ino_s *ino = (ino_s *)msg->rcv_w3;
       f_size_t len = min(msg->rcv_limit, msg->rcv_sent);
-      f_size_t at = msg->rcv_w3;
+      f_size_t at = msg->rcv_w2;
       
       DEBUG(req)
 	kdprintf(KR_OSTREAM, "NFILE: ino 0x%X write %d at %d\n",

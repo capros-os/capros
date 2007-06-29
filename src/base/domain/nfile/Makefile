@@ -50,6 +50,6 @@ all: $(TARGETS)
 nfile.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/nfile: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $(BUILDDIR)/nfile $(DOMCRT0) $(OBJECTS) -lsmall -lwrapper $(DOMLIB)
+	$(DOMLINK) $(DOMLINKOPT) -o $(BUILDDIR)/nfile $(DOMCRT0) $(OBJECTS) -lsmall -lforwarder $(DOMLIB)
 
 -include $(BUILDDIR)/.*.m
