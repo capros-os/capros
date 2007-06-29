@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Key.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/ObjectCache.h>
+#include <kerninc/Node.h>
 #include <disk/DiskNodeStruct.h>
 #include <disk/Forwarder.h>
 
@@ -163,11 +164,34 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
   assert(inv_CanCommit());
   assert(pObj);
 
-  COMMIT_POINT();
-
   /* It's definitely an object key.  Pin the object it names. */
 
   objH_TransLock(pObj);
+
+  if (kkt == KKT_Forwarder) {
+    // A Forwarder must always have a number key in slot ForwarderDataSlot.
+    /* Note: We are trusting holders of a Range key not to get a Node key
+    to the same object, overwrite the number key, and then use the Forwarder. */
+    Key * keynum = node_GetKeyAtSlot(objH_ToNode(pObj), ForwarderDataSlot);
+    if (! keyBits_IsType(keynum, KKT_Number) ) {
+      node_MakeDirty(objH_ToNode(pObj));
+
+      COMMIT_POINT();
+
+      key_NH_Unchain(keynum);
+      keyBits_InitType(keynum, KKT_Number);
+      keynum->u.nk.value[0] = 0;
+      keynum->u.nk.value[1] = 0;
+      keynum->u.nk.value[2] = 0;
+    } else {
+      // it is already a number key. Preserve it and its data.
+
+      COMMIT_POINT();
+    }
+  } else {
+
+    COMMIT_POINT();
+  }
   
   if (key) {
     /* Unchain the old key so we can overwrite it... */
