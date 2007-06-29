@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2007, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -22,17 +22,34 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: package
+default: all
 
-EROS_SRC=../..
+HEADERS=$(wildcard *.h)
+
+EROS_SRC=../../..
+CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=idlstub domain keycache rbtree util
-DIRS+=graphics forwarder wrapper addrspace xsprintf
-ifeq "$(EROS_TARGET)" "i486"	# only for i486 so far
-DIRS+=ethread
-endif
-# DIRS += libc unix
+INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+OPTIM=-O
+DIRS=
+TARGETS=$(BUILDDIR)/libforwarder.a
+OBJECTS=$(BUILDDIR)/forwarder.o
 
 include $(EROS_SRC)/build/make/makerules.mk
+
+all: $(TARGETS)
+
+$(TARGETS): $(OBJECTS)
+	$(AR) -crv $(TARGETS) $(OBJECTS)
+	$(RANLIB) $(TARGETS)
+
+install: all
+	$(INSTALL) -d $(EROS_ROOT)/lib
+	$(INSTALL) -d $(EROS_ROOT)/lib/$(EROS_TARGET)
+	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)
+	$(INSTALL) -d $(EROS_ROOT)/include
+	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include
+
+-include $(BUILDDIR)/.*.m
