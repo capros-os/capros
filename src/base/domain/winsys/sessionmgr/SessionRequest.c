@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <stddef.h>
 #include <eros/target.h>
@@ -388,16 +392,16 @@ SessionRequest(Message *msg)
       /* Now, attempt to return allocated storage to client's space
 	 bank.  This may fail, but at least we tried. */
       kprintf(KR_OSTREAM, "winsys(): Terminating session...");
-      node_copy(KR_ARG(2), STASH_CLIENT_BANK, KR_SCRATCH);
+      eros_Forwarder_getSlot(KR_ARG(2), STASH_CLIENT_BANK, KR_SCRATCH);
 
-      /* Bash the wrapper key with a void key */
-      node_swap(KR_ARG(2), WrapperKeeper, KR_VOID, KR_VOID);
+      /* Bash the wrapped key with a void key */
+      eros_Forwarder_swapTarget(KR_ARG(2), KR_VOID, KR_VOID);
 
 #if 0
       /* FIX: This code is successful, but any further invocation
       attempts by the client on its session key results in an
       assertion failure: client's keybits are not prepared. */
-      if (spcbank_return_node(KR_SCRATCH, KR_ARG(2)) != RC_OK) {
+      if (eros_SpaceBank_free1(KR_SCRATCH, KR_ARG(2)) != RC_OK) {
 	kprintf(KR_OSTREAM, "    ... Couldn't return node, so bashing it.");
       }
       else

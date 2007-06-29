@@ -19,6 +19,7 @@ static void
 session_maybe_wakeup(Session *session)
 {
   if (session->waiting) {
+    // FIXME: This is broken; retry is no longer implemented.
     node_wake_some_no_retry(KR_PARK_NODE, ADDRESS(session), 0, 
 			    ADDRESS(session));
     session->waiting = false;

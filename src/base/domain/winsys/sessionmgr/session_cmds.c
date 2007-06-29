@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <stddef.h>
 #include <stdlib.h>
@@ -45,7 +49,7 @@
 #include "../global.h"
 #include "../Decoration.h"
 #include "../Invisible.h"
-#include <wrapper/wrapper.h>
+#include <forwarder.h>
 
 /* This is the window system's version of the server-side SessionKey
    implementation.  It will necessarily be different from other
@@ -375,10 +379,10 @@ session_NewSessionCreator(Session *s, Window *container,
   else 
     process_make_start_key(KR_SELF, SESSION_CREATOR_INTERFACE,
 			   KR_SESSION_CREATOR);
-  return wrapper_create(KR_CLIENT_BANK, kr_new_creator, KR_NEW_NODE,
+  return forwarder_create(KR_CLIENT_BANK, kr_new_creator, KR_NEW_NODE,
 			KR_SESSION_CREATOR,
-			WRAPPER_SEND_WORD,
-			ADDRESS(container), 0x0u);
+			eros_Forwarder_sendWord,
+			ADDRESS(container) );
 
 }
 

@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <stddef.h>
 #include <string.h>
@@ -54,7 +58,7 @@
 /* Need the scancode converter */
 #include "keytrans/keytrans.h"
 
-#include <wrapper/wrapper.h>
+#include <forwarder.h>
 
 #include <addrspace/addrspace.h>
 
@@ -291,7 +295,7 @@ SessionCreatorRequest(Message *m)
 	/* until proven otherwise */
 	RC_SessionCreator_NoSessionAvailable; 
 
-      /* Container window is embedded in SessionCreator wrapper key */
+      /* Container window is embedded in SessionCreator forwarder key */
       Window *container = (Window *)m->rcv_w1;
 
       Session *new_session = session_create(container);
@@ -299,10 +303,10 @@ SessionCreatorRequest(Message *m)
       if (m->rcv_keyInfo == TRUSTED_SESSION_CREATOR_INTERFACE) {
 
 	/*Note: The client must provide the space bank key!!! */
-	result = wrapper_create(KR_CLIENT_BANK, KR_NEW_SESSION, KR_NEW_NODE, 
-				KR_TRUSTED_SESSION_TYPE,
-				(WRAPPER_SEND_WORD | WRAPPER_SEND_NODE), 
-				ADDRESS(new_session), 0x0u);
+	result = forwarder_create(KR_CLIENT_BANK, KR_NEW_SESSION, KR_NEW_NODE, 
+		              KR_TRUSTED_SESSION_TYPE,
+                              eros_Forwarder_sendCap | eros_Forwarder_sendWord,
+			      ADDRESS(new_session) );
 
 	if (result != RC_OK) {
 	  m->snd_code = result;
@@ -315,10 +319,10 @@ SessionCreatorRequest(Message *m)
       else {
 
 	/*Note: The client must provide the space bank key!!! */
-	result = wrapper_create(KR_CLIENT_BANK, KR_NEW_SESSION, KR_NEW_NODE, 
-				KR_SESSION_TYPE,
-				(WRAPPER_SEND_WORD | WRAPPER_SEND_NODE), 
-				ADDRESS(new_session), 0x0u);
+	result = forwarder_create(KR_CLIENT_BANK, KR_NEW_SESSION, KR_NEW_NODE, 
+			      KR_SESSION_TYPE,
+                              eros_Forwarder_sendCap | eros_Forwarder_sendWord,
+			      ADDRESS(new_session) );
 
 	if (result != RC_OK) {
 	  m->snd_code = result;
@@ -335,10 +339,11 @@ SessionCreatorRequest(Message *m)
       m->snd_code = RC_OK;
 
       /* Before we return, stash the client's space bank key in an
-         unused slot of the wrapper node.  When the session is closed,
+         unused slot of the forwarder.  When the session is closed,
          we'll make an attempt to return storage to the space bank on
          behalf of the client. */
-      node_swap(KR_NEW_NODE, STASH_CLIENT_BANK, KR_CLIENT_BANK, KR_VOID);
+      eros_Forwarder_swapSlot(KR_NEW_NODE, STASH_CLIENT_BANK, KR_CLIENT_BANK,
+                              KR_VOID);
     }
     break;
 
@@ -553,20 +558,20 @@ DomainRequest(Message *m)
       /* Finally, now that Root exists, wrap the primordial
       SessionCreator keys so that they have Root as their container
       window */
-      if (wrapper_create(KR_BANK, KR_SCRATCH, KR_NEW_NODE,
+      if (forwarder_create(KR_BANK, KR_SCRATCH, KR_NEW_NODE,
 			  KR_SESSION_CREATOR,
-			  WRAPPER_SEND_WORD,
-			  ADDRESS(Root), 0x0u) != RC_OK) {
+			  eros_Forwarder_sendWord,
+			  ADDRESS(Root) ) != RC_OK) {
 	kprintf(KR_OSTREAM, "** ERROR: couldn't wrap SessionCreator key.\n");
 	m->snd_code = RC_eros_key_RequestError;
 	return true;
       }
       COPY_KEYREG(KR_SCRATCH, KR_SESSION_CREATOR);
 
-      if (wrapper_create(KR_BANK, KR_SCRATCH, KR_NEW_NODE,
+      if (forwarder_create(KR_BANK, KR_SCRATCH, KR_NEW_NODE,
 			  KR_TRUSTED_SESSION_CREATOR,
-			  WRAPPER_SEND_WORD,
-			  ADDRESS(Root), 0x0u) != RC_OK) {
+			  eros_Forwarder_sendWord,
+			  ADDRESS(Root) ) != RC_OK) {
 	kprintf(KR_OSTREAM, "** ERROR: couldn't wrap trusted "
 		"SessionCreator key.\n");
 	m->snd_code = RC_eros_key_RequestError;
@@ -910,9 +915,16 @@ main(void)
 
   /* Create a wrapper key for "parking" client keys that are waiting
      for user input */
-  if (wrapper_create(KR_BANK, KR_PARK_WRAP, KR_PARK_NODE, KR_START,
-		     WRAPPER_BLOCKED, 0, 0) != RC_OK) {
+  if (forwarder_create(KR_BANK, KR_PARK_WRAP, KR_PARK_NODE, KR_START,
+		       0, 0 ) != RC_OK) {
     kprintf(KR_OSTREAM, "** ERROR: couldn't create a wrapper for parking "
+	    "waiting-client keys...\n");
+    return -1;   /* FIX:  really need to terminate gracefully */
+  }
+
+  /* We want the "parking" key to be blocked. */
+  if (eros_Forwarder_setBlocked(KR_PARK_NODE) != RC_OK) {
+    kprintf(KR_OSTREAM, "** ERROR: couldn't block a wrapper for parking "
 	    "waiting-client keys...\n");
     return -1;   /* FIX:  really need to terminate gracefully */
   }

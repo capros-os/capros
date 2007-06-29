@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*  This code implements the "window system" domain.  This domain
     manages graphical windows and dispatches user input events to
@@ -48,9 +52,9 @@
 #define KR_NEW_NODE      KR_APP(9) /* temp reg for a new node */
 #define KR_SCRATCH       KR_APP(10) /* used for temporary key storage
 				       */
-/* Key to a wrapper node upon which clients can be redirected if this
+/* Key to a forwarder upon which clients can be redirected if this
    domain can't service them promptly */
-#define KR_PARK_NODE     KR_APP(11) /* key to a wrapper node to which
+#define KR_PARK_NODE     KR_APP(11) /* key to a forwarder to which
 				       retrying clients will be
 				       redirected */
 #define KR_PARK_WRAP     KR_APP(12)
@@ -76,7 +80,7 @@
 /* Client must provide space bank key for some operations */
 #define KR_CLIENT_BANK   KR_ARG(0)
 
-/* The client's space bank key will be stashed in the node allocated
+/* The client's space bank key will be stashed in the forwarder allocated
    from that bank in the following slot */
-#define STASH_CLIENT_BANK  21
+#define STASH_CLIENT_BANK  0
 
