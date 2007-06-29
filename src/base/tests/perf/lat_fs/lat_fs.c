@@ -25,11 +25,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/eros/Sleep.h>
-#include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
-#include <eros/KeyConst.h>
 #include <domain/domdbg.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
 #include <domain/NFileKey.h>
 
