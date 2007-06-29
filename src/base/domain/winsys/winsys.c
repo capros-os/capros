@@ -296,7 +296,7 @@ SessionCreatorRequest(Message *m)
 	RC_SessionCreator_NoSessionAvailable; 
 
       /* Container window is embedded in SessionCreator forwarder key */
-      Window *container = (Window *)m->rcv_w1;
+      Window *container = (Window *)m->rcv_w3;
 
       Session *new_session = session_create(container);
 
@@ -334,7 +334,7 @@ SessionCreatorRequest(Message *m)
       }
 
       /* Stash the container window for the new session */
-      new_session->container = (Window *)(m->rcv_w1);
+      new_session->container = container;
 
       m->snd_code = RC_OK;
 

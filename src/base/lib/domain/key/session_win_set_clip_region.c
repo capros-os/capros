@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
@@ -38,8 +42,8 @@ session_win_set_clip_region(uint32_t session_key, uint32_t window_id,
   m.snd_rsmkey = KR_VOID;
   m.snd_data = send_data;
   m.snd_len = sizeof(send_data);
-  m.snd_w1 = 0;
-  m.snd_w2 = window_id;
+  m.snd_w1 = window_id;
+  m.snd_w2 = 0;
   m.snd_w3 = 0;
 
   m.rcv_rsmkey = KR_VOID;

@@ -85,7 +85,7 @@ ExistingWindowRequest(Session *sess, Message *msg)
   uint32_t expect;
   uint32_t got;
 
-  uint32_t winid = msg->rcv_w2;
+  uint32_t winid = msg->rcv_w1;
   Window *win = winid_to_window(sess, winid);
 
   if (win == NULL) {
@@ -255,7 +255,7 @@ SessionRequest(Message *msg)
      truncated! */
   uint32_t expect;
   uint32_t got;
-  Session *sess = (Session *)msg->rcv_w1;
+  Session *sess = (Session *)msg->rcv_w3;
 
   switch (msg->rcv_code) {
   case OC_Session_NewDefaultWindow:
@@ -266,10 +266,10 @@ SessionRequest(Message *msg)
       uint32_t decs = (WINDEC_TITLEBAR | WINDEC_BORDER | WINDEC_RESIZE);
       Window *parent = NULL;
 
-      if (msg->rcv_w2 == DEFAULT_PARENT)
+      if (msg->rcv_w1 == DEFAULT_PARENT)
 	parent = sess->container;
       else {
-	parent = winid_to_window(sess, msg->rcv_w2);
+	parent = winid_to_window(sess, msg->rcv_w1);
 
 	if (parent == NULL) {
 	  msg->snd_code = RC_eros_key_RequestError;
@@ -303,10 +303,10 @@ SessionRequest(Message *msg)
       uint32_t decs = receive_buffer[4];
       Window *parent = NULL;
 
-      if (msg->rcv_w2 == DEFAULT_PARENT)
+      if (msg->rcv_w1 == DEFAULT_PARENT)
 	parent = sess->container;
       else {
-	parent = winid_to_window(sess, msg->rcv_w2);
+	parent = winid_to_window(sess, msg->rcv_w1);
 
 	if (parent == NULL) {
 	  msg->snd_code = RC_eros_key_RequestError;
@@ -351,10 +351,10 @@ SessionRequest(Message *msg)
 
       Window *parent = NULL;
 
-      if (msg->rcv_w2 == DEFAULT_PARENT)
+      if (msg->rcv_w1 == DEFAULT_PARENT)
 	parent = sess->container;
       else {
-	parent = winid_to_window(sess, msg->rcv_w2);
+	parent = winid_to_window(sess, msg->rcv_w1);
 
 	if (parent == NULL) {
 	  msg->snd_code = RC_eros_key_RequestError;
@@ -457,7 +457,7 @@ SessionRequest(Message *msg)
 
   case OC_Session_NewSessionCreator:
     {
-      Window *win = winid_to_window(sess, msg->rcv_w2);
+      Window *win = winid_to_window(sess, msg->rcv_w1);
 
       /* Ensure window id is valid for this Session */
       if (win == NULL) {
