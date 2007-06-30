@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime distribution.
+ * This file is part of the CapROS Operating System runtime distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,10 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
@@ -345,6 +350,9 @@ wakeSession(uint32_t parkingNo) {
 uint32_t 
 SessionRequest(Message *msg) 
 {
+  /* rcv_w3 gets bashed by the kernel due to SEND_WORD flag in
+   * the wrapper call invocation */
+  uint32_t ssid = msg->rcv_w3;
   switch(msg->rcv_code) {
     
     /* UDP Functions */ 
@@ -352,14 +360,10 @@ SessionRequest(Message *msg)
     {
       struct ip_addr remote_ip;
       uint16_t remote_port;
-      uint32_t ssid;
       struct udp_pcb *ipcb = NULL;
       
-      /* rcv_w1 gets bashed by the kernel due to SEND_WORD flag in
-       * the wrapper call invocation */
-      ssid = msg->rcv_w1;
-      remote_ip.addr = msg->rcv_w2;
-      remote_port = (uint16_t)msg->rcv_w3;
+      remote_ip.addr = msg->rcv_w1;
+      remote_port = (uint16_t)msg->rcv_w2;
       
       DEBUGSESSION kprintf(KR_OSTREAM,"Connect::ssid=%x,ip=%x,port=%x",ssid,
 			   remote_ip.addr,remote_port);
@@ -393,15 +397,11 @@ SessionRequest(Message *msg)
 
       struct ip_addr local_ip;
       uint16_t local_port;
-      uint32_t ssid;
       struct udp_pcb *ipcb = NULL;
       
-      /* rcv_w1 gets bashed by the kernel due to SEND_WORD flag in
-       * the wrapper call invocation */
-      ssid = msg->rcv_w1;
-      local_ip.addr = msg->rcv_w2;
+      local_ip.addr = msg->rcv_w1;
       if (local_ip.addr == 0) local_ip.addr = NETIF.ip_addr.addr;
-      local_port = (uint16_t)msg->rcv_w3;
+      local_port = (uint16_t)msg->rcv_w2;
       
       DEBUGSESSION kprintf(KR_OSTREAM,"bind::ssid=%x,ip=%x,port=%x",
 			   ssid,local_ip.addr,local_port);
@@ -438,7 +438,6 @@ SessionRequest(Message *msg)
   case OC_NetSys_UDPSend:
     {
       struct pbuf *p = NULL;
-      uint32_t ssid = msg->rcv_w1;
       struct udp_pcb *ipcb = NULL;
       
       DEBUGSESSION kprintf(KR_OSTREAM,"UDP send on ssid=%x",ssid);
@@ -469,7 +468,6 @@ SessionRequest(Message *msg)
 
   case OC_NetSys_UDPReceive:
     {
-      uint32_t ssid = msg->rcv_w1;
       struct udp_pcb *ipcb = NULL;
             
       DEBUGSESSION kprintf(KR_OSTREAM,"UDP receive");
@@ -485,7 +483,7 @@ SessionRequest(Message *msg)
 	else {
 	  /* Are we listening or have we received data */
 	  if(!ipcb->listening) { 
-	    ipcb->timeout = msg->rcv_w2;
+	    ipcb->timeout = msg->rcv_w1;
 	    ipcb->overtime = 0;
 	    ipcb->timeup = 0;
 	    ipcb->listening = 1;
@@ -532,7 +530,6 @@ SessionRequest(Message *msg)
 
   case OC_NetSys_UDPClose:
     {
-      uint32_t ssid = msg->rcv_w1;
       struct udp_pcb *ipcb = NULL;
       
       DEBUGSESSION kprintf(KR_OSTREAM,"UDP close");
@@ -554,12 +551,12 @@ SessionRequest(Message *msg)
   
   case OC_NetSys_ICMPOpen:
     {
-      msg->snd_code = icmpsession_open(msg->rcv_w1);
+      msg->snd_code = icmpsession_open(ssid);
       return 1;
     }
   case OC_NetSys_ICMPPing:
     {
-      if(find_icmpsession(msg->rcv_w1) == -1) {
+      if(find_icmpsession(ssid) == -1) {
 	msg->snd_code = RC_NetSys_NoExistingSession;
 	return 1;
       }else {
@@ -575,7 +572,7 @@ SessionRequest(Message *msg)
 	  for(i=0;i<MIN(msg->rcv_limit,msg->rcv_sent);i++) {
 	    ((char *)p->payload)[i] = rcv_buffer[i];
 	  }
-	  dest.addr = msg->rcv_w2;
+	  dest.addr = msg->rcv_w1;
 	  src.addr = 0x0;
 	  msg->snd_code = ip_output(p,&src,&dest,255,IP_PROTO_ICMP);
 	  pbuf_free(p);
@@ -585,7 +582,7 @@ SessionRequest(Message *msg)
     }
   case OC_NetSys_ICMPReceive:
     {
-      int index = find_icmpsession(msg->rcv_w1);
+      int index = find_icmpsession(ssid);
       
       if(index == -1) {
 	msg->snd_code = RC_NetSys_NoExistingSession;
@@ -605,16 +602,13 @@ SessionRequest(Message *msg)
     }
   case OC_NetSys_ICMPClose:
     {
-      msg->snd_code = icmpsession_close(msg->rcv_w1);
+      msg->snd_code = icmpsession_close(ssid);
       return 1;
     }
   case OC_eros_domain_net_ipv4_netsys_tcp_listen:
     {
-      uint32_t ssid;
       struct tcp_pcb *ipcb = NULL;
      
-      ssid = msg->rcv_w1;
-      
       /* Find in tcp_pcb list if there exists such an pcb */
       for(ipcb = tcp_active_pcbs; ipcb!= NULL; ipcb = ipcb->next) {
 	if(ipcb->ssid == ssid) break;
@@ -633,15 +627,11 @@ SessionRequest(Message *msg)
     {
       struct ip_addr local_ip;
       uint16_t local_port;
-      uint32_t ssid;
       struct tcp_pcb *ipcb = NULL;
       
-      /* rcv_w1 gets bashed by the kernel due to SEND_WORD flag in
-       * the wrapper call invocation */
-      ssid = msg->rcv_w1;
-      local_ip.addr = msg->rcv_w2;
+      local_ip.addr = msg->rcv_w1;
       if (local_ip.addr == 0) local_ip.addr = NETIF.ip_addr.addr;
-      local_port = (uint16_t)msg->rcv_w3;
+      local_port = (uint16_t)msg->rcv_w2;
       
       DEBUGSESSION kprintf(KR_OSTREAM,"bind::ssid=%x,ip=%x,port=%d",
 			   ssid,local_ip.addr,local_port);
@@ -679,15 +669,11 @@ SessionRequest(Message *msg)
     {
       struct ip_addr remote_ip;
       uint16_t remote_port;
-      uint32_t ssid;
       struct tcp_pcb *ipcb = NULL;
       result_t result;
       
-      /* rcv_w1 gets bashed by the kernel due to SEND_WORD flag in
-       * the wrapper call invocation */
-      ssid = msg->rcv_w1;
-      remote_ip.addr = msg->rcv_w2;
-      remote_port = (uint16_t)msg->rcv_w3;
+      remote_ip.addr = msg->rcv_w1;
+      remote_port = (uint16_t)msg->rcv_w2;
       
       DEBUGSESSION kprintf(KR_OSTREAM,"Connect::ssid=%x,ip=%x,port=%d",ssid,
 			   remote_ip.addr,remote_port);
@@ -778,9 +764,8 @@ SessionRequest(Message *msg)
     }
   case OC_NetSys_TCPSend:
     {
-      uint32_t ssid = msg->rcv_w1;
       struct tcp_pcb *ipcb = NULL;
-      uint32_t copy = msg->rcv_w2;
+      uint32_t copy = msg->rcv_w1;
       uint32_t err ;
       DEBUGSESSION kprintf(KR_OSTREAM,"TCP send on ssid=%x",ssid);
       
@@ -808,9 +793,8 @@ SessionRequest(Message *msg)
     }
   case OC_NetSys_TCPReceive:
     { 
-      uint32_t ssid = msg->rcv_w1;
       struct tcp_pcb *ipcb = NULL;
-      //int len = msg->rcv_w2;
+      //int len = msg->rcv_w1;
       DEBUGSESSION kprintf(KR_OSTREAM,"TCP receive");
       
       /* Find in tcp_pcb list if there exists such an ssid. If no such
@@ -838,7 +822,6 @@ SessionRequest(Message *msg)
     }
   case OC_eros_domain_net_ipv4_netsys_tcp_close:
     {
-      uint32_t ssid = msg->rcv_w1;
       struct tcp_pcb *ipcb = NULL;
       
       DEBUGSESSION kprintf(KR_OSTREAM,"TCP close being called");

@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifndef _NETSYSKEYS_H_
 #define _NETSYSKEYS_H_
@@ -71,7 +75,7 @@
 
 /* The client's space bank key will be stashed in the node allocated
  * from that bank in the following slot */
-#define STASH_CLIENT_BANK  21
+#define STASH_CLIENT_BANK  1
 
 
 #endif /* _NETSYSKEYS_H_ */

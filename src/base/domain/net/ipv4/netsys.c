@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Network Subsystem */
 #include <string.h>
@@ -28,7 +32,7 @@
 #include <eros/cap-instr.h>
 #include <eros/KeyConst.h>
 
-#include <wrapper/wrapper.h>
+#include <forwarder.h>
 
 #include <idl/eros/key.h>
 #include <idl/eros/Sleep.h>
@@ -181,9 +185,10 @@ ProcessRequest(Message *msg)
       
       if(msg->rcv_code == OC_NetSys_GetNewSessionKey) {
 	ssid = new_session();
-	result = wrapper_create(KR_CLIENT_BANK,KR_NEW_SESSION,KR_NEW_NODE,
-				KR_SESSION_TYPE,WRAPPER_SEND_WORD,
-				ssid, 0x0u);
+	result = forwarder_create(KR_CLIENT_BANK,KR_NEW_SESSION,KR_NEW_NODE,
+				  KR_SESSION_TYPE,
+                                  eros_Forwarder_sendWord,
+				  ssid);
 	if(result != RC_OK) {
 	  msg->snd_code = result;
 	  return 1;
@@ -193,10 +198,11 @@ ProcessRequest(Message *msg)
 	msg->snd_code = RC_OK;
 	
 	/* Before we return, stash the client's space bank key in an
-	 * unused slot of the wrapper node.  When the session is closed,
+	 * unused slot of the forwarder.  When the session is closed,
 	 * we'll make an attempt to return storage to the space bank on
 	 * behalf of the client. */
-	node_swap(KR_NEW_NODE, STASH_CLIENT_BANK, KR_CLIENT_BANK, KR_VOID);
+	eros_Forwarder_setBlocked(KR_NEW_NODE, STASH_CLIENT_BANK,
+                                  KR_CLIENT_BANK, KR_VOID);
       }
     }
     break;
@@ -289,7 +295,7 @@ main(void)
   process_make_start_key(KR_SELF,SESSION_CREATOR_INTERFACE,KR_SESSION_CREATOR);
   
   /* Make a start key to the session interface. This key will be
-   * wrapped in each unique session wrapper key that's handed out
+   * wrapped in each unique session forwarder key that's handed out
    * to clients */
   process_make_start_key(KR_SELF,SESSION_INTERFACE,KR_SESSION_TYPE);
   
@@ -297,11 +303,18 @@ main(void)
    * us of IRQ5 events */
   process_make_start_key(KR_SELF,HELPER_INTERFACE,KR_HELPER_TYPE);
   
-  /* Create a wrapper key for "parking" client keys that are waiting
+  /* Create a forwarder for "parking" client keys that are waiting
    * for network input */
-  if (wrapper_create(KR_BANK, KR_PARK_WRAP, KR_PARK_NODE, KR_START,
-                     WRAPPER_BLOCKED, 0, 0) != RC_OK) {
-    kprintf(KR_OSTREAM, "** ERROR: couldn't create a wrapper for parking "
+  if (forwarder_create(KR_BANK, KR_PARK_WRAP, KR_PARK_NODE, KR_START,
+                       0, 0) != RC_OK) {
+    kprintf(KR_OSTREAM, "** ERROR: couldn't create a forwarder for parking "
+            "waiting-client keys...\n");
+    return -1;   /* FIX:  really need to terminate gracefully */
+  }
+
+  /* We want the forwarder to be initially blocked. */
+  if (eros_Forwarder_setBlocked(KR_PARK_NODE) != RC_OK) {
+    kprintf(KR_OSTREAM, "** ERROR: couldn't create a forwarder for parking "
             "waiting-client keys...\n");
     return -1;   /* FIX:  really need to terminate gracefully */
   }
