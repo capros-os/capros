@@ -27,7 +27,7 @@
 install: $(BUILDDIR)/sysimg
 
 $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
-	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1 | tee $(BUILDDIR)/mkimage.out
+	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1
 	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
 
 init.hd: $(KERNPATH) $(VOLMAP)
@@ -36,7 +36,7 @@ init.hd: $(KERNPATH) $(VOLMAP)
 hd: $(BUILDDIR)/sysimg $(KERNPATH)
 	$(EROS_ROOT)/host/bin/setvol -D $(EROS_HD)
 	cp $(KERNPATH) $(CAPROS_BOOT_PARTITION)/CapROS-kernel-1
-	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map -g $(CAPROS_BOOT_PARTITION) -v 1 $(EROS_HD) $(BUILDDIR)/sysimg | tee $(BUILDDIR)/sysgen.out
+	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map -g $(CAPROS_BOOT_PARTITION) -v 1 $(EROS_HD) $(BUILDDIR)/sysimg
 
 $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol
