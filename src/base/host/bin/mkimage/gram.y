@@ -174,7 +174,7 @@ bool CheckRestriction(uint32_t restriction, KeyBits key);
 %token PROCESS DOMAIN
 /* %token <NONE> IMPORT */
 %token <NONE> SEGMENT SEGTREE NULLKEY ZERO WITH PAGES RED EMPTY
-%token <NONE> KW_BLSS KW_LSS CONSTITUENTS
+%token <NONE> KW_LSS CONSTITUENTS
 %token <NONE> WRAPPER
 %token <NONE> ARCH PRINT SPACE REG KEEPER TARGET START BACKGROUND IOSPACE SYMTAB
 %token PRIORITY SCHEDULE
@@ -1134,10 +1134,29 @@ key:   NULLKEY {
 	  $$ = key;
         }
 
-       | key AS fwd_qualifier OPAQUE FORWARDER KEY {
+       | key AS OPAQUE FORWARDER KEY {
 	  KeyBits key;
 
 	  SHOWPARSE("=== key -> key AS OPAQUE FORWARDER KEY\n");
+      
+	  key = $1;
+
+	  if (! keyBits_IsType(&key, KKT_Forwarder)) {
+	    diag_printf("%s:%d: must be forwarder key\n",
+			 current_file, current_line);
+	    num_errors++;
+	    YYERROR;
+	  }
+
+          key.keyData |= eros_Forwarder_opaque;
+
+	  $$ = key;
+        }
+
+       | key AS fwd_qualifier OPAQUE FORWARDER KEY {
+	  KeyBits key;
+
+	  SHOWPARSE("=== key -> key AS fwd_qualifier OPAQUE FORWARDER KEY\n");
       
 	  key = $1;
 
@@ -1571,10 +1590,6 @@ fwd_qualifier:  SENDCAP {
 	  SHOWPARSE("=== fwd_qualifier -> SENDWORD SENDCAP\n");
 	  $$ =  ATTRIB_SENDCAP | ATTRIB_SENDWORD;
 	   }
-        | /* nothing */ {
-	  SHOWPARSE("=== fwd_qualifier -> <nothing>\n");
-	  $$ = 0;
-	   }
         ;
 
 qualifier:  RO {
@@ -1686,22 +1701,8 @@ oid:   HEX {
         }
         ;
 
-blss:  KW_BLSS arith_expr {
-         SHOWPARSE("=== blss -> arith_expr\n");
-	 diag_printf("%s:%d: Obsolete syntax 'blss <number>', use"
-		       " 'lss <number>' where <number> is now\n"
-		       " the **unbiased** lss value.\n",
-			 current_file, current_line);
-	 if ($2 > MAX_BLSS) {
-	   diag_printf("%s:%d: blss value too large\n",
-		       current_file, current_line);
-	   num_errors++;
-	   YYERROR;
-	 }
-	 $$ = $2;
-       }
-     | KW_LSS arith_expr {
-          SHOWPARSE("=== lss -> arith_expr\n");
+blss:  KW_LSS arith_expr {
+         SHOWPARSE("=== lss -> arith_expr\n");
 	 if ($2 > (MAX_BLSS - EROS_PAGE_BLSS)) {
 	   diag_printf("%s:%d: lss value too large\n",
 		       current_file, current_line);

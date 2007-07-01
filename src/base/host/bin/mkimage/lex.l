@@ -114,7 +114,6 @@ segment	{ return SEGMENT; }
 directory	{ return DIRECTORY; }
 capability	{ return CAPABILITY; }
 segtree	{ return SEGTREE; }
-blss	{ return KW_BLSS; }
 lss	{ return KW_LSS; }
 arch	{ return ARCH; }
 print	{ return PRINT; }
