@@ -363,9 +363,11 @@ PageFault(bool prefetch,	/* else data abort */
     writeAccess = false;
     va = proc->trapFrame.r15;	/* his pc */
 
+#ifndef NDEBUG
     if (dbg_inttrap)
       printf("Prefetch PageFault fa=0x%08x pc=0x%08x",
              va, proc->trapFrame.r15);
+#endif
     DEBUG(pgflt)
       printf("Prefetch PageFault fa=0x%08x pc=0x%08x",
              va, proc->trapFrame.r15);
@@ -380,10 +382,12 @@ PageFault(bool prefetch,	/* else data abort */
       va = fa;
     }
 
+#ifndef NDEBUG
     if (dbg_inttrap)
       printf("Data PageFault fa=0x%08x fsr=0x%08x pc=0x%08x r12=0x%08x sp=0x%08x r14=0x%08x\n",
              va, fsr, proc->trapFrame.r15, proc->trapFrame.r12,
              proc->trapFrame.r13, proc->trapFrame.r14);
+#endif
     DEBUG(pgflt)
       printf("Data PageFault fa=0x%08x fsr=0x%08x pc=0x%08x r12=0x%08x sp=0x%08x r14=0x%08x\n",
              va, fsr, proc->trapFrame.r15, proc->trapFrame.r12,
@@ -607,8 +611,10 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   unsigned int domain = EnsureSSDomain(ssid);
   p->md.dacr = (0x1 << (domain * 2)) | 0x1 /* include domain 0 for kernel */;
 
+#ifndef NDEBUG
   if (dbg_inttrap)
     printf("Got small space\n");
+#endif
 
   const ula_t mva = (va + p->md.pid) & ~EROS_PAGE_MASK;
 
@@ -660,8 +666,10 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     return false;
   }
 
+#ifndef NDEBUG
   if (dbg_inttrap)
     printf("Traversed to second level\n");
+#endif
   DEBUG(pgflt)
     printf("Traversed to second level\n");
 
@@ -707,8 +715,10 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     
     /* Translate the remaining bits of the address: */
     if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) {
+#ifndef NDEBUG
       if (dbg_inttrap)
         dprintf(true, "Fault at page, prompt=%d, wi=0x%08x\n", prompt, &wi);
+#endif
 
       if (!prompt) {
         /* We could clear PTE_IN_PROGRESS here, but it's not necessary,
@@ -725,8 +735,10 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   if (thePTE->w_value != PTE_IN_PROGRESS) {
     // Entry was zapped, try all over again.
 
+#ifndef NDEBUG
     if (dbg_inttrap)
       printf("Depend zap at page\n");
+#endif
 
     act_Yield();
   }
@@ -814,8 +826,10 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
   kpa_t pageAddr = VTOP(pageH_GetPageVAddr(pageH));
 
+#ifndef NDEBUG
   if (dbg_inttrap)
     printf("Traversed to page at 0x%08x\n", pageAddr);
+#endif
 
 #if 0
   printf("Setting PTE 0x%08x addr 0x%08x write %c cache %c\n",

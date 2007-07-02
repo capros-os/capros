@@ -198,6 +198,7 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 #endif
 	b act_HandleYieldEntry
 
+#ifndef NDEBUG
 	ENTRY(Debugger)
 	sub sp,sp,#80	// space for a register save area
 /*
@@ -227,4 +228,4 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 	msr cpsr,r0
 	ldmia sp,{r0-r13}
 	mov pc,r14
-
+#endif

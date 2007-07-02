@@ -153,7 +153,10 @@ AbortError:
 	ldr r0,=AbortMsg
 	mov r1,r14	// exception pc
 	bl printf
-0:	bl Debugger
+0:
+#ifndef NDEBUG
+	bl Debugger
+#endif
 	b 0b
 
 /***********************************************************************
@@ -462,8 +465,8 @@ SWI_Bpt_Handler:
 	mov r2,sp		// ptr to savearea
 #ifndef NDEBUG
 	mov r11,#0	// for stack tracebank.
-#endif
 	bl kdb_trap
+#endif
 
 	/* Return using the savearea on the stack. */
 	ldmia sp!,{r12,r14}	// CPSR and pc
@@ -555,7 +558,10 @@ SwiBadMode:
 	ldr r0,=SWIMsg
 	ldr r1,[ip,#20]	// exception pc
 	bl printf
-0:	bl Debugger
+0:
+#ifndef NDEBUG
+	bl Debugger
+#endif
 	b 0b
 
 	ENTRY(resume_process)
