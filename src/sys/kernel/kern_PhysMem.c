@@ -279,6 +279,7 @@ physMem_ReserveExact(kpa_t base, kpsize_t size)
   constraint.bound = base + size;
   kpa_t mem = physMem_Alloc(size, &constraint);
   assert(mem == base);	// failed to allocate it?
+  (void)mem;	// Just reserve, don't return this.
 }
 
 #ifdef OPTION_DDB

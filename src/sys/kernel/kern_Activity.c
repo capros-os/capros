@@ -803,10 +803,10 @@ ExitTheKernel(void)
 
   Process * thisPtr = act_CurContext();
 
+#ifndef NDEBUG
   if (dbg_inttrap)
     dprintf(true, "Resuming proc 0x%08x\n", thisPtr);
 
-#ifndef NDEBUG
   if ( thisPtr->curActivity != act_Current() )
     fatal("Context 0x%08x (%d) not for current activity 0x%08x (%d)\n",
 	       thisPtr, thisPtr - proc_ContextCache,
