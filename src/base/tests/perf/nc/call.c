@@ -47,6 +47,8 @@ const uint32_t __rt_unkept = 1;	/* do not mess with keeper */
 int
 main()
 {
+  uint32_t result;
+  uint64_t startTime, endTime;
   int i;
   Message msg;
 
@@ -68,23 +70,44 @@ main()
   msg.snd_code = RC_OK;
   SEND(&msg);
 
+  kprintf(KR_OSTREAM, "Sleep a while\n");
+  eros_Sleep_sleep(KR_SLEEP, 1000);	// sleep 1000 ms
+
   msg.snd_invKey = KR_ECHO;
   msg.snd_code = 1;
 
-//  eros_Sleep_sleep(KR_SLEEP, 4000);	// sleep 4000 ms
-
   kprintf(KR_OSTREAM, "Beginning %d calls to echo domain\n", ITERATIONS);
+
+  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
   for (i = 0; i < ITERATIONS; i++)
     (void) CALL(&msg);
 
+  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  kprintf(KR_OSTREAM, "%10u ns per iter\n",
+          (uint32_t) ((endTime - startTime)/(ITERATIONS)) );
+
   kprintf(KR_OSTREAM, "Beginning %d calls to check\n", CheckInterations);
+
+  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+
   for (i = 0; i < CheckInterations; i++)
     eros_arch_arm_SysTrace_CheckConsistency(KR_SYSTRACE);
 
+  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  kprintf(KR_OSTREAM, "%10u ns per iter\n",
+          (uint32_t) ((endTime - startTime)/(CheckInterations)) );
+
 #define INCR_ITERATIONS 150000000
   kprintf(KR_OSTREAM, "Beginning %d increments\n", INCR_ITERATIONS);
+
+  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+
   for (i = INCR_ITERATIONS; i > 0; i--) ;
+
+  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  kprintf(KR_OSTREAM, "%10u ns per iter\n",
+          (uint32_t) ((endTime - startTime)/(INCR_ITERATIONS)) );
 
   kprintf(KR_OSTREAM, "Done\n");
 

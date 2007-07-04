@@ -23,5 +23,5 @@
 
 
 kernel 140 OID=0xFFFF000000000000
-object preload 11 OID=0x0
+object preload 12 OID=0x0
 #spare 15

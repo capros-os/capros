@@ -38,7 +38,7 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 install all: $(TARGETS)
 
-include ../../test.mk
+include ../test.mk
 
 $(BUILDDIR)/call: $(BUILDDIR)/call.o $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/call.map -o $@ $(DOMCRT0) $(BUILDDIR)/call.o $(DOMLIB)
