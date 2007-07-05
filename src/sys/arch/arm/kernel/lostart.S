@@ -291,14 +291,22 @@ and map it at MVA KTextVA + 1MB.  */
 
 #if 1
 	/* Print some interesting values. */
-#if 1
+#if 0
 	ldr r4,=0x80930000
 	ldr r1,[r4,#0x20]
+	mrc p15,0,r2,c9,c0,0	// read control register 9
+	mrc p15,0,r3,c10,c0,0	// read control register 10
 #else
-	ldr r4,=0x80080000	// Static Mem Controller regs
-	ldr r1,[r4,#0x00]
-	ldr r2,[r4,#0x18]
+	ldr r4,=0x80060000	// SDRAM Mem Controller regs
+#if 1
+	ldr r1,[r4,#0x04]
+	ldr r2,[r4,#0x08]
+	ldr r3,[r4,#0x0c]
+#else
+	ldr r1,[r4,#0x10]
+	ldr r2,[r4,#0x14]
 	ldr r3,[r4,#0x18]
+#endif
 #endif
 	ldr r0,=print_values_string
 	bl printf
@@ -313,6 +321,15 @@ print_values_string: .asciz "0x%x 0x%08x 0x%08x\n"
 	ldr r4,=0x80080000	// Static Mem Controller regs
 	ldr r0,=0x200075c2
 	str r0,[r4,#0x18]	// config bank 6
+
+/* Configure SDRAM memory for 100MHz HCLK. */
+/* The SDRAM on the EDB9315 requires 64ms refresh. */
+/* The EP9315 Users Guide is unclear; it says the value of RefrshTimr 
+is in units of the HCLK period (10 ns in this case).
+But the example uses units of 1000 HCLK periods, so follow that. */
+	ldr r4,=0x80060000	// SDRAM Mem Controller regs
+	ldr r0,=(64000/10)	
+	str r0,[r4,#0x8]	// RefrshTimr
 
 /*
 Configure clocks.

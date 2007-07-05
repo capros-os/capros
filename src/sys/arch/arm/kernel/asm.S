@@ -97,7 +97,15 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 	mcr p15,0,r0,c8,c7,0
 	ldr r1,=PteZapped
 	strb r0,[r1]	// clear the flag
+#if 0
+	ldr r0,=TLBMsg
+	b printf
+	.section .rodata
+TLBMsg:	.asciz "Flushed TLB\n"
+	.text
+#else
 	mov pc,lr
+#endif
 
 	ENTRY(mach_ReadCacheType)
 	mrc p15,0,r0,c0,c0,1	// read cache type register to r0
@@ -129,7 +137,15 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 	mcr p15,0,r0,c7,c7,0	// invalidate entire cache(s)
 	ldr r1,=flushCache
 	strb r0,[r1]	// clear the flag
+#if 0
+	ldr r0,=TLBCacheMsg
+	b printf
+	.section .rodata
+TLBCacheMsg:	.asciz "Flushed TLB&Cache\n"
+	.text
+#else
 	mov pc,lr
+#endif
 
 	ENTRY(mach_LoadTTBR)
 	mcr p15,0,r0,c2,c0	// load translation table base register
