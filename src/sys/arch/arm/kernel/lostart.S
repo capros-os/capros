@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -18,7 +18,8 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/arch/arm/asm.h>
 #include <eros/arch/arm/target-asm.h>
@@ -190,7 +191,12 @@ and map it at MVA KTextVA + 1MB.  */
 	cmp r0,r1
 	bne 1b
 
-#define WriteBackOption 0x0 /* 0 for write-through, 4 for write-back */
+#ifdef OPTION_WRITEBACK
+#define WriteBackOption 0x4 /* PTE_BUFFERABLE for write-back */
+#else
+#define WriteBackOption 0x0 /* write-through */
+#endif
+
 /* Set up physical memory map in FLPT. */
 // AP=0b01 domain=0 C=1 B=WriteBackOption section descriptor
 	ldr r0,=(0x0000041a+WriteBackOption)
@@ -209,13 +215,13 @@ and map it at MVA KTextVA + 1MB.  */
 
 /* Set up kernel code in FLPT. */
 /* Assume less than 1MB. */
-// AP=0b00 domain=0 C=1 B=WriteBackOption section descriptor
-	ldr r0,=(0x0000001a + KTextPA + WriteBackOption)
+// AP=0b00 domain=0 C=1 B=0 section descriptor
+	ldr r0,=(0x0000001a + KTextPA)
 	ldr r1,=(KTextVA >> (20-2))
 	str r0,[r5, r1]
 /* Temporarily map kernel code at KTextPA also so we can continue executing
    when we enable the MMU. */
-	ldr r0,=(0x0000041a + KTextPA + WriteBackOption)	// map read-write
+	ldr r0,=(0x0000041a + KTextPA)	// map read-write
 	ldr r1,=(KTextPA >> (20-2))
 	str r0,[r5, r1]
 #if 0

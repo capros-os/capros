@@ -118,10 +118,11 @@ TLBMsg:	.asciz "Flushed TLB\n"
 	strb r0,[r1]	// clear the flag
 	// fall into mach_FlushBothCaches
 
-/* "Flush" here means "clean and invalidate".
-   However, since we never use writeback, we never have to clean. */
+/* "Flush" here means "clean and invalidate". */
 	ENTRY(mach_FlushBothCaches)
-#if 0	// if we *were* to use writeback, here's how to clean:
+#ifdef OPTION_WRITEBACK
+	/* Here is the downside of OPTION_WRITEBACK.
+           This takes at least 12.8 microseconds on the EDB9315. */
 	ldr r1,=cacheSetIndexIncrement
 	ldr r2,=cacheSetIndexCarry
 	ldr r1,[r1]

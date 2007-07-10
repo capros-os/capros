@@ -312,10 +312,12 @@ mach_EnsureHeap(kva_t target,
     PTE * cpt = KPAtoP(PTE *, FLPT_FCSEVA[FLPTIndex] & L1D_COARSE_PT_ADDR);
     PTE_Set(&cpt[CPTIndex],
             paddr + 0x550	/* AP=0b01 */
-              + PTE_CACHEABLE + PTE_SMALLPAGE);
-    /* The heap might be a good candidate for using write-back mode
-    (PTE_BUFFERABLE),
-    but if we did that we would have to clean the cache when we flush it. */
+              + PTE_CACHEABLE + PTE_SMALLPAGE
+#ifdef OPTION_WRITEBACK
+    /* The heap is a good candidate for using write-back mode. */
+              + PTE_BUFFERABLE
+#endif
+           );
 
     heap_defined += EROS_PAGE_SIZE;
   }

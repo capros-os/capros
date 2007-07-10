@@ -31,24 +31,6 @@ machine("edb9315")
 #bus(BT_OPTION_SCSI)
 #bus(BT_USB)
 
-#####################################################################
-#
-# Controls whether user-mode code has access to the cycle granularity
-# timer.  Norm and I are still arguing over whether this is a good
-# idea, but until we resolve it...
-#
-#####################################################################
-defoption("allow_user_rdtsc");
-option("allow_user_rdtsc");
-
-#####################################################################
-#
-# Controls whether the new pseudo register logic is enabled.
-#
-#####################################################################
-#defoption("pseudo_regs");
-#option("pseudo_regs");
-
 option("small_spaces")
 
 #option("inet")
@@ -59,6 +41,17 @@ option("small_spaces")
 
 if not isoption("output_on_console") and not isoption("output_on_tty0"):
    option("output_on_console")
+
+#####################################################################
+#
+# Controls whether user pages and the kernel heap use write-back
+# or write-through.
+# Writeback is generally faster, except when the cache must be cleaned.
+# With write-through, NO pages can be write-back, because we flush
+# the cache without cleaning it.
+#
+#####################################################################
+defoption("writeback")
 
 #####################################################################
 #

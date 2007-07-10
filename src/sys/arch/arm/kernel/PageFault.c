@@ -840,8 +840,11 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   PTE_Set(thePTE, pageAddr + PTE_SMALLPAGE
 	/* AP bits, 11 for write, 10 for read */
           + (isWrite ? 0xff0
-                       + (wi.canCache ? PTE_CACHEABLE : 0) 
-// we never use write-back mode
+                       + (wi.canCache ? PTE_CACHEABLE
+#ifdef OPTION_WRITEBACK
+                                        | PTE_BUFFERABLE
+#endif
+                          : 0) 
                      : 0xaa0
                        + (wi.canCache ? PTE_CACHEABLE | PTE_BUFFERABLE : 0)
 // for read-only access, PTE_BUFFERABLE is not significant.
