@@ -37,11 +37,19 @@ IMGMAP=$(if $(wildcard imgmap.$(EROS_TARGET)), imgmap.$(EROS_TARGET), imgmap)
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(BOOTSTRAP)
 
 KERNDIR=$(EROS_ROOT)/lib/$(EROS_TARGET)/image
+
+# If a kernel option is specified, use it.
+# Otherwise, if there is a debug kernel, use it.
+# Otherwise, use the nondebug kernel.
+# Note, this option is distinct from the NDEBUG option.
+ifndef KERNELDEBUG
 ifeq "" "$(findstring $(EROS_CONFIG).eros.debug,$(wildcard $(KERNDIR)/*))"
-KERNEL=$(EROS_CONFIG).eros
+KERNELDEBUG=eros
 else
-KERNEL=$(EROS_CONFIG).eros.debug
+KERNELDEBUG=eros.debug
 endif
+endif
+KERNEL=$(EROS_CONFIG).$(KERNELDEBUG)
 KERNPATH=$(KERNDIR)/$(KERNEL)
 
 include $(EROS_SRC)/build/make/sys.$(EROS_TARGET).mk
