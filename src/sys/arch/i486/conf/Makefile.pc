@@ -3,7 +3,7 @@
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
 # Copyright (C) 2006, 2007, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -123,7 +123,7 @@ LINK=$(LD) -static -N -Ttext $(KERNENTRY) # -nostdlib # -debug
 
 %options
 
-# DEF += $(OPTIONS)
+# DEF += $(OPTIONS)	# Options get defined in the generated kernel-config.h.
 
 $(BUILDDIR)/interrupt.o: process_asm_offsets.h
 $(BUILDDIR)/.interrupt.m: process_asm_offsets.h

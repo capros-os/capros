@@ -100,7 +100,7 @@ KDataPackedAddr=0xfe030000
 
 %options
 
-# DEF += $(OPTIONS)
+# DEF += $(OPTIONS)	# Options get defined in the generated kernel-config.h.
 
 $(BUILDDIR)/exception.o: process_asm_offsets.h
 $(BUILDDIR)/.exception.m: process_asm_offsets.h
