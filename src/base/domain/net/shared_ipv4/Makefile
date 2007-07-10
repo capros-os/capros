@@ -99,9 +99,9 @@ local-clean:
 	-rm -fr *~ netif/*~ include/*~
 
 interfaces: $(IDL)
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain/net/shared_ipv4
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain/net/shared_ipv4
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/domain
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/net/shared_ipv4
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros/net/shared_ipv4
 
 
 $(NETSYSSRC): $(BUILDDIR)/constituents.h

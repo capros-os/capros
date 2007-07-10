@@ -408,7 +408,7 @@ emit_if_decoder(Symbol *s, FILE *outFile)
   do_indent(outFile, 2);
   fprintf(outFile, "default" ":\n");
   do_indent(outFile, 4);
-  fprintf(outFile, "msg->snd_code = RC_eros_key_UnknownRequest;\n");
+  fprintf(outFile, "msg->snd_code = RC_capros_key_UnknownRequest;\n");
   do_indent(outFile, 4);
   fprintf(outFile, "return;\n");
 
@@ -711,7 +711,7 @@ emit_server_dispatcher(Symbol *scope, FILE *outFile)
   do_indent(outFile, 4);
   fprintf(outFile, "msg.snd_w2 = 0;\n");
   do_indent(outFile, 4);
-  fprintf(outFile, "msg.snd_code = RC_eros_key_UnknownRequest;\t/* Until otherwise proven */\n");
+  fprintf(outFile, "msg.snd_code = RC_capros_key_UnknownRequest;\t/* Until otherwise proven */\n");
 
   fprintf(outFile, "\n");
 

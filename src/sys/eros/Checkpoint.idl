@@ -1,6 +1,6 @@
-package eros;
+package capros;
 
-/** Kernel interface to number keys.
+/** Interface to the Checkpoint key.
  *
  */
 interface Checkpoint extends key raises(MigrationIncomplete) {

@@ -35,8 +35,8 @@
 #include <domain/Runtime.h>
 
 /* Include the needed interfaces */
-#include <idl/eros/Stream.h>
-#include <idl/eros/domain/linedisc.h>
+#include <idl/capros/Stream.h>
+#include <idl/capros/linedisc.h>
 
 #include <ethread/ethread.h>
 
@@ -171,7 +171,7 @@ DispatchRequest(Message *m)
 	if (got != expect) {
 	  kprintf(KR_OSTREAM, "**ERROR: linedisc msg truncated: expect="
 		  "%u and got=%u\n", expect, got);
-	  m->snd_code = RC_eros_key_RequestError;
+	  m->snd_code = RC_capros_key_RequestError;
 	  return true;
 	}
 
@@ -191,16 +191,16 @@ DispatchRequest(Message *m)
       break;
 
       /* Handle the Stream requests */
-    case OC_eros_Stream_write:
-    case OC_eros_Stream_nwrite:
+    case OC_capros_Stream_write:
+    case OC_capros_Stream_nwrite:
       {
 	redirect(m, KR_OUT_THREAD);
 	m->snd_code = RC_OK;
       }
       break;
 
-    case OC_eros_Stream_read:
-    case OC_eros_Stream_nread:
+    case OC_capros_Stream_read:
+    case OC_capros_Stream_nread:
       {
 	redirect(m, KR_IN_THREAD);
 	m->snd_code = RC_OK;
@@ -209,7 +209,7 @@ DispatchRequest(Message *m)
 
     default:
       {
-	m->snd_code = RC_eros_key_UnknownRequest;
+	m->snd_code = RC_capros_key_UnknownRequest;
       }
     }
   return true;

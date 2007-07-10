@@ -23,7 +23,7 @@
 
 /* This routine make it easy to fabricate forwarders. */
 
-#include <idl/eros/Forwarder.h>	// to define eros_Forwarder_sendCap etc.
+#include <idl/capros/Forwarder.h>	// to define capros_Forwarder_sendCap etc.
 
 /*
   forwarder_create
@@ -37,10 +37,10 @@
                     (needed for later calls to "block" and "unblock")
     target_key    - register containing key to wrap (a start key)
     flags         - flags for the opaque key. Any of:
-                      eros_Forwarder_sendCap
-                      eros_Forwarder_sendWord
+                      capros_Forwarder_sendCap
+                      capros_Forwarder_sendWord
     value         - 32-bit value to transmit
-                    (if flag eros_Forwarder_sendWord is used)
+                    (if flag capros_Forwarder_sendWord is used)
 
   Returns:  RC_OK or an error.
 */

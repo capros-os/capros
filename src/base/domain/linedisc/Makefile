@@ -58,9 +58,9 @@ $(LDMAIN): $(OBJECTS) $(DOMLIB) $(DOMCRT0) $(DOMSBRK)
 	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) $(DOMSBRK) $(LIBS) $(DOMLIB)
 
 interfaces: $(IDL)
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain/linedisc
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain/linedisc
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/domain
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/linedisc
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros/linedisc
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/linedisc

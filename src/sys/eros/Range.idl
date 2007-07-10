@@ -1,4 +1,4 @@
-package eros;
+package capros;
 
 /** Kernel interface to object ranges.
  *
@@ -34,7 +34,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
      Raises RangeErr if key is not a Page, Node, Forwarder, or GPT key,
      or it is opaque, or the object is not in this range.
    */
-  void identify(eros.key key, out obType type, 
+  void identify(capros.key key, out obType type, 
   		out unsigned long long offset);
 
   /** Rescind an object.
@@ -42,7 +42,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * Rescinds the passed key if and only if it is a read-write key to
    * an object that was allocated from this range.
    */
-  void rescind(eros.key key);
+  void rescind(capros.key key);
 
   /** Create key to page.
    *
@@ -51,7 +51,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * is dismounted or otherwise unavailable, this operation will throw
    * the /RangeErr/ exception.
    */
-  eros.key getPageKey(unsigned long long offset);
+  capros.key getPageKey(unsigned long long offset);
 
   /** Create key to page (blocking).
    *
@@ -60,7 +60,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * is dismounted or otherwise unavailable, this operation will block
    * until the range becomes available.
    */
-  eros.key waitPageKey(unsigned long long offset);
+  capros.key waitPageKey(unsigned long long offset);
 
   /** Create key to node.
    *
@@ -69,7 +69,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * is dismounted or otherwise unavailable, this operation will throw
    * the /RangeErr/ exception.
    */
-  eros.key getNodeKey(unsigned long long offset);
+  capros.key getNodeKey(unsigned long long offset);
 
   /** Create key to node (blocking).
    *
@@ -78,10 +78,10 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * is dismounted or otherwise unavailable, this operation will block
    * until the range becomes available.
    */
-  eros.key waitNodeKey(unsigned long long offset);
+  capros.key waitNodeKey(unsigned long long offset);
 
-  eros.key getCap(obType type, unsigned long long offset);
-  eros.key waitCap(obType type, unsigned long long offset);
+  capros.key getCap(obType type, unsigned long long offset);
+  capros.key waitCap(obType type, unsigned long long offset);
 
   /** Compare two ranges for overlap or relative position.
    *
@@ -99,7 +99,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    *   the start of /krCmpRange/
    */
 
-  void compare(eros.Range krCmpRange, out unsigned long how,
+  void compare(capros.Range krCmpRange, out unsigned long how,
 	       out unsigned long long offset);
 
   /** Report next populated subrange.
@@ -124,5 +124,5 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * of the interface, as the idea of OID to location correspondence
    * is going away.
    */
-  eros.Range makeSubrange(unsigned long long offset, unsigned long len);
+  capros.Range makeSubrange(unsigned long long offset, unsigned long len);
 };

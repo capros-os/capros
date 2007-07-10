@@ -26,7 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
 #include <eros/NodeKey.h>
-#include <idl/eros/Page.h>
+#include <idl/capros/Page.h>
 #include <eros/KeyConst.h>
 #include <eros/Invoke.h>
 #include <domain/ProtoSpace.h>
@@ -66,7 +66,7 @@ __rt_buy_data_space()
 
     result = spcbank_buy_data_pages(KR_BANK, 1, KR_NEWPAGE, KR_VOID, KR_VOID);
     
-    result = eros_Page_clone(KR_NEWPAGE, KR_OLDPAGE);
+    result = capros_Page_clone(KR_NEWPAGE, KR_OLDPAGE);
     
     result = node_swap(KR_MYSPACE, slot, KR_NEWPAGE, KR_VOID);
 

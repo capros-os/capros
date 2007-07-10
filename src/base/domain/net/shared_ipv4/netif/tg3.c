@@ -32,10 +32,10 @@
 #include <eros/ProcessKey.h>
 #include <eros/KeyConst.h>
 #include <eros/endian.h>
-#include <idl/eros/key.h>
-#include <idl/eros/DevPrivs.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/DevPrivs.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/Number.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -317,13 +317,13 @@ tg3_nvram_init(struct tg3 *tp)
 	 EEPROM_ADDR_CLKPERD_SHIFT)));
   
   /* XXX schedule_timeout() ... */
-  eros_Sleep_sleep(KR_SLEEP,0.010);
+  capros_Sleep_sleep(KR_SLEEP,0.010);
   
   /* Enable seeprom accesses. */
   tw32(GRC_LOCAL_CTRL,
        tr32(GRC_LOCAL_CTRL) | GRC_LCLCTRL_AUTO_SEEPROM);
   tr32(GRC_LOCAL_CTRL);
-  eros_Sleep_sleep(KR_SLEEP,0.0100);
+  capros_Sleep_sleep(KR_SLEEP,0.0100);
   
   if (GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5700 &&
       GET_ASIC_REV(tp->pci_chip_rev_id) != ASIC_REV_5701) {
@@ -368,7 +368,7 @@ tg3_nvram_read_using_eeprom(struct tg3 *tp,
 
     if (tmp & EEPROM_ADDR_COMPLETE)
       break;
-    eros_Sleep_sleep(KR_SLEEP,0.0100);
+    capros_Sleep_sleep(KR_SLEEP,0.0100);
   }
   if (!(tmp & EEPROM_ADDR_COMPLETE))
     return -RC_EBUSY;
@@ -398,7 +398,7 @@ tg3_nvram_read(struct tg3 *tp,
   for (i = 0; i < 1000; i++) {
     if (tr32(NVRAM_SWARB) & SWARB_GNT1)
       break;
-    eros_Sleep_sleep(KR_SLEEP,.20);
+    capros_Sleep_sleep(KR_SLEEP,.20);
   }
   tw32(NVRAM_ADDR, offset);
   tw32(NVRAM_CMD,
@@ -408,7 +408,7 @@ tg3_nvram_read(struct tg3 *tp,
   /* Wait for done bit to clear then set again. */
   saw_done_clear = 0;
   for (i = 0; i < 1000; i++) {
-    eros_Sleep_sleep(KR_SLEEP,.10);
+    capros_Sleep_sleep(KR_SLEEP,.10);
     if (!saw_done_clear &&
 	!(tr32(NVRAM_CMD) & NVRAM_CMD_DONE))
       saw_done_clear = 1;
@@ -503,15 +503,15 @@ tg3_switch_clocks(struct tg3 *tp)
     tw32(TG3PCI_CLOCK_CTRL,
 	 (CLOCK_CTRL_44MHZ_CORE | CLOCK_CTRL_ALTCLK));
     tr32(TG3PCI_CLOCK_CTRL);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
     tw32(TG3PCI_CLOCK_CTRL,
 	 (CLOCK_CTRL_ALTCLK));
     tr32(TG3PCI_CLOCK_CTRL);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
   }
   tw32(TG3PCI_CLOCK_CTRL, 0);
   tr32(TG3PCI_CLOCK_CTRL);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 }
 
 
@@ -530,7 +530,7 @@ tg3_stop_block(struct tg3 *tp, unsigned long ofs, uint32_t enable_bit)
   tr32(ofs);
   
   for (i = 0; i < MAX_WAIT_CNT; i++) {
-    eros_Sleep_sleep(KR_SLEEP,0.0100);
+    capros_Sleep_sleep(KR_SLEEP,0.0100);
     val = tr32(ofs);
     if ((val & enable_bit) == 0)
       break;
@@ -556,7 +556,7 @@ tg3_readphy(struct tg3 *tp, int reg, uint32_t *val)
     tw32(MAC_MI_MODE,
 	 (tp->mi_mode & ~MAC_MI_MODE_AUTO_POLL));
     tr32(MAC_MI_MODE);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
   }
 
   *val = 0xffffffff;
@@ -572,11 +572,11 @@ tg3_readphy(struct tg3 *tp, int reg, uint32_t *val)
 
   loops = PHY_BUSY_LOOPS;
   while (loops-- > 0) {
-    eros_Sleep_sleep(KR_SLEEP,.10);
+    capros_Sleep_sleep(KR_SLEEP,.10);
     frame_val = tr32(MAC_MI_COM);
 
     if ((frame_val & MI_COM_BUSY) == 0) {
-      eros_Sleep_sleep(KR_SLEEP,.05);
+      capros_Sleep_sleep(KR_SLEEP,.05);
       frame_val = tr32(MAC_MI_COM);
       break;
     }
@@ -591,7 +591,7 @@ tg3_readphy(struct tg3 *tp, int reg, uint32_t *val)
   if ((tp->mi_mode & MAC_MI_MODE_AUTO_POLL) != 0) {
     tw32(MAC_MI_MODE, tp->mi_mode);
     tr32(MAC_MI_MODE);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
   }
 
   return ret;
@@ -607,7 +607,7 @@ tg3_writephy(struct tg3 *tp, int reg, uint32_t val)
     tw32(MAC_MI_MODE,
 	 (tp->mi_mode & ~MAC_MI_MODE_AUTO_POLL));
     tr32(MAC_MI_MODE);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
   }
 
   frame_val  = ((PHY_ADDR << MI_COM_PHY_ADDR_SHIFT) &
@@ -622,10 +622,10 @@ tg3_writephy(struct tg3 *tp, int reg, uint32_t val)
 
   loops = PHY_BUSY_LOOPS;
   while (loops-- > 0) {
-    eros_Sleep_sleep(KR_SLEEP,.10);
+    capros_Sleep_sleep(KR_SLEEP,.10);
     frame_val = tr32(MAC_MI_COM);
     if ((frame_val & MI_COM_BUSY) == 0) {
-      eros_Sleep_sleep(KR_SLEEP,.05);
+      capros_Sleep_sleep(KR_SLEEP,.05);
       frame_val = tr32(MAC_MI_COM);
       break;
     }
@@ -637,7 +637,7 @@ tg3_writephy(struct tg3 *tp, int reg, uint32_t val)
   if ((tp->mi_mode & MAC_MI_MODE_AUTO_POLL) != 0) {
     tw32(MAC_MI_MODE, tp->mi_mode);
     tr32(MAC_MI_MODE);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
   }
 
   return ret;
@@ -666,7 +666,7 @@ tg3_init_5401phy_dsp(struct tg3 *tp)
   err |= tg3_writephy(tp, MII_TG3_DSP_ADDRESS, 0x201f);
   err |= tg3_writephy(tp, MII_TG3_DSP_RW_PORT, 0x0a20);
   
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
   
   return err;
 }
@@ -729,10 +729,10 @@ tg3_phy_reset(struct tg3 *tp, int force)
       return -RC_EBUSY;
     
     if ((phy_control & BMCR_RESET) == 0) {
-      eros_Sleep_sleep(KR_SLEEP,0.040);
+      capros_Sleep_sleep(KR_SLEEP,0.040);
       return 0;
     }
-    eros_Sleep_sleep(KR_SLEEP,0.010);
+    capros_Sleep_sleep(KR_SLEEP,0.010);
   }
   
   return -RC_EBUSY;
@@ -1004,16 +1004,16 @@ static int tg3_phy_copper_begin(struct tg3 *tp, int wait_for_link)
       for (i = 0; i < 15000; i++) {
 	uint32_t tmp;
 
-	eros_Sleep_sleep(KR_SLEEP,.10);
+	capros_Sleep_sleep(KR_SLEEP,.10);
 	tg3_readphy(tp, MII_BMSR, &tmp);
 	tg3_readphy(tp, MII_BMSR, &tmp);
 	if (!(tmp & BMSR_LSTATUS)) {
-	  eros_Sleep_sleep(KR_SLEEP,.40);
+	  capros_Sleep_sleep(KR_SLEEP,.40);
 	  break;
 	}
       }
       tg3_writephy(tp, MII_BMCR, bmcr);
-      eros_Sleep_sleep(KR_SLEEP,.40);
+      capros_Sleep_sleep(KR_SLEEP,.40);
     }
   } else {
     tg3_writephy(tp, MII_BMCR,
@@ -1026,7 +1026,7 @@ static int tg3_phy_copper_begin(struct tg3 *tp, int wait_for_link)
     for (i = 0; i < 300000; i++) {
       uint32_t tmp;
 
-      eros_Sleep_sleep(KR_SLEEP,.10);
+      capros_Sleep_sleep(KR_SLEEP,.10);
       tg3_readphy(tp, MII_BMSR, &tmp);
       tg3_readphy(tp, MII_BMSR, &tmp);
       if (!(tmp & BMSR_LSTATUS))
@@ -1057,12 +1057,12 @@ tg3_setup_copper_phy(struct tg3 *tp)
        (MAC_STATUS_SYNC_CHANGED |
 	MAC_STATUS_CFG_CHANGED));
   tr32(MAC_STATUS);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   tp->mi_mode = MAC_MI_MODE_BASE;
   tw32(MAC_MI_MODE, tp->mi_mode);
   tr32(MAC_MI_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x02);
 
@@ -1094,10 +1094,10 @@ tg3_setup_copper_phy(struct tg3 *tp)
 
       tg3_readphy(tp, MII_BMSR, &bmsr);
       for (i = 0; i < 1000; i++) {
-	eros_Sleep_sleep(KR_SLEEP,.10);
+	capros_Sleep_sleep(KR_SLEEP,.10);
 	tg3_readphy(tp, MII_BMSR, &bmsr);
 	if (bmsr & BMSR_LSTATUS) {
-	  eros_Sleep_sleep(KR_SLEEP,.40);
+	  capros_Sleep_sleep(KR_SLEEP,.40);
 	  break;
 	}
       }
@@ -1148,7 +1148,7 @@ tg3_setup_copper_phy(struct tg3 *tp)
 
     tg3_readphy(tp, MII_TG3_AUX_STAT, &aux_stat);
     for (i = 0; i < 2000; i++) {
-      eros_Sleep_sleep(KR_SLEEP,.10);
+      capros_Sleep_sleep(KR_SLEEP,.10);
       tg3_readphy(tp, MII_TG3_AUX_STAT, &aux_stat);
       if (aux_stat)
 	break;
@@ -1256,12 +1256,12 @@ tg3_setup_copper_phy(struct tg3 *tp)
     tp->mi_mode |= MAC_MI_MODE_AUTO_POLL;
     tw32(MAC_MI_MODE, tp->mi_mode);
     tr32(MAC_MI_MODE);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
   }
 
   tw32(MAC_MODE, tp->mac_mode);
   tr32(MAC_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   if (tp->tg3_flags &
       (TG3_FLAG_USE_LINKCHG_REG |
@@ -1272,19 +1272,19 @@ tg3_setup_copper_phy(struct tg3 *tp)
     tw32(MAC_EVENT, MAC_EVENT_LNKSTATE_CHANGED);
   }
   tr32(MAC_EVENT);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700 &&
       current_link_up == 1 &&
       tp->link_config.active_speed == SPEED_1000 &&
       ((tp->tg3_flags & TG3_FLAG_PCIX_MODE) ||
        (tp->tg3_flags & TG3_FLAG_PCI_HIGH_SPEED))) {
-    eros_Sleep_sleep(KR_SLEEP,0.0120);
+    capros_Sleep_sleep(KR_SLEEP,0.0120);
     tw32(MAC_STATUS,
 	 (MAC_STATUS_SYNC_CHANGED |
 	  MAC_STATUS_CFG_CHANGED));
     tr32(MAC_STATUS);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
     tg3_write_mem(tp,
 		  NIC_SRAM_FIRMWARE_MBOX,
 		  NIC_SRAM_FIRMWARE_MBOX_MAGIC2);
@@ -1451,7 +1451,7 @@ tg3_fiber_aneg_smachine(struct tg3 *tp,
     tp->mac_mode |= MAC_MODE_SEND_CONFIGS;
     tw32(MAC_MODE, tp->mac_mode);
     tr32(MAC_MODE);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
 
     ret = ANEG_TIMER_ENAB;
     ap->state = ANEG_STATE_RESTART;
@@ -1477,7 +1477,7 @@ tg3_fiber_aneg_smachine(struct tg3 *tp,
     tp->mac_mode |= MAC_MODE_SEND_CONFIGS;
     tw32(MAC_MODE, tp->mac_mode);
     tr32(MAC_MODE);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
 
     ap->state = ANEG_STATE_ABILITY_DETECT;
     break;
@@ -1494,7 +1494,7 @@ tg3_fiber_aneg_smachine(struct tg3 *tp,
     tp->mac_mode |= MAC_MODE_SEND_CONFIGS;
     tw32(MAC_MODE, tp->mac_mode);
     tr32(MAC_MODE);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
 
     ap->state = ANEG_STATE_ACK_DETECT;
 
@@ -1581,7 +1581,7 @@ tg3_fiber_aneg_smachine(struct tg3 *tp,
     tp->mac_mode &= ~MAC_MODE_SEND_CONFIGS;
     tw32(MAC_MODE, tp->mac_mode);
     tr32(MAC_MODE);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
 
     ap->state = ANEG_STATE_IDLE_DETECT;
     ret = ANEG_TIMER_ENAB;
@@ -1639,7 +1639,7 @@ tg3_setup_fiber_phy(struct tg3 *tp)
   tp->mac_mode |= MAC_MODE_PORT_MODE_TBI;
   tw32(MAC_MODE, tp->mac_mode);
   tr32(MAC_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   /* Reset when initting first time or we have a link. */
   if (!(tp->tg3_flags & TG3_FLAG_INIT_COMPLETE) ||
@@ -1653,7 +1653,7 @@ tg3_setup_fiber_phy(struct tg3 *tp)
     /* Wait for reset to complete. */
     /* XXX schedule_timeout() ... */
     for (i = 0; i < 500; i++)
-      eros_Sleep_sleep(KR_SLEEP,.10);
+      capros_Sleep_sleep(KR_SLEEP,.10);
 
     /* Config mode; select PMA/Ch 1 regs. */
     tg3_writephy(tp, 0x10, 0x8411);
@@ -1666,17 +1666,17 @@ tg3_setup_fiber_phy(struct tg3 *tp)
 
     /* Assert and deassert POR. */
     tg3_writephy(tp, 0x13, 0x0400);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
     tg3_writephy(tp, 0x13, 0x0000);
 
     tg3_writephy(tp, 0x11, 0x0a50);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
     tg3_writephy(tp, 0x11, 0x0a10);
 
     /* Wait for signal to stabilize */
     /* XXX schedule_timeout() ... */
     for (i = 0; i < 15000; i++)
-      eros_Sleep_sleep(KR_SLEEP,.10);
+      capros_Sleep_sleep(KR_SLEEP,.10);
 
     /* Deselect the channel register so we can read the PHYID
      * later.
@@ -1690,7 +1690,7 @@ tg3_setup_fiber_phy(struct tg3 *tp)
   else
     tw32(MAC_EVENT, 0);
   tr32(MAC_EVENT);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   current_link_up = 0;
   if (tr32(MAC_STATUS) & MAC_STATUS_PCS_SYNCED) {
@@ -1709,11 +1709,11 @@ tg3_setup_fiber_phy(struct tg3 *tp)
       tmp = tp->mac_mode & ~MAC_MODE_PORT_MODE_MASK;
       tw32(MAC_MODE, tmp | MAC_MODE_PORT_MODE_GMII);
       tr32(MAC_MODE);
-      eros_Sleep_sleep(KR_SLEEP,.40);
+      capros_Sleep_sleep(KR_SLEEP,.40);
 
       tw32(MAC_MODE, tp->mac_mode | MAC_MODE_SEND_CONFIGS);
       tr32(MAC_MODE);
-      eros_Sleep_sleep(KR_SLEEP,.40);
+      capros_Sleep_sleep(KR_SLEEP,.40);
 
       aninfo.state = ANEG_STATE_UNKNOWN;
       aninfo.cur_time = 0;
@@ -1724,13 +1724,13 @@ tg3_setup_fiber_phy(struct tg3 *tp)
 	    status == ANEG_FAILED)
 	  break;
 
-	eros_Sleep_sleep(KR_SLEEP,.1);
+	capros_Sleep_sleep(KR_SLEEP,.1);
       }
 
       tp->mac_mode &= ~MAC_MODE_SEND_CONFIGS;
       tw32(MAC_MODE, tp->mac_mode);
       tr32(MAC_MODE);
-      eros_Sleep_sleep(KR_SLEEP,.40);
+      capros_Sleep_sleep(KR_SLEEP,.40);
 
       if (status == ANEG_DONE &&
 	  (aninfo.flags &
@@ -1752,12 +1752,12 @@ tg3_setup_fiber_phy(struct tg3 *tp)
 	current_link_up = 1;
       }
       for (i = 0; i < 60; i++) {
-	eros_Sleep_sleep(KR_SLEEP,.20);
+	capros_Sleep_sleep(KR_SLEEP,.20);
 	tw32(MAC_STATUS,
 	     (MAC_STATUS_SYNC_CHANGED |
 	      MAC_STATUS_CFG_CHANGED));
 	tr32(MAC_STATUS);
-	eros_Sleep_sleep(KR_SLEEP,.40);
+	capros_Sleep_sleep(KR_SLEEP,.40);
 	if ((tr32(MAC_STATUS) &
 	     (MAC_STATUS_SYNC_CHANGED |
 	      MAC_STATUS_CFG_CHANGED)) == 0)
@@ -1776,19 +1776,19 @@ tg3_setup_fiber_phy(struct tg3 *tp)
   tp->mac_mode &= ~MAC_MODE_LINK_POLARITY;
   tw32(MAC_MODE, tp->mac_mode);
   tr32(MAC_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   tp->hw_status->status =
     (SD_STATUS_UPDATED |
      (tp->hw_status->status & ~SD_STATUS_LINK_CHG));
 
   for (i = 0; i < 100; i++) {
-    eros_Sleep_sleep(KR_SLEEP,.20);
+    capros_Sleep_sleep(KR_SLEEP,.20);
     tw32(MAC_STATUS,
 	 (MAC_STATUS_SYNC_CHANGED |
 	  MAC_STATUS_CFG_CHANGED));
     tr32(MAC_STATUS);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
     if ((tr32(MAC_STATUS) &
 	 (MAC_STATUS_SYNC_CHANGED |
 	  MAC_STATUS_CFG_CHANGED)) == 0)
@@ -1827,11 +1827,11 @@ tg3_setup_fiber_phy(struct tg3 *tp)
   if ((tr32(MAC_STATUS) & MAC_STATUS_PCS_SYNCED) == 0) {
     tw32(MAC_MODE, tp->mac_mode | MAC_MODE_LINK_POLARITY);
     tr32(MAC_MODE);
-    eros_Sleep_sleep(KR_SLEEP,40);
+    capros_Sleep_sleep(KR_SLEEP,40);
     if (tp->tg3_flags & TG3_FLAG_INIT_COMPLETE) {
       tw32(MAC_MODE, tp->mac_mode);
       tr32(MAC_MODE);
-      eros_Sleep_sleep(KR_SLEEP,40);
+      capros_Sleep_sleep(KR_SLEEP,40);
     }
   }
 
@@ -1891,7 +1891,7 @@ tg3_set_power_state(struct tg3 *tp, int state)
 			       power_control);
     tw32(GRC_LOCAL_CTRL, tp->grc_local_ctrl);
     tr32(GRC_LOCAL_CTRL);
-    eros_Sleep_sleep(KR_SLEEP,0.0100);
+    capros_Sleep_sleep(KR_SLEEP,0.0100);
 
     return 0;
 
@@ -1940,7 +1940,7 @@ tg3_set_power_state(struct tg3 *tp, int state)
 
     if (tp->phy_id != PHY_ID_SERDES) {
       tg3_writephy(tp, MII_TG3_AUX_CTRL, 0x5a);
-      eros_Sleep_sleep(KR_SLEEP,.40);
+      capros_Sleep_sleep(KR_SLEEP,.40);
 
       mac_mode = MAC_MODE_PORT_MODE_MII;
 
@@ -1957,11 +1957,11 @@ tg3_set_power_state(struct tg3 *tp, int state)
 
     tw32(MAC_MODE, mac_mode);
     tr32(MAC_MODE);
-    eros_Sleep_sleep(KR_SLEEP,0.0100);
+    capros_Sleep_sleep(KR_SLEEP,0.0100);
 
     tw32(MAC_RX_MODE, RX_MODE_ENABLE);
     tr32(MAC_RX_MODE);
-    eros_Sleep_sleep(KR_SLEEP,.10);
+    capros_Sleep_sleep(KR_SLEEP,.10);
   }
 
   if (tp->tg3_flags & TG3_FLAG_WOL_SPEED_100MB) {
@@ -1976,18 +1976,18 @@ tg3_set_power_state(struct tg3 *tp, int state)
     tw32(TG3PCI_CLOCK_CTRL, base_val |
 	 CLOCK_CTRL_ALTCLK);
     tr32(TG3PCI_CLOCK_CTRL);
-    eros_Sleep_sleep(KR_SLEEP,40);
+    capros_Sleep_sleep(KR_SLEEP,40);
 
     tw32(TG3PCI_CLOCK_CTRL, base_val |
 	 CLOCK_CTRL_ALTCLK |
 	 CLOCK_CTRL_44MHZ_CORE);
     tr32(TG3PCI_CLOCK_CTRL);
-    eros_Sleep_sleep(KR_SLEEP,40);
+    capros_Sleep_sleep(KR_SLEEP,40);
 
     tw32(TG3PCI_CLOCK_CTRL, base_val |
 	 CLOCK_CTRL_44MHZ_CORE);
     tr32(TG3PCI_CLOCK_CTRL);
-    eros_Sleep_sleep(KR_SLEEP,40);
+    capros_Sleep_sleep(KR_SLEEP,40);
   } else {
     uint32_t base_val;
 
@@ -2001,7 +2001,7 @@ tg3_set_power_state(struct tg3 *tp, int state)
 	 CLOCK_CTRL_ALTCLK |
 	 CLOCK_CTRL_PWRDOWN_PLL133);
     tr32(TG3PCI_CLOCK_CTRL);
-    eros_Sleep_sleep(KR_SLEEP,40);
+    capros_Sleep_sleep(KR_SLEEP,40);
   }
 
   if (!(tp->tg3_flags & TG3_FLAG_EEPROM_WRITE_PROT) &&
@@ -2015,7 +2015,7 @@ tg3_set_power_state(struct tg3 *tp, int state)
 	    GRC_LCLCTRL_GPIO_OUTPUT0 |
 	    GRC_LCLCTRL_GPIO_OUTPUT1));
       tr32(GRC_LOCAL_CTRL);
-      eros_Sleep_sleep(KR_SLEEP,100);
+      capros_Sleep_sleep(KR_SLEEP,100);
     } else {
       tw32(GRC_LOCAL_CTRL,
 	   (GRC_LCLCTRL_GPIO_OE0 |
@@ -2024,7 +2024,7 @@ tg3_set_power_state(struct tg3 *tp, int state)
 	    GRC_LCLCTRL_GPIO_OUTPUT1 |
 	    GRC_LCLCTRL_GPIO_OUTPUT2));
       tr32(GRC_LOCAL_CTRL);
-      eros_Sleep_sleep(KR_SLEEP,100);
+      capros_Sleep_sleep(KR_SLEEP,100);
 
       tw32(GRC_LOCAL_CTRL,
 	   (GRC_LCLCTRL_GPIO_OE0 |
@@ -2034,7 +2034,7 @@ tg3_set_power_state(struct tg3 *tp, int state)
 	    GRC_LCLCTRL_GPIO_OUTPUT1 |
 	    GRC_LCLCTRL_GPIO_OUTPUT2));
       tr32(GRC_LOCAL_CTRL);
-      eros_Sleep_sleep(KR_SLEEP,100);
+      capros_Sleep_sleep(KR_SLEEP,100);
 
       tw32(GRC_LOCAL_CTRL,
 	   (GRC_LCLCTRL_GPIO_OE0 |
@@ -2043,7 +2043,7 @@ tg3_set_power_state(struct tg3 *tp, int state)
 	    GRC_LCLCTRL_GPIO_OUTPUT0 |
 	    GRC_LCLCTRL_GPIO_OUTPUT1));
       tr32(GRC_LOCAL_CTRL);
-      eros_Sleep_sleep(KR_SLEEP,100);
+      capros_Sleep_sleep(KR_SLEEP,100);
     }
   }
 
@@ -2477,7 +2477,7 @@ tg3_get_invariants(struct tg3 *tp)
   /* Initialize MAC MI mode, polling disabled. */
   tw32(MAC_MI_MODE, tp->mi_mode);
   tr32(MAC_MI_MODE);
-  eros_Sleep_sleep(KR_SLEEP,0.40);
+  capros_Sleep_sleep(KR_SLEEP,0.40);
     
   /* Initialize data/descriptor byte/word swapping. */
   tw32(GRC_MODE, tp->grc_mode);
@@ -2513,7 +2513,7 @@ tg3_get_invariants(struct tg3 *tp)
     }
   }
 
-  eros_Sleep_sleep(KR_SLEEP,0.050);
+  capros_Sleep_sleep(KR_SLEEP,0.050);
   tg3_nvram_init(tp);
 
   /* Determine if TX descriptors will reside in
@@ -2848,7 +2848,7 @@ __tg3_set_rx_mode(struct tg3 *tp)
   tp->rx_mode = rx_mode;
   tw32(MAC_RX_MODE, rx_mode);
   tr32(MAC_RX_MODE);
-  eros_Sleep_sleep(KR_SLEEP,0.010);
+  capros_Sleep_sleep(KR_SLEEP,0.010);
 }
 
 
@@ -2869,7 +2869,7 @@ tg3_chip_reset(struct tg3 *tp)
     for (i = 0; i < 100000; i++) {
       if (tr32(NVRAM_SWARB) & SWARB_GNT1)
 	break;
-      eros_Sleep_sleep(KR_SLEEP,.10);
+      capros_Sleep_sleep(KR_SLEEP,.10);
     }
   }
   
@@ -2891,7 +2891,7 @@ tg3_chip_reset(struct tg3 *tp)
    * register read/write but this upset some 5701 variants.*/
   pciprobe_read_config_dword(KR_PCI_PROBE_C,tp->pdev, PCI_COMMAND, &val);
   
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
   
   /* Re-enable indirect register accesses. */
   pciprobe_write_config_dword(KR_PCI_PROBE_C,tp->pdev, TG3PCI_MISC_HOST_CTRL,
@@ -2932,7 +2932,7 @@ tg3_stop_fw(struct tg3 *tp)
     for (i = 0; i < 100; i++) {
       if (!(tr32(GRC_RX_CPU_EVENT) & (1 << 14)))
 	break;
-      eros_Sleep_sleep(KR_SLEEP,0.01);
+      capros_Sleep_sleep(KR_SLEEP,0.01);
     }
   }
 }
@@ -2949,7 +2949,7 @@ tg3_abort_hw(struct tg3 *tp)
   tp->rx_mode &= ~RX_MODE_ENABLE;
   tw32(MAC_RX_MODE, tp->rx_mode);
   tr32(MAC_RX_MODE);
-  eros_Sleep_sleep(KR_SLEEP,0.010);
+  capros_Sleep_sleep(KR_SLEEP,0.010);
   err  = tg3_stop_block(tp, RCVBDI_MODE, RCVBDI_MODE_ENABLE);
   err |= tg3_stop_block(tp, RCVLPC_MODE, RCVLPC_MODE_ENABLE);
   err |= tg3_stop_block(tp, RCVLSC_MODE, RCVLSC_MODE_ENABLE);
@@ -2968,14 +2968,14 @@ tg3_abort_hw(struct tg3 *tp)
   tp->mac_mode &= ~MAC_MODE_TDE_ENABLE;
   tw32(MAC_MODE, tp->mac_mode);
   tr32(MAC_MODE);
-  eros_Sleep_sleep(KR_SLEEP,0.040);
+  capros_Sleep_sleep(KR_SLEEP,0.040);
   
   tp->tx_mode &= ~TX_MODE_ENABLE;
   tw32(MAC_TX_MODE, tp->tx_mode);
   tr32(MAC_TX_MODE);
   
   for (i = 0; i < MAX_WAIT_CNT; i++) {
-    eros_Sleep_sleep(KR_SLEEP,0.0100);
+    capros_Sleep_sleep(KR_SLEEP,0.0100);
     if (!(tr32(MAC_TX_MODE) & TX_MODE_ENABLE))
       break;
   }
@@ -3059,14 +3059,14 @@ tg3_reset_hw(struct tg3 *tp)
   } else
     tw32(MAC_MODE, 0);
   tr32(MAC_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   /* Wait for firmware initialization to complete. */
   for (i = 0; i < 100000; i++) {
     tg3_read_mem(tp, NIC_SRAM_FIRMWARE_MBOX, &val);
     if (val == ~NIC_SRAM_FIRMWARE_MBOX_MAGIC1)
       break;
-    eros_Sleep_sleep(KR_SLEEP,.010);
+    capros_Sleep_sleep(KR_SLEEP,.010);
   }
   if (i >= 100000) {
     kprintf(KR_OSTREAM,"tg3_reset_hw timed out for"
@@ -3101,7 +3101,7 @@ tg3_reset_hw(struct tg3 *tp)
        i < NIC_SRAM_STATUS_BLK + TG3_HW_STATUS_SIZE;
        i += sizeof(uint32_t)) {
     tg3_write_mem(tp, i, 0);
-    eros_Sleep_sleep(KR_SLEEP,.40);
+    capros_Sleep_sleep(KR_SLEEP,.40);
   }
   memset(tp->hw_status, 0, TG3_HW_STATUS_SIZE);
 
@@ -3164,7 +3164,7 @@ tg3_reset_hw(struct tg3 *tp)
   for (i = 0; i < 2000; i++) {
     if (tr32(BUFMGR_MODE) & BUFMGR_MODE_ENABLE)
       break;
-    eros_Sleep_sleep(KR_SLEEP,.10);
+    capros_Sleep_sleep(KR_SLEEP,.10);
   }
   if (i >= 2000) {
     kprintf(KR_OSTREAM,"tg3_reset_hw cannot enable BUFMGR for");
@@ -3176,7 +3176,7 @@ tg3_reset_hw(struct tg3 *tp)
   for (i = 0; i < 2000; i++) {
     if (tr32(FTQ_RESET) == 0x00000000)
       break;
-    eros_Sleep_sleep(KR_SLEEP,.10);
+    capros_Sleep_sleep(KR_SLEEP,.10);
   }
   if (i >= 2000) {
     kprintf(KR_OSTREAM,"tg3_reset_hw cannot reset FTQ %08x",tr32(FTQ_RESET));
@@ -3315,7 +3315,7 @@ tg3_reset_hw(struct tg3 *tp)
   for (i = 0; i < 2000; i++) {
     if (!(tr32(HOSTCC_MODE) & HOSTCC_MODE_ENABLE))
       break;
-    eros_Sleep_sleep(KR_SLEEP,.10);
+    capros_Sleep_sleep(KR_SLEEP,.10);
   }
 
   tw32(HOSTCC_RXCOL_TICKS, 0);
@@ -3351,7 +3351,7 @@ tg3_reset_hw(struct tg3 *tp)
     MAC_MODE_TDE_ENABLE | MAC_MODE_RDE_ENABLE | MAC_MODE_FHDE_ENABLE;
   tw32(MAC_MODE, tp->mac_mode | MAC_MODE_RXSTAT_CLEAR | MAC_MODE_TXSTAT_CLEAR);
   tr32(MAC_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   tp->grc_local_ctrl = GRC_LCLCTRL_INT_ON_ATTN | GRC_LCLCTRL_AUTO_SEEPROM;
   if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5700)
@@ -3359,14 +3359,14 @@ tg3_reset_hw(struct tg3 *tp)
 			   GRC_LCLCTRL_GPIO_OUTPUT1);
   tw32(GRC_LOCAL_CTRL, tp->grc_local_ctrl);
   tr32(GRC_LOCAL_CTRL);
-  eros_Sleep_sleep(KR_SLEEP,0.0100);
+  capros_Sleep_sleep(KR_SLEEP,0.0100);
 
   tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0);
   tr32(MAILBOX_INTERRUPT_0);
 
   tw32(DMAC_MODE, DMAC_MODE_ENABLE);
   tr32(DMAC_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   tw32(WDMAC_MODE, (WDMAC_MODE_ENABLE | WDMAC_MODE_TGTABORT_ENAB |
 		    WDMAC_MODE_MSTABORT_ENAB | WDMAC_MODE_PARITYERR_ENAB |
@@ -3374,7 +3374,7 @@ tg3_reset_hw(struct tg3 *tp)
 		    WDMAC_MODE_FIFOURUN_ENAB | WDMAC_MODE_FIFOOREAD_ENAB |
 		    WDMAC_MODE_LNGREAD_ENAB));
   tr32(WDMAC_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   if (GET_ASIC_REV(tp->pci_chip_rev_id) == ASIC_REV_5704 &&
       (tp->tg3_flags & TG3_FLAG_PCIX_MODE)) {
@@ -3396,7 +3396,7 @@ tg3_reset_hw(struct tg3 *tp)
     val |= RDMAC_MODE_SPLIT_ENABLE;
   tw32(RDMAC_MODE, val);
   tr32(RDMAC_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   tw32(RCVDCC_MODE, RCVDCC_MODE_ENABLE | RCVDCC_MODE_ATTN_ENABLE);
   tw32(MBFREE_MODE, MBFREE_MODE_ENABLE);
@@ -3425,12 +3425,12 @@ tg3_reset_hw(struct tg3 *tp)
   tp->tx_mode = TX_MODE_ENABLE;
   tw32(MAC_TX_MODE, tp->tx_mode);
   tr32(MAC_TX_MODE);
-  eros_Sleep_sleep(KR_SLEEP,0.0100);
+  capros_Sleep_sleep(KR_SLEEP,0.0100);
 
   tp->rx_mode = RX_MODE_ENABLE;
   tw32(MAC_RX_MODE, tp->rx_mode);
   tr32(MAC_RX_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.10);
+  capros_Sleep_sleep(KR_SLEEP,.10);
 
   if (tp->link_config.phy_is_low_power) {
     tp->link_config.phy_is_low_power = 0;
@@ -3442,16 +3442,16 @@ tg3_reset_hw(struct tg3 *tp)
   tp->mi_mode = MAC_MI_MODE_BASE;
   tw32(MAC_MI_MODE, tp->mi_mode);
   tr32(MAC_MI_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.40);
+  capros_Sleep_sleep(KR_SLEEP,.40);
 
   tw32(MAC_LED_CTRL, 0);
   tw32(MAC_MI_STAT, MAC_MI_STAT_LNKSTAT_ATTN_ENAB);
   tw32(MAC_RX_MODE, RX_MODE_RESET);
   tr32(MAC_RX_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.10);
+  capros_Sleep_sleep(KR_SLEEP,.10);
   tw32(MAC_RX_MODE, tp->rx_mode);
   tr32(MAC_RX_MODE);
-  eros_Sleep_sleep(KR_SLEEP,.10);
+  capros_Sleep_sleep(KR_SLEEP,.10);
 
   if (tp->pci_chip_rev_id == CHIPREV_ID_5703_A1)
     tw32(MAC_SERDES_CFG, 0x616000);
@@ -3984,20 +3984,20 @@ tg3_do_test_dma(struct tg3 *tp, uint32_t *buf, uint32_t buf_dma,
     test_desc.cqid_sqid = (13 << 8) | 2;
     tw32(RDMAC_MODE, RDMAC_MODE_RESET);
     tr32(RDMAC_MODE);
-    eros_Sleep_sleep(KR_SLEEP,40);
+    capros_Sleep_sleep(KR_SLEEP,40);
     
     tw32(RDMAC_MODE, RDMAC_MODE_ENABLE);
     tr32(RDMAC_MODE);
-    eros_Sleep_sleep(KR_SLEEP,40);
+    capros_Sleep_sleep(KR_SLEEP,40);
   } else {
     test_desc.cqid_sqid = (16 << 8) | 7;
     tw32(WDMAC_MODE, WDMAC_MODE_RESET);
     tr32(WDMAC_MODE);
-    eros_Sleep_sleep(KR_SLEEP,40);
+    capros_Sleep_sleep(KR_SLEEP,40);
 	  
     tw32(WDMAC_MODE, WDMAC_MODE_ENABLE);
     tr32(WDMAC_MODE);
-    eros_Sleep_sleep(KR_SLEEP,40);
+    capros_Sleep_sleep(KR_SLEEP,40);
   }
   test_desc.flags = 0x00000004;
   for (i = 0; i < (sizeof(test_desc) / sizeof(uint32_t)); i++) {
@@ -4031,7 +4031,7 @@ tg3_do_test_dma(struct tg3 *tp, uint32_t *buf, uint32_t buf_dma,
       break;
     }
     
-    eros_Sleep_sleep(KR_SLEEP,0.0100);
+    capros_Sleep_sleep(KR_SLEEP,0.0100);
   }
   
   return ret;
@@ -4190,7 +4190,7 @@ altima_probe(struct pci_dev_data *net_device,struct netif *net_if)
   /* FIX: ask Shap about this -- Merge Bug??? at 0x5000000u */
   for(i=0x1000000u;i>0;i+=DMA_SIZE) {
     /* Hopefully we can do DMA onto this RAM area */
-    result = eros_DevPrivs_publishMem(KR_DEVPRIVS,i,i+DMA_SIZE, 0);
+    result = capros_DevPrivs_publishMem(KR_DEVPRIVS,i,i+DMA_SIZE, 0);
     if(result==RC_OK) {
       PHYSADDR = i;
       break;
@@ -4247,7 +4247,7 @@ altima_probe(struct pci_dev_data *net_device,struct netif *net_if)
   }
   
   /* Publish the tg3 memory space */
-  result = eros_DevPrivs_publishMem(KR_DEVPRIVS,NETDEV->base_address[0], 
+  result = capros_DevPrivs_publishMem(KR_DEVPRIVS,NETDEV->base_address[0], 
 				    NETDEV->base_address[0]+0x10000, 0);
   if(result!=RC_OK) kprintf(KR_OSTREAM,"tg3::publish mem--Failed %x",result);
 

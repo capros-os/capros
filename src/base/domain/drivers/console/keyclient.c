@@ -34,9 +34,9 @@
 #include <eros/cap-instr.h>
 #include <eros/machine/atomic.h>
 
-#include <idl/eros/Number.h>
-#include <idl/eros/key.h>
-#include <idl/eros/Ps2.h>
+#include <idl/capros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Ps2.h>
 
 #include <idl/console/keyclient.h>
 
@@ -148,7 +148,7 @@ getChar(void)
   
   /* Call ps2reader */
   while (kcode == 0) {
-    (void)eros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
+    (void)capros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
     
     while(data > -1) { 
       do {
@@ -164,7 +164,7 @@ getChar(void)
 	updateLeds(&state);
       }
             
-      (void)eros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
+      (void)capros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
     }
   }
   //kprintf(KR_OSTREAM,"Returning ASCIIcode = %d",kcode);
@@ -239,7 +239,7 @@ updateLeds(int *status)
   state = state << 5;
   state = state >> 5;
 
-  result = eros_Ps2_setLed(KR_PS2READER,state);
+  result = capros_Ps2_setLed(KR_PS2READER,state);
   
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Problem setting LEDs.errcode = %d",result);
@@ -300,7 +300,7 @@ ProcessSharedMainRequest(Message *msg)
     break;
   }
 
-  msg->snd_code = RC_eros_key_UnknownRequest;
+  msg->snd_code = RC_capros_key_UnknownRequest;
   return 1;
 }
 
@@ -418,7 +418,7 @@ makeSharedProc(cap_t krNewProc,uint32_t sp)
     kdprintf(KR_OSTREAM,"Kclient Making wrapper key ... [FAILED]");
  
   {
-    eros_Number_value nkv;
+    capros_Number_value nkv;
     nkv.value[0] = WRAPPER_BLOCKED;
     nkv.value[1] = 0;
     nkv.value[2] = 0;

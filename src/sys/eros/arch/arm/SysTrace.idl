@@ -20,12 +20,12 @@
 /* This material is based upon work supported by the US Defense Advanced
    Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
 
-package eros.arch.arm;
+package capros.arch.arm;
 
 /** Kernel interface to number keys.
  *
  */
-interface SysTrace extends eros.key {
+interface SysTrace extends capros.key {
   void CheckConsistency();
 
   void clearKernelStats();

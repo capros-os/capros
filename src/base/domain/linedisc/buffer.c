@@ -65,7 +65,7 @@
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
-#include <idl/eros/Stream.h>
+#include <idl/capros/Stream.h>
 
 #include "keydefs.h"
 #include "buffer.h"
@@ -103,10 +103,10 @@ move_cursor(LDBuffer *buf, cap_t strm, uint8_t how, uint32_t count)
   while(cnt) {
 
     /* Send escape sequence downstream */
-    eros_Stream_write(strm, 0x1b);
-    eros_Stream_write(strm, 0x5b);
-    eros_Stream_write(strm, '1');
-    eros_Stream_write(strm, c);
+    capros_Stream_write(strm, 0x1b);
+    capros_Stream_write(strm, 0x5b);
+    capros_Stream_write(strm, '1');
+    capros_Stream_write(strm, c);
 
     if (how == FORWARD) {
       buf->cursor++;
@@ -213,10 +213,10 @@ doBufferWrite(cap_t strm, LDBuffer *buf, eros_domain_linedisc_termios tstate,
     buffer_insert_chars(buf, buf->cursor, 1);
 
     /* Send escape sequence (for insert 1 char) downstream */
-    eros_Stream_write(strm, 0x1b);
-    eros_Stream_write(strm, 0x5b);
-    eros_Stream_write(strm, '1');
-    eros_Stream_write(strm, '@');
+    capros_Stream_write(strm, 0x1b);
+    capros_Stream_write(strm, 0x5b);
+    capros_Stream_write(strm, '1');
+    capros_Stream_write(strm, '@');
   }
   else
     buf->len++;
@@ -227,7 +227,7 @@ doBufferWrite(cap_t strm, LDBuffer *buf, eros_domain_linedisc_termios tstate,
 
   /* Echo character */
   if (ISSET(tstate.c_lflag, eros_domain_linedisc_ECHO))
-    eros_Stream_write(strm, c);
+    capros_Stream_write(strm, c);
 }
 
 static void
@@ -304,10 +304,10 @@ buf_unputc(cap_t strm, LDBuffer *buf)
     move_cursor(buf, strm, BACKWARD, 1);
 
     /* Send escape sequence (for scroll left) downstream */
-    eros_Stream_write(strm, 0x1b);
-    eros_Stream_write(strm, 0x5b);
-    eros_Stream_write(strm, '1');
-    eros_Stream_write(strm, 'P');
+    capros_Stream_write(strm, 0x1b);
+    capros_Stream_write(strm, 0x5b);
+    capros_Stream_write(strm, '1');
+    capros_Stream_write(strm, 'P');
   }
   else if (buf->cursor > 0 && pos >= 0 && pos < MAXLEN) {
 
@@ -317,7 +317,7 @@ buf_unputc(cap_t strm, LDBuffer *buf)
 
     /* FIX: We need a standard definition of canonical key codes that
        both eterm and ld0 can agree upon. */
-    eros_Stream_write(strm, 0x08); /* BS */
+    capros_Stream_write(strm, 0x08); /* BS */
   }
 }
 
@@ -372,9 +372,9 @@ buffer_write(cap_t strm, eros_domain_linedisc_termios tstate,
 	  buf_unputc(strm, buf);
       }
       else {
-	eros_Stream_write(strm, c);
+	capros_Stream_write(strm, c);
 	if (ISSET(tstate.c_lflag, M(ECHOK)))
-	  eros_Stream_write(strm, '\n');
+	  capros_Stream_write(strm, '\n');
 	buffer_clear(buf);
       }
       return true;

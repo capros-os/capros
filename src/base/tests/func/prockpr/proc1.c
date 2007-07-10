@@ -24,9 +24,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/ProcessKey.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <domain/domdbg.h>
-#include <idl/eros/arch/arm/SysTrace.h>
+#include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_VOID 0
 #define KR_OSTREAM 10

@@ -1,24 +1,24 @@
-package eros.domain.winsys;
+package capros.winsys;
 
 /** 
  * The "master" interface for the window system.  (See "session.idl"
  * for the interface for general window system client domains.)
  */
-interface master extends eros.key raises(VideoError) {
+interface master extends capros.key raises(VideoError) {
   exception VideoError;
 
   /** General initialization routine for the window system.  Provide a
    *  capability to the bus probe domain so window system can
    *  determine which video hardware is available.
    */
-  void initialize(eros.key prober);
+  void initialize(capros.key prober);
 
   /** The window system provides two session creator keys, one for
    * trusted and one for untrusted sessions.
    *
    */
-  void get_session_creators(out eros.key trusted,
-                            out eros.key untrusted);
+  void get_session_creators(out capros.key trusted,
+                            out capros.key untrusted);
 
   /**
    * Send a keyboard event to the window system.

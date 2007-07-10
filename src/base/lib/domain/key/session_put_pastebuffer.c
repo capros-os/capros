@@ -22,7 +22,7 @@
 #include <eros/Invoke.h>
 #include <domain/SessionKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 uint32_t
 session_put_pastebuffer(cap_t kr_session, 

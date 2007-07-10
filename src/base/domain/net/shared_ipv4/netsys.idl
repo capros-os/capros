@@ -1,10 +1,10 @@
-package eros.domain.net.shared_ipv4;
+package capros.net.shared_ipv4;
 
 /** This is the interface to the network system, which 
  *  is called by the timer and by application clients
  *   needing network access.
  */
-interface netsys extends eros.key {
+interface netsys extends capros.key {
   
   /** The various types of start keys specific for each 
    * interface */

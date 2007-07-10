@@ -30,7 +30,7 @@
 #include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -258,7 +258,7 @@ ProcessRequest(Message *msg, pipe_state *ps)
   switch(code) {
   case OC_Pipe_Read:
     if (msg->rcv_keyInfo != KI_READER) {
-      result = RC_eros_key_UnknownRequest;
+      result = RC_capros_key_UnknownRequest;
       break;
     }
 
@@ -340,7 +340,7 @@ ProcessRequest(Message *msg, pipe_state *ps)
 	      got, msg->rcv_w2);
 
     if (msg->rcv_keyInfo != KI_WRITER) {
-      result = RC_eros_key_UnknownRequest;
+      result = RC_capros_key_UnknownRequest;
       break;
     }
 
@@ -435,9 +435,9 @@ ProcessRequest(Message *msg, pipe_state *ps)
       kprintf(KR_OSTREAM, "pipe: reader closes\n");
     /* fall through is deliberate -- reader close means destroy! */
     
-  case OC_eros_key_destroy:
+  case OC_capros_key_destroy:
     if (msg->rcv_keyInfo != KI_READER) {
-      result = RC_eros_key_UnknownRequest;
+      result = RC_capros_key_UnknownRequest;
       break;
     }
 
@@ -448,7 +448,7 @@ ProcessRequest(Message *msg, pipe_state *ps)
     return 0; /* CAN'T HAPPEN */
     
   default:
-    result = RC_eros_key_UnknownRequest;
+    result = RC_capros_key_UnknownRequest;
     break;
   }
 

@@ -29,8 +29,8 @@
 #include <eros/machine/io.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/DevPrivs.h>
+#include <idl/capros/key.h>
+#include <idl/capros/DevPrivs.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -108,7 +108,7 @@ main(void)
   
   /* Loop infinitely waiting for IRQ */
   for(;;) {
-    result = eros_DevPrivs_waitIRQ(KR_DEVPRIVS,IRQ);
+    result = capros_DevPrivs_waitIRQ(KR_DEVPRIVS,IRQ);
     if (result != RC_OK) {
       DEBUG_HELPER
 	kprintf(KR_OSTREAM, "TG3 helper: ERROR on IRQ LINE %d",IRQ);

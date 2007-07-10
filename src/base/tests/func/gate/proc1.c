@@ -27,10 +27,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/ConsoleKey.h>
 #include <eros/StdKeyType.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
-#include <idl/eros/arch/arm/SysTrace.h>
+#include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_ECHO 8
 #define KR_SLEEP 9
@@ -91,7 +91,7 @@ checkMessage(uint32_t code, uint32_t w1, uint32_t w2, uint32_t w3,
 int
 main()
 {
-  eros_key_type keyType;
+  capros_key_type keyType;
   result_t ret;
 
   msg.snd_key0 = KR_VOID;
@@ -108,14 +108,14 @@ main()
 
   /*** Call process key to proc2 ***/
 
-  ret = eros_key_getType(KR_ARG(0), &keyType);
+  ret = capros_key_getType(KR_ARG(0), &keyType);
   checkEqual(ret, RC_OK);
   checkEqual(keyType, AKT_Process);
 
   /*** Call Console key ***/
 
   msg.snd_invKey = KR_OSTREAM;
-  msg.snd_code = OC_eros_key_getType;
+  msg.snd_code = OC_capros_key_getType;
   msg.rcv_w1 = msg.rcv_w2 = msg.rcv_w3 = 0xbadbad03;
   CALL(&msg);
   checkEqual(msg.rcv_code, RC_OK);
@@ -123,8 +123,8 @@ main()
   checkEqual(msg.rcv_w2, 0);
   checkEqual(msg.rcv_w3, 0);
 
-  ret = eros_key_getType(KR_ARG(0), &keyType);
-  checkEqual(ret, RC_eros_key_Void);
+  ret = capros_key_getType(KR_ARG(0), &keyType);
+  checkEqual(ret, RC_capros_key_Void);
 //// check arg1 and 2
 
   /* Get echo process started. */
@@ -133,14 +133,14 @@ main()
   msg.snd_code = RC_OK;
   SEND(&msg);
 
-  ret = eros_key_getType(KR_PROC2_PROCESS, &keyType);
+  ret = capros_key_getType(KR_PROC2_PROCESS, &keyType);
   checkEqual(ret, RC_OK);
   checkEqual(keyType, AKT_Process);
 
   kprintf(KR_OSTREAM, "NP Return to Process key, no returnee\n");
 
   msg.snd_invKey = KR_PROC2_PROCESS;
-  msg.snd_code = OC_eros_key_getType;	////OC_Process_GetRegs32;
+  msg.snd_code = OC_capros_key_getType;	////OC_Process_GetRegs32;
   msg.snd_rsmkey = KR_VOID;
   msg.invType = IT_Return;
   INVOKECAP(&msg);

@@ -43,8 +43,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessState.h>
 #include <disk/DiskLSS.h>
 
-#include <idl/eros/Range.h>
-#include <idl/eros/Memory.h>
+#include <idl/capros/Range.h>
+#include <idl/capros/Memory.h>
 
 /* Following is included as a special case so that AddProcess()
    register conventions stay in sync with the expectations of the
@@ -647,8 +647,8 @@ ei_ValidateImage(ErosImage *ei, const char* target)
     diag_fatal(2, "Missing volsize node!\n", target);
 
   pNode = &ei->nodeImages[0];
-  init_SmallNumberKey(&pNode->slot[eros_Range_otNode], ei->hdr.nNodes);
-  init_SmallNumberKey(&pNode->slot[eros_Range_otPage], ei->hdr.nPages + ei->hdr.nZeroPages);
+  init_SmallNumberKey(&pNode->slot[capros_Range_otNode], ei->hdr.nNodes);
+  init_SmallNumberKey(&pNode->slot[capros_Range_otPage], ei->hdr.nPages + ei->hdr.nZeroPages);
 }
 
 void
@@ -959,7 +959,7 @@ ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
 
   if ( keyBits_IsType(&subSeg, KKT_Segment) 
        || (keyBits_IsType(&subSeg, KKT_GPT)
-           && (subSeg.keyData & eros_Memory_opaque) ) )
+           && (subSeg.keyData & capros_Memory_opaque) ) )
     diag_fatal(4, "AddPageToSegment: Cannot traverse subsegment\n");
 
   KeyBits newSlotKey =

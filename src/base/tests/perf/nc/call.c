@@ -26,9 +26,9 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/ProcessKey.h>
 #include <eros/machine/cap-instr.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <domain/domdbg.h>
-#include <idl/eros/arch/arm/SysTrace.h>
+#include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_VOID 0
 #define KR_ECHO 8
@@ -76,7 +76,7 @@ main()
   SEND(&msg);
 
   kprintf(KR_OSTREAM, "Sleep a while\n");
-  eros_Sleep_sleep(KR_SLEEP, 1000);	// sleep 1000 ms
+  capros_Sleep_sleep(KR_SLEEP, 1000);	// sleep 1000 ms
 
 #define ITERATIONS 100000
   kprintf(KR_OSTREAM, "Beginning %d calls to echo process\n", ITERATIONS);
@@ -84,24 +84,24 @@ main()
   msg.snd_invKey = KR_ECHO;
   msg.snd_code = 1;
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
   for (i = 0; i < ITERATIONS; i++)
     (void) CALL(&msg);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
           (uint32_t) ((endTime - startTime)/(ITERATIONS)) );
 
 #define PSITER 1000000
   kprintf(KR_OSTREAM, "Beginning %d calls to null COPY_KEYREG: ", PSITER);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
   for (i = 0; i < PSITER; i++)
     COPY_KEYREG(KR_VOID, KR_VOID);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
           (uint32_t) ((endTime - startTime)/(PSITER)) );
 
@@ -109,24 +109,24 @@ main()
   kprintf(KR_OSTREAM, "Beginning %d calls to normal COPY_KEYREG: ", PSITER);
   COPY_KEYREG(KR_ECHO_PROCESS, KR_ECHO);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
   for (i = 0; i < PSITER; i++)
     COPY_KEYREG(KR_ECHO_PROCESS, KR_ECHO);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
           (uint32_t) ((endTime - startTime)/(PSITER)) );
 
 
   kprintf(KR_OSTREAM, "Beginning %d calls to XCHG_KEYREG: ", PSITER);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
   for (i = 0; i < PSITER; i++)
     XCHG_KEYREG(KR_ECHO, KR_ECHO_PROCESS);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
           (uint32_t) ((endTime - startTime)/(PSITER)) );
 
@@ -134,7 +134,7 @@ main()
 #define CITER 100000
   kprintf(KR_OSTREAM, "Beginning %d exercise cache read: ", CITER);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
   for (i = 0; i < CITER; i++) {
 // This is designed to exercise the ARM920T cache.
@@ -146,14 +146,14 @@ main()
     }
   }
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
           (uint32_t) ((endTime - startTime)/(CITER)) );
 
 
   kprintf(KR_OSTREAM, "Beginning %d exercise cache write: ", CITER);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
   for (i = 0; i < CITER; i++) {
 // This is designed to exercise the ARM920T cache.
@@ -165,7 +165,7 @@ main()
     }
   }
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
           (uint32_t) ((endTime - startTime)/(CITER)) );
 #endif
@@ -174,23 +174,23 @@ main()
 #define CheckInterations 10
   kprintf(KR_OSTREAM, "Beginning %d calls to check\n", CheckInterations);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
   for (i = 0; i < CheckInterations; i++)
-    eros_arch_arm_SysTrace_CheckConsistency(KR_SYSTRACE);
+    capros_arch_arm_SysTrace_CheckConsistency(KR_SYSTRACE);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
           (uint32_t) ((endTime - startTime)/(CheckInterations)) );
 
 #define INCR_ITERATIONS 15000000
   kprintf(KR_OSTREAM, "Beginning %d increments\n", INCR_ITERATIONS);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
   for (i = INCR_ITERATIONS; i > 0; i--) ;
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
           (uint32_t) ((endTime - startTime)/(INCR_ITERATIONS)) );
 

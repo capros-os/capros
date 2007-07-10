@@ -29,20 +29,20 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Forwarder.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Forwarder.h>
 
 void
 ForwarderKey(Invocation* inv)
 {
   uint32_t slot;
   // We should only get here if the key is not opaque:
-  assert(! (inv->key->keyData & eros_Forwarder_opaque));
+  assert(! (inv->key->keyData & capros_Forwarder_opaque));
 
   Node * theNode = (Node *) key_GetObjectPtr(inv->key);
 
   switch (inv->entry.code) {
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     {
       COMMIT_POINT();
 
@@ -51,18 +51,18 @@ ForwarderKey(Invocation* inv)
       return;
     }
 
-  case OC_eros_Forwarder_getTarget:
+  case OC_capros_Forwarder_getTarget:
     {
       slot = ForwarderTargetSlot;
       goto getSlot;
     }
 
-  case OC_eros_Forwarder_getSlot:
+  case OC_capros_Forwarder_getSlot:
     {
       slot = inv->entry.w1;
-      if (slot > eros_Forwarder_maxSlot) {
+      if (slot > capros_Forwarder_maxSlot) {
 	COMMIT_POINT();
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 	
@@ -82,18 +82,18 @@ getSlot:
       return;
     }
 
-  case OC_eros_Forwarder_swapTarget:
+  case OC_capros_Forwarder_swapTarget:
     {
       slot = ForwarderTargetSlot;
       goto swapSlot;
     }
 
-  case OC_eros_Forwarder_swapSlot:
+  case OC_capros_Forwarder_swapSlot:
     {
       slot = inv->entry.w1;
-      if (slot > eros_Forwarder_maxSlot) {
+      if (slot > capros_Forwarder_maxSlot) {
 	COMMIT_POINT();
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 	
@@ -124,7 +124,7 @@ swapSlot:
       return;
     }
 
-  case OC_eros_Forwarder_getDataWord:
+  case OC_capros_Forwarder_getDataWord:
     {
       KeyBits * dataKey = node_GetKeyAtSlot(theNode, ForwarderDataSlot);
       assert(keyBits_IsType(dataKey, KKT_Number));
@@ -136,7 +136,7 @@ swapSlot:
       return;
     }
 
-  case OC_eros_Forwarder_swapDataWord:
+  case OC_capros_Forwarder_swapDataWord:
     {
       KeyBits * dataKey = node_GetKeyAtSlot(theNode, ForwarderDataSlot);
       assert(keyBits_IsType(dataKey, KKT_Number));
@@ -151,7 +151,7 @@ swapSlot:
       return;
     }
 
-  case OC_eros_Forwarder_clearBlocked:
+  case OC_capros_Forwarder_clearBlocked:
     {
       node_MakeDirty(theNode);
 
@@ -166,7 +166,7 @@ swapSlot:
       return;
     }
 
-  case OC_eros_Forwarder_setBlocked:
+  case OC_capros_Forwarder_setBlocked:
     {
       node_MakeDirty(theNode);
 
@@ -177,19 +177,19 @@ swapSlot:
       return;
     }
 
-  case OC_eros_Forwarder_getOpaqueForwarder:
+  case OC_capros_Forwarder_getOpaqueForwarder:
     {
       COMMIT_POINT();
 
       uint32_t w = inv->entry.w1; /* the flags */
-      if (w & ~(eros_Forwarder_sendCap | eros_Forwarder_sendWord)) {
-	inv->exit.code = RC_eros_key_RequestError;
+      if (w & ~(capros_Forwarder_sendCap | capros_Forwarder_sendWord)) {
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 
       if (inv->exit.pKey[0]) {
         inv_SetExitKey(inv, 0, inv->key);
-	inv->exit.pKey[0]->keyData = w | eros_Forwarder_opaque;
+	inv->exit.pKey[0]->keyData = w | capros_Forwarder_opaque;
       }
 
       inv->exit.code = RC_OK;
@@ -199,7 +199,7 @@ swapSlot:
   default:
     COMMIT_POINT();
 
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 }

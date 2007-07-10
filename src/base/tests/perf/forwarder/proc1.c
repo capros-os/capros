@@ -26,11 +26,11 @@ Approved for public release, distribution unlimited. */
 #include <domain/Runtime.h>
 #include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/Discrim.h>
-#include <idl/eros/Forwarder.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/Discrim.h>
+#include <idl/capros/Forwarder.h>
 #include <domain/domdbg.h>
-#include <idl/eros/arch/arm/SysTrace.h>
+#include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_DISCRIM 8
 #define KR_SLEEP 9
@@ -80,19 +80,19 @@ main()
 
   kprintf(KR_OSTREAM, "Sleep a while\n");
 
-  eros_Sleep_sleep(KR_SLEEP, 1000);	// sleep 1000 ms
+  capros_Sleep_sleep(KR_SLEEP, 1000);	// sleep 1000 ms
 
   kprintf(KR_OSTREAM, "Beginning %d calls to forwarder\n", ITERATIONS);
 
   msg.snd_invKey = KR_OP_FORWARDER;
   msg.snd_code = 7;
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
   for (i = 0; i < ITERATIONS; i++)
     (void) CALL(&msg);
 
-  result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
           (uint32_t) ((endTime - startTime)/(ITERATIONS)) );
 

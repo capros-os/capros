@@ -21,7 +21,7 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <domain/domdbg.h>
 
 #define KR_VOID 0
@@ -59,7 +59,7 @@ main()
   msg.snd_invKey = KR_ECHO;
   msg.snd_code = 1;
 
-  eros_Sleep_sleep(KR_SLEEP, 400);	// sleep 400 ms
+  capros_Sleep_sleep(KR_SLEEP, 400);	// sleep 400 ms
 
   kprintf(KR_OSTREAM, "Sending %d bytes to echo domain\n", msg.snd_len);
 

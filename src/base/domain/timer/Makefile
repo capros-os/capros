@@ -64,9 +64,9 @@ $(TIMER_THREAD):
 	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(TIMER_THREADOBJ) $(LIBS) $(DOMLIB)
 
 interfaces: $(IDL)
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain/timer
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain/timer
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/domain
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/timer
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros/timer
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/timer

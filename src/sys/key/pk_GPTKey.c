@@ -31,14 +31,14 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 void
 GPTKey(Invocation* inv)
 {
   /* This is a stub. */
   switch (inv->entry.code) {
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     {
       COMMIT_POINT();
 
@@ -50,7 +50,7 @@ GPTKey(Invocation* inv)
   default:
     COMMIT_POINT();
 
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 }

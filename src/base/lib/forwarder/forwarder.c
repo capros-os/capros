@@ -23,7 +23,7 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/SpaceBank.h>
+#include <idl/capros/SpaceBank.h>
 #include <domain/Runtime.h>
 #include "forwarder.h"
 
@@ -34,19 +34,19 @@ forwarder_create(uint32_t bank, uint32_t opaque_key,
 {
   uint32_t result;
 
-  result = eros_SpaceBank_alloc1(bank, eros_Range_otForwarder, 
+  result = capros_SpaceBank_alloc1(bank, capros_Range_otForwarder, 
              nonopaque_key);
   if (result != RC_OK) return result;
 
-  result = eros_Forwarder_swapTarget(nonopaque_key, target_key, KR_VOID);
+  result = capros_Forwarder_swapTarget(nonopaque_key, target_key, KR_VOID);
   if (result != RC_OK) return result;
 
-  if (flags & eros_Forwarder_sendWord) {
-    result = eros_Forwarder_swapDataWord(nonopaque_key, value, &value);
+  if (flags & capros_Forwarder_sendWord) {
+    result = capros_Forwarder_swapDataWord(nonopaque_key, value, &value);
     if (result != RC_OK) return result;
   }
 
-  result = eros_Forwarder_getOpaqueForwarder(nonopaque_key,
+  result = capros_Forwarder_getOpaqueForwarder(nonopaque_key,
              flags, opaque_key);
   return result;
 }

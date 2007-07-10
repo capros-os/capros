@@ -32,11 +32,11 @@
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/DevPrivs.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/Ps2.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/DevPrivs.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/Ps2.h>
+#include <idl/capros/Number.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
@@ -106,7 +106,7 @@ AllocIRQ(unsigned int irq)
 {
   uint32_t result;
 
-  result = eros_DevPrivs_allocIRQ(KR_DEVPRIVS, irq);
+  result = capros_DevPrivs_allocIRQ(KR_DEVPRIVS, irq);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Alloc of IRQ %d failed\n", irq);
   }
@@ -299,7 +299,7 @@ kbdReadStat(void)
 int
 kbdSetLed(uint8_t leds) 
 {
-  eros_Sleep_sleep(KR_SLEEP,KBDSLEEP);
+  capros_Sleep_sleep(KR_SLEEP,KBDSLEEP);
   if (kbdWriteO(KbdOCSetLed) != 0) {
     kprintf (KR_OSTREAM,"PS2READER:cTimed out while attempting to set LEDs");
     return 1;
@@ -331,7 +331,7 @@ kbdWaitInput(void)
     }
     else {
       tmout--;
-      eros_Sleep_sleep(KR_SLEEP,KBDSLEEP);
+      capros_Sleep_sleep(KR_SLEEP,KBDSLEEP);
     }
   } while (tmout > 0);
 
@@ -360,7 +360,7 @@ kbdWriteO(uint8_t cmd)
   int wait = 100;
   status = kbdReadStat();
   while ((status & KBS_NotReady) && (wait-- > 0)) {
-    eros_Sleep_sleep(KR_SLEEP,10);
+    capros_Sleep_sleep(KR_SLEEP,10);
     status = kbdReadStat();
   }
   if (wait == 0) {
@@ -392,7 +392,7 @@ ProcessRequest(Message *msg)
     
   switch (msg->rcv_code) {
     /* Initialize the ps2 hardware */
-  case OC_eros_Ps2_initPs2:
+  case OC_capros_Ps2_initPs2:
     {
       if(InitDone) {
 	msg->snd_code = RC_OK;
@@ -400,12 +400,12 @@ ProcessRequest(Message *msg)
       }
       if (kbdInit() != 0) {
 	kprintf(KR_OSTREAM,"kbdInit ... [FAILED]");
-	msg->snd_code = RC_eros_Ps2_KbdInitFailure;
+	msg->snd_code = RC_capros_Ps2_KbdInitFailure;
       }
       
       if (mouseInit() != 0) {
 	kprintf(KR_OSTREAM,"MouseInit ... [FAILED]");
-	msg->snd_code = RC_eros_Ps2_MouseInitFailure;
+	msg->snd_code = RC_capros_Ps2_MouseInitFailure;
       }
       
       /* Print out the identity of the keyboard */
@@ -430,17 +430,17 @@ ProcessRequest(Message *msg)
       /* Start the helpers to wake us up */
       if(!startHelpers()) {
      	kprintf(KR_OSTREAM,"Constructing Helpers ... [FAILED]");
-	msg->snd_code = RC_eros_Ps2_HelperInitFailure;
+	msg->snd_code = RC_capros_Ps2_HelperInitFailure;
       }
       
       /* Allocate Keyboard & Mouse IRQs and we are done */
       if (AllocIRQ(KBD_IRQ) != RC_OK) {
-	msg->snd_code = RC_eros_Ps2_KbdAllocFailure;
+	msg->snd_code = RC_capros_Ps2_KbdAllocFailure;
 	kprintf(KR_OSTREAM,"KBD IRQ Alloc ... [FAILED]");
       }
       
       if (AllocIRQ(MOUSE_IRQ) != RC_OK) {
-	msg->snd_code = RC_eros_Ps2_MouseAllocFailure;
+	msg->snd_code = RC_capros_Ps2_MouseAllocFailure;
 	kprintf(KR_OSTREAM,"MOUSE IRQ Alloc ... [FAILED]");
       }
       
@@ -450,23 +450,23 @@ ProcessRequest(Message *msg)
       return 1;
     }
     
-  case OC_eros_Ps2_irqArrived:
+  case OC_capros_Ps2_irqArrived:
     {
       /* We have been called by the IRQ helper processes. Wake 
        * up the appropriate clients ( mouseclient for IRQ12 &
        * keyclient for IRQ1 ). These were earlier parked ( if at
        * all ) on the park node.*/
       
-      if(msg->rcv_w1 == eros_Ps2_IRQ1)  wakeCall(KEYCLREAD);
-      if(msg->rcv_w1 == eros_Ps2_IRQ12) wakeCall(MOUSEREAD);
+      if(msg->rcv_w1 == capros_Ps2_IRQ1)  wakeCall(KEYCLREAD);
+      if(msg->rcv_w1 == capros_Ps2_IRQ12) wakeCall(MOUSEREAD);
       
       return 1;
     }
     
-  case OC_eros_Ps2_getMousedata:
+  case OC_capros_Ps2_getMousedata:
     msg->rcv_w1 = MOUSEREAD;
     goto READ_PS2_BUFFER;
-  case OC_eros_Ps2_getKeycode:
+  case OC_capros_Ps2_getKeycode:
     {
       /* Now that we have been signalled by the helpers and have 
        * wake up  the appropriate client. Read the ps2 h/w buffer
@@ -545,13 +545,13 @@ ProcessRequest(Message *msg)
     }
     
     /* Set the LEDs on the keyboard */
-  case OC_eros_Ps2_setLed:
+  case OC_capros_Ps2_setLed:
     {
       uint8_t led = (int8_t)msg->rcv_w1;
       int resp = kbdSetLed(led);
       
       if (resp != 0) {
-	msg->snd_code = RC_eros_Ps2_KbdTimeout;
+	msg->snd_code = RC_capros_Ps2_KbdTimeout;
       }else {
 	msg->snd_code = RC_OK;
       }
@@ -559,7 +559,7 @@ ProcessRequest(Message *msg)
     }
     
     /* Flush the ps2 h/w buffer */
-  case OC_eros_Ps2_flushBuffer:
+  case OC_capros_Ps2_flushBuffer:
     {
       ps2FlushOutBuf();
       msg->snd_code = RC_OK;
@@ -570,7 +570,7 @@ ProcessRequest(Message *msg)
     break;
   }
   
-  msg->snd_code = RC_eros_key_UnknownRequest;
+  msg->snd_code = RC_capros_key_UnknownRequest;
   return 1;
 }
 
@@ -786,7 +786,7 @@ main(void)
   }
   
   {
-    eros_Number_value nkv;
+    capros_Number_value nkv;
     nkv.value[0] = WRAPPER_BLOCKED;
     nkv.value[1] = 0;
     nkv.value[2] = 0;

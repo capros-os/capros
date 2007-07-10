@@ -1,10 +1,10 @@
-package eros.domain.net.ipv4;
+package capros.net.ipv4;
 
 /** This is the interface to the network system, which 
  *  is called by the timer and by application clients
  *   needing network access.
  */
-interface netsys extends eros.key {
+interface netsys extends capros.key {
   
   /** Timeout Agent call
    * 

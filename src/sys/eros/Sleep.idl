@@ -1,4 +1,4 @@
-package eros;
+package capros;
 
 /** Interface to allow processes to sleep voluntarily.
  */

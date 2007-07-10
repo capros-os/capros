@@ -29,7 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/KeyConst.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/SessionKey.h>
 #include <domain/domdbg.h>
@@ -68,9 +68,9 @@ static bool
 is_confined(cap_t kr_cap)
 {
   uint32_t keyType;
-  result_t result = eros_key_getType(kr_cap, &keyType);
+  result_t result = capros_key_getType(kr_cap, &keyType);
 
-  if (result != RC_OK || keyType == RC_eros_key_Void)
+  if (result != RC_OK || keyType == RC_capros_key_Void)
     return false;
 
   /* FIX: need to insert the action confinement test */
@@ -89,7 +89,7 @@ ExistingWindowRequest(Session *sess, Message *msg)
   Window *win = winid_to_window(sess, winid);
 
   if (win == NULL) {
-    msg->snd_code = RC_eros_key_RequestError;
+    msg->snd_code = RC_capros_key_RequestError;
     return true;
   }
 
@@ -159,7 +159,7 @@ ExistingWindowRequest(Session *sess, Message *msg)
       expect = 4 * sizeof(uint32_t);
       got = min(msg->rcv_sent, msg->rcv_limit);
       if (got != expect) {
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -197,7 +197,7 @@ ExistingWindowRequest(Session *sess, Message *msg)
       expect = 4 * sizeof(uint32_t);
       got = min(msg->rcv_sent, msg->rcv_limit);
       if (got != expect) {
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -213,7 +213,7 @@ ExistingWindowRequest(Session *sess, Message *msg)
       expect = 2 * sizeof(uint32_t);
       got = min(msg->rcv_sent, msg->rcv_limit);
       if (got != expect) {
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -235,13 +235,13 @@ ExistingWindowRequest(Session *sess, Message *msg)
       /* Not implemented yet: Winsys needs to deliver all mouse events
          up to and including very next mouse-up to originating client
          window AND first window currently underneath cursor. */
-      msg->snd_code = RC_eros_key_RequestError;
+      msg->snd_code = RC_capros_key_RequestError;
     }
     break;
 
   default:
     {
-      msg->snd_code = RC_eros_key_RequestError;
+      msg->snd_code = RC_capros_key_RequestError;
     }
     break;
   }
@@ -272,7 +272,7 @@ SessionRequest(Message *msg)
 	parent = winid_to_window(sess, msg->rcv_w1);
 
 	if (parent == NULL) {
-	  msg->snd_code = RC_eros_key_RequestError;
+	  msg->snd_code = RC_capros_key_RequestError;
 	  return true;
 	}
       }
@@ -309,7 +309,7 @@ SessionRequest(Message *msg)
 	parent = winid_to_window(sess, msg->rcv_w1);
 
 	if (parent == NULL) {
-	  msg->snd_code = RC_eros_key_RequestError;
+	  msg->snd_code = RC_capros_key_RequestError;
 	  return true;
 	}
       }
@@ -317,12 +317,12 @@ SessionRequest(Message *msg)
       expect = 5 * sizeof(uint32_t);
       got = min(msg->rcv_sent, msg->rcv_limit);
       if (got != expect) {
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
       if (size.x < MIN_WINDOW_WIDTH || size.y < MIN_WINDOW_HEIGHT) {
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -357,7 +357,7 @@ SessionRequest(Message *msg)
 	parent = winid_to_window(sess, msg->rcv_w1);
 
 	if (parent == NULL) {
-	  msg->snd_code = RC_eros_key_RequestError;
+	  msg->snd_code = RC_capros_key_RequestError;
 	  return true;
 	}
       }
@@ -365,12 +365,12 @@ SessionRequest(Message *msg)
       expect = 5 * sizeof(uint32_t);
       got = min(msg->rcv_sent, msg->rcv_limit);
       if (got != expect) {
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
       if (size.x < MIN_WINDOW_WIDTH || size.y < MIN_WINDOW_HEIGHT) {
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -392,16 +392,16 @@ SessionRequest(Message *msg)
       /* Now, attempt to return allocated storage to client's space
 	 bank.  This may fail, but at least we tried. */
       kprintf(KR_OSTREAM, "winsys(): Terminating session...");
-      eros_Forwarder_getSlot(KR_ARG(2), STASH_CLIENT_BANK, KR_SCRATCH);
+      capros_Forwarder_getSlot(KR_ARG(2), STASH_CLIENT_BANK, KR_SCRATCH);
 
       /* Bash the wrapped key with a void key */
-      eros_Forwarder_swapTarget(KR_ARG(2), KR_VOID, KR_VOID);
+      capros_Forwarder_swapTarget(KR_ARG(2), KR_VOID, KR_VOID);
 
 #if 0
       /* FIX: This code is successful, but any further invocation
       attempts by the client on its session key results in an
       assertion failure: client's keybits are not prepared. */
-      if (eros_SpaceBank_free1(KR_SCRATCH, KR_ARG(2)) != RC_OK) {
+      if (capros_SpaceBank_free1(KR_SCRATCH, KR_ARG(2)) != RC_OK) {
 	kprintf(KR_OSTREAM, "    ... Couldn't return node, so bashing it.");
       }
       else
@@ -461,7 +461,7 @@ SessionRequest(Message *msg)
 
       /* Ensure window id is valid for this Session */
       if (win == NULL) {
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -484,13 +484,13 @@ SessionRequest(Message *msg)
 	 ensure they are confined before proceeding! */
       if (!is_confined(KR_ARG(0))) {
 	pastebuffer_set_confined(&pastebuffer_state, false);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
       if (!is_confined(KR_ARG(1))) {
 	pastebuffer_set_confined(&pastebuffer_state, false);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -514,7 +514,7 @@ SessionRequest(Message *msg)
 	msg->snd_code = RC_OK;
       }
       else 
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
     }
     break;
 
@@ -524,13 +524,13 @@ SessionRequest(Message *msg)
 	 state.caps_confined bit sufficient?? */
       if (!is_confined(KR_PASTE_CONTENT)) {
 	pastebuffer_set_confined(&pastebuffer_state, false);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
       if (!is_confined(KR_PASTE_CONVERTER)) {
 	pastebuffer_set_confined(&pastebuffer_state, false);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -548,7 +548,7 @@ SessionRequest(Message *msg)
 	msg->snd_code = RC_OK;
       }
       else 
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 
     }
     break;

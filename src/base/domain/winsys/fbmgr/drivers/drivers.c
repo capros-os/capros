@@ -23,7 +23,7 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 #include "video.h"
 #include "drivers.h"
 
@@ -224,7 +224,7 @@ uint32_t video_define_pixmap(uint32_t pixmap_id,
     uint32_t size = pixmap_size.x*pixmap_size.y*(pixmap_depth+7)/8;
     ram_pixmaps[pixmap_id].bits = malloc(size);
     if (ram_pixmaps[pixmap_id].bits == NULL)
-      return RC_eros_key_RequestError; /* FIX: do something better */
+      return RC_capros_key_RequestError; /* FIX: do something better */
 
     ram_pixmaps[pixmap_id].size = pixmap_size;
     ram_pixmaps[pixmap_id].depth = pixmap_depth;
@@ -244,7 +244,7 @@ uint32_t video_show_pixmap(uint32_t pixmap_id, point_t src, rect_t dst)
 
     return video_copy_to_fb(ram_pixmaps[pixmap_id].bits, area,
 			    dst.topLeft, ram_pixmaps[pixmap_id].size.x)
-      ? RC_OK : RC_eros_key_RequestError;
+      ? RC_OK : RC_capros_key_RequestError;
   } else
     return current_graphics_driver->video_show_vram_pixmap(pixmap_id,src,dst);
 }

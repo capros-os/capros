@@ -31,14 +31,14 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 void
 VoidKey(Invocation* inv /*@ not null @*/)
 {
   COMMIT_POINT();
       
-  inv->exit.code = RC_eros_key_Void;
+  inv->exit.code = RC_capros_key_Void;
   return;
 }
 

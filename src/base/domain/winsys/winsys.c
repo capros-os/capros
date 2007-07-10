@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -43,7 +43,7 @@ Approved for public release, distribution unlimited. */
 #include <domain/drivers/PciProbeKey.h>
 
 /* Need the base interface for this domain */
-#include <idl/eros/domain/winsys/master.h>
+#include <idl/capros/winsys/master.h>
 
 /* Need the Drawable interface */
 #include <domain/DrawableKey.h>
@@ -52,7 +52,7 @@ Approved for public release, distribution unlimited. */
 #include <domain/SessionCreatorKey.h>
 
 /* Need the Session interface */
-#include <idl/eros/domain/winsys/session.h>
+#include <idl/capros/winsys/session.h>
 #include "sessionmgr/SessionRequest.h"
 
 /* Need the scancode converter */
@@ -305,7 +305,7 @@ SessionCreatorRequest(Message *m)
 	/*Note: The client must provide the space bank key!!! */
 	result = forwarder_create(KR_CLIENT_BANK, KR_NEW_SESSION, KR_NEW_NODE, 
 		              KR_TRUSTED_SESSION_TYPE,
-                              eros_Forwarder_sendCap | eros_Forwarder_sendWord,
+                              capros_Forwarder_sendCap | capros_Forwarder_sendWord,
 			      ADDRESS(new_session) );
 
 	if (result != RC_OK) {
@@ -321,7 +321,7 @@ SessionCreatorRequest(Message *m)
 	/*Note: The client must provide the space bank key!!! */
 	result = forwarder_create(KR_CLIENT_BANK, KR_NEW_SESSION, KR_NEW_NODE, 
 			      KR_SESSION_TYPE,
-                              eros_Forwarder_sendCap | eros_Forwarder_sendWord,
+                              capros_Forwarder_sendCap | capros_Forwarder_sendWord,
 			      ADDRESS(new_session) );
 
 	if (result != RC_OK) {
@@ -342,14 +342,14 @@ SessionCreatorRequest(Message *m)
          unused slot of the forwarder.  When the session is closed,
          we'll make an attempt to return storage to the space bank on
          behalf of the client. */
-      eros_Forwarder_swapSlot(KR_NEW_NODE, STASH_CLIENT_BANK, KR_CLIENT_BANK,
+      capros_Forwarder_swapSlot(KR_NEW_NODE, STASH_CLIENT_BANK, KR_CLIENT_BANK,
                               KR_VOID);
     }
     break;
 
   default:
     {
-      m->snd_code = RC_eros_key_UnknownRequest;
+      m->snd_code = RC_capros_key_UnknownRequest;
     }
     break;
   }
@@ -545,7 +545,7 @@ DomainRequest(Message *m)
       Root = root_create(root_width, root_height);
       if (Root == NULL) {
 	kprintf(KR_OSTREAM, "** ERROR: couldn't fabricate root window.");
-	m->snd_code = RC_eros_key_RequestError;
+	m->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -560,21 +560,21 @@ DomainRequest(Message *m)
       window */
       if (forwarder_create(KR_BANK, KR_SCRATCH, KR_NEW_NODE,
 			  KR_SESSION_CREATOR,
-			  eros_Forwarder_sendWord,
+			  capros_Forwarder_sendWord,
 			  ADDRESS(Root) ) != RC_OK) {
 	kprintf(KR_OSTREAM, "** ERROR: couldn't wrap SessionCreator key.\n");
-	m->snd_code = RC_eros_key_RequestError;
+	m->snd_code = RC_capros_key_RequestError;
 	return true;
       }
       COPY_KEYREG(KR_SCRATCH, KR_SESSION_CREATOR);
 
       if (forwarder_create(KR_BANK, KR_SCRATCH, KR_NEW_NODE,
 			  KR_TRUSTED_SESSION_CREATOR,
-			  eros_Forwarder_sendWord,
+			  capros_Forwarder_sendWord,
 			  ADDRESS(Root) ) != RC_OK) {
 	kprintf(KR_OSTREAM, "** ERROR: couldn't wrap trusted "
 		"SessionCreator key.\n");
-	m->snd_code = RC_eros_key_RequestError;
+	m->snd_code = RC_capros_key_RequestError;
 	return true;
       }
       COPY_KEYREG(KR_SCRATCH, KR_TRUSTED_SESSION_CREATOR);
@@ -722,7 +722,7 @@ DomainRequest(Message *m)
 
   default:
     {
-      m->snd_code = RC_eros_key_UnknownRequest;
+      m->snd_code = RC_capros_key_UnknownRequest;
     }
     break;
   }
@@ -756,7 +756,7 @@ ProcessRequest(Message *msg)
 
   default:
     {
-      msg->snd_code = RC_eros_key_UnknownRequest;
+      msg->snd_code = RC_capros_key_UnknownRequest;
     }
     break;
   }
@@ -923,7 +923,7 @@ main(void)
   }
 
   /* We want the "parking" key to be blocked. */
-  if (eros_Forwarder_setBlocked(KR_PARK_NODE) != RC_OK) {
+  if (capros_Forwarder_setBlocked(KR_PARK_NODE) != RC_OK) {
     kprintf(KR_OSTREAM, "** ERROR: couldn't block a wrapper for parking "
 	    "waiting-client keys...\n");
     return -1;   /* FIX:  really need to terminate gracefully */

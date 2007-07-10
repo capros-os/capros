@@ -129,8 +129,8 @@ ENTRY(__rt_small_startup)
 	beq stack_ready
 	
 	simpleCall(sb_alloc_root_node, KR_BANK,
-               OC_eros_SpaceBank_alloc1,
-               eros_Range_otNode, KR_VOID, KR_NEWSPACE)
+               OC_capros_SpaceBank_alloc1,
+               capros_Range_otNode, KR_VOID, KR_NEWSPACE)
 // FIXME: If any of these allocations fails, what to do?
 
 	Call1(mk_node_key, KR_NEWSPACE,
@@ -140,8 +140,8 @@ ENTRY(__rt_small_startup)
 	/* buy the page while the space bank is still hot in
 	   the cache */
 	simpleCall(buy_first_page, KR_BANK,
-                   OC_eros_SpaceBank_alloc1,
-                   eros_Range_otPage, KR_VOID, KR_NEWPAGE)
+                   OC_capros_SpaceBank_alloc1,
+                   capros_Range_otPage, KR_VOID, KR_NEWPAGE)
 
 	/* fetch current (immutable) address space from our
 	   process slot */
@@ -203,8 +203,8 @@ buy_stack:
 #endif
 	
 	InvConstants(buy_later_page, KR_BANK,
-                     OC_eros_SpaceBank_alloc1,
-                     eros_Range_otPage,
+                     OC_capros_SpaceBank_alloc1,
+                     capros_Range_otPage,
                      KR_VOID, KR_NEWPAGE)
 	ldr r7,=buy_later_page
 	ldmia r7,{r1-r5,r12,r14}

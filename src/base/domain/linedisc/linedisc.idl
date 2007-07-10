@@ -1,6 +1,6 @@
-package eros.domain;
+package capros;
 
-interface linedisc extends eros.Stream {
+interface linedisc extends capros.Stream {
 
   typedef unsigned long tcflag_t;
   typedef unsigned long speed_t;

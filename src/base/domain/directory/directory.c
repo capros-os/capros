@@ -49,7 +49,7 @@
 #include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/SpaceBankKey.h>
 #include <domain/SuperNodeKey.h>
@@ -531,13 +531,13 @@ ProcessRequest(Message *msg, state_t *state)
     msg->snd_code = unlink (state->name, msg->rcv_key0, state);
     break;
 
-  case OC_eros_key_getType:			/* check alleged keytype */
+  case OC_capros_key_getType:			/* check alleged keytype */
     msg->snd_code = RC_OK;
     msg->snd_w1 = AKT_Directory;
     break;
 
   default:
-    msg->snd_code = RC_eros_key_UnknownRequest;
+    msg->snd_code = RC_capros_key_UnknownRequest;
     break;
   };  
   

@@ -25,7 +25,7 @@ Approved for public release, distribution unlimited. */
 #ifndef SPACEBANK_H
 #define SPACEBANK_H
 
-#include <idl/eros/SpaceBank.h>
+#include <idl/capros/SpaceBank.h>
 
 // #define NEW_DESTROY_LOGIC
 
@@ -40,9 +40,9 @@ Approved for public release, distribution unlimited. */
 
 extern const char *type_name(int t);
 extern bool valid_type(int t);
-extern uint32_t objects_per_frame[eros_Range_otNUM_TYPES];
-extern uint32_t objects_map_mask[eros_Range_otNUM_TYPES];
-extern uint8_t typeToBaseType[eros_Range_otNUM_TYPES];
+extern uint32_t objects_per_frame[capros_Range_otNUM_TYPES];
+extern uint32_t objects_map_mask[capros_Range_otNUM_TYPES];
+extern uint8_t typeToBaseType[capros_Range_otNUM_TYPES];
 extern int ffs(int);
 
 #define kpanic kdprintf

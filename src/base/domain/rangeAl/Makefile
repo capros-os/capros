@@ -40,9 +40,9 @@ IDL= $(wildcard *.idl)
 all: $(TARGETS)
 
 interfaces: $(IDL)
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain/rangeAl
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain/rangeAl
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/domain
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
 $(BUILDDIR)/rangeAl: $(OBJECTS) $(DOMCRT0) $(DOMSBRK) $(DOMLIB)
 # Temporarily including sbrk.o explicitly.

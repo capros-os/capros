@@ -38,7 +38,7 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
   /* Bank is okay, try to buy the space: */
   if (spcbank_buy_nodes(krBank, 2, krDomKey, KR_SCRATCH0,
 			KR_VOID) != RC_OK)
-    return RC_eros_key_NoMoreNodes;
+    return RC_capros_key_NoMoreNodes;
 
   DEBUG kdprintf(KR_OSTREAM, "Assemble them\n");
 
@@ -47,7 +47,7 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
   (void) node_swap(krDomKey, ProcGenKeys, KR_SCRATCH0, KR_VOID);
 
   /* Initialize the fixed registers to zero number keys. */
-  const eros_Number_value zeroNumber = {{0, 0, 0}};
+  const capros_Number_value zeroNumber = {{0, 0, 0}};
   for (i = ProcFirstRootRegSlot; i <= ProcLastRootRegSlot; i++)
     (void) node_write_number(krDomKey, i, &zeroNumber);
 
@@ -59,7 +59,7 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
   /* Bank is okay, try to buy the space: */
   if (spcbank_buy_nodes(krBank, 2, krDomKey, KR_SCRATCH0,
 			KR_VOID) != RC_OK)
-    return RC_eros_key_NoMoreNodes;
+    return RC_capros_key_NoMoreNodes;
 
   DEBUG kdprintf(KR_OSTREAM, "Assemble them\n");
 
@@ -68,7 +68,7 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
   (void) node_swap(krDomKey, ProcGenKeys, KR_SCRATCH0, KR_VOID);
 
   /* Initialize the fixed registers to zero number keys. */
-  const eros_Number_value zeroNumber = {{0, 0, 0}};
+  const capros_Number_value zeroNumber = {{0, 0, 0}};
   for (i = ProcFirstRootRegSlot; i <= ProcLastRootRegSlot; i++)
     (void) node_write_number(krDomKey, i, &zeroNumber);
 
@@ -80,7 +80,7 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
   DEBUG kdprintf(KR_OSTREAM, "Build process key:\n");
 
   /* Now make a process key of this: */
-  (void) eros_ProcTool_makeProcess(KR_PROCTOOL, krDomKey, krDomKey);
+  (void) capros_ProcTool_makeProcess(KR_PROCTOOL, krDomKey, krDomKey);
 
   DEBUG kdprintf(KR_OSTREAM, "Got new process key:\n");
 

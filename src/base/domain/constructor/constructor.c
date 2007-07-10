@@ -52,8 +52,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessState.h>
 #include <eros/machine/Registers.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Discrim.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Discrim.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
@@ -102,7 +102,7 @@ CheckDiscretion(uint32_t kr, ConstructorInfo *ci)
   
   node_copy(KR_CONSTIT, KC_DISCRIM, KR_SCRATCH);
 
-  result = eros_Discrim_verify(KR_SCRATCH, kr, &isDiscreet);
+  result = capros_Discrim_verify(KR_SCRATCH, kr, &isDiscreet);
   if (result == RC_OK && isDiscreet)
     return;
 
@@ -137,8 +137,8 @@ InitConstructor(ConstructorInfo *ci)
   
   node_copy(KR_CONSTIT, KC_PROD_CON0, KR_PROD_CON0);
 
-  result = eros_key_getType(KR_PROD_CON0, &keyType);
-  if (result != RC_eros_key_Void) {
+  result = capros_key_getType(KR_PROD_CON0, &keyType);
+  if (result != RC_capros_key_Void) {
     /* This is an initially frozen constructor.  Use the provided
        constituents, and assume that KC_YIELDCRE already holds the
        proper domain creator. */
@@ -338,7 +338,7 @@ MakeNewProduct(Message *msg)
 
 destroy_product:
   (void) proccre_destroy_process(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
-  return RC_eros_key_NoMoreNodes;
+  return RC_capros_key_NoMoreNodes;
 }
 
 int
@@ -352,7 +352,7 @@ is_not_discreet(uint32_t kr, ConstructorInfo *ci)
   
   DEBUG(misc) kdprintf(KR_OSTREAM, "constructor: is_not_discreet(): discrim_verify\n");
 
-  eros_Discrim_verify(KR_SCRATCH, kr, &isDiscreet);
+  capros_Discrim_verify(KR_SCRATCH, kr, &isDiscreet);
   if (isDiscreet)
     return 0;			/* ok */
 
@@ -384,7 +384,7 @@ insert_constituent(uint32_t ndx, uint32_t kr, ConstructorInfo *ci)
   DEBUG(build) kdprintf(KR_OSTREAM, "constructor: insert constituent %d\n", ndx);
 
   if (ndx >= EROS_NODE_SIZE)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
     
   if ( is_not_discreet(kr, ci) )
     add_new_hole(kr, ci);
@@ -407,13 +407,13 @@ insert_xconstituent(uint32_t ndx, uint32_t kr, ConstructorInfo *ci)
        this path is not performance critical and clarity matters too. */
     node_copy(KR_CONSTIT, KC_DISCRIM, KR_SCRATCH);
   
-    eros_Discrim_classify(KR_SCRATCH, kr, &obClass);
-    if (obClass != eros_Discrim_clNumber)
-      return RC_eros_key_RequestError;
+    capros_Discrim_classify(KR_SCRATCH, kr, &obClass);
+    if (obClass != capros_Discrim_clNumber)
+      return RC_capros_key_RequestError;
   }
 
   if (ndx > XCON_PC)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
     
   if ( is_not_discreet(kr, ci) )
     add_new_hole(kr, ci);
@@ -507,12 +507,12 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
       return 1;
     }      
 
-  case OC_eros_key_destroy:
+  case OC_capros_key_destroy:
     {
       Sepuku();
     }
   
-  case OC_eros_key_getType:			/* check alleged keytype */
+  case OC_capros_key_getType:			/* check alleged keytype */
     {
       switch(msg->rcv_keyInfo) {
       case 0:
@@ -531,7 +531,7 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
     break;
   }
 
-  msg->snd_code = RC_eros_key_UnknownRequest;
+  msg->snd_code = RC_capros_key_UnknownRequest;
   return 1;
 }
 

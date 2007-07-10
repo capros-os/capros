@@ -29,7 +29,7 @@
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <domain/domdbg.h>
 #if 0
 #include <eros/ProcessKey.h>
@@ -90,7 +90,7 @@ int ProcessRequest( Message *msg )
     kprintf( KR_OSTREAM, "child>> Going to count %d..%d, %d msec sleep...\n", start, end, wait );
     for( i=start; i <= end; i++ ) {
       kprintf( KR_OSTREAM, "child>> %d...\n", i );
-      eros_Sleep_sleep( KR_SLEEP, wait );
+      capros_Sleep_sleep( KR_SLEEP, wait );
     };
     return 1;
   default:

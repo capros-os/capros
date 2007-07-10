@@ -1,6 +1,6 @@
-package eros.domain.timer;
+package capros.timer;
 
-interface timer_client extends eros.key {
+interface timer_client extends capros.key {
 
 /**
  * This is the interface a client of the timer must implement in order

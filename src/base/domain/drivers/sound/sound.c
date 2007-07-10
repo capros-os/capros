@@ -26,9 +26,9 @@
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
 
-#include <idl/eros/DevPrivs.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/DevPrivs.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/Number.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
@@ -70,7 +70,7 @@ AllocIRQ(unsigned int irq)
 {
   uint32_t result;
 
-  result = eros_DevPrivs_allocIRQ(KR_DEVPRIVS, irq, 0);
+  result = capros_DevPrivs_allocIRQ(KR_DEVPRIVS, irq, 0);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Alloc of IRQ %d failed\n", irq);
   }
@@ -114,9 +114,9 @@ uint32_t sb16_dsp_reset()   //DSP_Reset
   int tmp,loop_i;
 
   outb(1,DSP_RESET);
-  eros_Sleep_sleep(KR_SLEEP,100);
+  capros_Sleep_sleep(KR_SLEEP,100);
   outb(0,DSP_RESET);
-  eros_Sleep_sleep(KR_SLEEP,300);
+  capros_Sleep_sleep(KR_SLEEP,300);
   
   for(loop_i=0;loop_i<1000 && !(inb(DSP_DATA_AV) & 0x80); loop_i++);
   tmp=inb(DSP_READ);

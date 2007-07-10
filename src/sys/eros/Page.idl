@@ -1,10 +1,10 @@
-package eros;
+package capros;
 
 /** Kernel interface to page keys.
  *
  */
 interface Page extends Memory
-  raises(eros.key.RequestError, eros.key.NoAccess) {
+  raises(capros.key.RequestError, capros.key.NoAccess) {
 
   /* Sets the contents of the page to zero. 
      Raises NoAccess if the key is read only. */
@@ -13,5 +13,5 @@ interface Page extends Memory
   /* Sets the contents of the page equal to the contents of fromPage.
      Raises NoAccess if the key is read only.
      Raises RequestError if fromPage is not a page key. */
-  void clone(eros.key fromPage);
+  void clone(capros.key fromPage);
 };

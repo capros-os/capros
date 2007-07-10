@@ -6,8 +6,8 @@
 #include <eros/ProcessKey.h>
 #include <eros/endian.h>
 
-#include <idl/eros/Sleep.h>
-#include <idl/eros/Stream.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/Stream.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/NetSysKey.h>
@@ -173,7 +173,7 @@ main(void)
 #endif
   /* wait for a 'q or 'Q' to exit */
   for(;;) {
-    eros_Stream_read(KR_ETERM,&exit);
+    capros_Stream_read(KR_ETERM,&exit);
     if(exit == 'q' || exit == 'Q') break;
   }
   

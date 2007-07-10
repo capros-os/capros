@@ -116,9 +116,9 @@ node_ClearHazard() handles all these cases.
 
 /* These values apply only for segmode keys. */
 // This duplicates definitions in Memory.idl.
-#define eros_Memory_readOnly	   8
-#define eros_Memory_noCall	   4
-#define eros_Memory_weak	   2
+#define capros_Memory_readOnly	   8
+#define capros_Memory_noCall	   4
+#define capros_Memory_weak	   2
 
 struct KeyBits {
   union {
@@ -286,31 +286,31 @@ keyBits_SetType(KeyBits *thisPtr /*@ not null @*/, KeyType kt)
 INLINE bool 
 keyBits_IsNoCall(const KeyBits *thisPtr)
 {
-  return (thisPtr->keyPerms & (eros_Memory_noCall|eros_Memory_weak));
+  return (thisPtr->keyPerms & (capros_Memory_noCall|capros_Memory_weak));
 }
   
 INLINE void 
 keyBits_SetNoCall(KeyBits *thisPtr)
 {
-  thisPtr->keyPerms |= eros_Memory_noCall;
+  thisPtr->keyPerms |= capros_Memory_noCall;
 }
 
 INLINE bool 
 keyBits_IsReadOnly(const KeyBits *thisPtr)
 {
-  return (thisPtr->keyPerms & eros_Memory_readOnly);
+  return (thisPtr->keyPerms & capros_Memory_readOnly);
 }
 
 INLINE bool 
 keyBits_IsWeak(const KeyBits *thisPtr)
 {
-  return (thisPtr->keyPerms & eros_Memory_weak);
+  return (thisPtr->keyPerms & capros_Memory_weak);
 }
 
 INLINE void 
 keyBits_SetWeak(KeyBits *thisPtr)
 {
-  thisPtr->keyPerms |= eros_Memory_weak;
+  thisPtr->keyPerms |= capros_Memory_weak;
 }
   
 INLINE bool 
@@ -335,7 +335,7 @@ keyBits_IsPreparedResumeKey(const KeyBits *thisPtr)
 INLINE void 
 keyBits_SetReadOnly(KeyBits *thisPtr)
 {
-  thisPtr->keyPerms |= eros_Memory_readOnly;
+  thisPtr->keyPerms |= capros_Memory_readOnly;
 }
   
 INLINE bool 

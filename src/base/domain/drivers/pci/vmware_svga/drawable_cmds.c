@@ -22,7 +22,7 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -65,7 +65,7 @@ drawable_RectFill(Drawable *d, rect_t rect, color_t color, uint32_t raster_op);
 /* Need to validate raster operations */
 #define RETURN_IF_BAD_ROP(rop) \
       if (rop < SVGA_ROP_CLEAR || rop > SVGA_ROP_SET) {  \
-	return RC_eros_key_RequestError; \
+	return RC_capros_key_RequestError; \
       }
 
 #ifdef USE_SET_PIXEL
@@ -147,7 +147,7 @@ set_pixel(point_t pixel, color_t color)
 
   /* FIX: Can the following occur if the clipping above is correct? */
   if (offset >= fb_size)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
 
   if (svga_regs[SVGA_REG_BITS_PER_PIXEL] == 16) {
     uint16_t converted = makeColor16(color,

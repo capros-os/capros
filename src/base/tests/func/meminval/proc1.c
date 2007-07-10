@@ -27,10 +27,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
 #include <eros/NodeKey.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/Memory.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/Memory.h>
 #include <domain/domdbg.h>
-//#include <idl/eros/arch/arm/SysTrace.h>
+//#include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_SYSTRACE 11
 #define KR_KEEPER_PROCESS 18
@@ -112,11 +112,11 @@ main(void)
 
     // Make the read-only key.
     if (blss == 1) {
-      ret = eros_Memory_makeReadOnly(KR_PAGE, KR_TEMP);
+      ret = capros_Memory_makeReadOnly(KR_PAGE, KR_TEMP);
       assert(ret == RC_OK);
     } else {
       ret = node_make_segment_key(KR_SEG17 - 2 + blss, blss-1,
-                 eros_Memory_readOnly, KR_TEMP);
+                 capros_Memory_readOnly, KR_TEMP);
       assert(ret == RC_OK);
     }
 

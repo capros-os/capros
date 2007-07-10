@@ -22,13 +22,13 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
 #include <domain/domdbg.h>
 #include <domain/SpaceBankKey.h>
-#include <idl/eros/SysTrace.h>
+#include <idl/capros/SysTrace.h>
 
 /* The purpose of this benchmark is to measure the cost of
    reconstructing page table entries.  It is designed on the
@@ -61,7 +61,7 @@ void main()
   
   eros_SysTrace_info st[NPASS];
   
-  eros_Sleep_sleep(KR_SLEEP, 4000);
+  capros_Sleep_sleep(KR_SLEEP, 4000);
 
   if (spcbank_buy_data_pages(KR_BANK, 1, KR_PAGE, KR_VOID, KR_VOID))
 

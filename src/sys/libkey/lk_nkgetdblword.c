@@ -22,13 +22,13 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/Number.h>
+#include <idl/capros/Number.h>
 
 uint32_t
-eros_Number_getDoubleWord(uint32_t krNumber, uint64_t *pDW)
+capros_Number_getDoubleWord(uint32_t krNumber, uint64_t *pDW)
 {
   uint32_t w0, w1, w2;
-  uint32_t result = eros_Number_get(krNumber, &w0, &w1, &w2);
+  uint32_t result = capros_Number_get(krNumber, &w0, &w1, &w2);
 
   if (result != RC_OK) return result;
 

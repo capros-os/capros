@@ -29,8 +29,8 @@
 #include <eros/cap-instr.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/domain/net/enet/enet.h>
+#include <idl/capros/key.h>
+#include <idl/capros/net/enet/enet.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>

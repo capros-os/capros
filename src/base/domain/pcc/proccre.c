@@ -56,9 +56,9 @@
 #include <eros/KeyConst.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/ProcTool.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/ProcTool.h>
+#include <idl/capros/Number.h>
 
 #include <domain/SpaceBankKey.h>
 #include <domain/domdbg.h>
@@ -178,12 +178,12 @@ ProcessRequest(Message *argmsg)
       break;
     }
     
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     argmsg->snd_w1 = AKT_DomCre;
     break;
     
   default:
-    result = RC_eros_key_UnknownRequest;
+    result = RC_capros_key_UnknownRequest;
     break;
   };
 
@@ -242,7 +242,7 @@ int
 is_our_progeny(uint32_t krGate, uint32_t krNode)
 {
   uint32_t capType;
-  uint32_t result = eros_ProcTool_canOpener(KR_PROCTOOL, krGate, KR_OURBRAND,
+  uint32_t result = capros_ProcTool_canOpener(KR_PROCTOOL, krGate, KR_OURBRAND,
 					    krNode, &capType, 0);
   
   if (result == RC_OK && capType != 0)
@@ -287,13 +287,13 @@ amplify_gate_key(uint32_t krStart, uint32_t krTo, uint32_t *capType,
 		 uint32_t *capInfo)
 {
   uint32_t result = 
-    eros_ProcTool_canOpener(KR_PROCTOOL, krStart, KR_OURBRAND,
+    capros_ProcTool_canOpener(KR_PROCTOOL, krStart, KR_OURBRAND,
 			    krTo, capType, capInfo);
 
   if (result != RC_OK)
     return result;
 
-  (void) eros_ProcTool_makeProcess(KR_PROCTOOL, krTo, krTo);
+  (void) capros_ProcTool_makeProcess(KR_PROCTOOL, krTo, krTo);
   return result;
 }
 
@@ -302,13 +302,13 @@ amplify_segment_key(uint32_t krSeg, uint32_t krTo, uint32_t *capType,
 		    uint32_t *capInfo)
 {
   uint32_t result = 
-    eros_ProcTool_identWrapperKeeper(KR_PROCTOOL, krSeg, KR_OURBRAND,
+    capros_ProcTool_identWrapperKeeper(KR_PROCTOOL, krSeg, KR_OURBRAND,
 				     krTo, capType, capInfo);
 
   if (result != RC_OK || capType == 0)
     return result;
 
-  (void) eros_ProcTool_makeProcess(KR_PROCTOOL, krTo, krTo);
+  (void) capros_ProcTool_makeProcess(KR_PROCTOOL, krTo, krTo);
   return result;
 }
 

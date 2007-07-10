@@ -1,9 +1,8 @@
-package eros;
+package capros;
 
-/** Operations common to all EROS capabilities.
- *
+/*
  * The key interface defines a set of operations that are common to
- * all EROS capabilities. While some objects do not implement some of
+ * all CapROS capabilities. While some objects do not implement some of
  * these operations (e.g. many kernel keys do not honor the destroy
  * operation), these operations are nonetheless so universal that
  * they warrant inclusion in the common ancestor of all interfaces.

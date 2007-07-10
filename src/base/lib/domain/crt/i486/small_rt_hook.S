@@ -140,13 +140,13 @@ ENTRY(__rt_small_startup)
 	cmpl	$0,EXT(__rt_stack_pages)
         jz	EXT(__stack_ready)
 	
-	IVK1(sb_alloc_root_node, OC_eros_SpaceBank_alloc1, eros_Range_otNode)
+	IVK1(sb_alloc_root_node, OC_capros_SpaceBank_alloc1, capros_Range_otNode)
 	
 	IVK1(mk_node_key, OC_Node_MakeNodeKey, (EROS_PAGE_BLSS+1))
 	
 	/* buy the page while the space bank is still hot in
 	   the data cache */
-	IVK1(buy_first_page, OC_eros_SpaceBank_alloc1, eros_Range_otPage)
+	IVK1(buy_first_page, OC_capros_SpaceBank_alloc1, capros_Range_otPage)
 
 	/* fetch current (immutable) address space from our
 	   process slot */
@@ -195,8 +195,8 @@ LEXT(buy_stack)
 	decl	PGSLOT
 	
 
-	movl	$OC_eros_SpaceBank_alloc1,%eax	/* w0 */
-	movl	$eros_Range_otPage,%ebx		/* w1 */
+	movl	$OC_capros_SpaceBank_alloc1,%eax	/* w0 */
+	movl	$capros_Range_otPage,%ebx		/* w1 */
 	xorl	%ecx,%ecx			/* w2 */
 	xorl	%edx,%edx			/* w3 */
 

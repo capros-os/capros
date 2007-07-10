@@ -59,7 +59,7 @@
 #define RC_Node_Range		 1
 
 #ifndef __ASSEMBLER__
-struct eros_Number_value;
+struct capros_Number_value;
 
 uint32_t node_copy(uint32_t krNode, uint32_t slot, uint32_t krTo);
 uint32_t node_swap(uint32_t krNode, uint32_t slot, uint32_t krFrom, 
@@ -68,7 +68,7 @@ uint32_t node_extended_copy(uint32_t krNode, uint32_t slot, uint32_t krTo);
 uint32_t node_extended_swap(uint32_t krNode, uint32_t slot, uint32_t krFrom, 
 			    uint32_t krTo);
 uint32_t node_clone(uint32_t krNode, uint32_t krFrom);
-uint32_t node_write_number(uint32_t krNode, uint32_t slot, const struct eros_Number_value *);
+uint32_t node_write_number(uint32_t krNode, uint32_t slot, const struct capros_Number_value *);
 uint32_t node_make_node_key(uint32_t krNode, uint16_t keyData, 
 			    uint8_t perms, uint32_t krTo);
 uint32_t node_make_wrapper_key(uint32_t krNode, uint16_t keyData,

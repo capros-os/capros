@@ -9,7 +9,7 @@
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
 
-#include <idl/eros/domain/rangeAl/rangeAl.h>
+#include <idl/capros/rangeAl.h>
 #include "constituents.h"
 #include "RangeAllocatorStack.c"
 
@@ -17,11 +17,11 @@
 #define KR_START       KR_APP(1)
 
 
-#define CR_CREATE OC_eros_domain_rangeAl_rangeAl_SendCreateRangeAlloc
-#define CR_REQUEST OC_eros_domain_rangeAl_rangeAl_SendRequestRange
-#define CR_RELEASE OC_eros_domain_rangeAl_rangeAl_SendReleaseRange
-#define CR_DEFINE OC_eros_domain_rangeAl_rangeAl_SendDefineRange
-#define CR_GET OC_eros_domain_rangeAl_rangeAl_SendGetRangeAlloc
+#define CR_CREATE OC_capros_rangeAl_SendCreateRangeAlloc
+#define CR_REQUEST OC_capros_rangeAl_SendRequestRange
+#define CR_RELEASE OC_capros_rangeAl_SendReleaseRange
+#define CR_DEFINE OC_capros_rangeAl_SendDefineRange
+#define CR_GET OC_capros_rangeAl_SendGetRangeAlloc
 
 RA* ra;
 /* The server's API dictates what data types/values are passed for
@@ -49,7 +49,7 @@ uint32_t got, expected;
 	if(result)
 	m->snd_code= RC_OK;
 	else
-	m->snd_code= RC_eros_domain_rangeAl_rangeAl_DefineFail;
+	m->snd_code= RC_capros_rangeAl_DefineFail;
 	}break;
 
 	case CR_REQUEST: {
@@ -60,7 +60,7 @@ uint32_t got, expected;
 	if(m->rcv_limit < got)
 	  got= m->rcv_limit;
 	if (got != expected){
-  	m->snd_code= RC_eros_domain_rangeAl_rangeAl_RangeTaken; 
+  	m->snd_code= RC_capros_rangeAl_RangeTaken; 
 //	kprintf(KR_OSTREAM, "OOPS\n");
 
 	   }
@@ -83,7 +83,7 @@ kprintf(KR_OSTREAM, "receive 3:  %d:\n",  receive[3]);
 	if(GetLastError(ra)!=NO_ERROR){
 //		kprintf(KR_OSTREAM, "error:  %d:\n",  GetLastError(ra));
 //		kprintf(KR_OSTREAM, "value:  %d:\n",  m->snd_w1);
-  		m->snd_code= RC_eros_domain_rangeAl_rangeAl_RangeTaken; 
+  		m->snd_code= RC_capros_rangeAl_RangeTaken; 
 	}
 	}break;
 
@@ -91,7 +91,7 @@ kprintf(KR_OSTREAM, "receive 3:  %d:\n",  receive[3]);
 	result= ReleaseRange(m->rcv_w1, ra);
 	if(result)
 	m->snd_code= RC_OK;
-	else m->snd_code= RC_eros_domain_rangeAl_rangeAl_ReleaseFail;
+	else m->snd_code= RC_capros_rangeAl_ReleaseFail;
 	}break;
 
 	case CR_CREATE:{
@@ -100,7 +100,7 @@ kprintf(KR_OSTREAM, "receive 3:  %d:\n",  receive[3]);
 	  ra= CreateRangeAlloc();
 	  if(ra)
 	  	m->snd_code= RC_OK;
-	  else m->snd_code= RC_eros_domain_rangeAl_rangeAl_CreateFail;
+	  else m->snd_code= RC_capros_rangeAl_CreateFail;
 	} break;
 
 	case CR_GET:{
@@ -112,7 +112,7 @@ kprintf(KR_OSTREAM, "receive 3:  %d:\n",  receive[3]);
 	default:{
 
 /* vandy */
-m->snd_code = RC_eros_key_UnknownRequest;
+m->snd_code = RC_capros_key_UnknownRequest;
 
   m->snd_invKey = KR_RETURN;
   m->snd_key0 = KR_VOID;

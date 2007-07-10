@@ -30,8 +30,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/endian.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/Sleep.h>
-#include <idl/eros/Stream.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/Stream.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/NetSysKey.h>
@@ -92,7 +92,7 @@ stream_write(cap_t strm, const char *s, size_t len)
 
   for (i = 0; i < len; i++) {
     //   kprintf(KR_OSTREAM,"PRINTING  %d =  %d = %c",i,s[i],s[i]);
-    (void) eros_Stream_write(strm, s[i]);
+    (void) capros_Stream_write(strm, s[i]);
   }
 }
 
@@ -204,7 +204,7 @@ tftp_init_rrq(char *filename,uint32_t ipaddr)
   msg.snd_len = totlen;
   CALL(&msg);
 
-  //eros_Sleep_sleep(KR_SLEEP,3000);
+  //capros_Sleep_sleep(KR_SLEEP,3000);
   //CALL(&msg); // retry our call this time wih our ARP cache refreshed
   
  RECEIVE:
@@ -368,7 +368,7 @@ main(void)
     kprintf(KR_OSTREAM, "nettest:Constructing NETSYS...[FAILED]\n");
   }
   
-  eros_Sleep_sleep(KR_SLEEP,5000);
+  capros_Sleep_sleep(KR_SLEEP,5000);
   
   /* Initialize the message structure */
   tmsg.snd_key0   = KR_VOID; /* Send back the generic start key */

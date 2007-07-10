@@ -22,11 +22,11 @@
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 
-#include <idl/eros/Number.h>
+#include <idl/capros/Number.h>
 
 /* Copy key from node slot to key register */
 uint32_t
-node_write_number(uint32_t krNode, uint32_t slot, const eros_Number_value *pnkv)
+node_write_number(uint32_t krNode, uint32_t slot, const capros_Number_value *pnkv)
 {
   Message msg;
 

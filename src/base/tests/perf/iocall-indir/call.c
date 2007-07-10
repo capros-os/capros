@@ -22,9 +22,9 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleeph>
+#include <idl/capros/Sleeph>
 #include <domain/domdbg.h>
-#include <idl/eros/SysTrace.h>
+#include <idl/capros/SysTrace.h>
 
 #define KR_VOID 0
 #define KR_ECHO 8
@@ -82,7 +82,7 @@ void main()
 {
   int i;
 
-  eros_Sleep_sleep(KR_SLEEP, 4000);
+  capros_Sleep_sleep(KR_SLEEP, 4000);
 
   kprintf(KR_OSTREAM, "SENDER ALIGNED\n");
 

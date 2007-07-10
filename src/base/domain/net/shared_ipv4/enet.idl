@@ -1,10 +1,10 @@
-package eros.domain.net.enet;
+package capros.net.enet;
 
 /** This is the interface to the network system, which 
  *  is called by the timer and by application clients
  *   needing network access.
  */
-interface enet extends eros.key {
+interface enet extends capros.key {
   
   /** The various types of start keys specific for each 
    * interface */

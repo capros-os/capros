@@ -33,8 +33,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/StdKeyType.h>
 #include <eros/NodeKey.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Number.h>
 
 /* #define NODEKEYDEBUG */
 
@@ -105,7 +105,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
   Node *theNode = (Node *) key_GetObjectPtr(inv->key);
 
   switch (inv->entry.code) {
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     {
       COMMIT_POINT();
 
@@ -121,7 +121,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
       COMMIT_POINT();
 
       if (slot >= EROS_NODE_SIZE) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 
@@ -162,7 +162,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
       if (isFetch) {
 	COMMIT_POINT();
-	inv->exit.code = RC_eros_key_NoAccess;
+	inv->exit.code = RC_capros_key_NoAccess;
 	return;
       }
 	
@@ -170,7 +170,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
       if (slot >= EROS_NODE_SIZE) {
 	COMMIT_POINT();
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 	
@@ -251,7 +251,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
                       false /* no proc keeper */,
                       inv->entry.w1 /* orignal vaddr */ );
 
-	inv->exit.code = RC_eros_key_NoAccess;
+	inv->exit.code = RC_capros_key_NoAccess;
 	inv->exit.w1 = wi.faultCode;
 	inv->exit.w2 = inv->entry.w1;	// original "address"
 	return;
@@ -313,7 +313,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
       p = inv->entry.w2; /* the permissions */
 
       if ( (w > MAX_BLSS) ) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	dprintf(true, "Value 0x%08x is out of range\n", w);
 	return;
       }
@@ -375,7 +375,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
   case OC_Node_Clear:
     {
       if (isFetch) {
-	inv->exit.code = RC_eros_key_NoAccess;
+	inv->exit.code = RC_capros_key_NoAccess;
 	return;
       }
 
@@ -412,11 +412,11 @@ NodeKey(Invocation* inv /*@ not null @*/)
   case OC_Node_WriteNumber:
     {
       uint32_t slot;
-      eros_Number_value nkv;
+      capros_Number_value nkv;
 
       if (isFetch) {
 	COMMIT_POINT();
-	inv->exit.code = RC_eros_key_NoAccess;
+	inv->exit.code = RC_capros_key_NoAccess;
 	return;
       }
 
@@ -424,7 +424,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
       if (slot >= EROS_NODE_SIZE || inv->entry.len != sizeof(nkv)) {
 	COMMIT_POINT();
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 
@@ -462,7 +462,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
       unsigned slot;
 
       if (isFetch) {
-	inv->exit.code = RC_eros_key_NoAccess;
+	inv->exit.code = RC_capros_key_NoAccess;
 	return;
       }
 
@@ -478,7 +478,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
       COMMIT_POINT();
 
       if (keyBits_GetType(inv->entry.key[0]) != KKT_Node) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 
@@ -515,11 +515,11 @@ NodeKey(Invocation* inv /*@ not null @*/)
   case OC_Node_WriteNumbers:
     {
       if (isFetch) {
-	inv.exit.code = RC_eros_key_NoAccess;
+	inv.exit.code = RC_capros_key_NoAccess;
 	return;
       }
 
-      inv.exit.code = RC_eros_key_RequestError;
+      inv.exit.code = RC_capros_key_RequestError;
 
       struct inMsg {
 	Word start;
@@ -558,7 +558,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
   default:
     COMMIT_POINT();
 
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 }

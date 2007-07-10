@@ -1354,7 +1354,7 @@ output_interface_dispatch(FILE *out, Symbol *s, int indent)
   fprintf(out, "{\n");
 
   do_indent(out, indent+8);
-  fprintf(out, "pMsg->snd_code = RC_eros_key_UnknownRequest;\n");
+  fprintf(out, "pMsg->snd_code = RC_capros_key_UnknownRequest;\n");
 
   do_indent(out, indent+8);
   fprintf(out, "break;\n");

@@ -31,9 +31,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Range.h>
-#include <idl/eros/Forwarder.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Range.h>
+#include <idl/capros/Forwarder.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -118,7 +118,7 @@ bank_getTypeFrame(Bank *bank, uint8_t type);
  *    Implemented as a macro for speed.
  */
 #define bank_getTypeFrame(bank, type) \
-   (((type) == eros_Range_otNode)? (&(bank)->nodeFrame) \
+   (((type) == capros_Range_otNode)? (&(bank)->nodeFrame) \
       : (struct Bank_MOFrame *)NULL)
 
 static uint32_t
@@ -142,7 +142,7 @@ bank_initKeyNode(uint32_t krForwarder, Bank * bank, BankPrecludes limits)
 
   assert(limits < BANKPREC_NUM_PRECLUDES); /* make sure limits is valid */
 
-  retval = eros_Forwarder_swapDataWord(krForwarder,
+  retval = capros_Forwarder_swapDataWord(krForwarder,
              (uint32_t)bank,	// pointer to /bank/
              &oldWord);
   assert ( "writing word into forwarder" && retval == RC_OK );
@@ -151,7 +151,7 @@ bank_initKeyNode(uint32_t krForwarder, Bank * bank, BankPrecludes limits)
   retval = process_make_start_key(KR_SELF, limits, KR_TMP);
   assert ( "making start key" && retval == RC_OK );
 
-  retval = eros_Forwarder_swapTarget(krForwarder, KR_TMP, KR_VOID);
+  retval = capros_Forwarder_swapTarget(krForwarder, KR_TMP, KR_VOID);
   assert ( "swapping start key into forwarder" && retval == RC_OK );
 
   return RC_OK;
@@ -189,7 +189,7 @@ bank_initializeBank(Bank *bank,
   bank->nodeFrame.frameMap = 0u;
   bank->nodeFrame.frameOid = 0ull;
   
-  for (i = 0; i < eros_Range_otNUM_TYPES; i++) {
+  for (i = 0; i < capros_Range_otNUM_TYPES; i++) {
     bank->allocs[i]   = 0u;
     bank->deallocs[i] = 0u;
   }
@@ -229,12 +229,12 @@ bank_init(void)
            curInfo++) {
     
     uint64_t offset;
-    eros_Range_obType obType;
+    capros_Range_obType obType;
     uint32_t result;
     
     /* identify the node and shove it's OID into the bank's
        limitedKey array. */
-    result = eros_Range_identify(KR_SRANGE,
+    result = capros_Range_identify(KR_SRANGE,
 				 curInfo->keyReg,
 				 &obType,
 				 &offset);
@@ -246,7 +246,7 @@ bank_init(void)
 	     curInfo->keyReg,
 	     result);
     }
-    if (obType != eros_Range_otForwarder) {
+    if (obType != capros_Range_otForwarder) {
       kpanic(KR_OSTREAM,
 	     "Spacebank: Hey! preall key in slot %u is not a forwarder! "
 	     "(is 0x%08x)\n",
@@ -317,7 +317,7 @@ bank_ReserveFrames(Bank *bank, uint32_t count)
       bank->allocCount -= count;
     }
     /* return failure */
-    return RC_eros_SpaceBank_LimitReached;
+    return RC_capros_SpaceBank_LimitReached;
   }
   return RC_OK;
 }
@@ -350,14 +350,14 @@ bank_UnreserveFrames(Bank *bank, uint32_t count)
 }
 
 uint32_t
-BankSetLimits(Bank * bank, const eros_SpaceBank_limits * newLimits)
+BankSetLimits(Bank * bank, const capros_SpaceBank_limits * newLimits)
 {
   bank->limit = newLimits->frameLimit;
   return RC_OK;
 }
 
 uint32_t
-BankGetLimits(Bank * bank, /*OUT*/ eros_SpaceBank_limits * getLimits)
+BankGetLimits(Bank * bank, /*OUT*/ capros_SpaceBank_limits * getLimits)
 {
   uint64_t effFrameLimit = UINT64_MAX;
   uint64_t effAllocLimit = UINT64_MAX;
@@ -381,7 +381,7 @@ BankGetLimits(Bank * bank, /*OUT*/ eros_SpaceBank_limits * getLimits)
 
   {
     int i;
-    for (i = 0; i < eros_Range_otNUM_TYPES; i++) {
+    for (i = 0; i < capros_Range_otNUM_TYPES; i++) {
       getLimits->allocs[i]   = bank->allocs[i];
       getLimits->reclaims[i] = bank->deallocs[i];
     }
@@ -400,7 +400,7 @@ BankCreateKey(Bank *bank, BankPrecludes limits, uint32_t kr)
   if (bank->exists[limits]) {
     /* we've already fab'ed the node, just make a new forwarder key */
     
-    retval = eros_Range_getCap(KR_SRANGE, eros_Range_otForwarder,
+    retval = capros_Range_getCap(KR_SRANGE, capros_Range_otForwarder,
 			       bank->limitedKey[limits],
 			       kr);
     if (retval != RC_OK) return retval;
@@ -409,7 +409,7 @@ BankCreateKey(Bank *bank, BankPrecludes limits, uint32_t kr)
     OID oid;
     /* Fabricate a new node. */
 
-    retval = BankAllocObject(bank, eros_Range_otForwarder, kr, &oid);
+    retval = BankAllocObject(bank, capros_Range_otForwarder, kr, &oid);
 
     if (retval != RC_OK)
       return retval;
@@ -426,8 +426,8 @@ BankCreateKey(Bank *bank, BankPrecludes limits, uint32_t kr)
     
   /* FIX: This is wrong -- what about permissions? */
 
-  retval = eros_Forwarder_getOpaqueForwarder(kr,
-             eros_Forwarder_sendWord, kr);
+  retval = capros_Forwarder_getOpaqueForwarder(kr,
+             capros_Forwarder_sendWord, kr);
   assert( retval == RC_OK );
 
   return RC_OK;    
@@ -439,7 +439,7 @@ BankCreateChild(Bank *parent, uint32_t kr)
   Bank *newBank = alloc_bank();
   uint32_t retval;
   
-  if (!newBank) return RC_eros_SpaceBank_LimitReached;
+  if (!newBank) return RC_capros_SpaceBank_LimitReached;
 
   bank_initializeBank(newBank,     /* newBank */
 		      parent,      /* newBank's parent is /parent/ */
@@ -467,11 +467,11 @@ FlushBankCache(Bank * bank)
     int idx;
 
     /* deallocate any unused items */
-    for (idx = 0; idx < objects_per_frame[eros_Range_otNode]; idx++) {
+    for (idx = 0; idx < objects_per_frame[capros_Range_otNode]; idx++) {
       if (bank->nodeFrame.frameMap & (1 << idx)) {
 	allocTree_removeOID(&bank->allocTree,
 			    bank,
-			    eros_Range_otNode,
+			    capros_Range_otNode,
 			    bank->nodeFrame.frameOid | idx);
       }
     }
@@ -563,7 +563,7 @@ DestroyStorage(Bank * bank)
 	      "DestroyStorage: Destroying frame 0x"DW_HEX"\n",
 	      DW_HEX_ARG(curFrame));
 
-    retVal = eros_Range_getPageKey(KR_SRANGE,curFrame,KR_TMP);
+    retVal = capros_Range_getPageKey(KR_SRANGE,curFrame,KR_TMP);
     if (retVal != RC_OK) {
       kdprintf(KR_OSTREAM,
 	       "DestroyStorage: Error getting page key to "
@@ -571,7 +571,7 @@ DestroyStorage(Bank * bank)
 	       DW_HEX_ARG(curFrame));
     }
     
-    retVal = eros_Range_rescind(KR_SRANGE, KR_TMP);
+    retVal = capros_Range_rescind(KR_SRANGE, KR_TMP);
     if (retVal != RC_OK) {
       kdprintf(KR_OSTREAM,
 	       "DestroyStorage: Error rescinding page key to "
@@ -646,7 +646,7 @@ BankDestroyBankAndStorage(Bank *bank, bool andStorage)
 	for (i = 0; i < BANKPREC_NUM_PRECLUDES; i++) {
 	  if (curBank->exists[i]) {
 	    uint32_t result;
-	    result = eros_Range_getNodeKey(KR_SRANGE,
+	    result = capros_Range_getNodeKey(KR_SRANGE,
 					   curBank->limitedKey[i],
 					   KR_TMP);
 
@@ -661,7 +661,7 @@ BankDestroyBankAndStorage(Bank *bank, bool andStorage)
 	    }
 	    
 	    /* It will do no harm to rescind it if we didn't get it */
-	    result = eros_Range_rescind(KR_SRANGE, KR_TMP);
+	    result = capros_Range_rescind(KR_SRANGE, KR_TMP);
 
 	    if (result != RC_OK) {
 	      DEBUG(children)
@@ -675,7 +675,7 @@ BankDestroyBankAndStorage(Bank *bank, bool andStorage)
 	    
 	    result = allocTree_removeOID(&curBank->allocTree,
 					 curBank,
-					 eros_Range_otNode,
+					 capros_Range_otNode,
 					 curBank->limitedKey[i]);
 
 	    if (result == 0) {
@@ -719,10 +719,10 @@ uint32_t
 BankDeallocObject(Bank * bank, uint32_t kr)
 {
   OID oid;
-  eros_Range_obType obType;
+  capros_Range_obType obType;
   uint32_t code;
     
-  code = eros_Range_identify(KR_SRANGE, kr, &obType, &oid);
+  code = capros_Range_identify(KR_SRANGE, kr, &obType, &oid);
   if (code != RC_OK) {
     DEBUG(dealloc)
 	kdprintf(KR_OSTREAM,
@@ -736,10 +736,10 @@ BankDeallocObject(Bank * bank, uint32_t kr)
       kdprintf(KR_OSTREAM, "Bank does not contain %s 0x"DW_HEX"\n",
 	       type_name(obType),
 	       DW_HEX_ARG(oid));
-    return RC_eros_Range_RangeErr;
+    return RC_capros_Range_RangeErr;
   }
   /* It's ours */
-  code = eros_Range_rescind(KR_SRANGE,kr);
+  code = capros_Range_rescind(KR_SRANGE,kr);
   if (code != RC_OK) {
      return code; /* "not a strong key" */ 
   }
@@ -751,9 +751,9 @@ BankDeallocObject(Bank * bank, uint32_t kr)
   DEBUG(dealloc) {
     uint32_t result, nType;
 
-    result = eros_key_getType(kr, &nType);
+    result = capros_key_getType(kr, &nType);
 
-    if (result != RC_OK || nType != RC_eros_key_Void) {
+    if (result != RC_OK || nType != RC_capros_key_Void) {
       /* Didn't dealloc! */
       kpanic(KR_OSTREAM,
              "spacebank: rescind successful but new keytype not Number\n"
@@ -786,7 +786,7 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
 	goto cleanup;
     
       DEBUG(alloc) kprintf(KR_OSTREAM, "spacebank: allocating new frame\n");
-      assert(baseType == eros_Range_otNode);
+      assert(baseType == capros_Range_otNode);
       retVal = ob_AllocNodeFrame(bank, &newFrame);
       if (retVal != RC_OK)
         goto cleanup;
@@ -817,11 +817,11 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
   } else {	// no obj_frame
     /* single frame per object type -- preallocate the object */
     if (bank_ReserveFrames(bank, 1) != RC_OK) {
-      return RC_eros_SpaceBank_LimitReached;
+      return RC_capros_SpaceBank_LimitReached;
     }
     
     DEBUG(alloc) kprintf(KR_OSTREAM, "spacebank: allocating new frame\n");
-    assert(baseType == eros_Range_otPage);
+    assert(baseType == capros_Range_otPage);
     retVal = ob_AllocPageFrame(bank, &newFrame);
     if (retVal != RC_OK)
       goto cleanup;
@@ -843,7 +843,7 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
 	      "spacebank: getting object key "DW_HEX"\n",
 	      DW_HEX_ARG(oid));
     
-  retval = eros_Range_getCap(KR_SRANGE, type, oid, kr);
+  retval = capros_Range_getCap(KR_SRANGE, type, oid, kr);
 
   DEBUG(alloc)
     kprintf(KR_OSTREAM,
@@ -869,7 +869,7 @@ cleanup:
     kdprintf(KR_OSTREAM,
 	     "spacebank: Out of frames.\n");
 
-  return RC_eros_SpaceBank_LimitReached;
+  return RC_capros_SpaceBank_LimitReached;
 }
 
 

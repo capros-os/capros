@@ -27,7 +27,7 @@
 #include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -40,10 +40,10 @@
 #include <domain/EventMgrKey.h>
 
 /* Need the Window System interface for dispatching user events */
-#include <idl/eros/domain/winsys/master.h>
+#include <idl/capros/winsys/master.h>
 
 /* Need the PS/2 interface */
-#include <idl/eros/Ps2.h>
+#include <idl/capros/Ps2.h>
 
 #include "constituents.h"
 #include "debug.h"
@@ -128,7 +128,7 @@ main(void)
 
   /* Initialize the PS2 reader.  If this fails, we obviously don't
      need to construct the PS2 helpers. */
-  result = eros_Ps2_initPs2(KR_PS2READER);
+  result = capros_Ps2_initPs2(KR_PS2READER);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "**ERROR: ps2 reader wouldn't initialize: 0x%08x\n",
 	    result);

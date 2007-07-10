@@ -30,7 +30,7 @@
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -459,6 +459,6 @@ ProcessKeys(Message *msg)
   default:
     break;
   }
-  msg->snd_code = RC_eros_key_UnknownRequest;
+  msg->snd_code = RC_capros_key_UnknownRequest;
   return 1;
 }

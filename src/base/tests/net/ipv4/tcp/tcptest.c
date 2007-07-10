@@ -29,14 +29,14 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/endian.h>
 
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/NetSysKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
-#include <idl/eros/domain/net/ipv4/netsys.h>
+#include <idl/capros/net/ipv4/netsys.h>
 
 #include "constituents.h"
 
@@ -78,7 +78,7 @@ main(void)
     
   /* Sleep for sometime to allow the netsys to configure itself
    * using DHCP */
-  eros_Sleep_sleep(KR_SLEEP,4000);
+  capros_Sleep_sleep(KR_SLEEP,4000);
 
   msg.snd_key0   = KR_VOID;
   msg.snd_key1   = KR_VOID;
@@ -181,7 +181,7 @@ main(void)
 
   kprintf(KR_OSTREAM,"%s",&buf[0]);
   */
-  eros_Sleep_sleep(KR_SLEEP,200000);
+  capros_Sleep_sleep(KR_SLEEP,200000);
   /* Close the connection */
   kprintf(KR_OSTREAM,"TCP Close Called");  
   result = eros_domain_net_ipv4_netsys_tcp_close(KR_NETSYS);

@@ -1,4 +1,4 @@
-package eros;
+package capros;
 
 interface SpaceBank extends key 
   raises (LimitReached,
@@ -30,37 +30,37 @@ interface SpaceBank extends key
   const unsigned byte precludeSetLimits = 2;
 
   void alloc1(Range.obType obType1,
-              out eros.key k0);
+              out capros.key k0);
 
   /* Low 8 bits of obTypes specify type for k0.
      Next higher 8 bits specify type for k1.
    */
   void alloc2(unsigned short obTypes,
-              out eros.key k0, out eros.key k1);
+              out capros.key k0, out capros.key k1);
   /* Low 8 bits of obTypes specify type for k0.
      Next higher 8 bits specify type for k1.
      Next higher 8 bits specify type for k2.
    */
   void alloc3(unsigned long obTypes,
-              out eros.key k0, out eros.key k1, out eros.key k2);
+              out capros.key k0, out capros.key k1, out capros.key k2);
 
-  void free1(eros.key k1);
-  void free2(eros.key k1, eros.key k2);
-  void free3(eros.key k1, eros.key k2, eros.key k3);
+  void free1(capros.key k1);
+  void free2(capros.key k1, capros.key k2);
+  void free3(capros.key k1, capros.key k2, capros.key k3);
 
-//  void sever1(eros.key k1);	// not implemented yet
+//  void sever1(capros.key k1);	// not implemented yet
 
   // ReclaimDataPagesFromNode should go away when we figure out how to get rid
   // of the one use in protospace.S.
-  void ReclaimDataPagesFromNode(eros.key node);
+  void ReclaimDataPagesFromNode(capros.key node);
 
   void setLimits(limits newLimits);
   limits getLimits();
 
   /* Returns 1 if purportedBank is good, 0 otherwise. */
-  unsigned long verify(eros.key purportedBank);
-  eros.key createSubBank();
-  eros.key reduce(unsigned byte /*restrictions*/ r);
-  // void destroy();	// from eros.key
+  unsigned long verify(capros.key purportedBank);
+  capros.key createSubBank();
+  capros.key reduce(unsigned byte /*restrictions*/ r);
+  // void destroy();	// from capros.key
   void destroyBankAndSpace();
 };

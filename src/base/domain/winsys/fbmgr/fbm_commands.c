@@ -25,7 +25,7 @@
 #include <eros/KeyConst.h>
 #include <eros/NodeKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -94,12 +94,12 @@ uint32_t
 fbm_MapClient(cap_t kr_bank, cap_t kr_newspace,
 	      /* out */ uint32_t *buffer_id)
 {
-  uint32_t result = RC_eros_key_RequestError; /* until proven otherwise */
+  uint32_t result = RC_capros_key_RequestError; /* until proven otherwise */
   uint32_t u;
   uint32_t top_level_slot = 0;
 
   if (buffer_id == NULL)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
 
   /* Now, we need to call the Zero Space Constructor (Factory) to
      create a new address space (on the client's dime) that will hold
@@ -167,7 +167,7 @@ uint32_t
 fbm_UnmapClient(uint32_t buffer_id)
 {
   uint32_t tmp = 0;
-  uint32_t result = RC_eros_key_RequestError; /* until proven otherwise */
+  uint32_t result = RC_capros_key_RequestError; /* until proven otherwise */
 
   result = process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
   if (result != RC_OK)

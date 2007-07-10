@@ -35,9 +35,9 @@
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
-#include <idl/eros/Stream.h>
-#include <idl/eros/domain/eterm.h>
-#include <idl/eros/domain/linedisc.h>
+#include <idl/capros/Stream.h>
+#include <idl/capros/eterm.h>
+#include <idl/capros/linedisc.h>
 
 #include "constituents.h"
 
@@ -63,7 +63,7 @@ return_to_vger()
 static void
 stream_writes(cap_t strm, const char *s)
 {
-  eros_Stream_iobuf buf;
+  capros_Stream_iobuf buf;
 
   buf.len = strlen(s);
   buf.max = strlen(s);
@@ -71,7 +71,7 @@ stream_writes(cap_t strm, const char *s)
 
   __builtin_memcpy((void *)(buf.data), s, buf.len);
 
-  eros_Stream_nwrite(strm, buf);
+  capros_Stream_nwrite(strm, buf);
 }
 
 static void
@@ -81,7 +81,7 @@ echo_prompt(cap_t strm)
 }
 
 result_t
-my_eros_Stream_nread(cap_t _self, eros_Stream_iobuf *s)
+my_capros_Stream_nread(cap_t _self, capros_Stream_iobuf *s)
 {
   Message msg;
 
@@ -97,7 +97,7 @@ my_eros_Stream_nread(cap_t _self, eros_Stream_iobuf *s)
   rcvData = alloca(rcvLen);
 
   msg.snd_invKey = KR_LINEDISC;
-  msg.snd_code = OC_eros_Stream_nread;
+  msg.snd_code = OC_capros_Stream_nread;
   msg.snd_w1 = 0;
   msg.snd_w2 = 0;
   msg.snd_w3 = 0;
@@ -123,9 +123,9 @@ my_eros_Stream_nread(cap_t _self, eros_Stream_iobuf *s)
 
   /* Deserialize s */
   {
-    eros_Stream_iobuf *_CAPIDL_arg;
+    capros_Stream_iobuf *_CAPIDL_arg;
 
-    _CAPIDL_arg = (eros_Stream_iobuf *) (rcvData + rcvLen);
+    _CAPIDL_arg = (capros_Stream_iobuf *) (rcvData + rcvLen);
     *s = *_CAPIDL_arg;
     rcvLen += sizeof(*s);
     _CAPIDL_arg->data = (char *) (rcvData + rcvIndir);
@@ -169,14 +169,14 @@ main(void)
 
   for (;;) {
     uint8_t line[1024] = {' '};
-    eros_Stream_iobuf s = {
+    capros_Stream_iobuf s = {
       1024,
       1024,
       line,
     };
 
     echo_prompt(KR_LINEDISC);
-    my_eros_Stream_nread(KR_LINEDISC, &s);
+    my_capros_Stream_nread(KR_LINEDISC, &s);
 
     kprintf(KR_OSTREAM, "Test: returned from nread: len=%u s=[%s]\n", s.len,
 	    s.data);

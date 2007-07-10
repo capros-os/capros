@@ -25,7 +25,7 @@
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -50,7 +50,7 @@ main ()
 #if 0
   kprintf(KR_OSTREAM, "Faulter is initialized and will sleep for 4 seconds.");
 
-  eros_Sleep_sleep(KR_SLEEP, 4000);	/* sleep 4 secs */
+  capros_Sleep_sleep(KR_SLEEP, 4000);	/* sleep 4 secs */
 #endif
   
   kprintf(KR_OSTREAM, "Faulter faults...\n");

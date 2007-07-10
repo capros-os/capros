@@ -26,7 +26,7 @@
 #include "../include/dhcp.h"
 #include "../include/TxRxqueue.h"
 
-#include <idl/eros/Stream.h>
+#include <idl/capros/Stream.h>
 
 /* must be the maximum of all used hardware address lengths
  * across all types of interfaces in use */

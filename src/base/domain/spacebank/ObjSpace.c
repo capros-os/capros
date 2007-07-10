@@ -28,9 +28,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Range.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Range.h>
+#include <idl/capros/Number.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -82,9 +82,9 @@ static uint32_t range_install(uint32_t kr);
 
 /* Format of the volsize node:
    Slot                  Contents
-   eros_Range_otPage     Number key containing number of data pages 
+   capros_Range_otPage     Number key containing number of data pages 
                          used by mkimage
-   eros_Range_otNode     Number key containing number of nodes 
+   capros_Range_otNode     Number key containing number of nodes 
                          used by mkimage
  */
 
@@ -101,17 +101,17 @@ mark_allocated_frames(Range *range0)
   OID firstNodeOid = range0->nSubmaps * EROS_OBJECTS_PER_FRAME;
   OID firstDataPageOid;
   
-  node_copy(KR_VOLSIZE, eros_Range_otNode, KR_TMP);
-  eros_Number_getDoubleWord(KR_TMP, &nNode);
+  node_copy(KR_VOLSIZE, capros_Range_otNode, KR_TMP);
+  capros_Number_getDoubleWord(KR_TMP, &nNode);
 
-  nNodeFrames = DIVRNDUP(nNode, objects_per_frame[eros_Range_otNode]);
+  nNodeFrames = DIVRNDUP(nNode, objects_per_frame[capros_Range_otNode]);
 
   firstDataPageOid = firstNodeOid + (nNodeFrames * EROS_OBJECTS_PER_FRAME);
   
-  node_copy(KR_VOLSIZE, eros_Range_otPage, KR_TMP);
-  eros_Number_getDoubleWord(KR_TMP, &nDataPage);
+  node_copy(KR_VOLSIZE, capros_Range_otPage, KR_TMP);
+  capros_Number_getDoubleWord(KR_TMP, &nDataPage);
 
-  nDataPageFrames += DIVRNDUP(nDataPage, objects_per_frame[eros_Range_otPage]);
+  nDataPageFrames += DIVRNDUP(nDataPage, objects_per_frame[capros_Range_otPage]);
 
   nFrames = nDataPageFrames + nNodeFrames;
   
@@ -135,8 +135,8 @@ mark_allocated_frames(Range *range0)
      tree.  Note that we mark the entire frame allocated in the tree;
      the unused entries lie in the residual word. */
 
-  BankPreallType(&primebank, eros_Range_otNode,     firstNodeOid, nNode);
-  BankPreallType(&primebank, eros_Range_otPage, firstDataPageOid, nDataPage);
+  BankPreallType(&primebank, capros_Range_otNode,     firstNodeOid, nNode);
+  BankPreallType(&primebank, capros_Range_otPage, firstDataPageOid, nDataPage);
 }
 
 void
@@ -152,7 +152,7 @@ ob_init(void)
   for (i = 0; i < EROS_NODE_SIZE; i++) {
     uint32_t result, keyType;
     node_copy(KR_VOLSIZE, i, KR_TMP);
-    result = eros_key_getType(KR_TMP, &keyType);
+    result = capros_key_getType(KR_TMP, &keyType);
     if (result == RC_OK && keyType == AKT_Range)
       range_install(KR_TMP);
   }
@@ -242,7 +242,7 @@ ob_AllocFrame(Bank *bank, OID *oid, bool wantNode)
     }
   }
 
-  return RC_eros_SpaceBank_LimitReached;
+  return RC_capros_SpaceBank_LimitReached;
 }
 
 void
@@ -317,7 +317,7 @@ map_range(Range *range)
   for (map = 0; map < range->nSubmaps; map++, addr += EROS_PAGE_SIZE) {
     OID oid = range->startOID + (map * EROS_OBJECTS_PER_FRAME);
 
-    if (eros_Range_waitPageKey(KR_SRANGE, oid, KR_TMP) != RC_OK)
+    if (capros_Range_waitPageKey(KR_SRANGE, oid, KR_TMP) != RC_OK)
       kpanic(KR_OSTREAM, "Couldn't get page key for submap\n");
 
     DEBUG(init) kdprintf(KR_OSTREAM,
@@ -365,14 +365,14 @@ range_install(uint32_t kr)
   Range *myRange;
   
   if (curRanges == MAX_RANGES)
-    return RC_eros_SpaceBank_LimitReached;
+    return RC_capros_SpaceBank_LimitReached;
 
   /* Divine the length of the range: */
-  if (eros_Range_query(kr, &len) != RC_OK)
+  if (capros_Range_query(kr, &len) != RC_OK)
     kpanic(KR_OSTREAM, "Range refused query!\n");
 
   /* And its start OID: */
-  if (eros_Range_compare(KR_SRANGE, kr, 0, &oid) != RC_OK)
+  if (capros_Range_compare(KR_SRANGE, kr, 0, &oid) != RC_OK)
     kpanic(KR_OSTREAM, "Range refused inclusion test!\n");
 
   endOID = oid + len;
@@ -390,19 +390,19 @@ range_install(uint32_t kr)
 	if (RangeTable[index].endOID <= endOID) {
 	  return RC_OK; /* we've already covered that area */
 	} else {
-	  return RC_eros_SpaceBank_LimitReached; /* we cannot currently extend ranges */
+	  return RC_capros_SpaceBank_LimitReached; /* we cannot currently extend ranges */
 	}
       } else if (RangeTable[index].startOID == oid) {
 	/* begin at the same place */
 	if (RangeTable[index].endOID <= endOID) {
 	  return RC_OK; /* we've already covered that area */
 	} else {
-	  return RC_eros_SpaceBank_LimitReached; /* we cannot currently extend ranges */
+	  return RC_capros_SpaceBank_LimitReached; /* we cannot currently extend ranges */
 	}
       } else if (RangeTable[index].startOID > oid
 		 && RangeTable[index].startOID < endOID) {
 	/* we contain their start -- this is bad */
-	return RC_eros_SpaceBank_LimitReached; /* we cannot currently extend ranges */
+	return RC_capros_SpaceBank_LimitReached; /* we cannot currently extend ranges */
       } 
     }  
   }

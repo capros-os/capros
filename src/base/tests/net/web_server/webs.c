@@ -29,7 +29,7 @@
 #include <eros/endian.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 
 #include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
@@ -37,7 +37,7 @@
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
-#include <idl/eros/domain/net/shared_ipv4/netsys.h>
+#include <idl/capros/net/shared_ipv4/netsys.h>
 #include <addrspace/addrspace.h>
 
 #include <ctype.h>
@@ -123,7 +123,7 @@ main(void)
 
   /* Sleep for sometime to allow the netsys to configure itself
    * using DHCP */
-  eros_Sleep_sleep(KR_SLEEP,2000);
+  capros_Sleep_sleep(KR_SLEEP,2000);
 
   /* Check if we have been configured */
   result = eros_domain_net_shared_ipv4_netsys_get_netconfig(KR_NETSYS_S,

@@ -22,7 +22,7 @@
 #include <eros/Invoke.h>
 #include <domain/MemmapKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 uint32_t
 memmap_map(uint32_t memmap_key, uint32_t physrange_key, 
@@ -30,7 +30,7 @@ memmap_map(uint32_t memmap_key, uint32_t physrange_key,
 	   uint16_t *lss)
 {
   Message m;
-  uint32_t result = RC_eros_key_RequestError; /* until proven otherwise */
+  uint32_t result = RC_capros_key_RequestError; /* until proven otherwise */
   uint32_t send_data[4];
 
   m.snd_invKey = memmap_key;

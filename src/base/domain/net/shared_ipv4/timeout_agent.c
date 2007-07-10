@@ -27,9 +27,9 @@
 #include <eros/cap-instr.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/domain/net/shared_ipv4/netsys.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/net/shared_ipv4/netsys.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -76,7 +76,7 @@ main(void)
   
   /* Loop - Sleep & Call */
   for(;;) {
-    eros_Sleep_sleep(KR_SLEEP,TIME_GRANULARITY);
+    capros_Sleep_sleep(KR_SLEEP,TIME_GRANULARITY);
     //eros_domain_net_ipv4_netsys_timeout_call(KR_NETSYS);
     CALL(&msg);
   }

@@ -22,8 +22,8 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/SysTrace.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/SysTrace.h>
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
 #include <memory.h>

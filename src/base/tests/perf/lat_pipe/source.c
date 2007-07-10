@@ -22,8 +22,8 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/SysTrace.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/SysTrace.h>
 #include <domain/domdbg.h>
 #include <domain/PipeKey.h>
 #include <memory.h>
@@ -73,7 +73,7 @@ main()
   if (len != BUF_SZ)
     kprintf(KR_OSTREAM, "Initialization read did not accept full buffer\n");
   
-  eros_Sleep_sleep(KR_SLEEP, 2000);
+  capros_Sleep_sleep(KR_SLEEP, 2000);
   
   for (i = 0; i < BUF_SZ; i++)
     buf[i] = i % 16;

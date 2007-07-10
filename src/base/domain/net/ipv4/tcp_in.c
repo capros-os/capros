@@ -31,7 +31,7 @@
 #include <eros/Invoke.h>
 #include <eros/ProcessKey.h>
 
-#include <idl/eros/Stream.h>
+#include <idl/capros/Stream.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -555,22 +555,22 @@ tcp_process(struct tcp_pcb *pcb)
 	  sprintf(buf2,"%16x",user_counterHi);
 	  sprintf(buf3," %d",total_interrupts);
 	  for (i = 0; i < 20 && buf1[i] != '\0'; i++) {
-	    (void) eros_Stream_write(KR_CONSTREAM, buf1[i]);
-	    if(buf1[i] == '\r') eros_Stream_write(KR_CONSTREAM,'\n');
+	    (void) capros_Stream_write(KR_CONSTREAM, buf1[i]);
+	    if(buf1[i] == '\r') capros_Stream_write(KR_CONSTREAM,'\n');
 	  }
-	  eros_Stream_write(KR_CONSTREAM,'\n');
+	  capros_Stream_write(KR_CONSTREAM,'\n');
 	  
 	  for (i = 0; i < 20 && buf2[i]!='\0'; i++) {
-	    (void) eros_Stream_write(KR_CONSTREAM, buf2[i]);
-	    if(buf2[i] == '\r') eros_Stream_write(KR_CONSTREAM,'\n');
+	    (void) capros_Stream_write(KR_CONSTREAM, buf2[i]);
+	    if(buf2[i] == '\r') capros_Stream_write(KR_CONSTREAM,'\n');
 	  }
 	  
-	  eros_Stream_write(KR_CONSTREAM,'\n');
+	  capros_Stream_write(KR_CONSTREAM,'\n');
 	  for (i = 0; i < 20 && buf3[i]!='\0'; i++) {
-	    (void) eros_Stream_write(KR_CONSTREAM, buf3[i]);
-	    if(buf3[i] == '\r') eros_Stream_write(KR_CONSTREAM,'\n');
+	    (void) capros_Stream_write(KR_CONSTREAM, buf3[i]);
+	    if(buf3[i] == '\r') capros_Stream_write(KR_CONSTREAM,'\n');
 	  }
-	  eros_Stream_write(KR_CONSTREAM,'\n');
+	  capros_Stream_write(KR_CONSTREAM,'\n');
 	}
       }
       tcp_ack_now(pcb);

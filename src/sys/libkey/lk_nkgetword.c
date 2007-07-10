@@ -21,13 +21,13 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/Number.h>
+#include <idl/capros/Number.h>
 
 uint32_t
-eros_Number_getWord(uint32_t krNumber, uint32_t *pW)
+capros_Number_getWord(uint32_t krNumber, uint32_t *pW)
 {
   uint32_t w0, w1, w2;
-  uint32_t result = eros_Number_get(krNumber, &w0, &w1, &w2);
+  uint32_t result = capros_Number_get(krNumber, &w0, &w1, &w2);
 
   (*pW) = w0;
 

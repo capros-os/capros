@@ -27,7 +27,7 @@
 #include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <string.h>
 #include <domain/domdbg.h>
@@ -85,7 +85,7 @@ ProcessRequest(Message *msg)
   case OC_SigMux_Post:
     {
       if (msg->rcv_keyInfo != KI_MASTER) {
-	result = RC_eros_key_UnknownRequest;
+	result = RC_capros_key_UnknownRequest;
 	break;
       }
 	
@@ -122,7 +122,7 @@ ProcessRequest(Message *msg)
       uint32_t shouldWake;
 
       if (msg->rcv_keyInfo >= NCLIENT) {
-	result = RC_eros_key_UnknownRequest;
+	result = RC_capros_key_UnknownRequest;
 	break;
       }
 	
@@ -154,7 +154,7 @@ ProcessRequest(Message *msg)
   case OC_SigMux_MakeRecipient:
     {
       if (msg->rcv_keyInfo != KI_MASTER) {
-	result = RC_eros_key_UnknownRequest;
+	result = RC_capros_key_UnknownRequest;
 	break;
       }
 
@@ -164,16 +164,16 @@ ProcessRequest(Message *msg)
 	msg->snd_key0 = KR_SCRATCH;
       }
       else {
-	result = RC_eros_key_RequestError;
+	result = RC_capros_key_RequestError;
       }
       break;
     }
-  case OC_eros_key_destroy:
+  case OC_capros_key_destroy:
     teardown();
     return 0; /* CAN'T HAPPEN */
     
   default:
-    result = RC_eros_key_UnknownRequest;
+    result = RC_capros_key_UnknownRequest;
     break;
   }
 

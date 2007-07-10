@@ -51,9 +51,9 @@ $(BUILDDIR)/idltest.o: $(BUILDDIR)/idltest.c
 	$(C_DEP)
 
 interfaces: $(IDL)
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/domain
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/domain
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros/domain
 
 # This is a temporary expedient so that the tree build proceeds
 # unmolested:

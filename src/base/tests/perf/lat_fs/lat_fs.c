@@ -24,7 +24,7 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <eros/NodeKey.h>
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
@@ -129,7 +129,7 @@ main()
   setup();
 
   kprintf(KR_OSTREAM, "Sleep a while\n");
-  eros_Sleep_sleep(KR_SLEEP, 2000);
+  capros_Sleep_sleep(KR_SLEEP, 2000);
   kprintf(KR_OSTREAM, "Begin tracing\n");
 
   for (i = 0; i < sizeof(sizes)/sizeof(int); i++) {
@@ -137,7 +137,7 @@ main()
       DEBUG(passes)
 	kprintf(KR_OSTREAM, "pass %d\n", pass);
 
-      result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+      result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
       if (result != RC_OK)
 	kprintf(KR_OSTREAM, "getTime returned %d(0x%x)\n", result);
 
@@ -162,7 +162,7 @@ main()
 	  result = node_swap(KR_TMPNODE, file, KR_FD0, KR_VOID);
           assert(result == RC_OK);
 	}
-      result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+      result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
 
       kprintf(KR_OSTREAM, "%5dK  create: %10u us per iter\n",
               sizes[i], (uint32_t) ((endTime - startTime)/(NITER*1000)) );
@@ -170,14 +170,14 @@ main()
 #if 0
       kdprintf(KR_OSTREAM, "Done creating\n");
 #endif
-      result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+      result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
       for (file = 0; file < NITER; file++)
 	{
 	  node_copy(KR_TMPNODE, file, KR_FD0);
 
 	  nfile_destroy(KR_FD0);
 	}
-      result = eros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+      result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
 
       kprintf(KR_OSTREAM, "%5dK  delete: %10u us per iter\n",
               sizes[i], (uint32_t) ((endTime - startTime)/(NITER*1000)) );

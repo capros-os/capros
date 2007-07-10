@@ -30,8 +30,8 @@
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/arch/arm/SysTrace.h>
+#include <idl/capros/key.h>
+#include <idl/capros/arch/arm/SysTrace.h>
 
 void
 SysTraceKey(Invocation* inv /*@ not null @*/)
@@ -39,16 +39,16 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
   COMMIT_POINT();
   
   switch(inv->entry.code) {
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_SysTrace;
     break;
 
   default:
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     break;
 
-  case OC_eros_arch_arm_SysTrace_CheckConsistency:
+  case OC_capros_arch_arm_SysTrace_CheckConsistency:
     {
       // Performance test of check.
       #include <kerninc/Check.h>
@@ -57,7 +57,7 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_eros_arch_arm_SysTrace_clearKernelStats:
+  case OC_capros_arch_arm_SysTrace_clearKernelStats:
     {
       bzero(&KernStats, sizeof(KernStats));
       inv->exit.code = RC_OK;

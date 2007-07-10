@@ -1,4 +1,4 @@
-package eros;
+package capros;
 
 /** Interface for process key creation/manipulation.
  */
@@ -7,20 +7,20 @@ interface ProcTool extends key {
      haven't been converted yet. */
 
   /** Make a process key from a node key */
-  eros.key makeProcess(eros.key krNode);
+  capros.key makeProcess(capros.key krNode);
 
-  boolean compareOrigins(eros.key krProc0, eros.key krProc1);
+  boolean compareOrigins(capros.key krProc0, capros.key krProc1);
 
-  void canOpener(eros.key gateKey, eros.key brand, out eros.key nodeKey,
+  void canOpener(capros.key gateKey, capros.key brand, out capros.key nodeKey,
 		 out unsigned long keyType, out unsigned long keyInfo);
 
-  void identWrapperKeeper(eros.key wrapper, eros.key brand, 
-			  out eros.key nodeKey, 
+  void identWrapperKeeper(capros.key wrapper, capros.key brand, 
+			  out capros.key nodeKey, 
 			  out unsigned long keyType,
 			  out unsigned long keyInfo);
 
-  void identForwarderTarget(eros.key forwarder, eros.key brand, 
-			  out eros.key nonOpaqueForwarder, 
+  void identForwarderTarget(capros.key forwarder, capros.key brand, 
+			  out capros.key nonOpaqueForwarder, 
 			  out unsigned long keyType, // 1 start, 2 resume
 			  out unsigned long keyInfo);
 };

@@ -30,7 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/KeyConst.h>
 #include <eros/ProcessKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -93,7 +93,7 @@ session_NewWindow(Session *s, uint32_t client_bank_slot,
     kprintf(KR_OSTREAM, "Inside session_NewWindow()...");
 
   if (s == NULL)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
 
   /* First create decoration window, if needed */
   if (decs) {
@@ -149,7 +149,7 @@ session_NewInvisibleWindow(Session *s, Window *parent,
     kprintf(KR_OSTREAM, "Inside session_NewInvisibleWindow()...");
 
   if (s == NULL)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
 
   inv = invisible_create(parent, origin, size, s, qualifier);
 
@@ -295,7 +295,7 @@ session_NextEvent(Session *s, Event *ev)
 
     if (!EvQueue_Remove(&(s->events), ev)) {
       kprintf(KR_OSTREAM, "** ERROR: empty queue found.");
-      return RC_eros_key_RequestError;
+      return RC_capros_key_RequestError;
     }
   }
 
@@ -361,7 +361,7 @@ uint32_t session_WinResize(Window *w, point_t size_delta)
   point_t null_delta = {0,0};
 
   if (w == NULL)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
 
   w->move(w, null_delta, size_delta);
 
@@ -381,7 +381,7 @@ session_NewSessionCreator(Session *s, Window *container,
 			   KR_SESSION_CREATOR);
   return forwarder_create(KR_CLIENT_BANK, kr_new_creator, KR_NEW_NODE,
 			KR_SESSION_CREATOR,
-			eros_Forwarder_sendWord,
+			capros_Forwarder_sendWord,
 			ADDRESS(container) );
 
 }

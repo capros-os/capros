@@ -66,9 +66,9 @@ $(EOUT):
 	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(ANSIOBJ) $(EOUTOBJ) $(LIBS) $(DOMLIB)
 
 interfaces: $(IDL)
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain/eterm
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain/eterm
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/domain
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/eterm
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros/eterm
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/eterm

@@ -30,8 +30,8 @@
 #include <domain/Runtime.h>
 
 /* Include the needed interfaces */
-#include <idl/eros/Stream.h>
-#include <idl/eros/domain/linedisc.h>
+#include <idl/capros/Stream.h>
+#include <idl/capros/linedisc.h>
 
 #include "keydefs.h"
 #include "buffer.h"
@@ -45,12 +45,12 @@ ProcessInputRequest(Message *m)
   COPY_KEYREG(KR_RETURN, KR_STASH_IN);
 
   switch(m->rcv_code) {
-  case OC_eros_Stream_read:
+  case OC_capros_Stream_read:
     {
     }
     break;
 
-  case OC_eros_Stream_nread:
+  case OC_capros_Stream_nread:
     {
       bool eol = false;
       uint32_t u;
@@ -67,7 +67,7 @@ ProcessInputRequest(Message *m)
 	uint8_t c = 0;
 
 	/* Read a character */
-	eros_Stream_read(KR_RAW_STREAM, &c);
+	capros_Stream_read(KR_RAW_STREAM, &c);
 
 	/* Test for EOL */
 	eol = (c == tstate.c_cc[eros_domain_linedisc_VEOL] ||
@@ -80,7 +80,7 @@ ProcessInputRequest(Message *m)
 
       {
 	unsigned sndIndir = 16;
-	eros_Stream_iobuf *s = (eros_Stream_iobuf *) (m->snd_data + 0);
+	capros_Stream_iobuf *s = (capros_Stream_iobuf *) (m->snd_data + 0);
 
 	/* FIX: I think this is wrong! (vandy) */
 	s->data = alloca((linebuf.len+1) * sizeof(*s->data));
@@ -107,7 +107,7 @@ ProcessInputRequest(Message *m)
 
   default:
     {
-      m->snd_code = RC_eros_key_UnknownRequest;
+      m->snd_code = RC_capros_key_UnknownRequest;
     }
   }
 

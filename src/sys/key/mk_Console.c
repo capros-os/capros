@@ -32,7 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/StdKeyType.h>
 #include <eros/ConsoleKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 extern void kstream_PutBuf(uint8_t *s, uint32_t len);
 
@@ -48,7 +48,7 @@ ConsoleKey(Invocation* inv /*@ not null @*/)
       COMMIT_POINT();
 
       if (inv->entry.len > 1024) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 
@@ -67,14 +67,14 @@ ConsoleKey(Invocation* inv /*@ not null @*/)
       Debugger();
       break;
     }
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     {
       inv->exit.code = RC_OK;
       inv->exit.w1 = AKT_Console;
       break;
     }
   default:
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     break;
   }
 

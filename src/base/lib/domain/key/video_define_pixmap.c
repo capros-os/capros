@@ -22,7 +22,7 @@
 #include <eros/Invoke.h>
 #include <domain/drivers/VideoDriverKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 /* From svga_reg.h */
 #define PIXMAP_SCANLINE_SIZE(w,d) (( ((w)*(d))+31 ) >> 5)
@@ -50,7 +50,7 @@ video_define_pixmap(uint32_t video_key,
 
   uint32_t scanline[size + 5];
   uint32_t line_no = 0;
-  uint32_t result = RC_eros_key_RequestError; /* until proven otherwise */
+  uint32_t result = RC_capros_key_RequestError; /* until proven otherwise */
 
   m.snd_invKey = video_key;
   m.snd_code = OC_Video_DefinePixmapLine;

@@ -1,6 +1,6 @@
-package eros.domain.winsys;
+package capros.winsys;
 
-interface session_creator extends eros.key raises (NoSessionAvailable) {
+interface session_creator extends capros.key raises (NoSessionAvailable) {
 
   exception NoSessionAvailable;
 
@@ -10,7 +10,7 @@ interface session_creator extends eros.key raises (NoSessionAvailable) {
    * trust of the session creator.  
    *
    */
-  eros.key new_session(eros.key bank);
+  capros.key new_session(capros.key bank);
 
-  eros.key constrained_creator(unsigned long window_id);
+  capros.key constrained_creator(unsigned long window_id);
 };

@@ -26,7 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <domain/SessionKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 uint32_t
 session_new_session_creator(cap_t session_key, 

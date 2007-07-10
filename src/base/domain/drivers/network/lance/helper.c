@@ -29,8 +29,8 @@
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/DevPrivs.h>
+#include <idl/capros/key.h>
+#include <idl/capros/DevPrivs.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -73,7 +73,7 @@ ProcessRequest(Message *msg)
   default:
     break;
   }
-  msg->snd_code = RC_eros_key_UnknownRequest;
+  msg->snd_code = RC_capros_key_UnknownRequest;
   return 1;
 }
 
@@ -161,7 +161,7 @@ main(void)
   
   /* Loop infinitely waiting for IRQ */
   for(;;) {
-    result = eros_DevPrivs_waitIRQ(KR_DEVPRIVS,IRQ);
+    result = capros_DevPrivs_waitIRQ(KR_DEVPRIVS,IRQ);
     if (result != RC_OK) {
 #ifdef DEBUG
       kprintf(KR_OSTREAM, "Lance helper: ERROR on IRQ LINE %d",IRQ);

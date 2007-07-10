@@ -28,7 +28,7 @@
 #include <domain/domdbg.h>
 #include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
-#include <idl/eros/SysTrace.h>
+#include <idl/capros/SysTrace.h>
 
 #define KR_ZSF      1
 #define KR_SELF     2

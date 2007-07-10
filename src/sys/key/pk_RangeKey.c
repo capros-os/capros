@@ -33,10 +33,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Range.h>
-#include <idl/eros/Memory.h>
-#include <idl/eros/Forwarder.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Range.h>
+#include <idl/capros/Memory.h>
+#include <idl/capros/Forwarder.h>
 
 /*
  * There is a problem with range keys that is pretty well
@@ -95,15 +95,15 @@ static int
 ValidateKey(Key * key)
 {
   if (keyBits_IsType(key, KKT_Page))	// maybe test readOnly
-    return eros_Range_otPage;
+    return capros_Range_otPage;
   else if (keyBits_IsType(key, KKT_Node))	// maybe test readOnly
-    return eros_Range_otNode;
+    return capros_Range_otNode;
   else if (keyBits_IsType(key, KKT_Forwarder)
-           && ! (key->keyData & eros_Forwarder_opaque) )
-    return eros_Range_otForwarder;
+           && ! (key->keyData & capros_Forwarder_opaque) )
+    return capros_Range_otForwarder;
   else if (keyBits_IsType(key, KKT_GPT)
-           && ! (key->keyData & eros_Memory_opaque) )
-    return eros_Range_otGPT;
+           && ! (key->keyData & capros_Memory_opaque) )
+    return capros_Range_otGPT;
   else return -1;
 }
 
@@ -132,7 +132,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
   if (oid >= rngEnd) {
     dprintf(true, "oid 0x%X top 0x%X\n", oid, rngEnd);
     COMMIT_POINT();
-    inv->exit.code = RC_eros_Range_RangeErr;
+    inv->exit.code = RC_capros_Range_RangeErr;
     return;
   }
 
@@ -143,7 +143,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
 
   if (! wait && ! objC_HaveSource(oid)) {
     COMMIT_POINT();
-    inv->exit.code = RC_eros_Range_RangeErr;
+    inv->exit.code = RC_capros_Range_RangeErr;
     return;
   }
 
@@ -151,7 +151,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
     obType == ot_PtDataPage ? 1 : DISK_NODES_PER_PAGE;
   if (obNdx >= objPerPage) {
     COMMIT_POINT();
-    inv->exit.code = RC_eros_Range_RangeErr;
+    inv->exit.code = RC_capros_Range_RangeErr;
     return;
   }
 
@@ -239,7 +239,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 {
   bool waitFlag;
 
-  eros_Range_off_t range;
+  capros_Range_off_t range;
   
   rngEnd = key_GetRange(inv->key, &rngStart);
   
@@ -247,7 +247,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 
 
   switch(inv->entry.code) {
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     COMMIT_POINT();
 
     /* Notice that this returns AKT_Range for both the prime range key
@@ -259,7 +259,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
     inv->exit.w1 = AKT_Range;
     return;
 
-  case OC_eros_Range_query:
+  case OC_capros_Range_query:
     {
       COMMIT_POINT();
 
@@ -271,7 +271,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       return;
     }
     
-  case OC_eros_Range_nextSubrange:
+  case OC_capros_Range_nextSubrange:
     {
       OID subStart;
       OID subEnd;
@@ -281,7 +281,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       OID startOffset = w1w2Offset(inv) + rngStart;
 
       if (startOffset >= rngEnd) {
-	inv->exit.code = RC_eros_Range_RangeErr;
+	inv->exit.code = RC_capros_Range_RangeErr;
 	return;
       }
 
@@ -304,7 +304,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       return;
     }
     
-  case OC_eros_Range_makeSubrange:
+  case OC_capros_Range_makeSubrange:
     {
       OID newLen;
       OID newEnd;
@@ -330,7 +330,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 	  (newStart >= rngEnd) ||
 	  (newEnd <= rngStart) ||
 	  (newEnd > rngEnd)) {
-	inv->exit.code = RC_eros_Range_RangeErr;
+	inv->exit.code = RC_capros_Range_RangeErr;
 	return;
       }
 
@@ -354,7 +354,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       return;
     }
     
-  case OC_eros_Range_identify:
+  case OC_capros_Range_identify:
     {
       /* Key to identify is in slot 0 */
       Key* key /*@ not null @*/ = inv->entry.key[0];
@@ -365,7 +365,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 
       int t = ValidateKey(key);
       if (t < 0) {
-	inv->exit.code = RC_eros_Range_RangeErr;
+	inv->exit.code = RC_capros_Range_RangeErr;
 	return;
       }
 
@@ -376,7 +376,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;	// default
       
       if ( oid < rngStart || oid >= rngEnd ) {
-	inv->exit.code = RC_eros_Range_RangeErr;
+	inv->exit.code = RC_capros_Range_RangeErr;
         return;
       }
       range = oid - rngStart;
@@ -386,14 +386,14 @@ RangeKey(Invocation* inv /*@ not null @*/)
       assert (sizeof(inv->exit.w2) == sizeof(uint32_t) ||
 	      sizeof(inv->exit.w2) == sizeof(uint64_t));
       inv->exit.w2 = range;
-      if (sizeof(inv->exit.w2) != sizeof(eros_Range_off_t))
+      if (sizeof(inv->exit.w2) != sizeof(capros_Range_off_t))
 	inv->exit.w3 = (range >> 32);
       else
 	inv->exit.w3 = 0;
       
       return;
     }
-  case OC_eros_Range_rescind:
+  case OC_capros_Range_rescind:
     {
       Key * key /*@ not null @*/ = inv->entry.key[0];
    
@@ -402,7 +402,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;
       
       if (ValidateKey(key) < 0) {
-	inv->exit.code = RC_eros_Range_RangeErr;
+	inv->exit.code = RC_capros_Range_RangeErr;
 	COMMIT_POINT();
 
 	return;
@@ -417,7 +417,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 #endif
       
       if ( oid < rngStart || oid >= rngEnd ) {
-	inv->exit.code = RC_eros_Range_RangeErr;
+	inv->exit.code = RC_capros_Range_RangeErr;
 	COMMIT_POINT();
 
 	return;
@@ -438,53 +438,53 @@ RangeKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
-  case OC_eros_Range_waitPageKey:
+  case OC_capros_Range_waitPageKey:
     MakeObjectKey(inv, w1w2Offset(inv),
       true, ot_PtDataPage, KKT_Page);
     return;
 
-  case OC_eros_Range_getPageKey:
+  case OC_capros_Range_getPageKey:
     MakeObjectKey(inv, w1w2Offset(inv),
       false, ot_PtDataPage, KKT_Page);
     return;
 
-  case OC_eros_Range_waitNodeKey:
+  case OC_capros_Range_waitNodeKey:
     MakeObjectKey(inv, w1w2Offset(inv),
       true, ot_NtUnprepared, KKT_Node);
     return;
 
-  case OC_eros_Range_getNodeKey:
+  case OC_capros_Range_getNodeKey:
     MakeObjectKey(inv, w1w2Offset(inv),
       false, ot_NtUnprepared, KKT_Node);
     return;
 
-  case OC_eros_Range_getCap:
+  case OC_capros_Range_getCap:
     waitFlag = false;
     goto rangeGetWaitCap;
 
-  case OC_eros_Range_waitCap:
+  case OC_capros_Range_waitCap:
     waitFlag = true;
 rangeGetWaitCap:
     {
       uint32_t ot = inv->entry.w1;
 
-      if (ot >= eros_Range_otNUM_TYPES) {
+      if (ot >= capros_Range_otNUM_TYPES) {
         COMMIT_POINT();
-        inv->exit.code = RC_eros_Range_RangeErr;
+        inv->exit.code = RC_capros_Range_RangeErr;
         return;
       }
 
-      static ObType baseType[eros_Range_otNUM_TYPES] = {
-        [eros_Range_otPage]=ot_PtDataPage,
-        [eros_Range_otNode]=ot_NtUnprepared,
-        [eros_Range_otForwarder]=ot_NtUnprepared,
-        [eros_Range_otGPT]=ot_NtUnprepared,
+      static ObType baseType[capros_Range_otNUM_TYPES] = {
+        [capros_Range_otPage]=ot_PtDataPage,
+        [capros_Range_otNode]=ot_NtUnprepared,
+        [capros_Range_otForwarder]=ot_NtUnprepared,
+        [capros_Range_otGPT]=ot_NtUnprepared,
       };
-      static uint8_t obKKT[eros_Range_otNUM_TYPES] = {
-        [eros_Range_otPage]=KKT_Page,
-        [eros_Range_otNode]=KKT_Node,
-        [eros_Range_otForwarder]=KKT_Forwarder,
-        [eros_Range_otGPT]=KKT_GPT,
+      static uint8_t obKKT[capros_Range_otNUM_TYPES] = {
+        [capros_Range_otPage]=KKT_Page,
+        [capros_Range_otNode]=KKT_Node,
+        [capros_Range_otForwarder]=KKT_Forwarder,
+        [capros_Range_otGPT]=KKT_GPT,
       };
 
       MakeObjectKey(inv, w2w3Offset(inv),
@@ -492,7 +492,7 @@ rangeGetWaitCap:
       return;
     }
 
-  case OC_eros_Range_compare:
+  case OC_capros_Range_compare:
     {
       Key* key /*@ not null @*/ = inv->entry.key[0];
 
@@ -538,7 +538,7 @@ rangeGetWaitCap:
   default:
     COMMIT_POINT();
 
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 

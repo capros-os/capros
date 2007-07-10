@@ -29,7 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/DiskNodeStruct.h>
 #include <eros/KeyConst.h>
 #include <domain/domdbg.h>
-#include <idl/eros/SysTrace.h>
+#include <idl/capros/SysTrace.h>
 
 #define KR_SELF     2
 #define KR_SCHED    3

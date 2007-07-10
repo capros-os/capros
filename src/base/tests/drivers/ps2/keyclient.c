@@ -30,8 +30,8 @@
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Ps2.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Ps2.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -107,7 +107,7 @@ getChar(void)
   
   /* Call ps2reader */
   while (kcode == 0) {
-    (void)eros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
+    (void)capros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
     
     while(data > -1) { 
       do {
@@ -123,7 +123,7 @@ getChar(void)
 	updateLeds(&state);
       }
             
-      (void)eros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
+      (void)capros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
     }
   }
   //kprintf(KR_OSTREAM,"Returning kcode = %d",kcode);
@@ -198,7 +198,7 @@ updateLeds(int *status)
   state = state << 5;
   state = state >> 5;
 
-  result = eros_Ps2_setLed(KR_PS2READER,state);
+  result = capros_Ps2_setLed(KR_PS2READER,state);
   
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Problem setting LEDs.errcode = %d",result);

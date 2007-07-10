@@ -24,8 +24,8 @@
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Number.h>
 
 #include <domain/Runtime.h>
 #include <domain/SpaceBankKey.h>
@@ -69,12 +69,12 @@ uint32_t
 addrspace_prep_for_mapping(uint32_t kr_self, uint32_t kr_bank, 
 			   uint32_t kr_tmp, uint32_t kr_new_node)
 {
-  eros_Number_value window_key;
+  capros_Number_value window_key;
   uint32_t slot;
   uint32_t result = RC_OK;
 
   if (EROS_NODE_SIZE != 32)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
 
   /* Stash the current ProcAddrSpace key */
   result = process_copy(kr_self, ProcAddrSpace, kr_tmp);
@@ -117,7 +117,7 @@ uint32_t
 addrspace_insert_lwk(cap_t node, uint32_t base_slot, uint32_t lwk_slot, 
 		     uint16_t lss_of_base)
 {
-  eros_Number_value lwk;
+  capros_Number_value lwk;
 
   lwk.value[2] = base_slot << EROS_NODE_LGSIZE;
   lwk.value[1] = 0;  /* local window key high order bits are zero  */

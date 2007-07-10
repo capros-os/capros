@@ -22,15 +22,15 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/KeyBits.h>
+#include <idl/capros/KeyBits.h>
 #include <domdbg/domdbg.h>
 
 void
 ShowKey(uint32_t krConsole, uint32_t krKeyBits, uint32_t kr)
 {
-  struct eros_KeyBits_info info;
+  struct capros_KeyBits_info info;
 
-  eros_KeyBits_get(krKeyBits, kr, &info);
+  capros_KeyBits_get(krKeyBits, kr, &info);
   
   kprintf(krConsole, "Keybits version is 0x%08x\n", info.version);
 

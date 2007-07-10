@@ -1,4 +1,4 @@
-package eros;
+package capros;
 
 /** Kernel interface to page and segment keys.
  *
@@ -11,11 +11,11 @@ interface Memory extends key {
   const unsigned long readOnly = 8;
 
   /* Returns a key to the memory object with reduced permissions. */
-//  eros.key reduce();
+//  capros.key reduce();
 
   /* Returns the memory object's lss and restrictions. */
   void lssAndPerms(out unsigned long lss, out unsigned long restrictions);
 
   /* Returns a read only key to the memory object. */
-  eros.key makeReadOnly();
+  capros.key makeReadOnly();
 };

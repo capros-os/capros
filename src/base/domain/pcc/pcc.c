@@ -41,9 +41,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/StdKeyType.h>
 #include <eros/machine/Registers.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/ProcTool.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/ProcTool.h>
+#include <idl/capros/Number.h>
 
 #include <domain/SpaceBankKey.h>
 #include <domain/PccKey.h>
@@ -103,12 +103,12 @@ ProcessRequest(Message *argmsg, domcre_info *pInfo)
     result = identify_domcre(KR_ARG0);
     break;
 
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     argmsg->snd_w1 = AKT_PCC;
     break;
 
   default:
-    result = RC_eros_key_UnknownRequest;
+    result = RC_capros_key_UnknownRequest;
     break;
   };
 
@@ -121,7 +121,7 @@ init_pcc(domcre_info *pInfo)
 {
   node_copy(KR_CONSTIT, KC_DOMCRE_PC, KR_SCRATCH);
 
-  eros_Number_getWord(KR_SCRATCH, &pInfo->domcre_pc);
+  capros_Number_getWord(KR_SCRATCH, &pInfo->domcre_pc);
 
 
   node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
@@ -176,7 +176,7 @@ main()
 int
 destroy_domain(uint32_t krBank, uint32_t krDomKey)
 {
-  if (eros_ProcTool_canOpener(KR_PROCTOOL, krDomKey, KR_OURBRAND, krDomKey, 0, 0) != RC_OK)
+  if (capros_ProcTool_canOpener(KR_PROCTOOL, krDomKey, KR_OURBRAND, krDomKey, 0, 0) != RC_OK)
     return FALSE;
 
 #if defined(EROS_TARGET_i486)
@@ -340,7 +340,7 @@ is_our_progeny(uint32_t krStart, uint32_t krNode)
 {
   uint32_t capType;
   uint32_t result = 
-    eros_ProcTool_canOpener(KR_PROCTOOL, krStart, KR_OURBRAND,
+    capros_ProcTool_canOpener(KR_PROCTOOL, krStart, KR_OURBRAND,
 			    krNode, &capType, 0);
   
   if (result == RC_OK && capType != 0)
@@ -355,5 +355,5 @@ uint32_t spcbank_return_node(uint32_t krBank, uint32_t krNode);
 uint32_t
 identify_domcre(uint32_t krDomCre)
 {
-  return RC_eros_key_UnknownRequest;
+  return RC_capros_key_UnknownRequest;
 }

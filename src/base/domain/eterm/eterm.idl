@@ -1,6 +1,6 @@
-package eros.domain;
+package capros;
 
-interface eterm extends eros.key {
+interface eterm extends capros.key {
 
   /**
    * Give the domain the necessary keys so it can create a graphics
@@ -8,12 +8,12 @@ interface eterm extends eros.key {
    * events correctly.
    *
    */
-  void initialize(eros.key kr_session, out unsigned long window_id);
+  void initialize(capros.key kr_session, out unsigned long window_id);
 
   /**
    * Retrieve a stream key for eterm.
    */
-  eros.key stream_open();
+  capros.key stream_open();
 
   /**
    * Set the character used for the current location of the cursor 
@@ -85,11 +85,11 @@ interface eterm extends eros.key {
   /**
    * Put capabilities into pastebuffer.
    */
-  void put_pastebuffer(eros.key content, eros.key converter);
+  void put_pastebuffer(capros.key content, capros.key converter);
 
   /**
    * Get capabilities from pastebuffer.
    */
-  void get_pastebuffer(out eros.key content, out eros.key converter);
+  void get_pastebuffer(out capros.key content, out capros.key converter);
 };
 

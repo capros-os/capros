@@ -26,11 +26,11 @@ Approved for public release, distribution unlimited. */
 #include <domain/Runtime.h>
 #include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/Discrim.h>
-#include <idl/eros/Forwarder.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/Discrim.h>
+#include <idl/capros/Forwarder.h>
 #include <domain/domdbg.h>
-#include <idl/eros/arch/arm/SysTrace.h>
+#include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_DISCRIM 8
 #define KR_SLEEP 9
@@ -83,8 +83,8 @@ main()
 
   kprintf(KR_OSTREAM, "Calling forwarder getType.\n");
 
-  eros_key_type type;
-  retval = eros_key_getType(KR_FORWARDER, &type);
+  capros_key_type type;
+  retval = capros_key_getType(KR_FORWARDER, &type);
   checkEqual(retval, RC_OK);
   checkEqual(type, AKT_Forwarder);
 
@@ -107,20 +107,20 @@ main()
   kprintf(KR_OSTREAM, "Calling forwarder.\n");
 
   // Check swapTarget.
-  retval = eros_Forwarder_swapTarget(KR_FORWARDER, KR_ECHO_START1, KR_SCRATCH);
+  retval = capros_Forwarder_swapTarget(KR_FORWARDER, KR_ECHO_START1, KR_SCRATCH);
   checkEqual(retval, RC_OK);
 
   // Should get the original target, which is a start key with keyInfo 0. 
-  retval = eros_Discrim_compare(KR_DISCRIM, KR_SCRATCH, KR_ECHO_START0, &b);
+  retval = capros_Discrim_compare(KR_DISCRIM, KR_SCRATCH, KR_ECHO_START0, &b);
   checkEqual(retval, RC_OK);
   checkEqual(b, true);
 
   // Now get the target key we just stored. 
-  retval = eros_Forwarder_getTarget(KR_FORWARDER, KR_SCRATCH);
+  retval = capros_Forwarder_getTarget(KR_FORWARDER, KR_SCRATCH);
   checkEqual(retval, RC_OK);
 
   // Should get the new target, which is a start key with keyInfo 17. 
-  retval = eros_Discrim_compare(KR_DISCRIM, KR_SCRATCH, KR_ECHO_START1, &b);
+  retval = capros_Discrim_compare(KR_DISCRIM, KR_SCRATCH, KR_ECHO_START1, &b);
   checkEqual(retval, RC_OK);
   checkEqual(b, true);
 
@@ -134,37 +134,37 @@ main()
   checkEqual(msg.rcv_w3, 19);	// w3 is echoed
 
   // Check swapSlot.
-  retval = eros_Forwarder_swapSlot(KR_FORWARDER, eros_Forwarder_maxSlot+1,
+  retval = capros_Forwarder_swapSlot(KR_FORWARDER, capros_Forwarder_maxSlot+1,
              KR_ECHO_START1, KR_SCRATCH);
-  checkEqual(retval, RC_eros_key_RequestError);
+  checkEqual(retval, RC_capros_key_RequestError);
 
-  retval = eros_Forwarder_swapSlot(KR_FORWARDER, eros_Forwarder_maxSlot,
+  retval = capros_Forwarder_swapSlot(KR_FORWARDER, capros_Forwarder_maxSlot,
              KR_ECHO_START1, KR_SCRATCH);
   checkEqual(retval, RC_OK);
 
   // Should get void.
-  retval = eros_Discrim_classify(KR_DISCRIM, KR_SCRATCH, &class);
+  retval = capros_Discrim_classify(KR_DISCRIM, KR_SCRATCH, &class);
   checkEqual(retval, RC_OK);
-  checkEqual(class, eros_Discrim_clVoid);
+  checkEqual(class, capros_Discrim_clVoid);
 
   // Check getSlot.
-  retval = eros_Forwarder_getSlot(KR_FORWARDER, eros_Forwarder_maxSlot+1,
+  retval = capros_Forwarder_getSlot(KR_FORWARDER, capros_Forwarder_maxSlot+1,
              KR_SCRATCH);
-  checkEqual(retval, RC_eros_key_RequestError);
+  checkEqual(retval, RC_capros_key_RequestError);
 
-  retval = eros_Forwarder_getSlot(KR_FORWARDER, eros_Forwarder_maxSlot,
+  retval = capros_Forwarder_getSlot(KR_FORWARDER, capros_Forwarder_maxSlot,
              KR_SCRATCH);
   checkEqual(retval, RC_OK);
 
   // Should get the key we stored.
-  retval = eros_Discrim_compare(KR_DISCRIM, KR_SCRATCH, KR_ECHO_START1, &b);
+  retval = capros_Discrim_compare(KR_DISCRIM, KR_SCRATCH, KR_ECHO_START1, &b);
   checkEqual(retval, RC_OK);
   checkEqual(b, true);
 
 
   // Check sendWord.
-  retval = eros_Forwarder_getOpaqueForwarder(KR_FORWARDER,
-             eros_Forwarder_sendWord, KR_OP_FORWARDER);
+  retval = capros_Forwarder_getOpaqueForwarder(KR_FORWARDER,
+             capros_Forwarder_sendWord, KR_OP_FORWARDER);
 
   // Call, should see dataword.
   msg.snd_invKey = KR_OP_FORWARDER;
@@ -175,19 +175,19 @@ main()
   checkEqual(msg.rcv_w1, 17);	// w1 has keyData
   checkEqual(msg.rcv_w3, 0);	// w3 is dataword
   // Should get void.
-  retval = eros_Discrim_classify(KR_DISCRIM, KR_ARG(2), &class);
+  retval = capros_Discrim_classify(KR_DISCRIM, KR_ARG(2), &class);
   checkEqual(retval, RC_OK);
-  checkEqual(class, eros_Discrim_clVoid);
+  checkEqual(class, capros_Discrim_clVoid);
 
 
   // Check swapDataWord.
 #define dwval 0x98765432
   uint32_t dw;
-  retval = eros_Forwarder_swapDataWord(KR_FORWARDER, dwval, &dw);
+  retval = capros_Forwarder_swapDataWord(KR_FORWARDER, dwval, &dw);
   checkEqual(retval, RC_OK);
   checkEqual(dw, 0);	// old word was zero
 
-  retval = eros_Forwarder_getDataWord(KR_FORWARDER, &dw);
+  retval = capros_Forwarder_getDataWord(KR_FORWARDER, &dw);
   checkEqual(retval, RC_OK);
   checkEqual(dw, dwval);
 
@@ -202,8 +202,8 @@ main()
 
 
   // Check sendCap.
-  retval = eros_Forwarder_getOpaqueForwarder(KR_FORWARDER,
-             eros_Forwarder_sendCap, KR_OP_FORWARDER);
+  retval = capros_Forwarder_getOpaqueForwarder(KR_FORWARDER,
+             capros_Forwarder_sendCap, KR_OP_FORWARDER);
 
   // Call, should see cap.
   msg.snd_invKey = KR_OP_FORWARDER;
@@ -214,7 +214,7 @@ main()
   checkEqual(msg.rcv_w1, 17);	// w1 has keyData
   checkEqual(msg.rcv_w3, 19);	// w3 is echoed
   // Should get cap.
-  retval = eros_Discrim_compare(KR_DISCRIM, KR_ARG(2), KR_FORWARDER, &b);
+  retval = capros_Discrim_compare(KR_DISCRIM, KR_ARG(2), KR_FORWARDER, &b);
   checkEqual(retval, RC_OK);
   checkEqual(b, true);
 

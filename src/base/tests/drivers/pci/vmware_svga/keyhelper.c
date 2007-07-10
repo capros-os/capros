@@ -28,8 +28,8 @@
 #include <eros/NodeKey.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Ps2.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Ps2.h>
 
 #include <stdlib.h>
 
@@ -94,7 +94,7 @@ main() {
       we must remove them from the PS2 h/w buffer, so this helper is
       required. */
   do {
-    (void)eros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
+    (void)capros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
   } while (true);
 
   return 0;

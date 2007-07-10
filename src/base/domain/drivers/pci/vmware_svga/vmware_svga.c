@@ -27,9 +27,9 @@
 #include <eros/StdKeyType.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/DevPrivs.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/DevPrivs.h>
+#include <idl/capros/Number.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -301,11 +301,11 @@ framebuffer_map()
      
   kprintf(KR_OSTREAM, "Mapping the frame buffer\n");
   /* Now inform the kernel that we're going to map a certain address range */
-  result = eros_DevPrivs_publishMem(KR_DEVPRIVS, fb_start, fb_start+fb_size, 0);
+  result = capros_DevPrivs_publishMem(KR_DEVPRIVS, fb_start, fb_start+fb_size, 0);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "*** video driver: call to publishMem failed: %u (0x%x)",
 	    result, result);
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
   }
 
   DEBUG(video_fb) kprintf(KR_OSTREAM, "framebuffer_map() constructing a memory"
@@ -336,7 +336,7 @@ framebuffer_map()
 static void
 patch_addrspace(void)
 {
-  eros_Number_value window_key;
+  capros_Number_value window_key;
   uint32_t next_slot = 0;
 
   /* Stash the current ProcAddrSpace capability */
@@ -429,11 +429,11 @@ fifo_map()
 
   kprintf(KR_OSTREAM, "Mapping the fifo\n");
   /* Now inform the kernel that we're going to map a certain address range */
-  result = eros_DevPrivs_publishMem(KR_DEVPRIVS, fifo_start, fifo_start+fifo_size, 0);
+  result = capros_DevPrivs_publishMem(KR_DEVPRIVS, fifo_start, fifo_start+fifo_size, 0);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "*** video driver (fifo): call to publishMem failed: %u (0x%x)",
 	    result, result);
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
   }
 
   DEBUG(video_fifo) kprintf(KR_OSTREAM, "fifo_map() constructing a memory"
@@ -548,7 +548,7 @@ DriverRequest(Message *msg)
       if (expect != got) {
 	DEBUG(msg_trunc) kprintf(KR_OSTREAM, "vmware_svga:: TRUNCATION: "
 				 "expect = %u and got = %u.\n", expect, got);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -723,7 +723,7 @@ DriverRequest(Message *msg)
       if (expect != got) {
 	DEBUG(msg_trunc) kprintf(KR_OSTREAM, "vmware_svga:: TRUNCATION: "
 				 "expect = %u and got = %u.\n", expect, got);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -825,7 +825,7 @@ DriverRequest(Message *msg)
       if (expect != got) {
 	DEBUG(msg_trunc) kprintf(KR_OSTREAM, "vmware_svga:: TRUNCATION: "
 				 "expect = %u and got = %u.\n", expect, got);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -889,7 +889,7 @@ DriverRequest(Message *msg)
       uint32_t h;
 
       if ((card_functionality & SVGA_CAP_RECT_PAT_FILL) == 0) {
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -899,7 +899,7 @@ DriverRequest(Message *msg)
       if (expect != got) {
 	DEBUG(msg_trunc) kprintf(KR_OSTREAM, "vmware_svga:: TRUNCATION: "
 				 "expect = %u and got = %u.\n", expect, got);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -934,7 +934,7 @@ DriverRequest(Message *msg)
     {
       DEBUG(video_cmds) kprintf(KR_OSTREAM, "No such command: 0x%04x.\n",
 				msg->rcv_code);
-      msg->snd_code = RC_eros_key_RequestError;
+      msg->snd_code = RC_capros_key_RequestError;
       break;
     }
   }
@@ -961,7 +961,7 @@ ProcessRequest(Message *msg)
 
   default:
     {
-      msg->snd_code = RC_eros_key_UnknownRequest;
+      msg->snd_code = RC_capros_key_UnknownRequest;
     }
     break;
   }

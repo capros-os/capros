@@ -34,8 +34,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/StdKeyType.h>
 #include "Interrupt.h"
 
-#include <idl/eros/key.h>
-#include <idl/eros/DevPrivs.h>
+#include <idl/capros/key.h>
+#include <idl/capros/DevPrivs.h>
 
 #define dbg_alloc	0x2u
 #define dbg_sleep	0x4u
@@ -58,7 +58,7 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
    * range. Must range check before using. */
 
   switch(inv->entry.code) {
-  case OC_eros_DevPrivs_allocIRQ:
+  case OC_capros_DevPrivs_allocIRQ:
     {
       DEBUG(alloc)
 	printf("DevPrivs: Allocating IRQ %d\n", source);
@@ -66,19 +66,19 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       COMMIT_POINT();
 
       if (source >= NUM_INTERRUPT_SOURCES) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	break;
       }
       
       if (vis_IsAlloc(vis)) {
-	inv->exit.code = RC_eros_DevPrivs_AllocFail;
+	inv->exit.code = RC_capros_DevPrivs_AllocFail;
 	break;
       }
       
       int32_t prio = inv->entry.w2;
       if (prio < 0	// FIQ not allowed
           || prio > 16 ) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	break;
       }
       
@@ -91,17 +91,17 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
     inv->exit.code = RC_OK;
     break;
     
-  case OC_eros_DevPrivs_releaseIRQ:
+  case OC_capros_DevPrivs_releaseIRQ:
     {
       COMMIT_POINT();
 
       if (source >= NUM_INTERRUPT_SOURCES) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	break;
       }
       
       if (!vis_IsAlloc(vis)) {
-	inv->exit.code = RC_eros_DevPrivs_AllocFail;
+	inv->exit.code = RC_capros_DevPrivs_AllocFail;
 	break;
       }
       
@@ -111,17 +111,17 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       break;
     }
     
-  case OC_eros_DevPrivs_enableIRQ:
+  case OC_capros_DevPrivs_enableIRQ:
     {
       COMMIT_POINT();
 
       if (source >= NUM_INTERRUPT_SOURCES) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	break;
       }
       
       if (!vis_IsAlloc(vis)) {
-	inv->exit.code = RC_eros_DevPrivs_AllocFail;
+	inv->exit.code = RC_capros_DevPrivs_AllocFail;
 	break;
       }
       
@@ -131,17 +131,17 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       break;
     }
     
-  case OC_eros_DevPrivs_disableIRQ:
+  case OC_capros_DevPrivs_disableIRQ:
     {
       COMMIT_POINT();
 
       if (source >= NUM_INTERRUPT_SOURCES) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	break;
       }
       
       if (!vis_IsAlloc(vis)) {
-	inv->exit.code = RC_eros_DevPrivs_AllocFail;
+	inv->exit.code = RC_capros_DevPrivs_AllocFail;
 	break;
       }
       
@@ -151,17 +151,17 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       break;
     }
     
-  case OC_eros_DevPrivs_waitIRQ:
+  case OC_capros_DevPrivs_waitIRQ:
     {
       if (source >= NUM_INTERRUPT_SOURCES) {
         COMMIT_POINT();
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	break;
       }
       
       if (!vis_IsAlloc(vis)) {
         COMMIT_POINT();
-	inv->exit.code = RC_eros_DevPrivs_AllocFail;
+	inv->exit.code = RC_capros_DevPrivs_AllocFail;
 	break;
       }
 
@@ -194,7 +194,7 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       break;
     }
     
-  case OC_eros_DevPrivs_publishMem:
+  case OC_capros_DevPrivs_publishMem:
     {
       PmemInfo *pmi = 0;
       kpa_t base = inv->entry.w1;
@@ -204,12 +204,12 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       COMMIT_POINT();
 
       if ((base % EROS_PAGE_SIZE) || (bound % EROS_PAGE_SIZE)) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	break;
       }
 
       if (base >= bound) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	break;
       }
 
@@ -237,13 +237,13 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 	inv->exit.code = RC_OK;
       }
       else {
-	inv->exit.code = RC_eros_key_NoAccess;
+	inv->exit.code = RC_capros_key_NoAccess;
       }
 
       break;
     }
 
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     COMMIT_POINT();
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_DevicePrivs;
@@ -251,7 +251,7 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 
   default:
     COMMIT_POINT();
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     break;
   }
 

@@ -30,8 +30,8 @@
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/domain/timer/manager.h>
+#include <idl/capros/key.h>
+#include <idl/capros/timer/manager.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -65,7 +65,7 @@ static bool
 ProcessRequest(Message *m)
 {
   switch(m->rcv_code) {
-  case OC_eros_domain_timer_manager_set_interval:
+  case OC_capros_timer_manager_setInterval:
     {
       kprintf(KR_OSTREAM, "Timer Mgr asked to set interval to %u.\n", 
 	      m->rcv_w1);
@@ -74,7 +74,7 @@ ProcessRequest(Message *m)
     }
     break;
 
-  case OC_eros_domain_timer_manager_start_timer:
+  case OC_capros_timer_manager_startTimer:
     {
       if (!running) {
 	kprintf(KR_OSTREAM, "Timer Mgr asked to start timer.\n");
@@ -97,7 +97,7 @@ ProcessRequest(Message *m)
     }
     break;
 
-  case OC_eros_domain_timer_manager_stop_timer:
+  case OC_capros_timer_manager_stopTimer:
     {
       /* FIX: Shoot the bank from which the timer thread was created
 	 */
@@ -112,7 +112,7 @@ ProcessRequest(Message *m)
 
   default:
     {
-      m->snd_code = RC_eros_key_UnknownRequest;
+      m->snd_code = RC_capros_key_UnknownRequest;
     }
     break;
 

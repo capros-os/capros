@@ -1,9 +1,9 @@
-package eros.arch.i486;
+package capros.arch.i486;
 
 /** Kernel interface to number keys.
  *
  */
-interface SysTrace extends eros.key {
+interface SysTrace extends capros.key {
   enum mode {
     cycles   = 0, /* cycles executed */
     instrs   = 1, /* instrs executed */

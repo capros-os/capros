@@ -34,8 +34,8 @@
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
-#include <idl/eros/Stream.h>
-#include <idl/eros/domain/eterm.h>
+#include <idl/capros/Stream.h>
+#include <idl/capros/eterm.h>
 
 #include <graphics/color.h>
 #include <addrspace/addrspace.h>
@@ -78,7 +78,7 @@ put_string(cap_t kr_eterm, const uint8_t *s)
     return;
 
   for (u = 0; u < len; u++)
-    eros_Stream_write(kr_eterm, s[u]);
+    capros_Stream_write(kr_eterm, s[u]);
 }
 
 static void
@@ -128,7 +128,7 @@ main(void)
 
     while(toupper(c) != 'Q') {
       kprintf(KR_OSTREAM, "PASTER calling stream_read().\n");
-      eros_Stream_read(KR_STRM, &c);
+      capros_Stream_read(KR_STRM, &c);
       if (c == PASTE_INDICATOR) {
 	uint32_t u = 0;
 
@@ -146,12 +146,12 @@ main(void)
 	  node_swap(KR_TMP, 16, KR_PASTECONTENT, KR_VOID);
 
 	  for (u = 0; u < 220; u++) {
-	    eros_Stream_write(KR_STRM, file[u]);
+	    capros_Stream_write(KR_STRM, file[u]);
 	    if (file[u] == '\n')
-	      eros_Stream_write(KR_STRM, '\r');
+	      capros_Stream_write(KR_STRM, '\r');
 	  }
 	}
-	eros_Stream_read(KR_STRM, &c);
+	capros_Stream_read(KR_STRM, &c);
 	menu(KR_STRM);
       }
     }

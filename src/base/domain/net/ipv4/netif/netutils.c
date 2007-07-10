@@ -7,9 +7,9 @@
 #include <eros/ProcessKey.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/Number.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -71,7 +71,7 @@ make_new_addrspace(uint16_t lss, fixreg_t key)
 void
 patch_addrspace(uint16_t dma_lss)
 {
-  eros_Number_value window_key;
+  capros_Number_value window_key;
   uint32_t next_slot = 0;
   
   /* Stash the current ProcAddrSpace capability */

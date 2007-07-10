@@ -21,7 +21,7 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <eros/ProcessKey.h>
 
 #include <stdlib.h>
@@ -37,7 +37,7 @@
 #include <domain/drivers/VideoDriverKey.h>
 
 /* Need the PS/2 interface */
-#include <idl/eros/Ps2.h>
+#include <idl/capros/Ps2.h>
 
 /* Don't forget the PCI probe interface */
 #include <domain/drivers/PciProbeKey.h>
@@ -296,7 +296,7 @@ define_cursor(fixreg_t driver)
 static bool
 cursor_test(fixreg_t drawable, fixreg_t driver)
 {
-  uint32_t result = RC_eros_key_UnknownRequest; /* until proven otherwise */
+  uint32_t result = RC_capros_key_UnknownRequest; /* until proven otherwise */
 
   if (!define_cursor(driver))
     return false;
@@ -339,7 +339,7 @@ cursor_test(fixreg_t drawable, fixreg_t driver)
       if (video_show_cursor_at(driver, cursor, x, x) != RC_OK)
 	return false;
 
-      eros_Sleep_sleep(KR_SLEEP, 50);
+      capros_Sleep_sleep(KR_SLEEP, 50);
     }
   }
   return true;
@@ -385,7 +385,7 @@ static void line_test(fixreg_t drawable)
     drawable_linedraw(drawable, pt*20, 600, pt*20 + 20, 650, 17, GREEN, ROP_COPY);
   }
 
-  eros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP * 4);
+  capros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP * 4);
 
   // Rectangles with Borders
 
@@ -397,7 +397,7 @@ static void line_test(fixreg_t drawable)
   drawable_rectfillborder(drawable, 100, 200, 300, 210, GREEN, BLUE,  ROP_COPY);
   drawable_rectfillborder(drawable, 250, 250, 290, 290, BLUE,  GREEN, ROP_COPY);
 
-  eros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
+  capros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
 
   // Moving triangles
 
@@ -408,7 +408,7 @@ static void line_test(fixreg_t drawable)
     for( x=0; x < 400; x++) {
       drawable_trifill(drawable, 500-x, x, 525-x, 25+x, 500-x, 25+x, RED, ROP_COPY);
       drawable_tridraw(drawable, x, x, 25+x, 25+x, x, 25+x, 1, 1, 1, RED, ROP_COPY);
-      eros_Sleep_sleep(KR_SLEEP, 20);
+      capros_Sleep_sleep(KR_SLEEP, 20);
       drawable_tridraw(drawable, x, x, 25+x, 25+x, x, 25+x, 1, 1, 1, BLACK, ROP_COPY);
       drawable_trifill(drawable, 500-x, x, 525-x, 25+x, 500-x, 25+x, BLACK, ROP_COPY);
 
@@ -417,7 +417,7 @@ static void line_test(fixreg_t drawable)
     for (x=500;x>0;x--) {
       drawable_trifill(drawable, 500-x, x, 525-x, 25+x, 500-x, 25+x, RED, ROP_COPY);
       drawable_tridraw(drawable, x, x, 25+x, 25+x, x, 25+x, 1, 1, 1, RED, ROP_COPY);
-      eros_Sleep_sleep(KR_SLEEP, 20);
+      capros_Sleep_sleep(KR_SLEEP, 20);
       drawable_tridraw(drawable, x, x, 25+x, 25+x, x, 25+x, 1, 1, 1, BLACK, ROP_COPY);
       drawable_trifill(drawable, 500-x, x, 525-x, 25+x, 500-x, 25+x, BLACK, ROP_COPY);
     }
@@ -426,7 +426,7 @@ static void line_test(fixreg_t drawable)
       drawable_trifill(drawable, 500-x, x, 550-x, 50+x, 475-x, 25+x, RED, ROP_COPY);
 
       drawable_tridraw(drawable, x, x, 25+x, 25+x, x, 25+x, 1, 1, 1, RED, ROP_COPY);
-      eros_Sleep_sleep(KR_SLEEP, 20);
+      capros_Sleep_sleep(KR_SLEEP, 20);
       drawable_tridraw(drawable, x, x, 25+x, 25+x, x, 25+x, 1, 1, 1, BLACK, ROP_COPY);
 
       drawable_trifill(drawable, 500-x, x, 550-x, 50+x, 475-x, 25+x, BLACK, ROP_COPY);
@@ -452,13 +452,13 @@ static void line_test(fixreg_t drawable)
     drawable_trifill(drawable, 350, x, 350-x, 10+x, 370+x, 10+x, color, ROP_COPY);
   }
 
-  eros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
+  capros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
 
 }
 
 static void paint(fixreg_t drawable, fixreg_t video)
 {
-  uint32_t result = RC_eros_key_UnknownRequest; /* until proven otherwise */
+  uint32_t result = RC_capros_key_UnknownRequest; /* until proven otherwise */
 
   if (!cursor_defined) {
     if (!define_cursor(video))
@@ -640,7 +640,7 @@ main(void)
 
   /* Initialize the PS2 reader.  If this fails, we obviously don't
      need to construct the PS2 helpers. */
-  result = eros_Ps2_initPs2(KR_PS2READER);
+  result = capros_Ps2_initPs2(KR_PS2READER);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "**ERROR: ps2 reader wouldn't initialize: 0x%08x\n",
 	    result);
@@ -754,7 +754,7 @@ main(void)
     if (drawable_clear(KR_DRAWABLE, BLACK) == RC_OK) {
 
       if (test_matrix & PIXMAP) {
-	uint32_t result = RC_eros_key_UnknownRequest; /* until proven otherwise */
+	uint32_t result = RC_capros_key_UnknownRequest; /* until proven otherwise */
 
 	kprintf(KR_OSTREAM, "TEST:: now defining logo pixmap...\n");
 	result = video_define_pixmap(KR_SVGA_DRIVER, 0, LOGO_WIDTH,
@@ -765,24 +765,24 @@ main(void)
 	  video_render_pixmap(KR_SVGA_DRIVER, 0, 0, 0, screen_width, 
 			      screen_height);
 
-	  eros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
+	  capros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
 	}
       }
 
       /* Try a RECTFILL */
       if (test_matrix & RECTFILL) {
-	uint32_t result = RC_eros_key_UnknownRequest; /* until proven otherwise */
+	uint32_t result = RC_capros_key_UnknownRequest; /* until proven otherwise */
 
 	kprintf(KR_OSTREAM, "TEST:: now trying a rectfill...\n");
 	result = drawable_rectfill(KR_DRAWABLE, 100, 100, 150, 150, GREEN,
 				   ROP_COPY);
 	if (result == RC_OK)
-	  eros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
+	  capros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
 	/* clear the rectangles by redrawing the logo pixmap */
 	if (test_matrix & PIXMAP) {
 	  video_render_pixmap(KR_SVGA_DRIVER, 0, 0, 0, screen_width, 
 			      screen_height);
-	  eros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
+	  capros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
 	}
       }
 
@@ -791,13 +791,13 @@ main(void)
 	kprintf(KR_OSTREAM, "TEST:: now trying a linedraw...\n");
 	line_test(KR_DRAWABLE);
 
-	eros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
+	capros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
 
 	/* clear the lines by redrawing the logo pixmap */
 	if (test_matrix & PIXMAP) {
 	  video_render_pixmap(KR_SVGA_DRIVER, 0, 0, 0, screen_width, 
 			      screen_height);
-	  eros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
+	  capros_Sleep_sleep(KR_SLEEP, OBSERVER_SLEEP);
 	}
       }
 
@@ -825,7 +825,7 @@ main(void)
       if (test_matrix & KANGAROO) {
 	uint32_t x,y;
 	uint32_t rop = ROP_CLEAR;
-	uint32_t result = RC_eros_key_UnknownRequest; /* until proven otherwise */
+	uint32_t result = RC_capros_key_UnknownRequest; /* until proven otherwise */
 
 	kprintf(KR_OSTREAM, "TEST:: now defining kangaroo pixmap...\n");
 	result = video_define_pixmap(KR_SVGA_DRIVER, 1, ROO_WIDTH, ROO_HEIGHT,
@@ -848,7 +848,7 @@ main(void)
 		rop++;
 		rop = (rop > ROP_SET) ? ROP_CLEAR : rop;
 
-		eros_Sleep_sleep(KR_SLEEP, 50);
+		capros_Sleep_sleep(KR_SLEEP, 50);
 	      }
 	  }
 	}

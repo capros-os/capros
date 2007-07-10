@@ -25,7 +25,7 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/DrawableKey.h>
 #include <domain/domdbg.h>
@@ -65,7 +65,7 @@ DrawableRequest(uint32_t consoleKey, Message *msg)
       if (expect != got) {
 	DEBUG(msg_trunc) kprintf(consoleKey, "DrawableRequest:: TRUNCATION: "
 				 "expect = %u and got = %u.\n", expect, got);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -84,7 +84,7 @@ DrawableRequest(uint32_t consoleKey, Message *msg)
       if (expect != got) {
 	DEBUG(msg_trunc) kprintf(consoleKey, "DrawableRequest:: TRUNCATION: "
 				 "expect = %u and got = %u.\n", expect, got);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -110,7 +110,7 @@ DrawableRequest(uint32_t consoleKey, Message *msg)
       if (expect != got) {
 	DEBUG(msg_trunc) kprintf(consoleKey, "DrawableRequest:: TRUNCATION: "
 				 "expect = %u and got = %u.\n", expect, got);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -137,7 +137,7 @@ DrawableRequest(uint32_t consoleKey, Message *msg)
       if (expect != got) {
 	DEBUG(msg_trunc) kprintf(consoleKey, "DrawableRequest:: TRUNCATION: "
 				 "expect = %u and got = %u.\n", expect, got);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -166,7 +166,7 @@ DrawableRequest(uint32_t consoleKey, Message *msg)
       if (expect != got) {
 	DEBUG(msg_trunc) kprintf(consoleKey, "DrawableRequest:: TRUNCATION: "
 				 "expect = %u and got = %u.\n", expect, got);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -202,7 +202,7 @@ DrawableRequest(uint32_t consoleKey, Message *msg)
        if (expect != got) {
 	   DEBUG(msg_trunc) kprintf(consoleKey, "DrawableRequest:: TRUNCATION: "
 				    "expect = %u and got = %u.\n", expect, got);
-	   msg->snd_code = RC_eros_key_RequestError;
+	   msg->snd_code = RC_capros_key_RequestError;
 	   return true;
        }
 
@@ -234,7 +234,7 @@ DrawableRequest(uint32_t consoleKey, Message *msg)
 	//	if (expect != got) {
 	//	    DEBUG(msg_trunc) kprintf(consoleKey, "DrawableRequest:: TRUNCATION: "
 	//				     "expect = %u and got = %u.\n", expect, got);
-	//	    msg->snd_code = RC_eros_key_RequestError;
+	//	    msg->snd_code = RC_capros_key_RequestError;
 	//	    return true;
 	//	}
 	
@@ -260,7 +260,7 @@ DrawableRequest(uint32_t consoleKey, Message *msg)
       if (expect != got) {
 	DEBUG(msg_trunc) kprintf(consoleKey, "DrawableRequest:: TRUNCATION: "
 				 "expect = %u and got = %u.\n", expect, got);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -302,7 +302,7 @@ DrawableRequest(uint32_t consoleKey, Message *msg)
       if (expect != got) {
 	DEBUG(msg_trunc) kprintf(consoleKey, "DrawableRequest:: TRUNCATION: "
 				 "expect = %u and got = %u.\n", expect, got);
-	msg->snd_code = RC_eros_key_RequestError;
+	msg->snd_code = RC_capros_key_RequestError;
 	return true;
       }
 
@@ -376,7 +376,7 @@ DrawableRequest(uint32_t consoleKey, Message *msg)
        instead.  */
   case OC_Drawable_Destroy:
     {
-      msg->snd_code = RC_eros_key_RequestError;
+      msg->snd_code = RC_capros_key_RequestError;
     }
     break;
 
@@ -384,7 +384,7 @@ DrawableRequest(uint32_t consoleKey, Message *msg)
     {
       DEBUG(video_cmds) kprintf(consoleKey, "No such command: 0x%04x.\n",
 				msg->rcv_code);
-      msg->snd_code = RC_eros_key_UnknownRequest;
+      msg->snd_code = RC_capros_key_UnknownRequest;
       break;
     }
   }

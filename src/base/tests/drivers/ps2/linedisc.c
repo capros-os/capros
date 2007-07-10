@@ -26,7 +26,7 @@
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <eros/i486/atomic.h>
 #include <domain/ConstructorKey.h>
 #include <domain/ProcessCreatorKey.h>
@@ -202,9 +202,9 @@ getLine(void)
     cur = lineHead;
     if (!cur) {
       
-      /* I was going to call eros_Sleep_sleep here, but figured it would be
+      /* I was going to call capros_Sleep_sleep here, but figured it would be
 	 better not to block and have the function caller check for
-	 the return of a null pointer and call eros_Sleep_sleep instead
+	 the return of a null pointer and call capros_Sleep_sleep instead
       */
       return 0;
     }
@@ -282,7 +282,7 @@ ldInit(void)
 
   msg.snd_invKey = KR_TEXCON_S;
   msg.snd_code = OC_clear_screen;
-  eros_Sleep_sleep(KR_SLEEP,10);
+  capros_Sleep_sleep(KR_SLEEP,10);
   CALL(&msg); 
 
   /* Init line structs */
@@ -556,7 +556,7 @@ sharedMain(void)
     if (!ln) {
       ln = allocLine();
       while (!ln) {
-	eros_Sleep_sleep(KR_SLEEP, 10);
+	capros_Sleep_sleep(KR_SLEEP, 10);
 	ln = allocLine();
       }
       for (i = 0; i < MAXLEN; i++) {

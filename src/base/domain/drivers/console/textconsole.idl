@@ -1,6 +1,6 @@
 package console;
 
-interface textconsole extends eros.key {
+interface textconsole extends capros.key {
   /** Clear Screen
    *
    */

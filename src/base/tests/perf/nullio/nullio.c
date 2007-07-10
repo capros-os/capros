@@ -25,9 +25,9 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <domain/domdbg.h>
-#include <idl/eros/SysTrace.h>
+#include <idl/capros/SysTrace.h>
 
 #define KR_VOID 0
 #define KR_PG   2
@@ -63,7 +63,7 @@ main()
   msg.snd_invKey = KR_PG;
   msg.snd_code = OC_Page_Read(0);
 
-  eros_Sleep_sleep(KR_SLEEP, 4000);
+  capros_Sleep_sleep(KR_SLEEP, 4000);
 
   kprintf(KR_OSTREAM, "Beginning %d zero reads to Page Key\n", ITERATIONS);
 

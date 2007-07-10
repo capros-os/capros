@@ -48,8 +48,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Number.h>
 
 #include <domain/VcskKey.h>
 #include <domain/SpaceBankKey.h>
@@ -420,7 +420,7 @@ read_from_file(server_state *ss, ino_s *ino, f_size_t at,
 	    ino->uuid, len, at);
 
   if (at > ino->u.sz)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
 
   if (at + len > ino->u.sz) {
     len = ino->u.sz - at;
@@ -582,7 +582,7 @@ ProcessRequest(Message *msg, server_state *ss)
 	break;
 
       result = forwarder_create(KR_BANK, KR_CURFILE, KR_SCRATCH, KR_FILESTART,
-                 eros_Forwarder_sendWord,
+                 capros_Forwarder_sendWord,
                  (uint32_t)newFile);
       if (result != RC_OK)
 	break;
@@ -642,7 +642,7 @@ ProcessRequest(Message *msg, server_state *ss)
       kdprintf(KR_OSTREAM, "NFILE: unknown request %x (%d)\n",
 	       msg->rcv_code, msg->rcv_code);
 
-    result = RC_eros_key_UnknownRequest;
+    result = RC_capros_key_UnknownRequest;
     break;
   }
 

@@ -77,7 +77,7 @@ install: $(GENERATED) Makefile
 interfaces:
 	$(INSTALL) -d $(EROS_ROOT)/idl
 	$(INSTALL) -d $(EROS_ROOT)/idl/eros
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/arch/$(EROS_TARGET)
-	$(INSTALL) -m 0644 $(IDLSRC) $(EROS_ROOT)/idl/eros/arch/$(EROS_TARGET)
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/arch/$(EROS_TARGET)
+	$(INSTALL) -m 0644 $(IDLSRC) $(EROS_ROOT)/idl/capros/arch/$(EROS_TARGET)
 
 .PRECIOUS: $(LOCAL_HEADERS)

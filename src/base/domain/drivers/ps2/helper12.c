@@ -30,9 +30,9 @@
 #include <eros/machine/io.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/DevPrivs.h>
-#include <idl/eros/Ps2.h>
+#include <idl/capros/key.h>
+#include <idl/capros/DevPrivs.h>
+#include <idl/capros/Ps2.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -86,12 +86,12 @@ main(void)
   
   /* Loop infinitely waiting for IRQ12 */
   for(;;) {
-    result = eros_DevPrivs_waitIRQ(KR_DEVPRIVS, 12);
+    result = capros_DevPrivs_waitIRQ(KR_DEVPRIVS, 12);
     if (result != RC_OK) {
       kprintf(KR_OSTREAM, "helper12: ERROR on 12");
     }else {  
       /* We have an IRQ on 12 !! Signal ps2reader */
-      (void)eros_Ps2_irqArrived(KR_PS2READER,eros_Ps2_IRQ12);
+      (void)capros_Ps2_irqArrived(KR_PS2READER,capros_Ps2_IRQ12);
     }
   }
   return 0;

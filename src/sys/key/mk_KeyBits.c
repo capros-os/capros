@@ -30,8 +30,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/KeyBits.h>
+#include <idl/capros/key.h>
+#include <idl/capros/KeyBits.h>
 
 /* WHAT KeyBits_Translate RETURNS:
  * 
@@ -64,16 +64,16 @@ void
 KeyBitsKey(Invocation* inv /*@ not null @*/)
 {
   switch(inv->entry.code) {
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     COMMIT_POINT();
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_KeyBits;
     return;
 
-  case OC_eros_KeyBits_get:
+  case OC_capros_KeyBits_get:
     {
       uint8_t kt;
-      struct eros_KeyBits_info kbi;
+      struct capros_KeyBits_info kbi;
       KeyBits dupKey;
 
       proc_SetupExitString(inv->invokee, inv, sizeof(kbi));
@@ -82,7 +82,7 @@ KeyBitsKey(Invocation* inv /*@ not null @*/)
        * of the key, but without creaming the actual key:
        */
 
-      kbi.version = eros_KeyBits_VERSION;
+      kbi.version = capros_KeyBits_VERSION;
       kbi.valid = 1;
 
       key_Prepare(inv->entry.key[0]);
@@ -127,7 +127,7 @@ KeyBitsKey(Invocation* inv /*@ not null @*/)
     }
   default:
     COMMIT_POINT();
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 }

@@ -23,7 +23,7 @@ DevicePrivs Object
   <h3>Operations</h3>
   <dl>
     <dt> <strong>Allocate IRQ</strong>
-    <dt> IDL C definition: result_t eros_DevPrivs_allocIRQ(cap_t _self, uint32_t irq);
+    <dt> IDL C definition: result_t capros_DevPrivs_allocIRQ(cap_t _self, uint32_t irq);
     <dd> 
 	 <p>This operation reserves the specified IRQ, so that if
          another driver attempts to allocate the same IRQ, it will be told
@@ -47,7 +47,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_key_RequestError</strong>
+	       <strong>RC_capros_key_RequestError</strong>
 	     </td>
 	     <td>
 	       The specified <strong>irq</strong> exceeded the number
@@ -58,7 +58,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_DevPrivs_AllocFail</strong>
+	       <strong>RC_capros_DevPrivs_AllocFail</strong>
 	     </td>
 	     <td>
 	       The specified <strong>irq</strong> was already allocated
@@ -68,7 +68,7 @@ DevicePrivs Object
 	 </table>
 	 <p> 
     <dt> <strong>Release IRQ</strong>
-    <dt> IDL C definition: result_t eros_DevPrivs_releaseIRQ(cap_t _self, uint32_t irq);
+    <dt> IDL C definition: result_t capros_DevPrivs_releaseIRQ(cap_t _self, uint32_t irq);
     <dd> 
 	 <p>This operation releases the specified IRQ so that other drivers
          may allocate it.
@@ -90,7 +90,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_key_RequestError</strong>
+	       <strong>RC_capros_key_RequestError</strong>
 	     </td>
 	     <td>
 	       The specified <strong>irq</strong> exceeded the number
@@ -101,7 +101,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_DevPrivs_AllocFail</strong>
+	       <strong>RC_capros_DevPrivs_AllocFail</strong>
 	     </td>
 	     <td>
 	       The specified <strong>irq</strong> was already free.
@@ -110,7 +110,7 @@ DevicePrivs Object
 	 </table>
 	 <p> 
     <dt> <strong>Enable IRQ</strong>
-    <dt> IDL C definition: result_t eros_DevPrivs_enableIRQ(cap_t _self, uint32_t irq);
+    <dt> IDL C definition: result_t capros_DevPrivs_enableIRQ(cap_t _self, uint32_t irq);
     <dd> 
 	 <p>This operation enables interrupts on the specified IRQ. 
          <table>
@@ -129,7 +129,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_key_RequestError</strong>
+	       <strong>RC_capros_key_RequestError</strong>
 	     </td>
 	     <td>
 	       The specified <strong>irq</strong> exceeded the number
@@ -140,7 +140,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_DevPrivs_AllocFail</strong>
+	       <strong>RC_capros_DevPrivs_AllocFail</strong>
 	     </td>
 	     <td>
 	       The specified <strong>irq</strong> is not allocated.
@@ -149,7 +149,7 @@ DevicePrivs Object
 	 </table>
 	 <p> 
     <dt> <strong>Disable IRQ</strong>
-    <dt> IDL C definition: result_t eros_DevPrivs_disableIRQ(cap_t _self, uint32_t irq);
+    <dt> IDL C definition: result_t capros_DevPrivs_disableIRQ(cap_t _self, uint32_t irq);
     <dd> 
 	 <p>This operation disables interrupts on the specified IRQ. 
          <table>
@@ -168,7 +168,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_key_RequestError</strong>
+	       <strong>RC_capros_key_RequestError</strong>
 	     </td>
 	     <td>
 	       The specified <strong>irq</strong> exceeded the number
@@ -179,7 +179,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_DevPrivs_AllocFail</strong>
+	       <strong>RC_capros_DevPrivs_AllocFail</strong>
 	     </td>
 	     <td>
 	       The specified <strong>irq</strong> is not allocated.
@@ -188,7 +188,7 @@ DevicePrivs Object
 	 </table>
 	 <p> 
     <dt> <strong>Wait IRQ</strong>
-    <dt> IDL C definition: result_t eros_DevPrivs_waitIRQ(cap_t _self, uint32_t irq);
+    <dt> IDL C definition: result_t capros_DevPrivs_waitIRQ(cap_t _self, uint32_t irq);
     <dd> 
 	 <p> This operation enables interrupts on the specified IRQ and then
          waits until an interrupt occurs. If there is a pending interrupt
@@ -211,7 +211,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_key_RequestError</strong>
+	       <strong>RC_capros_key_RequestError</strong>
 	     </td>
 	     <td>
 	       The specified <strong>irq</strong> exceeded the number
@@ -222,7 +222,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_DevPrivs_AllocFail</strong>
+	       <strong>RC_capros_DevPrivs_AllocFail</strong>
 	     </td>
 	     <td>
 	       The specified <strong>irq</strong> is not allocated.
@@ -231,7 +231,7 @@ DevicePrivs Object
 	 </table>
 	 <p> 
     <dt> <strong>Publish Memory</strong>
-    <dt> IDL C definition: result_t eros_DevPrivs_publishMem(cap_t _self, uint32_t start, uint32_t end, bool readOnly);
+    <dt> IDL C definition: result_t capros_DevPrivs_publishMem(cap_t _self, uint32_t start, uint32_t end, bool readOnly);
     <dd> 
 	 <p>This operation instructs the kernel to allow a range of
          physical addresses to be mapped into virtual memory.
@@ -288,7 +288,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_key_RequestError</strong>
+	       <strong>RC_capros_key_RequestError</strong>
 	     </td>
 	     <td>
                <strong>start</strong> or <strong>end</strong> 
@@ -300,7 +300,7 @@ DevicePrivs Object
 	     <td>
 	     </td>
 	     <td>
-	       <strong>RC_eros_key_NoAccess</strong>
+	       <strong>RC_capros_key_NoAccess</strong>
 	     </td>
 	     <td>
 	       The specified memory region overlaps with a region
@@ -312,7 +312,7 @@ DevicePrivs Object
 	 </table>
 	 <p> 
     <dt> <strong>Get Alleged Type Code</strong>
-    <dt> IDL C definition: result_t eros_key_getType(cap_t _self, eros_key_type *_retVal);
+    <dt> IDL C definition: result_t capros_key_getType(cap_t _self, capros_key_type *_retVal);
     <dd> 
 	 <table>
 	   <tr valign=top>

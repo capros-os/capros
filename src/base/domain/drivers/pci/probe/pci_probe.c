@@ -6,7 +6,7 @@
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
 
-#include <idl/eros/DevPrivs.h>
+#include <idl/capros/DevPrivs.h>
 
 #include <domain/domdbg.h>
 #include <domain/SpaceBankKey.h>

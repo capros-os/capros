@@ -78,14 +78,14 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
-#include <idl/eros/Page.h>
+#include <idl/capros/Page.h>
 #include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
 #include <eros/cap-instr.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Number.h>
 
 #include <domain/VcskKey.h>
 #include <domain/domdbg.h>
@@ -146,16 +146,16 @@ Approved for public release, distribution unlimited. */
 
    VCSK serves to implement both demand-copy and demand-zero
    segments.  Of the cycles spent invoking capabilities, it proves
-   that about 45% of them are spent in eros_Page_clone, and another 45% in
+   that about 45% of them are spent in capros_Page_clone, and another 45% in
    range key calls (done by the space bank).  The only call to
-   eros_Page_clone is here.  It is unavoidable when we are actually doing a
+   capros_Page_clone is here.  It is unavoidable when we are actually doing a
    virtual copy, but very much avoidable if we are doing demand-zero
    extension on an empty or short segment -- the page we get from the
    space bank is already zeroed.
 
    We therefore remember in the VCSK state the offset of the *end* of
    the last non-zero page.  Anything past this is known to be zero.
-   We take advantage of this to know when the eros_Page_clone() operation
+   We take advantage of this to know when the capros_Page_clone() operation
    can be skipped.  The variable is /first_zero_offset/.
 
    When a VCS is frozen, we stash this number in a number key in the
@@ -320,7 +320,7 @@ uint32_t
 HandleSegmentFault(Message *pMsg, state *pState)
 {
   uint32_t slot = 0;
-  uint32_t kt = RC_eros_key_Void;
+  uint32_t kt = RC_capros_key_Void;
   uint32_t offsetBlss;
   uint32_t segBlss = EROS_PAGE_BLSS + 1; /* until otherwise proven */
   uint64_t offset = ((uint64_t) pMsg->rcv_w3) << 32 | (uint64_t) pMsg->rcv_w2;
@@ -354,7 +354,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 
       /* find out it's BLSS: */
       result = get_lss_and_perms(KR_SCRATCH, &subsegBlss, 0);
-      if (result == RC_eros_key_UnknownRequest)
+      if (result == RC_capros_key_UnknownRequest)
 	subsegBlss = EROS_PAGE_BLSS; /* it must be a page key */
       
       subsegBlss &= SEGMODE_BLSS_MASK;
@@ -373,7 +373,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	  /* Buy a new node to expand with: */
 	  if (spcbank_buy_nodes(KR_BANK, 1, KR_NEWOBJ, KR_VOID, KR_VOID) !=
 	      RC_OK)
-	    return RC_eros_key_NoMoreNodes;
+	    return RC_capros_key_NoMoreNodes;
       
 	  /* Make that node have BLSS == subsegBlss+1: */
 	  node_make_node_key(KR_NEWOBJ, subsegBlss+1, 0, KR_NEWOBJ);
@@ -406,7 +406,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	  /* Segment has grown.  Rewrite the format key to reflect the
 	     new segment size. */
 
-	  eros_Number_value nkv;
+	  capros_Number_value nkv;
 
 	  DEBUG(invalid) kdprintf(KR_OSTREAM, "  Red seg must grow\n");
 
@@ -451,7 +451,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	DEBUG(invalid) kdprintf(KR_OSTREAM, "  Walking down: subsegBlss %d\n",
 				subsegBlss);
 
-	result = eros_key_getType(KR_SCRATCH, &kt);
+	result = capros_key_getType(KR_SCRATCH, &kt);
 	if (result != RC_OK || kt != AKT_Node) {
 	  DEBUG(invalid) kdprintf(KR_OSTREAM, "  subsegBlss %d invalid!\n",
 				  subsegBlss);
@@ -565,7 +565,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 
 	/* find out it's BLSS: */
 	result = get_lss_and_perms(KR_SCRATCH, &subsegBlss, 0);
-	if (result == RC_eros_key_UnknownRequest)
+	if (result == RC_capros_key_UnknownRequest)
 	  subsegBlss = EROS_PAGE_BLSS; /* it must be a page key */
       
 	subsegBlss &= SEGMODE_BLSS_MASK;
@@ -585,7 +585,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	  DEBUG(access) kdprintf(KR_OSTREAM, "  Walking down: subsegBlss %d\n",
 				 subsegBlss);
 
-	  result = eros_key_getType(KR_SCRATCH, &kt);
+	  result = capros_key_getType(KR_SCRATCH, &kt);
 	  if (result != RC_OK || kt != AKT_Node) {
 	    DEBUG(access) kdprintf(KR_OSTREAM, "  subsegBlss %d invalid!\n",
 				   subsegBlss);
@@ -624,7 +624,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	  /* Buy a new read-write capage: */
 	  if (spcbank_buy_nodes(KR_BANK, 1, KR_NEWOBJ, KR_VOID, KR_VOID) !=
 	      RC_OK)
-	    return RC_eros_key_NoMoreNodes;
+	    return RC_capros_key_NoMoreNodes;
       
 	  /* Make that node have BLSS == subsegBlss: */
 	  node_make_node_key(KR_NEWOBJ, subsegBlss, 0, KR_NEWOBJ);
@@ -681,7 +681,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	    if (count)
 	      break;
 	    else
-	      return RC_eros_key_NoMorePages;
+	      return RC_capros_key_NoMorePages;
 	  }
 
 	  node_swap(KR_L1_NODE, slot, kr, KR_VOID);
@@ -699,9 +699,9 @@ HandleSegmentFault(Message *pMsg, state *pState)
       else {
 	uint32_t kr = AllocPage(pState);
 	if (kr == KR_VOID)
-	  return RC_eros_key_NoMorePages;
+	  return RC_capros_key_NoMorePages;
 
-	eros_Page_clone(kr, KR_SCRATCH);
+	capros_Page_clone(kr, KR_SCRATCH);
 	    
 	/* Replace the old page with the new */
 	node_swap(KR_L1_NODE, slot, kr, KR_VOID);
@@ -736,14 +736,14 @@ ProcessRequest(Message *argmsg, state *pState)
   uint32_t result = RC_OK;
   
   switch(argmsg->rcv_code) {
-  case OC_eros_key_getType:			/* check alleged keytype */
+  case OC_capros_key_getType:			/* check alleged keytype */
     {
       argmsg->snd_w1 = AKT_VcskSeg;
       break;
     }      
   case OC_Vcsk_InvokeKeeper:
     if (pState->frozen) {
-      result = RC_eros_key_RequestError;
+      result = RC_capros_key_RequestError;
       break;
     }
     
@@ -771,12 +771,12 @@ ProcessRequest(Message *argmsg, state *pState)
   case OC_Vcsk_Truncate:
   case OC_Vcsk_Pack:
     if (pState->frozen) {
-      result = RC_eros_key_RequestError;
+      result = RC_capros_key_RequestError;
       break;
     }
 #endif
     
-  case OC_eros_key_destroy:
+  case OC_capros_key_destroy:
     {
       DestroySegment(pState);
 
@@ -786,7 +786,7 @@ ProcessRequest(Message *argmsg, state *pState)
     
     /* above not implemented yet */
   default:
-    result = RC_eros_key_UnknownRequest;
+    result = RC_capros_key_UnknownRequest;
     break;
   }
   
@@ -821,10 +821,10 @@ ReturnWritableSubtree(uint32_t krTree)
   uint16_t ndlss = 0;
   uint8_t  perms = 0;
   uint32_t kt;
-  uint32_t result = eros_key_getType(krTree, &kt);
+  uint32_t result = capros_key_getType(krTree, &kt);
   
   for (;;) {
-    if (result != RC_OK || kt == RC_eros_key_Void)
+    if (result != RC_OK || kt == RC_capros_key_Void)
       /* Segment has been fully demolished. */
       return 0;
 
@@ -850,7 +850,7 @@ ReturnWritableSubtree(uint32_t krTree)
 
 	node_copy(krTree, i, KR_SCRATCH2);
       
-	result = eros_key_getType(KR_SCRATCH2, &sub_kt);
+	result = capros_key_getType(KR_SCRATCH2, &sub_kt);
 
 	if (kt == AKT_Page || kt == AKT_Node)
 	  get_lss_and_perms(krTree, &subLss, &subPerms);
@@ -884,7 +884,7 @@ ReturnWritableSubtree(uint32_t krTree)
 void
 DestroySegment(state *mystate)
 {
-  eros_Number_value offset;
+  capros_Number_value offset;
 
   offset.value[0] = 0;
   offset.value[1] = 0;
@@ -906,7 +906,7 @@ Initialize(state *mystate)
 {
   uint32_t result;
   uint16_t segBlss;
-  eros_Number_value nkv;
+  capros_Number_value nkv;
   
   mystate->was_access = false;
   mystate->first_zero_offset = ~0ull; /* until proven otherwise below */
@@ -920,7 +920,7 @@ Initialize(state *mystate)
   
   /* find out BLSS of frozen segment: */
   result = get_lss_and_perms(KR_ARG(0), &segBlss, 0);
-  if (result == RC_eros_key_UnknownRequest)
+  if (result == RC_capros_key_UnknownRequest)
     segBlss = EROS_PAGE_BLSS; /* it must be a page key */
       
   segBlss &= SEGMODE_BLSS_MASK;

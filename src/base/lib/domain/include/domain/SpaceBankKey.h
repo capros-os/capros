@@ -27,10 +27,10 @@ Approved for public release, distribution unlimited. */
 /* This file has been superceded by the IDL-generated SpaceBank.h.
    This file remains temporarily for compatibility. */
 
-#include <idl/eros/SpaceBank.h>
+#include <idl/capros/SpaceBank.h>
 
 /* error defines */
-#define RC_SB_LimitReached     RC_eros_SpaceBank_LimitReached
+#define RC_SB_LimitReached     RC_capros_SpaceBank_LimitReached
 	/* spacebank limit reached */
 
 #ifndef __ASSEMBLER__
@@ -44,31 +44,31 @@ uint32_t spcbank_buy_data_pages(uint32_t krBank, uint32_t count,
 
 INLINE uint32_t spcbank_return_node(uint32_t krBank, uint32_t krNode)
 {
-  return eros_SpaceBank_free1(krBank, krNode);
+  return capros_SpaceBank_free1(krBank, krNode);
 }
 
 INLINE uint32_t spcbank_return_data_page(uint32_t krBank, uint32_t krPage)
 {
-  return eros_SpaceBank_free1(krBank, krPage);
+  return capros_SpaceBank_free1(krBank, krPage);
 }
 
 INLINE uint32_t spcbank_create_subbank(uint32_t krBank, uint32_t krNewBank)
 {
-  return eros_SpaceBank_createSubBank(krBank, krNewBank);
+  return capros_SpaceBank_createSubBank(krBank, krNewBank);
 }
 
 INLINE uint32_t spcbank_destroy_bank(uint32_t krBank, uint32_t andSpace)
 {
   if (andSpace)
-    return eros_SpaceBank_destroyBankAndSpace(krBank);
+    return capros_SpaceBank_destroyBankAndSpace(krBank);
   else
-    return eros_key_destroy(krBank);
+    return capros_key_destroy(krBank);
 }
 
 INLINE uint32_t spcbank_verify_bank(uint32_t krBank, uint32_t krPurportedBank,
 			     uint32_t * isGood)
 {
-  return eros_SpaceBank_verify(krBank, krPurportedBank, isGood);
+  return capros_SpaceBank_verify(krBank, krPurportedBank, isGood);
 }
 
 #endif

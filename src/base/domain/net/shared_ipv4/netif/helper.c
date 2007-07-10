@@ -29,9 +29,9 @@
 #include <eros/machine/io.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/DevPrivs.h>
-#include <idl/eros/domain/net/enet/enet.h>
+#include <idl/capros/key.h>
+#include <idl/capros/DevPrivs.h>
+#include <idl/capros/net/enet/enet.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -82,7 +82,7 @@ main(void)
   
   /* Loop infinitely waiting for IRQ */
   for(;;) {
-    result = eros_DevPrivs_waitIRQ(KR_DEVPRIVS,IRQ);
+    result = capros_DevPrivs_waitIRQ(KR_DEVPRIVS,IRQ);
     eros_domain_net_enet_enet_irq_arrived(KR_NETDRIVER,IRQ);
     /*irq_arrived ++;
       kprintf(KR_OSTREAM,"irq arrived = %d",irq_arrived);

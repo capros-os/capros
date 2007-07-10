@@ -29,7 +29,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/endian.h>
 
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/NetSysKey.h>
@@ -92,7 +92,7 @@ calibrate(uint16_t time)
   uint64_t init,finish;
   
   init = rdtsc();
-  eros_Sleep_sleep(KR_SLEEP,time);
+  capros_Sleep_sleep(KR_SLEEP,time);
   finish = rdtsc();
   
   tickspermillisec = (finish - init)/time;
@@ -237,7 +237,7 @@ main(void)
   msg.snd_code = OC_NetSys_ICMPPing; //Send our ping packet 
   msg.snd_w1 = ipaddr;
   msg.snd_w2 = IP_PROTO_ICMP;        //Protocol next to IP
-  eros_Sleep_sleep(KR_SLEEP,1000);
+  capros_Sleep_sleep(KR_SLEEP,1000);
   CALL(&msg);
 
   kprintf(KR_OSTREAM,"ping returned");
@@ -245,7 +245,7 @@ main(void)
     msg.snd_code = OC_NetSys_ICMPPing;//Ping
     msg.snd_data = pkt;
     msg.snd_len = sizeof(pkt);
-    eros_Sleep_sleep(KR_SLEEP,500);
+    capros_Sleep_sleep(KR_SLEEP,500);
     init = rdtsc();
     CALL(&msg);
     
@@ -263,7 +263,7 @@ main(void)
   }
       
   msg.snd_code = OC_NetSys_ICMPClose; //close
-  eros_Sleep_sleep(KR_SLEEP,2000);
+  capros_Sleep_sleep(KR_SLEEP,2000);
   CALL(&msg);
 
   return 0;

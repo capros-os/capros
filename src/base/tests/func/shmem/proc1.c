@@ -23,7 +23,7 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <domain/domdbg.h>
-#include <idl/eros/arch/arm/SysTrace.h>
+#include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_VOID 0
 #define KR_OSTREAM 10
@@ -76,7 +76,7 @@ main()
     offset += 4;
   }
 
-  eros_arch_arm_SysTrace_CheckConsistency(KR_SYSTRACE);
+  capros_arch_arm_SysTrace_CheckConsistency(KR_SYSTRACE);
 
   kprintf(KR_OSTREAM, "Done\n");
 

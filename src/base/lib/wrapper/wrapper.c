@@ -28,7 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 
-#include <idl/eros/Number.h>
+#include <idl/capros/Number.h>
 
 #include <domain/SpaceBankKey.h>
 #include <domain/Runtime.h>
@@ -41,7 +41,7 @@ wrapper_create(uint32_t bank, uint32_t wrapper_key,
 	       uint32_t flags, uint32_t value1, uint32_t value2)
 {
   uint32_t result;
-  eros_Number_value nkv;
+  capros_Number_value nkv;
 
   result = spcbank_buy_nodes(bank, 1, node_key, KR_VOID, KR_VOID);
   if (result != RC_OK)
@@ -72,7 +72,7 @@ uint32_t
 wrapper_modify(uint32_t node_key, uint32_t flags, uint32_t value1, 
 	       uint32_t value2)
 {
-  eros_Number_value nkv;
+  capros_Number_value nkv;
 
   nkv.value[0] = flags;
   nkv.value[1] = value1;

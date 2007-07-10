@@ -39,8 +39,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/NodeKey.h>
 #include <eros/machine/Registers.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Number.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
@@ -80,7 +80,7 @@ InitMetaCon(MetaConInfo *mci)
   DEBUG kdprintf(KR_OSTREAM, "Metacon inits\n");
 
   node_copy(KR_CONSTIT, KC_CON_PC, KR_NEWDOM);
-  eros_Number_getWord(KR_NEWDOM, &mci->constructor_pc);
+  capros_Number_getWord(KR_NEWDOM, &mci->constructor_pc);
 
   node_copy(KR_CONSTIT, KC_DISCRIM, KR_DISCRIM);
   node_copy(KR_CONSTIT, KC_YIELDCRE, KR_YIELDCRE);
@@ -191,7 +191,7 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
 
 destroy_product:
   (void) proccre_destroy_process(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
-  return RC_eros_key_NoMoreNodes;
+  return RC_capros_key_NoMoreNodes;
 }
 
 int
@@ -230,7 +230,7 @@ ProcessRequest(Message *msg, MetaConInfo* mci)
       return 1;
     }      
 
-  case OC_eros_key_getType:			/* check alleged keytype */
+  case OC_capros_key_getType:			/* check alleged keytype */
     {
       msg->snd_code = RC_OK;
       msg->snd_w1 = AKT_MetaConstructor;
@@ -241,7 +241,7 @@ ProcessRequest(Message *msg, MetaConInfo* mci)
     break;
   }
 
-  msg->snd_code = RC_eros_key_UnknownRequest;
+  msg->snd_code = RC_capros_key_UnknownRequest;
   return 1;
 }
 

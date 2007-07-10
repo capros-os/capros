@@ -34,9 +34,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/KeyConst.h>	// segment and wrapper defs
 
-#include <idl/eros/key.h>
-#include <idl/eros/ProcTool.h>
-#include <idl/eros/Forwarder.h>
+#include <idl/capros/key.h>
+#include <idl/capros/ProcTool.h>
+#include <idl/capros/Forwarder.h>
 
 /* CompareBrand(inv, pDomKey, pBrand) returns TRUE if the passed keys
  * were of the right type and it was feasible to compare their
@@ -161,14 +161,14 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 #endif
   
   /* Until proven otherwise: */
-  inv->exit.code = RC_eros_key_RequestError;
+  inv->exit.code = RC_capros_key_RequestError;
 
   /* All of these operations return a single key, which is void until
    * proven otherwise:
    */
 
   switch (inv->entry.code) {
-  case OC_eros_ProcTool_makeProcess:
+  case OC_capros_ProcTool_makeProcess:
     {
       COMMIT_POINT();
 
@@ -206,7 +206,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       }
       return;
     }
-  case OC_eros_ProcTool_canOpener:
+  case OC_capros_ProcTool_canOpener:
     {
       bool isResume;
       bool sameBrand;
@@ -280,7 +280,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       return;
     }
 #endif
-  case OC_eros_ProcTool_identWrapperKeeper:
+  case OC_capros_ProcTool_identWrapperKeeper:
     {
       Node *theNode = 0;
       Key *fmtKey = 0;
@@ -351,13 +351,13 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       COMMIT_POINT();
       return;
     }
-  case OC_eros_ProcTool_identForwarderTarget:
+  case OC_capros_ProcTool_identForwarderTarget:
     {
       key_Prepare(inv->entry.key[0]);
 
       if (! keyBits_IsType(inv->entry.key[0], KKT_Forwarder)
 #if 0	// disabled so spacebank will work
-          || ! (inv->entry.key[0]->keyData & eros_Forwarder_sendCap)
+          || ! (inv->entry.key[0]->keyData & capros_Forwarder_sendCap)
 #endif
          ) {
 	COMMIT_POINT();
@@ -400,7 +400,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
-  case OC_eros_ProcTool_compareOrigins:
+  case OC_capros_ProcTool_compareOrigins:
     {
       Node *domain0 = 0;
       Node *domain1 = 0;
@@ -452,7 +452,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     COMMIT_POINT();
 
     inv->exit.code = RC_OK;
@@ -461,7 +461,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
   default:
     COMMIT_POINT();
 
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
   return;

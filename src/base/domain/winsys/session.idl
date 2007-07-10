@@ -1,10 +1,10 @@
-package eros.domain.winsys;
+package capros.winsys;
 
 /**
  * This is the interface most window system clients will use to
  * request window-specific services.
  */
-interface session extends eros.key raises (InvalidDimension) {
+interface session extends capros.key raises (InvalidDimension) {
 
   exception InvalidDimension;
 
@@ -57,9 +57,9 @@ interface session extends eros.key raises (InvalidDimension) {
    * which the client should render the window contents.
    *
    */
-  void new_default_window(eros.key bank,
+  void new_default_window(capros.key bank,
                           out unsigned long window_id,
-                          out eros.key new_space);
+                          out capros.key new_space);
 
   /** New window
    *
@@ -69,14 +69,14 @@ interface session extends eros.key raises (InvalidDimension) {
    * which the client should render the window contents.
    *
    */
-  void new_window(eros.key bank,
+  void new_window(capros.key bank,
                   long parent_location_x,
                   long parent_location_y,
                   unsigned long width,
                   unsigned long height,
 		  unsigned short decorations,
 		  out unsigned long window_id,
-		  out eros.key new_space);
+		  out capros.key new_space);
 
   /** Display size
    *

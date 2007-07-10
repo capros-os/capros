@@ -31,7 +31,7 @@
 #include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -115,7 +115,7 @@ ProcessRequest(Message *msg)
     }
   default:
     kprintf(KR_OSTREAM, "winsys-keeper: unknown request!\n");
-    msg->snd_code = RC_eros_key_UnknownRequest;
+    msg->snd_code = RC_capros_key_UnknownRequest;
     break;
   }
 

@@ -30,7 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -55,7 +55,7 @@ heap_insert_page(uint32_t addr, uint32_t krPage)
   DEBUG(heap){
     uint32_t result, keyType;
     
-    result = eros_key_getType(krtree, &keyType);
+    result = capros_key_getType(krtree, &keyType);
     if (result != RC_OK || keyType != AKT_Node)
       kpanic(KR_OSTREAM, "spacebank: Wrong key type in segtree on"
 	     " path 0x%08x\n", addr);
@@ -82,10 +82,10 @@ heap_insert_page(uint32_t addr, uint32_t krPage)
 
     node_copy(krtree, slot, krwalk);
 
-    result = eros_key_getType(krwalk, &kt);
+    result = capros_key_getType(krwalk, &kt);
     keylss &= SEGMODE_BLSS_MASK;
   
-    if (result != RC_eros_key_Void && kt != AKT_Node)
+    if (result != RC_capros_key_Void && kt != AKT_Node)
       kpanic(KR_OSTREAM,
              "spacebank: heap_insert_page(): Bad key type 0x%x in segtree\n",
              kt);
@@ -105,7 +105,7 @@ heap_insert_page(uint32_t addr, uint32_t krPage)
       
       OID oid;
       if (offset > 0) {
-	if (BankAllocObject(&bank0, eros_Range_otNode, krwalk, &oid) != RC_OK)
+	if (BankAllocObject(&bank0, capros_Range_otNode, krwalk, &oid) != RC_OK)
 	  return false;
 
 	keylss = treelss - 1;
@@ -136,7 +136,7 @@ heap_insert_page(uint32_t addr, uint32_t krPage)
 		 treelss, keylss, slot, kt, orig_addr);
       
       OID oid;
-      if (BankAllocObject(&bank0, eros_Range_otNode, krwalk, &oid) != RC_OK) {
+      if (BankAllocObject(&bank0, capros_Range_otNode, krwalk, &oid) != RC_OK) {
 	DEBUG(heap)
 	  kprintf(KR_OSTREAM, "spacebank: Intermediate tree node alloc failed!\n");
 	return false;

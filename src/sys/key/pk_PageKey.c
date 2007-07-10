@@ -30,7 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
-#include <idl/eros/Page.h>
+#include <idl/capros/Page.h>
 
 /* May Yield. */
 void
@@ -47,14 +47,14 @@ PageKey(Invocation* inv /*@ not null @*/)
    */
 
   switch(inv->entry.code) {
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     COMMIT_POINT();
 
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_Page;
     return;
 
-  case OC_eros_Memory_lssAndPerms:
+  case OC_capros_Memory_lssAndPerms:
     {
       COMMIT_POINT();
 
@@ -64,7 +64,7 @@ PageKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
-  case OC_eros_Memory_makeReadOnly:	/* Make RO page key */
+  case OC_capros_Memory_makeReadOnly:	/* Make RO page key */
     COMMIT_POINT();
 
     /* No problem with overwriting original key, since in that event
@@ -80,10 +80,10 @@ PageKey(Invocation* inv /*@ not null @*/)
     inv->exit.code = RC_OK;
     return;
 
-  case OC_eros_Page_zero:		/* zero page */
+  case OC_capros_Page_zero:		/* zero page */
     if (keyBits_IsReadOnly(inv->key)) {
       COMMIT_POINT();
-      inv->exit.code = RC_eros_key_NoAccess;
+      inv->exit.code = RC_capros_key_NoAccess;
       return;
     }
 
@@ -97,20 +97,20 @@ PageKey(Invocation* inv /*@ not null @*/)
     inv->exit.code = RC_OK;
     return;
     
-  case OC_eros_Page_clone:
+  case OC_capros_Page_clone:
     {
       /* copy content of page key in arg0 to current page */
 
       if (keyBits_IsReadOnly(inv->key)) {
 	COMMIT_POINT();
-	inv->exit.code = RC_eros_key_NoAccess;
+	inv->exit.code = RC_capros_key_NoAccess;
 	return;
       }
 
       /* FIX: This is now wrong: phys pages, time page */
       if (keyBits_IsType(inv->entry.key[0], KKT_Page) == false) {
 	COMMIT_POINT();
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 
@@ -137,6 +137,6 @@ PageKey(Invocation* inv /*@ not null @*/)
     break;
   }
 
-  inv->exit.code = RC_eros_key_UnknownRequest;
+  inv->exit.code = RC_capros_key_UnknownRequest;
   return;
 }

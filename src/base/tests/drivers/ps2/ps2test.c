@@ -4,8 +4,8 @@
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Ps2.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Ps2.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/Runtime.h>
@@ -171,7 +171,7 @@ ProcessRequest(Message *msg)
     break;
   }
 
-  msg->snd_code = RC_eros_key_UnknownRequest;
+  msg->snd_code = RC_capros_key_UnknownRequest;
   return 1;
 }
 
@@ -231,7 +231,7 @@ main(void)
   }
 
   /* Initialise the ps2 driver */
-  result = eros_Ps2_initPs2(KR_PS2READER_S);
+  result = capros_Ps2_initPs2(KR_PS2READER_S);
   if(result!=RC_OK) {
     kprintf(KR_OSTREAM,"ps2test:: Starting ps2reader...[Failed]");
     kprintf(KR_OSTREAM,"Error Code returned %d",result);

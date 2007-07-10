@@ -1,4 +1,4 @@
-package eros;
+package capros;
 
 /** Kernel support for device drivers.
  *

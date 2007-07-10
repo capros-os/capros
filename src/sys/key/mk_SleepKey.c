@@ -33,8 +33,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Sleep.h>
 
 /* May Yield. */
 void
@@ -43,7 +43,7 @@ SleepKey(Invocation* inv /*@ not null @*/)
   COMMIT_POINT();
       
   switch (inv->entry.code) {
-  case OC_eros_Sleep_getTimeMonotonic:
+  case OC_capros_Sleep_getTimeMonotonic:
     {
       uint64_t nsec = mach_TicksToNanoseconds(sysT_Now());
       inv->exit.w1 = (uint32_t) nsec;	// low word
@@ -51,14 +51,14 @@ SleepKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;
       return;
     }
-  case OC_eros_Sleep_wakeup:
+  case OC_capros_Sleep_wakeup:
     {
       /* This is NOT a no-op.  The wakeup logic hacks wakeup by
 	 resetting the order code to this one */
       break;
     }
-  case OC_eros_Sleep_sleep:
-  case OC_eros_Sleep_sleepTill:
+  case OC_capros_Sleep_sleep:
+  case OC_capros_Sleep_sleepTill:
     {
       uint64_t ms = 00l;
 
@@ -67,7 +67,7 @@ SleepKey(Invocation* inv /*@ not null @*/)
       /* FIX: call DeliverResult() here to update result regs! */
       
       irq_DISABLE();
-      if (inv->entry.code == OC_eros_Sleep_sleep) {
+      if (inv->entry.code == OC_capros_Sleep_sleep) {
 	act_WakeUpIn(act_Current(), ms);
       }
       else {
@@ -102,12 +102,12 @@ SleepKey(Invocation* inv /*@ not null @*/)
       return;
     }
     
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_Sleep;
     return;
   default:
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 }

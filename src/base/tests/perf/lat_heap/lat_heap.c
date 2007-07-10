@@ -22,14 +22,14 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
 #include <domain/domdbg.h>
 #include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
-#include <idl/eros/SysTrace.h>
+#include <idl/capros/SysTrace.h>
 
 #define KR_ZSF      1
 #define KR_SELF     2
@@ -124,7 +124,7 @@ main()
   setup();
 
   kprintf(KR_OSTREAM, "Sleep a while\n");
-  eros_Sleep_sleep(KR_SLEEP, 4000);
+  capros_Sleep_sleep(KR_SLEEP, 4000);
   kprintf(KR_OSTREAM, "Begin cold-case tracing\n");
 
   eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);

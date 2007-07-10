@@ -5,7 +5,7 @@ package console;
  * It is used for transferring ASCII characters to the
  * console_in thread of the consolestream.
  */
-interface keyclient extends eros.key {
+interface keyclient extends capros.key {
   /** Read a character 
    *
    * Returns an ASCII character

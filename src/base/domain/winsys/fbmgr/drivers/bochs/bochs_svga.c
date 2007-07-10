@@ -27,8 +27,8 @@
 #include <eros/StdKeyType.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/DevPrivs.h>
+#include <idl/capros/key.h>
+#include <idl/capros/DevPrivs.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -74,7 +74,7 @@ kprintf(KR_OSTREAM, "*** DRIVER NOT INITIALIZED!\n"); \
   note that the bochs device does not do any "hardware" acceleration */
 #define RETURN_IF_BAD_ROP(rop) \
       if (rop < SVGA_ROP_CLEAR || rop > SVGA_ROP_SET) {  \
-	return RC_eros_key_RequestError; \
+	return RC_capros_key_RequestError; \
       }
 
 
@@ -204,11 +204,11 @@ framebuffer_map()
      
   kprintf(KR_OSTREAM, "Mapping the frame buffer\n");
   /* Now inform the kernel that we're going to map a certain address range */
-  result = eros_DevPrivs_publishMem(KR_DEVPRIVS, fb_start, fb_start+fb_size, 0);
+  result = capros_DevPrivs_publishMem(KR_DEVPRIVS, fb_start, fb_start+fb_size, 0);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "*** video driver: call to publishMem failed: %u (0x%x)",
 	    result, result);
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
   }
 
   DEBUG(video_fb) kprintf(KR_OSTREAM, "framebuffer_map() constructing a memory"
@@ -296,7 +296,7 @@ bochs_video_initialize(uint32_t num_elements, uint32_t *elements,
 		 /* out */ uint32_t *next_available_slot)
 {
   if (next_available_slot == NULL)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
 
   DEBUG(video_init) kprintf(KR_OSTREAM, "video_initialize() storing pci info:"
 			    " 0x%08x  0x%08x\n", elements[0], elements[1]);
@@ -562,7 +562,7 @@ uint32_t bochs_video_define_vram_pixmap(uint32_t id,
 
 uint32_t bochs_video_show_vram_pixmap(uint32_t id, point_t src, rect_t dst)
 {
-  return RC_eros_key_RequestError;
+  return RC_capros_key_RequestError;
 }
 
 uint32_t

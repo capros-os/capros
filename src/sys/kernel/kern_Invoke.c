@@ -41,7 +41,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/KeyConst.h>	// segment and wrapper defs
 
 #include <disk/Forwarder.h>
-#include <idl/eros/Forwarder.h>
+#include <idl/capros/Forwarder.h>
 
 /* #define GATEDEBUG 5
  * #define KPRDEBUG
@@ -766,7 +766,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
    */
   
   if (inv.invKeyType == KKT_Forwarder
-      && (inv.key->keyData & eros_Forwarder_opaque) ) {
+      && (inv.key->keyData & capros_Forwarder_opaque) ) {
     Node * wrapperNode = (Node *) key_GetObjectPtr(inv.key);
 
     if (keyBits_IsGateKey(&wrapperNode->slot[ForwarderTargetSlot]) ) {
@@ -775,16 +775,16 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 	act_Yield();
       }
 
-      if (inv.key->keyData & eros_Forwarder_sendCap) {
+      if (inv.key->keyData & capros_Forwarder_sendCap) {
 	/* Not hazarded because invocation key */
 	key_NH_Set(&inv.scratchKey, inv.key);
 	keyBits_SetType(&inv.scratchKey, KKT_Forwarder);
-        inv.scratchKey.keyData = 0;	// not eros_Forwarder_opaque
+        inv.scratchKey.keyData = 0;	// not capros_Forwarder_opaque
 	inv.entry.key[2] = &inv.scratchKey;
 	inv.flags |= INV_SCRATCHKEY;
       }
 
-      if (inv.key->keyData & eros_Forwarder_sendWord) {
+      if (inv.key->keyData & capros_Forwarder_sendWord) {
         Key * dataKey = &wrapperNode->slot[ForwarderDataSlot];
         assert(keyBits_IsType(dataKey, KKT_Number));
 	inv.entry.w3 = dataKey->u.nk.value[0];

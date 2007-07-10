@@ -22,14 +22,14 @@
 #include <eros/Invoke.h>
 #include <domain/drivers/PciProbeKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 uint32_t
 pciprobe_class_total(uint32_t probe_key, uint32_t devClass,
 		      /* out */ uint32_t *total)
 {
   Message m;
-  uint32_t result = RC_eros_key_RequestError; /* until proven otherwise */
+  uint32_t result = RC_capros_key_RequestError; /* until proven otherwise */
 
   m.snd_invKey = probe_key;
   m.snd_code = OC_Pci_Find_ClassID_Total;

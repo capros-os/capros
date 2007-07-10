@@ -26,9 +26,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/domain/net/shared_ipv4/netsys.h>
-#include <idl/eros/Stream.h>
+#include <idl/capros/key.h>
+#include <idl/capros/net/shared_ipv4/netsys.h>
+#include <idl/capros/Stream.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -290,8 +290,8 @@ stream_write(cap_t strm, const char *s, size_t len)
   size_t i;
 
   for (i = 0; i < len; i++) {
-    (void) eros_Stream_write(strm, s[i]);
-    if(s[i] == '\r') eros_Stream_write(strm,'\n');
+    (void) capros_Stream_write(strm, s[i]);
+    if(s[i] == '\r') capros_Stream_write(strm,'\n');
   }
 }
 
@@ -864,7 +864,7 @@ SessionRequest(Message *msg)
     }
   default:
     {
-      msg->snd_code = RC_eros_key_UnknownRequest;
+      msg->snd_code = RC_capros_key_UnknownRequest;
     }
   }
   

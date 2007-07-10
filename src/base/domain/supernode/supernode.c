@@ -43,7 +43,7 @@
 #include <eros/cap-instr.h>
 #include <eros/ProcessKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/SpaceBankKey.h>
 #include <domain/SuperNodeKey.h>
@@ -206,7 +206,7 @@ ProcessRequest(Message *msg, state *mystate)
    */
 
   default:
-    result = RC_eros_key_UnknownRequest;
+    result = RC_capros_key_UnknownRequest;
     break;
   }
 
@@ -237,7 +237,7 @@ snode_xtract(uint32_t ndx, state *mystate, uint32_t depth)
 	
     nodeNdx &= 0xfu;
 
-    if ( node_copy(KR_WALK, nodeNdx, KR_WALK) == RC_eros_key_Void ) {
+    if ( node_copy(KR_WALK, nodeNdx, KR_WALK) == RC_capros_key_Void ) {
       /* It was a void key - just return RC_OK, since msg->snd_key0
 	 still holds KR_VOID. */
       return 0;
@@ -254,7 +254,7 @@ uint32_t
 snode_copy(Message *msg, state *mystate)
 {
   if (msg->rcv_w1 > mystate->lastKey)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
 
   (void) snode_xtract(msg->rcv_w1, mystate, 0);
 
@@ -276,7 +276,7 @@ snode_swap(Message *msg, state *mystate)
   if (ndxHeight > MAX_LEVEL) {
     kdprintf(KR_OSTREAM, "MAX SNODE HEIGHT EXCEEDED; ndx 0x%08x\n",
 	     msg->rcv_w1); 
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
   }
   
   /* Step 1: Check if we need to grow the tree upwards: */
@@ -334,10 +334,10 @@ snode_swap(Message *msg, state *mystate)
     node_copy(KR_WALK, nodeNdx, KR_SCRATCH);
 
     /* KR_SCRATCH may be a void key, in which case it will respond
-       with RC_eros_key_Void to the following, and we must populate that
+       with RC_capros_key_Void to the following, and we must populate that
        subtree: */
       
-    if (node_copy(KR_SCRATCH, 0, KR_VOID) == RC_eros_key_Void) {
+    if (node_copy(KR_SCRATCH, 0, KR_VOID) == RC_capros_key_Void) {
 #if 0
       uint32_t subnodeNdx = (mystate->inNdx >> ((height - 2) * 4));
 #endif

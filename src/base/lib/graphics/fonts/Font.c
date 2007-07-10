@@ -23,7 +23,7 @@
 #include <eros/stdarg.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 #include <string.h>
 #include <stdlib.h>
 

@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <domain/ProcessCreatorKey.h>
 #include <domain/ConstructorKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 void __rt_setup_keeper() __attribute__((weak, alias("__rt_do_setup_keeper")));
 
@@ -52,9 +52,9 @@ __rt_do_setup_keeper()
 
   process_copy(KR_SELF, ProcKeeper, KR_KEEPER);
 
-  result = eros_key_getType(KR_KEEPER, &keyType);
+  result = capros_key_getType(KR_KEEPER, &keyType);
 
-  if (result == RC_eros_key_Void)
+  if (result == RC_capros_key_Void)
     keyType = AKT_Void;
 
   if (keyType == AKT_ConstructorRequestor) {

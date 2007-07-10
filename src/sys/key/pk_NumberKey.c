@@ -25,7 +25,7 @@
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/Number.h>
+#include <idl/capros/Number.h>
 
 void
 NumberKey(Invocation* inv /*@ not null @*/)
@@ -35,19 +35,19 @@ NumberKey(Invocation* inv /*@ not null @*/)
   inv->exit.code = RC_OK;
 
   switch(inv->entry.code) {
-  case OC_eros_Number_get:
+  case OC_capros_Number_get:
     {
       inv->exit.w1 = inv->key->u.nk.value[0];
       inv->exit.w2 = inv->key->u.nk.value[1];
       inv->exit.w3 = inv->key->u.nk.value[2];
       return;
     }
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_Number;
     return;
   default:
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 }

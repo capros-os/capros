@@ -26,7 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <domain/SessionKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 uint32_t
 session_new_default_window(uint32_t session_key, 
@@ -36,7 +36,7 @@ session_new_default_window(uint32_t session_key,
 			   uint32_t window_addrspace_key)
 {
   Message m;
-  uint32_t result = RC_eros_key_RequestError; /* until proven otherwise */
+  uint32_t result = RC_capros_key_RequestError; /* until proven otherwise */
 
   m.snd_invKey = session_key;
   m.snd_code = OC_Session_NewDefaultWindow;

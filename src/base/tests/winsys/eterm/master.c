@@ -30,7 +30,7 @@
 #include <eros/ProcessKey.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 
 #include <stdlib.h>
 
@@ -40,7 +40,7 @@
 #include <domain/Runtime.h>
 
 /* Include the needed interfaces */
-#include <idl/eros/domain/winsys/master.h>
+#include <idl/capros/winsys/master.h>
 
 #include <domain/EventMgrKey.h>
 #include <domain/SessionCreatorKey.h>

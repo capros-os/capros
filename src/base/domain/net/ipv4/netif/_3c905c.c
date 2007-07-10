@@ -54,10 +54,10 @@
 #include <eros/KeyConst.h>
 #include <eros/endian.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/DevPrivs.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/DevPrivs.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/Number.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -519,7 +519,7 @@ issue_and_wait(int cmd)
       kprintf(KR_OSTREAM,"command 0x%x took %d usecs\n",cmd,i * 10);
       return;
     }
-    eros_Sleep_sleep(KR_SLEEP,0.1);
+    capros_Sleep_sleep(KR_SLEEP,0.1);
   }
   DEBUG_3C905C 
     kprintf(KR_OSTREAM,"command 0x%x did not complete! Status=0x %x\n",
@@ -769,7 +769,7 @@ vortex_probe1()
       outw(base + i,NETDEV.base_address[0] + Wn0EepromCmd);
       /* Pause for at least 162 us. for the read to take place. */
       for (timer = 10; timer >= 0; timer--) {
-	eros_Sleep_sleep(KR_SLEEP,2);
+	capros_Sleep_sleep(KR_SLEEP,2);
 	if ((inw(NETDEV.base_address[0] + Wn0EepromCmd) & 0x8000) == 0)
 	  break;
       }
@@ -1466,7 +1466,7 @@ _3c905c_probe()
   /* FIX: ask Shap about this -- Merge Bug??? at 0x5000000u */
   for(i=0x100000u;i>0;i+=DMA_SIZE) {
     /* Hopefully we can do DMA onto this RAM area */
-    result = eros_DevPrivs_publishMem(KR_DEVPRIVS,i,i+DMA_SIZE, 0);
+    result = capros_DevPrivs_publishMem(KR_DEVPRIVS,i,i+DMA_SIZE, 0);
     if(result==RC_OK) {
       kprintf(KR_OSTREAM,"Published mem at(%x)",i);
       PHYSADDR = i;
@@ -1517,7 +1517,7 @@ _3c905c_probe()
   }
 
   /* Allocate the IRQ in the pci device structure */
-  result = eros_DevPrivs_allocIRQ(KR_DEVPRIVS,NETDEV.irq);
+  result = capros_DevPrivs_allocIRQ(KR_DEVPRIVS,NETDEV.irq);
   if(result != RC_OK) {
     kprintf(KR_OSTREAM,"IRQ %d not allocated",NETDEV.irq);
     return RC_IRQ_ALLOC_FAILED;

@@ -24,7 +24,7 @@
 #include <eros/ProcessKey.h>
 #include <eros/endian.h>
 
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -138,7 +138,7 @@ main(void)
     kprintf(KR_OSTREAM,"%x::%x",msg.snd_w2,msg.snd_w3);
     CALL(&msg);
     kprintf(KR_OSTREAM,"CALL  returned");
-    eros_Sleep_sleep(KR_SLEEP,1000);
+    capros_Sleep_sleep(KR_SLEEP,1000);
   }
 
   return 0;

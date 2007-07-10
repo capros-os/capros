@@ -25,7 +25,7 @@
 #include <eros/ProcessKey.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>

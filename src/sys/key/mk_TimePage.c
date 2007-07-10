@@ -48,12 +48,12 @@ TimePageKey(Invocation& inv)
     inv.exit.code = RC_OK;
     return;
 
-  case OC_eros_Page_zero:		/* zero page */
-  case OC_eros_Page_clone:
-    inv.exit.code = RC_eros_key_NoAccess;
+  case OC_capros_Page_zero:		/* zero page */
+  case OC_capros_Page_clone:
+    inv.exit.code = RC_capros_key_NoAccess;
     return;
     
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     inv.exit.code = RC_OK;
     inv.exit.w1 = AKT_TimePage;
     return;
@@ -69,7 +69,7 @@ TimePageKey(Invocation& inv)
     }
 
   default:
-    inv.exit.code = RC_eros_key_UnknownRequest;
+    inv.exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 }

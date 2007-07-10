@@ -37,9 +37,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Number.h>
-#include <idl/eros/SpaceBank.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Number.h>
+#include <idl/capros/SpaceBank.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/ProcessCreatorKey.h>
@@ -161,7 +161,7 @@ ENTRY(start)
 	
 	movl	$kt_addr_space,%ebp	/* invocation descriptor */
 	
-	movl	$OC_eros_key_getType,%eax	/* r0 */
+	movl	$OC_capros_key_getType,%eax	/* r0 */
 	xorl	%ebx,%ebx		/* r1 */
 	xorl	%ecx,%ecx		/* r2 */
 	xorl	%edx,%edx		/* r3 */
@@ -195,7 +195,7 @@ LEXT(perform_lobotomy)
 	
 	movl	$pc_value,%ebp
 	
-	movl	$OC_eros_Number_get,%eax	/* r0 */
+	movl	$OC_capros_Number_get,%eax	/* r0 */
 	xorl	%ebx,%ebx			/* r1 */
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */
@@ -221,7 +221,7 @@ LEXT(delete_small_space)
 	
 	movl	$sb_reclaim_pages_from_node,%ebp
 	
-	movl	$OC_eros_SpaceBank_ReclaimDataPagesFromNode,%eax	/* r0 */
+	movl	$OC_capros_SpaceBank_ReclaimDataPagesFromNode,%eax	/* r0 */
 	xorl	%ebx,%ebx			/* r1 */
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */
@@ -231,7 +231,7 @@ LEXT(delete_small_space)
 	/* Sell back the node itself */
 	movl	$sb_reclaim_small_space_node,%ebp
 	
-	movl	$OC_eros_SpaceBank_free1,%eax	/* r0 */
+	movl	$OC_capros_SpaceBank_free1,%eax	/* r0 */
 	xorl	%ebx,%ebx			/* r1 */
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */
@@ -243,7 +243,7 @@ LEXT(delete_small_space)
 LEXT(delete_kept_space)
 	movl	$destroy_kept_space,%ebp
 	
-	movl	$OC_eros_key_destroy,%eax	/* r0 */
+	movl	$OC_capros_key_destroy,%eax	/* r0 */
 	xorl	%ebx,%ebx			/* r1 */
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */

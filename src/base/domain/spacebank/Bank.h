@@ -71,8 +71,8 @@ struct Bank {
 
   struct Bank_MOFrame nodeFrame;
 
-  uint64_t allocs[eros_Range_otNUM_TYPES];
-  uint64_t deallocs[eros_Range_otNUM_TYPES];
+  uint64_t allocs[capros_Range_otNUM_TYPES];
+  uint64_t deallocs[capros_Range_otNUM_TYPES];
 };
 
 extern Bank bank0;		/* The primordial allocate-only bank. */
@@ -109,12 +109,12 @@ bank_UnreserveFrames(Bank *bank, uint32_t count);
  */
 
 uint32_t
-BankSetLimits(Bank * bank, const eros_SpaceBank_limits * newLimits);
+BankSetLimits(Bank * bank, const capros_SpaceBank_limits * newLimits);
 /* BankSetLimits:
  */
 
 uint32_t
-BankGetLimits(Bank * bank, /*OUT*/ eros_SpaceBank_limits * getLimit);
+BankGetLimits(Bank * bank, /*OUT*/ capros_SpaceBank_limits * getLimit);
 /* BankGetLimits:
  */
 

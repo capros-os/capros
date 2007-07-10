@@ -3,7 +3,7 @@
 
 package pci;
 
-interface probe extends eros.key{
+interface probe extends capros.key{
 
   /**
    * Here is a list of supported Vendors

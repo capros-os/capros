@@ -27,9 +27,9 @@
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/domain/timer/timer_client.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/timer/timer_client.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -74,8 +74,8 @@ main(void)
   SEND(&m);
 
   for (;;) {
-    eros_Sleep_sleep(KR_SLEEP, interval);
-    eros_domain_timer_timer_client_wakeup(KR_CLIENT);
+    capros_Sleep_sleep(KR_SLEEP, interval);
+    capros_timer_timer_client_wakeup(KR_CLIENT);
   }
  
   return 0;

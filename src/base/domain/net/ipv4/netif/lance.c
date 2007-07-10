@@ -69,10 +69,10 @@
 #include <eros/ProcessKey.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/DevPrivs.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/Number.h>
+#include <idl/capros/key.h>
+#include <idl/capros/DevPrivs.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/Number.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -364,7 +364,7 @@ lance_init()
   lance_writecsr(CSR0,2,INIT);
   
   while(!(lance_readcsr(CSR0,2)&IDON)) {
-    eros_Sleep_sleep(KR_SLEEP,10);
+    capros_Sleep_sleep(KR_SLEEP,10);
     dbgCSR();
   }
   lance_writecsr(CSR0,2,IENA|STRT);
@@ -405,7 +405,7 @@ lance_open()
   inw(ioaddr+LANCE_RESET);
   
   /* Allow some time to wake up */
-  eros_Sleep_sleep(KR_SLEEP,200);
+  capros_Sleep_sleep(KR_SLEEP,200);
 
   /* Switch LANCE to 32-bit mode */
   outw(0x0014,ioaddr+LANCE_ADDR);
@@ -788,7 +788,7 @@ lance_close()
   outw(0x0004, ioaddr+LANCE_DATA);
   
   /* Release IRQ */
-  result = eros_DevPrivs_releaseIRQ(KR_DEVPRIVS,NETDEV.irq);
+  result = capros_DevPrivs_releaseIRQ(KR_DEVPRIVS,NETDEV.irq);
   if(result!=RC_OK) {
     kprintf(KR_OSTREAM,"Lance_close::Error Releasing IRQ\n");
     return RC_IRQ_RELEASE_FAILED;
@@ -844,7 +844,7 @@ lance_probe()
   /* FIX: ask Shap about this -- Merge Bug??? at 0x5000000u */
   for(i=0x1000000u;i>0;i+=DMA_SIZE) {
     /* Hopefully we can do DMA onto this RAM area */
-    result = eros_DevPrivs_publishMem(KR_DEVPRIVS,i,i+DMA_SIZE, 0);
+    result = capros_DevPrivs_publishMem(KR_DEVPRIVS,i,i+DMA_SIZE, 0);
     if(result==RC_OK) {
       DEBUGF kprintf(KR_OSTREAM,"Published mem at(%x)",i);
       PHYSADDR = i;
@@ -908,7 +908,7 @@ lance_alloc_irq()
   uint32_t result;
   
   /* Allocate the IRQ in the pci device structure */
-  result = eros_DevPrivs_allocIRQ(KR_DEVPRIVS,NETDEV.irq);
+  result = capros_DevPrivs_allocIRQ(KR_DEVPRIVS,NETDEV.irq);
   if(result != RC_OK)  {
     kprintf(KR_OSTREAM,"IRQ %d not allocated",NETDEV.irq);
     return RC_IRQ_ALLOC_FAILED;

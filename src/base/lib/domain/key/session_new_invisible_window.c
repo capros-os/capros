@@ -26,7 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <domain/SessionKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 uint32_t
 session_new_invisible_window(uint32_t session_key, 
@@ -40,7 +40,7 @@ session_new_invisible_window(uint32_t session_key,
 			     /* out */ uint32_t *window_id)
 {
   Message m;
-  uint32_t result = RC_eros_key_RequestError; /* until proven otherwise */
+  uint32_t result = RC_capros_key_RequestError; /* until proven otherwise */
   uint32_t send_data[5] = {parent_location_x,
 			   parent_location_y,
 			   width,

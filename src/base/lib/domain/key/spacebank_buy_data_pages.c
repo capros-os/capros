@@ -25,7 +25,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <domain/SpaceBankKey.h>
-#include <idl/eros/SpaceBank.h>
+#include <idl/capros/SpaceBank.h>
 
 uint32_t
 spcbank_buy_data_pages(uint32_t krBank, uint32_t count,
@@ -35,17 +35,17 @@ spcbank_buy_data_pages(uint32_t krBank, uint32_t count,
 {
   switch (count) {
   case 1:
-    return eros_SpaceBank_alloc1(krBank, eros_Range_otPage, krTo0);
+    return capros_SpaceBank_alloc1(krBank, capros_Range_otPage, krTo0);
   case 2:
-    return eros_SpaceBank_alloc2(krBank,
-      eros_Range_otPage | (eros_Range_otPage << 8),
+    return capros_SpaceBank_alloc2(krBank,
+      capros_Range_otPage | (capros_Range_otPage << 8),
       krTo0, krTo1);
   case 3:
-    return eros_SpaceBank_alloc3(krBank,
-      eros_Range_otPage | ((eros_Range_otPage | (eros_Range_otPage << 8)) << 8),
+    return capros_SpaceBank_alloc3(krBank,
+      capros_Range_otPage | ((capros_Range_otPage | (capros_Range_otPage << 8)) << 8),
       krTo0, krTo1, krTo2);
   default:
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
   }
 }
 

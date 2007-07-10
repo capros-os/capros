@@ -37,8 +37,8 @@
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
-#include <idl/eros/Stream.h>
-#include <idl/eros/domain/eterm.h>
+#include <idl/capros/Stream.h>
+#include <idl/capros/eterm.h>
 
 #include <graphics/color.h>
 #include <addrspace/addrspace.h>
@@ -80,7 +80,7 @@ put_string(cap_t kr_eterm, const uint8_t *s)
     return;
 
   for (u = 0; u < len; u++)
-    eros_Stream_write(kr_eterm, s[u]);
+    capros_Stream_write(kr_eterm, s[u]);
 }
 
 /* Here's an example of using ANSI escape sequences to get different
@@ -134,7 +134,7 @@ main(void)
     menu(KR_STRM);
 
     while(toupper(c) != 'Q') {
-      eros_Stream_read(KR_STRM, &c);
+      capros_Stream_read(KR_STRM, &c);
       if (c == COPY_INDICATOR) {
 	if (eros_domain_eterm_put_pastebuffer(KR_ETERM, KR_DEMOFILE, 
 					      KR_DEMOFILE) == RC_OK)

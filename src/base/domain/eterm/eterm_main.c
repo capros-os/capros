@@ -38,8 +38,8 @@
 /* Include the needed interfaces */
 #include <domain/SessionCreatorKey.h>
 #include <domain/SessionKey.h>
-#include "idl/eros/domain/eterm.h"
-#include <idl/eros/Stream.h>
+#include "idl/capros/eterm.h"
+#include <idl/capros/Stream.h>
 
 #include <graphics/color.h>
 #include <graphics/fonts/Font.h>
@@ -98,7 +98,7 @@ static bool
 ProcessRequest(Message *m)
 {
   switch(m->rcv_code) {
-  case OC_eros_Stream_read:
+  case OC_capros_Stream_read:
     {
       Event evt;
       result_t result;
@@ -223,7 +223,7 @@ ProcessRequest(Message *m)
 
   default:
     {
-      m->snd_code = RC_eros_key_UnknownRequest;
+      m->snd_code = RC_capros_key_UnknownRequest;
     }
   }
 

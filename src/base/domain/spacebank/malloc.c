@@ -78,7 +78,7 @@ grow_heap()
     return false;	// no more address space for the heap
 
   OID oid;
-  if (BankAllocObject(&bank0, eros_Range_otPage, KR_TMP, &oid) != RC_OK)
+  if (BankAllocObject(&bank0, capros_Range_otPage, KR_TMP, &oid) != RC_OK)
     return false;
 
   if (heap_insert_page((uint32_t) bound, KR_TMP) == false) {

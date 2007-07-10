@@ -1,4 +1,4 @@
-package eros;
+package capros;
 
 /** Tool to discriminate properties of keys.
  */
@@ -12,11 +12,11 @@ interface Discrim extends key {
   const unsigned long clOther = 255;
 
   // This should probably be returning a value of some enumeration
-  unsigned long classify(eros.key k);
+  unsigned long classify(capros.key k);
 
-  boolean verify(eros.key k);
+  boolean verify(capros.key k);
 
-  boolean compare(eros.key k1, eros.key k2);
+  boolean compare(capros.key k1, capros.key k2);
 
   struct info {
     unsigned long version;
@@ -28,5 +28,5 @@ interface Discrim extends key {
    *
    * Open Issue: should the get() interface accept as an argument the
    * desired keybits version, or is the version number output only? */
-  void get(eros.key k, out info bits);
+  void get(capros.key k, out info bits);
 };

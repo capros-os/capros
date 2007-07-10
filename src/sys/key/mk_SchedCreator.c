@@ -33,7 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Machine.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 /* May Yield. */
 void
@@ -60,7 +60,7 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
       
       ndx = inv->entry.w1;
       if (ndx < STD_CPU_RESERVE || ndx >= MAX_CPU_RESERVE) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
       
@@ -77,7 +77,7 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
       uint32_t duration;
 #if 0
       if (inv->entry.len < sizeof(struct CpuReserveInfo)) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 
@@ -90,7 +90,7 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
       period = inv->entry.w3;
 
       if (ndx < 0 || ndx >= 32) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
       
@@ -163,14 +163,14 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
     }
 
 
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     {
       inv->exit.code = RC_OK;
       inv->exit.w1 = AKT_SchedCreator;
       break;
     }
   default:
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     break;
   }
   return;

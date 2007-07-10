@@ -22,9 +22,9 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <domain/domdbg.h>
-#include <idl/eros/SysTrace.h>
+#include <idl/capros/SysTrace.h>
 
 #define KR_VOID 0
 
@@ -85,7 +85,7 @@ main()
   msg.snd_invKey = KR_VOID;
   msg.snd_code = KT;
 
-  eros_Sleep_sleep(KR_SLEEP, 4000);
+  capros_Sleep_sleep(KR_SLEEP, 4000);
 
   kprintf(KR_OSTREAM, "Beginning %d calls to Void Key\n", ITERATIONS);
 

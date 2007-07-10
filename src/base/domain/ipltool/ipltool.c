@@ -34,8 +34,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Discrim.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Discrim.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -78,7 +78,7 @@ main()
   msg.snd_w3 = 0;
   msg.snd_len = 0;
 
- while (eros_key_getType(KR_THREADLIST, &kt) == RC_OK && kt == AKT_Node) {
+ while (capros_key_getType(KR_THREADLIST, &kt) == RC_OK && kt == AKT_Node) {
     unsigned i;
     for (i = 0; i < (EROS_NODE_SIZE-1); i++) {
       uint32_t keyType;
@@ -86,8 +86,8 @@ main()
 
       node_copy(KR_THREADLIST, i, KR_FAULT);
 
-      result = eros_key_getType(KR_FAULT, &keyType);
-      if (result == RC_eros_key_Void)
+      result = capros_key_getType(KR_FAULT, &keyType);
+      if (result == RC_capros_key_Void)
         continue;
 
       if (keyType == AKT_Process) {

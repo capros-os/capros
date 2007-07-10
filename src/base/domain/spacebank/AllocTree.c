@@ -481,7 +481,7 @@ allocTree_removeOID(TREE *tree, struct Bank *bank, uint8_t type, OID oid)
 	      DW_HEX_ARG(oid));
 	      
     bank_UnreserveFrames(bank, 1);
-    if (type == eros_Range_otNode)
+    if (type == capros_Range_otNode)
       ob_ReleaseNodeFrame(bank, EROS_FRAME_FROM_OID(oid));
     else
       ob_ReleasePageFrame(bank, EROS_FRAME_FROM_OID(oid));

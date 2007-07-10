@@ -22,14 +22,14 @@
 #include <eros/Invoke.h>
 #include <domain/drivers/PciProbeKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 uint32_t
 pciprobe_read_config_dword(uint32_t probe_key,struct pci_dev_data *dev, 
 			    uint32_t where,uint32_t *value)
 {
   Message m;
-  uint32_t result = RC_eros_key_RequestError; /* until proven otherwise */
+  uint32_t result = RC_capros_key_RequestError; /* until proven otherwise */
 
   m.snd_invKey = probe_key;
   m.snd_code = OC_Pci_read_config_dword;

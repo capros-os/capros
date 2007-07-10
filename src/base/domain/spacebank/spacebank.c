@@ -40,9 +40,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Range.h>
-#include <idl/eros/ProcTool.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Range.h>
+#include <idl/capros/ProcTool.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -58,15 +58,15 @@ Approved for public release, distribution unlimited. */
 
 #define min(a,b) ((a) <= (b) ? (a) : (b))
 
-uint32_t objects_per_frame[eros_Range_otNUM_TYPES];
-uint32_t objects_map_mask[eros_Range_otNUM_TYPES];
-static const char *type_names[eros_Range_otNUM_TYPES];
+uint32_t objects_per_frame[capros_Range_otNUM_TYPES];
+uint32_t objects_map_mask[capros_Range_otNUM_TYPES];
+static const char *type_names[capros_Range_otNUM_TYPES];
 
-uint8_t typeToBaseType[eros_Range_otNUM_TYPES] = {
-  [eros_Range_otPage]      = eros_Range_otPage,
-  [eros_Range_otNode]      = eros_Range_otNode,
-  [eros_Range_otForwarder] = eros_Range_otNode,
-  [eros_Range_otGPT]       = eros_Range_otNode,
+uint8_t typeToBaseType[capros_Range_otNUM_TYPES] = {
+  [capros_Range_otPage]      = capros_Range_otPage,
+  [capros_Range_otNode]      = capros_Range_otNode,
+  [capros_Range_otForwarder] = capros_Range_otNode,
+  [capros_Range_otGPT]       = capros_Range_otNode,
 };
 
 /* functions */
@@ -94,7 +94,7 @@ int
 main(void)
 {
   Message msg;
-  char buff[sizeof(eros_SpaceBank_limits) + 2]; /* two extra for failure
+  char buff[sizeof(capros_SpaceBank_limits) + 2]; /* two extra for failure
 						detection */
   
   node_copy(KR_CONSTIT, KC_PRIMERANGE, KR_SRANGE);
@@ -195,12 +195,12 @@ ProcessRequest(Message *argmsg)
   
   switch (code) {
     /* ALLOCATIONS */
-  case OC_eros_SpaceBank_alloc1:
+  case OC_capros_SpaceBank_alloc1:
     result = BankAllocObject(bank, argmsg->rcv_w1, KR_ARG0, &oids[0]);
     if (result == RC_OK)
       argmsg->snd_key0 = KR_ARG0;
     goto allocExit;
-  case OC_eros_SpaceBank_alloc2:
+  case OC_capros_SpaceBank_alloc2:
     result = BankAllocObject(bank, argmsg->rcv_w1 & 0xff, KR_ARG0, &oids[0]);
     if (result == RC_OK) {
       result = BankAllocObject(bank, argmsg->rcv_w1 >> 8, KR_ARG1, &oids[1]);
@@ -213,7 +213,7 @@ ProcessRequest(Message *argmsg)
       bank_deallocOID(bank, argmsg->rcv_w1, oids[0]);
     }
     goto allocExit;
-  case OC_eros_SpaceBank_alloc3:
+  case OC_capros_SpaceBank_alloc3:
     {
       result = BankAllocObject(bank, argmsg->rcv_w1 & 0xff, KR_ARG0, &oids[0]);
       if (result == RC_OK) {
@@ -238,27 +238,27 @@ ProcessRequest(Message *argmsg)
 allocExit:
       argmsg->snd_code = result;
       DEBUG(realloc) {
-	if ( ((bank->allocs[eros_Range_otPage] % 20) == 0) ||
-	     ((bank->deallocs[eros_Range_otPage] % 20) == 0) )
+	if ( ((bank->allocs[capros_Range_otPage] % 20) == 0) ||
+	     ((bank->deallocs[capros_Range_otPage] % 20) == 0) )
 	  kprintf(KR_OSTREAM, "*%d pages allocd, %d deallocd\n",
-		  bank->allocs[eros_Range_otPage],
-		  bank->deallocs[eros_Range_otPage]
+		  bank->allocs[capros_Range_otPage],
+		  bank->deallocs[capros_Range_otPage]
 		  );
       }
       break;
     }
 
   /* DEALLOCATIONS */
-  case OC_eros_SpaceBank_free1:
+  case OC_capros_SpaceBank_free1:
     result = BankDeallocObject(bank, KR_ARG0);
     goto freeExit;
-  case OC_eros_SpaceBank_free2:
+  case OC_capros_SpaceBank_free2:
     result = BankDeallocObject(bank, KR_ARG0);
     if (result == RC_OK) {
       result = BankDeallocObject(bank, KR_ARG1);
     }
     goto freeExit;
-  case OC_eros_SpaceBank_free3:
+  case OC_capros_SpaceBank_free3:
     {
       result = BankDeallocObject(bank, KR_ARG0);
       if (result == RC_OK) {
@@ -277,14 +277,14 @@ freeExit:
       break;
     }
 
-  case OC_eros_SpaceBank_ReclaimDataPagesFromNode:
+  case OC_capros_SpaceBank_ReclaimDataPagesFromNode:
     {
-      eros_Range_obType type;
+      capros_Range_obType type;
       
       /* verify that they actually passed us a node key */
-      if (eros_Range_identify(KR_SRANGE, KR_ARG0, &type, NULL) != RC_OK
-          || type != eros_Range_otNode) {
-        argmsg->snd_code = RC_eros_key_RequestError;
+      if (capros_Range_identify(KR_SRANGE, KR_ARG0, &type, NULL) != RC_OK
+          || type != capros_Range_otNode) {
+        argmsg->snd_code = RC_capros_key_RequestError;
         break;
       } else {
 	/* it's a node */
@@ -323,11 +323,11 @@ freeExit:
       }
     }
 
-  case OC_eros_SpaceBank_reduce:
+  case OC_capros_SpaceBank_reduce:
     {
       preclude |= argmsg->rcv_w1;
       if (preclude > BANKPREC_MASK) {
-	argmsg->snd_code = RC_eros_key_RequestError;
+	argmsg->snd_code = RC_capros_key_RequestError;
 	break;
       }
 
@@ -336,41 +336,41 @@ freeExit:
       break;
     }
 
-  case OC_eros_key_destroy:
+  case OC_capros_key_destroy:
     {
       /* destroy bank, returning space to parent */
 
       if (BANKPREC_CAN_DESTROY(preclude))
 	argmsg->snd_code = BankDestroyBankAndStorage(bank, false);
       else
-	argmsg->snd_code = RC_eros_key_UnknownRequest;
+	argmsg->snd_code = RC_capros_key_UnknownRequest;
 
       break;
     }
 
 
-  case OC_eros_SpaceBank_destroyBankAndSpace:
+  case OC_capros_SpaceBank_destroyBankAndSpace:
     {
       /* destroy bank, deallocating space */
 
       if (BANKPREC_CAN_DESTROY(preclude))
 	argmsg->snd_code = BankDestroyBankAndStorage(bank, true);
       else
-	argmsg->snd_code = RC_eros_key_UnknownRequest;
+	argmsg->snd_code = RC_capros_key_UnknownRequest;
 
       break;
     } 
       
-  case OC_eros_SpaceBank_setLimits:
+  case OC_capros_SpaceBank_setLimits:
     {
       fixreg_t got = min(argmsg->rcv_limit, argmsg->rcv_sent);
 
       if ( !BANKPREC_CAN_MOD_LIMIT(preclude) ) 
-	argmsg->snd_code = RC_eros_key_UnknownRequest;
-      else if (got != sizeof(eros_SpaceBank_limits))
-	argmsg->snd_code = RC_eros_key_RequestError;
+	argmsg->snd_code = RC_capros_key_UnknownRequest;
+      else if (got != sizeof(capros_SpaceBank_limits))
+	argmsg->snd_code = RC_capros_key_RequestError;
       else {
-	eros_SpaceBank_limits * limPtr = (eros_SpaceBank_limits *)argmsg->rcv_data;
+	capros_SpaceBank_limits * limPtr = (capros_SpaceBank_limits *)argmsg->rcv_data;
 
 	argmsg->snd_code = BankSetLimits(bank, limPtr);
       }
@@ -378,9 +378,9 @@ freeExit:
       break;
     }
 
-  case OC_eros_SpaceBank_getLimits:
+  case OC_capros_SpaceBank_getLimits:
     {
-      static eros_SpaceBank_limits retLimits;
+      static capros_SpaceBank_limits retLimits;
       /* static so it survives the return */
 
       /* FIXME: can this be precluded? */
@@ -394,7 +394,7 @@ freeExit:
       break;
     }
 
-  case OC_eros_SpaceBank_createSubBank:
+  case OC_capros_SpaceBank_createSubBank:
     {
       argmsg->snd_code = BankCreateChild(bank, KR_ARG0);
       if (argmsg->snd_code == RC_OK) argmsg->snd_key0 = KR_ARG0;
@@ -402,7 +402,7 @@ freeExit:
       break;
     } 
 
-  case OC_eros_SpaceBank_verify:
+  case OC_capros_SpaceBank_verify:
     {
       uint32_t keyType;
 
@@ -424,7 +424,7 @@ freeExit:
       /* use it to replace the brand key with the forwarder key from
        * KR_ARG0 (assuming KR_ARG0 is a valid spacebank key)
        */
-      result = eros_ProcTool_identForwarderTarget(KR_TMP2, KR_ARG0, KR_TMP, KR_TMP, 
+      result = capros_ProcTool_identForwarderTarget(KR_TMP2, KR_ARG0, KR_TMP, KR_TMP, 
 				  &keyType, 0);
       if (result != RC_OK || keyType != 1) {
 	kpanic(KR_OSTREAM,
@@ -440,7 +440,7 @@ freeExit:
       
       break;
     }
-  case OC_eros_key_getType: /* Key type */
+  case OC_capros_key_getType: /* Key type */
     {
       argmsg->snd_code = RC_OK;
       argmsg->snd_w1 = AKT_SpaceBank;
@@ -448,7 +448,7 @@ freeExit:
     }
   default:
     {
-      argmsg->snd_code = RC_eros_key_UnknownRequest;
+      argmsg->snd_code = RC_capros_key_UnknownRequest;
       break;
     }
   }
@@ -464,7 +464,7 @@ InitSpaceBank(void)
   DEBUG(init) kdprintf(KR_OSTREAM,
 	   "spacebank: spacebank initializing\n");
 
-  for (x = 0; x < eros_Range_otNUM_TYPES; x++) {
+  for (x = 0; x < capros_Range_otNUM_TYPES; x++) {
     objects_per_frame[x] = 0u;
     objects_map_mask[x] = 0u;
     type_names[x] = "Invalid";
@@ -473,10 +473,10 @@ InitSpaceBank(void)
 
 #define SETUP_TYPE(type,perpage) \
                              { \
-			       objects_per_frame[eros_Range_ot ## type] = perpage; \
-			       objects_map_mask[eros_Range_ot ## type] = \
+			       objects_per_frame[capros_Range_ot ## type] = perpage; \
+			       objects_map_mask[capros_Range_ot ## type] = \
  					              (1u << (perpage)) - 1; \
-			       type_names[eros_Range_ot ## type] = #type; \
+			       type_names[capros_Range_ot ## type] = #type; \
 			     }
 
   SETUP_TYPE(Page, 1u);
@@ -505,8 +505,8 @@ const char *
 type_name(int t)
 {
   switch (t) {
-  case eros_Range_otPage:
-  case eros_Range_otNode:
+  case capros_Range_otPage:
+  case capros_Range_otNode:
     return type_names[t];
   default:
     return "unknown";
@@ -517,8 +517,8 @@ bool
 valid_type(int t)
 {
   switch (t) {
-  case eros_Range_otPage:
-  case eros_Range_otNode:
+  case capros_Range_otPage:
+  case capros_Range_otNode:
     return true;
   default:
     return false;

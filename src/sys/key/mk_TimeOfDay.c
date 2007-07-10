@@ -66,12 +66,12 @@ TimeOfDayKey(Invocation& inv)
       inv.exit.code = RC_OK;
       break;
     }
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     inv.exit.code = RC_OK;
     inv.exit.w1 = AKT_TimeOfDay;
     break;
   default:
-    inv.exit.code = RC_eros_key_UnknownRequest;
+    inv.exit.code = RC_capros_key_UnknownRequest;
     break;
   }
 

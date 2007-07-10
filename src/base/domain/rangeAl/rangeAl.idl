@@ -1,6 +1,6 @@
-package eros.domain.rangeAl;
+package capros;
 
-interface rangeAl extends eros.key raises(CreateFail,
+interface rangeAl extends capros.key raises(CreateFail,
 					DeleteFail,
 					GetFail,
 					DefineFail,

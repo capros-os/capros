@@ -21,7 +21,7 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 #include <domain/SessionKey.h>
 
 uint32_t
@@ -31,7 +31,7 @@ session_next_event(uint32_t session_key,
   Message m;
 
   if (event == NULL)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
 
   m.snd_invKey = session_key;
   m.snd_code = OC_Session_NextEvent;

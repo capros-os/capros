@@ -31,8 +31,8 @@
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Ps2.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Ps2.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -57,7 +57,7 @@ ProcessRequest()
   int32_t data;
   int32_t valid;
   
-  (void)eros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
+  (void)capros_Ps2_getKeycode(KR_PS2READER,&data,&valid);
 
   if (valid >= 0)
     (void)event_mgr_queue_key_data(KR_PARENT, data);

@@ -31,8 +31,8 @@
 #include <domain/domdbg.h>
 #include <domain/SpaceBankKey.h>
 
-#include <idl/eros/DevPrivs.h>
-#include <idl/eros/Range.h>
+#include <idl/capros/DevPrivs.h>
+#include <idl/capros/Range.h>
 #include <idl/console/textconsole.h>
 
 #include <stdlib.h>
@@ -172,14 +172,14 @@ initialize(void)
 
   /* This SHOULD be the VGA memory area */
 
-  result = eros_DevPrivs_publishMem(KR_DEVPRIVS, 0xa0000u, 0xc0000u, 0);
+  result = capros_DevPrivs_publishMem(KR_DEVPRIVS, 0xa0000u, 0xc0000u, 0);
   if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::publish mem--Failed");
 
 #else
 #error "This is an i386 console driver.  You are not running an i386.  Sorry."
 #endif
 
-  eros_Range_waitPageKey(KR_PHYSRANGE,
+  capros_Range_waitPageKey(KR_PHYSRANGE,
 		      (0xb8000 / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME,
 		      KR_SCRATCH);
   node_swap(KR_ADDRSPC, 1, KR_SCRATCH, KR_VOID);
@@ -800,6 +800,6 @@ ProcessRequest(Message *msg)
     break;
   }
 
-  msg->snd_code = RC_eros_key_UnknownRequest;
+  msg->snd_code = RC_capros_key_UnknownRequest;
   return 1;
 }

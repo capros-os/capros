@@ -1,13 +1,13 @@
 package window_system;
 
-interface eventmgr extends eros.key {
+interface eventmgr extends capros.key {
 
   /** Queue keyboard data
    *
    * Send a raw key scancode to the event manager.
    *
    */
-  void key_data(eros.key eventmgr, short scancode);
+  void key_data(capros.key eventmgr, short scancode);
 
   /** Queue mouse data
    *
@@ -17,6 +17,6 @@ interface eventmgr extends eros.key {
    * travelled since the last update.
    *
    */
-  void mouse_data(eros.key eventmgr, short mask, short xmotion, short ymotion);
+  void mouse_data(capros.key eventmgr, short mask, short xmotion, short ymotion);
 };
 

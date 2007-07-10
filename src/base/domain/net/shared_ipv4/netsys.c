@@ -31,10 +31,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/cap-instr.h>
 #include <eros/KeyConst.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/domain/net/shared_ipv4/netsys.h>
-#include <idl/eros/domain/net/enet/enet.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/net/shared_ipv4/netsys.h>
+#include <idl/capros/net/enet/enet.h>
 
 #include <domain/SpaceBankKey.h>
 #include <domain/domdbg.h>
@@ -277,7 +277,7 @@ ProcessRequest(Message *msg)
 			       KR_SCRATCH);
   	result = forwarder_create(KR_CLIENT_BANK,KR_NEW_SESSION,KR_NEW_NODE,
 				  KR_SCRATCH,
-                                  eros_Forwarder_sendWord,
+                                  capros_Forwarder_sendWord,
 				  ssid);
 	if(result != RC_OK) {
 	  msg->snd_code = result;
@@ -295,7 +295,7 @@ ProcessRequest(Message *msg)
 	 * unused slot of the forwarder.  When the session is closed,
 	 * we'll make an attempt to return storage to the space bank on
 	 * behalf of the client. */
-	eros_Forwarder_swapSlot(KR_NEW_NODE, STASH_CLIENT_BANK, KR_CLIENT_BANK, KR_VOID);
+	capros_Forwarder_swapSlot(KR_NEW_NODE, STASH_CLIENT_BANK, KR_CLIENT_BANK, KR_VOID);
 	
 	/* Now Add this newly created session to a list of sessions.
 	 * This is essential to map the session id to the buffer addresses */
@@ -363,7 +363,7 @@ ProcessRequest(Message *msg)
   default :
     {
       kprintf(KR_OSTREAM,"Unknown type invocation");
-      msg->snd_code = RC_eros_key_UnknownRequest;
+      msg->snd_code = RC_capros_key_UnknownRequest;
     }
   }
   return 1;
@@ -477,7 +477,7 @@ startXRhelpers()
 			 KR_SCRATCH);
   /* create a forwarder so that we can block this caller */
   result = forwarder_create(KR_BANK,KR_SCRATCH2,KR_NEW_NODE, KR_SCRATCH,
-                            eros_Forwarder_sendWord,
+                            capros_Forwarder_sendWord,
 			    /*ssid = 0*/0 );
 
   /* Pass it our start key */
@@ -601,7 +601,7 @@ main(void)
   }
 
   /* We want the forwarder to be initially blocked. */
-  if (eros_Forwarder_setBlocked(KR_PARK_NODE) != RC_OK) {
+  if (capros_Forwarder_setBlocked(KR_PARK_NODE) != RC_OK) {
     kprintf(KR_OSTREAM, "** ERROR: couldn't block a forwarder for parking "
             "waiting-client keys...\n");
     return -1;   /* FIX:  really need to terminate gracefully */

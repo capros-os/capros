@@ -1,4 +1,4 @@
-package eros;
+package capros;
 
 /** Kernel interface to key representation.
  *
@@ -24,5 +24,5 @@ interface KeyBits extends key {
    *
    * Open Issue: should the get() interface accept as an argument the
    * desired keybits version, or is the version number output only? */
-  void get(eros.key k, out info bits);
+  void get(capros.key k, out info bits);
 };

@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/machine/Registers.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 /* #define DEBUG */
 
@@ -57,7 +57,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
     dprintf(false, "Modifying invokee keys node\n");
 
   switch (inv->entry.code) {
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     {
       COMMIT_POINT();
 
@@ -77,7 +77,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
 
       if (slot == ProcBrand || 
 	  slot >= EROS_NODE_SIZE) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 
@@ -106,7 +106,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
 	  slot >= EROS_NODE_SIZE) {
 	COMMIT_POINT();
 
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
 
@@ -159,7 +159,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
 	inv->exit.code = RC_OK;
       }
       else {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
       }
 
       return;
@@ -180,7 +180,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       slot = inv->entry.w1;
 
       if (slot >= EROS_NODE_SIZE) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
       
@@ -259,7 +259,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       DomCtlInfo32_s info;
 
       if ( inv.entry.len != sizeof(info) ) {
-	inv.exit.code = RC_eros_key_RequestError;
+	inv.exit.code = RC_capros_key_RequestError;
 	COMMIT_POINT();
       
 	return;
@@ -286,7 +286,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       Process* ac = 0;
       
       if ( inv->entry.len != sizeof(regs) ) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	COMMIT_POINT();
       
 	return;
@@ -365,7 +365,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       keyData = inv->entry.w1;
       
       if ( keyData > EROS_KEYDATA_MAX ) {
-	inv->exit.code = RC_eros_key_RequestError;
+	inv->exit.code = RC_capros_key_RequestError;
 	dprintf(true, "Value 0x%08x is out of range\n",	keyData);
       
 	return;
@@ -404,7 +404,7 @@ ProcessKey(Invocation* inv /*@ not null @*/)
   case OC_Process_MkProcessWaiting:
     COMMIT_POINT();
 
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
 
   case OC_Process_MkFaultKey:
@@ -444,7 +444,7 @@ makeResumeKey:
   default:
     COMMIT_POINT();
       
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 }

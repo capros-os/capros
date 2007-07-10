@@ -1,21 +1,21 @@
-package eros.domain.timer;
+package capros.timer;
 
-interface manager extends eros.key {
+interface manager extends capros.key {
 
   /**
    * Set the interval.
    */
-  void set_interval(unsigned long interval);
+  void setInterval(unsigned long interval);
 
   /**
    * Start the timer.
    */
-  void start_timer();
+  void startTimer();
 
   /**
    * Stop the timer.
    */
-  void stop_timer();
+  void stopTimer();
 
 };
 

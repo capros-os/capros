@@ -1,7 +1,7 @@
 #ifndef __LINEBUFFER_H__
 #define __LINEBUFFER_H__
 
-#include <idl/eros/domain/linedisc.h>
+#include <idl/capros/linedisc.h>
 
 #define CCEQ(val, c) ((c) == (val))
 #define ISSET(t, f)  ((t) & (f))

@@ -30,7 +30,7 @@
 #include <kerninc/SysTimer.h>
 #include <kerninc/PCI.h>
 #include <eros/TimeOfDay.h>
-#include <idl/eros/arch/i486/SysTrace.h>
+#include <idl/capros/arch/i486/SysTrace.h>
 #include <arch-kerninc/PTE.h>
 #include <arch-kerninc/IRQ-inline.h>
 #include "CpuFeatures.h"
@@ -391,7 +391,7 @@ extern void Pentium_SetCounterMode(uint32_t mode, uint32_t wantCy);
 extern void PentiumPro_SetCounterMode(uint32_t mode, uint32_t wantCy);
 
 
-static const char * ModeNames[eros_arch_i486_SysTrace_mode_NUM_MODE] = {
+static const char * ModeNames[capros_arch_i486_SysTrace_mode_NUM_MODE] = {
   "Cycles",
   "Instrs",
   "DTLB",
@@ -404,7 +404,7 @@ static const char * ModeNames[eros_arch_i486_SysTrace_mode_NUM_MODE] = {
   "Branch",
   "TkBrnch",
 };
-static uint32_t PentiumModes[eros_arch_i486_SysTrace_mode_NUM_MODE] = {
+static uint32_t PentiumModes[capros_arch_i486_SysTrace_mode_NUM_MODE] = {
   0x0,				/* SysTrace_Mode_Cycles	*/
   0x16,				/* SysTrace_Mode_Instrs	*/
   0x02,				/* SysTrace_Mode_DTLB	*/
@@ -417,7 +417,7 @@ static uint32_t PentiumModes[eros_arch_i486_SysTrace_mode_NUM_MODE] = {
   0x12,				/* SysTrace_Mode_Branches */
   0x14,				/* SysTrace_Mode_BrTaken */
 };
-static uint32_t PentiumProModes[eros_arch_i486_SysTrace_mode_NUM_MODE] = {
+static uint32_t PentiumProModes[capros_arch_i486_SysTrace_mode_NUM_MODE] = {
   0x79,				/* SysTrace_Mode_Cycles	*/
   0xc0,				/* SysTrace_Mode_Instrs	*/
   0x0,		/* no analog */	/* SysTrace_Mode_DTLB	*/
@@ -444,8 +444,8 @@ static uint32_t PentiumProModes[eros_arch_i486_SysTrace_mode_NUM_MODE] = {
 bool
 mach_SetCounterMode(uint32_t mode)
 {
-  uint32_t wantcy = (mode == eros_arch_i486_SysTrace_mode_cycles) ? 1 : 0;
-  if (mode >= eros_arch_i486_SysTrace_mode_NUM_MODE)
+  uint32_t wantcy = (mode == capros_arch_i486_SysTrace_mode_cycles) ? 1 : 0;
+  if (mode >= capros_arch_i486_SysTrace_mode_NUM_MODE)
     return false;
 
   if (CpuType == 5) {
@@ -461,7 +461,7 @@ mach_SetCounterMode(uint32_t mode)
 const char *
 mach_ModeName(uint32_t mode)
 {
-  if (mode >= eros_arch_i486_SysTrace_mode_NUM_MODE)
+  if (mode >= capros_arch_i486_SysTrace_mode_NUM_MODE)
     return "???";
 
   return ModeNames[mode];

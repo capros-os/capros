@@ -29,8 +29,8 @@
 #include <eros/NodeKey.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Ps2.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Ps2.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -83,7 +83,7 @@ main() {
     
   /* Call ps2reader to look for any mouse packets in the ps2 h/w buffer */
   do {
-    (void)eros_Ps2_getMousedata(KR_PS2READER,&w1,&w2,&w3);
+    (void)capros_Ps2_getMousedata(KR_PS2READER,&w1,&w2,&w3);
   } while (1);
 
   return 0;

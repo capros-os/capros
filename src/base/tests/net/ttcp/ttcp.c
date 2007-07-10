@@ -26,14 +26,14 @@
 #include <eros/ProcessKey.h>
 #include <eros/endian.h>
 
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/NetSysKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
-#include <idl/eros/domain/net/ipv4/netsys.h>
+#include <idl/capros/net/ipv4/netsys.h>
 
 #include <ctype.h>
 #include <string.h>
@@ -85,7 +85,7 @@ main(void)
 
   /* Sleep for sometime to allow the netsys to configure itself
    * using DHCP */
-  eros_Sleep_sleep(KR_SLEEP,2000);
+  capros_Sleep_sleep(KR_SLEEP,2000);
 
   /* Check if we have been configured */
   result = eros_domain_net_ipv4_netsys_get_netconfig(KR_NETSYS_S,&ipaddr,

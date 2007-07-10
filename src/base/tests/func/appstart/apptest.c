@@ -24,7 +24,7 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <eros/NodeKey.h>
 #include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
@@ -55,9 +55,9 @@ const uint32_t __rt_stack_pointer = 0x21000;
 
 void spaceBankStats()
 {
-  eros_SpaceBank_limits bl;
+  capros_SpaceBank_limits bl;
 
-  if ( eros_SpaceBank_getLimits( KR_SPACEBANK, &bl ) != RC_OK ) {
+  if ( capros_SpaceBank_getLimits( KR_SPACEBANK, &bl ) != RC_OK ) {
     kprintf( KR_OSTREAM, "!! Could not get bank limits!\n" );
     return;
   };
@@ -112,7 +112,7 @@ main()
   /* kprintf(KR_OSTREAM, "\033[H\033[J\n\n");		clear screen */
   /* testSpaceBank( KR_SPACEBANK); */
 
-  eros_Sleep_sleep( KR_SLEEP, 1000 );
+  capros_Sleep_sleep( KR_SLEEP, 1000 );
   
   /* create constructor */
   kprintf( KR_OSTREAM, "Requesting constructor: " );
@@ -136,7 +136,7 @@ main()
   };
   
   for(;;) {
-    eros_Sleep_sleep( KR_SLEEP, 1000 );
+    capros_Sleep_sleep( KR_SLEEP, 1000 );
     
     kprintf( KR_OSTREAM, "Creating SubBank: " );
     if ( spcbank_create_subbank( KR_SPACEBANK, KR_SUBBANK ) != RC_OK ) {
@@ -179,7 +179,7 @@ main()
     }
 
     kprintf( KR_OSTREAM, "Product should be counting....\n" );
-    eros_Sleep_sleep( KR_SLEEP, 2000 );
+    capros_Sleep_sleep( KR_SLEEP, 2000 );
 
     kprintf( KR_OSTREAM, "Going to destroy SubBank...\n" );
     if ( spcbank_destroy_bank( KR_SUBBANK, 1 ) == RC_OK ) {

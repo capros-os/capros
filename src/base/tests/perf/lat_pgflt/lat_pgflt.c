@@ -22,12 +22,12 @@
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
 #include <domain/domdbg.h>
-#include <idl/eros/SysTrace.h>
+#include <idl/capros/SysTrace.h>
 
 /* The purpose of this benchmark is to measure the cost of
    reconstructing page table entries.  It is designed on the
@@ -113,7 +113,7 @@ main()
   /* print result to avoid loop hoisting on unused x: */
   kprintf(KR_OSTREAM, "Pass zero, x result is %d\n", x);
 
-  eros_Sleep_sleep(KR_SLEEP, 4000);
+  capros_Sleep_sleep(KR_SLEEP, 4000);
 
   kprintf(KR_OSTREAM, "Calibrating Touch Loop for %d pages\n",
 	  NPAGES);
@@ -123,7 +123,7 @@ main()
   dotrace(NOZAP, eros_SysTrace_mode_cycles);
   dotrace(NOZAP, eros_SysTrace_mode_cycles);
 
-  eros_Sleep_sleep(KR_SLEEP, 4000);
+  capros_Sleep_sleep(KR_SLEEP, 4000);
 
 #if 0
   dotrace(ZAP, eros_SysTrace_mode_instrs);

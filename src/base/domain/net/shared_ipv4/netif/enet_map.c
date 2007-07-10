@@ -24,7 +24,7 @@
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -61,13 +61,13 @@ uint32_t
 enet_MapClient_single_buff(cap_t kr_bank,cap_t kr_newspace,
 			   uint32_t *buffer_addr)
 {
-  result_t result = RC_eros_key_RequestError; /* until proven otherwise */
+  result_t result = RC_capros_key_RequestError; /* until proven otherwise */
   uint32_t u;
   uint32_t top_level_slot = 0;
   uint32_t buffer_id;
   
   if (buffer_addr == NULL)
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
 
   result = process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
   if (result != RC_OK)

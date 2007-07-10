@@ -37,9 +37,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Number.h>
-#include <idl/eros/SpaceBank.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Number.h>
+#include <idl/capros/SpaceBank.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/ProcessCreatorKey.h>
@@ -113,7 +113,7 @@ ENTRY(start)
 	   type of the address space key -- if it alleges to be a  
 	   constructor, believe it and invoke it to get the real thing. */
 	
-	simpleCall(kt_addr_space, PSKR_SPACE, OC_eros_key_getType, 0,
+	simpleCall(kt_addr_space, PSKR_SPACE, OC_capros_key_getType, 0,
 		KR_VOID, KR_VOID, KR_VOID)
 	cmp r1,#RC_OK
 	bne perform_lobotomy	// didn't respond to getType?
@@ -134,7 +134,7 @@ perform_lobotomy:
 	   one more register, we wouldn't have to get the #$)*^%
 	   thing from a key */
 	
-	simpleCall(pc_value, PSKR_PROC_PC, OC_eros_Number_get, 0,
+	simpleCall(pc_value, PSKR_PROC_PC, OC_capros_Number_get, 0,
 		KR_VOID, KR_VOID, KR_VOID)
 	mov r6,r2	// save rcv_w1, which is the PC
 		
@@ -156,19 +156,19 @@ perform_lobotomy:
 	
 delete_small_space:
 	simpleCall(sb_reclaim_pages_from_node, KR_BANK,
-                   OC_eros_SpaceBank_ReclaimDataPagesFromNode, 0,
+                   OC_capros_SpaceBank_ReclaimDataPagesFromNode, 0,
 		   PSKR_SPACE, KR_VOID, KR_VOID)
 	
 	/* Sell back the node itself */
 	simpleCall(sb_reclaim_small_space_node, KR_BANK,
-		   OC_eros_SpaceBank_free1, 0,
+		   OC_capros_SpaceBank_free1, 0,
 		   PSKR_SPACE, KR_VOID, KR_VOID)
 
 	b sepuku
 	
 delete_kept_space:
 	simpleCall(destroy_kept_space, PSKR_SPACE,
-		   OC_eros_key_destroy, 0,
+		   OC_capros_key_destroy, 0,
 		   KR_VOID, KR_VOID, KR_VOID)
 sepuku:
 	/* construction of the address space failed.  Ask our process

@@ -26,7 +26,7 @@
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 #include <eros/machine/io.h>
 #include <eros/DevicePrivs.h>
 #include <domain/ConstructorKey.h>

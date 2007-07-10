@@ -45,8 +45,8 @@ Approved for public release, distribution unlimited. */
 #include <disk/DiskLSS.h>
 #include <disk/Forwarder.h>
 #include <eros/StdKeyType.h>
-#include <idl/eros/Memory.h>
-#include <idl/eros/Forwarder.h>
+#include <idl/capros/Memory.h>
+#include <idl/capros/Forwarder.h>
 #include "PtrMap.h"
 #include "../../../lib/domain/include/domain/Runtime.h"
 
@@ -109,13 +109,13 @@ const char *strcons(const char *s1, const char * s2);
 bool QualifyKey(uint32_t, KeyBits in, KeyBits *out);
 KeyBits NumberFromString(const char *);
 
-#define ATTRIB_RO    eros_Memory_readOnly
-#define ATTRIB_NC    eros_Memory_noCall
-#define ATTRIB_WEAK  eros_Memory_weak
-#define ATTRIB_OPAQUE eros_Memory_opaque
+#define ATTRIB_RO    capros_Memory_readOnly
+#define ATTRIB_NC    capros_Memory_noCall
+#define ATTRIB_WEAK  capros_Memory_weak
+#define ATTRIB_OPAQUE capros_Memory_opaque
 
-#define ATTRIB_SENDCAP eros_Forwarder_sendCap
-#define ATTRIB_SENDWORD eros_Forwarder_sendWord
+#define ATTRIB_SENDCAP capros_Forwarder_sendCap
+#define ATTRIB_SENDWORD capros_Forwarder_sendWord
 
 #define YYSTYPE ParseType
 
@@ -1148,7 +1148,7 @@ key:   NULLKEY {
 	    YYERROR;
 	  }
 
-          key.keyData |= eros_Forwarder_opaque;
+          key.keyData |= capros_Forwarder_opaque;
 
 	  $$ = key;
         }
@@ -1167,12 +1167,12 @@ key:   NULLKEY {
 	    YYERROR;
 	  }
 
-          key.keyData |= eros_Forwarder_opaque;
+          key.keyData |= capros_Forwarder_opaque;
           if ($3 & ATTRIB_SENDCAP) {
-            key.keyData |= eros_Forwarder_sendCap;
+            key.keyData |= capros_Forwarder_sendCap;
           }
           if ($3 & ATTRIB_SENDWORD) {
-            key.keyData |= eros_Forwarder_sendWord;
+            key.keyData |= capros_Forwarder_sendWord;
           }
 
 	  $$ = key;
@@ -1192,7 +1192,7 @@ key:   NULLKEY {
 	    YYERROR;
 	  }
 
-          // key.keyData |= eros_Memory_opaque;
+          // key.keyData |= capros_Memory_opaque;
 
 	  $$ = key;
         }

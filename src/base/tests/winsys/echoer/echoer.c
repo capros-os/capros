@@ -27,7 +27,7 @@
 #include <eros/KeyConst.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/Sleep.h>
+#include <idl/capros/Sleep.h>
 
 #include <stdlib.h>
 

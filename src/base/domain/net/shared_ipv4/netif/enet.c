@@ -32,10 +32,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/machine/io.h>
 #include <eros/cap-instr.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Sleep.h>
-#include <idl/eros/DevPrivs.h>
-#include <idl/eros/domain/net/enet/enet.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/DevPrivs.h>
+#include <idl/capros/net/enet/enet.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -114,7 +114,7 @@ ProcessRequest(Message *msg)
     {
       process_make_start_key(KR_SELF,0,KR_SCRATCH);
       result = forwarder_create(KR_ARG(0),KR_BLOCKER,KR_NEW_NODE, KR_SCRATCH,
-                                eros_Forwarder_sendWord,
+                                capros_Forwarder_sendWord,
 			        1);
       if(result != RC_OK) {
 	msg->snd_code = result;
@@ -417,7 +417,7 @@ main(void)
     }
   }
   /* Allocate the irq associated with the network device */
-  result = eros_DevPrivs_allocIRQ(KR_DEVPRIVS,net_device.irq);
+  result = capros_DevPrivs_allocIRQ(KR_DEVPRIVS,net_device.irq);
   if(result != RC_OK) {
     kprintf(KR_OSTREAM,"IRQ %d not allocated",net_device.irq);
     msg.snd_code =  RC_ENET_IRQ_ALLOC_FAILED;
@@ -453,7 +453,7 @@ main(void)
   }
 
   /* Want it initially blocked. */
-  if (eros_Forwarder_setBlocked(KR_PARK_NODE) != RC_OK) {
+  if (capros_Forwarder_setBlocked(KR_PARK_NODE) != RC_OK) {
     kprintf(KR_OSTREAM, "** ERROR: couldn't block forwarder for parking "
             "waiting-client keys...\n");
     return -1;   /* FIX:  really need to terminate gracefully */

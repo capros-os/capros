@@ -25,8 +25,8 @@
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Discrim.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Discrim.h>
 
 /* May Yield. */
 void
@@ -34,7 +34,7 @@ DiscrimKey(Invocation* inv /*@ not null @*/)
 {
   switch(inv->entry.code) {
 
-  case OC_eros_Discrim_classify:
+  case OC_capros_Discrim_classify:
 
     key_Prepare(inv->entry.key[0]);
 
@@ -45,32 +45,32 @@ DiscrimKey(Invocation* inv /*@ not null @*/)
 
     switch(keyBits_GetType(inv->entry.key[0])) {
     case KKT_Number:
-      inv->exit.w1 = eros_Discrim_clNumber;
+      inv->exit.w1 = capros_Discrim_clNumber;
       break;
     case KKT_Resume:
-      inv->exit.w1 = eros_Discrim_clResume;
+      inv->exit.w1 = capros_Discrim_clResume;
       break;
     case KKT_Page:
     case KKT_Node:
     case KKT_Segment:
     case KKT_Wrapper:		/* FIX: Is this correct? */
     case KKT_GPT:
-      inv->exit.w1 = eros_Discrim_clMemory;
+      inv->exit.w1 = capros_Discrim_clMemory;
       break;
     case KKT_Sched:
-      inv->exit.w1 = eros_Discrim_clSched;
+      inv->exit.w1 = capros_Discrim_clSched;
       break;
     case KKT_Void:
-      inv->exit.w1 = eros_Discrim_clVoid;
+      inv->exit.w1 = capros_Discrim_clVoid;
       break;
     default:
-      inv->exit.w1 = eros_Discrim_clOther;
+      inv->exit.w1 = capros_Discrim_clOther;
       break;
     }
 
     return;
 
-  case OC_eros_Discrim_verify:
+  case OC_capros_Discrim_verify:
  
     key_Prepare(inv->entry.key[0]);
  
@@ -105,7 +105,7 @@ DiscrimKey(Invocation* inv /*@ not null @*/)
     
     return;
 
-  case OC_eros_Discrim_compare:
+  case OC_capros_Discrim_compare:
 
     key_Prepare(inv->entry.key[0]);
     key_Prepare(inv->entry.key[1]);
@@ -139,7 +139,7 @@ DiscrimKey(Invocation* inv /*@ not null @*/)
 
     return;
     
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     COMMIT_POINT();
   
     inv->exit.code = RC_OK;
@@ -151,6 +151,6 @@ DiscrimKey(Invocation* inv /*@ not null @*/)
     break;
   }
 
-  inv->exit.code = RC_eros_key_UnknownRequest;
+  inv->exit.code = RC_capros_key_UnknownRequest;
   return;
 }

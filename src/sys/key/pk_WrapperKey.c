@@ -28,7 +28,7 @@
 #include <eros/StdKeyType.h>
 #include <eros/NodeKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 void
 WrapperKey(Invocation* inv /*@ not null @*/)
@@ -38,7 +38,7 @@ WrapperKey(Invocation* inv /*@ not null @*/)
    * protocol is pretty minimal:
    */
   switch (inv->entry.code) {
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     {
       COMMIT_POINT();
 
@@ -50,7 +50,7 @@ WrapperKey(Invocation* inv /*@ not null @*/)
   default:
     COMMIT_POINT();
 
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 }

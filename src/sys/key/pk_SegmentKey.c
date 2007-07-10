@@ -28,7 +28,7 @@
 #include <eros/StdKeyType.h>
 #include <eros/SegmentKey.h>
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 void
 SegmentKey(Invocation* inv /*@ not null @*/)
@@ -50,7 +50,7 @@ SegmentKey(Invocation* inv /*@ not null @*/)
 	inv->exit.pKey[0]->keyPerms |= p;
       return;
     }
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     {
       inv->exit.code = RC_OK;
       inv->exit.w1 = AKT_Segment;
@@ -58,7 +58,7 @@ SegmentKey(Invocation* inv /*@ not null @*/)
       return;
     }
   default:
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 }

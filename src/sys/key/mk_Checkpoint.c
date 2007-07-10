@@ -25,8 +25,8 @@
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/Checkpoint.h>
+#include <idl/capros/key.h>
+#include <idl/capros/Checkpoint.h>
 
 /* There is a curious consequence of the way EROS handles checkpoints
  * that I don't see how to elegantly avoid.  The call to
@@ -70,7 +70,7 @@ void
 CheckpointKey(Invocation* inv /*@ not null @*/)
 {
   switch (inv->entry.code) {
-  case OC_eros_Checkpoint_migrate:
+  case OC_capros_Checkpoint_migrate:
     {
 #ifdef OPTION_PERSISTENT
 #error "Implement ProcessMigration"
@@ -81,12 +81,12 @@ CheckpointKey(Invocation* inv /*@ not null @*/)
 
       inv.exit.code = RC_OK;
 #else
-      inv->exit.code = RC_eros_key_NotPersistent;
+      inv->exit.code = RC_capros_key_NotPersistent;
 #endif
 
       break;
     }
-  case OC_eros_Checkpoint_snapshot:
+  case OC_capros_Checkpoint_snapshot:
     {
 #ifdef OPTION_PERSISTENT
 #error "Implement TakeCheckpoint"
@@ -100,17 +100,17 @@ CheckpointKey(Invocation* inv /*@ not null @*/)
 
       inv.exit.code = RC_OK;
 #else
-      inv->exit.code = RC_eros_key_NotPersistent;
+      inv->exit.code = RC_capros_key_NotPersistent;
 #endif
       break;
     }
-  case OC_eros_key_getType:
+  case OC_capros_key_getType:
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_Checkpoint;
 
     return;
   default:
-    inv->exit.code = RC_eros_key_UnknownRequest;
+    inv->exit.code = RC_capros_key_UnknownRequest;
     break;
   }
 

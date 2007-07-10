@@ -58,9 +58,9 @@
 #include <eros/StdKeyType.h>
 #include <eros/SegmentKey.h>
 
-#include <idl/eros/key.h>
-#include <idl/eros/KeyBits.h>
-#include <idl/eros/Discrim.h>
+#include <idl/capros/key.h>
+#include <idl/capros/KeyBits.h>
+#include <idl/capros/Discrim.h>
 
 #include <domain/SpaceBankKey.h>
 #include <domain/ProtoSpace.h>
@@ -189,7 +189,7 @@ Initialize(void)
   uint32_t result;
   uint32_t keyType;
 
-  eros_KeyBits_info kbi;
+  capros_KeyBits_info kbi;
 
   STAT.initstate = START;
 
@@ -201,7 +201,7 @@ Initialize(void)
   STAT.numUnsorted = 0;
   STAT.end_of_table = the_table;
   
-  eros_KeyBits_get(KR_KEYBITS, KR_VOID, &kbi);
+  capros_KeyBits_get(KR_KEYBITS, KR_VOID, &kbi);
 
   STAT.startKeyBitsVersion = kbi.version;
 
@@ -245,10 +245,10 @@ Initialize(void)
 
   DEBUG(init) kdprintf(KR_OSTREAM, "KeySet: Result is: 0x%08x\n", result);
 
-  eros_key_getType(KR_SCRATCH, &keyType);
+  capros_key_getType(KR_SCRATCH, &keyType);
 
   if (result != RC_OK
-      || keyType == RC_eros_key_Void ) {
+      || keyType == RC_capros_key_Void ) {
     DEBUG(init) kdprintf(KR_OSTREAM, "KeySet: Failed to build ZS.\n");
     teardown();
   }
@@ -277,7 +277,7 @@ teardown(void)
     /* destroy the vcs */
     node_copy(KR_ADDRNODE, OUR_TABLE_SLOT, KR_SCRATCH);
     
-    result = eros_key_destroy(KR_SCRATCH);
+    result = capros_key_destroy(KR_SCRATCH);
     if (result != RC_OK) {
       kdprintf(KR_OSTREAM,
 	       "KeySet: Failed to destroy my VCS (0x%08x)!\n", result);
@@ -329,10 +329,10 @@ VerifyAndGetSegmentOfSet(uint32_t krOtherSet,
     DEBUG(protocol)
       kprintf(KR_OSTREAM,
 	      "Validation failed.  Got result %08x\n",result);  
-    return RC_eros_key_UnknownRequest; /* nice try, fool. */
+    return RC_capros_key_UnknownRequest; /* nice try, fool. */
   }
 
-  eros_Discrim_compare(KR_DISCRIM, KR_SELF, KR_SCRATCH2, &isEqual);
+  capros_Discrim_compare(KR_DISCRIM, KR_SELF, KR_SCRATCH2, &isEqual);
   
   if (isEqual)
     return RC_Internal_KeyToSelf;
@@ -379,7 +379,7 @@ VerifyAndGetSegmentOfSet(uint32_t krOtherSet,
 	     "KeySet1: Hey! We just failed to start Internal "
 	     "protocol.(%08x)\n",
 	     msg.rcv_code);
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
   }
   
   node_swap(KR_ADDRNODE, OTH_TABLE_SLOT, KR_SCRATCH2, KR_VOID);
@@ -422,9 +422,9 @@ SlaveProtocol(void)
   if (result != RC_OK || keyInfo != GetSegment_KeyData) {
     DEBUG(protocol)
       kprintf(KR_OSTREAM,
-	      "Validation failed.  Returning RC_eros_key_UnknownRequest.\n");
+	      "Validation failed.  Returning RC_capros_key_UnknownRequest.\n");
     /* Internal Protocol? what's that? */
-    return RC_eros_key_UnknownRequest;
+    return RC_capros_key_UnknownRequest;
   }
   DEBUG(protocol)
     kprintf(KR_OSTREAM,
@@ -526,7 +526,7 @@ AddKeysFromSet(uint32_t krOtherSet)
     return RC_KeySet_PassedSetInvalid;
   else if (result != RC_OK) {
     /* nice try. */
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
   }
   /* now we've got the other segment */
 
@@ -600,7 +600,7 @@ RemoveKeysNotInSet(uint32_t krOtherSet)
     return RC_KeySet_PassedSetInvalid;
   else if (result != RC_OK) {
     /* nice try. */
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
   }
   /* now we've got the other segment */
 
@@ -669,7 +669,7 @@ CompareSets(uint32_t krOtherSet, uint32_t compareData)
     return RC_KeySet_PassedSetInvalid;
   else if (result != RC_OK) {
     /* nice try. */
-    return RC_eros_key_RequestError;
+    return RC_capros_key_RequestError;
   }
   /* now we've got the other segment */
 
@@ -758,13 +758,13 @@ CompareSets(uint32_t krOtherSet, uint32_t compareData)
 uint32_t
 ProcessRequest(Message *msg)
 {
-  eros_KeyBits_info kbi;
+  capros_KeyBits_info kbi;
 
   uint32_t rdOnly = (msg->rcv_keyInfo == ReadOnly_KeyData);
 
   uint32_t setInvalid = 0;
 
-  eros_KeyBits_get(KR_KEYBITS, KR_ARG0, &kbi);
+  capros_KeyBits_get(KR_KEYBITS, KR_ARG0, &kbi);
 
   if (kbi.version != STAT.startKeyBitsVersion
       && (STAT.numSorted || STAT.numUnsorted)) {
@@ -789,7 +789,7 @@ ProcessRequest(Message *msg)
 	    kbi.w[3]);
   }
   
-  msg->snd_code = RC_eros_key_UnknownRequest;
+  msg->snd_code = RC_capros_key_UnknownRequest;
   msg->snd_w1 = 0;
   msg->snd_w2 = 0;
   msg->snd_w3 = 0;
@@ -800,7 +800,7 @@ ProcessRequest(Message *msg)
       struct table_entry *the_entry;
 
       if (rdOnly) {
-	msg->snd_code = RC_eros_key_UnknownRequest;
+	msg->snd_code = RC_capros_key_UnknownRequest;
 	break;
       } else if (setInvalid) {
 	msg->snd_code = RC_KeySet_SetInvalid;
@@ -849,7 +849,7 @@ ProcessRequest(Message *msg)
       struct table_entry *entry;
 
       if (rdOnly) {
-	msg->snd_code = RC_eros_key_UnknownRequest;
+	msg->snd_code = RC_capros_key_UnknownRequest;
 	break;
       } else if (setInvalid) {
 	msg->snd_code = RC_KeySet_SetInvalid;
@@ -911,7 +911,7 @@ ProcessRequest(Message *msg)
     }
   case OC_KeySet_IsEmpty:
     if (setInvalid) {
-      msg->snd_code = RC_eros_key_UnknownRequest;
+      msg->snd_code = RC_capros_key_UnknownRequest;
       break;
     }
     /* return 0 if we have entries, 1 if not */
@@ -920,7 +920,7 @@ ProcessRequest(Message *msg)
   case OC_KeySet_Empty:
 
     if (rdOnly) {
-      msg->snd_code = RC_eros_key_UnknownRequest;
+      msg->snd_code = RC_capros_key_UnknownRequest;
       break;
     }
     /* if we are not valid, emptying the set makes us valid, so... */
@@ -947,7 +947,7 @@ ProcessRequest(Message *msg)
   case OC_KeySet_AddKeysFromSet:
 
     if (rdOnly) {
-      msg->snd_code = RC_eros_key_UnknownRequest;
+      msg->snd_code = RC_capros_key_UnknownRequest;
       break;
     } else if (setInvalid) {
       msg->snd_code = RC_KeySet_SetInvalid;
@@ -961,7 +961,7 @@ ProcessRequest(Message *msg)
   case OC_KeySet_RemoveKeysNotInSet:
 
     if (rdOnly) {
-      msg->snd_code = RC_eros_key_UnknownRequest;
+      msg->snd_code = RC_capros_key_UnknownRequest;
       break;
     } else if (setInvalid) {
       msg->snd_code = RC_KeySet_SetInvalid;
@@ -1007,9 +1007,9 @@ ProcessRequest(Message *msg)
 
     msg->snd_code = SlaveProtocol();
     break;
-  case OC_eros_key_destroy:
+  case OC_capros_key_destroy:
     if (rdOnly) {
-      msg->snd_code = RC_eros_key_UnknownRequest;
+      msg->snd_code = RC_capros_key_UnknownRequest;
       break;
     }
     teardown();

@@ -28,7 +28,7 @@
 #include <eros/StdKeyType.h>
 /*#include <kerninc/BlockDev.h>*/
 
-#include <idl/eros/key.h>
+#include <idl/capros/key.h>
 
 /* FIX -- device key needs a kosher index field, and should use
  * subtype for the class.
@@ -42,7 +42,7 @@ DeviceKey(Invocation* inv /*@ not null @*/)
   
   uint32_t devclass = DEV_GET_CLASS(inv->key->u.dk.devClass);
 
-  if (inv->entry.code == (uint32_t) OC_eros_key_getType) {
+  if (inv->entry.code == (uint32_t) OC_capros_key_getType) {
     COMMIT_POINT();
       
     inv->exit.code = AKT_Device;
@@ -53,6 +53,6 @@ DeviceKey(Invocation* inv /*@ not null @*/)
 
   COMMIT_POINT();
       
-  inv->exit.code = RC_eros_key_UnknownRequest;
+  inv->exit.code = RC_capros_key_UnknownRequest;
   return;
 }

@@ -69,9 +69,9 @@ OPTIM=-O
 all: $(TARGETS)
 
 interfaces: $(IDL)
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros/domain/winsys
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros/domain/winsys
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/domain
+	$(INSTALL) -d $(EROS_ROOT)/idl/capros/winsys
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros/winsys
 
 winsys.c: $(BUILDDIR)/constituents.h $(CURSORS) debug.h
 

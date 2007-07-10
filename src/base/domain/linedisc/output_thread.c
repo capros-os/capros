@@ -30,8 +30,8 @@
 #include <domain/Runtime.h>
 
 /* Include the needed interfaces */
-#include <idl/eros/Stream.h>
-#include <idl/eros/domain/linedisc.h>
+#include <idl/capros/Stream.h>
+#include <idl/capros/linedisc.h>
 
 #include "keydefs.h"
 
@@ -46,27 +46,27 @@ ProcessOutputRequest(Message *m)
   COPY_KEYREG(KR_RETURN, KR_STASH_OUT);
 
   switch(m->rcv_code) {
-  case OC_eros_Stream_write:
+  case OC_capros_Stream_write:
     {
       /* If flow-controlled then need to buffer these char's.  Else
 	 send them directly downstream */
       if (!flow_control) 
-        eros_Stream_write(KR_RAW_STREAM, m->rcv_w1);
+        capros_Stream_write(KR_RAW_STREAM, m->rcv_w1);
 
       m->snd_code = RC_OK;
     }
     break;
 
-  case OC_eros_Stream_nwrite:
+  case OC_capros_Stream_nwrite:
     {
       /* If flow-controlled then need to buffer these char's.  Else
 	 send them directly downstream */
-      eros_Stream_iobuf *s = (eros_Stream_iobuf *)(m->rcv_data + 0);
+      capros_Stream_iobuf *s = (capros_Stream_iobuf *)(m->rcv_data + 0);
 
       s->data = (char *)(m->rcv_data + 16);
   
       if (!flow_control) 
-        eros_Stream_nwrite(KR_RAW_STREAM, *s);
+        capros_Stream_nwrite(KR_RAW_STREAM, *s);
 
       m->snd_code = RC_OK;
     }
@@ -74,7 +74,7 @@ ProcessOutputRequest(Message *m)
 
   default:
     {
-      m->snd_code = RC_eros_key_UnknownRequest;
+      m->snd_code = RC_capros_key_UnknownRequest;
     }
   }
 

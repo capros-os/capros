@@ -40,9 +40,9 @@
 
 /* Include the needed interfaces */
 #include <domain/SessionKey.h>
-#include <idl/eros/Stream.h>
-#include <idl/eros/domain/timer/manager.h>
-#include "idl/eros/domain/eterm.h"
+#include <idl/capros/Stream.h>
+#include <idl/capros/timer/manager.h>
+#include "idl/capros/eterm.h"
 
 #include <graphics/color.h>
 #include <graphics/rect.h>
@@ -272,7 +272,7 @@ Stream_Request(Message *m)
 {
   switch(m->rcv_code) {
 
-  case OC_eros_Stream_read:
+  case OC_capros_Stream_read:
     {
       /* Send the caller to the eterm_main domain */
       m->snd_key0 = KR_ETERM_IN;
@@ -282,16 +282,16 @@ Stream_Request(Message *m)
     }
     break;
 
-  case OC_eros_Stream_write:
+  case OC_capros_Stream_write:
     {
       doPutChar(m->rcv_w1);
       m->snd_code = RC_OK;
     }
     break;
     
-  case OC_eros_Stream_nwrite:
+  case OC_capros_Stream_nwrite:
     {
-      eros_Stream_iobuf *s = (eros_Stream_iobuf *)(m->rcv_data);
+      capros_Stream_iobuf *s = (capros_Stream_iobuf *)(m->rcv_data);
       uint32_t u;
 
       s->data = (char *)(m->rcv_data + 16);
@@ -340,7 +340,7 @@ ETerm_Request(Message *m)
 	kprintf(KR_OSTREAM, "Error: EtermOut: couldn't create new window: "
 		"0x%08x (%d) (%u)\n",
 		result, result, result);
-	m->snd_code = RC_eros_key_RequestError;
+	m->snd_code = RC_capros_key_RequestError;
 	COPY_KEYREG(KR_STASH, KR_RETURN);
 	return true;
       }
@@ -350,7 +350,7 @@ ETerm_Request(Message *m)
       if (curFont == NULL) {
 	kprintf(KR_OSTREAM, "** FATAL Error: EtermOut: couldn't get default "
 		"font! Terminating...\n");
-	m->snd_code = RC_eros_key_RequestError;
+	m->snd_code = RC_capros_key_RequestError;
 	return false;
       }
 
@@ -385,8 +385,8 @@ ETerm_Request(Message *m)
       clear();
       session_win_map(KR_SESSION, main_window_id);
 
-      eros_domain_timer_manager_set_interval(KR_TIMER, 1000);
-      eros_domain_timer_manager_start_timer(KR_TIMER);
+      capros_timer_manager_setInterval(KR_TIMER, 1000);
+      capros_timer_manager_startTimer(KR_TIMER);
 
       kprintf(KR_OSTREAM, "EtermOut: initialize done.\n");
 
@@ -486,7 +486,7 @@ ETerm_Request(Message *m)
       kprintf(KR_OSTREAM, "ETERM: committing sepuku...\n");
       COPY_KEYREG(KR_RETURN, KR_STASH);
       session_win_kill(KR_SESSION, main_window_id);
-      eros_domain_timer_manager_stop_timer(KR_TIMER);
+      capros_timer_manager_stopTimer(KR_TIMER);
       COPY_KEYREG(KR_STASH, KR_RETURN);
       m->snd_code = RC_OK;
     }
@@ -600,7 +600,7 @@ ProcessRequest(Message *m)
 
   default:
     {
-      m->snd_code = RC_eros_key_UnknownRequest;
+      m->snd_code = RC_capros_key_UnknownRequest;
     }
   }
   return true;

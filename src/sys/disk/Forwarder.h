@@ -25,8 +25,8 @@ Approved for public release, distribution unlimited. */
 
 // Slots of a Forwarder node:
 
-/* Slots 0 through eros_Forwarder_maxSlot can be used by the user.
-eros_Forwarder_maxSlot is 14 not 29, for compatibility with 16-slot nodes */
+/* Slots 0 through capros_Forwarder_maxSlot can be used by the user.
+capros_Forwarder_maxSlot is 14 not 29, for compatibility with 16-slot nodes */
 
 /* ForwarderDataSlot always has a number key. Its value[0] is the word
 that is optionally transmitted. */
@@ -40,7 +40,7 @@ It must be a gate key. */
 #define ForwarderBlocked 0x1
 
 // Bits in a Forwarder's keyData:
-// eros_Forwarder_SendNode and eros_Forwarder_sendWord are defined in the IDL.
-#define eros_Forwarder_opaque 0x1
+// capros_Forwarder_SendNode and capros_Forwarder_sendWord are defined in the IDL.
+#define capros_Forwarder_opaque 0x1
 
 #endif /* __FORWARDER_H__ */
