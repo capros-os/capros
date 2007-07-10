@@ -30,7 +30,7 @@ $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
 	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1
 	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
 
-init.hd: $(KERNPATH) $(VOLMAP)
+init.hd: $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol $(VOLMAP) $(EROS_HD)
 
 BOOTMODULE=$(CAPROS_BOOT_PARTITION)/CapROS-PL-3-1
