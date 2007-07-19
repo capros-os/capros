@@ -33,13 +33,11 @@ OPTIM=-O
 OBJECTS=$(BUILDDIR)/proc1.o $(BUILDDIR)/proc2.o
 INC=-I$(EROS_ROOT)/include
 
-VOLMAP=volmap
-
 include $(EROS_SRC)/build/make/makerules.mk
 
 install all: $(TARGETS)
 
-include ../../test.mk
+include ../test.mk
 
 $(BUILDDIR)/proc1: $(BUILDDIR)/proc1.o $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/proc1.map -o $@ $(DOMCRT0) $(BUILDDIR)/proc1.o $(DOMLIB)
