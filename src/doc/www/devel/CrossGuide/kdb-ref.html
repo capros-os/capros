@@ -138,8 +138,8 @@
           <dt>show activities
           <dd>Print all the Activitys.
           <dt>show mappings &lt;space&gt &lt;base&gt &lt;nPages&gt
-          <dd>&lt;space&gt must be the virtual address of the beginning
-              of an IA32 page directory.
+          <dd>&lt;space&gt must be the physical address of the beginning
+              of a top-level mapping table.
               For the &lt;nPages&gt pages beginning at virtual address
               &lt;base&gt, this command prints the PTEs for each address.
           <dt>show proc [&lt;address&gt;]
@@ -163,7 +163,7 @@
           <dt>show pins
           <dd>Print information about all pinned objects.
           <dt>show pte &lt;address&gt;
-          <dd>Print the page table entry at the specified address.
+          <dd>Print the page table entry at the specified virtual address.
           <dt>show sizes
           <dd>Print the sizes of some kernel structures.
           <dt>show sources
