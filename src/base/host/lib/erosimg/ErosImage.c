@@ -68,11 +68,40 @@ extern "C" {
 }
 #endif
 
+static unsigned int
+L2vToBlss(unsigned int l2v)
+{
+  return (l2v - EROS_PAGE_ADDR_BITS) / EROS_NODE_LGSIZE + 1 + EROS_PAGE_BLSS;
+}
+
+static unsigned int
+BlssToL2v(unsigned int blss)
+{
+  if (blss == 0)
+    diag_fatal(4, "blss is zero\n");
+  return (blss -1 - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS;
+}
+
 int
 ei_GetAnyBlss(const ErosImage * ei, KeyBits key)
 {
-  if (keyBits_IsVoidKey(&key)) return EROS_PAGE_BLSS;
-  return keyBits_GetBlss(&key);
+  unsigned int type = keyBits_GetType(&key);
+  switch (type) {
+  case KKT_GPT:
+  {
+    struct DiskNodeStruct * theGPT = & ei->nodeImages[key.u.unprep.oid];
+    return L2vToBlss(* gpt_l2vField(& theGPT->nodeData) & GPT_L2V_MASK);
+  }
+
+  case KKT_Page:
+  case KKT_Void:
+    return EROS_PAGE_BLSS;
+    break;
+
+  default:
+    diag_fatal(4, "Key has no blss\n");
+    return 0;
+  }
 }
 
 void
@@ -445,6 +474,7 @@ ei_AddNode(ErosImage *ei, bool readOnly)
   pNode->allocCount = 0;
   pNode->callCount = 0;
   pNode->oid = oid;
+  pNode->nodeData = 0;
 
   for (i = 0; i < EROS_NODE_SIZE; i++)
     keyBits_InitToVoid(&pNode->slot[i]);
@@ -625,6 +655,51 @@ ei_SetNodeSlot(ErosImage *ei, KeyBits nodeKey, uint32_t slot,
 
   ndx = nodeKey.u.unprep.oid;
   ei->nodeImages[ndx].slot[slot] = key;
+}
+
+unsigned int
+ei_GetBlss(ErosImage * ei, KeyBits gptKey)
+{
+  if (! keyBits_IsType(&gptKey, KKT_GPT))
+    diag_fatal(5,"GetBlss expects GPT key!\n");
+
+  struct DiskNodeStruct * theGPT = & ei->nodeImages[gptKey.u.unprep.oid];
+  uint8_t * l2vf = gpt_l2vField(& theGPT->nodeData);
+  return *l2vf & GPT_L2V_MASK;
+}
+
+// returns false iff blss out of range
+bool
+ei_SetBlss(ErosImage * ei, KeyBits gptKey, unsigned int blss)
+{
+  if (blss == 0)
+    return false;
+
+  unsigned int l2v = BlssToL2v(blss);
+  if (l2v >= 64)
+    return false;
+
+  if (! keyBits_IsType(&gptKey, KKT_GPT))
+    diag_fatal(5,"SetBlss expects GPT key!\n");
+
+  struct DiskNodeStruct * theGPT = & ei->nodeImages[gptKey.u.unprep.oid];
+  uint8_t * l2vf = gpt_l2vField(& theGPT->nodeData);
+  * l2vf = (*l2vf & ~GPT_L2V_MASK) | l2v;
+  return true;
+}
+
+void
+ei_SetGPTFlags(ErosImage *ei, KeyBits gptKey, uint8_t flags)
+{
+  if (flags & ~(GPT_BACKGROUND | GPT_KEEPER))
+    diag_fatal(5,"Invalid flags\n");
+
+  if (! keyBits_IsType(&gptKey, KKT_GPT))
+    diag_fatal(5,"SetBlss expects GPT key!\n");
+
+  struct DiskNodeStruct * theGPT = & ei->nodeImages[gptKey.u.unprep.oid];
+  uint8_t * l2vf = gpt_l2vField(& theGPT->nodeData);
+  * l2vf |= flags;
 }
 
 void
@@ -853,31 +928,17 @@ ei_ReadFromFile(ErosImage *ei, const char *source)
 }
 
 /* Given a segmode key that is the root of a segment tree, add the
- * specified page key at the specified offset in that segment,
- * inserting any needed nodes along the way.
- * 
- * DO NOT traverse a red segment boundary to do so - if you need to
- * add something to the contained segment, keep a handle to it and add
- * it directly.
+ * specified memory key at the specified offset in that segment,
+ * inserting any needed GPTs along the way.
  * 
  * Returns a key to the new segment root.  If the segment has grown,
  * this may not be a key to the same node as the original segment key.
- * 
- * The red segment expansion code found here assumes that it will not
- * encounter an oversize subsegment.  I'll have to get that right
- * (whatever that means) in the fault handling domain, but it doesn't
- * seem necessary here.  You can still install an oversized subsegment
- * if you do it with a SEGMENT key as opposed to a node key -- the
- * insertion code will not cross a segment boundary, because segments
- * are supposed to be opaque.
- * 
  */
 static KeyBits
 ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
 			   uint64_t segOffset,
 			   KeyBits segKey,
-			   uint64_t path,
-			   bool expandRedSegment)
+			   uint64_t path)
 {
   uint32_t rootBLSS = ei_GetAnyBlss(ei, segRoot);
   uint32_t segBLSS = ei_GetAnyBlss(ei, segKey);
@@ -893,14 +954,9 @@ ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
   // Now segBLSS <= segOffsetBLSS.
   
 #if 0
-  diag_printf("AddSubseg, lss root=%d ofs=%d seg=%d\n",
-             rootBLSS, segOffsetBLSS, segBLSS);
-  diag_debug(2, "AddSubseg, lss root=%d ofs=%d seg=%d\n",
-             rootBLSS, segOffsetBLSS, segBLSS);
+  diag_printf("AddSubseg, lss root=%d ofs=%d seg=%d, oid root=0x%x\n",
+             rootBLSS, segOffsetBLSS, segBLSS, (uint32_t)segRoot.u.unprep.oid);
 #endif
-
-  if ( keyBits_IsType(&segRoot, KKT_Wrapper) )
-    diag_fatal(4, "AddPageToSegment: Cannot traverse subsegment\n");
 
   if (rootBLSS < segOffsetBLSS) {
     /* Inserting a segment whose offset BLSS is too large - need to
@@ -908,35 +964,14 @@ ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
      */
 
     KeyBits newRoot = ei_AddNode(ei, false);
-    keyBits_SetBlss(&newRoot, segOffsetBLSS);
+    keyBits_SetType(&newRoot, KKT_GPT);
+    keyBits_SetL2g(&newRoot, 64);
+    if (! ei_SetBlss(ei, newRoot, segOffsetBLSS))
+      diag_fatal(5,"blss is invalid\n");
 
-    if (expandRedSegment) {
-      unsigned i;
-      uint64_t pathMask = lss_Mask(segOffsetBLSS);
-      uint64_t slotPath = path & ~pathMask;
-      uint64_t slotIncr = 1;
-
-      diag_printf("Expanding red seg...\n");
-      slotPath |= 3u;		/* background window key */
-      slotIncr <<= segOffsetBLSS * EROS_NODE_LGSIZE;
-
-      for (i = 0; i < EROS_NODE_SIZE; i++) {
-	uint64_t bkWindowValue = slotPath;
-	
-	KeyBits slotKey;
-	init_NumberKey(&slotKey, 
-		       (uint32_t) (bkWindowValue),
-		       (uint32_t) (bkWindowValue >> 32),
-		       0 );
-	ei_SetNodeSlot(ei, newRoot, i, slotKey);
-	slotPath += slotIncr;
-      }
-    }
-    
     ei_SetNodeSlot(ei, newRoot, 0, segRoot);
 
-    return ei_DoAddSubsegToBlackSegment(ei, newRoot, segOffset, segKey, path,
-				      expandRedSegment);
+    return ei_DoAddSubsegToBlackSegment(ei, newRoot, segOffset, segKey, path);
   }
   // Now segOffsetBLSS <= rootBLSS.
   // Therefore segBLSS <= segOffsetBLSS <= rootBLSS.
@@ -945,15 +980,20 @@ ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
   if (rootBLSS == segBLSS)
     return segKey;
 
+  uint32_t slot = lss_SlotNdx(segOffset, rootBLSS);
   if ((rootBLSS -1) == segBLSS) {
     // Seg fits exactly in a slot of root.
-    uint32_t slot = lss_SlotNdx(segOffset, rootBLSS);
+#if 0
+  diag_printf("AddSubseg, slot=%d node oid=0x%x key oid=0x%x\n",
+              slot, (uint32_t)segRoot.u.unprep.oid,
+              (uint32_t)segKey.u.unprep.oid);
+#endif
+  
     ei_SetNodeSlot(ei, segRoot, slot, segKey);
     return segRoot;
   }
 
   // Traverse deeper in the tree.
-  uint32_t slot = lss_SlotNdx(segOffset, rootBLSS);
   uint64_t subSegOffset = segOffset & lss_Mask(rootBLSS -1);
   KeyBits subSeg = ei_GetNodeSlot(ei, segRoot, slot);
 
@@ -963,101 +1003,36 @@ ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
     diag_fatal(4, "AddPageToSegment: Cannot traverse subsegment\n");
 
   KeyBits newSlotKey =
-    ei_DoAddSubsegToBlackSegment(ei, subSeg, subSegOffset, segKey, path,
-		 expandRedSegment);
+    ei_DoAddSubsegToBlackSegment(ei, subSeg, subSegOffset, segKey, path);
 
   ei_SetNodeSlot(ei, segRoot, slot, newSlotKey);
   return segRoot;
 }
 
-/* 
-If segKey designates a page, the page must be in the image.
-If segKey designates a node, the node must be in the image
-  and the key must be a Node, Segment, or Wrapper key.
-segKey may be a void key.
-Other miscellaneous keys are not checked.
- */
 static void
 ValidateSegKey(const ErosImage *ei, KeyBits segKey)
 {
-  if (keyBits_IsNodeKeyType(&segKey) && segKey.u.unprep.oid >= (OID)ei->hdr.nNodes)
-    diag_fatal(4, "Segment node not in image file\n");
-  else if (keyBits_IsType(&segKey, KKT_Page)) {
+  unsigned int type = keyBits_GetType(&segKey);
+  switch (type) {
+  case KKT_GPT:
+    if (segKey.u.unprep.oid >= (OID)ei->hdr.nNodes)
+      diag_fatal(4, "Segment node not in image file\n");
+    break;
+
+  case KKT_Page:
     if (keyBits_IsPrepared(&segKey)) {
       if (segKey.u.unprep.oid >= (OID)ei->hdr.nZeroPages)
         diag_fatal(4, "Segment page not in image file\n");
     }
     else if (segKey.u.unprep.oid >= (OID)ei->hdr.nPages)
       diag_fatal(4, "Segment page not in image file\n");
-  }
+    break;
 
-  if (keyBits_IsType(&segKey, KKT_Process))
-    diag_fatal(4, "ValidateSegKey: Domain key not valid for segment\n");
-  if (keyBits_IsType(&segKey, KKT_Start))
-    diag_fatal(4, "ValidateSegKey: Start key not valid for segment\n");
-  if (keyBits_IsType(&segKey, KKT_Resume))
-    diag_fatal(4, "ValidateSegKey: Resume key not valid for segment\n");
-}
+  case KKT_Void:
+    break;
 
-/* Outputs in blackRootKey a copy of segRoot, except that if segRoot
-   is red, blackRootKey is black. */
-static void
-PrepareToAddObjectToSegment(ErosImage * ei,
-                   KeyBits segRoot,
-		   uint64_t segOffset,
-		   KeyBits objKey,
-		   KeyBits *blackRootKey)
-{
-  uint32_t segOffsetBLSS;
-  uint32_t rootBLSS;
-  uint32_t segBLSS;
-
-  ValidateSegKey(ei, segRoot);
-
-  segOffsetBLSS = lss_BiasedLSS(segOffset);
-  rootBLSS = ei_GetAnyBlss(ei, segRoot);
-  segBLSS = ei_GetAnyBlss(ei, objKey);
-
-  if (! keyBits_IsVoidKey(&segRoot)) {
-    if (segOffsetBLSS <= segBLSS &&
-        rootBLSS <= segOffsetBLSS)
-      diag_fatal(4, "Inserted object and offset would replace entire existing segment.\n");
-  }
-
-  /* It is permissable for the root segment node to be a red segment.
-   * If so, we must verify that we are not about to get ourselves in
-   * trouble by growing the red segment to suitable size and fabricate
-   * a black segment key to pass down into the actual insertion
-   * routine:
-   */
-
-  *blackRootKey = segRoot;
-  
-  if ( keyBits_IsType(&segRoot, KKT_Wrapper) ) {
-    KeyBits fmtKey = ei_GetNodeSlot(ei, segRoot, WrapperFormat);
-    uint32_t newSegBlss;
-    uint32_t initialSlots;
-    uint32_t slot;
-
-    rootBLSS = WRAPPER_GET_BLSS(fmtKey.u.nk);
-    newSegBlss = max(rootBLSS, segOffsetBLSS);
-    initialSlots = 1;
-
-    slot = lss_SlotNdx(segOffset, segOffsetBLSS);
-    if (slot >= initialSlots)
-      newSegBlss++;
-
-    if (newSegBlss > rootBLSS) {
-      /* must grow the red segment by rewriting the format key: */
-      WRAPPER_SET_BLSS(fmtKey.u.nk, newSegBlss);
-      ei_SetNodeSlot(ei, segRoot, WrapperFormat, fmtKey);
-    }
-
-    /* Now fabricate a black segment key to the segment's root node
-     * whose BLSS matches that of the red segment:
-     */
-    
-    keyBits_SetBlss(blackRootKey,newSegBlss);
+  default:
+    diag_fatal(4, "ValidateSegKey: Key not valid for segment\n");
   }
 }
 
@@ -1066,29 +1041,21 @@ ei_AddSubsegToSegment(ErosImage *ei, KeyBits segRoot,
 		      uint64_t segOffset,
 		      KeyBits segKey)
 {
-  KeyBits rootKey;
-  KeyBits newSegRoot;
-
   ValidateSegKey(ei, segKey);
+  ValidateSegKey(ei, segRoot);
 
-  if (! keyBits_IsSegModeType(&segKey) &&
-      ! keyBits_IsVoidKey(&segKey) )
-    diag_fatal(4, "AddSubsegToSegment: added subseg must be segment, "
-		"segtree, page, GPT, or void\n");
+  if (! keyBits_IsVoidKey(&segRoot)) {
+    uint32_t segOffsetBLSS = lss_BiasedLSS(segOffset);
+    uint32_t rootBLSS = ei_GetAnyBlss(ei, segRoot);
+    uint32_t segBLSS = ei_GetAnyBlss(ei, segKey);
 
-  keyBits_InitToVoid(&rootKey);
+    if (segOffsetBLSS <= segBLSS &&
+        rootBLSS <= segOffsetBLSS)
+      diag_fatal(4, "Inserted object and offset would replace entire existing segment.\n");
+  }
 
-  PrepareToAddObjectToSegment(ei, segRoot, segOffset, segKey,
-                              &rootKey /* output */ );
-
-  newSegRoot =
-    ei_DoAddSubsegToBlackSegment(ei, rootKey, segOffset, segKey, segOffset,
-		       keyBits_IsType(&segRoot, KKT_Wrapper) ? true : false);
-
-  if ( keyBits_IsType(&segRoot, KKT_Wrapper) )
-    return segRoot;
-
-  return newSegRoot;
+  return ei_DoAddSubsegToBlackSegment(ei, segRoot, segOffset,
+                                      segKey, segOffset);
 }
 
 bool

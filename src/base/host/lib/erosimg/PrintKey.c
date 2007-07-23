@@ -47,8 +47,6 @@ PrintNodeKey(KeyBits key)
 {
   diag_printf("(OID=");
   diag_printOid(key.u.unprep.oid);
-  if (keyBits_GetBlss(&key))
-    diag_printf(",blss=%d", keyBits_GetBlss(&key));
   if (keyBits_IsNoCall(&key))
     diag_printf(",NC");
   if (keyBits_IsReadOnly(&key))
@@ -69,7 +67,6 @@ PrintDiskKey(KeyBits key)
   case KKT_Page:
     diag_printf("KKT_Page(OID=");
     diag_printOid(key.u.unprep.oid);
-    diag_printf(",blss=%x", keyBits_GetBlss(&key));
     if (keyBits_IsPrepared(&key))
       diag_printf(",P");
     if (keyBits_IsReadOnly(&key))

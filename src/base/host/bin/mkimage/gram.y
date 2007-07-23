@@ -45,7 +45,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/DiskLSS.h>
 #include <disk/Forwarder.h>
 #include <eros/StdKeyType.h>
-#include <idl/capros/Memory.h>
+#include <idl/capros/GPT.h>
 #include <idl/capros/Forwarder.h>
 #include "PtrMap.h"
 #include "../../../lib/domain/include/domain/Runtime.h"
@@ -553,7 +553,8 @@ stmt:	/* IMPORT STRING {
 	     num_errors++;
 	     YYERROR;
 	   }
-	   ei_SetNodeSlot(image, $1, WrapperKeeper, $5);
+	   ei_SetNodeSlot(image, $1, capros_GPT_keeperSlot, $5);
+           ei_SetGPTFlags(image, $1, GPT_KEEPER);
         }
 
        | slot OREQ numberkey {
@@ -818,8 +819,8 @@ key:   NULLKEY {
 	   }
 
 	   if ($2) {	// SEGMENT, not SEGTREE
-	     if ( keyBits_IsType(&key, KKT_Node) ) {
-	       keyBits_SetType(&key, KKT_Segment);
+	     if ( keyBits_IsType(&key, KKT_GPT) ) {	// not a page
+               key.keyPerms |= capros_Memory_opaque;
 	     }
 	   }
 
@@ -838,21 +839,24 @@ key:   NULLKEY {
 	     YYERROR;
 	   }
 
-	   if (keyBits_GetBlss(&key) > (EROS_PAGE_BLSS + 1)) {
-	     diag_printf("%s:%d: binary image too large for small program\n",
-			 current_file, current_line);
-	     num_errors++;
-	     YYERROR;
-	   }
-
 	   if ( keyBits_IsType(&key, KKT_Page) ) {
 	     KeyBits segKey = ei_AddNode(image, false);
-	     keyBits_SetBlss(&segKey, keyBits_GetBlss(&key) + 1);
+	     keyBits_SetType(&segKey, KKT_GPT);
+             keyBits_SetL2g(&segKey, 64);
+             ei_SetBlss(image, segKey, EROS_PAGE_BLSS + 1);
 
 	     ei_SetNodeSlot(image, segKey, 0, key);
 
 	     key = segKey;
 	   }
+           else {
+	     if (ei_GetAnyBlss(image, key) > (EROS_PAGE_BLSS + 1)) {
+	       diag_printf("%s:%d: binary image too large for small program\n",
+	  		 current_file, current_line);
+	       num_errors++;
+	       YYERROR;
+	     }
+           }
 
 	   $$ = key;
         }
@@ -872,19 +876,17 @@ key:   NULLKEY {
 	    keyBits_SetType(&key, KKT_Segment);
 	  $$ = key;
        }
-       | EMPTY segtype WITH arith_expr PAGES {
+
+       | EMPTY GPT WITH arith_expr PAGES {
 	  KeyBits key;
 
-	  SHOWPARSE("=== key -> EMPTY segtype WITH arith_expr PAGES\n");
-	  keyBits_InitToVoid(&key);
+	  SHOWPARSE("=== key -> EMPTY GPT WITH arith_expr PAGES\n");
 
 	  if ( !AddEmptySegment(image, &key, $4) ) {
 	    num_errors++;
 	    YYERROR;
 	  }
 	  
-	  if ($2)	// SEGMENT, not SEGTREE
-	    keyBits_SetType(&key, KKT_Segment);
 	  $$ = key;
        }
 
@@ -953,13 +955,31 @@ key:   NULLKEY {
 	  KeyBits key;
 	  KeyBits fmtKey;
 
-	  SHOWPARSE("=== key -> NEW qualifier FORWARDER\n");
+	  SHOWPARSE("=== key -> NEW FORWARDER\n");
 	  key = ei_AddNode(image, false);
 
 	  init_SmallNumberKey(&fmtKey, 0);
 	  ei_SetNodeSlot(image, key, ForwarderDataSlot, fmtKey);
 
 	  keyBits_SetType(&key, KKT_Forwarder);
+
+	  $$ = key;
+        }
+
+       | NEW GPT WITH blss {
+	  KeyBits key;
+
+	  SHOWPARSE("=== key -> NEW GPT WITH blss\n");
+	  key = ei_AddNode(image, false);
+          keyBits_SetType(&key, KKT_GPT);
+          keyBits_SetL2g(&key, 64);
+
+          if (! ei_SetBlss(image, key, $4)) {
+	    diag_printf("%s:%d: invalid lss value\n",
+	                current_file, current_line);
+	    num_errors++;
+	    YYERROR;
+          }
 
 	  $$ = key;
         }
@@ -1039,16 +1059,6 @@ key:   NULLKEY {
       
 	  key = $1;
 
-	  /*
-
-	  if (image.GetDirEnt($1, key) == false) {
-	    diag_printf("%s:%d: unknown object \"%s\"\n",
-			 current_file, current_line, $1);
-	    num_errors++;
-	    YYERROR;
-	  }
-	  */
-	  
 	  if (keyBits_IsSegModeType(&key) == false) {
 	    diag_printf("%s:%d: can only set BLSS on segmode keys\n",
 			 current_file, current_line);
@@ -1056,8 +1066,7 @@ key:   NULLKEY {
 	    YYERROR;
 	  }
 
-	  keyBits_SetBlss(&key, $3);
-	  keyBits_SetType(&key, (KeyType)keyBits_GetType(&$1));
+	  ei_SetBlss(image, key, $3);
 
 	  $$ = key;
         }
@@ -1079,28 +1088,28 @@ key:   NULLKEY {
 
 	  keyRegsKey = ei_GetNodeSlot(image, rootKey, ProcGenKeys);
 	  constituents = ei_AddNode(image, false);
+          /* For node_extended_copy:
 	  keyBits_SetBlss(&constituents, EROS_PAGE_BLSS);
+          */
 	  keyBits_SetReadOnly(&constituents);
 	  ei_SetNodeSlot(image, keyRegsKey, KR_CONSTIT, constituents);
 
 	  $$ = rootKey;
         }
 
-       | key AS qualifier SEGMENT KEY {
+       | key AS qualifier GPT KEY {
 	  KeyBits key;
 
-	  SHOWPARSE("=== key -> key AS SEGMENT KEY\n");
+	  SHOWPARSE("=== key -> key AS qualifier GPT KEY\n");
       
 	  key = $1;
 
-	  if (keyBits_IsSegModeType(&key) == false) {
-	    diag_printf("%s:%d: can only retype segmode keys\n",
+          if (! keyBits_IsType(&$1, KKT_GPT)) {
+	     diag_printf("%s:%d: must be GPT key\n",
 			 current_file, current_line);
-	    num_errors++;
-	    YYERROR;
-	  }
-
-	  keyBits_SetType(&key, KKT_Segment);
+	     num_errors++;
+	     YYERROR;
+	   }
 
 	  if ( !QualifyKey($3, key, &key) ) {
 	    num_errors++;
@@ -1192,7 +1201,7 @@ key:   NULLKEY {
 	    YYERROR;
 	  }
 
-          // key.keyData |= capros_Memory_opaque;
+          key.keyPerms |= capros_Memory_opaque;
 
 	  $$ = key;
         }
@@ -1709,6 +1718,13 @@ blss:  KW_LSS arith_expr {
 	   num_errors++;
 	   YYERROR;
 	 }
+
+	 if ($2 == 0) {
+	   diag_printf("%s:%d: lss value must be > 0\n",
+		       current_file, current_line);
+	   num_errors++;
+	   YYERROR;
+	 }
 	 $$ = $2 + EROS_PAGE_BLSS;
        }
        ;
@@ -1783,7 +1799,7 @@ slot: NAME '[' slotno ']' {
 	 $<slot>$ = $3;
 	 $$ = key;
 	 
-	 if ( !keyBits_IsSegKeyType(&key) ) {
+	 if ( !keyBits_IsNodeKeyType(&key) ) {
 	   diag_printf("%s:%d: LHS of '[slot]' must be segmode key\n"
 			"    You may need to say \"new [small] process with constituents\"\n"
 			"                                             ^^^^^^^^^^^^^^^^^\n",
@@ -1807,7 +1823,7 @@ slot: NAME '[' slotno ']' {
 
 slotno:  arith_expr {
           SHOWPARSE("=== slotno -> arith_expr\n");
-	 if ($1 > EROS_NODE_SIZE) {
+	 if ($1 >= EROS_NODE_SIZE) {
 	   diag_printf("%s:%d: slot index too large\n",
 		       current_file, current_line);
 	   num_errors++;
@@ -2236,8 +2252,8 @@ AddZeroSegment(ErosImage *image,
 }
 
 bool
-AddEmptySegment(ErosImage *image,
-		KeyBits *segKey,
+AddEmptySegment(ErosImage * image,
+		KeyBits * segKey,	// key is returned here
 		uint32_t nPages)
 {
   unsigned pg;
@@ -2368,6 +2384,10 @@ AddProgramSegment(ErosImage *image,
     topva = er->vaddr + er->memsz;
     startva = er->vaddr & ~EROS_PAGE_MASK;
     startoffset = er->offset;
+#if 0
+    diag_printf("AddPgm vaddr=0x%x ofs=0x%x, memsz=0x%x\n",
+                er->vaddr, er->offset, er->memsz);
+#endif
     
     /* In case not a paged image, back up the offset to the page
        boundary.  Note that contrary to previous assumptions, the VA

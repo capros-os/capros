@@ -92,7 +92,6 @@ physmem	{ return PHYSMEM; }
 node	{ return NODE; }
 page	{ return PAGE; }
 forwarder	{ return FORWARDER; }
-sendCap	{ return SENDCAP; }
 sendWord	{ return SENDWORD; }
 GPT	{ return GPT; }
 chain	{ return CHAIN; }

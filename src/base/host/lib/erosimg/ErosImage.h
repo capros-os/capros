@@ -201,11 +201,13 @@ extern "C" {
   void ei_SetNodeSlot(ErosImage *, KeyBits nodeKey, uint32_t slot, KeyBits key);
   KeyBits ei_GetNodeSlot(const ErosImage *, KeyBits nodeKey, uint32_t slot);
   KeyBits ei_GetNodeSlotFromIndex(const ErosImage *, uint32_t nodeNdx, uint32_t slot);
+  void ei_SetGPTFlags(ErosImage *ei, KeyBits nodeKey, uint8_t flags);
 
   /* Construction support for segments.  Given a segment root key and
    * an offset, hand back a new segment root key:
    */
   int ei_GetAnyBlss(const ErosImage *, KeyBits segRoot);
+  bool ei_SetBlss(ErosImage *, KeyBits gptKey, unsigned int blss);
 
   KeyBits ei_AddSubsegToSegment(ErosImage *, KeyBits segRoot,
 				uint64_t segOffset,
