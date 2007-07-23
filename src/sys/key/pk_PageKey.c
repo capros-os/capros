@@ -39,14 +39,8 @@ PageKey(Invocation* inv /*@ not null @*/)
   PageHeader * pageH = objH_ToPage(key_GetObjectPtr(inv->key));
   kva_t pageAddress = pageH_GetPageVAddr(pageH);
 
-
-  /* First handle the Read and Write order codes */
-
-  /* There are too many page write OC's to put them all in the switch
-   * statment. Consistency, remember, is the hobgoblin of little minds.
-   */
-
   switch(inv->entry.code) {
+
   case OC_capros_key_getType:
     COMMIT_POINT();
 
@@ -64,13 +58,15 @@ PageKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
-  case OC_capros_Memory_makeReadOnly:	/* Make RO page key */
+  case OC_capros_Memory_getRestrictions:
     COMMIT_POINT();
 
-    /* No problem with overwriting original key, since in that event
-     * we would be overwriting it with itself anyway.
-     */
+    inv->exit.code = RC_OK;
+    inv->exit.w1 = inv->key->keyPerms;
+    return;
 
+  case OC_capros_Memory_makeReadOnly:	/* Make RO page key */
+    COMMIT_POINT();
 
     inv_SetExitKey(inv, 0, inv->key);
 
@@ -78,6 +74,10 @@ PageKey(Invocation* inv /*@ not null @*/)
       keyBits_SetReadOnly(inv->exit.pKey[0]);
     
     inv->exit.code = RC_OK;
+    return;
+
+  case OC_capros_Memory_reduce:
+    DoMemoryReduce(inv);
     return;
 
   case OC_capros_Page_zero:		/* zero page */

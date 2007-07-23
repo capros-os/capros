@@ -34,14 +34,12 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/Process.h>
 #include <arch-kerninc/Process-inline.h>
-#include <kerninc/SegWalk.h>
+#include <kerninc/GPT.h>
 #include <kerninc/Activity.h>
 #include <kerninc/util.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/SymNames.h>
 #include <kerninc/IRQ.h>
-/*#include <kerninc/IoRequest.h>*/
-/*#include <kerninc/BlockDev.h>*/
 #include <kerninc/SysTimer.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Depend.h>
@@ -158,8 +156,6 @@ db_eros_print_key_details(Key* key /*@ not null @*/)
 	db_printf(" wk");
       if (keyBits_IsNoCall(key))
 	db_printf(" nc");
-
-      db_printf(" blss=%d", keyBits_GetBlss(key));
     }
     db_printf("\n");
   }
@@ -198,12 +194,12 @@ db_eros_print_node(Node *pNode)
   bool isKeyRegs;
   uint32_t i = 0;
 
-  db_printf("Node (0x%08x) 0x%08x%08x ac=0x%08x cc=0x%08x ot=%d\n",
+  db_printf("Node (0x%08x) 0x%x%08x ac=0x%08x cc=0x%08x ot=%d data=0x%x\n",
 	    pNode,
 	    (uint32_t) (pNode->node_ObjHdr.oid >> 32),
 	    (uint32_t) (pNode->node_ObjHdr.oid),
 	    pNode->node_ObjHdr.allocCount,
-	    pNode->callCount, pNode->node_ObjHdr.obType);
+	    pNode->callCount, pNode->node_ObjHdr.obType, pNode->nodeData);
 
 #if !defined(NDEBUG) && 0
   if (pNode->Validate() == false)
@@ -1646,27 +1642,25 @@ pte_print(uint32_t addr, char *note, PTE *pte)
 void
 db_show_mappings_cmd(db_expr_t addr, int have_addr, db_expr_t det, char* ch)
 {
-  PTE *space;
-  uint32_t base, len, top;
   int	t;
   
   t = db_read_token();
   if (t != tNUMBER)
     db_error("expects space base nPage\n");
 
-  space = KPAtoP(PTE *, db_tok_number);
+  uint32_t space = db_tok_number;
 	
   t = db_read_token();
   if (t != tNUMBER)
     db_error("expects space base nPage\n");
 
-  base = db_tok_number;
+  uint32_t base = db_tok_number;
   
   t = db_read_token();
   if (t != tNUMBER)
     db_error("expects space base nPage\n");
 
-  len = db_tok_number;
+  uint32_t nPages = db_tok_number;
   
   t = db_read_token();
   if (db_read_token() != tEOL) {
@@ -1676,57 +1670,23 @@ db_show_mappings_cmd(db_expr_t addr, int have_addr, db_expr_t det, char* ch)
 
   if ((uint32_t)space & EROS_PAGE_MASK)
     db_error("base must be a page address\n");
-  
-  top = base + (len * EROS_PAGE_SIZE);
 
-  while (base < top) {
-    uint32_t hi = (base >> 22) & 0x3ffu;
-    uint32_t lo = (base >> 12) & 0x3ffu;
-
-    PTE* pde = space + hi;
-    pte_print(base, "PDE ", pde);
-    if (!pte_isValid(pde))
-      db_printf("0x%08x PTE <invalid>\n", base);
-    else {
-      PTE *pte = KPAtoP(PTE *,pte_PageFrame(pde));
-      uint32_t frm = 0;
-      pte += lo;
-
-      pte_print(base, "PTE ", pte);
-      frm = pte_PageFrame(pte);
-      PageHeader * pHdr = objC_PhysPageToObHdr(frm);
-
-      if (pHdr == 0)
-	db_printf("*** NOT A VALID USER FRAME!\n");
-      else if (pageH_GetObType(pHdr) != ot_PtDataPage)
-	db_printf("*** FRAME IS INVALID TYPE!\n");
-
-    }
-
-    base += EROS_PAGE_SIZE;
-  }
+  db_show_mappings_md(space, base, nPages);
 }
 
 void
 db_print_segwalk(const SegWalk *wi)
 {
 #define BOOLC(x) ((x) ? 'y' : 'n')
-  db_printf("wi: segBlss %d segObj 0x%08x\n"
-	    "segObjIsWrapper: %c offset: 0x%08x%08x\n"
-	    "redSpanBlss %d redSegOffset 0x%08x%08x\n"
-	    "writeAccess: %c canCall: %c\n"
-	    "canWrite: %c segFault %d traverseCount %d\n",
-	    wi->segBlss, wi->segObj,
-	    BOOLC(wi->segObjIsWrapper),
+  db_printf("wi: memObj 0x%08x restrictions 0x%x\n"
+	    "offset: 0x%x%08x\n"
+            "keeperGPT 0x%x backgroundGPT 0x%x\n",
+	    "segFault %d needWrite %c traverseCount %d\n",
+	    wi->memObj, wi->restrictions,
 	    (uint32_t) (wi->offset >> 32),
 	    (uint32_t) (wi->offset),
-	    wi->redSpanBlss,
-	    (uint32_t) (wi->redSegOffset >> 32),
-	    (uint32_t) (wi->redSegOffset),
-	    BOOLC(wi->writeAccess),
-	    BOOLC(wi->canCall),
-	    BOOLC(wi->canWrite),
-	    wi->faultCode, wi->traverseCount);
+            wi->keeperGPT, wi->backgroundGPT,
+	    wi->faultCode, BOOLC(wi->needWrite), wi->traverseCount);
 #undef BOOLC
 }      
 

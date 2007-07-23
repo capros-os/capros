@@ -80,7 +80,8 @@ mte_InSameTable(void * MTE1, void * MTE2, int mapLevel)
 }
 
 #ifdef OPTION_DDB
-void pte_ddb_dump(PTE* thisPtr);
+void pte_ddb_dump(PTE * thisPtr);
+void db_show_mappings_md(uint32_t spaceAddr, uint32_t base, uint32_t nPages);
 #endif
   
 #ifndef NDEBUG

@@ -4,7 +4,7 @@
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -55,7 +55,7 @@ typedef struct PageHeader PageHeader;
 
 enum ObType {
   ot_NtUnprepared,		/* unprepared vanilla node */
-  ot_NtSegment,
+  ot_NtSegment,			// a GPT
   ot_NtProcessRoot,
   ot_NtKeyRegs,
   ot_NtRegAnnex,
@@ -175,7 +175,7 @@ struct PageHeader {
 
   } kt_u;
 
-  kva_t pageAddr;		/* speed up ObHdrToPage! */
+  kva_t pageAddr;		/* speed up pageH_GetPageVAddr */
   uint8_t objAge;
   uint8_t kernPin;
 };

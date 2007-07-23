@@ -26,18 +26,167 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Key.h>
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>
-#include <kerninc/Node.h>
+#include <kerninc/GPT.h>
 #include <kerninc/Activity.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
-#include <idl/capros/key.h>
+#include <idl/capros/GPT.h>
 
 void
-GPTKey(Invocation* inv)
+DoMemoryReduce(Invocation * inv)
 {
-  /* This is a stub. */
+  COMMIT_POINT();
+
+  uint32_t w = inv->entry.w1; /* the restrictions */
+  if (w & ~(capros_Memory_opaque
+            | capros_Memory_weak
+            | capros_Memory_noCall
+            | capros_Memory_readOnly )) {
+    inv->exit.code = RC_capros_key_RequestError;
+    dprintf(true, "restr=0x%x\n", w);
+    return;
+  }
+    
+  if (inv->exit.pKey[0]) {
+    inv_SetExitKey(inv, 0, inv->key);
+    inv->exit.pKey[0]->keyPerms = w | inv->key->keyPerms;
+  }
+
+  inv->exit.code = RC_OK;
+  return;
+}
+
+static void
+SetSlot(Invocation * inv, GPT * theGPT, uint32_t slot)
+{
+  node_MakeDirty(theGPT);
+
+  COMMIT_POINT();
+  
+  /* Following will not cause dirty node because we forced it
+   * dirty above the commit point.
+   */
+  node_ClearHazard(theGPT, slot);
+
+  key_NH_Set(node_GetKeyAtSlot(theGPT, slot), inv->entry.key[0]);
+
+  inv->exit.code = RC_OK;
+}
+
+/* May Yield. */
+void
+GPTKey(Invocation * inv)
+{
+  GPT * theGPT = (GPT *) key_GetObjectPtr(inv->key);
+  bool opaque = inv->key->keyPerms & capros_Memory_opaque;
+
   switch (inv->entry.code) {
+
+  case OC_capros_Memory_getRestrictions:
+    COMMIT_POINT();
+
+    inv->exit.code = RC_OK;
+    inv->exit.w1 = inv->key->keyPerms;
+    return;
+
+  case OC_capros_Memory_reduce:
+    DoMemoryReduce(inv);
+    return;
+
+  case OC_capros_GPT_getL2v:
+    {
+      if (opaque) goto opaqueError;
+
+      COMMIT_POINT();
+
+      inv->exit.code = RC_OK;
+      inv->exit.w1 = gpt_GetL2vField(theGPT) & GPT_L2V_MASK;
+      return;
+    }
+
+  case OC_capros_GPT_setL2v:
+    {
+      if (opaque) goto opaqueError;
+
+      COMMIT_POINT();
+
+      unsigned int newL2v = inv->entry.w1;
+      if (! (newL2v < 64 && newL2v >= EROS_PAGE_ADDR_BITS))
+        goto request_error;
+
+      inv->exit.code = RC_OK;
+      uint8_t l2vField = gpt_GetL2vField(theGPT);
+      uint8_t oldL2v = l2vField & GPT_L2V_MASK;
+      inv->exit.w1 = oldL2v;
+      gpt_SetL2vField(theGPT, l2vField - oldL2v + newL2v);
+      return;
+    }
+
+  case OC_capros_GPT_getSlot:
+    {
+      if (opaque) {
+opaqueError:
+        COMMIT_POINT();
+request_error:
+	inv->exit.code = RC_capros_key_RequestError;
+	return;
+      }
+
+      COMMIT_POINT();
+
+      uint32_t slot = inv->entry.w1;
+      if (slot >= capros_GPT_nSlots) {
+	inv->exit.code = RC_capros_key_RequestError;
+	return;
+      }
+
+      /* Does not copy hazard bits, but preserves preparation: */
+      inv_SetExitKey(inv, 0, &theGPT->slot[slot]);
+      // FIXME: Implement weak? 
+
+      inv->exit.code = RC_OK;
+      return;
+    }
+
+  case OC_capros_GPT_setSlot:
+    {
+      if (opaque) goto opaqueError;
+
+      uint32_t slot = inv->entry.w1;
+      if (slot >= capros_GPT_nSlots) {
+        COMMIT_POINT();
+	inv->exit.code = RC_capros_key_RequestError;
+	return;
+      }
+
+      SetSlot(inv, theGPT, slot);
+      return;
+    }
+
+  case OC_capros_GPT_clone:
+    {
+      /* Copy content of GPT in key[0] to current GPT. */
+      if (opaque) goto opaqueError;
+
+      key_Prepare(inv->entry.key[0]);
+
+      /* Mark the object dirty. */
+      node_MakeDirty(theGPT);
+
+      COMMIT_POINT();
+
+      if (keyBits_GetType(inv->entry.key[0]) != KKT_GPT) {
+	inv->exit.code = RC_capros_key_RequestError;
+	return;
+      }
+
+      NodeClone(theGPT, inv->entry.key[0]);
+
+      inv->exit.code = RC_OK;
+      return;
+    }
+
   case OC_capros_key_getType:
     {
       COMMIT_POINT();
@@ -46,6 +195,40 @@ GPTKey(Invocation* inv)
       inv->exit.w1 = AKT_GPT;
       return;
     }
+
+  case OC_capros_GPT_setKeeper:
+    if (opaque) goto opaqueError;
+
+    SetSlot(inv, theGPT, capros_GPT_keeperSlot);
+
+    gpt_SetL2vField(theGPT, gpt_GetL2vField(theGPT) | GPT_KEEPER);
+    return;
+
+  case OC_capros_GPT_clearKeeper:
+    if (opaque) goto opaqueError;
+
+    COMMIT_POINT();
+
+    gpt_SetL2vField(theGPT, gpt_GetL2vField(theGPT) & ~ GPT_KEEPER);
+    inv->exit.code = RC_OK;
+    return;
+
+  case OC_capros_GPT_setBackground:
+    if (opaque) goto opaqueError;
+
+    SetSlot(inv, theGPT, capros_GPT_backgroundSlot);
+
+    gpt_SetL2vField(theGPT, gpt_GetL2vField(theGPT) | GPT_BACKGROUND);
+    return;
+
+  case OC_capros_GPT_clearBackground:
+    if (opaque) goto opaqueError;
+
+    COMMIT_POINT();
+
+    gpt_SetL2vField(theGPT, gpt_GetL2vField(theGPT) & ~ GPT_BACKGROUND);
+    inv->exit.code = RC_OK;
+    return;
 
   default:
     COMMIT_POINT();

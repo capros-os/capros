@@ -93,6 +93,12 @@ struct SmallSpace {
   unsigned char domain;	/* the domain owned by this PID, 0 if none */
 } SmallSpaces[NumSmallSpaces];
 
+MapTabHeader *
+SmallSpace_GetMth(unsigned int ss)
+{
+  return & SmallSpaces[ss].mth;
+}
+
 void
 proc_ResetMappingTable(Process * p)
 {
@@ -539,9 +545,7 @@ pageH_mdType_dump_pages(PageHeader * pageH)
 void
 DumpMapTabHdr(MapTabHeader * mth)
 {
-  printf("    prodBlss=%d rwProd=%c producer=0x%08x\n",
-	 mth->producerBlss,
-         mth->rwProduct ? 'y' : 'n',
+  printf("    producer=0x%08x\n",
          mth->producer );
 }
 

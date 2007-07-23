@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Debug.h>
 #include <kerninc/Check.h>
 #include <kerninc/Invocation.h>
+#include <kerninc/GPT.h>
 #include <kerninc/IRQ.h>
 #include <arch-kerninc/Process-inline.h>
 #ifdef OPTION_DDB
@@ -42,6 +43,7 @@ Approved for public release, distribution unlimited. */
 
 #include <disk/Forwarder.h>
 #include <idl/capros/Forwarder.h>
+#include <idl/capros/GPT.h>
 
 /* #define GATEDEBUG 5
  * #define KPRDEBUG
@@ -803,54 +805,27 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
     key_Prepare(inv.key);	/* MAY YIELD!!! */
   }
-  else if ( inv.invKeyType == KKT_Wrapper
+  else if ( inv.invKeyType == KKT_GPT
        && keyBits_IsReadOnly(inv.key) == false
        && keyBits_IsNoCall(inv.key) == false
        && keyBits_IsWeak(inv.key) == false ) {
+    GPT * gpt = objH_ToNode(key_GetObjectPtr(inv.key));
+    if (gpt_GetL2vField(gpt) & GPT_KEEPER) {
+      Key * kprKey = &gpt->slot[capros_GPT_keeperSlot];
+      if (keyBits_IsGateKey(kprKey) ) {
+        // Never send a word in w1.
+        // Always send non-opaque GPT key as key[2].
+        /* Not hazarded because invocation key */
+        key_NH_Set(&inv.scratchKey, inv.key);
+        inv.scratchKey.keyPerms &= ~ capros_Memory_opaque;
+        inv.entry.key[2] = &inv.scratchKey;
+        inv.flags |= INV_SCRATCHKEY;
 
-    /* The original plan here was to hide all of the sanity checking
-     * for the wrapper node in the PrepAsWrapper() logic. That doesn't
-     * work out -- it causes the wrapper node to need deprepare as a
-     * unit when slots are altered, with the unfortunate consequence
-     * that perfectly good mapping tables can get discarded. It is
-     * therefore better to check the necessary constraints here.
-     */
-    Node *wrapperNode = (Node *) key_GetObjectPtr(inv.key);
-    Key* fmtKey /*@ not null @*/ = &wrapperNode->slot[WrapperFormat];
-
-    if (keyBits_IsType(fmtKey, KKT_Number)
-	&& keyBits_IsGateKey(&wrapperNode->slot[WrapperKeeper]) ) {
-      // FIXME: check WRAPPER_KEEPER
-      /* Unlike the older red segment logic, the format key has
-       * preassigned slots for the keeper, address space, and so
-       * forth.
-       */
-
-      if (fmtKey->u.nk.value[0] & WRAPPER_BLOCKED) {
-	keyBits_SetWrHazard(fmtKey);
-
-	act_SleepOn(ObjectStallQueueFromObHdr(&wrapperNode->node_ObjHdr));
-	act_Yield();
+        /* Not hazarded because invocation key */
+        inv.key = kprKey;
+        key_Prepare(inv.key);	/* may yield */
+        inv.invKeyType = keyBits_GetType(inv.key);
       }
-
-      if (fmtKey->u.nk.value[0] & WRAPPER_SEND_NODE) {
-	/* Not hazarded because invocation key */
-	key_NH_Set(&inv.scratchKey, inv.key);
-	keyBits_SetType(&inv.scratchKey, KKT_Node);
-	inv.entry.key[2] = &inv.scratchKey;
-	inv.flags |= INV_SCRATCHKEY;
-      }
-
-      if (fmtKey->u.nk.value[0] & WRAPPER_SEND_WORD)
-	inv.entry.w1 = fmtKey->u.nk.value[1];
-
-      /* Not hazarded because invocation key */
-      inv.key = &(wrapperNode->slot[WrapperKeeper]);
-#ifndef invKeyType
-      inv.invKeyType = keyBits_GetType(inv.key);
-#endif
-
-      key_Prepare(inv.key);	/* MAY YIELD!!! */
     }
   } 
   

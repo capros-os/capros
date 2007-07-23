@@ -34,13 +34,15 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/Machine.h>
 #include <kerninc/Debug.h>
 #include <kerninc/Process.h>
-#include <kerninc/SegWalk.h>
+#include <kerninc/GPT.h>
 #include <arch-kerninc/Process.h>
 #include <arch-kerninc/PTE.h>
 #include <arch-kerninc/IRQ-inline.h>
 
 MapTabHeader * AllocateSmallSpace(void);
 unsigned int EnsureSSDomain(unsigned int ssid);
+
+// #define WALK_LOUD
 
 #define dbg_pgflt	0x1	/* steps in taking snapshot */
 #define dbg_cache	0x2
@@ -80,27 +82,27 @@ extern void start();
 #endif
 
 #ifdef OPTION_DDB
+#define db_printf printf
+
 void
 pte_ddb_dump(PTE* thisPtr)
 {
-  extern void db_printf(const char *fmt, ...);
-
   uint32_t pte = pte_AsWord(thisPtr);
   
   switch (pte & PTE_VALIDBITS) {
   case 1:
   case 3:
-    printf("bad 0x%08x\n", pte);
+    db_printf("bad 0x%08x\n", pte);
     break;
 
   case 0:
     if (pte & PTE_CACHEABLE) {
-      printf("tracking LRU ");	// and fall into the valid case
+      db_printf("tracking LRU ");	// and fall into the valid case
     } else if (pte & PTE_BUFFERABLE) {
-      printf("in progress\n");
+      db_printf("in progress\n");
       break;
     } else {
-      printf("no access\n");
+      db_printf("no access\n");
       break;
     }
   case PTE_SMALLPAGE:
@@ -110,31 +112,87 @@ pte_ddb_dump(PTE* thisPtr)
     if (((pte >> 8) & 3) != ap
         || ((pte >> 6) & 3) != ap
         || ((pte >> 4) & 3) != ap ) {
-      printf("bad 0x%08x\n", pte);
+      db_printf("bad 0x%08x\n", pte);
     } else {
-      printf("Pg Frame 0x%08x ap=%d %c%c",
+      uint32_t frm = pte_PageFrame(thisPtr);
+      db_printf("Pg Frame 0x%08x ap=%d %c%c",
              pte_PageFrame(thisPtr), ap,
              (pte & PTE_CACHEABLE  ? 'C' : ' '),
              (pte & PTE_BUFFERABLE ? 'B' : ' ') );
       switch (ap) {
       case 0:
-        printf(" kro\n");
+        db_printf(" kro\n");
         break;
       case 1:
-        printf(" krw\n");
+        db_printf(" krw\n");
         break;
       case 2:
         if (pte & PTE_BUFFERABLE) {
-          printf(" uro\n");
+          db_printf(" uro\n");
         } else {
-          printf(" uro tracking dirty\n");
+          db_printf(" uro tracking dirty\n");
         }
         break;
       case 3:
-        printf(" urw\n");
+        db_printf(" urw\n");
       }
+
+      PageHeader * pHdr = objC_PhysPageToObHdr(frm);
+      if (pHdr == 0)
+	db_printf("*** NOT A VALID USER FRAME!\n");
+      else if (pageH_GetObType(pHdr) != ot_PtDataPage)
+	db_printf("*** FRAME IS INVALID TYPE!\n");
     }
   }
+  }
+}
+
+void
+db_show_mappings_md(uint32_t spaceAddr, uint32_t base, uint32_t nPages)
+{
+  uint32_t * space = KPAtoP(uint32_t *, spaceAddr);
+  uint32_t top = base + (nPages * EROS_PAGE_SIZE);
+  while (base < top) {
+    uint32_t hi = base >> L1D_ADDR_SHIFT;
+    uint32_t lo = (base & CPT_ADDR_MASK) >> EROS_PAGE_LGSIZE;
+
+    uint32_t l1d = space[hi];	// level 1 descriptor
+    db_printf("0x%08x L1D ", base);
+    switch (l1d & L1D_VALIDBITS) {
+    case 0:
+      db_printf("invalid\n");
+      base = base | 0xff000;	// skip all other pages in this section
+      break;
+
+    case 1:	// CPT descriptor
+      db_printf("CPT pa=0x%08x, dom=%d ",
+                l1d & L1D_COARSE_PT_ADDR, 
+                (l1d & L1D_DOMAIN_MASK) >> L1D_DOMAIN_SHIFT);
+
+      PTE * pte = KPAtoP(PTE *, l1d & L1D_COARSE_PT_ADDR);
+      pte += lo;
+
+      db_printf("PTE ");
+      pte_ddb_dump(pte);
+
+      break;
+
+    case 2:	// section descriptor
+      db_printf("Section pa=0x%08x, ap=%d, dom=%d, c=%d, b=%d\n",
+                l1d & 0xfff00000,
+                (l1d >> 10) & 0x3,
+                (l1d & L1D_DOMAIN_MASK) >> L1D_DOMAIN_SHIFT,
+                BoolToBit(l1d & PTE_CACHEABLE),
+                BoolToBit(l1d & PTE_BUFFERABLE) );
+      base = base | 0xff000;	// skip all other pages in this section
+      break;
+
+    case 3:	// fine page table descriptor, not used
+      assert(false);
+      break;
+    }
+
+    base += EROS_PAGE_SIZE;
   }
 }
 #endif
@@ -212,15 +270,11 @@ InitMapTabHeader(MapTabHeader * mth,
 {
   DEBUG(pgflt) printf("InitMapTabHeader ");
 
-  mth->producerBlss = wi->segBlss;
   mth->producerNdx = ndx;
-  mth->redSeg = wi->redSeg;
-  mth->wrapperProducer = wi->segObjIsWrapper;
-  mth->redSpanBlss = wi->redSpanBlss;
-  mth->rwProduct = BOOL(wi->canWrite);
-  mth->caProduct = BOOL(wi->canCall);
+  mth->backgroundGPT = wi->backgroundGPT;
+  mth->readOnly = BOOL(wi->restrictions & capros_Memory_readOnly);
 
-  objH_AddProduct(wi->segObj, mth);
+  objH_AddProduct(wi->memObj, mth);
 }
 
 static void
@@ -237,17 +291,16 @@ pageH_MakeUncached(PageHeader * pageH)
 
 /* Walk the current object's products looking for an acceptable product: */
 static MapTabHeader *
-FindProduct(SegWalk * wi /*@not null@*/ ,
+FindProduct(SegWalk * wi,
             unsigned int tblSize, 
             unsigned int producerNdx, 
-            bool rw, bool ca, ula_t va)
+            ula_t va)
 {
-  ObjectHeader * thisPtr = wi->segObj;
-  uint32_t blss = wi->segBlss;
+  ObjectHeader * thisPtr = wi->memObj;
 
 #if 0
-  printf("Search for product blss=%d ndx=%d, rw=%c producerTy=%d\n",
-	       blss, ndx, rw ? 'y' : 'n', obType);
+  printf("Search for product ndx=%d, producerTy=%d\n",
+	       ndx, obType);
 #endif
   
 // #define FINDPRODUCT_VERBOSE
@@ -256,24 +309,6 @@ FindProduct(SegWalk * wi /*@not null@*/ ,
   
   for (product = thisPtr->prep_u.products;
        product; product = product->next) {
-    if ((uint32_t) product->producerBlss != blss) {
-      continue;
-    }
-    if (product->redSeg != wi->redSeg) {
-      continue;
-    }
-    if (product->redSeg) {
-      if (product->wrapperProducer != wi->segObjIsWrapper) {
-	continue;
-      }
-      if (product->redSpanBlss != wi->redSpanBlss) {
-#ifdef FINDPRODUCT_VERBOSE
-	printf("redSpanBlss not match: prod %d wi %d\n",
-		       product->redSpanBlss, wi->redSpanBlss);
-#endif
-	continue;
-      }
-    }
     if ((uint32_t) product->tableSize != tblSize) {
 #ifdef FINDPRODUCT_VERBOSE
 	printf("tableSize not match: prod %d caller %d\n",
@@ -284,14 +319,22 @@ FindProduct(SegWalk * wi /*@not null@*/ ,
     if ((uint32_t) product->producerNdx != producerNdx) {
       continue;
     }
-    if (product->rwProduct != (rw ? 1 : 0)) {
+
+    // Use ! below to convert to 0 or 1. 
+    int rw = ! (wi->restrictions & capros_Memory_readOnly);
+    if (product->readOnly == rw) {
 #ifdef FINDPRODUCT_VERBOSE
-	printf("rw not match: prod %d caller %d\n",
-		       product->rwProduct, rw);
+	printf("ro not match: prod %d caller %x\n",
+		       product->readOnly, wi->restrictions);
 #endif
       continue;
     }
-    if (product->caProduct != (ca ? 1 : 0)) {
+
+    if (product->backgroundGPT != wi->backgroundGPT) {
+#ifdef FINDPRODUCT_VERBOSE
+      printf("backgroundGPT not match: prod 0x%x caller 0x%x\n",
+             product->backgroundGPT, wi->backgroundGPT);
+#endif
       continue;
     }
 
@@ -326,17 +369,11 @@ FindProduct(SegWalk * wi /*@not null@*/ ,
     assert(product->producer == thisPtr);
   }
 
-#if 0
-  if (wi.segBlss != wi.pSegKey->GetBlss())
-    dprintf(true, "Found product 0x%x segBlss %d prodKey 0x%x keyBlss %d\n",
-		    product, wi.segBlss, wi.pSegKey, wi.pSegKey->GetBlss());
-#endif
-
 #ifdef FINDPRODUCT_VERBOSE
-  printf("0x%08x->FindProduct(sz=%d,blss=%d,ndx=%d,rw=%c,ca=%c,"
+  printf("0x%08x->FindProduct(sz=%d,ndx=%d,"
 		 "producrTy=%d) => 0x%08x\n",
 		 thisPtr, tblSize,
-		 blss, producerNdx, rw ? 'y' : 'n', ca ? 'y' : 'n',
+		 producerNdx,
                  thisPtr->obType,
 		 product);
 #endif
@@ -365,11 +402,11 @@ PageFault(bool prefetch,	/* else data abort */
 
 #ifndef NDEBUG
     if (dbg_inttrap)
-      printf("Prefetch PageFault fa=0x%08x pc=0x%08x",
+      printf("Prefetch PageFault fa=0x%08x pc=0x%08x\n",
              va, proc->trapFrame.r15);
 #endif
     DEBUG(pgflt)
-      printf("Prefetch PageFault fa=0x%08x pc=0x%08x",
+      printf("Prefetch PageFault fa=0x%08x pc=0x%08x\n",
              va, proc->trapFrame.r15);
   } else {
     /* fa has the modified virtual address */
@@ -476,33 +513,24 @@ PageFault(bool prefetch,	/* else data abort */
   ExitTheKernel();
 }
 
-#define DATA_PAGE_FLAGS  (PTE_ACC|PTE_USER|PTE_V)
+static void
+SegWalk_InitFromMT(SegWalk * wi, MapTabHeader * mth)
+{
+  wi->backgroundGPT = mth->backgroundGPT;
+  wi->keeperGPT = SEGWALK_GPT_UNKNOWN;
+  wi->memObj = mth->producer;
+  wi->restrictions = mth->readOnly ? capros_Memory_readOnly : 0;
+}
 
 uint32_t DoPageFault_CallCounter;
 
-INLINE uint64_t
-BLSS_MASK64(uint32_t blss, uint32_t frameBits)
-{
-  uint32_t bits_to_shift =
-    (blss - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + frameBits; 
-
-  uint64_t mask = (1ull << bits_to_shift);
-  mask -= 1ull;
-  
-  return mask;
-}
-
-#define WALK_LOUD
-#define FAST_TRAVERSAL
 /* Returns ... */
 // May Yield.
 bool
 proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 {
-  const int walk_root_blss = 4 + EROS_PAGE_BLSS;
-  const int walk_top_blss = 2 + EROS_PAGE_BLSS;
-  SegWalk wi;
-  PTE *pTable;
+  const int walk_root_l2v = 32;
+  const int walk_top_l2v = L1D_ADDR_SHIFT;
   
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
@@ -530,328 +558,402 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     return false;
   }
 
-  /* Set up a WalkInfo structure and start building the necessary
-   * mapping table, PDE, and PTE entries.
-   */
-
-  wi.faultCode = FC_NoFault;
-  wi.traverseCount = 0;
-  wi.segObj = 0;
-  wi.offset = va;
-  wi.frameBits = EROS_PAGE_ADDR_BITS;
-  wi.writeAccess = isWrite;
-  wi.wantLeafNode = false;
-  
-  segwalk_init(&wi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace));
-
+  MapTabHeader * mth1;
   if (p->md.firstLevelMappingTable == FLPT_FCSEPA) {
     if (p->md.pid != 0 && p->md.pid != PID_IN_PROGRESS) {
       // has a small space
-      // FIXME: can avoid the table walk since we already have the FLPT
+      if (va & PID_MASK) {	// needs a large space
+        // large space not implemented yet
+        fatal("Process accessed large space at 0x%08x\n", va);
+      }
+      mth1 = SmallSpace_GetMth(p->md.pid >> PID_SHIFT);
     } else {
+      mth1 = 0;
     }
   } else {		// has a full space
-    if (p->md.dacr & 0xc) {	// has access to domain 1
-      // FIXME: can avoid the table walk since we already have the FLPT
-    } else {		// tracking LRU
+    mth1 = & objC_PhysPageToObHdr(p->md.firstLevelMappingTable)
+               ->kt_u.mp.hdrs[0];
+    if ((p->md.dacr & 0xc) == 0) {	// has access to domain 1?
+      // no, tracking LRU
+      mth1->mthAge = age_LiveProc;	// it's been used
+      p->md.dacr |= 0x4;	// restore access to domain 1
     }
   }
 
-	/* for now, just get it working */
-  proc_ResetMappingTable(p);
-  p->md.pid = PID_IN_PROGRESS;
-  /* Note: WalkSeg below may Yield, so the state of p->md has to be
-     valid for execution. */
+  /* Set up a SegWalk structure and start building the necessary
+   * mapping table, PDE, and PTE entries.
+   */
+  SegWalk wi;
+  wi.needWrite = isWrite;
+  wi.traverseCount = 0;
+  if (! mth1) {
+    // Need to find the first-level page table.
+    if (! segwalk_init(&wi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace),
+                       va, p, 0)) {
+      goto fault_exit;
+    }
+
+    proc_ResetMappingTable(p);
+    p->md.pid = PID_IN_PROGRESS;
+    /* Note: WalkSeg below may Yield, so the state of p->md has to be
+       valid for execution. */
   
-  /* Begin the traversal... */
-  if ( ! WalkSeg(&wi, walk_root_blss, p, 0) ) {
-    if (!prompt) {
+    /* Begin the traversal... */
+    if ( ! WalkSeg(&wi, walk_root_l2v, p, 0) ) {
       /* We could clear PID_IN_PROGRESS here, but it's not necessary,
       as we already have to handle the possibility of the entry being
       left as PID_IN_PROGRESS if WalkSeg Yields. */
-      proc_InvokeSegmentKeeper(p, &wi, true, va);
+      goto fault_exit;
     }
 
-    return false;
-  }
+    DEBUG(pgflt)
+      printf("Traversed to top level\n");
 
-  DEBUG(pgflt)
-    printf("Traversed to top level\n");
+    /* It is unlikely but possible that one of the depend entries created
+    in walking this portion of the tree was reclaimed by a later entry
+    created in walking this portion. Check for that here. */
+    if (p->md.pid != PID_IN_PROGRESS)
+      act_Yield();	// try again
 
-  /* It is unlikely but possible that one of the depend entries created
-  in walking this portion of the tree was reclaimed by a later entry
-  created in walking this portion. Check for that here. */
-  if (p->md.pid != PID_IN_PROGRESS)
-    act_Yield();	// try again
-
-  uint32_t productNdx = wi.offset >> 32;
-  MapTabHeader * mth1 =
-    FindProduct(&wi, 1, productNdx, wi.canWrite, wi.canCall/**?**/, 
-                va);
-
-  if (mth1 == 0) {
-    if (va & PID_MASK) {
-      // large space not implemented yet
-      fatal("Process accessed large space at 0x%08x\n", va);
+    uint32_t productNdx = wi.offset >> 32;
+    mth1 = FindProduct(&wi, 1, productNdx, va);
+    if (mth1 == 0) {
+      if (va & PID_MASK) {
+        // large space not implemented yet
+        fatal("Process accessed large space at 0x%08x\n", va);
+      }
+      mth1 = AllocateSmallSpace();
+      if (mth1 == 0) fatal("Could not allocate small space?\n");
+      InitMapTabHeader(mth1, &wi, productNdx);
     }
-    mth1 = AllocateSmallSpace();
-    if (mth1 == 0) fatal("Could not allocate small space?\n");
-    InitMapTabHeader(mth1, &wi, productNdx);
-  }
 
-  // Have a large or small space?
-  unsigned int ssid = mth1->tableCacheAddr >> PID_SHIFT;
-  if (ssid == 0)	// if large space
-    assert(false);	// because large space not implemented yet
-  p->md.flmtProducer = wi.segObj;
-  p->md.firstLevelMappingTable = FLPT_FCSEPA;
-  p->md.pid = ssid << PID_SHIFT;
+    // Have a large or small space?
+    unsigned int ssid = mth1->tableCacheAddr >> PID_SHIFT;
+    if (ssid == 0)	// if large space
+      assert(false);	// because large space not implemented yet
+    p->md.flmtProducer = wi.memObj;
+    p->md.firstLevelMappingTable = FLPT_FCSEPA;
+    p->md.pid = ssid << PID_SHIFT;
 
-  /* Ensure the small space has a domain assigned. */
-  unsigned int domain = EnsureSSDomain(ssid);
-  p->md.dacr = (0x1 << (domain * 2)) | 0x1 /* include domain 0 for kernel */;
+    /* Ensure the small space has a domain assigned. */
+    unsigned int domain = EnsureSSDomain(ssid);
+    p->md.dacr = (0x1 << (domain * 2)) | 0x1 /* include domain 0 for kernel */;
 
 #ifndef NDEBUG
-  if (dbg_inttrap)
-    printf("Got small space\n");
+    if (dbg_inttrap)
+      printf("Got small space\n");
 #endif
+  } else {
+    assert(mth1->producerNdx == 0);
+    wi.offset = va;
+    SegWalk_InitFromMT(&wi, mth1);
+
+    DEBUG(pgflt)
+      printf("Found top level\n");
+  }
 
   const ula_t mva = (va + p->md.pid) & ~EROS_PAGE_MASK;
 
   /* Small space only for now. */
-  uint32_t * theFLPTEntry = & FLPT_FCSEVA[mva >> L1D_ADDR_SHIFT];
+  uint32_t * theFLPTEntryP = & FLPT_FCSEVA[mva >> L1D_ADDR_SHIFT];
+  uint32_t theFLPTEntry = *theFLPTEntryP;
 
-  if (*theFLPTEntry & L1D_VALIDBITS) {	// already valid
-    assert((*theFLPTEntry & L1D_VALIDBITS) == (L1D_COARSE_PT & L1D_VALIDBITS));
+  PTE * pTable;
+  MapTabHeader * mth2 = 0;
+  if (theFLPTEntry & L1D_VALIDBITS) {	// already valid
+    // Can't be a section descriptor, because we never fault on those.
+    assert((theFLPTEntry & L1D_VALIDBITS) == (L1D_COARSE_PT & L1D_VALIDBITS));
+    kpa_t pa = theFLPTEntry & L1D_COARSE_PT_ADDR;	// phys addr of CPT
+    PageHeader * pageH = objC_PhysPageToObHdr(pa & ~ EROS_PAGE_MASK);
+    mth2 = & pageH->kt_u.mp.hdrs[(pa & EROS_PAGE_MASK) >> CPT_LGSIZE];
     // FIXME: can avoid the table walk since we already have the CPT
   } else {
-    if (*theFLPTEntry & ~L1D_VALIDBITS) {
+    if (theFLPTEntry & ~L1D_VALIDBITS) {
       // The entry is not valid, but it has other bits on.
 
       /* It's possible for an entry to be left as PTE_IN_PROGRESS.
          If so, ignore it as if it were PTE_ZAPPED. */
-      if (*theFLPTEntry != PTE_IN_PROGRESS) {
-        if (*theFLPTEntry & L1D_DOMAIN_MASK) {
-          printf("tracking LRU - need to implement.\n");
+      if (theFLPTEntry != PTE_IN_PROGRESS) {
+        kpa_t pa = theFLPTEntry & L1D_COARSE_PT_ADDR;	// phys addr of CPT
+        PageHeader * pageH = objC_PhysPageToObHdr(pa & ~ EROS_PAGE_MASK);
+        mth2 = & pageH->kt_u.mp.hdrs[(pa & EROS_PAGE_MASK) >> CPT_LGSIZE];
+        // FIXME: can avoid the table walk since we already have the CPT
+        if (theFLPTEntry & L1D_DOMAIN_MASK) {
+          // Tracking LRU.
+          mth2->mthAge = age_LiveProc;	// it's been used
+          theFLPTEntry |= L1D_COARSE_PT;
         } else {
           // This small space has had its domain stolen.
           unsigned int domain = EnsureSSDomain(mva >> PID_SHIFT);
           printf("Reassigning domain to L1D.\n");
-          * theFLPTEntry |= (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
-        // FIXME: can avoid the table walk since we already have the CPT
+          theFLPTEntry |= (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
         }
+        * theFLPTEntryP = theFLPTEntry;
       }
     } else {
-      assert(*theFLPTEntry == PTE_ZAPPED);
+      assert(theFLPTEntry == PTE_ZAPPED);
     }
   }
 
-  if (*theFLPTEntry & L1D_VALIDBITS) {	// it was valid
-    PteZapped = flushCache = true;
-  } else {
-    // It was invalid, but could there be cache entries dependent on it?
-    if (*theFLPTEntry & L1D_COARSE_PT_ADDR)
-      flushCache = true;
-  }
-  * theFLPTEntry = PTE_IN_PROGRESS;
+  unsigned int domain = (theFLPTEntry & L1D_DOMAIN_MASK) >> L1D_DOMAIN_SHIFT;
 
-  /* Translate bits 31:22 of the address: */
-  if ( ! WalkSeg(&wi, walk_top_blss, theFLPTEntry, 1) ) {
-    if (!prompt) {
+  if (! mth2) {
+    // Need to find the needed CPT.
+
+    // Entry was invalid, but could there be cache entries dependent on it?
+    if (theFLPTEntry & L1D_COARSE_PT_ADDR)
+      flushCache = true;
+    * theFLPTEntryP = PTE_IN_PROGRESS;
+
+    /* Translate bits 31:22 of the address: */
+    if ( ! WalkSeg(&wi, walk_top_l2v, theFLPTEntryP, 1) ) {
       /* We could clear PTE_IN_PROGRESS here, but it's not necessary,
       as we already have to handle the possibility of the entry being
       left as PTE_IN_PROGRESS if WalkSeg Yields. */
-      proc_InvokeSegmentKeeper(p, &wi, true, va);
+      goto fault_exit;
     }
-    return false;
-  }
-
-#ifndef NDEBUG
-  if (dbg_inttrap)
-    printf("Traversed to second level\n");
-#endif
-  DEBUG(pgflt)
-    printf("Traversed to second level\n");
-
-  if (* theFLPTEntry != PTE_IN_PROGRESS)
-    // Entry was zapped, try all over again.
-    act_Yield();
-
-  // printf("wi.offset=0x%08x ", wi.offset);
-  productNdx = wi.offset >> L1D_ADDR_SHIFT;
-  ula_t cacheAddr = mva >> L1D_ADDR_SHIFT << L1D_ADDR_SHIFT;
-  MapTabHeader * mth =
-    FindProduct(&wi, 0, productNdx, wi.canWrite, wi.canCall/**?**/, 
-                cacheAddr);
-
-  if (mth == 0) {
-    mth = AllocateCPT();
-    InitMapTabHeader(mth, &wi, productNdx);
-    mth->tableCacheAddr = cacheAddr;
-    void * tableAddr = MapTabHeaderToKVA(mth);
-
-    DEBUG(pgflt) printf("physAddr=0x%08x\n", VTOP((kva_t)tableAddr));
-
-    // PTE_ZAPPED == 0, so we can just clear the table:
-    bzero(tableAddr, CPT_SIZE);
-  }
-  assert(wi.segBlss == mth->producerBlss);
-  assert(wi.segObj == mth->producer);
-  assert(wi.redSeg == mth->redSeg);
-
-  pTable = (PTE *) MapTabHeaderToKVA(mth);
-
-  /* Set the entry in the first-level page table to refer to
-     the second-level table. */
-  * theFLPTEntry =
-    VTOP((kva_t)pTable) + (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
-  
-  /* Now find the page and fill in the PTE. */
-  uint32_t pteNdx = (mva >> EROS_PAGE_ADDR_BITS) & 0xff;
-  PTE * thePTE = &pTable[pteNdx];
-
-  pte_Invalidate(thePTE);	/* if it was valid, remember to purge TLB */
-  thePTE->w_value = PTE_IN_PROGRESS;
-    
-    /* Translate the remaining bits of the address: */
-    if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) {
-#ifndef NDEBUG
-      if (dbg_inttrap)
-        dprintf(true, "Fault at page, prompt=%d, wi=0x%08x\n", prompt, &wi);
-#endif
-
-      if (!prompt) {
-        /* We could clear PTE_IN_PROGRESS here, but it's not necessary,
-        as we already have to handle the possibility of the entry being
-        left as PTE_IN_PROGRESS if WalkSeg Yields. */
-        proc_InvokeSegmentKeeper(p, &wi, true, va);
-      }
-      return false;
-    }
-
-  DEBUG(pgflt)
-    printf("Traversed to page\n");
-
-  if (thePTE->w_value != PTE_IN_PROGRESS) {
-    // Entry was zapped, try all over again.
 
 #ifndef NDEBUG
     if (dbg_inttrap)
-      printf("Depend zap at page\n");
+      printf("Traversed to second level\n");
 #endif
+    DEBUG(pgflt)
+      printf("Traversed to second level\n");
 
-    act_Yield();
+    if (* theFLPTEntryP != PTE_IN_PROGRESS)
+      // Entry was zapped, try all over again.
+      act_Yield();
+
+    // printf("wi.offset=0x%08x ", wi.offset);
+    uint32_t productNdx = wi.offset >> L1D_ADDR_SHIFT;
+    ula_t cacheAddr = mva >> L1D_ADDR_SHIFT << L1D_ADDR_SHIFT;
+    mth2 = FindProduct(&wi, 0, productNdx, cacheAddr);
+
+    if (mth2 == 0) {
+      mth2 = AllocateCPT();
+      InitMapTabHeader(mth2, &wi, productNdx);
+      mth2->tableCacheAddr = cacheAddr;
+      void * tableAddr = MapTabHeaderToKVA(mth2);
+
+      DEBUG(pgflt) printf("physAddr=0x%08x\n", VTOP((kva_t)tableAddr));
+
+      // PTE_ZAPPED == 0, so we can just clear the table:
+      bzero(tableAddr, CPT_SIZE);
+    }
+    assert(wi.memObj == mth2->producer);
+
+    pTable = (PTE *) MapTabHeaderToKVA(mth2);
+
+    /* Set the entry in the first-level page table to refer to
+       the second-level table. */
+    * theFLPTEntryP =
+      VTOP((kva_t)pTable) + (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
+  } else {	// already have the CPT
+    wi.offset = (wi.offset & ((1ul << L1D_ADDR_SHIFT) -1))
+                + (((uint32_t)mth2->producerNdx) << L1D_ADDR_SHIFT);
+    SegWalk_InitFromMT(&wi, mth2);
+
+    pTable = (PTE *) MapTabHeaderToKVA(mth2);
+
+    DEBUG(pgflt)
+      printf("Found second level\n");
   }
+  
+  /* Now find the page and fill in the PTE. */
+  PTE * thePTEP = &pTable[(mva >> EROS_PAGE_ADDR_BITS) & 0xff];
+  uint32_t thePTE = thePTEP->w_value;
+
+  bool havePage = false;
+  if (thePTE & PTE_VALIDBITS) {
+    unsigned int domainAccess = (p->md.dacr >> (domain * 2)) & 0x3;
+    if (domainAccess == 0x2) {	// has client access
+      unsigned int ap = (thePTE >> 4) & 0x3;
+      switch (ap) {
+      case 2:
+        if (! thePTE & PTE_BUFFERABLE) {
+          // tracking dirty
+          PageHeader * pageH = objC_PhysPageToObHdr(thePTE & PTE_FRAMEBITS);
+          assert(pageH && false);	// mark page dirty
+          thePTE |= 0xff0
+#ifdef OPTION_WRITEBACK
+                          | PTE_BUFFERABLE
+#endif
+                                           ;
+          thePTEP->w_value = thePTE;
+        }
+      case 3:	// has RW access
+        havePage = true;
+        break;
+
+      default:	// 0 or 1 - kernel access only
+        break;
+      }
+    }
+    // else something mapped but not for this process.
+  } else {	// not valid
+    if (thePTE & PTE_CACHEABLE) {
+      // tracking LRU
+      PageHeader * pageH = objC_PhysPageToObHdr(thePTE & PTE_FRAMEBITS);
+      pageH->objAge = age_LiveProc;	// it's been used
+      thePTE |= PTE_SMALLPAGE;
+      thePTEP->w_value = thePTE;
+      havePage = true;
+    }
+    // else really not valid
+  }
+
+  if (! havePage) {
+    pte_Invalidate(thePTEP);	/* if it was valid, remember to purge TLB */
+    thePTEP->w_value = PTE_IN_PROGRESS;
     
-  assert(wi.segObj);
-  assert(wi.segObj->obType == ot_PtDataPage ||
-         wi.segObj->obType == ot_PtDevicePage);
-  PageHeader * const pageH = objH_ToPage(wi.segObj);
+    /* Translate the remaining bits of the address: */
+    if ( ! WalkSeg(&wi, EROS_PAGE_LGSIZE, thePTEP, 2) ) {
+      /* We could clear PTE_IN_PROGRESS here, but it's not necessary,
+      as we already have to handle the possibility of the entry being
+      left as PTE_IN_PROGRESS if WalkSeg Yields. */
+      goto fault_exit;
+    }
 
-  // Ensure cache coherency. 
-  unsigned int cacheClass = pageH->kt_u.ob.cacheAddr & EROS_PAGE_MASK;
-  if (isWrite)
-    pageH_MakeDirty(pageH);
+    DEBUG(pgflt)
+      printf("Traversed to page\n");
 
-  switch (cacheClass) {
-  case CACHEADDR_NONE:	// not previously mapped
-    if (isWrite) {
-      assert(mth->rwProduct);
-      DEBUG(cache) printf("0x%08x CACHEADDR_NONE to WRITEABLE\n", pageH);
-      pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_WRITEABLE;
-			// Note, mva has low bits clear
-    } else {
-      if (mth->rwProduct) {
-        DEBUG(cache) printf("0x%08x CACHEADDR_NONE to ONEREADER\n", pageH);
-        pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_ONEREADER;
-      } else {	// page table could be mapped at multiple MVAs
-        DEBUG(cache) printf("0x%08x CACHEADDR_NONE to READERS\n", pageH);
-        pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_READERS;
-      }
-    }
-    break;
-  case CACHEADDR_ONEREADER:	// read only at one MVA
-    if (mth->rwProduct	// table is at a single MVA
-        && pageH->kt_u.ob.cacheAddr == mva) {
-      if (isWrite) {
-        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to WRITEABLE\n", pageH);
-        pageH->kt_u.ob.cacheAddr |= CACHEADDR_WRITEABLE;
-      }
-    } else {	// different address
-      if (isWrite) {
-        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to UNCACHED\n", pageH);
-        pageH_MakeUncached(pageH);
-        wi.canCache = false;
-      } else {
-        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to READERS\n", pageH);
-        pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
-      }
-    }
-    break;
-  case CACHEADDR_WRITEABLE:	// writeable at one MVA
-    if (mth->rwProduct  // table is at a single MVA
-        && (pageH->kt_u.ob.cacheAddr & ~EROS_PAGE_MASK) == mva) {
-      // Nothing to do.
-    } else {	// different address
-      if (isWrite) {
-        DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to UNCACHED\n", pageH);
-        pageH_MakeUncached(pageH);
-        wi.canCache = false;
-      } else {
-        /* This page was previously written.
-        We could go to the CACHEADDR_UNCACHED state.
-        But since the writer may have stopped writing, let's try
-        going to CACHEADDR_READERS. */
-        /* We must unmap all writeable PTEs. The following unmaps
-        read-only PTEs too, which is somewhat unfortunate. */
-        DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to READERS\n", pageH);
-        keyR_UnmapAll(&pageH_ToObj(pageH)->keyRing);
-        pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
-      }
-    }
-    break;
-  case CACHEADDR_READERS:	// readers at muiltiple MVAs
-    if (isWrite) {
-      DEBUG(cache) printf("0x%08x CACHEADDR_READERS to UNCACHED\n", pageH);
-      pageH_MakeUncached(pageH);
-      wi.canCache = false;
-    }
-    // else nothing to do
-    break;
-  case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
-    wi.canCache = false;
-    break;
-  default: assert(false);
-  }
-
-  kpa_t pageAddr = VTOP(pageH_GetPageVAddr(pageH));
+    if (thePTEP->w_value != PTE_IN_PROGRESS) {
+      // Entry was zapped, try all over again.
 
 #ifndef NDEBUG
-  if (dbg_inttrap)
-    printf("Traversed to page at 0x%08x\n", pageAddr);
+      if (dbg_inttrap)
+        printf("Depend zap at page\n");
+#endif
+
+      act_Yield();
+    }
+    
+    assert(wi.memObj);
+    assert(wi.memObj->obType == ot_PtDataPage ||
+           wi.memObj->obType == ot_PtDevicePage);
+    PageHeader * const pageH = objH_ToPage(wi.memObj);
+
+    if (isWrite)
+      pageH_MakeDirty(pageH);
+
+    // Ensure cache coherency. 
+    unsigned int cacheClass = pageH->kt_u.ob.cacheAddr & EROS_PAGE_MASK;
+    bool canCache = true;	// until proven otherwise
+
+    switch (cacheClass) {
+    case CACHEADDR_NONE:	// not previously mapped
+      if (isWrite) {
+        assert(! mth2->readOnly);
+        DEBUG(cache) printf("0x%08x CACHEADDR_NONE to WRITEABLE\n", pageH);
+        pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_WRITEABLE;
+			// Note, mva has low bits clear
+      } else {
+        if (! mth2->readOnly) {
+          DEBUG(cache) printf("0x%08x CACHEADDR_NONE to ONEREADER\n", pageH);
+          pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_ONEREADER;
+        } else {	// page table could be mapped at multiple MVAs
+          DEBUG(cache) printf("0x%08x CACHEADDR_NONE to READERS\n", pageH);
+          pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_READERS;
+        }
+      }
+      break;
+    case CACHEADDR_ONEREADER:	// read only at one MVA
+      if (! mth2->readOnly	// table is at a single MVA
+          && pageH->kt_u.ob.cacheAddr == mva) {
+        if (isWrite) {
+          DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to WRITEABLE\n", pageH);
+          pageH->kt_u.ob.cacheAddr |= CACHEADDR_WRITEABLE;
+        }
+      } else {	// different address
+        if (isWrite) {
+          DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to UNCACHED\n", pageH);
+          pageH_MakeUncached(pageH);
+          canCache = false;
+        } else {
+          DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to READERS\n", pageH);
+          pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
+        }
+      }
+      break;
+    case CACHEADDR_WRITEABLE:	// writeable at one MVA
+      if (! mth2->readOnly	// table is at a single MVA
+          && (pageH->kt_u.ob.cacheAddr & ~EROS_PAGE_MASK) == mva) {
+        // Nothing to do.
+      } else {	// different address
+        if (isWrite) {
+          DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to UNCACHED\n", pageH);
+          pageH_MakeUncached(pageH);
+          canCache = false;
+        } else {
+          /* This page was previously written.
+          We could go to the CACHEADDR_UNCACHED state.
+          But since the writer may have stopped writing, let's try
+          going to CACHEADDR_READERS. */
+          /* We must unmap all writeable PTEs. The following unmaps
+          read-only PTEs too, which is somewhat unfortunate. */
+          DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to READERS\n", pageH);
+          keyR_UnmapAll(&pageH_ToObj(pageH)->keyRing);
+          pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
+        }
+      }
+      break;
+    case CACHEADDR_READERS:	// readers at muiltiple MVAs
+      if (isWrite) {
+        DEBUG(cache) printf("0x%08x CACHEADDR_READERS to UNCACHED\n", pageH);
+        pageH_MakeUncached(pageH);
+        canCache = false;
+      }
+      // else nothing to do
+      break;
+    case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
+      canCache = false;
+      break;
+    default: assert(false);
+    }
+
+    kpa_t pageAddr = VTOP(pageH_GetPageVAddr(pageH));
+
+#ifndef NDEBUG
+    if (dbg_inttrap)
+      printf("Traversed to page at 0x%08x\n", pageAddr);
 #endif
 
 #if 0
-  printf("Setting PTE 0x%08x addr 0x%08x write %c cache %c\n",
-         thePTE, pageAddr,
-         (isWrite ? 'y' : 'n'),
-         (wi.canCache ? 'y' : 'n') );
+    printf("Setting PTE 0x%08x addr 0x%08x write %c cache %c\n",
+           thePTEP, pageAddr,
+           (isWrite ? 'y' : 'n'),
+           (canCache ? 'y' : 'n') );
 #endif
-  PTE_Set(thePTE, pageAddr + PTE_SMALLPAGE
-	/* AP bits, 11 for write, 10 for read */
-          + (isWrite ? 0xff0
-                       + (wi.canCache ? PTE_CACHEABLE
+    PTE_Set(thePTEP, pageAddr + PTE_SMALLPAGE
+  	/* AP bits, 11 for write, 10 for read */
+            + (isWrite ? 0xff0
+                         + (canCache ? PTE_CACHEABLE
 #ifdef OPTION_WRITEBACK
-                                        | PTE_BUFFERABLE
+                                          | PTE_BUFFERABLE
 #endif
-                          : 0) 
-                     : 0xaa0
-                       + (wi.canCache ? PTE_CACHEABLE | PTE_BUFFERABLE : 0)
+                            : 0) 
+                       : 0xaa0
+                         + (canCache ? PTE_CACHEABLE | PTE_BUFFERABLE : 0)
 // for read-only access, PTE_BUFFERABLE is not significant.
 // See comments in PTEarm.h for why we set it here.
-         ) );
+           ) );
+  }
+
+  DEBUG(pgflt)
+    dprintf(true, "Finished page fault\n");
 
   return true;
+
+fault_exit:
+#ifndef NDEBUG
+  if (dbg_inttrap)
+    dprintf(true, "Pagefault fault, prompt=%d, wi=0x%08x\n", prompt, &wi);
+#endif
+
+  if (!prompt) {
+    proc_InvokeSegmentKeeper(p, &wi, true, va);
+  }
+  return false;
 }
 
 // May Yield.

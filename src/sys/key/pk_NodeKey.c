@@ -28,7 +28,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/Node.h>
 #include <kerninc/Process.h>
-#include <kerninc/SegWalk.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <eros/NodeKey.h>
@@ -92,6 +91,34 @@ Desensitize(Key *k)
 
     break;
   }
+}
+
+void
+NodeClone(Node * toNode, Key * fromKey)
+{
+  bool isWeak = keyBits_IsWeak(fromKey);
+
+  Node * fromNode = objH_ToNode(key_GetObjectPtr(fromKey));
+
+  unsigned slot;
+  for (slot = 0; slot < EROS_NODE_SIZE; slot++) {
+    node_ClearHazard(toNode, slot);
+    if (keyBits_IsRdHazard(node_GetKeyAtSlot(fromNode, slot)))
+      node_ClearHazard(fromNode, slot);
+  }
+
+  /* The following will do the right thing if the two GPTs are
+   * identical, because the NH_Set code checks for this case.
+   */
+  for (slot = 0; slot < EROS_NODE_SIZE; slot++) {
+    key_NH_Set(node_GetKeyAtSlot(toNode, slot),
+               node_GetKeyAtSlot(fromNode, slot) );
+
+    if (isWeak)
+      Desensitize(node_GetKeyAtSlot(toNode, slot));
+  }
+
+  toNode->nodeData = fromNode->nodeData;
 }
 
 /* May Yield. */
@@ -219,6 +246,10 @@ NodeKey(Invocation* inv /*@ not null @*/)
   case OC_Node_Extended_Copy:
   case OC_Node_Extended_Swap:
     {
+      /* This needs to be redesigned and reimplemented.
+         Until then, I want to decouple it from the GPT logic. */
+      assert(false);	// FIXME: not implemented
+#if 0
       SegWalk wi;
       bool result;
       uint32_t slot;
@@ -296,6 +327,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
 	if (wi.canFullFetch == false)
 	  Desensitize(inv->exit.pKey[0]);
       }
+#endif
 
       inv->exit.code = RC_OK;
       return;
@@ -457,19 +489,13 @@ NodeKey(Invocation* inv /*@ not null @*/)
   case OC_Node_Clone:
     {
       /* copy content of node key in arg0 to current node */
-      bool isWeak;
-      Node *fromNode;
-      unsigned slot;
-
       if (isFetch) {
 	inv->exit.code = RC_capros_key_NoAccess;
 	return;
       }
 
-
       /* Mark the object dirty. */
       node_MakeDirty(theNode);
-
 
       key_Prepare(inv->entry.key[0]);
 
@@ -482,34 +508,12 @@ NodeKey(Invocation* inv /*@ not null @*/)
 	return;
       }
 
-      isWeak = keyBits_IsWeak(inv->entry.key[0]);
-		     
-
-      fromNode = (Node *) key_GetObjectPtr(inv->entry.key[0]);
-
-
-      for (slot = 0; slot < EROS_NODE_SIZE; slot++) {
-
-	node_ClearHazard(theNode, slot);
-	if (keyBits_IsRdHazard(&fromNode->slot[slot]))
-	  node_ClearHazard(fromNode, slot);
-
-      }
-
-      /* The following will do the right thing if the two nodes are
-       * identical, because the NH_Set code checks for this case.
-       */
-      for (slot = 0; slot < EROS_NODE_SIZE; slot++) {
-	/* hazards cleared above */
-
-	key_NH_Set( &theNode->slot[slot], node_GetKeyAtSlot(fromNode, slot) );
-
-	if (isWeak)
-	  Desensitize(&theNode->slot[slot]);
-      }
+      NodeClone(theNode, inv->entry.key[0]);
 						    
+      inv->exit.code = RC_OK;
       return;
     }
+
 #if 0
   /* Removed because keeping the reserves straight is a pain in the ass. */
   case OC_Node_WriteNumbers:

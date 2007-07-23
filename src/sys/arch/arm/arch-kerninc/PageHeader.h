@@ -77,10 +77,14 @@ For a small space:
 
 typedef struct MapTabHeader MapTabHeader;
 struct MapTabHeader {
-/* The fields next and producer are required by the machine-independent code. */
+/* The fields next, producer, and backgroundGPT
+   are required by the machine-independent code. */
   MapTabHeader * next;	/* next product of this producer,
 			   or next in free list */
   ObjectHeader * producer;
+
+  struct Node * backgroundGPT;	/* GPT containing background key
+			for this table, 0 if none. */
 
 	/* If this is a first level table, tableCacheAddr == 0.
 	If this is a small space, tableCacheAddr == the PID.
@@ -90,18 +94,13 @@ struct MapTabHeader {
 	tableCacheAddr is unused. */
   ula_t tableCacheAddr;
 
-  struct Node * redSeg;	/* pointer to slot of keeper that
-			 * dominated this mapping frame */
-  unsigned char redSpanBlss;	/* blss of seg spanned by redSeg */
-  bool wrapperProducer;
-  uint8_t producerBlss; /* biased lss of map tbl producer.
-			   NOTE: not the key, the object. */
-  uint8_t rwProduct    : 1;	/* indicates mapping page is RW version */
-  uint8_t caProduct    : 1;	/* indicates mapping page is callable version */
+  uint8_t mthAge;
+
+  uint8_t readOnly     : 1;
   uint8_t tableSize    : 1;	/* 1 for first level table or small space,
 				0 for second level page table */
   uint8_t isFree       : 1;
-  uint8_t producerNdx  : 4;
+  uint8_t producerNdx  : (EROS_NODE_LGSIZE-1);
   uint8_t ndxInPage    : 2;	/* mp.hdrs[ndxInPage] == this */
 };
 

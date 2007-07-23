@@ -198,8 +198,9 @@ and map it at MVA KTextVA + 1MB.  */
 #endif
 
 /* Set up physical memory map in FLPT. */
-// AP=0b01 domain=0 C=1 B=WriteBackOption section descriptor
-	ldr r0,=(0x0000041a+WriteBackOption)
+// AP=0b01 domain=0 C=1 B=0 section descriptor
+// Always use write-through, because this is mainly used for mapping tables.
+	ldr r0,=(0x0000041a)
 /* TODO: Would we benefit by making this not cacheable or not buffered? */
 /* TODO: Need to fix this to handle memory that isn't contiguous with 
    address zero. */

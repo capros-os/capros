@@ -2,7 +2,7 @@
  * Copyright (C) 2001, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -151,7 +151,7 @@ PhysPageSource_Invalidate(ObjectSource *thisPtr, ObjectHeader *pObj)
   else {
     assert(pObj->obType == ot_PtDataPage);
 
-    kpa_t pgFrame = objH_ToPage(pObj)->pageAddr;
+    kpa_t pgFrame = pageH_GetPageVAddr(objH_ToPage(pObj));
 
     if (!ValidPhysPage(thisPtr->pmi, pgFrame))
       return false;

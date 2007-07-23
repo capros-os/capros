@@ -45,12 +45,13 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #endif
 
 #define EROS_PAGE_SIZE		0x1000
+#define EROS_PAGE_LGSIZE        12
+#define EROS_PAGE_ADDR_BITS     EROS_PAGE_LGSIZE
+#define EROS_PAGE_MASK          (EROS_PAGE_SIZE-1)
+
 #define EROS_MESSAGE_LIMIT	0x10000
 #define EROS_SECTOR_SIZE	512
 #define EROS_PAGE_SECTORS	8 /* Page_size / sector_size */
-
-#define EROS_PAGE_ADDR_BITS 12
-#define EROS_PAGE_MASK 0xfff
 
 #define EROS_PAGE_BLSS 		0
 

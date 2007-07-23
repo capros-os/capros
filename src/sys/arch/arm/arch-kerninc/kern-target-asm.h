@@ -64,7 +64,7 @@ by Modified Virtual Address (that is, the address as modified by the
 Fast Context Switch Extension (FCSE))
 
 If a memory space is loaded that does not entirely fit below 0x0200....,
-then it is mapped from 0x0000.... to 0xc000.... and FCSE is disabled.
+then it is mapped from zero to UserEndVA and FCSE is disabled.
 Otherwise, the FCSE memory space is mapped:
 0x0000.... unused
            Note, this range of modified virtual addresses is inaccessible

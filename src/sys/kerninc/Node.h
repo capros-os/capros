@@ -24,8 +24,6 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* Node.hxx: Declaration of a Node. */
-
 #include "ObjectHeader.h"
 #include "Key.h"
 #include <eros/ProcessState.h>
@@ -116,6 +114,8 @@ node_ClearThisNode(Node* thisPtr)
   node_DoClearThisNode(thisPtr);
 }
 
-void node_SetSlot(Node* thisPtr, int ndx, Node* node /*@ NOT NULL @*/, uint32_t otherSlot);
+void node_SetSlot(Node * thisPtr, int ndx, Node * node, uint32_t otherSlot);
+
+void NodeClone(Node * toNode, Key * fromKey);
 
 #endif /* __NODE_H__ */

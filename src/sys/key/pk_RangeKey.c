@@ -204,7 +204,9 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
     link_insertAfter(&pObj->keyRing, &key->u.ok.kr);
     keyBits_SetPrepared(key);
   
-    key->keyData = kkt == KKT_Page ? EROS_PAGE_BLSS : 0;
+    if (kkt == KKT_Page || kkt == KKT_GPT)
+      // Default l2g for memory keys is 64 to disable guard test.
+      keyBits_SetL2g(key, 64);
   }
 
 #ifdef DEBUG_PAGERANGEKEY
@@ -489,6 +491,7 @@ rangeGetWaitCap:
 
       MakeObjectKey(inv, w2w3Offset(inv),
         waitFlag, baseType[ot], obKKT[ot]);
+
       return;
     }
 

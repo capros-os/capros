@@ -95,7 +95,8 @@ Note D:
 #define CPT_ADDR_MASK 0x000ff000
 #define CPT_SPAN 0x100000	/* virtual memory defined by a CPT */
 #define CPT_ENTRIES 0x100	/* number of entries in a CPT */
-#define CPT_SIZE 0x400		/* size of a coarse page table */
+#define CPT_SIZE 0x400		/* size of a coarse page table in bytes */
+#define CPT_LGSIZE 10		/* log2 size of a coarse page table in bytes */
 
 /* For Level 2 descriptors (PTEs): */
 #define PTE_CACHEABLE  0x8
@@ -203,6 +204,7 @@ MapTabHeader * AllocateCPT(void);
 
 bool proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt);
 void proc_ResetMappingTable(Process * p);
+MapTabHeader * SmallSpace_GetMth(unsigned int ss);
 
 #endif /* __ASSEMBLER__  */
 #endif /* __PTEARM_H__ */

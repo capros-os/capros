@@ -282,6 +282,12 @@ keyBits_SetType(KeyBits *thisPtr /*@ not null @*/, KeyType kt)
 {
   thisPtr->keyType = kt;
 }
+
+INLINE void 
+keyBits_SetRestrictions(KeyBits * thisPtr, unsigned int restrictions)
+{
+  thisPtr->keyPerms |= restrictions;
+}
   
 INLINE bool 
 keyBits_IsNoCall(const KeyBits *thisPtr)
@@ -337,7 +343,40 @@ keyBits_SetReadOnly(KeyBits *thisPtr)
 {
   thisPtr->keyPerms |= capros_Memory_readOnly;
 }
-  
+
+/* In memory keys, l2g is in the first byte of keyData.
+Only 7 bits are required. */
+INLINE unsigned int
+keyBits_GetL2g(KeyBits * thisPtr)
+{
+  return * (uint8_t *) &thisPtr->keyData;
+}
+
+// assert(l2g <= 64 && l2g >= EROS_PAGE_ADDR_BITS);
+INLINE void
+keyBits_SetL2g(KeyBits * thisPtr, unsigned int l2g)
+{
+  * (uint8_t *) &thisPtr->keyData = l2g;
+}
+
+/* In memory keys, guard is in the second byte of keyData.
+We could squeeze more bits by taking the high bit of the first byte,
+bits in the keyPerms field, and perhaps bits from the keyType field.
+Also, l2g might be squeezed into 6 bits if offset by 1. */
+INLINE unsigned int
+keyBits_GetGuard(KeyBits * thisPtr)
+{
+  return ((uint8_t *) &thisPtr->keyData)[1];
+}
+
+// assert(guard < 256);
+INLINE void
+keyBits_SetGuard(KeyBits * thisPtr, unsigned int guard)
+{
+  ((uint8_t *) &thisPtr->keyData)[1] = guard;
+}
+ 
+
 INLINE bool 
 keyBits_IsGateKey(const KeyBits *thisPtr)
 {
@@ -397,10 +436,7 @@ keyBits_IsNodeKeyType(const KeyBits *thisPtr)
 INLINE bool 
 keyBits_IsSegKeyType(const KeyBits *thisPtr)
 {
-  return (keyBits_IsType(thisPtr, KKT_Node) ||
-          keyBits_IsType(thisPtr, KKT_Wrapper) ||
-          keyBits_IsType(thisPtr, KKT_GPT) ||
-          keyBits_IsType(thisPtr, KKT_Segment));
+  return (keyBits_IsType(thisPtr, KKT_GPT));
 }
 
 INLINE bool 

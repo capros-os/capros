@@ -46,6 +46,16 @@ struct DiskNodeStruct {
   KeyBits slot[EROS_NODE_SIZE];
 } ;
 
+/* For a GPT, the first byte of nodeData contains: */
+#define GPT_L2V_MASK 0x3f
+#define GPT_BACKGROUND 0x40
+#define GPT_KEEPER 0x80
+INLINE uint8_t * 
+gpt_l2vField(uint16_t * nodeDatap)
+{
+  return (uint8_t *) nodeDatap;
+}
+
 #define DISK_NODES_PER_PAGE (EROS_PAGE_SIZE / sizeof(DiskNodeStruct))
 
 #endif /* __DISK_DISKNODESTRUCT_HXX__ */

@@ -1,0 +1,369 @@
+/*
+ * Copyright (C) 2007, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <kerninc/kernel.h>
+#include <kerninc/KernStats.h>
+#include <kerninc/Process.h>
+#include <kerninc/GPT.h>
+#include <kerninc/Depend.h>
+#include <kerninc/Activity.h>
+#include <kerninc/Invocation.h>
+#include <arch-kerninc/PTE.h>
+#include <eros/ProcessKey.h>
+#include <idl/capros/GPT.h>
+
+#define WALK_DBG////
+
+#ifdef OPTION_DDB
+#define WALK_DBG_MSG(prefix) \
+  if (ddb_segwalk_debug) \
+    dprintf(true, prefix \
+      " WalkSeg: wi.memObj 0x%x, \n" \
+      "wi.offset 0x%X flt %d  nw %d \n" \
+      "restrictions %x \n", \
+      wi->memObj, \
+      wi->offset, wi->faultCode, wi->needWrite, \
+      wi->restrictions)
+#else
+#define WALK_DBG_MSG(prefix)
+#endif
+
+/* WalkSeg() is a performance-critical path.  The segment walk
+   logic is complex, and it occurs in the middle of page faulting
+   activity, which is performance-critical.
+
+   The depth of the walk is bounded by MAX_SEG_DEPTH to detect
+   possible loops in the segment tree.  Because the routine is
+   multiply entered the actual depth limit can be two or three times
+   the nominal limit.  The architecture guarantees a minimum traversal
+   depth, but does not promise any particular maximum.
+*/
+
+#ifdef OPTION_DDB
+extern bool ddb_segwalk_debug;
+#endif
+
+/* If successful, returns true,
+   otherwise returns false and sets wi->faultCode. */
+// Caller must call Depend_AddKey.
+// May Yield.
+static bool
+processKey(SegWalk * wi, Key * pSegKey, uint64_t va)
+{
+#ifdef WALK_DBG
+  WALK_DBG_MSG("key");
+#endif
+
+  key_Prepare(pSegKey);
+
+  unsigned int keyType = keyBits_GetType(pSegKey);
+  switch (keyType) {
+  case KKT_GPT:
+    if (! node_PrepAsSegment(objH_ToNode(pSegKey->u.ok.pObj))) {
+      /* This can only happen if a holder of a range key uses a node
+      as both a GPT and something else. */
+      wi->faultCode = FC_SegMalformed;
+      return false;
+    }
+    break;
+
+  case KKT_Page:
+#ifdef KKT_TimePage
+  case KKT_TimePage:
+#endif
+    // nothing to do
+    break;
+
+  case KKT_Void:
+    wi->faultCode = FC_InvalidAddr;
+    return false;
+
+  default:
+    wi->faultCode = FC_SegMalformed;
+    return false;
+  }
+
+  // Check the guard.
+  unsigned int l2g = keyBits_GetL2g(pSegKey);
+#if 0
+  printf("l2g %d, guard 0x%x\n", l2g, keyBits_GetGuard(pSegKey));
+#endif
+  /* Shift va in two steps, because a shift of 64 is undefined. */
+  /* Might want to store l2g offset by 1 (or up to EROS_PAGE_LGSIZE),
+     so it will require only 6 bits instead of 7. */
+  if ((va >> (l2g -1) >> 1) != keyBits_GetGuard(pSegKey)) {
+    wi->faultCode = FC_InvalidAddr;
+dprintf(true, "va 0x%x%08x l2g %d pSegKey 0x%x\n",
+ (uint32_t)(va>>32), (uint32_t)va, l2g, pSegKey);////
+    return false;
+  }
+  // Strip off guard bits.
+  // Shift by (l2g-1), because a shift of 64 is undefined.
+  va &= (2ull << (l2g-1)) -1;
+  wi->offset = va;
+
+  wi->memObj = pSegKey->u.ok.pObj;
+
+  wi->restrictions |= pSegKey->keyPerms;
+  if ((wi->restrictions & capros_Memory_readOnly)
+      && wi->needWrite) {
+    wi->faultCode = FC_Access;
+    return false;
+  }
+
+  return true;
+}
+
+/* If successful, returns true,
+   otherwise returns false and sets wi->faultCode. */
+// May Yield.
+bool
+segwalk_init(SegWalk * wi, Key * pSegKey, uint64_t va,
+             void * pPTE, int mapLevel)
+{
+  wi->restrictions = 0;
+  wi->backgroundGPT = 0;
+  wi->keeperGPT = 0;
+  if (! processKey(wi, pSegKey, va))
+    return false;
+
+  Depend_AddKey(pSegKey, pPTE, mapLevel);
+  return true;
+}
+
+
+/* Walk the memory tree until we reach an object with l2v < stopL2v.
+ */
+/* Returns true if successful, false if wi->faultCode set. */
+/* May Yield. */
+enum WalkSegRet
+WalkSeg(SegWalk * wi, uint32_t stopL2v,
+	     void * pPTE, int mapLevel)
+{
+  const uint32_t MAX_SEG_DEPTH = 20;
+  KernStats.nWalkSeg++;
+
+  WALK_DBG_MSG("WalkSeg");
+
+  for(;;) {
+    if (wi->memObj->obType > ot_NtLAST_NODE_TYPE) {
+      // It's a page, not a GPT.
+      WALK_DBG_MSG("ret");
+      return true;
+    }
+
+    GPT * gpt = objH_ToNode(wi->memObj);
+
+    assert(gpt->node_ObjHdr.obType == ot_NtSegment);
+
+    uint8_t l2vField = gpt_GetL2vField(gpt);
+    unsigned int curL2v = l2vField & GPT_L2V_MASK;
+
+    if (curL2v < stopL2v) {
+      WALK_DBG_MSG("ret");
+      return true;
+    }
+      
+    KernStats.nWalkLoop++;
+
+    if (++ wi->traverseCount >= MAX_SEG_DEPTH) {
+      wi->faultCode = FC_SegDepth;
+      goto fault_exit;
+    }
+      
+    WALK_DBG_MSG("wlk");
+	
+    unsigned int initialSlots = EROS_NODE_SLOT_MASK;
+
+    if (l2vField & GPT_KEEPER) {
+      wi->keeperGPT = gpt;
+      wi->keeperOffset = wi->offset;
+dprintf(true, "GPT_KEEPER wi=0x%x\n", wi);////
+      initialSlots = capros_GPT_keeperSlot -1;
+    }
+
+    if (l2vField & GPT_BACKGROUND) {
+      wi->backgroundGPT = gpt;
+      initialSlots = capros_GPT_backgroundSlot -1;
+        /* backgroundSlot < keeperSlot, so this must come last. */
+    }
+
+    uint64_t ndx = wi->offset >> curL2v;
+    if (ndx > initialSlots) {
+      wi->faultCode = FC_InvalidAddr;
+      goto fault_exit;
+    }
+
+    wi->offset &= (1ull << curL2v) - 1ull;	// remaining bits of address
+
+    Key * k = &gpt->slot[ndx];
+
+    if (keyBits_GetType(k) == KKT_Number) {
+      // A window key.
+      uint64_t addr = k->u.nk.value[1];
+      addr <<= 32;
+      addr |= k->u.nk.value[0];
+
+      /* Check: make sure that the window offset is an
+       * appropriate size multiple: */
+      if (addr & ((1ull << curL2v) -1))
+	goto seg_malformed;
+
+      printf("Adding 0x%08x to 0x%08x in window redirect\n",
+	     addr, wi->offset);
+
+      wi->offset += addr;
+
+      uint32_t controlWord = k->u.nk.value[2];
+      unsigned int wrestrictions = (controlWord >> 8) & 0xff;
+
+      wi->restrictions |= wrestrictions;
+      if ((wi->restrictions & capros_Memory_readOnly)
+          && wi->needWrite) {
+        wi->faultCode = FC_Access;
+        goto fault_exit;
+      }
+
+      unsigned int wslot = controlWord & 0xff;
+
+      if (wslot < capros_GPT_nSlots) {
+        // A local window key.
+	k = &gpt->slot[wslot];
+      }
+      else if (wslot == 0xff) {
+        // A background window key.
+        if (! wi->backgroundGPT)
+	  goto seg_malformed;	// there is no background key
+        if (wi->backgroundGPT == SEGWALK_GPT_UNKNOWN)
+          return WalkSeg_NeedBG;
+
+        // Background GPT had better have a background key:
+        assert(gpt_GetL2vField(wi->backgroundGPT) & GPT_BACKGROUND);
+
+        k = &wi->backgroundGPT->slot[capros_GPT_backgroundSlot];
+      }
+      else {
+	goto seg_malformed;
+      }
+    }
+
+    if (! processKey(wi, k, wi->offset)) {
+      goto fault_exit;
+    }
+
+    Depend_AddKey(k, pPTE, mapLevel);
+    /* Loop around again. */
+  }
+  assert(false);	// can't get here
+
+seg_malformed:
+  wi->faultCode = FC_SegMalformed;
+fault_exit:
+  WALK_DBG_MSG("flt");
+  return false;
+}
+
+/* May Yield. */
+void
+proc_InvokeSegmentKeeper(
+  Process * thisPtr,	// the process that is to invoke the keeper
+	/* (This might be different from act_CurContext(), if in the future
+	we allow a CALL on a gate key to cause the callee to handle
+	page faults.) */
+  SegWalk * wi,
+  bool invokeProcessKeeperOK,
+  uva_t vaddr )
+{
+  Key *keeperKey = 0;
+  
+#ifdef WALK_DBG
+  WALK_DBG_MSG("calling seg keeper");
+#endif
+
+  if (wi->keeperGPT == SEGWALK_GPT_UNKNOWN) {
+    // re-walk from the top to find the keeper if any
+    wi->traverseCount = 0;
+    if (segwalk_init(wi, node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace),
+                     vaddr, 0, 0)) {
+      WalkSeg(wi, EROS_PAGE_LGSIZE, 0, 0);
+    }
+    assert(wi->keeperGPT != SEGWALK_GPT_UNKNOWN);
+  }
+
+  // FIXME: noCall restriction might not be right if path was truncated.
+  if (wi->keeperGPT && ! (wi->restrictions & capros_Memory_noCall)) {
+dprintf(true, "keeperGPT callable wi=0x%x\n", wi);////
+    assert(wi->keeperGPT->node_ObjHdr.obType == ot_NtSegment);
+    assert(gpt_GetL2vField(wi->keeperGPT) & GPT_KEEPER);
+
+    keeperKey = &wi->keeperGPT->slot[capros_GPT_keeperSlot];
+
+    /* Ensure retry on yield.  All segment faults are fast-path
+     * restartable.
+     FIXME: simplify this?
+     */
+    proc_SetFault(thisPtr, wi->faultCode, vaddr, false);
+
+    /* If this was a memory fault, clear the PF_Faulted bit.  This
+     * allows us to restart the instruction properly without invoking
+     * the process keeper in the event that we are forced to yield in the
+     * middle of preparing the keeper key or calling InvokeMyKeeper;
+     */
+    thisPtr->processFlags &= ~PF_Faulted;
+  
+    // Set up to send a key to the keeper.
+    /* This could be a call driven by SetupExitString(), in which the
+     * original invocation was to a red segment key with the node
+     * passing option turned on, so do not reuse scratchKey.
+     */
+
+    keyBits_InitType(&inv.redNodeKey, KKT_GPT);
+    // GPT key has no restrictions.
+    keyBits_SetL2g(&inv.redNodeKey, 64);	// disable guard
+    keyBits_SetPrepared(&inv.redNodeKey);
+    objH_TransLock(node_ToObj(wi->keeperGPT));
+    inv.redNodeKey.u.ok.pObj = node_ToObj(wi->keeperGPT);
+
+    link_Init(&inv.redNodeKey.u.ok.kr);
+    link_insertAfter(&wi->keeperGPT->node_ObjHdr.keyRing,
+                     &inv.redNodeKey.u.ok.kr);
+    inv.flags |= INV_REDNODEKEY;
+
+    proc_InvokeMyKeeper(thisPtr, OC_SEGFAULT, wi->faultCode,
+		 (uint32_t) wi->keeperOffset, (uint32_t) (wi->keeperOffset>>32),
+		 keeperKey, &inv.redNodeKey,
+		 0, 0);
+  }
+  else {		// no segment keeper
+    if (! invokeProcessKeeperOK)
+      return;	// no segment keeper and can't invoke process keeper
+
+    proc_SetFault(thisPtr, wi->faultCode, vaddr, false);
+
+    /* Yielding here will cause the thread to resume with a non-zero
+     * fault code in the scheduler, at which point it will be shunted
+     * off to the process keeper.
+     */
+    act_Yield();
+  }
+}
