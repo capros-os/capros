@@ -62,17 +62,16 @@ ExitTheKernel_MD(Process * thisPtr)
 #endif
 
   /* Need to have a valid directory or the machine reboots.  It's
-   * possible that the mapping table entry was nailed by a depend zap,
+   * possible that we yielded while the mapping table entry was set to
+     PTE_IN_PROGRESS during a page fault,
    * in which case we will rebuild it next time through. For now,
-   * simply make sure the mapping table value at least maps the kernel
+   * simply make sure the mapping table value at least maps the kernel.
    */
  
-  if (thisPtr->md.MappingTable == PTE_ZAPPED) {
+  if (thisPtr->md.MappingTable == PTE_IN_PROGRESS) {
     thisPtr->md.MappingTable = KernPageDir_pa;
 #ifdef OPTION_SMALL_SPACES
-    thisPtr->md.smallPTE = 0;
-    thisPtr->md.bias = 0;
-    thisPtr->md.limit = UMSGTOP;
+    proc_InitSmallSpace(thisPtr);	// always start out with a small space
 #endif
   }
 

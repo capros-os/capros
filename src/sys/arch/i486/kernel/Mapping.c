@@ -2,7 +2,7 @@
  * Copyright (C) 2002, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <arch-kerninc/PTE.h>
 #include "CpuFeatures.h"
+#include "Process486.h"
 #include "lostart.h"
 
 #define dbg_map		0x4	/* migration state machine */
@@ -913,14 +914,15 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
   if (kde->pteCount == 0) {
     Process * const p = (Process *) kde->start;
     assert(IsInProcess(kde->start));
-    p->md.MappingTable = PTE_ZAPPED;
+    p->md.MappingTable = KernPageDir_pa;
+#ifdef OPTION_SMALL_SPACES
+    proc_InitSmallSpace(p);	// always start out with a small space
+#endif
     PteZapped = true;
 	       
-     /* MUST BE CAREFUL -- if this product is the active mapping table we
-     * need to reset the mapping pointer to the native kernel map!
-       (Why? -CRL)
-     */
-  
+    /* If this is the current process, update the mapping table in the
+       hardware too, just in case someone uses it before we exit the kernel.
+       (I'm not sure it ever does get used, though.) */
     if (p == act_CurContext()) {
       mach_SetMappingTable(KernPageDir_pa);
     }
@@ -1149,9 +1151,8 @@ pageH_mdType_dump_pages(PageHeader * pageH)
 void
 pageH_mdType_dump_header(PageHeader * pageH)
 {
-  printf("    prodBlss=%d rwProd=%c producer=0x%08x\n",
-	 pageH->kt_u.mp.producerBlss,
-         pageH->kt_u.mp.rwProduct ? 'y' : 'n',
+  printf("    ro=%c producer=0x%08x\n",
+         pageH->kt_u.mp.readOnly ? 'y' : 'n',
          pageH->kt_u.mp.producer );
 }
 

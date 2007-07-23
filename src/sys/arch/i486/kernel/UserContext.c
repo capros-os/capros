@@ -45,6 +45,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/i486/Registers.h>
 #include <eros/ProcessKey.h>
 #include <kerninc/Invocation.h>
+#include "Process486.h"
 
 #include "gen.REGMOVE.h"
 /* #define MSGDEBUG
@@ -214,8 +215,7 @@ proc_DumpFixRegs(Process* thisPtr)
 {
   if (proc_IsNotRunnable(thisPtr))
     printf("Note: process is NOT runnable\n");
-  printf("ASID   = 0x%08x  VASID = 0x%08x\n",
-	 thisPtr->md.MappingTable, thisPtr->md.MappingTable);
+  printf("MappingTable = 0x%08x\n", thisPtr->md.MappingTable);
   DumpFixRegs(&thisPtr->trapFrame); 
 }
 
@@ -423,13 +423,7 @@ proc_allocate(bool isUser)
 
   if (isUser) {
 #ifdef OPTION_SMALL_SPACES
-    uint32_t ndx;
-    uint32_t pg;
-    ndx = p - proc_ContextCache;
-
-    p->md.limit = SMALL_SPACE_PAGES * EROS_PAGE_SIZE;
-    p->md.bias = UMSGTOP + (ndx * SMALL_SPACE_PAGES * EROS_PAGE_SIZE);
-    p->md.smallPTE = &proc_smallSpaces[SMALL_SPACE_PAGES * ndx];
+    proc_InitSmallSpace(p);	// always start out with a small space
 
 #if 0
     dprintf(true, "Loading small space process 0x%X bias 0x%x "
@@ -437,6 +431,9 @@ proc_allocate(bool isUser)
 	    procRoot->oid, cc.md.bias, cc.md.limit);
 #endif
   
+    /* Clear the PTEs, because the change in p->procRoot is not
+       tracked by Depend. */
+    uint32_t pg;
     for (pg = 0; pg < SMALL_SPACE_PAGES; pg++)
       pte_Invalidate(&p->md.smallPTE[pg]);
 #endif
@@ -1007,7 +1004,6 @@ proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
 
   case ProcAddrSpace:
     Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, whichKey));
-    assert(thisPtr->md.MappingTable == PTE_ZAPPED);
     break;
 
   case ProcSched:

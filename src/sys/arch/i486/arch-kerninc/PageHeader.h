@@ -41,19 +41,18 @@ struct MapTabHeader {
 /* N.B.: obType must be the first item in this structure.
    This puts it in the same location as PageHeader.kt_u.ob.obType. */
   uint8_t obType;		/* only ot_PtMappingPage */
+
+  uint8_t mthAge;
+
+  uint8_t readOnly     : 1;
+  uint8_t tableSize    : 1;	/* 0 for page table, 1 for page directory */
     
-/* The fields next and producer are required by the machine-independent code. */
+/* The fields next, producer, and backgroundGPT
+   are required by the machine-independent code. */
   MapTabHeader * next;	/* next product of this producer */
   ObjectHeader * producer;
-  struct Node * redSeg;	/* pointer to slot of keeper that
-			 * dominated this mapping frame */
-  unsigned char redSpanBlss;	/* blss of seg spanned by redSeg */
-  bool wrapperProducer;
-  uint8_t producerBlss; /* biased lss of map tbl producer.
-			   NOTE: not the key, the object. */
-  uint8_t rwProduct    : 1;	/* indicates mapping page is RW version */
-  uint8_t caProduct    : 1;	/* indicates mapping page is callable version */
-  uint8_t tableSize    : 1;	/* 0 for page table, 1 for page directory */
+  struct Node * backgroundGPT;  /* GPT containing background key
+                        for this table, 0 if none. */
 };
 
 #endif // __MACHINE_PAGEHEADER_H__

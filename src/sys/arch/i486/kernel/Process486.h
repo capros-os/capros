@@ -2,7 +2,7 @@
 #define __PROCESS486_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -20,6 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <arch-kerninc/PTE.h>
 
@@ -93,6 +96,16 @@ fail:
 }
 
 #ifdef OPTION_SMALL_SPACES
+INLINE void
+proc_InitSmallSpace(Process * p)
+{
+  uint32_t ndx = p - proc_ContextCache;
+  
+  p->md.limit = SMALL_SPACE_PAGES * EROS_PAGE_SIZE;
+  p->md.bias = UMSGTOP + (ndx * SMALL_SPACE_PAGES * EROS_PAGE_SIZE);
+  p->md.smallPTE = &proc_smallSpaces[SMALL_SPACE_PAGES * ndx];
+}
+
 INLINE void              
 proc_SwitchToLargeSpace(Process* thisPtr)
 {

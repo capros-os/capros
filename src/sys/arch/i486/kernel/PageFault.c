@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -37,13 +37,15 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Machine.h>
 #include <kerninc/Debug.h>
 #include <kerninc/Process.h>
-#include <kerninc/SegWalk.h>
+#include <kerninc/GPT.h>
 #include <arch-kerninc/Process.h>
 #include "Process486.h"
 #include <arch-kerninc/PTE.h>
 #include "IDT.h"
 #include "lostart.h"
 #include "Segment.h"
+
+// #define WALK_LOUD
 
 #define dbg_pgflt	0x1	/* steps in taking snapshot */
 
@@ -102,14 +104,14 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/);
 
 
 #ifdef OPTION_DDB
+#define db_printf printf
+
 void
 pte_ddb_dump(PTE* thisPtr)
 {
-  extern void db_printf(const char *fmt, ...);
-
   char attrs[64];
   char *nxtAttr = attrs;
-  printf("Pg Frame 0x%08x [", pte_PageFrame(thisPtr));
+  db_printf("Pg Frame 0x%08x [", pte_PageFrame(thisPtr));
 
 #define ADDATTR(s) do { const char *sp = (s); *nxtAttr++ = ','; while (*sp) *nxtAttr++ = *sp++; } while (0)
   
@@ -136,7 +138,48 @@ pte_ddb_dump(PTE* thisPtr)
 #undef ADDATTR
 
   *nxtAttr++ = 0;
-  printf("%s]\n", attrs);
+  db_printf("%s]\n", attrs);
+}
+
+static void
+pte_print(uint32_t addr, char *note, PTE *pte)
+{
+  db_printf("0x%08x %s ", addr, note);
+  pte_ddb_dump(pte);
+}
+
+void
+db_show_mappings_md(uint32_t spaceAddr, uint32_t base, uint32_t nPages)
+{
+  PTE * space = KPAtoP(PTE *, spaceAddr);
+  uint32_t top = base + (nPages * EROS_PAGE_SIZE);
+
+  while (base < top) {
+    uint32_t hi = (base >> 22) & 0x3ffu;
+    uint32_t lo = (base >> 12) & 0x3ffu;
+
+    PTE * pde = space + hi;
+    pte_print(base, "PDE ", pde);
+    if (!pte_isValid(pde))
+      db_printf("0x%08x PTE <invalid>\n", base);
+    else {
+      PTE *pte = KPAtoP(PTE *,pte_PageFrame(pde));
+      uint32_t frm = 0;
+      pte += lo;
+
+      pte_print(base, "PTE ", pte);
+      frm = pte_PageFrame(pte);
+      PageHeader * pHdr = objC_PhysPageToObHdr(frm);
+
+      if (pHdr == 0)
+	db_printf("*** NOT A VALID USER FRAME!\n");
+      else if (pageH_GetObType(pHdr) != ot_PtDataPage)
+	db_printf("*** FRAME IS INVALID TYPE!\n");
+
+    }
+
+    base += EROS_PAGE_SIZE;
+  }
 }
 #endif
 
@@ -205,67 +248,40 @@ pte_ObIsNotWritable(PageHeader * pageH)
 
 /* Walk the current object's products looking for an acceptable product: */
 static PageHeader *
-FindProduct(SegWalk* wi /*@not null@*/ ,
+FindProduct(SegWalk * wi,
             unsigned int tblSize, 
-            bool rw, bool ca)
+            bool rw)
 {
-  ObjectHeader* thisPtr = wi->segObj;
-  uint32_t blss = wi->segBlss;
-
-#if 0
-  printf("Search for product blss=%d ndx=%d, rw=%c producerTy=%d\n",
-	       blss, ndx, rw ? 'y' : 'n', obType);
-#endif
+  ObjectHeader* thisPtr = wi->memObj;
   
   /* #define FINDPRODUCT_VERBOSE */
+
+#ifdef FINDPRODUCT_VERBOSE
+  printf("Search for product rw=%c tblSize=%d\n",
+	       rw ? 'y' : 'n', tblSize);
+#endif
 
   MapTabHeader * product;
   
   for (product = thisPtr->prep_u.products;
        product; product = product->next) {
     assert(pageH_GetObType(MapTab_ToPageH(product)) == ot_PtMappingPage);
-    if ((uint32_t) product->producerBlss != blss) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("Producer BLSS not match\n");
-#endif
-      continue;
-    }
-    if (product->redSeg != wi->redSeg) {
-#ifdef FINDPRODUCT_VERBOSE
-      printf("Red seg not match\n");
-#endif
-      continue;
-    }
-    if (product->redSeg) {
-      if (product->wrapperProducer != wi->segObjIsWrapper) {
-#ifdef FINDPRODUCT_VERBOSE
-	printf("redProducer not match\n"); 
-#endif
-	continue;
-      }
-      if (product->redSpanBlss != wi->redSpanBlss) {
-#ifdef FINDPRODUCT_VERBOSE
-	printf("redSpanBlss not match: prod %d wi %d\n",
-		       product->redSpanBlss, wi.redSpanBlss);
-#endif
-	continue;
-      }
-    }
     if ((uint32_t) product->tableSize != tblSize) {
 #ifdef FINDPRODUCT_VERBOSE
       printf("tableSize not match\n");
 #endif
       continue;
     }
-    if (product->rwProduct != (rw ? 1 : 0)) {
+    if (product->readOnly == rw) {	// rw is 0 or 1
 #ifdef FINDPRODUCT_VERBOSE
-      printf("rwProduct not match\n");
+      printf("rw not match\n");
 #endif
       continue;
     }
-    if (product->caProduct != (ca ? 1 : 0)) {
+    if (product->backgroundGPT != wi->backgroundGPT) {
 #ifdef FINDPRODUCT_VERBOSE
-      printf("caProduct not match\n");
+      printf("backgroundGPT not match: prod 0x%x caller 0x%x\n",
+             product->backgroundGPT, wi->backgroundGPT);
 #endif
       continue;
     }
@@ -278,18 +294,8 @@ FindProduct(SegWalk* wi /*@not null@*/ ,
     assert(product->producer == thisPtr);
   }
 
-#if 0
-  if (wi.segBlss != wi.pSegKey->GetBlss())
-    dprintf(true, "Found product 0x%x segBlss %d prodKey 0x%x keyBlss %d\n",
-		    product, wi.segBlss, wi.pSegKey, wi.pSegKey->GetBlss());
-#endif
-
 #ifdef FINDPRODUCT_VERBOSE
-  printf("0x%08x->FindProduct(blss=%d,ndx=%d,rw=%c,ca=%c,"
-		 "producerTy=%d) => 0x%08x\n",
-		 this,
-		 blss, ndx, rw ? 'y' : 'n', ca ? 'y' : 'n', obType,
-		 product);
+  printf("FindProduct() => 0x%08x\n", product);
 #endif
 
   return MapTab_ToPageH(product);
@@ -318,8 +324,6 @@ PageFault(savearea_t *sa)
   bool writeAccess = (error & 2) ? true : false;
   Process *ctxt;
 
-  /* sa->Dump(); */
-
   /* If we page faulted from supervisor mode it's trivial: */
   if ( (error & 4) == 0) {
 #if 0
@@ -332,9 +336,6 @@ PageFault(savearea_t *sa)
     }
 #endif
 
-#if 0
-    sa->Dump();
-#endif
     fatal("Kernel page fault\n"
 		  " SaveArea      =  0x%08x  EIP           =  0x%08x\n"
 		  " Fault address =  0x%08x  Code          =  0x%08x\n"
@@ -385,62 +386,23 @@ PageFault(savearea_t *sa)
   return false;
 }
 
-#define DATA_PAGE_FLAGS  (PTE_ACC|PTE_USER|PTE_V)
+static void
+SegWalk_InitFromMT(SegWalk * wi, MapTabHeader * mth)
+{
+  wi->backgroundGPT = mth->backgroundGPT;
+  wi->keeperGPT = SEGWALK_GPT_UNKNOWN;
+  wi->memObj = mth->producer;
+}
 
 uint32_t DoPageFault_CallCounter;
 
-/* At some point, this logic will need to change to account for
- * background windows.  In the event that we encounter a non-local
- * background window key we will need to do a complete traversal in
- * order to find the background segment, because the background
- * segment slot is not cached.
- * 
- * Actually, this is contingent on a design distinction, which is
- * whether multiple red segments should be tracked on the way down the
- * segment tree.  When we cross a KEPT red segment, we should
- * certainly forget any outstanding background segment -- we do not
- * want the red segment keeper to be able to fabricate a background
- * window key that might reference a segment over which the keeper
- * should not have authority.
- * 
- * A case can be made, however, that a kept red segment should be
- * permitted to contain a NON-kept red segment that specifies a
- * background segment.  The main reason to desire this is to allow
- * (e.g.) VCSK to operate on a background segment that contains a
- * window.
- * 
- * For the moment, we do not support this, and I am inclined to
- * believe that it is unwise to do so until I see a case in which it
- * is useful.
- * 
- * Local windows are not yet supported by the SegWalk code, but none
- * of this is an issue for local windows,
- */
-
-INLINE uint64_t
-BLSS_MASK64(uint32_t blss, uint32_t frameBits)
-{
-  uint32_t bits_to_shift =
-    (blss - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + frameBits; 
-
-  uint64_t mask = (1ull << bits_to_shift);
-  mask -= 1ull;
-  
-  return mask;
-}
-
-/* #define WALK_LOUD */
-#define FAST_TRAVERSAL
 /* May Yield. */
 bool
 proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 {
-  const int walk_root_blss = 4 + EROS_PAGE_BLSS;
-  const int walk_top_blss = 2 + EROS_PAGE_BLSS;
-  SegWalk wi;
-  PTE *pTable;
-  PTE * thePTE;
-  
+  const int walk_root_l2v = 32;
+  const int walk_top_l2v = 22;
+
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Top of DoPageFault()");
@@ -449,12 +411,13 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   DoPageFault_CallCounter++;
   
   DEBUG(pgflt) {
-    printf("DoPageFault: ctxt=0x%08x EIP 0x%08x la=0x%08x, isWrite=%c prompt=%c\n",
+    printf("DoPageFlt: proc=0x%08x EIP 0x%08x la=0x%08x smallPTE=0x%x %s%s\n",
 		   p,
 		   p->trapFrame.EIP,
 		   la,
-		   isWrite ? 't' : 'f',
-		   prompt ? 't' : 'f');
+                   p->md.smallPTE,
+		   isWrite ? "wt" : "rd",
+		   prompt ? " prompt" : "" );
   }
   
 #ifdef OPTION_SMALL_SPACES
@@ -466,13 +429,13 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 	      (uint32_t) va);
       proc_SetFault(p, FC_InvalidAddr, va, false);  
       return false;
-    } else {
-      /* If the address exceeds the small space limit we need to
+    }
+    /* The address exceeds the small space limit. We need to
       convert the current address space into a large space.
     
-      If this is necessary, set smallPTE to zero and YIELD, because we
-      might have been called from unside the IPC code.  This will
-      induce another page fault, which will follow the large spaces path.
+      Set smallPTE to zero and YIELD, because we
+      might have been called from inside the IPC code.  This will
+      induce another page fault, which will follow the large space path.
 
       This should not happen on the invoker side, where the addresses
       were validated during page probe (causing SS fault or GP fault).
@@ -484,18 +447,19 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       allowing the correct computation to be done in the next pass.
       */
 
-      if (va >= p->md.limit) {
+    /* This code seems not to be reached.
+       If the address exceeds the small space limit, the fault seems 
+       to come in as a General Protection fault. */
+
 #if 0
-        dprintf(true, "!! la=0x%08x va=0x%08x\n"
+    dprintf(true, "!! la=0x%08x va=0x%08x\n"
 		    "Switching process 0x%X to large space\n",
 		    la, va,
 		    procRoot->ob.oid);
 #endif
 
-        proc_SwitchToLargeSpace(p);
-        act_Yield();
-      }
-    }
+    proc_SwitchToLargeSpace(p);
+    act_Yield();
   }
 #else
   uva_t va = la;
@@ -509,20 +473,12 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   }
 #endif
 
-  /* Set up a WalkInfo structure and start building the necessary
-   * mapping table, PDE, and PTE entries.
-   */
-
-  wi.faultCode = FC_NoFault;
+  /* Set up a SegWalk structure. */
+  SegWalk wi;
+  wi.needWrite = isWrite;
   wi.traverseCount = 0;
-  wi.segObj = 0;
-  wi.offset = va;
-  wi.frameBits = EROS_PAGE_ADDR_BITS;
-  wi.writeAccess = isWrite;
-  wi.wantLeafNode = false;
-  
-  segwalk_init(&wi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace));
 
+  PTE * thePTE;
 #ifdef OPTION_SMALL_SPACES
   if (p->md.smallPTE) {
     assert (va < (SMALL_SPACE_PAGES * EROS_PAGE_SIZE));
@@ -535,348 +491,250 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 #if 0
     /* This assertion can be false given that the process can run from
      * any address space and the save logic may subsequently save that
-     * address space pointer. The code is preserved here to keep a
-     * record of the fact that this may be untrue so that I do not
-     * forget and re-insert the assertion.
-     */
+     * address space pointer. */
     assert ( fixRegs.md.MappingTable == KERNPAGEDIR );
 #endif
 
-    /* All the page directories for this small space are contiguous,
-       so just index into the lot. */
-    thePTE /*@ not null @*/ = &p->md.smallPTE[(va >> EROS_PAGE_ADDR_BITS)
-                                              % SMALL_SPACE_PAGES ];
+    /* A small space uses only a fraction of a page table.
+       In any case, all the page tables for small spaces are contigous.
+       So just index off of smallPTE. */
+    thePTE = &p->md.smallPTE[(va >> EROS_PAGE_ADDR_BITS)
+                             % SMALL_SPACE_PAGES ];
+
+    /* In a small space, the PTE is dependent on the entire path
+       from the root: */
+    if (! segwalk_init(&wi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace),
+                       va, thePTE, 2)) {
+      goto fault_exit;
+    }
+
+#ifdef WALK_LOUD
+      dprintf(false, "have small pde, ");
+#endif
   }
   else	// the large space case follows
 #endif
   {	// beginning of large space case
-    // Indenting preserved to avoid insignificant changes.
-  /* If we discover on the way to load the process that it's mapping
-   * table register was voided, we substituted KERNPAGEDIR.  Notice
-   * that here:
-   */
-  if ( p->md.MappingTable == KernPageDir_pa )
-    p->md.MappingTable = PTE_ZAPPED;
+    PTE * pTable;
+    PageHeader * pTableHdr;
 
-  /* See if there is already a page directory. If not, go find/build one. */
-  pTable = (PTE *) (PTOV(p->md.MappingTable) & ~EROS_PAGE_MASK);
-
-#ifdef WALK_LOUD
-  dprintf(false, "pTable is 0x%x\n", pTable);
-#endif
+    /* See if there is already a page directory. */
+    if (p->md.MappingTable == KernPageDir_pa
+        || p->md.MappingTable == PTE_IN_PROGRESS ) {	// Need a page directory
+      p->md.MappingTable = PTE_IN_PROGRESS;
   
-  if (pTable == 0)
-    goto need_pgdir;
-  
-  {
-    PageHeader * pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
-    assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
-   
-    if (isWrite && !pTableHdr->kt_u.mp.rwProduct) {
-      dprintf(true, "DoPageFault(): isWrite && !pTableHdr->kt_u.mp.rwProduct hdr 0x%x\n", pTableHdr);
-      goto access_fault;
-    }
-
-    wi.canCall = BOOL(pTableHdr->kt_u.mp.caProduct);
-    
-#ifdef FAST_TRAVERSAL
-    /* We have a page directory conveying suitable access rights from
-       the top.  See if the PDE has the necessary permissions: */
-    {
-      uint32_t pdeNdx = (la >> 22) & 0x3ffu;
-      PTE* thePDE /*@ not null @*/ = &pTable[pdeNdx];
-
-      if ( pte_is(thePDE, PTE_V|PTE_USER) ) {
-
-	/* We could short-circuit the walk in this case by remembering
-	 * the status of /wi.canWrite/ in a spare bit in the PTE, but
-	 * at the moment we do not do so because in most cases the
-	 * write restriction appears lower down in the segment tree.
-	 */
-
-	if ( pte_is(thePDE, PTE_W) || !isWrite ) {
-	  /* We have a valid PDE with the necessary permissions! */
-
-	  pTable = KPAtoP(PTE *, pte_PageFrame(thePDE));
-	  pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
-          assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
-        
-	  
-	  wi.offset = va & ((1u << 22) - 1u);
-	  wi.segBlss = pTableHdr->kt_u.mp.producerBlss;
-	  wi.segObj = pTableHdr->kt_u.mp.producer;
-	  wi.redSeg = pTableHdr->kt_u.mp.redSeg;
-	  if (wi.redSeg) {
-	    wi.redSpanBlss = pTableHdr->kt_u.mp.redSpanBlss;
-	    wi.redSegOffset =
-	      ((uint64_t)va) & BLSS_MASK64(wi.redSpanBlss, wi.frameBits);
-	  }
-	  wi.segObjIsWrapper = BOOL(pTableHdr->kt_u.mp.wrapperProducer);
-	  wi.canWrite = BOOL(pTableHdr->kt_u.mp.rwProduct);
-	  wi.canCall = BOOL(wi.canCall && pTableHdr->kt_u.mp.caProduct);
-
-#if 0
-	  if (wi.redSeg && wi.offset != wi.redSegOffset) {
-      dprintf(false, "pdr WalkSeg: wi.producer 0x%x, wi.prodBlss %d wi.isRed %d\n"
-		      "wi.offset 0x%X flt %d  wa %d segKey 0x%x\n"
-		      "canCall %d canWrite %d\n"
-		      "redSeg 0x%x redOffset 0x%X\n",
-		      wi.segObj, wi.segBlss, wi.segObjIsRed,
-		      wi.offset, wi.segFault, wi.writeAccess,
-		      0x0,
-		      wi.canCall, wi.canWrite,
-		      wi.redSeg, wi.redSegOffset);
-
-	    dprintf(true, "Found pg dir. Offset 0x%X RedSegOffset 0x%X spanBlss %d\n",
-			    wi.offset, wi.redSegOffset, wi.redSpanBlss);
-	  }
-#endif
-	  
-	  /* NOTE: This is doing the wrong thing when the red segment
-	   * needs to be grown upwards, because the segBlss in that
-	   * case is less than the *potential* span of the red
-	   * segment.
-	   */
-#ifdef WALK_LOUD
-	  dprintf(false, "have_good_pde\n");
-#endif
-	  goto have_good_pde;
-	}
+      if (! segwalk_init(&wi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace),
+                         va, p, 0)) {
+        goto fault_exit;
       }
-    }
-#endif /* FAST_TRAVERSAL */
-    assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
-    
-    wi.offset = va;
-    wi.segBlss = pTableHdr->kt_u.mp.producerBlss;
-    wi.segObj = pTableHdr->kt_u.mp.producer;
-    wi.redSeg = pTableHdr->kt_u.mp.redSeg;
-    if (wi.redSeg) {
-      wi.redSpanBlss = pTableHdr->kt_u.mp.redSpanBlss;
-      wi.redSegOffset =
-	((uint64_t)va) & BLSS_MASK64(wi.redSpanBlss, wi.frameBits);
-    }
-    wi.segObjIsWrapper = pTableHdr->kt_u.mp.wrapperProducer;
-    wi.canWrite = BOOL(pTableHdr->kt_u.mp.rwProduct);
 
-#ifdef WALK_LOUD
-    dprintf(false, "have_pgdir\n");
-#endif
-    goto have_pgdir;
-  }
-  
- need_pgdir:
-  /* No page directory was found, so we need to construct a page
-   * directory. */
-  
-  p->md.MappingTable = PTE_IN_PROGRESS;
-  
-  /* Begin the traversal... */
-  if ( ! WalkSeg(&wi, walk_root_blss,
+      /* Begin the traversal... */
+      if ( ! WalkSeg(&wi, walk_root_l2v,
 		     p, 0) ) { 
-    if (!prompt)
-      proc_InvokeSegmentKeeper(p, &wi, true, va);
-
-    return false;
-  }
-
-  /* If the wrong depend entry was reclaimed, we may have just lost
-   * the mapping table entry. If we are still good to go, : */
-  if (p->md.MappingTable == PTE_ZAPPED)
-    act_Yield();
-
-  /* Since the address space pointer register lacks permission bits,
-   * we cannot be here due to lack of permissions at this
-   * level. Therefore, if we are processing this path at all the
-   * mapping table must have been invalid, in which case it should now
-   * be PTE_IN_PROGRESS. */
-  assert (p->md.MappingTable == PTE_IN_PROGRESS);
-
-  /* We can now reset the value to the zap guard. */
-  p->md.MappingTable = PTE_ZAPPED;	// not needed?
-  
-  assert (pTable == 0);
-  if (pTable == 0) {
-    /* See if a mapping table has already been built for this address
-     * space.  If so, just use it.  Using wi.segBlss is okay here
-     * because the mapping table pointer will be zapped if anything
-     * above this point gets changes, whereupon the gunk the the page
-     * directory will no longer matter.
-     */
-
-    PageHeader * pTableHdr =
-      FindProduct(&wi, EROS_NODE_LGSIZE /* ndx */,
-                  wi.canWrite, wi.canCall);
-
-    
-    if (pTableHdr == 0)
-      pTableHdr = proc_MakeNewPageDirectory(&wi);
-
-    pTable = (PTE *) pageH_GetPageVAddr(pTableHdr);
-
-    /* Note, the physical address of the page directory must be
-       representable in 32 bits, even in PAE mode. */
-    p->md.MappingTable = (kpmap_t)VTOP(pTable);
-  }
-
- have_pgdir:
-  
-#ifndef NDEBUG
-  {
-    PageHeader * pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
-    assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
-
-    assert(wi.segBlss == pTableHdr->kt_u.mp.producerBlss);
-    assert(wi.segObj == pTableHdr->kt_u.mp.producer);
-    assert(wi.redSeg == pTableHdr->kt_u.mp.redSeg);
-    assert(BOOL(wi.canWrite) == BOOL(pTableHdr->kt_u.mp.rwProduct));
-  }
-#endif
-
-  {
-    /* Start building the PDE entry: */
-    uint32_t pdeNdx = (la >> 22) & 0x3ffu;
-    PTE* thePDE /*@ not null @*/ = &pTable[pdeNdx];
-
-    if (pte_isnot(thePDE, PTE_V))
-      thePDE->w_value = PTE_IN_PROGRESS;
-
-    /* Translate the top 8 (10) bits of the address: */
-    if ( ! WalkSeg(&wi, walk_top_blss, thePDE, 1) ) {
-      if (!prompt)
-        proc_InvokeSegmentKeeper(p, &wi, true, va);
-      return false;
-    }
-
-    if (thePDE->w_value == PTE_ZAPPED)
-      act_Yield();
-
-    if (thePDE->w_value == PTE_IN_PROGRESS)
-      thePDE->w_value = PTE_ZAPPED;    
-
-    /* If we get this far, we need the page table to proceed further.
-     * See if we need to build a new page table:
-     */
-
-    if (pte_is(thePDE, PTE_V)) {
-      pTable = (PTE *) PTOV(pte_PageFrame(thePDE));
-
-      if (wi.canWrite && !pte_is(thePDE, PTE_W)) {
-	/* We could only have taken this fault because writing was not
-	 * enabled at the directory level, which means that we need to
-	 * flush the PDE from the hardware TLB.
-	 */
-	pte_Invalidate(thePDE);
+        goto fault_exit;
       }
-    }
-    else {
-      /* Level 0 product need never be a read-only product.  We use
-       * the write permission bit at the PDE level.
-       */
-      PageHeader *pTableHdr =
-	FindProduct(&wi, 0, true, true);
 
-      if (pTableHdr == 0)
-	pTableHdr = MakeNewPageTable(&wi);
-      assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+      /* If a depend entry was reclaimed, we may have just zapped
+       * the very mapping table entry we are building: */
+      if (p->md.MappingTable != PTE_IN_PROGRESS) {
+        dprintf(true, "Zapped MT root\n");
+        act_Yield();
+      }
+  
+      /* See if a mapping table has already been built for this address
+       * space.  If so, just use it. */
+      pTableHdr =
+        FindProduct(&wi, 1, ! (wi.restrictions & capros_Memory_readOnly));
+    
+      if (pTableHdr == 0) {
+        pTableHdr = proc_MakeNewPageDirectory(&wi);
 
-      assert(wi.segBlss == pTableHdr->kt_u.mp.producerBlss);
-      assert(wi.segObj == pTableHdr->kt_u.mp.producer);
-      assert(wi.redSeg == pTableHdr->kt_u.mp.redSeg);
+#ifdef WALK_LOUD
+        dprintf(false, "new pgdir, ");
+#endif
+      } else {
+#ifdef WALK_LOUD
+        dprintf(false, "found pgdir, ");
+#endif
+      }
 
-      /* On x86, the page table is always RW product, and we rely on
-	 the write permission bit at the PDE level: */
-      assert(pTableHdr->kt_u.mp.rwProduct);
+      assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
 
       pTable = (PTE *) pageH_GetPageVAddr(pTableHdr);
-    }
 
-    /* The level 0 page table is still contentless - there is no
-     * need to build depend table entries covering it's contents.
-     * We simply need to fill in the page directory entry:
-     */
+      /* Note, the physical address of the page directory must be
+         representable in 32 bits, even in PAE mode. */
+      p->md.MappingTable = (kpmap_t)VTOP(pTable);
 
-    pte_set(thePDE, (VTOP((kva_t)pTable) & PTE_FRAMEBITS));
-    pte_set(thePDE, PTE_ACC|PTE_USER|PTE_V);
+    } else {		// Already have a page directory
+      pTable = (PTE *) (PTOV(p->md.MappingTable) & ~EROS_PAGE_MASK);
+      pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
+      assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
     
-    /* Using /canWrite/ instead of /isWrite/ reduces the number of
-     * cases in which we need to rebuild the PDE without altering the
-     * actual permissions, and does not require us to dirty a page.
-     * This is legal only because on this architecture the node tree
-     * and the page tables are congruent at this level.
-     */
-    if (wi.canWrite)
-      pte_set(thePDE, PTE_W);
-  }
+      SegWalk_InitFromMT(&wi, &pTableHdr->kt_u.mp);
+      wi.offset = va;
+      wi.restrictions = pTableHdr->kt_u.mp.readOnly
+                        ? capros_Memory_readOnly : 0;
+   
+      if (isWrite && pTableHdr->kt_u.mp.readOnly) {
+        wi.faultCode = FC_Access;
+        goto fault_exit;
+      }
 
-#ifdef FAST_TRAVERSAL
- have_good_pde:
+#ifdef WALK_LOUD
+      dprintf(false, "have pgdir, ");
 #endif
+    }
   
-  thePTE /*@ not null @*/ = &pTable[(la >> 12) & 0x3ff];
-  }	// end of large space case
+    assert(wi.memObj == pTableHdr->kt_u.mp.producer);
+    
+    /* pTable is a page directory conveying suitable access rights from
+       the top, and pTableHdr is its header.
+       wi reflects the path to this point. */
 
-  {	// indenting preserved to avoid insignificant changes
+    /* See if the PDE has the necessary permissions: */
+    uint32_t pdeNdx = (la >> 22) & 0x3ffu;
+    PTE * thePDE = &pTable[pdeNdx];
 
-    if (pte_isnot(thePTE, PTE_V))
-      thePTE->w_value = PTE_IN_PROGRESS;
-    else {
-      if (! isWrite || pte_is(thePTE, PTE_W)) {
-        return true;	/* This PTE already has everything we need. */
+    if ( pte_is(thePDE, PTE_V) ) {
+      if (isWrite && ! pte_is(thePDE, PTE_W)) {
+        wi.faultCode = FC_Access;
+        goto fault_exit;
+      }
+
+      /* We have a valid PDE with the necessary permissions! */
+      pTable = KPAtoP(PTE *, pte_PageFrame(thePDE));
+      pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
+      assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+        
+      SegWalk_InitFromMT(&wi, &pTableHdr->kt_u.mp);
+      wi.offset = va & ((1ul << 22) - 1);
+      /* wi.restrictions & capros_Memory_readOnly must be 0.
+         wi.restrictions & capros_Memory_noCall is not significant
+         because wi.keeperGPT is SEGWALK_GPT_UNKNOWN. */
+      wi.restrictions = 0;
+
+#ifdef WALK_LOUD
+      dprintf(false, "have pt, ");
+#endif
+    } else {
+      // user PDE is not valid.
+
+      /* Start building the PDE entry: */
+
+      thePDE->w_value = PTE_IN_PROGRESS;
+
+      /* Translate the top 8 (10) bits of the address: */
+      if ( ! WalkSeg(&wi, walk_top_l2v, thePDE, 1) ) {
+        goto fault_exit;
+      }
+
+      if (thePDE->w_value == PTE_ZAPPED)
+        act_Yield();
+      assert(thePDE->w_value == PTE_IN_PROGRESS);
+
+      /* If we get this far, we need the page table to proceed further.
+       * See if we need to build a new page table: */
+
+      /* Level 0 product is never a read-only product.  We use
+       * the write permission bit at the PDE level.
+       */
+      pTableHdr = FindProduct(&wi, 0, true);
+
+      if (pTableHdr == 0) {
+        pTableHdr = MakeNewPageTable(&wi);
+
+#ifdef WALK_LOUD
+        dprintf(false, "new pt, ");
+#endif
+      } else {
+#ifdef WALK_LOUD
+        dprintf(false, "found pt, ");
+#endif
+      }
+      assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+
+      /* On x86, the page table is always RW, and we rely on
+         the write permission bit at the PDE level: */
+      assert(! pTableHdr->kt_u.mp.readOnly);
+
+      pTable = (PTE *) pageH_GetPageVAddr(pTableHdr);
+
+      thePDE->w_value = 0;    
+      pte_set(thePDE, (VTOP((kva_t)pTable) & PTE_FRAMEBITS));
+      pte_set(thePDE, PTE_ACC|PTE_USER|PTE_V);
+      if (! (wi.restrictions & capros_Memory_readOnly))
+        pte_set(thePDE, PTE_W);
+      else {
+        /* Having captured the readOnly restriction to this point,
+           the PTE must be RO only if there is an RO flag
+           from this point forward, because we may share this page table
+           with address spaces where it is writeable. */
+        wi.restrictions &= ~ capros_Memory_readOnly;
       }
     }
-  
-    /* Do the traversal... */
-    if ( ! WalkSeg(&wi, EROS_PAGE_BLSS, thePTE, 2) ) {
-      if (!prompt)
-        proc_InvokeSegmentKeeper(p, &wi, true, va);
-      return false;
-    }
 
+    // Now we have a good PDE.
+  
+    thePTE = &pTable[(la >> 12) & 0x3ff];
+  }	// end of large space case
+
+  /* thePTE points to the PTE in question. */
+
+  if (pte_is(thePTE, PTE_V)) {
+    if (! isWrite || pte_is(thePTE, PTE_W)) {
+#ifdef WALK_LOUD
+      dprintf(false, "have pte\n");
+#endif
+      return true;	/* This PTE already has everything we need. */
+    }
+    /* The old PTE had insufficient permission, so we must zap the TLB. */
+    pte_Invalidate(thePTE);
+  }
+  thePTE->w_value = PTE_IN_PROGRESS;
+  
+  /* Do the traversal... */
+  if ( ! WalkSeg(&wi, EROS_PAGE_LGSIZE, thePTE, 2) ) {
+    goto fault_exit;
+  }
+
+  if (thePTE->w_value == PTE_ZAPPED)
     /* Depend entry triggered -- retry the fault */
-    if (thePTE->w_value == PTE_ZAPPED)
-      act_Yield();
+    act_Yield();
 
-    if (thePTE->w_value == PTE_IN_PROGRESS)
-      thePTE->w_value = PTE_ZAPPED;    
+  assert(thePTE->w_value == PTE_IN_PROGRESS);
     
-    assert(wi.segObj);
-    assert(wi.segObj->obType == ot_PtDataPage ||
-	   wi.segObj->obType == ot_PtDevicePage);
+  assert(wi.memObj->obType == ot_PtDataPage
+         || wi.memObj->obType == ot_PtDevicePage);
   
-    if (isWrite)
-      pageH_MakeDirty(objH_ToPage(wi.segObj));
+  if (isWrite) {
+    pageH_MakeDirty(objH_ToPage(wi.memObj));
+  }
 
-    kpa_t pageAddr = VTOP(pageH_GetPageVAddr(objH_ToPage(wi.segObj)));
+  kpa_t pageAddr = VTOP(pageH_GetPageVAddr(objH_ToPage(wi.memObj)));
 
-    assert ((pageAddr & EROS_PAGE_MASK) == 0);
-    // Must not be within the kernel:
-    assert (pageAddr < PtoKPA(&_start) || pageAddr >= PtoKPA(&end));
+  assert ((pageAddr & EROS_PAGE_MASK) == 0);
+  // Must not be within the kernel:
+  assert (pageAddr < PtoKPA(&_start) || pageAddr >= PtoKPA(&end));
   
-    if (isWrite && pte_is(thePTE, PTE_V)) {
-      /* We are doing this because the old PTE had insufficient
-       * permission, so we must zap the TLB.
-       */
-      pte_Invalidate(thePTE);
-    }
-  
-    pte_set(thePTE, (pageAddr & PTE_FRAMEBITS) | DATA_PAGE_FLAGS );
-    if (isWrite)
-      pte_set(thePTE, PTE_W);
+  thePTE->w_value = 0;    
+  pte_set(thePTE, (pageAddr & PTE_FRAMEBITS) | (PTE_ACC|PTE_USER|PTE_V));
+  if (isWrite)
+    pte_set(thePTE, PTE_W);
 #ifdef WRITE_THROUGH
-    if (CpuType >= 5)
-      pte_set(thePTE, PTE_WT);
+  if (CpuType >= 5)
+    pte_set(thePTE, PTE_WT);
+#endif
+
+#ifdef WALK_LOUD
+      dprintf(false, "set pte\n");
 #endif
 
 #if 0
-    if ((wi.segObj->kt_u.ob.oid & OID_RESERVED_PHYSRANGE) 
+  if ((wi.memObj->kt_u.ob.oid & OID_RESERVED_PHYSRANGE) 
 	== OID_RESERVED_PHYSRANGE)
-      wi.canCache = false;
+    pte_set(thePTE, PTE_CD);
 #endif
-
-    if (!wi.canCache)
-      pte_set(thePTE, PTE_CD);
-  }
     
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
@@ -885,18 +743,9 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
   return true;
 
- access_fault:
-  wi.faultCode = FC_Access;
-  goto fault_exit;
-
  fault_exit:
 #ifdef WALK_LOUD
-    dprintf(true, "flt WalkSeg: wi.producer 0x%x, wi.prodBlss %d wi.isRed %d\n"
-		    "wi.offset 0x%X flt %d  wa %d\n"
-		    "canCall %d canWrite %d\n",
-		    wi.segObj, wi.segBlss, wi.segObjIsRed,
-		    wi.offset, wi.segFault, wi.writeAccess,
-		    wi.canCall, wi.canWrite);
+    dprintf(true, "flt WalkSeg 0x%x\n", &wi);
 #endif
   if (!prompt)
     proc_InvokeSegmentKeeper(p, &wi, true, va);
@@ -908,19 +757,14 @@ static PageHeader *
 proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 {
   PageHeader * pTable = objC_GrabPageFrame();
-  kva_t tableAddr;
+
   pTable->kt_u.mp.obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 1;
-  pTable->kt_u.mp.producerBlss = wi->segBlss;
 
-  pTable->kt_u.mp.redSeg = wi->redSeg;
-  pTable->kt_u.mp.wrapperProducer = wi->segObjIsWrapper;
-  pTable->kt_u.mp.redSpanBlss = wi->redSpanBlss;
-  pTable->kt_u.mp.rwProduct = BOOL(wi->canWrite);
-  pTable->kt_u.mp.caProduct = BOOL(wi->canCall);
-  // objH_SetDirtyFlag(pTable);
+  pTable->kt_u.mp.backgroundGPT = wi->backgroundGPT;
+  pTable->kt_u.mp.readOnly = BOOL(wi->restrictions & capros_Memory_readOnly);
 
-  tableAddr = pageH_GetPageVAddr(pTable);
+  kva_t tableAddr = pageH_GetPageVAddr(pTable);
 
   bzero((void *) tableAddr, EROS_PAGE_SIZE);
 
@@ -945,7 +789,7 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
     pte_set(&udir[KVTOL(KVA_FROMSPACE) >> 22], PTE_W|PTE_V );
   }
 
-  objH_AddProduct(wi->segObj, &pTable->kt_u.mp);
+  objH_AddProduct(wi->memObj, &pTable->kt_u.mp);
 
   return pTable;
 }
@@ -956,31 +800,27 @@ MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
 {
   /* Need to make a new mapping table: */
   PageHeader * pTable = objC_GrabPageFrame();
-  kva_t tableAddr;
   pTable->kt_u.mp.obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 0;
-  pTable->kt_u.mp.producerBlss = wi->segBlss;
   
-  pTable->kt_u.mp.redSeg = wi->redSeg;
-  pTable->kt_u.mp.wrapperProducer = wi->segObjIsWrapper;
-  pTable->kt_u.mp.redSpanBlss = wi->redSpanBlss;
-  pTable->kt_u.mp.rwProduct = 1;
-  pTable->kt_u.mp.caProduct = 1;	/* we use spare bit in PTE */
-  // objH_SetDirtyFlag(pTable);
+  pTable->kt_u.mp.backgroundGPT = wi->backgroundGPT;
+  /* All page tables have readOnly == 0. We use the readOnly protection
+  in the page directory. */
+  pTable->kt_u.mp.readOnly = 0;
 
-  tableAddr = pageH_GetPageVAddr(pTable);
+  kva_t tableAddr = pageH_GetPageVAddr(pTable);
 
   bzero((void *)tableAddr, EROS_PAGE_SIZE);
 
 #if 0
   printf("0x%08x->MkPgTbl(blss=%d,ndx=%d,rw=%c,ca=%c,"
 		 "producerTy=%d) => 0x%08x\n",
-		 wi.segObj,
-		 wi.segBlss, ndx, 'y', 'y', wi.segObj->obType,
+		 wi.memObj,
+		 wi.segBlss, ndx, 'y', 'y', wi.memObj->obType,
 		 pTable);
 #endif
 
-  objH_AddProduct(wi->segObj, &pTable->kt_u.mp);
+  objH_AddProduct(wi->memObj, &pTable->kt_u.mp);
 
   return pTable;
 }
