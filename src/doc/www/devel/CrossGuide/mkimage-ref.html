@@ -200,21 +200,36 @@
 	     </p>
 	</dd>
 	<dt>
-	     <b>empty segment with</b> <i>number</i> <b>pages</b>
-	     <br><b>empty segtree with</b> <i>number</i> <b>pages</b>
+	     <b>empty GPT with</b> <i>number</i> <b>pages</b>
 	</dt>
 	<dd>
 	     <p>
-	     Creates a segment containing slots for <i>number</i>
-	     pages (but no actual pages) at consecutive addresses.  If
-	     the <b>segment</b> form is used a segment key is
-	     returned.  Otherwise a node key is returned.
+	     Creates a GPT containing slots for <i>number</i>
+	     pages (but no actual pages) at consecutive addresses.
 	     </p>
 	     <p>
 	     This fabrication is useful for processes that will
-	     automatically populate a segment tree but need to know
-	     that all required nodes for the tree are preallocated --
+	     automatically populate a memory tree but need to know
+	     that all required GPTs for the tree are preallocated --
 	     most notably, the space bank.
+	     </p>
+	</dd>
+	<dt>
+	     <b>new GPT with lss</b> <i>lss</i>
+	</dt>
+	<dd>
+	     <p>
+	     Creates a GPT with an l2v value of 
+             (lss-1)*EROS_NODE_SIZE + EROS_PAGE_ADDR_BITS.
+	     </p>
+	</dd>
+	<dt>
+	     <i>key</i> <b>as</b> <b>opaque GPT key</b>
+	</dt>
+	<dd>
+	     <p>
+	     Returns an opaque copy of <i>key</i>.
+             <i>key</i> must be a GPT key.
 	     </p>
 	</dd>
 	<dt>
@@ -229,13 +244,14 @@
 	     </p>
 	</dd>
 	<dt>
-	     <i>key</i> <b>as</b> <i>qualifier</i> <b>segment key</b>
-	     <br><i>key</i> <b>as</b> <i>qualifier</i> <b>node key</b>
+	     <i>key</i> <b>as</b> <i>qualifier</i> <b>node key</b>
 	</dt>
 	<dd>
 	     <p>
-	     Returns a copy of <i>key</i> with the specified type and
-	     access restrictions.
+	     Returns a copy of the node <i>key</i> with the specified
+	     access restrictions,
+             which may include <b>RO</b> and/or <b>NC</b>
+             and/or <b>weak</b>.
 	     </p>
 	</dd>
 	<dt>
@@ -382,12 +398,13 @@
 	</dt>
 	<dd>
 	     <p>
-	     Fabricates a new segment tree containing the <em>load image</em>
+	     Fabricates a new memory tree containing the <em>load image</em>
 	     of the executable <i>file</i>. If the load image fits in a
              single page, a page key is returned and it makes no difference
              whether <b>segment</b> or <b>segtree</b> is used.
              Otherwise, if the <b>segment</b>
-	     form is used a segment key is returned.  Otherwise a node
+	     form is used an opaque GPT key is returned.  Otherwise a 
+             non-opaque
 	     key is returned.  If the <b>small</b> variant is
 	     used, the returned key is a node key suitable for use
 	     with the small program runtime.
