@@ -45,7 +45,7 @@ extern char *strcpy(char *c1, const char *c2);
  * Exported global variables
  */
 bool	db_cmd_loop_done;
-jmp_buf		*db_recover;
+jmp_buf	* db_recover = 0;
 
 db_addr_t	db_dot;		/* current location */
 db_addr_t	db_last_addr;	/* last explicit address typed */
@@ -691,7 +691,8 @@ db_command_loop()
 void
 db_abort_output(void)
 {
-	db_flush_lex();
+  db_flush_lex();
+  if (db_recover)
 	longjmp(*db_recover, 1);
 }
 

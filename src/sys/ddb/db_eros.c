@@ -1680,7 +1680,7 @@ db_print_segwalk(const SegWalk *wi)
 #define BOOLC(x) ((x) ? 'y' : 'n')
   db_printf("wi: memObj 0x%08x restrictions 0x%x\n"
 	    "offset: 0x%x%08x\n"
-            "keeperGPT 0x%x backgroundGPT 0x%x\n",
+            "keeperGPT 0x%x backgroundGPT 0x%x\n"
 	    "segFault %d needWrite %c traverseCount %d\n",
 	    wi->memObj, wi->restrictions,
 	    (uint32_t) (wi->offset >> 32),
