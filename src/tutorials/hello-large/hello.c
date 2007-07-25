@@ -33,6 +33,11 @@ Approved for public release, distribution unlimited. */
 
 #define KR_OSTREAM  KR_APP(0)
 
+#ifdef EROS_TARGET_arm
+// Because large spaces aren't implemented yet on arm:
+const uint32_t __rt_stack_pointer = 0x02000000;
+#endif
+
 int
 main(void)
 {
