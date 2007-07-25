@@ -710,7 +710,6 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     so we can recognize if a Depend zap occurs. */
     thePTE->w_value = PTE_IN_PROGRESS;
   }
-    pte_Invalidate(thePTE);
   
   /* Do the traversal... */
   if ( ! WalkSeg(&wi, EROS_PAGE_LGSIZE, thePTE, 2) ) {
