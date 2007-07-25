@@ -28,14 +28,19 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessState.h>
 #include <eros/NodeKey.h>
 #include <idl/capros/Sleep.h>
-#include <idl/capros/Memory.h>
+#include <idl/capros/GPT.h>
 #include <domain/domdbg.h>
-//#include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_SYSTRACE 11
 #define KR_KEEPER_PROCESS 18
 
+// #define LARGE_SPACE
+
+#ifdef LARGE_SPACE
+#define ADDR1 0x7000000
+#else
 #define ADDR1 0x1c000
+#endif
 
 #include "meminval.h"
 
@@ -80,7 +85,7 @@ main(void)
     kprintf(KR_OSTREAM, "Voiding blss %d\n", blss);
 
     if (blss < 5) {
-      ret = node_swap(toNode, slot, KR_VOID, KR_VOID);
+      ret = capros_GPT_setSlot(toNode, slot, KR_VOID);
       assert(ret == RC_OK);
     } else {	// blss == 5
       ret = process_swap(KR_PROC1_PROCESS, ProcAddrSpace, KR_VOID, KR_VOID);
@@ -111,17 +116,12 @@ main(void)
     kprintf(KR_OSTREAM, "Making blss %d readonly\n", blss);
 
     // Make the read-only key.
-    if (blss == 1) {
-      ret = capros_Memory_makeReadOnly(KR_PAGE, KR_TEMP);
-      assert(ret == RC_OK);
-    } else {
-      ret = node_make_segment_key(KR_SEG17 - 2 + blss, blss-1,
-                 capros_Memory_readOnly, KR_TEMP);
-      assert(ret == RC_OK);
-    }
+    ret = capros_Memory_reduce(toNode -1,
+               capros_Memory_readOnly | capros_Memory_opaque, KR_TEMP);
+    assert(ret == RC_OK);
 
     if (blss < 5) {
-      ret = node_swap(toNode, slot, KR_TEMP, KR_VOID);
+      ret = capros_GPT_setSlot(toNode, slot, KR_TEMP);
       assert(ret == RC_OK);
     } else {	// blss == 5
       ret = process_swap(KR_PROC1_PROCESS, ProcAddrSpace, KR_TEMP, KR_VOID);

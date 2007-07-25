@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/NodeKey.h>
 #include <eros/machine/Registers.h>
 #include <domain/domdbg.h>
+#include <idl/capros/GPT.h>
 
 #define ADDR1 0x40000
 
@@ -43,16 +44,16 @@ const uint32_t __rt_stack_pointer = 0x21000;
 static uint8_t rcvData[EROS_PAGE_SIZE];
       
 void
-nodeStore(uint32_t krNode, uint32_t slot, uint32_t krFrom)
+GPTStore(uint32_t krNode, uint32_t slot, uint32_t krFrom)
 {
-  uint32_t ret = node_swap(krNode, slot, krFrom, KR_VOID);
+  uint32_t ret = capros_GPT_setSlot(krNode, slot, krFrom);
   assert(ret == RC_OK);
 }
 
 void
-makeSeg(uint32_t krNode, uint16_t keyData)
+makeSeg(uint32_t krNode)
 {
-  uint32_t ret = node_make_segment_key(krNode, keyData, 0/*perms*/, KR_TEMP);
+  uint32_t ret = capros_Memory_reduce(krNode, capros_Memory_opaque, KR_TEMP);
   assert(ret == RC_OK);
 }
 
@@ -113,18 +114,18 @@ main()
     blss = shInfP->blss;
     switch (blss) {
     case 1:
-      nodeStore(KR_SEG17, 31, KR_PAGE);
+      GPTStore(KR_SEG17, 31, KR_PAGE);
       break;
 
     case 2:
     case 3:
     case 4:
-      makeSeg(KR_SEG17 - 2 + blss, blss-1);
-      nodeStore(KR_SEG17 - 1 + blss, 0, KR_TEMP);
+      makeSeg(KR_SEG17 - 2 + blss);
+      GPTStore(KR_SEG17 - 1 + blss, 0, KR_TEMP);
       break;
 
     case 5:
-      makeSeg(KR_SEG17 - 2 + blss, blss-1);
+      makeSeg(KR_SEG17 - 2 + blss);
       ret = process_swap(KR_PROC1_PROCESS, ProcAddrSpace, KR_TEMP, KR_VOID);
       assert(ret == RC_OK);
       break;
@@ -137,11 +138,11 @@ main()
     int toNode = KR_SEG17;	// and consecutive key registers
     int slot = 31;	// slot containing stack page
     for (blss = 1; blss <= 4; blss++, toNode++) {
-      ret = node_swap(toNode, slot, fromKey, KR_VOID);
+      GPTStore(toNode, slot, fromKey);
       assert(ret == RC_OK);
       
       // set up for next iteration
-      ret = node_make_segment_key(toNode, blss, 0/*perms*/, KR_TEMP);
+      makeSeg(toNode);
       assert(ret == RC_OK);
       slot = 0;
       fromKey = KR_TEMP;

@@ -42,21 +42,28 @@ proc2 key reg 11 = misc SysTrace;
 
 proc1 = new process;
 proc1.pc = symbol BUILDDIR "proc1" _start;
-seg17 = program segment BUILDDIR "proc1";
+seg17 = program segtree BUILDDIR "proc1";
 seg17 = seg17 with page at 0x1f000; /* for stack */
-seg17[0x1c] = sharedpg;
 
 /* seg17 is of size 2**17. Build other size segments: */
-seg22 = new node;
-seg27 = new node;
-seg32 = new node;
-seg22[0] = seg17 with lss 1 as segment key;
-seg27[0] = seg22 with lss 2 as segment key;
-seg32[0] = seg27 with lss 3 as segment key;
+seg22 = new GPT with lss 2;
+seg27 = new GPT with lss 3;
+seg32 = new GPT with lss 4;
+seg22[0] = seg17 as opaque GPT key;
+seg27[0] = seg22 as opaque GPT key;
+seg32[0] = seg27 as opaque GPT key;
+
+// #define LARGE_SPACE
+
+#ifdef LARGE_SPACE
+seg27[0x1c] = sharedpg;
+#else
+seg17[0x1c] = sharedpg;
+#endif
 
 proc1 pc = proc1.pc;
 proc1 sp = 0x21000;
-proc1 space = seg32 with lss 4 as segment key;
+proc1 space = seg32 as opaque GPT key;
 proc1 schedule = sched(8);	/* normal */
 proc1 process keeper = start proc2 5;
 
@@ -66,7 +73,7 @@ proc1 key reg 10 = misc Console;
 proc1 key reg 11 = misc SysTrace;
 
 proc1 key reg 12 = seg17[31];
-proc1 key reg 13 = seg17 as node key;
+proc1 key reg 13 = seg17;
 proc1 key reg 14 = seg22;
 proc1 key reg 15 = seg27;
 proc1 key reg 16 = seg32;
@@ -75,7 +82,7 @@ proc1 key reg 17 = proc1;
 proc1 key reg 18 = proc2;
 
 proc2 key reg 12 = seg17[31];
-proc2 key reg 13 = seg17 as node key;
+proc2 key reg 13 = seg17;
 proc2 key reg 14 = seg22;
 proc2 key reg 15 = seg27;
 proc2 key reg 16 = seg32;
@@ -83,6 +90,3 @@ proc2 key reg 17 = proc1;
 
 ipl proc1;
 run proc2;	// to set the proper state
-
-print directory
-

@@ -39,36 +39,34 @@ Approved for public release, distribution unlimited. */
 
 spacebank = new process with constituents;
 
-spacebank.seg = program segment LIBDIR "spacebank";
+spacebank.seg = program segtree LIBDIR "spacebank";
 
 /* add a page for the stack: */
 spacebank.seg = spacebank.seg with page at 0xff000;
 
 /* Need to do this in several chunks so that we don't run afoul of
    segment insertion rules: */
-rangemap.seg = empty segtree with 1024 pages;
+rangemap.seg = empty GPT with 1024 pages;
 spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x00400000;
-spacebank.seg = spacebank.seg as node key;	// so we can modify the heap
-rangemap.seg = empty segtree with 1024 pages;
+rangemap.seg = empty GPT with 1024 pages;
 spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x00800000;
-rangemap.seg = empty segtree with 1024 pages;
+rangemap.seg = empty GPT with 1024 pages;
 spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x00c00000;
-rangemap.seg = empty segtree with 1024 pages;
+rangemap.seg = empty GPT with 1024 pages;
 spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x01000000;
 
 hide rangemap.seg;
 
-primeseg = new node with lss EROS_ADDRESS_LSS;
+primeseg = new GPT with lss EROS_ADDRESS_LSS;
 primeseg[0] = spacebank.seg;
-spacebank.seg = primeseg;
-hide primeseg;
 
 spacebank pc = symbol LIBDIR "spacebank" _start;
-spacebank space = spacebank.seg;
+spacebank space = primeseg;
 spacebank schedule = sched(8);   /* normal */
 spacebank symtab = number("spacebank");
 
 hide spacebank.seg;
+hide primeseg;
 
 /* Official space bank brand is a distinguished start key to the space bank: */
 
@@ -92,12 +90,9 @@ CONSTIT(spacebank, KC_DOMTOOL, 3) = misc ProcessTool;
  * exits, and none ever test constructors. In spite of this, pcc.map
  * back-patches the creator slot to PCC so that process creators can
  * simply reuse primordial_runtime_bits as their runtime node.
- *
- * Finally note that we use lss 0 explicitly to allow/encourage use of
- * the extended node copy/swap operations. This will allow us to
- * expand the tree of runtime bits later in a compatible way. */
+ */
 
-primordial_runtime_bits = new ro node with lss 0;
+primordial_runtime_bits = new ro node;
   /* RKT_CREATOR is set in pcc.map. */
   /* RKT_SB_VERIFIER is set below. */
   /* Note that RKT_CNS_VERIFIER is not used by any of the primordial

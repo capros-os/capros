@@ -33,11 +33,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/i486/target-asm.h>
 #include <eros/StdKeyType.h>
 #include <eros/KeyConst.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <domain/ProtoSpace.h>
-#include <domain/SpaceBankKey.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
 #include <domain/Runtime.h>
 	
 #define KR_OLDSPACE KR_APP(0)
@@ -140,9 +140,9 @@ ENTRY(__rt_small_startup)
 	cmpl	$0,EXT(__rt_stack_pages)
         jz	EXT(__stack_ready)
 	
-	IVK1(sb_alloc_root_node, OC_capros_SpaceBank_alloc1, capros_Range_otNode)
+	IVK1(sb_alloc_root_node, OC_capros_SpaceBank_alloc1, capros_Range_otGPT)
 	
-	IVK1(mk_node_key, OC_Node_MakeNodeKey, (EROS_PAGE_BLSS+1))
+	IVK1(mk_node_key, OC_capros_GPT_setL2v, EROS_PAGE_LGSIZE)
 	
 	/* buy the page while the space bank is still hot in
 	   the data cache */
@@ -158,7 +158,7 @@ ENTRY(__rt_small_startup)
 	jnz	EXT(delete_kept_space)
 #endif
 	
-	IVK1(clone_cur_space, OC_Node_Clone, 0)
+	IVK1(clone_cur_space, OC_capros_GPT_clone, 0)
 
 #if 0
 	/* check return value */
@@ -167,7 +167,7 @@ ENTRY(__rt_small_startup)
 #endif
 
 	/* stick the stack page we bought into the new node */
-	IVK1(insert_stack_page, OC_Node_Swap, (EROS_NODE_SIZE-1))
+	IVK1(insert_stack_page, OC_capros_GPT_setSlot, (EROS_NODE_SIZE-1))
 	
 #if 0
 	/* check return value */
@@ -212,12 +212,12 @@ LEXT(buy_stack)
 	int	$0x31			/* invocation trap */
 	
 	/* stick the stack page we bought into the new node */
-	movl	$OC_Node_Swap,%eax	/* w0 */
+	movl	$OC_capros_GPT_setSlot,%eax	/* w0 */
 	movl	PGSLOT,%ebx		/* w1 */
 	xorl	%ecx,%ecx		/* w2 */
 	xorl	%edx,%edx		/* w3 */
 
-	movl	$NO_KEYS,28(%ebp)	/* refuse old pg */
+	movl	$NO_KEYS,28(%ebp)
 	movl	$KEYS(KR_NEWPAGE,KR_VOID,KR_VOID,KR_VOID),16(%ebp)		/* snd new pg */
 	movl	$KR_NEWSPACE,4(%ebp)	/* into new node */
 	

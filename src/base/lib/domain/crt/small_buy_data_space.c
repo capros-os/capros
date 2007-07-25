@@ -25,14 +25,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
-#include <eros/NodeKey.h>
 #include <idl/capros/Page.h>
-#include <eros/KeyConst.h>
+#include <idl/capros/GPT.h>
+#include <idl/capros/SpaceBank.h>
 #include <eros/Invoke.h>
 #include <domain/ProtoSpace.h>
-#include <domain/SpaceBankKey.h>
-#include <domain/ProcessCreatorKey.h>
-#include <domain/ConstructorKey.h>
 #include <domain/Runtime.h>
 
 #define KR_MYSPACE KR_APP(0)
@@ -62,13 +59,13 @@ __rt_buy_data_space()
   while (base < bound) {
     uint32_t slot = base / EROS_PAGE_SIZE;
     
-    result = node_copy(KR_MYSPACE, slot, KR_OLDPAGE);
+    result = capros_GPT_getSlot(KR_MYSPACE, slot, KR_OLDPAGE);
 
-    result = spcbank_buy_data_pages(KR_BANK, 1, KR_NEWPAGE, KR_VOID, KR_VOID);
+    result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_NEWPAGE);
     
     result = capros_Page_clone(KR_NEWPAGE, KR_OLDPAGE);
     
-    result = node_swap(KR_MYSPACE, slot, KR_NEWPAGE, KR_VOID);
+    result = capros_GPT_setSlot(KR_MYSPACE, slot, KR_NEWPAGE);
 
     base += EROS_PAGE_SIZE;
   }

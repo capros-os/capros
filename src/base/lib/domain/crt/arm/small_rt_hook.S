@@ -28,11 +28,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/arm/SWI.h>
 #include <eros/StdKeyType.h>
 #include <eros/KeyConst.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <domain/ProtoSpace.h>
-#include <domain/SpaceBankKey.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
 #include <domain/Runtime.h>
 	
 #define KR_OLDSPACE KR_APP(0)
@@ -130,11 +130,11 @@ ENTRY(__rt_small_startup)
 	
 	simpleCall(sb_alloc_root_node, KR_BANK,
                OC_capros_SpaceBank_alloc1,
-               capros_Range_otNode, KR_VOID, KR_NEWSPACE)
+               capros_Range_otGPT, KR_VOID, KR_NEWSPACE)
 // FIXME: If any of these allocations fails, what to do?
 
 	Call1(mk_node_key, KR_NEWSPACE,
-              OC_Node_MakeNodeKey, EROS_PAGE_BLSS+1, KR_VOID,
+              OC_capros_GPT_setL2v, EROS_PAGE_LGSIZE, KR_VOID,
               KR_NEWSPACE)
 	
 	/* buy the page while the space bank is still hot in
@@ -154,7 +154,7 @@ ENTRY(__rt_small_startup)
 #endif
 	
 	simpleCall(clone_cur_space, KR_NEWSPACE,
-                   OC_Node_Clone, 0, KR_OLDSPACE,
+                   OC_capros_GPT_clone, 0, KR_OLDSPACE,
                    KR_VOID)
 #if 0
 	cmp r1,#0	/* check return value */
@@ -163,7 +163,7 @@ ENTRY(__rt_small_startup)
 
 	/* stick the stack page we bought into the new node */
 	Call1(insert_stack_page, KR_NEWSPACE,
-              OC_Node_Swap, EROS_NODE_SIZE-1, KR_NEWPAGE, 
+              OC_capros_GPT_setSlot, EROS_NODE_SIZE-1, KR_NEWPAGE, 
               KR_VOID)
 #if 0
 	cmp r1,#0	/* check return value */
@@ -191,16 +191,6 @@ buy_stack:
 	subs r8,r8,#1
 	beq stack_ready
 	subs r6,r6,#1		// slot to write
-#if 0
-#define NUMPG  0x1FFFC
-#define PGSLOT 0x1FFF8
-#define CALLBUF 0x1FFD0
-	
-	movl	EXT(__rt_stack_pages),%eax
-	movl	%eax,NUMPG
-	movl	$CALLBUF,%ebp
-	movl	$EROS_NODE_SLOT_MASK,PGSLOT	/* next slot to write */
-#endif
 	
 	InvConstants(buy_later_page, KR_BANK,
                      OC_capros_SpaceBank_alloc1,
@@ -216,8 +206,8 @@ buy_stack:
 
 	/* stick the stack page we bought into the new node */
 	InvConstants(set_later_page, KR_NEWSPACE,
-                     OC_Node_Swap, 0,
-                     KR_NEWPAGE, KR_VOID)	// don't want the old contents
+                     OC_capros_GPT_setSlot, 0,
+                     KR_NEWPAGE, KR_VOID)
 	ldr r7,=set_later_page
 	ldmia r7,{r1-r4,r12,r14}
 	mov r5,r6	// snd_w1, slot to write
