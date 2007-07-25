@@ -2,9 +2,9 @@
 
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -20,27 +20,30 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*********************************************************
  * PRIMORDIAL VIRTUAL COPY SEGMENT/FRESH SEGMENT
  *
  *  In which we built up a read-only segment of zeros
- *  of maximal LSS, which is currently 17 (spans a 96 bit 
- *  address)
+ *  of maximal LSS, which is 11 (spans a 67 bit address)
  *********************************************************/
 
 zero_pg = new ro page;
-zero_01 = new sense node with lss 1; /* first level nodes... */
-zero_02 = new sense node with lss 2;
-zero_03 = new sense node with lss 3;
-zero_04 = new sense node with lss 4;
-zero_05 = new sense node with lss 5;
-zero_06 = new sense node with lss 6;
-zero_07 = new sense node with lss 7;
-zero_08 = new sense node with lss 8;
-zero_09 = new sense node with lss 9;
-zero_10 = new sense node with lss 10;
-primary_zero_seg = new sense node with lss 11;
+/* first level GPTs... */
+zero_01 = new GPT with lss 1 as sense GPT key; 
+zero_02 = new GPT with lss 2 as sense GPT key;
+zero_03 = new GPT with lss 3 as sense GPT key;
+zero_04 = new GPT with lss 4 as sense GPT key;
+zero_05 = new GPT with lss 5 as sense GPT key;
+zero_06 = new GPT with lss 6 as sense GPT key;
+zero_07 = new GPT with lss 7 as sense GPT key;
+zero_08 = new GPT with lss 8 as sense GPT key;
+zero_09 = new GPT with lss 9 as sense GPT key;
+zero_10 = new GPT with lss 10 as sense GPT key;
+primary_zero_seg = new GPT with lss 11 as sense GPT key;
 
 zero_01 all slots = zero_pg;
 zero_02 all slots = zero_01;
