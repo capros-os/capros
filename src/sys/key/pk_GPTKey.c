@@ -33,6 +33,22 @@ Approved for public release, distribution unlimited. */
 
 #include <idl/capros/GPT.h>
 
+static void
+InvalidateMaps(GPT * theGPT)
+{
+  /* Invalidate any mapping table entries that depended on the l2v. */
+  /* node_Unprepare also invalidates all products of this GPT,
+     which I think is unnecessary, but this seems like a good time
+     to clean them up, since they may very well be useless. */
+#ifdef NDEBUG	// avoid compiler warning
+  (void) node_Unprepare(theGPT, 0);
+#else
+  bool unprepRet = node_Unprepare(theGPT, 0);
+  assert(unprepRet);
+#endif
+  keyR_UnmapAll(&node_ToObj(theGPT)->keyRing);
+}
+
 void
 DoMemoryReduce(Invocation * inv)
 {
@@ -109,6 +125,8 @@ GPTKey(Invocation * inv)
     {
       if (opaque) goto opaqueError;
 
+      InvalidateMaps(theGPT);
+
       COMMIT_POINT();
 
       unsigned int newL2v = inv->entry.w1;
@@ -118,7 +136,7 @@ GPTKey(Invocation * inv)
       inv->exit.code = RC_OK;
       uint8_t l2vField = gpt_GetL2vField(theGPT);
       uint8_t oldL2v = l2vField & GPT_L2V_MASK;
-      inv->exit.w1 = oldL2v;
+      // inv->exit.w1 = oldL2v;
       gpt_SetL2vField(theGPT, l2vField - oldL2v + newL2v);
       return;
     }
@@ -216,6 +234,9 @@ request_error:
   case OC_capros_GPT_setBackground:
     if (opaque) goto opaqueError;
 
+    InvalidateMaps(theGPT);	/* because the background GPT is cached
+				in mapping table headers */
+
     SetSlot(inv, theGPT, capros_GPT_backgroundSlot);
 
     gpt_SetL2vField(theGPT, gpt_GetL2vField(theGPT) | GPT_BACKGROUND);
@@ -223,6 +244,9 @@ request_error:
 
   case OC_capros_GPT_clearBackground:
     if (opaque) goto opaqueError;
+
+    InvalidateMaps(theGPT);	/* because the background GPT is cached
+				in mapping table headers */
 
     COMMIT_POINT();
 
