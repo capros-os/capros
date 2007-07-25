@@ -49,8 +49,17 @@ pte_isValid(PTE *pte)
 INLINE void 
 pte_Invalidate(PTE* thisPtr)
 {
+  if (pte_isValid(thisPtr)) {
+    PteZapped = true;
+  }
   thisPtr->w_value = PTE_ZAPPED;
-  PteZapped = true;
+}
+
+// Invalidate a page directory entry.
+INLINE void 
+pde_Invalidate(PTE * thisPtr)
+{
+  pte_Invalidate(thisPtr);
 }
 
 INLINE kpa_t 

@@ -67,7 +67,7 @@ MapTab_ClearRefs(MapTabHeader * mth)
       if (product->tableSize) {	// if a directory
         PTE * pte = MapTabHeaderToKVA(product);
         /* It's always in entry zero. */
-        pte_Invalidate(pte);
+        pde_Invalidate(pte);
       }
     }
   }
@@ -168,7 +168,7 @@ MapKernelPage(kva_t va, kpa_t pa, uint32_t mode)
   uint32_t dirndx = (KVTOL(va) >> 22);
 
   if (mode & PTE_PGSZ) {
-    pte_Invalidate(&pageDir[dirndx]);
+    pde_Invalidate(&pageDir[dirndx]);
     pte_set(&pageDir[dirndx], (VTOP(pa) & PTE_FRAMEBITS) );
     pte_set(&pageDir[dirndx], mode);
 

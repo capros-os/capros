@@ -50,7 +50,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_pgflt	0x1	/* steps in taking snapshot */
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u )
+#define dbg_flags   ( 0u | dbg_pgflt )////
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -501,6 +501,9 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     thePTE = &p->md.smallPTE[(va >> EROS_PAGE_ADDR_BITS)
                              % SMALL_SPACE_PAGES ];
 
+    DEBUG(pgflt)
+      printf("Found small pgdir\n");
+
     /* In a small space, the PTE is dependent on the entire path
        from the root: */
     if (! segwalk_init(&wi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace),
@@ -509,7 +512,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     }
 
 #ifdef WALK_LOUD
-      dprintf(false, "have small pde, ");
+    dprintf(false, "have small pde, ");
 #endif
   }
   else	// the large space case follows
@@ -533,6 +536,9 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 		     p, 0) ) { 
         goto fault_exit;
       }
+
+      DEBUG(pgflt)
+        printf("Traversed to top level\n");
 
       /* If a depend entry was reclaimed, we may have just zapped
        * the very mapping table entry we are building: */
@@ -570,6 +576,9 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       pTable = (PTE *) (PTOV(p->md.MappingTable) & ~EROS_PAGE_MASK);
       pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
       assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+
+      DEBUG(pgflt)
+        printf("Found top level\n");
     
       SegWalk_InitFromMT(&wi, &pTableHdr->kt_u.mp);
       wi.offset = va;
@@ -606,6 +615,9 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       pTable = KPAtoP(PTE *, pte_PageFrame(thePDE));
       pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
       assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+
+      DEBUG(pgflt)
+        printf("Found second level\n");
         
       SegWalk_InitFromMT(&wi, &pTableHdr->kt_u.mp);
       wi.offset = va & ((1ul << 22) - 1);
@@ -628,6 +640,9 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
       if ( ! WalkSeg(&wi, walk_top_l2v, thePDE, 1) ) {
         goto fault_exit;
       }
+
+      DEBUG(pgflt)
+        printf("Traversed to second level\n");
 
       if (thePDE->w_value == PTE_ZAPPED)
         act_Yield();
@@ -688,21 +703,26 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 #endif
       return true;	/* This PTE already has everything we need. */
     }
-    /* The old PTE had insufficient permission, so we must zap the TLB. */
-    pte_Invalidate(thePTE);
+    /* The old PTE had insufficient permission.
+    Leave it valid while we call WalkSeg, in case we fault or Yield. */
+  } else {
+    /* We need to have a value other than PTE_ZAPPED in the PTE
+    so we can recognize if a Depend zap occurs. */
+    thePTE->w_value = PTE_IN_PROGRESS;
   }
-  thePTE->w_value = PTE_IN_PROGRESS;
+    pte_Invalidate(thePTE);
   
   /* Do the traversal... */
   if ( ! WalkSeg(&wi, EROS_PAGE_LGSIZE, thePTE, 2) ) {
     goto fault_exit;
   }
 
+  DEBUG(pgflt)
+    printf("Traversed to page\n");
+
   if (thePTE->w_value == PTE_ZAPPED)
     /* Depend entry triggered -- retry the fault */
     act_Yield();
-
-  assert(thePTE->w_value == PTE_IN_PROGRESS);
     
   assert(wi.memObj->obType == ot_PtDataPage
          || wi.memObj->obType == ot_PtDevicePage);
@@ -717,7 +737,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   // Must not be within the kernel:
   assert (pageAddr < PtoKPA(&_start) || pageAddr >= PtoKPA(&end));
   
-  thePTE->w_value = 0;    
+  pte_Invalidate(thePTE);	/* remember to purge TLB */
+
   pte_set(thePTE, (pageAddr & PTE_FRAMEBITS) | (PTE_ACC|PTE_USER|PTE_V));
   if (isWrite)
     pte_set(thePTE, PTE_W);
@@ -740,6 +761,9 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   if (dbg_wild_ptr)
     check_Consistency("End of DoPageFault()");
 #endif
+
+  DEBUG(pgflt)
+    printf("Finished page fault\n");
 
   return true;
 
