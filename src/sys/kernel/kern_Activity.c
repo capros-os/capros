@@ -1094,15 +1094,6 @@ act_HandleYieldEntry(void)
      after the call to COMMIT_POINT(): */
   assert (InvocationCommitted == false);
 
-#if defined(OPTION_DDB)
-  {
-    extern bool ddb_uyield_debug;
-    if ( ddb_uyield_debug )
-      dprintf(true, "Activity 0x%08x yields\n",
-		      act_Current()); 
-  }
-#endif
-
 #ifndef NDEBUG
   act_ValidateActivity(act_Current());
 #endif

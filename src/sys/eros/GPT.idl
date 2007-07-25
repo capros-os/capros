@@ -1,0 +1,41 @@
+package capros;
+
+/* Interface to GPT keys.
+ */
+interface GPT extends Memory raises (key.RequestError) {
+  const unsigned byte nSlots = 32;
+  const unsigned byte l2nSlots = 5;	// log base 2 of the above
+  const unsigned byte keeperSlot = 31;
+  const unsigned byte backgroundSlot = 30;
+
+  /* All these methods raise key.RequestError if the key is opaque. */
+
+  /* Return the l2v field of this GPT. */
+  unsigned byte getL2v(); 
+
+  /* Set the l2v field of this GPT. */
+  void setL2v(unsigned byte newL2v); 
+
+  /* Fetch a key from a slot. */
+  /* Raises key.RequestError if slot >= nSlots. */
+  capros.key getSlot(unsigned byte slot);
+
+  /* Store a key into a slot. */
+  /* Raises key.RequestError if slot >= nSlots. */
+  void setSlot(unsigned byte slot, capros.key k);
+
+  /* Sets a key as the GPT's keeper. */
+  void setKeeper(capros.key k);
+
+  /* Sets the GPT as having no keeper. Slot keeperSlot is unchanged. */
+  void clearKeeper();
+
+  /* Sets a key as the GPT's background. */
+  void setBackground(capros.key k);
+
+  /* Sets the GPT as having no background. Slot backgroundSlot is unchanged. */
+  void clearBackground();
+
+  /* Copy the slots, l2v, and flags of a GPT into this GPT. */
+  void clone(capros.key k);
+};

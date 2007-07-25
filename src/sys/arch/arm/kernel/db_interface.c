@@ -242,8 +242,8 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
       switch (oldFrame) {
         case 1: printf("[Undefined instr exception]"); goto tryCurrent;
         case 2: printf("[SWI exception]"); goto tryCurrent;
-        case 3: printf("[Prefetch abort exception]"); goto tryCurrent;
-        case 4: printf("[Data abort exception]"); goto tryCurrent;
+        case 3: printf("[Data abort exception]"); goto tryCurrent;
+        case 4: printf("[Prefetch abort exception]"); goto tryCurrent;
 tryCurrent:
           if (act_Current()) {
             Process * p = act_CurContext();

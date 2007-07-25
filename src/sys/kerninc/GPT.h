@@ -71,13 +71,7 @@ struct SegWalk {
 bool segwalk_init(SegWalk * wi, Key * pSegKey, uint64_t va,
              void * pPTE, int mapLevel);
 
-enum WalkSegRet {
-  WalkSeg_OK,		// successful
-  WalkSeg_Fault,	// faultCode set
-  WalkSeg_NeedBG	// need background key
-};
-enum WalkSegRet
-WalkSeg(SegWalk * wi, uint32_t stopL2v,
-	void * pPTE, int mapLevel);
+bool WalkSeg(SegWalk * wi, uint32_t stopL2v,
+             void * pPTE, int mapLevel);
 
 #endif /* __GPT_H__ */

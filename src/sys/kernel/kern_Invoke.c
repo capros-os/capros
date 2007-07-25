@@ -45,9 +45,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Forwarder.h>
 #include <idl/capros/GPT.h>
 
-/* #define GATEDEBUG 5
- * #define KPRDEBUG
- */
+// #define GATEDEBUG 5
+// #define KPRDEBUG
+ 
 
 #ifdef GATEDEBUG
 #include <eros/ProcessKey.h>
@@ -806,9 +806,10 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     key_Prepare(inv.key);	/* MAY YIELD!!! */
   }
   else if ( inv.invKeyType == KKT_GPT
-       && keyBits_IsReadOnly(inv.key) == false
-       && keyBits_IsNoCall(inv.key) == false
-       && keyBits_IsWeak(inv.key) == false ) {
+       && ! keyBits_IsReadOnly(inv.key)
+       && ! keyBits_IsNoCall(inv.key)
+       && ! keyBits_IsWeak(inv.key)
+       && keyBits_IsOpaque(inv.key) ) {
     GPT * gpt = objH_ToNode(key_GetObjectPtr(inv.key));
     if (gpt_GetL2vField(gpt) & GPT_KEEPER) {
       Key * kprKey = &gpt->slot[capros_GPT_keeperSlot];

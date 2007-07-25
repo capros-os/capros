@@ -4,7 +4,7 @@
  * Copyright (C) 2003, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -244,9 +244,14 @@ INLINE void act_Yield(void) NORETURN;
 INLINE void
 act_Yield(void)
 {
-#if 0
-  dprintf(false, "act_Yield\n");
+#if defined(OPTION_DDB)
+  {
+    extern bool ddb_uyield_debug;
+    if ( ddb_uyield_debug )
+      dprintf(true, "Activity 0x%08x yields\n", act_Current()); 
+  }
 #endif
+
   extern void mach_Yield(void) NORETURN;
   mach_Yield();
 }

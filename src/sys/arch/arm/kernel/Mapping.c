@@ -93,10 +93,38 @@ struct SmallSpace {
   unsigned char domain;	/* the domain owned by this PID, 0 if none */
 } SmallSpaces[NumSmallSpaces];
 
-MapTabHeader *
-SmallSpace_GetMth(unsigned int ss)
+
+void 
+pte_Invalidate(PTE* thisPtr)
 {
-  return & SmallSpaces[ss].mth;
+  const uint32_t pteval = thisPtr->w_value;
+  if (pteval & PTE_VALIDBITS) {	// it was valid
+    PteZapped = flushCache = true;
+  } else {
+    // It was invalid, but could there be cache entries dependent on it?
+    if (pteval == PTE_ZAPPED) return;
+    if (pteval != PTE_IN_PROGRESS)
+      flushCache = true;
+    // Even if it was invalid, we want to change it to PTE_ZAPPED.
+  }
+  thisPtr->w_value = PTE_ZAPPED;
+}
+
+// Invalidate a first level mapping table entry.
+void
+InvalidateFLMTE(uint32_t * descrP)
+{
+  uint32_t descr = * descrP;
+  if (descr & L1D_VALIDBITS) {	// it was valid
+    PteZapped = flushCache = true;
+  } else {
+    // It was invalid, but could there be cache entries dependent on it?
+    if (descr == PTE_ZAPPED) return;
+    if (descr != PTE_IN_PROGRESS)
+      flushCache = true;
+    // Even if it was invalid, we want to change it to PTE_ZAPPED.
+  }
+  *descrP = PTE_ZAPPED;
 }
 
 void
@@ -169,8 +197,13 @@ MapTab_ClearRefs(MapTabHeader * mth)
          product;
          product = product->next) {
       if (product->tableSize) {	// if a first level table
-        // void * pte = MapTabHeaderToKVA(product);
-        assert(false); //// FIXME need to find th right entry and invalidate it
+        if (product->tableCacheAddr) {	// small space
+          uint32_t ndx = product->tableCacheAddr >> L1D_ADDR_SHIFT;
+          InvalidateFLMTE(& FLPT_FCSEVA[ndx]);
+        } else {		// large space
+          // void * pte = MapTabHeaderToKVA(product);
+          assert(false); //// FIXME need to invalidate 0th entry
+        }
       }
     }
   }
@@ -202,6 +235,12 @@ map_HeapInit(void)
     SmallSpaces[i].mth.tableSize = 1;
     SmallSpaces[i].domain = 0;
   }
+}
+
+MapTabHeader *
+SmallSpace_GetMth(unsigned int ss)
+{
+  return & SmallSpaces[ss].mth;
 }
 
 /* Some day this might have to return failure? */
@@ -419,6 +458,7 @@ AllocateCPT(void)
   // Grab a CPT from the free list.
   mth = freeCPTs;
   freeCPTs = mth->next;
+  mth->isFree = 0;
   return mth;
 }
 
@@ -449,8 +489,6 @@ Check2ndLevelMappingTableFree(MapTab_ToPageH(mth)). */
 static void
 Release2ndLevelMappingTable(MapTabHeader * mth)
 {
-  if (mth->isFree) return;	// nothing to do
-
   MapTab_ClearRefs(mth);
 
   objH_DelProduct(mth->producer, mth);
@@ -463,18 +501,42 @@ Release2ndLevelMappingTable(MapTabHeader * mth)
 void
 ReleaseProduct(MapTabHeader * mth)
 {
+  assert(! mth->isFree);
   if (mth->tableSize == 0) {	// second level table
     Release2ndLevelMappingTable(mth);
     Check2ndLevelMappingTableFree(MapTab_ToPageH(mth));
   } else {
-    if (mth->tableCacheAddr == 0) {
+    uint32_t pid32 = mth->tableCacheAddr;
+    if (pid32 == 0) {
       assert(false);	/* FIXME: First level tables not supported yet. */
     } else {	// product is a small space
-      assert(mth->isFree == 0);
       objH_DelProduct(mth->producer, mth);
-      // Do we need to invalidate the PTEs in the space?
-      assert(false);// FIXME: Need to find any Processes holding this pid.
-      mth->isFree = 1;	// anything else to do?
+
+      // Invalidate the PTEs in the space.
+      uint32_t ndx = pid32 >> L1D_ADDR_SHIFT;
+      unsigned int i;
+      for (i = 0; i < 1ul << (PID_SHIFT - L1D_ADDR_SHIFT); i++)
+        InvalidateFLMTE(& FLPT_FCSEVA[ndx+i]);
+
+      // Free the domain for this small space if any.
+      unsigned int pid = pid32 >> PID_SHIFT;
+      unsigned int domain = SmallSpaces[pid].domain;
+      if (domain) {
+        SmallSpaces[pid].domain = 0;	// no longer has it
+        MMUDomains[domain].pid = 0;
+      }
+
+      /* There should be no processes holding this pid; they should
+      have had their pid invalidated when the key to the producer was
+      unhazarded. */
+#ifndef NDEBUG
+      for (i = 0; i < KTUNE_NCONTEXT; i++) {
+        Process * p = &proc_ContextCache[i];
+        assert(p->md.pid != pid32);
+      }
+#endif
+
+      mth->isFree = 1;
     }
   }
 }
@@ -486,7 +548,9 @@ pageH_mdType_EvictFrame(PageHeader * pageH)
 	// first level page tables not fully implemented yet.
   int i;
   for (i=0; i<4; i++) {
-    Release2ndLevelMappingTable(&pageH->kt_u.mp.hdrs[i]);
+    MapTabHeader * mth = &pageH->kt_u.mp.hdrs[i];
+    if (! mth->isFree)
+      Release2ndLevelMappingTable(mth);
   }
   // Page can now be freed. The following call cleans up and frees the page:
   Check2ndLevelMappingTableFree(pageH);

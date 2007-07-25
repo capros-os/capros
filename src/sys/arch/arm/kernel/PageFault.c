@@ -649,7 +649,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     SegWalk_InitFromMT(&wi, mth1);
 
     DEBUG(pgflt)
-      printf("Found top level\n");
+      printf("Found top level, mth1=0x%x\n", mth1);
   }
 
   const ula_t mva = (va + p->md.pid) & ~EROS_PAGE_MASK;
@@ -756,7 +756,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     pTable = (PTE *) MapTabHeaderToKVA(mth2);
 
     DEBUG(pgflt)
-      printf("Found second level\n");
+      printf("Found second level, mth2=0x%x\n", mth2);
   }
   
   /* Now find the page and fill in the PTE. */
@@ -769,7 +769,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     if (domainAccess == 0x2) {	// has client access
       unsigned int ap = (thePTE >> 4) & 0x3;
       switch (ap) {
-      case 2:
+      case 2:	// readonly
         if (! thePTE & PTE_BUFFERABLE) {
           // tracking dirty
           PageHeader * pageH = objC_PhysPageToObHdr(thePTE & PTE_FRAMEBITS);
@@ -780,6 +780,9 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 #endif
                                            ;
           thePTEP->w_value = thePTE;
+        } else {
+          if (! isWrite)
+            havePage = true;	// have all the access we need
         }
       case 3:	// has RW access
         havePage = true;
@@ -803,8 +806,12 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   }
 
   if (! havePage) {
-    pte_Invalidate(thePTEP);	/* if it was valid, remember to purge TLB */
-    thePTEP->w_value = PTE_IN_PROGRESS;
+    /* We need to have a value other than PTE_ZAPPED in the PTE
+    so we can recognize if a Depend zap occurs. 
+    If the PTE was valid (but lacked needed rw access), leave it valid
+    while we call WalkSeg, in case we fault or Yield. */
+    if (thePTE == PTE_ZAPPED)
+      thePTEP->w_value = PTE_IN_PROGRESS;
     
     /* Translate the remaining bits of the address: */
     if ( ! WalkSeg(&wi, EROS_PAGE_LGSIZE, thePTEP, 2) ) {
@@ -817,8 +824,8 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     DEBUG(pgflt)
       printf("Traversed to page\n");
 
-    if (thePTEP->w_value != PTE_IN_PROGRESS) {
-      // Entry was zapped, try all over again.
+    if (thePTEP->w_value == PTE_ZAPPED) {
+      // Entry was zapped by Depend, try all over again.
 
 #ifndef NDEBUG
       if (dbg_inttrap)
@@ -835,6 +842,8 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
     if (isWrite)
       pageH_MakeDirty(pageH);
+
+    pte_Invalidate(thePTEP);	/* remember to purge TLB and cache */
 
     // Ensure cache coherency. 
     unsigned int cacheClass = pageH->kt_u.ob.cacheAddr & EROS_PAGE_MASK;
@@ -937,10 +946,13 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 // for read-only access, PTE_BUFFERABLE is not significant.
 // See comments in PTEarm.h for why we set it here.
            ) );
+  } else {
+    DEBUG(pgflt)
+      printf("Found PTE\n");
   }
 
   DEBUG(pgflt)
-    dprintf(true, "Finished page fault\n");
+    printf("Finished page fault\n");
 
   return true;
 

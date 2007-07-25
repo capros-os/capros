@@ -116,9 +116,10 @@ node_ClearHazard() handles all these cases.
 
 /* These values apply only for segmode keys. */
 // This duplicates definitions in Memory.idl.
-#define capros_Memory_readOnly	   8
-#define capros_Memory_noCall	   4
-#define capros_Memory_weak	   2
+#define capros_Memory_readOnly	8
+#define capros_Memory_noCall	4
+#define capros_Memory_weak	2
+#define capros_Memory_opaque	1
 
 struct KeyBits {
   union {
@@ -305,6 +306,12 @@ INLINE bool
 keyBits_IsReadOnly(const KeyBits *thisPtr)
 {
   return (thisPtr->keyPerms & capros_Memory_readOnly);
+}
+
+INLINE bool 
+keyBits_IsOpaque(const KeyBits * thisPtr)
+{
+  return (thisPtr->keyPerms & capros_Memory_opaque);
 }
 
 INLINE bool 

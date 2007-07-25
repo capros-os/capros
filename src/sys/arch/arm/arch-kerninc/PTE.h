@@ -39,21 +39,7 @@ pte_isValid(PTE *pte)
   return pte->w_value & PTE_VALIDBITS;
 }
 
-INLINE void 
-pte_Invalidate(PTE* thisPtr)
-{
-  const uint32_t pteval = thisPtr->w_value;
-  if (pteval & PTE_VALIDBITS) {	// it was valid
-    PteZapped = flushCache = true;
-  } else {
-    // It was invalid, but could there be cache entries dependent on it?
-    if (pteval == PTE_ZAPPED) return;
-    if (pteval != PTE_IN_PROGRESS)
-      flushCache = true;
-    // Even if it was invalid, we want to change it to PTE_ZAPPED.
-  }
-  thisPtr->w_value = PTE_ZAPPED;
-}
+void pte_Invalidate(PTE* thisPtr);
 
 INLINE kpa_t 
 pte_PageFrame(PTE* thisPtr)

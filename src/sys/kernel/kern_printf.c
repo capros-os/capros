@@ -50,7 +50,7 @@
 
 #define DB_MIN_MAX_WIDTH	20	/* minimum max width */
 #define DB_MIN_MAX_LINE		3	/* minimum max line */
-#define CTRL(c)			((c) & 0xff)
+#define CTRL(c)			((c) & 0x1f)
 
 int	db_output_position = 0;		/* output column */
 int	db_output_line = 0;		/* output line number */

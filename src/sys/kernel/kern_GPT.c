@@ -32,7 +32,14 @@ Approved for public release, distribution unlimited. */
 #include <eros/ProcessKey.h>
 #include <idl/capros/GPT.h>
 
-#define WALK_DBG////
+// #define WALK_DBG
+
+#define dbg_keeper	0x8
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u )
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
 
 #ifdef OPTION_DDB
 #define WALK_DBG_MSG(prefix) \
@@ -113,8 +120,6 @@ processKey(SegWalk * wi, Key * pSegKey, uint64_t va)
      so it will require only 6 bits instead of 7. */
   if ((va >> (l2g -1) >> 1) != keyBits_GetGuard(pSegKey)) {
     wi->faultCode = FC_InvalidAddr;
-dprintf(true, "va 0x%x%08x l2g %d pSegKey 0x%x\n",
- (uint32_t)(va>>32), (uint32_t)va, l2g, pSegKey);////
     return false;
   }
   // Strip off guard bits.
@@ -156,7 +161,7 @@ segwalk_init(SegWalk * wi, Key * pSegKey, uint64_t va,
  */
 /* Returns true if successful, false if wi->faultCode set. */
 /* May Yield. */
-enum WalkSegRet
+bool
 WalkSeg(SegWalk * wi, uint32_t stopL2v,
 	     void * pPTE, int mapLevel)
 {
@@ -193,23 +198,25 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
       
     WALK_DBG_MSG("wlk");
 	
-    unsigned int initialSlots = EROS_NODE_SLOT_MASK;
+    unsigned int maxSlot = capros_GPT_nSlots -1;
 
-    if (l2vField & GPT_KEEPER) {
+    if (l2vField & GPT_KEEPER	// has a keeper
+        && wi->keeperGPT != SEGWALK_GPT_UNKNOWN	// nocall is valid
+        && ! (wi->restrictions & capros_Memory_noCall)	// can call it
+        ) {
       wi->keeperGPT = gpt;
       wi->keeperOffset = wi->offset;
-dprintf(true, "GPT_KEEPER wi=0x%x\n", wi);////
-      initialSlots = capros_GPT_keeperSlot -1;
+      maxSlot = capros_GPT_keeperSlot -1;
     }
 
     if (l2vField & GPT_BACKGROUND) {
       wi->backgroundGPT = gpt;
-      initialSlots = capros_GPT_backgroundSlot -1;
+      maxSlot = capros_GPT_backgroundSlot -1;
         /* backgroundSlot < keeperSlot, so this must come last. */
     }
 
     uint64_t ndx = wi->offset >> curL2v;
-    if (ndx > initialSlots) {
+    if (ndx > maxSlot) {
       wi->faultCode = FC_InvalidAddr;
       goto fault_exit;
     }
@@ -244,6 +251,8 @@ dprintf(true, "GPT_KEEPER wi=0x%x\n", wi);////
         goto fault_exit;
       }
 
+      Depend_AddKey(k, pPTE, mapLevel);
+
       unsigned int wslot = controlWord & 0xff;
 
       if (wslot < capros_GPT_nSlots) {
@@ -254,8 +263,6 @@ dprintf(true, "GPT_KEEPER wi=0x%x\n", wi);////
         // A background window key.
         if (! wi->backgroundGPT)
 	  goto seg_malformed;	// there is no background key
-        if (wi->backgroundGPT == SEGWALK_GPT_UNKNOWN)
-          return WalkSeg_NeedBG;
 
         // Background GPT had better have a background key:
         assert(gpt_GetL2vField(wi->backgroundGPT) & GPT_BACKGROUND);
@@ -302,6 +309,8 @@ proc_InvokeSegmentKeeper(
 
   if (wi->keeperGPT == SEGWALK_GPT_UNKNOWN) {
     // re-walk from the top to find the keeper if any
+    DEBUG (keeper) printf("Rewalking\n");
+
     wi->traverseCount = 0;
     if (segwalk_init(wi, node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace),
                      vaddr, 0, 0)) {
@@ -310,9 +319,13 @@ proc_InvokeSegmentKeeper(
     assert(wi->keeperGPT != SEGWALK_GPT_UNKNOWN);
   }
 
+  DEBUG (keeper) dprintf(true, "calling seg keeper, wi=0x%x\n", wi);
+
   // FIXME: noCall restriction might not be right if path was truncated.
-  if (wi->keeperGPT && ! (wi->restrictions & capros_Memory_noCall)) {
-dprintf(true, "keeperGPT callable wi=0x%x\n", wi);////
+  if (wi->keeperGPT) {
+    // It has a keeper we can call. 
+    DEBUG (keeper) printf("Has keeperGPT\n");
+
     assert(wi->keeperGPT->node_ObjHdr.obType == ot_NtSegment);
     assert(gpt_GetL2vField(wi->keeperGPT) & GPT_KEEPER);
 
@@ -355,6 +368,9 @@ dprintf(true, "keeperGPT callable wi=0x%x\n", wi);////
 		 0, 0);
   }
   else {		// no segment keeper
+    DEBUG (keeper) dprintf(true, "No seg keeper, %s\n",
+               invokeProcessKeeperOK ? "try proc kpr" : "dont try proc kpr");
+
     if (! invokeProcessKeeperOK)
       return;	// no segment keeper and can't invoke process keeper
 
