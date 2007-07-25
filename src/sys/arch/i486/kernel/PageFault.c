@@ -50,7 +50,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_pgflt	0x1	/* steps in taking snapshot */
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_pgflt )////
+#define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
