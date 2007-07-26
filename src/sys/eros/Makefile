@@ -45,7 +45,6 @@ HEADERS=\
 	DeviceDef.h \
 	KeyConst.h \
 	SegmentKey.h \
-	SegKeeperInfo.h \
 	endian.h \
 	stdarg.h \
 	TimeOfDay.h \

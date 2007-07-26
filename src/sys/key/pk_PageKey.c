@@ -65,17 +65,6 @@ PageKey(Invocation* inv /*@ not null @*/)
     inv->exit.w1 = inv->key->keyPerms;
     return;
 
-  case OC_capros_Memory_makeReadOnly:	/* Make RO page key */
-    COMMIT_POINT();
-
-    inv_SetExitKey(inv, 0, inv->key);
-
-    if (inv->exit.pKey[0])
-      keyBits_SetReadOnly(inv->exit.pKey[0]);
-    
-    inv->exit.code = RC_OK;
-    return;
-
   case OC_capros_Memory_reduce:
     DoMemoryReduce(inv);
     return;

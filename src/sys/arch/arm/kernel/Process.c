@@ -40,7 +40,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <arch-kerninc/PTE.h>
 #include <eros/Invoke.h>
 #include <eros/ProcessState.h>
-#include <eros/SegKeeperInfo.h>
 #include <eros/Registers.h>
 #include <eros/arch/arm/Registers.h>
 #include <eros/ProcessKey.h>

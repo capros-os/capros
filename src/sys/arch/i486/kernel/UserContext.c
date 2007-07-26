@@ -40,7 +40,6 @@ Approved for public release, distribution unlimited. */
 #include "TSS.h"
 #include <eros/Invoke.h>
 #include <eros/ProcessState.h>
-#include <eros/SegKeeperInfo.h>
 #include <eros/Registers.h>
 #include <eros/arch/i486/Registers.h>
 #include <eros/ProcessKey.h>

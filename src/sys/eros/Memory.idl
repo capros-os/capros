@@ -17,7 +17,4 @@ interface Memory extends key {
   void lssAndPerms(out unsigned long lss, out unsigned long restrictions);
 
   unsigned long getRestrictions();
-
-  /* Returns a read only key to the memory object. */
-  capros.key makeReadOnly();	// temporary
 };
