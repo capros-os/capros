@@ -2,9 +2,9 @@
 
 /*
  * Copyright (C) 2003 Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -20,6 +20,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifndef __MEMMAP_MAP_
 #define __MEMMAP_MAP_
@@ -28,6 +31,5 @@ BOOT_CONSTRUCTOR(memmap_c, memmap);
 PROD_SPACE(memmap_c) = memmap_vcsk_c;
 PROD_PC(memmap_c) = symbol LIBDIR "memmap" _start;
 PROD_CONSTIT(memmap_c, KC_OSTREAM, 3) = misc Console;
-PROD_CONSTIT(memmap_c, KC_ZINDEX, 4) = zindex;
 PROD_CONSTIT(memmap_c, KC_PROTOSPC, 5) = protospace;
 #endif

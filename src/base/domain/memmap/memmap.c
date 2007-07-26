@@ -26,7 +26,6 @@ Approved for public release, distribution unlimited. */
    space that a client wishes to map requires a separate Memmap
    domain. */
 
-#include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
@@ -37,16 +36,14 @@ Approved for public release, distribution unlimited. */
 
 #include <idl/capros/key.h>
 #include <idl/capros/Range.h>
-#include <idl/capros/Number.h>
+#include <idl/capros/GPT.h>
+#include <idl/capros/SpaceBank.h>
 
 #include <domain/VcskKey.h>
 #include <domain/MemmapKey.h>
 #include <domain/domdbg.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/ProtoSpace.h>
 #include <domain/Runtime.h>
-
-#include <stdlib.h>
 
 #define min(a,b) ((a) <= (b) ? (a) : (b))
 
@@ -75,18 +72,18 @@ Approved for public release, distribution unlimited. */
 
 #define KR_NEWOBJ    KR_ARG(0)
 #define KR_PHYSRANGE KR_ARG(1)
-#define KR_WRAPPER   KR_ARG(2)
+#define KR_GPT   KR_ARG(2)
 
-/* If this was a direct invocation of our start key, RK0..RESUME hold
+/* If this was a direct invocation of our start key, the key parameters hold
    whatever the user passed.
 
-   If this was a pass-through invocation via a wrapper key, these
-   hold what the user passed except that KR_ARG(2) may have been replaced
-   by a capage key to the red space capage.
+   If this was a pass-through invocation via a GPT key, these
+   hold what the user passed except that KR_GPT has been replaced
+   by a non-opaque key to the segment GPT.
 
-   If this was a kernel-generated fault invocation, KR_ARG(0) and KR_ARG(1)
-   hold zero data keys, KR_ARG(2) holds whatever the upcall pass-through
-   convention specified, and KR_RETURN holds a fault key. */
+   If this was a kernel-generated fault invocation, KR_ARG(0) and KR_PHYSRANGE
+   hold void keys, KR_GPT holds a non-opaque key to the segment GPT,
+   and KR_RETURN holds a fault key. */
 
 /* IMPORTANT optimization:
 
@@ -134,6 +131,19 @@ uint32_t receive_buffer[4];
 void Sepuku();
 void DestroySegment(state *);
 
+static unsigned int
+L2vToBlss(unsigned int l2v)
+{
+  return (l2v - EROS_PAGE_ADDR_BITS) / EROS_NODE_LGSIZE + 1 + EROS_PAGE_BLSS;
+}
+
+static unsigned int
+BlssToL2v(unsigned int blss)
+{
+  // assert(blss > 0);
+  return (blss -1 - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS;
+}
+
 uint32_t
 BiasedLSS(uint64_t offset)
 {
@@ -180,27 +190,14 @@ BiasedLSS(uint64_t offset)
 uint64_t
 BlssMask(uint32_t blss)
 {
-  if (blss < EROS_PAGE_BLSS)
+  if (blss <= EROS_PAGE_BLSS)
     return 0ull;
 
-  {
-#if (EROS_PAGE_ADDR_BITS == (EROS_PAGE_BLSS * EROS_NODE_LGSIZE))
-    uint32_t bits_to_shift = blss * EROS_NODE_LGSIZE;
-#else
-    uint32_t bits_to_shift =
-      (blss - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS; 
-#endif
+  uint32_t bits_to_shift = BlssToL2v(blss);
 
-    if (bits_to_shift >= UINT64_BITS)
-      return (uint64_t) -1;	/* all 1's */
-
-    {
-      uint64_t mask = (1ull << bits_to_shift);
-      mask -= 1ull;
-      
-      return mask;
-    }
-  }
+  if (bits_to_shift >= UINT64_BITS)
+    return -1ull;	/* all 1's */
+  else return (1ull << bits_to_shift) - 1ull;
 }
 
 uint32_t
@@ -209,19 +206,22 @@ BlssSlotNdx(uint64_t offset, uint32_t blss)
   if (blss <= EROS_PAGE_BLSS)
     return 0;
 
-  {
-#if (EROS_PAGE_ADDR_BITS == (EROS_PAGE_BLSS * EROS_NODE_LGSIZE))
-    uint32_t bits_to_shift = blss * EROS_NODE_LGSIZE;
-#else
-    uint32_t bits_to_shift =
-      (blss - EROS_PAGE_BLSS - 1) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS; 
-#endif
+  uint32_t bits_to_shift = BlssToL2v(blss);
 
-    if (bits_to_shift >= UINT64_BITS)
-      return 0;
+  if (bits_to_shift >= UINT64_BITS)
+    return 0;
 
-    return offset >> bits_to_shift;
-  }
+  return offset >> bits_to_shift;
+}
+
+uint8_t
+GetBlss(uint32_t krMem)
+{
+  uint8_t l2v;
+  uint32_t result = capros_GPT_getL2v(krMem, &l2v);
+  if (result == RC_capros_key_UnknownRequest)
+    return EROS_PAGE_BLSS; /* it must be a page key */
+  return L2vToBlss(l2v);
 }
 
 uint32_t
@@ -229,12 +229,10 @@ HandleSegmentFault(Message *pMsg, state *pState)
 {
   uint32_t slot = 0;
   uint32_t kt = RC_capros_key_Void;
-  uint32_t offsetBlss;
   uint32_t segBlss = EROS_PAGE_BLSS + 1; /* until otherwise proven */
   uint64_t offset = ((uint64_t) pMsg->rcv_w3) << 32 | (uint64_t) pMsg->rcv_w2;
   uint64_t orig_offset = offset;
-
-  offsetBlss = BiasedLSS(offset);
+  uint32_t offsetBlss = BiasedLSS(offset);
 
   switch (pMsg->rcv_w1) {
   case FC_InvalidAddr:
@@ -249,7 +247,6 @@ HandleSegmentFault(Message *pMsg, state *pState)
       */
       
       uint32_t result;
-      uint16_t subsegBlss;
       
       pState->was_access = false;
       
@@ -259,16 +256,10 @@ HandleSegmentFault(Message *pMsg, state *pState)
 		 (uint32_t) offset);
       
       /* fetch out the subseg key */
-      node_copy(KR_WRAPPER, slot, KR_SCRATCH);
+      capros_GPT_getSlot(KR_GPT, slot, KR_SCRATCH);
 
       /* find out its BLSS: */
-      result = get_lss_and_perms(KR_SCRATCH, &subsegBlss, 0);
-      if (result == RC_capros_key_UnknownRequest) {
-	DEBUG(invalid) kprintf(KR_OSTREAM, "    Assuming slot 0 is page key.");
-	subsegBlss = EROS_PAGE_BLSS; /* it must be a page key */
-      }
-      
-      subsegBlss &= SEGMODE_BLSS_MASK;
+      uint8_t subsegBlss = GetBlss(KR_SCRATCH);
 
       segBlss = subsegBlss + 1;
       
@@ -277,49 +268,39 @@ HandleSegmentFault(Message *pMsg, state *pState)
 			     offsetBlss, subsegBlss);
 
       if (subsegBlss < offsetBlss) {
-	/* Except at the top, we make no attempt to short-circuit the
-	   space tree. */
+	// Need to make the tree taller.
 	while (subsegBlss < offsetBlss) {
 	  DEBUG(invalid) kprintf(KR_OSTREAM, "  Growing: subsegblss %d offsetblss %d\n",
 				  subsegBlss, offsetBlss);
       
-	  /* Buy a new node to expand with: */
-	  if (spcbank_buy_nodes(KR_BANK, 1, KR_NEWOBJ, KR_VOID, KR_VOID) !=
-	      RC_OK)
+	  /* Buy a new GPT to expand with: */
+	  if (capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_NEWOBJ)
+              != RC_OK)
 	    return RC_capros_key_NoMoreNodes;
       
-	  /* Make that node have BLSS == subsegBlss+1: */
-	  node_make_node_key(KR_NEWOBJ, subsegBlss+1, 0, KR_NEWOBJ);
+	  /* Make that GPT have BLSS == subsegBlss+1: */
+	  capros_GPT_setL2v(KR_NEWOBJ, BlssToL2v(subsegBlss+1));
 
 	  /* Insert the old subseg into slot 0: */
-	  node_swap(KR_NEWOBJ, 0, KR_SCRATCH, KR_VOID);
+	  capros_GPT_setSlot(KR_NEWOBJ, 0, KR_SCRATCH);
 
 	  COPY_KEYREG(KR_NEWOBJ, KR_SCRATCH);
 
-	  /* Finally, insert the new subseg into the original red
-	     segment */
-	  node_swap(KR_WRAPPER, 0, KR_SCRATCH, KR_VOID);
+	  /* Finally, insert the new subseg into the original GPT.*/
+          // FIXME: only need to do this after the iteration
+	  capros_GPT_setSlot(KR_GPT, 0, KR_SCRATCH);
 
 	  subsegBlss++;
 	}
 
-	if (subsegBlss >= segBlss) {
+	if (subsegBlss >= segBlss) {	// FIXME: this is always true!
 	  /* Segment has grown.  Rewrite the format key to reflect the
 	     new segment size. */
-
-	  capros_Number_value nkv;
 
 	  DEBUG(invalid) kprintf(KR_OSTREAM, "  Red seg must grow\n");
 
 	  segBlss = subsegBlss + 1;
-
-	  nkv.value[0] = WRAPPER_SEND_NODE | WRAPPER_KEEPER;
-	  WRAPPER_SET_BLSS(nkv, segBlss);
-
-	  nkv.value[1] = 0;
-	  nkv.value[2] = 0;
-
-	  node_write_number(KR_WRAPPER, WrapperFormat, &nkv);
+          capros_GPT_setL2v(KR_GPT, BlssToL2v(segBlss));
 	}
       
 	DEBUG(returns)
@@ -331,7 +312,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 
       /* Segment is big enough, but some internal portion was
 	   unpopulated.  Note (very important) that we have not yet
-	   clobbered KR_WRAPPER. */
+	   clobbered KR_GPT. */
 
       DEBUG(invalid) kprintf(KR_OSTREAM, "Invalid internal address -- falling through to COW logic for znode\n");
 
@@ -345,7 +326,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	 an access violation instead.
 
 	 This logic will work fine as long as the whole segment tree
-	 is nodes and pages, but will fail miserably is a subsegment
+	 is nodes and pages, but will fail miserably if a subsegment
 	 is plugged in here somewhere. */
 
       while (subsegBlss > EROS_PAGE_BLSS) {
@@ -353,16 +334,16 @@ HandleSegmentFault(Message *pMsg, state *pState)
 				subsegBlss);
 
 	result = capros_key_getType(KR_SCRATCH, &kt);
-	if (result != RC_OK || kt != AKT_Node) {
+	if (result != RC_OK || kt != AKT_GPT) {
 	  DEBUG(invalid) kprintf(KR_OSTREAM, "  subsegBlss %d invalid!\n",
 				  subsegBlss);
 	  break;
 	}
 
-	COPY_KEYREG(KR_SCRATCH, KR_WRAPPER);
+	COPY_KEYREG(KR_SCRATCH, KR_GPT);
 
 	slot = BlssSlotNdx(offset, subsegBlss);
-	offset &= BlssMask(subsegBlss-1);
+	offset &= BlssMask(subsegBlss);
 
 	DEBUG(invalid) kprintf(KR_OSTREAM, "  traverse slot %d, blss %d, offset 0x%08x %08x\n",
 			       slot, subsegBlss,
@@ -371,11 +352,11 @@ HandleSegmentFault(Message *pMsg, state *pState)
 
 	subsegBlss--;
 	
-	node_copy(KR_WRAPPER, slot, KR_SCRATCH);
+	capros_GPT_getSlot(KR_GPT, slot, KR_SCRATCH);
       }
       
       /* Key in KR_SCRATCH is the read-only or invalid key.  Key in
-	 KR_WRAPPER is it's parent. */
+	 KR_GPT is its parent. */
       DEBUG(invalid) kprintf(KR_OSTREAM, 
 			      "Found rc=0x%x kt=0x%x at subsegBlss=%d\n",
 			      result, kt, subsegBlss);
@@ -402,7 +383,7 @@ buy a virgin node from space bank and set node key to have blss =
 	  if (result != RC_OK)
 	    kprintf(KR_OSTREAM, "** ERROR: range_waitobjectkey returned %u",
 		    result);
-	  node_swap(KR_WRAPPER, slot, KR_NEWPAGE, KR_VOID);
+	  capros_GPT_setSlot(KR_GPT, slot, KR_NEWPAGE);
 	}
 	else {
 
@@ -411,12 +392,12 @@ buy a virgin node from space bank and set node key to have blss =
 	}
       }
       else {
-	DEBUG(invalid) kprintf(KR_OSTREAM, "... buying a new node for slot "
+	DEBUG(invalid) kprintf(KR_OSTREAM, "... buying a new GPT for slot "
 			       "%u", slot);
 
-	spcbank_buy_nodes(KR_BANK, 1, KR_SCRATCH, KR_VOID, KR_VOID);
-	node_make_node_key(KR_SCRATCH, subsegBlss, 0, KR_SCRATCH);
-	node_swap(KR_WRAPPER, slot, KR_SCRATCH, KR_VOID);
+	capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_SCRATCH);
+	capros_GPT_setL2v(KR_SCRATCH, BlssToL2v(subsegBlss));
+	capros_GPT_setSlot(KR_GPT, slot, KR_SCRATCH);
       }
 
       DEBUG(returns)
@@ -457,7 +438,7 @@ ProcessRequest(Message *argmsg, state *pState)
     result = HandleSegmentFault(argmsg, pState);
     break;
 
-    /* The client has the wrapper key from the constructor.  Now it
+    /* The client has the GPT key from the constructor.  Now it
        needs to inform this domain about the actual start and size of
        the range the client needs mapped. Once this command is
        completed the needed space will be fabricated and mapped
@@ -508,13 +489,13 @@ ProcessRequest(Message *argmsg, state *pState)
 void
 Sepuku()
 {
-  node_copy(KR_CONSTIT, KC_PROTOSPC, KR_WRAPPER);
+  node_copy(KR_CONSTIT, KC_PROTOSPC, KR_GPT);
 
-  spcbank_return_node(KR_BANK, KR_CONSTIT);
+  capros_SpaceBank_free1(KR_BANK, KR_CONSTIT);
 
   /* Invoke the protospace with arguments indicating that we should be
      demolished as a small space domain */
-  protospace_destroy(KR_VOID, KR_WRAPPER, KR_SELF,
+  protospace_destroy(KR_VOID, KR_GPT, KR_SELF,
 		     KR_CREATOR, KR_BANK, 1);
 }
 
@@ -527,8 +508,7 @@ Sepuku()
 int
 ReturnWritableSubtree(uint32_t krTree)
 {
-  uint16_t ndlss = 0;
-  uint8_t  perms = 0;
+  uint32_t perms = 0;
   uint32_t kt;
   uint32_t result = capros_key_getType(krTree, &kt);
   
@@ -537,40 +517,40 @@ ReturnWritableSubtree(uint32_t krTree)
       /* Segment has been fully demolished. */
       return 0;
 
-    if (kt == AKT_Page || kt == AKT_Node)
-      get_lss_and_perms(krTree, &ndlss, &perms);
+    if (kt == AKT_Page || kt == AKT_GPT)
+      result = capros_Memory_getRestrictions(krTree, &perms);
 
-    if (perms & SEGPRM_RO)
+    if (perms & capros_Memory_readOnly)
       /* This case can occur if the entire segment is both tall and
          unmodified. */
       return 0;
 
     if (kt == AKT_Page) {
-      spcbank_return_data_page(KR_BANK, krTree);
+      capros_SpaceBank_free1(KR_BANK, krTree);
       return 1;			/* more to do */
     }
-    else if (kt == AKT_Node) {
+    else if (kt == AKT_GPT) {
       int i;
       for (i = 0; i < EROS_NODE_SIZE; i++) {
 	uint32_t sub_kt;
 	uint32_t result;
-	uint16_t subLss = 0;
-	uint8_t subPerms = 0;
+	uint32_t subPerms = 0;
 
-	node_copy(krTree, i, KR_SCRATCH2);
+	capros_GPT_getSlot(krTree, i, KR_SCRATCH2);
       
 	result = capros_key_getType(KR_SCRATCH2, &sub_kt);
 
-	if (kt == AKT_Page || kt == AKT_Node)
-	  get_lss_and_perms(krTree, &subLss, &subPerms);
+        // FIXME: this is clearly wrong!
+	if (kt == AKT_Page || kt == AKT_GPT)
+          result = capros_Memory_getRestrictions(krTree, &subPerms);
 
-	if ((subPerms & SEGPRM_RO) == 0) {
+	if ((subPerms & capros_Memory_readOnly) == 0) {
 	  /* do nothing */
 	}
 	else if (sub_kt == AKT_Page) {
-	  spcbank_return_data_page(KR_BANK, KR_SCRATCH2);
+	  capros_SpaceBank_free1(KR_BANK, KR_SCRATCH2);
 	}
-	else if (sub_kt == AKT_Node) {
+	else if (sub_kt == AKT_GPT) {
 	  COPY_KEYREG(KR_SCRATCH2, KR_SCRATCH);
 	  kt = sub_kt;
 	  break;
@@ -580,7 +560,7 @@ ReturnWritableSubtree(uint32_t krTree)
       if (i == EROS_NODE_SIZE) {
 	/* If we get here, this node has no children.  Return it, but
 	   also return 1 because it may have a parent node. */
-	spcbank_return_node(KR_BANK, KR_SCRATCH);
+	capros_SpaceBank_free1(KR_BANK, KR_SCRATCH);
 	return 1;
       }
     }
@@ -593,29 +573,21 @@ ReturnWritableSubtree(uint32_t krTree)
 void
 DestroySegment(state *mystate)
 {
-  capros_Number_value offset;
-
-  offset.value[0] = 0;
-  offset.value[1] = 0;
-  offset.value[2] = 0;
-
   for(;;) {
-    node_copy(KR_WRAPPER, 0, KR_SCRATCH);
+    capros_GPT_getSlot(KR_GPT, 0, KR_SCRATCH);
 
     if (!ReturnWritableSubtree(KR_SCRATCH))
       break;
   }
 
   DEBUG(destroy) kprintf(KR_OSTREAM, "Destroying red seg root\n");
-  spcbank_return_node(KR_BANK, KR_WRAPPER);
+  capros_SpaceBank_free1(KR_BANK, KR_GPT);
 }
 
 void
 Initialize(state *mystate)
 {
   uint32_t result;
-  uint16_t segBlss;
-  capros_Number_value nkv;
   
   mystate->was_access = false;
   mystate->first_zero_offset = ~0ull; /* until proven otherwise below */
@@ -624,49 +596,35 @@ Initialize(state *mystate)
   node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
   /* find out BLSS of frozen segment: */
-  result = get_lss_and_perms(KR_ARG(0), &segBlss, 0);
-  if (result == RC_capros_key_UnknownRequest)
-    segBlss = EROS_PAGE_BLSS; /* it must be a page key */
-      
-  segBlss &= SEGMODE_BLSS_MASK;
+  uint8_t segBlss = GetBlss(KR_ARG(0));
 
-  mystate->first_zero_offset =
-    EROS_PAGE_SIZE << ( (segBlss - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE);
+  segBlss += 1;
+
+  mystate->first_zero_offset = 1ull << BlssToL2v(segBlss);
     
   DEBUG(init) kprintf(KR_OSTREAM, "Offsets above 0x%08x%08x are"
 		       " presumed to be zero\n",
 		       (uint32_t) (mystate->first_zero_offset >> 32),
 		       (uint32_t) mystate->first_zero_offset);
-
-  segBlss += 1;
   
-  DEBUG(init) kprintf(KR_OSTREAM, "Buy new seg node\n");
+  DEBUG(init) kprintf(KR_OSTREAM, "Buy new GPT\n");
   
-  spcbank_buy_nodes(KR_BANK, 1, KR_WRAPPER, KR_VOID, KR_VOID);
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_GPT);
 
-  DEBUG(init) kprintf(KR_OSTREAM, "Make it a wrapper\n");
+  DEBUG(init) kprintf(KR_OSTREAM, "Initialize it\n");
 
-  /* write the format key */
-  nkv.value[0] = WRAPPER_SEND_NODE | WRAPPER_KEEPER;
-  WRAPPER_SET_BLSS(nkv, segBlss);
-  nkv.value[1] = 0;
-  nkv.value[2] = 0;
-
-  node_write_number(KR_WRAPPER, WrapperFormat, &nkv);
+  result = capros_GPT_setL2v(KR_GPT, BlssToL2v(segBlss));
 
   /* write the immutable seg to slot 0 */
-  node_swap(KR_WRAPPER, 0, KR_ARG(0), KR_VOID);
+  capros_GPT_setSlot(KR_GPT, 0, KR_ARG(0));
 
-  /* make a start key to ourself and write that in slot 14 */
+  /* Make a start key to ourself and set as keeper. */
   process_make_start_key(KR_SELF, 0, KR_ARG(0));
+  result = capros_GPT_setKeeper(KR_GPT, KR_ARG(0));
 
-  /* now wrap the start key */
-  node_swap(KR_WRAPPER, WrapperKeeper, KR_ARG(0), KR_VOID);
+  result = capros_Memory_reduce(KR_GPT, capros_Memory_opaque, KR_GPT);
 
-  node_make_wrapper_key(KR_WRAPPER, 0, 0, KR_WRAPPER);
-
-  DEBUG(init) kprintf(KR_OSTREAM, "Wrapped space now constructed... "
-		       "returning\n");
+  DEBUG(init) kprintf(KR_OSTREAM, "GPT now constructed... returning\n");
 }
 
 int
@@ -678,10 +636,10 @@ main()
 
   Initialize(&mystate);
 
-  DEBUG(init) kprintf(KR_OSTREAM, "Initialized VCSK\n");
+  DEBUG(init) kprintf(KR_OSTREAM, "Initialized memmap\n");
     
   msg.snd_invKey = KR_RETURN;
-  msg.snd_key0 = KR_WRAPPER;	/* first return: wrapper key */
+  msg.snd_key0 = KR_GPT;	/* first return: GPT key */
   msg.snd_key1 = KR_VOID;
   msg.snd_key2 = KR_VOID;
   msg.snd_rsmkey = KR_VOID;
@@ -694,7 +652,7 @@ main()
 
   msg.rcv_key0 = KR_ARG(0);
   msg.rcv_key1 = KR_PHYSRANGE;
-  msg.rcv_key2 = KR_ARG(2);	/* which is also KR_WRAPPER! */
+  msg.rcv_key2 = KR_GPT;
   msg.rcv_rsmkey = KR_RETURN;
   msg.rcv_code = 0;
   msg.rcv_w1 = 0;
