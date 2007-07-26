@@ -29,7 +29,7 @@ EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=idlstub domain keycache rbtree util
-DIRS+=graphics forwarder wrapper addrspace xsprintf
+DIRS+=graphics forwarder addrspace xsprintf
 ifeq "$(EROS_TARGET)" "i486"	# only for i486 so far
 DIRS+=ethread
 endif
