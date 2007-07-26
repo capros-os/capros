@@ -160,7 +160,6 @@ uint32_t DomRootRestriction[EROS_NODE_SIZE] = {
   0,				/* dr31: architecture defined */
 };
 
-uint32_t CalcWrapperRestriction(KeyBits segKey, uint32_t slot);
 bool CheckRestriction(uint32_t restriction, KeyBits key);
 
 %}
@@ -175,7 +174,6 @@ bool CheckRestriction(uint32_t restriction, KeyBits key);
 /* %token <NONE> IMPORT */
 %token <NONE> SEGMENT SEGTREE NULLKEY ZERO WITH PAGES RED EMPTY
 %token <NONE> KW_LSS CONSTITUENTS
-%token <NONE> WRAPPER
 %token <NONE> ARCH PRINT SPACE REG KEEPER TARGET START BACKGROUND IOSPACE SYMTAB
 %token PRIORITY SCHEDULE
 %token <NONE> BRAND GENREG SLOT ROOT OREQ KEY SUBSEG AT CLONE COPY
@@ -498,40 +496,6 @@ stmt:	/* IMPORT STRING {
 	     YYERROR;
 	   }
 	   ei_SetNodeSlot(image, $1, ProcKeeper, $5);
-        }
-
-       | node SEGMENT KEEPER '=' startkey {
-	   KeyBits key;
-
-	   SHOWPARSE("=== stmt -> domain BRAND = startkey\n");
-	   if ( !CheckRestriction(RESTRICT_START, $5) ) {
-	     diag_printf("%s:%d: key does not meet slot restriction\n",
-			 current_file, current_line);
-	     num_errors++;
-	     YYERROR;
-	   }
-	   ei_SetNodeSlot(image, $1, WrapperKeeper, $5);
-	   key = ei_GetNodeSlot(image, $1, WrapperFormat);
-	   key.u.nk.value[0] |= WRAPPER_KEEPER;
-	   ei_SetNodeSlot(image, $1, WrapperFormat, key);
-        }
-
-       | node BACKGROUND SEGMENT '=' segkey {
-	   KeyBits key;
-
-	   SHOWPARSE("=== stmt -> node BACKGROUND SEGMENT = segkey\n");
-
-	   if ( !CheckRestriction(RESTRICT_SEGMODE, $5) ) {
-	     diag_printf("%s:%d: key does not meet slot restriction\n",
-			 current_file, current_line);
-	     num_errors++;
-	     YYERROR;
-	   }
-
-	   ei_SetNodeSlot(image, $1, WrapperBackground, $5);
-	   key = ei_GetNodeSlot(image, $1, WrapperFormat);
-	   key.u.nk.value[0] |= WRAPPER_BACKGROUND;
-	   ei_SetNodeSlot(image, $1, WrapperFormat, key);
         }
 
        | forwarderkey TARGET '=' startkey {
@@ -890,31 +854,6 @@ key:   NULLKEY {
 	  $$ = key;
        }
 
-       | WRAPPER WITH blss {
-	  KeyBits voidKey;
-	  KeyBits key;
-	  KeyBits fmtKey;
-
-	  keyBits_InitToVoid(&key);
-	  keyBits_InitToVoid(&voidKey);
-
-	  SHOWPARSE("=== key -> WRAPPER WITH blss\n");
-
-	  key = ei_AddNode(image, false);
-
-	  /* Fabricate format key with 13 initial slots, normal (node key)
-	     invocation convention, no background key or keeper key. */
-	  init_SmallNumberKey(&fmtKey, 0);
-	  WRAPPER_SET_BLSS(fmtKey.u.nk, $3);
-	  ei_SetNodeSlot(image, key, WrapperFormat, fmtKey);
-          ei_SetNodeSlot(image, key, WrapperBackground, voidKey);
-			/* for clarity; should already be void */
-      
-	  keyBits_SetType(&key, KKT_Wrapper);
-
-	  $$ = key;
-       }
-
        | NEW qualifier NODE {
 	  KeyBits key;
 
@@ -926,27 +865,6 @@ key:   NULLKEY {
 	    num_errors++;
 	    YYERROR;
 	  }
-
-	  $$ = key;
-        }
-
-       | NEW qualifier WRAPPER {
-	  KeyBits key;
-	  KeyBits fmtKey;
-
-	  SHOWPARSE("=== key -> NEW qualifier WRAPPER\n");
-	  key = ei_AddNode(image, false);
-
-	  SHOWPARSE("Reduce NAME = qualifier WRAPPER\n");
-	  if ( !QualifyKey($2, key, &key) ) {
-	    num_errors++;
-	    YYERROR;
-	  }
-
-	  init_SmallNumberKey(&fmtKey, 0);
-	  ei_SetNodeSlot(image, key, WrapperFormat, fmtKey);
-
-	  keyBits_SetType(&key, KKT_Wrapper);
 
 	  $$ = key;
         }
@@ -1110,30 +1028,6 @@ key:   NULLKEY {
 	     num_errors++;
 	     YYERROR;
 	   }
-
-	  if ( !QualifyKey($3, key, &key) ) {
-	    num_errors++;
-	    YYERROR;
-	  }
-
-	  $$ = key;
-        }
-
-       | key AS qualifier WRAPPER KEY {
-	  KeyBits key;
-
-	  SHOWPARSE("=== key -> key AS WRAPPER KEY\n");
-      
-	  key = $1;
-
-	  if (keyBits_IsSegModeType(&key) == false) {
-	    diag_printf("%s:%d: can only retype segmode keys\n",
-			 current_file, current_line);
-	    num_errors++;
-	    YYERROR;
-	  }
-
-	  keyBits_SetType(&key, KKT_Wrapper);
 
 	  if ( !QualifyKey($3, key, &key) ) {
 	    num_errors++;
@@ -1770,9 +1664,6 @@ slot: NAME '[' slotno ']' {
 	     keyBits_IsType(&key, KKT_Resume)) {
 	   restriction |= DomRootRestriction[$3];
 	 }
-	 else if ( keyBits_IsType(&key, KKT_Wrapper) ) {
-	   restriction |= CalcWrapperRestriction(key, $3);
-	 }
 
 	 $<restriction>$ = restriction;
          SHOWPARSE1("=== +++ restriction = 0x%x\n", restriction);
@@ -1811,9 +1702,6 @@ slot: NAME '[' slotno ']' {
 	 if (keyBits_IsType(&key, KKT_Process) || keyBits_IsType(&key, KKT_Start) ||
 	     keyBits_IsType(&key, KKT_Resume)) {
 	   restriction |= DomRootRestriction[$3];
-	 }
-	 else if ( keyBits_IsType(&key, KKT_Wrapper) ) {
-	   restriction |= CalcWrapperRestriction($1, $3);
 	 }
 
 	 $<restriction>$ = restriction;
@@ -2536,21 +2424,6 @@ hex_value(char c)
 
   /* else it's a hex alpha */
   return tolower(c) - 'a' + 10;
-}
-
-uint32_t
-CalcWrapperRestriction(KeyBits segKey, uint32_t slot)
-{
-  if (slot == WrapperFormat)
-    return RESTRICT_NUMBER;
-  
-  if (slot == WrapperBackground)
-    return RESTRICT_SEGMODE;
-    
-  if (slot == WrapperKeeper)
-    return RESTRICT_START;
-    
-  return RESTRICT_VOID;
 }
 
 bool

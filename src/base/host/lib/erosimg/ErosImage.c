@@ -44,7 +44,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/DiskLSS.h>
 
 #include <idl/capros/Range.h>
-#include <idl/capros/Memory.h>
+#include <idl/capros/GPT.h>
 
 /* Following is included as a special case so that AddProcess()
    register conventions stay in sync with the expectations of the
@@ -1309,97 +1309,61 @@ ei_DoPrintSegment(const ErosImage *ei, uint32_t slot, KeyBits segKey,
 {
   uint32_t i;
 
-  /* Only print top-level void keys: */
-  if (indent && keyBits_IsVoidKey(&segKey))
-    return;
-
-  for (i = 0; i < indent; i++) 
-    diag_printf("  ");
-
   switch(keyBits_GetType(&segKey)) {
-  case KKT_Node:
-  case KKT_Segment:
-  case KKT_Wrapper:
   case KKT_GPT:
-    diag_printf("[%2d] :", slot);
-    PrintDiskKey(segKey);
+  {
+    struct DiskNodeStruct * theGPT = & ei->nodeImages[segKey.u.unprep.oid];
+    uint8_t l2vf = * gpt_l2vField(& theGPT->nodeData);
+
     if (annotation)
       diag_printf(" (%s)", annotation);
-    diag_printf("\n");
+    diag_printf(" l2v=%d\n", l2vf & GPT_L2V_MASK);
 
-    if ( keyBits_IsType(&segKey, KKT_Wrapper) ) {
-      uint32_t i;
-      KeyBits fmtKey = ei_GetNodeSlot(ei, segKey, WrapperFormat);
+    for (i = 0; i < EROS_NODE_SIZE; i++) {
+      char *annotation = 0;
+      bool startKeyOK = false;
+      KeyBits key = ei_GetNodeSlot(ei, segKey, i);
 
-      if (keyBits_IsType(&fmtKey, KKT_Number) == false) {
-	int i;
-
-	for (i = 0; i < WrapperFormat; i++) {
-	  KeyBits key = ei_GetNodeSlot(ei, segKey, i);
-	  ei_DoPrintSegment(ei, i, key, indent+1, 0, false);
-	}
-	ei_DoPrintSegment(ei, WrapperFormat, fmtKey, indent+1, "format, malformed", 0);
-
-	return;
+      if (i == capros_GPT_backgroundSlot && (l2vf & GPT_BACKGROUND)) {
+        annotation = "background";
+      }
+      else if (i == capros_GPT_keeperSlot && (l2vf & GPT_KEEPER)) {
+        annotation = "keeper";
+        startKeyOK = true;
       }
 
-      /* Have valid format key and valid kpr/bg slots: */
-      for (i = 0; i < EROS_NODE_SIZE; i++) {
-	char *annotation = 0;
-	bool startKeyOK = false;
-	KeyBits key = ei_GetNodeSlot(ei, segKey, i);
+      if (! keyBits_IsVoidKey(&key) || annotation) {
+        int j;
+        for (j = 0; j < indent; j++) 
+          diag_printf("  ");
 
-	if (i == WrapperFormat) {
-	  annotation = "format";
-	}
-	else if (i == WrapperBackground &&
-		 (fmtKey.u.nk.value[0] & WRAPPER_BACKGROUND)) {
-	  annotation = "background";
-	}
-	else if (i == WrapperKeeper &&
-		 (fmtKey.u.nk.value[0] & WRAPPER_KEEPER)) {
-	  annotation = "keeper";
-	  startKeyOK = true;
-	}
-	
-	ei_DoPrintSegment(ei, i, key, indent+1, annotation, startKeyOK);
-      }
-    }
-    else {
-      unsigned i;
-
-      for (i = 0; i < EROS_NODE_SIZE; i++) {
-	KeyBits key = ei_GetNodeSlot(ei, segKey, i);
-	ei_DoPrintSegment(ei, i, key, indent+1, 0, false);
+        diag_printf("[%2d] ", i);
+        PrintDiskKey(key);
+        ei_DoPrintSegment(ei, i, key, indent+1, annotation, startKeyOK);
       }
     }
     break;
-  case KKT_Page:
+  }
   case KKT_Number:
-    diag_printf("[%2d] ", slot);
-    PrintDiskKey(segKey);
     if ((segKey.u.nk.value[0] & 3) == 3)
       diag_printf(" (background window)");
+    /* fall through */
+  case KKT_Page:
     if (annotation)
       diag_printf(" (%s)", annotation);
     diag_printf("\n");
     break;
+
   case KKT_Start:
   case KKT_Resume:
-    {
-      if (startKeyOK) {
-	diag_printf("[%2d] ", slot);
-	PrintDiskKey(segKey);
-	if (annotation)
-	  diag_printf(" (%s)", annotation);
-	diag_printf("\n");
-	break;
-      }
-      /* fall through */
+    if (startKeyOK) {
+      if (annotation)
+        diag_printf(" (%s)", annotation);
+      diag_printf("\n");
+      break;
     }
+    /* fall through */
   default:
-    diag_printf("[%2d] ", slot);
-    PrintDiskKey(segKey);
     if (annotation)
       diag_printf(" (%s, malformed)\n", annotation);
     else
@@ -1410,6 +1374,8 @@ ei_DoPrintSegment(const ErosImage *ei, uint32_t slot, KeyBits segKey,
 void
 ei_PrintSegment(const ErosImage *ei, KeyBits segKey)
 {
+  diag_printf("   ");
+  PrintDiskKey(segKey);
   ei_DoPrintSegment(ei, 0, segKey, 0, 0, false);
 }
 

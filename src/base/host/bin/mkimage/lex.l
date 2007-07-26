@@ -117,7 +117,6 @@ lss	{ return KW_LSS; }
 arch	{ return ARCH; }
 print	{ return PRINT; }
 red	{ return RED; }
-wrapper	{ return WRAPPER; }
 reg	{ return REG; }
 space	{ return SPACE; }
 symtab	{ return SYMTAB; }
