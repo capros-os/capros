@@ -103,7 +103,6 @@ In a node prepared as a process root, the ProcAddrSpace slot.
 In a node prepared as a process key registers, slots for key registers
   (not necessarily prepared).
 In a node prepared as a segment, a slot used to build a mapping table entry.
-The WrapperFormat slot of a wrapper node (a number key).
 
 node_ClearHazard() handles all these cases.
  */

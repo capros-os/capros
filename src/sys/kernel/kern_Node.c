@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -34,35 +34,22 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/IRQ.h>
 #include <kerninc/ObjectCache.h>
-#include <eros/KeyConst.h>	// segment and wrapper defs
 
 #define PREPDEBUG
 
 #include <eros/Invoke.h>
 
-/*#include <disk/DiskNode.hxx>*/
-     
 void
 node_ClearHazard(Node* thisPtr, uint32_t ndx)
 {
   if (keyBits_IsHazard(&thisPtr->slot[ndx]) == false)
     return;
 
-  /* Could be processes blocked on a wrapper node: */
-  if (ndx == WrapperFormat)
-    sq_WakeAll(ObjectStallQueueFromObHdr(&thisPtr->node_ObjHdr), false);
-
   switch(thisPtr->node_ObjHdr.obType) {
   case ot_NtUnprepared:
-      /* If this is read hazard, the world is in a very very
-       * inconsistent state.
-       */
-    if (ndx != WrapperFormat)
-      fatal("Unprepared Node 0x%08x%08x Corrupted (slot %d).\n",
+    fatal("Unprepared Node 0x%08x%08x Corrupted (slot %d).\n",
 	    (uint32_t) (thisPtr->node_ObjHdr.oid>>32), 
 	    (uint32_t) thisPtr->node_ObjHdr.oid, ndx);
-
-    keyBits_UnHazard(&thisPtr->slot[ndx]);
     break;
     
   case ot_NtSegment:
@@ -529,7 +516,7 @@ node_Validate(Node* thisPtr)
     }
 #endif
     
-    if (keyBits_IsHazard(key) && k != WrapperFormat &&
+    if (keyBits_IsHazard(key) &&
 	thisPtr->node_ObjHdr.obType == ot_NtUnprepared) {
       printf("Unprepared node contains hazarded key\n");
       return false;
