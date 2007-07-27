@@ -28,15 +28,16 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Node.h>
+#include <kerninc/GPT.h>
 #include <disk/Forwarder.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <eros/ProcessKey.h>
-#include <eros/KeyConst.h>	// segment and wrapper defs
 
 #include <idl/capros/key.h>
 #include <idl/capros/ProcTool.h>
 #include <idl/capros/Forwarder.h>
+#include <idl/capros/GPT.h>
 
 /* CompareBrand(inv, pDomKey, pBrand) returns TRUE if the passed keys
  * were of the right type and it was feasible to compare their
@@ -280,72 +281,54 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       return;
     }
 #endif
-  case OC_capros_ProcTool_identWrapperKeeper:
+  case OC_capros_ProcTool_identGPTKeeper:
     {
-      Node *theNode = 0;
-      Key *fmtKey = 0;
-      uint32_t slot;
-      Key *domKey = 0;
-      bool isResume;
-
-      if (keyBits_IsType(inv->entry.key[0], KKT_Wrapper) == false) {
-	COMMIT_POINT();
-	return;
-      }
-
-      if ( keyBits_IsNoCall(inv->entry.key[0]) ) {
-	COMMIT_POINT();
-	return;
-      }
-
-
       key_Prepare(inv->entry.key[0]);
 
-
-      theNode = (Node *) key_GetObjectPtr(inv->entry.key[0]);
-
-      fmtKey /*@ not null @*/ = node_GetKeyAtSlot(theNode, WrapperFormat);
-
-      /* If no keeper key: */
-      if ((fmtKey->u.nk.value[0] & WRAPPER_KEEPER) == 0) {
+      if (! keyBits_IsType(inv->entry.key[0], KKT_GPT)
+          || keyBits_IsNoCall(inv->entry.key[0]) ) {
 	COMMIT_POINT();
 	return;
       }
-      slot = WrapperKeeper;
 
-      domKey /*@ not null @*/ = node_GetKeyAtSlot(theNode, slot);
+      GPT * theGPT = (GPT *) key_GetObjectPtr(inv->entry.key[0]);
+
+      /* If no keeper key: */
+      if (! (gpt_GetL2vField(theGPT) & GPT_KEEPER)) {
+	COMMIT_POINT();
+	return;
+      }
+
+      Key * domKey = node_GetKeyAtSlot(theGPT, capros_GPT_keeperSlot);
 
       key_Prepare(domKey);
 
+      bool isResume = keyBits_IsType(domKey, KKT_Resume);
       
-      if (keyBits_IsType(domKey, KKT_Start) == false &&
-	  keyBits_IsType(domKey, KKT_Resume) == false) {
+      if (! keyBits_IsType(domKey, KKT_Start)
+	  && ! isResume ) {
 	COMMIT_POINT();
 	return;
       }
-
-      isResume = keyBits_IsType(domKey, KKT_Resume);
-      
-      inv->exit.code = RC_OK;
       
       if ( CompareBrand(inv, domKey, inv->entry.key[1]) == false ) {
 	COMMIT_POINT();
 	return;
       }
+      
+      inv->exit.code = RC_OK;
 
       /* Must be either start or resume, by virtue of test above. */
-      /* FIX: yes, but why compare against exit.w1?? */
-      inv->exit.w1 = (inv->exit.w1 == KKT_Start) ? 1 : 2;
+      inv->exit.w1 = BoolToBit(isResume);
 
-      /* FIX: This seems exceptionally broken to me! */
       if ( isResume )
+	inv->exit.w2 = 0;
+      else
 	inv->exit.w2 = inv->entry.key[0]->keyData;
 
       if (inv->exit.pKey[0]) {
 	inv_SetExitKey(inv, 0, inv->entry.key[0]);
-
-	keyBits_SetType(inv->exit.pKey[0], KKT_Node);
-	inv->exit.pKey[0]->keyData = 0;
+	inv->exit.pKey[0]->keyPerms &= ~ capros_Memory_opaque;
       }
 
       COMMIT_POINT();

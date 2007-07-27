@@ -14,8 +14,15 @@ interface ProcTool extends key {
   void canOpener(capros.key gateKey, capros.key brand, out capros.key nodeKey,
 		 out unsigned long keyType, out unsigned long keyInfo);
 
-  void identWrapperKeeper(capros.key wrapper, capros.key brand, 
-			  out capros.key nodeKey, 
+  /* If GPTKey is a key to a GPT without the noCall restriction,
+  that has a keeper that is a start or resume key to a process
+  whose brand matches the specified brand, then the operation returns:
+  in GPTOut, a non-opaque key to the GPT;
+  in keyType, 0 if the keeper is a start key or 1 if a resume key; and
+  in keyInfo, the keyInfo if the keeper is a start key or 0 if a resume key.
+  Otherwise it raises RequestError. */ 
+  void identGPTKeeper(capros.key GPTKey, capros.key brand, 
+			  out capros.key GPTOut, 
 			  out unsigned long keyType,
 			  out unsigned long keyInfo);
 

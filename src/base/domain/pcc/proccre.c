@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Process Creator
 
@@ -53,12 +56,12 @@
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
-#include <eros/KeyConst.h>
 #include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/ProcTool.h>
 #include <idl/capros/Number.h>
+#include <idl/capros/GPT.h>
 
 #include <domain/SpaceBankKey.h>
 #include <domain/domdbg.h>
@@ -166,7 +169,7 @@ ProcessRequest(Message *argmsg)
       break;
     }
     
-  case OC_ProcCre_AmplifySegmentKey:
+  case OC_ProcCre_AmplifySegmentKey:	// really AmplifyGPTKey
     {
       uint32_t capType;
       uint32_t capInfo;
@@ -302,13 +305,15 @@ amplify_segment_key(uint32_t krSeg, uint32_t krTo, uint32_t *capType,
 		    uint32_t *capInfo)
 {
   uint32_t result = 
-    capros_ProcTool_identWrapperKeeper(KR_PROCTOOL, krSeg, KR_OURBRAND,
+    capros_ProcTool_identGPTKeeper(KR_PROCTOOL, krSeg, KR_OURBRAND,
 				     krTo, capType, capInfo);
 
-  if (result != RC_OK || capType == 0)
+  if (result != RC_OK)
     return result;
+  (*capType)++;
 
-  (void) capros_ProcTool_makeProcess(KR_PROCTOOL, krTo, krTo);
-  return result;
+  // krTo has a non-opaque GPT key.
+  capros_GPT_getSlot(krTo, capros_GPT_keeperSlot, krTo);
+  return amplify_gate_key(krTo, krTo, capType, capInfo);
 }
 
