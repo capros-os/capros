@@ -15,8 +15,8 @@
     <p>
       Device drivers, in most cases, have the same security properties
       as the kernel - they must be trusted by everyone,
-      because they direct hardware that has write access to all
-      of physical memory. 
+      because they direct hardware that on most architectures
+      has write access to all of physical memory. 
       In KeyKOS and early versions of EROS, device drivers executed
       as part of the kernel. 
     </p>
@@ -25,6 +25,9 @@
       in user processes:
     </p>
     <ul>
+    <li>
+      It's easier to write a program to run in user mode than in the kernel.
+    </li>
     <li>
       User mode provides some protection from accidental damage. 
     </li>
@@ -54,6 +57,13 @@
     <p>
       Therefore in CapROS virtually all drivers will run in user processes. 
     </p>
+    <p>
+      Drivers will of course be granted whatever
+      privileges are needed to do their job (this is architecture-dependent). 
+      The DevicePrivs key allows drivers to field interrupts. 
+      The DevicePrivs key will also make it possible for a driver
+      to obtain contiguous physical memory for use with DMA. 
+    </p>
     <h1>Persistence and Non-Persistence</h1>
     <p>
       The CapROS model is that all user data and capabilities are persistent,
@@ -76,10 +86,10 @@
       to find the correct version of the data to load. 
     </li>
     <li>
-      It is awkwared, though theoretically possible,
+      It is awkward, though theoretically possible,
       for the disk driver to checkpoint itself.
       At a checkpoint, we would do copy-on-write of the driver data
-      (this logic already exists). 
+      (this logic will exist anyway). 
       It would be necessary to ensure that enough available memory
       exists to do all the copies in memory. 
       Making the disk driver non-persistent removes this constraint. 
@@ -99,20 +109,30 @@
     </p>
     <p>
       Therefore, all device drivers will be non-persistent. 
-      They will live in OID ranges that are marked as such.
+      Non-persistent objects will live in OID ranges that are marked as such.
       These ranges will be loaded by the boot loader
-      (in GRUB, they are considered to be "modules") 
-      and pinned so they cannot be removed from memory. 
-      Drivers will of course be granted whatever
-      privileges are needed to to their job (this is architecture-dependent). 
-      The DevicePrivs key allows drivers to field interrupts. 
-      The DevicePrivs key will also make it possible for a driver
-      to obtain contiguous physical memory for use with DMA. 
+      (in GRUB, they are considered to be "modules").
+      Non-persistent objects must never be cleaned, checkpointed, or written
+      back to disk. 
+      They must never be removed from memory. 
     </p>
+    <p>
+      There are two important scenarios for the system:
+    </p>
+    <ul>
+    <li>
+      The diskless or "embedded" system: The entire system is non-persistent. 
+    </li>
+    <li>
+      The persistent system: As much of the system is persistent as possible.
+      Only the drivers needed for paging (and perhaps other drivers
+      as well for convenience) are non-persistent. 
+    </li>
+    </ul>
     <p>
       Now the difficulty is, what is the consistency contract between
       the persistent and non-persistent worlds? For example, we want
-      to avoid the following scenario:
+      to avoid scenarios such as the following :
     </p>
     <ol>
     <li>
@@ -129,40 +149,122 @@
       Here is the design for the interaction of the persistent and
       non-persistent worlds. 
     </p>
-    <ul>
-    <li>
-      Persistent processes may call non-persistent processes, and
-      non-persistent nodes may hold capabilities to persistent objects. 
-      When a checkpoint is taken, the non-persistent nodes are examined.
-      Any resume keys found there to persistent processes
-      will cause the target process to be
-      treated as though it had not yet executed its call.
-      Thus on a restart the persistent process will run and reexecute its call. 
-      OR, the target process will be checkpointed with a state
-      such that on restart it will run as though the call returned an error. 
-    </li>
-    <li>
-      Non-persistent nodes are initialized with no capabilities to
-      persisten objects. 
-    <li>
-      Persistent nodes may hold capabilities to non-persistent objects.
-      It is the responsibility of the non-persistent world to make sure
-      that the only capabilities that can find their way to the
-      non-persistent world are ones whose authority does not change
-      on a restart from checkpoint - namely, start keys to the
-      "front door" of a driver. 
-    </li>
-    </ul>
+    <h1>Capability Sharing</h1>
     <p>
-      It remains to be seen how this will play out.
-      Note that a device driver could have a persistent part and
+      Non-persistent objects are initialized with no capabilities to
+      persistent objects. 
+      Non-persistent objects should never receive capabilities to
+      persistent objects (or if they receive them, they should never use them).
+      Otherwise, a non-persistent disk driver might try to access
+      a persistent object that is paged out, which would cause deadlock. 
+    </p>
+    <p>
+      (You could say that the disk driver will be reentrant and can handle
+      such a situation without deadlock. But then, the part of the driver
+      that isn't used in handling the page fault might as well be persistent.)
+    </p>
+    <p>
+      This prohibition applies even to resume keys, since the designated
+      process could be paged out when the key is received, or could become
+      paged out while the key is held. 
+    </p>
+    <p>
+      Persistent objects may hold capabilities to non-persistent objects.
+      It is the responsibility of the non-persistent world to control
+      the capabilities that can find their way to the
+      persistent world.
+      Such capabilities should be designed with the awareness that
+      the non-persistent state is not checkpointed and will be reset
+      when the system is restarted.
+    </p>
+    <p>
+      Clearly a resume key to a non-persistent process does not meet
+      this design goal. 
+    </p>
+    <p>
+      A start key to a non-persistent process may be used, but only
+      for one-way communication. It should not be called, because the
+      non-persistent process must not receive the resume key. 
+    </p>
+    <p>
+      A memory key to a non-persistent segment may be used for two-way
+      communication, with a protocol that allows the persistent user
+      to discover when the non-persistent state has been reset. 
+    </p>
+    <h1>Communication</h1>
+    <p>
+      With such severe limitations on the connections between the persistent
+      and non-persistent worlds, one may wonder just how to accomplish
+      necessary communication. Here are some design ideas. 
+    </p>
+    <p>
+      A device driver could have a persistent part and
       a non-persistent part (but that may make porting more difficult).
       The only requirement is that
       any part used by the kernel for paging must be non-persistent. 
+      In many cases a driver will need a persistent front end that presents
+      a more usable interface to clients, and can handle multiple
+      independent clients. 
     </p>
     <p>
+      A persistent client process (or front end) could fork
+      to a start key to a driver
+      with a message that says, for example, "Start reading from location x". 
+      Then the client process does some operation (to be designed)
+      that waits for completion.
+      (Compare with the Linux "wait queue".) 
+      When the read completes, the driver causes the process to be restarted.
+      No data can be sent to the client at this time, because 
+      the client may have been paged out. Instead, the driver places results
+      in a shared segment. 
+      The client then re-executes its wait operation, which notes that
+      the operation is completed and returns immediately.
+      The client then looks in a shared segment for any results. 
+    </p>
+    <p>
+      Note that restarting a client process that is waiting on a wait queue
+      is safe, because while waiting there is an Activity structure for the
+      process that is memory-resident.
+      ("Activity" is the name of the kernel structure that tracks
+      processes in the Running state.)
+      The Activity structure is
+      sufficient to page in the rest of the process. 
+      In contrast, when a process has called another process, only the
+      resume capability is left, and the invoker of the resume capability
+      is responsible for paging in the process. 
+    </p>
+    <p>
+      When a persistent client and a non-persistent driver
+      are in communication,
+      it is important to be able to upgrade one or the other while
+      maintaining the communication. 
+      Since the non-persistent world has no capabilities to the
+      persistent world, upgrading a persistent client is no more
+      difficult than upgrading any other persistent object. 
+      To upgrade a non-persistent driver, here is one strategy.
+      Create a new non-persistent disk range and install the new
+      driver in it. Give the client the keys to the new driver and 
+      instruct it to start using them when it next discovers that 
+      the system is rebooted. 
+      Overwrite the old driver on disk, so it will not operate in conflict
+      with the new driver.
+      Then reboot the system. 
+    </p>
+    <h1>Paging</h1>
+    <p>
       The interface between the kernel and the disk driver(s)
-      has yet to be designed, but should be straightforward. 
+      has yet to be fully designed, but should be straightforward.
+      For paging in,
+      the driver periodically calls a special key to learn of any OIDs
+      (object identifiers)
+      that need to be fetched. The driver also receives a handle for
+      the Activity that needs to be awakened when the OID is available. 
+      This handle could be a special key that the driver invokes
+      when it is done. 
+      Alternatively, the kernel could enqueue the Activity on a wait queue
+      based on a hash of the OID,
+      and when done the driver could instruct the kernel
+      to wake up that queue. 
     </p>
   <hr>
 <table>
@@ -171,9 +273,13 @@
 <a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
   </td>
   <td>
-      <em>Copyright 2006 by Strawberry Development Group.  All rights reserved.
+      <em>Copyright 2006, 2007 by Strawberry Development Group.
+      All rights reserved.
       For terms of redistribution, see the <a
       href="./legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
    </td>
 </tr>
 </table>
