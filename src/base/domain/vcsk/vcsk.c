@@ -276,7 +276,7 @@ GetBlss(uint32_t krMem)
 {
   uint8_t l2v;
   uint32_t result = capros_GPT_getL2v(krMem, &l2v);
-  if (result == RC_capros_key_UnknownRequest)
+  if (result != RC_OK)
     return EROS_PAGE_BLSS; /* it must be a page key */
   return L2vToBlss(l2v);
 }
@@ -735,7 +735,7 @@ ProcessRequest(Message *argmsg, state *pState)
     result = HandleSegmentFault(argmsg, pState);
     break;
 
-  case OC_Vcsk_MakeSpaceKey:
+  case OC_capros_Memory_reduce:
     {
       capros_Memory_reduce(KR_SEGMENT, capros_Memory_opaque | argmsg->rcv_w1,
                            KR_SEGMENT);
@@ -886,6 +886,7 @@ Initialize(state *mystate)
 
   DEBUG(init) kdprintf(KR_OSTREAM, "Fetch BLSS of frozen seg\n");
   /* find out BLSS of frozen segment: */
+  /* FIXME: need to validate KR_ARG(0) */
   uint8_t segBlss = GetBlss(KR_ARG(0));
 
   DEBUG(init) kdprintf(KR_OSTREAM, "BLSS of frozen seg was %d\n", segBlss);
@@ -906,6 +907,9 @@ Initialize(state *mystate)
   DEBUG(init) kdprintf(KR_OSTREAM, "Initialize it\n");
 
   result = capros_GPT_setL2v(KR_SEGMENT, BlssToL2v(segBlss));
+  if (result != RC_OK) {
+    kdprintf(KR_OSTREAM, "VCSK: capros_GPT_setL2v returned 0x%x\n", result);
+  }
 
   /* write the immutable seg to slot 0 */
   result = capros_GPT_setSlot(KR_SEGMENT, 0, KR_ARG(0));
