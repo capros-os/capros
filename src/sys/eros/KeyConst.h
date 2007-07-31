@@ -34,56 +34,12 @@ Approved for public release, distribution unlimited. */
      o In start keys, it provides the process with an indicator of
        which key was invoked.
   
-     o In segmode keys, it contains the biased log segment size and
-       the permissions, organized as follows:
-  
-          bit position: 15  14  13 12:5 4:0
-                        RO  NC  WK   0   blss
-  
-       bits 12:5 are reserved.  RO and NC stand for "read only" and
-       "don't call" respectively.  TY indicates whether a segment key
-       is a red or black segment key. 
-  
      o In schedule keys, it holds the priority.
   
-     o In the old key format, it was used to hold the key subtype in
-       device and miscellaneous keys.  In the new format, this
-       information is now stored in the 'subType' field.
 */
-/* User-visible attributes of a key: */
-#define SEGMODE_RO		0x8000
-#define SEGMODE_NC		0x4000
-#define SEGMODE_WEAK		0x2000
-#define SEGMODE_BLSS_MASK	0x1fff
-#define SEGMODE_ATTRIBUTE_MASK  0xe000
 
 #define SEGPRM_RO	   0x4
 #define SEGPRM_NC	   0x2
 #define SEGPRM_WEAK	   0x1
-
-/* Slots of a Red Segment:
-
-   13: Keeper Key (variable - determined by format key)
-   14: Background Key (variable - determined by format key)
-   15: Format Key
-   */
-
-#define WrapperBackground     29
-#define WrapperKeeper         30
-#define WrapperFormat         31
-
-#define WRAPPER_SEND_NODE     0x00010000
-#define WRAPPER_SEND_WORD     0x00020000
-#define WRAPPER_KEEPER        0x00040000
-#define WRAPPER_BACKGROUND    0x00080000
-#define WRAPPER_BLOCKED       0x00100000
-
-#define WRAPPER_SET_BLSS(nkv, blss) \
-  do { \
-    (nkv).value[0] &= ~SEGMODE_BLSS_MASK; \
-    (nkv).value[0] |= (uint32_t)(blss); \
-  } while (0) 
-#define WRAPPER_GET_BLSS(nkv) \
-      ( (nkv).value[0] & SEGMODE_BLSS_MASK )
 
 #endif /* __EROS_KEY_H__ */
