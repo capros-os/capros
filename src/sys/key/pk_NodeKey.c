@@ -419,14 +419,9 @@ NodeKey(Invocation* inv /*@ not null @*/)
       
       COMMIT_POINT();
 
-
-      node_ClearThisNode(theNode);
-
-      
-
+      node_DoClearThisNode(theNode);
 
       act_Prepare(act_Current());
-
       
       return;
     }

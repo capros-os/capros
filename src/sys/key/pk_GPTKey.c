@@ -130,7 +130,7 @@ GPTKey(Invocation * inv)
       COMMIT_POINT();
 
       unsigned int newL2v = inv->entry.w1;
-      if (! (newL2v < 64 && newL2v >= EROS_PAGE_ADDR_BITS))
+      if (! (newL2v < 64 && newL2v >= EROS_PAGE_LGSIZE))
         goto request_error;
 
       inv->exit.code = RC_OK;
