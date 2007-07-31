@@ -157,9 +157,21 @@ segwalk_init(SegWalk * wi, Key * pSegKey, uint64_t va,
 }
 
 
-/* Walk the memory tree until we reach an object with l2v < stopL2v.
+/* Walk a segment as described in wi until one of the following
+ * occurs:
+ * 
+ *     You find an object with l2v < stopL2v (walk succeeded, return true)
+ *     You conclude that the desired type of access as described in
+ *        ISWRITE cannot be satisfied in this segment (walk failed,
+ *        return false and set wii->faultCode)
+ * 
+ * At each stage in the walk, add dependency entries between the
+ * traversed slots and the page table entries described by pPTE and mapLevel.
+ * 
+ * This routine is designed to be called repeatedly and cache its
+ * intervening state in the SegWalk structure so that the walk
+ * does not need to be repeated.
  */
-/* Returns true if successful, false if wi->faultCode set. */
 /* May Yield. */
 bool
 WalkSeg(SegWalk * wi, uint32_t stopL2v,
@@ -183,6 +195,7 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
 
     uint8_t l2vField = gpt_GetL2vField(gpt);
     unsigned int curL2v = l2vField & GPT_L2V_MASK;
+    assert(curL2v >= EROS_PAGE_LGSIZE);
 
     if (curL2v < stopL2v) {
       WALK_DBG_MSG("ret");

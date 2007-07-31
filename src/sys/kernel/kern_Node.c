@@ -108,6 +108,7 @@ node_ClearAllHazards(Node * thisPtr)
   }
 }
 
+// Caller must make the node dirty.
 /* CAREFUL -- this operation can have the side effect of blowing away
  * the current thread!
  */
@@ -124,6 +125,7 @@ node_DoClearThisNode(Node* thisPtr)
     assert (keyBits_IsHazard(&thisPtr->slot[k]) == false); /* node is unprepared! */
     key_NH_SetToVoid(&thisPtr->slot[k]);
   }
+  thisPtr->nodeData = 0;
 
   /* FIX: Not sure this is really necessary, but I think it is a good
    * idea.
