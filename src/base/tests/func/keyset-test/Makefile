@@ -1,7 +1,7 @@
 #
-# Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2007, Strawberry Development Group
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -17,28 +17,33 @@
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
-
-default: all
+default: install
 
 CROSS_BUILD=yes
 
 EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-TARGETS=keyset-test
+TARGETS=$(BUILDDIR)/keyset-test
 OPTIM=-O
-OBJECTS=keyset-test.o
-CLEANLIST=test.sysimg test.sysvol
+OBJECTS=$(BUILDDIR)/keyset-test.o
 INC=-I$(EROS_ROOT)/include
-VOLMAP=test.volmap
 
-BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/boot
+VOLMAP=volmap
 
 include $(EROS_SRC)/build/make/makerules.mk
-include ../test.mk
 
-keyset-test: keyset-test.o $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) -o keyset-test $(DOMCRT0) keyset-test.o $(DOMLIB)
+install all: $(TARGETS)
 
--include .*.m
+include ../../test.mk
+
+$(BUILDDIR)/proc1: $(BUILDDIR)/proc1.o $(DOMLIB) $(DOMCRT0)
+	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/proc1.map -o $@ $(DOMCRT0) $(BUILDDIR)/proc1.o $(DOMLIB)
+$(BUILDDIR)/keyset-test: $(BUILDDIR)/keyset-test.o $(DOMLIB) $(DOMCRT0)
+	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/keyset-test.o $(DOMLIB)
+
+-include $(BUILDDIR)/.*.m

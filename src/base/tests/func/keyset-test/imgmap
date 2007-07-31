@@ -2,8 +2,9 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,33 +20,34 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
-/*
- * spacebank
- */
-
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <primebank.map>
 #include <pcc.map>
 #include <metacon.map>
 #include <vcs.map>
+#include <ipltool.map>
+
 #include <keyset.map>
 
 /*
- * Space bank test domain
+ * Keyset test domain
  */ 
 keysettest = new process;
 
-
-keysettest pc = symbol "keyset-test" _start;
-keysettest space = small program "keyset-test";
+keysettest pc = symbol BUILDDIR "keyset-test" _start;
+seg = small program BUILDDIR "keyset-test";
+seg = seg with page at 0x1f000; /* for stack */
+keysettest space = seg;
 keysettest schedule = sched(8);   /* normal */
 
 keysettest key reg 2 = keysettest;
 keysettest key reg 4 = primebank;
 keysettest key reg 5 = sched(8);
 
-keysettest key reg 6 = keysetc;
+keysettest key reg 6 = keyset_c;
 keysettest key reg 8 = misc Console;
 keysettest key reg 9 = misc Sleep;
 
