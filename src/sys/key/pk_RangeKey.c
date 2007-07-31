@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Node.h>
+#include <kerninc/GPT.h>
 #include <disk/DiskNodeStruct.h>
 #include <disk/Forwarder.h>
 
@@ -138,7 +139,6 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
 
   obNdx = offset % EROS_OBJECTS_PER_FRAME;
 
-  Key * key = inv->exit.pKey[0];
   inv->flags |= INV_EXITKEY0;
 
   if (! wait && ! objC_HaveSource(oid)) {
@@ -193,6 +193,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
     COMMIT_POINT();
   }
   
+  Key * key = inv->exit.pKey[0];
   if (key) {
     /* Unchain the old key so we can overwrite it... */
     key_NH_Unchain(key);
@@ -204,9 +205,19 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
     link_insertAfter(&pObj->keyRing, &key->u.ok.kr);
     keyBits_SetPrepared(key);
   
-    if (kkt == KKT_Page || kkt == KKT_GPT)
+    if (kkt == KKT_Page)
       // Default l2g for memory keys is 64 to disable guard test.
       keyBits_SetL2g(key, 64);
+    else if (kkt == KKT_GPT) {
+      // Default l2g for memory keys is 64 to disable guard test.
+      keyBits_SetL2g(key, 64);
+      // Ensure the l2v is valid.
+      GPT * theGPT = objH_ToNode(pObj);
+      uint8_t l2vField = gpt_GetL2vField(theGPT);
+      uint8_t oldL2v = l2vField & GPT_L2V_MASK;
+      if (oldL2v < EROS_PAGE_LGSIZE)
+        gpt_SetL2vField(theGPT, l2vField - oldL2v + EROS_PAGE_LGSIZE);
+    }
   }
 
 #ifdef DEBUG_PAGERANGEKEY
