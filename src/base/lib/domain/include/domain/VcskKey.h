@@ -22,11 +22,10 @@
  */
 
 #include <eros/ProcessState.h>
-#include <eros/SegmentKey.h>
 
 /* Honors the following segment orders: */
 #define OC_Vcsk_InvokeKeeper  OC_SEGFAULT /* 0 */
-#define OC_Vcsk_MakeSpaceKey  OC_Seg_MakeSpaceKey /* 1 */
+// OC_capros_Memory_reduce
 
 #define OC_Vcsk_Truncate        16
 #define OC_Vcsk_Pack            17
