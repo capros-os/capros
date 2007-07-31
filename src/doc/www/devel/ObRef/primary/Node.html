@@ -106,21 +106,6 @@
 		</tr>
 	      </table>
 	    </ul>
-	    <p>
-	      Nodes may act in several roles at once; It is
-	      acceptable, and occasionally useful, to hold both a
-	      <strong>Node key</strong> and a <a
-	      href="AddressSpace.html"><strong>address space
-	      key</strong></a> to the same Node of storage.  This is
-	      analogous to having both <tt>const</tt> and unrestricted
-	      pointers in programming languages.  The correctness of
-	      the EROS security architecture is not compromised by
-	      doing so.  Similarly, multiple node keys with distinct
-	      attributes can designate the same node.
-	    </p>
-	    <p> One consequence of this is that Nodes suffer from an
-	      overabundance of key types.
-	    </p>
 	    <hr></hr>
 	    <h3>Operations</h3>
 	    <dl>
@@ -294,19 +279,14 @@
 	      </dd>
 	      <dt> <a name="makeseg"><strong>Make Node
 	      Key</strong></a> (OC = 64)</dt> 
-	      <dt> <strong>Make Address Space Key</strong> (OC = 65)</dt>
 	      <dd> 
 		<p>
-		  Returns a node, or address space key to the invoked
+		  Returns a node key to the invoked
 		  key, using the passed data value as the key info
 		  field.  The requested attributes of the new key are
 		  <b>or</b>'d with the attributes of the invoked key;
 		  the make node key operation can never reduce the
 		  restrictions on a node key.
-		</p>
-		<p> 
-		  See also the <A
-		    HREF="AddressSpace.html"><em>Address Space</em></a> page. 
 		</p>
 		<table>
 		  <tr valign=top>
@@ -473,10 +453,8 @@
 	      <dt> <strong>Key Data</strong> (OC = 74)</dt>
 	      <dd> 
 		<p>
-		  Returns the key data field of the invoked Node key.  For
-		  an explanation of the key data field and its use, see the <a
-		    href="AddressSpace.html"><strong>address
-		  space</strong></a> description. 
+		  Returns the key data field of the invoked Node key.
+		  (The key data field is not used.)
 		</p>
 		<table>
 		  <tr valign=top>
@@ -615,10 +593,13 @@
 	    </dl>
 	  </div>
 	  <hr>
-	    <em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights
-	      reserved.  For terms of redistribution, see the <a
-	      href="../../../legal/license/GPL.html">GNU General
-	      Public License</a></em>
+      <em>Copyright 1998, 2001 by Jonathan Shapiro,
+      2007 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
 	</td>
 	<td width="10%">&nbsp;</td>
       </tr>
