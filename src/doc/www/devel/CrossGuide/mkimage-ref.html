@@ -267,6 +267,11 @@
 	     restrictions at <i>offset</i> within the segment tree
 	     named by <i>key</i>.
 	     </p>
+	     <p>
+             The <i>qualifier</i> may include <b>RO</b> and/or <b>NC</b>
+             and/or <b>weak</b>, or may be <b>sense</b> which means
+             all three restrictions. 
+	     </p>
 	</dd>
 	<dt>
 	     <i>key</i> <b>with lss</b> <i>lss</i>
@@ -417,14 +422,6 @@
 	     <p>
 	     A range key granting authority over the range
 	     [<i>lo_oid</i>,<i>hi_oid</i>).
-	     </p>
-	</dd>
-	<dt>
-	     <b>wrapper with lss</b> <i>lss</i>
-	</dt>
-	<dd>
-	     <p>
-	     Fabricates a new wrapper with the given <i>lss</i>.
 	     </p>
 	</dd>
 	<dt>
@@ -624,25 +621,6 @@
 	     </p>
 	</dd>
 	<dt>
-	     <i>node</i> <b>segment keeper</b> = <i>startkey</i>
-	</dt>
-	<dd>
-	     <p>
-	     Sets the segment keeper slot of the designated <i>node</i>
-	     to <i>startkey</i>, which must be a start or resume key.
-	     </p>
-	</dd>
-	<dt>
-	     <i>node</i> <b>background segment</b> = <i>segkey</i>
-	</dt>
-	<dd>
-	     <p>
-	     Sets the background segment slot of the designated
-	     <i>node</i> to <i>segkey</i>, which must be a node,
-	     segment, or page key.
-	     </p>
-	</dd>
-	<dt>
 	     <i>node</i> <b>key reg</b> <i>n</i> = <i>key</i>
 	</dt>
 	<dd>
@@ -758,10 +736,9 @@
 	<dd>
 	     <p>
 	     Recursively prints the segment tree whose root is
-	     <i>segkey</i>.  <i>Segkey</i> must be a memory key (node,
-	     segment, or page).  For brevity, slots in the segment
-	     tree containing zero number keys are elided from the
-	     output.
+	     <i>segkey</i>.  <i>Segkey</i> must be a memory key (GPT
+	     or page).  For brevity, slots in the segment
+	     tree containing void keys are omitted.
 	     </p>
 	</dd>
 	<dt>
