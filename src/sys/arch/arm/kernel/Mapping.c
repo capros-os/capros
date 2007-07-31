@@ -293,6 +293,7 @@ EnsureSSDomain(unsigned int ssid)
       if (i == 0) lastDomainAssigned = lastDomainStolen;
       unsigned int pid = MMUDomains[lastDomainStolen].pid; // nonzero
       assert(SmallSpaces[pid].domain == lastDomainStolen);
+
       /* Invalidate all level 1 descriptors for this pid. */
       /* Note: we invalidate the descriptors, but leave some information
       behind so they can be quickly revalidated if we assign a new
@@ -305,10 +306,15 @@ EnsureSSDomain(unsigned int ssid)
         FLPT_FCSEVA[(pid << (PID_SHIFT - L1D_ADDR_SHIFT)) + j]
           &= ~(L1D_DOMAIN_MASK | L1D_VALIDBITS);
       }
+
+      /* For all processes that were using this pid,
+      we must remove the stolen domain from their dacr. */
+      MapTab_ClearRefs(&SmallSpaces[pid].mth);	// this is overkill
+
       SmallSpaces[pid].domain = 0;	// no longer has it
       MMUDomains[lastDomainStolen].pid = 0;
     }
-    PteZapped = true;	// remember to flush the TLB
+    PteZapped = true;	// remember to flush the TLB (but not the cache)
 
 assignDomain:
     // Assign the domain we found.
