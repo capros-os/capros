@@ -465,78 +465,21 @@
 		  </table>
 		</dd>
 		<dt>
-		  <strong>Amplify Address Space with Gate Key Keeper</strong> (OC = 17)
+		  <strong>Identify GPT with Gate Key Keeper</strong>
 		</dt>
 		<dd>
 		  <p>
-		    Returns a process key to the keeper of SK0 and a node key
-		    to the red address space node denoted
-		    by SK0.
+		    See the description in the IDL file.
 		  </p>
-		  <table>
-		    <tr valign=top>
-		      <td rowspan=1> <strong>Request</strong>
-		      </td>
-		      <td align=right> SK0
-		      </td>
-		      <td> A key to a red address space.
-		      </td>
-		    </tr>
-		    <tr valign=top>
-		      <td rowspan=4> <strong>Response</strong>
-		      </td>
-		      <td align=right> RK0
-		      </td>
-		      <td> A process key to the process named by SK0 if the
-			operation succeeded, else a void key.
-		      </td>
-		    </tr>
-		    <tr valign=top>
-		      <td align=right> RK1
-		      </td>
-		      <td> A node key to red address space node named by SK0 if the
-			operation succeeded, else a void key.
-		      </td>
-		    </tr>
-		    <tr valign=top>
-		      <td align=right> <b>R1</b></td>
-		      <td> 0: brand did not match.
-			<p>1: brand matched. the gate key is a start key.
-			  <p>2: brand matched. the gate key is a resume key.
-		      </td>
-		      <td>
-			Key Info field if gate key, else zero.
-			If the
-			gate key is a resume key, the key info field may be
-			either zero or one:
-			<ul>
-			  0: Normal resume capability.
-			  <p>
-			    1: fault capability.
-			</ul>
-		      </td>
-		    </tr>
-		    <tr valign=top>
-		      <td rowspan=2> <strong>Results</strong>
-		      </td>
-		      <td align=right> RC_OK
-		      </td>
-		      <td> Operation succeeded.</td>
-		    </tr>
-		    <tr valign=top>
-		      <td align=right> <em>RC_RequestError</em>
-		      </td>
-		      <td> SK0 is not a red address space key, SK0 is no-call,
-			or SK0's keeper key is not a gate key.
-		      </td>
-		    </tr>
-		  </table>
 		</dd>
 	      </dl>
 	  </div>
 	  <hr>
-	    <em>Copyright 1998, 2001, Jonathan Shapiro.  All rights reserved.  For terms of 
+	    <em>Copyright 1998, 2001, Jonathan Shapiro, 2007 by Strawberry Development Group.  All rights reserved.  For terms of 
 	      redistribution, see the 
 	      <a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
 	</td><td width="10%">&nbsp;</td></tr></table></BODY>
 </html>
