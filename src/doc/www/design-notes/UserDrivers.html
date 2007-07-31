@@ -60,7 +60,8 @@
     <p>
       Drivers will of course be granted whatever
       privileges are needed to do their job (this is architecture-dependent). 
-      The DevicePrivs key allows drivers to field interrupts. 
+      The DevicePrivs key allows drivers to field interrupts
+      and (together with a Range key) access memory containing device registers.
       The DevicePrivs key will also make it possible for a driver
       to obtain contiguous physical memory for use with DMA. 
     </p>
@@ -115,6 +116,9 @@
       Non-persistent objects must never be cleaned, checkpointed, or written
       back to disk. 
       They must never be removed from memory. 
+      (It may prove useful to allow non-persistent objects to be
+      <i>explicitly</i> released from memory, after a configuration
+      procedure has determined they are not needed.) 
     </p>
     <p>
       There are two important scenarios for the system:
@@ -179,17 +183,26 @@
     </p>
     <p>
       Clearly a resume key to a non-persistent process does not meet
-      this design goal. 
+      this requirement. 
     </p>
     <p>
       A start key to a non-persistent process may be used, but only
-      for one-way communication. It should not be called, because the
-      non-persistent process must not receive the resume key. 
+      for one-way communication. It may be forked, but should not be called,
+      because the non-persistent process must not receive the resume key. 
     </p>
     <p>
       A memory key to a non-persistent segment may be used for two-way
       communication, with a protocol that allows the persistent user
       to discover when the non-persistent state has been reset. 
+    </p>
+    <p>
+      There could be some type of rendezvous object that the user and
+      driver use to pass messages.
+      When both the driver has called to receive a message,
+      and the user has called to send a message, the message is delivered.
+      (This is a bit like a Coyotos Endpoint, but the message is 
+      restricted; no keys can be passed.) 
+      The rendezvous object would be considered non-persistent. 
     </p>
     <h1>Communication</h1>
     <p>
