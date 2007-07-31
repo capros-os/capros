@@ -107,13 +107,6 @@ bool node_Unprepare(Node* thisPtr, bool zapMe);
     
 void node_DoClearThisNode(Node* thisPtr);
 
-INLINE void 
-node_ClearThisNode(Node* thisPtr)
-{
-  node_MakeDirty(thisPtr);
-  node_DoClearThisNode(thisPtr);
-}
-
 void node_SetSlot(Node * thisPtr, int ndx, Node * node, uint32_t otherSlot);
 
 void NodeClone(Node * toNode, Key * fromKey);
