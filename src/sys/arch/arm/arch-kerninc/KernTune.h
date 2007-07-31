@@ -179,4 +179,10 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
    A TLB flush is fairly cheap, so this is set small. */
 #define KTUNE_NDOMAINSTEAL 2
 
+/* KTUNE_NSSSTEAL is the number of small spaces we will steal when we run out.
+   Too small, and you'll be stealing more often and therefore
+   doing more cache (and TLB?) flushes.
+   Too large, and it's more likely you'll steal spaces that are still active. */
+#define KTUNE_NSSSTEAL 6	// no data supports this number
+
 #endif /* __KERNTUNE_H__ */

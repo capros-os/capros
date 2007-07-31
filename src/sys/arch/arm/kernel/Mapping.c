@@ -243,6 +243,42 @@ SmallSpace_GetMth(unsigned int ss)
   return & SmallSpaces[ss].mth;
 }
 
+static void
+ReleaseSmallSpace(unsigned int pid)
+{
+  MapTabHeader * mth = & SmallSpaces[pid].mth;
+
+  objH_DelProduct(mth->producer, mth);
+
+  // Invalidate the PTEs in the space.
+  uint32_t ndx = pid << (PID_SHIFT - L1D_ADDR_SHIFT);
+  unsigned int i;
+  for (i = 0; i < 1ul << (PID_SHIFT - L1D_ADDR_SHIFT); i++)
+    InvalidateFLMTE(& FLPT_FCSEVA[ndx+i]);
+
+  // Free the domain for this small space if any.
+  unsigned int domain = SmallSpaces[pid].domain;
+  if (domain) {
+    SmallSpaces[pid].domain = 0;	// no longer has it
+    MMUDomains[domain].pid = 0;
+  }
+
+  /* There should be no processes holding this pid; they should
+  have had their pid invalidated when the key to the producer was
+  unhazarded. */
+#ifndef NDEBUG
+  uint32_t pid32 = pid << PID_SHIFT;
+  for (i = 0; i < KTUNE_NCONTEXT; i++) {
+    Process * p = &proc_ContextCache[i];
+    assert(p->md.pid != pid32);
+  }
+#endif
+
+  mth->isFree = 1;
+}
+
+unsigned int lastSSAssigned = 1;
+unsigned int lastSSStolen = 1;
 /* Some day this might have to return failure? */
 MapTabHeader *
 AllocateSmallSpace(void)
@@ -250,17 +286,30 @@ AllocateSmallSpace(void)
   int i;
 
   for (i = 1; i < NumSmallSpaces; i++) {
-    if (SmallSpaces[i].mth.isFree) {
-      SmallSpaces[i].mth.isFree = 0;	/* grab it */
-      assert(SmallSpaces[i].domain == 0);
-#if 0
-      printf("Allocating small space %d\n", i);
-#endif
-      return &SmallSpaces[i].mth;
+    // Advance the cursor, counting down and wrapping.
+    if (--lastSSAssigned == 0) lastSSAssigned = NumSmallSpaces-1;
+    if (SmallSpaces[lastSSAssigned].mth.isFree) {
+      goto assignSS;
     }
   }
-  fatal("AllocateSmallSpace: stealing space unimplemented\n");
-  return 0;
+#if 1	// until it's tested
+  dprintf(true, "Stealing small spaces.\n");
+#endif
+  for (i = 0; i < KTUNE_NSSSTEAL; i++) {
+    // Advance the cursor, counting down and wrapping.
+    if (--lastSSStolen == 0) lastSSStolen = NumSmallSpaces-1;
+    if (i == 0) lastSSAssigned = lastSSStolen;
+
+    ReleaseSmallSpace(lastSSStolen);
+  }
+
+assignSS:
+  SmallSpaces[lastSSAssigned].mth.isFree = 0;	/* grab it */
+  assert(SmallSpaces[lastSSAssigned].domain == 0);
+#if 0
+  printf("Allocating small space %d\n", lastSSAssigned);
+#endif
+  return &SmallSpaces[lastSSAssigned].mth;
 }
 
 unsigned int lastDomainAssigned = 1;
@@ -516,33 +565,7 @@ ReleaseProduct(MapTabHeader * mth)
     if (pid32 == 0) {
       assert(false);	/* FIXME: First level tables not supported yet. */
     } else {	// product is a small space
-      objH_DelProduct(mth->producer, mth);
-
-      // Invalidate the PTEs in the space.
-      uint32_t ndx = pid32 >> L1D_ADDR_SHIFT;
-      unsigned int i;
-      for (i = 0; i < 1ul << (PID_SHIFT - L1D_ADDR_SHIFT); i++)
-        InvalidateFLMTE(& FLPT_FCSEVA[ndx+i]);
-
-      // Free the domain for this small space if any.
-      unsigned int pid = pid32 >> PID_SHIFT;
-      unsigned int domain = SmallSpaces[pid].domain;
-      if (domain) {
-        SmallSpaces[pid].domain = 0;	// no longer has it
-        MMUDomains[domain].pid = 0;
-      }
-
-      /* There should be no processes holding this pid; they should
-      have had their pid invalidated when the key to the producer was
-      unhazarded. */
-#ifndef NDEBUG
-      for (i = 0; i < KTUNE_NCONTEXT; i++) {
-        Process * p = &proc_ContextCache[i];
-        assert(p->md.pid != pid32);
-      }
-#endif
-
-      mth->isFree = 1;
+      ReleaseSmallSpace(pid32 >> PID_SHIFT);
     }
   }
 }
