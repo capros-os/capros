@@ -78,7 +78,7 @@ findEntry(struct table_entry *table,
 #define dbg_all      0x3F
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( dbg_contains | dbg_add | 0u )
+#define dbg_flags   ( 0u )
 
 #ifndef NDEBUG
 #define DEBUG(x) if (dbg_##x & dbg_flags)

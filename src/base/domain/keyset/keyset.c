@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Keyset object
 
@@ -56,11 +60,11 @@
 #include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 #include <eros/StdKeyType.h>
-#include <eros/SegmentKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/KeyBits.h>
 #include <idl/capros/Discrim.h>
+#include <idl/capros/GPT.h>
 
 #include <domain/SpaceBankKey.h>
 #include <domain/ProtoSpace.h>
@@ -149,25 +153,34 @@
  *
  */
  
-
-#define OUR_TABLE_SLOT 3
-#define OTH_TABLE_SLOT 2
-
-/* I keep all of the current status information in a structure at the
-   top of the stack.  This code here sets up STAT, a pointer to this
-   structure.  Since a push decrements SP then writes, my starting SP
-   should be the same as &STAT. */
-
 struct KeySetStat STAT;
 
-#define ADDR_SLOT_SIZE     (1u << (EROS_ADDRESS_BITS - EROS_NODE_LGSIZE))
-#define SLOT_TO_ADDR(slot) (slot * ADDR_SLOT_SIZE)
-/* assumes that the outermost node is the full address space */
 
-struct table_entry * const the_table   = (void *)SLOT_TO_ADDR(OUR_TABLE_SLOT);
+/* We set up our address space with three equal-sized regions:
+  slot 0 is the code and data we were constructed with. */
+#define OUR_TABLE_SLOT 1
+#define OTH_TABLE_SLOT 2
+
+/* Use as much memory as possible: */
+#ifdef EROS_TARGET_arm
+#define ADDRESS_BITS 25	// so it will fit in a small space
+#else
+#define ADDRESS_BITS 31	/* Not EROS_ADDRESS_BITS, because not all of that
+			is available to users. */
+// Or perhaps 17, to fit in a small space, but that is really too small.
+#endif
+
+/* Since we divide the address space into 4 slots (only 3 are used),
+the number of bits of address for each slot is: */
+#define SLOT_ADDRESS_BITS (ADDRESS_BITS - 2)
+/* Note, there is currently no code to check for overflowing this space. */
+
+#define SLOT_TO_ADDR(slot) ((void *)(slot << SLOT_ADDRESS_BITS))
+
+struct table_entry * const the_table   = SLOT_TO_ADDR(OUR_TABLE_SLOT);
 /* ^^^ where we installed our VCS */
 
-struct table_entry * const other_table = (void *)SLOT_TO_ADDR(OTH_TABLE_SLOT);
+struct table_entry * const other_table = SLOT_TO_ADDR(OTH_TABLE_SLOT);
 /* ^^^ where we store the other guy */
 
 void require_sorted_table(void)
@@ -206,18 +219,17 @@ Initialize(void)
   STAT.startKeyBitsVersion = kbi.version;
 
   kprintf(KR_OSTREAM, "Initializing Keyset\n");
-  /* Using KR_ARG0, KR_SCRATCH as scratch registers */
 
-  /* Buy a new root node for address space: */
-  result = spcbank_buy_nodes(KR_BANK, 1, KR_ADDRNODE, KR_VOID, KR_VOID);
+  /* Buy a new root GPT for address space: */
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_ADDRNODE);
   if (result != RC_OK) {
     DEBUG(init) 
-      kdprintf(KR_OSTREAM, "KeySet: spcbank nodes exhausted\n", result);
+      kdprintf(KR_OSTREAM, "KeySet: spcbank GPTs exhausted\n", result);
     teardown();
   }
 
-  /* make that node LSS=EROS_ADDRESS_BLSS */
-  node_make_node_key(KR_ADDRNODE, EROS_ADDRESS_BLSS, 0, KR_ADDRNODE);
+  /* make each slot the right size: */
+  capros_GPT_setL2v(KR_ADDRNODE, SLOT_ADDRESS_BITS);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "KeySet: fetch my own space\n", result);
   process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
@@ -225,7 +237,7 @@ Initialize(void)
   DEBUG(init) kdprintf(KR_OSTREAM,
 		       "KeySet: plug self spc into new spc root\n",
 		       result);
-  node_swap(KR_ADDRNODE, 0, KR_SCRATCH, KR_VOID);
+  capros_GPT_setSlot(KR_ADDRNODE, 0, KR_SCRATCH);
   
   DEBUG(init) kdprintf(KR_OSTREAM, "KeySet: before lobotomy\n", result);
   process_swap(KR_SELF, ProcAddrSpace, KR_ADDRNODE, KR_VOID);
@@ -255,9 +267,9 @@ Initialize(void)
   /* plug in newly allocated ZSF */
   DEBUG(init) kdprintf(KR_OSTREAM,
 		       "KeySet: plugging zsf into new spc root\n", result);
-  node_swap(KR_ADDRNODE, OUR_TABLE_SLOT, KR_SCRATCH, KR_VOID);
+  capros_GPT_setSlot(KR_ADDRNODE, OUR_TABLE_SLOT, KR_SCRATCH);
 
-  /* if we add more initialization: STAT.initstat = ZSBOUGHT; */
+  /* if we add more initialization: STAT.initstate = ZSBOUGHT; */
 
   STAT.initstate = RUNNING;
   return;
@@ -275,7 +287,7 @@ teardown(void)
   case RUNNING:
   case ZSBOUGHT:
     /* destroy the vcs */
-    node_copy(KR_ADDRNODE, OUR_TABLE_SLOT, KR_SCRATCH);
+    capros_GPT_getSlot(KR_ADDRNODE, OUR_TABLE_SLOT, KR_SCRATCH);
     
     result = capros_key_destroy(KR_SCRATCH);
     if (result != RC_OK) {
@@ -285,11 +297,11 @@ teardown(void)
     /* FALL THROUGH */
   case LOBOTOMIZED:
     /* first, lets get our address space back to its original form */
-    node_copy(KR_ADDRNODE, 0, KR_SCRATCH);
+    capros_GPT_getSlot(KR_ADDRNODE, 0, KR_SCRATCH);
     process_swap(KR_SELF, ProcAddrSpace, KR_SCRATCH, KR_VOID);
 
     /* return the node */
-    result = spcbank_return_node(KR_BANK, KR_ADDRNODE);
+    result = capros_SpaceBank_free1(KR_BANK, KR_ADDRNODE);
     if (result != RC_OK) {
       kdprintf(KR_OSTREAM,
 	       "KeySet: Failed to return address space node (0x%08x)!\n",
@@ -382,7 +394,7 @@ VerifyAndGetSegmentOfSet(uint32_t krOtherSet,
     return RC_capros_key_RequestError;
   }
   
-  node_swap(KR_ADDRNODE, OTH_TABLE_SLOT, KR_SCRATCH2, KR_VOID);
+  capros_GPT_setSlot(KR_ADDRNODE, OTH_TABLE_SLOT, KR_SCRATCH2);
   /* Now, it's mapped in memory. */
 
   /* give our caller the number if items in the other guy. */
@@ -434,11 +446,11 @@ SlaveProtocol(void)
   require_sorted_table();
 
   /* get my segment */
-  node_copy(KR_ADDRNODE, OUR_TABLE_SLOT, KR_SCRATCH);
+  capros_GPT_getSlot(KR_ADDRNODE, OUR_TABLE_SLOT, KR_SCRATCH);
   
   /* make the segment read-only 
       -- he sure doesn't need to be able to write it */
-  seg_make_segment_key(KR_SCRATCH, SEGPRM_RO, KR_SCRATCH);
+  capros_Memory_reduce(KR_SCRATCH, capros_Memory_readOnly, KR_SCRATCH);
   
   myMsg.snd_w1 = STAT.numSorted;
   myMsg.snd_w2 = 0u;
@@ -483,7 +495,7 @@ ReturnSegment(void)
     kprintf(KR_OSTREAM,
 	    "KeySet1: Returning segment to KeySet2\n");
 
-  node_swap(KR_ADDRNODE, OTH_TABLE_SLOT, KR_VOID, KR_VOID);
+  capros_GPT_setSlot(KR_ADDRNODE, OTH_TABLE_SLOT, KR_VOID);
   /* Now, it's unmapped from memory. */
   
   msg.snd_w1 = 0u;
@@ -1061,10 +1073,6 @@ main()
   msg.rcv_key2 = KR_VOID;
   msg.rcv_rsmkey = KR_RETURN;
   msg.rcv_limit = 0;
-  msg.rcv_code = 0;
-  msg.rcv_w1 = 0;
-  msg.rcv_w2 = 0;
-  msg.rcv_w3 = 0;
 
   do {
     RETURN(&msg);
