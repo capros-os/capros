@@ -334,8 +334,6 @@ NodeKey(Invocation* inv /*@ not null @*/)
     }
 
   case OC_Node_MakeNodeKey:
-  case OC_Node_MakeSegmentKey:
-  case OC_Node_MakeWrapperKey:
     {
       uint32_t w;
       uint8_t p;
@@ -359,17 +357,6 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
 	inv->exit.pKey[0]->keyData = w;
 	inv->exit.pKey[0]->keyPerms = p;
-
-	switch(inv->entry.code) {
-	case OC_Node_MakeNodeKey:
-	  break;
-	case OC_Node_MakeSegmentKey:
-	  keyBits_SetType(inv->exit.pKey[0], KKT_Segment);
-	  break;
-	case OC_Node_MakeWrapperKey:
-	  keyBits_SetType(inv->exit.pKey[0], KKT_Wrapper);
-	  break;
-	}
       }
 	
       return;
