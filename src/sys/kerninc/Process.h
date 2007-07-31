@@ -45,7 +45,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Node.h>
 #include <kerninc/StallQueue.h>
 
-typedef struct SegWalk SegWalk;
+struct SegWalk;
 
 /* Every running activity has an associated process structure.  The
  * process structure for user activities has a lot more state.  Process
@@ -146,27 +146,6 @@ extern Process*   proc_fpuOwner;	/* FIX: This is not SMP-feasible. */
 
 extern Process *proc_ContextCache;
 /* End static members */
-
-/* Walk a segment as described in WI until one of the following
- * occurs:
- * 
- *     You find a subsegment whose blss is <= STOPBLSS (walk
- *        succeeded, return true)
- *     You conclude that the desired type of access as described in
- *        ISWRITE cannot be satisfied in this segment (walk failed,
- *        return false)
- * 
- * At each stage in the walk, add dependency entries between the
- * traversed slots and the page table entries named by the passed
- * PTEs.
- * 
- * If 'prompt' is true, WalkSeg returns as described above.  If
- * prompt is false, WalkSeg invokes the prevailing keeper on error.
- * 
- * This routine is designed to be re-entered and cache it's
- * intervening state in the SegWalk structure so that the walk
- * does not need to be repeated.
- */
   
 struct PTE;
 
@@ -352,7 +331,7 @@ void proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
                          uint8_t *data, uint32_t len);
 
 void
- proc_InvokeSegmentKeeper(Process * thisPtr, SegWalk * /*@ not null @*/,
+ proc_InvokeSegmentKeeper(Process * thisPtr, struct SegWalk *,
                           bool invokeProcessKeeperOK,
                           uva_t vaddr );
 

@@ -67,6 +67,7 @@ struct SegWalk {
 
   uint32_t   faultCode;
 };
+typedef struct SegWalk SegWalk;
   
 bool segwalk_init(SegWalk * wi, Key * pSegKey, uint64_t va,
              void * pPTE, int mapLevel);
