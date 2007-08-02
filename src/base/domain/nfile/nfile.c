@@ -46,13 +46,12 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
-#include <eros/KeyConst.h>
 
 #include <idl/capros/key.h>
-#include <idl/capros/Number.h>
+#include <idl/capros/GPT.h>
+#include <idl/capros/SpaceBank.h>
 
 #include <domain/VcskKey.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
 #include <domain/NFileKey.h>
 #include <domain/domdbg.h>
@@ -79,7 +78,7 @@ Approved for public release, distribution unlimited. */
 
 /* Following should be an OR of some of the above */
 #if 0
-#define dbg_flags   ( dbg_alloc|dbg_read|dbg_inogrow|dbg_req )
+#define dbg_flags   ( dbg_req )
 #else
 #define dbg_flags   ( 0u )
 #endif
@@ -110,8 +109,10 @@ const uint32_t __rt_stack_pages = NSTACK;
 /* Following is temporary!!! */
 typedef uint32_t f_size_t;
 
-/* Storage begins at base_addr and grows upwards (without limit!). */
-#define base_addr ((uint8_t *) 0x08000000)
+/* We divide the CAPROS_FAST_SPACE_LGSIZE space into two halves: */
+#define SUBSPACE_LGSIZE (CAPROS_FAST_SPACE_LGSIZE-1)
+/* The first subspace is for program, bss, and stack.
+The second is for file storage, which grows upwards (without limit!). */
 
 #define INO_NINDIR 11
 
@@ -197,18 +198,19 @@ init(server_state *ss)
 
   process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
 
-  /* Buy a new root node: */
-  result = spcbank_buy_nodes(KR_BANK, 1, KR_MYSPACE, KR_VOID, KR_VOID);
+  /* Buy a new root GPT: */
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_MYSPACE);
   if (result != RC_OK)
-    DEBUG(init) kdprintf(KR_OSTREAM, "DIR: spcbank nodes exhausted\n", result);
+    DEBUG(init) kdprintf(KR_OSTREAM, "DIR: Spacebank nodes exhausted 0x%x\n",
+                         result);
   
   DEBUG(init)
     kdprintf(KR_OSTREAM, "Bought new space\n");
 
-  /* make that node LSS=TOP_LSS */
-  node_make_node_key(KR_MYSPACE, EROS_ADDRESS_BLSS, 0, KR_MYSPACE);
+  result = capros_GPT_setL2v(KR_MYSPACE, SUBSPACE_LGSIZE);
 
-  node_swap(KR_MYSPACE, 0, KR_SCRATCH, KR_VOID);
+  /* Install old space in slot 0. */
+  capros_GPT_setSlot(KR_MYSPACE, 0, KR_SCRATCH);
 
   process_swap(KR_SELF, ProcAddrSpace, KR_MYSPACE, KR_VOID);
   
@@ -219,10 +221,10 @@ init(server_state *ss)
   /* plug in newly allocated ZSF */
   DEBUG(init) kdprintf(KR_OSTREAM, 
 		       "FS: plugging zsf into new spc root\n", result);
-  node_swap(KR_MYSPACE, 1, KR_SCRATCH, KR_VOID);
+  capros_GPT_setSlot(KR_MYSPACE, 1, KR_SCRATCH);
 
   bzero(ss, sizeof(*ss));
-  ss->top_addr = base_addr;
+  ss->top_addr = (uint8_t *) (1ul << SUBSPACE_LGSIZE);
   ss->first_free_inode = 0;
   ss->first_free_block = 0;
   ss->root.nLayer = 0;
@@ -547,7 +549,9 @@ destroy_file(server_state *ss, ino_s *ino)
   int i;
   uint32_t result;
   
-  result = spcbank_return_node(KR_BANK, KR_CURFILE);
+  result = capros_SpaceBank_free1(KR_BANK, KR_CURFILE);
+  if (result != RC_OK)
+    kdprintf(KR_OSTREAM, "NFILE: free(fwdr) returned 0x%x\n", result);
 
   for (i = 0; i < INO_NINDIR; i++)
     reclaim_ino_pages(ss, ino->nLayer, ino->indir[i]);
@@ -582,7 +586,7 @@ ProcessRequest(Message *msg, server_state *ss)
 	break;
 
       result = forwarder_create(KR_BANK, KR_CURFILE, KR_SCRATCH, KR_FILESTART,
-                 capros_Forwarder_sendWord,
+                 capros_Forwarder_sendCap | capros_Forwarder_sendWord,
                  (uint32_t)newFile);
       if (result != RC_OK)
 	break;
