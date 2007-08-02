@@ -130,6 +130,7 @@ PreloadObSource_GetObject(ObjectSource * src, OID oid, ObType obType,
 
       pObj->allocCount = pp->count[fi.tagEntry];
       pNode->callCount = pp->count[fi.tagEntry];
+      pNode->nodeData = 0;
 
       uint32_t ndx;
       for (ndx = 0; ndx < EROS_NODE_SIZE; ndx++) {
