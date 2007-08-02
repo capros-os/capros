@@ -67,7 +67,12 @@ Approved for public release, distribution unlimited. */
 /* The following should be a multiple of EROS_PAGE_SECTORS */
 #define DISK_BOOTSTRAP_SECTORS	64
 
-#define EROS_ADDRESS_BITS	32
+/* CAPROS_FAST_SPACE_LGSIZE is defined such that addresses in the range 0 to
+2^CAPROS_FAST_SPACE_LGSIZE -1 are all usable with reasonable efficiency. */
+/* Set to 31 so 2^CAPROS_FAST_SPACE_LGSIZE doesn't exceed UMSGTOP.
+17 would fit in a small space, but that is unreasonably small. */
+#define CAPROS_FAST_SPACE_LGSIZE 31
+
 #define EROS_FIXREG_BITS	32 /* size of native fixreg */
 
 

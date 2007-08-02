@@ -63,7 +63,11 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 /* The following should be a multiple of EROS_PAGE_SECTORS */
 #define DISK_BOOTSTRAP_SECTORS	64
 
-#define EROS_ADDRESS_BITS	32
+/* CAPROS_FAST_SPACE_LGSIZE is defined such that addresses in the range 0 to
+2^CAPROS_FAST_SPACE_LGSIZE -1 are all usable with reasonable efficiency. */
+/* Set to 25 to take advantage of the Fast Context Switch Extension. */
+#define CAPROS_FAST_SPACE_LGSIZE 25
+
 #define EROS_FIXREG_BITS	32 /* size of native fixreg */
 
 
