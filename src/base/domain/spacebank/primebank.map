@@ -57,8 +57,13 @@ spacebank.seg = spacebank.seg with subseg rangemap.seg at 0x01000000;
 
 hide rangemap.seg;
 
+#ifdef EROS_TARGET_arm
+// lss 3 is enough for a small space
+primeseg = spacebank.seg;
+#else
 primeseg = new GPT with lss EROS_ADDRESS_LSS;
 primeseg[0] = spacebank.seg;
+#endif
 
 spacebank pc = symbol LIBDIR "spacebank" _start;
 spacebank space = primeseg;

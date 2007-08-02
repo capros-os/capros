@@ -59,8 +59,10 @@ bool heap_insert_page(uint32_t addr, uint32_t pageKR);
 #define HEAP_BASE          SRM_TOP
 #if defined(EROS_TARGET_arm)
 #define HEAP_TOP           0x2000000	// to fit in a small space
+#define HEAP_TOP_LG	25
 #else
 #define HEAP_TOP           0xc000000
+#define HEAP_TOP_LG	32
 #endif
 
 #define SB_BRAND_KEYDATA       65535

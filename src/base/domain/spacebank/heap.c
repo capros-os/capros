@@ -57,7 +57,8 @@ heap_insert_page(uint32_t addr, uint32_t krPage)
 {
   uint32_t krtree = KR_WALK0;
   uint32_t krwalk = KR_WALK1;
-  uint32_t treelss = EROS_ADDRESS_BLSS;
+  uint32_t treelss = L2vToBlss(HEAP_TOP_LG + EROS_NODE_LGSIZE -1) -1;
+		// adding (EROS_NODE_LGSIZE -1) to round up
   uint8_t keyL2v;
   uint16_t keylss;
   uint32_t result;

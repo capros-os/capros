@@ -817,7 +817,7 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
   } else {	// no obj_frame
     /* single frame per object type -- preallocate the object */
     if (bank_ReserveFrames(bank, 1) != RC_OK) {
-      return RC_capros_SpaceBank_LimitReached;
+      goto cleanup;
     }
     
     DEBUG(alloc) kprintf(KR_OSTREAM, "spacebank: allocating new frame\n");
