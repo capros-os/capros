@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,112 +18,89 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
 
 #include <idl/capros/key.h>
-#include <idl/capros/Number.h>
+#include <idl/capros/GPT.h>
+#include <idl/capros/SpaceBank.h>
 
 #include <domain/Runtime.h>
-#include <domain/SpaceBankKey.h>
 
 #include "addrspace.h"
 
-/* Following is used to compute 32 ^ lss for patching together address
-   space */
-#define LWK_FACTOR(lss) (mult(EROS_NODE_SIZE, lss) * EROS_PAGE_SIZE)
-static uint32_t
-mult(uint32_t base, uint32_t exponent)
+static unsigned int
+BlssToL2v(unsigned int blss)
 {
-  uint32_t u;
-  int32_t result = 1u;
-
-  if (exponent == 0)
-    return result;
-
-  for (u = 0; u < exponent; u++)
-    result = result * base;
-
-  return result;
+  // assert(blss > 0);
+  return (blss -1 - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS;
 }
 
-
-/* Convenience routine for buying a new node for use in expanding the
-   address space. */
+/* Convenience routine for buying a new GPT with specified lss. */
 uint32_t 
 addrspace_new_space(uint32_t kr_bank, uint16_t lss, uint32_t kr_new)
 {
-  uint32_t result = spcbank_buy_nodes(kr_bank, 1, kr_new, KR_VOID, KR_VOID);
+  uint32_t result = capros_SpaceBank_alloc1(kr_bank,
+                      capros_Range_otGPT, kr_new);
   if (result != RC_OK)
     return result;
 
-  return node_make_node_key(kr_new, lss, 0, kr_new);
+  return capros_GPT_setL2v(kr_new, BlssToL2v(lss));
 }
 
 /* Make room in this domain's address space for mapping subspaces
    corresponding to client windows */
 uint32_t 
 addrspace_prep_for_mapping(uint32_t kr_self, uint32_t kr_bank, 
-			   uint32_t kr_tmp, uint32_t kr_new_node)
+			   uint32_t kr_tmp, uint32_t kr_new_GPT)
 {
-  capros_Number_value window_key;
-  uint32_t slot;
-  uint32_t result = RC_OK;
+  uint32_t result;
 
   if (EROS_NODE_SIZE != 32)
     return RC_capros_key_RequestError;
 
-  /* Stash the current ProcAddrSpace key */
+  /* Get the current ProcAddrSpace key */
   result = process_copy(kr_self, ProcAddrSpace, kr_tmp);
   if (result != RC_OK)
     return result;
 
-  /* Make a node with max lss */
-  result = addrspace_new_space(kr_bank, EROS_ADDRESS_LSS, kr_new_node);
+  /* Make a GPT with max lss */
+  result = addrspace_new_space(kr_bank, EROS_ADDRESS_LSS, kr_new_GPT);
   if (result != RC_OK)
     return result;
 
-  /* Patch up KR_ADDRSPC as follows:
+  /* Patch up kr_new_GPT as follows:
      slot 0 = capability for original ProcAddrSpace
      slots 1-15 = local window keys for ProcAddrSpace
-     slot 16 - ?? = any needed mapped spaces
+     slots 16-31 = any needed mapped spaces
   */
-  result = node_swap(kr_new_node, 0, kr_tmp, KR_VOID);
+  result = capros_GPT_setSlot(kr_new_GPT, 0, kr_tmp);
   if (result != RC_OK)
     return result;
 
+  uint32_t slot;
   for (slot = 1; slot < 16; slot++) {
-    window_key.value[2] = 0;	/* slot 0 of local node */
-    window_key.value[1] = 0;	/* high order 32 bits of address
-				   offset */
-
-    /* low order 32 bits: multiple of EROS_NODE_SIZE ^ (LSS) pages */
-    window_key.value[0] = slot * LWK_FACTOR(EROS_ADDRESS_LSS); 
-
     /* insert the window key at the appropriate slot */
-    result = node_write_number(kr_new_node, slot, &window_key); 
+    result = capros_GPT_setWindow(kr_new_GPT, slot, 0, 0,
+               ((uint64_t)slot) << BlssToL2v(EROS_ADDRESS_LSS) );
     if (result != RC_OK)
       return result;
   }
 
   /* Finally, patch up the ProcAddrSpace register */
-  return process_swap(kr_self, ProcAddrSpace, kr_new_node, KR_VOID);
+  return process_swap(kr_self, ProcAddrSpace, kr_new_GPT, KR_VOID);
 }
 
 uint32_t 
-addrspace_insert_lwk(cap_t node, uint32_t base_slot, uint32_t lwk_slot, 
+addrspace_insert_lwk(cap_t GPT, uint32_t base_slot, uint32_t lwk_slot, 
 		     uint16_t lss_of_base)
 {
-  capros_Number_value lwk;
-
-  lwk.value[2] = base_slot << EROS_NODE_LGSIZE;
-  lwk.value[1] = 0;  /* local window key high order bits are zero  */
-  lwk.value[0] = (lwk_slot - base_slot) * LWK_FACTOR(lss_of_base);
-
-  return node_write_number(node, lwk_slot, &lwk);
+  return capros_GPT_setWindow(GPT, lwk_slot, base_slot, 0,
+           ((uint64_t)(lwk_slot - base_slot)) << BlssToL2v(lss_of_base) );
 }
 

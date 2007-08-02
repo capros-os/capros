@@ -21,18 +21,17 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 
-/* Convenience routine for buying a new node for use in expanding the
-   address space. */
+/* Convenience routine for buying a new GPT with specified lss. */
 uint32_t addrspace_new_space(uint32_t kr_bank, uint16_t lss, uint32_t kr_new);
 
-/* Make room in this domain's address space for mapping subspaces
+/* Make room in this process's address space for mapping subspaces
    corresponding to client windows */
 uint32_t addrspace_prep_for_mapping(uint32_t kr_self, uint32_t kr_bank,
-				    uint32_t kr_tmp, uint32_t kr_new_node);
+				    uint32_t kr_tmp, uint32_t kr_new_GPT);
 
 /* Insert a local window key (lwk) referencing the segment at
    'base_slot' into 'lwk_slot' */
-uint32_t addrspace_insert_lwk(cap_t node, uint32_t base_slot,
+uint32_t addrspace_insert_lwk(cap_t GPT, uint32_t base_slot,
 			      uint32_t lwk_slot, uint16_t lss_of_base);
 
 /* Future: routines to actually insert subspaces and return virtual
