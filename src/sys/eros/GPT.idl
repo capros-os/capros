@@ -7,6 +7,7 @@ interface GPT extends Memory raises (key.RequestError) {
   const unsigned byte l2nSlots = 5;	// log base 2 of the above
   const unsigned byte keeperSlot = 31;
   const unsigned byte backgroundSlot = 30;
+  const unsigned byte windowBaseSlot = 255;
 
   /* All these methods raise key.RequestError if the key is opaque. */
 
@@ -23,6 +24,13 @@ interface GPT extends Memory raises (key.RequestError) {
   /* Store a key into a slot. */
   /* Raises key.RequestError if slot >= nSlots. */
   void setSlot(unsigned byte slot, capros.key k);
+
+  /* Store a window key into a slot.
+  If base_slot is windowBaseSlot, it is a background window,
+  otherwise a local window. */
+  /* Raises key.RequestError if slot >= nSlots, etc. */
+  void setWindow(unsigned byte slot, unsigned byte base_slot,
+         unsigned long restrictions, unsigned long long offset);
 
   /* Sets a key as the GPT's keeper. */
   void setKeeper(capros.key k);

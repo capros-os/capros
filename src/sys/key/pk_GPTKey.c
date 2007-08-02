@@ -182,6 +182,51 @@ request_error:
       return;
     }
 
+  case OC_capros_GPT_setWindow:
+    {
+      uint64_t offset;
+      if (opaque) goto opaqueError;
+
+      uint32_t slot = inv->entry.w1;
+      uint32_t baseSlot = inv->entry.w2;
+      uint32_t restrictions = inv->entry.w3;
+
+      if (slot >= capros_GPT_nSlots
+          || (baseSlot >= capros_GPT_nSlots
+              && baseSlot != capros_GPT_windowBaseSlot)
+          || (restrictions & ~ (capros_Memory_weak | capros_Memory_noCall
+                                | capros_Memory_readOnly))
+          || inv->entry.len != sizeof(offset)
+         ) {
+        COMMIT_POINT();
+	inv->exit.code = RC_capros_key_RequestError;
+	return;
+      }
+
+      inv_CopyIn(inv, inv->entry.len, &offset);
+
+      unsigned int curL2v = gpt_GetL2vField(theGPT) & GPT_L2V_MASK;
+      if (offset & ((1ull << curL2v) -1)) {
+        COMMIT_POINT();
+	inv->exit.code = RC_capros_key_RequestError;
+	return;
+      }
+
+      node_MakeDirty(theGPT);
+
+      COMMIT_POINT();
+  
+      node_ClearHazard(theGPT, slot);
+
+      key_SetToNumber(node_GetKeyAtSlot(theGPT, slot),
+		      (restrictions << 8) + baseSlot,
+		      (uint32_t) (offset >> 32),
+		      (uint32_t) offset);
+
+      inv->exit.code = RC_OK;
+      return;
+    }
+
   case OC_capros_GPT_clone:
     {
       /* Copy content of GPT in key[0] to current GPT. */
