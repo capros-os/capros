@@ -161,18 +161,9 @@ struct KeySetStat STAT;
 #define OUR_TABLE_SLOT 1
 #define OTH_TABLE_SLOT 2
 
-/* Use as much memory as possible: */
-#ifdef EROS_TARGET_arm
-#define ADDRESS_BITS 25	// so it will fit in a small space
-#else
-#define ADDRESS_BITS 31	/* Not EROS_ADDRESS_BITS, because not all of that
-			is available to users. */
-// Or perhaps 17, to fit in a small space, but that is really too small.
-#endif
-
 /* Since we divide the address space into 4 slots (only 3 are used),
 the number of bits of address for each slot is: */
-#define SLOT_ADDRESS_BITS (ADDRESS_BITS - 2)
+#define SLOT_ADDRESS_BITS (CAPROS_FAST_SPACE_LGSIZE - 2)
 /* Note, there is currently no code to check for overflowing this space. */
 
 #define SLOT_TO_ADDR(slot) ((void *)(slot << SLOT_ADDRESS_BITS))
