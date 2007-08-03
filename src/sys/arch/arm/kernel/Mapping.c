@@ -26,6 +26,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/KernStream.h>
 #include <kerninc/Machine.h>
 #include <kerninc/Process.h>
+#include <kerninc/GPT.h>
 #include <kerninc/Depend.h>
 #include <kerninc/KernStats.h>
 #include <kerninc/ObjectCache.h>
@@ -203,6 +204,38 @@ MapTab_ClearRefs(MapTabHeader * mth)
         } else {		// large space
           // void * pte = MapTabHeaderToKVA(product);
           assert(false); //// FIXME need to invalidate 0th entry
+        }
+      }
+    }
+  }
+}
+
+void
+node_ClearGPTHazard(Node * gpt, uint32_t ndx)
+{
+  Key * k = node_GetKeyAtSlot(gpt, ndx);
+
+  Depend_InvalidateKey(k);
+
+  if (keyBits_IsVoidKey(k)) {
+    uint8_t l2vField = gpt_GetL2vField(gpt);
+    unsigned int l2v = l2vField & GPT_L2V_MASK;
+
+#if 1	// until tested
+    dprintf(true, "Unhazarding void key in GPT, l2v=%d\n", l2v);
+#endif
+    if (l2v <= PID_SHIFT
+        && ndx >= (1ul << (PID_SHIFT - l2v)) ) {
+      /* There is a possibility that this GPT produced a small
+      space, but can no longer do so. Invalidate any small spaces it produces.
+      (objH_InvalidateProducts would be overkill - we don't want to
+      invalidate large spaces.) */
+      MapTabHeader * mth;
+      MapTabHeader * nextMth;
+      for (mth = node_ToObj(gpt)->prep_u.products; mth; mth = nextMth) {
+        nextMth = mth->next;
+        if (mth->tableSize && mth->tableCacheAddr) {	// a small space
+          ReleaseProduct(mth);
         }
       }
     }

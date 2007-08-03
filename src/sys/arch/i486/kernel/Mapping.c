@@ -1016,6 +1016,12 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
 #endif
 }
 
+void
+node_ClearGPTHazard(Node * thisPtr, uint32_t ndx)
+{
+  Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr, ndx));
+}
+
 /* Procedure used by Check: */
 bool
 pageH_mdType_CheckPage(PageHeader * pPage)

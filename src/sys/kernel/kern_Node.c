@@ -56,7 +56,7 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
     if ( keyBits_IsRdHazard(&thisPtr->slot[ndx]) )
       fatal("Segment Node Corrupted!\n");
 
-    Depend_InvalidateKey(&thisPtr->slot[ndx]);
+    node_ClearGPTHazard(thisPtr, ndx);
     break;
 
   case ot_NtKeyRegs:
@@ -450,7 +450,7 @@ node_Unprepare(Node* thisPtr, bool zapMe)
 	halt('b');
 #endif
   
-    objH_InvalidateProducts(DOWNCAST(thisPtr, ObjectHeader));
+    objH_InvalidateProducts(node_ToObj(thisPtr));
   }
 
   thisPtr->node_ObjHdr.obType = ot_NtUnprepared;

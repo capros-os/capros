@@ -38,6 +38,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <arch-kerninc/Process.h>
 #include <arch-kerninc/PTE.h>
 #include <arch-kerninc/IRQ-inline.h>
+#include <idl/capros/GPT.h>
 
 MapTabHeader * AllocateSmallSpace(void);
 unsigned int EnsureSSDomain(unsigned int ssid);
@@ -351,14 +352,8 @@ FindProduct(SegWalk * wi,
         }
       }
     } else {	// first level page table
-      // va is the unmodified virtual address referenced.
-      if (va & PID_MASK) {	// referenced a large address
-        if (product->tableCacheAddr != 0)	// must have a large table
-          continue;
-      } else {
-        // Can use either a large or small table.
-        // FIXME: Prefer a small table if both exist.
-      }
+      /* If all the above tests passed, a producer should not produce
+      both a large and a small space. */
     }
 
     /* WE WIN! */
@@ -616,12 +611,64 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
       act_Yield();	// try again
 
     uint32_t productNdx = wi.offset >> 32;
-    mth1 = FindProduct(&wi, 1, productNdx, va);
+    mth1 = FindProduct(&wi, 1, productNdx, va /* not used */);
     if (mth1 == 0) {
-      if (va & PID_MASK) {
-        // large space not implemented yet
-        fatal("Process accessed large space at 0x%08x\n", va);
+      // None found. Need to produce a mapping table. 
+      // Large or small space?
+      /* Note: We used to produce a small space if va would fit in one. 
+      The following example shows why that is wrong.
+      Suppose a process has a map with pages at 0x0 and 0x04000000.
+      It references 0, gets a small space, and happens to get pid 0x04000000.
+      Now it references 0x04000000.
+      It will get the aliased page at 0x0, not the page that should be at
+      0x04000000. 
+
+      We must produce a large space if the space has anything mapped above
+      0x01ffffff. */
+      if (wi.memObj->obType <= ot_NtLAST_NODE_TYPE) {
+        // It is a GPT, not a single page.
+        GPT * gpt = objH_ToNode(wi.memObj);
+        uint8_t l2vField = gpt_GetL2vField(gpt);
+        unsigned int l2v = l2vField & GPT_L2V_MASK;
+        if (l2v > PID_SHIFT) {
+          // Slot 0 could refer to a GPT with addresses above (1 << PID_SHIFT).
+ largespace:
+          fatal("Process is using large space at 0x%08x\n", va);
+        }
+        if (l2v > PID_SHIFT - EROS_NODE_LGSIZE) {
+          unsigned int startSlot = 1ul << (PID_SHIFT - l2v);
+          /* The first startSlot slots span a small space.
+          If all the other slots are void, this GPT can produce a small space.
+          */
+          unsigned int maxSlot;
+          if (l2vField & GPT_KEEPER) {        // it has a keeper
+            maxSlot = capros_GPT_keeperSlot -1;
+          }
+          else maxSlot = capros_GPT_nSlots -1;
+          if (l2vField & GPT_BACKGROUND) {
+            maxSlot = capros_GPT_backgroundSlot -1;
+              /* backgroundSlot < keeperSlot, so this must come last. */
+          }
+
+          unsigned int i;
+          for (i = startSlot; i <= maxSlot; i++) {
+            Key * k = node_GetKeyAtSlot(gpt, i);
+            if (! keyBits_IsVoidKey(k))
+              goto largespace;
+          }
+
+          // It can produce a small space.
+          /* Must hazard the void keys. If any is changed, the problem
+          in the example above could occur. */
+          for (i = startSlot; i <= maxSlot; i++) {
+            Key * k = node_GetKeyAtSlot(gpt, i);
+            keyBits_SetWrHazard(k);
+          }
+        }
+        // else its l2v is too small to produce a large space.
       }
+      // else it's a page, therefore can't be a large space.
+
       mth1 = AllocateSmallSpace();
       if (mth1 == 0) fatal("Could not allocate small space?\n");
       InitMapTabHeader(mth1, &wi, productNdx);

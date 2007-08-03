@@ -228,6 +228,7 @@ revalidate:
     va = proc_VAToMVA(thisPtr, va);
     if (! LoadWordFromUserSpace(va, (uint32_t *)&va)) {
       // Not mapped, try to map it.
+printf("faulting on exit rcv_data addr, va=0x%x\n", va);////
       // FIXME: Does proc_DoPageFault check access (wrong domain)?
       if (! proc_DoPageFault(thisPtr, va,
             false /* read only */, true /* prompt */ )) {
@@ -250,6 +251,7 @@ revalidate:
     for (; pgPtr < vaTop; pgPtr += EROS_PAGE_SIZE) {
       uint32_t word;
       if (! LoadWordFromUserSpace(pgPtr, &word)) {
+printf("faulting on exit rcv_data buf, pgPtr=0x%x\n", pgPtr);////
         // Not mapped, try to map it.
         if (! proc_DoPageFault(thisPtr, pgPtr,
               true /* write */, true /* prompt */ )) {

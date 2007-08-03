@@ -37,8 +37,10 @@ static void
 InvalidateMaps(GPT * theGPT)
 {
   /* Invalidate any mapping table entries that depended on the l2v. */
-  /* node_Unprepare also invalidates all products of this GPT,
-     which I think is unnecessary, but this seems like a good time
+  /* node_Unprepare also invalidates all products of this GPT.
+     This is necessary in the case where the GPT produced a small space,
+     but can no longer do so.
+     It may be unnecessary in other cases, but this seems like a good time
      to clean them up, since they may very well be useless. */
 #ifdef NDEBUG	// avoid compiler warning
   (void) node_Unprepare(theGPT, 0);

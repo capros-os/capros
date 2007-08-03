@@ -102,7 +102,6 @@ void node_PrepAsDomain(Node* thisPtr);
 
 Process *node_GetDomainContext(Node* thisPtr);
 
-
 bool node_Unprepare(Node* thisPtr, bool zapMe);
     
 void node_DoClearThisNode(Node* thisPtr);
@@ -110,5 +109,8 @@ void node_DoClearThisNode(Node* thisPtr);
 void node_SetSlot(Node * thisPtr, int ndx, Node * node, uint32_t otherSlot);
 
 void NodeClone(Node * toNode, Key * fromKey);
+
+// The following is architecture-specific.
+void node_ClearGPTHazard(Node * thisPtr, uint32_t ndx);
 
 #endif /* __NODE_H__ */

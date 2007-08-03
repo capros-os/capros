@@ -211,16 +211,18 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
       
     WALK_DBG_MSG("wlk");
 	
-    unsigned int maxSlot = capros_GPT_nSlots -1;
+    unsigned int maxSlot;
 
-    if (l2vField & GPT_KEEPER	// has a keeper
-        && wi->keeperGPT != SEGWALK_GPT_UNKNOWN	// nocall is valid
-        && ! (wi->restrictions & capros_Memory_noCall)	// can call it
-        ) {
-      wi->keeperGPT = gpt;
-      wi->keeperOffset = wi->offset;
+    if (l2vField & GPT_KEEPER) {	// it has a keeper
       maxSlot = capros_GPT_keeperSlot -1;
+      if (wi->keeperGPT != SEGWALK_GPT_UNKNOWN	// nocall is valid
+          && ! (wi->restrictions & capros_Memory_noCall)	// can call it
+          ) {
+        wi->keeperGPT = gpt;
+        wi->keeperOffset = wi->offset;
+      }
     }
+    else maxSlot = capros_GPT_nSlots -1;
 
     if (l2vField & GPT_BACKGROUND) {
       wi->backgroundGPT = gpt;
@@ -236,7 +238,7 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
 
     wi->offset &= (1ull << curL2v) - 1ull;	// remaining bits of address
 
-    Key * k = &gpt->slot[ndx];
+    Key * k = node_GetKeyAtSlot(gpt, ndx);
 
     if (keyBits_GetType(k) == KKT_Number) {
       // A window key.

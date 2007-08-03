@@ -105,7 +105,10 @@ ValidateKey(Key * key)
   else if (keyBits_IsType(key, KKT_GPT)
            && ! (key->keyData & capros_Memory_opaque) )
     return capros_Range_otGPT;
-  else return -1;
+  else {
+    // dprintf(true, "Range got invalid key at 0x%x\n", key);
+    return -1;
+  }
 }
 
 static uint64_t
