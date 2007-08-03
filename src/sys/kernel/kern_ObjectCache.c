@@ -76,28 +76,6 @@ uint32_t objC_nReservedIoPageFrames = 0;
 uint32_t objC_nCommittedIoPageFrames = 0;
 PageHeader * objC_coreTable;
 
-/* initializes nodeTable. replaces call to Node constructor */
-static Node *
-objC_InitNodeTable(int num)
-{
-  int i = 0;
-  uint32_t j = 0;
-
-  Node *temp = (Node *)KPAtoP(void *, physMem_Alloc(num*sizeof(Node), &physMem_any));
-  for (i = 0; i < num; i++) {
-    Node *n = &temp[i];
-    /* Possibly: Init keys the first time node is used. */
-    for (j = 0; j < EROS_NODE_SIZE; j++)
-      keyBits_InitToVoid(&n->slot[j]);
-    keyR_ResetRing(&n->node_ObjHdr.keyRing);
-    n->node_ObjHdr.flags = 0;
-    n->node_ObjHdr.userPin = 0;
-    n->node_ObjHdr.obType = ot_NtFreeFrame;
-  }
-
-  return temp;
-}
-
 /* Now that CachedDomains is a tunable, domain cache and depend
  * entries are allocated well before we get here.  The new logic only
  * needs to worry about allocating nodes, pages, and core table
@@ -129,7 +107,22 @@ objC_Init()
   objC_nNodes = 90;			/* This is one less than logtst requires. */
 #endif
   
-  objC_nodeTable = objC_InitNodeTable(objC_nNodes);
+  objC_nodeTable = KPAtoP(Node *,
+                     physMem_Alloc(objC_nNodes*sizeof(Node), &physMem_any));
+  bzero(objC_nodeTable, objC_nNodes*sizeof(Node));
+
+  for (i = 0; i < objC_nNodes; i++) {
+    unsigned int j;
+    Node * n = &objC_nodeTable[i];
+
+    for (j = 0; j < EROS_NODE_SIZE; j++)
+      keyBits_InitType(node_GetKeyAtSlot(n, j), KKT_Void);
+
+    keyR_ResetRing(&n->node_ObjHdr.keyRing);
+    // n->node_ObjHdr.flags = 0;
+    // n->node_ObjHdr.userPin = 0;
+    n->node_ObjHdr.obType = ot_NtFreeFrame;
+  }
 
   DEBUG(cachealloc)
     printf("Allocated Nodes: 0x%x at 0x%08x\n",
@@ -139,7 +132,7 @@ objC_Init()
   for (i = 0; i < objC_nNodes; i++) {
     /* object type is set in constructor... */
     assert (objC_nodeTable[i].node_ObjHdr.obType == ot_NtFreeFrame);
-    objC_nodeTable[i].node_ObjHdr.next = DOWNCAST(&objC_nodeTable[i+1], ObjectHeader);
+    objC_nodeTable[i].node_ObjHdr.next = node_ToObj(&objC_nodeTable[i+1]);
   }
   
   objC_nodeTable[objC_nNodes - 1].node_ObjHdr.next = 0;
@@ -587,7 +580,7 @@ objC_ddb_dump_nodes()
   extern void db_printf(const char *fmt, ...);
 
   for (nd = 0; nd < objC_nNodes; nd++) {
-    ObjectHeader *pObj = DOWNCAST(objC_GetCoreNodeFrame(nd), ObjectHeader);
+    ObjectHeader *pObj = node_ToObj(objC_GetCoreNodeFrame(nd));
 
     if (pObj->obType == ot_NtFreeFrame) {
       nFree++;
@@ -652,9 +645,9 @@ objC_AgeNodeFrames()
     
       assert(pObj->objAge <= age_PageOut);
     
-      assert (objH_GetFlags(DOWNCAST(pObj, ObjectHeader), OFLG_IO) == 0);
+      assert (objH_GetFlags(node_ToObj(pObj), OFLG_IO) == 0);
     
-      if (objH_IsUserPinned(DOWNCAST(pObj, ObjectHeader))
+      if (objH_IsUserPinned(node_ToObj(pObj))
           || node_IsKernelPinned(pObj) ) {
 	nPinned++;
 	nStuck++;
@@ -748,7 +741,7 @@ objC_AgeNodeFrames()
       DEBUG(ckpt)
 	dprintf(false, "Ageing out node=0x%08x oty=%d dirty=%c oid=0x%08x%08x\n",
 			pObj, pObj->node_ObjHdr.obType,
-			(objH_IsDirty(DOWNCAST(pObj, ObjectHeader)) ? 'y' : 'n'),
+			(objH_IsDirty(node_ToObj(pObj)) ? 'y' : 'n'),
 			(uint32_t) (pObj->node_ObjHdr.oid >> 32),
 			(uint32_t) (pObj->node_ObjHdr.oid));
 
@@ -760,7 +753,7 @@ objC_AgeNodeFrames()
        */
       curNode++;
 
-      assert (!objH_IsDirty(DOWNCAST(pObj, ObjectHeader)));
+      assert (!objH_IsDirty(node_ToObj(pObj)));
       assert(keyR_IsEmpty(&pObj->node_ObjHdr.keyRing));
     
       /* Remove this node from the cache and return it to the free node
