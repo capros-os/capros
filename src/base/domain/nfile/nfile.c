@@ -112,7 +112,7 @@ typedef uint32_t f_size_t;
 /* We divide the CAPROS_FAST_SPACE_LGSIZE space into two halves: */
 #define SUBSPACE_LGSIZE (CAPROS_FAST_SPACE_LGSIZE-1)
 /* The first subspace is for program, bss, and stack.
-The second is for file storage, which grows upwards (without limit!). */
+The second is for file storage, which grows upwards. */
 
 #define INO_NINDIR 11
 
@@ -176,6 +176,9 @@ AllocBlock(server_state *ss, int wantZero)
       bzero(pg, BLOCK_SIZE);
   }
   else {
+    if (ss->top_addr >= (uint8_t *) (2ul << SUBSPACE_LGSIZE))
+      kdprintf(KR_OSTREAM, "Nfile: out of address space!!\n");
+
     pg = ss->top_addr;
     ss->top_addr += BLOCK_SIZE;
     /* Newly allocated pages come to us pre-zeroed by VCSK. */
@@ -238,6 +241,13 @@ init(server_state *ss)
     while (sz < BUF_SZ) {
       AllocBlock(ss, WANT_ZERO);
       sz += BLOCK_SIZE;
+    }
+
+    /* Ensure the pages have been manifested by VCSK, so they can
+    be used to receive a message string. */
+    for (sz = 0; sz < BUF_SZ; sz += EROS_PAGE_SIZE) {
+      // kdprintf(KR_OSTREAM, "Nfile: touching 0x%08x\n", &ss->buf[sz]);
+      ss->buf[sz] = 0;
     }
   }
   
