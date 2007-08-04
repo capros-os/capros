@@ -243,15 +243,36 @@ printf("faulting on exit rcv_data addr, va=0x%x\n", va);////
       }
     }
     // Got rcv_data in va.
-    va = proc_VAToMVA(thisPtr, va);
-	// FIXME: string could cross into 0x02000000!
     uva_t vaTop = va + senderLen;
+
+    if (thisPtr->md.pid) {
+      /* Since this is a small space, addresses should be <= (1 << PID_SHIFT).
+      Check for that here, to prevent the following scenario:
+      The process has pages at 0 and 0x01fff000.
+      It receives a string into an area with start address 0x01fff000 and 
+      length 0x2000. 
+      The unmodified virtual addresses of the pages in the string area are
+      0x01fff000 and 0x02000000.
+      If the process happens to have a pid of 0x02000000, the modified
+      virtual addresses will be 0x03fff000 and 0x02000000.
+      Those will both be valid addresses for it to reference,
+      and for us to reference in LoadWordFromUserSpace below.
+      But if we set inv->exit.data to 0x03fff000, we will reference the
+      second page at 0x04000000 not 0x02000000.
+      */
+
+      if (va >= (1ul << PID_SHIFT)
+          || vaTop >= (1ul << PID_SHIFT))
+        fatal("proc_SetupExitString needs to fault, unimplemented!");
+    }
+
     uva_t pgPtr = va & ~EROS_PAGE_MASK;
     // Validate every destination page.
     for (; pgPtr < vaTop; pgPtr += EROS_PAGE_SIZE) {
       uint32_t word;
-      if (! LoadWordFromUserSpace(pgPtr, &word)) {
-printf("faulting on exit rcv_data buf, pgPtr=0x%x\n", pgPtr);////
+      /* Convert to MVA explicitly, because the destination process's
+      pid is not loaded. */
+      if (! LoadWordFromUserSpace(proc_VAToMVA(thisPtr, pgPtr), &word)) {
         // Not mapped, try to map it.
         if (! proc_DoPageFault(thisPtr, pgPtr,
               true /* write */, true /* prompt */ )) {
@@ -266,7 +287,7 @@ printf("faulting on exit rcv_data buf, pgPtr=0x%x\n", pgPtr);////
     mach_LoadDACR(0x55555555);	// need access to both from and to domains
     // FIXME: Figure out when the DACR has what. 
     // Current process's map is current, so destination addr is too.
-    inv->exit.data = (uint8_t *)va;
+    inv->exit.data = (uint8_t *)proc_VAToMVA(thisPtr, va);
   } else {
     // Processes are using different maps.
     fatal("proc_SetupExitString cross-space unimplemented!\n");

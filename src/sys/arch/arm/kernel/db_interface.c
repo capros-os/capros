@@ -254,7 +254,7 @@ tryCurrent:
           }
           break;
 
-        case 5: assert(false);	// no such exception
+        case 5: break;	// no such exception - must be corruption
         case 6: printf("[IRQ exception]"); break;
         case 7: printf("[FIQ exception]"); break;
       }
