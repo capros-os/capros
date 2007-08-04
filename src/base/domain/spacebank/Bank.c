@@ -865,9 +865,8 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
 
 cleanup:
 
-  DEBUG(alloc)
-    kdprintf(KR_OSTREAM,
-	     "spacebank: Out of frames.\n");
+  // To help find bugs, let the world know:
+  kdprintf(KR_OSTREAM, "spacebank: Out of frames.\n");
 
   return RC_capros_SpaceBank_LimitReached;
 }
