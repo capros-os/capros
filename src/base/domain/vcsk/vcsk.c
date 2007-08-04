@@ -275,9 +275,18 @@ uint8_t
 GetBlss(uint32_t krMem)
 {
   uint8_t l2v;
-  uint32_t result = capros_GPT_getL2v(krMem, &l2v);
-  if (result != RC_OK)
-    return EROS_PAGE_BLSS; /* it must be a page key */
+  uint32_t result;
+  capros_key_type kt;
+
+  result = capros_key_getType(krMem, &kt);
+  if (result != RC_OK || kt != AKT_GPT)
+    // Not a GPT. It must be a page key.
+    return EROS_PAGE_BLSS;
+  result  = capros_GPT_getL2v(krMem, &l2v);
+  if (result != RC_OK) {
+    kprintf(KR_OSTREAM, "Error geting GPT l2v!\n");
+    return EROS_PAGE_BLSS;
+  }
   return L2vToBlss(l2v);
 }
   
@@ -470,8 +479,8 @@ HandleSegmentFault(Message *pMsg, state *pState)
       /* Key in KR_SCRATCH is the read-only or invalid key.  Key in
 	 KR_SEGMENT is its parent. */
       DEBUG(invalid) kdprintf(KR_OSTREAM, 
-			      "Found rc=0x%x kt=0x%x at subsegBlss=%d\n",
-			      result, kt, subsegBlss);
+			      "Found kt=0x%x at subsegBlss=%d\n",
+			      kt, subsegBlss);
 
       /* Replace the offending subsegment with a primordial zero segment of
 	   suitable size: */
