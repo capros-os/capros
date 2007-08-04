@@ -135,7 +135,7 @@ main()
   for (i = 0; i < sizeof(sizes)/sizeof(int); i++) {
     for (pass = 0; pass < NPASS; pass++) {
       DEBUG(passes)
-	kprintf(KR_OSTREAM, "pass %d\n", pass);
+	kprintf(KR_OSTREAM, "sizes[%d] pass %d\n", i, pass);
 
       result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
       if (result != RC_OK)
@@ -151,13 +151,13 @@ main()
           assert(result == RC_OK);
 
           DEBUG(passes)
-            kdprintf(KR_OSTREAM, "Created nfile\n");
+            kprintf(KR_OSTREAM, "Created nfile %d\n", file);
 
 	  result = nfile_write(KR_FD0, 0, sizes[i], buf, &len);
           assert(result == RC_OK);
 
           DEBUG(passes)
-            kdprintf(KR_OSTREAM, "Wrote nfile\n");
+            kprintf(KR_OSTREAM, "Wrote nfile\n");
 
 	  result = node_swap(KR_TMPNODE, file, KR_FD0, KR_VOID);
           assert(result == RC_OK);
