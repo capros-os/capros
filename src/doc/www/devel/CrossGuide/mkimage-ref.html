@@ -425,15 +425,12 @@
 	     </p>
 	</dd>
 	<dt>
-	     <b>segment</b> "<i>filename</i>"
-	     <br><b>segtree</b> "<i>filename</i>"
+	     <b>segtree</b> "<i>filename</i>"
 	</dt>
 	<dd>
 	     <p>
 	     Fabricates a new segment tree containing the content of
-	     the named <i>file</i>.  If the <b>segment</b> form is
-	     used a segment key is returned.  Otherwise a node key is
-	     returned.
+	     the named <i>file</i>.  A non-opaque GPT key is returned.
 	     </p>
 	</dd>
 	<dt>
@@ -493,8 +490,7 @@
 	     </p>
 	</dd>
 	<dt>
-	     <b>zero segment with</b> <i>number</i> <b>pages</b>
-	     <br><b>zero segtree with</b> <i>number</i> <b>pages</b>
+	     <b>zero segtree with</b> <i>number</i> <b>pages</b>
 	</dt>
 	<dd>
 	     <p>
@@ -502,11 +498,7 @@
 	     consecutive addresses.  Note that the newly created
 	     segment uses dedicated pages, which is not the same as
 	     using the primordial zero segment of the same size.
-	     </p>
-	     <p>
-	     If the <b>segment</b> form is
-	     used a segment key is returned.  Otherwise a node key is
-	     returned.
+	     A non-opaque GPT key is returned.
 	     </p>
 	</dd>
       </dl>
@@ -566,8 +558,7 @@
 	<dd>
 	     <p>
 	     Sets the address space slot of the designated <i>node</i>
-	     to <i>segkey</i>, which must be a node, segment, or page
-	     key.
+	     to <i>segkey</i>, which must be a GPT or page key.
 	     </p>
 	</dd>
 	<dt>
@@ -756,8 +747,7 @@
 	<dd>
 	     <p>
 	     Prints the content of the node named by <i>key</i>, which
-	     must designate a node.  Segment, process, and gate keys
-	     are deemed to designate a node.
+	     must designate a node.
 	     </p>
 	</dd>
 	<dt>
@@ -765,14 +755,8 @@
 	</dt>
 	<dd>
 	     <p>
-	     Prints the process rooted at <i>key</i>, which must
-	     designate a node.  Segment, process, and gate keys are
-	     deemed to designate a node.
-	     </p>
-	     <p>
-	     Note that this command makes no attempt to verify that
-	     <i>key</i> names a process.  Using <b>print process</b> on
-	     other structures may generate confusing output.
+	     Prints the process designated by <i>key</i>, which must
+             be a process or gate key.
 	     </p>
 	</dd>
       </dl>
