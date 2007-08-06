@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,14 +18,16 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <domain/ConstructorKey.h>
-#include <domain/SpaceBankKey.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
 #include <domain/domdbg.h>
 
 #define KR_ZSF     1
@@ -65,11 +68,11 @@ setup()
   
   KPRINTF(init)(KR_OSTREAM, "About to buy new root seg:\n");
 
-  spcbank_buy_nodes(KR_BANK, 1, KR_SCRATCH0, KR_VOID, KR_VOID);
+  capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_SCRATCH0);
 
-  KPRINTF(init)(KR_OSTREAM, "Make that be BLSS=5:\n");
+  KPRINTF(init)(KR_OSTREAM, "Set l2v:\n");
 
-  node_make_node_key(KR_SCRATCH0, 5, KR_SCRATCH0);
+  capros_GPT_setL2v(KR_SCRATCH0, 26);
   
   KPRINTF(init)(KR_OSTREAM, "Fetch current space:\n");
 
@@ -77,7 +80,7 @@ setup()
 
   KPRINTF(init)(KR_OSTREAM, "Insert it in new node:\n");
 
-  node_swap(KR_SCRATCH0, 0x0, KR_SCRATCH1, KR_VOID);
+  capros_GPT_setSlot(KR_SCRATCH0, 0x0, KR_SCRATCH1);
 
   KPRINTF(init)(KR_OSTREAM, "Build new zero segment:\n");
 
@@ -88,7 +91,7 @@ setup()
 	   "result: 0x%08x. Insert result in new seg node:\n",
 	   result); 
 
-  node_swap(KR_SCRATCH0, 0x8, KR_SCRATCH1, KR_VOID);
+  capros_GPT_setSlot(KR_SCRATCH0, 0x8, KR_SCRATCH1);
 
   KPRINTF(init)(KR_OSTREAM, "Make new thing be my address space:\n");
 
@@ -168,7 +171,7 @@ main()
   
 
   process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH1);
-  node_copy(KR_SCRATCH1, 0x8, KR_SCRATCH1);
+  capros_GPT_getSlot(KR_SCRATCH1, 0x8, KR_SCRATCH1);
 
   KPRINTF(test)(KR_OSTREAM, "About to destroy VCS: 0x%08x\n", value);
   key_destroy(KR_SCRATCH1);

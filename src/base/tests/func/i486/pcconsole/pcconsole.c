@@ -1,10 +1,31 @@
-/* Sample small program: the obligatory ``hello world'' demo. */
+/*
+ * Copyright (C) 2007, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <domain/domdbg.h>
-#include <domain/SpaceBankKey.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/DevicePrivs.h>
@@ -30,11 +51,11 @@ main(void)
 
   kprintf(KR_OSTREAM, "hello from physpublish!\n");
 
-  spcbank_buy_nodes(KR_BANK, 1, KR_MYSPACE, KR_VOID, KR_VOID);
-  node_make_node_key(KR_MYSPACE, EROS_PAGE_BLSS + 2, KR_MYSPACE);
+  capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_MYSPACE);
+  capros_GPT_setL2v(KR_MYSPACE, EROS_PAGE_LGSIZE + EROS_NODE_LGSIZE);
 
   process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
-  node_swap(KR_MYSPACE, 0, KR_SCRATCH, KR_VOID);
+  capros_GPT_setSlot(KR_MYSPACE, 0, KR_SCRATCH);
   process_swap(KR_SELF, ProcAddrSpace, KR_MYSPACE, KR_VOID);
 
   kprintf(KR_OSTREAM, "Address space rebuilt....\n");
@@ -51,7 +72,7 @@ main(void)
   
   kprintf(KR_OSTREAM, "Physpage key now in  KR_%d....\n", KR_SCRATCH);
 
-  node_swap(KR_MYSPACE, 1, KR_SCRATCH, KR_VOID);
+  capros_GPT_setSlot(KR_MYSPACE, 1, KR_SCRATCH);
 
   kprintf(KR_OSTREAM, "Now in addr space....\n");
 

@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2007, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,16 +18,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/ProcessKey.h>
-#include <eros/NodeKey.h>
-#include <eros/KeyConst.h>
 #include <domain/domdbg.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
 #include <idl/capros/SysTrace.h>
 
 #define KR_ZSF      1
@@ -54,17 +55,17 @@ setup()
 {
   uint32_t result;
   
-  spcbank_buy_nodes(KR_BANK, 1, KR_MYSEG, KR_VOID, KR_VOID);
-  node_make_node_key(KR_MYSEG, 6, KR_MYSEG);
+  capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_MYSEG);
+  capros_GPT_setL2v(KR_MYSEG, 27);
   
   process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
 
-  node_swap(KR_MYSEG, 0x0, KR_SCRATCH, KR_VOID);
+  capros_GPT_setSlot(KR_MYSEG, 0x0, KR_SCRATCH);
 
   result = constructor_request(KR_ZSF, KR_BANK, KR_SCHED, KR_VOID,
 			 KR_VOIDSEG);
 
-  node_swap(KR_MYSEG, 0x1, KR_VOIDSEG, KR_VOID);
+  capros_GPT_setSlot(KR_MYSEG, 0x1, KR_VOIDSEG);
 
   process_swap(KR_SELF, ProcAddrSpace, KR_MYSEG, KR_VOID);
 }
