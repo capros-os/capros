@@ -1,14 +1,34 @@
-/* Sample small program: the obligatory ``hello world'' demo. */
+/*
+ * Copyright (C) 2007, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/NodeKey.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
-#include <eros/NumberKey.h>
 #include <eros/ProcessKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
-#include <domain/SpaceBankKey.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
 
 #include "constituents.h"
 
@@ -24,37 +44,38 @@ unsigned long value = 0;
  * into that new node, and referencing one of our variables via the
  * now-aliased address. 
  */
+
+static unsigned int
+BlssToL2v(unsigned int blss)
+{
+  // assert(blss > 0);
+  return (blss -1 - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS;
+}
+
 int
 main(void)
 {
   unsigned long *pValue = &value;
   unsigned long *npValue;
 
-  nk_value nkv;
-  nkv.value[2] = 0;		/* local window, relative to slot zero */
-  nkv.value[1] = 0;
-  nkv.value[0] = 0;
-
   node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
-  spcbank_buy_nodes(KR_BANK, 1, KR_NEWNODE, KR_VOID, KR_VOID);
+  capros_SpaceBank_alloc2(KR_BANK, capros_Range_otGPT + (capros_Range_otGPT<<8),
+                          KR_NEWNODE, KR_ALTSPACE);
 
-  node_make_node_key(KR_NEWNODE, EROS_PAGE_BLSS + 2, 0, KR_NEWNODE);
-
-  spcbank_buy_nodes(KR_BANK, 1, KR_ALTSPACE, KR_VOID, KR_VOID);
-
-  node_make_node_key(KR_ALTSPACE, EROS_PAGE_BLSS + 2, 0, KR_ALTSPACE);
+  capros_GPT_setL2v(KR_NEWNODE, BlssToL2v(EROS_PAGE_BLSS + 2));
+  capros_GPT_setL2v(KR_ALTSPACE, BlssToL2v(EROS_PAGE_BLSS + 2));
 
   /* Fetch our address space and stick it in the node. */
   process_copy(KR_SELF, ProcAddrSpace, KR_MYSPACE);
-  node_swap(KR_NEWNODE, 0, KR_MYSPACE, KR_VOID);
-  node_swap(KR_ALTSPACE, 2, KR_MYSPACE, KR_VOID);
-  node_swap(KR_ALTSPACE, 0, KR_MYSPACE, KR_VOID);
-  node_swap(KR_NEWNODE, 1, KR_ALTSPACE, KR_VOID);
+  capros_GPT_setSlot(KR_NEWNODE, 0, KR_MYSPACE);
+  capros_GPT_setSlot(KR_ALTSPACE, 2, KR_MYSPACE);
+  capros_GPT_setSlot(KR_ALTSPACE, 0, KR_MYSPACE);
+  capros_GPT_setSlot(KR_NEWNODE, 1, KR_ALTSPACE);
   process_swap(KR_SELF, ProcAddrSpace, KR_NEWNODE, KR_VOID);
 
   /* Insert the first window: */
-  node_write_number(KR_NEWNODE, 2, &nkv);
+  capros_GPT_setWindow(KR_NEWNODE, 2, 0, 0, 0ull);
 
   kprintf(KR_OSTREAM, "Value of ul through normal address 0x%08x: %d\n",
 	  pValue, *pValue);
@@ -78,8 +99,7 @@ main(void)
 	  npValue, *npValue);
 
   /* Insert the second window: */
-  nkv.value[2] = 1u << EROS_NODE_LGSIZE;
-  node_write_number(KR_NEWNODE, 3, &nkv);
+  capros_GPT_setWindow(KR_NEWNODE, 3, 1, 0, 0ull);
 
   {
     unsigned char *cpValue = (unsigned char *) pValue;
@@ -91,9 +111,8 @@ main(void)
 	  npValue, *npValue);
 
   /* Insert the third window: */
-  nkv.value[2] = 1u << EROS_NODE_LGSIZE;
-  nkv.value[0] = 2 * EROS_NODE_SIZE * EROS_PAGE_SIZE;
-  node_write_number(KR_NEWNODE, 4, &nkv);
+  capros_GPT_setWindow(KR_NEWNODE, 4, 1, 0,
+                       2ull << (EROS_NODE_LGSIZE + EROS_PAGE_LGSIZE));
 
   {
     unsigned char *cpValue = (unsigned char *) pValue;
@@ -103,43 +122,6 @@ main(void)
 
   kprintf(KR_OSTREAM, "Value of ul through 3rd window address 0x%08x: %d\n",
 	  npValue, *npValue);
-
-#if 0
-  {
-    Message msg;
-    msg.snd_invKey = KR_RECEIVER;
-    msg.snd_key0 = KR_VOID;
-    msg.snd_key1 = KR_VOID;
-    msg.snd_key2 = KR_VOID;
-    msg.snd_rsmkey = KR_VOID;
-    msg.snd_data = 0;
-    msg.snd_len = 0;
-    msg.snd_code = 0;
-    msg.snd_w1 = 0;
-    msg.snd_w2 = 0;
-    msg.snd_w3 = 0;
-
-    msg.rcv_key0 = KR_ARG(0);
-    msg.rcv_key1 = KR_ARG(1);
-    msg.rcv_key2 = KR_ARG(2);
-    msg.rcv_rsmkey = KR_RETURN;
-    msg.rcv_code = 0;
-    msg.rcv_w1 = 0;
-    msg.rcv_w2 = 0;
-    msg.rcv_w3 = 0;
-    msg.rcv_limit = 0;
-
-    kprintf(KR_OSTREAM, "Caller makes first call\n");
-
-    msg.snd_w1 = 1;
-    CALL(&msg);
-
-    kprintf(KR_OSTREAM, "Caller makes second call\n");
-
-    msg.snd_w1 = 2;
-    CALL(&msg);
-  }
-#endif
 
   kprintf(KR_OSTREAM, "localwindow completes\n");
 
