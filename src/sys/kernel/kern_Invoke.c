@@ -392,8 +392,6 @@ inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data)
 uint32_t 
 inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data)
 {
-  assert(InvocationCommitted);
-  
   if (thisPtr->entry.len < len)
     len = thisPtr->entry.len;
   

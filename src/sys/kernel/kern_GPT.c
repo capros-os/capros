@@ -251,9 +251,6 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
       if (addr & ((1ull << curL2v) -1))
 	goto seg_malformed;
 
-      printf("Adding 0x%08x to 0x%08x in window redirect\n",
-	     addr, wi->offset);
-
       wi->offset += addr;
 
       uint32_t controlWord = k->u.nk.value[2];
