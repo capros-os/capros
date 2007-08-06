@@ -77,10 +77,6 @@ PrintDiskKey(KeyBits key)
     diag_printf("KKT_Node");
     PrintNodeKey(key);
     break;
-  case KKT_Segment:
-    diag_printf("KKT_Segment");
-    PrintNodeKey(key);
-    break;
   case KKT_Forwarder:
     diag_printf("KKT_Forwarder");
     PrintNodeKey(key);

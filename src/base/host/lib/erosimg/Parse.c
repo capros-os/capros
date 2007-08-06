@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <ctype.h>
 #include <string.h>
@@ -524,10 +528,6 @@ parse_MatchKey(const char **txt, KeyBits *key)
     s += 4;
     kt = KKT_Node;
   }
-  else if (strncasecmp(s, "segment", 7) == 0) {
-    s += 7;
-    kt = KKT_Segment;
-  }
   else if (strncasecmp(s, "sched", 5) == 0) {
     s += 5;
     kt = KKT_Sched;
@@ -591,18 +591,12 @@ parse_MatchKey(const char **txt, KeyBits *key)
     }
   case KKT_Page:
   case KKT_Node:
-  case KKT_Segment:
     {
       OID oid;
-      uint32_t blss = 0;
       bool expectComma = false;
       bool readOnly = false;
-      bool noCall = false;
       bool rh = false;
       
-      if (kt == KKT_Page)
-	blss = EROS_PAGE_BLSS;
-
       /* Node/Seg keys have lots of attributes, so the following is
        * a bit tricky.  First, parse the '(oid' part:
        */
@@ -628,37 +622,15 @@ parse_MatchKey(const char **txt, KeyBits *key)
 	  continue;
 	}
 	if ( parse_MatchStart(&s, ssave) &&
-	     parse_MatchKeyword(&s, "nocall") ) {
-	  noCall = true;
-	  continue;
-	}
-	if ( parse_MatchStart(&s, ssave) &&
 	     parse_MatchKeyword(&s, "rh") ) {
 	  rh = true;
 	  continue;
 	}
 
-	/* accept this just for my sanity: */
-	if ( kt != KKT_Page &&
-	     parse_MatchStart(&s, ssave) &&
-	     parse_MatchKeyword(&s, "lss") &&
-	     parse_Match(&s, "=") &&
-	     parse_MatchWord(&s, &blss) )
-	  continue;
-	if ( kt != KKT_Page &&
-	     parse_MatchStart(&s, ssave) &&
-	     parse_MatchKeyword(&s, "blss") &&
-	     parse_Match(&s, "=") &&
-	     parse_MatchWord(&s, &blss) )
-	  continue;
-
 	return false;
       }
 
       switch(kt) {
-      case KKT_Segment:
-	init_SegmentKey(key, oid, blss, readOnly, noCall);
-	break;
       case KKT_Page:
 	init_DataPageKey(key, oid, readOnly);
 	break;
@@ -669,12 +641,8 @@ parse_MatchKey(const char **txt, KeyBits *key)
 	break;
       }
       
-      if (blss)
-	keyBits_SetBlss(key, blss);
       if (readOnly)
 	keyBits_SetReadOnly(key);
-      if (noCall)
-	keyBits_SetNoCall(key);
       if (rh)
 	keyBits_SetRdHazard(key);
 

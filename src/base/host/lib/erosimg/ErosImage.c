@@ -997,9 +997,8 @@ ei_DoAddSubsegToBlackSegment(ErosImage *ei, KeyBits segRoot,
   uint64_t subSegOffset = segOffset & lss_Mask(rootBLSS -1);
   KeyBits subSeg = ei_GetNodeSlot(ei, segRoot, slot);
 
-  if ( keyBits_IsType(&subSeg, KKT_Segment) 
-       || (keyBits_IsType(&subSeg, KKT_GPT)
-           && (subSeg.keyData & capros_Memory_opaque) ) )
+  if (keyBits_IsType(&subSeg, KKT_GPT)
+      && (subSeg.keyData & capros_Memory_opaque) )
     diag_fatal(4, "AddPageToSegment: Cannot traverse subsegment\n");
 
   KeyBits newSlotKey =

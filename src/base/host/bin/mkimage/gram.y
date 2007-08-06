@@ -734,18 +734,16 @@ key:   NULLKEY {
 	  
 	  init_MiscKey(&$$, miscType);
          }
-       | segtype string_lit {
+       | SEGTREE string_lit {
 	  KeyBits key;
 
-	  SHOWPARSE("=== key -> segtype STRING\n");
+	  SHOWPARSE("=== key -> SEGTREE STRING\n");
 	  keyBits_InitToVoid(&key);
 	  if ( !AddRawSegment(image, $2, &key) ) {
 	    num_errors++;
 	    YYERROR;
 	  }
 
-	  if ($1)	// SEGMENT, not SEGTREE
-	    keyBits_SetType(&key, KKT_Segment);
 	  $$ = key;
        }
 
@@ -825,10 +823,10 @@ key:   NULLKEY {
 	   $$ = key;
         }
 
-       | ZERO segtype WITH arith_expr PAGES {
+       | ZERO SEGTREE WITH arith_expr PAGES {
 	  KeyBits key;
 
-	  SHOWPARSE("=== key -> ZERO segtype WITH arith_expr PAGES\n");
+	  SHOWPARSE("=== key -> ZERO SEGTREE WITH arith_expr PAGES\n");
 	  keyBits_InitToVoid(&key);
 
 	  if ( !AddZeroSegment(image, &key, $4) ) {
@@ -836,8 +834,6 @@ key:   NULLKEY {
 	    YYERROR;
 	  }
 	  
-	  if ($2)	// SEGMENT, not SEGTREE
-	    keyBits_SetType(&key, KKT_Segment);
 	  $$ = key;
        }
 
@@ -2463,7 +2459,6 @@ QualifyKey(uint32_t qualifier, KeyBits key, KeyBits *out)
   if (qualifier & ATTRIB_WEAK) {
     switch(keyBits_GetType(&key)) {
     case KKT_Node:
-    case KKT_Segment:
     case KKT_GPT:
       keyBits_SetWeak(&key);
       break;
@@ -2484,7 +2479,6 @@ QualifyKey(uint32_t qualifier, KeyBits key, KeyBits *out)
     switch(keyBits_GetType(&key)) {
     case KKT_Node:
     case KKT_Page:
-    case KKT_Segment:
     case KKT_GPT:
       keyBits_SetReadOnly(&key);
       break;
@@ -2503,7 +2497,6 @@ QualifyKey(uint32_t qualifier, KeyBits key, KeyBits *out)
   if (qualifier & ATTRIB_NC) {
     switch(keyBits_GetType(&key)) {
     case KKT_Node:
-    case KKT_Segment:
     case KKT_GPT:
       keyBits_SetNoCall(&key);
       break;

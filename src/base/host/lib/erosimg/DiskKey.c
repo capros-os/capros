@@ -160,28 +160,3 @@ init_DataPageKey(KeyBits *dk, OID oid, bool readOnly)
   dk->u.unprep.oid = oid;
   dk->u.unprep.count = 0;
 }
-
-void 
-init_SegmentKey(KeyBits *dk, OID oid, uint32_t lss, bool readOnly, bool noCall)
-{
-  keyBits_InitToVoid(dk);
-  keyBits_InitType(dk, KKT_Segment);
-  keyBits_SetUnprepared(dk);
-  dk->keyFlags = 0;
-  dk->keyPerms = 0;
-  dk->keyData = lss;
-  if (readOnly)
-    keyBits_SetReadOnly(dk);
-  if (noCall)
-    keyBits_SetNoCall(dk);
-  
-  dk->u.unprep.oid = oid;
-  dk->u.unprep.count = 0;
-}
-
-#if 0
-DiskKey::DiskKey(const KeyBits& that)
-{
-  memcpy(this, &that, sizeof(KeyBits));
-}
-#endif
