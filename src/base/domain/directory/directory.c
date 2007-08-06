@@ -48,14 +48,14 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <domain/Runtime.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
 
-#include <domain/SpaceBankKey.h>
 #include <domain/SuperNodeKey.h>
 #include <domain/ConstructorKey.h>
 #include <domain/DirectoryKey.h>
@@ -205,6 +205,13 @@ const uint32_t __rt_stack_pages = 0x1 + N_FREEMAP_PAGE;
 #define VCS_LOCATION 0x40000000u
 
 struct direct * const first_entry = (struct direct *) VCS_LOCATION;
+
+static unsigned int
+BlssToL2v(unsigned int blss)
+{
+  // assert(blss > 0);
+  return (blss -1 - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS;
+}
 
 uint32_t
 alloc_dirent(state_t *state)
@@ -562,23 +569,23 @@ Initialize(state_t *state)
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: Result is: 0x%08x\n", result);
 
   /* Buy the new root node to hold it: */
-  result = spcbank_buy_nodes(KR_BANK, 1, KR_ARG0, KR_VOID, KR_VOID);
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_ARG0);
   if (result != RC_OK)
-    DEBUG(init) kdprintf(KR_OSTREAM, "DIR: spcbank nodes exhausted\n", result);
+    DEBUG(init) kdprintf(KR_OSTREAM, "DIR: spcbank GPTs exhausted\n", result);
   
-  /* make that node LSS=TOP_LSS */
-  node_make_node_key(KR_ARG0, EROS_ADDRESS_BLSS, 0, KR_ARG0);
+  /* make that GPT LSS=TOP_LSS */
+  capros_GPT_setL2v(KR_ARG0, BlssToL2v(EROS_ADDRESS_BLSS));
 
   /* plug in newly allocated ZSF */
   DEBUG(init) kdprintf(KR_OSTREAM, 
 		       "DIR: plugging zsf into new spc root\n", result);
-  node_swap(KR_ARG0, 8, KR_SNODE, KR_VOID);
+  capros_GPT_setSlot(KR_ARG0, 8, KR_SNODE);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: fetch my own space\n", result);
   process_copy(KR_SELF, ProcAddrSpace, KR_SNODE);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: plug self spc into new spc root\n", result);
-  node_swap(KR_ARG0, 0, KR_SNODE, KR_VOID);
+  capros_GPT_setSlot(KR_ARG0, 0, KR_SNODE);
   
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: before lobotomy\n", result);
   process_swap(KR_SELF, ProcAddrSpace, KR_ARG0, KR_VOID);

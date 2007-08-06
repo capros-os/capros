@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,11 +18,13 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
-#include <eros/KeyConst.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
@@ -29,7 +32,8 @@
 
 #include <idl/capros/key.h>
 #include <idl/capros/DevPrivs.h>
-#include <idl/capros/Number.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
 
 #include <string.h>
 #include <stdlib.h>
@@ -37,7 +41,6 @@
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/MemmapKey.h>
 
 /* Every video device driver must implement the Drawable interface,
@@ -125,22 +128,11 @@ extern rect_t clipRegion; /* defined in drawable_cmds.c */
 /* Declare a big buffer for receiving data from invocations */
 uint32_t receive_buffer[1024];
 
-/* Following is used to compute 32 ^ lss for patching together address
-   space */
-#define LWK_FACTOR(lss) (mult(EROS_NODE_SIZE, lss) * EROS_PAGE_SIZE)
-static uint32_t
-mult(uint32_t base, uint32_t exponent)
+static unsigned int
+BlssToL2v(unsigned int blss)
 {
-  uint32_t u;
-  int32_t result = 1u;
-
-  if (exponent == 0)
-    return result;
-
-  for (u = 0; u < exponent; u++)
-    result = result * base;
-
-  return result;
+  // assert(blss > 0);
+  return (blss -1 - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS;
 }
 
 /* Cache the current contents of the SVGA registers */
@@ -250,18 +242,18 @@ get_card_functionality(void)
 static uint32_t
 make_new_addrspace(uint16_t lss, fixreg_t key)
 {
-  uint32_t result = spcbank_buy_nodes(KR_BANK, 1, key, KR_VOID, KR_VOID);
+  uint32_t result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, key);
   if (result != RC_OK) {
     DEBUG(video_fb) kprintf(KR_OSTREAM, 
-			    "Error: make_new_addrspace: buying node "
+			    "Error: make_new_addrspace: buying GPT "
 			    "returned error code: %u.\n", result);
     return result;
   }
 
-  result = node_make_node_key(key, lss, 0, key);
+  result = capros_GPT_setL2v(key, BlssToL2v(lss));
   if (result != RC_OK) {
     DEBUG(video_fb) kprintf(KR_OSTREAM, 
-			    "Error: make_new_addrspace: making node key "
+			    "Error: make_new_addrspace: setL2v "
 			    "returned error code: %u.\n", result);
     return result;
   }
@@ -336,9 +328,6 @@ framebuffer_map()
 static void
 patch_addrspace(void)
 {
-  capros_Number_value window_key;
-  uint32_t next_slot = 0;
-
   /* Stash the current ProcAddrSpace capability */
   process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
 
@@ -352,23 +341,13 @@ patch_addrspace(void)
      slot 16 - ?? = local window keys for FIFO, as needed
      remaining slot(s) = capability for FRAMEBUF and any needed window keys
   */
-  node_swap(KR_ADDRSPC, 0, KR_SCRATCH, KR_VOID);
+  capros_GPT_setSlot(KR_ADDRSPC, 0, KR_SCRATCH);
 
+  uint32_t next_slot = 0;
   for (next_slot = 1; next_slot < 16; next_slot++) {
-    window_key.value[2] = 0;	/* slot 0 of local node */
-    window_key.value[1] = 0;	/* high order 32 bits of address
-				   offset */
-
-    /* low order 32 bits: multiple of EROS_NODE_SIZE ^ (LSS-1) pages */
-    window_key.value[0] = next_slot * LWK_FACTOR(EROS_ADDRESS_LSS-1); 
-
-    DEBUG(video_fifo)
-      kprintf(KR_OSTREAM, "vmware_svga: patch_addrspc() inserting local "
-	      "window key:\n         slot[%u] with addr = 0x%08x", next_slot,
-	      window_key.value[0]);
-
     /* insert the window key at the appropriate slot */
-    node_write_number(KR_ADDRSPC, next_slot, &window_key); 
+    capros_GPT_setWindow(KR_ADDRSPC, next_slot, 0, 0,
+        ((uint64_t)next_slot) << BlssToL2v(EROS_ADDRESS_LSS-1));
   }
 
   next_slot = 16;
@@ -381,7 +360,7 @@ patch_addrspace(void)
 	    next_slot);
   }
 
-  node_swap(KR_ADDRSPC, next_slot, KR_FIFO, KR_VOID);
+  capros_GPT_setSlot(KR_ADDRSPC, next_slot, KR_FIFO);
   if (fifo_lss == EROS_ADDRESS_LSS)
     kdprintf(KR_OSTREAM, "** ERROR: vmware_svga(): no room for local window "
 	     "keys for FIFO!");
@@ -399,7 +378,7 @@ patch_addrspace(void)
 	    "inserting FB capability in slot %u", next_slot);
   }
 
-  node_swap(KR_ADDRSPC, next_slot, KR_FRAMEBUF, KR_VOID);
+  capros_GPT_setSlot(KR_ADDRSPC, next_slot, KR_FRAMEBUF);
   if (fb_lss == EROS_ADDRESS_LSS)
     kdprintf(KR_OSTREAM, "** ERROR: vmware_svga(): no room for local window "
 	     "keys for FRAMEBUF!");

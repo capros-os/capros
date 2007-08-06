@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,22 +18,26 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 /* Handles Screen drawing operations for 80 X 25 */
 
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
-#include <eros/KeyConst.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
-#include <domain/SpaceBankKey.h>
 
 #include <idl/capros/DevPrivs.h>
 #include <idl/capros/Range.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
 #include <idl/console/textconsole.h>
 
 #include <stdlib.h>
@@ -90,6 +95,13 @@ uint8_t param[10];
 unsigned int npar = 0;
 int pos = 0;
 
+
+static unsigned int
+BlssToL2v(unsigned int blss)
+{
+  // assert(blss > 0);
+  return (blss -1 - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS;
+}
 
 int 
 main(void) 
@@ -152,18 +164,20 @@ initialize(void)
   if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::Process swap--Failed");
   kprintf(KR_OSTREAM, "Should now have IOspace key in slot\n");
   
-  result = spcbank_buy_nodes(KR_BANK, 1, KR_ADDRSPC, KR_VOID, KR_VOID);
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_ADDRSPC);
   if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::spcbank buy--Failed");
-  kprintf(KR_OSTREAM, "Bought 1 node from spcbank\n");
+  kprintf(KR_OSTREAM, "Bought 1 GPT from spcbank\n");
   
-  result=node_make_node_key(KR_ADDRSPC, EROS_PAGE_BLSS + 2,SEGPRM_NC, KR_ADDRSPC);
-  if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::make node key--Failed");
+  result = capros_GPT_setL2v(KR_ADDRSPC, BlssToL2v(EROS_PAGE_BLSS + 2));
+  if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::setL2v--Failed");
+  result = capros_Memory_reduce(KR_ADDRSPC, capros_Memory_noCall, KR_ADDRSPC);
+  if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::make noCall--Failed");
   
   result = process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
   if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::process copy-Failed");
 
-  result = node_swap(KR_ADDRSPC, 0, KR_SCRATCH, KR_VOID);
-  if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::nodeswap--Failed");
+  result = capros_GPT_setSlot(KR_ADDRSPC, 0, KR_SCRATCH);
+  if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::setSlot--Failed");
 
   result = process_swap(KR_SELF, ProcAddrSpace, KR_ADDRSPC, KR_VOID);
   if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::process swap--Failed");
@@ -182,7 +196,7 @@ initialize(void)
   capros_Range_waitPageKey(KR_PHYSRANGE,
 		      (0xb8000 / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME,
 		      KR_SCRATCH);
-  node_swap(KR_ADDRSPC, 1, KR_SCRATCH, KR_VOID);
+  capros_GPT_setSlot(KR_ADDRSPC, 1, KR_SCRATCH);
 
   kprintf(KR_OSTREAM, "Calling outb on 0x3D4\n");
   outb(0xC, 0x3D4);
