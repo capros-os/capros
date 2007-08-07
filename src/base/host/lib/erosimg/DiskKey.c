@@ -46,7 +46,6 @@ init_MiscKey(KeyBits *dk, uint16_t ty)
   keyBits_InitType(dk, ty);
 #ifdef KT_TimePage
   if (ty == KT_TimePage) {
-    keyBits_SetBlss(dk, EROS_PAGE_BLSS);
     keyBits_SetReadOnly(dk);
   }
   else

@@ -318,7 +318,7 @@ stmt:	/* IMPORT STRING {
 	   SHOWPARSE("=== stmt -> PRINT PROCESS key\n");
       
 	   if (keyBits_IsNodeKeyType(&$3) == false) {
-	     diag_printf("%s:%d: must be node key\n",
+	     diag_printf("%s:%d: must be process or gate key\n",
 			 current_file, current_line);
 	     num_errors++;
 	     YYERROR;
