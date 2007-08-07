@@ -351,65 +351,6 @@
 		  </tr>
 		</table>
 	      </dd>
-	      <dt> <strong>Compare Key</strong> (OC = 72)</dt>
-	      <dd> 
-		<p> 
-		  Tells whether the passed key key names this Node.
-		</p>
-		<table>
-		  <tr valign=top>
-		    <td>
-		      <strong>Request</strong>
-		    </td>
-		    <td align=right>
-		      SK0
-		    </td>
-		    <td>
-		      The key to be validated.
-		    </td>
-		  </tr>
-		  <tr>
-		  </tr>
-		  <tr valign=top>
-		    <td rowspan=2>
-		      <strong>Reply</strong>
-		    </td>
-		    <td align=right rowspan=2>
-		      <strong>R1</strong>
-		    </td>
-		    <td>
-		      0: SK0 is some other key.
-		    </td>
-		  </tr>
-		  <tr valign=top>
-		    <td> 1: SK0 is a Node, fetch, sense, or address space key for this
-		      Node.
-		    </td>
-		  </tr>
-		  <tr valign=top>
-		    <td rowspan=2>
-		      <strong>Result</strong>
-		    </td>
-		    <td align=right>
-		      RC_OK
-		    </td>
-		    <td> Operation completed successfully.
-		    </td>
-		  </tr>
-		  <tr valign=top>
-		    <td align=right>
-		      <em>RC_NoAccess</em>
-		    </td>
-		    <td>
-		      Access violation.
-		    </td>
-		  </tr>
-		</table>
-		<p>
-		  This operation is not permitted for sensory or fetch
-		  keys.
-		</p>
-	      </dd>
 	      <dt> <strong>Clear Node</strong> (OC = 73)</dt>
 	      <dd> 
 		<p>

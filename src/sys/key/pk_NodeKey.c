@@ -360,28 +360,6 @@ NodeKey(Invocation* inv /*@ not null @*/)
       return;
     }
     
-  case OC_Node_CompareKey:
-    {
-      key_Prepare(inv->entry.key[0]);
-
-      COMMIT_POINT();
-
-      inv->exit.code = RC_OK;
-      inv->exit.w1 = 0;		/* until proven otherwise */
-
-      if (keyBits_GetType(inv->entry.key[0]) != KKT_Node)
-        return;
-
-      if (key_GetKeyOid(inv->entry.key[0]) != key_GetKeyOid(inv->key))
-	return;
-      if (key_GetAllocCount(inv->entry.key[0]) !=
-	  key_GetAllocCount(inv->key)) 
-	return;
-	
-      inv->exit.w1 = 1;
-      return;
-    }
-
   case OC_Node_Clear:
     {
       if (isFetch) {

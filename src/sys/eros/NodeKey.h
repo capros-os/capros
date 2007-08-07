@@ -48,7 +48,6 @@ Approved for public release, distribution unlimited. */
 
 #define OC_Node_MakeNodeKey      64
 
-#define OC_Node_CompareKey       72
 #define OC_Node_Clear	         73
 #if 0
 #define OC_Node_WriteNumbers     75
