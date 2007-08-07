@@ -58,16 +58,6 @@ TimePageKey(Invocation& inv)
     inv.exit.w1 = AKT_TimePage;
     return;
 
-  case OC_Page_LssAndPerms:
-    {
-      COMMIT_POINT();
-
-      inv.exit.code = RC_OK;
-      inv.exit.w1 = inv.key->keyData;
-      inv.exit.w2 = inv.key->keyPerms;
-      return;
-    }
-
   default:
     inv.exit.code = RC_capros_key_UnknownRequest;
     return;

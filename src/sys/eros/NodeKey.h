@@ -44,7 +44,6 @@ Approved for public release, distribution unlimited. */
 #define OC_Node_Swap             1
 #define OC_Node_Extended_Copy    2
 #define OC_Node_Extended_Swap    3
-#define OC_Node_LssAndPerms      4 /* must match OC_Page_LssAndPerms */
 #define OC_Node_WriteNumber      96
 
 #define OC_Node_MakeNodeKey      64
@@ -72,8 +71,6 @@ uint32_t node_clone(uint32_t krNode, uint32_t krFrom);
 uint32_t node_write_number(uint32_t krNode, uint32_t slot, const struct capros_Number_value *);
 uint32_t node_make_node_key(uint32_t krNode, uint16_t keyData, 
 			    uint8_t perms, uint32_t krTo);
-uint32_t get_lss_and_perms(uint32_t krNode, uint16_t *lss,
-			       uint8_t *perms);
 uint32_t node_wake_some(uint32_t krNode, uint32_t andBits, 
 			uint32_t orBits, uint32_t match);
 uint32_t node_wake_some_no_retry(uint32_t krNode, uint32_t andBits, 

@@ -181,9 +181,7 @@ key_DoPrepare(Key* thisPtr)
     }
     
   case KKT_Node:
-  case KKT_Segment:
   case KKT_Process:
-  case KKT_Wrapper:
   case KKT_Forwarder:
   case KKT_GPT:
     pObj = objC_GetObject(thisPtr->u.unprep.oid, ot_NtUnprepared, 

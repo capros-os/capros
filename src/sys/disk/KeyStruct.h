@@ -194,12 +194,6 @@ keyBits_GetBlss(const KeyBits *kb /*@ not null @*/)
   return kb->keyData;
 }
 
-INLINE void 
-keyBits_SetBlss(KeyBits *kb /*@ not null @*/, uint32_t blss)
-{
-  kb->keyData = blss;
-}
-
 INLINE KeyType
 keyBits_GetType(const KeyBits *thisPtr)
 {
@@ -425,14 +419,12 @@ INLINE bool
 keyBits_IsNodeKeyType(const KeyBits *thisPtr)
 {
   switch (keyBits_GetType(thisPtr)) {
-  case KKT_Wrapper:
-  case KKT_Node:
-  case KKT_Segment:
-  case KKT_Process:
   case KKT_Start:
   case KKT_Resume:
   case KKT_Forwarder:
+  case KKT_Node:
   case KKT_GPT:
+  case KKT_Process:
     return true;
   default:
     return false;

@@ -44,7 +44,6 @@ HEADERS=\
 	Reserve.h \
 	DeviceDef.h \
 	KeyConst.h \
-	SegmentKey.h \
 	endian.h \
 	stdarg.h \
 	TimeOfDay.h \

@@ -536,12 +536,8 @@ proc_DoKeyInvocation(Process* thisPtr)
   if (inv.invType == IT_Send)
     goto general_path;
 
-  /* If it's a segment key, it might have a keeper.  Take the long way: */
-  if (inv.invKeyType == KKT_Segment || inv.invKeyType == KKT_GPT)
-    goto general_path;
-
-  /* If it's a wrapper key, take the long way: */
-  if (inv.invKeyType == KKT_Wrapper || inv.invKeyType == KKT_Forwarder)
+  /* If it's a GPT key, it might have a keeper.  Take the long way: */
+  if (inv.invKeyType == KKT_GPT)
     goto general_path;
 
   if (keyBits_IsGateKey(inv.key)) {

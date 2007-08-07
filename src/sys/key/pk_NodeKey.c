@@ -69,8 +69,6 @@ Desensitize(Key *k)
   
   switch (keyBits_GetType(k)) {
   case KKT_Node:
-  case KKT_Segment:
-  case KKT_Wrapper:
   case KKT_GPT:
     keyBits_SetReadOnly(k);
     keyBits_SetNoCall(k);
@@ -371,15 +369,8 @@ NodeKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;
       inv->exit.w1 = 0;		/* until proven otherwise */
 
-      switch (keyBits_GetType(inv->entry.key[0])) {
-      case KKT_Node:
-      case KKT_Wrapper:
-      case KKT_Segment:
-	/* It's possible - check further below */
-	break;
-      default:
-	return;
-      }
+      if (keyBits_GetType(inv->entry.key[0]) != KKT_Node)
+        return;
 
       if (key_GetKeyOid(inv->entry.key[0]) != key_GetKeyOid(inv->key))
 	return;
@@ -410,16 +401,6 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
       act_Prepare(act_Current());
       
-      return;
-    }
-
-  case OC_Node_LssAndPerms:
-    {
-      COMMIT_POINT();
-
-      inv->exit.code = RC_OK;
-      inv->exit.w1 = inv->key->keyData;
-      inv->exit.w2 = inv->key->keyPerms;
       return;
     }
 
