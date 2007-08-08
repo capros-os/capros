@@ -540,6 +540,10 @@ proc_DoKeyInvocation(Process* thisPtr)
   if (inv.invKeyType == KKT_GPT)
     goto general_path;
 
+  /* If it's a forwarder, take the long way: */
+  if (inv.invKeyType == KKT_Forwarder)
+    goto general_path;
+
   if (keyBits_IsGateKey(inv.key)) {
     inv.invokee = inv.key->u.gk.pContext;
     if (proc_IsWellFormed(inv.invokee) == false)
