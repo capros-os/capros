@@ -48,7 +48,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <eros/Reserve.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <ddb/db_sym.h>
 #include <ddb/db_output.h>
 #include <arch-kerninc/PTE.h>

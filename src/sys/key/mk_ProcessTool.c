@@ -32,7 +32,6 @@ Approved for public release, distribution unlimited. */
 #include <disk/Forwarder.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/ProcTool.h>

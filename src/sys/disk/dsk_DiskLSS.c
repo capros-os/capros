@@ -26,8 +26,6 @@ Approved for public release, distribution unlimited. */
  * the kernel:
  */
 
-#define _REVEAL_KERNEL_KEY_TYPES_
-
 #include <eros/target.h>
 #include <disk/DiskLSS.h>
 

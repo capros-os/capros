@@ -56,6 +56,29 @@ gpt_l2vField(uint16_t * nodeDatap)
   return (uint8_t *) nodeDatap;
 }
 
+INLINE uint8_t *
+proc_runStateField(DiskNodeStruct * dn)
+{
+  /* N.B. This must match the location in the LAYOUT file. */
+  return ((uint8_t *) &dn->slot[8].u.nk.value) + 8;
+}
+
+/* Slots of a process root. Changes here should be matched in the
+ * architecture-dependent layout files and also in the mkimage grammar
+ * restriction checking logic. */
+#define ProcSched             0
+#define ProcKeeper            1
+#define ProcAddrSpace         2
+#define ProcGenKeys           3
+#define ProcIoSpace           4	/* unimplemented */
+#define ProcSymSpace          5
+#define ProcBrand             6
+/*			      7    unused */
+// 8 has fault code, fault info, and runState.
+#define ProcPCandSP           9
+#define ProcFirstRootRegSlot  8
+#define ProcLastRootRegSlot   31
+
 #define DISK_NODES_PER_PAGE (EROS_PAGE_SIZE / sizeof(DiskNodeStruct))
 
 #endif /* __DISK_DISKNODESTRUCT_HXX__ */

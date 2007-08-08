@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,7 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
@@ -73,6 +76,9 @@ main()
   node_copy(KR_CONSTIT, KC_DCC, KR_DCC);
   node_copy(KR_CONSTIT, KC_HELLO_PC, KR_HELLO_PC);
   node_copy(KR_CONSTIT, KC_HELLO_SEG, KR_HELLO_SEG);
+
+  capros_Number_value nkv;
+  capros_Number_getValue(KR_HELLO_PC, &nkv);
   
   kdprintf(KR_OSTREAM, "About to invoke dcc\n");
 
@@ -131,20 +137,18 @@ main()
 
   kdprintf(KR_OSTREAM, "Populate new process\n");
 
-  /* Install hello address space into the domain root: */
-  (void) process_swap(KR_NEWDOM, ProcAddrSpace, KR_HELLO_SEG, KR_VOID);
-
-  kdprintf(KR_OSTREAM, "Installed hello aspace\n");
-
   /* Install the schedule key into the domain: */
   (void) process_swap(KR_NEWDOM, ProcSched, KR_SCHED, KR_VOID);
   
   kdprintf(KR_OSTREAM, "Installed sched\n");
 
+  /* Install hello address space into the domain root: */
+  (void) process_swap(KR_NEWDOM, ProcAddrSpace, KR_HELLO_SEG, KR_VOID);
+
   /* Install the program counter key into the domain: */
   (void) process_swap(KR_NEWDOM, ProcPCandSP, KR_HELLO_PC, KR_VOID);
   
-  kdprintf(KR_OSTREAM, "Installed program counter\n");
+  kdprintf(KR_OSTREAM, "Installed addrspace and program counter\n");
 
   /* Fetch out the register values, mostly for the benefit of
      Retrieving the PC -- this prevents us from needing to hard-code

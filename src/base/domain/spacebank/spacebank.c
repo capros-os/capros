@@ -33,8 +33,8 @@ Approved for public release, distribution unlimited. */
 
 #include <stddef.h>
 #include <eros/target.h>
-#define _REVEAL_KERNEL_KEY_TYPES_
 #include <disk/DiskNodeStruct.h>
+#include <eros/StdKeyType.h>	// get AKT_SpaceBank
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 

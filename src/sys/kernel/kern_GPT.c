@@ -29,7 +29,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
 #include <arch-kerninc/PTE.h>
-#include <eros/ProcessKey.h>
 #include <idl/capros/GPT.h>
 
 // #define WALK_DBG

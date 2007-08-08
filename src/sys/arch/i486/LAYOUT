@@ -373,6 +373,7 @@ load	rcvKeys      LTL     root   15    8		"0x0"
 load    faultCode    LTL     root   8     0		"0x0"
 load    faultInfo    LTL     root   8     4		"0x0"
 load	runState     LTL     root   8     8		"0x0"
+// See also proc_runStateField().
 load	processFlags LTL     root   8     9		"0x0"
 
 load  	f_ctrl	     LTL     root   25    10      	"0x37f"

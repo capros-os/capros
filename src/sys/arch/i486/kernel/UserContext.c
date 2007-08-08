@@ -39,10 +39,9 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/IRQ-inline.h>
 #include "TSS.h"
 #include <eros/Invoke.h>
-#include <eros/ProcessState.h>
+#include <disk/DiskNodeStruct.h>
 #include <eros/Registers.h>
 #include <eros/arch/i486/Registers.h>
-#include <eros/ProcessKey.h>
 #include <kerninc/Invocation.h>
 #include "Process486.h"
 

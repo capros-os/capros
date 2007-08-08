@@ -49,10 +49,6 @@ Approved for public release, distribution unlimited. */
 // #define KPRDEBUG
  
 
-#ifdef GATEDEBUG
-#include <eros/ProcessKey.h>
-#endif
-
 /* #define TESTING_INVOCATION */
 
 #ifdef TESTING_INVOCATION

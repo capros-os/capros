@@ -42,7 +42,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <eros/ProcessState.h>
 #include <eros/Registers.h>
 #include <eros/arch/arm/Registers.h>
-#include <eros/ProcessKey.h>
+#include <disk/DiskNodeStruct.h>
 #include <kerninc/Invocation.h>
 #include "arm.h"
 

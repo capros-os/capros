@@ -82,6 +82,15 @@ BlssToL2v(unsigned int blss)
   return (blss -1 - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS;
 }
 
+static DiskNodeStruct *
+ei_GetNodeP(const ErosImage *ei, KeyBits nodeKey)
+{
+  if (keyBits_IsNodeKeyType(&nodeKey) == false)
+    diag_fatal(5,"GetNodeP expects node key!\n");
+
+  return & ei->nodeImages[nodeKey.u.unprep.oid];
+}
+
 int
 ei_GetAnyBlss(const ErosImage * ei, KeyBits key)
 {
@@ -89,7 +98,7 @@ ei_GetAnyBlss(const ErosImage * ei, KeyBits key)
   switch (type) {
   case KKT_GPT:
   {
-    struct DiskNodeStruct * theGPT = & ei->nodeImages[key.u.unprep.oid];
+    struct DiskNodeStruct * theGPT = ei_GetNodeP(ei, key);
     return L2vToBlss(* gpt_l2vField(& theGPT->nodeData) & GPT_L2V_MASK);
   }
 
@@ -620,16 +629,10 @@ ei_Import(ErosImage *to, const ErosImage *from);
 KeyBits
 ei_GetNodeSlot(const ErosImage *ei, KeyBits nodeKey, uint32_t slot)
 {
-  uint32_t ndx;
-
   if (slot >= EROS_NODE_SIZE)
     diag_fatal(5,"Slot value too high\n");
   
-  if (keyBits_IsNodeKeyType(&nodeKey) == false)
-    diag_fatal(5,"GetNodeSlot expects node key!\n");
-
-  ndx = nodeKey.u.unprep.oid;
-  return ei->nodeImages[ndx].slot[slot];
+  return ei_GetNodeP(ei, nodeKey)->slot[slot];
 }
 
 KeyBits
@@ -645,16 +648,10 @@ void
 ei_SetNodeSlot(ErosImage *ei, KeyBits nodeKey, uint32_t slot,
 	       KeyBits key)
 {
-  uint32_t ndx;
-
   if (slot >= EROS_NODE_SIZE)
     diag_fatal(5,"Slot value too high\n");
   
-  if (keyBits_IsNodeKeyType(&nodeKey) == false)
-    diag_fatal(5,"SetNodeSlot expects node key!\n");
-
-  ndx = nodeKey.u.unprep.oid;
-  ei->nodeImages[ndx].slot[slot] = key;
+  ei_GetNodeP(ei, nodeKey)->slot[slot] = key;
 }
 
 unsigned int
@@ -663,7 +660,7 @@ ei_GetBlss(ErosImage * ei, KeyBits gptKey)
   if (! keyBits_IsType(&gptKey, KKT_GPT))
     diag_fatal(5,"GetBlss expects GPT key!\n");
 
-  struct DiskNodeStruct * theGPT = & ei->nodeImages[gptKey.u.unprep.oid];
+  struct DiskNodeStruct * theGPT = ei_GetNodeP(ei, gptKey);
   uint8_t * l2vf = gpt_l2vField(& theGPT->nodeData);
   return *l2vf & GPT_L2V_MASK;
 }
@@ -682,7 +679,7 @@ ei_SetBlss(ErosImage * ei, KeyBits gptKey, unsigned int blss)
   if (! keyBits_IsType(&gptKey, KKT_GPT))
     diag_fatal(5,"SetBlss expects GPT key!\n");
 
-  struct DiskNodeStruct * theGPT = & ei->nodeImages[gptKey.u.unprep.oid];
+  struct DiskNodeStruct * theGPT = ei_GetNodeP(ei, gptKey);
   uint8_t * l2vf = gpt_l2vField(& theGPT->nodeData);
   * l2vf = (*l2vf & ~GPT_L2V_MASK) | l2v;
   return true;
@@ -697,7 +694,7 @@ ei_SetGPTFlags(ErosImage *ei, KeyBits gptKey, uint8_t flags)
   if (! keyBits_IsType(&gptKey, KKT_GPT))
     diag_fatal(5,"SetBlss expects GPT key!\n");
 
-  struct DiskNodeStruct * theGPT = & ei->nodeImages[gptKey.u.unprep.oid];
+  struct DiskNodeStruct * theGPT = ei_GetNodeP(ei, gptKey);
   uint8_t * l2vf = gpt_l2vField(& theGPT->nodeData);
   * l2vf |= flags;
 }
@@ -1311,7 +1308,7 @@ ei_DoPrintSegment(const ErosImage *ei, uint32_t slot, KeyBits segKey,
   switch(keyBits_GetType(&segKey)) {
   case KKT_GPT:
   {
-    struct DiskNodeStruct * theGPT = & ei->nodeImages[segKey.u.unprep.oid];
+    struct DiskNodeStruct * theGPT = ei_GetNodeP(ei, segKey);
     uint8_t l2vf = * gpt_l2vField(& theGPT->nodeData);
 
     if (annotation)
@@ -1381,18 +1378,15 @@ ei_PrintSegment(const ErosImage *ei, KeyBits segKey)
 void
 ei_SetProcessState(ErosImage *ei, KeyBits procRoot, uint8_t state)
 {
-  KeyBits key = ei_GetNodeSlot(ei, procRoot, ProcTrapCode);
-  key.u.nk.value[2] &= key.u.nk.value[2] & 0xffffff00;
-  key.u.nk.value[2] |= state;
-  ei_SetNodeSlot(ei, procRoot, ProcTrapCode, key);
+  uint8_t * runStateField = proc_runStateField(ei_GetNodeP(ei, procRoot));
+  *runStateField = state;
 }
 	  
 uint8_t
 ei_GetProcessState(ErosImage *ei, KeyBits procRoot)
 {
-  KeyBits key = ei_GetNodeSlot(ei, procRoot, ProcTrapCode);
-  uint32_t state = key.u.nk.value[2] & 0xffu;
-  return state;
+  uint8_t * runStateField = proc_runStateField(ei_GetNodeP(ei, procRoot));
+  return *runStateField;
 }
 	  
 KeyBits

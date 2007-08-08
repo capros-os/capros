@@ -37,6 +37,7 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <disk/KeyStruct.h>
+#include <disk/Key-inline.h>
 #include <disk/DiskNodeStruct.h>
 
 #ifdef __cplusplus

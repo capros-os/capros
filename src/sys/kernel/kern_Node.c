@@ -24,7 +24,7 @@ Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Node.h>
-#include <eros/ProcessKey.h>
+#include <disk/DiskNodeStruct.h>
 #include <kerninc/util.h>
 #include <kerninc/Check.h>
 #include <kerninc/Process.h>

@@ -26,7 +26,6 @@ Approved for public release, distribution unlimited. */
 
 #include "ObjectHeader.h"
 #include "Key.h"
-#include <eros/ProcessState.h>
 
 struct DiskNodeStruct;
 

@@ -31,22 +31,13 @@ Approved for public release, distribution unlimited. */
  */
 
 
-/* Slots of a process root. Changes here should be matched in the
- * architecture-dependent layout files and also in the mkimage grammar
- * restriction checking logic. */
+/* Some slots of a process root. Changes here should be matched in
+   DiskNodeStruct.h. */
 #define ProcSched             0
 #define ProcKeeper            1
 #define ProcAddrSpace         2
-#define ProcCapSpace          3	/* unimplemented */
-#define ProcGenKeys           3 /* for now */
 #define ProcIoSpace           4	/* unimplemented */
 #define ProcSymSpace          5
-#define ProcBrand             6
-/*			      7    unused */
-#define ProcTrapCode          8
-#define ProcPCandSP           9
-#define ProcFirstRootRegSlot  8
-#define ProcLastRootRegSlot   31
 
 /* ORDER and RESULT code values: */
 

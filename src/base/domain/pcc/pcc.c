@@ -38,6 +38,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/cap-instr.h>
 #include <eros/StdKeyType.h>
 #include <eros/machine/Registers.h>
+#include <disk/DiskNodeStruct.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/ProcTool.h>

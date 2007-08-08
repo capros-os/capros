@@ -4,7 +4,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 
 /* Dependencies: */
 #include <disk/KeyStruct.h>
+#include <disk/Key-inline.h>
 #include <kerninc/ObjectHeader.h>
 
 /* 

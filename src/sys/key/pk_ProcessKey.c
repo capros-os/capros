@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <eros/ProcessKey.h>
+#include <disk/DiskNodeStruct.h>
 #include <eros/machine/Registers.h>
 
 #include <idl/capros/key.h>

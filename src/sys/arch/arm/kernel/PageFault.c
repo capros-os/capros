@@ -24,8 +24,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
-#include <eros/ProcessKey.h>
-#include <eros/ProcessState.h>
 #include <kerninc/Check.h>
 #include <kerninc/KernStats.h>
 #include <kerninc/Activity.h>
@@ -630,12 +628,13 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
         GPT * gpt = objH_ToNode(wi.memObj);
         uint8_t l2vField = gpt_GetL2vField(gpt);
         unsigned int l2v = l2vField & GPT_L2V_MASK;
-        if (l2v > PID_SHIFT) {
-          // Slot 0 could refer to a GPT with addresses above (1 << PID_SHIFT).
- largespace:
-          fatal("Process is using large space at 0x%08x\n", va);
-        }
         if (l2v > PID_SHIFT - EROS_NODE_LGSIZE) {
+          if (l2v > PID_SHIFT) {
+            /* Slot 0 could refer to a GPT with addresses above
+            (1 << PID_SHIFT). */
+ largespace:
+            fatal("Process is using large space at 0x%08x\n", va);
+          }
           unsigned int startSlot = 1ul << (PID_SHIFT - l2v);
           /* The first startSlot slots span a small space.
           If all the other slots are void, this GPT can produce a small space.

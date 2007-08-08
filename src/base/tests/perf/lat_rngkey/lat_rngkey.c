@@ -22,17 +22,15 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#define _REVEAL_KERNEL_KEY_TYPES_
 #include <disk/DiskNodeStruct.h>
-#include <eros/KeyConst.h>
 #include <domain/domdbg.h>
 #include <idl/capros/SysTrace.h>
 
 #define KR_SELF     2
 #define KR_SCHED    3
+
 #define KR_OSTREAM  5
 #define KR_SYSTRACE 6
 #define KR_RANGE    7
