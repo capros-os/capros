@@ -30,7 +30,6 @@ Approved for public release, distribution unlimited. */
 
 #include <stddef.h>
 #include <eros/target.h>
-#include <eros/NodeKey.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
 #include <eros/ProcessKey.h>
@@ -39,6 +38,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/DevPrivs.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 #include <idl/capros/GPT.h>
 
 #include <domain/ConstructorKey.h>
@@ -320,7 +320,7 @@ patch_addrspace()
     kdprintf(KR_OSTREAM, "** ERROR:no room for local window keys for DMA!");
   next_slot++;
   
-  node_swap(KR_ADDRSPC, next_slot, KR_REGS, KR_VOID);
+  capros_Node_swapSlot(KR_ADDRSPC, next_slot, KR_REGS, KR_VOID);
   if (regs_lss == EROS_ADDRESS_LSS)
     kdprintf(KR_OSTREAM, "** ERROR:no room for local window "
              "keys for tg3 regs!");
@@ -4514,13 +4514,13 @@ main(void)
 {
   Message msg;
   
-  node_extended_copy(KR_CONSTIT, KC_OSTREAM,   KR_OSTREAM);
-  node_extended_copy(KR_CONSTIT, KC_PCI_PROBE_C,  KR_PCI_PROBE_C);
-  node_extended_copy(KR_CONSTIT, KC_DEVPRIVS,  KR_DEVPRIVS);
-  node_extended_copy(KR_CONSTIT, KC_PHYSRANGE,  KR_PHYSRANGE);
-  node_extended_copy(KR_CONSTIT, KC_MEMMAP_C, KR_MEMMAP_C);
-  node_extended_copy(KR_CONSTIT, KC_SLEEP, KR_SLEEP);
-  node_extended_copy(KR_CONSTIT, KC_HELPER_C, KR_HELPER_C);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM,   KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_PCI_PROBE_C,  KR_PCI_PROBE_C);
+  capros_Node_getSlot(KR_CONSTIT, KC_DEVPRIVS,  KR_DEVPRIVS);
+  capros_Node_getSlot(KR_CONSTIT, KC_PHYSRANGE,  KR_PHYSRANGE);
+  capros_Node_getSlot(KR_CONSTIT, KC_MEMMAP_C, KR_MEMMAP_C);
+  capros_Node_getSlot(KR_CONSTIT, KC_SLEEP, KR_SLEEP);
+  capros_Node_getSlot(KR_CONSTIT, KC_HELPER_C, KR_HELPER_C);
 
   /* Move the DEVPRIVS key to the ProcIoSpace slot so we can do io calls */
   process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);

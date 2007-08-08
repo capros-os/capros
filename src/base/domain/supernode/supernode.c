@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* SuperNode -- domain that looks like a very big node.  Constructs a
    tree of nodes to store keys passed by the user.
@@ -39,13 +43,13 @@
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
 #include <eros/cap-instr.h>
 #include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 
-#include <domain/SpaceBankKey.h>
 #include <domain/SuperNodeKey.h>
 #include <domain/domdbg.h>
 #include <domain/ProtoSpace.h>
@@ -105,7 +109,7 @@ Initialize(state *mystate)
   mystate->lastKey = 0;
   mystate->treeHeight = 0;
 
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
   COPY_KEYREG(KR_VOID, KR_TREE);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "Supernode: initialized\n");
@@ -237,7 +241,7 @@ snode_xtract(uint32_t ndx, state *mystate, uint32_t depth)
 	
     nodeNdx &= 0xfu;
 
-    if ( node_copy(KR_WALK, nodeNdx, KR_WALK) == RC_capros_key_Void ) {
+    if (capros_Node_getSlot(KR_WALK, nodeNdx, KR_WALK) == RC_capros_key_Void) {
       /* It was a void key - just return RC_OK, since msg->snd_key0
 	 still holds KR_VOID. */
       return 0;
@@ -286,14 +290,15 @@ snode_swap(Message *msg, state *mystate)
 
     /* Using KR_WALK as a scratch register */
 
-    if ((result = spcbank_buy_nodes(KR_BANK, 1, KR_WALK, KR_VOID, KR_VOID)) != RC_OK)
+    if ((result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otNode,
+                                          KR_WALK)) != RC_OK)
       return result;
 
     DEBUG(swap) kdprintf(KR_OSTREAM, "Got new node\n", ndxHeight,
 	     mystate->treeHeight); 
 
     /* set slot 0 of new node to old tree: */
-    node_swap(KR_WALK, 0, KR_TREE, KR_VOID);
+    capros_Node_swapSlot(KR_WALK, 0, KR_TREE, KR_VOID);
       
     /* establish new tree root */
     COPY_KEYREG(KR_WALK, KR_TREE);
@@ -331,21 +336,22 @@ snode_swap(Message *msg, state *mystate)
 	
     nodeNdx &= 0xfu;
 
-    node_copy(KR_WALK, nodeNdx, KR_SCRATCH);
+    capros_Node_getSlot(KR_WALK, nodeNdx, KR_SCRATCH);
 
     /* KR_SCRATCH may be a void key, in which case it will respond
        with RC_capros_key_Void to the following, and we must populate that
        subtree: */
       
-    if (node_copy(KR_SCRATCH, 0, KR_VOID) == RC_capros_key_Void) {
+    if (capros_Node_getSlot(KR_SCRATCH, 0, KR_VOID) == RC_capros_key_Void) {
 #if 0
       uint32_t subnodeNdx = (mystate->inNdx >> ((height - 2) * 4));
 #endif
 	
-      if ((result = spcbank_buy_nodes(KR_BANK, 1, KR_SCRATCH, KR_VOID, KR_VOID)) != RC_OK)
+      if ((result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otNode,
+                                            KR_SCRATCH)) != RC_OK)
 	return result;
 
-      node_swap(KR_WALK, nodeNdx, KR_SCRATCH, KR_VOID);
+      capros_Node_swapSlot(KR_WALK, nodeNdx, KR_SCRATCH, KR_VOID);
     }
 
     COPY_KEYREG(KR_SCRATCH, KR_WALK);
@@ -353,7 +359,7 @@ snode_swap(Message *msg, state *mystate)
     height--;
   }
 
-  node_swap(KR_WALK, (msg->rcv_w1 & 0xf), KR_ARG(0), KR_WALK);
+  capros_Node_swapSlot(KR_WALK, (msg->rcv_w1 & 0xf), KR_ARG(0), KR_WALK);
   
   msg->snd_key0 = KR_WALK;
   
@@ -389,7 +395,7 @@ snode_zap_all_keys(state *mystate)
 	 hasn't much negative impact. The test of the snode_xtract
 	 return value will let us weed large sparsities. */
       if ( snode_xtract(lo, mystate, 1) )
-	spcbank_return_node(KR_BANK, KR_WALK);
+	capros_SpaceBank_free1(KR_BANK, KR_WALK);
     }
   }
 
@@ -401,9 +407,9 @@ snode_zap_all_keys(state *mystate)
 void
 Sepuku()
 {
-  node_copy(KR_CONSTIT, KC_PROTOSPC, KR_WALK);
+  capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPC, KR_WALK);
 
-  spcbank_return_node(KR_BANK, KR_CONSTIT);
+  capros_SpaceBank_free1(KR_BANK, KR_CONSTIT);
 
   /* Invoke the protospace with arguments indicating that we should be
      demolished as a small space domain */

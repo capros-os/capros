@@ -23,7 +23,6 @@ Approved for public release, distribution unlimited. */
 
 #include <stddef.h>
 #include <eros/target.h>
-#include <eros/NodeKey.h>
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
 #include <eros/ProcessKey.h>
@@ -32,6 +31,7 @@ Approved for public release, distribution unlimited. */
 
 #include <idl/capros/Sleep.h>
 #include <idl/capros/Stream.h>
+#include <idl/capros/Node.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/NetSysKey.h>
@@ -351,10 +351,10 @@ main(void)
   uint32_t result;
   Message tmsg;
   
-  node_extended_copy(KR_CONSTIT, KC_OSTREAM,KR_OSTREAM);
-  node_extended_copy(KR_CONSTIT, KC_NETSYS_C,KR_NETSYS_C);
-  node_extended_copy(KR_CONSTIT, KC_SLEEP,KR_SLEEP);
-  node_extended_copy(KR_CONSTIT,KC_DEVPRIVS,KR_DEVPRIVS);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM,KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_NETSYS_C,KR_NETSYS_C);
+  capros_Node_getSlot(KR_CONSTIT, KC_SLEEP,KR_SLEEP);
+  capros_Node_getSlot(KR_CONSTIT,KC_DEVPRIVS,KR_DEVPRIVS);
 
   /* Move the DEVPRIVS key to the ProcIOSpace so we can do i/o calls */
   process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);

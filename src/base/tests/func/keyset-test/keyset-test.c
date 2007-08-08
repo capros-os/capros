@@ -25,11 +25,11 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
 #include <idl/capros/Number.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 
 #include <domain/KeySetKey.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
 
 #include <domain/domdbg.h>
@@ -60,14 +60,14 @@ createNumberKey(uint32_t number, uint32_t krOut)
   uint32_t result;
   const capros_Number_value val = {{0,0,number}};
 
-  result = node_write_number(KR_NODE, 0, &val);
+  result = capros_Node_writeNumber(KR_NODE, 0, val);
   if (result != RC_OK) {
     kdprintf(KR_OSTREAM,
 	     "Keyset-test: Error writing number key to node! (0x%08x)\n",
 	     result);
   }
 
-  result = node_copy(KR_NODE, 0, krOut);
+  result = capros_Node_getSlot(KR_NODE, 0, krOut);
 #if 0
   kdprintf(KR_OSTREAM,
 	   "Copied number key from slot 0 in node in %d to key register %d.\n",
@@ -149,7 +149,7 @@ main(void)
 	     "Construction of Other KeySet failed. (%08x)\n", result);
   }
 
-  result = spcbank_buy_nodes(KR_BANK, 1, KR_NODE, 0, 0);
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otNode, KR_NODE);
 
   if (result != RC_OK) {
     kdprintf(KR_OSTREAM,

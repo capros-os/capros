@@ -1,15 +1,36 @@
+/*
+ * Copyright (C) 2007, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 #include <stddef.h>
 #include <eros/target.h>
-#include <eros/NodeKey.h>
-#include <eros/KeyConst.h>
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
 
 #include <idl/capros/DevPrivs.h>
+#include <idl/capros/Node.h>
 
 #include <domain/domdbg.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/Runtime.h>
 
 #include <domain/drivers/PciProbeKey.h>
@@ -1455,9 +1476,9 @@ main(void)
 {
   Message msg;
 
-  node_extended_copy(KR_CONSTIT, KC_OSTREAM,   KR_OSTREAM);
-  node_extended_copy(KR_CONSTIT, KC_DEVPRIVS,  KR_DEVPRIVS);
-  node_extended_copy(KR_CONSTIT, KC_PHYSRANGE, KR_PHYSRANGE);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM,   KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_DEVPRIVS,  KR_DEVPRIVS);
+  capros_Node_getSlot(KR_CONSTIT, KC_PHYSRANGE, KR_PHYSRANGE);
   process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);
 
  /*Make a start key to pass back to the constructor*/

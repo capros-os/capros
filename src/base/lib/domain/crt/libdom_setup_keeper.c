@@ -23,15 +23,11 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
+#include <eros/StdKeyType.h>
 #include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
-#include <eros/NodeKey.h>
-#include <eros/KeyConst.h>
 #include <eros/Invoke.h>
 #include <domain/Runtime.h>
-#include <domain/ProtoSpace.h>
-#include <domain/SpaceBankKey.h>
-#include <domain/ProcessCreatorKey.h>
 #include <domain/ConstructorKey.h>
 
 #include <idl/capros/key.h>

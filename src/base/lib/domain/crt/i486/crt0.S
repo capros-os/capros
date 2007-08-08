@@ -1,8 +1,9 @@
 	.file	"crt0.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -18,25 +19,13 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/arch/i486/asm.h>
 #include <eros/arch/i486/target-asm.h>
-#include <eros/StdKeyType.h>
-#include <eros/KeyConst.h>
-#include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
-#include <eros/Invoke.h>
-#include <domain/ProtoSpace.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/Runtime.h>
-	
-#define KR_OLDSPACE KR_APP(0)
-#define KR_NEWSPACE KR_APP(1)
-#define KR_NEWPAGE  KR_APP(2)
-	
-#define KEYS(k0, k1, k2, k3) (k0 + k1 << 8 + k2 << 16 + k3 << 24)
-	
-#define NO_KEYS KEYS(KR_VOID, KR_VOID, KR_VOID, KR_VOID)
 	
 /* Startup code for processes.  Handles four cases:
 
@@ -87,80 +76,6 @@
    (first key arg).
    */
    
-	.section .rodata
-sb_alloc_root_node:
-	.long	IT_Call
-	.long	KR_BANK
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	NO_KEYS		/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	KEYS(KR_NEWSPACE,KR_VOID,KR_VOID,KR_VOID)	/* rcv keys */
-	
-mk_node_key:
-	.long	IT_Call
-	.long	KR_NEWSPACE
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	NO_KEYS		/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	KEYS(KR_NEWSPACE,KR_VOID,KR_VOID,KR_VOID)	/* rcv keys */
-
-buy_first_page:	
-	.long	IT_Call
-	.long	KR_BANK
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	NO_KEYS		/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	KEYS(KR_NEWPAGE,KR_VOID,KR_VOID,KR_VOID)	/* rcv keys */
-
-	xorl	%edi,%edi		/* rcv len */
-	
-fetch_cur_space:	
-	.long	IT_Call
-	.long	KR_SELF
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	NO_KEYS		/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	KEYS(KR_OLDSPACE,KR_VOID,KR_VOID,KR_VOID)	/* rcv keys */
-	
-clone_cur_space:	
-	.long	IT_Call
-	.long	KR_NEWSPACE
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	KEYS(KR_OLDSPACE,KR_VOID,KR_VOID,KR_VOID)	/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	NO_KEYS		/* rcv keys */
-	
-insert_stack_page:	
-	.long	IT_Call
-	.long	KR_NEWSPACE
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	KEYS(KR_NEWPAGE,KR_VOID,KR_VOID,KR_VOID)	/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	NO_KEYS		/* rcv keys */
-	
-set_my_addr_space:	
-	.long	IT_Call
-	.long	KR_SELF
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	KEYS(KR_NEWSPACE,KR_VOID,KR_VOID,KR_VOID)	/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	NO_KEYS		/* rcv keys */
-	
-	
 	.text
 ENTRY(_start)
 	movl	EXT(__rt_runtime_hook),%eax

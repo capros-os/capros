@@ -53,7 +53,6 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 #include <eros/StdKeyType.h>
@@ -62,8 +61,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/ProcTool.h>
 #include <idl/capros/Number.h>
 #include <idl/capros/GPT.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 
-#include <domain/SpaceBankKey.h>
 #include <domain/domdbg.h>
 #include <domain/ProcessCreatorKey.h>
 #include <domain/Runtime.h>
@@ -197,8 +197,8 @@ ProcessRequest(Message *argmsg)
 void
 init_domcre()
 {
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_copy(KR_CONSTIT, KC_DOMTOOL, KR_PROCTOOL);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_DOMTOOL, KR_PROCTOOL);
 
   /* Fabricate the key that we will use for a brand key. */
   (void) process_make_start_key(KR_SELF, 65535, KR_OURBRAND);
@@ -262,7 +262,7 @@ destroy_process(uint32_t krGate, uint32_t krBank)
   DEBUG kdprintf(KR_OSTREAM, "About to destroy process in reg %d, bank %d...\n",
 		 krGate, krBank);
 
-  if (spcbank_verify_bank(KR_BANK, krBank, &isGood) != RC_OK ||
+  if (capros_SpaceBank_verify(KR_BANK, krBank, &isGood) != RC_OK ||
       isGood == 0)
     return RC_ProcCre_BadBank;
   
@@ -271,14 +271,11 @@ destroy_process(uint32_t krGate, uint32_t krBank)
   
   /* It's our progeny.  Extract the annex nodes */
 
-  (void) node_copy(KR_SCRATCH0, ProcGenKeys, KR_SCRATCH1);
+  (void) capros_Node_getSlot(KR_SCRATCH0, ProcGenKeys, KR_SCRATCH1);
   
-  if (spcbank_return_node(krBank, KR_SCRATCH0) != RC_OK)
+  if (capros_SpaceBank_free2(krBank, KR_SCRATCH0, KR_SCRATCH1) != RC_OK)
     success = 0;
   
-  if (spcbank_return_node(krBank, KR_SCRATCH1) != RC_OK)
-    success = 0;
-
   if (success == 0)
     return RC_ProcCre_WrongBank;
   

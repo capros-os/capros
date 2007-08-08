@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Domain for continuously waiting for the expiration of a specified
    interval and sending a message to its client.
@@ -24,18 +28,17 @@
 #include <stddef.h>
 #include <string.h>
 #include <eros/target.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 #include <idl/capros/timer/manager.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
 
 #include "constituents.h"
@@ -80,7 +83,7 @@ ProcessRequest(Message *m)
 	kprintf(KR_OSTREAM, "Timer Mgr asked to start timer.\n");
 
 	/* Buy a sub bank for this thread */
-	spcbank_create_subbank(KR_BANK, KR_NEW_BANK);
+	capros_SpaceBank_createSubBank(KR_BANK, KR_NEW_BANK);
 
 	/* Now construct the timer thread */
 	if (constructor_request(KR_TIMER_THREAD_C, KR_NEW_BANK, KR_SCHED, 
@@ -103,7 +106,7 @@ ProcessRequest(Message *m)
 	 */
       kprintf(KR_OSTREAM, "Timer Mgr destroying sub-bank for TIMER_THREAD!\n");
 #if 0
-      spcbank_destroy_bank(KR_NEW_BANK, 1);
+      capros_key_destroy(KR_NEW_BANK, 1);
 #endif
       running = false;
       m->snd_code = RC_OK;
@@ -125,8 +128,9 @@ main(void)
 {
   Message msg;
   
-  node_extended_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_extended_copy(KR_CONSTIT, KC_TIMER_THREAD, KR_TIMER_THREAD_C);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_TIMER_THREAD, KR_TIMER_THREAD_C);
+
   
   COPY_KEYREG(KR_ARG(0), KR_CLIENT);
   

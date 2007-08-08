@@ -27,7 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
-#include <eros/NodeKey.h>
+#include <idl/capros/Node.h>
 
 #include "constituents.h"
 
@@ -41,7 +41,7 @@ const uint32_t __rt_stack_pointer = 0x02000000;
 int
 main(void)
 {
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
   kprintf(KR_OSTREAM, "hello, world\n");
 

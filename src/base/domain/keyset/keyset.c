@@ -58,15 +58,15 @@ Approved for public release, distribution unlimited. */
 #include <domain/Runtime.h>
 #include <eros/KeyConst.h>
 #include <eros/ProcessKey.h>
-#include <eros/NodeKey.h>
 #include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/KeyBits.h>
 #include <idl/capros/Discrim.h>
+#include <idl/capros/SpaceBank.h>
 #include <idl/capros/GPT.h>
+#include <idl/capros/Node.h>
 
-#include <domain/SpaceBankKey.h>
 #include <domain/ProtoSpace.h>
 #include <domain/ConstructorKey.h>
 #include <domain/ProcessCreatorKey.h>
@@ -197,9 +197,9 @@ Initialize(void)
 
   STAT.initstate = START;
 
-  node_copy(KR_CONSTIT, KC_OSTREAM,  KR_OSTREAM);
-  node_copy(KR_CONSTIT, KC_KEYBITS,  KR_KEYBITS);
-  node_copy(KR_CONSTIT, KC_DISCRIM,  KR_DISCRIM);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM,  KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_KEYBITS,  KR_KEYBITS);
+  capros_Node_getSlot(KR_CONSTIT, KC_DISCRIM,  KR_DISCRIM);
 
   STAT.numSorted = 0;
   STAT.numUnsorted = 0;
@@ -239,7 +239,7 @@ Initialize(void)
   /* Construct the ZSF that will hold the actual directory data */
   DEBUG(init) kdprintf(KR_OSTREAM, "KeySet: Building ZSF\n");
 
-  node_copy(KR_CONSTIT, KC_ZSF, KR_SCRATCH);
+  capros_Node_getSlot(KR_CONSTIT, KC_ZSF, KR_SCRATCH);
   result = constructor_request(KR_SCRATCH,
 			       KR_BANK,
 			       KR_SCHED,
@@ -306,7 +306,7 @@ teardown(void)
   /* now, shoot myself in the head: */
   
   /* get the protospace */
-  node_copy(KR_CONSTIT, KC_PROTOSPC, KR_SCRATCH);
+  capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPC, KR_SCRATCH);
 
   /* destroy as small space. */
   protospace_destroy(KR_VOID, KR_SCRATCH, KR_SELF, KR_CREATOR,

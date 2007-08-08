@@ -22,12 +22,12 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
-#include <eros/NodeKey.h>
 #include <eros/Invoke.h>
 #include <eros/ProcessKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 #include <idl/capros/GPT.h>
 
 #include "constituents.h"
@@ -58,7 +58,7 @@ main(void)
   unsigned long *pValue = &value;
   unsigned long *npValue;
 
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
   capros_SpaceBank_alloc2(KR_BANK, capros_Range_otGPT + (capros_Range_otGPT<<8),
                           KR_NEWNODE, KR_ALTSPACE);

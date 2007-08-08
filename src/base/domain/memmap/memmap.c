@@ -28,7 +28,6 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
 #include <eros/cap-instr.h>
@@ -38,6 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Range.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 
 #include <domain/VcskKey.h>
 #include <domain/MemmapKey.h>
@@ -489,7 +489,7 @@ ProcessRequest(Message *argmsg, state *pState)
 void
 Sepuku()
 {
-  node_copy(KR_CONSTIT, KC_PROTOSPC, KR_GPT);
+  capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPC, KR_GPT);
 
   capros_SpaceBank_free1(KR_BANK, KR_CONSTIT);
 
@@ -593,7 +593,7 @@ Initialize(state *mystate)
   mystate->first_zero_offset = ~0ull; /* until proven otherwise below */
   mystate->npage = 0;
   
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
   /* find out BLSS of frozen segment: */
   uint8_t segBlss = GetBlss(KR_ARG(0));

@@ -26,10 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <stdlib.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
-#include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Range.h>

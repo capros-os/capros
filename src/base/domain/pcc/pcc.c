@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -33,19 +33,18 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
 #include <eros/cap-instr.h>
-#include <eros/KeyConst.h>
 #include <eros/StdKeyType.h>
 #include <eros/machine/Registers.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/ProcTool.h>
 #include <idl/capros/Number.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 
-#include <domain/SpaceBankKey.h>
 #include <domain/PccKey.h>
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -119,16 +118,16 @@ ProcessRequest(Message *argmsg, domcre_info *pInfo)
 void
 init_pcc(domcre_info *pInfo)
 {
-  node_copy(KR_CONSTIT, KC_DOMCRE_PC, KR_SCRATCH);
+  capros_Node_getSlot(KR_CONSTIT, KC_DOMCRE_PC, KR_SCRATCH);
 
   capros_Number_getWord(KR_SCRATCH, &pInfo->domcre_pc);
 
 
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_copy(KR_CONSTIT, KC_DOMTOOL, KR_PROCTOOL);
-  node_copy(KR_CONSTIT, KC_DOMCRE_SEG, KR_DOMCRE_SEG);
-  node_copy(KR_CONSTIT, KC_OURBRAND, KR_OURBRAND);
-  node_copy(KR_CONSTIT, KC_DOMCRE_CONSTIT, KR_DOMCRE_CONSTIT);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_DOMTOOL, KR_PROCTOOL);
+  capros_Node_getSlot(KR_CONSTIT, KC_DOMCRE_SEG, KR_DOMCRE_SEG);
+  capros_Node_getSlot(KR_CONSTIT, KC_OURBRAND, KR_OURBRAND);
+  capros_Node_getSlot(KR_CONSTIT, KC_DOMCRE_CONSTIT, KR_DOMCRE_CONSTIT);
 
   DEBUG kdprintf(KR_OSTREAM, "PCC Initialized...\n");
 }
@@ -181,17 +180,17 @@ destroy_domain(uint32_t krBank, uint32_t krDomKey)
 
 #if defined(EROS_TARGET_i486)
 
-  (void) node_copy(krDomKey, ProcGenKeys, KR_SCRATCH0);
-  (void) spcbank_return_node(krBank, KR_SCRATCH0);
+  (void) capros_Node_getSlot(krDomKey, ProcGenKeys, KR_SCRATCH0);
+  (void) capros_SpaceBank_free1(krBank, KR_SCRATCH0);
 
 #elif defined(EROS_TARGET_arm)
 
-  (void) node_copy(krDomKey, ProcGenKeys, KR_SCRATCH0);
-  (void) spcbank_return_node(krBank, KR_SCRATCH0);
+  (void) capros_Node_getSlot(krDomKey, ProcGenKeys, KR_SCRATCH0);
+  (void) capros_SpaceBank_free1(krBank, KR_SCRATCH0);
 
 #endif
 
-  (void) spcbank_return_node(krBank, krDomKey);
+  (void) capros_SpaceBank_free1(krBank, krDomKey);
       
   DEBUG kdprintf(KR_OSTREAM, "Sold domain back to bank\n");
 
@@ -214,27 +213,29 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
 
 #if 0
   /* Buy a node to hold the new segment root. */
-  result = spcbank_buy_nodes(krBank, 1, PCC_NEWSEG, KR_VOID, KR_VOID);
+  result = capros_SpaceBank_alloc1(krBank, capros_Range_otGPT, PCC_NEWSEG);
   if ( result != RC_OK) {
-    DEBUG kdprintf(KR_OSTREAM, "buy node result is 0x%08x\n", result);
+    DEBUG kdprintf(KR_OSTREAM, "buy GPT result is 0x%08x\n", result);
     /* Acquisition failed - return what we have and give up. */
     destroy_domain(krBank, krDomKey);
     return RC_PCC_NoSpace;
   }
 
-  DEBUG kdprintf(KR_OSTREAM, "Got new aspace node\n");
+  DEBUG kdprintf(KR_OSTREAM, "Got new aspace GPT\n");
+
+  capros_GPT_setL2v(PCC_NEWSEG, 27);
 
   /* Install into newseg slot 0 the basic domcre segment: */
-  node_swap(PCC_NEWSEG, 0, KR_DOMCRE_SEG, KR_VOID);
+  capros_GPT_setSlot(PCC_NEWSEG, 0, KR_DOMCRE_SEG);
 
   DEBUG kdprintf(KR_OSTREAM, "Installed codeseg\n");
 
   /* Buy a page to hold the new domcre's stack. */
-  result = spcbank_buy_pages(krBank, 1, PCC_NEWSTACK, KR_VOID, KR_VOID);
+  result = capros_SpaceBank_alloc(krBank, capros_Range_otPage, PCC_NEWSTACK);
   if ( result != RC_OK) {
     DEBUG kdprintf(KR_OSTREAM, "buy page result is 0x%08x\n", result);
     /* Acquisition failed - return what we have and give up. */
-    spcbank_return_node(krBank, PCC_NEWSEG);
+    capros_SpaceBank_free1(krBank, PCC_NEWSEG);
     destroy_domain(krBank, krDomKey);
     return RC_PCC_NoSpace;
   }
@@ -242,16 +243,11 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
   DEBUG kdprintf(KR_OSTREAM, "Got new page\n");
 
   /* Install into newseg slot 1 the stack page: */
-  node_swap(PCC_NEWSEG, 1, PCC_NEWSTACK, KR_VOID);
+  capros_GPT_swapSlot(PCC_NEWSEG, 1, PCC_NEWSTACK);
 
   DEBUG kdprintf(KR_OSTREAM, "Installed it\n");
 
   /* WE WIN -- THE REST IS INITIALIZATION */
-  
-  /* Fetch a node key of the right BLSS for this address space: */
-  (void) node_make_node_key(PCC_NEWSEG, 4 /* BLSS */, PCC_NEWSEG);
-
-  DEBUG kdprintf(KR_OSTREAM, "Made segtree key\n");
 
   /* Install this address space into the domain root: */
   (void) process_swap(krDomKey, ProcAddrSpace, PCC_NEWSEG, KR_VOID);
@@ -347,10 +343,6 @@ is_our_progeny(uint32_t krStart, uint32_t krNode)
     return 1;
   return 0;
 }
-
-uint32_t make_start_key(uint32_t krDomain, uint16_t keyData, uint32_t krStart);
-
-uint32_t spcbank_return_node(uint32_t krBank, uint32_t krNode);
 
 uint32_t
 identify_domcre(uint32_t krDomCre)

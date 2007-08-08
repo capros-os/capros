@@ -26,7 +26,6 @@ Approved for public release, distribution unlimited. */
 #include <domain/Runtime.h>
 #include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
-#include <eros/NodeKey.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/GPT.h>
 #include <domain/domdbg.h>

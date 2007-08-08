@@ -35,14 +35,13 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #define _REVEAL_KERNEL_KEY_TYPES_
 #include <disk/DiskNodeStruct.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
-#include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Range.h>
 #include <idl/capros/ProcTool.h>
+#include <idl/capros/Node.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -97,11 +96,11 @@ main(void)
   char buff[sizeof(capros_SpaceBank_limits) + 2]; /* two extra for failure
 						detection */
   
-  node_copy(KR_CONSTIT, KC_PRIMERANGE, KR_SRANGE);
-  node_copy(KR_CONSTIT, KC_VOLSIZE, KR_VOLSIZE);
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_copy(KR_CONSTIT, KC_PRIMEBANK, KR_PRIMEBANK);
-  node_copy(KR_CONSTIT, KC_VERIFIER, KR_VERIFIER);
+  capros_Node_getSlot(KR_CONSTIT, KC_PRIMERANGE, KR_SRANGE);
+  capros_Node_getSlot(KR_CONSTIT, KC_VOLSIZE, KR_VOLSIZE);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_PRIMEBANK, KR_PRIMEBANK);
+  capros_Node_getSlot(KR_CONSTIT, KC_VERIFIER, KR_VERIFIER);
 
   msg.snd_invKey = KR_VOID;
   msg.snd_key0 = KR_VOID;
@@ -294,7 +293,7 @@ freeExit:
 	for (slot = 0; slot < EROS_NODE_SIZE; slot++) {
 	  uint32_t result;
 	
-	  result = node_copy(KR_ARG0, slot, KR_ARG1);
+	  result = capros_Node_getSlot(KR_ARG0, slot, KR_ARG1);
 
 	  if (result != RC_OK) {
 	    DEBUG(dealloc)
@@ -419,7 +418,7 @@ freeExit:
       }
 
       /* get the DomainTool key */
-      node_copy(KR_CONSTIT, KC_DOMTOOL, KR_TMP2);
+      capros_Node_getSlot(KR_CONSTIT, KC_DOMTOOL, KR_TMP2);
       
       /* use it to replace the brand key with the forwarder key from
        * KR_ARG0 (assuming KR_ARG0 is a valid spacebank key)

@@ -27,16 +27,13 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/machine/Registers.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
 
 #include <idl/capros/key.h>
 
 #include <domain/Runtime.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/ProcessCreatorKey.h>
 
 #include "ethread.h"

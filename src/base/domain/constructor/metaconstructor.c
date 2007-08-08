@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -33,19 +33,18 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
 #include <eros/ProcessKey.h>
-#include <eros/KeyConst.h>
 #include <eros/StdKeyType.h>
 #include <eros/ProcessState.h>
-#include <eros/NodeKey.h>
 #include <eros/machine/Registers.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/SpaceBank.h>
 #include <idl/capros/Number.h>
+#include <idl/capros/Node.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
 #include <domain/ProcessCreatorKey.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/PccKey.h>
 #include <domain/Runtime.h>
 #include "constituents.h"
@@ -76,25 +75,24 @@ typedef struct {
 void
 InitMetaCon(MetaConInfo *mci)
 {
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
   DEBUG kdprintf(KR_OSTREAM, "Metacon inits\n");
 
-  node_copy(KR_CONSTIT, KC_CON_PC, KR_NEWDOM);
+  capros_Node_getSlot(KR_CONSTIT, KC_CON_PC, KR_NEWDOM);
   capros_Number_getWord(KR_NEWDOM, &mci->constructor_pc);
 
-  node_copy(KR_CONSTIT, KC_DISCRIM, KR_DISCRIM);
-  node_copy(KR_CONSTIT, KC_YIELDCRE, KR_YIELDCRE);
-  node_copy(KR_CONSTIT, KC_CON_SEG, KR_CON_SEG);
-  /*   node_copy(KR_CONSTIT, KC_CON_CONSTIT, KR_CON_CONSTIT); */
+  capros_Node_getSlot(KR_CONSTIT, KC_DISCRIM, KR_DISCRIM);
+  capros_Node_getSlot(KR_CONSTIT, KC_YIELDCRE, KR_YIELDCRE);
+  capros_Node_getSlot(KR_CONSTIT, KC_CON_SEG, KR_CON_SEG);
+  /*   capros_Node_getSlot(KR_CONSTIT, KC_CON_CONSTIT, KR_CON_CONSTIT); */
 
   /* Create a runtime bits node appropriate for our yields: */
-  spcbank_buy_nodes(KR_BANK, 1, KR_YIELDBITS, KR_VOID, KR_VOID);
-  node_clone(KR_YIELDBITS, KR_RTBITS);
-  node_swap(KR_YIELDBITS, RKT_CREATOR, KR_YIELDCRE, KR_VOID);
+  capros_SpaceBank_alloc1(KR_BANK, capros_Range_otNode, KR_YIELDBITS);
+  capros_Node_clone(KR_YIELDBITS, KR_RTBITS);
+  capros_Node_swapSlot(KR_YIELDBITS, RKT_CREATOR, KR_YIELDCRE, KR_VOID);
 
-  /* Now make the yieldbits key read-only. */
-  node_make_node_key(KR_YIELDBITS, EROS_PAGE_BLSS, SEGPRM_RO,
-		     KR_RO_YIELDBITS); 
+  /* Now make a read-only yieldbits key. */
+  capros_Node_reduce(KR_YIELDBITS, capros_Node_readOnly, KR_RO_YIELDBITS); 
 }
 
 uint32_t
@@ -125,15 +123,15 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
   (void) process_swap_keyreg(KR_NEWDOM, 5, KR_ARG1, KR_VOID);
 
 #define KR_ALTSCRATCH KR_ARG1
-  /* Build a constiuents node: */
-  result = spcbank_buy_nodes(KR_ARG0, 1, KR_ALTSCRATCH, KR_VOID, KR_VOID);
+  /* Build a constituents node: */
+  result = capros_SpaceBank_alloc1(KR_ARG0, capros_Range_otNode, KR_ALTSCRATCH);
   if (result != RC_OK)
     goto destroy_product;
 
   /* The new constructor constituents are the same as ours, so just
      duplicate that: */
 
-  node_clone(KR_ALTSCRATCH, KR_CONSTIT);
+  capros_Node_clone(KR_ALTSCRATCH, KR_CONSTIT);
   (void) process_swap_keyreg(KR_NEWDOM, 1, KR_ALTSCRATCH, KR_VOID);
 #undef KR_ALTSCRATCH
 

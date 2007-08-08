@@ -1,8 +1,9 @@
 
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -18,6 +19,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* A domain that manages the contents of a window on behalf of a
    window system client.  The contents are treated as a "text
@@ -25,21 +29,19 @@
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
-#include <eros/KeyConst.h>
 #include <eros/cap-instr.h>
 
 #include <string.h>
 #include <ctype.h>
 
-#include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
 /* Include the needed interfaces */
 #include <domain/SessionKey.h>
+#include <idl/capros/Node.h>
 #include <idl/capros/Stream.h>
 #include <idl/capros/timer/manager.h>
 #include "idl/capros/eterm.h"
@@ -369,7 +371,7 @@ ETerm_Request(Message *m)
 
       /* Map the new addr space into this domain's space */
       process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
-      node_swap(KR_SCRATCH, 16, KR_SEGMENT, KR_VOID);
+      capros_Node_swapSlot(KR_SCRATCH, 16, KR_SEGMENT, KR_VOID);
 
       /* In order to access this mapped space, this domain needs a
 	 well-known address:  use the well-known address that corresponds
@@ -624,8 +626,8 @@ main(void)
   COPY_KEYREG(KR_ARG(0), KR_ETERM_IN);
 
   /* Copy keys from the constituent's node to the keyreg set. */
-  node_extended_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_extended_copy(KR_CONSTIT, KC_TIMER, KR_TIMER);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_TIMER, KR_TIMER);
 
   kprintf(KR_OSTREAM, "Eterm_Out says hello...\n");
 

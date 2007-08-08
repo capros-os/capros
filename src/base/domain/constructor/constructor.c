@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -45,22 +45,21 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
-#include <eros/KeyConst.h>
 #include <eros/StdKeyType.h>
 #include <eros/ProcessState.h>
 #include <eros/machine/Registers.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Discrim.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
 #include <domain/ProcessCreatorKey.h>
 #include <domain/PccKey.h>
 #include <domain/ProtoSpace.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/Runtime.h>
 
 #include "constituents.h"
@@ -100,13 +99,13 @@ CheckDiscretion(uint32_t kr, ConstructorInfo *ci)
   uint32_t keyInfo;
   bool isDiscreet;
   
-  node_copy(KR_CONSTIT, KC_DISCRIM, KR_SCRATCH);
+  capros_Node_getSlot(KR_CONSTIT, KC_DISCRIM, KR_SCRATCH);
 
   result = capros_Discrim_verify(KR_SCRATCH, kr, &isDiscreet);
   if (result == RC_OK && isDiscreet)
     return;
 
-  node_copy(KR_CONSTIT, KC_YIELDCRE, KR_SCRATCH);
+  capros_Node_getSlot(KR_CONSTIT, KC_YIELDCRE, KR_SCRATCH);
 
   result = proccre_amplify_gate(KR_SCRATCH, kr, KR_SCRATCH, 0, &keyInfo);
 
@@ -131,20 +130,20 @@ InitConstructor(ConstructorInfo *ci)
   ci->frozen = 0;
   ci->has_holes = 0;
   
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "constructor init\n");
   
-  node_copy(KR_CONSTIT, KC_PROD_CON0, KR_PROD_CON0);
+  capros_Node_getSlot(KR_CONSTIT, KC_PROD_CON0, KR_PROD_CON0);
 
   result = capros_key_getType(KR_PROD_CON0, &keyType);
   if (result != RC_capros_key_Void) {
     /* This is an initially frozen constructor.  Use the provided
        constituents, and assume that KC_YIELDCRE already holds the
        proper domain creator. */
-    node_copy(KR_CONSTIT, KC_YIELDCRE, KR_YIELDCRE);
-    node_copy(KR_CONSTIT, KC_PROD_CON0, KR_PROD_CON0);
-    node_copy(KR_CONSTIT, KC_PROD_XCON, KR_PROD_XCON);
+    capros_Node_getSlot(KR_CONSTIT, KC_YIELDCRE, KR_YIELDCRE);
+    capros_Node_getSlot(KR_CONSTIT, KC_PROD_CON0, KR_PROD_CON0);
+    capros_Node_getSlot(KR_CONSTIT, KC_PROD_XCON, KR_PROD_XCON);
 
     ci->frozen = 1;
   }
@@ -152,8 +151,8 @@ InitConstructor(ConstructorInfo *ci)
     /* Build a new domain creator for use in crafting products */
 
     /* use KR_YIELDCRE and KR_DISCRIM as scratch regs for a moment: */
-    node_copy(KR_CONSTIT, KC_PCC, KR_YIELDCRE);
-    node_copy(KR_SELF, ProcSched, KR_SCRATCH);
+    capros_Node_getSlot(KR_CONSTIT, KC_PCC, KR_YIELDCRE);
+    capros_Node_getSlot(KR_SELF, ProcSched, KR_SCRATCH);
 
     {
       Message msg;
@@ -177,18 +176,19 @@ InitConstructor(ConstructorInfo *ci)
       DEBUG(init) kdprintf(KR_OSTREAM, "GOT DOMCRE Result is 0x%08x\n", result);
     }
   
-    spcbank_buy_nodes(KR_BANK, 2, KR_PROD_CON0, KR_PROD_XCON, KR_VOID);
+    capros_SpaceBank_alloc2(KR_BANK,
+                            capros_Range_otNode | (capros_Range_otNode << 8),
+                            KR_PROD_CON0, KR_PROD_XCON);
   }
     
 
   /* Create a runtime bits node appropriate for our yields: */
-  spcbank_buy_nodes(KR_BANK, 1, KR_YIELDBITS, KR_VOID, KR_VOID);
-  node_clone(KR_YIELDBITS, KR_RTBITS);
-  node_swap(KR_YIELDBITS, RKT_CREATOR, KR_YIELDCRE, KR_VOID);
+  capros_SpaceBank_alloc1(KR_BANK, capros_Range_otNode, KR_YIELDBITS);
+  capros_Node_clone(KR_YIELDBITS, KR_RTBITS);
+  capros_Node_swapSlot(KR_YIELDBITS, RKT_CREATOR, KR_YIELDCRE, KR_VOID);
 
-  /* Now make the yieldbits key read-only. */
-  node_make_node_key(KR_YIELDBITS, EROS_PAGE_BLSS, SEGPRM_RO,
-		     KR_RO_YIELDBITS); 
+  /* Now make a read-only yieldbits key. */
+  capros_Node_reduce(KR_YIELDBITS, capros_Node_readOnly, KR_RO_YIELDBITS); 
 }
 
 /* In spite of unorthodox fabrication, the constructor self-destructs
@@ -200,14 +200,12 @@ Sepuku()
   
   /* Give up the first constituent node. */
   /* Give up the second constituent node */
-  spcbank_return_node(KR_BANK, KR_PROD_CON0);
-  spcbank_return_node(KR_BANK, KR_PROD_XCON);
-  spcbank_return_node(KR_BANK, KR_YIELDBITS);
+  capros_SpaceBank_free3(KR_BANK, KR_PROD_CON0, KR_PROD_XCON, KR_YIELDBITS);
 
-  /* node_copy(KR_CONSTIT, KC_MYDOMCRE, KR_DOMCRE); */
-  node_copy(KR_CONSTIT, KC_PROTOSPACE, KR_PROD_CON0);
+  /* capros_Node_getSlot(KR_CONSTIT, KC_MYDOMCRE, KR_DOMCRE); */
+  capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPACE, KR_PROD_CON0);
 
-  spcbank_return_node(KR_BANK, KR_CONSTIT);
+  capros_SpaceBank_free1(KR_BANK, KR_CONSTIT);
 
   /* Invoke the protospace with arguments indicating that we should be
      demolished as a small space domain */
@@ -234,12 +232,12 @@ MakeNewProduct(Message *msg)
   
   /* Build a constiuents node, since we will need the scratch register
      later */
-  result = spcbank_buy_nodes(KR_ARG0, 1, KR_SCRATCH, KR_VOID, KR_VOID);
+  result = capros_SpaceBank_alloc1(KR_ARG0, capros_Range_otNode, KR_SCRATCH);
   if (result != RC_OK)
     goto destroy_product;
 
   /* clone the product constituents into the new constituents node: */
-  node_clone(KR_SCRATCH, KR_PROD_CON0);
+  capros_Node_clone(KR_SCRATCH, KR_PROD_CON0);
 
   (void) process_swap_keyreg(KR_NEWDOM, KR_CONSTIT, KR_SCRATCH, KR_VOID);
   (void) process_swap_keyreg(KR_NEWDOM, KR_RTBITS, KR_RO_YIELDBITS, KR_VOID);
@@ -247,7 +245,7 @@ MakeNewProduct(Message *msg)
   DEBUG(product) kdprintf(KR_OSTREAM, "Populate new domain\n");
 
   /* Install protospace into the domain root: */
-  (void) node_copy(KR_CONSTIT, KC_PROTOSPACE, KR_SCRATCH);
+  (void) capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPACE, KR_SCRATCH);
   (void) process_swap(KR_NEWDOM, ProcAddrSpace, KR_SCRATCH, KR_VOID);
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Installed protospace\n");
@@ -258,7 +256,7 @@ MakeNewProduct(Message *msg)
   DEBUG(product) kdprintf(KR_OSTREAM, "Installed sched\n");
 
   /* Keeper constructor to keeper slot */
-  (void) node_copy(KR_PROD_XCON, XCON_KEEPER, KR_SCRATCH);
+  (void) capros_Node_getSlot(KR_PROD_XCON, XCON_KEEPER, KR_SCRATCH);
   (void) process_swap(KR_NEWDOM, ProcKeeper, KR_SCRATCH, KR_VOID);
 
   /* Fetch out the register values, mostly for the benefit of
@@ -301,13 +299,13 @@ MakeNewProduct(Message *msg)
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Sched in target KR_SCHED\n");
 
-  (void) node_copy(KR_PROD_XCON, XCON_ADDRSPACE, KR_SCRATCH);
+  (void) capros_Node_getSlot(KR_PROD_XCON, XCON_ADDRSPACE, KR_SCRATCH);
   (void) process_swap_keyreg(KR_NEWDOM, PSKR_SPACE, KR_SCRATCH, KR_VOID);
 
-  (void) node_copy(KR_PROD_XCON, XCON_SYMTAB, KR_SCRATCH);
+  (void) capros_Node_getSlot(KR_PROD_XCON, XCON_SYMTAB, KR_SCRATCH);
   (void) process_swap(KR_NEWDOM, ProcSymSpace, KR_SCRATCH, KR_VOID);
 
-  (void) node_copy(KR_PROD_XCON, XCON_PC, KR_SCRATCH);
+  (void) capros_Node_getSlot(KR_PROD_XCON, XCON_PC, KR_SCRATCH);
   (void) process_swap_keyreg(KR_NEWDOM, PSKR_PROC_PC, KR_SCRATCH, KR_VOID);
 
   /* User ARG2 to key arg slot 0 */
@@ -348,7 +346,7 @@ is_not_discreet(uint32_t kr, ConstructorInfo *ci)
   uint32_t keyInfo;
   bool isDiscreet;
   
-  node_copy(KR_CONSTIT, KC_DISCRIM, KR_SCRATCH);
+  capros_Node_getSlot(KR_CONSTIT, KC_DISCRIM, KR_SCRATCH);
   
   DEBUG(misc) kdprintf(KR_OSTREAM, "constructor: is_not_discreet(): discrim_verify\n");
 
@@ -390,7 +388,7 @@ insert_constituent(uint32_t ndx, uint32_t kr, ConstructorInfo *ci)
     add_new_hole(kr, ci);
   
   /* now insert the constituent in the proper constituents node: */
-  node_swap(KR_PROD_CON0, ndx, kr, KR_VOID);
+  capros_Node_swapSlot(KR_PROD_CON0, ndx, kr, KR_VOID);
 	    
   return RC_OK;
 }
@@ -405,7 +403,7 @@ insert_xconstituent(uint32_t ndx, uint32_t kr, ConstructorInfo *ci)
     
     /* This copy IS redundant with the one in is_not_discreet(), but
        this path is not performance critical and clarity matters too. */
-    node_copy(KR_CONSTIT, KC_DISCRIM, KR_SCRATCH);
+    capros_Node_getSlot(KR_CONSTIT, KC_DISCRIM, KR_SCRATCH);
   
     capros_Discrim_classify(KR_SCRATCH, kr, &obClass);
     if (obClass != capros_Discrim_clNumber)
@@ -419,7 +417,7 @@ insert_xconstituent(uint32_t ndx, uint32_t kr, ConstructorInfo *ci)
     add_new_hole(kr, ci);
   
   /* now insert the constituent in the proper constituents node: */
-  node_swap(KR_PROD_XCON, ndx, kr, KR_VOID);
+  capros_Node_swapSlot(KR_PROD_XCON, ndx, kr, KR_VOID);
 	    
   return RC_OK;
 }

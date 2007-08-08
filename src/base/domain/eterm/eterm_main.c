@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,21 +18,21 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* A domain that creates a window system window for use as an
    graphical terminal */
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
-#include <eros/KeyConst.h>
 #include <eros/cap-instr.h>
 
 #include <string.h>
 
 #include <domain/ConstructorKey.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
@@ -39,7 +40,9 @@
 #include <domain/SessionCreatorKey.h>
 #include <domain/SessionKey.h>
 #include "idl/capros/eterm.h"
+#include <idl/capros/SpaceBank.h>
 #include <idl/capros/Stream.h>
+#include <idl/capros/Node.h>
 
 #include <graphics/color.h>
 #include <graphics/fonts/Font.h>
@@ -255,11 +258,11 @@ main(void)
   COPY_KEYREG(KR_RETURN, KR_STASH);
 
   /* Retrieve the constituent keys */
-  node_extended_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_extended_copy(KR_CONSTIT, KC_EOUT, KR_EOUT);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_EOUT, KR_EOUT);
 
   /* Create a subbank to use for window creation */
-  if (spcbank_create_subbank(KR_BANK, KR_SUB_BANK) != RC_OK) {
+  if (capros_SpaceBank_createSubBank(KR_BANK, KR_SUB_BANK) != RC_OK) {
     kprintf(KR_OSTREAM, "Eterm_Main failed to create sub bank.\n");
     return -1;
   }

@@ -34,7 +34,6 @@ HEADERS=\
 	target-asm.h \
 	cap-instr.h \
 	Invoke.h \
-	NodeKey.h \
 	DevCreKey.h \
 	DeviceKey.h \
 	KeyboardKey.h \

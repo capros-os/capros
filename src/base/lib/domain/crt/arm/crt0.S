@@ -1,6 +1,6 @@
 	.file	"crt0.S"
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -19,26 +19,12 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <eros/arch/arm/asm.h>
 #include <eros/arch/arm/target-asm.h>
-#include <eros/StdKeyType.h>
-#include <eros/KeyConst.h>
-#include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
-#include <eros/Invoke.h>
-#include <domain/ProtoSpace.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/Runtime.h>
-	
-#define KR_OLDSPACE KR_APP(0)
-#define KR_NEWSPACE KR_APP(1)
-#define KR_NEWPAGE  KR_APP(2)
-	
-#define KEYS(k0, k1, k2, k3) (k0 + k1 << 8 + k2 << 16 + k3 << 24)
-	
-#define NO_KEYS KEYS(KR_VOID, KR_VOID, KR_VOID, KR_VOID)
 	
 /* Startup code for processes.  Handles four cases:
 

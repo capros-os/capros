@@ -31,11 +31,12 @@ Approved for public release, distribution unlimited. */
 #include <string.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
+#include <eros/StdKeyType.h>
 #include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Discrim.h>
+#include <idl/capros/Node.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -61,10 +62,10 @@ main()
   Message msg;
   uint32_t kt;
 
-  node_copy(KR_CONSTIT, KC_THREADLIST, KR_THREADLIST);
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_copy(KR_CONSTIT, KC_PRIMEBANK, KR_PRIMEBANK);
-  node_copy(KR_CONSTIT, KC_NEWSCHED, KR_NEWSCHED);
+  capros_Node_getSlot(KR_CONSTIT, KC_THREADLIST, KR_THREADLIST);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_PRIMEBANK, KR_PRIMEBANK);
+  capros_Node_getSlot(KR_CONSTIT, KC_NEWSCHED, KR_NEWSCHED);
 
   kprintf(KR_OSTREAM, "IPL Tool says hello!\n");
 
@@ -84,7 +85,7 @@ main()
       uint32_t keyType;
       uint32_t result;
 
-      node_copy(KR_THREADLIST, i, KR_FAULT);
+      capros_Node_getSlot(KR_THREADLIST, i, KR_FAULT);
 
       result = capros_key_getType(KR_FAULT, &keyType);
       if (result == RC_capros_key_Void)
@@ -107,7 +108,7 @@ main()
       SEND(&msg);
     }
 
-    node_copy(KR_THREADLIST, EROS_NODE_SIZE-1, KR_THREADLIST);
+    capros_Node_getSlot(KR_THREADLIST, EROS_NODE_SIZE-1, KR_THREADLIST);
   }
 
   return 0;

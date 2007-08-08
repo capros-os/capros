@@ -26,9 +26,6 @@ Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <eros/target.h>
-#include <eros/ProcessKey.h>
-#include <eros/NodeKey.h>
-#include <eros/KeyConst.h>
 #include <domain/Runtime.h>
 #include <eros/Invoke.h>
 #include <domain/domdbg.h>

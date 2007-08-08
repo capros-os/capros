@@ -25,7 +25,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
-#include <eros/NodeKey.h>
+#include <idl/capros/Node.h>
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
 #include <domain/NFileKey.h>
@@ -159,7 +159,7 @@ main()
           DEBUG(passes)
             kprintf(KR_OSTREAM, "Wrote nfile\n");
 
-	  result = node_swap(KR_TMPNODE, file, KR_FD0, KR_VOID);
+	  result = capros_Node_swapSlot(KR_TMPNODE, file, KR_FD0, KR_VOID);
           assert(result == RC_OK);
 	}
       result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
@@ -173,7 +173,7 @@ main()
       result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
       for (file = 0; file < NITER; file++)
 	{
-	  node_copy(KR_TMPNODE, file, KR_FD0);
+	  capros_Node_getSlot(KR_TMPNODE, file, KR_FD0);
 
 	  nfile_destroy(KR_FD0);
 	}
@@ -188,7 +188,7 @@ main()
   for (i = 0; i < NITER; i++)
   {
     nfile_create(KR_NFILESRV, KR_FD0);
-    node_swap(KR_TMPNODE, i, KR_FD0, KR_VOID);
+    capros_Node_swapSlot(KR_TMPNODE, i, KR_FD0, KR_VOID);
 
     result = nfile_write(KR_FD0, 0, EROS_PAGE_SIZE, buf, &len);
     if (result != RC_OK || len != EROS_PAGE_SIZE)

@@ -1,0 +1,22 @@
+package capros;
+
+/* Interface to node keys.
+ */
+interface Node extends key raises (key.RequestError) {
+  const unsigned long readOnly = 1;
+
+  /* Return the key in the specified slot. */
+  capros.key getSlot(unsigned byte slot); 
+
+  /* Store a key into the specified slot and return the former contents. */
+  capros.key swapSlot(unsigned byte slot, capros.key k); 
+
+  /* Store a number key into the specified slot. */
+  void writeNumber(unsigned long slot, capros.Number.value val); 
+
+  /* Return a key with reduced permissions. */
+  capros.key reduce(unsigned long restrictions); 
+
+  /* Copy the contents of this node to another. */
+  void clone(capros.key fromNode); 
+};

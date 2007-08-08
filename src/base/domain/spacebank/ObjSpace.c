@@ -24,13 +24,13 @@ Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <eros/target.h>
-#include <eros/NodeKey.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Range.h>
 #include <idl/capros/Number.h>
+#include <idl/capros/Node.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -101,14 +101,14 @@ mark_allocated_frames(Range *range0)
   OID firstNodeOid = range0->nSubmaps * EROS_OBJECTS_PER_FRAME;
   OID firstDataPageOid;
   
-  node_copy(KR_VOLSIZE, capros_Range_otNode, KR_TMP);
+  capros_Node_getSlot(KR_VOLSIZE, capros_Range_otNode, KR_TMP);
   capros_Number_getDoubleWord(KR_TMP, &nNode);
 
   nNodeFrames = DIVRNDUP(nNode, objects_per_frame[capros_Range_otNode]);
 
   firstDataPageOid = firstNodeOid + (nNodeFrames * EROS_OBJECTS_PER_FRAME);
   
-  node_copy(KR_VOLSIZE, capros_Range_otPage, KR_TMP);
+  capros_Node_getSlot(KR_VOLSIZE, capros_Range_otPage, KR_TMP);
   capros_Number_getDoubleWord(KR_TMP, &nDataPage);
 
   nDataPageFrames += DIVRNDUP(nDataPage, objects_per_frame[capros_Range_otPage]);
@@ -151,7 +151,7 @@ ob_init(void)
    */
   for (i = 0; i < EROS_NODE_SIZE; i++) {
     uint32_t result, keyType;
-    node_copy(KR_VOLSIZE, i, KR_TMP);
+    capros_Node_getSlot(KR_VOLSIZE, i, KR_TMP);
     result = capros_key_getType(KR_TMP, &keyType);
     if (result == RC_OK && keyType == AKT_Range)
       range_install(KR_TMP);

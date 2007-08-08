@@ -1,8 +1,9 @@
 	.file	"crtn.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -18,31 +19,16 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/arch/i486/asm.h>
 #include <eros/arch/i486/target-asm.h>
-#include <eros/StdKeyType.h>
-#include <eros/KeyConst.h>
-#include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
-#include <eros/Invoke.h>
-#include <domain/ProtoSpace.h>
-#include <domain/SpaceBankKey.h>
 	
 #undef ALIGN
 # define ALIGN 4
 
-#if 0
-# ifdef __ELF__
-#  define EXT(x)  x
-#  define LEXT(x) x## :
-# else
-#  define EXT(x)  _##x
-#  define LEXT(x) _##x## :
-# endif
-# define	ENTRY(x)	.globl EXT(x); .align ALIGN; LEXT(x)
-#endif
-	
 	.data
 	
 	/* Weak runtime symbols */

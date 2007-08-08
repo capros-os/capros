@@ -48,13 +48,13 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <domain/Runtime.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/GPT.h>
+#include <idl/capros/Node.h>
 
 #include <domain/SuperNodeKey.h>
 #include <domain/ConstructorKey.h>
@@ -555,7 +555,7 @@ void
 Initialize(state_t *state)
 {
   uint32_t result;
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
   /* Using KR_ARG0, KR_SNODE as scratch registers */
 
@@ -563,7 +563,7 @@ Initialize(state_t *state)
 
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: Building ZS\n");
 
-  node_copy(KR_CONSTIT, KC_ZSF, KR_SNODE);
+  capros_Node_getSlot(KR_CONSTIT, KC_ZSF, KR_SNODE);
   result = constructor_request(KR_SNODE, KR_BANK, KR_SCHED, KR_VOID, KR_SNODE);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: Result is: 0x%08x\n", result);
@@ -591,7 +591,7 @@ Initialize(state_t *state)
   process_swap(KR_SELF, ProcAddrSpace, KR_ARG0, KR_VOID);
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: post lobotomy\n", result);
 
-  node_copy(KR_CONSTIT, KC_SNODEC, KR_SNODE);
+  capros_Node_getSlot(KR_CONSTIT, KC_SNODEC, KR_SNODE);
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: buying supernode\n");
   result = constructor_request(KR_SNODE, KR_BANK, KR_SCHED, KR_VOID, KR_SNODE);
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: Got it. Result 0x%08x\n", result);

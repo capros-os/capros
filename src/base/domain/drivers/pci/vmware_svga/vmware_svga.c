@@ -25,14 +25,14 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
-#include <eros/StdKeyType.h>
+//#include <eros/StdKeyType.h>
 #include <eros/cap-instr.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/DevPrivs.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 #include <idl/capros/GPT.h>
 
 #include <string.h>
@@ -956,11 +956,11 @@ int main(void)
   /* Keys can't be used unless they are in process's key register set.
      Copy the needed keys from the constituent node to the key
      register set: */
-  node_extended_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_extended_copy(KR_CONSTIT, KC_DEVPRIVS, KR_DEVPRIVS);
-  node_extended_copy(KR_CONSTIT, KC_PHYSRANGE, KR_PHYSRANGE);
-  node_extended_copy(KR_CONSTIT, KC_MEMMAP_C, KR_MEMMAP_C);
-  node_extended_copy(KR_CONSTIT, KC_ZERO_SPACE, KR_ZERO_SPACE);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_DEVPRIVS, KR_DEVPRIVS);
+  capros_Node_getSlot(KR_CONSTIT, KC_PHYSRANGE, KR_PHYSRANGE);
+  capros_Node_getSlot(KR_CONSTIT, KC_MEMMAP_C, KR_MEMMAP_C);
+  capros_Node_getSlot(KR_CONSTIT, KC_ZERO_SPACE, KR_ZERO_SPACE);
 
   /* Move the DEVPRIVS key to the ProcIoSpace slot so we can do io calls. */
   process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);

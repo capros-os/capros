@@ -26,13 +26,12 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Key.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
-#include <kerninc/Node.h>
 #include <kerninc/Process.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
-#include <eros/NodeKey.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Node.h>
 #include <idl/capros/Number.h>
 
 /* #define NODEKEYDEBUG */
@@ -139,7 +138,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
-  case OC_Node_Copy:
+  case OC_capros_Node_getSlot:
     {
       uint32_t slot = inv->entry.w1;
 
@@ -174,7 +173,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
       return;
     }      
 
-  case OC_Node_Swap:
+  case OC_capros_Node_swapSlot:
     {
       if (inv->invokee && theNode == inv->invokee->procRoot)
         dprintf(true, "Modifying invokee domain root\n");
@@ -241,13 +240,12 @@ NodeKey(Invocation* inv /*@ not null @*/)
       return;
     }      
 
+#if 0
   case OC_Node_Extended_Copy:
   case OC_Node_Extended_Swap:
     {
       /* This needs to be redesigned and reimplemented.
          Until then, I want to decouple it from the GPT logic. */
-      assert(false);	// FIXME: not implemented
-#if 0
       SegWalk wi;
       bool result;
       uint32_t slot;
@@ -325,42 +323,35 @@ NodeKey(Invocation* inv /*@ not null @*/)
 	if (wi.canFullFetch == false)
 	  Desensitize(inv->exit.pKey[0]);
       }
-#endif
 
       inv->exit.code = RC_OK;
       return;
     }
+#endif
 
-  case OC_Node_MakeNodeKey:
+  case OC_capros_Node_reduce:
     {
-      uint32_t w;
-      uint8_t p;
       COMMIT_POINT();
 
-      w = inv->entry.w1; /* the BLSS */
-      p = inv->entry.w2; /* the permissions */
-
-      if ( (w > MAX_BLSS) ) {
+      uint32_t p = inv->entry.w1;
+      if (p & ~ capros_Node_readOnly) {
 	inv->exit.code = RC_capros_key_RequestError;
-	dprintf(true, "Value 0x%08x is out of range\n", w);
 	return;
       }
 
-      p |= inv->key->keyPerms;
-	
       inv->exit.code = RC_OK;
       
       if (inv->exit.pKey[0]) {
         inv_SetExitKey(inv, 0, inv->key);
 
-	inv->exit.pKey[0]->keyData = w;
-	inv->exit.pKey[0]->keyPerms = p;
+	inv->exit.pKey[0]->keyPerms |= p;
       }
 	
       return;
     }
     
-  case OC_Node_Clear:
+#if 0	// this isn't used
+  case OC_capros_Node_clear:
     {
       if (isFetch) {
 	inv->exit.code = RC_capros_key_NoAccess;
@@ -381,8 +372,9 @@ NodeKey(Invocation* inv /*@ not null @*/)
       
       return;
     }
+#endif
 
-  case OC_Node_WriteNumber:
+  case OC_capros_Node_writeNumber:
     {
       uint32_t slot;
       capros_Number_value nkv;
@@ -427,7 +419,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
-  case OC_Node_Clone:
+  case OC_capros_Node_clone:
     {
       /* copy content of node key in arg0 to current node */
       if (isFetch) {
@@ -457,7 +449,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
 #if 0
   /* Removed because keeping the reserves straight is a pain in the ass. */
-  case OC_Node_WriteNumbers:
+  case OC_capros_Node_WriteNumbers:
     {
       if (isFetch) {
 	inv.exit.code = RC_capros_key_NoAccess;

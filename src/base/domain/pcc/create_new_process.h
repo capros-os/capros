@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 uint32_t
 create_new_process(uint32_t krBank, uint32_t krDomKey)
@@ -27,7 +30,7 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
 
   DEBUG kdprintf(KR_OSTREAM, "Check official bank...\n");
 
-  if (spcbank_verify_bank(KR_BANK, krBank, &isGood) != RC_OK ||
+  if (capros_SpaceBank_verify(KR_BANK, krBank, &isGood) != RC_OK ||
       isGood == 0)
     return RC_ProcCre_BadBank;
   
@@ -36,44 +39,48 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
 #if defined(EROS_TARGET_i486)
 
   /* Bank is okay, try to buy the space: */
-  if (spcbank_buy_nodes(krBank, 2, krDomKey, KR_SCRATCH0,
-			KR_VOID) != RC_OK)
+  if (capros_SpaceBank_alloc2(krBank,
+                              capros_Range_otNode | (capros_Range_otNode << 8),
+                              krDomKey, KR_SCRATCH0
+			     ) != RC_OK )
     return RC_capros_key_NoMoreNodes;
 
   DEBUG kdprintf(KR_OSTREAM, "Assemble them\n");
 
   /* We have the nodes.  Make the second the key registers node of the
      first: */
-  (void) node_swap(krDomKey, ProcGenKeys, KR_SCRATCH0, KR_VOID);
+  (void) capros_Node_swapSlot(krDomKey, ProcGenKeys, KR_SCRATCH0, KR_VOID);
 
   /* Initialize the fixed registers to zero number keys. */
   const capros_Number_value zeroNumber = {{0, 0, 0}};
   for (i = ProcFirstRootRegSlot; i <= ProcLastRootRegSlot; i++)
-    (void) node_write_number(krDomKey, i, &zeroNumber);
+    (void) capros_Node_writeNumber(krDomKey, i, zeroNumber);
 
   /* Now install the brand: */
-  (void) node_swap(krDomKey, ProcBrand, KR_OURBRAND, KR_VOID);
+  (void) capros_Node_swapSlot(krDomKey, ProcBrand, KR_OURBRAND, KR_VOID);
 
 #elif defined(EROS_TARGET_arm)
 
   /* Bank is okay, try to buy the space: */
-  if (spcbank_buy_nodes(krBank, 2, krDomKey, KR_SCRATCH0,
-			KR_VOID) != RC_OK)
+  if (capros_SpaceBank_alloc2(krBank,
+                              capros_Range_otNode | (capros_Range_otNode << 8),
+                              krDomKey, KR_SCRATCH0
+			     ) != RC_OK )
     return RC_capros_key_NoMoreNodes;
 
   DEBUG kdprintf(KR_OSTREAM, "Assemble them\n");
 
   /* We have the nodes.  Make the second the key registers node of the
      first: */
-  (void) node_swap(krDomKey, ProcGenKeys, KR_SCRATCH0, KR_VOID);
+  (void) capros_Node_swapSlot(krDomKey, ProcGenKeys, KR_SCRATCH0, KR_VOID);
 
   /* Initialize the fixed registers to zero number keys. */
   const capros_Number_value zeroNumber = {{0, 0, 0}};
   for (i = ProcFirstRootRegSlot; i <= ProcLastRootRegSlot; i++)
-    (void) node_write_number(krDomKey, i, &zeroNumber);
+    (void) capros_Node_writeNumber(krDomKey, i, zeroNumber);
 
   /* Now install the brand: */
-  (void) node_swap(krDomKey, ProcBrand, KR_OURBRAND, KR_VOID);
+  (void) capros_Node_swapSlot(krDomKey, ProcBrand, KR_OURBRAND, KR_VOID);
 
 #endif
 

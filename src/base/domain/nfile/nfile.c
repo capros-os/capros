@@ -44,12 +44,12 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <domain/Runtime.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 
 #include <domain/VcskKey.h>
 #include <domain/ConstructorKey.h>
@@ -197,7 +197,7 @@ init(server_state *ss)
 {
   uint32_t result;
 
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
   process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
 
@@ -217,7 +217,7 @@ init(server_state *ss)
 
   process_swap(KR_SELF, ProcAddrSpace, KR_MYSPACE, KR_VOID);
   
-  node_copy(KR_CONSTIT, KC_ZSF, KR_SCRATCH);
+  capros_Node_getSlot(KR_CONSTIT, KC_ZSF, KR_SCRATCH);
   result = constructor_request(KR_SCRATCH, KR_BANK, KR_SCHED,
 			       KR_VOID, KR_SCRATCH);
 

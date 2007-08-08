@@ -87,7 +87,6 @@ L2v goes down by EROS_NODE_LGSIZE at each level - no levels are skipped.
 #include <stdbool.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
 #include <idl/capros/Page.h>
 #include <idl/capros/GPT.h>
 #include <eros/ProcessKey.h>
@@ -96,11 +95,11 @@ L2v goes down by EROS_NODE_LGSIZE at each level - no levels are skipped.
 #include <eros/KeyConst.h>
 
 #include <idl/capros/key.h>
-#include <idl/capros/Number.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/Node.h>
 
 #include <domain/VcskKey.h>
 #include <domain/domdbg.h>
-#include <idl/capros/SpaceBank.h>
 #include <domain/ProtoSpace.h>
 #include <domain/Runtime.h>
 
@@ -392,10 +391,9 @@ HandleSegmentFault(Message *pMsg, state *pState)
 
 	  /* Populate slots 1 and higher with suitable primordial zero
 	     subsegments. */
+          capros_Node_getSlot(KR_ZINDEX, subsegBlss, KR_SCRATCH);
 	  {	 
 	    int i;
-
-	    node_copy(KR_ZINDEX, subsegBlss, KR_SCRATCH);
 	
 	    for (i = 1; i < EROS_NODE_SIZE; i++)
 	      capros_GPT_setSlot(KR_NEWOBJ, i, KR_SCRATCH);
@@ -485,11 +483,9 @@ HandleSegmentFault(Message *pMsg, state *pState)
       /* Replace the offending subsegment with a primordial zero segment of
 	   suitable size: */
       // Isn't subsegBlss always EROS_PAGE_BLSS here??
-      {	 
-	node_copy(KR_ZINDEX, subsegBlss, KR_SCRATCH);
+      capros_Node_getSlot(KR_ZINDEX, subsegBlss, KR_SCRATCH);
 	  
-	capros_GPT_setSlot(KR_SEGMENT, slot, KR_SCRATCH);
-      }
+      capros_GPT_setSlot(KR_SEGMENT, slot, KR_SCRATCH);
 
       DEBUG(returns)
 	kdprintf(KR_OSTREAM,
@@ -785,7 +781,7 @@ ProcessRequest(Message *argmsg, state *pState)
 void
 Sepuku()
 {
-  node_copy(KR_CONSTIT, KC_PROTOSPC, KR_SEGMENT);
+  capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPC, KR_SEGMENT);
 
   capros_SpaceBank_free1(KR_BANK, KR_CONSTIT);
 
@@ -889,9 +885,9 @@ Initialize(state *mystate)
   mystate->first_zero_offset = ~0ull; /* until proven otherwise below */
   mystate->npage = 0;
   
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_copy(KR_CONSTIT, KC_ZINDEX, KR_ZINDEX);
-  node_copy(KR_CONSTIT, KC_FROZEN_SEG, KR_ARG(0));
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_ZINDEX, KR_ZINDEX);
+  capros_Node_getSlot(KR_CONSTIT, KC_FROZEN_SEG, KR_ARG(0));
 
   DEBUG(init) kdprintf(KR_OSTREAM, "Fetch BLSS of frozen seg\n");
   /* find out BLSS of frozen segment: */

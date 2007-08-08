@@ -35,7 +35,6 @@ Approved for public release, distribution unlimited. */
 #include <eros/StdKeyType.h>
 #include <eros/Invoke.h>
 #include <eros/ProcessKey.h>
-#include <eros/NodeKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Number.h>

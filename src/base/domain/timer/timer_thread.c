@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,17 +18,19 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <stddef.h>
 #include <string.h>
 #include <eros/target.h>
-#include <eros/NodeKey.h>
 #include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Node.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/timer/timer_client.h>
 
@@ -48,8 +51,8 @@ main(void)
   Message m;
   uint32_t interval = 0;
 
-  node_extended_copy(KR_CONSTIT,KC_OSTREAM,KR_OSTREAM);
-  node_extended_copy(KR_CONSTIT,KC_SLEEP,KR_SLEEP);
+  capros_Node_getSlot(KR_CONSTIT,KC_OSTREAM,KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT,KC_SLEEP,KR_SLEEP);
   
   COPY_KEYREG(KR_ARG(0), KR_CLIENT);
 

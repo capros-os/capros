@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,13 +18,15 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* This process is a helper to lance. It waits for IRQ9 to arrive
  * and then turns around and calls lance */
 
 #include <stddef.h>
 #include <eros/target.h>
-#include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
 #include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
@@ -31,6 +34,7 @@
 
 #include <idl/capros/key.h>
 #include <idl/capros/DevPrivs.h>
+#include <idl/capros/Node.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -84,8 +88,8 @@ main(void)
   Message msg;
   uint32_t result;
 
-  node_extended_copy(KR_CONSTIT,KC_OSTREAM,KR_OSTREAM);
-  node_extended_copy(KR_CONSTIT,KC_DEVPRIVS,KR_DEVPRIVS);
+  capros_Node_getSlot(KR_CONSTIT,KC_OSTREAM,KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT,KC_DEVPRIVS,KR_DEVPRIVS);
 
 #ifdef DEBUG  
   kprintf(KR_OSTREAM,"STARTING LANCE HELPER ... [SUCCESS]");
