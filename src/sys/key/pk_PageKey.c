@@ -48,16 +48,6 @@ PageKey(Invocation* inv /*@ not null @*/)
     inv->exit.w1 = AKT_Page;
     return;
 
-  case OC_capros_Memory_lssAndPerms:
-    {
-      COMMIT_POINT();
-
-      inv->exit.code = RC_OK;
-      inv->exit.w1 = inv->key->keyData;
-      inv->exit.w2 = inv->key->keyPerms;
-      return;
-    }
-
   case OC_capros_Memory_getRestrictions:
     COMMIT_POINT();
 

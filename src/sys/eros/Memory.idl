@@ -13,8 +13,5 @@ interface Memory extends key {
   /* Returns a key to the memory object with reduced permissions. */
   capros.key reduce(unsigned long restrictions);
 
-  /* Returns the memory object's lss and restrictions. */
-  void lssAndPerms(out unsigned long lss, out unsigned long restrictions);
-
   unsigned long getRestrictions();
 };
