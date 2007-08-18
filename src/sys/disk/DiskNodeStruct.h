@@ -24,6 +24,7 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#ifndef __ASSEMBLER__
 /* This structure defines the *layout* of the disk node structure so
  * that various elements of the kernel can fetch things from ROM and
  * RAM nodes. 
@@ -62,6 +63,8 @@ proc_runStateField(DiskNodeStruct * dn)
   /* N.B. This must match the location in the LAYOUT file. */
   return ((uint8_t *) &dn->slot[8].u.nk.value) + 8;
 }
+
+#endif // __ASSEMBLER__
 
 /* Slots of a process root. Changes here should be matched in the
  * architecture-dependent layout files and also in the mkimage grammar
