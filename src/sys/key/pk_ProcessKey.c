@@ -43,7 +43,7 @@ Approved for public release, distribution unlimited. */
 void
 ProcessKey(Invocation* inv /*@ not null @*/)
 {
-
+  Process * p;
   Node *theNode = (Node *) key_GetObjectPtr(inv->key);
 
 
@@ -409,24 +409,75 @@ ProcessKey(Invocation* inv /*@ not null @*/)
     return;
 
   case OC_Process_MkFaultKey:
-    {
-      Process * p = node_GetDomainContext(theNode);
-      proc_Prepare(p);
+    p = node_GetDomainContext(theNode);
+    proc_Prepare(p);
 
-      COMMIT_POINT();
+    COMMIT_POINT();
 
-      p->processFlags &= ~PF_ExpectingMsg;
+    p->processFlags &= ~PF_ExpectingMsg;
     
-      goto makeResumeKey;
-    }
+    goto makeResumeKey;
 
   case OC_Process_MkResumeKey:
+    p = node_GetDomainContext(theNode);
+    proc_Prepare(p);
+
     COMMIT_POINT();
 
 makeResumeKey:
+    /* Perhaps we should zap other resume keys here.
+     Note, if a process Calls a key to itself, that should invalidate the
+     invokee. */
+
+    // If there is a resume key, state must be Waiting.
+    /* There are several cases to consider:
+      A. p == invoker
+        A1. Invocation is a Call
+           Step 1: invoker calls, becomes Waiting.
+           Step 2: key operation happens, process is already Waiting
+           Step 3: resume key that was produced by the Call is invoked,
+                   making the invokee Running and zapping the 
+                   resume key created in step 2. 
+        A2. Invocation is a Send.
+           Invoker was running, therefore there can be no resume keys
+           to invoker, therefore passed resume key cannot be to invoker. 
+           Step 1. Invoker Sends, remains Running. 
+           Step 2. key operation happens, process is Running,
+                   changed to Waiting. We must make sure the invoker does
+                   not run.
+           Step 3. passed resume key, if any, is invoked
+        A3. Invocation is a Return
+           Invoker was running, therefore there can be no resume keys
+           to invoker. 
+           Step 1. Invoker Returns, becomes Available, expectingMsg.
+           Step 2. Key operation happens. Process is Available,
+                   changed to Waiting.
+           Step 3. passed resume key, if any, is invoked
+      B. p != invoker
+        B1. Invocation is a Call
+           No problem.
+        B2. Invocation is a Send or Return
+           Invoker was running, therefore there can be no resume keys
+           to invoker, therefore invoker != invokee.
+           B2a. p == invokee
+             Step 1. Invoker invokes. 
+             Step 2. Key operation happens. Invokee must be Waiting,
+                     remains Waiting.
+             Step 3. Return to invokee.
+           B2b. p != invokee
+             No problem.
+    */
+
+    if (p->runState == RS_Running && p == act_CurContext()) // case A2
+      act_ForceResched();
+
+    p->runState = RS_Waiting;
+
     if (inv->exit.pKey[0]) {
       inv_SetExitKey(inv, 0, inv->key);
-      key_NH_Unprepare(inv->exit.pKey[0]);	/* Why? */
+      /* Unprepare, because gate keys are chained to the Process,
+         while Process keys are chained to the root node (fix this). */
+      key_NH_Unprepare(inv->exit.pKey[0]);
       keyBits_InitType(inv->exit.pKey[0], KKT_Resume);
       inv->exit.pKey[0]->keyPerms = 0;
     }

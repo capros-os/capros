@@ -330,7 +330,7 @@ void
 inv_RetryInvocation(Invocation* thisPtr)
 {
   inv_Cleanup(thisPtr);
-  act_CurContext()->runState = RS_Running;	// FIXME: still needed?
+  assert(act_CurContext()->runState == RS_Running);
 
   act_Yield();
   /* Returning all the way to user mode and taking an invocation exception

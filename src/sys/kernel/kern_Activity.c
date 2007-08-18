@@ -1107,9 +1107,7 @@ act_HandleYieldEntry(void)
   
   act_ForceResched();
 
-  if (act_Current()->context) {
-    act_CurContext()->runState = RS_Running;
-  }
+  assertex(act_CurContext(), act_CurContext()->runState == RS_Running);
 
   /* At this time, the activity rescheduler logic thinks it must run
      disabled. I am not convinced that it really needs to, but it is

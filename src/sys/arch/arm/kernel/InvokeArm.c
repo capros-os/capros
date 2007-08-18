@@ -389,6 +389,7 @@ InvokeArm(Process * invokerProc,
   case KKT_Resume:
     invokee = invKey->u.gk.pContext;
     /* Since a resume key exists, invokee must be in the waiting state. */
+    assert(invokee->runState == RS_Waiting);
     break;
   default: goto general_path1;
   }
