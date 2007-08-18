@@ -29,7 +29,7 @@ endif
 # The following variables depend on things set in the makefile:
 GCCFLAGS=$(CFLAGS) $(OPTIM) $(GCC_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
 GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(OPTIM) $(GPLUS_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
-MKIMAGEFLAGS=-a $(EROS_TARGET) -DBUILDDIR='"$(BUILDDIR)/"' -DEROS_TARGET_$(EROS_TARGET) -DLIBDIR=\"/eros/lib/$(EROS_TARGET)/\" -I$(CAPROS_DOMAIN) -I$(EROS_ROOT)/include
+MKIMAGEFLAGS=-a $(EROS_TARGET) -DBUILDDIR='"$(BUILDDIR)/"' -DEROS_TARGET_$(EROS_TARGET) -DLIBDIR=\"/eros/lib/$(EROS_TARGET)/\" -I$(CAPROS_DOMAIN) -I$(EROS_ROOT)/host/include
 
 C_DEP=@$(GCC) $(GCCFLAGS) $(GCCWARN) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
 CXX_DEP=@$(GPLUS) $(GPLUSFLAGS) $(GPLUSWARN) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
