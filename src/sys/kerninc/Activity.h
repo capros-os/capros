@@ -170,8 +170,6 @@ bool act_Prepare(Activity* thisPtr);
 
 void act_Wakeup(Activity* thisPtr);
 
-void act_InvokeMyKeeper(Activity* thisPtr);
-
 /* Set the global variable that will force rescheduling
    on the next return to user mode. */
 INLINE void 

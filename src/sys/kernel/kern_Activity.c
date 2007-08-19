@@ -726,14 +726,15 @@ act_DoReschedule(void)
       act_ChooseNewCurrentActivity();
 
     if (act_curActivity->context
-	&& act_curActivity->context->processFlags & PF_Faulted) 
-      act_InvokeMyKeeper(act_curActivity);
+	&& act_curActivity->context->processFlags & PF_Faulted) {
+      proc_InvokeProcessKeeper(act_curActivity->context);
 
-    /* Activity can go away as a consequence of keeper invocation. */
-    if (act_curActivity == 0 || act_curActivity->state != act_Running)
-      act_ChooseNewCurrentActivity();
-
-    assert (act_curActivity);
+      /* Invoking the process keeper either stuck us on a sleep queue, in
+       * which case we Yielded(), or migrated the current activity to a
+       * new domain, in which case we will keep trying: */
+      if (act_curActivity == 0 || act_curActivity->state != act_Running)
+        act_ChooseNewCurrentActivity();
+    }
 
 #if 0
     static count = 0;
@@ -1062,18 +1063,6 @@ act_Prepare(Activity* thisPtr)
 
   dprintf(true, "Activity start loop exceeded\n");
   return false;
-}
-
-void 
-act_InvokeMyKeeper(Activity* thisPtr)
-{
-  proc_InvokeProcessKeeper((Process *)thisPtr->context);
-    
-  /* Invoking the domain keeper either stuck us on a sleep queue, in
-   * which case we Yielded(), or migrated the current activity to a
-   * new domain, in which case we will keep trying in the
-   * Activity::DoReschedule() loop.
-   */
 }
 
 void // does not return

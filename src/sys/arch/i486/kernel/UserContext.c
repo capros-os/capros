@@ -1089,8 +1089,7 @@ proc_GetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
   if (thisPtr->runState == RS_Running)
     /* If runState == RS_Running,
        processFlags.PF_expectingMsg isn't significant and could be set.
-       Make sure it's cleared in domFlags, to better enable the user
-       to determine the run state. */
+       Make sure it's cleared in domFlags for consistency. */
     thisPtr->processFlags &= ~PF_ExpectingMsg;
   regs->domFlags = thisPtr->processFlags;
 
