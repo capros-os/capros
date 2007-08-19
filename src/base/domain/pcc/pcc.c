@@ -283,7 +283,6 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
   regs.EFLAGS = 0x200;
   regs.faultCode = 0;
   regs.faultInfo = 0;
-  regs.domState = RS_Waiting;
   regs.domFlags = 0;
 #elif defined(EROS_TARGET_arm)
   /* Unless we set them otherwise, the register values are zero.
@@ -293,7 +292,6 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
   regs.CPSR = 0;	/* ARM execution. System will force user mode. */
   regs.faultCode = 0;
   regs.faultInfo = 0;
-  regs.domState = RS_Waiting;
   regs.domFlags = 0;
 #endif
   

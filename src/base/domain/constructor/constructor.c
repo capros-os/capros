@@ -268,7 +268,6 @@ MakeNewProduct(Message *msg)
 
   regs.faultCode = 0;
   regs.faultInfo = 0;
-  regs.domState = RS_Waiting;
   regs.domFlags = 0;
   regs.pc = 0;			/* Protospace pc, well known to be zero */
 #if defined(EROS_TARGET_i486)

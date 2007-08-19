@@ -39,7 +39,6 @@ struct Registers {
   uint32_t sp;
   uint32_t faultCode;
   uint32_t faultInfo;
-  uint32_t domState;
   uint32_t domFlags;
   
   /* architecture-specific registers start here: */

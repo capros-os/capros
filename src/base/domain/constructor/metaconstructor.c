@@ -158,7 +158,6 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
 
   regs.faultCode = 0;
   regs.faultInfo = 0;
-  regs.domState = RS_Waiting;
   regs.domFlags = 0;
   regs.pc = mci->constructor_pc;
 #if defined(EROS_TARGET_i486)

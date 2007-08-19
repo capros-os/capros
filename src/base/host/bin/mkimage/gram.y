@@ -621,7 +621,6 @@ stmt:	/* IMPORT STRING {
 
 	   SHOWPARSE("=== stmt -> IPL domain\n");
 
-	   /* Set the domain to the "running" state (runState == 1) */
 	   keyBits_InitToVoid(&key);
 
 	   if (ei_GetDirEnt(image, ":ipl:", &key)) {

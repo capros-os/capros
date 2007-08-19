@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Keyboard Client to the ps2 driver(keyb). This process gets keyboard
  * scan codes from the ps2 driver, translates them to ASCII.
@@ -395,7 +399,6 @@ makeSharedProc(cap_t krNewProc,uint32_t sp)
 
   regs.faultCode = 0;
   regs.faultInfo = 0;
-  regs.domState = RS_Waiting;
   regs.domFlags = 0;
   regs.EFLAGS = 0x200;
 

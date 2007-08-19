@@ -141,7 +141,6 @@ proc_InvokeProcessKeeper(Process * thisPtr)
   proc_GetRegs32(thisPtr, &regs);
 
   // Show the state as it will be after the keeper invocation.
-  regs.domState = RS_Waiting;
   regs.domFlags &= ~PF_ExpectingMsg;
 
 #if 0

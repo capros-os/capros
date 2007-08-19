@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 
 /* winsys-keeper. This is a specialized keeper that acts in cahoots
@@ -78,10 +82,10 @@ ProcessRequest(Message *msg)
 
       kprintf(KR_OSTREAM, "\tarch      = 0x%08x\n\tlen       = 0x%08x\n"
 	   "\tpc        = 0x%08x\n\tsp        = 0x%08x\n\tfaultCode = 0x%08x\n"
-	   "\tfaultInfo = 0x%08x\n\tdomState  = 0x%08x\n\tdomFlags  = 0x%08x\n"
+	   "\tfaultInfo = 0x%08x\n\tdomFlags  = 0x%08x\n"
 	   "\tnextPC    = 0x%08x\n",
 	      regs->arch, regs->len, regs->pc, regs->sp, regs->faultCode,
-	      regs->faultInfo, regs->domState, regs->domFlags, regs->nextPC);
+	      regs->faultInfo, regs->domFlags, regs->nextPC);
 
       /* Perform bounds check on the fault address. If outside the
       acceptable range, return to KR_VOID (so at least winsys won't

@@ -167,7 +167,6 @@ main()
   regs.FS = DOMAIN_DATA_SEG;
   regs.GS = DOMAIN_DATA_SEG;
   regs.EFLAGS = 0x0200;
-  regs.domState = RS_Waiting;
   regs.domFlags = 0;
   regs.faultCode = 0;
   regs.faultInfo = 0;

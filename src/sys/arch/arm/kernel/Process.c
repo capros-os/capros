@@ -471,7 +471,12 @@ proc_GetRegs32(Process * thisPtr, struct Registers * regs /*@ not null @*/)
   regs->sp     = thisPtr->trapFrame.r13;
   regs->faultCode = thisPtr->faultCode;
   regs->faultInfo = thisPtr->faultInfo;
-  regs->domState = thisPtr->runState;
+
+  if (thisPtr->runState == RS_Running)
+    /* If runState == RS_Running,
+       processFlags.PF_expectingMsg isn't significant and could be set.
+       Make sure it's cleared in domFlags for consistency. */
+    thisPtr->processFlags &= ~PF_ExpectingMsg;
   regs->domFlags = thisPtr->processFlags;
 
   regs->registers[0]  = thisPtr->trapFrame.r0;
@@ -514,7 +519,6 @@ proc_SetRegs32(Process * thisPtr, struct Registers * regs /*@ not null @*/)
   thisPtr->trapFrame.r13    = regs->sp;
   thisPtr->faultCode        = regs->faultCode;
   thisPtr->faultInfo        = regs->faultInfo;
-  thisPtr->runState         = regs->domState;
   thisPtr->processFlags     = regs->domFlags;
 
   thisPtr->trapFrame.r0  = regs->registers[0];

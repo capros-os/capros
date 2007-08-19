@@ -106,7 +106,6 @@ ethread_new_thread(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_size,
 
   regs.faultCode = 0;
   regs.faultInfo = 0;
-  regs.domState = RS_Waiting;
   regs.domFlags = 0;
   regs.EFLAGS = 0x200;
 
@@ -129,7 +128,3 @@ ethread_new_thread(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_size,
 
   return SEND(&msg);
 }
-
-
-
-
