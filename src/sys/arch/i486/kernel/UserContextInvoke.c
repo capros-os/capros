@@ -112,7 +112,7 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   uint8_t * rcvKeys = (uint8_t *) &thisPtr->pseudoRegs.rcvKeys;
   if (thisPtr->pseudoRegs.rcvKeys) {
     if (thisPtr->pseudoRegs.rcvKeys & 0xe0e0e0e0) {
-      proc_SetFault(thisPtr, FC_BadExitBlock, 0, false);
+      proc_SetFault(thisPtr, FC_BadExitBlock, 0);
       inv->invokee = 0;
       inv->exit.rcvLen = 0;	/* needed because I think invokee==0 is not
 			checked before xfer */
@@ -335,7 +335,7 @@ proc_SetupExitString(Process* thisPtr,
    * result of the above.  We know this was the prior state, as the
    * domain would not otherwise have been runnable.
    */
-  proc_SetFault(thisPtr, FC_NoFault, 0, false);
+  proc_ClearFault(thisPtr);
 }
 
 void 

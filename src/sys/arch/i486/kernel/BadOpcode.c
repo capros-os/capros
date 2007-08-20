@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Drivers for 386 protection faults */
 
@@ -41,7 +44,7 @@ OverflowTrap(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(((Process*) act_CurContext()), FC_Overflow, sa->EIP, false);
+  proc_SetFault(act_CurContext(), FC_Overflow, sa->EIP);
 
   return false;
 }
@@ -54,7 +57,7 @@ BoundsFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(((Process*) act_CurContext()), FC_Bounds, sa->EIP, false);
+  proc_SetFault(act_CurContext(), FC_Bounds, sa->EIP);
 
   return false;
 }
@@ -67,7 +70,7 @@ BadOpcode(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(((Process*) act_CurContext()), FC_BadOpcode, sa->EIP, false);
+  proc_SetFault(act_CurContext(), FC_BadOpcode, sa->EIP);
 
   return false;
 }
@@ -80,7 +83,7 @@ InvalTSSFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(((Process*) act_CurContext()), FC_InvalidTSS, sa->EIP, false);
+  proc_SetFault(act_CurContext(), FC_InvalidTSS, sa->EIP);
 
   return false;
 }
@@ -93,7 +96,7 @@ CoprocErrorFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(((Process*) act_CurContext()), FC_FloatingPointError, sa->EIP, false);
+  proc_SetFault(act_CurContext(), FC_FloatingPointError, sa->EIP);
 
   return false;
 }
@@ -106,7 +109,7 @@ AlignCheckFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(((Process*) act_CurContext()), FC_Alignment, sa->EIP, false);
+  proc_SetFault(act_CurContext(), FC_Alignment, sa->EIP);
 
   return false;
 }
@@ -119,7 +122,7 @@ SIMDFloatingPointFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(((Process*) act_CurContext()), FC_SIMDFloatingPointError, sa->EIP, false);
+  proc_SetFault(act_CurContext(), FC_SIMDFloatingPointError, sa->EIP);
 
   return false;
 }

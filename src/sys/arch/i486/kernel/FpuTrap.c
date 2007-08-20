@@ -44,9 +44,7 @@ DeviceNotAvailException(savearea_t *sa)
   }
 
 #ifndef EROS_HAVE_FPU
-  if (Thread::CurContext())
-    ((Process*) Thread::CurContext())->SetFault(FC_NoFPU, sa->EIP, false);
-
+#error not supported
 #else
 
   if (proc_fpuOwner == act_CurContext()) {
@@ -69,8 +67,7 @@ DeviceNotAvailException(savearea_t *sa)
 #endif
     
     if (act_CurContext())
-      proc_SetFault(((Process*) act_CurContext()), FC_FloatingPointError,
-						  sa->EIP, false);
+      proc_SetFault(act_CurContext(), FC_FloatingPointError, sa->EIP);
   }
   else {
 #if 0

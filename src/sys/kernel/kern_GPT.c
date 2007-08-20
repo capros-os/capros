@@ -332,6 +332,8 @@ proc_InvokeSegmentKeeper(
 
   DEBUG (keeper) dprintf(true, "calling seg keeper, wi=0x%x\n", wi);
 
+  assert(wi->faultCode);
+
   // FIXME: noCall restriction might not be right if path was truncated.
   if (wi->keeperGPT) {
     // It has a keeper we can call. 
@@ -346,13 +348,10 @@ proc_InvokeSegmentKeeper(
      * restartable.
      FIXME: simplify this?
      */
-    proc_SetFault(thisPtr, wi->faultCode, vaddr, false);
+    proc_SetFault(thisPtr, wi->faultCode, vaddr);
 
-    /* If this was a memory fault, clear the PF_Faulted bit.  This
-     * allows us to restart the instruction properly without invoking
-     * the process keeper in the event that we are forced to yield in the
-     * middle of preparing the keeper key or calling InvokeMyKeeper;
-     */
+    /* Clear the PF_Faulted bit to reflect the fact that this is going
+    to the segment keeper not the process keeper. */
     thisPtr->processFlags &= ~PF_Faulted;
   
     // Set up to send a key to the keeper.
@@ -385,7 +384,7 @@ proc_InvokeSegmentKeeper(
     if (! invokeProcessKeeperOK)
       return;	// no segment keeper and can't invoke process keeper
 
-    proc_SetFault(thisPtr, wi->faultCode, vaddr, false);
+    proc_SetFault(thisPtr, wi->faultCode, vaddr);
 
     /* Yielding here will cause the thread to resume with a non-zero
      * fault code in the scheduler, at which point it will be shunted

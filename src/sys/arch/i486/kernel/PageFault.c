@@ -426,7 +426,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     if (va >= UMSGTOP) {
       dprintf(true, "Process accessed va 0x%08x, too high.\n",
 	      (uint32_t) va);
-      proc_SetFault(p, FC_InvalidAddr, va, false);  
+      proc_SetFault(p, FC_InvalidAddr, va);  
       return false;
     }
     /* The address exceeds the small space limit. We need to
@@ -467,7 +467,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   if (va >= UMSGTOP) {
     dprintf(true, "Process accessed va 0x%08x, too high.\n",
 	    (uint32_t) va);
-    proc_SetFault(p, FC_InvalidAddr, va, false);  
+    proc_SetFault(p, FC_InvalidAddr, va);  
     return false;
   }
 #endif

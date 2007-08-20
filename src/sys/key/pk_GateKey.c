@@ -62,24 +62,21 @@ GateKey(Invocation* inv /*@ not null @*/)
   inv->suppressXfer = true;
 
   if (! proc_IsExpectingMsg(inv->invokee)) {
+    /* A segment keeper or process keeper is invoking the resume key
+    it received. 
+    A zero order code means clear the fault.
+    A nonzero order code means send any fault to the process keeper. */
+
 #if 0
     dprintf(true, "Invoking fault key, code=%d\n", inv->entry.code);
 #endif
-    // Invokee not expecting a message.
-    // FIXME: want the following behavior if returning to fault key too.
     
-    if (inv->entry.code) {
-	/* Regardless of what the fault code may be, there is no
-	 * action that a keeper can take via the fault key that can
-	 * require an uncleared fault demanding slow-path validation
-	 * is already required for some other reason.  It is therefore 
-	 * safe to use 'false' here.
-	 */
-	proc_SetFault(invokee, invokee->faultCode, invokee->faultInfo,
-			  false);
+    if (inv->entry.code && invokee->faultCode) {
+      /* Send the fault to the process keeper (not the segment keeper). */
+      invokee->processFlags |= PF_Faulted;
     }
     else
-	proc_SetFault(invokee, FC_NoFault, 0, false);
+      proc_ClearFault(invokee);
     return;
   }
 

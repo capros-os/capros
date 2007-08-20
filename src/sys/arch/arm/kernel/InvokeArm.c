@@ -171,7 +171,7 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   uint8_t * rcvKeys = (uint8_t *) &thisPtr->trapFrame.r14;
   if (thisPtr->trapFrame.r14) {		/* if any nonzero */
     if (thisPtr->trapFrame.r14 & 0xe0e0e0e0) {	/* if any too large */
-      proc_SetFault(thisPtr, FC_BadExitBlock, 0, false);
+      proc_SetFault(thisPtr, FC_BadExitBlock, 0);
       inv->invokee = 0;
       inv->exit.rcvLen = 0;	/* needed because I think invokee == 0 is not
 			checked before xfer */
@@ -298,7 +298,7 @@ printf("faulting on exit rcv_data addr, va=0x%x\n", va);////
    * result of the above.  We know this was the prior state, as the
    * domain would not otherwise have been runnable.  */
   // FIXME: Prevent setting the fault.
-  proc_SetFault(thisPtr, FC_NoFault, 0, false);
+  proc_ClearFault(thisPtr);
 }
 
 void 

@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -70,7 +70,7 @@ PseudoInstrException(savearea_t *sa)
   switch (sa->EAX) {
     
   default:
-    proc_SetFault(ctxt, FC_BadOpcode, sa->EIP, false);
+    proc_SetFault(ctxt, FC_BadOpcode, sa->EIP);
     break;
   }
 

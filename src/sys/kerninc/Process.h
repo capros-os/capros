@@ -230,21 +230,22 @@ proc_Prepare(Process* thisPtr)
     proc_DoPrepare(thisPtr);
 }
 
-/* needRevalidate is always false and should be deleted. */
 INLINE void 
-proc_SetFault(Process* thisPtr, uint32_t code, uint32_t info, bool needRevalidate)
+proc_ClearFault(Process * thisPtr)
 {
+  thisPtr->faultCode = FC_NoFault;
+  thisPtr->faultInfo = 0;
+  thisPtr->processFlags &= ~PF_Faulted;
+}
+
+INLINE void 
+proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info)
+{
+  assert(code);
+
   thisPtr->faultCode = code;
   thisPtr->faultInfo = info;
-  
-  assert(thisPtr->faultCode != FC_MalformedProcess);
-  
-  if (thisPtr->faultCode)
-    thisPtr->processFlags |= PF_Faulted;
-  else
-    thisPtr->processFlags &= ~PF_Faulted;
-  
-  assert(!needRevalidate);
+  thisPtr->processFlags |= PF_Faulted;
   
 #ifdef OPTION_DDB
   if (thisPtr->processFlags & PF_DDBTRAP)
@@ -260,7 +261,7 @@ proc_SetMalformed(Process* thisPtr)
      so for now: */
   dprintf(true, "Process is malformed\n");
 #endif
-  proc_SetFault(thisPtr, FC_MalformedProcess, 0, false);
+  proc_SetFault(thisPtr, FC_MalformedProcess, 0);
   thisPtr->hazards |= hz_Malformed; 
 }
 

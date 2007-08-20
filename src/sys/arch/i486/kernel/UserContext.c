@@ -553,7 +553,7 @@ proc_ValidateRegValues(Process* thisPtr)
   
   if (code) {
     fault:
-    proc_SetFault(thisPtr, code, info, false);
+    proc_SetFault(thisPtr, code, info);
   }
   
 #if 0
@@ -1028,43 +1028,6 @@ proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
     break;
   }
 }
-
-#if 0
-void
-Process::SetFault(uint32_t code, uint32_t info, bool needRevalidate)
-{
-  faultCode = code;
-  faultInfo = info;
-
-  /* For FC_MalformedProcess, should use SetMalformed() instead!! */
-  assert(faultCode != FC_MalformedProcess);
-  
-#if 1
-  if (faultCode)
-    processFlags |= PF_Faulted;
-  else
-    processFlags &= ~PF_Faulted;
-#endif
-  
-#if 0
-  printf("Fault code set to %d info=0x%x\n", code, info);
-#endif
-
-#if 0
-  /* It is now sufficient to set the PF_Faulted flag, which has the
-   * effect of rendering the process non-runnable without totally
-   * zapping the entire universe.
-   */
-  
-  if (needRevalidate)
-    NeedRevalidate();
-#endif
-
-#if 0
-  Debugger();
-#endif
-}
-#endif
 
 bool
 proc_GetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
