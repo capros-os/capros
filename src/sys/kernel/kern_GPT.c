@@ -344,15 +344,17 @@ proc_InvokeSegmentKeeper(
 
     keeperKey = &wi->keeperGPT->slot[capros_GPT_keeperSlot];
 
-    /* Ensure retry on yield.  All segment faults are fast-path
-     * restartable.
-     FIXME: simplify this?
-     */
-    proc_SetFault(thisPtr, wi->faultCode, vaddr);
-
-    /* Clear the PF_Faulted bit to reflect the fact that this is going
+    /* Save the faultCode and faultInfo that will be passed to the
+    process keeper if the segment keeper rejects the fault. */
+    thisPtr->faultCode = wi->faultCode;
+    thisPtr->faultInfo = vaddr;
+    /* Do not set the PF_Faulted bit, because for now this is going
     to the segment keeper not the process keeper. */
-    thisPtr->processFlags &= ~PF_Faulted;
+
+#ifdef OPTION_DDB
+    if (thisPtr->processFlags & PF_DDBTRAP)
+      dprintf(true, "Process 0x%08x faulting to seg keeper\n", thisPtr);
+#endif
   
     // Set up to send a key to the keeper.
     /* This could be a call driven by SetupExitString(), in which the
