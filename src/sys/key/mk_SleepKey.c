@@ -40,10 +40,10 @@ Approved for public release, distribution unlimited. */
 void
 SleepKey(Invocation* inv /*@ not null @*/)
 {
-  COMMIT_POINT();
-      
   switch (inv->entry.code) {
   case OC_capros_Sleep_getTimeMonotonic:
+    COMMIT_POINT();
+      
     {
       uint64_t nsec = mach_TicksToNanoseconds(sysT_Now());
       inv->exit.w1 = (uint32_t) nsec;	// low word
@@ -52,6 +52,8 @@ SleepKey(Invocation* inv /*@ not null @*/)
       return;
     }
   case OC_capros_Sleep_wakeup:
+    COMMIT_POINT();
+      
     {
       /* This is NOT a no-op.  The wakeup logic hacks wakeup by
 	 resetting the order code to this one */
@@ -84,17 +86,6 @@ SleepKey(Invocation* inv /*@ not null @*/)
 	// and needs to be redone.
       proc_AdvancePostInvocationPC(act_CurContext());
 
-      /* The following is an ugly lie.  We have committed the
-       * invocation, and therefore advanced the PC.  The sleep call,
-       * however, does not return in the usual way, but rather yields
-       * here.  To make sure that this does not trip up the various
-       * consistency checks, we set InvocationCommitted to FALSE here.
-       */
-
-#ifndef NDEBUG
-      InvocationCommitted = false;
-#endif
-      
       act_SleepOn(&DeepSleepQ);
       irq_ENABLE();
 
@@ -103,10 +94,15 @@ SleepKey(Invocation* inv /*@ not null @*/)
     }
     
   case OC_capros_key_getType:
+    COMMIT_POINT();
+      
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_Sleep;
     return;
+
   default:
+    COMMIT_POINT();
+      
     inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
