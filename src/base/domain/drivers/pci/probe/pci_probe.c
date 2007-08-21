@@ -85,7 +85,7 @@ struct pci_ops *pci_ops_ptr = NULL;
 
 /* Globals */
 char rcv_buffer[MAX_SIZE];  /* Data is received into this buffer */
-int find_total = 0;
+unsigned int find_total = 0;
 
 #define RETURN_IF_NOT_INITIALIZED  if (!pci_initialized) { \
                                  msg->snd_code = RC_Pci_NotInitialized; \
@@ -1226,7 +1226,7 @@ ProcessRequest(Message *msg)
       msg->snd_w1 = find_total;
       msg->snd_code = RC_OK;
 
-    }/*End of OC_Pci_Find_VendorID_Total */
+    }
 
     break;
 
@@ -1240,7 +1240,7 @@ ProcessRequest(Message *msg)
       msg->snd_w1 = find_total;
       msg->snd_code = RC_OK;
 
-    }/*End of OC_Pci_Find_VendorID_Total */
+    }
 
     break;
 
@@ -1299,7 +1299,7 @@ ProcessRequest(Message *msg)
       msg->snd_w1 = find_total;
       msg->snd_code = RC_OK;
 
-    }/*End of OC_Pci_Find_VendorID_Total */
+    }
     
     break;
 
@@ -1461,7 +1461,6 @@ ProcessRequest(Message *msg)
 
   //OC_Pci_Find_VendorID  
   //OC_Pci_Find_VenDevID 
-  //OC_Pci_Find_VendorID_Total  
   //OC_Pci_Find_VenDevID_Total  
 
 

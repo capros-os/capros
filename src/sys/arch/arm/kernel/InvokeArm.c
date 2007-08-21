@@ -495,7 +495,7 @@ general_path1:
   /* Enable IRQ interrupts. */
   irq_ENABLE();
 
-  assert(act_CurContext()->faultCode == FC_NoFault);
+  assert(act_CurContext()->faultCode == capros_Process_FC_NoFault);
 
   proc_DoKeyInvocation(act_CurContext());
 

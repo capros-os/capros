@@ -113,7 +113,7 @@ idt_OnKeyInvocationTrap(savearea_t * saveArea)
        that path may have set a fault code, in which case we need to
        bypass the actual invocation and let the thread scheduler
        invoke the domain keeper. */
-    if (sndContext->faultCode == FC_NoFault)
+    if (sndContext->faultCode == capros_Process_FC_NoFault)
       proc_DoKeyInvocation(sndContext);
   }
   

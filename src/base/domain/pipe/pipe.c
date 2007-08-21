@@ -91,7 +91,7 @@ typedef struct pipe_state pipe_state;
 #define KI_READER      1
 #define KI_WRITER      2
 
-volatile void
+void
 teardown(uint32_t caller)
 {
   COPY_KEYREG(caller, KR_RETURN);

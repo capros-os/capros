@@ -547,7 +547,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     dprintf(true, "Process accessed kernel space at 0x%08x, pc=0x%08x\n",
             va, p->trapFrame.r15);
 #endif
-    proc_SetFault(p, FC_InvalidAddr, va);
+    proc_SetFault(p, capros_Process_FC_InvalidAddr, va);
     return false;
   }
 

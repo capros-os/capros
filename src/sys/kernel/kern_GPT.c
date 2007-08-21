@@ -88,7 +88,7 @@ processKey(SegWalk * wi, Key * pSegKey, uint64_t va)
     if (! node_PrepAsSegment(objH_ToNode(pSegKey->u.ok.pObj))) {
       /* This can only happen if a holder of a range key uses a node
       as both a GPT and something else. */
-      wi->faultCode = FC_SegMalformed;
+      wi->faultCode = capros_Process_FC_MalformedSpace;
       return false;
     }
     break;
@@ -101,11 +101,11 @@ processKey(SegWalk * wi, Key * pSegKey, uint64_t va)
     break;
 
   case KKT_Void:
-    wi->faultCode = FC_InvalidAddr;
+    wi->faultCode = capros_Process_FC_InvalidAddr;
     return false;
 
   default:
-    wi->faultCode = FC_SegMalformed;
+    wi->faultCode = capros_Process_FC_MalformedSpace;
     return false;
   }
 
@@ -118,7 +118,7 @@ processKey(SegWalk * wi, Key * pSegKey, uint64_t va)
   /* Might want to store l2g offset by 1 (or up to EROS_PAGE_LGSIZE),
      so it will require only 6 bits instead of 7. */
   if ((va >> (l2g -1) >> 1) != keyBits_GetGuard(pSegKey)) {
-    wi->faultCode = FC_InvalidAddr;
+    wi->faultCode = capros_Process_FC_InvalidAddr;
     return false;
   }
   // Strip off guard bits.
@@ -131,7 +131,7 @@ processKey(SegWalk * wi, Key * pSegKey, uint64_t va)
   wi->restrictions |= pSegKey->keyPerms;
   if ((wi->restrictions & capros_Memory_readOnly)
       && wi->needWrite) {
-    wi->faultCode = FC_Access;
+    wi->faultCode = capros_Process_FC_AccessViolation;
     return false;
   }
 
@@ -204,7 +204,7 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
     KernStats.nWalkLoop++;
 
     if (++ wi->traverseCount >= MAX_SEG_DEPTH) {
-      wi->faultCode = FC_SegDepth;
+      wi->faultCode = capros_Process_FC_TraverseLimit;
       goto fault_exit;
     }
       
@@ -231,7 +231,7 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
 
     uint64_t ndx = wi->offset >> curL2v;
     if (ndx > maxSlot) {
-      wi->faultCode = FC_InvalidAddr;
+      wi->faultCode = capros_Process_FC_InvalidAddr;
       goto fault_exit;
     }
 
@@ -258,7 +258,7 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
       wi->restrictions |= wrestrictions;
       if ((wi->restrictions & capros_Memory_readOnly)
           && wi->needWrite) {
-        wi->faultCode = FC_Access;
+        wi->faultCode = capros_Process_FC_AccessViolation;
         goto fault_exit;
       }
 
@@ -295,7 +295,7 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
   assert(false);	// can't get here
 
 seg_malformed:
-  wi->faultCode = FC_SegMalformed;
+  wi->faultCode = capros_Process_FC_MalformedSpace;
 fault_exit:
   WALK_DBG_MSG("flt");
   return false;

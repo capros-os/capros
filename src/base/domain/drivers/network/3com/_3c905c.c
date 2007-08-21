@@ -1499,7 +1499,7 @@ int
 _3c905c_probe()
 {
   result_t result;
-  int32_t total;
+  uint32_t total;
   unsigned short vendor = VENDOR_3COM;
   int i;
   

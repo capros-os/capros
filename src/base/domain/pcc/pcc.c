@@ -45,6 +45,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Number.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
+//#include <idl/capros/arch/arm/Process.h>
 
 #include <domain/PccKey.h>
 #include <domain/Runtime.h>
@@ -203,7 +204,6 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
 		  domcre_info *pInfo)
 {
   uint32_t result;
-  struct Registers regs;
 
   DEBUG kdprintf(KR_OSTREAM, "About to call create_new_process()\n");
   result = create_new_process(krBank, krDomKey);
@@ -263,14 +263,12 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
   
   DEBUG kdprintf(KR_OSTREAM, "Installed sched\n");
 
-  /* Fetch out the register values, mostly for the benefit of
-     Retrieving the PC -- this prevents us from needing to hard-code
-     the PC, which will inevitably change. */
+#if defined(EROS_TARGET_i486)
+  struct Registers regs;
   (void) process_get_regs(krDomKey, &regs);
 
   DEBUG kdprintf(KR_OSTREAM, "Got regs\n");
 
-#if defined(EROS_TARGET_i486)
   /* Unless we set them otherwise, the register values are zero.
      We now need to initialize the stack pointer and the segment registers. */
   regs.pc = pInfo->domcre_pc;
@@ -284,7 +282,16 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
   regs.faultCode = 0;
   regs.faultInfo = 0;
   regs.domFlags = 0;
+  
+  /* Set the new register values. */
+  (void) process_set_regs(krDomKey, &regs);
 #elif defined(EROS_TARGET_arm)
+  struct /*capros_arch_arm_Process_*/Registers regs;////
+////  (void) capros_arch_arm_Process_getRegisters(krDomKey, &regs);
+  (void) process_get_regs(krDomKey, &regs);
+
+  DEBUG kdprintf(KR_OSTREAM, "Got regs\n");
+
   /* Unless we set them otherwise, the register values are zero.
      The stack pointer is initialized at run time.
      We now need to initialize the stack pointer and the segment registers. */
@@ -293,10 +300,11 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
   regs.faultCode = 0;
   regs.faultInfo = 0;
   regs.domFlags = 0;
-#endif
   
   /* Set the new register values. */
+////  (void) capros_arch_arm_Process_setRegisters(krDomKey, regs);
   (void) process_set_regs(krDomKey, &regs);
+#endif
 
   DEBUG kdprintf(KR_OSTREAM, "Wrote regs\n");
 

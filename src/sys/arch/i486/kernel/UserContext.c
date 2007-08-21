@@ -104,7 +104,7 @@ proc_AllocUserContexts()
     p->keysNode = 0;
     p->isUserContext = true;		/* until proven otherwise */
     /*p->priority = pr_Never;*/
-    p->faultCode = FC_NoFault;
+    p->faultCode = capros_Process_FC_NoFault;
     p->faultInfo = 0;
     p->processFlags = 0;
     p->hazards = 0u;	/* deriver should change this! */
@@ -413,7 +413,7 @@ proc_allocate(bool isUser)
 
   p->md.cpuStack = 0;
   p->procRoot = 0;		/* for kernel contexts */
-  p->faultCode = FC_NoFault;
+  p->faultCode = capros_Process_FC_NoFault;
   p->faultInfo = 0;
   p->processFlags = 0;
   p->isUserContext = isUser;
@@ -481,12 +481,9 @@ proc_ValidateRegValues(Process* thisPtr)
   uint32_t wantCode;
   uint32_t wantData;
   uint32_t wantPseudo;
-  fixreg_t iopl;
   
   if (thisPtr->processFlags & PF_Faulted)
     return;
-
-  iopl = (thisPtr->trapFrame.EFLAGS & MASK_EFLAGS_IOPL) >> SHIFT_EFLAGS_IOPL;
 
   /* FIX: This is no longer correct, as a valid user-mode application
    * can now carry PrivDomainCode and PrivDomainData in some cases. */
@@ -530,8 +527,9 @@ proc_ValidateRegValues(Process* thisPtr)
   thisPtr->trapFrame.EFLAGS |= MASK_EFLAGS_Interrupt;
   thisPtr->trapFrame.EFLAGS &= ~MASK_EFLAGS_Nested;
 
-  if ( iopl != 0 && !proc_HasDevicePriveleges(thisPtr) ) {
-    code = FC_RegValue;
+  if ( !proc_HasDevicePriveleges(thisPtr) ) {
+    // He doesn't have iopl privileges.
+    thisPtr->trapFrame.EFLAGS &= ~MASK_EFLAGS_IOPL;
   }
 
 #ifdef EROS_HAVE_FPU
@@ -861,7 +859,7 @@ proc_DoPrepare(Process* thisPtr)
   if (thisPtr->hazards & hz_DomRoot)
     proc_LoadFixRegs(thisPtr);
 
-  if (thisPtr->faultCode == FC_MalformedProcess) {
+  if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
     assert (thisPtr->processFlags & PF_Faulted);
     return;
   }
@@ -884,7 +882,7 @@ proc_DoPrepare(Process* thisPtr)
     }
   }
   
-  if (thisPtr->faultCode == FC_MalformedProcess) {
+  if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
     assert (thisPtr->processFlags & PF_Faulted);
     return;
   }

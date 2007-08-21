@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime distribution.
+ * This file is part of the CapROS Operating System runtime distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 
 #include <eros/target.h>
@@ -112,10 +116,10 @@ get_glyph(FontType *font, uint8_t c, color_t fg, color_t bg, color_t *glyph)
 void 
 font_render(FontType *font, uint8_t *pixel_buffer, uint32_t buffer_width,
 	    point_t start, color_t fg, color_t bg,
-	    uint16_t flag, uint8_t *string)
+	    uint16_t flag, char * string)
 {
   point_t cursor = start;
-  uint8_t *m = string;
+  char * m = string;
   uint32_t cnt = 0;
   uint32_t len = strlen(string);
 
@@ -159,7 +163,7 @@ font_render(FontType *font, uint8_t *pixel_buffer, uint32_t buffer_width,
 }
 
 FontType *
-font_find_font(uint8_t *name)
+font_find_font(char * name)
 {
    uint32_t i;
 

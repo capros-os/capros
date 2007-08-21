@@ -235,13 +235,13 @@ HandleSegmentFault(Message *pMsg, state *pState)
   uint32_t offsetBlss = BiasedLSS(offset);
 
   switch (pMsg->rcv_w1) {
-  case FC_InvalidAddr:
+  case capros_Process_FC_InvalidAddr:
     {
       /* Subseg is too small */
       
       /* OPTIMIZATION NOTE:
 
-	 The effect of FC_InvalidAddr is to zero-extend the
+	 The effect of capros_Process_FC_InvalidAddr is to zero-extend the
 	 segment.  It therefore cannot alter the value of
 	 /first_zero_offset/.
       */
@@ -305,7 +305,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
       
 	DEBUG(returns)
 	  kprintf(KR_OSTREAM,
-		   "Returning from FC_InvalidAddr after growing"
+		   "Returning from capros_Process_FC_InvalidAddr after growing"
 		   " managed segment to blss=%d\n", subsegBlss);
 	return RC_OK;
       }
@@ -402,14 +402,14 @@ buy a virgin node from space bank and set node key to have blss =
 
       DEBUG(returns)
 	kprintf(KR_OSTREAM,
-		 "Returning from FC_InvalidAddr after populating"
+		 "Returning from capros_Process_FC_InvalidAddr after populating"
 		 " zero subsegment\n");
       return RC_OK;
     }
     
-  case FC_Access:
+  case capros_Process_FC_AccessViolation:
     {
-      kprintf(KR_OSTREAM, "*** MEMMAP:  should never generate FC_Access!");
+      kprintf(KR_OSTREAM, "*** MEMMAP:  should never generate capros_Process_FC_AccessViolation!");
       return RC_capros_key_RequestError;
       break;
     }

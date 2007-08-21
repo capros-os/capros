@@ -59,7 +59,7 @@ DIRS+=vcsk
 DIRS+=memmap
 DIRS+=net 
 # DIRS+=eterm # broken due to RETRY_SET_LIK
-DIRS+=rangeAl
+# DIRS+=rangeAl # broken, compilation errors
 DIRS+=timer
 
 COREMAP=core_stuff.map

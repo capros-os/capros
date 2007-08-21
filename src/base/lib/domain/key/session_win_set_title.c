@@ -31,7 +31,7 @@ extern size_t strlen(const char *s);
 
 uint32_t
 session_win_set_title(uint32_t session_key, uint32_t window_id,
-		      uint8_t *title)
+		      char * title)
 {
   Message m;
 

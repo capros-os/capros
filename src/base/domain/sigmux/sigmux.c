@@ -60,7 +60,7 @@ typedef struct client_s {
 
 client_s client[NCLIENT];
 
-volatile void
+void
 teardown()
 {
   /* get the protospace */

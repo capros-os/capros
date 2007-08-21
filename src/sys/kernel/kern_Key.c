@@ -401,43 +401,23 @@ key_Print(const Key* thisPtr)
   if ( keyBits_IsPreparedObjectKey(thisPtr) ) {
     ObjectHeader * pObj = key_GetObjectPtr(thisPtr);
     
-    uint32_t * pOID = (uint32_t *) &pObj->oid;
-
     if (keyBits_IsType(thisPtr, KKT_Resume)) {
-#if 0
-      printf("rsm 0x%08x 0x%08x 0x%08x 0x%08x (obj=0x%08x)\n",
-		     pWKey[0], ((Node *)pObj)->callCount,
-		     pOID[0], pOID[1], pObj);
-      
-#else
-      printf("0x%08x rsm 0x%08x 0x%08x 0x%08x 0x%08x\n",
+      printf("0x%08x rsm 0x%08x 0x%08x ",
 		     thisPtr,
-		     pWKey[0], objH_ToNode(pObj)->callCount,
-		     pOID[0], pOID[1]);
-#endif
+		     pWKey[0], objH_ToNode(pObj)->callCount);
     }
     else {
-#if 0
-      printf("pob 0x%08x 0x%08x 0x%08x 0x%08x (obj=0x%08x)\n",
-		     pWKey[0], ok.pObj->allocCount,
-		     pOID[0], pOID[1], pObj);
-#else
-      printf("0x%08x pob 0x%08x 0x%08x 0x%08x 0x%08x\n",
+      printf("0x%08x pob 0x%08x 0x%08x ",
 		     thisPtr,
-		     pWKey[0], pObj->allocCount,
-		     pOID[0], pOID[1]);
-#endif
+		     pWKey[0], pObj->allocCount);
     }
+    printOid(pObj->oid);
+    printf("\n");
   }
   else {
-#if 0
-    printf("ukt 0x%08x 0x%08x 0x%08x 0x%08x\n",
-		   pWKey[0], pWKey[1], pWKey[2], pWKey[3]);
-#else
     printf("0x%08x ukt 0x%08x 0x%08x 0x%08x 0x%08x\n",
 		   thisPtr,
 		   pWKey[0], pWKey[1], pWKey[2], pWKey[3]);
-#endif
   }
 }
 

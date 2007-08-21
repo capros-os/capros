@@ -342,13 +342,13 @@ HandleSegmentFault(Message *pMsg, state *pState)
   uint32_t offsetBlss = BiasedLSS(offset);
 
   switch (pMsg->rcv_w1) {
-  case FC_InvalidAddr:
+  case capros_Process_FC_InvalidAddr:
     {
       /* Subseg is too small */
       
       /* OPTIMIZATION NOTE:
 
-	 The effect of FC_InvalidAddr is to zero-extend the
+	 The effect of capros_Process_FC_InvalidAddr is to zero-extend the
 	 segment.  It therefore cannot alter the value of
 	 /first_zero_offset/.
       */
@@ -424,7 +424,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
       
 	DEBUG(returns)
 	  kdprintf(KR_OSTREAM,
-		   "Returning from FC_InvalidAddr after growing"
+		   "Returning from capros_Process_FC_InvalidAddr after growing"
 		   " managed segment to blss=%d\n", subsegBlss);
 	return RC_OK;
       }
@@ -489,12 +489,12 @@ HandleSegmentFault(Message *pMsg, state *pState)
 
       DEBUG(returns)
 	kdprintf(KR_OSTREAM,
-		 "Returning from FC_InvalidAddr after populating"
+		 "Returning from capros_Process_FC_InvalidAddr after populating"
 		 " zero subsegment\n");
       return RC_OK;
     }
     
-  case FC_Access:
+  case capros_Process_FC_AccessViolation:
     {
       /* Subseg is read-only */
 
@@ -506,7 +506,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
       bool needTraverse = true;
 
       DEBUG(access)
-	kdprintf(KR_OSTREAM, "FC_Access at 0x%08x %08x\n",
+	kdprintf(KR_OSTREAM, "capros_Process_FC_AccessViolation at 0x%08x %08x\n",
 		 (uint32_t) (offset>>32),
 		 (uint32_t) offset);
       
@@ -682,7 +682,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	}
 	DEBUG(returns)
 	  kdprintf(KR_OSTREAM,
-		   "Returning from FC_Access after appending %d empty"
+		   "Returning from capros_Process_FC_AccessViolation after appending %d empty"
 		   " pages at 0x%08x\n", count, orig_offset);
 	return RC_OK;
       }
@@ -708,7 +708,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 
 	DEBUG(returns)
 	  kdprintf(KR_OSTREAM,
-		   "Returning from FC_Access after duplicating"
+		   "Returning from capros_Process_FC_AccessViolation after duplicating"
 		   " page at 0x%08x\n", orig_offset);
 
 	return RC_OK;

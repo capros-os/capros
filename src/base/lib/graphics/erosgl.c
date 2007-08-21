@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Simple graphics library */
 #include <eros/target.h>
@@ -79,6 +83,7 @@ update_damage(GLContext *gc, rect_t rect)
 
 }
 
+/* Returns *twice* the area of a triangle. */
 static inline
 uint32_t
 areaTri(point_t a, point_t b, point_t c)
@@ -284,9 +289,11 @@ doLineDraw(GLContext *gc, line_t line)
   update_damage(gc, damage);
 }
 
+/* Fill the intersection of triangle pt and rectangle r. */
 static void
 doTriFill(GLContext *gc, point_t *pt, rect_t r, uint32_t depth)
 {
+#if 0	// this is broken!
   point_t a_pt;
   rect_t s;
 
@@ -316,6 +323,9 @@ doTriFill(GLContext *gc, point_t *pt, rect_t r, uint32_t depth)
     s.bottomRight.y++;
     erosgl_rectfill(gc, s);
   }
+#else
+  insideTri(pt, pt[0]);// avoid a compiler warning
+#endif
 }
 
 /* User must have a graphics context to do erosgl primitives.  Pass in

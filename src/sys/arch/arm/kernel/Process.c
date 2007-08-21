@@ -119,7 +119,7 @@ proc_AllocUserContexts()
     p->keysNode = 0;
     p->isUserContext = true;		/* until proven otherwise */
     /*p->priority = pr_Never;*/
-    p->faultCode = FC_NoFault;
+    p->faultCode = capros_Process_FC_NoFault;
     p->faultInfo = 0;
     p->processFlags = 0;
     p->hazards = 0u;	/* deriver should change this! */
@@ -309,7 +309,7 @@ proc_allocate(bool isUser)
          || p->procRoot->node_ObjHdr.obType == ot_NtProcessRoot);
 
   p->procRoot = 0;		/* for kernel contexts */
-  p->faultCode = FC_NoFault;
+  p->faultCode = capros_Process_FC_NoFault;
   p->faultInfo = 0;
   p->processFlags = 0;
   p->isUserContext = isUser;
@@ -638,7 +638,7 @@ proc_DoPrepare(Process* thisPtr)
   if (thisPtr->hazards & hz_DomRoot)
     proc_LoadFixRegs(thisPtr);
 
-  if (thisPtr->faultCode == FC_MalformedProcess) {
+  if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
     assert (thisPtr->processFlags & PF_Faulted);
     return;
   }
@@ -652,7 +652,7 @@ proc_DoPrepare(Process* thisPtr)
     }
   }
   
-  if (thisPtr->faultCode == FC_MalformedProcess) {
+  if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
     assert (thisPtr->processFlags & PF_Faulted);
     return;
   }

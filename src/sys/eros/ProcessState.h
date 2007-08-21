@@ -5,7 +5,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -66,21 +66,21 @@ Approved for public release, distribution unlimited. */
 /* Odd codes mean that PC points to next instruction */
 
 /* FAULT CODES */
-#define FC_NoFault	      0	  /* process is not faulted */
+#define capros_Process_FC_NoFault	      0	  /* process is not faulted */
 
 /* SEGMENT FAULT CODES */
-#define FC_InvalidAddr        1  /* reference to undefined address */
-#define FC_Access	      2  /* write on RO subseg */
+#define capros_Process_FC_InvalidAddr        1  /* reference to undefined address */
+#define capros_Process_FC_AccessViolation	      2  /* write on RO subseg */
 
-#define FC_SegDepth           16  /* segment tree is too deep */
-#define FC_SegMalformed       17  /* format key of red seg not a number key */
+#define capros_Process_FC_TraverseLimit           16  /* segment tree is too deep */
+#define capros_Process_FC_MalformedSpace       17  /* format key of red seg not a number key */
 
 #define FC_SegHwPageDamage    18  /* page is broken */
 #define FC_SegHwNodeDamage    19  /* node is broken */
 
 /* PROCESS FAULT CODES */
 #define FC_NoAddrSpace	      32  /* process has no address space */
-#define FC_MalformedProcess   33  /* process malformed */
+#define capros_Process_FC_MalformedProcess   33  /* process malformed */
 #define FC_NoSchedule	      34  /* process lacks a schedule key */
 #define FC_BadGenRegs	      35  /* gen regs holds non-number key */
 #define FC_RegValue	      36  /* reg values inappropriate */
@@ -103,7 +103,7 @@ Approved for public release, distribution unlimited. */
 #define FC_StackSeg           129 /* hardware protection violation */
 #define FC_Overflow           130 /* intel-specific overflow error */
 #define FC_Bounds             131 /* intel-specific bounds error */
-#define FC_SegNotPresent      132 /* intel-specific error */
+#define capros_Process_arch_i386_FC_SegNotPresent      132 /* intel-specific error */
 #define FC_InvalidTSS         133 /* intel-specific error */
 #define FC_SIMDFloatingPointError 134 /* intel-specific error */
 
@@ -119,17 +119,6 @@ Approved for public release, distribution unlimited. */
 #define PF_ExpectingMsg 0x4 /* if process is RS_Available or RS_Waiting,
 			it is expecting to receive a message.
 			(Cleared on a call to a keeper.) */
-
-/* NOTE that PF_DDBINV is a temporary expedient until we are able to
-   get a minimal per-process debugger running. Domain code should NOT
-   rely on this symbol remaining defined. Also, domain code should be
-   careful always to use appropriate AND and OR operations when
-   manipulating the flags field, as new flags may need to be defined
-   in the future. */
-#define PF_DDBINV    0x80 /* process invocations should be
-				     reported by DDB */
-#define PF_DDBTRAP   0x40 /* process invocations should be
-				     reported by DDB */
 
 /* Fault classifications used by the kernel when reporting faults: */
 #define OC_SEGFAULT   0

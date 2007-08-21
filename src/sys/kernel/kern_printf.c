@@ -550,7 +550,7 @@ fatal(const char *fmt, ...)
 
 void printOid(OID oid)
 {
-  printf("0x%04x%08x", (uint32_t) (oid >> 32), (uint32_t) oid);
+  printf("0x%08x%08x", (uint32_t) (oid >> 32), (uint32_t) oid);
 }
 
 void printCount(ObCount count)

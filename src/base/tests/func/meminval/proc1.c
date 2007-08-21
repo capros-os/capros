@@ -92,7 +92,7 @@ main(void)
     }
 
     // Should have faulted. Keeper sets info in shared page.
-    assert(shInfP->faultCode == FC_InvalidAddr);
+    assert(shInfP->faultCode == capros_Process_FC_InvalidAddr);
     if (slot == 0)
       assert((shInfP->faultInfo & 0xfffe0000) == 0);
     else
@@ -128,7 +128,7 @@ main(void)
     }
 
     // Should have faulted. Keeper sets info in shared page.
-    assert(shInfP->faultCode == FC_Access);
+    assert(shInfP->faultCode == capros_Process_FC_AccessViolation);
     if (slot == 0)
       assert((shInfP->faultInfo & 0xfffe0000) == 0);
     else

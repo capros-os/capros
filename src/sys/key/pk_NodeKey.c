@@ -251,7 +251,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
       uint32_t slot;
       Node *theNode = 0;
 
-      wi.faultCode = FC_NoFault;
+      wi.faultCode = capros_Process_FC_NoFault;
       wi.traverseCount = 0;
       wi.segObj = 0;
       wi.offset = inv->entry.w1;

@@ -59,6 +59,15 @@ struct SegWalk;
  * to be a dumb thing to do.  Kernel processes are not reallocated.
  */
 
+/* Bits in processFlags are defined in Process.idl and here.
+   Take care that they do not conflict. 
+
+   NOTE that PF_DDBINV and PF_DDBTRAP are a temporary expedient until
+   we are able to get a minimal per-process debugger running. */
+#define PF_DDBINV    0x80 /* process invocations should be
+			     reported by DDB */
+#define PF_DDBTRAP   0x40 /* process traps should be reported by DDB */
+
  /* Hazards are architecture-dependent and should perhaps be moved. */
 enum Hazards {
   hz_Malformed    = 0x01u,
@@ -176,7 +185,7 @@ INLINE bool
 proc_IsWellFormed(Process* thisPtr)
 {
 #ifndef NDEBUG
-  if (thisPtr->faultCode == FC_MalformedProcess) {
+  if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
     assert (thisPtr->processFlags & PF_Faulted);
   }
 #endif
@@ -233,7 +242,7 @@ proc_Prepare(Process* thisPtr)
 INLINE void 
 proc_ClearFault(Process * thisPtr)
 {
-  thisPtr->faultCode = FC_NoFault;
+  thisPtr->faultCode = capros_Process_FC_NoFault;
   thisPtr->faultInfo = 0;
   thisPtr->processFlags &= ~PF_Faulted;
 }
@@ -261,7 +270,7 @@ proc_SetMalformed(Process* thisPtr)
      so for now: */
   dprintf(true, "Process is malformed\n");
 #endif
-  proc_SetFault(thisPtr, FC_MalformedProcess, 0);
+  proc_SetFault(thisPtr, capros_Process_FC_MalformedProcess, 0);
   thisPtr->hazards |= hz_Malformed; 
 }
 

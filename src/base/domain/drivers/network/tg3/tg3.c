@@ -4225,7 +4225,7 @@ int
 altima_probe()
 {
   result_t result;
-  int32_t total;
+  uint32_t total;
   unsigned short vendor = VENDOR_ALTIMA_AC9100;
   struct tg3 *tp = &TP;
   int i;

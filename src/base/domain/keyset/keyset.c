@@ -184,7 +184,7 @@ void require_sorted_table(void)
   }
 }
 
-volatile void
+void
 teardown(void);
 
 void
@@ -266,7 +266,7 @@ Initialize(void)
   return;
 }
 
-volatile void
+void
 teardown(void)
 {
   uint32_t result;

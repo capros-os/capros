@@ -199,10 +199,6 @@ db_inputchar(int c)
 int
 db_readline(char *lstart, int lsize)
 {
-  char c;
-  c = c;
-  /* */
-
 	db_force_whitespace();	/* synch output position */
 
 	db_lbuf_start = lstart;

@@ -28,7 +28,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Debug.h>
 #include <kerninc/Machine.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/Process.h>
 #include "IDT.h"
 
@@ -44,7 +43,8 @@ SegNotPresFault(savearea_t* sa)
 
   /* Should this have a dedicated error code? */
 
-  proc_SetFault(act_CurContext(), FC_BadSegReg, sa->EIP);
+  proc_SetFault(act_CurContext(),
+                capros_Process_arch_i386_FC_SegNotPresent, sa->EIP);
 
 
   return false;
