@@ -67,7 +67,7 @@ DeviceNotAvailException(savearea_t *sa)
 #endif
     
     if (act_CurContext())
-      proc_SetFault(act_CurContext(), FC_FloatingPointError, sa->EIP);
+      proc_SetFault(act_CurContext(), capros_Process_FC_FPFault, sa->EIP);
   }
   else {
 #if 0

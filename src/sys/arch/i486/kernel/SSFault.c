@@ -65,7 +65,7 @@ SSFault(savearea_t* sa)
   
   /* Should this have a dedicated error code? */
 
-  proc_SetFault(act_CurContext(), FC_StackSeg, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_StackSeg, sa->EIP);
 
 
   return false;

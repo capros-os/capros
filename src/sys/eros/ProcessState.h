@@ -83,29 +83,29 @@ Approved for public release, distribution unlimited. */
 #define capros_Process_FC_MalformedProcess   33  /* process malformed */
 #define FC_NoSchedule	      34  /* process lacks a schedule key */
 #define FC_BadGenRegs	      35  /* gen regs holds non-number key */
-#define FC_RegValue	      36  /* reg values inappropriate */
+#define capros_Process_arch_i386_FC_InvalidSegReg 36  /* reg values inappropriate */
 #define FC_BreakPointFault    37  /* BPT with PC at bpt instr */
-#define FC_BreakPointTrap     38  /* BPT with PC after bpt instr */
-#define FC_BadOpcode	      39  /* bad or undefined opcode */
-#define FC_DivZero	      40  /* divide by zero exception */
+#define capros_Process_FC_BrokePoint     38  /* BPT with PC after bpt instr */
+#define capros_Process_FC_BadOpcode	      39  /* bad or undefined opcode */
+#define capros_Process_FC_DivZero	      40  /* divide by zero exception */
 #define FC_ForeignInvocation  41  /* Process has no key registers */
-#define FC_BadEntryBlock      42  /* Invocation had bad entry block */
+#define capros_Process_FC_MalformedSyscall      42  /* Invocation had bad entry block */
 #define FC_BadExitBlock       43  /* Invocation had bad exit block */
 //			44
 #define FC_BadSegReg          45  /* Segment register holds invalid value */
 #define FC_NoFPU              46  /* Floating point unit not present */
-#define FC_FloatingPointError 47  /* Floating point exception or fault */
-#define FC_Alignment          48  /* Alignment error */
+#define capros_Process_FC_FPFault 47  /* Floating point exception or fault */
+#define capros_Process_FC_Alignment          48  /* Alignment error */
     
 /* MACHINE SPECIFIC FAULTS FOR X86 */
 
-#define FC_GenProtection      128 /* hardware protection violation */
-#define FC_StackSeg           129 /* hardware protection violation */
-#define FC_Overflow           130 /* intel-specific overflow error */
-#define FC_Bounds             131 /* intel-specific bounds error */
+#define capros_Process_arch_i386_FC_GeneralProtection      128 /* hardware protection violation */
+#define capros_Process_arch_i386_FC_StackSeg           129 /* hardware protection violation */
+#define capros_Process_arch_i386_FC_Overflow           130 /* intel-specific overflow error */
+#define capros_Process_arch_i386_FC_Bounds             131 /* intel-specific bounds error */
 #define capros_Process_arch_i386_FC_SegNotPresent      132 /* intel-specific error */
-#define FC_InvalidTSS         133 /* intel-specific error */
-#define FC_SIMDFloatingPointError 134 /* intel-specific error */
+#define capros_Process_arch_i386_FC_InvalidTSS         133 /* intel-specific error */
+#define capros_Process_arch_i386_FC_SIMDfp 134 /* intel-specific error */
 
 #define RS_Available 0
 #define RS_Waiting   1

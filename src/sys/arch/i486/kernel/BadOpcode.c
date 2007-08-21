@@ -44,7 +44,7 @@ OverflowTrap(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(act_CurContext(), FC_Overflow, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_Overflow, sa->EIP);
 
   return false;
 }
@@ -57,7 +57,7 @@ BoundsFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(act_CurContext(), FC_Bounds, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_Bounds, sa->EIP);
 
   return false;
 }
@@ -70,7 +70,7 @@ BadOpcode(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(act_CurContext(), FC_BadOpcode, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_Process_FC_BadOpcode, sa->EIP);
 
   return false;
 }
@@ -83,7 +83,7 @@ InvalTSSFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(act_CurContext(), FC_InvalidTSS, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_InvalidTSS, sa->EIP);
 
   return false;
 }
@@ -96,7 +96,7 @@ CoprocErrorFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(act_CurContext(), FC_FloatingPointError, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_Process_FC_FPFault, sa->EIP);
 
   return false;
 }
@@ -109,7 +109,7 @@ AlignCheckFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(act_CurContext(), FC_Alignment, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_Process_FC_Alignment, sa->EIP);
 
   return false;
 }
@@ -122,7 +122,7 @@ SIMDFloatingPointFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(act_CurContext(), FC_SIMDFloatingPointError, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_SIMDfp, sa->EIP);
 
   return false;
 }

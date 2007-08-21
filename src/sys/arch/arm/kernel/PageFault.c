@@ -427,7 +427,8 @@ PageFault(bool prefetch,	/* else data abort */
     switch (fsr & 0xd) {
     /* the following are all the cases that the ARM920T generates. */
     case 0x1:	/* alignment fault */
-      fatal("Alignment fault at 0x%08x, unimplemented\n", fa);
+      proc_SetFault(proc, capros_Process_FC_Alignment, va);
+      ExitTheKernel();
       break;
 
     case 0x5:	/* translation fault */

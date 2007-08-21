@@ -43,7 +43,7 @@ DivZeroFault(savearea_t* sa)
   }
 
 
-  proc_SetFault(act_CurContext(), FC_DivZero, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_Process_FC_DivZero, sa->EIP);
 
 
   return false;

@@ -64,7 +64,7 @@ BptTrap(savearea_t *sa)
 	      sa->Error, sa->EIP);
   /* sa->Dump(); */
 #endif
-  proc_SetFault(act_CurContext(), FC_BreakPointTrap, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_Process_FC_BrokePoint, sa->EIP);
 
   return false;
 }

@@ -504,7 +504,7 @@ proc_ValidateRegValues(Process* thisPtr)
 #define validate(seg, want) \
   do { \
     if ( ((seg) != sel_Null) && ((seg) != (want)) ) {   \
-      code = FC_RegValue;               \
+      code = capros_Process_arch_i386_FC_InvalidSegReg; \
       info = (seg);                     \
       goto fault;                       \
     }                                   \
@@ -540,7 +540,7 @@ proc_ValidateRegValues(Process* thisPtr)
      in the status words are 'raise if set'.  The and-not logic is
      therefore what we want: */
   else if (thisPtr->fpuRegs.f_status & ~(thisPtr->fpuRegs.f_ctrl & MASK_FPSTATUS_EXCEPTIONS)) {
-    code = FC_FloatingPointError;
+    code = capros_Process_FC_FPFault;
     info = thisPtr->fpuRegs.f_cs;
   }
 

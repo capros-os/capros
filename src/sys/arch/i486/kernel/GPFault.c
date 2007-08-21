@@ -135,7 +135,7 @@ GPFault(savearea_t *sa)
 #endif
 
   if (act_CurContext())
-    proc_SetFault(act_CurContext(), FC_GenProtection, sa->EIP);
+    proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_GeneralProtection, sa->EIP);
 
   return false;
 }

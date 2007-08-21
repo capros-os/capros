@@ -1479,7 +1479,7 @@ Standard_Gate_Path:
 	 */
 bogus_ipc_arg_block:
 	movl	FX_OFF_EIP(%ebp),%ebx
-	movl	$FC_BadEntryBlock,PR_OFF_faultCode-PR_OFF_FIXREGS(%ebp)
+	movl	$capros_Process_FC_MalformedSyscall,PR_OFF_faultCode-PR_OFF_FIXREGS(%ebp)
 	movl	%ebx,PR_OFF_faultInfo-PR_OFF_FIXREGS(%ebp)
 	
 	jmp	kern_seg_load

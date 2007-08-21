@@ -70,7 +70,7 @@ PseudoInstrException(savearea_t *sa)
   switch (sa->EAX) {
     
   default:
-    proc_SetFault(ctxt, FC_BadOpcode, sa->EIP);
+    proc_SetFault(ctxt, capros_Process_FC_BadOpcode, sa->EIP);
     break;
   }
 
