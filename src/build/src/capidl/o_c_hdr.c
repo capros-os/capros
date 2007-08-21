@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -18,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <assert.h>
 #include <stdlib.h>
@@ -970,9 +973,9 @@ output_c_hdr(Symbol *s)
 
   ptrvec_sort_using(vec, symbol_SortByQualifiedName);
 
-  /* Header guards were missing.  I've added them here */
-  fprintf(out, "#ifndef __%s_h__\n", s->name);
-  fprintf(out, "#define __%s_h__\n", s->name);
+  /* Header guard: */
+  fprintf(out, "#ifndef __%s_h__\n", symbol_QualifiedName(s, '_'));
+  fprintf(out, "#define __%s_h__\n", symbol_QualifiedName(s, '_'));
 
   /* 
    * We need target.h for long long to work, however, I'm not certain this
