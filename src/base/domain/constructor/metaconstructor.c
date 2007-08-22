@@ -32,15 +32,13 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
-#include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
-#include <eros/ProcessState.h>
-#include <eros/machine/Registers.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Number.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
@@ -99,7 +97,6 @@ uint32_t
 MakeNewProduct(Message *msg, MetaConInfo *mci)
 {
   uint32_t result;
-  struct Registers regs;
 
   msg->snd_key0 = KR_VOID;
   msg->snd_key1 = KR_VOID;
@@ -119,8 +116,8 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
      space bank. */
   
   /* Install the schedule.  KR_ARG1 can be reused after this. */
-  (void) process_swap(KR_NEWDOM, ProcSched, KR_ARG1, KR_VOID);
-  (void) process_swap_keyreg(KR_NEWDOM, 5, KR_ARG1, KR_VOID);
+  (void) capros_Process_swapSchedule(KR_NEWDOM, KR_ARG1, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, 5, KR_ARG1, KR_VOID);
 
 #define KR_ALTSCRATCH KR_ARG1
   /* Build a constituents node: */
@@ -132,55 +129,25 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
      duplicate that: */
 
   capros_Node_clone(KR_ALTSCRATCH, KR_CONSTIT);
-  (void) process_swap_keyreg(KR_NEWDOM, 1, KR_ALTSCRATCH, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, 1, KR_ALTSCRATCH, KR_VOID);
 #undef KR_ALTSCRATCH
 
   /* runtime bits to product KR 2 */
-  (void) process_swap_keyreg(KR_NEWDOM, KR_RTBITS, KR_RO_YIELDBITS, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_RTBITS, KR_RO_YIELDBITS, KR_VOID);
 
   /* Install the address space of the new constructor */
-  (void) process_swap(KR_NEWDOM, ProcAddrSpace, KR_CON_SEG, KR_VOID);
+  (void) capros_Process_swapAddrSpaceAndPC32(KR_NEWDOM, KR_CON_SEG,
+           mci->constructor_pc, KR_VOID);
 
   /* POPULATE KEY REGISTERS */
   
   /* Place the new domain creator in the appropriate key register of
      the new constructor domain. */
-  (void) process_swap_keyreg(KR_NEWDOM, KR_SELF, KR_NEWDOM, KR_VOID);
-  (void) process_swap_keyreg(KR_NEWDOM, KR_BANK, KR_ARG0, KR_VOID);
-  (void) process_swap_keyreg(KR_NEWDOM, KR_RETURN, KR_RETURN, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SELF, KR_NEWDOM, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_BANK, KR_ARG0, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_RETURN, KR_RETURN, KR_VOID);
   
-  /* Fetch out the register values, mostly for the benefit of
-     Retrieving the PC -- this prevents us from needing to hard-code
-     the PC, which will inevitably change. */
-  (void) process_get_regs(KR_NEWDOM, &regs);
-
-  DEBUG kdprintf(KR_OSTREAM, "Got regs\n");
-
-  regs.faultCode = 0;
-  regs.faultInfo = 0;
-  regs.domFlags = 0;
-  regs.pc = mci->constructor_pc;
-#if defined(EROS_TARGET_i486)
-  /* Unless we set them otherwise, the register values are zero.
-     We now need to set the PC and the segment registers. */
-  regs.CS = DOMAIN_CODE_SEG;
-  regs.SS = DOMAIN_DATA_SEG;
-  regs.DS = DOMAIN_DATA_SEG;
-  regs.ES = DOMAIN_DATA_SEG;
-  regs.FS = DOMAIN_DATA_SEG;
-  regs.GS = DOMAIN_PSEUDO_SEG;
-  regs.EFLAGS = 0x200;
-#elif defined(EROS_TARGET_arm)
-#else
-#error unknown target
-#endif
-  
-  /* Set the new register values. */
-  (void) process_set_regs(KR_NEWDOM, &regs);
-
-  DEBUG kdprintf(KR_OSTREAM, "Wrote regs\n");
-
-  (void) process_make_fault_key(KR_NEWDOM, KR_SCRATCH);
+  (void) capros_Process_makeResumeKey(KR_NEWDOM, KR_SCRATCH);
 
   msg->snd_invKey = KR_SCRATCH;
 

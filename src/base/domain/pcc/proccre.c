@@ -53,7 +53,6 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 #include <eros/StdKeyType.h>
 #include <disk/DiskNodeStruct.h>
@@ -64,6 +63,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/GPT.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/domdbg.h>
 #include <domain/ProcessCreatorKey.h>
@@ -152,7 +152,7 @@ ProcessRequest(Message *argmsg)
   case OC_ProcCre_RemoveDestroyRights:
     {
       argmsg->snd_key0 = KR_OUTKEY0;
-      process_make_start_key(KR_SELF, 1, KR_OUTKEY0);
+      capros_Process_makeStartKey(KR_SELF, 1, KR_OUTKEY0);
       result = RC_OK;
       break;
    }
@@ -202,7 +202,7 @@ init_domcre()
   capros_Node_getSlot(KR_CONSTIT, KC_DOMTOOL, KR_PROCTOOL);
 
   /* Fabricate the key that we will use for a brand key. */
-  (void) process_make_start_key(KR_SELF, 65535, KR_OURBRAND);
+  (void) capros_Process_makeStartKey(KR_SELF, 65535, KR_OURBRAND);
 }
 
 int

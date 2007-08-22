@@ -45,15 +45,13 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
-#include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
-#include <eros/ProcessState.h>
-#include <eros/machine/Registers.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Discrim.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
@@ -152,7 +150,7 @@ InitConstructor(ConstructorInfo *ci)
 
     /* use KR_YIELDCRE and KR_DISCRIM as scratch regs for a moment: */
     capros_Node_getSlot(KR_CONSTIT, KC_PCC, KR_YIELDCRE);
-    capros_Node_getSlot(KR_SELF, ProcSched, KR_SCRATCH);
+    capros_Process_getSchedule(KR_SELF, KR_SCRATCH);
 
     {
       Message msg;
@@ -217,7 +215,6 @@ uint32_t
 MakeNewProduct(Message *msg)
 {
   uint32_t result;
-  struct Registers regs;
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Making new product...\n");
 
@@ -239,84 +236,54 @@ MakeNewProduct(Message *msg)
   /* clone the product constituents into the new constituents node: */
   capros_Node_clone(KR_SCRATCH, KR_PROD_CON0);
 
-  (void) process_swap_keyreg(KR_NEWDOM, KR_CONSTIT, KR_SCRATCH, KR_VOID);
-  (void) process_swap_keyreg(KR_NEWDOM, KR_RTBITS, KR_RO_YIELDBITS, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_CONSTIT, KR_SCRATCH, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_RTBITS, KR_RO_YIELDBITS, KR_VOID);
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Populate new domain\n");
 
   /* Install protospace into the domain root: */
   (void) capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPACE, KR_SCRATCH);
-  (void) process_swap(KR_NEWDOM, ProcAddrSpace, KR_SCRATCH, KR_VOID);
+  (void) capros_Process_swapAddrSpaceAndPC32(KR_NEWDOM, KR_SCRATCH,
+           0, // protospace PC, well known to be zero
+           KR_VOID);
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Installed protospace\n");
 
   /* Install the schedule key into the domain: */
-  (void) process_swap(KR_NEWDOM, ProcSched, KR_ARG1, KR_VOID);
+  (void) capros_Process_swapSchedule(KR_NEWDOM, KR_ARG1, KR_VOID);
   
   DEBUG(product) kdprintf(KR_OSTREAM, "Installed sched\n");
 
   /* Keeper constructor to keeper slot */
   (void) capros_Node_getSlot(KR_PROD_XCON, XCON_KEEPER, KR_SCRATCH);
-  (void) process_swap(KR_NEWDOM, ProcKeeper, KR_SCRATCH, KR_VOID);
+  (void) capros_Process_swapKeeper(KR_NEWDOM, KR_SCRATCH, KR_VOID);
 
-  /* Fetch out the register values, mostly for the benefit of
-     Retrieving the PC -- this prevents us from needing to hard-code
-     the PC, which will inevitably change. */
-  (void) process_get_regs(KR_NEWDOM, &regs);
-
-  DEBUG(product) kdprintf(KR_OSTREAM, "Got regs\n");
-
-  regs.faultCode = 0;
-  regs.faultInfo = 0;
-  regs.domFlags = 0;
-  regs.pc = 0;			/* Protospace pc, well known to be zero */
-#if defined(EROS_TARGET_i486)
-  /* Unless we set them otherwise, the register values are zero.  The
-     PC has already been set.  We now need to initialize the stack
-     pointer and the segment registers. */
-  regs.CS = DOMAIN_CODE_SEG;
-  regs.SS = DOMAIN_DATA_SEG;
-  regs.DS = DOMAIN_DATA_SEG;
-  regs.ES = DOMAIN_DATA_SEG;
-  regs.FS = DOMAIN_DATA_SEG;
-  regs.GS = DOMAIN_PSEUDO_SEG;
-  regs.EFLAGS = 0x200;
-#elif defined(EROS_TARGET_arm)
-#else
-#error unknown target
-#endif
-  
-  /* Set the new register values. */
-  (void) process_set_regs(KR_NEWDOM, &regs);
-
-  DEBUG(product) kdprintf(KR_OSTREAM, "Installed program counter\n");
-
-  (void) process_swap_keyreg(KR_NEWDOM, KR_SELF, KR_NEWDOM, KR_VOID);
-  (void) process_swap_keyreg(KR_NEWDOM, KR_CREATOR, KR_YIELDCRE, KR_VOID);
-  (void) process_swap_keyreg(KR_NEWDOM, KR_BANK, KR_ARG0, KR_VOID);
-  (void) process_swap_keyreg(KR_NEWDOM, KR_SCHED, KR_ARG1, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SELF, KR_NEWDOM, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_CREATOR, KR_YIELDCRE, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_BANK, KR_ARG0, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SCHED, KR_ARG1, KR_VOID);
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Sched in target KR_SCHED\n");
 
   (void) capros_Node_getSlot(KR_PROD_XCON, XCON_ADDRSPACE, KR_SCRATCH);
-  (void) process_swap_keyreg(KR_NEWDOM, PSKR_SPACE, KR_SCRATCH, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, PSKR_SPACE, KR_SCRATCH, KR_VOID);
 
   (void) capros_Node_getSlot(KR_PROD_XCON, XCON_SYMTAB, KR_SCRATCH);
-  (void) process_swap(KR_NEWDOM, ProcSymSpace, KR_SCRATCH, KR_VOID);
+  (void) capros_Process_swapSymSpace(KR_NEWDOM, KR_SCRATCH, KR_VOID);
 
   (void) capros_Node_getSlot(KR_PROD_XCON, XCON_PC, KR_SCRATCH);
-  (void) process_swap_keyreg(KR_NEWDOM, PSKR_PROC_PC, KR_SCRATCH, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, PSKR_PROC_PC, KR_SCRATCH, KR_VOID);
 
   /* User ARG2 to key arg slot 0 */
-  (void) process_swap_keyreg(KR_NEWDOM, KR_ARG(0), KR_ARG2, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_ARG(0), KR_ARG2, KR_VOID);
 
   /* Resume key to KR_RETURN */
-  (void) process_swap_keyreg(KR_NEWDOM, KR_RETURN, KR_RETURN, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_RETURN, KR_RETURN, KR_VOID);
 
   /* Make up a fault key to the new process so we can set it in motion */
 
   DEBUG(product) kdprintf(KR_OSTREAM, "About to call get fault key\n");
-  (void) process_make_fault_key(KR_NEWDOM, KR_SCRATCH);
+  (void) capros_Process_makeResumeKey(KR_NEWDOM, KR_SCRATCH);
 
   DEBUG(start) kdprintf(KR_OSTREAM, "Invoking fault key to yield...\n");
 
@@ -463,7 +430,7 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
 
       ci->frozen = 1;
 
-      process_make_start_key(KR_SELF, 0, KR_NEWDOM);
+      capros_Process_makeStartKey(KR_SELF, 0, KR_NEWDOM);
       msg->snd_key0 = KR_NEWDOM;
 
       return 1;
@@ -541,7 +508,7 @@ main()
   InitConstructor(&ci);
 
   /* Recover our own process key from constit1 into slot 1 */
-  process_make_start_key(KR_SELF, 1, KR_SCRATCH);
+  capros_Process_makeStartKey(KR_SELF, 1, KR_SCRATCH);
 
   msg.snd_key0 = KR_SCRATCH;
   msg.snd_key1 = KR_VOID;

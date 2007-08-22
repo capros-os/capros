@@ -35,7 +35,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
-#include <idl/capros/arch/i486/SysTrace.h>
+#include <idl/capros/arch/i386/SysTrace.h>
 
 const char *mach_ModeName(uint32_t mode);
 bool mach_SetCounterMode(uint32_t mode);
@@ -101,8 +101,8 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
   static uint64_t startInter = 0ll;
   static int32_t activeMode = 0;
   
-  if (inv->entry.code == OC_capros_arch_i486_SysTrace_reportCounter)
-    proc_SetupExitString(inv->invokee, inv, sizeof(struct capros_arch_i486_SysTrace_info));
+  if (inv->entry.code == OC_capros_arch_i386_SysTrace_reportCounter)
+    proc_SetupExitString(inv->invokee, inv, sizeof(struct capros_arch_i386_SysTrace_info));
 
   COMMIT_POINT();
   
@@ -115,7 +115,7 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
   default:
     inv->exit.code = RC_capros_key_UnknownRequest;
     break;
-  case OC_capros_arch_i486_SysTrace_startCounter:
+  case OC_capros_arch_i386_SysTrace_startCounter:
     {
       /* Start counted behavior */
 
@@ -179,9 +179,9 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_capros_arch_i486_SysTrace_reportCounter:
+  case OC_capros_arch_i386_SysTrace_reportCounter:
     {
-      struct capros_arch_i486_SysTrace_info st;
+      struct capros_arch_i386_SysTrace_info st;
       uint64_t endcy;
 
       if (activeMode == -1) {
@@ -209,7 +209,7 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_capros_arch_i486_SysTrace_stopCounter:
+  case OC_capros_arch_i386_SysTrace_stopCounter:
     {
 #if 0 // Performance test of check.
       uint64_t endcy;
@@ -327,7 +327,7 @@ for (i=0; i<10; i++) {
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_capros_arch_i486_SysTrace_stopCounterVerbose:
+  case OC_capros_arch_i386_SysTrace_stopCounterVerbose:
     {
       uint64_t endcy;
       uint64_t cy;
@@ -432,7 +432,7 @@ for (i=0; i<10; i++) {
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_capros_arch_i486_SysTrace_clearKernelStats:
+  case OC_capros_arch_i386_SysTrace_clearKernelStats:
     {
 #ifdef OPTION_KERN_TIMING_STATS
       Invocation::ZeroStats();
@@ -442,7 +442,7 @@ for (i=0; i<10; i++) {
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_capros_arch_i486_SysTrace_getCycle:
+  case OC_capros_arch_i386_SysTrace_getCycle:
     {
       uint64_t cy = rdtsc();
       inv->exit.code = RC_OK;

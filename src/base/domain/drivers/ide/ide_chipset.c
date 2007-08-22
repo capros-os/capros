@@ -27,7 +27,6 @@
 #include <eros/KeyConst.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
 #include <eros/machine/io.h>
 #include <eros/DevicePrivs.h>
 #include <domain/ConstructorKey.h>

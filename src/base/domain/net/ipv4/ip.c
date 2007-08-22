@@ -23,7 +23,6 @@
 #include <eros/target.h>
 #include <eros/endian.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 
 #include <domain/domdbg.h>
 #include <domain/NetSysKey.h>

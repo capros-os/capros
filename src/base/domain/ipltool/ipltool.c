@@ -32,11 +32,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Discrim.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -94,7 +94,7 @@ main()
       if (keyType == AKT_Process) {
 	/* If the key is a process key, fabricate a fault key to it in
 	   order to set it in motion. */
-	process_make_fault_key(KR_FAULT, KR_FAULT);
+	capros_Process_makeResumeKey(KR_FAULT, KR_FAULT);
 
 	msg.snd_invKey = KR_FAULT;
 	msg.snd_code = RC_OK; 

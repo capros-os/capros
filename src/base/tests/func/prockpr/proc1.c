@@ -23,7 +23,7 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
 #include <domain/domdbg.h>
 #include <idl/capros/arch/arm/SysTrace.h>
@@ -57,7 +57,7 @@ main(void)
   msg.rcv_limit = 0;		/* no data returned */
 
   /* Get keeper process started. */
-  process_make_fault_key(KR_KEEPER_PROCESS, KR_KEEPER_PROCESS);
+  capros_Process_makeResumeKey(KR_KEEPER_PROCESS, KR_KEEPER_PROCESS);
   msg.snd_invKey = KR_KEEPER_PROCESS;
   msg.snd_code = RC_OK;
   SEND(&msg);

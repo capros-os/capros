@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2007, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,15 +18,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
-#include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
 #include <domain/domdbg.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/SysTrace.h>
 
 /* The purpose of this benchmark is to measure the cost of
@@ -63,7 +65,7 @@ dotrace(int zap, uint32_t mode)
 
   if (zap != NOZAP) {
     /* Zap the mapping entries associate with this segment. */
-    process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+    capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
     node_copy(KR_SCRATCH, 1, KR_SEG);
     node_swap(KR_SCRATCH, 1, KR_SEG, KR_VOID);
   }

@@ -25,13 +25,14 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
 
 #include <idl/capros/DevPrivs.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
@@ -177,10 +178,10 @@ main(void)
   capros_Node_getSlot(KR_CONSTIT, KC_DEVPRIVS,  KR_DEVPRIVS);
   capros_Node_getSlot(KR_CONSTIT, KC_PHYSRANGE, KR_PHYSRANGE);
   capros_Node_getSlot(KR_CONSTIT, KC_SLEEP, KR_SLEEP);
-  process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);
+  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
 
  /*Make a start key to pass back to the constructor*/
-  process_make_start_key(KR_SELF,0,KR_START);
+  capros_Process_makeStartKey(KR_SELF,0,KR_START);
 
   kprintf(KR_OSTREAM,"*******************************************\n");
   kprintf(KR_OSTREAM,"Initializing SOUND DRIVER ...\n");

@@ -30,13 +30,15 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Machine.h>
 #include <kerninc/SysTimer.h>
 #include <arch-kerninc/KernTune.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/CPU.h>
 #include <kerninc/Node.h>
 #include <kerninc/Process.h>
 #include <kerninc/PhysMem.h>
 #include <kerninc/CpuReserve.h>
 #include <kerninc/util.h>
+#ifndef NDEBUG
+#include <disk/DiskNodeStruct.h>
+#endif
 
 /* #define THREADDEBUG */
 /*#define RESERVE_DEBUG*/
@@ -63,6 +65,14 @@ Activity *act_ActivityTable = 0;
 
 DEFQUEUE(freeActivityList);
 uint32_t act_RunQueueMap = 0;
+
+INLINE bool 
+act_IsRunnable(Activity * thisPtr)
+{
+  return (thisPtr->context
+	  && proc_IsRunnable(thisPtr->context)
+	  && (thisPtr->context->processFlags & capros_Process_PF_FaultToProcessKeeper) == 0);
+}
 
 /* do all wakeup work in this function */
 /* so activity wakeup just calls the function pointer */
@@ -726,7 +736,7 @@ act_DoReschedule(void)
       act_ChooseNewCurrentActivity();
 
     if (act_curActivity->context
-	&& act_curActivity->context->processFlags & PF_Faulted) {
+	&& act_curActivity->context->processFlags & capros_Process_PF_FaultToProcessKeeper) {
       proc_InvokeProcessKeeper(act_curActivity->context);
 
       /* Invoking the process keeper either stuck us on a sleep queue, in

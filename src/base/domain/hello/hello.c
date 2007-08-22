@@ -32,7 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/Node.h>
-#include <eros/ProcessKey.h>
+#include <idl/capros/Process.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 #include "constituents.h"
@@ -65,7 +65,7 @@ main()
 
   init_hello();
 
-  process_make_start_key(KR_SELF, 0, KR_ARG0);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_ARG0);
   
   msg.snd_invKey = KR_RETURN;
   msg.snd_key0 = KR_ARG0;

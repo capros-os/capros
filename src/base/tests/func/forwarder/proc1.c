@@ -24,8 +24,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <domain/Runtime.h>
-#include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/Discrim.h>
 #include <idl/capros/Forwarder.h>
@@ -76,7 +76,7 @@ main()
   msg.rcv_limit = 0;		/* no data returned */
 
   /* Get echo process started. */
-  process_make_fault_key(KR_ECHO_PROCESS, KR_SCRATCH);
+  capros_Process_makeResumeKey(KR_ECHO_PROCESS, KR_SCRATCH);
   msg.snd_invKey = KR_SCRATCH;
   msg.snd_code = RC_OK;
   SEND(&msg);
@@ -98,10 +98,10 @@ main()
   checkEqual(msg.rcv_w1, 0);	// w1 has keyData
   checkEqual(msg.rcv_w3, 13);	// w3 is echoed
 
-  retval = process_make_start_key(KR_ECHO_PROCESS, 0, KR_ECHO_START0);
+  retval = capros_Process_makeStartKey(KR_ECHO_PROCESS, 0, KR_ECHO_START0);
   checkEqual(retval, RC_OK);
 
-  retval = process_make_start_key(KR_ECHO_PROCESS, 17, KR_ECHO_START1);
+  retval = capros_Process_makeStartKey(KR_ECHO_PROCESS, 17, KR_ECHO_START1);
   checkEqual(retval, RC_OK);
 
   kprintf(KR_OSTREAM, "Calling forwarder.\n");

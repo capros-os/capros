@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* A simple shell domain that asks for a line of input, parses it, and
    executes a small set of commands. */
@@ -25,7 +29,6 @@
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -37,6 +40,7 @@
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
+#include <idl/capros/Process.h>
 #include <idl/capros/Stream.h>
 #include <idl/capros/eterm.h>
 
@@ -123,7 +127,7 @@ main(void)
 
   /* Map the contents of the demo file to address 0x80000000 */
   addrspace_prep_for_mapping(KR_SELF, KR_BANK, KR_TMP, KR_NODE);
-  process_copy(KR_SELF, ProcAddrSpace, KR_TMP);
+  capros_Process_getAddrSpace(KR_SELF, KR_TMP);
   node_swap(KR_TMP, 16, KR_DEMOFILE, KR_VOID);
 
   eros_domain_eterm_stream_open(KR_ETERM, KR_STRM);

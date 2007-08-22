@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Debug.h>
 #include <kerninc/Machine.h>
 #include <kerninc/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include "IDT.h"
 
 extern void halt(char);
@@ -44,7 +45,7 @@ SegNotPresFault(savearea_t* sa)
   /* Should this have a dedicated error code? */
 
   proc_SetFault(act_CurContext(),
-                capros_Process_arch_i386_FC_SegNotPresent, sa->EIP);
+                capros_arch_i386_Process_FC_SegNotPresent, sa->EIP);
 
 
   return false;

@@ -31,10 +31,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -502,11 +502,11 @@ main(void)
   pps = InitPipe(&ps);
   
   /* Fabricate the reader and writer keys: */
-  result = process_make_start_key(KR_SELF, KI_WRITER, KR_CLIENT0);
+  result = capros_Process_makeStartKey(KR_SELF, KI_WRITER, KR_CLIENT0);
   if (result != RC_OK)
     kdprintf(KR_OSTREAM, "Result from pipe cre strt key: 0x%x\n",
 	     result);
-  result = process_make_start_key(KR_SELF, KI_READER, KR_CLIENT1);
+  result = capros_Process_makeStartKey(KR_SELF, KI_READER, KR_CLIENT1);
   if (result != RC_OK)
     kdprintf(KR_OSTREAM, "Result from pipe cre strt key: 0x%x\n",
 	     result);

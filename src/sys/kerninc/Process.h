@@ -28,7 +28,8 @@ Approved for public release, distribution unlimited. */
  * ARCHITECTURE-SPECIFIC LAYOUT FILE TOO!!!
  */
 
-#include <eros/ProcessState.h>
+#include <disk/DiskNodeStruct.h>
+#include <idl/capros/Process.h>
 #include <eros/ProcStats.h>
 #include <arch-kerninc/SaveArea.h>
 #include <arch-kerninc/PTE.h>
@@ -186,7 +187,7 @@ proc_IsWellFormed(Process* thisPtr)
 {
 #ifndef NDEBUG
   if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
-    assert (thisPtr->processFlags & PF_Faulted);
+    assert (thisPtr->processFlags & capros_Process_PF_FaultToProcessKeeper);
   }
 #endif
   if (thisPtr->hazards & (hz_DomRoot | hz_KeyRegs | hz_Malformed
@@ -244,7 +245,7 @@ proc_ClearFault(Process * thisPtr)
 {
   thisPtr->faultCode = capros_Process_FC_NoFault;
   thisPtr->faultInfo = 0;
-  thisPtr->processFlags &= ~PF_Faulted;
+  thisPtr->processFlags &= ~capros_Process_PF_FaultToProcessKeeper;
 }
 
 INLINE void 
@@ -254,7 +255,7 @@ proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info)
 
   thisPtr->faultCode = code;
   thisPtr->faultInfo = info;
-  thisPtr->processFlags |= PF_Faulted;
+  thisPtr->processFlags |= capros_Process_PF_FaultToProcessKeeper;
   
 #ifdef OPTION_DDB
   if (thisPtr->processFlags & PF_DDBTRAP)
@@ -303,7 +304,7 @@ proc_SetActivity(Process* thisPtr, struct Activity *activity)
 INLINE bool 
 proc_IsExpectingMsg(Process * thisPtr)
 {
-  return thisPtr->processFlags & PF_ExpectingMsg;
+  return thisPtr->processFlags & capros_Process_PF_ExpectingMessage;
 }
 
 INLINE bool 
@@ -414,9 +415,14 @@ void proc_SyncActivity(Process* thisPtr);
 
 void proc_Unload(Process* thisPtr);
 
-typedef struct Registers Registers;
+void proc_GetCommonRegs32(Process * thisPtr,
+       struct capros_Process_CommonRegisters32 * regs);
+void proc_SetCommonRegs32(Process * thisPtr,
+       struct capros_Process_CommonRegisters32 * regs);
+void proc_SetCommonRegs32MD(Process * thisPtr,
+  struct capros_Process_CommonRegisters32 * regs);	// machine dependent
 
-bool proc_GetRegs32(Process* thisPtr, Registers* /*@ not null @*/);
-bool proc_SetRegs32(Process* thisPtr, Registers* /*@ not null @*/);
+struct Invocation;
+void ProcessKeyCommon(struct Invocation * inv, Node * theNode);
 
 #endif /* __PROCESS_H__ */

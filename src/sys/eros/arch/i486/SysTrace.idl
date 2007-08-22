@@ -1,4 +1,4 @@
-package capros.arch.i486;
+package capros.arch.i386;
 
 /** Kernel interface to number keys.
  *

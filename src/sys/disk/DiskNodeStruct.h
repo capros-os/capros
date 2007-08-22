@@ -24,6 +24,11 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+// Values for the Process runState:
+#define RS_Available 0
+#define RS_Waiting   1
+#define RS_Running   2
+
 #ifndef __ASSEMBLER__
 /* This structure defines the *layout* of the disk node structure so
  * that various elements of the kernel can fetch things from ROM and
@@ -73,7 +78,7 @@ proc_runStateField(DiskNodeStruct * dn)
 #define ProcKeeper            1
 #define ProcAddrSpace         2
 #define ProcGenKeys           3
-#define ProcIoSpace           4	/* unimplemented */
+#define ProcIoSpace           4
 #define ProcSymSpace          5
 #define ProcBrand             6
 /*			      7    unused */

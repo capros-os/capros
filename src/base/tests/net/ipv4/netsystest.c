@@ -26,9 +26,9 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <eros/NodeKey.h>
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 #include <eros/endian.h>
 
+#include <idl/capros/arch/i386/Process.h>
 #include <idl/capros/Sleep.h>
 
 #include <domain/ConstructorKey.h>
@@ -175,8 +175,8 @@ main(void)
   node_extended_copy(KR_CONSTIT, KC_SLEEP,KR_SLEEP);
   node_extended_copy(KR_CONSTIT,KC_DEVPRIVS,KR_DEVPRIVS);
   
-  /* Move the DEVPRIVS key to the ProcIOSpace so we can do i/o calls */
-  process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);
+  /* Move the DEVPRIVS key to the ProcIoSpace so we can do i/o calls */
+  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
 
   /* Construct the network system */
   result = constructor_request(KR_NETSYS_C,KR_BANK,KR_SCHED,

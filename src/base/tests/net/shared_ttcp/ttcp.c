@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,10 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 /* A simple no frills ttcp receiver. It binds a tcp socket and listens 
  * on it for connections. It uses shared memory to communicate between
  * the app and the netsys */
@@ -24,10 +29,10 @@
 #include <eros/target.h>
 #include <eros/NodeKey.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <eros/endian.h>
 #include <eros/KeyConst.h>
 
+#include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
 
 #include <domain/SpaceBankKey.h>
@@ -145,7 +150,7 @@ main(void)
   }
   
   /* Map the new addr space into this domain's space */
-  process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
   node_swap(KR_SCRATCH, 16, KR_XMIT_BUF, KR_VOID);
   //node_swap(KR_SCRATCH, 17, KR_RECV_BUF, KR_VOID);
    

@@ -26,7 +26,6 @@ Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
-#include <eros/ProcessState.h>
 #include <kerninc/Check.h>
 #include <kerninc/KernStats.h>
 #include <kerninc/Activity.h>

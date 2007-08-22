@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -31,31 +31,63 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
-#include <eros/ProcessKey.h>
 #include <disk/DiskNodeStruct.h>
-#include <eros/machine/Registers.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
 
-/* #define DEBUG */
+static void
+prockey_getSlot(Invocation * inv, Node * theNode, uint32_t slot)
+{
+  COMMIT_POINT();
+
+  if (keyBits_IsRdHazard(node_GetKeyAtSlot(theNode, slot)))
+	node_ClearHazard(theNode, slot);
+  inv_SetExitKey(inv, 0, &theNode->slot[slot]);
+
+  inv->exit.code = RC_OK;
+  return;
+}
+
+static void
+prockey_swapSlotCommitted(Invocation * inv, Node * theNode, uint32_t slot)
+{
+  node_ClearHazard(theNode, slot);
+
+  Key k;		/* temporary in case send and receive */
+			/* slots are the same. */
+  keyBits_InitToVoid(&k);
+        
+  key_NH_Set(&k, &theNode->slot[slot]);
+
+  key_NH_Set(node_GetKeyAtSlot(theNode, slot), inv->entry.key[0]);
+  inv_SetExitKey(inv, 0, &k);
+        
+  /* Unchain, but do not unprepare -- the objects do not have
+     on-disk keys. */
+  key_NH_Unchain(&k);
+
+  act_Prepare(act_Current());
+      
+  inv->exit.code = RC_OK;
+  return;
+}
+
+static void
+prockey_swapSlot(Invocation * inv, Node * theNode, uint32_t slot)
+{
+  node_MakeDirty(theNode);
+
+  COMMIT_POINT();
+
+  return prockey_swapSlotCommitted(inv, theNode, slot);
+}
 
 /* May Yield. */
 void
-ProcessKey(Invocation* inv /*@ not null @*/)
+ProcessKeyCommon(Invocation * inv, Node * theNode)
 {
   Process * p;
-  Node *theNode = (Node *) key_GetObjectPtr(inv->key);
-
-
-  if (inv->invokee && theNode == inv->invokee->procRoot
-      && OC_Process_Swap == inv->entry.code
-      && inv->entry.w1 != 2
-      && inv->entry.w1 != 4)
-    dprintf(false, "Modifying invokee domain root\n");
-
-  if (inv->invokee && theNode == inv->invokee->keysNode
-      && OC_Process_SwapKeyReg == inv->entry.code)
-    dprintf(false, "Modifying invokee keys node\n");
 
   switch (inv->entry.code) {
   case OC_capros_key_getType:
@@ -67,93 +99,60 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
-  case OC_Process_Copy:
+  case OC_capros_Process_getSchedule:
+    return prockey_getSlot(inv, theNode, ProcSched);
+  case OC_capros_Process_swapSchedule:
+    if (inv->invokee && theNode == inv->invokee->procRoot)
+      dprintf(false, "Modifying invokee domain root\n");
+
+    return prockey_swapSlot(inv, theNode, ProcSched);
+
+  case OC_capros_Process_getAddrSpace:
+    return prockey_getSlot(inv, theNode, ProcAddrSpace);
+  case OC_capros_Process_swapAddrSpace:
+    return prockey_swapSlot(inv, theNode, ProcAddrSpace);
+  
+  case OC_capros_Process_swapAddrSpaceAndPC32Proto:
+      inv->exit.w1 = inv->entry.w2;
+  case OC_capros_Process_swapAddrSpaceAndPC32:
     {
-      uint32_t slot = inv->entry.w1;
+      Process * ac = node_GetDomainContext(theNode);
+      proc_Prepare(ac);
 
-      COMMIT_POINT();
-
-      if (slot >= EROS_NODE_SIZE)
-	dprintf(true, "Copy slot out of range\n");
-
-      if (slot == ProcBrand || 
-	  slot >= EROS_NODE_SIZE) {
-	inv->exit.code = RC_capros_key_RequestError;
-	return;
-      }
-
-      /* All of these complete ok. */
-      inv->exit.code = RC_OK;
-
-
-      if (keyBits_IsRdHazard(node_GetKeyAtSlot(theNode, slot)))
-	node_ClearHazard(theNode, slot);
-      inv_SetExitKey(inv, 0, &theNode->slot[slot]);
-
-
-      return;
-    }      
-
-  case OC_Process_Swap:
-    {
-      uint32_t slot;
-      if (theNode == act_CurContext()->keysNode)
-	dprintf(true, "Swap involving sender keys\n");
-
-
-      slot = inv->entry.w1;
-
-      if (slot == ProcBrand || 
-	  slot >= EROS_NODE_SIZE) {
-	COMMIT_POINT();
-
-	inv->exit.code = RC_capros_key_RequestError;
-	return;
-      }
-
-      /* All of these complete ok. */
-      inv->exit.code = RC_OK;
-      
       node_MakeDirty(theNode);
 
       COMMIT_POINT();
-      
 
-      node_ClearHazard(theNode, slot);
-
-      {
-	Key k;			/* temporary in case send and receive */
-				/* slots are the same. */
-        
-        keyBits_InitToVoid(&k);
-	key_NH_Set(&k, &theNode->slot[slot]);
-	
-
-	key_NH_Set(node_GetKeyAtSlot(theNode, slot), inv->entry.key[0]);
-	inv_SetExitKey(inv, 0, &k);
-        
-	/* Unchain, but do not unprepare -- the objects do not have
-	 * on-disk keys. 
-	 */
-	key_NH_Unchain(&k);
-
+      proc_SetPC(ac, inv->entry.w1);
+      if (proc_IsExpectingMsg(ac)) {
+        /* If the process is expecting a message, then when it becomes
+        Running, its PC will be incremented. 
+        Counteract that here, so the process will start executing
+        at the specified PC. */
+        proc_AdjustInvocationPC(ac);
       }
-
-      /* Thread::Current() changed to act_Current() */
-      act_Prepare(act_Current());
       
-      return;
-    }      
+      return prockey_swapSlotCommitted(inv, theNode, ProcAddrSpace);
+    }
 
-  case OC_Process_CopyKeyReg:
+  case OC_capros_Process_getKeeper:
+    return prockey_getSlot(inv, theNode, ProcKeeper);
+  case OC_capros_Process_swapKeeper:
+    return prockey_swapSlot(inv, theNode, ProcKeeper);
+
+  case OC_capros_Process_getSymSpace:
+    return prockey_getSlot(inv, theNode, ProcSymSpace);
+  case OC_capros_Process_swapSymSpace:
+    return prockey_swapSlot(inv, theNode, ProcSymSpace);
+
+  case OC_capros_Process_getKeyReg:
     {
-      uint32_t slot;
       Process* ac = node_GetDomainContext(theNode);
       proc_Prepare(ac);
 
       COMMIT_POINT();
 
-      slot = inv->entry.w1;
+      uint32_t slot = inv->entry.w1;
 
       if (slot < EROS_NODE_SIZE) {
 	inv_SetExitKey(inv, 0, &ac->keyReg[slot]);
@@ -166,204 +165,50 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
-  case OC_Process_SwapKeyReg:
+  case OC_capros_Process_swapKeyReg:
     {
-      Process* ac = 0;
-      uint32_t slot;
-      if (theNode == act_CurContext()->keysNode)
-	dprintf(true, "Swap involving sender keys\n");
-
-      ac = node_GetDomainContext(theNode);
-      proc_Prepare(ac);
-
-      COMMIT_POINT();
-
-      slot = inv->entry.w1;
-
-      if (slot >= EROS_NODE_SIZE) {
-	inv->exit.code = RC_capros_key_RequestError;
-	return;
-      }
-      
-
-      inv_SetExitKey(inv, 0, &ac->keyReg[slot]);
-
-
-      if (slot != 0) {
-	/* FIX: verify that the damn thing HAD key registers?? */
-
-	key_NH_Set(&ac->keyReg[slot], inv->entry.key[0]);
-
-
-#if 0
-	printf("set key reg slot %d to \n", slot);
-	inv.entry.key[0].Print();
-#endif
-      }
-
-      inv->exit.code = RC_OK;
-      return;
-    }
-#if 0
-  case OC_Process_GetCtrlInfo32:
-    {
-      DomCtlInfo32_s info;
-
-      Node *domRoot = (Node *) inv.key->GetObjectPtr();
-      
-      inv.exit.code = RC_OK;
-
-      ArchContext* ac = domRoot->GetDomainContext();
-      ac->Prepare();
-      
-      COMMIT_POINT();
-      
-      if (ac->GetControlInfo32(info) == false)
-	inv.exit.code = RC_Process_Malformed;
-
-      inv.CopyOut(sizeof(info), &info);
-      return;
-    }
-#endif    
-  case OC_Process_GetRegs32:
-    {
-      Process* ac = 0;
-      Registers regs;
-      
-      /* GetRegs32 length is machine specific, so it does its own copyout. */
-      inv->exit.code = RC_OK;
-
-      assert( proc_IsRunnable(inv->invokee) );
-
-#if 0
-      printf("GetRegs32: invokee is 0x%08x, IsActive? %c\n",
-		     inv->invokee, inv_IsActive(inv) ? 'y' : 'n');
-#endif
-
-      ac = node_GetDomainContext(theNode);
-      proc_Prepare(ac);
-
-      proc_SetupExitString(inv->invokee, inv, sizeof(regs));
-
-      COMMIT_POINT();
-
-      if (proc_GetRegs32(ac, &regs) == false)
-	inv->exit.code = RC_Process_Malformed;
-
-
-      inv_CopyOut(inv, sizeof(regs), &regs);
-      return;
-    }
-#if 0    
-  case OC_Process_SetCtrlInfo32:
-    {
-      DomCtlInfo32_s info;
-
-      if ( inv.entry.len != sizeof(info) ) {
-	inv.exit.code = RC_capros_key_RequestError;
-	COMMIT_POINT();
-      
-	return;
-      }
-      
-      inv.exit.code = RC_OK;
-      ArchContext* ac = theNode->GetDomainContext();
-      ac->Prepare();
-      
-      COMMIT_POINT();
-
-      inv.CopyIn(sizeof(info), &info);
-
-      if (ac->SetControlInfo32(info) == false)
-	inv.exit.code = RC_Process_Malformed;
-
-      return;
-    }
-#endif
-  
-  case OC_Process_SetRegs32:
-    {
-      Registers regs;
-      Process* ac = 0;
-      
-      if ( inv->entry.len != sizeof(regs) ) {
-	inv->exit.code = RC_capros_key_RequestError;
-	COMMIT_POINT();
-      
-	return;
-      }
-      
-      /* FIX: check embedded length and arch type! */
-      
-      /* GetRegs32 length is machine specific, so it does its own copyout. */
-      inv->exit.code = RC_OK;
-
-      ac = node_GetDomainContext(theNode);
-      proc_Prepare(ac);
-
-      COMMIT_POINT();
-
-      inv_CopyIn(inv, sizeof(regs), &regs);
-
-      if (proc_SetRegs32(ac, &regs) == false)
-	inv->exit.code = RC_Process_Malformed;
-
-      return;
-    }
-
-  case OC_Process_SwapMemory32:
-    {
-      inv->exit.w1 = inv->entry.w1;
-      inv->exit.w2 = inv->entry.w2;
-      inv->exit.w3 = inv->entry.w3;
-      
-      /* All of these complete ok. */
-      inv->exit.code = RC_OK;
-      
       Process * ac = node_GetDomainContext(theNode);
       proc_Prepare(ac);
 
       COMMIT_POINT();
 
+      uint32_t slot = inv->entry.w1;
 
-      proc_SetPC(ac, inv->entry.w1);
-      if (proc_IsExpectingMsg(ac)) {
-        /* If the process is expecting a message, then when it becomes
-        Running, its PC will be incremented. 
-        Counteract that here, so the process will start executing
-        at the specified PC. */
-        proc_AdjustInvocationPC(ac);
+      if (slot >= EROS_NODE_SIZE) {
+	inv->exit.code = RC_capros_key_RequestError;
+	return;
       }
-      
-      node_ClearHazard(theNode, ProcAddrSpace);
 
-      {
-	Key k;
+      Key k;		/* temporary in case send and receive */
+			/* slots are the same. */
+      keyBits_InitToVoid(&k);
+        
+      Key * targetSlot = &ac->keyReg[slot];
+      key_NH_Set(&k, targetSlot);
 
-        keyBits_InitToVoid(&k);
-        key_NH_Set(&k, &theNode->slot[ProcAddrSpace]);
-
-	key_NH_Set(node_GetKeyAtSlot(theNode, ProcAddrSpace), inv->entry.key[0]);
-	inv_SetExitKey(inv, 0, &k);	// return old AddrSpace
-
-	/* Unchain, but do not unprepare -- the objects do not have
-	 * on-disk keys. 
-	 */
-	key_NH_Unchain(&k);
+      if (slot != KR_VOID) {
+	/* FIX: verify that the damn thing HAD key registers?? */
+        key_NH_Set(targetSlot, inv->entry.key[0]);
       }
-      
+
+      inv_SetExitKey(inv, 0, &k);
+        
+      /* Unchain, but do not unprepare -- the objects do not have
+         on-disk keys. */
+      key_NH_Unchain(&k);
+
+      inv->exit.code = RC_OK;
       return;
     }
 
-  case OC_Process_MkStartKey:
+  case OC_capros_Process_makeStartKey:
     {
-      Process* p = node_GetDomainContext(theNode);
-      uint32_t keyData;
+      p = node_GetDomainContext(theNode);
       proc_Prepare(p);
 
       COMMIT_POINT();
       
-      keyData = inv->entry.w1;
+      uint32_t keyData = inv->entry.w1;
       
       if ( keyData > EROS_KEYDATA_MAX ) {
 	inv->exit.code = RC_capros_key_RequestError;
@@ -371,60 +216,31 @@ ProcessKey(Invocation* inv /*@ not null @*/)
       
 	return;
       }
-
-      /* All of these complete ok. */
-      inv->exit.code = RC_OK;
       
-      /* AAARRRGGGGGHHHH!!!!! This used to fabricate an unprepared
-       * key, which was making things REALLY slow.  We do need to be
-       * careful, as gate keys do not go on the same key chain as
-       * domain keys.  Still, it was just never THAT hard to get it
-       * right.  Grumble.
-       */
-      
-      if (inv->exit.pKey[0]) {
-	Key *k /*@ not null @*/ = inv->exit.pKey[0];
-
+      Key * k = inv->exit.pKey[0];
+      if (k) {		// the key is being received
 	key_NH_Unchain(k);
         keyBits_InitType(k, KKT_Start);
 	k->keyData = keyData;
+
+        /* Prepare the key, for performance.
+           Be careful, as gate keys do not go on the same key chain as
+           process keys. */
 	k->u.gk.pContext = p;
-
 	link_insertAfter(&p->keyRing, &k->u.gk.kr);
-
 	keyBits_SetPrepared(k);
       }
 
+      inv->exit.code = RC_OK;
       return;
     }
 
-  /* I'm holding off on these because they require killing the
-   * active thread, and I want to make sure I do that when I'm awake.
-   */
-  case OC_Process_MkProcessAvailable:
-  case OC_Process_MkProcessWaiting:
-    COMMIT_POINT();
-
-    inv->exit.code = RC_capros_key_UnknownRequest;
-    return;
-
-  case OC_Process_MkFaultKey:
+  case OC_capros_Process_makeResumeKey:
     p = node_GetDomainContext(theNode);
     proc_Prepare(p);
 
     COMMIT_POINT();
 
-    p->processFlags &= ~PF_ExpectingMsg;
-    
-    goto makeResumeKey;
-
-  case OC_Process_MkResumeKey:
-    p = node_GetDomainContext(theNode);
-    proc_Prepare(p);
-
-    COMMIT_POINT();
-
-makeResumeKey:
     /* Perhaps we should zap other resume keys here.
      Note, if a process Calls a key to itself, that should invalidate the
      invokee. */
@@ -486,13 +302,52 @@ makeResumeKey:
 
     return;
 
-  case OC_Process_GetFloatRegs:
-  case OC_Process_SetFloatRegs:
-    COMMIT_POINT();
-      
-    fatal("Domain key order %d ot yet implemented\n",
-		  inv->entry.code);
-    
+  case OC_capros_Process_getRegisters32:
+    assert( proc_IsRunnable(inv->invokee) );
+
+    {
+      struct capros_Process_CommonRegisters32 regs;
+
+      p = node_GetDomainContext(theNode);
+      proc_Prepare(p);
+
+      proc_SetupExitString(inv->invokee, inv, sizeof(regs));
+
+      COMMIT_POINT();
+
+      proc_GetCommonRegs32(p, &regs);
+
+      regs.len = sizeof(regs);
+
+      inv_CopyOut(inv, sizeof(regs), &regs);
+      inv->exit.code = RC_OK;
+      return;
+    }
+
+  case OC_capros_Process_setRegisters32:
+    {
+      struct capros_Process_CommonRegisters32 regs;
+
+      if ( inv->entry.len < sizeof(regs) ) {
+        inv->exit.code = RC_capros_key_RequestError;
+        COMMIT_POINT();
+
+        return;
+      }
+
+      p = node_GetDomainContext(theNode);
+      proc_Prepare(p);
+
+      COMMIT_POINT();
+
+      inv_CopyIn(inv, sizeof(regs), &regs);
+
+      proc_SetCommonRegs32(p, &regs);
+
+      inv->exit.code = RC_OK;
+      return;
+    }
+
   default:
     COMMIT_POINT();
       

@@ -47,7 +47,6 @@ HEADERS=\
 	stdarg.h \
 	TimeOfDay.h \
 	TimePage.h \
-	Registers.h \
 	ProcStats.h \
 	CharSrcProto.h \
 	TtyKey.h \

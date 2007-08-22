@@ -28,8 +28,8 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>
 #include <kerninc/Debug.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include "Process486.h"
 #include <arch-kerninc/Process.h>
 #include "Segment.h"
@@ -94,7 +94,7 @@ GPFault(savearea_t *sa)
 
 
   if ( act_CurContext()->trapFrame.Error == 0 &&
-       proc_HasDevicePriveleges(act_CurContext()) &&
+       proc_HasDevicePrivileges(act_CurContext()) &&
        iopl != 3 ) {
     act_CurContext()->trapFrame.EFLAGS |= MASK_EFLAGS_IOPL;
 
@@ -135,7 +135,7 @@ GPFault(savearea_t *sa)
 #endif
 
   if (act_CurContext())
-    proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_GeneralProtection, sa->EIP);
+    proc_SetFault(act_CurContext(), capros_arch_i386_Process_FC_GeneralProtection, sa->EIP);
 
   return false;
 }

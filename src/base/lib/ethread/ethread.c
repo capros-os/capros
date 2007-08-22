@@ -26,12 +26,10 @@ Approved for public release, distribution unlimited. */
 #include <string.h>
 
 #include <eros/target.h>
-#include <eros/machine/Registers.h>
-#include <eros/ProcessKey.h>
-#include <eros/ProcessState.h>
 #include <eros/Invoke.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
 
 #include <domain/Runtime.h>
 #include <domain/ProcessCreatorKey.h>
@@ -46,7 +44,6 @@ ethread_new_thread(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_size,
 {
   uint32_t kr;
   result_t result;
-  struct Registers regs;
   Message msg;
   
   result = proccre_create_process(KR_CREATOR, kr_bank, kr_new_thread);
@@ -54,71 +51,61 @@ ethread_new_thread(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_size,
     return RC_Ethread_Create_Process_Err;
 
   /* Copy the address space to the new thread */
-  result = process_copy(KR_SELF, ProcAddrSpace, kr_tmp);
+  result = capros_Process_getAddrSpace(KR_SELF, kr_tmp);
   if (result != RC_OK)
     return RC_Ethread_Copy_AddrSpace_Err;
 
-  result = process_swap(kr_new_thread, ProcAddrSpace, kr_tmp, KR_VOID);
+  result = capros_Process_swapAddrSpace(kr_new_thread, kr_tmp, KR_VOID);
   if (result != RC_OK)
     return RC_Ethread_Copy_AddrSpace_Err;
   
   /* Copy schedule key */
-  result = process_copy(KR_SELF, ProcSched, kr_tmp);
+  result = capros_Process_getSchedule(KR_SELF, kr_tmp);
   if (result != RC_OK)
     return RC_Ethread_Copy_SchedKey_Err;
 
-  result = process_swap(kr_new_thread, ProcSched, kr_tmp, KR_VOID);
+  result = capros_Process_swapSchedule(kr_new_thread, kr_tmp, KR_VOID);
   if (result != RC_OK)
     return RC_Ethread_Copy_SchedKey_Err;
 
   /* Now just copy all key registers */
   for (kr = 0; kr < EROS_NODE_SIZE; kr++) {
-    result = process_copy_keyreg(KR_SELF, kr, kr_tmp);
+    result = capros_Process_getKeyReg(KR_SELF, kr, kr_tmp);
     if (result != RC_OK)
       return RC_Ethread_Copy_Keyregs_Err;
 
-    result = process_swap_keyreg(kr_new_thread, kr, kr_tmp, KR_VOID);
+    result = capros_Process_swapKeyReg(kr_new_thread, kr, kr_tmp, KR_VOID);
     if (result != RC_OK)
       return RC_Ethread_Copy_Keyregs_Err;
   }
 
-  /* Now set up registers appropriately */
-  process_get_regs(KR_SELF, &regs);
-  
-  regs.CS = DOMAIN_CODE_SEG;
-  regs.SS = DOMAIN_DATA_SEG;
-  regs.DS = DOMAIN_DATA_SEG;
-  regs.ES = DOMAIN_DATA_SEG;
-  regs.FS = DOMAIN_DATA_SEG;
-  regs.GS = DOMAIN_PSEUDO_SEG;
-  
-  regs.pc = program_counter;
-  
-  /* Request a portion of the heap for this thread's stack */
+  // Set the PC and SP.
   {
-    void *stack = malloc(stack_size);
+    /* Request a portion of the heap for this thread's stack */
+    void * stack = malloc(stack_size);
 
     if (stack == NULL)
       return RC_Ethread_Malloc_Err;
 
-    regs.sp = (uint32_t)stack + stack_size;
+    struct capros_Process_CommonRegisters32 regs = {
+      .procFlags = 0,
+      .faultCode = 0,
+      .faultInfo = 0,
+      .pc = program_counter,
+      .sp = (uint32_t)stack + stack_size
+    };
+  
+    result = capros_Process_setRegisters32(kr_new_thread, regs);
   }
-
-  regs.faultCode = 0;
-  regs.faultInfo = 0;
-  regs.domFlags = 0;
-  regs.EFLAGS = 0x200;
-
-  result = process_set_regs(kr_new_thread, &regs);
   if (result != RC_OK) 
     return RC_Ethread_SetRegs_Err;
   
-  result = process_make_fault_key(kr_new_thread, kr_tmp);
+  result = capros_Process_makeResumeKey(kr_new_thread, kr_tmp);
   if (result != RC_OK) 
     return RC_Ethread_Make_Fault_Key_Err;
   
   /* Fabricate a start key */
-  result = process_make_start_key(kr_new_thread, 0, kr_new_thread);
+  result = capros_Process_makeStartKey(kr_new_thread, 0, kr_new_thread);
   if (result != RC_OK) 
     return RC_Ethread_Make_Start_Key_Err;
   

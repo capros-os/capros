@@ -27,11 +27,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/NodeKey.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
 
 #include <domain/ConstructorKey.h>
@@ -83,7 +83,7 @@ void
 patch_addrspace(uint16_t dma_lss)
 {
   /* Stash the current ProcAddrSpace capability */
-  process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
   
   /* Make a node with max lss */
   make_new_addrspace(EROS_ADDRESS_LSS, KR_ADDRSPC);
@@ -113,7 +113,7 @@ patch_addrspace(uint16_t dma_lss)
   next_slot++;
 
   /* Finally, patch up the ProcAddrSpace register */
-  process_swap(KR_SELF, ProcAddrSpace, KR_ADDRSPC, KR_VOID);
+  capros_Process_swapAddrSpace(KR_SELF, KR_ADDRSPC, KR_VOID);
 }
 
 /* Generate address faults in the entire mapped region in order to

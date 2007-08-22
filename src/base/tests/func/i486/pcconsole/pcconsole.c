@@ -24,10 +24,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <domain/domdbg.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
 #include <eros/DevicePrivs.h>
 
 #include "constituents.h"
@@ -54,9 +54,9 @@ main(void)
   capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_MYSPACE);
   capros_GPT_setL2v(KR_MYSPACE, EROS_PAGE_LGSIZE + EROS_NODE_LGSIZE);
 
-  process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
   capros_GPT_setSlot(KR_MYSPACE, 0, KR_SCRATCH);
-  process_swap(KR_SELF, ProcAddrSpace, KR_MYSPACE, KR_VOID);
+  capros_Process_swapAddrSpace(KR_SELF, KR_MYSPACE, KR_VOID);
 
   kprintf(KR_OSTREAM, "Address space rebuilt....\n");
 

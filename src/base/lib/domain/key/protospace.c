@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -18,15 +18,17 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/StdKeyType.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 #include <domain/Runtime.h>
 #include <domain/ProtoSpace.h>
+#include <idl/capros/Process.h>
 
 /* NOTE: This code assumes that the resume key to which we should
    return is sitting in KR_RESUME. */
@@ -79,32 +81,18 @@ protospace_destroy(uint32_t krReturner, uint32_t krProto, uint32_t krMyDom,
   }
 
   /* Fetch out the current address space to key reg 3: */
-  (void) process_copy(KR_SELF, ProcAddrSpace, PSKR_SPACE);
+  (void) capros_Process_getAddrSpace(KR_SELF, PSKR_SPACE);
   
-  {
-    Message msg;
-    msg.snd_key0 = PSKR_PROTO;
-    msg.snd_key1 = KR_VOID;
-    msg.snd_key2 = KR_VOID;
-    msg.snd_rsmkey = KR_VOID;
-    msg.snd_w1 = 0;		/* well known protospace address */
-    /* snd_w2 will be returned in rcv_w2 */
-    msg.snd_w2 = (smallSpace ? 2 : 1);
-    msg.snd_w3 = 0;
-    msg.snd_data = 0;
-    msg.snd_len = 0;
+  uint32_t w1_out;
 
-    msg.rcv_key0 = KR_VOID;
-    msg.rcv_key1 = KR_VOID;
-    msg.rcv_key2 = KR_VOID;
-    msg.rcv_rsmkey = KR_VOID;
-    msg.rcv_limit = 0;		/* no data returned */
-
-    /* No string arg == I'll take anything */
-    msg.snd_invKey = KR_SELF;
-    msg.snd_code = OC_Process_SwapMemory32;
-
-    CALL(&msg);
-  }
+  /* The following invocation replaces our own address space
+  and changes our PC, therefore the part of the stub after
+  the invocation is never execued. 
+  w2_in is received in a register, and w1_out is never used. */
+  capros_Process_swapAddrSpaceAndPC32Proto(KR_SELF, PSKR_PROTO,
+    0,	/* well known protospace address */
+    (smallSpace ? 2 : 1),	// w2_in
+    &w1_out,		// won't be used
+    KR_VOID);
   /* NOTREACHED */
 }

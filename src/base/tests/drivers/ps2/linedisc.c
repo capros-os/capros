@@ -24,11 +24,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <domain/domdbg.h>
 #include <eros/KeyConst.h>
-#include <eros/StdKeyType.h>
-#include <eros/ProcessState.h>
 #include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
 #include <eros/i486/atomic.h>
 #include <domain/ConstructorKey.h>
@@ -237,12 +235,12 @@ ldInit(void)
   node_copy(KR_CONSTIT, KC_TEXCON, KR_TEXCON_S);
   node_copy(KR_CONSTIT, KC_SLEEP, KR_SLEEP);
     
-  result = process_copy(KR_SELF, ProcSched, KR_SCHED);
+  result = capros_Process_getSchedule(KR_SELF, KR_SCHED);
   if(result != RC_OK) {
     kprintf(KR_OSTREAM,"linedisc:: Process Copy -- Failed");
   }
   
-  result = process_make_start_key(KR_SELF, 0, KR_START);
+  result = capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   if(result != RC_OK) {
     kprintf(KR_OSTREAM,"linedisc:: Start Key -- Failed");
   }
@@ -311,7 +309,6 @@ makeSharedProc(void)
 
 
   uint32_t result;
-  struct Registers regs;
   Message msg;
   
   kprintf(KR_OSTREAM,"Starting makeSharedProc...");
@@ -321,107 +318,89 @@ makeSharedProc(void)
     kprintf (KR_OSTREAM, "Failed to create new process\n");
   }
 
-  result = process_get_regs(KR_NEWPROC, &regs);
-  if (result != RC_OK) {
-    kprintf(KR_OSTREAM, "Something is broken.  It should probably be fixed\n");
-  }
-
-  result = process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+  result = capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't get my address space?\n");
   }
 
-  result = process_swap(KR_NEWPROC, ProcAddrSpace, KR_SCRATCH, KR_VOID);
+  result = capros_Process_swapAddrSpaceAndPC32(KR_NEWPROC, KR_SCRATCH,
+             (unsigned) &sharedMain, KR_VOID);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't insert address space in new process?\n");
   }
 
-  result = process_copy(KR_SELF, ProcSched, KR_SCRATCH);
+  result = capros_Process_getSchedule(KR_SELF, KR_SCRATCH);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't get schedule key into scratch reg\n");
   }
 
-  result = process_swap(KR_NEWPROC, ProcSched, KR_SCRATCH, KR_VOID);
+  result = capros_Process_swapSchedule(KR_NEWPROC, KR_SCRATCH, KR_VOID);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't insert schedule key into new process\n");
   }
 
-  result = process_swap_keyreg(KR_NEWPROC, KR_SCHED, KR_SCRATCH, KR_VOID);
+  result = capros_Process_swapKeyReg(KR_NEWPROC, KR_SCHED, KR_SCRATCH, KR_VOID);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't copy schedule key to new proc\n");
   }
   
-  result = process_copy_keyreg(KR_SELF, KR_OSTREAM, KR_SCRATCH);
+  result = capros_Process_getKeyReg(KR_SELF, KR_OSTREAM, KR_SCRATCH);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't copy Console Key\n");
   }
 
-  result = process_swap_keyreg(KR_NEWPROC, KR_OSTREAM, KR_SCRATCH, KR_VOID);
+  result = capros_Process_swapKeyReg(KR_NEWPROC, KR_OSTREAM, KR_SCRATCH, KR_VOID);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't swap console key into new process\n");
   }
   
-  result = process_copy_keyreg(KR_SELF, KR_SLEEP, KR_SCRATCH);
+  result = capros_Process_getKeyReg(KR_SELF, KR_SLEEP, KR_SCRATCH);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't copy Sleep key\n");
   }
   
-  result = process_swap_keyreg(KR_NEWPROC, KR_SLEEP, KR_SCRATCH, KR_VOID);
+  result = capros_Process_swapKeyReg(KR_NEWPROC, KR_SLEEP, KR_SCRATCH, KR_VOID);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't swap sleep key into new process\n");
   }
   
-  result = process_copy_keyreg(KR_SELF, KR_KEYCLI_S, KR_SCRATCH);
+  result = capros_Process_getKeyReg(KR_SELF, KR_KEYCLI_S, KR_SCRATCH);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't copy start key to keycli\n");
   }
   
-  result = process_swap_keyreg(KR_NEWPROC, KR_KEYCLI_S, KR_SCRATCH, KR_VOID);
+  result = capros_Process_swapKeyReg(KR_NEWPROC, KR_KEYCLI_S, KR_SCRATCH, KR_VOID);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't swap keycli start key into new process\n");
   }
 
-  result = process_copy_keyreg(KR_SELF, KR_TEXCON_S, KR_SCRATCH);
+  result = capros_Process_getKeyReg(KR_SELF, KR_TEXCON_S, KR_SCRATCH);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't copy start key to textcon\n");
   }
 
-  result = process_swap_keyreg(KR_NEWPROC, KR_TEXCON_S, KR_SCRATCH, KR_VOID);
+  result = capros_Process_swapKeyReg(KR_NEWPROC, KR_TEXCON_S, KR_SCRATCH, KR_VOID);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Couldn't swap textcons start key into new process\n");
   }
 
-  /* Sleazy portability trick. Rather than set all target register by
-     hand (most don't actually matter), copy out our own registers and
-     then clobber the ones that we actually need to change. This is
-     ugly, but relatively more machine independent (cough, ahem). This
-     deals conveniently with segmentation registers on machines that
-     have them.  Note that if we fail to set the seg regs, then the
-     kernel barfs (at the moment). */
-
-#ifndef KERNEL_BARF
-  result = process_get_regs(KR_SELF, &regs);
-  if (result != RC_OK) {
-    kprintf(KR_OSTREAM, "KERNEL_BARF::process_get_regs...[Failed]");
-  }
-#endif /* KERNEL_BARF (nasty little dog, huh?) */
-
-  //regs.pc = (unsigned) &sharedMain;
-  regs.pc = (unsigned) &sharedMain;
+  { // Set the SP.
+    struct capros_Process_CommonRegisters32 regs;
+    result = capros_Process_getRegisters32(KR_NEWPROC, &regs);
+    if (result != RC_OK) {
+      kprintf(KR_OSTREAM, "Something is broken. It should probably be fixed\n");
+    }
   
-  /* ::Was 0x30000u. I have no idea on this one!!! */
-  regs.sp = 0x10000u;
+    /* ::Was 0x30000u. I have no idea on this one!!! */
+    regs.sp = 0x10000u;
   
-  regs.faultCode = 0;
-  regs.faultInfo = 0;
-  regs.domFlags = 0;
-
-  result = process_set_regs(KR_NEWPROC, &regs);
-  if (result != RC_OK) {
-    kprintf(KR_OSTREAM, "Something is broken.  It should probably be fixed\n");
+    result = capros_Process_setRegisters32(KR_NEWPROC, regs);
+    if (result != RC_OK) {
+      kprintf(KR_OSTREAM, "Something is broken. It should probably be fixed\n");
+    }
   }
   
-  result = process_make_fault_key(KR_NEWPROC, KR_NEWFAULT);
+  result = capros_Process_makeResumeKey(KR_NEWPROC, KR_NEWFAULT);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "Problem Making fault key...\n");
   }
@@ -455,8 +434,8 @@ void
 saveCaller(void)
 {
 
-  process_copy_keyreg(KR_SELF, KR_RETURN, KR_SAVEDRESUME);
-  process_swap_keyreg(KR_NEWPROC, KR_SAVEDRESUME /* his */, 
+  capros_Process_getKeyReg(KR_SELF, KR_RETURN, KR_SAVEDRESUME);
+  capros_Process_swapKeyReg(KR_NEWPROC, KR_SAVEDRESUME /* his */, 
 		      KR_SAVEDRESUME /* mine */, 
 		      KR_VOID);
   ATOMIC_SWAP32(&appenderMustInvoke, (uint32_t) 0, (uint32_t) 1);

@@ -25,14 +25,14 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
-#include <eros/ProcessKey.h>
-//#include <eros/StdKeyType.h>
 #include <eros/cap-instr.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/DevPrivs.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include <idl/capros/GPT.h>
 
 #include <string.h>
@@ -329,7 +329,7 @@ static void
 patch_addrspace(void)
 {
   /* Stash the current ProcAddrSpace capability */
-  process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
 
   /* Make a node with max lss */
   make_new_addrspace(EROS_ADDRESS_LSS, KR_ADDRSPC);
@@ -386,7 +386,7 @@ patch_addrspace(void)
   next_slot++;
 
   /* Finally, patch up the ProcAddrSpace register */
-  process_swap(KR_SELF, ProcAddrSpace, KR_ADDRSPC, KR_VOID);
+  capros_Process_swapAddrSpace(KR_SELF, KR_ADDRSPC, KR_VOID);
 }
 
 /* Map the device's command FIFO queue into our address space. */
@@ -963,15 +963,15 @@ int main(void)
   capros_Node_getSlot(KR_CONSTIT, KC_ZERO_SPACE, KR_ZERO_SPACE);
 
   /* Move the DEVPRIVS key to the ProcIoSpace slot so we can do io calls. */
-  process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);
+  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
 
   /* Make a start key to pass back to constructor.  This key
      implements the VideoDriverKey interface. */
-  process_make_start_key(KR_SELF, DRIVER_INTERFACE, KR_START_VIDEO);
+  capros_Process_makeStartKey(KR_SELF, DRIVER_INTERFACE, KR_START_VIDEO);
 
   /* Make a start key to pass back to clients.  This key
      implements the Drawable interface. */
-  process_make_start_key(KR_SELF, DRAWABLE_INTERFACE, KR_START_DRAWABLE);
+  capros_Process_makeStartKey(KR_SELF, DRAWABLE_INTERFACE, KR_START_DRAWABLE);
 
   DEBUG(video_init) 
     kprintf(KR_OSTREAM, "main is about to go into available state...\n");

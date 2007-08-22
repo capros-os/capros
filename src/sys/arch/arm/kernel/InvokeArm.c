@@ -171,7 +171,7 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   uint8_t * rcvKeys = (uint8_t *) &thisPtr->trapFrame.r14;
   if (thisPtr->trapFrame.r14) {		/* if any nonzero */
     if (thisPtr->trapFrame.r14 & 0xe0e0e0e0) {	/* if any too large */
-      proc_SetFault(thisPtr, FC_BadExitBlock, 0);
+      proc_SetFault(thisPtr, capros_Process_FC_MalformedSyscall, 0);
       inv->invokee = 0;
       inv->exit.rcvLen = 0;	/* needed because I think invokee == 0 is not
 			checked before xfer */
@@ -394,7 +394,7 @@ InvokeArm(Process * invokerProc,
   default: goto general_path1;
   }
 
-  if (invokee->processFlags & PF_Faulted) goto general_path1;
+  if (invokee->processFlags & capros_Process_PF_FaultToProcessKeeper) goto general_path1;
   /* Do we need to check invokee has an address space? */
 
   if (invokee->trapFrame.r14) {	/* invokee is receiving some keys */

@@ -24,9 +24,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <domain/Runtime.h>
-#include <eros/ProcessKey.h>
-#include <eros/ProcessState.h>
 #include <idl/capros/Sleep.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
 #include <domain/domdbg.h>
 
@@ -66,7 +65,7 @@ main(void)
   msg.rcv_limit = 0;		/* no data returned */
 
   /* Get keeper process started. */
-  process_make_fault_key(KR_KEEPER_PROCESS, KR_KEEPER_PROCESS);
+  capros_Process_makeResumeKey(KR_KEEPER_PROCESS, KR_KEEPER_PROCESS);
   msg.snd_invKey = KR_KEEPER_PROCESS;
   msg.snd_code = RC_OK;
   SEND(&msg);
@@ -87,7 +86,7 @@ main(void)
       ret = capros_GPT_setSlot(toNode, slot, KR_VOID);
       assert(ret == RC_OK);
     } else {	// blss == 5
-      ret = process_swap(KR_PROC1_PROCESS, ProcAddrSpace, KR_VOID, KR_VOID);
+      ret = capros_Process_swapAddrSpace(KR_PROC1_PROCESS, KR_VOID, KR_VOID);
       assert(ret == RC_OK);
     }
 
@@ -123,7 +122,7 @@ main(void)
       ret = capros_GPT_setSlot(toNode, slot, KR_TEMP);
       assert(ret == RC_OK);
     } else {	// blss == 5
-      ret = process_swap(KR_PROC1_PROCESS, ProcAddrSpace, KR_TEMP, KR_VOID);
+      ret = capros_Process_swapAddrSpace(KR_PROC1_PROCESS, KR_TEMP, KR_VOID);
       assert(ret == RC_OK);
     }
 

@@ -29,7 +29,6 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
 #include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -38,6 +37,8 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Range.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/GPT.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include <idl/console/textconsole.h>
 
 #include <stdlib.h>
@@ -157,11 +158,11 @@ initialize(void)
   node_copy(KR_CONSTIT, KC_DEVPRIVS, KR_DEVPRIVS);
   node_copy(KR_CONSTIT, KC_PHYSRANGE, KR_PHYSRANGE);
   
-  result = process_make_start_key(KR_SELF, 0, KR_START);
+  result = capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::Start key--Failed");
   
-  result = process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);
-  if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::Process swap--Failed");
+  result = capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
+  if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::setIoSpace--Failed");
   kprintf(KR_OSTREAM, "Should now have IOspace key in slot\n");
   
   result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_ADDRSPC);
@@ -173,13 +174,13 @@ initialize(void)
   result = capros_Memory_reduce(KR_ADDRSPC, capros_Memory_noCall, KR_ADDRSPC);
   if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::make noCall--Failed");
   
-  result = process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+  result = capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
   if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::process copy-Failed");
 
   result = capros_GPT_setSlot(KR_ADDRSPC, 0, KR_SCRATCH);
   if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::setSlot--Failed");
 
-  result = process_swap(KR_SELF, ProcAddrSpace, KR_ADDRSPC, KR_VOID);
+  result = capros_Process_swapAddrSpace(KR_SELF, KR_ADDRSPC, KR_VOID);
   if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::process swap--Failed");
 
 #ifdef i386

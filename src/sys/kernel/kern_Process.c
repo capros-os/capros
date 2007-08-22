@@ -29,7 +29,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/Node.h>
 #include <kerninc/Activity.h>
-#include <eros/machine/Registers.h>
 
 /* May Yield. */
 void 
@@ -126,43 +125,29 @@ proc_SyncActivity(Process * thisPtr)
   procKey->u.unprep.count = thisPtr->procRoot->node_ObjHdr.allocCount; 
 }
 
-/* May Yield. */
-void 
-proc_InvokeProcessKeeper(Process * thisPtr)
+void
+proc_SetCommonRegs32(Process * thisPtr,
+  struct capros_Process_CommonRegisters32 * regs)
 {
-  Registers regs;
-  Key processKey;
+  assert (proc_IsRunnable(thisPtr));
 
-  keyBits_InitToVoid(&processKey);
+  assert(! (thisPtr->hazards & hz_DomRoot));
+  
+  /* Ignore len, architecture */
+  proc_SetCommonRegs32MD(thisPtr, regs);
 
-#if 0
-  dprintf(false, "Fetching register values for InvokeProcessKeeper()\n");
-#endif
-  proc_GetRegs32(thisPtr, &regs);
+  // Preserve kernel-only bits in processFlags:
+  const uint32_t validFlags = capros_Process_PF_FaultToProcessKeeper
+                            | capros_Process_PF_ExpectingMessage;
+  uint32_t saved = thisPtr->processFlags & ~validFlags;
+  thisPtr->processFlags = (regs->procFlags & validFlags) | saved;
 
-  // Show the state as it will be after the keeper invocation.
-  regs.domFlags &= ~PF_ExpectingMsg;
-
-#if 0
-  dprintf(false, "  ExNo: 0x%08x, Error: 0x%08x  Info: 0x%08x  FVA 0x%08x\n",
-		  trapFrame.ExceptNo,
-		  trapFrame.Error,
-		  faultInfo,
-		  trapFrame.ExceptAddr);
-#endif
-
-  keyBits_InitType(&processKey, KKT_Process);
-  processKey.u.unprep.oid = thisPtr->procRoot->node_ObjHdr.oid;
-  processKey.u.unprep.count = thisPtr->procRoot->node_ObjHdr.allocCount;
-
-  /* Guarantee that prepared resume key will be in dirty object -- see
-   * comment in kern_Invoke.cxx:
-   */
-  assert (objH_IsDirty(DOWNCAST(thisPtr->procRoot, ObjectHeader)));
-
-  proc_InvokeMyKeeper(thisPtr, OC_PROCFAULT, 0, 0, 0,
-                      &thisPtr->procRoot->slot[ProcKeeper],
-                      &processKey, (uint8_t *) &regs, sizeof(regs));
+  if (regs->faultCode == capros_Process_FC_NoFault) {
+    proc_ClearFault(thisPtr);
+  } else {
+    thisPtr->faultCode        = regs->faultCode;
+    thisPtr->faultInfo        = regs->faultInfo;
+  }
 }
 
 #ifdef OPTION_DDB

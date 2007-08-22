@@ -29,9 +29,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <domain/Runtime.h>
-#include <eros/ProcessKey.h>
-#include <eros/machine/Registers.h>
 #include <domain/domdbg.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
 
 #define ADDR1 0x40000
@@ -103,7 +102,8 @@ main()
 #endif
 
     // Copy fault code and info to shared page:
-    struct Registers * regs = (struct Registers *)&rcvData;
+    struct capros_Process_CommonRegisters32 * regs
+             = (struct capros_Process_CommonRegisters32 *)&rcvData;
     shInfP->faultCode = regs->faultCode;
     shInfP->faultInfo = regs->faultInfo;
 
@@ -125,7 +125,7 @@ main()
 
     case 5:
       makeSeg(KR_SEG17 - 2 + blss);
-      ret = process_swap(KR_PROC1_PROCESS, ProcAddrSpace, KR_TEMP, KR_VOID);
+      ret = capros_Process_swapAddrSpace(KR_PROC1_PROCESS, KR_TEMP, KR_VOID);
       assert(ret == RC_OK);
       break;
 
@@ -146,7 +146,7 @@ main()
       slot = 0;
       fromKey = KR_TEMP;
     }
-    ret = process_swap(KR_PROC1_PROCESS, ProcAddrSpace, fromKey, KR_VOID);
+    ret = capros_Process_swapAddrSpace(KR_PROC1_PROCESS, fromKey, KR_VOID);
     assert(ret == RC_OK);
 #endif
 

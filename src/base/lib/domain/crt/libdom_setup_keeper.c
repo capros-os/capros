@@ -24,11 +24,10 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/StdKeyType.h>
-#include <eros/ProcessKey.h>
-#include <eros/ProcessState.h>
 #include <eros/Invoke.h>
 #include <domain/Runtime.h>
 #include <domain/ConstructorKey.h>
+#include <idl/capros/Process.h>
 
 #include <idl/capros/key.h>
 
@@ -46,7 +45,7 @@ __rt_do_setup_keeper()
   if (__rt_unkept)
     return;
 
-  process_copy(KR_SELF, ProcKeeper, KR_KEEPER);
+  capros_Process_getKeeper(KR_SELF, KR_KEEPER);
 
   result = capros_key_getType(KR_KEEPER, &keyType);
 
@@ -56,7 +55,7 @@ __rt_do_setup_keeper()
   if (keyType == AKT_ConstructorRequestor) {
     result = constructor_request(KR_KEEPER, KR_BANK, KR_SCHED,
 				 KR_VOID, KR_KEEPER);
-    process_swap(KR_SELF, ProcKeeper, KR_KEEPER, KR_VOID);
+    capros_Process_swapKeeper(KR_SELF, KR_KEEPER, KR_VOID);
     return;
   }
 

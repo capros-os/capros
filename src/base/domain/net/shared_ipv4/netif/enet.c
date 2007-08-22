@@ -27,12 +27,13 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
 #include <eros/cap-instr.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/DevPrivs.h>
 #include <idl/capros/net/enet/enet.h>
@@ -112,7 +113,7 @@ ProcessRequest(Message *msg)
     }
   case OC_eros_domain_net_enet_enet_get_wrapper:
     {
-      process_make_start_key(KR_SELF,0,KR_SCRATCH);
+      capros_Process_makeStartKey(KR_SELF,0,KR_SCRATCH);
       result = forwarder_create(KR_ARG(0),KR_BLOCKER,KR_NEW_NODE, KR_SCRATCH,
                                 capros_Forwarder_sendWord,
 			        1);
@@ -288,7 +289,7 @@ enet_map_lss_three_layer(cap_t kr_self, cap_t kr_bank,
   uint32_t lss_three = 3;
   uint32_t result;
 
-  process_copy(kr_self, ProcAddrSpace, kr_scratch);
+  capros_Process_getAddrSpace(kr_self, kr_scratch);
   for (slot = next_slot; slot < EROS_NODE_SIZE; slot++) {
     result = addrspace_new_space(kr_bank, lss_three, kr_node);
     if (result != RC_OK)
@@ -321,7 +322,7 @@ main(void)
   COPY_KEYREG(KR_ARG(0),KR_CONSTREAM);
 
   /* Move the DEVPRIVS key to the ProcIOSpace so we can do i/o calls */
-  process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);
+  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
    
   /* Prepare address space for mapping */
   if (addrspace_prep_for_mapping(KR_SELF, KR_BANK, KR_SCRATCH, 
@@ -433,7 +434,7 @@ main(void)
  
  RETURN_TO_CONSTRUCTOR:  
   /* Make a start key to pass back to constructor */
-  process_make_start_key(KR_SELF, 0, KR_START);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
 
   DEBUG_ENET kprintf(KR_OSTREAM, "Enet calling map_lss_three_layer "
 		     "with next slot=%u...", 18);

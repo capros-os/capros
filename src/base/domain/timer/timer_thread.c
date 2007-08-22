@@ -25,12 +25,12 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <string.h>
 #include <eros/target.h>
-#include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 #include <eros/Invoke.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/timer/timer_client.h>
 
@@ -59,7 +59,7 @@ main(void)
   kprintf(KR_OSTREAM,"Timeout Thread says hi...\n");
 
   /* Fabricate a start key */
-  process_make_start_key(KR_SELF, 0, KR_START);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
 
   memset(&m, 0, sizeof(Message));
   m.rcv_rsmkey = KR_RETURN;

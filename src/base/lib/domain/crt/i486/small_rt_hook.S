@@ -33,10 +33,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/i486/target-asm.h>
 #include <eros/StdKeyType.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <domain/ProtoSpace.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
 #include <domain/Runtime.h>
 	
@@ -150,7 +150,7 @@ ENTRY(__rt_small_startup)
 
 	/* fetch current (immutable) address space from our
 	   process slot */
-	IVK1(fetch_cur_space, OC_Process_Copy, ProcAddrSpace)
+	IVK1(fetch_cur_space, OC_capros_Process_getAddrSpace, 0)
 
 #if 0
 	/* check return value */
@@ -175,7 +175,7 @@ ENTRY(__rt_small_startup)
 	jnz	EXT(delete_kept_space)
 #endif
 
-	IVK1(set_my_addr_space, OC_Process_Swap, ProcAddrSpace)
+	IVK1(set_my_addr_space, OC_capros_Process_swapAddrSpace, 0)
 
 #define NUMPG  0x1FFFC
 #define PGSLOT 0x1FFF8

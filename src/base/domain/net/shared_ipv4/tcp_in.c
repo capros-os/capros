@@ -29,7 +29,6 @@
 #include <eros/target.h>
 #include <eros/endian.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/net/enet/enet.h>
 #include <idl/capros/Stream.h>

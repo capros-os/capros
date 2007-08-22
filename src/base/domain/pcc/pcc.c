@@ -33,11 +33,8 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
-#include <eros/ProcessState.h>
 #include <eros/cap-instr.h>
 #include <eros/StdKeyType.h>
-#include <eros/machine/Registers.h>
 #include <disk/DiskNodeStruct.h>
 
 #include <idl/capros/key.h>
@@ -45,7 +42,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Number.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
-//#include <idl/capros/arch/arm/Process.h>
+#include <idl/capros/Process.h>
 
 #include <domain/PccKey.h>
 #include <domain/Runtime.h>
@@ -251,71 +248,28 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
   /* WE WIN -- THE REST IS INITIALIZATION */
 
   /* Install this address space into the domain root: */
-  (void) process_swap(krDomKey, ProcAddrSpace, PCC_NEWSEG, KR_VOID);
+  (void) capros_Process_swapAddrSpaceAndPC32(krDomKey, PCC_NEWSEG,
+           pInfo->domcre_pc, KR_VOID);
 #else
-  (void) process_swap(krDomKey, ProcAddrSpace, KR_DOMCRE_SEG, KR_VOID);
+  (void) capros_Process_swapAddrSpaceAndPC32(krDomKey, KR_DOMCRE_SEG,
+           pInfo->domcre_pc, KR_VOID);
 #endif
 
   DEBUG kdprintf(KR_OSTREAM, "Installed aspace\n");
 
   /* Install the schedule key into the domain: */
-  (void) process_swap(krDomKey, ProcSched, krSched, KR_VOID);
+  (void) capros_Process_swapSchedule(krDomKey, krSched, KR_VOID);
   
   DEBUG kdprintf(KR_OSTREAM, "Installed sched\n");
 
-#if defined(EROS_TARGET_i486)
-  struct Registers regs;
-  (void) process_get_regs(krDomKey, &regs);
-
-  DEBUG kdprintf(KR_OSTREAM, "Got regs\n");
-
-  /* Unless we set them otherwise, the register values are zero.
-     We now need to initialize the stack pointer and the segment registers. */
-  regs.pc = pInfo->domcre_pc;
-  regs.CS = DOMAIN_CODE_SEG;
-  regs.SS = DOMAIN_DATA_SEG;
-  regs.DS = DOMAIN_DATA_SEG;
-  regs.ES = DOMAIN_DATA_SEG;
-  regs.FS = DOMAIN_DATA_SEG;
-  regs.GS = DOMAIN_DATA_SEG;
-  regs.EFLAGS = 0x200;
-  regs.faultCode = 0;
-  regs.faultInfo = 0;
-  regs.domFlags = 0;
-  
-  /* Set the new register values. */
-  (void) process_set_regs(krDomKey, &regs);
-#elif defined(EROS_TARGET_arm)
-  struct /*capros_arch_arm_Process_*/Registers regs;////
-////  (void) capros_arch_arm_Process_getRegisters(krDomKey, &regs);
-  (void) process_get_regs(krDomKey, &regs);
-
-  DEBUG kdprintf(KR_OSTREAM, "Got regs\n");
-
-  /* Unless we set them otherwise, the register values are zero.
-     The stack pointer is initialized at run time.
-     We now need to initialize the stack pointer and the segment registers. */
-  regs.pc = pInfo->domcre_pc;
-  regs.CPSR = 0;	/* ARM execution. System will force user mode. */
-  regs.faultCode = 0;
-  regs.faultInfo = 0;
-  regs.domFlags = 0;
-  
-  /* Set the new register values. */
-////  (void) capros_arch_arm_Process_setRegisters(krDomKey, regs);
-  (void) process_set_regs(krDomKey, &regs);
-#endif
-
-  DEBUG kdprintf(KR_OSTREAM, "Wrote regs\n");
-
   /* Populate the new domcre's key registers: */
-  process_swap_keyreg(krDomKey, KR_CONSTIT, KR_DOMCRE_CONSTIT, KR_VOID);
-  process_swap_keyreg(krDomKey, KR_BANK, KR_BANK, KR_VOID);
-  process_swap_keyreg(krDomKey, KR_SELF, krDomKey, KR_VOID);
+  capros_Process_swapKeyReg(krDomKey, KR_CONSTIT, KR_DOMCRE_CONSTIT, KR_VOID);
+  capros_Process_swapKeyReg(krDomKey, KR_BANK, KR_BANK, KR_VOID);
+  capros_Process_swapKeyReg(krDomKey, KR_SELF, krDomKey, KR_VOID);
   
   DEBUG kdprintf(KR_OSTREAM, "About to call get fault key\n");
   /* Make a restart key to start up the new domain creator: */
-  (void) process_make_fault_key(krDomKey, KR_SCRATCH);
+  (void) capros_Process_makeResumeKey(krDomKey, KR_SCRATCH);
 
   {
     Message msg;
@@ -332,7 +286,7 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
 
   DEBUG kdprintf(KR_OSTREAM, "About to call get start key\n");
   /* Now make a start key to return: */
-  (void) process_make_start_key(krDomKey, 0, krDomKey);
+  (void) capros_Process_makeStartKey(krDomKey, 0, krDomKey);
 
   DEBUG kdprintf(KR_OSTREAM, "Got start key\n");
   return RC_OK;

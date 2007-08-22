@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2007, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +18,10 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 #if 0
 #include <kerninc/kernel.hxx>
 #include <kerninc/MsgLog.hxx>
@@ -33,6 +37,8 @@
 #endif
 
 
+#include <idl/capros/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include "ide_drive.h"
 #include "ide_hwif.h"
 #include "ide_group.h"
@@ -956,10 +962,10 @@ void init_caps()
     OKAY( node_copy( KR_CONSTIT, KC_DEVICEPRIVS, KR_DEVICEPRIVS),
 	  "drive.c: node_copy: KR_DEVICEPRIVS" );
 
-    OKAY( process_swap( KR_SELF, ProcIoSpace, KR_DEVICEPRIVS, KR_VOID ), 
-	  "drive.c: node_copy: KR_DEVICEPRIVS\n" ); 
+    OKAY( capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVICEPRIVS), 
+	  "drive.c: setIoSpace: KR_DEVICEPRIVS\n" ); 
 
-    OKAY( process_make_start_key( KR_SELF, 0, KR_START ), 
+    OKAY( capros_Process_makeStartKey( KR_SELF, 0, KR_START ), 
 	  "drive.c: node_copy: KR_START\n" );
 }
 
@@ -1023,7 +1029,7 @@ main(void)
     msg.rcv_w2 = 0;
     msg.rcv_w3 = 0;
 
-    process_make_start_key(KR_SELF, 0, KR_START);
+    capros_Process_makeStartKey(KR_SELF, 0, KR_START);
 
     do 
 	{	    

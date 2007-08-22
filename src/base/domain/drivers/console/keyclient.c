@@ -30,18 +30,17 @@ Approved for public release, distribution unlimited. */
  
 #include <stddef.h>
 #include <eros/target.h>
-#include <eros/ProcessState.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
 #include <eros/machine/atomic.h>
 
-#include <idl/capros/Number.h>
 #include <idl/capros/key.h>
-#include <idl/capros/Ps2.h>
+#include <idl/capros/Number.h>
+#include <idl/capros/Process.h>
 
+#include <idl/capros/Ps2.h>
 #include <idl/console/keyclient.h>
 
 #include <domain/SpaceBankKey.h>
@@ -352,61 +351,44 @@ void
 makeSharedProc(cap_t krNewProc,uint32_t sp) 
 {
   uint32_t result;
-  struct Registers regs;
   Message msg;
   
   result = proccre_create_process(KR_DOMCRE, KR_BANK, krNewProc);
   if (result != RC_OK) kprintf (KR_OSTREAM,"Failed to create new process");
   
   //copy address space
-  process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
-  process_swap(krNewProc, ProcAddrSpace, KR_SCRATCH, KR_VOID);
+  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
+  capros_Process_swapAddrSpace(krNewProc, KR_SCRATCH, KR_VOID);
   
   //copy schedule key over
-  process_copy(KR_SELF, ProcSched, KR_SCRATCH);
-  process_swap(krNewProc, ProcSched, KR_SCRATCH, KR_VOID);
-  process_swap_keyreg(krNewProc, KR_SCHED, KR_SCRATCH, KR_VOID);
+  capros_Process_getSchedule(KR_SELF, KR_SCRATCH);
+  capros_Process_swapSchedule(krNewProc, KR_SCRATCH, KR_VOID);
+  capros_Process_swapKeyReg(krNewProc, KR_SCHED, KR_SCRATCH, KR_VOID);
   
   //copy spacebank key over
-  process_copy_keyreg(KR_SELF,KR_BANK, KR_SCRATCH);
-  process_swap_keyreg(krNewProc,KR_BANK,KR_SCRATCH, KR_VOID);
+  capros_Process_getKeyReg(KR_SELF,KR_BANK, KR_SCRATCH);
+  capros_Process_swapKeyReg(krNewProc,KR_BANK,KR_SCRATCH, KR_VOID);
   
   //copy KR_OSTREAM key over 
-  process_copy_keyreg(KR_SELF,KR_OSTREAM,KR_SCRATCH);
-  process_swap_keyreg(krNewProc,KR_OSTREAM,KR_SCRATCH, KR_VOID);
+  capros_Process_getKeyReg(KR_SELF,KR_OSTREAM,KR_SCRATCH);
+  capros_Process_swapKeyReg(krNewProc,KR_OSTREAM,KR_SCRATCH, KR_VOID);
   
-  /* Sleazy portability trick. Rather than set all target register by
-     hand (most don't actually matter), copy out our own registers and
-     then clobber the ones that we actually need to change. This is
-     ugly, but relatively more machine independent (cough, ahem). This
-     deals conveniently with segmentation registers on machines that
-     have them.  Note that if we fail to set the seg regs, then the
-     kernel barfs (at the moment). */
-  process_get_regs(KR_SELF, &regs);
+  // Set the PC and SP.
+  {
+    struct capros_Process_CommonRegisters32 regs = {
+      .procFlags = 0,
+      .faultCode = 0,
+      .faultInfo = 0,
+      .pc = (unsigned)&sharedMain,
+      .sp = sp
+    };
   
-  regs.CS = DOMAIN_CODE_SEG;
-  regs.SS = DOMAIN_DATA_SEG;
-  regs.DS = DOMAIN_DATA_SEG;
-  regs.ES = DOMAIN_DATA_SEG;
-  regs.FS = DOMAIN_DATA_SEG;
-  regs.GS = DOMAIN_PSEUDO_SEG;
-  
-  regs.pc = (unsigned)&sharedMain;
-  regs.nextPC = (unsigned)&sharedMain;
-  
-  /* ::Was 0x30000u. I have no idea on this one!!! */
-  regs.sp = sp;
-
-  regs.faultCode = 0;
-  regs.faultInfo = 0;
-  regs.domFlags = 0;
-  regs.EFLAGS = 0x200;
-
-  result = process_set_regs(krNewProc, &regs);
+    result = capros_Process_setRegisters32(krNewProc, regs);
+  }
   if (result != RC_OK) 
     kprintf(KR_OSTREAM,"makeSharedProc,setting regs...[FAILED]");
   
-  result = process_make_fault_key(krNewProc, KR_NEWFAULT);
+  result = capros_Process_makeResumeKey(krNewProc, KR_NEWFAULT);
   if (result != RC_OK) 
     kprintf(KR_OSTREAM,"makeSharedProc Making fault key..[FAILED]");
   
@@ -429,18 +411,18 @@ makeSharedProc(cap_t krNewProc,uint32_t sp)
     node_write_number(KR_PARKNODE, WrapperFormat, &nkv);
   }
   
-  process_make_start_key(krNewProc,0,KR_SCRATCH);
-  process_swap_keyreg(krNewProc,KR_SHAREDSTART,KR_SCRATCH, KR_VOID);
-  process_swap_keyreg(KR_SELF,KR_SHAREDSTART,KR_SCRATCH, KR_VOID);
+  capros_Process_makeStartKey(krNewProc,0,KR_SCRATCH);
+  capros_Process_swapKeyReg(krNewProc,KR_SHAREDSTART,KR_SCRATCH, KR_VOID);
+  capros_Process_swapKeyReg(KR_SELF,KR_SHAREDSTART,KR_SCRATCH, KR_VOID);
   node_swap(KR_PARKNODE, WrapperKeeper, KR_SHAREDSTART, KR_VOID);
   
   //copy KR_PARKWRAP over
-  process_copy_keyreg(KR_SELF, KR_PARKWRAP, KR_SCRATCH);
-  process_swap_keyreg(krNewProc, KR_PARKWRAP, KR_SCRATCH, KR_VOID);
+  capros_Process_getKeyReg(KR_SELF, KR_PARKWRAP, KR_SCRATCH);
+  capros_Process_swapKeyReg(krNewProc, KR_PARKWRAP, KR_SCRATCH, KR_VOID);
 
   //copy KR_PARKNODE over
-  process_copy_keyreg(KR_SELF, KR_PARKNODE, KR_SCRATCH);
-  process_swap_keyreg(krNewProc, KR_PARKNODE, KR_SCRATCH, KR_VOID);
+  capros_Process_getKeyReg(KR_SELF, KR_PARKNODE, KR_SCRATCH);
+  capros_Process_swapKeyReg(krNewProc, KR_PARKNODE, KR_SCRATCH, KR_VOID);
   
   //Send to the fault key to get the process started 
   msg.snd_invKey = KR_NEWFAULT;

@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <arch-kerninc/PTE.h>
 #include <idl/capros/GPT.h>
+#include <eros/ProcessState.h>
 
 // #define WALK_DBG
 
@@ -348,7 +349,7 @@ proc_InvokeSegmentKeeper(
     process keeper if the segment keeper rejects the fault. */
     thisPtr->faultCode = wi->faultCode;
     thisPtr->faultInfo = vaddr;
-    /* Do not set the PF_Faulted bit, because for now this is going
+    /* Do not set the capros_Process_PF_FaultToProcessKeeper bit, because for now this is going
     to the segment keeper not the process keeper. */
 
 #ifdef OPTION_DDB

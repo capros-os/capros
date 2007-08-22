@@ -26,9 +26,9 @@ Approved for public release, distribution unlimited. */
 #include <stdlib.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/Range.h>
 #include <idl/capros/Forwarder.h>
 
@@ -145,7 +145,7 @@ bank_initKeyNode(uint32_t krForwarder, Bank * bank, BankPrecludes limits)
   assert ( "writing word into forwarder" && retval == RC_OK );
 
   /* use my domain key to make a start key with keyInfo /limits/ */
-  retval = process_make_start_key(KR_SELF, limits, KR_TMP);
+  retval = capros_Process_makeStartKey(KR_SELF, limits, KR_TMP);
   assert ( "making start key" && retval == RC_OK );
 
   retval = capros_Forwarder_swapTarget(krForwarder, KR_TMP, KR_VOID);

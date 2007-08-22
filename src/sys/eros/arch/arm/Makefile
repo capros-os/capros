@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Lesser General Public
 # License along with this library; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
-#
+
 # This material is based upon work supported by the US Defense Advanced
 # Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 # W31P4Q-07-C-0070.  Approved for public release, distribution unlimited.
@@ -40,7 +40,6 @@ LOCAL_HEADERS=\
 	SWI.h \
 	endian.h \
 	target-asm.h \
-	Registers.h \
 
 HEADERS=\
 	$(LOCAL_HEADERS) $(GENERATED)

@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,12 +18,15 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
-#include <eros/ProcessKey.h>
 
 #include <stdlib.h>
 
@@ -623,7 +627,7 @@ main(void)
   node_extended_copy(KR_CONSTIT, KC_PCI_PROBE_C, KR_PCI_PROBE_C);
 
   /* Fabricate a start key to self */
-  if (process_make_start_key(KR_SELF, 0, KR_START) != RC_OK) {
+  if (capros_Process_makeStartKey(KR_SELF, 0, KR_START) != RC_OK) {
     kprintf(KR_OSTREAM, "** ERROR: couldn't fabricate a start key "
 	    "to myself...\n");
     return -1;   /* FIX:  really need to terminate gracefully */

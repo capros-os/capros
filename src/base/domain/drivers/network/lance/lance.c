@@ -68,13 +68,14 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/DevPrivs.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include <idl/capros/GPT.h>
 
 #include <domain/ConstructorKey.h>
@@ -287,7 +288,7 @@ static void
 patch_addrspace(void)
 {
   /* Stash the current ProcAddrSpace capability */
-  process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
   
   /* Make a node with max lss */
   make_new_addrspace(EROS_ADDRESS_LSS, KR_ADDRSPC);
@@ -317,7 +318,7 @@ patch_addrspace(void)
   next_slot++;
 
   /* Finally, patch up the ProcAddrSpace register */
-  process_swap(KR_SELF, ProcAddrSpace, KR_ADDRSPC, KR_VOID);
+  capros_Process_swapAddrSpace(KR_SELF, KR_ADDRSPC, KR_VOID);
 }
 
 /* Generate address faults in the entire mapped region in order to
@@ -918,8 +919,8 @@ main(void)
   capros_Node_getSlot(KR_CONSTIT, KC_HELPER_C, KR_HELPER_C);
     
   /* Move the DEVPRIVS key to the ProcIoSpace slot so we can do io calls */
-  process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);
-  process_make_start_key(KR_SELF, 0, KR_START);
+  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   
   msg.snd_invKey = KR_RETURN;
   msg.snd_key0   = KR_START;
@@ -959,7 +960,7 @@ StartHelper() {
   uint32_t result;
   Message msg;
   
-  result = process_copy(KR_SELF,ProcSched, KR_SCHED);
+  result = capros_Process_getSchedule(KR_SELF, KR_SCHED);
   if(result!=RC_OK) {
     kprintf(KR_OSTREAM,"lance(start helper)::Process copy ...[FAILED]");
     return RC_HELPER_START_FAILED;
@@ -974,7 +975,7 @@ StartHelper() {
     kprintf(KR_OSTREAM, "lance:Constructing helper ... [SUCCESS]");
   }
   
-  process_make_start_key(KR_SELF, 0, KR_START);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   
   /* Pass our start key to the helper process */
   msg.snd_invKey = KR_HELPER_S;

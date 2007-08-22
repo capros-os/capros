@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,18 +18,21 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Mouse Client to the ps2 driver(ps2reader). This process gets mouse
  * data & calls the process specified in its builder Key , passing
  * (queuing?) MouseEvents */
 
 #include <eros/target.h>
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 #include <eros/cap-instr.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/Ps2.h>
 
 #include <stdlib.h>
@@ -54,7 +58,7 @@ main() {
   node_extended_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
   
   COPY_KEYREG(KR_ARG(0), KR_PS2READER);
-  process_make_start_key(KR_SELF, 0, KR_START);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   
   /* Return back a start key to our builder */
   msg.snd_invKey = KR_RETURN;

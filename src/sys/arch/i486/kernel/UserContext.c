@@ -40,8 +40,8 @@ Approved for public release, distribution unlimited. */
 #include "TSS.h"
 #include <eros/Invoke.h>
 #include <disk/DiskNodeStruct.h>
-#include <eros/Registers.h>
-#include <eros/arch/i486/Registers.h>
+#include <eros/ProcessState.h>
+#include <idl/capros/arch/i386/Process.h>
 #include <kerninc/Invocation.h>
 #include "Process486.h"
 
@@ -61,17 +61,12 @@ PTE * proc_smallSpaces = 0;
 #endif
 
 bool
-proc_HasDevicePriveleges(Process* thisPtr)
+proc_HasDevicePrivileges(Process* thisPtr)
 {
-  bool hasPrivs = false;
-  
   assert((thisPtr->hazards & hz_DomRoot) == 0);
   assert((thisPtr->hazards & hz_KeyRegs) == 0);
 
-  if (keyBits_IsType(&thisPtr->procRoot->slot[ProcIoSpace], KKT_DevicePrivs))
-    hasPrivs = true;
-
-  return hasPrivs;
+  return keyBits_IsType(&thisPtr->procRoot->slot[ProcIoSpace], KKT_DevicePrivs);
 }
 
 kva_t proc_ContextCacheRegion = 0;
@@ -482,7 +477,7 @@ proc_ValidateRegValues(Process* thisPtr)
   uint32_t wantData;
   uint32_t wantPseudo;
   
-  if (thisPtr->processFlags & PF_Faulted)
+  if (thisPtr->processFlags & capros_Process_PF_FaultToProcessKeeper)
     return;
 
   /* FIX: This is no longer correct, as a valid user-mode application
@@ -504,7 +499,7 @@ proc_ValidateRegValues(Process* thisPtr)
 #define validate(seg, want) \
   do { \
     if ( ((seg) != sel_Null) && ((seg) != (want)) ) {   \
-      code = capros_Process_arch_i386_FC_InvalidSegReg; \
+      code = capros_arch_i386_Process_FC_InvalidSegReg; \
       info = (seg);                     \
       goto fault;                       \
     }                                   \
@@ -527,7 +522,7 @@ proc_ValidateRegValues(Process* thisPtr)
   thisPtr->trapFrame.EFLAGS |= MASK_EFLAGS_Interrupt;
   thisPtr->trapFrame.EFLAGS &= ~MASK_EFLAGS_Nested;
 
-  if ( !proc_HasDevicePriveleges(thisPtr) ) {
+  if ( !proc_HasDevicePrivileges(thisPtr) ) {
     // He doesn't have iopl privileges.
     thisPtr->trapFrame.EFLAGS &= ~MASK_EFLAGS_IOPL;
   }
@@ -860,7 +855,7 @@ proc_DoPrepare(Process* thisPtr)
     proc_LoadFixRegs(thisPtr);
 
   if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
-    assert (thisPtr->processFlags & PF_Faulted);
+    assert (thisPtr->processFlags & capros_Process_PF_FaultToProcessKeeper);
     return;
   }
   
@@ -883,7 +878,7 @@ proc_DoPrepare(Process* thisPtr)
   }
   
   if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
-    assert (thisPtr->processFlags & PF_Faulted);
+    assert (thisPtr->processFlags & capros_Process_PF_FaultToProcessKeeper);
     return;
   }
   
@@ -1027,11 +1022,30 @@ proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
   }
 }
 
-bool
-proc_GetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
+void
+proc_GetCommonRegs32(Process * thisPtr,
+  struct capros_Process_CommonRegisters32 * regs)
 {  
   assert (proc_IsRunnable(thisPtr));
 
+  regs->arch   = capros_Process_ARCH_I386;
+  regs->faultCode = thisPtr->faultCode;
+  regs->faultInfo = thisPtr->faultInfo;
+  regs->pc     = thisPtr->trapFrame.EIP;
+  regs->sp     = thisPtr->trapFrame.ESP;
+
+  if (thisPtr->runState == RS_Running)
+    /* If runState == RS_Running,
+       processFlags.PF_expectingMsg isn't significant and could be set.
+       Make sure it's cleared in procFlags for consistency. */
+    thisPtr->processFlags &= ~capros_Process_PF_ExpectingMessage;
+  regs->procFlags = thisPtr->processFlags;
+}
+
+bool
+proc_GetRegs32(Process * thisPtr,
+  struct capros_arch_i386_Process_Registers * regs)
+{  
   /* Following is x86 specific.  On architectures with more annex
    * nodes this would need to check those too:
    */
@@ -1039,20 +1053,11 @@ proc_GetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
   if (thisPtr->hazards & hz_DomRoot) {
     return false;
   }
-  
-  regs->arch   = ARCH_I386;
-  regs->len    = sizeof(*regs);
-  regs->pc     = thisPtr->trapFrame.EIP;
-  regs->sp     = thisPtr->trapFrame.ESP;
-  regs->faultCode = thisPtr->faultCode;
-  regs->faultInfo = thisPtr->faultInfo;
 
-  if (thisPtr->runState == RS_Running)
-    /* If runState == RS_Running,
-       processFlags.PF_expectingMsg isn't significant and could be set.
-       Make sure it's cleared in domFlags for consistency. */
-    thisPtr->processFlags &= ~PF_ExpectingMsg;
-  regs->domFlags = thisPtr->processFlags;
+  proc_GetCommonRegs32(thisPtr,
+                       (struct capros_Process_CommonRegisters32 *)regs);
+  
+  regs->len    = sizeof(*regs);
 
   regs->EDI    = thisPtr->trapFrame.EDI;
   regs->ESI    = thisPtr->trapFrame.ESI;
@@ -1072,27 +1077,21 @@ proc_GetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
   return true;
 }
 
-bool
-proc_SetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
+void
+proc_SetCommonRegs32MD(Process * thisPtr,
+  struct capros_Process_CommonRegisters32 * regs)
 {
-#if 0
-  dprintf(true, "ctxt=0x%08x: Call to SetRegs32\n", this);
-#endif
-
-  assert (proc_IsRunnable(thisPtr));
-
-  if (thisPtr->hazards & hz_DomRoot) {
-    dprintf(true, "ctxt=0x%08x: No root regs\n", thisPtr);
-    return false;
-  }
-  
-  /* Done with len, architecture */
   thisPtr->trapFrame.EIP    = regs->pc;
   thisPtr->trapFrame.ESP    = regs->sp;
-  thisPtr->faultCode        = regs->faultCode;
-  thisPtr->faultInfo        = regs->faultInfo;
-  thisPtr->processFlags     = regs->domFlags;
+}
 
+void
+proc_SetRegs32(Process * thisPtr,
+  struct capros_arch_i386_Process_Registers * regs)
+{
+  proc_SetCommonRegs32(thisPtr,
+                       (struct capros_Process_CommonRegisters32 *) regs);
+  
   thisPtr->trapFrame.EDI    = regs->EDI;
   thisPtr->trapFrame.ESI    = regs->ESI;
   thisPtr->trapFrame.EBP    = regs->EBP;
@@ -1113,6 +1112,26 @@ proc_SetRegs32(Process* thisPtr, struct Registers* regs /*@ not null @*/)
 #endif
 
   proc_ValidateRegValues(thisPtr);
-    
-  return true;
+}
+
+/* May Yield. */
+void 
+proc_InvokeProcessKeeper(Process * thisPtr)
+{
+  Key processKey;
+  keyBits_InitToVoid(&processKey);
+
+  keyBits_InitType(&processKey, KKT_Process);
+  processKey.u.unprep.oid = thisPtr->procRoot->node_ObjHdr.oid;
+  processKey.u.unprep.count = thisPtr->procRoot->node_ObjHdr.allocCount;
+
+  struct capros_arch_i386_Process_Registers regs;
+  proc_GetRegs32(thisPtr, &regs);
+
+  // Show the state as it will be after the keeper invocation.
+  regs.procFlags &= ~capros_Process_PF_ExpectingMessage;
+
+  proc_InvokeMyKeeper(thisPtr, OC_PROCFAULT, 0, 0, 0,
+                      &thisPtr->procRoot->slot[ProcKeeper],
+                      &processKey, (uint8_t *) &regs, sizeof(regs));
 }

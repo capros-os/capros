@@ -24,9 +24,9 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <domain/ConstructorKey.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
 #include <domain/domdbg.h>
 
@@ -76,7 +76,7 @@ setup()
   
   KPRINTF(init)(KR_OSTREAM, "Fetch current space:\n");
 
-  process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH1);
+  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH1);
 
   KPRINTF(init)(KR_OSTREAM, "Insert it in new node:\n");
 
@@ -95,7 +95,7 @@ setup()
 
   KPRINTF(init)(KR_OSTREAM, "Make new thing be my address space:\n");
 
-  process_swap(KR_SELF, ProcAddrSpace, KR_SCRATCH0, KR_VOID);
+  capros_Process_swapAddrSpace(KR_SELF, KR_SCRATCH0, KR_VOID);
 }
 
 void
@@ -170,7 +170,7 @@ main()
 #endif
   
 
-  process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH1);
+  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH1);
   capros_GPT_getSlot(KR_SCRATCH1, 0x8, KR_SCRATCH1);
 
   KPRINTF(test)(KR_OSTREAM, "About to destroy VCS: 0x%08x\n", value);

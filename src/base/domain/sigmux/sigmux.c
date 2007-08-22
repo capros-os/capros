@@ -28,10 +28,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <string.h>
 #include <domain/domdbg.h>
@@ -163,7 +163,7 @@ ProcessRequest(Message *msg)
       }
 
       if (msg->rcv_w1 < NCLIENT) {
-	result = process_make_start_key(KR_SELF, msg->rcv_w1,
+	result = capros_Process_makeStartKey(KR_SELF, msg->rcv_w1,
 				       KR_SCRATCH);
 	msg->snd_key0 = KR_SCRATCH;
       }
@@ -233,7 +233,7 @@ main(void)
   InitSigMux();
   
   /* Fabricate the master start key and arrange to return that: */
-  result = process_make_start_key(KR_SELF, KI_MASTER, KR_SCRATCH);
+  result = capros_Process_makeStartKey(KR_SELF, KI_MASTER, KR_SCRATCH);
   if (result != RC_OK)
     kdprintf(KR_OSTREAM, "Result from sigmux cre strt key: 0x%x\n",
 	     result);

@@ -22,7 +22,6 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
 #include <eros/TimeOfDay.h>
 #include <eros/machine/io.h>
 

@@ -28,10 +28,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/arm/SWI.h>
 #include <eros/StdKeyType.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <domain/ProtoSpace.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
 #include <domain/Runtime.h>
 	
@@ -146,7 +146,7 @@ ENTRY(__rt_small_startup)
 	/* fetch current (immutable) address space from our
 	   process slot */
 	Call1(fetch_cur_space, KR_SELF,
-              OC_Process_Copy, ProcAddrSpace, KR_VOID,
+              OC_capros_Process_getAddrSpace, 0, KR_VOID,
               KR_OLDSPACE)
 #if 0
 	cmp r1,#0	/* check return value */
@@ -172,7 +172,7 @@ ENTRY(__rt_small_startup)
 
 	/* Switch to newly copied space -- note no need to change PC! */
 	Call1(set_my_addr_space, KR_SELF,
-              OC_Process_Swap, ProcAddrSpace, KR_NEWSPACE,
+              OC_capros_Process_swapAddrSpace, 0, KR_NEWSPACE,
               KR_VOID)
 
 	/* We now have a stack page we can use for a Message structure! */

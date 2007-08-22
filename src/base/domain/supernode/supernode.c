@@ -44,11 +44,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/SuperNodeKey.h>
 #include <domain/domdbg.h>
@@ -123,7 +123,7 @@ main()
 
   Initialize(&mystate);  
 
-  process_make_start_key(KR_SELF, 0, KR_ARG(0));
+  capros_Process_makeStartKey(KR_SELF, 0, KR_ARG(0));
   
   msg.snd_invKey = KR_RETURN;
   msg.snd_key0 = KR_ARG(0);

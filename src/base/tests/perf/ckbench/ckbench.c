@@ -24,10 +24,10 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/SysTrace.h>
 
@@ -58,7 +58,7 @@ setup()
   capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_MYSEG);
   capros_GPT_setL2v(KR_MYSEG, 27);
   
-  process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
 
   capros_GPT_setSlot(KR_MYSEG, 0x0, KR_SCRATCH);
 
@@ -67,7 +67,7 @@ setup()
 
   capros_GPT_setSlot(KR_MYSEG, 0x1, KR_VOIDSEG);
 
-  process_swap(KR_SELF, ProcAddrSpace, KR_MYSEG, KR_VOID);
+  capros_Process_swapAddrSpace(KR_SELF, KR_MYSEG, KR_VOID);
 }
 
 void

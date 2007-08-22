@@ -112,7 +112,7 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   uint8_t * rcvKeys = (uint8_t *) &thisPtr->pseudoRegs.rcvKeys;
   if (thisPtr->pseudoRegs.rcvKeys) {
     if (thisPtr->pseudoRegs.rcvKeys & 0xe0e0e0e0) {
-      proc_SetFault(thisPtr, FC_BadExitBlock, 0);
+      proc_SetFault(thisPtr, capros_Process_FC_MalformedSyscall, 0);
       inv->invokee = 0;
       inv->exit.rcvLen = 0;	/* needed because I think invokee==0 is not
 			checked before xfer */

@@ -28,8 +28,8 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Debug.h>
 #include <kerninc/Machine.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include "Process486.h"
 #include <arch-kerninc/Process.h>
 #include "IDT.h"
@@ -65,7 +65,7 @@ SSFault(savearea_t* sa)
   
   /* Should this have a dedicated error code? */
 
-  proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_StackSeg, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_arch_i386_Process_FC_StackSeg, sa->EIP);
 
 
   return false;

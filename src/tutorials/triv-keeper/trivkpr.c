@@ -38,7 +38,7 @@
 #ifdef __REGISTERS_I486_H__
 #error "registers anti-macro defined"
 #endif
-#include <eros/machine/Registers.h>
+#include <idl/capros/Process.h>
 #include "constituents.h"
 
 #define KR_OSTREAM     KR_APP(0)
@@ -59,7 +59,8 @@ ProcessRequest(Message *msg)
    * Also, this keeper never exits!
    */
 
-  struct Registers * regs = (struct Registers *) msg->rcv_data;
+  struct capros_Process_CommonRegisters32 * regs
+           = (struct capros_Process_CommonRegisters32 *) msg->rcv_data;
 
   kprintf(KR_OSTREAM, "faultCode: 0x%08x\n", regs->faultCode);
   kprintf(KR_OSTREAM, "faultInfo: 0x%08x\n", regs->faultInfo);
@@ -80,7 +81,7 @@ ProcessRequest(Message *msg)
   return 1;
 }
 
-struct Registers rcvData;
+struct capros_Process_CommonRegisters32 rcvData;
 
 
 int
@@ -115,7 +116,7 @@ main ()
   kprintf(KR_OSTREAM, "Keeper is initialized\n");
 
   do {
-    msg.rcv_limit = sizeof (struct Registers);
+    msg.rcv_limit = sizeof(rcvData);
     RETURN(&msg);
 
     /* If the ProcessRequest routine is actually able to correct the

@@ -24,9 +24,9 @@ Approved for public release, distribution unlimited. */
 #include <string.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <eros/ConsoleKey.h>
 #include <eros/StdKeyType.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -128,7 +128,7 @@ main()
 //// check arg1 and 2
 
   /* Get echo process started. */
-  process_make_fault_key(KR_PROC2_PROCESS, KR_RETURN);
+  capros_Process_makeResumeKey(KR_PROC2_PROCESS, KR_RETURN);
   msg.snd_invKey = KR_RETURN;
   msg.snd_code = RC_OK;
   SEND(&msg);

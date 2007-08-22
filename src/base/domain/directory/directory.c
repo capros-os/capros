@@ -48,13 +48,13 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <domain/Runtime.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/SuperNodeKey.h>
 #include <domain/ConstructorKey.h>
@@ -582,13 +582,13 @@ Initialize(state_t *state)
   capros_GPT_setSlot(KR_ARG0, 8, KR_SNODE);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: fetch my own space\n", result);
-  process_copy(KR_SELF, ProcAddrSpace, KR_SNODE);
+  capros_Process_getAddrSpace(KR_SELF, KR_SNODE);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: plug self spc into new spc root\n", result);
   capros_GPT_setSlot(KR_ARG0, 0, KR_SNODE);
   
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: before lobotomy\n", result);
-  process_swap(KR_SELF, ProcAddrSpace, KR_ARG0, KR_VOID);
+  capros_Process_swapAddrSpace(KR_SELF, KR_ARG0, KR_VOID);
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: post lobotomy\n", result);
 
   capros_Node_getSlot(KR_CONSTIT, KC_SNODEC, KR_SNODE);
@@ -600,7 +600,7 @@ Initialize(state_t *state)
   supernode_swap(KR_SNODE, 1, KR_ARG0, KR_VOID);
 
   /* make start key to us: */
-  process_make_start_key(KR_SELF, 0, KR_ARG0);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_ARG0);
   
   /* insert key for "." entry: */
   supernode_swap(KR_SNODE, 0, KR_ARG0, KR_VOID);
@@ -631,7 +631,7 @@ main()
 
   Initialize(&state);
 
-  process_make_start_key(KR_SELF, 0, KR_ARG0);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_ARG0);
 
 
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: Got start key. Ready to rock and roll\n");

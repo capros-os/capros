@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime distribution.
+ * This file is part of the CapROS Operating System runtime distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /** Map allocated space into process address space 
  */
@@ -25,10 +29,10 @@
 #include <eros/target.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -78,7 +82,7 @@ map_single_buff(cap_t kr_bank,cap_t kr_newspace,
   if (buffer_addr == NULL)
     return RC_capros_key_RequestError;
 
-  result = process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+  result = capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
   if (result != RC_OK)
     return result;
 

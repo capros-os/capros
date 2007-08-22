@@ -23,12 +23,12 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
 
 #include <domain/Runtime.h>
 
@@ -65,7 +65,7 @@ addrspace_prep_for_mapping(uint32_t kr_self, uint32_t kr_bank,
     return RC_capros_key_RequestError;
 
   /* Get the current ProcAddrSpace key */
-  result = process_copy(kr_self, ProcAddrSpace, kr_tmp);
+  result = capros_Process_getAddrSpace(kr_self, kr_tmp);
   if (result != RC_OK)
     return result;
 
@@ -93,7 +93,7 @@ addrspace_prep_for_mapping(uint32_t kr_self, uint32_t kr_bank,
   }
 
   /* Finally, patch up the ProcAddrSpace register */
-  return process_swap(kr_self, ProcAddrSpace, kr_new_GPT, KR_VOID);
+  return capros_Process_swapAddrSpace(kr_self, kr_new_GPT, KR_VOID);
 }
 
 uint32_t 

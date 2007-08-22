@@ -39,7 +39,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/ReadyQueue.h>
-#include <eros/ProcessState.h>
 
 /* Prototypes for former member functions of Activity */
 void act_DoReschedule();
@@ -178,14 +177,6 @@ act_ForceResched(void)
   act_yieldState = ys_ShouldYield;
 }
 
-
-INLINE bool 
-act_IsRunnable(Activity* thisPtr)
-{
-  return (thisPtr->context
-	  && proc_IsRunnable(thisPtr->context)
-	  && (thisPtr->context->processFlags & PF_Faulted) == 0);
-}
 
 void ExitTheKernel(void) NORETURN;
 void ExitTheKernel_MD(Process *);		// architecture-dependent

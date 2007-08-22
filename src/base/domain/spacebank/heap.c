@@ -24,11 +24,11 @@ Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <eros/target.h>
-#include <eros/ProcessKey.h>
 #include <eros/KeyConst.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
+#include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
 
 #include <domain/domdbg.h>
@@ -64,7 +64,7 @@ heap_insert_page(uint32_t addr, uint32_t krPage)
   uint32_t result;
   uint32_t orig_addr = addr;
 
-  process_copy(KR_SELF, ProcAddrSpace, krtree);
+  capros_Process_getAddrSpace(KR_SELF, krtree);
 
   DEBUG(heap){
     uint32_t result, keyType;

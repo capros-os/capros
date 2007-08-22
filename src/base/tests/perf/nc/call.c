@@ -24,8 +24,8 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <eros/machine/cap-instr.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
 #include <domain/domdbg.h>
 #include <idl/capros/arch/arm/SysTrace.h>
@@ -70,7 +70,7 @@ main()
   msg.rcv_limit = 0;		/* no data returned */
 
   /* Get echo process started. */
-  process_make_fault_key(KR_ECHO_PROCESS, KR_ECHO_PROCESS);
+  capros_Process_makeResumeKey(KR_ECHO_PROCESS, KR_ECHO_PROCESS);
   msg.snd_invKey = KR_ECHO_PROCESS;
   msg.snd_code = RC_OK;
   SEND(&msg);

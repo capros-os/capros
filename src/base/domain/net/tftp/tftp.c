@@ -25,10 +25,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 #include <eros/endian.h>
 #include <eros/cap-instr.h>
 
+#include <idl/capros/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/Stream.h>
 #include <idl/capros/Node.h>
@@ -357,9 +358,9 @@ main(void)
   capros_Node_getSlot(KR_CONSTIT,KC_DEVPRIVS,KR_DEVPRIVS);
 
   /* Move the DEVPRIVS key to the ProcIOSpace so we can do i/o calls */
-  process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);
+  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
 
-  process_make_start_key(KR_SELF,0,KR_START);
+  capros_Process_makeStartKey(KR_SELF,0,KR_START);
   
   /* Construct the network system */
   result = constructor_request(KR_NETSYS_C,KR_BANK,KR_SCHED,

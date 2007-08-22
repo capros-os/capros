@@ -27,7 +27,6 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
 #include <eros/cap-instr.h>
@@ -35,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/key.h>
 #include <idl/capros/DevPrivs.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -65,7 +65,7 @@ main(void)
   DEBUG_HELPER kprintf(KR_OSTREAM,"STARTING TG3 HELPER ... [SUCCESS]");
 
   /* Make a start key to pass back to constructor */
-  process_make_start_key(KR_SELF, 0, KR_START);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   
   msg.snd_invKey = KR_RETURN;
   msg.snd_key0   = KR_START;

@@ -25,11 +25,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
-#include <eros/ProcessState.h>
-#include <eros/machine/Registers.h>
 #include <eros/KeyBitsKey.h>
 #include <eros/NodeKey.h>
+#include <idl/capros/Process.h>
 #include <domain/domdbg.h>
 #include <domain/PccKey.h>
 #include <domain/ProcessCreatorKey.h>
@@ -69,7 +67,6 @@ int
 main()
 {
   Message msg;
-  struct Registers regs;
 
   node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
   node_copy(KR_CONSTIT, KC_KEYBITS, KR_KEYBITS);
@@ -138,55 +135,27 @@ main()
   kdprintf(KR_OSTREAM, "Populate new process\n");
 
   /* Install the schedule key into the domain: */
-  (void) process_swap(KR_NEWDOM, ProcSched, KR_SCHED, KR_VOID);
+  (void) capros_Process_swapSchedule(KR_NEWDOM, KR_SCHED, KR_VOID);
   
   kdprintf(KR_OSTREAM, "Installed sched\n");
 
-  /* Install hello address space into the domain root: */
-  (void) process_swap(KR_NEWDOM, ProcAddrSpace, KR_HELLO_SEG, KR_VOID);
+  /* Install hello address space and PC into the process: */
+  (void) capros_Process_swapAddrSpaceAndPC32(KR_NEWDOM, KR_HELLO_SEG,
+           nkv.value[0], KR_VOID);
 
-  /* Install the program counter key into the domain: */
-  (void) process_swap(KR_NEWDOM, ProcPCandSP, KR_HELLO_PC, KR_VOID);
-  
   kdprintf(KR_OSTREAM, "Installed addrspace and program counter\n");
-
-  /* Fetch out the register values, mostly for the benefit of
-     Retrieving the PC -- this prevents us from needing to hard-code
-     the PC, which will inevitably change. */
-  (void) process_get_regs(KR_NEWDOM, &regs);
-
-  kdprintf(KR_OSTREAM, "Got regs\n");
-
-  /* Unless we set them otherwise, the register values are zero.  The
-     PC has already been set.  We now need to initialize the stack
-     pointer and the segment registers. */
-  regs.CS = DOMAIN_CODE_SEG;
-  regs.SS = DOMAIN_DATA_SEG;
-  regs.DS = DOMAIN_DATA_SEG;
-  regs.ES = DOMAIN_DATA_SEG;
-  regs.FS = DOMAIN_DATA_SEG;
-  regs.GS = DOMAIN_DATA_SEG;
-  regs.EFLAGS = 0x0200;
-  regs.domFlags = 0;
-  regs.faultCode = 0;
-  regs.faultInfo = 0;
-  
-  /* Set the new register values. */
-  (void) process_set_regs(KR_NEWDOM, &regs);
-
-  kdprintf(KR_OSTREAM, "Wrote regs\n");
 
   /* Install the bank and domain key for this domain: */
   kdprintf(KR_OSTREAM, "Give it bank, dom key\n");
 
-  (void) process_swap_keyreg(KR_NEWDOM, KR_SELF, KR_NEWDOM, KR_VOID);
-  (void) process_swap_keyreg(KR_NEWDOM, KR_SPCBANK, KR_SPCBANK, KR_VOID);
-  (void) process_swap_keyreg(KR_NEWDOM, 5, KR_OSTREAM, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SELF, KR_NEWDOM, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SPCBANK, KR_SPCBANK, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, 5, KR_OSTREAM, KR_VOID);
 
   kdprintf(KR_OSTREAM, "About to call get fault key\n");
 
   /* Make a restart key to start up the new domain creator: */
-  (void) process_make_fault_key(KR_NEWDOM, KR_SCRATCH);
+  (void) capros_Process_makeResumeKey(KR_NEWDOM, KR_SCRATCH);
   ShowKey(KR_OSTREAM, KR_KEYBITS, KR_SCRATCH);
 
   {
@@ -205,7 +174,7 @@ main()
   kdprintf(KR_OSTREAM, "About to mk start key\n");
 
   /* Now make a NODESTROY start key to return: */
-  (void) process_make_start_key(KR_NEWDOM, 0, KR_NEWDOM);
+  (void) capros_Process_makeStartKey(KR_NEWDOM, 0, KR_NEWDOM);
 
   ShowKey(KR_OSTREAM, KR_KEYBITS, KR_NEWDOM);
   kdprintf(KR_OSTREAM, "Got start key. Invoke it:\n");

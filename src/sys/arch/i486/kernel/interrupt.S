@@ -38,8 +38,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/i486/asm.h>
 #include <eros/arch/i486/target-asm.h>
 #include "PTE486.h"
-#include <eros/ProcessState.h>
 #include <eros/Invoke.h>
+#include <idl/capros/Process.h>
 
 #define SPURIOUS_CHECK
 /* #define V86_SUPPORT */
@@ -1104,7 +1104,7 @@ L_resume_key:
 	cmpb	$0,PR_OFF_hazards(%eax)
 	jne	Standard_Gate_Path
 	
-	testl	$PF_Faulted,PR_OFF_processFlags(%eax)
+	testl	$capros_Process_PF_FaultToProcessKeeper,PR_OFF_processFlags(%eax)
 	jnz	Standard_Gate_Path
 	
 	/*************************************************************

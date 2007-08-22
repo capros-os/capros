@@ -29,9 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <domain/Runtime.h>
-#include <eros/ProcessKey.h>
-#include <eros/Registers.h>
-#include <eros/machine/Registers.h>
+#include <idl/capros/Process.h>
 #include <domain/domdbg.h>
 
 /* It is intended that this should be a small space domain */
@@ -86,15 +84,17 @@ main()
     }
 
     // Skip over the offending instruction:
-    struct Registers * regs = (struct Registers *)&rcvData;
-    int increment = 0;
+    struct capros_Process_CommonRegisters32 * regs
+      = (struct capros_Process_CommonRegisters32 *)&rcvData;
+    int increment;
     switch (regs->arch) {
-    case ARCH_ARMProcess: increment = 4; break;
-    case ARCH_I386:       increment = 5; break;
+    case capros_Process_ARCH_ARMProcess: increment = 4; break;
+    case capros_Process_ARCH_I386:       increment = 5; break;
     default: kprintf(KR_OSTREAM, "Unknown architecture.\n");
+      increment = 0;
     }
     regs->pc += increment;
-    process_set_regs(KR_ARG(2), regs);
+    capros_Process_setRegisters32(KR_ARG(2), *regs);
 
     kprintf(KR_OSTREAM, "Keeper returning.\n");
 

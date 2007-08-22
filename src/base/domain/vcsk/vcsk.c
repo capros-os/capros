@@ -89,7 +89,6 @@ L2v goes down by EROS_NODE_LGSIZE at each level - no levels are skipped.
 #include <eros/Invoke.h>
 #include <idl/capros/Page.h>
 #include <idl/capros/GPT.h>
-#include <eros/ProcessKey.h>
 #include <eros/StdKeyType.h>
 #include <eros/cap-instr.h>
 #include <eros/KeyConst.h>
@@ -97,6 +96,7 @@ L2v goes down by EROS_NODE_LGSIZE at each level - no levels are skipped.
 #include <idl/capros/key.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/VcskKey.h>
 #include <domain/domdbg.h>
@@ -920,7 +920,7 @@ Initialize(state *mystate)
   result = capros_GPT_setSlot(KR_SEGMENT, 0, KR_ARG(0));
 
   /* Make a start key to ourself and set as keeper. */
-  process_make_start_key(KR_SELF, 0, KR_ARG(0));
+  capros_Process_makeStartKey(KR_SELF, 0, KR_ARG(0));
   result = capros_GPT_setKeeper(KR_SEGMENT, KR_ARG(0));
 
   result = capros_Memory_reduce(KR_SEGMENT, capros_Memory_opaque, KR_SEGMENT);

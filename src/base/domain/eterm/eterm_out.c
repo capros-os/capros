@@ -29,7 +29,6 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 
 #include <string.h>
@@ -42,6 +41,7 @@ Approved for public release, distribution unlimited. */
 /* Include the needed interfaces */
 #include <domain/SessionKey.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/Stream.h>
 #include <idl/capros/timer/manager.h>
 #include "idl/capros/eterm.h"
@@ -370,7 +370,7 @@ ETerm_Request(Message *m)
 	      main_width, main_height);
 
       /* Map the new addr space into this domain's space */
-      process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+      capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
       capros_Node_swapSlot(KR_SCRATCH, 16, KR_SEGMENT, KR_VOID);
 
       /* In order to access this mapped space, this domain needs a
@@ -632,9 +632,9 @@ main(void)
   kprintf(KR_OSTREAM, "Eterm_Out says hello...\n");
 
   /* Fabricate start keys */
-  process_make_start_key(KR_SELF, ETERM_MAIN_INTERFACE, KR_START);
-  process_make_start_key(KR_SELF, ETERM_STREAM_INTERFACE, KR_START_STREAM);
-  process_make_start_key(KR_SELF, ETERM_TIMER_INTERFACE, KR_START_FOR_TIMER);
+  capros_Process_makeStartKey(KR_SELF, ETERM_MAIN_INTERFACE, KR_START);
+  capros_Process_makeStartKey(KR_SELF, ETERM_STREAM_INTERFACE, KR_START_STREAM);
+  capros_Process_makeStartKey(KR_SELF, ETERM_TIMER_INTERFACE, KR_START_FOR_TIMER);
 
   /* Construct a timer domain for blinking characters */
   kprintf(KR_OSTREAM, "Eterm_Out constructing timer domain...\n");

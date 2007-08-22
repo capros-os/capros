@@ -27,7 +27,6 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/NodeKey.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <eros/stdarg.h>
 #include <eros/cap-instr.h>
 #include <eros/KeyConst.h>
@@ -35,6 +34,8 @@ Approved for public release, distribution unlimited. */
 #include <forwarder.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/net/ipv4/netsys.h>
 
@@ -274,10 +275,10 @@ main(void)
   node_extended_copy(KR_CONSTIT,KC_TIMEOUT_AGENT,KR_TIMEOUT_AGENT);
   
   /* Move the DEVPRIVS key to the ProcIOSpace so we can do i/o calls */
-  process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);
+  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
   
   /* Make a generic start key to self  */
-  process_make_start_key(KR_SELF,TIMEOUT_AGENT_INTERFACE,
+  capros_Process_makeStartKey(KR_SELF,TIMEOUT_AGENT_INTERFACE,
 			 KR_TIMEOUT_AGENT_TYPE);
   
   /* Start the alarm process - we may need it later */
@@ -288,20 +289,20 @@ main(void)
   }
   
   /* Make a generic start key to self  */
-  process_make_start_key(KR_SELF,NETWORK_SYSTEM_INTERFACE,KR_START);
+  capros_Process_makeStartKey(KR_SELF,NETWORK_SYSTEM_INTERFACE,KR_START);
   
   /* Make a start key to the session creator. This key will get handed 
    * out and used by clients to create unique sessions */
-  process_make_start_key(KR_SELF,SESSION_CREATOR_INTERFACE,KR_SESSION_CREATOR);
+  capros_Process_makeStartKey(KR_SELF,SESSION_CREATOR_INTERFACE,KR_SESSION_CREATOR);
   
   /* Make a start key to the session interface. This key will be
    * wrapped in each unique session forwarder key that's handed out
    * to clients */
-  process_make_start_key(KR_SELF,SESSION_INTERFACE,KR_SESSION_TYPE);
+  capros_Process_makeStartKey(KR_SELF,SESSION_INTERFACE,KR_SESSION_TYPE);
   
   /* Make a start key for the helper. The helper uses this key to notify
    * us of IRQ5 events */
-  process_make_start_key(KR_SELF,HELPER_INTERFACE,KR_HELPER_TYPE);
+  capros_Process_makeStartKey(KR_SELF,HELPER_INTERFACE,KR_HELPER_TYPE);
   
   /* Create a forwarder for "parking" client keys that are waiting
    * for network input */

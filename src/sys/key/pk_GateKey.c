@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/Process-inline.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
+#include <disk/DiskNodeStruct.h>
 
 /* #define GK_DEBUG */
 
@@ -73,7 +74,7 @@ GateKey(Invocation* inv /*@ not null @*/)
     
     if (inv->entry.code && invokee->faultCode) {
       /* Send the fault to the process keeper (not the segment keeper). */
-      invokee->processFlags |= PF_Faulted;
+      invokee->processFlags |= capros_Process_PF_FaultToProcessKeeper;
     }
     else
       proc_ClearFault(invokee);

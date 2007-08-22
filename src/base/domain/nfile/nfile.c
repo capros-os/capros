@@ -44,12 +44,12 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <domain/Runtime.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/VcskKey.h>
 #include <domain/ConstructorKey.h>
@@ -199,7 +199,7 @@ init(server_state *ss)
 
   capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
-  process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
 
   /* Buy a new root GPT: */
   result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_MYSPACE);
@@ -215,7 +215,7 @@ init(server_state *ss)
   /* Install old space in slot 0. */
   capros_GPT_setSlot(KR_MYSPACE, 0, KR_SCRATCH);
 
-  process_swap(KR_SELF, ProcAddrSpace, KR_MYSPACE, KR_VOID);
+  capros_Process_swapAddrSpace(KR_SELF, KR_MYSPACE, KR_VOID);
   
   capros_Node_getSlot(KR_CONSTIT, KC_ZSF, KR_SCRATCH);
   result = constructor_request(KR_SCRATCH, KR_BANK, KR_SCHED,
@@ -672,8 +672,8 @@ main()
 
   init(&ss);
 
-  process_make_start_key(KR_SELF, 0, KR_SCRATCH);
-  process_make_start_key(KR_SELF, 1, KR_FILESTART);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_SCRATCH);
+  capros_Process_makeStartKey(KR_SELF, 1, KR_FILESTART);
      
   msg.snd_invKey = KR_RETURN;
   msg.snd_key0 = KR_SCRATCH;

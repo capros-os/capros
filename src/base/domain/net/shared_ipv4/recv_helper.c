@@ -26,7 +26,6 @@
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 #include <eros/Invoke.h>
 

@@ -35,13 +35,13 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <disk/DiskNodeStruct.h>
 #include <eros/StdKeyType.h>	// get AKT_SpaceBank
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Range.h>
 #include <idl/capros/ProcTool.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -408,7 +408,7 @@ freeExit:
       /* verify that KR_ARG0 is a key to a valid spacebank */
 
       /* use my domain key to create the brand key */
-      result = process_make_start_key(KR_SELF,
+      result = capros_Process_makeStartKey(KR_SELF,
 				     SB_BRAND_KEYDATA,
 				     KR_TMP);
 

@@ -23,11 +23,11 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
 
 #include "constituents.h"
@@ -67,12 +67,12 @@ main(void)
   capros_GPT_setL2v(KR_ALTSPACE, BlssToL2v(EROS_PAGE_BLSS + 2));
 
   /* Fetch our address space and stick it in the node. */
-  process_copy(KR_SELF, ProcAddrSpace, KR_MYSPACE);
+  capros_Process_getAddrSpace(KR_SELF, KR_MYSPACE);
   capros_GPT_setSlot(KR_NEWNODE, 0, KR_MYSPACE);
   capros_GPT_setSlot(KR_ALTSPACE, 2, KR_MYSPACE);
   capros_GPT_setSlot(KR_ALTSPACE, 0, KR_MYSPACE);
   capros_GPT_setSlot(KR_NEWNODE, 1, KR_ALTSPACE);
-  process_swap(KR_SELF, ProcAddrSpace, KR_NEWNODE, KR_VOID);
+  capros_Process_swapAddrSpace(KR_SELF, KR_NEWNODE, KR_VOID);
 
   /* Insert the first window: */
   capros_GPT_setWindow(KR_NEWNODE, 2, 0, 0, 0ull);

@@ -23,7 +23,6 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
-#include <eros/ProcessKey.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
 #include <domain/domdbg.h>

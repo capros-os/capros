@@ -27,7 +27,6 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 
 #include <string.h>
@@ -43,6 +42,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Stream.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <graphics/color.h>
 #include <graphics/fonts/Font.h>
@@ -270,7 +270,7 @@ main(void)
   kprintf(KR_OSTREAM, "ETerm now constructing eout...\n");
 
   /* Make start key to pass to eterm_out */
-  process_make_start_key(KR_SELF, 0, KR_START);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   if (constructor_request(KR_EOUT, KR_BANK, KR_SCHED, KR_START, 
 			  KR_EOUT) != RC_OK) {
     kprintf(KR_OSTREAM, "**ERROR: Eterm_Main couldn't construct eout!\n");

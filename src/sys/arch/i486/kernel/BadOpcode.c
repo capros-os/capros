@@ -28,8 +28,8 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Debug.h>
 #include <kerninc/Machine.h>
-/*#include <kerninc/util.h>*/
 #include <kerninc/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include "IDT.h"
 
 extern void halt(char);
@@ -44,7 +44,7 @@ OverflowTrap(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_Overflow, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_arch_i386_Process_FC_Overflow, sa->EIP);
 
   return false;
 }
@@ -57,7 +57,7 @@ BoundsFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_Bounds, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_arch_i386_Process_FC_Bounds, sa->EIP);
 
   return false;
 }
@@ -83,7 +83,7 @@ InvalTSSFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_InvalidTSS, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_arch_i386_Process_FC_InvalidTSS, sa->EIP);
 
   return false;
 }
@@ -122,7 +122,7 @@ SIMDFloatingPointFault(savearea_t* sa)
     halt('o');
   }
 
-  proc_SetFault(act_CurContext(), capros_Process_arch_i386_FC_SIMDfp, sa->EIP);
+  proc_SetFault(act_CurContext(), capros_arch_i386_Process_FC_SIMDfp, sa->EIP);
 
   return false;
 }

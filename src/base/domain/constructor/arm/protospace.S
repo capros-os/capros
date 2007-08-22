@@ -34,11 +34,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/target-asm.h>
 #include <eros/StdKeyType.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Number.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/ProcessCreatorKey.h>
@@ -93,18 +93,18 @@ ENTRY(_start)
 #error
 ENTRY(start)
 #endif
-	/* On entry, if we came from the constructor, r3 has zero.
+	/* On entry, if we came from the constructor, r2 has zero.
 	If we came from protospace_destroy(),
-	r3 (which is where rcv_w2 ends up) will have 
+	r2 (which is where rcv_w1 ends up) will have 
 	1 if destroying a ??, or
 	2 if destroying a small space.
 	(Not sure where 3 comes from.) */
 
-	cmp r3,#2
+	cmp r2,#2
 	beq delete_small_space
-	cmp r3,#3
+	cmp r2,#3
 	beq delete_kept_space
-	cmp r3,#0
+	cmp r2,#0
 	bne sepuku	// presumably 1
  
 	/* The address space may be a constructor, in which case we need
@@ -141,7 +141,8 @@ perform_lobotomy:
 	   address space and proceed... */
 	/* rcv_key1 is returned as void. Accept it in PSKR_PROC_PC
 	to clear that slot that we used temporarily. */
-	InvConstants(swap_space_and_pc, KR_SELF, OC_Process_SwapMemory32, 0, \
+	InvConstants(swap_space_and_pc, KR_SELF, \
+                     OC_capros_Process_swapAddrSpaceAndPC32, 0, \
 	             PSKR_SPACE, KR_VOID, PSKR_SPACE, PSKR_PROC_PC)
 	ldr r0,=swap_space_and_pc
 	ldmia r0,{r1-r4,r12,r14}

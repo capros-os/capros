@@ -44,7 +44,7 @@ kva_t mach_winmap(int mw, kva_t lastva, kpa_t pa);
 void mach_winunmap(int mw, kva_t va);
 #endif
 
-bool proc_HasDevicePriveleges(Process* thisPtr);
+bool proc_HasDevicePrivileges(Process * thisPtr);
 
 /* Return 0 if no mapping can be found with the desired access,
  * otherwise return the kernel *virtual* PAGE address containing the
@@ -115,5 +115,9 @@ proc_SwitchToLargeSpace(Process* thisPtr)
   thisPtr->md.MappingTable = KernPageDir_pa;
 }
 #endif
+
+struct capros_arch_i386_Process_Registers;
+bool proc_GetRegs32(Process * thisPtr,
+       struct capros_arch_i386_Process_Registers * regs);
 
 #endif /* __PROCESS486_H__ */

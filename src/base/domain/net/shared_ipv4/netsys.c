@@ -26,12 +26,12 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/NodeKey.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <eros/stdarg.h>
 #include <eros/cap-instr.h>
 #include <eros/KeyConst.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/net/shared_ipv4/netsys.h>
 #include <idl/capros/net/enet/enet.h>
@@ -181,7 +181,7 @@ ProcessRequest(Message *msg)
       if(msg->rcv_code == OC_NetSys_GetSessionCreatorKey) {
 	/* Make a start key to the session creator. This key will get handed 
 	 * out and used by clients to create unique sessions */
-	process_make_start_key(KR_SELF,
+	capros_Process_makeStartKey(KR_SELF,
 			       eros_domain_net_shared_ipv4_netsys_SESSION_CREATOR_INTERFACE,
 			       KR_SCRATCH);
 	msg->snd_key0 = KR_SCRATCH;
@@ -272,7 +272,7 @@ ProcessRequest(Message *msg)
 	/* Make a start key to the session interface. This key will be
 	 * wrapped in each unique session forwarder key that's handed out
 	 * to clients */
-	process_make_start_key(KR_SELF,
+	capros_Process_makeStartKey(KR_SELF,
 			       eros_domain_net_shared_ipv4_netsys_SESSION_INTERFACE,
 			       KR_SCRATCH);
   	result = forwarder_create(KR_CLIENT_BANK,KR_NEW_SESSION,KR_NEW_NODE,
@@ -472,7 +472,7 @@ startXRhelpers()
   Message msg;
 
   /* make a interface specific start key to self  */
-  process_make_start_key(KR_SELF,
+  capros_Process_makeStartKey(KR_SELF,
 			 eros_domain_net_shared_ipv4_netsys_XMIT_HELPER_INTERFACE,
 			 KR_SCRATCH);
   /* create a forwarder so that we can block this caller */
@@ -488,7 +488,7 @@ startXRhelpers()
   CALL(&msg);
   
   /* make a interface specific start key to self  */
-  process_make_start_key(KR_SELF,
+  capros_Process_makeStartKey(KR_SELF,
 			 eros_domain_net_shared_ipv4_netsys_RECV_HELPER_INTERFACE,
 			 KR_SCRATCH);
   
@@ -512,7 +512,7 @@ startTimeoutAgent(cap_t KrAlarm)
   Message msg;
   
   /* make a interface specific start key to self  */
-  process_make_start_key(KR_SELF,
+  capros_Process_makeStartKey(KR_SELF,
 			 eros_domain_net_shared_ipv4_netsys_TIMEOUT_AGENT_INTERFACE,
 			 KR_SCRATCH);
   
@@ -537,7 +537,7 @@ netsys_map_lss_three_layer(cap_t kr_self, cap_t kr_bank,
   uint32_t lss_three = 3;
   uint32_t result;
 
-  process_copy(kr_self, ProcAddrSpace, kr_scratch);
+  capros_Process_getAddrSpace(kr_self, kr_scratch);
   for (slot = next_slot; slot < EROS_NODE_SIZE; slot++) {
     result = addrspace_new_space(kr_bank, lss_three, kr_node);
     if (result != RC_OK)
@@ -587,7 +587,7 @@ main(void)
   }
   
   /* Make a generic start key to self  */
-  process_make_start_key(KR_SELF,
+  capros_Process_makeStartKey(KR_SELF,
                          eros_domain_net_shared_ipv4_netsys_NETWORK_SYSTEM_INTERFACE,
                          KR_START);
   

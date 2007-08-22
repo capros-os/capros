@@ -32,14 +32,13 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
 #include <eros/ProcessState.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
-#include <eros/machine/Registers.h>
 
 #include "winsys-keeper.h"
 #include "constituents.h"
@@ -76,16 +75,16 @@ ProcessRequest(Message *msg)
   switch(msg->rcv_code) {
   case OC_PROCFAULT:
     {
-      struct Registers * regs = (struct Registers *) msg->rcv_data;
+      struct capros_Process_CommonRegisters32 * regs
+        = (struct capros_Process_CommonRegisters32 *) msg->rcv_data;
 
       kprintf(KR_OSTREAM, "**** winsys-keeper: PROCFAULT! Regs:\n");
 
       kprintf(KR_OSTREAM, "\tarch      = 0x%08x\n\tlen       = 0x%08x\n"
 	   "\tpc        = 0x%08x\n\tsp        = 0x%08x\n\tfaultCode = 0x%08x\n"
-	   "\tfaultInfo = 0x%08x\n\tdomFlags  = 0x%08x\n"
-	   "\tnextPC    = 0x%08x\n",
+	   "\tfaultInfo = 0x%08x\n\tdomFlags  = 0x%08x\n",
 	      regs->arch, regs->len, regs->pc, regs->sp, regs->faultCode,
-	      regs->faultInfo, regs->domFlags, regs->nextPC);
+	      regs->faultInfo, regs->procFlags);
 
       /* Perform bounds check on the fault address. If outside the
       acceptable range, return to KR_VOID (so at least winsys won't
@@ -98,10 +97,9 @@ ProcessRequest(Message *msg)
 
       /* Whack the winsys PC to point to the recovery trampoline: */
       regs->pc = recoveryAddr;
-      regs->nextPC = recoveryAddr;
-      regs->faultCode = 0;
-      regs->domFlags &= ~PF_Faulted;
-      process_set_regs(KR_PROCESS, regs);
+      regs->faultCode = capros_Process_FC_NoFault;
+      capros_Process_setRegisters32(KR_PROCESS, *regs);
+
       msg->snd_invKey = KR_RETURN;
       msg->snd_w1 = 0;		/* resume the victim */
       msg->snd_code = RC_OK;
@@ -139,7 +137,7 @@ main ()
   kprintf(KR_OSTREAM, "winsys-keeper says HI!\n");
 
   /* Make a start key to return to constructor */
-  process_make_start_key(KR_SELF, 0, KR_START);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
 
   msg.snd_invKey = KR_RETURN;
   msg.snd_key0 = KR_START;

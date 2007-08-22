@@ -34,11 +34,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/target-asm.h>
 #include <eros/StdKeyType.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Number.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/ProcessCreatorKey.h>
@@ -138,19 +138,19 @@ ENTRY(_start)
 #else
 ENTRY(start)
 #endif
-	/* On entry, if we came from the constructor, ECX has zero.
+	/* On entry, if we came from the constructor, EBX has zero.
 	If we came from protospace_destroy(),
-	ECX (which is where rcv_w2 ends up) will have 
+	EBX (which is where rcv_w1 ends up) will have 
 	1 if destroying a ??, or
 	2 if destroying a small space.
 	(Not sure where 3 comes from.) */
-	cmpl	$2,%ecx
+	cmpl	$2,%ebx
 	je	EXT(delete_small_space)
 	
-	cmpl	$3,%ecx
+	cmpl	$3,%ebx
 	je	EXT(delete_kept_space)
 	
-	testl	$0,%ecx
+	testl	$0,%ebx
 	jnz	EXT(sepuku)
 	
 	/* The address space may be a constructor, in which case we need
@@ -205,7 +205,7 @@ LEXT(perform_lobotomy)
 	   address space and proceed... */
 	
 	movl	$swap_space_and_pc,%ebp
-	movl	$OC_Process_SwapMemory32,%eax	/* r0 */
+	movl	$OC_capros_Process_swapAddrSpaceAndPC32,%eax	/* r0 */
 	/* inherit %ebx from return from above, which is new PC */
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */

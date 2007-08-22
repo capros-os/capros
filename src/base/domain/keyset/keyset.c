@@ -57,8 +57,6 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <domain/Runtime.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
-#include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/KeyBits.h>
@@ -66,6 +64,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 
 #include <domain/ProtoSpace.h>
 #include <domain/ConstructorKey.h>
@@ -223,7 +222,7 @@ Initialize(void)
   capros_GPT_setL2v(KR_ADDRNODE, SLOT_ADDRESS_BITS);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "KeySet: fetch my own space\n", result);
-  process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH);
+  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH);
 
   DEBUG(init) kdprintf(KR_OSTREAM,
 		       "KeySet: plug self spc into new spc root\n",
@@ -231,7 +230,7 @@ Initialize(void)
   capros_GPT_setSlot(KR_ADDRNODE, 0, KR_SCRATCH);
   
   DEBUG(init) kdprintf(KR_OSTREAM, "KeySet: before lobotomy\n", result);
-  process_swap(KR_SELF, ProcAddrSpace, KR_ADDRNODE, KR_VOID);
+  capros_Process_swapAddrSpace(KR_SELF, KR_ADDRNODE, KR_VOID);
   DEBUG(init) kdprintf(KR_OSTREAM, "KeySet: post lobotomy\n", result);
 
   STAT.initstate = LOBOTOMIZED;
@@ -289,7 +288,7 @@ teardown(void)
   case LOBOTOMIZED:
     /* first, lets get our address space back to its original form */
     capros_GPT_getSlot(KR_ADDRNODE, 0, KR_SCRATCH);
-    process_swap(KR_SELF, ProcAddrSpace, KR_SCRATCH, KR_VOID);
+    capros_Process_swapAddrSpace(KR_SELF, KR_SCRATCH, KR_VOID);
 
     /* return the node */
     result = capros_SpaceBank_free1(KR_BANK, KR_ADDRNODE);
@@ -344,7 +343,7 @@ VerifyAndGetSegmentOfSet(uint32_t krOtherSet,
     kprintf(KR_OSTREAM,
 	    "Validated.  Starting MasterProtocol.\n");
 
-  result = process_make_start_key(KR_SELF,
+  result = capros_Process_makeStartKey(KR_SELF,
 				 GetSegment_KeyData,
 				 KR_SCRATCH2);
 
@@ -939,7 +938,7 @@ ProcessRequest(Message *msg)
   case OC_KeySet_MakeReadOnlyKey:
     
     /* FIXME: check return code */
-    process_make_start_key(KR_SELF,
+    capros_Process_makeStartKey(KR_SELF,
 			  ReadOnly_KeyData,
 			  KR_SCRATCH);
     
@@ -1042,7 +1041,7 @@ main()
   Initialize();
 
   /* make a write key and return it. */
-  process_make_start_key(KR_SELF, Normal_KeyData, KR_ARG0);
+  capros_Process_makeStartKey(KR_SELF, Normal_KeyData, KR_ARG0);
 
   DEBUG(init) kdprintf(KR_OSTREAM,
 		       "KeySet: Got start key. Ready to rock and roll\n");

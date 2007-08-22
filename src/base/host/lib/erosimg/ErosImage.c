@@ -39,8 +39,6 @@ Approved for public release, distribution unlimited. */
 #include <erosimg/DiskKey.h>
 
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
-#include <eros/ProcessState.h>
 #include <disk/DiskLSS.h>
 
 #include <idl/capros/Range.h>

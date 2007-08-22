@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* This is the core of the ps2 driver. It waits for a signal from
  * the helpers 1/12 for IRQ1/IRQ12 respectively. It then reads the 
@@ -28,11 +32,12 @@
 #include <eros/target.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 #include <idl/capros/DevPrivs.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/Ps2.h>
@@ -80,7 +85,7 @@ int
 startHelpers() {
   uint32_t result;
   
-  process_make_start_key(KR_SELF,0,KR_START);
+  capros_Process_makeStartKey(KR_SELF,0,KR_START);
   result = constructor_request(KR_HELPER12_C, KR_BANK, KR_SCHED, KR_START,
                                  KR_HELPER12_S);
   if (result != RC_OK) {
@@ -88,7 +93,7 @@ startHelpers() {
     return 0;
   }
   
-  process_make_start_key(KR_SELF,0,KR_START);
+  capros_Process_makeStartKey(KR_SELF,0,KR_START);
   result = constructor_request(KR_HELPER1_C, KR_BANK, KR_SCHED, KR_START,
                                KR_HELPER1_S);
   if (result != RC_OK) {
@@ -765,9 +770,10 @@ main(void)
   node_extended_copy(KR_CONSTIT, KC_HELPER1, KR_HELPER1_C);
   
   /* Move the DEVPRIVS key to the ProcIoSpace slot so we can do io calls */
-  process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);
-  process_make_start_key(KR_SELF, 0, KR_START);
-  process_make_start_key(KR_SELF, 1, KR_ALTSTART);
+  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
+
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
+  capros_Process_makeStartKey(KR_SELF, 1, KR_ALTSTART);
   
   /* We buy a node from the spacebank to make a "park-node" on which 
    * clients can be redirected to wait. We can then selectively wake 

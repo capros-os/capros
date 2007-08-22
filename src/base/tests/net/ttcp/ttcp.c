@@ -23,7 +23,6 @@
 #include <eros/target.h>
 #include <eros/NodeKey.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 #include <eros/endian.h>
 
 #include <idl/capros/Sleep.h>

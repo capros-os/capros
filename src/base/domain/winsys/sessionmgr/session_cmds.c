@@ -28,9 +28,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessKey.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -374,10 +374,10 @@ session_NewSessionCreator(Session *s, Window *container,
 {
   /* Make a new wrapper key with the specified container */
   if (s->trusted)
-    process_make_start_key(KR_SELF, TRUSTED_SESSION_CREATOR_INTERFACE,
+    capros_Process_makeStartKey(KR_SELF, TRUSTED_SESSION_CREATOR_INTERFACE,
 			   KR_SESSION_CREATOR);
   else 
-    process_make_start_key(KR_SELF, SESSION_CREATOR_INTERFACE,
+    capros_Process_makeStartKey(KR_SELF, SESSION_CREATOR_INTERFACE,
 			   KR_SESSION_CREATOR);
   return forwarder_create(KR_CLIENT_BANK, kr_new_creator, KR_NEW_NODE,
 			KR_SESSION_CREATOR,

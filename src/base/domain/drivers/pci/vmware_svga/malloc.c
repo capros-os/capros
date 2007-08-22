@@ -22,7 +22,6 @@
 
 #include <stddef.h>
 #include <eros/target.h>
-#include <eros/ProcessKey.h>
 #include <domain/Runtime.h>
 #include <eros/Invoke.h>
 #include <domain/domdbg.h>

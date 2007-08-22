@@ -563,10 +563,10 @@ proc_DoKeyInvocation(Process* thisPtr)
   if (proc_IsRunnable(inv.invokee) == false)
     goto general_path;
 
-  /* PF_ExpectingMsg isn't significant while RS_Running, so it is OK
+  /* capros_Process_PF_ExpectingMessage isn't significant while RS_Running, so it is OK
   to change it before the invocation is committed. */
   assert(inv.invType != IT_KeeperCall);
-  thisPtr->processFlags |= PF_ExpectingMsg;
+  thisPtr->processFlags |= capros_Process_PF_ExpectingMessage;
   
   /* It does not matter if the invokee fails to prepare!
    */
@@ -924,13 +924,13 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     dprintf(GATEDEBUG>2, "Invokee doesn't exist\n");
 #endif
 
-  /* PF_ExpectingMsg isn't significant while RS_Running, so it is OK
+  /* capros_Process_PF_ExpectingMessage isn't significant while RS_Running, so it is OK
   to change it before the invocation is committed.
   Need to set it now in case the invoker is also the invokee. */
   if (inv.invType == IT_KeeperCall)
-    thisPtr->processFlags &= ~PF_ExpectingMsg;
+    thisPtr->processFlags &= ~capros_Process_PF_ExpectingMessage;
   else
-    thisPtr->processFlags |= PF_ExpectingMsg;
+    thisPtr->processFlags |= capros_Process_PF_ExpectingMessage;
 
   /********************************************************************
    * It is still possible that the invoker will block while

@@ -51,7 +51,6 @@
 #include <eros/NodeKey.h>
 #include <eros/Invoke.h>
 #include <eros/machine/io.h>
-#include <eros/ProcessKey.h>
 #include <eros/KeyConst.h>
 #include <eros/endian.h>
 

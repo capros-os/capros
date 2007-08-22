@@ -24,7 +24,6 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/KeyConst.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessKey.h>
 
 #include <stdlib.h>
 #include <domain/ConstructorKey.h>
@@ -32,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <domain/domdbg.h>
 
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/rangeAl.h>
 #include "constituents.h"
 #include "RangeAllocatorStack.c"
@@ -180,7 +180,7 @@ main(void)
   /* This process must pass back a start key to its constructor, in
      order for that constructor to hand out the start key to
      clients. */
-  process_make_start_key(KR_SELF, 0, KR_START);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   
   msg.snd_invKey = KR_RETURN;
   msg.snd_key0 = KR_START;

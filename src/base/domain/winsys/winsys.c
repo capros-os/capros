@@ -31,10 +31,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
 #include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/arch/i386/Process.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
@@ -140,7 +141,7 @@ winsys_map_lss_three_layer(cap_t kr_self, cap_t kr_bank,
   uint32_t lss_three = 3;
   uint32_t result;
 
-  process_copy(kr_self, ProcAddrSpace, kr_scratch);
+  capros_Process_getAddrSpace(kr_self, kr_scratch);
   for (slot = next_slot; slot < EROS_NODE_SIZE; slot++) {
     result = addrspace_new_space(kr_bank, lss_three, kr_node);
     if (result != RC_OK)
@@ -775,7 +776,7 @@ winsys_map_addrspace(uint32_t winid, uint32_t kr_slot)
 
   assert(winid > 0);
 
-  if (process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH) != RC_OK)
+  if (capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH) != RC_OK)
     return false;
 
   /* FIX: for now, insert the new subspace into the lss 3 layer of
@@ -809,7 +810,7 @@ winsys_demap_addrspace(uint32_t winid)
 
   assert(winid > 0);
 
-  if (process_copy(KR_SELF, ProcAddrSpace, KR_SCRATCH) != RC_OK)
+  if (capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH) != RC_OK)
     return false;
 
   tmp = winid_map / 16;
@@ -867,10 +868,10 @@ main(void)
 
   /* Move the DEVPRIVS key to the ProcIoSpace slot so this domain can
      do port-io calls */
-  process_swap(KR_SELF, ProcIoSpace, KR_DEVPRIVS, KR_VOID);
+  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
 
   /* Fabricate a generic start key to self */
-  if (process_make_start_key(KR_SELF, WINDOW_SYSTEM_INTERFACE, 
+  if (capros_Process_makeStartKey(KR_SELF, WINDOW_SYSTEM_INTERFACE, 
 			     KR_START) != RC_OK) {
     kprintf(KR_OSTREAM, "** ERROR: couldn't fabricate a start key "
 	    "to myself...\n");
@@ -880,7 +881,7 @@ main(void)
   /* Fabricate a start key for the session creator interface.  This
      key will get wrapped and handed out and then used by clients to
      create unique sessions. */
-  if (process_make_start_key(KR_SELF, SESSION_CREATOR_INTERFACE, 
+  if (capros_Process_makeStartKey(KR_SELF, SESSION_CREATOR_INTERFACE, 
 			     KR_SESSION_CREATOR) != RC_OK) {
     kprintf(KR_OSTREAM, "** ERROR: couldn't fabricate a start key "
 	    "for session creator interface...\n");
@@ -888,7 +889,7 @@ main(void)
   }
 
   /* Do the same thing, but for "trusted" sessions. */
-  if (process_make_start_key(KR_SELF, TRUSTED_SESSION_CREATOR_INTERFACE, 
+  if (capros_Process_makeStartKey(KR_SELF, TRUSTED_SESSION_CREATOR_INTERFACE, 
 			     KR_TRUSTED_SESSION_CREATOR) != RC_OK) {
     kprintf(KR_OSTREAM, "** ERROR: couldn't fabricate a start key "
 	    "for trusted session creator interface...\n");
@@ -898,7 +899,7 @@ main(void)
   /* Fabricate a start key for the session interface.  This key will
      be wrapped in each unique session wrapper key that's handed out
      to clients. */
-  if (process_make_start_key(KR_SELF, SESSION_INTERFACE, 
+  if (capros_Process_makeStartKey(KR_SELF, SESSION_INTERFACE, 
 			     KR_SESSION_TYPE) != RC_OK) {
     kprintf(KR_OSTREAM, "** ERROR: couldn't fabricate a start key "
 	    "for session interface...\n");
@@ -906,7 +907,7 @@ main(void)
   }
 
   /* Do same for trusted session interface */
-  if (process_make_start_key(KR_SELF, TRUSTED_SESSION_INTERFACE, 
+  if (capros_Process_makeStartKey(KR_SELF, TRUSTED_SESSION_INTERFACE, 
 			     KR_TRUSTED_SESSION_TYPE) != RC_OK) {
     kprintf(KR_OSTREAM, "** ERROR: couldn't fabricate a start key "
 	    "for trusted session interface...\n");

@@ -23,11 +23,10 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
-#include <eros/ProcessKey.h>
-#include <eros/ProcessState.h>
 #include <idl/capros/Page.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
 #include <eros/Invoke.h>
 #include <domain/ProtoSpace.h>
 #include <domain/Runtime.h>
@@ -54,7 +53,7 @@ __rt_buy_data_space()
   bound += EROS_PAGE_SIZE - 1;
   bound -= bound % EROS_PAGE_SIZE;
 
-  result = process_copy(KR_SELF, ProcAddrSpace, KR_MYSPACE);
+  result = capros_Process_getAddrSpace(KR_SELF, KR_MYSPACE);
 
   while (base < bound) {
     uint32_t slot = base / EROS_PAGE_SIZE;

@@ -28,13 +28,13 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <string.h>
 #include <eros/target.h>
-#include <eros/ProcessKey.h>
 #include <eros/cap-instr.h>
 #include <eros/Invoke.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/timer/manager.h>
 
 #include <domain/domdbg.h>
@@ -137,7 +137,7 @@ main(void)
   kprintf(KR_OSTREAM,"Timeout Agent says hi...\n");
 
   /* Fabricate a start key to pass back to constructor */
-  process_make_start_key(KR_SELF, 0, KR_START);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   
   /* Main processing loop */
   memset(&msg, 0, sizeof(Message));

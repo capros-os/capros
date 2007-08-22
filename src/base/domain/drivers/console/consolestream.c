@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System distribution.
+ * This file is part of the CapROS Operating System distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Stream interface
  * 3-way threaded.
@@ -30,9 +34,7 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
-#include <eros/ProcessKey.h>
 #include <eros/KeyConst.h>
-#include <eros/ProcessState.h>
 #include <eros/cap-instr.h>
 
 #include <domain/domdbg.h>
@@ -44,6 +46,7 @@
 #include <idl/capros/Stream.h>
 #include <idl/capros/Ps2.h>
 #include <idl/capros/Sleep.h>
+#include <idl/capros/Process.h>
 
 #include <idl/console/textconsole.h>
 #include <idl/console/keyclient.h>
@@ -367,7 +370,7 @@ main(void)
   node_extended_copy(KR_CONSTIT,KC_MCLI_C,KR_MCLI_C);
   node_extended_copy(KR_CONSTIT,KC_PS2READER_C,KR_PS2READER_C);
     
-  process_make_start_key(KR_SELF, 0, KR_START);
+  capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   
   /* make a thread for the console in */
   {
