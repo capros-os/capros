@@ -45,6 +45,10 @@ TOP=$(EROS_SRC)/sys
 
 # -march=armv4t for ARM9TDMI.
 OPTIM= -g -O2 -march=armv4t $(EROS_GCC_OPTIM) # $(PACK_OPTIM)
+ifeq "$(EROS_CONFIG)" "NDEBUG"
+else
+OPTIM+= -mapcs-frame # generate stack frames for debugging.
+endif
 
 INC=-include kernel-config.h -I$(EROS_ROOT)/include -I../.. -I$(TOP) -I.
 
