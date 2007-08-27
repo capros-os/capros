@@ -22,9 +22,10 @@
 # Approved for public release, distribution unlimited.
 
 # By default, performance tests run with no debugging code.
-ifndef KERNELDEBUG
-KERNELDEBUG=eros
-endif
+## Following does not work: you get the debugger anyway, but no symbols.
+## ifndef KERNELDEBUG
+## KERNELDEBUG=eros
+## endif
 
 ifneq "$(EROS_CONFIG)" "NDEBUG"
 hd: checkdebug
