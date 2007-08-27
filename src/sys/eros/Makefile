@@ -50,7 +50,6 @@ HEADERS=\
 	ProcStats.h \
 	CharSrcProto.h \
 	TtyKey.h \
-	ProcessKey.h \
 	ProcessState.h
 
 IDLSRC=$(wildcard *.idl)
