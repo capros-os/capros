@@ -63,6 +63,7 @@ ProcessKey(Invocation * inv)
 
       bool b = proc_GetRegs32(ac, &regs);
       assert(b);	// because we prepared the process above
+      (void)b;		// keep the compiler happy
 
       inv_CopyOut(inv, sizeof(regs), &regs);
       inv->exit.code = RC_OK;

@@ -821,6 +821,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
           // tracking dirty
           PageHeader * pageH = objC_PhysPageToObHdr(thePTE & PTE_FRAMEBITS);
           assert(pageH && false);	// mark page dirty
+          (void)pageH;		// keep the compiler happy
           thePTE |= 0xff0
 #ifdef OPTION_WRITEBACK
                           | PTE_BUFFERABLE
