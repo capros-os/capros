@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2007, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,16 +18,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
-#include <eros/NodeKey.h>
 #include <eros/KeyConst.h>
 #include <domain/domdbg.h>
-#include <domain/SpaceBankKey.h>
-#include <idl/capros/SysTrace.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
 
 /* The purpose of this benchmark is to measure the cost of
    reconstructing page table entries.  It is designed on the
@@ -36,253 +37,141 @@
 #define KR_VOID 0
 #define KR_SELF 4
 
-#define KR_BANK 8
+#define KR_BANK 7
 #define KR_PGTREE 8
 #define KR_SLEEP 9
 #define KR_OSTREAM 10
-#define KR_SYSTRACE 11
 
 #define KR_WALK 15
 #define KR_PAGE 16
-#define KR_NODE 16
 #define KR_SEG     17
 
 const uint32_t __rt_stack_pages = 0;
 const uint32_t __rt_stack_pointer = 0x20000;
 
 #define NPASS  5
-#define NNODES 2048		/* 16 Mbytes */
-#define NPAGES 2048		/* 16 Mbytes */
+#define NPAGES 2048		/* 8 Mbytes */
+
+void
+extendedSetSlot(unsigned int i, uint32_t kr)
+{
+  capros_GPT_getSlot(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
+  capros_GPT_getSlot(KR_WALK,
+                     (i >> EROS_NODE_LGSIZE) & EROS_NODE_SLOT_MASK, KR_WALK);
+  capros_GPT_setSlot(KR_WALK, i & EROS_NODE_SLOT_MASK, kr);
+}
+
+void
+extendedGetSlot(unsigned int i, uint32_t kr)
+{
+  capros_GPT_getSlot(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
+  capros_GPT_getSlot(KR_WALK,
+                     (i >> EROS_NODE_LGSIZE) & EROS_NODE_SLOT_MASK, KR_WALK);
+  capros_GPT_getSlot(KR_WALK, i & EROS_NODE_SLOT_MASK, kr);
+}
+
+void
+NullProc(void)
+{
+}
+
+void
+BuyPageProc(void)
+{
+  uint32_t result = capros_SpaceBank_alloc1(KR_BANK,
+                          capros_Range_otPage, KR_PAGE);
+  if (result != RC_OK)
+    kdprintf(KR_OSTREAM, "Page purchase failed\n");
+}
+
+void
+BuyNodeProc(void)
+{
+  uint32_t result = capros_SpaceBank_alloc1(KR_BANK,
+                          capros_Range_otNode, KR_PAGE);
+  if (result != RC_OK)
+    kdprintf(KR_OSTREAM, "Node purchase failed\n");
+}
+
+void
+SellPageProc(void)
+{
+  uint32_t result = capros_SpaceBank_free1(KR_BANK, KR_PAGE);
+  if (result != RC_OK)
+    kdprintf(KR_OSTREAM, "Return failed 0x%08x\n", result);
+}
+
+void
+DoTest(void (*allocProc)(void), void (*freeProc)(void))
+{
+  unsigned int i, pass;
+  uint64_t startTime, endTime;
+  uint32_t result;
+
+  /* Warm up the space bank for tests: */
+
+  /* Buy needed pages: */
+  for (i = 0; i < NPAGES; i++) {
+    (*allocProc)();
+    extendedSetSlot(i, KR_PAGE);
+  }
+  
+  /* Now sell them back: */
+  for (i = 0; i < NPAGES; i++) {
+    extendedGetSlot(i, KR_PAGE);
+    (*freeProc)();
+  }
+  
+  kprintf(KR_OSTREAM, "Warmed up\n");
+
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+  if (result != RC_OK)
+    kprintf(KR_OSTREAM, "getTime returned %d(0x%x)\n", result);
+
+  for (pass = 0; pass < NPASS; pass++) {
+    /* Buy needed pages: */
+    for (i = 0; i < NPAGES; i++) {
+      (*allocProc)();
+      extendedSetSlot(i, KR_PAGE);
+    }
+  
+    /* Now sell them back: */
+    for (i = 0; i < NPAGES; i++) {
+      extendedGetSlot(i, KR_PAGE);
+      (*freeProc)();
+    }
+  }
+
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+
+  kprintf(KR_OSTREAM, "%10u us per object\n",
+	  (uint32_t) ((endTime - startTime)/(NPASS*NPAGES*1000)) );
+}
 
 int
 main()
 {
-  int i; int pass;
-  
-  eros_SysTrace_info st[NPASS];
-  
-  capros_Sleep_sleep(KR_SLEEP, 4000);
+  capros_Sleep_sleep(KR_SLEEP, 1000);
 
-  if (spcbank_buy_data_pages(KR_BANK, 1, KR_PAGE, KR_VOID, KR_VOID))
+  BuyPageProc();	// just to get a page key in KR_Page
 
   /* Run a calibration pass: */
-  /* Warm  up: */
-  for (i = 0; i < NPAGES; i++) {
-    /* do not buy */
-    node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-    node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) & EROS_NODE_SLOT_MASK, KR_WALK);
-    node_swap(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_PAGE, KR_VOID);
-  }
-  
-  for (i = 0; i < NPAGES; i++) {
-    node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-    node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) & EROS_NODE_SLOT_MASK, KR_WALK);
-    node_copy(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_WALK);
-    /* ignore result */
-  }
-
-  /* Timing pass: */
   kprintf(KR_OSTREAM, "Following is cost of %d tree manipulations:\n",
 	  NPAGES);
 
-  for (pass = 0; pass < NPASS; pass++) {
-    eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
+  DoTest(&NullProc, &NullProc);
 
-    for (i = 0; i < NPAGES; i++) {
-      node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-      node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) &
-		EROS_NODE_SLOT_MASK, KR_WALK); 
-      node_swap(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_PAGE, KR_VOID);
-    }
+  SellPageProc();
   
-    for (i = 0; i < NPAGES; i++) {
-      node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-      node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) &
-		EROS_NODE_SLOT_MASK, KR_WALK); 
-      node_copy(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_PAGE);
-
-    }
-
-    eros_SysTrace_reportCounter(KR_SYSTRACE, &st[pass]);
-  }
-
-  if (spcbank_return_data_page(KR_BANK, KR_PAGE))
-    kdprintf(KR_OSTREAM, "Page return failed\n");
-
-  {
-    uint64_t totcy = 0;
-    uint64_t totcnt0 = 0;
-    uint64_t totcnt1 = 0;
-
-    for (pass = 0; pass < NPASS; pass++) {
-      totcy += st[pass].cycles;
-      totcnt0 += st[pass].count0;
-      totcnt1 += st[pass].count1;
-      st[pass].cycles = 0;
-      st[pass].count0 = 0;
-      st[pass].count1 = 0;
-    }
-
-    totcy /= (NPASS*NPAGES);
-    totcnt0 /= (NPASS*NPAGES);
-    totcnt1 /= (NPASS*NPAGES);
-
-    kprintf(KR_OSTREAM, "cy: %10u  cnt0: %10u  cnt1:%10u\n",
-	    (uint32_t) totcy,
-	    (uint32_t) totcnt0,
-	    (uint32_t) totcnt1);
-  }
-  
-  /* Warm up the space bank for page tests: */
-
-  /* Buy needed pages: */
-  for (i = 0; i < NPAGES; i++) {
-    if (spcbank_buy_data_pages(KR_BANK, 1, KR_PAGE, KR_VOID, KR_VOID))
-      kdprintf(KR_OSTREAM, "Page purchase failed\n");
-
-    node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-    node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) & EROS_NODE_SLOT_MASK, KR_WALK);
-    node_swap(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_PAGE, KR_VOID);
-  }
-  
-  /* Now sell them back: */
-  for (i = 0; i < NPAGES; i++) {
-    node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-    node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) & EROS_NODE_SLOT_MASK, KR_WALK);
-    node_copy(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_PAGE);
-
-    if (spcbank_return_data_page(KR_BANK, KR_PAGE))
-      kdprintf(KR_OSTREAM, "Page return failed\n");
-  }
-  
-  kprintf(KR_OSTREAM, "Bank is warm; starting %d page measurements\n",
+  kprintf(KR_OSTREAM, "Starting %d page measurements\n",
 	  NPAGES);
 
-  for (pass = 0; pass < NPASS; pass++) {
-    eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
-
-    /* Buy needed pages: */
-    for (i = 0; i < NPAGES; i++) {
-      spcbank_buy_data_pages(KR_BANK, 1, KR_PAGE, KR_VOID, KR_VOID);
-
-      node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-      node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) &
-		EROS_NODE_SLOT_MASK, KR_WALK); 
-      node_swap(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_PAGE, KR_VOID);
-    }
+  DoTest(&BuyPageProc, &SellPageProc);
   
-    /* Now sell them back: */
-    for (i = 0; i < NPAGES; i++) {
-      node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-      node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) &
-		EROS_NODE_SLOT_MASK, KR_WALK); 
-      node_copy(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_PAGE);
+  kprintf(KR_OSTREAM, "Starting node measurements\n");
 
-      spcbank_return_data_page(KR_BANK, KR_PAGE);
-    }
+  DoTest(&BuyNodeProc, &SellPageProc);
 
-    eros_SysTrace_reportCounter(KR_SYSTRACE, &st[pass]);
-  }
-
-  {
-    uint64_t totcy = 0;
-    uint64_t totcnt0 = 0;
-    uint64_t totcnt1 = 0;
-
-    for (pass = 0; pass < NPASS; pass++) {
-      totcy += st[pass].cycles;
-      totcnt0 += st[pass].count0;
-      totcnt1 += st[pass].count1;
-      st[pass].cycles = 0;
-      st[pass].count0 = 0;
-      st[pass].count1 = 0;
-    }
-
-    totcy /= (NPASS*NPAGES);
-    totcnt0 /= (NPASS*NPAGES);
-    totcnt1 /= (NPASS*NPAGES);
-
-    kprintf(KR_OSTREAM, "cy: %10u  cnt0: %10u  cnt1:%10u\n",
-	    (uint32_t) totcy,
-	    (uint32_t) totcnt0,
-	    (uint32_t) totcnt1);
-  }
-  
-  /* Warm up the space bank for node tests: */
-
-  /* Buy needed nodes: */
-  for (i = 0; i < NNODES; i++) {
-    if (spcbank_buy_nodes(KR_BANK, 1, KR_NODE, KR_VOID, KR_VOID))
-      kdprintf(KR_OSTREAM, "Node purchase failed\n");
-
-    node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-    node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) & EROS_NODE_SLOT_MASK, KR_WALK);
-    node_swap(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_NODE, KR_VOID);
-  }
-  
-  /* Now sell them back: */
-  for (i = 0; i < NNODES; i++) {
-    node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-    node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) & EROS_NODE_SLOT_MASK, KR_WALK);
-    node_copy(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_NODE);
-
-    if (spcbank_return_node(KR_BANK, KR_NODE))
-      kdprintf(KR_OSTREAM, "Node return failed\n");
-  }
-  
-  kprintf(KR_OSTREAM, "Bank is warm; starting %d node measurements\n",
-	  NNODES);
-
-  for (pass = 0; pass < NPASS; pass++) {
-    eros_SysTrace_startCounter(KR_SYSTRACE, eros_SysTrace_mode_cycles);
-
-    /* Buy needed nodes: */
-    for (i = 0; i < NNODES; i++) {
-      spcbank_buy_nodes(KR_BANK, 1, KR_NODE, KR_VOID, KR_VOID);
-
-      node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-      node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) &
-		EROS_NODE_SLOT_MASK, KR_WALK); 
-      node_swap(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_NODE, KR_VOID);
-    }
-  
-    /* Now sell them back: */
-    for (i = 0; i < NNODES; i++) {
-      node_copy(KR_PGTREE, i >> (EROS_NODE_LGSIZE*2), KR_WALK);
-      node_copy(KR_WALK, (i >> EROS_NODE_LGSIZE) &
-		EROS_NODE_SLOT_MASK, KR_WALK); 
-      node_copy(KR_WALK, i & EROS_NODE_SLOT_MASK, KR_NODE);
-
-      spcbank_return_node(KR_BANK, KR_NODE);
-    }
-
-    eros_SysTrace_reportCounter(KR_SYSTRACE, &st[pass]);
-  }
-
-  {
-    uint64_t totcy = 0;
-    uint64_t totcnt0 = 0;
-    uint64_t totcnt1 = 0;
-
-    for (pass = 0; pass < NPASS; pass++) {
-      totcy += st[pass].cycles;
-      totcnt0 += st[pass].count0;
-      totcnt1 += st[pass].count1;
-      st[pass].cycles = 0;
-      st[pass].count0 = 0;
-      st[pass].count1 = 0;
-    }
-
-    totcy /= (NPASS*NNODES);
-    totcnt0 /= (NPASS*NNODES);
-    totcnt1 /= (NPASS*NNODES);
-
-    kprintf(KR_OSTREAM, "cy: %10u  cnt0: %10u  cnt1:%10u\n",
-	    (uint32_t) totcy,
-	    (uint32_t) totcnt0,
-	    (uint32_t) totcnt1);
-  }
-  
   kprintf(KR_OSTREAM, "Done.\n");
 
   return 0;
