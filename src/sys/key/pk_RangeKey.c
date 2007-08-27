@@ -442,6 +442,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       ObjectHeader * pObject = key_GetObjectPtr(key);
 
       objH_FlushIfCkpt(pObject);
+      objH_MakeObjectDirty(pObject);	// does not reset the age
 
       COMMIT_POINT();
       
