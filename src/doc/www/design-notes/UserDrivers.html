@@ -229,10 +229,10 @@
       When the read completes, the driver causes the process to be restarted.
       No data can be sent to the client at this time, because 
       the client may have been paged out. Instead, the driver places results
-      in a shared segment. 
+      in a (nonpersistent) shared segment. 
       The client then re-executes its wait operation, which notes that
       the operation is completed and returns immediately.
-      The client then looks in a shared segment for any results. 
+      The client then looks in the shared segment for any results. 
     </p>
     <p>
       Note that restarting a client process that is waiting on a wait queue

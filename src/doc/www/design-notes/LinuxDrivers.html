@@ -1,0 +1,185 @@
+<html>
+  <head>
+    <title>Supporting Linux Device Drivers</title>
+  </head>
+  <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+  <center>
+    <h1 class="title">Supporting Linux Device Drivers</h1>
+  </center>
+    <h1>Externals Needed</h1>
+    <p>
+      (This is not on the web yet because it is not ready for prime time.)
+    </p>
+    <p>
+      Following are symbols referenced from drivers/serial/built-in.o,
+      excluding symbols in libc.
+    </p>
+    <table>
+  <tr> <td><code>add_wait_queue</code></td> <td>
+    From kernel/built-in.o. 
+  </td></tr>
+  <tr> <td><code>alloc_tty_driver</code></td> <td>
+    From drivers/built-in.o. 
+  </td></tr>
+  <tr> <td><code>amba_driver_register</code></td> <td>
+    From drivers/built-in.o. 
+  </td></tr>
+  <tr> <td><code>__arm_ioremap</code></td> <td>
+    From arch/arm/mm/built-in.o. 
+  </td></tr>
+  <tr> <td><code>__bug</code></td> <td>
+    From arch/arm/kernel/built-in.o(traps.o). Prints a bug message.
+  </td></tr>
+  <tr> <td><code>capable</code></td> <td>
+    From kernel/built-in.o. 
+  </td></tr>
+  <tr> <td><code>clk_disable</code></td> <td>
+    From arch/arm/mach-ep93xx/clock.o. This file should be linked in
+    (there may be further dependencies). 
+  </td></tr>
+  <tr> <td><code>clk_enable</code></td> <td>
+    From arch/arm/mach-ep93xx/clock.o.
+  </td></tr>
+  <tr> <td><code>clk_get</code></td> <td>
+    From arch/arm/mach-ep93xx/clock.o.
+  </td></tr>
+  <tr> <td><code>clk_get_rate</code></td> <td>
+    From arch/arm/mach-ep93xx/clock.o.
+  </td></tr>
+  <tr> <td><code>clk_put</code></td> <td>
+    From arch/arm/mach-ep93xx/clock.o.
+  </td></tr>
+  <tr> <td><code>__copy_from_user</code></td> <td>
+  </td></tr>
+  <tr> <td><code>__copy_to_user</code></td> <td>
+  </td></tr>
+  <tr> <td><code>default_wake_function</code></td> <td>
+  </td></tr>
+  <tr> <td><code>do_SAK</code></td> <td>
+  </td></tr>
+  <tr> <td><code>dump_stack</code></td> <td>
+  </td></tr>
+  <tr> <td><code>free_irq</code></td> <td>
+  </td></tr>
+  <tr> <td><code>free_pages</code></td> <td>
+  </td></tr>
+  <tr> <td><code>get_zeroed_page</code></td> <td>
+  </td></tr>
+  <tr> <td><code>init_waitqueue_head</code></td> <td>
+  </td></tr>
+  <tr> <td><code>iomem_resource</code></td> <td>
+  </td></tr>
+  <tr> <td><code>__iounmap</code></td> <td>
+  </td></tr>
+  <tr> <td><code>jiffies</code></td> <td>
+  </td></tr>
+  <tr> <td><code>jiffies_to_msecs</code></td> <td>
+  </td></tr>
+  <tr> <td><code>kfree</code></td> <td>
+  </td></tr>
+  <tr> <td><code>kmalloc_caches</code></td> <td>
+  </td></tr>
+  <tr> <td><code>kmem_cache_zalloc</code></td> <td>
+  </td></tr>
+  <tr> <td><code>__kzalloc</code></td> <td>
+  </td></tr>
+  <tr> <td><code>__memzero</code></td> <td>
+    From arch/arm/lib/lib.a(memzero.o). 
+  </td></tr>
+  <tr> <td><code>msecs_to_jiffies</code></td> <td>
+  </td></tr>
+  <tr> <td><code>msleep</code></td> <td>
+  </td></tr>
+  <tr> <td><code>msleep_interruptible</code></td> <td>
+  </td></tr>
+  <tr> <td><code>__mutex_init</code></td> <td>
+  </td></tr>
+  <tr> <td><code>mutex_lock</code></td> <td>
+  </td></tr>
+  <tr> <td><code>mutex_lock_interruptible</code></td> <td>
+  </td></tr>
+  <tr> <td><code>mutex_unlock</code></td> <td>
+  </td></tr>
+  <tr> <td><code>printk</code></td> <td>
+  </td></tr>
+  <tr> <td><code>put_tty_driver</code></td> <td>
+  </td></tr>
+  <tr> <td><code>__put_user_4</code></td> <td>
+  </td></tr>
+  <tr> <td><code>register_console</code></td> <td>
+  </td></tr>
+  <tr> <td><code>__release_region</code></td> <td>
+  </td></tr>
+  <tr> <td><code>remove_wait_queue</code></td> <td>
+  </td></tr>
+  <tr> <td><code>request_irq</code></td> <td>
+  </td></tr>
+  <tr> <td><code>__request_region</code></td> <td>
+  </td></tr>
+  <tr> <td><code>schedule</code></td> <td>
+  </td></tr>
+  <tr> <td><code>strlcpy</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tasklet_init</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tasklet_kill</code></td> <td>
+  </td></tr>
+  <tr> <td><code>__tasklet_schedule</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_flip_buffer_push</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_hangup</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_hung_up_p</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_insert_flip_string_flags</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_ldisc_flush</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_name</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_register_device</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_register_driver</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_set_operations</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_std_termios</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_termios_baud_rate</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_unregister_device</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_unregister_driver</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_vhangup</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_wait_until_sent</code></td> <td>
+  </td></tr>
+  <tr> <td><code>tty_wakeup</code></td> <td>
+  </td></tr>
+  <tr> <td><code>__udivsi3</code></td> <td>
+    From arch/arm/lib/lib.a(lib1funcs.o).
+  </td></tr>
+  <tr> <td><code>__wake_up</code></td> <td>
+  </td></tr>
+    </table>
+  <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 2007 by Strawberry Development Group.
+      All rights reserved.
+      For terms of redistribution, see the <a
+      href="./legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+  </body>
+</html>
