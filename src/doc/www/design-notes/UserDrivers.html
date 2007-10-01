@@ -155,12 +155,9 @@
     </p>
     <h1>Capability Sharing</h1>
     <p>
-      Non-persistent objects are initialized with no capabilities to
-      persistent objects. 
-      Non-persistent objects should never receive capabilities to
-      persistent objects (or if they receive them, they should never use them).
-      Otherwise, a non-persistent disk driver might try to access
-      a persistent object that is paged out, which would cause deadlock. 
+      The design constraint is to avoid deadlock that could occur
+      if a non-persistent disk driver tries to access
+      a persistent object that is paged out. 
     </p>
     <p>
       (You could say that the disk driver will be reentrant and can handle
@@ -168,10 +165,47 @@
       that isn't used in handling the page fault might as well be persistent.)
     </p>
     <p>
+      We see two possible designs:
+    </p>
+    <ul>
+    <li>
+      Non-persistent objects should never hold capabilities to
+      persistent objects (or if they hold them, they should never use them).
+    <p>
       This prohibition applies even to resume keys, since the designated
       process could be paged out when the key is received, or could become
       paged out while the key is held. 
     </p>
+    <p>
+      A persistent process may use a start key to a non-persistent process,
+      but only
+      for one-way communication. It may be forked, but should not be called,
+      because the non-persistent process must not receive the resume key. 
+    </p>
+    <p>
+      Non-persistent objects are initialized with no capabilities to
+      persistent objects. 
+    </p>
+    </li>
+    <li>
+      If a non-persistent object holds a capability to a persistent object,
+      the latter must be pinned (locked in memory). In the case of a gate key,
+      both the process and the buffer that receives the string
+      must be locked, so a message can be sent to the key. 
+    <p>
+      Non-persistent objects may be initialized with capabilities to
+      persistent objects, but they must somehow arrange for the objects
+      to be fetched and pinned before using the capabilities. 
+    </p>
+    <p>
+      This rule must be enforced when capabilities are passed from
+      a persistent object to a non-persistent object. This includes
+      the case of a call invocation, which passes a resume key.
+      At the moment we don't see a simple way to pin the necessary objects
+      or to ensure they are unpinned when appropriate. 
+    </p>
+    </li>
+    </ul>
     <p>
       Persistent objects may hold capabilities to non-persistent objects.
       It is the responsibility of the non-persistent world to control
@@ -186,11 +220,6 @@
       this requirement. 
     </p>
     <p>
-      A start key to a non-persistent process may be used, but only
-      for one-way communication. It may be forked, but should not be called,
-      because the non-persistent process must not receive the resume key. 
-    </p>
-    <p>
       A memory key to a non-persistent segment may be used for two-way
       communication, with a protocol that allows the persistent user
       to discover when the non-persistent state has been reset. 
@@ -198,8 +227,8 @@
     <p>
       There could be some type of rendezvous object that the user and
       driver use to pass messages.
-      When both the driver has called to receive a message,
-      and the user has called to send a message, the message is delivered.
+      When both (1) the driver has called to receive a message,
+      and (2) the user has called to send a message, the message is delivered.
       (This is a bit like a Coyotos Endpoint, but the message is 
       restricted; no keys can be passed.) 
       The rendezvous object would be considered non-persistent. 
@@ -263,6 +292,41 @@
       with the new driver.
       Then reboot the system. 
     </p>
+    <h1>Linux Userspace I/O drivers</h1>
+    <p>
+      Support for device drivers in user processes 
+      was added to the Linux kernel in version 2.6.23-rc4 (drivers/uio). 
+      We took a quick look at this feature and discovered the following:
+    </p>
+    <ul>
+    <li>
+      A small amount of code is still needed in the kernel to register
+      and unregister the device. 
+      An interrupt handler is also needed; it need do nothing more than
+      disable further interrupts before the user process is notified
+      of the interrupt via a signal (SIGIO). (Clearly, in CapROS it
+      is also necessary to prevent continuous interrupts,
+      because user processes run with interrupts enabled,
+      but on some architectures it may be possible to accomplish this
+      with an interrupt controller that has no device-specific knowledge.) 
+    <p>
+      Apparently kernel code is also needed to support open, release,
+      and mmap.
+    </p>
+    </li>
+    <li>
+      This interface doesn't seem to change the Linux driver model
+      in any substantial way. 
+      Because there are few (or none) device drivers using this interface
+      at this point, it is largely irrelevant from the standpoint of porting
+      drivers to CapROS. 
+    </li>
+    <li>
+      A motivation for this feature was to support device drivers
+      with licenses more restrictive than GPL. This hardly helps us
+      obtain drivers for CapROS. 
+    </li>
+    </ul>
     <h1>Paging</h1>
     <p>
       The interface between the kernel and the disk driver(s)

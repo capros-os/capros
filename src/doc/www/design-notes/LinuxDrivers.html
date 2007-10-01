@@ -11,157 +11,212 @@
       (This is not on the web yet because it is not ready for prime time.)
     </p>
     <p>
-      Following are symbols referenced from drivers/serial/built-in.o,
-      excluding symbols in libc.
+      Following are symbols referenced from drivers/serial/amba-pl010.o
+      and defined in drivers/serial/serial_core.c.
     </p>
     <table>
-  <tr> <td><code>add_wait_queue</code></td> <td>
-    From kernel/built-in.o. 
+  <tr> <td valign="top"><code>uart_add_one_port</code></td> <td>
   </td></tr>
-  <tr> <td><code>alloc_tty_driver</code></td> <td>
+  <tr> <td valign="top"><code>uart_get_baud_rate</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>uart_get_divisor</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>uart_register_driver</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>uart_remove_one_port</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>uart_resume_port</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>uart_suspend_port</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>uart_unregister_driver</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>uart_update_timeout</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>uart_write_wakeup</code></td> <td>
+  </td></tr>
+    </table>
+    <p>
+      Following are all other symbols referenced from drivers/serial/amba-pl010.o.
+    </p>
+    <table>
+  <tr> <td valign="top"><code>amba_driver_register</code></td> <td>
     From drivers/built-in.o. 
   </td></tr>
-  <tr> <td><code>amba_driver_register</code></td> <td>
-    From drivers/built-in.o. 
+  <tr> <td valign="top"><code>amba_driver_unregister</code></td> <td>
   </td></tr>
-  <tr> <td><code>__arm_ioremap</code></td> <td>
+  <tr> <td valign="top"><code>__arm_ioremap</code></td> <td>
     From arch/arm/mm/built-in.o. 
   </td></tr>
-  <tr> <td><code>__bug</code></td> <td>
-    From arch/arm/kernel/built-in.o(traps.o). Prints a bug message.
+  <tr> <td valign="top"><code>clk_disable</code></td> <td>
+    From arch/arm/mach-ep93xx/clock.o. This file could be linked in,
+    but for proper locking it may need to be a separate object. 
+    It requires only printk() and some libc procedures. 
+    On ep93xx, tracks users but otherwise does nothing.
   </td></tr>
-  <tr> <td><code>capable</code></td> <td>
+  <tr> <td valign="top"><code>clk_enable</code></td> <td>
+    From arch/arm/mach-ep93xx/clock.o.
+    On ep93xx, tracks users but otherwise does nothing.
+  </td></tr>
+  <tr> <td valign="top"><code>clk_get</code></td> <td>
+    From arch/arm/mach-ep93xx/clock.o. Look up clk structure for "UARTCLK". 
+  </td></tr>
+  <tr> <td valign="top"><code>clk_get_rate</code></td> <td>
+    From arch/arm/mach-ep93xx/clock.o.
+    On ep93xx, returns the UART clock rate of 14,745,600.
+  </td></tr>
+  <tr> <td valign="top"><code>clk_put</code></td> <td>
+    From arch/arm/mach-ep93xx/clock.o. Does nothing on ep93xx.
+  </td></tr>
+  <tr> <td valign="top"><code>do_SAK</code></td> <td>
+    From inline proc uart_handle_break, only if (port-&gt;flags &amp; UPF_SAK).
+  </td></tr>
+  <tr> <td valign="top"><code>free_irq</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>iomem_resource</code></td> <td>
+    Part of request_mem_region(). Used to map device registers. 
+  </td></tr>
+  <tr> <td valign="top"><code>__iounmap</code></td> <td>
+    Part of iounmap(). Used to unmap device registers? 
+  </td></tr>
+  <tr> <td valign="top"><code>kfree</code></td> <td>
+    Used at remove time.
+  </td></tr>
+  <tr> <td valign="top"><code>kmalloc_caches</code></td> <td>
+    Data item for kzalloc. Used to allocate a structure at probe time. 
+  </td></tr>
+  <tr> <td valign="top"><code>kmem_cache_zalloc</code></td> <td>
+    Procedure for kzalloc. Used to allocate a structure at probe time. 
+  </td></tr>
+  <tr> <td valign="top"><code>printk</code></td> <td>
+    For KERN_INFO message at init time. We can nop this for now. 
+  </td></tr>
+  <tr> <td valign="top"><code>__release_region</code></td> <td>
+    Part of release_mem_region(). Used to unmap device registers?
+  </td></tr>
+  <tr> <td valign="top"><code>request_irq</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>__request_region</code></td> <td>
+    Part of request_mem_region(). Used to map device registers. 
+  </td></tr>
+  <tr> <td valign="top"><code>tty_flip_buffer_push</code></td> <td>
+    Ensure the buffered input is sent to the consumer
+    (the line discipline), either immediately or delayed. 
+  </td></tr>
+  <tr> <td valign="top"><code>tty_hangup</code></td> <td>
+    Part of static procedure uart_handle_dcd_change. 
+  </td></tr>
+  <tr> <td valign="top"><code>tty_insert_flip_string_flags</code></td> <td>
+    Part of tty_insert_flip_char, part of uart_inser_char, which
+    inserts an input character and flag and possibly overrun
+    into the receive buffer. 
+    The character and flag are buffered in parallel.
+  </td></tr>
+  <tr> <td valign="top"><code>__wake_up</code></td> <td>
+    Part of wake_up_interruptible(), part of static procedure 
+    uart_handle_dcd_change. 
+  </td></tr>
+    </table>
+    <p>
+      Following are symbols referenced from drivers/serial/built-in.o,
+      excluding symbols in libc and symbols listed above.
+    </p>
+    <table>
+  <tr> <td valign="top"><code>add_wait_queue</code></td> <td>
     From kernel/built-in.o. 
   </td></tr>
-  <tr> <td><code>clk_disable</code></td> <td>
-    From arch/arm/mach-ep93xx/clock.o. This file should be linked in
-    (there may be further dependencies). 
+  <tr> <td valign="top"><code>alloc_tty_driver</code></td> <td>
+    From drivers/built-in.o. 
   </td></tr>
-  <tr> <td><code>clk_enable</code></td> <td>
-    From arch/arm/mach-ep93xx/clock.o.
+  <tr> <td valign="top"><code>__bug</code></td> <td>
+    From arch/arm/kernel/built-in.o(traps.o). Prints a bug message.
   </td></tr>
-  <tr> <td><code>clk_get</code></td> <td>
-    From arch/arm/mach-ep93xx/clock.o.
+  <tr> <td valign="top"><code>capable</code></td> <td>
+    From kernel/built-in.o. 
   </td></tr>
-  <tr> <td><code>clk_get_rate</code></td> <td>
-    From arch/arm/mach-ep93xx/clock.o.
+  <tr> <td valign="top"><code>__copy_from_user</code></td> <td>
   </td></tr>
-  <tr> <td><code>clk_put</code></td> <td>
-    From arch/arm/mach-ep93xx/clock.o.
+  <tr> <td valign="top"><code>__copy_to_user</code></td> <td>
   </td></tr>
-  <tr> <td><code>__copy_from_user</code></td> <td>
+  <tr> <td valign="top"><code>default_wake_function</code></td> <td>
   </td></tr>
-  <tr> <td><code>__copy_to_user</code></td> <td>
+  <tr> <td valign="top"><code>dump_stack</code></td> <td>
   </td></tr>
-  <tr> <td><code>default_wake_function</code></td> <td>
+  <tr> <td valign="top"><code>free_pages</code></td> <td>
   </td></tr>
-  <tr> <td><code>do_SAK</code></td> <td>
+  <tr> <td valign="top"><code>get_zeroed_page</code></td> <td>
   </td></tr>
-  <tr> <td><code>dump_stack</code></td> <td>
+  <tr> <td valign="top"><code>init_waitqueue_head</code></td> <td>
   </td></tr>
-  <tr> <td><code>free_irq</code></td> <td>
+  <tr> <td valign="top"><code>jiffies</code></td> <td>
   </td></tr>
-  <tr> <td><code>free_pages</code></td> <td>
+  <tr> <td valign="top"><code>jiffies_to_msecs</code></td> <td>
   </td></tr>
-  <tr> <td><code>get_zeroed_page</code></td> <td>
+  <tr> <td valign="top"><code>__kzalloc</code></td> <td>
   </td></tr>
-  <tr> <td><code>init_waitqueue_head</code></td> <td>
-  </td></tr>
-  <tr> <td><code>iomem_resource</code></td> <td>
-  </td></tr>
-  <tr> <td><code>__iounmap</code></td> <td>
-  </td></tr>
-  <tr> <td><code>jiffies</code></td> <td>
-  </td></tr>
-  <tr> <td><code>jiffies_to_msecs</code></td> <td>
-  </td></tr>
-  <tr> <td><code>kfree</code></td> <td>
-  </td></tr>
-  <tr> <td><code>kmalloc_caches</code></td> <td>
-  </td></tr>
-  <tr> <td><code>kmem_cache_zalloc</code></td> <td>
-  </td></tr>
-  <tr> <td><code>__kzalloc</code></td> <td>
-  </td></tr>
-  <tr> <td><code>__memzero</code></td> <td>
+  <tr> <td valign="top"><code>__memzero</code></td> <td>
     From arch/arm/lib/lib.a(memzero.o). 
   </td></tr>
-  <tr> <td><code>msecs_to_jiffies</code></td> <td>
+  <tr> <td valign="top"><code>msecs_to_jiffies</code></td> <td>
   </td></tr>
-  <tr> <td><code>msleep</code></td> <td>
+  <tr> <td valign="top"><code>msleep</code></td> <td>
   </td></tr>
-  <tr> <td><code>msleep_interruptible</code></td> <td>
+  <tr> <td valign="top"><code>msleep_interruptible</code></td> <td>
   </td></tr>
-  <tr> <td><code>__mutex_init</code></td> <td>
+  <tr> <td valign="top"><code>__mutex_init</code></td> <td>
   </td></tr>
-  <tr> <td><code>mutex_lock</code></td> <td>
+  <tr> <td valign="top"><code>mutex_lock</code></td> <td>
   </td></tr>
-  <tr> <td><code>mutex_lock_interruptible</code></td> <td>
+  <tr> <td valign="top"><code>mutex_lock_interruptible</code></td> <td>
   </td></tr>
-  <tr> <td><code>mutex_unlock</code></td> <td>
+  <tr> <td valign="top"><code>mutex_unlock</code></td> <td>
   </td></tr>
-  <tr> <td><code>printk</code></td> <td>
+  <tr> <td valign="top"><code>put_tty_driver</code></td> <td>
   </td></tr>
-  <tr> <td><code>put_tty_driver</code></td> <td>
+  <tr> <td valign="top"><code>__put_user_4</code></td> <td>
   </td></tr>
-  <tr> <td><code>__put_user_4</code></td> <td>
+  <tr> <td valign="top"><code>register_console</code></td> <td>
   </td></tr>
-  <tr> <td><code>register_console</code></td> <td>
+  <tr> <td valign="top"><code>remove_wait_queue</code></td> <td>
   </td></tr>
-  <tr> <td><code>__release_region</code></td> <td>
+  <tr> <td valign="top"><code>schedule</code></td> <td>
   </td></tr>
-  <tr> <td><code>remove_wait_queue</code></td> <td>
+  <tr> <td valign="top"><code>strlcpy</code></td> <td>
   </td></tr>
-  <tr> <td><code>request_irq</code></td> <td>
+  <tr> <td valign="top"><code>tasklet_init</code></td> <td>
   </td></tr>
-  <tr> <td><code>__request_region</code></td> <td>
+  <tr> <td valign="top"><code>tasklet_kill</code></td> <td>
   </td></tr>
-  <tr> <td><code>schedule</code></td> <td>
+  <tr> <td valign="top"><code>__tasklet_schedule</code></td> <td>
   </td></tr>
-  <tr> <td><code>strlcpy</code></td> <td>
+  <tr> <td valign="top"><code>tty_hung_up_p</code></td> <td>
   </td></tr>
-  <tr> <td><code>tasklet_init</code></td> <td>
+  <tr> <td valign="top"><code>tty_ldisc_flush</code></td> <td>
   </td></tr>
-  <tr> <td><code>tasklet_kill</code></td> <td>
+  <tr> <td valign="top"><code>tty_name</code></td> <td>
   </td></tr>
-  <tr> <td><code>__tasklet_schedule</code></td> <td>
+  <tr> <td valign="top"><code>tty_register_device</code></td> <td>
   </td></tr>
-  <tr> <td><code>tty_flip_buffer_push</code></td> <td>
+  <tr> <td valign="top"><code>tty_register_driver</code></td> <td>
   </td></tr>
-  <tr> <td><code>tty_hangup</code></td> <td>
+  <tr> <td valign="top"><code>tty_set_operations</code></td> <td>
   </td></tr>
-  <tr> <td><code>tty_hung_up_p</code></td> <td>
+  <tr> <td valign="top"><code>tty_std_termios</code></td> <td>
   </td></tr>
-  <tr> <td><code>tty_insert_flip_string_flags</code></td> <td>
+  <tr> <td valign="top"><code>tty_termios_baud_rate</code></td> <td>
   </td></tr>
-  <tr> <td><code>tty_ldisc_flush</code></td> <td>
+  <tr> <td valign="top"><code>tty_unregister_device</code></td> <td>
   </td></tr>
-  <tr> <td><code>tty_name</code></td> <td>
+  <tr> <td valign="top"><code>tty_unregister_driver</code></td> <td>
   </td></tr>
-  <tr> <td><code>tty_register_device</code></td> <td>
+  <tr> <td valign="top"><code>tty_vhangup</code></td> <td>
   </td></tr>
-  <tr> <td><code>tty_register_driver</code></td> <td>
+  <tr> <td valign="top"><code>tty_wait_until_sent</code></td> <td>
   </td></tr>
-  <tr> <td><code>tty_set_operations</code></td> <td>
+  <tr> <td valign="top"><code>tty_wakeup</code></td> <td>
   </td></tr>
-  <tr> <td><code>tty_std_termios</code></td> <td>
-  </td></tr>
-  <tr> <td><code>tty_termios_baud_rate</code></td> <td>
-  </td></tr>
-  <tr> <td><code>tty_unregister_device</code></td> <td>
-  </td></tr>
-  <tr> <td><code>tty_unregister_driver</code></td> <td>
-  </td></tr>
-  <tr> <td><code>tty_vhangup</code></td> <td>
-  </td></tr>
-  <tr> <td><code>tty_wait_until_sent</code></td> <td>
-  </td></tr>
-  <tr> <td><code>tty_wakeup</code></td> <td>
-  </td></tr>
-  <tr> <td><code>__udivsi3</code></td> <td>
+  <tr> <td valign="top"><code>__udivsi3</code></td> <td>
     From arch/arm/lib/lib.a(lib1funcs.o).
-  </td></tr>
-  <tr> <td><code>__wake_up</code></td> <td>
   </td></tr>
     </table>
   <hr>
