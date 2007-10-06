@@ -5,7 +5,7 @@
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -28,12 +28,13 @@ Approved for public release, distribution unlimited. */
 
 /* This header captures a number of runtime conventions. */
 
-/* Conventions assumed by the runtime. This is the state of the world
- * on entry to main(). See Programmers Guide for explanation.
- * KR_VOID is defined in EROS/Invoke.h, as this is a kernel
- * constraint.
- */
+/* Conventions for key registers: */
+
+// #define KR_VOID 0
+/* KR_VOID is defined in eros/Invoke.h, as this is a kernel constraint. */
 #define KR_CONSTIT          1	  /* constituents node */
+#define KR_LINUX_EMUL	    1     /* Node of keys for Linux driver environment*/
+	// Temporary, maybe should go elsewhere
 #define KR_RTBITS           2	  /* runtime components */
 #define KR_CREATOR          3	  /* start key to process creator of self */
 #define KR_SELF             4	  /* process key to self */
@@ -41,13 +42,23 @@ Approved for public release, distribution unlimited. */
 #define KR_SCHED            6	  /* schedule of self (redundant,
 				   * given process key, may get
 				   * retired) */
-#define KR_FIRST_FREE	    7	  /* first reg available reliably for
-				     application use */
-#define KR_APP(x)           (KR_FIRST_FREE+(x))
+
+/* Regs available for application use: */
+#define KR_APP(x)           (7 + (x))
+
+/* KR_TEMPn are available for use between procedure calls
+or as parameters or results of procedure calls. */
+#define KR_TEMP2            25
+#define KR_TEMP1            26
+#define KR_TEMP0            27
+
+/* KR_ARG(n) and KR_RETURN may be used to receive parameters in a gate call. */
 #define KR_ARG(x)           (28+(x))
 #define KR_RETURN           31	  /* conventional return slot */
 
-/* The following components are either
+/* Slots in the Runtime Bits node. 
+
+ * The following components are either
  *
  *     (a) universally used, or
  *     (b) a process cannot self-destruct without them.
