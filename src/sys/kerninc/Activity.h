@@ -98,6 +98,7 @@ extern uint32_t act_yieldState;
 extern Activity* act_curActivity;
 
 extern Activity *act_ActivityTable;
+extern Activity * allocatedActivity;
 
 void act_InitActivity(Activity *thisPtr);
 
@@ -190,43 +191,7 @@ const char* act_Name(Activity* thisPtr);
 
 void act_DeleteActivity(Activity* t);
 
-/* This relies on the fact that the context will overwrite our process
- * key slot if it is unloaded!
- * 
- * It proves that the only activity migrations that occur in EROS are to
- * processs that are runnable.  If a process is runnable, we know that
- * it has a proper schedule key.  We can therefore assume that the
- * reserve slot of the destination context is populated, and we can
- * simply pick it up and go with it.
- */
-INLINE void 
-act_MigrateTo(Activity* thisPtr, Process *dc)
-{
-
-  if (thisPtr->context)
-    proc_Deactivate(thisPtr->context);
-    
-  thisPtr->context = dc;
-  if (dc) {
-    proc_SetActivity(dc, thisPtr);
-    assert (proc_IsRunnable(dc));
-
-    /* FIX: Check for preemption! */
-    if (thisPtr->readyQ == dispatchQueues[pr_Never]) {
-      thisPtr->readyQ = dc->readyQ;
-    }
-    else {
-      thisPtr->readyQ = dc->readyQ;
-      //if (thisPtr->readyQ->mask & (1u<<pr_Reserve))
-       
-      //if (thisPtr->readyQ->mask < dc->readyQ->mask)
-      //act_ForceResched();
-    }    
-  }
-  else {
-    act_DeleteActivity(thisPtr); /* migrate to 0 context => kill curActivity */
-  }
-}
+void act_MigrateTo(Activity * thisPtr, Process * dc);
 
 /* Called by the activity when it wishes to yield the processor: */
 INLINE void act_Yield(void) NORETURN;

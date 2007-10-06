@@ -50,18 +50,10 @@ const char *act_stateNames[act_NUM_STATES] = {
     "Stalled",
 };
 
-#if 0
-/* These definitions were moved to arch/XXX/kernel/IPC-vars.cxx for cache
- * line locality
- */
-Thread* Thread::curThread;
-bool Thread::threadShouldYield;
-bool Thread::cannotPreempt;
-
-jmp_buf Thread::ThreadRecoveryBlock;
-#endif
-
 Activity *act_ActivityTable = 0;
+
+/* During an invocation, we may allocate an Activity for later use: */
+Activity * allocatedActivity = 0;
 
 DEFQUEUE(freeActivityList);
 uint32_t act_RunQueueMap = 0;
@@ -518,6 +510,44 @@ act_Wakeup(Activity* thisPtr)
     check_Consistency("In Activity::Wakeup()");
 #endif
 
+}
+
+/* This relies on the fact that the context will overwrite our process
+ * key slot if it is unloaded!
+ * 
+ * It proves that the only activity migrations that occur in EROS are to
+ * processs that are runnable.  If a process is runnable, we know that
+ * it has a proper schedule key.  We can therefore assume that the
+ * reserve slot of the destination context is populated, and we can
+ * simply pick it up and go with it.
+ */
+void 
+act_MigrateTo(Activity * thisPtr, Process * dc)
+{
+
+  if (thisPtr->context)
+    proc_Deactivate(thisPtr->context);
+    
+  thisPtr->context = dc;
+  if (dc) {
+    proc_SetActivity(dc, thisPtr);
+    assert (proc_IsRunnable(dc));
+
+    /* FIX: Check for preemption! */
+    if (thisPtr->readyQ == dispatchQueues[pr_Never]) {
+      thisPtr->readyQ = dc->readyQ;
+    }
+    else {
+      thisPtr->readyQ = dc->readyQ;
+      //if (thisPtr->readyQ->mask & (1u<<pr_Reserve))
+       
+      //if (thisPtr->readyQ->mask < dc->readyQ->mask)
+      //act_ForceResched();
+    }    
+  }
+  else {
+    act_DeleteActivity(thisPtr); /* migrate to 0 context => kill curActivity */
+  }
 }
 
 void 
@@ -1099,10 +1129,12 @@ act_HandleYieldEntry(void)
 
   inv_Cleanup(&inv);
 
-  /* If we were in a SEND invocation, release the activity: */
-
-  if (activityToRelease)
-    act_MigrateTo(activityToRelease, 0);
+  // If we allocated an Activity, we no longer need it:
+  if (allocatedActivity) {
+    assert(! allocatedActivity->context);	// it shouldn't have been used
+    act_DeleteActivity(allocatedActivity);
+    allocatedActivity = 0;
+  }
   
   act_ForceResched();
 

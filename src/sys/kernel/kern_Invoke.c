@@ -65,8 +65,6 @@ uint32_t ddb_inv_flags = 0;
 #define __EROS_PRIMARY_KEYDEF(x, isValid, bindTo) void bindTo##Key (Invocation* msg);
 #include <eros/StdKeyType.h>
 
-Activity * activityToRelease = 0;
-
 #if 0
 static void
 UnknownKey(Invocation* inv /*@ not null @*/)
@@ -730,8 +728,7 @@ proc_DoKeyInvocation(Process* thisPtr)
 void
 proc_DoGeneralKeyInvocation(Process* thisPtr)
 {
-  activityToRelease = 0;
-
+  assert(allocatedActivity == 0);
   assert(keyBits_IsPrepared(inv.key));
   
   /* If this is a prompt invocation, it MUST be done on a resume key.
@@ -764,8 +761,12 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   if (inv.invKeyType == KKT_Forwarder
       && (inv.key->keyData & capros_Forwarder_opaque) ) {
     Node * wrapperNode = (Node *) key_GetObjectPtr(inv.key);
+    Key * targetSlot = node_GetKeyAtSlot(wrapperNode, ForwarderTargetSlot);
 
-    if (keyBits_IsGateKey(&wrapperNode->slot[ForwarderTargetSlot]) ) {
+    // Prepare it now, in case a gate key becomes void.
+    key_Prepare(targetSlot);	/* MAY YIELD!!! */
+
+    if (keyBits_IsGateKey(targetSlot)) {
       if (wrapperNode->nodeData & ForwarderBlocked) {
 	act_SleepOn(ObjectStallQueueFromObHdr(&wrapperNode->node_ObjHdr));
 	act_Yield();
@@ -787,7 +788,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
       }
 
       /* Not hazarded because invocation key */
-      inv.key = &(wrapperNode->slot[ForwarderTargetSlot]);
+      inv.key = targetSlot;
     } else {
       // Target is not a gate key - treat as void. 
       keyBits_InitToVoid(&inv.scratchKey);
@@ -795,8 +796,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
       // Don't set INV_SCRATCHKEY; no need to clean up
     }
     inv.invKeyType = keyBits_GetType(inv.key);
-
-    key_Prepare(inv.key);	/* MAY YIELD!!! */
   }
   else if ( inv.invKeyType == KKT_GPT
        && ! keyBits_IsReadOnly(inv.key)
@@ -971,35 +970,21 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
    * it's the current activity.  If this is a SEND invocation, it's a
    * new activity.  Populate this activity consistent with the invokee.
    */
-  
-  Activity * activityToMigrate = act_Current();
-  
 
   if (inv.invType == IT_Send) {
-    Key* rk /*@ not null @*/ = inv.entry.key[3];
-
     /* If this is a send, and we are either (a) invoking a gate key,
        or (b) invoking a kernel key and passing a resume key to
        someone else, then we will need a new activity.
+       Allocate it now to avoid awkwardness after the invocation
+       is committed. */
 
-       That covers most cases. For real fun, consider a send on a
-       domain key saying 'start this process' with resume key to third
-       party in slot 3 -- we will (someday) handle that in the
-       ProcessKey handler as a special case prior to the
-       COMMIT_POINT() logic. */
-
-    if ( keyBits_IsGateKey(inv.key) || keyBits_IsType(rk, KKT_Resume) ) {
-  
-      activityToMigrate = (Activity *) act_AllocActivity();
-  
-      activityToRelease = activityToMigrate;
-      activityToMigrate->state = act_Ready;
+    if (inv.invokee) {
+      allocatedActivity = act_AllocActivity();
+      allocatedActivity->state = act_Ready;
 #ifdef GATEDEBUG
-      dprintf(GATEDEBUG>2, "Built new activity for fork\n");
+      dprintf(GATEDEBUG>2, "Built new activity for Send\n");
 #endif
     }
-    else
-      activityToMigrate = 0;
   }
   
 #if defined(OPTION_DDB) && !defined(NDEBUG)
@@ -1027,6 +1012,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 #endif
 
   /* The key handler must do the following:
+  0. Prepare the returnee.
   1. Complete the dry run, faulting in objects, preparing them, and
      Yielding if necessary.
   2. Commit the invocation. 
@@ -1147,23 +1133,35 @@ return void keys in the rest)
   dprintf(GATEDEBUG>2, "Cleaned up invocation\n");
 #endif
   
-  if (activityToMigrate) {
-    act_MigrateTo(activityToMigrate, inv.invokee);
+  if (inv.invType == IT_Send) {
+    if (allocatedActivity) {
+      if (inv.invokee) {
+        act_MigrateTo(allocatedActivity, inv.invokee);
 
 #ifdef OPTION_DDB
-    if (inv.invokee && inv.invokee->readyQ == &prioQueues[pr_Never])
-      dprintf(true, "Activity now in ctxt 0x%08x w/ bad schedule\n", 
-		      inv.invokee);
+        if (inv.invokee && inv.invokee->readyQ == &prioQueues[pr_Never])
+          dprintf(true, "Activity now in ctxt 0x%08x w/ bad schedule\n", 
+		        inv.invokee);
 #endif
 
-    if (inv.invType == IT_Send && inv.invokee) {
-      act_Wakeup(activityToMigrate);
+        act_Wakeup(allocatedActivity);
 #ifdef GATEDEBUG
-      dprintf(GATEDEBUG>2, "Woke up forkee\n");
+        dprintf(GATEDEBUG>2, "Woke up forkee\n");
 #endif
+      }
+      else {	// invokee went away after we allocated the Activity?
+        act_DeleteActivity(allocatedActivity);
+      }
+      allocatedActivity = 0;
     }
+    else 	// no allocatedActivity
+      assert(! inv.invokee);
   }
-  
+  else {	// not Send
+    assert(!allocatedActivity);
+    act_MigrateTo(act_Current(), inv.invokee);
+  }
+
 #ifdef DBG_WILD_PTR
   {
     extern void ValidateAllActivityies();
@@ -1172,7 +1170,6 @@ return void keys in the rest)
 #endif
 
   inv.invokee = 0;
-  activityToRelease = 0;
   
 #ifdef OPTION_KERN_TIMING_STATS
   {
