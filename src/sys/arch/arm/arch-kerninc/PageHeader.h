@@ -55,6 +55,9 @@ MVA means modified virtual address. A page's MVA may be zero.
 4. Mapped readonly at multiple MVAs. cacheAddr has CACHEADDR_READERS.
 5. Mapped writeable at some MVA, and also mapped at a different MVA.
    cacheAddr has CACHEADDR_UNCACHED.
+
+A device page is always CACHEADDR_UNCACHED. Think of such pages as being
+writeable by the hardware. 
 */
 
 /*

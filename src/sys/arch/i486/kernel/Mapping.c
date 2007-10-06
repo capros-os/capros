@@ -549,8 +549,11 @@ i486_BuildKernelMap()
    *
    * FIX: This is broken, as the kernel will soon need to support
    * machines where there are more physical pages than there are
-   * virtual pages.
+   * virtual pages.  The solution is to adopt a
+   * bounded kernel heap, set up virtual mapping space for that, and
+   * then use kmem_alloc to populate it.
    */
+  kpsize_t physMem_TotalPhysicalPages();
   physPages = physMem_TotalPhysicalPages();
 
   /*  printf("pageDir: 0x%x\n", pageDir); */

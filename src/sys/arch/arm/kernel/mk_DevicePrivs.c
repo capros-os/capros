@@ -203,12 +203,9 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 
       COMMIT_POINT();
 
-      if ((base % EROS_PAGE_SIZE) || (bound % EROS_PAGE_SIZE)) {
-	inv->exit.code = RC_capros_key_RequestError;
-	break;
-      }
-
-      if (base >= bound) {
+      if ((base % EROS_PAGE_SIZE)
+          || (bound % EROS_PAGE_SIZE)
+          || (base >= bound) ) {
 	inv->exit.code = RC_capros_key_RequestError;
 	break;
       }

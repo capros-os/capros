@@ -30,4 +30,11 @@ pageH_MDInitDataPage(PageHeader * pageH)
   pageH->kt_u.ob.cacheAddr = CACHEADDR_NONE;
 }
 
+INLINE void
+pageH_MDInitDevicePage(PageHeader * pageH)
+{
+  // A device page is considered writeable by the hardware.
+  pageH->kt_u.ob.cacheAddr = CACHEADDR_UNCACHED;
+}
+
 #endif // __MACHINE_PAGE_INLINE_H__

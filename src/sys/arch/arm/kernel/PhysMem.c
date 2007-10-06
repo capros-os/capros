@@ -35,19 +35,11 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 
-kpa_t physMem_PhysicalPageBound = 0;
 unsigned int logDataCacheLineLength;
 unsigned int logDataCacheAssociativity;	// rounded up to an integer
 unsigned int logDataCacheNSets;
 uint32_t cacheSetIndexIncrement;
 uint32_t cacheSetIndexCarry;
-
-static void checkBounds(kpa_t base, kpa_t bound)
-{
-  if (bound > physMem_PhysicalPageBound) {        /* take max */
-    physMem_PhysicalPageBound = align_up(bound, EROS_PAGE_SIZE);
-  }
-}
 
 void
 physMem_Init()
@@ -94,16 +86,22 @@ uint32_t mach_ReadCacheType(void);
        mp->length_high,
        mp->type);
 
-    /* This machine has only 32 bits of phys mem. */
+    /* This machine has only 32 bits of phys addr. */
     assert(mp->base_addr_high == 0 && mp->length_high == 0);
     kpa_t base = (kpa_t)mp->base_addr_low;
     kpsize_t size = (kpsize_t)mp->length_low;
     kpsize_t bound = base + size;
 
-    if (mp->type == 1) {	/* available RAM */
+    switch (mp->type) {
+    case 1:
       (void) physMem_AddRegion(base, bound, MI_MEMORY, false);
-      checkBounds(base, bound);
+      break;
+
+    case 4567:	// this is a private convention, not part of multiboot
+      (void) physMem_AddRegion(base, bound, MI_DEVICEMEM, false);
+      break;
     }
+
     /* On to the next. */
     /* mp->size does not include the size of the size field itself,
        so add 4. */
@@ -146,10 +144,4 @@ printf("reserving module space at 0x%08x\n", modp->mod_start); ////
       physMem_ReserveExact(modp->mod_start, modp->mod_end - modp->mod_start);
     }
   }
-}
-
-kpsize_t
-physMem_TotalPhysicalPages()
-{
-  return physMem_PhysicalPageBound / EROS_PAGE_SIZE;
 }

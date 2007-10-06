@@ -744,14 +744,12 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     pte_set(thePTE, PTE_WT);
 #endif
 
+  // Device pages are non-cacheable. 
+  if (wi.memObj->obType == ot_PtDevicePage) 
+    pte_set(thePTE, PTE_CD | PTE_WT);
+
 #ifdef WALK_LOUD
       dprintf(false, "set pte\n");
-#endif
-
-#if 0
-  if ((wi.memObj->kt_u.ob.oid & OID_RESERVED_PHYSRANGE) 
-	== OID_RESERVED_PHYSRANGE)
-    pte_set(thePTE, PTE_CD);
 #endif
     
 #ifdef DBG_WILD_PTR

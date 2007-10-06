@@ -28,4 +28,8 @@ pageH_MDInitDataPage(PageHeader * pageH)
 {
 }
 
+INLINE void
+pageH_MDInitDevicePage(PageHeader * pageH)
+{
+}
 #endif // __MACHINE_PAGE_INLINE_H__

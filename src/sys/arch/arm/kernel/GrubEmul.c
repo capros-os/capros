@@ -30,7 +30,7 @@
 
 struct grub_multiboot_info MultibootInfo;
 struct grub_mod_list ModList;
-struct grub_mmap MemMap;
+struct grub_mmap MemMap[3];
 
 /* Kludge: rather than parse the configuration file, we assume the parts
 are of fixed size. */
@@ -97,13 +97,30 @@ GrubEmul(struct GrubEmulStuff * ges)
   mi->mods_count = 1;
   mi->mods_addr = (grub_uint32_t)&ModList - PhysMapVA;
 
-  /* On EDB9315, SDRAM is 64MB beginning at 0. */
-  MemMap.size = sizeof(MemMap);
-  MemMap.base_addr_low = 0;
-  MemMap.base_addr_high = 0;
-  MemMap.length_low = 64*1024*1024;
-  MemMap.length_high = 0;
-  MemMap.type = 1;	/* available RAM */
+  /* On EP9315, SDRAM is 64MB beginning at 0. */
+  MemMap[0].size = sizeof(struct grub_mmap)-4;
+  MemMap[0].base_addr_low = 0;
+  MemMap[0].base_addr_high = 0;
+  MemMap[0].length_low = 64*1024*1024;
+  MemMap[0].length_high = 0;
+  MemMap[0].type = 1;	/* available RAM */
+
+  /* On EP9315, AHB device registers. */
+  MemMap[1].size = sizeof(struct grub_mmap)-4;
+  MemMap[1].base_addr_low = 0x80000000;
+  MemMap[1].base_addr_high = 0;
+  MemMap[1].length_low = 0x800d0000 - 0x80000000;
+  MemMap[1].length_high = 0;
+  MemMap[1].type = 4567;	/* private convention: device registers */
+
+  /* On EDB9315, APB device registers. */
+  MemMap[2].size = sizeof(struct grub_mmap)-4;
+  MemMap[2].base_addr_low = 0x80810000;
+  MemMap[2].base_addr_high = 0;
+  MemMap[2].length_low = 0x80950000 - 0x80810000;
+  MemMap[2].length_high = 0;
+  MemMap[2].type = 4567;	/* private convention: device registers */
+
   mi->mmap_addr = (grub_uint32_t)&MemMap;
   mi->mmap_length = sizeof(MemMap) -4;	/* that's just the way it is */
 
