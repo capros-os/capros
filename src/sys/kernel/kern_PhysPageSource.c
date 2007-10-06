@@ -127,14 +127,17 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
     /* Do not bother with calculating the checksum value, as device
      * memory is always considered dirty. */
     objH_SetFlags(pageH_ToObj(pObj), OFLG_DIRTY);
+
+    pageH_MDInitDevicePage(pObj);
   }
   else {
     pageH_ToObj(pObj)->obType = ot_PtDataPage;
 #ifdef OPTION_OB_MOD_CHECK
     pageH_ToObj(pObj)->check = objH_CalcCheck(pageH_ToObj(pObj));
 #endif
+
+    pageH_MDInitDataPage(pObj);
   }
-  pageH_MDInitDataPage(pObj);
 
   objH_ResetKeyRing(pageH_ToObj(pObj));
   objH_Intern(pageH_ToObj(pObj));
