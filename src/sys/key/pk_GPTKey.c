@@ -75,23 +75,6 @@ DoMemoryReduce(Invocation * inv)
   return;
 }
 
-static void
-SetSlot(Invocation * inv, GPT * theGPT, uint32_t slot)
-{
-  node_MakeDirty(theGPT);
-
-  COMMIT_POINT();
-  
-  /* Following will not cause dirty node because we forced it
-   * dirty above the commit point.
-   */
-  node_ClearHazard(theGPT, slot);
-
-  key_NH_Set(node_GetKeyAtSlot(theGPT, slot), inv->entry.key[0]);
-
-  inv->exit.code = RC_OK;
-}
-
 /* May Yield. */
 void
 GPTKey(Invocation * inv)
@@ -180,7 +163,7 @@ request_error:
 	return;
       }
 
-      SetSlot(inv, theGPT, slot);
+      node_SetSlot(theGPT, slot, inv);
       return;
     }
 
@@ -264,7 +247,7 @@ request_error:
   case OC_capros_GPT_setKeeper:
     if (opaque) goto opaqueError;
 
-    SetSlot(inv, theGPT, capros_GPT_keeperSlot);
+    node_SetSlot(theGPT, capros_GPT_keeperSlot, inv);
 
     gpt_SetL2vField(theGPT, gpt_GetL2vField(theGPT) | GPT_KEEPER);
     return;
@@ -284,7 +267,7 @@ request_error:
     InvalidateMaps(theGPT);	/* because the background GPT is cached
 				in mapping table headers */
 
-    SetSlot(inv, theGPT, capros_GPT_backgroundSlot);
+    node_SetSlot(theGPT, capros_GPT_backgroundSlot, inv);
 
     gpt_SetL2vField(theGPT, gpt_GetL2vField(theGPT) | GPT_BACKGROUND);
     return;

@@ -307,29 +307,20 @@ node_PrepAsDomain(Node* thisPtr)
 }
 
 void
-node_SetSlot(Node* thisPtr, int ndx, Node* node, uint32_t otherSlot)
+node_SetSlot(Node * thisPtr, uint32_t slot, Invocation * inv)
 {
-  assert (InvocationCommitted);
+  node_MakeDirty(thisPtr);
+
+  COMMIT_POINT();
   
-  assert (objH_IsDirty(DOWNCAST(thisPtr, ObjectHeader)));
-  node_ClearHazard(thisPtr, ndx);
-
-
-  /* If writing a non-number key into a general registers node, domain
-   * must be deprepared.
+  /* Following will not cause dirty node because we forced it
+   * dirty above the commit point.
    */
- 
-  if (thisPtr->node_ObjHdr.obType == ot_NtRegAnnex &&
-      keyBits_GetType(&node->slot[ndx]) != KKT_Number)
-    node_Unprepare(thisPtr, false);
- 
+  node_ClearHazard(thisPtr, slot);
 
-  if ( keyBits_IsRdHazard(node_GetKeyAtSlot(node, otherSlot) ))
-    node_ClearHazard(node, otherSlot);
+  key_NH_Set(node_GetKeyAtSlot(thisPtr, slot), inv->entry.key[0]);
 
-  /* hazard has been cleared */
-  key_NH_Set(&thisPtr->slot[ndx], node_GetKeyAtSlot(node, otherSlot));
-  assert ( keyBits_IsHazard(&thisPtr->slot[ndx]) == false );
+  inv->exit.code = RC_OK;
 }
 
 bool

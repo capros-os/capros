@@ -26,8 +26,10 @@ Approved for public release, distribution unlimited. */
 
 #include "ObjectHeader.h"
 #include "Key.h"
+#include <disk/DiskNodeStruct.h>
 
 struct DiskNodeStruct;
+struct Invocation;
 
 /*typedef struct Node Node;*/
 
@@ -80,6 +82,18 @@ node_GetKeyAtSlot(Node *thisPtr, int n)
   return & thisPtr->slot[n];
 }
 
+INLINE unsigned int
+node_GetL2vField(Node * node)
+{
+  return * node_l2vField(& node->nodeData);
+}
+
+INLINE void
+node_SetL2vField(Node * node, unsigned int f)
+{
+  * node_l2vField(& node->nodeData) = f;
+}
+
 void node_SetEqualTo(Node *thisPtr, const struct DiskNodeStruct *);
 
 bool node_Validate(Node* thisPtr);
@@ -105,7 +119,7 @@ bool node_Unprepare(Node* thisPtr, bool zapMe);
     
 void node_DoClearThisNode(Node* thisPtr);
 
-void node_SetSlot(Node * thisPtr, int ndx, Node * node, uint32_t otherSlot);
+void node_SetSlot(Node * thisPtr, uint32_t slot, struct Invocation * inv);
 
 void NodeClone(Node * toNode, Key * fromKey);
 

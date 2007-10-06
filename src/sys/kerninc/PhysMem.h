@@ -2,9 +2,9 @@
 #define __PHYSMEM_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -20,6 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Key.h>
@@ -90,15 +93,6 @@ PmemInfo * physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type,
 
 kpa_t physMem_Alloc(kpsize_t sz, PmemConstraint *);
 void physMem_ReserveExact(kpa_t base, kpsize_t size);
-
-/* FIX: This is called from the x86 code that builds the kernel
- * virtual map, and it is wrong that it should be so. The kernel
- * will soon need to support machines where there are more physical
- * pages than there are virtual pages.  The solution is to adopt a
- * bounded kernel heap, set up virtual mapping space for that, and
- * then use kmem_alloc to populate it.
- */
-kpsize_t physMem_TotalPhysicalPages();
 
 /* This function is machine specific. It typically lives in the same
  * file that builds the kernel map, as the two must agree about the

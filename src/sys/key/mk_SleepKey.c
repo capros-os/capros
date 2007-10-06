@@ -62,9 +62,8 @@ SleepKey(Invocation* inv /*@ not null @*/)
   case OC_capros_Sleep_sleep:
   case OC_capros_Sleep_sleepTill:
     {
-      uint64_t ms = 00l;
-
-      ms = (((uint64_t) inv->entry.w2) << 32) | ((uint64_t) inv->entry.w1);
+      uint64_t ms = (((uint64_t) inv->entry.w2) << 32)
+                    | ((uint64_t) inv->entry.w1);
 
       /* FIX: call DeliverResult() here to update result regs! */
       

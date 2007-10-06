@@ -29,6 +29,8 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
  * stubs in sys/arch/.../capstubs/....S,
    base/lib/domain/crt/.../small_rt_hook.S, and other assembler files. */
 
+#include <eros/target.h>	// get fixreg_t
+
 #define RESUME_SLOT 3
 
 typedef struct Message {

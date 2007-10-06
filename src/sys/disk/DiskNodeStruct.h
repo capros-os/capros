@@ -62,6 +62,15 @@ gpt_l2vField(uint16_t * nodeDatap)
   return (uint8_t *) nodeDatap;
 }
 
+/* For a node, the first byte of nodeData contains: */
+#define NODE_L2V_MASK GPT_L2V_MASK
+#define NODE_KEEPER GPT_KEEPER
+INLINE uint8_t * 
+node_l2vField(uint16_t * nodeDatap)
+{
+  return gpt_l2vField(nodeDatap);
+}
+
 INLINE uint8_t *
 proc_runStateField(DiskNodeStruct * dn)
 {

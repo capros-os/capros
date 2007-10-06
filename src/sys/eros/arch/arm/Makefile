@@ -63,19 +63,12 @@ traceregs.h: $(LAYOUT) $(GENTRACEREGS)
 
 # NOTE that target-asm.h also gets installed in the domain include tree!
 install: $(GENERATED) Makefile
-	$(INSTALL) -d $(EROS_ROOT)/include
-	$(INSTALL) -d $(EROS_ROOT)/include/eros
 	$(INSTALL) -d $(EROS_ROOT)/include/eros/arch/$(EROS_TARGET)
 	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/include/eros/arch/$(EROS_TARGET)
-	$(INSTALL) -d $(EROS_ROOT)/host
-	$(INSTALL) -d $(EROS_ROOT)/host/include
-	$(INSTALL) -d $(EROS_ROOT)/host/include/eros
 	$(INSTALL) -d $(EROS_ROOT)/host/include/eros/arch/$(EROS_TARGET)
 	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/host/include/eros/arch/$(EROS_TARGET)
 
 interfaces:
-	$(INSTALL) -d $(EROS_ROOT)/idl
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros
 	$(INSTALL) -d $(EROS_ROOT)/idl/capros/arch/$(EROS_TARGET)
 	$(INSTALL) -m 0644 $(IDLSRC) $(EROS_ROOT)/idl/capros/arch/$(EROS_TARGET)
 

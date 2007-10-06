@@ -83,8 +83,7 @@ processKey(SegWalk * wi, Key * pSegKey, uint64_t va)
 
   key_Prepare(pSegKey);
 
-  unsigned int keyType = keyBits_GetType(pSegKey);
-  switch (keyType) {
+  switch (keyBits_GetType(pSegKey)) {
   case KKT_GPT:
     if (! node_PrepAsSegment(objH_ToNode(pSegKey->u.ok.pObj))) {
       /* This can only happen if a holder of a range key uses a node

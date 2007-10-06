@@ -90,6 +90,105 @@ Desensitize(Key *k)
   }
 }
 
+static void
+SwapSlot(Invocation * inv, Node * theNode, Key * slot)
+{
+  node_MakeDirty(theNode);
+
+  COMMIT_POINT();
+  
+  Key k;	/* temporary in case send and receive slots are the same. */
+        
+  keyBits_InitToVoid(&k);
+  key_NH_Set(&k, slot);
+	
+  key_NH_Set(slot, inv->entry.key[0]);
+  inv_SetExitKey(inv, 0, &k);
+  /* There is no need to check this for sense key status, as
+   * we would have generated an exception if the
+   * node were not writable, and any writable node is also
+   * readable in full power form. */
+
+  /* Unchain, but do not unprepare -- the objects do not have
+   * on-disk keys. */
+  key_NH_Unchain(&k);
+}
+
+static void
+WalkExtended(Invocation * inv, Node * curNode, bool write)
+{
+  unsigned int depthRemaining = 32;	// max levels deep
+  uint32_t addr = inv->entry.w1;
+  unsigned int restrictions = inv->key->keyPerms;
+
+  for(;;) {
+    if (write && (restrictions & capros_Node_readOnly)) {
+      inv->exit.code = RC_capros_key_NoAccess;
+      goto fault_exit;
+    }
+
+    uint8_t l2vField = node_GetL2vField(curNode);
+    unsigned int curL2v = l2vField & NODE_L2V_MASK;
+
+    if (--depthRemaining == 0) {
+      inv->exit.code = RC_capros_Node_TooDeep;
+      goto fault_exit;
+    }
+
+    unsigned int maxSlot;
+
+    if (l2vField & NODE_KEEPER) {        // it has a keeper
+      maxSlot = capros_Node_keeperSlot -1;
+    }
+    else maxSlot = capros_Node_nSlots -1;
+
+    capros_Node_extAddr_t ndx = addr >> curL2v;
+    if (ndx > maxSlot) {
+      inv->exit.code = RC_capros_Node_NoAddr;
+      goto fault_exit;
+    }
+
+    Key * curKey = node_GetKeyAtSlot(curNode, ndx);
+	
+    /* Only the process creator can get to hazarded slots, and it shouldn't: */
+    assert(! keyBits_IsHazard(curKey));
+
+    if (curL2v == 0) {	// at the bottom level
+      inv->exit.code = RC_OK;
+      if (! write) {	// get
+        COMMIT_POINT();
+
+        /* Does not copy hazard bits, but preserves preparation: */
+        inv_SetExitKey(inv, 0, curKey);
+        // Desensitize?
+      } else {		// swap
+        SwapSlot(inv, curNode, curKey);
+      }
+      return;
+    }
+
+    addr &= (1ull << curL2v) - 1ull;	// remaining bits of address
+
+    key_Prepare(curKey);
+
+    switch (keyBits_GetType(curKey)) {
+    case KKT_Node:
+      break;
+
+    default:	// most likely void
+      inv->exit.code = RC_capros_Node_NoAddr;
+    }
+
+    curNode = (Node *)curKey->u.ok.pObj;
+    restrictions |= curKey->keyPerms;
+  }
+  assert(false);        // can't get here
+
+fault_exit:
+  COMMIT_POINT();
+  return;
+}
+
 void
 NodeClone(Node * toNode, Key * fromKey)
 {
@@ -122,11 +221,11 @@ NodeClone(Node * toNode, Key * fromKey)
 void
 NodeKey(Invocation* inv /*@ not null @*/)
 {
-  bool isSense = keyBits_IsWeak(inv->key);
+  bool isSense = keyBits_IsWeak(inv->key);	// is this feature used?
   bool isFetch = keyBits_IsReadOnly(inv->key);
+  bool opaque = inv->key->keyPerms & capros_Node_opaque;
 
-
-  Node *theNode = (Node *) key_GetObjectPtr(inv->key);
+  Node * theNode = (Node *) key_GetObjectPtr(inv->key);
 
   switch (inv->entry.code) {
   case OC_capros_key_getType:
@@ -151,15 +250,16 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
       /* All of these complete ok. */
       inv->exit.code = RC_OK;
-      
 
-      if ( keyBits_IsRdHazard(node_GetKeyAtSlot(theNode, slot) ))
-	node_ClearHazard(theNode, slot);
+      Key * sourceSlot = node_GetKeyAtSlot(theNode, slot);
+
+      /* The slot can only be read hazarded if it is a register or
+      key register of a process. Only the process creator has node
+      keys to such nodes, and it should not be doing this. */
+      assert(! keyBits_IsRdHazard(sourceSlot));
 
       /* Does not copy hazard bits, but preserves preparation: */
-
-      inv_SetExitKey(inv, 0, &theNode->slot[slot]);
-
+      inv_SetExitKey(inv, 0, sourceSlot);
 
 #ifdef NODEKEYDEBUG
       dprintf(true, "Copied key to exit slot %d\n", slot);
@@ -168,21 +268,17 @@ NodeKey(Invocation* inv /*@ not null @*/)
       if (isSense)
 	Desensitize(inv->exit.pKey[0]);
 
-      act_Prepare(act_Current());
-
       return;
     }      
 
   case OC_capros_Node_swapSlot:
     {
-      if (inv->invokee && theNode == inv->invokee->procRoot)
-        dprintf(true, "Modifying invokee domain root\n");
-
-      if (inv->invokee && theNode == inv->invokee->keysNode)
-        dprintf(true, "Modifying invokee keys node\n");
-
-      if (theNode == act_CurContext()->keysNode)
-	dprintf(true, "Swap involving sender keys\n");
+      /* Only the process creator can have node keys to process components,
+      and it should not be doing weird stuff: */
+      assert(! inv->invokee || theNode != inv->invokee->procRoot);
+      assert(! inv->invokee || theNode != inv->invokee->keysNode);
+      assert(theNode != act_CurContext()->procRoot);
+      assert(theNode != act_CurContext()->keysNode);
 
       if (isFetch) {
 	COMMIT_POINT();
@@ -197,137 +293,29 @@ NodeKey(Invocation* inv /*@ not null @*/)
 	inv->exit.code = RC_capros_key_RequestError;
 	return;
       }
+
+      Key * destSlot = node_GetKeyAtSlot(theNode, slot);
+
+      /* Only the process creator can do this, and it shouldn't: */
+      assert(! keyBits_IsHazard(destSlot));
 	
-      /* All of these complete ok. */
       inv->exit.code = RC_OK;
-
-      node_MakeDirty(theNode);
-      
-      COMMIT_POINT();			/* advance the PC! */
-      
-      /* Following will not cause dirty node because we forced it
-       * dirty above the commit point.
-       */
-      node_ClearHazard(theNode, slot);
-
-      /* Tread carefully, because we need to rearrange the CPU
-       * reserve linkages.
-       */
-      {
-	Key k;			/* temporary in case send and receive */
-				/* slots are the same. */
-        
-        keyBits_InitToVoid(&k);
-	key_NH_Set(&k, &theNode->slot[slot]);
-	
-	key_NH_Set(node_GetKeyAtSlot(theNode, slot), inv->entry.key[0]);
-	inv_SetExitKey(inv, 0, &k);
-
-	/* Unchain, but do not unprepare -- the objects do not have
-	 * on-disk keys. 
-	 */
-	key_NH_Unchain(&k);
-       
-      }
+      SwapSlot(inv, theNode, destSlot);
 
 #ifdef NODEKEYDEBUG
       dprintf(true, "Swapped key to slot %d\n", slot);
 #endif
      
-      /* Thread::Current() changed to act_Current() */
-      act_Prepare(act_Current());
-     
       return;
     }      
 
-#if 0
-  case OC_Node_Extended_Copy:
-  case OC_Node_Extended_Swap:
-    {
-      /* This needs to be redesigned and reimplemented.
-         Until then, I want to decouple it from the GPT logic. */
-      SegWalk wi;
-      bool result;
-      uint32_t slot;
-      Node *theNode = 0;
+  case OC_capros_Node_getSlotExtended:
+    WalkExtended(inv, theNode, false);
+    return;
 
-      wi.faultCode = capros_Process_FC_NoFault;
-      wi.traverseCount = 0;
-      wi.segObj = 0;
-      wi.offset = inv->entry.w1;
-      wi.frameBits = EROS_NODE_LGSIZE;
-      wi.writeAccess = BOOL(inv->entry.code == OC_Node_Extended_Swap);
-      wi.wantLeafNode = true;
-
-      segwalk_init(&wi, inv->key);
-
-      /* Begin the traversal... */
-
-      result = WalkSeg(&wi, EROS_PAGE_BLSS, 0, 0);
-
-      /* If this is a write operation, we need to mark the node dirty. */
-      if (wi.writeAccess)
-	node_MakeDirty(theNode);
-
-      COMMIT_POINT();
-
-      if ( result == false ) {
-	fatal("Node tree traversal fails without keeper.!\n");
-        // Invoke segment keeper (do we really want this?)
-        proc_InvokeSegmentKeeper(act_CurContext(), &wi,
-                      false /* no proc keeper */,
-                      inv->entry.w1 /* orignal vaddr */ );
-
-	inv->exit.code = RC_capros_key_NoAccess;
-	inv->exit.w1 = wi.faultCode;
-	inv->exit.w2 = inv->entry.w1;	// original "address"
-	return;
-      }
-
-      assert(wi.segObj);
-      assert(wi.segObj->obType <= ot_NtLAST_NODE_TYPE);
-
-      slot = inv->entry.w1 & EROS_NODE_SLOT_MASK;
-
-      theNode = (Node *) wi.segObj;
-
-      COMMIT_POINT();
-
-      if (inv->entry.code == OC_Node_Extended_Swap) {
-        Key k;			/* temporary in case send and receive */
-				/* slots are the same. */
-
-        keyBits_InitToVoid(&k);
-	assert(wi.canWrite);
-
-	key_NH_Set(&k, &theNode->slot[slot]);
-
-	key_NH_Set(node_GetKeyAtSlot(theNode, slot), inv->entry.key[0]);
-	inv_SetExitKey(inv, 0, &k);        
-
-	/* Unchain, but do not unprepare -- the objects do not have
-	 * on-disk keys. 
-	 */
-	key_NH_Unchain(&k);
-
-	/* There is no need to check this for sense key status, as the
-	 * segment walker would have generated an exception if the
-	 * tree was not writable, and any writable tree is also
-	 * readable in full power form. */
-      }
-      else {
-
-	inv_SetExitKey(inv, 0, &theNode->slot[slot]);
-
-
-	if (wi.canFullFetch == false)
-	  Desensitize(inv->exit.pKey[0]);
-      }
-
-      inv->exit.code = RC_OK;
-      return;
-    }
-#endif
+  case OC_capros_Node_swapSlotExtended:
+    WalkExtended(inv, theNode, true);
+    return;
 
   case OC_capros_Node_reduce:
     {
@@ -419,6 +407,48 @@ NodeKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
+  case OC_capros_Node_getL2v:
+    if (opaque) goto opaqueError;
+
+    COMMIT_POINT();
+
+    inv->exit.code = RC_OK;
+    inv->exit.w1 = node_GetL2vField(theNode) & NODE_L2V_MASK;
+    return;
+
+  case OC_capros_Node_setL2v:
+    if (opaque) goto opaqueError;
+
+    COMMIT_POINT();
+
+    unsigned int newL2v = inv->entry.w1;
+    if (! (newL2v < (sizeof(capros_Node_extAddr_t)*8) ))
+      goto request_error;
+
+    inv->exit.code = RC_OK;
+    uint8_t l2vField = node_GetL2vField(theNode);
+    uint8_t oldL2v = l2vField & NODE_L2V_MASK;
+    // inv->exit.w1 = oldL2v;
+    node_SetL2vField(theNode, l2vField - oldL2v + newL2v);
+    return;
+
+  case OC_capros_Node_setKeeper:
+    if (opaque) goto opaqueError;
+
+    node_SetSlot(theNode, capros_Node_keeperSlot, inv);
+
+    node_SetL2vField(theNode, node_GetL2vField(theNode) | NODE_KEEPER);
+    return;
+
+  case OC_capros_Node_clearKeeper:
+    if (opaque) goto opaqueError;
+
+    COMMIT_POINT();
+
+    node_SetL2vField(theNode, node_GetL2vField(theNode) & ~ NODE_KEEPER);
+    inv->exit.code = RC_OK;
+    return;
+
   case OC_capros_Node_clone:
     {
       /* copy content of node key in arg0 to current node */
@@ -447,56 +477,17 @@ NodeKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
-#if 0
-  /* Removed because keeping the reserves straight is a pain in the ass. */
-  case OC_capros_Node_WriteNumbers:
-    {
-      if (isFetch) {
-	inv.exit.code = RC_capros_key_NoAccess;
-	return;
-      }
-
-      inv.exit.code = RC_capros_key_RequestError;
-
-      struct inMsg {
-	Word start;
-	Word end;
-	Word numBuf[EROS_NODE_SIZEx][3];	/* number key data fields */
-      } req;
-
-      /* If we overwrite it, we're going to nail all of it's
-       * dependencies anyway:
-       */
-      
-      theNode->Unprepare(true);
-
-      theNode->MakeObjectDirty();
-
-      COMMIT_POINT();
-
-      bzero(&req, sizeof(req));
-      inv.CopyIn(sizeof(req), &req);
-
-      if (req.start >= EROS_NODE_SIZEx ||
-	  req.end >= EROS_NODE_SIZEx ||
-	  req.start > req.end)
-	return;
-
-      for (uint32_t k = req.start; k < req.end; k++) {
-	(*theNode)[k].KS_SetNumberKey(req.numBuf[(k-req.start)][2],
-                                      req.numBuf[(k-req.start)][1],
-                                      req.numBuf[(k-req.start)][0] );
-      }
-
-      return;
-    }
-#endif
-
   default:
     COMMIT_POINT();
 
     inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
+
+opaqueError:
+  COMMIT_POINT();
+request_error:
+  inv->exit.code = RC_capros_key_RequestError;
+  return;
 }
 
