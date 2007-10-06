@@ -750,14 +750,14 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   /* There are two cases where the actual invocation may proceed on a
    * key other than the invoked key:
    * 
-   *   Invocation of kept red segment key proceeds as invocation on
+   *   Invocation of forwarder key proceeds as invocation on
    *     the keeper, AND observes the slot 2 convention of the format
    *     key!!!   Because this must overwrite slot 2, it must occur
    *     following the entry block preparation.
    * 
    *   Gate key to malformed domain proceeds as invocation on void.
    * 
-   * The red seg test is done first because the extracted gate key (if
+   * The forwarder test is done first because the extracted gate key (if
    * any) needs to pass the well-formed test too.
    */
   
@@ -788,14 +788,13 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
       /* Not hazarded because invocation key */
       inv.key = &(wrapperNode->slot[ForwarderTargetSlot]);
-      inv.invKeyType = keyBits_GetType(inv.key);
     } else {
       // Target is not a gate key - treat as void. 
       keyBits_InitToVoid(&inv.scratchKey);
       inv.key = &inv.scratchKey;
-      inv.invKeyType = keyBits_GetType(inv.key);
       // Don't set INV_SCRATCHKEY; no need to clean up
     }
+    inv.invKeyType = keyBits_GetType(inv.key);
 
     key_Prepare(inv.key);	/* MAY YIELD!!! */
   }

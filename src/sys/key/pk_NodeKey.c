@@ -117,9 +117,9 @@ SwapSlot(Invocation * inv, Node * theNode, Key * slot)
 static void
 WalkExtended(Invocation * inv, Node * curNode, bool write)
 {
-  unsigned int depthRemaining = 32;	// max levels deep
   uint32_t addr = inv->entry.w1;
   unsigned int restrictions = inv->key->keyPerms;
+  unsigned int curL2v = NODE_L2V_MASK + 1;	// max l2v +1
 
   for(;;) {
     if (write && (restrictions & capros_Node_readOnly)) {
@@ -128,12 +128,14 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
     }
 
     uint8_t l2vField = node_GetL2vField(curNode);
-    unsigned int curL2v = l2vField & NODE_L2V_MASK;
+    unsigned int newL2v = l2vField & NODE_L2V_MASK;
 
-    if (--depthRemaining == 0) {
-      inv->exit.code = RC_capros_Node_TooDeep;
+    /* L2v must decrease at each iteration, othewise we could loop forever. */
+    if (newL2v >= curL2v) {
+      inv->exit.code = RC_capros_Node_Nondecreasing;
       goto fault_exit;
     }
+    curL2v = newL2v;
 
     unsigned int maxSlot;
 
@@ -229,6 +231,8 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
   switch (inv->entry.code) {
   case OC_capros_key_getType:
+    if (node_GetL2vField(theNode) & NODE_KEEPER)	// has a keeper
+      goto invoke_keeper;
     {
       COMMIT_POINT();
 
@@ -238,6 +242,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
     }
 
   case OC_capros_Node_getSlot:
+    if (opaque) goto check_keeper;
     {
       uint32_t slot = inv->entry.w1;
 
@@ -272,6 +277,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
     }      
 
   case OC_capros_Node_swapSlot:
+    if (opaque) goto check_keeper;
     {
       /* Only the process creator can have node keys to process components,
       and it should not be doing weird stuff: */
@@ -363,6 +369,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
 #endif
 
   case OC_capros_Node_writeNumber:
+    if (opaque) goto check_keeper;
     {
       uint32_t slot;
       capros_Number_value nkv;
@@ -395,20 +402,17 @@ NodeKey(Invocation* inv /*@ not null @*/)
 
       node_ClearHazard(theNode, slot);
 
-
       assert( keyBits_IsUnprepared(node_GetKeyAtSlot(theNode, slot) ));
       key_SetToNumber(node_GetKeyAtSlot(theNode, slot),
 		      nkv.value[2],
 		      nkv.value[1],
 		      nkv.value[0]);
 
-      act_Prepare(act_Current());
-
       return;
     }
 
   case OC_capros_Node_getL2v:
-    if (opaque) goto opaqueError;
+    if (opaque) goto check_keeper;
 
     COMMIT_POINT();
 
@@ -417,7 +421,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
     return;
 
   case OC_capros_Node_setL2v:
-    if (opaque) goto opaqueError;
+    if (opaque) goto check_keeper;
 
     COMMIT_POINT();
 
@@ -433,7 +437,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
     return;
 
   case OC_capros_Node_setKeeper:
-    if (opaque) goto opaqueError;
+    if (opaque) goto check_keeper;
 
     node_SetSlot(theNode, capros_Node_keeperSlot, inv);
 
@@ -441,7 +445,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
     return;
 
   case OC_capros_Node_clearKeeper:
-    if (opaque) goto opaqueError;
+    if (opaque) goto check_keeper;
 
     COMMIT_POINT();
 
@@ -450,6 +454,7 @@ NodeKey(Invocation* inv /*@ not null @*/)
     return;
 
   case OC_capros_Node_clone:
+    if (opaque) goto check_keeper;
     {
       /* copy content of node key in arg0 to current node */
       if (isFetch) {
@@ -477,15 +482,31 @@ NodeKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
+  case OC_capros_key_destroy:	// we explicitly do not handle this
   default:
+check_keeper:
+    if (node_GetL2vField(theNode) & NODE_KEEPER) {	// has a keeper
+invoke_keeper: ;
+      Key * keeperKey = node_GetKeyAtSlot(theNode, capros_Node_keeperSlot);
+      key_Prepare(keeperKey);
+      if (keyBits_IsGateKey(keeperKey)) {
+        inv->key = keeperKey;
+      }
+      else {
+        // Target is not a gate key - treat as void. 
+        keyBits_InitToVoid(&inv->scratchKey);
+        inv->key = &inv->scratchKey;
+      }
+      inv->invKeyType = keyBits_GetType(inv->key);
+      assert(false); ////... invoke gate
+    }
+
     COMMIT_POINT();
 
     inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
 
-opaqueError:
-  COMMIT_POINT();
 request_error:
   inv->exit.code = RC_capros_key_RequestError;
   return;

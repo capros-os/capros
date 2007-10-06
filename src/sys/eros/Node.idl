@@ -4,7 +4,7 @@ package capros;
  */
 interface Node extends key raises (key.RequestError) {
   exception NoAddr;
-  exception TooDeep;
+  exception Nondecreasing;
 
   const unsigned byte nSlots = 32;
   const unsigned byte l2nSlots = 5;	// log base 2 of the above
@@ -20,7 +20,7 @@ interface Node extends key raises (key.RequestError) {
 
   /* Return the key at the specified address in a tree of nodes. */
   // Raises NoAddr if the address does not exist.
-  // Raises TooDeep if the tree is >= 32 nodes deep.
+  // Raises Nondecreasing if the l2v of the nodes is nondecreasing. */
   capros.key getSlotExtended(extAddr_t slot); 
 
   /* Store a key into the specified slot and return the former contents. */
@@ -30,7 +30,7 @@ interface Node extends key raises (key.RequestError) {
   and return the former contents. */
   // Raises NoAddr if the address does not exist.
   // Raises NoAccess if this or any node key in the path is readOnly.
-  // Raises TooDeep if the tree is >= 32 nodes deep.
+  // Raises Nondecreasing if the l2v of the nodes is nondecreasing. */
   capros.key swapSlotExtended(extAddr_t slot, capros.key k); 
 
   /* Store a number key into the specified slot. */
@@ -46,7 +46,15 @@ interface Node extends key raises (key.RequestError) {
   void setL2v(unsigned byte newL2v); 
 
   /* Sets a key as the Node's keeper. */
-  /* Any methods not handled by the node are sent to the keeper. */
+  /* The keeper slot may not be used in *SlotExtended (else NoAddr). */
+  /* (The keeper slot may be overwritten with swapSlot(keeperSlot).) */
+
+  /* key.getType goes to the keeper if there is one.
+     key.destroy always goes to the keeper.
+     If the key is opaque, all other operations, except *SlotExtended
+     and reduce, go to the keeper. 
+     Any methods not handled by the node go to the keeper. */
+  /* If the keeper is not a gate key, it is not called. */
   void setKeeper(capros.key k);
 
   /* Sets the Node as having no keeper. Slot keeperSlot is unchanged. */
