@@ -1,7 +1,8 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
+# Copyright (C) 2007, Strawberry Development Group
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,29 +17,32 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
 
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 default: install
 
 CROSS_BUILD=yes
 
 EROS_SRC=../../../..
+IMGMAP=imgmap
 include $(EROS_SRC)/build/make/makevars.mk
 
-GENERATED=constituents.h
-TARGETS=extnode
-OBJECTS=extnode.o
-INC=-I$(EROS_ROOT)/include
+GENERATED=$(BUILDDIR)/constituents.h
+TARGETS=$(BUILDDIR)/extnode
+OBJECTS=$(BUILDDIR)/extnode.o
+INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
-include ../test.mk
+include ../../test.mk
 
 install all: $(TARGETS)
 
-extnode.c: constituents.h
+extnode.c: $(BUILDDIR)/constituents.h
 
-extnode: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o extnode $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB)
+$(BUILDDIR)/extnode: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
+	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB)
 
--include .*.m
+-include $(BUILDDIR)/.*.m

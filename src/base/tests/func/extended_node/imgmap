@@ -2,8 +2,9 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,6 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*********************************************
  * PRIMORDIAL DOMAINS
@@ -27,36 +31,15 @@
 #include <primebank.map>
 #include <ipltool.map>
 
-extnode = new process;
+extnode = new process with constituents;
 
-extnode space = small program "extnode";
-extnode pc = symbol "extnode" _start;
+extnode space = small program BUILDDIR "extnode";
+extnode pc = symbol BUILDDIR "extnode" _start;
 extnode schedule = sched(8);
 
 CONSTIT(extnode, KC_OSTREAM, 3) = misc Console;
-
-tree = new node with lss 0;
-bigtree = new node with lss 1;
-
-tree[0] = number(0);
-tree[1] = number(1);
-
-bigtree[0] = new node with lss 0;
-bigtree[1] = new node with lss 0;
-
-bigtree[0][0] = number(0);
-bigtree[0][1] = number(1);
-bigtree[1][0] = number(0x20);
-bigtree[1][1] = number(0x21);
-
-CONSTIT(extnode, KC_OSTREAM, 3) = misc Console;
-CONSTIT(extnode, KC_KEYBITS, 4) = misc KeyBits;
-CONSTIT(extnode, KC_TREE, 5) = tree;
-CONSTIT(extnode, KC_BIGTREE, 6) = bigtree;
 
 extnode key reg KR_SELF = extnode;
 extnode key reg KR_BANK = primebank;
 
 run extnode;
-
-print directory;
