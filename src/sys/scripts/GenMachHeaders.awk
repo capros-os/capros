@@ -35,7 +35,7 @@ BEGIN {
 
 /^[ \t]*$/   { next; }
 
-NF == 1 {
+NF != 0 {
   arch[nArch] = $1;
   nArch = nArch + 1;
 }
