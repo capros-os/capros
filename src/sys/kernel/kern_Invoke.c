@@ -89,7 +89,7 @@ UnimplementedKey(Invocation* inv /*@ not null @*/)
 INLINE void 
 proc_KeyDispatch(Invocation *pInv)
 {
-  switch(inv.invKeyType) {
+  switch (inv.invKeyType) {
 #define __EROS_PRIMARY_KEYDEF(kn, isValid, bindTo) case KKT_##kn: bindTo##Key(pInv); break;
 #include <eros/StdKeyType.h>
     default:
@@ -436,13 +436,91 @@ proc_BuildResumeKey(Process* thisPtr,	/* resume key to this process */
 #endif
 }
 
-#ifdef __cplusplus
-extern "C" {
-  uint64_t rdtsc();
-};
-#else
-extern uint64_t rdtsc();
+// May Yield.
+void
+inv_GetReturnee(Invocation * inv)
+{
+  if (invType_IsCall(inv->invType)) {
+    // FIXME: this may not be a good idea for IT_KeeperCall.
+    /* Call on non-gate key always returns to caller and requires no
+     * resume key.
+     */
+    inv->invokee = act_CurContext();
+    // inv->entry.key[3] = &key_VoidKey;
+  }
+  else {
+    /* Kernel key invoked with RETURN or SEND.  Key in slot 3 must be a
+     * resume key, else we will not return to anyone.  */
+
+    Key * rk /*@ not null @*/ = inv->entry.key[3];
+    key_Prepare(rk);
+
+    /* Kernel keys do a prompt return, so the key in
+     * slot four must be a resume key to a party in the right state.
+     */
+
+    assert(keyBits_IsHazard(rk) == false);
+    
+    if (keyBits_IsPreparedResumeKey(rk)) {
+      Process * p = rk->u.gk.pContext;
+      proc_Prepare(p);
+
+      assert(p->runState == RS_Waiting);
+
+      if (! proc_IsWellFormed(inv->invokee)) {
+#ifdef GATEDEBUG
+        dprintf(GATEDEBUG>2, "Invokee malformed\n");
 #endif
+        assert (inv->invokee == 0);
+      }
+      else
+        inv->invokee = p;
+    }
+    else
+      assert (inv->invokee == 0);
+  }
+  
+#ifdef GATEDEBUG
+  if (inv->invokee)
+    dprintf(GATEDEBUG>2, "Invokee now valid\n");
+  else
+    dprintf(GATEDEBUG>2, "Invokee doesn't exist\n");
+#endif
+
+  inv_SetupExitBlock(inv);
+}
+
+void
+inv_SetupExitBlock(Invocation * inv)
+{
+  assert(inv->invokee == 0 || proc_IsRunnable(inv->invokee));
+  
+  /* It does not matter if the invokee fails to prepare!
+   * Note that we may be calling this with 'this == 0'
+   */
+  proc_SetupExitBlock(inv->invokee, inv);
+
+#ifdef GATEDEBUG
+  dprintf(GATEDEBUG>2, "Populated exit block\n");
+#endif
+  
+  if (inv->invType == IT_Send) {
+    /* If this is a send, and we are either (a) invoking a gate key,
+       or (b) invoking a kernel key and passing a resume key to
+       someone else, then we will need a new activity.
+       Allocate it now before the invocation is committed. */
+
+    if (inv->invokee) {
+      allocatedActivity = act_AllocActivity();
+      allocatedActivity->state = act_Ready;
+#ifdef GATEDEBUG
+      dprintf(GATEDEBUG>2, "Built new activity for Send\n");
+#endif
+    }
+  }
+}
+
+extern uint64_t rdtsc();
 
 #ifdef OPTION_KERN_TIMING_STATS
 uint64_t top_time;
@@ -538,47 +616,17 @@ proc_DoKeyInvocation(Process* thisPtr)
   if (inv.invKeyType == KKT_Forwarder)
     goto general_path;
 
-  if (keyBits_IsGateKey(inv.key)) {
-    inv.invokee = inv.key->u.gk.pContext;
-    if (proc_IsWellFormed(inv.invokee) == false)
-      goto general_path;
-
-    /* If this is a resume key, we know the process is in the
-     * RS_Waiting state.  If it is a start key, the process might be
-     * in any state.  Do not solve the problem here to avoid loss of
-     * I-cache locality in this case; we are going to sleep anyway.
-     */
-    if (inv.invKeyType == KKT_Start && inv.invokee->runState != RS_Available)
-      goto general_path;
-  }
-  else {
-    if (inv.invType != IT_Call)
-      goto general_path;
-    
-    inv.invokee = thisPtr;
-  }
-
-  if (proc_IsRunnable(inv.invokee) == false)
-    goto general_path;
-
-  /* capros_Process_PF_ExpectingMessage isn't significant while RS_Running, so it is OK
-  to change it before the invocation is committed. */
+  /* capros_Process_PF_ExpectingMessage isn't significant while RS_Running,
+  so it is OK to change it before the invocation is committed. */
   assert(inv.invType != IT_KeeperCall);
   thisPtr->processFlags |= capros_Process_PF_ExpectingMessage;
   
-  /* It does not matter if the invokee fails to prepare!
-   */
-  proc_SetupExitBlock(inv.invokee, &inv);
-#ifdef GATEDEBUG
-  dprintf(true, "Fast path, set up exit block\n");
+#if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
+  if (dbg_wild_ptr)
+    check_Consistency("DoKeyInvocation() before invoking handler\n");
 #endif
 
   {
-#if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
-    if (dbg_wild_ptr)
-      check_Consistency("DoKeyInvocation() before invoking handler\n");
-#endif
-
 #if defined(OPTION_KERN_TIMING_STATS)
     uint64_t pre_handler = rdtsc();
 #endif
@@ -616,58 +664,66 @@ proc_DoKeyInvocation(Process* thisPtr)
 #endif
   }
 
-  /* Now for the tricky part.  It's possible that the proces did an
-   * invocation whose effect was to blow the invokee apart.  I know of
-   * no way to speed these checks:
-   */
+  if (inv.invokee) {
+    /* It's possible that the process did an
+     * invocation whose effect was to blow the invokee apart. */
 
-  if (proc_IsNotRunnable(inv.invokee)) {
-    if (inv.invokee->procRoot == 0)
-      goto invokee_died;
+    if (proc_IsNotRunnable(inv.invokee)) {
+      if (inv.invokee->procRoot == 0)
+        goto invokee_died;
 
-    proc_Prepare(inv.invokee);
+      proc_Prepare(inv.invokee);
 
-    if (proc_IsNotRunnable(inv.invokee))
-      goto invokee_died;
-  }
+      if (proc_IsNotRunnable(inv.invokee)) {
+   invokee_died:
+#ifdef GATEDEBUG
+        dprintf(GATEDEBUG>2, "invokee died\n");
+#endif
+        goto no_invokee;
+      }
+    }
 
-  inv.invokee->runState = RS_Running;
+    inv.invokee->runState = RS_Running;
 
-  /* 
+    /* 
      If this was a kernel key invocation in the fast path, we never
      bothered to actually set them waiting, but they were logically in
      the waiting state nonetheless.
 
      This is the C fast path, so we don't need to worry about the SEND
      case.
-  */
-  if (proc_IsExpectingMsg(inv.invokee)) {
-    if (!inv.suppressXfer) {
-      proc_DeliverResult(inv.invokee, &inv);
+    */
+    if (proc_IsExpectingMsg(inv.invokee)) {
+      if (!inv.suppressXfer) {
+        proc_DeliverResult(inv.invokee, &inv);
+      }
+      // else this was done by GateKey
+
+      proc_AdvancePostInvocationPC(inv.invokee);
     }
-    // else this was done by GateKey
-
-    proc_AdvancePostInvocationPC(inv.invokee);
-  }
 #if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
-  if (dbg_wild_ptr)
-    check_Consistency("DoKeyInvocation() after DeliverResult()\n");
+    if (dbg_wild_ptr)
+      check_Consistency("DoKeyInvocation() after DeliverResult()\n");
 #endif
 
-  if (inv.invokee != thisPtr) {
-    /* Following is only safe because we handle non-call on primary
-     * key in the general path.
-     */
-    if (inv.invKeyType == KKT_Resume)
-      keyR_ZapResumeKeys(&inv.invokee->keyRing);
+    if (inv.invokee != thisPtr) {
+      /* Following is only safe because we handle non-call on primary
+       * key in the general path.
+       */
+      if (inv.invKeyType == KKT_Resume)
+        keyR_ZapResumeKeys(&inv.invokee->keyRing);
 
-    act_MigrateTo(act_Current(), inv.invokee);
+      act_MigrateTo(act_Current(), inv.invokee);
 #ifdef OPTION_DDB
-    /*if (inv.invokee->priority == pr_Never)*/
-    if (inv.invokee->readyQ == &prioQueues[pr_Never])
-      dprintf(true, "Thread now in ctxt 0x%08x w/ bad schedule\n", 
-              inv.invokee);
+      if (inv.invokee->readyQ == &prioQueues[pr_Never])
+        dprintf(true, "Thread now in ctxt 0x%08x w/ bad schedule\n", 
+                inv.invokee);
 #endif
+    }
+  }
+  else {	// inv.invokee == 0
+ no_invokee:
+    act_MigrateTo(act_Current(), 0);
   }
   
   inv_Cleanup(&inv);
@@ -712,15 +768,6 @@ proc_DoKeyInvocation(Process* thisPtr)
   /* This path has its own, entirely separate recovery logic.... */
   proc_DoGeneralKeyInvocation(thisPtr);
   return;
-  
- invokee_died:
-#ifdef GATEDEBUG
-  dprintf(GATEDEBUG>2, "invokee died\n");
-#endif
-  
-  inv.invokee = 0;
-  inv_Cleanup(&inv);
-  act_MigrateTo(act_Current(), 0);
 }
 
 /* On entry, inv entry block has been set up. */
@@ -825,102 +872,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   assert(keyBits_IsPrepared(inv.key));
 
   inv.invokee = 0;		/* until proven otherwise */
-  
-  /* Right now a corner case here is buggered because we have not yet
-   * updated the caller's runstate according to the call type.  As a
-   * result, a return on a start key to yourself won't work in this
-   * code.
-   */
-  
-  if ( keyBits_IsGateKey(inv.key) ) {
-    /* Make a local copy (subvert alias analysis pessimism) */
-    Process * p = inv.key->u.gk.pContext;
-    inv.invokee = p;
-    proc_Prepare(p);		/* may yield */
-
-    if (proc_IsWellFormed(p) == false) {
-      /* Not hazarded because invocation key */
-      /* Pretend we invoked a void key. */
-      inv.key = &key_VoidKey;
-#ifndef invKeyType
-      inv.invKeyType = KKT_Void;
-#endif
-      inv.invokee = thisPtr;	// Huh? FIXME
-      inv.entry.key[RESUME_SLOT] = &key_VoidKey;	// Huh? FIXME
-#ifndef NDEBUG
-      printf("Jumpee malformed\n");
-#endif
-    }
-
-#ifndef NDEBUG
-    else if (inv.invKeyType == KKT_Resume &&
-	     p->runState != RS_Waiting) {
-      fatal("Resume key to wrong-state context\n");
-    }
-#endif
-    else if (inv.invKeyType == KKT_Start && p->runState != RS_Available) {
-#ifdef GATEDEBUG
-      dprintf(GATEDEBUG>2, "Start key, not Available\n");
-#endif
-  
-      act_SleepOn(&p->stallQ);
-      act_Yield();
-    }
-#if 0
-    else if ( inv.invType == IT_Call ) {
-      BuildResumeKey(inv.resumeKey);
-      inv.entry.key[RESUME_SLOT] = &inv.resumeKey;
-      inv.flags |= INV_RESUMEKEY;
-    }
-#endif
-  }
-  else if (invType_IsCall(inv.invType)) {
-    // FIXME: this may not be a good idea for IT_KeeperCall.
-    /* Call on non-gate key always returns to caller and requires no
-     * resume key.
-     *
-     * ISSUE: This will not look right to DDB, but it's correct. When
-     * you next look at puzzling DDB state and wonder why the resume
-     * key never got generated, it is because I did not want to deal
-     * with the necessary key destruction overhead. The register
-     * renaming key fabrication strategy should regularize this rather
-     * nicely when we get there.
-     */
-    inv.invokee = thisPtr;
-    inv.entry.key[3] = &key_VoidKey;
-  }
-  else {
-    /* Kernel key invoked with RETURN or SEND.  Key in slot 3 must be a
-     * resume key, and if so the process must be waiting, else we will
-     * not return to anyone.
-     */
-
-    Key* rk /*@ not null @*/ = inv.entry.key[3];
-    key_Prepare(rk);
-
-    /* Kernel keys do a prompt return, so the key in
-     * slot four must be a resume key to a party in the right state.
-     */
-
-    assert(keyBits_IsHazard(rk) == false);
-    
-    if (keyBits_IsPreparedResumeKey(rk)) {
-      Process *p = rk->u.gk.pContext;
-      proc_Prepare(p);
-
-      assert(p->runState == RS_Waiting);
-      inv.invokee = p;
-    }
-    else
-      assert (inv.invokee == 0);
-  }
-  
-#ifdef GATEDEBUG
-  if (inv.invokee)
-    dprintf(GATEDEBUG>2, "Invokee exists\n");
-  else
-    dprintf(GATEDEBUG>2, "Invokee doesn't exist\n");
-#endif
 
   /* capros_Process_PF_ExpectingMessage isn't significant while RS_Running, so it is OK
   to change it before the invocation is committed.
@@ -930,62 +881,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   else
     thisPtr->processFlags |= capros_Process_PF_ExpectingMessage;
 
-  /********************************************************************
-   * It is still possible that the invoker will block while
-   * some part of the invokee gets paged in or while waiting for an
-   * available Activity structure.  The latter is a problem, and needs
-   * to be dealt with.  Note that the finiteness of the activity pool
-   * isn't the source of the problem -- the real problem is that we
-   * might not be able to fit all of the running domains in the swap
-   * area. Eventually we shall need to implement a decongester to deal
-   * with this, but that can wait.
-   *********************************************************************/
-
-  if (inv.invokee && proc_IsWellFormed(inv.invokee) == false) {
-#ifdef GATEDEBUG
-    dprintf(GATEDEBUG>2, "Invokee malformed\n");
-#endif
-
-    inv.invokee = 0;
-  }
-
   assert(keyBits_IsPrepared(inv.key));
-  
-#ifdef GATEDEBUG
-  dprintf(GATEDEBUG>2, "Invokee now valid\n");
-#endif
-
-  assert(inv.invokee == 0 || proc_IsRunnable(inv.invokee));
-  
-  /* It does not matter if the invokee fails to prepare!
-   * Note that we may be calling this with 'this == 0'
-   */
-  proc_SetupExitBlock(inv.invokee, &inv);
-
-#ifdef GATEDEBUG
-  dprintf(GATEDEBUG>2, "Populated exit block\n");
-#endif
-  
-  /* Identify the activity that will migrate to the recipient.  Normally
-   * it's the current activity.  If this is a SEND invocation, it's a
-   * new activity.  Populate this activity consistent with the invokee.
-   */
-
-  if (inv.invType == IT_Send) {
-    /* If this is a send, and we are either (a) invoking a gate key,
-       or (b) invoking a kernel key and passing a resume key to
-       someone else, then we will need a new activity.
-       Allocate it now to avoid awkwardness after the invocation
-       is committed. */
-
-    if (inv.invokee) {
-      allocatedActivity = act_AllocActivity();
-      allocatedActivity->state = act_Ready;
-#ifdef GATEDEBUG
-      dprintf(GATEDEBUG>2, "Built new activity for Send\n");
-#endif
-    }
-  }
   
 #if defined(OPTION_DDB) && !defined(NDEBUG)
   bool invoked_gate_key = keyBits_IsGateKey(inv.key);

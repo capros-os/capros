@@ -39,8 +39,46 @@ Approved for public release, distribution unlimited. */
 void
 GateKey(Invocation* inv /*@ not null @*/)
 {
-  Process *invokee = inv->invokee;
+  /* Make a local copy (so the compiler can optimize it) */
+  Process * invokee = inv->key->u.gk.pContext;
+  if (! proc_IsRunnable(invokee)) {
+    proc_DoPrepare(invokee);		/* may yield */
+
+    if (! proc_IsWellFormed(invokee)) {
+#ifndef NDEBUG
+      printf("Jumpee malformed\n");
+#endif
+
+      /* Pretend we invoked a void key. */
+      // No need to set inv->key and inv->invKeyType.
+      VoidKey(inv);
+      return;
+    }
+  }
+  // Runnable implies well-formed.
+  assert(proc_IsWellFormed(invokee));
+  inv->invokee = invokee;
+
+  // Check invokee's state.
+  assert(inv->invKeyType != KKT_Resume || invokee->runState == RS_Waiting);
+  if (inv->invKeyType == KKT_Start && invokee->runState != RS_Available) {
   
+    /* Right now a corner case here is buggered because we have not yet
+     * updated the caller's runstate according to the call type.  As a
+     * result, a return on a start key to yourself won't work in this
+     * code.
+     */
+
+#ifdef GATEDEBUG
+    dprintf(GATEDEBUG>2, "Start key, not Available\n");
+#endif
+  
+    act_SleepOn(&invokee->stallQ);
+    act_Yield();
+  }
+
+  inv_SetupExitBlock(inv);
+
 #ifdef GK_DEBUG
   printf("Enter GateKey(), invokedKey=0x%08x\n", inv->key);
 #endif

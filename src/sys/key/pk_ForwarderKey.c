@@ -35,6 +35,8 @@ Approved for public release, distribution unlimited. */
 void
 ForwarderKey(Invocation* inv)
 {
+  inv_GetReturnee(inv);
+
   uint32_t slot;
   // We should only get here if the key is not opaque:
   assert(! (inv->key->keyData & capros_Forwarder_opaque));

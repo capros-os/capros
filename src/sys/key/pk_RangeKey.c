@@ -253,6 +253,8 @@ key_GetRange(Key * key, /* out */ OID * rngStart)
 void
 RangeKey(Invocation* inv /*@ not null @*/)
 {
+  inv_GetReturnee(inv);
+
   bool waitFlag;
 
   capros_Range_off_t range;

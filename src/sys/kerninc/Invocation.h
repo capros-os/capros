@@ -127,6 +127,8 @@ void
 inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data);
 uint32_t 
 inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data);
+void inv_GetReturnee(Invocation * inv);
+void inv_SetupExitBlock(Invocation * inv);
 
 /* This is the only instance of Invocation.
    I think the plan was to have one instance for each CPU. */
@@ -135,7 +137,7 @@ struct Activity;
 extern struct Activity * activityToRelease;
 
 typedef void (*KeyHandler)(Invocation*);
-void FaultGate(Invocation*);
+void VoidKey(Invocation *);
 
 /* Commit point appears in each invocation where the invocation should
  * now be able to proceed without impediment. It may Yield. 

@@ -197,7 +197,7 @@ proc_IsWellFormed(Process* thisPtr)
                          )) {
     return false;
   }
-    return true;
+  else return true;
 }
 
 #ifdef EROS_HAVE_FPU

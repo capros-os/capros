@@ -36,6 +36,8 @@ Approved for public release, distribution unlimited. */
 void
 VoidKey(Invocation* inv /*@ not null @*/)
 {
+  inv_GetReturnee(inv);
+
   COMMIT_POINT();
       
   inv->exit.code = RC_capros_key_Void;

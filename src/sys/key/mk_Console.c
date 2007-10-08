@@ -26,7 +26,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Key.h>
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>
-/*#include <kerninc/KernStream.h>*/
 #include <kerninc/Activity.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
@@ -41,7 +40,8 @@ extern void kstream_PutBuf(uint8_t *s, uint32_t len);
 void
 ConsoleKey(Invocation* inv /*@ not null @*/)
 {
-  
+  inv_GetReturnee(inv);
+
   switch(inv->entry.code) {
   case OC_Console_Put:
     {

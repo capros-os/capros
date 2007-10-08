@@ -221,8 +221,10 @@ NodeClone(Node * toNode, Key * fromKey)
 
 /* May Yield. */
 void
-NodeKey(Invocation* inv /*@ not null @*/)
+NodeKey(Invocation * inv)
 {
+  inv_GetReturnee(inv);
+
   bool isSense = keyBits_IsWeak(inv->key);	// is this feature used?
   bool isFetch = keyBits_IsReadOnly(inv->key);
   bool opaque = inv->key->keyPerms & capros_Node_opaque;

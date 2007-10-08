@@ -58,13 +58,8 @@ $(GENERATED): ../../ARCH-LIST Makefile $(GENMACHHEADERS)
 
 # NOTE that target-asm.h also gets installed in the domain include tree!
 install: $(GENERATED)
-	$(INSTALL) -d $(EROS_ROOT)/include
-	$(INSTALL) -d $(EROS_ROOT)/include/eros
 	$(INSTALL) -d $(EROS_ROOT)/include/eros/machine
 	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/include/eros/machine
-	$(INSTALL) -d $(EROS_ROOT)/host
-	$(INSTALL) -d $(EROS_ROOT)/host/include
-	$(INSTALL) -d $(EROS_ROOT)/host/include/eros
 	$(INSTALL) -d $(EROS_ROOT)/host/include/eros/machine
 	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/host/include/eros/machine
 

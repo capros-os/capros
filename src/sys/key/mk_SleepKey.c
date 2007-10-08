@@ -40,6 +40,8 @@ Approved for public release, distribution unlimited. */
 void
 SleepKey(Invocation* inv /*@ not null @*/)
 {
+  inv_GetReturnee(inv);
+
   switch (inv->entry.code) {
   case OC_capros_Sleep_getTimeMonotonic:
     COMMIT_POINT();

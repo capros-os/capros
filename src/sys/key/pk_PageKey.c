@@ -36,6 +36,8 @@ Approved for public release, distribution unlimited. */
 void
 PageKey(Invocation* inv /*@ not null @*/)
 {
+  inv_GetReturnee(inv);
+
   PageHeader * pageH = objH_ToPage(key_GetObjectPtr(inv->key));
   kva_t pageAddress = pageH_GetPageVAddr(pageH);
 

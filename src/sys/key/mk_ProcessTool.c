@@ -154,6 +154,8 @@ CompareBrand(Invocation* inv /*@ not null @*/, Key* pDomKey, Key* pBrand)
 void
 ProcessToolKey(Invocation* inv /*@ not null @*/)
 {
+  inv_GetReturnee(inv);
+
 #if 0
   Key& arg0Key = inv.entry.key[0]; /* user-provided key arg 0 */
   Key& arg1Key = inv.entry.key[1]; /* user-provided brand key */

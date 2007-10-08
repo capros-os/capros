@@ -50,6 +50,8 @@ Approved for public release, distribution unlimited. */
 void
 DevicePrivsKey(Invocation* inv /*@ not null @*/)
 {
+  inv_GetReturnee(inv);
+
   unsigned source = inv->entry.w1;
   VICIntSource * vis = &VICIntSources[source];
 

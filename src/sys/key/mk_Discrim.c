@@ -36,6 +36,8 @@ Approved for public release, distribution unlimited. */
 void
 DiscrimKey(Invocation* inv /*@ not null @*/)
 {
+  inv_GetReturnee(inv);
+
   switch(inv->entry.code) {
 
   case OC_capros_Discrim_classify:

@@ -95,6 +95,8 @@ uint64_t bytes_moved = 0;
 void
 SysTraceKey(Invocation* inv /*@ not null @*/)
 {
+  inv_GetReturnee(inv);
+
   static uint64_t startcy = 0;
   static uint64_t startTick = 0ll;
   static uint64_t startInvoke = 0ll;

@@ -79,6 +79,8 @@ DoMemoryReduce(Invocation * inv)
 void
 GPTKey(Invocation * inv)
 {
+  inv_GetReturnee(inv);
+
   GPT * theGPT = (GPT *) key_GetObjectPtr(inv->key);
   bool opaque = inv->key->keyPerms & capros_Memory_opaque;
 

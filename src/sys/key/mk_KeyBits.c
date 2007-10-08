@@ -63,6 +63,8 @@ Approved for public release, distribution unlimited. */
 void
 KeyBitsKey(Invocation* inv /*@ not null @*/)
 {
+  inv_GetReturnee(inv);
+
   switch(inv->entry.code) {
   case OC_capros_key_getType:
     COMMIT_POINT();

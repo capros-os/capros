@@ -44,6 +44,8 @@ void proc_SetRegs32(Process * thisPtr,
 void
 ProcessKey(Invocation * inv)
 {
+  inv_GetReturnee(inv);
+
   Node * theNode = (Node *) key_GetObjectPtr(inv->key);
 
   switch (inv->entry.code) {
