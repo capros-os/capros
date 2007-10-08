@@ -79,10 +79,44 @@ DoMemoryReduce(Invocation * inv)
 void
 GPTKey(Invocation * inv)
 {
-  inv_GetReturnee(inv);
-
-  GPT * theGPT = (GPT *) key_GetObjectPtr(inv->key);
+  GPT * theGPT = objH_ToNode(key_GetObjectPtr(inv->key));
   bool opaque = inv->key->keyPerms & capros_Memory_opaque;
+
+  if ( opaque
+       && (gpt_GetL2vField(theGPT) & GPT_KEEPER)
+       && ! keyBits_IsReadOnly(inv->key)
+       && ! keyBits_IsNoCall(inv->key)
+       && ! keyBits_IsWeak(inv->key) ) {
+    Key * kprKey = &theGPT->slot[capros_GPT_keeperSlot];
+
+    // Prepare it now, in case a gate key becomes void.
+    key_Prepare(kprKey);	/* may yield */
+
+    /* We require the target key to be a gate key
+       to avoid unlimited recursion. */
+    if (keyBits_IsGateKey(kprKey) ) {
+      // Never send a word in w1.
+      // Always send non-opaque GPT key as key[2].
+      /* Not hazarded because invocation key */
+      key_NH_Set(&inv->scratchKey, inv->key);
+      inv->scratchKey.keyPerms &= ~ capros_Memory_opaque;
+      inv->entry.key[2] = &inv->scratchKey;
+      inv->flags |= INV_SCRATCHKEY;
+
+      /* Not hazarded because invocation key */
+      inv->key = kprKey;
+      inv->invKeyType = keyBits_GetType(inv->key);
+      GateKey(inv);
+      return;
+    }
+    else {
+      // Target is not a gate key - treat as void. 
+      VoidKey(inv);
+      return;
+    }
+  } 
+  
+  inv_GetReturnee(inv);
 
   switch (inv->entry.code) {
 

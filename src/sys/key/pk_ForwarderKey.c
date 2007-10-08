@@ -25,6 +25,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Node.h>
+#include <kerninc/Activity.h>
 #include <disk/Forwarder.h>
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
@@ -35,13 +36,52 @@ Approved for public release, distribution unlimited. */
 void
 ForwarderKey(Invocation* inv)
 {
-  inv_GetReturnee(inv);
-
   uint32_t slot;
-  // We should only get here if the key is not opaque:
-  assert(! (inv->key->keyData & capros_Forwarder_opaque));
-
   Node * theNode = (Node *) key_GetObjectPtr(inv->key);
+
+  if (inv->key->keyData & capros_Forwarder_opaque) {
+    if (theNode->nodeData & ForwarderBlocked) {
+      act_SleepOn(ObjectStallQueueFromObHdr(&theNode->node_ObjHdr));
+      act_Yield();
+    }
+
+    Key * targetSlot = node_GetKeyAtSlot(theNode, ForwarderTargetSlot);
+
+    // Prepare it now, in case a gate key becomes void.
+    key_Prepare(targetSlot);	// may Yield
+
+    // We require the target key to be a gate key to avoid unlimited recursion.
+    if (keyBits_IsGateKey(targetSlot)) {
+      if (inv->key->keyData & capros_Forwarder_sendCap) {
+	/* Not hazarded because invocation key */
+	key_NH_Set(&inv->scratchKey, inv->key);
+	keyBits_SetType(&inv->scratchKey, KKT_Forwarder);
+        inv->scratchKey.keyData = 0;	// not capros_Forwarder_opaque
+	inv->entry.key[2] = &inv->scratchKey;
+	inv->flags |= INV_SCRATCHKEY;
+      }
+
+      if (inv->key->keyData & capros_Forwarder_sendWord) {
+        Key * dataKey = &theNode->slot[ForwarderDataSlot];
+        assert(keyBits_IsType(dataKey, KKT_Number));
+	inv->entry.w3 = dataKey->u.nk.value[0];
+      }
+
+      /* Not hazarded because invocation key */
+      inv->key = targetSlot;
+      inv->invKeyType = keyBits_GetType(inv->key);
+      GateKey(inv);
+      return;
+    } else {
+      // Target is not a gate key - treat as void. 
+      VoidKey(inv);
+      return;
+    }
+  }
+
+  // The key is not opaque.
+  
+  inv_GetReturnee(inv);
 
   switch (inv->entry.code) {
   case OC_capros_key_getType:

@@ -137,6 +137,7 @@ struct Activity;
 extern struct Activity * activityToRelease;
 
 typedef void (*KeyHandler)(Invocation*);
+void GateKey(Invocation *);
 void VoidKey(Invocation *);
 
 /* Commit point appears in each invocation where the invocation should

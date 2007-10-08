@@ -608,14 +608,6 @@ proc_DoKeyInvocation(Process* thisPtr)
   if (inv.invType == IT_Send)
     goto general_path;
 
-  /* If it's a GPT key, it might have a keeper.  Take the long way: */
-  if (inv.invKeyType == KKT_GPT)
-    goto general_path;
-
-  /* If it's a forwarder, take the long way: */
-  if (inv.invKeyType == KKT_Forwarder)
-    goto general_path;
-
   /* capros_Process_PF_ExpectingMessage isn't significant while RS_Running,
   so it is OK to change it before the invocation is committed. */
   assert(inv.invType != IT_KeeperCall);
@@ -791,84 +783,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
     }
   }
 
-  /* There are two cases where the actual invocation may proceed on a
-   * key other than the invoked key:
-   * 
-   *   Invocation of forwarder key proceeds as invocation on
-   *     the keeper, AND observes the slot 2 convention of the format
-   *     key!!!   Because this must overwrite slot 2, it must occur
-   *     following the entry block preparation.
-   * 
-   *   Gate key to malformed domain proceeds as invocation on void.
-   * 
-   * The forwarder test is done first because the extracted gate key (if
-   * any) needs to pass the well-formed test too.
-   */
-  
-  if (inv.invKeyType == KKT_Forwarder
-      && (inv.key->keyData & capros_Forwarder_opaque) ) {
-    Node * wrapperNode = (Node *) key_GetObjectPtr(inv.key);
-    Key * targetSlot = node_GetKeyAtSlot(wrapperNode, ForwarderTargetSlot);
-
-    // Prepare it now, in case a gate key becomes void.
-    key_Prepare(targetSlot);	/* MAY YIELD!!! */
-
-    if (keyBits_IsGateKey(targetSlot)) {
-      if (wrapperNode->nodeData & ForwarderBlocked) {
-	act_SleepOn(ObjectStallQueueFromObHdr(&wrapperNode->node_ObjHdr));
-	act_Yield();
-      }
-
-      if (inv.key->keyData & capros_Forwarder_sendCap) {
-	/* Not hazarded because invocation key */
-	key_NH_Set(&inv.scratchKey, inv.key);
-	keyBits_SetType(&inv.scratchKey, KKT_Forwarder);
-        inv.scratchKey.keyData = 0;	// not capros_Forwarder_opaque
-	inv.entry.key[2] = &inv.scratchKey;
-	inv.flags |= INV_SCRATCHKEY;
-      }
-
-      if (inv.key->keyData & capros_Forwarder_sendWord) {
-        Key * dataKey = &wrapperNode->slot[ForwarderDataSlot];
-        assert(keyBits_IsType(dataKey, KKT_Number));
-	inv.entry.w3 = dataKey->u.nk.value[0];
-      }
-
-      /* Not hazarded because invocation key */
-      inv.key = targetSlot;
-    } else {
-      // Target is not a gate key - treat as void. 
-      keyBits_InitToVoid(&inv.scratchKey);
-      inv.key = &inv.scratchKey;
-      // Don't set INV_SCRATCHKEY; no need to clean up
-    }
-    inv.invKeyType = keyBits_GetType(inv.key);
-  }
-  else if ( inv.invKeyType == KKT_GPT
-       && ! keyBits_IsReadOnly(inv.key)
-       && ! keyBits_IsNoCall(inv.key)
-       && ! keyBits_IsWeak(inv.key)
-       && keyBits_IsOpaque(inv.key) ) {
-    GPT * gpt = objH_ToNode(key_GetObjectPtr(inv.key));
-    if (gpt_GetL2vField(gpt) & GPT_KEEPER) {
-      Key * kprKey = &gpt->slot[capros_GPT_keeperSlot];
-      if (keyBits_IsGateKey(kprKey) ) {
-        // Never send a word in w1.
-        // Always send non-opaque GPT key as key[2].
-        /* Not hazarded because invocation key */
-        key_NH_Set(&inv.scratchKey, inv.key);
-        inv.scratchKey.keyPerms &= ~ capros_Memory_opaque;
-        inv.entry.key[2] = &inv.scratchKey;
-        inv.flags |= INV_SCRATCHKEY;
-
-        /* Not hazarded because invocation key */
-        inv.key = kprKey;
-        key_Prepare(inv.key);	/* may yield */
-        inv.invKeyType = keyBits_GetType(inv.key);
-      }
-    }
-  } 
-  
   assert(keyBits_IsPrepared(inv.key));
 
   inv.invokee = 0;		/* until proven otherwise */
@@ -881,8 +795,6 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   else
     thisPtr->processFlags |= capros_Process_PF_ExpectingMessage;
 
-  assert(keyBits_IsPrepared(inv.key));
-  
 #if defined(OPTION_DDB) && !defined(NDEBUG)
   bool invoked_gate_key = keyBits_IsGateKey(inv.key);
   
@@ -913,8 +825,8 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
      Yielding if necessary.
   2. Commit the invocation. 
   3. Perform the (side) effects of the object. 
-  4. Return 4 keys to the invokee. (I want to change this: it should return to the caller of proc_KeyDispatch the number of keys returned; this code will then
-return void keys in the rest)
+  4. Return any keys to the invokee. (I want to change this: it should return to the caller of proc_KeyDispatch the number of keys returned; this code will then
+return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
   5. Return any string to the invokee, setting inv.sentLen.
   6. Set any return words in inv.
   7. Set keyData if any in inv.
