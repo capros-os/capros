@@ -45,38 +45,24 @@ ForwarderKey(Invocation* inv)
       act_Yield();
     }
 
-    Key * targetSlot = node_GetKeyAtSlot(theNode, ForwarderTargetSlot);
-
-    // Prepare it now, in case a gate key becomes void.
-    key_Prepare(targetSlot);	// may Yield
-
-    // We require the target key to be a gate key to avoid unlimited recursion.
-    if (keyBits_IsGateKey(targetSlot)) {
-      if (inv->key->keyData & capros_Forwarder_sendCap) {
-	/* Not hazarded because invocation key */
-	key_NH_Set(&inv->scratchKey, inv->key);
-	keyBits_SetType(&inv->scratchKey, KKT_Forwarder);
-        inv->scratchKey.keyData = 0;	// not capros_Forwarder_opaque
-	inv->entry.key[2] = &inv->scratchKey;
-	inv->flags |= INV_SCRATCHKEY;
-      }
-
-      if (inv->key->keyData & capros_Forwarder_sendWord) {
-        Key * dataKey = &theNode->slot[ForwarderDataSlot];
-        assert(keyBits_IsType(dataKey, KKT_Number));
-	inv->entry.w3 = dataKey->u.nk.value[0];
-      }
-
+    if (inv->key->keyData & capros_Forwarder_sendCap) {
       /* Not hazarded because invocation key */
-      inv->key = targetSlot;
-      inv->invKeyType = keyBits_GetType(inv->key);
-      GateKey(inv);
-      return;
-    } else {
-      // Target is not a gate key - treat as void. 
-      VoidKey(inv);
-      return;
+      key_NH_Set(&inv->scratchKey, inv->key);
+      keyBits_SetType(&inv->scratchKey, KKT_Forwarder);
+      inv->scratchKey.keyData = 0;	// not capros_Forwarder_opaque
+      inv->entry.key[2] = &inv->scratchKey;
+      inv->flags |= INV_SCRATCHKEY;
     }
+
+    if (inv->key->keyData & capros_Forwarder_sendWord) {
+      Key * dataKey = &theNode->slot[ForwarderDataSlot];
+      assert(keyBits_IsType(dataKey, KKT_Number));
+      inv->entry.w3 = dataKey->u.nk.value[0];
+    }
+
+    Key * targetSlot = node_GetKeyAtSlot(theNode, ForwarderTargetSlot);
+    inv_InvokeGateOrVoid(inv, targetSlot);
+    return;
   }
 
   // The key is not opaque.

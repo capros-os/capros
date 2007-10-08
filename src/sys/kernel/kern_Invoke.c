@@ -520,6 +520,25 @@ inv_SetupExitBlock(Invocation * inv)
   }
 }
 
+void
+inv_InvokeGateOrVoid(Invocation * inv, Key * invKey)
+{
+  // Prepare it now, in case a gate key becomes void.
+  key_Prepare(invKey);	/* may yield */
+
+  /* We require the target key to be a gate key to avoid unlimited recursion. */
+  if (keyBits_IsGateKey(invKey) ) {
+    /* Not hazarded because invocation key */
+    inv->key = invKey;
+    inv->invKeyType = keyBits_GetType(inv->key);
+    GateKey(inv);
+  }
+  else {
+    // Target is not a gate key - treat as void. 
+    VoidKey(inv);
+  }
+}
+
 extern uint64_t rdtsc();
 
 #ifdef OPTION_KERN_TIMING_STATS

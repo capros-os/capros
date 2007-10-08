@@ -129,6 +129,7 @@ uint32_t
 inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data);
 void inv_GetReturnee(Invocation * inv);
 void inv_SetupExitBlock(Invocation * inv);
+void inv_InvokeGateOrVoid(Invocation * inv, Key * invKey);
 
 /* This is the only instance of Invocation.
    I think the plan was to have one instance for each CPU. */

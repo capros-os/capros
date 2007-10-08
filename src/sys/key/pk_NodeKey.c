@@ -117,6 +117,9 @@ SwapSlot(Invocation * inv, Node * theNode, Key * slot)
 static void
 WalkExtended(Invocation * inv, Node * curNode, bool write)
 {
+
+  inv_GetReturnee(inv);
+
   uint32_t addr = inv->entry.w1;
   unsigned int restrictions = inv->key->keyPerms;
   unsigned int curL2v = NODE_L2V_MASK + 1;	// max l2v +1
@@ -223,8 +226,6 @@ NodeClone(Node * toNode, Key * fromKey)
 void
 NodeKey(Invocation * inv)
 {
-  inv_GetReturnee(inv);
-
   bool isSense = keyBits_IsWeak(inv->key);	// is this feature used?
   bool isFetch = keyBits_IsReadOnly(inv->key);
   bool opaque = inv->key->keyPerms & capros_Node_opaque;
@@ -235,6 +236,9 @@ NodeKey(Invocation * inv)
   case OC_capros_key_getType:
     if (node_GetL2vField(theNode) & NODE_KEEPER)	// has a keeper
       goto invoke_keeper;
+
+    inv_GetReturnee(inv);
+
     {
       COMMIT_POINT();
 
@@ -245,14 +249,16 @@ NodeKey(Invocation * inv)
 
   case OC_capros_Node_getSlot:
     if (opaque) goto check_keeper;
+
+    inv_GetReturnee(inv);
+
     {
       uint32_t slot = inv->entry.w1;
 
       COMMIT_POINT();
 
       if (slot >= EROS_NODE_SIZE) {
-	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	goto request_error;
       }
 
       /* All of these complete ok. */
@@ -280,6 +286,9 @@ NodeKey(Invocation * inv)
 
   case OC_capros_Node_swapSlot:
     if (opaque) goto check_keeper;
+
+    inv_GetReturnee(inv);
+
     {
       /* Only the process creator can have node keys to process components,
       and it should not be doing weird stuff: */
@@ -298,8 +307,7 @@ NodeKey(Invocation * inv)
 
       if (slot >= EROS_NODE_SIZE) {
 	COMMIT_POINT();
-	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	goto request_error;
       }
 
       Key * destSlot = node_GetKeyAtSlot(theNode, slot);
@@ -326,13 +334,15 @@ NodeKey(Invocation * inv)
     return;
 
   case OC_capros_Node_reduce:
+
+    inv_GetReturnee(inv);
+
     {
       COMMIT_POINT();
 
       uint32_t p = inv->entry.w1;
       if (p & ~ capros_Node_readOnly) {
-	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	goto request_error;
       }
 
       inv->exit.code = RC_OK;
@@ -348,6 +358,9 @@ NodeKey(Invocation * inv)
     
 #if 0	// this isn't used
   case OC_capros_Node_clear:
+
+    inv_GetReturnee(inv);
+
     {
       if (isFetch) {
 	inv->exit.code = RC_capros_key_NoAccess;
@@ -372,6 +385,9 @@ NodeKey(Invocation * inv)
 
   case OC_capros_Node_writeNumber:
     if (opaque) goto check_keeper;
+
+    inv_GetReturnee(inv);
+
     {
       uint32_t slot;
       capros_Number_value nkv;
@@ -386,8 +402,7 @@ NodeKey(Invocation * inv)
 
       if (slot >= EROS_NODE_SIZE || inv->entry.len != sizeof(nkv)) {
 	COMMIT_POINT();
-	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	goto request_error;
       }
 
       /* If we overwrite it, we're going to nail all of it's
@@ -416,6 +431,8 @@ NodeKey(Invocation * inv)
   case OC_capros_Node_getL2v:
     if (opaque) goto check_keeper;
 
+    inv_GetReturnee(inv);
+
     COMMIT_POINT();
 
     inv->exit.code = RC_OK;
@@ -424,6 +441,8 @@ NodeKey(Invocation * inv)
 
   case OC_capros_Node_setL2v:
     if (opaque) goto check_keeper;
+
+    inv_GetReturnee(inv);
 
     COMMIT_POINT();
 
@@ -441,6 +460,8 @@ NodeKey(Invocation * inv)
   case OC_capros_Node_setKeeper:
     if (opaque) goto check_keeper;
 
+    inv_GetReturnee(inv);
+
     node_SetSlot(theNode, capros_Node_keeperSlot, inv);
 
     node_SetL2vField(theNode, node_GetL2vField(theNode) | NODE_KEEPER);
@@ -448,6 +469,8 @@ NodeKey(Invocation * inv)
 
   case OC_capros_Node_clearKeeper:
     if (opaque) goto check_keeper;
+
+    inv_GetReturnee(inv);
 
     COMMIT_POINT();
 
@@ -457,6 +480,9 @@ NodeKey(Invocation * inv)
 
   case OC_capros_Node_clone:
     if (opaque) goto check_keeper;
+
+    inv_GetReturnee(inv);
+
     {
       /* copy content of node key in arg0 to current node */
       if (isFetch) {
@@ -474,8 +500,7 @@ NodeKey(Invocation * inv)
       COMMIT_POINT();
 
       if (keyBits_GetType(inv->entry.key[0]) != KKT_Node) {
-	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	goto request_error;
       }
 
       NodeClone(theNode, inv->entry.key[0]);
@@ -490,18 +515,11 @@ check_keeper:
     if (node_GetL2vField(theNode) & NODE_KEEPER) {	// has a keeper
 invoke_keeper: ;
       Key * keeperKey = node_GetKeyAtSlot(theNode, capros_Node_keeperSlot);
-      key_Prepare(keeperKey);
-      if (keyBits_IsGateKey(keeperKey)) {
-        inv->key = keeperKey;
-      }
-      else {
-        // Target is not a gate key - treat as void. 
-        keyBits_InitToVoid(&inv->scratchKey);
-        inv->key = &inv->scratchKey;
-      }
-      inv->invKeyType = keyBits_GetType(inv->key);
-      assert(false); ////... invoke gate
+      inv_InvokeGateOrVoid(inv, keeperKey);
+      return;
     }
+
+    inv_GetReturnee(inv);
 
     COMMIT_POINT();
 
