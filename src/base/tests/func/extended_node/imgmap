@@ -31,6 +31,20 @@ Approved for public release, distribution unlimited. */
 #include <primebank.map>
 #include <ipltool.map>
 
+proc2 = new process;
+proc2.seg = program segment BUILDDIR "proc2";
+proc2.pc = symbol BUILDDIR "proc2" _start;
+proc2.seg = proc2.seg with page at 0x20000; /* for stack */
+
+proc2 pc = proc2.pc;
+proc2 sp = 0x21000;
+proc2 space = proc2.seg;
+proc2 schedule = sched(8);	/* normal */
+
+proc2 key reg 9 = misc Sleep;
+proc2 key reg 10 = misc Console;
+proc2 key reg 11 = misc SysTrace;
+
 extnode = new process with constituents;
 
 extnode space = small program BUILDDIR "extnode";
@@ -38,6 +52,7 @@ extnode pc = symbol BUILDDIR "extnode" _start;
 extnode schedule = sched(8);
 
 CONSTIT(extnode, KC_OSTREAM, 3) = misc Console;
+CONSTIT(extnode, KC_PROC2, 3) = proc2;
 
 extnode key reg KR_SELF = extnode;
 extnode key reg KR_BANK = primebank;

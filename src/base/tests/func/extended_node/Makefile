@@ -31,8 +31,8 @@ IMGMAP=imgmap
 include $(EROS_SRC)/build/make/makevars.mk
 
 GENERATED=$(BUILDDIR)/constituents.h
-TARGETS=$(BUILDDIR)/extnode
-OBJECTS=$(BUILDDIR)/extnode.o
+TARGETS=$(BUILDDIR)/extnode  $(BUILDDIR)/proc2
+OBJECTS=$(BUILDDIR)/extnode.o $(BUILDDIR)/proc2.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
@@ -42,7 +42,10 @@ install all: $(TARGETS)
 
 extnode.c: $(BUILDDIR)/constituents.h
 
-$(BUILDDIR)/extnode: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB)
+$(BUILDDIR)/extnode: $(BUILDDIR)/extnode.o $(DOMLIB) $(DOMCRT0)
+	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/extnode.o -lsmall $(DOMLIB)
+
+$(BUILDDIR)/proc2: $(BUILDDIR)/proc2.o $(DOMLIB) $(DOMCRT0)
+	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/proc2.map -o $@ $(DOMCRT0) $(BUILDDIR)/proc2.o $(DOMLIB)
 
 -include $(BUILDDIR)/.*.m

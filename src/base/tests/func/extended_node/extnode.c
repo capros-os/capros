@@ -25,6 +25,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Node.h>
 #include <idl/capros/Number.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
@@ -35,12 +36,25 @@ Approved for public release, distribution unlimited. */
 #define KR_TREE1   KR_APP(2)
 #define KR_BIGTREE KR_APP(3)
 #define KR_ROTREE  KR_APP(4)
+#define KR_KEEPER_PROCESS KR_APP(5)
+#define KR_KEEPER_START KR_APP(6)
 
 int
 main(void)
 {
   int i;
   capros_Number_value numval;
+
+  Message msg;
+  msg.snd_key0 = KR_VOID;
+  msg.snd_key1 = KR_VOID;
+  msg.snd_key2 = KR_VOID;
+  msg.snd_rsmkey = KR_VOID;
+  msg.snd_data = 0;
+  msg.snd_len = 0;
+  msg.snd_w1 = 0;
+  msg.snd_w2 = 0;
+  msg.snd_w3 = 0;
 
   result_t retval;
 
@@ -49,6 +63,15 @@ main(void)
     kprintf(KR_OSTREAM, "Return code 0x%0x at line %d.\n", retval, __LINE__);
 
   capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_PROC2, KR_KEEPER_PROCESS);
+
+  capros_Process_makeStartKey(KR_KEEPER_PROCESS, 5, KR_KEEPER_START);
+
+  /* Get keeper process started. */
+  capros_Process_makeResumeKey(KR_KEEPER_PROCESS, KR_KEEPER_PROCESS);
+  msg.snd_invKey = KR_KEEPER_PROCESS;
+  msg.snd_code = RC_OK;
+  SEND(&msg);
   
   kprintf(KR_OSTREAM, "Beginning test...\n");
 
@@ -61,6 +84,12 @@ main(void)
   // Build bigtree.
   retval = capros_Node_setL2v(KR_BIGTREE, capros_Node_l2nSlots);
   ckOK
+  uint8_t getl2v;
+  retval = capros_Node_getL2v(KR_BIGTREE, &getl2v);
+  ckOK
+  if (getl2v != capros_Node_l2nSlots)
+    kprintf(KR_OSTREAM, "Returned l2v %d at line %d.\n", getl2v, __LINE__);
+
   retval = capros_Node_swapSlot(KR_BIGTREE, 0, KR_TREE0, KR_VOID);
   ckOK
   retval = capros_Node_swapSlot(KR_BIGTREE, 1, KR_TREE1, KR_VOID);
@@ -104,7 +133,23 @@ main(void)
   if (retval != RC_capros_key_NoAccess)
     kprintf(KR_OSTREAM, "Return code 0x%0x at line %d.\n", retval, __LINE__);
 
-  // FIXME test keeper
+  // Test keeper.
+
+  retval = capros_Node_setKeeper(KR_BIGTREE, KR_KEEPER_START);
+  ckOK
+
+  retval = capros_key_destroy(KR_BIGTREE);
+  // This should go to the keeper.
+  if (retval != 29) \
+    kprintf(KR_OSTREAM, "Return code 0x%0x at line %d.\n", retval, __LINE__);
+
+  retval = capros_Node_clearKeeper(KR_BIGTREE);
+  ckOK
+
+  retval = capros_key_destroy(KR_BIGTREE);
+  // This should NOT go to the keeper.
+  if (retval != RC_capros_key_UnknownRequest) \
+    kprintf(KR_OSTREAM, "Return code 0x%0x at line %d.\n", retval, __LINE__);
 
   kprintf(KR_OSTREAM, "Done.\n");
 
