@@ -52,7 +52,7 @@ extnode pc = symbol BUILDDIR "extnode" _start;
 extnode schedule = sched(8);
 
 CONSTIT(extnode, KC_OSTREAM, 3) = misc Console;
-CONSTIT(extnode, KC_PROC2, 3) = proc2;
+CONSTIT(extnode, KC_PROC2, 4) = proc2;
 
 extnode key reg KR_SELF = extnode;
 extnode key reg KR_BANK = primebank;
