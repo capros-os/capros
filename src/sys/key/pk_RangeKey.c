@@ -208,18 +208,24 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
     link_insertAfter(&pObj->keyRing, &key->u.ok.kr);
     keyBits_SetPrepared(key);
   
-    if (kkt == KKT_Page)
-      // Default l2g for memory keys is 64 to disable guard test.
-      keyBits_SetL2g(key, 64);
-    else if (kkt == KKT_GPT) {
-      // Default l2g for memory keys is 64 to disable guard test.
-      keyBits_SetL2g(key, 64);
+    // Set defaults for keyData.
+    switch (kkt) {
+    case KKT_GPT: ;
       // Ensure the l2v is valid.
       GPT * theGPT = objH_ToNode(pObj);
       uint8_t l2vField = gpt_GetL2vField(theGPT);
       uint8_t oldL2v = l2vField & GPT_L2V_MASK;
       if (oldL2v < EROS_PAGE_LGSIZE)
         gpt_SetL2vField(theGPT, l2vField - oldL2v + EROS_PAGE_LGSIZE);
+      // Fall into Page case to set l2g.
+    case KKT_Page:
+      // For page, l2v isn't used.
+    case KKT_Node:
+      // For node, any l2v is valid.
+      // Default l2g for memory and node keys is 64 to disable guard test.
+      keyBits_SetL2g(key, 64);
+      break;
+    default: break;
     }
   }
 

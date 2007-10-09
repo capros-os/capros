@@ -51,28 +51,77 @@ InvalidateMaps(GPT * theGPT)
   keyR_UnmapAll(&node_ToObj(theGPT)->keyRing);
 }
 
+/* May Yield. */
+// inv_GetReturnee has been called.
 void
-DoMemoryReduce(Invocation * inv)
+MemoryKey(Invocation * inv)
 {
-  COMMIT_POINT();
+  switch (inv->entry.code) {
 
-  uint32_t w = inv->entry.w1; /* the restrictions */
-  if (w & ~(capros_Memory_opaque
-            | capros_Memory_weak
-            | capros_Memory_noCall
-            | capros_Memory_readOnly )) {
-    inv->exit.code = RC_capros_key_RequestError;
-    dprintf(true, "restr=0x%x\n", w);
+  case OC_capros_Memory_getRestrictions:
+    COMMIT_POINT();
+
+    inv->exit.code = RC_OK;
+    inv->exit.w1 = inv->key->keyPerms;
+    return;
+
+  case OC_capros_Memory_reduce:
+
+    COMMIT_POINT();
+
+    uint32_t w = inv->entry.w1; /* the restrictions */
+    if (w & ~(capros_Memory_opaque
+              | capros_Memory_weak
+              | capros_Memory_noCall
+              | capros_Memory_readOnly )) {
+      inv->exit.code = RC_capros_key_RequestError;
+      dprintf(true, "restr=0x%x\n", w);
+      return;
+    }
+    
+    if (inv->exit.pKey[0]) {
+      inv_SetExitKey(inv, 0, inv->key);
+      inv->exit.pKey[0]->keyPerms = w | inv->key->keyPerms;
+    }
+
+    inv->exit.code = RC_OK;
+    return;
+
+  case OC_capros_Memory_makeGuarded:
+
+    COMMIT_POINT();
+
+    struct GuardData gd;
+    // FIXME: the guard should be 64 bits, but CapIDL currently puts it
+    // in just w1!
+    if (! key_CalcGuard(inv->entry.w1, &gd)) {
+      inv->exit.code = RC_capros_Memory_UnrepresentableGuard;
+      return;
+    }
+
+    if (inv->exit.pKey[0]) {
+      inv_SetExitKey(inv, 0, inv->key);
+      key_SetGuardData(inv->exit.pKey[0], &gd);
+    }
+    inv->exit.code = RC_OK;
+    return;
+
+  case OC_capros_Memory_getGuard:
+
+    COMMIT_POINT();
+
+    // FIXME: the guard should be 64 bits, but CapIDL currently puts it
+    // in just w1!
+    inv->exit.w1 = key_GetGuard(inv->key);
+    inv->exit.code = RC_OK;
+    return;
+
+  default:
+    COMMIT_POINT();
+
+    inv->exit.code = RC_capros_key_UnknownRequest;
     return;
   }
-    
-  if (inv->exit.pKey[0]) {
-    inv_SetExitKey(inv, 0, inv->key);
-    inv->exit.pKey[0]->keyPerms = w | inv->key->keyPerms;
-  }
-
-  inv->exit.code = RC_OK;
-  return;
 }
 
 /* May Yield. */
@@ -103,17 +152,6 @@ GPTKey(Invocation * inv)
   inv_GetReturnee(inv);
 
   switch (inv->entry.code) {
-
-  case OC_capros_Memory_getRestrictions:
-    COMMIT_POINT();
-
-    inv->exit.code = RC_OK;
-    inv->exit.w1 = inv->key->keyPerms;
-    return;
-
-  case OC_capros_Memory_reduce:
-    DoMemoryReduce(inv);
-    return;
 
   case OC_capros_GPT_getL2v:
     {
@@ -305,9 +343,8 @@ request_error:
     return;
 
   default:
-    COMMIT_POINT();
-
-    inv->exit.code = RC_capros_key_UnknownRequest;
+    // Handle methods inherited from Memory object.
+    MemoryKey(inv);
     return;
   }
 }

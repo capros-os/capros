@@ -265,12 +265,12 @@ keyBits_SetReadOnly(KeyBits *thisPtr)
   thisPtr->keyPerms |= capros_Memory_readOnly;
 }
 
-/* In memory keys, l2g is in the first byte of keyData.
+/* In memory and node keys, l2g is in the first byte of keyData.
 Only 7 bits are required. */
 INLINE unsigned int
-keyBits_GetL2g(KeyBits * thisPtr)
+keyBits_GetL2g(const KeyBits * thisPtr)
 {
-  return * (uint8_t *) &thisPtr->keyData;
+  return * (const uint8_t *) &thisPtr->keyData;
 }
 
 // assert(l2g <= 64 && l2g >= EROS_PAGE_ADDR_BITS);
@@ -280,14 +280,13 @@ keyBits_SetL2g(KeyBits * thisPtr, unsigned int l2g)
   * (uint8_t *) &thisPtr->keyData = l2g;
 }
 
-/* In memory keys, guard is in the second byte of keyData.
+/* In memory and node keys, guard is in the second byte of keyData.
 We could squeeze more bits by taking the high bit of the first byte,
-bits in the keyPerms field, and perhaps bits from the keyType field.
-Also, l2g might be squeezed into 6 bits if offset by 1. */
+bits in the keyPerms field, and perhaps bits from the keyType field. */
 INLINE unsigned int
-keyBits_GetGuard(KeyBits * thisPtr)
+keyBits_GetGuard(const KeyBits * thisPtr)
 {
-  return ((uint8_t *) &thisPtr->keyData)[1];
+  return ((const uint8_t *) &thisPtr->keyData)[1];
 }
 
 // assert(guard < 256);

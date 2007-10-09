@@ -5,6 +5,7 @@ package capros;
 interface Node extends key raises (key.RequestError) {
   exception NoAddr;
   exception Nondecreasing;
+  exception UnrepresentableGuard;
 
   const unsigned byte nSlots = 32;
   const unsigned byte l2nSlots = 5;	// log base 2 of the above
@@ -20,7 +21,8 @@ interface Node extends key raises (key.RequestError) {
 
   /* Return the key at the specified address in a tree of nodes. */
   // Raises NoAddr if the address does not exist.
-  // Raises Nondecreasing if the l2v of the nodes is nondecreasing. */
+  /* Raises Nondecreasing if the l2v of the path of nodes is nondecreasing
+  more than once. */
   capros.key getSlotExtended(extAddr_t slot); 
 
   /* Store a key into the specified slot and return the former contents. */
@@ -30,7 +32,8 @@ interface Node extends key raises (key.RequestError) {
   and return the former contents. */
   // Raises NoAddr if the address does not exist.
   // Raises NoAccess if this or any node key in the path is readOnly.
-  // Raises Nondecreasing if the l2v of the nodes is nondecreasing. */
+  /* Raises Nondecreasing if the l2v of the path of nodes is nondecreasing
+  more than once. */
   capros.key swapSlotExtended(extAddr_t slot, capros.key k); 
 
   /* Store a number key into the specified slot. */
@@ -59,6 +62,14 @@ interface Node extends key raises (key.RequestError) {
 
   /* Sets the Node as having no keeper. Slot keeperSlot is unchanged. */
   void clearKeeper();
+
+  /* Returns the guard of this key. */
+  extAddr_t getGuard();
+
+  /* Returns a key to the node with the specified guard.
+  Due to storage constraints, all the one bits in guard
+  must be in 8 contiguous bits, else raises UnrepresentableGuard. */
+  capros.key makeGuarded(extAddr_t guard);
 
   /* Copy the contents of this node to another. */
   void clone(capros.key fromNode); 

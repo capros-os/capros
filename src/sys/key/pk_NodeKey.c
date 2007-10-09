@@ -120,11 +120,42 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
 
   inv_GetReturnee(inv);
 
+  Key * curKey = inv->key;
   uint32_t addr = inv->entry.w1;
-  unsigned int restrictions = inv->key->keyPerms;
+  unsigned int restrictions = 0;
   unsigned int curL2v = NODE_L2V_MASK + 1;	// max l2v +1
 
+  /* To prevent unbounded loops, l2v must decrease each iteration,
+  with l2vLimit exceptions.
+  This makes it possible to make a supernode taller. */
+  int l2vLimit = 1;
+
   for(;;) {
+    // Check the guard. 
+    unsigned int l2g = keyBits_GetL2g(curKey);
+    unsigned int guard = keyBits_GetGuard(curKey);
+#if 0
+    printf("l2g %d, guard 0x%x\n", l2g, keyBits_GetGuard(curKey));
+#endif
+    // Shifting by more than the size of addr is undefined, so:
+    if (l2g >= 32) {
+      if (guard != 0) {
+        inv->exit.code = RC_capros_Node_NoAddr;
+        goto fault_exit;
+      }
+    }
+    else {	// the normal case
+      if ((addr >> l2g) != guard) {
+        inv->exit.code = RC_capros_Node_NoAddr;
+        goto fault_exit;
+      }
+      // Strip off guard bits.
+      addr &= (1ul << l2g) -1;
+    }
+
+    curNode = objH_ToNode(key_GetObjectPtr(curKey));
+    restrictions |= curKey->keyPerms;
+
     if (write && (restrictions & capros_Node_readOnly)) {
       inv->exit.code = RC_capros_key_NoAccess;
       goto fault_exit;
@@ -133,8 +164,7 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
     uint8_t l2vField = node_GetL2vField(curNode);
     unsigned int newL2v = l2vField & NODE_L2V_MASK;
 
-    /* L2v must decrease at each iteration, othewise we could loop forever. */
-    if (newL2v >= curL2v) {
+    if (newL2v >= curL2v && --l2vLimit < 0) {
       inv->exit.code = RC_capros_Node_Nondecreasing;
       goto fault_exit;
     }
@@ -153,7 +183,7 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
       goto fault_exit;
     }
 
-    Key * curKey = node_GetKeyAtSlot(curNode, ndx);
+    curKey = node_GetKeyAtSlot(curNode, ndx);
 	
     /* Only the process creator can get to hazarded slots, and it shouldn't: */
     assert(! keyBits_IsHazard(curKey));
@@ -172,7 +202,8 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
       return;
     }
 
-    addr &= (1ull << curL2v) - 1ull;	// remaining bits of address
+    addr &= (((capros_Node_extAddr_t)1) << curL2v) - 1;
+	// remaining bits of address
 
     key_Prepare(curKey);
 
@@ -183,9 +214,6 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
     default:	// most likely void
       inv->exit.code = RC_capros_Node_NoAddr;
     }
-
-    curNode = (Node *)curKey->u.ok.pObj;
-    restrictions |= curKey->keyPerms;
   }
   assert(false);        // can't get here
 
@@ -230,7 +258,7 @@ NodeKey(Invocation * inv)
   bool isFetch = keyBits_IsReadOnly(inv->key);
   bool opaque = inv->key->keyPerms & capros_Node_opaque;
 
-  Node * theNode = (Node *) key_GetObjectPtr(inv->key);
+  Node * theNode = objH_ToNode(key_GetObjectPtr(inv->key));
 
   switch (inv->entry.code) {
   case OC_capros_key_getType:
@@ -337,24 +365,22 @@ NodeKey(Invocation * inv)
 
     inv_GetReturnee(inv);
 
-    {
-      COMMIT_POINT();
+    COMMIT_POINT();
 
-      uint32_t p = inv->entry.w1;
-      if (p & ~ capros_Node_readOnly) {
-	goto request_error;
-      }
-
-      inv->exit.code = RC_OK;
-      
-      if (inv->exit.pKey[0]) {
-        inv_SetExitKey(inv, 0, inv->key);
-
-	inv->exit.pKey[0]->keyPerms |= p;
-      }
-	
-      return;
+    uint32_t p = inv->entry.w1;
+    if (p & ~ capros_Node_readOnly) {
+      goto request_error;
     }
+
+    inv->exit.code = RC_OK;
+      
+    if (inv->exit.pKey[0]) {
+      inv_SetExitKey(inv, 0, inv->key);
+
+      inv->exit.pKey[0]->keyPerms |= p;
+    }
+
+    return;
     
 #if 0	// this isn't used
   case OC_capros_Node_clear:
@@ -455,6 +481,37 @@ NodeKey(Invocation * inv)
     uint8_t oldL2v = l2vField & NODE_L2V_MASK;
     // inv->exit.w1 = oldL2v;
     node_SetL2vField(theNode, l2vField - oldL2v + newL2v);
+    return;
+
+  case OC_capros_Node_makeGuarded:
+    if (opaque) goto check_keeper;
+
+    inv_GetReturnee(inv);
+
+    COMMIT_POINT();
+
+    struct GuardData gd;
+    if (! key_CalcGuard(inv->entry.w1, &gd)) {
+      inv->exit.code = RC_capros_Node_UnrepresentableGuard;
+      return;
+    }
+
+    if (inv->exit.pKey[0]) {
+      inv_SetExitKey(inv, 0, inv->key);
+      key_SetGuardData(inv->exit.pKey[0], &gd);
+    }
+    inv->exit.code = RC_OK;
+    return;
+
+  case OC_capros_Node_getGuard:
+    if (opaque) goto check_keeper;
+
+    inv_GetReturnee(inv);
+
+    COMMIT_POINT();
+
+    inv->exit.w1 = key_GetGuard(inv->key);
+    inv->exit.code = RC_OK;
     return;
 
   case OC_capros_Node_setKeeper:

@@ -50,17 +50,6 @@ PageKey(Invocation* inv /*@ not null @*/)
     inv->exit.w1 = AKT_Page;
     return;
 
-  case OC_capros_Memory_getRestrictions:
-    COMMIT_POINT();
-
-    inv->exit.code = RC_OK;
-    inv->exit.w1 = inv->key->keyPerms;
-    return;
-
-  case OC_capros_Memory_reduce:
-    DoMemoryReduce(inv);
-    return;
-
   case OC_capros_Page_zero:		/* zero page */
     if (keyBits_IsReadOnly(inv->key)) {
       COMMIT_POINT();
@@ -113,9 +102,9 @@ PageKey(Invocation* inv /*@ not null @*/)
     }
 
   default:
-    COMMIT_POINT();
-
-    break;
+    // Handle methods inherited from Memory object.
+    MemoryKey(inv);
+    return;
   }
 
   inv->exit.code = RC_capros_key_UnknownRequest;

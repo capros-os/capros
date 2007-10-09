@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/KernStats.h>
 #include <eros/Invoke.h>
+#include <eros/ffs.h>
 
 #define dbg_prepare	0x1	/* steps in taking snapshot */
 
@@ -43,6 +44,43 @@ Approved for public release, distribution unlimited. */
 #ifndef NDEBUG
 extern bool InvocationCommitted;
 #endif
+
+// For memory and node keys:
+uint64_t
+key_GetGuard(const Key * thisPtr)
+{
+  unsigned int l2g = keyBits_GetL2g(thisPtr);
+  if (l2g >= 64)
+    return 0;
+  else {
+    uint64_t guard = keyBits_GetGuard(thisPtr);
+    return guard << l2g;
+  }
+}
+
+// For memory and node keys:
+// Returns true iff successful.
+bool
+key_CalcGuard(uint64_t guard, struct GuardData * gd)
+{
+  if (guard == 0) {
+    gd->guard = 0;
+    gd->l2g = 0;
+    return true;
+  } else {
+    // Find lowest 1 bit:
+    unsigned int fs = ffs64(guard);
+    guard >>= fs;
+    unsigned int guardTrunc = guard & 0xff;
+    if (guardTrunc != guard) {	// it won't fit in 8 bits
+      return false;
+    } else {
+      gd->guard = guardTrunc;
+      gd->l2g = fs;
+      return true;
+    }
+  }
+}
 
 ObjectHeader *
 key_GetObjectPtr(const Key* thisPtr)

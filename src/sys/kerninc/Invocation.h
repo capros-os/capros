@@ -140,6 +140,7 @@ extern struct Activity * activityToRelease;
 typedef void (*KeyHandler)(Invocation*);
 void GateKey(Invocation *);
 void VoidKey(Invocation *);
+void MemoryKey(Invocation *);
 
 /* Commit point appears in each invocation where the invocation should
  * now be able to proceed without impediment. It may Yield. 
@@ -215,7 +216,5 @@ invType_IsPrompt(unsigned int t)
 {
   return t & IT_PReturn;	// low order bit means prompt
 }
-
-void DoMemoryReduce(Invocation * inv);
 
 #endif /* __KERNINC_INVOCATION_H__ */

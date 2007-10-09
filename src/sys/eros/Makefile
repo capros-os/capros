@@ -44,6 +44,8 @@ HEADERS=\
 	DeviceDef.h \
 	KeyConst.h \
 	endian.h \
+	ffs.h \
+	fls.h \
 	stdarg.h \
 	TimeOfDay.h \
 	TimePage.h \

@@ -19,6 +19,7 @@ abstract interface key raises(Void, UnknownRequest, RequestError,
   // that I have defined them here pending resolution about whether
   // exception names must conceptually be globally unique.
 
+  exception BadBank;
   exception NoMoreNodes;
   exception NoMorePages;
   exception NotPersistent;
@@ -26,7 +27,7 @@ abstract interface key raises(Void, UnknownRequest, RequestError,
   const unsigned long msgLimit = 65536;
 
   typedef unsigned long type;
-  typedef unsigned long info;
+  typedef unsigned long exceptionType;
 
   /** Destroy the object.
    *

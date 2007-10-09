@@ -115,8 +115,6 @@ processKey(SegWalk * wi, Key * pSegKey, uint64_t va)
   printf("l2g %d, guard 0x%x\n", l2g, keyBits_GetGuard(pSegKey));
 #endif
   /* Shift va in two steps, because a shift of 64 is undefined. */
-  /* Might want to store l2g offset by 1 (or up to EROS_PAGE_LGSIZE),
-     so it will require only 6 bits instead of 7. */
   if ((va >> (l2g -1) >> 1) != keyBits_GetGuard(pSegKey)) {
     wi->faultCode = capros_Process_FC_InvalidAddr;
     return false;
