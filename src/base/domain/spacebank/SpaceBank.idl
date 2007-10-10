@@ -37,6 +37,7 @@ interface SpaceBank extends key
    */
   void alloc2(unsigned short obTypes,
               out capros.key k0, out capros.key k1);
+
   /* Low 8 bits of obTypes specify type for k0.
      Next higher 8 bits specify type for k1.
      Next higher 8 bits specify type for k2.
