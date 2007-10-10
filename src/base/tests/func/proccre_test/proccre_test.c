@@ -28,9 +28,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/KeyBitsKey.h>
 #include <eros/NodeKey.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/ProcCre.h>
+#include <idl/capros/PCC.h>
 #include <domain/domdbg.h>
-#include <domain/PccKey.h>
-#include <domain/ProcessCreatorKey.h>
 #include <eros/KeyBitsKey.h>
 
 #define KR_VOID 0
@@ -79,25 +79,11 @@ main()
   
   kdprintf(KR_OSTREAM, "About to invoke dcc\n");
 
-  msg.snd_key0 = KR_SPCBANK;
-  msg.snd_key1 = KR_SCHED;
-  msg.snd_key2 = KR_VOID;
-  msg.snd_rsmkey = KR_VOID;
-  msg.snd_data = 0;
-  msg.snd_len = 0;
-
-  msg.rcv_key0 = KR_PROCCRE;
-  msg.rcv_key1 = KR_VOID;
-  msg.rcv_key2 = KR_VOID;
-  msg.rcv_rsmkey = KR_VOID;
-  msg.rcv_len = 0;		/* no data returned */
-
   {
     uint32_t result;
+    result = capros_PCC_createProcessCreator(KR_DCC, KR_SPCBANK, KR_SCHED,
+               KR_PROCCRE);
     
-    msg.snd_code = OC_PCC_CreateProcessCreator;
-    msg.snd_invKey = KR_DCC;
-    result = CALL(&msg);
     ShowKey(KR_OSTREAM, KR_KEYBITS, KR_PROCCRE);
     kdprintf(KR_OSTREAM, "GOT PROCCRE Result is 0x%08x\n", result);
   }
@@ -119,9 +105,7 @@ main()
 
   {
     uint32_t result;
-    msg.snd_code = OC_ProcCre_CreateProcess;
-    msg.snd_invKey = KR_PROCCRE;
-    result = CALL(&msg);
+    result = capros_ProcCre_createProcess(KR_PROCCRE, KR_SPCBANK, KR_NEWDOM);
     ShowKey(KR_OSTREAM, KR_KEYBITS, KR_PROCCRE);
     ShowKey(KR_OSTREAM, KR_KEYBITS, KR_NEWDOM);
     kdprintf(KR_OSTREAM, "Result is 0x%08x\n", result);
@@ -195,7 +179,7 @@ main()
   {
     uint32_t result;
     
-    msg.snd_code = OC_ProcCre_CreateProcess;
+    msg.snd_code = 1234;	// newdom will ignore this
     msg.snd_invKey = KR_NEWDOM;
     result = CALL(&msg);
     kdprintf(KR_OSTREAM, "Result is 0x%08x -- DONE!!!\n", result);
