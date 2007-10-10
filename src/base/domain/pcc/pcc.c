@@ -43,8 +43,8 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/PCC.h>
 
-#include <domain/PccKey.h>
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
 #include "constituents.h"
@@ -77,9 +77,7 @@ typedef struct {
 
 uint32_t create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t domKeyReg,
 		       domcre_info *pInfo);
-uint32_t identify_domcre(uint32_t krDomCre);
 
-#define RC_ProcCre_BadBank RC_PCC_BadBank // for create_new_process.h
 #include "create_new_process.h"
 
 int
@@ -89,17 +87,13 @@ ProcessRequest(Message *argmsg, domcre_info *pInfo)
   argmsg->snd_key0 = 0;		/* until proven otherwise */
 
   switch (argmsg->rcv_code) {
-  case OC_PCC_CreateProcessCreator:
+  case OC_capros_PCC_createProcessCreator:
     {
       result = create_new_domcre(KR_ARG0, KR_ARG1, KR_NEW_DOMCRE, pInfo);
       if (result == RC_OK)
 	argmsg->snd_key0 = KR_NEW_DOMCRE;
       break;
     }
-    
-  case OC_PCC_IdentifyProcCre:
-    result = identify_domcre(KR_ARG0);
-    break;
 
   case OC_capros_key_getType:
     argmsg->snd_w1 = AKT_PCC;
@@ -216,7 +210,7 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
     DEBUG kdprintf(KR_OSTREAM, "buy GPT result is 0x%08x\n", result);
     /* Acquisition failed - return what we have and give up. */
     destroy_domain(krBank, krDomKey);
-    return RC_PCC_NoSpace;
+    return RC_capros_key_NoSpace;
   }
 
   DEBUG kdprintf(KR_OSTREAM, "Got new aspace GPT\n");
@@ -235,7 +229,7 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
     /* Acquisition failed - return what we have and give up. */
     capros_SpaceBank_free1(krBank, PCC_NEWSEG);
     destroy_domain(krBank, krDomKey);
-    return RC_PCC_NoSpace;
+    return RC_capros_key_NoSpace;
   }
 
   DEBUG kdprintf(KR_OSTREAM, "Got new page\n");
@@ -303,10 +297,4 @@ is_our_progeny(uint32_t krStart, uint32_t krNode)
   if (result == RC_OK && capType != 0)
     return 1;
   return 0;
-}
-
-uint32_t
-identify_domcre(uint32_t krDomCre)
-{
-  return RC_capros_key_UnknownRequest;
 }

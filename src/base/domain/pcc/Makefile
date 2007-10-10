@@ -49,6 +49,10 @@ $(BUILDDIR)/pcc: $(BUILDDIR)/pcc.o $(DOMCRT0) $(DOMLIB)
 pcc.c: $(BUILDDIR)/constituents.h
 proccre.c: $(BUILDDIR)/constituents.h
 
+IDL=$(wildcard *.idl)
+interfaces: $(IDL)
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros
+
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

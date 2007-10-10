@@ -1,0 +1,24 @@
+package capros;
+
+interface ProcCre extends key 
+{
+  exception Paternity;
+  exception WrongBank;
+
+  const unsigned byte precludeDestroy = 1;
+
+  void createProcess(key Bank, out key newProc);
+
+  void destroyProcess(key Bank, key proc);
+
+  void destroyCallerAndReturn(key Bank,
+     key returnee, key.exceptionType returnCode);
+
+  void amplifyGateKey(key gate, out key proc,
+                   out unsigned long keyType, out unsigned long keyInfo);
+
+  void amplifyGPTKey(key gate, out key proc,
+                   out unsigned long keyType, out unsigned long keyInfo);
+
+  void reduce(unsigned byte restrictions);
+};

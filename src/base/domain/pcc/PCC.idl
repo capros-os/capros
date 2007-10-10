@@ -1,0 +1,9 @@
+package capros;
+
+// PCC - Process Creator Creator
+
+interface PCC extends key 
+{
+  void createProcessCreator(key bank, key sched, out key newProcCre);
+    // raises (key.BadBank)
+};

@@ -53,7 +53,6 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/cap-instr.h>
 #include <eros/StdKeyType.h>
 #include <disk/DiskNodeStruct.h>
 
@@ -64,9 +63,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/ProcCre.h>
 
 #include <domain/domdbg.h>
-#include <domain/ProcessCreatorKey.h>
 #include <domain/Runtime.h>
 #include "constituents.h"
 
@@ -87,8 +86,6 @@ uint32_t __rt_unkept = 1;
 #define KR_ARG0    KR_ARG(0)
 #define KR_ARG1    KR_ARG(1)
 #define KR_ARG2    KR_ARG(2)
-
-#define KR_RETURNEE KR_ARG1	/* if needed, returnee should be here. */
 
 
 #define FALSE 0
@@ -121,35 +118,28 @@ ProcessRequest(Message *argmsg)
   argmsg->snd_key1 = 0;		/* until proven otherwise */
 
   switch (argmsg->rcv_code) {
-  case OC_ProcCre_CreateProcess:
+  case OC_capros_ProcCre_createProcess:
     argmsg->snd_key0 = KR_OUTKEY0;
     result = create_new_process(KR_ARG0, KR_OUTKEY0);
     break;
     
-  case OC_ProcCre_DestroyProcess:
+  case OC_capros_ProcCre_destroyProcess:
     result = destroy_process(KR_ARG1, KR_ARG0);
     return 1;
 
-  case OC_ProcCre_DestroyCallerAndReturn:
+  case OC_capros_ProcCre_destroyCallerAndReturn:
     {
       result = destroy_process(KR_RETURN, KR_ARG0);
 
       if (result != RC_OK)
 	break;
 
-      /* Copy the value of KR_RETURNEE to KR_ARG3, which holds the
-	 resume key that the runtime will be returning to.  This is a
-	 little sleezy, and is only needed because the current runtime
-	 interface is a bit stupid.  What I *ought* to do is augment
-	 the Message structure with entry and exit codes and a
-	 returnee key. */
-      
-      COPY_KEYREG(KR_RETURNEE, KR_RETURN);
-      result = RC_OK;
+      argmsg->snd_invKey = KR_ARG1;	// return to ARG1
+      result = argmsg->rcv_w1;		// with this return code
       break;
     }
     
-  case OC_ProcCre_RemoveDestroyRights:
+  case OC_capros_ProcCre_reduce:
     {
       argmsg->snd_key0 = KR_OUTKEY0;
       capros_Process_makeStartKey(KR_SELF, 1, KR_OUTKEY0);
@@ -157,7 +147,7 @@ ProcessRequest(Message *argmsg)
       break;
    }
     
-  case OC_ProcCre_AmplifyGateKey:
+  case OC_capros_ProcCre_amplifyGateKey:
     {
       uint32_t capType;
       uint32_t capInfo;
@@ -170,7 +160,7 @@ ProcessRequest(Message *argmsg)
       break;
     }
     
-  case OC_ProcCre_AmplifySegmentKey:	// really AmplifyGPTKey
+  case OC_capros_ProcCre_amplifyGPTKey:	// really AmplifyGPTKey
     {
       uint32_t capType;
       uint32_t capInfo;
@@ -236,7 +226,7 @@ main()
 
   do {
     RETURN(&msg);
-    msg.snd_invKey = msg.rcv_rsmkey;
+    msg.snd_invKey = KR_RETURN;
   } while ( ProcessRequest(&msg) );
 
   return 0;
@@ -265,10 +255,10 @@ destroy_process(uint32_t krGate, uint32_t krBank)
 
   if (capros_SpaceBank_verify(KR_BANK, krBank, &isGood) != RC_OK ||
       isGood == 0)
-    return RC_ProcCre_BadBank;
+    return RC_capros_key_BadBank;
   
   if (! is_our_progeny(krGate, KR_SCRATCH0))
-    return RC_ProcCre_Paternity;
+    return RC_capros_ProcCre_Paternity;
   
   /* It's our progeny.  Extract the annex nodes */
 
@@ -278,7 +268,7 @@ destroy_process(uint32_t krGate, uint32_t krBank)
     success = 0;
   
   if (success == 0)
-    return RC_ProcCre_WrongBank;
+    return RC_capros_ProcCre_WrongBank;
   
   return RC_OK;
 }

@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,14 +18,17 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
 #include <eros/ProcessToolKey.h>
+#include <idl/capros/PCC.h>
 #include <domain/domdbg.h>
-#include <domain/PccKey.h>
 #include <eros/KeyBitsKey.h>
 
 #define KR_VOID 0
@@ -51,8 +55,6 @@ const uint32_t __rt_stack_pointer = 0x20000;
 int
 main()
 {
-  Message msg;
-
   node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
   node_copy(KR_CONSTIT, KC_DOMTOOL, KR_DOMTOOL);
   node_copy(KR_CONSTIT, KC_KEYBITS, KR_KEYBITS);
@@ -61,24 +63,10 @@ main()
 
   kdprintf(KR_OSTREAM, "About to invoke dcc\n");
 
-  msg.snd_key0 = KR_SPCBANK;
-  msg.snd_key1 = KR_SCHED;
-  msg.snd_key2 = KR_VOID;
-  msg.snd_rsmkey = KR_VOID;
-  msg.snd_data = 0;
-  msg.snd_len = 0;
-
-  msg.rcv_key0 = KR_DOM;
-  msg.rcv_key1 = KR_VOID;
-  msg.rcv_key2 = KR_VOID;
-  msg.rcv_rsmkey = KR_VOID;
-  msg.rcv_len = 0;		/* no data returned */
-
   {
     uint32_t result;
-    msg.snd_code = OC_PCC_CreateProcessCreator;
-    msg.snd_invKey = KR_DCC;
-    result = CALL(&msg);
+    result = capros_PCC_createProcessCreator(KR_DCC, KR_SPCBANK, KR_SCHED,
+               KR_DOM);
     kdprintf(KR_OSTREAM, "Result is 0x%08x\n", result);
   }
 

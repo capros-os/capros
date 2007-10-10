@@ -36,7 +36,7 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
 
   if (capros_SpaceBank_verify(KR_BANK, krBank, &isGood) != RC_OK ||
       isGood == 0)
-    return RC_ProcCre_BadBank;
+    return RC_capros_key_BadBank;
   
   DEBUG kdprintf(KR_OSTREAM, "OK -- buy process nodes\n");
 

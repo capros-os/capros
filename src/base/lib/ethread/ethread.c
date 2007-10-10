@@ -30,9 +30,9 @@ Approved for public release, distribution unlimited. */
 
 #include <idl/capros/key.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/ProcCre.h>
 
 #include <domain/Runtime.h>
-#include <domain/ProcessCreatorKey.h>
 
 #include "ethread.h"
 
@@ -46,7 +46,7 @@ ethread_new_thread(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_size,
   result_t result;
   Message msg;
   
-  result = proccre_create_process(KR_CREATOR, kr_bank, kr_new_thread);
+  result = capros_ProcCre_createProcess(KR_CREATOR, kr_bank, kr_new_thread);
   if (result != RC_OK)
     return RC_Ethread_Create_Process_Err;
 

@@ -28,9 +28,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
+#include <idl/capros/ProcCre.h>
 #include <eros/i486/atomic.h>
 #include <domain/ConstructorKey.h>
-#include <domain/ProcessCreatorKey.h>
 #include <domain/SpaceBankKey.h>
 #include <domain/Runtime.h>
 #include <domain/drivers/ps2/ps2.h>
@@ -313,7 +313,7 @@ makeSharedProc(void)
   
   kprintf(KR_OSTREAM,"Starting makeSharedProc...");
   
-  result = proccre_create_process(KR_DOMCRE, KR_BANK, KR_NEWPROC);
+  result = capros_ProcCre_createProcess(KR_DOMCRE, KR_BANK, KR_NEWPROC);
   if (result != RC_OK) {
     kprintf (KR_OSTREAM, "Failed to create new process\n");
   }
