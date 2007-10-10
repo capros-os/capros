@@ -91,6 +91,7 @@ prime	{ return PRIME; }
 physmem	{ return PHYSMEM; }
 node	{ return NODE; }
 page	{ return PAGE; }
+physpage	{ return PHYSPAGE; }
 forwarder	{ return FORWARDER; }
 sendWord	{ return SENDWORD; }
 GPT	{ return GPT; }

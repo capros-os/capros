@@ -195,7 +195,7 @@
 	     <p>
 	     Returns a copy (in a new node) of <i>node</i>, which can
 	     be either a name or a slot. The returned key to the new
-	     node has exactly the same type, subtype, lss, and so
+	     node has exactly the same type, subtype, l2v, and so
 	     forth as the original.
 	     </p>
 	</dd>
@@ -274,11 +274,14 @@
 	     </p>
 	</dd>
 	<dt>
-	     <i>key</i> <b>with lss</b> <i>lss</i>
+	     <b>physpage</b> ( <i>physaddr</i> )
+	     <br><b>physpage ro</b> ( <i>physaddr</i> )
 	</dt>
 	<dd>
 	     <p>
-	     Returns a copy of <i>key</i> with the specified <i>lss</i>.
+	     A page key to the page at physical address <i>physaddr</i>,
+             which is any arithmetic expression.
+             The <b>ro</b> form produces a read-only key.
 	     </p>
 	</dd>
 	<dt>

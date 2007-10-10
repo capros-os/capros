@@ -166,7 +166,7 @@ bool CheckRestriction(uint32_t restriction, KeyBits key);
 /* %pure_parser */
 
 %token <NONE> RO NC WEAK SENSE OPAQUE SENDCAP SENDWORD
-%token <NONE> NODE PAGE FORWARDER GPT NEW HIDE PROGRAM SMALL
+%token <NONE> NODE PAGE PHYSPAGE FORWARDER GPT NEW HIDE PROGRAM SMALL
 %token <NONE> CHAIN APPEND
 %token PROCESS DOMAIN
 /* %token <NONE> IMPORT */
@@ -907,6 +907,22 @@ key:   NULLKEY {
 	  }
 
 	  $$ = key;
+        }
+
+       | PHYSPAGE '(' arith_expr ')' {
+          OID oid = $3 / (EROS_PAGE_SIZE / EROS_OBJECTS_PER_FRAME)
+                    + OID_RESERVED_PHYSRANGE;
+
+	  SHOWPARSE("=== key -> PHYSPAGE ( arith_expr )\n");
+	  init_DataPageKey(&$$, oid, false);
+        }
+
+       | PHYSPAGE RO '(' arith_expr ')' {
+          OID oid = $4 / (EROS_PAGE_SIZE / EROS_OBJECTS_PER_FRAME)
+                    + OID_RESERVED_PHYSRANGE;
+
+	  SHOWPARSE("=== key -> RO PHYSPAGE ( arith_expr )\n");
+	  init_DataPageKey(&$$, oid, true);
         }
 
        | NEW qualifier PAGE {
