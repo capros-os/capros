@@ -39,6 +39,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/key.h>
 #include <idl/capros/Number.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/ProcCre.h>
 
 #include <idl/capros/Ps2.h>
 #include <idl/console/keyclient.h>
@@ -46,7 +47,6 @@ Approved for public release, distribution unlimited. */
 #include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
-#include <domain/ProcessCreatorKey.h>
 #include <domain/Runtime.h>
 
 #include "constituents.h"
@@ -353,7 +353,7 @@ makeSharedProc(cap_t krNewProc,uint32_t sp)
   uint32_t result;
   Message msg;
   
-  result = proccre_create_process(KR_DOMCRE, KR_BANK, krNewProc);
+  result = capros_ProcCre_createProcess(KR_DOMCRE, KR_BANK, krNewProc);
   if (result != RC_OK) kprintf (KR_OSTREAM,"Failed to create new process");
   
   //copy address space

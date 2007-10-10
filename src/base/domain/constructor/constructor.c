@@ -52,11 +52,11 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/ProcCre.h>
+#include <idl/capros/PCC.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
-#include <domain/ProcessCreatorKey.h>
-#include <domain/PccKey.h>
 #include <domain/ProtoSpace.h>
 #include <domain/Runtime.h>
 
@@ -105,7 +105,8 @@ CheckDiscretion(uint32_t kr, ConstructorInfo *ci)
 
   capros_Node_getSlot(KR_CONSTIT, KC_YIELDCRE, KR_SCRATCH);
 
-  result = proccre_amplify_gate(KR_SCRATCH, kr, KR_SCRATCH, 0, &keyInfo);
+  result = capros_ProcCre_amplifyGateKey(KR_SCRATCH, kr,
+               KR_SCRATCH, 0, &keyInfo);
 
   if (result == RC_OK && keyInfo == 0) {
     uint32_t isDiscreet;
@@ -152,27 +153,9 @@ InitConstructor(ConstructorInfo *ci)
     capros_Node_getSlot(KR_CONSTIT, KC_PCC, KR_YIELDCRE);
     capros_Process_getSchedule(KR_SELF, KR_SCRATCH);
 
-    {
-      Message msg;
-
-      msg.snd_key0 = KR_BANK;
-      msg.snd_key1 = KR_SCRATCH;
-      msg.snd_key2 = KR_VOID;
-      msg.snd_rsmkey = KR_VOID;
-      msg.snd_data = 0;
-      msg.snd_len = 0;
-      msg.snd_code = OC_PCC_CreateProcessCreator;
-      msg.snd_invKey = KR_YIELDCRE;
-
-      msg.rcv_key0 = KR_YIELDCRE;
-      msg.rcv_key1 = KR_VOID;
-      msg.rcv_key2 = KR_VOID;
-      msg.rcv_rsmkey = KR_VOID;
-      msg.rcv_limit = 0;	/* no data returned */
-
-      result = CALL(&msg);
-      DEBUG(init) kdprintf(KR_OSTREAM, "GOT DOMCRE Result is 0x%08x\n", result);
-    }
+    result = capros_PCC_createProcessCreator(KR_YIELDCRE,
+               KR_BANK, KR_SCRATCH, KR_YIELDCRE);
+    DEBUG(init) kdprintf(KR_OSTREAM, "GOT DOMCRE Result is 0x%08x\n", result);
   
     capros_SpaceBank_alloc2(KR_BANK,
                             capros_Range_otNode | (capros_Range_otNode << 8),
@@ -218,13 +201,13 @@ MakeNewProduct(Message *msg)
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Making new product...\n");
 
-  result = proccre_create_process(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
+  result = capros_ProcCre_createProcess(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
   if (result != RC_OK) {
     kdprintf(KR_OSTREAM, "make prod failed with 0x%x\n", result);
     return result;
   }
 
-  /* NOTE that if proccre_create_process succeeded, we know it's a good
+  /* NOTE that if capros_ProcCre_createProcess succeeded, we know it's a good
      space bank. */
   
   /* Build a constiuents node, since we will need the scratch register
@@ -301,7 +284,7 @@ MakeNewProduct(Message *msg)
   return RC_OK;
 
 destroy_product:
-  (void) proccre_destroy_process(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
+  (void) capros_ProcCre_destroyProcess(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
   return RC_capros_key_NoMoreNodes;
 }
 
@@ -321,7 +304,8 @@ is_not_discreet(uint32_t kr, ConstructorInfo *ci)
     return 0;			/* ok */
 
   DEBUG(misc) kdprintf(KR_OSTREAM, "constructor: is_not_discreet(): proccre_amplify\n");
-  result = proccre_amplify_gate(KR_YIELDCRE, kr, KR_SCRATCH, 0, &keyInfo);
+  result = capros_ProcCre_amplifyGateKey(KR_YIELDCRE, kr,
+                                 KR_SCRATCH, 0, &keyInfo);
   if (result == RC_OK && keyInfo == 0) {
     uint32_t isDiscreet;
     /* This key is a requestor's key to a constructor. Ask the

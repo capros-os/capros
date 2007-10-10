@@ -39,9 +39,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Number.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/ProcCre.h>
 
 #include <domain/ConstructorKey.h>
-#include <domain/ProcessCreatorKey.h>
 #include <domain/ProtoSpace.h>
 #include <domain/Runtime.h>
 	
@@ -257,7 +257,7 @@ LEXT(sepuku)
 	
 	movl	$destroy_caller,%ebp
 	
-	movl	$OC_ProcCre_DestroyCallerAndReturn,%eax	/* r0 */
+	movl	$OC_capros_ProcCre_destroyCallerAndReturn,%eax	/* r0 */
 	xorl	%ebx,%ebx			/* r1 */
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */

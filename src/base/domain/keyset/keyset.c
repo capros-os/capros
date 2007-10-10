@@ -65,10 +65,10 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/GPT.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/ProcCre.h>
 
 #include <domain/ProtoSpace.h>
 #include <domain/ConstructorKey.h>
-#include <domain/ProcessCreatorKey.h>
 #include <domain/KeySetKey.h>
 #include <domain/Runtime.h>
 
@@ -323,7 +323,7 @@ VerifyAndGetSegmentOfSet(uint32_t krOtherSet,
   bool isEqual;
 
   /* it's got to be a KEYDATA 0u start key */
-  result = proccre_amplify_gate(KR_CREATOR, krOtherSet, KR_SCRATCH2,
+  result = capros_ProcCre_amplifyGateKey(KR_CREATOR, krOtherSet, KR_SCRATCH2,
 				0, &keyInfo);
   if (result != RC_OK ||
       (keyInfo != Normal_KeyData       /* writable */
@@ -412,7 +412,7 @@ SlaveProtocol(void)
 {
   Message myMsg;
   uint32_t keyInfo;
-  uint32_t result = proccre_amplify_gate(KR_CREATOR, KR_ARG0, KR_VOID,
+  uint32_t result = capros_ProcCre_amplifyGateKey(KR_CREATOR, KR_ARG0, KR_VOID,
 					 0, &keyInfo);
   DEBUG(protocol)
     kprintf(KR_OSTREAM,

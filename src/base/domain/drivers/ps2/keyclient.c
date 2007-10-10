@@ -37,7 +37,6 @@ Approved for public release, distribution unlimited. */
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
-#include <domain/ProcessCreatorKey.h>
 #include <domain/Runtime.h>
 #include <domain/drivers/ps2.h>
 

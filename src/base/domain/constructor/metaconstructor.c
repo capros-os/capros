@@ -39,11 +39,10 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Number.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/ProcCre.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
-#include <domain/ProcessCreatorKey.h>
-#include <domain/PccKey.h>
 #include <domain/Runtime.h>
 #include "constituents.h"
 
@@ -108,11 +107,11 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
   msg->snd_w3 = 0;
   msg->snd_len = 0;
 
-  result = proccre_create_process(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
+  result = capros_ProcCre_createProcess(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
   if (result != RC_OK)
     return result;
 
-  /* NOTE that if proccre_create_process succeeded, we know it's a good
+  /* NOTE that if capros_ProcCre_createProcess succeeded, we know it's a good
      space bank. */
   
   /* Install the schedule.  KR_ARG1 can be reused after this. */
@@ -154,7 +153,7 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
   return RC_OK;
 
 destroy_product:
-  (void) proccre_destroy_process(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
+  (void) capros_ProcCre_destroyProcess(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
   return RC_capros_key_NoMoreNodes;
 }
 

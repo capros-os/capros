@@ -40,7 +40,6 @@ Approved for public release, distribution unlimited. */
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
 #include <domain/Runtime.h>
-#include <domain/ProcessCreatorKey.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Stream.h>

@@ -39,9 +39,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Number.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/ProcCre.h>
 
 #include <domain/ConstructorKey.h>
-#include <domain/ProcessCreatorKey.h>
 #include <domain/ProtoSpace.h>
 #include <domain/Runtime.h>
 #include <eros/arch/arm/SWI.h>
@@ -96,7 +96,7 @@ ENTRY(start)
 	/* On entry, if we came from the constructor, r2 has zero.
 	If we came from protospace_destroy(),
 	r2 (which is where rcv_w1 ends up) will have 
-	1 if destroying a ??, or
+	1 if destroying a large space, or
 	2 if destroying a small space.
 	(Not sure where 3 comes from.) */
 
@@ -174,7 +174,7 @@ sepuku:
 	/* construction of the address space failed.  Ask our process
 	   creator to blow us away and report failure to the user */
 	simpleCall(destroy_caller, KR_CREATOR,
-		   OC_ProcCre_DestroyCallerAndReturn, 0,
+		   OC_capros_ProcCre_destroyCallerAndReturn, 0,
 		   KR_BANK, KR_RETURN, KR_VOID)
 	
 	/* THIS POINT SHOULD NOT BE REACHED -- APPLICATION NOW DEAD */
