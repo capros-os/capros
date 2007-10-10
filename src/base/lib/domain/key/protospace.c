@@ -87,7 +87,7 @@ protospace_destroy(uint32_t krReturner, uint32_t krProto, uint32_t krMyDom,
 
   /* The following invocation replaces our own address space
   and changes our PC, therefore the part of the stub after
-  the invocation is never execued. 
+  the invocation is never executed. 
   w2_in is received in a register, and w1_out is never used. */
   capros_Process_swapAddrSpaceAndPC32Proto(KR_SELF, PSKR_PROTO,
     0,	/* well known protospace address */
