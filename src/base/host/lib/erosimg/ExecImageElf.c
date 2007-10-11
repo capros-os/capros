@@ -136,6 +136,13 @@ xi_InitElf(ExecImage *pImage)
     elf_phdr *phdr =
       (elf_phdr *) &pImage->image[exehdr->e_phoff + exehdr->e_phentsize * i];
 
+#if 0
+    diag_printf("Region va=0x%x sz=0x%x type=%d\n",
+                pImage->regions[pImage->nRegions].vaddr,
+                pImage->regions[pImage->nRegions].memsz,
+                phdr->p_type);
+#endif
+
     if (phdr->p_type != PT_LOAD)
       continue;
 
