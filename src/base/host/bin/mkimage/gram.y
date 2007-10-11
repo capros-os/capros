@@ -2260,21 +2260,21 @@ AddProgramSegment(ErosImage *image,
    */
   
   for (i = 0; i < xi_NumRegions(ei); i++) {
-    const ExecRegion* er = xi_GetRegion(ei, i);
+    const ExecRegion * er = xi_GetRegion(ei, i);
 
 #if 0
     char perm[4] = "\0\0\0";
     char *pbuf = perm;
-    if (er.perm & ExecRegion::ER_R)
+    if (er->perm & ER_R)
       *pbuf++ = 'R';
-    if (er.perm & ExecRegion::ER_W)
+    if (er->perm & ER_W)
       *pbuf++ = 'W';
-    if (er.perm & ExecRegion::ER_X)
+    if (er->perm & ER_X)
       *pbuf++ = 'X';
 
     diag_printf("va=0x%08x   memsz=0x%08x   filesz=0x%08x"
 		 "   offset=0x%08x   %s\n",
-		 er.vaddr, er.memsz, er.filesz, er.offset, perm);
+		 er->vaddr, er->memsz, er->filesz, er->offset, perm);
 #endif
 
     topfileva = er->vaddr + er->filesz;
