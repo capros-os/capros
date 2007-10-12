@@ -25,19 +25,18 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <domain/ConstructorKey.h>
+#include <idl/capros/key.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
+#include <domain/Runtime.h>
 #include <domain/domdbg.h>
 
-#define KR_ZSF     1
-#define KR_SELF    2
-#define KR_SCHED   3
-#define KR_BANK    4
-#define KR_OSTREAM 5
-#define KR_NEWCON  5
-#define KR_SCRATCH0 6
-#define KR_SCRATCH1 7
+#define KR_OSTREAM KR_APP(0)
+#define KR_ZSF     KR_APP(1)
+#define KR_SEG     KR_APP(2)
+#define KR_SCRATCH0 KR_TEMP0
+#define KR_SCRATCH1 KR_TEMP1
 
 #define dbg_init    0x1
 #define dbg_test    0x2
@@ -45,7 +44,7 @@ Approved for public release, distribution unlimited. */
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u )
 
-#define TEST_ADDR  0x2000000
+#define TEST_ADDR  0x400000
 
 /* This is truly sleazy -- it turns into one of:
 
@@ -56,10 +55,9 @@ Approved for public release, distribution unlimited. */
 
 #define KPRINTF(x) ( (dbg_##x & dbg_flags) ? kdprintf : kprintf )
 
-/* MUST use zero stack pages so that seg root doesn't get
-   smashed by bootstrap code. */
-const uint32_t __rt_stack_pages = 0;
 const uint32_t __rt_stack_pointer = 0x10000;
+/* Flag as unkept so bootstrap code doesn't clobber KR_APP(0). */
+const uint32_t __rt_unkept = 1;
 
 void
 setup()
@@ -72,7 +70,7 @@ setup()
 
   KPRINTF(init)(KR_OSTREAM, "Set l2v:\n");
 
-  capros_GPT_setL2v(KR_SCRATCH0, 26);
+  capros_GPT_setL2v(KR_SCRATCH0, 22);
   
   KPRINTF(init)(KR_OSTREAM, "Fetch current space:\n");
 
@@ -85,20 +83,20 @@ setup()
   KPRINTF(init)(KR_OSTREAM, "Build new zero segment:\n");
 
   result = constructor_request(KR_ZSF, KR_BANK, KR_SCHED, KR_VOID,
-			 KR_SCRATCH1);
+			 KR_SEG);
 
   KPRINTF(init)(KR_OSTREAM,
 	   "result: 0x%08x. Insert result in new seg node:\n",
 	   result); 
 
-  capros_GPT_setSlot(KR_SCRATCH0, 0x8, KR_SCRATCH1);
+  capros_GPT_setSlot(KR_SCRATCH0, 1, KR_SEG);
 
   KPRINTF(init)(KR_OSTREAM, "Make new thing be my address space:\n");
 
   capros_Process_swapAddrSpace(KR_SELF, KR_SCRATCH0, KR_VOID);
 }
 
-void
+int
 main()
 {
   uint32_t value;
@@ -170,10 +168,10 @@ main()
 #endif
   
 
-  capros_Process_getAddrSpace(KR_SELF, KR_SCRATCH1);
-  capros_GPT_getSlot(KR_SCRATCH1, 0x8, KR_SCRATCH1);
-
   KPRINTF(test)(KR_OSTREAM, "About to destroy VCS: 0x%08x\n", value);
-  key_destroy(KR_SCRATCH1);
+  value = capros_key_destroy(KR_SEG);
+  KPRINTF(test)(KR_OSTREAM, "Return code is: 0x%08x\n", value);
+
   KPRINTF(test)(KR_OSTREAM, "Test PASSED\n");
+  return 0;
 }

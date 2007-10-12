@@ -35,6 +35,7 @@ Approved for public release, distribution unlimited. */
 #include <pcc.map>
 #include <metacon.map>
 #include <vcs.map>
+#include <ipltool.map>
 
 #if 0
 /********************************************************
@@ -53,27 +54,19 @@ vcs[0] = zero_pg;
 
 vcstest = new process;
 
-vcstest.seg = program segment "vcs_test";
-vcstest.pc = symbol "vcs_test" _start;
+vcstest pc = symbol BUILDDIR "vcs_test" _start;
+vcstest.seg = small program BUILDDIR "vcs_test";
 vcstest.seg = vcstest.seg with page at 0xf000;
-
-vcstest pc = vcstest.pc;
 vcstest space = vcstest.seg;
 vcstest schedule = sched(8);	/* normal */
-/* vcstest brand = start pcc 65535; */
 
 /* vcstest registers: */
-vcstest key reg 1 = zs_c;
-vcstest key reg 2 = vcstest;
-vcstest key reg 3 = sched(8);
-vcstest key reg 4 = primebank;
-vcstest key reg 5 = misc Console;
+vcstest key reg KR_SELF = vcstest;
+vcstest key reg KR_BANK = primebank;
+vcstest key reg KR_SCHED = sched(8);
+vcstest key reg KR_APP(0) = misc Console;
+vcstest key reg KR_APP(1) = zs_c;
 
-/* print domain vcstest.dom */
 hide vcstest.seg;
-hide vcstest.pc;
 
 run vcstest;
-
-
-print directory
