@@ -33,9 +33,9 @@ include $(EROS_SRC)/build/make/makevars.mk
 GENERATED=$(BUILDDIR)/constituents.h
 IMGMAP=metacon.map
 VPATH=$(EROS_TARGET)
-TARGETS=$(BUILDDIR)/constructor $(BUILDDIR)/protospace $(BUILDDIR)/metaconstructor
+TARGETS=$(BUILDDIR)/constructor $(BUILDDIR)/metaconstructor
+TARGETS+= $(BUILDDIR)/protospace
 OPTIM=-O
-OBJECTS=$(BUILDDIR)/constructor.o $(BUILDDIR)/protospace.o $(BUILDDIR)/metaconstructor.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
@@ -53,10 +53,26 @@ $(BUILDDIR)/metaconstructor: $(BUILDDIR)/metaconstructor.o $(DOMCRT0) $(DOMLIB)
 	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(BUILDDIR)/metaconstructor.o -lsmall $(DOMLIB) -o $@
 #	objdump --headers metaconstructor
 
-$(BUILDDIR)/protospace: $(BUILDDIR)/protospace.o $(DOMCRT0) $(DOMLIB)
+# Combine protospace.S and telospace.S into a single object file
+# that will get loaded into a single page
+# (just to save having another separate page). 
+# telospace.S is loaded at the fixed address 0x400.
+$(BUILDDIR)/protospace: $(BUILDDIR)/protospace1 $(BUILDDIR)/telospace
+	$(DOMLINK) -N -Ttext 0 --section-start .texttelo=0x400 --section-start .rodatatelo=0x500 -static -e _start $(BUILDDIR)/protospace1 $(BUILDDIR)/telospace -o $@
+#	$(EROS_OBJDUMP) -x $@ > $(BUILDDIR)/all.dump
+
+$(BUILDDIR)/protospace1: $(BUILDDIR)/protospace.o
+# Link without $(DOMLIB). Should not need any other procedures.
 # Protospace is well-known to start at zero, so override DOMLINKOPT.
-	$(DOMLINK) -Ttext 0 $(DOMLINKOPT) $(BUILDDIR)/protospace.o $(DOMLIB) -o $@
-#	objdump --headers protospace
+	$(DOMLINK) -Ttext 0 $(DOMLINKOPT) $(BUILDDIR)/protospace.o -o $@
+
+$(BUILDDIR)/telospace: $(BUILDDIR)/telospace.o
+# Link without $(DOMLIB). Should not need any other procedures.
+# Telospace is well-known to start at 0x400, so override DOMLINKOPT.
+# I don't know how to get section .rodatatelo to follow .texttelo,
+# so put it at a fixed address.
+	$(DOMLINK) --section-start .texttelo=0x400 --section-start .rodatatelo=0x500 $(DOMLINKOPT) $(BUILDDIR)/telospace.o -o $@
+	$(EROS_OBJCOPY) --keep-global-symbol=telospacestart --set-section-flags .texttelo=alloc,code,load --set-section-flags .rodatatelo=alloc,load,readonly,data $@
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
