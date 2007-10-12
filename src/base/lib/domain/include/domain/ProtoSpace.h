@@ -34,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #define PSKR_K2       KR_APP(5)
 
 #ifndef __ASSEMBLER__
+/* This is obsolete. Use protospace_destroy_small instead. */
 void protospace_destroy(uint32_t krReturner, uint32_t krProto, uint32_t krMyDom,
 			uint32_t krMyProcCre,
 			uint32_t krBank, int smallSpace);
