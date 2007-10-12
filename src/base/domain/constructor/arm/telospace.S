@@ -34,7 +34,7 @@ This code shares a page with protospace, because it can. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/ProcCre.h>
 
-#include <domain/ProtoSpace.h>
+#include <domain/ProtoSpaceDS.h>
 #include <domain/Runtime.h>
 #include <eros/arch/arm/SWI.h>
 
