@@ -40,9 +40,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/GPT.h>
 #include <domain/Runtime.h>
 	
-#define KR_OLDSPACE KR_APP(0)
-#define KR_NEWSPACE KR_APP(1)
-#define KR_NEWPAGE  KR_APP(2)
+#define KR_OLDSPACE KR_TEMP0
+#define KR_NEWSPACE KR_TEMP1
+#define KR_NEWPAGE  KR_TEMP2
 	
 /* Startup code for processes.  Handles four cases:
 

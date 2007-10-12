@@ -33,7 +33,7 @@ Approved for public release, distribution unlimited. */
 
 void __rt_setup_keeper() __attribute__((weak, alias("__rt_do_setup_keeper")));
 
-#define KR_KEEPER KR_APP(0)
+#define KR_KEEPER KR_TEMP0
 
 void
 __rt_do_setup_keeper()

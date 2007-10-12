@@ -31,9 +31,9 @@ Approved for public release, distribution unlimited. */
 #include <domain/ProtoSpace.h>
 #include <domain/Runtime.h>
 
-#define KR_MYSPACE KR_APP(0)
-#define KR_OLDPAGE KR_APP(1)
-#define KR_NEWPAGE KR_APP(2)
+#define KR_MYSPACE KR_TEMP0
+#define KR_OLDPAGE KR_TEMP1
+#define KR_NEWPAGE KR_TEMP2
 
 extern void etext();
 extern void end();
