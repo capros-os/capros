@@ -98,10 +98,10 @@ L2v goes down by EROS_NODE_LGSIZE at each level - no levels are skipped.
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
 
+#include <domain/Runtime.h>
 #include <domain/VcskKey.h>
 #include <domain/domdbg.h>
-#include <domain/ProtoSpace.h>
-#include <domain/Runtime.h>
+#include <domain/ProtoSpaceDS.h>
 
 #include "constituents.h"
 
@@ -185,7 +185,7 @@ typedef struct {
   uint32_t npage;
 } state;
 
-void Sepuku();
+void Sepuku(result_t);
 void DestroySegment(state *);
 
 static unsigned int
@@ -762,7 +762,7 @@ ProcessRequest(Message *argmsg, state *pState)
     {
       DestroySegment(pState);
 
-      Sepuku();
+      Sepuku(RC_OK);
       break;
     }
     
@@ -776,10 +776,8 @@ ProcessRequest(Message *argmsg, state *pState)
   return 1;
 }
 
-/* In spite of unorthodox fabrication, the constructor self-destructs
-   in the usual way. */
 void
-Sepuku()
+Sepuku(result_t retCode)
 {
   capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPC, KR_SEGMENT);
 
@@ -787,8 +785,7 @@ Sepuku()
 
   /* Invoke the protospace with arguments indicating that we should be
      demolished as a small space domain */
-  protospace_destroy(KR_VOID, KR_SEGMENT, KR_SELF,
-		     KR_CREATOR, KR_BANK, 1);
+  protospace_destroy_small(KR_SEGMENT, retCode);
 }
 
 /* Tree destruction is a little tricky.  We know the height of the
@@ -879,7 +876,7 @@ DestroySegment(state *mystate)
 void
 Initialize(state *mystate)
 {
-  uint32_t result;
+  result_t result;
   
   mystate->was_access = false;
   mystate->first_zero_offset = ~0ull; /* until proven otherwise below */
@@ -908,6 +905,8 @@ Initialize(state *mystate)
   DEBUG(init) kdprintf(KR_OSTREAM, "Buy new GPT\n");
   
   result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_SEGMENT);
+  if (result != RC_OK)	// failed to allocate a GPT
+    Sepuku(result);	// return failure to caller
 
   DEBUG(init) kdprintf(KR_OSTREAM, "Initialize it\n");
 
@@ -926,6 +925,9 @@ Initialize(state *mystate)
   result = capros_Memory_reduce(KR_SEGMENT, capros_Memory_opaque, KR_SEGMENT);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "GPT now constructed... returning\n");
+  return;
+
+
 }
 
 int
