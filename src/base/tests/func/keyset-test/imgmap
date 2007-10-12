@@ -43,13 +43,12 @@ seg = seg with page at 0x1f000; /* for stack */
 keysettest space = seg;
 keysettest schedule = sched(8);   /* normal */
 
-keysettest key reg 2 = keysettest;
-keysettest key reg 4 = primebank;
-keysettest key reg 5 = sched(8);
+keysettest key reg KR_BANK = primebank;
+keysettest key reg KR_SCHED = sched(8);
 
-keysettest key reg 6 = keyset_c;
-keysettest key reg 8 = misc Console;
-keysettest key reg 9 = misc Sleep;
+keysettest key reg KR_APP(0) = keyset_c;
+keysettest key reg KR_APP(1) = misc Console;
+keysettest key reg KR_APP(2) = misc Sleep;
 
 run keysettest;
 

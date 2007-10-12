@@ -31,28 +31,24 @@ Approved for public release, distribution unlimited. */
 
 #include <domain/KeySetKey.h>
 #include <domain/ConstructorKey.h>
+#include <domain/Runtime.h>
 
 #include <domain/domdbg.h>
 
-#define KR_VOID     0
+#define KR_KEYSETC  KR_APP(0)
+#define KR_OSTREAM  KR_APP(1)
+#define KR_SLEEP    KR_APP(2)
 
-#define KR_SELF     2
-#define KR_BANK     4
-#define KR_SCHED    5
-#define KR_KEYSETC  6
-#define KR_OSTREAM  8
-#define KR_SLEEP    9
+#define KR_EVENSET  KR_APP(3)
+#define KR_ODDSET   KR_APP(4)
+#define KR_OTHERSET KR_APP(5)
+#define KR_ALLSET   KR_APP(6)
 
-#define KR_EVENSET  10
-#define KR_ODDSET   11
-#define KR_OTHERSET 12
-#define KR_ALLSET   13
+#define KR_NODE     KR_APP(7)
+#define KR_TMP      KR_TEMP0
 
-#define KR_TMP      14
-#define KR_NODE     15
-
-const uint32_t __rt_stack_pointer = 0x20000u;
-const uint32_t __rt_stack_pages   = 1u;
+const uint32_t __rt_stack_pointer = 0x20000;
+const uint32_t __rt_unkept = 1;
 
 void
 createNumberKey(uint32_t number, uint32_t krOut)
