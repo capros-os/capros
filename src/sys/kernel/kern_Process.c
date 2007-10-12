@@ -30,6 +30,44 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Node.h>
 #include <kerninc/Activity.h>
 
+void 
+proc_FlushKeyRegs(Process * thisPtr)
+{
+  uint32_t k;
+  assert(thisPtr->procRoot);
+  assert(thisPtr->keysNode);
+  assert((thisPtr->hazards & hz_KeyRegs) == 0);
+  assert(objH_IsDirty(node_ToObj(thisPtr->keysNode)));
+  assert(node_Validate(thisPtr->keysNode));
+
+#if 0
+  printf("Flushing key regs on ctxt=0x%08x\n", this);
+  if (inv.IsActive() && inv.invokee == this)
+    dprintf(true,"THAT WAS INVOKEE!\n");
+#endif
+
+  for (k = 0; k < EROS_NODE_SIZE; k++) {
+    Key * key = node_GetKeyAtSlot(thisPtr->keysNode, k);
+    keyBits_UnHazard(key);
+    key_NH_Set(key, &thisPtr->keyReg[k]);
+
+    /* Not hazarded because key register */
+    key_NH_SetToVoid(&thisPtr->keyReg[k]);
+
+    /* We know that the context structure key registers are unhazarded
+     * and unlinked by virtue of the fact that they are unloaded.
+     */
+  }
+
+  thisPtr->keysNode->node_ObjHdr.prep_u.context = 0;
+  thisPtr->keysNode->node_ObjHdr.obType = ot_NtUnprepared;
+  thisPtr->keysNode = 0;
+
+  thisPtr->hazards |= hz_KeyRegs;
+
+  keyBits_UnHazard(&thisPtr->procRoot->slot[ProcGenKeys]);
+}
+
 /* May Yield. */
 void 
 proc_LoadKeyRegs(Process* thisPtr)

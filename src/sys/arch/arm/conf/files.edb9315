@@ -21,8 +21,6 @@
 # Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 # W31P4Q-07-C-0070.  Approved for public release, distribution unlimited.
 
-#file("kernel/kern_main.c")
-
 file("arch/arm/kernel/asm.S")
 file("arch/arm/kernel/exception.S")
 file("arch/arm/kernel/GrubEmul.c")
@@ -40,12 +38,9 @@ file("arch/arm/kernel/PageFault.c")
 file("arch/arm/kernel/PhysMem.c")
 file("arch/arm/kernel/Process.c")
 file("arch/arm/kernel/setjmp.S")
-file("arch/arm/kernel/Stubs.c") ##temporary
 #file("arch/arm/kernel/mainTemp.c") ##temporary
 #file("arch/arm/kernel/onewire.c") ##temporary
 #file("arch/arm/kernel/invmon.c") ##temporary
-#file("kernel/kern_Invoke.c")
-#file("kernel/kern_IRQ.c")
 
 #
 # Machine-specific debugger object files:

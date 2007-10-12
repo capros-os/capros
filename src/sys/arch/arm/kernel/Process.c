@@ -219,13 +219,9 @@ proc_Unload(Process* thisPtr)
       halt('a');
 #endif
 
-#if 1
-printf("Unimplemented proc_Unload");
-#else
   if (thisPtr->curActivity) {
     proc_SyncActivity(thisPtr);
     act_ZapContext(thisPtr->curActivity);
-
   }
 
 #if defined(DBG_WILD_PTR)
@@ -234,7 +230,6 @@ printf("Unimplemented proc_Unload");
       halt('b');
 #endif
   
-  thisPtr->MappingTable = 0;
   thisPtr->curActivity = 0;
 
   if ((thisPtr->hazards & hz_KeyRegs) == 0)
@@ -243,24 +238,22 @@ printf("Unimplemented proc_Unload");
   if ((thisPtr->hazards & hz_DomRoot) == 0)
     proc_FlushFixRegs(thisPtr);
 
-  
   if ( keyBits_IsHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace)) ) {
     Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace));
   }
 
+  assert(thisPtr->procRoot);
+
   thisPtr->procRoot->node_ObjHdr.prep_u.context = 0;
   thisPtr->procRoot->node_ObjHdr.obType = ot_NtUnprepared;
-
-  assert(thisPtr->procRoot);
   
-  keyR_UnprepareAll(&thisPtr->keyRing);
+  keyR_UnprepareAll(&thisPtr->keyRing);	// Why? CRL
   thisPtr->hazards = 0;
   thisPtr->procRoot = 0;
 
   dprintf(false,  "Unload of context 0x%08x complete\n", thisPtr);
 
   sq_WakeAll(&thisPtr->stallQ, false);
-#endif
 }
 
 /* Simple round-robin policy for now:  */

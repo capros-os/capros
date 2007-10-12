@@ -374,10 +374,13 @@ node_IsCurrentDomain(Node* thisPtr)
 bool
 node_Unprepare(Node* thisPtr, bool zapMe)
 {
-//  uint32_t k = 0;
-
   if (thisPtr->node_ObjHdr.obType == ot_NtUnprepared)
     return true;
+
+#ifndef NDEBUG
+  unsigned int originalObType = thisPtr->node_ObjHdr.obType;
+  Process * originalContext = thisPtr->node_ObjHdr.prep_u.context;
+#endif
 
   if (thisPtr->node_ObjHdr.obType == ot_NtProcessRoot) {
     /* First check to make sure we don't deprepare ourselves if we
@@ -391,8 +394,6 @@ node_Unprepare(Node* thisPtr, bool zapMe)
               (uint32_t) thisPtr->node_ObjHdr.oid);
       return false;
     }
-
-    node_ClearAllHazards(thisPtr);
 
     if (thisPtr->node_ObjHdr.prep_u.context)
       proc_Unload(thisPtr->node_ObjHdr.prep_u.context);
@@ -411,7 +412,6 @@ node_Unprepare(Node* thisPtr, bool zapMe)
 
 #endif
 
-
     if (zapMe == false && node_IsCurrentDomain(thisPtr)) {
       dprintf(true, "(0x%08x) keys/annex 0x%08x%08x no zapme\n",
 		      thisPtr,
@@ -419,8 +419,6 @@ node_Unprepare(Node* thisPtr, bool zapMe)
                       (uint32_t) thisPtr->node_ObjHdr.oid);
       return false;
     }
-
-      
 
     if (thisPtr->node_ObjHdr.prep_u.context)
       proc_Unload(thisPtr->node_ObjHdr.prep_u.context);
@@ -443,6 +441,17 @@ node_Unprepare(Node* thisPtr, bool zapMe)
   
     objH_InvalidateProducts(node_ToObj(thisPtr));
   }
+
+#ifndef NDEBUG
+  // All slots should now be unhazarded.
+  unsigned int k;
+  for (k = 0; k < EROS_NODE_SIZE; k++) {
+    if (keyBits_IsHazard(node_GetKeyAtSlot(thisPtr, k))) {
+      dprintf(true, "Hazard after unprepared! slot %d, ot=%d, ctxt=0x%08x\n",
+              k, originalObType, originalContext);
+    }
+  }
+#endif
 
   thisPtr->node_ObjHdr.obType = ot_NtUnprepared;
   return true;
