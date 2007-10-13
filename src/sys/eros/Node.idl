@@ -17,23 +17,27 @@ interface Node extends key raises (key.RequestError) {
   typedef unsigned long extAddr_t;	// an extended address
 
   /* Return the key in the specified slot. */
+  /* If the key is opaque, this call goes to the keeper. */
   capros.key getSlot(unsigned byte slot); 
 
   /* Return the key at the specified address in a tree of nodes. */
+  /* If the key is opaque and the node is Blocked,
+     this call goes to the keeper. */
   // Raises NoAddr if the address does not exist.
-  /* Raises Nondecreasing if the l2v of the path of nodes is nondecreasing
-  more than once. */
+  /* Raises Nondecreasing if the l2v of the path of nodes is nondecreasing.*/
   capros.key getSlotExtended(extAddr_t slot); 
 
   /* Store a key into the specified slot and return the former contents. */
+  /* If the key is opaque, this call goes to the keeper. */
   capros.key swapSlot(unsigned byte slot, capros.key k); 
 
   /* Store a key at the specified address in a tree of nodes,
   and return the former contents. */
+  /* If the key is opaque and the node is Blocked,
+     this call goes to the keeper. */
   // Raises NoAddr if the address does not exist.
   // Raises NoAccess if this or any node key in the path is readOnly.
-  /* Raises Nondecreasing if the l2v of the path of nodes is nondecreasing
-  more than once. */
+  /* Raises Nondecreasing if the l2v of the path of nodes is nondecreasing.*/
   capros.key swapSlotExtended(extAddr_t slot, capros.key k); 
 
   /* Store a number key into the specified slot. */
@@ -62,6 +66,11 @@ interface Node extends key raises (key.RequestError) {
 
   /* Sets the Node as having no keeper. Slot keeperSlot is unchanged. */
   void clearKeeper();
+
+  /* While the node is Blocked, get/swapSlotExtended on an opaque key
+  will go the keeper. */
+  void setBlocked();
+  void clearBlocked();
 
   /* Returns the guard of this key. */
   extAddr_t getGuard();

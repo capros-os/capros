@@ -32,7 +32,6 @@ static inline unsigned int fls32(uint32_t x)
     r -= 2;
   }
   if (!(x & 0x80000000u)) {
-    x <<= 1;
     r -= 1;
   }
   return r;
