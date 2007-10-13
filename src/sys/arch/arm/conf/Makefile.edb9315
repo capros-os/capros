@@ -44,11 +44,7 @@ TOP=$(EROS_SRC)/sys
 #  Any:      -DSTRESS_TEST       runs things in ways designed to break things
 
 # -march=armv4t for ARM9TDMI.
-OPTIM= -g -O2 -march=armv4t $(EROS_GCC_OPTIM) # $(PACK_OPTIM)
-ifeq "$(EROS_CONFIG)" "NDEBUG"
-else
-OPTIM+= -mapcs-frame # generate stack frames for debugging.
-endif
+OPTIM= -g -O2 -march=armv4t # $(PACK_OPTIM)
 
 INC=-include kernel-config.h -I$(EROS_ROOT)/include -I../.. -I$(TOP) -I.
 

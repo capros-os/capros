@@ -188,7 +188,12 @@ ifndef EROS_FD
 EROS_FD=$(HOST_FD)
 endif
 
-#
+ifeq "$(EROS_TARGET)" "arm"
+ifneq "$(EROS_CONFIG)" "NDEBUG"
+EROS_GCC_OPTIM+= -mapcs-frame # generate stack frames for debugging
+endif
+endif
+
 # Now for the REALLY SLEAZY part: if this makefile is performing a
 # cross build, smash the native tool variables with the cross tool 
 # variables.  The clean thing to do would be to separate the rules 
