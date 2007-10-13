@@ -251,7 +251,7 @@ proc_Unload(Process* thisPtr)
   thisPtr->hazards = 0;
   thisPtr->procRoot = 0;
 
-  dprintf(false,  "Unload of context 0x%08x complete\n", thisPtr);
+  // dprintf(false,  "Unload of context 0x%08x complete\n", thisPtr);
 
   sq_WakeAll(&thisPtr->stallQ, false);
 }
@@ -555,8 +555,14 @@ proc_InvokeProcessKeeper(Process * thisPtr)
   // Show the state as it will be after the keeper invocation.
   regs.procFlags &= ~capros_Process_PF_ExpectingMessage;
 
-  proc_InvokeMyKeeper(thisPtr, OC_PROCFAULT, 0, 0, 0,
-                      &thisPtr->procRoot->slot[ProcKeeper],
+  Key * kpr = node_GetKeyAtSlot(thisPtr->procRoot, ProcKeeper);
+
+#ifndef NDEBUG
+  if (! keyBits_IsGateKey(kpr))
+    dprintf(true, "Process faulting, no keeper.\n");
+#endif
+
+  proc_InvokeMyKeeper(thisPtr, OC_PROCFAULT, 0, 0, 0, kpr,
                       &processKey, (uint8_t *) &regs, sizeof(regs));
 }
 
