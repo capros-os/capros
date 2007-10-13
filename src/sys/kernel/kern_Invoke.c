@@ -467,7 +467,7 @@ inv_GetReturnee(Invocation * inv)
 
       assert(p->runState == RS_Waiting);
 
-      if (! proc_IsWellFormed(inv->invokee)) {
+      if (! proc_IsWellFormed(p)) {
 #ifdef GATEDEBUG
         dprintf(GATEDEBUG>2, "Invokee malformed\n");
 #endif
