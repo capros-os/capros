@@ -64,7 +64,8 @@ gpt_l2vField(uint16_t * nodeDatap)
 
 /* For a node, the first byte of nodeData contains: */
 #define NODE_L2V_MASK GPT_L2V_MASK
-#define NODE_KEEPER GPT_KEEPER
+#define NODE_BLOCKED 0x40
+#define NODE_KEEPER  0x80 
 INLINE uint8_t * 
 node_l2vField(uint16_t * nodeDatap)
 {

@@ -125,11 +125,6 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
   unsigned int restrictions = 0;
   unsigned int curL2v = NODE_L2V_MASK + 1;	// max l2v +1
 
-  /* To prevent unbounded loops, l2v must decrease each iteration,
-  with l2vLimit exceptions.
-  This makes it possible to make a supernode taller. */
-  int l2vLimit = 1;
-
   for(;;) {
     // Check the guard. 
     unsigned int l2g = keyBits_GetL2g(curKey);
@@ -140,17 +135,22 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
     // Shifting by more than the size of addr is undefined, so:
     if (l2g >= 32) {
       if (guard != 0) {
+        // dprintf(true, "Invalid guard.\n");
         inv->exit.code = RC_capros_Node_NoAddr;
         goto fault_exit;
       }
     }
     else {	// the normal case
-      if ((addr >> l2g) != guard) {
+      if ((addr >> l2g) < guard) {
+#if 0
+        dprintf(true, "Less than guard: addr=0x%x guard=0x%x l2g=%d\n",
+                addr, guard, l2g);
+#endif
         inv->exit.code = RC_capros_Node_NoAddr;
         goto fault_exit;
       }
-      // Strip off guard bits.
-      addr &= (1ul << l2g) -1;
+      // Subtract guard.
+      addr -= guard << l2g;
     }
 
     curNode = objH_ToNode(key_GetObjectPtr(curKey));
@@ -164,7 +164,8 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
     uint8_t l2vField = node_GetL2vField(curNode);
     unsigned int newL2v = l2vField & NODE_L2V_MASK;
 
-    if (newL2v >= curL2v && --l2vLimit < 0) {
+    /* To prevent unbounded loops, l2v must decrease each iteration. */
+    if (newL2v >= curL2v) {
       inv->exit.code = RC_capros_Node_Nondecreasing;
       goto fault_exit;
     }
@@ -179,6 +180,7 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
 
     capros_Node_extAddr_t ndx = addr >> curL2v;
     if (ndx > maxSlot) {
+      // dprintf(true, "slot # too big\n");
       inv->exit.code = RC_capros_Node_NoAddr;
       goto fault_exit;
     }
@@ -212,6 +214,7 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
       break;
 
     default:	// most likely void
+      // dprintf(true, "traversing void key\n");
       inv->exit.code = RC_capros_Node_NoAddr;
     }
   }
@@ -354,10 +357,16 @@ NodeKey(Invocation * inv)
     }      
 
   case OC_capros_Node_getSlotExtended:
+    if (opaque && (node_GetL2vField(theNode) & NODE_BLOCKED))
+      goto check_keeper;
+
     WalkExtended(inv, theNode, false);
     return;
 
   case OC_capros_Node_swapSlotExtended:
+    if (opaque && (node_GetL2vField(theNode) & NODE_BLOCKED))
+      goto check_keeper;
+
     WalkExtended(inv, theNode, true);
     return;
 
@@ -368,7 +377,7 @@ NodeKey(Invocation * inv)
     COMMIT_POINT();
 
     uint32_t p = inv->entry.w1;
-    if (p & ~ capros_Node_readOnly) {
+    if (p & ~ (capros_Node_readOnly | capros_Node_opaque)) {
       goto request_error;
     }
 
@@ -535,6 +544,28 @@ NodeKey(Invocation * inv)
     inv->exit.code = RC_OK;
     return;
 
+  case OC_capros_Node_setBlocked:
+    if (opaque) goto check_keeper;
+
+    inv_GetReturnee(inv);
+
+    COMMIT_POINT();
+
+    node_SetL2vField(theNode, node_GetL2vField(theNode) | NODE_BLOCKED);
+    inv->exit.code = RC_OK;
+    return;
+
+  case OC_capros_Node_clearBlocked:
+    if (opaque) goto check_keeper;
+
+    inv_GetReturnee(inv);
+
+    COMMIT_POINT();
+
+    node_SetL2vField(theNode, node_GetL2vField(theNode) & ~ NODE_BLOCKED);
+    inv->exit.code = RC_OK;
+    return;
+
   case OC_capros_Node_clone:
     if (opaque) goto check_keeper;
 
@@ -571,6 +602,7 @@ NodeKey(Invocation * inv)
 check_keeper:
     if (node_GetL2vField(theNode) & NODE_KEEPER) {	// has a keeper
 invoke_keeper: ;
+      // FIXME: need to pass the read-only bit to the keeper.
       Key * keeperKey = node_GetKeyAtSlot(theNode, capros_Node_keeperSlot);
       inv_InvokeGateOrVoid(inv, keeperKey);
       return;
