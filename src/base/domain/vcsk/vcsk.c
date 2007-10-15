@@ -779,13 +779,12 @@ ProcessRequest(Message *argmsg, state *pState)
 void
 Sepuku(result_t retCode)
 {
-  capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPC, KR_SEGMENT);
+  capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPC, KR_TEMP0);
 
   capros_SpaceBank_free1(KR_BANK, KR_CONSTIT);
 
-  /* Invoke the protospace with arguments indicating that we should be
-     demolished as a small space domain */
-  protospace_destroy_small(KR_SEGMENT, retCode);
+  /* Invoke the protospace to destroy us and return. */
+  protospace_destroy_small(KR_TEMP0, retCode);
 }
 
 /* Tree destruction is a little tricky.  We know the height of the
