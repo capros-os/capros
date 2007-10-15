@@ -54,9 +54,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/SuperNode.h>
 #include <idl/capros/Process.h>
 
-#include <domain/SuperNodeKey.h>
 #include <domain/ConstructorKey.h>
 #include <domain/DirectoryKey.h>
 #include <domain/domdbg.h>
@@ -213,9 +213,11 @@ BlssToL2v(unsigned int blss)
   return (blss -1 - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS;
 }
 
+/* Allocate a slot in the supernode. */
 uint32_t
 alloc_dirent(state_t *state)
 {
+  result_t result;
   uint32_t w;
   uint32_t max_w = EROS_PAGE_SIZE * N_FREEMAP_PAGE / sizeof(uint32_t);
   
@@ -234,7 +236,12 @@ alloc_dirent(state_t *state)
 		   bit, w);
 	  state->freeMap[w] |= which_bit;
 
-	  return bit + w * UINT32_BITS;
+          bit += w * UINT32_BITS;
+
+          result = capros_SuperNode_allocateRange(KR_SNODE, bit, bit);
+          // FIXME: handle allocation error here
+
+	  return bit;
 	}
       }
     }
@@ -291,8 +298,10 @@ lookup (char *name, uint32_t kr, state_t *state)
   DEBUG(lookup) kdprintf(KR_OSTREAM, "lookup(\"%s\"): call to snode w/ entry %d\n",
 	   name, dp->d_entno);
 
-  if ((result = supernode_copy(KR_SNODE, dp->d_entno, kr)) != RC_OK) {
-    kdprintf(KR_OSTREAM, "Result from supernode_copy: 0x%08x\n", result);
+  if ((result = capros_Node_getSlotExtended(KR_SNODE, dp->d_entno, kr))
+      != RC_OK) {
+    kdprintf(KR_OSTREAM,
+             "Result from capros_Node_getSlotExtended: 0x%08x\n", result);
     return result;
   }
 
@@ -306,7 +315,7 @@ unlink(char *name, uint32_t kr, state_t * state)
   struct direct *dp = find(name, state);
 
   if (dp) {
-    supernode_swap(KR_SNODE, dp->d_entno, KR_VOID, KR_SCRATCH);
+    capros_Node_swapSlotExtended(KR_SNODE, dp->d_entno, KR_VOID, KR_SCRATCH);
     dp->d_inuse = false;
     free_dirent(state, dp->d_entno);
 
@@ -355,7 +364,7 @@ insert_dirent(struct direct *dp, char *name, uint32_t kr, state_t *state)
   while (padlen > len)		/* zero-pad the name */
     dp->d_name[len++] = 0;
 
-  supernode_swap(KR_SNODE, entno, kr, KR_VOID);
+  capros_Node_swapSlotExtended(KR_SNODE, entno, kr, KR_VOID);
 
   return true;
 }
@@ -596,15 +605,6 @@ Initialize(state_t *state)
   result = constructor_request(KR_SNODE, KR_BANK, KR_SCHED, KR_VOID, KR_SNODE);
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: Got it. Result 0x%08x\n", result);
 
-  /* insert key for ".." entry: */
-  supernode_swap(KR_SNODE, 1, KR_ARG0, KR_VOID);
-
-  /* make start key to us: */
-  capros_Process_makeStartKey(KR_SELF, 0, KR_ARG0);
-  
-  /* insert key for "." entry: */
-  supernode_swap(KR_SNODE, 0, KR_ARG0, KR_VOID);
-
   state->ndirent = 2;
   {	/* the compiler doesn't seem to be able to do this in one statement. */
     char * foo = (char *)first_entry;
@@ -619,6 +619,16 @@ Initialize(state_t *state)
 
   (void) alloc_dirent(state);
   (void) alloc_dirent(state);
+
+  /* insert key for ".." entry: */
+  // FIXME: KR_ARG0 is surely wrong
+  capros_Node_swapSlotExtended(KR_SNODE, 1, KR_ARG0, KR_VOID);
+
+  /* make start key to us: */
+  capros_Process_makeStartKey(KR_SELF, 0, KR_ARG0);
+  
+  /* insert key for "." entry: */
+  capros_Node_swapSlotExtended(KR_SNODE, 0, KR_ARG0, KR_VOID);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "Initial slots allocated\n");
 }
