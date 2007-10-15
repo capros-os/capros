@@ -80,7 +80,7 @@ FIXME: Handle read-only supernodes.
 #define dbg_dealloc 0x4
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0 | dbg_init | dbg_alloc | dbg_dealloc )
+#define dbg_flags   ( 0 )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -265,9 +265,10 @@ deallocateRange(GlobalState * mystate,
                    thisL2v5, thisL2v5, first, last);
 
   assert(first <= last);
-  assert((last >> l2v5Shift(thisL2v5 + 1)) == 0);
 
   if (thisL2v5 == 0) {	// at the bottom level
+    assert(last < capros_Node_nSlots);
+
     /* Level 0 nodes hold client keys. 
     Anything that we aren't deallocating is assumed to be in use. */
     if (first == 0 && last == capros_Node_nSlots - 1) {
@@ -283,6 +284,8 @@ deallocateRange(GlobalState * mystate,
   // For each slot in this node covered by the range:
   unsigned int firstIndex = first >> thisShift;
   unsigned int lastIndex = last >> thisShift;
+  assert(lastIndex < capros_Node_nSlots);
+
   bool anyNonempty = false;	// no nonempty slots so far
   for (j = firstIndex; j <= lastIndex; j++) {
     // Get the range for this slot.
@@ -408,7 +411,6 @@ allocateRange(GlobalState * mystate,
                  thisL2v5, first, last);
 
   assert(first <= last);
-  assert((last >> l2v5Shift(thisL2v5 + 1)) == 0);
 
   if (thisL2v5 == 0)
     return RC_OK;	// at the bottom level
@@ -418,6 +420,8 @@ allocateRange(GlobalState * mystate,
   // For each slot in this node covered by the range:
   unsigned int firstIndex = first >> thisShift;
   unsigned int lastIndex = last >> thisShift;
+  assert(lastIndex < capros_Node_nSlots);
+
   for (j = firstIndex; j <= lastIndex; j++) {
     // Get the range for this slot.
     extAddr_t slotFirst = j == firstIndex ? first - (firstIndex << thisShift)
