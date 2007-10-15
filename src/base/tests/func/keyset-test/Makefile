@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
 # This material is based upon work supported by the US Defense Advanced
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
@@ -41,8 +41,6 @@ install all: $(TARGETS)
 
 include ../../test.mk
 
-$(BUILDDIR)/proc1: $(BUILDDIR)/proc1.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/proc1.map -o $@ $(DOMCRT0) $(BUILDDIR)/proc1.o $(DOMLIB)
 $(BUILDDIR)/keyset-test: $(BUILDDIR)/keyset-test.o $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/keyset-test.o $(DOMLIB)
 
