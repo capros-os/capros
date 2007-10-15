@@ -1,0 +1,9 @@
+package capros;
+
+interface SuperNode extends Node raises (key.RequestError) {
+
+  void allocateRange(Node.extAddr_t firstSlot, Node.extAddr_t lastSlot)
+    /* raises(key.NoMoreNodes) */; 
+
+  void deallocateRange(Node.extAddr_t firstSlot, Node.extAddr_t lastSlot); 
+};
