@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2007, Strawberry Development Group
+ * Copyright (C) 2007, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -22,9 +21,17 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-void kvprintf(uint32_t streamkey, const char *fmt, void *vap);
-void kprintf(uint32_t streamkey, const char *fmt, ...);
-void kdprintf(uint32_t streamkey, const char *fmt, ...);
-int sprintf(char *pBuf, const char *fmt, ...);
-void wrstream(uint32_t streamkey, const char *txt, uint32_t len);
-void ShowKey(uint32_t krConsole, uint32_t krKeyBits, uint32_t kr);
+#include <domain/domdbg.h>
+
+#ifdef NDEBUG
+
+#define assert(expression) ((void) 0)
+
+#else
+
+#define assert(expression)  \
+  ((void) ((expression) ? 0 : \
+   kdprintf(KR_OSTREAM, "%s:%d: failed assertion `" #expression "'\n", \
+            __FILE__, __LINE__ ) ))
+
+#endif
