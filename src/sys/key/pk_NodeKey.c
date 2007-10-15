@@ -216,6 +216,7 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
     default:	// most likely void
       // dprintf(true, "traversing void key\n");
       inv->exit.code = RC_capros_Node_NoAddr;
+      goto fault_exit;
     }
   }
   assert(false);        // can't get here
