@@ -39,6 +39,10 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 all: $(TARGETS)
 
+IDL=$(wildcard *.idl)
+interfaces: $(IDL)
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros
+
 supernode.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/supernode: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
