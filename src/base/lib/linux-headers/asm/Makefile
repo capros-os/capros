@@ -44,9 +44,13 @@ HEADERS=\
  domain.h \
  elf.h \
  errno.h \
+ fcntl.h \
  fpstate.h \
  glue.h \
  hardirq.h \
+ io.h \
+ ioctl.h \
+ ioctls.h \
  ipcbuf.h \
  irq.h \
  irqflags.h \
@@ -72,6 +76,8 @@ HEADERS=\
  stat.h \
  string.h \
  system.h \
+ termbits.h \
+ termios.h \
  thread_info.h \
  timex.h \
  topology.h \
