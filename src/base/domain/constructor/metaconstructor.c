@@ -76,7 +76,7 @@ InitMetaCon(MetaConInfo *mci)
   DEBUG kdprintf(KR_OSTREAM, "Metacon inits\n");
 
   capros_Node_getSlot(KR_CONSTIT, KC_CON_PC, KR_NEWDOM);
-  capros_Number_getWord(KR_NEWDOM, &mci->constructor_pc);
+  capros_Number_get32(KR_NEWDOM, &mci->constructor_pc);
 
   capros_Node_getSlot(KR_CONSTIT, KC_DISCRIM, KR_DISCRIM);
   capros_Node_getSlot(KR_CONSTIT, KC_YIELDCRE, KR_YIELDCRE);

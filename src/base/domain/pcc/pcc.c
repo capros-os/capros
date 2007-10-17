@@ -113,7 +113,7 @@ init_pcc(domcre_info *pInfo)
 {
   capros_Node_getSlot(KR_CONSTIT, KC_DOMCRE_PC, KR_SCRATCH);
 
-  capros_Number_getWord(KR_SCRATCH, &pInfo->domcre_pc);
+  capros_Number_get32(KR_SCRATCH, &pInfo->domcre_pc);
 
 
   capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
