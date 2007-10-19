@@ -1,8 +1,8 @@
-#ifndef __ATOMIC_H__
-#define __ATOMIC_H__
+#ifndef __MACHINE_ATOMIC_H__
+#define __MACHINE_ATOMIC_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -21,10 +21,13 @@
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 /*
- * Functions to support atomic memory manipulation.
+ * Functions to support atomic memory manipulation.  Since in some cases
+ * this involves kernel-implemented pseudo instructions, the
+ * associated header is part of the kernel tree.
  */
 
 /*
@@ -39,33 +42,49 @@
  *   return *p_word;
  */
 
-INLINE int
-ATOMIC_SWAP32(volatile uint32_t* p_word, uint32_t old, uint32_t new)
+INLINE uint32_t
+capros_atomic_cmpxchg32(volatile uint32_t * p_word,
+  uint32_t oldVal, uint32_t newVal)
 {
-  uint32_t old_val = old;
+  register uint32_t r0 __asm__("r0") = (uint32_t) p_word;
+  register uint32_t r1 __asm__("r1") = oldVal;
+  register uint32_t r2 __asm__("r2") = newVal;
+  __asm__ __volatile__ ("swi 1"	// SWI_CSwap32
+         : "=r" (r0)
+         : "0" (r0), "r" (r1), "r" (r2)
+         : "memory" );
+  return r0;
+}
 
-  __asm__ __volatile__ ("swi 1");	/* SWI_CSwap32 */
+INLINE uint32_t
+capros_atomic_add32_return(uint32_t i, volatile uint32_t * p_word)
+{
+  uint32_t oldVal;
+  uint32_t val = *p_word;
+  do {
+    oldVal = val;
+    val = capros_atomic_cmpxchg32(p_word, val, val + i);
+  } while (val != oldVal);
+  return val;
+}
 
+INLINE bool
+ATOMIC_SWAP32(volatile uint32_t* p_word, uint32_t old, uint32_t newVal)
+{
+  uint32_t old_val = capros_atomic_cmpxchg32(p_word, old, newVal);
   return (old == old_val);
 }
 
+INLINE void
+ATOMIC_INC32(volatile uint32_t * p_word)
+{
+  (void) capros_atomic_add32_return(1, p_word);
+}
 
-/* There is no corresponding library function -- the prototype is
-   provided solely for the benefit of lint-like tools. */
-extern void ATOMIC_INC32(volatile uint32_t* p_word);
-#define ATOMIC_INC32(p_word)                            \
-  for(;;) {                                             \
-    uint32_t count = *p_word;                           \
-    if (ATOMIC_SWAP32(p_word, count, count+1))          \
-      break;                                            \
-  }
+INLINE void
+ATOMIC_DEC32(volatile uint32_t * p_word)
+{
+  (void) capros_atomic_add32_return(-1, p_word);
+}
 
-extern void ATOMIC_DEC32(volatile uint32_t* p_word);
-#define ATOMIC_DEC32(p_word)                            \
-  for(;;) {                                             \
-    uint32_t count = *p_word;                           \
-    if (ATOMIC_SWAP32(p_word, count, count-1))          \
-      break;                                            \
-  }
-
-#endif /* __ATOMIC_H__ */
+#endif /* __MACHINE_ATOMIC_H__ */
