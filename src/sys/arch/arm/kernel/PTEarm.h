@@ -25,19 +25,12 @@ Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <eros/machine/target-asm.h>
-#include <kerninc/ObjectHeader.h>
 
 #define PID_SHIFT 25
 #define PID_MASK 0xfe000000
 #define PID_IN_PROGRESS 0xfe000000	/* This value is stored in
 	Process.md.pid while we are traversing the memory tree.
 	This is not a valid small space. */
-
-/* FLPT_FCSEPA is the physical address of the First Level Page Table that is
-   used for the kernel
-   and for processes using the Fast Context Switch Extension. */
-extern kpa_t FLPT_FCSEPA;
-extern uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
 
 /* For Level 1 descriptors: */
 #define L1D_ADDR_SHIFT 20
@@ -154,7 +147,21 @@ Note 4:
 #define PTE_ZAPPED       0x0	/* designates nothing */
 #define PTE_IN_PROGRESS  PTE_BUFFERABLE
 
+/* Values passed to PageFault(): */
+#define prefetchAbort 0
+#define dataAbort     1
+#define CSwapLoad     2
+#define CSwapStore    3
+
 #ifndef __ASSEMBLER__
+
+#include <kerninc/ObjectHeader.h>
+
+/* FLPT_FCSEPA is the physical address of the First Level Page Table that is
+   used for the kernel
+   and for processes using the Fast Context Switch Extension. */
+extern kpa_t FLPT_FCSEPA;
+extern uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
 
 struct PTE {
   uint32_t w_value;

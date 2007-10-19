@@ -27,6 +27,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <eros/arch/arm/SWI.h>
 #include "arm.h"
 #include "process_asm_offsets.h"
+#include "PTEarm.h"
 
 #ifndef NDEBUG
 // Optional debugging checks:
@@ -74,15 +75,16 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
    the base register is unchanged, so no fixup is needed. */
 	sub lr,lr,#8		// addr of faulting instruction
 	stmfd sp!, {r0-r1,r12,lr}	/* Save some working registers. */
-	mov r0,#0		// indicate data abort
+	mov r0,#dataAbort	// parameter to PageFault()
 	b CommonAbortHandler
 
 	ENTRY(PrefetchAbortExceptionHandler)
 	sub lr,lr,#4		// addr of faulting instruction
 	stmfd sp!, {r0-r1,r12,lr}	/* Save some working registers. */
-	mov r0,#1		// indicate prefetch abort
+	mov r0,#prefetchAbort	// parameter to PageFault()
 CommonAbortHandler:
 	mrs r12,spsr
+HandlePageFault:
 	/* Was fault from user mode? */
 	add r1,r12,#1		// add 1 to mode bits of SPSR
 	tst r1,#0b01110		// magic calculation
@@ -109,6 +111,7 @@ CommonAbortHandler:
 	/* Get abort info to pass to C code. */
 	mrc p15,0,r1,c5,c0	// get fault status register
 	mrc p15,0,r2,c6,c0	// get fault address register
+
 #ifndef NDEBUG
 	add r11,r0,#3	// for stack traceback
 #endif
@@ -137,7 +140,8 @@ TransferTable:
 	.long LoadWordFromUserSpaceInstr,LoadWordFromUserSpaceReturn
 	.long SafeLoadByteInstr,SafeLoadByteReturn
 	.long SafeStoreByteInstr,SafeStoreByteReturn
-////	.long SWI_CSwap32_Ref, ???
+	.long SWI_CSwap32_Ref1,SWI_CSwap32_Fault1
+	.long SWI_CSwap32_Ref2,SWI_CSwap32_Fault2
 	.long 0		// end of table
 
 AbortError:
@@ -494,19 +498,48 @@ r2 has new_val
 
 IRQ is disabled here, but *NOT* FIQ.
  */
-ENTRY(SWI_CSwap32_Ref)	/* handle fault here */
 #ifndef NDEBUG
 	/* Was fault from user mode? */
 	add lr,r12,#1		// add 1 to mode bits of SPSR
 	tst lr,#0b01110		// magic calculation
 	bne SwiBadMode	// Neither user nor system mode
 #endif
-	ldrt r12,[r0]//,#0
-	cmp r12,r1
-	streq r2,[r0]
-	mov r0,r12
+/* The following instruction will fault if the user does not have access.
+   The fault handler recognizes this instruction address. */
+	ENTRY(SWI_CSwap32_Ref1)
+	ldrt lr,[r0]
+	cmp lr,r1
+/* The following instruction will fault if the user does not have write access.
+   The fault handler recognizes this instruction address. */
+	ENTRY(SWI_CSwap32_Ref2)
+	streqt r2,[r0]
+	mov r0,lr
 	/* Never need to switch contexts here. Just quickly return. */
 	ldmfd sp!,{r12,pc}^     // restore regs, and SPSR to CPSR
+
+// Get here if the above ldrt faulted.
+ENTRY(SWI_CSwap32_Fault1)
+	stmfd sp!, {r0,r1}	/* save some working registers */
+	mov r0,#CSwapLoad	// parameter to PageFault()
+	b 1f
+	
+// Get here if the above strt faulted.
+ENTRY(SWI_CSwap32_Fault2)
+	stmfd sp!, {r0,r1}	/* save some working registers */
+	mov r0,#CSwapStore	// parameter to PageFault()
+1:
+// Calc addr of fault instr = SWI instr
+	ldr lr,[sp,#12]		// get PC at exception
+// r12 still has spsr
+	tst r12,#0x20		// get Thumb bit
+	subne lr,lr,#2		// get addr of Thumb SWI instruction
+	subeq lr,lr,#4		// get addr of ARM SWI instruction
+	str lr,[sp,#12]
+
+	b HandlePageFault
+/* HandlePageFault will unnecessarily switch to Supervisor mode
+and read the FSR and FAR, but this is not a performance path. */
+
 
 // r0 has "from" slot number.
 // r1 has "to" slot number.

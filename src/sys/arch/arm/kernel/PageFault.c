@@ -378,7 +378,7 @@ FindProduct(SegWalk * wi,
    This is called from the Abort exception handlers.
    This procedure does not return - it calls ExitTheKernel().  */
 void
-PageFault(bool prefetch,	/* else data abort */
+PageFault(unsigned int type,
           uint32_t fsr,	/* fault status */
           ula_t fa)	/* fault address, if data abort */
 {
@@ -389,7 +389,8 @@ PageFault(bool prefetch,	/* else data abort */
   assert(irq_DisableDepth == 0);
   irq_DisableDepth = 1;	/* disabled by the exception */
 
-  if (prefetch) {
+  switch (type) {
+  case prefetchAbort:
     writeAccess = false;
     va = proc->trapFrame.r15;	/* his pc */
 
@@ -401,7 +402,9 @@ PageFault(bool prefetch,	/* else data abort */
     DEBUG(pgflt)
       printf("Prefetch PageFault fa=0x%08x pc=0x%08x\n",
              va, proc->trapFrame.r15);
-  } else {
+    break;
+
+  case dataAbort: ;
     /* fa has the modified virtual address */
     ula_t pidAddr = proc->md.pid;
     if ((fa & PID_MASK) == pidAddr) {
@@ -488,6 +491,23 @@ PageFault(bool prefetch,	/* else data abort */
         printf("External abort at 0x%08x.", fa);
         fatal(" trap unimplemented");
     }
+    break;
+
+  case CSwapLoad:
+    /* We faulted on the read portion of a CSwap.
+    The write portion is not inevitable (if the old value doesn't match),
+    so just treat as a read fault. */
+    writeAccess = false;
+    va = proc->trapFrame.r0;
+    break;
+
+  case CSwapStore:
+    writeAccess = true;
+    va = proc->trapFrame.r0;
+    break;
+
+  default: assert(false);
+    va = 0;	// to avert a compiler warning
   }
   /* va and writeAccess are now set. */
 
