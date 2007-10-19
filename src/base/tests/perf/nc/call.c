@@ -24,6 +24,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
+#include <eros/machine/atomic.h>
 #include <eros/machine/cap-instr.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
@@ -94,6 +95,20 @@ main()
           (uint32_t) ((endTime - startTime)/(ITERATIONS)) );
 
 #define PSITER 1000000
+
+  kprintf(KR_OSTREAM, "Beginning %d calls to atomic add: ", PSITER);
+
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+
+  uint32_t atomicVar;
+  for (i = 0; i < PSITER; i++)
+    capros_atomic_add32_return(1, &atomicVar);
+
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  kprintf(KR_OSTREAM, "%10u ns per iter\n",
+          (uint32_t) ((endTime - startTime)/(PSITER)) );
+
+
   kprintf(KR_OSTREAM, "Beginning %d calls to null COPY_KEYREG: ", PSITER);
 
   result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
@@ -188,7 +203,10 @@ main()
 
   result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
-  for (i = INCR_ITERATIONS; i > 0; i--) ;
+  for (i = INCR_ITERATIONS; i > 0; i--) {
+    extern void DoNothing(void);
+    DoNothing();
+  }
 
   result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
@@ -196,5 +214,5 @@ main()
 
   kdprintf(KR_OSTREAM, "Done\n");
 
-  return 0;
+  return i;
 }

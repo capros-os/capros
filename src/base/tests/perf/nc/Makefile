@@ -31,7 +31,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/call $(BUILDDIR)/echo
 OPTIM=-O
-OBJECTS=$(BUILDDIR)/call.o $(BUILDDIR)/echo.o
+CALLOBJECTS=$(BUILDDIR)/call.o $(BUILDDIR)/DoNothing.o
 INC=-I$(EROS_ROOT)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
@@ -40,8 +40,8 @@ install all: $(TARGETS)
 
 include ../test.mk
 
-$(BUILDDIR)/call: $(BUILDDIR)/call.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/call.map -o $@ $(DOMCRT0) $(BUILDDIR)/call.o $(DOMLIB)
+$(BUILDDIR)/call: $(CALLOBJECTS) $(DOMLIB) $(DOMCRT0)
+	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/call.map -o $@ $(DOMCRT0) $(CALLOBJECTS) $(DOMLIB)
 # Temporarily strip symbols to reduce size.
 #	$(EROS_STRIP) --strip-all --keep-symbol=_start $(BUILDDIR)/call
 
