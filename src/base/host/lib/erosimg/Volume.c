@@ -722,7 +722,7 @@ vol_WriteBootImage(Volume *pVol, const char *bootName)
 
   if (bootName) {
     ExecImage *bootImage = xi_create();
-    if ( !xi_SetImage(bootImage, bootName) )
+    if ( !xi_SetImage(bootImage, bootName, 0, 0) )
       app_ExitWithCode(1);
 
     vol_WriteImageAtDivisionOffset(pVol, 0, bootImage, 0);

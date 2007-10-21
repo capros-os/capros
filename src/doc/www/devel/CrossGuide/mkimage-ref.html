@@ -402,7 +402,9 @@
 	<dt>
 	     <b>program segment</b> "<i>filename</i>"
 	     <br><b>program segtree</b> "<i>filename</i>"
-	     <br><b>small program</b> "<i>filename</i>"
+	     <br><b>program ro segtree</b> "<i>filename</i>"
+	     <br><b>program rw segtree</b> "<i>filename</i>"
+	     <br><b>program data segtree</b> "<i>filename</i>"
 	</dt>
 	<dd>
 	     <p>
@@ -411,10 +413,28 @@
              single page, a page key is returned and it makes no difference
              whether <b>segment</b> or <b>segtree</b> is used.
              Otherwise, if the <b>segment</b>
-	     form is used an opaque GPT key is returned.  Otherwise a 
-             non-opaque
-	     key is returned.  If the <b>small</b> variant is
-	     used, the returned key is a node key suitable for use
+	     form is used, an opaque GPT key is returned.  Otherwise a 
+             non-opaque GPT key is returned.
+	     </p>
+	     <p>
+             The first two forms load the entire program image.
+             If <b>ro</b> is specified, the memory tree will have
+             only the read-only sections (.text, .rodata, and
+             .eh_frame if present).
+             If <b>rw</b> is specified, the memory tree will have
+             only the read-write sections (.data and .bss).
+             If <b>data</b> is specified, the memory tree will have
+             only the initialized data section (.data).
+	     </p>
+	</dd>
+	<dt>
+	     <b>small program</b> "<i>filename</i>"
+	</dt>
+	<dd>
+	     <p>
+	     Fabricates a new memory tree containing the <em>load image</em>
+	     of the executable <i>file</i>.
+             The returned key is a GPT key suitable for use
 	     with the small program runtime.
 	     </p>
 	</dd>
@@ -527,7 +547,7 @@
       C-style array syntax:
       </p>
       <ul>
-	<b>nodekey[5]</b> = <i>key</i>
+	<b>nodekey[5]</b> = <i>qualified_key</i>
       </ul>
       <p>
       Sets the fifth slot of the node named by <tt>nodekey</tt> to
@@ -537,11 +557,17 @@
       Array syntax can be applied recursively, as in:
       </p>
       <ul>
-	<b>nodekey[5][10]</b> = <i>key</i>
+	<b>nodekey[5][10]</b> = <i>qualified_key</i>
       </ul>
       <p>
       Except for the last, all slots traversed in this fasion must
       contain keys that designate a node.
+      </p>
+      <p>
+      <i>qualified_key</i> is any key expression, optionally prepended with
+      access restrictions, which may include <b>RO</b> and/or <b>NC</b>
+      and/or <b>weak</b>, or may be <b>sense</b> which means
+      all three restrictions. 
       </p>
       <h4>Process Slot Designation</h4>
       <p>
@@ -615,7 +641,7 @@
 	     </p>
 	</dd>
 	<dt>
-	     <i>node</i> <b>key reg</b> <i>n</i> = <i>key</i>
+	     <i>node</i> <b>key reg</b> <i>n</i> = <i>qualified_key</i>
 	</dt>
 	<dd>
 	     <p>

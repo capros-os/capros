@@ -70,9 +70,11 @@ void ShowImageDirectory(const ErosImage *image);
 void ShowImageThreadDirectory(const ErosImage *image);
 
 bool
-AddProgramSegment(ErosImage *image,
-		  const char *fileName,
-		  KeyBits *key);
+AddProgramSegment(ErosImage * image,
+		  const char * fileName,
+		  KeyBits * key,
+                  uint32_t permMask, uint32_t permValue,
+                  bool initOnly);
 
 bool
 GetProgramSymbolValue(const char *fileName,
@@ -165,7 +167,7 @@ bool CheckRestriction(uint32_t restriction, KeyBits key);
 /* Following will not work until I hand-rewrite the lexer */
 /* %pure_parser */
 
-%token <NONE> RO NC WEAK SENSE OPAQUE SENDCAP SENDWORD
+%token <NONE> DATA RW RO NC WEAK SENSE OPAQUE SENDCAP SENDWORD
 %token <NONE> NODE PAGE PHYSPAGE FORWARDER GPT NEW HIDE PROGRAM SMALL
 %token <NONE> CHAIN APPEND
 %token PROCESS DOMAIN
@@ -772,7 +774,7 @@ key:   NULLKEY {
 	   
 	   keyBits_InitToVoid(&key);
 
-	   if (! AddProgramSegment(image, $3, &key) ) {
+	   if (! AddProgramSegment(image, $3, &key, 0, 0, false) ) {
 	     num_errors++;
 	     YYERROR;
 	   }
@@ -786,6 +788,55 @@ key:   NULLKEY {
 	   $$ = key;
         }
 
+       | PROGRAM RO SEGTREE string_lit {
+	   KeyBits key;
+
+	   SHOWPARSE("=== key -> = PROGRAM RO SEGTREE STRING\n");
+	   
+	   keyBits_InitToVoid(&key);
+
+           /* Because we link with the -N option, the program header
+           containing text is flagged ER_W. Therefore we use the ER_X
+           flag to distinguish text from data.
+           Unfortunately I can't get the linking to work right without -N. */
+	   if (! AddProgramSegment(image, $4, &key, ER_X, ER_X, false) ) {
+	     num_errors++;
+	     YYERROR;
+	   }
+
+	   $$ = key;
+        }
+
+       | PROGRAM RW SEGTREE string_lit {
+	   KeyBits key;
+
+	   SHOWPARSE("=== key -> = PROGRAM RW SEGTREE STRING\n");
+	   
+	   keyBits_InitToVoid(&key);
+
+	   if (! AddProgramSegment(image, $4, &key, ER_X, 0, false) ) {
+	     num_errors++;
+	     YYERROR;
+	   }
+
+	   $$ = key;
+        }
+
+       | PROGRAM DATA SEGTREE string_lit {
+	   KeyBits key;
+
+	   SHOWPARSE("=== key -> = PROGRAM DATA SEGTREE STRING\n");
+	   
+	   keyBits_InitToVoid(&key);
+
+	   if (! AddProgramSegment(image, $4, &key, ER_X, 0, true) ) {
+	     num_errors++;
+	     YYERROR;
+	   }
+
+	   $$ = key;
+        }
+
        | SMALL PROGRAM string_lit {
 	   KeyBits key;
 
@@ -793,7 +844,7 @@ key:   NULLKEY {
 
 	   keyBits_InitToVoid(&key);
 
-	   if (! AddProgramSegment(image, $3, &key) ) {
+	   if (! AddProgramSegment(image, $3, &key, 0, 0, false) ) {
 	     num_errors++;
 	     YYERROR;
 	   }
@@ -2175,7 +2226,7 @@ GetProgramSymbolValue(const char *fileName,
   ExecImage *ei = xi_create();
   bool ok;
 
-  if ( !xi_SetImage(ei, fileName) ) {
+  if ( !xi_SetImage(ei, fileName, 0, 0) ) {
     xi_destroy(ei);
     return false;
   }
@@ -2219,9 +2270,11 @@ GetProgramSymbolValue(const char *fileName,
  */
 
 bool
-AddProgramSegment(ErosImage *image,
-		  const char *fileName,
-                  KeyBits *segKey)
+AddProgramSegment(ErosImage * image,
+		  const char * fileName,
+                  KeyBits * segKey,
+                  uint32_t permMask, uint32_t permValue,
+                  bool initOnly)
 {
   ExecImage *ei = xi_create();
   const uint8_t* imageBuf;
@@ -2238,7 +2291,7 @@ AddProgramSegment(ErosImage *image,
   keyBits_InitToVoid(&pageKey);
   keyBits_InitToVoid(segKey);
 
-  if ( !xi_SetImage(ei, fileName) ) {
+  if (! xi_SetImage(ei, fileName, permMask, permValue) ) {
     xi_destroy(ei);
     return false;
   }
@@ -2278,7 +2331,11 @@ AddProgramSegment(ErosImage *image,
 #endif
 
     topfileva = er->vaddr + er->filesz;
-    topva = er->vaddr + er->memsz;
+    if (initOnly)
+      // Initialized data only.
+      topva = topfileva;
+    else
+      topva = er->vaddr + er->memsz;
     startva = er->vaddr & ~EROS_PAGE_MASK;
     startoffset = er->offset;
 #if 0

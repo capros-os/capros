@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,10 +18,12 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <getopt.h>
 #include <stdlib.h>
-/*#include <stdio.h>*/
 #include <erosimg/App.h>
 #include <erosimg/ExecImage.h>
 #include <erosimg/Volume.h>
@@ -94,7 +97,7 @@ main(int argc, char *argv[])
     int i;
 
     ExecImage *kernelImage = xi_create();
-    if ( !xi_SetImage(kernelImage, kernel_name) ) {
+    if ( !xi_SetImage(kernelImage, kernel_name, 0, 0) ) {
       diag_error(1, "Couldn't load kernel image\n");
       return 1;
     }

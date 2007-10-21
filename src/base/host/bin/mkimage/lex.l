@@ -81,6 +81,8 @@ BIN     0[Bb][0-1]+[Uu]?
 "~"	{ return '~'; }
 "|"	{ return '|'; }
 "&"	{ return '&'; }
+data	{ return DATA; }
+rw	{ return RW; }
 ro	{ return RO; }
 nc	{ return NC; }
 weak	{ return WEAK; }

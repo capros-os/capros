@@ -2,8 +2,9 @@
 #define __EXECIMAGE_H__
 /*
  * Copyright (C) 1998, 1999, 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,6 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Helper class to encapsulate the different binary formats we need to
  * be prepared to deal with.  This way the rest of the eros library
@@ -40,7 +44,7 @@
  * 
  */
 
-/* ExecRegion types. Same as ELF, which is not by accident! */
+/* ExecRegion perm types. Same as ELF, which is not by accident! */
 enum {
   ER_X = 0x1,
   ER_W = 0x2,
@@ -78,10 +82,12 @@ extern "C" {
 
   /* Following two methods are library-internal, but are declared for 
      the sake of separate compilation. */
-bool xi_InitElf(ExecImage *pImage);
+bool xi_InitElf(ExecImage * pImage,
+       uint32_t permMask, uint32_t permValue);
 bool xi_InitAout(ExecImage *pImage);
 
-bool xi_SetImage(ExecImage *pImage, const char *imageName);
+bool xi_SetImage(ExecImage * pImage, const char * imageName,
+       uint32_t permMask, uint32_t permValue);
 bool xi_GetSymbolValue(ExecImage *pImage, const char *symName, uint32_t *);
 
 INLINE const char * 

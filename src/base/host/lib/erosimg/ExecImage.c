@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <sys/fcntl.h>
 #include <sys/stat.h>
@@ -64,7 +68,8 @@ void xi_destroy(ExecImage *pImage)
 }
 
 bool
-xi_SetImage(ExecImage *pImage, const char *imageName)
+xi_SetImage(ExecImage *pImage, const char *imageName,
+       uint32_t permMask, uint32_t permValue)
 {
   const char *fileName;
   int imagefd;
@@ -96,15 +101,15 @@ xi_SetImage(ExecImage *pImage, const char *imageName)
     return false;
   }
 
+  /* Tries ELF first, then a.out format: */
   if (win == false)
-    win=xi_InitElf(pImage);
+    win=xi_InitElf(pImage, permMask, permValue);
 
 #ifdef SUPPORT_AOUT
   if (win == false)
     win=xi_InitAout(pImage);
 #endif
   
-  /* Tries ELF first, then a.out format: */
   if (!win) {
     diag_fatal(1, "Couldn't interpret image\n");
     close(imagefd);

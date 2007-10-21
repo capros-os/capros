@@ -70,7 +70,7 @@ static int cmp_phdr(const void *ph1, const void *ph2)
 #endif
 
 bool
-xi_InitElf(ExecImage *pImage)
+xi_InitElf(ExecImage *pImage, uint32_t permMask, uint32_t permValue)
 {
   int i;
   elfhdr *exehdr = (elfhdr*) pImage->image;
@@ -86,6 +86,10 @@ xi_InitElf(ExecImage *pImage)
   pImage->nRegions = 0;
 
   /* Make one pass to figure out how many to copy: */
+
+#define selectPH  \
+    (phdr->p_type == PT_LOAD \
+     && (phdr->p_flags & permMask) == permValue)
   
   for (i = 0; i < exehdr->e_phnum; i++) {
     elf_phdr *phdr =
@@ -113,7 +117,7 @@ xi_InitElf(ExecImage *pImage)
     };
     
     if (App.IsInteractive())
-      Diag::printf("phdr[%s] %s va=0x%08x memsz=0x%08x\n"
+      diag_printf("phdr[%s] %s va=0x%08x memsz=0x%08x\n"
 		   "         filesz=0x%08x offset 0x%x\n",
 		   ptypes[phdr->p_type],
 		   perm,
@@ -123,7 +127,7 @@ xi_InitElf(ExecImage *pImage)
 		   phdr->p_offset);
 #endif
     
-    if (phdr->p_type == PT_LOAD)
+    if (selectPH)
       pImage->nRegions++;
   }
 
@@ -143,16 +147,15 @@ xi_InitElf(ExecImage *pImage)
                 phdr->p_type);
 #endif
 
-    if (phdr->p_type != PT_LOAD)
-      continue;
+    if (selectPH) {
+      pImage->regions[pImage->nRegions].perm = phdr->p_flags & 0xf;
+      pImage->regions[pImage->nRegions].vaddr = phdr->p_vaddr;
+      pImage->regions[pImage->nRegions].memsz = phdr->p_memsz;
+      pImage->regions[pImage->nRegions].filesz = phdr->p_filesz;
+      pImage->regions[pImage->nRegions].offset = phdr->p_offset;
 
-    pImage->regions[pImage->nRegions].perm = phdr->p_flags & 0xf;
-    pImage->regions[pImage->nRegions].vaddr = phdr->p_vaddr;
-    pImage->regions[pImage->nRegions].memsz = phdr->p_memsz;
-    pImage->regions[pImage->nRegions].filesz = phdr->p_filesz;
-    pImage->regions[pImage->nRegions].offset = phdr->p_offset;
-
-    pImage->nRegions++;
+      pImage->nRegions++;
+    }
   }
 
   return true;
