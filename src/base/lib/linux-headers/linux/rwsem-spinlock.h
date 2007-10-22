@@ -3,7 +3,11 @@
  * Copyright (c) 2001   David Howells (dhowells@redhat.com).
  * - Derived partially from ideas by Andrea Arcangeli <andrea@suse.de>
  * - Derived also from comments by Linus
+ * Portions Copyright (C) 2007, Strawberry Development Group.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifndef _LINUX_RWSEM_SPINLOCK_H
 #define _LINUX_RWSEM_SPINLOCK_H
@@ -12,8 +16,8 @@
 #error "please don't include linux/rwsem-spinlock.h directly, use linux/rwsem.h instead"
 #endif
 
-#include <linux/spinlock.h>
-#include <linux/list.h>
+#include <linux/wait.h>
+#include <asm/atomic.h>
 
 #ifdef __KERNEL__
 
@@ -26,12 +30,14 @@ struct rwsem_waiter;
  * - if activity is 0 then there are no active readers or writers
  * - if activity is +ve then that is the number of active readers
  * - if activity is -1 then there is one active writer
- * - if wait_list is not empty, then there are processes waiting for the semaphore
+ * - if contenders is nonzero, then there are processes
+     waiting for the semaphore
  */
 struct rw_semaphore {
-	__s32			activity;
-	spinlock_t		wait_lock;
-	struct list_head	wait_list;
+  atomic_t activity;
+  atomic_t contenders;
+  wait_queue_head_t readWaiters;
+  wait_queue_head_t writeWaiters;
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct lockdep_map dep_map;
 #endif
@@ -44,8 +50,13 @@ struct rw_semaphore {
 #endif
 
 #define __RWSEM_INITIALIZER(name) \
-{ 0, __SPIN_LOCK_UNLOCKED(name.wait_lock), LIST_HEAD_INIT((name).wait_list) \
-  __RWSEM_DEP_MAP_INIT(name) }
+{ \
+  .activity = ATOMIC_INIT(0), \
+  .contenders = ATOMIC_INIT(0), \
+  .readWaiters = __WAIT_QUEUE_HEAD_INITIALIZER((name).wait) \
+  .writeWaiters = __WAIT_QUEUE_HEAD_INITIALIZER((name).wait) \
+  __RWSEM_DEP_MAP_INIT(name) \
+}
 
 #define DECLARE_RWSEM(name) \
 	struct rw_semaphore name = __RWSEM_INITIALIZER(name)
@@ -60,18 +71,37 @@ do {								\
 	__init_rwsem((sem), #sem, &__key);			\
 } while (0)
 
-extern void FASTCALL(__down_read(struct rw_semaphore *sem));
-extern int FASTCALL(__down_read_trylock(struct rw_semaphore *sem));
-extern void FASTCALL(__down_write(struct rw_semaphore *sem));
-extern void FASTCALL(__down_write_nested(struct rw_semaphore *sem, int subclass));
-extern int FASTCALL(__down_write_trylock(struct rw_semaphore *sem));
-extern void FASTCALL(__up_read(struct rw_semaphore *sem));
-extern void FASTCALL(__up_write(struct rw_semaphore *sem));
-extern void FASTCALL(__downgrade_write(struct rw_semaphore *sem));
+INLINE bool
+__rwtrylock_read(struct rw_semaphore * sem)
+{
+  int newcnt = atomic_read(&sem->activity);
+  int cnt;
+  do {
+    if (newcnt < 0) return false;	// too bad, there is a writer
+    cnt = newcnt;
+    /* If the activity is still cnt, increment it. */
+    newcnt = atomic_cmpxchg(&sem->activity, cnt, cnt + 1);
+  } while (newcnt != cnt);
+  return true;	// success
+}
+
+INLINE bool
+__rwtrylock_write(struct rw_semaphore * sem)
+{
+  int newcnt = atomic_read(&sem->activity);
+  int cnt;
+  do {
+    if (newcnt != 0) return false;	// there are reader(s) or a writer
+    cnt = newcnt;
+    /* If the activity is still 0, set it to -1. */
+    newcnt = atomic_cmpxchg(&sem->activity, cnt, -1);
+  } while (newcnt != cnt);
+  return true;	// success
+}
 
 static inline int rwsem_is_locked(struct rw_semaphore *sem)
 {
-	return (sem->activity != 0);
+	return (atomic_read(&sem->activity) != 0);
 }
 
 #endif /* __KERNEL__ */

@@ -3,11 +3,15 @@
  *
  *  Copyright (C) 1996 Russell King.
  *  Copyright (C) 2002 Deep Blue Solutions Ltd.
+ *  Copyright (C) 2007, Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 #ifndef __ASM_ARM_ATOMIC_H
 #define __ASM_ARM_ATOMIC_H
 
@@ -116,61 +120,35 @@ static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 
 #else /* ARM_ARCH_6 */
 
-#include <asm/system.h>
-
-#ifdef CONFIG_SMP
-#error SMP not supported on pre-ARMv6 CPUs
-#endif
+#include <eros/machine/atomic.h>
 
 #define atomic_set(v,i)	(((v)->counter) = (i))
 
 static inline int atomic_add_return(int i, atomic_t *v)
 {
-	unsigned long flags;
-	int val;
-
-	raw_local_irq_save(flags);
-	val = v->counter;
-	v->counter = val += i;
-	raw_local_irq_restore(flags);
-
-	return val;
+	return capros_atomic_add32_return(i, (volatile uint32_t *)&v->counter);
 }
 
 static inline int atomic_sub_return(int i, atomic_t *v)
 {
-	unsigned long flags;
-	int val;
-
-	raw_local_irq_save(flags);
-	val = v->counter;
-	v->counter = val -= i;
-	raw_local_irq_restore(flags);
-
-	return val;
+	return atomic_add_return(-i, v);
 }
 
 static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 {
-	int ret;
-	unsigned long flags;
-
-	raw_local_irq_save(flags);
-	ret = v->counter;
-	if (likely(ret == old))
-		v->counter = new;
-	raw_local_irq_restore(flags);
-
-	return ret;
+	return capros_atomic_cmpxchg32((volatile uint32_t *)&v->counter,
+                                       old, new);
 }
 
 static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 {
-	unsigned long flags;
-
-	raw_local_irq_save(flags);
-	*addr &= ~mask;
-	raw_local_irq_restore(flags);
+	int oldVal;
+	int val = *addr;
+	do {
+		oldVal = val;
+		val = capros_atomic_cmpxchg32((volatile uint32_t *)addr,
+                                              val, val & ~mask);
+	} while (val != oldVal);
 }
 
 #endif /* __LINUX_ARM_ARCH__ */
@@ -208,5 +186,5 @@ static inline int atomic_add_unless(atomic_t *v, int a, int u)
 #define smp_mb__after_atomic_inc()	barrier()
 
 #include <asm-generic/atomic.h>
-#endif
-#endif
+#endif	// __KERNEL__
+#endif	// __ASM_ARM_ATOMIC_H
