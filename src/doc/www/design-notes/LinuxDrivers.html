@@ -6,6 +6,17 @@
   <center>
     <h1 class="title">Supporting Linux Device Drivers</h1>
   </center>
+    <h1>Configuration</h1>
+    <p>
+      File base/lib/linux-headers/linux/autoconf.h is taken from a
+      configured Linux kernel. It should have the Preemptible Kernel
+      option selected, as that most closely approximates the
+      emulation environment, which has independent processes. 
+    </p>
+    <p>
+      The SMP option might also be useful, but there doesn't seem
+      to be a way to select it for ARM EP93xx using menuconfig.
+    </p>
     <h1>Externals Needed</h1>
     <p>
       (This is not on the web yet because it is not ready for prime time.)
@@ -37,17 +48,25 @@
   </td></tr>
     </table>
     <p>
-      Following are all other symbols referenced from drivers/serial/amba-pl010.o.
+      Following are symbols referenced from drivers/serial/amba-pl010.o
+      and defined as inline procedures in drivers/serial/serial_core.h.
     </p>
     <table>
-  <tr> <td valign="top"><code>amba_driver_register</code></td> <td>
-    From drivers/built-in.o. 
+  <tr> <td valign="top"><code>do_SAK</code></td> <td>
+    From inline proc uart_handle_break, only if (port-&gt;flags &amp; UPF_SAK).
+    Secure attention key will be handled at a higher level.
   </td></tr>
-  <tr> <td valign="top"><code>amba_driver_unregister</code></td> <td>
+  <tr> <td valign="top"><code>tty_hangup</code></td> <td>
+    Part of static procedure uart_handle_dcd_change. 
+    This seems to disconnect the serial port from the user.
+    This will be handled at a higher level.
   </td></tr>
-  <tr> <td valign="top"><code>__arm_ioremap</code></td> <td>
-    From arch/arm/mm/built-in.o. 
-  </td></tr>
+    </table>
+    <p>
+      Following are all other symbols referenced from drivers/serial/amba-pl010.o.
+    </p>
+    <h2>Clock Control</h2>
+    <table>
   <tr> <td valign="top"><code>clk_disable</code></td> <td>
     From arch/arm/mach-ep93xx/clock.o. This file could be linked in,
     but for proper locking it may need to be a separate object. 
@@ -68,53 +87,102 @@
   <tr> <td valign="top"><code>clk_put</code></td> <td>
     From arch/arm/mach-ep93xx/clock.o. Does nothing on ep93xx.
   </td></tr>
-  <tr> <td valign="top"><code>do_SAK</code></td> <td>
-    From inline proc uart_handle_break, only if (port-&gt;flags &amp; UPF_SAK).
-  </td></tr>
-  <tr> <td valign="top"><code>free_irq</code></td> <td>
-  </td></tr>
+    </table>
+    <h2>Device Registers</h2>
+    <p>Following POLA, I would like to grant access to
+       only the page(s) needed. If the big bang grants access to only
+       one process, request/release_mem_region can be nops.</p>
+    <table>
   <tr> <td valign="top"><code>iomem_resource</code></td> <td>
-    Part of request_mem_region(). Used to map device registers. 
+    Part of request_mem_region(). Structure used to map device registers. 
+  </td></tr>
+  <tr> <td valign="top"><code>__arm_ioremap</code></td> <td>
+    From arch/arm/mm/built-in.o. Part of ioremap(). 
   </td></tr>
   <tr> <td valign="top"><code>__iounmap</code></td> <td>
     Part of iounmap(). Used to unmap device registers? 
   </td></tr>
-  <tr> <td valign="top"><code>kfree</code></td> <td>
-    Used at remove time.
-  </td></tr>
-  <tr> <td valign="top"><code>kmalloc_caches</code></td> <td>
-    Data item for kzalloc. Used to allocate a structure at probe time. 
-  </td></tr>
-  <tr> <td valign="top"><code>kmem_cache_zalloc</code></td> <td>
-    Procedure for kzalloc. Used to allocate a structure at probe time. 
-  </td></tr>
-  <tr> <td valign="top"><code>printk</code></td> <td>
-    For KERN_INFO message at init time. We can nop this for now. 
-  </td></tr>
   <tr> <td valign="top"><code>__release_region</code></td> <td>
     Part of release_mem_region(). Used to unmap device registers?
-  </td></tr>
-  <tr> <td valign="top"><code>request_irq</code></td> <td>
   </td></tr>
   <tr> <td valign="top"><code>__request_region</code></td> <td>
     Part of request_mem_region(). Used to map device registers. 
   </td></tr>
+    </table>
+    <h2>IRQ Control</h2>
+    <p>The plan is to create a thread to execute the interrupt handler.</p>
+    <table>
+  <tr> <td valign="top"><code>free_irq</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>request_irq</code></td> <td>
+  </td></tr>
+    </table>
+    <h2>Memory Allocation</h2>
+    <p>.</p>
+    <table>
+  <tr> <td valign="top"><code>kfree</code></td> <td>
+    amba_pl010.c only calls kfree at remove time.
+  </td></tr>
+  <tr> <td valign="top"><code>kzalloc</code></td> <td>
+    kzalloc is defined to call __kzalloc, which calls kmalloc_track_caller
+    and then sets the memory to zero.
+    kmalloc_track_caller just calls __kmalloc (unless configured for
+    debugging). We will reimplement __kmalloc.
+    <p>amba_pl010.c only calls kzalloc to allocate a structure at probe time,
+    it uses the GFP_KERNEL flag, and it doesn't require
+    contigous physical addresses.
+  </td></tr>
+  <tr> <td valign="top"><code>__kzalloc</code></td> <td>
+    Use Linux implementation at mm/util.c.
+  </td></tr>
+  <tr> <td valign="top"><code>kmalloc_caches</code></td> <td>
+    Data item for kzalloc.
+  </td></tr>
+  <tr> <td valign="top"><code>kmem_cache_zalloc</code></td> <td>
+    Procedure for kzalloc. 
+  </td></tr>
+    </table>
+    <h2>Spinlocks</h2>
+    <p>Spinlocks will become mutexes (semaphores).</p>
+    <table>
+  <tr> <td valign="top"><code>spin_lock</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>spin_unlock</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>spin_lock_irqsave</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>spin_unlock_irqrestore</code></td> <td>
+  </td></tr>
+    </table>
+    <h2>Tty flip buffer</h2>
+    <table>
   <tr> <td valign="top"><code>tty_flip_buffer_push</code></td> <td>
     Ensure the buffered input is sent to the consumer
     (the line discipline), either immediately or delayed. 
   </td></tr>
-  <tr> <td valign="top"><code>tty_hangup</code></td> <td>
-    Part of static procedure uart_handle_dcd_change. 
-  </td></tr>
   <tr> <td valign="top"><code>tty_insert_flip_string_flags</code></td> <td>
-    Part of tty_insert_flip_char, part of uart_inser_char, which
-    inserts an input character and flag and possibly overrun
+    Part of inline procedure tty_insert_flip_char, part of uart_inser_char,
+    which inserts an input character and flag and possibly overrun
     into the receive buffer. 
     The character and flag are buffered in parallel.
   </td></tr>
+    </table>
+    <h2>Wait Queues</h2>
+    <table>
   <tr> <td valign="top"><code>__wake_up</code></td> <td>
-    Part of wake_up_interruptible(), part of static procedure 
-    uart_handle_dcd_change. 
+    Part of wake_up_interruptible(), used in pl010_modem_status
+    and also part of static procedure uart_handle_dcd_change. 
+  </td></tr>
+    </table>
+    <h2>Other</h2>
+    <table>
+  <tr> <td valign="top"><code>amba_driver_register</code></td> <td>
+    From drivers/built-in.o. 
+  </td></tr>
+  <tr> <td valign="top"><code>amba_driver_unregister</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>printk</code></td> <td>
+    For KERN_INFO message at init time. We can nop this for now. 
   </td></tr>
     </table>
     <p>
@@ -151,8 +219,6 @@
   <tr> <td valign="top"><code>jiffies</code></td> <td>
   </td></tr>
   <tr> <td valign="top"><code>jiffies_to_msecs</code></td> <td>
-  </td></tr>
-  <tr> <td valign="top"><code>__kzalloc</code></td> <td>
   </td></tr>
   <tr> <td valign="top"><code>__memzero</code></td> <td>
     From arch/arm/lib/lib.a(memzero.o). 

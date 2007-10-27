@@ -10,7 +10,8 @@
     <p>
        The ability to port drivers from Linux is very important, because
        there are very many drivers. The ability to port them with
-       minimal changes is important because they have a high rate of change. 
+       minimal changes is important because they are said to have
+       a high rate of change. 
     </p>
     <p>
       Device drivers, in most cases, have the same security properties
@@ -46,16 +47,26 @@
     </li>
     </ul>
     <p>
-      On the other hand, there is a performance cost in putting drivers
+      There are also some disadvantages:
+    </p>
+    <ul>
+    <li>
+      There is a performance cost in putting drivers
       outside the kernel, as there is for most code. 
       But today, virtually all devices are architected in a way
       (such as using DMA) that 
       does not place a high penalty on user-mode drivers .
       See <a href="http://www.coyotos.org/pipermail/coyotos-dev/2005-October/000181.html">
       this email thread</a> for a discussion of this.
-    </p>
+    </li>
+    <li>
+      Linux drivers are already designed to run in a kernel;
+      running them in a user process is an additional change required
+      to port them. 
+    </li>
+    </ul>
     <p>
-      Therefore in CapROS virtually all drivers will run in user processes. 
+      The decision in CapROS is to run virtually all drivers in user processes. 
     </p>
     <p>
       Drivers will of course be granted whatever
@@ -65,38 +76,60 @@
       The DevicePrivs key will also make it possible for a driver
       to obtain contiguous physical memory for use with DMA. 
     </p>
-    <h1>Persistence and Non-Persistence</h1>
+    <h1>Page Fault Handler</h1>
     <p>
-      The CapROS model is that all user data and capabilities are persistent,
-      meaning their state is preserved even when the system is rebooted.
-      This assures that the security state (the state of the capabilities)
-      is valid and consistent. 
-      Persistence is accomplished by checkpointing the state to disk
-      (or other nonvolatile storage). 
-      The difficulty arises because the disk driver is part of the user state. 
+      The Page Fault Handler (PFH) is defined as all the user objects which 
+      could be needed to service requests (from the kernel) to fetch and
+      write pages and nodes from or to backing store. This includes
+      the process that fields those requests,
+      any other processes that service those requests,
+      the process(es) that service backing store device interrupts,
+      all the code and data used by those processes,
+      and any other pages and nodes used by those processes. 
     </p>
     <p>
-      The solution is to exempt drivers from the persistence contract.
-      Several reasons motivate this:
+      Backing store is usually disk, but the PFH is not exactly the same
+      as the disk driver. The PFH includes any objects used to handle
+      the buses by which the backing store is accessed, such as PCI,
+      USB, Firewire, or even Ethernet. The PFH excludes any part of the
+      disk driver that is used to service user requests (for example,
+      querying statistics) but not used to service kernel requests. 
+    </p>
+    <p>
+    </p>
+    <h1>Persistence and Non-Persistence</h1>
+    <p>
+      The CapROS model is that user data and capabilities are persistent,
+      meaning their state is preserved even when the system is rebooted.
+      Persistence is accomplished by checkpointing the state to 
+      nonvolatile backing storage. 
+      By checkpointing all user state, we
+      assure that the security state (the state of the capabilities)
+      is valid and consistent. 
+    </p>
+    <p>
+      The problem is that the PFH, though part of the user state, 
+      cannot be persistent, for several reasons:
     </p>
     <ul>
     <li>
-      The disk driver cannot load itself, so it must be loaded by the
+      The PFH obviously cannot load itself, so it must be loaded by the
       boot loader. 
       Available boot loaders can't decipher the checkpoint log
       to find the correct version of the data to load. 
     </li>
     <li>
       It is awkward, though theoretically possible,
-      for the disk driver to checkpoint itself.
-      At a checkpoint, we would do copy-on-write of the driver data
+      for the PFH to checkpoint itself.
+      At a checkpoint, we would do copy-on-write of the PFH data
       (this logic will exist anyway). 
       It would be necessary to ensure that enough available memory
       exists to do all the copies in memory. 
-      Making the disk driver non-persistent removes this constraint. 
+      Making the PFH non-persistent removes this constraint. 
     </li>
     <li>
-      There is little reason for drivers to be persistent,
+      There is little reason for the PFH (or other drivers for that matter)
+      to be persistent,
       because on reboot the device state is either reset or unknown.
       Drivers could in theory use something like the KeyKOS journaling
       mechanism to remember the device state, but this mechanism
@@ -104,12 +137,7 @@
     </li>
     </ul>
     <p>
-      Most of these reasons apply specifically to disk drivers,
-      but since disks can be attached
-      via most any bus or network, the reasons apply to all those drivers too.
-    </p>
-    <p>
-      Therefore, all device drivers will be non-persistent. 
+      Therefore, we must declare that some user state is non-persistent. 
       Non-persistent objects will live in OID ranges that are marked as such.
       These ranges will be loaded by the boot loader
       (in GRUB, they are considered to be "modules").
@@ -120,21 +148,47 @@
       <i>explicitly</i> released from memory, after a configuration
       procedure has determined they are not needed.) 
     </p>
+    <h2>Classes of Objects</h2>
     <p>
-      There are two important scenarios for the system:
+      We can now identify four different classes of objects:
     </p>
-    <ul>
-    <li>
-      The diskless or "embedded" system: The entire system is non-persistent. 
-    </li>
-    <li>
-      The persistent system: As much of the system is persistent as possible.
-      Only the drivers needed for paging (and perhaps other drivers
-      as well for convenience) are non-persistent. 
-    </li>
-    </ul>
+<ol>
+<li>
+The PFH, which is non-persistent.
+</li>
+<li>
+Non-persistent objects other than the PFH.
+We want to limit the number of non-persistent objects, if only because
+they cannot be paged out, but will probably put all device drivers
+(other than the PFH) in this class just for consistency.
+</li>
+<li>
+Persistent objects that are pinned (locked in memory).
+We want to limit the number of pinned objects because they use
+physical memory which is a limited resource. 
+Persistent objects may need to be pinned if they are referenced by the PFH.
+</li>
+<li>
+Persistent objects that are not pinned.
+All normal user objects fall into this class.
+</li>
+</ol>
     <p>
-      Now the difficulty is, what is the consistency contract between
+      Note that objects move between classes 3 and 4 as they are
+      pinned and unpinned. 
+      And an object in class 2 effectively moves to class 1 while
+      it holds a lock that is also used by the PFH. 
+    </p>
+    <p>
+      Also note that if the system is configured as a
+      diskless or "embedded" system, the entire system is non-persistent. 
+      Such systems need not be considered further here.
+    </p>
+<h1>Consistency</h1>
+    <p>
+      We said above that the system takes checkpoints to ensure
+      the consistency (including security) of the user data.
+      Now the question is, what is the consistency contract between
       the persistent and non-persistent worlds? For example, we want
       to avoid scenarios such as the following :
     </p>
@@ -149,63 +203,86 @@
       and loses the resume key. It never returns to process P. 
     </li>
     </ol>
+    <h2>Capability Sharing</h2>
     <p>
-      Here is the design for the interaction of the persistent and
-      non-persistent worlds. 
+      Here are the design constraints for the interaction of the four
+      classes of objects.
     </p>
-    <h1>Capability Sharing</h1>
+    <h3>Deadlock</h3>
     <p>
-      The design constraint is to avoid deadlock that could occur
-      if a non-persistent disk driver tries to access
-      a persistent object that is paged out. 
+      The PFH must never reference unpinned objects, because that
+      would lead to a deadlock. 
+      (It is permissible to have a capability to such an object,
+      as long as it is never used.)
     </p>
-    <p>
-      (You could say that the disk driver will be reentrant and can handle
-      such a situation without deadlock. But then, the part of the driver
-      that isn't used in handling the page fault might as well be persistent.)
-    </p>
-    <p>
-      We see two possible designs:
-    </p>
-    <ul>
-    <li>
-      Non-persistent objects should never hold capabilities to
-      persistent objects (or if they hold them, they should never use them).
     <p>
       This prohibition applies even to resume keys, since the designated
       process could be paged out when the key is received, or could become
       paged out while the key is held. 
+      An unpinned process should not CALL a start key to the PFH,
+      because the PFH must not receive and use the resume key. 
     </p>
     <p>
-      A persistent process may use a start key to a non-persistent process,
-      but only
-      for one-way communication. It may be forked, but should not be called,
-      because the non-persistent process must not receive the resume key. 
-    </p>
-    <p>
-      Non-persistent objects are initialized with no capabilities to
-      persistent objects. 
-    </p>
-    </li>
-    <li>
-      If a non-persistent object holds a capability to a persistent object,
-      the latter must be pinned (locked in memory). In the case of a gate key,
+      In the case of a gate key,
       both the process and the buffer that receives the string
-      must be locked, so a message can be sent to the key. 
+      must be pinned, so a message can be sent to the key. 
+    </p>
     <p>
-      Non-persistent objects may be initialized with capabilities to
+      More generally, the PFH could be designed to handle its own faults
+      recursively. There needs to be some limit on the depth of recursion.
+      For simplicity, we will design with no recursion. 
+    </p>
+    <p>
+      Another constraint applies to locks (such as semaphores, mutexes,
+      or spinlocks) that are used by the PFH. 
+      A process must not reference unpinned objects
+      while holding such a lock.
+    </p>
+    <h3>Reset</h3>
+    <p>
+      We assume that non-persistent objects are initialized with no
+      capabilities to persistent objects. Given that, when the system restarts,
+      any keys to persistent objects held by non-persistent objects
+      will be lost. This should not be a problem for the 
+      non-persistent object, because it will be initialized to
+      a consistent state. However, a persistent object that expected
+      to be invoked will wait forever. 
+    </p>
+    <p>
+      We will solve this problem for resume keys. When the system
+      takes a checkpoint, it will examine all non-persistent nodes. 
+      For each resume key it finds, it will save the state of the
+      waiting process such that if restarted from that state,
+      the process will run and re-execute its CALL invocation. 
+    </p>
+    <p>
+      In that case, the operation that was requested by the CALL
+      invocation may have partially completed before the last checkpoint,
+      and partially or fully completed after the last checkpoint and
+      before the restart.
+      This behavior is unavoidable, because the system cannot in general
+      checkpoint and roll back the state of I/O devices. 
+      Programs that invoke I/O devices must be prepared to cope with
+      this possibility. 
+      In some cases, the driver can respond to the re-executed CALL
+      by saying "the device is not now known to be in a state
+      where you can perform that request (for example, not "open"). 
+    </p>
+    <p>
+      Any keys other than resume keys will be dropped on restart.
+      Start keys should not be held, and other keys are probably not
+      a problem. 
+      As for security, it should be clear that dropping capabilities
+      does not open any vulnerabilities. 
+    </p>
+    <p>
+      Non-persistent objects could be initialized with capabilities to
       persistent objects, but they must somehow arrange for the objects
-      to be fetched and pinned before using the capabilities. 
+      to be fetched and pinned before using the capabilities,
+      and they must cope with the reset issue.
+      It seems better to avoid this situation.
     </p>
-    <p>
-      This rule must be enforced when capabilities are passed from
-      a persistent object to a non-persistent object. This includes
-      the case of a call invocation, which passes a resume key.
-      At the moment we don't see a simple way to pin the necessary objects
-      or to ensure they are unpinned when appropriate. 
-    </p>
-    </li>
-    </ul>
+    <h3>Time Travel</h3>
     <p>
       Persistent objects may hold capabilities to non-persistent objects.
       It is the responsibility of the non-persistent world to control
@@ -214,15 +291,30 @@
       Such capabilities should be designed with the awareness that
       the non-persistent state is not checkpointed and will be reset
       when the system is restarted.
+      From the point of view of the persistent object,
+      the non-persistent objects appear to travel backwards in time
+      to their initial state. 
     </p>
     <p>
-      Clearly a resume key to a non-persistent process does not meet
-      this requirement. 
+      A persistent process may hold and call a start key to an object
+      in class 2, provided it has no assumptions about the state
+      of the object. 
+    </p>
+    <p>
+      Clearly a resume key to a non-persistent process suffers from
+      the time travel problem.
     </p>
     <p>
       A memory key to a non-persistent segment may be used for two-way
       communication, with a protocol that allows the persistent user
       to discover when the non-persistent state has been reset. 
+      Atomic operations can be used to make consistent updates,
+      but I don't think locks will work across the persistence boundary.
+    </p>
+    <p>
+      If a key to a non-persistent object is held by a persistent process,
+      you should not delete the non-persistent object or revoke the key,
+      because such actions will be undone by time travel.
     </p>
     <p>
       There could be some type of rendezvous object that the user and
@@ -240,15 +332,37 @@
       necessary communication. Here are some design ideas. 
     </p>
     <p>
-      A device driver could have a persistent part and
-      a non-persistent part (but that may make porting more difficult).
-      The only requirement is that
-      any part used by the kernel for paging must be non-persistent. 
+      A device driver could be divided into different parts,
+      each in a different one of the four classes of objects. 
       In many cases a driver will need a persistent front end that presents
       a more usable interface to clients, and can handle multiple
       independent clients. 
+      The only requirement is that any part used by the kernel for paging
+      is part of the PFH and therefore must be non-persistent. 
     </p>
     <p>
+      Perhaps the simplest design is to have a part of the driver
+      in class 2 that is the user interface, and the rest in class 1
+      acting as a server for both the class 2 part and the kernel. 
+      The user interface can pin (and unpin) user objects if it is necessary
+      for the class 1 part to access them. 
+    </p>
+    <p>
+      Another design issue concerns protection boundaries. 
+      Class 3 objects have more authority than class 4 (because they can
+      pin), and class 2 have more than class 3 (because they can
+      cause time travel). We want to keep different authorities in
+      different processes, and use gate keys to transfer control
+      between them. For efficiency, we want to avoid the need for
+      one gate jump from 4 to 3, and a second jump from 3 to 2. 
+      (And possibly more from 2 to 1.) 
+      In other words, we want to traverse the most authority change
+      with the fewest gate jumps. 
+      From class 4, we cannot call class 1, so calling class 2
+      makes sense. 
+    </p>
+    <p>
+      Here is an older design:
       A persistent client process (or front end) could fork
       to a start key to a driver
       with a message that says, for example, "Start reading from location x". 
