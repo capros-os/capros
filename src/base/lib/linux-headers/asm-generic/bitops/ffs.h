@@ -9,7 +9,8 @@
  * the libc and compiler builtin ffs routines, therefore
  * differs in spirit from the above ffz (man ffs).
  */
-/*static inline - modified to match string.h */ int ffs(int x)
+#if 0		// because the static inline function does not match string.h
+static inline int ffs(int x)
 {
 	int r = 1;
 
@@ -37,5 +38,8 @@
 	}
 	return r;
 }
+#else
+int ffs(int x);
+#endif
 
 #endif /* _ASM_GENERIC_BITOPS_FFS_H_ */
