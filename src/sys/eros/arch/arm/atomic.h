@@ -30,6 +30,8 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
  * associated header is part of the kernel tree.
  */
 
+#include <eros/target.h>
+
 /*
  * The effect of SWI SWI_CSwap32 is to execute the following block of code as
  * an atomic instruction
