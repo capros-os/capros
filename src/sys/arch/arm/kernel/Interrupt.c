@@ -211,6 +211,9 @@ InterruptSourceUnset(unsigned int source)
     vicInfo->regs->VectCntlN[priority] = 0;	// disable vector
   }
   vicSource->priority = PRIO_Unallocated;
+
+  // Wake up any sleeper.
+  sq_WakeAll(&vis->sleeper, false);
 }
 
 void

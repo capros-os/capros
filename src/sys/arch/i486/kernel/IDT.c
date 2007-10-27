@@ -371,6 +371,9 @@ irq_UnsetHandler(uint32_t irq)
 
   printf("Unsetting irq %d\n", irq);
   idt_WireVector(iv_IRQ0 + irq, irq_UnboundInterrupt);
+
+  // Wake up any sleeper.
+  sq_WakeAll(&uirq->sleepers, false);
 }
 
 /* Handler for interrupts using the DevicePrivs key. */
