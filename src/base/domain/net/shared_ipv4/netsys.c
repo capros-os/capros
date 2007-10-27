@@ -44,7 +44,6 @@ Approved for public release, distribution unlimited. */
 #include <domain/EnetKey.h>
 
 #include <forwarder.h>
-#include <ethread/ethread.h>
 #include <addrspace/addrspace.h>
 
 #include "constituents.h"

@@ -47,8 +47,6 @@ Approved for public release, distribution unlimited. */
 
 #include "constituents.h"
 
-#include <ethread/ethread.h>
-
 #include "keyring.h"             /* All slots defined here */
 #include "Session.h"
 #include "netif/netif.h"         /* Network interface declarations */
