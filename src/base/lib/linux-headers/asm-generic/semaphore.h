@@ -27,9 +27,11 @@ Approved for public release, distribution unlimited. */
  * linux/include/asm-generic/semaphore.h
  */
 
+#include <linux/kernel.h>
 #include <linux/wait.h>
 #include <asm/atomic.h>
 #include <idl/capros/LSync.h>
+#include <linuxk/lsync.h>
 
 struct semaphore {
   atomic_t count;
@@ -40,7 +42,7 @@ struct semaphore {
 #define __SEMAPHORE_INIT(name, cnt)				\
 {								\
 	.count	= ATOMIC_INIT(cnt),				\
-	.wakeupsWaiting = 0					\
+	.wakeupsWaiting = 0,					\
 	.wait	= __WAIT_QUEUE_HEAD_INITIALIZER((name).wait)	\
 }
 
@@ -50,12 +52,7 @@ struct semaphore {
 #define DECLARE_MUTEX(name)		__DECLARE_SEMAPHORE_GENERIC(name,1)
 #define DECLARE_MUTEX_LOCKED(name)	__DECLARE_SEMAPHORE_GENERIC(name,0)
 
-static inline void sema_init(struct semaphore *sem, int val)
-{
-  atomic_set(&sem->count, val);
-  sem->wakeupsWaiting = 0;
-  init_waitqueue_head(&sem->wait);
-}
+void sema_init(struct semaphore *sem, int val);
 
 static inline void init_MUTEX(struct semaphore *sem)
 {
@@ -68,13 +65,12 @@ static inline void init_MUTEX_LOCKED(struct semaphore *sem)
 }
 
 
+void down_slowpath(struct semaphore * sem);
 static inline void down(struct semaphore * sem)
 {
   might_sleep();
   if (atomic_dec_return(&sem->count) < 0) {
-    wait_queue_t wq;
-    capros_LSync_semaWait(KR_LSYNC, (capros_LSync_pointer)&sem,
-                          (capros_LSync_pointer)&wq);
+    down_slowpath(sem);
   }
 }
 
@@ -84,18 +80,7 @@ static inline int down_interruptible (struct semaphore * sem)
   return 0;  // there are no signals in CapROS
 }
 
-static inline int down_trylock(struct semaphore * sem)
-{
-  int newcnt = atomic_read(&sem->count);
-  int cnt;
-  do {
-    if (newcnt <= 0) return 1;	// too bad
-    cnt = newcnt;
-    /* If the count is still cnt, decrement it. */
-    newcnt = atomic_cmpxchg(&sem->count, cnt, cnt - 1);
-  } while (newcnt != cnt);
-  return 0;	// success
-}
+int down_trylock(struct semaphore * sem);
 
 /*
  * Note! This is subtle. We jump to wake people up only if
@@ -106,7 +91,7 @@ static inline int down_trylock(struct semaphore * sem)
 static inline void up(struct semaphore * sem)
 {
   if (atomic_inc_return(&sem->count) <= 0) {
-    capros_LSync_semaWakeup(KR_LSYNC, (capros_LSync_pointer)&sem);
+    capros_LSync_semaWakeup(KR_LSYNC, (capros_LSync_pointer)sem);
   }
 }
 
