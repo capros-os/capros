@@ -12,10 +12,7 @@
 
 #ifdef __KERNEL__
 
-enum {
-	false	= 0,
-	true	= 1
-};
+#include <stdbool.h>
 
 #undef offsetof
 #ifdef __compiler_offsetof

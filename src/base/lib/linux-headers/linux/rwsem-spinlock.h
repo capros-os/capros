@@ -17,6 +17,7 @@ Approved for public release, distribution unlimited. */
 #endif
 
 #include <linux/wait.h>
+#include <linux/lockdep.h>
 #include <asm/atomic.h>
 
 #ifdef __KERNEL__

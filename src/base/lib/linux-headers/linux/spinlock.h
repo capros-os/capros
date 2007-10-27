@@ -101,7 +101,7 @@ do {								\
 
 #else
 # define spin_lock_init(lock)					\
-	do { *(lock) = SPIN_LOCK_UNLOCKED; } while (0)
+	do { *(lock) = __SPIN_LOCK_UNLOCKED(*(lock)); } while (0)
 #endif
 
 #ifdef CONFIG_DEBUG_SPINLOCK
@@ -137,7 +137,6 @@ do {								\
 
 #ifdef CONFIG_DEBUG_SPINLOCK
  extern void _raw_spin_lock(spinlock_t *lock);
-#define _raw_spin_lock_flags(lock, flags) _raw_spin_lock(lock)
  extern int _raw_spin_trylock(spinlock_t *lock);
  extern void _raw_spin_unlock(spinlock_t *lock);
  extern void _raw_read_lock(rwlock_t *lock);
@@ -148,8 +147,6 @@ do {								\
  extern void _raw_write_unlock(rwlock_t *lock);
 #else
 # define _raw_spin_lock(lock)		__raw_spin_lock(&(lock)->raw_lock)
-# define _raw_spin_lock_flags(lock, flags) \
-		__raw_spin_lock_flags(&(lock)->raw_lock, *(flags))
 # define _raw_spin_trylock(lock)	__raw_spin_trylock(&(lock)->raw_lock)
 # define _raw_spin_unlock(lock)		__raw_spin_unlock(&(lock)->raw_lock)
 # define _raw_read_lock(rwlock)		__raw_read_lock(&(rwlock)->raw_lock)

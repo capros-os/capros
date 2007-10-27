@@ -21,7 +21,6 @@
 
 #include <linux/list.h>
 #include <linux/stddef.h>
-#include <linux/spinlock.h>
 #include <asm/system.h>
 #include <asm/current.h>
 
@@ -33,6 +32,7 @@ struct __wait_queue {
 	unsigned int flags;
 #define WQ_FLAG_EXCLUSIVE	0x01
 	void *private;
+	unsigned int threadNum;
 	wait_queue_func_t func;
 	struct list_head task_list;
 };
@@ -48,7 +48,6 @@ struct wait_bit_queue {
 };
 
 struct __wait_queue_head {
-	spinlock_t lock;
 	struct list_head task_list;
 };
 typedef struct __wait_queue_head wait_queue_head_t;
@@ -68,7 +67,6 @@ struct task_struct;
 	wait_queue_t name = __WAITQUEUE_INITIALIZER(name, tsk)
 
 #define __WAIT_QUEUE_HEAD_INITIALIZER(name) {				\
-	.lock		= __SPIN_LOCK_UNLOCKED(name.lock),		\
 	.task_list	= { &(name).task_list, &(name).task_list } }
 
 #define DECLARE_WAIT_QUEUE_HEAD(name) \
@@ -346,7 +344,7 @@ do {									\
 })
 
 /*
- * Must be called with the spinlock in the wait_queue_head_t held.
+ * Must be called only by the sync process.
  */
 static inline void add_wait_queue_exclusive_locked(wait_queue_head_t *q,
 						   wait_queue_t * wait)
@@ -356,7 +354,7 @@ static inline void add_wait_queue_exclusive_locked(wait_queue_head_t *q,
 }
 
 /*
- * Must be called with the spinlock in the wait_queue_head_t held.
+ * Must be called only by the sync process.
  */
 static inline void remove_wait_queue_locked(wait_queue_head_t *q,
 					    wait_queue_t * wait)
