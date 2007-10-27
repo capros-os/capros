@@ -31,6 +31,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 BUILDDIR=.
 TARGETS=
 HEADERS=\
+ assembler.h \
  atomic.h \
  auxvec.h \
  bitops.h \
@@ -39,6 +40,7 @@ HEADERS=\
  cache.h \
  cputime.h \
  current.h \
+ delay.h \
  device.h \
  div64.h \
  domain.h \
