@@ -39,7 +39,7 @@ extern "C" {
 #endif
 
 extern fixreg_t CALL(Message*);
-extern fixreg_t SEND(Message*);
+extern void SEND(Message*);
 extern fixreg_t RETURN(Message*);
 
   /* Generic form: */

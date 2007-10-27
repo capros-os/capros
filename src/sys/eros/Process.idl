@@ -9,7 +9,7 @@ interface Process extends key raises (key.RequestError) {
   typedef unsigned <16> StartKeyPayload;
 
   struct CommonRegisters32 {
-    unsigned long len;
+    unsigned long len;		// ignored when writing
     unsigned long arch;		// ignored when writing
     unsigned long procFlags;
     unsigned long faultCode;
