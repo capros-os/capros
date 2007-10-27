@@ -31,14 +31,17 @@ GCCFLAGS=$(CFLAGS) $(OPTIM) $(GCC_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(D
 GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(OPTIM) $(GPLUS_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
 MKIMAGEFLAGS=-a $(EROS_TARGET) -DBUILDDIR='"$(BUILDDIR)/"' -DEROS_TARGET_$(EROS_TARGET) -DLIBDIR=\"/eros/lib/$(EROS_TARGET)/\" -I$(CAPROS_DOMAIN) -I$(EROS_ROOT)/host/include
 
+# __ASSEMBLER__ gets defined automatically, but Linux requires:
+ASMFLAGS=-D__ASSEMBLY__
+
 C_DEP=@$(GCC) $(GCCFLAGS) $(GCCWARN) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
 CXX_DEP=@$(GPLUS) $(GPLUSFLAGS) $(GPLUSWARN) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
-ASM_DEP=@$(GCC) $(GCCFLAGS) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
+ASM_DEP=@$(GCC) $(GCCFLAGS) $(ASMFLAGS) -M -MT $@ -MF $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@)) $<
 #MOPS_DEP=$(GCC) $(GCCFLAGS) $(MOPSWARN) -S $< -o $(BUILDDIR)/.$(patsubst %.o,%.m,$(notdir $@))
 
 C_BUILD=$(GCC) $(GCCFLAGS) $(GCCWARN) -c $< -o $@
 CXX_BUILD=$(GPLUS) $(GPLUSFLAGS) $(GPLUSWARN) -c $< -o $@
-ASM_BUILD=$(GCC) $(GCCFLAGS) -c $< -o $@
+ASM_BUILD=$(GCC) $(GCCFLAGS) $(ASMFLAGS) -c $< -o $@
 MOPS_BUILD=$(GCC) -B$(MOPS)/rc/ $(GCCFLAGS) $(MOPSWARN) -S $< -o $@
 
 $(BUILDDIR):
