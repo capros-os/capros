@@ -33,8 +33,6 @@ Approved for public release, distribution unlimited. */
 // #define KR_VOID 0
 /* KR_VOID is defined in eros/Invoke.h, as this is a kernel constraint. */
 #define KR_CONSTIT          1	  /* constituents node */
-#define KR_LINUX_EMUL	    1     /* Node of keys for Linux driver environment*/
-	// Temporary, maybe should go elsewhere
 #define KR_RTBITS           2	  /* runtime components */
 #define KR_CREATOR          3	  /* start key to process creator of self */
 #define KR_SELF             4	  /* process key to self */
@@ -48,6 +46,7 @@ Approved for public release, distribution unlimited. */
 
 /* KR_TEMPn are available for use between procedure calls
 or as parameters or results of procedure calls. */
+#define KR_TEMP3            24
 #define KR_TEMP2            25
 #define KR_TEMP1            26
 #define KR_TEMP0            27
