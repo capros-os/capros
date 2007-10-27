@@ -70,6 +70,9 @@ idl-headers:
 	$(INSTALL) -d $(EROS_ROOT)/host/include/idl
 	build/bin/dirsync $(EROS_ROOT)/include/idl.tmp $(EROS_ROOT)/host/include/idl
 	-rm -rf $(EROS_ROOT)/include/idl.tmp
+	# Create stubs.
+	rm -f $(EROS_SRC)/base/lib/idlstub/*.c
+	$(CAPIDL) -D $(EROS_SRC)/base/lib/idlstub -l c-stubs `find $(EROS_ROOT)/idl -name '*.idl'`
 
 libs: build-pkg
 libs: RECURSE_TARGET=libs

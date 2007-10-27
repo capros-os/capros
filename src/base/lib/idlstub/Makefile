@@ -34,16 +34,11 @@ TARGETS=$(BUILDDIR)/libidlstub.a
 OBJECTS=$(patsubst %.c,$(BUILDDIR)/%.o,$(wildcard *.c))
 INC= -I$(EROS_ROOT)/include
 
-.PHONY: stubs
-stub-src:
-	rm -f *.c
-	$(CAPIDL) -D . -l c-stubs `find $(EROS_ROOT)/idl -name '*.idl'`
-
 $(BUILDDIR)/libidlstub.a: $(OBJECTS)
 	$(AR) -crv $@ $(OBJECTS)
 	$(RANLIB) $@
 
-all: stub-src
+all:
 	$(MAKE) $(MAKERULES) $(TARGETS)
 
 install: all
