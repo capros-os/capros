@@ -1,0 +1,16 @@
+package capros;
+
+/** Interface to the Linux driver sync process.
+ *
+ */
+interface LSync extends key {
+  typedef unsigned long pointer;
+
+  /* Operations to support semaphores. */
+  void semaWait(pointer sema, pointer wq);
+  void semaWakeup(pointer sema);
+
+  /* Operations to support rw_semaphores. */
+  void rwsemWait(pointer rwsem, boolean write, pointer wq);
+  void rwsemWakeup(pointer rwsem);
+};

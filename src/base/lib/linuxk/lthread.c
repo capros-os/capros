@@ -1,0 +1,198 @@
+/*
+ * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <string.h>
+
+#include <eros/target.h>
+#include <eros/Invoke.h>
+
+#include <idl/capros/key.h>
+#include <idl/capros/Process.h>
+#include <idl/capros/ProcCre.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
+#include <idl/capros/SuperNode.h>
+
+#include <domain/Runtime.h>
+#include <domain/assert.h>
+
+#include <linuxk/linux-emul.h>
+#include <linuxk/lsync.h>
+#include <linux/mutex.h>
+
+static DEFINE_MUTEX(threadAllocLock);
+unsigned int nextThreadNum = 1;
+
+/* Create a thread in a Linux driver. */
+/* Note: this procedure may return before the new thread has consumed
+   its parameter (arg). Synchronize with the new thread before
+   changing or deallocating arg. Example:
+
+void main() {
+  struct myarg {
+    DECLARE_MUTEX_LOCKED(arglock);
+    int otherarg;
+  } args;
+  lthread_new_thread(1024, threadProc, &args, &newThreadNum);
+  down(&args->arglock);
+  up(&args->arglock);	// for cleanliness
+}
+
+void threadProc(struct myarg * args) {
+  consume(args->otherarg);
+  up(&args->arglock);
+}
+
+In effect, arglock starts out locked by the new thread.
+*/
+result_t
+lthread_new_thread(uint32_t stackSize,
+		   void * (* start_routine)(void *), void * arg,
+		   /* out */ unsigned int * newThreadNum)
+{
+#define KR_NEWTHREAD KR_TEMP2
+  // Allocate a thread number.
+  /* This implementation assumes we never deallocate a thread!! */
+  mutex_lock(&threadAllocLock);
+  if (nextThreadNum >= LK_MAX_THREADS)
+    return -1;
+  unsigned int threadNum = nextThreadNum++;
+  mutex_unlock(&threadAllocLock);
+
+  uint32_t kr;
+  result_t result;
+  Message msg;
+  
+  // Create the process.
+  result = capros_ProcCre_createProcess(KR_CREATOR, KR_BANK, KR_NEWTHREAD);
+  if (result != RC_OK)
+    return result;
+
+  // Create its stack.
+  uint32_t stackPages = (stackSize + EROS_PAGE_SIZE - 1) >> EROS_PAGE_LGSIZE;
+  if (stackPages >= capros_Node_nSlots)
+    /* Disallow =, because we want an empty slot to guard against overflow. */
+    return -1;
+
+  if (stackPages == 1) {
+    result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_TEMP0);
+    if (result != RC_OK)
+      return result;	// FIXME: clean up
+
+    result = capros_Memory_makeGuarded(KR_TEMP0,
+                 (capros_Node_nSlots - 1) << EROS_PAGE_LGSIZE,
+                 KR_TEMP0 );
+    assert(result == RC_OK);
+  } else {
+    // Need a GPT to hold the stack pages.
+    /* Don't bother to optimize by grabbing up to 3 pages at once,
+     on the assumption that the stack is seldom more than 1 page. */
+    // Stack space is conveniently arranged in a single node.
+    result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_TEMP0);
+    if (result != RC_OK)
+      return result;	// FIXME: clean up
+
+    capros_GPT_setL2v(KR_TEMP0, EROS_PAGE_LGSIZE);
+
+    int i;
+    for (i = 0; i < stackPages; i++) {
+      result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_TEMP1);
+      if (result != RC_OK)
+        return result;	// FIXME: clean up
+
+      capros_GPT_setSlot(KR_TEMP0, capros_Node_nSlots - 1 - i,
+                          KR_TEMP1);
+    }
+  }
+  // KR_TEMP0 has the memory key for the stack.
+  capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_STACKS_GPT, KR_TEMP1);
+  capros_Node_swapSlot(KR_TEMP1, threadNum, KR_TEMP0, KR_VOID);
+
+  // Store the starting procedure and arg on the stack:
+  void * * sp = (void * *)(LK_STACK_BASE + (LK_STACK_AREA * (threadNum + 1)));
+    // + 1 above is to get to the high end of the stack
+  *(--sp) = start_routine;
+  *(--sp) = arg;
+
+  /* Copy the address space to the new thread */
+  result = capros_Process_getAddrSpace(KR_SELF, KR_TEMP0);
+  assert(result == RC_OK);
+
+  result = capros_Process_swapAddrSpace(KR_NEWTHREAD, KR_TEMP0, KR_VOID);
+  assert(result == RC_OK);
+  
+  /* Copy schedule key */
+  result = capros_Process_getSchedule(KR_SELF, KR_TEMP0);
+  assert(result == RC_OK);
+
+  result = capros_Process_swapSchedule(KR_NEWTHREAD, KR_TEMP0, KR_VOID);
+  assert(result == RC_OK);
+
+  /* Now just copy all key registers */
+  // This is slow; is it necessary?
+  for (kr = 1; kr < EROS_NODE_SIZE; kr++) {
+    result = capros_Process_getKeyReg(KR_SELF, kr, KR_TEMP0);
+    assert(result == RC_OK);
+
+    result = capros_Process_swapKeyReg(KR_NEWTHREAD, kr, KR_TEMP0, KR_VOID);
+    assert(result == RC_OK);
+  }
+
+  // Set its KR_SELF.
+  result = capros_Process_swapKeyReg(KR_NEWTHREAD, KR_SELF,
+             KR_NEWTHREAD, KR_VOID);
+  assert(result == RC_OK);
+
+  // Set the PC and SP.
+  void lk_thread_start(void *);
+  struct capros_Process_CommonRegisters32 regs = {
+    .procFlags = 0,
+    .faultCode = 0,
+    .faultInfo = 0,
+    .pc = (uint32_t)&lk_thread_start,
+    .sp = (uint32_t)sp
+  };
+
+  result = capros_Process_setRegisters32(KR_NEWTHREAD, regs);
+  assert(result == RC_OK);
+  
+  result = capros_Process_makeResumeKey(KR_NEWTHREAD, KR_TEMP0);
+  assert(result == RC_OK);
+  
+  /* Invoke the resume key to start the thread */
+  memset(&msg, 0, sizeof(Message));
+  msg.snd_invKey = KR_TEMP0;
+  SEND(&msg);
+
+  return RC_OK;
+#undef KR_NEWTHREAD
+}
+
+// Stop the current thread.
+void
+lthread_exit(void)
+{
+  // FIXME: clean up
+  assert(false);	// lthread_exit called!
+}
