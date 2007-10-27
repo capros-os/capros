@@ -22,6 +22,8 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <stdint.h>
+
 void kvprintf(uint32_t streamkey, const char *fmt, void *vap);
 void kprintf(uint32_t streamkey, const char *fmt, ...);
 void kdprintf(uint32_t streamkey, const char *fmt, ...);
