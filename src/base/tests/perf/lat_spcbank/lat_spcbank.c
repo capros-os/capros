@@ -30,10 +30,6 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/GPT.h>
 
-/* The purpose of this benchmark is to measure the cost of
-   reconstructing page table entries.  It is designed on the
-   assumption that the actual data is in core. */
-
 #define KR_VOID 0
 #define KR_SELF 4
 
@@ -50,7 +46,8 @@ const uint32_t __rt_stack_pages = 0;
 const uint32_t __rt_stack_pointer = 0x20000;
 
 #define NPASS  5
-#define NPAGES 2048		/* 8 Mbytes */
+//#define NPAGES 2048		/* 8 Mbytes */
+#define NPAGES 256
 
 void
 extendedSetSlot(unsigned int i, uint32_t kr)
