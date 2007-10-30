@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2001 Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Implementation of the key cache logic. The idea of the key cache is
    to multiplex a potentially large number of keys (stored in a tree)
@@ -422,7 +426,7 @@ fixreg_t CALL(Message *in)
   return __rt_do_CALL(&msg);
 }
 
-fixreg_t SEND(Message *in)
+void SEND(Message *in)
 {
   Message msg;
   memcpy(&msg, in, sizeof(msg));
@@ -438,5 +442,5 @@ fixreg_t SEND(Message *in)
 
   keycache_commit();
 
-  return __rt_do_SEND(&msg);
+  __rt_do_SEND(&msg);
 }
