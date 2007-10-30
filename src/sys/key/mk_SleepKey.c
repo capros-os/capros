@@ -53,14 +53,7 @@ SleepKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;
       return;
     }
-  case OC_capros_Sleep_wakeup:
-    COMMIT_POINT();
       
-    {
-      /* This is NOT a no-op.  The wakeup logic hacks wakeup by
-	 resetting the order code to this one */
-      break;
-    }
   case OC_capros_Sleep_sleep:
   case OC_capros_Sleep_sleepTill:
     {
