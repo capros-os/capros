@@ -213,7 +213,7 @@ InterruptSourceUnset(unsigned int source)
   vicSource->priority = PRIO_Unallocated;
 
   // Wake up any sleeper.
-  sq_WakeAll(&vis->sleeper, false);
+  sq_WakeAll(&vicSource->sleeper, false);
 }
 
 void

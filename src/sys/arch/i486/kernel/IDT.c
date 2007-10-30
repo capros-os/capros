@@ -373,6 +373,7 @@ irq_UnsetHandler(uint32_t irq)
   idt_WireVector(iv_IRQ0 + irq, irq_UnboundInterrupt);
 
   // Wake up any sleeper.
+  struct UserIrq *uirq = &UserIrqEntries[irq];
   sq_WakeAll(&uirq->sleepers, false);
 }
 
