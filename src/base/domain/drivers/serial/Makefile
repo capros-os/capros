@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006, Strawberry Development Group.
+# Copyright (C) 2006, 2007, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -16,7 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 default: package
 
@@ -26,16 +29,16 @@ EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/serial
-OPTIM=-O
-OBJECTS=$(BUILDDIR)/serial.o
-INC=-I$(EROS_ROOT)/include
+OBJECTS=$(BUILDDIR)/amba-pl010.o $(BUILDDIR)/serial_core.o
+INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
+INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
 
 include $(EROS_SRC)/build/make/makerules.mk
 
 all: $(TARGETS)
 
-$(BUILDDIR)/serial: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB) -o $@
+$(BUILDDIR)/serial: $(OBJECTS) $(DOMCRT0) $(DOMSBRK) $(DOMLIB)
+	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) -lsmall -llinuxk $(DOMSBRK) $(DOMLIB) -o $@
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
