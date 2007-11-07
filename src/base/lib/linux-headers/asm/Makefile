@@ -50,6 +50,7 @@ HEADERS=\
  fpstate.h \
  glue.h \
  hardirq.h \
+ hardware.h \
  io.h \
  ioctl.h \
  ioctls.h \
