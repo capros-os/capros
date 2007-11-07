@@ -6,6 +6,37 @@
   <center>
     <h1 class="title">Supporting Linux Device Drivers</h1>
   </center>
+    <h1>Structure</h1>
+    <p>
+      Each driver will have:
+    </p>
+<ul>
+<li>An address space
+<li>A supernode for key storage
+<li>A number of threads, that is, processes sharing the address space and supernode
+</ul>
+    <p>
+      A portion of the address space will be reserved for thread stacks,
+      each in a fixed address range. 
+      For reliability, each stack is bounded by an unmapped page,
+      to detect stack overflow.
+      A thread can find out which stack
+      it is using by arithmetic on its stack pointer. A table relates
+      stacks to threads.
+    </p>
+    <p>
+      One thread (the "server thread") will receive requests from a start key.
+    </p>
+    <p>
+      One thread (the "sync thread") will perform certain synchronization 
+      between threads.
+    </p>
+    <p>
+      There may be one or more threads to service interrupts (see below).
+      There may be one or more threads used to sleep (see below).
+      There may be one or more stacks (but probably not threads)
+      used in conjunction with wait queues (see below).
+    </p>
     <h1>Configuration</h1>
     <p>
       File base/lib/linux-headers/linux/autoconf.h is taken from a
@@ -17,14 +48,178 @@
       The SMP option might also be useful, but there doesn't seem
       to be a way to select it for ARM EP93xx using menuconfig.
     </p>
-    <h1>Externals Needed</h1>
+    <h1>Support for Linux Features</h1>
     <p>
-      (This is not on the web yet because it is not ready for prime time.)
+      The Linux kernel makes a number of features available to device drivers.
+      Here is how we plan to support these features in CapROS.
+    </p>
+    <h2>Semaphores</h2>
+    <p>
+      Semaphores and read-write semaphores will be supported
+      using a shared structure with a count that is updated atomically.
+      If a process needs to wait or wake up another process,
+      it will make a CALL invocation to the Sync process to do the work.
+      In the (hopefully common) case where there is no contention,
+      no context switches are required. 
+     </p>
+    <h2>Mutexes</h2>
+    <p>Mutexes will be implemented as semaphores. 
+       A more efficient implementation may be done later.
+    <h2>Spinlocks</h2>
+    <p>Spinlocks differ from semaphores in that they can be used at
+       interrupt level, where suspending the current process is not an option.
+       In CapROS, interrupt processing for a driver will be done in a
+       user-mode process, so this restriction does not apply.
+       In CapROS spinlocks will become mutexes or semaphores,
+       and read-write spinlocks will become read-write semaphores.</p>
+    <h2>Wait Queues</h2>
+    <p>Wait queues can be handled in a general way that preserves
+       the stack at the point of waiting, in a manner similar to sleeping
+       (see below).
+       However, wait queues are often used to have the
+       client-requested operation wait
+       for some event. Interactions with the driver client require
+       CapROS-specific code, so in many cases it may be feasible to handle
+       client waiting differently.
+       We can enqueue a continuation procedure on the queue,
+       with access to the client's resume key. </p>
+    <h2>Sleep</h2>
+    <p>The general way to support sleep (that is, without knowledge of the
+       driver code) is as follows. If the thread sleeping is the server thread,
+       create a new thread. The new thread uses the original thread's stack;
+       it will be the sleeping thread.
+       The old thread gets a new stack, remains the server thread,
+       and receives new requests.
+       The current resume key moves to the new thread. </p>
+    <p>Then, the sleeping thread sleeps and returns to the caller of msleep().
+       Eventually it will reply to the resume key. Then, it will notice
+       that it is not the server thread, and terminate the thread.</p>
+    <p>In the specific case of the serial port driver, sleeping is used
+       for only two things. One is a delay after close(), which will
+       probably be handled outside the driver. The other is in a loop
+       polling to see if the transmitter is empty. For reliability we
+       may create a single timer thread that just does that. 
+    <p>Supported procedures are:</p>
+    <table>
+  <tr> <td valign="top"><code>msleep</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>msleep_interruptible</code></td> <td>
+    Since there are no signals in CapROS, this is the same as msleep.
+  </td></tr>
+  <tr> <td valign="top"><code>ssleep</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>jiffies</code></td> <td>
+    This will expand to a procedure call to get the time
+    using capros_Sleep_getTimeMonotonic().
+  </td></tr>
+    </table>
+    <h2>Interrupts</h2>
+    <p>The procedure <code>request_irq</code> registers a handler for
+       an interrupt. This will create a thread that loops waiting for an
+       interrupt and executing the handler.
+       <code>free_irq</code> deregisters the handler.</p>
+    <h2>Memory Allocation</h2>
+    <p>We look critically at dynamic allocation in drivers, because
+       allocation failures are a potential source of unreliability.
+       Still, it seems we will have to suppport it.</p>
+    <p>So far we only support the GFP_KERNEL flag, and we don't guarantee
+       that the memory occupies contigous physical addresses. 
+       So far we haven't seen other requirements.</p>
+    <p>We use the C library procedures malloc() and free(), and supply
+       an sbrk() that allocates space following BSS. For convenience
+       we will use a VCSK to allocate pages in memory; in the future
+       it might be better to do something more lightweight. </p>
+    <p>Supported procedures are:</p>
+    <table>
+  <tr> <td valign="top"><code>kmalloc</code></td> <td>
+  </td></tr>
+  <tr> <td valign="top"><code>kfree</code></td> <td>
+    amba_pl010.c only calls kfree at remove time.
+  </td></tr>
+  <tr> <td valign="top"><code>kzalloc</code></td> <td>
+    amba_pl010.c only calls kzalloc to allocate a structure at probe time.
+  </td></tr>
+    </table>
+     <p><code>__get_free_pages</code> and <code>free_pages</code>
+       can be supported
+       by allocating addresses in the same range used to map
+       device registers, and getting pages from the space bank.
+       They will not be contiguous in physical memory.</p>
+    <h2>Device Registers</h2>
+    <p>Following POLA, I would like to grant access to
+       only the page(s) needed. If the big bang grants access to only
+       one process, request/release_mem_region can be nops.</p>
+    <p>For ioremap() and iounmap(), there is a region of the address space
+       reserved for mapping device registers. 
+       The driver gets access to the pages it needs via a node
+       containing resource keys including physical pages.</p>
+    <h2>Clock Control</h2>
+    <p>The Linux files clk.h and clock.c provide support for enabling
+       and disabling various hardware clocks. A clock is enabled if
+       there is any driver that requires it.</p>
+    <p>Because this functionality spans different drivers, for POLA
+       it will be implemented in a separate object.
+       There will be one object for each type of clock.
+       Each driver will have a key to manipulate only the type(s) of clock
+       that it needs.</p>
+    <p>The UART clock may be a special case because a UART can be used
+       as a console during boot and for kprintf().</p>
+    <p>Supported procedures are:</p>
+    <table>
+  <tr> <td valign="top"><code>clk_disable</code></td> <td>
+    This procedure counts the caller as no longer a user of the clock.
+    When there are no users, the clock is disabled.
+  </td></tr>
+  <tr> <td valign="top"><code>clk_enable</code></td> <td>
+    This procedure counts the caller as a user of the clock,
+    and enables the clock.
+  </td></tr>
+  <tr> <td valign="top"><code>clk_get</code></td> <td>
+    This procedure accesses a clock by looking up its name.
+    amba-pl010.c uses the "UARTCLK".
+  </td></tr>
+  <tr> <td valign="top"><code>clk_get_rate</code></td> <td>
+    On ep93xx, returns the UART clock rate of 14,745,600 Hz.
+  </td></tr>
+  <tr> <td valign="top"><code>clk_put</code></td> <td>
+    This procedure destroys the clock obtained by clk_get().
+    However, since clock objects are permanent, this does nothing.
+  </td></tr>
+    </table>
+    <h2>Diagnostic Output</h2>
+    <p><code>printk</code> will be implemented using kprintf.
+      Drivers will have a key register KR_OSTREAM for console output.
+    <h1>Serial Port Driver</h1>
+    <p>
+      The Linux serial port driver has a number of interrelated parts, including
+      the low-level hardware driver, various line disciplines or protocols,
+      tty devices, and consoles. 
+      As you might expect with a monolithic kernel, in Linux there seems
+      to have been little incentive to structure these relationships
+      with modularity in mind. In addition, some of this code
+      is immodular simply for historical reasons. 
     </p>
     <p>
-      Following are symbols referenced from drivers/serial/amba-pl010.o
-      and defined in drivers/serial/serial_core.c.
+      The code to support tty devices, consoles, and file I/O is quite
+      Linux-specific, and we do not plan to port that code.
+      Code to handle the 17 line disciplines (which include input-line editing,
+      SLIP, PP, X25, IrDa, HDLC, etc.) may be ported as needed.
+      We do not expect frequent changes here, as the protocols are
+      governed by standards, so we are willing to tolerate a high
+      degree of customization for CapROS.
     </p>
+    <p>
+      The low-level hardware handler for specific serial port (UART)
+      hardware will be ported with minimal change by emulating
+      the Linux environment. In the case of our ARM hardware,
+      this consists of the single file drivers/serial/amba-pl010.c. 
+    </p>
+    <p>
+      This driver uses many of the facilities described above, and also
+      the following that are more specific to serial ports.
+    </p>
+    <h2>Procedures in drivers/serial/serial_core.c
+        and include/linux/serial_core.h</h2>
     <table>
   <tr> <td valign="top"><code>uart_add_one_port</code></td> <td>
   </td></tr>
@@ -46,112 +241,11 @@
   </td></tr>
   <tr> <td valign="top"><code>uart_write_wakeup</code></td> <td>
   </td></tr>
-    </table>
-    <p>
-      Following are symbols referenced from drivers/serial/amba-pl010.o
-      and defined as inline procedures in drivers/serial/serial_core.h.
-    </p>
-    <table>
-  <tr> <td valign="top"><code>do_SAK</code></td> <td>
-    From inline proc uart_handle_break, only if (port-&gt;flags &amp; UPF_SAK).
-    Secure attention key will be handled at a higher level.
+  <tr> <td valign="top"><code>uart_handle_break</code></td> <td>
+    Secure attention will be handled at a higher level.
   </td></tr>
-  <tr> <td valign="top"><code>tty_hangup</code></td> <td>
-    Part of static procedure uart_handle_dcd_change. 
-    This seems to disconnect the serial port from the user.
-    This will be handled at a higher level.
-  </td></tr>
-    </table>
-    <p>
-      Following are all other symbols referenced from drivers/serial/amba-pl010.o.
-    </p>
-    <h2>Clock Control</h2>
-    <table>
-  <tr> <td valign="top"><code>clk_disable</code></td> <td>
-    From arch/arm/mach-ep93xx/clock.o. This file could be linked in,
-    but for proper locking it may need to be a separate object. 
-    It requires only printk() and some libc procedures. 
-    On ep93xx, tracks users but otherwise does nothing.
-  </td></tr>
-  <tr> <td valign="top"><code>clk_enable</code></td> <td>
-    From arch/arm/mach-ep93xx/clock.o.
-    On ep93xx, tracks users but otherwise does nothing.
-  </td></tr>
-  <tr> <td valign="top"><code>clk_get</code></td> <td>
-    From arch/arm/mach-ep93xx/clock.o. Look up clk structure for "UARTCLK". 
-  </td></tr>
-  <tr> <td valign="top"><code>clk_get_rate</code></td> <td>
-    From arch/arm/mach-ep93xx/clock.o.
-    On ep93xx, returns the UART clock rate of 14,745,600.
-  </td></tr>
-  <tr> <td valign="top"><code>clk_put</code></td> <td>
-    From arch/arm/mach-ep93xx/clock.o. Does nothing on ep93xx.
-  </td></tr>
-    </table>
-    <h2>Device Registers</h2>
-    <p>Following POLA, I would like to grant access to
-       only the page(s) needed. If the big bang grants access to only
-       one process, request/release_mem_region can be nops.</p>
-    <table>
-  <tr> <td valign="top"><code>iomem_resource</code></td> <td>
-    Part of request_mem_region(). Structure used to map device registers. 
-  </td></tr>
-  <tr> <td valign="top"><code>__arm_ioremap</code></td> <td>
-    From arch/arm/mm/built-in.o. Part of ioremap(). 
-  </td></tr>
-  <tr> <td valign="top"><code>__iounmap</code></td> <td>
-    Part of iounmap(). Used to unmap device registers? 
-  </td></tr>
-  <tr> <td valign="top"><code>__release_region</code></td> <td>
-    Part of release_mem_region(). Used to unmap device registers?
-  </td></tr>
-  <tr> <td valign="top"><code>__request_region</code></td> <td>
-    Part of request_mem_region(). Used to map device registers. 
-  </td></tr>
-    </table>
-    <h2>IRQ Control</h2>
-    <p>The plan is to create a thread to execute the interrupt handler.</p>
-    <table>
-  <tr> <td valign="top"><code>free_irq</code></td> <td>
-  </td></tr>
-  <tr> <td valign="top"><code>request_irq</code></td> <td>
-  </td></tr>
-    </table>
-    <h2>Memory Allocation</h2>
-    <p>.</p>
-    <table>
-  <tr> <td valign="top"><code>kfree</code></td> <td>
-    amba_pl010.c only calls kfree at remove time.
-  </td></tr>
-  <tr> <td valign="top"><code>kzalloc</code></td> <td>
-    kzalloc is defined to call __kzalloc, which calls kmalloc_track_caller
-    and then sets the memory to zero.
-    kmalloc_track_caller just calls __kmalloc (unless configured for
-    debugging). We will reimplement __kmalloc.
-    <p>amba_pl010.c only calls kzalloc to allocate a structure at probe time,
-    it uses the GFP_KERNEL flag, and it doesn't require
-    contigous physical addresses.
-  </td></tr>
-  <tr> <td valign="top"><code>__kzalloc</code></td> <td>
-    Use Linux implementation at mm/util.c.
-  </td></tr>
-  <tr> <td valign="top"><code>kmalloc_caches</code></td> <td>
-    Data item for kzalloc.
-  </td></tr>
-  <tr> <td valign="top"><code>kmem_cache_zalloc</code></td> <td>
-    Procedure for kzalloc. 
-  </td></tr>
-    </table>
-    <h2>Spinlocks</h2>
-    <p>Spinlocks will become mutexes (semaphores).</p>
-    <table>
-  <tr> <td valign="top"><code>spin_lock</code></td> <td>
-  </td></tr>
-  <tr> <td valign="top"><code>spin_unlock</code></td> <td>
-  </td></tr>
-  <tr> <td valign="top"><code>spin_lock_irqsave</code></td> <td>
-  </td></tr>
-  <tr> <td valign="top"><code>spin_unlock_irqrestore</code></td> <td>
+  <tr> <td valign="top"><code>uart_handle_dcd_change</code></td> <td>
+    This procedure wakes up a wait queue.
   </td></tr>
     </table>
     <h2>Tty flip buffer</h2>
@@ -161,19 +255,14 @@
     (the line discipline), either immediately or delayed. 
   </td></tr>
   <tr> <td valign="top"><code>tty_insert_flip_string_flags</code></td> <td>
-    Part of inline procedure tty_insert_flip_char, part of uart_inser_char,
+    Part of inline procedure tty_insert_flip_char, part of uart_insert_char,
     which inserts an input character and flag and possibly overrun
     into the receive buffer. 
     The character and flag are buffered in parallel.
   </td></tr>
     </table>
     <h2>Wait Queues</h2>
-    <table>
-  <tr> <td valign="top"><code>__wake_up</code></td> <td>
-    Part of wake_up_interruptible(), used in pl010_modem_status
-    and also part of static procedure uart_handle_dcd_change. 
-  </td></tr>
-    </table>
+    <p>wake_up_interruptible() is used in pl010_modem_status.</p>
     <h2>Other</h2>
     <table>
   <tr> <td valign="top"><code>amba_driver_register</code></td> <td>
@@ -181,14 +270,8 @@
   </td></tr>
   <tr> <td valign="top"><code>amba_driver_unregister</code></td> <td>
   </td></tr>
-  <tr> <td valign="top"><code>printk</code></td> <td>
-    For KERN_INFO message at init time. We can nop this for now. 
-  </td></tr>
     </table>
-    <p>
-      Following are symbols referenced from drivers/serial/built-in.o,
-      excluding symbols in libc and symbols listed above.
-    </p>
+    <h2>Other References from drivers/serial/built-in.o</h2>
     <table>
   <tr> <td valign="top"><code>add_wait_queue</code></td> <td>
     From kernel/built-in.o. 

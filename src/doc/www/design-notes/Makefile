@@ -32,9 +32,11 @@ HTML_DOCS= \
 	DiskFormatting.html \
 	KernelMemory.html \
 	ContextLoad.html \
+	IndirectData.html \
 	IPCv2.html \
 	IPCv3.html \
 	LineDiscDesign.html \
+	LinuxDrivers.html \
 	Multiboot.html \
 	SmallSpaces386.html \
 	POSIX.html \
