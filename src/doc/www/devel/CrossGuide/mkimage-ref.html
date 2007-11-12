@@ -220,7 +220,7 @@
 	<dd>
 	     <p>
 	     Creates a GPT with an l2v value of 
-             (lss-1)*EROS_NODE_SIZE + EROS_PAGE_ADDR_BITS.
+             (lss-1)*EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS.
 	     </p>
 	</dd>
 	<dt>
@@ -230,6 +230,16 @@
 	     <p>
 	     Returns an opaque copy of <i>key</i>.
              <i>key</i> must be a GPT key.
+	     </p>
+	</dd>
+	<dt>
+	     <i>key</i> <b>with guard</b> <i>offset</i>
+	</dt>
+	<dd>
+	     <p>
+	     Returns a copy of <i>key</i> with the specified guard.
+             This sets both the l2g and guard fields of the key.
+             <i>key</i> must be a GPT or page key.
 	     </p>
 	</dd>
 	<dt>
@@ -776,7 +786,7 @@
 	<dd>
 	     <p>
 	     Prints the content of the node named by <i>key</i>, which
-	     must designate a node.
+	     must designate a node or GPT.
 	     </p>
 	</dd>
 	<dt>

@@ -168,7 +168,7 @@ bool CheckRestriction(uint32_t restriction, KeyBits key);
 /* %pure_parser */
 
 %token <NONE> DATA RW RO NC WEAK SENSE OPAQUE SENDCAP SENDWORD
-%token <NONE> NODE PAGE PHYSPAGE FORWARDER GPT NEW HIDE PROGRAM SMALL
+%token <NONE> NODE PAGE PHYSPAGE FORWARDER GPT GUARD NEW HIDE PROGRAM SMALL
 %token <NONE> CHAIN APPEND
 %token PROCESS DOMAIN
 /* %token <NONE> IMPORT */
@@ -1093,6 +1093,34 @@ key:   NULLKEY {
 	    num_errors++;
 	    YYERROR;
 	  }
+
+	  $$ = key;
+        }
+
+       | key WITH GUARD offset {
+	  KeyBits key;
+	  uint64_t offset;
+
+	  SHOWPARSE("=== key -> key WITH GUARD offset\n");
+      
+	  key = $1;
+
+          if (! keyBits_IsSegModeType(&$1)) {
+	     diag_printf("%s:%d: must be GPT or page key\n",
+			 current_file, current_line);
+	     num_errors++;
+	     YYERROR;
+	   }
+
+	  offset = $4;
+          struct GuardData gd;
+          if (! key_CalcGuard(offset, &gd)) {
+	    diag_printf("%s:%d: Invalid guard\n",
+		 current_file, current_line);
+	    num_errors++;
+	    YYERROR;
+	  }
+          key_SetGuardData(&key, &gd);
 
 	  $$ = key;
         }
