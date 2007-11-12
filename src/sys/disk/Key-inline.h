@@ -295,6 +295,22 @@ keyBits_SetGuard(KeyBits * thisPtr, unsigned int guard)
 {
   ((uint8_t *) &thisPtr->keyData)[1] = guard;
 }
+
+struct GuardData {
+  unsigned int guard;
+  unsigned int l2g;
+};
+
+// For memory and node keys:
+INLINE void
+key_SetGuardData(KeyBits * thisPtr, const struct GuardData * gd)
+{
+  keyBits_SetGuard(thisPtr, gd->guard);
+  keyBits_SetL2g(thisPtr, gd->l2g);
+}
+
+uint64_t key_GetGuard(const KeyBits * thisPtr);
+bool key_CalcGuard(uint64_t guard, struct GuardData * gd);
  
 
 INLINE bool 

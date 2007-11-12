@@ -183,22 +183,6 @@ key_NH_RescindKey(Key* thisPtr)
   keyBits_InitToVoid(thisPtr);
 }
 
-struct GuardData {
-  unsigned int guard;
-  unsigned int l2g;
-};
-
-// For memory and node keys:
-INLINE void
-key_SetGuardData(Key * thisPtr, struct GuardData * gd)
-{
-  keyBits_SetGuard(thisPtr, gd->guard);
-  keyBits_SetL2g(thisPtr, gd->l2g);
-}
-
-uint64_t key_GetGuard(const Key * thisPtr);
-bool key_CalcGuard(uint64_t guard, struct GuardData * gd);
-
 #ifdef OPTION_OB_MOD_CHECK
 uint32_t key_CalcCheck(Key* thisPtr);
 #endif
