@@ -54,3 +54,15 @@ __rt_do_SEND:	.globl __rt_do_SEND
    r0 - ptr to Message structure
  */
 	ldmfd sp!,{r4,r5,pc}	// return
+	
+	.weak	EXT(PSEND)
+	.set	EXT(PSEND),EXT(__rt_do_PSEND)
+
+/* On entry to PSEND, r0 has a pointer to a Message structure. */
+__rt_do_PSEND:	.globl __rt_do_PSEND
+	stmfd sp!,{r4,r5,r14}
+	ldmia r0,{r1-r5}
+	and r1,r1,#0xff
+	orr r1,r1,#(IT_PSend << 8)
+	swi SWI_Invoke
+	ldmfd sp!,{r4,r5,pc}	// return

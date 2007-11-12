@@ -40,6 +40,7 @@ extern "C" {
 
 extern fixreg_t CALL(Message*);
 extern void SEND(Message*);
+extern void PSEND(Message*);
 extern fixreg_t RETURN(Message*);
 
   /* Generic form: */

@@ -39,18 +39,28 @@ ENTRY(__rt_do_SEND)
 	
 	movl	36(%esp),%ebp		/* pointer to message structure */
 	movl	$IT_Send,(%ebp)		/* invocation type */
-		
+
+sendCommon:
 	movl	32(%ebp),%eax		/* snd code */
 	movl	36(%ebp),%ebx		/* snd w1 */
 	movl	40(%ebp),%ecx		/* snd w2 */
 	movl	44(%ebp),%edx		/* snd w3 */
 	
-/* the following should not be used!? */
-	movl	$0,%esi			/* rcv len */
-	movl	$0,%edi			/* rcv ptr */
-
 	int	$0x31			/* invocation trap */
 	
 	popa
 	ret
 
+	.weak	EXT(PSEND)
+	.set	EXT(PSEND),EXT(__rt_do_PSEND)
+	
+	/* PSEND()
+	 *
+	 * For a stack frame map, see the STACKFRAME file
+	 */
+ENTRY(__rt_do_PSEND)	
+	pusha
+	
+	movl	36(%esp),%ebp		/* pointer to message structure */
+	movl	$IT_PSend,(%ebp)		/* invocation type */
+	jmp sendCommon
