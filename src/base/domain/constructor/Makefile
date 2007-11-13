@@ -74,6 +74,10 @@ $(BUILDDIR)/telospace: $(BUILDDIR)/telospace.o
 	$(DOMLINK) --section-start .texttelo=0x400 --section-start .rodatatelo=0x500 $(DOMLINKOPT) $(BUILDDIR)/telospace.o -o $@
 	$(EROS_OBJCOPY) --keep-global-symbol=telospacestart --set-section-flags .texttelo=alloc,code,load --set-section-flags .rodatatelo=alloc,load,readonly,data $@
 
+IDL=$(wildcard *.idl)
+interfaces: $(IDL)
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros
+
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
 	$(INSTALL) -m 644 metacon.map $(CAPROS_DOMAIN)

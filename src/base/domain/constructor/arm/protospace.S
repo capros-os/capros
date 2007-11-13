@@ -41,7 +41,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <idl/capros/ProcCre.h>
 
-#include <domain/ConstructorKey.h>
+#include <idl/capros/Constructor.h>
 #include <domain/ProtoSpace.h>
 #include <domain/Runtime.h>
 #include <eros/arch/arm/SWI.h>
@@ -122,7 +122,7 @@ ENTRY(start)
 
 	/* Run the constructor for the address space */
 	
-	simpleCall(fab_space, PSKR_SPACE, OC_Constructor_Request, 0,
+	simpleCall(fab_space, PSKR_SPACE, OC_capros_Constructor_request, 0,
 		KR_BANK, KR_SCHED, PSKR_SPACE)
 	cmp r1,#RC_OK
 	bne delete_kept_space

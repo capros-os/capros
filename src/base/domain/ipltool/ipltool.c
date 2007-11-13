@@ -38,7 +38,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
 
-#include <domain/ConstructorKey.h>
+#include <idl/capros/Constructor.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 #include "constituents.h"
@@ -101,7 +101,7 @@ main()
       }
       else {
 	/* Assume it's a constructor key */
-	msg.snd_code = OC_Constructor_Request;
+	msg.snd_code = OC_capros_Constructor_request;
 	msg.snd_invKey = KR_FAULT;
       }
 

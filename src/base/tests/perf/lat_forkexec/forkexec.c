@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2007, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 
 #include <eros/target.h>
@@ -25,7 +28,7 @@
 #include <idl/capros/Sleep.h>
 #include <idl/capros/SysTrace.h>
 #include <domain/domdbg.h>
-#include <domain/ConstructorKey.h>
+#include <ipl/capros/Constructor.h>
 #include <memory.h>
 
 #define KR_VOID     0
@@ -52,31 +55,8 @@ uint32_t
 create_hello(uint32_t krHelloCre, uint32_t krBank, uint32_t krSched,
 	     uint32_t krHello)
 {
-  Message msg;
-
-  msg.snd_w1 = 0;
-  msg.snd_w2 = 0;
-  msg.snd_w3 = 0;
-
-  msg.snd_key0 = krBank;
-  msg.snd_key1 = krSched;
-  msg.snd_key2 = KR_VOID;
-  msg.snd_rsmkey = KR_VOID;
-  msg.snd_data = 0;
-  msg.snd_len = 0;
-
-  msg.rcv_key0 = krHello;
-  msg.rcv_key1 = KR_VOID;
-  msg.rcv_key2 = KR_VOID;
-  msg.rcv_rsmkey = KR_VOID;
-  msg.rcv_len = 0;		/* no data returned */
-
-
-  /* No string arg == I'll take anything */
-  msg.snd_invKey = krHelloCre;
-  msg.snd_code = OC_Constructor_Request;
-
-  return CALL(&msg);
+  return capros_Constructor_request(krHelloCre,
+                                    krBank, krSched, KR_VOID, krHello);
 }
 
 int

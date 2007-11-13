@@ -54,9 +54,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <idl/capros/ProcCre.h>
 #include <idl/capros/PCC.h>
+#include <idl/capros/Constructor.h>
 
 #include <domain/domdbg.h>
-#include <domain/ConstructorKey.h>
 #include <domain/ProtoSpace.h>
 #include <domain/Runtime.h>
 
@@ -112,7 +112,7 @@ CheckDiscretion(uint32_t kr, ConstructorInfo *ci)
     uint32_t isDiscreet;
     /* This key is a requestor's key to a constructor. Ask the
        constructor if it is discreet */
-    result = constructor_is_discreet(kr, &isDiscreet);
+    result = capros_Constructor_isDiscreet(kr, &isDiscreet);
     if (result == RC_OK && isDiscreet)
       return;
   }
@@ -310,7 +310,7 @@ is_not_discreet(uint32_t kr, ConstructorInfo *ci)
     uint32_t isDiscreet;
     /* This key is a requestor's key to a constructor. Ask the
        constructor if it is discreet */
-    result = constructor_is_discreet(kr, &isDiscreet);
+    result = capros_Constructor_isDiscreet(kr, &isDiscreet);
     if (result == RC_OK && isDiscreet)
       return 0;			/* ok */
   }
@@ -389,7 +389,7 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
   msg->snd_invKey = KR_RETURN;
 
   switch (msg->rcv_code) {
-  case OC_Constructor_IsDiscreet:
+  case OC_capros_Constructor_isDiscreet:
     {
       if (ci->frozen && !ci->has_holes)
 	msg->snd_w1 = 1;
@@ -400,7 +400,7 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
       return 1;
     }      
     
-  case OC_Constructor_Request:
+  case OC_capros_Constructor_request:
     {
       DEBUG(product) kdprintf(KR_OSTREAM, "constructor: request product\n");
 
@@ -408,7 +408,7 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
       return 1;
     }      
     
-  case OC_Constructor_Seal:
+  case OC_capros_Constructor_seal:
     {
       DEBUG(build) kdprintf(KR_OSTREAM, "constructor: seal\n");
 
@@ -420,35 +420,35 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
       return 1;
     }      
 
-  case OC_Constructor_Insert_Constituent:
+  case OC_capros_Constructor_insertConstituent:
     {
       msg->snd_code = insert_constituent(msg->rcv_w1, KR_ARG0, ci);
       
       return 1;
     }      
 
-  case OC_Constructor_Insert_Keeper:
+  case OC_capros_Constructor_insertKeeper:
     {
       msg->snd_code = insert_xconstituent(XCON_KEEPER, KR_ARG0, ci);
       
       return 1;
     }      
 
-  case OC_Constructor_Insert_AddrSpace:
+  case OC_capros_Constructor_insertAddrSpace:
     {
       msg->snd_code = insert_xconstituent(XCON_ADDRSPACE, KR_ARG0, ci);
       
       return 1;
     }      
 
-  case OC_Constructor_Insert_Symtab:
+  case OC_capros_Constructor_insertSymtab:
     {
       msg->snd_code = insert_xconstituent(XCON_SYMTAB, KR_ARG0, ci);
       
       return 1;
     }      
 
-  case OC_Constructor_Insert_PC:
+  case OC_capros_Constructor_insertPC:
     {
       msg->snd_code = insert_xconstituent(XCON_PC, KR_ARG0, ci);
       
@@ -465,11 +465,13 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
       switch(msg->rcv_keyInfo) {
       case 0:
 	msg->snd_code = RC_OK;
+        /* This is wrong: each different constructor requestor should have
+           its own key type. */
 	msg->snd_w1 = AKT_ConstructorRequestor;
 	break;
       case 1:
 	msg->snd_code = RC_OK;
-	msg->snd_w1 = AKT_ConstructorBuilder;
+	msg->snd_w1 = IKT_capros_Constructor;
 	break;
       }
       return 1;

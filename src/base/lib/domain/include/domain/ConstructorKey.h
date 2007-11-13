@@ -3,8 +3,9 @@
 
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -20,39 +21,24 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
-#define OC_Constructor_IsDiscreet             1
-#define OC_Constructor_Request                2
-#define OC_Constructor_Seal                   3
-#define OC_Constructor_Insert_Constituent     4
+/* This file is retained until all the users of constructor_request
+   are changed to use the IDL declarations. */
 
-#define OC_Constructor_Insert_Keeper          5
-#define OC_Constructor_Insert_AddrSpace       6
-#define OC_Constructor_Insert_Symtab          7
-#define OC_Constructor_Insert_PC              8
-
-/* Also add #defines for the error return values... */
-#define RC_Constructor_Indiscreet             1
-#define RC_Constructor_NotSealed              2
-#define RC_Constructor_NotBuilder             3
+#include <idl/capros/Constructor.h>
 
 #ifndef __ASSEMBLER__
-uint32_t constructor_request(uint32_t krConstructor, uint32_t krBank,
-			     uint32_t krSched, uint32_t krArg0,
-			     uint32_t krProduct /* OUT */);
-uint32_t constructor_is_discreet(uint32_t krConstructor, uint32_t *isDiscreet);
-uint32_t constructor_seal(uint32_t krConstructor, uint32_t krRequestor);
-uint32_t constructor_insert_constituent(uint32_t krConstructor, uint32_t ndx,
-					uint32_t krConstit);
-
-uint32_t constructor_insert_keeper(uint32_t krConstructor, 
-				   uint32_t krKeeper);
-uint32_t constructor_insert_addrspace(uint32_t krConstructor, 
-				      uint32_t krAddrSpace);
-uint32_t constructor_insert_symtab(uint32_t krConstructor, 
-				   uint32_t krSymtab);
-uint32_t constructor_insert_pc(uint32_t krConstructor, 
-			       uint32_t krPC);
+static inline uint32_t
+constructor_request(uint32_t krConstructor, uint32_t krBank,
+		     uint32_t krSched, uint32_t krArg0,
+		     uint32_t krProduct /* OUT */)
+{
+  return capros_Constructor_request(krConstructor,
+           krBank, krSched, krArg0, krProduct);
+}
 #endif
 
 #endif /* __CONSTRUCTOR_H__ */

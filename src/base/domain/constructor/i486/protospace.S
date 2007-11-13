@@ -41,7 +41,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <idl/capros/ProcCre.h>
 
-#include <domain/ConstructorKey.h>
+#include <idl/capros/Constructor.h>
 #include <domain/ProtoSpace.h>
 #include <domain/Runtime.h>
 	
@@ -175,7 +175,7 @@ ENTRY(start)
 	
 	movl	$fab_space,%ebp	/* invocation descriptor */
 	
-	movl	$OC_Constructor_Request,%eax	/* r0 */
+	movl	$OC_capros_Constructor_request,%eax	/* r0 */
 	xorl	%ebx,%ebx			/* r1 */
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */

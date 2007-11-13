@@ -40,9 +40,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/ProcCre.h>
+#include <idl/capros/Constructor.h>
 
 #include <domain/domdbg.h>
-#include <domain/ConstructorKey.h>
 #include <domain/Runtime.h>
 #include "constituents.h"
 
@@ -173,7 +173,7 @@ ProcessRequest(Message *msg, MetaConInfo* mci)
   msg->snd_invKey = KR_RETURN;
 
   switch (msg->rcv_code) {
-  case OC_Constructor_IsDiscreet:
+  case OC_capros_Constructor_isDiscreet:
     {
       msg->snd_w1 = 1;		/* answer YES */
       msg->snd_code = RC_OK;
@@ -181,13 +181,13 @@ ProcessRequest(Message *msg, MetaConInfo* mci)
       return 1;
     }      
     
-  case OC_Constructor_Request:
+  case OC_capros_Constructor_request:
     {
       msg->snd_code = MakeNewProduct(msg, mci);
       return 1;
     }      
     
-  case OC_Constructor_Seal:
+  case OC_capros_Constructor_seal:
     {
       msg->snd_code = 1;	/* answer YES */
       return 1;

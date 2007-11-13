@@ -21,7 +21,7 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
-#include <domain/ConstructorKey.h>
+#include <idl/capros/Constructor.h>
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
 #include "constituents.h"
@@ -48,12 +48,12 @@ main()
   node_copy(KR_CONSTIT, KC_HELLO_SEG, KR_HELLO_SEG);
   node_copy(KR_CONSTIT, KC_HELLO_PC, KR_HELLO_PC);
   
-  result = constructor_is_discreet(KR_METACON, &isDiscrete);
+  result = capros_Constructor_isDiscreet(KR_METACON, &isDiscrete);
   
   if ( result == RC_OK && isDiscrete )
     kprintf(KR_OSTREAM, "Metacon alleges discretion\n");
   
-  result = constructor_request(KR_METACON, KR_BANK, KR_SCHED, KR_VOID,
+  result = capros_Constructor_request(KR_METACON, KR_BANK, KR_SCHED, KR_VOID,
 			 KR_NEWCON);
 
   if (result != RC_OK)
@@ -61,19 +61,19 @@ main()
 
   kprintf(KR_OSTREAM, "Populate new constructor\n");
 
-  constructor_insert_addrspace(KR_NEWCON, KR_HELLO_SEG);
-  constructor_insert_pc(KR_NEWCON, KR_HELLO_PC);
+  capros_Constructor_insertAddrSpace(KR_NEWCON, KR_HELLO_SEG);
+  capros_Constructor_insertPC(KR_NEWCON, KR_HELLO_PC);
   /* The hello address space wants it's output stream as the zeroth
      constituent. The fact that we need to hard-code this relationship
      is a good indication of a problem somewhere in here, but for
      now... */
-  constructor_insert_constituent(KR_NEWCON, 0, KR_OSTREAM);
+  capros_Constructor_insertConstituent(KR_NEWCON, 0, KR_OSTREAM);
 
-  constructor_seal(KR_NEWCON, KR_CONREQ);
+  capros_Constructor_seal(KR_NEWCON, KR_CONREQ);
 
   kprintf(KR_OSTREAM, "Request product...\n");
 
-  result = constructor_request(KR_CONREQ, KR_BANK, KR_SCHED, KR_VOID,
+  result = capros_Constructor_request(KR_CONREQ, KR_BANK, KR_SCHED, KR_VOID,
 	   	               KR_NEW_HELLO);
 
   if (result != RC_OK)

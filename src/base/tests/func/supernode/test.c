@@ -27,7 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/SuperNode.h>
 
-#include <domain/ConstructorKey.h>
+#include <idl/capros/Constructor.h>
 #include <domain/Runtime.h>
 
 #include <domain/domdbg.h>
@@ -111,7 +111,7 @@ main(void)
   capros_Node_extAddr_t first, last;
   capros_Node_extAddr_t a1,a2,a3,a4,a5;
 
-  result = constructor_is_discreet(KR_SNODEC, &isDiscrete);
+  result = capros_Constructor_isDiscreet(KR_SNODEC, &isDiscrete);
   ckOK
   if (isDiscrete) {
     kprintf(KR_OSTREAM,
@@ -128,7 +128,7 @@ main(void)
 
   /* we've now got all the pieces -- let the test begin! */
 
-  result = constructor_request(KR_SNODEC,
+  result = capros_Constructor_request(KR_SNODEC,
 			       KR_BANK, KR_SCHED, KR_VOID,
 			       KR_SNODE);
   ckOK

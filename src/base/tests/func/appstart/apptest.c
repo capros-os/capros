@@ -27,7 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Sleep.h>
 #include <eros/NodeKey.h>
 #include <domain/SpaceBankKey.h>
-#include <domain/ConstructorKey.h>
+#include <idl/capros/Constructor.h>
 #include <domain/domdbg.h>
 
 /**Handle the stack stuff**/
@@ -116,9 +116,10 @@ main()
   
   /* create constructor */
   kprintf( KR_OSTREAM, "Requesting constructor: " );
-  if (constructor_request(KR_METACON,KR_SPACEBANK,KR_SCHED,KR_VOID,KR_TMP)
+  if (capros_Constructor_request(KR_METACON,KR_SPACEBANK,KR_SCHED,KR_VOID,
+                                 KR_TMP)
       != RC_OK ) {
-    kprintf( KR_OSTREAM, "constructor_request( MR_METACON, .. ) failed!\n" );
+    kprintf( KR_OSTREAM, "capros_Constructor_request( MR_METACON, .. ) failed!\n" );
   } else {
     kprintf( KR_OSTREAM, "OK\nPopulating new constructor: " );
     
@@ -128,7 +129,7 @@ main()
     constructor_insert( KR_TMP, Constructor_Product_PC,  KR_CHILD_PC );
   
     kprintf( KR_OSTREAM, "OK\nSealing constructor: " );
-    if (constructor_seal( KR_TMP, KR_CON ) != RC_OK ) {
+    if (capros_Constructor_seal( KR_TMP, KR_CON ) != RC_OK ) {
       kprintf( KR_OSTREAM, "Failed!\n" );
     } else {
       kprintf( KR_OSTREAM, "OK\n" );
@@ -149,8 +150,9 @@ main()
     testSpaceBank( KR_SUBBANK );
     
     kprintf( KR_OSTREAM, "Requesting product from constructor...\n" );
-    if ( constructor_request( KR_CON, KR_SUBBANK, KR_SCHED, KR_VOID, KR_TMP )
-	 != RC_OK ) {
+    if (capros_Constructor_request(KR_CON, KR_SUBBANK, KR_SCHED, KR_VOID,
+                                   KR_TMP )
+	 != RC_OK) {
       kprintf( KR_OSTREAM, "Constructor_request failed!\n" );
     };
     

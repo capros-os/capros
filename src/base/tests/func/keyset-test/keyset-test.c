@@ -28,9 +28,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Number.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Constructor.h>
 
 #include <domain/KeySetKey.h>
-#include <domain/ConstructorKey.h>
 #include <domain/Runtime.h>
 
 #include <domain/domdbg.h>
@@ -83,7 +83,7 @@ main(void)
   uint32_t result;
   uint32_t isDiscrete;
 
-  result = constructor_is_discreet(KR_KEYSETC, &isDiscrete);
+  result = capros_Constructor_isDiscreet(KR_KEYSETC, &isDiscrete);
   if (result == RC_OK && isDiscrete) {
     kprintf(KR_OSTREAM,
 	    "KeySet Constructor alleges discretion.\n");
@@ -95,7 +95,7 @@ main(void)
 
   kprintf(KR_OSTREAM, "Creating All set\n");
 
-  result = constructor_request(KR_KEYSETC,
+  result = capros_Constructor_request(KR_KEYSETC,
 			       KR_BANK,
 			       KR_SCHED,
 			       KR_VOID,
@@ -108,7 +108,7 @@ main(void)
 
   kprintf(KR_OSTREAM, "Creating Even set\n");
 
-  result = constructor_request(KR_KEYSETC,
+  result = capros_Constructor_request(KR_KEYSETC,
 			       KR_BANK,
 			       KR_SCHED,
 			       KR_VOID,
@@ -121,7 +121,7 @@ main(void)
 
   kprintf(KR_OSTREAM, "Creating odd set\n");
 
-  result = constructor_request(KR_KEYSETC,
+  result = capros_Constructor_request(KR_KEYSETC,
 			       KR_BANK,
 			       KR_SCHED,
 			       KR_VOID,
@@ -134,7 +134,7 @@ main(void)
 
   kprintf(KR_OSTREAM, "Creating other set\n");
   
-  result = constructor_request(KR_KEYSETC,
+  result = capros_Constructor_request(KR_KEYSETC,
 			       KR_BANK,
 			       KR_SCHED,
 			       KR_VOID,

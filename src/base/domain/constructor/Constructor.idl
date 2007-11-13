@@ -1,0 +1,13 @@
+package capros;
+
+interface Constructor extends key 
+{
+  key request(key bank, key sched, key arg);
+  unsigned long isDiscreet();
+  key seal();
+  void insertConstituent(unsigned long num, key k);
+  void insertPC(unsigned long pc);
+  void insertAddrSpace(key space);
+  void insertSymtab(key sym);
+  void insertKeeper(key keeper);
+};
