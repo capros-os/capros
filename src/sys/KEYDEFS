@@ -114,8 +114,7 @@ domain	DomCre
 domain	VcskSeg
 domain	FreshSeg
 
-/* Constructor gets two: */
-domain	ConstructorBuilder
+/* This is wrong: each type of constructor should have its own type. */
 domain	ConstructorRequestor
 
 domain	Directory
