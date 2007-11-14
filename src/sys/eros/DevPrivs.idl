@@ -58,4 +58,12 @@ interface DevPrivs extends key raises(AllocFail) {
    * the kernel.
    */
   void publishMem(unsigned long start, unsigned long end, boolean readOnly);
+
+  /** Modify the system's device configuration register (ARM EP93xx only).
+
+     Set or clear the bit(s) in the mask.
+     The bit(s) in the mask must also be present in this key's
+     u.nk.value[0] field, otherwise key.NoAccess is raised.
+   */
+  void deviceConfig(boolean set, unsigned long mask);
 };

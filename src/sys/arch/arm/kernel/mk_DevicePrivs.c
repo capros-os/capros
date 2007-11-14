@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include "Interrupt.h"
+#include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/DevPrivs.h>
@@ -60,6 +61,36 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
    * range. Must range check before using. */
 
   switch(inv->entry.code) {
+  case OC_capros_DevPrivs_deviceConfig:
+  {
+    uint32_t set = inv->entry.w1;
+    uint32_t mask = inv->entry.w2;
+
+    COMMIT_POINT();
+
+    if (~ inv->key->u.nk.value[0] & mask) {
+      // He specified unallowed bit(s).
+      inv->exit.code = RC_capros_key_NoAccess;
+      break;
+    }
+
+    uint32_t devcfg = SYSCON.DeviceCfg;
+    if (set) {
+      if (!(devcfg & mask)) {
+        SYSCON.SysSWLock = SYSCONSysSWLock_Unlock;
+        SYSCON.DeviceCfg = devcfg | mask;
+      }
+    } else {
+      if ((devcfg & mask)) {
+        SYSCON.SysSWLock = SYSCONSysSWLock_Unlock;
+        SYSCON.DeviceCfg = devcfg & ~ mask;
+      }
+    }
+
+    inv->exit.code = RC_OK;
+    break;
+  }
+
   case OC_capros_DevPrivs_allocIRQ:
     {
       DEBUG(alloc)

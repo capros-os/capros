@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -18,14 +18,15 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 /* This implements a console outputing to UART1.
    It is assumed that the boot loader left UART1 in a good state. */
 
 #include <kerninc/KernStream.h>
 #include "ep93xx-uart.h"
-#include "ep9315-syscon.h"
+#include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 
 void SerialStream_Put(uint8_t c);
 

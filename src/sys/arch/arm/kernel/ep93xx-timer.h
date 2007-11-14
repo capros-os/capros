@@ -1,7 +1,7 @@
 #ifndef __EP93XX_TIMER_H_
 #define __EP93XX_TIMER_H_
 /*
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -20,10 +20,11 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-   Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
+Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
+W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <stdint.h>
-#include "ep9315.h"
+#include <eros/arch/arm/mach-ep93xx/ep9315.h>
 
 /* Declarations for the Cirrus EP9315 Timer. */
 

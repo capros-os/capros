@@ -298,10 +298,11 @@ and map it at MVA KTextVA + 1MB.  */
 
 #if 1
 	/* Print some interesting values. */
-#if 0
+#if 1
 	ldr r4,=0x80930000
 	ldr r1,[r4,#0x20]
-	mrc p15,0,r2,c9,c0,0	// read control register 9
+	ldr r2,[r4,#0x80]	// DeviceCfg
+	// mrc p15,0,r2,c9,c0,0	// read control register 9
 	mrc p15,0,r3,c10,c0,0	// read control register 10
 #else
 	ldr r4,=0x80060000	// SDRAM Mem Controller regs
