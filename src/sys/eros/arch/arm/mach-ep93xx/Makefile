@@ -23,53 +23,22 @@
 # W31P4Q-07-C-0070.  Approved for public release, distribution unlimited.
 default: package
 
-EROS_SRC=../../../..
-EROS_SYS=../../..
+EROS_SRC=../../../../..
+EROS_SYS=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 BUILDDIR=.
 TARGETS=
-DIRS=mach-ep93xx
-GENERATED=pseudoregs.h traceregs.h
-LOCAL_HEADERS=\
-	target.h \
-	asm.h \
-	atomic.h \
-	cap-instr.h \
-	Invoke.h \
-	SWI.h \
-	endian.h \
-	target-asm.h \
+DIRS=
 
 HEADERS=\
-	$(LOCAL_HEADERS) $(GENERATED)
-
-IDLSRC=$(wildcard *.idl)
-
-CLEANLIST += pseudoregs.h traceregs.h
+ ep9315.h \
+ ep9315-syscon.h
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-GENPSEUDOREGS=$(EROS_SYS)/scripts/GenPseudoRegs.awk
-GENTRACEREGS=$(EROS_SYS)/scripts/GenTraceRegs.awk
-LAYOUT=$(EROS_SYS)/arch/arm/LAYOUT
-
-pseudoregs.h: $(LAYOUT) $(GENPSEUDOREGS)
-	$(EROS_CPP) -I$(EROS_SRC)/sys $(LAYOUT) | $(GAWK) -f $(GENPSEUDOREGS) > $@
-
-traceregs.h: $(LAYOUT) $(GENTRACEREGS)
-	$(EROS_CPP) -I$(EROS_SRC)/sys $(LAYOUT) | $(GAWK) -f $(GENTRACEREGS) > $@
-
-
-# NOTE that target-asm.h also gets installed in the domain include tree!
-install: $(GENERATED) Makefile
-	$(INSTALL) -d $(EROS_ROOT)/include/eros/arch/$(EROS_TARGET)
-	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/include/eros/arch/$(EROS_TARGET)
-	$(INSTALL) -d $(EROS_ROOT)/host/include/eros/arch/$(EROS_TARGET)
-	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/host/include/eros/arch/$(EROS_TARGET)
-
-interfaces:
-	$(INSTALL) -d $(EROS_ROOT)/idl/capros/arch/$(EROS_TARGET)
-	$(INSTALL) -m 0644 $(IDLSRC) $(EROS_ROOT)/idl/capros/arch/$(EROS_TARGET)
-
-.PRECIOUS: $(LOCAL_HEADERS)
+install: Makefile
+	$(INSTALL) -d $(EROS_ROOT)/include/eros/arch/arm/mach-ep93xx
+	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/include/eros/arch/arm/mach-ep93xx
+	$(INSTALL) -d $(EROS_ROOT)/host/include/eros/arch/arm/mach-ep93xx
+	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/host/include/eros/arch/arm/mach-ep93xx
