@@ -40,7 +40,7 @@ init_NumberKey(KeyBits *dk, uint32_t first, uint32_t second, uint32_t third)
 }
 
 void
-init_MiscKey(KeyBits *dk, uint16_t ty)
+init_MiscKey(KeyBits *dk, uint16_t ty, uint32_t n0)
 {
   keyBits_InitToVoid(dk);
   keyBits_InitType(dk, ty);
@@ -54,7 +54,7 @@ init_MiscKey(KeyBits *dk, uint16_t ty)
   
   dk->u.nk.value[2] = 0;
   dk->u.nk.value[1] = 0;
-  dk->u.nk.value[0] = 0;
+  dk->u.nk.value[0] = n0;
 };
 
 

@@ -671,7 +671,7 @@ key:   NULLKEY {
 	}
        | VOIDKEY {
 	  SHOWPARSE("=== key -> VOIDKEY\n");
-	  init_MiscKey(&$$, KKT_Void);
+	  init_MiscKey(&$$, KKT_Void, 0);
 	}
 
        | VOLSIZE {
@@ -697,16 +697,17 @@ key:   NULLKEY {
 	 }
        | PRIME RANGE {
 	  SHOWPARSE("=== key -> PRIME RANGE\n");
-	  init_MiscKey(&$$, KKT_PrimeRange);
+	  init_MiscKey(&$$, KKT_PrimeRange, 0);
 	 }
        | PHYSMEM RANGE {
 	  SHOWPARSE("=== key -> PHYSMEM RANGE\n");
-	  init_MiscKey(&$$, KKT_PhysRange);
+	  init_MiscKey(&$$, KKT_PhysRange, 0);
 	 }
        | SCHED '(' priority ')' {
 	  SHOWPARSE("=== key -> SCHED ( priority )\n");
 	  init_SchedKey(&$$, $3);
          }
+
        | MISC MISC_KEYNAME {
 	  uint32_t miscType;
 
@@ -718,8 +719,23 @@ key:   NULLKEY {
 	    YYERROR;
 	  }
 	  
-	  init_MiscKey(&$$, miscType);
+	  init_MiscKey(&$$, miscType, 0);
          }
+
+       | MISC MISC_KEYNAME arith_expr{
+	  uint32_t miscType;
+
+	  SHOWPARSE("=== key -> MISC NAME arith_expr\n");
+	  if (GetMiscKeyType($2, &miscType) == false) {
+	    diag_printf("%s:%d: unknown misc key type \"%s\"\n",
+			 current_file, current_line, $2);
+	    num_errors++;
+	    YYERROR;
+	  }
+	  
+	  init_MiscKey(&$$, miscType, $3);
+         }
+
        | MISC_KEYNAME {
 	  uint32_t miscType;
 
@@ -731,7 +747,7 @@ key:   NULLKEY {
 	    YYERROR;
 	  }
 	  
-	  init_MiscKey(&$$, miscType);
+	  init_MiscKey(&$$, miscType, 0);
          }
        | SEGTREE string_lit {
 	  KeyBits key;
@@ -2478,8 +2494,6 @@ static const struct {
 #include <eros/StdKeyType.h>
 };
 
-#define MISC_KEYTYPE(i) (i >= FIRST_MISC_KEYTYPE)
-
 bool
 GetMiscKeyType(const char *s, uint32_t *ty)
 {
@@ -2488,12 +2502,9 @@ GetMiscKeyType(const char *s, uint32_t *ty)
   
   for (i = 0; i < KKT_NUM_KEYTYPE; i++) {
     if (strcasecmp(sstr, KeyNames[i].name) == 0) {
-#if 0
-      /* Temporary expedient -- allow stale misc keys! */
       if (KeyNames[i].isValid == 0)
 	return false;
-#endif
-      if (!MISC_KEYTYPE(i))
+      if (i < FIRST_MISC_KEYTYPE)
 	return false;
       *ty = i;
       return true;

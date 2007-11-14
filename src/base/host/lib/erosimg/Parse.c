@@ -674,7 +674,7 @@ parse_MatchKey(const char **txt, KeyBits *key)
 	if (GetMiscKeyType(name, &miscType) == false)
 	  return false;
 
-	init_MiscKey(key, miscType);
+	init_MiscKey(key, miscType, 0);
 	*txt = s;
 	return true;
       }

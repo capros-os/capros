@@ -53,7 +53,7 @@ void init_RangeKey(KeyBits *, OID oidlo, OID oidhi);
 void init_NumberKey(KeyBits *, uint32_t first, 
 		    uint32_t second, uint32_t third);
 void init_SchedKey(KeyBits *, uint16_t prio);
-void init_MiscKey(KeyBits *, uint16_t ty);
+void init_MiscKey(KeyBits *, uint16_t ty, uint32_t n0);
 
 #ifdef __cplusplus
 }

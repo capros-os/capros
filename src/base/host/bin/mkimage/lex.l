@@ -97,7 +97,7 @@ physpage	{ return PHYSPAGE; }
 forwarder	{ return FORWARDER; }
 sendWord	{ return SENDWORD; }
 GPT	{ return GPT; }
-GUARD   { return GUARD; }
+guard   { return GUARD; }
 chain	{ return CHAIN; }
 append	{ return APPEND; }
 domain	{ return DOMAIN; }
