@@ -106,14 +106,14 @@ PROD_SPACE(zs_c) = vcsk.seg;
 PROD_PC(zs_c) = vcsk.pc;
 /* no keeper, no symbol table */
 
-#define MAKE_VIRTUAL_COPIER(name, progfile) \
+#define MAKE_VIRTUAL_COPIER_SEG(name, memkey) \
    BOOT_CONSTRUCTOR(name##_c, name); \
    PROD_CONSTIT(name##_c, KC_OSTREAM, 0) = misc Console; \
    PROD_CONSTIT(name##_c, KC_ZINDEX, 1) = zindex; \
-   PROD_CONSTIT(name##_c, KC_FROZEN_SEG, 2) = sense program segtree progfile; \
+   PROD_CONSTIT(name##_c, KC_FROZEN_SEG, 2) = sense memkey; \
    PROD_CONSTIT(name##_c, KC_PROTOSPC, 3) = protospace; \
    PROD_SPACE(name##_c) = vcsk.seg; \
    PROD_PC(name##_c) = vcsk.pc;
 
-/* hide vcsk.seg; */
-/* hide vcsk.pc; */
+#define MAKE_VIRTUAL_COPIER(name, progfile) \
+   MAKE_VIRTUAL_COPIER_SEG(name, program segtree progfile)
