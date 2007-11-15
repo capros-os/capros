@@ -109,20 +109,16 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 #endif
 
   // FIXME: Where do we check if the page is pinned?
-  if (! objC_EvictFrame(pObj))
+  if (pageH_ToObj(pObj)->obType != ot_PtDevicePage
+      && ! objC_EvictFrame(pObj))
     return 0;	// could not evict
 
   pageH_ToObj(pObj)->oid = oid;
   pageH_ToObj(pObj)->allocCount = PhysPageAllocCount;
-  pObj->objAge = age_NewBorn;
-
-  objH_SetFlags(pageH_ToObj(pObj), OFLG_CURRENT|OFLG_DISKCAPS);
-  assert(objH_GetFlags(pageH_ToObj(pObj),
-                       OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
  
-  pageH_ToObj(pObj)->ioCount = 0;
+  pageH_ToObj(pObj)->ioCount = 0;	// should this be an assertion?
   if (thisPtr->pmi->type == MI_DEVICEMEM) {
-    pageH_ToObj(pObj)->obType = ot_PtDevicePage;
+    assert(pageH_ToObj(pObj)->obType == ot_PtDevicePage);
 
     /* Do not bother with calculating the checksum value, as device
      * memory is always considered dirty. */
@@ -131,6 +127,11 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
     pageH_MDInitDevicePage(pObj);
   }
   else {
+    assert(objH_GetFlags(pageH_ToObj(pObj),
+                         OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
+    objH_SetFlags(pageH_ToObj(pObj), OFLG_CURRENT|OFLG_DISKCAPS);
+
+    pObj->objAge = age_NewBorn;
     pageH_ToObj(pObj)->obType = ot_PtDataPage;
 #ifdef OPTION_OB_MOD_CHECK
     pageH_ToObj(pObj)->check = objH_CalcCheck(pageH_ToObj(pObj));
@@ -193,4 +194,22 @@ PhysPageSource_WriteBack(ObjectSource *thisPtr, ObjectHeader *obHdr, bool b)
   fatal("PhysPageSource::WriteBack() unimplemented\n");
 
   return false;
+}
+
+void
+PhysPageSource_Init(ObjectSource * source, PmemInfo * pmi)
+{
+  source->name = "physpage";
+  source->start = OID_RESERVED_PHYSRANGE
+                  + ((pmi->base  / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME);
+  source->end   = OID_RESERVED_PHYSRANGE
+                  + ((pmi->bound / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME);
+  source->pmi = pmi;
+  source->objS_Detach = PhysPageSource_Detach;
+  source->objS_GetObject = PhysPageSource_GetObject;
+  source->objS_IsRemovable = ObjectSource_IsRemovable;
+  source->objS_WriteBack = PhysPageSource_WriteBack;
+  source->objS_Invalidate = PhysPageSource_Invalidate;
+  source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
+  objC_AddSource(source);
 }

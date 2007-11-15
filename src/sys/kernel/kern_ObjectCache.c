@@ -285,31 +285,22 @@ objC_AllocateUserPages()
 void
 objC_AddDevicePages(PmemInfo *pmi)
 {
-  uint32_t j = 0;
-  uint32_t pg = 0;
+  uint32_t pg;
   kpa_t framePa;
-  PageHeader * pObHdr = 0;
 
   /* Not all BIOS's report a page-aligned start address for everything. */
   pmi->basepa = (pmi->base & ~EROS_PAGE_MASK);
   pmi->nPages = (pmi->bound - pmi->basepa) / EROS_PAGE_SIZE;
 
-  pmi->firstObHdr = MALLOC(PageHeader, pmi->nPages);
-  for (j = 0; j < pmi->nPages; j++) {
-    PageHeader * temp = &pmi->firstObHdr[j];
-    temp->kt_u.free.obType = ot_PtFreeFrame;
-  }
+  PageHeader * pObHdr = MALLOC(PageHeader, pmi->nPages);
+  pmi->firstObHdr = pObHdr;
 
-  framePa = pmi->basepa;
-  pObHdr = pmi->firstObHdr;
-      
-  for (pg = 0; pg < pmi->nPages; pg++) {
+  for (pg = 0, framePa = pmi->basepa;
+       pg < pmi->nPages;
+       pg++, pObHdr++, framePa += EROS_PAGE_SIZE) {
+    pObHdr->kt_u.free.obType = ot_PtDevicePage;
     pObHdr->pageAddr = PTOV(framePa);
-    framePa += EROS_PAGE_SIZE;
-    pObHdr++;
   }
-
-  /* Note that these pages do NOT go on the free list! */
 }
 
 ObjectHeader*
@@ -1590,51 +1581,32 @@ objC_InitObjectSources()
     DEBUG (obsrc) printf("objC_InitObjectSources: Added preloaded module, startOid=0x%08lx%08lx.\n",
                          (uint32_t) (startOid >> 32),
                          (uint32_t) startOid );
-  }                                                                              
+  }
+
   for (i = 0; i < physMem_nPmemInfo; i++) {
     PmemInfo *pmi = &physMem_pmemInfo[i];
 
     if (pmi->type == MI_MEMORY) {
-      source = (ObjectSource *)KPAtoP(void *, physMem_Alloc(sizeof(ObjectSource), &physMem_any));
-      /* code for initializing PhysPageSource */
-      source->name = "physpage";
-      source->start = OID_RESERVED_PHYSRANGE + ((pmi->base / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME);
-      source->end = OID_RESERVED_PHYSRANGE + ((pmi->bound / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME);
-      source->pmi = pmi;
-      source->objS_Detach = PhysPageSource_Detach;
-      source->objS_GetObject = PhysPageSource_GetObject;
-      source->objS_IsRemovable = ObjectSource_IsRemovable;
-      source->objS_WriteBack = PhysPageSource_WriteBack;
-      source->objS_Invalidate = PhysPageSource_Invalidate;
-      source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
-      objC_AddSource(source);
+      source = (ObjectSource *)
+            KPAtoP(void *, physMem_Alloc(sizeof(ObjectSource), &physMem_any));
+      PhysPageSource_Init(source, pmi);
 
       DEBUG (obsrc) printf("objC_InitObjectSources: Added physmem.\n");
     }
   }
 
-  // Need to special case the publication of the BIOS ROM, as we need
-  // object cache entries for these. This must be done *after* the
-  // MI_MEMORY cases, because malloc() needs to work.
+  // Need to special case the publication of device mem, as we need
+  // object cache entries for these, because there will be keys to them.
+  // This must be done *after* the MI_MEMORY cases,
+  // because malloc() needs to work.
 
   for (i = 0; i < physMem_nPmemInfo; i++) {
     PmemInfo *pmi = &physMem_pmemInfo[i];
 
-    if (pmi->type == MI_BOOTROM) {
+    if (pmi->type == MI_DEVICEMEM || pmi->type == MI_BOOTROM) {
       objC_AddDevicePages(pmi);
       source = (ObjectSource *)KPAtoP(void *, physMem_Alloc(sizeof(ObjectSource), &physMem_any));
-      /* code for initializing PhysPageSource */
-      source->name = "physpage";
-      source->start = OID_RESERVED_PHYSRANGE + ((pmi->base / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME);
-      source->end = OID_RESERVED_PHYSRANGE + ((pmi->bound / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME);
-      source->pmi = pmi;
-      source->objS_Detach = PhysPageSource_Detach;
-      source->objS_GetObject = PhysPageSource_GetObject;
-      source->objS_IsRemovable = ObjectSource_IsRemovable;
-      source->objS_WriteBack = PhysPageSource_WriteBack;
-      source->objS_Invalidate = PhysPageSource_Invalidate;
-      source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;  
-      objC_AddSource(source);
+      PhysPageSource_Init(source, pmi);
 
       DEBUG (obsrc) printf("objC_InitObjectSources: Added BOOTROM.\n");
     }

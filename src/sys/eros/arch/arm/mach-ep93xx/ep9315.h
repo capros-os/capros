@@ -1,3 +1,5 @@
+#ifndef __EP9315_H_
+#define __EP9315_H_
 /*
  * Copyright (C) 2006, Strawberry Development Group.
  *
@@ -51,3 +53,4 @@
 #define SYSCON_BASE	0x80930000
 #define WATCHDOG_BASE	0x80940000
 
+#endif /* __EP9315_H_ */

@@ -22,7 +22,6 @@
 /* This material is based upon work supported by the US Defense Advanced
    Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
 
-#include <stdint.h>
 #include "ep9315.h"
 
 /* Declarations for the Cirrus EP9315 System Controller. */
@@ -89,6 +88,10 @@
 
 #define SYSCONSysSWLock_Unlock	0xaa
 
+#ifndef __ASSEMBLER__
+
+#include <stdint.h>
+
 typedef struct SYSCONRegisters {
   uint32_t PwrSts;
   uint32_t PwrCnt;
@@ -120,5 +123,7 @@ typedef struct SYSCONRegisters {
 } GPIORegisters;
 
 #define SYSCON (*(volatile struct SYSCONRegisters *)SYSCON_BASE)
+
+#endif /* __ASSEMBLER__ */
 
 #endif /* __EP9315_SYSCON_H_ */

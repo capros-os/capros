@@ -251,18 +251,7 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 	objC_AddDevicePages(pmi);
 
         source = (ObjectSource *)malloc(sizeof(ObjectSource));
-        /* code for initializing PhysPageSource */
-        source->name = "physpage";
-        source->start = OID_RESERVED_PHYSRANGE + ((pmi->base / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME);
-        source->end = OID_RESERVED_PHYSRANGE + ((pmi->bound / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME);
-        source->pmi = pmi;
-        source->objS_Detach = PhysPageSource_Detach;
-        source->objS_GetObject = PhysPageSource_GetObject;
-        source->objS_IsRemovable = ObjectSource_IsRemovable;
-        source->objS_WriteBack = PhysPageSource_WriteBack;
-        source->objS_Invalidate = PhysPageSource_Invalidate;
-        source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;  
-	objC_AddSource(source);
+        PhysPageSource_Init(source, pmi);
 
 	inv->exit.code = RC_OK;
       }

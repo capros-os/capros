@@ -121,7 +121,7 @@ HandlePageFault:
 AbortBadMode:
 	and r1,r12,#0b11111	// get just mode bits
 	cmp r1,#0b10011		// supervisor mode?
-	cmpeq r0,#0		// and data abort?
+	cmpeq r0,#dataAbort	// and data abort?
 	bne AbortError		// no, something seriously wrong
 	// A data abort from supervisor mode.
 	// Look up the PC in a table.
