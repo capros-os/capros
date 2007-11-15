@@ -977,7 +977,7 @@ key:   NULLKEY {
         }
 
        | PHYSPAGE '(' arith_expr ')' {
-          OID oid = $3 / (EROS_PAGE_SIZE / EROS_OBJECTS_PER_FRAME)
+          OID oid = (OID)($3) / (EROS_PAGE_SIZE / EROS_OBJECTS_PER_FRAME)
                     + OID_RESERVED_PHYSRANGE;
 
 	  SHOWPARSE("=== key -> PHYSPAGE ( arith_expr )\n");
@@ -1211,14 +1211,12 @@ key:   NULLKEY {
       
 	  key = $1;
 
-	  if (keyBits_IsSegModeType(&key) == false) {
-	    diag_printf("%s:%d: can only retype segmode keys\n",
+	  if (! keyBits_IsType(&key, KKT_Node)) {
+	    diag_printf("%s:%d: cannot retype to node key\n",
 			 current_file, current_line);
 	    num_errors++;
 	    YYERROR;
 	  }
-
-	  keyBits_SetType(&key, KKT_Node);
 
 	  if ( !QualifyKey($3, key, &key) ) {
 	    num_errors++;
