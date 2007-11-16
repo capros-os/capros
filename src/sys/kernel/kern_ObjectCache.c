@@ -171,39 +171,23 @@ objC_AllocateUserPages()
 {
   /* When we get here, we are allocating the last of the core
    * memory. take it all.
-   *
-   * A tacit assumption is made in this code that any space allocated
-   * within a given memory region has been allocated from top or
-   * bottom. Any remaining space is assumed to be a single, contiguous
-   * hole.  There is an assertion check that should catch cases where
-   * this assumption is false, whereupon some poor soul will need to
-   * fix it.
    */
-  uint32_t j = 0;
-  uint32_t i = 0;
-  unsigned rgn = 0;
+  unsigned rgn;
   kpsize_t np;
     
-  objC_nPages = physMem_AvailPages(&physMem_pages);
+  uint32_t trialNPages = physMem_AvailPages(&physMem_pages);
+
+  /* The coreTable itself will use up some of the available space,
+     so factor that in: */
+  trialNPages = (trialNPages * EROS_PAGE_SIZE)
+                / (EROS_PAGE_SIZE + sizeof(PageHeader));
+  trialNPages += 1;	// just in case
 
   objC_coreTable = KPAtoP(PageHeader *,
-             physMem_Alloc(objC_nPages*sizeof(PageHeader), &physMem_any));
+             physMem_Alloc(trialNPages*sizeof(PageHeader), &physMem_any));
   assert(objC_coreTable);
 
-  for (j = 0; j < objC_nPages; j++) {
-    PageHeader * temp = &objC_coreTable[j];
-    temp->kt_u.free.obType = ot_PtFreeFrame;
-  }
-
-  DEBUG(pgalloc)
-    printf("Allocated Page Headers: 0x%x at 0x%08x\n",
-		   sizeof(PageHeader[objC_nPages]), objC_coreTable);
-
-  /* Block the pages by class, allocate them, and recompute nPages.
-   * Link all pages onto the appropriate free list:
-   */
-    
-  /* On the way through this loop, nPages holds the total number
+  /* On the way through this loop, objC_nPages holds the total number
    * of pages in all previous allocations until the very end.
    */
   objC_nPages = 0;
@@ -219,9 +203,8 @@ objC_AllocateUserPages()
     xmc.bound = pmi->bound;
     xmc.align = EROS_PAGE_SIZE;
 
-    np = physMem_ContiguousPages(&xmc);
-    /* See the comment at the top of this function if this assertion
-     * fails! */
+    np = PmemInfo_ContiguousPages(pmi);
+
     assert(np == physMem_AvailPages(&xmc));
 
 #ifdef TESTING_AGEING
@@ -233,51 +216,41 @@ objC_AllocateUserPages()
       (uint32_t) physMem_Alloc(EROS_PAGE_SIZE * np, &xmc);
     pmi->firstObHdr = &objC_coreTable[objC_nPages];
 
-    /* See the comment at the top of this function if this assertion
-     * fails! */
-    assert(physMem_AvailPages(&xmc) == 0);
-
     objC_nPages += np;
   }
 
+  DEBUG(pgalloc)
+    printf("Page Headers: allocated %d at 0x%08x, used %d\n",
+		   trialNPages, objC_coreTable, objC_nPages);
+
+  // Check that the space we allocated was big enough. 
+  assert(objC_nPages <= trialNPages);
+
 #if 0
   printf("nPages = %d (0x%x)\n", nPages, nPages);
-
-  halt();
 #endif
 
-  /* Populate all of the page address pointers in the core table
-   * entries:
-   */
+  /* Initialize all the core table entries: */
 
-  {
-    PageHeader * pObHdr = 0;
-    kpa_t framePa;
-    uint32_t pg = 0;
-    
-    for (rgn = 0; rgn < physMem_nPmemInfo; rgn++) {
-      PmemInfo *pmi= &physMem_pmemInfo[rgn];
-      if (pmi->type != MI_MEMORY)
-	continue;
+  PageHeader * pObHdr = objC_coreTable;
+  for (rgn = 0; rgn < physMem_nPmemInfo; rgn++) {
+    PmemInfo * pmi= &physMem_pmemInfo[rgn];
+    if (pmi->type != MI_MEMORY)
+      continue;
 
-      framePa = pmi->basepa;
-      pObHdr = pmi->firstObHdr;
-      
-      for (pg = 0; pg < pmi->nPages; pg++) {
-	pObHdr->pageAddr = PTOV(framePa);
-	framePa += EROS_PAGE_SIZE;
-	pObHdr++;
-      }
+    kpa_t framePa = pmi->basepa;
+    uint32_t pg;
+    for (pg = 0; pg < pmi->nPages; pg++) {
+      pObHdr->pageAddr = PTOV(framePa);
+      pObHdr->kt_u.free.obType = ot_PtFreeFrame;
+      pObHdr->kt_u.free.next = pObHdr + 1;	// link to next
+      pObHdr++;
+      framePa += EROS_PAGE_SIZE;
     }
   }
+  assert(pObHdr == objC_coreTable + objC_nPages);
 
-  /* Link all of the resulting core table entries onto the free page list: */
-  
-  for (i = 0; i < objC_nPages; i++) {
-    objC_coreTable[i].kt_u.free.obType = ot_PtFreeFrame;	/* redundant? */
-    objC_coreTable[i].kt_u.free.next = &objC_coreTable[i+1];
-  }
-
+  // Terminate the free list.
   objC_coreTable[objC_nPages - 1].kt_u.free.next = 0;
   objC_firstFreePage = &objC_coreTable[0];
 }

@@ -82,8 +82,7 @@ extern kpa_t physMem_PhysicalPageBound;
 
 /* Former member functions of PhysMem */
 
-kpsize_t physMem_MemAvailable(PmemConstraint *, unsigned unitSize, 
-			       bool needContiguous);
+kpsize_t physMem_MemAvailable(PmemConstraint *, unsigned unitSize);
 
 void physMem_Init();
 
@@ -104,28 +103,18 @@ void physMem_ReservePhysicalMemory();
 void physMem_ddb_dump();
 #endif
 
-INLINE kpsize_t 
-physMem_ContiguousBytes(PmemConstraint *mc)
-{ 
-  return physMem_MemAvailable(mc, sizeof(uint8_t), true); 
-}
-
-INLINE kpsize_t 
-physMem_ContiguousPages(PmemConstraint *mc)
-{ 
-  return physMem_MemAvailable(mc, EROS_PAGE_SIZE, true); 
-}
+kpsize_t PmemInfo_ContiguousPages(const PmemInfo * pmi);
 
 INLINE kpsize_t 
 physMem_AvailBytes(PmemConstraint *mc)
 { 
-  return physMem_MemAvailable(mc, sizeof(uint8_t), false); 
+  return physMem_MemAvailable(mc, sizeof(uint8_t)); 
 }
 
 INLINE kpsize_t 
 physMem_AvailPages(PmemConstraint *mc)
 { 
-  return physMem_MemAvailable(mc, EROS_PAGE_SIZE, false); 
+  return physMem_MemAvailable(mc, EROS_PAGE_SIZE); 
 }
 
 #endif /* __PHYSMEM_H__ */

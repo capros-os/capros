@@ -90,7 +90,20 @@ physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly)
 }
 
 kpsize_t
-physMem_MemAvailable(PmemConstraint *mc, unsigned unitSize, bool contiguous)
+PmemInfo_ContiguousPages(const PmemInfo * pmi)
+{
+  uint32_t base = pmi->allocBase;
+  uint32_t bound = pmi->allocBound;
+  base = align_up(base, EROS_PAGE_SIZE);
+
+  if (base >= bound)
+    return 0;
+
+  return (bound - base) / EROS_PAGE_SIZE;
+}
+
+kpsize_t
+physMem_MemAvailable(PmemConstraint *mc, unsigned unitSize)
 {
   unsigned nUnits = 0;
   unsigned rgn = 0;
@@ -99,7 +112,6 @@ physMem_MemAvailable(PmemConstraint *mc, unsigned unitSize, bool contiguous)
     PmemInfo *kmi = &physMem_pmemInfo[rgn];
     uint32_t base = kmi->allocBase;
     uint32_t bound = kmi->allocBound;
-    unsigned unitsHere;
 
     if (kmi->type != MI_MEMORY)
       continue;
@@ -107,26 +119,18 @@ physMem_MemAvailable(PmemConstraint *mc, unsigned unitSize, bool contiguous)
     base = max(base, mc->base);
     bound = min(bound, mc->bound);
 
-    if (base >= bound)
-      continue;
-
     /* The region (partially) overlaps the requested region */
     base = align_up(base, mc->align);
 
-    unitsHere = (bound - base) / unitSize;
+    if (base >= bound)
+      continue;
 
-    if (contiguous) {
-      if (nUnits < unitsHere)
-	nUnits = unitsHere;
-    }
-    else
-      nUnits += unitsHere;
+    nUnits += (bound - base) / unitSize;
   }
 
   DEBUG(avail) {
-    printf("%d units of %d %% %d %s bytes available\n",
-		   nUnits, unitSize, mc->align, 
-		   contiguous ? "contiguous" : "total");
+    printf("%d units of %d %% %d bytes available\n",
+		   nUnits, unitSize, mc->align );
   }
 
   return nUnits;
