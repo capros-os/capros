@@ -263,16 +263,29 @@ objC_AddDevicePages(PmemInfo *pmi)
 
   /* Not all BIOS's report a page-aligned start address for everything. */
   pmi->basepa = (pmi->base & ~EROS_PAGE_MASK);
-  pmi->nPages = (pmi->bound - pmi->basepa) / EROS_PAGE_SIZE;
 
-  PageHeader * pObHdr = MALLOC(PageHeader, pmi->nPages);
-  pmi->firstObHdr = pObHdr;
+  uint32_t nPages = (pmi->bound - pmi->basepa) / EROS_PAGE_SIZE;
+
+  PageHeader * pageH = MALLOC(PageHeader, nPages);
+  bzero(pageH, sizeof(PageHeader) * nPages);
+
+  pmi->nPages = nPages;
+  pmi->firstObHdr = pageH;
 
   for (pg = 0, framePa = pmi->basepa;
        pg < pmi->nPages;
-       pg++, pObHdr++, framePa += EROS_PAGE_SIZE) {
-    pObHdr->kt_u.free.obType = ot_PtDevicePage;
-    pObHdr->pageAddr = PTOV(framePa);
+       pg++, pageH++, framePa += EROS_PAGE_SIZE) {
+    ObjectHeader * pObj = pageH_ToObj(pageH);
+    pObj->obType = ot_PtDevicePage;
+    pageH->pageAddr = PTOV(framePa);
+    pObj->oid = framePa / (EROS_PAGE_SIZE / EROS_OBJECTS_PER_FRAME)
+                        + OID_RESERVED_PHYSRANGE;
+    pObj->allocCount = 0;	// FIXME or PhysPageAllocCount??
+    objH_SetFlags(pObj, OFLG_CURRENT | OFLG_DIRTY);
+
+    pageH_MDInitDevicePage(pageH);
+    objH_ResetKeyRing(pObj);
+    objH_Intern(pObj);
   }
 }
 
@@ -314,7 +327,6 @@ objC_PhysPageToObHdr(kpa_t pagepa)
   unsigned rgn = 0;
   kva_t startpa;
   kva_t endpa;
-  uint32_t pageNo;
     
   for (rgn = 0; rgn < physMem_nPmemInfo; rgn++) {
     PmemInfo *pmi= &physMem_pmemInfo[rgn];
@@ -329,9 +341,12 @@ objC_PhysPageToObHdr(kpa_t pagepa)
 
     assert (pagepa >= pmi->basepa);
 
-    pageNo = (pagepa - pmi->basepa) / EROS_PAGE_SIZE;
+    PageHeader * pageH
+      = &pmi->firstObHdr[(pagepa - pmi->basepa) / EROS_PAGE_SIZE];
 
-    return &pmi->firstObHdr[pageNo];
+    assert(pageH->pageAddr == PTOV(pagepa));
+
+    return pageH;
   }
 
   return 0;
@@ -1497,12 +1512,14 @@ objC_InitObjectSources()
 {
   unsigned i;
   struct grub_mod_list * modp;
-  ObjectSource *source = (ObjectSource *)KPAtoP(void *, physMem_Alloc(sizeof(ObjectSource), &physMem_any));
+  ObjectSource * source = KPAtoP(ObjectSource *,
+                            physMem_Alloc(sizeof(ObjectSource), &physMem_any));
 
   /* code for initializing ObCacheSource */
   source->name = "obcache";
-  source->start = 011u;
-  source->end = ~011u;
+  source->start = (OID)0;
+  source->end = ~(OID)0;
+  
   source->objS_Detach = ObCacheSource_Detach;
   source->objS_GetObject = ObCacheSource_GetObject;
   source->objS_IsRemovable = ObjectSource_IsRemovable;

@@ -103,42 +103,35 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
     return 0;
   }
 
+  /* Device pages are entered in the object hash by objC_AddDevicePages(),
+     so they should never get here: */
+  assert(pageH_ToObj(pObj)->obType != ot_PtDevicePage);
+
 #ifndef NDEBUG
   kpa_t relFrameNdx = (pgFrame - thisPtr->pmi->basepa) / EROS_PAGE_SIZE;
   assert(pObj == &thisPtr->pmi->firstObHdr[relFrameNdx]);
 #endif
 
   // FIXME: Where do we check if the page is pinned?
-  if (pageH_ToObj(pObj)->obType != ot_PtDevicePage
-      && ! objC_EvictFrame(pObj))
+  if (! objC_EvictFrame(pObj))
     return 0;	// could not evict
 
   pageH_ToObj(pObj)->oid = oid;
   pageH_ToObj(pObj)->allocCount = PhysPageAllocCount;
- 
+
   pageH_ToObj(pObj)->ioCount = 0;	// should this be an assertion?
-  if (thisPtr->pmi->type == MI_DEVICEMEM) {
-    assert(pageH_ToObj(pObj)->obType == ot_PtDevicePage);
 
-    /* Do not bother with calculating the checksum value, as device
-     * memory is always considered dirty. */
-    objH_SetFlags(pageH_ToObj(pObj), OFLG_DIRTY);
+  assert(objH_GetFlags(pageH_ToObj(pObj),
+                       OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
+  objH_SetFlags(pageH_ToObj(pObj), OFLG_CURRENT | OFLG_DISKCAPS);
 
-    pageH_MDInitDevicePage(pObj);
-  }
-  else {
-    assert(objH_GetFlags(pageH_ToObj(pObj),
-                         OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
-    objH_SetFlags(pageH_ToObj(pObj), OFLG_CURRENT|OFLG_DISKCAPS);
-
-    pObj->objAge = age_NewBorn;
-    pageH_ToObj(pObj)->obType = ot_PtDataPage;
+  pObj->objAge = age_NewBorn;
+  pageH_ToObj(pObj)->obType = ot_PtDataPage;
 #ifdef OPTION_OB_MOD_CHECK
-    pageH_ToObj(pObj)->check = objH_CalcCheck(pageH_ToObj(pObj));
+  pageH_ToObj(pObj)->check = objH_CalcCheck(pageH_ToObj(pObj));
 #endif
 
-    pageH_MDInitDataPage(pObj);
-  }
+  pageH_MDInitDataPage(pObj);
 
   objH_ResetKeyRing(pageH_ToObj(pObj));
   objH_Intern(pageH_ToObj(pObj));
@@ -173,6 +166,8 @@ PhysPageSource_Invalidate(ObjectSource *thisPtr, ObjectHeader *pObj)
     ReleaseObjPageFrame(objH_ToPage(pObj));
 
     PhysPageAllocCount ++;
+    // FIXME: Does this inadvertently invalidate other pages,
+    // including device pages?
 
     fatal("PhysPageSource::Invalidate() unimplemented\n");
   }
