@@ -28,7 +28,7 @@ Approved for public release, distribution unlimited. */
  */
 
 #include <linux/kernel.h>
-#include <linux/wait.h>
+#include <linux/list.h>
 #include <asm/atomic.h>
 #include <idl/capros/LSync.h>
 #include <linuxk/lsync.h>
@@ -36,14 +36,15 @@ Approved for public release, distribution unlimited. */
 struct semaphore {
   atomic_t count;
   int wakeupsWaiting;
-  wait_queue_head_t wait;
+  // task_list must be accessed only by the sync process.
+  struct list_head task_list;
 };
 
 #define __SEMAPHORE_INIT(name, cnt)				\
 {								\
 	.count	= ATOMIC_INIT(cnt),				\
 	.wakeupsWaiting = 0,					\
-	.wait	= __WAIT_QUEUE_HEAD_INITIALIZER((name).wait)	\
+	.task_list      = { &(name).task_list, &(name).task_list } \
 }
 
 #define __DECLARE_SEMAPHORE_GENERIC(name,count)	\

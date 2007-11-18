@@ -3,6 +3,7 @@
 
 
 #ifdef CONFIG_BUG
+#if 0 // use generic bug declarations
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 extern void __bug(const char *file, int line) __attribute__((noreturn));
 
@@ -17,6 +18,7 @@ extern void __bug(const char *file, int line) __attribute__((noreturn));
 #endif
 
 #define HAVE_ARCH_BUG
+#endif
 #endif
 
 #include <asm-generic/bug.h>

@@ -1,5 +1,27 @@
 #ifndef _LINUX_WAIT_H
 #define _LINUX_WAIT_H
+/*
+ * Portions Copyright (C) 2007, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #define WNOHANG		0x00000001
 #define WUNTRACED	0x00000002
@@ -21,6 +43,7 @@
 
 #include <linux/list.h>
 #include <linux/stddef.h>
+#include <linux/spinlock.h>
 #include <asm/system.h>
 #include <asm/current.h>
 
@@ -48,6 +71,7 @@ struct wait_bit_queue {
 };
 
 struct __wait_queue_head {
+	spinlock_t lock;
 	struct list_head task_list;
 };
 typedef struct __wait_queue_head wait_queue_head_t;
@@ -67,6 +91,7 @@ struct task_struct;
 	wait_queue_t name = __WAITQUEUE_INITIALIZER(name, tsk)
 
 #define __WAIT_QUEUE_HEAD_INITIALIZER(name) {				\
+	.lock           = __SPIN_LOCK_UNLOCKED(name.lock),              \
 	.task_list	= { &(name).task_list, &(name).task_list } }
 
 #define DECLARE_WAIT_QUEUE_HEAD(name) \
@@ -75,7 +100,10 @@ struct task_struct;
 #define __WAIT_BIT_KEY_INITIALIZER(word, bit)				\
 	{ .flags = word, .bit_nr = bit, }
 
-extern void init_waitqueue_head(wait_queue_head_t *q);
+static inline void init_waitqueue_head(wait_queue_head_t *q)
+{
+  INIT_LIST_HEAD(&q->task_list);
+}
 
 #ifdef CONFIG_LOCKDEP
 # define __WAIT_QUEUE_HEAD_INIT_ONSTACK(name) \
@@ -344,7 +372,7 @@ do {									\
 })
 
 /*
- * Must be called only by the sync process.
+ * Must be called with the spinlock in the wait_queue_head_t held.
  */
 static inline void add_wait_queue_exclusive_locked(wait_queue_head_t *q,
 						   wait_queue_t * wait)
@@ -354,7 +382,7 @@ static inline void add_wait_queue_exclusive_locked(wait_queue_head_t *q,
 }
 
 /*
- * Must be called only by the sync process.
+ * Must be called with the spinlock in the wait_queue_head_t held.
  */
 static inline void remove_wait_queue_locked(wait_queue_head_t *q,
 					    wait_queue_t * wait)

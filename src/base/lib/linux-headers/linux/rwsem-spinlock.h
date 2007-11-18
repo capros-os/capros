@@ -16,7 +16,7 @@ Approved for public release, distribution unlimited. */
 #error "please don't include linux/rwsem-spinlock.h directly, use linux/rwsem.h instead"
 #endif
 
-#include <linux/wait.h>
+#include <linux/list.h>
 #include <linux/lockdep.h>
 #include <asm/atomic.h>
 
@@ -37,8 +37,10 @@ struct rwsem_waiter;
 struct rw_semaphore {
   atomic_t activity;
   atomic_t contenders;
-  wait_queue_head_t readWaiters;
-  wait_queue_head_t writeWaiters;
+  // readWaiters must be accessed only by the sync process.
+  struct list_head readWaiters;
+  // writeWaiters must be accessed only by the sync process.
+  struct list_head writeWaiters;
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct lockdep_map dep_map;
 #endif
@@ -54,8 +56,8 @@ struct rw_semaphore {
 { \
   .activity = ATOMIC_INIT(0), \
   .contenders = ATOMIC_INIT(0), \
-  .readWaiters = __WAIT_QUEUE_HEAD_INITIALIZER((name).wait) \
-  .writeWaiters = __WAIT_QUEUE_HEAD_INITIALIZER((name).wait) \
+  .readWaiters  = { &(name).readWaiters, &(name).readWaiters } \
+  .writeWaiters = { &(name).writeWaiters, &(name).writeWaiters } \
   __RWSEM_DEP_MAP_INIT(name) \
 }
 

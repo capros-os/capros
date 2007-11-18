@@ -2,18 +2,26 @@
  *  linux/include/asm-arm/thread_info.h
  *
  *  Copyright (C) 2002 Russell King.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 #ifndef __ASM_ARM_THREAD_INFO_H
 #define __ASM_ARM_THREAD_INFO_H
+
+#define SIZEOF_THREAD_INFO 8	// only need preempt_count in CapROS
 
 #ifdef __KERNEL__
 
 #include <linux/compiler.h>
 #include <asm/fpstate.h>
+#include <linuxk/lsync.h>
 
 #define THREAD_SIZE_ORDER	1
 #define THREAD_SIZE		8192
@@ -92,7 +100,10 @@ static inline struct thread_info *current_thread_info(void) __attribute_const__;
 static inline struct thread_info *current_thread_info(void)
 {
 	register unsigned long sp asm ("sp");
-	return (struct thread_info *)(sp & ~(THREAD_SIZE - 1));
+	/* In CapROS the thread_info is at the high end of the stack. */
+	return (struct thread_info *)
+               ((sp & ~(LK_STACK_AREA - 1))
+                + LK_STACK_AREA - SIZEOF_THREAD_INFO);
 }
 
 /* thread information allocation */

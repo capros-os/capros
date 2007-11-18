@@ -311,7 +311,7 @@ struct uart_state {
 	struct mutex		mutex;
 };
 
-#define UART_XMIT_SIZE	PAGE_SIZE
+#define UART_XMIT_SIZE	4096
 
 typedef unsigned int __bitwise__ uif_t;
 
@@ -442,79 +442,11 @@ uart_handle_sysrq_char(struct uart_port *port, unsigned int ch)
 #define uart_handle_sysrq_char(port,ch) uart_handle_sysrq_char(port, 0)
 #endif
 
-/*
- * We do the SysRQ and SAK checking like this...
- */
-static inline int uart_handle_break(struct uart_port *port)
-{
-	struct uart_info *info = port->info;
-#ifdef SUPPORT_SYSRQ
-	if (port->cons && port->cons->index == port->line) {
-		if (!port->sysrq) {
-			port->sysrq = jiffies + HZ*5;
-			return 1;
-		}
-		port->sysrq = 0;
-	}
-#endif
-	if (port->flags & UPF_SAK)
-		do_SAK(info->tty);
-	return 0;
-}
+int uart_handle_break(struct uart_port *port);
 
-/**
- *	uart_handle_dcd_change - handle a change of carrier detect state
- *	@port: uart_port structure for the open port
- *	@status: new carrier detect status, nonzero if active
- */
-static inline void
-uart_handle_dcd_change(struct uart_port *port, unsigned int status)
-{
-	struct uart_info *info = port->info;
+void uart_handle_dcd_change(struct uart_port *port, unsigned int status);
 
-	port->icount.dcd++;
-
-#ifdef CONFIG_HARD_PPS
-	if ((port->flags & UPF_HARDPPS_CD) && status)
-		hardpps();
-#endif
-
-	if (info->flags & UIF_CHECK_CD) {
-		if (status)
-			wake_up_interruptible(&info->open_wait);
-		else if (info->tty)
-			tty_hangup(info->tty);
-	}
-}
-
-/**
- *	uart_handle_cts_change - handle a change of clear-to-send state
- *	@port: uart_port structure for the open port
- *	@status: new clear to send status, nonzero if active
- */
-static inline void
-uart_handle_cts_change(struct uart_port *port, unsigned int status)
-{
-	struct uart_info *info = port->info;
-	struct tty_struct *tty = info->tty;
-
-	port->icount.cts++;
-
-	if (info->flags & UIF_CTS_FLOW) {
-		if (tty->hw_stopped) {
-			if (status) {
-				tty->hw_stopped = 0;
-				port->ops->start_tx(port);
-				uart_write_wakeup(port);
-			}
-		} else {
-			if (!status) {
-				tty->hw_stopped = 1;
-				port->ops->stop_tx(port);
-			}
-		}
-	}
-}
+void uart_handle_cts_change(struct uart_port *port, unsigned int status);
 
 #include <linux/tty_flip.h>
 
