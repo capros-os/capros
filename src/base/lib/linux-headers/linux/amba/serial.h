@@ -161,6 +161,7 @@
 #ifndef __ASSEMBLY__
 struct amba_pl010_data {
 	void (*set_mctrl)(struct amba_device *dev, void __iomem *base, unsigned int mctrl);
+	void (*gate_clk)(bool enable);
 };
 #endif
 
