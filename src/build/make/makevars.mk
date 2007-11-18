@@ -239,9 +239,12 @@ DOMLIB += $(EROS_ROOT)/lib/$(EROS_TARGET)/libdomain.a
 DOMLIB += $(EROS_LIBGCC)
 DOMLIB += -lc # libc.a
 
+LINUXLIB=$(EROS_ROOT)/lib/$(EROS_TARGET)/liblinuxk.a
+
 DOMCRT0=$(EROS_ROOT)/lib/$(EROS_TARGET)/crt0.o
 DOMCRTN=$(EROS_ROOT)/lib/$(EROS_TARGET)/crtn.o
 DOMSBRK=$(EROS_ROOT)/lib/$(EROS_TARGET)/sbrk.o
+DEVSTART=$(EROS_ROOT)/lib/$(EROS_TARGET)/dstart.o
 # DOMBASE could be zero, but this value helps catch use of NULL pointers
 # by both user code and kernel code.
 DOMBASE=0x1000
