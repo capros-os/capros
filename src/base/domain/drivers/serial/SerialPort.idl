@@ -1,0 +1,148 @@
+package capros;
+
+/** Serial port low-level interface
+*/
+interface SerialPort extends key {
+
+  exception already;
+
+  /* NB: both 1->0 and 0->1 transitions are counted except for
+     rng where only 0->1 is counted. */
+  struct icounter {
+    unsigned<32> cts;
+    unsigned<32> dsr;
+    unsigned<32> rng;
+    unsigned<32> dcd;
+    unsigned<32> rx;
+    unsigned<32> tx;
+    unsigned<32> frame;
+    unsigned<32> overrun;
+    unsigned<32> parity;
+    unsigned<32> brk;
+    unsigned<32> buf_overrun;
+  };
+
+  const byte NCCS = 19;
+  struct termios2 {
+    unsigned<32> c_iflag;	// input mode flags
+    unsigned<32> c_oflag;	// output mode flags, unused
+    unsigned<32> c_cflag;	// control mode flags
+    unsigned<32> c_lflag;	// local mode flags, unused
+    unsigned<8>  c_line;	// must be zero
+    array<unsigned<8>,NCCS> c_cc; // control characters
+    unsigned<32> c_ispeed;	// unused
+    unsigned<32> c_ospeed;	// baud rate
+  };
+
+  /* c_iflag bits */
+  const unsigned<32> IGNBRK = 1;    // 0x0001
+  const unsigned<32> BRKINT = 2;    // 0x0002
+  const unsigned<32> IGNPAR = 4;    // 0x0004
+  const unsigned<32> PARMRK = 8;    // 0x0008
+  const unsigned<32> INPCK  = 16;   // 0x0010
+  const unsigned<32> IXOFF  = 4096; // 0x1000 - use XON/XOFF flow control
+			// for input, using c_cc[VSTART] and c_cc[VSTOP].
+
+  /* c_cflag bit meaning */
+  const unsigned<32> CBAUD = 4096; // 0x1000 enable DTR, RTS
+  const unsigned<32> CSIZE  =  48; // 0x30
+  const unsigned<32>   CS5  =   0; // 0x00
+  const unsigned<32>   CS6  =  16; // 0x10
+  const unsigned<32>   CS7  =  32; // 0x20
+  const unsigned<32>   CS8  =  48; // 0x30
+  const unsigned<32> CSTOPB =  64; // 0x40
+  const unsigned<32> CREAD  = 128; // 0x80 enable reading
+  const unsigned<32> PARENB = 256; // 0x100
+  const unsigned<32> PARODD = 512; // 0x200
+  const unsigned<32> CLOCAL = 2048; // 0x800 don't enable modem interrupts
+  const unsigned<32> CRTSCTS = 2147483648; // 0x80000000 use RTS/CTS flow control
+
+  /* Indexes in c_cc */
+  const unsigned<32> VSTART = 8;	// IXON, character for flow control
+  const unsigned<32> VSTOP  = 9;	// IXOFF, character for flow control
+
+  void setTermios2(termios2 arg);
+  
+  /* open() allocates all the space needed to operate. 
+     If it can't, raises key.NoAccess and returns an error code. 
+     If already open, raises Already. */
+  exception Already;
+  void open(out unsigned long errcode);
+
+  /* close() frees some space.
+     If already closed, raises Already.
+     If there is a write in progress, it raises WriteInProgress.
+     Otherwise:
+     If there is a read in progress, the read is completed.
+     Any buffered output is discarded as with discardBufferedOutput()
+     (if you don't want this, call waitUntilSent() first).
+ */
+  exception WriteInProgress;
+  void close();
+
+  /* Discard data written but still buffered for output.
+     Discards data buffered in software, but not hardware. */
+  void discardBufferedOutput();
+
+  /* Send a character in front of other buffered output.
+     Use to send XON/XOFF. 
+     If another call to writeHighPriorityChar is made before the
+     previous character can be sent, the new character replaces the old. */
+  void writeHighPriorityChar(byte ch);
+
+  /* Stop transmission of buffered data. */
+  void stopTransmission();
+
+  /* Start transmission of buffered data. 
+     Does not start if tty->stopped or tty->hwstopped!! */
+  void startTransmission();
+
+  /* Begin sending a break. */
+  void beginBreak();
+
+  /* End sending a break. */
+  void endBreak();
+
+  /* Wait until all buffered output (including hardware buffering)
+     has been transmitted to the line. */
+  void waitUntilSent();
+
+  icounter getICounts();
+
+  // Bit masks:
+  const unsigned long TIOCM_DTR = 2;	// 0x002 data terminal ready, to modem
+  const unsigned long TIOCM_RTS = 4;	// 0x004 ready to send, to modem
+  const unsigned long TIOCM_CTS = 32;	// 0x020 clear to send, from modem
+  const unsigned long TIOCM_CD  = 64;	// 0x040 carrier detect, from modem
+  const unsigned long TIOCM_RI  = 128;	// 0x080 ring indicator, from modem
+  const unsigned long TIOCM_DSR = 256;	// 0x100 data set ready, from modem
+
+  const unsigned long MSR_BRK   = 2048;	// 0x800 break////
+
+  /** Wait until the current interrupt counts differ from oldICount,
+  looking only at fields with the corresponding mask bit on,
+  then return the current value. */
+  /* Raises already if there is already a process waiting. */
+  /* MSRMask may have TIOCM_CD, TIOCM_DSR, TIOCM_CTS, or TIOCM_RI.
+     (The pl010 driver does not support TIOCM_RI.) */
+  icounter waitForICountChange(unsigned long MSRMask,
+                               icounter oldICount);
+
+  /* waitForBreak() returns as soon as the next break is received
+     (even if there is buffered input). 
+     A break causes no wakeup if it arrives while no process is waiting.
+       (Fix this?)
+     A break also puts a zero character in the input buffer. */
+  /* Raises already if there is already a process waiting. */
+  void waitForBreak();
+
+  /* The returned value may have TIOCM_*. */
+  unsigned short getModemStatus();
+
+  /* Set the modem outputs with bits in the set parameter, and
+     clear the modem outputs with bits in the clear parameter. 
+     Bits may include TIOCM_RTS and/or TIOCM_DTR.
+     (This ought to raise an exception if the serial port doesn't
+      support this, but Linux drivers do not support that.) */
+  void setModemStatus(unsigned short set, unsigned short clear);
+};

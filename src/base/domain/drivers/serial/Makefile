@@ -29,7 +29,12 @@ EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/serial
-OBJECTS=$(BUILDDIR)/amba-pl010.o $(BUILDDIR)/serial_core.o
+OBJECTS=$(BUILDDIR)/serial_core.o
+ifeq "$(EROS_TARGET)" "arm"
+OBJECTS+= $(BUILDDIR)/amba-pl010.o
+else
+OBJECTS+= $(BUILDDIR)/8250.o
+endif
 INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
 INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
 
@@ -37,8 +42,14 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 all: $(TARGETS)
 
-$(BUILDDIR)/serial: $(OBJECTS) $(DOMCRT0) $(DOMSBRK) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) -lsmall -llinuxk $(DOMSBRK) $(DOMLIB) -o $@
+IDL=$(wildcard *.idl)
+interfaces: $(IDL)
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
+
+$(BUILDDIR)/serial: $(OBJECTS) $(DEVSTART) $(DOMCRT0) $(LINUXLIB) $(DOMSBRK) $(DOMLIB)
+	$(DOMLINK) -Tdata 0x00c00000 $(DOMLINKOPT) $(DEVSTART) $(DOMCRT0) $(OBJECTS) $(LINUXLIB) $(DOMSBRK) $(DOMLIB) -o $@
+# and for debugging:
+	/capros/host/bin/$(EROS_TARGET)-unknown-capros-objdump --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers

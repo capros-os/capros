@@ -52,7 +52,7 @@
 
 #include <asm/io.h>
 
-#define UART_NR		8
+#define UART_NR		1 //8
 
 #define SERIAL_AMBA_MAJOR	204
 #define SERIAL_AMBA_MINOR	16
@@ -290,7 +290,7 @@ static void pl010_set_mctrl(struct uart_port *port, unsigned int mctrl)
 {
 	struct uart_amba_port *uap = (struct uart_amba_port *)port;
 
-	if (uap->data)
+	if (uap->data && uap->data->set_mctrl)
 		uap->data->set_mctrl(uap->dev, uap->port.membase, mctrl);
 }
 
@@ -331,6 +331,9 @@ static int pl010_startup(struct uart_port *port)
 	if (retval)
 		goto clk_dis;
 
+	if (uap->data && uap->data->gate_clk)
+		uap->data->gate_clk(true);	// enable the UART clock
+
 	/*
 	 * initialise the old status of the modem signals
 	 */
@@ -368,6 +371,9 @@ static void pl010_shutdown(struct uart_port *port)
 	writel(readb(uap->port.membase + UART010_LCRH) &
 		~(UART01x_LCRH_BRK | UART01x_LCRH_FEN),
 	       uap->port.membase + UART010_LCRH);
+
+	if (uap->data && uap->data->gate_clk)
+		uap->data->gate_clk(false);	// disable the UART clock
 
 	/*
 	 * Shut down the clock producer
@@ -710,7 +716,8 @@ static int pl010_probe(struct amba_device *dev, void *id)
 	uap->port.flags = UPF_BOOT_AUTOCONF;
 	uap->port.line = i;
 	uap->dev = dev;
-	uap->data = dev->dev.platform_data;
+	uap->data = dev->dev.platform_data;	/* provides the
+		set_mctrl and gate_clk procedures if this port has one */
 
 	amba_ports[i] = uap;
 
@@ -787,7 +794,7 @@ static struct amba_driver pl010_driver = {
 	.resume		= pl010_resume,
 };
 
-static int __init pl010_init(void)
+/*static*/ int __init pl010_init(void)
 {
 	int ret;
 

@@ -1,0 +1,91 @@
+#ifndef __SERIAL_MAP_
+#define __SERIAL_MAP_
+/*
+ * Copyright (C) 2007, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <devclock.map>
+#include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
+#include <linuxk/lsync.h>
+#include <eros/Reserve.h>
+#include <asm/thread_info.h>
+
+/*********************************************
+ * Serial port driver.
+ *********************************************/
+
+serial_prog = program segtree LIBDIR "drivers/serial";
+/* Driver programs are loaded with code at 0x1000 and data at 0x00c00000.
+   Therefore the l2v of serial_prog is 22,
+   the code is in serial_prog[0], and data in serial_prog[3]. */
+serial_data = serial_prog[3];
+
+/* UARTCLK is set to the low frequency, which give a max baud rate
+   of only 230 Kbps, but saves power. */
+/* UARTCLK has no enable/disable. Each individual UART has an enable
+   in the device configuration register. */
+DEVCLOCK(uart, 7372800, 0, 0);
+
+serial_le_clocks = new node;
+serial_le_clocks[0] = number("UARTCLK");
+serial_le_clocks[1] = uart_devclock;
+
+// Usage: SERIAL_DRIVER(uart3, UART3_BASE, SYSCONDeviceCfg_U3EN)
+
+#define SERIAL_DRIVER(name, devRegsPhysAddr, devcfgbit) \
+name##serial_space = new GPT with lss 3;	/* l2v = 22 */ \
+name##serial_space[0] = serial_prog[0]; \
+name##serial_stacks = new GPT with lss 2;	/* l2v = 17 */ \
+name##serial_space[1] = name##serial_stacks; \
+name##serial_stack = new page;		/* stack size is one page */ \
+name##serial_stacks[0] = name##serial_stack with guard 0x1f000; \
+MAKE_VIRTUAL_COPIER_SEG(name##serialdata, serial_prog[3]); \
+name##le_iomem = new node; \
+name##le_iomem[0] = number(1 /* one page */, devRegsPhysAddr, 0); \
+name##le_iomem[1] = physpage(devRegsPhysAddr); \
+name##le = new node; \
+name##le[LE_CLOCKS] = serial_le_clocks as ro node key; \
+name##le[LE_DEVPRIVS] = misc DevicePrivs devcfgbit; \
+name##le[LE_IOMEM] = name##le_iomem; \
+ \
+BOOT_DOMCRE(name##serial); \
+name##serial_proc = new process; \
+name##serial_proc pc = symbol LIBDIR "drivers/serial" driver_start; \
+name##serial_proc sp = (0x420000 - SIZEOF_THREAD_INFO); \
+name##serial_proc space = name##serial_space; \
+name##serial_proc schedule = sched(8 /* use PRIO_HIGH? */ ); \
+name##serial_proc symtab = number(#name "serial"); \
+name##serial_proc key reg KR_KEYSTORE = snode_c; \
+name##serial_proc key reg KR_CREATOR = name##serial_proccre; \
+name##serial_proc key reg KR_SELF    = name##serial_proc; \
+name##serial_proc key reg KR_BANK    = primebank; \
+name##serial_proc key reg KR_SCHED   = sched(8 /* use PRIO_HIGH? */ ); \
+name##serial_proc key reg KR_LINUX_EMUL = name##le; \
+name##serial_proc key reg KR_OSTREAM = misc Console; \
+name##serial_proc key reg KR_SLEEP   = misc Sleep; \
+name##serial_proc key reg KR_TEMP1   = name##serialdata_c; \
+name##serial_proc key reg KR_TEMP2   = name##serial_space; \
+name##serial_proc key reg KR_RETURN  = name##serial_stacks; \
+name##serial = start name##serial_proc 0; \
+run name##serial_proc
+
+#endif
