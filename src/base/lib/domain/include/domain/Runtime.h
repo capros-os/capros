@@ -30,8 +30,8 @@ Approved for public release, distribution unlimited. */
 
 /* Conventions for key registers: */
 
-// #define KR_VOID 0
-/* KR_VOID is defined in eros/Invoke.h, as this is a kernel constraint. */
+#define KR_VOID 0
+/* KR_VOID is also defined in eros/Invoke.h, as this is a kernel constraint. */
 #define KR_CONSTIT          1	  /* constituents node */
 #define KR_RTBITS           2	  /* runtime components */
 #define KR_CREATOR          3	  /* start key to process creator of self */

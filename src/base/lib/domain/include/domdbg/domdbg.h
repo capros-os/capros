@@ -23,6 +23,7 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <stdint.h>
+#include <eros/target.h>
 
 void kvprintf(uint32_t streamkey, const char *fmt, void *vap);
 void kprintf(uint32_t streamkey, const char *fmt, ...);
@@ -30,3 +31,4 @@ void kdprintf(uint32_t streamkey, const char *fmt, ...);
 int sprintf(char *pBuf, const char *fmt, ...);
 void wrstream(uint32_t streamkey, const char *txt, uint32_t len);
 void ShowKey(uint32_t krConsole, uint32_t krKeyBits, uint32_t kr);
+result_t capros_Console_KDB(cap_t kr);

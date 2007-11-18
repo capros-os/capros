@@ -380,25 +380,28 @@ kdprintf(uint32_t kr, const char* fmt, ...)
 
   va_end(listp);
 
-  {
-    Message msg;
-
-    msg.snd_key0 = KR_VOID;
-    msg.snd_key1 = KR_VOID;
-    msg.snd_key2 = KR_VOID;
-    msg.snd_rsmkey = KR_VOID;
-
-    msg.rcv_key0 = KR_VOID;
-    msg.rcv_key1 = KR_VOID;
-    msg.rcv_key2 = KR_VOID;
-    msg.rcv_rsmkey = KR_VOID;
-
-    msg.snd_len = 0;		/* no data sent */
-    msg.rcv_limit = 0;		/* no data returned */
-
-    msg.snd_code = OC_Console_KDB;
-    msg.snd_invKey = kr;
-    (void) CALL(&msg);
-  }
+  capros_Console_KDB(kr);
 }
 
+result_t
+capros_Console_KDB(cap_t kr)
+{
+  Message msg;
+
+  msg.snd_key0 = KR_VOID;
+  msg.snd_key1 = KR_VOID;
+  msg.snd_key2 = KR_VOID;
+  msg.snd_rsmkey = KR_VOID;
+
+  msg.rcv_key0 = KR_VOID;
+  msg.rcv_key1 = KR_VOID;
+  msg.rcv_key2 = KR_VOID;
+  msg.rcv_rsmkey = KR_VOID;
+
+  msg.snd_len = 0;		/* no data sent */
+  msg.rcv_limit = 0;		/* no data returned */
+
+  msg.snd_code = OC_Console_KDB;
+  msg.snd_invKey = kr;
+  return CALL(&msg);
+}
