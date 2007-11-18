@@ -62,6 +62,8 @@ DIRS+=net
 # DIRS+=rangeAl # broken, compilation errors
 DIRS+=timer
 
+DIRS+=devclock
+
 COREMAP=core_stuff.map
 COREMAPWINSYS=core_stuff_winsys.map
 CLEANDIRS=$(DIRS) file

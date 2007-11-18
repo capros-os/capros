@@ -1,0 +1,14 @@
+package capros;
+
+interface DevClock extends key 
+{
+  /* Between calls to enable() and disable(), the clock will run.
+  We track the number of enables. */
+  void enable();
+  void disable();
+
+  // Return the clock rate in MHz.
+  unsigned long getRate();
+
+  // Call destroy() when done with this object.
+};
