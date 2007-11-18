@@ -38,6 +38,7 @@ Approved for public release, distribution unlimited. */
 
 #include <asm/semaphore.h>
 #include <linux/rwsem.h>
+#include <linux/wait.h>
 
 #define dbg_init    0x1
 
@@ -55,11 +56,11 @@ Sepuku(result_t retCode)
 }
 
 static void
-wakeupWQ(wait_queue_head_t * wqh, wait_queue_t * wq)
+wakeupWQ(wait_queue_t * wq)
 {
   Message msg;
 
-  __remove_wait_queue(wqh, wq);	// remove from list
+  list_del(&wq->task_list);	// remove from list
   capros_Node_getSlotExtended(KR_KEYSTORE,
           LKSN_THREAD_RESUME_KEYS + wq->threadNum,
           KR_TEMP0);
@@ -72,31 +73,31 @@ static void
 checkRwSem(struct rw_semaphore * sem)
 {
   // Writers have priority:
-  if (! list_empty(&sem->writeWaiters.task_list)) {
+  if (! list_empty(&sem->writeWaiters)) {
     if (__rwtrylock_write(sem)) {
       // A writer got the lock.
-      wait_queue_t * wq = list_first_entry(&sem->writeWaiters.task_list,
+      wait_queue_t * wq = list_first_entry(&sem->writeWaiters,
                             wait_queue_t, task_list);
       atomic_dec(&sem->contenders);
-      wakeupWQ(&sem->writeWaiters, wq);
+      wakeupWQ(wq);
       return;		// no one else can get it
     }
   }
   
-  while (! list_empty(&sem->readWaiters.task_list)) {
+  while (! list_empty(&sem->readWaiters)) {
     if (__rwtrylock_read(sem)) {
       // A reader got the lock.
-      wait_queue_t * wq = list_first_entry(&sem->readWaiters.task_list,
+      wait_queue_t * wq = list_first_entry(&sem->readWaiters,
                             wait_queue_t, task_list);
       atomic_dec(&sem->contenders);
-      wakeupWQ(&sem->readWaiters, wq);
+      wakeupWQ(wq);
     }
     else break;		// no readers can get it
   }
 }
 
-int
-main()
+void *
+lsync_main(void * arg)
 {
   Message mymsg;
   Message * msg = &mymsg;	// to address it consistently
@@ -158,7 +159,7 @@ main()
         msg->snd_code = RC_OK;
         break;		// return to the caller
       }
-      __add_wait_queue_tail(&sem->wait, wq);
+      list_add_tail(&wq->task_list, &sem->task_list);
 
       // Save the resume key to the waiting thread.
       capros_Node_swapSlotExtended(KR_KEYSTORE,
@@ -171,12 +172,12 @@ main()
     case OC_capros_LSync_semaWakeup:
     {
       struct semaphore * sem = (struct semaphore *)msg->snd_w1;
-      if (list_empty(&sem->wait.task_list)) {
+      if (list_empty(&sem->task_list)) {
         sem->wakeupsWaiting++;	// only this thread references wakeupsWaiting
       } else {
-        wait_queue_t * wq = list_first_entry(&sem->wait.task_list,
+        wait_queue_t * wq = list_first_entry(&sem->task_list,
                               wait_queue_t, task_list);
-        wakeupWQ(&sem->wait, wq);
+        wakeupWQ(wq);
       }
 
       // Return to caller.
@@ -191,8 +192,8 @@ main()
       bool write = msg->snd_w2;
       wait_queue_t * wq = (wait_queue_t *)msg->snd_w3;
 
-      __add_wait_queue_tail(write ? &sem->writeWaiters : &sem->readWaiters,
-                            wq);
+      list_add_tail(&wq->task_list,
+                    write ? &sem->writeWaiters : &sem->readWaiters);
 
       // Save the resume key to the waiting thread.
       capros_Node_swapSlotExtended(KR_KEYSTORE,

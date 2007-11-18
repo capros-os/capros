@@ -52,6 +52,9 @@ interrupt_thread_func(void * cookie)
 {
   result_t result;
 
+  // Set the preempt_count so in_interrupt() will return true.
+  add_preempt_count(HARDIRQ_OFFSET);	// compare with __irq_enter
+
   struct interrupt_thread_args * args
     = (struct interrupt_thread_args *)cookie;
   struct interrupt_thread_params params = args->params;

@@ -137,6 +137,7 @@ static void unset_locked_termios(struct ktermios *termios,
  * Note that the baud_table needs to be kept in sync with the
  * include/asm/termbits.h file.
  */
+#if 0
 static const speed_t baud_table[] = {
 	0, 50, 75, 110, 134, 150, 200, 300, 600, 1200, 1800, 2400, 4800,
 	9600, 19200, 38400, 57600, 115200, 230400, 460800,
@@ -166,6 +167,7 @@ static const tcflag_t baud_bits[] = {
 #endif
 
 static int n_baud_table = ARRAY_SIZE(baud_table);
+#endif
 
 /**
  *	tty_termios_baud_rate
@@ -181,24 +183,10 @@ static int n_baud_table = ARRAY_SIZE(baud_table);
 
 speed_t tty_termios_baud_rate(struct ktermios *termios)
 {
-	unsigned int cbaud;
-
-	cbaud = termios->c_cflag & CBAUD;
-
-#ifdef BOTHER
 	/* Magic token for arbitary speed via c_ispeed/c_ospeed */
-	if (cbaud == BOTHER)
+	if (termios->c_cflag & CBAUD)
 		return termios->c_ospeed;
-#endif
-	if (cbaud & CBAUDEX) {
-		cbaud &= ~CBAUDEX;
-
-		if (cbaud < 1 || cbaud + 15 > n_baud_table)
-			termios->c_cflag &= ~CBAUDEX;
-		else
-			cbaud += 15;
-	}
-	return baud_table[cbaud];
+	else return 0;
 }
 
 #if 0 // parts we don't need

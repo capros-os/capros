@@ -21,38 +21,29 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <stdarg.h>
 #include <linuxk/linux-emul.h>
-#include <asm-generic/semaphore.h>
-#include <linux/wait.h>
-#include <idl/capros/LSync.h>
 #include <linuxk/lsync.h>
+#include <domain/domdbg.h>
 
-
-void sema_init(struct semaphore *sem, int val)
+int printk(const char *fmt, ...)
 {
-  atomic_set(&sem->count, val);
-  sem->wakeupsWaiting = 0;
-  INIT_LIST_HEAD(&sem->task_list);
+  va_list args;
+
+  va_start(args, fmt);
+  kvprintf(KR_OSTREAM, fmt, args);
+  va_end(args);
+
+  return 0;	// sorry, we don't track the number of chars printed
 }
 
-void down_slowpath(struct semaphore * sem)
+void panic(const char * fmt, ...)
 {
-  wait_queue_t wq;
-  wq.threadNum = lk_getCurrentThreadNum();
-  capros_LSync_semaWait(KR_LSYNC, (capros_LSync_pointer)sem,
-                        (capros_LSync_pointer)&wq);
-}
+  va_list args;
 
-int
-down_trylock(struct semaphore * sem)
-{
-  int newcnt = atomic_read(&sem->count);
-  int cnt;
-  do {
-    if (newcnt <= 0) return 1;	// too bad
-    cnt = newcnt;
-    /* If the count is still cnt, decrement it. */
-    newcnt = atomic_cmpxchg(&sem->count, cnt, cnt - 1);
-  } while (newcnt != cnt);
-  return 0;	// success
+  va_start(args, fmt);
+  kvprintf(KR_OSTREAM, fmt, args);
+  va_end(args);
+
+  capros_Console_KDB(KR_OSTREAM);
 }

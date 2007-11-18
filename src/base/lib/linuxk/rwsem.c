@@ -23,6 +23,7 @@ Approved for public release, distribution unlimited. */
 
 #include <linuxk/linux-emul.h>
 #include <linux/rwsem.h>
+#include <linux/wait.h>
 #include <idl/capros/LSync.h>
 #include <linuxk/lsync.h>
 

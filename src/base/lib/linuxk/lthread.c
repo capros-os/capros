@@ -40,6 +40,7 @@ Approved for public release, distribution unlimited. */
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
 #include <linux/mutex.h>
+#include <linux/thread_info.h>
 
 static DEFINE_MUTEX(threadAllocLock);
 unsigned int nextThreadNum = 1;
@@ -73,7 +74,7 @@ lthread_new_thread(uint32_t stackSize,
 {
 #define KR_NEWTHREAD KR_TEMP2
   // Allocate a thread number.
-  /* This implementation assumes we never deallocate a thread!! */
+  /* FIXME: This implementation assumes we never deallocate a thread!! */
   mutex_lock(&threadAllocLock);
   if (nextThreadNum >= LK_MAX_THREADS)
     return -1;
@@ -91,7 +92,7 @@ lthread_new_thread(uint32_t stackSize,
 
   // Create its stack.
   uint32_t stackPages = (stackSize + EROS_PAGE_SIZE - 1) >> EROS_PAGE_LGSIZE;
-  if (stackPages >= capros_Node_nSlots)
+  if (stackPages >= capros_GPT_nSlots)
     /* Disallow =, because we want an empty slot to guard against overflow. */
     return -1;
 
@@ -101,7 +102,7 @@ lthread_new_thread(uint32_t stackSize,
       return result;	// FIXME: clean up
 
     result = capros_Memory_makeGuarded(KR_TEMP0,
-                 (capros_Node_nSlots - 1) << EROS_PAGE_LGSIZE,
+                 (capros_GPT_nSlots - 1) << EROS_PAGE_LGSIZE,
                  KR_TEMP0 );
     assert(result == RC_OK);
   } else {
@@ -121,16 +122,20 @@ lthread_new_thread(uint32_t stackSize,
       if (result != RC_OK)
         return result;	// FIXME: clean up
 
-      capros_GPT_setSlot(KR_TEMP0, capros_Node_nSlots - 1 - i,
+      capros_GPT_setSlot(KR_TEMP0, capros_GPT_nSlots - 1 - i,
                           KR_TEMP1);
     }
   }
   // KR_TEMP0 has the memory key for the stack.
-  capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_STACKS_GPT, KR_TEMP1);
-  capros_Node_swapSlot(KR_TEMP1, threadNum, KR_TEMP0, KR_VOID);
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_STACKS_GPT, KR_TEMP1);
+  assert(result == RC_OK);
+  result = capros_GPT_setSlot(KR_TEMP1, threadNum, KR_TEMP0);
+  assert(result == RC_OK);
 
   // Store the starting procedure and arg on the stack:
-  void * * sp = (void * *)(LK_STACK_BASE + (LK_STACK_AREA * (threadNum + 1)));
+  void * * sp = (void * *)(LK_STACK_BASE
+                           + (LK_STACK_AREA * (threadNum + 1))
+                           - SIZEOF_THREAD_INFO );
     // + 1 above is to get to the high end of the stack
   *(--sp) = start_routine;
   *(--sp) = arg;
@@ -185,6 +190,8 @@ lthread_new_thread(uint32_t stackSize,
   msg.snd_invKey = KR_TEMP0;
   SEND(&msg);
 
+  if (newThreadNum)
+    *newThreadNum = threadNum;
   return RC_OK;
 #undef KR_NEWTHREAD
 }

@@ -38,6 +38,8 @@ Approved for public release, distribution unlimited. */
   The actual stack is from 0x0041ffff down through whatever its size is.
 0x00420000 through 0x0043ffff: area for stack for thread 1
 etc. */
+/* The highest addresses in the stack contain the Linux
+thread_info structure, of which only preempt_count is used. */
 #define LK_LGSTACK_AREA 17
 #define LK_STACK_AREA (1ul << LK_LGSTACK_AREA)	// 0x00020000
 
@@ -52,22 +54,24 @@ etc. */
 
 /* Key registers: */
 #include <domain/Runtime.h>
-#undef KR_RTBITS
 #define KR_KEYSTORE 2
 #define KR_LINUX_EMUL KR_APP(0) // Node of keys for Linux driver environment
 #define KR_OSTREAM    KR_APP(1)
-#define KR_LSYNC      KR_APP(2)
+#define KR_LSYNC      KR_APP(2)	// start key to lsync process
+#define KR_SLEEP      KR_APP(3) // to speed up getting jiffies
 
 /* Slots in the node in KR_LINUX_EMUL: */
 #define LE_CLOCKS 0
 #define LE_DEVPRIVS 1
 #define LE_IOMEM 2
 /* LE_IOMEM has a key to an extended node containing, beginning with slot 0:
-- A number key containing the phys addr (uint64_t) and number of pages
+- A number key containing the number of pages 
+  and the starting phys addr (uint64_t)
 - The keys to the physical pages
 This pattern repeats for as many physical ranges are available to
 the process (usually one). */
 //// Combine clocks, iomem, etc. into one extended node to save space?
+// (at the cost of time)
 
 
 /* Slots in the supernode KR_KEYSTORE: */
@@ -82,6 +86,7 @@ the process (usually one). */
 
 #ifndef __ASSEMBLER__
 
+#undef KR_RTBITS
 #include <eros/target.h>	// get result_t
 
 typedef uint32_t uva_t;	/* user (unmodified) virtual address */
@@ -92,6 +97,9 @@ result_t
 lthread_new_thread(uint32_t stackSize,
 		   void * (* start_routine)(void *), void * arg,
 		   /* out */ unsigned int * newThreadNum);
+
+void * lsync_main(void *);
+#define LSYNC_STACK_SIZE 4096
 
 #endif
 

@@ -30,7 +30,9 @@ Approved for public release, distribution unlimited. */
 	.text
 	ENTRY(lk_getCurrentThreadNum)
 /* See which area the stack pointer falls in. */
-	sub r0,sp,#1	// in case the stack is completely empty
-	sub r0,r0,#LK_STACK_BASE
+/* Note, the highest addresses in the stack contain the struct thread_info.
+   Therefore the sp can never point above the highest address in the stack,
+   even if the stack is completely empty. */
+	sub r0,sp,#LK_STACK_BASE
 	mov r0,r0, LSR #LK_LGSTACK_AREA
 	bx lr

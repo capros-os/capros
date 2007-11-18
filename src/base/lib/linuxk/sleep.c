@@ -1,4 +1,5 @@
 /*
+ *  Copyright (C) 1991, 1992  Linus Torvalds
  * Copyright (C) 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
@@ -22,37 +23,44 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <linuxk/linux-emul.h>
-#include <asm-generic/semaphore.h>
-#include <linux/wait.h>
-#include <idl/capros/LSync.h>
+#include <linux/jiffies.h>
 #include <linuxk/lsync.h>
+#include <idl/capros/LSync.h>
+#include <idl/capros/Sleep.h>
 
-
-void sema_init(struct semaphore *sem, int val)
+/*
+ * Convert jiffies to milliseconds and back.
+ *
+ * Avoid unnecessary multiplications/divisions in the
+ * two most common HZ cases:
+ */
+unsigned int inline jiffies_to_msecs(const unsigned long j)
 {
-  atomic_set(&sem->count, val);
-  sem->wakeupsWaiting = 0;
-  INIT_LIST_HEAD(&sem->task_list);
+#if HZ <= MSEC_PER_SEC && !(MSEC_PER_SEC % HZ)
+	return (MSEC_PER_SEC / HZ) * j;
+#elif HZ > MSEC_PER_SEC && !(HZ % MSEC_PER_SEC)
+	return (j + (HZ / MSEC_PER_SEC) - 1)/(HZ / MSEC_PER_SEC);
+#else
+	return (j * MSEC_PER_SEC) / HZ;
+#endif
 }
 
-void down_slowpath(struct semaphore * sem)
+unsigned int inline jiffies_to_usecs(const unsigned long j)
 {
-  wait_queue_t wq;
-  wq.threadNum = lk_getCurrentThreadNum();
-  capros_LSync_semaWait(KR_LSYNC, (capros_LSync_pointer)sem,
-                        (capros_LSync_pointer)&wq);
+#if HZ <= USEC_PER_SEC && !(USEC_PER_SEC % HZ)
+	return (USEC_PER_SEC / HZ) * j;
+#elif HZ > USEC_PER_SEC && !(HZ % USEC_PER_SEC)
+	return (j + (HZ / USEC_PER_SEC) - 1)/(HZ / USEC_PER_SEC);
+#else
+	return (j * USEC_PER_SEC) / HZ;
+#endif
 }
 
-int
-down_trylock(struct semaphore * sem)
+u64
+get_jiffies_64(void)
 {
-  int newcnt = atomic_read(&sem->count);
-  int cnt;
-  do {
-    if (newcnt <= 0) return 1;	// too bad
-    cnt = newcnt;
-    /* If the count is still cnt, decrement it. */
-    newcnt = atomic_cmpxchg(&sem->count, cnt, cnt - 1);
-  } while (newcnt != cnt);
-  return 0;	// success
+  uint64_t time;
+  capros_Sleep_getTimeMonotonic(KR_SLEEP, &time);
+  // Convert nanoseconds to jiffies.
+  return time / ((uint64_t)1000000000/HZ);
 }
