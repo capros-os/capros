@@ -61,6 +61,11 @@ The Indirect Data capability has the following methods:
       (Where n = 0, this just Releases the sender.)
 </ul>
 <p>
+The server can read any part of the string in any order and can read the
+same data more than once. (However, if reading more than once, beware of 
+time-of-check-to-time-of-use errors.) 
+</p>
+<p>
 The server uses the Release method to signal that it is done
 receiving the string. 
 The Release method changes the sender's state from Sending to Waiting
@@ -85,6 +90,8 @@ after the invocation completes.
 There will be a way to specify on an invocation that the passed string
 should be taken from an existing Indirect Data capability 
 that the sender holds. 
+(The recipient may or may not get the Indirect Data capability, depending
+on whether he receives the whole string.) 
 This may be useful for services that forward or proxy requests. 
 </p>
 <p>
@@ -103,6 +110,11 @@ specified that the invocation must be prompt.
 This behavior means that an Indirect Data capability cannot be proxied
 with a start key, only another Indirect Data capability. 
 This means that the Indirect Data capability needs its own Discrim type.
+</p>
+<p>
+The possibility that a segment keeper on a passed string won't be invoked
+is a change in behavior, but that shouldn't be serious,
+since most segment keepers don't take action on read access. 
 </p>
 <p>
 If the sender specified a prompt invocation, the Indirect Data capability

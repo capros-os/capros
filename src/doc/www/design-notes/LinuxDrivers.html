@@ -189,6 +189,10 @@
     <h2>Diagnostic Output</h2>
     <p><code>printk</code> will be implemented using kprintf.
       Drivers will have a key register KR_OSTREAM for console output.
+    <h2>Performance issues</h2>
+    <p>Spinlocks are frequently used. In Linux on a uniprocessor this simply
+    disables interrupts. On CapROS it does an atomic operation, which,
+    on ARM architectures prior to 6, traps to the kernel.
     <h1>Serial Port Driver</h1>
     <p>
       The Linux serial port driver has a number of interrelated parts, including
