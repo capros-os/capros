@@ -112,6 +112,7 @@ ethread_new_thread(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_size,
   /* Invoke the fault key to start the thread */
   memset(&msg, 0, sizeof(Message));
   msg.snd_invKey = kr_tmp;
+  SEND(&msg);
 
-  return SEND(&msg);
+  return RC_OK;
 }
