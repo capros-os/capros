@@ -31,13 +31,17 @@ include $(EROS_SRC)/build/make/makevars.mk
 BUILDDIR=.
 TARGETS=
 HEADERS=\
+ alternative.h \
  assembler.h \
  atomic.h \
+ autoconf.h \
  auxvec.h \
  bitops.h \
  bug.h \
  byteorder.h \
  cache.h \
+ cmpxchg.h \
+ cpufeature.h \
  cputime.h \
  current.h \
  delay.h \
@@ -60,16 +64,23 @@ HEADERS=\
  linkage.h \
  local.h \
  locks.h \
+ math_emu.h \
  memory.h \
  mmu.h \
  module.h \
+ msr.h \
+ msr-index.h \
  page.h \
  param.h \
  percpu.h \
  posix_types.h \
  processor.h \
+ processor-flags.h \
  ptrace.h \
+ ptrace-abi.h \
+ required-features.h \
  resource.h \
+ segment.h \
  semaphore.h \
  sembuf.h \
  sigcontext.h \
@@ -86,6 +97,7 @@ HEADERS=\
  topology.h \
  types.h \
  user.h \
+ vm86.h \
 
 GENERATED=$(HEADERS)
 
