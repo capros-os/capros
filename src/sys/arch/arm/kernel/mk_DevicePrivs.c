@@ -117,8 +117,6 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       
       vis->isPending = false;
       InterruptSourceSetup(source, prio, DoUsermodeInterrupt);
-
-      InterruptSourceEnable(source);	// Do we want to do this now?
     }
   
     inv->exit.code = RC_OK;

@@ -88,7 +88,6 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       uirq->isPending = false;
 
       irq_SetHandler(irq, DoUsermodeInterrupt);
-      irq_Enable(irq);
     }
   
     inv->exit.code = RC_OK;

@@ -495,6 +495,7 @@ SWI_CSwap32_Handler:
 r0 has p_word
 r1 has old_val
 r2 has new_val
+On return, r0 has the original value of *p_word.
 
 IRQ is disabled here, but *NOT* FIQ.
  */
