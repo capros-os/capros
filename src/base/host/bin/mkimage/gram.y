@@ -2319,18 +2319,13 @@ AddProgramSegment(ErosImage * image,
                   bool initOnly)
 {
   ExecImage *ei = xi_create();
-  const uint8_t* imageBuf;
   KeyBits pageKey;
   PtrMap *map = ptrmap_create();
   unsigned i;
-  uint32_t topfileva;
-  uint32_t topva;
-  uint32_t startva;
-  uint32_t startoffset;
-  bool readOnly = false;
+  const ExecRegion * er;
   uint32_t va;    
+  uint32_t pageVa;
 
-  keyBits_InitToVoid(&pageKey);
   keyBits_InitToVoid(segKey);
 
   if (! xi_SetImage(ei, fileName, permMask, permValue) ) {
@@ -2338,24 +2333,15 @@ AddProgramSegment(ErosImage * image,
     return false;
   }
   
-  imageBuf = xi_GetImage(ei);
+  const uint8_t * const imageBuf = xi_GetImage(ei);
 
-  /* Run through the regions in the executable image, finding all of
-   * the associated pages and adding them to the ErosImage file at
-   * most once (use the PtrMap to remember which pages we have seen).
-   * Add these page keys to the segment at the appropriate address.
-   * 
-   * Where the page is all zeros, there may be no corresponding page
-   * in the exec image file.  We assume that such pages are not
-   * shared.
-   * 
-   * Pages may be only partial in the exec image file.  In that case
-   * we zero-extend them.  Such pages are copied into the ErosImage
-   * exactly once.
-   */
-  
+  /* Make two passes over the regions in the executable image.
+     The first pass initializes pages with the data from the file.
+     The second pass creates zero data pages where there is no
+     initialization data from the file. */
+
   for (i = 0; i < xi_NumRegions(ei); i++) {
-    const ExecRegion * er = xi_GetRegion(ei, i);
+    er = xi_GetRegion(ei, i);
 
 #if 0
     char perm[4] = "\0\0\0";
@@ -2367,78 +2353,74 @@ AddProgramSegment(ErosImage * image,
     if (er->perm & ER_X)
       *pbuf++ = 'X';
 
-    diag_printf("va=0x%08x   memsz=0x%08x   filesz=0x%08x"
+    diag_printf("AddProgramSegment %s "
+                "va=0x%08x   memsz=0x%08x   filesz=0x%08x"
 		 "   offset=0x%08x   %s\n",
+                filename,
 		 er->vaddr, er->memsz, er->filesz, er->offset, perm);
 #endif
 
-    topfileva = er->vaddr + er->filesz;
-    if (initOnly)
-      // Initialized data only.
-      topva = topfileva;
-    else
-      topva = er->vaddr + er->memsz;
-    startva = er->vaddr & ~EROS_PAGE_MASK;
-    startoffset = er->offset;
-#if 0
-    diag_printf("AddPgm vaddr=0x%x ofs=0x%x, memsz=0x%x\n",
-                er->vaddr, er->offset, er->memsz);
-#endif
-    
-    /* In case not a paged image, back up the offset to the page
-       boundary.  Note that contrary to previous assumptions, the VA
-       and the offset will not be congruent mod page size UNLESS the
-       image is marked as paged. */
-    if (startva != er->vaddr)
-      startoffset -= (er->vaddr - startva);
+    bool readOnly = (er->perm & ER_W) == 0;
 
-    if ((er->perm & ER_W) == 0)
-      readOnly = true;
+    uint32_t topfileva = er->vaddr + er->filesz;
       
-    for (va = startva; va < topva; va += EROS_PAGE_SIZE) {
-      if (va >= topfileva) {
-	/* Page has no image in the exec image file. Add a zero page: */
-#if 0
-        /* FIX: figure out someday why this occurs! */
-	if (er->perm & ER_X)
-	  diag_printf("WARNING: executable zero page\n");
-#endif
-	
-	pageKey = ei_AddZeroDataPage(image, readOnly);
+    for (va = er->vaddr; va < topfileva; va = pageVa + EROS_PAGE_SIZE) {
+      pageVa = va & ~EROS_PAGE_MASK;
+
+      /* See if we have already created this page: */
+      if (ptrmap_Lookup(map, (char *)0 + pageVa, &pageKey)) {
+        /* We have a page key. */
+        /* The page must be writeable if it's writeable by any region: */
+        if (! readOnly)
+          keyBits_ClearReadOnly(&pageKey);
       }
       else {
-	/* Page has image in the exec image file.  See if we have
-	 * already copied this page into the domain image before we
-	 * copy it again:
-	 */
-	
-	uint32_t offset = startoffset + (va - startva);
+        uint8_t pagebuf[EROS_PAGE_SIZE];
+        bzero(pagebuf, EROS_PAGE_SIZE);
 
-	if (ptrmap_Lookup(map, imageBuf + offset, &pageKey)) {
-	  /* We have a page key, but it's read-only attribute may be
-	   * incorrect for this mapping, so adjust it:
-	   */
+        uint32_t topva = pageVa + EROS_PAGE_SIZE;
+        if (topva > topfileva)
+          topva = topfileva;	// take minimum
 
-	  if (readOnly)
-	    keyBits_SetReadOnly(&pageKey);
-	}
-	else {
-	  uint8_t pagebuf[EROS_PAGE_SIZE];
-	  uint32_t sz;
+        memcpy(pagebuf + va - pageVa,
+               imageBuf + er->offset + (va - er->vaddr),
+               topva - va);
 
-	  bzero((void *) pagebuf, EROS_PAGE_SIZE);
-
-	  sz = EROS_PAGE_SIZE;
-	  if (topfileva - va < EROS_PAGE_SIZE)
-	    sz = (topfileva - va);
-
-	  memcpy(pagebuf, imageBuf + offset, sz);
-
-	  pageKey = ei_AddDataPage(image, pagebuf, readOnly);
-	}
+        pageKey = ei_AddDataPage(image, pagebuf, readOnly);
+        ptrmap_Add(map, (char *)0 + pageVa, pageKey);
       }
 
-      *segKey = ei_AddSubsegToSegment(image, *segKey, va, pageKey);
+      *segKey = ei_AddSegmentToSegment(image, *segKey, pageVa, pageKey);
+    }
+  }
+
+  /* Second pass: create zero data pages. */
+  if (!initOnly) {
+    for (i = 0; i < xi_NumRegions(ei); i++) {
+      er = xi_GetRegion(ei, i);
+
+      bool readOnly = (er->perm & ER_W) == 0;
+
+      for (va = er->vaddr + er->filesz;
+           va < er->vaddr + er->memsz;
+           va = pageVa + EROS_PAGE_SIZE) {
+        pageVa = va & ~EROS_PAGE_MASK;
+        /* See if we have already created this page: */
+        if (ptrmap_Lookup(map, (char *)0 + pageVa, &pageKey)) {
+          /* The page has already been added, and any uninitialized
+             portion has been zeroed. */
+          /* The page must be writeable if it's writeable by any region: */
+          if (! readOnly)
+            keyBits_ClearReadOnly(&pageKey);
+        }
+        else {
+          /* Add a zero page: */
+          pageKey = ei_AddZeroDataPage(image, readOnly);
+          ptrmap_Add(map, (char *)0 + pageVa, pageKey);
+        }
+
+        *segKey = ei_AddSegmentToSegment(image, *segKey, pageVa, pageKey);
+      }
     }
   }
 

@@ -209,6 +209,10 @@ extern "C" {
   int ei_GetAnyBlss(const ErosImage *, KeyBits segRoot);
   bool ei_SetBlss(ErosImage *, KeyBits gptKey, unsigned int blss);
 
+  KeyBits ei_AddSegmentToSegment(ErosImage *, KeyBits segRoot,
+				 uint64_t segOffset,
+				 KeyBits pageKey);
+
   KeyBits ei_AddSubsegToSegment(ErosImage *, KeyBits segRoot,
 				uint64_t segOffset,
 				KeyBits pageKey);

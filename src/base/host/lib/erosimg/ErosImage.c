@@ -1031,6 +1031,18 @@ ValidateSegKey(const ErosImage *ei, KeyBits segKey)
 }
 
 KeyBits
+ei_AddSegmentToSegment(ErosImage *ei, KeyBits segRoot,
+		       uint64_t segOffset,
+		       KeyBits segKey)
+{
+  ValidateSegKey(ei, segKey);
+  ValidateSegKey(ei, segRoot);
+
+  return ei_DoAddSubsegToBlackSegment(ei, segRoot, segOffset,
+                                      segKey, segOffset);
+}
+
+KeyBits
 ei_AddSubsegToSegment(ErosImage *ei, KeyBits segRoot,
 		      uint64_t segOffset,
 		      KeyBits segKey)
@@ -1045,7 +1057,10 @@ ei_AddSubsegToSegment(ErosImage *ei, KeyBits segRoot,
 
     if (segOffsetBLSS <= segBLSS &&
         rootBLSS <= segOffsetBLSS)
-      diag_fatal(4, "Inserted object and offset would replace entire existing segment.\n");
+      diag_fatal(4,
+        "Inserted object and offset would replace entire existing segment.\n"
+        "seg=%d segOff=%d root=%d\n",
+        segBLSS, segOffsetBLSS, rootBLSS);
   }
 
   return ei_DoAddSubsegToBlackSegment(ei, segRoot, segOffset,
