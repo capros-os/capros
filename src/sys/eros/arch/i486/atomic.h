@@ -63,6 +63,7 @@ capros_atomic_cmpxchg32(volatile uint32_t * p_word,
   return oldVal;
 }
 
+// Add i to *p_word and return the result.
 INLINE uint32_t
 capros_atomic_add32_return(uint32_t i, volatile uint32_t * p_word)
 {
@@ -72,7 +73,7 @@ capros_atomic_add32_return(uint32_t i, volatile uint32_t * p_word)
     oldVal = val;
     val = capros_atomic_cmpxchg32(p_word, val, val + i);
   } while (val != oldVal);
-  return val;
+  return val + i;
 }
 
 INLINE bool
