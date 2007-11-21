@@ -265,6 +265,12 @@ keyBits_SetReadOnly(KeyBits *thisPtr)
   thisPtr->keyPerms |= capros_Memory_readOnly;
 }
 
+INLINE void 
+keyBits_ClearReadOnly(KeyBits *thisPtr)
+{
+  thisPtr->keyPerms &= ~capros_Memory_readOnly;
+}
+
 /* In memory and node keys, l2g is in the first byte of keyData.
 Only 7 bits are required. */
 INLINE unsigned int
