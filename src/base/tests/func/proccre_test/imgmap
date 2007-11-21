@@ -22,6 +22,7 @@
 
 #include <primebank.map>
 #include <pcc.map>
+#include <ipltool.map>
 
 /************************************
  *
@@ -30,8 +31,9 @@
  ************************************/
 
 proccre_test = new process;
-proccre_test.seg = small program "proccre_test";
-proccre_test.pc = symbol "proccre_test" _start;
+proccre_test.seg = small program BUILDDIR "proccre_test";
+proccre_test.seg = proccre_test.seg with page at 0x1f000;
+proccre_test.pc = symbol BUILDDIR "proccre_test" _start;
 proccre_test pc = proccre_test.pc;
 proccre_test space = proccre_test.seg;
 proccre_test schedule = sched(8);   /* normal */
@@ -40,8 +42,10 @@ test_constit = new node;
 test_constit[0] = misc Console;
 test_constit[1] = misc KeyBits;
 test_constit[2] = pcc;		/* pcc start */
-test_constit[3] = symbol "hello" _start; /* pc for hello program */
-test_constit[4] = small program "hello"; /* addr space for hello program */
+test_constit[3] = symbol BUILDDIR "hello" _start; /* pc for hello program */
+hello.space = small program BUILDDIR "hello";
+hello.space = hello.space with page at 0x1f000;
+test_constit[4] = hello.space; /* addr space for hello program */
 
 proccre_test key reg  1 = test_constit;
 proccre_test key reg  2 = proccre_test;

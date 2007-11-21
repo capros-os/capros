@@ -19,16 +19,11 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-
-/*
- * spacebank
- */
-
-
 #define DEBUG_DCC
 
 #include <primebank.map>
 #include <pcc.map>
+#include <ipltool.map>
 
 /*
  * Pcc test domain
@@ -44,8 +39,10 @@ pcc_test_constit[4] = pcc;		/* pcc start */
 pcc_test = new process;
 
 /* pcc_test sp = 0x10000; sp set by __rt_stack_pointer */
-pcc_test pc = symbol "pcc_test" _start;
-pcc_test space = small program "pcc_test";
+pcc_test pc = symbol BUILDDIR "pcc_test" _start;
+pcc_test.space = small program BUILDDIR "pcc_test";
+pcc_test.space = pcc_test.space with page at 0x1f000;
+pcc_test space = pcc_test.space;
 pcc_test schedule = sched(8);   /* normal */
 
 pcc_test key reg 1 = pcc_test_constit;

@@ -25,11 +25,10 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
-#include <eros/ProcessToolKey.h>
+#include <idl/capros/Node.h>
 #include <idl/capros/PCC.h>
+#include <idl/capros/ProcTool.h>
 #include <domain/domdbg.h>
-#include <eros/KeyBitsKey.h>
 
 #define KR_VOID 0
 #define KR_CONSTIT 1
@@ -55,13 +54,13 @@ const uint32_t __rt_stack_pointer = 0x20000;
 int
 main()
 {
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_copy(KR_CONSTIT, KC_DOMTOOL, KR_DOMTOOL);
-  node_copy(KR_CONSTIT, KC_KEYBITS, KR_KEYBITS);
-  node_copy(KR_CONSTIT, KC_DCC_BRAND, KR_DCC_BRAND);
-  node_copy(KR_CONSTIT, KC_DCC, KR_DCC);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_DOMTOOL, KR_DOMTOOL);
+  capros_Node_getSlot(KR_CONSTIT, KC_KEYBITS, KR_KEYBITS);
+  capros_Node_getSlot(KR_CONSTIT, KC_DCC_BRAND, KR_DCC_BRAND);
+  capros_Node_getSlot(KR_CONSTIT, KC_DCC, KR_DCC);
 
-  kdprintf(KR_OSTREAM, "About to invoke dcc\n");
+  kdprintf(KR_OSTREAM, "About to invoke pcc\n");
 
   {
     uint32_t result;
@@ -80,7 +79,7 @@ main()
     uint32_t isGood;
     uint32_t result;
     
-    result = pt_canopener(KR_DOMTOOL, KR_DOM, KR_DCC_BRAND, KR_DOM,
+    result = capros_ProcTool_canOpener(KR_DOMTOOL, KR_DOM, KR_DCC_BRAND, KR_DOM,
 			  &isGood, 0);
     if (result != RC_OK || isGood == 0)
       kdprintf(KR_OSTREAM, "Canopener failed. Result is 0x%08x, %d\n",

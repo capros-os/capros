@@ -25,13 +25,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
-#include <eros/KeyBitsKey.h>
-#include <eros/NodeKey.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/Node.h>
 #include <idl/capros/ProcCre.h>
 #include <idl/capros/PCC.h>
 #include <domain/domdbg.h>
-#include <eros/KeyBitsKey.h>
 
 #define KR_VOID 0
 
@@ -67,53 +65,35 @@ int
 main()
 {
   Message msg;
+  uint32_t result;
 
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_copy(KR_CONSTIT, KC_KEYBITS, KR_KEYBITS);
-  node_copy(KR_CONSTIT, KC_DCC, KR_DCC);
-  node_copy(KR_CONSTIT, KC_HELLO_PC, KR_HELLO_PC);
-  node_copy(KR_CONSTIT, KC_HELLO_SEG, KR_HELLO_SEG);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_KEYBITS, KR_KEYBITS);
+  capros_Node_getSlot(KR_CONSTIT, KC_DCC, KR_DCC);
+  capros_Node_getSlot(KR_CONSTIT, KC_HELLO_PC, KR_HELLO_PC);
+  capros_Node_getSlot(KR_CONSTIT, KC_HELLO_SEG, KR_HELLO_SEG);
 
   capros_Number_value nkv;
   capros_Number_getValue(KR_HELLO_PC, &nkv);
   
-  kdprintf(KR_OSTREAM, "About to invoke dcc\n");
+  kdprintf(KR_OSTREAM, "About to invoke pcc\n");
 
-  {
-    uint32_t result;
-    result = capros_PCC_createProcessCreator(KR_DCC, KR_SPCBANK, KR_SCHED,
+  result = capros_PCC_createProcessCreator(KR_DCC, KR_SPCBANK, KR_SCHED,
                KR_PROCCRE);
     
-    ShowKey(KR_OSTREAM, KR_KEYBITS, KR_PROCCRE);
-    kdprintf(KR_OSTREAM, "GOT PROCCRE Result is 0x%08x\n", result);
-  }
+  ShowKey(KR_OSTREAM, KR_KEYBITS, KR_PROCCRE);
+  kdprintf(KR_OSTREAM, "GOT PROCCRE Result is 0x%08x\n", result);
 
   kdprintf(KR_OSTREAM, "About to invoke new proccre\n");
   
-  msg.snd_key0 = KR_SPCBANK;
-  msg.snd_key1 = KR_VOID;
-  msg.snd_key2 = KR_VOID;
-  msg.snd_rsmkey = KR_VOID;
-  msg.snd_data = 0;
-  msg.snd_len = 0;
+  result = capros_ProcCre_createProcess(KR_PROCCRE, KR_SPCBANK, KR_NEWDOM);
+  ShowKey(KR_OSTREAM, KR_KEYBITS, KR_PROCCRE);
+  ShowKey(KR_OSTREAM, KR_KEYBITS, KR_NEWDOM);
+  kdprintf(KR_OSTREAM, "Result is 0x%08x\n", result);
 
-  msg.rcv_key0 = KR_NEWDOM;
-  msg.rcv_key1 = KR_VOID;
-  msg.rcv_key2 = KR_VOID;
-  msg.rcv_rsmkey = KR_VOID;
-  msg.rcv_len = 0;		/* no data returned */
-
-  {
-    uint32_t result;
-    result = capros_ProcCre_createProcess(KR_PROCCRE, KR_SPCBANK, KR_NEWDOM);
-    ShowKey(KR_OSTREAM, KR_KEYBITS, KR_PROCCRE);
-    ShowKey(KR_OSTREAM, KR_KEYBITS, KR_NEWDOM);
-    kdprintf(KR_OSTREAM, "Result is 0x%08x\n", result);
-
-    if (result != RC_OK) {
-      kdprintf(KR_OSTREAM, "EXIT with 0x%08x\n", result);
-      return 0;
-    }
+  if (result != RC_OK) {
+    kdprintf(KR_OSTREAM, "EXIT with 0x%08x\n", result);
+    return 0;
   }
 
   kdprintf(KR_OSTREAM, "Populate new process\n");
@@ -121,39 +101,30 @@ main()
   /* Install the schedule key into the domain: */
   (void) capros_Process_swapSchedule(KR_NEWDOM, KR_SCHED, KR_VOID);
   
-  kdprintf(KR_OSTREAM, "Installed sched\n");
-
   /* Install hello address space and PC into the process: */
   (void) capros_Process_swapAddrSpaceAndPC32(KR_NEWDOM, KR_HELLO_SEG,
            nkv.value[0], KR_VOID);
 
-  kdprintf(KR_OSTREAM, "Installed addrspace and program counter\n");
-
   /* Install the bank and domain key for this domain: */
-  kdprintf(KR_OSTREAM, "Give it bank, dom key\n");
-
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SELF, KR_NEWDOM, KR_VOID);
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SPCBANK, KR_SPCBANK, KR_VOID);
   (void) capros_Process_swapKeyReg(KR_NEWDOM, 5, KR_OSTREAM, KR_VOID);
 
   kdprintf(KR_OSTREAM, "About to call get fault key\n");
 
-  /* Make a restart key to start up the new domain creator: */
+  /* Make a resume key to start up the new domain creator: */
   (void) capros_Process_makeResumeKey(KR_NEWDOM, KR_SCRATCH);
   ShowKey(KR_OSTREAM, KR_KEYBITS, KR_SCRATCH);
 
-  {
-    Message msg;
-    msg.snd_key0 = KR_VOID;
-    msg.snd_key1 = KR_VOID;
-    msg.snd_key2 = KR_VOID;
-    msg.snd_rsmkey = KR_VOID;
-    msg.snd_code = 0;		/* ordinary restart */
-    msg.snd_len = 0;
-    msg.snd_invKey = KR_SCRATCH;
+  msg.snd_key0 = KR_VOID;
+  msg.snd_key1 = KR_VOID;
+  msg.snd_key2 = KR_VOID;
+  msg.snd_rsmkey = KR_VOID;
+  msg.snd_code = 0;
+  msg.snd_len = 0;
+  msg.snd_invKey = KR_SCRATCH;
 
-    SEND(&msg);
-  }
+  SEND(&msg);
 
   kdprintf(KR_OSTREAM, "About to mk start key\n");
 
@@ -174,15 +145,17 @@ main()
   msg.rcv_key1 = KR_VOID;
   msg.rcv_key2 = KR_VOID;
   msg.rcv_rsmkey = KR_VOID;
-  msg.rcv_len = 0;		/* no data returned */
+  msg.rcv_limit = 0;		/* no data returned */
 
-  {
-    uint32_t result;
-    
-    msg.snd_code = 1234;	// newdom will ignore this
-    msg.snd_invKey = KR_NEWDOM;
-    result = CALL(&msg);
-    kdprintf(KR_OSTREAM, "Result is 0x%08x -- DONE!!!\n", result);
-  }
+  msg.snd_code = 1234;	// newdom will ignore this
+  msg.snd_invKey = KR_NEWDOM;
+  result = CALL(&msg);
+
+  kdprintf(KR_OSTREAM, "Result is 0x%08x\n", result);
+
+  result = capros_ProcCre_destroyProcess(KR_PROCCRE, KR_SPCBANK, KR_NEWDOM);
+  kdprintf(KR_OSTREAM, "Destroy process, result is 0x%08x\n", result);
+
+  kprintf(KR_OSTREAM, "DONE!!!\n");
   return 0;
 } /* end of main */

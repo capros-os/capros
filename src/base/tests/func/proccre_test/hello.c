@@ -43,7 +43,7 @@ main()
   msg.rcv_key1 = KR_ARG1;
   msg.rcv_key2 = KR_ARG2;
   msg.rcv_rsmkey = KR_RESUME;
-  msg.rcv_len = 0;
+  msg.rcv_limit = 0;
   msg.snd_key0 = KR_VOID;
   msg.snd_key1 = KR_VOID;
   msg.snd_key2 = KR_VOID;
