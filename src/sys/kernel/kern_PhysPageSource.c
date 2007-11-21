@@ -123,7 +123,7 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 
   assert(objH_GetFlags(pageH_ToObj(pObj),
                        OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
-  objH_SetFlags(pageH_ToObj(pObj), OFLG_CURRENT | OFLG_DISKCAPS);
+  objH_SetFlags(pageH_ToObj(pObj), OFLG_CURRENT);
 
   pObj->objAge = age_NewBorn;
   pageH_ToObj(pObj)->obType = ot_PtDataPage;

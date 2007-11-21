@@ -79,13 +79,6 @@ keyR_ClearWriteHazard(KeyRing * thisPtr)
 void
 keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
 {
-#ifndef NDEBUG
-  KeyRing *nxt = 0;
-#endif
-  Node *pNode = 0;
-  uint32_t slot = 0;
-  Process *pContext = 0;
-
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Top RescindAll");
@@ -114,7 +107,7 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
     
 #ifndef NDEBUG
     /* Following works fine for gate keys too - representation pun! */
-    nxt = pKey->u.ok.kr.next;
+    KeyRing * nxt = pKey->u.ok.kr.next;
 #endif
 
     /* Note that thread-embodied and process-embodied keys are never
@@ -123,12 +116,9 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
     if ( keyBits_IsHazard(pKey) ) {
       assert ( act_IsActivityKey(pKey) == false );
       assert ( proc_IsKeyReg(pKey) == false );
-      pNode = objC_ContainingNode(pKey);
-      slot = pKey - pNode->slot;
+      Node * pNode = objC_ContainingNode(pKey);
 
-
-      node_RescindHazardedSlot(pNode, slot, mustUnprepare);
-
+      node_RescindHazardedSlot(pNode, pKey - pNode->slot, mustUnprepare);
 
       /* Having cleared the hazard, the key we are presently examining 
 	 may not even be on this ring any more -- it may be a
@@ -137,7 +127,6 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
 	continue;
     }
     else {
-      assert (keyBits_IsHazard(pKey) == false);
       assert ( keyBits_IsPreparedObjectKey(pKey) );
 
       /* hazard has been cleared, if any */
@@ -175,7 +164,7 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
     if (act_IsActivityKey(pKey)) {
       Activity *containingActivity = act_ContainingActivity(pKey);
       assert(containingActivity);
-      pContext = containingActivity->context;
+      Process * pContext = containingActivity->context;
 
       if (pContext) {
 	/* The key within the activity may not be current.  I learned

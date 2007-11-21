@@ -112,8 +112,8 @@ enum {
 #define OFLG_CURRENT	0x08u	/* current version */
 #define OFLG_CKPT	0x10u	/* checkpoint version */
 #define OFLG_IO		0x20u	/* object has active I/O in progress */
-#define OFLG_DISKCAPS	0x40u	/* capabilities to this version exist */
-				/* on disk */
+#define OFLG_DISKCAPS	0x40u	/* capabilities to this version exist
+				that are not on the keyRing. */
 
 struct ObjectHeader {
 /* N.B.: obType must be the first item in ObjectHeader.
@@ -155,6 +155,12 @@ struct ObjectHeader {
   
   ObjectHeader * hashChainNext;
 };
+
+INLINE bool
+objH_isNodeType(ObjectHeader * pObj)
+{
+  return pObj->obType <= ot_NtLAST_NODE_TYPE;
+}
 
 struct PageHeader {
 /* N.B.: kt_u must be the first item in PageHeader,

@@ -150,7 +150,7 @@ PreloadObSource_GetObject(ObjectSource * src, OID oid, ObType obType,
 
   pObj->oid = oid;
 
-  objH_SetFlags(pObj, OFLG_CURRENT|OFLG_DISKCAPS);
+  objH_SetFlags(pObj, OFLG_CURRENT);
   assert (objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
 
   pObj->ioCount = 0;

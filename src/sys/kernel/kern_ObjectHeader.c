@@ -338,6 +338,11 @@ objH_Rescind(ObjectHeader* thisPtr)
   
   keyR_RescindAll(&thisPtr->keyRing, hasCaps);
 
+  if (thisPtr->obType == ot_NtProcessRoot) {
+    Process * proc = thisPtr->prep_u.context;
+    keyR_RescindAll(&proc->keyRing, hasCaps);
+  }
+
   DEBUG(rescind)
     dprintf(true, "After 'RescindAll()'\n");
 
@@ -347,7 +352,7 @@ objH_Rescind(ObjectHeader* thisPtr)
     /* If object has on-disk keys, must dirty the new object to ensure
      * that the new counts get written.
      */
-    if (thisPtr->obType <= ot_NtLAST_NODE_TYPE) {
+    if (objH_isNodeType(thisPtr)) {
       Node * thisNode = objH_ToNode(thisPtr);
       thisNode->callCount++;
       node_MakeDirty(thisNode);

@@ -124,11 +124,7 @@ key_DoPrepare(Key* thisPtr)
       if (pNode == 0) {
 	DEBUG(prepare)
 	  printf("Voiding invalid gate key\n");
-	assert ( keyBits_IsHazard(thisPtr) == false );
-	assert ( keyBits_IsUnprepared(thisPtr) );
-	/* key was not prepared, so cannot be hazarded */
-	key_NH_RescindKey(thisPtr);
-	return;
+        break;	// with pObj == 0
       }
 	
       assertex(pNode, objC_ValidNodePtr(pNode));
@@ -200,6 +196,7 @@ key_DoPrepare(Key* thisPtr)
     assert ( keyBits_IsHazard(thisPtr) == false );
     assert ( keyBits_IsUnprepared(thisPtr) );
     key_NH_RescindKey(thisPtr);
+    keyBits_SetPrepared(thisPtr);
 #ifdef TEST_STACK
     st.check();
 #endif
@@ -371,6 +368,9 @@ key_NH_Unprepare(Key* thisPtr)
 
     key_NH_Unchain(thisPtr);
 
+#if 0
+    dprintf(true, "Setting OFLG_DISKCAPS obj=0x%x\n", pObj);
+#endif
     objH_SetFlags(pObj, OFLG_DISKCAPS);
     thisPtr->u.unprep.oid = pObj->oid;
 
