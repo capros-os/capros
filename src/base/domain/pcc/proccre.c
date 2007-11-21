@@ -91,11 +91,12 @@ uint32_t __rt_unkept = 1;
 #define FALSE 0
 #define TRUE 0
 
-uint32_t destroy_process(uint32_t startKeyReg, uint32_t bankKeyReg);
+uint32_t destroy_process(uint32_t bankKeyReg);
 uint32_t amplify_gate_key(uint32_t krStart, uint32_t krTo,
 			  uint32_t *capType, uint32_t *capInfo);
 uint32_t amplify_segment_key(uint32_t krStart, uint32_t krTo,
 			  uint32_t *capType, uint32_t *capInfo);
+int is_our_progeny(uint32_t krGate, uint32_t krNode);
 
 #include "create_new_process.h"
 
@@ -108,7 +109,7 @@ uint32_t amplify_segment_key(uint32_t krStart, uint32_t krTo,
        0:0:0:KR_OUTKEY0, (uint8_t *) 0, and a 0 length
    */
 
-int
+bool
 ProcessRequest(Message *argmsg)
 {
   uint32_t result = RC_OK;
@@ -124,13 +125,22 @@ ProcessRequest(Message *argmsg)
     break;
     
   case OC_capros_ProcCre_destroyProcess:
-    result = destroy_process(KR_ARG1, KR_ARG0);
-    return 1;
+    if (capros_ProcTool_identifyProcess(KR_PROCTOOL,
+          KR_ARG1, KR_OURBRAND, KR_SCRATCH0) != RC_OK)
+      result = RC_capros_ProcCre_Paternity;
+    else
+      result = destroy_process(KR_ARG0);
+    break;
 
   case OC_capros_ProcCre_destroyCallerAndReturn:
     {
-      result = destroy_process(KR_RETURN, KR_ARG0);
+      if (! is_our_progeny(KR_RETURN, KR_SCRATCH0)) {
+        // FIXME: should not accept a start key
+        result = RC_capros_ProcCre_Paternity;
+        break;
+      }
 
+      result = destroy_process(KR_ARG0);
       if (result != RC_OK)
 	break;
 
@@ -141,8 +151,8 @@ ProcessRequest(Message *argmsg)
     
   case OC_capros_ProcCre_reduce:
     {
-      argmsg->snd_key0 = KR_OUTKEY0;
       capros_Process_makeStartKey(KR_SELF, 1, KR_OUTKEY0);
+      argmsg->snd_key0 = KR_OUTKEY0;
       result = RC_OK;
       break;
    }
@@ -176,13 +186,16 @@ ProcessRequest(Message *argmsg)
     argmsg->snd_w1 = AKT_DomCre;
     break;
     
+  case OC_capros_key_destroy:
+    return false;
+    
   default:
     result = RC_capros_key_UnknownRequest;
     break;
   };
 
   argmsg->snd_code = result;
-  return 1;
+  return true;
 }
 
 void
@@ -244,30 +257,24 @@ is_our_progeny(uint32_t krGate, uint32_t krNode)
   return 0;
 }
 
+/* Verify bank, and destroy the process whose root is in KR_SCRATCH0. */
 uint32_t
-destroy_process(uint32_t krGate, uint32_t krBank)
+destroy_process(uint32_t krBank)
 {
   uint32_t isGood;
-  int success = 1;
 
-  DEBUG kdprintf(KR_OSTREAM, "About to destroy process in reg %d, bank %d...\n",
-		 krGate, krBank);
+  DEBUG kdprintf(KR_OSTREAM, "About to destroy process, bank %d...\n",
+		 krBank);
 
   if (capros_SpaceBank_verify(KR_BANK, krBank, &isGood) != RC_OK ||
       isGood == 0)
     return RC_capros_key_BadBank;
   
-  if (! is_our_progeny(krGate, KR_SCRATCH0))
-    return RC_capros_ProcCre_Paternity;
-  
-  /* It's our progeny.  Extract the annex nodes */
+  /* Extract the annex node(s). */
 
   (void) capros_Node_getSlot(KR_SCRATCH0, ProcGenKeys, KR_SCRATCH1);
   
   if (capros_SpaceBank_free2(krBank, KR_SCRATCH0, KR_SCRATCH1) != RC_OK)
-    success = 0;
-  
-  if (success == 0)
     return RC_capros_ProcCre_WrongBank;
   
   return RC_OK;
