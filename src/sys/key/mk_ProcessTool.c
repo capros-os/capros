@@ -38,40 +38,25 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Forwarder.h>
 #include <idl/capros/GPT.h>
 
-/* CompareBrand(inv, pDomKey, pBrand) returns TRUE if the passed keys
- * were of the right type and it was feasible to compare their
- * brands. Otherwise, it returns FALSE.
- *
- * Iff CompareBrand returns TRUE, then it also updates inv.exit_w1 and
- * inv.exit_w2 to hold the capability type (start or resume) and the
- * key info field, respectively. */
+/* CompareBrand(inv, pDomKey, pBrand) returns TRUE if the brand of the
+   passed pDomKey is equal to the passed pBrand.
+   Otherwise, it returns FALSE.
+
+   Iff CompareBrand returns TRUE, then it also updates inv.exit.w1 and
+   inv.exit.w2 to hold the capability type (start or resume) and the
+   key info field, respectively,
+   and returns a node key in exit key 0. */
 /* May Yield. */
 static bool
 CompareBrand(Invocation* inv /*@ not null @*/, Key* pDomKey, Key* pBrand)
 {
-  /* It was some sort of identify operation -- see if we can satisfy
-   * it.  Must not do this operation on prepared key, since the link
-   * pointers mess things up rather badly.  Since we know that these
-   * are argument keys, the deprepare will not damage any state in the
-   * client key registers.
-   * 
-   * The brand slot never needs to be prepared anyway.
-   */
-
-  /* WE NEED TO MAKE A TEMPORARY COPY OF THESE KEYS in case one of
-   * them proves to be the output key.
-   */
-  Node *domNode = 0;
-  Key *otherBrand = 0;
-
   assert (keyBits_IsPrepared(pDomKey));
   key_Prepare(pBrand);
 
-  domNode = (Node *) key_GetObjectPtr(pDomKey);
-  otherBrand /*@ not null @*/ = node_GetKeyAtSlot(domNode, ProcBrand);
+  Node * procRoot = (Node *) key_GetObjectPtr(pDomKey);
+  Key * otherBrand = node_GetKeyAtSlot(procRoot, ProcBrand);
 
   key_Prepare(otherBrand);
-
 
   COMMIT_POINT();
   
@@ -108,19 +93,12 @@ CompareBrand(Invocation* inv /*@ not null @*/, Key* pDomKey, Key* pBrand)
    * commit point!!!
    */
   {
-    /* Unchain, but do not unprepare -- the objects do not have on-disk
-     * keys. 
-     */
     Process *pContext = 0;
-    ObjectHeader *pObj = 0;
     if (keyBits_IsGateKey(pDomKey))
       pContext = pDomKey->u.gk.pContext;
 
-
-    inv_SetExitKey(inv, 0, pDomKey);
-
-
     if (inv->exit.pKey[0]) {
+      inv_SetExitKey(inv, 0, pDomKey);
       assert (keyBits_IsPrepared(inv->exit.pKey[0]));
 
       keyBits_InitType(inv->exit.pKey[0], KKT_Node);
@@ -131,12 +109,16 @@ CompareBrand(Invocation* inv /*@ not null @*/, Key* pDomKey, Key* pBrand)
        * was actually a gate key, in which event we have a prepared node
        * key on the wrong keyring.  Fix up the keyring in that case:
        */
+      /* This kludge will go away when we link Process keys to the
+      Process instead of the root Node. */
   
       if (pContext) {
+        /* Unchain, but do not unprepare -- the objects do not have on-disk
+         * keys. */
 
 	key_NH_Unchain(inv->exit.pKey[0]);
 
-
+        ObjectHeader *pObj = 0;
 	pObj = DOWNCAST(pContext->procRoot, ObjectHeader);
 	assert (pObj);
 	/* Link as next key after object */
@@ -243,45 +225,38 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       if (inv->exit.pKey[0]) {
 	inv_SetExitKey(inv, 0, inv->entry.key[0]);
 
-	key_NH_Unprepare(inv->exit.pKey[0]);	/* Why? */
+	key_NH_Unprepare(inv->exit.pKey[0]);
+			/* Because we want the Node, not the Process */
 	keyBits_SetType(inv->exit.pKey[0], KKT_Node);
 	inv->exit.pKey[0]->keyData = 0;
       }
 
       return;
     }
-#if 0
-    /* Not currently used! */
-  case OC_ProcTool_IdentProcessKey:
+
+  case OC_capros_ProcTool_identifyProcess:
     {
+      Key * key0 = inv->entry.key[0];
 
-      key_Prepare(inv->entry.key[0]);
+      key_Prepare(key0);
 
-      
+      if (! keyBits_IsType(key0, KKT_Process)) {
 
-      if (keyBits_IsType(inv->entry.key[0], KKT_Process) == false) {
 	COMMIT_POINT();
+        inv->exit.code = RC_capros_key_NoAccess;
 	return;
       }
 
-      inv->exit.code = RC_OK;
-      inv->exit.w1 = 0;
-
-      if ( CompareBrand(inv, inv->entry.key[0], inv->entry.key[1]) ) {
-	inv->exit.w1 = 1;
-
-	if (inv->exit.pKey[0]) {
-	  inv_SetExitKey(inv, 0, inv->entry.key[0]);
-
-	  keyBits_SetType(inv->exit.pKey[0], KKT_Node);
-	  inv->exit.pKey[0]->keyData = 0;
-	}
+      if (CompareBrand(inv, key0, inv->entry.key[1])) {
+        inv->exit.w1 = inv->exit.w2 = 0;	// no information returned here
+        inv->exit.code = RC_OK;
+      } else {
+        inv->exit.code = RC_capros_key_NoAccess;
       }
-      
-      COMMIT_POINT();
+
       return;
     }
-#endif
+
   case OC_capros_ProcTool_identGPTKeeper:
     {
       key_Prepare(inv->entry.key[0]);
@@ -313,7 +288,6 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       }
       
       if ( CompareBrand(inv, domKey, inv->entry.key[1]) == false ) {
-	COMMIT_POINT();
 	return;
       }
       
@@ -332,7 +306,6 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 	inv->exit.pKey[0]->keyPerms &= ~ capros_Memory_opaque;
       }
 
-      COMMIT_POINT();
       return;
     }
   case OC_capros_ProcTool_identForwarderTarget:
@@ -360,12 +333,9 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       }
       
       if (! CompareBrand(inv, domKey, inv->entry.key[1])) {
-        COMMIT_POINT();
 	return;
       }
 
-      COMMIT_POINT();
-      
       inv->exit.code = RC_OK;
 
       if (keyBits_IsType(domKey, KKT_Resume)) {
@@ -380,58 +350,6 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 	keyBits_SetType(inv->exit.pKey[0], KKT_Forwarder);
 	inv->exit.pKey[0]->keyData = 0;	// not opaque
       }
-
-      return;
-    }
-
-  case OC_capros_ProcTool_compareOrigins:
-    {
-      Node *domain0 = 0;
-      Node *domain1 = 0;
-      Key *brand0 = 0;
-      Key *brand1 = 0;
-      if ((keyBits_IsGateKey(inv->entry.key[0]) == false) &&
-	  (keyBits_IsType(inv->entry.key[0], KKT_Process) == false)) {
-
-	COMMIT_POINT();
-	return;
-      }
-
-      if ((keyBits_IsGateKey(inv->entry.key[1]) == false) &&
-	  (keyBits_IsType(inv->entry.key[1], KKT_Process) == false)) {
-
-	COMMIT_POINT();
-	return;
-      }
-      
-
-      key_Prepare(inv->entry.key[0]);
-      key_Prepare(inv->entry.key[1]);
-
-
-      domain0 = (Node *) key_GetObjectPtr(inv->entry.key[0]);
-      domain1 = (Node *) key_GetObjectPtr(inv->entry.key[1]);
-
-
-
-      key_Prepare(node_GetKeyAtSlot(domain0, ProcBrand));
-      key_Prepare(node_GetKeyAtSlot(domain1, ProcBrand));
-
-
-      COMMIT_POINT();
-
-      brand0 /*@ not null @*/ = node_GetKeyAtSlot(domain0, ProcBrand);
-      brand1 /*@ not null @*/ = node_GetKeyAtSlot(domain1, ProcBrand);
-
-      inv->exit.code = RC_OK;
-      
-      /* The following works ONLY because neither the domain brand key nor
-       * a key coming from a key register can be hazarded.
-       */
-      if (memcmp( &brand0, &brand1, sizeof(Key)) == 0)
-	inv->exit.w1 = 1;
-      else
-	inv->exit.w1 = 0;
 
       return;
     }

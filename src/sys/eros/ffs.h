@@ -2,7 +2,7 @@
 #define _ASM_GENERIC_BITOPS___FFS_H_
 
 /**
- * __ffs - find first (least-significant) bit in word.
+ * __ffs - find first (least-significant) 1-bit in word.
  * @word: The word to search
  *
  * Undefined if no bit exists, so code should check against 0 first.

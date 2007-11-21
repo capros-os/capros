@@ -9,7 +9,10 @@ interface ProcTool extends key {
   /** Make a process key from a node key */
   capros.key makeProcess(capros.key krNode);
 
-  boolean compareOrigins(capros.key krProc0, capros.key krProc1);
+  /* If procKey is a process key and brand is its brand,
+  this operation returns a node key to the root of procKey.
+  Otherwise it raises key.NoAccess. */
+  capros.key identifyProcess(capros.key procKey, capros.key brand);
 
   void canOpener(capros.key gateKey, capros.key brand, out capros.key nodeKey,
 		 out unsigned long keyType, out unsigned long keyInfo);
