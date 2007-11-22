@@ -47,6 +47,7 @@ Approved for public release, distribution unlimited. */
 #define KR_HELLO_PC   11
 #define KR_HELLO_SEG  12
 #define KR_DCC        15
+#define KR_NEWSTART   16
 
 
 
@@ -129,9 +130,9 @@ main()
   kdprintf(KR_OSTREAM, "About to mk start key\n");
 
   /* Now make a NODESTROY start key to return: */
-  (void) capros_Process_makeStartKey(KR_NEWDOM, 0, KR_NEWDOM);
+  (void) capros_Process_makeStartKey(KR_NEWDOM, 0, KR_NEWSTART);
 
-  ShowKey(KR_OSTREAM, KR_KEYBITS, KR_NEWDOM);
+  ShowKey(KR_OSTREAM, KR_KEYBITS, KR_NEWSTART);
   kdprintf(KR_OSTREAM, "Got start key. Invoke it:\n");
 
   msg.snd_key0 = KR_VOID;
@@ -148,7 +149,7 @@ main()
   msg.rcv_limit = 0;		/* no data returned */
 
   msg.snd_code = 1234;	// newdom will ignore this
-  msg.snd_invKey = KR_NEWDOM;
+  msg.snd_invKey = KR_NEWSTART;
   result = CALL(&msg);
 
   kdprintf(KR_OSTREAM, "Result is 0x%08x\n", result);
