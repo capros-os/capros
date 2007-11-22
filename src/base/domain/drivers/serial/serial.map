@@ -53,7 +53,7 @@ serial_le_clocks[1] = uart_devclock;
 
 #define SERIAL_DRIVER(name, devRegsPhysAddr, devcfgbit) \
 name##serial_space = new GPT with lss 3;	/* l2v = 22 */ \
-name##serial_space[0] = serial_prog[0]; \
+name##serial_space[0] = ro serial_prog[0]; \
 name##serial_stacks = new GPT with lss 2;	/* l2v = 17 */ \
 name##serial_space[1] = name##serial_stacks; \
 name##serial_stack = new page;		/* stack size is one page */ \

@@ -75,19 +75,28 @@ capKludge xmitWaiter;
  */
 static struct lock_class_key port_lock_key;
 
+struct ktermios theTermios = {
+  .c_iflag = ICRNL | IXON,
+  .c_cflag = BOTHER | CS8 | CREAD | CLOCAL,
+  .c_cc = INIT_C_CC,
+  .c_ospeed = 9600
+  };
 struct uart_state theUartState = {
   .mutex = __MUTEX_INITIALIZER(theUartState.mutex)
   };
 struct uart_driver theUartDriver = {
   };
 struct tty_struct theTtyStruct = {
+  .index = 0,
+  .driver_data = &theUartState,
+  .termios = &theTermios
   };
 struct tty_driver theTtyDriver = {
   .magic = TTY_DRIVER_MAGIC,
   .num = 1,
   .type		= TTY_DRIVER_TYPE_SERIAL,
   .subtype	= SERIAL_TYPE_NORMAL,
-  .flags	= TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV,
+  .flags	= TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV
   };
 
 #if 0
@@ -1000,6 +1009,7 @@ uart_ioctl(struct tty_struct *tty, struct file *filp, unsigned int cmd,
  out:
 	return ret;
 }
+#endif
 
 static void uart_set_termios(struct tty_struct *tty, struct ktermios *old_termios)
 {
@@ -1016,8 +1026,9 @@ static void uart_set_termios(struct tty_struct *tty, struct ktermios *old_termio
 #define RELEVANT_IFLAG(iflag)	((iflag) & (IGNBRK|BRKINT|IGNPAR|PARMRK|INPCK))
 
 	if ((cflag ^ old_termios->c_cflag) == 0 &&
-	    RELEVANT_IFLAG(tty->termios->c_iflag ^ old_termios->c_iflag) == 0)
-		return;
+	    RELEVANT_IFLAG(tty->termios->c_iflag ^ old_termios->c_iflag) == 0
+            && tty->termios->c_ospeed == old_termios->c_ospeed )
+		return;	// no relevant change
 
 	uart_change_speed(state, old_termios);
 
@@ -1052,7 +1063,6 @@ static void uart_set_termios(struct tty_struct *tty, struct ktermios *old_termio
 		spin_unlock_irqrestore(&state->port->lock, flags);
 	}
 }
-#endif
 
 /*
  * In 2.4.5, calls to this will be serialized via the BKL in
@@ -1162,7 +1172,6 @@ static void uart_wait_until_sent(struct tty_struct * tty, int timeout)
 		if (time_after(jiffies, expire))
 			break;
 	}
-	set_current_state(TASK_RUNNING); /* might not be needed */
 }
 
 /*
@@ -1238,7 +1247,6 @@ static int uart_open(struct tty_struct *tty)
 {
 	struct uart_state * state = tty->driver_data;
 	int retval, line = 0;
-kdprintf(KR_OSTREAM, "uart_open tty=0x%x\n", tty);
 
 	BUG_ON(!kernel_locked());
 	pr_debug("uart_open(%d) called\n", line);
@@ -1252,7 +1260,6 @@ kdprintf(KR_OSTREAM, "uart_open tty=0x%x\n", tty);
 	 */
 	state->count++;
 	retval = uart_get(state);
-kdprintf(KR_OSTREAM, "uart_open 2");
 	if (retval) {
 		state->count--;
 		goto fail;
@@ -1272,7 +1279,6 @@ kdprintf(KR_OSTREAM, "uart_open 2");
 	 * Start up the serial port.
 	 */
 	retval = uart_startup(state, 0);
-kdprintf(KR_OSTREAM, "uart_open 2");
 
 	mutex_unlock(&state->mutex);
 
@@ -1663,23 +1669,23 @@ int uart_register_driver(struct uart_driver *drv)
 	BUG_ON(drv->state);
 	assert(drv->nr == 1);
 
-	struct tty_driver * normal = &theTtyDriver;
+	struct tty_driver * driver = &theTtyDriver;
 
 	drv->state = &theUartState;
-	drv->tty_driver = normal;
+	drv->tty_driver = driver;
 
-	normal->owner		= drv->owner;
-	normal->driver_name	= drv->driver_name;
-	normal->name		= drv->dev_name;
+	driver->owner		= drv->owner;
+	driver->driver_name	= drv->driver_name;
+	driver->name		= drv->dev_name;
 #if 0
-	normal->init_termios.c_iflag = ICRNL | IXON;
-	normal->init_termios.c_cflag = BOTHER | CS8 | CREAD | CLOCAL;
-	memcpy(&normal->init_termios.c_cc, INIT_C_CC,
-               sizeof(normal->init_termios.c_cc));
-	normal->init_termios.c_ospeed = 9600;
+	driver->init_termios.c_iflag = ICRNL | IXON;
+	driver->init_termios.c_cflag = BOTHER | CS8 | CREAD | CLOCAL;
+	memcpy(&driver->init_termios.c_cc, INIT_C_CC,
+               sizeof(driver->init_termios.c_cc));
+	driver->init_termios.c_ospeed = 9600;
 #endif
-	normal->flags		= TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
-	normal->driver_state    = drv;
+	driver->flags		= TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV;
+	driver->driver_state    = drv;
 
 	return 0;
 }
@@ -2115,8 +2121,6 @@ main(void)
   capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_STACKS_GPT,
                                KR_RETURN, KR_VOID);
 
-  kdprintf(KR_OSTREAM, "Creating lsync thread\n"); ////
-
   // Create the lsync process.
   unsigned int lsyncThreadNum;
   result = lthread_new_thread(LSYNC_STACK_SIZE, &lsync_main, NULL,
@@ -2126,17 +2130,15 @@ main(void)
   }
 
   // Get lsync process key
-  capros_Node_getSlotExtended(KR_KEYSTORE,
+  result = capros_Node_getSlotExtended(KR_KEYSTORE,
                               LKSN_THREAD_PROCESS_KEYS + lsyncThreadNum,
                               KR_TEMP0);
-  capros_Process_makeStartKey(KR_TEMP0, 0, KR_LSYNC);
-  capros_Process_swapKeyReg(KR_TEMP0, KR_LSYNC, KR_LSYNC, KR_VOID);
+  assert(result == RC_OK);
+  result = capros_Process_makeStartKey(KR_TEMP0, 0, KR_LSYNC);
+  assert(result == RC_OK);
+  result = capros_Process_swapKeyReg(KR_TEMP0, KR_LSYNC, KR_LSYNC, KR_VOID);
+  assert(result == RC_OK);
   
-
-  /* Initialize a struct tty_struct. */
-  struct tty_struct thetty;
-  struct tty_struct * tty = &thetty;
-  tty->index = 0;	// line 0 only
 
   result = capros_SuperNode_allocateRange(KR_KEYSTORE,
                                           xmitWaiterCap, xmitWaiterCap);
@@ -2163,10 +2165,12 @@ main(void)
     assert(false);	// FIXME handle error
   }
 
-  struct uart_state theState;
-  struct uart_state * state = &theState;
-  memzero(state, sizeof(*state));
-  tty->driver_data = state;
+
+  struct tty_struct * tty = &theTtyStruct;
+  struct uart_state * state = &theUartState;
+
+  msg->rcv_key0 = msg->rcv_key1 = msg->rcv_key2 = KR_VOID;
+  msg->rcv_rsmkey = KR_RETURN;
 
   msg->snd_invKey = KR_VOID;
   msg->snd_len = 0;
@@ -2177,9 +2181,8 @@ main(void)
     msg->rcv_data = msgRcvBuf;
     msg->rcv_limit = msgRcvBufSize;
     assert(msg->rcv_limit > sizeof(struct capros_SerialPort_icounter));
-kdprintf(KR_OSTREAM, "RETURNing\n");
     RETURN(msg);
-kdprintf(KR_OSTREAM, "Called\n");
+kdprintf(KR_OSTREAM, "Called, oc=0x%x\n", msg->rcv_code);////
 
     /* If we were sending from an input buffer, we no longer are. */
     if (inputBufSending != 2) {
@@ -2283,8 +2286,18 @@ kdprintf(KR_OSTREAM, "Called\n");
       break;
 
     case OC_capros_SerialPort_setTermios2:
-...
+    {
+      if (msg->rcv_sent < sizeof(struct capros_SerialPort_termios2)) {
+        msg->snd_code = RC_capros_key_RequestError;
+        break;
+      }
+      struct ktermios old_termios = *tty->termios;
+      /* struct capros_SerialPort_termios2 has the same structure as
+         struct ktermios. */
+      *tty->termios = *(struct ktermios *) msg->rcv_data;
+      uart_set_termios(tty, &old_termios);
       break;
+    }
 
     case OC_capros_SerialPort_waitForBreak:
 
