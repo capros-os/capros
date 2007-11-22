@@ -97,6 +97,8 @@ result_t
 lthread_new_thread(uint32_t stackSize,
 		   void * (* start_routine)(void *), void * arg,
 		   /* out */ unsigned int * newThreadNum);
+void lthread_exit(void);
+void lthreadDeallocateNum(unsigned int threadNum);
 
 void * lsync_main(void *);
 #define LSYNC_STACK_SIZE 4096

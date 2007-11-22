@@ -41,9 +41,15 @@ Approved for public release, distribution unlimited. */
 #include <linuxk/lsync.h>
 #include <linux/mutex.h>
 #include <linux/thread_info.h>
+#include <asm/bitops.h>
 
 static DEFINE_MUTEX(threadAllocLock);
-unsigned int nextThreadNum = 1;
+
+/* There is a maximum of 32 threads (limited by the address space
+at LK_STACK_BASE), so a bit vector of threads fits in 32 bits.
+Bit i is 1 iff thread i is allocated.
+Thread 0 is the initial thread. */
+uint32_t threadsAlloc = 0x1;
 
 /* Create a thread in a Linux driver. */
 /* Note: this procedure may return before the new thread has consumed
@@ -74,11 +80,13 @@ lthread_new_thread(uint32_t stackSize,
 {
 #define KR_NEWTHREAD KR_TEMP2
   // Allocate a thread number.
-  /* FIXME: This implementation assumes we never deallocate a thread!! */
   mutex_lock(&threadAllocLock);
-  if (nextThreadNum >= LK_MAX_THREADS)
+  if (threadsAlloc == 0xffffffff) {
+    mutex_unlock(&threadAllocLock);
     return -1;
-  unsigned int threadNum = nextThreadNum++;
+  }
+  unsigned int threadNum = ffz(threadsAlloc);
+  threadsAlloc |= (uint32_t)1 << threadNum;
   mutex_unlock(&threadAllocLock);
 
   uint32_t kr;
@@ -132,11 +140,20 @@ lthread_new_thread(uint32_t stackSize,
   result = capros_GPT_setSlot(KR_TEMP1, threadNum, KR_TEMP0);
   assert(result == RC_OK);
 
+  /* The process's stack will have:
+  0x4xxffc: struct thread_info.preempt_count
+  0x4xxff8: struct thread_info
+  0x4xxff4: the number of pages in the stack
+  0x4xxff0: start_routine, temporarily
+  0x4xxfec: arg, temporarily
+  */
+
   // Store the starting procedure and arg on the stack:
   void * * sp = (void * *)(LK_STACK_BASE
                            + (LK_STACK_AREA * (threadNum + 1))
                            - SIZEOF_THREAD_INFO );
     // + 1 above is to get to the high end of the stack
+  *(uint32_t *)(--sp) = stackPages;
   *(--sp) = start_routine;
   *(--sp) = arg;
 
@@ -181,6 +198,10 @@ lthread_new_thread(uint32_t stackSize,
 
   result = capros_Process_setRegisters32(KR_NEWTHREAD, regs);
   assert(result == RC_OK);
+
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE,
+             LKSN_THREAD_PROCESS_KEYS + threadNum, KR_NEWTHREAD, KR_VOID);
+  assert(result == RC_OK);
   
   result = capros_Process_makeResumeKey(KR_NEWTHREAD, KR_TEMP0);
   assert(result == RC_OK);
@@ -200,6 +221,20 @@ lthread_new_thread(uint32_t stackSize,
 void
 lthread_exit(void)
 {
-  // FIXME: clean up
-  assert(false);	// lthread_exit called!
+  unsigned int threadNum = lk_getCurrentThreadNum();
+  uint32_t stackPages = *((uint32_t *)current_thread_info() - 1);
+
+  mutex_lock(&threadAllocLock);
+
+  capros_LSync_threadDestroy(KR_LSYNC, threadNum, stackPages);
+  assert(false);	// shouldn't get here
+}
+
+// This must be called with the threadAllocLock held.
+// It deallocates the thread number and releases the lock.
+void
+lthreadDeallocateNum(unsigned int threadNum)
+{
+  threadsAlloc &= ~((uint32_t)1 << threadNum);
+  mutex_unlock(&threadAllocLock);
 }

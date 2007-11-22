@@ -133,9 +133,14 @@ int request_irq(unsigned int irq, irq_handler_t handler,
   };
   unsigned int newThreadNum;
 
-  result = lthread_new_thread(IntStackSize, interrupt_thread_func,
+  result_t lthres = lthread_new_thread(IntStackSize, interrupt_thread_func,
              &args, &newThreadNum);
-  if (result) {
+  down(&args.arglock);
+
+  result = capros_Node_getSlot(KR_LINUX_EMUL, LE_DEVPRIVS, KR_TEMP0);
+  assert(result == RC_OK);
+
+  if (lthres) {
     capros_DevPrivs_releaseIRQ(KR_TEMP0, irq);
     return -EINVAL;
   }

@@ -27,6 +27,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/GPT.h>
+#include <idl/capros/ProcCre.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/LSync.h>
 
@@ -150,8 +152,8 @@ lsync_main(void * arg)
 
     case OC_capros_LSync_semaWait:
     {
-      struct semaphore * sem = (struct semaphore *)msg->snd_w1;
-      wait_queue_t * wq = (wait_queue_t *)msg->snd_w2;
+      struct semaphore * sem = (struct semaphore *)msg->rcv_w1;
+      wait_queue_t * wq = (wait_queue_t *)msg->rcv_w2;
       // The caller has already decremented the count. 
       if (sem->wakeupsWaiting > 0) {
         // The wakeup already came in.
@@ -171,7 +173,7 @@ lsync_main(void * arg)
 
     case OC_capros_LSync_semaWakeup:
     {
-      struct semaphore * sem = (struct semaphore *)msg->snd_w1;
+      struct semaphore * sem = (struct semaphore *)msg->rcv_w1;
       if (list_empty(&sem->task_list)) {
         sem->wakeupsWaiting++;	// only this thread references wakeupsWaiting
       } else {
@@ -188,9 +190,9 @@ lsync_main(void * arg)
 
     case OC_capros_LSync_rwsemWait:
     {
-      struct rw_semaphore * sem = (struct rw_semaphore *)msg->snd_w1;
-      bool write = msg->snd_w2;
-      wait_queue_t * wq = (wait_queue_t *)msg->snd_w3;
+      struct rw_semaphore * sem = (struct rw_semaphore *)msg->rcv_w1;
+      bool write = msg->rcv_w2;
+      wait_queue_t * wq = (wait_queue_t *)msg->rcv_w3;
 
       list_add_tail(&wq->task_list,
                     write ? &sem->writeWaiters : &sem->readWaiters);
@@ -209,13 +211,49 @@ lsync_main(void * arg)
 
     case OC_capros_LSync_rwsemWakeup:
     {
-      struct rw_semaphore * sem = (struct rw_semaphore *)msg->snd_w1;
+      struct rw_semaphore * sem = (struct rw_semaphore *)msg->rcv_w1;
 
       checkRwSem(sem);
 
       // Return to caller.
       msg->snd_invKey = KR_RETURN;
       msg->snd_code = RC_OK;
+      break;
+    }
+
+    case OC_capros_LSync_threadDestroy:
+    {
+      result_t result;
+      unsigned int threadNum = msg->rcv_w1;
+      uint32_t stackPages = msg->rcv_w2;
+
+      result = capros_Node_getSlotExtended(KR_KEYSTORE,
+                 LKSN_STACKS_GPT, KR_TEMP1);
+      assert(result == RC_OK);
+      result = capros_GPT_getSlot(KR_TEMP1, threadNum, KR_TEMP0);
+      assert(result == RC_OK);
+      if (stackPages > 1) {
+        /* Don't bother to optimize by freeing up to 3 pages at once,
+         on the assumption that the stack is seldom more than 1 page. */
+
+        int i;
+        for (i = 0; i < stackPages; i++) {
+          capros_GPT_getSlot(KR_TEMP0, capros_GPT_nSlots - 1 - i,
+                              KR_TEMP1);
+          assert(result == RC_OK);
+          capros_SpaceBank_free1(KR_BANK, KR_TEMP1);
+        }
+      }
+      // Free top level GPT or single page.
+      capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
+
+      result = capros_Node_getSlotExtended(KR_KEYSTORE,
+                 LKSN_THREAD_PROCESS_KEYS + threadNum, KR_TEMP0);
+      assert(result == RC_OK);
+      result = capros_ProcCre_destroyProcess(KR_CREATOR, KR_BANK, KR_TEMP0);
+      assert(result == RC_OK);
+
+      lthreadDeallocateNum(threadNum);
       break;
     }
 

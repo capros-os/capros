@@ -13,4 +13,8 @@ interface LSync extends key {
   /* Operations to support rw_semaphores. */
   void rwsemWait(pointer rwsem, boolean write, pointer wq);
   void rwsemWakeup(pointer rwsem);
+
+  /* threadExit must be called with the threadAllocLock held. 
+     This operation releases it and destroys the thread. */
+  void threadDestroy(unsigned long threadNum, unsigned long stackPages);
 };
