@@ -35,12 +35,15 @@ void sema_init(struct semaphore *sem, int val)
   INIT_LIST_HEAD(&sem->task_list);
 }
 
-void down_slowpath(struct semaphore * sem)
+void down(struct semaphore * sem)
 {
-  wait_queue_t wq;
-  wq.threadNum = lk_getCurrentThreadNum();
-  capros_LSync_semaWait(KR_LSYNC, (capros_LSync_pointer)sem,
-                        (capros_LSync_pointer)&wq);
+  might_sleep();
+  if (atomic_dec_return(&sem->count) < 0) {
+    wait_queue_t wq;
+    wq.threadNum = lk_getCurrentThreadNum();
+    capros_LSync_semaWait(KR_LSYNC, (capros_LSync_pointer)sem,
+                          (capros_LSync_pointer)&wq);
+  }
 }
 
 int
@@ -55,4 +58,12 @@ down_trylock(struct semaphore * sem)
     newcnt = atomic_cmpxchg(&sem->count, cnt, cnt - 1);
   } while (newcnt != cnt);
   return 0;	// success
+}
+
+void
+up(struct semaphore * sem)
+{
+  if (atomic_inc_return(&sem->count) <= 0) {
+    capros_LSync_semaWakeup(KR_LSYNC, (capros_LSync_pointer)sem);
+  }
 }

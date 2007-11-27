@@ -26,6 +26,12 @@ Approved for public release, distribution unlimited. */
 #include <linux/kernel.h>
 #include <linux/wait.h>
 
+void init_waitqueue_head(wait_queue_head_t *q)
+{
+  spin_lock_init(&q->lock);
+  INIT_LIST_HEAD(&q->task_list);
+}
+
 void fastcall add_wait_queue(wait_queue_head_t *q, wait_queue_t *wait)
 {
 	unsigned long flags;

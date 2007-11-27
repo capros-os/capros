@@ -52,6 +52,7 @@ OBJECTS=$(BUILDDIR)/rwsem.o \
 ifeq "$(EROS_TARGET)" "arm"
 OBJECTS+=$(BUILDDIR)/devclock.o
 OBJECTS+=$(BUILDDIR)/memzero.o
+OBJECTS+=$(BUILDDIR)/bitops.o
 endif
 
 TARGETS=$(BUILDDIR)/liblinuxk.a $(BUILDDIR)/dstart.o
