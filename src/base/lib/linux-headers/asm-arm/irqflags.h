@@ -3,6 +3,7 @@
 
 #ifdef __KERNEL__
 
+#if 0 // CapROS processes cannot access the interrupt masks.
 #include <asm/ptrace.h>
 
 /*
@@ -128,5 +129,16 @@
 	(int)((flags) & PSR_I_BIT);	\
 })
 
+#endif // __KERNEL__
+#else	// CapROS
+// Catch uses of these by declaring procedures but not defining them.
+void raw_local_irq_save(unsigned long);
+void raw_local_irq_enable(void);
+void raw_local_irq_disable(void);
+void local_fiq_enable(void);
+void local_fiq_disable(void);
+void raw_local_save_flags(unsigned long);
+void raw_local_irq_restore(unsigned long);
+unsigned long raw_irqs_disabled_flags(unsigned long);
 #endif
 #endif

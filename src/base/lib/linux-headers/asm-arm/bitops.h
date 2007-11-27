@@ -6,12 +6,6 @@
  *  reworked by rmk.
  *
  * bit 0 is the LSB of an "unsigned long" quantity.
- *
- * Please note that the code in this file should never be included
- * from user space.  Many of these are not implemented in assembler
- * since they would be too costly.  Also, they require privileged
- * instructions (which are not available from user mode) to ensure
- * that they are atomic.
  */
 
 #ifndef __ASM_ARM_BITOPS_H
@@ -25,6 +19,7 @@
 #define smp_mb__before_clear_bit()	mb()
 #define smp_mb__after_clear_bit()	mb()
 
+#if 0	// In a CapROS process, irq_save does not assure atomicity.
 /*
  * These functions are the basis of our bit ops.
  *
@@ -116,6 +111,7 @@ ____atomic_test_and_change_bit(unsigned int bit, volatile unsigned long *p)
 
 	return res & mask;
 }
+#endif
 
 #include <asm-generic/bitops/non-atomic.h>
 
@@ -147,12 +143,12 @@ ____atomic_test_and_change_bit(unsigned int bit, volatile unsigned long *p)
 /*
  * Little endian assembly bitops.  nr = 0 -> byte 0 bit 0.
  */
-extern void _set_bit_le(int nr, volatile unsigned long * p);
-extern void _clear_bit_le(int nr, volatile unsigned long * p);
-extern void _change_bit_le(int nr, volatile unsigned long * p);
-extern int _test_and_set_bit_le(int nr, volatile unsigned long * p);
-extern int _test_and_clear_bit_le(int nr, volatile unsigned long * p);
-extern int _test_and_change_bit_le(int nr, volatile unsigned long * p);
+extern void _set_bit_le(unsigned int nr, volatile unsigned long * p);
+extern void _clear_bit_le(unsigned int nr, volatile unsigned long * p);
+extern void _change_bit_le(unsigned int nr, volatile unsigned long * p);
+extern int _test_and_set_bit_le(unsigned int nr, volatile unsigned long * p);
+extern int _test_and_clear_bit_le(unsigned int nr, volatile unsigned long * p);
+extern int _test_and_change_bit_le(unsigned int nr, volatile unsigned long * p);
 extern int _find_first_zero_bit_le(const void * p, unsigned size);
 extern int _find_next_zero_bit_le(const void * p, int size, int offset);
 extern int _find_first_bit_le(const unsigned long *p, unsigned size);
@@ -172,23 +168,8 @@ extern int _find_next_zero_bit_be(const void * p, int size, int offset);
 extern int _find_first_bit_be(const unsigned long *p, unsigned size);
 extern int _find_next_bit_be(const unsigned long *p, int size, int offset);
 
-#ifndef CONFIG_SMP
-/*
- * The __* form of bitops are non-atomic and may be reordered.
- */
-#define	ATOMIC_BITOP_LE(name,nr,p)		\
-	(__builtin_constant_p(nr) ?		\
-	 ____atomic_##name(nr, p) :		\
-	 _##name##_le(nr,p))
-
-#define	ATOMIC_BITOP_BE(name,nr,p)		\
-	(__builtin_constant_p(nr) ?		\
-	 ____atomic_##name(nr, p) :		\
-	 _##name##_be(nr,p))
-#else
 #define ATOMIC_BITOP_LE(name,nr,p)	_##name##_le(nr,p)
 #define ATOMIC_BITOP_BE(name,nr,p)	_##name##_be(nr,p)
-#endif
 
 #define NONATOMIC_BITOP(name,nr,p)		\
 	(____nonatomic_##name(nr, p))

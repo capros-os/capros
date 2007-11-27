@@ -66,14 +66,7 @@ static inline void init_MUTEX_LOCKED(struct semaphore *sem)
 }
 
 
-void down_slowpath(struct semaphore * sem);
-static inline void down(struct semaphore * sem)
-{
-  might_sleep();
-  if (atomic_dec_return(&sem->count) < 0) {
-    down_slowpath(sem);
-  }
-}
+void down(struct semaphore * sem);
 
 static inline int down_interruptible (struct semaphore * sem)
 {
@@ -83,17 +76,6 @@ static inline int down_interruptible (struct semaphore * sem)
 
 int down_trylock(struct semaphore * sem);
 
-/*
- * Note! This is subtle. We jump to wake people up only if
- * the semaphore was negative (== somebody was waiting on it).
- * The default case (no contention) will result in NO
- * jumps for both down() and up().
- */
-static inline void up(struct semaphore * sem)
-{
-  if (atomic_inc_return(&sem->count) <= 0) {
-    capros_LSync_semaWakeup(KR_LSYNC, (capros_LSync_pointer)sem);
-  }
-}
+void up(struct semaphore * sem);
 
 #endif // __ASM_GENERIC_SEMAPHORE_H

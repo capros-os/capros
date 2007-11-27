@@ -11,6 +11,7 @@
 #ifndef _LINUX_TRACE_IRQFLAGS_H
 #define _LINUX_TRACE_IRQFLAGS_H
 
+#if 0 // A CapROS process can't disable irq.
 #ifdef CONFIG_TRACE_IRQFLAGS
   extern void trace_hardirqs_on(void);
   extern void trace_hardirqs_off(void);
@@ -91,6 +92,7 @@
 })
 
 #define irqs_disabled_flags(flags)	raw_irqs_disabled_flags(flags)
-#endif		/* CONFIG_X86 */
+#endif		/* CONFIG_TRACE_IRQFLAGS_SUPPORT */
+#endif // 0
 
 #endif

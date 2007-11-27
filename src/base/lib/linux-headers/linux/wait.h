@@ -100,10 +100,7 @@ struct task_struct;
 #define __WAIT_BIT_KEY_INITIALIZER(word, bit)				\
 	{ .flags = word, .bit_nr = bit, }
 
-static inline void init_waitqueue_head(wait_queue_head_t *q)
-{
-  INIT_LIST_HEAD(&q->task_list);
-}
+extern void init_waitqueue_head(wait_queue_head_t *q);
 
 #ifdef CONFIG_LOCKDEP
 # define __WAIT_QUEUE_HEAD_INIT_ONSTACK(name) \

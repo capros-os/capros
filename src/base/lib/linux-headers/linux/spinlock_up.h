@@ -30,21 +30,6 @@ static inline void __raw_spin_unlock(raw_spinlock_t *lock)
 	up(&lock->sem);
 }
 
-#ifdef CONFIG_DEBUG_SPINLOCK
-
-/*
- * Read-write spinlocks. No debug version.
- */
-#define __raw_read_lock(lock)		do { (void)(lock); } while (0)
-#define __raw_write_lock(lock)		do { (void)(lock); } while (0)
-#define __raw_read_trylock(lock)	({ (void)(lock); 1; })
-#define __raw_write_trylock(lock)	({ (void)(lock); 1; })
-#define __raw_read_unlock(lock)		do { (void)(lock); } while (0)
-#define __raw_write_unlock(lock)	do { (void)(lock); } while (0)
-
-#else /* DEBUG_SPINLOCK */
-#endif /* DEBUG_SPINLOCK */
-
 #define __raw_read_can_lock(lock)	unimplemented
 #define __raw_write_can_lock(lock)	unimplemented
 

@@ -320,6 +320,7 @@ static inline unsigned long __xchg(unsigned long x, volatile void *ptr, int size
 #ifdef CONFIG_SMP
 #error SMP is not supported on this platform
 #endif
+#error Need to implement atomic swap of size 1 as a SWI
 	case 1:
 		raw_local_irq_save(flags);
 		ret = *(volatile unsigned char *)ptr;

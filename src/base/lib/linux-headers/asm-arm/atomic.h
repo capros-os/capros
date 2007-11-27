@@ -124,6 +124,7 @@ static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 
 #define atomic_set(v,i)	(((v)->counter) = (i))
 
+// Add i to v and return the result.
 static inline int atomic_add_return(int i, atomic_t *v)
 {
 	return capros_atomic_add32_return(i, (volatile uint32_t *)&v->counter);
