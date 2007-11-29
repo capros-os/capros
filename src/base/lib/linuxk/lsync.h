@@ -59,6 +59,7 @@ thread_info structure, of which only preempt_count is used. */
 #define KR_OSTREAM    KR_APP(1)
 #define KR_LSYNC      KR_APP(2)	// start key to lsync process
 #define KR_SLEEP      KR_APP(3) // to speed up getting jiffies
+#define KR_APP2(i)    KR_APP(4+i) // first available key reg for driver
 
 /* Slots in the node in KR_LINUX_EMUL: */
 #define LE_CLOCKS 0
@@ -81,8 +82,9 @@ the process (usually one). */
      a resume key to thread i. */
 #define LKSN_THREAD_PROCESS_KEYS 0
 #define LKSN_THREAD_RESUME_KEYS  LK_MAX_THREADS
-#define LKSN_STACKS_GPT          LKSN_THREAD_RESUME_KEYS+LK_MAX_THREADS
-#define LKSN_MAPS_GPT            LKSN_STACKS_GPT+1
+#define LKSN_STACKS_GPT          (LKSN_THREAD_RESUME_KEYS+LK_MAX_THREADS)
+#define LKSN_MAPS_GPT            (LKSN_STACKS_GPT+1)
+#define LKSN_APP                 (LKSN_MAPS_GPT+1) // available for driver
 
 #ifndef __ASSEMBLER__
 
@@ -91,6 +93,7 @@ the process (usually one). */
 
 typedef uint32_t uva_t;	/* user (unmodified) virtual address */
 
+#define noThread (-1)
 unsigned int lk_getCurrentThreadNum(void);
 
 result_t
@@ -98,6 +101,8 @@ lthread_new_thread(uint32_t stackSize,
 		   void * (* start_routine)(void *), void * arg,
 		   /* out */ unsigned int * newThreadNum);
 void lthread_exit(void);
+void lthread_destroy(unsigned int threadNum);
+uint32_t lthread_getStackPages(unsigned int threadNum);
 void lthreadDeallocateNum(unsigned int threadNum);
 
 void * lsync_main(void *);

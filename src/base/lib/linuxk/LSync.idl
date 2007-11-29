@@ -16,5 +16,5 @@ interface LSync extends key {
 
   /* threadExit must be called with the threadAllocLock held. 
      This operation releases it and destroys the thread. */
-  void threadDestroy(unsigned long threadNum, unsigned long stackPages);
+  void threadDestroy(unsigned long threadNum);
 };

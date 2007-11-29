@@ -217,17 +217,46 @@ lthread_new_thread(uint32_t stackSize,
 #undef KR_NEWTHREAD
 }
 
+uint32_t
+lthread_getStackPages(unsigned int threadNum)
+{
+  void * * sp = (void * *)(LK_STACK_BASE
+                           + (LK_STACK_AREA * (threadNum + 1))
+                           - SIZEOF_THREAD_INFO );
+    // + 1 above is to get to the high end of the stack
+  return *(uint32_t *)(--sp);
+}
+
 // Stop the current thread.
 void
 lthread_exit(void)
 {
   unsigned int threadNum = lk_getCurrentThreadNum();
-  uint32_t stackPages = *((uint32_t *)current_thread_info() - 1);
 
   mutex_lock(&threadAllocLock);
 
-  capros_LSync_threadDestroy(KR_LSYNC, threadNum, stackPages);
+  capros_LSync_threadDestroy(KR_LSYNC, threadNum);
   assert(false);	// shouldn't get here
+}
+
+// Stop the specified thread.
+void
+lthread_destroy(unsigned int threadNum)
+{
+  result_t result = capros_Node_getSlotExtended(KR_KEYSTORE,
+             LKSN_THREAD_PROCESS_KEYS + threadNum, KR_TEMP0);
+  assert(result == RC_OK);
+
+  /* Stop the process, so it won't run into trouble as we dismantle it. */
+  /* Making a resume key will make the process Waiting,
+  which stops it from running. */
+  result = capros_Process_makeResumeKey(KR_TEMP0,
+             KR_VOID /* discard the key */);
+  assert(result == RC_OK);
+
+  mutex_lock(&threadAllocLock);
+
+  capros_LSync_threadDestroy(KR_LSYNC, threadNum);
 }
 
 // This must be called with the threadAllocLock held.

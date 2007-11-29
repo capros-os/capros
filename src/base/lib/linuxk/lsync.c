@@ -225,7 +225,7 @@ lsync_main(void * arg)
     {
       result_t result;
       unsigned int threadNum = msg->rcv_w1;
-      uint32_t stackPages = msg->rcv_w2;
+      uint32_t stackPages = lthread_getStackPages(threadNum);
 
       result = capros_Node_getSlotExtended(KR_KEYSTORE,
                  LKSN_STACKS_GPT, KR_TEMP1);
