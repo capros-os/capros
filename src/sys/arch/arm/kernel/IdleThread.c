@@ -33,11 +33,26 @@ IdleActivity_Start(void)
 {
   int stack;
 
-  dprintf(true, "Start IdleActivity (activity 0x%x,context 0x%x,stack 0x%x)\n",
+  printf("Start IdleActivity (activity 0x%x,context 0x%x,stack 0x%x)\n",
 	 act_curActivity, act_curActivity->context, &stack);
 
-  /* TODO: use wait for interrupt: mcr p15,0,rx,c7,c0,4 */
+  // For some reason, cannot call Debugger here; this process gets wedged,
+  // which is a Bad Thing.
+
   for(;;) {
+#if 1
+    // Show idle activity
+    volatile int x;
+    int i;
+    for (i=0; i<10000000; i++)
+      (void)x;
+    printf("i\b");
+    for (i=0; i<10000000; i++)
+      (void)x;
+    printf("I\b");
+#else
+    __asm__ ("mcr p15,0,r0,c7,c0,4");	// wait for interrupt
+#endif
   }
 }
 

@@ -22,6 +22,8 @@
 /* This material is based upon work supported by the US Defense Advanced
    Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
 
+#include <kerninc/StallQueue.h>
+
 /* We record here the static assignments of vectored interrupts. 
 
  VIC1:

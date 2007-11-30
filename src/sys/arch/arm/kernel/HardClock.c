@@ -198,7 +198,7 @@ mach_InitHardClock(void)
 {
   int i;
 
-  InterruptSourceSetup(VIC_Source_TC1OI, 15, TC1OIHandler);
+  InterruptSourceSetup(VIC_Source_TC1OI, 15, &TC1OIHandler);
   RecalcWakeupTime();
   /* Not necessary to call ReloadWakeupTimer(), because there is
      nothing to wake up yet. */

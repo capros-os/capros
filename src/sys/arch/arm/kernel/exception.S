@@ -207,6 +207,14 @@ When in Abort mode, IRQ is disabled or spsr_abt has no information.
 Thus we don't need to save that register. 
 However we DO need to save r14_abt.
 */
+#ifndef NDEBUG
+/* For stack trace, we need the interrupted fp and pc, which are on
+the IRQ stack.
+Get a pointer to the saved fp (r11) into r0.
+Saved pc is 8 beyond that.
+Coordinate any changes with db_stack_trace_cmd. */
+	add r0,sp,#20
+#endif
 	msr cpsr_c,#(MASK_CPSR_IRQDisable + CPSRMode_Abort)
 	mov r10,r14	// save r14_abt
 
@@ -215,7 +223,7 @@ However we DO need to save r14_abt.
 	str r1,[r3]
 
 #ifndef NDEBUG
-	stmfd sp!,{r11}
+	stmfd sp!,{r0,r11}
 	mov r11,#6	// for stack traceback
 #endif
 #ifdef CHECKREGS
@@ -245,7 +253,7 @@ regMsg:	.asciz "ISR not saving regs!\n"
 1:
 #endif
 #ifndef NDEBUG
-	ldmfd sp!,{r11}
+	ldmfd sp!,{r0, r11}
 #endif
 // r10 still has saved r14_abt
 // r11 has interrupted cpsr

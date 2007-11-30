@@ -26,6 +26,8 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <kerninc/KernStream.h>
 #include "ep93xx-uart.h"
+#include "ep93xx-vic.h"
+#include "Interrupt.h"
 #include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 
 void SerialStream_Put(uint8_t c);
@@ -72,22 +74,49 @@ SerialStream_Put(uint8_t c)
 uint8_t
 SerialStream_Get(void)
 {
-//printf("ssg ");////
   /* Wait until receive buffer not empty. */
   while (UART1.Flag & UARTFlag_RXFE) ;
   uint8_t c = UART1.Data;
   return c;
 }
 
+INLINE void
+setRxInterruptEnable(void)
+{
+  if (kstream_debuggerIsActive)
+    // disable receive interrupts, debugger will read
+    UART1.Ctrl = UARTCtrl_UARTE;
+  else
+    // enable receive interrupts
+    UART1.Ctrl = UARTCtrl_UARTE | UARTCtrl_RIE | UARTCtrl_RTIE;
+}
+
 void
 SerialStream_SetDebugging(bool onOff)
 {
   kstream_debuggerIsActive = onOff;
+  setRxInterruptEnable();
+}
+
+static void
+UART1IntrHandler(VICIntSource * vis)
+{
+  (void)VIC2.VectAddr;  // read it to mask interrupts of lower or equal priority
+  char c = SerialStream_Get();
+
+  if (c == ETX)
+    Debugger();
+
+  VIC2.VectAddr = 0;    // write it to reenable interrupts
+                        // of lower or equal priority
 }
 
 void
 SerialStream_EnableDebuggerInput(void)
 {
+  InterruptSourceSetup(VIC_Source_INT_UART1, 1, &UART1IntrHandler);
+  setRxInterruptEnable();
+  InterruptSourceEnable(VIC_Source_INT_UART1);
 }
 #endif
 

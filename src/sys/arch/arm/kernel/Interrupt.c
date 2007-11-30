@@ -59,7 +59,7 @@ typedef struct VICInfo {
 
 VICInfo VICInfos[2];	// VICInfo for VIC1 and VIC2
 
-void
+static void
 VICNonvectoredHandler(VICInfo * vicInfo)
 {
 #if 1
@@ -72,6 +72,9 @@ VICNonvectoredHandler(VICInfo * vicInfo)
   for (i = 0; i < 32; i++) {
     if (intStatus & 0x1) {	// found one
       VICIntSource * vis = &vicInfo->sourceArray[i];
+#if 0
+      printf("NVI source %d\n", vis->sourceNum);
+#endif
       (vis->ISRAddr)(vis);	// Call the ISR
     }
     intStatus >>= 1;
@@ -266,9 +269,10 @@ DoIRQException(void)
   VICIntSource * vis = (VICIntSource *)VIC1.VectAddr;
   ISRType isr = vis->ISRAddr;
 
-#if 0
-  printf("IRQ vectoring to 0x%08x, status=0x%08x, Vec15=0x%08x\n",
-         isr, VIC1.IRQStatus, VIC1.VectAddrN[15]);
+#ifndef NDEBUG
+  if (dbg_inttrap)
+    printf("IRQ vectoring to 0x%08x, status=0x%08x, Vec15=0x%08x\n",
+           isr, VIC1.IRQStatus, VIC1.VectAddrN[15]);
 #endif
 #if 0	// Note, this is not reliable, because kernel structures
 	// can be in intermediate states while IRQ is enabled.

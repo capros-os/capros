@@ -349,10 +349,6 @@ kproc_Init(
   p->trapFrame.CPSR = 0x1f;	/* System mode */
   p->trapFrame.r15 = (uint32_t) pc;
 
-  /* YES the first of these is dead code.  It suppresses the unused
-   * argument warning if DBG_WILD_PTR is not enabled.
-   */
-  (void) stkBottom;
   p->trapFrame.r13 = (uint32_t) stkTop;
     
   return p;

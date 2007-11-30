@@ -219,6 +219,7 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
     frame = (FramePtr)addr;
     callpc = (db_addr_t) FramePtr_GetRetAddr(frame);
   }
+  FramePtr prevFrame = 0;
 
   while (count && frame != 0) {
     const char * name;
@@ -237,9 +238,9 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
     if (frame <= 7) {
       // Values of the frame pointer from 1 through 7 are used to signal an
       // exception.
-      FramePtr oldFrame = frame;
+      FramePtr thisFrame = frame;
       callpc = frame = 0;	// by default, this is the end of the line
-      switch (oldFrame) {
+      switch (thisFrame) {
         case 1: printf("[Undefined instr exception]"); goto tryCurrent;
         case 2: printf("[SWI exception]"); goto tryCurrent;
         case 3: printf("[Prefetch abort exception]"); goto tryCurrent;
@@ -255,13 +256,22 @@ tryCurrent:
           break;
 
         case 5: break;	// no such exception - must be corruption
-        case 6: printf("[IRQ exception]"); break;
+        case 6: printf("[IRQ exception]");
+        {
+          // This is very dependent on the exception handling code.
+          db_addr_t irqsp = db_get_value((int)(prevFrame+4), 4, false);
+          frame = db_get_value((int)(irqsp+0), 4, false);
+          callpc = db_get_value((int)(irqsp+8), 4, false);
+          break;
+        }
         case 7: printf("[FIQ exception]"); break;
       }
+      prevFrame = thisFrame;
     } else {
       db_printf("0x%08x: ", callpc);
       db_printf("[FP=0x%08x] ", frame);
       db_printsym(callpc, DB_STGY_PROC);
+      prevFrame = frame;
       callpc = (db_addr_t) FramePtr_GetRetAddr(frame);
       frame = (FramePtr) FramePtr_GetNextFrame(frame);
     }
