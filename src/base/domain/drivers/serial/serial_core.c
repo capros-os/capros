@@ -48,6 +48,7 @@ Approved for public release, distribution unlimited. */
 #include <asm/hardware.h>
 #include <asm/io.h>
 #include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
+#include "serialPort.h"
 
 #define TTY_THRESHOLD_THROTTLE   128
 #define TTY_THRESHOLD_UNTHROTTLE 128
@@ -60,14 +61,17 @@ static DEFINE_MUTEX(port_mutex);
 #define msgRcvBufSize UART_XMIT_SIZE
 unsigned char msgRcvBuf[msgRcvBufSize];
 
-typedef char capKludge;	/* The ADDRESS of a capKludge is the index of
-	a key in KR_KEYSTORE. */
-
-/* xmitWaiter may have a resume key to the client that 
-transmitted the data in xmitBuf. */
-capKludge xmitWaiter;
-#define toCap(x) ((cap_t)&x)
-#define xmitWaiterCap (toCap(xmitWaiter))
+/* Define slots for keys in KR_KEYSTORE: */
+enum {
+  xmitWaiterCap = LKSN_APP,
+  readWaiterCap,
+  wmdWaiterCap,
+  closeWaiterCap,
+  breakWaiterCap,
+  suspendWaiterCap,
+  sentWaiterCap,
+  lastWaiterCap = sentWaiterCap
+};
 
 /*
  * lockdep: port->lock is initialized in two places, but we
@@ -80,24 +84,55 @@ struct ktermios theTermios = {
   .c_cflag = BOTHER | CS8 | CREAD | CLOCAL,
   .c_cc = INIT_C_CC,
   .c_ospeed = 9600
-  };
+};
 struct uart_state theUartState = {
   .mutex = __MUTEX_INITIALIZER(theUartState.mutex)
-  };
+};
 struct uart_driver theUartDriver = {
-  };
+};
 struct tty_struct theTtyStruct = {
   .index = 0,
   .driver_data = &theUartState,
   .termios = &theTermios
-  };
+};
 struct tty_driver theTtyDriver = {
   .magic = TTY_DRIVER_MAGIC,
   .num = 1,
   .type		= TTY_DRIVER_TYPE_SERIAL,
   .subtype	= SERIAL_TYPE_NORMAL,
   .flags	= TTY_DRIVER_REAL_RAW | TTY_DRIVER_DYNAMIC_DEV
-  };
+};
+
+
+struct common_wait_data {
+  wait_queue_t waitQ;
+  bool inUse;
+  const unsigned long waiterCap;
+  struct uart_state * state;
+};
+
+static void
+SetupCallerWait(struct common_wait_data * d,
+  wait_queue_func_t waitFunc, struct uart_state * state)
+{
+  d->waitQ.func = waitFunc;
+  d->waitQ.private = d;
+  d->state = state;
+  d->inUse = true;
+  INIT_LIST_HEAD(&d->waitQ.task_list);
+  capros_Node_swapSlotExtended(KR_KEYSTORE, d->waiterCap, KR_RETURN, KR_VOID);
+}
+
+static void
+SetupReturnToWaiter(struct common_wait_data * d, Message * msg)
+{
+  capros_Node_getSlotExtended(KR_KEYSTORE, d->waiterCap, KR_TEMP0);
+  msg->snd_key0 = msg->snd_key1 = msg->snd_key2 = msg->snd_rsmkey = KR_VOID;
+  msg->snd_w1 = msg->snd_w2 = msg->snd_w3 = 0;
+  msg->snd_code = RC_OK;
+  msg->snd_len = 0;
+  msg->snd_invKey = KR_TEMP0;
+}
 
 #if 0
 #define HIGH_BITS_OFFSET	((sizeof(long)-sizeof(int))*8)
@@ -108,30 +143,47 @@ struct tty_driver theTtyDriver = {
 #define uart_console(port)	(0)
 
 static void uart_change_speed(struct uart_state *state, struct ktermios *old_termios);
-static void uart_wait_until_sent(struct tty_struct *tty, int timeout);
 static void uart_change_pm(struct uart_state *state, int pm_state);
 
+struct {
+  struct common_wait_data d;
+} sentGlobal = {
+  .d = {
+    .inUse = false,
+    .waiterCap = sentWaiterCap
+  }
+};
+
 struct wait_break_data {
-  bool inUse;
-  capKludge waiter;
-} brkGlobal;
+  struct common_wait_data d;
+} brkGlobal = {
+  .d = {
+    .inUse = false,
+    .waiterCap = breakWaiterCap
+  }
+};
+DECLARE_WAIT_QUEUE_HEAD(break_wait_queue_head);
+
+static int
+wake_caller_func(wait_queue_t * wait, unsigned mode, int sync, void * key)
+{
+  struct common_wait_data * d = wait->private;
+
+  // Return to the caller.
+  Message msg;
+  SetupReturnToWaiter(d, &msg);
+  PSEND(&msg);	// prompt send
+
+  d->inUse = false;
+  __remove_wait_queue(NULL, wait);
+
+  return 1;
+}
 
 int
 uart_handle_break(struct uart_port * port)
 {
-  if (brkGlobal.inUse) {
-    // Return to the waiter.
-    capros_Node_getSlotExtended(KR_KEYSTORE, toCap(brkGlobal.waiter), KR_TEMP0);
-    Message msg;
-    msg.snd_key0 = msg.snd_key1 = msg.snd_key2 = msg.snd_rsmkey = KR_VOID;
-    msg.snd_w1 = msg.snd_w2 = msg.snd_w3 = 0;
-    msg.snd_code = RC_OK;
-    msg.snd_len = 0;
-    msg.snd_invKey = KR_TEMP0;
-    PSEND(&msg);	// prompt send
-
-    brkGlobal.inUse = false;
-  }
+  wake_up(&break_wait_queue_head);
   return 0;
 }
 
@@ -173,6 +225,7 @@ uart_handle_cts_change(struct uart_port *port, unsigned int status)
 
 void uart_write_wakeup(struct uart_port *port)
 {
+#if 0 //// no write wakeup yet
 	struct uart_info *info = port->info;
 	/*
 	 * This means you called this function _after_ the port was
@@ -180,6 +233,7 @@ void uart_write_wakeup(struct uart_port *port)
 	 */
 	BUG_ON(!info);
 	wake_up_interruptible(&info->tty->write_wait);
+#endif
 }
 
 static void uart_stop(struct tty_struct *tty)
@@ -820,38 +874,36 @@ msrIsChanged(struct capros_SerialPort_icounter * cprev,
 }
 
 struct wait_modem_data {
-  struct uart_state * state;
+  struct common_wait_data d;
   unsigned long mask;
   struct capros_SerialPort_icounter cprev;
-  bool inUse;
-  capKludge waiter;
-} wmdGlobal;
-
-wait_queue_t msrWaitQ;
+} wmdGlobal = {
+  .d = {
+    .inUse = false,
+    .waiterCap = wmdWaiterCap
+  }
+};
 
 /* This is called while holding the port lock. */
 static int
 wait_modem_func(wait_queue_t * wait, unsigned mode, int sync, void * key)
 {
   struct wait_modem_data * wmd = wait->private;
-  struct uart_state * state = wmd->state;
+  struct uart_state * state = wmd->d.state;
   struct uart_port *port = state->port;
   struct capros_SerialPort_icounter cnew;
 
   icount_port_to_capros(&port->icount, &cnew);
   if (msrIsChanged(&wmd->cprev, &cnew, wmd->mask)) {
     // Return to the caller.
-    capros_Node_getSlotExtended(KR_KEYSTORE, toCap(wmd->waiter), KR_TEMP0);
     Message msg;
-    msg.snd_key0 = msg.snd_key1 = msg.snd_key2 = msg.snd_rsmkey = KR_VOID;
-    msg.snd_w1 = msg.snd_w2 = msg.snd_w3 = 0;
-    msg.snd_code = RC_OK;
+    SetupReturnToWaiter(&wmd->d, &msg);
     msg.snd_data = &cnew;
     msg.snd_len = sizeof(cnew);
-    msg.snd_invKey = KR_TEMP0;
     PSEND(&msg);	// prompt send
 
-    remove_wait_queue(&wmd->state->info->delta_msr_wait, wait);
+    wmd->d.inUse = false;
+    __remove_wait_queue(NULL, wait);
   }
 
   return 1;
@@ -874,7 +926,7 @@ uart_wait_modem_status(struct uart_state * state,
   struct uart_port *port = state->port;
   struct wait_modem_data * wmd = &wmdGlobal;
 
-  if (wmd->inUse) return 2;
+  if (wmd->d.inUse) return 2;
 
   /* Make a copy of cprev, in case cprevp and cnew point to the 
      same memory. */
@@ -893,15 +945,9 @@ uart_wait_modem_status(struct uart_state * state,
   }
 
   // Set up to wait.
-  msrWaitQ.func = &wait_modem_func;
-  msrWaitQ.private = wmd;
-  INIT_LIST_HEAD(&msrWaitQ.task_list);
-  wmd->state = state;
+  SetupCallerWait(&wmdGlobal.d, &wait_modem_func, state);
   wmd->mask = arg;
-  wmd->inUse = true;
-  capros_Node_swapSlotExtended(KR_KEYSTORE, toCap(wmd->waiter),
-                               KR_RETURN, KR_VOID);
-  add_wait_queue(&state->info->delta_msr_wait, &msrWaitQ);
+  add_wait_queue(&state->info->delta_msr_wait, &wmdGlobal.d.waitQ);
 
   spin_unlock_irq(&port->lock);
 
@@ -1064,19 +1110,66 @@ static void uart_set_termios(struct tty_struct *tty, struct ktermios *old_termio
 	}
 }
 
+struct close_data {
+  struct common_wait_data d;
+} closeGlobal = {
+  .d = {
+    .inUse = false,
+    .waiterCap = closeWaiterCap
+  }
+};
+
+static int
+close_func(wait_queue_t * wait, unsigned mode, int sync, void * key)
+{
+  struct close_data * sd = wait->private;
+  struct uart_state * state = sd->d.state;
+
+  // Finish the close:
+  uart_shutdown(state);
+
+  // tty_ldisc_flush(tty);	wake up read waiter////
+
+  state->info->tty = NULL;
+
+  uart_change_pm(state, 3);
+
+  state->info->flags &= ~UIF_NORMAL_ACTIVE;
+
+  mutex_unlock(&state->mutex);
+
+  // Return to the caller.
+  Message msg;
+  SetupReturnToWaiter(&sd->d, &msg);
+  PSEND(&msg);	// prompt send
+
+  sd->d.inUse = false;
+  __remove_wait_queue(NULL, wait);
+
+  // FIXME: ensure no other waiters for transmitterEmpty!
+
+  /* Finally, close destroys the transmitterEmpty thread.
+  That happens to be the very thread that called this procedure.
+  */
+  TransmitterEmptySepuku();
+
+  // not reached
+  return 1;
+}
+
 /*
  * In 2.4.5, calls to this will be serialized via the BKL in
  *  linux/drivers/char/tty_io.c:tty_release()
  *  linux/drivers/char/tty_io.c:do_tty_handup()
  */
-static void uart_close(struct tty_struct *tty)
+static int uart_close(struct tty_struct *tty)
 {
 	struct uart_state *state = tty->driver_data;
 	struct uart_port *port;
 	
 	assert(state);
 	if (!state->port)
-		return;
+		return 1;
 
 	port = state->port;
 
@@ -1102,7 +1195,13 @@ static void uart_close(struct tty_struct *tty)
 		 * has completely drained; this is especially
 		 * important if there is a transmit FIFO!
 		 */
-		uart_wait_until_sent(tty, port->timeout);
+		if (! isTransmitterEmpty(port)) {
+		  SetupCallerWait(&closeGlobal.d, &close_func, state);
+		  WaitForTransmitterEmpty(&closeGlobal.d.waitQ);
+
+		  /* Linux sleeps with state->mutex held, so we do too. */
+		  return 0;
+                }
 	}
 
 	uart_shutdown(state);
@@ -1111,67 +1210,15 @@ static void uart_close(struct tty_struct *tty)
 	
 	state->info->tty = NULL;
 
-	if (!uart_console(port)) {
-		uart_change_pm(state, 3);
-	}
+	uart_change_pm(state, 3);
+
+	// FIXME: ensure no other waiters!
+	DestroyTransmitterEmptyTask();
 
 	state->info->flags &= ~UIF_NORMAL_ACTIVE;
 
 	mutex_unlock(&state->mutex);
-}
-
-static void uart_wait_until_sent(struct tty_struct * tty, int timeout)
-{
-	struct uart_state *state = tty->driver_data;
-	struct uart_port *port = state->port;
-	unsigned long char_time, expire;
-
-	BUG_ON(!kernel_locked());
-
-	if (port->type == PORT_UNKNOWN || port->fifosize == 0)
-		return;
-
-	/*
-	 * Set the check interval to be 1/5 of the estimated time to
-	 * send a single character, and make it at least 1.  The check
-	 * interval should also be less than the timeout.
-	 *
-	 * Note: we have to use pretty tight timings here to satisfy
-	 * the NIST-PCTS.
-	 */
-	char_time = (port->timeout - HZ/50) / port->fifosize;
-	char_time = char_time / 5;
-	if (char_time == 0)
-		char_time = 1;
-	if (timeout && timeout < char_time)
-		char_time = timeout;
-
-	/*
-	 * If the transmitter hasn't cleared in twice the approximate
-	 * amount of time to send the entire FIFO, it probably won't
-	 * ever clear.  This assumes the UART isn't doing flow
-	 * control, which is currently the case.  Hence, if it ever
-	 * takes longer than port->timeout, this is probably due to a
-	 * UART bug of some kind.  So, we clamp the timeout parameter at
-	 * 2*port->timeout.
-	 */
-	if (timeout == 0 || timeout > 2 * port->timeout)
-		timeout = 2 * port->timeout;
-
-	expire = jiffies + timeout;
-
-	/*
-	 * Check whether the transmitter is empty every 'char_time'.
-	 * 'timeout' / 'expire' give us the maximum amount of time
-	 * we wait.
-	 */
-	while (!port->ops->tx_empty(port)) {
-		msleep_interruptible(jiffies_to_msecs(char_time));
-		if (signal_pending(current))
-			break;
-		if (time_after(jiffies, expire))
-			break;
-	}
+	return 1;
 }
 
 /*
@@ -1238,11 +1285,6 @@ uart_get(struct uart_state * state)
 	return ret;
 }
 
-/*
- * In 2.4.5, calls to uart_open are serialised by the BKL in
- *   linux/fs/devices.c:chrdev_open()
- * Note that if this fails, then uart_close() _will_ be called.
- */
 static int uart_open(struct tty_struct *tty)
 {
 	struct uart_state * state = tty->driver_data;
@@ -1261,11 +1303,12 @@ static int uart_open(struct tty_struct *tty)
 	state->count++;
 	retval = uart_get(state);
 	if (retval) {
-		state->count--;
-		goto fail;
+		goto getfail;
 	}
 
-	retval = -ENODEV;
+	retval = CreateTransmitterEmptyTask();
+	if (retval)
+		goto threadfail;
 
 	state->info->tty = tty;
 
@@ -1279,20 +1322,29 @@ static int uart_open(struct tty_struct *tty)
 	 * Start up the serial port.
 	 */
 	retval = uart_startup(state, 0);
+	if (retval)
+          goto startupfail;
 
 	mutex_unlock(&state->mutex);
 
 	/*
 	 * If this is the first open to succeed, adjust things to suit.
 	 */
-	if (retval == 0 && !(state->info->flags & UIF_NORMAL_ACTIVE)) {
+	if (!(state->info->flags & UIF_NORMAL_ACTIVE)) {
 		state->info->flags |= UIF_NORMAL_ACTIVE;
 
 		uart_update_termios(state);
 	}
 
- fail:
-	return retval;
+	return 0;
+
+startupfail:
+  DestroyTransmitterEmptyTask();
+threadfail:
+  mutex_unlock(&state->mutex);
+getfail:
+  state->count--;
+  return retval;
 }
 
 #if 0
@@ -1475,16 +1527,52 @@ static void uart_change_pm(struct uart_state *state, int pm_state)
 
 int uart_suspend_port(struct uart_driver *drv, struct uart_port *port)
 {
-	struct uart_state *state = drv->state + port->line;
+  assert(false);	// should not be called from driver
+  return -1;
+}
+
+struct suspend_data {
+  struct common_wait_data d;
+} suspendGlobal = {
+  .d = {
+    .inUse = false,
+    .waiterCap = suspendWaiterCap
+  }
+};
+
+static int
+suspend_func(wait_queue_t * wait, unsigned mode, int sync, void * key)
+{
+  struct suspend_data * sd = wait->private;
+  struct uart_state * state = sd->d.state;
+  struct uart_port * port = state->port;
+
+  // Finish the suspend:
+  port->ops->shutdown(port);
+
+  uart_change_pm(state, 3);
+
+  mutex_unlock(&state->mutex);
+
+    // Return to the caller.
+  Message msg;
+  SetupReturnToWaiter(&sd->d, &msg);
+  PSEND(&msg);	// prompt send
+
+  sd->d.inUse = false;
+  __remove_wait_queue(NULL, wait);
+
+  return 1;
+}
+
+int capros_suspend_port(struct uart_state * state)
+{
+	struct uart_port * port = state->port;
+
+	if (suspendGlobal.d.inUse)
+		return 2;	// someone is already waiting
 
 	mutex_lock(&state->mutex);
-
-#ifdef CONFIG_DISABLE_CONSOLE_SUSPEND
-	if (uart_console(port)) {
-		mutex_unlock(&state->mutex);
-		return 0;
-	}
-#endif
 
 	struct uart_info * info = state->info;
 	if (info && info->flags & UIF_INITIALIZED) {
@@ -1499,37 +1587,39 @@ int uart_suspend_port(struct uart_driver *drv, struct uart_port *port)
 		ops->stop_rx(port);
 		spin_unlock_irq(&port->lock);
 
-		/*
-		 * Wait for the transmitter to empty.
-		 */
-		uart_wait_until_sent(info->tty, 0);
+		if (! isTransmitterEmpty(port)) {
+		  SetupCallerWait(&suspendGlobal.d, &suspend_func, state);
+		  WaitForTransmitterEmpty(&suspendGlobal.d.waitQ);
+
+		  /* Linux sleeps with state->mutex held, so we do too. */
+		  return 0;
+		}
 
 		ops->shutdown(port);
 	}
 
-	/*
-	 * Disable the console device before suspending.
-	 */
-	if (uart_console(port))
-		;
-
 	uart_change_pm(state, 3);
 
 	mutex_unlock(&state->mutex);
-
-	return 0;
+	return 1;
 }
 
 int uart_resume_port(struct uart_driver *drv, struct uart_port *port)
 {
-	struct uart_state *state = drv->state + port->line;
+  assert(false);	// should not be called from driver
+  return -1;
+}
+
+void capros_resume_port(struct uart_state * state)
+{
+	struct uart_port * port = state->port;
 
 	mutex_lock(&state->mutex);
 
 #ifdef CONFIG_DISABLE_CONSOLE_SUSPEND
 	if (uart_console(port)) {
 		mutex_unlock(&state->mutex);
-		return 0;
+		return;
 	}
 #endif
 
@@ -1568,7 +1658,7 @@ int uart_resume_port(struct uart_driver *drv, struct uart_port *port)
 
 	mutex_unlock(&state->mutex);
 
-	return 0;
+	return;
 }
 
 static inline void
@@ -1906,9 +1996,42 @@ char * const inputBuf[2] = {inputBuf0, inputBuf1} ;
 unsigned int inputBufForInput = 0;	// 0 or 1
 unsigned int inputBufForOutput = 0;	// 0 or 1
 
-capKludge readWaiter;
-bool readInUse = false;;
-unsigned long readWaiterCount;
+void
+DoReadNonblocking(Message * msg, unsigned int left)
+{
+  unsigned long readCount = msg->rcv_w1;	// max number of pairs to read
+  // there is data available now
+  if (readCount > left)
+    readCount = left;	// take min
+
+  msg->snd_len = readCount * 2;
+  msg->snd_data = &inputBuf[inputBufForOutput][inputBufRead * 2];
+
+  // Are we taking all the data in this buffer?
+  if (readCount == left) {	// yes
+    /* Leave inputBufUsed[inputBufForOutput] nonzero to prevent it from
+    being overwritten before the data is sent.
+    It will be zeroed the next time we receive a call. */
+    inputBufSending = inputBufForOutput;
+    /* Ensure input now goes to the other buffer.
+       Output will come from the other buffer next time. */
+    inputBufForInput = (inputBufForOutput ^= 1);
+    inputBufRead = 0;
+  } else {
+    inputBufRead += readCount;
+  }
+}
+
+struct read_wait_data {
+  struct common_wait_data d;
+  unsigned long readWaiterCount;
+} readWaitGlobal = {
+  .d = {
+    .inUse = false,
+    .waiterCap = readWaiterCap
+  }
+};
+DECLARE_WAIT_QUEUE_HEAD(read_wait_queue_head);
 
 // Stuff from tty_io.h.
 
@@ -1942,43 +2065,50 @@ tty_flip_buffer_push(struct tty_struct * tty)
 {
   struct uart_state * state = tty->driver_data;
   struct uart_port * port = state->port;
-  unsigned long flags;
-  spin_lock_irqsave(&port->lock, flags);
+  spin_lock(&port->lock);
 
-  if (readInUse) {		// there is a reader waiting
-    unsigned int left = inputBufUsed[inputBufForOutput] - inputBufRead;
-    if (left > 0) {
-      // there is data available now
-      unsigned int readCount = readWaiterCount;
-      if (readCount > left)
-        readCount = left;	// take min
-
-      capros_Node_getSlotExtended(KR_KEYSTORE, toCap(readWaiter), KR_TEMP0);
-      Message msg;
-      msg.snd_key0 = msg.snd_key1 = msg.snd_key2 = msg.snd_rsmkey = KR_VOID;
-      msg.snd_w1 = msg.snd_w2 = msg.snd_w3 = 0;
-      msg.snd_code = RC_OK;
-      msg.snd_data = &inputBuf[inputBufForOutput][inputBufRead * 2];
-      msg.snd_len = readCount * 2;
-      msg.snd_invKey = KR_TEMP0;
-      PSEND(&msg);	// prompt send
-
-      readInUse = false;
-
-      // Did we take all the data in this buffer?
-      if (readCount == left) {	// yes
-        /* Ensure input now goes to the other buffer.
-           Output will come from the other buffer next time. */
-        inputBufForInput = inputBufForOutput ^= 1;
-        inputBufRead = 0;
-        uart_unthrottle(tty);
-      } else {
-        inputBufRead += readCount;
-      }
-        
-    } // else no data now
+  unsigned int left = inputBufUsed[inputBufForOutput] - inputBufRead;
+  if (left > 0) {	// there is data available now
+    wake_up(&read_wait_queue_head);
   }
-  spin_unlock_irqrestore(&port->lock, flags);
+
+  spin_unlock(&port->lock);
+}
+
+/* This is called under the port->lock. */
+static int
+read_wait_func(wait_queue_t * wait, unsigned mode, int sync, void * key)
+{
+  struct read_wait_data * rwd = wait->private;
+
+  unsigned int left = inputBufUsed[inputBufForOutput] - inputBufRead;
+  assert(left > 0);
+  unsigned int readCount = rwd->readWaiterCount;
+  if (readCount > left)
+    readCount = left;	// take min
+
+  Message msg;
+  SetupReturnToWaiter(&rwd->d, &msg);
+  msg.snd_data = &inputBuf[inputBufForOutput][inputBufRead * 2];
+  msg.snd_len = readCount * 2;
+  PSEND(&msg);	// prompt send
+
+  rwd->d.inUse = false;
+  __remove_wait_queue(NULL, wait);
+
+  // Did we take all the data in this buffer?
+  if (readCount == left) {	// yes
+    inputBufUsed[inputBufForOutput] = 0;	// we emptied this buffer
+    /* Ensure input now goes to the other buffer.
+       Output will come from the other buffer next time. */
+    inputBufForInput = inputBufForOutput ^= 1;
+    inputBufRead = 0;
+    uart_unthrottle(&theTtyStruct);
+  } else {
+    inputBufRead += readCount;
+  }
+        
+  return 1;
 }
 
 // Stuff from arch/arm/mach-ep93xx/core.c
@@ -2138,27 +2268,14 @@ main(void)
   assert(result == RC_OK);
   result = capros_Process_swapKeyReg(KR_TEMP0, KR_LSYNC, KR_LSYNC, KR_VOID);
   assert(result == RC_OK);
-  
 
+  // Allocate slots for resume keys to waiters:
   result = capros_SuperNode_allocateRange(KR_KEYSTORE,
-                                          xmitWaiterCap, xmitWaiterCap);
+                                          xmitWaiterCap, lastWaiterCap);
   if (result != RC_OK) {
     assert(false);	// FIXME handle error
   }
 
-  result = capros_SuperNode_allocateRange(KR_KEYSTORE,
-             toCap(wmdGlobal.waiter), toCap(wmdGlobal.waiter));
-  if (result != RC_OK) {
-    assert(false);	// FIXME handle error
-  }
-  wmdGlobal.inUse = false;
-
-  // FIXME allocate all these contiguously to save space
-  result = capros_SuperNode_allocateRange(KR_KEYSTORE,
-             toCap(readWaiter), toCap(readWaiter));
-  if (result != RC_OK) {
-    assert(false);	// FIXME handle error
-  }
 
   extern int __init pl010_init(void);
   if (pl010_init()) {	// FIXME: need to make this configurable
@@ -2169,10 +2286,16 @@ main(void)
   struct tty_struct * tty = &theTtyStruct;
   struct uart_state * state = &theUartState;
 
+#if 0
+  kdprintf(KR_OSTREAM, "SerialPort main. state=0x%x port=0x%x\n",
+           state, state->port);
+#endif
+
   msg->rcv_key0 = msg->rcv_key1 = msg->rcv_key2 = KR_VOID;
   msg->rcv_rsmkey = KR_RETURN;
 
   msg->snd_invKey = KR_VOID;
+  msg->snd_key0 = msg->snd_key1 = msg->snd_key2 = msg->snd_rsmkey = KR_VOID;
   msg->snd_len = 0;
   /* The void key is not picky about the other parameters,
      so it's OK to leave them uninitialized. */
@@ -2217,18 +2340,29 @@ kdprintf(KR_OSTREAM, "Called, oc=0x%x\n", msg->rcv_code);////
     }
 
     case OC_capros_SerialPort_close:
+    {
       if (state->count != 1) {	// already closed
         msg->snd_code = RC_capros_SerialPort_Already;
         break;
       }
-      uart_close(tty);
+      int ret = uart_close(tty);
+      switch (ret) {
+      case 0:		// the caller waits
+        // The resume key to the caller has been saved.
+        msg->snd_invKey = KR_VOID;
+        break;
+
+      case 1:		// we return immediately
+        break;
+      }
+
       break;
+    }
 
     case 0:	// read (not yet working in IDL)
     {
       struct uart_port * port = state->port;
-      unsigned long flags;
-      unsigned long readCount = msg->snd_w1;	// max number of pairs to read
+      unsigned long readCount = msg->rcv_w1;	// max number of pairs to read
       if (! port		// port isn't open
           || readCount <= 0) {
         msg->snd_code = RC_capros_key_RequestError;
@@ -2237,42 +2371,46 @@ kdprintf(KR_OSTREAM, "Called, oc=0x%x\n", msg->rcv_code);////
       /* A large readCount is not a problem. We will not send more data
          than is in an inputBuf. */
 
-      spin_lock_irqsave(&port->lock, flags);
+      spin_lock(&port->lock);
       unsigned int left = inputBufUsed[inputBufForOutput] - inputBufRead;
       if (left > 0) {
-        // there is data available now
-        if (readCount > left)
-          readCount = left;	// take min
-
-        msg->snd_len = readCount * 2;
-        msg->snd_data = &inputBuf[inputBufForOutput][inputBufRead * 2];
-
-        // Are we taking all the data in this buffer?
-        if (readCount == left) {	// yes
-          /* Leave inputBufUsed[inputBufForOutput] nonzero to prevent it from
-          being overwritten before the data is sent.
-          It will be zeroed the next time we receive a call. */
-          inputBufSending = inputBufForOutput;
-          /* Ensure input now goes to the other buffer.
-             Output will come from the other buffer next time. */
-          inputBufForInput = (inputBufForOutput ^= 1);
-          inputBufRead = 0;
-        } else {
-          inputBufRead += readCount;
-        }
-        
-        spin_unlock_irqrestore(&port->lock, flags);
+        DoReadNonblocking(msg, left);
       } else {		// must wait
-        // Set up to wait.
-        readInUse = true;
-        readWaiterCount = readCount;
-        capros_Node_swapSlotExtended(KR_KEYSTORE, toCap(readWaiter),
-                               KR_RETURN, KR_VOID);
-        spin_unlock_irqrestore(&port->lock, flags);
+	SetupCallerWait(&readWaitGlobal.d, &read_wait_func, state);
+        readWaitGlobal.readWaiterCount = readCount;
+	add_wait_queue(&read_wait_queue_head, &readWaitGlobal.d.waitQ);
 
         // The resume key to the caller has been saved.
         msg->snd_invKey = KR_VOID;
       }
+        
+      spin_unlock(&port->lock);
+
+      break;
+    }
+
+    case 2:	// readNonblocking (not yet working in IDL)
+    {
+      struct uart_port * port = state->port;
+      unsigned long readCount = msg->rcv_w1;	// max number of pairs to read
+      if (! port		// port isn't open
+          || readCount <= 0) {
+        msg->snd_code = RC_capros_key_RequestError;
+        break;
+      }
+      /* A large readCount is not a problem. We will not send more data
+         than is in an inputBuf. */
+
+      spin_lock(&port->lock);
+       inputBufUsed[inputBufForOutput], inputBufRead);////
+      unsigned int left = inputBufUsed[inputBufForOutput] - inputBufRead;
+      if (left > 0) {
+        DoReadNonblocking(msg, left);
+      } else {		// must wait
+        msg->snd_code = RC_capros_SerialPort_Nonblocking;
+      }
+        
+      spin_unlock(&port->lock);
 
       break;
     }
@@ -2301,13 +2439,10 @@ kdprintf(KR_OSTREAM, "Called, oc=0x%x\n", msg->rcv_code);////
 
     case OC_capros_SerialPort_waitForBreak:
 
-      if (brkGlobal.inUse) {
-        msg->snd_code = RC_capros_SerialPort_already;
+      if (brkGlobal.d.inUse) {
+        msg->snd_code = RC_capros_SerialPort_Already;
       } else {
-        // Set up to wait.
-        brkGlobal.inUse = true;
-        capros_Node_swapSlotExtended(KR_KEYSTORE, toCap(brkGlobal.waiter),
-                               KR_RETURN, KR_VOID);
+        SetupCallerWait(&brkGlobal.d, wake_caller_func, 0);
 
         // The resume key to the caller has been saved.
         msg->snd_invKey = KR_VOID;
@@ -2334,7 +2469,7 @@ kdprintf(KR_OSTREAM, "Called, oc=0x%x\n", msg->rcv_code);////
           break;
 
         case 2:		// a process is already waiting
-          msg->snd_code = RC_capros_SerialPort_already;
+          msg->snd_code = RC_capros_SerialPort_Already;
           break;
         }         
       }
@@ -2371,7 +2506,18 @@ kdprintf(KR_OSTREAM, "Called, oc=0x%x\n", msg->rcv_code);////
       break;
 
     case OC_capros_SerialPort_waitUntilSent:
-      uart_wait_until_sent(tty, 0);
+
+      if (sentGlobal.d.inUse) {
+        msg->snd_code = RC_capros_SerialPort_Already;
+      } else {
+        if (! isTransmitterEmpty(state->port)) {
+          SetupCallerWait(&sentGlobal.d, wake_caller_func, 0);
+          WaitForTransmitterEmpty(&sentGlobal.d.waitQ);
+
+          // The resume key to the caller has been saved.
+          msg->snd_invKey = KR_VOID;
+        }
+      }
       break;
 
     case OC_capros_SerialPort_getModemStatus:
@@ -2380,6 +2526,29 @@ kdprintf(KR_OSTREAM, "Called, oc=0x%x\n", msg->rcv_code);////
 
     case OC_capros_SerialPort_setModemStatus:
       uart_tiocmset(tty, 0, msg->rcv_w1, msg->rcv_w2);
+      break;
+
+    case OC_capros_SerialPort_suspend:
+    {
+      int ret = capros_suspend_port(state);
+      switch (ret) {
+      case 0:		// the caller waits
+        // The resume key to the caller has been saved.
+        msg->snd_invKey = KR_VOID;
+        break;
+
+      case 1:		// we return immediately
+        break;
+
+      case 2:		// a process is already waiting
+        msg->snd_code = RC_capros_SerialPort_Already;
+        break;
+      }
+      break;
+    }
+
+    case OC_capros_SerialPort_resume:
+      capros_resume_port(state);
       break;
 
     }

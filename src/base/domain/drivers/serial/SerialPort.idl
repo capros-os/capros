@@ -1,10 +1,24 @@
 package capros;
 
-/** Serial port low-level interface
+/** 
+@brief SerialPort
+
+A SerialPort is a low-level interface to a UART-style serial device.
 */
 interface SerialPort extends key {
 
-  exception already;
+  exception Already;
+
+  /*
+   * When a break, frame error, or parity error happens, these codes are
+   * stuffed into the flags buffer.
+   */
+  /// @brief Indicates there was no error with the associated character
+  const unsigned<8> NORMAL  = 0;
+  const unsigned<8> BREAK   = 1;
+  const unsigned<8> FRAME   = 2;
+  const unsigned<8> PARITY  = 3;
+  const unsigned<8> OVERRUN = 4;
 
   /* NB: both 1->0 and 0->1 transitions are counted except for
      rng where only 0->1 is counted. */
@@ -34,6 +48,47 @@ interface SerialPort extends key {
     unsigned<32> c_ospeed;	// baud rate
   };
 
+  /* Certain flags in termios2 control how input is handled. 
+
+  Characters received without error are placed in the buffer with
+  the NORMAL flag, but only if CREAD is set.
+
+  If a break occurs, it is counted in icounter, and reported to the
+    process that executed waitForBreak, if any.
+  If a break occurs, and neither BRKINT nor PARMRK is set, 
+    the error is ignored (except for the above);
+    the character is placed in the buffer with the NORMAL flag.
+  If a break occurs, and either BRKINT or PARMRK is set,
+    and IGNBRK is set,
+    the character is ignored; nothing is placed in the buffer.
+  If a break occurs, and either BRKINT or PARMRK is set,
+    and IGNBRK is not set,
+    the character is placed in the buffer with the BREAK flag.
+
+  PARENB enables parity checking. PARODD specifies odd parity (otherwise even).
+
+  If INPCK is not set, parity and framing errors are counted in
+    icounter but not otherwise reported. 
+
+  If INPCK is set and a parity error occurs,
+    and IGNPAR is set,
+    the character is ignored; nothing is placed in the buffer.
+  If INPCK is set and a parity error occurs,
+    and IGNPAR is not set,
+    the character is placed in the buffer with the PARITY flag.
+
+  If INPCK is set and a framing error occurs,
+    and IGNPAR is set,
+    the character is ignored; nothing is placed in the buffer.
+  If INPCK is set and a framing error occurs,
+    and IGNPAR is not set,
+    the character is placed in the buffer with the FRAME flag.
+
+  If an overrun error occurs, and IGNPAR and IGNBRK are not both set,
+    then in addition to the above, a zero character is placed in 
+    the buffer with the OVERRUN flag. 
+  */
+
   /* c_iflag bits */
   const unsigned<32> IGNBRK = 1;    // 0x0001
   const unsigned<32> BRKINT = 2;    // 0x0002
@@ -50,10 +105,10 @@ interface SerialPort extends key {
   const unsigned<32>   CS6  =  16; // 0x10
   const unsigned<32>   CS7  =  32; // 0x20
   const unsigned<32>   CS8  =  48; // 0x30
-  const unsigned<32> CSTOPB =  64; // 0x40
+  const unsigned<32> CSTOPB =  64; // 0x40 use two stop bits on output
   const unsigned<32> CREAD  = 128; // 0x80 enable reading
-  const unsigned<32> PARENB = 256; // 0x100
-  const unsigned<32> PARODD = 512; // 0x200
+  const unsigned<32> PARENB = 256; // 0x100 enable parity
+  const unsigned<32> PARODD = 512; // 0x200 odd parity
   const unsigned<32> CLOCAL = 2048; // 0x800 don't enable modem interrupts
   const unsigned<32> CRTSCTS = 2147483648; // 0x80000000 use RTS/CTS flow control
 
@@ -66,7 +121,6 @@ interface SerialPort extends key {
   /* open() allocates all the space needed to operate. 
      If it can't, raises key.NoAccess and returns an error code. 
      If already open, raises Already. */
-  exception Already;
   void open(out unsigned long errcode);
 
   /* close() frees some space.
@@ -79,6 +133,20 @@ interface SerialPort extends key {
  */
   exception WriteInProgress;
   void close();
+
+  /** @brief Suspend the port.
+
+  Puts the port into a low power state, disabling input and output.
+  */
+  // FIXME: This should be inherited from a general IO object.
+  void suspend();
+
+  /** @brief Resume the port.
+
+  Changes the port from suspended to the normal, active state.
+  */
+  // FIXME: This should be inherited from a general IO object.
+  void resume();
 
   /* Discard data written but still buffered for output.
      Discards data buffered in software, but not hardware. */
@@ -145,4 +213,12 @@ interface SerialPort extends key {
      (This ought to raise an exception if the serial port doesn't
       support this, but Linux drivers do not support that.) */
   void setModemStatus(unsigned short set, unsigned short clear);
+
+  //// Implemented, but not in IDL:
+  // read, order code 0
+  //   w1 has max number of pairs to read
+  //   returns pairs of bytes: flag (e.g. NORMAL, PARITY, etc.), data
+  // write, order code 1
+  // readNonblocking, order code 2
+  exception Nonblocking; // readNonblocking, no data available
 };

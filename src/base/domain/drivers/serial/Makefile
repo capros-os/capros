@@ -29,7 +29,7 @@ EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/serial
-OBJECTS=$(BUILDDIR)/serial_core.o
+OBJECTS=$(BUILDDIR)/serial_core.o $(BUILDDIR)/transEmpty.o
 ifeq "$(EROS_TARGET)" "arm"
 OBJECTS+= $(BUILDDIR)/amba-pl010.o
 else

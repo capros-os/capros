@@ -52,6 +52,8 @@
 
 #include <asm/io.h>
 
+//#define DISPLAY_DATA
+
 #define UART_NR		1 //8
 
 #define SERIAL_AMBA_MAJOR	204
@@ -125,6 +127,9 @@ static void pl010_rx_chars(struct uart_amba_port *uap)
 	status = readb(uap->port.membase + UART01x_FR);
 	while (UART_RX_DATA(status) && max_count--) {
 		ch = readb(uap->port.membase + UART01x_DR);
+#ifdef DISPLAY_DATA
+                printk("[i %02x]", ch);
+#endif
 		flag = TTY_NORMAL;
 
 		uap->port.icount.rx++;
@@ -179,6 +184,9 @@ static void pl010_tx_chars(struct uart_amba_port *uap)
 
 	if (uap->port.x_char) {
 		writel(uap->port.x_char, uap->port.membase + UART01x_DR);
+#ifdef DISPLAY_DATA
+                printk("[o %02x]", uap->port.x_char);
+#endif
 		uap->port.icount.tx++;
 		uap->port.x_char = 0;
 		return;
@@ -191,6 +199,9 @@ static void pl010_tx_chars(struct uart_amba_port *uap)
 	count = uap->port.fifosize >> 1;
 	do {
 		writel(xmit->buf[xmit->tail], uap->port.membase + UART01x_DR);
+#ifdef DISPLAY_DATA
+                printk("[o %02x]", xmit->buf[xmit->tail]);
+#endif
 		xmit->tail = (xmit->tail + 1) & (UART_XMIT_SIZE - 1);
 		uap->port.icount.tx++;
 		if (uart_circ_empty(xmit))
