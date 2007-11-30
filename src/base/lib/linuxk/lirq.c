@@ -50,6 +50,7 @@ struct interrupt_thread_args {
 void *
 interrupt_thread_func(void * cookie)
 {
+#define KR_DEVPRIVS KR_APP2(0)
   result_t result;
 
   // Set the preempt_count so in_interrupt() will return true.
@@ -61,21 +62,25 @@ interrupt_thread_func(void * cookie)
   up(&args->arglock);		// we are done with args
 
   /* KR_LINUX_EMUL slot LE_DEVPRIVS has a key to the DevPrivs key. */
-  result = capros_Node_getSlot(KR_LINUX_EMUL, LE_DEVPRIVS, KR_TEMP0);
+  result = capros_Node_getSlot(KR_LINUX_EMUL, LE_DEVPRIVS, KR_DEVPRIVS);
   assert(result == RC_OK);
 
   for (;;) {
-    result = capros_DevPrivs_waitIRQ(KR_TEMP0, params.irqNum);
+    result = capros_DevPrivs_waitIRQ(KR_DEVPRIVS, params.irqNum);
     if (result == RC_capros_DevPrivs_AllocFail)
       // The irq has been deallocated. We will get no more interrupts.
       break;
-    assert(result == RC_OK);
+    if (result != RC_OK) {
+      printk("waitIRQ returned 0x%x!\n", result);
+      assert(false);
+    }
 
     irqreturn_t irqret = (*params.handler)(params.irqNum, params.cookie);
     (void)irqret;	// irqret isn't used
   }
 
   return 0;
+#undef KR_DEVPRIVS
 }
 
 /**
