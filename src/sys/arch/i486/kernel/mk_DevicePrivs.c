@@ -2,7 +2,7 @@
  * Copyright (C) 2001, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -168,11 +168,12 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 	break;
       }
 
-      irq_Enable(irq);
-
       irq_DISABLE();
       
       if (!uirq->isPending) {
+        // Ensure the interrupt is enabled.
+        irq_Enable(irq);
+  
 	DEBUG(sleep)
 	  printf("DevPrivs: Sleeping for IRQ %d\n", irq);
         act_SleepOn(&uirq->sleepers);

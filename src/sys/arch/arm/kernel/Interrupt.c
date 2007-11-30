@@ -105,9 +105,9 @@ DoUsermodeInterrupt(VICIntSource * vis)
 
   // write VectAddr to reenable interrupts of lower or equal priority
   if (sourceNum >= 32) {	// if on VIC2
-    VIC2.VectAddr = 0;;
+    VIC2.VectAddr = 0;
   } else {
-    VIC1.VectAddr = 0;;
+    VIC1.VectAddr = 0;
   }
 }
 

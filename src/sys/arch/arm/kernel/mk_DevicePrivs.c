@@ -196,12 +196,12 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 	break;
       }
 
-      InterruptSourceEnable(source);	// this should not be necessary,
-		// or, why have a separate enable?
-
       irq_DISABLE();
       
       if (!vis->isPending) {
+        // Ensure the interrupt is enabled.
+        InterruptSourceEnable(source);
+
 	DEBUG(sleep)
 	  printf("DevPrivs: Sleeping for int source %d\n", source);
         act_SleepOn(&vis->sleeper);

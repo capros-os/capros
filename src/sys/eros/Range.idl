@@ -89,12 +89,12 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    *
    * if the ranges do not overlap:
    *   /how/ is 0.
-   * if start(/krCmpRange/) > start(this):
+   * if start(/krCmpRange/) &gt; start(this):
    *   /how/ is 1 and /offset/ = /krCmpRange/'s start relative to 
    *   the start of /this/
    * if start(/krCmpRange/) == start(this):
    *   /how/ is 2 and /offset/ = 0
-   * if start(/krCmpRange/) < start(this):
+   * if start(/krCmpRange/) &lt; start(this):
    *   /how/ is 3 and /offset/ = /this/'s start relative to
    *   the start of /krCmpRange/
    */

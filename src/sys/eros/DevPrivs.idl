@@ -47,7 +47,9 @@ interface DevPrivs extends key raises(AllocFail) {
   /** Wait for interrupt.
    *
    * Wait for a designated interrupt to arrive.
+     While waiting, the IRQ will be enabled.
      Raises AllocFail if the specified irq is not allocated.
+     On successful return, the IRQ has been disabled.
    */
   void waitIRQ(unsigned long irq);
 
