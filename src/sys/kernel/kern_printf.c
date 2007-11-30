@@ -141,22 +141,15 @@ db_ll_ksprintn(register unsigned long long ull, register int base,
 void
 db_force_whitespace()
 {
-	register int last_print, next_tab;
-
-	last_print = db_last_non_space;
+	int last_print = db_last_non_space;
 	while (last_print < db_output_position) {
-	    next_tab = NEXT_TAB(last_print);
-	    if (next_tab <= db_output_position) {
-		while (last_print < next_tab) { /* DON'T send a tab!!! */
-			cnputc(' ');
-			last_print++;
-		}
-	    }
-	    else {
 		cnputc(' ');
 		last_print++;
-	    }
 	}
+        while (last_print > db_output_position) {
+        	cnputc('\b');
+        	last_print--;
+        }
 	db_last_non_space = db_output_position;
 }
 
@@ -243,6 +236,10 @@ db_putchar(int c)
 	else if (c == ' ') {
 	    /* space */
 	    db_output_position++;
+	}
+	else if (c == '\b') {
+	    /* backspace */
+	    db_output_position--;
 	}
 	else if (c == '\007') {
 	    /* bell */
