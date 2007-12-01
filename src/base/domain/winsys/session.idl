@@ -32,7 +32,7 @@ interface session extends capros.key raises (InvalidDimension) {
   /**
    * The supported event types.
    */
-  enum EventType {
+  unsigned long enum EventType {
     Null,
     Mouse,
     Key,

@@ -34,7 +34,7 @@ interface Process extends key raises (key.RequestError) {
   /// space with additional, architecture-specific extensions. FC code
   /// points beginning at 128 are reserved for architecture-specific
   /// fault codes.
-  /*unsigned long*/ enum FC {
+  unsigned long enum FC {
     /// @brief Process currently does not have any fault.
     NoFault = 0,
 

@@ -4,7 +4,7 @@ package capros.arch.i386;
  *
  */
 interface SysTrace extends capros.key {
-  enum mode {
+  unsigned long enum mode {
     cycles   = 0, /* cycles executed */
     instrs   = 1, /* instrs executed */
     DTLB     = 2, /* data TLB misses (r+w) */

@@ -48,7 +48,7 @@ interface Process extends capros.Process raises (capros.key.RequestError) {
   const unsigned <16> DataSeg = (5*8 + 3);
   const unsigned <16> PseudoSeg = (6*8 + 3);
 
-  /*unsigned long*/ enum FC {
+  unsigned long enum FC {
 
     /* IA-32 specific trap codes: */
 
