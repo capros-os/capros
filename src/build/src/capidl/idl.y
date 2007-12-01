@@ -1140,16 +1140,17 @@ element_dcl:
  * 
  */
 enum_dcl:
-        ENUM name_def '{' {
-	  Symbol *sym = symbol_create($2.is, MYLEXER->isActiveUOC, sc_enum);
+        integer_type ENUM name_def '{' {
+	  Symbol *sym = symbol_create($3.is, MYLEXER->isActiveUOC, sc_enum);
 	  if (sym == 0) {
 	    diag_printf("%s:%d: syntax error -- enum identifier \"%s\" reused\n",
 			 MYLEXER->current_file, 
 			 MYLEXER->current_line,
-			 $2.is);
+			 $3.is);
 	    num_errors++;
 	    YYERROR;
 	  }
+          sym->type = $1;
 	  sym->docComment = mylexer_grab_doc_comment(lexer);
 	  mpz_set_ui(sym->v.i, 0); /* value for next enum member held here */
 	  /* Enum name is a scope for its formals: */
@@ -1597,6 +1598,9 @@ if_definition:
  * created before any of the parameter symbols. This is necessary
  * because the function symbol forms a scope into which the parameters
  * must be installed. */
+/* It is a nuisance that we have to enumerate the opr_qual
+ * and non-oper_qual cases, but failing to do so causes a shift-reduce
+ * conflict with enum declarations. */
 opr_dcl:
         opr_qual ONEWAY VOID name_def '(' {
 	  Symbol *sym = symbol_create($4.is, MYLEXER->isActiveUOC, sc_oneway);
@@ -1609,6 +1613,25 @@ opr_dcl:
 	    YYERROR;
 	  }
 	  sym->flags = $1;
+	  sym->type = symbol_voidType;
+	  sym->docComment = mylexer_grab_doc_comment(lexer);
+	  /* Procedure name is a scope for its formals: */
+	  symbol_PushScope(sym);
+	}
+        params ')' {
+          SHOWPARSE("opr -> ONEWAY VOID name_def '(' params ')'\n");
+	  symbol_PopScope();
+	}
+ |      ONEWAY VOID name_def '(' {
+	  Symbol *sym = symbol_create($3.is, MYLEXER->isActiveUOC, sc_oneway);
+	  if (sym == 0) {
+	    diag_printf("%s:%d: syntax error -- operation identifier \"%s\" reused\n",
+			 MYLEXER->current_file, 
+			 MYLEXER->current_line,
+			 $3.is);
+	    num_errors++;
+	    YYERROR;
+	  }
 	  sym->type = symbol_voidType;
 	  sym->docComment = mylexer_grab_doc_comment(lexer);
 	  /* Procedure name is a scope for its formals: */
@@ -1639,14 +1662,30 @@ opr_dcl:
 	  symbol_PopScope();
           SHOWPARSE("opr -> ret_type name_def '(' param_2s ')' raises\n");
 	}
+ |      ret_type name_def '(' {
+	  Symbol *sym = symbol_create($2.is, MYLEXER->isActiveUOC, sc_operation);
+	  if (sym == 0) {
+	    diag_printf("%s:%d: syntax error -- operation identifier \"%s\" reused\n",
+			 MYLEXER->current_file, 
+			 MYLEXER->current_line,
+			 $2.is);
+	    num_errors++;
+	    YYERROR;
+	  }
+	  sym->type = $1;
+	  sym->docComment = mylexer_grab_doc_comment(lexer);
+	  /* Procedure name is a scope for its formals: */
+	  symbol_PushScope(sym);
+	}
+	param_2s ')' { 
+        } raises {
+	  symbol_PopScope();
+          SHOWPARSE("opr -> ret_type name_def '(' param_2s ')' raises\n");
+	}
  ;
 
 opr_qual:
-        /*empty*/ {
-          SHOWPARSE("nostub -> <empty>\n");
-	  $$ = 0;
-        }
- |      NOSTUB {
+        NOSTUB {
           SHOWPARSE("nostub -> NOSTUB\n");
           $$ = SF_NOSTUB;
         }
