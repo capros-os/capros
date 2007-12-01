@@ -199,9 +199,9 @@ interface SerialPort extends key {
   /* waitForBreak() returns as soon as the next break is received
      (even if there is buffered input). 
      A break causes no wakeup if it arrives while no process is waiting.
-       (Fix this?)
+       (Fix this.)
      A break also puts a zero character in the input buffer. */
-  /* Raises already if there is already a process waiting. */
+  /* Raises Already if there is already a process waiting. */
   void waitForBreak();
 
   /* The returned value may have TIOCM_*. */

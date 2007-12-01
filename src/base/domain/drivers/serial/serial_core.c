@@ -2402,7 +2402,6 @@ kdprintf(KR_OSTREAM, "Called, oc=0x%x\n", msg->rcv_code);////
          than is in an inputBuf. */
 
       spin_lock(&port->lock);
-       inputBufUsed[inputBufForOutput], inputBufRead);////
       unsigned int left = inputBufUsed[inputBufForOutput] - inputBufRead;
       if (left > 0) {
         DoReadNonblocking(msg, left);

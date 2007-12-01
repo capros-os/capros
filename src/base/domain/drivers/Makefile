@@ -32,6 +32,8 @@ DIRS+=pci
 DIRS+=sound
 DIRS+=network
 # DIRS+=console # broken due to RETRY_SET_LIK
+else	# ARM-only drivers
+DIRS+=serial
 endif
 
 include $(EROS_SRC)/build/make/makerules.mk
