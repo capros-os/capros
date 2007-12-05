@@ -12,7 +12,7 @@
 
 #include <linux/sched.h>
 /* include comes from machine specific directory */
-#include "irq_vectors.h"
+#include "mach-default/irq_vectors.h"
 #include <asm/thread_info.h>
 
 static __inline__ int irq_canonicalize(int irq)
