@@ -2,10 +2,16 @@
  *
  * Copyright (C) 2002  David Howells (dhowells@redhat.com)
  * - Incorporating suggestions made by Linus Torvalds and Dave Miller
+ * Copyright (C) 2007, Strawberry Development Group.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifndef _ASM_THREAD_INFO_H
 #define _ASM_THREAD_INFO_H
+
+#define SIZEOF_THREAD_INFO 24 // only need preempt_count in CapROS
 
 #ifdef __KERNEL__
 

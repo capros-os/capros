@@ -92,6 +92,9 @@ struct thread_info {
 #define init_thread_info	(init_thread_union.thread_info)
 #define init_stack		(init_thread_union.stack)
 
+/* how to get the current stack pointer from C */
+register unsigned long current_stack_pointer asm("sp") __attribute_used__;
+
 /*
  * how to get the thread information struct from C
  */
@@ -99,10 +102,9 @@ static inline struct thread_info *current_thread_info(void) __attribute_const__;
 
 static inline struct thread_info *current_thread_info(void)
 {
-	register unsigned long sp asm ("sp");
 	/* In CapROS the thread_info is at the high end of the stack. */
 	return (struct thread_info *)
-               ((sp & ~(LK_STACK_AREA - 1))
+               ((current_stack_pointer & ~(LK_STACK_AREA - 1))
                 + LK_STACK_AREA - SIZEOF_THREAD_INFO);
 }
 

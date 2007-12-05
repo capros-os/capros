@@ -74,7 +74,7 @@ do {								\
 	__init_rwsem((sem), #sem, &__key);			\
 } while (0)
 
-INLINE bool
+static inline bool
 __rwtrylock_read(struct rw_semaphore * sem)
 {
   int newcnt = atomic_read(&sem->activity);
@@ -88,7 +88,7 @@ __rwtrylock_read(struct rw_semaphore * sem)
   return true;	// success
 }
 
-INLINE bool
+static inline bool
 __rwtrylock_write(struct rw_semaphore * sem)
 {
   int newcnt = atomic_read(&sem->activity);

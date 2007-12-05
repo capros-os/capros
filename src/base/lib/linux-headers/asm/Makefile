@@ -45,6 +45,7 @@ HEADERS=\
  cputime.h \
  current.h \
  delay.h \
+ desc.h \
  device.h \
  div64.h \
  domain.h \
@@ -55,12 +56,15 @@ HEADERS=\
  glue.h \
  hardirq.h \
  hardware.h \
+ hw_irq.h \
  io.h \
  ioctl.h \
  ioctls.h \
  ipcbuf.h \
  irq.h \
+ irq_regs.h \
  irqflags.h \
+ ldt.h \
  linkage.h \
  local.h \
  locks.h \
@@ -80,6 +84,7 @@ HEADERS=\
  ptrace-abi.h \
  required-features.h \
  resource.h \
+ sections.h \
  segment.h \
  semaphore.h \
  sembuf.h \
@@ -87,6 +92,7 @@ HEADERS=\
  siginfo.h \
  signal.h \
  sizes.h \
+ spinlock.h \
  stat.h \
  string.h \
  system.h \
@@ -95,6 +101,7 @@ HEADERS=\
  thread_info.h \
  timex.h \
  topology.h \
+ tsc.h \
  types.h \
  user.h \
  vm86.h \
