@@ -373,6 +373,7 @@ static inline unsigned long ffz(unsigned long word)
  * the libc and compiler builtin ffs routines, therefore
  * differs in spirit from the above ffz() (man ffs).
  */
+#if 0		// because the static inline function does not match string.h
 static inline int ffs(int x)
 {
 	int r;
@@ -383,6 +384,9 @@ static inline int ffs(int x)
 		"1:" : "=r" (r) : "rm" (x));
 	return r+1;
 }
+#else
+int ffs(int x);
+#endif
 
 /**
  * fls - find last bit set

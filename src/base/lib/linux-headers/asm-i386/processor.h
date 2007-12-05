@@ -615,7 +615,8 @@ static inline void cpuid_count(int op, int count, int *eax, int *ebx, int *ecx,
 {
 	*eax = op;
 	*ecx = count;
-	__cpuid(eax, ebx, ecx, edx);
+	__cpuid((unsigned int *)eax, (unsigned int *)ebx,
+                (unsigned int *)ecx, (unsigned int *)edx);
 }
 
 /*

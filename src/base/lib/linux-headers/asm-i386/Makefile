@@ -23,8 +23,11 @@
 
 default: all
 
+ASMARCH=default
+ASMARCH_DIR=mach-$(ASMARCH)
+
 ASM_HEADERS=$(wildcard *.h)
-ASMARCH_HEADERS=$(wildcard arch/*.h)
+ASMARCH_HEADERS=$(wildcard $(ASMARCH_DIR)/*.h)
 
 THISDIR=$(notdir $(shell pwd))
 
@@ -40,6 +43,6 @@ include $(EROS_SRC)/build/make/makerules.mk
 all:
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/$(THISDIR)/arch/
+	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/$(THISDIR)/$(ASMARCH_DIR)/
 	$(INSTALL) -m 644 $(ASM_HEADERS) $(EROS_ROOT)/include/linux-headers/$(THISDIR)/
-#	$(INSTALL) -m 644 $(ASMARCH_HEADERS) $(EROS_ROOT)/include/linux-headers/$(THISDIR)/arch/
+	$(INSTALL) -m 644 $(ASMARCH_HEADERS) $(EROS_ROOT)/include/linux-headers/$(THISDIR)/$(ASMARCH_DIR)/
