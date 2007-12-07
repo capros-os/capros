@@ -73,6 +73,7 @@ volatile uint64_t sysT_wakeup = ~(0llu);
 #define BASETICK 200
 #endif
 
+// The frequency of the input to the 8253 timer in Hz:
 #define HARD_TICK_RATE		1193182L
 
 /* SOFT_TICK_DIVIDER is the divider to use to get the soft tick rate down
@@ -152,9 +153,8 @@ volatile uint64_t sysT_wakeup = ~(0llu);
 
 #define TIMER_PORT_0		0x40
 #define TIMER_MODE		0x43
+// 8253 control word:
 #define SQUARE_WAVE0            0x34
-
-static uint32_t usec_calibration_count = 0;
 
 uint64_t
 mach_MillisecondsToTicks(uint64_t ms)
@@ -219,12 +219,9 @@ sysT_ResetWakeTime(void)
     sysT_wakeup = ActivityChain->wakeTime;
 }
 
-#ifdef GNU_INLINE_ASM
 void
 mach_InitHardClock()
 {
-  uint64_t ticks;
-  uint32_t i;
   uint64_t calibrateDone;
 
   /* Set up the hardware clock: */
@@ -241,40 +238,44 @@ mach_InitHardClock()
    */
 
   printf("Calibrating SpinWait... ");
-  ticks = mach_MillisecondsToTicks(11);
- 
-  calibrateDone = sysT_Now() + ticks;
+  const uint64_t ticksToMeasure = 5;
+  const int loopsPerCall = 2048;
 
-  usec_calibration_count = 0;
+  uint32_t count = 0;
+  calibrateDone = sysT_Now() + ticksToMeasure;
   while (sysT_Now() < calibrateDone) {
-    usec_calibration_count ++;
-    
-    for (i = 0; i < 200; i++) {
-      GNU_INLINE_ASM ("nop");
-    }
+    count ++;
+    mach_Delay(loopsPerCall);
   }
- 
-  
-  printf("done\n");
-}
-#endif /* GNU_INLINE_ASM */
+  // count * loopsPerCall is approximate # of loops per tick.
 
-#ifdef GNU_INLINE_ASM
-void
-mach_SpinWaitUs(uint32_t w)
-{
-  uint32_t count;
-  uint32_t i;
-  w *= usec_calibration_count;
-  w /= 10;			/* calibrated for 11 milliseconds, but */
-				/* divide by something less than that! */
-
-  if (w < 2) w = 2;		/* MIN sleep of 2 usec on 200Mhz */
-
-  for (count = 0; count < w; count++) {
-    for (i = 0; i < 200; i++) {
-      GNU_INLINE_ASM ("nop");
-    }
+  // Now get a more accurate measurement by reducing the number of
+  // iterations checking sysT_Now and calling mach_Delay.
+  calibrateDone = sysT_Now() + ticksToMeasure;
+  if (count > 0)
+    mach_Delay((count - 1)*loopsPerCall);	// majority of waiting is here
+  unsigned int count2 = 0;
+  while (sysT_Now() < calibrateDone) {
+    count2 ++;
+    mach_Delay(loopsPerCall);
   }
+
+  printf("%d, %d, ", count, count2);
+
+  count += count2 - 1;		// counts per test
+  assert(count < (1UL << (32 - 11)));	// else the following will overflow
+  count *= loopsPerCall;	// loops per test
+  count *= 8;		// loops per 8 tests
+  count /= (mach_TicksToNanoseconds(ticksToMeasure) / 1000);
+	// loops per 8 microseconds
+  assert(count < (1UL << (32 - 15)));	// else could overflow in SpinWaitUs
+  loopsPer8us = count;
+  printf("%d\n", loopsPer8us);
+
+#if 0
+  // Test it:
+  for (count = 0; count < 61; count++)
+    SpinWaitUs(32767);
+  printf("End of 2 second delay.\n");
+#endif
 }
-#endif /* GNU_INLINE_ASM */

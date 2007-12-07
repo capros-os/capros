@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>
+#include <kerninc/SysTimer.h>
 #include <kerninc/IRQ.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
@@ -86,6 +87,13 @@ SleepKey(Invocation* inv /*@ not null @*/)
       act_Yield();
       return;
     }
+      
+  case OC_capros_Sleep_getDelayCalibration:
+    COMMIT_POINT();
+      
+    inv->exit.code = RC_OK;
+    inv->exit.w1 = loopsPer8us;
+    return;
     
   case OC_capros_key_getType:
     COMMIT_POINT();

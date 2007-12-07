@@ -46,7 +46,6 @@ We don't use the tick (64 Hz) interrupt at all.
 
 volatile uint32_t sysT_now_high;
 volatile uint64_t sysT_wakeup = ~(0llu);
-static uint32_t usec_calibration_count = 0;
 
 // 501530 is 1000000 ns / 1.9939 kHz.
 uint64_t
@@ -196,8 +195,6 @@ TC1OIHandler(VICIntSource * vis)
 void
 mach_InitHardClock(void)
 {
-  int i;
-
   InterruptSourceSetup(VIC_Source_TC1OI, 15, &TC1OIHandler);
   RecalcWakeupTime();
   /* Not necessary to call ReloadWakeupTimer(), because there is
@@ -213,44 +210,50 @@ mach_InitHardClock(void)
   printf("Calibrating SpinWait... ");
 
   uint32_t count = 0;
+
   /* Wait for timer 3 to tick. */
   uint32_t t = Timers.Timer3.Value;
   while (t == Timers.Timer3.Value) ;
-  t--;
 
-#if 1
   /* Measure time to the next tick. */
+  t--;
   while (t == Timers.Timer3.Value) {
     count ++;
-    for (i = 256; i > 0; i--) {
-    }
+    mach_Delay(256);
   }
-#else
-  t -= 10;	// Measure for 10 ticks
-  while (t != Timers.Timer3.Value) {
-    count ++;
-    for (i = 256; i > 0; i--) {
-    }
-  }
-#endif
+  // count * 256 is approximate # of loops per tick.
 
-  printf("%d\n", count);
-  usec_calibration_count = count * 256;
+  // Now get a more accurate measurement by reducing the number of
+  // iterations checking Timers.Timer3.Value.
+  if (count > 0)
+    mach_Delay((count - 1)*256);	// majority of waiting is here
+  unsigned int count2 = 0;
+  t--;
+  while (t == Timers.Timer3.Value) {
+    count2 ++;
+    mach_Delay(256);
+  }
+
+  printf("%d, %d, ", count, count2);
+
+  count += count2 - 1;		// counts per tick
+  assert(count < (1UL << (32 - 11)));	// else the following will overflow
+  count *= 256;		// loops per tick
+  count *= 8;		// loops per 8 ticks
+  // 1 tick is 501 microseconds.
+  count /= 501;		// loops per 8 microseconds
+  assert(count < (1UL << (32 - 15)));	// else could overflow in SpinWaitUs
+  loopsPer8us = count;
+  printf("%d\n", loopsPer8us);
+
+#if 0
+  // Test it:
+  for (count = 0; count < 31; count++)
+    SpinWaitUs(32767);
+  printf("End of 1 second delay.\n");
+#endif
 
   /* Enable timer interrupts. */
   InterruptSourceEnable(VIC_Source_TC1OI);
   InterruptSourceEnable(VIC_Source_TC3OI);
-}
-
-/* Delay for w microseconds. */
-void
-mach_SpinWaitUs(uint32_t w)
-{
-  /* On a 200 MHz processor, the following multiplication will not overflow
-     if w < 42863. */
-  w *= usec_calibration_count;
-  w /= 501;	// microseconds per timer3 tick
-
-  for ( ; w > 0; w--) {
-  }
 }

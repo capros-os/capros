@@ -1,8 +1,6 @@
-#ifndef __SYSTIMER_H__
-#define __SYSTIMER_H__
+	.file	"machDelay.S"
 /*
- * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -24,27 +22,11 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-extern uint32_t loopsPer8us;
+#include <eros/arch/i486/asm.h>
 
-struct Activity;
-extern struct Activity * ActivityChain;
-
-void sysT_ResetWakeTime();
-
-void sysT_WakeupAt(uint64_t now);
-  
-void sysT_AddSleeper(struct Activity *);
-void sysT_CancelAlarm(struct Activity *);
-
-void sysT_ActivityTimeout();
-
-void sysT_BootInit();
-
-#ifdef KT_TIMEPAGE
-void sysT_InitTimePage();
-extern struct ObjectHeader *sysT_TimePageHdr;
-#endif
-
-bool IsLeapYear(uint32_t yr);
-
-#endif /* __SYSTIMER_H__ */
+	.align 16	// timing is sensitive to alignment
+ENTRY(mach_Delay)
+	movl 4(%esp),%eax	// get parameter
+0:	decl %eax
+	jnz 0b
+	ret

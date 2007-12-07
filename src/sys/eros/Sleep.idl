@@ -13,4 +13,19 @@ interface Sleep extends key {
 
   /** Sleep until the specified number of milliseconds from epoch */
   void sleepTill(unsigned long long ms);
+
+
+  const unsigned long DelayMaxMicroseconds = 5000000;
+	// Delaying more than 5 seconds is a waste of the processor.
+
+  /** Delay in a spin loop for the specified number of microseconds,
+      which must be less than DelayMaxMicroseconds.
+
+      This method is not an invocation and it can be executed with
+      interrupts disabled. */
+  client void delayMicroseconds(unsigned long microseconds,
+                         unsigned long calibrationConstant);
+
+  /** Get the calibration constant to be passed to delayMicroseconds. */
+  unsigned long getDelayCalibration();
 };

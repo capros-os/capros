@@ -263,7 +263,7 @@ KbdWait(void)
   while (i--) {
     if ((inb(KbdStatusPort) & kbd_Ready) == 0) 
       break;
-    mach_SpinWaitUs(10);
+    SpinWaitUs(10);
   }
 
 #if 0

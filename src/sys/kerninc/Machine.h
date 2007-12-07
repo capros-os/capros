@@ -49,7 +49,11 @@ void mach_InitHardClock();	/* machine DEPENDENT */
 uint64_t mach_MillisecondsToTicks(uint64_t ms);
 uint64_t mach_TicksToMilliseconds(uint64_t ticks);
 uint64_t mach_TicksToNanoseconds(uint64_t ticks);
-void mach_SpinWaitUs(uint32_t us);
+void SpinWaitUs(uint32_t us);
+// mach_Delay is in assembler.
+// It spins for n iterations.
+// It is only for internal use of SpinWaitUs.
+void mach_Delay(unsigned int n);
 
 #ifdef EROS_HAVE_FPU
 /* FPU support */

@@ -91,7 +91,7 @@ DoUsermodeInterrupt(VICIntSource * vis)
     (void)VIC2.VectAddr;	
   }
   irq_ENABLE();
-#if 1
+#if 0
   printf("Waking sleeper for int source %d\n", sourceNum);
 #endif
 

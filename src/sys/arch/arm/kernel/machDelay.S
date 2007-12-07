@@ -1,8 +1,5 @@
-#ifndef __SYSTIMER_H__
-#define __SYSTIMER_H__
 /*
- * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -23,28 +20,10 @@
 /* This material is based upon work supported by the US Defense Advanced
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
+	
+#include <eros/arch/arm/asm.h>
 
-extern uint32_t loopsPer8us;
-
-struct Activity;
-extern struct Activity * ActivityChain;
-
-void sysT_ResetWakeTime();
-
-void sysT_WakeupAt(uint64_t now);
-  
-void sysT_AddSleeper(struct Activity *);
-void sysT_CancelAlarm(struct Activity *);
-
-void sysT_ActivityTimeout();
-
-void sysT_BootInit();
-
-#ifdef KT_TIMEPAGE
-void sysT_InitTimePage();
-extern struct ObjectHeader *sysT_TimePageHdr;
-#endif
-
-bool IsLeapYear(uint32_t yr);
-
-#endif /* __SYSTIMER_H__ */
+ENTRY(mach_Delay)
+0:	subs r0,r0,#1
+	bne 0b
+	mov pc,lr
