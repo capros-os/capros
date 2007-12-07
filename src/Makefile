@@ -61,6 +61,9 @@ build-pkg:
 interfaces: build-pkg
 interfaces: idl-headers
 
+IDL_STUB_DIR=$(EROS_SRC)/base/lib/idlstub/$(BUILDDIR)
+
+.PHONY: idl-headers
 idl-headers:
 	$(CAPIDL) -D $(EROS_ROOT)/include/idl.tmp -l c-header `find $(EROS_ROOT)/idl -name '*.idl'`
 	$(INSTALL) -d $(EROS_ROOT)/include
@@ -71,8 +74,11 @@ idl-headers:
 	build/bin/dirsync $(EROS_ROOT)/include/idl.tmp $(EROS_ROOT)/host/include/idl
 	-rm -rf $(EROS_ROOT)/include/idl.tmp
 	# Create stubs.
-	rm -f $(EROS_SRC)/base/lib/idlstub/*.c
-	$(CAPIDL) -D $(EROS_SRC)/base/lib/idlstub -l c-stubs `find $(EROS_ROOT)/idl -name '*.idl'`
+	if [ ! -d $(IDL_STUB_DIR) ]; then \
+		mkdir -p $(IDL_STUB_DIR); \
+	fi
+	rm -f $(IDL_STUB_DIR)/*.c
+	$(CAPIDL) -D $(IDL_STUB_DIR) -l c-stubs `find $(EROS_ROOT)/idl -name '*.idl'`
 
 libs: build-pkg
 libs: RECURSE_TARGET=libs

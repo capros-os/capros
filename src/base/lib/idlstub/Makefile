@@ -26,15 +26,22 @@ default: package
 
 EROS_SRC=../../..
 CROSS_BUILD=yes
-CLEANLIST=$(wildcard *.c)
+CLEANLIST=$(wildcard $(IDL_STUB_DIR)/*.c)
 
 include $(EROS_SRC)/build/make/makevars.mk
 
+VPATH=$(BUILDDIR):arch/$(EROS_TARGET)
 TARGETS=$(BUILDDIR)/libidlstub.a
-OBJECTS=$(patsubst %.c,$(BUILDDIR)/%.o,$(wildcard *.c))
+# Generated stubs are in $(BUILDDIR)/*.c
+OBJECTS=$(patsubst %.c,%.o,$(wildcard $(BUILDDIR)/*.c))
+# Client (handwritten) stubs are in *.c
+OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(wildcard *.c))
+# Assembler client stubs are in arch/$(EROS_TARGET)/*.S
+OBJECTS+=$(patsubst %.S,$(BUILDDIR)/%.o,$(notdir $(wildcard arch/$(EROS_TARGET)/*.S)))
 INC= -I$(EROS_ROOT)/include
 
 $(BUILDDIR)/libidlstub.a: $(OBJECTS)
+	echo $(OBJECTS)
 	$(AR) -crv $@ $(OBJECTS)
 	$(RANLIB) $@
 
