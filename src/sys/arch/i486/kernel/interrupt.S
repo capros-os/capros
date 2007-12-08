@@ -834,29 +834,19 @@ L_dispatch_interrupt:
 	 */
 	
 	testl	$0x20000,FX_OFF_EFLAGS(%ebp)	/* is VM bit set? */
-	jnz	L_forced_reload
+	jnz	1f
 	
 	testl	$3,FX_OFF_CS(%ebp)
-	jz	L_skip_stack_reload
+	jz	L_interrupted_kernel
 	
-L_forced_reload:
-	movl	PR_OFF_cpuStack-PR_OFF_FIXREGS(%ebp),%esp
-	
-L_skip_stack_reload:	
+1:	movl	PR_OFF_cpuStack-PR_OFF_FIXREGS(%ebp),%esp
+	/* We interrupted a process.
+	irq_DisableDepth is already 1. */
+
+L_on_kernel_stack:
 	/*
 	 * Now running out of kernel data and stack.  
 	 */
-
-	/*
-	 * Bump the interrupt depth counter here.  All of our entry 
-	 * points use interrupt gates, so interrupts are definitely 
-	 * disabled.  Doing this from the assembly code eliminates
-	 * the need to play sleazy games in the C part of the return 
-	 * path.
-	 */
-	/* CONVERSION */
-	incl	EXT(irq_DisableDepth);
-        /* END CONVERSION */
 	
 	/*
 	 * Call the interrupt dispatch routine, passing it a pointer
@@ -871,6 +861,16 @@ L_skip_stack_reload:
 
 	/* This should NEVER return */
 	jmp	EXT(halt)
+
+L_interrupted_kernel:
+	/*
+	 * Bump the interrupt depth counter here.  All of our entry 
+	 * points use interrupt gates, so interrupts are definitely 
+	 * disabled.
+	 */
+	incl	EXT(irq_DisableDepth);
+	jmp L_on_kernel_stack
+
 
 	/*
 	 * Entry point for IPC invocations - a special-cased version of
@@ -1442,21 +1442,7 @@ L_done_keys:
 #endif /* OPTION_FAST_PATH */
 	
 Standard_Gate_Path:
-	/*
-	 * Bump the interrupt depth counter here.  All of our entry 
-	 * points use interrupt gates, so interrupts are definitely 
-	 * disabled.  Doing this from the assembly code eliminates
-	 * the need to play sleazy games in the C part of the return 
-	 * path.
-	 *
-	 * Doing this AFTER the %ESP adjustment allows the SUBL to settle, 
-	 * preventing subsequent AGEN interlocks on Pentium and later 
-	 * processors.
-	 */
-
-        /* CONVERSION */
-	movl	$1,EXT(irq_DisableDepth)
-        /* END CONVERSION */
+	/* irq_DisableDepth should be 1 here. */
 	
 	/*
 	 * Call the interrupt dispatch routine, passing it a pointer
@@ -1513,15 +1499,7 @@ ENTRY(resume_process)
 	 * restoring from.
 	 */
 
-	/*
-	 * Decrement the interrupt depth counter here.  Doing this from 
-	 * the assembly code eliminates the need to play sleazy games in 
-	 * the C part of the return path.
-	 */
-
-        /* CONVERSION */
-	decl	EXT(irq_DisableDepth);
-        /* END CONVERSION */
+	/* Leave irq_DisableDepth == 1 while running a process. */
 	
 	/* ANY CHANGE TO THIS PATH FROM HERE DOWN SHOULD BE
 	   IMPLEMENTED IN THE FAST_GATE_PATH AS WELL */
@@ -1622,14 +1600,9 @@ ENTRY(resume_from_kernel_interrupt)
 #endif
 
 	/*
-	 * Decrement the interrupt depth counter here.  Doing this from 
-	 * the assembly code eliminates the need to play sleazy games in 
-	 * the C part of the return path.
+	 * Decrement the interrupt depth counter here.
 	 */
-
-        /* CONVERSION */
 	decl	EXT(irq_DisableDepth);
-        /* END CONVERSION */
 	
         popa    
 
@@ -1661,15 +1634,7 @@ ENTRY(resume_v86_task)
 	leal	PR_OFF_V86_INTR_SP(%ESP),%EDX
 	movl	%EDX,4+EXT(tss_TaskTable)
 
-	/*
-	 * Decrement the interrupt depth counter here.  Doing this from 
-	 * the assembly code eliminates the need to play sleazy games in 
-	 * the C part of the return path.
-	 */
-
-        /* CONVERSION */
-	decl	EXT(irq_DisableDepth);
-        /* END CONVERSION */
+	/* Leave irq_DisableDepth == 1 while running a process. */
 	
 	/* Reload target address space:	 */
 	movl	%cr3,%ebx

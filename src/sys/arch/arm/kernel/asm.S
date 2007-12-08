@@ -50,6 +50,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 	ldr r0,=disabMsg
 	mov r1,r2
 	bl printf
+	bl Debugger
 	b halt
 disabMsg: .asciz "irq_DISABLE: IRQ enab and depth=%d "
 	.balign 4
@@ -71,15 +72,14 @@ disabMsg: .asciz "irq_DISABLE: IRQ enab and depth=%d "
 	bne 1f
 	/* IRQ is already enabled */
 	ldr r0,=enabMsg
-	mov r1,r2
-	bl printf
-	b halt
+	b 2f
 
 1:	cmp r2,#0
 	bne 1f
 	ldr r0,=ovfMsg
-	mov r1,r2
+2:	mov r1,r2
 	bl printf
+	bl Debugger
 	b halt
 enabMsg: .asciz "irq_ENABLE: already enab, and depth=%d "
 ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
@@ -91,6 +91,20 @@ ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
 	str r2,[r1]
 	msreq cpsr_c,r0
 	mov pc,lr
+
+
+	ENTRY(raw_local_irq_enable)
+	mrs r0,cpsr
+	bic r0,r0,#MASK_CPSR_IRQDisable
+	msr cpsr_c,r0
+	mov pc,lr
+
+	ENTRY(raw_local_irq_disable)
+	mrs r0,cpsr
+	orr r0,r0,#MASK_CPSR_IRQDisable
+	msr cpsr_c,r0
+	mov pc,lr
+
 
 	ENTRY(mach_FlushBothTLBs)
 	mov r0,#0

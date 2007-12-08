@@ -386,8 +386,7 @@ PageFault(unsigned int type,
   bool writeAccess = false;
   uva_t va;	/* the unmodified virtual address */
 
-  assert(irq_DisableDepth == 0);
-  irq_DisableDepth = 1;	/* disabled by the exception */
+  assert(irq_DISABLE_DEPTH() == 1);	// disabled right after exception
 
   switch (type) {
   case prefetchAbort:

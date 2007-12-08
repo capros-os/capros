@@ -758,9 +758,14 @@ ExitTheKernel_MD(Process * thisPtr)
   assert(thisPtr->md.firstLevelMappingTable != 0);
   assert((thisPtr->md.dacr & 0x3) == 1);
   
+#ifndef NDEBUG
 #if 1
-if (thisPtr->trapFrame.r15 & 0x3)
-  printf("Resume user process 0x%08x pc=0x%08x pid=0x%08x\n", thisPtr,
-         thisPtr->trapFrame.r15, thisPtr->md.pid);
+  if (thisPtr->trapFrame.r15 & 0x3	// unaligned PC
+      || thisPtr->trapFrame.CPSR & MASK_CPSR_IRQDisable	// IRQ disabled
+     )
+    printf("Resume user proc 0x%08x pc=0x%08x pid=0x%08x cpsr=0x%08x\n",
+           thisPtr,
+           thisPtr->trapFrame.r15, thisPtr->md.pid, thisPtr->trapFrame.CPSR);
+#endif
 #endif
 }

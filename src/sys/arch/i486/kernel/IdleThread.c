@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,10 +18,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>
+#include <arch-kerninc/IRQ-inline.h>
 
 #define StackSize 256
 
@@ -50,13 +55,18 @@ StartIdleActivity(void)
   return idleActivity;
 }
 
+/* In IdleActivity_Start, we must disable irq around printf(),
+because irq_DisableDepth is 1
+(kernel code expects it to be 0). */
 void
 IdleActivity_Start(void)
 {
   int stack;
 
+  raw_local_irq_disable();
   printf("Start IdleActivity (activity 0x%x,context 0x%x,stack 0x%x)\n",
 	 act_curActivity, act_curActivity->context, &stack);
+  raw_local_irq_enable();
 
   for(;;) {
     /* On machines with high privilege-crossing latency, it is NOT a

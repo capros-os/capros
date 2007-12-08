@@ -863,12 +863,6 @@ ExitTheKernel(void)
   /* IRQ must be disabled here. */
   assert( irq_DISABLE_DEPTH() == 1 );
 
-  /* While a process is running, irq_DisableDepth is zero.
-     After all, IRQ is enabled. 
-     irq_DisableDepth is incremented again on an exception. 
-     But no one should be looking at that, except maybe privileged
-     processes. */
-
   // Call architecture-dependent C code for resuming a process.
   ExitTheKernel_MD(thisPtr);
 

@@ -489,8 +489,7 @@ general_path0:
 #endif
 general_path1:
   
-  assert(irq_DisableDepth == 0);
-  irq_DisableDepth = 1;	/* disabled by the exception */
+  assert(irq_DISABLE_DEPTH() == 1);	// disabled right after exception
 
   /* Enable IRQ interrupts. */
   irq_ENABLE();

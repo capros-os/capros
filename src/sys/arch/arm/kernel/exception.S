@@ -181,20 +181,41 @@ handlerCommon:
 	stmfd sp!,{r0-r3,r10-r12,r14}	// save some registers
 	/* C procedures preserve r4-r11. */
 	mrs r11,spsr	// save spsr in r11
+
 #ifdef DISABLE_DEPTH_CHECK
-	/* irq_DisableDepth should be 0 here. */
+	/* Did we interrupt a process? */
+	add r0,r11,#1		// add 1 to mode bits of SPSR
+	tst r0,#0b01110		// magic calculation
+	/* If ne, it is neither user nor system mode. */
+	movne r2,#0	// interrupted kernel, should be 0
+	moveq r2,#1	// interrupted a process, should be 1
+
 	ldr r0,=irq_DisableDepth
 	ldr r1,[r0]
-	cmp r1,#0
+	cmp r1,r2
 	beq 1f
+	str r2,[r0]	// force it to be correct to permit debugging
 	ldr r0,=dd0Msg
-	ldr r2,[sp,#28]	// load pc
+	ldr r3,[sp,#28]	// load pc
 	bl printf
+	bl Debugger
 	b halt
-dd0Msg:	.asciz "0. DisableDepth %d not 0, pc=0x%x\n"
+dd0Msg:	.asciz "0. DisableDepth %d not %d, pc=0x%x\n"
 	.balign 4
 1:
 #endif
+
+	/* Did we interrupt a process? */
+	add r0,r11,#1		// add 1 to mode bits of SPSR
+	tst r0,#0b01110		// magic calculation
+	/* If ne, it is neither user nor system mode. */
+	/* If we interrupted the kernel, set irq_DisableDepth to 1
+	to reflect that interrupts are now disabled.
+        (If we interrupted a process, it is already 1.) */
+	ldrne r3,=irq_DisableDepth
+	movne r1,#1
+	strne r1,[r3]
+
 /* 
 Change to Abort mode.
 This allows nested interrupts, 
@@ -217,10 +238,6 @@ Coordinate any changes with db_stack_trace_cmd. */
 #endif
 	msr cpsr_c,#(MASK_CPSR_IRQDisable + CPSRMode_Abort)
 	mov r10,r14	// save r14_abt
-
-	ldr r3,=irq_DisableDepth
-	mov r1,#1
-	str r1,[r3]
 
 #ifndef NDEBUG
 	stmfd sp!,{r0,r11}
@@ -261,7 +278,7 @@ regMsg:	.asciz "ISR not saving regs!\n"
 	msr cpsr_c,#(MASK_CPSR_IRQDisable + CPSRMode_IRQ)
 			// Go to IRQ mode. IRQ still disabled.
 #ifdef DISABLE_DEPTH_CHECK
-	/* irq_DisableDepth should be 0 here. */
+	/* irq_DisableDepth should be 1 here. */
 	ldr r0,=irq_DisableDepth
 	ldr r1,[r0]
 	cmp r1,#1
@@ -270,7 +287,7 @@ regMsg:	.asciz "ISR not saving regs!\n"
 	ldr r2,[sp,#28]	// pc
 	bl printf
 	b halt
-dd2Msg:	.asciz "2. DisableDepth %d not 0, pc=0x%x\n"
+dd2Msg:	.asciz "2. DisableDepth %d not 1, pc=0x%x\n"
 	.balign 4
 1:
 #endif
@@ -282,8 +299,8 @@ dd2Msg:	.asciz "2. DisableDepth %d not 0, pc=0x%x\n"
 	tst r0,#0b01110		// magic calculation
 	/* If ne, it is neither user nor system mode, so we just
 	return to the kernel. */
-	/* We are restoring a CPSR that has IRQ enabled,
-	therefore we set irq_DisableDepth zero. */
+	/* The interrupted kernel must have had IRQ enabled,
+	therefore we set irq_DisableDepth to zero. */
 	ldrne r0,=irq_DisableDepth
 	movne r1,#0
 	strne r1,[r0]
@@ -314,12 +331,8 @@ stackMsg:	.asciz "IRQ Stack is off"
 	ldr r0,=act_yieldState
 	ldr r0,[r0]
 	cmp r0,#0
-	/* If eq, we can quickly return to the process we interrupted.
-	We are restoring a CPSR that has IRQ enabled,
-	therefore we set irq_DisableDepth zero. */
-	ldreq r0,=irq_DisableDepth
-	moveq r1,#0
-	streq r1,[r0]
+	/* If eq, we can quickly return to the process we interrupted. */
+	// Leave irq_DisableDepth == 1 while running a process.
 	msreq spsr_cxsf,r11	// return to unpreempted user
 	ldmeqfd sp!,{r0-r3,r10-r12,pc}^
 
@@ -609,10 +622,6 @@ SwiBadMode:
 	ENTRY(resume_process)
 /* r0 has a pointer to the Process structure. */
 // irq_DisableDepth ==1 on entry
-
-	ldr r2,=irq_DisableDepth	// decrement it to zero
-	mov r1,#0
-	str r1,[r2]
 
 	ldr sp,=(kstackBot)	// empty the kernel stack!
 #if 0	// if trying to find a bug
