@@ -357,15 +357,13 @@ node_PrepAsSegment(Node* thisPtr)
 inline bool
 node_IsCurrentDomain(Node* thisPtr)
 {
-  /* Note we do NOT use curcontext(), as there is
-   * presently an assert in Activity.hxx, and if we are trying to
+  /* Note proc_Current() may be NULL.  If we are trying to
    * prepare a new thread to run (ageing can be called from trying
    * to prepare a thread, which can call us), the current thread may
    * indeed not have a context.
    */
 
-  /* Thread::Current() changed to act_Current() */
-  if (thisPtr->node_ObjHdr.prep_u.context && thisPtr->node_ObjHdr.prep_u.context == act_Current()->context)
+  if (thisPtr->node_ObjHdr.prep_u.context && thisPtr->node_ObjHdr.prep_u.context == proc_Current())
     return true;
 
   return false;

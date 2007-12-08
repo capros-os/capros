@@ -221,7 +221,7 @@ proc_Unload(Process* thisPtr)
 
   if (thisPtr->curActivity) {
     proc_SyncActivity(thisPtr);
-    act_ZapContext(thisPtr->curActivity);
+    act_SetContext(thisPtr->curActivity, NULL);
   }
 
 #if defined(DBG_WILD_PTR)
@@ -268,7 +268,7 @@ proc_allocate(bool isUser)
     if (nextClobber >= KTUNE_NCONTEXT)
       nextClobber = 0;
 
-    if (p == act_Current()->context) {	/* can't use current Process */
+    if (p == proc_Current()) {	/* can't use current Process */
       p = 0;
       continue;
     }

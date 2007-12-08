@@ -347,6 +347,7 @@ InvokeArm(Process * invokerProc,
           uint32_t snd_keys,
           uint32_t snd_len)
 {
+  assert(invokerProc == proc_Current());
 #if 0
   printf("Inv p=%x, type.key %x, oc 0x%x, psr=%x, pc=0x%08x, r0=%x, sp=0x%08x\n",
          invokerProc, typeAndKey, invokerProc->trapFrame.r4,
@@ -461,11 +462,7 @@ InvokeArm(Process * invokerProc,
   /* Set returned length to zero. */
   invokee->trapFrame.r12 = 0;
   /* Migrate the Activity. */
-  Activity * act = invokerProc->curActivity;
-  invokee->curActivity = act;
-  invokerProc->curActivity = 0;
-  act->context = invokee;
-  act->readyQ = invokee->readyQ;
+  act_MigrateFromCurrent(invokerProc->curActivity, invokee);
 
   /* Leave invokee's PC advanced. */
   proc_AdjustInvocationPC(invokerProc);	/* back up invoker PC */

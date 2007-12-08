@@ -90,11 +90,8 @@ HandlePageFault:
 	tst r1,#0b01110		// magic calculation
 	bne AbortBadMode	// Neither user nor system mode
 	/* Save registers in current context. */
-	/* This code is suboptimal. Current process should be handier. */
-	ldr r1,=(act_curActivity)
-	ldr r1,[r1]		// current Activity
-	/* Process field in the Activity follows the Link, so at offset 8. */
-	ldr r1,[r1,#8]		// current Process
+	ldr r1,=(proc_curProcess)
+	ldr r1,[r1]		// current Process
 	str r12,[r1,#PR_OFF_CPSR]!	// save his CPSR
 	add r1,r1,#8		// r1 points to location for saved r0 etc
 	ldmfd sp!,{r12,lr}	// pop saved r0-r1
@@ -337,11 +334,8 @@ stackMsg:	.asciz "IRQ Stack is off"
 	ldmeqfd sp!,{r0-r3,r10-r12,pc}^
 
 	/* Save the registers in the current process's context. */
-	/* This code is suboptimal. Current process should be handier. */
-	ldr lr,=act_curActivity
-	ldr lr,[lr]		// current Activity
-	/* Process field in the Activity follows the Link, so at offset 8. */
-	ldr lr,[lr,#8]		// current Process
+	ldr lr,=proc_curProcess
+	ldr lr,[lr]		// current Process
 	str r11,[lr,#PR_OFF_CPSR]!	// save his CPSR
 	ldmfd sp!,{r0-r3,r10-r11}	// get most saved regs
 	str r0,[lr,#8]!		// save r0
@@ -374,10 +368,8 @@ supStackMsg:	.asciz "Supervisor Stack is 0x%x should be 0x%x\n"
 
 	bl act_DoReschedule
 
-	ldr lr,=act_curActivity
-	ldr lr,[lr]		// current Activity
-	/* Process field in the Activity follows the Link, so at offset 8. */
-	ldr r0,[lr,#8]		// current Process
+	ldr lr,=proc_curProcess
+	ldr r0,[lr]		// current Process
 	b resume_process
 
 /***********************************************************************
@@ -417,11 +409,8 @@ SWI_Invoke_Handler:
 	bne SwiBadMode	// Neither user nor system mode
 #endif
 	/* Save registers in current context. */
-	/* This code is suboptimal. Current process should be handier. */
-	ldr lr,=act_curActivity
-	ldr lr,[lr]		// current Activity
-	/* Process field in the Activity follows the Link, so at offset 8. */
-	ldr lr,[lr,#8]		// current Process
+	ldr lr,=proc_curProcess
+	ldr lr,[lr]		// current Process
 	str r12,[lr,#PR_OFF_CPSR]!	// save his CPSR
 	str r0,[lr,#8]!		// save r0
 	mov r0,lr		// ptr to r0 in savearea

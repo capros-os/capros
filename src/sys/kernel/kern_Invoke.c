@@ -668,7 +668,7 @@ proc_DoKeyInvocation(Process* thisPtr)
 
     assert (InvocationCommitted);
 
-    assert(act_Current()->context == thisPtr);
+    assert(proc_Current() == thisPtr);
 
 #ifndef NDEBUG
     InvocationCommitted = false;    
@@ -724,7 +724,7 @@ proc_DoKeyInvocation(Process* thisPtr)
       if (inv.invKeyType == KKT_Resume)
         keyR_ZapResumeKeys(&inv.invokee->keyRing);
 
-      act_MigrateTo(act_Current(), inv.invokee);
+      act_MigrateFromCurrent(act_Current(), inv.invokee);
 #ifdef OPTION_DDB
       if (inv.invokee->readyQ == &prioQueues[pr_Never])
         dprintf(true, "Thread now in ctxt 0x%08x w/ bad schedule\n", 
@@ -734,7 +734,7 @@ proc_DoKeyInvocation(Process* thisPtr)
   }
   else {	// inv.invokee == 0
  no_invokee:
-    act_MigrateTo(act_Current(), 0);
+    act_DeleteCurrent();
   }
   
   inv_Cleanup(&inv);
@@ -877,7 +877,7 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
 
   assert (InvocationCommitted);
 
-  assert(act_Current()->context == thisPtr);
+  assert(proc_Current() == thisPtr);
 
 #ifndef NDEBUG
   InvocationCommitted = false;    
@@ -986,7 +986,10 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
   }
   else {	// not Send
     assert(!allocatedActivity);
-    act_MigrateTo(act_Current(), inv.invokee);
+    if (inv.invokee)
+      act_MigrateFromCurrent(act_Current(), inv.invokee);
+    else
+      act_DeleteCurrent();
   }
 
 #ifdef DBG_WILD_PTR
@@ -1098,7 +1101,7 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
     /* Just retire the activity, leaving the domain in the running
      * state.
      */
-    act_MigrateTo(act_Current(), 0);
+    act_DeleteCurrent();
 #if 0
     act_Current()->SleepOn(procRoot->ObjectStallQueue());
     act_Yield();

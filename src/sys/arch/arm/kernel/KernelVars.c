@@ -35,6 +35,11 @@ call act_Yield. We catch that problem by checking for a nonzero
 value in act_curActivity. */
 /* Eventually act_curActivity should be per-CPU. */
 struct Activity * act_curActivity = 0;
+
+/* proc_curProcess is always act_curActivity->context
+   (or NULL if act_curActivity is NULL). */
+struct Process * proc_curProcess = 0;
+
 uint32_t act_yieldState;
 
 /* PteZapped serves two purposes.

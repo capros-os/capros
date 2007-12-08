@@ -95,12 +95,11 @@ struct Activity {
 extern const char *act_stateNames[act_NUM_STATES]; 
 
 extern uint32_t act_yieldState;
-extern Activity* act_curActivity;
+extern Activity * act_curActivity;
+extern Process * proc_curProcess;
 
 extern Activity *act_ActivityTable;
 extern Activity * allocatedActivity;
-
-void act_InitActivity(Activity *thisPtr);
 
 /* Prototypes for former member functions of Activity */
 
@@ -127,9 +126,26 @@ void act_SleepOn(StallQueue *);
  * key slot if it is unloaded!
  */
 INLINE void 
-act_ZapContext(Activity *thisPtr) 
+act_SetContextNotCurrent(Activity * thisPtr, Process * ctxt) 
 {
-  thisPtr->context = 0;
+  assert(thisPtr != act_Current());
+  thisPtr->context = ctxt;
+}
+
+INLINE void 
+act_SetContextCurrent(Activity * thisPtr, Process * ctxt) 
+{
+  assert(thisPtr == act_Current());
+  proc_curProcess = thisPtr->context = ctxt;
+}
+
+INLINE void 
+act_SetContext(Activity * thisPtr, Process * ctxt) 
+{
+  if (thisPtr == act_Current())
+    act_SetContextCurrent(thisPtr, ctxt);
+  else
+    act_SetContextNotCurrent(thisPtr, ctxt);
 }
 
 /* Must be under irq_DISABLE */
@@ -138,14 +154,24 @@ act_SetRunning(Activity* thisPtr)
 {
   link_Unlink(&thisPtr->q_link);
   act_curActivity = thisPtr;
+  proc_curProcess = thisPtr->context;
   thisPtr->state = act_Running;
 }
 
-INLINE Process* 
-act_CurContext()	/* retrieves the current context */
+INLINE Process *
+proc_Current(void)
 {
-  assert(act_curActivity->context);
-  return act_curActivity->context;
+  assert((act_Current() == NULL && proc_curProcess == NULL)
+         || (act_Current()->context == proc_curProcess));
+  return proc_curProcess;	// could be NULL
+}
+
+INLINE Process * 
+act_CurContext()
+{
+  Process * p = proc_Current();
+  assert(p);
+  return p;
 }
 
 INLINE bool 
@@ -190,8 +216,26 @@ void act_ValidateActivity(Activity* thisPtr);
 const char* act_Name(Activity* thisPtr);
 
 void act_DeleteActivity(Activity* t);
+void act_DeleteCurrent(void);
 
 void act_MigrateTo(Activity * thisPtr, Process * dc);
+
+INLINE void
+act_MigrateFromCurrent(Activity * thisPtr, Process * to)
+{
+  assert(thisPtr == act_Current());
+  Process * from = thisPtr->context;
+  assert(from);
+  assert(to);
+
+  proc_Deactivate(from);
+  act_SetContextCurrent(thisPtr, to);
+  proc_SetActivity(to, thisPtr);
+  assert (proc_IsRunnable(to));
+
+  /* FIX: Check for preemption! */
+  thisPtr->readyQ = to->readyQ;
+}
 
 /* Called by the activity when it wishes to yield the processor: */
 INLINE void act_Yield(void) NORETURN;

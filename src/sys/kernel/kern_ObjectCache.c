@@ -686,9 +686,8 @@ objC_AgeNodeFrames()
 	  pObj->node_ObjHdr.obType == ot_NtKeyRegs) {
 
 
-        /* Activity::Current() changed to act_Current() */
 	if (pObj->node_ObjHdr.prep_u.context &&
-	    ((pObj->node_ObjHdr.prep_u.context == act_Current()->context) ||
+	    ((pObj->node_ObjHdr.prep_u.context == proc_Current()) ||
 	     (inv_IsActive(&inv) && (inv.invokee == pObj->node_ObjHdr.prep_u.context)))) {
 	  nStuck++;
 	  pObj->objAge = age_LiveProc;

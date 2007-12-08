@@ -243,17 +243,16 @@ ReadyQueue *dispatchQueues[pr_High+1] = {
   &prioQueues[15]
 };
 
-/* This constructor used when fabricating new activitys in IT_Send.
+/* 
  * Reserve field will get populated when activity migrates to receiving
  * context. 
  */
-
-void
+static void
 act_InitActivity(Activity *thisPtr)
 {
   link_Init(&thisPtr->q_link);
   keyBits_InitToVoid(&thisPtr->processKey);
-  thisPtr->context = 0;
+  act_SetContextNotCurrent(thisPtr, NULL);
   thisPtr->state = act_Stall;
   thisPtr->readyQ = dispatchQueues[pr_Never];
 }
@@ -269,9 +268,9 @@ kact_InitKernActivity(const char * name,
 
   act_InitActivity(t);		/* why?? */
   /*t->priority = prio;*/
-  t->context = kproc_Init(name, t,
+  act_SetContextNotCurrent(t, kproc_Init(name, t,
 			  prio, rq, pc,
-			  StackBottom, StackTop);
+			  StackBottom, StackTop));
 
   return t;
 }
@@ -323,11 +322,12 @@ act_DeleteActivity(Activity *t)
   /* not hazarded because activity key */
   key_NH_SetToVoid(&t->processKey);
   t->state = act_Free;
-  if (act_curActivity == t) {
+  if (act_Current() == t) {
 #if 0
     printf("curactivity 0x%08x is deleted\n", t);
 #endif
-    act_curActivity = 0;
+    act_curActivity = NULL;
+    proc_curProcess = NULL;
     /* act_curActivity == 0 ==> act_yieldState == ys_ShouldYield */
     act_yieldState = ys_ShouldYield;
   }
@@ -495,7 +495,7 @@ act_Wakeup(Activity* thisPtr)
    * assert(curActivity);
    */
   /* change from thisPtr->priority to thisPtr->readyQ->mask */
-  if (act_curActivity && thisPtr->readyQ->mask > act_curActivity->readyQ->mask) {
+  if (act_Current() && thisPtr->readyQ->mask > act_Current()->readyQ->mask) {
 #if 0
     printf("Wake 0x%08x Cur activity should yield. canPreempt=%c\n",
 		   this, canPreempt ? 'y' : 'n');
@@ -524,30 +524,27 @@ act_Wakeup(Activity* thisPtr)
 void 
 act_MigrateTo(Activity * thisPtr, Process * dc)
 {
+  assert(dc);
 
   if (thisPtr->context)
     proc_Deactivate(thisPtr->context);
     
-  thisPtr->context = dc;
-  if (dc) {
-    proc_SetActivity(dc, thisPtr);
-    assert (proc_IsRunnable(dc));
+  act_SetContext(thisPtr, dc);
+  proc_SetActivity(dc, thisPtr);
+  assert (proc_IsRunnable(dc));
 
-    /* FIX: Check for preemption! */
-    if (thisPtr->readyQ == dispatchQueues[pr_Never]) {
-      thisPtr->readyQ = dc->readyQ;
-    }
-    else {
-      thisPtr->readyQ = dc->readyQ;
-      //if (thisPtr->readyQ->mask & (1u<<pr_Reserve))
-       
-      //if (thisPtr->readyQ->mask < dc->readyQ->mask)
-      //act_ForceResched();
-    }    
-  }
-  else {
-    act_DeleteActivity(thisPtr); /* migrate to 0 context => kill curActivity */
-  }
+  /* FIX: Check for preemption! */
+  thisPtr->readyQ = dc->readyQ;
+}
+
+void
+act_DeleteCurrent(void)
+{
+  Activity * thisPtr = act_Current();
+  if (thisPtr->context)
+    proc_Deactivate(thisPtr->context);
+  act_SetContextCurrent(thisPtr, 0);
+  act_DeleteActivity(thisPtr);
 }
 
 void 
@@ -557,8 +554,8 @@ sysT_ActivityTimeout()
   
   //printf("start QuantaExpired...%d\n", sysT_Now());
   
-  if (act_curActivity && act_curActivity->readyQ->other) {
-    Reserve *r = (Reserve *)act_curActivity->readyQ->other;
+  if (act_Current() && act_Current()->readyQ->other) {
+    Reserve * r = (Reserve *)act_Current()->readyQ->other;
     
     if (r->isActive) {
       r->lastDesched = sysT_Now();
@@ -701,8 +698,8 @@ act_DoReschedule(void)
   /* On the way out of an invocation trap there may be no current
    * activity, in which case we may need to choose a new one:
    */
-  if (act_curActivity == 0) {
-    //printf("in no cur_Activity case...calling ChooseNew\n");
+  if (act_Current() == 0) {
+    //printf("in no current Activity case...calling ChooseNew\n");
     act_ChooseNewCurrentActivity();
     act_yieldState = 0;
   }
@@ -710,11 +707,11 @@ act_DoReschedule(void)
     /* Current activity may be stalled or dead; if so, don't stick it
      * back on the run list!
      */
-    if ( act_curActivity->state == act_Running ) {
-      act_curActivity->readyQ->doQuantaTimeout(act_curActivity->readyQ,
-                                             act_curActivity);
+    if ( act_Current()->state == act_Running ) {
+      act_Current()->readyQ->doQuantaTimeout(act_Current()->readyQ,
+                                             act_Current());
 #ifdef ACTIVITYDEBUG
-      if ( act_curActivity->IsUser() )
+      if ( act_Current()->IsUser() )
 	printf("Active activity goes to end of run queue\n");
 #endif
     }
@@ -733,46 +730,45 @@ act_DoReschedule(void)
       check_Consistency("In DoReschedule() loop");
 #endif
 #if 0
-    printf("schedloop: curActivity 0x%08x ctxt 0x%08x fc 0x%x\n",
-		   Activity::curActivity, Activity::curActivity->context,
-		   Activity::curActivity->context ? Activity::curActivity->context->faultCode
-		   : 0);
+    printf("schedloop: curActivity 0x%08x proc 0x%08x fc 0x%x\n",
+		   act_Current(), proc_Current(),
+		   proc_Current() ? proc_Current()->faultCode : 0);
 #endif
 
-    assert (act_curActivity);
+    assert (act_Current());
     
     /* If activity cannot be successfully prepared, it cannot (ever) run,
      * and should be returned to the free activity list.  Do this even if
      * we are rescheduling, since we want the activity entry back promptly
      * and it doesn't take that long to test.
      */
-    if ( act_curActivity && act_Prepare(act_curActivity) == false ) {
-      assert( act_IsUser(act_curActivity) );
+    if ( act_Current() && act_Prepare(act_Current()) == false ) {
+      assert( act_IsUser(act_Current()) );
       
 
       /* We shouldn't be having this happen YET */
       fatal("Current activity no longer runnable\n");
 
-      act_DeleteActivity(act_curActivity);
-      assert (act_curActivity == 0);
+      act_DeleteActivity(act_Current());
+      assert (act_Current() == 0);
       act_ChooseNewCurrentActivity();
     }
 
-    assert (act_curActivity);
+    assert (act_Current());
 
     /* Activity might have gone to sleep as a result of context being prepared. */
     /* But in that case, wouldn't we have gone to act_Yield, not here? CRL */
-    if (act_curActivity->state != act_Running)
+    if (act_Current()->state != act_Running)
       act_ChooseNewCurrentActivity();
 
-    if (act_curActivity->context
-	&& act_curActivity->context->processFlags & capros_Process_PF_FaultToProcessKeeper) {
-      proc_InvokeProcessKeeper(act_curActivity->context);
+    if (proc_Current()
+	&& proc_Current()->processFlags & capros_Process_PF_FaultToProcessKeeper) {
+      proc_InvokeProcessKeeper(proc_Current());
 
       /* Invoking the process keeper either stuck us on a sleep queue, in
        * which case we Yielded(), or migrated the current activity to a
        * new domain, in which case we will keep trying: */
-      if (act_curActivity == 0 || act_curActivity->state != act_Running)
+      if (act_Current() == 0 || act_Current()->state != act_Running)
         act_ChooseNewCurrentActivity();
     }
 
@@ -792,24 +788,23 @@ act_DoReschedule(void)
     }
 #endif
 
-  } while (act_IsRunnable(act_curActivity) == false);
+  } while (act_IsRunnable(act_Current()) == false);
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Bottom DoReschedule()");
 #endif
 
-  assert (act_curActivity);
+  assert (act_Current());
+  assert (proc_Current());
 
-  assert (act_curActivity->context);
-
-  assert (act_curActivity->readyQ == act_CurContext()->readyQ);
+  assert (act_Current()->readyQ == act_CurContext()->readyQ);
 
   assert( irq_DISABLE_DEPTH() == 1 );
   act_yieldState = 0;		/* until proven otherwise */
 
-  if (act_curActivity->readyQ->mask & (1u<<pr_Reserve)) {
-    Reserve *r = (Reserve *)act_curActivity->readyQ->other;
+  if (act_Current()->readyQ->mask & (1u<<pr_Reserve)) {
+    Reserve * r = (Reserve *)act_Current()->readyQ->other;
 
 #ifdef RESERVE_DEBUG
     printf("dispatching reserve...deadline = %u", 
@@ -837,7 +832,7 @@ ExitTheKernel(void)
   UpdateTLB();
   
   if ((act_yieldState != 0)
-      || ! act_IsRunnable(act_curActivity) ) {
+      || ! act_IsRunnable(act_Current()) ) {
     act_DoReschedule();
   }
   assert(act_Current());

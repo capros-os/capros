@@ -76,27 +76,27 @@ CheckActivity_Start()
 {
   int stack;
 
-  printf("Start CheckActivity (activity 0x%x,context 0x%x,stack 0x%x)\n",
-	       act_curActivity, act_curActivity->context, &stack);
+  printf("Start CheckActivity (activity 0x%x,proc 0x%x,stack 0x%x)\n",
+	       act_Current(), proc_Current(), &stack);
 
   for(;;) {
     pass++;
     
-    assert(act_curActivity->state == act_Running);
+    assert(act_Current()->state == act_Running);
 
     check_Consistency("chkthrd");
   
-    assert(act_curActivity->state == act_Running);
+    assert(act_Current()->state == act_Running);
     
     CheckActivity_UnprepareObjects();
     
-    assert(act_curActivity->state == act_Running);
+    assert(act_Current()->state == act_Running);
 
     irq_DISABLE();   
-    act_WakeUpIn(act_curActivity, DELAY);
+    act_WakeUpIn(act_Current(), DELAY);
 
     /* printf("Checkactivity pass %d state %d\n", pass, Activity::state); */
-    assert(act_curActivity->state == act_Running);
+    assert(act_Current()->state == act_Running);
 
     act_SleepOn(&DeepSleepQ);
     

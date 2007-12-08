@@ -38,8 +38,8 @@ IdleActivity_Start(void)
   int stack;
 
   raw_local_irq_disable();
-  printf("Start IdleActivity (activity 0x%x,context 0x%x,stack 0x%x)\n",
-	 act_curActivity, act_curActivity->context, &stack);
+  printf("Start IdleActivity (activity 0x%x,proc 0x%x,stack 0x%x)\n",
+	 act_Current(), proc_Current(), &stack);
   raw_local_irq_enable();
 
   // For some reason, cannot call Debugger here; this process gets wedged,

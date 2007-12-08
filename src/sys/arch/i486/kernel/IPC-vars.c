@@ -48,10 +48,16 @@ initialization, we call malloc, which under some circumstances can
 call act_Yield. We catch that problem by checking for a nonzero
 value in act_curActivity. */
 /* Eventually act_curActivity should be per-CPU. */
-Activity *act_curActivity  __attribute__((aligned(4),
-						   section(".data"))) = 0;
+Activity * act_curActivity __attribute__((aligned(4),
+					   section(".data"))) = 0;
+
+/* proc_curProcess is always act_curActivity->context
+   (or NULL if act_curActivity is NULL). */
+struct Process * proc_curProcess __attribute__((aligned(4),
+                                           section(".data"))) = 0;
+
 uint32_t act_yieldState __attribute__((aligned(4),
-						   section(".data")));
+					   section(".data")));
 #ifdef OPTION_KERN_TIMING_STATS
 uint32_t inv_delta_reset __attribute__((aligned(4),
 					section(".data")));

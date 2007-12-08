@@ -38,6 +38,9 @@ IRQ is disabled.
 
 Whenever the kernel is running and irq_DisableDepth is zero,
 IRQ is enabled or disabled the same as it is in the current process's CPSR.
+Thus, a process with IRQ disabled can make a simple invocation of a
+kernel capability without ever enabling IRQ, 
+as long as the invocation doesn't Yield.
 
 While the kernel is not running, irq_DisableDepth has 1.
 (Logically, it would be 0, but it is not examined while the kernel

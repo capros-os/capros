@@ -372,7 +372,7 @@ proc_allocate(bool isUser)
     if (nextClobber >= KTUNE_NCONTEXT)
       nextClobber = 0;
 
-    if (p == act_Current()->context) {
+    if (p == proc_Current()) {
       p = 0;
       continue;
     }
@@ -710,7 +710,7 @@ proc_Unload(Process* thisPtr)
     const char *descrip = "other";
     bool shouldStop = false;
     
-    if (this == Activity::Current()->context)
+    if (this == proc_Current())
       descrip = "current";
     if (inv.IsActive() && this == inv.invokee) {
       descrip = "invokee";
@@ -737,7 +737,7 @@ proc_Unload(Process* thisPtr)
 
   if (thisPtr->curActivity) {
     proc_SyncActivity(thisPtr);
-    act_ZapContext(thisPtr->curActivity);
+    act_SetContext(thisPtr->curActivity, NULL);
 
   }
 
