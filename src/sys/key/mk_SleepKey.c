@@ -63,7 +63,8 @@ SleepKey(Invocation* inv /*@ not null @*/)
 
       /* FIX: call DeliverResult() here to update result regs! */
       
-      irq_DISABLE();
+      irqFlags_t flags = local_irq_save();
+
       if (inv->entry.code == OC_capros_Sleep_sleep) {
 	act_WakeUpIn(act_Current(), ms);
       }
@@ -82,7 +83,8 @@ SleepKey(Invocation* inv /*@ not null @*/)
       proc_AdvancePostInvocationPC(act_CurContext());
 
       act_SleepOn(&DeepSleepQ);
-      irq_ENABLE();
+
+      local_irq_restore(flags);
 
       act_Yield();
       return;

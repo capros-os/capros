@@ -196,7 +196,7 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 	break;
       }
 
-      irq_DISABLE();
+      irqFlags_t flags = local_irq_save();
       
       if (!vis->isPending) {
         // Ensure the interrupt is enabled.
@@ -206,10 +206,10 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 	  printf("DevPrivs: Sleeping for int source %d\n", source);
         act_SleepOn(&vis->sleeper);
 
-	irq_ENABLE();
+	local_irq_restore(flags);
 	act_Yield();
       }
-      irq_ENABLE();
+      local_irq_restore(flags);
 
       COMMIT_POINT();
 
@@ -217,9 +217,9 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       DEBUG(sleep)
 	printf("Int source %d was pending already\n", source);
 
-      irq_DISABLE();
+      flags = local_irq_save();
       vis->isPending = false;
-      irq_ENABLE();
+      local_irq_restore(flags);
 	
       inv->exit.code = RC_OK;
       break;

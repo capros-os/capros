@@ -29,15 +29,9 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/PhysMem.h>
 #include <kerninc/ObjectSource.h>
 #include <kerninc/ObjectCache.h>
+#include <kerninc/IRQ.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
-#if 0
-#include <kerninc/MsgLog.h>
-#include <kerninc/Activity.h>
-#include <eros/StdKeyType.h>
-#include <eros/DiscrimKey.h>
-#include <kerninc/Persist.h>
-#endif
 
 #include <idl/capros/key.h>
 #include <idl/capros/DevPrivs.h>
@@ -168,7 +162,7 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 	break;
       }
 
-      irq_DISABLE();
+      irqFlags_t flags = local_irq_save();
       
       if (!uirq->isPending) {
         // Ensure the interrupt is enabled.
@@ -179,10 +173,10 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
         act_SleepOn(&uirq->sleepers);
 
 
-	irq_ENABLE();
+	local_irq_restore(flags);
 	act_Yield();
       }
-      irq_ENABLE();
+      local_irq_restore(flags);
 
       COMMIT_POINT();
 
@@ -190,9 +184,9 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       DEBUG(sleep)
 	printf("IRQ %d was pending already\n", irq);
 
-      irq_DISABLE();
+      flags = local_irq_save();
       uirq->isPending = false;
-      irq_ENABLE();
+      local_irq_restore(flags);
 	
       inv->exit.code = RC_OK;
       break;

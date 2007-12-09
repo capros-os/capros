@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* X86 implementation of the PCI BIOS interface.  Mostly, we just cop
  * out and pass the buck to the system BIOS.
@@ -24,7 +28,7 @@
 
 #include <kerninc/kernel.h>
 #include <kerninc/PCI.h>
-#include <arch-kerninc/IRQ-inline.h>
+#include <kerninc/IRQ.h>
 #include "Segment.h"
 
 #define dbg_bios32	0x1	/* steps in taking snapshot */
@@ -210,7 +214,7 @@ Bios32FindService(uint32_t service)
 
   SET_SELECTOR(Bios32FarPtr);
 		
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   __asm__(LCALL(%%edi)
 	  : "=a" (returnCode),
 	    "=b" (address),
@@ -219,7 +223,7 @@ Bios32FindService(uint32_t service)
 	  : "0" (service),
 	    "1" (0),
 	    "D" (&Bios32FarPtr));
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   switch (returnCode) {
   case 0:
@@ -278,7 +282,7 @@ pciBios_Init()
     SET_SELECTOR(PciFarPtr);
     PciFarPtr.offset = PciBiosEntryPt;
 
-    irq_DISABLE();
+    irqFlags_t flags = local_irq_save();
     __asm__(LCALL(%%edi) "\n\t"
 	    "jc 1f\n\t"
 	    "xor %%ah, %%ah\n"
@@ -289,7 +293,7 @@ pciBios_Init()
 	    : "1" (pcifn_BiosPresent),
 	      "D" (&PciFarPtr)
 	    : "bx", "cx");
-    irq_ENABLE();
+    local_irq_restore(flags);
 
     status = (pack >> 16) & 0xff;
     majorRevision = (pack >> 8) & 0xff;
@@ -360,7 +364,7 @@ pciBios_FindDevice (uint16_t vendor, uint16_t device_id,
   
   SET_SELECTOR(PciFarPtr);
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   __asm__(LCALL(%%edi) "\n\t"
 	  "jc 1f\n\t"
 	  "xor %%ah, %%ah\n"
@@ -372,7 +376,7 @@ pciBios_FindDevice (uint16_t vendor, uint16_t device_id,
 	  "d" (vendor),
 	  "S" ((uint32_t) index),
 	  "D" (&PciFarPtr));
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   DEBUG(pcibios)
     dprintf(true,"Call to PciBios::FindDevice() -- done\n");
@@ -395,7 +399,7 @@ pciBios_FindClass (uint32_t devClass, uint16_t index,
   DEBUG(pcibios)
     dprintf(true,"Call to PciBios::FindClass()\n");
   
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   __asm__ (LCALL(%%edi)"\n\t"
 	   "jc 1f\n\t"
 	   "xor %%ah, %%ah\n"
@@ -406,7 +410,7 @@ pciBios_FindClass (uint32_t devClass, uint16_t index,
 	   "c" (devClass),
 	   "S" ((uint32_t) index),
 	   "D" (&PciFarPtr));
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   DEBUG(pcibios)
     dprintf(true,"Call to PciBios::FindClass() -- done\n");
@@ -425,7 +429,7 @@ pciBios_ReadConfig8 (uint8_t bus,
 
   SET_SELECTOR(PciFarPtr);
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   __asm__(LCALL(%%esi) "\n\t"
 	  "jc 1f\n\t"
 	  "xor %%ah, %%ah\n"
@@ -436,7 +440,7 @@ pciBios_ReadConfig8 (uint8_t bus,
 	  "b" (bx),
 	  "D" ((uint32_t) where),
 	  "S" (&PciFarPtr));
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return (uint32_t) (ret & 0xff00) >> 8;
 }
@@ -451,7 +455,7 @@ pciBios_ReadConfig16 (uint8_t bus,
 
   SET_SELECTOR(PciFarPtr);
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   __asm__(LCALL(%%esi) "\n\t"
 	  "jc 1f\n\t"
 	  "xor %%ah, %%ah\n"
@@ -462,7 +466,7 @@ pciBios_ReadConfig16 (uint8_t bus,
 	  "b" (bx),
 	  "D" ((uint32_t) where),
 	  "S" (&PciFarPtr));
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return (uint32_t) (ret & 0xff00) >> 8;
 }
@@ -476,7 +480,7 @@ pciBios_ReadConfig32 (uint8_t bus,
 
   SET_SELECTOR(PciFarPtr);
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   __asm__(LCALL(%%esi) "\n\t"
 	  "jc 1f\n\t"
 	  "xor %%ah, %%ah\n"
@@ -487,7 +491,7 @@ pciBios_ReadConfig32 (uint8_t bus,
 	  "b" (bx),
 	  "D" ((uint32_t) where),
 	  "S" (&PciFarPtr));
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return (uint32_t) (ret & 0xff00) >> 8;
 }
@@ -501,7 +505,7 @@ pciBios_WriteConfig8 (uint8_t bus,
 
   SET_SELECTOR(PciFarPtr);
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   __asm__(LCALL(%%esi) "\n\t"
 	  "jc 1f\n\t"
 	  "xor %%ah, %%ah\n"
@@ -512,7 +516,7 @@ pciBios_WriteConfig8 (uint8_t bus,
 	  "b" (bx),
 	  "D" ((long) where),
 	  "S" (&PciFarPtr));
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return (int) (ret & 0xff00) >> 8;
 }
@@ -526,7 +530,7 @@ pciBios_WriteConfig16 (uint8_t bus,
 
   SET_SELECTOR(PciFarPtr);
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   __asm__(LCALL(%%esi) "\n\t"
 	  "jc 1f\n\t"
 	  "xor %%ah, %%ah\n"
@@ -537,7 +541,7 @@ pciBios_WriteConfig16 (uint8_t bus,
 	  "b" (bx),
 	  "D" ((long) where),
 	  "S" (&PciFarPtr));
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return (int) (ret & 0xff00) >> 8;
 }
@@ -551,7 +555,7 @@ pciBios_WriteConfig32 (uint8_t bus,
 
   SET_SELECTOR(PciFarPtr);
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   __asm__(LCALL(%%esi) "\n\t"
 	  "jc 1f\n\t"
 	  "xor %%ah, %%ah\n"
@@ -562,7 +566,7 @@ pciBios_WriteConfig32 (uint8_t bus,
 	  "b" (bx),
 	  "D" ((uint32_t) where),
 	  "S" (&PciFarPtr));
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return (uint32_t) (ret & 0xff00) >> 8;
 }

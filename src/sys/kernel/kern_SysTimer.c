@@ -73,7 +73,7 @@ sysT_AddSleeper(Activity* t)
   register Activity *cur = 0;
   register Activity *next = 0;
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   if (ActivityChain == 0 || t->wakeTime < ActivityChain->wakeTime) {
     t->nextTimedActivity = ActivityChain;
@@ -112,7 +112,7 @@ sysT_AddSleeper(Activity* t)
 		   (uint32_t) wakeup);
 #endif
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 }
 
 
@@ -121,7 +121,7 @@ void
 sysT_CancelAlarm(Activity* t)
 {
   Activity *sleeper = 0;
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
 #if 0
   printf("Canceling alarm on activity 0x%x\n", &t);
@@ -142,7 +142,7 @@ sysT_CancelAlarm(Activity* t)
     }
   }
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 }
 
 void
@@ -201,7 +201,7 @@ void TimePageTick(Timer *t)
   now_secs = timenow/1000;
   now_usecs = timenow % 1000;
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   eros_tod_struct->tps_sinceboot.tv_secs = now_secs;
   eros_tod_struct->tps_sinceboot.tv_usecs = now_usecs;
@@ -211,7 +211,7 @@ void TimePageTick(Timer *t)
   eros_tod_struct->tps_wall.tv_secs = wallBase.tv_secs + now_secs;
   eros_tod_struct->tps_wall.tv_usecs = now_usecs;
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   tim_WakeupIn(&TimePageTimer, 5ul, TimePageTick);
 }

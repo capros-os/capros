@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -92,7 +92,7 @@ CheckActivity_Start()
     
     assert(act_Current()->state == act_Running);
 
-    irq_DISABLE();   
+    irqFlags_t flags = local_irq_save();   
     act_WakeUpIn(act_Current(), DELAY);
 
     /* printf("Checkactivity pass %d state %d\n", pass, Activity::state); */
@@ -100,7 +100,7 @@ CheckActivity_Start()
 
     act_SleepOn(&DeepSleepQ);
     
-    irq_ENABLE();
+    local_irq_restore(flags);
 
     /* is this correct?? */
     act_Yield();

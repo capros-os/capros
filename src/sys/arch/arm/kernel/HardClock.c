@@ -27,7 +27,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/CPU.h>
-#include <arch-kerninc/IRQ-inline.h>
+#include <kerninc/IRQ.h>
 #include "ep93xx-timer.h"
 #include "ep93xx-vic.h"
 #include "Interrupt.h"
@@ -171,12 +171,12 @@ TC1OIHandler(VICIntSource * vis)
   uint64_t now = sysT_Now();
 
   if (sysT_wakeup <= now) {	// wake up now
-    irq_DISABLE();
+    irqFlags_t flags = local_irq_save();
   
     sysT_WakeupAt(now);
     RecalcWakeupTime();
 
-    irq_ENABLE();
+    local_irq_restore(flags);
 #if 0
     /* Note, kernel printf does not support long long sizes. */
     printf("Timer 1 woke up, now=%x%08x, wakeup=%x%08x\n",

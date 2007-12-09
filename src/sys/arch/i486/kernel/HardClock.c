@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Machine.h>
 #include <kerninc/Activity.h>
 #include <kerninc/SysTimer.h>
+#include <kerninc/IRQ.h>
 #include <eros/arch/i486/io.h>
 #include "IDT.h"
 #include "IRQ386.h"
@@ -193,7 +194,7 @@ mach_TicksToNanoseconds(uint64_t ticks)
 void
 sysT_Wakeup(savearea_t *sa)
 {
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   
 #if 0
   extern intDepth;
@@ -205,7 +206,7 @@ sysT_Wakeup(savearea_t *sa)
 
   sysT_ResetWakeTime();
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   irq_Enable(IRQ_FROM_EXCEPTION(sa->ExceptNo));
 }

@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -92,7 +92,7 @@ check_Nodes()
   uint32_t nd = 0;
   bool result = true;
   
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   for (nd = 0; nd < objC_NumCoreNodeFrames(); nd++) {
     /* printf("CheckNode(%d)\n", frame); */
@@ -106,7 +106,7 @@ check_Nodes()
       break;
   }
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return result;
 }
@@ -120,7 +120,7 @@ check_Pages()
 #endif
   bool result = true;
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   for (pg = 0; pg < objC_NumCorePageFrames(); pg++) {
     /*  printf("CheckPage(%d)\n", frame); */
@@ -176,7 +176,7 @@ check_Pages()
     if (! result) break;	// no point continuing the loop
   }
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return result;
 }

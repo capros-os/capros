@@ -1,3 +1,5 @@
+#ifndef __IRQ_INLINE_H__
+#define __IRQ_INLINE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
@@ -74,4 +76,31 @@ irq_ENABLE(void)
     raw_local_irq_enable();
 }
 
+typedef unsigned long irqFlags_t;
+
+// Disable IRQ and return the old flags.
+INLINE irqFlags_t
+mach_local_irq_save(void)
+{
+  irqFlags_t ret;
+  __asm__ __volatile__(
+	"pushfl ; popl %0"
+  : "=g" (ret) : );
+  raw_local_irq_disable();
+  return ret;
+}
+
+// Restore flags saved by mach_local_irq_save.
+INLINE void
+mach_local_irq_restore(irqFlags_t flags)
+{
+  __asm__ __volatile__(
+	"pushl %0 ; popfl"
+  :
+  : "g" (flags)
+  : "memory", "cc" );
+}
+
 #endif /* GNU_INLINE_ASM */
+
+#endif // __IRQ_INLINE_H__

@@ -475,9 +475,9 @@ printf(const char *fmt, ...)
   // modified by hchen
   if (!kstream_debuggerIsActive)
   {
-    irq_DISABLE();
+    irqFlags_t flags = local_irq_save();
     db_printf_guts (fmt, listp);
-    irq_ENABLE();
+    local_irq_restore(flags);
   }
   else
   {
@@ -495,9 +495,9 @@ void dprintf(unsigned shouldStop, const char* fmt, ...)
   // modified by hchen
   if (!kstream_debuggerIsActive)
   {
-    irq_DISABLE();
+    irqFlags_t flags = local_irq_save();
     db_printf_guts (fmt, listp);
-    irq_ENABLE();
+    local_irq_restore(flags);
   }
   else
   {
@@ -518,9 +518,9 @@ fatal(const char *fmt, ...)
   /* modified by hchen to make MOPS happy */
   if (!kstream_debuggerIsActive)
   {
-    irq_DISABLE();
+    irqFlags_t flags = local_irq_save();
     db_printf_guts (fmt, listp);
-    irq_ENABLE();
+    local_irq_restore(flags);
   }
   else
   {

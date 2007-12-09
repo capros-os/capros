@@ -49,7 +49,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/Process.h>
-#include <arch-kerninc/IRQ-inline.h>
+#include <kerninc/IRQ.h>
 
 #define cnpollc(x) kstream_dbg_stream->SetDebugging((x))
 
@@ -98,13 +98,13 @@ kdb_trap(int type,	// always T_BPTFLT
 		       regs, regs->r15, regs->CPSR, regs->r13);
 #endif
 
-	irq_DISABLE();
+	irqFlags_t flags = local_irq_save();
 	db_active++;
 	cnpollc(true);
 	db_trap(type, code);
 	cnpollc(false);
 	db_active--;
-	irq_ENABLE();
+	local_irq_restore(flags);
 
 	memcpy(regs, &ddb_regs, sizeof(db_regs_t));
 

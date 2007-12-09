@@ -157,7 +157,7 @@ check_Contexts(const char *c)
 #endif
   bool result = true;
   
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   /* It is possible for this to get called from interrupt handlers
    * before the context cache has been allocated.
@@ -201,7 +201,7 @@ check_Contexts(const char *c)
     }
   }
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return result;
 }

@@ -28,6 +28,20 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/StallQueue.h>
 #include <arch-kerninc/IRQ-inline.h>
 
+// Disable IRQ and return the old flags.
+INLINE irqFlags_t
+local_irq_save(void)
+{
+  return mach_local_irq_save();
+}
+
+// Restore flags saved by mach_local_irq_save.
+INLINE void
+local_irq_restore(irqFlags_t flags)
+{
+  mach_local_irq_restore(flags);
+}
+
 /* irq_DisableDepth
 
 While the kernel is running, irq_DisableDepth has the net number of times

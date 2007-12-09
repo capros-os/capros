@@ -95,7 +95,7 @@ readyq_ReserveWakeup(ReadyQueue *r, Activity *t)
 {
   Reserve *res = 0;
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   assert(link_isSingleton(&t->q_link));
 
   if (t->wakeTime) {
@@ -123,19 +123,19 @@ readyq_ReserveWakeup(ReadyQueue *r, Activity *t)
   printf(" next deadline = %d\n", 
          /*mach_TicksToMilliseconds*/(res->nextDeadline));
 #endif
-  irq_ENABLE();
+  local_irq_restore(flags);
 }
 
 void 
 readyq_Timeout(ReadyQueue *r, Activity *t)
 {
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   //printf("now = %d", sysT_Now());
   //printf(" in generic timeout at %d\n", t->readyQ->mask);
   act_Wakeup(t);
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 }
 
 void
@@ -143,7 +143,7 @@ readyq_ReserveTimeout(ReadyQueue *r, Activity *t)
 {
   Reserve *res = (Reserve *)r->other;
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 #ifdef RESERVE_DEBUG
   printf("reserve %d in timeout...", res->index);
   printf(" time left = %d", 
@@ -185,7 +185,7 @@ readyq_ReserveTimeout(ReadyQueue *r, Activity *t)
 
   t->state = act_Ready;
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 }
 
 #define pr_Seven 7
@@ -280,7 +280,7 @@ act_AllocActivity()
 {
   Activity *t = 0;
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   if (sq_IsEmpty(&freeActivityList))
     fatal("Activitys exhausted\n");
@@ -288,7 +288,7 @@ act_AllocActivity()
   t = act_DequeueNext(&freeActivityList);
   /*printf("returning activity with p = %d\n", t->priority);*/
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return t;
 }
@@ -341,11 +341,11 @@ act_DeleteActivity(Activity *t)
     res_SetInactive(r->index);
   }
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   act_Enqueue(t, &freeActivityList);
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 }
 
 #ifndef NDEBUG
@@ -367,7 +367,7 @@ act_ValidActivityKey(Activity* thisPtr, const Key* pKey)
 void
 act_Enqueue(Activity *t, StallQueue *q)
 {
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   assert(link_isSingleton(&t->q_link));
 
@@ -380,17 +380,17 @@ act_Enqueue(Activity *t, StallQueue *q)
     printf("enqueued activity on reserve index %d\n", r->index);
   }
 #endif
-  irq_ENABLE();
+  local_irq_restore(flags);
 }
 
 void
 act_Dequeue(Activity *t)
 {
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   link_Unlink(&t->q_link);
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 }
  
 Activity *
@@ -398,14 +398,14 @@ act_DequeueNext(StallQueue *q)
 {
   Activity *t = 0;
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   if (!sq_IsEmpty(q)) {
     t = (Activity *) q->q_head.next;
     link_Unlink(&t->q_link);
   }
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return t;
 }
@@ -418,7 +418,7 @@ act_SleepOn(StallQueue * q /*@ not null @*/)
   act_ValidateActivity(thisPtr);
 #endif
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
 #if defined(DBG_WILD_PTR)
   if (dbg_wild_ptr && 0)
@@ -452,7 +452,7 @@ act_SleepOn(StallQueue * q /*@ not null @*/)
 		      thisPtr, q);
   }
 #endif
-  irq_ENABLE();
+  local_irq_restore(flags);
 }
 
 /* Activitys only use the timer system when they are about to yield,
@@ -485,7 +485,7 @@ act_WakeUpAtTick(Activity* thisPtr, uint64_t tick)
 void 
 act_Wakeup(Activity* thisPtr)
 {
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   
   thisPtr->readyQ->doWakeup(thisPtr->readyQ, thisPtr);
 
@@ -503,7 +503,7 @@ act_Wakeup(Activity* thisPtr)
  
     act_ForceResched();
   }
-  irq_ENABLE();
+  local_irq_restore(flags);
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
@@ -597,7 +597,7 @@ act_ChooseNewCurrentActivity()
 
   assert( irq_DISABLE_DEPTH() == 1 );
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
   //printf("starting ChooseNew()...\n");
   /* idle activitys should always be ready */
   assert(act_RunQueueMap);
@@ -656,7 +656,7 @@ act_ChooseNewCurrentActivity()
     //  res_SetInactive(res->index);
   }
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   assert( irq_DISABLE_DEPTH() == 1 );
 }
@@ -870,7 +870,7 @@ sq_WakeAll(StallQueue* q, bool b/* verbose*/)
 {
   Activity *t;
 
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   while ((t = act_DequeueNext(q))) {
 #ifdef OPTION_DDB
@@ -890,7 +890,7 @@ sq_WakeAll(StallQueue* q, bool b/* verbose*/)
     act_Wakeup(t);
   }
 
-  irq_ENABLE();
+  local_irq_restore(flags);
 }
 
 bool 
@@ -898,12 +898,12 @@ sq_IsEmpty(StallQueue* q)
 {
   bool result = false;
   
-  irq_DISABLE();
+  irqFlags_t flags = local_irq_save();
 
   if (link_isSingleton(&q->q_head))
     result = true;
   
-  irq_ENABLE();
+  local_irq_restore(flags);
 
   return result;
 }
