@@ -23,87 +23,9 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 	
 #include <eros/arch/arm/asm.h>
 
-#ifndef NDEBUG
-// Optional debugging check:
-#define DISABLE_DEPTH_CHECK
-#endif
-
-#define MASK_CPSR_IRQDisable        0x00000080
-
 	.text
 /* Assorted short assembler routines,
    not performance-critical enough to warrant declaring inline. */
-
-	ENTRY(irq_DISABLE)
-	ldr r1,=irq_DisableDepth
-	/* Disable BEFORE updating irq_DisableDepth. */
-	mrs r0,cpsr
-	orr r2,r0,#MASK_CPSR_IRQDisable	/* may already be set */
-	msr cpsr_c,r2
-#ifdef DISABLE_DEPTH_CHECK
-	tst r0,#MASK_CPSR_IRQDisable
-	bne 1f
-	/* IRQ is enabled */
-	ldr r2,[r1]	// irq_DisableDepth must be zero
-	cmp r2,#0
-	beq 1f
-	ldr r0,=disabMsg
-	mov r1,r2
-	bl printf
-	bl Debugger
-	b halt
-disabMsg: .asciz "irq_DISABLE: IRQ enab and depth=%d "
-	.balign 4
-1:
-#endif
-	ldr r2,[r1]
-	add r2,r2,#1
-	str r2,[r1]
-	mov pc,lr
-
-	ENTRY(irq_ENABLE)
-	ldr r1,=irq_DisableDepth
-	/* Update irq_DisableDepth BEFORE re-enabling. */
-	/* N.B. Instruction order is thus to avoid pipeline interlocks. */
-	mrs r0,cpsr
-	ldr r2,[r1]
-#ifdef DISABLE_DEPTH_CHECK
-	tst r0,#MASK_CPSR_IRQDisable
-	bne 1f
-	/* IRQ is already enabled */
-	ldr r0,=enabMsg
-	b 2f
-
-1:	cmp r2,#0
-	bne 1f
-	ldr r0,=ovfMsg
-2:	mov r1,r2
-	bl printf
-	bl Debugger
-	b halt
-enabMsg: .asciz "irq_ENABLE: already enab, and depth=%d "
-ovfMsg: .asciz "irq_ENABLE: depth=%d, overflowing"
-	.balign 4
-1:
-#endif
-	bic r0,r0,#MASK_CPSR_IRQDisable	/* in case we need to enable */
-	subs r2,r2,#1
-	str r2,[r1]
-	msreq cpsr_c,r0
-	mov pc,lr
-
-
-	ENTRY(raw_local_irq_enable)
-	mrs r0,cpsr
-	bic r0,r0,#MASK_CPSR_IRQDisable
-	msr cpsr_c,r0
-	mov pc,lr
-
-	ENTRY(raw_local_irq_disable)
-	mrs r0,cpsr
-	orr r0,r0,#MASK_CPSR_IRQDisable
-	msr cpsr_c,r0
-	mov pc,lr
 
 
 	ENTRY(mach_FlushBothTLBs)

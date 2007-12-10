@@ -410,23 +410,6 @@ use_cpuid:
 	
 	leave
 	ret
-	
-ENTRY(GetFlags)
-	pushl	%ebp
-	movl	%esp,%ebp
-	pushf
-	popl	%eax
-	leave
-	ret
-
-ENTRY(SetFlags)
-	pushl	%ebp
-	movl	%esp,%ebp
-	movl	0x8(%ebp),%eax
-	pushl	%eax
-	popf
-	leave
-	ret
 
 ENTRY(rdtsc)
 	pushl	%ebp

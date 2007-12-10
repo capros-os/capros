@@ -42,33 +42,30 @@ local_irq_restore(irqFlags_t flags)
   mach_local_irq_restore(flags);
 }
 
-/* irq_DisableDepth
+/* When a process traps to the kernel, the IRQ interrupt is disabled
+by the hardware.
+When we are ready to enable IRQ interrupts again. call irq_ENABLE(). */
+INLINE void
+irq_ENABLE(void)
+{
+  raw_local_irq_enable();
+}
 
-While the kernel is running, irq_DisableDepth has the net number of times
-that the kernel has disabled IRQ.
+/* When an IRQ interrupt occurs,
+the IRQ interrupt, which was enabled, is disabled by the hardware.
+When we are ready to enable IRQ interrupts again. call irq_ENABLE_for_IRQ(). */
+INLINE void
+irq_ENABLE_for_IRQ(void)
+{
+  raw_local_irq_enable();
+}
 
-Whenever the kernel is running and irq_DisableDepth is nonzero,
-IRQ is disabled.
-
-Whenever the kernel is running and irq_DisableDepth is zero,
-IRQ is enabled or disabled the same as it is in the current process's CPSR.
-Thus, a process with IRQ disabled can make a simple invocation of a
-kernel capability without ever enabling IRQ, 
-as long as the invocation doesn't Yield.
-
-While the kernel is not running, irq_DisableDepth has 1.
-(Logically, it would be 0, but it is not examined while the kernel
-is not running.)
-
-On an exception from a user process, IRQ is disabled by the exception,
-and irq_DisableDepth is 1 as it should be.
-
-An exception from the kernel usually is an interrupt.
-In this case, obviously immediately before the interrupt,
-IRQ was enabled and irq_DisableDepth was zero.
-IRQ is disabled by the exception.
-We set irq_DisableDepth to 1 on the exception 
-and reset it to 0 before returning.
-*/
+/* Having called irq_ENABLE[_for_IRQ] to enable interrupts,
+call irq_DISABLE() to disable interrupts before exiting the kernel. */
+INLINE void
+irq_DISABLE(void)
+{
+  raw_local_irq_disable();
+}
 
 #endif /* __IRQ_H__ */

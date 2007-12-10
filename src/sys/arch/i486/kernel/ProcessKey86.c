@@ -76,6 +76,7 @@ ProcessKey(Invocation * inv)
       COMMIT_POINT();
 
       bool b = proc_GetRegs32(ac, &regs);
+      (void)b;		// avoid compiler warning
       assert(b);	// because we prepared the process above
 
       inv_CopyOut(inv, sizeof(regs), &regs);

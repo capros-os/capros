@@ -29,18 +29,13 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #define StackSize 256
 
-/* In IdleActivity_Start, we must disable irq around printf(),
-because irq_DisableDepth is 1
-(kernel code expects it to be 0). */
 void
 IdleActivity_Start(void)
 {
   int stack;
 
-  raw_local_irq_disable();
   printf("Start IdleActivity (activity 0x%x,proc 0x%x,stack 0x%x)\n",
 	 act_Current(), proc_Current(), &stack);
-  raw_local_irq_enable();
 
   // For some reason, cannot call Debugger here; this process gets wedged,
   // which is a Bad Thing.
@@ -52,14 +47,10 @@ IdleActivity_Start(void)
     int i;
     for (i=0; i<10000000; i++)
       (void)x;
-    raw_local_irq_disable();
     printf("i\b");
-    raw_local_irq_enable();
     for (i=0; i<10000000; i++)
       (void)x;
-    raw_local_irq_disable();
     printf("I\b");
-    raw_local_irq_enable();
 #else
     __asm__ ("mcr p15,0,r0,c7,c0,4");	// wait for interrupt
 #endif

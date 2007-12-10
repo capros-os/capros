@@ -41,8 +41,8 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/SysTimer.h>
 #include <kerninc/Process.h>
 #include <kerninc/KernStats.h>
+#include <kerninc/IRQ.h>
 #include <eros/arch/i486/io.h>
-#include <arch-kerninc/IRQ-inline.h>
 #include "lostart.h"
 #include "IDT.h"
 #include "GDT.h"
@@ -98,18 +98,13 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
 {
 #ifndef NDEBUG
   register Activity* curActivity = 0;
-  uint32_t oDisableDepth = irq_DISABLE_DEPTH();
-
 #endif
   
   uint32_t vecNumber = saveArea->ExceptNo;
 
   KernStats.nInter++;
       
-
-  assert( irq_DISABLE_DEPTH() == 1 || vecNumber < iv_IRQ0 );
-
-  assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
+  assert(local_irq_disabled());
 
 #ifndef NDEBUG
   /* If we interrupted an invocation, there is no guarantee that
@@ -132,8 +127,7 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
    * the kernel in nested fashion could trigger a context check while
    * something critical was being updated. */
   
-  if (   (irq_DISABLE_DEPTH() == 1)	/* avoid recursive fault */
-      && (sa_IsProcess(saveArea)
+  if ((sa_IsProcess(saveArea)
           || ((vecNumber != iv_BreakPoint) && (vecNumber < iv_IRQ0)) )
       && ! check_Contexts("on int entry") ) {
     halt('a');
@@ -189,18 +183,13 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
   }
 #endif
   
-  assert( irq_DISABLE_DEPTH() == 1 || vecNumber < iv_IRQ0 );
-
   /* We have now done all of the processing that must be done with
    * interrupts disabled.  Re-enable interrupts here:
    */
 
 #ifndef NESTED_INTERRUPT_SUPPRESS
- 
+  /* This could be either an interrupt or an exception, so use irq_ENABLE. */
   irq_ENABLE();
-  
-  assert( irq_DISABLE_DEPTH() == 0 || vecNumber < iv_IRQ0 );
- 
 #endif
 
 #if defined(DBG_WILD_PTR) && (DBG_WILD_PTR > 1)
@@ -222,15 +211,7 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
     check_Consistency("after int dispatch");
 #endif
 
-#ifndef NESTED_INTERRUPT_SUPPRESS
- 
-  assert( irq_DISABLE_DEPTH() == 0 || vecNumber < iv_IRQ0 );
- 
-#endif
-
- 
   assert ( act_Current() || !sa_IsProcess(saveArea));
- 
 
   /* We are going to process all pending interrupts and then return to
    * the activity.  We need to make sure that we do not lose any, thus
@@ -238,11 +219,9 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
    */
   
 #ifndef NESTED_INTERRUPT_SUPPRESS
- 
   irq_DISABLE();
 #endif
-  assert( irq_DISABLE_DEPTH() == 1 || vecNumber < iv_IRQ0 );
- 
+  assert(local_irq_disabled());
   
   /* 
    * If the activity is yielding voluntarily, it MUST be rescheduled.
@@ -265,23 +244,19 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
    * 
    */
   
-  assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
-
-#ifndef NDEBUG
-  assert ( oDisableDepth == irq_DISABLE_DEPTH() );
-#endif
+  assert(local_irq_disabled());
 
   assert(saveArea);
   if (sa_IsProcess(saveArea)) {
     ExitTheKernel();	// does not return
   }
 
-  assert( irq_DISABLE_DEPTH() == 1 || vecNumber < iv_IRQ0 );
+  assert(local_irq_disabled());
 
   /* We are about to do a return from interrupt, which path must not
    * be interrupted.  Disable interrupts prior to return:
    */
-  assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
+  assert(local_irq_disabled());
 
   resume_from_kernel_interrupt(saveArea);
 }

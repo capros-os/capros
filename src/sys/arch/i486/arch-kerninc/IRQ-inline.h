@@ -36,14 +36,6 @@ struct UserIrq {
 };
 extern struct UserIrq UserIrqEntries[NUM_HW_INTERRUPT];
 
-extern uint32_t irq_DisableDepth;
-
-INLINE uint32_t 
-irq_DISABLE_DEPTH(void)
-{
-  return irq_DisableDepth;
-}
-
 INLINE void
 raw_local_irq_disable(void)
 {
@@ -56,36 +48,29 @@ raw_local_irq_enable(void)
   GNU_INLINE_ASM ("sti");
 }
 
-#ifdef GNU_INLINE_ASM
-INLINE void
-irq_DISABLE(void)
-{
-  /* Disable BEFORE updating disabledepth */
-  raw_local_irq_disable();
-  irq_DisableDepth++;
-}
-
-#endif /* GNU_INLINE_ASM */
-
-#ifdef GNU_INLINE_ASM
-INLINE void
-irq_ENABLE(void)
-{
-  /* Adjust disabledepth before re-enabling  */
-  if (--irq_DisableDepth == 0)
-    raw_local_irq_enable();
-}
-
 typedef unsigned long irqFlags_t;
+
+INLINE irqFlags_t
+raw_local_get_flags(void)
+{
+  irqFlags_t ret;
+  __asm__ __volatile__(
+        "pushfl ; popl %0"
+  : "=g" (ret) : );
+  return ret;
+}
+
+INLINE bool
+local_irq_disabled(void)
+{
+  return ! (raw_local_get_flags() & MASK_EFLAGS_Interrupt);
+}
 
 // Disable IRQ and return the old flags.
 INLINE irqFlags_t
 mach_local_irq_save(void)
 {
-  irqFlags_t ret;
-  __asm__ __volatile__(
-	"pushfl ; popl %0"
-  : "=g" (ret) : );
+  irqFlags_t ret = raw_local_get_flags();
   raw_local_irq_disable();
   return ret;
 }
@@ -100,7 +85,5 @@ mach_local_irq_restore(irqFlags_t flags)
   : "g" (flags)
   : "memory", "cc" );
 }
-
-#endif /* GNU_INLINE_ASM */
 
 #endif // __IRQ_INLINE_H__

@@ -45,8 +45,8 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/SysTimer.h>
 #include <kerninc/Process.h>
 #include <kerninc/KernStats.h>
+#include <kerninc/IRQ.h>
 #include <eros/arch/i486/io.h>
-#include <arch-kerninc/IRQ-inline.h>
 #include "lostart.h"
 #include "IDT.h"
 #include "GDT.h"
@@ -81,8 +81,7 @@ idt_OnKeyInvocationTrap(savearea_t * saveArea)
   assert (vecNumber == iv_InvokeKey);
 #endif
 
-  assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
-  assert( irq_DISABLE_DEPTH() == 1 );
+  assert(local_irq_disabled());
 
 #ifndef IPC_INTERRUPT_SUPPRESS
   /* We have now done all of the processing that must be done with
@@ -90,8 +89,6 @@ idt_OnKeyInvocationTrap(savearea_t * saveArea)
    */
 
   irq_ENABLE();  
-  assert( irq_DISABLE_DEPTH() == 0 );
-
 #endif
 
   assert (act_Current());
@@ -123,14 +120,12 @@ idt_OnKeyInvocationTrap(savearea_t * saveArea)
 #endif
 
 #ifndef IPC_INTERRUPT_SUPPRESS
-  assert( irq_DISABLE_DEPTH() == 0 );
-
   /* On return from Invoke() we might NOT have a current thread
    * because the invocation may have been a return to a kernel key.
    * assert ( Thread::Current() );
    */
   irq_DISABLE();
-  assert( irq_DISABLE_DEPTH() == 1 );
+  assert(local_irq_disabled());
 #endif
     
   /* 
@@ -154,8 +149,7 @@ idt_OnKeyInvocationTrap(savearea_t * saveArea)
    * yield unconditionally, we tell Thread::Resched() so.
    */
   
-  assert ( (GetFlags() & MASK_EFLAGS_Interrupt) == 0 );
-  assert( irq_DISABLE_DEPTH() == 1 );
+  assert(local_irq_disabled());
 
   ExitTheKernel();
 }

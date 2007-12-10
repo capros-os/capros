@@ -23,8 +23,6 @@
 
 uint32_t GetFaultAddr(void);
 
-uint32_t GetFlags();
-uint32_t SetFlags(uint32_t);
 uint64_t rdtsc();
 uint32_t rdcounter0();
 uint32_t rdcounter1();

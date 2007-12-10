@@ -24,7 +24,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/kernel.h>
 #include <kerninc/StallQueue.h>
 #include <kerninc/KernStats.h>
-#include <arch-kerninc/IRQ-inline.h>
+#include <kerninc/IRQ.h>
 #include "ep93xx-vic.h"
 #include "Interrupt.h"
 
@@ -90,7 +90,7 @@ DoUsermodeInterrupt(VICIntSource * vis)
     // read VectAddr to mask interrupts of lower or equal priority
     (void)VIC2.VectAddr;	
   }
-  irq_ENABLE();
+  irq_ENABLE_for_IRQ();
 #if 0
   printf("Waking sleeper for int source %d\n", sourceNum);
 #endif

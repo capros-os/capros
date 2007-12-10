@@ -27,8 +27,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 /* Here we gather some kernel variables.
    Keeping them together helps reduce their cache footprint. */
 
-uint32_t irq_DisableDepth = 1;
-
 /* act_curActivity must be initialized (to 0) early, because during
 initialization, we call malloc, which under some circumstances can
 call act_Yield. We catch that problem by checking for a nonzero

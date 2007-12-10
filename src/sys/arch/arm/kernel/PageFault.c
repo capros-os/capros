@@ -33,9 +33,9 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/Debug.h>
 #include <kerninc/Process.h>
 #include <kerninc/GPT.h>
+#include <kerninc/IRQ.h>
 #include <arch-kerninc/Process.h>
 #include <arch-kerninc/PTE.h>
-#include <arch-kerninc/IRQ-inline.h>
 #include <idl/capros/GPT.h>
 
 MapTabHeader * AllocateSmallSpace(void);
@@ -386,7 +386,10 @@ PageFault(unsigned int type,
   bool writeAccess = false;
   uva_t va;	/* the unmodified virtual address */
 
-  assert(irq_DISABLE_DEPTH() == 1);	// disabled right after exception
+  assert(local_irq_disabled());	// disabled right after exception
+
+  /* Enable IRQ interrupts. */
+  irq_ENABLE();
 
   switch (type) {
   case prefetchAbort:
@@ -430,8 +433,7 @@ PageFault(unsigned int type,
     /* the following are all the cases that the ARM920T generates. */
     case 0x1:	/* alignment fault */
       proc_SetFault(proc, capros_Process_FC_Alignment, va);
-      ExitTheKernel();
-      break;
+      goto exitPageFault;
 
     case 0x5:	/* translation fault */
       /* There was a non-valid section or page descriptor.
@@ -523,6 +525,8 @@ PageFault(unsigned int type,
    * not be any.
    */
 
+exitPageFault:
+  irq_DISABLE();
   ExitTheKernel();
 }
 

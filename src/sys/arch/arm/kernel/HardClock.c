@@ -74,7 +74,7 @@ void
 TC3OIHandler(VICIntSource * vis)
 {
   (void)VIC2.VectAddr;	// read it to mask interrupts of lower or equal priority
-  irq_ENABLE();
+  irq_ENABLE_for_IRQ();
   Timers.Timer3.Clear = 0;	// clear the interrupt
   sysT_now_high++;
   irq_DISABLE();
@@ -164,7 +164,7 @@ void
 TC1OIHandler(VICIntSource * vis)
 {
   // We are on VIC1, no need to read VIC1VectAddr.
-  irq_ENABLE();
+  irq_ENABLE_for_IRQ();
   Timers.Timer1.Clear = 0;	// clear the interrupt
 
   /* Capture a stable value of now to use for all subsequent calculations. */

@@ -29,10 +29,10 @@
 #include <kerninc/PhysMem.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/PCI.h>
+#include <kerninc/IRQ.h>
 #include <eros/TimeOfDay.h>
 #include <idl/capros/arch/i386/SysTrace.h>
 #include <arch-kerninc/PTE.h>
-#include <arch-kerninc/IRQ-inline.h>
 #include "CpuFeatures.h"
 #include <kerninc/Process.h>
 #include <kerninc/Depend.h>
@@ -173,7 +173,7 @@ mach_BootInit()
   mach_InitializeFPU();
 #endif
   
-  irq_ENABLE();
+  irq_ENABLE_for_IRQ();
   
   mach_InitHardClock();
   

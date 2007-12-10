@@ -595,9 +595,8 @@ act_ChooseNewCurrentActivity()
   int runQueueNdx;
   Reserve *res = 0;
 
-  assert( irq_DISABLE_DEPTH() == 1 );
+  assert(local_irq_disabled());
 
-  irqFlags_t flags = local_irq_save();
   //printf("starting ChooseNew()...\n");
   /* idle activitys should always be ready */
   assert(act_RunQueueMap);
@@ -656,9 +655,7 @@ act_ChooseNewCurrentActivity()
     //  res_SetInactive(res->index);
   }
 
-  local_irq_restore(flags);
-
-  assert( irq_DISABLE_DEPTH() == 1 );
+  assert(local_irq_disabled());
 }
 
 /* DoReschedule() is called for a number of reasons:
@@ -683,12 +680,7 @@ act_ChooseNewCurrentActivity()
 void 
 act_DoReschedule(void)
 {
-#ifndef NDEBUG
-  if (irq_DISABLE_DEPTH() != 1) {
-    printf("irq_DISABLE_DEPTH = %d ", irq_DISABLE_DEPTH());
-    assert(irq_DISABLE_DEPTH() == 1);
-  }
-#endif
+  assert(local_irq_disabled());
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr && 0)
@@ -799,8 +791,8 @@ act_DoReschedule(void)
   assert (proc_Current());
 
   assert (act_Current()->readyQ == act_CurContext()->readyQ);
+  assert(local_irq_disabled());
 
-  assert( irq_DISABLE_DEPTH() == 1 );
   act_yieldState = 0;		/* until proven otherwise */
 
   if (act_Current()->readyQ->mask & (1u<<pr_Reserve)) {
@@ -822,13 +814,15 @@ act_DoReschedule(void)
 
   sysT_ResetWakeTime();
 
-  assert( irq_DISABLE_DEPTH() == 1 );
+  assert(local_irq_disabled());
 }
 
 // May Yield.
 void
 ExitTheKernel(void)
 {
+  assert(local_irq_disabled());
+
   UpdateTLB();
   
   if ((act_yieldState != 0)
@@ -854,9 +848,6 @@ ExitTheKernel(void)
 	       act_CurContext(), thisPtr);
 
 #endif
-
-  /* IRQ must be disabled here. */
-  assert( irq_DISABLE_DEPTH() == 1 );
 
   // Call architecture-dependent C code for resuming a process.
   ExitTheKernel_MD(thisPtr);
@@ -1131,14 +1122,10 @@ act_HandleYieldEntry(void)
 
   /* At this time, the activity rescheduler logic thinks it must run
      disabled. I am not convinced that it really needs to, but it is
-     simpler not to argue with it here.  Do this check to avoid
-     disabling interrupts recursively forever.  Also, this check has
-     the right effect whether or not interrupts were enabled in
-     OnKeyInvocationTrap(). */
+     simpler not to argue with it here. */
+  /* At this point we may or may not have done irq_ENABLE().
+     Either way, irq_DISABLE() ensures interrupts are disabled. */
+  irq_DISABLE();
   
-  if (irq_DISABLE_DEPTH() == 0)
-    irq_DISABLE();
-  
-  assert( irq_DISABLE_DEPTH() == 1 );
   ExitTheKernel();
 }

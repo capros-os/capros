@@ -23,20 +23,45 @@
 Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
-extern uint32_t irq_DisableDepth;
+typedef unsigned long irqFlags_t;
 
-INLINE uint32_t 
-irq_DISABLE_DEPTH(void)
+INLINE void
+raw_local_irq_disable(void)
 {
-  return irq_DisableDepth;
+  irqFlags_t temp;
+  __asm__ __volatile__(
+	"mrs %0,cpsr\n"
+"	orr %0,%0,#0x80\n"
+"	msr cpsr_c,%0"
+  : "=r" (temp)
+  :
+  : "memory", "cc" );
 }
 
-/* These are inline in some architectures, but not this one,
-   where calling a leaf procedure adds only two instructions. */
-void irq_ENABLE(void);
-void irq_DISABLE(void);
+INLINE void
+raw_local_irq_enable(void)
+{
+  irqFlags_t temp;
+  __asm__ __volatile__(
+	"mrs %0,cpsr\n"
+"	bic %0,%0,#0x80\n"
+"	msr cpsr_c,%0"
+  : "=r" (temp)
+  :
+  : "memory", "cc" );
+}
 
-typedef unsigned long irqFlags_t;
+INLINE bool
+local_irq_disabled(void)
+{
+  irqFlags_t temp;
+  __asm__ __volatile__(
+	"mrs %0,cpsr"
+  : "=r" (temp)
+  :
+  : "memory" );
+  return temp & MASK_CPSR_IRQDisable;
+}
 
 // Disable IRQ and return the old flags.
 INLINE irqFlags_t

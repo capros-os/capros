@@ -55,18 +55,13 @@ StartIdleActivity(void)
   return idleActivity;
 }
 
-/* In IdleActivity_Start, we must disable irq around printf(),
-because irq_DisableDepth is 1
-(kernel code expects it to be 0). */
 void
 IdleActivity_Start(void)
 {
   int stack;
 
-  raw_local_irq_disable();
   printf("Start IdleActivity (activity 0x%x,proc 0x%x,stack 0x%x)\n",
 	 act_Current(), proc_Current(), &stack);
-  raw_local_irq_enable();
 
   for(;;) {
     /* On machines with high privilege-crossing latency, it is NOT a

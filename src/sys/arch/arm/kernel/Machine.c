@@ -89,7 +89,7 @@ mach_BootInit()
    * point all of the individual device interrupts are disabled.
    */
   
-  irq_ENABLE();
+  irq_ENABLE_for_IRQ();
   
   mach_InitHardClock();
   

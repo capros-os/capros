@@ -837,11 +837,10 @@ L_dispatch_interrupt:
 	jnz	1f
 	
 	testl	$3,FX_OFF_CS(%ebp)
-	jz	L_interrupted_kernel
+	jz	L_on_kernel_stack
 	
 1:	movl	PR_OFF_cpuStack-PR_OFF_FIXREGS(%ebp),%esp
-	/* We interrupted a process.
-	irq_DisableDepth is already 1. */
+	/* We interrupted a process. */
 
 L_on_kernel_stack:
 	/*
@@ -861,15 +860,6 @@ L_on_kernel_stack:
 
 	/* This should NEVER return */
 	jmp	EXT(halt)
-
-L_interrupted_kernel:
-	/*
-	 * Bump the interrupt depth counter here.  All of our entry 
-	 * points use interrupt gates, so interrupts are definitely 
-	 * disabled.
-	 */
-	incl	EXT(irq_DisableDepth);
-	jmp L_on_kernel_stack
 
 
 	/*
@@ -1442,8 +1432,6 @@ L_done_keys:
 #endif /* OPTION_FAST_PATH */
 	
 Standard_Gate_Path:
-	/* irq_DisableDepth should be 1 here. */
-	
 	/*
 	 * Call the interrupt dispatch routine, passing it a pointer
 	 * to the register save area.  It is entirely up to the interrupt
@@ -1499,8 +1487,6 @@ ENTRY(resume_process)
 	 * restoring from.
 	 */
 
-	/* Leave irq_DisableDepth == 1 while running a process. */
-	
 	/* ANY CHANGE TO THIS PATH FROM HERE DOWN SHOULD BE
 	   IMPLEMENTED IN THE FAST_GATE_PATH AS WELL */
 	
@@ -1599,11 +1585,6 @@ ENTRY(resume_from_kernel_interrupt)
 	addl	$FX_OFF_PUSHA,%esp
 #endif
 
-	/*
-	 * Decrement the interrupt depth counter here.
-	 */
-	decl	EXT(irq_DisableDepth);
-	
         popa    
 
 	/*
@@ -1634,8 +1615,6 @@ ENTRY(resume_v86_task)
 	leal	PR_OFF_V86_INTR_SP(%ESP),%EDX
 	movl	%EDX,4+EXT(tss_TaskTable)
 
-	/* Leave irq_DisableDepth == 1 while running a process. */
-	
 	/* Reload target address space:	 */
 	movl	%cr3,%ebx
 	

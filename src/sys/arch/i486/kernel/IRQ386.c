@@ -30,7 +30,6 @@ Approved for public release, distribution unlimited. */
 uint8_t pic1_mask = 0xffu;
 uint8_t pic2_mask = 0xffu;
 
-uint32_t irq_DisableDepth = 1;	/* interrupts disabled on kernel entry */
 uint32_t irq_enableMask = 0;
 
 struct UserIrq UserIrqEntries[NUM_HW_INTERRUPT];

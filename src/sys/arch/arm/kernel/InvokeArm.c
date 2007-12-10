@@ -26,8 +26,8 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/Activity.h>
 #include <kerninc/KernStats.h>
+#include <kerninc/IRQ.h>
 #include <arch-kerninc/Process-inline.h>
-#include <arch-kerninc/IRQ-inline.h>
 
 #define dbg_init	0x1u
 
@@ -486,7 +486,7 @@ general_path0:
 #endif
 general_path1:
   
-  assert(irq_DISABLE_DEPTH() == 1);	// disabled right after exception
+  assert(local_irq_disabled());	// disabled right after exception
 
   /* Enable IRQ interrupts. */
   irq_ENABLE();
@@ -495,7 +495,6 @@ general_path1:
 
   proc_DoKeyInvocation(act_CurContext());
 
-  assert( irq_DISABLE_DEPTH() == 0 );
   irq_DISABLE();
 
   ExitTheKernel();
