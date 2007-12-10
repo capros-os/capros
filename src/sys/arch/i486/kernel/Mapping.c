@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Machine.h>
 #include <kerninc/util.h>
 #include <kerninc/Activity.h>
+#include <kerninc/Node.h>
 #include <arch-kerninc/PTE.h>
 #include "CpuFeatures.h"
 #include "Process486.h"

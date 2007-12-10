@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/SaveArea.h>
 #include <kerninc/StallQueue.h>
 #include <arch-kerninc/IRQ-inline.h>
+#include <arch-kerninc/Process-inline.h>
 
 // Disable IRQ and return the old flags.
 INLINE irqFlags_t
@@ -48,6 +49,9 @@ When we are ready to enable IRQ interrupts again. call irq_ENABLE(). */
 INLINE void
 irq_ENABLE(void)
 {
+  Process * p = proc_Current();
+  if (p && proc_HasIRQDisabled(p))
+    return;	// If the interrupted process had IRQ disabled, keep it disabled
   raw_local_irq_enable();
 }
 

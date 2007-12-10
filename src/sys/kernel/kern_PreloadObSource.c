@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/util.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/ObjectSource.h>
+#include <kerninc/Node.h>
 #include <eros/Device.h>
 #include <disk/PagePot.h>
 #include <disk/DiskNodeStruct.h>

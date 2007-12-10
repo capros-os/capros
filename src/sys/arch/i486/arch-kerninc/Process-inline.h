@@ -26,10 +26,17 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/Invoke.h>
 #include <kerninc/Invocation.h>
+#include <kerninc/Process.h>
 #include <kerninc/Activity.h>
 #include <arch-kerninc/Process.h>
 
 /* Machine-specific inline helper functions for process operations: */
+
+INLINE bool
+proc_HasIRQDisabled(Process * p)
+{
+  return ! p->trapFrame.EFLAGS & MASK_EFLAGS_Interrupt;
+}
 
 INLINE uint32_t
 proc_GetRcvKeys(Process * thisPtr)

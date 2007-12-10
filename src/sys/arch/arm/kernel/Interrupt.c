@@ -25,6 +25,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/StallQueue.h>
 #include <kerninc/KernStats.h>
 #include <kerninc/IRQ.h>
+#include <kerninc/Process-inline.h>
 #include "ep93xx-vic.h"
 #include "Interrupt.h"
 

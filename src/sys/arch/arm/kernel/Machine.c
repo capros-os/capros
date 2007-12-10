@@ -29,6 +29,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/Key.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/KernStream.h>
+#include <kerninc/Process-inline.h>
 #include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 
 void map_HeapInit(void);

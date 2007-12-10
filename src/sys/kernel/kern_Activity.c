@@ -39,6 +39,7 @@ Approved for public release, distribution unlimited. */
 #ifndef NDEBUG
 #include <disk/DiskNodeStruct.h>
 #endif
+#include <arch-kerninc/PTE.h>
 
 /* #define THREADDEBUG */
 /*#define RESERVE_DEBUG*/

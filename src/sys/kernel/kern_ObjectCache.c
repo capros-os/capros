@@ -37,6 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/Page-inline.h>
 #include <kerninc/PhysMem.h>
 #include <disk/PagePot.h>
+#include <arch-kerninc/PTE.h>
 
 #define MAX_SOURCE 16
 

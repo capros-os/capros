@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Activity.h>
+#include <kerninc/Node.h>
 #include <eros/Invoke.h>
 #include <disk/DiskNodeStruct.h>
 

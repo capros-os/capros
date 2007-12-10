@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Depend.h>
+#include <kerninc/Node.h>
 #include <arch-kerninc/PTE.h>
 #include <arch-kerninc/Machine-inline.h>
 

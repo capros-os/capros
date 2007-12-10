@@ -28,11 +28,10 @@ Approved for public release, distribution unlimited. */
  * ARCHITECTURE-SPECIFIC LAYOUT FILE TOO!!!
  */
 
-#include <disk/DiskNodeStruct.h>
+#include <kerninc/kernel.h>
 #include <idl/capros/Process.h>
 #include <eros/ProcStats.h>
 #include <arch-kerninc/SaveArea.h>
-#include <arch-kerninc/PTE.h>
 #include <arch-kerninc/Process.h>
 #ifdef EROS_HAVE_ARCH_REGS
 #include <eros/machine/archregs.h>
@@ -42,10 +41,12 @@ Approved for public release, distribution unlimited. */
 #endif
 #include <eros/machine/traceregs.h>
 
-/* This file requires #include <kerninc/kernel.h> */
-#include <kerninc/Node.h>
+#include <kerninc/Key.h>
 #include <kerninc/StallQueue.h>
 
+struct PTE;
+struct Activity;
+struct Invocation;
 struct SegWalk;
 
 /* Every running activity has an associated process structure.  The
@@ -148,7 +149,6 @@ struct Process {
   ProcStat          stats;
 };
 
-/* Former static members of Process */
 #ifdef EROS_HAVE_FPU
 /* FPU support: */
 extern Process*   proc_fpuOwner;	/* FIX: This is not SMP-feasible. */
@@ -157,7 +157,7 @@ extern Process*   proc_fpuOwner;	/* FIX: This is not SMP-feasible. */
 extern Process *proc_ContextCache;
 /* End static members */
   
-struct PTE;
+INLINE Process * proc_Current(void);
 
 /* Former member functions of KernProcess */
 typedef struct KernProcess KernProcess;
@@ -169,8 +169,6 @@ Process *kproc_Init(const char * name,
 		    void (*pc)(void),
 		    uint32_t *StackBottom, uint32_t *StackTop);
 
-/* Former member functions of Process */
-
 #ifndef NDEBUG
 INLINE Process *
 keyR_ToProc(KeyRing * kr)
@@ -179,26 +177,9 @@ keyR_ToProc(KeyRing * kr)
 }
 #endif
 
-PTE*
+struct PTE *
 proc_BuildMapping(Process* p, ula_t ula, bool forWriting, bool prompt);
 
-INLINE bool 
-proc_IsWellFormed(Process* thisPtr)
-{
-#ifndef NDEBUG
-  if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
-    assert (thisPtr->processFlags & capros_Process_PF_FaultToProcessKeeper);
-  }
-#endif
-  if (thisPtr->hazards & (hz_DomRoot | hz_KeyRegs | hz_Malformed
-#ifdef EROS_HAVE_FPU
-                          | hz_FloatRegs
-#endif
-                         )) {
-    return false;
-  }
-  else return true;
-}
 
 #ifdef EROS_HAVE_FPU
 /* FPU support: */
@@ -214,18 +195,6 @@ bool ValidCtxtKeyRingPtr(const KeyRing* kr);
 bool proc_ValidKeyReg(const Key * pKey);
 #endif
 
-/* Returns true iff p points within the Process area. */
-INLINE bool 
-IsInProcess(const void * p)
-{
-  if ( ((uint32_t) p >= (uint32_t) proc_ContextCache) &&
-       ((uint32_t) p <
-        (uint32_t) &proc_ContextCache[KTUNE_NCONTEXT] ) ) {
-    return true;
-  }
-  return false;
-}
-
 void proc_DoPrepare(Process* thisPtr);
 
 /* MUST NOT yield if IsRunnable() would return true. (Why not? -CRL) */
@@ -238,41 +207,6 @@ proc_Prepare(Process* thisPtr)
    */
   if (thisPtr->hazards)
     proc_DoPrepare(thisPtr);
-}
-
-INLINE void 
-proc_ClearFault(Process * thisPtr)
-{
-  thisPtr->faultCode = capros_Process_FC_NoFault;
-  thisPtr->faultInfo = 0;
-  thisPtr->processFlags &= ~capros_Process_PF_FaultToProcessKeeper;
-}
-
-INLINE void 
-proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info)
-{
-  assert(code);
-
-  thisPtr->faultCode = code;
-  thisPtr->faultInfo = info;
-  thisPtr->processFlags |= capros_Process_PF_FaultToProcessKeeper;
-  
-#ifdef OPTION_DDB
-  if (thisPtr->processFlags & PF_DDBTRAP)
-    dprintf(true, "Process 0x%08x has trap code set\n", thisPtr);
-#endif
-}
-
-INLINE void 
-proc_SetMalformed(Process* thisPtr)
-{
-#ifdef OPTION_DDB
-  /* This error is most likely of interest to the kernel developer,
-     so for now: */
-  dprintf(true, "Process is malformed\n");
-#endif
-  proc_SetFault(thisPtr, capros_Process_FC_MalformedProcess, 0);
-  thisPtr->hazards |= hz_Malformed; 
 }
 
 INLINE bool 
@@ -301,12 +235,6 @@ proc_SetActivity(Process* thisPtr, struct Activity *activity)
   thisPtr->curActivity = activity;
 }
   
-INLINE bool 
-proc_IsExpectingMsg(Process * thisPtr)
-{
-  return thisPtr->processFlags & capros_Process_PF_ExpectingMessage;
-}
-
 INLINE bool 
 proc_IsUser(Process* thisPtr)
 {
@@ -348,10 +276,6 @@ void
 
 void proc_InvokeProcessKeeper(Process* thisPtr);
 
-/******************************************************
- * Begin new code in support of new invocation logic
- ******************************************************/
-
 void proc_BuildResumeKey(Process* thisPtr, Key* resumeKey /*@ not null @*/);
 
 void proc_DoGeneralKeyInvocation(Process* thisPtr);
@@ -372,11 +296,6 @@ void proc_DeliverGateResult(Process* thisPtr,
 void proc_SetupExitString(Process* thisPtr, struct Invocation* inv /*@ not null @*/, uint32_t bound);
 
 void proc_DeliverResult(Process* thisPtr, struct Invocation* inv /*@ not null @*/);
-
-
-/******************************************************
- * End new code in support of new invocation logic
- ******************************************************/
 
 /******************************************************
  *  Code in support of emulated instructions:

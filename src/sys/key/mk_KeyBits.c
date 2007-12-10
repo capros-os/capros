@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Key.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
+#include <kerninc/Node.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 

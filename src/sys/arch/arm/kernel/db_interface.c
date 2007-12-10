@@ -50,6 +50,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/KernStream.h>
 #include <kerninc/Process.h>
 #include <kerninc/IRQ.h>
+#include <arch-kerninc/PTE.h>
 
 #define cnpollc(x) kstream_dbg_stream->SetDebugging((x))
 

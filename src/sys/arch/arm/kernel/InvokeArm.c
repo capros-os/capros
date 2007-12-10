@@ -28,6 +28,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <kerninc/IRQ.h>
 #include <arch-kerninc/Process-inline.h>
+#include <arch-kerninc/PTE.h>
 
 #define dbg_init	0x1u
 

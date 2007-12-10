@@ -28,6 +28,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/KernStats.h>
+#include <kerninc/Process-inline.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 

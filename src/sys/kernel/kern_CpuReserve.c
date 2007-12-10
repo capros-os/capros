@@ -25,6 +25,7 @@
 #include <kerninc/SysTimer.h>
 #include <kerninc/Machine.h>
 #include <kerninc/rbtree.h>
+#include <kerninc/Process-inline.h>
 
 /* these should be moved to KernTune.h eventually 
    they are here for now, while the scheduler is still 

@@ -24,6 +24,7 @@
 Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
+#include <kerninc/Process.h>
 #include <arch-kerninc/Process.h>
 
 /* Machine-specific inline helper functions for process operations: */
@@ -76,5 +77,11 @@ proc_SetInstrSingleStep(Process* thisPtr)
 {
   printf("proc_SetInstrSingleStep not supported\n");
 }
+
+INLINE bool
+proc_HasIRQDisabled(Process * p)
+{
+  return p->trapFrame.CPSR & MASK_CPSR_IRQDisable;
+} 
 
 #endif /* __MACHINE_PROCESS_INLINE_H__ */

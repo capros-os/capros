@@ -115,6 +115,8 @@ act_Current()
   return act_curActivity;
 }
 
+#include <kerninc/Process-inline.h>
+
 void act_WakeUpAtTick(Activity* thisPtr, uint64_t ms);
 
 void act_Enqueue(Activity *t, StallQueue *);
@@ -156,14 +158,6 @@ act_SetRunning(Activity* thisPtr)
   act_curActivity = thisPtr;
   proc_curProcess = thisPtr->context;
   thisPtr->state = act_Running;
-}
-
-INLINE Process *
-proc_Current(void)
-{
-  assert((act_Current() == NULL && proc_curProcess == NULL)
-         || (act_Current()->context == proc_curProcess));
-  return proc_curProcess;	// could be NULL
 }
 
 INLINE Process * 
