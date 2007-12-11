@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/GPT.h>
 #include <idl/capros/ProcCre.h>
 #include <idl/capros/SuperNode.h>
+#include <idl/capros/Sleep.h>
 #include <idl/capros/LSync.h>
 
 #include <domain/domdbg.h>
@@ -49,6 +50,10 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
+
+// Initialize delayCalibrationConstant to an invalid value (too big),
+// until it gets properly initialized.
+uint32_t delayCalibrationConstant = (1UL << 31);
 
 static void
 Sepuku(result_t retCode)
@@ -101,20 +106,14 @@ checkRwSem(struct rw_semaphore * sem)
 void *
 lsync_main(void * arg)
 {
+  result_t result;
   Message mymsg;
   Message * msg = &mymsg;	// to address it consistently
 
-  // Build our address space:
-#if 0 // no, let mkimage do it
-  result = capros_SpaceBank_alloc3(KR_BANK, capros_Range_otGPT
-             | (capros_Range_otGPT << 8)
-             | (capros_Range_otGPT << 16),
-             KR_TEMP0, KR_TEMP1, KR_TEMP2);
-  if (result !=- RC_OK) {
-    Sepuku(result);
-  }
-  ...
-#endif
+  // Initialize delayCalibrationConstant.
+  result = capros_Sleep_getDelayCalibration(KR_SLEEP,
+             &delayCalibrationConstant);
+  assert(result == RC_OK);
 
   msg->snd_invKey = KR_RETURN;
   msg->snd_key0 = KR_TEMP0;

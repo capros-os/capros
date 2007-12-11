@@ -21,18 +21,18 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* threadnum.h -- get current thread number
+/* get current thread number
 */
 
-#include <eros/arch/arm/asm.h>
+#include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
+#include <linux/thread_info.h>
 
-	.text
-	ENTRY(lk_getCurrentThreadNum)
-/* See which area the stack pointer falls in. */
-/* Note, the highest addresses in the stack contain the struct thread_info.
+unsigned int lk_getCurrentThreadNum(void)
+{
+  /* See which area the stack pointer falls in. */
+  /* Note, the highest addresses in the stack contain the struct thread_info.
    Therefore the sp can never point above the highest address in the stack,
    even if the stack is completely empty. */
-	sub r0,sp,#LK_STACK_BASE
-	mov r0,r0, LSR #LK_LGSTACK_AREA
-	bx lr
+  return (current_stack_pointer - LK_STACK_BASE) >> LK_LGSTACK_AREA;
+}

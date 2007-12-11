@@ -108,6 +108,8 @@ void lthreadDeallocateNum(unsigned int threadNum);
 void * lsync_main(void *);
 #define LSYNC_STACK_SIZE 4096
 
-#endif
+extern uint32_t delayCalibrationConstant;
+
+#endif // __ASSEMBLER__
 
 #endif // __LSYNC_H

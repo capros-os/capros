@@ -30,22 +30,26 @@ CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-VPATH=arch/$(EROS_TARGET)
+VPATH=arch/$(LINUX_TARGET)
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
 OPTIM=-O
 DIRS=
 OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/alloc.o \
+  $(BUILDDIR)/delay.o \
+  $(BUILDDIR)/driverCore.o \
   $(BUILDDIR)/ioremap.o \
   $(BUILDDIR)/lirq.o \
   $(BUILDDIR)/lthread.o \
   $(BUILDDIR)/lsync.o \
+  $(BUILDDIR)/platform.o \
   $(BUILDDIR)/printk.o \
   $(BUILDDIR)/resource.o \
   $(BUILDDIR)/semaphore.o \
   $(BUILDDIR)/sleep.o \
   $(BUILDDIR)/threadnum.o \
   $(BUILDDIR)/threadstart.o \
+  $(BUILDDIR)/timer.o \
   $(BUILDDIR)/tty_ioctl.o \
   $(BUILDDIR)/wait.o
 
