@@ -22,12 +22,6 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-# Cancel the old suffix list, because the order matters.  We want assembly 
-# source to be recognized in preference to ordinary source code, so the
-# .S, .s cases must come ahead of the rest.
-.SUFFIXES:
-.SUFFIXES: .S .s .cxx .c .y .l .o .dvi .ltx .gif .fig .xml .html .pdf
-
 # Some shells do not export this variable. It is used in the package
 # generation rule and in the discovery of EROS_ROOT.
 PWD=$(shell pwd)
@@ -55,6 +49,13 @@ endif
 
 ifndef EROS_TARGET
 EROS_TARGET=i486
+endif
+
+// Sometimes we want i486 (for compatibility), sometimes i386:
+ifeq "$(EROS_TARGET)" "i486"
+LINUX_TARGET=i386
+else
+LINUX_TARGET=$(EROS_TARGET)
 endif
 
 ifndef EROS_ROOT
@@ -154,6 +155,8 @@ CAPROS_BOOT_PARTITION=/boot
 endif
 
 CAPIDL=$(EROS_SRC)/build/bin/capidl
+#HTMLCAPIDL = $(EROS_SRC)/build/bin/coyotos-capidl
+#HTMLCAPIDL = /home/clandau/coyotos/src/ccs/capidl/BUILD/capidl
 
 #
 # This is where the target environment makefile gets a chance to override
