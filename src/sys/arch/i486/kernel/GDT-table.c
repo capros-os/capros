@@ -19,60 +19,64 @@
  */
 
 #include <kerninc/kernel.h>
+#include <arch-kerninc/kern-target-asm.h>
 #include "GDT.h"
 #include "TSS.h"
 #include <eros/arch/i486/pseudoregs.h>
 
+#define GDTDescriptor(type, dpl, base, gran, limit) \
+  (((base) & 0xffff)<<16) + ((limit) & 0xffff), \
+  ((base) & 0xff000000) \
+  + (gran) \
+  + (((type) & 0x10) << 18) /* d/b same as s */ \
+  /* L and AVL always zero */ \
+  + ((limit) & 0xf0000) \
+  + 0x8000	/* always P */ \
+  + ((dpl) << 13) \
+  + ((type) << 8) /* type includes the S bit */ \
+  + (((base) & 0xff0000) >> 16)
+
+#define GDTDescriptorByte(type, dpl, base, size) \
+  GDTDescriptor(type, dpl, base, 0, (size)-1)
+#define GDTDescriptorPage(type, dpl, base, size) \
+  GDTDescriptor(type, dpl, base, 0x800000, ((size)>>12)-1)
+
+enum GDTDescriptorType { /* includes the S bit */
+  DescTSS32 = 0x09,	// 32-bit TSS (Available)
+  DescData = 0x13,	// Data Read/Write, accessed
+  DescCode = 0x1b,	// Code Execute/Read, accessed
+};
+
 uint32_t gdt_GdtTable[GDT_ENTRIES*2] = {
-				/* Entry 0 - Null Segment */
-  0x0,
-  0x0,
+	/* Entry 0 - Null Segment */
+  0x0, 0x0,
 
-				/* Entry 1 - Kernel text */
-  0x0000ffff,			/* 1G, base at 3G */
-  0xc0c39b00,			/* accessed, ReadExec, paged, 386, DPL0 */
+	/* Entry 1 - Kernel text */
+  GDTDescriptorPage(DescCode, 0, KVA, 0 - KVA),
 
-				/* Entry 2 - Kernel data/stack */
-  0x0000ffff,			/* 4G, base at 3G -- NOTE THIS WRAPS */
-  0xc0cF9300,			/* accessed, ReadWrite, paged, DPL0 */
+	/* Entry 2 - Kernel data/stack */
+  GDTDescriptorPage(DescData, 0, KVA, 0x00000000 /* 4GB */),
+	// note, limit wraps
 
-				/* Entry 3 - TSS descriptor for current domain. */
-  sizeof(i386TSS)-1,		/* 104 bytes, base at XXXX */
-  0x00008900,			/* TSS,DPL0,byte granularity, base at XXXX */
+	/* Entry 3 - TSS descriptor for current domain. */
+  GDTDescriptorByte(DescTSS32, 0, 0x00000000, sizeof(i386TSS)),
 
-				/* Entry 4 - Domain code */
-  0x0000ffff,			/* 3G (for now), base at 0 */
-  0x00cbfb00,			/* accessed, ReadExec, paged, 386, DPL3 */
+	/* Entry 4 - Domain code */
+  GDTDescriptorPage(DescCode, 3, 0x00000000, UMSGTOP),
+	// On dispatch, base and limit get set for small/large space
 
-				/* Entry 5 - Domain data */
-  0x0000ffff,			/* 3G (for now), base at 0 */
-  0x00cbf300,			/* accessed, ReadWrite, paged, 386, DPL3 */
+	/* Entry 5 - Domain data */
+  GDTDescriptorPage(DescData, 3, 0x00000000, UMSGTOP),
+	// On dispatch, base and limit get set for small/large space
 
-				/* Entry 6 - Domain Pseudo Regs */
-  sizeof(pseudoregs_t)-1,	/* base at XXX (rewritten) */
-  0x0040f300,			/* accessed, ReadWrite, byte, 386, DPL3 */
+	/* Entry 6 - Domain Pseudo Regs */
+  GDTDescriptorByte(DescData, 3, 0, sizeof(pseudoregs_t)),
+	// On dispatch, base gets set
 
-				/* Entry 7 - kernel process text */
-  0x0000ffff,			/* 1G, base at 3G */
-  0xc0c3bb00,			/* accessed, ReadExec, paged, 386, DPL1 */
+	/* Entry 7 - kernel process text */
+  GDTDescriptorPage(DescCode, 1, KVA, 0 - KVA),
 
-				/* Entry 8 - Kernel process data/stack */
-  0x0000ffff,			/* 4G, base at 3G -- NOTE THIS WRAPS */
-  0xc0cfb300,			/* accessed, ReadWrite, paged, DPL1 */
-
-#if 0
-  /* NOT SURE DESCRIPTIONS ON THE FOLLOWING ARE BELIEVABLE!! */
-  
-				/* Entry 9 - APM 32 bit code seg */
-  0x00000000,			/* base at 0 */
-  0x00c09b00,			/* accessed, ReadExec, 386, DPL0 */
-
-				/* Entry 10 - APM 16 bit code seg */
-  0x00000000,			/* base at 0 */
-  0x00809b00,			/* accessed, ReadExec, 286, DPL0 */
-
-				/* Entry 11 - APM data seg */
-  0x00000000,			/* base at 0 */
-  0x00c09300			/* accessed, ReadExec, 386, DPL0 */
-#endif
+	/* Entry 8 - Kernel process data/stack */
+  GDTDescriptorPage(DescData, 1, KVA, 0x00000000 /* 4GB */),
+	// note, limit wraps
 };

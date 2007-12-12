@@ -23,50 +23,38 @@
 
 enum SegEntryName {
   seg_Null         = 0,
-  seg_KernelCode   = 0x1,
-  seg_KernelData   = 0x2,
-  seg_DomainTSS    = 0x3,
+  seg_KernelCode   = 1,
+  seg_KernelData   = 2,
+  seg_DomainTSS    = 3,
 
-  seg_DomainCode   = 0x4,
-  seg_DomainData   = 0x5,
-  seg_DomainPseudo = 0x6,
+  seg_DomainCode   = 4,
+  seg_DomainData   = 5,
+  seg_DomainPseudo = 6,
   
   /* These come last because they can be relocated without impacting
      the user selectors. */
-  seg_KProcCode    = 0x7,
-  seg_KProcData    = 0x8,
-  
-#if 0
-  ApmCode32        = 0x9,
-  ApmCode16        = 0x10,
-  ApmData          = 0x11,
-#endif
+  seg_KProcCode    = 7,
+  seg_KProcData    = 8,
   
   seg_NUM_SEGENTRY
 };
 
 typedef enum SegEntryName SegEntryName;
 
+#define GDTSelector(index, rpl) (((index)<<3) + (rpl))
+
 enum SelectorName {
   sel_Null = 0x00,
-  sel_KernelCode = 0x08,		/* entry 1, rpl=0 */
-  sel_KernelData = 0x10,		/* entry 2, rpl=0 */
-  sel_DomainTSS  = 0x18,		/* entry 3, rpl=3 */
+  sel_KernelCode = GDTSelector(seg_KernelCode, 0),
+  sel_KernelData = GDTSelector(seg_KernelData, 0),
+  sel_DomainTSS  = GDTSelector(seg_DomainTSS, 0),
   
-  sel_DomainCode = 0x23,		/* entry 4, rpl=3 */
-  sel_DomainData = 0x2b,		/* entry 5, rpl=3 */
-  
-  sel_DomainPseudo = 0x33,		/* entry 6, rpl=1 */
+  sel_DomainCode = GDTSelector(seg_DomainCode, 3),
+  sel_DomainData = GDTSelector(seg_DomainData, 3),
+  sel_DomainPseudo = GDTSelector(seg_DomainPseudo, 3),
 
-  sel_KProcCode  = 0x39,		/* entry 7, rpl=1 */
-  sel_KProcData  = 0x41,		/* entry 8, rpl=1 */
-  
-#if 0
-  /* THESE ARE NO GOOD!!! */
-  ApmCode32      = 0x48,		/* entry 8, rpl=0 */
-  ApmCode16      = 0x40,		/* entry 9, rpl=0 */
-  ApmData        = 0x58,		/* entry 10, rpl=0 */
-#endif
+  sel_KProcCode  = GDTSelector(seg_KProcCode, 1),
+  sel_KProcData  = GDTSelector(seg_KProcData, 1),
   
   /* Descriptor aliases for use in BIOS32: */
   sel_KernelBios32 = sel_KernelCode,

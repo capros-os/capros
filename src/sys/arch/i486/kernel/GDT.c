@@ -88,25 +88,11 @@ gdt_SetupTSS(SegEntryName entry, uint32_t base)
 void
 gdt_Init()
 {
-  uint32_t wgdt;
-  uint32_t klimit;
-
-  wgdt = KVTOL(VtoKVA(gdt_GdtTable));
+  uint32_t wgdt = KVTOL(VtoKVA(gdt_GdtTable));
 	
   gdt_GDTdescriptor[0] = GDT_SIZE | ((wgdt & 0xffff) << 16);
   gdt_GDTdescriptor[1] = wgdt >> 16;
 
-  klimit = (0u - KVA) >> EROS_PAGE_ADDR_BITS;
-  /* Initialize the GDT so that the kernel segment bases point to the
-     right places. The table as initialized is correct for the user
-     and APM segments. */
-  gdt_SetupPageSegment(seg_KernelCode, KVA, klimit );
-  gdt_SetupPageSegment(seg_KernelData, KVA, 0xfffff /*4G */);
-  gdt_SetupPageSegment(seg_KProcCode,  KVA, klimit );
-  gdt_SetupPageSegment(seg_KProcData,  KVA, 0xfffff /*4G */);
-  gdt_SetupPageSegment(seg_DomainCode,  KVA, LARGE_SPACE_PAGES );
-  gdt_SetupPageSegment(seg_DomainData,  KVA, LARGE_SPACE_PAGES );
-  
   gdt_lgdt();
   gdt_ReloadSegRegs();
 }
