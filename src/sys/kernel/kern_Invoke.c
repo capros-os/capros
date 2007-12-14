@@ -994,8 +994,8 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
 
 #ifdef DBG_WILD_PTR
   {
-    extern void ValidateAllActivityies();
-    ValidateAllActivities();
+    extern void ValidateAllActivitys();
+    ValidateAllActivitys();
   }
 #endif
 

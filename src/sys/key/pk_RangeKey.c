@@ -39,6 +39,10 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Memory.h>
 #include <idl/capros/Forwarder.h>
 
+#ifdef DBG_WILD_PTR
+#include <kerninc/Check.h>
+#endif
+
 /*
  * There is a problem with range keys that is pretty well
  * fundamental. In a nutshell, the key representation only gives us

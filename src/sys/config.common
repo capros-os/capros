@@ -85,6 +85,17 @@ defoption("ob_mod_check")
 
 #####################################################################
 #
+# The DBG_WILD_PTR option adds code which can be turned on with the
+# kdb command "debug wild y".
+# This code executes frequent consistency checks, to debug
+# difficult-to-find corruption.
+# This has proven VERY helpful in debugging wild pointer errors.
+#
+#####################################################################
+defoption("dbg_wild_ptr", 1)
+
+#####################################################################
+#
 # Controls whether internal statistics are kept for various kernel
 # book-keeping actions, which is a useful for checking whether the
 # kernel tunables need reevaluation.  Kernel stats are accessable

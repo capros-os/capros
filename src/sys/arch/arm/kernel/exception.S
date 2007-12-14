@@ -192,8 +192,10 @@ AbortError:
 	stmfd sp!,{r0,r2,r3,r12}	// save registers
 
 	// Set up the stack like a procedure prolog.
-	// If the abort was from supervisor mode, this will allow
-	// tracing the stack.
+	/* If the abort was from supervisor mode, this might allow
+	tracing the stack.
+	Only trouble is, we are on the abort stack,
+	not the supervisor stack. */
 	mov ip,sp		// note ip === r12
 	stmfd sp!,{fp,ip,lr,pc}
 	sub fp,ip,#4

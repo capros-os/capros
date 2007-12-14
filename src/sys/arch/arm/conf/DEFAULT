@@ -32,6 +32,7 @@ option("output_on_tty0")
 defoption("fast_ipc_stats")
 option("fast_ipc_stats")
 option("ob_mod_check")
+#option("dbg_wild_ptr")
 # option("kern_event_tracing")
 
 include("ALL")

@@ -330,16 +330,16 @@ xchg_key(uint32_t slot0, uint32_t slot1)
 void
 key_NH_Unprepare(Key* thisPtr)
 {
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("Top Key::NH_Unprepare()");
-#endif
-
   /* fatal("Unprepare() called\n"); */
   assert(keyBits_IsHazard(thisPtr) == false);
 
   if ( keyBits_IsUnprepared(thisPtr) )
     return;
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    check_Consistency("Top Key::NH_Unprepare()");
+#endif
 
   if ( keyBits_IsObjectKey(thisPtr) ) {
     ObjectHeader *pObj = thisPtr->u.ok.pObj;
