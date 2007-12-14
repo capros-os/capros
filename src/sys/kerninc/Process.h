@@ -323,6 +323,7 @@ void proc_WriteDisableSmallSpaces();
 void proc_AllocUserContexts(); /* machine dependent! */
 Process *proc_allocate(bool isUser);
 void proc_Load(Node* procRoot);
+void proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info);
 
 void proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey);
 

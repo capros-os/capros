@@ -55,6 +55,11 @@ kva_t kernelStackBot;	/* the highest address of the kernel stack +1 */
 kpa_t FLPT_FCSEPA;
 uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
 
+/* FLPT_NullPA is the physical address of the Null First Level Page Table.
+   This is used for a process when its map isn't known yet. */
+kpa_t FLPT_NullPA;
+uint32_t * FLPT_NullVA;	/* Virtual address of the above */
+
 MapTabHeader * freeCPTs = 0;	// list of free coarse page tables
 
 /* MMU Domains
@@ -132,7 +137,7 @@ void
 proc_ResetMappingTable(Process * p)
 {
   p->md.flmtProducer = NULL;
-  p->md.firstLevelMappingTable = FLPT_FCSEPA;
+  p->md.firstLevelMappingTable = FLPT_NullPA;
   p->md.dacr = 0x1;	/* client access for domain 0 only,
 	which means all user-mode accesses will fault. */
   p->md.pid = 0;	// this may overwrite PID_IN_PROGRESS
@@ -242,6 +247,25 @@ node_ClearGPTHazard(Node * gpt, uint32_t ndx)
   }
 }
 
+/* Ensure there are enough mapping tables for the heap. */
+kpa_t acquire_heap_page(void);	//// need to clean this all up
+static void
+ensureHeapTables(kva_t target)
+{
+  while (heap_havePTs < target) {
+    uint32_t s;
+    kpa_t paddr = acquire_heap_page();	/* get a page for mapping tables */
+    for (s = EROS_PAGE_SIZE; s > 0;
+         paddr += CPT_SIZE, s -= CPT_SIZE, heap_havePTs += CPT_SPAN) {
+      memset(KPAtoP(void *, paddr), CPT_SIZE, 0);	/* clear it */
+      unsigned int FLPTIndex = heap_havePTs >> 20;
+      /* Update the FLPT_FCSE, which at this point is the only valid FLPT.
+      If this procedure is called late, we must find and update *all* FLPT's. */
+      FLPT_FCSEVA[FLPTIndex] = paddr + L1D_COARSE_PT;	/* domain 0 */
+    }
+  }
+}
+
 void
 map_HeapInit(void)
 {
@@ -249,12 +273,35 @@ map_HeapInit(void)
 
   FLPT_FCSEVA = KPAtoP(uint32_t *, FLPT_FCSEPA);
 
+  /* In lostart, we temporarily initialized FLPT_FCSEVA[KTextPA >> 20]
+  to map the same memory as FLPT_FCSEVA[KTextVA >> 20].
+  Clear that map now, just to be tidy. */
+  FLPT_FCSEVA[KTextPA >> 20] = 0;
+  mach_FlushBothTLBs();
+
   /* Initialize the heap space. */
   heap_start = HeapVA;
   heap_end = HeapVA;
   heap_defined = HeapVA;
   heap_havePTs = HeapVA;
   heap_bound = HeapEndVA;
+
+  /* Allocate page tables for the heap. */
+  //// Need to clean this up!
+  ensureHeapTables(heap_start + 0x800000);
+
+  /* Initialize the Null FLPT. */
+  // Space for it was reserved just before the FLPT_FCSE.
+  FLPT_NullPA = FLPT_FCSEPA - 0x4000;
+  FLPT_NullVA = KPAtoP(uint32_t *, FLPT_NullPA);
+
+  // All of user space is not mapped.
+  bzero(FLPT_NullVA, UserEndVA >> (L1D_ADDR_SHIFT - 2));
+
+  // Kernel space is mapped in every address space.
+  memcpy(&FLPT_NullVA[UserEndVA >> L1D_ADDR_SHIFT],
+         &FLPT_FCSEVA[UserEndVA >> L1D_ADDR_SHIFT],
+         0x4000 - (UserEndVA >> (L1D_ADDR_SHIFT - 2)) );
 
   /* Initialize domains */
   for (i = 0; i < 16; i++) {
@@ -427,17 +474,9 @@ mach_EnsureHeap(kva_t target,
 
   /* Ensure there are enough pages. */
   while (heap_defined < target) {
-    /* Ensure there are enough mapping tables. */
-    while (heap_havePTs < target) {
-      uint32_t s;
-      paddr = (*acquire_heap_page)();	/* get a page for mapping tables */
-      for (s = EROS_PAGE_SIZE; s > 0;
-           paddr += CPT_SIZE, s -= CPT_SIZE, heap_havePTs += CPT_SPAN) {
-        memset(KPAtoP(void *, paddr), CPT_SIZE, 0);	/* clear it */
-        FLPTIndex = heap_havePTs >> 20;
-        FLPT_FCSEVA[FLPTIndex] = paddr + L1D_COARSE_PT;	/* domain 0 */
-      }
-    }
+    assert(heap_havePTs >= target);	/* Otherwise, we would have to
+		allocate mapping tables here, The hard part is
+		finding all FLPT's to map them. */
 
     paddr = (*acquire_heap_page)();	/* get a page for the heap */
     FLPTIndex = heap_defined >> 20;

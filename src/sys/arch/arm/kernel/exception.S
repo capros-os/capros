@@ -32,8 +32,48 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #ifndef NDEBUG
 // Optional debugging checks:
 #define STACK_CHECK
+//#define EXCEPTION_TRACE
 //#define CHECKREGS
 #endif
+
+#ifdef EXCEPTION_TRACE
+#define traceBufEntries 128
+#define traceBufSize (traceBufEntries * 12)
+	.data
+	.balign 8
+	ENTRY(traceBuf)
+	. = .+traceBufSize
+	
+	ENTRY(traceCursor)	// this was once at 0xfe101600
+	.long traceBuf
+
+	.text
+// Log the following in the trace buffer:
+// r0, proc_curProcess, caller's pc.
+traceLog:
+	stmfd sp!,{r1-r3}
+	ldr r2,=traceCursor
+	ldr r1,[r2]
+	ldr r3,=proc_curProcess
+	ldr r3,[r3]
+	stmia r1!,{r0,r3,lr}
+	ldr r3,=traceBuf+traceBufSize
+	cmp r1,r3
+	ldrhs r1,=traceBuf	// wrap around
+	str r1,[r2]		// update traceCursor
+#if 0
+	stmfd sp!,{r0,r12,lr}
+	ldr r0,=traceMsg
+	bl printf
+	ldmfd sp!,{r0,r12,lr}
+	b 1f
+traceMsg: .asciz "."
+	.balign 4
+1:
+#endif
+	ldmfd sp!,{r1-r3}	// restore and return
+	mov pc,lr
+#endif	// EXCEPTION_TRACE
 
 	.text
 // InitExceptionHandlers is entered and exits in Supervisor mode
@@ -83,6 +123,14 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 	mov r0,#prefetchAbort	// parameter to PageFault()
 CommonAbortHandler:
 	mrs r12,spsr
+
+#ifdef EXCEPTION_TRACE
+	stmfd sp!,{r0,r12,lr}
+	mov r0,r12	// spsr
+	bl traceLog
+	ldmfd sp!,{r0,r12,lr}
+#endif
+
 HandlePageFault:
 	/* Was fault from user mode? */
 	add r1,r12,#1		// add 1 to mode bits of SPSR
@@ -177,6 +225,13 @@ handlerCommon:
 	stmfd sp!,{r0-r3,r10-r12,r14}	// save some registers
 	/* C procedures preserve r4-r11. */
 	mrs r11,spsr	// save spsr in r11
+
+#ifdef EXCEPTION_TRACE
+	mov r0,r11	// spsr
+	bl traceLog
+	tst r11,#0x80	// had IRQ disabled??
+	blne Debugger
+#endif
 
 /* 
 Change to Abort mode.
@@ -334,6 +389,15 @@ supStackMsg:	.asciz "Supervisor Stack is 0x%x should be 0x%x\n"
 	ldrneh lr,[lr,#-2]	// get Thumb SWI instruction
 	ldreq lr,[lr,#-4]	// get ARM SWI instruction
 	and lr,lr,#0xff	// Thumb can only specify 8 bits
+
+#ifdef EXCEPTION_TRACE
+	stmfd sp!,{r0,r12,lr}
+	mov r0,r12	// SPSR
+	bl traceLog
+	ldr r0,[sp,#8]	// SWI # in saved lr
+	bl traceLog
+	ldmfd sp!,{r0,r12,lr}
+#endif
 	cmp lr,#SWI_MaxSWI
 	ldrls pc, [pc, lr, lsl #2]	// dispatch
 	b SWIOutOfRange
@@ -556,6 +620,16 @@ SwiBadMode:
 	ENTRY(resume_process)
 /* r0 has a pointer to the Process structure. */
 
+#ifdef EXCEPTION_TRACE
+	stmfd sp!,{r0}
+	ldr r0,[r0,#PR_OFF_CPSR]
+	bl traceLog
+	ldr r0,[sp]	// get process pointer again
+	ldr r0,[r0,#PR_OFF_r15]
+	bl traceLog
+	ldmfd sp!,{r0}
+#endif
+
 	ldr sp,=(kstackBot)	// empty the kernel stack!
 #if 0	// if trying to find a bug
 	mov r4,r0
@@ -564,7 +638,7 @@ SwiBadMode:
 	mov r0,r4
 #endif
 
-	add r1,r0,#PR_OFF_firstLevelMappingTable
+	add r4,r0,#PR_OFF_firstLevelMappingTable
 /* Process structure has, in order:
 firstLevelMappingTable
 pid
@@ -573,16 +647,16 @@ CPSR
 r15
 r0-r14
  */
-	ldmia r1!,{r2,r3,r4}
-	mrc p15,0,r5,c2,c0	// read translation table base register
-	mcr p15,0,r2,c2,c0	// load translation table base register
-	cmp r2,r5		// if changing the TTBR,
+	ldmia r4!,{r5-r7}	// get flmt, pid, dacr
+	mrc p15,0,r0,c2,c0	// read translation table base register
+	mcr p15,0,r5,c2,c0	// load translation table base register
+	cmp r5,r0		// if changing the TTBR,
 	blne mach_FlushTLBsCaches	// flush TLB and cache
-	ldmia r1!,{r12,r14}
-	mcr p15,0,r3,c13,c0	// load Process ID register
-	mcr p15,0,r4,c3,c0	// load domain access control register, DACR
+	ldmia r4!,{r12,r14}	// get CPSR, r15
+	mcr p15,0,r6,c13,c0	// load Process ID register
+	mcr p15,0,r7,c3,c0	// load domain access control register, DACR
 	msr spsr_fsxc,r12	// load SPSR
-	ldmia r1,{r0-r14}^	// load r0-r12, r13_usr, r14_usr
+	ldmia r4,{r0-r14}^	// load r0-r12, r13_usr, r14_usr
 	nop		// Cannot use banked register immediately
 			// after User mode ldm
 	movs pc,r14	// restore pc and transfer SPSR -> CPSR

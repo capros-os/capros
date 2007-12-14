@@ -74,21 +74,6 @@ proc_ClearFault(Process * thisPtr)
 }
 
 INLINE void 
-proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info)
-{
-  assert(code);
-
-  thisPtr->faultCode = code;
-  thisPtr->faultInfo = info;
-  thisPtr->processFlags |= capros_Process_PF_FaultToProcessKeeper;
-  
-#ifdef OPTION_DDB
-  if (thisPtr->processFlags & PF_DDBTRAP)
-    dprintf(true, "Process 0x%08x has trap code set\n", thisPtr);
-#endif
-}
-
-INLINE void 
 proc_SetMalformed(Process* thisPtr)
 {
 #ifdef OPTION_DDB
@@ -104,6 +89,15 @@ INLINE bool
 proc_IsExpectingMsg(Process * thisPtr)
 {
   return thisPtr->processFlags & capros_Process_PF_ExpectingMessage;
+}
+
+INLINE bool
+proc_HasDevicePrivileges(Process * thisPtr)
+{
+  assert((thisPtr->hazards & hz_DomRoot) == 0);
+  assert((thisPtr->hazards & hz_KeyRegs) == 0);
+
+  return keyBits_IsType(&thisPtr->procRoot->slot[ProcIoSpace], KKT_DevicePrivs);
 }
 
 #endif /* __PROCESS_INLINE_H__ */

@@ -682,7 +682,11 @@ i486_BuildKernelMap()
    */
 
   /* We do not need to allocate the PAGES for the heap content, but we
-   * *do* need to allocate the page tables that will map those pages:
+   * *do* need to allocate the page *tables* that will map those pages.
+   * Every page directory needs to have these page tables mapped.
+   * If we allocated them later, we would have to find all page
+   * directories to update them.
+
    * To do this, perform a conservative computation of the size of the
    * heap that will be needed. This relies on the fact that PhysMem
    * has already been initialized, so we know at this point how many

@@ -48,6 +48,7 @@ followed by available memory to 1MB boundary (so we can map kernel code
   as an entire section read-only)
 followed by kernel data, bss
 followed by pad to 16KB boundary
+followed by First-Level Page Table for the Null space
 followed by First-Level Page Table for FCSE
 followed by Coarse Page Table for exception vectors
  */
@@ -83,7 +84,7 @@ Otherwise, the FCSE memory space is mapped:
 0xc000.... (PhysMapVA) mapped to all physical memory. Beware: don't access user
            memory via this map, or you will get cache aliases. 
            This is only for page tables and other kernel-only memory
-           that is not mapped anywhere else.
+           that is not accessed at any other address.
            TODO: Need work to support memory above physical address 0x2fffffff.
 0xf000.... node table, object table
 0xf800.... windows to map other processes

@@ -32,16 +32,16 @@ This table shows all the possible states of the ProcMD data.
 
   flmt     FLMT     dacr
 Producer    *1       *2       pid       Meaning
-  NULL  FLPT_FCSEPA   0        0        Producer of the space is not known
-  NULL  FLPT_FCSEPA   0 PID_IN_PROGRESS *3
-  !=0   FLPT_FCSEPA   0        0        Producer known, maptab not known *4
+  NULL  FLPT_NullPA   0        0        Producer of the space is not known *8
+  NULL  FLPT_NullPA   0 PID_IN_PROGRESS *3, *8
+  !=0   FLPT_NullPA   0        0        Producer known, maptab not known *4, *8
   !=0   FLPT_FCSEPA   *5      !=0       Producer known, small space *7
   !=0   full maptab   0        0        Full space, tracking LRU *6, *7
   !=0   full maptab  0, 1      0        Full space *7
 
 Notes:
 
-*1 firstLevelMappingTable must always be FLPT_FCSEPA or another valid table
+*1 firstLevelMappingTable must always be a valid table
    so the kernel will be mapped when the process faults.
 
 *2 The DACR gives client access to some domains and no access to all others.
@@ -60,6 +60,11 @@ Notes:
    This provides a mechanism to efficiently restore the access. 
 
 *7 There may be cache entries dependent on this ProcMD.
+
+*8 The FLPT cannot be FLPT_FCSE here, even though the dacr gives access only
+   to domain 0, because a user process that is privileged
+   (running in System mode) might inadvertently access another process's
+   small space instead of faulting to load its own. 
 */
 
 typedef struct ProcMD {

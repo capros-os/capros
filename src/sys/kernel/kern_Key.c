@@ -503,17 +503,15 @@ key_CalcCheck(Key* thisPtr)
 }
 #endif
 
-/* New Key -- make it void, since in a couple of cases we do this on
- * the stack and there is no telling what garbage bits are sitting there.
- */
-
-
 #ifndef NDEBUG
 bool
 key_IsValid(const Key* thisPtr)
 {
-  if ( keyBits_IsMiscKey(thisPtr) ) {
-    if (thisPtr->u.nk.value[0] || thisPtr->u.nk.value[1] || thisPtr->u.nk.value[2])
+  /* Misc keys other than DevicePrivs should have no data. */
+  if ( keyBits_IsMiscKey(thisPtr)
+      && ! keyBits_IsType(thisPtr, KKT_DevicePrivs) ) {
+    if (thisPtr->u.nk.value[0] || thisPtr->u.nk.value[1]
+        || thisPtr->u.nk.value[2] )
       return false;
   }
 

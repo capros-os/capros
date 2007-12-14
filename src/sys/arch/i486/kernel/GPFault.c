@@ -97,6 +97,8 @@ GPFault(savearea_t *sa)
   if ( act_CurContext()->trapFrame.Error == 0 &&
        proc_HasDevicePrivileges(act_CurContext()) &&
        iopl != 3 ) {
+    /* I don't think this can happen, now that we set IOPL in
+    proc_ValidateRegValues. */
     act_CurContext()->trapFrame.EFLAGS |= MASK_EFLAGS_IOPL;
 
 #if 0

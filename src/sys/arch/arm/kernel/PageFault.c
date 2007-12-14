@@ -576,17 +576,16 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   }
 
   MapTabHeader * mth1;
-  if (p->md.firstLevelMappingTable == FLPT_FCSEPA) {
-    if (p->md.pid != 0 && p->md.pid != PID_IN_PROGRESS) {
-      // has a small space
-      if (va & PID_MASK) {	// needs a large space
-        // large space not implemented yet
-        fatal("Process accessed large space at 0x%08x\n", va);
-      }
-      mth1 = SmallSpace_GetMth(p->md.pid >> PID_SHIFT);
-    } else {
-      mth1 = 0;
+  if (p->md.firstLevelMappingTable == FLPT_NullPA) {
+    mth1 = 0;
+  }
+  else if (p->md.firstLevelMappingTable == FLPT_FCSEPA) {
+    // has a small space
+    if (va & PID_MASK) {	// needs a large space
+      // large space not implemented yet
+      fatal("Process accessed large space at 0x%08x\n", va);
     }
+    mth1 = SmallSpace_GetMth(p->md.pid >> PID_SHIFT);
   } else {		// has a full space
     mth1 = & objC_PhysPageToObHdr(p->md.firstLevelMappingTable)
                ->kt_u.mp.hdrs[0];
@@ -639,7 +638,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
       // Large or small space?
       /* Note: We used to produce a small space if va would fit in one. 
       The following example shows why that is wrong.
-      Suppose a process has a map with pages at 0x0 and 0x04000000.
+      Suppose a process has a map with different pages at 0x0 and 0x04000000.
       It references 0, gets a small space, and happens to get pid 0x04000000.
       Now it references 0x04000000.
       It will get the aliased page at 0x0, not the page that should be at

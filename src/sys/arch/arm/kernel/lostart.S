@@ -135,6 +135,7 @@ and map it at MVA KTextVA + 1MB.  */
 	add r4,r4,r3	// round up to 16KB boundary
 	bic r4,r4,r3	// ...
 // TODO: it would be nice to use the space we skipped over for pages or CPTs.
+	add r4,r4,#0x4000	// reserve 16KB for the Null FLPT
 	mov r5,r4	// First Level Page Table
 	add r4,r4,#0x4000	// size of FLPT
 	mov r7,r4	// Coarse Page Table for exception vectors
@@ -221,16 +222,11 @@ and map it at MVA KTextVA + 1MB.  */
 	ldr r1,=(KTextVA >> (20-2))
 	str r0,[r5, r1]
 /* Temporarily map kernel code at KTextPA also so we can continue executing
-   when we enable the MMU. */
+   when we enable the MMU. 
+   This map will be cleared later in map_HeapInit. */
 	ldr r0,=(0x0000041a + KTextPA)	// map read-write
 	ldr r1,=(KTextPA >> (20-2))
 	str r0,[r5, r1]
-#if 0
-/* For debugging, temporarily map kernel data and bss in low memory. */
-	ldr r0,=(0x0000041a + KTextPA + 0x00100000 + WriteBackOption)	// map read-write
-	ldr r1,=((KTextPA + 0x00100000) >> (20-2))
-	str r0,[r5, r1]
-#endif
 
 /* Set up kernel data and bss in FLPT. */
 /* Assume less than 1MB. */
@@ -252,8 +248,7 @@ and map it at MVA KTextVA + 1MB.  */
 
 /* Enable the MMU. */
 	mcr p15,0,r5,c2,c0,0	// write TTBR
-	ldr r0,=0xffffffff	// all manager access
-// TODO: should use client
+	ldr r0,=0x55555555	// all client access
 	mcr p15,0,r0,c3,c0,0	// write DACR
 	mov r0,#0
 	mcr p15,0,r0,c8,c7,0	// invalidate TLBs

@@ -135,6 +135,20 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
       return prockey_swapSlotCommitted(inv, theNode, ProcAddrSpace);
     }
 
+  case OC_capros_Process_setIOSpace:
+    node_MakeDirty(theNode);
+
+    COMMIT_POINT();
+
+    node_ClearHazard(theNode, ProcIoSpace);
+
+    key_NH_Set(node_GetKeyAtSlot(theNode, ProcIoSpace), inv->entry.key[0]);
+        
+    act_Prepare(act_Current());
+      
+    inv->exit.code = RC_OK;
+    return;
+  
   case OC_capros_Process_getKeeper:
     return prockey_getSlot(inv, theNode, ProcKeeper);
   case OC_capros_Process_swapKeeper:

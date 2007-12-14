@@ -28,9 +28,17 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #define PID_SHIFT 25
 #define PID_MASK 0xfe000000
-#define PID_IN_PROGRESS 0xfe000000	/* This value is stored in
-	Process.md.pid while we are traversing the memory tree.
-	This is not a valid small space. */
+
+/* PID_IN_PROGRESS is stored in Process.md.pid while we are traversing
+the memory tree.
+If the traversal Yields, PID_IN_PROGRESS can remain in Process.md.pid
+and the process can be dispatched with this pid. 
+
+Process.md.pid must be < UserEndVA. Otherwise, a user process 
+that is privileged (running in System mode) that attempts to access memory 
+below 0x02000000 (thus using the pid, which may be PID_IN_PROGRESS)
+could inadvertently access kernel memory instead. */
+#define PID_IN_PROGRESS 0x02000000
 
 /* For Level 1 descriptors: */
 #define L1D_ADDR_SHIFT 20
@@ -158,10 +166,13 @@ Note 4:
 #include <kerninc/ObjectHeader.h>
 
 /* FLPT_FCSEPA is the physical address of the First Level Page Table that is
-   used for the kernel
-   and for processes using the Fast Context Switch Extension. */
+   used for processes using the Fast Context Switch Extension. */
 extern kpa_t FLPT_FCSEPA;
 extern uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
+
+/* FLPT_NullPA is the physical address of the Null First Level Page Table. */
+extern kpa_t FLPT_NullPA;
+extern uint32_t * FLPT_NullVA;	/* Virtual address of the above */
 
 struct PTE {
   uint32_t w_value;

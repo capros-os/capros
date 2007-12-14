@@ -82,6 +82,7 @@ This means that there is state elsewhere that depends on the key.
 Before changing the key you must clear that other state. 
 The following cases occur:
 In a node prepared as a process root, slots for register values.
+In a node prepared as a process root, the ProcIoSpace slot.
 In a node prepared as a process root, the ProcSched slot.
 In a node prepared as a process root, the ProcGenKeys slot.
 In a node prepared as a process root, the ProcAddrSpace slot.

@@ -114,6 +114,18 @@ interface Process extends key raises (key.RequestError) {
   capros.key swapAddrSpaceAndPC32Proto(capros.key newKey, unsigned long newPC,
                unsigned long w2_in, out unsigned long w1_out);
 
+  /**
+  If iospace is the DevicePrivs capability, the process will be given 
+  the authority to disable and enable I/O interrupts.
+  On the IA-32 architecture, the process also will be given the authority
+  to execute I/O-sensitive instructions such as in and out.
+  Note that the entire system will rely on the code in this process.
+
+  If iospace is any other capability, the process will not have these
+  authorities. 
+  */
+  void setIOSpace(capros.key iospace);
+
   capros.key getKeeper();
   capros.key swapKeeper(capros.key newKey);
 

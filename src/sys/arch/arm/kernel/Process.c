@@ -56,11 +56,6 @@ Process * proc_ContextCacheRegion = NULL;
 
 #define userCPSRBits (0xff000000 | MASK_CPSR_Thumb)
 		/* bits that the user can play with */
-static uint32_t
-ForceValidUserCPSR(uint32_t cpsr)
-{
-  return (cpsr & userCPSRBits) | CPSRMode_User;
-}
 
 /* ValidateRegValues() -- runs last to validate that the loaded context
  * will not violate protection rules if it is run.  This routine must
@@ -79,13 +74,22 @@ proc_ValidateRegValues(Process* thisPtr)
   if (thisPtr->isUserContext) {
     /* Rather than force the programmer to set the correct CPSR bits,
        we just set them correctly here. */
-    thisPtr->trapFrame.CPSR = ForceValidUserCPSR(thisPtr->trapFrame.CPSR);
+    if (proc_HasDevicePrivileges(thisPtr)) {
+      // Put him in system mode so he can disable IRQ.
+      // CPSRMode_System is all 1's, so we can just or:
+      thisPtr->trapFrame.CPSR |= CPSRMode_System;
+      //// Force User mode until I get the above working:
+      thisPtr->trapFrame.CPSR &= userCPSRBits;////
+      thisPtr->trapFrame.CPSR |= CPSRMode_User;////
+    }
+    else {
+      thisPtr->trapFrame.CPSR &= userCPSRBits;
+      thisPtr->trapFrame.CPSR |= CPSRMode_User;
+    }
   } else {
-    /* Privileged processes might disable IRQ, but we will never see it,
-       because the process won't be preempted until IRQ is reenabled. */
-    /* Check this as an assertion rather than a process fault.
-       The kernel depends on it being correct and fail-fast is
-       easier to diagnose. */
+    /* Kernel processes might disable IRQ, but we will never see it,
+       because they don't execute SWI's and don't page fault and
+       the process won't be preempted until IRQ is reenabled. */
     assert((thisPtr->trapFrame.CPSR & ~userCPSRBits) == CPSRMode_System);
   }
 }
@@ -390,11 +394,18 @@ proc_FlushFixRegs(Process * thisPtr)
   assert(thisPtr->isUserContext);
 
   unsigned int k;
+  Key * key;
   for (k = ProcFirstRootRegSlot; k <= ProcLastRootRegSlot; k++) {
-    assert ( keyBits_IsRdHazard(node_GetKeyAtSlot(thisPtr->procRoot, k)));
-    assert ( keyBits_IsWrHazard(node_GetKeyAtSlot(thisPtr->procRoot, k)));
-    keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, k));
+    key = node_GetKeyAtSlot(thisPtr->procRoot, k);
+    assert(keyBits_IsRdHazard(key));
+    assert(keyBits_IsWrHazard(key));
+    keyBits_UnHazard(key);
   }
+
+  // ProcIoSpace affects EFLAGS.IOPL.
+  key = node_GetKeyAtSlot(thisPtr->procRoot, ProcIoSpace);
+  assert(keyBits_IsWrHazard(key));
+  keyBits_UnHazard(key);
 
   uint8_t * rootkey0 = (uint8_t *) (node_GetKeyAtSlot(thisPtr->procRoot, 0));
 
@@ -417,8 +428,8 @@ proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey)
     break;
 
   case ProcAddrSpace:
-    Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, whichKey));
-    assert(thisPtr->md.firstLevelMappingTable == FLPT_FCSEPA);
+    Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace));
+    assert(thisPtr->md.firstLevelMappingTable == FLPT_NullPA);
     break;
 
   case ProcSched:
@@ -529,7 +540,7 @@ proc_SetRegs32(Process * thisPtr,
   // thisPtr->trapFrame.r13 = regs->registers[13];
   thisPtr->trapFrame.r14 = regs->registers[14];
   // thisPtr->trapFrame.r15 = regs->registers[15];
-  thisPtr->trapFrame.CPSR = ForceValidUserCPSR(regs->CPSR);
+  thisPtr->trapFrame.CPSR = regs->CPSR;
 
   proc_ValidateRegValues(thisPtr);
 }
@@ -612,6 +623,8 @@ proc_LoadFixRegs(Process* thisPtr)
   
   for (k = ProcFirstRootRegSlot; k <= ProcLastRootRegSlot; k++)
     keyBits_SetRwHazard(node_GetKeyAtSlot(thisPtr->procRoot, k));
+
+  keyBits_SetWrHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcIoSpace));
 
   thisPtr->hazards &= ~hz_DomRoot;
 
@@ -761,9 +774,10 @@ ExitTheKernel_MD(Process * thisPtr)
 #ifndef NDEBUG
 #if 1
   if (thisPtr->trapFrame.r15 & 0x3	// unaligned PC
+      //// following is temporary
       || thisPtr->trapFrame.CPSR & MASK_CPSR_IRQDisable	// IRQ disabled
      )
-    printf("Resume user proc 0x%08x pc=0x%08x pid=0x%08x cpsr=0x%08x\n",
+    dprintf(true, "Resume user proc 0x%08x pc=0x%08x pid=0x%08x cpsr=0x%08x\n",
            thisPtr,
            thisPtr->trapFrame.r15, thisPtr->md.pid, thisPtr->trapFrame.CPSR);
 #endif

@@ -31,6 +31,26 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 
 void 
+proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info)
+{
+  assert(code);
+
+  thisPtr->faultCode = code;
+  thisPtr->faultInfo = info;
+  thisPtr->processFlags |= capros_Process_PF_FaultToProcessKeeper;
+  
+#ifdef OPTION_DDB
+  if (thisPtr->processFlags & PF_DDBTRAP)
+    dprintf(true, "Process 0x%08x has trap code set\n", thisPtr);
+#endif
+#if 0	// if failing fast
+  // Halt if no keeper:
+  Key * key = & thisPtr->procRoot->slot[ProcKeeper];
+  assert(keyBits_IsType(key, KKT_Start));
+#endif
+}
+
+void 
 proc_FlushKeyRegs(Process * thisPtr)
 {
   uint32_t k;

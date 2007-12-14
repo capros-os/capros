@@ -60,15 +60,6 @@ Process *proc_fpuOwner;
 PTE * proc_smallSpaces = 0;
 #endif
 
-bool
-proc_HasDevicePrivileges(Process* thisPtr)
-{
-  assert((thisPtr->hazards & hz_DomRoot) == 0);
-  assert((thisPtr->hazards & hz_KeyRegs) == 0);
-
-  return keyBits_IsType(&thisPtr->procRoot->slot[ProcIoSpace], KKT_DevicePrivs);
-}
-
 kva_t proc_ContextCacheRegion = 0;
 
 void 
@@ -518,13 +509,17 @@ proc_ValidateRegValues(Process* thisPtr)
   
 #undef validate
   
-  /* Interrupts must be enabled. Just set the bit rather than bitch. */
-  thisPtr->trapFrame.EFLAGS |= MASK_EFLAGS_Interrupt;
   thisPtr->trapFrame.EFLAGS &= ~MASK_EFLAGS_Nested;
 
-  if ( !proc_HasDevicePrivileges(thisPtr) ) {
+  if (proc_HasDevicePrivileges(thisPtr)) {
+    // He has iopl privileges.
+    thisPtr->trapFrame.EFLAGS |= MASK_EFLAGS_IOPL;	// set IOPL = 3
+  }
+  else {
     // He doesn't have iopl privileges.
-    thisPtr->trapFrame.EFLAGS &= ~MASK_EFLAGS_IOPL;
+    thisPtr->trapFrame.EFLAGS &= ~MASK_EFLAGS_IOPL;	// set IOPL = 0
+    /* Interrupts must be enabled. Just set the bit rather than bitch. */
+    thisPtr->trapFrame.EFLAGS |= MASK_EFLAGS_Interrupt;
   }
 
 #ifdef EROS_HAVE_FPU
@@ -534,7 +529,7 @@ proc_ValidateRegValues(Process* thisPtr)
      The bits in the control words are 'mask if set', while the bits
      in the status words are 'raise if set'.  The and-not logic is
      therefore what we want: */
-  else if (thisPtr->fpuRegs.f_status & ~(thisPtr->fpuRegs.f_ctrl & MASK_FPSTATUS_EXCEPTIONS)) {
+  if (thisPtr->fpuRegs.f_status & ~(thisPtr->fpuRegs.f_ctrl & MASK_FPSTATUS_EXCEPTIONS)) {
     code = capros_Process_FC_FPFault;
     info = thisPtr->fpuRegs.f_cs;
   }
@@ -592,6 +587,8 @@ proc_LoadFixRegs(Process* thisPtr)
   for (k = ProcFirstRootRegSlot; k <= ProcLastRootRegSlot; k++)
     keyBits_SetRwHazard(node_GetKeyAtSlot(thisPtr->procRoot, k));
 
+  keyBits_SetWrHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcIoSpace));
+
   thisPtr->hazards &= ~hz_DomRoot;
 
 #if 0
@@ -628,11 +625,18 @@ proc_FlushFixRegs(Process * thisPtr)
   assert(thisPtr->isUserContext);
 
   unsigned int k;
+  Key * key;
   for (k = ProcFirstRootRegSlot; k <= ProcLastRootRegSlot; k++) {
-    assert ( keyBits_IsRdHazard(node_GetKeyAtSlot(thisPtr->procRoot, k)));
-    assert ( keyBits_IsWrHazard(node_GetKeyAtSlot(thisPtr->procRoot, k)));
-    keyBits_UnHazard(node_GetKeyAtSlot(thisPtr->procRoot, k));
+    key = node_GetKeyAtSlot(thisPtr->procRoot, k);
+    assert(keyBits_IsRdHazard(key));
+    assert(keyBits_IsWrHazard(key));
+    keyBits_UnHazard(key);
   }
+
+  // ProcIoSpace affects EFLAGS.IOPL.
+  key = node_GetKeyAtSlot(thisPtr->procRoot, ProcIoSpace);
+  assert(keyBits_IsWrHazard(key));
+  keyBits_UnHazard(key);
 
   uint8_t * rootkey0 = (uint8_t *) (node_GetKeyAtSlot(thisPtr->procRoot, 0));
 
