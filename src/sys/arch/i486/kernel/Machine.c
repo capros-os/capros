@@ -44,7 +44,6 @@
 #include "IDT.h"
 #include "TSS.h"
 
-void i486_BuildKernelMap();
 uint32_t mach_BusArchitecture();
 
 void mach_EnableVirtualMapping();
@@ -83,8 +82,6 @@ mach_BootInit()
    * because these descriptors reference linear addresses that change
    * when the mapping is updated.
    */
-  
-  i486_BuildKernelMap();
   
   /* DANGER! No console use permitted between the mapping enable and
      the GDT enable! */

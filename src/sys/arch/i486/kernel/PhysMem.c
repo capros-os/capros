@@ -33,6 +33,7 @@
 
 
 kpa_t physMem_PhysicalPageBound = 0;	// highest physical address of RAM +1
+kpsize_t physMem_TotalPhysicalPages = 0;	// approximate
 
 /* The area we will reserve as ROM: */
 kpa_t ROMBase  =  0xc0000;
@@ -43,6 +44,7 @@ static void checkBounds(kpa_t base, kpa_t bound)
   if (bound > physMem_PhysicalPageBound) {        /* take max */
     physMem_PhysicalPageBound = align_up(bound, EROS_PAGE_SIZE);
   }
+  physMem_TotalPhysicalPages += (bound - base) / EROS_PAGE_SIZE;
 
   /* Check if it overlaps ROM area. */
   if (   base < ROMBound
@@ -131,10 +133,4 @@ physMem_Init()
              MultibootInfoPtr->mods_count * sizeof(struct grub_mod_list) );
 
   physMem_ReservePhysicalMemory();
-}
-
-kpsize_t
-physMem_TotalPhysicalPages()
-{
-  return physMem_PhysicalPageBound / EROS_PAGE_SIZE;
 }

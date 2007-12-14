@@ -52,9 +52,8 @@ Approved for public release, distribution unlimited. */
 The amount of space is KTUNE_NCONTEXT * SMALL_SPACE_PAGES * EROS_PAGE_SIZE. */
 #define SMALL_SPACE_PAGES 32         /* 128 Kbytes */
 
-#define KVA		0xD0000000 /* physical memory is mapped at this
-			linear address, from physical address 0 to
-			physMem_PhysicalPageBound. */
+#define KVA		0xD0000000 /* physical address x is mapped at
+				linear address KVA+x, for all x holding RAM. */
 #define KUVA		0x30000000 /* user va 0 as kernel sees it */
 
 #define KVA_FROMSPACE   0x2e800000 /* Not sure what this is used for. */

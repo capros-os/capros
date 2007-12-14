@@ -79,6 +79,7 @@ extern unsigned long physMem_nPmemInfo;
 #define MAX_PMEMINFO 128
 
 extern kpa_t physMem_PhysicalPageBound;
+extern kpsize_t physMem_TotalPhysicalPages;
 
 /* Former member functions of PhysMem */
 

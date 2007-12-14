@@ -87,6 +87,7 @@ extern unsigned dbg_inttrap;
 #endif    
 
 void heap_init();
+kpa_t heap_AcquirePage(void);
 void *malloc(size_t);
 #define MALLOC(type,count) ((type *) malloc(sizeof(type) * count))
 

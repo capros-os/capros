@@ -430,7 +430,7 @@ kpa_t DirectoryCache;
 PTE * DirectoryPTECache;
 
 void
-i486_BuildKernelMap()
+mach_HeapInit()
 {
 
   /* On entry to MapKernel we are running unmapped */
@@ -530,17 +530,15 @@ i486_BuildKernelMap()
 }
 #else	/* not NEW_KMAP (this is the case) */
 void
-i486_BuildKernelMap()
+mach_HeapInit(kpsize_t heap_size)
 {
   PTE *pageDir = KernPageDir; /* kernel page directory */
-  uint32_t physPages;
   uint32_t increment = 0;
   uint32_t i = 0;
   unsigned heap_first_page;
 #ifndef NO_LARGE_PAGES
   bool supports_large_pages = false;
 #endif
-  unsigned nPages;
   unsigned va;
   
   bzero(pageDir, EROS_PAGE_SIZE);
@@ -554,8 +552,7 @@ i486_BuildKernelMap()
    * bounded kernel heap, set up virtual mapping space for that, and
    * then use kmem_alloc to populate it.
    */
-  kpsize_t physMem_TotalPhysicalPages();
-  physPages = physMem_TotalPhysicalPages();
+  uint32_t physPages = physMem_PhysicalPageBound / EROS_PAGE_SIZE;
 
   /*  printf("pageDir: 0x%x\n", pageDir); */
 
@@ -673,6 +670,7 @@ i486_BuildKernelMap()
   printf("Last physpage at 0x%08x\n", EROS_PAGE_SIZE * physPages);
 
   heap_start = PTOV(EROS_PAGE_SIZE * heap_first_page);
+  assert((heap_start % EROS_PAGE_SIZE) == 0);
   heap_end = heap_start;
   heap_defined = heap_start;
 
@@ -681,61 +679,14 @@ i486_BuildKernelMap()
    * segment structures.
    */
 
-  /* We do not need to allocate the PAGES for the heap content, but we
-   * *do* need to allocate the page *tables* that will map those pages.
-   * Every page directory needs to have these page tables mapped.
-   * If we allocated them later, we would have to find all page
-   * directories to update them.
+  heap_bound = heap_start + heap_size;
 
-   * To do this, perform a conservative computation of the size of the
-   * heap that will be needed. This relies on the fact that PhysMem
-   * has already been initialized, so we know at this point how many
-   * total physical pages are present.
-   *
-   * We compute below a generously conservative approximation to the
-   * largest likely heap so that we can preallocate page tables for
-   * the heap.
-   */
+  /* Place the heap right at the end of the physical page map:
 
-  {
-    kpsize_t usablePages = physPages; /* well, close */
-
-    heap_bound = 0;
-
-    /* We will allocate one node per page: */
-    heap_bound += usablePages * sizeof(Node);
-    
-    /* We will allocate four depend entries per node: */
-    heap_bound += usablePages * (4 * sizeof(KeyDependEntry));
-
-    /* We will allocate one ObjectHeader structure per page: */
-    heap_bound += usablePages * (4 * sizeof(ObjectHeader));
-
-    /* Oink oink oink: */
-    heap_bound += 1024 * 1024;
-
-    /* Finally, allow for the object headers we will need for card
-     * memory: */
-    heap_bound += ((KTUNE_MAX_CARDMEM * 1024)/4096) * sizeof(ObjectHeader);
-
-    /* Round up to nearest page: */
-    heap_bound = align_up_uint32(heap_bound, EROS_PAGE_SIZE);
-
-    assert((heap_bound % EROS_PAGE_SIZE) == 0);
-    assert((heap_start % EROS_PAGE_SIZE) == 0);
-
-    nPages = (heap_bound / EROS_PAGE_SIZE);
-    printf("Heap contains %d pages\n", nPages);
-
-    heap_bound += heap_start;
-
-    /* Place the heap right at the end of the physical page map:
-
-       We build this mapping for the side effect of ensuring that
-       mapping entries for the heap are actually present. */
-    for(va = heap_start; va < heap_bound; va += EROS_PAGE_SIZE)
-      MapKernelPage(va, 0, PTE_W|GlobalPage);
-  }
+     We build this mapping for the side effect of ensuring that
+     mapping entries for the heap are actually present. */
+  for (va = heap_start; va < heap_bound; va += EROS_PAGE_SIZE)
+    MapKernelPage(va, 0, PTE_W|GlobalPage);
 
 #if 1
   /* Allocate and map the context caches. These were previously
@@ -840,14 +791,13 @@ i486_BuildKernelMap()
  */
 // May Yield.
 void
-mach_EnsureHeap(kva_t target,
-  kpa_t (*acquire_heap_page)(void) )
+mach_EnsureHeap(kva_t target)
 {
   assert((heap_defined & EROS_PAGE_MASK) == 0);
 
   while (heap_defined < target) {
     uint32_t mode = PTE_V|PTE_W;
-    kpa_t paddr = (*acquire_heap_page)();
+    kpa_t paddr = heap_AcquirePage();
 
     assert((paddr & EROS_PAGE_MASK) == 0);
 

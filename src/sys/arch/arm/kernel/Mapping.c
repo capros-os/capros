@@ -248,13 +248,12 @@ node_ClearGPTHazard(Node * gpt, uint32_t ndx)
 }
 
 /* Ensure there are enough mapping tables for the heap. */
-kpa_t acquire_heap_page(void);	//// need to clean this all up
 static void
 ensureHeapTables(kva_t target)
 {
   while (heap_havePTs < target) {
     uint32_t s;
-    kpa_t paddr = acquire_heap_page();	/* get a page for mapping tables */
+    kpa_t paddr = heap_AcquirePage();	/* get a page for mapping tables */
     for (s = EROS_PAGE_SIZE; s > 0;
          paddr += CPT_SIZE, s -= CPT_SIZE, heap_havePTs += CPT_SPAN) {
       memset(KPAtoP(void *, paddr), CPT_SIZE, 0);	/* clear it */
@@ -267,7 +266,7 @@ ensureHeapTables(kva_t target)
 }
 
 void
-map_HeapInit(void)
+mach_HeapInit(kpsize_t heap_size)
 {
   unsigned int i;
 
@@ -287,8 +286,7 @@ map_HeapInit(void)
   heap_bound = HeapEndVA;
 
   /* Allocate page tables for the heap. */
-  //// Need to clean this up!
-  ensureHeapTables(heap_start + 0x800000);
+  ensureHeapTables(heap_start + heap_size);
 
   /* Initialize the Null FLPT. */
   // Space for it was reserved just before the FLPT_FCSE.
@@ -462,8 +460,7 @@ assignDomain:
  */
 // May Yield.
 void
-mach_EnsureHeap(kva_t target,
-  kpa_t (*acquire_heap_page)(void) )
+mach_EnsureHeap(kva_t target)
 {
   kpa_t paddr;
   unsigned FLPTIndex;	/* index into FLPT */
@@ -478,7 +475,7 @@ mach_EnsureHeap(kva_t target,
 		allocate mapping tables here, The hard part is
 		finding all FLPT's to map them. */
 
-    paddr = (*acquire_heap_page)();	/* get a page for the heap */
+    paddr = heap_AcquirePage();	/* get a page for the heap */
     FLPTIndex = heap_defined >> 20;
     CPTIndex = (heap_defined >> 12) & (CPT_ENTRIES -1);
     PTE * cpt = KPAtoP(PTE *, FLPT_FCSEVA[FLPTIndex] & L1D_COARSE_PT_ADDR);

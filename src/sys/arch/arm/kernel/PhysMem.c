@@ -34,7 +34,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-
+kpsize_t physMem_TotalPhysicalPages = 0;	// approximate
 unsigned int logDataCacheLineLength;
 unsigned int logDataCacheAssociativity;	// rounded up to an integer
 unsigned int logDataCacheNSets;
@@ -95,6 +95,7 @@ uint32_t mach_ReadCacheType(void);
     switch (mp->type) {
     case 1:
       (void) physMem_AddRegion(base, bound, MI_MEMORY, false);
+      physMem_TotalPhysicalPages += (bound - base) / EROS_PAGE_SIZE;
       break;
 
     case 4567:	// this is a private convention, not part of multiboot

@@ -41,6 +41,7 @@ enum mach_BusType {
 } ;
 
 
+void mach_HeapInit(kpsize_t heap_size);
 void mach_BootInit();	/* machine DEPENDENT */
 void mach_InitCoreSpace();	/* machine DEPENDENT */
 void mach_InitHardClock();	/* machine DEPENDENT */
@@ -72,8 +73,7 @@ void mach_HardReset();
 typedef struct DiskUnit DiskUnit;
 void mach_MountDisk(DiskUnit*);
 
-void mach_EnsureHeap(kva_t target,
-       kpa_t (*acquire_heap_page)(void) );
+void mach_EnsureHeap(kva_t target);
 
 void mach_ZeroUnmappedPage(kpa_t page);
 

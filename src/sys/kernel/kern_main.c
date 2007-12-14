@@ -153,6 +153,8 @@ main(void)
 
   cpu_BootInit();
 
+  heap_init();
+
   mach_BootInit();
   /* Interrupts are now enabled. */
   
@@ -180,8 +182,6 @@ main(void)
   inv_InitInv(&inv);
   objH_StallQueueInit();
   ioReg_Init();
-
-  heap_init();
 
   printf("Heap initialized...\n");
 
