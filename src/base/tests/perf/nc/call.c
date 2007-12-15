@@ -80,7 +80,7 @@ main()
   capros_Sleep_sleep(KR_SLEEP, 1000);	// sleep 1000 ms
 
 #define ITERATIONS 100000
-  kprintf(KR_OSTREAM, "Beginning %d calls to echo process\n", ITERATIONS);
+  kprintf(KR_OSTREAM, "Beginning %d calls to echo process and return\n", ITERATIONS);
 
   msg.snd_invKey = KR_ECHO;
   msg.snd_code = 1;
@@ -93,6 +93,20 @@ main()
   result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
           (uint32_t) ((endTime - startTime)/(ITERATIONS)) );
+
+
+  kprintf(KR_OSTREAM, "Beginning %d calls to misc key: ", ITERATIONS);
+
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+
+  uint32_t type;
+  for (i = 0; i < ITERATIONS; i++)
+    capros_key_getType(KR_OSTREAM, &type);
+
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  kprintf(KR_OSTREAM, "%10u ns per iter\n",
+          (uint32_t) ((endTime - startTime)/(ITERATIONS)) );
+
 
 #define PSITER 1000000
 
@@ -199,7 +213,7 @@ main()
           (uint32_t) ((endTime - startTime)/(CheckInterations)) );
 
 #define INCR_ITERATIONS 15000000
-  kprintf(KR_OSTREAM, "Beginning %d increments\n", INCR_ITERATIONS);
+  kprintf(KR_OSTREAM, "Beginning %d calls to a null procedure\n", INCR_ITERATIONS);
 
   result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
