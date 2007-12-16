@@ -75,11 +75,10 @@ Otherwise, the FCSE memory space is mapped:
            *unmodified* virtual addresses *is* accessible. 
            Thus, if the kernel uses a NULL pointer, it will be caught
            only if it would have been caught in the current small space. 
-0x0200.... 87 (63 temporarily) recently-used small memory spaces
+0x0200.... 79 recently-used small memory spaces
 
 (UserEndVA) All the following addresses are mapped in every
            address space and accessible only to the kernel.
-0x8000.... unused
 0xa000.... (HeapVA) Kernel heap.
 0xb000.... (FlashMemVA) mapped to flash memory.
 0xc000.... (PhysMapVA) mapped to all physical memory. Beware: don't access user
@@ -113,8 +112,8 @@ followed by unused
 0xffff1000 unused, to guard against small negative integers used as pointers
            by accident.
  */
-#define NumSmallSpaces  0x40	/* including 0, which isn't used */
-#define UserEndVA	0x80000000
+#define NumSmallSpaces  0x50	/* including 0, which isn't used */
+#define UserEndVA	0xa0000000
 /* UserEndVA == NumSmallSpaces * 0x02000000 */
 #define HeapVA		0xa0000000
 #define HeapEndVA	0xb0000000
