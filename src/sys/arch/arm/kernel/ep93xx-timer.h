@@ -52,6 +52,6 @@ typedef struct TimersRegisters {
   struct TimerRegs Timer3;
 } TimersRegisters;
 
-#define Timers (*(volatile struct TimersRegisters *)TIMER_BASE)
+#define TimersStruct(x) (*(volatile struct TimersRegisters *)(x))
 
 #endif /* __EP93XX_TIMER_H_ */

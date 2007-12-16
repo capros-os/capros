@@ -38,6 +38,8 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/key.h>
 #include <idl/capros/DevPrivs.h>
 
+#define SYSCON (SYSCONStruct(APB_VA + SYSCON_APB_OFS))
+
 #define dbg_alloc	0x2u
 #define dbg_sleep	0x4u
 #define dbg_error	0x8u

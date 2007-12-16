@@ -118,7 +118,7 @@ typedef struct VICRegisters {
   uint32_t PeriphID3;
 } VICRegisters;
 
-#define VIC1 (*(volatile struct VICRegisters *)VIC1_BASE)
-#define VIC2 (*(volatile struct VICRegisters *)VIC2_BASE)
+#define VIC1Struct(x) (*(volatile struct VICRegisters *)(x))
+#define VIC2Struct(x) (*(volatile struct VICRegisters *)(x))
 
 #endif /* __EP93XX_VIC_H_ */

@@ -25,6 +25,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <eros/arch/arm/asm.h>
 #include <arch-kerninc/kern-target-asm.h>
 #include <eros/arch/arm/SWI.h>
+#include <eros/arch/arm/mach-ep93xx/ep9315.h>
 #include <kerninc/Process.h>
 #include "arm.h"
 #include "process_asm_offsets.h"
@@ -297,7 +298,7 @@ regMsg:	.asciz "ISR not saving regs!\n"
 	mov r14,r10	// restore r14_abt
 	msr cpsr_c,#(MASK_CPSR_IRQDisable + CPSRMode_IRQ)
 			// Go to IRQ mode. IRQ still disabled.
-	ldr r0,=0x800b0000	// VIC1 base
+	ldr r0,=(AHB_VA+VIC1_AHB_OFS)	// VIC1 base
 	str r0,[r0,#0x30]	// write to VIC1VectAddr
 
 	/* Did we interrupt a process? */
@@ -516,6 +517,13 @@ SWI_EnableIRQ_Handler:
 	// r12 has spsr
 	and r12,r12,#(~MASK_CPSR_IRQDisable)
 	msr spsr,r12
+#ifndef NDEBUG
+	// Turn off the red LED on the EP9315.
+	ldr r12,=(APB_VA+GPIO_APB_OFS+0x20)	// Port E data register
+	ldr lr,[r12]
+	bic lr,lr,#0x2
+	str lr,[r12]
+#endif
 	/* Never need to switch contexts here. Just quickly return. */
 	ldmfd sp!,{r12,pc}^     // restore regs, and SPSR to CPSR
 
@@ -533,6 +541,15 @@ SWI_DisableIRQ_Handler:
 	orr r12,r12,#MASK_CPSR_IRQDisable
 	tst lr,#KF_IoPriv
 	msrne spsr,r12
+#ifndef NDEBUG
+	beq SWIOutOfRange
+	// Turn on the red LED on the EP9315. This will give us a clue
+	// if a user forgets to reenable IRQ. 
+	ldr r12,=(APB_VA+GPIO_APB_OFS+0x20)	// Port E data register
+	ldr lr,[r12]
+	orr lr,lr,#0x2
+	str lr,[r12]
+#endif
 	/* Never need to switch contexts here. Just quickly return. */
 	ldmnefd sp!,{r12,pc}^     // restore regs, and SPSR to CPSR
 	// If he didn't have I/O privilege:

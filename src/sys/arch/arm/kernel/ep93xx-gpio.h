@@ -69,6 +69,6 @@ typedef struct GPIORegisters {
   uint32_t EEDrive;
 } GPIORegisters;
 
-#define GPIO (*(volatile struct GPIORegisters *)GPIO_BASE)
+#define GPIOStruct(x) (*(volatile struct GPIORegisters *)(x))
 
 #endif /* __EP9315_GPIO_H_ */

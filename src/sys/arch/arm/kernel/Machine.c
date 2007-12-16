@@ -31,6 +31,9 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/KernStream.h>
 #include <kerninc/Process-inline.h>
 #include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
+#include <arch-kerninc/kern-target-asm.h>
+
+#define SYSCON (SYSCONStruct(APB_VA + SYSCON_APB_OFS))
 
 void InterruptInit(void);
 void mach_InitHardClock(void);

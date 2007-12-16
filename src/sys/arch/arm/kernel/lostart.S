@@ -23,6 +23,7 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/arch/arm/asm.h>
 #include <eros/arch/arm/target-asm.h>
+#include <eros/arch/arm/mach-ep93xx/ep9315.h>
 #include <arch-kerninc/kern-target-asm.h>
 
 	.text
@@ -39,7 +40,7 @@ Approved for public release, distribution unlimited. */
 	bic r8,r8,#0x007	// disenable DCache, alignmt fault, MMU
 	mcr p15,0,r8,c1,c0,0	// write control register 1
 // Redboot leaves Ethernet controller active. Reset it.
-	ldr r1,=0x80010000
+	ldr r1,=(AHB_PA+EMAC_AHB_OFS)	// 0x80010000
 	mov r0,#1		// RESET bit
 	str r0,[r1,#0x20]	// SelfCtl register
 #endif
@@ -124,13 +125,6 @@ and map it at MVA KTextVA + 1MB.  */
 
 2:
 
-//#define EARLY_CONSOLE 1
-#ifdef EARLY_CONSOLE
-	bl SerialStream_Init	// this doesn't use data or bss and is PIC
-	mov r0,#'2
-	bl SerialStream_Put
-#endif
-
 	ldr r3,=(0x4000-1)
 	add r4,r4,r3	// round up to 16KB boundary
 	bic r4,r4,r3	// ...
@@ -157,11 +151,6 @@ and map it at MVA KTextVA + 1MB.  */
 	cmp r1,r4
 	blo 1b
 
-#ifdef EARLY_CONSOLE
-	mov r0,#'4
-	bl SerialStream_Put
-#endif
-
 /* Map whole sections (1MB). */
 	ldr r3,=(1024*1024)	// size of a section
 /* Set up device registers in FLPT. */
@@ -171,11 +160,7 @@ and map it at MVA KTextVA + 1MB.  */
 	add r1,r1,r0
 	ldr r2,=(DeviceRegsVA >> (20-2))
 	add r2,r2,r5
-// Temporarily map at the usual place too.
-	ldr r8,=(0x80000000 >> (20-2))
-	add r8,r8,r5
 1:	str r0,[r2], #4
-	str r0,[r8], #4
 	add r0,r0,r3
 	cmp r0,r1
 	bne 1b
@@ -256,8 +241,12 @@ and map it at MVA KTextVA + 1MB.  */
 	mcr p15,0,r0,c10,c0,1	// clear I TLB lockdown
 	mcr p15,0,r0,c7,c7,0	// invalidate ICache and DCache
 
+//#define EARLY_CONSOLE 1
+	/* Don't use SerialStream before enabling the MMU, because it
+	accesses device registers at their virtual address. */
 #ifdef EARLY_CONSOLE
-	mov r0,#'6
+	bl SerialStream_Init	// this doesn't use data or bss and is PIC
+	mov r0,#'2
 	bl SerialStream_Put
 #endif
 
@@ -294,13 +283,13 @@ and map it at MVA KTextVA + 1MB.  */
 #if 1
 	/* Print some interesting values. */
 #if 1
-	ldr r4,=0x80930000
+	ldr r4,=(APB_VA+SYSCON_APB_OFS)
 	ldr r1,[r4,#0x20]
 	ldr r2,[r4,#0x80]	// DeviceCfg
 	// mrc p15,0,r2,c9,c0,0	// read control register 9
 	mrc p15,0,r3,c10,c0,0	// read control register 10
 #else
-	ldr r4,=0x80060000	// SDRAM Mem Controller regs
+	ldr r4,=(AHB_VA+SDRAM_AHB_OFS)	// SDRAM Mem Controller regs
 #if 1
 	ldr r1,[r4,#0x04]
 	ldr r2,[r4,#0x08]
@@ -321,7 +310,7 @@ print_values_string: .asciz "0x%x 0x%08x 0x%08x\n"
 
 /* Configure flash memory for 100MHz HCLK. */
 /* Not sure if these values are optimal, but should work. */
-	ldr r4,=0x80080000	// Static Mem Controller regs
+	ldr r4,=(AHB_VA+SMC_AHB_OFS)	// Static Mem Controller regs
 	ldr r0,=0x200075c2
 	str r0,[r4,#0x18]	// config bank 6
 
@@ -330,7 +319,7 @@ print_values_string: .asciz "0x%x 0x%08x 0x%08x\n"
 /* The EP9315 Users Guide is unclear; it says the value of RefrshTimr 
 is in units of the HCLK period (10 ns in this case).
 But the example uses units of 1000 HCLK periods, so follow that. */
-	ldr r4,=0x80060000	// SDRAM Mem Controller regs
+	ldr r4,=(AHB_VA+SDRAM_AHB_OFS)	// SDRAM Mem Controller regs
 	ldr r0,=(64000/10)	
 	str r0,[r4,#0x8]	// RefrshTimr
 
@@ -340,7 +329,7 @@ Configure clocks.
 The Cirrus EP93xx on reset runs the processor at 14.7456 MHz.
 We want to crank it up to the max, which is 200 MHz except for the EP9301.
  */
-	ldr r2,=0x80930000
+	ldr r2,=(APB_VA+SYSCON_APB_OFS)
 	ldr r1,[r2]	// read PwrSts register
 	and r0,r1,#0xff000000	// chipman field (manufacturer)
 	cmp r0,#0x43000000	// Cirrus
@@ -366,7 +355,7 @@ Configure PLL1 to output:
   Divide by 2 to get 100 MHz for HCLK (aka BCLK).
   Divide that by 2 to get 50 MHz for PCLK.
  */
-	ldr r2,=0x80930000
+	ldr r2,=(APB_VA+SYSCON_APB_OFS)
 	ldr r0,=0x0095a3d7	// for 200 MHz
 //	ldr r0,=0x0099a3d7	// for 100 MHz
 //	ldr r0,=0x008398e7	// reset value + nBYP1
@@ -433,7 +422,7 @@ NoClockConfig:
 
 #if 1
 // Blink the green LED.
-	ldr r3,=0x80840020	// Port E data register
+	ldr r3,=(APB_VA+GPIO_APB_OFS+0x20)	// Port E data register
 	mov r1,#0x3
 	mov r2,#7
 2:	mov r0,r2

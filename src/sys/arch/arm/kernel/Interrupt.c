@@ -29,6 +29,9 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include "ep93xx-vic.h"
 #include "Interrupt.h"
 
+#define VIC1 (VIC1Struct(AHB_VA + VIC1_AHB_OFS))
+#define VIC2 (VIC2Struct(AHB_VA + VIC2_AHB_OFS))
+
 void InitExceptionHandlers(void);
 
 #define dbg_init	0x1u

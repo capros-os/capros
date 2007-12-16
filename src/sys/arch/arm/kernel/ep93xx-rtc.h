@@ -38,6 +38,6 @@ typedef struct RTCRegisters {
   uint32_t SWComp;
 } RTCRegisters;
 
-#define RTC (*(volatile struct RTCRegisters *)RTC_BASE)
+#define RTCStruct(x) (*(volatile struct RTCRegisters *)(x))
 
 #endif /* __EP93XX_RTC_H_ */

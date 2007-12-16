@@ -88,11 +88,11 @@ typedef struct UARTRegisters {
   uint32_t DMACtrl;
 } UARTRegisters;
 
-#define UART1 (*(volatile struct UARTRegisters *)UART1_BASE)
-#define UART2 (*(volatile struct UARTRegisters *)UART2_BASE)
-#define UART3 (*(volatile struct UARTRegisters *)UART3_BASE)
+// x below should be base of UART1, UART2, or UART3 registers.
+#define UARTStruct(x) (*(volatile struct UARTRegisters *)(x))
 
-#define UART2TMR (*(volatile uint32_t *)(UART2_BASE + 0x84))
+// x below should be base of UART2 registers.
+#define UARTTMR(x) (*(volatile uint32_t *)((x) + 0x84))
 
 /* Bits in Ctrl */
 #define ModemCtrl_LOOP	0x10	/* UART1 only */
@@ -116,9 +116,6 @@ typedef struct ModemRegisters {
   uint32_t Sts;		/* UART1 only */
 } ModemRegisters;
 
-#define Modem1 (*(volatile struct ModemRegisters *)(UART1_BASE + 0x100))
-#define Modem3 (*(volatile struct ModemRegisters *)(UART3_BASE + 0x100))
-
 typedef struct HDLCRegisters {
   uint32_t CCtrl;
   uint32_t AddMtchVal;
@@ -127,7 +124,8 @@ typedef struct HDLCRegisters {
   uint32_t Sts;
 } HDLCRegisters;
 
-#define HDLC1 (*(volatile struct HDLCRegisters *)(UART1_BASE + 0x20c))
-#define HDLC3 (*(volatile struct HDLCRegisters *)(UART3_BASE + 0x20c))
+// x below should be base of UART1 or UART3 registers.
+#define ModemStruct(x) (*(volatile struct ModemRegisters *)((x) + 0x100))
+#define HDLCStruct(x) (*(volatile struct HDLCRegisters *)((x) + 0x20c))
 
 #endif /* __EP9315_UART_H_ */

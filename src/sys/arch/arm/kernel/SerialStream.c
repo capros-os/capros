@@ -30,6 +30,11 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include "Interrupt.h"
 #include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 
+#define VIC1 (VIC1Struct(AHB_VA + VIC1_AHB_OFS))
+#define VIC2 (VIC2Struct(AHB_VA + VIC2_AHB_OFS))
+#define UART1 (UARTStruct(APB_VA + UART1_APB_OFS))
+#define SYSCON (SYSCONStruct(APB_VA + SYSCON_APB_OFS))
+
 void SerialStream_Put(uint8_t c);
 
 void

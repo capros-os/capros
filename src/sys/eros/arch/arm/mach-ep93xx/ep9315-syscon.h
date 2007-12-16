@@ -122,7 +122,7 @@ typedef struct SYSCONRegisters {
   uint32_t SysSWLock;
 } GPIORegisters;
 
-#define SYSCON (*(volatile struct SYSCONRegisters *)SYSCON_BASE)
+#define SYSCONStruct(x) (*(volatile struct SYSCONRegisters *)(x))
 
 #endif /* __ASSEMBLER__ */
 

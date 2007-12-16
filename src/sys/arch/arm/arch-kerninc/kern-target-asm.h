@@ -57,6 +57,8 @@ followed by Coarse Page Table for exception vectors
  */
 #define KTextPA    0x00000000	/* start of kernel text in phys mem */
 #define FlashMemPA 0x60000000	/* start of flash memory in phys mem */
+#define AHB_PA	0x80000000
+#define APB_PA	0x80800000
 
 /*
 Virtual Memory map
@@ -77,8 +79,7 @@ Otherwise, the FCSE memory space is mapped:
 
 (UserEndVA) All the following addresses are mapped in every
            address space and accessible only to the kernel.
-0x8000.... "temporarily" mapped to device registers, to avoid hassle of
-           PA != VA.
+0x8000.... unused
 0xa000.... (HeapVA) Kernel heap.
 0xb000.... (FlashMemVA) mapped to flash memory.
 0xc000.... (PhysMapVA) mapped to all physical memory. Beware: don't access user
@@ -120,6 +121,8 @@ followed by unused
 #define FlashMemVA	0xb0000000
 #define PhysMapVA	0xc0000000
 #define DeviceRegsVA	0xfc000000
+#define AHB_VA		0xfc000000	// AMBA high-speed bus registers
+#define APB_VA		0xfc800000	// AMBA peripheral bus registers
 #define KTextVA		0xfe000000
 
 /* N.B.: the value of KDataPackedAddr must match that in the kernel makefiles

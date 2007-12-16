@@ -26,31 +26,36 @@
 
 /* Register addresses */
 
-#define DMA_BASE	0x80000000
-#define EMAC_BASE	0x80010000
-#define USB_BASE	0x80020000
-#define RASTER_BASE	0x80030000
-#define SDRAM_BASE	0x80060000
-#define SMC_BASE	0x80080000
-#define BOOT_ROM	0x80090000
-#define IDE_BASE	0x800a0000
-#define VIC1_BASE	0x800b0000
-#define VIC2_BASE	0x800c0000
-#define TIMER_BASE	0x80810000
-#define I2S_BASE	0x80820000
-#define SECURITY_BASE	0x80830000
-#define GPIO_BASE	0x80840000
-#define AC97_BASE	0x80880000
-#define SPI_BASE	0x808a0000
-#define IRDA_BASE	0x808b0000
-#define UART1_BASE	0x808c0000
-#define UART2_BASE	0x808d0000
-#define UART3_BASE	0x808e0000
-#define KEY_BASE	0x808f0000
-#define TOUCH_BASE	0x80900000
-#define PWM_BASE	0x80910000
-#define RTC_BASE	0x80920000
-#define SYSCON_BASE	0x80930000
-#define WATCHDOG_BASE	0x80940000
+/* These are offsets from the beginning of the AHB registers
+ (physical address 0x80000000). */
+#define DMA_AHB_OFS	0x000000
+#define EMAC_AHB_OFS	0x010000
+#define USB_AHB_OFS	0x020000
+#define RASTER_AHB_OFS	0x030000
+#define SDRAM_AHB_OFS	0x060000
+#define SMC_AHB_OFS	0x080000
+#define BOOT_ROM_AHB_OFS	0x090000
+#define IDE_AHB_OFS	0x0a0000
+#define VIC1_AHB_OFS	0x0b0000
+#define VIC2_AHB_OFS	0x0c0000
+
+/* These are offsets from the beginning of the APB registers
+ (physical address 0x80800000). */
+#define TIMER_APB_OFS	0x010000
+#define I2S_APB_OFS	0x020000
+#define SECURITY_APB_OFS	0x030000
+#define GPIO_APB_OFS	0x040000
+#define AC97_APB_OFS	0x080000
+#define SPI_APB_OFS	0x0a0000
+#define IRDA_APB_OFS	0x0b0000
+#define UART1_APB_OFS	0x0c0000
+#define UART2_APB_OFS	0x0d0000
+#define UART3_APB_OFS	0x0e0000
+#define KEY_APB_OFS	0x0f0000
+#define TOUCH_APB_OFS	0x100000
+#define PWM_APB_OFS	0x110000
+#define RTC_APB_OFS	0x120000
+#define SYSCON_APB_OFS	0x130000
+#define WATCHDOG_APB_OFS	0x140000
 
 #endif /* __EP9315_H_ */
