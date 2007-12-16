@@ -25,8 +25,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/arm/IRQSWI.h>
 #include <domain/domdbg.h>
 #include <domain/assert.h>
+#include <idl/capros/Sleep.h>
 
-#define KR_OSTREAM  9
+#define KR_SLEEP 9
+#define KR_OSTREAM 10
 
 /* It is intended that this should be a small space process. */
 const uint32_t __rt_stack_pages = 0;
@@ -38,7 +40,9 @@ int
 main(void)
 {
   uint32_t flags1, flags2;
-
+  uint32_t result;
+  uint64_t startTime, endTime;
+  int i;
   kprintf(KR_OSTREAM, "IOPL: About to issue IO instruction\n");
 
   flags1 = capros_irq_disable();
@@ -60,6 +64,22 @@ main(void)
   assert(! (flags2 & MASK_CPSR_IRQDisable));
 
   capros_irq_enable();
+
+  // Performance test:
+#define PSITER 1000000
+  kprintf(KR_OSTREAM, "Beginning %d irq save and restore: ", PSITER);
+
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
+
+  uint32_t flags;
+  for (i = 0; i < PSITER; i++) {
+    flags = capros_irq_disable();
+    capros_irq_put(flags);
+  }
+
+  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
+  kprintf(KR_OSTREAM, "%10u ns per iter\n",
+          (uint32_t) ((endTime - startTime)/(PSITER)) );
 
   kprintf(KR_OSTREAM, "IOPL: Success\n");
 

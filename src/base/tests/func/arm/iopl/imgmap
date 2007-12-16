@@ -39,8 +39,9 @@ iopl pc = symbol BUILDDIR "iopl" _start;
 iopl schedule = sched(8);	/* normal */
 
 iopl key reg 4 = iopl;
-iopl key reg 9 = misc Console;
-iopl key reg 10 = misc DevicePrivs;
+iopl key reg 9 = misc Sleep;
+iopl key reg 10 = misc Console;
+iopl key reg 11 = misc DevicePrivs;
 
 /* iopl is the IPL domain */
 ipl iopl;
