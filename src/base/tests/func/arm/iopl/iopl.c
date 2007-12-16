@@ -48,6 +48,7 @@ main(void)
   assert(flags2 & MASK_CPSR_IRQDisable);
 
   kprintf(KR_OSTREAM, "IOPL: While IRQ disabled\n");
+  kprintf(KR_OSTREAM, "IOPL: Print a long message so we can see the red led.\n");
 
   // IRQ still disabled after call to KR_OSTREAM?
   flags2 = capros_irq_disable();	// just to read the CPSR
