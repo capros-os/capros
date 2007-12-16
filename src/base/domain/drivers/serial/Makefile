@@ -32,6 +32,8 @@ TARGETS=$(BUILDDIR)/serial
 OBJECTS=$(BUILDDIR)/serial_core.o $(BUILDDIR)/transEmpty.o
 ifeq "$(EROS_TARGET)" "arm"
 OBJECTS+= $(BUILDDIR)/amba-pl010.o
+VPATH=arch/arm/mach-ep93xx
+OBJECTS+= $(BUILDDIR)/core.o
 else
 OBJECTS+= $(BUILDDIR)/8250.o
 endif

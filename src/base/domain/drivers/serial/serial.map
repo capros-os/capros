@@ -74,6 +74,7 @@ name##serial_proc sp = (0x420000 - SIZEOF_THREAD_INFO); \
 name##serial_proc space = name##serial_space; \
 name##serial_proc schedule = sched(8 /* use PRIO_HIGH? */ ); \
 name##serial_proc symtab = number(#name "serial"); \
+name##serial_proc iospace = misc DevicePrivs devcfgbit; \
 name##serial_proc key reg KR_KEYSTORE = snode_c; \
 name##serial_proc key reg KR_CREATOR = name##serial_proccre; \
 name##serial_proc key reg KR_SELF    = name##serial_proc; \

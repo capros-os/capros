@@ -43,12 +43,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Constructor.h>
 #include <idl/capros/DevPrivs.h>
 
-#include <linux/amba/bus.h>
-#include <linux/amba/serial.h>
-#include <asm/hardware.h>
-#include <asm/io.h>
-#include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 #include "serialPort.h"
+
+//#define FAILFAST
 
 #define TTY_THRESHOLD_THROTTLE   128
 #define TTY_THRESHOLD_UNTHROTTLE 128
@@ -789,8 +786,6 @@ static void uart_break_ctl(struct tty_struct *tty, int break_state)
 	struct uart_state *state = tty->driver_data;
 	struct uart_port *port = state->port;
 
-	BUG_ON(!kernel_locked());
-
 	mutex_lock(&state->mutex);
 
 	if (port->type != PORT_UNKNOWN)
@@ -1063,8 +1058,6 @@ static void uart_set_termios(struct tty_struct *tty, struct ktermios *old_termio
 	unsigned long flags;
 	unsigned int cflag = tty->termios->c_cflag;
 
-	BUG_ON(!kernel_locked());
-
 	/*
 	 * These are the bits that are used to setup various
 	 * flags in the low level driver.
@@ -1260,6 +1253,9 @@ uart_get(struct uart_state * state)
 
 	if (!state->port || state->port->flags & UPF_DEAD) {
 		ret = -ENXIO;
+#ifdef FAILFAST
+		printk("uart_get returned %d\n", ret);
+#endif
 		goto err_unlock;
 	}
 
@@ -1275,6 +1271,9 @@ uart_get(struct uart_state * state)
 			state->port->info = state->info;
 		} else {
 			ret = -ENOMEM;
+#ifdef FAILFAST
+			printk("uart_get returned %d\n", ret);
+#endif
 			goto err_unlock;
 		}
 	}
@@ -1290,7 +1289,6 @@ static int uart_open(struct tty_struct *tty)
 	struct uart_state * state = tty->driver_data;
 	int retval, line = 0;
 
-	BUG_ON(!kernel_locked());
 	pr_debug("uart_open(%d) called\n", line);
 
 	/*
@@ -1307,8 +1305,12 @@ static int uart_open(struct tty_struct *tty)
 	}
 
 	retval = CreateTransmitterEmptyTask();
-	if (retval)
+	if (retval) {
+#ifdef FAILFAST
+		printk("CreateTransmitterEmptyTask returned %d\n", retval);
+#endif
 		goto threadfail;
+	}
 
 	state->info->tty = tty;
 
@@ -2109,120 +2111,6 @@ read_wait_func(wait_queue_t * wait, unsigned mode, int sync, void * key)
   }
         
   return 1;
-}
-
-// Stuff from arch/arm/mach-ep93xx/core.c
-#define EP93XX_UART_MCR_OFFSET		(0x0100)
-
-static void ep93xx_uart_set_mctrl(struct amba_device *dev,
-				  void __iomem *base, unsigned int mctrl)
-{
-	unsigned int mcr;
-
-	mcr = 0;
-	if (!(mctrl & TIOCM_RTS))
-		mcr |= 2;
-	if (!(mctrl & TIOCM_DTR))
-		mcr |= 1;
-
-	__raw_writel(mcr, base + EP93XX_UART_MCR_OFFSET);
-}
-
-static void ep93xx_uart_gate_clk(bool enable, uint32_t mask)
-{
-  capros_Node_getSlotExtended(KR_LINUX_EMUL, LE_DEVPRIVS, KR_TEMP0);
-  result_t result = capros_DevPrivs_deviceConfig(KR_TEMP0, enable, mask);
-  assert(result == RC_OK);	// else misconfiguration
-}
-
-#if 0 // not used yet
-
-static void ep93xx_uart_gate_clk1(bool enable)
-{
-  ep93xx_uart_gate_clk(enable, SYSCONDeviceCfg_U1EN);
-}
-
-static struct amba_pl010_data ep93xx_uart_data1 = {
-	.set_mctrl = ep93xx_uart_set_mctrl,
-	.gate_clk  = ep93xx_uart_gate_clk1
-};
-
-static struct amba_device uart1_device = {
-	.dev		= {
-		.bus_id		= "apb:uart1",
-		.platform_data	= &ep93xx_uart_data1,
-	},
-	.res		= {
-		.start	= EP93XX_UART1_PHYS_BASE,
-		.end	= EP93XX_UART1_PHYS_BASE + 0x0fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	.irq		= { IRQ_EP93XX_UART1, NO_IRQ },
-	.periphid	= 0x00041010,
-};
-
-static void ep93xx_uart_gate_clk2(bool enable)
-{
-  ep93xx_uart_gate_clk(enable, SYSCONDeviceCfg_U2EN);
-}
-
-static struct amba_pl010_data ep93xx_uart_data2 = {
-	.set_mctrl = 0,
-	.gate_clk  = ep93xx_uart_gate_clk2
-};
-
-static struct amba_device uart2_device = {
-	.dev		= {
-		.bus_id		= "apb:uart2",
-		.platform_data	= &ep93xx_uart_data2,
-	},
-	.res		= {
-		.start	= EP93XX_UART2_PHYS_BASE,
-		.end	= EP93XX_UART2_PHYS_BASE + 0x0fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	.irq		= { IRQ_EP93XX_UART2, NO_IRQ },
-	.periphid	= 0x00041010,
-};
-#endif
-
-static void ep93xx_uart_gate_clk3(bool enable)
-{
-  ep93xx_uart_gate_clk(enable, SYSCONDeviceCfg_U3EN);
-}
-
-static struct amba_pl010_data ep93xx_uart_data3 = {
-	.set_mctrl = ep93xx_uart_set_mctrl,
-	.gate_clk  = ep93xx_uart_gate_clk3
-};
-
-static struct amba_device uart3_device = {
-	.dev		= {
-		.bus_id		= "apb:uart3",
-		.platform_data	= &ep93xx_uart_data3,
-	},
-	.res		= {
-		.start	= EP93XX_UART3_PHYS_BASE,
-		.end	= EP93XX_UART3_PHYS_BASE + 0x0fff,
-		.flags	= IORESOURCE_MEM,
-	},
-	.irq		= { IRQ_EP93XX_UART3, NO_IRQ },
-	.periphid	= 0x00041010,
-};
-
-int
-amba_driver_register(struct amba_driver * drv)
-{
-  /* For now, bypass all the bus stuff and just get the serial port working. */
-  int ret = (*drv->probe)(&uart3_device, 0 /* id not used by amba-pl010 */);
-  if (ret)
-    printk(KERN_ERR "uart3 probe returned %d!\n", ret);
-  return 0;
-}
-
-void amba_driver_unregister(struct amba_driver * drv)
-{
-  printk(KERN_ERR "amba_driver_unregister called.\n");	// FIXME
 }
 
 int
