@@ -20,8 +20,8 @@
  */
 
 
-#include <primebank.map>
-#include <ipltool.map>
+//#include <primebank.map>
+//#include <ipltool.map>
 
 /*
  * iopl domain test case.  This test induces a GPL fault for an I/O
@@ -31,16 +31,16 @@
  * Set up the caller domain:
  */
 iopl = new process;
-iopl space = small program "iopl";
+iopl.seg = small program BUILDDIR "iopl";
+iopl.seg = iopl.seg with page at 0x20000; /* for stack */
+iopl space = iopl.seg;
 iopl iospace = misc DevicePrivs;
-iopl pc = symbol "iopl" _start;
+iopl pc = symbol BUILDDIR "iopl" _start;
 iopl schedule = sched(8);	/* normal */
 
-iopl key reg 2 = iopl;
-iopl key reg 3 = misc Console;
-iopl key reg 4 = primebank;
+iopl key reg 4 = iopl;
 iopl key reg 9 = misc Console;
 iopl key reg 10 = misc DevicePrivs;
 
 /* iopl is the IPL domain */
-run iopl;
+ipl iopl;
