@@ -74,6 +74,7 @@ HEADERS=\
  module.h \
  msr.h \
  msr-index.h \
+ nmi.h \
  page.h \
  param.h \
  percpu.h \
@@ -88,6 +89,7 @@ HEADERS=\
  segment.h \
  semaphore.h \
  sembuf.h \
+ serial.h \
  sigcontext.h \
  siginfo.h \
  signal.h \
