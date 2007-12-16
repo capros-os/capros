@@ -350,7 +350,7 @@ proc_InvokeSegmentKeeper(
     to the segment keeper not the process keeper. */
 
 #ifdef OPTION_DDB
-    if (thisPtr->processFlags & PF_DDBTRAP)
+    if (thisPtr->kernelFlags & KF_DDBTRAP)
       dprintf(true, "Process 0x%08x faulting to seg keeper\n", thisPtr);
 #endif
   

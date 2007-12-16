@@ -92,6 +92,7 @@ proc_AllocUserContexts()
     /*p->priority = pr_Never;*/
     p->faultCode = capros_Process_FC_NoFault;
     p->faultInfo = 0;
+    p->kernelFlags = 0;
     p->processFlags = 0;
     p->hazards = 0u;	/* deriver should change this! */
     p->curActivity = 0;
@@ -401,6 +402,7 @@ proc_allocate(bool isUser)
   p->procRoot = 0;		/* for kernel contexts */
   p->faultCode = capros_Process_FC_NoFault;
   p->faultInfo = 0;
+  p->kernelFlags = 0;
   p->processFlags = 0;
   p->isUserContext = isUser;
   /* FIX: what to do about runState? */
@@ -514,6 +516,7 @@ proc_ValidateRegValues(Process* thisPtr)
   if (proc_HasDevicePrivileges(thisPtr)) {
     // He has iopl privileges.
     thisPtr->trapFrame.EFLAGS |= MASK_EFLAGS_IOPL;	// set IOPL = 3
+    /* KF_IOPRIV isn't used on this architecture - IOPL is sufficient. */
   }
   else {
     // He doesn't have iopl privileges.

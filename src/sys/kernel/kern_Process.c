@@ -40,7 +40,7 @@ proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info)
   thisPtr->processFlags |= capros_Process_PF_FaultToProcessKeeper;
   
 #ifdef OPTION_DDB
-  if (thisPtr->processFlags & PF_DDBTRAP)
+  if (thisPtr->kernelFlags & KF_DDBTRAP)
     dprintf(true, "Process 0x%08x has trap code set\n", thisPtr);
 #endif
 #if 0	// if failing fast
@@ -194,11 +194,7 @@ proc_SetCommonRegs32(Process * thisPtr,
   /* Ignore len, architecture */
   proc_SetCommonRegs32MD(thisPtr, regs);
 
-  // Preserve kernel-only bits in processFlags:
-  const uint32_t validFlags = capros_Process_PF_FaultToProcessKeeper
-                            | capros_Process_PF_ExpectingMessage;
-  uint32_t saved = thisPtr->processFlags & ~validFlags;
-  thisPtr->processFlags = (regs->procFlags & validFlags) | saved;
+  thisPtr->processFlags = regs->procFlags;
 
   if (regs->faultCode == capros_Process_FC_NoFault) {
     proc_ClearFault(thisPtr);

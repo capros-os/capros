@@ -562,15 +562,15 @@ db_eros_mesg_procinv_cmd(db_expr_t addr, int have_addr,
   Process *cc =
     have_addr ? (Process *) addr : (Process*) act_CurContext();
   
-  if (cc->processFlags & PF_DDBINV) {
-    cc->processFlags &= ~PF_DDBINV;
+  if (cc->kernelFlags & KF_DDBINV) {
+    cc->kernelFlags &= ~KF_DDBINV;
     db_printf("Invocation traps for process 0x%08x (OID 0x%08x%08x) disabled\n",
 	      cc, 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
   }
   else {
-    cc->processFlags |= PF_DDBINV;
+    cc->kernelFlags |= KF_DDBINV;
     db_printf("Invocation traps for process 0x%08x (OID 0x%08x%08x) enabled\n",
 	      cc, 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
@@ -588,15 +588,15 @@ db_eros_mesg_proctrap_cmd(db_expr_t addr, int have_addr,
   Process *cc =
     have_addr ? (Process *) addr : (Process*) act_CurContext();
  
-  if (cc->processFlags & PF_DDBTRAP) {
-    cc->processFlags &= ~PF_DDBTRAP;
+  if (cc->kernelFlags & KF_DDBTRAP) {
+    cc->kernelFlags &= ~KF_DDBTRAP;
     db_printf("Exception traps for process 0x%08x (OID 0x%08x%08x) disabled\n",
 	      cc, 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
   }
   else {
-    cc->processFlags |= PF_DDBTRAP;
+    cc->kernelFlags |= KF_DDBTRAP;
     db_printf("Exception traps for process 0x%08x (OID 0x%08x%08x) enabled\n",
 	      cc, 
 	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
@@ -657,7 +657,7 @@ db_eros_mesg_show_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
   if (ddb_inv_flags & DDB_INV_return)
     db_printf(" return");
   if (ddb_inv_flags & DDB_INV_pflag)
-    db_printf(" processFlags");
+    db_printf(" process-inv-or-trap");
   db_printf("\n");
 }
 

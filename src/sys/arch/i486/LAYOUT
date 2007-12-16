@@ -188,8 +188,11 @@ base    PR
 proc	KEYRING    *          keyRing
 proc	SLEEPQ     *          stallQ
 proc	uint32_t   *          procRoot
+proc	uint8_t    *          kernelFlags
 opaque	uint8_t    *          isUserContext
 opaque	uint8_t    *          hazards
+gen	uint8_t    uint8_t    runState
+gen	uint8_t    uint8_t    processFlags
 proc	uint32_t   *          readyQ
 proc	uint32_t   *          curThread
 
@@ -276,8 +279,6 @@ proc    KEYREGS    *          keyregs
    values in these fields. */
 gen	uint32_t   uint32_t   faultCode
 gen	uint32_t   uint32_t   faultInfo
-gen	uint8_t    uint8_t    runState
-gen	uint8_t    uint8_t    processFlags
 
 /* 
  * The order of appearance for these values is dictated by the layout 

@@ -72,20 +72,19 @@ proc_ValidateRegValues(Process* thisPtr)
     return;
 
   if (thisPtr->isUserContext) {
-    /* Rather than force the programmer to set the correct CPSR bits,
-       we just set them correctly here. */
     if (proc_HasDevicePrivileges(thisPtr)) {
-      // Put him in system mode so he can disable IRQ.
-      // CPSRMode_System is all 1's, so we can just or:
-      thisPtr->trapFrame.CPSR |= CPSRMode_System;
-      //// Force User mode until I get the above working:
-      thisPtr->trapFrame.CPSR &= userCPSRBits;////
-      thisPtr->trapFrame.CPSR |= CPSRMode_User;////
+      thisPtr->kernelFlags |= KF_IoPriv;
+      /* He can have IRQ disabled: */
+      thisPtr->trapFrame.CPSR &= (userCPSRBits | MASK_CPSR_IRQDisable);
     }
     else {
+      thisPtr->kernelFlags &= ~KF_IoPriv;
       thisPtr->trapFrame.CPSR &= userCPSRBits;
-      thisPtr->trapFrame.CPSR |= CPSRMode_User;
     }
+
+    /* Rather than force the programmer to set the correct CPSR bits,
+       we just set them correctly here. */
+    thisPtr->trapFrame.CPSR |= CPSRMode_User;
   } else {
     /* Kernel processes might disable IRQ, but we will never see it,
        because they don't execute SWI's and don't page fault and
@@ -124,6 +123,7 @@ proc_AllocUserContexts()
     /*p->priority = pr_Never;*/
     p->faultCode = capros_Process_FC_NoFault;
     p->faultInfo = 0;
+    p->kernelFlags = 0;
     p->processFlags = 0;
     p->hazards = 0u;	/* deriver should change this! */
     p->curActivity = 0;
@@ -307,6 +307,7 @@ proc_allocate(bool isUser)
   p->procRoot = 0;		/* for kernel contexts */
   p->faultCode = capros_Process_FC_NoFault;
   p->faultInfo = 0;
+  p->kernelFlags = 0;
   p->processFlags = 0;
   p->isUserContext = isUser;
   /* FIX: what to do about runState? */
@@ -774,8 +775,6 @@ ExitTheKernel_MD(Process * thisPtr)
 #ifndef NDEBUG
 #if 1
   if (thisPtr->trapFrame.r15 & 0x3	// unaligned PC
-      //// following is temporary
-      || thisPtr->trapFrame.CPSR & MASK_CPSR_IRQDisable	// IRQ disabled
      )
     dprintf(true, "Resume user proc 0x%08x pc=0x%08x pid=0x%08x cpsr=0x%08x\n",
            thisPtr,

@@ -143,7 +143,7 @@ arch "arm" r15 r13
 keysize 16
 
 /*
- * mask values generate bitfield extraction macros into fixregs.h
+ * mask values generate definitions in gen.SaveArea.h.
  *
  * mask reg  field      bit   bitlen
 */
@@ -166,8 +166,11 @@ base    PR	/* Beginning of the Process structure */
 proc	KEYRING    *          keyRing
 proc	SLEEPQ     *          stallQ
 proc	uint32_t   *          procRoot
+proc	uint8_t    *          kernelFlags
 opaque	uint8_t    *          isUserContext
 opaque	uint8_t    *          hazards
+gen	uint8_t    uint8_t    runState
+gen	uint8_t    uint8_t    processFlags
 proc	uint32_t   *          readyQ
 proc	uint32_t   *          curThread
 
@@ -223,8 +226,6 @@ proc    KEYREGS    *          keyregs
    values in these fields. */
 gen	uint32_t   uint32_t   faultCode
 gen	uint32_t   uint32_t   faultInfo
-gen	uint8_t    uint8_t    runState
-gen	uint8_t    uint8_t    processFlags
 
 /* BEGIN FloatSaveArea
 

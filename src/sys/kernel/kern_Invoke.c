@@ -827,8 +827,8 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
        (DDB_STOP(keeper)
         && ! proc_IsExpectingMsg(inv.invokee)) ||
        (DDB_STOP(pflag) && 
-	( (thisPtr->processFlags & PF_DDBINV) ||
-	  (inv.invokee && inv.invokee->processFlags & PF_DDBINV) ))
+	( (thisPtr->kernelFlags & KF_DDBINV) ||
+	  (inv.invokee && inv.invokee->kernelFlags & KF_DDBINV) ))
        )
     dprintf(true, "About to invoke key handler (inv.ty=%d) ic=%d\n",
 		    inv.invKeyType, KernStats.nInvoke);
@@ -890,8 +890,8 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
         && ! proc_IsExpectingMsg(inv.invokee)) ||
        ( DDB_STOP(return) && (inv.invType == IT_Return)) ||
        (DDB_STOP(pflag) && 
-	( (thisPtr->processFlags & PF_DDBINV) ||
-	  (inv.invokee && inv.invokee->processFlags & PF_DDBINV) )) ||
+	( (thisPtr->kernelFlags & KF_DDBINV) ||
+	  (inv.invokee && inv.invokee->kernelFlags & KF_DDBINV) )) ||
        ( DDB_STOP(keyerr) &&
 	 !invoked_gate_key &&
 	 (inv.invKeyType != KKT_Void) &&

@@ -65,6 +65,8 @@ Notes:
    to domain 0, because a user process that is privileged
    (running in System mode) might inadvertently access another process's
    small space instead of faulting to load its own. 
+   (Note, we do not currently have privileged user processes,
+   only kernel processes. Kernel processes access kernel memory only.) 
 */
 
 typedef struct ProcMD {

@@ -37,6 +37,7 @@ LOCAL_HEADERS=\
 	atomic.h \
 	cap-instr.h \
 	Invoke.h \
+	IRQSWI.h \
 	SWI.h \
 	endian.h \
 	target-asm.h \

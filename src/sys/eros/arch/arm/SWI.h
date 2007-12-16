@@ -25,5 +25,8 @@
 #define SWI_CopyKeyReg	2
 #define SWI_XchgKeyReg	3
 #define SWI_Bpt		4
-#define SWI_MaxSWI	4
+#define SWI_PutIRQ      5 // requires I/O privileges
+#define SWI_DisableIRQ  6 // requires I/O privileges
+#define SWI_EnableIRQ   7 // requires I/O privileges, not enforced
+#define SWI_MaxSWI	7
 #define SWI_halt	255

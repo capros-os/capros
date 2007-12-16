@@ -28,6 +28,8 @@ Approved for public release, distribution unlimited. */
  * ARCHITECTURE-SPECIFIC LAYOUT FILE TOO!!!
  */
 
+#ifndef __ASSEMBLER__
+
 #include <kerninc/kernel.h>
 #include <idl/capros/Process.h>
 #include <eros/ProcStats.h>
@@ -49,6 +51,8 @@ struct Activity;
 struct Invocation;
 struct SegWalk;
 
+#endif /* __ASSEMBLER__ */
+
 /* Every running activity has an associated process structure.  The
  * process structure for user activities has a lot more state.  Process
  * structures for kernel activities are dedicated to the activity.  Process
@@ -61,14 +65,21 @@ struct SegWalk;
  * to be a dumb thing to do.  Kernel processes are not reallocated.
  */
 
-/* Bits in processFlags are defined in Process.idl and here.
-   Take care that they do not conflict. 
+/* Bits in kernelFlags are defined here. */
 
-   NOTE that PF_DDBINV and PF_DDBTRAP are a temporary expedient until
+/* KF_IoPriv says whether the process can execute I/O instructions.
+   It is set iff the process has the DevicePrivs key in ProcIoSpace.
+   The information is duplicated here to speed up traps for
+   I/O operations. */
+#define KF_IoPriv 0x01
+
+/* KF_DDBINV and KF_DDBTRAP are a temporary expedient until
    we are able to get a minimal per-process debugger running. */
-#define PF_DDBINV    0x80 /* process invocations should be
+#define KF_DDBINV    0x40 /* process invocations should be
 			     reported by DDB */
-#define PF_DDBTRAP   0x40 /* process traps should be reported by DDB */
+#define KF_DDBTRAP   0x80 /* process traps should be reported by DDB */
+
+#ifndef __ASSEMBLER__
 
  /* Hazards are architecture-dependent and should perhaps be moved. */
 enum Hazards {
@@ -91,14 +102,23 @@ struct Process {
   StallQueue    stallQ;  /* procs waiting for this to be available */
   
   Node      	*procRoot;
-  bool  isUserContext;
+
+  /* kernelFlags is at an address that is a multiple of 4,
+     to save a cycle in ARM SWI_DisableIRQ_Handler. */
+  uint8_t kernelFlags;
+
+  bool isUserContext;
 
   /* hazards are reasons you cannot run.  They generally devolve to
    * being malformed or needing some functional unit loaded before you
    * can make progress.
    */
-  
-  uint8_t  hazards;
+  uint8_t hazards;
+
+  uint8_t runState;
+
+  /* Bits in processFlags are defined in Process.idl. */
+  uint8_t processFlags;
 
   struct ReadyQueue *readyQ;   /* ready queue info for this process */
 
@@ -125,9 +145,6 @@ struct Process {
 
   uint32_t          faultCode;
   uint32_t          faultInfo;
-
-  uint8_t           runState;
-  uint8_t           processFlags;
   
 #ifdef EROS_HAVE_FPU
   /* FPU support: */
@@ -344,5 +361,7 @@ void proc_SetCommonRegs32MD(Process * thisPtr,
 
 struct Invocation;
 void ProcessKeyCommon(struct Invocation * inv, Node * theNode);
+
+#endif /* __ASSEMBLER__ */
 
 #endif /* __PROCESS_H__ */

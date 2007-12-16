@@ -25,6 +25,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <eros/arch/arm/asm.h>
 #include <arch-kerninc/kern-target-asm.h>
 #include <eros/arch/arm/SWI.h>
+#include <kerninc/Process.h>
 #include "arm.h"
 #include "process_asm_offsets.h"
 #include "PTEarm.h"
@@ -410,6 +411,9 @@ supStackMsg:	.asciz "Supervisor Stack is 0x%x should be 0x%x\n"
 	Handler(SWI_CopyKeyReg)	// 2
 	Handler(SWI_XchgKeyReg)	// 3
 	Handler(SWI_Bpt)	// 4
+	Handler(SWI_PutIRQ)	// 5
+	Handler(SWI_DisableIRQ)	// 6
+	Handler(SWI_EnableIRQ)	// 7
 
 SWI_Invoke_Handler:
 	/* r12 still has spsr */
@@ -501,6 +505,41 @@ SWI_Bpt_Handler:
 			// after User mode ldm
 	add sp,sp,#80
 	movs pc,r14	// restore pc and transfer SPSR -> CPSR
+
+
+/***********************  IRQ-related SWIs *****************************/
+
+SWI_PutIRQ_Handler:
+	tst r0,#MASK_CPSR_IRQDisable
+	bne SWI_DisableIRQ_Handler	// disabling
+SWI_EnableIRQ_Handler:
+	// r12 has spsr
+	and r12,r12,#(~MASK_CPSR_IRQDisable)
+	msr spsr,r12
+	/* Never need to switch contexts here. Just quickly return. */
+	ldmfd sp!,{r12,pc}^     // restore regs, and SPSR to CPSR
+
+// Disable IRQ and return the old CPSR in r0
+SWI_DisableIRQ_Handler:
+	// r12 has spsr
+	// Check that he has I/O privilege
+	ldr lr,=proc_curProcess
+	ldr lr,[lr]
+	mov r0,r12	// return old psr in r0
+	/* kernelFlags is a byte. Here we rely on it being on a word boundary,
+        and load the entire word, because not zero-extending the byte
+        saves one cycle. */
+	ldr lr,[lr,#PR_OFF_kernelFlags]
+	orr r12,r12,#MASK_CPSR_IRQDisable
+	tst lr,#KF_IoPriv
+	msrne spsr,r12
+	/* Never need to switch contexts here. Just quickly return. */
+	ldmnefd sp!,{r12,pc}^     // restore regs, and SPSR to CPSR
+	// If he didn't have I/O privilege:
+	b SWIOutOfRange
+
+
+/***********************  atomic-related SWIs *****************************/
 
 SWI_CSwap32_Handler:
 /*
