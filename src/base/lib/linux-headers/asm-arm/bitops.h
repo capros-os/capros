@@ -19,7 +19,8 @@
 #define smp_mb__before_clear_bit()	mb()
 #define smp_mb__after_clear_bit()	mb()
 
-#if 0	// In a CapROS process, irq_save does not assure atomicity.
+#if 0	// In a CapROS process, irq_save and irq_restore are slower
+	// than cmpxchg32.
 /*
  * These functions are the basis of our bit ops.
  *

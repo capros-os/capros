@@ -35,8 +35,9 @@ struct thread_info {
 	struct exec_domain	*exec_domain;	/* execution domain */
 	unsigned long		flags;		/* low level flags */
 	unsigned long		status;		/* thread-synchronous flags */
-	__u32			cpu;		/* current CPU */
+	__u32	preempt_flags;	/* interrupt flags when preempt disabled */
 	int			preempt_count;	/* 0 => preemptable, <0 => BUG */
+	__u32			cpu;		/* current CPU */
 
 
 	mm_segment_t		addr_limit;	/* thread address space:

@@ -155,7 +155,6 @@ static inline void write_seqcount_end(seqcount_t *s)
 	s->sequence++;
 }
 
-#if 0 // A CapROS process cannot disable irq.
 /*
  * Possible sw/hw IRQ protected versions of the interfaces.
  */
@@ -182,6 +181,5 @@ static inline void write_seqcount_end(seqcount_t *s)
 		local_irq_restore(flags);				\
 		ret;							\
 	})
-#endif
 
 #endif /* __LINUX_SEQLOCK_H */

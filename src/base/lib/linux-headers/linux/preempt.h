@@ -1,5 +1,27 @@
 #ifndef __LINUX_PREEMPT_H
 #define __LINUX_PREEMPT_H
+/*
+ * Copyright (C) 2007, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*
  * include/linux/preempt.h - macros for accessing and manipulating
@@ -26,9 +48,12 @@
 
 asmlinkage void preempt_schedule(void);
 
+/* On CapROS the only way to disable preemption is to disable IRQ. */
 #define preempt_disable() \
 do { \
 	inc_preempt_count(); \
+	if (preempt_count() == 1) \
+	  local_irq_save(current_thread_info()->preempt_flags); \
 	barrier(); \
 } while (0)
 
@@ -36,28 +61,20 @@ do { \
 do { \
 	barrier(); \
 	dec_preempt_count(); \
+	if (preempt_count() == 0) \
+	  local_irq_restore(current_thread_info()->preempt_flags); \
 } while (0)
 
-#define preempt_check_resched() \
-do { \
-	if (unlikely(test_thread_flag(TIF_NEED_RESCHED))) \
-		preempt_schedule(); \
-} while (0)
-
-#define preempt_enable() \
-do { \
-	preempt_enable_no_resched(); \
-	barrier(); \
-	preempt_check_resched(); \
-} while (0)
+#define preempt_enable() preempt_enable_no_resched()
 
 #else
 
 #define preempt_disable()		do { } while (0)
 #define preempt_enable_no_resched()	do { } while (0)
 #define preempt_enable()		do { } while (0)
-#define preempt_check_resched()		do { } while (0)
 
 #endif
+
+#define preempt_check_resched()		do { } while (0)
 
 #endif /* __LINUX_PREEMPT_H */

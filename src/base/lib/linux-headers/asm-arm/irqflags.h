@@ -1,9 +1,30 @@
 #ifndef __ASM_ARM_IRQFLAGS_H
 #define __ASM_ARM_IRQFLAGS_H
+/*
+ * Copyright (C) 2007, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifdef __KERNEL__
 
-#if 0 // CapROS processes cannot access the interrupt masks.
 #include <asm/ptrace.h>
 
 /*
@@ -26,20 +47,14 @@
 
 #else
 
+#include <eros/arch/arm/IRQSWI.h>
+
 /*
  * Save the current interrupt enable state & disable IRQs
  */
 #define raw_local_irq_save(x)					\
 	({							\
-		unsigned long temp;				\
-		(void) (&temp == &x);				\
-	__asm__ __volatile__(					\
-	"mrs	%0, cpsr		@ local_irq_save\n"	\
-"	orr	%1, %0, #128\n"					\
-"	msr	cpsr_c, %1"					\
-	: "=r" (x), "=r" (temp)					\
-	:							\
-	: "memory", "cc");					\
+	x = capros_irq_disable();				\
 	})
 	
 /*
@@ -47,14 +62,7 @@
  */
 #define raw_local_irq_enable()					\
 	({							\
-		unsigned long temp;				\
-	__asm__ __volatile__(					\
-	"mrs	%0, cpsr		@ local_irq_enable\n"	\
-"	bic	%0, %0, #128\n"					\
-"	msr	cpsr_c, %0"					\
-	: "=r" (temp)						\
-	:							\
-	: "memory", "cc");					\
+	capros_irq_enable();					\
 	})
 
 /*
@@ -62,16 +70,10 @@
  */
 #define raw_local_irq_disable()					\
 	({							\
-		unsigned long temp;				\
-	__asm__ __volatile__(					\
-	"mrs	%0, cpsr		@ local_irq_disable\n"	\
-"	orr	%0, %0, #128\n"					\
-"	msr	cpsr_c, %0"					\
-	: "=r" (temp)						\
-	:							\
-	: "memory", "cc");					\
+	(void) capros_irq_disable();				\
 	})
 
+#if 0	// CapROS does not allow a process to disable FIQ
 /*
  * Enable FIQs
  */
@@ -101,6 +103,7 @@
 	:							\
 	: "memory", "cc");					\
 	})
+#endif
 
 #endif
 
@@ -118,11 +121,7 @@
  * restore saved IRQ & FIQ state
  */
 #define raw_local_irq_restore(x)				\
-	__asm__ __volatile__(					\
-	"msr	cpsr_c, %0		@ local_irq_restore\n"	\
-	:							\
-	: "r" (x)						\
-	: "memory", "cc")
+	capros_irq_put(x)
 
 #define raw_irqs_disabled_flags(flags)	\
 ({					\
@@ -130,15 +129,4 @@
 })
 
 #endif // __KERNEL__
-#else	// CapROS
-// Catch uses of these by declaring procedures but not defining them.
-void raw_local_irq_save(unsigned long);
-void raw_local_irq_enable(void);
-void raw_local_irq_disable(void);
-void local_fiq_enable(void);
-void local_fiq_disable(void);
-void raw_local_save_flags(unsigned long);
-void raw_local_irq_restore(unsigned long);
-unsigned long raw_irqs_disabled_flags(unsigned long);
-#endif
 #endif

@@ -11,7 +11,7 @@
 #ifndef __LINUX_MUTEX_H
 #define __LINUX_MUTEX_H
 
-#include <asm-generic/semaphore.h>
+#include <asm/semaphore.h>
 
 /*
  * Simple, straightforward mutexes with strict semantics:
