@@ -30,7 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <vcs.map>
 #include <drivers/serial.map>
 
-SERIAL_DRIVER(uart3, UART3_BASE, SYSCONDeviceCfg_U3EN)
+SERIAL_DRIVER(uart3, APB_PA+UART3_APB_OFS, SYSCONDeviceCfg_U3EN)
 
 /*
  * Test domain
