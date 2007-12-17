@@ -6,38 +6,22 @@
  *                                  and initializers
  *
  * portions Copyright 2005, Red Hat, Inc., Ingo Molnar
- * Portions Copyright (C) 2007, Strawberry Development Group.
  * Released under the General Public License (GPL).
  */
-/* This material is based upon work supported by the US Defense Advanced
-Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-Approved for public release, distribution unlimited. */
+
+#if defined(CONFIG_SMP)
+# include <asm/spinlock_types.h>
+#else
+# include <linux/spinlock_types_up.h>
+#endif
 
 #include <linux/lockdep.h>
-#include <asm/semaphore.h>
-#include <linux/rwsem.h>
-
-typedef struct {
-	struct semaphore sem;
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
-	struct lockdep_map dep_map;
-#endif
-} raw_spinlock_t;
-
-#define __RAW_SPIN_LOCK_UNLOCKED(name) { __SEMAPHORE_INIT(name.sem, 1) }
-
-typedef struct {
-	struct rw_semaphore rwsem;
-	/* no debug version on UP */
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
-	struct lockdep_map dep_map;
-#endif
-} raw_rwlock_t;
-
-#define __RAW_RW_LOCK_UNLOCKED(name) { __RWSEM_INITIALIZER(name) }
 
 typedef struct {
 	raw_spinlock_t raw_lock;
+#if defined(CONFIG_PREEMPT) && defined(CONFIG_SMP)
+	unsigned int break_lock;
+#endif
 #ifdef CONFIG_DEBUG_SPINLOCK
 	unsigned int magic, owner_cpu;
 	void *owner;
@@ -51,6 +35,9 @@ typedef struct {
 
 typedef struct {
 	raw_rwlock_t raw_lock;
+#if defined(CONFIG_PREEMPT) && defined(CONFIG_SMP)
+	unsigned int break_lock;
+#endif
 #ifdef CONFIG_DEBUG_SPINLOCK
 	unsigned int magic, owner_cpu;
 	void *owner;
@@ -78,7 +65,7 @@ typedef struct {
 
 #ifdef CONFIG_DEBUG_SPINLOCK
 # define __SPIN_LOCK_UNLOCKED(lockname)					\
-	(spinlock_t)	{	.raw_lock = __RAW_SPIN_LOCK_UNLOCKED((lockname).raw_lock),	\
+	(spinlock_t)	{	.raw_lock = __RAW_SPIN_LOCK_UNLOCKED,	\
 				.magic = SPINLOCK_MAGIC,		\
 				.owner = SPINLOCK_OWNER_INIT,		\
 				.owner_cpu = -1,			\
@@ -91,7 +78,7 @@ typedef struct {
 				RW_DEP_MAP_INIT(lockname) }
 #else
 # define __SPIN_LOCK_UNLOCKED(lockname) \
-	(spinlock_t)	{	.raw_lock = __RAW_SPIN_LOCK_UNLOCKED((lockname).raw_lock),	\
+	(spinlock_t)	{	.raw_lock = __RAW_SPIN_LOCK_UNLOCKED,	\
 				SPIN_DEP_MAP_INIT(lockname) }
 #define __RW_LOCK_UNLOCKED(lockname) \
 	(rwlock_t)	{	.raw_lock = __RAW_RW_LOCK_UNLOCKED,	\

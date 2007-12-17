@@ -101,7 +101,7 @@ do {								\
 
 #else
 # define spin_lock_init(lock)					\
-	do { *(lock) = __SPIN_LOCK_UNLOCKED(*(lock)); } while (0)
+	do { *(lock) = SPIN_LOCK_UNLOCKED; } while (0)
 #endif
 
 #ifdef CONFIG_DEBUG_SPINLOCK
@@ -129,10 +129,15 @@ do {								\
 /*
  * Pull the _spin_*()/_read_*()/_write_*() functions/declarations:
  */
+#if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
+# include <linux/spinlock_api_smp.h>
+#else
 # include <linux/spinlock_api_up.h>
+#endif
 
 #ifdef CONFIG_DEBUG_SPINLOCK
  extern void _raw_spin_lock(spinlock_t *lock);
+#define _raw_spin_lock_flags(lock, flags) _raw_spin_lock(lock)
  extern int _raw_spin_trylock(spinlock_t *lock);
  extern void _raw_spin_unlock(spinlock_t *lock);
  extern void _raw_read_lock(rwlock_t *lock);
@@ -143,6 +148,8 @@ do {								\
  extern void _raw_write_unlock(rwlock_t *lock);
 #else
 # define _raw_spin_lock(lock)		__raw_spin_lock(&(lock)->raw_lock)
+# define _raw_spin_lock_flags(lock, flags) \
+		__raw_spin_lock_flags(&(lock)->raw_lock, *(flags))
 # define _raw_spin_trylock(lock)	__raw_spin_trylock(&(lock)->raw_lock)
 # define _raw_spin_unlock(lock)		__raw_spin_unlock(&(lock)->raw_lock)
 # define _raw_read_lock(rwlock)		__raw_read_lock(&(rwlock)->raw_lock)
@@ -177,6 +184,19 @@ do {								\
 #define read_lock(lock)			_read_lock(lock)
 
 #if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
+
+#define spin_lock_irqsave(lock, flags)	flags = _spin_lock_irqsave(lock)
+#define read_lock_irqsave(lock, flags)	flags = _read_lock_irqsave(lock)
+#define write_lock_irqsave(lock, flags)	flags = _write_lock_irqsave(lock)
+
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
+#define spin_lock_irqsave_nested(lock, flags, subclass) \
+	flags = _spin_lock_irqsave_nested(lock, subclass)
+#else
+#define spin_lock_irqsave_nested(lock, flags, subclass) \
+	flags = _spin_lock_irqsave(lock)
+#endif
+
 #else
 
 #define spin_lock_irqsave(lock, flags)	_spin_lock_irqsave(lock, flags)
@@ -259,6 +279,13 @@ do {						\
 ({ \
 	local_irq_save(flags); \
 	spin_trylock(lock) ? \
+	1 : ({ local_irq_restore(flags); 0; }); \
+})
+
+#define write_trylock_irqsave(lock, flags) \
+({ \
+	local_irq_save(flags); \
+	write_trylock(lock) ? \
 	1 : ({ local_irq_restore(flags); 0; }); \
 })
 
