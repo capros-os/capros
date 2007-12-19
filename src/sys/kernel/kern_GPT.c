@@ -160,7 +160,7 @@ segwalk_init(SegWalk * wi, Key * pSegKey, uint64_t va,
  *     You find an object with l2v < stopL2v (walk succeeded, return true)
  *     You conclude that the desired type of access as described in
  *        ISWRITE cannot be satisfied in this segment (walk failed,
- *        return false and set wii->faultCode)
+ *        return false and set wi->faultCode)
  * 
  * At each stage in the walk, add dependency entries between the
  * traversed slots and the page table entries described by pPTE and mapLevel.
@@ -182,6 +182,8 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
   for(;;) {
     if (wi->memObj->obType > ot_NtLAST_NODE_TYPE) {
       // It's a page, not a GPT.
+      if (wi->offset >= EROS_PAGE_SIZE)
+        goto invalid_addr_fault;
       WALK_DBG_MSG("ret");
       return true;
     }
@@ -200,7 +202,6 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
     }
       
     KernStats.nWalkLoop++;
-
     if (++ wi->traverseCount >= MAX_SEG_DEPTH) {
       wi->faultCode = capros_Process_FC_TraverseLimit;
       goto fault_exit;
@@ -229,6 +230,7 @@ WalkSeg(SegWalk * wi, uint32_t stopL2v,
 
     uint64_t ndx = wi->offset >> curL2v;
     if (ndx > maxSlot) {
+invalid_addr_fault:
       wi->faultCode = capros_Process_FC_InvalidAddr;
       goto fault_exit;
     }

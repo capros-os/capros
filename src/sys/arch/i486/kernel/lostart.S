@@ -473,8 +473,8 @@ L_halt:
 	jmp L_halt
 
 ENTRY(abort)
-	movl	$0x000b8000,%eax
-	movl	$0x07620741,(%eax)
+	movl	$0x000b8000,%eax	// CGA buffer?
+	movl	$0x07620741,(%eax)	// "Ab"
 	cli			/* disable interrupts */
 L_abort: jmp L_abort
 
