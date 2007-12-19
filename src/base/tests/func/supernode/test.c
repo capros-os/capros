@@ -190,6 +190,8 @@ main(void)
   testslot(a4);
   failslot(a5);
 
+  kprintf(KR_OSTREAM, "Destroying supernode\n");
+
   result = capros_key_destroy(KR_SNODE);
   ckOK
 
