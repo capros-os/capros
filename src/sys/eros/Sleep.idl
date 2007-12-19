@@ -3,16 +3,18 @@ package capros;
 /** Interface to allow processes to sleep voluntarily.
  */
 interface Sleep extends key {
+  typedef unsigned <64> nanoseconds_t;
+  const unsigned <64> infiniteTime = 18446744073709000000; // about UINT64_MAX
 
   /* Returns the time in nanoseconds since some time in the past. 
      FIXME: Is this monotonic over checkpoint/restart? */
-  unsigned long long getTimeMonotonic();
+  nanoseconds_t getTimeMonotonic();
 
   /** Sleep until the specified number of milliseconds has passed */
   void sleep(unsigned long long ms);
 
-  /** Sleep until the specified number of milliseconds from epoch */
-  void sleepTill(unsigned long long ms);
+  /** Sleep until getTimeMonotonic() >= ns. */
+  void sleepTill(nanoseconds_t ns);
 
 
   const unsigned long DelayMaxMicroseconds = 5000000;
