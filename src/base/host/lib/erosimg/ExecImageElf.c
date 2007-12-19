@@ -140,19 +140,19 @@ xi_InitElf(ExecImage *pImage, uint32_t permMask, uint32_t permValue)
     elf_phdr *phdr =
       (elf_phdr *) &pImage->image[exehdr->e_phoff + exehdr->e_phentsize * i];
 
-#if 0
-    diag_printf("Region va=0x%x sz=0x%x type=%d\n",
-                pImage->regions[pImage->nRegions].vaddr,
-                pImage->regions[pImage->nRegions].memsz,
-                phdr->p_type);
-#endif
-
     if (selectPH) {
       pImage->regions[pImage->nRegions].perm = phdr->p_flags & 0xf;
       pImage->regions[pImage->nRegions].vaddr = phdr->p_vaddr;
       pImage->regions[pImage->nRegions].memsz = phdr->p_memsz;
       pImage->regions[pImage->nRegions].filesz = phdr->p_filesz;
       pImage->regions[pImage->nRegions].offset = phdr->p_offset;
+
+#if 0
+      diag_printf("Region va=0x%x sz=0x%x type=%d\n",
+                  pImage->regions[pImage->nRegions].vaddr,
+                  pImage->regions[pImage->nRegions].memsz,
+                  phdr->p_type);
+#endif
 
       pImage->nRegions++;
     }

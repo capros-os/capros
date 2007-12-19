@@ -1115,16 +1115,12 @@ ei_GetPageInSegment(ErosImage *ei, KeyBits segRoot,
   return ei_DoGetPageInSegment(ei, segRoot, segOffset, pageKey);
 }
 
-void
-ei_SetPageWord(ErosImage *ei, KeyBits *pageKey, uint32_t offset,
-	       uint32_t value)
+uint8_t *
+ei_GetPageContentRef(ErosImage * ei, KeyBits * pageKey)
 {
   if (keyBits_IsType(pageKey, KKT_Page) == false)
-    diag_fatal(5, "ei_SetPageWord requires page key!\n");
+    diag_fatal(5, "ei_GetPageContentRef requires page key!\n");
   
-  if (offset % 4)
-    diag_fatal(5, "ei_SetPageWord offset must be word address!\n");
-    
   /* Okay, here's the tricky part.  It's quite possible that the page
    * key we were handed was a zero page key.  If so, we fabricate a
    * new (nonzero) page to replace it and change all of the existing
@@ -1204,12 +1200,7 @@ ei_SetPageWord(ErosImage *ei, KeyBits *pageKey, uint32_t offset,
     pageKey->u.unprep.oid = newPage.u.unprep.oid;
   }
   
-  {
-    uint32_t pageNdx = pageKey->u.unprep.oid;
-    uint8_t *pageContent = &ei->pageImages[pageNdx*EROS_PAGE_SIZE];
-
-    *((uint32_t *) &pageContent[offset]) = value;
-  }
+  return &ei->pageImages[pageKey->u.unprep.oid * EROS_PAGE_SIZE];
 }
 
 void

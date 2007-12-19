@@ -1,3 +1,4 @@
 #define __ASSEMBLER__	// avoid extraneous stuff in headers
+#define __ASSEMBLY__	// Linux spelling
 #include <disk/DiskNodeStruct.h>	// for ProcGenKeys
 #define CONSTIT(proc, name, slot) proc[ProcGenKeys][1][slot]

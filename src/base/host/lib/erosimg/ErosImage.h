@@ -221,7 +221,7 @@ extern "C" {
 			   uint64_t segOffset,
 			   KeyBits *pageKey);
 
-  void ei_SetPageWord(ErosImage *, KeyBits *pageKey, uint32_t offset, uint32_t value);
+  uint8_t * ei_GetPageContentRef(ErosImage *, KeyBits *pageKey);
   void ei_SetProcessState(ErosImage *, KeyBits procRoot, uint8_t state);
   uint8_t ei_GetProcessState(ErosImage *, KeyBits procRoot);
 

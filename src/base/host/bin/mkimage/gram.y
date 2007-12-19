@@ -130,7 +130,7 @@ uint32_t DomRootRestriction[EROS_NODE_SIZE] = {
   RESTRICT_START,		/* dr01: keeper slot */
   RESTRICT_SEGMODE,		/* dr02: address space */
   RESTRICT_KEYREGS,		/* dr03: key regs (future: capability space) */
-  RESTRICT_IOSPACE,		/* dr04: reserved -- i/o space */
+  RESTRICT_IOSPACE,		/* dr04: i/o space */
   RESTRICT_SEGMODE,		/* dr05: reserved -- symbol space */
   RESTRICT_START,		/* dr06: brand */
   RESTRICT_NUMBER,		/* dr07: trap_code */
@@ -580,6 +580,13 @@ stmt:	/* IMPORT STRING {
 
 	   SHOWPARSE("=== stmt -> segment offset = WORD arith_expr\n");
 	   keyBits_InitToVoid(&pageKey);
+  
+           if ($2 % 4) {
+	     diag_printf("%s:%d: offset 0x%x not word-aligned\n",
+			 current_file, current_line, $2);
+	     num_errors++;
+	     YYERROR;
+           }
 
 	   if (ei_GetPageInSegment(image, $1, $2, &pageKey) == false) {
 	     pageKey = ei_AddZeroDataPage(image, false);
@@ -587,7 +594,8 @@ stmt:	/* IMPORT STRING {
 	   }
 	  
 	   pageOffset = $2 & EROS_PAGE_MASK;
-	   ei_SetPageWord(image, &pageKey, pageOffset, $5);
+           uint8_t * pageContent = ei_GetPageContentRef(image, &pageKey);
+           *((uint32_t *) &pageContent[pageOffset]) = $5;
         }
 
 /*
@@ -2343,7 +2351,7 @@ AddProgramSegment(ErosImage * image,
   for (i = 0; i < xi_NumRegions(ei); i++) {
     er = xi_GetRegion(ei, i);
 
-#if 0
+#if 1////
     char perm[4] = "\0\0\0";
     char *pbuf = perm;
     if (er->perm & ER_R)
@@ -2354,10 +2362,10 @@ AddProgramSegment(ErosImage * image,
       *pbuf++ = 'X';
 
     diag_printf("AddProgramSegment %s "
-                "va=0x%08x   memsz=0x%08x   filesz=0x%08x"
-		 "   offset=0x%08x   %s\n",
-                filename,
-		 er->vaddr, er->memsz, er->filesz, er->offset, perm);
+                  "va=0x%08x   memsz=0x%08x   filesz=0x%08x"
+		  "   offset=0x%08x   %s\n",
+                fileName,
+		er->vaddr, er->memsz, er->filesz, er->offset, perm);
 #endif
 
     bool readOnly = (er->perm & ER_W) == 0;
@@ -2367,9 +2375,20 @@ AddProgramSegment(ErosImage * image,
     for (va = er->vaddr; va < topfileva; va = pageVa + EROS_PAGE_SIZE) {
       pageVa = va & ~EROS_PAGE_MASK;
 
+      uint32_t topva = pageVa + EROS_PAGE_SIZE;
+      if (topva > topfileva)
+        topva = topfileva;	// take minimum
+      unsigned int copySize = topva - va;
+
+      const uint8_t * fileVa = imageBuf + er->offset + (va - er->vaddr);
+
       /* See if we have already created this page: */
       if (ptrmap_Lookup(map, (char *)0 + pageVa, &pageKey)) {
         /* We have a page key. */
+        uint8_t * pageContent = ei_GetPageContentRef(image, &pageKey);
+
+        memcpy(pageContent + va - pageVa, fileVa, copySize);
+
         /* The page must be writeable if it's writeable by any region: */
         if (! readOnly)
           keyBits_ClearReadOnly(&pageKey);
@@ -2378,13 +2397,7 @@ AddProgramSegment(ErosImage * image,
         uint8_t pagebuf[EROS_PAGE_SIZE];
         bzero(pagebuf, EROS_PAGE_SIZE);
 
-        uint32_t topva = pageVa + EROS_PAGE_SIZE;
-        if (topva > topfileva)
-          topva = topfileva;	// take minimum
-
-        memcpy(pagebuf + va - pageVa,
-               imageBuf + er->offset + (va - er->vaddr),
-               topva - va);
+        memcpy(pagebuf + va - pageVa, fileVa, copySize);
 
         pageKey = ei_AddDataPage(image, pagebuf, readOnly);
         ptrmap_Add(map, (char *)0 + pageVa, pageKey);
