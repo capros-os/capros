@@ -2351,7 +2351,7 @@ AddProgramSegment(ErosImage * image,
   for (i = 0; i < xi_NumRegions(ei); i++) {
     er = xi_GetRegion(ei, i);
 
-#if 1////
+#if 0
     char perm[4] = "\0\0\0";
     char *pbuf = perm;
     if (er->perm & ER_R)
