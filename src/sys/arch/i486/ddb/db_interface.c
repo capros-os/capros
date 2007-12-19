@@ -59,16 +59,12 @@ db_regs_t ddb_regs;
 /*
  *  kdb_trap - field a TRACE or BPT trap
  */
-int
+bool
 kdb_trap(int type, int code, register db_regs_t *regs)
 {
 #if 0
-	int s;
-#endif
-
-#if 0
 	if ((boothowto&RB_KDB) == 0)
-		return(0);
+		return false;
 #endif
 
 	switch (type) {
@@ -167,7 +163,7 @@ kdb_trap(int type, int code, register db_regs_t *regs)
 	MsgLog::printf("Resume w/ regs 0x%08x pc 0x%08x, flags 0x%08x, esp=0x%08x\n",
 		       regs, regs->EIP, regs->EFLAGS, regs->ESP);
 #endif
-	return (1);
+	return true;
 }
 
 /* For now... */

@@ -47,6 +47,10 @@ Approved for public release, distribution unlimited. */
 #include "IDT.h"
 #include "GDT.h"
 
+#ifdef OPTION_DDB
+#include "Debug386.h"
+#endif
+
 /* #define TIMING_DEBUG */
 
 /*extern "C" {*/
@@ -117,9 +121,13 @@ idt_OnTrapOrInterrupt(savearea_t *saveArea)
 #endif
 
 #ifndef NDEBUG
-  if (dbg_inttrap)
-    Debugger();		/* This cannot work, because Debugger() causes
-			an interrupt, which recurses. */
+#ifdef OPTION_DDB
+  if (dbg_inttrap) {
+    kdb_trap(vecNumber, saveArea->Error, saveArea);
+    /* Don't call Debugger(), because it causes a breakpoint,
+       which would recurse forever. */
+  }
+#endif
 #endif
 
 #ifndef NDEBUG

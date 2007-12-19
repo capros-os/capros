@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Driver for 386 debugger traps/faults */
 
@@ -28,6 +32,10 @@
 #include <kerninc/Process.h>
 #include "IDT.h"
 #include "lostart.h"
+
+#ifdef OPTION_DDB
+#include "Debug386.h"
+#endif
 
 #define DBG_STATUS_B0   0x1u
 #define DBG_STATUS_B1   0x2u
@@ -56,10 +64,6 @@
 #define DBG_CTRL_LEN2   0xc000000u
 #define DBG_CTRL_RW3    0x30000000u
 #define DBG_CTRL_LEN3   0xc0000000u
-
-#ifdef OPTION_DDB
-extern int kdb_trap(int, int, savearea_t *);
-#endif
 
 bool
 DebugException(savearea_t* sa)

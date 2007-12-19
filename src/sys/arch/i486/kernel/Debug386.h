@@ -20,6 +20,9 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
+extern bool kdb_trap(int type, int code, struct savearea * regs);
+
+#if 0
 #include <kerninc/kernel.hxx>
 
 struct Thread;
@@ -144,4 +147,5 @@ watchP_Clear(uint32_t n)
 	  );
 }
 
+#endif
 #endif /* __DEBUG386_H__ */

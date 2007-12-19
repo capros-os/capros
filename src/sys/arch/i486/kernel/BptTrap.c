@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include "IDT.h"
 
 #ifdef OPTION_DDB
+#include "Debug386.h"
 extern bool continue_user_bpt;
 #endif
 
@@ -43,7 +44,6 @@ BptTrap(savearea_t *sa)
 
   if ( sa_IsKernel(sa)) {
 #ifdef OPTION_DDB
-    extern void kdb_trap(int, int, savearea_t *);
     kdb_trap(sa->ExceptNo, sa->Error, sa);
     return false;
 #else
