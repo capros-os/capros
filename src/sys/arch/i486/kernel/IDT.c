@@ -282,7 +282,6 @@ idt_Init()
 }
 
 
-
 void
 idt_SetupInterruptControllers()
 {
@@ -330,7 +329,6 @@ idt_UnboundVector(savearea_t *saveArea)
 }
 
 
-
 void
 idt_YieldVector(savearea_t * sa)
 {
@@ -350,14 +348,14 @@ idt_WireVector(uint32_t vector, void (*pf)(savearea_t* sa))
 }
 
 
-
 void
 irq_SetHandler(uint32_t irq, void (*pf)(savearea_t *sa))
 {
+#ifdef INTRDEBUG
   printf("Setting irq %d\n", irq);
+#endif
   idt_WireVector(iv_IRQ0 + irq, pf);
 }
-
 
 
 InterruptHandler
@@ -367,13 +365,14 @@ irq_GetHandler(uint32_t irq)
 }
 
 
-
 void
 irq_UnsetHandler(uint32_t irq)
 {
   assert (irq >= 0 && irq <= 15);
 
+#ifdef INTRDEBUG
   printf("Unsetting irq %d\n", irq);
+#endif
   idt_WireVector(iv_IRQ0 + irq, irq_UnboundInterrupt);
 
   // Wake up any sleeper.
