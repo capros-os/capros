@@ -167,6 +167,9 @@ Persistent objects that are pinned (locked in memory).
 We want to limit the number of pinned objects because they use
 physical memory which is a limited resource. 
 Persistent objects may need to be pinned if they are referenced by the PFH.
+Note that immediately after a restart from checkpoint, class 3 is empty, 
+because no persistent objects have been fetched from backing store yet, 
+let alone pinned.
 </li>
 <li>
 Persistent objects that are not pinned.

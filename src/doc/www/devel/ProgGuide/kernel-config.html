@@ -273,9 +273,23 @@ bus(BT_ISA)
       <p>
       The EISA bus is not supported at present, and likely never will
       be.  SCSI and USB support has not yet been implemented.
-      <h3>2.2 Architecture-Specific Options</h3>
+      <h3>2.2 Syntax</h3>
       <p>
-      The PC provides a machine-specific kernel feature that is
+	<pre>
+defoption("name")
+	</pre>
+      declares that there is an option named OPTION_NAME.
+	<pre>
+defoption("name", 1)
+	</pre>
+      declares that there is an option named NAME.
+	<pre>
+option("name")
+	</pre>
+      declares that the above option is to be defined (as 1).
+      </p>
+      <p>
+      Example: The PC provides a machine-specific kernel feature that is
       supported in a number of source files: small address spaces.
       Since this option is not general to all processors, it must be
       defined as an option for the PC family:
@@ -567,9 +581,13 @@ int mem_probe_vec[] = { ....., 0xc8000, 0xd8000, -1, .... };
 <!--       included in the configuration. -->
 <!--       </p> -->
       <hr>
-    <em>Copyright 1998 by Jonathan Shapiro.  All rights
-    reserved.  For terms of redistribution, see the <a
+    <em>Copyright 1998 by Jonathan Shapiro,
+      2007 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
 href="../../legal/license/GPL.html">GNU General Public License</a></em> 
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
     </td>
     <td valign=top width=15%>&nbsp;</td>
   </tr>
