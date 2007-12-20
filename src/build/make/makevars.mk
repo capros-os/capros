@@ -51,7 +51,8 @@ ifndef EROS_TARGET
 EROS_TARGET=i486
 endif
 
-// Sometimes we want i486 (for compatibility), sometimes i386:
+# Sometimes we want i486 (for compatibility with EROS stuff),
+# sometimes i386 (for compatibility with Linux)
 ifeq "$(EROS_TARGET)" "i486"
 LINUX_TARGET=i386
 else
