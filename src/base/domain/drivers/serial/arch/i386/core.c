@@ -1,5 +1,3 @@
-#ifndef _SERIALPORT_H_
-#define _SERIALPORT_H_
 /*
  * Copyright (C) 2007, Strawberry Development Group.
  *
@@ -23,27 +21,34 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* Task to wait until the serial port transmission is finished.
-*/
-
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
-#include <linux/wait.h>
 #include <linux/serial_core.h>
+#include <linux/serial.h>
+#include <eros/Invoke.h>	// get RC_OK
+#include <domain/assert.h>
+#include <idl/capros/Number.h>
 
-// Key registers for the main thread:
-#define KR_CONFIG     KR_APP2(0)	// architecture-dependent config param
-#define KR_XMITWAITER KR_APP2(1)
+#include "../../8250.h"
+#include "../../serialPort.h"
 
-bool isTransmitterEmpty(struct uart_port * port);
-void * transmitterEmptyTask(void * arg);
-void WaitForTransmitterEmpty(wait_queue_t * wait);
-int CreateTransmitterEmptyTask(void);
-void DestroyTransmitterEmptyTask(void);
-void TransmitterEmptySepuku(void);
+struct old_serial_port old_serial_port[1];
 
-extern wait_queue_head_t sent_wait_queue_head;
+extern int __init serial8250_init(void);
 
-extern struct uart_state theUartState;
+int capros_serial_initialization(void)
+{
+  result_t result;
+  unsigned long w0, w1, w2;
 
-#endif // _SERIALPORT_H_
+  // Get parameters passed in KR_CONFIG.
+  result = capros_Number_get(KR_CONFIG, &w0, &w1, &w2);
+  assert(result == RC_OK);
+
+  old_serial_port[0].baud_base = w0;
+  old_serial_port[0].port = w1 & 0xffff;
+  old_serial_port[0].irq = w1 >> 16;
+  old_serial_port[0].flags = w2;
+
+  return serial8250_init();
+}

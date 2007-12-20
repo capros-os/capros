@@ -53,7 +53,7 @@
  */
 static unsigned int share_irqs = SERIAL8250_SHARE_IRQS;
 
-static unsigned int nr_uarts = CONFIG_SERIAL_8250_RUNTIME_UARTS;
+static unsigned int nr_uarts = 1; // CONFIG_SERIAL_8250_RUNTIME_UARTS;
 
 /*
  * Debugging.
@@ -103,11 +103,15 @@ static unsigned int nr_uarts = CONFIG_SERIAL_8250_RUNTIME_UARTS;
 #define SERIAL_PORT_DFNS
 #endif
 
+#if 1	// this is now defined in arch/i386/core.c
+extern struct old_serial_port old_serial_port[1];
+#else	// formerly:
 static const struct old_serial_port old_serial_port[] = {
 	SERIAL_PORT_DFNS /* defined in asm/serial.h */
 };
+#endif
 
-#define UART_NR	CONFIG_SERIAL_8250_NR_UARTS
+#define UART_NR	1 // CONFIG_SERIAL_8250_NR_UARTS
 
 #ifdef CONFIG_SERIAL_8250_RSA
 
@@ -2845,7 +2849,7 @@ void serial8250_unregister_port(int line)
 }
 EXPORT_SYMBOL(serial8250_unregister_port);
 
-static int __init serial8250_init(void)
+/*static*/ int __init serial8250_init(void)
 {
 	int ret, i;
 

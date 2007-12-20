@@ -1947,7 +1947,6 @@ int uart_remove_one_port(struct uart_driver *drv, struct uart_port *port)
 	return 0;
 }
 
-#if 0
 /*
  *	Are the two ports equivalent?
  */
@@ -1971,7 +1970,6 @@ int uart_match_port(struct uart_port *port1, struct uart_port *port2)
 	}
 	return 0;
 }
-#endif
 
 /* There are two input buffers, each of size inputBufSize.
    One may be in use sending to the receiver. 
@@ -2165,8 +2163,8 @@ main(void)
   }
 
 
-  extern int __init pl010_init(void);
-  if (pl010_init()) {	// FIXME: need to make this configurable
+  extern int __init capros_serial_initialization(void);
+  if (capros_serial_initialization()) {
     assert(false);	// FIXME handle error
   }
 

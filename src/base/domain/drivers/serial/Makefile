@@ -36,6 +36,8 @@ VPATH=arch/arm/mach-ep93xx
 OBJECTS+= $(BUILDDIR)/core.o
 else
 OBJECTS+= $(BUILDDIR)/8250.o
+VPATH=arch/$(LINUX_TARGET)
+OBJECTS+= $(BUILDDIR)/core.o
 endif
 INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
 INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
@@ -51,7 +53,7 @@ interfaces: $(IDL)
 $(BUILDDIR)/serial: $(OBJECTS) $(DEVSTART) $(DOMCRT0) $(LINUXLIB) $(DOMSBRK) $(DOMLIB)
 	$(DOMLINK) -Tdata 0x00c00000 $(DOMLINKOPT) $(DEVSTART) $(DOMCRT0) $(OBJECTS) $(LINUXLIB) $(DOMSBRK) $(DOMLIB) -o $@
 # and for debugging:
-	/capros/host/bin/$(EROS_TARGET)-unknown-capros-objdump --disassemble $@ >$(BUILDDIR)/disassembled
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers

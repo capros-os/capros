@@ -149,3 +149,9 @@ void amba_driver_unregister(struct amba_driver * drv)
 {
   printk(KERN_ERR "amba_driver_unregister called.\n");	// FIXME
 }
+
+extern int pl010_init(void);
+int capros_serial_initialization(void)
+{
+  return pl010_init();
+}

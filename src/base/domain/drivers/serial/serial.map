@@ -23,7 +23,6 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <devclock.map>
 #include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 #include <linuxk/lsync.h>
 #include <eros/Reserve.h>
@@ -39,6 +38,14 @@ serial_prog = program segtree LIBDIR "drivers/serial";
    the code is in serial_prog[0], and data in serial_prog[3]. */
 serial_data = serial_prog[3];
 
+BOOT_DOMCRE(serial);	// maybe each should have his own?
+
+/* Define target-specific resources. */
+
+#if defined(EROS_TARGET_arm)
+
+#define APB_PA 0x80800000
+#include <devclock.map>
 /* UARTCLK is set to the low frequency, which give a max baud rate
    of only 230 Kbps, but saves power. */
 /* UARTCLK has no enable/disable. Each individual UART has an enable
@@ -49,9 +56,27 @@ serial_le_clocks = new node;
 serial_le_clocks[0] = number("UARTCLK");
 serial_le_clocks[1] = uart_devclock;
 
-// Usage: SERIAL_DRIVER(uart3, UART3_BASE, SYSCONDeviceCfg_U3EN)
+// Usage: SERIAL_DRIVER_AMBA(uart3, UART3_BASE, SYSCONDeviceCfg_U3EN)
 
-#define SERIAL_DRIVER(name, devRegsPhysAddr, devcfgbit) \
+#define SERIAL_DRIVER_AMBA(name, devcfgbit, devRegsPhysAddr) \
+SERIAL_DRIVER_GENERIC(name, devcfgbit) \
+name##le_iomem = new node; \
+name##le_iomem[0] = number(1 /* one page */, devRegsPhysAddr, 0); \
+name##le_iomem[1] = physpage(devRegsPhysAddr); \
+name##le[LE_CLOCKS] = serial_le_clocks as ro node key; \
+name##le[LE_IOMEM] = name##le_iomem;
+
+#elif defined(EROS_TARGET_i486)
+
+#define SERIAL_DRIVER_8250_PORT(name, baud_base, port, irq, flags) \
+SERIAL_DRIVER_GENERIC(name, 0) \
+name##serial_proc key reg KR_APP2(0) = number(baud_base, port + (irq * 65536), flags);
+
+#else
+#error "Unknown target"
+#endif
+
+#define SERIAL_DRIVER_GENERIC(name, devcfgbit) \
 name##serial_space = new GPT with lss 3;	/* l2v = 22 */ \
 name##serial_space[0] = ro serial_prog[0]; \
 name##serial_stacks = new GPT with lss 2;	/* l2v = 17 */ \
@@ -59,15 +84,9 @@ name##serial_space[1] = name##serial_stacks; \
 name##serial_stack = new page;		/* stack size is one page */ \
 name##serial_stacks[0] = name##serial_stack with guard 0x1f000; \
 MAKE_VIRTUAL_COPIER_SEG(name##serialdata, serial_prog[3]); \
-name##le_iomem = new node; \
-name##le_iomem[0] = number(1 /* one page */, devRegsPhysAddr, 0); \
-name##le_iomem[1] = physpage(devRegsPhysAddr); \
 name##le = new node; \
-name##le[LE_CLOCKS] = serial_le_clocks as ro node key; \
 name##le[LE_DEVPRIVS] = misc DevicePrivs devcfgbit; \
-name##le[LE_IOMEM] = name##le_iomem; \
  \
-BOOT_DOMCRE(name##serial); \
 name##serial_proc = new process; \
 name##serial_proc pc = symbol LIBDIR "drivers/serial" driver_start; \
 name##serial_proc sp = (0x420000 - SIZEOF_THREAD_INFO); \
@@ -76,7 +95,7 @@ name##serial_proc schedule = sched(8 /* use PRIO_HIGH? */ ); \
 name##serial_proc symtab = number(#name "serial"); \
 name##serial_proc iospace = misc DevicePrivs devcfgbit; \
 name##serial_proc key reg KR_KEYSTORE = snode_c; \
-name##serial_proc key reg KR_CREATOR = name##serial_proccre; \
+name##serial_proc key reg KR_CREATOR = serial_proccre; \
 name##serial_proc key reg KR_SELF    = name##serial_proc; \
 name##serial_proc key reg KR_BANK    = primebank; \
 name##serial_proc key reg KR_SCHED   = sched(8 /* use PRIO_HIGH? */ ); \
