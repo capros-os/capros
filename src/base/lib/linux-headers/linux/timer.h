@@ -6,16 +6,14 @@
 #include <linux/spinlock.h>
 #include <linux/stddef.h>
 
-struct tvec_t_base_s;
-
 struct timer_list {
 	struct list_head entry;
-	unsigned long expires;
+	uint64_t caprosExpiration;
+	unsigned long expires;	// in jiffies
 
 	void (*function)(unsigned long);
 	unsigned long data;
 
-	struct tvec_t_base_s *base;
 #ifdef CONFIG_TIMER_STATS
 	void *start_site;
 	char start_comm[16];
@@ -23,13 +21,10 @@ struct timer_list {
 #endif
 };
 
-extern struct tvec_t_base_s boot_tvec_bases;
-
 #define TIMER_INITIALIZER(_function, _expires, _data) {		\
 		.function = (_function),			\
 		.expires = (_expires),				\
 		.data = (_data),				\
-		.base = &boot_tvec_bases,			\
 	}
 
 #define DEFINE_TIMER(_name, _function, _expires, _data)		\

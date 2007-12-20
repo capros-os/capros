@@ -10,6 +10,7 @@
 #ifndef _LINUX_SERIAL_H
 #define _LINUX_SERIAL_H
 
+#ifndef __ASSEMBLY__
 #ifdef __KERNEL__
 #include <linux/types.h>
 #include <asm/page.h>
@@ -51,6 +52,7 @@ struct serial_struct {
 	unsigned int	port_high;
 	unsigned long	iomap_base;	/* cookie passed into ioremap */
 };
+#endif /* __ASSEMBLY__ */
 
 /*
  * For the close wait times, 0 means wait forever for serial port to
@@ -82,11 +84,13 @@ struct serial_struct {
 #define SERIAL_IO_HUB6	1
 #define SERIAL_IO_MEM	2
 
+#ifndef __ASSEMBLY__
 struct serial_uart_config {
 	char	*name;
 	int	dfl_xmit_fifo_size;
 	int	flags;
 };
+#endif /* __ASSEMBLY__ */
 
 #define UART_CLEAR_FIFO		0x01
 #define UART_USE_FIFO		0x02
@@ -144,6 +148,7 @@ struct serial_uart_config {
 #define ASYNC_BOOT_ONLYMCA	0x00400000 /* Probe only if MCA bus */
 #define ASYNC_INTERNAL_FLAGS	0xFFC00000 /* Internal flags */
 
+#ifndef __ASSEMBLY__
 /*
  * Multiport serial configuration structure --- external structure
  */
@@ -184,4 +189,5 @@ extern int early_serial_console_init(char *options);
 extern int serial8250_start_console(struct uart_port *port, char *options);
 
 #endif /* __KERNEL__ */
+#endif /* __ASSEMBLY__ */
 #endif /* _LINUX_SERIAL_H */
