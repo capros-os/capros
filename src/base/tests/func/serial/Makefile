@@ -43,6 +43,6 @@ include ../../test.mk
 
 $(BUILDDIR)/test: $(BUILDDIR)/test.o $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/test.o $(DOMLIB)
-#	/capros/host/bin/$(EROS_TARGET)-unknown-capros-objdump --disassemble $@ >$(BUILDDIR)/disassembled
+#	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 -include $(BUILDDIR)/.*.m
