@@ -20,6 +20,5 @@
 
 
 kernel 160 OID=0xFFFF000000000000
-ramdisk
 object preload 160 OID=0x0
 #spare 15
