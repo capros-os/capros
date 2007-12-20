@@ -89,6 +89,11 @@ lthread_new_thread(uint32_t stackSize,
   threadsAlloc |= (uint32_t)1 << threadNum;
   mutex_unlock(&threadAllocLock);
 
+#if 0
+  kprintf(KR_OSTREAM, "lthread starting %d at 0x%x\n", threadNum,
+    start_routine);
+#endif
+
   uint32_t kr;
   result_t result;
   Message msg;
@@ -169,6 +174,13 @@ lthread_new_thread(uint32_t stackSize,
   assert(result == RC_OK);
 
   result = capros_Process_swapSchedule(KR_NEWTHREAD, KR_TEMP0, KR_VOID);
+  assert(result == RC_OK);
+  
+  /* Set I/O privileges. */
+  result = capros_Node_getSlot(KR_LINUX_EMUL, LE_DEVPRIVS, KR_TEMP0);
+  assert(result == RC_OK);
+
+  result = capros_Process_setIOSpace(KR_NEWTHREAD, KR_TEMP0);
   assert(result == RC_OK);
 
   /* Now just copy all key registers */

@@ -21,29 +21,47 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <eros/Invoke.h>
+#include <domain/assert.h>
+
+#include <idl/capros/Void.h>
+#include <idl/capros/Node.h>
+#include <idl/capros/GPT.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/Process.h>
+
 #include <linuxk/linux-emul.h>
-#include <linux/ioport.h>
+#include <linuxk/lsync.h>
+#include <asm/io.h>
+#include <linux/mutex.h>
 
-/* I/O resources (ports and memory) are reserved by allocating keys
-at big bang time. 
-Therefore __request_region() doesn't need to keep track of reservations.
-These Linux procedures therefore always say that the resource is available. */
-
-struct resource iomem_resource;	// contents are not used
-struct resource ioport_resource;	// contents are not used
-
-struct resource *
-__request_region(struct resource * parent,
-                 resource_size_t start,
-                 resource_size_t n, const char *name)
+void __iomem *
+__ioremap(unsigned long offset, unsigned long size, unsigned long flags)
 {
-  /* We want to return a non-NULL value to indicate success.
-  We return a pointer to code, which at least is read-only. */
-  return (struct resource *)&__request_region;
+  kdprintf(KR_OSTREAM, "__ioremap called, not implemented!'\n");
+  return NULL;
 }
 
-void
-__release_region(struct resource * res, resource_size_t start,
-                 resource_size_t n)
+void iounmap(volatile void __iomem *addr)
 {
+  kdprintf(KR_OSTREAM, "iounmap called, not implemented!'\n");
+}
+
+/* serial/8250.c procedure wait_for_xmitr can loop over 1 second
+with irq disabled! */
+void touch_nmi_watchdog(void)
+{
+  kdprintf(KR_OSTREAM, "touch_nmi_watchdog called, not implemented!'\n");
+}
+
+unsigned long probe_irq_on(void)
+{
+  kdprintf(KR_OSTREAM, "probe_irq_on called, not implemented!'\n");
+  return 0;
+}
+
+int probe_irq_off(unsigned long val)
+{
+  kdprintf(KR_OSTREAM, "probe_irq_off called, not implemented!'\n");
+  return 0;
 }

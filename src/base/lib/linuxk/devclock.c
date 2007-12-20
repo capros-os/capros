@@ -39,8 +39,10 @@ clk_get(struct device * dev, const char * id)
   int i;
   result_t retval;
 
-  /* KR_LINUX_EMUL slot LE_CLOCKS has a key to a node that contains
-  pairs of keys. The first key of a pair is a number key containing
+  /* The key in KR_LINUX_EMUL slot LE_CLOCKS defines the clock resources
+  available. If it is void, there are no resources. 
+  If it has a key to a node, the node contains pairs of keys.
+  The first key of a pair is a number key containing
   the name of a clock. The second key is a key to the clock object. */
 
   retval = capros_Node_getSlot(KR_LINUX_EMUL, LE_CLOCKS, KR_TEMP0);
@@ -49,7 +51,7 @@ clk_get(struct device * dev, const char * id)
 
   for (i = 0; i < EROS_NODE_SIZE; i += 2) {
     retval = capros_Node_getSlot(KR_TEMP0, i, KR_TEMP1);
-    if (retval)
+    if (retval)	// if LE_CLOCKS has a void key, there are no resources:
       return ERR_PTR(-ENOENT);
 
     capros_Number_value num;

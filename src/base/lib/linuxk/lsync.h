@@ -94,6 +94,7 @@ the process (usually one). */
 typedef uint32_t uva_t;	/* user (unmodified) virtual address */
 
 #define noThread (-1)
+#define noThread2 (-2)
 unsigned int lk_getCurrentThreadNum(void);
 
 result_t
