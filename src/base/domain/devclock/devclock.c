@@ -40,13 +40,12 @@ Approved for public release, distribution unlimited. */
 
 /* Memory:
   0: nothing
-  0x1000: code
-  0x20000: the page containing the device register
-  0x21000: nothing (to guard against stack overflow)
-  0x22000: stack */
+  0x01000: code
+  0x1d000: the page containing the device register
+  0x1e000: nothing (to guard against stack overflow)
+  0x1f000: stack */
 
-const uint32_t devRegPageAddr = 0x20000;
-const uint32_t __rt_stack_pointer = 0x23000;
+const uint32_t devRegPageAddr = 0x1d000;
 
 uint32_t __rt_unkept = 1;
 
