@@ -41,6 +41,7 @@ HEADERS=\
  byteorder.h \
  cache.h \
  cmpxchg.h \
+ cpu-single.h \
  cpufeature.h \
  cputime.h \
  current.h \
@@ -48,8 +49,11 @@ HEADERS=\
  desc.h \
  device.h \
  div64.h \
+ dma-mapping.h \
  domain.h \
+ dyntick.h \
  elf.h \
+ emergency-restart.h \
  errno.h \
  fcntl.h \
  fpstate.h \
@@ -68,6 +72,7 @@ HEADERS=\
  linkage.h \
  local.h \
  locks.h \
+ mach-types.h \
  math_emu.h \
  memory.h \
  mmu.h \
@@ -78,13 +83,17 @@ HEADERS=\
  page.h \
  param.h \
  percpu.h \
+ pgtable.h \
+ pgtable-hwdef.h \
  posix_types.h \
+ proc-fns.h \
  processor.h \
  processor-flags.h \
  ptrace.h \
  ptrace-abi.h \
  required-features.h \
  resource.h \
+ scatterlist.h \
  sections.h \
  segment.h \
  semaphore.h \
@@ -105,6 +114,7 @@ HEADERS=\
  topology.h \
  tsc.h \
  types.h \
+ unaligned.h \
  user.h \
  vm86.h \
 

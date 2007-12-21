@@ -29,6 +29,7 @@ ASMARCH_DIR=arch-$(ASMARCH)
 
 ASM_HEADERS=$(wildcard *.h)
 ASMARCH_HEADERS=$(wildcard $(ASMARCH_DIR)/*.h)
+ASMMACH_HEADERS=$(wildcard mach/*.h)
 
 THISDIR=$(notdir $(shell pwd))
 
@@ -45,8 +46,10 @@ all:
 
 install: all
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/$(THISDIR)/$(ASMARCH_DIR)/
+	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/$(THISDIR)/mach/
 	$(INSTALL) -m 644 $(ASM_HEADERS) $(EROS_ROOT)/include/linux-headers/$(THISDIR)/
 	$(INSTALL) -m 644 $(ASMARCH_HEADERS) $(EROS_ROOT)/include/linux-headers/$(THISDIR)/$(ASMARCH_DIR)/
+	$(INSTALL) -m 644 $(ASMMACH_HEADERS) $(EROS_ROOT)/include/linux-headers/$(THISDIR)/mach/
 # arm is the only target that uses asm/arch/, and we only support one
 # architecture at a time, so the following kludge works:
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/asm/
