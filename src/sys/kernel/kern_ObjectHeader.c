@@ -456,7 +456,7 @@ objH_CalcCheck(const ObjectHeader * thisPtr)
     assert (objC_ValidPagePtr(thisPtr));
 
     const uint32_t *  pageData = (const uint32_t *)
-      pageH_GetPageVAddr(objH_ToPage((ObjectHeader *)thisPtr));
+      pageH_GetPageVAddr(objH_ToPageConst(thisPtr));
 
     for (w = 0; w < EROS_PAGE_SIZE/sizeof(uint32_t); w++)
       ck ^= pageData[w];

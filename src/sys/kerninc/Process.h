@@ -187,10 +187,10 @@ Process *kproc_Init(const char * name,
 		    uint32_t *StackBottom, uint32_t *StackTop);
 
 #ifndef NDEBUG
-INLINE Process *
-keyR_ToProc(KeyRing * kr)
+INLINE const Process *
+keyR_ToProc(const KeyRing * kr)
 {
-  return (Process *) ((char *)kr - offsetof(Process, keyRing));
+  return container_of(kr, const Process, keyRing);
 }
 #endif
 

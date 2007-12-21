@@ -79,6 +79,9 @@ extern int __assertex(const void *ptr, const char *, const char *, int);
 #endif
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 
+#define container_of(ptr, type, member) \
+  (type *) ((char *)(ptr) - offsetof(type, member))
+
 #if defined(DBG_WILD_PTR)
 extern unsigned dbg_wild_ptr;
 #endif

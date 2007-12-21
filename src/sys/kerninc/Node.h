@@ -48,7 +48,13 @@ struct Node {
 INLINE Node *
 objH_ToNode(ObjectHeader * pObj)
 {
-  return (Node *)pObj;	// the ObjectHeader is the first component of Node
+  return container_of(pObj, Node, node_ObjHdr);
+}
+
+INLINE const Node *
+objH_ToNodeConst(const ObjectHeader * pObj)
+{
+  return container_of(pObj, const Node, node_ObjHdr);
 }
 
 INLINE ObjectHeader *

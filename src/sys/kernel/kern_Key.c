@@ -574,7 +574,7 @@ key_IsValid(const Key* thisPtr)
 
       if ( ! ( objC_ValidKeyPtr((Key *) krn) ||
 	       objC_ValidPagePtr(keyR_ToObj(krn)) ||
-	       objC_ValidNodePtr(objH_ToNode(keyR_ToObj(krn))) ||
+	       objC_ValidNodePtr(objH_ToNodeConst(keyR_ToObj(krn))) ||
 	       ValidCtxtKeyRingPtr(krn) ) ) {
 	printf("key 0x%x nxt key 0x%x bogus\n", thisPtr, krn);
 	return false;
@@ -582,7 +582,7 @@ key_IsValid(const Key* thisPtr)
       
       if ( ! ( objC_ValidKeyPtr((Key *) krp) ||
 	       objC_ValidPagePtr(keyR_ToObj(krp)) ||
-	       objC_ValidNodePtr(objH_ToNode(keyR_ToObj(krp))) ||
+	       objC_ValidNodePtr(objH_ToNodeConst(keyR_ToObj(krp))) ||
 	       ValidCtxtKeyRingPtr(krp) ) ) {
 	printf("key 0x%x prv key 0x%x bogus\n", thisPtr, krp);
 	return false;

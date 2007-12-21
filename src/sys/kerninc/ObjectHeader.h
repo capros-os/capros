@@ -189,7 +189,15 @@ struct PageHeader {
 INLINE PageHeader *
 objH_ToPage(ObjectHeader * pObj)
 {
-  return (PageHeader *)pObj;	// the ObjectHeader is the first component of PageHeader 
+  /* the ObjectHeader is the first component of PageHeader,
+  so this is the null transformation: */
+  return container_of(pObj, PageHeader, kt_u.ob.obh);
+}
+
+INLINE const PageHeader *
+objH_ToPageConst(const ObjectHeader * pObj)
+{
+  return container_of(pObj, const PageHeader, kt_u.ob.obh);
 }
 
 INLINE ObjectHeader *
@@ -213,10 +221,10 @@ pageH_IsObjectType(PageHeader * pageH)
 }
 
 #ifndef NDEBUG
-INLINE ObjectHeader *
-keyR_ToObj(KeyRing * kr)
+INLINE const ObjectHeader *
+keyR_ToObj(const KeyRing * kr)
 {
-  return (ObjectHeader *) ((char *)kr - offsetof(ObjectHeader, keyRing));
+  return container_of(kr, const ObjectHeader, keyRing);
 }
 #endif
 
