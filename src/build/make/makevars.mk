@@ -240,8 +240,8 @@ endif
 DOMLIB= $(EROS_ROOT)/lib/$(EROS_TARGET)/libdomain.a
 DOMLIB += $(EROS_ROOT)/lib/$(EROS_TARGET)/libidlstub.a
 DOMLIB += $(EROS_ROOT)/lib/$(EROS_TARGET)/libdomain.a
-DOMLIB += $(EROS_LIBGCC)
 DOMLIB += -lc # libc.a
+DOMLIB += $(EROS_LIBGCC)
 
 LINUXLIB=$(EROS_ROOT)/lib/$(EROS_TARGET)/liblinuxk.a
 
