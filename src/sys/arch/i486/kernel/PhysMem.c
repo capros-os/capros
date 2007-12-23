@@ -112,7 +112,7 @@ physMem_Init()
 
   /* Reserve kernel code and data and bss.
      The kernel stack is within the bss. */
-  physMem_ReserveExact((kpa_t)&_start, (kpa_t)&end - (kpa_t)&_start);
+  physMem_ReserveExact(VTOP(&_start), (kpa_t)((kva_t)&end - (kva_t)&_start));
                                                                                 
   /* Reserve space occupied by modules. */
   for (i = MultibootInfoPtr->mods_count,
