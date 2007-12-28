@@ -21,7 +21,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: all
+default: install
 
 LINUX_HEADERS=$(wildcard linux/*.h)
 LINUXAMBA_HEADERS=$(wildcard linux/amba/*.h)
@@ -47,9 +47,7 @@ endif
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-all:
-
-install: all
+install:
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/linux/
 	$(INSTALL) -m 644 $(LINUX_HEADERS) $(EROS_ROOT)/include/linux-headers/linux/
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/linux/amba/

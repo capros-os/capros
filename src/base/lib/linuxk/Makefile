@@ -21,7 +21,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: all
+default: install
 
 HEADERS=linux-emul.h lsync.h
 
@@ -36,9 +36,14 @@ OPTIM=-O
 DIRS=
 OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/alloc.o \
+  $(BUILDDIR)/completion.o \
+  $(BUILDDIR)/cpumask.o \
   $(BUILDDIR)/delay.o \
   $(BUILDDIR)/driverCore.o \
   $(BUILDDIR)/ioremap.o \
+  $(BUILDDIR)/kobject.o \
+  $(BUILDDIR)/kref.o \
+  $(BUILDDIR)/kthread.o \
   $(BUILDDIR)/lirq.o \
   $(BUILDDIR)/lthread.o \
   $(BUILDDIR)/lsync.o \
@@ -47,16 +52,23 @@ OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/resource.o \
   $(BUILDDIR)/semaphore.o \
   $(BUILDDIR)/sleep.o \
+  $(BUILDDIR)/stubs.o \
   $(BUILDDIR)/threadnum.o \
   $(BUILDDIR)/threadstart.o \
   $(BUILDDIR)/timer.o \
   $(BUILDDIR)/tty_ioctl.o \
-  $(BUILDDIR)/wait.o
+  $(BUILDDIR)/utsname.o \
+  $(BUILDDIR)/vsprintf.o \
+  $(BUILDDIR)/wait.o \
+  $(BUILDDIR)/workqueue.o
 
 ifeq "$(EROS_TARGET)" "arm"
-OBJECTS+=$(BUILDDIR)/devclock.o
-OBJECTS+=$(BUILDDIR)/memzero.o
 OBJECTS+=$(BUILDDIR)/bitops.o
+OBJECTS+=$(BUILDDIR)/devclock.o
+OBJECTS+=$(BUILDDIR)/div64.o
+OBJECTS+=$(BUILDDIR)/findbit.o
+OBJECTS+=$(BUILDDIR)/memzero.o
+OBJECTS+=$(BUILDDIR)/traps.o
 endif
 
 TARGETS=$(BUILDDIR)/liblinuxk.a $(BUILDDIR)/dstart.o

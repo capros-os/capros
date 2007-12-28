@@ -9,6 +9,9 @@
  * Wirzenius wrote this portably, Torvalds fucked it up :-)
  */
 
+/* Use this version of snprintf etc. in drivers rather than the one in the
+C library, because the latter pulls in stdio, which we don't want. */
+
 /* 
  * Fri Jul 13 2001 Crutcher Dunnavant <crutcher+kernel@datastacks.com>
  * - changed to provide snprintf and vsnprintf functions
@@ -16,11 +19,13 @@
  * - scnprintf and vscnprintf
  */
 
+#include <linuxk/linux-emul.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/string.h>
-#include <linux/ctype.h>
+#include <ctype.h>
 #include <linux/kernel.h>
 
 #include <asm/page.h>		/* for PAGE_SIZE */
@@ -34,6 +39,8 @@
  */
 unsigned long simple_strtoul(const char *cp,char **endp,unsigned int base)
 {
+  return strtoul(cp, endp, base);
+#if 0
 	unsigned long result = 0,value;
 
 	if (!base) {
@@ -58,6 +65,7 @@ unsigned long simple_strtoul(const char *cp,char **endp,unsigned int base)
 	if (endp)
 		*endp = (char *)cp;
 	return result;
+#endif
 }
 
 EXPORT_SYMBOL(simple_strtoul);
@@ -70,9 +78,12 @@ EXPORT_SYMBOL(simple_strtoul);
  */
 long simple_strtol(const char *cp,char **endp,unsigned int base)
 {
+  return strtol(cp, endp, base);
+#if 0
 	if(*cp=='-')
 		return -simple_strtoul(cp+1,endp,base);
 	return simple_strtoul(cp,endp,base);
+#endif
 }
 
 EXPORT_SYMBOL(simple_strtol);
@@ -85,6 +96,8 @@ EXPORT_SYMBOL(simple_strtol);
  */
 unsigned long long simple_strtoull(const char *cp,char **endp,unsigned int base)
 {
+  return strtoull(cp, endp, base);
+#if 0
 	unsigned long long result = 0,value;
 
 	if (!base) {
@@ -109,6 +122,7 @@ unsigned long long simple_strtoull(const char *cp,char **endp,unsigned int base)
 	if (endp)
 		*endp = (char *)cp;
 	return result;
+#endif
 }
 
 EXPORT_SYMBOL(simple_strtoull);
@@ -121,9 +135,12 @@ EXPORT_SYMBOL(simple_strtoull);
  */
 long long simple_strtoll(const char *cp,char **endp,unsigned int base)
 {
+  return strtoll(cp, endp, base);
+#if 0
 	if(*cp=='-')
 		return -simple_strtoull(cp+1,endp,base);
 	return simple_strtoull(cp,endp,base);
+#endif
 }
 
 static int skip_atoi(const char **s)
@@ -588,29 +605,6 @@ int vsprintf(char *buf, const char *fmt, va_list args)
 }
 
 EXPORT_SYMBOL(vsprintf);
-
-/**
- * sprintf - Format a string and place it in a buffer
- * @buf: The buffer to place the result into
- * @fmt: The format string to use
- * @...: Arguments for the format string
- *
- * The function returns the number of characters written
- * into @buf. Use snprintf() or scnprintf() in order to avoid
- * buffer overflows.
- */
-int sprintf(char * buf, const char *fmt, ...)
-{
-	va_list args;
-	int i;
-
-	va_start(args, fmt);
-	i=vsnprintf(buf, INT_MAX, fmt, args);
-	va_end(args);
-	return i;
-}
-
-EXPORT_SYMBOL(sprintf);
 
 /**
  * vsscanf - Unformat a buffer into a list of arguments

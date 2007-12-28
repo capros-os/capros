@@ -11,6 +11,7 @@
  *
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/kref.h>
 #include <linux/module.h>
 

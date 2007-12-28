@@ -8,15 +8,18 @@
  * See kernel/sched.c for details.
  */
 
-#include <linux/wait.h>
+#include <asm/semaphore.h>
 
+// Bits in done:
+#define compl_completed 0x1
+#define compl_timedout  0x2
 struct completion {
-	unsigned int done;
-	wait_queue_head_t wait;
+	atomic_t done;
+	struct semaphore sem;
 };
 
 #define COMPLETION_INITIALIZER(work) \
-	{ 0, __WAIT_QUEUE_HEAD_INITIALIZER((work).wait) }
+	{ ATOMIC_INIT(0), __SEMAPHORE_INIT((work).sem, 0) }
 
 #define COMPLETION_INITIALIZER_ONSTACK(work) \
 	({ init_completion(&work); work; })
@@ -38,20 +41,29 @@ struct completion {
 
 static inline void init_completion(struct completion *x)
 {
-	x->done = 0;
-	init_waitqueue_head(&x->wait);
+	atomic_set(&x->done, 0);
+	sema_init(&x->sem, 0);
 }
 
-extern void FASTCALL(wait_for_completion(struct completion *));
-extern int FASTCALL(wait_for_completion_interruptible(struct completion *x));
-extern unsigned long FASTCALL(wait_for_completion_timeout(struct completion *x,
-						   unsigned long timeout));
-extern unsigned long FASTCALL(wait_for_completion_interruptible_timeout(
-			struct completion *x, unsigned long timeout));
+void wait_for_completion(struct completion * x);
 
-extern void FASTCALL(complete(struct completion *));
+static inline void wait_for_completion_interruptible(struct completion * x)
+{
+  wait_for_completion(x);
+}
+
+unsigned long wait_for_completion_timeout(struct completion *x,
+					   unsigned long timeout);
+
+static inline unsigned long
+wait_for_completion_interruptible_timeout(struct completion *x,
+                                          unsigned long timeout)
+{
+  return wait_for_completion_timeout(x,timeout);
+}
+
+void complete(struct completion * x);
+
 extern void FASTCALL(complete_all(struct completion *));
-
-#define INIT_COMPLETION(x)	((x).done = 0)
 
 #endif

@@ -34,14 +34,12 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/GPT.h>
 #include <idl/capros/SuperNode.h>
 
-#include <domain/Runtime.h>
 #include <domain/assert.h>
 
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
 #include <linux/mutex.h>
 #include <linux/thread_info.h>
-#include <asm/bitops.h>
 
 static DEFINE_MUTEX(threadAllocLock);
 

@@ -1,20 +1,35 @@
 /*
- * linux/kernel/workqueue.c
+ * Started by Ingo Molnar, Copyright (C) 2002
+ * Copyright (C) 2007, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+/*
+ * workqueue.c
  *
  * Generic mechanism for defining kernel helper threads for running
  * arbitrary tasks in process context.
- *
- * Started by Ingo Molnar, Copyright (C) 2002
- *
- * Derived from the taskqueue/keventd code by:
- *
- *   David Woodhouse <dwmw2@infradead.org>
- *   Andrew Morton <andrewm@uow.edu.au>
- *   Kai Petzke <wpp@marie.physik.tu-berlin.de>
- *   Theodore Ts'o <tytso@mit.edu>
- *
- * Made to use alloc_percpu by Christoph Lameter <clameter@sgi.com>.
  */
+
+#include <linuxk/linux-emul.h>
+#include <linuxk/lsync.h>
 
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -24,14 +39,13 @@
 #include <linux/completion.h>
 #include <linux/workqueue.h>
 #include <linux/slab.h>
-#include <linux/cpu.h>
+#include <linux/percpu.h>
 #include <linux/notifier.h>
 #include <linux/kthread.h>
 #include <linux/hardirq.h>
-#include <linux/mempolicy.h>
-#include <linux/freezer.h>
-#include <linux/kallsyms.h>
 #include <linux/debug_locks.h>
+#include <domain/domdbg.h>
+#include <domain/assert.h>
 
 /*
  * The per-CPU workqueue (if single thread, we always use the first
@@ -42,7 +56,11 @@ struct cpu_workqueue_struct {
 	spinlock_t lock;
 
 	struct list_head worklist;
-	wait_queue_head_t more_work;
+
+/* The count of more_work is equal to the number of items queued in worklist,
+plus 1 if the worker thread should stop. */
+	struct semaphore more_work;
+
 	struct work_struct *current_work;
 
 	struct workqueue_struct *wq;
@@ -62,6 +80,8 @@ struct workqueue_struct {
 	int singlethread;
 	int freezeable;		/* Freeze threads during suspend */
 };
+
+static bool workqueues_initialized = false;
 
 /* All the per-cpu workqueues on the system, for hotplug cpu to add/remove
    threads to each one as cpus come/go. */
@@ -134,7 +154,7 @@ static void insert_work(struct cpu_workqueue_struct *cwq,
 		list_add_tail(&work->entry, &cwq->worklist);
 	else
 		list_add(&work->entry, &cwq->worklist);
-	wake_up(&cwq->more_work);
+	up(&cwq->more_work);
 }
 
 /* Preempt must be disabled. */
@@ -192,6 +212,9 @@ void delayed_work_timer_fn(unsigned long __data)
 int fastcall queue_delayed_work(struct workqueue_struct *wq,
 			struct delayed_work *dwork, unsigned long delay)
 {
+	if (! workqueues_initialized)
+		init_workqueues();
+
 	timer_stats_timer_set_start_info(&dwork->timer);
 	if (delay == 0)
 		return queue_work(wq, &dwork->work);
@@ -236,42 +259,46 @@ int queue_delayed_work_on(int cpu, struct workqueue_struct *wq,
 }
 EXPORT_SYMBOL_GPL(queue_delayed_work_on);
 
+// Under cwq->lock.
+static void run_one_worktask(struct cpu_workqueue_struct * cwq)
+{
+	struct work_struct *work = list_entry(cwq->worklist.next,
+					struct work_struct, entry);
+	work_func_t f = work->func;
+
+	cwq->current_work = work;
+	list_del_init(cwq->worklist.next);
+	spin_unlock_irq(&cwq->lock);
+
+	BUG_ON(get_wq_data(work) != cwq);
+	work_clear_pending(work);
+	f(work);
+
+	if (unlikely(in_atomic() || lockdep_depth(current) > 0)) {
+		printk(KERN_ERR "BUG: workqueue leaked lock or atomic: "
+			"%s/0x%08x/%d\n",
+			current->comm, preempt_count(),
+		       	current->pid);
+		printk(KERN_ERR "    last function: ");
+		kdprintf(KR_OSTREAM, "0x%x\n", f);
+	}
+
+	spin_lock_irq(&cwq->lock);
+	cwq->current_work = NULL;
+}
+
+// This won't work well with the semaphore ...
 static void run_workqueue(struct cpu_workqueue_struct *cwq)
 {
 	spin_lock_irq(&cwq->lock);
 	cwq->run_depth++;
 	if (cwq->run_depth > 3) {
 		/* morton gets to eat his hat */
-		printk("%s: recursion depth exceeded: %d\n",
+		kdprintf(KR_OSTREAM, "%s: recursion depth exceeded: %d\n",
 			__FUNCTION__, cwq->run_depth);
-		dump_stack();
 	}
 	while (!list_empty(&cwq->worklist)) {
-		struct work_struct *work = list_entry(cwq->worklist.next,
-						struct work_struct, entry);
-		work_func_t f = work->func;
-
-		cwq->current_work = work;
-		list_del_init(cwq->worklist.next);
-		spin_unlock_irq(&cwq->lock);
-
-		BUG_ON(get_wq_data(work) != cwq);
-		work_clear_pending(work);
-		f(work);
-
-		if (unlikely(in_atomic() || lockdep_depth(current) > 0)) {
-			printk(KERN_ERR "BUG: workqueue leaked lock or atomic: "
-					"%s/0x%08x/%d\n",
-					current->comm, preempt_count(),
-				       	current->pid);
-			printk(KERN_ERR "    last function: ");
-			print_symbol("%s\n", (unsigned long)f);
-			debug_show_held_locks(current);
-			dump_stack();
-		}
-
-		spin_lock_irq(&cwq->lock);
-		cwq->current_work = NULL;
+		run_one_worktask(cwq);
 	}
 	cwq->run_depth--;
 	spin_unlock_irq(&cwq->lock);
@@ -280,27 +307,18 @@ static void run_workqueue(struct cpu_workqueue_struct *cwq)
 static int worker_thread(void *__cwq)
 {
 	struct cpu_workqueue_struct *cwq = __cwq;
-	DEFINE_WAIT(wait);
 
-	if (!cwq->wq->freezeable)
-		current->flags |= PF_NOFREEZE;
-
-	set_user_nice(current, -5);
+	// set_user_nice(current, -5);
 
 	for (;;) {
-		prepare_to_wait(&cwq->more_work, &wait, TASK_INTERRUPTIBLE);
-		if (!freezing(current) &&
-		    !kthread_should_stop() &&
-		    list_empty(&cwq->worklist))
-			schedule();
-		finish_wait(&cwq->more_work, &wait);
-
-		try_to_freeze();
+		down(&cwq->more_work);
 
 		if (kthread_should_stop())
 			break;
-
-		run_workqueue(cwq);
+		
+		spin_lock_irq(&cwq->lock);
+		run_one_worktask(cwq);
+		spin_unlock_irq(&cwq->lock);
 	}
 
 	return 0;
@@ -328,33 +346,27 @@ static void insert_wq_barrier(struct cpu_workqueue_struct *cwq,
 	insert_work(cwq, &barr->work, tail);
 }
 
-static int flush_cpu_workqueue(struct cpu_workqueue_struct *cwq)
+static void flush_cpu_workqueue(struct cpu_workqueue_struct *cwq)
 {
-	int active;
-
 	if (cwq->thread == current) {
 		/*
 		 * Probably keventd trying to flush its own queue. So simply run
 		 * it by hand rather than deadlocking.
 		 */
+		assert(false);	// if this happens, fix the code
 		run_workqueue(cwq);
-		active = 1;
 	} else {
-		struct wq_barrier barr;
-
-		active = 0;
 		spin_lock_irq(&cwq->lock);
 		if (!list_empty(&cwq->worklist) || cwq->current_work != NULL) {
+			struct wq_barrier barr;
+
 			insert_wq_barrier(cwq, &barr, 1);
-			active = 1;
-		}
-		spin_unlock_irq(&cwq->lock);
-
-		if (active)
+			spin_unlock_irq(&cwq->lock);
 			wait_for_completion(&barr.done);
+		} else {
+			spin_unlock_irq(&cwq->lock);
+		}
 	}
-
-	return active;
 }
 
 /**
@@ -485,6 +497,7 @@ void cancel_work_sync(struct work_struct *work)
 }
 EXPORT_SYMBOL_GPL(cancel_work_sync);
 
+#if 0 // CapROS
 /**
  * cancel_rearming_delayed_work - reliably kill off a delayed work.
  * @dwork: the delayed work struct
@@ -501,8 +514,9 @@ void cancel_rearming_delayed_work(struct delayed_work *dwork)
 	work_clear_pending(&dwork->work);
 }
 EXPORT_SYMBOL(cancel_rearming_delayed_work);
+#endif // CapROS
 
-static struct workqueue_struct *keventd_wq __read_mostly;
+static struct workqueue_struct * keventd_wq __read_mostly;
 
 /**
  * schedule_work - put work task in global workqueue
@@ -512,6 +526,9 @@ static struct workqueue_struct *keventd_wq __read_mostly;
  */
 int fastcall schedule_work(struct work_struct *work)
 {
+	if (! workqueues_initialized)
+		init_workqueues();
+
 	return queue_work(keventd_wq, work);
 }
 EXPORT_SYMBOL(schedule_work);
@@ -527,11 +544,11 @@ EXPORT_SYMBOL(schedule_work);
 int fastcall schedule_delayed_work(struct delayed_work *dwork,
 					unsigned long delay)
 {
-	timer_stats_timer_set_start_info(&dwork->timer);
 	return queue_delayed_work(keventd_wq, dwork, delay);
 }
 EXPORT_SYMBOL(schedule_delayed_work);
 
+#if 0 // CapROS
 /**
  * schedule_delayed_work_on - queue work in global workqueue on CPU after delay
  * @cpu: cpu to use
@@ -581,13 +598,18 @@ int schedule_on_each_cpu(work_func_t func)
 	free_percpu(works);
 	return 0;
 }
+#endif // CapROS
 
 void flush_scheduled_work(void)
 {
+	if (! workqueues_initialized)
+		init_workqueues();
+
 	flush_workqueue(keventd_wq);
 }
 EXPORT_SYMBOL(flush_scheduled_work);
 
+#if 0 // CapROS
 /**
  * execute_in_process_context - reliably execute the routine with user context
  * @fn:		the function to execute
@@ -634,6 +656,7 @@ int current_is_keventd(void)
 	return ret;
 
 }
+#endif // CapROS
 
 static struct cpu_workqueue_struct *
 init_cpu_workqueue(struct workqueue_struct *wq, int cpu)
@@ -643,18 +666,18 @@ init_cpu_workqueue(struct workqueue_struct *wq, int cpu)
 	cwq->wq = wq;
 	spin_lock_init(&cwq->lock);
 	INIT_LIST_HEAD(&cwq->worklist);
-	init_waitqueue_head(&cwq->more_work);
+	sema_init(&cwq->more_work, 0);
 
 	return cwq;
 }
 
-static int create_workqueue_thread(struct cpu_workqueue_struct *cwq, int cpu)
+static int run_workqueue_thread(struct cpu_workqueue_struct *cwq, int cpu)
 {
 	struct workqueue_struct *wq = cwq->wq;
 	const char *fmt = is_single_threaded(wq) ? "%s" : "%s/%d";
 	struct task_struct *p;
 
-	p = kthread_create(worker_thread, cwq, fmt, wq->name, cpu);
+	p = kthread_run(worker_thread, cwq, fmt, wq->name, cpu);
 	/*
 	 * Nobody can add the work_struct to this cwq,
 	 *	if (caller is __create_workqueue)
@@ -671,6 +694,7 @@ static int create_workqueue_thread(struct cpu_workqueue_struct *cwq, int cpu)
 	return 0;
 }
 
+#if 0 // CapROS
 static void start_workqueue_thread(struct cpu_workqueue_struct *cwq, int cpu)
 {
 	struct task_struct *p = cwq->thread;
@@ -681,13 +705,17 @@ static void start_workqueue_thread(struct cpu_workqueue_struct *cwq, int cpu)
 		wake_up_process(p);
 	}
 }
+#endif // CapROS
 
-struct workqueue_struct *__create_workqueue(const char *name,
+struct workqueue_struct * __create_workqueue(const char *name,
 					    int singlethread, int freezeable)
 {
 	struct workqueue_struct *wq;
 	struct cpu_workqueue_struct *cwq;
 	int err = 0, cpu;
+
+	if (! workqueues_initialized)
+		init_workqueues();
 
 	wq = kzalloc(sizeof(*wq), GFP_KERNEL);
 	if (!wq)
@@ -706,8 +734,7 @@ struct workqueue_struct *__create_workqueue(const char *name,
 
 	if (singlethread) {
 		cwq = init_cpu_workqueue(wq, singlethread_cpu);
-		err = create_workqueue_thread(cwq, singlethread_cpu);
-		start_workqueue_thread(cwq, -1);
+		err = run_workqueue_thread(cwq, singlethread_cpu);
 	} else {
 		mutex_lock(&workqueue_mutex);
 		list_add(&wq->list, &workqueues);
@@ -716,8 +743,7 @@ struct workqueue_struct *__create_workqueue(const char *name,
 			cwq = init_cpu_workqueue(wq, cpu);
 			if (err || !cpu_online(cpu))
 				continue;
-			err = create_workqueue_thread(cwq, cpu);
-			start_workqueue_thread(cwq, cpu);
+			err = run_workqueue_thread(cwq, cpu);
 		}
 		mutex_unlock(&workqueue_mutex);
 	}
@@ -780,6 +806,7 @@ void destroy_workqueue(struct workqueue_struct *wq)
 }
 EXPORT_SYMBOL_GPL(destroy_workqueue);
 
+#if 0 // CapROS
 static int __devinit workqueue_cpu_callback(struct notifier_block *nfb,
 						unsigned long action,
 						void *hcpu)
@@ -827,13 +854,15 @@ static int __devinit workqueue_cpu_callback(struct notifier_block *nfb,
 
 	return NOTIFY_OK;
 }
+#endif // CapROS
 
 void __init init_workqueues(void)
 {
 	cpu_populated_map = cpu_online_map;
 	singlethread_cpu = first_cpu(cpu_possible_map);
 	cpu_singlethread_map = cpumask_of_cpu(singlethread_cpu);
-	hotcpu_notifier(workqueue_cpu_callback, 0);
+	// hotcpu_notifier(workqueue_cpu_callback, 0);
 	keventd_wq = create_workqueue("events");
 	BUG_ON(!keventd_wq);
+	workqueues_initialized = true;
 }

@@ -4,7 +4,7 @@
 #ifndef _ARCH_ARM_HW_IRQ_H
 #define _ARCH_ARM_HW_IRQ_H
 
-#include <asm/mach/irq.h>
+#include <asm-arm/mach/irq.h>
 
 #if defined(CONFIG_NO_IDLE_HZ)
 # include <asm/dyntick.h>

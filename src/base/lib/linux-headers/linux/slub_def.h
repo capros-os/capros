@@ -173,6 +173,7 @@ static inline struct kmem_cache *kmalloc_slab(size_t size)
 
 static inline void *kmalloc(size_t size, gfp_t flags)
 {
+#if 0 // CapROS doesn't optimize fixed sizes
 	if (__builtin_constant_p(size) && !(flags & SLUB_DMA)) {
 		struct kmem_cache *s = kmalloc_slab(size);
 
@@ -181,11 +182,13 @@ static inline void *kmalloc(size_t size, gfp_t flags)
 
 		return kmem_cache_alloc(s, flags);
 	} else
+#endif
 		return __kmalloc(size, flags);
 }
 
 static inline void *kzalloc(size_t size, gfp_t flags)
 {
+#if 0 // CapROS doesn't optimize fixed sizes
 	if (__builtin_constant_p(size) && !(flags & SLUB_DMA)) {
 		struct kmem_cache *s = kmalloc_slab(size);
 
@@ -194,6 +197,7 @@ static inline void *kzalloc(size_t size, gfp_t flags)
 
 		return kmem_cache_zalloc(s, flags);
 	} else
+#endif
 		return __kzalloc(size, flags);
 }
 

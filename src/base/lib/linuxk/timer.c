@@ -35,6 +35,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <domain/assert.h>
 #include <linux/timer.h>
+#include <linux/sched.h>
 
 // #define TIMERDEBUG
 
@@ -212,11 +213,15 @@ timerThreadProc(void * arg)
 #ifdef TIMERDEBUG
       kprintf(KR_OSTREAM, "Timer 0x%x expired.\n", tmr);
 #endif
+      // Get fn and data now, as the timer might be deallocated after
+      // we have marked it not pending.
+      void (*fn)(unsigned long) = tmr->function;
+      unsigned long data = tmr->data;
+
       remove_timer(tmr);
       spin_unlock_irqrestore(&timerLock, flags);
 
-      // Call the timer function.
-      (*(tmr->function))(tmr->data);
+      (*fn)(data);	// Call the timer function.
 
       spin_lock_irqsave(&timerLock, flags);
     }
@@ -227,12 +232,10 @@ getWaitTime:
   }
 }
 
-void fastcall
-init_timer(struct timer_list * timer)
+static void
+ensure_timer_thread(void)
 {
   unsigned long flags;
-
-  timer->entry.next = NULL;	// mark as not pending
 
   spin_lock_irqsave(&timerLock, flags);
   if (timerThreadNum == noThread) {
@@ -248,6 +251,14 @@ init_timer(struct timer_list * timer)
   }
   else
     spin_unlock_irqrestore(&timerLock, flags);
+}
+
+void fastcall
+init_timer(struct timer_list * timer)
+{
+  timer->entry.next = NULL;	// mark as not pending
+
+  ensure_timer_thread();
 }
 
 // Called with timerLock held.
@@ -364,8 +375,10 @@ __mod_timer(struct timer_list * timer, unsigned long expires)
   int ret = 0;
 
   BUG_ON(!timer->function);
-  spin_lock_irqsave(timerLock, flags);
 
+  ensure_timer_thread();
+
+  spin_lock_irqsave(timerLock, flags);
   if (timer_pending(timer)) {
     struct list_head *entry = &timer->entry;
     __list_del(entry->prev, entry->next);
@@ -404,3 +417,31 @@ mod_timer(struct timer_list * timer, unsigned long expires)
         return __mod_timer(timer, expires);
 }
 
+unsigned long
+timer_remaining_time(struct timer_list * timer)
+{
+  unsigned long now = capros_getJiffies();
+  if (now < timer->expires)
+    return timer->expires - now;
+  else return 0;
+}
+
+void
+add_timer_on(struct timer_list *timer, int cpu)
+{
+  // We don't support this.
+  add_timer(timer);
+}
+
+signed long
+schedule_timeout_interruptible(signed long timeout)
+{
+  return schedule_timeout_uninterruptible(timeout);
+}
+
+signed long
+schedule_timeout_uninterruptible(signed long timeout)
+{
+  capros_Sleep_sleep(KR_SLEEP, jiffies_to_msecs(timeout));
+  return 0;	// no signals
+}

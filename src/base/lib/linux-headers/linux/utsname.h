@@ -34,7 +34,6 @@ struct new_utsname {
 
 #include <linux/sched.h>
 #include <linux/kref.h>
-#include <linux/nsproxy.h>
 #include <asm/atomic.h>
 
 struct uts_namespace {
@@ -68,10 +67,12 @@ static inline void put_uts_ns(struct uts_namespace *ns)
 }
 #endif
 
+#if 0 // CapROS
 static inline struct new_utsname *utsname(void)
 {
 	return &current->nsproxy->uts_ns->name;
 }
+#endif // CapROS
 
 static inline struct new_utsname *init_utsname(void)
 {
