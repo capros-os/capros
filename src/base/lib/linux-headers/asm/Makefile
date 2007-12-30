@@ -40,6 +40,7 @@ HEADERS=\
  bug.h \
  byteorder.h \
  cache.h \
+ cacheflush.h \
  cmpxchg.h \
  cpu-single.h \
  cpufeature.h \
@@ -68,6 +69,7 @@ HEADERS=\
  irq.h \
  irq_regs.h \
  irqflags.h \
+ kmap_types.h \
  ldt.h \
  linkage.h \
  local.h \
@@ -99,6 +101,7 @@ HEADERS=\
  semaphore.h \
  sembuf.h \
  serial.h \
+ shmparam.h \
  sigcontext.h \
  siginfo.h \
  signal.h \
@@ -114,6 +117,7 @@ HEADERS=\
  topology.h \
  tsc.h \
  types.h \
+ uaccess.h \
  unaligned.h \
  user.h \
  vm86.h \
