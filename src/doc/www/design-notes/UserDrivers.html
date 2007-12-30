@@ -219,16 +219,16 @@ All normal user objects fall into this class.
       as long as it is never used.)
     </p>
     <p>
-      This prohibition applies even to resume keys, since the designated
-      process could be paged out when the key is received, or could become
-      paged out while the key is held. 
-      An unpinned process should not CALL a start key to the PFH,
-      because the PFH must not receive and use the resume key. 
+      The PFH may read persistent pinned objects, but must never write them. 
+      The reason is that at the instant a checkpoint is taken, persistent
+      objects are made temporarily read-only until their state can be saved.
+      Saving the state may require using the PFH. 
     </p>
     <p>
-      In the case of a gate key,
-      both the process and the buffer that receives the string
-      must be pinned, so a message can be sent to the key. 
+      It follows that the PFH cannot use a gate key to any persistent
+      process. 
+      A process should not CALL a start key to the PFH,
+      because the PFH must not receive and use the resume key. 
     </p>
     <p>
       More generally, the PFH could be designed to handle its own faults
@@ -238,8 +238,7 @@ All normal user objects fall into this class.
     <p>
       Another constraint applies to locks (such as semaphores, mutexes,
       or spinlocks) that are used by the PFH. 
-      A process must not reference unpinned objects
-      while holding such a lock.
+      While holding such a lock, a process must obey the same rules as the PFH.
     </p>
     <h3>Reset</h3>
     <p>
