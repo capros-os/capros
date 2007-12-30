@@ -68,10 +68,35 @@
     <h2>Spinlocks</h2>
     <p>Spinlocks differ from semaphores in that they can be used at
        interrupt level, where suspending the current process is not an option.
-       In CapROS, interrupt processing for a driver will be done in a
+       In CapROS, interrupt processing for a driver is done in a
        user-mode process, so this restriction does not apply.
-       In CapROS spinlocks will become mutexes or semaphores,
-       and read-write spinlocks will become read-write semaphores.</p>
+       In CapROS it would be possible to implement spinlocks as mutexes
+       or semaphores, and read-write spinlocks as read-write semaphores.
+    </p>
+    <p>
+       However, Linux drivers might
+       assume that while under a spin_lock_irq() or spin_lock_irqsave(),
+       interrupts cannot occur and therefore execution timing is predictable.
+       (I know of no actual instances of this at the moment.)
+       Therefore we implement spinlocks by disabling interrupts. 
+       This also has the advantage that the speed of spinlocks in CapROS
+       is similar to that in Linux.
+    </p>
+    <p>
+       Some Linux operations that can be done under a spinlock
+       (for example, reading jiffies) require an invocation of a kernel
+       object in CapROS. To support this, the kernel runs with interrupts
+       disabled if it was entered from a process that had
+       interrupts disabled. Of course, if a context switch occurs,
+       interrupts will be enabled according to the new process. 
+    </p>
+    <p>
+       We need to be aware that page faults might still occur while a
+       driver is under a spin_lock_irq() or spin_lock_irqsave().
+       In particular, a page fault could occur if a driver writes to
+       a pinned persistent object, because, despite the object being pinned,
+       it could be temporarily read-only just after a checkpoint.
+    </p>
     <h2>Wait Queues</h2>
     <p>Wait queues can be handled in a general way that preserves
        the stack at the point of waiting, in a manner similar to sleeping
