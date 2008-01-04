@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -310,8 +310,14 @@ compute_value(Symbol *s)
 void
 output_c_type_trailer(Symbol *s, FILE *out, int indent)
 {
-  while (s->cls == sc_symRef)
-    s = s->value;
+  s = symbol_ResolveRef(s);
+
+  /* If this symbol is a typedef, we put out the typedef name
+     as its type name, so don't expose the underlying type. */
+
+  if (s->cls != sc_typedef) {
+    s = symbol_ResolveType(s);
+  }
 
 #if 0
   /* FIX: This seems wrong to me. If it is truly a variable length

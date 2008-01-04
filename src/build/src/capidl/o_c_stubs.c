@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
+ * Copyright (C) 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <assert.h>
 #include <stdlib.h>
@@ -503,18 +507,19 @@ emit_send_string(PtrVec *symVec, FILE *out, int indent)
   if (vec_len(symVec) == 1 &&
       symbol_IsDirectSerializable(symvec_fetch(symVec,0)->type)) {
     Symbol *s0 = symvec_fetch(symVec, 0);
+    Symbol * s0BaseType = symbol_ResolveType(s0->type);
 
     do_indent(out, indent);
     fprintf(out, "/* Using direct method */\n");
 
-    if (symbol_IsVarSequenceType(s0->type)) {
+    if (symbol_IsVarSequenceType(s0BaseType)) {
       do_indent(out, indent);
       fprintf(out, "msg.snd_len = %s_len * sizeof(",
 	      symvec_fetch(symVec,0)->name);
       output_c_type(s0->type, out, 0);
       fprintf(out, ");\n");
     }
-    else if (symbol_IsFixSequenceType(s0->type)) {
+    else if (symbol_IsFixSequenceType(s0BaseType)) {
       do_indent(out, indent);
       fprintf(out, "msg.snd_len = sizeof(%s);\n", s0->name);
     }
