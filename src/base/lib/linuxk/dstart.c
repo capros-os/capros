@@ -32,12 +32,7 @@ Approved for public release, distribution unlimited. */
 /* This is the first code to run in a driver process.
    It sets up the .data and .bss sections in a vcsk. */
 
-extern NORETURN void _start(void);
-
-/* Our stack pointer is set up in the image file.
-   The following is for _start, which will reset the stack pointer. */
-void * __rt_stack_pointer = (void *)(0x420000 - SIZEOF_THREAD_INFO);
-uint32_t __rt_unkept = 1;
+extern NORETURN void driver_main(void);
 
 /* When called, KR_TEMP1 has a constructor builder key to the VCSK
    for the data section,
@@ -59,5 +54,6 @@ driver_start(void)
     *((int *)0) = 0xbadbad77;	// FIXME
   }
 
-  _start();
+  // This needs more work to support C++ constructors.
+  driver_main();
 }

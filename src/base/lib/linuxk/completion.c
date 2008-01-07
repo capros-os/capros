@@ -48,7 +48,8 @@ void
 wait_for_completion(struct completion * x)
 {
   down(&x->sem);
-  atomic_set(&x->done, 0);	// reinitialize
+  if (atomic_sub_return(compl_completed, &x->done) != 0)
+    up(&x->sem);	// get ready for the next wait
 }
 
 unsigned long
@@ -67,12 +68,22 @@ wait_for_completion_timeout(struct completion * x, unsigned long timeout)
 
   unsigned long remaining = timer_remaining_time(&compl_timer);
   int wasActive = del_timer(&compl_timer);
-  /* FIXME: there is a race here; the timer thread could still be
-  calling the timer function, even after this procedure has returned
-  (which is somewhat harmful) and after x has been deallocated
-  (which would be bad). */
 
-  int oldDone = atomic_xchg(&x->done, 0);	// reset done to 0
+  /* Atomically update done:
+       Clear compl_timedout.
+       If there is a completion count, decrement it. */
+  int oldDone, nextDone;
+  int curDone = atomic_read(&x->done);
+  do {
+    oldDone = curDone;
+    nextDone = oldDone & ~ compl_timedout;
+    if (nextDone)
+      nextDone -= compl_completed;
+    curDone = atomic_cmpxchg(&x->done, curDone, nextDone);
+  } while (curDone != oldDone);
+
+  if (nextDone != 0)
+    up(&x->sem);	// get ready for the next wait
 
   /* If wasActive, del_timer cancelled the timer and
   compl_timer_fn will not be called. */
@@ -81,12 +92,13 @@ wait_for_completion_timeout(struct completion * x, unsigned long timeout)
     if (! (oldDone & compl_timedout)) {
       /* The timer hasn't fired.
       Wait for it to fire, to ensure it is done referencing x. */
+      // FIXME: this doesn't work with multiple completions.
       down(&x->sem);
       atomic_set(&x->done, 0);	// reinitialize for next time
     }
   }
 
-  if (oldDone & compl_completed) {
+  if (oldDone & ~ compl_timedout) {	// there was a completion
     // It was completed.
     if (remaining)
       return remaining;

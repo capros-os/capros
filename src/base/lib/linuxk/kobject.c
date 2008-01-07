@@ -10,12 +10,14 @@
  * about using the kobject interface.
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/module.h>
 #include <linux/stat.h>
 #include <linux/slab.h>
 
+#if 0 // CapROS
 /**
  *	populate_dir - populate directory with attributes.
  *	@kobj:	object we're working on.
@@ -454,6 +456,7 @@ void kobject_unregister(struct kobject * kobj)
 	kobject_del(kobj);
 	kobject_put(kobj);
 }
+#endif // CapROS
 
 /**
  *	kobject_get - increment refcount for object.
@@ -507,6 +510,7 @@ void kobject_put(struct kobject * kobj)
 }
 
 
+#if 0 // CapROS
 static void dir_release(struct kobject *kobj)
 {
 	kfree(kobj);
@@ -693,3 +697,35 @@ EXPORT_SYMBOL(kset_unregister);
 EXPORT_SYMBOL(subsystem_register);
 EXPORT_SYMBOL(subsystem_unregister);
 EXPORT_SYMBOL(subsys_create_file);
+#endif // CapROS
+
+// From device/base/core.c:
+
+#include <linux/device.h>
+
+#define to_dev(obj) container_of(obj, struct device, kobj)
+
+/**
+ *	get_device - increment reference count for device.
+ *	@dev:	device.
+ *
+ *	This simply forwards the call to kobject_get(), though
+ *	we do take care to provide for the case that we get a NULL
+ *	pointer passed in.
+ */
+
+struct device * get_device(struct device * dev)
+{
+	return dev ? to_dev(kobject_get(&dev->kobj)) : NULL;
+}
+
+
+/**
+ *	put_device - decrement reference count.
+ *	@dev:	device in question.
+ */
+void put_device(struct device * dev)
+{
+	if (dev)
+		kobject_put(&dev->kobj);
+}
