@@ -2111,8 +2111,8 @@ read_wait_func(wait_queue_t * wait, unsigned mode, int sync, void * key)
   return 1;
 }
 
-int
-main(void)
+NORETURN void
+driver_main(void)
 {
   result_t result;
 
@@ -2438,12 +2438,4 @@ kdprintf(KR_OSTREAM, "Called, oc=0x%x\n", msg->rcv_code);////
 
     }
   }
-  return 0;
-}
-
-//// FIXME
-unsigned long msleep_interruptible(unsigned int msecs)
-{
-  assert(false);	// need to implement
-  return 0;		// no signals in CapROS
 }

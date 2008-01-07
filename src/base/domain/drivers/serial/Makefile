@@ -21,7 +21,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: package
+default: all
 
 CROSS_BUILD=yes
 EROS_SRC=../../../..
@@ -50,8 +50,8 @@ IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/serial: $(OBJECTS) $(DEVSTART) $(DOMCRT0) $(LINUXLIB) $(DOMSBRK) $(DOMLIB)
-	$(DOMLINK) -Tdata 0x00c00000 $(DOMLINKOPT) $(DEVSTART) $(DOMCRT0) $(OBJECTS) $(LINUXLIB) $(DOMSBRK) $(DOMLIB) -o $@
+$(BUILDDIR)/serial: $(OBJECTS) $(DEVSTART) $(LINUXLIB) $(DOMSBRK) $(DOMLIB)
+	$(DOMLINK) -Tdata 0x00c00000 $(DOMLINKOPT) $(DEVSTART) $(OBJECTS) $(LINUXLIB) $(DOMSBRK) $(DOMLIB) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
