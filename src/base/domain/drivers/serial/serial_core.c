@@ -2119,42 +2119,6 @@ driver_main(void)
   Message msgs;
   Message * const msg = &msgs;	// to address it consistently
 
-  /* Validate that SIZEOF_THREAD_INFO is correct, or at least good enough. */
-  assert(SIZEOF_THREAD_INFO
-         >= offsetof(struct thread_info, preempt_count)
-            + sizeof(((struct thread_info *)0)->preempt_count) );
-
-  // Create the KEYSTORE object.
-  result = capros_Constructor_request(KR_KEYSTORE, KR_BANK, KR_SCHED, KR_VOID,
-                             KR_KEYSTORE);
-  assert(result == RC_OK);	// FIXME
-  result = capros_SuperNode_allocateRange(KR_KEYSTORE, LKSN_THREAD_PROCESS_KEYS,
-                      LKSN_MAPS_GPT);
-  assert(result == RC_OK);	// FIXME
-  // Populate it.
-  capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_THREAD_PROCESS_KEYS+0,
-                               KR_SELF, KR_VOID);
-  capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_STACKS_GPT,
-                               KR_RETURN, KR_VOID);
-
-  // Create the lsync process.
-  unsigned int lsyncThreadNum;
-  result = lthread_new_thread(LSYNC_STACK_SIZE, &lsync_main, NULL,
-                              &lsyncThreadNum);
-  if (result != RC_OK) {
-    assert(false);	// FIXME handle error
-  }
-
-  // Get lsync process key
-  result = capros_Node_getSlotExtended(KR_KEYSTORE,
-                              LKSN_THREAD_PROCESS_KEYS + lsyncThreadNum,
-                              KR_TEMP0);
-  assert(result == RC_OK);
-  result = capros_Process_makeStartKey(KR_TEMP0, 0, KR_LSYNC);
-  assert(result == RC_OK);
-  result = capros_Process_swapKeyReg(KR_TEMP0, KR_LSYNC, KR_LSYNC, KR_VOID);
-  assert(result == RC_OK);
-
   // Allocate slots for resume keys to waiters:
   result = capros_SuperNode_allocateRange(KR_KEYSTORE,
                                           xmitWaiterCap, lastWaiterCap);
