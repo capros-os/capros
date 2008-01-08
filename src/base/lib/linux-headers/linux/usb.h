@@ -151,6 +151,7 @@ struct usb_interface {
 	enum usb_interface_condition condition;		/* state of binding */
 	unsigned is_active:1;		/* the interface is not suspended */
 	unsigned needs_remote_wakeup:1;	/* driver requires remote wakeup */
+	unsigned is_hub:1;
 
 	struct device dev;		/* interface specific device info */
 	struct device *usb_dev;		/* pointer to the usb class's device, if any */
@@ -358,7 +359,7 @@ struct usb_device {
 	struct usb_host_endpoint *ep_in[16];
 	struct usb_host_endpoint *ep_out[16];
 
-	char **rawdescriptors;		/* Raw descriptors for each config */
+	unsigned char **rawdescriptors;	/* Raw descriptors for each config */
 
 	unsigned short bus_mA;		/* Current available from the bus */
 	u8 portnum;			/* Parent port number (origin 1) */

@@ -3,6 +3,7 @@
 
 /*
  * (C) Copyright 2001 Linus Torvalds
+ * Copyright (C) 2007, Strawberry Development Group.
  *
  * Atomic wait-for-completion handler data structures.
  * See kernel/sched.c for details.
@@ -10,9 +11,15 @@
 
 #include <asm/semaphore.h>
 
-// Bits in done:
-#define compl_completed 0x1
-#define compl_timedout  0x2
+/* done has the number of unacknowledged completions times 2,
+   plus one if there is a timeout.
+sem has:
+-1: a process is waiting and done is zero
+0: no process is waiting and done is zero
+1: no process is waiting and done is nonzero.
+*/
+#define compl_completed 0x2
+#define compl_timedout  0x1
 struct completion {
 	atomic_t done;
 	struct semaphore sem;
