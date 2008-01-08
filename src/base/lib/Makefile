@@ -31,8 +31,8 @@ include $(EROS_SRC)/build/make/makevars.mk
 DIRS=linux-headers
 DIRS+= idlstub domain rbtree util
 DIRS+=graphics forwarder addrspace xsprintf
-ifneq "$(EROS_TARGET)" "i486"	# not for i486 so far
 DIRS+= linuxk
+ifneq "$(EROS_TARGET)" "i486"	# not for i486 so far
 endif
 ifeq "$(EROS_TARGET)" "i486"	# only for i486 so far
 DIRS+=ethread
