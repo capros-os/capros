@@ -27,13 +27,14 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=
 ifeq "$(EROS_TARGET)" "i486"	# drivers are for i486 only so far
+DIRS+=serial
 DIRS+=pci
 # DIRS+=ps2 # broken due to RETRY_SET_WAKEINFO
 DIRS+=sound
 DIRS+=network
 # DIRS+=console # broken due to RETRY_SET_LIK
 else	# ARM-only drivers
-DIRS+=serial
+##DIRS+=usb	# so far, ARM only
 endif
 
 include $(EROS_SRC)/build/make/makerules.mk
