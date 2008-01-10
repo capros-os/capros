@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -17,6 +18,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* kprintf -- printf via key.  Similar to fprintf, but not as complete
    and takes output stream key as first argument rather than FILE*.
@@ -73,64 +77,58 @@ sprintf_putc(char c, buf *buffer)
 
 enum size_modifier {
   sizemod_none = 0,
-  sizemod_ll,
-  sizemod_l
+  sizemod_l,
+  sizemod_ll
 };
 
 static void
 printf_guts(void (putc)(char c, buf *buffer),
-	    buf *pBuf, const char *fmt, void *vap)
+	    buf *pBuf, const char *fmt, va_list ap)
 {
-  char sign = 0;
-  uint32_t width = 0;
-  int rightAdjust = TRUE;
-  char fillchar = ' ';
-  enum size_modifier sizemod = sizemod_none;
-  const char * digits = small_digits;
-  /* largest thing we might convert fits in 16 digits: */
-  char buf[20];
-  char *pend = &buf[20];
-  char *p = pend;
+  /* A long long has up to 22 octal digits. */
+  char buf[25];
   uint32_t len;
+  unsigned long ul;
+  unsigned long long ull;
     
-  va_list ap = (va_list) vap;
-
   if (fmt == 0) {		/* bogus input specifier */
     putc('?', pBuf);
     putc('f', pBuf);
     putc('m', pBuf);
     putc('t', pBuf);
     putc('?', pBuf);
-
     return;
   }
 
   for( ; *fmt; fmt++) {
-    width = 0;
-    sign = 0;
-    rightAdjust = TRUE;
-    fillchar = ' ';
-    pend = &buf[20];
-    p = pend;
-    
     if (*fmt != '%') {
       putc(*fmt, pBuf);
       continue;
     }
 
+    uint32_t width = 0;
+    char sign = 0;
+    int rightAdjust = TRUE;
+    char fillchar = ' ';
+    enum size_modifier sizemod = sizemod_none;
+    const char * digits = small_digits;
+    char * pend = &buf[25];
+    char * p = pend;
+    
     /* Process a conversion specification. */
     /* First the flags: */
   flags:
-    fmt++;
+    fmt++;	// consume the '%' or flag
 
     switch (*fmt) {
       case '-': rightAdjust = FALSE; goto flags;
       case '0': fillchar = '0'; goto flags;
+    default: break;
     }
      
     /* See if what follows is a width specifier: */
 
-    while (*fmt && *fmt >= '0' && *fmt <= '9') {
+    while (*fmt >= '0' && *fmt <= '9') {
       width *= 10;
       width += (*fmt - '0');
       fmt++;
@@ -168,67 +166,66 @@ printf_guts(void (putc)(char c, buf *buffer),
 	*(--p) = c;
 	break;
       }	    
+
     case 'd':
     case 'i': /* JONADAMS: handle %i as %d */
-      {
-	long l;
-	unsigned long ul;
+    {
+      long l;
+      switch (sizemod) {
+      case sizemod_none:
+	l = va_arg(ap, int);
+        goto printl10;
 
+      case sizemod_l:
 	l = va_arg(ap, long);
-	      
-	if (l == 0) {
-	  *(--p) = '0';
-	}
-	else {
-	  if (l < 0)
-	    sign = '-';
+printl10:
+	if (l < 0) {
+	  sign = '-';
+          ul = -l;
+        } else
+          ul = l;
+	goto printul10;
 
-	  ul = (l < 0) ? (unsigned) -l : (unsigned) l;
-
-	  if (l == LONG_MIN)
-	    ul = ((unsigned long) LONG_MAX) + 1ul;
-
-	  while(ul) {
-	    *(--p) = '0' + (ul % 10);
-	    ul = ul / 10;
-	  }
-	}
-	break;
+      case sizemod_ll:
+        {
+        long long ll = va_arg(ap, long long);
+	if (ll < 0) {
+	  sign = '-';
+          ull = -ll;
+        } else
+          ull = ll;
+	goto printull10;
+        }
+      break;
       }
+    }
+
     case 'u':
-      {
-	unsigned long ul;
+      switch (sizemod) {
+      case sizemod_none:
+	ul = va_arg(ap, unsigned int);
+        goto printul10;
 
+      case sizemod_l:
 	ul = va_arg(ap, unsigned long);
-	      
-	if (ul == 0) {
-	  *(--p) = '0';
-	}
-	else {
-	  while(ul) {
-	    *(--p) = '0' + (ul % 10);
-	    ul = ul / 10;
-	  }
-	}
+printul10:
+        do {
+	  *(--p) = digits[ul % 10];
+	  ul /= 10;
+        } while (ul);
 	break;
-      }
-    case 'U':
-      {
-	unsigned long long ull;
 
+      case sizemod_ll:
 	ull = va_arg(ap, unsigned long long);
-	      
-	if (ull == 0) {
-	  *(--p) = '0';
-	}
-	else {
-	  while(ull) {
-	    *(--p) = '0' + (ull % 10u);
-	    ull = ull / 10u;
-	  }
-	}
+printull10:
+        do {
+	  *(--p) = digits[ull % 10];
+	  ull /= 10;
+        } while (ull);
 	break;
       }
+      break;
+
     case 't':
       {		/* for 2-digit time values */
 	long l;
@@ -242,29 +239,30 @@ printf_guts(void (putc)(char c, buf *buffer),
     case 'X':
       digits = large_digits;
     case 'x':
-      if (sizemod != sizemod_ll) {
-	unsigned long ul;
-	    
+      switch (sizemod) {
+      case sizemod_none:
+	ul = va_arg(ap, unsigned int);
+        goto printul16;
+
+      case sizemod_l:
 	ul = va_arg(ap, unsigned long);
-	 
+printul16:
         do {
 	  *(--p) = digits[ul & 0xf];
-	  ul = ul / 16;
+	  ul /= 16;
         } while (ul);
-
 	break;
-      } else {		// sizemod_ll
-	unsigned long long ull;
-	    
+
+      case sizemod_ll:
 	ull = va_arg(ap, unsigned long long);
-	      
         do {
 	  *(--p) = digits[ull & 0xf];
-	  ull = ull / 16;
+	  ull /= 16;
         } while (ull);
-
 	break;
       }
+      break;
+
     case 's':
       {
 	p = pend = va_arg(ap, char *);
@@ -280,9 +278,10 @@ printf_guts(void (putc)(char c, buf *buffer),
       }
     }
 
-    len = pend - p;
     if (sign)
-      len++;
+      *(--p) = sign;
+
+    len = pend - p;
 
     /* do padding with initial spaces for right justification: */
     if (width && rightAdjust && len < width) {
@@ -292,9 +291,6 @@ printf_guts(void (putc)(char c, buf *buffer),
       }
     }
 
-    if (sign)
-      putc('-', pBuf);
-    
     /* output the text */
     while (p != pend)
       putc(*p++, pBuf);
