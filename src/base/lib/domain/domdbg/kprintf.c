@@ -34,12 +34,8 @@
 #define TRUE 1
 #define FALSE 0
 
-static const char hexdigits[16] = {
-  '0', '1', '2', '3', '4', '5', '6', '7',
-  '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
-};
-
-#define hexdigit(b) (hexdigits[(b)])
+static const char small_digits[] = "0123456789abcdef";
+static const char large_digits[] = "0123456789ABCDEF";
 
 #define bufsz 128
 typedef struct {
@@ -75,6 +71,12 @@ sprintf_putc(char c, buf *buffer)
   buffer->txt[buffer->len++] = c;
 }
 
+enum size_modifier {
+  sizemod_none = 0,
+  sizemod_ll,
+  sizemod_l
+};
+
 static void
 printf_guts(void (putc)(char c, buf *buffer),
 	    buf *pBuf, const char *fmt, void *vap)
@@ -83,6 +85,8 @@ printf_guts(void (putc)(char c, buf *buffer),
   uint32_t width = 0;
   int rightAdjust = TRUE;
   char fillchar = ' ';
+  enum size_modifier sizemod = sizemod_none;
+  const char * digits = small_digits;
   /* largest thing we might convert fits in 16 digits: */
   char buf[20];
   char *pend = &buf[20];
@@ -114,35 +118,43 @@ printf_guts(void (putc)(char c, buf *buffer),
       continue;
     }
 
+    /* Process a conversion specification. */
+    /* First the flags: */
+  flags:
     fmt++;
 
-    /* check for left adjust.. */
-    if (*fmt == '-') {
-      rightAdjust = FALSE;
-      fmt++;
+    switch (*fmt) {
+      case '-': rightAdjust = FALSE; goto flags;
+      case '0': fillchar = '0'; goto flags;
     }
-      
-    /* we just saw a format character.  See if what follows is a width
-       specifier: */
-
-    if (*fmt == '0')
-      fillchar = '0';
+     
+    /* See if what follows is a width specifier: */
 
     while (*fmt && *fmt >= '0' && *fmt <= '9') {
       width *= 10;
       width += (*fmt - '0');
       fmt++;
     }
-    
-    if (*fmt == 0) {		/* bogus input specifier */
-      putc('%', pBuf);
-      putc('N', pBuf);
-      putc('?', pBuf);
-      return;
-    }
-        
+
+    // See if there is a size modifier.
+
     switch (*fmt) {
-    default:
+    case 'l':
+      fmt++;
+      if (*fmt == 'l') {
+        sizemod = sizemod_ll;
+        break;
+      } else {
+        sizemod = sizemod_l;
+        goto nosize;
+      }
+    default: goto nosize;
+    }
+    fmt++;
+    nosize:
+    
+    switch (*fmt) {
+    default:	// this case includes *fmt == 0
       {
 	/* If we cannot interpret, we cannot go on */
 	putc('%', pBuf);
@@ -227,39 +239,29 @@ printf_guts(void (putc)(char c, buf *buffer),
 	*(--p) = (l % 10) + '0';
 	break;
       }
+    case 'X':
+      digits = large_digits;
     case 'x':
-      {
+      if (sizemod != sizemod_ll) {
 	unsigned long ul;
 	    
 	ul = va_arg(ap, unsigned long);
-	      
-	if (ul == 0) {
-	  *(--p) = '0';
-	}
-	else {
-	  while(ul) {
-	    *(--p) = hexdigit(ul & 0xfu);
-	    ul = ul / 16;
-	  }
-	}
+	 
+        do {
+	  *(--p) = digits[ul & 0xf];
+	  ul = ul / 16;
+        } while (ul);
 
 	break;
-      }
-    case 'X':
-      {
+      } else {		// sizemod_ll
 	unsigned long long ull;
 	    
 	ull = va_arg(ap, unsigned long long);
 	      
-	if (ull == 0) {
-	  *(--p) = '0';
-	}
-	else {
-	  while(ull) {
-	    *(--p) = hexdigit(ull & 0xfu);
-	    ull = ull / 16u;
-	  }
-	}
+        do {
+	  *(--p) = digits[ull & 0xf];
+	  ull = ull / 16;
+        } while (ull);
 
 	break;
       }
