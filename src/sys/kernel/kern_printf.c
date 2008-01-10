@@ -28,6 +28,28 @@
  * code. While I could replace it with the equivalent code from
  * MsgLog::printf(), this version is well tested and mature.
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/util.h>
@@ -99,41 +121,8 @@ db_print_position()
 }
 #endif
 
-/*
- * Put a number (base <= 16) in a buffer in reverse order; return an
- * optional length and a pointer to the NULL terminated (preceded?)
- * buffer.
- */
-static char *
-db_ksprintn(register unsigned long ul, register int base, register int *lenp)
-{					/* A long in base 8, plus NULL. */
-  static char buf[sizeof(long) * NBBY / 3 + 2];
-  register char *p;
-
-  p = buf;
-  do {
-    *++p = "0123456789abcdef"[ul % base];
-  } while (ul /= base);
-  if (lenp)
-    *lenp = p - buf;
-  return (p);
-}
-
-static char *
-db_ll_ksprintn(register unsigned long long ull, register int base,
-	    register int *lenp)
-{
-  static char buf[sizeof(long long) * NBBY / 3 + 2];
-  register char *p;
-
-  p = buf;
-  do {
-    *++p = "0123456789abcdef"[ull % base];
-  } while (ull /= base);
-  if (lenp)
-    *lenp = p - buf;
-  return (p);
-}
+static const char small_digits[] = "0123456789abcdefx";
+static const char large_digits[] = "0123456789ABCDEFX";
 
 /*
  * Force pending whitespace.
@@ -248,81 +237,85 @@ db_putchar(int c)
 	/* other characters are assumed non-printing */
 }
 
+enum size_modifier {
+  sizemod_none = 0,
+  sizemod_l,
+  sizemod_ll
+};
+
 void
 db_printf_guts(register const char *fmt, va_list ap)
 {
-  register char *p;
-  register int ch, n;
+  register char * p = 0;
+  register int ch;
   unsigned long ul;
   unsigned long long ull;
-  int base, lflag, tmp, width;
-  char padc;
-  int ladjust;
-  int sharpflag;
-  int neg;
+  int base;
 
-  for (;;) {
-    padc = ' ';
-    width = 0;
-    while ((ch = *(unsigned char *)fmt++) != '%') {
-      if (ch == '\0')
-	return;
-      db_putchar(ch);
-    }
-    lflag = 0;
-    ladjust = 0;
-    sharpflag = 0;
-    neg = 0;
-  reswitch:	switch (ch = *(unsigned char *)fmt++) {
-  case '0':
-    padc = '0';
-    goto reswitch;
-  case '1': case '2': case '3': case '4':
-  case '5': case '6': case '7': case '8': case '9':
-    for (width = 0;; ++fmt) {
-      width = width * 10 + ch - '0';
-      ch = *fmt;
-      if (ch < '0' || ch > '9')
-	break;
-    }
-    goto reswitch;
-  case 'l':
-    lflag = 1;
-    goto reswitch;
-  case '-':
-    ladjust = 1;
-    goto reswitch;
-  case '#':
-    sharpflag = 1;
-    goto reswitch;
-  case 'b':
-    ul = va_arg(ap, int);
-    p = va_arg(ap, char *);
-    for (p = db_ksprintn(ul, *p++, NULL); (ch = *p--);)
-      db_putchar(ch);
+  /* Smallest base is 8, which takes 1 character per 3 bits. 
+  Add 2 for prefix "0x" and 1 for sign. */
+  char buf[sizeof(long long) * NBBY / 3 + 3];
 
-    if (!ul)
-      break;
+  for (; *fmt;) {
+    if (*fmt != '%') {
+      db_putchar(*fmt++);
+      continue;
+    }
+    char padc = ' ';
+    int width = 0;
+    enum size_modifier sizemod = sizemod_none;
+    bool ladjust = false;
+    bool sharpflag = false;
+    int neg = 0;
+    const char * digits = small_digits;
+    
+    /* Process a conversion specification. */
+    /* First the flags: */
+  flags:
+    fmt++;	// consume the '%' or flag
 
-    for (tmp = 0; (n = *p++);) {
-      if (ul & (1 << (n - 1))) {
-	db_putchar(tmp ? ',' : '<');
-	for (; (n = *p) > ' '; ++p)
-	  db_putchar(n);
-	tmp = 1;
-      } else
-	for (; *p > ' '; ++p);
+    switch (*fmt) {
+      case '-': ladjust = true; goto flags;
+      case '0': padc = '0'; goto flags;
+      case '#': sharpflag = true; goto flags;
+    default: break;
     }
-    if (tmp)
-      db_putchar('>');
-    break;
-  case '*':
-    width = va_arg (ap, int);
-    if (width < 0) {
-      ladjust = !ladjust;
-      width = -width;
+     
+    /* See if what follows is a width specifier: */
+
+    if (*fmt == '*') {
+      fmt++;
+      width = va_arg (ap, int);
+      if (width < 0) {
+        ladjust = !ladjust;
+        width = -width;
+      }
+    } else {
+      while (*fmt >= '0' && *fmt <= '9') {
+        width *= 10;
+        width += (*fmt - '0');
+        fmt++;
+      }
     }
-    goto reswitch;
+
+    // See if there is a size modifier.
+
+    switch (*fmt) {
+    case 'l':
+      fmt++;
+      if (*fmt == 'l') {
+        sizemod = sizemod_ll;
+        break;
+      } else {
+        sizemod = sizemod_l;
+        goto nosize;
+      }
+    default: goto nosize;
+    }
+    fmt++;
+    nosize:
+
+  switch (ch = *(unsigned char *)fmt++) {
   case 'c':
     db_putchar(va_arg(ap, int));
     break;
@@ -339,124 +332,112 @@ db_printf_guts(register const char *fmt, va_list ap)
 	db_putchar (padc);
     break;
   case 'r':
-    ul = lflag ? va_arg(ap, unsigned long) : va_arg(ap, unsigned int);
-    if ((long)ul < 0) {
-      neg = 1;
-      ul = -(long)ul;
-    }
     base = db_radix;
     if (base < 8 || base > 16)
       base = 10;
-    goto number;
+    goto snumbers;
   case 'n':
-    ul = lflag ? va_arg(ap, unsigned long) : va_arg(ap, unsigned int);
     base = db_radix;
     if (base < 8 || base > 16)
       base = 10;
-    goto number;
+    goto unumbers;
+
   case 'd':
-    ul = lflag ? va_arg(ap, long) : va_arg(ap, int);
+    base = 10;
+    // Signed numbers come here.
+snumbers:
+    switch (sizemod) {
+      case sizemod_none:
+        ul = va_arg(ap, unsigned int);
+        break;
+
+      default:	// to satisfy the compiler
+      case sizemod_l:
+        ul = va_arg(ap, unsigned long);
+        break;
+
+      case sizemod_ll:
+        ull = va_arg(ap, unsigned long long);
+        if ((long)ull < 0) {
+          neg = 1;
+          ull = -(long)ull;
+        }
+        goto printull;
+    }
     if ((long)ul < 0) {
       neg = 1;
       ul = -(long)ul;
     }
-    base = 10;
-    goto number;
+    goto printul;
+
   case 'o':
-    ul = lflag ? va_arg(ap, unsigned long) : va_arg(ap, unsigned int);
     base = 8;
-    goto number;
+    goto unumbers;
   case 'u':
-    ul = lflag ? va_arg(ap, unsigned long) : va_arg(ap, unsigned int);
     base = 10;
-    goto number;
-  case 'U':
-    ull = va_arg(ap, unsigned long long);
-    base = 10;
-    goto ll_number;
+    goto unumbers;
   case 'X':
-    ull = va_arg(ap, unsigned long long);
-    base = 16;
-    goto ll_number;
-  case 'z':
-    ul = lflag ? va_arg(ap, unsigned long) : va_arg(ap, unsigned int);
-    if ((long)ul < 0) {
-      neg = 1;
-      ul = -(long)ul;
-    }
-    base = 16;
-    goto number;
+    digits = large_digits;
+    // fall through
   case 'x':
-    ul = lflag ? va_arg(ap, unsigned long) : va_arg(ap, unsigned int);
     base = 16;
-#if 0
-  number:			p = (char *)db_ksprintn(ul, base, &tmp);
-    if (sharpflag && ul != 0) {
-      if (base == 8)
-	tmp++;
-      else if (base == 16)
-	tmp += 2;
-    }
-    if (neg)
-      tmp++;
 
-    if (!ladjust && width && (width -= tmp) > 0)
-      while (width--)
-	db_putchar(padc);
-    if (neg)
-      db_putchar ('-');
-    if (sharpflag && ul != 0) {
+    // Unsigned numbers come here.
+unumbers:
+    switch (sizemod) {
+      case sizemod_none:
+        ul = va_arg(ap, unsigned int);
+        goto printul;
+
+      case sizemod_l:
+        ul = va_arg(ap, unsigned long);
+printul:
+        p = buf;
+        do {
+          *p++ = digits[ul % base];
+        } while (ul /= base);
+        break;
+
+      case sizemod_ll:
+        ull = va_arg(ap, unsigned long long);
+printull:
+        p = buf;
+        do {
+          *p++ = digits[ull % base];
+        } while (ull /= base);
+    }
+
+    // Add prefix.
+    if (sharpflag) {
       if (base == 8) {
-	db_putchar ('0');
+        *p++ = '0';
       } else if (base == 16) {
-	db_putchar ('0');
-	db_putchar ('x');
+        *p++ = digits[16];	// 'x' or 'X'
+        *p++ = '0';
       }
     }
-    if (ladjust && width && (width -= tmp) > 0)
-      while (width--)
+    if (neg)
+      *p++ = '-';
+
+    if (width)
+      width -= p - buf;	// amount of padding
+
+    if (! ladjust)	// pad on the left
+      while (width-- > 0)
 	db_putchar(padc);
 
-    while ((ch = *p--))
-      db_putchar(ch);
+    do
+      db_putchar(*--p);
+    while (p != buf);
+
+    if (ladjust)	// pad on the right
+      while (width-- > 0)
+	db_putchar(padc);
+
     break;
 
-#endif
-  number:                 ull = ul;
-  ll_number:		p = (char *)db_ll_ksprintn(ull, base, &tmp);
-    if (sharpflag && ull != 0) {
-      if (base == 8)
-	tmp++;
-      else if (base == 16)
-	tmp += 2;
-    }
-    if (neg)
-      tmp++;
-
-    if (!ladjust && width && (width -= tmp) > 0)
-      while (width--)
-	db_putchar(padc);
-    if (neg)
-      db_putchar ('-');
-    if (sharpflag && ull != 0) {
-      if (base == 8) {
-	db_putchar ('0');
-      } else if (base == 16) {
-	db_putchar ('0');
-	db_putchar ('x');
-      }
-    }
-    if (ladjust && width && (width -= tmp) > 0)
-      while (width--)
-	db_putchar(padc);
-
-    while ((ch = *p--))
-      db_putchar(ch);
-    break;
   default:
     db_putchar('%');
-    if (lflag)
-      db_putchar('l');
     /* FALLTHROUGH */
   case '%':
     db_putchar(ch);
@@ -547,10 +528,5 @@ fatal(const char *fmt, ...)
 
 void printOid(OID oid)
 {
-  printf("0x%08x%08x", (uint32_t) (oid >> 32), (uint32_t) oid);
-}
-
-void printCount(ObCount count)
-{
-  printf("0x%08x", count);
+  printf("%#016llx", oid);
 }
