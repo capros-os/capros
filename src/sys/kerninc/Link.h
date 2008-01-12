@@ -43,14 +43,13 @@ link_Init(Link *thisPtr)
 }
 
 INLINE void 
-link_Unlink(Link* thisPtr) 
+link_Unlink(Link * thisPtr) 
 {
-  if (thisPtr->next)
-    thisPtr->next->prev = thisPtr->prev;
-  if (thisPtr->prev)
-    thisPtr->prev->next = thisPtr->next;
-  thisPtr->next = thisPtr;
-  thisPtr->prev = thisPtr;
+  Link * nxt = thisPtr->next;
+  Link * prv = thisPtr->prev;
+  nxt->prev = prv;
+  prv->next = nxt;
+  link_Init(thisPtr);
 }
 
 INLINE void
