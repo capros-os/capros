@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -785,7 +785,7 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 
   kva_t tableAddr = pageH_GetPageVAddr(pTable);
 
-  bzero((void *) tableAddr, EROS_PAGE_SIZE);
+  kzero((void *)tableAddr, EROS_PAGE_SIZE);
 
   {	// Copy the kernel address space from UMSGTOP up.
     uint32_t *kpgdir = (uint32_t *) KernPageDir;
@@ -829,7 +829,7 @@ MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
 
   kva_t tableAddr = pageH_GetPageVAddr(pTable);
 
-  bzero((void *)tableAddr, EROS_PAGE_SIZE);
+  kzero((void *)tableAddr, EROS_PAGE_SIZE);
 
 #if 0
   printf("0x%08x->MkPgTbl(blss=%d,ndx=%d,rw=%c,ca=%c,"

@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -91,11 +91,11 @@ Depend_InitKeyDependTable(uint32_t nNodes)
 
   len = KeyBuckets*sizeof(uint32_t);
   KeyDependLRU = (uint32_t *)KPAtoP(void *, physMem_Alloc(len, &physMem_any));
-  bzero(KeyDependLRU, len);
+  kzero(KeyDependLRU, len);
 
   len = KeyBuckets*sizeof(uint64_t);
   KeyDependStats = (uint64_t *)KPAtoP(void *, physMem_Alloc(len, &physMem_any));
-  bzero(KeyDependStats, len);
+  kzero(KeyDependStats, len);
 
   DEBUG(alloc)
     printf("Allocated KeyDependLRU: 0x%x at 0x%08x\n",
@@ -103,7 +103,7 @@ Depend_InitKeyDependTable(uint32_t nNodes)
 
   len = nEntries*sizeof(KeyDependEntry);
   KeyDependTable = (KeyDependEntry *)KPAtoP(void *, physMem_Alloc(len, &physMem_any));
-  bzero(KeyDependTable, len);
+  kzero(KeyDependTable, len);
 
   DEBUG(alloc)
     printf("Allocated KeyDependTable: 0x%x at 0x%08x\n",

@@ -23,6 +23,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
+#include <kerninc/util.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/Machine.h>
 #include <kerninc/Process.h>
@@ -294,7 +295,7 @@ mach_HeapInit(kpsize_t heap_size)
   FLPT_NullVA = KPAtoP(uint32_t *, FLPT_NullPA);
 
   // All of user space is not mapped.
-  bzero(FLPT_NullVA, UserEndVA >> (L1D_ADDR_SHIFT - 2));
+  kzero(FLPT_NullVA, UserEndVA >> (L1D_ADDR_SHIFT - 2));
 
   // Kernel space is mapped in every address space.
   memcpy(&FLPT_NullVA[UserEndVA >> L1D_ADDR_SHIFT],

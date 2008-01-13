@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -23,6 +23,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
+#include <kerninc/util.h>
 #include <kerninc/Key.h>
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>
@@ -63,7 +64,7 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
     }
   case OC_capros_arch_arm_SysTrace_clearKernelStats:
     {
-      bzero(&KernStats, sizeof(KernStats));
+      kzero(&KernStats, sizeof(KernStats));
       inv->exit.code = RC_OK;
       break;
     }

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2008, Strawberry Development Group.
  *
  * This file is part of the EROS Operating System.
  *
@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <kerninc/kernel.h>
+#include <kerninc/util.h>
 #include <kerninc/CPU.h>
 
 #if NCPU == 1
@@ -29,6 +30,6 @@ CPU theSingleCPU;
 
 void cpu_BootInit(void)
 {
-  bzero(&theSingleCPU, sizeof(theSingleCPU));
+  kzero(&theSingleCPU, sizeof(theSingleCPU));
   cpu->preemptTime = ~0llu;	/* until proven otherwise */
 }

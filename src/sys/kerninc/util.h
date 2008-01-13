@@ -2,9 +2,9 @@
 #define __UTIL_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group.
+ * Copyright (C) 2005, 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -20,6 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 void halt(char c) NORETURN;
 void pause();
@@ -49,6 +52,14 @@ kpa_t align_down(kpa_t addr, uint32_t alignment); /* alignment must be power of 
 size_t strlen(const char *c1);
 int strcmp(const char *c1, const char *c2);
 char *strcpy(char *c1, const char *c2);
+void * memset(void * ptr, int val, size_t len);
+
+INLINE void
+kzero(void * ptr, size_t len)
+{
+  /* libc has bzero, but its implementation is much worse than memset. */
+  memset(ptr, 0, len);
+}
 
 extern void qsort(void *a, size_t n, size_t es, int (*cmp)(void *, void *));
 

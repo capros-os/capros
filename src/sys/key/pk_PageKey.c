@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -24,6 +24,7 @@ Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
+#include <kerninc/util.h>
 #include <kerninc/Key.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
@@ -62,7 +63,7 @@ PageKey(Invocation* inv /*@ not null @*/)
 
     COMMIT_POINT();
 
-    bzero((void*)pageAddress, EROS_PAGE_SIZE);
+    kzero((void*)pageAddress, EROS_PAGE_SIZE);
 
     inv->exit.code = RC_OK;
     return;

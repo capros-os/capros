@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -96,7 +96,7 @@ PreloadObSource_GetObject(ObjectSource * src, OID oid, ObType obType,
     } else {	// FRM_TYPE_ZDPAGE, FRM_TYPE_NODE, or FRM_TYPE_ZNODE
       // If the type was NODE or ZNODE, the frame was converted from node
       // to page, and there is no data to load.
-      bzero(dest, EROS_PAGE_SIZE);
+      kzero(dest, EROS_PAGE_SIZE);
     }
 
     // FIXME: pObj->allocCount not set.

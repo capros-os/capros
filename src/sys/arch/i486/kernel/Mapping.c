@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -112,7 +112,7 @@ MakeSmallSpaces()
     KPAtoP(PTE *,physMem_Alloc(nFrames * EROS_PAGE_SIZE, &physMem_pages));
   assert (((uint32_t)proc_smallSpaces & EROS_PAGE_MASK) == 0);
 
-  bzero(proc_smallSpaces, nFrames * EROS_PAGE_SIZE);
+  kzero(proc_smallSpaces, nFrames * EROS_PAGE_SIZE);
 
   pageTab = proc_smallSpaces;
   
@@ -187,7 +187,7 @@ MapKernelPage(kva_t va, kpa_t pa, uint32_t mode)
      * by the kernel will be contiguous in virtual space.
      */
     pageTab = KPAtoP(PTE *,physMem_Alloc(EROS_PAGE_SIZE, &physMem_pages));
-    bzero(pageTab, EROS_PAGE_SIZE);
+    kzero(pageTab, EROS_PAGE_SIZE);
 
     assert (((uint32_t)pageTab & EROS_PAGE_MASK) == 0);
       
@@ -281,7 +281,7 @@ MappingWindow *PageDirWindow = &PageDirWindow_s;
    string might conceivably span 2. Note we will reference these
    only when building mappings.
 
-   bzero/bcopy require max 2 at any given time.
+   kzero/bcopy require max 2 at any given time.
 
    depend zapper requires max 1 at any given time.
 
@@ -443,7 +443,7 @@ mach_HeapInit()
     GlobalPage = PTE_GLBL;
 #endif
 
-  bzero(pageDir, EROS_PAGE_SIZE);
+  kzero(pageDir, EROS_PAGE_SIZE);
 
   /* Note that the master kernel mapping page itself is mapped
      read-only. We would not map it at all, but we need to be able to
@@ -541,7 +541,7 @@ mach_HeapInit(kpsize_t heap_size)
 #endif
   unsigned va;
   
-  bzero(pageDir, EROS_PAGE_SIZE);
+  kzero(pageDir, EROS_PAGE_SIZE);
 
   /* The kernel mapping table must include all of the physical pages,
    * including the ramdisk if any.
@@ -745,7 +745,7 @@ mach_HeapInit(kpsize_t heap_size)
     /* Set up mapping slots for the receive buffer page: */
     pageTab = KPAtoP(PTE *, physMem_Alloc(EROS_PAGE_SIZE, &physMem_pages));
     assert (((uint32_t)pageTab & EROS_PAGE_MASK) == 0);
-    bzero(pageTab, EROS_PAGE_SIZE);
+    kzero(pageTab, EROS_PAGE_SIZE);
 
     /* I AM NO LONGER CONVINCED THAT THIS IS NECESSARY in the contiguous 
        string case. Copying the user PDEs should be sufficient in that

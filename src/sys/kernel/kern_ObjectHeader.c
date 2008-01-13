@@ -24,6 +24,7 @@ Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
+#include <kerninc/util.h>
 #include <kerninc/Check.h>
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/ObjectCache.h>
@@ -382,7 +383,7 @@ objH_Rescind(ObjectHeader* thisPtr)
     objH_InvalidateProducts(thisPtr);
 
     pPage = pageH_GetPageVAddr(objH_ToPage(thisPtr));
-    bzero((void*)pPage, EROS_PAGE_SIZE);
+    kzero((void*)pPage, EROS_PAGE_SIZE);
     pageH_MakeDirty(objH_ToPage(thisPtr));
   }
   else if (thisPtr->obType == ot_PtDevicePage) {

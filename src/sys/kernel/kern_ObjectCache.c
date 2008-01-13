@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -110,7 +110,7 @@ objC_Init()
   
   objC_nodeTable = KPAtoP(Node *,
                      physMem_Alloc(objC_nNodes*sizeof(Node), &physMem_any));
-  bzero(objC_nodeTable, objC_nNodes*sizeof(Node));
+  kzero(objC_nodeTable, objC_nNodes*sizeof(Node));
 
   for (i = 0; i < objC_nNodes; i++) {
     unsigned int j;
@@ -268,7 +268,7 @@ objC_AddDevicePages(PmemInfo *pmi)
   uint32_t nPages = (pmi->bound - pmi->basepa) / EROS_PAGE_SIZE;
 
   PageHeader * pageH = MALLOC(PageHeader, nPages);
-  bzero(pageH, sizeof(PageHeader) * nPages);
+  kzero(pageH, sizeof(PageHeader) * nPages);
 
   pmi->nPages = nPages;
   pmi->firstObHdr = pageH;
@@ -1152,7 +1152,7 @@ objC_GrabThisPageFrame(PageHeader *pObj)
   objC_nFreePageFrames--;
 
   kva_t kva = pObj->pageAddr;	// preserve this field
-  bzero(pObj, sizeof(*pObj));
+  kzero(pObj, sizeof(*pObj));
   pObj->pageAddr = kva;
 
   pageH_ToObj(pObj)->obType = ot_PtNewAlloc; /* until further notice */
@@ -1183,7 +1183,7 @@ objC_GrabNodeFrame()
   /* Rip it off the hash chain, if need be: */
   objH_Unintern(pObj);	/* Should it ever be interned? */
   assert(keyR_IsEmpty(&pObj->keyRing));
-  bzero(pObj, sizeof(ObjectHeader));
+  kzero(pObj, sizeof(ObjectHeader));
 
   pNode->node_ObjHdr.obType = ot_NtUnprepared;
 

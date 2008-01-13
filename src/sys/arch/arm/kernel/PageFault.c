@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -24,6 +24,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
+#include <kerninc/util.h>
 #include <kerninc/Check.h>
 #include <kerninc/KernStats.h>
 #include <kerninc/Activity.h>
@@ -807,7 +808,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
       DEBUG(pgflt) printf("physAddr=0x%08x\n", VTOP((kva_t)tableAddr));
 
       // PTE_ZAPPED == 0, so we can just clear the table:
-      bzero(tableAddr, CPT_SIZE);
+      kzero(tableAddr, CPT_SIZE);
     }
     assert(wi.memObj == mth2->producer);
 

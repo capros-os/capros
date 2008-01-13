@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -187,7 +187,7 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
       uint64_t endcy;
 
       if (activeMode == -1) {
-	bzero(&st, sizeof(st));
+	kzero(&st, sizeof(st));
 	inv->exit.code = RC_capros_key_NoAccess;
 	break;
       }
@@ -440,7 +440,7 @@ for (i=0; i<10; i++) {
       Invocation::ZeroStats();
 #endif
       
-      bzero(&KernStats, sizeof(KernStats));
+      kzero(&KernStats, sizeof(KernStats));
       inv->exit.code = RC_OK;
       break;
     }
