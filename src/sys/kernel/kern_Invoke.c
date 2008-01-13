@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -634,7 +634,7 @@ proc_DoKeyInvocation(Process* thisPtr)
   
 #if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
   if (dbg_wild_ptr)
-    check_Consistency("DoKeyInvocation() before invoking handler\n");
+    check_Consistency("DoKeyInvocation() before invoking handler");
 #endif
 
   {
@@ -663,7 +663,7 @@ proc_DoKeyInvocation(Process* thisPtr)
 
 #if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
     if (dbg_wild_ptr)
-      check_Consistency("DoKeyInvocation() after invoking handler\n");
+      check_Consistency("DoKeyInvocation() after invoking handler");
 #endif
 
     assert (InvocationCommitted);
@@ -714,7 +714,7 @@ proc_DoKeyInvocation(Process* thisPtr)
     }
 #if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
     if (dbg_wild_ptr)
-      check_Consistency("DoKeyInvocation() after DeliverResult()\n");
+      check_Consistency("DoKeyInvocation() after DeliverResult()");
 #endif
 
     if (inv.invokee != thisPtr) {
@@ -819,7 +819,7 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
   
 #if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
   if (dbg_wild_ptr)
-    check_Consistency("DoKeyInvocation() before invoking handler\n");
+    check_Consistency("DoKeyInvocation() before invoking handler");
 #endif
 
   if ( DDB_STOP(all) ||
@@ -872,7 +872,7 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
 
 #if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
   if (dbg_wild_ptr)
-    check_Consistency("DoKeyInvocation() after invoking handler\n");
+    check_Consistency("DoKeyInvocation() after invoking handler");
 #endif
 
   assert (InvocationCommitted);
@@ -935,7 +935,7 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
 
 #if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
     if (dbg_wild_ptr)
-      check_Consistency("DoKeyInvocation() after DeliverResult()\n");
+      check_Consistency("DoKeyInvocation() after DeliverResult()");
 #endif
 
     /* If we are returning to ourselves, the resume key was never

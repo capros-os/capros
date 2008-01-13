@@ -172,9 +172,8 @@ Depend_AddKey(Key * pKey, void * mte, int mapLevel)
   printf("Dep_Add key=0x%08x mte=0x%08x\n", pKey, mte);
 #endif
 
-  /* The operations OC_Node_Extended_Copy and OC_Node_Extended_Swap
-  do not build mapping table entries, but they use WalkSeg,
-  which calls us, so check for that case. */
+  /* In proc_InvokeSegmentKeeper when finding the keeper, we
+  don't pass mte: */
   if (!mte) return;
 
   uint32_t i;
