@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -306,7 +306,8 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
     if (inv->exit.pKey[0]) {
       inv_SetExitKey(inv, 0, inv->key);
       /* Unprepare, because gate keys are chained to the Process,
-         while Process keys are chained to the root node (fix this). */
+         while Process keys are chained to the root node.
+         (Fix this, or use key_MakeUnpreparedCopy instead.) */
       key_NH_Unprepare(inv->exit.pKey[0]);
       keyBits_InitType(inv->exit.pKey[0], KKT_Resume);
       inv->exit.pKey[0]->keyPerms = 0;

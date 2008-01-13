@@ -237,10 +237,12 @@ physMem_Alloc(kpsize_t nBytes, PmemConstraint *mc)
       if (split < allocTarget->allocBound) {
         /* Split the region */
         PmemInfo * newPmi;
+#if 0
         printf("Splitting: 0x%x 0x%x 0x%x 0x%x\n",
                        (unsigned)allocTarget->allocBase,
                        (unsigned)allocTarget->allocBound,
                        (unsigned)mc->base, (unsigned)mc->bound );
+#endif
         where = base;
         /* Add the region with its full physical memory. */
         newPmi = physMem_AddRegion(split, allocTarget->allocBound,

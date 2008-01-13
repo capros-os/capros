@@ -2,7 +2,7 @@
 #define __KERNINC_KEY_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -133,6 +133,8 @@ key_Prepare(Key* thisPtr)
 #else
 void key_Prepare(Key* thisPtr);
 #endif
+
+void key_MakeUnpreparedCopy(Key * dst, const Key * src);
 
 /* ALL OF THE NH ROUTINES MUST BE CALLED ON NON-HAZARDED KEYS */
 

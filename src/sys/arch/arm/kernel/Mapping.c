@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -512,7 +512,7 @@ pageH_mdType_CheckPage(PageHeader * pPage)
     if (mth->isFree) {
     } else {
       // Check a second-level mapping table (coarse page table).
-      pte = (PTE*) pageH_GetPageVAddr(pPage);
+      pte = (PTE*) pageH_GetPageVAddr(pPage) + i * CPT_ENTRIES;
 
       for (ent = 0; ent < CPT_ENTRIES; ent++) {
         thePTE = &pte[ent];
@@ -522,7 +522,12 @@ pageH_mdType_CheckPage(PageHeader * pPage)
           if ((pteWord & 0x30) == 0x30) {	// writeable by some user
             kpa_t pageFrame = pte_PageFrame(thePTE);
             PageHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);
-            assert(thePageHdr && pageH_IsObjectType(thePageHdr));
+            if (! thePageHdr || ! pageH_IsObjectType(thePageHdr)) {
+              printf("Writable PTE=0x%08x at 0x%08x refers to non-object,"
+  		       " pPage=%#x, thePageHdr=%#x\n",
+		       pteWord, thePTE, pPage, thePageHdr);
+              return false;
+            }
 
             if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_CKPT)) {
               printf("Writable PTE=0x%08x (map page 0x%08x), ckpt pg"

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -511,7 +511,7 @@ objH_ddb_dump(ObjectHeader * thisPtr)
   switch(thisPtr->obType) {
   case ot_PtDataPage:
   case ot_PtDevicePage:
-    printf("    pageAddr=0x%08x\n", objH_ToPage(thisPtr)->pageAddr);
+    printf("    pageAddr=0x%08x\n", pageH_GetPageVAddr(objH_ToPage(thisPtr)));
   case ot_NtSegment:
     {
       MapTabHeader * oh = thisPtr->prep_u.products;

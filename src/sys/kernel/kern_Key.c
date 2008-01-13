@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -327,6 +327,36 @@ xchg_key(uint32_t slot0, uint32_t slot1)
   }
 }
 
+// Disregards any read hazard on src.
+// Does not set OFLG_DISKCAPS in the object.
+void
+key_MakeUnpreparedCopy(Key * dst, const Key * src)
+{
+  *dst = *src;
+  dst->keyFlags &= ~(KFL_HAZARD_BITS | KFL_PREPARED);
+  if ((! keyBits_IsObjectKey(src)) || keyBits_IsUnprepared(src)) {
+    return;
+  }
+
+  ObjectHeader * pObj;
+  ObCount cnt;
+  
+  if (keyBits_IsGateKey(src)) {
+    pObj = node_ToObj(src->u.gk.pContext->procRoot);
+
+    if (keyBits_IsType(src, KKT_Resume))
+      cnt = objH_ToNode(pObj)->callCount;
+    else
+      cnt = pObj->allocCount;
+  } else {
+    pObj = src->u.ok.pObj;
+    cnt = pObj->allocCount;
+  }
+
+  dst->u.unprep.count = cnt;
+  dst->u.unprep.oid = pObj->oid;
+}
+
 void
 key_NH_Unprepare(Key* thisPtr)
 {
@@ -342,15 +372,24 @@ key_NH_Unprepare(Key* thisPtr)
 #endif
 
   if ( keyBits_IsObjectKey(thisPtr) ) {
-    ObjectHeader *pObj = thisPtr->u.ok.pObj;
+    ObjectHeader * pObj;
+    ObCount cnt;
   
-    if (keyBits_IsGateKey(thisPtr) ) {
+    if (keyBits_IsGateKey(thisPtr)) {
 #ifndef NDEBUG
       if (ValidCtxtPtr(thisPtr->u.gk.pContext) == false)
 	fatal("Key 0x%08x Kt %d, 0x%08x not valid ctxt ptr\n",
               thisPtr, keyBits_GetType(thisPtr), thisPtr->u.gk.pContext);
 #endif
-      pObj = DOWNCAST(thisPtr->u.gk.pContext->procRoot, ObjectHeader);
+      pObj = node_ToObj(thisPtr->u.gk.pContext->procRoot);
+
+      if (keyBits_IsType(thisPtr, KKT_Resume))
+        cnt = objH_ToNode(pObj)->callCount;
+      else
+        cnt = pObj->allocCount;
+    } else {
+      pObj = thisPtr->u.ok.pObj;
+      cnt = pObj->allocCount;
     }
 
 #ifndef NDEBUG
@@ -373,11 +412,7 @@ key_NH_Unprepare(Key* thisPtr)
 #endif
     objH_SetFlags(pObj, OFLG_DISKCAPS);
     thisPtr->u.unprep.oid = pObj->oid;
-
-    if ( keyBits_IsType(thisPtr, KKT_Resume) )
-      thisPtr->u.unprep.count = ((Node *) pObj)->callCount;
-    else
-      thisPtr->u.unprep.count = pObj->allocCount;
+    thisPtr->u.unprep.count = cnt;
   }
 
   keyBits_SetUnprepared(thisPtr);
@@ -434,12 +469,9 @@ key_CalcCheck(Key* thisPtr)
   /* Portable version: */
   {
     int i;
-    Key k;			/* temporary in case send and receive */
-				/* slots are the same. */
+    Key k;
         
-    keyBits_InitToVoid(&k);
-    key_NH_Set(&k, thisPtr);
-    key_NH_Unprepare(&k);
+    key_MakeUnpreparedCopy(&k, thisPtr);
 
     assert(k.keyFlags == 0);
     
