@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -1604,7 +1604,7 @@ db_pframe_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 
   t = db_read_token();
   if (t != tNUMBER)
-    db_error("expects OID\n");
+    db_error("expects physAddr\n");
 
   frame = db_tok_number;
 	
@@ -1614,7 +1614,7 @@ db_pframe_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
     /*NOTREACHED*/
   }
 
-  PageHeader * pObj = objC_GetCorePageFrame(frame);
+  PageHeader * pObj = objC_PhysPageToObHdr(frame);
   if (pObj == 0)
     db_error("not in core\n");
 
