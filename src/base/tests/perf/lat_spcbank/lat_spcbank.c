@@ -47,7 +47,8 @@ const uint32_t __rt_stack_pointer = 0x20000;
 
 #define NPASS  5
 //#define NPAGES 2048		/* 8 Mbytes */
-#define NPAGES 256
+//#define NPAGES 256
+#define NPAGES 132
 
 void
 extendedSetSlot(unsigned int i, uint32_t kr)

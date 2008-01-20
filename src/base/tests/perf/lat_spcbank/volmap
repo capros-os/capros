@@ -1,5 +1,4 @@
 #
-# Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
 # Copyright (C) 2007, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
@@ -22,26 +21,5 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: install
-
-CROSS_BUILD=yes
-VOLMAP=volmap
-
-EROS_SRC=../../../..
-include $(EROS_SRC)/build/make/makevars.mk
-
-TARGETS=$(BUILDDIR)/lat_spcbank
-OPTIM=-O
-OBJECTS=$(BUILDDIR)/lat_spcbank.o
-INC=-I$(EROS_ROOT)/include
-
-include $(EROS_SRC)/build/make/makerules.mk
-
-install all: $(TARGETS)
-
-include ../test.mk
-
-$(BUILDDIR)/lat_spcbank: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) $(DOMLIB)
-
--include $(BUILDDIR)/.*.m
+kernel 140 OID=0xFFFF000000000000
+object preload 400 OID=0x0
