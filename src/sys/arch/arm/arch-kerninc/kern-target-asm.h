@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -86,7 +86,6 @@ Otherwise, the FCSE memory space is mapped:
            This is only for page tables and other kernel-only memory
            that is not accessed at any other address.
            TODO: Need work to support memory above physical address 0x2fffffff.
-0xf000.... node table, object table
 0xf800.... windows to map other processes
 0xfc00.... (DeviceRegsVA) mapped to physical 0x8000.... 
            memory-mapped device registers
@@ -119,10 +118,15 @@ followed by unused
 #define HeapEndVA	0xb0000000
 #define FlashMemVA	0xb0000000
 #define PhysMapVA	0xc0000000
+#ifdef OPTION_NO_MMU
+#define AHB_VA AHB_PA
+#define APB_VA APB_PA
+#else
 #define DeviceRegsVA	0xfc000000
 #define AHB_VA		0xfc000000	// AMBA high-speed bus registers
 #define APB_VA		0xfc800000	// AMBA peripheral bus registers
 #define KTextVA		0xfe000000
+#endif
 
 /* N.B.: the value of KDataPackedAddr must match that in the kernel makefiles
    conf/Makefile.* and sys.arm.mk. */

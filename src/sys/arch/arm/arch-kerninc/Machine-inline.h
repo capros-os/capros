@@ -1,7 +1,7 @@
 #ifndef __MACHINE_INLINE_H__
 #define __MACHINE_INLINE_H__
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -31,8 +31,8 @@ uint64_t sysT_Now(void);
 INLINE kva_t
 mach_GetCPUStackTop()
 {
-  extern kva_t kernelStackBot;
-  return kernelStackBot;
+  extern char kstackBot;
+  return (kva_t)&kstackBot;
 }
 
 #endif/*__MACHINE_INLINE_H__*/

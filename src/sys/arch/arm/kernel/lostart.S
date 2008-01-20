@@ -26,6 +26,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/arm/mach-ep93xx/ep9315.h>
 #include <arch-kerninc/kern-target-asm.h>
 
+#define PUTC(c) \
+	mov r0,c ; str r0,[r10]
+
 	.text
 	ENTRY(_start)
 #define REDBOOT
@@ -33,7 +36,11 @@ Approved for public release, distribution unlimited. */
 	.ascii "CRUS"	// magic header for Boot ROM
 #else
 	msr cpsr_c,#0xd3	// disable IRQ, FIQ, enter supervisor mode
+	ldr r10,=(APB_PA + UART1_APB_OFS)	// for PUTC
+	PUTC(#65)	// 'A
 // Redboot starts us with MMU enabled, disable it now.
+// FIXME: On EDB9315A, phys mem starts at 0xc0000000 and Redboot's map
+// is not trivial. 
 	mrc p15,0,r8,c1,c0,0	// read control register 1
 	bic r8,r8,#0x1200	// disenable ICache, clear R bit
 	orr r8,r8,#0x2100	// high exception vectors, set S bit
@@ -125,6 +132,7 @@ and map it at MVA KTextVA + 1MB.  */
 
 2:
 
+#ifndef OPTION_NO_MMU
 	ldr r3,=(0x4000-1)
 	add r4,r4,r3	// round up to 16KB boundary
 	bic r4,r4,r3	// ...
@@ -190,8 +198,8 @@ and map it at MVA KTextVA + 1MB.  */
 /* TODO: Would we benefit by making this not cacheable or not buffered? */
 /* TODO: Need to fix this to handle memory that isn't contiguous with 
    address zero. */
-/* TODO: Need to fix this to get actual memory size. */
-	ldr r1,=(64*1024*1024)	// size of memory on EDB9315
+/* TODO: Avoid mapping memory that doesn't exist. */
+	ldr r1,=0x30000000	// size of phys mem map
 	add r1,r1,r0
 	ldr r2,=(PhysMapVA >> (20-2))
 	add r2,r2,r5
@@ -240,6 +248,7 @@ and map it at MVA KTextVA + 1MB.  */
 	mcr p15,0,r0,c10,c0,0	// clear D TLB lockdown
 	mcr p15,0,r0,c10,c0,1	// clear I TLB lockdown
 	mcr p15,0,r0,c7,c7,0	// invalidate ICache and DCache
+#endif // OPTION_NO_MMU
 
 //#define EARLY_CONSOLE 1
 	/* Don't use SerialStream before enabling the MMU, because it
@@ -250,11 +259,13 @@ and map it at MVA KTextVA + 1MB.  */
 	bl SerialStream_Put
 #endif
 
+#ifndef OPTION_NO_MMU	// no_mmu also means no cache
 	mrc p15,0,r8,c1,c0,0	// read control register 1
 	bic r8,r8,#0x200	// clear R bit
 	orr r8,r8,#0x3100  // high exception vectors, enable ICache, set S bit
 	orr r8,r8,#0x007	// enable DCache, alignmt fault, MMU
 	mcr p15,0,r8,c1,c0,0	// write control register 1
+#endif // OPTION_NO_MMU
 
 	ldr sp,=(kstackBot)
 
@@ -267,11 +278,10 @@ and map it at MVA KTextVA + 1MB.  */
 	bl SerialStream_Put
 #endif
 
-	ldr r0,=(kernelStackBot)	// initialize kernelStackBot
-	str sp,[r0]
-
+#ifndef OPTION_NO_MMU
 	ldr r0,=FLPT_FCSEPA
 	str r5,[r0]	// save ptr to FLPT
+#endif // OPTION_NO_MMU
 
 #ifdef EARLY_CONSOLE
 	mov r0,#'7
@@ -284,7 +294,7 @@ and map it at MVA KTextVA + 1MB.  */
 	/* Print some interesting values. */
 #if 1
 	ldr r4,=(APB_VA+SYSCON_APB_OFS)
-	ldr r1,[r4,#0x20]
+	ldr r1,[r4,#0x9c]	// SysCfg
 	ldr r2,[r4,#0x80]	// DeviceCfg
 	// mrc p15,0,r2,c9,c0,0	// read control register 9
 	mrc p15,0,r3,c10,c0,0	// read control register 10

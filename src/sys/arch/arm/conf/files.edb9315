@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006, 2007 Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2008 Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -57,6 +57,3 @@ file("arch/arm/kernel/ConsoleStream.c")
 file("arch/arm/kernel/SerialStream.c", output_on_tty0)
 
 include("../../../files.common")
-file("kernel/kern_printf.c")
-file("kernel/kern_KernStream.c")
-file("kernel/kern_LogStream.c")

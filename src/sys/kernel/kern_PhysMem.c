@@ -25,11 +25,13 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/kernel.h>
 #include <kerninc/util.h>
 #include <kerninc/PhysMem.h>
-//#include <kerninc/multiboot.h>
+#include <eros/ffs.h>
+#include <eros/fls.h>
 
-#define dbg_avail	0x2u
-#define dbg_alloc	0x4u
-#define dbg_new		0x8u
+#define dbg_pgalloc	0x1
+#define dbg_avail	0x2
+#define dbg_alloc	0x4
+#define dbg_new		0x8
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u )
@@ -46,6 +48,221 @@ PmemConstraint physMem_any = { (kpa_t) 0u, ~((kpa_t)0u), sizeof(uint32_t) };
 static PmemInfo PhysicalMemoryInfo[MAX_PMEMINFO];
 PmemInfo *physMem_pmemInfo = &PhysicalMemoryInfo[0];
 unsigned long physMem_nPmemInfo;
+
+kpg_t physMem_numFreePageFrames = 0;
+
+#define logMaxFreePageBlock 7	// largest block size we can allocate
+
+// freePages[n] has free blocks of size 2**n pages.
+Link freePages[logMaxFreePageBlock + 1];
+
+static kpg_t
+pageH_ToPhysPgNum(const PageHeader * pageH, const PmemInfo * pmi)
+{
+  return pageH - pmi->firstObHdr + pmi->firstObPgAddr;
+}
+
+kpa_t
+pageH_GetPhysAddr(const PageHeader * pageH)
+{
+  PmemInfo * pmi = pageH->physMemRegion;
+  return ((kpa_t) pageH_ToPhysPgNum(pageH, pmi)) << EROS_PAGE_LGSIZE;
+}
+
+static PageHeader *
+physMem_PhysPgNumToPageH(PmemInfo * pmi, kpg_t pgNum)
+{
+  PageHeader * pageH = &pmi->firstObHdr[pgNum - pmi->firstObPgAddr];
+
+  assert(pageH->physMemRegion == pmi);
+
+  return pageH;
+}
+
+PageHeader *
+objC_PhysPageToObHdr(kpa_t pagepa)
+{
+  unsigned rgn;
+  kpg_t pgNum = pagepa >> EROS_PAGE_LGSIZE;
+    
+  for (rgn = 0; rgn < physMem_nPmemInfo; rgn++) {
+    PmemInfo * pmi= &physMem_pmemInfo[rgn];
+    if (pmi->type != MI_MEMORY && pmi->type != MI_DEVICEMEM
+        && pmi->type != MI_BOOTROM)
+      continue;
+
+    kpg_t endPgNum = pmi->firstObPgAddr + pmi->nPages;
+
+    if (pgNum >= pmi->firstObPgAddr && pgNum < endPgNum) {
+      return physMem_PhysPgNumToPageH(pmi, pgNum);
+    }
+  }
+
+  return NULL;
+}
+
+/*
+Free a block, after it has been determined that it is not being
+merged with a buddy.
+
+pageH is the first page in the block.
+2**j is the size of the block in pages.
+*/
+static void
+pmi_FreeOneBlock(PageHeader * pageH, unsigned int j)
+{
+  pageH->kt_u.free.obType = ot_PtFreeFrame;
+  pageH->kt_u.free.log2Pages = j;
+  link_insertAfter(&freePages[j], &pageH->kt_u.free.freeLink);
+}
+
+/* Free a block, merging with buddies as needed. */
+void
+physMem_FreeBlock(PageHeader * pageH, unsigned int numPages)
+{
+  DEBUG(pgalloc) printf("FreeBlock pageH=%#x num=%#x\n", pageH, numPages);
+
+  physMem_numFreePageFrames += numPages;
+
+  PmemInfo * pmi = pageH->physMemRegion;
+  kpg_t pgNum = pageH_ToPhysPgNum(pageH, pmi);
+
+  // pgNum is a multiple of 2**n, where 2**n >= numPages
+  assert((pgNum & -pgNum) == 0 || (pgNum & -pgNum) >= numPages);
+  do {
+    // Free the smallest block at the end.
+    unsigned int j = ffs32(numPages);
+    if (j > logMaxFreePageBlock) {
+      j = logMaxFreePageBlock;
+    }
+    unsigned int jSize = 1U << j;
+    kpg_t jPgNum = pgNum + numPages - jSize;	/* beginning of
+					small block at the end */
+    PageHeader * jPageH = physMem_PhysPgNumToPageH(pmi, jPgNum);
+    assert(! pageH_IsFree(jPageH));
+
+    // Buddy system liberation
+recheck:
+    if (j < logMaxFreePageBlock) {
+      kpg_t bPgNum = jPgNum ^ jSize;	// potential buddy
+      // Is the potential buddy in the same region?
+      // We never merge between regions.
+      /* Note: we do not simply use pmi->firstObPgAddr as the origin
+      for all pgNum's (which would eliminate the first comparison below),
+      because we want blocks to be aligned on a physical address
+      that is a multiple of their size. */
+      if (bPgNum >= pmi->firstObPgAddr
+          && bPgNum < (pmi->firstObPgAddr + pmi->nPages)) {
+        PageHeader * bPageH = physMem_PhysPgNumToPageH(pmi, bPgNum);
+        if (pageH_IsFree(bPageH) && bPageH->kt_u.free.log2Pages == j) {
+          // Merge with buddy.
+          link_Unlink(&bPageH->kt_u.free.freeLink);	// remove from free list
+          j++;
+          if (bPgNum < jPgNum) {
+            pageH_ToObj(jPageH)->obType = ot_PtSecondary;
+            jPgNum = bPgNum;
+            jPageH = bPageH;
+          } else {
+            pageH_ToObj(bPageH)->obType = ot_PtSecondary;
+          }
+          goto recheck;
+        }
+      }
+    }
+    // No buddy to merge with.
+    pmi_FreeOneBlock(jPageH, j);
+
+    numPages -= jSize;
+  } while (numPages);
+}
+
+/* Allocate a block.
+Returns NULL if none available. */
+PageHeader *
+physMem_AllocateBlock(unsigned int numPages)
+{
+  unsigned int k = fls32(numPages - 1);
+  // 2**(k-1) < numPages <= 2**(k)
+  assert(k <= logMaxFreePageBlock);	// else block is too big
+
+  // Look for a free block.
+  unsigned int j;
+  for (j = k; j <= logMaxFreePageBlock; j++)
+    if (! link_isSingleton(&freePages[j]))
+      goto foundj;
+  
+  return NULL;
+
+foundj: ;
+  // Take the first block from the list.
+  PageHeader * pageH = container_of(freePages[j].next,
+                                     PageHeader, kt_u.free.freeLink);
+  assert(pageH_IsFree(pageH));
+  link_Unlink(&pageH->kt_u.free.freeLink);
+  pageH_ToObj(pageH)->obType = ot_PtNewAlloc;	// not free
+
+  PmemInfo * pmi = pageH->physMemRegion;
+  kpg_t jPgNum = pageH_ToPhysPgNum(pageH, pmi);
+
+  physMem_numFreePageFrames -= numPages;
+
+  kpg_t xPgNum = jPgNum;
+  kpg_t jSize = ((kpg_t)1) << j;
+
+  DEBUG(pgalloc) printf("Alloc %#x from %#x pageH %#x\n",
+                        numPages, jSize, pageH);
+
+  while (jSize != numPages) {
+    j--;
+    jSize = ((kpg_t)1) << j;
+    if (jSize >= numPages) {
+      // Liberate upper half, repeat on lower half
+      pmi_FreeOneBlock(physMem_PhysPgNumToPageH(pmi, xPgNum + jSize), j);
+    } else {
+      // Repeat on upper half of the block.
+      numPages -= jSize;
+      xPgNum += jSize;
+      assert(pageH_GetObType(physMem_PhysPgNumToPageH(pmi, xPgNum))
+             == ot_PtSecondary);
+    }
+  }
+
+  return pageH;
+}
+
+void
+physMem_Init(void)
+{
+  physMem_Init_MD();
+
+  int i;
+  for (i = 0; i <= logMaxFreePageBlock; i++) {
+    link_Init(&freePages[i]);
+  }
+}
+
+void
+physMem_FreeAll(PmemInfo * pmi)
+{
+  kpg_t pgNum = pmi->firstObPgAddr;
+  kpg_t nPages = pmi->nPages;
+
+  while (nPages > 0) {
+    PageHeader * pageH = physMem_PhysPgNumToPageH(pmi, pgNum);
+    unsigned int j = ffs32(pgNum);
+    DEBUG(pgalloc) printf("FreeAll pgnum %#x j %d\n", pgNum, j);
+    kpg_t pgs = ((kpg_t)1) << j;
+    if (pgs > nPages) {		// the last one can have any number of pages
+      physMem_FreeBlock(pageH, nPages);
+      break;
+    } else {
+      physMem_FreeBlock(pageH, pgs); // we know it will have no buddy
+    }
+    
+    pgNum += pgs;
+    nPages -= pgs;
+  }
+}
 
 PmemInfo *
 physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly)
@@ -71,7 +288,7 @@ physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, bool readOnly)
   kmi->bound = bound;
   kmi->type = type;
   kmi->nPages = 0;
-  kmi->basepa = 0;
+  kmi->firstObPgAddr = 0;
   kmi->firstObHdr = 0;
   kmi->readOnly = readOnly;
 
@@ -314,10 +531,10 @@ physMem_ddb_dump()
       printf("  allocBase 0x%08x allocBound 0x%08x\n",
 	     (unsigned long) (kmi->allocBase),
 	     (unsigned long) (kmi->allocBound));
-      printf("  nPages 0x%08x (%d) basepa 0x%08x firstObHdr 0x%08x\n",
+      printf("  nPages 0x%08x (%d) firstObPgAddr 0x%08x firstObHdr 0x%08x\n",
 	     kmi->nPages,
 	     kmi->nPages,
-	     kmi->basepa,
+	     kmi->firstObPgAddr,
 	     kmi->firstObHdr);
     }
   }

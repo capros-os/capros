@@ -3,9 +3,9 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -21,6 +21,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Basic type declarations for the target platform, used pervasively
    within the kernel code.
@@ -41,6 +44,10 @@ extern const char _start,	/* start of kernel text section */
 typedef uint32_t	klva_t;	/* kernel linear virtual address */
 typedef uint32_t        kva_t;	/* kernel virtual address */
 typedef uint64_t	kpa_t;	/* kernel physical address */
+/* Change kpg_t to uint64_t to support more than 2**44 bytes of
+physical memory. */
+typedef uint32_t	kpg_t;	/* a physical page number
+				(physical address / EROS_PAGE_SIZE) */
 typedef uint64_t	kpsize_t; /* kernel physical address range
 				   * size */
 typedef uint32_t        uva_t;	/* user logical (virtual) address */

@@ -36,6 +36,7 @@ typedef struct Process Process;
 typedef struct Node Node;
 typedef struct ObjectHeader ObjectHeader;
 typedef struct PageHeader PageHeader;
+struct PmemInfo;
 
 #include <arch-kerninc/PageHeader.h>
 
@@ -51,23 +52,28 @@ typedef struct PageHeader PageHeader;
  * the object is a page or a node and how the object is currently
  * being interpreted.  Note that the interpretation is a runtime
  * artifact, and is never stored to the disk.
+
+ Note, keep the array ddb_obtype_name in sync with this.
  */
 
 enum ObType {
-  ot_NtUnprepared,		/* unprepared vanilla node */
-  ot_NtSegment,			// a GPT
+  ot_NtUnprepared,	/* unprepared vanilla node */
+  ot_NtSegment,		// a GPT
   ot_NtProcessRoot,
   ot_NtKeyRegs,
   ot_NtRegAnnex,
-  ot_NtFreeFrame,		/* unallocated */
+  ot_NtFreeFrame,	/* unallocated */
   ot_NtLAST_NODE_TYPE = ot_NtFreeFrame,
-  ot_PtDataPage,		/* page holding a user data Page */
-  ot_PtNewAlloc,		/* newly allocated frame, not yet typed */
-  ot_PtKernelHeap,		/* in use as kernel heap */
-  ot_PtDevicePage,		/* data page, but device memory */
-  ot_PtFreeFrame,		/* unallocated */
+  ot_PtDataPage,	/* page holding a user data Page */
+  ot_PtNewAlloc,	/* newly allocated frame, not yet typed */
+  ot_PtKernelHeap,	/* in use as kernel heap */
+  ot_PtDevicePage,	/* data page, but device memory */
+  ot_PtSecondary,	/* Part of a multi-page block, not the first block.
+			No other fields of PageHeader are valid,
+			except physMemRegion. */
+  ot_PtFreeFrame,	/* first frame of a free block */
   ot_PtLAST_COMMON_PAGE_TYPE = ot_PtFreeFrame
-  MD_PAGE_OBTYPES		// machine-dependent types from PageHeader.h
+  MD_PAGE_OBTYPES	// machine-dependent types from PageHeader.h
 };
 typedef enum ObType ObType;
 
@@ -173,7 +179,10 @@ struct PageHeader {
 
     struct {
       uint8_t obType;		/* only ot_PtFreeFrame */
-    
+
+      uint8_t log2Pages;	/* 2**log2Pages is the number of pages
+				in this free block */
+      Link freeLink;		// link in the free list
       PageHeader * next;	/* next page on free list */
     } free;	/* if obType == ot_PtFreeFrame */
 
@@ -181,7 +190,7 @@ struct PageHeader {
 
   } kt_u;
 
-  kva_t pageAddr;		/* speed up pageH_GetPageVAddr */
+  struct PmemInfo * physMemRegion;	// The region this page is in.
   uint8_t objAge;
   uint8_t kernPin;
 };
@@ -211,6 +220,12 @@ pageH_GetObType(PageHeader * pageH)
 {
   /* obType is in the same location in all variants of kt_u. */
   return pageH_ToObj(pageH)->obType;
+}
+
+INLINE bool
+pageH_IsFree(PageHeader * pageH)
+{
+  return pageH_GetObType(pageH) == ot_PtFreeFrame;
 }
 
 INLINE bool
@@ -394,10 +409,15 @@ void objH_ddb_dump_bucket(uint32_t bucket);
 
 /* PageHeader functions */
 
+kpa_t pageH_GetPhysAddr(const PageHeader * pageH);
+
 INLINE kva_t
-pageH_GetPageVAddr(const PageHeader * pHdr)
+pageH_GetPageVAddr(const PageHeader * pageH)
 {
-  return pHdr->pageAddr;
+  /* This could be made faster by keeping the result in the PageHeader,
+  trading space for time. 
+  But that only works if all pages are always mapped. */
+  return PTOV(pageH_GetPhysAddr(pageH));
 }
 
 INLINE bool   

@@ -65,7 +65,8 @@ struct PmemInfo {
 
   uint32_t  nPages;		/* number of pages allocated to the
 				 * object cache */
-  uint32_t  basepa;		/* base pa of pages allocated to ob cache*/
+  kpg_t     firstObPgAddr;	/* physical address of first page allocated
+				to ob cache, / EROS_PAGE_SIZE */
   PageHeader * firstObHdr;	/* pgHdrs for those pages */
 } ;
 
@@ -86,6 +87,7 @@ extern kpsize_t physMem_TotalPhysicalPages;
 kpsize_t physMem_MemAvailable(PmemConstraint *, unsigned unitSize);
 
 void physMem_Init();
+void physMem_Init_MD();	// machine-dependent
 
 PmemInfo * physMem_ChooseRegion(kpsize_t sz, PmemConstraint *);
 PmemInfo * physMem_AddRegion(kpa_t base, kpa_t bound, uint32_t type, 
@@ -117,5 +119,9 @@ physMem_AvailPages(PmemConstraint *mc)
 { 
   return physMem_MemAvailable(mc, EROS_PAGE_SIZE); 
 }
+
+PageHeader * physMem_AllocateBlock(unsigned int numPages);
+void physMem_FreeBlock(PageHeader * pageH, unsigned int numPages);
+void physMem_FreeAll(PmemInfo * pmi);
 
 #endif /* __PHYSMEM_H__ */

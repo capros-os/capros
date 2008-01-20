@@ -29,7 +29,7 @@ Approved for public release, distribution unlimited. */
   , ot_PtMappingPage
 
 #define MD_PAGE_OBNAMES \
-  , "PtMapPage "
+  , "PtMapPage"
 
 #define MD_PAGE_VARIANTS \
   struct MapTabHeader mp;

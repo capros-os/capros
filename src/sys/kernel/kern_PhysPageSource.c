@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -44,40 +44,13 @@ Approved for public release, distribution unlimited. */
  */
 static ObCount PhysPageAllocCount = 0u;
 
-/* The current implementation isn't quite kosher, as the current
- * implementation is built to assume a preloaded ramdisk, and the
- * ramdisk boot sector is inherently machine dependent. At some point
- * in the (near) future, I am going to implement the range preload
- * flag, and the need for this hack will go away.
- */
-/*#include <disk/LowVolume.hxx>*/
-
-/* It might appear that this is wrong, because we do not know at the
- * time this constructor runs how many allocatable physical pages
- * there will be. Actually, we can't ever really know how many
- * physically allocatable pages are in a given region, because the
- * kernel may yet do dynamic memory allocations for itself (e.g. to
- * allocate core table entries when it is informed of physical memory
- * on cards.
- *
- * The good news, such as it is, is that we actually can know the
- * right answer when the time comes to (de)allocate the actual pages.
- */
-
 static inline bool
 ValidPhysPage(PmemInfo *pmi, kpa_t pgFrame)
 {
-  kpa_t relFrameNdx;
+  kpg_t pgNum = pgFrame / EROS_PAGE_SIZE;
 
-  if (pgFrame < pmi->basepa)
-    return false;
-
-  relFrameNdx = (pgFrame - pmi->basepa) / EROS_PAGE_SIZE;
-
-  if (relFrameNdx >= pmi->nPages)
-    return false;
-
-  return true;
+  return (pgNum >= pmi->firstObPgAddr)
+         && ((pgNum - pmi->firstObPgAddr) < pmi->nPages);
 }
 
 /* May Yield. */
@@ -108,7 +81,8 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
   assert(pageH_ToObj(pObj)->obType != ot_PtDevicePage);
 
 #ifndef NDEBUG
-  kpa_t relFrameNdx = (pgFrame - thisPtr->pmi->basepa) / EROS_PAGE_SIZE;
+  kpa_t relFrameNdx = ((kpg_t)(pgFrame / EROS_PAGE_SIZE))
+                      - thisPtr->pmi->firstObPgAddr;
   assert(pObj == &thisPtr->pmi->firstObHdr[relFrameNdx]);
 #endif
 

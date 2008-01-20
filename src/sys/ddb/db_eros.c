@@ -1565,7 +1565,6 @@ db_page_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 {
   int	t;
   OID     oid;
-  PageHeader * pageH = 0;
   kva_t kva;
 
   t = db_read_token();
@@ -1580,7 +1579,7 @@ db_page_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
     /*NOTREACHED*/
   }
   
-  pageH = objH_LookupPage(oid);
+  PageHeader * pageH = objH_LookupPage(oid);
   if (pageH == 0)
     db_error("not in core\n");
 

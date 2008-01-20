@@ -50,17 +50,18 @@ uint16_t objH_CurrentTransaction = 1; /* guarantee nonzero! */
 const char *ddb_obtype_name(uint8_t t)
 {
   const char * names[] = {
-    "NtUnprep  ",
-    "NtSegment ",
+    "NtUnprep",
+    "NtSegment",
     "NtProcRoot",
-    "NtKeyRegs ",
+    "NtKeyRegs",
     "NtRegAnnex",
-    "NtFreeFrm ",
+    "NtFree",
     "PtDataPage",
     "PtNewAlloc",
     "PtKernHeap",
-    "PtDevPage ",
-    "PtFreeFrm "
+    "PtDevPage",
+    "PtSecondary",
+    "PtFree"
     MD_PAGE_OBNAMES
     , 0
   };
@@ -482,53 +483,68 @@ objH_InvalidateProducts(ObjectHeader * thisPtr)
 }
 
 #ifdef OPTION_DDB
-void
-objH_ddb_dump(ObjectHeader * thisPtr)
-{
-  extern void db_printf(const char *fmt, ...);
 
+static void
+PrintObjData(ObjectHeader * thisPtr)
+{
+  printf(" oid=%#llx ac=%#x\n", thisPtr->oid, thisPtr->allocCount);
+  printf(" ioCount=0x%08x next=0x%08x flags=0x%02x usrPin=%d\n",
+	 thisPtr->ioCount, thisPtr->next,
+         thisPtr->flags, thisPtr->userPin );
 #ifdef OPTION_OB_MOD_CHECK
-  printf("Object Header 0x%08x (%s) calcCheck 0x%08x:\n", thisPtr,
-	 ddb_obtype_name(thisPtr->obType),
+  printf("check=0x%08x calcCheck 0x%08x:\n", thisPtr->check,
 #if 1
          objH_CalcCheck(thisPtr)
 #else
          0xbadbad00
 #endif
         );
-  printf("    oid=0x%08x%08x ac=0x%08x check=0x%08x\n",
-	 (uint32_t) (thisPtr->oid >> 32), (uint32_t) thisPtr->oid,
-	 thisPtr->allocCount, thisPtr->check);
-#else
-  printf("Object Header 0x%08x (%s) oid=0x%08x%08x ac=0x%08x\n", thisPtr,
-	 ddb_obtype_name(thisPtr->obType),
-	 (uint32_t) (thisPtr->oid >> 32), (uint32_t) thisPtr->oid,
-         thisPtr->allocCount);
+}
+
+void
+objH_ddb_dump(ObjectHeader * thisPtr)
+{
+  extern void db_printf(const char *fmt, ...);
+
+  printf("Object Header 0x%08x obtype %d (%s)\n", thisPtr,
+         thisPtr->obType,
+	 ddb_obtype_name(thisPtr->obType) );
 #endif
-  printf("    ioCount=0x%08x next=0x%08x flags=0x%02x obType=0x%02x usrPin=%d\n",
-	 thisPtr->ioCount, thisPtr->next,
-         thisPtr->flags, thisPtr->obType, thisPtr->userPin );
 
   switch(thisPtr->obType) {
+  case ot_PtFreeFrame:
+    printf(" lgsz=%d", objH_ToPage(thisPtr)->kt_u.free.log2Pages);
+    goto pgRgn;
   case ot_PtDataPage:
   case ot_PtDevicePage:
-    printf("    pageAddr=0x%08x\n", pageH_GetPageVAddr(objH_ToPage(thisPtr)));
+    PrintObjData(thisPtr);
+  case ot_PtKernelHeap:
+  case ot_PtSecondary:
+pgRgn:
+    printf(" region=0x%08x\n", objH_ToPage(thisPtr)->physMemRegion);
+    break;
+
   case ot_NtSegment:
     {
       MapTabHeader * oh = thisPtr->prep_u.products;
-      printf("    products=");
+      printf(" products=");
       while (oh) {
 	printf(" 0x%08x", oh);
 	oh = oh->next;
       }
       printf("\n");
-      break;
+      goto prNodeObj;
     }
   case ot_NtProcessRoot:
   case ot_NtKeyRegs:
   case ot_NtRegAnnex:
-    printf("    context=0x%08x\n", thisPtr->prep_u.context);
+    printf(" context=0x%08x\n", thisPtr->prep_u.context);
+  case ot_NtUnprepared:
+prNodeObj:
+    PrintObjData(thisPtr);
+  case ot_NtFreeFrame:
     break;
+
   default:
     if (thisPtr->obType > ot_PtLAST_COMMON_PAGE_TYPE)
       pageH_mdType_dump_header(objH_ToPage(thisPtr));

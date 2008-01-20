@@ -62,7 +62,7 @@ static void checkBounds(kpa_t base, kpa_t bound)
 }
 
 void
-physMem_Init()
+physMem_Init_MD()
 {
   uint32_t mmapLength;
   struct grub_mmap * mp;

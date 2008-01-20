@@ -279,7 +279,7 @@ DoIRQException(void)
            isr, VIC1.IRQStatus, VIC1.VectAddrN[15]);
 #endif
 #if 0	// Note, this is not reliable, because kernel structures
-	// can be in intermediate states while IRQ is enabled.
+	// can be in intermediate states while IRQ is disabled.
   check_Consistency("b4 int dispatch");
 #endif
 

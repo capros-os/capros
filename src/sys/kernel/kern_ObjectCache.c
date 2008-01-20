@@ -55,26 +55,17 @@ Approved for public release, distribution unlimited. */
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 static void objC_GrabThisPageFrame(PageHeader *);
+static void objC_AllocateUserPages(void);
 
 static void objC_CleanFrame1(ObjectHeader * pObj);
 static bool objC_CleanFrame2(ObjectHeader * pObj);
-
-struct PageInfo {
-  uint32_t nPages;
-  uint32_t basepa;
-  PageHeader * firstObHdr;
-};
 
 uint32_t objC_nNodes;
 uint32_t objC_nFreeNodeFrames;
 Node *objC_nodeTable;
 Node *objC_firstFreeNode;
-PageHeader * objC_firstFreePage;
 
 uint32_t objC_nPages;
-uint32_t objC_nFreePageFrames;
-uint32_t objC_nReservedIoPageFrames = 0;
-uint32_t objC_nCommittedIoPageFrames = 0;
 PageHeader * objC_coreTable;
 
 /* Now that CachedDomains is a tunable, domain cache and depend
@@ -83,7 +74,6 @@ PageHeader * objC_coreTable;
  * entries.  Nodes and pages are allocated in equal proportions, with
  * one core table entry per page.
  */
-
 
 void
 objC_Init()
@@ -152,8 +142,6 @@ objC_Init()
     printf("%d cached domains, %d nodes, %d pages\n",
 		   KTUNE_NCONTEXT,
 		   objC_nNodes, objC_nPages);
-
-  objC_nFreePageFrames = objC_nPages;
 }
 
 Node *
@@ -167,8 +155,8 @@ objC_ContainingNode(void * vp)
   return pNode;
 }
 
-void
-objC_AllocateUserPages()
+static void
+objC_AllocateUserPages(void)
 {
   /* When we get here, we are allocating the last of the core
    * memory. take it all.
@@ -213,8 +201,8 @@ objC_AllocateUserPages()
 #endif
 
     pmi->nPages = np;
-    pmi->basepa =
-      (uint32_t) physMem_Alloc(EROS_PAGE_SIZE * np, &xmc);
+    pmi->firstObPgAddr
+      = physMem_Alloc(EROS_PAGE_SIZE * np, &xmc) >> EROS_PAGE_LGSIZE;
     pmi->firstObHdr = &objC_coreTable[objC_nPages];
 
     objC_nPages += np;
@@ -239,33 +227,28 @@ objC_AllocateUserPages()
     if (pmi->type != MI_MEMORY)
       continue;
 
-    kpa_t framePa = pmi->basepa;
     uint32_t pg;
     for (pg = 0; pg < pmi->nPages; pg++) {
-      pObHdr->pageAddr = PTOV(framePa);
-      pObHdr->kt_u.free.obType = ot_PtFreeFrame;
-      pObHdr->kt_u.free.next = pObHdr + 1;	// link to next
+      pObHdr->physMemRegion = pmi;
+      pObHdr->kt_u.free.obType = ot_PtSecondary;
       pObHdr++;
-      framePa += EROS_PAGE_SIZE;
     }
+
+    physMem_FreeAll(pmi);	// Free all the pages in this region.
   }
   assert(pObHdr == objC_coreTable + objC_nPages);
-
-  // Terminate the free list.
-  objC_coreTable[objC_nPages - 1].kt_u.free.next = 0;
-  objC_firstFreePage = &objC_coreTable[0];
 }
 
 void
 objC_AddDevicePages(PmemInfo *pmi)
 {
   uint32_t pg;
-  kpa_t framePa;
 
-  /* Not all BIOS's report a page-aligned start address for everything. */
-  pmi->basepa = (pmi->base & ~EROS_PAGE_MASK);
+  /* Not all BIOS's report a page-aligned start address for everything,
+  so we might actually be shifting out nonzero bits here. */
+  pmi->firstObPgAddr = pmi->base >> EROS_PAGE_LGSIZE;
 
-  uint32_t nPages = (pmi->bound - pmi->basepa) / EROS_PAGE_SIZE;
+  kpg_t nPages = (kpg_t)(pmi->bound / EROS_PAGE_SIZE) - pmi->firstObPgAddr;
 
   PageHeader * pageH = MALLOC(PageHeader, nPages);
   kzero(pageH, sizeof(PageHeader) * nPages);
@@ -273,14 +256,15 @@ objC_AddDevicePages(PmemInfo *pmi)
   pmi->nPages = nPages;
   pmi->firstObHdr = pageH;
 
-  for (pg = 0, framePa = pmi->basepa;
+  kpa_t frameOid = pmi->firstObPgAddr * EROS_OBJECTS_PER_FRAME
+                        + OID_RESERVED_PHYSRANGE;
+  for (pg = 0;
        pg < pmi->nPages;
-       pg++, pageH++, framePa += EROS_PAGE_SIZE) {
+       pg++, pageH++, frameOid += EROS_OBJECTS_PER_FRAME) {
     ObjectHeader * pObj = pageH_ToObj(pageH);
     pObj->obType = ot_PtDevicePage;
-    pageH->pageAddr = PTOV(framePa);
-    pObj->oid = framePa / (EROS_PAGE_SIZE / EROS_OBJECTS_PER_FRAME)
-                        + OID_RESERVED_PHYSRANGE;
+    pageH->physMemRegion = pmi;
+    pObj->oid = frameOid;
     pObj->allocCount = 0;	// FIXME or PhysPageAllocCount??
     objH_SetFlags(pObj, OFLG_CURRENT | OFLG_DIRTY);
 
@@ -288,14 +272,6 @@ objC_AddDevicePages(PmemInfo *pmi)
     objH_ResetKeyRing(pObj);
     objH_Intern(pObj);
   }
-}
-
-ObjectHeader*
-objC_OIDtoObHdr(uint32_t cdaL/*cdaLo*/, uint16_t cdaH/*cdaHi*/)
-{
-  /* FIX: implement me */
-  fatal("OIDtoObHdr unimplemented!\n");
-  return 0;
 }
 
 PageHeader *
@@ -320,37 +296,6 @@ Node *
 objC_GetCoreNodeFrame(uint32_t ndx)
 {
   return &objC_nodeTable[ndx];
-}
-
-PageHeader *
-objC_PhysPageToObHdr(kpa_t pagepa)
-{
-  unsigned rgn = 0;
-  kva_t startpa;
-  kva_t endpa;
-    
-  for (rgn = 0; rgn < physMem_nPmemInfo; rgn++) {
-    PmemInfo *pmi= &physMem_pmemInfo[rgn];
-    if (pmi->type != MI_MEMORY && pmi->type != MI_DEVICEMEM && pmi->type != MI_BOOTROM)
-      continue;
-
-    startpa = pmi->basepa;
-    endpa = startpa + pmi->nPages * EROS_PAGE_SIZE;
-
-    if (pagepa < startpa || pagepa >= endpa)
-      continue;
-
-    assert (pagepa >= pmi->basepa);
-
-    PageHeader * pageH
-      = &pmi->firstObHdr[(pagepa - pmi->basepa) / EROS_PAGE_SIZE];
-
-    assert(pageH->pageAddr == PTOV(pagepa));
-
-    return pageH;
-  }
-
-  return 0;
 }
 
 #ifndef NDEBUG
@@ -862,6 +807,9 @@ objC_EvictFrame(PageHeader * pObj)
     assert(false);	// should not have this now
 
   case ot_PtDevicePage: // can't evict this
+  case ot_PtSecondary:	/* If this is part of a free block, we don't need
+		to evict it, but we won't bother to split up the block.
+		If it is part of an allocated block, we won't evict it. */
     return false;
 
   case ot_PtDataPage:
@@ -887,6 +835,7 @@ objC_EvictFrame(PageHeader * pObj)
     break;
   }
 
+#if 0	// until I figure out what we need to do here
   // Unlink from free list.
   PageHeader * * pp = &objC_firstFreePage;
   while (*pp != pObj) {
@@ -894,8 +843,14 @@ objC_EvictFrame(PageHeader * pObj)
     pp = &(*pp)->kt_u.free.next;
   }
   (*pp) = pObj->kt_u.free.next;
+  objC_nFreePageFrames--;
+
+  pageH_ToObj(pObj)->obType = ot_PtNewAlloc; /* until further notice */
 
   objC_GrabThisPageFrame(pObj);
+#else
+  assert(false);
+#endif
   return true;
 }
 
@@ -1113,27 +1068,23 @@ objC_AgePageFrames()
 PageHeader *
 objC_GrabPageFrame(void)
 {
-  // WaitForAvailablePageFrame
-  assert (objC_nFreePageFrames >= objC_nReservedIoPageFrames);
-  
-  if (objC_nFreePageFrames == objC_nReservedIoPageFrames)
+  PageHeader * pageH;
+
+  while (1) {
+    // Try to allocate one page.
+    pageH = physMem_AllocateBlock(1);
+    if (pageH) break;
+
+    // WaitForAvailablePageFrame
     objC_AgePageFrames();
-
-  assert (objC_nFreePageFrames > objC_nReservedIoPageFrames);
-
-  assert (objC_nFreePageFrames > 0);
-
-  assert(objC_firstFreePage);
-
-  PageHeader * pObj = objC_firstFreePage;
-  objC_firstFreePage = objC_firstFreePage->kt_u.free.next;
+  };
 
   DEBUG(ndalloc)
-    printf("objC_GrabPageFrame obj=0x%08x\n", pObj);
+    printf("objC_GrabPageFrame obj=0x%08x\n", pageH);
 
-  objC_GrabThisPageFrame(pObj);
+  objC_GrabThisPageFrame(pageH);
 
-  return pObj;
+  return pageH;
 }
 
 #if 0
@@ -1148,14 +1099,11 @@ ObjectCache::RequirePageFrames(uint32_t n)
 static void
 objC_GrabThisPageFrame(PageHeader *pObj)
 {
-  assert(pageH_GetObType(pObj) == ot_PtFreeFrame);
-  objC_nFreePageFrames--;
+  assert(pageH_GetObType(pObj) == ot_PtNewAlloc);
 
-  kva_t kva = pObj->pageAddr;	// preserve this field
+  PmemInfo * pmi = pObj->physMemRegion;	// preserve this field
   kzero(pObj, sizeof(*pObj));
-  pObj->pageAddr = kva;
-
-  pageH_ToObj(pObj)->obType = ot_PtNewAlloc; /* until further notice */
+  pObj->physMemRegion = pmi;
 
   assert(pte_ObIsNotWritable(pObj));
 
@@ -1235,11 +1183,8 @@ ReleaseObjPageFrame(PageHeader * pageH)
 void
 ReleasePageFrame(PageHeader * pageH)
 {
-  pageH->kt_u.free.obType = ot_PtFreeFrame;
-  pageH->kt_u.free.next = objC_firstFreePage;
-  objC_firstFreePage = pageH;
+  physMem_FreeBlock(pageH, 1);
 
-  objC_nFreePageFrames++;
   sq_WakeAll(&PageAvailableQueue, false);
 }
 
@@ -1339,7 +1284,7 @@ ObjectHeader *
 objC_GetObject(OID oid, ObType obType,
                ObCount count, bool useCount)
 {
-  unsigned i = 0;
+  unsigned i;
 
   ObjectHeader *pObj = 0;
 

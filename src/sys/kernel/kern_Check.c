@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -114,10 +114,8 @@ check_Nodes()
 bool
 check_Pages()
 {
-  uint32_t pg = 0;
-#ifndef NDEBUG
-  uint32_t chk = 0;
-#endif
+  int i;
+  uint32_t pg;
   bool result = true;
 
   irqFlags_t flags = local_irq_save();
@@ -129,6 +127,19 @@ check_Pages()
 
     switch (pageH_GetObType(pPage)) {
     case ot_PtFreeFrame:
+    {
+      unsigned int l2p = pPage->kt_u.free.log2Pages;
+      for (i = (1UL << l2p) - 1; i > 0; i--) {
+        PageHeader * pPage2 = objC_GetCorePageFrame(++pg);
+        if (pageH_GetObType(pPage2) != ot_PtSecondary) {
+          printf("Frame %#x free but %#x not secondary\n", pPage, pPage2);
+          result = false;
+          goto exitLoop;
+        }
+      }
+      continue;
+    }
+
     case ot_PtNewAlloc:
     case ot_PtKernelHeap:
       continue;
@@ -150,7 +161,7 @@ check_Pages()
           printf("Frame %d ty=%d, flg=0x%02x redirty but not dirty!!\n",
 		       pg, pObj->obType, pObj->flags);
 
-        chk = objH_CalcCheck(pObj);
+        uint32_t chk = objH_CalcCheck(pObj);
 
         if (pObj->check != chk) {
           printf("Frame %d Chk=0x%x CalcCheck=0x%x flgs=0x%02x ty=%d\n on pg OID ",
@@ -175,6 +186,7 @@ check_Pages()
 
     if (! result) break;	// no point continuing the loop
   }
+exitLoop:
 
   local_irq_restore(flags);
 

@@ -24,6 +24,7 @@ Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <kerninc/kernel.h>
+#include <kerninc/util.h>
 #include <kerninc/Key.h>
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>

@@ -113,7 +113,7 @@ NoMachine = "Unknown machine"
 ################################################
 
 machine_types = {
-    'arm' : [ "edb9315" ],
+    'arm' : [ "edb9315", "edb9315_memtest" ],
     'x86' : [ "pc" ],
     }
 cpu_types = {

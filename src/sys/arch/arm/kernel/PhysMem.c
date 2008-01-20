@@ -42,7 +42,7 @@ uint32_t cacheSetIndexIncrement;
 uint32_t cacheSetIndexCarry;
 
 void
-physMem_Init()
+physMem_Init_MD()
 {
   int32_t mmapLength;
   struct grub_mmap * mp;

@@ -49,8 +49,6 @@ extern kva_t heap_defined;
 kva_t heap_havePTs;	/* second level page tables exist to here */
 extern kva_t heap_bound;
 
-kva_t kernelStackBot;	/* the highest address of the kernel stack +1 */
-
 /* FLPT_FCSEPA is the physical address of the First Level Page Table that is
    used for processes using the Fast Context Switch Extension. */
 kpa_t FLPT_FCSEPA;

@@ -64,18 +64,7 @@ extern uint32_t objC_nPages;
 extern PageHeader * objC_coreTable;
 
 extern uint32_t objC_nFreeNodeFrames;
-extern uint32_t objC_nFreePageFrames;
-extern uint32_t objC_nReservedIoPageFrames;
-extern uint32_t objC_nCommittedIoPageFrames;
   
-extern Node *objC_firstFreeNode;
-extern PageHeader * objC_firstFreePage;
-
-
-/* Former member functions of ObjectCache */
-
-void objC_AllocateUserPages();
-
 /* Initialization */
 void objC_Init();
 
@@ -83,8 +72,6 @@ void objC_InitObjectSources();
 
 /* Page management: */
 PageHeader * objC_PhysPageToObHdr(kpa_t pagepa);
-
-ObjectHeader *objC_OIDtoObHdr(uint32_t oidLo, uint16_t oidHi);
 
 void objC_WaitForAvailableNodeFrame();
 Node *objC_GrabNodeFrame();
