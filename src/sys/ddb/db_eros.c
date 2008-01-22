@@ -80,7 +80,7 @@ db_eros_print_key(Key* key /*@ not null @*/)
 		oidhi, oidlo, pObj);
   }
   else if (keyBits_IsObjectKey(key)) {
-    db_printf("uobj 0x%08x cnt=%u 0x%016X\n",
+    db_printf("uobj 0x%08x cnt=%u 0x%08xll\n",
 	      pWKey[3], key->u.unprep.count, key->u.unprep.oid);
   }
   else if (keyBits_IsVoidKey(key)) {
@@ -1549,7 +1549,7 @@ db_show_counters_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
     pNode->node_ObjHdr.prep_u.context);
 
   if (isProcess) {
-    db_printf("     count = 0x%016X\n", pNode->node_ObjHdr.prep_u.context->stats.evtCounter0);
+    db_printf("     count = 0x%016xll\n", pNode->node_ObjHdr.prep_u.context->stats.evtCounter0);
   }
   else {
     Key* k /*@ not null @*/ = &pNode->slot[10];
