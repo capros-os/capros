@@ -57,7 +57,6 @@ Approved for public release, distribution unlimited. */
 static void objC_GrabThisPageFrame(PageHeader *);
 static void objC_AllocateUserPages(void);
 
-static void objC_CleanFrame1(ObjectHeader * pObj);
 static bool objC_CleanFrame2(ObjectHeader * pObj);
 
 uint32_t objC_nNodes;
@@ -123,10 +122,11 @@ objC_Init()
   for (i = 0; i < objC_nNodes; i++) {
     /* object type is set in constructor... */
     assert (objC_nodeTable[i].node_ObjHdr.obType == ot_NtFreeFrame);
-    objC_nodeTable[i].node_ObjHdr.next = node_ToObj(&objC_nodeTable[i+1]);
+    objC_nodeTable[i].node_ObjHdr.prep_u.nextFree
+      = node_ToObj(&objC_nodeTable[i+1]);
   }
   
-  objC_nodeTable[objC_nNodes - 1].node_ObjHdr.next = 0;
+  objC_nodeTable[objC_nNodes - 1].node_ObjHdr.prep_u.nextFree = 0;
   objC_firstFreeNode = &objC_nodeTable[0];
 
   objC_nFreeNodeFrames = objC_nNodes;
@@ -239,11 +239,32 @@ objC_AllocateUserPages(void)
   assert(pObHdr == objC_coreTable + objC_nPages);
 }
 
-void
-objC_AddDevicePages(PmemInfo *pmi)
+static void
+AddCoherentPages(PageHeader * pageH, PmemInfo * pmi, kpg_t nPages,
+  OID oid, unsigned int obType)
 {
-  uint32_t pg;
+  unsigned int pg;
 
+  kzero(pageH, sizeof(PageHeader) * nPages);
+
+  for (pg = 0;
+       pg < nPages;
+       pg++, pageH++, oid += EROS_OBJECTS_PER_FRAME) {
+    ObjectHeader * pObj = pageH_ToObj(pageH);
+    pObj->obType = obType;
+    pageH->physMemRegion = pmi;
+    pObj->oid = oid;
+    pObj->allocCount = 0;	// FIXME or PhysPageAllocCount??
+    objH_SetFlags(pObj, OFLG_CURRENT | OFLG_DIRTY);
+    pageH_MDInitDevicePage(pageH);	// make it coherent
+    objH_ResetKeyRing(pObj);
+    objH_Intern(pObj);
+  }
+}
+
+void
+objC_AddDevicePages(PmemInfo * pmi)
+{
   /* Not all BIOS's report a page-aligned start address for everything,
   so we might actually be shifting out nonzero bits here. */
   pmi->firstObPgAddr = pmi->base >> EROS_PAGE_LGSIZE;
@@ -251,27 +272,29 @@ objC_AddDevicePages(PmemInfo *pmi)
   kpg_t nPages = (kpg_t)(pmi->bound / EROS_PAGE_SIZE) - pmi->firstObPgAddr;
 
   PageHeader * pageH = MALLOC(PageHeader, nPages);
-  kzero(pageH, sizeof(PageHeader) * nPages);
 
   pmi->nPages = nPages;
   pmi->firstObHdr = pageH;
 
-  kpa_t frameOid = pmi->firstObPgAddr * EROS_OBJECTS_PER_FRAME
+  OID frameOid = pmi->firstObPgAddr * EROS_OBJECTS_PER_FRAME
                         + OID_RESERVED_PHYSRANGE;
-  for (pg = 0;
-       pg < pmi->nPages;
-       pg++, pageH++, frameOid += EROS_OBJECTS_PER_FRAME) {
-    ObjectHeader * pObj = pageH_ToObj(pageH);
-    pObj->obType = ot_PtDevicePage;
-    pageH->physMemRegion = pmi;
-    pObj->oid = frameOid;
-    pObj->allocCount = 0;	// FIXME or PhysPageAllocCount??
-    objH_SetFlags(pObj, OFLG_CURRENT | OFLG_DIRTY);
+  AddCoherentPages(pageH, pmi, nPages, frameOid, ot_PtDevicePage);
+}
 
-    pageH_MDInitDevicePage(pageH);
-    objH_ResetKeyRing(pObj);
-    objH_Intern(pObj);
-  }
+void
+objC_AddDMAPages(PageHeader * pageH, kpg_t nPages)
+{
+  assert(pageH->kt_u.free.obType == ot_PtNewAlloc);
+
+  PmemInfo * pmi = pageH->physMemRegion;
+
+  OID oid = pageH_ToPhysPgNum(pageH) * EROS_OBJECTS_PER_FRAME
+            + OID_RESERVED_PHYSRANGE;
+
+  AddCoherentPages(pageH, pmi, nPages, oid, ot_PtDMASecondary);
+
+  // First frame has its own type:
+  pageH_ToObj(pageH)->obType = ot_PtDMABlock;
 }
 
 PageHeader *
@@ -541,7 +564,7 @@ objC_ddb_dump_nodes()
 #endif
 
 /* Queue for activitys that are waiting for available page frames: */
-static DEFQUEUE(PageAvailableQueue);
+DEFQUEUE(PageAvailableQueue);
 
 /* May Yield. */
 static void
@@ -806,10 +829,11 @@ objC_EvictFrame(PageHeader * pObj)
   case ot_PtNewAlloc:
     assert(false);	// should not have this now
 
-  case ot_PtDevicePage: // can't evict this
-  case ot_PtSecondary:	/* If this is part of a free block, we don't need
-		to evict it, but we won't bother to split up the block.
-		If it is part of an allocated block, we won't evict it. */
+  case ot_PtDevicePage:	// can't evict this
+  case ot_PtDMABlock:	// can't evict this
+  case ot_PtDMASecondary:	// can't evict this
+  case ot_PtSecondary:	/* This is part of a free block. We don't need
+		to evict it, but we won't bother to split up the block. */
     return false;
 
   case ot_PtDataPage:
@@ -973,8 +997,8 @@ objC_CleanFrame2(ObjectHeader *pObj)
  * number (currently 5) of additional writes to initiate.
  */
 
-static void
-objC_AgePageFrames()
+void
+objC_AgePageFrames(void)
 {
   static uint32_t curPage = 0;
   uint32_t count = 0;
@@ -1000,8 +1024,11 @@ objC_AgePageFrames()
       case ot_PtNewAlloc:
       case ot_PtDevicePage:
       case ot_PtKernelHeap:
+      case ot_PtDMABlock:
+      case ot_PtDMASecondary:
 	nStuck++;
       case ot_PtFreeFrame:
+      case ot_PtSecondary:
 	continue;
 
       case ot_PtDataPage:
@@ -1122,7 +1149,7 @@ objC_GrabNodeFrame()
   assert(objC_nFreeNodeFrames);
   
   pNode = objC_firstFreeNode;
-  objC_firstFreeNode = (Node *) objC_firstFreeNode->node_ObjHdr.next;
+  objC_firstFreeNode = (Node *) objC_firstFreeNode->node_ObjHdr.prep_u.nextFree;
   objC_nFreeNodeFrames--;
 
   ObjectHeader * const pObj = &pNode->node_ObjHdr;
@@ -1212,7 +1239,7 @@ ReleaseNodeFrame(Node * pNode)
     
   node_ToObj(pNode)->obType = ot_NtFreeFrame;
 
-  node_ToObj(pNode)->next = node_ToObj(objC_firstFreeNode);
+  node_ToObj(pNode)->prep_u.nextFree = node_ToObj(objC_firstFreeNode);
   objC_firstFreeNode = pNode;
   objC_nFreeNodeFrames++;
 }

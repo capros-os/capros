@@ -2,9 +2,9 @@
 #define __OBJECTCACHE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -64,6 +64,7 @@ extern uint32_t objC_nPages;
 extern PageHeader * objC_coreTable;
 
 extern uint32_t objC_nFreeNodeFrames;
+extern struct StallQueue PageAvailableQueue;
   
 /* Initialization */
 void objC_Init();
@@ -76,9 +77,12 @@ PageHeader * objC_PhysPageToObHdr(kpa_t pagepa);
 void objC_WaitForAvailableNodeFrame();
 Node *objC_GrabNodeFrame();
 
+void objC_AgePageFrames(void);
 PageHeader * objC_GrabPageFrame();
+void objC_CleanFrame1(ObjectHeader * pObj);
 
 void objC_AddDevicePages(PmemInfo *);
+void objC_AddDMAPages(PageHeader * pageH, kpg_t nPages);
 
 INLINE uint32_t 
 objC_TotalPages()

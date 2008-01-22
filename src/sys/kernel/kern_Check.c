@@ -128,8 +128,8 @@ check_Pages()
     switch (pageH_GetObType(pPage)) {
     case ot_PtFreeFrame:
     {
-      unsigned int l2p = pPage->kt_u.free.log2Pages;
-      for (i = (1UL << l2p) - 1; i > 0; i--) {
+      unsigned int nPages = 1U << pPage->kt_u.free.log2Pages;
+      for (i = nPages - 1; i > 0; i--) {
         PageHeader * pPage2 = objC_GetCorePageFrame(++pg);
         if (pageH_GetObType(pPage2) != ot_PtSecondary) {
           printf("Frame %#x free but %#x not secondary\n", pPage, pPage2);
@@ -142,6 +142,8 @@ check_Pages()
 
     case ot_PtNewAlloc:
     case ot_PtKernelHeap:
+    case ot_PtDMABlock:
+    case ot_PtDMASecondary:
       continue;
 
     case ot_PtDevicePage:

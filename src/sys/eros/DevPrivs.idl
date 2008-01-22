@@ -11,6 +11,12 @@ package capros;
 interface DevPrivs extends key raises(AllocFail) {
   exception AllocFail;
 
+  typedef unsigned long long addr_t;
+
+  /* The largest block that can be allocated using allocateDMAPages
+  is 2**logMaxDMABlockSize. */
+  const unsigned short logMaxDMABlockSize = 7;
+
   /** Allocate an IRQ.
    *
    * Indicates to the kernel that the specified IRQ now has a driver
@@ -68,4 +74,15 @@ interface DevPrivs extends key raises(AllocFail) {
      u.nk.value[0] field, otherwise key.NoAccess is raised.
    */
   void deviceConfig(boolean set, unsigned long mask);
+
+  /** Allocate pages for DMA.
+
+  If nPages %gt; 2**logMaxDMABlockSize, RequestError is raised.
+
+  Allocate a block of nPages pages that have contiguous physical addresses.
+  All the physical addresses p are such that (p &amp; addrMask) == p.
+  They physical address of the first page is returned in physAddr.
+  A page key to the first page is returned; use ... to get subsequent pages. */
+  capros.key allocateDMAPages(unsigned short nPages,
+                              addr_t addrMask, out addr_t physAddr);
 };

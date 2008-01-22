@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/PhysMem.h>
 #include <eros/ffs.h>
 #include <eros/fls.h>
+#include <idl/capros/DevPrivs.h>
 
 #define dbg_pgalloc	0x1
 #define dbg_avail	0x2
@@ -51,22 +52,30 @@ unsigned long physMem_nPmemInfo;
 
 kpg_t physMem_numFreePageFrames = 0;
 
-#define logMaxFreePageBlock 7	// largest block size we can allocate
+#define logMaxFreePageBlock capros_DevPrivs_logMaxDMABlockSize
+// largest block size we can allocate
 
 // freePages[n] has free blocks of size 2**n pages.
 Link freePages[logMaxFreePageBlock + 1];
 
+// pmi_ToPhysPgNum is for use when we already have pmi handy.
 static kpg_t
-pageH_ToPhysPgNum(const PageHeader * pageH, const PmemInfo * pmi)
+pmi_ToPhysPgNum(const PageHeader * pageH, const PmemInfo * pmi)
 {
   return pageH - pmi->firstObHdr + pmi->firstObPgAddr;
+}
+
+kpg_t
+pageH_ToPhysPgNum(const PageHeader * pageH)
+{
+  PmemInfo * pmi = pageH->physMemRegion;
+  return pmi_ToPhysPgNum(pageH, pmi);
 }
 
 kpa_t
 pageH_GetPhysAddr(const PageHeader * pageH)
 {
-  PmemInfo * pmi = pageH->physMemRegion;
-  return ((kpa_t) pageH_ToPhysPgNum(pageH, pmi)) << EROS_PAGE_LGSIZE;
+  return ((kpa_t) pageH_ToPhysPgNum(pageH)) << EROS_PAGE_LGSIZE;
 }
 
 static PageHeader *
@@ -125,7 +134,7 @@ physMem_FreeBlock(PageHeader * pageH, unsigned int numPages)
   physMem_numFreePageFrames += numPages;
 
   PmemInfo * pmi = pageH->physMemRegion;
-  kpg_t pgNum = pageH_ToPhysPgNum(pageH, pmi);
+  kpg_t pgNum = pmi_ToPhysPgNum(pageH, pmi);
 
   // pgNum is a multiple of 2**n, where 2**n >= numPages
   assert((pgNum & -pgNum) == 0 || (pgNum & -pgNum) >= numPages);
@@ -202,7 +211,7 @@ foundj: ;
   pageH_ToObj(pageH)->obType = ot_PtNewAlloc;	// not free
 
   PmemInfo * pmi = pageH->physMemRegion;
-  kpg_t jPgNum = pageH_ToPhysPgNum(pageH, pmi);
+  kpg_t jPgNum = pmi_ToPhysPgNum(pageH, pmi);
 
   physMem_numFreePageFrames -= numPages;
 

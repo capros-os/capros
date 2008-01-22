@@ -77,8 +77,9 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
   }
 
   /* Device pages are entered in the object hash by objC_AddDevicePages(),
+     and DMA pages are entered by objC_AddDMAPages(),
      so they should never get here: */
-  assert(pageH_ToObj(pObj)->obType != ot_PtDevicePage);
+  assert(pageH_ToObj(pObj)->obType == ot_PtDataPage);
 
 #ifndef NDEBUG
   kpa_t relFrameNdx = ((kpg_t)(pgFrame / EROS_PAGE_SIZE))

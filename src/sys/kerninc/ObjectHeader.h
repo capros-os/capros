@@ -2,7 +2,7 @@
 #define __OBJECTHEADER_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -71,6 +71,8 @@ enum ObType {
   ot_PtSecondary,	/* Part of a multi-page block, not the first block.
 			No other fields of PageHeader are valid,
 			except physMemRegion. */
+  ot_PtDMABlock,	/* first frame of a block allocated for DMA. */
+  ot_PtDMASecondary,	/* subsequent frames of a block allocated for DMA. */
   ot_PtFreeFrame,	/* first frame of a free block */
   ot_PtLAST_COMMON_PAGE_TYPE = ot_PtFreeFrame
   MD_PAGE_OBTYPES	// machine-dependent types from PageHeader.h
@@ -133,22 +135,17 @@ struct ObjectHeader {
   KeyRing	keyRing;
 
   union {
-    /* Special relationship pointers if prepared node */
+    /* Data for specific obType's */
 
     /* List of mapping tables produced by this object. */
     MapTabHeader * products;	/* if obType == ot_NtSegment
-				        or ot_PtDataPage or ot_PtDevicePage */
+				        or ot_PtDataPage or ot_PtDevicePage
+				        or ot_PtDMABlock or ot_PtDMASecondary */
     Process * context;		/* if obType == ot_NtProcessRoot
                                              or ot_NtKeyRegs
 				             (or ot_NtRegAnnex if used) */
+    ObjectHeader * nextFree;	/* if obType == ot_NtFreeFrame */
   } prep_u;
-  
-  ObjectHeader * next;		/* used by various chains */
-/* "next" field is used as follows:
-   if obType == ot_NtSegment or ot_PtDataPage or ot_PtDevicePage:
-     next product
-   ...
- */
   
   ObCount	allocCount;
   OID   	oid;
@@ -183,8 +180,7 @@ struct PageHeader {
       uint8_t log2Pages;	/* 2**log2Pages is the number of pages
 				in this free block */
       Link freeLink;		// link in the free list
-      PageHeader * next;	/* next page on free list */
-    } free;	/* if obType == ot_PtFreeFrame */
+    } free;		/* if obType == ot_PtFreeFrame */
 
     MD_PAGE_VARIANTS
 

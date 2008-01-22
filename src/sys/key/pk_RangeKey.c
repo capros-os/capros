@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -202,15 +202,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
   
   Key * key = inv->exit.pKey[0];
   if (key) {
-    /* Unchain the old key so we can overwrite it... */
-    key_NH_Unchain(key);
-
-    keyBits_InitType(key, kkt);
-  
-    /* Link as next key after object */
-    key->u.ok.pObj = pObj;
-    link_insertAfter(&pObj->keyRing, &key->u.ok.kr);
-    keyBits_SetPrepared(key);
+    key_NH_SetToObj(key, pObj, kkt);
   
     // Set defaults for keyData.
     switch (kkt) {

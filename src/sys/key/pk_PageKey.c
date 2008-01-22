@@ -102,6 +102,80 @@ PageKey(Invocation* inv /*@ not null @*/)
       return;
     }
 
+  case OC_capros_Page_getNthPage:
+  {
+    unsigned int ordinal = inv->entry.w1;
+
+    if (pageH_GetObType(pageH) != ot_PtDMABlock) {
+      COMMIT_POINT();
+
+      inv->exit.code = RC_capros_key_RequestError;
+      return;
+    }
+
+    PmemInfo * pmi = pageH->physMemRegion;
+    kpg_t relativePgNum = pageH - pmi->firstObHdr;
+    while (ordinal > 0) {
+      if (++relativePgNum >= pmi->nPages
+          || pageH_GetObType(++pageH) != ot_PtDMASecondary) {
+        COMMIT_POINT();
+
+        inv->exit.code = RC_capros_key_RequestError;
+        return;
+      }
+    }
+
+    COMMIT_POINT();
+
+    Key * key = inv->exit.pKey[0];
+    if (key) {
+      key_NH_SetToObj(key, pageH_ToObj(pageH), KKT_Page);
+    }
+
+    inv->exit.code = RC_OK;
+    return;
+  }
+
+  case OC_capros_Page_deallocateDMAPages:
+  {
+    if (pageH_GetObType(pageH) != ot_PtDMABlock) {
+      COMMIT_POINT();
+
+      inv->exit.code = RC_capros_key_RequestError;
+      return;
+    }
+
+    /* Sever all the pages in the block,
+       and count the number of pages in the block. */
+    PmemInfo * pmi = pageH->physMemRegion;
+    kpg_t relativePgNum = pageH - pmi->firstObHdr;
+    unsigned int nPages = 0;
+    PageHeader * ph;
+    for (ph = pageH; ++ph, ++nPages, ++relativePgNum < pmi->nPages; ) {
+      if (pageH_GetObType(ph) != ot_PtDMASecondary)
+        break;
+      ObjectHeader * pObj = pageH_ToObj(ph);
+      objC_CleanFrame1(pObj);
+      objH_InvalidateProducts(pObj);
+    }
+    /* The above loop is before the commit point, because objC_CleanFrame1
+    checks for I/O in progress and may Yield. 
+    Revisit this when the dust settles on I/O. */
+
+    COMMIT_POINT();
+
+    unsigned int i;
+    for (ph = pageH, i = 0; i < nPages; ph++, i++) {
+      objH_Unintern(pageH_ToObj(ph));
+    }
+
+    physMem_FreeBlock(pageH, nPages);
+    sq_WakeAll(&PageAvailableQueue, false);
+
+    inv->exit.code = RC_OK;
+    return;
+  }
+
   default:
     // Handle methods inherited from Memory object.
     MemoryKey(inv);

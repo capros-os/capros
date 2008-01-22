@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -35,6 +35,7 @@ Approved for public release, distribution unlimited. */
 
 #include <idl/capros/key.h>
 #include <idl/capros/DevPrivs.h>
+#include <key/DevicePrivs.h>
 #include "IRQ386.h"
 
 #define dbg_alloc	0x2u
@@ -191,6 +192,10 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;
       break;
     }
+
+  case OC_capros_DevPrivs_allocateDMAPages:
+    physMem_AllocateDMAPages(inv);
+    break;
     
   case OC_capros_DevPrivs_publishMem:
     {

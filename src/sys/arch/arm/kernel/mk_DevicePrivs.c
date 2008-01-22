@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -37,6 +37,7 @@ Approved for public release, distribution unlimited. */
 
 #include <idl/capros/key.h>
 #include <idl/capros/DevPrivs.h>
+#include <key/DevicePrivs.h>
 
 #define SYSCON (SYSCONStruct(APB_VA + SYSCON_APB_OFS))
 
@@ -226,7 +227,11 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_OK;
       break;
     }
-    
+
+  case OC_capros_DevPrivs_allocateDMAPages:
+    physMem_AllocateDMAPages(inv);
+    break;
+
   case OC_capros_DevPrivs_publishMem:
     {
       PmemInfo *pmi = 0;

@@ -61,6 +61,8 @@ const char *ddb_obtype_name(uint8_t t)
     "PtKernHeap",
     "PtDevPage",
     "PtSecondary",
+    "PtDMABlock",
+    "PtDMASecondary",
     "PtFree"
     MD_PAGE_OBNAMES
     , 0
@@ -488,8 +490,8 @@ static void
 PrintObjData(ObjectHeader * thisPtr)
 {
   printf(" oid=%#llx ac=%#x\n", thisPtr->oid, thisPtr->allocCount);
-  printf(" ioCount=0x%08x next=0x%08x flags=0x%02x usrPin=%d\n",
-	 thisPtr->ioCount, thisPtr->next,
+  printf(" ioCount=0x%08x flags=0x%02x usrPin=%d\n",
+	 thisPtr->ioCount,
          thisPtr->flags, thisPtr->userPin );
 #ifdef OPTION_OB_MOD_CHECK
   printf("check=0x%08x calcCheck 0x%08x:\n", thisPtr->check,
@@ -520,6 +522,8 @@ objH_ddb_dump(ObjectHeader * thisPtr)
     PrintObjData(thisPtr);
   case ot_PtKernelHeap:
   case ot_PtSecondary:
+  case ot_PtDMABlock:
+  case ot_PtDMASecondary:
 pgRgn:
     printf(" region=0x%08x\n", objH_ToPage(thisPtr)->physMemRegion);
     break;

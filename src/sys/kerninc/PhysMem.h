@@ -2,7 +2,7 @@
 #define __PHYSMEM_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -119,6 +119,8 @@ physMem_AvailPages(PmemConstraint *mc)
 { 
   return physMem_MemAvailable(mc, EROS_PAGE_SIZE); 
 }
+
+kpg_t pageH_ToPhysPgNum(const PageHeader * pageH);
 
 PageHeader * physMem_AllocateBlock(unsigned int numPages);
 void physMem_FreeBlock(PageHeader * pageH, unsigned int numPages);

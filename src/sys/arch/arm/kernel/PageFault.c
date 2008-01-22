@@ -907,8 +907,10 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     }
     
     assert(wi.memObj);
-    assert(wi.memObj->obType == ot_PtDataPage ||
-           wi.memObj->obType == ot_PtDevicePage);
+    assert(wi.memObj->obType == ot_PtDataPage
+           || wi.memObj->obType == ot_PtDevicePage
+           || wi.memObj->obType == ot_PtDMABlock
+           || wi.memObj->obType == ot_PtDMASecondary);
     PageHeader * const pageH = objH_ToPage(wi.memObj);
 
     if (isWrite)
