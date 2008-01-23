@@ -11,6 +11,7 @@
  * (C) Copyright Yggdrasil Computing, Inc. 2000
  *     (usb_device_id matching changes by Adam J. Richter)
  * (C) Copyright Greg Kroah-Hartman 2002-2003
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * NOTE! This is not actually a driver at all, rather this is
  * just a collection of helper routines that implement the
@@ -20,8 +21,29 @@
  * It should be considered a slave, with no callbacks. Callbacks
  * are evil.
  */
+/*
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/module.h>
+#if 0 // CapROS
 #include <linux/moduleparam.h>
 #include <linux/string.h>
 #include <linux/bitops.h>
@@ -31,22 +53,26 @@
 #include <linux/init.h>
 #include <linux/spinlock.h>
 #include <linux/errno.h>
+#endif // CapROS
 #include <linux/usb.h>
+#if 0 // CapROS
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
 
 #include <asm/io.h>
 #include <asm/scatterlist.h>
 #include <linux/mm.h>
+#endif // CapROS
 #include <linux/dma-mapping.h>
+#include <domain/assert.h>
+#include <eros/Invoke.h>
+#include <idl/capros/USBHCD.h>
 
 #include "hcd.h"
 #include "usb.h"
 
 
 const char *usbcore_name = "usbcore";
-
-static int nousb;	/* Disable USB when built into kernel image */
 
 /* Workqueue for autosuspend and for remote wakeup of root hubs */
 struct workqueue_struct *ksuspend_usb_wq;
@@ -127,6 +153,7 @@ struct usb_host_interface *usb_altnum_to_altsetting(const struct usb_interface *
 	return NULL;
 }
 
+#if 0 // CapROS
 struct find_interface_arg {
 	int minor;
 	struct usb_interface *interface;
@@ -170,6 +197,7 @@ struct usb_interface *usb_find_interface(struct usb_driver *drv, int minor)
 					__find_interface);
 	return argb.interface;
 }
+#endif // CapROS
 
 /**
  * usb_release_dev - free a usb device structure when all users of it are finished.
@@ -211,10 +239,19 @@ static int ksuspend_usb_init(void)
 	return 0;
 }
 
+#if 0 // CapROS
 static void ksuspend_usb_cleanup(void)
 {
 	destroy_workqueue(ksuspend_usb_wq);
 }
+#endif // CapROS
+
+#ifdef CONFIG_USB_SUSPEND
+// Need to get usb_autosuspend_work from driver.c
+#else
+void usb_autosuspend_work(struct work_struct *work)
+{}
+#endif
 
 #else
 
@@ -370,6 +407,7 @@ void usb_put_intf(struct usb_interface *intf)
 }
 
 
+#if 0 // CapROS
 /*			USB device locking
  *
  * USB devices and interfaces are locked using the semaphore in their
@@ -564,6 +602,7 @@ int __usb_get_extra_descriptor(char *buffer, unsigned size,
 	}
 	return -1;
 }
+#endif // CapROS
 
 /**
  * usb_buffer_alloc - allocate dma-consistent buffer for URB_NO_xxx_DMA_MAP
@@ -595,7 +634,8 @@ void *usb_buffer_alloc(
 {
 	if (!dev || !dev->bus)
 		return NULL;
-	return hcd_buffer_alloc(dev->bus, size, mem_flags, dma);
+  struct usb_hcd * hcd = bus_to_hcd(dev->bus);
+  return dma_alloc_coherent(hcd->self.controller, size, dma, 0);
 }
 
 /**
@@ -620,7 +660,8 @@ void usb_buffer_free(
 		return;
 	if (!addr)
 		return;
-	hcd_buffer_free(dev->bus, size, addr, dma);
+	struct usb_hcd * hcd = bus_to_hcd(dev->bus);
+	dma_free_coherent(hcd->self.controller, size, addr, dma);
 }
 
 /**
@@ -639,7 +680,7 @@ void usb_buffer_free(
  *
  * Reverse the effect of this call with usb_buffer_unmap().
  */
-#if 0
+#if 0 /* XXX DISABLED, no users currently */
 struct urb *usb_buffer_map(struct urb *urb)
 {
 	struct usb_bus		*bus;
@@ -743,6 +784,7 @@ void usb_buffer_unmap(struct urb *urb)
 }
 #endif  /*  0  */
 
+#if 0 // CapROS
 /**
  * usb_buffer_map_sg - create scatterlist DMA mapping(s) for an endpoint
  * @dev: device to which the scatterlist will be mapped
@@ -845,85 +887,72 @@ void usb_buffer_unmap_sg(const struct usb_device *dev, unsigned pipe,
 	dma_unmap_sg(controller, sg, n_hw_ents,
 			usb_pipein(pipe) ? DMA_FROM_DEVICE : DMA_TO_DEVICE);
 }
+#endif // CapROS
 
-/* format to disable USB on kernel command line is: nousb */
-__module_param_call("", nousb, param_set_bool, param_get_bool, &nousb, 0444);
-
-/*
- * for external read access to <nousb>
- */
 int usb_disabled(void)
 {
-	return nousb;
+	return false;	// if it's in the big bang, it's enabled.
 }
 
 /*
- * Init
+ * Start here.
  */
-static int __init usb_init(void)
+void
+driver_main(void)
 {
-	int retval;
-	if (nousb) {
-		pr_info("%s: USB support disabled\n", usbcore_name);
-		return 0;
-	}
+  int retval;
 
-	retval = ksuspend_usb_init();
-	if (retval)
-		goto out;
-	retval = bus_register(&usb_bus_type);
-	if (retval) 
-		goto bus_register_failed;
-	retval = usb_host_init();
-	if (retval)
-		goto host_init_failed;
-	retval = usb_major_init();
-	if (retval)
-		goto major_init_failed;
-	retval = usb_register(&usbfs_driver);
-	if (retval)
-		goto driver_register_failed;
-	retval = usb_devio_init();
-	if (retval)
-		goto usb_devio_init_failed;
-	retval = usbfs_init();
-	if (retval)
-		goto fs_init_failed;
-	retval = usb_hub_init();
-	if (retval)
-		goto hub_init_failed;
-	retval = usb_register_device_driver(&usb_generic_driver, THIS_MODULE);
-	if (!retval)
-		goto out;
+  Message msgs;
+  Message * const msg = &msgs;  // to address it consistently
 
-	usb_hub_cleanup();
-hub_init_failed:
-	usbfs_cleanup();
-fs_init_failed:
-	usb_devio_cleanup();
-usb_devio_init_failed:
-	usb_deregister(&usbfs_driver);
-driver_register_failed:
-	usb_major_cleanup();
-major_init_failed:
-	usb_host_cleanup();
-host_init_failed:
-	bus_unregister(&usb_bus_type);
-bus_register_failed:
-	ksuspend_usb_cleanup();
-out:
-	return retval;
+  retval = ksuspend_usb_init();
+  assert(!retval);
+
+  retval = usb_hub_init();
+  assert(!retval);
+
+  extern int __init capros_hcd_initialization(void);
+  if (capros_hcd_initialization()) {
+    assert(false);    // FIXME handle error
+  }
+
+  msg->rcv_key0 = msg->rcv_key1 = msg->rcv_key2 = KR_VOID;
+  msg->rcv_rsmkey = KR_RETURN;
+  
+  msg->snd_invKey = KR_VOID;
+  msg->snd_key0 = msg->snd_key1 = msg->snd_key2 = msg->snd_rsmkey = KR_VOID;
+  msg->snd_len = 0;
+  /* The void key is not picky about the other parameters,
+     so it's OK to leave them uninitialized. */
+  
+  for (;;) {
+    msg->rcv_limit = 0;
+    RETURN(msg);
+
+    // Set defaults for return.
+    msg->snd_invKey = KR_RETURN;
+    msg->snd_code = RC_OK;
+    msg->snd_key0 = msg->snd_key1 = msg->snd_key2 = msg->snd_rsmkey = KR_VOID;
+    msg->snd_w1 = msg->snd_w2 = msg->snd_w3 = 0;
+    msg->snd_len = 0;
+
+    switch (msg->rcv_code) {
+    case OC_capros_key_getType:
+      msg->snd_w1 = IKT_capros_USBHCD;
+      break;
+    
+    case OC_capros_USBHCD_getNewInterface:
+;////
+    }
+  }
 }
 
+#if 0 // CapROS
 /*
  * Cleanup
  */
 static void __exit usb_exit(void)
 {
-	/* This will matter if shutdown/reboot does exitcalls. */
-	if (nousb)
-		return;
-
 	usb_deregister_device_driver(&usb_generic_driver);
 	usb_major_cleanup();
 	usbfs_cleanup();
@@ -980,3 +1009,4 @@ EXPORT_SYMBOL(usb_buffer_dmasync_sg);
 EXPORT_SYMBOL(usb_buffer_unmap_sg);
 
 MODULE_LICENSE("GPL");
+#endif // CapROS

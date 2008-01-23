@@ -1,15 +1,38 @@
 /*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*
  * message.c - synchronous message handling
  */
 
-#include <linux/pci.h>	/* for scatterlist macros */
+#include <ctype.h>
+//#include <linux/pci.h>	/* for scatterlist macros */
 #include <linux/usb.h>
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/init.h>
 #include <linux/mm.h>
 #include <linux/timer.h>
-#include <linux/ctype.h>
 #include <linux/device.h>
 #include <linux/usb/quirks.h>
 #include <asm/byteorder.h>
@@ -142,6 +165,7 @@ int usb_control_msg(struct usb_device *dev, unsigned int pipe, __u8 request, __u
 }
 
 
+#if 0 // CapROS
 /**
  * usb_interrupt_msg - Builds an interrupt urb, sends it off and waits for completion
  * @usb_dev: pointer to the usb device to send the message to
@@ -590,6 +614,7 @@ void usb_sg_cancel (struct usb_sg_request *io)
 	}
 	spin_unlock_irqrestore (&io->lock, flags);
 }
+#endif // CapROS
 
 /*-------------------------------------------------------------------*/
 
@@ -1056,8 +1081,8 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 				continue;
 			dev_dbg (&dev->dev, "unregistering interface %s\n",
 				interface->dev.bus_id);
-			usb_remove_sysfs_intf_files(interface);
-			device_del (&interface->dev);
+			//usb_remove_sysfs_intf_files(interface);
+			BUG_ON(true);////device_del (&interface->dev);
 		}
 
 		/* Now that the interfaces are unbound, nobody should
@@ -1196,8 +1221,8 @@ int usb_set_interface(struct usb_device *dev, int interface, int alternate)
 	 */
 
 	/* prevent submissions using previous endpoint settings */
-	if (device_is_registered(&iface->dev))
-		usb_remove_sysfs_intf_files(iface);
+	//if (device_is_registered(&iface->dev))
+	//	usb_remove_sysfs_intf_files(iface);
 	usb_disable_interface(dev, iface);
 
 	iface->cur_altsetting = alt;
@@ -1233,12 +1258,13 @@ int usb_set_interface(struct usb_device *dev, int interface, int alternate)
 	 * (Likewise, EP0 never "halts" on well designed devices.)
 	 */
 	usb_enable_interface(dev, iface);
-	if (device_is_registered(&iface->dev))
-		usb_create_sysfs_intf_files(iface);
+	//if (device_is_registered(&iface->dev))
+	//	usb_create_sysfs_intf_files(iface);
 
 	return 0;
 }
 
+#if 0 // CapROS
 /**
  * usb_reset_configuration - lightweight device reset
  * @dev: the device whose configuration is being reset
@@ -1313,6 +1339,7 @@ int usb_reset_configuration(struct usb_device *dev)
 	}
 	return 0;
 }
+#endif // CapROS
 
 void usb_release_interface(struct device *dev)
 {
@@ -1324,6 +1351,7 @@ void usb_release_interface(struct device *dev)
 	kfree(intf);
 }
 
+#if 0 // CapROS
 #ifdef	CONFIG_HOTPLUG
 static int usb_if_uevent(struct device *dev, char **envp, int num_envp,
 		 char *buffer, int buffer_size)
@@ -1402,11 +1430,12 @@ static int usb_if_uevent(struct device *dev, char **envp,
 	return -ENODEV;
 }
 #endif	/* CONFIG_HOTPLUG */
+#endif // CapROS
 
 struct device_type usb_if_device_type = {
 	.name =		"usb_interface",
 	.release =	usb_release_interface,
-	.uevent =	usb_if_uevent,
+	.uevent =	0////usb_if_uevent,
 };
 
 /*
@@ -1598,19 +1627,46 @@ free_interfaces:
 			"adding %s (config #%d, interface %d)\n",
 			intf->dev.bus_id, configuration,
 			intf->cur_altsetting->desc.bInterfaceNumber);
-		ret = device_add (&intf->dev);
+		// Instead of device_add:
+		// Is it a hub?
+		if (dev->descriptor.bDeviceClass == USB_CLASS_HUB
+		    || intf->cur_altsetting->desc.bInterfaceClass
+		         == USB_CLASS_HUB) {
+		  // It's a hub.
+		  intf->is_hub = 1;
+		  intf->dev.driver = &(hub_driver.drvwrap.driver);
+		  // Some code from usb_probe_interface:
+		  mark_active(intf);
+		  intf->condition = USB_INTERFACE_BINDING;
+		  intf->pm_usage_cnt = 0;   // hub_driver supports autosuspend
+		  ret = (*hub_driver.probe)(intf, NULL);
+		  if (ret) {
+		    mark_quiesced(intf);
+		    intf->needs_remote_wakeup = 0;
+		    intf->condition = USB_INTERFACE_UNBOUND;
+		  } else
+		    intf->condition = USB_INTERFACE_BOUND;
+		  usb_autosuspend_device(dev);
+		} else {
+		  // It's not a hub.
+		  intf->is_hub = 0;
+		  mark_active(intf);	// etc ??
+		  //// INCOMPLETE make key, give it out
+		  BUG_ON(true);////ret = device_add (&intf->dev);
+		}
 		if (ret != 0) {
 			dev_err(&dev->dev, "device_add(%s) --> %d\n",
 				intf->dev.bus_id, ret);
 			continue;
 		}
-		usb_create_sysfs_intf_files (intf);
+		//usb_create_sysfs_intf_files (intf);
 	}
 
 	usb_autosuspend_device(dev);
 	return 0;
 }
 
+#if 0 // CapROS
 struct set_config_request {
 	struct usb_device	*udev;
 	int			config;
@@ -1685,3 +1741,4 @@ EXPORT_SYMBOL(usb_clear_halt);
 EXPORT_SYMBOL(usb_reset_configuration);
 EXPORT_SYMBOL(usb_set_interface);
 
+#endif // CapROS

@@ -1,4 +1,27 @@
 /*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*
  * USB hub driver.
  *
  * (C) Copyright 1999 Linus Torvalds
@@ -18,13 +41,13 @@
 #include <linux/slab.h>
 #include <linux/ioctl.h>
 #include <linux/usb.h>
-#include <linux/usbdevice_fs.h>
+//#include <linux/usbdevice_fs.h>
 #include <linux/kthread.h>
 #include <linux/mutex.h>
-#include <linux/freezer.h>
+//#include <linux/freezer.h>
 
 #include <asm/semaphore.h>
-#include <asm/uaccess.h>
+//#include <asm/uaccess.h>
 #include <asm/byteorder.h>
 
 #include "usb.h"
@@ -83,14 +106,12 @@ static DEFINE_SPINLOCK(hub_event_lock);
 static LIST_HEAD(hub_event_list);	/* List of hubs needing servicing */
 
 /* Wakes up khubd */
-static DECLARE_WAIT_QUEUE_HEAD(khubd_wait);
+static __DECLARE_SEMAPHORE_GENERIC(hub_thread_sema, 0);
 
 static struct task_struct *khubd_task;
 
 /* cycle leds on hubs that aren't blinking for attention */
-static int blinkenlights = 0;
-module_param (blinkenlights, bool, S_IRUGO);
-MODULE_PARM_DESC (blinkenlights, "true to cycle leds on hubs");
+int blinkenlights = 0;
 
 /*
  * As of 2.6.10 we introduce a new USB device initialization scheme which
@@ -106,19 +127,12 @@ MODULE_PARM_DESC (blinkenlights, "true to cycle leds on hubs");
  * otherwise the new scheme is used.  If that fails and "use_both_schemes"
  * is set, then the driver will make another attempt, using the other scheme.
  */
-static int old_scheme_first = 0;
-module_param(old_scheme_first, bool, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(old_scheme_first,
-		 "start with the old device initialization scheme");
+int old_scheme_first = 0;
 
-static int use_both_schemes = 1;
-module_param(use_both_schemes, bool, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(use_both_schemes,
-		"try the other device initialization scheme if the "
-		"first one fails");
+int use_both_schemes = 0;
 
 
-static inline char *portspeed(int portstatus)
+static inline char * portspeed(int portstatus)
 {
 	if (portstatus & (1 << USB_PORT_FEAT_HIGHSPEED))
     		return "480 Mb/s";
@@ -323,7 +337,7 @@ static void kick_khubd(struct usb_hub *hub)
 	spin_lock_irqsave(&hub_event_lock, flags);
 	if (list_empty(&hub->event_list)) {
 		list_add_tail(&hub->event_list, &hub_event_list);
-		wake_up(&khubd_wait);
+		up(&hub_thread_sema);
 	}
 	spin_unlock_irqrestore(&hub_event_lock, flags);
 }
@@ -884,7 +898,7 @@ static void hub_disconnect(struct usb_interface *intf)
 	kfree(hub);
 }
 
-static int hub_probe(struct usb_interface *intf, const struct usb_device_id *id)
+int hub_probe(struct usb_interface *intf, const struct usb_device_id *id)
 {
 	struct usb_host_interface *desc;
 	struct usb_endpoint_descriptor *endpoint;
@@ -947,6 +961,7 @@ descriptor_error:
 	return -ENODEV;
 }
 
+#if 0 // CapROS
 static int
 hub_ioctl(struct usb_interface *intf, unsigned int code, void *user_data)
 {
@@ -980,6 +995,7 @@ hub_ioctl(struct usb_interface *intf, unsigned int code, void *user_data)
 		return -ENOSYS;
 	}
 }
+#endif // CapROS
 
 
 /* grab device/port lock, returning index of that port (zero based).
@@ -1236,7 +1252,9 @@ void usb_disconnect(struct usb_device **pdev)
 	 * for removing the device files from usbfs and sysfs and for
 	 * de-configuring the device.
 	 */
-	device_del(&udev->dev);
+	/* The device is always bound to usb_generic_driver, so just do
+	the disconnect here. */
+	usbdev_generic_disconnect(udev);
 
 	/* Free the device number and delete the parent's children[]
 	 * (or root_hub) pointer.
@@ -1396,7 +1414,9 @@ int usb_new_device(struct usb_device *udev)
 	 * for adding the device files to sysfs and for configuring
 	 * the device.
 	 */
-	err = device_add(&udev->dev);
+	/* The device always binds to usb_generic_driver, so just
+	do the probe here. */
+	err = usbdev_generic_probe(udev);
 	if (err) {
 		dev_err(&udev->dev, "can't device_add, error %d\n", err);
 		if (udev->parent)
@@ -1916,7 +1936,7 @@ static inline int remote_wakeup(struct usb_device *udev)
 	return 0;
 }
 
-#endif
+#endif	/* CONFIG_USB_SUSPEND */
 
 static int hub_suspend(struct usb_interface *intf, pm_message_t msg)
 {
@@ -2442,9 +2462,8 @@ static void hub_port_connect_change(struct usb_hub *hub, int port1,
 	if (portchange & USB_PORT_STAT_C_CONNECTION) {
 		status = hub_port_debounce(hub, port1);
 		if (status < 0) {
-			if (printk_ratelimit())
-				dev_err (hub_dev, "connect-debounce failed, "
-						"port %d disabled\n", port1);
+			dev_err (hub_dev, "connect-debounce failed, "
+					"port %d disabled\n", port1);
 			goto done;
 		}
 		portstatus = status;
@@ -2820,10 +2839,8 @@ static int hub_thread(void *__unused)
 {
 	do {
 		hub_events();
-		wait_event_interruptible(khubd_wait,
-				!list_empty(&hub_event_list) ||
-				kthread_should_stop());
-		try_to_freeze();
+		down(&hub_thread_sema);
+		//try_to_freeze();
 	} while (!kthread_should_stop() || !list_empty(&hub_event_list));
 
 	pr_debug("%s: khubd exiting\n", usbcore_name);
@@ -2840,15 +2857,16 @@ static struct usb_device_id hub_id_table [] = {
 
 MODULE_DEVICE_TABLE (usb, hub_id_table);
 
-static struct usb_driver hub_driver = {
+struct usb_driver hub_driver = {
 	.name =		"hub",
+	.drvwrap.for_devices = 0,	// for interfaces
 	.probe =	hub_probe,
 	.disconnect =	hub_disconnect,
 	.suspend =	hub_suspend,
 	.resume =	hub_resume,
 	.pre_reset =	hub_pre_reset,
 	.post_reset =	hub_post_reset,
-	.ioctl =	hub_ioctl,
+	.ioctl =	0,////hub_ioctl,
 	.id_table =	hub_id_table,
 	.supports_autosuspend =	1,
 };
@@ -2866,7 +2884,9 @@ int usb_hub_init(void)
 		return 0;
 
 	/* Fall through if kernel_thread failed */
+#if 0 // CapROS
 	usb_deregister(&hub_driver);
+#endif // CapROS
 	printk(KERN_ERR "%s: can't start khubd\n", usbcore_name);
 
 	return -1;
@@ -2875,7 +2895,9 @@ int usb_hub_init(void)
 void usb_hub_cleanup(void)
 {
 	kthread_stop(khubd_task);
+	up(&hub_thread_sema);
 
+#if 0 // CapROS
 	/*
 	 * Hub resources are freed for us by usb_deregister. It calls
 	 * usb_driver_purge on every device which in turn calls that
@@ -2884,6 +2906,7 @@ void usb_hub_cleanup(void)
 	 * individual hub resources. -greg
 	 */
 	usb_deregister(&hub_driver);
+#endif // CapROS
 } /* usb_hub_cleanup() */
 
 static int config_descriptors_changed(struct usb_device *udev)

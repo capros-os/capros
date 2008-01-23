@@ -196,7 +196,7 @@ struct hc_driver {
 	int		(*hub_status_data) (struct usb_hcd *hcd, char *buf);
 	int		(*hub_control) (struct usb_hcd *hcd,
 				u16 typeReq, u16 wValue, u16 wIndex,
-				char *buf, u16 wLength);
+				u8 * buf, u16 wLength);
 	int		(*bus_suspend)(struct usb_hcd *);
 	int		(*bus_resume)(struct usb_hcd *);
 	int		(*start_port_reset)(struct usb_hcd *, unsigned port_num);
@@ -360,6 +360,8 @@ extern int usb_find_interface_driver (struct usb_device *dev,
 	struct usb_interface *interface);
 
 #define usb_endpoint_out(ep_dir)	(!((ep_dir) & USB_DIR_IN))
+
+
 
 #ifdef CONFIG_PM
 extern void usb_hcd_resume_root_hub (struct usb_hcd *hcd);

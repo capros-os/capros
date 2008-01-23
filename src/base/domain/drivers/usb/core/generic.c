@@ -150,12 +150,12 @@ static int choose_configuration(struct usb_device *udev)
 	return i;
 }
 
-static int generic_probe(struct usb_device *udev)
+int usbdev_generic_probe(struct usb_device *udev)
 {
 	int err, c;
 
 	/* put device-specific files into sysfs */
-	usb_create_sysfs_dev_files(udev);
+	//usb_create_sysfs_dev_files(udev);
 
 	/* Choose and set the configuration.  This registers the interfaces
 	 * with the driver core and lets interface drivers bind to them.
@@ -172,23 +172,24 @@ static int generic_probe(struct usb_device *udev)
 	}
 
 	/* USB device state == configured ... usable */
-	usb_notify_add_device(udev);
+	//usb_notify_add_device(udev);
 
 	return 0;
 }
 
-static void generic_disconnect(struct usb_device *udev)
+void usbdev_generic_disconnect(struct usb_device *udev)
 {
-	usb_notify_remove_device(udev);
+	//usb_notify_remove_device(udev);
 
 	/* if this is only an unbind, not a physical disconnect, then
 	 * unconfigure the device */
 	if (udev->actconfig)
 		usb_set_configuration(udev, -1);
 
-	usb_remove_sysfs_dev_files(udev);
+	//usb_remove_sysfs_dev_files(udev);
 }
 
+#if 0 // CapROS, not implemented yet
 #ifdef	CONFIG_PM
 
 static int generic_suspend(struct usb_device *udev, pm_message_t msg)
@@ -206,7 +207,9 @@ static int generic_resume(struct usb_device *udev)
 }
 
 #endif	/* CONFIG_PM */
+#endif // CapROS
 
+#if 0 // CapROS
 struct usb_device_driver usb_generic_driver = {
 	.name =	"usb",
 	.probe = generic_probe,
@@ -217,3 +220,4 @@ struct usb_device_driver usb_generic_driver = {
 #endif
 	.supports_autosuspend = 1,
 };
+#endif // CapROS

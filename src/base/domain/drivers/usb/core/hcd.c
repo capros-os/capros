@@ -6,6 +6,7 @@
  * (C) Copyright Deti Fliegl 1999
  * (C) Copyright Randy Dunlap 2000
  * (C) Copyright David Brownell 2000-2002
+ * Copyright (C) 2008, Strawberry Development Group.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -21,14 +22,17 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/module.h>
-#include <linux/version.h>
+//#include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
-#include <linux/completion.h>
+//#include <linux/completion.h>
 #include <linux/utsname.h>
-#include <linux/mm.h>
+//#include <linux/mm.h>
 #include <asm/io.h>
 #include <asm/scatterlist.h>
 #include <linux/device.h>
@@ -81,6 +85,7 @@
 
 /*-------------------------------------------------------------------------*/
 
+#if 0 // CapROS
 /* host controllers we manage */
 LIST_HEAD (usb_bus_list);
 EXPORT_SYMBOL_GPL (usb_bus_list);
@@ -91,6 +96,7 @@ struct usb_busmap {
 	unsigned long busmap [USB_MAXBUS / (8*sizeof (unsigned long))];
 };
 static struct usb_busmap busmap;
+#endif // CapROS
 
 /* used when updating list of hcds */
 DEFINE_MUTEX(usb_bus_list_lock);	/* exported only for usbfs */
@@ -113,8 +119,8 @@ DECLARE_WAIT_QUEUE_HEAD(usb_kill_urb_queue);
 
 /*-------------------------------------------------------------------------*/
 
-#define KERNEL_REL	((LINUX_VERSION_CODE >> 16) & 0x0ff)
-#define KERNEL_VER	((LINUX_VERSION_CODE >> 8) & 0x0ff)
+#define KERNEL_REL	1
+#define KERNEL_VER	0
 
 /* usb 2.0 root hub device descriptor */
 static const u8 usb2_rh_dev_descriptor [18] = {
@@ -666,6 +672,7 @@ static int usb_rh_urb_dequeue (struct usb_hcd *hcd, struct urb *urb)
 	return 0;
 }
 
+#if 0 // CapROS
 /*-------------------------------------------------------------------------*/
 
 static struct class *usb_host_class;
@@ -779,6 +786,7 @@ static void usb_deregister_bus (struct usb_bus *bus)
 
 	class_device_unregister(bus->class_dev);
 }
+#endif // CapROS
 
 /**
  * register_root_hub - called by usb_add_hcd() to register a root hub
@@ -912,7 +920,6 @@ static void urb_unlink (struct urb *urb)
 	spin_unlock_irqrestore (&hcd_data_lock, flags);
 }
 
-
 /* may be called in any context with a valid urb->dev usecount
  * caller surrenders "ownership" of urb
  * expects usb_submit_urb() to have sanity checked and conditioned all
@@ -1024,6 +1031,7 @@ done:
 	return status;
 }
 
+#if 0 // CapROS
 /*-------------------------------------------------------------------------*/
 
 /* called in any context */
@@ -1035,6 +1043,7 @@ int usb_hcd_get_frame_number (struct usb_device *udev)
 		return -ESHUTDOWN;
 	return hcd->driver->get_frame_number (hcd);
 }
+#endif // CapROS
 
 /*-------------------------------------------------------------------------*/
 
@@ -1158,26 +1167,14 @@ done:
 	return retval;
 }
 
-/*-------------------------------------------------------------------------*/
-
-/* disables the endpoint: cancels any pending urbs, then synchronizes with
- * the hcd to make sure all endpoint state is gone from hardware, and then
- * waits until the endpoint's queue is completely drained. use for
- * set_configuration, set_interface, driver removal, physical disconnect.
- *
- * example:  a qh stored in ep->hcpriv, holding state related to endpoint
- * type, maxpacket size, toggle, halt status, and scheduling.
- */
-void usb_hcd_endpoint_disable (struct usb_device *udev,
-		struct usb_host_endpoint *ep)
+void
+epUnlinkQueuedUrbs(struct usb_host_endpoint * ep,
+	struct usb_hcd * hcd, int status)
 {
-	struct usb_hcd		*hcd;
-	struct urb		*urb;
+	struct urb * urb;
 
-	hcd = bus_to_hcd(udev->bus);
 	local_irq_disable ();
 
-	/* ep is already gone from udev->ep_{in,out}[]; no more submits */
 rescan:
 	spin_lock (&hcd_data_lock);
 	list_for_each_entry (urb, &ep->urb_list, urb_list) {
@@ -1192,7 +1189,7 @@ rescan:
 		spin_lock (&urb->lock);
 		tmp = urb->status;
 		if (tmp == -EINPROGRESS)
-			urb->status = -ESHUTDOWN;
+			urb->status = status;
 		spin_unlock (&urb->lock);
 
 		/* kick hcd unless it's already returning this */
@@ -1218,6 +1215,41 @@ rescan:
 	}
 	spin_unlock (&hcd_data_lock);
 	local_irq_enable ();
+}
+
+void
+epRejectUrbs(struct usb_host_endpoint * ep,
+	struct usb_hcd * hcd)
+{
+  ep->rejecting = true;
+  epUnlinkQueuedUrbs(ep, hcd, -ENOENT);
+}
+
+void
+epClearRejecting(struct usb_host_endpoint * ep)
+{
+  ep->rejecting = false;
+}
+
+/*-------------------------------------------------------------------------*/
+
+/* disables the endpoint: cancels any pending urbs, then synchronizes with
+ * the hcd to make sure all endpoint state is gone from hardware, and then
+ * waits until the endpoint's queue is completely drained. use for
+ * set_configuration, set_interface, driver removal, physical disconnect.
+ *
+ * example:  a qh stored in ep->hcpriv, holding state related to endpoint
+ * type, maxpacket size, toggle, halt status, and scheduling.
+ */
+void usb_hcd_endpoint_disable (struct usb_device *udev,
+		struct usb_host_endpoint *ep)
+{
+	struct usb_hcd		*hcd;
+	struct urb		*urb;
+
+	hcd = bus_to_hcd(udev->bus);
+	
+	epUnlinkQueuedUrbs(ep, hcd, -ESHUTDOWN);
 
 	/* synchronize with the hardware, so old configuration state
 	 * clears out immediately (and will be freed).
@@ -1236,17 +1268,15 @@ rescan:
 		spin_lock_irq (&hcd_data_lock);
 
 		/* The list may have changed while we acquired the spinlock */
-		urb = NULL;
 		if (!list_empty (&ep->urb_list)) {
 			urb = list_entry (ep->urb_list.prev, struct urb,
 					urb_list);
 			usb_get_urb (urb);
-		}
-		spin_unlock_irq (&hcd_data_lock);
-
-		if (urb) {
-			usb_kill_urb (urb);
+			spin_unlock_irq (&hcd_data_lock);
+			usb_kill_urb(urb);
 			usb_put_urb (urb);
+		} else {
+			spin_unlock_irq (&hcd_data_lock);
 		}
 	}
 }
@@ -1331,6 +1361,7 @@ EXPORT_SYMBOL_GPL(usb_hcd_resume_root_hub);
 
 /*-------------------------------------------------------------------------*/
 
+#if 0 // CapROS
 #ifdef	CONFIG_USB_OTG
 
 /**
@@ -1367,6 +1398,7 @@ int usb_bus_start_enum(struct usb_bus *bus, unsigned port_num)
 EXPORT_SYMBOL (usb_bus_start_enum);
 
 #endif
+#endif // CapROS
 
 /*-------------------------------------------------------------------------*/
 
@@ -1503,7 +1535,9 @@ struct usb_hcd *usb_create_hcd (const struct hc_driver *driver,
 	dev_set_drvdata(dev, hcd);
 	kref_init(&hcd->kref);
 
+#if 0 // CapROS
 	usb_bus_init(&hcd->self);
+#endif // CapROS
 	hcd->self.controller = dev;
 	hcd->self.bus_name = bus_name;
 	hcd->self.uses_dma = (dev->dma_mask != NULL);
@@ -1569,6 +1603,10 @@ int usb_add_hcd(struct usb_hcd *hcd,
 	 * bottom up so that hcds can customize the root hubs before khubd
 	 * starts talking to them.  (Note, bus id is assigned early too.)
 	 */
+#if 0 // CapROS
+	/* CapROS doesn't use a buffer pool associated with the hcd,
+	because the hcd is in a different address space from the
+	usb device driver. */
 	if ((retval = hcd_buffer_create(hcd)) != 0) {
 		dev_dbg(hcd->self.controller, "pool alloc failed\n");
 		return retval;
@@ -1576,6 +1614,13 @@ int usb_add_hcd(struct usb_hcd *hcd,
 
 	if ((retval = usb_register_bus(&hcd->self)) < 0)
 		goto err_register_bus;
+#else
+  if (! hcd->self.controller->dma_mask) {
+    BUG_ON(true); /* non-dma controllers are not supported, because buffers are
+		passed from device driver address space to hcd address space
+		using their physical address. */
+  }
+#endif // CapROS
 
 	if ((rhdev = usb_alloc_dev(NULL, &hcd->self, 0)) == NULL) {
 		dev_err(hcd->self.controller, "unable to allocate root hub\n");
@@ -1607,6 +1652,7 @@ int usb_add_hcd(struct usb_hcd *hcd,
 
 	/* enable irqs just before we start the controller */
 	if (hcd->driver->irq) {
+
 		snprintf(hcd->irq_descr, sizeof(hcd->irq_descr), "%s:usb%d",
 				hcd->driver->description, hcd->self.busnum);
 		if ((retval = request_irq(irqnum, &usb_hcd_irq, irqflags,
@@ -1653,9 +1699,11 @@ err_hcd_driver_setup:
 	hcd->self.root_hub = NULL;
 	usb_put_dev(rhdev);
 err_allocate_root_hub:
+#if 0 // CapROS
 	usb_deregister_bus(&hcd->self);
 err_register_bus:
 	hcd_buffer_destroy(hcd);
+#endif // CapROS
 	return retval;
 } 
 EXPORT_SYMBOL (usb_add_hcd);
@@ -1696,8 +1744,10 @@ void usb_remove_hcd(struct usb_hcd *hcd)
 
 	if (hcd->irq >= 0)
 		free_irq(hcd->irq, hcd);
+#if 0 // CapROS
 	usb_deregister_bus(&hcd->self);
 	hcd_buffer_destroy(hcd);
+#endif // CapROS
 }
 EXPORT_SYMBOL (usb_remove_hcd);
 
@@ -1711,6 +1761,7 @@ usb_hcd_platform_shutdown(struct platform_device* dev)
 }
 EXPORT_SYMBOL (usb_hcd_platform_shutdown);
 
+#if 0 // CapROS
 /*-------------------------------------------------------------------------*/
 
 #if defined(CONFIG_USB_MON)
@@ -1748,5 +1799,6 @@ void usb_mon_deregister (void)
 	mb();
 }
 EXPORT_SYMBOL_GPL (usb_mon_deregister);
+#endif // CapROS
 
 #endif /* CONFIG_USB_MON */

@@ -81,6 +81,10 @@ extern struct bus_type usb_bus_type;
 extern struct device_type usb_device_type;
 extern struct device_type usb_if_device_type;
 extern struct usb_device_driver usb_generic_driver;
+extern struct usb_driver hub_driver;
+
+int usbdev_generic_probe(struct usb_device *udev);
+void usbdev_generic_disconnect(struct usb_device *udev);
 
 static inline int is_usb_device(const struct device *dev)
 {
