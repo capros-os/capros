@@ -564,13 +564,6 @@ static inline __hc32 cpu_to_hc32 (const struct ohci_hcd *ohci, const u32 x)
 		(__force __hc32)cpu_to_le32(x);
 }
 
-static inline __hc32 cpu_to_hc32p (const struct ohci_hcd *ohci, const u32 *x)
-{
-	return big_endian_desc(ohci) ?
-		cpu_to_be32p(x) :
-		cpu_to_le32p(x);
-}
-
 /* ohci to cpu */
 static inline u16 hc16_to_cpu (const struct ohci_hcd *ohci, const __hc16 x)
 {

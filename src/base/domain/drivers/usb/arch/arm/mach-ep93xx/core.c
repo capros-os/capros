@@ -1,0 +1,85 @@
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <linuxk/linux-emul.h>
+#include <linuxk/lsync.h>
+#include <linux/device.h>
+#include <linux/platform_device.h>
+#include <domain/assert.h>
+
+#include <asm/hardware.h>
+#include <asm/io.h>
+//#include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
+
+// Stuff from arch/arm/mach-ep93xx/core.c
+
+static struct resource ep93xx_ohci_resources[] = {
+	[0] = {
+		.start	= EP93XX_USB_PHYS_BASE,
+		.end	= EP93XX_USB_PHYS_BASE + 0x0fff,
+		.flags	= IORESOURCE_MEM,
+	},
+	[1] = {
+		.start	= IRQ_EP93XX_USB,
+		.end	= IRQ_EP93XX_USB,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+
+static struct platform_device ep93xx_ohci_device = {
+	.name		= "ep93xx-ohci",
+	.id		= -1,
+	.dev		= {
+		.dma_mask		= (void *)0xffffffff,
+		.coherent_dma_mask	= 0xffffffff,
+	},
+	.num_resources	= ARRAY_SIZE(ep93xx_ohci_resources),
+	.resource	= ep93xx_ohci_resources,
+};
+
+extern int ohci_hcd_mod_init(void);
+int capros_hcd_initialization(void)
+{
+  int err;
+  err = ohci_hcd_mod_init();
+  if (err) return err;
+
+  platform_device_register(&ep93xx_ohci_device);
+  /* platform_device_register calls platform_device_add, which in Linux
+  calls device_add, which calls bus_attach_device.
+  bus_attach_device checks platform_bus_type.drivers_autoprobe, which
+  was previously set by bus_register, so bus_attach_device calls device_attach.
+  There being no dev->driver yet, device_attach scans all the drivers
+  on the platform bus, calling driver_probe_device.
+  In particular it finds the platform_driver ohci_hcd_ep93xx_driver
+  that was registered by ohci_hcd_mod_init just above.
+  That driver has no match function, so driver_probe_device goes ahead
+  and calls really_probe.
+  really_probe sees that there is no platform_bus_type.probe,
+  but there is a ohci_hcd_ep93xx_driver.probe, so it calls that. (Whew!)
+  CapROS emulation has no device_add, but we must call the probe function: */
+extern struct platform_driver ohci_hcd_ep93xx_driver;
+  err = (*ohci_hcd_ep93xx_driver.probe)(&ep93xx_ohci_device);
+
+  return err;
+}

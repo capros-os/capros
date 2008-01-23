@@ -1,0 +1,131 @@
+package capros;
+
+interface USB extends key {
+  typedef unsigned long dma_addr_t;
+
+  unsigned long enum transferFlagsEnum {
+    shortNotOK = 1,
+    isoASAP    = 2,
+    noTransferDMAMap = 4,
+    noSetupDMAMap = 8,
+    noFSBR     = 32,
+    zeroPacket = 64,
+    noInterrupt = 128
+  };
+
+  long enum urbStatus {
+    cancelled = -104,
+    rejected = -2
+  };
+
+  struct isoPacketDescriptor {
+    unsigned long offset;
+    unsigned long length;
+    unsigned long unused1;	// actual_length
+    long unused2;		// status
+  };
+
+  struct urb {
+    unsigned long endpoint;	// bit 7 has direction (0=to device),
+				// bits 15-18 have endpoint, others ignored
+    unsigned long unused1;	// status
+    transferFlagsEnum transfer_flags;
+    unsigned long unused2;	// transfer_buffer
+    dma_addr_t transfer_dma;
+    unsigned long transfer_buffer_length;
+    long unused3;		// actual_length
+    unsigned long unused4;	// setup_packet
+    dma_addr_t setup_dma;	// if a control endpoint
+    long start_frame;		// ignored if isoASAP (or HCD is OHCI)
+    long number_of_packets;	// if isochronous, # of elements
+				// in iso_frame_desc
+    long interval;		// if interrupt or isochronous
+    long unused5;		// error_count
+    unsigned long unused6;	// context
+    unsigned long unused7;	// complete
+    array <isoPacketDescriptor, 0> iso_frame_desc;
+  };
+};
+
+/** 
+@brief USB Interface
+
+This is the interface to a Universal Serial Bus's device's interface.
+*/
+interface USBInterface extends USB {
+
+  struct urbResult {
+    USB.urbStatus status;
+    unsigned long actual_length;
+    long interval;
+    };
+
+  struct isoBufferResult {
+    USB.urbStatus status;
+    unsigned long actual_length;
+  };
+
+  struct urbIsoResult {
+    USB.urbStatus status;
+    long interval;
+    long start_frame;
+    unsigned long error_count;
+    // Unbounded buffer type is not yet supported, and buffers
+    // cannot be structure members, so:
+    array <isoBufferResult, 0> iso_frame_desc;
+  };
+
+//// specify a timeout for the urb? No, use a linux timer.
+  urbResult submitUrb(USB.urb theUrb);
+  urbIsoResult submitIsoUrb(USB.urb theUrb);
+
+  /** Clear error hold.
+
+  If an error occurs on an urb, the endpoint enters the "error hold"
+  state. While in this state, no other urbs for this endpoint will be
+  transferred; they will wait until the hold is cleared.
+  This operation clears that state. */
+  void clearErrorHold(unsigned long endpoint);
+
+  /** Cancel queued urbs.
+
+  Cancel all urbs queued on the specified endpoint,
+  causing them to complete with status = cancelled. */
+  void unlinkQueuedUrbs(unsigned long endpoint);
+
+  /** Reject urbs.
+
+  Cancel all urbs queued on the specified endpoint,
+  causing them to complete with status = rejected.
+  Also sets a "rejecting" flag that causes the endpoint to reject all
+  new urbs submitted. */
+  void rejectUrbs(unsigned long endpoint);
+
+  /** Clear rejecting flag.
+
+  Clear the rejecting flag on the specified endpoint.
+  Urbs subsequently submitted will not be rejected. */
+  void clearRejecting(unsigned long endpoint);
+
+/*
+op to unlink or abort all active URBs for this interface?
+Also set/clear flag to abort all new urbs submitted
+*/
+/* kill - waits until we have returned to the caller of submit*Urb, but
+of course can't wait until that code is finished. */
+};
+
+/** 
+@brief USB Host Controller Driver
+
+This is the interface to a Universal Serial Bus as a whole.
+*/
+interface USBHCD extends key {
+
+  /** Get new interface.
+
+  Wait until an interface of a newly-mounted device is available,
+  and return it.
+  */
+  USBInterface getNewInterface();
+};
