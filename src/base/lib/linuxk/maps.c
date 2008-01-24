@@ -68,8 +68,6 @@ struct list_head avail_list[logMaxBlockSize + 1];
 
 static DEFINE_MUTEX(mapsLock);
 
-static bool mapsHaveGPT17 = false;
-
 static void
 liberateOneBlock(unsigned long jAddr, unsigned int j)
 {
@@ -204,16 +202,6 @@ maps_init(void)
   maps_liberate_locked(0, numpages);
 }
 
-static void
-setupGPT12(unsigned int gpt17slot)
-{
-  result_t result;
-  result = capros_GPT_setL2v(KR_TEMP1, EROS_PAGE_LGSIZE);
-  assert(result == RC_OK);
-  result = capros_GPT_setSlot(KR_MAPS_GPT, gpt17slot, KR_TEMP1);
-  assert(result == RC_OK);
-}
-
 // Uses KR_TEMP0 and KR_TEMP1.
 result_t
 maps_mapPage(unsigned long pgOffset, cap_t pageCap)
@@ -226,33 +214,8 @@ maps_mapPage(unsigned long pgOffset, cap_t pageCap)
 
   mutex_lock(&mapsLock);
 
-  if (! mapsHaveGPT17) {
-    // First use of maps_mapPage() in this process.
-    // Create the GPT17 and the first GPT12.
-    result = capros_SpaceBank_alloc2(KR_BANK,
-               capros_Range_otGPT + (capros_Range_otGPT << 8),
-               KR_TEMP1, KR_MAPS_GPT);
-    if (result != RC_OK)
-      return result;
-
-    result = capros_GPT_setL2v(KR_MAPS_GPT,
-                               EROS_PAGE_LGSIZE + capros_GPT_l2nSlots);
-    assert(result == RC_OK);
-    capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_MAPS_GPT, KR_MAPS_GPT, KR_VOID);
-
-    // Put it in our address space.
-    result = capros_Process_getAddrSpace(KR_SELF, KR_TEMP0);
-    assert(result == RC_OK);
-    result = capros_GPT_setSlot(KR_TEMP0, LK_MAPS_BASE >> 22, KR_MAPS_GPT);
-    assert(result == RC_OK);
-
-    setupGPT12(gpt17slot);
-
-    mapsHaveGPT17 = true;
-  } else {
-    result = capros_GPT_getSlot(KR_MAPS_GPT, gpt17slot, KR_TEMP1);
-    assert(result == RC_OK);
-  }
+  result = capros_GPT_getSlot(KR_MAPS_GPT, gpt17slot, KR_TEMP1);
+  assert(result == RC_OK);
 
   // Copy one key.
   result = capros_GPT_setSlot(KR_TEMP1, gpt12slot, pageCap);
@@ -262,7 +225,10 @@ maps_mapPage(unsigned long pgOffset, cap_t pageCap)
     result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_TEMP1);
     if (result != RC_OK)
       return result;
-    setupGPT12(gpt17slot);
+    result = capros_GPT_setL2v(KR_TEMP1, EROS_PAGE_LGSIZE);
+    assert(result == RC_OK);
+    result = capros_GPT_setSlot(KR_MAPS_GPT, gpt17slot, KR_TEMP1);
+    assert(result == RC_OK);
 
     // Now that the GPT12 is there, store pageCap again.
     result = capros_GPT_setSlot(KR_TEMP1, gpt12slot, pageCap);

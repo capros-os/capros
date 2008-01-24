@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Node.h>
 #include <idl/capros/Page.h>
 #include <idl/capros/DevPrivs.h>
+#include <domain/domdbg.h>
 #include <domain/assert.h>
 
 void *
@@ -41,7 +42,10 @@ dma_alloc_coherent(struct device *dev,
   result_t result;
   unsigned int i;
 
+#if 1
   printk("dma_alloc_coherent(0x%x)\n", size);
+#endif
+
   unsigned int nPages = (size + (EROS_PAGE_SIZE - 1)) >> EROS_PAGE_LGSIZE;
 
   // Allocate virtual addresses for the memory.
@@ -80,13 +84,16 @@ dma_free_coherent(struct device *dev, size_t size, void *cpu_addr,
 {
   result_t result;
 
-  printk("dma_free_coherent(0x%x, 0x%x)\n", size, cpu_addr);
+#if 1
+  kprintf(KR_OSTREAM, "dma_free_coherent(0x%x, 0x%x)\n", size, cpu_addr);
+#endif
+
   unsigned int nPages = (size + (EROS_PAGE_SIZE - 1)) >> EROS_PAGE_LGSIZE;
   unsigned long pgOffset = maps_addrToPgOffset((unsigned long)cpu_addr);
 
   maps_getCap(pgOffset, KR_TEMP0);
 
-  result = capros_Page_deallocateDMAPages(KR_TEMP0);
+  result = capros_DevPrivs_deallocateDMAPages(KR_DEVPRIVS, KR_TEMP0);
   assert(result == RC_OK);
 
   maps_liberate(pgOffset, nPages);

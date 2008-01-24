@@ -34,9 +34,11 @@ Approved for public release, distribution unlimited. */
 dname##_space = new GPT with lss 3;	/* l2v = 22 */ \
 dname##_space[0] = ro prog[0]; \
 dname##_stacks = new GPT with lss 2;	/* l2v = 17 */ \
-dname##_space[1] = dname##_stacks; \
+dname##_space[LK_STACK_BASE / 0x400000] = dname##_stacks; \
 dname##_stack = new page;		/* stack size is one page */ \
 dname##_stacks[0] = dname##_stack with guard 0x1f000; \
+dname##_maps = new GPT with lss 2;	/* l2v = 17 */ \
+dname##_space[LK_MAPS_BASE / 0x400000] = dname##_maps; \
 MAKE_VIRTUAL_COPIER_SEG(dname##data, prog[3]); \
 dname##le = new node; \
  \
@@ -55,6 +57,7 @@ dname##_proc key reg KR_LINUX_EMUL = dname##le; \
 dname##_proc key reg KR_OSTREAM = misc Console; \
 dname##_proc key reg KR_SLEEP   = misc Sleep; \
 dname##_proc key reg KR_DEVPRIVS = misc DevicePrivs devcfgbit; \
+dname##_proc key reg KR_MAPS_GPT = dname##_maps; \
 dname##_proc key reg KR_TEMP1   = dname##data_c; \
 dname##_proc key reg KR_TEMP2   = dname##_space; \
 dname##_proc key reg KR_RETURN  = dname##_stacks; \

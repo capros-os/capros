@@ -74,7 +74,7 @@ driver_start(void)
                              KR_KEYSTORE);
   assert(result == RC_OK);	// FIXME
   result = capros_SuperNode_allocateRange(KR_KEYSTORE, LKSN_THREAD_PROCESS_KEYS,
-                      LKSN_MAPS_GPT);
+                      LKSN_APP - 1);
   assert(result == RC_OK);	// FIXME
   // Populate it.
   capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_THREAD_PROCESS_KEYS+0,

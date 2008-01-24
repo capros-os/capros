@@ -84,9 +84,7 @@ the process (usually one). */
 #define LKSN_THREAD_PROCESS_KEYS 0
 #define LKSN_THREAD_RESUME_KEYS  LK_MAX_THREADS
 #define LKSN_STACKS_GPT          (LKSN_THREAD_RESUME_KEYS+LK_MAX_THREADS)
-// LKSN_MAPS_GPT isn't really needed since we have KR_MAPS_GPT.
-#define LKSN_MAPS_GPT            (LKSN_STACKS_GPT+1)
-#define LKSN_APP                 (LKSN_MAPS_GPT+1) // available for driver
+#define LKSN_APP                 (LKSN_STACKS_GPT+1) // available for driver
 
 #ifndef __ASSEMBLER__
 
