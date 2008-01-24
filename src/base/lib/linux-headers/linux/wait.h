@@ -1,7 +1,7 @@
 #ifndef _LINUX_WAIT_H
 #define _LINUX_WAIT_H
 /*
- * Portions Copyright (C) 2007, Strawberry Development Group.
+ * Portions Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -43,7 +43,7 @@ Approved for public release, distribution unlimited. */
 
 #include <linux/list.h>
 #include <linux/stddef.h>
-#include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <asm/system.h>
 #include <asm/current.h>
 
@@ -71,7 +71,7 @@ struct wait_bit_queue {
 };
 
 struct __wait_queue_head {
-	spinlock_t lock;
+	struct mutex mutx;
 	struct list_head task_list;
 };
 typedef struct __wait_queue_head wait_queue_head_t;
@@ -91,7 +91,7 @@ struct task_struct;
 	wait_queue_t name = __WAITQUEUE_INITIALIZER(name, tsk)
 
 #define __WAIT_QUEUE_HEAD_INITIALIZER(name) {				\
-	.lock           = __SPIN_LOCK_UNLOCKED(name.lock),              \
+	.mutx = __MUTEX_INITIALIZER(name.mutx),				\
 	.task_list	= { &(name).task_list, &(name).task_list } }
 
 #define DECLARE_WAIT_QUEUE_HEAD(name) \
@@ -184,38 +184,39 @@ wait_queue_head_t *FASTCALL(bit_waitqueue(void *, int));
 #define	wake_up_locked(x)		__wake_up_locked((x), TASK_UNINTERRUPTIBLE | TASK_INTERRUPTIBLE)
 #define wake_up_interruptible_sync(x)   __wake_up_sync((x),TASK_INTERRUPTIBLE, 1)
 
-#define __wait_event(wq, condition) 					\
-do {									\
-	DEFINE_WAIT(__wait);						\
-									\
-	for (;;) {							\
-		prepare_to_wait(&wq, &__wait, TASK_UNINTERRUPTIBLE);	\
-		if (condition)						\
-			break;						\
-		schedule();						\
-	}								\
-	finish_wait(&wq, &__wait);					\
-} while (0)
-
 /**
  * wait_event - sleep until a condition gets true
  * @wq: the waitqueue to wait on
  * @condition: a C expression for the event to wait for
  *
- * The process is put to sleep (TASK_UNINTERRUPTIBLE) until the
+ * The process is put to sleep until the
  * @condition evaluates to true. The @condition is checked each time
  * the waitqueue @wq is woken up.
  *
  * wake_up() has to be called after changing any variable that could
  * change the result of the wait condition.
  */
+void remove_wait_queue_if_on_it(wait_queue_head_t *q, wait_queue_t *wait);
 #define wait_event(wq, condition) 					\
 do {									\
 	if (condition)	 						\
 		break;							\
-	__wait_event(wq, condition);					\
-} while (0)
+	__DECLARE_SEMAPHORE_GENERIC(__sem, 0);				\
+	wait_queue_t __wait = {						\
+		.private	= &__sem,				\
+		.func		= wait_event_wake_function,		\
+		.task_list	= LIST_HEAD_INIT((__wait).task_list),	\
+	};								\
+	add_wait_queue(&wq, &__wait);					\
+	if (condition) {						\
+		remove_wait_queue_if_on_it(&wq, &__wait);		\
+		break;							\
+	} else {							\
+		down(&__sem);						\
+	}								\
+} while (1)
 
+// The following are not fixed for CapROS:
 #define __wait_event_timeout(wq, condition, ret)			\
 do {									\
 	DEFINE_WAIT(__wait);						\
@@ -369,7 +370,7 @@ do {									\
 })
 
 /*
- * Must be called with the spinlock in the wait_queue_head_t held.
+ * Must be called with the lock in the wait_queue_head_t held.
  */
 static inline void add_wait_queue_exclusive_locked(wait_queue_head_t *q,
 						   wait_queue_t * wait)
@@ -379,7 +380,7 @@ static inline void add_wait_queue_exclusive_locked(wait_queue_head_t *q,
 }
 
 /*
- * Must be called with the spinlock in the wait_queue_head_t held.
+ * Must be called with the lock in the wait_queue_head_t held.
  */
 static inline void remove_wait_queue_locked(wait_queue_head_t *q,
 					    wait_queue_t * wait)
@@ -408,6 +409,7 @@ void FASTCALL(prepare_to_wait_exclusive(wait_queue_head_t *q,
 				wait_queue_t *wait, int state));
 void FASTCALL(finish_wait(wait_queue_head_t *q, wait_queue_t *wait));
 int autoremove_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
+int wait_event_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
 int wake_bit_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
 
 #define DEFINE_WAIT(name)						\
