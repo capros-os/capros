@@ -50,7 +50,6 @@ struct interrupt_thread_args {
 void *
 interrupt_thread_func(void * cookie)
 {
-#define KR_DEVPRIVS KR_APP2(0)
   result_t result;
 
   // Set the preempt_count so in_interrupt() will return true.
@@ -60,10 +59,6 @@ interrupt_thread_func(void * cookie)
     = (struct interrupt_thread_args *)cookie;
   struct interrupt_thread_params params = args->params;
   up(&args->arglock);		// we are done with args
-
-  /* KR_LINUX_EMUL slot LE_DEVPRIVS has a key to the DevPrivs key. */
-  result = capros_Node_getSlot(KR_LINUX_EMUL, LE_DEVPRIVS, KR_DEVPRIVS);
-  assert(result == RC_OK);
 
   for (;;) {
     result = capros_DevPrivs_waitIRQ(KR_DEVPRIVS, params.irqNum);
@@ -80,7 +75,6 @@ interrupt_thread_func(void * cookie)
   }
 
   return 0;
-#undef KR_DEVPRIVS
 }
 
 /**
@@ -120,11 +114,7 @@ int request_irq(unsigned int irq, irq_handler_t handler,
   if (!handler)
     return -EINVAL;
 
-  /* KR_LINUX_EMUL slot LE_DEVPRIVS has a key to the DevPrivs key. */
-  result = capros_Node_getSlot(KR_LINUX_EMUL, LE_DEVPRIVS, KR_TEMP0);
-  assert(result == RC_OK);
-
-  result = capros_DevPrivs_allocIRQ(KR_TEMP0, irq, 8 /* priority */);
+  result = capros_DevPrivs_allocIRQ(KR_DEVPRIVS, irq, 8 /* priority */);
   if (result)
     return -EINVAL;
 
@@ -142,15 +132,12 @@ int request_irq(unsigned int irq, irq_handler_t handler,
              &args, &newThreadNum);
   down(&args.arglock);
 
-  result = capros_Node_getSlot(KR_LINUX_EMUL, LE_DEVPRIVS, KR_TEMP0);
-  assert(result == RC_OK);
-
   if (lthres) {
-    capros_DevPrivs_releaseIRQ(KR_TEMP0, irq);
+    capros_DevPrivs_releaseIRQ(KR_DEVPRIVS, irq);
     return -EINVAL;
   }
 
-  result = capros_DevPrivs_enableIRQ(KR_TEMP0, irq);
+  result = capros_DevPrivs_enableIRQ(KR_DEVPRIVS, irq);
   assert(result == RC_OK);
 
   return 0;
@@ -168,10 +155,7 @@ void free_irq(unsigned int irq, void *dev_id)
 {
   result_t result;
 
-  /* KR_LINUX_EMUL slot LE_DEVPRIVS has a key to the DevPrivs key. */
-  result = capros_Node_getSlot(KR_LINUX_EMUL, LE_DEVPRIVS, KR_TEMP0);
-  if (result == RC_OK)
-    result = capros_DevPrivs_releaseIRQ(KR_TEMP0, irq);
+  result = capros_DevPrivs_releaseIRQ(KR_DEVPRIVS, irq);
 
   /* When the IRQ is released, interrupt_thread_func will return,
   which will cause that thread to exit. */

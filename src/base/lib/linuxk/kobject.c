@@ -122,6 +122,7 @@ char *kobject_get_path(struct kobject *kobj, gfp_t gfp_mask)
 	return path;
 }
 EXPORT_SYMBOL_GPL(kobject_get_path);
+#endif // CapROS
 
 /**
  *	kobject_init - initialize object.
@@ -138,6 +139,7 @@ void kobject_init(struct kobject * kobj)
 }
 
 
+#if 0 // CapROS
 /**
  *	unlink - remove kobject from kset list.
  *	@kobj:	kobject.

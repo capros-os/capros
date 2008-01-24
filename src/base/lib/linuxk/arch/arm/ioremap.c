@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -24,27 +24,19 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <domain/assert.h>
 
-#include <idl/capros/Void.h>
 #include <idl/capros/Node.h>
-#include <idl/capros/GPT.h>
-#include <idl/capros/SpaceBank.h>
-#include <idl/capros/Process.h>
 
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
 #include <asm/io.h>
 #include <linux/mutex.h>
 
-static DEFINE_MUTEX(iomapLock);
-
-bool ioremapHaveGPT17 = false;
-uint32_t ioremapNextPageOffset = 0;
-
 void __iomem *
 __arm_ioremap(unsigned long offset, size_t size, unsigned int flags)
 {
   result_t result;
   int i;
+
   uint32_t beg = offset & ~ EROS_PAGE_MASK;	// round down to page boundary
   uint32_t end = ((offset + size) + (EROS_PAGE_SIZE - 1)) & ~ EROS_PAGE_MASK;
                    // round up to page boundary
@@ -52,13 +44,14 @@ __arm_ioremap(unsigned long offset, size_t size, unsigned int flags)
 
   assert(flags == MT_DEVICE);	// others not implemented
 
-  capros_Node_getSlotExtended(KR_LINUX_EMUL, LE_IOMEM, KR_TEMP1);
+  // Find the page capability(s).
+  capros_Node_getSlotExtended(KR_LINUX_EMUL, LE_IOMEM, KR_TEMP3);
   int slot;
   for (slot = 0; ; ) {
     unsigned long w0, w1, w2;
-    result = capros_Node_getSlotExtended(KR_TEMP1, slot, KR_TEMP0);
+    result = capros_Node_getSlotExtended(KR_TEMP3, slot, KR_TEMP2);
     assert(result == RC_OK);
-    result = capros_Number_get(KR_TEMP0, &w0, &w1, &w2);
+    result = capros_Number_get(KR_TEMP2, &w0, &w1, &w2);
     if (result == RC_capros_key_Void)
       return NULL;	// page keys not found
     assert(result == RC_OK);
@@ -76,77 +69,24 @@ __arm_ioremap(unsigned long offset, size_t size, unsigned int flags)
   }
   // slot is the first of the keys we need.
 
-  mutex_lock(&iomapLock);
+  long blockStart = maps_reserve(nPages);
+  if (blockStart < 0) return NULL;	// too bad
 
-  if (! ioremapHaveGPT17) {
-    // First use of ioremap(). Create the GPT17 and the first GPT12.
-    result = capros_SpaceBank_alloc2(KR_BANK,
-               capros_Range_otGPT + (capros_Range_otGPT << 8),
-               KR_TEMP2, KR_TEMP3);
-    if (result != RC_OK)
-      assert(false);	//// FIXME: clean up, return error
-
-    result = capros_GPT_setL2v(KR_TEMP3,
-                               EROS_PAGE_LGSIZE + 2 * capros_GPT_l2nSlots);
-    assert(result == RC_OK);
-    capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_MAPS_GPT, KR_TEMP3, KR_VOID);
-
-    result = capros_GPT_setL2v(KR_TEMP2,
-                               EROS_PAGE_LGSIZE + capros_GPT_l2nSlots);
-    assert(result == RC_OK);
-    result = capros_GPT_setSlot(KR_TEMP3, 0, KR_TEMP2);
-    assert(result == RC_OK);
-
-    // Put it in our address space.
-    result = capros_Process_getAddrSpace(KR_SELF, KR_TEMP0);
-    assert(result == RC_OK);
-    result = capros_GPT_setSlot(KR_TEMP0, LK_MAPS_BASE >> 22, KR_TEMP3);
-    assert(result == RC_OK);
-
-    ioremapHaveGPT17 = true;
-  } else {
-    capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_MAPS_GPT, KR_TEMP3);
-  }
-
-  /* Using an overly simple means of allocating space in the ioremap area: */
-  uint32_t pgoffset = ioremapNextPageOffset;
-  int gpt12have = -1;	// slot number of the GPT key in KR_TEMP2 if any
-  for (i = 0; i < nPages; i++, pgoffset++) {
-    int gpt12need = pgoffset / capros_GPT_nSlots;
-    int gpt12slot = pgoffset % capros_GPT_nSlots;
-    if (gpt12have != gpt12need) {
-      // Get the l2v==12 GPT.
-      result = capros_GPT_getSlot(KR_TEMP3, gpt12need, KR_TEMP2);
-      assert(result == RC_OK);
-      gpt12have = gpt12need;
-    }
+  uint32_t pgoffset;
+  for (i = 0, pgoffset = blockStart; i < nPages; i++, pgoffset++) {
     // Copy one key.
-    result = capros_Node_getSlotExtended(KR_TEMP1, slot++, KR_TEMP0);
+    result = capros_Node_getSlotExtended(KR_TEMP3, slot++, KR_TEMP2);
     assert(result == RC_OK);
-    result = capros_GPT_setSlot(KR_TEMP2, gpt12slot, KR_TEMP0);
-    if (result == RC_capros_key_Void) {
-      // Need to create the l2v == 12 GPT
-      // (We never free this GPT, even if all the space in it is unmapped.)
-      result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_TEMP2);
-      if (result != RC_OK)
-        assert(false);	//// FIXME: clean up, return error
-      result = capros_GPT_setL2v(KR_TEMP2,
-                                 EROS_PAGE_LGSIZE + capros_GPT_l2nSlots);
-      assert(result == RC_OK);
-      result = capros_GPT_setSlot(KR_TEMP3, gpt12need, KR_TEMP2);
-      assert(result == RC_OK);
+    result = maps_mapPage(pgoffset, KR_TEMP2);
+    if (result != RC_OK) {
+      // It's OK to leave any partial map in place; we shouldn't use it.
+      maps_liberate(blockStart, nPages);
+      return NULL;
     }
-    else
-      assert(result == RC_OK);
   }
 
-  void __iomem * p = (void __iomem *)
-                     ((ioremapNextPageOffset << EROS_PAGE_LGSIZE)
-                     + LK_MAPS_BASE
-                     + offset - beg );
-  ioremapNextPageOffset += nPages;
-  mutex_unlock(&iomapLock);
-  return p;
+  return (void __iomem *) (maps_pgOffsetToAddr(blockStart)
+                           + offset - beg );
 }
 
 void

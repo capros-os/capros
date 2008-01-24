@@ -1,7 +1,7 @@
 #ifndef __LSYNC_H
 #define __LSYNC_H
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -59,12 +59,13 @@ thread_info structure, of which only preempt_count is used. */
 #define KR_OSTREAM    KR_APP(1)
 #define KR_LSYNC      KR_APP(2)	// start key to lsync process
 #define KR_SLEEP      KR_APP(3) // to speed up getting jiffies
-#define KR_APP2(i)    KR_APP(4+i) // first available key reg for driver
+#define KR_DEVPRIVS   KR_APP(4) // to speed up getting jiffies
+#define KR_MAPS_GPT   KR_APP(5) // 
+#define KR_APP2(i)    KR_APP(6+i) // first available key reg for driver
 
 /* Slots in the node in KR_LINUX_EMUL: */
 #define LE_CLOCKS 0
-#define LE_DEVPRIVS 1
-#define LE_IOMEM 2
+#define LE_IOMEM 1
 /* LE_IOMEM has a key to an extended node containing, beginning with slot 0:
 - A number key containing the number of pages 
   and the starting phys addr (uint64_t)
@@ -83,6 +84,7 @@ the process (usually one). */
 #define LKSN_THREAD_PROCESS_KEYS 0
 #define LKSN_THREAD_RESUME_KEYS  LK_MAX_THREADS
 #define LKSN_STACKS_GPT          (LKSN_THREAD_RESUME_KEYS+LK_MAX_THREADS)
+// LKSN_MAPS_GPT isn't really needed since we have KR_MAPS_GPT.
 #define LKSN_MAPS_GPT            (LKSN_STACKS_GPT+1)
 #define LKSN_APP                 (LKSN_MAPS_GPT+1) // available for driver
 
@@ -110,6 +112,15 @@ void * lsync_main(void *);
 #define LSYNC_STACK_SIZE 4096
 
 extern uint32_t delayCalibrationConstant;
+
+void maps_init(void);
+long maps_reserve(unsigned long pageSize /* size in pages */ );
+void maps_liberate(unsigned long pgOffset,
+                   unsigned long pageSize /* size in pages */ );
+void * maps_pgOffsetToAddr(unsigned long pgOffset);
+unsigned long maps_addrToPgOffset(unsigned long addr);
+result_t maps_mapPage(unsigned long pgOffset, cap_t pageCap);
+void maps_getCap(unsigned long pgOffset, cap_t pageCap);
 
 #endif // __ASSEMBLER__
 

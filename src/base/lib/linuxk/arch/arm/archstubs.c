@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2008, Strawberry Development Group.
 
  * This file is part of the CapROS Operating System.
  *
@@ -25,36 +25,9 @@ Approved for public release, distribution unlimited. */
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/dmapool.h>
-//#include <linux/string.h>
-//#include <linux/bitops.h>
-#if 0
-#include <linux/moduleparam.h>
-#include <linux/slab.h>
-#include <linux/interrupt.h>  /* for in_interrupt() */
-#include <linux/kmod.h>
-#include <linux/init.h>
-#include <linux/spinlock.h>
-#include <linux/errno.h>
-#include <linux/usb.h>
-#include <linux/mutex.h>
-#include <linux/workqueue.h>
-
-#include <asm/io.h>
-#include <asm/scatterlist.h>
-#include <linux/mm.h>
-
-#include "hcd.h"
-#include "usb.h"
-#endif
 #include <domain/domdbg.h>
 
 #define STUB(proc) kdprintf(KR_OSTREAM, "Called " #proc ", unimplemented.")
 
-void dump_stack(void)
-{ STUB(dump_stack); }
-
-unsigned long msleep_interruptible(unsigned int msecs)
-{
-  STUB(msleep_interruptible);
-  return 0;	// no signals in CapROS
-}
+void consistent_sync(const void *kaddr, size_t size, int rw)
+{ STUB(consistent_sync); }

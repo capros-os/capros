@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1991, 1992  Linus Torvalds
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -24,9 +24,11 @@ Approved for public release, distribution unlimited. */
 
 #include <linuxk/linux-emul.h>
 #include <linux/jiffies.h>
+#include <linux/hardirq.h>
 #include <linuxk/lsync.h>
 #include <idl/capros/LSync.h>
 #include <idl/capros/Sleep.h>
+#include <domain/domdbg.h>
 
 /*
  * Convert jiffies to milliseconds and back.
@@ -97,4 +99,20 @@ get_jiffies_64(void)
   capros_Sleep_getTimeMonotonic(KR_SLEEP, &time);
   // Convert nanoseconds to jiffies.
   return time / ((uint64_t)1000000000/HZ);
+}
+
+void
+msleep(unsigned int msecs)
+{
+  capros_Sleep_sleep(KR_SLEEP, msecs);
+}
+
+void __might_sleep(char * file, int line)
+{
+  if (in_atomic() || irqs_disabled()) {
+    printk(KERN_ERR "BUG: sleeping function called from invalid"
+           " context at %s:%d\n", file, line);
+    kdprintf(KR_OSTREAM, "in_atomic():%d, irqs_disabled():%d\n",
+             in_atomic(), irqs_disabled());
+  }
 }

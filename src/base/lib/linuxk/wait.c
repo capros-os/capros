@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -28,37 +28,51 @@ Approved for public release, distribution unlimited. */
 
 void init_waitqueue_head(wait_queue_head_t *q)
 {
-  spin_lock_init(&q->lock);
+  mutex_init(&q->mutx);
   INIT_LIST_HEAD(&q->task_list);
 }
 
 void fastcall add_wait_queue(wait_queue_head_t *q, wait_queue_t *wait)
 {
-	unsigned long flags;
-
 	wait->flags &= ~WQ_FLAG_EXCLUSIVE;
-	spin_lock_irqsave(&q->lock, flags);
+	mutex_lock(&q->mutx);
 	__add_wait_queue(q, wait);
-	spin_unlock_irqrestore(&q->lock, flags);
+	mutex_unlock(&q->mutx);
 }
 
 void fastcall remove_wait_queue(wait_queue_head_t *q, wait_queue_t *wait)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&q->lock, flags);
+	mutex_lock(&q->mutx);
 	__remove_wait_queue(q, wait);
-	spin_unlock_irqrestore(&q->lock, flags);
+	mutex_unlock(&q->mutx);
+}
+
+void remove_wait_queue_if_on_it(wait_queue_head_t *q, wait_queue_t *wait)
+{
+	/* Note: Even if the wait is not on the queue, the mutex_lock()
+	below is necessary, because we must wait until wake_up()
+	is done with the semaphore in wait->private,
+	before we go on to deallocate the semaphore. */
+	mutex_lock(&q->mutx);
+	if (!list_empty(&wait->task_list)) {
+		__remove_wait_queue(q, wait);
+	}
+	mutex_unlock(&q->mutx);
+}
+
+int wait_event_wake_function(wait_queue_t *wait,
+	unsigned mode, int sync, void *key)
+{
+	list_del_init(&wait->task_list);
+	struct semaphore * sem = wait->private;
+	up(sem);
+	return 1;	// This doesn't work quite right for exclusive wakeups
 }
 
 /*
  * The core wakeup function.  Non-exclusive wakeups (nr_exclusive == 0) just
  * wake everything up.  If it's an exclusive wakeup (nr_exclusive == small +ve
  * number) then we wake all the non-exclusive tasks and one exclusive task.
- *
- * There are circumstances in which we can try to wake a task which has already
- * started to run but is not in state TASK_RUNNING.  try_to_wake_up() returns
- * zero in this (rare) case, and we handle it by continuing to scan the queue.
  */
 static void __wake_up_common(wait_queue_head_t *q, unsigned int mode,
 			     int nr_exclusive, int sync, void *key)
@@ -85,9 +99,7 @@ static void __wake_up_common(wait_queue_head_t *q, unsigned int mode,
 void fastcall __wake_up(wait_queue_head_t *q, unsigned int mode,
 			int nr_exclusive, void *key)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&q->lock, flags);
+	mutex_lock(&q->mutx);
 	__wake_up_common(q, mode, nr_exclusive, 0, key);
-	spin_unlock_irqrestore(&q->lock, flags);
+	mutex_unlock(&q->mutx);
 }

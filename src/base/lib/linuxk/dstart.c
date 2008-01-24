@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -30,7 +30,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Process.h>
 #include <linuxk/linux-emul.h>
+#include <linuxk/lsync.h>
 #include <linux/thread_info.h>
+#include <linux/preempt.h>
 #include <domain/assert.h>
 
 /* This is the first code to run in a driver process.
@@ -65,6 +67,8 @@ driver_start(void)
          >= offsetof(struct thread_info, preempt_count)
             + sizeof(((struct thread_info *)0)->preempt_count) );
 
+  preempt_count() = 0;
+
   // Create the KEYSTORE object.
   result = capros_Constructor_request(KR_KEYSTORE, KR_BANK, KR_SCHED, KR_VOID,
                              KR_KEYSTORE);
@@ -95,6 +99,8 @@ driver_start(void)
   assert(result == RC_OK);
   result = capros_Process_swapKeyReg(KR_TEMP0, KR_LSYNC, KR_LSYNC, KR_VOID);
   assert(result == RC_OK);
+
+  maps_init();
 
   driver_main();
 }

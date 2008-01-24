@@ -44,4 +44,18 @@ const char *dev_driver_string(struct device *dev)
 			(dev->bus ? dev->bus->name :
 			(dev->class ? dev->class->name : ""));
 }
-EXPORT_SYMBOL(dev_driver_string);
+
+void device_initialize(struct device *dev)
+{
+        // kobj_set_kset_s(dev, devices_subsys);
+        kobject_init(&dev->kobj);
+        // klist_init(&dev->klist_children, klist_children_get,
+        //            klist_children_put);
+        INIT_LIST_HEAD(&dev->dma_pools);
+        INIT_LIST_HEAD(&dev->node);
+        init_MUTEX(&dev->sem);
+        spin_lock_init(&dev->devres_lock);
+        INIT_LIST_HEAD(&dev->devres_head);
+        device_init_wakeup(dev, 0);
+        set_dev_node(dev, -1);
+}

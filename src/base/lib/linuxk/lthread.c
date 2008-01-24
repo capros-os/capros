@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -156,6 +156,7 @@ lthread_new_thread(uint32_t stackSize,
                            + (LK_STACK_AREA * (threadNum + 1))
                            - SIZEOF_THREAD_INFO );
     // + 1 above is to get to the high end of the stack
+  ((struct thread_info *)sp)->preempt_count = 0;
   *(uint32_t *)(--sp) = stackPages;
   *(--sp) = start_routine;
   *(--sp) = arg;
@@ -175,10 +176,7 @@ lthread_new_thread(uint32_t stackSize,
   assert(result == RC_OK);
   
   /* Set I/O privileges. */
-  result = capros_Node_getSlot(KR_LINUX_EMUL, LE_DEVPRIVS, KR_TEMP0);
-  assert(result == RC_OK);
-
-  result = capros_Process_setIOSpace(KR_NEWTHREAD, KR_TEMP0);
+  result = capros_Process_setIOSpace(KR_NEWTHREAD, KR_DEVPRIVS);
   assert(result == RC_OK);
 
   /* Now just copy all key registers */

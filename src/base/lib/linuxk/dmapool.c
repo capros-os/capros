@@ -1,4 +1,27 @@
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
+#include <linuxk/linux-emul.h>
 #include <linux/device.h>
 #include <linux/mm.h>
 #include <asm/io.h>		/* Needed for i386 to build */
@@ -7,7 +30,6 @@
 #include <linux/dmapool.h>
 #include <linux/slab.h>
 #include <linux/module.h>
-#include <linux/poison.h>
 #include <linux/sched.h>
 
 /*
@@ -16,16 +38,32 @@
  * This should probably be sharing the guts of the slab allocator.
  */
 
+// Choice of lock:
+#define USE_SPINLOCK 0
+#if USE_SPINLOCK
+#define poolLockDecl spinlock_t lock;
+#define poolLockInit(pool) spin_lock_init(&pool->lock);
+#define poolLockFlagsDecl unsigned long flags;
+#define poolLockLock(pool) spin_lock_irqsave(&pool->lock, flags);
+#define poolLockUnlock(pool) spin_unlock_irqrestore(&pool->lock, flags);
+#else
+#include <linux/mutex.h>
+#define poolLockDecl struct mutex mutx;
+#define poolLockInit(pool) mutex_init(&pool->mutx);
+#define poolLockFlagsDecl
+#define poolLockLock(pool) mutex_lock(&pool->mutx);
+#define poolLockUnlock(pool) mutex_unlock(&pool->mutx);
+#endif
+
 struct dma_pool {	/* the pool */
 	struct list_head	page_list;
-	spinlock_t		lock;
+	poolLockDecl
 	size_t			blocks_per_page;
 	size_t			size;
 	struct device		*dev;
 	size_t			allocation;
 	char			name [32];
 	wait_queue_head_t	waitq;
-	struct list_head	pools;
 };
 
 struct dma_page {	/* cacheable header for 'allocation' bytes */
@@ -37,48 +75,6 @@ struct dma_page {	/* cacheable header for 'allocation' bytes */
 };
 
 #define	POOL_TIMEOUT_JIFFIES	((100 /* msec */ * HZ) / 1000)
-
-static DEFINE_MUTEX (pools_lock);
-
-static ssize_t
-show_pools (struct device *dev, struct device_attribute *attr, char *buf)
-{
-	unsigned temp;
-	unsigned size;
-	char *next;
-	struct dma_page *page;
-	struct dma_pool *pool;
-
-	next = buf;
-	size = PAGE_SIZE;
-
-	temp = scnprintf(next, size, "poolinfo - 0.1\n");
-	size -= temp;
-	next += temp;
-
-	mutex_lock(&pools_lock);
-	list_for_each_entry(pool, &dev->dma_pools, pools) {
-		unsigned pages = 0;
-		unsigned blocks = 0;
-
-		list_for_each_entry(page, &pool->page_list, page_list) {
-			pages++;
-			blocks += page->in_use;
-		}
-
-		/* per-pool info, no real statistics yet */
-		temp = scnprintf(next, size, "%-16s %4u %4Zu %4Zu %2u\n",
-				pool->name,
-				blocks, pages * pool->blocks_per_page,
-				pool->size, pages);
-		size -= temp;
-		next += temp;
-	}
-	mutex_unlock(&pools_lock);
-
-	return PAGE_SIZE - size;
-}
-static DEVICE_ATTR (pools, S_IRUGO, show_pools, NULL);
 
 /**
  * dma_pool_create - Creates a pool of consistent memory blocks, for dma.
@@ -114,9 +110,10 @@ dma_pool_create (const char *name, struct device *dev,
 	else if (size < align)
 		size = align;
 	else if ((size % align) != 0) {
-		size += align + 1;
+		size += align - 1;
 		size &= ~(align - 1);
 	}
+	// size is now a multiple of align.
 
 	if (allocation == 0) {
 		if (PAGE_SIZE < size)
@@ -135,30 +132,11 @@ dma_pool_create (const char *name, struct device *dev,
 	retval->dev = dev;
 
 	INIT_LIST_HEAD (&retval->page_list);
-	spin_lock_init (&retval->lock);
+	poolLockInit(retval)
 	retval->size = size;
 	retval->allocation = allocation;
 	retval->blocks_per_page = allocation / size;
 	init_waitqueue_head (&retval->waitq);
-
-	if (dev) {
-		int ret;
-
-		mutex_lock(&pools_lock);
-		if (list_empty (&dev->dma_pools))
-			ret = device_create_file (dev, &dev_attr_pools);
-		else
-			ret = 0;
-		/* note:  not currently insisting "name" be unique */
-		if (!ret)
-			list_add (&retval->pools, &dev->dma_pools);
-		else {
-			kfree(retval);
-			retval = NULL;
-		}
-		mutex_unlock(&pools_lock);
-	} else
-		INIT_LIST_HEAD (&retval->pools);
 
 	return retval;
 }
@@ -232,12 +210,6 @@ pool_free_page (struct dma_pool *pool, struct dma_page *page)
 void
 dma_pool_destroy (struct dma_pool *pool)
 {
-	mutex_lock(&pools_lock);
-	list_del (&pool->pools);
-	if (pool->dev && list_empty (&pool->dev->dma_pools))
-		device_remove_file (pool->dev, &dev_attr_pools);
-	mutex_unlock(&pools_lock);
-
 	while (!list_empty (&pool->page_list)) {
 		struct dma_page		*page;
 		page = list_entry (pool->page_list.next,
@@ -273,14 +245,13 @@ dma_pool_destroy (struct dma_pool *pool)
 void *
 dma_pool_alloc (struct dma_pool *pool, gfp_t mem_flags, dma_addr_t *handle)
 {
-	unsigned long		flags;
+	poolLockFlagsDecl
 	struct dma_page		*page;
 	int			map, block;
 	size_t			offset;
 	void			*retval;
 
-restart:
-	spin_lock_irqsave (&pool->lock, flags);
+	poolLockLock(pool)
 	list_for_each_entry(page, &pool->page_list, page_list) {
 		int		i;
 		/* only cachable accesses here ... */
@@ -290,27 +261,15 @@ restart:
 			if (page->bitmap [map] == 0)
 				continue;
 			block = ffz (~ page->bitmap [map]);
-			if ((i + block) < pool->blocks_per_page) {
+			offset = i + block;
+			if (offset < pool->blocks_per_page) {
 				clear_bit (block, &page->bitmap [map]);
-				offset = (BITS_PER_LONG * map) + block;
 				offset *= pool->size;
 				goto ready;
 			}
 		}
 	}
-	if (!(page = pool_alloc_page (pool, GFP_ATOMIC))) {
-		if (mem_flags & __GFP_WAIT) {
-			DECLARE_WAITQUEUE (wait, current);
-
-			current->state = TASK_INTERRUPTIBLE;
-			add_wait_queue (&pool->waitq, &wait);
-			spin_unlock_irqrestore (&pool->lock, flags);
-
-			schedule_timeout (POOL_TIMEOUT_JIFFIES);
-
-			remove_wait_queue (&pool->waitq, &wait);
-			goto restart;
-		}
+	if (!(page = pool_alloc_page(pool, mem_flags))) {
 		retval = NULL;
 		goto done;
 	}
@@ -325,7 +284,7 @@ ready:
 	memset (retval, POOL_POISON_ALLOCATED, pool->size);
 #endif
 done:
-	spin_unlock_irqrestore (&pool->lock, flags);
+	poolLockUnlock(pool)
 	return retval;
 }
 
@@ -333,10 +292,10 @@ done:
 static struct dma_page *
 pool_find_page (struct dma_pool *pool, dma_addr_t dma)
 {
-	unsigned long		flags;
+	poolLockFlagsDecl
 	struct dma_page		*page;
 
-	spin_lock_irqsave (&pool->lock, flags);
+	poolLockLock(pool)
 	list_for_each_entry(page, &pool->page_list, page_list) {
 		if (dma < page->dma)
 			continue;
@@ -345,7 +304,7 @@ pool_find_page (struct dma_pool *pool, dma_addr_t dma)
 	}
 	page = NULL;
 done:
-	spin_unlock_irqrestore (&pool->lock, flags);
+	poolLockUnlock(pool)
 	return page;
 }
 
@@ -363,7 +322,7 @@ void
 dma_pool_free (struct dma_pool *pool, void *vaddr, dma_addr_t dma)
 {
 	struct dma_page		*page;
-	unsigned long		flags;
+	poolLockFlagsDecl
 	int			map, block;
 
 	if ((page = pool_find_page (pool, dma)) == 0) {
@@ -403,7 +362,7 @@ dma_pool_free (struct dma_pool *pool, void *vaddr, dma_addr_t dma)
 	memset (vaddr, POOL_POISON_FREED, pool->size);
 #endif
 
-	spin_lock_irqsave (&pool->lock, flags);
+	poolLockLock(pool)
 	page->in_use--;
 	set_bit (block, &page->bitmap [map]);
 	if (waitqueue_active (&pool->waitq))
@@ -413,9 +372,10 @@ dma_pool_free (struct dma_pool *pool, void *vaddr, dma_addr_t dma)
 	 *    if (!is_page_busy(bpp, page->bitmap)) pool_free_page(pool, page);
 	 * Better have a few empty pages hang around.
 	 */
-	spin_unlock_irqrestore (&pool->lock, flags);
+	poolLockUnlock(pool)
 }
 
+#if 0	// don't need this
 /*
  * Managed DMA pool
  */
@@ -480,3 +440,4 @@ EXPORT_SYMBOL (dma_pool_alloc);
 EXPORT_SYMBOL (dma_pool_free);
 EXPORT_SYMBOL (dmam_pool_create);
 EXPORT_SYMBOL (dmam_pool_destroy);
+#endif

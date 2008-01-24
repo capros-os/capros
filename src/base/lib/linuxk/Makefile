@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, Strawberry Development Group.
+# Copyright (C) 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -36,9 +36,12 @@ OPTIM=-O
 DIRS=
 OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/alloc.o \
+  $(BUILDDIR)/archstubs.o \
   $(BUILDDIR)/completion.o \
   $(BUILDDIR)/cpumask.o \
   $(BUILDDIR)/delay.o \
+  $(BUILDDIR)/dma.o \
+  $(BUILDDIR)/dmapool.o \
   $(BUILDDIR)/driverCore.o \
   $(BUILDDIR)/ioremap.o \
   $(BUILDDIR)/kobject.o \
@@ -47,6 +50,7 @@ OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/lirq.o \
   $(BUILDDIR)/lthread.o \
   $(BUILDDIR)/lsync.o \
+  $(BUILDDIR)/maps.o \
   $(BUILDDIR)/platform.o \
   $(BUILDDIR)/printk.o \
   $(BUILDDIR)/resource.o \
@@ -86,6 +90,8 @@ interfaces: $(IDL)
 install-headers:
 	$(INSTALL) -d $(EROS_ROOT)/include/linuxk
 	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/linuxk
+	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
+	$(INSTALL) -m 644 driver.map $(CAPROS_DOMAIN)/drivers
 
 install: install-headers $(TARGETS)
 	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)

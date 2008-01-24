@@ -1,6 +1,6 @@
 /*
  * Started by Ingo Molnar, Copyright (C) 2002
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -858,11 +858,11 @@ static int __devinit workqueue_cpu_callback(struct notifier_block *nfb,
 
 void __init init_workqueues(void)
 {
+	workqueues_initialized = true;
 	cpu_populated_map = cpu_online_map;
 	singlethread_cpu = first_cpu(cpu_possible_map);
 	cpu_singlethread_map = cpumask_of_cpu(singlethread_cpu);
 	// hotcpu_notifier(workqueue_cpu_callback, 0);
 	keventd_wq = create_workqueue("events");
 	BUG_ON(!keventd_wq);
-	workqueues_initialized = true;
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -46,12 +46,16 @@ __kmalloc(size_t size, gfp_t flags)
 {
   void * p = NULL;
 
-  if (flags == GFP_KERNEL) {
+  if (flags == GFP_KERNEL
+      || flags == GFP_NOIO) {
     down(&mallocLock);
     p = malloc(size);	// allocate in heap
     up(&mallocLock);
   }
-  else assert(((void)"unimplemented malloc pool", false));
+  else {
+    kprintf(KR_OSTREAM, "__kmalloc flags 0x%x\n", flags);
+    assert(((void)"unimplemented malloc pool", false));
+  }
   return p;
 }
 
