@@ -83,6 +83,13 @@ interface DevPrivs extends key raises(AllocFail) {
   All the physical addresses p are such that (p &amp; addrMask) == p.
   They physical address of the first page is returned in physAddr.
   A page key to the first page is returned; use ... to get subsequent pages. */
-  capros.key allocateDMAPages(unsigned short nPages,
-                              addr_t addrMask, out addr_t physAddr);
+  capros.Page allocateDMAPages(unsigned short nPages,
+                               addr_t addrMask, out addr_t physAddr);
+
+  /** Deallocate pages for DMA.
+
+  Deallocate the block of pages represented by pg, which must be a
+  capability returned from allocateDMAPages.
+  Caller must ensure there is no I/O in progress to the pages. */
+  void deallocateDMAPages(capros.Page pg);
 };

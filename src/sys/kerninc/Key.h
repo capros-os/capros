@@ -148,10 +148,7 @@ key_NH_Unchain(Key* thisPtr)
   keyBits_Unchain(thisPtr);
 }
 
-/* Called from Node::Unprepare after hazards are cleared.  Also used
- * by Thread unprepare, which is why it is in the key rather than
- * the node.
- */
+/* Convert the key to its unprepared form. */
 void key_NH_Unprepare(Key* thisPtr);
 
 /* KS_Set now checks for need to unchain internally. */

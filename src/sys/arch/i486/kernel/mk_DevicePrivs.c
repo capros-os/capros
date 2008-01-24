@@ -196,6 +196,9 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
   case OC_capros_DevPrivs_allocateDMAPages:
     physMem_AllocateDMAPages(inv);
     break;
+
+  case OC_capros_DevPrivs_deallocateDMAPages:
+    physMem_DeallocateDMAPages(inv);
     
   case OC_capros_DevPrivs_publishMem:
     {

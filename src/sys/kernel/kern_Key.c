@@ -403,6 +403,14 @@ key_NH_Unprepare(Key* thisPtr)
 	fatal("Key 0x%08x Kt %d, 0x%08x not valid node ptr\n",
 		      thisPtr, keyBits_GetType(thisPtr), pObj);
     }
+
+    /* Physical pages don't really have an allocation count,
+    so if we allowed keys to them to become unprepared,
+    we wouldn't be able to rescind them.
+    Keys to physical pages are held only by processes that we trust
+    not to allow the keys to fall into swappable nodes,
+    so we should never need to unprepare them. */
+    assert(pObj->oid < OID_RESERVED_PHYSRANGE);
 #endif
 
     key_NH_Unchain(thisPtr);

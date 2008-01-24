@@ -23,11 +23,4 @@ interface Page extends Memory
   Raises key.RequestError
   if ordinal is &gt;= the number of pages in the block. */
   capros.key getNthPage(unsigned short ordinal);
-
-  /** Deallocate pages for DMA.
-
-  Deallocate the block of pages represented by the invoked capability,
-  which must be a capability returned by DevicePrivs.allocateDMAPages.
-  Caller must ensure there is no I/O in progress to the pages. */
-  void deallocateDMAPages();
 };
