@@ -1,7 +1,7 @@
 #ifndef _I386_PGTABLE_H
 #define _I386_PGTABLE_H
 
-
+#if 0	// not needed for CapROS
 /*
  * The Linux memory management assumes a three-level page table setup. On
  * the i386, we use that, but "fold" the mid level into the top-level page
@@ -547,4 +547,5 @@ static inline void paravirt_pagetable_setup_done(pgd_t *base)
 
 #include <asm-generic/pgtable.h>
 
+#endif // 0
 #endif /* _I386_PGTABLE_H */

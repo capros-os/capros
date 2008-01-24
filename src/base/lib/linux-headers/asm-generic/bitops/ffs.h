@@ -8,6 +8,12 @@
  * This is defined the same way as
  * the libc and compiler builtin ffs routines, therefore
  * differs in spirit from the above ffz (man ffs).
+  x returns
+  0   0
+  1   1
+  2   2
+  3   1
+  4   3
  */
 #if 0		// because the static inline function does not match string.h
 static inline int ffs(int x)
