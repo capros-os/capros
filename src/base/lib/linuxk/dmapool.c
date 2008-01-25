@@ -39,20 +39,22 @@ Approved for public release, distribution unlimited. */
  */
 
 // Choice of lock:
-#define USE_SPINLOCK 0
+// Spinlock is required, because dma_pool_alloc is called from
+// under a spinlock (for example, in ed_get/ed_alloc in drivers/usb/host).
+#define USE_SPINLOCK 1
 #if USE_SPINLOCK
 #define poolLockDecl spinlock_t lock;
-#define poolLockInit(pool) spin_lock_init(&pool->lock);
+#define poolLockInit(pool) spin_lock_init(&(pool)->lock);
 #define poolLockFlagsDecl unsigned long flags;
-#define poolLockLock(pool) spin_lock_irqsave(&pool->lock, flags);
-#define poolLockUnlock(pool) spin_unlock_irqrestore(&pool->lock, flags);
+#define poolLockLock(pool) spin_lock_irqsave(&(pool)->lock, flags);
+#define poolLockUnlock(pool) spin_unlock_irqrestore(&(pool)->lock, flags);
 #else
 #include <linux/mutex.h>
 #define poolLockDecl struct mutex mutx;
-#define poolLockInit(pool) mutex_init(&pool->mutx);
+#define poolLockInit(pool) mutex_init(&(pool)->mutx);
 #define poolLockFlagsDecl
-#define poolLockLock(pool) mutex_lock(&pool->mutx);
-#define poolLockUnlock(pool) mutex_unlock(&pool->mutx);
+#define poolLockLock(pool) mutex_lock(&(pool)->mutx);
+#define poolLockUnlock(pool) mutex_unlock(&(pool)->mutx);
 #endif
 
 struct dma_pool {	/* the pool */

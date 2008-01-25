@@ -46,7 +46,14 @@ __kmalloc(size_t size, gfp_t flags)
 {
   void * p = NULL;
 
+#ifdef CONFIG_SPINLOCK_USES_IRQ
+#error
+/* We must handle GFP_ATOMIC without the possibility of getting
+preempted. That means we must not use the semaphore mallocLock
+and must not use the VCSK. */
+#endif
   if (flags == GFP_KERNEL
+      || flags == GFP_ATOMIC
       || flags == GFP_NOIO) {
     down(&mallocLock);
     p = malloc(size);	// allocate in heap

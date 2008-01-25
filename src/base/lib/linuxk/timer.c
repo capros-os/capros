@@ -1,6 +1,6 @@
 /*
  * Portions Copyright (C) 1991, 1992  Linus Torvalds
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -39,7 +39,7 @@ Approved for public release, distribution unlimited. */
 
 // #define TIMERDEBUG
 
-spinlock_t timerLock;
+spinlock_t timerLock = __SPIN_LOCK_UNLOCKED(timerLock);
 
 // The following are protected by timerLock:
 unsigned int timerThreadNum = noThread;
@@ -292,7 +292,7 @@ update_soonest_wait(struct list_head * prev, unsigned long flags)
       } while (1);
 
       /* Don't want to teleport while holding the lock. */
-      spin_unlock_irqrestore(timerLock, flags);
+      spin_unlock_irqrestore(&timerLock, flags);
 
       switch (oldVal) {
       case ttsSleeping:
@@ -325,7 +325,7 @@ update_soonest_wait(struct list_head * prev, unsigned long flags)
           .snd_len = 0
           // It is not ExpectingMessage, so code, w1, w2, w3 don't matter.
         };
-        SEND(&msg);
+        PSEND(&msg);
         break;
 
       case ttsWorking:
@@ -338,21 +338,21 @@ update_soonest_wait(struct list_head * prev, unsigned long flags)
       }
     }
     else
-      spin_unlock_irqrestore(timerLock, flags);
+      spin_unlock_irqrestore(&timerLock, flags);
   }
   else
-    spin_unlock_irqrestore(timerLock, flags);
+    spin_unlock_irqrestore(&timerLock, flags);
 }
 
 /* Returns 0 if timer was inactive, 1 if was active. */
 int
 del_timer(struct timer_list * timer)
 {
-  unsigned long flags;
+  unsigned long flags = 0;
   int ret = 0;
 
   if (timer_pending(timer)) {
-    spin_lock_irqsave(timerLock, flags);
+    spin_lock_irqsave(&timerLock, flags);
     // Check again - it may have just expired:
     if (timer_pending(timer)) {
       struct list_head * prev = timer->entry.prev;
@@ -361,7 +361,7 @@ del_timer(struct timer_list * timer)
       update_soonest_wait(prev, flags);
     }
     else
-      spin_unlock_irqrestore(timerLock, flags);
+      spin_unlock_irqrestore(&timerLock, flags);
   }
 
   return ret;
@@ -371,14 +371,14 @@ del_timer(struct timer_list * timer)
 int
 __mod_timer(struct timer_list * timer, unsigned long expires)
 {
-  unsigned long flags;
+  unsigned long flags = 0;
   int ret = 0;
 
   BUG_ON(!timer->function);
 
   ensure_timer_thread();
 
-  spin_lock_irqsave(timerLock, flags);
+  spin_lock_irqsave(&timerLock, flags);
   if (timer_pending(timer)) {
     struct list_head *entry = &timer->entry;
     __list_del(entry->prev, entry->next);
