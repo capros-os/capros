@@ -9,9 +9,13 @@
  * include/linux/spinlock_up.h - UP-debug version of spinlocks.
  *
  * portions Copyright 2005, Red Hat, Inc., Ingo Molnar
+ * portions Copyright (C) 2008, Strawberry Development Group.
  * Released under the General Public License (GPL).
- *
- * In the debug case, 1 means unlocked, 0 means locked. (the values
+ */
+
+#ifdef CONFIG_SPINLOCK_USES_IRQ
+
+/* In the debug case, 1 means unlocked, 0 means locked. (the values
  * are inverted, to catch initialization bugs)
  *
  * No atomicity anywhere, we are on UP.
@@ -69,5 +73,17 @@ static inline void __raw_spin_unlock(raw_spinlock_t *lock)
 
 #define __raw_spin_unlock_wait(lock) \
 		do { cpu_relax(); } while (__raw_spin_is_locked(lock))
+
+#else // CONFIG_SPINLOCK_USES_IRQ
+
+#include <linux/mutex.h>
+#define __raw_spin_is_locked(lock) mutex_is_locked(&lock->mutx)
+#define __raw_spin_lock(lock) mutex_lock(&lock->mutx)
+#define __raw_spin_unlock(lock) mutex_unlock(&lock->mutx)
+#define __raw_spin_trylock(lock) mutex_trylock(&lock->mutx)
+#define __raw_read_can_lock(lock)  unimplemented
+#define __raw_write_can_lock(lock) unimplemented
+
+#endif // CONFIG_SPINLOCK_USES_IRQ
 
 #endif /* __LINUX_SPINLOCK_UP_H */

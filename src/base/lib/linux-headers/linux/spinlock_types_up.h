@@ -9,6 +9,7 @@
  * include/linux/spinlock_types_up.h - spinlock type definitions for UP
  *
  * portions Copyright 2005, Red Hat, Inc., Ingo Molnar
+ * Copyright (C) 2008, Strawberry Development Group.
  * Released under the General Public License (GPL).
  */
 
@@ -18,13 +19,13 @@ typedef struct {
 	volatile unsigned int slock;
 } raw_spinlock_t;
 
-#define __RAW_SPIN_LOCK_UNLOCKED { 1 }
+#define __RAW_SPIN_LOCK_UNLOCKED(name) { 1 }
 
 #else
 
 typedef struct { } raw_spinlock_t;
 
-#define __RAW_SPIN_LOCK_UNLOCKED { }
+#define __RAW_SPIN_LOCK_UNLOCKED(name) { }
 
 #endif
 

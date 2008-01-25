@@ -6,8 +6,16 @@
  *                                  and initializers
  *
  * portions Copyright 2005, Red Hat, Inc., Ingo Molnar
+ * Portions Copyright (C) 2008, Strawberry Development Group.
  * Released under the General Public License (GPL).
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <linux/lockdep.h>
+
+#ifdef CONFIG_SPINLOCK_USES_IRQ
 
 #if defined(CONFIG_SMP)
 # include <asm/spinlock_types.h>
@@ -15,7 +23,24 @@
 # include <linux/spinlock_types_up.h>
 #endif
 
-#include <linux/lockdep.h>
+#else // CONFIG_SPINLOCK_USES_IRQ
+
+#include <linux/mutex.h>
+#include <linux/rwsem.h>
+
+typedef struct {
+  struct mutex mutx;
+} raw_spinlock_t;
+
+#define __RAW_SPIN_LOCK_UNLOCKED(name) { __MUTEX_INITIALIZER(name.mutx) }
+
+typedef struct {
+  struct rw_semaphore rwsem;
+} raw_rwlock_t;
+
+#define __RAW_RW_LOCK_UNLOCKED(name) { __RWSEM_INITIALIZER(name) }
+
+#endif // CONFIG_SPINLOCK_USES_IRQ
 
 typedef struct {
 	raw_spinlock_t raw_lock;
@@ -65,7 +90,7 @@ typedef struct {
 
 #ifdef CONFIG_DEBUG_SPINLOCK
 # define __SPIN_LOCK_UNLOCKED(lockname)					\
-	(spinlock_t)	{	.raw_lock = __RAW_SPIN_LOCK_UNLOCKED,	\
+	(spinlock_t)	{	.raw_lock = __RAW_SPIN_LOCK_UNLOCKED((lockname).raw_lock),	\
 				.magic = SPINLOCK_MAGIC,		\
 				.owner = SPINLOCK_OWNER_INIT,		\
 				.owner_cpu = -1,			\
@@ -78,7 +103,7 @@ typedef struct {
 				RW_DEP_MAP_INIT(lockname) }
 #else
 # define __SPIN_LOCK_UNLOCKED(lockname) \
-	(spinlock_t)	{	.raw_lock = __RAW_SPIN_LOCK_UNLOCKED,	\
+	(spinlock_t)	{	.raw_lock = __RAW_SPIN_LOCK_UNLOCKED((lockname).raw_lock),	\
 				SPIN_DEP_MAP_INIT(lockname) }
 #define __RW_LOCK_UNLOCKED(lockname) \
 	(rwlock_t)	{	.raw_lock = __RAW_RW_LOCK_UNLOCKED,	\

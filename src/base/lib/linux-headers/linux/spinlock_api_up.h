@@ -11,7 +11,7 @@
  * spinlock API implementation on UP-nondebug (inlined implementation)
  *
  * portions Copyright 2005, Red Hat, Inc., Ingo Molnar
- * Portions Copyright (C) 2007, Strawberry Development Group.
+ * Portions Copyright (C) 2007, 2008, Strawberry Development Group.
  * Released under the General Public License (GPL).
  */
 /* This material is based upon work supported by the US Defense Advanced
@@ -21,6 +21,8 @@ Approved for public release, distribution unlimited. */
 #define in_lock_functions(ADDR)		0
 
 #define assert_spin_locked(lock)	do { (void)(lock); } while (0)
+
+#ifdef CONFIG_SPINLOCK_USES_IRQ
 
 /*
  * In the UP-nondebug case there's no real locking going on, so the
@@ -47,6 +49,26 @@ So, once irq is disabled, no point in disabling preemption. */
 
 #define __UNLOCK_IRQRESTORE(lock, flags) \
   do { local_irq_restore(flags); __release(lock); (void)(lock); } while (0)
+
+#else // CONFIG_SPINLOCK_USES_IRQ
+
+#define __LOCK(lock) \
+  do { mutex_lock(&(lock)->raw_lock.mutx); } while (0)
+
+#define __LOCK_IRQ(lock) __LOCK(lock)
+
+#define __LOCK_IRQSAVE(lock, flags) \
+  do { __LOCK(lock); (void)(flags); } while (0)
+
+#define __UNLOCK(lock) \
+  do { mutex_unlock(&(lock)->raw_lock.mutx); } while (0)
+
+#define __UNLOCK_IRQ(lock) __UNLOCK(lock)
+
+#define __UNLOCK_IRQRESTORE(lock, flags) \
+  do { __UNLOCK(lock); (void)(flags); } while (0)
+
+#endif // CONFIG_SPINLOCK_USES_IRQ
 
 #define _spin_lock(lock)			__LOCK(lock)
 #define _spin_lock_nested(lock, subclass)	__LOCK(lock)

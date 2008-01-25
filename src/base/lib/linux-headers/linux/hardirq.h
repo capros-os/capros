@@ -75,7 +75,8 @@
 #if defined(CONFIG_PREEMPT) && !defined(CONFIG_PREEMPT_BKL)
 # define in_atomic()	((preempt_count() & ~PREEMPT_ACTIVE) != kernel_locked())
 #else
-# define in_atomic()	((preempt_count() & ~PREEMPT_ACTIVE) != 0)
+// In CapROS, interrupts are handled in processes, so not atomic. 
+# define in_atomic()	((preempt_count() & PREEMPT_MASK) != 0)
 #endif
 
 #ifdef CONFIG_PREEMPT
