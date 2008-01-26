@@ -2,7 +2,7 @@
 #define __PROCESS486_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -65,30 +65,24 @@ proc_TranslatePage(Process *p, ula_t ula, uint32_t mode, bool forWriting)
     return 0;
 #endif
   
-  assert(p->md.MappingTable);
-  
-  if (p->md.MappingTable) {
-    PTE* pde = (PTE*) PTOV(p->md.MappingTable);
-    uint32_t ndx0 = (ula >> 22) & 0x3ffu;
-    uint32_t ndx1 = (ula >> 12) & 0x3ffu;
+  PTE* pde = (PTE*) PTOV(p->md.MappingTable);
+  uint32_t ndx0 = (ula >> 22) & 0x3ffu;
+  uint32_t ndx1 = (ula >> 12) & 0x3ffu;
 
-    pde += ndx0;
+  pde += ndx0;
 
-    if (pte_is(pde, mode)) {
-      if (forWriting && pte_isnot(pde, PTE_W))
+  if (pte_is(pde, mode)) {
+    if (forWriting && pte_isnot(pde, PTE_W))
 	goto fail;
 
-
-      pte = (PTE*) PTOV( (pte_AsWord(pde) & ~EROS_PAGE_MASK) );
-
-      pte += ndx1;
+    pte = (PTE*) PTOV( (pte_AsWord(pde) & ~EROS_PAGE_MASK) );
+    pte += ndx1;
   
-      if (pte_is(pte, mode)) {
+    if (pte_is(pte, mode)) {
 	if (forWriting && pte_isnot(pte, PTE_W))
 	  goto fail;
 
 	return pte;
-      }
     }
   }
 fail:

@@ -2,7 +2,7 @@
 #define __PROCESS_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -180,7 +180,6 @@ INLINE Process * proc_Current(void);
 typedef struct KernProcess KernProcess;
 
 Process *kproc_Init(const char * name,
-		    struct Activity* theActivity,
 		    Priority prio,
                     struct ReadyQueue *rq,
 		    void (*pc)(void),
@@ -329,6 +328,7 @@ void proc_LoadKeyRegs(Process* thisPtr);
 
 void proc_FlushFixRegs(Process* thisPtr);
 #ifdef EROS_HAVE_FPU
+void proc_LoadFloatRegs(Process* thisPtr);
 void proc_FlushFloatRegs(Process* thisPtr);
 #endif
 void proc_FlushKeyRegs(Process* thisPtr);
@@ -339,6 +339,10 @@ void proc_WriteDisableSmallSpaces();
 
 void proc_AllocUserContexts(); /* machine dependent! */
 Process *proc_allocate(bool isUser);
+void proc_Init_MD(Process * p, bool isUser);
+void proc_LoadSingleStep(Process * thisPtr);
+void proc_LoadFixRegs(Process* thisPtr);
+void proc_ValidateRegValues(Process* thisPtr);
 void proc_Load(Node* procRoot);
 void proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info);
 

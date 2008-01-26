@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -45,7 +45,6 @@ Approved for public release, distribution unlimited. */
 Process *
 kproc_Init(
            const char *myName,
-           Activity* theActivity,
 	   Priority prio,
            ReadyQueue *rq,
            void (*pc)(),
@@ -77,7 +76,6 @@ kproc_Init(
     p->name[i] = myName[i];
   p->name[7] = 0;
 
-  p->curActivity = theActivity;
   p->runState = RS_Running;
 
   memset(&p->trapFrame, 0, sizeof(p->trapFrame));

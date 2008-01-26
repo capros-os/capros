@@ -2,7 +2,7 @@
 #define __ACTIVITY_H__
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -39,9 +39,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/ReadyQueue.h>
-
-/* Prototypes for former member functions of Activity */
-void act_DoReschedule();
 
 /* Values for Activity.state */
 enum {
@@ -144,10 +141,9 @@ act_SetContextCurrent(Activity * thisPtr, Process * ctxt)
 INLINE void 
 act_SetContext(Activity * thisPtr, Process * ctxt) 
 {
+  thisPtr->context = ctxt;
   if (thisPtr == act_Current())
-    act_SetContextCurrent(thisPtr, ctxt);
-  else
-    act_SetContextNotCurrent(thisPtr, ctxt);
+    proc_curProcess = ctxt;
 }
 
 /* Must be under irq_DISABLE */
@@ -175,13 +171,6 @@ act_IsUser(Activity* thisPtr)
   return ( thisPtr->context == 0 || proc_IsUser(thisPtr->context) );
 }
   
-INLINE bool 
-act_IsKernel(Activity* thisPtr)
-{
-  /* hack alert! */
-  return ( thisPtr->context && proc_IsKernel(thisPtr->context) );
-}
-
 /* If prepare returns false, the activity is dead and should be placed
  * on the free list.  This can happen if the process root has been
  * rescinded.
@@ -189,6 +178,8 @@ act_IsKernel(Activity* thisPtr)
 bool act_Prepare(Activity* thisPtr);
 
 void act_Wakeup(Activity* thisPtr);
+
+void act_DoReschedule();
 
 /* Set the global variable that will force rescheduling
    on the next return to user mode. */
@@ -215,17 +206,17 @@ void act_DeleteCurrent(void);
 void act_MigrateTo(Activity * thisPtr, Process * dc);
 
 INLINE void
-act_MigrateFromCurrent(Activity * thisPtr, Process * to)
+act_MigrateFromCurrent(Process * from, Process * to)
 {
+  Activity * thisPtr = from->curActivity;
+
   assert(thisPtr == act_Current());
-  Process * from = thisPtr->context;
-  assert(from);
-  assert(to);
+  assert(from == thisPtr->context);
+  assert(proc_IsRunnable(to));
 
   proc_Deactivate(from);
   act_SetContextCurrent(thisPtr, to);
   proc_SetActivity(to, thisPtr);
-  assert (proc_IsRunnable(to));
 
   /* FIX: Check for preemption! */
   thisPtr->readyQ = to->readyQ;

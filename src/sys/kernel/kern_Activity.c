@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -244,20 +244,6 @@ ReadyQueue *dispatchQueues[pr_High+1] = {
   &prioQueues[15]
 };
 
-/* 
- * Reserve field will get populated when activity migrates to receiving
- * context. 
- */
-static void
-act_InitActivity(Activity *thisPtr)
-{
-  link_Init(&thisPtr->q_link);
-  keyBits_InitToVoid(&thisPtr->processKey);
-  act_SetContextNotCurrent(thisPtr, NULL);
-  thisPtr->state = act_Stall;
-  thisPtr->readyQ = dispatchQueues[pr_Never];
-}
-
 Activity *
 kact_InitKernActivity(const char * name, 
 		    Priority prio,
@@ -267,11 +253,11 @@ kact_InitKernActivity(const char * name,
 {
   Activity *t = act_AllocActivity();
 
-  act_InitActivity(t);		/* why?? */
   /*t->priority = prio;*/
-  act_SetContextNotCurrent(t, kproc_Init(name, t,
-			  prio, rq, pc,
-			  StackBottom, StackTop));
+  Process * p = kproc_Init(name, prio, rq, pc,
+                           StackBottom, StackTop);
+  act_SetContextNotCurrent(t, p);
+  proc_SetActivity(p, t);
 
   return t;
 }
@@ -308,8 +294,14 @@ act_AllocActivityTable()
   act_ActivityTable = MALLOC(Activity, KTUNE_NACTIVITY);
 
   for (i = 0; i < KTUNE_NACTIVITY; i++) {
-    act_InitActivity(&act_ActivityTable[i]);
-    act_DeleteActivity(&act_ActivityTable[i]);
+    Activity * t = &act_ActivityTable[i];
+
+    link_Init(&t->q_link);
+    keyBits_InitToVoid(&t->processKey);
+    act_SetContextNotCurrent(t, NULL);
+    t->readyQ = dispatchQueues[pr_Never];
+
+    act_DeleteActivity(t);
   }
 
   printf("Allocated User Activitys: 0x%x at 0x%08x\n",
@@ -319,6 +311,9 @@ act_AllocActivityTable()
 void
 act_DeleteActivity(Activity *t)
 {
+  assert(t->context == NULL);
+  assert(link_isSingleton(&t->q_link));
+
   /* dprintf(true, "Deleting activity 0x%08x\n", t); */
   /* not hazarded because activity key */
   key_NH_SetToVoid(&t->processKey);
@@ -341,6 +336,7 @@ act_DeleteActivity(Activity *t)
            mach_TicksToMilliseconds(r->totalTimeAcc));
     res_SetInactive(r->index);
   }
+  t->readyQ = dispatchQueues[pr_Never];	// just in case
 
   irqFlags_t flags = local_irq_save();
 
@@ -1001,6 +997,8 @@ bool
 act_Prepare(Activity* thisPtr)
 {
   static uint32_t count;
+
+  assert(thisPtr == act_Current());
   
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr && 0)
@@ -1035,7 +1033,8 @@ act_Prepare(Activity* thisPtr)
     printf("Preparing user activity\n");
 #endif
   
-    if ( thisPtr->context == 0 ) {
+    Process * proc = thisPtr->context;
+    if (! proc) {
       /* Domain root may have been rescinded.... */
 
 #if 0
@@ -1053,24 +1052,25 @@ act_Prepare(Activity* thisPtr)
       assert( keyBits_IsHazard(&thisPtr->processKey) == false );
       assert( keyBits_IsPrepared(&thisPtr->processKey) );
 
-      thisPtr->context = node_GetDomainContext((Node *) thisPtr->processKey.u.ok.pObj);
-      if (!thisPtr->context)
+      proc = node_GetDomainContext(objH_ToNode(thisPtr->processKey.u.ok.pObj));
+      if (! proc)
 	return false;
     
-      proc_SetActivity(thisPtr->context, thisPtr);
+      act_SetContextCurrent(thisPtr, proc);
+      proc_SetActivity(proc, thisPtr);
     }
 
 #ifdef ACTIVITYDEBUG
-    printf("Preparing context 0x%08x..\n", thisPtr->context);
+    printf("Preparing Process 0x%08x..\n", proc);
 #endif
 
-    proc_Prepare(thisPtr->context);
+    proc_Prepare(proc);
 
-    if ( proc_IsRunnable(thisPtr->context) ) {
+    if ( proc_IsRunnable(proc) ) {
 #if CONV
-      assert (thisPtr->priority == thisPtr->context->priority);
+      assert (thisPtr->priority == proc->priority);
 #else
-      assert (thisPtr->readyQ = thisPtr->context->readyQ);
+      assert (thisPtr->readyQ = proc->readyQ);
 #endif
 #ifdef DBG_WILD_PTR
       if (dbg_wild_ptr && 0)
@@ -1079,7 +1079,7 @@ act_Prepare(Activity* thisPtr)
       return true;
     }
 
-    /* The context could not be prepared. */
+    /* The Process could not be prepared. */
   }
 
   dprintf(true, "Activity start loop exceeded\n");

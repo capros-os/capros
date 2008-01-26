@@ -724,7 +724,7 @@ proc_DoKeyInvocation(Process* thisPtr)
       if (inv.invKeyType == KKT_Resume)
         keyR_ZapResumeKeys(&inv.invokee->keyRing);
 
-      act_MigrateFromCurrent(act_Current(), inv.invokee);
+      act_MigrateFromCurrent(thisPtr, inv.invokee);
 #ifdef OPTION_DDB
       if (inv.invokee->readyQ == &prioQueues[pr_Never])
         dprintf(true, "Thread now in ctxt 0x%08x w/ bad schedule\n", 
@@ -987,7 +987,7 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
   else {	// not Send
     assert(!allocatedActivity);
     if (inv.invokee)
-      act_MigrateFromCurrent(act_Current(), inv.invokee);
+      act_MigrateFromCurrent(thisPtr, inv.invokee);
     else
       act_DeleteCurrent();
   }

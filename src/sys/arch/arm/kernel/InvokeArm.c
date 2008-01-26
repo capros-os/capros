@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -463,7 +463,7 @@ InvokeArm(Process * invokerProc,
   /* Set returned length to zero. */
   invokee->trapFrame.r12 = 0;
   /* Migrate the Activity. */
-  act_MigrateFromCurrent(invokerProc->curActivity, invokee);
+  act_MigrateFromCurrent(invokerProc, invokee);
 
   /* Leave invokee's PC advanced. */
   proc_AdjustInvocationPC(invokerProc);	/* back up invoker PC */

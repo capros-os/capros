@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -65,7 +65,7 @@ Process * proc_ContextCacheRegion = NULL;
  * register values are the lowest priority fault that will be reported
  * to the user.
  */
-static void
+void
 proc_ValidateRegValues(Process* thisPtr)
 {
   if (thisPtr->processFlags & capros_Process_PF_FaultToProcessKeeper)
@@ -211,118 +211,15 @@ check_Contexts(const char *c)
 }
 
 void
-proc_Unload(Process* thisPtr)
+proc_Init_MD(Process * p, bool isUser)
 {
-  /* It might already be unloaded: */
-  if (thisPtr->procRoot == 0)
-    return;
-  
-#if defined(DBG_WILD_PTR)
-  if (dbg_wild_ptr)
-    if (check_Contexts("before unload") == false)
-      halt('a');
-#endif
-
-  if (thisPtr->curActivity) {
-    proc_SyncActivity(thisPtr);
-    act_SetContext(thisPtr->curActivity, NULL);
-  }
-
-#if defined(DBG_WILD_PTR)
-  if (dbg_wild_ptr)
-    if (check_Contexts("after syncactivity") == false)
-      halt('b');
-#endif
-  
-  thisPtr->curActivity = 0;
-
-  if ((thisPtr->hazards & hz_KeyRegs) == 0)
-    proc_FlushKeyRegs(thisPtr);
-
-  if ((thisPtr->hazards & hz_DomRoot) == 0)
-    proc_FlushFixRegs(thisPtr);
-
-  if ( keyBits_IsHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace)) ) {
-    Depend_InvalidateKey(node_GetKeyAtSlot(thisPtr->procRoot, ProcAddrSpace));
-  }
-
-  assert(thisPtr->procRoot);
-
-  thisPtr->procRoot->node_ObjHdr.prep_u.context = 0;
-  thisPtr->procRoot->node_ObjHdr.obType = ot_NtUnprepared;
-  
-  keyR_UnprepareAll(&thisPtr->keyRing);	// Why? CRL
-  thisPtr->hazards = 0;
-  thisPtr->procRoot = 0;
-
-  // dprintf(false,  "Unload of context 0x%08x complete\n", thisPtr);
-
-  sq_WakeAll(&thisPtr->stallQ, false);
-}
-
-/* Simple round-robin policy for now:  */
-Process *
-proc_allocate(bool isUser)
-{
-  static uint32_t nextClobber = 0;
-  Process* p = 0;
-
-  while (p == 0) {
-    p = &proc_ContextCache[nextClobber++];
-    if (nextClobber >= KTUNE_NCONTEXT)
-      nextClobber = 0;
-
-    if (p == proc_Current()) {	/* can't use current Process */
-      p = 0;
-      continue;
-    }
-
-    if (inv_IsActive(&inv) && p == inv.invokee) {
-      p = 0;
-      continue;
-    }
-    
-    if (p->isUserContext == false) {	/* can't steal kernel Processes */
-      p = 0;
-      continue;
-
-    }
-    
-    if (p->curActivity &&
-	p->curActivity->state == act_Running)
-      p = 0;
-  }
-  /* Use Process p. */
-
-  /* wipe out current contents, if any */
-  proc_Unload(p);
-
-#if 0
-  printf("  unloaded\n");
-#endif
-  
-  assert(p->procRoot == 0
-         || p->procRoot->node_ObjHdr.obType == ot_NtProcessRoot);
-
-  p->procRoot = 0;		/* for kernel contexts */
-  p->faultCode = capros_Process_FC_NoFault;
-  p->faultInfo = 0;
-  p->kernelFlags = 0;
-  p->processFlags = 0;
-  p->isUserContext = isUser;
-  /* FIX: what to do about runState? */
-
-  p->curActivity = 0;
   proc_ResetMappingTable(p);
-
-  return p;
 }
 
 /* Initialize a privileged Process. */
 Process *
 kproc_Init(
            const char *myName,
-           Activity* theActivity,
 	   Priority prio,
            ReadyQueue *rq,
            void (*pc)(),
@@ -345,7 +242,6 @@ kproc_Init(
     p->name[i] = myName[i];
   p->name[7] = 0;
 
-  p->curActivity = theActivity;
   p->runState = RS_Running;
 
   memset(&p->trapFrame, 0, sizeof(p->trapFrame));
@@ -592,7 +488,7 @@ proc_Load(Node* procRoot)
 /* Both loads the register values and validates that the process root
  * is well-formed.
  */
-static void 
+void 
 proc_LoadFixRegs(Process* thisPtr)
 {
   uint32_t k;
@@ -635,133 +531,10 @@ proc_LoadFixRegs(Process* thisPtr)
 #endif
 }
 
-/* The DoPrepare() logic has changed, now that we have merged the
- * process prep logic into it...
- */
-// May Yield.
-void 
-proc_DoPrepare(Process* thisPtr)
+void
+proc_LoadSingleStep(Process * thisPtr)
 {
-  bool check_disjoint;
-  assert(thisPtr->procRoot);
-  assert (thisPtr->isUserContext);
-
-  objH_TransLock(DOWNCAST(thisPtr->procRoot, ObjectHeader));
-  if (thisPtr->keysNode)
-    objH_TransLock(DOWNCAST(thisPtr->keysNode, ObjectHeader));
-  
-  thisPtr->hazards &= ~hz_Malformed;	/* until proven otherwise */
-  
-  check_disjoint
-    = (thisPtr->hazards & (hz_DomRoot | hz_KeyRegs
-#ifdef EROS_HAVE_FPU
-                           | hz_FloatRegs
-#endif
-                          )); 
-
-#if 0
-  dprintf(true,"Enter proc_DoPrepare()\n");
-#endif
-  /* The order in which these are tested is important, because
-   * sometimes satisfying one condition imposes another (e.g. floating
-   * point bit set in the eflags register)
-   */
-
-  if (thisPtr->hazards & hz_DomRoot)
-    proc_LoadFixRegs(thisPtr);
-
-  if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
-    assert (thisPtr->processFlags & capros_Process_PF_FaultToProcessKeeper);
-    return;
-  }
-  
-  if (thisPtr->hazards & hz_KeyRegs)
-    proc_LoadKeyRegs(thisPtr);
-
-  if (check_disjoint) {
-    if ( thisPtr->procRoot == thisPtr->keysNode ) {
-      proc_SetMalformed(thisPtr);
-    }
-  }
-  
-  if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
-    assert (thisPtr->processFlags & capros_Process_PF_FaultToProcessKeeper);
-    return;
-  }
-  
-  if (thisPtr->hazards & hz_Schedule) {
-    /* FIX: someday deal with schedule keys! */
-    Priority pr;
-    Key* schedKey /*@ not null @*/ = node_GetKeyAtSlot(thisPtr->procRoot, ProcSched);
-
-    assert(keyBits_IsHazard(schedKey) == false);
-    
-    keyBits_SetWrHazard(schedKey);
-
-    if (schedKey->keyData & (1u<<pr_Reserve)) {
-      /* this is a reserve key */
-      int ndx = schedKey->keyData;
-      Reserve *r = 0;
-
-      ndx &= ~(1u<<pr_Reserve);
-      r = &res_ReserveTable[ndx];
-      thisPtr->readyQ = &r->readyQ;
-      r->isActive = true;
-      printf("set real time key index = %d\n", r->index);
-    }
-    /* this is a priority key */
-    else {
-      pr = min(schedKey->keyData, pr_High);
-      thisPtr->readyQ = dispatchQueues[pr];
-      if (pr == pr_Reserve) {
-        Reserve *r = res_GetNextReserve();
-        thisPtr->readyQ= &r->readyQ;
-      }
-    }
-
-    thisPtr->hazards &= ~hz_Schedule;
-
-    /* If context is presently occupied by a activity, need to update the
-       readyQ pointer in that activity: */
-    if (thisPtr->curActivity) {
-      Activity *t = thisPtr->curActivity;
-
-      assert(t->context == thisPtr);
-      t->readyQ = thisPtr->readyQ;
-
-      switch(t->state) {
-      case act_Running:
-        act_ForceResched();
-        act_Wakeup(t);
-        break;
-      case act_Ready:
-        /* need to move the activity to the proper ready Q: */
-        act_Dequeue(t);
-        act_ForceResched();
-        act_Wakeup(t);
-        break;
-      case act_Free:
-        assert("Rescheduling free activity");
-        break;
-      default:
-        /* stalled needs no special action. */
-        /* IoCompleted should be gone but isn't. */
-	break;
-      }
-    }
-  }
-
-  if (thisPtr->hazards & hz_SingleStep) {
-    fatal("Single Step not implemented on ARM.\n");
-  }
-
-  proc_ValidateRegValues(thisPtr);
-  
-  /* Change: It is now okay for the context to carry a fault code
-   * and prepare correctly.
-   */
-
-  sq_WakeAll(&thisPtr->stallQ, false);
+  fatal("Single Step not implemented on ARM.\n");
 }
 
 /* Architecture-dependent C code for resuming a process. */
