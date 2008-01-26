@@ -313,17 +313,6 @@ void proc_SetupExitString(Process* thisPtr, struct Invocation* inv /*@ not null 
 
 void proc_DeliverResult(Process* thisPtr, struct Invocation* inv /*@ not null @*/);
 
-/******************************************************
- *  Code in support of emulated instructions:
- ******************************************************/
-
-typedef struct EmulatedInstr EmulatedInstr;
-void proc_DoEmulatedInstr(Process* thisPtr, const EmulatedInstr* instr /*@ not null @*/);
-
-/******************************************************
- * End new code in support of emulated instructions
- ******************************************************/
-
 void proc_LoadKeyRegs(Process* thisPtr);
 
 void proc_FlushFixRegs(Process* thisPtr);
@@ -353,6 +342,7 @@ void proc_WriteBackKeySlot(Process* thisPtr, uint32_t whichKey);
 #endif
 
 void proc_SyncActivity(Process* thisPtr);
+void proc_ClearActivity(Process * proc);
 
 void proc_Unload(Process* thisPtr);
 

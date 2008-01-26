@@ -402,12 +402,6 @@ objH_Rescind(ObjectHeader* thisPtr)
     dprintf(true, "After zero object\n");
 }
 
-void
-objH_ZapResumeKeys(ObjectHeader* thisPtr)
-{
-  keyR_ZapResumeKeys(&thisPtr->keyRing);
-}
-
 #ifdef OPTION_OB_MOD_CHECK
 uint32_t
 objH_CalcCheck(const ObjectHeader * thisPtr)

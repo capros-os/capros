@@ -255,20 +255,28 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 
     COMMIT_POINT();
 
-    /* Perhaps we should zap other resume keys here.
+    /* we should zap other resume keys here.
      Note, if a process Calls a key to itself, that should invalidate the
      invokee. */
 
     // If there is a resume key, state must be Waiting.
     /* There are several cases to consider:
       A. p == invoker
-        A1. Invocation is a Call
+        A1. Invocation is a Call, invoker == invokee
            Step 1: invoker calls, becomes Waiting.
-           Step 2: key operation happens, process is already Waiting
-           Step 3: resume key that was produced by the Call is invoked,
-                   making the invokee Running and zapping the 
-                   resume key created in step 2. 
-        A2. Invocation is a Send.
+                   Kernel holds a Resume key to invoker.
+           Step 2: key operation happens, process is already Waiting.
+                   Resume key held by kernel is zapped. 
+           Step 3: resume key that was produced by the Call is gone,
+                   so there is no return. Invoker remains Waiting.
+        A2. Invocation is a Return
+           Invoker was running, therefore there can be no resume keys
+           to invoker, therefore passed resume key cannot be to invoker. 
+           Step 1. Invoker Returns, becomes Available, expectingMsg.
+           Step 2. Key operation happens. Process is Available,
+                   changed to Waiting.
+           Step 3. passed resume key, if any, is invoked
+        A3. Invocation is a Send.
            Invoker was running, therefore there can be no resume keys
            to invoker, therefore passed resume key cannot be to invoker. 
            Step 1. Invoker Sends, remains Running. 
@@ -276,15 +284,8 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
                    changed to Waiting. We must make sure the invoker does
                    not run.
            Step 3. passed resume key, if any, is invoked
-        A3. Invocation is a Return
-           Invoker was running, therefore there can be no resume keys
-           to invoker. 
-           Step 1. Invoker Returns, becomes Available, expectingMsg.
-           Step 2. Key operation happens. Process is Available,
-                   changed to Waiting.
-           Step 3. passed resume key, if any, is invoked
       B. p != invoker
-        B1. Invocation is a Call
+        B1. Invocation is a Call, invoker == invokee
            No problem.
         B2. Invocation is a Send or Return
            Invoker was running, therefore there can be no resume keys
@@ -293,15 +294,36 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
              Step 1. Invoker invokes. 
              Step 2. Key operation happens. Invokee must be Waiting,
                      remains Waiting.
-             Step 3. Return to invokee.
+                     Resume key to invokee is zapped.
+             Step 3. No invokee, so no return.
            B2b. p != invokee
              No problem.
     */
 
-    if (p->runState == RS_Running && p == act_CurContext()) // case A2
-      act_ForceResched();
-
     p->runState = RS_Waiting;
+
+    if (p->curActivity) {
+      if (p == act_CurContext())
+        if (p->runState == RS_Running) {
+          // Case A3. Invokee will get allocatedActivity, so kill p->curActivity
+          // act_ForceResched(); ?
+          proc_ClearActivity(p);
+        } else {
+          // Cases A1 and A2. 
+          // Save p->curActivity, as it will be needed for the invokee.
+        }
+      else {
+        // p is now Waiting, so it mustn't have an Activity.
+        proc_ClearActivity(p);
+      }
+    }
+
+    keyR_ZapResumeKeys(&p->keyRing);
+
+    if (p == inv->invokee) {	// Case A1 or B2a
+      inv->invokee = NULL;
+      return;
+    }
 
     if (inv->exit.pKey[0]) {
       inv_SetExitKey(inv, 0, inv->key);

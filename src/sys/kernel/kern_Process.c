@@ -33,6 +33,18 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/CpuReserve.h>
 
+void
+proc_ClearActivity(Process * proc)
+{
+  Activity * act = proc->curActivity;
+  assert(act);
+
+  act_Dequeue(act);
+  act_SetContext(act, 0);
+  proc_Deactivate(proc);
+  act_DeleteActivity(act);
+}
+
 void 
 proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info)
 {
@@ -317,7 +329,7 @@ proc_allocate(bool isUser)
 
 // May Yield.
 void 
-proc_DoPrepare(Process* thisPtr)
+proc_DoPrepare(Process * thisPtr)
 {
   bool check_disjoint;
   assert(thisPtr->procRoot);

@@ -136,6 +136,12 @@ interface Process extends key raises (key.RequestError) {
   capros.key swapKeyReg(KeyRegSlot kr, capros.key newKey);
 
   capros.key makeStartKey(StartKeyPayload pl);
+
+  /** Make a resume key to the process.
+
+  Void any other resume keys to the process and force the process into
+  the Waiting state. Return a new resume key (the only one) to the process.
+  */
   capros.key makeResumeKey();
 
   /* For architectures where the PC and SP are 32 bits: */

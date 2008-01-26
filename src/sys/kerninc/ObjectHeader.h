@@ -120,7 +120,10 @@ enum {
 #define OFLG_CURRENT	0x08u	/* current version */
 #define OFLG_CKPT	0x10u	/* checkpoint version */
 #define OFLG_IO		0x20u	/* object has active I/O in progress */
-#define OFLG_DISKCAPS	0x40u	/* capabilities to this version exist
+#define OFLG_DISKCAPS	0x40u	/* non-resume capabilities to this object exist
+				that are not on the keyRing. */
+/* FIXME: there needs to be:
+#define OFLG_DISKRESM	0x80u	 * resume capabilities to this node exist
 				that are not on the keyRing. */
 
 struct ObjectHeader {
@@ -354,7 +357,6 @@ void objH_Unintern(ObjectHeader* thisPtr);	/* remove object from the ObList. */
 
 void objH_FlushIfCkpt(ObjectHeader* thisPtr);
 void objH_Rescind(ObjectHeader* thisPtr);
-void objH_ZapResumeKeys(ObjectHeader* thisPtr);
 
 /* Procedures for handling machine-dependent page ObTypes. */
 bool pageH_mdType_CheckPage(PageHeader * pageH);

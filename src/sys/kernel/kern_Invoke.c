@@ -988,7 +988,8 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
     assert(!allocatedActivity);
     if (inv.invokee)
       act_MigrateFromCurrent(thisPtr, inv.invokee);
-    else
+    else	// Probably RETURN to void.
+		// Could also be CALL Process_makeResumeKey(self).
       act_DeleteCurrent();
   }
 
