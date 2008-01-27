@@ -142,6 +142,9 @@ timerThreadProc(void * arg)
     break;
 
   default:	// longjmp comes here
+#ifdef TIMERDEBUG
+    kprintf(KR_OSTREAM, "Teleported.\n");
+#endif
     atomic_begin
       assert(oldVal == ttsTeleporting);
       newVal = ttsWorking;	// begin WorkRegion

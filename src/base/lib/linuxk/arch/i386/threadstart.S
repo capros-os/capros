@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -24,7 +24,7 @@ Approved for public release, distribution unlimited. */
 /* threadstart.S -- startup for a Linux thread
 */
 
-#include <eros/arch/arm/asm.h>
+#include <eros/arch/i486/asm.h>
 
 	.text
 	ENTRY(lk_thread_start)

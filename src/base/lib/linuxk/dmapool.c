@@ -150,6 +150,11 @@ pool_alloc_page (struct dma_pool *pool, gfp_t mem_flags)
 	struct dma_page	*page;
 	int		mapsize;
 
+#if 0
+	printk("dmapool allocating 0x%x for blocks 0x%x.\n",
+		pool->allocation, pool->size);
+#endif
+
 	mapsize = pool->blocks_per_page;
 	mapsize = (mapsize + BITS_PER_LONG - 1) / BITS_PER_LONG;
 	mapsize *= sizeof (long);
