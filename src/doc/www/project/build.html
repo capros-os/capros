@@ -92,7 +92,56 @@ email of 5/16/06</a>.)
         Coyotos build instructions</a>, substituting "capros" where
         appropriate.
       </p>
-      <h3>2.2.2 Setting up on Other UNIX's</h3>
+      <h3>2.2.2 Setting up on Fedora core 8 using the GUI</h3>
+	  <p>
+	    If you are running of Fedora Core 8, you can add the build tools
+	    to your automatic software update list with the following procedure.
+	  </p>
+	  <p>
+	    Under "Applications", open the "Add/Remove Software" and enter your
+	    root password when prompted.
+	  </p>
+	  <p>
+	    Open up the "Edit" menu and select "Repositories".
+	  </p>
+	  Click the "Add" button to add the Coyotos repository
+	  </p>
+	  <p>
+	    Fill in the fields:
+	  </p>
+	  <pre>
+Name:         Coyotos RPMs
+Description:  Development tools for Coyotos/CapROS
+Location:     http://www.coyotos.org/YUM/coyotos/6/i386/
+	  </pre>
+	  <p>
+	    and click "OK".
+	  </p>
+	  <p>
+	    Close the Repository Manager.
+	  </p>
+	  <p>
+	    Select the "Search" tab, and enter "Coyotos-Repository" in
+	    the search.
+	    When the search completes, check the check box for:
+	  </p>
+	  <pre>
+Coyotos-Repository-3.2-2.fc6.noarch
+	  </pre>
+	  <p>
+	    Click "Apply".  Click "Continue" on the popup.
+	  </p>
+	  <p>
+	    Select the "Search" tab, and enter "capros-i386-xenv" in the search.
+	    When the search completes, check the check box for:
+	  </p>
+	  <pre>
+capros-i386-xenv - 0.1.6.4fc6.i386
+	  </pre>
+	  <p>
+	    Click "Apply".  Click "Continue" on the popup.
+      </p>
+      <h3>2.2.3 Setting up on Other UNIX's</h3>
       <p>
 	If you are building on some other UNIX
 	derivative that does not support YUM, you may find
