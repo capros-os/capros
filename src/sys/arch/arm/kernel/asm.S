@@ -84,6 +84,10 @@ TLBCacheMsg:	.asciz "Flushed TLB&Cache\n"
 	mov pc,lr
 #endif
 
+	ENTRY(mach_ReadTTBR)
+	mrc p15,0,r0,c2,c0
+	mov pc,lr
+
 	ENTRY(mach_LoadTTBR)
 	mcr p15,0,r0,c2,c0	// load translation table base register
 	mov pc,lr

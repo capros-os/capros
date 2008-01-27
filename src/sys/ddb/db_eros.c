@@ -560,7 +560,7 @@ db_eros_mesg_procinv_cmd(db_expr_t addr, int have_addr,
 			db_expr_t cnt/* count */, char * mdf/* modif */)
 {
   Process *cc =
-    have_addr ? (Process *) addr : (Process*) act_CurContext();
+    have_addr ? (Process *) addr : act_CurContext();
   
   if (cc->kernelFlags & KF_DDBINV) {
     cc->kernelFlags &= ~KF_DDBINV;
@@ -586,7 +586,7 @@ db_eros_mesg_proctrap_cmd(db_expr_t addr, int have_addr,
 			db_expr_t cnt/* count */, char * mdf/* modif */)
 {
   Process *cc =
-    have_addr ? (Process *) addr : (Process*) act_CurContext();
+    have_addr ? (Process *) addr : act_CurContext();
  
   if (cc->kernelFlags & KF_DDBTRAP) {
     cc->kernelFlags &= ~KF_DDBTRAP;
@@ -666,7 +666,7 @@ db_ctxt_print_cmd(db_expr_t addr, int have_addr,
 		  db_expr_t cnt/* count */, char * mdf/* modif */)
 {
   Process *cc =
-    have_addr ? (Process *) addr : (Process*) act_CurContext();
+    have_addr ? (Process *) addr : act_CurContext();
   db_eros_print_context(cc);
 }
 
@@ -677,7 +677,7 @@ db_user_single_step_cmd(db_expr_t addr, int have_addr,
 			db_expr_t cnt/* count */, char * mdf/* modif */)
 {
   Process *cc =
-    have_addr ? (Process *) addr : (Process*) act_CurContext();
+    have_addr ? (Process *) addr : act_CurContext();
 
   proc_SetInstrSingleStep(cc);
 
@@ -782,7 +782,7 @@ db_ctxt_kr_print_cmd(db_expr_t addr, int have_addr,
 		     db_expr_t cnt/* count */, char * mdf/* modif */)
 {
   Process *cc =
-    have_addr ? (Process *) addr : (Process*) act_CurContext();
+    have_addr ? (Process *) addr : act_CurContext();
   db_eros_print_context_keyring(cc);
 }
 
@@ -791,7 +791,7 @@ db_ctxt_keys_print_cmd(db_expr_t addr, int have_addr,
 			db_expr_t cnt/* count */, char * mdf/* modif */)
 {
   Process *cc =
-    have_addr ? (Process *) addr : (Process*) act_CurContext();
+    have_addr ? (Process *) addr : act_CurContext();
   db_eros_print_context_keyregs(cc);
 }
 
@@ -1697,4 +1697,13 @@ db_show_walkinfo_cmd(db_expr_t addr, int have_addr,
     db_error("requires address\n");
 
   db_print_segwalk((const SegWalk *) addr);
+}
+
+void
+db_addrspace_cmd(db_expr_t addr, int have_addr,
+		 db_expr_t cnt/* count */, char * mdf/* modif */)
+{
+  Process * proc =
+    have_addr ? (Process *) addr : act_CurContext();
+  mach_LoadAddrSpace(proc);
 }

@@ -32,6 +32,8 @@
 
 #include <arch-kerninc/db_machdep.h>		/* type definitions */
 #include <arch-kerninc/setjmp.h>
+#include <kerninc/Machine.h>
+#include <kerninc/Activity.h>
 
 #include <ddb/db_lex.h>
 #include <ddb/db_output.h>
@@ -385,7 +387,6 @@ struct db_command db_show_cmds[] = {
 	{ "all",	0,			0,	db_show_all_cmds },
 	{ "breaks",	db_listbreak_cmd, 	0,	0 },
 	{ "cckr",       db_ctxt_kr_print_cmd,	0,	0 },
-	{ "proc",       db_ctxt_print_cmd,	0,	0 },
 	/* 	{ "count",	db_show_counters_cmd,	0,	0 }, */
 	{ "entry",      db_entry_print_cmd,	0,	0 },
 	{ "exit",       db_exit_print_cmd,	0,	0 },
@@ -409,6 +410,7 @@ struct db_command db_show_cmds[] = {
 	{ "pages",      db_show_pages_cmd,	0,	0 },
 	{ "pins",       db_show_pins_cmd,	0,	0 },
 	{ "pmem",       db_show_pmem_cmd,	0,	0 },
+	{ "proc",       db_ctxt_print_cmd,	0,	0 },
 	{ "pte",        db_show_pte_cmd,	0,	0 },
 	{ "regs",	db_show_regs,		0,	0 },
 #if 0
@@ -549,6 +551,7 @@ extern void	db_set_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_search_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_write_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_delete_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_addrspace_cmd(db_expr_t, int, db_expr_t, char*);
 extern void     db_breakpoint_cmd(db_expr_t, int, db_expr_t, char*);
 #ifdef OPTION_OPTION_DDB_WATCH
 extern void	db_deletewatch_cmd(db_expr_t, int, db_expr_t, char*);
@@ -573,6 +576,7 @@ struct db_command db_command_table[] = {
   /* this must be the first entry, if it exists */
 	{ "machine",    0,                      0,     		0},
 #endif
+	{ "addrspace",	db_addrspace_cmd,	0,		0 },
 	{ "b",		db_breakpoint_cmd,	0,		0 },
 	{ "break",	db_breakpoint_cmd,	0,		0 },
 	{ "c",		db_continue_cmd,	0,		0 },
@@ -671,9 +675,10 @@ db_command_loop()
 	db_prev = db_dot;
 	db_next = db_dot;
 
-	db_cmd_loop_done = 0;
 	(void) setjmp(*(db_recover = &db_jmpbuf));
 
+cantrun:
+	db_cmd_loop_done = 0;
 	while (!db_cmd_loop_done) {
 		if (db_print_position() != 0)
 			db_printf("\n");
@@ -684,6 +689,11 @@ db_command_loop()
 
 		db_command(&db_last_command, db_command_table);
 	}
+
+	// Restore current address space in case we changed it.
+	Process * proc = act_CurContext();
+	if (proc && ! mach_LoadAddrSpace(proc))
+		goto cantrun;
 
 	db_recover = savejmp;
 }

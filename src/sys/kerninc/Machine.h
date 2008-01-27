@@ -27,8 +27,9 @@ Approved for public release, distribution unlimited. */
 /* This class captures the coupling between machine dependent and
  * machine independent initialization.
  */
-#include <eros/TimeOfDay.h>
 
+#include <eros/TimeOfDay.h>
+struct Process;
 
 enum mach_BusType {
   bt_Unknown,			/* unknown bus type */
@@ -75,6 +76,7 @@ void mach_MountDisk(DiskUnit*);
 
 void mach_EnsureHeap(kva_t target);
 
+bool mach_LoadAddrSpace(struct Process * proc);
 void mach_ZeroUnmappedPage(kpa_t page);
 
 #include <arch-kerninc/Machine-inline.h>

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,6 +32,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/Process-inline.h>
 #include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 #include <arch-kerninc/kern-target-asm.h>
+#include <arch-kerninc/PTE.h>
 
 #define SYSCON (SYSCONStruct(APB_VA + SYSCON_APB_OFS))
 
@@ -109,4 +110,50 @@ mach_HardReset()
   SYSCON.DeviceCfg = dc | SYSCONDeviceCfg_SWRST;
   SYSCON.SysSWLock = 0xaa;	/* unlock */
   SYSCON.DeviceCfg = dc & ~SYSCONDeviceCfg_SWRST;
+}
+
+bool	// returns true if successful
+mach_LoadAddrSpace(Process * proc)
+{
+  kpa_t newTTBR = proc->md.firstLevelMappingTable;
+  uint32_t pid = proc->md.pid;
+  uint32_t dacr = proc->md.dacr;
+
+  // Validate everything, because proc is a user-supplied address.
+
+  if (newTTBR & 0x3fff) {	// not aligned
+    printf("TTBR invalid.\n");
+    return false;
+  }
+  uint32_t km = FLPT_FCSEVA[KTextVA >> L1D_ADDR_SHIFT];
+  // Must point to good memory.
+  uint32_t * newTTBRVA = KPAtoP(uint32_t *, newTTBR);
+  uint32_t * ttbrEntVA = &newTTBRVA[KTextVA >> L1D_ADDR_SHIFT];
+  uint8_t b;
+  if (! SafeLoadByte((uint8_t *)ttbrEntVA, &b)	// Must point to good memory.
+      || *ttbrEntVA != km ) {	// Must map the kernel.
+    printf("TTBR invalid.\n");
+    return false;
+  }
+
+  if (pid & ~ PID_MASK
+      || pid >= (NumSmallSpaces << PID_SHIFT)) {
+    printf("PID invalid.\n");
+    return false;
+  }
+
+  if (dacr & 0xaaaaaaaa		// only client or no access
+      || ! (dacr & 0x1) ) {	// must have client access to domain 0
+    printf("DACR invalid.\n");
+    return false;
+  }
+
+  kpa_t oldTTBR = mach_ReadTTBR();
+  if (newTTBR != oldTTBR) {
+    mach_LoadTTBR(newTTBR);
+    mach_FlushTLBsCaches();
+  }
+  mach_LoadPID(pid);
+  mach_LoadDACR(dacr);
+  return true;
 }

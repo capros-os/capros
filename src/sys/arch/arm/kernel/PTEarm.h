@@ -2,7 +2,7 @@
 #define __PTEARM_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -211,6 +211,8 @@ MapTabHeaderToKVA(MapTabHeader * mth)
 
 void mach_FlushBothTLBs(void);
 void mach_FlushBothCaches(void);
+void mach_FlushTLBsCaches(void);
+kpa_t mach_ReadTTBR(void);
 void mach_LoadTTBR(kpa_t ttbr);
 void mach_LoadPID(uint32_t pid);
 void mach_LoadDACR(uint32_t dacr);

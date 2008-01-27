@@ -31,7 +31,6 @@
       <b>kdb</b> is based on the Mach kernel debugger ddb.<p>
       Typing control-c while CapROS is running will cause the kernel
       debugger to be entered.<p>
-      This documentation is incomplete. 
       Try <a href="http://www.gsp.com/cgi-bin/man.cgi?section=4&topic=ddb">this link</a>
       for a formatted "man page", giving a description of most commands.
       Here are a few useful commands:
@@ -39,11 +38,15 @@
         <dt>help
         <dd>Print a list of commands.
         <p>
-        <dt>trace
+        <dt>trace [<i>frame</i>] [,<i>count</i>]
         <dd>Print a stack trace.
         <p>
         <dt>c
         <dd>Continue execution
+        <p>
+        <dt>addrspace [&lt;address&gt;]
+        <dd>Switch to the address space of the Process at the specified address.
+            If no address is specified, this command uses the current Process.
         <p>
         <dt>check nodes
         <dd>Checks the validity of all Node structures.
@@ -161,7 +164,8 @@
           <dd>Print information about all the regions of physical memory
               (PmemInfo).
           <dt>show obhdr &lt;address&gt
-          <dd>Print the ObjectHeader structure at the specified address.
+          <dd>Print the ObjectHeader or PageHeader structure
+              at the specified address.
           <dt>show pins
           <dd>Print information about all pinned objects.
           <dt>show pte &lt;address&gt;
