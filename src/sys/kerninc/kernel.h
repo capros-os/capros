@@ -2,7 +2,7 @@
 #define __KERNEL_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -80,7 +80,7 @@ extern int __assertex(const void *ptr, const char *, const char *, int);
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 
 #define container_of(ptr, type, member) \
-  (type *) ((char *)(ptr) - offsetof(type, member))
+  ((type *) ((char *)(ptr) - offsetof(type, member)))
 
 #if defined(DBG_WILD_PTR)
 extern unsigned dbg_wild_ptr;

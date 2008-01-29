@@ -438,13 +438,12 @@ proc_DoPrepare(Process * thisPtr)
         act_ForceResched();
         act_Wakeup(t);
         break;
-      case act_Free:
-        assert(! "Rescheduling free activity");
-        break;
-      default:
+      case act_Stall:
         /* stalled needs no special action. */
-        /* IoCompleted should be gone but isn't. */
 	break;
+      default:
+        assert(! "Rescheduling strange activity");
+        break;
       }
     }
   }

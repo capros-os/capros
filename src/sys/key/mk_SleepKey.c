@@ -70,14 +70,14 @@ SleepKey(Invocation* inv /*@ not null @*/)
         wakeupTime = mach_NanosecondsToTicks(ms);
 
 #if 0
-      uint64_t nw=sysT_Now();
+      uint64_t nw = sysT_Now();
       printf("sleep till %#llx now=%#llx diff=%lld\n",
              wakeupTime, nw, wakeupTime - nw);
 #endif
       
       irqFlags_t flags = local_irq_save();
 
-      act_WakeUpAtTick(act_Current(), wakeupTime);
+      act_SleepUntilTick(act_Current(), wakeupTime);
 
       /* Invokee is resuming from either waiting or available state, so
 	 advance their PC past the trap instruction.
@@ -88,8 +88,6 @@ SleepKey(Invocation* inv /*@ not null @*/)
 	// FIXME: all this code is completely wrong if invoker != invokee
 	// and needs to be redone.
       proc_AdvancePostInvocationPC(act_CurContext());
-
-      act_SleepOn(&DeepSleepQ);
 
       local_irq_restore(flags);
 

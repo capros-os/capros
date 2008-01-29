@@ -29,6 +29,9 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/CPU.h>
+#include <kerninc/CpuReserve.h>
+
+DEFQUEUE(SleepQueue);
 
 /* Using 8 microseconds instead of 1 microsecond gives better resolution
 on slow processors. */
@@ -45,15 +48,6 @@ SpinWaitUs(uint32_t w)
     mach_Delay(w);
 }
 
-/* For EROS, the desired timer granularity is milliseconds.
- * Unfortunately this is very much too fast for some hardware.  The
- * rule is that you will sleep for as long as you asked for or one
- * hardclock tick, whichever is LONGER.  Also, you will NEVER sleep
- * for more than a year.
- */
-
-struct Activity *ActivityChain = 0;
-
 bool
 IsLeapYear(uint32_t yr)
 {
@@ -66,82 +60,56 @@ IsLeapYear(uint32_t yr)
   return false;
 }
 
-void
-sysT_AddSleeper(Activity* t)
+uint64_t
+sysT_WakeupTime(void)
 {
-  Activity **sleeper = 0;
-  register Activity *cur = 0;
-  register Activity *next = 0;
+  uint64_t ret = cpu->preemptTime;
+  if (! link_isSingleton(&SleepQueue.q_head)) {
+    Activity * t = container_of(SleepQueue.q_head.next, Activity, q_link);
+    if (t->wakeTime < ret)
+      return t->wakeTime;
+  }
+  return ret;
+}
+
+void
+sysT_AddSleeper(Activity * t)
+{
+  t->lastq = &SleepQueue;
 
   irqFlags_t flags = local_irq_save();
 
-  if (ActivityChain == 0 || t->wakeTime < ActivityChain->wakeTime) {
-    t->nextTimedActivity = ActivityChain;
-    ActivityChain = t;
+  // Insert into SleepQueue, which is ordered.
+  Link * cur = &SleepQueue.q_head;
+  Link * nxt;
+  while (nxt = cur->next, nxt != &SleepQueue.q_head) {
+    if (container_of(nxt, Activity, q_link)->wakeTime >= t->wakeTime)
+      break;	// insert before nxt
+    cur = nxt;
+  }
+  link_insertBetween(&t->q_link, cur, nxt);
+
+  if (cur == &SleepQueue.q_head)	// inserted at the front
     sysT_ResetWakeTime();
-  }
-  else {
-    sleeper = &(ActivityChain->nextTimedActivity);
-    while (*sleeper && (*sleeper)->wakeTime < t->wakeTime) 
-      sleeper = &((*sleeper)->nextTimedActivity);
-
-    /* We are either off the end of the list or looking at one whose
-     * wakeup value is greater than ours:
-     */
-    t->nextTimedActivity = *sleeper;
-    *sleeper = t;
-  }
-
-#ifndef NDEBUG
-  /* Sanity check.  We know there is at least 1 activity on the list. */
-  /*register Activity *cur = ActivityChain;*/
-  cur = ActivityChain;
-  do {
-    /*register Activity *next = cur->nextTimedActivity;*/
-    next = cur->nextTimedActivity;
-    if (next)
-      assert(cur->wakeTime <= next->wakeTime);
-    cur = next;
-  } while(cur);
-#endif
-  
-#if 0
-  if ( t.IsUser() )
-    printf("added sleeper; now %u waketime %u nextwake %u\n",
-		   (uint32_t) now, (uint32_t)t.wakeTime,
-		   (uint32_t) wakeup);
-#endif
 
   local_irq_restore(flags);
 }
 
 
-
 void
-sysT_CancelAlarm(Activity* t)
+sysT_CancelAlarm(Activity * t)
 {
-  Activity *sleeper = 0;
   irqFlags_t flags = local_irq_save();
 
 #if 0
   printf("Canceling alarm on activity 0x%x\n", &t);
 #endif
-  
-  if (ActivityChain == t) {
-    ActivityChain = t->nextTimedActivity;
-    sysT_ResetWakeTime();
-  }
-  else {
-    for ( sleeper = ActivityChain;
-	  sleeper; 
-	  sleeper = sleeper->nextTimedActivity ) {
-      if (sleeper->nextTimedActivity == t) {
-	sleeper->nextTimedActivity = t->nextTimedActivity;
-	break;
-      }
-    }
-  }
 
+  if (SleepQueue.q_head.next == &t->q_link)	// if first on the list
+    sysT_ResetWakeTime();
+
+  link_Unlink(&t->q_link);
+  
   local_irq_restore(flags);
 }
 
@@ -151,24 +119,22 @@ sysT_BootInit()
 }
 
 /* Perform all wakeups to be done at (or before) the specified time.
-   On exit, sysT_ResetWakeTime will set the wakeup time to a value > now.
-   This procedure is called with IRQ disabled.  */
+   After exit, caller must recalculate the wakeup time.
+   This procedure is called from the clock interrupt with IRQ disabled.  */
 void
 sysT_WakeupAt(uint64_t now)
 {
   if (cpu->preemptTime <= now) {
     cpu->preemptTime = ~0llu;
-    sysT_ActivityTimeout();
+    res_ActivityTimeout(now);
   }
 
-  /* The awkward loop must be used because calling act_Wakeup
-   * mutates the sleeper list.
-   */
-    
-  while (ActivityChain && ActivityChain->wakeTime <= now) {
-    register Activity *t = ActivityChain;
-    ActivityChain = ActivityChain->nextTimedActivity;
-    act_Dequeue(t);
+  while (! link_isSingleton(&SleepQueue.q_head)) {
+    Activity * t = container_of(SleepQueue.q_head.next, Activity, q_link);
+    if (t->wakeTime > now)
+      break;
+    link_Unlink(&t->q_link);
+    //// deliver ivk result
     act_Wakeup(t);
   }
 }

@@ -2,7 +2,7 @@
 #define __SYSTIMER_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -30,13 +30,11 @@ struct Activity;
 extern struct Activity * ActivityChain;
 
 void sysT_ResetWakeTime();
-
+uint64_t sysT_WakeupTime(void);
 void sysT_WakeupAt(uint64_t now);
   
 void sysT_AddSleeper(struct Activity *);
 void sysT_CancelAlarm(struct Activity *);
-
-void sysT_ActivityTimeout();
 
 void sysT_BootInit();
 

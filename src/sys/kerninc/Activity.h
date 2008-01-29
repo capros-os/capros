@@ -48,6 +48,7 @@ enum {
                            The activity is act_curActivity. */
   act_Stall,		/* blocked on an event, not expecting result(s).
                            On a StallQueue. */
+  act_Sleeping,		/* Doing an operation on the Sleep capability */
 
   act_NUM_STATES,
 };
@@ -85,8 +86,7 @@ struct Activity {
    * timer keys.
    */
 
-  uint64_t wakeTime; /* if asleep, when to wake up, in milliseconds */
-  Activity *nextTimedActivity;
+  uint64_t wakeTime; /* if asleep, when to wake up, in ticks */
 } ;
 
 extern const char *act_stateNames[act_NUM_STATES]; 
@@ -114,7 +114,7 @@ act_Current()
 
 #include <kerninc/Process-inline.h>
 
-void act_WakeUpAtTick(Activity* thisPtr, uint64_t ms);
+void act_SleepUntilTick(Activity* thisPtr, uint64_t ms);
 
 void act_Dequeue(Activity *t);
 Activity *act_DequeueNext(StallQueue *q);

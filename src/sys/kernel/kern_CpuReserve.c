@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
+ * Copyright (C) 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Functions for reservation creation and management */
 #include <kerninc/kernel.h>
@@ -26,6 +30,8 @@
 #include <kerninc/Machine.h>
 #include <kerninc/rbtree.h>
 #include <kerninc/Process-inline.h>
+
+static void indexFixup(void);
 
 /* these should be moved to KernTune.h eventually 
    they are here for now, while the scheduler is still 
@@ -516,7 +522,7 @@ NextTimeInterrupt(Reserve *current)
   return mintime;//+now;
 }
 
-void
+static void
 DoNeedReplenish()
 {
   uint64_t now = sysT_Now();
@@ -586,7 +592,7 @@ void printTree(rbnode *n)
     printTree(n->right);
 }
 
-void indexFixup()
+static void indexFixup(void)
 {
   int i = 0;
 
@@ -639,4 +645,45 @@ res_SetReserveInfo(uint32_t p, uint32_t d, uint32_t ndx)
 #endif
   res_ActivateReserve(r);
   printTable(ndx+1);
+}
+
+// This procedure is called from the clock interrupt with IRQ disabled.
+void 
+res_ActivityTimeout(uint64_t now)
+{
+  //printf("start QuantaExpired...%d\n", now);
+  
+  if (act_Current() && act_Current()->readyQ->other) {
+    Reserve * r = (Reserve *)act_Current()->readyQ->other;
+    
+    if (r->isActive) {
+      r->lastDesched = now;
+#ifdef RESERVE_DEBUG
+      printf("old time left = %d", r->timeLeft);
+#endif
+      r->timeAcc += r->lastDesched - r->lastSched;
+      r->totalTimeAcc += r->timeAcc;
+#ifdef RESERVE_DEBUG
+      printf(" reserve index = %d", r->index);
+      printf(" time left = %u", r->timeLeft);
+      printf(" duration = %u\n", r->duration);
+#endif
+#if 0
+      printf(" active = %d", r->isActive);
+      printf(" table active = %d\n", res_ReserveTable[r->index].isActive);
+#endif
+      if (r->timeAcc >= r->duration) {
+#ifdef RESERVE_DEBUG
+        printf("reserve exhausted: %d\n", r->timeLeft);
+#endif
+        res_SetInactive(r->index);
+      }
+#ifdef RESERVE_DEBUG
+      printf("done QuantaExpired for reserve...\n");
+#endif
+    }
+  }
+
+  DoNeedReplenish();
+  act_ForceResched();
 }

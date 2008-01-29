@@ -2,8 +2,9 @@
 #define __LINK_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,6 +20,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* This is a common base class for all of the various linked
  * lists. Some objects, including UnitIoReq's, live on multiple lists.
@@ -33,10 +37,10 @@ typedef struct Link Link;
 struct Link {
   Link *next;
   Link *prev;
-} ;
+};
 
 INLINE void
-link_Init(Link *thisPtr)
+link_Init(Link * thisPtr)
 {
   thisPtr->prev = thisPtr;
   thisPtr->next = thisPtr;
@@ -52,19 +56,25 @@ link_Unlink(Link * thisPtr)
   link_Init(thisPtr);
 }
 
+// This is faster when you have both pointers.
 INLINE void
-link_insertAfter(Link *inList, Link *newItem)
+link_insertBetween(Link * thisPtr, Link * p, Link * n)
 {
-  newItem->next = inList->next;
-  newItem->prev = inList;
-  inList->next->prev = newItem;
-  inList->next = newItem;
+  p->next = n->prev = thisPtr;
+  thisPtr->prev = p;
+  thisPtr->next = n;
 }
 
 INLINE void
-link_insertBefore(Link *inList, Link *newItem)
+link_insertAfter(Link * p, Link * thisPtr)
 {
-  link_insertAfter(inList->prev, newItem);
+  link_insertBetween(thisPtr, p, p->next);
+}
+
+INLINE void
+link_insertBefore(Link * n, Link * thisPtr)
+{
+  link_insertBetween(thisPtr, n->prev, n);
 }
 
 INLINE bool

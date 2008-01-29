@@ -51,6 +51,7 @@ const char *act_stateNames[act_NUM_STATES] = {
     "Ready",
     "Running",
     "Stalled",
+    "Sleeping",
 };
 
 Activity *act_ActivityTable = 0;
@@ -69,19 +70,25 @@ act_IsRunnable(Activity * thisPtr)
 	  && (thisPtr->context->processFlags & capros_Process_PF_FaultToProcessKeeper) == 0);
 }
 
+static void
+InactivateReserve(Activity * thisPtr)
+{
+  if (thisPtr->readyQ->mask & (1u<<pr_Reserve)) {
+    Reserve * r = (Reserve *)thisPtr->readyQ->other;
+    r->lastDesched = sysT_Now();
+    res_SetInactive(r->index);
+#ifdef RESERVE_DEBUG
+    printf("inactive reserve %d - in SleepOn()\n", r->index);
+#endif
+  }
+}
+
 /* do all wakeup work in this function */
 /* so activity wakeup just calls the function pointer */
 static void 
 readyq_GenericWakeup(ReadyQueue *r, Activity *t)
 {
   assert(link_isSingleton(&t->q_link));
-
-  if (t->wakeTime) {
-    assert ( t->state != act_Running );
-    sysT_CancelAlarm(t);
-    t->wakeTime = 0;
-  }
-
   assertex(t, (r->mask <= (1u << pr_High)));
 
   act_RunQueueMap |= r->mask;
@@ -100,16 +107,11 @@ readyq_ReserveWakeup(ReadyQueue *r, Activity *t)
 {
   Reserve *res = 0;
 
-  irqFlags_t flags = local_irq_save();
   assert(link_isSingleton(&t->q_link));
-
-  if (t->wakeTime) {
-    assert ( t->state != act_Running );
-    sysT_CancelAlarm(t);
-    t->wakeTime = 0;
-  }
-
   assertex(t, (r->mask <= (1u << pr_High)));
+
+  irqFlags_t flags = local_irq_save();
+
   res = (Reserve *)r->other;
 
   act_RunQueueMap |= r->mask;
@@ -161,13 +163,6 @@ readyq_ReserveTimeout(ReadyQueue *r, Activity *t)
      here because that will replenish the reserve. 
   */
   assert(link_isSingleton(&t->q_link));
-
-  if (t->wakeTime) {
-    assert ( t->state != act_Running );
-    sysT_CancelAlarm(t);
-    t->wakeTime = 0;
-  }
-
   assertex(t, (r->mask <= (1u << pr_High)));
 
   act_RunQueueMap |= r->mask;
@@ -376,11 +371,15 @@ act_Enqueue(Activity * t, StallQueue * q)
 void
 act_Dequeue(Activity *t)
 {
-  irqFlags_t flags = local_irq_save();
+  if (t->state == act_Sleeping)
+    sysT_CancelAlarm(t);
+  else {
+    irqFlags_t flags = local_irq_save();
 
-  link_Unlink(&t->q_link);
+    link_Unlink(&t->q_link);
 
-  local_irq_restore(flags);
+    local_irq_restore(flags);
+  }
 }
  
 Activity *
@@ -422,15 +421,7 @@ act_SleepOn(StallQueue * q /*@ not null @*/)
   act_Enqueue(thisPtr, q);
 
   thisPtr->state = act_Stall;
-
-  if (thisPtr->readyQ->mask & (1u<<pr_Reserve)) {
-    Reserve *r = (Reserve *)thisPtr->readyQ->other;
-    r->lastDesched = sysT_Now();
-    res_SetInactive(r->index);
-#ifdef RESERVE_DEBUG
-    printf("inactive reserve %d - in SleepOn()\n", r->index);
-#endif
-  }
+  InactivateReserve(thisPtr);
   
 #ifdef OPTION_DDB
   {
@@ -444,18 +435,18 @@ act_SleepOn(StallQueue * q /*@ not null @*/)
 }
 
 void 
-act_WakeUpAtTick(Activity * thisPtr, uint64_t tick) 
+act_SleepUntilTick(Activity * thisPtr, uint64_t tick) 
 {  
   assert (thisPtr->state == act_Running);
+  assert(link_isSingleton(&thisPtr->q_link));
+  assert(thisPtr->state == act_Running);
 
   thisPtr->wakeTime = tick;
 
-  /* see above */
-  assert(thisPtr->state == act_Running);
-
   sysT_AddSleeper(thisPtr);
 
-  assert (thisPtr->state == act_Running);
+  thisPtr->state = act_Sleeping;
+  InactivateReserve(thisPtr);
 }
 
 void 
@@ -521,48 +512,6 @@ act_DeleteCurrent(void)
     proc_Deactivate(thisPtr->context);
   act_SetContextCurrent(thisPtr, 0);
   act_DeleteActivity(thisPtr);
-}
-
-void 
-sysT_ActivityTimeout()
-{
-  //irq_DISABLE();
-  
-  //printf("start QuantaExpired...%d\n", sysT_Now());
-  
-  if (act_Current() && act_Current()->readyQ->other) {
-    Reserve * r = (Reserve *)act_Current()->readyQ->other;
-    
-    if (r->isActive) {
-      r->lastDesched = sysT_Now();
-#ifdef RESERVE_DEBUG
-      printf("old time left = %d", r->timeLeft);
-#endif
-      r->timeAcc += r->lastDesched - r->lastSched;
-      r->totalTimeAcc += r->timeAcc;
-#ifdef RESERVE_DEBUG
-      printf(" reserve index = %d", r->index);
-      printf(" time left = %u", r->timeLeft);
-      printf(" duration = %u\n", r->duration);
-#endif
-#if 0
-      printf(" active = %d", r->isActive);
-      printf(" table active = %d\n", res_ReserveTable[r->index].isActive);
-#endif
-      if (r->timeAcc >= r->duration) {
-#ifdef RESERVE_DEBUG
-        printf("reserve exhausted: %d\n", r->timeLeft);
-#endif
-        res_SetInactive(r->index);
-      }
-#ifdef RESERVE_DEBUG
-      printf("done QuantaExpired for reserve...\n");
-#endif
-    }
-  }
-
-  DoNeedReplenish();
-  act_ForceResched();
 }
 
 inline void 
@@ -832,6 +781,7 @@ ExitTheKernel(void)
   resume_process(thisPtr);	// does not return
 }
 
+// May be called from an interrupt.
 void 
 sq_WakeAll(StallQueue* q, bool b/* verbose*/)
 {

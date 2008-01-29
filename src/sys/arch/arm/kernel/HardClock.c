@@ -152,14 +152,10 @@ sysT_Now(void)
   return now;
 }
 
-static void
+INLINE void
 RecalcWakeupTime(void)
 {
-  if (ActivityChain && ActivityChain->wakeTime < cpu->preemptTime) {
-    sysT_wakeup = ActivityChain->wakeTime;
-  } else {
-    sysT_wakeup = cpu->preemptTime;
-  }
+  sysT_wakeup = sysT_WakeupTime();
 }
 
 void

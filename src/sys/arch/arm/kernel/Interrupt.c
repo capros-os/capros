@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -102,10 +102,10 @@ DoUsermodeInterrupt(VICIntSource * vis)
   // Disable the interrupt so it does not recur immediately.
   InterruptSourceDisable(sourceNum);
 
+  irq_DISABLE();
+
   vis->isPending = true;
   sq_WakeAll(&vis->sleeper, false);
-
-  irq_DISABLE();
 
   // write VectAddr to reenable interrupts of lower or equal priority
   if (sourceNum >= 32) {	// if on VIC2
@@ -220,6 +220,8 @@ InterruptSourceUnset(unsigned int source)
   vicSource->priority = PRIO_Unallocated;
 
   // Wake up any sleeper.
+  /* No need to disable IRQ before manipulating vicSource->sleeper,
+  because this particular interrupt has been disabled. */
   sq_WakeAll(&vicSource->sleeper, false);
 }
 
