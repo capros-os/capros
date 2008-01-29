@@ -50,6 +50,7 @@ void mach_InitHardClock();	/* machine DEPENDENT */
 /* Hardware clock support: */
 uint64_t mach_MillisecondsToTicks(uint64_t ms);
 uint64_t mach_TicksToMilliseconds(uint64_t ticks);
+uint64_t mach_NanosecondsToTicks(uint64_t ns);
 uint64_t mach_TicksToNanoseconds(uint64_t ticks);
 void SpinWaitUs(uint32_t us);
 // mach_Delay is in assembler.

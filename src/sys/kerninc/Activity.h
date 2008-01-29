@@ -116,7 +116,6 @@ act_Current()
 
 void act_WakeUpAtTick(Activity* thisPtr, uint64_t ms);
 
-void act_Enqueue(Activity *t, StallQueue *);
 void act_Dequeue(Activity *t);
 Activity *act_DequeueNext(StallQueue *q);
 void act_SleepOn(StallQueue *);
@@ -240,8 +239,6 @@ act_Yield(void)
 }
 
 void act_HandleYieldEntry(void) NORETURN;
-
-void act_WakeUpIn(Activity* thisPtr, uint64_t ms);
 
 #ifndef NDEBUG
 bool act_ValidActivityKey(Activity* thisPtr, const Key *pKey);

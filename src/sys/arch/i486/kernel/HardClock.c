@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -183,6 +183,12 @@ mach_TicksToMilliseconds(uint64_t ticks)
   ms >>= 20;			/* divide by (1024*1024) */
 
   return ms;
+}
+
+uint64_t
+mach_NanosecondsToTicks(uint64_t ns)
+{
+  return ns / TICK_TO_NS_MULTIPLIER;
 }
 
 uint64_t

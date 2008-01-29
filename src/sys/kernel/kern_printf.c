@@ -360,7 +360,7 @@ snumbers:
         ull = va_arg(ap, unsigned long long);
         if ((long)ull < 0) {
           neg = 1;
-          ull = -(long)ull;
+          ull = -(long long)ull;
         }
         goto printull;
     }

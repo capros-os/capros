@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -92,18 +92,9 @@ CheckActivity_Start()
     
     assert(act_Current()->state == act_Running);
 
-    irqFlags_t flags = local_irq_save();   
-    act_WakeUpIn(act_Current(), DELAY);
-
     /* printf("Checkactivity pass %d state %d\n", pass, Activity::state); */
-    assert(act_Current()->state == act_Running);
-
-    act_SleepOn(&DeepSleepQ);
     
-    local_irq_restore(flags);
-
-    /* is this correct?? */
-    act_Yield();
+    // Sleep for DELAY ticks here ...
   }
 }
 

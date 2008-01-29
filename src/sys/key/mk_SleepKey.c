@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -62,15 +62,22 @@ SleepKey(Invocation* inv /*@ not null @*/)
                     | ((uint64_t) inv->entry.w1);
 
       /* FIX: call DeliverResult() here to update result regs! */
+
+      uint64_t wakeupTime;
+      if (inv->entry.code == OC_capros_Sleep_sleep)
+        wakeupTime = sysT_Now() + mach_MillisecondsToTicks(ms);
+      else
+        wakeupTime = mach_NanosecondsToTicks(ms);
+
+#if 0
+      uint64_t nw=sysT_Now();
+      printf("sleep till %#llx now=%#llx diff=%lld\n",
+             wakeupTime, nw, wakeupTime - nw);
+#endif
       
       irqFlags_t flags = local_irq_save();
 
-      if (inv->entry.code == OC_capros_Sleep_sleep) {
-	act_WakeUpIn(act_Current(), ms);
-      }
-      else {
-        act_WakeUpAtTick(act_Current(), mach_MillisecondsToTicks(ms));
-      }
+      act_WakeUpAtTick(act_Current(), wakeupTime);
 
       /* Invokee is resuming from either waiting or available state, so
 	 advance their PC past the trap instruction.

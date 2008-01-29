@@ -44,6 +44,8 @@ Approved for public release, distribution unlimited. */
 /* #define THREADDEBUG */
 /*#define RESERVE_DEBUG*/
 
+static void act_Enqueue(Activity * t, StallQueue * q);
+
 const char *act_stateNames[act_NUM_STATES] = {
     "Free",
     "Ready",
@@ -84,9 +86,11 @@ readyq_GenericWakeup(ReadyQueue *r, Activity *t)
 
   act_RunQueueMap |= r->mask;
 
+  irqFlags_t flags = local_irq_save();
+
   act_Enqueue(t, &r->queue);
 
-  t->lastq = &r->queue;
+  local_irq_restore(flags);
 
   t->state = act_Ready;
 }
@@ -114,8 +118,6 @@ readyq_ReserveWakeup(ReadyQueue *r, Activity *t)
   res_SetActive(res->index);
 
   act_Enqueue(t, &r->queue);
-
-  t->lastq = &r->queue;
 
   t->state = act_Ready;
 
@@ -181,8 +183,6 @@ readyq_ReserveTimeout(ReadyQueue *r, Activity *t)
   //res->timeLeft = 0;
 
   act_Enqueue(t, &r->queue);
-
-  t->lastq = &r->queue;
 
   t->state = act_Ready;
 
@@ -338,11 +338,7 @@ act_DeleteActivity(Activity *t)
   }
   t->readyQ = dispatchQueues[pr_Never];	// just in case
 
-  irqFlags_t flags = local_irq_save();
-
   act_Enqueue(t, &freeActivityList);
-
-  local_irq_restore(flags);
 }
 
 #ifndef NDEBUG
@@ -361,11 +357,9 @@ act_ValidActivityKey(Activity* thisPtr, const Key* pKey)
 
 #endif
 
-void
-act_Enqueue(Activity *t, StallQueue *q)
+static void
+act_Enqueue(Activity * t, StallQueue * q)
 {
-  irqFlags_t flags = local_irq_save();
-
   assert(link_isSingleton(&t->q_link));
 
   t->lastq = q;
@@ -377,7 +371,6 @@ act_Enqueue(Activity *t, StallQueue *q)
     printf("enqueued activity on reserve index %d\n", r->index);
   }
 #endif
-  local_irq_restore(flags);
 }
 
 void
@@ -426,8 +419,6 @@ act_SleepOn(StallQueue * q /*@ not null @*/)
     fatal("Activity 0x%08x (%s) REqueues q=0x%08x lastq=0x%08x state=%d\n",
 		  thisPtr, act_Name(thisPtr), &q, thisPtr->lastq, thisPtr->state);
 
-  thisPtr->lastq = q;
-  
   act_Enqueue(thisPtr, q);
 
   thisPtr->state = act_Stall;
@@ -452,16 +443,12 @@ act_SleepOn(StallQueue * q /*@ not null @*/)
   local_irq_restore(flags);
 }
 
-/* Activitys only use the timer system when they are about to yield,
- * sleep, so do not preempt them once they set a timer.
- */
 void 
-act_WakeUpIn(Activity* thisPtr, uint64_t ms)
-{
+act_WakeUpAtTick(Activity * thisPtr, uint64_t tick) 
+{  
   assert (thisPtr->state == act_Running);
 
-
-  thisPtr->wakeTime = sysT_Now() + mach_MillisecondsToTicks(ms);
+  thisPtr->wakeTime = tick;
 
   /* see above */
   assert(thisPtr->state == act_Running);
@@ -469,14 +456,6 @@ act_WakeUpIn(Activity* thisPtr, uint64_t ms)
   sysT_AddSleeper(thisPtr);
 
   assert (thisPtr->state == act_Running);
-}
-
-
-void 
-act_WakeUpAtTick(Activity* thisPtr, uint64_t tick) 
-{  
-  thisPtr->wakeTime = tick;
-  sysT_AddSleeper(thisPtr);
 }
 
 void 
