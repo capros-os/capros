@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -55,8 +55,7 @@ static void ep93xx_uart_set_mctrl(struct amba_device *dev,
 
 static void ep93xx_uart_gate_clk(bool enable, uint32_t mask)
 {
-  capros_Node_getSlotExtended(KR_LINUX_EMUL, LE_DEVPRIVS, KR_TEMP0);
-  result_t result = capros_DevPrivs_deviceConfig(KR_TEMP0, enable, mask);
+  result_t result = capros_DevPrivs_deviceConfig(KR_DEVPRIVS, enable, mask);
   assert(result == RC_OK);	// else misconfiguration
 }
 

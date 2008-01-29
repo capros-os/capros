@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -21,7 +21,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: all
+default: install
 
 CROSS_BUILD=yes
 EROS_SRC=../../../..

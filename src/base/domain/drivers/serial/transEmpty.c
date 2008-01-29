@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -114,12 +114,12 @@ WaitForTransmitterEmpty(wait_queue_t * wait)
 
   // Like add_wait_queue(q, wait), but also determine if the queue is empty.
   wait->flags &= ~WQ_FLAG_EXCLUSIVE;
-  spin_lock(&q->lock);
+  mutex_lock(&q->mutx);
 
   bool isEmpty = list_empty(&q->task_list);
   __add_wait_queue(q, wait);
 
-  spin_unlock(&q->lock);
+  mutex_unlock(&q->mutx);
 
   if (isEmpty) {
     // Start the transmit waiter process so it will serve the queue.
