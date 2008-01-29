@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>	// get RC_OK
 #include <eros/machine/atomic.h>
 #include <idl/capros/Sleep.h>
+#define capros_Sleep_infiniteTime UINT64_MAX
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
 #include <domain/assert.h>
@@ -142,13 +143,15 @@ timerThreadProc(void * arg)
     break;
 
   default:	// longjmp comes here
-#ifdef TIMERDEBUG
-    kprintf(KR_OSTREAM, "Teleported.\n");
-#endif
     atomic_begin
       assert(oldVal == ttsTeleporting);
       newVal = ttsWorking;	// begin WorkRegion
     atomic_end
+
+#ifdef TIMERDEBUG
+    kprintf(KR_OSTREAM, "timer teleported, state %d\n", oldVal);
+#endif
+
   }
   spin_lock_irqsave(&timerLock, flags);
   while (1) {
@@ -165,19 +168,27 @@ timerThreadProc(void * arg)
     atomic_begin
       newVal = beginSleepNextState[oldVal];
     atomic_end
-    switch (newVal) {
+
+#ifdef TIMERDEBUG
+    kprintf(KR_OSTREAM, "timer to sleep, state %d\n", oldVal);
+#endif
+
+    switch (oldVal) {
     case ttsTeleporting:
       assert(false);
 
-    case ttsWorking:
+    case ttsSleeping:
       goto getWaitTime;
 
-    case ttsSleeping:
+    case ttsWorking:
       break;
     }
 
     // Sleep.
     result = capros_Sleep_sleepTill(KR_SLEEP, timeWaitingFor);
+#ifdef TIMERDEBUG
+    kprintf(KR_OSTREAM, "timer result=0x%x\n", result);
+#endif
     assert(result == RC_OK);
 
     // Atomically update timerThreadState.
@@ -189,8 +200,13 @@ timerThreadProc(void * arg)
     atomic_begin
       newVal = endSleepNextState[oldVal];
     atomic_end
-    switch (newVal) {
-    case ttsSleeping:
+
+#ifdef TIMERDEBUG
+    kprintf(KR_OSTREAM, "timer awake, state %d\n", oldVal);
+#endif
+
+    switch (oldVal) {
+    case ttsWorking:
       assert(false);
 
     case ttsTeleporting:
@@ -198,7 +214,7 @@ timerThreadProc(void * arg)
       capros_Sleep_sleepTill(KR_SLEEP, capros_Sleep_infiniteTime);
       assert(false);	// shouldn't get here
 
-    case ttsWorking:
+    case ttsSleeping:
       break;
     }
     
@@ -224,7 +240,15 @@ timerThreadProc(void * arg)
       remove_timer(tmr);
       spin_unlock_irqrestore(&timerLock, flags);
 
+#ifdef TIMERDEBUG
+      kprintf(KR_OSTREAM, "Before timer function 0x%x", fn);
+#endif
+
       (*fn)(data);	// Call the timer function.
+
+#ifdef TIMERDEBUG
+      kprintf(KR_OSTREAM, "After timer function");
+#endif
 
       spin_lock_irqsave(&timerLock, flags);
     }
@@ -271,10 +295,20 @@ update_soonest_wait(struct list_head * prev, unsigned long flags)
 {
   result_t result;
 
+#ifdef TIMERDEBUG
+  kprintf(KR_OSTREAM, "upd_soon_wt(0x%x) 0x%x", prev, &timerHead);
+  struct list_head * p;
+  for (p = timerHead.next; p != &timerHead; p = p->next)
+    kprintf(KR_OSTREAM, "%d ", container_of(p, struct timer_list, entry)->expires);
+  kprintf(KR_OSTREAM, ": ");
+#endif
   if (prev == &timerHead) {
     // We changed the first item on the list.
 
     capros_Sleep_nanoseconds_t newWaitTime = GetSoonestExpiration();
+#ifdef TIMERDEBUG
+    kprintf(KR_OSTREAM, "twf=0x%llx new=0x%llx", timeWaitingFor, newWaitTime);
+#endif
     if (newWaitTime < timeWaitingFor) {
       unsigned long oldVal, newVal;
       // If timerThread is sleeping, need to get it to wake up sooner.
@@ -286,13 +320,13 @@ update_soonest_wait(struct list_head * prev, unsigned long flags)
         ttsSleeping	// from ttsWorking
       };
 
-      oldVal = timerThreadState;
-      do {
-        newVal = capros_atomic_cmpxchg32(&timerThreadState, oldVal,
-                   teleportNextState[oldVal]);
-        if (newVal == oldVal) break;	// exchange succeeded
-        oldVal = newVal;
-      } while (1);
+      atomic_begin
+        newVal = teleportNextState[oldVal];
+      atomic_end
+
+#ifdef TIMERDEBUG
+      kprintf(KR_OSTREAM, "newer time, state %d\n", oldVal);
+#endif
 
       /* Don't want to teleport while holding the lock. */
       spin_unlock_irqrestore(&timerLock, flags);
@@ -334,9 +368,17 @@ update_soonest_wait(struct list_head * prev, unsigned long flags)
       case ttsWorking:
         /* In case timerThread was in BeforeSleepRegion, changing
         timerThreadState to ttsSleeping signals it to recheck timeWaitingFor. */
+
+#ifdef TIMERDEBUG
+        kprintf(KR_OSTREAM, "was Wrkg");
+#endif
         break;
 
       case ttsTeleporting:
+
+#ifdef TIMERDEBUG
+        kprintf(KR_OSTREAM, "was Tele");
+#endif
         break;	// was already teleporting, nothing to do
       }
     }
@@ -345,6 +387,10 @@ update_soonest_wait(struct list_head * prev, unsigned long flags)
   }
   else
     spin_unlock_irqrestore(&timerLock, flags);
+
+#ifdef TIMERDEBUG
+  kprintf(KR_OSTREAM, "\n");
+#endif
 }
 
 /* Returns 0 if timer was inactive, 1 if was active. */
@@ -398,7 +444,7 @@ __mod_timer(struct timer_list * timer, unsigned long expires)
   while (cur->next != &timerHead) {
     struct list_head * nxt = cur->next;
     if (container_of(nxt, struct timer_list, entry)->expires >= expires)
-      break;	// insert before this element
+      break;	// insert before nxt
     cur = nxt;
   }
   __list_add(&timer->entry, cur, cur->next);	// insert after cur
@@ -411,6 +457,9 @@ __mod_timer(struct timer_list * timer, unsigned long expires)
 int
 mod_timer(struct timer_list * timer, unsigned long expires)
 {
+#ifdef TIMERDEBUG
+	kprintf(KR_OSTREAM, "mod_timer 0x%x %d\n", timer, expires);
+#endif
         /*
          * If the timer is modified to be the same, then just return:
          */
