@@ -39,12 +39,12 @@ devclock.prog = small program LIBDIR "devclock";
   name##_devclock_proc = new process; \
   name##_devclock_proc pc = symbol LIBDIR "devclock" _start; \
   name##_devclock_proc.space = devclock.prog with page at 0x1f000; \
-  name##_devclock_procregpage = physpage (devRegAddr & ~EROS_PAGE_MASK); \
+  name##_devclock_procregpage = physpage ((devRegAddr) & ~EROS_PAGE_MASK); \
   name##_devclock_proc.space[0x1d] = name##_devclock_procregpage; \
   name##_devclock_proc space = name##_devclock_proc.space; \
   name##_devclock_proc schedule = sched(8 /* use 14? */ ); \
   name##_devclock_proc symtab = number("devclock"); \
-  name##_devclock_proc key reg 7 = number(rate, devRegAddr, enableMask); \
+  name##_devclock_proc key reg 7 = number(rate, (devRegAddr), (enableMask)); \
   name##_devclock_proc key reg 8 = misc Console; \
   run name##_devclock_proc; \
   name##_devclock = start name##_devclock_proc 0;
