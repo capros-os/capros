@@ -202,12 +202,6 @@ sysT_Wakeup(savearea_t *sa)
 {
   irqFlags_t flags = local_irq_save();
   
-#if 0
-  extern intDepth;
-  printf("Wakeup() at intDepth %d, sleepers? %c\n",
-	       intDepth, ActivityChain ? 'y' : 'n');
-#endif
-
   sysT_WakeupAt(sysT_now);
 
   sysT_ResetWakeTime();
@@ -220,10 +214,7 @@ sysT_Wakeup(savearea_t *sa)
 void
 sysT_ResetWakeTime(void)
 {
-  sysT_wakeup = cpu->preemptTime;
-
-  if (ActivityChain && ActivityChain->wakeTime < sysT_wakeup)
-    sysT_wakeup = ActivityChain->wakeTime;
+  sysT_wakeup = sysT_WakeupTime();
 }
 
 void
