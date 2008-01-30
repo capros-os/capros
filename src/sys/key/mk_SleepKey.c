@@ -52,7 +52,7 @@ SleepKey(Invocation* inv /*@ not null @*/)
       inv->exit.w1 = (uint32_t) nsec;	// low word
       inv->exit.w2 = nsec >> 32;
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
       
   case OC_capros_Sleep_sleep:
@@ -92,7 +92,7 @@ SleepKey(Invocation* inv /*@ not null @*/)
       local_irq_restore(flags);
 
       act_Yield();
-      return;
+      break;
     }
       
   case OC_capros_Sleep_getDelayCalibration:
@@ -100,19 +100,20 @@ SleepKey(Invocation* inv /*@ not null @*/)
       
     inv->exit.code = RC_OK;
     inv->exit.w1 = loopsPer8us;
-    return;
+    break;
     
   case OC_capros_key_getType:
     COMMIT_POINT();
       
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_Sleep;
-    return;
+    break;
 
   default:
     COMMIT_POINT();
       
     inv->exit.code = RC_capros_key_UnknownRequest;
-    return;
+    break;
   }
+  ReturnMessage(inv);
 }

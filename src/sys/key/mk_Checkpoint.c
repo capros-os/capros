@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -90,6 +90,8 @@ CheckpointKey(Invocation* inv /*@ not null @*/)
       inv->exit.code = RC_capros_key_NotPersistent;
 #endif
 
+      COMMIT_POINT();
+  
       break;
     }
   case OC_capros_Checkpoint_snapshot:
@@ -108,19 +110,22 @@ CheckpointKey(Invocation* inv /*@ not null @*/)
 #else
       inv->exit.code = RC_capros_key_NotPersistent;
 #endif
+      COMMIT_POINT();
+  
       break;
     }
   case OC_capros_key_getType:
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_Checkpoint;
-
-    return;
+    COMMIT_POINT();
+  
+    break;
   default:
     inv->exit.code = RC_capros_key_UnknownRequest;
+    COMMIT_POINT();
+  
     break;
   }
 
-  COMMIT_POINT();
-  
-  return;
+  ReturnMessage(inv);
 }

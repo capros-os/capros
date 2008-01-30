@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -41,6 +41,6 @@ VoidKey(Invocation* inv /*@ not null @*/)
   COMMIT_POINT();
       
   inv->exit.code = RC_capros_key_Void;
-  return;
+  ReturnMessage(inv);
 }
 

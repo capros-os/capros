@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -72,7 +72,7 @@ DiscrimKey(Invocation* inv /*@ not null @*/)
       break;
     }
 
-    return;
+    break;
 
   case OC_capros_Discrim_verify:
  
@@ -105,13 +105,12 @@ DiscrimKey(Invocation* inv /*@ not null @*/)
       break;
     }
     
-    return;
+    break;
 
   case OC_capros_Discrim_compare:
 
     key_Prepare(inv->entry.key[0]);
     key_Prepare(inv->entry.key[1]);
-
     
     COMMIT_POINT();
   
@@ -139,20 +138,21 @@ DiscrimKey(Invocation* inv /*@ not null @*/)
     if (inv->entry.key[0]->keyData != inv->entry.key[1]->keyData)
       inv->exit.w1 = 0;
 
-    return;
+    break;
     
   case OC_capros_key_getType:
     COMMIT_POINT();
   
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_Discrim;
-    return;
+    break;
+
   default:
     COMMIT_POINT();
   
+    inv->exit.code = RC_capros_key_UnknownRequest;
     break;
   }
 
-  inv->exit.code = RC_capros_key_UnknownRequest;
-  return;
+  ReturnMessage(inv);
 }

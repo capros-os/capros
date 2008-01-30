@@ -314,7 +314,7 @@ act_DeleteActivity(Activity *t)
     act_curActivity = NULL;
     proc_curProcess = NULL;
     /* act_curActivity == 0 ==> act_yieldState == ys_ShouldYield */
-    act_yieldState = ys_ShouldYield;
+    act_ForceResched();
   }
 
   if (t->readyQ->mask & (1u<<pr_Reserve)) {
@@ -431,9 +431,7 @@ act_SleepOn(StallQueue * q /*@ not null @*/)
 void 
 act_SleepUntilTick(Activity * thisPtr, uint64_t tick) 
 {  
-  assert (thisPtr->state == act_Running);
   assert(link_isSingleton(&thisPtr->q_link));
-  assert(thisPtr->state == act_Running);
 
   thisPtr->wakeTime = tick;
 

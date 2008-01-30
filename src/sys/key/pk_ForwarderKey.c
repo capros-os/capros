@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -76,7 +76,7 @@ ForwarderKey(Invocation* inv)
 
       inv->exit.code = RC_OK;
       inv->exit.w1 = AKT_Forwarder;
-      return;
+      break;
     }
 
   case OC_capros_Forwarder_getTarget:
@@ -91,7 +91,7 @@ ForwarderKey(Invocation* inv)
       if (slot > capros_Forwarder_maxSlot) {
 	COMMIT_POINT();
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 	
 getSlot:
@@ -107,7 +107,7 @@ getSlot:
       inv_SetExitKey(inv, 0, theKey);
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_Forwarder_swapTarget:
@@ -122,7 +122,7 @@ getSlot:
       if (slot > capros_Forwarder_maxSlot) {
 	COMMIT_POINT();
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 	
 swapSlot:
@@ -149,7 +149,7 @@ swapSlot:
       key_NH_Unchain(&k);
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_Forwarder_getDataWord:
@@ -161,7 +161,7 @@ swapSlot:
 
       inv->exit.w1 = dataKey->u.nk.value[0];
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_Forwarder_swapDataWord:
@@ -176,7 +176,7 @@ swapSlot:
       inv->exit.w1 = dataKey->u.nk.value[0];
       dataKey->u.nk.value[0] = inv->entry.w1;
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_Forwarder_clearBlocked:
@@ -191,7 +191,7 @@ swapSlot:
       sq_WakeAll(ObjectStallQueueFromObHdr(node_ToObj(theNode)), false);
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_Forwarder_setBlocked:
@@ -202,7 +202,7 @@ swapSlot:
 
       theNode->nodeData |= ForwarderBlocked;
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_Forwarder_getOpaqueForwarder:
@@ -212,7 +212,7 @@ swapSlot:
       uint32_t w = inv->entry.w1; /* the flags */
       if (w & ~(capros_Forwarder_sendCap | capros_Forwarder_sendWord)) {
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 
       if (inv->exit.pKey[0]) {
@@ -221,13 +221,15 @@ swapSlot:
       }
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   default:
     COMMIT_POINT();
 
     inv->exit.code = RC_capros_key_UnknownRequest;
-    return;
+    break;
   }
+
+  ReturnMessage(inv);
 }

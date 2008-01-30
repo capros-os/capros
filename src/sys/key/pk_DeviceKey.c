@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -47,17 +47,21 @@ DeviceKey(Invocation* inv /*@ not null @*/)
   
   uint32_t devclass = DEV_GET_CLASS(inv->key->u.dk.devClass);
 
-  if (inv->entry.code == (uint32_t) OC_capros_key_getType) {
+  switch(inv->entry.code) {
+  case OC_capros_key_getType:
     COMMIT_POINT();
       
     inv->exit.code = AKT_Device;
     inv->exit.w1 = devclass;
     inv->exit.w2 = DEV_GET_SUBCLASS(inv->key->u.dk.devClass);
-    return;
+    break;
+
+  default:
+    COMMIT_POINT();
+
+    inv->exit.code = RC_capros_key_UnknownRequest;
+    break;
   }
 
-  COMMIT_POINT();
-      
-  inv->exit.code = RC_capros_key_UnknownRequest;
-  return;
+  ReturnMessage(inv);
 }

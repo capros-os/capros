@@ -96,21 +96,27 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 
       inv->exit.code = RC_OK;
       inv->exit.w1 = AKT_Process;
-      return;
+      break;
     }
 
   case OC_capros_Process_getSchedule:
-    return prockey_getSlot(inv, theNode, ProcSched);
+    prockey_getSlot(inv, theNode, ProcSched);
+    break;
+
   case OC_capros_Process_swapSchedule:
     if (inv->invokee && theNode == inv->invokee->procRoot)
       dprintf(false, "Modifying invokee domain root\n");
 
-    return prockey_swapSlot(inv, theNode, ProcSched);
+    prockey_swapSlot(inv, theNode, ProcSched);
+    break;
 
   case OC_capros_Process_getAddrSpace:
-    return prockey_getSlot(inv, theNode, ProcAddrSpace);
+    prockey_getSlot(inv, theNode, ProcAddrSpace);
+    break;
+
   case OC_capros_Process_swapAddrSpace:
-    return prockey_swapSlot(inv, theNode, ProcAddrSpace);
+    prockey_swapSlot(inv, theNode, ProcAddrSpace);
+    break;
   
   case OC_capros_Process_swapAddrSpaceAndPC32Proto:
       inv->exit.w1 = inv->entry.w2;
@@ -132,7 +138,8 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
         proc_AdjustInvocationPC(ac);
       }
       
-      return prockey_swapSlotCommitted(inv, theNode, ProcAddrSpace);
+      prockey_swapSlotCommitted(inv, theNode, ProcAddrSpace);
+      break;
     }
 
   case OC_capros_Process_setIOSpace:
@@ -147,17 +154,23 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
     act_Prepare(act_Current());
       
     inv->exit.code = RC_OK;
-    return;
+    break;
   
   case OC_capros_Process_getKeeper:
-    return prockey_getSlot(inv, theNode, ProcKeeper);
+    prockey_getSlot(inv, theNode, ProcKeeper);
+    break;
+
   case OC_capros_Process_swapKeeper:
-    return prockey_swapSlot(inv, theNode, ProcKeeper);
+    prockey_swapSlot(inv, theNode, ProcKeeper);
+    break;
 
   case OC_capros_Process_getSymSpace:
-    return prockey_getSlot(inv, theNode, ProcSymSpace);
+    prockey_getSlot(inv, theNode, ProcSymSpace);
+    break;
+
   case OC_capros_Process_swapSymSpace:
-    return prockey_swapSlot(inv, theNode, ProcSymSpace);
+    prockey_swapSlot(inv, theNode, ProcSymSpace);
+    break;
 
   case OC_capros_Process_getKeyReg:
     {
@@ -176,7 +189,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 	inv->exit.code = RC_capros_key_RequestError;
       }
 
-      return;
+      break;
     }
 
   case OC_capros_Process_swapKeyReg:
@@ -190,7 +203,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 
       if (slot >= EROS_NODE_SIZE) {
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 
       Key k;		/* temporary in case send and receive */
@@ -212,7 +225,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
       key_NH_Unchain(&k);
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_Process_makeStartKey:
@@ -227,8 +240,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
       if ( keyData > EROS_KEYDATA_MAX ) {
 	inv->exit.code = RC_capros_key_RequestError;
 	dprintf(true, "Value 0x%08x is out of range\n",	keyData);
-      
-	return;
+	break;
       }
       
       Key * k = inv->exit.pKey[0];
@@ -246,7 +258,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
       }
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_Process_makeResumeKey:
@@ -330,7 +342,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 
     inv->exit.code = RC_OK;
 
-    return;
+    break;
 
   case OC_capros_Process_getRegisters32:
     assert( proc_IsRunnable(inv->invokee) );
@@ -351,7 +363,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 
       inv_CopyOut(inv, sizeof(regs), &regs);
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_Process_setRegisters32:
@@ -362,7 +374,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
         inv->exit.code = RC_capros_key_RequestError;
         COMMIT_POINT();
 
-        return;
+        break;
       }
 
       p = node_GetDomainContext(theNode);
@@ -375,13 +387,14 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
       proc_SetCommonRegs32(p, &regs);
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   default:
     COMMIT_POINT();
       
     inv->exit.code = RC_capros_key_UnknownRequest;
-    return;
+    break;
   }
+  ReturnMessage(inv);
 }

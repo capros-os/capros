@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -278,7 +278,7 @@ NodeKey(Invocation * inv)
 
       inv->exit.code = RC_OK;
       inv->exit.w1 = AKT_Node;
-      return;
+      break;
     }
 
   case OC_capros_Node_getSlot:
@@ -315,7 +315,7 @@ NodeKey(Invocation * inv)
       if (isSense)
 	Desensitize(inv->exit.pKey[0]);
 
-      return;
+      break;
     }      
 
   case OC_capros_Node_swapSlot:
@@ -334,7 +334,7 @@ NodeKey(Invocation * inv)
       if (isFetch) {
 	COMMIT_POINT();
 	inv->exit.code = RC_capros_key_NoAccess;
-	return;
+	break;
       }
 	
       uint32_t slot = inv->entry.w1;
@@ -356,7 +356,7 @@ NodeKey(Invocation * inv)
       dprintf(true, "Swapped key to slot %d\n", slot);
 #endif
      
-      return;
+      break;
     }      
 
   case OC_capros_Node_getSlotExtended:
@@ -364,14 +364,14 @@ NodeKey(Invocation * inv)
       goto check_keeper;
 
     WalkExtended(inv, theNode, false);
-    return;
+    break;
 
   case OC_capros_Node_swapSlotExtended:
     if (opaque && (node_GetL2vField(theNode) & NODE_BLOCKED))
       goto check_keeper;
 
     WalkExtended(inv, theNode, true);
-    return;
+    break;
 
   case OC_capros_Node_reduce:
 
@@ -392,7 +392,7 @@ NodeKey(Invocation * inv)
       inv->exit.pKey[0]->keyPerms |= p;
     }
 
-    return;
+    break;
     
 #if 0	// this isn't used
   case OC_capros_Node_clear:
@@ -402,7 +402,7 @@ NodeKey(Invocation * inv)
     {
       if (isFetch) {
 	inv->exit.code = RC_capros_key_NoAccess;
-	return;
+	break;
       }
 
       node_MakeDirty(theNode);
@@ -417,7 +417,7 @@ NodeKey(Invocation * inv)
 
       act_Prepare(act_Current());
       
-      return;
+      break;
     }
 #endif
 
@@ -433,7 +433,7 @@ NodeKey(Invocation * inv)
       if (isFetch) {
 	COMMIT_POINT();
 	inv->exit.code = RC_capros_key_NoAccess;
-	return;
+	break;
       }
 
       slot = inv->entry.w1;
@@ -463,7 +463,7 @@ NodeKey(Invocation * inv)
 		      nkv.value[1],
 		      nkv.value[0]);
 
-      return;
+      break;
     }
 
   case OC_capros_Node_getL2v:
@@ -475,7 +475,7 @@ NodeKey(Invocation * inv)
 
     inv->exit.code = RC_OK;
     inv->exit.w1 = node_GetL2vField(theNode) & NODE_L2V_MASK;
-    return;
+    break;
 
   case OC_capros_Node_setL2v:
     if (opaque) goto check_keeper;
@@ -493,7 +493,7 @@ NodeKey(Invocation * inv)
     uint8_t oldL2v = l2vField & NODE_L2V_MASK;
     // inv->exit.w1 = oldL2v;
     node_SetL2vField(theNode, l2vField - oldL2v + newL2v);
-    return;
+    break;
 
   case OC_capros_Node_makeGuarded:
     if (opaque) goto check_keeper;
@@ -505,7 +505,7 @@ NodeKey(Invocation * inv)
     struct GuardData gd;
     if (! key_CalcGuard(inv->entry.w1, &gd)) {
       inv->exit.code = RC_capros_Node_UnrepresentableGuard;
-      return;
+      break;
     }
 
     if (inv->exit.pKey[0]) {
@@ -513,7 +513,7 @@ NodeKey(Invocation * inv)
       key_SetGuardData(inv->exit.pKey[0], &gd);
     }
     inv->exit.code = RC_OK;
-    return;
+    break;
 
   case OC_capros_Node_getGuard:
     if (opaque) goto check_keeper;
@@ -524,7 +524,7 @@ NodeKey(Invocation * inv)
 
     inv->exit.w1 = key_GetGuard(inv->key);
     inv->exit.code = RC_OK;
-    return;
+    break;
 
   case OC_capros_Node_setKeeper:
     if (opaque) goto check_keeper;
@@ -534,7 +534,7 @@ NodeKey(Invocation * inv)
     node_SetSlot(theNode, capros_Node_keeperSlot, inv);
 
     node_SetL2vField(theNode, node_GetL2vField(theNode) | NODE_KEEPER);
-    return;
+    break;
 
   case OC_capros_Node_clearKeeper:
     if (opaque) goto check_keeper;
@@ -545,7 +545,7 @@ NodeKey(Invocation * inv)
 
     node_SetL2vField(theNode, node_GetL2vField(theNode) & ~ NODE_KEEPER);
     inv->exit.code = RC_OK;
-    return;
+    break;
 
   case OC_capros_Node_setBlocked:
     if (opaque) goto check_keeper;
@@ -556,7 +556,7 @@ NodeKey(Invocation * inv)
 
     node_SetL2vField(theNode, node_GetL2vField(theNode) | NODE_BLOCKED);
     inv->exit.code = RC_OK;
-    return;
+    break;
 
   case OC_capros_Node_clearBlocked:
     if (opaque) goto check_keeper;
@@ -567,7 +567,7 @@ NodeKey(Invocation * inv)
 
     node_SetL2vField(theNode, node_GetL2vField(theNode) & ~ NODE_BLOCKED);
     inv->exit.code = RC_OK;
-    return;
+    break;
 
   case OC_capros_Node_clone:
     if (opaque) goto check_keeper;
@@ -578,7 +578,7 @@ NodeKey(Invocation * inv)
       /* copy content of node key in arg0 to current node */
       if (isFetch) {
 	inv->exit.code = RC_capros_key_NoAccess;
-	return;
+	break;
       }
 
       /* Mark the object dirty. */
@@ -597,7 +597,7 @@ NodeKey(Invocation * inv)
       NodeClone(theNode, inv->entry.key[0]);
 						    
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_key_destroy:	// we explicitly do not handle this
@@ -616,11 +616,14 @@ invoke_keeper: ;
     COMMIT_POINT();
 
     inv->exit.code = RC_capros_key_UnknownRequest;
-    return;
+    break;
   }
+  ReturnMessage(inv);
+  return;
 
 request_error:
   inv->exit.code = RC_capros_key_RequestError;
+  ReturnMessage(inv);
   return;
 }
 

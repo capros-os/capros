@@ -255,16 +255,12 @@ key_GetRange(Key * key, /* out */ OID * rngStart)
 void
 RangeKey(Invocation* inv /*@ not null @*/)
 {
+  bool waitFlag;
+  
   inv_GetReturnee(inv);
 
-  bool waitFlag;
-
-  capros_Range_off_t range;
-  
   rngEnd = key_GetRange(inv->key, &rngStart);
-  
-  range = rngEnd - rngStart;
-
+  capros_Range_off_t range = rngEnd - rngStart;
 
   switch(inv->entry.code) {
   case OC_capros_key_getType:
@@ -277,7 +273,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
      * from OC_RANGE_QUERY is large. */
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_Range;
-    return;
+    break;
 
   case OC_capros_Range_query:
     {
@@ -285,10 +281,8 @@ RangeKey(Invocation* inv /*@ not null @*/)
 
       inv->exit.w1 = range;
       inv->exit.w2 = (fixreg_t) (range >> 32);
-
       inv->exit.code = RC_OK;
-
-      return;
+      break;
     }
     
   case OC_capros_Range_nextSubrange:
@@ -302,7 +296,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 
       if (startOffset >= rngEnd) {
 	inv->exit.code = RC_capros_Range_RangeErr;
-	return;
+	break;
       }
 
       /* FIX: This only works for 32-bit subranges */
@@ -320,8 +314,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       inv->exit.w3 = range;
 
       inv->exit.code = RC_OK;
-
-      return;
+      break;
     }
     
   case OC_capros_Range_makeSubrange:
@@ -351,7 +344,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 	  (newEnd <= rngStart) ||
 	  (newEnd > rngEnd)) {
 	inv->exit.code = RC_capros_Range_RangeErr;
-	return;
+	break;
       }
 
       key = inv->exit.pKey[0];
@@ -370,8 +363,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       }
 
       inv->exit.code = RC_OK;
-
-      return;
+      break;
     }
     
   case OC_capros_Range_identify:
@@ -386,18 +378,16 @@ RangeKey(Invocation* inv /*@ not null @*/)
       int t = ValidateKey(key);
       if (t < 0) {
 	inv->exit.code = RC_capros_Range_RangeErr;
-	return;
+	break;
       }
 
       inv->exit.w1 = t;
 
       OID oid = key_GetKeyOid(key);
-
-      inv->exit.code = RC_OK;	// default
       
       if ( oid < rngStart || oid >= rngEnd ) {
 	inv->exit.code = RC_capros_Range_RangeErr;
-        return;
+        break;
       }
       range = oid - rngStart;
       
@@ -410,22 +400,21 @@ RangeKey(Invocation* inv /*@ not null @*/)
 	inv->exit.w3 = (range >> 32);
       else
 	inv->exit.w3 = 0;
-      
-      return;
+
+      inv->exit.code = RC_OK;
+      break;
     }
   case OC_capros_Range_rescind:
     {
       Key * key /*@ not null @*/ = inv->entry.key[0];
    
       key_Prepare(key);
-
-      inv->exit.code = RC_OK;
       
       if (ValidateKey(key) < 0) {
-	inv->exit.code = RC_capros_Range_RangeErr;
 	COMMIT_POINT();
 
-	return;
+	inv->exit.code = RC_capros_Range_RangeErr;
+	break;
       }
 
       OID oid = key_GetKeyOid(key);
@@ -437,10 +426,10 @@ RangeKey(Invocation* inv /*@ not null @*/)
 #endif
       
       if ( oid < rngStart || oid >= rngEnd ) {
-	inv->exit.code = RC_capros_Range_RangeErr;
 	COMMIT_POINT();
 
-	return;
+	inv->exit.code = RC_capros_Range_RangeErr;
+	break;
       }
 
       ObjectHeader * pObject = key_GetObjectPtr(key);
@@ -456,28 +445,30 @@ RangeKey(Invocation* inv /*@ not null @*/)
       if (dbg_wild_ptr)
 	check_Consistency("Object rescind()");
 #endif
-      return;
+
+      inv->exit.code = RC_OK;
+      break;
     }
 
   case OC_capros_Range_waitPageKey:
     MakeObjectKey(inv, w1w2Offset(inv),
       true, ot_PtDataPage, KKT_Page);
-    return;
+    break;
 
   case OC_capros_Range_getPageKey:
     MakeObjectKey(inv, w1w2Offset(inv),
       false, ot_PtDataPage, KKT_Page);
-    return;
+    break;
 
   case OC_capros_Range_waitNodeKey:
     MakeObjectKey(inv, w1w2Offset(inv),
       true, ot_NtUnprepared, KKT_Node);
-    return;
+    break;
 
   case OC_capros_Range_getNodeKey:
     MakeObjectKey(inv, w1w2Offset(inv),
       false, ot_NtUnprepared, KKT_Node);
-    return;
+    break;
 
   case OC_capros_Range_getCap:
     waitFlag = false;
@@ -491,8 +482,9 @@ rangeGetWaitCap:
 
       if (ot >= capros_Range_otNUM_TYPES) {
         COMMIT_POINT();
+
         inv->exit.code = RC_capros_Range_RangeErr;
-        return;
+        break;
       }
 
       static ObType baseType[capros_Range_otNUM_TYPES] = {
@@ -511,7 +503,7 @@ rangeGetWaitCap:
       MakeObjectKey(inv, w2w3Offset(inv),
         waitFlag, baseType[ot], obKKT[ot]);
 
-      return;
+      break;
     }
 
   case OC_capros_Range_compare:
@@ -520,20 +512,19 @@ rangeGetWaitCap:
 
       key_Prepare(key);
 
-
       COMMIT_POINT();
 
       inv->exit.code = RC_OK;
       inv->exit.w1 = 0;		/* no overlap until proven otherwise */
 
       if (!keyBits_IsType(key, KKT_Range) && !keyBits_IsType(key, KKT_PrimeRange))
-	return;			/* RC_OK in this case probably wrong thing. */
+	break;			/* RC_OK in this case probably wrong thing. */
 
       OID kstart;
       OID kend = key_GetRange(key, &kstart);
   
       if (kstart >= rngEnd || kend <= rngStart)
-	return;
+	break;
 
       /* They overlap; need to figure out how. */
       inv->exit.w1 = 1;
@@ -555,14 +546,14 @@ rangeGetWaitCap:
 	if (sizeof(inv->exit.w2) == sizeof(uint32_t)) /* 32 bit system */
 	  inv->exit.w3 = (fixreg_t) ((kstart - rngStart) >> 32);
       }
-      return;
+      break;
     }
   default:
     COMMIT_POINT();
 
     inv->exit.code = RC_capros_key_UnknownRequest;
-    return;
+    break;
   }
 
-  return;
+  ReturnMessage(inv);
 }

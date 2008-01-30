@@ -2,7 +2,7 @@
 #define __KERNINC_INVOCATION_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -103,8 +103,6 @@ struct Invocation {
   Key scratchKey;		/* for call on red segments; not usually used. */
   Key redNodeKey;		/* for seg keeper; not usually used. */
 
-  bool suppressXfer;		/* should transfer be suppressed? */
-  
   uint32_t invType;		/* extracted for efficiency */
 #define IT_KeeperCall 6		// in this field only, not in a Message
 
@@ -128,6 +126,7 @@ inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data);
 uint32_t 
 inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data);
 void inv_GetReturnee(Invocation * inv);
+void ReturnMessage(Invocation * inv);
 void inv_SetupExitBlock(Invocation * inv);
 void inv_InvokeGateOrVoid(Invocation * inv, Key * invKey);
 

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -53,6 +53,7 @@ InvalidateMaps(GPT * theGPT)
 
 /* May Yield. */
 // inv_GetReturnee has been called.
+// Calls ReturnMessage.
 void
 MemoryKey(Invocation * inv)
 {
@@ -63,7 +64,7 @@ MemoryKey(Invocation * inv)
 
     inv->exit.code = RC_OK;
     inv->exit.w1 = inv->key->keyPerms;
-    return;
+    break;
 
   case OC_capros_Memory_reduce:
 
@@ -76,7 +77,7 @@ MemoryKey(Invocation * inv)
               | capros_Memory_readOnly )) {
       inv->exit.code = RC_capros_key_RequestError;
       dprintf(true, "restr=0x%x\n", w);
-      return;
+      break;
     }
     
     if (inv->exit.pKey[0]) {
@@ -85,7 +86,7 @@ MemoryKey(Invocation * inv)
     }
 
     inv->exit.code = RC_OK;
-    return;
+    break;
 
   case OC_capros_Memory_makeGuarded:
 
@@ -96,7 +97,7 @@ MemoryKey(Invocation * inv)
     // in just w1!
     if (! key_CalcGuard(inv->entry.w1, &gd)) {
       inv->exit.code = RC_capros_Memory_UnrepresentableGuard;
-      return;
+      break;
     }
 
     if (inv->exit.pKey[0]) {
@@ -104,7 +105,7 @@ MemoryKey(Invocation * inv)
       key_SetGuardData(inv->exit.pKey[0], &gd);
     }
     inv->exit.code = RC_OK;
-    return;
+    break;
 
   case OC_capros_Memory_getGuard:
 
@@ -114,14 +115,15 @@ MemoryKey(Invocation * inv)
     // in just w1!
     inv->exit.w1 = key_GetGuard(inv->key);
     inv->exit.code = RC_OK;
-    return;
+    break;
 
   default:
     COMMIT_POINT();
 
     inv->exit.code = RC_capros_key_UnknownRequest;
-    return;
+    break;
   }
+  ReturnMessage(inv);
 }
 
 /* May Yield. */
@@ -161,7 +163,7 @@ GPTKey(Invocation * inv)
 
       inv->exit.code = RC_OK;
       inv->exit.w1 = gpt_GetL2vField(theGPT) & GPT_L2V_MASK;
-      return;
+      break;
     }
 
   case OC_capros_GPT_setL2v:
@@ -181,7 +183,7 @@ GPTKey(Invocation * inv)
       uint8_t oldL2v = l2vField & GPT_L2V_MASK;
       // inv->exit.w1 = oldL2v;
       gpt_SetL2vField(theGPT, l2vField - oldL2v + newL2v);
-      return;
+      break;
     }
 
   case OC_capros_GPT_getSlot:
@@ -191,7 +193,7 @@ opaqueError:
         COMMIT_POINT();
 request_error:
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 
       COMMIT_POINT();
@@ -199,7 +201,7 @@ request_error:
       uint32_t slot = inv->entry.w1;
       if (slot >= capros_GPT_nSlots) {
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 
       /* Does not copy hazard bits, but preserves preparation: */
@@ -207,7 +209,7 @@ request_error:
       // FIXME: Implement weak? 
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_GPT_setSlot:
@@ -218,11 +220,11 @@ request_error:
       if (slot >= capros_GPT_nSlots) {
         COMMIT_POINT();
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 
       node_SetSlot(theGPT, slot, inv);
-      return;
+      break;
     }
 
   case OC_capros_GPT_setWindow:
@@ -243,7 +245,7 @@ request_error:
          ) {
         COMMIT_POINT();
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 
       inv_CopyIn(inv, inv->entry.len, &offset);
@@ -252,7 +254,7 @@ request_error:
       if (offset & ((1ull << curL2v) -1)) {
         COMMIT_POINT();
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 
       node_MakeDirty(theGPT);
@@ -267,7 +269,7 @@ request_error:
 		      (uint32_t) offset);
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_GPT_clone:
@@ -284,13 +286,13 @@ request_error:
 
       if (keyBits_GetType(inv->entry.key[0]) != KKT_GPT) {
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 
       NodeClone(theGPT, inv->entry.key[0]);
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_key_getType:
@@ -299,7 +301,7 @@ request_error:
 
       inv->exit.code = RC_OK;
       inv->exit.w1 = AKT_GPT;
-      return;
+      break;
     }
 
   case OC_capros_GPT_setKeeper:
@@ -308,7 +310,7 @@ request_error:
     node_SetSlot(theGPT, capros_GPT_keeperSlot, inv);
 
     gpt_SetL2vField(theGPT, gpt_GetL2vField(theGPT) | GPT_KEEPER);
-    return;
+    break;
 
   case OC_capros_GPT_clearKeeper:
     if (opaque) goto opaqueError;
@@ -317,7 +319,7 @@ request_error:
 
     gpt_SetL2vField(theGPT, gpt_GetL2vField(theGPT) & ~ GPT_KEEPER);
     inv->exit.code = RC_OK;
-    return;
+    break;
 
   case OC_capros_GPT_setBackground:
     if (opaque) goto opaqueError;
@@ -328,7 +330,7 @@ request_error:
     node_SetSlot(theGPT, capros_GPT_backgroundSlot, inv);
 
     gpt_SetL2vField(theGPT, gpt_GetL2vField(theGPT) | GPT_BACKGROUND);
-    return;
+    break;
 
   case OC_capros_GPT_clearBackground:
     if (opaque) goto opaqueError;
@@ -340,11 +342,13 @@ request_error:
 
     gpt_SetL2vField(theGPT, gpt_GetL2vField(theGPT) & ~ GPT_BACKGROUND);
     inv->exit.code = RC_OK;
-    return;
+    break;
 
   default:
     // Handle methods inherited from Memory object.
     MemoryKey(inv);
     return;
   }
+  ReturnMessage(inv);
+  return;
 }

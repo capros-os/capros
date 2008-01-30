@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -63,7 +63,7 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
       ndx = inv->entry.w1;
       if (ndx < STD_CPU_RESERVE || ndx >= MAX_CPU_RESERVE) {
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
       
       inv_CopyOut(inv, sizeof(rsrvinfo), &rsrvinfo);
@@ -80,7 +80,7 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
 #if 0
       if (inv->entry.len < sizeof(struct CpuReserveInfo)) {
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 
     
@@ -93,7 +93,7 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
 
       if (ndx < 0 || ndx >= 32) {
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
       
       printf("in kernel, d = %d", duration);
@@ -175,5 +175,5 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
     inv->exit.code = RC_capros_key_UnknownRequest;
     break;
   }
-  return;
+  ReturnMessage(inv);
 }

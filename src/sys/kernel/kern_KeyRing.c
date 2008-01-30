@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -349,7 +349,15 @@ keyR_ZapResumeKeys(KeyRing *thisPtr)
 #endif
 
   /* Prepared resume keys are never in a activity, so we do not need to
-   * check for that.  They cksum as zero, so we do not need to
+     check for that. FIXME: We should have a resume key in an Activity
+     for processes that are sleeping on SleepQueue; this is necessary to
+     handle the case of Send to the sleep key, passing a Resume key to
+     the process to be awakened later, then invoking another Resume key
+     to the process before the timer expires. 
+     The Resume key in the Activity should be hazarded to avoid
+     slowing the fast path.
+
+     Prepared resume keys cksum as zero, so we do not need to
    * recompute the checksum.
    * 
    * It used to be that they were never hazarded, but this is no

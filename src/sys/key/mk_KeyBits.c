@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -71,7 +71,7 @@ KeyBitsKey(Invocation* inv /*@ not null @*/)
     COMMIT_POINT();
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_KeyBits;
-    return;
+    break;
 
   case OC_capros_KeyBits_get:
     {
@@ -126,11 +126,13 @@ KeyBitsKey(Invocation* inv /*@ not null @*/)
       inv_CopyOut(inv, sizeof(kbi), &kbi);
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
   default:
     COMMIT_POINT();
     inv->exit.code = RC_capros_key_UnknownRequest;
-    return;
+    break;
   }
+
+  ReturnMessage(inv);
 }

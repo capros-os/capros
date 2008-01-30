@@ -452,6 +452,8 @@ for (i=0; i<10; i++) {
       inv->exit.w1 = (cy >> 32);
       inv->exit.w2 = cy;
       inv->exit.w3 = 0;
+      break;
     }
   }
+  ReturnMessage(inv);
 }

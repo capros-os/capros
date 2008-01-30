@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -61,7 +61,7 @@ ProcessKey(Invocation * inv)
     act_Prepare(act_Current());
       
     inv->exit.code = RC_OK;
-    return;
+    break;
 
   case OC_capros_arch_i386_Process_getRegisters:
     assert( proc_IsRunnable(inv->invokee) );
@@ -82,7 +82,7 @@ ProcessKey(Invocation * inv)
 
       inv_CopyOut(inv, sizeof(regs), &regs);
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
   
   case OC_capros_arch_i386_Process_setRegisters:
@@ -93,7 +93,7 @@ ProcessKey(Invocation * inv)
 	inv->exit.code = RC_capros_key_RequestError;
 	COMMIT_POINT();
       
-	return;
+	break;
       }
       
       Process * ac = node_GetDomainContext(theNode);
@@ -106,10 +106,11 @@ ProcessKey(Invocation * inv)
       proc_SetRegs32(ac, &regs);
 
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   default:
     return ProcessKeyCommon(inv, theNode);
   }
+  ReturnMessage(inv);
 }

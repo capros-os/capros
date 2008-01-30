@@ -49,13 +49,13 @@ PageKey(Invocation* inv /*@ not null @*/)
 
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_Page;
-    return;
+    break;
 
   case OC_capros_Page_zero:		/* zero page */
     if (keyBits_IsReadOnly(inv->key)) {
       COMMIT_POINT();
       inv->exit.code = RC_capros_key_NoAccess;
-      return;
+      break;
     }
 
     /* Mark the object dirty. */
@@ -66,7 +66,7 @@ PageKey(Invocation* inv /*@ not null @*/)
     kzero((void*)pageAddress, EROS_PAGE_SIZE);
 
     inv->exit.code = RC_OK;
-    return;
+    break;
     
   case OC_capros_Page_clone:
     {
@@ -75,14 +75,14 @@ PageKey(Invocation* inv /*@ not null @*/)
       if (keyBits_IsReadOnly(inv->key)) {
 	COMMIT_POINT();
 	inv->exit.code = RC_capros_key_NoAccess;
-	return;
+	break;
       }
 
       /* FIX: This is now wrong: phys pages, time page */
       if (keyBits_IsType(inv->entry.key[0], KKT_Page) == false) {
 	COMMIT_POINT();
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 
       /* Mark the object dirty. */
@@ -99,7 +99,7 @@ PageKey(Invocation* inv /*@ not null @*/)
       memcpy((void *) pageAddress, (void *) copiedPage, EROS_PAGE_SIZE);
 						    
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
 
   case OC_capros_Page_getNthPage:
@@ -107,10 +107,11 @@ PageKey(Invocation* inv /*@ not null @*/)
     unsigned int ordinal = inv->entry.w1;
 
     if (pageH_GetObType(pageH) != ot_PtDMABlock) {
+request_error:
       COMMIT_POINT();
 
       inv->exit.code = RC_capros_key_RequestError;
-      return;
+      break;
     }
 
     PmemInfo * pmi = pageH->physMemRegion;
@@ -118,10 +119,7 @@ PageKey(Invocation* inv /*@ not null @*/)
     while (ordinal > 0) {
       if (++relativePgNum >= pmi->nPages
           || pageH_GetObType(++pageH) != ot_PtDMASecondary) {
-        COMMIT_POINT();
-
-        inv->exit.code = RC_capros_key_RequestError;
-        return;
+        goto request_error;
       }
     }
 
@@ -133,7 +131,7 @@ PageKey(Invocation* inv /*@ not null @*/)
     }
 
     inv->exit.code = RC_OK;
-    return;
+    break;
   }
 
   default:
@@ -142,6 +140,5 @@ PageKey(Invocation* inv /*@ not null @*/)
     return;
   }
 
-  inv->exit.code = RC_capros_key_UnknownRequest;
-  return;
+  ReturnMessage(inv);
 }

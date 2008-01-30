@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -160,27 +160,26 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 #if 0
         dprintf(true, "domtool: entry key is not node key\n");
 #endif
-	return;
+	break;
       }
 
       if ( keyBits_IsReadOnly(inv->entry.key[0]) ) {
 #if 0
         printf("domtool: entry key is read only\n");
 #endif
-	return;
+	break;
       }
 
       if ( keyBits_IsNoCall(inv->entry.key[0]) ) {
 #if 0
         printf("domtool: entry key is no-call\n");
 #endif
-	return;
+	break;
       }
 
       assert ( keyBits_IsHazard(inv->entry.key[0]) == false );
 
       inv->exit.code = RC_OK;
-      
 
       inv_SetExitKey(inv, 0, inv->entry.key[0]);
 
@@ -188,7 +187,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 	keyBits_SetType(inv->exit.pKey[0], KKT_Process);
 	inv->exit.pKey[0]->keyData = 0;
       }
-      return;
+      break;
     }
   case OC_capros_ProcTool_canOpener:
     {
@@ -196,11 +195,10 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       bool sameBrand;
       key_Prepare(inv->entry.key[0]);
 
-      
       if (keyBits_IsType(inv->entry.key[0], KKT_Start) == false &&
 	  keyBits_IsType(inv->entry.key[0], KKT_Resume) == false) {
 	COMMIT_POINT();
-	return;
+	break;
       }
 
       isResume = keyBits_IsType(inv->entry.key[0], KKT_Resume);
@@ -212,7 +210,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       COMMIT_POINT();
 
       if (!sameBrand)
-	return;
+	break;
 
       /* Must be either start or resume, by virtue of test above. */
       /* FIX: yes, but why compare against exit.w1?? */
@@ -231,7 +229,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 	inv->exit.pKey[0]->keyData = 0;
       }
 
-      return;
+      break;
     }
 
   case OC_capros_ProcTool_identifyProcess:
@@ -244,7 +242,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 
 	COMMIT_POINT();
         inv->exit.code = RC_capros_key_NoAccess;
-	return;
+	break;
       }
 
       if (CompareBrand(inv, key0, inv->entry.key[1])) {
@@ -254,7 +252,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
         inv->exit.code = RC_capros_key_NoAccess;
       }
 
-      return;
+      break;
     }
 
   case OC_capros_ProcTool_identGPTKeeper:
@@ -264,7 +262,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       if (! keyBits_IsType(inv->entry.key[0], KKT_GPT)
           || keyBits_IsNoCall(inv->entry.key[0]) ) {
 	COMMIT_POINT();
-	return;
+	break;
       }
 
       GPT * theGPT = (GPT *) key_GetObjectPtr(inv->entry.key[0]);
@@ -272,7 +270,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       /* If no keeper key: */
       if (! (gpt_GetL2vField(theGPT) & GPT_KEEPER)) {
 	COMMIT_POINT();
-	return;
+	break;
       }
 
       Key * domKey = node_GetKeyAtSlot(theGPT, capros_GPT_keeperSlot);
@@ -284,11 +282,11 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       if (! keyBits_IsType(domKey, KKT_Start)
 	  && ! isResume ) {
 	COMMIT_POINT();
-	return;
+	break;
       }
       
       if ( CompareBrand(inv, domKey, inv->entry.key[1]) == false ) {
-	return;
+	break;
       }
       
       inv->exit.code = RC_OK;
@@ -306,7 +304,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 	inv->exit.pKey[0]->keyPerms &= ~ capros_Memory_opaque;
       }
 
-      return;
+      break;
     }
   case OC_capros_ProcTool_identForwarderTarget:
     {
@@ -318,7 +316,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 #endif
          ) {
 	COMMIT_POINT();
-	return;
+	break;
       }
 
       Node * theNode = objH_ToNode(key_GetObjectPtr(inv->entry.key[0]));
@@ -329,11 +327,11 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       if (! keyBits_IsType(domKey, KKT_Start)
 	  && ! keyBits_IsType(domKey, KKT_Resume) ) {
         COMMIT_POINT();
-	return;
+	break;
       }
       
       if (! CompareBrand(inv, domKey, inv->entry.key[1])) {
-	return;
+	break;
       }
 
       inv->exit.code = RC_OK;
@@ -351,7 +349,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 	inv->exit.pKey[0]->keyData = 0;	// not opaque
       }
 
-      return;
+      break;
     }
 
   case OC_capros_key_getType:
@@ -359,12 +357,12 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_ProcessTool;
-    return;
+    break;
   default:
     COMMIT_POINT();
 
     inv->exit.code = RC_capros_key_UnknownRequest;
-    return;
+    break;
   }
-  return;
+  ReturnMessage(inv);
 }

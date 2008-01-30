@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -49,7 +49,7 @@ ConsoleKey(Invocation* inv /*@ not null @*/)
 
       if (inv->entry.len > 1024) {
 	inv->exit.code = RC_capros_key_RequestError;
-	return;
+	break;
       }
 
       if (inv->entry.len) {
@@ -59,26 +59,30 @@ ConsoleKey(Invocation* inv /*@ not null @*/)
 	  printf("\n");
       }
       inv->exit.code = RC_OK;
-      return;
+      break;
     }
   case OC_Console_KDB:
     {
       inv->exit.code = RC_OK;
       Debugger();
+      COMMIT_POINT();
+
       break;
     }
   case OC_capros_key_getType:
     {
       inv->exit.code = RC_OK;
       inv->exit.w1 = AKT_Console;
+      COMMIT_POINT();
+
       break;
     }
   default:
     inv->exit.code = RC_capros_key_UnknownRequest;
+    COMMIT_POINT();
+
     break;
   }
 
-  COMMIT_POINT();
-  return;
+  ReturnMessage(inv);
 }
-

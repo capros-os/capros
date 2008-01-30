@@ -60,15 +60,11 @@ GateKey(Invocation* inv /*@ not null @*/)
   inv->invokee = invokee;
 
   // Check invokee's state.
-  assert(inv->invKeyType != KKT_Resume || invokee->runState == RS_Waiting);
+  assert(! keyBits_IsType(inv->key, KKT_Resume)
+         || invokee->runState == RS_Waiting );
+
   if (inv->invKeyType == KKT_Start && invokee->runState != RS_Available) {
   
-    /* Right now a corner case here is buggered because we have not yet
-     * updated the caller's runstate according to the call type.  As a
-     * result, a return on a start key to yourself won't work in this
-     * code.
-     */
-
 #ifdef GATEDEBUG
     dprintf(GATEDEBUG>2, "Start key, not Available\n");
 #endif
@@ -77,16 +73,16 @@ GateKey(Invocation* inv /*@ not null @*/)
     act_Yield();
   }
 
+  Process * invoker = act_CurContext();
+  assert(invokee != invoker);
+
   inv_SetupExitBlock(inv);
 
 #ifdef GK_DEBUG
   printf("Enter GateKey(), invokedKey=0x%08x\n", inv->key);
 #endif
-
-  assert(! keyBits_IsType(inv->key, KKT_Resume)
-         || invokee->runState == RS_Waiting );
   
-  proc_SetupExitString(inv->invokee, inv, inv->entry.len);
+  proc_SetupExitString(invokee, inv, inv->entry.len);
 
   COMMIT_POINT();
 
@@ -94,13 +90,22 @@ GateKey(Invocation* inv /*@ not null @*/)
   KernStats.nGateJmp++;
 #endif
 
-  assert(inv->invokee);	// FIXME: what about invoking gate key to malformed?
+  assert(inv->invokee);
+  assert(proc_IsRunnable(invokee));
 
-  /* Make sure it isn't later overwritten by the general delivery
-   * mechanism.  */
-  inv->suppressXfer = true;
+  /* We copy the message here, not calling ReturnMessage(). */
 
-  if (! proc_IsExpectingMsg(inv->invokee)) {
+  if (inv->invKeyType == KKT_Resume)
+    keyR_ZapResumeKeys(&invokee->keyRing);
+  act_AssignTo(allocatedActivity, invokee);
+
+  if (inv->invType == IT_Send) {
+    act_Wakeup(allocatedActivity);
+  }
+
+  invokee->runState = RS_Running;
+
+  if (! proc_IsExpectingMsg(invokee)) {
     /* A segment keeper or process keeper is invoking the resume key
     it received. 
     A zero order code means clear the fault.
@@ -116,7 +121,7 @@ GateKey(Invocation* inv /*@ not null @*/)
     }
     else
       proc_ClearFault(invokee);
-    return;
+    goto exit;
   }
 
   /* Transfer the data: */
@@ -148,7 +153,7 @@ GateKey(Invocation* inv /*@ not null @*/)
     
     if (inv->exit.pKey[RESUME_SLOT]) {
       if (invType_IsCall(inv->invType)) {
-	proc_BuildResumeKey(proc_curProcess, inv->exit.pKey[RESUME_SLOT]);
+	proc_BuildResumeKey(invoker, inv->exit.pKey[RESUME_SLOT]);
       }
       else
 	key_NH_Set(inv->exit.pKey[RESUME_SLOT], inv->entry.key[RESUME_SLOT]);
@@ -156,6 +161,12 @@ GateKey(Invocation* inv /*@ not null @*/)
   }
 
   proc_DeliverGateResult(invokee, inv, false);
+  proc_AdvancePostInvocationPC(invokee);
   
+exit:
+#ifndef NDEBUG
+  allocatedActivity = 0;
+  InvocationCommitted = false;
+#endif
   return;
 }

@@ -250,5 +250,5 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
     break;
   }
 
-  return;
+  ReturnMessage(inv);
 }

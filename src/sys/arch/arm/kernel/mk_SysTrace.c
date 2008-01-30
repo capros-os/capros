@@ -69,4 +69,5 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
       break;
     }
   }
+  ReturnMessage(inv);
 }
