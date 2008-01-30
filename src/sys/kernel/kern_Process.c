@@ -60,8 +60,7 @@ proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info)
 #endif
 #if 1	// if failing fast for debugging
   // Halt if no keeper:
-  Key * key = & thisPtr->procRoot->slot[ProcKeeper];
-  assert(keyBits_IsType(key, KKT_Start));
+  assert(keyBits_IsType(& thisPtr->procRoot->slot[ProcKeeper], KKT_Start));
 #endif
 }
 

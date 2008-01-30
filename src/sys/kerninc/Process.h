@@ -342,7 +342,6 @@ void proc_WriteBackKeySlot(Process* thisPtr, uint32_t whichKey);
 #endif
 
 void proc_SyncActivity(Process* thisPtr);
-void proc_ClearActivity(Process * proc);
 
 void proc_Unload(Process* thisPtr);
 

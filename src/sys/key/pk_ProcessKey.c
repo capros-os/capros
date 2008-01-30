@@ -253,12 +253,6 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
     p = node_GetDomainContext(theNode);
     proc_Prepare(p);
 
-    COMMIT_POINT();
-
-    /* we should zap other resume keys here.
-     Note, if a process Calls a key to itself, that should invalidate the
-     invokee. */
-
     // If there is a resume key, state must be Waiting.
     /* There are several cases to consider:
       A. p == invoker
@@ -300,30 +294,29 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
              No problem.
     */
 
+    if (p == inv->invokee) {
+      // Cases A1 and B2a.
+      /* We are zapping the resume key logically held by the kernel
+      to the invokee, therefore we won't return to the invokee. */
+      inv->invokee = NULL;
+      inv->exit.pKey[0] = NULL;
+    }
+
+    COMMIT_POINT();
+
+    /* Clear any activity in the process. This must be done after commit,
+    because commit may have cleared p->curActivity. */
+    Activity * act = p->curActivity;
+    if (act) {
+      act_Dequeue(act);
+      act_SetContext(act, 0);
+      proc_Deactivate(p);
+      act_DeleteActivity(act);
+    }
+
     p->runState = RS_Waiting;
 
-    if (p->curActivity) {
-      if (p == act_CurContext())
-        if (p->runState == RS_Running) {
-          // Case A3. Invokee will get allocatedActivity, so kill p->curActivity
-          // act_ForceResched(); ?
-          proc_ClearActivity(p);
-        } else {
-          // Cases A1 and A2. 
-          // Save p->curActivity, as it will be needed for the invokee.
-        }
-      else {
-        // p is now Waiting, so it mustn't have an Activity.
-        proc_ClearActivity(p);
-      }
-    }
-
     keyR_ZapResumeKeys(&p->keyRing);
-
-    if (p == inv->invokee) {	// Case A1 or B2a
-      inv->invokee = NULL;
-      return;
-    }
 
     if (inv->exit.pKey[0]) {
       inv_SetExitKey(inv, 0, inv->key);

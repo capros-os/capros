@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -148,7 +148,7 @@ GateKey(Invocation* inv /*@ not null @*/)
     
     if (inv->exit.pKey[RESUME_SLOT]) {
       if (invType_IsCall(inv->invType)) {
-	proc_BuildResumeKey(act_CurContext(), inv->exit.pKey[RESUME_SLOT]);
+	proc_BuildResumeKey(proc_curProcess, inv->exit.pKey[RESUME_SLOT]);
       }
       else
 	key_NH_Set(inv->exit.pKey[RESUME_SLOT], inv->entry.key[RESUME_SLOT]);

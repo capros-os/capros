@@ -212,15 +212,13 @@ bool InvocationCommitted = false;
 
 /* May Yield. */
 void 
-inv_Commit(Invocation* thisPtr)
+inv_Commit(Invocation * thisPtr)
 {
-  inv_MaybeDecommit(thisPtr);
-  
-#ifndef NDEBUG
-  InvocationCommitted = true;
-#endif
+  assert(allocatedActivity == 0);
 
-  /* Revise the invoker runState. */
+  inv_MaybeDecommit(thisPtr);
+
+  /* Revise the invoker state. */
   Process * invoker = act_CurContext();
 
   switch (inv.invType) {
@@ -231,19 +229,56 @@ inv_Commit(Invocation* thisPtr)
     dprintf(false, "Wake up the waiters sleeping on dr=0x%08x\n", invoker);
 #endif
     sq_WakeAll(&invoker->stallQ, false);
-    break;
+    goto inactivate;
 
   case IT_Send:
+    /* If this is a send, we will need a new Activity for the invokee.
+       Allocate it now before the invocation is committed.
+       Allocation failure is not currently handled, but when it is,
+       we could Yield here before the invocation is committed. */
+
+    allocatedActivity = act_AllocActivity();
+    allocatedActivity->state = act_Ready;
+#ifdef GATEDEBUG
+    dprintf(GATEDEBUG>2, "Built new activity for Send\n");
+#endif
     // invoker remains RS_Running
+    proc_AdvancePostInvocationPC(invoker);
     break;
 
   case IT_Call:
   case IT_KeeperCall:
     invoker->runState = RS_Waiting;
+
+    if (invoker != inv.invokee) {
+      // Call of a gate key, or call makeResumeKey(self)
+inactivate: ;
+      /* The invoker is losing its Activity.
+      Save it for use by the invokee. */
+      Activity * t = invoker->curActivity;
+
+      assert(t == act_Current());
+      assert(t->context == invoker);
+
+      proc_Deactivate(invoker);
+#ifndef NDEBUG
+      /* Note, at this point we have: */
+      assert(act_Current() == t);
+      assert(proc_curProcess == invoker);
+      // but:
+      assert(invoker->curActivity == NULL);
+      t->context = NULL;
+#endif
+      allocatedActivity = t;
+    }
     break;
 
   default: assert(false);
   }
+  
+#ifndef NDEBUG
+  InvocationCommitted = true;
+#endif
 }
 
 bool 
@@ -503,21 +538,6 @@ inv_SetupExitBlock(Invocation * inv)
 #ifdef GATEDEBUG
   dprintf(GATEDEBUG>2, "Populated exit block\n");
 #endif
-  
-  if (inv->invType == IT_Send) {
-    /* If this is a send, and we are either (a) invoking a gate key,
-       or (b) invoking a kernel key and passing a resume key to
-       someone else, then we will need a new activity.
-       Allocate it now before the invocation is committed. */
-
-    if (inv->invokee) {
-      allocatedActivity = act_AllocActivity();
-      allocatedActivity->state = act_Ready;
-#ifdef GATEDEBUG
-      dprintf(GATEDEBUG>2, "Built new activity for Send\n");
-#endif
-    }
-  }
 }
 
 void
@@ -668,7 +688,7 @@ proc_DoKeyInvocation(Process* thisPtr)
 
     assert (InvocationCommitted);
 
-    assert(proc_Current() == thisPtr);
+    assert(proc_curProcess == thisPtr);
 
 #ifndef NDEBUG
     InvocationCommitted = false;    
@@ -718,13 +738,10 @@ proc_DoKeyInvocation(Process* thisPtr)
 #endif
 
     if (inv.invokee != thisPtr) {
-      /* Following is only safe because we handle non-call on primary
-       * key in the general path.
-       */
       if (inv.invKeyType == KKT_Resume)
         keyR_ZapResumeKeys(&inv.invokee->keyRing);
 
-      act_MigrateFromCurrent(thisPtr, inv.invokee);
+      act_AssignToCurrent(allocatedActivity, inv.invokee);
 #ifdef OPTION_DDB
       if (inv.invokee->readyQ == &prioQueues[pr_Never])
         dprintf(true, "Thread now in ctxt 0x%08x w/ bad schedule\n", 
@@ -734,11 +751,14 @@ proc_DoKeyInvocation(Process* thisPtr)
   }
   else {	// inv.invokee == 0
  no_invokee:
-    act_DeleteCurrent();
+    act_DeleteActivity(allocatedActivity);
   }
   
   inv_Cleanup(&inv);
   inv.invokee = 0;
+#ifndef NDEBUG
+  allocatedActivity = 0;
+#endif
 
 #ifdef OPTION_KERN_TIMING_STATS
   {
@@ -786,7 +806,6 @@ proc_DoKeyInvocation(Process* thisPtr)
 void
 proc_DoGeneralKeyInvocation(Process* thisPtr)
 {
-  assert(allocatedActivity == 0);
   assert(keyBits_IsPrepared(inv.key));
   
   /* If this is a prompt invocation, it MUST be done on a resume key.
@@ -877,7 +896,7 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
 
   assert (InvocationCommitted);
 
-  assert(proc_Current() == thisPtr);
+  assert(proc_curProcess == thisPtr);
 
 #ifndef NDEBUG
   InvocationCommitted = false;    
@@ -905,14 +924,12 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
   if (inv.invokee) {
     if (proc_IsNotRunnable(inv.invokee)) {
       if (inv.invokee->procRoot == 0) {
-	inv.invokee = 0;
 	goto bad_invokee;
       }
       
       proc_Prepare(inv.invokee);
 
       if (proc_IsNotRunnable(inv.invokee)) {
-	inv.invokee = 0;
 	goto bad_invokee;
       }
     }
@@ -941,57 +958,32 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
     /* If we are returning to ourselves, the resume key was never
      * generated.
      */
-    if (inv.invokee != thisPtr)
+    if (inv.invokee != thisPtr) {
       keyR_ZapResumeKeys(&inv.invokee->keyRing);
+      act_AssignTo(allocatedActivity, inv.invokee);
+
+      if (inv.invType == IT_Send) {
+        act_Wakeup(allocatedActivity);
+#ifdef GATEDEBUG
+        dprintf(GATEDEBUG>2, "Woke up forkee\n");
+#endif
+      }
+    }
   }
+  else {
  bad_invokee:
-  
-  if (inv.invType == IT_Send) {
-    /* dprintf(false, "Advancing SENDer PC in slow path\n"); */
-    proc_AdvancePostInvocationPC(thisPtr);
+    act_DeleteActivity(allocatedActivity);
   }
 
-  /* ONCE DELIVERRESULT IS CALLED, NONE OF THE INPUT CAPABILITIES
-     REMAINS ALIVE!!! */
+#ifndef NDEBUG
+  allocatedActivity = 0;
+#endif
   
   /* Clean up the invocation block: */
   inv_Cleanup(&inv);
 #ifdef GATEDEBUG
   dprintf(GATEDEBUG>2, "Cleaned up invocation\n");
 #endif
-  
-  if (inv.invType == IT_Send) {
-    if (allocatedActivity) {
-      if (inv.invokee) {
-        act_MigrateTo(allocatedActivity, inv.invokee);
-
-#ifdef OPTION_DDB
-        if (inv.invokee && inv.invokee->readyQ == &prioQueues[pr_Never])
-          dprintf(true, "Activity now in ctxt 0x%08x w/ bad schedule\n", 
-		        inv.invokee);
-#endif
-
-        act_Wakeup(allocatedActivity);
-#ifdef GATEDEBUG
-        dprintf(GATEDEBUG>2, "Woke up forkee\n");
-#endif
-      }
-      else {	// invokee went away after we allocated the Activity?
-        act_DeleteActivity(allocatedActivity);
-      }
-      allocatedActivity = 0;
-    }
-    else 	// no allocatedActivity
-      assert(! inv.invokee);
-  }
-  else {	// not Send
-    assert(!allocatedActivity);
-    if (inv.invokee)
-      act_MigrateFromCurrent(thisPtr, inv.invokee);
-    else	// Probably RETURN to void.
-		// Could also be CALL Process_makeResumeKey(self).
-      act_DeleteCurrent();
-  }
 
 #ifdef DBG_WILD_PTR
   {

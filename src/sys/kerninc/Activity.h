@@ -202,7 +202,32 @@ const char* act_Name(Activity* thisPtr);
 void act_DeleteActivity(Activity* t);
 void act_DeleteCurrent(void);
 
-void act_MigrateTo(Activity * thisPtr, Process * dc);
+/*
+ * It proves that the only activity migrations that occur in EROS are to
+ * processs that are runnable.  If a process is runnable, we know that
+ * it has a proper schedule key.  We can therefore assume that the
+ * reserve slot of the destination context is populated, and we can
+ * simply pick it up and go with it.
+ */
+INLINE void 
+act_AssignTo(Activity * thisPtr, Process * dc)
+{
+  act_SetContext(thisPtr, dc);
+  proc_SetActivity(dc, thisPtr);
+
+  /* FIX: Check for preemption! */
+  thisPtr->readyQ = dc->readyQ;
+}
+
+INLINE void 
+act_AssignToCurrent(Activity * thisPtr, Process * dc)
+{
+  act_SetContextCurrent(thisPtr, dc);
+  proc_SetActivity(dc, thisPtr);
+
+  /* FIX: Check for preemption! */
+  thisPtr->readyQ = dc->readyQ;
+}
 
 INLINE void
 act_MigrateFromCurrent(Process * from, Process * to)
