@@ -691,7 +691,7 @@ cantrun:
 	}
 
 	// Restore current address space in case we changed it.
-	Process * proc = act_CurContext();
+	Process * proc = proc_Current();
 	if (proc && ! mach_LoadAddrSpace(proc))
 		goto cantrun;
 
