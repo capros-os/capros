@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -38,7 +38,11 @@ struct Activity * act_curActivity = 0;
    (or NULL if act_curActivity is NULL). */
 struct Process * proc_curProcess = 0;
 
-uint32_t act_yieldState;
+// A bool is sufficient, but an int is more efficient.
+unsigned int act_yieldState = 0;
+
+// A bool is sufficient, but an int is more efficient.
+unsigned int timerWork = 0;
 
 /* PteZapped serves two purposes.
    1. It says whether the TLB needs to be flushed. This allows us to defer,

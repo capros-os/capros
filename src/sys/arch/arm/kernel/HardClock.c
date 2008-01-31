@@ -49,7 +49,7 @@ We don't use the tick (64 Hz) interrupt at all.
  */
 
 volatile uint32_t sysT_now_high;
-volatile uint64_t sysT_wakeup = ~(0llu);
+volatile uint64_t sysT_wakeup = UINT64_MAX;
 
 // 501530 is 1000000 ns / 1.9939 kHz.
 uint64_t
@@ -149,6 +149,7 @@ sysT_Now(void)
 #if 0
   printf("Now=%x\n", (uint32_t)now);
 #endif
+  sysT_latestTime = now;
   return now;
 }
 
@@ -170,30 +171,28 @@ void
 TC1OIHandler(VICIntSource * vis)
 {
   // We are on VIC1, no need to read VIC1VectAddr.
-  irq_ENABLE_for_IRQ();
   Timers.Timer1.Clear = 0;	// clear the interrupt
 
   /* Capture a stable value of now to use for all subsequent calculations. */
   uint64_t now = sysT_Now();
 
   if (sysT_wakeup <= now) {	// wake up now
-    irqFlags_t flags = local_irq_save();
-  
-    sysT_WakeupAt(now);
-    RecalcWakeupTime();
+    /* Processing wakeups on the SleepQueue requires completing the
+    sleeping processes' invocations. 
+    If we did that work now, all the variables involved would have to be
+    protected with irq disable.
+    To avoid that, we just set the flag timerWork here,
+    and do the wakeups in ExitTheKernel (a "software interrupt).
+    Also set act_yieldState so timerWork will be noticed. */
 
-    local_irq_restore(flags);
-#if 0
-    /* Note, kernel printf does not support long long sizes. */
-    printf("Timer 1 woke up, now=%x%08x, wakeup=%x%08x\n",
-       (uint32_t)(now>>32), (uint32_t)now,
-       (uint32_t)(sysT_wakeup>>32), (uint32_t)sysT_wakeup);
-#endif
+    /* Nothing to wait for until that work is done. */
+    sysT_wakeup = UINT64_MAX;
+    timerWork = true;
+    act_yieldState = true;
   }
   /* If sysT_wakeup > now, it is because the time could not hold the
      full wait time. Just reload the timer. */
   ReloadWakeupTimer(now);
-  irq_DISABLE();
   VIC1.VectAddr = 0;	// write it to reenable interrupts
 			// of lower or equal priority
 }

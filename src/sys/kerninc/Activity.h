@@ -91,7 +91,8 @@ struct Activity {
 
 extern const char *act_stateNames[act_NUM_STATES]; 
 
-extern uint32_t act_yieldState;
+extern unsigned int act_yieldState;
+extern unsigned int timerWork;
 extern Activity * act_curActivity;
 extern Process * proc_curProcess;
 

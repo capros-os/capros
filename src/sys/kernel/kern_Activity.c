@@ -709,6 +709,18 @@ act_DoReschedule(void)
   assert(local_irq_disabled());
 }
 
+void
+HandleDeferredWork(void)
+{
+  if (timerWork) {
+    timerWork = false;
+
+    // FIXME: check that all variables are properly locked by irq
+    sysT_WakeupAt();
+  }
+  act_DoReschedule();
+}
+
 // May Yield.
 void
 ExitTheKernel(void)
@@ -716,11 +728,14 @@ ExitTheKernel(void)
   assert(local_irq_disabled());
 
   UpdateTLB();
-  
-  if ((act_yieldState != 0)
-      || ! act_IsRunnable(act_Current()) ) {
+
+  if (act_yieldState) {
+    HandleDeferredWork();
+  }
+  else if (! act_IsRunnable(act_Current())) {
     act_DoReschedule();
   }
+  
   assert(act_Current());
 
   Process * thisPtr = act_CurContext();

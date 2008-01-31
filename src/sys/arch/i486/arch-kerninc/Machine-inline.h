@@ -2,9 +2,9 @@
 #define __MACHINE_INLINE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -23,6 +23,8 @@
 /* This material is based upon work supported by the US Defense Advanced
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
+
+#include <kerninc/SysTimer.h>
 
 struct ObjectHeader;
 extern volatile uint64_t sysT_now;
@@ -56,6 +58,7 @@ sysT_Now()
     t2 = sysT_now;
   } while (t1 != t2);
   
+  sysT_latestTime = t1;
   return t1;
 }
 

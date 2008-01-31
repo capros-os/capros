@@ -2,7 +2,7 @@
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -56,8 +56,13 @@ Activity * act_curActivity __attribute__((aligned(4),
 struct Process * proc_curProcess __attribute__((aligned(4),
                                            section(".data"))) = 0;
 
-uint32_t act_yieldState __attribute__((aligned(4),
-					   section(".data")));
+// A bool is sufficient, but an int is more efficient.
+unsigned int act_yieldState __attribute__((aligned(4),
+					   section(".data"))) = 0;
+
+// A bool is sufficient, but an int is more efficient.
+unsigned int timerWork __attribute__((aligned(4),
+				   section(".data"))) = 0;
 #ifdef OPTION_KERN_TIMING_STATS
 uint32_t inv_delta_reset __attribute__((aligned(4),
 					section(".data")));

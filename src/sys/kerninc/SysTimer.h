@@ -26,12 +26,14 @@ Approved for public release, distribution unlimited. */
 
 extern uint32_t loopsPer8us;
 
+extern uint64_t sysT_latestTime;
+
 struct Activity;
 extern struct Activity * ActivityChain;
 
 void sysT_ResetWakeTime();
 uint64_t sysT_WakeupTime(void);
-void sysT_WakeupAt(uint64_t now);
+void sysT_WakeupAt(void);
   
 void sysT_AddSleeper(struct Activity *);
 void sysT_CancelAlarm(struct Activity *);

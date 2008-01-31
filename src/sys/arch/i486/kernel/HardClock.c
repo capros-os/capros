@@ -200,13 +200,18 @@ mach_TicksToNanoseconds(uint64_t ticks)
 void
 sysT_Wakeup(savearea_t *sa)
 {
-  irqFlags_t flags = local_irq_save();
-  
-  sysT_WakeupAt(sysT_now);
+  /* Processing wakeups on the SleepQueue requires completing the
+  sleeping processes' invocations. 
+  If we did that work now, all the variables involved would have to be
+  protected with irq disable.
+  To avoid that, we just set the flag timerWork here,
+  and do the wakeups in ExitTheKernel (a "software interrupt).
+  Also set act_yieldState so timerWork will be noticed. */
 
-  sysT_ResetWakeTime();
-
-  local_irq_restore(flags);
+  /* Nothing to wait for until that work is done. */
+  sysT_wakeup = UINT64_MAX;
+  timerWork = true;
+  act_yieldState = true;
 
   irq_Enable(IRQ_FROM_EXCEPTION(sa->ExceptNo));
 }
@@ -214,7 +219,10 @@ sysT_Wakeup(savearea_t *sa)
 void
 sysT_ResetWakeTime(void)
 {
-  sysT_wakeup = sysT_WakeupTime();
+  if (timerWork)
+    sysT_wakeup = UINT64_MAX;
+  else
+    sysT_wakeup = sysT_WakeupTime();
 }
 
 void

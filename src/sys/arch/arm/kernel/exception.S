@@ -1,6 +1,6 @@
 	.file	"exception.S"
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -332,9 +332,9 @@ stackMsg:	.asciz "IRQ Stack is off"
 	// the current Process cannot become unrunnable.
 	ldr r0,=act_yieldState
 	ldr r0,[r0]
+	msr spsr_cxsf,r11	// used if quickly returning
 	cmp r0,#0
 	/* If eq, we can quickly return to the process we interrupted. */
-	msreq spsr_cxsf,r11	// return to unpreempted user
 	ldmeqfd sp!,{r0-r3,r10-r12,pc}^
 
 	/* Save the registers in the current process's context. */
@@ -370,7 +370,7 @@ supStackMsg:	.asciz "Supervisor Stack is 0x%x should be 0x%x\n"
 1:
 #endif
 
-	bl act_DoReschedule
+	bl HandleDeferredWork
 
 	ldr lr,=proc_curProcess
 	ldr r0,[lr]		// current Process

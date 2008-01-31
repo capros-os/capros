@@ -31,6 +31,11 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/CPU.h>
 #include <kerninc/CpuReserve.h>
 
+/* The system time, the last time we read it. 
+Call sysT_Now() to update this. 
+Read with irq disabled, because it may be updated in an interrupt. */
+uint64_t sysT_latestTime;
+
 DEFQUEUE(SleepQueue);
 
 /* Using 8 microseconds instead of 1 microsecond gives better resolution
@@ -122,10 +127,11 @@ sysT_BootInit()
    After exit, caller must recalculate the wakeup time.
    This procedure is called from the clock interrupt with IRQ disabled.  */
 void
-sysT_WakeupAt(uint64_t now)
+sysT_WakeupAt(void)
 {
+  uint64_t now = sysT_latestTime;
   if (cpu->preemptTime <= now) {
-    cpu->preemptTime = ~0llu;
+    cpu->preemptTime = UINT64_MAX;
     res_ActivityTimeout(now);
   }
 
@@ -137,6 +143,8 @@ sysT_WakeupAt(uint64_t now)
     //// deliver ivk result
     act_Wakeup(t);
   }
+
+  sysT_ResetWakeTime();
 }
 
 #ifdef KKT_TIMEPAGE
