@@ -180,7 +180,6 @@ struct usb_interface {
 	enum usb_interface_condition condition;		/* state of binding */
 	unsigned is_active:1;		/* the interface is not suspended */
 	unsigned needs_remote_wakeup:1;	/* driver requires remote wakeup */
-	unsigned is_hub:1;
 	u8 intfNum;	// interface number, index in usb_host_config.interfaces
 
 	struct device dev;		/* interface specific device info */
@@ -299,6 +298,7 @@ int __usb_get_extra_descriptor(char *buffer, unsigned size,
 /* USB device number allocation bitmap */
 struct usb_devmap {
 	unsigned long devicemap[128 / (8*sizeof(unsigned long))];
+	struct usb_device * udev[128];
 };
 
 /*

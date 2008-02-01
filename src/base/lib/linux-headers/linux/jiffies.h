@@ -249,6 +249,8 @@ static inline unsigned long capros_getJiffies(void)
  */
 extern unsigned int jiffies_to_msecs(const unsigned long j);
 extern unsigned int jiffies_to_usecs(const unsigned long j);
+/* the above will overflow 32 bits in 1.2 hours, so we provide: */
+uint64_t jiffies64_to_usecs(uint64_t j);
 extern unsigned long msecs_to_jiffies(const unsigned int m);
 extern unsigned long usecs_to_jiffies(const unsigned int u);
 extern unsigned long timespec_to_jiffies(const struct timespec *value);
