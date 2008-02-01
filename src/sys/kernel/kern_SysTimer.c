@@ -155,7 +155,7 @@ sysT_WakeupAt(void)
 
     Process * invokee = t->context;
 
-#if 1
+#if 0
     dprintf(false, "Waking from sleep, p=%#x pc=%#x.\n", invokee,
       invokee->trapFrame.r15);
 #endif

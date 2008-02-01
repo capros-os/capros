@@ -366,7 +366,7 @@ __mod_timer(struct timer_list * timer, unsigned long expires)
     = timer->caprosExpiration
     = jiffies64_to_usecs(now64 + duration) * 1000;	// nanoseconds
 
-#if 1
+#if 0
   printk("mod_timer, exp=%u jif=%u capexp=%llu\n",
          expires, now, timer->caprosExpiration);
 #endif
