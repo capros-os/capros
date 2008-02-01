@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -347,8 +347,6 @@ proc_DeliverResult(Process* thisPtr, Invocation* inv /*@ not null @*/)
   uint32_t rcvPtr;
   assert(proc_IsRunnable(thisPtr));
 
-  assert (inv->invKeyType > KKT_Resume);
-  
   /* copy return code and words */
   thisPtr->trapFrame.EAX = inv->exit.code;
   thisPtr->trapFrame.EBX = inv->exit.w1;

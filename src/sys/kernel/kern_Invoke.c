@@ -538,7 +538,7 @@ ReturnMessage(Invocation * inv)
      */
     if (invokee != proc_curProcess) {
       /* keyR_ZapResumeKeys isn't always needed; may be faster to check
-      first if it is necessary. */
+      first if it is necessary: */
       if (inv->invKeyType != KKT_Start)
         keyR_ZapResumeKeys(&invokee->keyRing);
       act_AssignTo(allocatedActivity, invokee);
@@ -568,11 +568,6 @@ ReturnMessage(Invocation * inv)
  bad_invokee:
     act_DeleteActivity(allocatedActivity);
   }
-
-#ifndef NDEBUG
-  allocatedActivity = 0;
-  InvocationCommitted = false;    
-#endif
 }
 
 void
@@ -705,11 +700,20 @@ proc_DoKeyInvocation(Process* thisPtr)
     check_Consistency("DoKeyInvocation() before invoking handler");
 #endif
 
+#ifdef GATEDEBUG
+  dprintf(GATEDEBUG>2, "fast path, before key dispatch\n");
+#endif
+
   {
 #if defined(OPTION_KERN_TIMING_STATS)
     uint64_t pre_handler = rdtsc();
 #endif
     proc_KeyDispatch(&inv);
+
+#ifndef NDEBUG
+  allocatedActivity = 0;
+  InvocationCommitted = false;    
+#endif
 
 #ifdef GATEDEBUG
   dprintf(GATEDEBUG>2, "fast path, after key dispatch\n");
@@ -852,6 +856,15 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
 #endif
 
   proc_KeyDispatch(&inv);
+
+#ifdef GATEDEBUG
+  dprintf(GATEDEBUG>2, "After proc_KeyDispatch\n");
+#endif
+
+#ifndef NDEBUG
+  allocatedActivity = 0;
+  InvocationCommitted = false;    
+#endif
   
 #if defined(OPTION_KERN_TIMING_STATS)
   {

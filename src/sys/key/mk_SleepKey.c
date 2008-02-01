@@ -61,8 +61,6 @@ SleepKey(Invocation* inv /*@ not null @*/)
       uint64_t ms = (((uint64_t) inv->entry.w2) << 32)
                     | ((uint64_t) inv->entry.w1);
 
-      /* FIX: call DeliverResult() here to update result regs! */
-
       uint64_t wakeupTime;
       if (inv->entry.code == OC_capros_Sleep_sleep)
         wakeupTime = sysT_Now() + mach_MillisecondsToTicks(ms);
@@ -74,25 +72,31 @@ SleepKey(Invocation* inv /*@ not null @*/)
       printf("sleep till %#llx now=%#llx diff=%lld\n",
              wakeupTime, nw, wakeupTime - nw);
 #endif
-      
-      irqFlags_t flags = local_irq_save();
 
-      act_SleepUntilTick(act_Current(), wakeupTime);
+      assert(link_isSingleton(& act_Current()->q_link));
 
-      /* Invokee is resuming from either waiting or available state, so
-	 advance their PC past the trap instruction.
+      COMMIT_POINT();
 
-	 If this was a kernel key invocation in the fast path, we never
-	 bothered to actually set them waiting, but they were logically
-	 in the waiting state nonetheless. */
-	// FIXME: all this code is completely wrong if invoker != invokee
-	// and needs to be redone.
-      proc_AdvancePostInvocationPC(act_CurContext());
+      /* We have now taken care of the invoker.
+         It is the invokee who will be awakened later. */
 
-      local_irq_restore(flags);
+      Process * invokee = inv->invokee;
 
-      act_Yield();
-      break;
+      if (! invokee)
+        break;	// no one to wake up at the end of the wait
+
+      assert(proc_IsRunnable(invokee));
+
+      if (invokee != proc_curProcess) {
+        act_AssignTo(allocatedActivity, invokee);
+      }
+
+      assert(link_isSingleton(& act_Current()->q_link));
+
+      act_SleepUntilTick(invokee->curActivity, wakeupTime);
+      act_ForceResched();
+
+      return;	// don't call ReturnMessage
     }
       
   case OC_capros_Sleep_getDelayCalibration:

@@ -35,7 +35,7 @@ void sysT_ResetWakeTime();
 uint64_t sysT_WakeupTime(void);
 void sysT_WakeupAt(void);
   
-void sysT_AddSleeper(struct Activity *);
+void sysT_AddSleeper(struct Activity *, uint64_t wakeTime);
 void sysT_CancelAlarm(struct Activity *);
 
 void sysT_BootInit();

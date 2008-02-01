@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/SysTimer.h>
 #include <kerninc/CPU.h>
 #include <kerninc/CpuReserve.h>
+#include <kerninc/Invocation.h>
 
 /* The system time, the last time we read it. 
 Call sysT_Now() to update this. 
@@ -69,7 +70,7 @@ uint64_t
 sysT_WakeupTime(void)
 {
   uint64_t ret = cpu->preemptTime;
-  if (! link_isSingleton(&SleepQueue.q_head)) {
+  if (! sq_IsEmpty(&SleepQueue)) {
     Activity * t = container_of(SleepQueue.q_head.next, Activity, q_link);
     if (t->wakeTime < ret)
       return t->wakeTime;
@@ -78,9 +79,18 @@ sysT_WakeupTime(void)
 }
 
 void
-sysT_AddSleeper(Activity * t)
+sysT_AddSleeper(Activity * t, uint64_t wakeTime)
 {
+  assert(link_isSingleton(&t->q_link));
+
+#if 0
+  uint64_t now = sysT_Now();
+  dprintf(false, "AddSleeper act=%#x wakeTime=%#llu now %#llx dur=%lld\n",
+     t, wakeTime, now, wakeTime - now);
+#endif
+
   t->lastq = &SleepQueue;
+  t->wakeTime = wakeTime;
 
   irqFlags_t flags = local_irq_save();
 
@@ -88,7 +98,7 @@ sysT_AddSleeper(Activity * t)
   Link * cur = &SleepQueue.q_head;
   Link * nxt;
   while (nxt = cur->next, nxt != &SleepQueue.q_head) {
-    if (container_of(nxt, Activity, q_link)->wakeTime >= t->wakeTime)
+    if (container_of(nxt, Activity, q_link)->wakeTime >= wakeTime)
       break;	// insert before nxt
     cur = nxt;
   }
@@ -135,13 +145,34 @@ sysT_WakeupAt(void)
     res_ActivityTimeout(now);
   }
 
-  while (! link_isSingleton(&SleepQueue.q_head)) {
+  while (! sq_IsEmpty(&SleepQueue)) {
     Activity * t = container_of(SleepQueue.q_head.next, Activity, q_link);
     if (t->wakeTime > now)
       break;
     link_Unlink(&t->q_link);
-    //// deliver ivk result
+
+    // Complete this process's sleep invocation.
+
+    Process * invokee = t->context;
+
+#if 1
+    dprintf(false, "Waking from sleep, p=%#x pc=%#x.\n", invokee,
+      invokee->trapFrame.r15);
+#endif
+
     act_Wakeup(t);
+    invokee->runState = RS_Running;
+
+    keyR_ZapResumeKeys(&invokee->keyRing);
+
+    if (proc_IsExpectingMsg(invokee)) {
+      // Set up message to return in inv, which is not otherwise used here.
+      inv.exit.code = RC_OK;
+      inv.exit.w1 = inv.exit.w2 = inv.exit.w3 = 0;
+      inv.sentLen = 0;
+      proc_DeliverResult(invokee, &inv);
+      proc_AdvancePostInvocationPC(invokee);
+    }
   }
 
   sysT_ResetWakeTime();

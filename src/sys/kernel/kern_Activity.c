@@ -431,14 +431,14 @@ act_SleepOn(StallQueue * q /*@ not null @*/)
 void 
 act_SleepUntilTick(Activity * thisPtr, uint64_t tick) 
 {  
-  assert(link_isSingleton(&thisPtr->q_link));
+  irqFlags_t flags = local_irq_save();
 
-  thisPtr->wakeTime = tick;
-
-  sysT_AddSleeper(thisPtr);
+  sysT_AddSleeper(thisPtr, tick);
 
   thisPtr->state = act_Sleeping;
   InactivateReserve(thisPtr);
+
+  local_irq_restore(flags);
 }
 
 void 
@@ -672,7 +672,7 @@ act_DoReschedule(void)
     }
 #endif
 
-  } while (act_IsRunnable(act_Current()) == false);
+  } while (! act_IsRunnable(act_Current()));
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)

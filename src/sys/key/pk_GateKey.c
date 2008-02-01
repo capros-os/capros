@@ -121,7 +121,7 @@ GateKey(Invocation* inv /*@ not null @*/)
     }
     else
       proc_ClearFault(invokee);
-    goto exit;
+    return;
   }
 
   /* Transfer the data: */
@@ -163,10 +163,5 @@ GateKey(Invocation* inv /*@ not null @*/)
   proc_DeliverGateResult(invokee, inv, false);
   proc_AdvancePostInvocationPC(invokee);
   
-exit:
-#ifndef NDEBUG
-  allocatedActivity = 0;
-  InvocationCommitted = false;
-#endif
   return;
 }

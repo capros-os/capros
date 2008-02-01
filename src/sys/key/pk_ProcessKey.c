@@ -382,6 +382,10 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 
       COMMIT_POINT();
 
+#if 0
+      printf("setRegisters32 p=%#x pc=%#x\n", p, regs.pc);
+#endif
+
       inv_CopyIn(inv, sizeof(regs), &regs);
 
       proc_SetCommonRegs32(p, &regs);

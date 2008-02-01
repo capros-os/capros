@@ -50,8 +50,6 @@ proc_DeliverResult(Process * thisPtr, Invocation * inv /*@ not null @*/)
 {
   assert(proc_IsRunnable(thisPtr));
 
-  assert (inv->invKeyType > KKT_Resume);
-  
   /* copy return code and words */
   thisPtr->trapFrame.r1 = inv->exit.code;
   thisPtr->trapFrame.r2 = inv->exit.w1;
