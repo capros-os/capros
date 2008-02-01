@@ -294,7 +294,6 @@ void proc_InvokeProcessKeeper(Process* thisPtr);
 
 void proc_BuildResumeKey(Process* thisPtr, Key* resumeKey /*@ not null @*/);
 
-void proc_DoGeneralKeyInvocation(Process* thisPtr);
 void proc_DoKeyInvocation(Process* thisPtr);
 
 struct Invocation;

@@ -192,12 +192,14 @@ Invocation inv;
   
 #ifndef NDEBUG
 bool InvocationCommitted = false;
+bool ReturneeSetUp = false;
 #endif
 
 /* May Yield. */
 void 
 inv_Commit(Invocation * thisPtr)
 {
+  assert(ReturneeSetUp);
   assert(allocatedActivity == 0);
 
   inv_MaybeDecommit(thisPtr);
@@ -305,6 +307,7 @@ inv_Cleanup(Invocation* thisPtr)
   
 #ifndef NDEBUG
   InvocationCommitted = false;
+  inv.invokee = 0;	// to catch bugs
 #endif
   
   /* exit register values are set up in PopulateExitBlock, where they
@@ -496,8 +499,8 @@ inv_GetReturnee(Invocation * inv)
       assert(p->runState == RS_Waiting);
     }
     else
-noInvokee: ;
-      assert (inv->invokee == 0);
+noInvokee:
+      inv->invokee = 0;
   }
   
 #ifdef GATEDEBUG
@@ -508,6 +511,10 @@ noInvokee: ;
 #endif
 
   inv_SetupExitBlock(inv);
+
+#ifndef NDEBUG
+  ReturneeSetUp = true;
+#endif
 }
 
 void
@@ -614,7 +621,7 @@ uint64_t top_cnt1;
 #endif
 #endif
 
-static void
+void
 BeginInvocation(void)
 {
 #ifdef OPTION_KERN_TIMING_STATS
@@ -629,38 +636,14 @@ BeginInvocation(void)
 
 #ifndef NDEBUG
   InvocationCommitted = false;
+  ReturneeSetUp = false;
 #endif
 }
-
-/* This is a carefully coded routine, probably less than clear.  The
- * version that handles all of the necessary cases is
- * DoGeneralKeyInvocation; this version is trying to cherry pick the
- * high flyers.
- * 
- * The common cases are, in approximate order:
- * 
- *  1. CALL   on a gate key
- *  2. RETURN on a gate key    (someday: via returner)
- *  3. CALL   on a kernel key
- *  4. Anything else
- * 
- * This version also assumes that the string arguments are valid, and
- * does only the fast version of the string test.
- */
 
 /* May Yield. */
 void 
 proc_DoKeyInvocation(Process* thisPtr)
 {
-  BeginInvocation();
-  
-  objH_BeginTransaction();
-
-  /* Roll back the invocation PC in case we need to restart this operation */
-  proc_AdjustInvocationPC(thisPtr);
-
-  proc_SetupEntryBlock(thisPtr, &inv);
-
   key_Prepare(inv.key);
 #ifndef invKeyType
   inv.invKeyType = keyBits_GetType(inv.key);
@@ -677,119 +660,6 @@ proc_DoKeyInvocation(Process* thisPtr)
          inv.key - &thisPtr->keyReg[0], inv.entry.code);
 #endif
 
-#ifdef OPTION_DDB
-  if ( ddb_inv_flags )
-    goto general_path;
-#endif
-
-  if (invType_IsPrompt(inv.invType) && inv.invKeyType != KKT_Resume)
-    goto general_path;
-  inv.invType &= ~IT_PReturn;	// clear low bit, convert to nonprompt type
-
-  /* Send is a pain in the butt.  Fuck 'em if they can't take a joke. */
-  if (inv.invType == IT_Send)
-    goto general_path;
-
-  /* capros_Process_PF_ExpectingMessage isn't significant while RS_Running,
-  so it is OK to change it before the invocation is committed. */
-  assert(inv.invType != IT_KeeperCall);
-  thisPtr->processFlags |= capros_Process_PF_ExpectingMessage;
-  
-#if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
-  if (dbg_wild_ptr)
-    check_Consistency("DoKeyInvocation() before invoking handler");
-#endif
-
-#ifdef GATEDEBUG
-  dprintf(GATEDEBUG>2, "fast path, before key dispatch\n");
-#endif
-
-  {
-#if defined(OPTION_KERN_TIMING_STATS)
-    uint64_t pre_handler = rdtsc();
-#endif
-    proc_KeyDispatch(&inv);
-
-#ifndef NDEBUG
-  allocatedActivity = 0;
-  InvocationCommitted = false;    
-#endif
-
-#ifdef GATEDEBUG
-  dprintf(GATEDEBUG>2, "fast path, after key dispatch\n");
-#endif
-  
-#if defined(OPTION_KERN_TIMING_STATS)
-    {
-      extern uint32_t inv_delta_reset;
-      if (inv_delta_reset == 0) {
-	extern uint64_t inv_handler_cy;
-	uint64_t post_handler = rdtsc();
-	inv_handler_cy += (post_handler - pre_handler);
-	inv_KeyHandlerCycles[inv.invKeyType][inv.invType] +=
-	  (post_handler - pre_handler);
-	inv_KeyHandlerCounts[inv.invKeyType][inv.invType] ++;
-      }
-    }  
-#endif
-
-#if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
-    if (dbg_wild_ptr)
-      check_Consistency("DoKeyInvocation() after invoking handler");
-#endif
-  }
-  
-  inv_Cleanup(&inv);
-  inv.invokee = 0;
-
-#ifdef OPTION_KERN_TIMING_STATS
-  {
-    extern uint32_t inv_delta_reset;
-
-    if (inv_delta_reset == 0) {
-      extern uint64_t inv_delta_cy;
-
-      uint64_t bot_time = rdtsc();
-#ifdef OPTION_KERN_EVENT_TRACING
-      extern uint64_t inv_delta_cnt0;
-      extern uint64_t inv_delta_cnt1;
-
-      uint64_t bot_cnt0 = mach_ReadCounter(0);
-      uint64_t bot_cnt1 = mach_ReadCounter(1);
-      inv_delta_cnt0 += (bot_cnt0 - top_cnt0);
-      inv_delta_cnt1 += (bot_cnt1 - top_cnt1);
-#endif
-      inv_delta_cy += (bot_time - top_time);
-    }
-    else
-      inv_delta_reset = 0;
-  }
-#endif
-
-#if defined(DBG_WILD_PTR) || defined(TESTING_INVOCATION)
-  if (dbg_wild_ptr)
-    check_Consistency("bottom DoKeyInvocation()");
-#endif
-  
-  return;
-
- general_path:
-#ifdef GATEDEBUG
-  dprintf(GATEDEBUG>2, "taking slow path\n");
-#endif
-  
-  /* This path has its own, entirely separate recovery logic.... */
-  proc_DoGeneralKeyInvocation(thisPtr);
-  return;
-}
-
-/* On entry, inv entry block has been set up. */
-/* May Yield. */
-void
-proc_DoGeneralKeyInvocation(Process* thisPtr)
-{
-  assert(keyBits_IsPrepared(inv.key));
-  
   /* If this is a prompt invocation, it MUST be done on a resume key.
      If it isn't a resume key, treat it like a void key. */
   if (invType_IsPrompt(inv.invType)) {
@@ -805,10 +675,8 @@ proc_DoGeneralKeyInvocation(Process* thisPtr)
 
   assert(keyBits_IsPrepared(inv.key));
 
-  inv.invokee = 0;		/* until proven otherwise */
-
-  /* capros_Process_PF_ExpectingMessage isn't significant while RS_Running, so it is OK
-  to change it before the invocation is committed.
+  /* capros_Process_PF_ExpectingMessage isn't significant while RS_Running,
+  so it is OK to change it before the invocation is committed.
   Need to set it now in case the invoker is also the invokee. */
   if (inv.invType == IT_KeeperCall)
     thisPtr->processFlags &= ~capros_Process_PF_ExpectingMessage;
@@ -904,6 +772,7 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
   
   /* Clean up the invocation block: */
   inv_Cleanup(&inv);
+
 #ifdef GATEDEBUG
   dprintf(GATEDEBUG>2, "Cleaned up invocation\n");
 #endif
@@ -914,8 +783,6 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
     ValidateAllActivitys();
   }
 #endif
-
-  inv.invokee = 0;
   
 #ifdef OPTION_KERN_TIMING_STATS
   {
@@ -978,11 +845,6 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
   inv.entry.len = len;
   inv.sentLen = 0;
   
-  key_Prepare(keeperKey);
-#ifndef invKeyType
-  inv.invKeyType = keyBits_GetType(keeperKey);
-#endif
-
   inv.entry.data = data;
   
   if ( DDB_STOP(keeper) )
@@ -998,8 +860,8 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
     dprintf(true, "Kpr key is gate key\n");
 #endif
 
-    proc_DoGeneralKeyInvocation(thisPtr);	/* For better performance,
-	we could instead call the guts of proc_DoKeyInvocation. */
+    proc_DoKeyInvocation(thisPtr);
+
   } else {	// keeper is not a gate key
 #ifdef KPRDEBUG
     dprintf(true, "Kpr key is NOT a gate key!\n");

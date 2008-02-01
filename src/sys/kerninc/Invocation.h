@@ -61,6 +61,7 @@ typedef struct ExitBlock ExitBlock;
 
 #ifndef NDEBUG
 extern bool InvocationCommitted;
+extern bool ReturneeSetUp;
 #endif
 
 #if 0
@@ -121,10 +122,9 @@ struct Invocation {
 
 typedef struct Invocation Invocation;
 
-void
-inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data);
-uint32_t 
-inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data);
+void BeginInvocation(void);
+void inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data);
+uint32_t inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data);
 void inv_GetReturnee(Invocation * inv);
 void ReturnMessage(Invocation * inv);
 void inv_SetupExitBlock(Invocation * inv);

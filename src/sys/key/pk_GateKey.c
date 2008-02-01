@@ -58,6 +58,9 @@ GateKey(Invocation* inv /*@ not null @*/)
   // Runnable implies well-formed.
   assert(proc_IsWellFormed(invokee));
   inv->invokee = invokee;
+#ifndef NDEBUG
+  ReturneeSetUp = true;
+#endif
 
   // Check invokee's state.
   assert(! keyBits_IsType(inv->key, KKT_Resume)

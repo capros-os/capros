@@ -359,9 +359,18 @@ InvokeArm(Process * invokerProc,
   /* Enable IRQ interrupts. */
   irq_ENABLE();
 
-  assert(act_CurContext()->faultCode == capros_Process_FC_NoFault);
+  assert(invokerProc->faultCode == capros_Process_FC_NoFault);
 
-  proc_DoKeyInvocation(act_CurContext());
+  BeginInvocation();
+  
+  objH_BeginTransaction();
+
+  /* Roll back the invocation PC in case we need to restart this operation */
+  proc_AdjustInvocationPC(invokerProc);
+
+  proc_SetupEntryBlock(invokerProc, &inv);
+
+  proc_DoKeyInvocation(invokerProc);
 
   irq_DISABLE();
 

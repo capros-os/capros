@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -111,6 +111,15 @@ idt_OnKeyInvocationTrap(savearea_t * saveArea)
        bypass the actual invocation and let the thread scheduler
        invoke the domain keeper. */
     if (sndContext->faultCode == capros_Process_FC_NoFault)
+      BeginInvocation();
+  
+      objH_BeginTransaction();
+
+      /* Roll back the invocation PC in case we need to restart this operation */
+      proc_AdjustInvocationPC(sndContext);
+
+      proc_SetupEntryBlock(sndContext, &inv);
+
       proc_DoKeyInvocation(sndContext);
   }
   
