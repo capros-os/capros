@@ -29,7 +29,6 @@ Approved for public release, distribution unlimited. */
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
 #include <eros/Invoke.h>	// get RC_OK
-#include <eros/machine/atomic.h>
 #include <idl/capros/Sleep.h>
 #define capros_Sleep_infiniteTime UINT64_MAX
 #include <idl/capros/Node.h>
@@ -69,6 +68,8 @@ static inline void remove_timer(struct timer_list * timer)
   entry->prev = LIST_POISON2;
 }
 
+static const unsigned int timerThreadStackSize = 2048;
+
 /*
 The timerThread loops, waiting for the soonest expiration and waking up
 any expired timers. 
@@ -76,52 +77,24 @@ any expired timers.
 The difficulty is that a timer with a sooner expiration may be added,
 while the timerThread is stuck waiting for longer than that. 
 When this happens, we must unstick the timerThread.
+
 timerThreadState handles the synchronization for that. 
+timerThreadState must only be referenced under the timerLock.
 
-To understand the synchonization logic, we define four code regions.
-timerThread is always executing in exactly one of these regions. 
-The regions are:
-  WorkRegion
-  BeforeSleepRegion
-  SleepRegion
-  TeleportingRegion
+ttsWorking: timerThread is not sleeping, or is being teleported out of sleep,
+  and will check the expiration time before sleeping again.
 
-Transitions between regions are noted in the code. 
-Often a transition happens at the instant that timerThreadState
-is atomically updated.
+ttsSleeping: timerThread may be sleeping, and can be teleported.
 
-Whenever the timerLock is not held, the following is true:
-   timerThreadState is ttsWorking
-   and timerThread is in WorkRegion
-       or timerThread is in BeforeSleepRegion
-          and timeWaitingFor is the soonest expiration,
-or timerThreadState is ttsSleeping
-   and timerThread is in BeforeSleepRegion
-       or timerThread is in SleepRegion
-          and timeWaitingFor is the soonest expiration,
-or timerThreadState is ttsTeleporting
-   and timerThread is in TeleportingRegion.
-         
- */
-
-static const unsigned int timerThreadStackSize = 2048;
+ttsTeleporting: timerThread is being teleported out of sleep.
+*/
 
 enum {
-  ttsTeleporting = 0,
+  ttsWorking,
   ttsSleeping,
-  ttsWorking
+  ttsTeleporting
 };
 uint32_t timerThreadState = ttsWorking;
-
-#define atomic_begin \
-  oldVal = timerThreadState; \
-  do {
-
-#define atomic_end \
-    newVal = capros_atomic_cmpxchg32(&timerThreadState, oldVal, newVal); \
-    if (newVal == oldVal) break; \
-    oldVal = newVal; \
-  } while (1);
 
 jmp_buf jb;
 static void
@@ -135,54 +108,36 @@ void *
 timerThreadProc(void * arg)
 {
   unsigned long flags;
-  unsigned long oldVal, newVal;
   result_t result;
 
   switch (setjmp(jb)) {
   case 0:
+    spin_lock_irqsave(&timerLock, flags);
     break;
 
   default:	// longjmp comes here
-    atomic_begin
-      assert(oldVal == ttsTeleporting);
-      newVal = ttsWorking;	// begin WorkRegion
-    atomic_end
+    spin_lock_irqsave(&timerLock, flags);
+
+    assert(timerThreadState == ttsTeleporting);
+    timerThreadState = ttsWorking;
 
 #ifdef TIMERDEBUG
-    kprintf(KR_OSTREAM, "timer teleported, state %d\n", oldVal);
+    kprintf(KR_OSTREAM, "timer teleported\n");
 #endif
-
   }
-  spin_lock_irqsave(&timerLock, flags);
   while (1) {
-    timeWaitingFor = GetSoonestExpiration();
-    // Begin BeforeSleepRegion
-    spin_unlock_irqrestore(&timerLock, flags);
+    // We are holding timerLock.
 
-    // Atomically update timerThreadState.
-    static uint8_t beginSleepNextState[3] = {
-      ttsTeleporting,	// from ttsTeleporting - should not happen
-      ttsWorking,	// from ttsSleeping, begin WorkRegion
-      ttsSleeping	// from ttsWorking, begin SleepRegion
-    };
-    atomic_begin
-      newVal = beginSleepNextState[oldVal];
-    atomic_end
+    timeWaitingFor = GetSoonestExpiration();
+
+    assert(timerThreadState == ttsWorking);
+    timerThreadState = ttsSleeping;
 
 #ifdef TIMERDEBUG
-    kprintf(KR_OSTREAM, "timer to sleep, state %d\n", oldVal);
+    kprintf(KR_OSTREAM, "timer to sleep, state %d\n", timerThreadState);
 #endif
 
-    switch (oldVal) {
-    case ttsTeleporting:
-      assert(false);
-
-    case ttsSleeping:
-      goto getWaitTime;
-
-    case ttsWorking:
-      break;
-    }
+    spin_unlock_irqrestore(&timerLock, flags);
 
     // Sleep.
     result = capros_Sleep_sleepTill(KR_SLEEP, timeWaitingFor);
@@ -191,21 +146,17 @@ timerThreadProc(void * arg)
 #endif
     assert(result == RC_OK);
 
-    // Atomically update timerThreadState.
-    static uint8_t endSleepNextState[3] = {
-      ttsTeleporting,	// from ttsTeleporting
-      ttsWorking,	// from ttsSleeping, begin WorkRegion
-      ttsSleeping	// from ttsWorking, should not happen
-    };
-    atomic_begin
-      newVal = endSleepNextState[oldVal];
-    atomic_end
-
 #ifdef TIMERDEBUG
-    kprintf(KR_OSTREAM, "timer awake, state %d\n", oldVal);
+    kprintf(KR_OSTREAM, "timer awake\n");
 #endif
 
-    switch (oldVal) {
+    spin_lock_irqsave(&timerLock, flags);
+
+#ifdef TIMERDEBUG
+    kprintf(KR_OSTREAM, "timer has awoken, state %d\n", timerThreadState);
+#endif
+
+    switch (timerThreadState) {
     case ttsWorking:
       assert(false);
 
@@ -215,11 +166,10 @@ timerThreadProc(void * arg)
       assert(false);	// shouldn't get here
 
     case ttsSleeping:
+      timerThreadState = ttsWorking;
       break;
     }
     
-    spin_lock_irqsave(&timerLock, flags);
-
     // Wake up any expired timers.
     while (1) {
       struct list_head * cur = timerHead.next;
@@ -252,10 +202,6 @@ timerThreadProc(void * arg)
 
       spin_lock_irqsave(&timerLock, flags);
     }
-    continue;
-
-getWaitTime:
-    spin_lock_irqsave(&timerLock, flags);
   }
 }
 
@@ -295,13 +241,6 @@ update_soonest_wait(struct list_head * prev, unsigned long flags)
 {
   result_t result;
 
-#ifdef TIMERDEBUG
-  kprintf(KR_OSTREAM, "upd_soon_wt(0x%x) 0x%x", prev, &timerHead);
-  struct list_head * p;
-  for (p = timerHead.next; p != &timerHead; p = p->next)
-    kprintf(KR_OSTREAM, "%d ", container_of(p, struct timer_list, entry)->expires);
-  kprintf(KR_OSTREAM, ": ");
-#endif
   if (prev == &timerHead) {
     // We changed the first item on the list.
 
@@ -310,30 +249,18 @@ update_soonest_wait(struct list_head * prev, unsigned long flags)
     kprintf(KR_OSTREAM, "twf=0x%llx new=0x%llx", timeWaitingFor, newWaitTime);
 #endif
     if (newWaitTime < timeWaitingFor) {
-      unsigned long oldVal, newVal;
-      // If timerThread is sleeping, need to get it to wake up sooner.
-
-      // Atomically update timerThreadState.
-      static uint8_t teleportNextState[3] = {
-        ttsTeleporting,	// from ttsTeleporting
-        ttsTeleporting,	// from ttsSleeping, timerThread begins TeleportingRegion
-        ttsSleeping	// from ttsWorking
-      };
-
-      atomic_begin
-        newVal = teleportNextState[oldVal];
-      atomic_end
-
 #ifdef TIMERDEBUG
-      kprintf(KR_OSTREAM, "newer time, state %d\n", oldVal);
+      kprintf(KR_OSTREAM, "newer time, state %d, ", timerThreadState);
 #endif
 
-      /* Don't want to teleport while holding the lock. */
-      spin_unlock_irqrestore(&timerLock, flags);
-
-      switch (oldVal) {
+      switch (timerThreadState) {
       case ttsSleeping:
-        // Need to teleport timerThread out of its sleep.
+        // timerThread is sleeping; need to get it to wake up sooner.
+        timerThreadState = ttsTeleporting;
+
+        /* Don't want to teleport while holding the lock. */
+        spin_unlock_irqrestore(&timerLock, flags);
+
         // Regrettably, this is a lot of code in a common path.
 #ifdef TIMERDEBUG
         kprintf(KR_OSTREAM, "Teleporting thread %d\n", timerThreadNum);
@@ -365,21 +292,12 @@ update_soonest_wait(struct list_head * prev, unsigned long flags)
         PSEND(&msg);
         break;
 
-      case ttsWorking:
-        /* In case timerThread was in BeforeSleepRegion, changing
-        timerThreadState to ttsSleeping signals it to recheck timeWaitingFor. */
-
-#ifdef TIMERDEBUG
-        kprintf(KR_OSTREAM, "was Wrkg");
-#endif
-        break;
-
       case ttsTeleporting:
-
-#ifdef TIMERDEBUG
-        kprintf(KR_OSTREAM, "was Tele");
-#endif
-        break;	// was already teleporting, nothing to do
+        // Already teleporting, don't disturb it.
+      case ttsWorking:
+        // timerThread will recheck the time before sleeping.
+        spin_unlock_irqrestore(&timerLock, flags);
+        break;
       }
     }
     else
@@ -387,10 +305,6 @@ update_soonest_wait(struct list_head * prev, unsigned long flags)
   }
   else
     spin_unlock_irqrestore(&timerLock, flags);
-
-#ifdef TIMERDEBUG
-  kprintf(KR_OSTREAM, "\n");
-#endif
 }
 
 /* Returns 0 if timer was inactive, 1 if was active. */
@@ -437,13 +351,32 @@ __mod_timer(struct timer_list * timer, unsigned long expires)
   }
 
   timer->expires = expires;
-  timer->caprosExpiration = jiffies_to_usecs(expires)*1000;	// nanoseconds
+
+  /* jiffies overflows 32 bits in 497 days (at HZ=100).
+  We have to assume that no one waits for longer than half that.
+  The following calculations will convert the 32-bit expires time
+  to a 64 bit true expiration time. */
+  uint64_t now64 = get_jiffies_64();	// a reference time close to now
+  unsigned long now = (unsigned long) now64;	// jiffies, correctly truncated
+
+  /* Ignore any overflow on the following subtraction: */
+  int32_t duration = expires - now;
+
+  uint64_t caprosExpiration
+    = timer->caprosExpiration
+    = jiffies64_to_usecs(now64 + duration) * 1000;	// nanoseconds
+
+#if 1
+  printk("mod_timer, exp=%u jif=%u capexp=%llu\n",
+         expires, now, timer->caprosExpiration);
+#endif
 
   // Insert into the ordered list.
   struct list_head * cur = &timerHead;
   while (cur->next != &timerHead) {
     struct list_head * nxt = cur->next;
-    if (container_of(nxt, struct timer_list, entry)->expires >= expires)
+    struct timer_list * nxtTimer = container_of(nxt, struct timer_list, entry);
+    if (nxtTimer->caprosExpiration >= caprosExpiration)
       break;	// insert before nxt
     cur = nxt;
   }
@@ -472,9 +405,13 @@ mod_timer(struct timer_list * timer, unsigned long expires)
 unsigned long
 timer_remaining_time(struct timer_list * timer)
 {
-  unsigned long now = capros_getJiffies();
-  if (now < timer->expires)
-    return timer->expires - now;
+  /* Ignore any overflow on the following subtraction.
+     It must be due to jiffies overflowing 32 bits, 
+     not to the remaining time overflowing. */
+  long remaining = timer->expires - capros_getJiffies();
+
+  if (remaining > 0)
+    return remaining;
   else return 0;
 }
 

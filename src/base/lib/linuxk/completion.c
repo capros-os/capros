@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -61,7 +61,8 @@ wait_for_completion_timeout(struct completion * x, unsigned long timeout)
     return timeout;
   }
 
-  DEFINE_TIMER(compl_timer, &compl_timer_fn, timeout, (unsigned long)x);
+  DEFINE_TIMER(compl_timer, &compl_timer_fn,
+               jiffies + timeout, (unsigned long)x);
   add_timer(&compl_timer);
 
   down(&x->sem);	// wait for completion or timeout
