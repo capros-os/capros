@@ -222,12 +222,8 @@ dma_pool_destroy (struct dma_pool *pool)
 		page = list_entry (pool->page_list.next,
 				struct dma_page, page_list);
 		if (is_page_busy (pool->blocks_per_page, page->bitmap)) {
-			if (pool->dev)
-				dev_err(pool->dev, "dma_pool_destroy %s, %p busy\n",
-					pool->name, page->vaddr);
-			else
-				printk (KERN_ERR "dma_pool_destroy %s, %p busy\n",
-					pool->name, page->vaddr);
+			printk (KERN_ERR "dma_pool_destroy %s, %p busy\n",
+				pool->name, page->vaddr);
 			/* leak the still-in-use consistent memory */
 			list_del (&page->page_list);
 			kfree (page);
@@ -333,12 +329,8 @@ dma_pool_free (struct dma_pool *pool, void *vaddr, dma_addr_t dma)
 	int			map, block;
 
 	if ((page = pool_find_page (pool, dma)) == 0) {
-		if (pool->dev)
-			dev_err(pool->dev, "dma_pool_free %s, %p/%lx (bad dma)\n",
-				pool->name, vaddr, (unsigned long) dma);
-		else
-			printk (KERN_ERR "dma_pool_free %s, %p/%lx (bad dma)\n",
-				pool->name, vaddr, (unsigned long) dma);
+		printk (KERN_ERR "dma_pool_free %s, %p/%lx (bad dma)\n",
+			pool->name, vaddr, (unsigned long) dma);
 		return;
 	}
 
@@ -349,21 +341,13 @@ dma_pool_free (struct dma_pool *pool, void *vaddr, dma_addr_t dma)
 
 #ifdef	CONFIG_DEBUG_SLAB
 	if (((dma - page->dma) + (void *)page->vaddr) != vaddr) {
-		if (pool->dev)
-			dev_err(pool->dev, "dma_pool_free %s, %p (bad vaddr)/%Lx\n",
-				pool->name, vaddr, (unsigned long long) dma);
-		else
-			printk (KERN_ERR "dma_pool_free %s, %p (bad vaddr)/%Lx\n",
-				pool->name, vaddr, (unsigned long long) dma);
+		printk (KERN_ERR "dma_pool_free %s, %p (bad vaddr)/%Lx\n",
+			pool->name, vaddr, (unsigned long long) dma);
 		return;
 	}
 	if (page->bitmap [map] & (1UL << block)) {
-		if (pool->dev)
-			dev_err(pool->dev, "dma_pool_free %s, dma %Lx already free\n",
-				pool->name, (unsigned long long)dma);
-		else
-			printk (KERN_ERR "dma_pool_free %s, dma %Lx already free\n",
-				pool->name, (unsigned long long)dma);
+		printk (KERN_ERR "dma_pool_free %s, dma %Lx already free\n",
+			pool->name, (unsigned long long)dma);
 		return;
 	}
 	memset (vaddr, POOL_POISON_FREED, pool->size);
