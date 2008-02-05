@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System runtime library.
 #
@@ -75,8 +75,6 @@ install: $(GENERATED) Makefile
 	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/host/include/eros/arch/$(EROS_TARGET)
 
 interfaces:
-	$(INSTALL) -d $(EROS_ROOT)/idl
-	$(INSTALL) -d $(EROS_ROOT)/idl/eros
 	$(INSTALL) -d $(EROS_ROOT)/idl/capros/arch/$(EROS_TARGET)
 	$(INSTALL) -m 0644 $(IDLSRC) $(EROS_ROOT)/idl/capros/arch/$(EROS_TARGET)
 
