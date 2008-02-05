@@ -893,6 +893,23 @@ c_if_needs_message_string(Symbol *s, SymClass sc)
 }
 #endif
 
+static unsigned rcv_capcount;
+static void
+loadRcvCap(FILE * out, int indent, const char * name)
+{
+  if (rcv_capcount >= 4)
+    diag_fatal(1, "Too many capabilities received\n");
+
+  do_indent(out, indent + 2);
+  if (rcv_capcount == 3)	// RESUME_SLOT
+    fprintf(out, "msg.rcv_rsmkey = %s;\n", 
+	    name);
+  else
+    fprintf(out, "msg.rcv_key%d = %s;\n", 
+	    rcv_capcount, name);
+  rcv_capcount++;
+}
+
 static void
 output_client_stub(FILE *out, Symbol *s, int indent)
 {
@@ -903,7 +920,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
   PtrVec *rcvString = extract_string_arguments(s, sc_outformal);
 
   unsigned snd_capcount = 0;
-  unsigned rcv_capcount = 0;
+  rcv_capcount = 0;
   unsigned snd_regcount = FIRST_REG;
   unsigned rcv_regcount = FIRST_REG;
 
@@ -1083,12 +1100,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
     Symbol *child = symvec_fetch(rcvRegs,i);
 
     if (symbol_IsInterface(child->type)) {
-      if (rcv_capcount >= 3)
-	diag_fatal(1, "Too many capabilities transmitted\n");
-
-      do_indent(out, indent + 2);
-      fprintf(out, "msg.rcv_key%d = %s;\n", 
-	      rcv_capcount++, child->name);
+      loadRcvCap(out, indent, child->name);
     }
     else if ((needRegs = can_registerize(child->type, rcv_regcount))) {
       /* do nothing -- handled through registerization below */
@@ -1099,12 +1111,7 @@ output_client_stub(FILE *out, Symbol *s, int indent)
   /* If the return type is a capability type, convert it to an out
      parameter at the end of the parameter list */
   if (symbol_IsInterface(s->type)) {
-    if (rcv_capcount >= 3)
-      diag_fatal(1, "Too many capabilities transmitted\n");
-
-    do_indent(out, indent + 2);
-    fprintf(out, "msg.rcv_key%d = %s;\n", 
-		 rcv_capcount++, "_resultCap");
+    loadRcvCap(out, indent, "_resultCap");
   }
 
   emit_send_string(sndString, out, indent+2);
