@@ -76,22 +76,31 @@ OBJECTS+=$(BUILDDIR)/traps.o
 endif
 
 TARGETS=$(BUILDDIR)/liblinuxk.a $(BUILDDIR)/dstart.o
+TARGETS+=$(BUILDDIR)/dyndriverprotospace
+TARGETS+=$(BUILDDIR)/dyndriverstart.o
+
+DYNOBJECTS=$(EROS_ROOT)/lib/$(EROS_TARGET)/interpreter.o
+DYNOBJECTS+=$(BUILDDIR)/dyndriverprotospace.o
 
 include $(EROS_SRC)/build/make/makerules.mk
 
 $(BUILDDIR)/liblinuxk.a: $(OBJECTS) $(MAKE_BUILDDIR)
-	$(AR) -crv $@ $(OBJECTS)
+	$(RM) $@
+	$(AR) -cr $@ $(OBJECTS)
 	$(RANLIB) $@
 
 IDL=$(wildcard *.idl)
 interfaces: $(IDL)
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
+
+$(BUILDDIR)/dyndriverprotospace: $(DYNOBJECTS)
+	$(DOMLINK) -N -Ttext 0 -static -e _start $(DYNOBJECTS) -o $@
 
 install-headers:
 	$(INSTALL) -d $(EROS_ROOT)/include/linuxk
 	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/linuxk
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
-	$(INSTALL) -m 644 driver.map $(CAPROS_DOMAIN)/drivers
+	$(INSTALL) -m 644 driver.map dyndriver.map $(CAPROS_DOMAIN)/drivers
 
 install: install-headers $(TARGETS)
 	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)

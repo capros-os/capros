@@ -1,0 +1,26 @@
+package capros;
+
+interface Errno extends key {
+
+  // Exceptions corresponding to Linux error numbers:
+
+  exception Perm;
+  exception NoEnt;
+  exception Again;
+  exception NoMem;
+  exception NoDev;
+  exception Inval;
+  exception NoSpc;
+  exception MsgSize;
+  exception ConnReset;
+  exception Shutdown;
+  exception HostUnreach;
+
+  /** Translate an exception code to a positive error number.
+  Returns zero if the exception has no corresponding number. */
+  //client unsigned long ExceptionToErrno(unsigned long excep);
+
+  /** Translate a positive error number to an exception code.
+  Returns zero if the number has no corresponding exception. */
+  //client unsigned long ErrnoToException(unsigned long errno);
+};

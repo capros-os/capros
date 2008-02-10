@@ -276,9 +276,8 @@ static void run_one_worktask(struct cpu_workqueue_struct * cwq)
 
 	if (unlikely(in_atomic() || lockdep_depth(current) > 0)) {
 		printk(KERN_ERR "BUG: workqueue leaked lock or atomic: "
-			"%s/0x%08x/%d\n",
-			current->comm, preempt_count(),
-		       	current->pid);
+			"0x%08x\n",
+			preempt_count());
 		printk(KERN_ERR "    last function: ");
 		kdprintf(KR_OSTREAM, "0x%x\n", f);
 	}
@@ -287,6 +286,7 @@ static void run_one_worktask(struct cpu_workqueue_struct * cwq)
 	cwq->current_work = NULL;
 }
 
+#if 0 // CapROS
 // This won't work well with the semaphore ...
 static void run_workqueue(struct cpu_workqueue_struct *cwq)
 {
@@ -303,6 +303,7 @@ static void run_workqueue(struct cpu_workqueue_struct *cwq)
 	cwq->run_depth--;
 	spin_unlock_irq(&cwq->lock);
 }
+#endif // CapROS
 
 static int worker_thread(void *__cwq)
 {
@@ -348,6 +349,7 @@ static void insert_wq_barrier(struct cpu_workqueue_struct *cwq,
 
 static void flush_cpu_workqueue(struct cpu_workqueue_struct *cwq)
 {
+#if 0 // CapROS
 	if (cwq->thread == current) {
 		/*
 		 * Probably keventd trying to flush its own queue. So simply run
@@ -355,7 +357,9 @@ static void flush_cpu_workqueue(struct cpu_workqueue_struct *cwq)
 		 */
 		assert(false);	// if this happens, fix the code
 		run_workqueue(cwq);
-	} else {
+	} else
+#endif // CapROS
+	{
 		spin_lock_irq(&cwq->lock);
 		if (!list_empty(&cwq->worklist) || cwq->current_work != NULL) {
 			struct wq_barrier barr;

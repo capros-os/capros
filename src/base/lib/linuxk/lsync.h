@@ -55,8 +55,8 @@ thread_info structure, of which only preempt_count is used. */
 /* Key registers: */
 #include <domain/Runtime.h>
 #define KR_KEYSTORE 2
-#define KR_LINUX_EMUL KR_APP(0) // Node of keys for Linux driver environment
-#define KR_OSTREAM    KR_APP(1)
+#define KR_OSTREAM    KR_APP(0)
+#define KR_LINUX_EMUL KR_APP(1) // Node of keys for Linux driver environment
 #define KR_LSYNC      KR_APP(2)	// start key to lsync process
 #define KR_SLEEP      KR_APP(3) // to speed up getting jiffies
 #define KR_DEVPRIVS   KR_APP(4) // to speed up getting jiffies
@@ -85,6 +85,15 @@ the process (usually one). */
 #define LKSN_THREAD_RESUME_KEYS  LK_MAX_THREADS
 #define LKSN_STACKS_GPT          (LKSN_THREAD_RESUME_KEYS+LK_MAX_THREADS)
 #define LKSN_APP                 (LKSN_STACKS_GPT+1) // available for driver
+
+/* Constituents of driver constructors: */
+#define KC_OSTREAM    0	// required by interpreter
+#define KC_TEXT       1 // read-only portion of the program
+#define KC_DATAVCSK   2	// initial data of the program
+#define KC_LINUX_EMUL 3
+#define KC_SLEEP      4
+#define KC_DEVPRIVS   5
+#define KC_SNODECONSTR 6
 
 #ifndef __ASSEMBLER__
 

@@ -115,8 +115,8 @@ lsync_main(void * arg)
              &delayCalibrationConstant);
   assert(result == RC_OK);
 
-  msg->snd_invKey = KR_RETURN;
-  msg->snd_key0 = KR_TEMP0;
+  msg->snd_invKey = KR_VOID;
+  msg->snd_key0 = KR_VOID;
   msg->snd_key1 = KR_VOID;
   msg->snd_key2 = KR_VOID;
   msg->snd_rsmkey = KR_VOID;

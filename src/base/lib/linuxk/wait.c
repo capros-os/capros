@@ -25,6 +25,7 @@ Approved for public release, distribution unlimited. */
 //#include <linuxk/lsync.h>
 #include <linux/kernel.h>
 #include <linux/wait.h>
+#include <asm/semaphore.h>
 
 void init_waitqueue_head(wait_queue_head_t *q)
 {
@@ -67,6 +68,12 @@ int wait_event_wake_function(wait_queue_t *wait,
 	struct semaphore * sem = wait->private;
 	up(sem);
 	return 1;	// This doesn't work quite right for exclusive wakeups
+}
+
+void wet_timer_function(unsigned long data)
+{
+  struct semaphore * sem = (struct semaphore *)data;
+  up(sem);
 }
 
 /*
