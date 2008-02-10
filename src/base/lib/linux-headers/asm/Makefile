@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System runtime library.
 #
@@ -45,7 +45,6 @@ HEADERS=\
  cpu-single.h \
  cpufeature.h \
  cputime.h \
- current.h \
  delay.h \
  desc.h \
  device.h \

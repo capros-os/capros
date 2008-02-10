@@ -45,7 +45,7 @@ Approved for public release, distribution unlimited. */
 #include <linux/stddef.h>
 #include <linux/mutex.h>
 #include <asm/system.h>
-#include <asm/current.h>
+//#include <asm/current.h>
 
 typedef struct __wait_queue wait_queue_t;
 typedef int (*wait_queue_func_t)(wait_queue_t *wait, unsigned mode, int sync, void *key);
@@ -184,6 +184,9 @@ wait_queue_head_t *FASTCALL(bit_waitqueue(void *, int));
 #define	wake_up_locked(x)		__wake_up_locked((x), TASK_UNINTERRUPTIBLE | TASK_INTERRUPTIBLE)
 #define wake_up_interruptible_sync(x)   __wake_up_sync((x),TASK_INTERRUPTIBLE, 1)
 
+int wait_event_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
+void remove_wait_queue_if_on_it(wait_queue_head_t *q, wait_queue_t *wait);
+
 /**
  * wait_event - sleep until a condition gets true
  * @wq: the waitqueue to wait on
@@ -194,9 +197,8 @@ wait_queue_head_t *FASTCALL(bit_waitqueue(void *, int));
  * the waitqueue @wq is woken up.
  *
  * wake_up() has to be called after changing any variable that could
- * change the result of the wait condition.
+ * cause the wait condition to become true.
  */
-void remove_wait_queue_if_on_it(wait_queue_head_t *q, wait_queue_t *wait);
 #define wait_event(wq, condition) 					\
 do {									\
 	if (condition)	 						\
@@ -216,70 +218,58 @@ do {									\
 	}								\
 } while (1)
 
-// The following are not fixed for CapROS:
-#define __wait_event_timeout(wq, condition, ret)			\
-do {									\
-	DEFINE_WAIT(__wait);						\
-									\
-	for (;;) {							\
-		prepare_to_wait(&wq, &__wait, TASK_UNINTERRUPTIBLE);	\
-		if (condition)						\
-			break;						\
-		ret = schedule_timeout(ret);				\
-		if (!ret)						\
-			break;						\
-	}								\
-	finish_wait(&wq, &__wait);					\
-} while (0)
+void wet_timer_function(unsigned long);
 
 /**
  * wait_event_timeout - sleep until a condition gets true or a timeout elapses
  * @wq: the waitqueue to wait on
  * @condition: a C expression for the event to wait for
- * @timeout: timeout, in jiffies
+ * @timeout: timeout, in jiffies, assumed > 0
  *
- * The process is put to sleep (TASK_UNINTERRUPTIBLE) until the
+ * The process is put to sleep until the
  * @condition evaluates to true. The @condition is checked each time
  * the waitqueue @wq is woken up.
  *
  * wake_up() has to be called after changing any variable that could
- * change the result of the wait condition.
+ * cause the wait condition to become true.
  *
  * The function returns 0 if the @timeout elapsed, and the remaining
  * jiffies if the condition evaluated to true before the timeout elapsed.
  */
 #define wait_event_timeout(wq, condition, timeout)			\
 ({									\
-	long __ret = timeout;						\
-	if (!(condition)) 						\
-		__wait_event_timeout(wq, condition, __ret);		\
+	__DECLARE_SEMAPHORE_GENERIC(__sem, 0);				\
+	DEFINE_TIMER(tim, wet_timer_function,				\
+			jiffies + timeout, (unsigned long)&__sem);	\
+	add_timer(&tim);						\
+do {									\
+	if (condition)	 						\
+		break;							\
+	wait_queue_t __wait = {						\
+		.private	= &__sem,				\
+		.func		= wait_event_wake_function,		\
+		.task_list	= LIST_HEAD_INIT((__wait).task_list),	\
+	};								\
+	add_wait_queue(&wq, &__wait);					\
+	if (condition) {						\
+		remove_wait_queue_if_on_it(&wq, &__wait);		\
+		break;							\
+	} else {							\
+		down(&__sem);						\
+	}								\
+	if (! timer_pending(&tim))  break;				\
+} while (1);								\
+	unsigned long __ret = timer_remaining_time(&tim);		\
+	del_timer(&tim);						\
 	__ret;								\
 })
-
-#define __wait_event_interruptible(wq, condition, ret)			\
-do {									\
-	DEFINE_WAIT(__wait);						\
-									\
-	for (;;) {							\
-		prepare_to_wait(&wq, &__wait, TASK_INTERRUPTIBLE);	\
-		if (condition)						\
-			break;						\
-		if (!signal_pending(current)) {				\
-			schedule();					\
-			continue;					\
-		}							\
-		ret = -ERESTARTSYS;					\
-		break;							\
-	}								\
-	finish_wait(&wq, &__wait);					\
-} while (0)
 
 /**
  * wait_event_interruptible - sleep until a condition gets true
  * @wq: the waitqueue to wait on
  * @condition: a C expression for the event to wait for
  *
- * The process is put to sleep (TASK_INTERRUPTIBLE) until the
+ * The process is put to sleep until the
  * @condition evaluates to true or a signal is received.
  * The @condition is checked each time the waitqueue @wq is woken up.
  *
@@ -288,34 +278,13 @@ do {									\
  *
  * The function will return -ERESTARTSYS if it was interrupted by a
  * signal and 0 if @condition evaluated to true.
+ * Note: no signals in CapROS.
  */
 #define wait_event_interruptible(wq, condition)				\
 ({									\
-	int __ret = 0;							\
-	if (!(condition))						\
-		__wait_event_interruptible(wq, condition, __ret);	\
-	__ret;								\
+	wait_event(wq, condition);					\
+	0;								\
 })
-
-#define __wait_event_interruptible_timeout(wq, condition, ret)		\
-do {									\
-	DEFINE_WAIT(__wait);						\
-									\
-	for (;;) {							\
-		prepare_to_wait(&wq, &__wait, TASK_INTERRUPTIBLE);	\
-		if (condition)						\
-			break;						\
-		if (!signal_pending(current)) {				\
-			ret = schedule_timeout(ret);			\
-			if (!ret)					\
-				break;					\
-			continue;					\
-		}							\
-		ret = -ERESTARTSYS;					\
-		break;							\
-	}								\
-	finish_wait(&wq, &__wait);					\
-} while (0)
 
 /**
  * wait_event_interruptible_timeout - sleep until a condition gets true or a timeout elapses
@@ -333,14 +302,12 @@ do {									\
  * The function returns 0 if the @timeout elapsed, -ERESTARTSYS if it
  * was interrupted by a signal, and the remaining jiffies otherwise
  * if the condition evaluated to true before the timeout elapsed.
+ * Note: no signals in CapROS.
  */
 #define wait_event_interruptible_timeout(wq, condition, timeout)	\
-({									\
-	long __ret = timeout;						\
-	if (!(condition))						\
-		__wait_event_interruptible_timeout(wq, condition, __ret); \
-	__ret;								\
-})
+	wait_event_timeout(wq, condition, timeout)
+
+// The following are not fixed for CapROS:
 
 #define __wait_event_interruptible_exclusive(wq, condition, ret)	\
 do {									\
@@ -409,7 +376,6 @@ void FASTCALL(prepare_to_wait_exclusive(wait_queue_head_t *q,
 				wait_queue_t *wait, int state));
 void FASTCALL(finish_wait(wait_queue_head_t *q, wait_queue_t *wait));
 int autoremove_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
-int wait_event_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
 int wake_bit_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
 
 #define DEFINE_WAIT(name)						\
