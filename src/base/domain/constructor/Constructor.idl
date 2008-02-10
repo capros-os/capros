@@ -2,7 +2,7 @@ package capros;
 
 interface Constructor extends key 
 {
-  key request(key bank, key sched, key arg);
+  key request(SpaceBank bank, key sched, key arg);	// for compatibility
   unsigned long isDiscreet();
   key seal();
   void insertConstituent(unsigned long num, key k);
@@ -10,4 +10,8 @@ interface Constructor extends key
   void insertAddrSpace(key space);
   void insertSymtab(key sym);
   void insertKeeper(key keeper);
+};
+
+interface ConstructorRequestor extends key {
+  /* Individual constructors will inherit from this. */
 };

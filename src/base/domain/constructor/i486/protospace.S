@@ -25,7 +25,7 @@ Approved for public release, distribution unlimited. */
 
 /* protospace -- trampoline code that lets a process initialize its
  * own address space so that the constructor isn't tied up by
- * initialization time.  This code is truster by the constructor,
+ * initialization time.  This code is trusted by the constructor,
  * and runs in an immutable space.
  */
 

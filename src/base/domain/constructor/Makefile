@@ -1,8 +1,8 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -23,7 +23,7 @@
 # Approved for public release, distribution unlimited.
 
 
-default: package
+default: install
 
 EROS_SRC=../../..
 CROSS_BUILD=yes
@@ -38,9 +38,13 @@ TARGETS+= $(BUILDDIR)/protospace
 OPTIM=-O
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 
+LIBTARGETS=$(BUILDDIR)/interpreter.o
+
+HEADERS=InterpreterTable.h
+
 include $(EROS_SRC)/build/make/makerules.mk
 
-all: $(TARGETS)
+all: $(TARGETS) $(LIBTARGETS)
 
 $(BUILDDIR)/constructor: $(BUILDDIR)/constructor.o $(DOMCRT0) $(DOMLIB)
 	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(BUILDDIR)/constructor.o -lsmall $(DOMLIB) -o $@
@@ -76,11 +80,15 @@ $(BUILDDIR)/telospace: $(BUILDDIR)/telospace.o
 
 IDL=$(wildcard *.idl)
 interfaces: $(IDL)
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
 	$(INSTALL) -m 644 metacon.map $(CAPROS_DOMAIN)
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
+	$(INSTALL) -d $(EROS_ROOT)/lib/$(EROS_TARGET)
+	$(INSTALL) -m 0644 $(LIBTARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)
+	$(INSTALL) -d $(EROS_ROOT)/include
+	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/include
 
 -include $(BUILDDIR)/.*.m

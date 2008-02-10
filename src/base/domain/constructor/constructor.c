@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -281,7 +281,9 @@ MakeNewProduct(Message *msg)
   msg->snd_len = 0;
   msg->snd_invKey = KR_SCRATCH;
   
-  return RC_OK;
+	/* We would like to pass the order code on to the product,
+	but it is not receiving a message, so the following doesn't matter. */
+  return msg->rcv_code;
 
 destroy_product:
   (void) capros_ProcCre_destroyProcess(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
@@ -372,22 +374,9 @@ insert_xconstituent(uint32_t ndx, uint32_t kr, ConstructorInfo *ci)
   return RC_OK;
 }
 
-int
+void
 ProcessRequest(Message *msg, ConstructorInfo *ci)
 {
-  
-  /*initialize the keys being sent*/
-  msg->snd_len = 0;
-  msg->snd_key0 = KR_VOID;
-  msg->snd_key1 = KR_VOID;
-  msg->snd_key2 = KR_VOID;
-  msg->snd_rsmkey = KR_VOID;
-  msg->snd_code = RC_OK;
-  msg->snd_w1 = 0;
-  msg->snd_w2 = 0;
-  msg->snd_w3 = 0;
-  msg->snd_invKey = KR_RETURN;
-
   switch (msg->rcv_code) {
   case OC_capros_Constructor_isDiscreet:
     {
@@ -397,7 +386,7 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
 	msg->snd_w1 = 0;
       msg->snd_code = RC_OK;
 
-      return 1;
+      break;
     }      
     
   case OC_capros_Constructor_request:
@@ -405,7 +394,7 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
       DEBUG(product) kdprintf(KR_OSTREAM, "constructor: request product\n");
 
       msg->snd_code = MakeNewProduct(msg);
-      return 1;
+      break;
     }      
     
   case OC_capros_Constructor_seal:
@@ -417,78 +406,66 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
       capros_Process_makeStartKey(KR_SELF, 0, KR_NEWDOM);
       msg->snd_key0 = KR_NEWDOM;
 
-      return 1;
+      break;
     }      
 
   case OC_capros_Constructor_insertConstituent:
     {
       msg->snd_code = insert_constituent(msg->rcv_w1, KR_ARG0, ci);
       
-      return 1;
+      break;
     }      
 
   case OC_capros_Constructor_insertKeeper:
     {
       msg->snd_code = insert_xconstituent(XCON_KEEPER, KR_ARG0, ci);
       
-      return 1;
+      break;
     }      
 
   case OC_capros_Constructor_insertAddrSpace:
     {
       msg->snd_code = insert_xconstituent(XCON_ADDRSPACE, KR_ARG0, ci);
       
-      return 1;
+      break;
     }      
 
   case OC_capros_Constructor_insertSymtab:
     {
       msg->snd_code = insert_xconstituent(XCON_SYMTAB, KR_ARG0, ci);
       
-      return 1;
+      break;
     }      
 
   case OC_capros_Constructor_insertPC:
     {
       msg->snd_code = insert_xconstituent(XCON_PC, KR_ARG0, ci);
       
-      return 1;
+      break;
     }      
 
   case OC_capros_key_destroy:
     {
       Sepuku();
+      // does not return
     }
   
-  case OC_capros_key_getType:			/* check alleged keytype */
-    {
-      switch(msg->rcv_keyInfo) {
-      case 0:
-	msg->snd_code = RC_OK;
-        /* This is wrong: each different constructor requestor should have
-           its own key type. */
-	msg->snd_w1 = AKT_ConstructorRequestor;
-	break;
-      case 1:
-	msg->snd_code = RC_OK;
-	msg->snd_w1 = IKT_capros_Constructor;
-	break;
-      }
-      return 1;
-    }      
+  case OC_capros_key_getType:
+    msg->snd_w1 = AKT_ConstructorRequestor;
+    //msg->snd_w1 = IKT_capros_Constructor;
+    break;
 
   default:
+    msg->snd_code = RC_capros_key_UnknownRequest;
     break;
   }
-
-  msg->snd_code = RC_capros_key_UnknownRequest;
-  return 1;
 }
 
 int
 main()
 {
-  Message msg;
+  Message Msg;
+  Message * msg = &Msg;	// to address it consistently
   ConstructorInfo ci;
   
   InitConstructor(&ci);
@@ -496,29 +473,56 @@ main()
   /* Recover our own process key from constit1 into slot 1 */
   capros_Process_makeStartKey(KR_SELF, 1, KR_SCRATCH);
 
-  msg.snd_key0 = KR_SCRATCH;
-  msg.snd_key1 = KR_VOID;
-  msg.snd_key2 = KR_VOID;
-  msg.snd_rsmkey = KR_VOID;
-  msg.snd_code = 0;
-  msg.snd_w1 = 0;
-  msg.snd_w2 = 0;
-  msg.snd_w3 = 0;
-  msg.snd_len = 0;
-  msg.snd_data = 0;
-  msg.snd_invKey = KR_RETURN;
+  msg->snd_key0 = KR_SCRATCH;
+  msg->snd_key1 = KR_VOID;
+  msg->snd_key2 = KR_VOID;
+  msg->snd_rsmkey = KR_VOID;
+  msg->snd_code = 0;
+  msg->snd_w1 = 0;
+  msg->snd_w2 = 0;
+  msg->snd_w3 = 0;
+  msg->snd_len = 0;
+  msg->snd_data = 0;
+  msg->snd_invKey = KR_RETURN;
 
-  msg.rcv_key0 = KR_ARG0;
-  msg.rcv_key1 = KR_ARG1;
-  msg.rcv_key2 = KR_ARG2;
-  msg.rcv_rsmkey = KR_RETURN;
-  msg.rcv_data = 0;
-  msg.rcv_limit = 0;
+  msg->rcv_key0 = KR_ARG0;
+  msg->rcv_key1 = KR_ARG1;
+  msg->rcv_key2 = KR_ARG2;
+  msg->rcv_rsmkey = KR_RETURN;
+  msg->rcv_data = 0;
+  msg->rcv_limit = 0;
 
-  do {
+  while (1) {
     /* no need to re-initialize rcv_len, since always 0 */
-    RETURN(&msg);
-  } while (ProcessRequest(&msg, &ci));
+    RETURN(msg);
+  
+    /* set the default message to be sent: */
+    msg->snd_len = 0;
+    msg->snd_key0 = KR_VOID;
+    msg->snd_key1 = KR_VOID;
+    msg->snd_key2 = KR_VOID;
+    msg->snd_rsmkey = KR_VOID;
+    msg->snd_code = RC_OK;
+    msg->snd_w1 = 0;
+    msg->snd_w2 = 0;
+    msg->snd_w3 = 0;
+    msg->snd_invKey = KR_RETURN;
+
+    if (msg->rcv_keyInfo == 0) {	// builder's key
+      ProcessRequest(msg, &ci);
+    } else {			// requestor's key
+      switch (msg->rcv_code) {
+        case OC_capros_key_getType:
+          /* FIXME: This is wrong: each different constructor requestor should
+          have its own key type. */
+          msg->snd_w1 = AKT_ConstructorRequestor;
+          break;
+
+        default:
+          msg->snd_code = MakeNewProduct(msg);
+      }
+    }
+  }
 
   return 0;
 }

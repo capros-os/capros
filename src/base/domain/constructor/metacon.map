@@ -2,9 +2,9 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -20,6 +20,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifdef __METACON_MAP__
 #error "metacon.map multiply included"
@@ -137,7 +140,7 @@ hide protospace.pc;		/* well known to be zero */
    also that a boot factory gets pre-built child constituent nodes in
    constit slots 14, 15, and it's actual yield proccre in place of
    DCC. */
-#define BOOT_CONSTRUCTOR(cname,yieldname) \
+#define BOOT_CONSTRUCTOR(cname, yieldname) \
    BOOT_DOMCRE(cname); \
    cname##_process = new process; \
    cname##_process pc = constructor.pc; \
@@ -158,7 +161,8 @@ hide protospace.pc;		/* well known to be zero */
    CONSTIT(cname##_process, KC_PROD_XCON, 15) = new node; \
    cname##_process[ProcGenKeys][KR_CONSTIT][15][2] = number(#yieldname); \
    run cname##_process; \
-   cname = start cname##_process 0;
+   cname = start cname##_process 0; \
+   cname##Requestor = start cname##_process 1;
 
 /* The construct name[ProcGenKeys][1][x][y] traverses the named nodes
    in turn.
