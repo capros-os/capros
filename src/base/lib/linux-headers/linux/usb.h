@@ -86,7 +86,6 @@ struct usb_host_endpoint {
 	struct list_head		urb_list;
 	void				*hcpriv;
 	struct ep_device 		*ep_dev;	/* For sysfs info */
-	bool holding;
 	bool rejecting;
 
 	unsigned char *extra;   /* Extra descriptors */
@@ -180,7 +179,6 @@ struct usb_interface {
 	enum usb_interface_condition condition;		/* state of binding */
 	unsigned is_active:1;		/* the interface is not suspended */
 	unsigned needs_remote_wakeup:1;	/* driver requires remote wakeup */
-	u8 intfNum;	// interface number, index in usb_host_config.interfaces
 
 	struct device dev;		/* interface specific device info */
 	struct device *usb_dev;		/* pointer to the usb class's device, if any */
@@ -189,6 +187,14 @@ struct usb_interface {
 #define	to_usb_interface(d) container_of(d, struct usb_interface, dev)
 #define	interface_to_usbdev(intf) \
 	container_of(intf->dev.parent, struct usb_device, dev)
+
+static inline unsigned int
+usb_interface_getNumber(struct usb_interface * intf)
+{
+	/* All settings should have the same interface number,
+	so we can use setting 0. */
+	return intf->altsetting[0].desc.bInterfaceNumber;
+}
 
 static inline void *usb_get_intfdata (struct usb_interface *intf)
 {
@@ -1459,13 +1465,6 @@ void usb_sg_wait (struct usb_sg_request *io);
 #define usb_pipeint(pipe)	(usb_pipetype((pipe)) == PIPE_INTERRUPT)
 #define usb_pipecontrol(pipe)	(usb_pipetype((pipe)) == PIPE_CONTROL)
 #define usb_pipebulk(pipe)	(usb_pipetype((pipe)) == PIPE_BULK)
-
-/* The D0/D1 toggle bits ... USE WITH CAUTION (they're almost hcd-internal) */
-#define usb_gettoggle(dev, ep, out) (((dev)->toggle[out] >> (ep)) & 1)
-#define	usb_dotoggle(dev, ep, out)  ((dev)->toggle[out] ^= (1 << (ep)))
-#define usb_settoggle(dev, ep, out, bit) \
-		((dev)->toggle[out] = ((dev)->toggle[out] & ~(1 << (ep))) | \
-		 ((bit) << (ep)))
 
 
 static inline unsigned int __create_pipe(struct usb_device *dev,
