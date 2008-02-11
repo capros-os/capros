@@ -1,8 +1,8 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
-# Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -192,8 +192,11 @@ ifndef EROS_FD
 EROS_FD=$(HOST_FD)
 endif
 
+ifeq "$(EROS_CONFIG)" "NDEBUG"
+EROS_GCC_OPTIM+= -O2
+else
+EROS_GCC_OPTIM+= -O1
 ifeq "$(EROS_TARGET)" "arm"
-ifneq "$(EROS_CONFIG)" "NDEBUG"
 EROS_GCC_OPTIM+= -mapcs-frame # generate stack frames for debugging
 endif
 endif
