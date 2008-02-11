@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2007, Strawberry Development Group.
+# Copyright (C) 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -38,11 +38,12 @@ OBJECTS=$(patsubst %.c,%.o,$(wildcard $(BUILDDIR)/*.c))
 OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(wildcard *.c))
 # Assembler client stubs are in arch/$(EROS_TARGET)/*.S
 OBJECTS+=$(patsubst %.S,$(BUILDDIR)/%.o,$(notdir $(wildcard arch/$(EROS_TARGET)/*.S)))
-INC= -I$(EROS_ROOT)/include
+INC= -I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
 
 $(BUILDDIR)/libidlstub.a: $(OBJECTS)
 	echo $(OBJECTS)
-	$(AR) -crv $@ $(OBJECTS)
+	$(RM) $@
+	$(AR) -cr $@ $(OBJECTS)
 	$(RANLIB) $@
 
 all:

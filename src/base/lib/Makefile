@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -29,7 +29,9 @@ EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=linux-headers
-DIRS+= idlstub domain rbtree util
+DIRS+=constructor
+DIRS+=domain
+DIRS+=idlstub rbtree util
 DIRS+=graphics forwarder addrspace xsprintf
 DIRS+= linuxk
 ifneq "$(EROS_TARGET)" "i486"	# not for i486 so far

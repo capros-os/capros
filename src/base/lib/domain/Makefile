@@ -1,8 +1,8 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, 2007, Strawberry Development Group.
+# Copyright (C) 2005, 2007, 2008, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -81,13 +81,14 @@ $(BUILDDIR)/libsmall.a: $(LIBSMALL_OBJECTS)
 DIRS=include/domain/drivers
 TARDIRS=$(DIRS)
 
+interfaces:
+	$(INSTALL) -d $(EROS_ROOT)/include/domain
+	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/domain
+
 install: all
 	$(INSTALL) -d $(EROS_ROOT)/lib
 	$(INSTALL) -d $(EROS_ROOT)/lib/$(EROS_TARGET)
 	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)
-	$(INSTALL) -d $(EROS_ROOT)/include
-	$(INSTALL) -d $(EROS_ROOT)/include/domain
-	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/domain
 	@for i in $(DIRS); do \
 		if [ -d "$$i" ]; then \
 			$(MAKE) -C $$i $(MAKERULES) install; \

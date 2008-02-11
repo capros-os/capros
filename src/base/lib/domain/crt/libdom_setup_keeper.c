@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001 Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -38,6 +38,11 @@ void __rt_setup_keeper() __attribute__((weak, alias("__rt_do_setup_keeper")));
 void
 __rt_do_setup_keeper()
 {
+#if 0
+/* This is messed up. You can't rely on getType, because constructor
+requestor keys for keepers can have various types.
+There should be a separate __rt_setup_keeper procedure for the case
+of a keeper constructor. */
   extern uint32_t __rt_unkept;
   uint32_t result;
   uint32_t keyType;
@@ -61,4 +66,5 @@ __rt_do_setup_keeper()
 
   if (keyType == AKT_Void) {
   }
+#endif
 }
