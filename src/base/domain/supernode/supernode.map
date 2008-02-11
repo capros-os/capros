@@ -1,6 +1,8 @@
+#ifndef _SUPERNODE_MAP_
+#define _SUPERNODE_MAP_
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -36,3 +38,4 @@ PROD_CONSTIT(snode_c, KC_OSTREAM, 1) = misc Console;
 PROD_CONSTIT(snode_c, KC_PROTOSPC, 2) = protospace;
 
 /* no keeper, no symbol table */
+#endif // _SUPERNODE_MAP_
