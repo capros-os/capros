@@ -22,29 +22,22 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-
 default: install
 
 EROS_SRC=../../..
 CROSS_BUILD=yes
 include $(EROS_SRC)/build/make/makevars.mk
 
-
 GENERATED=$(BUILDDIR)/constituents.h
 IMGMAP=metacon.map
 VPATH=$(EROS_TARGET)
 TARGETS=$(BUILDDIR)/constructor $(BUILDDIR)/metaconstructor
-TARGETS+= $(BUILDDIR)/protospace
 OPTIM=-O
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 
-LIBTARGETS=$(BUILDDIR)/interpreter.o
-
-HEADERS=InterpreterTable.h
-
 include $(EROS_SRC)/build/make/makerules.mk
 
-all: $(TARGETS) $(LIBTARGETS)
+all: $(TARGETS)
 
 $(BUILDDIR)/constructor: $(BUILDDIR)/constructor.o $(DOMCRT0) $(DOMLIB)
 	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(BUILDDIR)/constructor.o -lsmall $(DOMLIB) -o $@
@@ -57,27 +50,6 @@ $(BUILDDIR)/metaconstructor: $(BUILDDIR)/metaconstructor.o $(DOMCRT0) $(DOMLIB)
 	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(BUILDDIR)/metaconstructor.o -lsmall $(DOMLIB) -o $@
 #	objdump --headers metaconstructor
 
-# Combine protospace.S and telospace.S into a single object file
-# that will get loaded into a single page
-# (just to save having another separate page). 
-# telospace.S is loaded at the fixed address 0x400.
-$(BUILDDIR)/protospace: $(BUILDDIR)/protospace1 $(BUILDDIR)/telospace
-	$(DOMLINK) -N -Ttext 0 --section-start .texttelo=0x400 --section-start .rodatatelo=0x500 -static -e _start $(BUILDDIR)/protospace1 $(BUILDDIR)/telospace -o $@
-#	$(EROS_OBJDUMP) -x $@ > $(BUILDDIR)/all.dump
-
-$(BUILDDIR)/protospace1: $(BUILDDIR)/protospace.o
-# Link without $(DOMLIB). Should not need any other procedures.
-# Protospace is well-known to start at zero, so override DOMLINKOPT.
-	$(DOMLINK) -Ttext 0 $(DOMLINKOPT) $(BUILDDIR)/protospace.o -o $@
-
-$(BUILDDIR)/telospace: $(BUILDDIR)/telospace.o
-# Link without $(DOMLIB). Should not need any other procedures.
-# Telospace is well-known to start at 0x400, so override DOMLINKOPT.
-# I don't know how to get section .rodatatelo to follow .texttelo,
-# so put it at a fixed address.
-	$(DOMLINK) --section-start .texttelo=0x400 --section-start .rodatatelo=0x500 $(DOMLINKOPT) $(BUILDDIR)/telospace.o -o $@
-	$(EROS_OBJCOPY) --keep-global-symbol=telospacestart --set-section-flags .texttelo=alloc,code,load --set-section-flags .rodatatelo=alloc,load,readonly,data $@
-
 IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
@@ -86,9 +58,5 @@ install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
 	$(INSTALL) -m 644 metacon.map $(CAPROS_DOMAIN)
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
-	$(INSTALL) -d $(EROS_ROOT)/lib/$(EROS_TARGET)
-	$(INSTALL) -m 0644 $(LIBTARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)
-	$(INSTALL) -d $(EROS_ROOT)/include
-	$(INSTALL) -m 0644 $(HEADERS) $(EROS_ROOT)/include
 
 -include $(BUILDDIR)/.*.m
