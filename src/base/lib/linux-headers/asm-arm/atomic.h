@@ -3,7 +3,7 @@
  *
  *  Copyright (C) 1996 Russell King.
  *  Copyright (C) 2002 Deep Blue Solutions Ltd.
- *  Copyright (C) 2007, Strawberry Development Group.
+ *  Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -18,7 +18,7 @@ Approved for public release, distribution unlimited. */
 #include <linux/compiler.h>
 #include <asm/system.h>
 
-typedef struct { volatile int counter; } atomic_t;
+typedef struct { volatile uint32_t counter; } atomic_t;
 
 #define ATOMIC_INIT(i)	{ (i) }
 
@@ -127,7 +127,7 @@ static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 // Add i to v and return the result.
 static inline int atomic_add_return(int i, atomic_t *v)
 {
-	return capros_atomic_add32_return(i, (volatile uint32_t *)&v->counter);
+	return capros_atomic_add32_return(i, &v->counter);
 }
 
 static inline int atomic_sub_return(int i, atomic_t *v)
@@ -137,8 +137,7 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 
 static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 {
-	return capros_atomic_cmpxchg32((volatile uint32_t *)&v->counter,
-                                       old, new);
+	return capros_atomic_cmpxchg32(&v->counter, old, new);
 }
 
 static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
