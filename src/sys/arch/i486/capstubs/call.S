@@ -1,7 +1,7 @@
 	.file	"call.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -46,7 +46,7 @@ ENTRY(__rt_do_CALL)
 	   happens if somebody screws with your mapping while you are 
 	   waiting, but hey nothing's perfect. */
 	
-	movl	20(%ebp),%ecx		/* rcv len */
+	movl	20(%ebp),%ecx		/* rcv_limit */
 	jecxz	2f			/* skip probe if zero length */
 	
 	movl	24(%ebp),%esi		/* rcv ptr */
@@ -68,8 +68,8 @@ ENTRY(__rt_do_CALL)
 	movl	40(%ebp),%ecx		/* snd w2 */
 	movl	44(%ebp),%edx		/* snd w3 */
 	
-	movl	20(%ebp),%esi		/* rcv len */
-	movl	24(%ebp),%edi		/* rcv ptr */
+	movl	20(%ebp),%esi		/* rcv_limit */
+	movl	24(%ebp),%edi		/* rcv_data */
 
 	int	$0x31			/* invocation trap */
 	
