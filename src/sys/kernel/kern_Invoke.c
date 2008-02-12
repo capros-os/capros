@@ -656,7 +656,7 @@ proc_DoKeyInvocation(Process* thisPtr)
     void db_eros_print_number_as_string(Key* k);
     db_eros_print_number_as_string(&thisPtr->procRoot->slot[ProcSymSpace]);
   }
-  printf(" invSlot=%d oc=%d\n",
+  printf(" invSlot=%d oc=%#x\n",
          inv.key - &thisPtr->keyReg[0], inv.entry.code);
 #endif
 
@@ -693,8 +693,6 @@ proc_DoKeyInvocation(Process* thisPtr)
 
   if ( DDB_STOP(all) ||
        (DDB_STOP(gate) && invoked_gate_key) ||
-       (DDB_STOP(keeper)
-        && ! proc_IsExpectingMsg(inv.invokee)) ||
        (DDB_STOP(pflag) && 
 	( (thisPtr->kernelFlags & KF_DDBINV) ||
 	  (inv.invokee && inv.invokee->kernelFlags & KF_DDBINV) ))
@@ -756,8 +754,6 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
 #if defined(OPTION_DDB) && !defined(NDEBUG)
   if ( DDB_STOP(all) ||
        ( DDB_STOP(gate) && invoked_gate_key ) ||
-       (DDB_STOP(keeper)
-        && ! proc_IsExpectingMsg(inv.invokee)) ||
        ( DDB_STOP(return) && (inv.invType == IT_Return)) ||
        (DDB_STOP(pflag) && 
 	( (thisPtr->kernelFlags & KF_DDBINV) ||
