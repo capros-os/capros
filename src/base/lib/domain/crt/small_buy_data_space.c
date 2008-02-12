@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001 Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -35,7 +35,7 @@ Approved for public release, distribution unlimited. */
 #define KR_OLDPAGE KR_TEMP1
 #define KR_NEWPAGE KR_TEMP2
 
-extern void etext();
+extern char start_data_section;
 extern void end();
 
 extern uint32_t __rt_small_space;
@@ -44,7 +44,7 @@ void
 __rt_buy_data_space()
 {
   uint32_t result;
-  uint32_t base = (uint32_t) &etext;
+  uint32_t base = (uint32_t) &start_data_section;
   uint32_t bound = (uint32_t) &end;
   
   /* Round the base down and the bound up to the nearest page
