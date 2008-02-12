@@ -62,25 +62,21 @@ db_eros_print_key(Key* key /*@ not null @*/)
   if ( keyBits_IsPreparedObjectKey(key) ) {
     ObjectHeader * pObj = key_GetObjectPtr(key);
     
-    uint32_t oidlo = (uint32_t) pObj->oid;
-    uint32_t oidhi = (uint32_t) (pObj->oid >> 32);
-
     if (keyBits_IsType(key, KKT_Resume))
-      db_printf("rsum 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x proc=0x%08x)\n",
-		pWKey[3], ((Node *)pObj)->callCount,
-		oidhi, oidlo, pObj, key->u.gk.pContext);
+      db_printf("rsum 0x%08x cnt=%#x oid=%#llx (obj=0x%08x proc=0x%08x)\n",
+		pWKey[3], ((Node *)pObj)->callCount, pObj->oid,
+		pObj, key->u.gk.pContext);
     else if (keyBits_IsType(key, KKT_Start))
-      db_printf("strt 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x proc=0x%08x)\n",
-		pWKey[3], ((Node *)pObj)->callCount,
-		oidhi, oidlo, pObj, key->u.gk.pContext);
+      db_printf("strt 0x%08x 0x%08x oid=%#llx (obj=0x%08x proc=0x%08x)\n",
+		pWKey[3], ((Node *)pObj)->callCount, pObj->oid,
+		pObj, key->u.gk.pContext);
     else
-      db_printf("pobj type=%d 0x%08x 0x%08x 0x%08x%08x (obj=0x%08x)\n",
+      db_printf("pobj type=%d 0x%08x cnt=%#x oid=%#llx (obj=0x%08x)\n",
                 keyBits_GetType(key), 
-		pWKey[3], pObj->allocCount,
-		oidhi, oidlo, pObj);
+		pWKey[3], pObj->allocCount, pObj->oid, pObj);
   }
   else if (keyBits_IsObjectKey(key)) {
-    db_printf("uobj 0x%08x cnt=%u 0x%08xll\n",
+    db_printf("uobj 0x%08x cnt=%u oid=%#llx\n",
 	      pWKey[3], key->u.unprep.count, key->u.unprep.oid);
   }
   else if (keyBits_IsVoidKey(key)) {
@@ -143,10 +139,7 @@ db_eros_print_key_details(Key* key /*@ not null @*/)
       count = key_GetAllocCount(key);
     }
 
-    db_printf("oid=0x%08x%08x, count=%d",
-	      (unsigned long)(oid >> 32),
-	      (unsigned long)(oid),
-	      count);
+    db_printf("oid=%#llx, count=%d", oid, count);
 
     if (keyBits_IsSegModeType(key)) {
       if (keyBits_IsReadOnly(key))
@@ -163,11 +156,7 @@ db_eros_print_key_details(Key* key /*@ not null @*/)
     OID start = key->u.rk.oid;
     OID end = key->u.rk.oid + inv.key->u.rk.count;
 
-    db_printf("oid=[0x%08x%08x, 0x%08x%08x)\n",
-	      (unsigned long)(start >> 32),
-	      (unsigned long)(start),
-	      (unsigned long)(end >> 32),
-	      (unsigned long)(end));
+    db_printf("oid=[%#llx, %#llx)\n", start, end);
   }
   else if (keyBits_IsType(key, KKT_Number)) {
     db_printf("0x%08x%08x%08x\n",
@@ -291,10 +280,7 @@ db_eros_print_context(Process *cc)
       db_printf("domain root=0x%08x", cc->procRoot);
 
       if (cc->procRoot) {
-	uint32_t oidhi = (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32);
-	uint32_t oidlo = (uint32_t) cc->procRoot->node_ObjHdr.oid;
-
-	db_printf("  oid=0x%08x%08x\n", oidhi, oidlo);
+	db_printf("  oid=%#llx\n", cc->procRoot->node_ObjHdr.oid);
       }
       else
 	db_printf("  oid=<unknown>\n");
@@ -421,17 +407,16 @@ db_eros_print_activity(Activity *t)
   else
     db_printf("[kern] ", ndx);
     
-  db_printf("0x%08x %c %s proc=0x%08x dr=%c0x%08x%08x\n"
-	    "       q=0x%08x lnkd? %c wake=0x%08x%08x shouldwake? %c\n"
+  db_printf("0x%08x %c %s proc=0x%08x dr=%c%#llx\n"
+	    "       q=0x%08x lnkd? %c wake=%#llx shouldwake? %c\n"
 	    "       readyQ %d readyMask 0x%x\n",
 	    t,
 	    act_IsUser(t) ? 'u' : 'k',
 	    act_stateNames[t->state], t->context,
-	    isGoodOid,
-	    (uint32_t) (oid>>32), (uint32_t) oid,
+	    isGoodOid, oid,
 	    t->lastq,
 	    (t->q_link.prev == &t->q_link) ? 'n' : 'y',
-	    (uint32_t) (t->wakeTime >> 32), (uint32_t) t->wakeTime,
+	    t->wakeTime,
 	    t->wakeTime <= sysT_Now() ? 'y' : 'n',
 	    t->readyQ,
             t->readyQ->mask);
@@ -564,17 +549,15 @@ db_eros_mesg_procinv_cmd(db_expr_t addr, int have_addr,
   
   if (cc->kernelFlags & KF_DDBINV) {
     cc->kernelFlags &= ~KF_DDBINV;
-    db_printf("Invocation traps for process 0x%08x (OID 0x%08x%08x) disabled\n",
+    db_printf("Invocation traps for process 0x%08x (OID %#llx) disabled\n",
 	      cc, 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
+	      cc->procRoot->node_ObjHdr.oid);  
   }
   else {
     cc->kernelFlags |= KF_DDBINV;
-    db_printf("Invocation traps for process 0x%08x (OID 0x%08x%08x) enabled\n",
+    db_printf("Invocation traps for process 0x%08x (OID %#llx) enabled\n",
 	      cc, 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
+	      cc->procRoot->node_ObjHdr.oid);  
  
     /* Once set, this is forever: */
     ddb_inv_flags |= DDB_INV_pflag;
@@ -590,17 +573,15 @@ db_eros_mesg_proctrap_cmd(db_expr_t addr, int have_addr,
  
   if (cc->kernelFlags & KF_DDBTRAP) {
     cc->kernelFlags &= ~KF_DDBTRAP;
-    db_printf("Exception traps for process 0x%08x (OID 0x%08x%08x) disabled\n",
+    db_printf("Exception traps for process 0x%08x (OID %#llx) disabled\n",
 	      cc, 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
+	      cc->procRoot->node_ObjHdr.oid);
   }
   else {
     cc->kernelFlags |= KF_DDBTRAP;
-    db_printf("Exception traps for process 0x%08x (OID 0x%08x%08x) enabled\n",
+    db_printf("Exception traps for process 0x%08x (OID %#llx) enabled\n",
 	      cc, 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.oid >> 32), 
-	      (uint32_t) (cc->procRoot->node_ObjHdr.oid));  
+	      cc->procRoot->node_ObjHdr.oid);
  
     /* Once set, this is forever: */
     ddb_inv_flags |= DDB_INV_pflag;
@@ -698,23 +679,12 @@ db_print_reserve(CpuReserve *r)
   if (index >= MAX_CPU_RESERVE)
     index = -1;
   
-  db_printf("[%3d] (0x%08x) period 0x%08x%08x duration 0x%08x%08x\n"
-	    "      quanta 0x%08x%08x normPrio %d rsrvPrio %d\n"
-	    "      residQ 0x%08x%08x residD 0x%08x%08x expired? %c\n",
-	    index,
-	    r,
-	    (uint32_t) (r->period >> 32),
-	    (uint32_t) (r->period),
-	    (uint32_t) (r->duration >> 32),
-	    (uint32_t) (r->duration),
-	    (uint32_t) (r->quanta >> 32),
-	    (uint32_t) (r->quanta),
-	    r->normPrio,
-	    r->rsrvPrio,
-	    (uint32_t) (r->residQuanta >> 32),
-	    (uint32_t) (r->residQuanta),
-	    (uint32_t) (r->residDuration >> 32),
-	    (uint32_t) (r->residDuration),
+  db_printf("[%3d] (0x%08x) period %#llx duration %#llx\n"
+	    "      quanta %#llx normPrio %d rsrvPrio %d\n"
+	    "      residQ %#llx residD %#llx expired? %c\n",
+	    index, r, r->period, r->duration,
+	    r->quanta, r->normPrio, r->rsrvPrio,
+	    r->residQuanta, r->residDuration,
 	    r->expired ? 'y' : 'n');
 }	      
 
@@ -1292,8 +1262,7 @@ show_prof(uint64_t tot, uint32_t limit)
       break;
   }
 
-  db_printf("Done.  Total ticks: 0x%08x%08x\n",
-	    (uint32_t) (tot >> 32), (uint32_t) tot);
+  db_printf("Done.  Total ticks: %#llx\n", tot);
 }
 
 void
@@ -1533,9 +1502,8 @@ db_show_counters_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
   if (pNode == 0)
     db_error("not in core\n");
 
-  db_printf("Node 0x%08x%08x ac=0x%08x cc=0x%08x\n",
-	    (uint32_t) (pNode->node_ObjHdr.oid >> 32),
-	    (uint32_t) (pNode->node_ObjHdr.oid),
+  db_printf("Node oid=%#llx ac=0x%08x cc=0x%08x\n",
+	    pNode->node_ObjHdr.oid,
 	    pNode->node_ObjHdr.allocCount,
 	    pNode->callCount);
 
@@ -1550,7 +1518,7 @@ db_show_counters_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
     pNode->node_ObjHdr.prep_u.context);
 
   if (isProcess) {
-    db_printf("     count = 0x%016xll\n", pNode->node_ObjHdr.prep_u.context->stats.evtCounter0);
+    db_printf("     count = %#llx\n", pNode->node_ObjHdr.prep_u.context->stats.evtCounter0);
   }
   else {
     Key* k /*@ not null @*/ = &pNode->slot[10];
@@ -1586,11 +1554,10 @@ db_page_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 
   kva = pageH_GetPageVAddr(pageH);
   
-  db_printf("Page (hdr=0x%08x, data=0x%08x) 0x%08x%08x ac=0x%08x ot=%d\n",
+  db_printf("Page (hdr=0x%08x, data=0x%08x) oid=%#llx ac=0x%08x ot=%d\n",
 	    pageH,
 	    kva,
-	    (uint32_t) (pageH_ToObj(pageH)->oid >> 32),
-	    (uint32_t) (pageH_ToObj(pageH)->oid),
+	    pageH_ToObj(pageH)->oid,
 	    pageH_ToObj(pageH)->allocCount,
 	    pageH_GetObType(pageH));
 }
@@ -1625,9 +1592,8 @@ db_pframe_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 	    kva,
 	    pageH_GetObType(pObj));
   if (pageH_IsObjectType(pObj))
-    db_printf("    oid=0x%08x%08x ac=0x%08x\n",
-              (uint32_t) (pageH_ToObj(pObj)->oid >> 32),
-              (uint32_t) (pageH_ToObj(pObj)->oid),
+    db_printf("    oid=%#llx ac=0x%08x\n",
+              pageH_ToObj(pObj)->oid,
               pageH_ToObj(pObj)->allocCount );
 }
 
