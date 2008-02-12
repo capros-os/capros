@@ -39,10 +39,10 @@ Approved for public release, distribution unlimited. */
    It sets up the .data and .bss sections in a vcsk. */
 
 const uint32_t __rt_stack_pointer
-   = LK_STACK_BASE + (1UL << LK_LGSTACK_AREA);
+   = LK_STACK_BASE + (1UL << LK_LGSTACK_AREA) - SIZEOF_THREAD_INFO;
 const uint32_t __rt_unkept = 1;
 
-extern NORETURN void driver_main(void);
+extern void driver_main(void);
 
 /* We run after dyndriverprotospace.
    which leaves KR_TEMP2 as the GPT to our address space,
@@ -59,7 +59,8 @@ main(void)
   if (result != RC_OK) {
     *((int *)0) = 0xbadbad77;	// FIXME
   }
-  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_LINUX_EMUL, KR_LINUX_EMUL);
+  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_LINUX_EMUL,
+    KR_LINUX_EMUL);
   assert(result == RC_OK);	// FIXME
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SLEEP, KR_SLEEP);
   assert(result == RC_OK);	// FIXME
@@ -116,4 +117,6 @@ main(void)
   maps_init();
 
   driver_main();
+  assert(false);	// driver_main should not return!
+  return 0;
 }
