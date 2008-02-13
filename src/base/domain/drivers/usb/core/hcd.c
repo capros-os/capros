@@ -524,13 +524,11 @@ error:
 	}
 
 	/* any errors get returned through the urb completion */
-	local_irq_save (flags);
-	spin_lock (&urb->lock);
+	spin_lock_irqsave(&urb->lock, flags);
 	if (urb->status == -EINPROGRESS)
 		urb->status = status;
-	spin_unlock (&urb->lock);
+	spin_unlock_irqrestore(&urb->lock, flags);
 	usb_hcd_giveback_urb (hcd, urb);
-	local_irq_restore (flags);
 	return 0;
 }
 
@@ -560,8 +558,7 @@ void usb_hcd_poll_rh_status(struct usb_hcd *hcd)
 	if (length > 0) {
 
 		/* try to complete the status urb */
-		local_irq_save (flags);
-		spin_lock(&hcd_root_hub_lock);
+		spin_lock_irqsave(&hcd_root_hub_lock, flags);
 		urb = hcd->status_urb;
 		if (urb) {
 			spin_lock(&urb->lock);
@@ -577,21 +574,21 @@ void usb_hcd_poll_rh_status(struct usb_hcd *hcd)
 			spin_unlock(&urb->lock);
 		} else
 			length = 0;
-		spin_unlock(&hcd_root_hub_lock);
+		spin_unlock_irqrestore(&hcd_root_hub_lock, flags);
 
 		/* local irqs are always blocked in completions */
 		if (length > 0)
 			usb_hcd_giveback_urb (hcd, urb);
 		else
 			hcd->poll_pending = 1;
-		local_irq_restore (flags);
 	}
 
 	/* The USB 2.0 spec says 256 ms.  This is close enough and won't
 	 * exceed that limit if HZ is 100. */
 	if (hcd->uses_new_polling ? hcd->poll_rh :
-			(length == 0 && hcd->status_urb != NULL))
+			(length == 0 && hcd->status_urb != NULL)) {
 		mod_timer (&hcd->rh_timer, jiffies + msecs_to_jiffies(250));
+	}
 }
 EXPORT_SYMBOL_GPL(usb_hcd_poll_rh_status);
 
@@ -656,17 +653,15 @@ static int usb_rh_urb_dequeue (struct usb_hcd *hcd, struct urb *urb)
 	} else {				/* Status URB */
 		if (!hcd->uses_new_polling)
 			del_timer (&hcd->rh_timer);
-		local_irq_save (flags);
-		spin_lock (&hcd_root_hub_lock);
+		spin_lock_irqsave(&hcd_root_hub_lock, flags);
 		if (urb == hcd->status_urb) {
 			hcd->status_urb = NULL;
 			urb->hcpriv = NULL;
 		} else
 			urb = NULL;		/* wasn't fully queued */
-		spin_unlock (&hcd_root_hub_lock);
+		spin_unlock_irqrestore(&hcd_root_hub_lock, flags);
 		if (urb)
 			usb_hcd_giveback_urb (hcd, urb);
-		local_irq_restore (flags);
 	}
 
 	return 0;
@@ -1173,7 +1168,7 @@ epUnlinkQueuedUrbs(struct usb_host_endpoint * ep,
 {
 	struct urb * urb;
 
-	local_irq_disable ();
+	// local_irq_disable ();
 
 rescan:
 	spin_lock (&hcd_data_lock);
@@ -1185,6 +1180,8 @@ rescan:
 			continue;
 		usb_get_urb (urb);
 		spin_unlock (&hcd_data_lock);
+	// Beware: there may be a race window here, formerly covered
+	// by local_irq_disable().
 
 		spin_lock (&urb->lock);
 		tmp = urb->status;
@@ -1214,21 +1211,7 @@ rescan:
 		goto rescan;
 	}
 	spin_unlock (&hcd_data_lock);
-	local_irq_enable ();
-}
-
-void
-epRejectUrbs(struct usb_host_endpoint * ep,
-	struct usb_hcd * hcd)
-{
-  ep->rejecting = true;
-  epUnlinkQueuedUrbs(ep, hcd, -ENOENT);
-}
-
-void
-epClearRejecting(struct usb_host_endpoint * ep)
-{
-  ep->rejecting = false;
+	// local_irq_enable ();
 }
 
 /*-------------------------------------------------------------------------*/
@@ -1603,23 +1586,24 @@ int usb_add_hcd(struct usb_hcd *hcd,
 	 * bottom up so that hcds can customize the root hubs before khubd
 	 * starts talking to them.  (Note, bus id is assigned early too.)
 	 */
-#if 0 // CapROS
-	/* CapROS doesn't use a buffer pool associated with the hcd,
-	because the hcd is in a different address space from the
-	usb device driver. */
-	if ((retval = hcd_buffer_create(hcd)) != 0) {
-		dev_dbg(hcd->self.controller, "pool alloc failed\n");
-		return retval;
-	}
-
-	if ((retval = usb_register_bus(&hcd->self)) < 0)
-		goto err_register_bus;
-#else
   if (! hcd->self.controller->dma_mask) {
     BUG_ON(true); /* non-dma controllers are not supported, because buffers are
 		passed from device driver address space to hcd address space
 		using their physical address. */
   }
+	/* Note, in CapROS these buffer pools are used only for the hcd,
+	not for devices, because the latter are in a different address
+	space. */
+	if ((retval = hcd_buffer_create(hcd)) != 0) {
+		dev_dbg(hcd->self.controller, "pool alloc failed\n");
+		return retval;
+	}
+
+#if 0 // CapROS
+	if ((retval = usb_register_bus(&hcd->self)) < 0)
+		goto err_register_bus;
+#else
+	theBus = &hcd->self;
 #endif // CapROS
 
 	if ((rhdev = usb_alloc_dev(NULL, &hcd->self, 0)) == NULL) {
@@ -1702,8 +1686,8 @@ err_allocate_root_hub:
 #if 0 // CapROS
 	usb_deregister_bus(&hcd->self);
 err_register_bus:
-	hcd_buffer_destroy(hcd);
 #endif // CapROS
+	hcd_buffer_destroy(hcd);
 	return retval;
 } 
 EXPORT_SYMBOL (usb_add_hcd);
@@ -1746,8 +1730,8 @@ void usb_remove_hcd(struct usb_hcd *hcd)
 		free_irq(hcd->irq, hcd);
 #if 0 // CapROS
 	usb_deregister_bus(&hcd->self);
-	hcd_buffer_destroy(hcd);
 #endif // CapROS
+	hcd_buffer_destroy(hcd);
 }
 EXPORT_SYMBOL (usb_remove_hcd);
 

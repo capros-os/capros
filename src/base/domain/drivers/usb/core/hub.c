@@ -31,6 +31,8 @@ Approved for public release, distribution unlimited. */
  *
  */
 
+// #define DEBUG
+
 #include <linux/kernel.h>
 #include <linux/errno.h>
 #include <linux/module.h>
@@ -41,13 +43,10 @@ Approved for public release, distribution unlimited. */
 #include <linux/slab.h>
 #include <linux/ioctl.h>
 #include <linux/usb.h>
-//#include <linux/usbdevice_fs.h>
 #include <linux/kthread.h>
 #include <linux/mutex.h>
-//#include <linux/freezer.h>
 
 #include <asm/semaphore.h>
-//#include <asm/uaccess.h>
 #include <asm/byteorder.h>
 
 #include "usb.h"
@@ -62,10 +61,12 @@ struct usb_hub {
 	/* buffer for urb ... with extra space in case of babble */
 	char			(*buffer)[8];
 	dma_addr_t		buffer_dma;	/* DMA address for buffer */
+
 	union {
 		struct usb_hub_status	hub;
 		struct usb_port_status	port;
 	}			*status;	/* buffer for status reports */
+	dma_addr_t		status_dma;
 	struct mutex		status_mutex;	/* for the status buffer */
 
 	int			error;		/* last reported error */
@@ -82,6 +83,8 @@ struct usb_hub {
 #endif
 
 	struct usb_hub_descriptor *descriptor;	/* class descriptor */
+	dma_addr_t		descriptor_dma;
+
 	struct usb_tt		tt;		/* Transaction Translator */
 
 	unsigned		mA_per_port;	/* current for each child */
@@ -149,14 +152,15 @@ static inline struct usb_hub *hdev_to_hub(struct usb_device *hdev)
 }
 
 /* USB 2.0 spec Section 11.24.4.5 */
-static int get_hub_descriptor(struct usb_device *hdev, void *data, int size)
+static int get_hub_descriptor(struct usb_device *hdev,
+  void *data, dma_addr_t data_dma, int size)
 {
 	int i, ret;
 
 	for (i = 0; i < 3; i++) {
-		ret = usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
+		ret = usb_control_msg_dma(hdev, usb_rcvctrlpipe(hdev, 0),
 			USB_REQ_GET_DESCRIPTOR, USB_DIR_IN | USB_RT_HUB,
-			USB_DT_HUB << 8, 0, data, size,
+			USB_DT_HUB << 8, 0, data, data_dma, size,
 			USB_CTRL_GET_TIMEOUT);
 		if (ret >= (USB_DT_HUB_NONVAR_SIZE + 2))
 			return ret;
@@ -169,8 +173,8 @@ static int get_hub_descriptor(struct usb_device *hdev, void *data, int size)
  */
 static int clear_hub_feature(struct usb_device *hdev, int feature)
 {
-	return usb_control_msg(hdev, usb_sndctrlpipe(hdev, 0),
-		USB_REQ_CLEAR_FEATURE, USB_RT_HUB, feature, 0, NULL, 0, 1000);
+  return usb_control_msg_dma(hdev, usb_sndctrlpipe(hdev, 0),
+	USB_REQ_CLEAR_FEATURE, USB_RT_HUB, feature, 0, NULL, 0, 0, 1000);
 }
 
 /*
@@ -178,9 +182,9 @@ static int clear_hub_feature(struct usb_device *hdev, int feature)
  */
 static int clear_port_feature(struct usb_device *hdev, int port1, int feature)
 {
-	return usb_control_msg(hdev, usb_sndctrlpipe(hdev, 0),
+	return usb_control_msg_dma(hdev, usb_sndctrlpipe(hdev, 0),
 		USB_REQ_CLEAR_FEATURE, USB_RT_PORT, feature, port1,
-		NULL, 0, 1000);
+		NULL, 0, 0, 1000);
 }
 
 /*
@@ -188,9 +192,9 @@ static int clear_port_feature(struct usb_device *hdev, int port1, int feature)
  */
 static int set_port_feature(struct usb_device *hdev, int port1, int feature)
 {
-	return usb_control_msg(hdev, usb_sndctrlpipe(hdev, 0),
+	return usb_control_msg_dma(hdev, usb_sndctrlpipe(hdev, 0),
 		USB_REQ_SET_FEATURE, USB_RT_PORT, feature, port1,
-		NULL, 0, 1000);
+		NULL, 0, 0, 1000);
 }
 
 /*
@@ -299,14 +303,14 @@ static void led_work (struct work_struct *work)
  * USB 2.0 spec Section 11.24.2.6
  */
 static int get_hub_status(struct usb_device *hdev,
-		struct usb_hub_status *data)
+		struct usb_hub_status *data, dma_addr_t data_dma)
 {
 	int i, status = -ETIMEDOUT;
 
 	for (i = 0; i < USB_STS_RETRIES && status == -ETIMEDOUT; i++) {
-		status = usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
+		status = usb_control_msg_dma(hdev, usb_rcvctrlpipe(hdev, 0),
 			USB_REQ_GET_STATUS, USB_DIR_IN | USB_RT_HUB, 0, 0,
-			data, sizeof(*data), USB_STS_TIMEOUT);
+			data, data_dma, sizeof(*data), USB_STS_TIMEOUT);
 	}
 	return status;
 }
@@ -315,14 +319,14 @@ static int get_hub_status(struct usb_device *hdev,
  * USB 2.0 spec Section 11.24.2.7
  */
 static int get_port_status(struct usb_device *hdev, int port1,
-		struct usb_port_status *data)
+		struct usb_port_status *data, dma_addr_t data_dma)
 {
 	int i, status = -ETIMEDOUT;
 
 	for (i = 0; i < USB_STS_RETRIES && status == -ETIMEDOUT; i++) {
-		status = usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
+		status = usb_control_msg_dma(hdev, usb_rcvctrlpipe(hdev, 0),
 			USB_REQ_GET_STATUS, USB_DIR_IN | USB_RT_PORT, 0, port1,
-			data, sizeof(*data), USB_STS_TIMEOUT);
+			data, data_dma, sizeof(*data), USB_STS_TIMEOUT);
 	}
 	return status;
 }
@@ -386,8 +390,9 @@ static void hub_irq(struct urb *urb)
 	kick_khubd(hub);
 
 resubmit:
-	if (hub->quiescing)
+	if (hub->quiescing) {
 		return;
+	}
 
 	if ((status = usb_submit_urb (hub->urb, GFP_ATOMIC)) != 0
 			&& status != -ENODEV && status != -EPERM)
@@ -398,9 +403,9 @@ resubmit:
 static inline int
 hub_clear_tt_buffer (struct usb_device *hdev, u16 devinfo, u16 tt)
 {
-	return usb_control_msg(hdev, usb_rcvctrlpipe(hdev, 0),
+	return usb_control_msg_dma(hdev, usb_rcvctrlpipe(hdev, 0),
 			       HUB_CLEAR_TT_BUFFER, USB_RT_PORT, devinfo,
-			       tt, NULL, 0, 1000);
+			       tt, NULL, 0, 0, 1000);
 }
 
 /*
@@ -548,7 +553,7 @@ static int hub_hub_status(struct usb_hub *hub,
 	int ret;
 
 	mutex_lock(&hub->status_mutex);
-	ret = get_hub_status(hub->hdev, &hub->status->hub);
+	ret = get_hub_status(hub->hdev, &hub->status->hub, hub->status_dma);
 	if (ret < 0)
 		dev_err (hub->intfdev,
 			"%s failed (err = %d)\n", __FUNCTION__, ret);
@@ -625,17 +630,21 @@ static int hub_configure(struct usb_hub *hub,
 		goto fail;
 	}
 
-	hub->status = kmalloc(sizeof(*hub->status), GFP_KERNEL);
+	hub->status = usb_buffer_alloc(hdev,
+			sizeof(*hub->status), GFP_KERNEL,
+			&hub->status_dma);
 	if (!hub->status) {
-		message = "can't kmalloc hub status buffer";
+		message = "can't alloc hub status buffer";
 		ret = -ENOMEM;
 		goto fail;
 	}
 	mutex_init(&hub->status_mutex);
 
-	hub->descriptor = kmalloc(sizeof(*hub->descriptor), GFP_KERNEL);
+	hub->descriptor = usb_buffer_alloc(hdev,
+				sizeof(*hub->descriptor), GFP_KERNEL,
+				&hub->descriptor_dma);
 	if (!hub->descriptor) {
-		message = "can't kmalloc hub descriptor";
+		message = "can't alloc hub descriptor";
 		ret = -ENOMEM;
 		goto fail;
 	}
@@ -644,7 +653,7 @@ static int hub_configure(struct usb_hub *hub,
 	 * hub->descriptor can handle USB_MAXCHILDREN ports,
 	 * but the hub can/will return fewer bytes here.
 	 */
-	ret = get_hub_descriptor(hdev, hub->descriptor,
+	ret = get_hub_descriptor(hdev, hub->descriptor, hub->descriptor_dma,
 			sizeof(*hub->descriptor));
 	if (ret < 0) {
 		message = "can't read hub descriptor";
@@ -883,10 +892,12 @@ static void hub_disconnect(struct usb_interface *intf)
 	list_del_init(&hub->event_list);
 	spin_unlock_irq(&hub_event_lock);
 
-	kfree(hub->descriptor);
+	usb_buffer_free(hdev, sizeof(*hub->descriptor),
+		hub->descriptor, hub->descriptor_dma);
 	hub->descriptor = NULL;
 
-	kfree(hub->status);
+	usb_buffer_free(hdev, sizeof(*hub->status),
+		hub->status, hub->status_dma);
 	hub->status = NULL;
 
 	if (hub->buffer) {
@@ -1162,14 +1173,18 @@ static void choose_address(struct usb_device *udev)
 
 	if (devnum < 128) {
 		set_bit(devnum, bus->devmap.devicemap);
+		bus->devmap.udev[devnum] = udev;
 		udev->devnum = devnum;
 	}
 }
 
 static void release_address(struct usb_device *udev)
 {
-	if (udev->devnum > 0) {
-		clear_bit(udev->devnum, udev->bus->devmap.devicemap);
+	int devnum = udev->devnum;
+	if (devnum > 0) {
+		struct usb_bus * bus = udev->bus;
+		clear_bit(devnum, bus->devmap.devicemap);
+		bus->devmap.udev[devnum] = NULL;
 		udev->devnum = -1;
 	}
 }
@@ -1353,7 +1368,7 @@ int usb_new_device(struct usb_device *udev)
 		struct usb_bus			*bus = udev->bus;
 
 		/* descriptor may appear anywhere in config */
-		if (__usb_get_extra_descriptor (udev->rawdescriptors[0],
+		if (__usb_get_extra_descriptor (udev->rawdescriptors[0].buf,
 					le16_to_cpu(udev->config[0].desc.wTotalLength),
 					USB_DT_OTG, (void **) &desc) == 0) {
 			if (desc->bmAttributes & USB_OTG_HNP) {
@@ -1367,13 +1382,13 @@ int usb_new_device(struct usb_device *udev)
 				/* enable HNP before suspend, it's simpler */
 				if (port1 == bus->otg_port)
 					bus->b_hnp_enable = 1;
-				err = usb_control_msg(udev,
+				err = usb_control_msg_dma(udev,
 					usb_sndctrlpipe(udev, 0),
 					USB_REQ_SET_FEATURE, 0,
 					bus->b_hnp_enable
 						? USB_DEVICE_B_HNP_ENABLE
 						: USB_DEVICE_A_ALT_HNP_SUPPORT,
-					0, NULL, 0, USB_CTRL_SET_TIMEOUT);
+					0, NULL, 0, 0, USB_CTRL_SET_TIMEOUT);
 				if (err < 0) {
 					/* OTG MESSAGE: report errors here,
 					 * customize to match your product.
@@ -1438,7 +1453,8 @@ static int hub_port_status(struct usb_hub *hub, int port1,
 	int ret;
 
 	mutex_lock(&hub->status_mutex);
-	ret = get_port_status(hub->hdev, port1, &hub->status->port);
+	ret = get_port_status(hub->hdev, port1, &hub->status->port,
+			hub->status_dma);
 	if (ret < 4) {
 		dev_err (hub->intfdev,
 			"%s failed (err = %d)\n", __FUNCTION__, ret);
@@ -1630,10 +1646,10 @@ static int hub_port_suspend(struct usb_hub *hub, int port1,
 	 * we don't explicitly enable it here.
 	 */
 	if (udev->do_remote_wakeup) {
-		status = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+		status = usb_control_msg_dma(udev, usb_sndctrlpipe(udev, 0),
 				USB_REQ_SET_FEATURE, USB_RECIP_DEVICE,
 				USB_DEVICE_REMOTE_WAKEUP, 0,
-				NULL, 0,
+				NULL, 0, 0,
 				USB_CTRL_SET_TIMEOUT);
 		if (status)
 			dev_dbg(&udev->dev,
@@ -1648,10 +1664,10 @@ static int hub_port_suspend(struct usb_hub *hub, int port1,
 			"can't suspend port %d, status %d\n",
 			port1, status);
 		/* paranoia:  "should not happen" */
-		(void) usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+		(void) usb_control_msg_dma(udev, usb_sndctrlpipe(udev, 0),
 				USB_REQ_CLEAR_FEATURE, USB_RECIP_DEVICE,
 				USB_DEVICE_REMOTE_WAKEUP, 0,
-				NULL, 0,
+				NULL, 0, 0,
 				USB_CTRL_SET_TIMEOUT);
 	} else {
 		/* device has up to 10 msec to fully suspend */
@@ -1769,12 +1785,12 @@ static int finish_port_resume(struct usb_device *udev)
 		le16_to_cpus(&devstatus);
 		if ((devstatus & (1 << USB_DEVICE_REMOTE_WAKEUP))
 				&& udev->parent) {
-			status = usb_control_msg(udev,
+			status = usb_control_msg_dma(udev,
 					usb_sndctrlpipe(udev, 0),
 					USB_REQ_CLEAR_FEATURE,
 						USB_RECIP_DEVICE,
 					USB_DEVICE_REMOTE_WAKEUP, 0,
-					NULL, 0,
+					NULL, 0, 0,
 					USB_CTRL_SET_TIMEOUT);
 			if (status)
 				dev_dbg(&udev->dev, "disable remote "
@@ -2105,9 +2121,9 @@ static int hub_set_address(struct usb_device *udev)
 		return 0;
 	if (udev->state != USB_STATE_DEFAULT)
 		return -EINVAL;
-	retval = usb_control_msg(udev, usb_sndaddr0pipe(),
+	retval = usb_control_msg_dma(udev, usb_sndaddr0pipe(),
 		USB_REQ_SET_ADDRESS, 0, udev->devnum, 0,
-		NULL, 0, USB_CTRL_SET_TIMEOUT);
+		NULL, 0, 0, USB_CTRL_SET_TIMEOUT);
 	if (retval == 0) {
 		usb_set_device_state(udev, USB_STATE_ADDRESS);
 		ep0_reinit(udev);
@@ -2232,10 +2248,13 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 	for (i = 0; i < GET_DESCRIPTOR_TRIES; (++i, msleep(100))) {
 		if (USE_NEW_SCHEME(retry_counter)) {
 			struct usb_device_descriptor *buf;
+			dma_addr_t buf_dma;
 			int r = 0;
 
 #define GET_DESCRIPTOR_BUFSIZE	64
-			buf = kmalloc(GET_DESCRIPTOR_BUFSIZE, GFP_NOIO);
+			buf = usb_buffer_alloc(udev,
+				GET_DESCRIPTOR_BUFSIZE, GFP_NOIO,
+				&buf_dma);
 			if (!buf) {
 				retval = -ENOMEM;
 				continue;
@@ -2247,10 +2266,11 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 			 */
 			for (j = 0; j < 3; ++j) {
 				buf->bMaxPacketSize0 = 0;
-				r = usb_control_msg(udev, usb_rcvaddr0pipe(),
+				r = usb_control_msg_dma(udev,
+					usb_rcvaddr0pipe(),
 					USB_REQ_GET_DESCRIPTOR, USB_DIR_IN,
 					USB_DT_DEVICE << 8, 0,
-					buf, GET_DESCRIPTOR_BUFSIZE,
+					buf, buf_dma, GET_DESCRIPTOR_BUFSIZE,
 					USB_CTRL_GET_TIMEOUT);
 				switch (buf->bMaxPacketSize0) {
 				case 8: case 16: case 32: case 64: case 255:
@@ -2270,7 +2290,8 @@ hub_port_init (struct usb_hub *hub, struct usb_device *udev, int port1,
 			}
 			udev->descriptor.bMaxPacketSize0 =
 					buf->bMaxPacketSize0;
-			kfree(buf);
+			usb_buffer_free(udev, GET_DESCRIPTOR_BUFSIZE,
+				buf, buf_dma);
 
 			retval = hub_port_reset(hub, port1, udev, delay);
 			if (retval < 0)		/* error or disconnect */
@@ -2363,14 +2384,15 @@ static void
 check_highspeed (struct usb_hub *hub, struct usb_device *udev, int port1)
 {
 	struct usb_qualifier_descriptor	*qual;
+	dma_addr_t qual_dma;
 	int				status;
 
-	qual = kmalloc (sizeof *qual, GFP_KERNEL);
+	qual = usb_buffer_alloc(udev, sizeof *qual, GFP_KERNEL, &qual_dma);
 	if (qual == NULL)
 		return;
 
-	status = usb_get_descriptor (udev, USB_DT_DEVICE_QUALIFIER, 0,
-			qual, sizeof *qual);
+	status = usb_get_descriptor_dma(udev, USB_DT_DEVICE_QUALIFIER, 0,
+			qual, qual_dma, sizeof *qual);
 	if (status == sizeof *qual) {
 		dev_info(&udev->dev, "not running at top speed; "
 			"connect to a high speed hub\n");
@@ -2380,7 +2402,7 @@ check_highspeed (struct usb_hub *hub, struct usb_device *udev, int port1)
 			schedule_delayed_work (&hub->leds, 0);
 		}
 	}
-	kfree(qual);
+	usb_buffer_free(udev, sizeof *qual, qual, qual_dma);
 }
 
 static unsigned
@@ -2798,7 +2820,7 @@ static void hub_events(void)
 		if (test_and_clear_bit(0, hub->event_bits) == 0)
 			;	/* do nothing */
 		else if (hub_hub_status(hub, &hubstatus, &hubchange) < 0)
-			dev_err (hub_dev, "get_hub_status failed\n");
+			dev_err (hub_dev, "hub_hub_status failed\n");
 		else {
 			if (hubchange & HUB_CHANGE_LOCAL_POWER) {
 				dev_dbg (hub_dev, "power change\n");
@@ -2914,12 +2936,13 @@ static int config_descriptors_changed(struct usb_device *udev)
 	unsigned			index;
 	unsigned			len = 0;
 	struct usb_config_descriptor	*buf;
+	dma_addr_t buf_dma;
 
 	for (index = 0; index < udev->descriptor.bNumConfigurations; index++) {
 		if (len < le16_to_cpu(udev->config[index].desc.wTotalLength))
 			len = le16_to_cpu(udev->config[index].desc.wTotalLength);
 	}
-	buf = kmalloc (len, GFP_KERNEL);
+	buf = usb_buffer_alloc(udev, len, GFP_KERNEL, &buf_dma);
 	if (buf == NULL) {
 		dev_err(&udev->dev, "no mem to re-read configs after reset\n");
 		/* assume the worst */
@@ -2929,21 +2952,21 @@ static int config_descriptors_changed(struct usb_device *udev)
 		int length;
 		int old_length = le16_to_cpu(udev->config[index].desc.wTotalLength);
 
-		length = usb_get_descriptor(udev, USB_DT_CONFIG, index, buf,
-				old_length);
+		length = usb_get_descriptor_dma(udev, USB_DT_CONFIG, index,
+				buf, buf_dma, old_length);
 		if (length < old_length) {
 			dev_dbg(&udev->dev, "config index %d, error %d\n",
 					index, length);
 			break;
 		}
-		if (memcmp (buf, udev->rawdescriptors[index], old_length)
+		if (memcmp (buf, udev->rawdescriptors[index].buf, old_length)
 				!= 0) {
 			dev_dbg(&udev->dev, "config index %d changed (#%d)\n",
 				index, buf->bConfigurationValue);
 			break;
 		}
 	}
-	kfree(buf);
+	usb_buffer_free(udev, len, buf, buf_dma);
 	return index != udev->descriptor.bNumConfigurations;
 }
 
@@ -3022,10 +3045,10 @@ int usb_reset_device(struct usb_device *udev)
 	if (!udev->actconfig)
 		goto done;
 
-	ret = usb_control_msg(udev, usb_sndctrlpipe(udev, 0),
+	ret = usb_control_msg_dma(udev, usb_sndctrlpipe(udev, 0),
 			USB_REQ_SET_CONFIGURATION, 0,
 			udev->actconfig->desc.bConfigurationValue, 0,
-			NULL, 0, USB_CTRL_SET_TIMEOUT);
+			NULL, 0, 0, USB_CTRL_SET_TIMEOUT);
 	if (ret < 0) {
 		dev_err(&udev->dev,
 			"can't restore configuration #%d (error=%d)\n",

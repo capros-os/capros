@@ -1,3 +1,28 @@
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include "usbdev.h"
+
 /* Functions local to drivers/usb/core/ */
 
 extern int usb_create_sysfs_dev_files (struct usb_device *dev);
@@ -76,6 +101,7 @@ static inline int usb_autoresume_device(struct usb_device *udev)
 
 #endif
 
+extern struct usb_bus * theBus;
 extern struct workqueue_struct *ksuspend_usb_wq;
 extern struct bus_type usb_bus_type;
 extern struct device_type usb_device_type;
@@ -145,6 +171,7 @@ struct dev_state {
 	unsigned long ifclaimed;
 	u32 secid;
 };
+int ksuspend_usb_init(void);
 
 /* internal notify stuff */
 extern void usb_notify_add_device(struct usb_device *udev);
@@ -152,3 +179,18 @@ extern void usb_notify_remove_device(struct usb_device *udev);
 extern void usb_notify_add_bus(struct usb_bus *ubus);
 extern void usb_notify_remove_bus(struct usb_bus *ubus);
 
+/* Define slots for keys in KR_KEYSTORE: */
+#define LKSN_NIWC LKSN_APP
+#define LKSN_DRIVERS LKSN_NIWC+1
+static inline unsigned long
+driverSlot(struct usb_device * udev, uint8_t localIntfNum)
+{
+  return LKSN_DRIVERS + (udev->devnum << 8) + localIntfNum;
+}
+
+extern struct list_head newInterfacesList;
+extern struct mutex newInterfacesMutex;
+extern bool waitingForNewInterfaces;
+void newInterface(struct usb_interface * intf);
+void makeInterfaceCap(unsigned long /* cap_t */ process,
+  struct usb_interface * intf);

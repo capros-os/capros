@@ -51,26 +51,26 @@ Approved for public release, distribution unlimited. */
 #include <linux/interrupt.h>  /* for in_interrupt() */
 #include <linux/kmod.h>
 #include <linux/init.h>
+#endif // CapROS
 #include <linux/spinlock.h>
 #include <linux/errno.h>
-#endif // CapROS
 #include <linux/usb.h>
-#if 0 // CapROS
 #include <linux/mutex.h>
 #include <linux/workqueue.h>
 
-#include <asm/io.h>
-#include <asm/scatterlist.h>
-#include <linux/mm.h>
-#endif // CapROS
 #include <linux/dma-mapping.h>
 #include <domain/assert.h>
 #include <eros/Invoke.h>
+#include <idl/capros/Node.h>
+#include <idl/capros/SuperNode.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/USBHCD.h>
 
 #include "hcd.h"
 #include "usb.h"
 
+
+struct usb_bus * theBus = 0;
 
 const char *usbcore_name = "usbcore";
 
@@ -86,6 +86,10 @@ MODULE_PARM_DESC(autosuspend, "default autosuspend delay");
 #else
 #define usb_autosuspend_delay		0
 #endif
+
+LIST_HEAD(newInterfacesList);
+DEFINE_MUTEX(newInterfacesMutex);
+bool waitingForNewInterfaces = false;
 
 
 /**
@@ -116,8 +120,7 @@ struct usb_interface *usb_ifnum_to_if(const struct usb_device *dev,
 	if (!config)
 		return NULL;
 	for (i = 0; i < config->desc.bNumInterfaces; i++)
-		if (config->interface[i]->altsetting[0]
-				.desc.bInterfaceNumber == ifnum)
+		if (usb_interface_getNumber(config->interface[i]) == ifnum)
 			return config->interface[i];
 
 	return NULL;
@@ -227,7 +230,7 @@ struct device_type usb_device_type = {
 
 #ifdef	CONFIG_PM
 
-static int ksuspend_usb_init(void)
+int ksuspend_usb_init(void)
 {
 	/* This workqueue is supposed to be both freezable and
 	 * singlethreaded.  Its job doesn't justify running on more
@@ -634,8 +637,7 @@ void *usb_buffer_alloc(
 {
 	if (!dev || !dev->bus)
 		return NULL;
-  struct usb_hcd * hcd = bus_to_hcd(dev->bus);
-  return dma_alloc_coherent(hcd->self.controller, size, dma, 0);
+	return hcd_buffer_alloc(dev->bus, size, mem_flags, dma);
 }
 
 /**
@@ -660,8 +662,7 @@ void usb_buffer_free(
 		return;
 	if (!addr)
 		return;
-	struct usb_hcd * hcd = bus_to_hcd(dev->bus);
-	dma_free_coherent(hcd->self.controller, size, addr, dma);
+	hcd_buffer_free(dev->bus, size, addr, dma);
 }
 
 /**
@@ -894,76 +895,7 @@ int usb_disabled(void)
 	return false;	// if it's in the big bang, it's enabled.
 }
 
-/*
- * Start here.
- */
-void
-driver_main(void)
-{
-  int retval;
-
-  Message msgs;
-  Message * const msg = &msgs;  // to address it consistently
-
-  retval = ksuspend_usb_init();
-  assert(!retval);
-
-  retval = usb_hub_init();
-  assert(!retval);
-
-  extern int __init capros_hcd_initialization(void);
-  if (capros_hcd_initialization()) {
-    assert(false);    // FIXME handle error
-  }
-
-  msg->rcv_key0 = msg->rcv_key1 = msg->rcv_key2 = KR_VOID;
-  msg->rcv_rsmkey = KR_RETURN;
-  
-  msg->snd_invKey = KR_VOID;
-  msg->snd_key0 = msg->snd_key1 = msg->snd_key2 = msg->snd_rsmkey = KR_VOID;
-  msg->snd_len = 0;
-  /* The void key is not picky about the other parameters,
-     so it's OK to leave them uninitialized. */
-  
-  for (;;) {
-    msg->rcv_limit = 0;
-    RETURN(msg);
-
-    // Set defaults for return.
-    msg->snd_invKey = KR_RETURN;
-    msg->snd_code = RC_OK;
-    msg->snd_key0 = msg->snd_key1 = msg->snd_key2 = msg->snd_rsmkey = KR_VOID;
-    msg->snd_w1 = msg->snd_w2 = msg->snd_w3 = 0;
-    msg->snd_len = 0;
-
-    switch (msg->rcv_code) {
-    case OC_capros_key_getType:
-      msg->snd_w1 = IKT_capros_USBHCD;
-      break;
-    
-    case OC_capros_USBHCD_getNewInterface:
-;////
-    }
-  }
-}
-
 #if 0 // CapROS
-/*
- * Cleanup
- */
-static void __exit usb_exit(void)
-{
-	usb_deregister_device_driver(&usb_generic_driver);
-	usb_major_cleanup();
-	usbfs_cleanup();
-	usb_deregister(&usbfs_driver);
-	usb_devio_cleanup();
-	usb_hub_cleanup();
-	usb_host_cleanup();
-	bus_unregister(&usb_bus_type);
-	ksuspend_usb_cleanup();
-}
-
 subsys_initcall(usb_init);
 module_exit(usb_exit);
 

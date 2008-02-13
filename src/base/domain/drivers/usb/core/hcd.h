@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2001-2002 by David Brownell
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -15,7 +16,9 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  */
-
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifdef __KERNEL__
 
@@ -209,6 +212,8 @@ extern int usb_hcd_unlink_urb (struct urb *urb, int status);
 extern void usb_hcd_giveback_urb (struct usb_hcd *hcd, struct urb *urb);
 extern void usb_hcd_endpoint_disable (struct usb_device *udev,
 		struct usb_host_endpoint *ep);
+void epUnlinkQueuedUrbs(struct usb_host_endpoint * ep,
+        struct usb_hcd * hcd, int status);
 extern int usb_hcd_get_frame_number (struct usb_device *udev);
 
 extern struct usb_hcd *usb_create_hcd (const struct hc_driver *driver,
