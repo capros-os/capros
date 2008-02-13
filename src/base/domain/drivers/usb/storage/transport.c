@@ -12,6 +12,8 @@
  *
  * Initial work by:
  *   (c) 1999 Michael Gee (michael@linuxspecific.com)
+
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -44,6 +46,9 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/sched.h>
 #include <linux/errno.h>
@@ -52,6 +57,8 @@
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_device.h>
+
+#include <idl/capros/USBInterface.h>
 
 #include "usb.h"
 #include "transport.h"
@@ -105,14 +112,14 @@
  * called more than once or from being called during usb_submit_urb().
  */
 
-/* This is the completion handler which will wake us up when an URB
- * completes.
- */
-static void usb_stor_blocking_completion(struct urb *urb)
-{
-	struct completion *urb_done_ptr = (struct completion *)urb->context;
+void usb_stor_urb_complete_function(struct urb * urb)
+{	// does nothing
+}
 
-	complete(urb_done_ptr);
+void usb_stor_msg_timer_function(unsigned long data)
+{
+	US_DEBUGP("Timeout -- cancelling URB\n");
+	usb_unlink_endpoint(data);
 }
 
 /* This is the common part of the URB message submission code
@@ -123,64 +130,48 @@ static void usb_stor_blocking_completion(struct urb *urb)
  */
 static int usb_stor_msg_common(struct us_data *us, int timeout)
 {
-	struct completion urb_done;
-	long timeleft;
-	int status;
+	struct timer_list tim;
 
 	/* don't submit URBs during abort/disconnect processing */
 	if (us->flags & ABORTING_OR_DISCONNECTING)
 		return -EIO;
 
-	/* set up data structures for the wakeup system */
-	init_completion(&urb_done);
-
 	/* fill the common fields in the URB */
-	us->current_urb->context = &urb_done;
 	us->current_urb->actual_length = 0;
 	us->current_urb->error_count = 0;
 	us->current_urb->status = 0;
+	us->current_urb->complete = &usb_stor_urb_complete_function;
 
-	/* we assume that if transfer_buffer isn't us->iobuf then it
-	 * hasn't been mapped for DMA.  Yes, this is clunky, but it's
-	 * easier than always having the caller tell us whether the
-	 * transfer buffer has already been mapped. */
-	us->current_urb->transfer_flags = URB_NO_SETUP_DMA_MAP;
-	if (us->current_urb->transfer_buffer == us->iobuf)
-		us->current_urb->transfer_flags |= URB_NO_TRANSFER_DMA_MAP;
-	us->current_urb->transfer_dma = us->iobuf_dma;
+	/* The buffers must have been mapped for DMA
+	and us->current_urb->transfer_dma must be set up. */
+	us->current_urb->transfer_flags
+		= URB_NO_SETUP_DMA_MAP | URB_NO_TRANSFER_DMA_MAP;
+	// If there is a setup buffer, it's in us->cr.
 	us->current_urb->setup_dma = us->cr_dma;
 
-	/* submit the URB */
-	status = usb_submit_urb(us->current_urb, GFP_NOIO);
-	if (status) {
-		/* something went wrong */
-		return status;
+	if (timeout) {
+		setup_timer(&tim, usb_stor_msg_timer_function,
+			us->current_urb->pipe);
+		mod_timer(&tim, jiffies + timeout);
 	}
 
-	/* since the URB has been submitted successfully, it's now okay
-	 * to cancel it */
+	/* since the URB will be submitted, it's now okay
+	 * to unlink the endpoint. */
 	set_bit(US_FLIDX_URB_ACTIVE, &us->flags);
 
-	/* did an abort/disconnect occur during the submission? */
-	if (us->flags & ABORTING_OR_DISCONNECTING) {
+	/* submit the URB and wait for completion */
+	int status = usb_submit_urb_wait(us->current_urb, GFP_NOIO);
 
-		/* cancel the URB, if it hasn't been cancelled already */
-		if (test_and_clear_bit(US_FLIDX_URB_ACTIVE, &us->flags)) {
-			US_DEBUGP("-- cancelling URB\n");
-			usb_unlink_urb(us->current_urb);
-		}
+	if (timeout) {
+		// unsigned long timeleft = timer_remaining_time(&tim);
+		del_timer(&tim);
 	}
- 
-	/* wait for the completion of the URB */
-	timeleft = wait_for_completion_interruptible_timeout(
-			&urb_done, timeout ? : MAX_SCHEDULE_TIMEOUT);
  
 	clear_bit(US_FLIDX_URB_ACTIVE, &us->flags);
 
-	if (timeleft <= 0) {
-		US_DEBUGP("%s -- cancelling URB\n",
-			  timeleft == 0 ? "Timeout" : "Signal");
-		usb_kill_urb(us->current_urb);
+	if (status) {
+		/* something went wrong */
+		return status;
 	}
 
 	/* return the URB status */
@@ -193,7 +184,7 @@ static int usb_stor_msg_common(struct us_data *us, int timeout)
  */
 int usb_stor_control_msg(struct us_data *us, unsigned int pipe,
 		 u8 request, u8 requesttype, u16 value, u16 index, 
-		 void *data, u16 size, int timeout)
+		 void * data, dma_addr_t data_dma, u16 size, int timeout)
 {
 	int status;
 
@@ -211,7 +202,8 @@ int usb_stor_control_msg(struct us_data *us, unsigned int pipe,
 	/* fill and submit the URB */
 	usb_fill_control_urb(us->current_urb, us->pusb_dev, pipe, 
 			 (unsigned char*) us->cr, data, size, 
-			 usb_stor_blocking_completion, NULL);
+			 0, NULL);
+	us->current_urb->transfer_dma = data_dma;
 	status = usb_stor_msg_common(us, timeout);
 
 	/* return the actual length of the data transferred if no error */
@@ -243,7 +235,7 @@ int usb_stor_clear_halt(struct us_data *us, unsigned int pipe)
 	result = usb_stor_control_msg(us, us->send_ctrl_pipe,
 		USB_REQ_CLEAR_FEATURE, USB_RECIP_ENDPOINT,
 		USB_ENDPOINT_HALT, endp,
-		NULL, 0, 3*HZ);
+		NULL, 0, 0, 3*HZ);
 
 	/* reset the endpoint toggle */
 	if (result >= 0)
@@ -327,7 +319,7 @@ static int interpret_urb_result(struct us_data *us, unsigned int pipe,
  */
 int usb_stor_ctrl_transfer(struct us_data *us, unsigned int pipe,
 		u8 request, u8 requesttype, u16 value, u16 index,
-		void *data, u16 size)
+		void * data, dma_addr_t data_dma, u16 size)
 {
 	int result;
 
@@ -345,7 +337,8 @@ int usb_stor_ctrl_transfer(struct us_data *us, unsigned int pipe,
 	/* fill and submit the URB */
 	usb_fill_control_urb(us->current_urb, us->pusb_dev, pipe, 
 			 (unsigned char*) us->cr, data, size, 
-			 usb_stor_blocking_completion, NULL);
+			 NULL, NULL);
+	us->current_urb->transfer_dma = data_dma;
 	result = usb_stor_msg_common(us, 0);
 
 	return interpret_urb_result(us, pipe, size, result,
@@ -359,8 +352,8 @@ int usb_stor_ctrl_transfer(struct us_data *us, unsigned int pipe,
  * This routine always uses us->recv_intr_pipe as the pipe and
  * us->ep_bInterval as the interrupt interval.
  */
-static int usb_stor_intr_transfer(struct us_data *us, void *buf,
-				  unsigned int length)
+static int usb_stor_intr_transfer(struct us_data * us,
+	void * buf, dma_addr_t data_dma, unsigned int length)
 {
 	int result;
 	unsigned int pipe = us->recv_intr_pipe;
@@ -375,8 +368,9 @@ static int usb_stor_intr_transfer(struct us_data *us, void *buf,
 
 	/* fill and submit the URB */
 	usb_fill_int_urb(us->current_urb, us->pusb_dev, pipe, buf,
-			maxp, usb_stor_blocking_completion, NULL,
+			maxp, NULL, NULL,
 			us->ep_bInterval);
+	us->current_urb->transfer_dma = data_dma;
 	result = usb_stor_msg_common(us, 0);
 
 	return interpret_urb_result(us, pipe, length, result,
@@ -389,7 +383,8 @@ static int usb_stor_intr_transfer(struct us_data *us, void *buf,
  * stalls during the transfer, the halt is automatically cleared.
  */
 int usb_stor_bulk_transfer_buf(struct us_data *us, unsigned int pipe,
-	void *buf, unsigned int length, unsigned int *act_len)
+	void * buf, dma_addr_t data_dma, unsigned int length,
+	unsigned int * act_len)
 {
 	int result;
 
@@ -397,7 +392,8 @@ int usb_stor_bulk_transfer_buf(struct us_data *us, unsigned int pipe,
 
 	/* fill and submit the URB */
 	usb_fill_bulk_urb(us->current_urb, us->pusb_dev, pipe, buf, length,
-		      usb_stor_blocking_completion, NULL);
+		      NULL, NULL);
+	us->current_urb->transfer_dma = data_dma;
 	result = usb_stor_msg_common(us, 0);
 
 	/* store the actual length of the data transferred */
@@ -407,6 +403,7 @@ int usb_stor_bulk_transfer_buf(struct us_data *us, unsigned int pipe,
 			us->current_urb->actual_length);
 }
 
+#if 0 // avoid, to simplify CapROS
 /*
  * Transfer a scatter-gather list via bulk transfer
  *
@@ -457,6 +454,7 @@ static int usb_stor_bulk_transfer_sglist(struct us_data *us, unsigned int pipe,
 	return interpret_urb_result(us, pipe, length, result,
 			us->current_sg.bytes);
 }
+#endif
 
 /*
  * Transfer an entire SCSI command's worth of data payload over the bulk
@@ -468,21 +466,26 @@ static int usb_stor_bulk_transfer_sglist(struct us_data *us, unsigned int pipe,
  * scatter-gather or not, and acts appropriately.
  */
 int usb_stor_bulk_transfer_sg(struct us_data* us, unsigned int pipe,
-		void *buf, unsigned int length_left, int use_sg, int *residual)
+		void * buf, dma_addr_t data_dma, unsigned int length_left,
+		int use_sg, int * residual)
 {
 	int result;
 	unsigned int partial;
 
 	/* are we scatter-gathering? */
 	if (use_sg) {
+#if 0 // avoid, to simplify CapROS
 		/* use the usb core scatter-gather primitives */
 		result = usb_stor_bulk_transfer_sglist(us, pipe,
 				(struct scatterlist *) buf, use_sg,
 				length_left, &partial);
 		length_left -= partial;
+#else
+		BUG_ON(true);
+#endif
 	} else {
 		/* no scatter-gather, just make the request */
-		result = usb_stor_bulk_transfer_buf(us, pipe, buf, 
+		result = usb_stor_bulk_transfer_buf(us, pipe, buf, data_dma,
 				length_left, &partial);
 		length_left -= partial;
 	}
@@ -730,32 +733,35 @@ void usb_stor_stop_transport(struct us_data *us)
 	 * it won't be cancelled more than once. */
 	if (test_and_clear_bit(US_FLIDX_URB_ACTIVE, &us->flags)) {
 		US_DEBUGP("-- cancelling URB\n");
-		usb_unlink_urb(us->current_urb);
+		usb_unlink_endpoint(us->current_urb->pipe);
 	}
 
 	/* If we are waiting for a scatter-gather operation, cancel it. */
 	if (test_and_clear_bit(US_FLIDX_SG_ACTIVE, &us->flags)) {
+#if 0 // avoid, to simplify CapROS
 		US_DEBUGP("-- cancelling sg request\n");
 		usb_sg_cancel(&us->current_sg);
+#else
+		BUG_ON(true);
+#endif
 	}
 }
 
-/*
- * Control/Bulk/Interrupt transport
- */
-
-int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
+static int
+commandStage(struct scsi_cmnd * srb, struct us_data * us)
 {
-	unsigned int transfer_length = srb->request_bufflen;
-	unsigned int pipe = 0;
 	int result;
 
-	/* COMMAND STAGE */
+	/* srb->cmnd is short, so just copy it to the DMA buffer. */
+	BUG_ON(MAX_COMMAND_SIZE == US_IOBUF_SIZE);
+	memcpy(us->iobuf, srb->cmnd, srb->cmd_len);
+
 	/* let's send the command via the control pipe */
 	result = usb_stor_ctrl_transfer(us, us->send_ctrl_pipe,
-				      US_CBI_ADSC, 
-				      USB_TYPE_CLASS | USB_RECIP_INTERFACE, 0, 
-				      us->ifnum, srb->cmnd, srb->cmd_len);
+				US_CBI_ADSC, 
+				USB_TYPE_CLASS | USB_RECIP_INTERFACE, 0, 
+				us->ifnum,
+				us->iobuf, us->iobuf_dma, srb->cmd_len);
 
 	/* check the return code for the command */
 	US_DEBUGP("Call to usb_stor_ctrl_transfer() returned %d\n", result);
@@ -769,16 +775,84 @@ int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
 	if (result != USB_STOR_XFER_GOOD) {
 		return USB_STOR_TRANSPORT_ERROR;
 	}
+	return 0;
+}
+
+static int
+dataStage(struct scsi_cmnd * srb, struct us_data * us, unsigned int pipe)
+{
+	int result;
+	dma_addr_t data_dma;
+	void * data;	// I don't think this is really used
+
+	// The data must be in a DMA area. We have several options:
+	unsigned int const length = srb->request_bufflen;
+	if (length <= US_IOBUF_SIZE) {
+		// will fit in iobuf, and small enough to copy
+		data = us->iobuf;
+		data_dma = us->iobuf_dma;
+		memcpy(data, srb->request_buffer, length);
+
+		result = usb_stor_bulk_transfer_sg(us, pipe,
+				data, data_dma, length,
+				srb->use_sg, &srb->resid);
+	}
+	else {
+		/* There is a tradeoff here.
+		Using the buffer in place requires system calls
+		to lock and unlock the page in memory,
+		and may require flushing it from cache,
+		and if the buffer crosses a page boundary,
+		this can't be used, or we must do scatter/gather,
+		because pages are assummed to be physically non-contiguous.
+		Copying to a new buffer has the copying cost.
+		This tradeoff is really architecture-dependent.
+		The following value needs to be tuned. */
+		if (length > 512) {
+			// big enough to try to use in place
+			//// not implemented yet
+			goto copyToBuf;	// can't use in place
+		} else {
+		copyToBuf:
+			// small enough to copy,
+			// or couldn't use in place.
+			data = usb_buffer_alloc(NULL, length, GFP_DMA,
+					&data_dma);
+			if (!data)
+				return USB_STOR_TRANSPORT_ERROR;
+			memcpy(data, srb->request_buffer, length);
+
+			result = usb_stor_bulk_transfer_sg(us, pipe,
+					data, data_dma, length,
+					srb->use_sg, &srb->resid);
+
+			usb_buffer_free(NULL, length, data, data_dma);
+		}
+	}
+	US_DEBUGP("data stage result is 0x%x\n", result);
+	return result;
+}
+
+/*
+ * Control/Bulk/Interrupt transport
+ */
+
+int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
+{
+	unsigned int pipe = 0;
+	int result;
+
+	/* COMMAND STAGE */
+	result = commandStage(srb, us);
+	if (result)
+		return result;
 
 	/* DATA STAGE */
 	/* transfer the data payload for this command, if one exists*/
-	if (transfer_length) {
+	if (srb->request_bufflen) {
 		pipe = srb->sc_data_direction == DMA_FROM_DEVICE ? 
 				us->recv_bulk_pipe : us->send_bulk_pipe;
-		result = usb_stor_bulk_transfer_sg(us, pipe,
-					srb->request_buffer, transfer_length,
-					srb->use_sg, &srb->resid);
-		US_DEBUGP("CBI data stage result is 0x%x\n", result);
+		result = dataStage(srb, us, pipe);
 
 		/* if we stalled the data transfer it means command failed */
 		if (result == USB_STOR_XFER_STALLED)
@@ -788,7 +862,7 @@ int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
 	}
 
 	/* STATUS STAGE */
-	result = usb_stor_intr_transfer(us, us->iobuf, 2);
+	result = usb_stor_intr_transfer(us, us->iobuf, us->iobuf_dma, 2);
 	US_DEBUGP("Got interrupt data (0x%x, 0x%x)\n", 
 			us->iobuf[0], us->iobuf[1]);
 	if (result != USB_STOR_XFER_GOOD)
@@ -846,38 +920,19 @@ int usb_stor_CBI_transport(struct scsi_cmnd *srb, struct us_data *us)
  */
 int usb_stor_CB_transport(struct scsi_cmnd *srb, struct us_data *us)
 {
-	unsigned int transfer_length = srb->request_bufflen;
 	int result;
 
 	/* COMMAND STAGE */
-	/* let's send the command via the control pipe */
-	result = usb_stor_ctrl_transfer(us, us->send_ctrl_pipe,
-				      US_CBI_ADSC, 
-				      USB_TYPE_CLASS | USB_RECIP_INTERFACE, 0, 
-				      us->ifnum, srb->cmnd, srb->cmd_len);
-
-	/* check the return code for the command */
-	US_DEBUGP("Call to usb_stor_ctrl_transfer() returned %d\n", result);
-
-	/* if we stalled the command, it means command failed */
-	if (result == USB_STOR_XFER_STALLED) {
-		return USB_STOR_TRANSPORT_FAILED;
-	}
-
-	/* Uh oh... serious problem here */
-	if (result != USB_STOR_XFER_GOOD) {
-		return USB_STOR_TRANSPORT_ERROR;
-	}
+	result = commandStage(srb, us);
+	if (result)
+		return result;
 
 	/* DATA STAGE */
 	/* transfer the data payload for this command, if one exists*/
-	if (transfer_length) {
+	if (srb->request_bufflen) {
 		unsigned int pipe = srb->sc_data_direction == DMA_FROM_DEVICE ? 
 				us->recv_bulk_pipe : us->send_bulk_pipe;
-		result = usb_stor_bulk_transfer_sg(us, pipe,
-					srb->request_buffer, transfer_length,
-					srb->use_sg, &srb->resid);
-		US_DEBUGP("CB data stage result is 0x%x\n", result);
+		result = dataStage(srb, us, pipe);
 
 		/* if we stalled the data transfer it means command failed */
 		if (result == USB_STOR_XFER_STALLED)
@@ -908,7 +963,7 @@ int usb_stor_Bulk_max_lun(struct us_data *us)
 				 US_BULK_GET_MAX_LUN, 
 				 USB_DIR_IN | USB_TYPE_CLASS | 
 				 USB_RECIP_INTERFACE,
-				 0, us->ifnum, us->iobuf, 1, HZ);
+				 0, us->ifnum, us->iobuf, us->iobuf_dma, 1, HZ);
 
 	US_DEBUGP("GetMaxLUN command result is %d, data is %d\n", 
 		  result, us->iobuf[0]);
@@ -940,8 +995,8 @@ int usb_stor_Bulk_max_lun(struct us_data *us)
 
 int usb_stor_Bulk_transport(struct scsi_cmnd *srb, struct us_data *us)
 {
-	struct bulk_cb_wrap *bcb = (struct bulk_cb_wrap *) us->iobuf;
-	struct bulk_cs_wrap *bcs = (struct bulk_cs_wrap *) us->iobuf;
+	struct bulk_cb_wrap * const bcb = (struct bulk_cb_wrap *) us->iobuf;
+	struct bulk_cs_wrap * const bcs = (struct bulk_cs_wrap *) us->iobuf;
 	unsigned int transfer_length = srb->request_bufflen;
 	unsigned int residue;
 	int result;
@@ -976,7 +1031,7 @@ int usb_stor_Bulk_transport(struct scsi_cmnd *srb, struct us_data *us)
 			(bcb->Lun >> 4), (bcb->Lun & 0x0F), 
 			bcb->Length);
 	result = usb_stor_bulk_transfer_buf(us, us->send_bulk_pipe,
-				bcb, cbwlen, NULL);
+				bcb, us->iobuf_dma, cbwlen, NULL);
 	US_DEBUGP("Bulk command transfer result=%d\n", result);
 	if (result != USB_STOR_XFER_GOOD)
 		return USB_STOR_TRANSPORT_ERROR;
@@ -993,10 +1048,7 @@ int usb_stor_Bulk_transport(struct scsi_cmnd *srb, struct us_data *us)
 	if (transfer_length) {
 		unsigned int pipe = srb->sc_data_direction == DMA_FROM_DEVICE ? 
 				us->recv_bulk_pipe : us->send_bulk_pipe;
-		result = usb_stor_bulk_transfer_sg(us, pipe,
-					srb->request_buffer, transfer_length,
-					srb->use_sg, &srb->resid);
-		US_DEBUGP("Bulk data transfer result 0x%x\n", result);
+		result = dataStage(srb, us, pipe);
 		if (result == USB_STOR_XFER_ERROR)
 			return USB_STOR_TRANSPORT_ERROR;
 
@@ -1017,7 +1069,8 @@ int usb_stor_Bulk_transport(struct scsi_cmnd *srb, struct us_data *us)
 	/* get CSW for device status */
 	US_DEBUGP("Attempting to get CSW...\n");
 	result = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe,
-				bcs, US_BULK_CS_WRAP_LEN, &cswlen);
+				bcs, us->iobuf_dma, US_BULK_CS_WRAP_LEN,
+				&cswlen);
 
 	/* Some broken devices add unnecessary zero-length packets to the
 	 * end of their data transfers.  Such packets show up as 0-length
@@ -1026,7 +1079,8 @@ int usb_stor_Bulk_transport(struct scsi_cmnd *srb, struct us_data *us)
 	if (result == USB_STOR_XFER_SHORT && cswlen == 0) {
 		US_DEBUGP("Received 0-length CSW; retrying...\n");
 		result = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe,
-				bcs, US_BULK_CS_WRAP_LEN, &cswlen);
+				bcs, us->iobuf_dma, US_BULK_CS_WRAP_LEN,
+				&cswlen);
 	}
 
 	/* did the attempt to read the CSW fail? */
@@ -1035,7 +1089,7 @@ int usb_stor_Bulk_transport(struct scsi_cmnd *srb, struct us_data *us)
 		/* get the status again */
 		US_DEBUGP("Attempting to get CSW (2nd try)...\n");
 		result = usb_stor_bulk_transfer_buf(us, us->recv_bulk_pipe,
-				bcs, US_BULK_CS_WRAP_LEN, NULL);
+				bcs, us->iobuf_dma, US_BULK_CS_WRAP_LEN, NULL);
 	}
 
 	/* if we still have a failure at this point, we're in trouble */
@@ -1121,7 +1175,8 @@ int usb_stor_Bulk_transport(struct scsi_cmnd *srb, struct us_data *us)
  */
 static int usb_stor_reset_common(struct us_data *us,
 		u8 request, u8 requesttype,
-		u16 value, u16 index, void *data, u16 size)
+		u16 value, u16 index,
+		void * data, dma_addr_t data_dma, u16 size)
 {
 	int result;
 	int result2;
@@ -1132,8 +1187,8 @@ static int usb_stor_reset_common(struct us_data *us,
 	}
 
 	result = usb_stor_control_msg(us, us->send_ctrl_pipe,
-			request, requesttype, value, index, data, size,
-			5*HZ);
+			request, requesttype, value, index,
+			data, data_dma, size, 5*HZ);
 	if (result < 0) {
 		US_DEBUGP("Soft reset failed: %d\n", result);
 		return result;
@@ -1177,8 +1232,9 @@ int usb_stor_CB_reset(struct us_data *us)
 	us->iobuf[0] = SEND_DIAGNOSTIC;
 	us->iobuf[1] = 4;
 	return usb_stor_reset_common(us, US_CBI_ADSC, 
-				 USB_TYPE_CLASS | USB_RECIP_INTERFACE,
-				 0, us->ifnum, us->iobuf, CB_RESET_CMD_SIZE);
+				USB_TYPE_CLASS | USB_RECIP_INTERFACE,
+				0, us->ifnum,
+				us->iobuf, us->iobuf_dma, CB_RESET_CMD_SIZE);
 }
 
 /* This issues a Bulk-only Reset to the device in question, including
@@ -1190,7 +1246,7 @@ int usb_stor_Bulk_reset(struct us_data *us)
 
 	return usb_stor_reset_common(us, US_BULK_RESET_REQUEST, 
 				 USB_TYPE_CLASS | USB_RECIP_INTERFACE,
-				 0, us->ifnum, NULL, 0);
+				 0, us->ifnum, NULL, 0, 0);
 }
 
 /* Issue a USB port reset to the device.  The caller must not hold

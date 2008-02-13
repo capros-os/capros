@@ -14,6 +14,8 @@
  *
  * usb_device_id support by Adam J. Richter (adam@yggdrasil.com):
  *   (c) 2000 Yggdrasil Computing, Inc.
+
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -46,10 +48,13 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
+#include <alloca.h>
 #include <linux/sched.h>
 #include <linux/errno.h>
-#include <linux/freezer.h>
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/slab.h>
@@ -60,6 +65,13 @@
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_device.h>
+
+#include <domain/assert.h>
+#include <eros/Invoke.h>
+#include <eros/cap-instr.h>
+#include <idl/capros/USBDriverConstructorExtended.h>
+#include <idl/capros/USBDriver.h>
+#include <idl/capros/Process.h>
 
 #include "usb.h"
 #include "scsiglue.h"
@@ -108,8 +120,8 @@ MODULE_DESCRIPTION("USB Mass Storage driver for Linux");
 MODULE_LICENSE("GPL");
 
 static unsigned int delay_use = 5;
-module_param(delay_use, uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(delay_use, "seconds to delay before using a new device");
+//module_param(delay_use, uint, S_IRUGO | S_IWUSR);
+//MODULE_PARM_DESC(delay_use, "seconds to delay before using a new device");
 
 
 /* These are used to make sure the module doesn't unload before all the
@@ -183,6 +195,86 @@ static struct us_unusual_dev us_unusual_dev_list[] = {
 	/* Terminating entry */
 	{ NULL }
 };
+
+capros_USBDriverConstructorExtended_NewInterfaceData theNid;
+
+/* N.B.: the following are different instances from the ones
+in the core USB HCD. */
+struct usb_host_interface theSetting;
+struct usb_interface theIntf;
+struct usb_device theUsbDev;
+
+void
+SetUpStructures(void)
+{
+  result_t result;
+  int i;
+
+  i = usbdev_buffer_create();
+  assert(i == 0);
+
+  device_initialize(&theUsbDev.dev);
+  device_initialize(&theIntf.dev);
+
+  // Set up the fields in theIntf and theUsbDev that we will need.
+
+  theSetting.desc = *(struct usb_interface_descriptor *) &theNid.intfData.id;
+  theIntf.dev.parent = &theUsbDev.dev;
+  theIntf.altsetting = &theSetting;	// we only know about one setting
+  theIntf.cur_altsetting = &theSetting;
+  theUsbDev.speed = theNid.intfData.speed;
+  theUsbDev.devnum = theNid.intfData.deviceNum;
+  theUsbDev.descriptor = *(struct usb_device_descriptor *) &theNid.intfData.dd;
+
+  unsigned int numEndpoints = theNid.intfData.id.bNumEndpoints;
+  // Endpoint 0 has no descriptor. There may not be any other endpoints:
+  if (numEndpoints > 0) {
+    struct usb_host_endpoint * theEndpoints;
+    theEndpoints = (struct usb_host_endpoint *)
+        kzalloc(sizeof(struct usb_host_endpoint) * numEndpoints, GFP_KERNEL);
+    if (!theEndpoints)
+      assert(false);// FIXME
+    theSetting.endpoint = theEndpoints;
+
+    const size_t epSize = sizeof(capros_USB_EndpointDescriptor) * numEndpoints;
+    capros_USB_EndpointDescriptor * epDescrs
+      = (capros_USB_EndpointDescriptor *) alloca(epSize);
+    if (!epDescrs)
+      assert(false);// FIXME
+
+    // No IDL for capros_USBInterface_getEndpointDescriptors yet.
+    Message Msg = {
+      .snd_invKey = KR_USBINTF,
+      .snd_code = 2,	// for now
+      .snd_w1 = 0,
+      .snd_w2 = 0,
+      .snd_w3 = 0,
+      .snd_len = 0,
+      .snd_key0 = KR_VOID,
+      .snd_key1 = KR_VOID,
+      .snd_key2 = KR_VOID,
+      .rcv_limit = epSize,
+      .rcv_data = epDescrs,
+      .rcv_key0 = KR_VOID,
+      .rcv_key1 = KR_VOID,
+      .rcv_key2 = KR_VOID,
+      .rcv_rsmkey = KR_VOID,
+    };
+    result = CALL(&Msg);
+    assert(result == RC_OK);
+    assert(Msg.rcv_sent >= epSize);
+    
+    for (i = 0; i < numEndpoints; i++) {
+      theEndpoints[i].desc = *(struct usb_endpoint_descriptor *)&epDescrs[i];
+      unsigned int epNum = epDescrs[i].bEndpointAddress
+                           & USB_ENDPOINT_NUMBER_MASK;
+      if ((epDescrs[i].bEndpointAddress & USB_ENDPOINT_DIR_MASK) == USB_DIR_IN)
+        theUsbDev.ep_in[epNum] = &theEndpoints[i];
+      else
+        theUsbDev.ep_out[epNum] = &theEndpoints[i];
+    }
+  }
+}
 
 
 #ifdef CONFIG_PM	/* Minimal support for suspend and resume */
@@ -300,8 +392,6 @@ static int usb_stor_control_thread(void * __us)
 {
 	struct us_data *us = (struct us_data *)__us;
 	struct Scsi_Host *host = us_to_host(us);
-
-	current->flags |= PF_NOFREEZE;
 
 	for(;;) {
 		US_DEBUGP("*** thread sleeping.\n");
@@ -421,14 +511,9 @@ SkipForAbort:
 	 * is getting deleted in a parallel mode of execution (i.e. just
 	 * after the down() -- that's necessary for the thread-shutdown
 	 * case.
-	 *
-	 * complete_and_exit() goes even further than this -- it is safe in
-	 * the case that the thread of the caller is going away (not just
-	 * the structure) -- this is necessary for the module-remove case.
-	 * This is important in preemption kernels, which transfer the flow
-	 * of execution immediately upon a complete().
 	 */
-	complete_and_exit(&threads_gone, 0);
+	complete(&threads_gone);
+	return 0;
 }	
 
 /***********************************************************************
@@ -478,20 +563,14 @@ static int associate_dev(struct us_data *us, struct usb_interface *intf)
 	return 0;
 }
 
-/* Find an unusual_dev descriptor (always succeeds in the current code) */
-static struct us_unusual_dev *find_unusual(const struct usb_device_id *id)
-{
-	const int id_index = id - storage_usb_ids;
-	return &us_unusual_dev_list[id_index];
-}
-
 /* Get the unusual_devs entries and the string descriptors */
-static int get_device_info(struct us_data *us, const struct usb_device_id *id)
+static int get_device_info(struct us_data * us,
+  const struct usb_device_id * id,
+  struct us_unusual_dev * unusual_dev)
 {
 	struct usb_device *dev = us->pusb_dev;
 	struct usb_interface_descriptor *idesc =
 		&us->pusb_intf->cur_altsetting->desc;
-	struct us_unusual_dev *unusual_dev = find_unusual(id);
 
 	/* Store the entries */
 	us->unusual_dev = unusual_dev;
@@ -525,7 +604,7 @@ static int get_device_info(struct us_data *us, const struct usb_device_id *id)
 			"an unneeded SubClass entry",
 			"an unneeded Protocol entry",
 			"unneeded SubClass and Protocol entries"};
-		struct usb_device_descriptor *ddesc = &dev->descriptor;
+		const struct usb_device_descriptor *ddesc = &dev->descriptor;
 		int msg = -1;
 
 		if (unusual_dev->useProtocol != US_SC_DEVICE &&
@@ -547,7 +626,7 @@ static int get_device_info(struct us_data *us, const struct usb_device_id *id)
 				idesc->bInterfaceSubClass,
 				idesc->bInterfaceProtocol,
 				msgs[msg],
-				utsname()->release);
+				init_utsname()->release);
 	}
 
 	return 0;
@@ -795,20 +874,21 @@ static int usb_stor_acquire_resources(struct us_data *us)
 			return p;
 	}
 
+	/* Take a reference to the host for the scanning thread and
+	 * count it among all the threads we have launched. */
+	scsi_host_get(us_to_host(us));
+	atomic_inc(&total_threads);
+
 	/* Start up our control thread */
-	th = kthread_create(usb_stor_control_thread, us, "usb-storage");
+	th = kthread_run(usb_stor_control_thread, us, "usb-storage");
 	if (IS_ERR(th)) {
+		scsi_host_put(us_to_host(us));
+		complete(&threads_gone);
+
 		printk(KERN_WARNING USB_STORAGE 
 		       "Unable to start control thread\n");
 		return PTR_ERR(th);
 	}
-
-	/* Take a reference to the host for the control thread and
-	 * count it among all the threads we have launched.  Then
-	 * start it up. */
-	scsi_host_get(us_to_host(us));
-	atomic_inc(&total_threads);
-	wake_up_process(th);
 
 	return 0;
 }
@@ -913,12 +993,9 @@ static int usb_stor_scan_thread(void * __us)
 	if (delay_use > 0) {
 		printk(KERN_DEBUG "usb-storage: waiting for device "
 				"to settle before scanning\n");
-retry:
 		wait_event_interruptible_timeout(us->delay_wait,
 				test_bit(US_FLIDX_DISCONNECTING, &us->flags),
 				delay_use * HZ);
-		if (try_to_freeze())
-			goto retry;
 	}
 
 	/* If the device is still connected, perform the scanning */
@@ -938,13 +1015,15 @@ retry:
 	}
 
 	scsi_host_put(us_to_host(us));
-	complete_and_exit(&threads_gone, 0);
+	complete(&threads_gone);
+	return 0;
 }
 
 
 /* Probe to see if we can drive a newly-connected USB device */
 static int storage_probe(struct usb_interface *intf,
-			 const struct usb_device_id *id)
+			 const struct usb_device_id *id,
+			 unsigned long deviceIDIndex)
 {
 	struct Scsi_Host *host;
 	struct us_data *us;
@@ -986,7 +1065,8 @@ static int storage_probe(struct usb_interface *intf,
 	 * of the match from the usb_device_id table, so we can find the
 	 * corresponding entry in the private table.
 	 */
-	result = get_device_info(us, id);
+	result = get_device_info(us, id,
+		&us_unusual_dev_list[deviceIDIndex] );
 	if (result)
 		goto BadDevice;
 
@@ -1012,22 +1092,23 @@ static int storage_probe(struct usb_interface *intf,
 		goto BadDevice;
 	}
 
+	/* Take a reference to the host for the scanning thread and
+	 * count it among all the threads we have launched. */
+	scsi_host_get(us_to_host(us));
+	atomic_inc(&total_threads);
+
 	/* Start up the thread for delayed SCSI-device scanning */
-	th = kthread_create(usb_stor_scan_thread, us, "usb-stor-scan");
+	th = kthread_run(usb_stor_scan_thread, us, "usb-stor-scan");
 	if (IS_ERR(th)) {
+		scsi_host_put(us_to_host(us));
+		complete(&threads_gone);
+
 		printk(KERN_WARNING USB_STORAGE 
 		       "Unable to start the device-scanning thread\n");
 		quiesce_and_remove_host(us);
 		result = PTR_ERR(th);
 		goto BadDevice;
 	}
-
-	/* Take a reference to the host for the scanning thread and
-	 * count it among all the threads we have launched.  Then
-	 * start it up. */
-	scsi_host_get(us_to_host(us));
-	atomic_inc(&total_threads);
-	wake_up_process(th);
 
 	return 0;
 
@@ -1052,9 +1133,10 @@ static void storage_disconnect(struct usb_interface *intf)
  * Initialization and registration
  ***********************************************************************/
 
-static struct usb_driver usb_storage_driver = {
+#if 1 // CapROS
+struct usb_driver usb_storage_driver = {
 	.name =		"usb-storage",
-	.probe =	storage_probe,
+	.probe =	0,//storage_probe,
 	.disconnect =	storage_disconnect,
 #ifdef CONFIG_PM
 	.suspend =	storage_suspend,
@@ -1064,21 +1146,147 @@ static struct usb_driver usb_storage_driver = {
 	.post_reset =	storage_post_reset,
 	.id_table =	storage_usb_ids,
 };
+#endif // CapROS
 
-static int __init usb_stor_init(void)
+// Keyinfo values of start keys to this process:
+#define keyInfoUSBDriver 0
+#define keyInfoSCSIDriver 1
+
+void
+driver_main(void)
 {
-	int retval;
-	printk(KERN_INFO "Initializing USB Mass Storage driver...\n");
+  /* We are entered here when the registry has a new device that is
+  a potential match.
+  This is the equivalent of the "probe" function.
+  KR_ARG(0) is the interface cap.
+  KR_RETURN is the resume cap to the registry.
+  By this time the order code (OC_capros_USBDriverConstructor_probe)
+  has been lost. */
 
-	/* register the driver, return usb_register return code if error */
-	retval = usb_register(&usb_storage_driver);
-	if (retval == 0) {
-		printk(KERN_INFO "USB Mass Storage support registered.\n");
-		usb_usual_set_present(USB_US_TYPE_STOR);
-	}
-	return retval;
+  result_t result;
+  int ret;
+  Message Msg = {
+    .snd_invKey = KR_RETURN,
+    .snd_code = RC_OK,
+    .snd_w1 = 0,
+    .snd_w2 = 0,
+    .snd_w3 = 0,
+    .snd_key0 = KR_VOID,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_rsmkey = KR_VOID,
+    .snd_len = 0,
+    .rcv_key0 = KR_VOID,
+    .rcv_key1 = KR_VOID,
+    .rcv_key2 = KR_VOID,
+    .rcv_rsmkey = KR_RETURN,
+    .rcv_limit = sizeof(capros_USBDriverConstructorExtended_NewInterfaceData),
+    .rcv_data = &theNid
+  };
+
+  printk("USB Storage driver called.\n");
+
+  COPY_KEYREG(KR_ARG(0), KR_USBINTF);
+
+  // In a coroutine, reply to the caller and ask for the
+  // capros_USBDriverConstructorExtended_NewInterfaceData. 
+  result = CALL(&Msg);
+
+  assert(result == OC_capros_USBDriverConstructorExtended_sendID);
+
+  SetUpStructures();
+
+  ret = storage_probe(&theIntf, (struct usb_device_id *)&theNid.deviceId,
+                      theNid.deviceIdIndex);
+
+  if (ret) {
+    // Probe was unsuccessful. 
+    capros_USBInterface_probeFailed(KR_USBINTF);
+    assert(false);
+    // need to SEND RC_capros_USBDriverConstructor_ProbeUnsuccessful to KR_RETURN
+    // and destroy self (at the same time).
+  }
+  // Probe was successful.
+  result = capros_Process_makeStartKey(KR_SELF, keyInfoUSBDriver, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_USBInterface_registerDriver(KR_USBINTF, KR_TEMP0);
+  assert(result == RC_OK);
+
+  // reply to the registry
+  Msg.snd_invKey = KR_RETURN;
+  Msg.snd_code = RC_OK;
+  Msg.snd_key0 = KR_VOID;
+  Msg.snd_key1 = KR_VOID;
+  Msg.snd_key2 = KR_VOID;
+  Msg.snd_rsmkey = KR_VOID;
+  Msg.snd_len = 0;
+
+  for (;;) {
+    Msg.rcv_key0 = KR_VOID;
+    Msg.rcv_key1 = KR_VOID;
+    Msg.rcv_key2 = KR_VOID;
+    Msg.rcv_rsmkey = KR_RETURN;
+    Msg.rcv_limit = 0;
+
+    RETURN(&Msg);
+
+    // Set up defaults for return:
+    Msg.snd_invKey = KR_RETURN;
+    Msg.snd_code = RC_OK;
+    Msg.snd_w1 = 0;
+    Msg.snd_w2 = 0;
+    Msg.snd_w3 = 0;
+    Msg.snd_key0 = KR_VOID;
+    Msg.snd_key1 = KR_VOID;
+    Msg.snd_key2 = KR_VOID;
+    Msg.snd_rsmkey = KR_VOID;
+    Msg.snd_len = 0;
+
+    switch (Msg.rcv_keyInfo) {
+    case keyInfoUSBDriver:
+      switch (Msg.rcv_code) {
+      default:
+        Msg.snd_code = RC_capros_key_UnknownRequest;
+        break;
+
+      case OC_capros_key_getType:
+        Msg.snd_w1 = IKT_capros_USBDriver;
+        break;
+
+      case OC_capros_USBDriver_disconnect:
+assert(false);//// need to implement
+        break;
+
+      case OC_capros_USBDriver_suspend:
+assert(false);//// need to implement
+        break;
+
+      case OC_capros_USBDriver_resume:
+assert(false);//// need to implement
+        break;
+      }
+      break;
+
+    case keyInfoSCSIDriver:
+      switch (Msg.rcv_code) {
+      default:
+        Msg.snd_code = RC_capros_key_UnknownRequest;
+        break;
+
+#if 0
+      case OC_capros_key_getType:
+        Msg.snd_w1 = IKT_capros_SCSIDriver;
+        break;
+#endif
+      }
+      break;
+
+    default: assert(false);
+    }
+  }
 }
 
+#if 0 // CapROS
 static void __exit usb_stor_exit(void)
 {
 	US_DEBUGP("usb_stor_exit() called\n");
@@ -1102,6 +1310,4 @@ static void __exit usb_stor_exit(void)
 
 	usb_usual_clear_present(USB_US_TYPE_STOR);
 }
-
-module_init(usb_stor_init);
-module_exit(usb_stor_exit);
+#endif // CapROS

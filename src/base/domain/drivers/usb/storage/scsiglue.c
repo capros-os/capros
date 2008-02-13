@@ -12,6 +12,8 @@
  *
  * Initial work by:
  *   (c) 1999 Michael Gee (michael@linuxspecific.com)
+
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -44,6 +46,9 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/slab.h>
 #include <linux/module.h>
@@ -51,7 +56,7 @@
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_cmnd.h>
-#include <scsi/scsi_devinfo.h>
+//#include <scsi/scsi_devinfo.h>
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_eh.h>
 
@@ -61,6 +66,7 @@
 #include "transport.h"
 #include "protocol.h"
 
+#if 0 // CapROS
 /***********************************************************************
  * Host functions 
  ***********************************************************************/
@@ -303,6 +309,7 @@ static int bus_reset(struct scsi_cmnd *srb)
 	result = usb_stor_port_reset(us);
 	return result < 0 ? FAILED : SUCCESS;
 }
+#endif // CapROS
 
 /* Report a driver-initiated device reset to the SCSI layer.
  * Calling this for a SCSI-initiated reset is unnecessary but harmless.
@@ -327,6 +334,7 @@ void usb_stor_report_bus_reset(struct us_data *us)
 	scsi_report_bus_reset(us_to_host(us), 0);
 }
 
+#if 0 // CapROS
 /***********************************************************************
  * /proc/scsi/ functions
  ***********************************************************************/
@@ -433,6 +441,7 @@ static struct device_attribute *sysfs_device_attr_list[] = {
 		&dev_attr_max_sectors,
 		NULL,
 		};
+#endif // CapROS
 
 /*
  * this defines our host template, with which we'll allocate hosts
@@ -442,6 +451,7 @@ struct scsi_host_template usb_stor_host_template = {
 	/* basic userland interface stuff */
 	.name =				"usb-storage",
 	.proc_name =			"usb-storage",
+#if 0 // CapROS for now
 	.proc_info =			proc_info,
 	.info =				host_info,
 
@@ -452,6 +462,7 @@ struct scsi_host_template usb_stor_host_template = {
 	.eh_abort_handler =		command_abort,
 	.eh_device_reset_handler =	device_reset,
 	.eh_bus_reset_handler =		bus_reset,
+#endif // CapROS
 
 	/* queue commands only, only one command per LUN */
 	.can_queue =			1,
@@ -460,8 +471,10 @@ struct scsi_host_template usb_stor_host_template = {
 	/* unknown initiator id */
 	.this_id =			-1,
 
+#if 0 // CapROS
 	.slave_alloc =			slave_alloc,
 	.slave_configure =		slave_configure,
+#endif // CapROS
 
 	/* lots of sg segments can be handled */
 	.sg_tablesize =			SG_ALL,
@@ -481,8 +494,10 @@ struct scsi_host_template usb_stor_host_template = {
 	/* we do our own delay after a device or bus reset */
 	.skip_settle_delay =		1,
 
+#if 0 // CapROS
 	/* sysfs device attributes */
 	.sdev_attrs =			sysfs_device_attr_list,
+#endif // CapROS
 
 	/* module management */
 	.module =			THIS_MODULE

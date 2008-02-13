@@ -8,6 +8,8 @@
  *
  * Initial work by:
  *   (c) 1999 Michael Gee (michael@linuxspecific.com)
+
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -40,6 +42,9 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifndef _USB_H_
 #define _USB_H_
@@ -50,6 +55,7 @@
 #include <linux/completion.h>
 #include <linux/mutex.h>
 #include <scsi/scsi_host.h>
+#include "../lib/usbdev.h"
 
 struct us_data;
 struct scsi_cmnd;

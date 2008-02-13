@@ -11,6 +11,8 @@
  *
  * Initial work by:
  *   (c) 1999 Michael Gee (michael@linuxspecific.com)
+
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -43,6 +45,9 @@
  * with this program; if not, write to the Free Software Foundation, Inc.,
  * 675 Mass Ave, Cambridge, MA 02139, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/highmem.h>
 #include <scsi/scsi.h>
@@ -184,6 +189,7 @@ unsigned int usb_stor_access_xfer_buf(unsigned char *buffer,
 	 * located in high memory -- then kmap() will map it to a temporary
 	 * position in the kernel's virtual address space. */
 	} else {
+#if 0 // CapROS needs to implement this differently
 		struct scatterlist *sg =
 				(struct scatterlist *) srb->request_buffer
 				+ *index;
@@ -234,6 +240,9 @@ unsigned int usb_stor_access_xfer_buf(unsigned char *buffer,
 				sglen -= plen;
 			}
 		}
+#else
+		BUG_ON(true);
+#endif
 	}
 
 	/* Return the amount actually transferred */
