@@ -58,7 +58,6 @@ $(BUILDDIR):
 ######################################################################
 
 ifeq "$(wildcard $(BUILDDIR))" ""
-DEPEND: $(BUILDDIR)
 MAKE_BUILDDIR=$(BUILDDIR)
 endif
 

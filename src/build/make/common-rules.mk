@@ -155,7 +155,6 @@ endif
 .PHONY: nodepend 
 nodepend:
 	-find . -name '.*.m' -exec rm {} \;
-	-find . -name 'DEPEND' -exec rm {} \;
 	-find . -name 'BUILD' | xargs -n 40 rm -rf \;
 
 .PHONY: webify
