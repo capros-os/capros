@@ -180,6 +180,9 @@ struct usb_interface {
 	unsigned is_active:1;		/* the interface is not suspended */
 	unsigned needs_remote_wakeup:1;	/* driver requires remote wakeup */
 
+	uint8_t localInterfaceNum;	/* index of this interface in
+					usb_host_config.interface */
+
 	struct device dev;		/* interface specific device info */
 	struct device *usb_dev;		/* pointer to the usb class's device, if any */
 	int pm_usage_cnt;		/* usage counter for autosuspend */
