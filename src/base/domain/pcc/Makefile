@@ -22,7 +22,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: package
+default: install
 
 EROS_SRC=../../..
 CROSS_BUILD=yes
@@ -51,7 +51,7 @@ proccre.c: $(BUILDDIR)/constituents.h
 
 IDL=$(wildcard *.idl)
 interfaces: $(IDL)
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/eros
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
