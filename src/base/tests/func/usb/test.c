@@ -58,7 +58,7 @@ const uint32_t __rt_unkept = 1;
     kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result); \
   }
 
-struct capros_USBHCD_NewInterfaceData nid;
+struct capros_USBHCD_InterfaceData nid;
 #define devDescr nid.dd
 #define intfDescr nid.id
 
