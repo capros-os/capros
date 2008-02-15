@@ -71,15 +71,28 @@ int capros_hcd_initialization(void)
   was previously set by bus_register, so bus_attach_device calls device_attach.
   There being no dev->driver yet, device_attach scans all the drivers
   on the platform bus, calling driver_probe_device.
-  In particular it finds the platform_driver ohci_hcd_ep93xx_driver
-  that was registered by ohci_hcd_mod_init just above.
-  That driver has no match function, so driver_probe_device goes ahead
+  In particular it finds the device_driver ohci_hcd_ep93xx_driver.driver,
+  part of the platform_driver ohci_hcd_ep93xx_driver
+  that was registered by a call to platform_driver_register
+  in ohci_hcd_mod_init, called just above.
+  That driver, being registered by plaform_driver_register, has the bus
+  platform_bus_type, whose match function platform_match is called.
+  ep93xx_ohci_device.name, which is "ep93xx-ohci", matches
+  ohci_hcd_ep93xx_driver.driver.name, so driver_probe_device goes ahead
   and calls really_probe.
   really_probe sees that there is no platform_bus_type.probe,
-  but there is a ohci_hcd_ep93xx_driver.probe, so it calls that. (Whew!)
+  but there is an ohci_hcd_ep93xx_driver.driver.probe
+  (copied from ohci_hcd_ep93xx_driver.probe by platform_driver_register),
+  so it calls that.
+  really_probe also sets dev->driver
+  and leaves it set if the probe was successful.  (Whew!)
   CapROS emulation has no device_add, but we must call the probe function: */
+
 extern struct platform_driver ohci_hcd_ep93xx_driver;
+  ep93xx_ohci_device.dev.driver = &ohci_hcd_ep93xx_driver.driver;
   err = (*ohci_hcd_ep93xx_driver.probe)(&ep93xx_ohci_device);
+  if (err)
+    ep93xx_ohci_device.dev.driver = NULL;
 
   return err;
 }

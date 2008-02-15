@@ -1,7 +1,60 @@
 package capros;
 
-interface USB extends key {
+interface USB extends Errno {
+
+  exception Already;
+  exception NoDMA;
+
   typedef unsigned long dma_addr_t;
+  typedef unsigned <8> le8;
+  typedef unsigned <16> le16;	// 16-bit little-endian value
+
+  /* struct DeviceDescriptor is the same as Linux
+     struct usb_device_descriptor. */
+  struct DeviceDescriptor {
+    le8  bLength;
+    le8  bDescriptorType;
+    le16 bcdUSB;
+    le8  bDeviceClass;
+    le8  bDeviceSubClass;
+    le8  bDeviceProtocol;
+    le8  bMaxPacketSize0;
+    le16 idVendor;
+    le16 idProduct;
+    le16 bcdDevice;
+    le8  iManufacturer;
+    le8  iProduct;
+    le8  iSerialNumber;
+    le8  bNumConfigurations;
+  };
+
+  /* struct InterfaceDescriptor is the same as Linux
+     struct usb_interface_descriptor. */
+  struct InterfaceDescriptor {
+    le8  bLength;
+    le8  bDescriptorType;
+    le8  bInterfaceNumber;
+    le8  bAlternateSetting;
+    le8  bNumEndpoints;
+    le8  bInterfaceClass;
+    le8  bInterfaceSubClass;
+    le8  bInterfaceProtocol;
+    le8  iInterface;
+  };
+
+  /* struct EndpointDescriptor is the same as Linux
+     struct usb_endpoint_descriptor. */
+  struct EndpointDescriptor {
+    le8  bLength;
+    le8  bDescriptorType;
+    le8  bEndpointAddress;
+    le8  bmAttrubutes;
+    le16 wMaxPacketSize;
+    le8  bInterval;
+    // The following are for audio endpoints only.
+    le8  bRefresh;
+    le8  bSynchAddress;
+  };
 
   unsigned long enum transferFlagsEnum {
     shortNotOK = 1,
@@ -13,36 +66,27 @@ interface USB extends key {
     noInterrupt = 128
   };
 
-  long enum urbStatus {
-    cancelled = -104,
-    rejected = -2
-  };
-
   struct isoPacketDescriptor {
     unsigned long offset;
     unsigned long length;
-    unsigned long unused1;	// actual_length
-    long unused2;		// status
   };
 
   struct urb {
     unsigned long endpoint;	// bit 7 has direction (0=to device),
 				// bits 15-18 have endpoint, others ignored
-    unsigned long unused1;	// status
+
     transferFlagsEnum transfer_flags;
-    unsigned long unused2;	// transfer_buffer
+
     dma_addr_t transfer_dma;
     unsigned long transfer_buffer_length;
-    long unused3;		// actual_length
-    unsigned long unused4;	// setup_packet
-    dma_addr_t setup_dma;	// if a control endpoint
-    long start_frame;		// ignored if isoASAP (or HCD is OHCI)
+
+    dma_addr_t setup_dma;	// if a control endpoint (setup length is 8)
+    long start_frame;		// if isochronous
+				//   ignored if isoASAP (or HCD is OHCI)
     long number_of_packets;	// if isochronous, # of elements
-				// in iso_frame_desc
-    long interval;		// if interrupt or isochronous
-    long unused5;		// error_count
-    unsigned long unused6;	// context
-    unsigned long unused7;	// complete
+				//   in iso_frame_desc
+    long interval;		// if interrupt or iso
+
     array <isoPacketDescriptor, 0> iso_frame_desc;
   };
 };
@@ -55,18 +99,18 @@ This is the interface to a Universal Serial Bus's device's interface.
 interface USBInterface extends USB {
 
   struct urbResult {
-    USB.urbStatus status;
+    long status;
     unsigned long actual_length;
     long interval;
     };
 
   struct isoBufferResult {
-    USB.urbStatus status;
+    long status;
     unsigned long actual_length;
   };
 
   struct urbIsoResult {
-    USB.urbStatus status;
+    long status;
     long interval;
     long start_frame;
     unsigned long error_count;
@@ -75,44 +119,98 @@ interface USBInterface extends USB {
     array <isoBufferResult, 0> iso_frame_desc;
   };
 
-//// specify a timeout for the urb? No, use a linux timer.
-  urbResult submitUrb(USB.urb theUrb);
-  urbIsoResult submitIsoUrb(USB.urb theUrb);
+  /** Get endpoint descriptors.
 
-  /** Clear error hold.
+  Returns an array of EndpointDescriptors for all the endpoints in this
+  interface, in no particular order. 
+  There is never a descriptor for endpoint zero. */
+  /* IDL compiler can not handle variable-sized arrays yet. Use OC=2. */
 
-  If an error occurs on an urb, the endpoint enters the "error hold"
-  state. While in this state, no other urbs for this endpoint will be
-  transferred; they will wait until the hold is cleared.
-  This operation clears that state. */
-  void clearErrorHold(unsigned long endpoint);
+  /** Register a driver instance.
+
+  Register the passed USBDriver capability to receive notification of
+  disconnect etc. for the interface.
+  (Any previously-registered driver is forgotten.)
+
+  On a probe, the newly-constructed driver must call either
+  registerDriver or probeFailed.
+  */
+  void registerDriver(USBDriver driver);
+
+  void probeFailed();
+
+  /** Submit an urb.
+
+  If the urb is not accepted, this method raises an exception.
+  If the urb is accepted, this method returns RC_OK when the
+      transfer is complete.
+      NOTE: This behavior is different from Linux usb_submit_urb!
+    If urbResult.status == 0, completion is Void.
+    If urbResult.status is not zero, complCap is a resume capability
+      and transmission of urbs to the endpoint is temporarily suspended.
+      You must send a message to complCap when you want to allow
+      transmission of urbs to resume.
+      You must send a message to complCap promptly, because transmission
+      to other endpoints and devices may be impeded until you do. */
+  // May raise key.RequestError.
+  // Raises NoDMA if noTransferDMAMap and noSetupDMAMap not both set.
+  /* May raise the following from Errno:
+  exception Perm;
+  exception NoEnt;	Was stopped by rejectUrbs before it started
+  exception Again;
+  exception NoMem;
+  exception NoDev;
+  exception Inval;
+  exception NoSpc;	There is not enough bandwidth for the transfer
+  exception MsgSize;
+  exception ConnReset;	Was stoopped by unlinkQueuedUrbs before it started
+  exception Shutdown;
+  exception HostUnreach;
+  */
+  /* (No provision for timeout is made. You may separately use a Linux timer
+  that will call unlinkQueuedUrbs on expiration.) */
+  urbResult submitUrb(USB.urb theUrb, out capros.key unused1,
+    out capros.key unused2, out capros.key unused3, out capros.key complCap);
+  urbIsoResult submitIsoUrb(USB.urb theUrb, out capros.key unused1,
+    out capros.key unused2, out capros.key unused3, out capros.key complCap);
 
   /** Cancel queued urbs.
 
   Cancel all urbs queued on the specified endpoint,
-  causing them to complete with status = cancelled. */
+  causing them to complete with status = -ECONNRESET.
+
+  endpoint has the same format as urb.endpoint.  */
   void unlinkQueuedUrbs(unsigned long endpoint);
 
   /** Reject urbs.
 
   Cancel all urbs queued on the specified endpoint,
-  causing them to complete with status = rejected.
+  causing them to complete with status = -ENOENT.
   Also sets a "rejecting" flag that causes the endpoint to reject all
-  new urbs submitted. */
+  new urbs submitted until the flag is cleared with clearRejecting.
+
+  endpoint has the same format as urb.endpoint.  */
   void rejectUrbs(unsigned long endpoint);
 
   /** Clear rejecting flag.
 
   Clear the rejecting flag on the specified endpoint.
-  Urbs subsequently submitted will not be rejected. */
+  Urbs subsequently submitted will not be rejected.
+
+  endpoint has the same format as urb.endpoint.  */
   void clearRejecting(unsigned long endpoint);
 
-/*
-op to unlink or abort all active URBs for this interface?
-Also set/clear flag to abort all new urbs submitted
-*/
-/* kill - waits until we have returned to the caller of submit*Urb, but
-of course can't wait until that code is finished. */
+  /** Get the DMA mask.
+
+  DMA addresses for this USB bus may not have bits set
+  that are not set in the mask returned by this method. */
+  unsigned long getDMAMask();
+
+  /** Reset device
+
+  */
+  // void resetDevice();
+  // not implemented yet - needs pre- and post- notifications?
 };
 
 /** 
@@ -122,10 +220,35 @@ This is the interface to a Universal Serial Bus as a whole.
 */
 interface USBHCD extends key {
 
+  struct InterfaceData {
+    // Information about the USB bus:
+    unsigned long DMAMask;
+
+    // Information about this USB device:
+    /* speed values are defined in linux/usb/ch9.h */
+    unsigned byte speed;
+
+    /* The device's address on the USB bus. */
+    unsigned byte deviceNum;
+
+    /* The device descriptor, the same as in linux/usb/ch9.h */
+    USB.DeviceDescriptor dd;
+
+    // Information about this USB interface:
+    USB.InterfaceDescriptor id;
+  };
+
+  /** Get the DMA mask.
+
+  DMA addresses for this USB bus may not have bits set
+  that are not set in the mask returned by this method. */
+  unsigned long getDMAMask();
+
   /** Get new interface.
 
   Wait until an interface of a newly-mounted device is available,
   and return it.
+  Raises Already if there is already a process waiting.
   */
-  USBInterface getNewInterface();
+  USBInterface getNewInterface(out InterfaceData nid);
 };

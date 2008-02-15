@@ -73,7 +73,11 @@ armusble_iomem[1] = physpage(physreg);
 armusbhcdle[LE_CLOCKS] = usbhcd_le_clocks as ro node key;
 armusbhcdle[LE_IOMEM] = armusble_iomem;
 
+usbhcdKey = armusbhcd;
+
 #elif defined(EROS_TARGET_i486)
+
+usbhcdKey = undefined;
 
 #else
 #error "Unknown target"

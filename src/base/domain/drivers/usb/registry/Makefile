@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -24,34 +24,14 @@
 default: install
 
 CROSS_BUILD=yes
-EROS_SRC=../../../..
+EROS_SRC=../../../../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=lib
-DIRS+=storage
-DIRS+=registry
+TARGETS=$(BUILDDIR)/usbregistry
+OBJECTS=$(BUILDDIR)/main.o
 
-TARGETS=$(BUILDDIR)/usbhcd
-VPATH=core:host
-OBJECTS=
-OBJECTS+= $(BUILDDIR)/buffer.o
-OBJECTS+= $(BUILDDIR)/config.o
-OBJECTS+= $(BUILDDIR)/driver.o
-OBJECTS+= $(BUILDDIR)/generic.o
-OBJECTS+= $(BUILDDIR)/hcd.o
-OBJECTS+= $(BUILDDIR)/hub.o
-OBJECTS+= $(BUILDDIR)/message.o
-OBJECTS+= $(BUILDDIR)/quirks.o
-OBJECTS+=$(BUILDDIR)/usb.o
-OBJECTS+= $(BUILDDIR)/urb.o
-ifeq "$(EROS_TARGET)" "arm"
-OBJECTS+= $(BUILDDIR)/ohci-hcd.o
-VPATH+=:arch/arm/mach-ep93xx
-OBJECTS+= $(BUILDDIR)/core.o
-else
-endif
-OBJECTS+=$(BUILDDIR)/cap.o
+STORID_OBJECTS=../storage/$(BUILDDIR)/stor_ids.o
 
 INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
 INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
@@ -62,16 +42,16 @@ all: $(TARGETS)
 
 IDL=$(wildcard *.idl)
 interfaces: $(IDL)
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
+##	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/usbhcd: $(OBJECTS) $(DEVSTART) $(LINUXLIB) $(DOMSBRK) $(DOMLIB)
-	$(DOMLINK) -Tdata 0x00c00000 $(DOMLINKOPT) -e driver_start $(DEVSTART) $(OBJECTS) $(LINUXLIB) $(DOMSBRK) $(DOMLIB) -o $@
+$(BUILDDIR)/usbregistry: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
+	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) $(STORID_OBJECTS) $(DOMLIB) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
-	$(INSTALL) -m 644 usbhcd.map $(CAPROS_DOMAIN)/drivers
+	$(INSTALL) -m 644 usbregistry.map $(CAPROS_DOMAIN)/drivers
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers
 
 -include $(BUILDDIR)/.*.m
