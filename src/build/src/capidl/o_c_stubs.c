@@ -1577,6 +1577,7 @@ symdump(Symbol *s, FILE *out, int indent)
       break;
     }
   case sc_package:
+  case sc_scope:
   case sc_enum:
     {
       unsigned i;
@@ -1679,9 +1680,11 @@ output_c_stubs(Symbol *s)
 
   path_smkdir(target);
 
+#if 0	// This crashes if s->cls == sc_scope.
   if (symbol_IsFixedSerializable(s) == false)
     diag_fatal(1, "Type \"%s\" is not serializable in bounded space\n", 
 		symbol_QualifiedName(s,'.'));
+#endif
 
   preamble = buffer_create();
 
