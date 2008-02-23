@@ -7,31 +7,17 @@
     <link rel=author rev=made href="mailto:shap@eros-os.org" title="Jonathan S. Shapiro">
   </head>
 
-  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+  <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
     <center>
       <h1 class=title>The Checkpoint Mechanism</h1>
-      <div class=nocss>
-	&nbsp;<br>
-      </div>
     </center>
-    <table>
-      <tr valign=top>
-	<td width="10%">&nbsp;</td>
-	<td>
 	  <p>
-	    The checkpoint code is the most complex code in the EROS kernel
-	    (perhaps the duplexed I/O code comes close, but that is going
-	    away soon).  It has undergone the greatest number of revisions
-	    and has been the source of the most frustrating (and difficult
-	    to locate) bugs.
-	  </p>
-	  <p>
-	    In this note, I'm documenting the final design for the
-	    checkpoint area, along with some explanatory notes.
+	    This note documents the design for the
+	    checkpoint data structures and algorithms.
 	  </p>
 	  <h2>1. Background</h2>
 	  <p>
-	    The EROS checkpoint design differs significantly from the
+	    The CapROS checkpoint design differs significantly from the
 	    KeyKOS design, but many of the <em>ideas</em> of the
 	    KeyKOS design still pertain.  The KeyKOS design is
 	    described in <a
@@ -51,7 +37,7 @@
 		now the checkpoint area.
 	      </p>
 	      <p>
-		EROS uses a single checkpoint area in a circular
+		CapROS uses a single checkpoint area in a circular
 		fashion, and divides this area dynamically into
 		several generations.  A generation is permitted to
 		occupy up to a fixed percentage of the checkpoint area
@@ -73,11 +59,7 @@
 		head settling delays where possible.
 	      </p>
 	      <p>
-		EROS <em>does</em> reuse space in the checkpoint area,
-		but uses an allocation strategy that is designed to
-		maximize sequential allocation.  Our rationale is that
-		disk tracks are larger than they were a decade ago, so
-		we don't take as many seeks/settles.
+The plan is that CapROS, unlike EROS, will do the same.
 	      </p>
 	    </li>
 	    <li>
@@ -85,31 +67,28 @@
 		Once KeyKOS begins to reuse a checkpoint area, all
 		memory of that area's prior content is discarded.
 	      <p>
-		EROS preserves a record of object locations in the
+		CapROS preserves a record of object locations in the
 		checkpoint area until their storage is actually
 		reused.  It should therefore perform fewer seeks to
 		areas outside the checkpoint area.
-	      </p>
-	    </li>
-	    <li>
-	      <p>
-		KeyKOS has no equivalent to the EROS reserve table.
+What is this useful for?
 	      </p>
 	    </li>
 	  </ul>
 	  <p>
-	    The following sections describe how the EROS checkpoint
+	    The following sections describe how the CapROS checkpoint
 	    area is managed in detail.
 	  </p>
 	  <h2>2. On-Disk Checkpoint Area</h2>
 	  <p>
-	    The EROS checkpoint area is made up of ranges of disk page
+	    The CapROS checkpoint area is made up of ranges of disk page
 	    frames that are sequentially numbered beginning at zero.
 	    These are referred to as <b>log ranges</b>.  Just as page
 	    frames in object ranges are referred to with <b>oid</b>s,
 	    frames in the log are referred to with <b>lid</b>s.  An
 	    <em>lid</em> is constructed by taking the page frame number
 	    and concatenating an 8-bit object offset.
+(8 bits = log(EROS_OBJECTS_PER_FRAME).)
 	  </p>
 	  <p>
 	    Frames zero and one hold the checkpoint headers of the two
@@ -146,7 +125,7 @@
 	  <h3>2.1 The Checkpoint Header</h3>
 	  <p>
 	    The root of each directory is the checkpoint header
-	    (either A or B).  The checkpoint header page contains
+	    (either A or B).  The checkpoint header page 
 	    begins with a header structure describing the checkpoint,
 	    followed by the <em>lid</em> values of each second-level
 	    header in the checkpoint area:
@@ -155,10 +134,6 @@
 	      <pre>
 +-----------------+
 |     Header      |
-+-----------------+
-| reserve dir lid |
-|      ....       |
-| reserve dir lid |
 +-----------------+
 | thread dir lid  |
 |      ....       |
@@ -182,7 +157,6 @@ struct DiskCheckpointHdr {
 
   uint32_t   nDirPage;
   uint32_t   nThreadPage;
-  uint32_t   nRsrvPage;
 };
 	      </pre>
 	  </ul>
@@ -193,18 +167,18 @@ struct DiskCheckpointHdr {
 	    <dt><b>sequenceNumber</b></dt>
 	    <dd>
 	      <p>
-		The sequence number allows EROS to determine which
-		checkpoint is most recent.  When restarting, EROS
+		The sequence number allows CapROS to determine which
+		checkpoint is most recent.  When restarting, CapROS
 		first loads the checkpoint headers at <tt>lid=0x0</tt>
 		and <tt>lid=0x100</tt>.  If a drive failure occurred
 		while writing a header (detected by bad CRC while
 		rereading the corresponding page frame), that header
-		is discarded.  Of the valid headers, EROS then chooses
+		is discarded.  Of the valid headers, CapROS then chooses
 		the header with the largest sequence number as the
 		most recent checkpoint.
 	      </p>
 	      <p>
-		Note that on recovery EROS does not attempt to
+		Note that on recovery CapROS does not attempt to
 		reconstruct <em>all</em> of the checkpoint generations 
 		that may be present in the checkpoint area.  It loads
 		only the most recent one.
@@ -220,10 +194,10 @@ struct DiskCheckpointHdr {
 		locations.  If not, migration must be restarted.
 	      </p>
 	      <p>
-		Once migration <em>has</em> completed, EROS is free to
+		Once migration <em>has</em> completed, CapROS is free to
 		begin reusing the object storage associated with a
-		checkpoint area.  The reserve and thread directories
-		remain valid, but the object directory should be
+		checkpoint area.  The thread directory
+		remains valid, but the object directory should be
 		considered invalid.
 	      <p>
 		<em>The migrator should perhaps reset the nDirPage
@@ -244,45 +218,19 @@ struct DiskCheckpointHdr {
 	      </p>
 	    </dd>
 	    <dt>
-	      <b>nRsrvPage</b>,
 	      <b>nThreadPage</b>,
 	      <b>nDirPage</b>
 	    </dt>
 	    <dd>
 	      <p>
-		The <tt>nRsrvPage</tt>, <tt>nThreadPage</tt>, and
+		The <tt>nThreadPage</tt> and
 		<tt>nDirPage</tt> give (respectively) the number of
 		<em>lid</em> entries of each type in the remainder of
 		the checkpoint header.
 	      </p>
 	    </dd>
 	  </dl>
-	  <h3>2.2 The Reserve Directory</h3>
-	  <p>
-	    Each ``reserve directory lid'' in the checkpoint header 
-	    names the location of a reserve directory page.
-	    Every reserve directory page consists of a single word
-	    describing the number of following entries, and then some
-	    number of reserve descriptors:
-	  </p>
-	  <ul>
-	      <pre>
-struct CpuReserveInfo {
-  uint32_t index;
-  uint64_t period;
-  uint64_t duration;
-  uint64_t quanta;
-  uint64_t start;
-  int rsrvPrio;
-  int normPrio;
-};
-	      </pre>
-	  </ul>
-	  <p>
-	    The reserve entries from the most current valid checkpoint 
-	    are reloaded as part of the system startup process.
-	  </p>
-	  <h3>2.3 The Thread Directory</h3>
+	  <h3>2.2 The Thread Directory</h3>
 	  <p>
 	    Each ``thread directory lid'' in the checkpoint header
 	    names the location of a thread directory page.  A thread
@@ -300,7 +248,7 @@ struct ThreadDirent {
 	      </pre>
 	  </ul>
 	  <p>
-	    An entry in the thread directory corresponds to a thread
+	    An entry in the thread directory corresponds to a process
 	    that was running at the time the checkpoint was taken.
 	    The thread entries from the most current valid checkpoint
 	    are reloaded as part of the system startup process.
@@ -312,8 +260,9 @@ struct ThreadDirent {
 	    of the node.  The allocation count must be preserved
 	    because threads can sleep for long periods of time during
 	    which the process they occupy may be rescinded.
+Is this correct?
 	  </p>
-	  <h3>2.4 The Object Directory</h3>
+	  <h3>2.3 The Object Directory</h3>
 	  <p>
 	    The remaining directory lids in the checkpoint header
 	    identify object directory pages.  Each entry holds an
@@ -333,19 +282,18 @@ struct CkptDirent {
 	  </ul>
 	  <p>
 	    For pages, the count field contains the allocation count.
-	    For nodes, it contains the call count. <em>Is this
-	      correct?</em>
+	    For nodes, where are the allocation count and call count
+            located?
 	  </p>
 	  <p>
 	    If the lid field of the directory is zero, then the
 	    corresponding object is either a zero-filled page or a
-	    node filled with null keys whose call count is equal to
-	    its allocation count.  Which one can be determined by the
-	    value of the type field.
+	    node filled with null keys.
+	    Which one can be determined by the value of the type field.
 	  </p>
 	  <p>
 	    If the lid field is nonzero, the corresponding checkpoint
-	    frame contains either page (or capability page) data or a
+	    frame contains either page data or a
 	    ``log pot.''  A log pot is simply a page-sized cluster of
 	    nodes in the checkpoint area.  This is why the lid value
 	    is concatenated with an object index: the index indicates
@@ -353,7 +301,7 @@ struct CkptDirent {
 	  </p>
 	  <h2>3. Theory of Operation</h2>
 	  <p>
-	    The basic idea behind the EROS checkpoint design is that
+	    The basic idea behind the CapROS checkpoint design is that
 	    we will divide the information in the checkpoint area into
 	    several generations.  The <em>current</em> generation
 	    corresponds roughly to the paging area of conventional
@@ -411,7 +359,7 @@ struct CkptDirent {
 	    indicate that migration is done.
 	  </p>
 	  <p>
-	    In principle, EROS can be configured for any number of
+	    In principle, CapROS can be configured for any number of
 	    generations greater than three.  In practice, the current
 	    system is configured for exactly three.
 	  </p>
@@ -432,8 +380,8 @@ struct CkptDirent {
 	      <p>
 		As a set of object containers, each of which is one
 		page in size.  A given object container may hold a
-		data page, a capability page, a node, or a directory
-		entry.  [They can also hold thread and reserve
+		data page, a node, or a directory
+		entry.  [They can also hold thread
 		entries, but these are handled as special cases by the 
 		checkpoint logic.]
 	      </p>
@@ -517,12 +465,6 @@ struct CkptDirent {
 	    <li>
 	      <p>
 		A node filled with zero number capabilities.
-	      </p>
-	    </li>
-	    <li>
-	      <p>
-		A capability page filled with zero number
-		capabilities.
 	      </p>
 	    </li>
 	  </ul>
@@ -614,9 +556,9 @@ else
 	  </ul>
 	  <h3>4.4 Restart Actions</h3>
 	  <p>
-	    When EROS is restarted after a shutdown (orderly or
+	    When CapROS is restarted after a shutdown (orderly or
 	    otherwise), it first locates the most recent checkpoint
-	    header.  It reloads the thread and reserve directories,
+	    header.  It reloads the thread directory,
 	    and then checks to see if the checkpoint has migrated.  If 
 	    not, it also reloads the object directory.
 	  </p>
@@ -667,7 +609,6 @@ struct CoreGeneration {
   uint32_t nPage;
   uint32_t nNode;
   uint32_t nThread;
-  uint32_t nReserve;
 
   // Record of storage we have released:
   uint32_t nReleasedNode;
@@ -685,7 +626,7 @@ struct CoreGeneration {
 	  </ul>
 	  <p>
 	    For each type of object (page, zero page, node, zero node,
-	    thread, reserve), the core generation structure records
+	    thread), the core generation structure records
 	    how many of these objects have been allocated in this
 	    generation.  An object is allocated the first time it is
 	    written to the checkpoint area.  Nodes are 
@@ -778,13 +719,21 @@ struct CoreDirent {
 	      </pre>
 	  </ul>
 	  <hr>
-	  <em>Copyright 1998 by Jonathan Shapiro.  All rights
-	    reserved.  For terms of redistribution, see the <a
-	      href="../legal/license/GPL.html">EROS License
-	      Agreement</a></em>
-	</td>
-	<td width="10%">&nbsp;</td>
-      </tr>
-    </table>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 1998 by Jonathan Shapiro.
+Copyright 2008 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
   </body>
 </html>
