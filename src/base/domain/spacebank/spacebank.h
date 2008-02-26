@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -37,6 +37,8 @@ Approved for public release, distribution unlimited. */
 
 /* Invalid type for internal use */
 #define SBOT_INVALID 0xff
+
+#define NUM_BASE_TYPES 2	// just nodes and pages
 
 extern const char *type_name(int t);
 extern bool valid_type(int t);

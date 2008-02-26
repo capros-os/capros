@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -74,6 +74,11 @@ typedef struct AllocCache_s {
 AllocCache page_cache[NCACHE];
 AllocCache node_cache[NCACHE];
 
+AllocCache * caches[NUM_BASE_TYPES] = {
+  [capros_Range_otPage] = page_cache,
+  [capros_Range_otNode] = node_cache
+};
+
 static uint32_t curRanges = 0;
 
 uint32_t NextRangeSrmFrame = 0;
@@ -94,9 +99,6 @@ mark_allocated_frames(Range *range0)
   int i;
   uint64_t nNode;
   uint64_t nDataPage;
-  uint32_t nFrames = 0;
-  uint32_t nNodeFrames = 0;
-  uint32_t nDataPageFrames = 0;
 
   OID firstNodeOid = range0->nSubmaps * EROS_OBJECTS_PER_FRAME;
   OID firstDataPageOid;
@@ -104,24 +106,26 @@ mark_allocated_frames(Range *range0)
   capros_Node_getSlot(KR_VOLSIZE, capros_Range_otNode, KR_TMP);
   capros_Number_get64(KR_TMP, &nNode);
 
-  nNodeFrames = DIVRNDUP(nNode, objects_per_frame[capros_Range_otNode]);
+  uint32_t nNodeFrames
+    = DIVRNDUP(nNode, objects_per_frame[capros_Range_otNode]);
 
   firstDataPageOid = firstNodeOid + (nNodeFrames * EROS_OBJECTS_PER_FRAME);
   
   capros_Node_getSlot(KR_VOLSIZE, capros_Range_otPage, KR_TMP);
   capros_Number_get64(KR_TMP, &nDataPage);
 
-  nDataPageFrames += DIVRNDUP(nDataPage, objects_per_frame[capros_Range_otPage]);
+  uint32_t nDataPageFrames
+    = DIVRNDUP(nDataPage, objects_per_frame[capros_Range_otPage]);
 
-  nFrames = nDataPageFrames + nNodeFrames;
+  uint32_t nFrames = nDataPageFrames + nNodeFrames;
   
   if (nFrames + range0->nSubmaps > RangeTable[0].nFrames)
     kpanic(KR_OSTREAM, "Too many preallocated frames.\n");
   
   DEBUG(init)
     kdprintf(KR_OSTREAM,
-	     "Marking %d submaps allocated\n",
-	     range0->nSubmaps);
+	     "Marking %d submaps allocated. nFrames=0x%x nAvail=0x%llx\n",
+	     range0->nSubmaps, nFrames, range0->nAvailFrames);
 	   
   for (i = 0; i < nFrames; i++) {
     uint32_t frame = i + range0->nSubmaps;
@@ -170,7 +174,9 @@ ob_init(void)
 
   mark_allocated_frames(&RangeTable[0]);
   
-  DEBUG(init) kdprintf(KR_OSTREAM, "Allocated frames are marked\n");
+  DEBUG(init) kdprintf(KR_OSTREAM,
+      "Allocated frames are marked. RangeTable[0].nAvail=0x%llx\n",
+      RangeTable[0].nAvailFrames);
 
 #if 0
   init_cache();
@@ -222,25 +228,48 @@ fill_cache(AllocCache* ac)
 uint32_t
 ob_AllocFrame(Bank *bank, OID *oid, bool wantNode)
 {
-  int i;
+  int i, j;
   uint32_t ndx = ((uint32_t) bank) % NCACHE;
   AllocCache *cache = wantNode ? node_cache : page_cache;
   AllocCache *ac = &cache[ndx];
 
   assert (ac->ndx <= ac->top);
 
+  /* Look in this bank's cache of the same type,
+  for locality on the disk. */
   if ( (ac->ndx != ac->top) || fill_cache(ac) ) {
     *oid = ac->oid[ac->ndx++];
     return RC_OK;
   }
 
-  for (i = 1; i < NCACHE; i++) {
+  /* Look in any bank's cache of the same type,
+  to avoid retyping a frame. */
+  for (i = 0; i < NCACHE; i++) {
     ac = &cache[(i+ndx)%NCACHE];
     if (ac->ndx != ac->top) {
       *oid = ac->oid[ac->ndx++];
       return RC_OK;
     }
   }
+
+  /* Look in any bank's cache of any type. We're desperate. */
+  for (j = 0; j < NUM_BASE_TYPES; j++) {
+    AllocCache * anyCache = caches[j];
+    if (anyCache != cache) {
+      for (i = 0; i < NCACHE; i++) {
+        ac = &anyCache[(i+ndx)%NCACHE];
+        if (ac->ndx != ac->top) {
+          *oid = ac->oid[ac->ndx++];
+          return RC_OK;
+        }
+      }
+    }
+    // else we've already searched this cache
+  }
+
+  DEBUG(limit)
+    kprintf(KR_OSTREAM, "ob_AllocFrame failed. ac=0x%x rng=0x%x\n",
+            ac, &RangeTable);
 
   return RC_capros_SpaceBank_LimitReached;
 }
@@ -426,9 +455,9 @@ range_install(uint32_t kr)
   myRange->nAvailFrames = nFrames - nSubMaps;
   myRange->nSubmaps = nSubMaps;
 
-  DEBUG(init) kdprintf(KR_OSTREAM, "Installed range [0x%08x%08x,0x%08x%08x)\n",
-	   (uint32_t) (oid>>32), (uint32_t) oid,
-	   (uint32_t) (endOID>>32), (uint32_t) endOID);
+  DEBUG(init) kdprintf(KR_OSTREAM,
+           "Installed range [0x%llx,0x%llx) nf=0x%llx\n",
+           oid, endOID, myRange->nAvailFrames );
   
   map_range(myRange);
   init_range_map(myRange);

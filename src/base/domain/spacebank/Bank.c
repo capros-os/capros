@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan Adams.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -280,7 +280,7 @@ bank_ReserveFrames(Bank *bank, uint32_t count)
 
   DEBUG(limit)
     kprintf(KR_OSTREAM,
-	    "SpaceBank: bank_ReserveFrame reserve %d frames for bank 0x%08x\n",
+	    "SpaceBank: bank_ReserveFrames reserve %d frames for bank 0x%x\n",
 	    count,
 	    bank);
   /* Loop up through bank0 (which has a NULL parent), adding
@@ -292,11 +292,9 @@ bank_ReserveFrames(Bank *bank, uint32_t count)
   for (curBank = bank; curBank != NULL; curBank = curBank->parent) {
     DEBUG(limit)
       kprintf(KR_OSTREAM,
-	      "SpaceBank: bank 0x%08x "
-	      "limit=0x%08x%08x allocCount=0x%08x%08x\n",
-	      bank,
-	      DW_HEX_ARG(curBank->allocCount),
-	      DW_HEX_ARG(curBank->limit));
+	      "SpaceBank: bank 0x%x "
+	      "limit=0x%llx allocCount=0x%llx\n",
+	      bank, curBank->allocCount, curBank->limit);
     
     if (curBank->allocCount + count > curBank->limit)
       break;

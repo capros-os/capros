@@ -68,6 +68,8 @@ $(SOURCES): $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/spacebank: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) $(DOMLIB) -o $@
+## and for debugging:
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 IDL=$(wildcard *.idl)
 interfaces: $(IDL)
