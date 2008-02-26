@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -313,8 +313,10 @@ AllocPage(state *pState)
 			       KR_PG_CACHE + 1 ) == RC_OK) {
       pState->npage = 1;
     }
-    else
+    else {
+      DEBUG(returns) kprintf(KR_OSTREAM, "AllocPage failed\n");
       return KR_VOID;
+    }
   }
   
   {
@@ -327,8 +329,10 @@ AllocPage(state *pState)
   if (capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage,
 			     KR_NEWOBJ ) == RC_OK)
     return KR_NEWOBJ;
-  else
+  else {
+    DEBUG(returns) kprintf(KR_OSTREAM, "AllocPage failed\n");
     return KR_VOID;
+  }
 #endif
 }
 
@@ -506,9 +510,8 @@ HandleSegmentFault(Message *pMsg, state *pState)
       bool needTraverse = true;
 
       DEBUG(access)
-	kdprintf(KR_OSTREAM, "capros_Process_FC_AccessViolation at 0x%08x %08x\n",
-		 (uint32_t) (offset>>32),
-		 (uint32_t) offset);
+	kprintf(KR_OSTREAM, "capros_Process_FC_AccessViolation at 0x%llx\n",
+		 offset);
       
 #if KR_L1_NODE != KR_SEGMENT
       /* If the last thing we got hit with was an access fault, and
@@ -550,7 +553,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	  capros_GPT_getSlot(KR_L1_NODE, slot, KR_SCRATCH);
 
 	  DEBUG(access)
-	    kdprintf(KR_OSTREAM, "Re-traverse suppressed at slot %d!\n", slot);
+	    kprintf(KR_OSTREAM, "Re-traverse suppressed at slot %d!\n", slot);
 	}
       }
 #endif
@@ -566,21 +569,20 @@ HandleSegmentFault(Message *pMsg, state *pState)
       
 	segBlss = subsegBlss + 1;
       
-	DEBUG(access) kprintf(KR_OSTREAM, "  traverse slot %d, blss %d, offset 0x%08x %08x\n",
+	DEBUG(access) kprintf(KR_OSTREAM, "  traverse slot %d, blss %d, offset 0x%llx\n",
 			      slot, segBlss,
-			      (uint32_t) (offset >> 32),
-			      (uint32_t) offset);
+			      offset);
 
 	/* Traverse downward past all writable GPTs: */
 
 	while (subsegBlss > EROS_PAGE_BLSS) {
 	
-	  DEBUG(access) kdprintf(KR_OSTREAM, "  Walking down: subsegBlss %d\n",
+	  DEBUG(access) kprintf(KR_OSTREAM, "  Walking down: subsegBlss %d\n",
 				 subsegBlss);
 
 	  result = capros_key_getType(KR_SCRATCH, &kt);
 	  if (result != RC_OK || kt != AKT_GPT) {
-	    DEBUG(access) kdprintf(KR_OSTREAM, "  subsegBlss %d invalid!\n",
+	    DEBUG(access) kprintf(KR_OSTREAM, "  subsegBlss %d invalid!\n",
 				   subsegBlss);
 	    break;
 	  }
@@ -588,7 +590,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	  uint32_t perms;
           result = capros_Memory_getRestrictions(KR_SCRATCH, &perms);
 	  if (result != RC_OK || (perms & capros_Memory_readOnly)) {
-	    DEBUG(access) kdprintf(KR_OSTREAM, "  subsegBlss %d unwritable.\n",
+	    DEBUG(access) kprintf(KR_OSTREAM, "  subsegBlss %d unwritable.\n",
 				   subsegBlss);
 	    break;
 	  }
@@ -598,10 +600,9 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	  slot = BlssSlotNdx(offset, subsegBlss);
 	  offset &= BlssMask(subsegBlss);
 
-	  DEBUG(access) kprintf(KR_OSTREAM, "  traverse slot %d, blss %d, offset 0x%08x %08x %08x\n",
+	  DEBUG(access) kprintf(KR_OSTREAM, "  traverse slot %d, blss %d, offset 0x%llx\n",
 				slot, subsegBlss,
-				(uint32_t) (offset>>32),
-				(uint32_t) offset);
+				offset);
 
 	  subsegBlss--;
 	
@@ -612,7 +613,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	   turning the R/O GPTs into R/W GPTs. */
 
 	while (subsegBlss > EROS_PAGE_BLSS) {
-	  DEBUG(access) kdprintf(KR_OSTREAM, "  Walking down: COW subsegBlss %d\n",
+	  DEBUG(access) kprintf(KR_OSTREAM, "  Walking down: COW subsegBlss %d\n",
 				 subsegBlss);
 
 	  /* Buy a new read-write GPT: */
@@ -632,10 +633,9 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	  slot = BlssSlotNdx(offset, subsegBlss);
 	  offset &= BlssMask(subsegBlss);
 
-	  DEBUG(access) kprintf(KR_OSTREAM, "  traverse slot %d, blss %d, offset 0x%08x %08x\n",
+	  DEBUG(access) kprintf(KR_OSTREAM, "  traverse slot %d, blss %d, offset 0x%llx\n",
 				slot, subsegBlss,
-				(uint32_t) (offset>>32),
-				(uint32_t) offset);
+				offset);
 
 	  subsegBlss--;
 
@@ -653,7 +653,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
       /* Now KR_SCRATCH names a page and KR_L1_NODE is its containing
 	 node, and KR_L1_NODE[slot] == KR_SCRATCH. */
 
-      DEBUG(access) kdprintf(KR_OSTREAM, "  Walking down: COW"
+      DEBUG(access) kprintf(KR_OSTREAM, "  Walking down: COW"
 			     " orig_offset 0x%08x first zero offset 0x%08x\n",
 			     orig_offset,
 			     pState->first_zero_offset);
@@ -878,7 +878,6 @@ Initialize(state *mystate)
   result_t result;
   
   mystate->was_access = false;
-  mystate->first_zero_offset = ~0ull; /* until proven otherwise below */
   mystate->npage = 0;
   
   capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
