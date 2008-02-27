@@ -2,7 +2,7 @@
 #define __DISK_KEYINLINE_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -109,12 +109,6 @@ node_ClearHazard() handles all these cases.
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-INLINE uint32_t 
-keyBits_GetBlss(const KeyBits *kb /*@ not null @*/)
-{
-  return kb->keyData;
-}
 
 INLINE KeyType
 keyBits_GetType(const KeyBits *thisPtr)
