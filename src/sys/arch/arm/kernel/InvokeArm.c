@@ -213,18 +213,18 @@ proc_SetupExitString(Process * thisPtr, Invocation * inv /*@ not null @*/,
 
   assert( proc_IsRunnable(thisPtr) );
 
-revalidate:
+revalidate: ;
+  uva_t va = thisPtr->trapFrame.r0; // VA of destination's Message structure
+  // FIXME: who checks that this is word-aligned?
+  va += offsetof(Message, rcv_data);	// VA of Message.rcv_data
+  // Must calculate MVA because this proc's PID may not be loaded.
+  va = proc_VAToMVA(thisPtr, va);
   if (act_CurContext()->md.firstLevelMappingTable
       == thisPtr->md.firstLevelMappingTable ) {
     // Processes are using the same map.
     // The PID of act_CurContext() is loaded.
     mach_LoadDACR(thisPtr->md.dacr);
     // Ensure the destination is mapped.
-    uva_t va = thisPtr->trapFrame.r0; // VA of Message structure
-    // FIXME: who checks that this is word-aligned?
-    va += offsetof(Message, rcv_data);	// VA of Message.rcv_data
-    // Must calculate MVA because this proc's PID may not be loaded.
-    va = proc_VAToMVA(thisPtr, va);
     if (! LoadWordFromUserSpace(va, (uint32_t *)&va)) {
       // Not mapped, try to map it.
 printf("faulting on exit rcv_data addr, va=0x%x\n", va);////
@@ -288,6 +288,15 @@ printf("faulting on exit rcv_data addr, va=0x%x\n", va);////
     // Current process's map is current, so destination addr is too.
     inv->exit.data = (uint8_t *)proc_VAToMVA(thisPtr, va);
   } else {
+    if (thisPtr->md.firstLevelMappingTable == FLPT_NullPA) {
+      // thisPtr currently has no address map at all.
+      // FIXME: Does proc_DoPageFault check access (wrong domain)?
+      if (! proc_DoPageFault(thisPtr, va,
+            false /* read only */, true /* prompt */ )) {
+        fatal("proc_SetupExitString needs to fault, unimplemented!");
+      }
+      goto revalidate;	// it should have a non-null FLPT now
+    }
     // Processes are using different maps.
     fatal("proc_SetupExitString cross-space unimplemented!\n");
   }
