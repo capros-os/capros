@@ -54,38 +54,131 @@ Approved for public release, distribution unlimited. */
 
 bool continue_user_bpt;
 
+static void
+db_print_keyflags(Key * key)
+{
+  db_printf(" %c%c%c",
+    key->keyFlags & KFL_PREPARED ? 'P' : '.',
+    key->keyFlags & KFL_RHAZARD ? 'R' : '.',
+    key->keyFlags & KFL_WHAZARD ? 'W' : '.' );
+}
+
+static void
+db_print_gate(Key * key, const char * name)
+{
+  db_printf(name);
+
+  db_print_keyflags(key);
+
+  uint32_t *pWKey = (uint32_t *) key;
+
+  if (keyBits_IsPreparedObjectKey(key)) {
+    Process * proc = key->u.gk.pContext;
+    ObjectHeader * pObj = node_ToObj(proc->procRoot);
+    
+    db_printf(" 0x%08x proc=%#x (oid=%#llx root=0x%08x)\n",
+		pWKey[3], proc, pObj->oid, pObj);
+  } else {
+    db_printf(" 0x%08x cnt=%#x oid=%#llx\n",
+	      pWKey[3], key->u.unprep.count, key->u.unprep.oid);
+  }
+}
+
+static void
+db_print_node_key(Key * key, const char * name)
+{
+  db_printf(name);
+
+  db_print_keyflags(key);
+
+  uint32_t *pWKey = (uint32_t *) key;
+
+  if (keyBits_IsPreparedObjectKey(key)) {
+    ObjectHeader * pObj = key->u.ok.pObj;
+    
+    db_printf(" 0x%08x objh=%#x (oid=%#llx)\n",
+		pWKey[3], pObj, pObj->oid);
+  } else {
+    db_printf(" 0x%08x cnt=%#x oid=%#llx\n",
+	      pWKey[3], key->u.unprep.count, key->u.unprep.oid);
+  }
+}
+
+static void
+db_print_mem_key(Key * key, const char * name)
+{
+  db_printf(name);
+
+  db_print_keyflags(key);
+
+  db_printf(" %c%c%c%c",
+    key->keyPerms & capros_Memory_readOnly ? 'R' : '.',
+    key->keyPerms & capros_Memory_noCall ? 'N' : '.',
+    key->keyPerms & capros_Memory_weak ? 'W' : '.',
+    key->keyPerms & capros_Memory_opaque ? 'O' : '.' );
+
+  uint64_t guard = key_GetGuard(key);
+  if (guard)
+    db_printf(" guard=%#llx", guard);
+
+  if (keyBits_IsPreparedObjectKey(key)) {
+    ObjectHeader * pObj = key->u.ok.pObj;
+    
+    db_printf(" objh=%#x (oid=%#llx)\n",
+		pObj, pObj->oid);
+  } else {
+    db_printf(" cnt=%#x oid=%#llx\n",
+	      key->u.unprep.count, key->u.unprep.oid);
+  }
+}
+
 void
 db_eros_print_key(Key* key /*@ not null @*/)
 {
   uint32_t *pWKey = (uint32_t *) key;
+  KeyType kt = keyBits_GetType(key);
 
-  if ( keyBits_IsPreparedObjectKey(key) ) {
-    ObjectHeader * pObj = key_GetObjectPtr(key);
-    
-    if (keyBits_IsType(key, KKT_Resume))
-      db_printf("rsum 0x%08x cnt=%#x oid=%#llx (obj=0x%08x proc=0x%08x)\n",
-		pWKey[3], ((Node *)pObj)->callCount, pObj->oid,
-		pObj, key->u.gk.pContext);
-    else if (keyBits_IsType(key, KKT_Start))
-      db_printf("strt 0x%08x 0x%08x oid=%#llx (obj=0x%08x proc=0x%08x)\n",
-		pWKey[3], ((Node *)pObj)->callCount, pObj->oid,
-		pObj, key->u.gk.pContext);
-    else
-      db_printf("pobj type=%d 0x%08x cnt=%#x oid=%#llx (obj=0x%08x)\n",
-                keyBits_GetType(key), 
-		pWKey[3], pObj->allocCount, pObj->oid, pObj);
+  switch (kt) {
+  case KKT_Resume:
+    db_print_gate(key, "rsum");
+    break;
+  case KKT_Start:
+    db_print_gate(key, "strt");
+    break;
+  case KKT_Forwarder:
+    db_print_node_key(key, "fwdr");
+    break;
+  case KKT_Node:
+    db_print_node_key(key, "node");
+    break;
+  case KKT_GPT:
+    db_print_mem_key(key, "GPT ");
+    break;
+  case KKT_Process:
+    db_print_node_key(key, "proc");
+    break;
+  case KKT_Page:
+    db_print_mem_key(key, "page");
+    break;
+  default:
+    assert(! keyBits_IsObjectKey(key));
+    switch (kt) {
+    case KKT_Void:
+      db_printf("void\n");
+      break;
+    case KKT_Number:
+      db_printf("num ");
+      db_print_keyflags(key);
+      db_printf(" 0x%08x 0x%08x 0x%08x\n",
+	        pWKey[0], pWKey[1], pWKey[2]);
+      break;
+    default:
+      db_printf("t=%02d", keyBits_GetType(key));
+      db_print_keyflags(key);
+      db_printf(" 0x%08x 0x%08x 0x%08x 0x%08x\n",
+	        pWKey[0], pWKey[1], pWKey[2], pWKey[3]);
+    }
   }
-  else if (keyBits_IsObjectKey(key)) {
-    db_printf("uobj 0x%08x cnt=%u oid=%#llx\n",
-	      pWKey[3], key->u.unprep.count, key->u.unprep.oid);
-  }
-  else if (keyBits_IsVoidKey(key)) {
-    db_printf("void\n");
-  }
-  else
-    db_printf("ukt  type=%d 0x%08x 0x%08x 0x%08x 0x%08x\n",
-              keyBits_GetType(key), 
-	      pWKey[0], pWKey[1], pWKey[2], pWKey[3]);
 }
 
 #define __EROS_PRIMARY_KEYDEF(name, isValid, bindTo)  #name,
