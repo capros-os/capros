@@ -118,6 +118,9 @@ HEADERS=\
  types.h \
  uaccess.h \
  unaligned.h \
+ SCSICtrl.h \
+ SCSIDev.h \
+ USBIntf.h \
  user.h \
  vm86.h \
 
