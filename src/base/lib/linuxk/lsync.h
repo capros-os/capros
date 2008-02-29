@@ -61,7 +61,7 @@ thread_info structure, of which only preempt_count is used. */
 #define KR_SLEEP      KR_APP(3) // to speed up getting jiffies
 #define KR_DEVPRIVS   KR_APP(4) // to speed up getting jiffies
 #define KR_MAPS_GPT   KR_APP(5) // 
-#define KR_APP2(i)    KR_APP(6+i) // first available key reg for driver
+#define KR_APP2(i)    KR_APP(6+(i)) // first available key reg for driver
 
 /* Slots in the node in KR_LINUX_EMUL: */
 #define LE_CLOCKS 0
@@ -94,6 +94,7 @@ the process (usually one). */
 #define KC_SLEEP      4
 #define KC_DEVPRIVS   5
 #define KC_SNODECONSTR 6
+#define KC_APP2(n) 7+(n)
 
 #ifndef __ASSEMBLER__
 

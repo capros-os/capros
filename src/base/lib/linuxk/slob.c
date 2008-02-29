@@ -1,4 +1,27 @@
 /*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*
  * SLOB Allocator: Simple List Of Blocks
  *
  * Matt Mackall <mpm@selenic.com> 12/30/03
@@ -29,6 +52,7 @@
  * essentially no allocation space overhead.
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/slab.h>
 #include <linux/mm.h>
 #include <linux/cache.h>
@@ -37,6 +61,7 @@
 #include <linux/timer.h>
 #include <linux/rcupdate.h>
 
+#if 0 // CapROS
 struct slob_block {
 	int units;
 	struct slob_block *next;
@@ -45,14 +70,17 @@ typedef struct slob_block slob_t;
 
 #define SLOB_UNIT sizeof(slob_t)
 #define SLOB_UNITS(size) (((size) + SLOB_UNIT - 1)/SLOB_UNIT)
+#endif // CapROS
 #define SLOB_ALIGN L1_CACHE_BYTES
 
+#if 0 // CapROS
 struct bigblock {
 	int order;
 	void *pages;
 	struct bigblock *next;
 };
 typedef struct bigblock bigblock_t;
+#endif // CapROS
 
 /*
  * struct slob_rcu is inserted at the tail of allocated slob blocks, which
@@ -64,6 +92,7 @@ struct slob_rcu {
 	int size;
 };
 
+#if 0 // CapROS
 static slob_t arena = { .next = &arena, .units = 1 };
 static slob_t *slobfree = &arena;
 static bigblock_t *bigblocks;
@@ -274,6 +303,7 @@ size_t ksize(const void *block)
 
 	return ((slob_t *)block - 1)->units * SLOB_UNIT;
 }
+#endif // CapROS
 
 struct kmem_cache {
 	unsigned int size, align;
@@ -289,7 +319,7 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 {
 	struct kmem_cache *c;
 
-	c = slob_alloc(sizeof(struct kmem_cache), flags, 0);
+	c = kmalloc(sizeof(struct kmem_cache), flags);
 
 	if (c) {
 		c->name = name;
@@ -304,6 +334,7 @@ struct kmem_cache *kmem_cache_create(const char *name, size_t size,
 		c->align = (flags & SLAB_HWCACHE_ALIGN) ? SLOB_ALIGN : 0;
 		if (c->align < align)
 			c->align = align;
+		BUG_ON(align);	// alignment not supported in this simple code
 	} else if (flags & SLAB_PANIC)
 		panic("Cannot create slab cache %s\n", name);
 
@@ -313,7 +344,7 @@ EXPORT_SYMBOL(kmem_cache_create);
 
 void kmem_cache_destroy(struct kmem_cache *c)
 {
-	slob_free(c, sizeof(struct kmem_cache));
+	kfree(c);
 }
 EXPORT_SYMBOL(kmem_cache_destroy);
 
@@ -321,10 +352,7 @@ void *kmem_cache_alloc(struct kmem_cache *c, gfp_t flags)
 {
 	void *b;
 
-	if (c->size < PAGE_SIZE)
-		b = slob_alloc(c->size, flags, c->align);
-	else
-		b = (void *)__get_free_pages(flags, get_order(c->size));
+	b = kmalloc(c->size, flags);
 
 	if (c->ctor)
 		c->ctor(b, c, 0);
@@ -345,12 +373,10 @@ EXPORT_SYMBOL(kmem_cache_zalloc);
 
 static void __kmem_cache_free(void *b, int size)
 {
-	if (size < PAGE_SIZE)
-		slob_free(b, size);
-	else
-		free_pages((unsigned long)b, get_order(size));
+	kfree(b);
 }
 
+#if 0 // CapROS
 static void kmem_rcu_free(struct rcu_head *head)
 {
 	struct slob_rcu *slob_rcu = (struct slob_rcu *)head;
@@ -358,21 +384,27 @@ static void kmem_rcu_free(struct rcu_head *head)
 
 	__kmem_cache_free(b, slob_rcu->size);
 }
+#endif // CapROS
 
 void kmem_cache_free(struct kmem_cache *c, void *b)
 {
 	if (unlikely(c->flags & SLAB_DESTROY_BY_RCU)) {
+#if 0 // CapROS
 		struct slob_rcu *slob_rcu;
 		slob_rcu = b + (c->size - sizeof(struct slob_rcu));
 		INIT_RCU_HEAD(&slob_rcu->head);
 		slob_rcu->size = c->size;
 		call_rcu(&slob_rcu->head, kmem_rcu_free);
+#else
+		BUG_ON("unimplemented");
+#endif // CapROS
 	} else {
 		__kmem_cache_free(b, c->size);
 	}
 }
 EXPORT_SYMBOL(kmem_cache_free);
 
+#if 0 // CapROS
 unsigned int kmem_cache_size(struct kmem_cache *c)
 {
 	return c->size;
@@ -413,3 +445,4 @@ static void slob_timer_cbk(void)
 
 	mod_timer(&slob_timer, jiffies + HZ);
 }
+#endif // CapROS

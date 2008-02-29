@@ -56,6 +56,7 @@ OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/resource.o \
   $(BUILDDIR)/semaphore.o \
   $(BUILDDIR)/sleep.o \
+  $(BUILDDIR)/slob.o \
   $(BUILDDIR)/stubs.o \
   $(BUILDDIR)/threadnum.o \
   $(BUILDDIR)/threadstart.o \

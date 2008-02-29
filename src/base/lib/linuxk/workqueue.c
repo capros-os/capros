@@ -613,7 +613,6 @@ void flush_scheduled_work(void)
 }
 EXPORT_SYMBOL(flush_scheduled_work);
 
-#if 0 // CapROS
 /**
  * execute_in_process_context - reliably execute the routine with user context
  * @fn:		the function to execute
@@ -640,6 +639,7 @@ int execute_in_process_context(work_func_t fn, struct execute_work *ew)
 }
 EXPORT_SYMBOL_GPL(execute_in_process_context);
 
+#if 0 // CapROS
 int keventd_up(void)
 {
 	return keventd_wq != NULL;
