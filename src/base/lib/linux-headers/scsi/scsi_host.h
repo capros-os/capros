@@ -519,6 +519,7 @@ struct Scsi_Host {
 	struct completion     * eh_action; /* Wait for specific actions on the
 					      host. */
 	wait_queue_head_t       host_wait;
+	wait_queue_head_t       error_wait; // for scsi_error_handler thread
 	struct scsi_host_template *hostt;
 	struct scsi_transport_template *transportt;
 

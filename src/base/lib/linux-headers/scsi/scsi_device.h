@@ -291,11 +291,13 @@ extern const char *scsi_device_state_name(enum scsi_device_state);
 extern int scsi_is_sdev_device(const struct device *);
 extern int scsi_is_target_device(const struct device *);
 extern int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
-			int data_direction, void *buffer, unsigned bufflen,
+			int data_direction, void * buffer,
+			dma_addr_t buffer_dma, unsigned bufflen,
 			unsigned char *sense, int timeout, int retries,
 			int flag);
 extern int scsi_execute_req(struct scsi_device *sdev, const unsigned char *cmd,
-			    int data_direction, void *buffer, unsigned bufflen,
+			    int data_direction, void * buffer,
+			    dma_addr_t buffer_dma, unsigned bufflen,
 			    struct scsi_sense_hdr *, int timeout, int retries);
 extern int scsi_execute_async(struct scsi_device *sdev,
 			      const unsigned char *cmd, int cmd_len, int data_direction,
