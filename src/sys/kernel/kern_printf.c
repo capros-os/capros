@@ -343,6 +343,7 @@ db_printf_guts(register const char *fmt, va_list ap)
     goto unumbers;
 
   case 'd':
+  case 'i':
     base = 10;
     // Signed numbers come here.
 snumbers:
@@ -358,7 +359,7 @@ snumbers:
 
       case sizemod_ll:
         ull = va_arg(ap, unsigned long long);
-        if ((long)ull < 0) {
+        if (ull < 0) {
           neg = 1;
           ull = -(long long)ull;
         }
@@ -419,8 +420,11 @@ printull:
     if (neg)
       *p++ = '-';
 
-    if (width)
+    if (width) {
       width -= p - buf;	// amount of padding
+      if (width < 0)
+        width = 0;
+    }
 
     if (! ladjust)	// pad on the left
       while (width-- > 0)
@@ -430,9 +434,8 @@ printull:
       db_putchar(*--p);
     while (p != buf);
 
-    if (ladjust)	// pad on the right
-      while (width-- > 0)
-	db_putchar(padc);
+    while (width-- > 0)	// add any padding on the right
+      db_putchar(padc);
 
     break;
 
