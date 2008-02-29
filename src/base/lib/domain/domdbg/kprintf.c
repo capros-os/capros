@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
    */
 
 #include <stddef.h>
+#include <string.h>
 #include <limits.h>
 #include <eros/target.h>
 #include <eros/stdarg.h>
@@ -35,11 +36,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/ConsoleKey.h>
 #include <domdbg/domdbg.h>
 
-#define TRUE 1
-#define FALSE 0
-
-static const char small_digits[] = "0123456789abcdef";
-static const char large_digits[] = "0123456789ABCDEF";
+static const char small_digits[] = "0123456789abcdefx";
+static const char large_digits[] = "0123456789ABCDEFX";
 
 #define bufsz 128
 typedef struct {
@@ -85,11 +83,12 @@ static void
 printf_guts(void (putc)(char c, buf *buffer),
 	    buf *pBuf, const char *fmt, va_list ap)
 {
-  /* A long long has up to 22 octal digits. */
+  /* A long long has up to 22 octal digits.
+  Add 2 for prefix "0x" and 1 for sign. */
   char buf[25];
-  uint32_t len;
   unsigned long ul;
   unsigned long long ull;
+  int base;
     
   if (fmt == 0) {		/* bogus input specifier */
     putc('?', pBuf);
@@ -106,10 +105,11 @@ printf_guts(void (putc)(char c, buf *buffer),
       continue;
     }
 
-    uint32_t width = 0;
+    int width = 0;
     char sign = 0;
-    int rightAdjust = TRUE;
+    int leftAdjust = false;
     char fillchar = ' ';
+    bool sharpflag = false;
     enum size_modifier sizemod = sizemod_none;
     const char * digits = small_digits;
     char * pend = &buf[25];
@@ -121,17 +121,27 @@ printf_guts(void (putc)(char c, buf *buffer),
     fmt++;	// consume the '%' or flag
 
     switch (*fmt) {
-      case '-': rightAdjust = FALSE; goto flags;
+      case '-': leftAdjust = true; goto flags;
       case '0': fillchar = '0'; goto flags;
+      case '#': sharpflag = true; goto flags;
     default: break;
     }
      
     /* See if what follows is a width specifier: */
 
-    while (*fmt >= '0' && *fmt <= '9') {
-      width *= 10;
-      width += (*fmt - '0');
+    if (*fmt == '*') {
       fmt++;
+      width = va_arg (ap, int);
+      if (width < 0) {
+        leftAdjust = !leftAdjust;
+        width = -width;
+      }
+    } else {
+      while (*fmt >= '0' && *fmt <= '9') {
+        width *= 10;
+        width += (*fmt - '0');
+        fmt++;
+      }
     }
 
     // See if there is a size modifier.
@@ -167,65 +177,6 @@ printf_guts(void (putc)(char c, buf *buffer),
 	break;
       }	    
 
-    case 'd':
-    case 'i': /* JONADAMS: handle %i as %d */
-    {
-      long l;
-      switch (sizemod) {
-      case sizemod_none:
-	l = va_arg(ap, int);
-        goto printl10;
-
-      case sizemod_l:
-	l = va_arg(ap, long);
-printl10:
-	if (l < 0) {
-	  sign = '-';
-          ul = -l;
-        } else
-          ul = l;
-	goto printul10;
-
-      case sizemod_ll:
-        {
-        long long ll = va_arg(ap, long long);
-	if (ll < 0) {
-	  sign = '-';
-          ull = -ll;
-        } else
-          ull = ll;
-	goto printull10;
-        }
-      break;
-      }
-    }
-
-    case 'u':
-      switch (sizemod) {
-      case sizemod_none:
-	ul = va_arg(ap, unsigned int);
-        goto printul10;
-
-      case sizemod_l:
-	ul = va_arg(ap, unsigned long);
-printul10:
-        do {
-	  *(--p) = digits[ul % 10];
-	  ul /= 10;
-        } while (ul);
-	break;
-
-      case sizemod_ll:
-	ull = va_arg(ap, unsigned long long);
-printull10:
-        do {
-	  *(--p) = digits[ull % 10];
-	  ull /= 10;
-        } while (ull);
-	break;
-      }
-      break;
-
     case 't':
       {		/* for 2-digit time values */
 	long l;
@@ -236,72 +187,117 @@ printull10:
 	*(--p) = (l % 10) + '0';
 	break;
       }
+
+    case 'd':
+    case 'i': /* handle %i as %d */
+    {
+      long l;
+      base = 10;
+      switch (sizemod) {
+      case sizemod_none:
+	l = va_arg(ap, int);
+        break;
+
+      case sizemod_l:
+	l = va_arg(ap, long);
+        break;
+
+      default:	// should not happen
+      case sizemod_ll:
+        {
+        long long ll = va_arg(ap, long long);
+	if (ll < 0) {
+	  sign = '-';
+          ull = -ll;
+        } else
+          ull = ll;
+	goto printull;
+        }
+      }
+      if (l < 0) {
+        sign = '-';
+        ul = -l;
+      } else
+        ul = l;
+      goto printul;
+    }
+
+    case 'o':
+      base = 8;
+      goto unumbers;
+    case 'u':
+      base = 10;
+      goto unumbers;
     case 'X':
       digits = large_digits;
     case 'x':
+      base = 16;
+unumbers:	// print unsigned numbers
       switch (sizemod) {
       case sizemod_none:
 	ul = va_arg(ap, unsigned int);
-        goto printul16;
+        goto printul;
 
       case sizemod_l:
 	ul = va_arg(ap, unsigned long);
-printul16:
+printul:
         do {
-	  *(--p) = digits[ul & 0xf];
-	  ul /= 16;
+	  *(--p) = digits[ul % base];
+	  ul /= base;
         } while (ul);
 	break;
 
       case sizemod_ll:
 	ull = va_arg(ap, unsigned long long);
+printull:
         do {
-	  *(--p) = digits[ull & 0xf];
-	  ull /= 16;
+	  *(--p) = digits[ull % base];
+	  ull /= base;
         } while (ull);
-	break;
       }
+
+      // Add prefix.
+      if (sharpflag) {
+        if (base == 8) {
+          *(--p) = '0';
+        } else if (base == 16) {
+          *(--p) = digits[16];      // 'x' or 'X'
+          *(--p) = '0';
+        }
+      }
+
+      if (sign)
+        *(--p) = sign;
+
       break;
 
     case 's':
       {
-	p = pend = va_arg(ap, char *);
-	      
-	while (*pend)
-	  pend++;
+	p = va_arg(ap, char *);
+        pend = p + strlen(p);
 	break;
       }
     case '%':
-      {
-	*(--p) = '%';
-	break;
-      }
+      putc('%', pBuf);
+      break;
     }
 
-    if (sign)
-      *(--p) = sign;
-
-    len = pend - p;
-
-    /* do padding with initial spaces for right justification: */
-    if (width && rightAdjust && len < width) {
-      while (len < width) {
-	putc(fillchar, pBuf);
-	width--;
-      }
+    if (width) {
+      width -= pend - p;	// amount of padding
+      if (width < 0)
+        width = 0;
     }
+
+    if (! leftAdjust)      // pad on the left
+      while (width-- > 0)
+        putc(fillchar, pBuf);
 
     /* output the text */
     while (p != pend)
       putc(*p++, pBuf);
-    
-    /* do padding with initial spaces for left justification: */
-    if (width && rightAdjust == FALSE && len < width) {
-      while (len < width) {
-	putc(fillchar, pBuf);
-	width--;
-      }
-    }
+
+    while (width-- > 0) // add any padding on the right
+      putc(fillchar, pBuf);
   }
 }
 
