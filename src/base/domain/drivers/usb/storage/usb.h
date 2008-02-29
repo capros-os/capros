@@ -49,6 +49,8 @@ Approved for public release, distribution unlimited. */
 #ifndef _USB_H_
 #define _USB_H_
 
+#if !defined(__ASSEMBLER__)
+
 #include <linux/usb.h>
 #include <linux/usb_usual.h>
 #include <linux/blkdev.h>
@@ -59,6 +61,17 @@ Approved for public release, distribution unlimited. */
 
 struct us_data;
 struct scsi_cmnd;
+
+#endif // __ASSEMBLER__
+
+#define KC_SCSICONTROL KC_APP2(0)
+
+// KR_APP2(0) is KR_USBINTF from lib/usbdev.h
+#define KR_SCSICONTROL KR_APP2(1)
+#define KR_SCSIHOST KR_APP2(2)
+#define KR_COMMANDREPLY KR_APP2(3)
+
+#if !defined(__ASSEMBLER__)
 
 /*
  * Unusual device list definitions 
@@ -181,4 +194,5 @@ extern void fill_inquiry_response(struct us_data *us,
 #define scsi_unlock(host)	spin_unlock_irq(host->host_lock)
 #define scsi_lock(host)		spin_lock_irq(host->host_lock)
 
+#endif // __ASSEMBLER__
 #endif

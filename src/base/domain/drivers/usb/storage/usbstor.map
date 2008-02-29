@@ -28,7 +28,9 @@ Approved for public release, distribution unlimited. */
 //#include <eros/machine/target-asm.h>
 //#include <eros/Reserve.h>
 //#include <asm/thread_info.h>
+#include <drivers/scsi.map>
 #include <drivers/dyndriver.map>
+#define KC_SCSICONTROL KC_APP2(0)	// from usb/storage/usb.h
 
 /*********************************************
  * USB Storage driver.
@@ -37,5 +39,6 @@ Approved for public release, distribution unlimited. */
 //// Provide for parameter: delay_use
 
 DYNDRIVER_CONSTRUCTOR(usbstor, drivers/usbstorage, 0)
+PROD_CONSTIT(usbstor_c, , KC_SCSICONTROL) = scsi;
 
 #endif // __USBSTOR_MAP_

@@ -58,7 +58,7 @@ Approved for public release, distribution unlimited. */
 #include <scsi/scsi_cmnd.h>
 #include <scsi/scsi_device.h>
 
-#include <idl/capros/USBInterface.h>
+#include <asm/USBIntf.h>
 
 #include "usb.h"
 #include "transport.h"

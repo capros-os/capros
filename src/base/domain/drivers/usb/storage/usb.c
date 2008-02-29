@@ -71,7 +71,12 @@ Approved for public release, distribution unlimited. */
 #include <eros/cap-instr.h>
 #include <idl/capros/USBDriverConstructorExtended.h>
 #include <idl/capros/USBDriver.h>
+#include <asm/USBIntf.h>
+#include <asm/SCSIDev.h>
+#include <asm/SCSICtrl.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/Node.h>
+#include <idl/capros/Errno.h>
 
 #include "usb.h"
 #include "scsiglue.h"
@@ -118,6 +123,42 @@ Approved for public release, distribution unlimited. */
 MODULE_AUTHOR("Matthew Dharm <mdharm-usb@one-eyed-alien.net>");
 MODULE_DESCRIPTION("USB Mass Storage driver for Linux");
 MODULE_LICENSE("GPL");
+
+// Keyinfo values of start keys to this process:
+#define keyInfoUSBDriver 0
+#define keyInfoSCSIDevice 1
+
+capros_SCSIControl_SCSIHostTemplate capros_host_template = {
+  .maxTransferSize = 240 * 512,
+  .maxQueuedCommands = 1,
+  .maxCommandsPerLun = 1,
+  .maxScatterGatherSegments = capros_SCSIControl_SCSIHostTemplate_SG_ALL,
+  .useClustering = true,
+  .emulated = true,
+  .hostHandlesSettleDelay = true
+};
+
+/* We will only queue one command at a time, so we can statically allocate
+the srb. */
+struct scsi_cmnd theSRB;
+dma_addr_t srbrequest_buffer_dma;
+unsigned long srbOpaque;
+
+struct {
+  struct Scsi_Host h;
+  unsigned char u[sizeof(struct us_data)];
+} hostAlloc = {
+  .h = {
+    .host_lock = &hostAlloc.h.default_lock,
+    .max_id = 8
+  }
+};
+struct Scsi_Host * theHost = &hostAlloc.h;
+struct scsi_device theDevice = {
+  .host = &hostAlloc.h
+};
+
+struct scsi_device theDevice;
 
 static unsigned int delay_use = 5;
 //module_param(delay_use, uint, S_IRUGO | S_IWUSR);
@@ -502,8 +543,6 @@ SkipForAbort:
 		mutex_unlock(&us->dev_mutex);
 	} /* for (;;) */
 
-	scsi_host_put(host);
-
 	/* notify the exit routine that we're actually exiting now 
 	 *
 	 * complete()/wait_for_completion() is similar to up()/down(),
@@ -874,15 +913,11 @@ static int usb_stor_acquire_resources(struct us_data *us)
 			return p;
 	}
 
-	/* Take a reference to the host for the scanning thread and
-	 * count it among all the threads we have launched. */
-	scsi_host_get(us_to_host(us));
 	atomic_inc(&total_threads);
 
 	/* Start up our control thread */
 	th = kthread_run(usb_stor_control_thread, us, "usb-storage");
 	if (IS_ERR(th)) {
-		scsi_host_put(us_to_host(us));
 		complete(&threads_gone);
 
 		printk(KERN_WARNING USB_STORAGE 
@@ -967,7 +1002,8 @@ static void quiesce_and_remove_host(struct us_data *us)
 	mutex_unlock(&us->dev_mutex);
 
 	/* Now we own no commands so it's safe to remove the SCSI host */
-	scsi_remove_host(host);
+	result_t result = capros_SCSIHost_removeHost(KR_SCSIHOST);
+	assert(result == RC_OK);
 }
 
 /* Second stage of disconnect processing: deallocate all resources */
@@ -975,10 +1011,6 @@ static void release_everything(struct us_data *us)
 {
 	usb_stor_release_resources(us);
 	dissociate_dev(us);
-
-	/* Drop our reference to the host; the SCSI core will free it
-	 * (and "us" along with it) when the refcount becomes 0. */
-	scsi_host_put(us_to_host(us));
 }
 
 /* Thread to carry out delayed SCSI-device scanning */
@@ -1008,13 +1040,13 @@ static int usb_stor_scan_thread(void * __us)
 			us->max_lun = usb_stor_Bulk_max_lun(us);
 			mutex_unlock(&us->dev_mutex);
 		}
-		scsi_scan_host(us_to_host(us));
+		result_t result = capros_SCSIHost_scanHost(KR_SCSIHOST);
+		assert(result == RC_OK);
 		printk(KERN_DEBUG "usb-storage: device scan complete\n");
 
 		/* Should we unbind if no devices were detected? */
 	}
 
-	scsi_host_put(us_to_host(us));
 	complete(&threads_gone);
 	return 0;
 }
@@ -1025,7 +1057,7 @@ static int storage_probe(struct usb_interface *intf,
 			 const struct usb_device_id *id,
 			 unsigned long deviceIDIndex)
 {
-	struct Scsi_Host *host;
+	struct Scsi_Host * host = theHost;
 	struct us_data *us;
 	int result;
 	struct task_struct *th;
@@ -1035,16 +1067,8 @@ static int storage_probe(struct usb_interface *intf,
 
 	US_DEBUGP("USB Mass Storage device detected\n");
 
-	/*
-	 * Ask the SCSI layer to allocate a host structure, with extra
-	 * space at the end for our private us_data structure.
-	 */
-	host = scsi_host_alloc(&usb_stor_host_template, sizeof(*us));
-	if (!host) {
-		printk(KERN_WARNING USB_STORAGE
-			"Unable to allocate the scsi host\n");
-		return -ENOMEM;
-	}
+	/* Initialize our Scsi_Host structure. */
+	spin_lock_init(host->host_lock);
 
 	us = host_to_us(host);
 	memset(us, 0, sizeof(struct us_data));
@@ -1085,22 +1109,24 @@ static int storage_probe(struct usb_interface *intf,
 	result = usb_stor_acquire_resources(us);
 	if (result)
 		goto BadDevice;
-	result = scsi_add_host(host, &intf->dev);
-	if (result) {
+
+	result_t resultcap;
+	resultcap = capros_Process_makeStartKey(KR_SELF, keyInfoSCSIDevice,
+		KR_TEMP0);
+	assert(resultcap == RC_OK);
+	resultcap = capros_SCSIControl_addHost(KR_SCSICONTROL,
+		capros_host_template, KR_TEMP0, KR_SCSIHOST);
+	if (resultcap != RC_OK) {
 		printk(KERN_WARNING USB_STORAGE
-			"Unable to add the scsi host\n");
+			"Unable to add the scsi host, %x\n", resultcap);
 		goto BadDevice;
 	}
 
-	/* Take a reference to the host for the scanning thread and
-	 * count it among all the threads we have launched. */
-	scsi_host_get(us_to_host(us));
 	atomic_inc(&total_threads);
 
 	/* Start up the thread for delayed SCSI-device scanning */
 	th = kthread_run(usb_stor_scan_thread, us, "usb-stor-scan");
 	if (IS_ERR(th)) {
-		scsi_host_put(us_to_host(us));
 		complete(&threads_gone);
 
 		printk(KERN_WARNING USB_STORAGE 
@@ -1148,9 +1174,67 @@ struct usb_driver usb_storage_driver = {
 };
 #endif // CapROS
 
-// Keyinfo values of start keys to this process:
-#define keyInfoUSBDriver 0
-#define keyInfoSCSIDriver 1
+union {
+  capros_SCSIDevice_SCSICommand cmd;
+} MsgRcvBuf;
+
+static void
+srb_done(struct scsi_cmnd * srb)
+{
+  Message Msg = {
+    .snd_invKey = KR_COMMANDREPLY,
+    .snd_code = RC_OK,
+    .snd_w1 = srbOpaque,
+    .snd_w2 = srb->result,
+    .snd_w3 = srb->request_bufflen - srb->resid,	// transferCount
+    .snd_key0 = KR_VOID,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_rsmkey = KR_VOID,
+    .snd_len = sizeof(capros_SCSIDevice_senseBuffer),
+    .snd_data = &srb->sense_buffer
+  };
+  SEND(&Msg);	// non-prompt
+}
+
+static void
+DoReadWrite(Message * msg, bool write)
+{
+  capros_SCSIDevice_SCSICommand * sc = &MsgRcvBuf.cmd;
+
+  if (msg->rcv_sent < sizeof(capros_SCSIDevice_SCSICommand)
+      || sc->cmd_len > sizeof(MsgRcvBuf.cmd.cmnd) ) {
+    msg->snd_code = RC_capros_key_RequestError;
+    return;
+  }
+
+  // Set up the scsi_cmnd structure for the rest of the code. 
+  memset(&theSRB, 0, sizeof(theSRB));
+  memcpy(&theSRB.cmnd, MsgRcvBuf.cmd.cmnd, sc->cmd_len);
+  theSRB.cmd_len = sc->cmd_len;
+  theSRB.request_bufflen = sc->request_bufflen;
+  theSRB.sc_data_direction = write ? DMA_TO_DEVICE : DMA_FROM_DEVICE;
+  srbrequest_buffer_dma = sc->request_buffer_dma;
+  srbOpaque = sc->opaque;
+
+  theSRB.device = &theDevice;
+  // Save the return cap now, in case queuecommand calls srb_done right away.
+  COPY_KEYREG(KR_RETURN, KR_COMMANDREPLY);
+
+  int ret = queuecommand(&theSRB, &srb_done);
+  switch (ret) {
+  case SCSI_MLQUEUE_HOST_BUSY:
+    msg->snd_code = RC_capros_Errno_Already;
+    return;
+
+  case 0:
+    msg->snd_invKey = KR_VOID;
+    break;
+
+  default:
+    assert(false);
+  }
+}
 
 void
 driver_main(void)
@@ -1187,6 +1271,10 @@ driver_main(void)
   printk("USB Storage driver called.\n");
 
   COPY_KEYREG(KR_ARG(0), KR_USBINTF);
+
+  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SCSICONTROL,
+             KR_SCSICONTROL);
+  assert(result == RC_OK);
 
   // In a coroutine, reply to the caller and ask for the
   // capros_USBDriverConstructorExtended_NewInterfaceData. 
@@ -1226,7 +1314,8 @@ driver_main(void)
     Msg.rcv_key1 = KR_VOID;
     Msg.rcv_key2 = KR_VOID;
     Msg.rcv_rsmkey = KR_RETURN;
-    Msg.rcv_limit = 0;
+    Msg.rcv_data = &MsgRcvBuf;
+    Msg.rcv_limit = sizeof(MsgRcvBuf);
 
     RETURN(&Msg);
 
@@ -1267,17 +1356,32 @@ assert(false);//// need to implement
       }
       break;
 
-    case keyInfoSCSIDriver:
+    case keyInfoSCSIDevice:
       switch (Msg.rcv_code) {
       default:
         Msg.snd_code = RC_capros_key_UnknownRequest;
         break;
 
-#if 0
       case OC_capros_key_getType:
-        Msg.snd_w1 = IKT_capros_SCSIDriver;
+        Msg.snd_w1 = IKT_capros_SCSIDeviceAny;
         break;
-#endif
+
+      case OC_capros_SCSIDevice32_getDMAMask:
+      {
+        capros_USBInterface32_dma_addr_t dmamask;
+        result = capros_USBInterface32_getDMAMask(KR_USBINTF, &dmamask);
+        assert(result == RC_OK);
+        Msg.snd_w1 = dmamask;
+        break;
+      }
+
+      case OC_capros_SCSIDevice_Read:
+        DoReadWrite(&Msg, false);
+        break;
+
+      case OC_capros_SCSIDevice_Write:
+        DoReadWrite(&Msg, true);
+        break;
       }
       break;
 

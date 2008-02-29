@@ -1,11 +1,10 @@
 package capros;
 
-interface USB extends Errno {
+interface USB extends key {
 
   exception Already;
   exception NoDMA;
 
-  typedef unsigned long dma_addr_t;
   typedef unsigned <8> le8;
   typedef unsigned <16> le16;	// 16-bit little-endian value
 
@@ -70,31 +69,13 @@ interface USB extends Errno {
     unsigned long offset;
     unsigned long length;
   };
-
-  struct urb {
-    unsigned long endpoint;	// bit 7 has direction (0=to device),
-				// bits 15-18 have endpoint, others ignored
-
-    transferFlagsEnum transfer_flags;
-
-    dma_addr_t transfer_dma;
-    unsigned long transfer_buffer_length;
-
-    dma_addr_t setup_dma;	// if a control endpoint (setup length is 8)
-    long start_frame;		// if isochronous
-				//   ignored if isoASAP (or HCD is OHCI)
-    long number_of_packets;	// if isochronous, # of elements
-				//   in iso_frame_desc
-    long interval;		// if interrupt or iso
-
-    array <isoPacketDescriptor, 0> iso_frame_desc;
-  };
 };
 
 /** 
 @brief USB Interface
 
-This is the interface to a Universal Serial Bus's device's interface.
+This is the interface to a Universal Serial Bus's device's interface
+irrespective of the size of DMA addresses.
 */
 interface USBInterface extends USB {
 
@@ -139,6 +120,73 @@ interface USBInterface extends USB {
 
   void probeFailed();
 
+  /** Cancel queued urbs.
+
+  Cancel all urbs queued on the specified endpoint,
+  causing them to complete with status = -ECONNRESET.
+
+  endpoint has the same format as urb.endpoint.  */
+  void unlinkQueuedUrbs(unsigned long endpoint);
+
+  /** Reject urbs.
+
+  Cancel all urbs queued on the specified endpoint,
+  causing them to complete with status = -ENOENT.
+  Also sets a "rejecting" flag that causes the endpoint to reject all
+  new urbs submitted until the flag is cleared with clearRejecting.
+
+  endpoint has the same format as urb.endpoint.  */
+  void rejectUrbs(unsigned long endpoint);
+
+  /** Clear rejecting flag.
+
+  Clear the rejecting flag on the specified endpoint.
+  Urbs subsequently submitted will not be rejected.
+
+  endpoint has the same format as urb.endpoint.  */
+  void clearRejecting(unsigned long endpoint);
+
+  /** Reset device
+
+  */
+  // void resetDevice();
+  // not implemented yet - needs pre- and post- notifications?
+};
+
+/** 
+@brief USB Interface 32-bit
+
+This is the interface to a Universal Serial Bus's device's interface
+on architectures with 32-bit DMA addresses.
+*/
+interface USBInterface32 extends USBInterface {
+  typedef DMA32.DMAAddress dma_addr_t;
+
+  struct urb {
+    unsigned long endpoint;	// bit 7 has direction (0=to device),
+				// bits 15-18 have endpoint, others ignored
+
+    USB.transferFlagsEnum transfer_flags;
+
+    dma_addr_t transfer_dma;
+    unsigned long transfer_buffer_length;
+
+    dma_addr_t setup_dma;	// if a control endpoint (setup length is 8)
+    long start_frame;		// if isochronous
+				//   ignored if isoASAP (or HCD is OHCI)
+    long number_of_packets;	// if isochronous, # of elements
+				//   in iso_frame_desc
+    long interval;		// if interrupt or iso
+
+    array <USB.isoPacketDescriptor, 0> iso_frame_desc;
+  };
+
+  /** Get the DMA mask.
+
+  DMA addresses for this USB bus may not have bits set
+  that are not set in the mask returned by this method. */
+  dma_addr_t getDMAMask();
+
   /** Submit an urb.
 
   If the urb is not accepted, this method raises an exception.
@@ -169,48 +217,10 @@ interface USBInterface extends USB {
   */
   /* (No provision for timeout is made. You may separately use a Linux timer
   that will call unlinkQueuedUrbs on expiration.) */
-  urbResult submitUrb(USB.urb theUrb, out capros.key unused1,
+  USBInterface.urbResult submitUrb(urb theUrb, out capros.key unused1,
     out capros.key unused2, out capros.key unused3, out capros.key complCap);
-  urbIsoResult submitIsoUrb(USB.urb theUrb, out capros.key unused1,
+  USBInterface.urbIsoResult submitIsoUrb(urb theUrb, out capros.key unused1,
     out capros.key unused2, out capros.key unused3, out capros.key complCap);
-
-  /** Cancel queued urbs.
-
-  Cancel all urbs queued on the specified endpoint,
-  causing them to complete with status = -ECONNRESET.
-
-  endpoint has the same format as urb.endpoint.  */
-  void unlinkQueuedUrbs(unsigned long endpoint);
-
-  /** Reject urbs.
-
-  Cancel all urbs queued on the specified endpoint,
-  causing them to complete with status = -ENOENT.
-  Also sets a "rejecting" flag that causes the endpoint to reject all
-  new urbs submitted until the flag is cleared with clearRejecting.
-
-  endpoint has the same format as urb.endpoint.  */
-  void rejectUrbs(unsigned long endpoint);
-
-  /** Clear rejecting flag.
-
-  Clear the rejecting flag on the specified endpoint.
-  Urbs subsequently submitted will not be rejected.
-
-  endpoint has the same format as urb.endpoint.  */
-  void clearRejecting(unsigned long endpoint);
-
-  /** Get the DMA mask.
-
-  DMA addresses for this USB bus may not have bits set
-  that are not set in the mask returned by this method. */
-  unsigned long getDMAMask();
-
-  /** Reset device
-
-  */
-  // void resetDevice();
-  // not implemented yet - needs pre- and post- notifications?
 };
 
 /** 

@@ -32,7 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/USBHCD.h>
-#include <idl/capros/USBInterface.h>
+#include <asm/USBIntf.h>
 
 //#include "hcd.h"
 //#include "usb.h"

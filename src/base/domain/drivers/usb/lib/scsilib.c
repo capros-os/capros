@@ -29,7 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <linux/device.h>
 #include <linux/usb.h>
 #include <eros/Invoke.h>
-#include <idl/capros/USBInterface.h>
+#include <asm/USBIntf.h>
 
 #include <scsi/scsi.h>
 #include <scsi/scsi_host.h>
@@ -40,24 +40,6 @@ Approved for public release, distribution unlimited. */
 unsigned int scsi_logging_level;
 
 #if 0
-struct Scsi_Host *
-scsi_host_alloc(struct scsi_host_template * sht, int privsize)
-{
-  assert(!"scsi_host_alloc called, unimplemented!");
-  return 0;
-}
-
-int __must_check
-scsi_add_host(struct Scsi_Host * shost, struct device * dev)
-{
-  assert(!"scsi_add_host called, unimplemented!");
-  return 0;
-}
-
-void scsi_remove_host(struct Scsi_Host * shost)
-{
-  assert(!"scsi_remove_host called, unimplemented!");
-}
 
 struct Scsi_Host *scsi_host_get(struct Scsi_Host * shost)
 {
@@ -69,12 +51,12 @@ void scsi_host_put(struct Scsi_Host * shost)
 {
   assert(!"scsi_host_put called, unimplemented!");
 }
-#endif
 
 void scsi_scan_host(struct Scsi_Host * shost)
 {
   assert(!"scsi_scan_host called, unimplemented!");
 }
+#endif
 
 void scsi_report_device_reset(struct Scsi_Host *shost, int channel, int target)
 {

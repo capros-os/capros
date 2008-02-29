@@ -29,7 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <linux/device.h>
 #include <linux/usb.h>
 #include <eros/Invoke.h>
-#include <idl/capros/USBInterface.h>
+#include <asm/USBIntf.h>
 
 #include <domain/assert.h>
 #include "usbdev.h"

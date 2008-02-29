@@ -31,8 +31,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Node.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/Errno.h>
 #include <idl/capros/USBHCD.h>
-#include <idl/capros/USBInterface.h>
+#include <asm/USBIntf.h>
 
 #include "hcd.h"
 #include "usb.h"
@@ -56,7 +57,7 @@ union {
 } msgReplyBuffer;
 
 
-// Translate an enpoint type from USB standard to pipe.
+// Translate an endpoint type from USB standard to pipe.
 static inline unsigned int
 epType_StdToPipe(unsigned int epType)
 {

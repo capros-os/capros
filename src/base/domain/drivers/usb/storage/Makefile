@@ -36,7 +36,6 @@ OBJECTS+= $(BUILDDIR)/scsiglue.o
 OBJECTS+= $(BUILDDIR)/initializers.o
 
 LIBS=../lib/$(BUILDDIR)/libusbdev.a
-LIBS+=$(EROS_ROOT)/lib/$(EROS_TARGET)/libscsi.a
 
 INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
 INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h

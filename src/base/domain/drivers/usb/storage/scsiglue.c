@@ -210,11 +210,12 @@ static int slave_configure(struct scsi_device *sdev)
 	 * return code is ever checked anywhere. */
 	return 0;
 }
+#endif // CapROS
 
 /* queue a command */
 /* This is always called with scsi_lock(host) held */
-static int queuecommand(struct scsi_cmnd *srb,
-			void (*done)(struct scsi_cmnd *))
+int queuecommand(struct scsi_cmnd *srb,
+		 void (*done)(struct scsi_cmnd *))
 {
 	struct us_data *us = host_to_us(srb->device->host);
 
@@ -243,6 +244,7 @@ static int queuecommand(struct scsi_cmnd *srb,
 	return 0;
 }
 
+#if 0 // CapROS
 /***********************************************************************
  * Error handling functions
  ***********************************************************************/
