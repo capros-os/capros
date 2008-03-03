@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -25,6 +25,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/arm/target-asm.h>
 #include <eros/arch/arm/mach-ep93xx/ep9315.h>
 #include <arch-kerninc/kern-target-asm.h>
+
+//#define EARLY_CONSOLE 1
 
 #define PUTC(c) \
 	mov r0,c ; str r0,[r10]
@@ -80,6 +82,7 @@ getpc:	mov r6,pc	// record the pc
 	blo 1f
 	b .	/* hang here if KTextPackedSize is too small */
 1:
+	PUTC(#66)	// 'B
 
 /* Copy the kernel text section (where we are running)
    to physical address KTextPA in RAM and map it at MVA KTextVA. */
@@ -152,6 +155,7 @@ and map it at MVA KTextVA + 1MB.  */
 	cmp r6,r4
 	blo .		// hang here if CPT overlaps loaded module
 #endif
+	PUTC(#67)	// 'C
 /* Clear the FLPT and CPT */
 	mov r0,#0
 	mov r1,r5
@@ -250,10 +254,9 @@ and map it at MVA KTextVA + 1MB.  */
 	mcr p15,0,r0,c7,c7,0	// invalidate ICache and DCache
 #endif // OPTION_NO_MMU
 
-//#define EARLY_CONSOLE 1
-	/* Don't use SerialStream before enabling the MMU, because it
-	accesses device registers at their virtual address. */
 #ifdef EARLY_CONSOLE
+#error	/* Don't use SerialStream before enabling the MMU, because it
+	accesses device registers at their virtual address. */
 	bl SerialStream_Init	// this doesn't use data or bss and is PIC
 	mov r0,#'2
 	bl SerialStream_Put

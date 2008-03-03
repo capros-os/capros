@@ -96,7 +96,7 @@ LINK=$(LD) -static -N -Ttext 0xfe000000 -Tdata 0xfe100000
 
 # NOTE: it is assumed the end of the kernel code is less than the following constant. If not, increase this constant.
 # The constant in kern-target-asm.h and sys.arm.mk must match.
-KDataPackedAddr=0xfe030000
+KDataPackedAddr=0xfe032000
 
 %options
 

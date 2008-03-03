@@ -132,7 +132,7 @@ followed by unused
    conf/Makefile.* and sys.arm.mk. */
 /* The kernel data section begins in the flash memory at address
    KDataPackedAddr - KTextVA + FlashMemPA */
-#define KDataPackedAddr 0xfe030000
+#define KDataPackedAddr 0xfe032000
 #define KTextPackedSize (KDataPackedAddr - KTextVA)
 
 #endif /* __KERN_TARGET_ASM_ARM_H__ */

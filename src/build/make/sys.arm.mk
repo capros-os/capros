@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -35,7 +35,7 @@ init.hd: $(VOLMAP)
 
 BOOTMODULE=$(CAPROS_BOOT_PARTITION)/CapROS-PL-3-1
 
-KDataPackedAddr=0xfe030000
+KDataPackedAddr=0xfe032000
 ARM_SYS=/tftpboot/capros-kernel
 
 $(CAPROS_BOOT_PARTITION)/pad3:
