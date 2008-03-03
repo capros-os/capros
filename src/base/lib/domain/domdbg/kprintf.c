@@ -110,6 +110,7 @@ printf_guts(void (putc)(char c, buf *buffer),
     int leftAdjust = false;
     char fillchar = ' ';
     bool sharpflag = false;
+    int precision = -1;	// so far, not present
     enum size_modifier sizemod = sizemod_none;
     const char * digits = small_digits;
     char * pend = &buf[25];
@@ -141,6 +142,26 @@ printf_guts(void (putc)(char c, buf *buffer),
         width *= 10;
         width += (*fmt - '0');
         fmt++;
+      }
+    }
+     
+    /* See if what follows is a precision specifier: */
+
+    if (*fmt == '.') {
+      fmt++;
+      precision = 0;
+      if (*fmt == '*') {
+        fmt++;
+        precision = va_arg (ap, int);
+        if (precision < 0) {
+          precision = -precision;
+        }
+      } else {
+        while (*fmt >= '0' && *fmt <= '9') {
+          precision *= 10;
+          precision += (*fmt - '0');
+          fmt++;
+        }
       }
     }
 
@@ -274,7 +295,10 @@ printull:
     case 's':
       {
 	p = va_arg(ap, char *);
-        pend = p + strlen(p);
+        int len = strlen(p);
+        if (precision >= 0 && len > precision)
+          len = precision;
+        pend = p + len;
 	break;
       }
     case '%':
