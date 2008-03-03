@@ -188,6 +188,14 @@ driverSlot(struct usb_device * udev, uint8_t localIntfNum)
   return LKSN_DRIVERS + (udev->devnum << 8) + localIntfNum;
 }
 
+static inline unsigned long
+urbToCap(struct urb * urb)
+{
+  /* Use the address of the urb to ensure the slot is unique. 
+  Divide by sizeof(struct urb) to increase the density. */
+  return (unsigned long)urb / sizeof(struct urb);
+}
+
 extern struct list_head newInterfacesList;
 extern struct mutex newInterfacesMutex;
 extern bool waitingForNewInterfaces;

@@ -137,7 +137,7 @@ urbComplete(struct urb * urb, void * retData, unsigned int retSize)
 {
   result_t result;
 
-  capros_Node_extAddr_t resumeCap = (capros_Node_extAddr_t)urb;
+  capros_Node_extAddr_t resumeCap = urbToCap(urb);
   result = capros_Node_getSlotExtended(KR_KEYSTORE, resumeCap, KR_RETURN);
   assert(result == RC_OK);
 
@@ -255,7 +255,7 @@ HandleSubmitUrb(Message * msg, struct usb_device * udev, int numPkts)
 
   // Allocate storage for the caller's resume cap.
   // Use the address of the urb as a unique address for the cap.
-  capros_Node_extAddr_t resumeCap = (capros_Node_extAddr_t)urb;
+  capros_Node_extAddr_t resumeCap = urbToCap(urb);
   result = capros_SuperNode_allocateRange(KR_KEYSTORE, resumeCap, resumeCap);
   if (result != RC_OK) {
     msg->snd_code = result;
