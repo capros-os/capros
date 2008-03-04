@@ -245,14 +245,9 @@ int usb_submit_urb_wait(struct urb * urb, gfp_t mem_flags)
   result_t result;
   int pipe, temp;
   int numPkts = 0;
-  struct usb_device * dev;
 
 	if (!urb || urb->hcpriv || !urb->complete)
 		return -EINVAL;
-	if (!(dev = urb->dev) ||
-	    (dev->state < USB_STATE_DEFAULT) ||
-	    (!dev->bus) || (dev->devnum <= 0))
-		return -ENODEV;
 
 	urb->status = -EINPROGRESS;
 	urb->actual_length = 0;
@@ -313,6 +308,7 @@ int usb_submit_urb_wait(struct urb * urb, gfp_t mem_flags)
                KR_VOID, KR_VOID, KR_VOID, KR_TEMP0, &urbResult);
     if (result == RC_OK) {
       urb->status = urbResult.status;
+if (urb->status) printk("%s: urb status %d", __FUNCTION__, urb->status);////
       urb->actual_length = urbResult.actual_length;
       urb->interval = urbResult.interval;
     }
@@ -321,9 +317,13 @@ int usb_submit_urb_wait(struct urb * urb, gfp_t mem_flags)
   if (result != RC_OK) {
     // urb was not accepted
     unsigned long errno = capros_Errno_ExceptionToErrno(result);
-    if (!errno)	// unknown errno
-      kdprintf(KR_OSTREAM, "submitUrb got rc=0x%08x\n", result);
-    return errno ? -errno : -999;
+    if (errno) {
+printk("%s: returning errno %d from submitUrb", __FUNCTION__, errno);////
+      return -errno;
+    }
+    // unknown errno
+    kdprintf(KR_OSTREAM, "submitUrb got rc=0x%08x\n", result);////
+    return -ENODEV;
   } else {
     long st = urb->status;
     // urb was accepted and transfer is now done.
