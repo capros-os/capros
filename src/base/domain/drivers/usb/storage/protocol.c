@@ -167,6 +167,8 @@ unsigned int usb_stor_access_xfer_buf(unsigned char *buffer,
 {
 	unsigned int cnt;
 
+	BUG_ON("unsupported");	/* srb->request_buffer is not mapped
+		in this process */
 	/* If not using scatter-gather, just transfer the data directly.
 	 * Make certain it will fit in the available buffer space. */
 	if (srb->use_sg == 0) {

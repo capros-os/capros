@@ -66,10 +66,12 @@ struct scsi_cmnd;
 
 #define KC_SCSICONTROL KC_APP2(0)
 
+// Slots in KR_KEYSTORE:
+#define LKSN_COMMANDREPLY (LKSN_APP+0)
+
 // KR_APP2(0) is KR_USBINTF from lib/usbdev.h
 #define KR_SCSICONTROL KR_APP2(1)
 #define KR_SCSIHOST KR_APP2(2)
-#define KR_COMMANDREPLY KR_APP2(3)
 
 #if !defined(__ASSEMBLER__)
 
@@ -163,6 +165,7 @@ struct us_data {
 	unsigned char		*sensebuf;	 /* sense data buffer	 */
 	dma_addr_t		cr_dma;		 /* buffer DMA addresses */
 	dma_addr_t		iobuf_dma;
+	dma_addr_t		sensebuf_dma;
 
 	/* mutual exclusion and synchronization structures */
 	struct semaphore	sema;		 /* to sleep thread on	    */

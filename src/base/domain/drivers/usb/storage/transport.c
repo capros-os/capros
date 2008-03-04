@@ -170,6 +170,8 @@ static int usb_stor_msg_common(struct us_data *us, int timeout)
 	clear_bit(US_FLIDX_URB_ACTIVE, &us->flags);
 
 	if (status) {
+		printk("%s: returning status %d from usb_submit_urb_wait",
+			__FUNCTION__, status);
 		/* something went wrong */
 		return status;
 	}
@@ -532,6 +534,7 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 
 	/* if the transport provided its own sense data, don't auto-sense */
 	if (result == USB_STOR_TRANSPORT_NO_SENSE) {
+		US_DEBUGP("-- transport indicates no sense\n");
 		srb->result = SAM_STAT_CHECK_CONDITION;
 		return;
 	}
@@ -584,6 +587,7 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 	if (need_auto_sense) {
 		int temp_result;
 		void* old_request_buffer;
+		dma_addr_t old_request_buffer_dma;
 		unsigned short old_sg;
 		unsigned old_request_bufflen;
 		unsigned char old_sc_data_direction;
@@ -615,7 +619,9 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 
 		/* use the new buffer we have */
 		old_request_buffer = srb->request_buffer;
+		old_request_buffer_dma = srb->request_buffer_dma;
 		srb->request_buffer = us->sensebuf;
+		srb->request_buffer_dma = us->sensebuf_dma;
 
 		/* set the buffer length for transfer */
 		old_request_bufflen = srb->request_bufflen;
@@ -634,6 +640,7 @@ void usb_stor_invoke_transport(struct scsi_cmnd *srb, struct us_data *us)
 		memcpy(srb->sense_buffer, us->sensebuf, US_SENSE_SIZE);
 		srb->resid = old_resid;
 		srb->request_buffer = old_request_buffer;
+		srb->request_buffer_dma = old_request_buffer_dma;
 		srb->request_bufflen = old_request_bufflen;
 		srb->use_sg = old_sg;
 		srb->sc_data_direction = old_sc_data_direction;
@@ -782,53 +789,11 @@ static int
 dataStage(struct scsi_cmnd * srb, struct us_data * us, unsigned int pipe)
 {
 	int result;
-	dma_addr_t data_dma;
-	void * data;	// I don't think this is really used
-
-	// The data must be in a DMA area. We have several options:
-	unsigned int const length = srb->request_bufflen;
-	if (length <= US_IOBUF_SIZE) {
-		// will fit in iobuf, and small enough to copy
-		data = us->iobuf;
-		data_dma = us->iobuf_dma;
-		memcpy(data, srb->request_buffer, length);
-
-		result = usb_stor_bulk_transfer_sg(us, pipe,
-				data, data_dma, length,
-				srb->use_sg, &srb->resid);
-	}
-	else {
-		/* There is a tradeoff here.
-		Using the buffer in place requires system calls
-		to lock and unlock the page in memory,
-		and may require flushing it from cache,
-		and if the buffer crosses a page boundary,
-		this can't be used, or we must do scatter/gather,
-		because pages are assummed to be physically non-contiguous.
-		Copying to a new buffer has the copying cost.
-		This tradeoff is really architecture-dependent.
-		The following value needs to be tuned. */
-		if (length > 512) {
-			// big enough to try to use in place
-			//// not implemented yet
-			goto copyToBuf;	// can't use in place
-		} else {
-		copyToBuf:
-			// small enough to copy,
-			// or couldn't use in place.
-			data = usb_buffer_alloc(NULL, length, GFP_DMA,
-					&data_dma);
-			if (!data)
-				return USB_STOR_TRANSPORT_ERROR;
-			memcpy(data, srb->request_buffer, length);
-
-			result = usb_stor_bulk_transfer_sg(us, pipe,
-					data, data_dma, length,
-					srb->use_sg, &srb->resid);
-
-			usb_buffer_free(NULL, length, data, data_dma);
-		}
-	}
+	result = usb_stor_bulk_transfer_sg(us, pipe,
+			srb->request_buffer /* this is meaningless */,
+			srb->request_buffer_dma,
+			srb->request_bufflen,
+			srb->use_sg, &srb->resid);
 	US_DEBUGP("data stage result is 0x%x\n", result);
 	return result;
 }

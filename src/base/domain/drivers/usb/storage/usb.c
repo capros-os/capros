@@ -132,7 +132,8 @@ capros_SCSIControl_SCSIHostTemplate capros_host_template = {
   .maxTransferSize = 240 * 512,
   .maxQueuedCommands = 1,
   .maxCommandsPerLun = 1,
-  .maxScatterGatherSegments = capros_SCSIControl_SCSIHostTemplate_SG_ALL,
+  .reservedID = capros_SCSIControl_ThisIdNone,
+  .maxScatterGatherSegments = capros_SCSIControl_SG_ALL,
   .useClustering = true,
   .emulated = true,
   .hostHandlesSettleDelay = true
@@ -141,7 +142,6 @@ capros_SCSIControl_SCSIHostTemplate capros_host_template = {
 /* We will only queue one command at a time, so we can statically allocate
 the srb. */
 struct scsi_cmnd theSRB;
-dma_addr_t srbrequest_buffer_dma;
 unsigned long srbOpaque;
 
 struct {
@@ -157,8 +157,6 @@ struct Scsi_Host * theHost = &hostAlloc.h;
 struct scsi_device theDevice = {
   .host = &hostAlloc.h
 };
-
-struct scsi_device theDevice;
 
 static unsigned int delay_use = 5;
 //module_param(delay_use, uint, S_IRUGO | S_IWUSR);
@@ -594,7 +592,8 @@ static int associate_dev(struct us_data *us, struct usb_interface *intf)
 		return -ENOMEM;
 	}
 
-	us->sensebuf = kmalloc(US_SENSE_SIZE, GFP_KERNEL);
+	us->sensebuf = usb_buffer_alloc(us->pusb_dev, US_SENSE_SIZE,
+			GFP_KERNEL, &us->sensebuf_dma);
 	if (!us->sensebuf) {
 		US_DEBUGP("Sense buffer allocation failed\n");
 		return -ENOMEM;
@@ -1181,8 +1180,14 @@ union {
 static void
 srb_done(struct scsi_cmnd * srb)
 {
+  result_t result;
+
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_COMMANDREPLY,
+		KR_TEMP0);
+  assert(result == RC_OK);
+
   Message Msg = {
-    .snd_invKey = KR_COMMANDREPLY,
+    .snd_invKey = KR_TEMP0,
     .snd_code = RC_OK,
     .snd_w1 = srbOpaque,
     .snd_w2 = srb->result,
@@ -1194,12 +1199,15 @@ srb_done(struct scsi_cmnd * srb)
     .snd_len = sizeof(capros_SCSIDevice_senseBuffer),
     .snd_data = &srb->sense_buffer
   };
+  US_DEBUGP("srb_done returning\n");
   SEND(&Msg);	// non-prompt
 }
 
 static void
 DoReadWrite(Message * msg, bool write)
 {
+  result_t result;
+
   capros_SCSIDevice_SCSICommand * sc = &MsgRcvBuf.cmd;
 
   if (msg->rcv_sent < sizeof(capros_SCSIDevice_SCSICommand)
@@ -1214,12 +1222,18 @@ DoReadWrite(Message * msg, bool write)
   theSRB.cmd_len = sc->cmd_len;
   theSRB.request_bufflen = sc->request_bufflen;
   theSRB.sc_data_direction = write ? DMA_TO_DEVICE : DMA_FROM_DEVICE;
-  srbrequest_buffer_dma = sc->request_buffer_dma;
+  theSRB.request_buffer_dma = sc->request_buffer_dma;
   srbOpaque = sc->opaque;
 
   theSRB.device = &theDevice;
+  theDevice.lun = sc->lun;
+  theDevice.id = sc->id;
   // Save the return cap now, in case queuecommand calls srb_done right away.
-  COPY_KEYREG(KR_RETURN, KR_COMMANDREPLY);
+  /* Save in KR_KEYSTORE, because srb_done may be called from a
+  different thread. */
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_COMMANDREPLY,
+		KR_RETURN, KR_VOID);
+  assert(result == RC_OK);
 
   int ret = queuecommand(&theSRB, &srb_done);
   switch (ret) {

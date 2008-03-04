@@ -34,6 +34,7 @@ OBJECTS+= $(BUILDDIR)/protocol.o
 OBJECTS+= $(BUILDDIR)/transport.o
 OBJECTS+= $(BUILDDIR)/scsiglue.o
 OBJECTS+= $(BUILDDIR)/initializers.o
+OBJECTS+= $(BUILDDIR)/debug.o
 
 LIBS=../lib/$(BUILDDIR)/libusbdev.a
 
