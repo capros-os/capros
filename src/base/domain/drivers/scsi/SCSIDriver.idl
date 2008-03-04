@@ -1,0 +1,96 @@
+package capros;
+
+/** This is the interface that the SCSI subsystem uses to communicate
+to an instance of a low-level driver,
+irrespective of the size of DMA addresses.
+*/
+interface SCSIDevice extends key {
+
+  typedef array <unsigned byte, 18> senseBuffer;
+
+  const unsigned byte maxCommandSize = 16;
+};
+
+/** This is the interface that the SCSI subsystem uses to communicate
+to an instance of a low-level driver,
+on architectures with 32-bit DMA addresses.
+*/
+interface SCSIDevice32 extends SCSIDevice {
+
+  struct SCSICommand {	// compare with Linux struct scsi_cmnd
+    array <unsigned byte, SCSIDevice.maxCommandSize> cmnd;
+    unsigned byte cmd_len;
+    unsigned byte lun;
+    unsigned byte id;
+    unsigned long request_bufflen;
+    DMA32.DMAAddress request_buffer_dma;
+    unsigned long opaque;
+  };
+
+  DMA32.DMAAddress getDMAMask();
+
+  /** Read from the device.
+
+  Execute the specified SCSI command, putting the resulting data
+  into the buffer using the specified a DMA address.
+  The passed "opaque" data is returned unchanged, for identification. 
+  result is:
+    in bits 0-7, the SCSI Architecture Model status code.
+    in bits 16-23, a DID_* value.
+    in bits 24-31, a DRIVER_* value, optionally with a SUGGEST_* value.
+  transferCount is the number of bytes transferred.
+  The return is made with a nonprompt invocation, so a start cap
+  can be passed.
+  Raises Errno.Already if the number of active commands
+  exceeds the maximum for this driver.
+  */
+  void Read (SCSICommand scm,
+             out unsigned long opaque,
+             out unsigned long result,
+             out unsigned long transferCount,
+             out SCSIDevice.senseBuffer sense);
+
+  /** Write to the device.
+
+  Similar to Read, except the data is taken from the buffer. */
+  void Write(SCSICommand scm,
+             out unsigned long opaque,
+             out unsigned long result,
+             out unsigned long transferCount,
+             out SCSIDevice.senseBuffer sense);
+
+  // To be added: scatter/gather read and write.
+};
+
+/* This is the interface to a host in the SCSI subsystem.
+*/
+interface SCSIHost extends key {
+  void scanHost();
+  void reportBusReset(unsigned short channel);
+  void reportDeviceReset(unsigned short channel, unsigned short id);
+  void removeHost();
+};
+
+/* This is the interface to the SCSI subsystem.
+*/
+interface SCSIControl extends key {
+  const byte ThisIdNone = -1;
+  const unsigned short SG_ALL = 128;
+};
+
+interface SCSIControl32 extends SCSIControl {
+
+  struct SCSIHostTemplate {
+    unsigned long maxTransferSize;	// Linux: max_sectors * 512
+    unsigned short maxQueuedCommands;	// can_queue
+    unsigned short maxCommandsPerLun;	// cmd_per_lun
+    byte reservedID;			// this_id or ThisIdNone
+    unsigned short maxScatterGatherSegments;	// sg_tablesize or SG_ALL
+    boolean useClustering;		// use_clustering
+    boolean emulated;			// emulated
+    boolean hostHandlesSettleDelay;	// skip_settle_delay
+    DMA32.DMAAddress coherentDMAMask;
+  };
+
+  SCSIHost addHost(SCSIHostTemplate hostt, SCSIDevice dev);
+};

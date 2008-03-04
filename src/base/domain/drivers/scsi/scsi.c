@@ -36,6 +36,28 @@
  *
  *  out_of_space hacks, D. Gilbert (dpg) 990608
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -47,12 +69,12 @@
 #include <linux/delay.h>
 #include <linux/init.h>
 #include <linux/completion.h>
-#include <linux/unistd.h>
+//#include <linux/unistd.h>
 #include <linux/spinlock.h>
 #include <linux/kmod.h>
 #include <linux/interrupt.h>
 #include <linux/notifier.h>
-#include <linux/cpu.h>
+//#include <linux/cpu.h>
 #include <linux/mutex.h>
 
 #include <scsi/scsi.h>
@@ -61,10 +83,15 @@
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_eh.h>
 #include <scsi/scsi_host.h>
-#include <scsi/scsi_tcq.h>
+//#include <scsi/scsi_tcq.h>
+#include <eros/Invoke.h>
+#include <idl/capros/Node.h>
+#include <asm/SCSIDev.h>
 
 #include "scsi_priv.h"
 #include "scsi_logging.h"
+
+unsigned long capros_Errno_ExceptionToErrno(unsigned long excep);
 
 static void scsi_done(struct scsi_cmnd *cmd);
 
@@ -95,6 +122,7 @@ unsigned int scsi_logging_level;
 EXPORT_SYMBOL(scsi_logging_level);
 #endif
 
+#if 0 // CapROS
 /* NB: These are exposed through /proc/scsi/scsi and form part of the ABI.
  * You may not alter any existing entry (although adding new ones is
  * encouraged once assigned by ANSI/INCITS T10
@@ -133,6 +161,7 @@ const char * scsi_device_type(unsigned type)
 }
 
 EXPORT_SYMBOL(scsi_device_type);
+#endif // CapROS
 
 struct scsi_host_cmd_pool {
 	struct kmem_cache	*slab;
@@ -440,6 +469,8 @@ void scsi_log_completion(struct scsi_cmnd *cmd, int disposition)
 	}
 }
 #endif
+#if 0 // CapROS
+#endif // CapROS
 
 /* 
  * Assign a serial number and pid to the request for error recovery
@@ -563,14 +594,65 @@ int scsi_dispatch_cmd(struct scsi_cmnd *cmd)
 
 	spin_lock_irqsave(host->host_lock, flags);
 	scsi_cmd_get_serial(host, cmd); 
+	spin_unlock_irqrestore(host->host_lock, flags); /* moved from
+			below - is this safe? */
 
 	if (unlikely(host->shost_state == SHOST_DEL)) {
 		cmd->result = (DID_NO_CONNECT << 16);
 		scsi_done(cmd);
 	} else {
-		rtn = host->hostt->queuecommand(cmd, scsi_done);
+	  result_t capres;
+	  unsigned long opaque;
+	  unsigned long transferCount;
+	  unsigned long devres;
+	  capros_SCSIDevice_SCSICommand capcmd = {
+            .lun = cmd->device->lun,
+            .id  = cmd->device->id,
+	    .cmd_len = cmd->cmd_len,
+	    .request_bufflen = cmd->request_bufflen,
+	    .request_buffer_dma = cmd->request_buffer_dma,
+	    .opaque = (unsigned long)host	// not really used here
+	  };
+	  memcpy(&capcmd.cmnd, &cmd->cmnd, sizeof(capcmd.cmnd));
+
+	  capres = capros_Node_getSlotExtended(KR_KEYSTORE,
+		     SCSIDevCapSlot(host), KR_TEMP0);
+	  BUG_ON(capres != RC_OK);
+
+	  switch (cmd->sc_data_direction) {
+	  case DMA_NONE:
+	  case DMA_FROM_DEVICE:
+	    capres = capros_SCSIDevice_Read(KR_TEMP0,
+		       capcmd, 
+		       &opaque,
+		       &devres,
+		       &transferCount,
+		       (capros_SCSIDevice_senseBuffer *)cmd->sense_buffer);
+	    break;
+
+	  case DMA_TO_DEVICE:
+	    capres = capros_SCSIDevice_Write(KR_TEMP0,
+		       capcmd, 
+		       &opaque,
+		       &devres,
+		       &transferCount,
+		       (capros_SCSIDevice_senseBuffer *)cmd->sense_buffer);
+	    break;
+
+	  default:	// DMA_BIDIRECTIONAL
+	    BUG_ON("unsupported");
+	  } 
+	  if (capres == RC_OK) {
+	    cmd->result = devres;
+	    cmd->resid = cmd->request_bufflen - transferCount;
+	    if (cmd->result == SAM_STAT_GOOD && transferCount < cmd->underflow)
+	      cmd->result = (DID_ERROR << 16) | (SUGGEST_RETRY << 24);
+	    scsi_done(cmd);
+	  } else {
+	    rtn = capros_Errno_ExceptionToErrno(capres);
+	  }
 	}
-	spin_unlock_irqrestore(host->host_lock, flags);
+	//spin_unlock_irqrestore(host->host_lock, flags); // moved above
 	if (rtn) {
 		if (scsi_delete_timer(cmd)) {
 			atomic_inc(&cmd->device->iodone_cnt);
@@ -587,6 +669,7 @@ int scsi_dispatch_cmd(struct scsi_cmnd *cmd)
 	return rtn;
 }
 
+#if 0 // CapROS
 /**
  * scsi_req_abort_cmd -- Request command recovery for the specified command
  * cmd: pointer to the SCSI command of interest
@@ -604,6 +687,7 @@ void scsi_req_abort_cmd(struct scsi_cmnd *cmd)
 	scsi_times_out(cmd);
 }
 EXPORT_SYMBOL(scsi_req_abort_cmd);
+#endif // CapROS
 
 /**
  * scsi_done - Enqueue the finished SCSI command into the done queue.
@@ -637,8 +721,6 @@ static void scsi_done(struct scsi_cmnd *cmd)
  * isn't running --- used by scsi_times_out */
 void __scsi_done(struct scsi_cmnd *cmd)
 {
-	struct request *rq = cmd->request;
-
 	/*
 	 * Set the serial numbers back to zero
 	 */
@@ -648,6 +730,9 @@ void __scsi_done(struct scsi_cmnd *cmd)
 	if (cmd->result)
 		atomic_inc(&cmd->device->ioerr_cnt);
 
+#if 0 // CapROS
+	struct request *rq = cmd->request;
+
 	BUG_ON(!rq);
 
 	/*
@@ -656,6 +741,9 @@ void __scsi_done(struct scsi_cmnd *cmd)
 	 */
 	rq->completion_data = cmd;
 	blk_complete_request(rq);
+#else
+	scsi_softirq_done_cmd(cmd);
+#endif
 }
 
 /*
@@ -722,6 +810,7 @@ EXPORT_SYMBOL(scsi_finish_command);
  */
 void scsi_adjust_queue_depth(struct scsi_device *sdev, int tagged, int tags)
 {
+#if 0 // CapROS
 	unsigned long flags;
 
 	/*
@@ -759,9 +848,15 @@ void scsi_adjust_queue_depth(struct scsi_device *sdev, int tagged, int tags)
 	}
  out:
 	spin_unlock_irqrestore(sdev->request_queue->queue_lock, flags);
+#else
+#if 0 // temporarily, no queueing
+  BUG_ON("unimplemented");
+#endif
+#endif // CapROS
 }
 EXPORT_SYMBOL(scsi_adjust_queue_depth);
 
+#if 0 // CapROS
 /*
  * Function:	scsi_track_queue_full()
  *
@@ -812,6 +907,7 @@ int scsi_track_queue_full(struct scsi_device *sdev, int depth)
 	return depth;
 }
 EXPORT_SYMBOL(scsi_track_queue_full);
+#endif // CapROS
 
 /**
  * scsi_device_get  -  get an addition reference to a scsi_device
@@ -827,9 +923,11 @@ int scsi_device_get(struct scsi_device *sdev)
 		return -ENXIO;
 	if (!get_device(&sdev->sdev_gendev))
 		return -ENXIO;
+#if 0 // CapROS
 	/* We can fail this if we're doing SCSI operations
 	 * from module exit (like cache flush) */
 	try_module_get(sdev->host->hostt->module);
+#endif // CapROS
 
 	return 0;
 }
@@ -845,6 +943,7 @@ EXPORT_SYMBOL(scsi_device_get);
  */
 void scsi_device_put(struct scsi_device *sdev)
 {
+#if 0 // CapROS
 #ifdef CONFIG_MODULE_UNLOAD
 	struct module *module = sdev->host->hostt->module;
 
@@ -853,6 +952,7 @@ void scsi_device_put(struct scsi_device *sdev)
 	if (module && module_refcount(module) != 0)
 		module_put(module);
 #endif
+#endif // CapROS
 	put_device(&sdev->sdev_gendev);
 }
 EXPORT_SYMBOL(scsi_device_put);
@@ -882,6 +982,7 @@ struct scsi_device *__scsi_iterate_devices(struct Scsi_Host *shost,
 }
 EXPORT_SYMBOL(__scsi_iterate_devices);
 
+#if 0 // CapROS
 /**
  * starget_for_each_device  -  helper to walk all devices of a target
  * @starget:	target whose devices we want to iterate over.
@@ -903,6 +1004,7 @@ void starget_for_each_device(struct scsi_target *starget, void * data,
 	}
 }
 EXPORT_SYMBOL(starget_for_each_device);
+#endif // CapROS
 
 /**
  * __scsi_device_lookup_by_target - find a device given the target (UNLOCKED)
@@ -958,6 +1060,7 @@ struct scsi_device *scsi_device_lookup_by_target(struct scsi_target *starget,
 }
 EXPORT_SYMBOL(scsi_device_lookup_by_target);
 
+#if 0 // CapROS
 /**
  * scsi_device_lookup - find a device given the host (UNLOCKED)
  * @shost:	SCSI host pointer
@@ -1124,3 +1227,4 @@ static void __exit exit_scsi(void)
 
 subsys_initcall(init_scsi);
 module_exit(exit_scsi);
+#endif // CapROS

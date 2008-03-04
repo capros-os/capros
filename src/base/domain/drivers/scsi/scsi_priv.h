@@ -1,6 +1,29 @@
 #ifndef _SCSI_PRIV_H
 #define _SCSI_PRIV_H
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
+#include <idl/capros/Node.h>
 #include <linux/device.h>
 
 struct request_queue;
@@ -43,8 +66,8 @@ int scsi_complete_async_scans(void);
 
 /* scsi_devinfo.c */
 extern int scsi_get_device_flags(struct scsi_device *sdev,
-				 const unsigned char *vendor,
-				 const unsigned char *model);
+				 const char * vendor,
+				 const char * model);
 extern int __init scsi_init_devinfo(void);
 extern void scsi_exit_devinfo(void);
 
@@ -136,5 +159,14 @@ static inline void scsi_netlink_exit(void) {}
 #define SCSI_DEVICE_BLOCK_MAX_TIMEOUT	600	/* units in seconds */
 extern int scsi_internal_device_block(struct scsi_device *sdev);
 extern int scsi_internal_device_unblock(struct scsi_device *sdev);
+
+void scsi_softirq_done_cmd(struct scsi_cmnd * cmd);
+
+static inline capros_Node_extAddr_t
+SCSIDevCapSlot(struct Scsi_Host * shost)
+{
+  // The SCSIDevice cap is stored at an index equal to the address shost.
+  return (capros_Node_extAddr_t)shost;
+}
 
 #endif /* _SCSI_PRIV_H */

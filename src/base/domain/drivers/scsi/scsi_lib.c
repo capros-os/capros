@@ -6,6 +6,28 @@
  *                        Based upon conversations with large numbers
  *                        of people at Linux Expo.
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/bio.h>
 #include <linux/blkdev.h>
@@ -14,7 +36,7 @@
 #include <linux/mempool.h>
 #include <linux/slab.h>
 #include <linux/init.h>
-#include <linux/pci.h>
+//#include <linux/pci.h>
 #include <linux/delay.h>
 #include <linux/hardirq.h>
 
@@ -30,6 +52,7 @@
 #include "scsi_logging.h"
 
 
+#if 0 // CapROS
 #define SG_MEMPOOL_NR		ARRAY_SIZE(scsi_sg_pools)
 #define SG_MEMPOOL_SIZE		2
 
@@ -63,8 +86,12 @@ static struct scsi_host_sg_pool scsi_sg_pools[] = {
 #endif
 }; 	
 #undef SP
+#endif // CapROS
 
 static void scsi_run_queue(struct request_queue *q);
+static int scsi_init_io(struct scsi_cmnd *cmd);
+static void scsi_blk_pc_done(struct scsi_cmnd *cmd);
+static void scsi_init_cmd_errh(struct scsi_cmnd *cmd);
 
 /*
  * Function:	scsi_unprep_request()
@@ -177,9 +204,11 @@ int scsi_queue_insert(struct scsi_cmnd *cmd, int reason)
  * field.
  **/
 int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
-		 int data_direction, void *buffer, unsigned bufflen,
+		 int data_direction, void * buffer,
+		 dma_addr_t buffer_dma, unsigned bufflen,
 		 unsigned char *sense, int timeout, int retries, int flags)
 {
+#if 0 // CapROS
 	struct request *req;
 	int write = (data_direction == DMA_TO_DEVICE);
 	int ret = DRIVER_ERROR << 24;
@@ -209,15 +238,57 @@ int scsi_execute(struct scsi_device *sdev, const unsigned char *cmd,
 	blk_put_request(req);
 
 	return ret;
+#else // CapROS
+	int ret;
+	// blk_execute_rq:
+	unsigned char senseBuf[SCSI_SENSE_BUFFERSIZE];
+	if (! sense) {
+		memset(senseBuf, 0, sizeof(senseBuf));
+		sense = senseBuf;
+	}
+	// scsi_request_fn:
+	// scsi_prep_fn:
+	// scsi_setup_blk_pc_cmnd:
+	struct scsi_cmnd * scmd = scsi_get_command(sdev, GFP_ATOMIC);
+	scmd->request_bufflen = bufflen;
+	scmd->use_sg = 0;
+	if (bufflen) {
+		scmd->request_buffer = buffer;
+		scmd->request_buffer_dma = buffer_dma;
+		scmd->sc_data_direction = data_direction;
+	} else {
+		scmd->request_buffer = NULL;
+		scmd->sc_data_direction = DMA_NONE;
+	}
+
+	scmd->cmd_len = COMMAND_SIZE(cmd[0]);
+	memcpy(scmd->cmnd, cmd, scmd->cmd_len);
+	
+	scmd->transfersize = bufflen;
+	scmd->allowed = 0; //? req->retries;
+	scmd->timeout_per_command = timeout;
+	scmd->done = scsi_blk_pc_done;
+	// end scsi_setup_blk_pc_cmnd
+	// end scsi_prep_fn
+	scsi_init_cmd_errh(scmd);
+	/*
+	 * Dispatch the command to the low-level driver.
+	 */
+	ret = scsi_dispatch_cmd(scmd);	// and wait for completion
+	BUG_ON(ret);//// for now
+	// end scsi_request_fn
+	return scmd->result;
+#endif // CapROS
 }
 EXPORT_SYMBOL(scsi_execute);
 
 
 int scsi_execute_req(struct scsi_device *sdev, const unsigned char *cmd,
-		     int data_direction, void *buffer, unsigned bufflen,
+		     int data_direction, void *buffer,
+		     dma_addr_t buffer_dma, unsigned bufflen,
 		     struct scsi_sense_hdr *sshdr, int timeout, int retries)
 {
-	char *sense = NULL;
+	unsigned char * sense = NULL;
 	int result;
 	
 	if (sshdr) {
@@ -225,7 +296,8 @@ int scsi_execute_req(struct scsi_device *sdev, const unsigned char *cmd,
 		if (!sense)
 			return DRIVER_ERROR << 24;
 	}
-	result = scsi_execute(sdev, cmd, data_direction, buffer, bufflen,
+	result = scsi_execute(sdev, cmd, data_direction, buffer,
+			      buffer_dma, bufflen,
 			      sense, timeout, retries, 0);
 	if (sshdr)
 		scsi_normalize_sense(sense, SCSI_SENSE_BUFFERSIZE, sshdr);
@@ -235,6 +307,7 @@ int scsi_execute_req(struct scsi_device *sdev, const unsigned char *cmd,
 }
 EXPORT_SYMBOL(scsi_execute_req);
 
+#if 0 // CapROS
 struct scsi_io_context {
 	void *data;
 	void (*done)(void *data, char *sense, int result, int resid);
@@ -428,6 +501,7 @@ free_sense:
 	return DRIVER_ERROR << 24;
 }
 EXPORT_SYMBOL_GPL(scsi_execute_async);
+#endif // CapROS
 
 /*
  * Function:    scsi_init_cmd_errh()
@@ -458,12 +532,14 @@ void scsi_device_unbusy(struct scsi_device *sdev)
 	if (unlikely(scsi_host_in_recovery(shost) &&
 		     (shost->host_failed || shost->host_eh_scheduled)))
 		scsi_eh_wakeup(shost);
-	spin_unlock(shost->host_lock);
-	spin_lock(sdev->request_queue->queue_lock);
+	spin_unlock_irqrestore(shost->host_lock, flags);
+	//// no request_queue, so no lock - FIXME
+	//spin_lock_irqsave(sdev->request_queue->queue_lock, flags);
 	sdev->device_busy--;
-	spin_unlock_irqrestore(sdev->request_queue->queue_lock, flags);
+	//spin_unlock_irqrestore(sdev->request_queue->queue_lock, flags);
 }
 
+#if 0 // CapROS, temporarily no queues
 /*
  * Called for single_lun devices on IO completion. Clear starget_sdev_user,
  * and call blk_run_queue for all the scsi_devices on the target -
@@ -509,6 +585,7 @@ static void scsi_single_lun_run(struct scsi_device *current_sdev)
  out:
 	spin_unlock_irqrestore(shost->host_lock, flags);
 }
+#endif // CapROS
 
 /*
  * Function:	scsi_run_queue()
@@ -524,6 +601,7 @@ static void scsi_single_lun_run(struct scsi_device *current_sdev)
  */
 static void scsi_run_queue(struct request_queue *q)
 {
+#if 0 // CapROS, temporarily no queues
 	struct scsi_device *sdev = q->queuedata;
 	struct Scsi_Host *shost = sdev->host;
 	unsigned long flags;
@@ -573,6 +651,7 @@ static void scsi_run_queue(struct request_queue *q)
 	spin_unlock_irqrestore(shost->host_lock, flags);
 
 	blk_run_queue(q);
+#endif // CapROS
 }
 
 /*
@@ -654,6 +733,7 @@ void scsi_run_host_queues(struct Scsi_Host *shost)
 static struct scsi_cmnd *scsi_end_request(struct scsi_cmnd *cmd, int uptodate,
 					  int bytes, int requeue)
 {
+#if 0 // CapROS
 	request_queue_t *q = cmd->device->request_queue;
 	struct request *req = cmd->request;
 	unsigned long flags;
@@ -692,6 +772,12 @@ static struct scsi_cmnd *scsi_end_request(struct scsi_cmnd *cmd, int uptodate,
 		blk_queue_end_tag(q, req);
 	end_that_request_last(req, uptodate);
 	spin_unlock_irqrestore(q->queue_lock, flags);
+#else
+	if (cmd->resid != 0) {
+		BUG_ON("unimplemented");
+	}
+	// handle tags?
+#endif // CapROS
 
 	/*
 	 * This will goose the queue request function at the end, so we don't
@@ -703,6 +789,7 @@ static struct scsi_cmnd *scsi_end_request(struct scsi_cmnd *cmd, int uptodate,
 
 struct scatterlist *scsi_alloc_sgtable(struct scsi_cmnd *cmd, gfp_t gfp_mask)
 {
+#if 0 // CapROS
 	struct scsi_host_sg_pool *sgp;
 	struct scatterlist *sgl;
 
@@ -740,18 +827,26 @@ struct scatterlist *scsi_alloc_sgtable(struct scsi_cmnd *cmd, gfp_t gfp_mask)
 	sgp = scsi_sg_pools + cmd->sglist_len;
 	sgl = mempool_alloc(sgp->pool, gfp_mask);
 	return sgl;
+#else
+  BUG_ON("unimplemented");
+  return NULL;
+#endif // CapROS
 }
 
 EXPORT_SYMBOL(scsi_alloc_sgtable);
 
 void scsi_free_sgtable(struct scatterlist *sgl, int index)
 {
+#if 0 // CapROS
 	struct scsi_host_sg_pool *sgp;
 
 	BUG_ON(index >= SG_MEMPOOL_NR);
 
 	sgp = scsi_sg_pools + index;
 	mempool_free(sgl, sgp->pool);
+#else
+  BUG_ON("unimplemented");
+#endif // CapROS
 }
 
 EXPORT_SYMBOL(scsi_free_sgtable);
@@ -819,8 +914,7 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 	int result = cmd->result;
 	int this_count = cmd->request_bufflen;
 	request_queue_t *q = cmd->device->request_queue;
-	struct request *req = cmd->request;
-	int clear_errors = 1;
+	//struct request *req = cmd->request;
 	struct scsi_sense_hdr sshdr;
 	int sense_valid = 0;
 	int sense_deferred = 0;
@@ -833,10 +927,12 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 			sense_deferred = scsi_sense_is_deferred(&sshdr);
 	}
 
+#if 0 // CapROS
+	req->errors = 0;
+
 	if (blk_pc_request(req)) { /* SG_IO ioctl from block level */
 		req->errors = result;
 		if (result) {
-			clear_errors = 0;
 			if (sense_valid && req->sense) {
 				/*
 				 * SG_IO wants current and deferred errors
@@ -851,6 +947,7 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 		}
 		req->data_len = cmd->resid;
 	}
+#endif // CapROS
 
 	/*
 	 * Next deal with any sectors which we were able to correctly
@@ -858,11 +955,8 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 	 */
 	SCSI_LOG_HLCOMPLETE(1, printk("%ld sectors total, "
 				      "%d bytes done.\n",
-				      req->nr_sectors, good_bytes));
+				      0, good_bytes));
 	SCSI_LOG_HLCOMPLETE(1, printk("use_sg is %d\n", cmd->use_sg));
-
-	if (clear_errors)
-		req->errors = 0;
 
 	/* A number of bytes were successfully read.  If there
 	 * are leftovers and there is some kind of error
@@ -937,20 +1031,20 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 					break;
 				}
 			}
-			if (!(req->cmd_flags & REQ_QUIET)) {
+			//if (!(req->cmd_flags & REQ_QUIET)) {
 				scmd_printk(KERN_INFO, cmd,
 					    "Device not ready: ");
 				scsi_print_sense_hdr("", &sshdr);
-			}
+			//}
 			scsi_end_request(cmd, 0, this_count, 1);
 			return;
 		case VOLUME_OVERFLOW:
-			if (!(req->cmd_flags & REQ_QUIET)) {
+			//if (!(req->cmd_flags & REQ_QUIET)) {
 				scmd_printk(KERN_INFO, cmd,
 					    "Volume overflow, CDB: ");
 				__scsi_print_command(cmd->cmnd);
 				scsi_print_sense("", cmd);
-			}
+			//}
 			/* See SSC3rXX or current. */
 			scsi_end_request(cmd, 0, this_count, 1);
 			return;
@@ -967,11 +1061,11 @@ void scsi_io_completion(struct scsi_cmnd *cmd, unsigned int good_bytes)
 		return;
 	}
 	if (result) {
-		if (!(req->cmd_flags & REQ_QUIET)) {
+		//if (!(req->cmd_flags & REQ_QUIET)) {
 			scsi_print_result(cmd);
 			if (driver_byte(result) & DRIVER_SENSE)
 				scsi_print_sense("", cmd);
-		}
+		//}
 	}
 	scsi_end_request(cmd, 0, this_count, !result);
 }
@@ -1077,7 +1171,6 @@ static struct scsi_cmnd *scsi_get_cmd_from_req(struct scsi_device *sdev,
 
 static void scsi_blk_pc_done(struct scsi_cmnd *cmd)
 {
-	BUG_ON(!blk_pc_request(cmd->request));
 	/*
 	 * This will complete the whole command with uptodate=1 so
 	 * as far as the block layer is concerned the command completed
@@ -1373,9 +1466,8 @@ static void scsi_kill_request(struct request *req, request_queue_t *q)
 	__scsi_done(cmd);
 }
 
-static void scsi_softirq_done(struct request *rq)
+void scsi_softirq_done_cmd(struct scsi_cmnd * cmd)
 {
-	struct scsi_cmnd *cmd = rq->completion_data;
 	unsigned long wait_for = (cmd->allowed + 1) * cmd->timeout_per_command;
 	int disposition;
 
@@ -1406,6 +1498,11 @@ static void scsi_softirq_done(struct request *rq)
 			if (!scsi_eh_scmd_add(cmd, 0))
 				scsi_finish_command(cmd);
 	}
+}
+
+static void scsi_softirq_done(struct request *rq)
+{
+  scsi_softirq_done_cmd(rq->completion_data);
 }
 
 /*
@@ -1551,12 +1648,14 @@ u64 scsi_calculate_bounce_limit(struct Scsi_Host *shost)
 
 	if (shost->unchecked_isa_dma)
 		return BLK_BOUNCE_ISA;
+#if 0 // CapROS
 	/*
 	 * Platforms with virtual-DMA translation
 	 * hardware have no practical limit.
 	 */
 	if (!PCI_DMA_BUS_IS_PHYS)
 		return BLK_BOUNCE_ANY;
+#endif // CapROS
 
 	host_dev = scsi_get_device(shost);
 	if (host_dev && host_dev->dma_mask)
@@ -1606,6 +1705,7 @@ void scsi_free_queue(struct request_queue *q)
 	blk_cleanup_queue(q);
 }
 
+#if 0 // CapROS
 /*
  * Function:    scsi_block_requests()
  *
@@ -1914,6 +2014,7 @@ scsi_test_unit_ready(struct scsi_device *sdev, int timeout, int retries)
 	return result;
 }
 EXPORT_SYMBOL(scsi_test_unit_ready);
+#endif // CapROS
 
 /**
  *	scsi_device_set_state - Take the given device through the device
@@ -2023,6 +2124,7 @@ scsi_device_set_state(struct scsi_device *sdev, enum scsi_device_state state)
 }
 EXPORT_SYMBOL(scsi_device_set_state);
 
+#if 0 // CapROS
 /**
  *	scsi_device_quiesce - Block user issued commands.
  *	@sdev:	scsi device to quiesce.
@@ -2290,3 +2392,4 @@ void scsi_kunmap_atomic_sg(void *virt)
 	kunmap_atomic(virt, KM_BIO_SRC_IRQ);
 }
 EXPORT_SYMBOL(scsi_kunmap_atomic_sg);
+#endif // CapROS

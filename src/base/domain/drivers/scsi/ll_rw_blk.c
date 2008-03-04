@@ -6,6 +6,28 @@
  * kernel-doc documentation started by NeilBrown <neilb@cse.unsw.edu.au> -  July2000
  * bio rewrite, highmem i/o, etc, Jens Axboe <axboe@suse.de> - may 2001
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*
  * This handles all read/write requests to block devices
@@ -17,31 +39,33 @@
 #include <linux/blkdev.h>
 #include <linux/highmem.h>
 #include <linux/mm.h>
-#include <linux/kernel_stat.h>
+//#include <linux/kernel_stat.h>
 #include <linux/string.h>
 #include <linux/init.h>
-#include <linux/bootmem.h>	/* for max_pfn/max_low_pfn */
+//#include <linux/bootmem.h>	/* for max_pfn/max_low_pfn */
 #include <linux/completion.h>
 #include <linux/slab.h>
-#include <linux/swap.h>
-#include <linux/writeback.h>
-#include <linux/task_io_accounting_ops.h>
+//#include <linux/swap.h>
+//#include <linux/writeback.h>
+//#include <linux/task_io_accounting_ops.h>
 #include <linux/interrupt.h>
-#include <linux/cpu.h>
+//#include <linux/cpu.h>
 #include <linux/blktrace_api.h>
-#include <linux/fault-inject.h>
+//#include <linux/fault-inject.h>
 
 /*
  * for max sense size
  */
 #include <scsi/scsi_cmnd.h>
 
+#if 0 // CapROS
 static void blk_unplug_work(struct work_struct *work);
 static void blk_unplug_timeout(unsigned long data);
 static void drive_stat_acct(struct request *rq, int nr_sectors, int new_io);
 static void init_request_from_bio(struct request *req, struct bio *bio);
+#endif // CapROS
 static int __make_request(request_queue_t *q, struct bio *bio);
-static struct io_context *current_io_context(gfp_t gfp_flags, int node);
+//static struct io_context *current_io_context(gfp_t gfp_flags, int node);
 
 /*
  * For the allocated request tables
@@ -53,6 +77,7 @@ static struct kmem_cache *request_cachep;
  */
 static struct kmem_cache *requestq_cachep;
 
+#if 0 // CapROS
 /*
  * For io context allocations
  */
@@ -93,6 +118,7 @@ static inline int queue_congestion_off_threshold(struct request_queue *q)
 {
 	return q->nr_congestion_off;
 }
+#endif // CapROS
 
 static void blk_queue_congestion_threshold(struct request_queue *q)
 {
@@ -109,6 +135,7 @@ static void blk_queue_congestion_threshold(struct request_queue *q)
 	q->nr_congestion_off = nr;
 }
 
+#if 0 // CapROS
 /**
  * blk_get_backing_dev_info - get the address of a queue's backing_dev_info
  * @bdev:	device
@@ -128,6 +155,7 @@ struct backing_dev_info *blk_get_backing_dev_info(struct block_device *bdev)
 	return ret;
 }
 EXPORT_SYMBOL(blk_get_backing_dev_info);
+#endif // CapROS
 
 /**
  * blk_queue_prep_rq - set a prepare_request function for queue
@@ -147,6 +175,7 @@ void blk_queue_prep_rq(request_queue_t *q, prep_rq_fn *pfn)
 
 EXPORT_SYMBOL(blk_queue_prep_rq);
 
+#if 0 // CapROS
 /**
  * blk_queue_merge_bvec - set a merge_bvec function for queue
  * @q:		queue
@@ -169,6 +198,7 @@ void blk_queue_merge_bvec(request_queue_t *q, merge_bvec_fn *mbfn)
 }
 
 EXPORT_SYMBOL(blk_queue_merge_bvec);
+#endif // CapROS
 
 void blk_queue_softirq_done(request_queue_t *q, softirq_done_fn *fn)
 {
@@ -177,6 +207,7 @@ void blk_queue_softirq_done(request_queue_t *q, softirq_done_fn *fn)
 
 EXPORT_SYMBOL(blk_queue_softirq_done);
 
+#if 0 // CapROS
 /**
  * blk_queue_make_request - define an alternate make_request function for a device
  * @q:  the request queue for the device to be affected
@@ -299,6 +330,7 @@ int blk_queue_ordered(request_queue_t *q, unsigned ordered,
 }
 
 EXPORT_SYMBOL(blk_queue_ordered);
+#endif // CapROS
 
 /**
  * blk_queue_issue_flush_fn - set function for issuing a flush
@@ -317,6 +349,7 @@ void blk_queue_issue_flush_fn(request_queue_t *q, issue_flush_fn *iff)
 
 EXPORT_SYMBOL(blk_queue_issue_flush_fn);
 
+#if 0 // CapROS
 /*
  * Cache flushing for ordered writes handling
  */
@@ -584,6 +617,7 @@ static int ordered_bio_endio(struct request *rq, struct bio *bio,
 
 	return 1;
 }
+#endif // CapROS
 
 /**
  * blk_queue_bounce_limit - set bounce buffer limit for queue
@@ -694,6 +728,7 @@ void blk_queue_max_hw_segments(request_queue_t *q, unsigned short max_segments)
 
 EXPORT_SYMBOL(blk_queue_max_hw_segments);
 
+#if 0 // CapROS
 /**
  * blk_queue_max_segment_size - set max segment size for blk_rq_map_sg
  * @q:  the request queue for the device
@@ -758,6 +793,7 @@ void blk_queue_stack_limits(request_queue_t *t, request_queue_t *b)
 }
 
 EXPORT_SYMBOL(blk_queue_stack_limits);
+#endif // CapROS
 
 /**
  * blk_queue_segment_boundary - set boundary rules for segment merging
@@ -776,6 +812,7 @@ void blk_queue_segment_boundary(request_queue_t *q, unsigned long mask)
 
 EXPORT_SYMBOL(blk_queue_segment_boundary);
 
+#if 0 // CapROS
 /**
  * blk_queue_dma_alignment - set dma length and memory alignment
  * @q:     the request queue for the device
@@ -810,6 +847,7 @@ struct request *blk_queue_find_tag(request_queue_t *q, int tag)
 }
 
 EXPORT_SYMBOL(blk_queue_find_tag);
+#endif // CapROS
 
 /**
  * __blk_free_tags - release a given set of tag maintenance info
@@ -840,6 +878,7 @@ static int __blk_free_tags(struct blk_queue_tag *bqt)
 	return retval;
 }
 
+#if 0 // CapROS
 /**
  * __blk_queue_free_tags - release tag maintenance info
  * @q:  the request queue for the device
@@ -860,6 +899,7 @@ static void __blk_queue_free_tags(request_queue_t *q)
 	q->queue_tags = NULL;
 	q->queue_flags &= ~(1 << QUEUE_FLAG_QUEUED);
 }
+#endif // CapROS
 
 
 /**
@@ -877,6 +917,7 @@ void blk_free_tags(struct blk_queue_tag *bqt)
 }
 EXPORT_SYMBOL(blk_free_tags);
 
+#if 0 // CapROS
 /**
  * blk_queue_free_tags - release tag maintenance info
  * @q:  the request queue for the device
@@ -1189,6 +1230,7 @@ void blk_queue_invalidate_tags(request_queue_t *q)
 }
 
 EXPORT_SYMBOL(blk_queue_invalidate_tags);
+#endif // CapROS
 
 void blk_dump_rq_flags(struct request *rq, char *msg)
 {
@@ -1213,6 +1255,7 @@ void blk_dump_rq_flags(struct request *rq, char *msg)
 
 EXPORT_SYMBOL(blk_dump_rq_flags);
 
+#if 0 // CapROS
 void blk_recount_segments(request_queue_t *q, struct bio *bio)
 {
 	struct bio_vec *bv, *bvprv = NULL;
@@ -1538,6 +1581,7 @@ static int ll_merge_requests_fn(request_queue_t *q, struct request *req,
 	req->nr_hw_segments = total_hw_segments;
 	return 1;
 }
+#endif // CapROS
 
 /*
  * "plug" the device if there are no outstanding requests: this will
@@ -1566,6 +1610,7 @@ void blk_plug_device(request_queue_t *q)
 
 EXPORT_SYMBOL(blk_plug_device);
 
+#if 0 // CapROS
 /*
  * remove the queue from the plugged list, if present. called with
  * queue lock held and interrupts disabled.
@@ -1723,6 +1768,7 @@ void blk_sync_queue(struct request_queue *q)
 	del_timer_sync(&q->unplug_timer);
 }
 EXPORT_SYMBOL(blk_sync_queue);
+#endif // CapROS
 
 /**
  * blk_run_queue - run a single device queue
@@ -1753,6 +1799,7 @@ void blk_run_queue(struct request_queue *q)
 }
 EXPORT_SYMBOL(blk_run_queue);
 
+#if 0 // CapROS
 /**
  * blk_cleanup_queue: - release a &request_queue_t when it is no longer needed
  * @kobj:    the kobj belonging of the request queue to be released
@@ -1791,6 +1838,7 @@ void blk_put_queue(request_queue_t *q)
 	kobject_put(&q->kobj);
 }
 EXPORT_SYMBOL(blk_put_queue);
+#endif // CapROS
 
 void blk_cleanup_queue(request_queue_t * q)
 {
@@ -1825,6 +1873,7 @@ static int blk_init_free_list(request_queue_t *q)
 	return 0;
 }
 
+#if 0 // CapROS
 request_queue_t *blk_alloc_queue(gfp_t gfp_mask)
 {
 	return blk_alloc_queue_node(gfp_mask, -1);
@@ -1856,6 +1905,7 @@ request_queue_t *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
 	return q;
 }
 EXPORT_SYMBOL(blk_alloc_queue_node);
+#endif // CapROS
 
 /**
  * blk_init_queue  - prepare a request queue for use with a block device
@@ -1948,6 +1998,7 @@ blk_init_queue_node(request_fn_proc *rfn, spinlock_t *lock, int node_id)
 }
 EXPORT_SYMBOL(blk_init_queue_node);
 
+#if 0 // CapROS
 int blk_get_queue(request_queue_t *q)
 {
 	if (likely(!test_bit(QUEUE_FLAG_DEAD, &q->queue_flags))) {
@@ -2912,9 +2963,11 @@ static void init_request_from_bio(struct request *req, struct bio *bio)
 	req->rq_disk = bio->bi_bdev->bd_disk;
 	req->start_time = jiffies;
 }
+#endif // CapROS
 
 static int __make_request(request_queue_t *q, struct bio *bio)
 {
+#if 0 // CapROS
 	struct request *req;
 	int el_ret, nr_sectors, barrier, err;
 	const unsigned short prio = bio_prio(bio);
@@ -3030,8 +3083,13 @@ out:
 end_io:
 	bio_endio(bio, nr_sectors << 9, err);
 	return 0;
+#else
+	BUG_ON("unimplemented");
+	return 1;
+#endif // CapROS
 }
 
+#if 0 // CapROS
 /*
  * If bio->bi_dev is a partition, remap the location
  */
@@ -4115,3 +4173,4 @@ void blk_unregister_queue(struct gendisk *disk)
 		kobject_put(&disk->kobj);
 	}
 }
+#endif // CapROS
