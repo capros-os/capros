@@ -1102,7 +1102,11 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 				continue;
 			dev_dbg (&dev->dev, "unregistering interface %s\n",
 				interface->dev.bus_id);
-			//usb_remove_sysfs_intf_files(interface);
+#if 0 // CapROS
+			usb_remove_sysfs_intf_files(interface);
+#else
+			usb_remove_intf_ep_files(interface);
+#endif // CapROS
 			BUG_ON(true);////device_del (&interface->dev);
 		}
 
