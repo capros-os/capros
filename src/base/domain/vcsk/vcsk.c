@@ -801,7 +801,7 @@ ReturnWritableSubtree(uint32_t krTree)
   uint32_t result = capros_key_getType(krTree, &kt);
   
   for (;;) {
-    if (result != RC_OK || kt == RC_capros_key_Void)
+    if (result != RC_OK)	// must be void
       /* Segment has been fully demolished. */
       return 0;
 
