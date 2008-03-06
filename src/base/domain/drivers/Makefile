@@ -36,7 +36,7 @@ DIRS+=sound
 DIRS+=network
 # DIRS+=console # broken due to RETRY_SET_LIK
 else	# ARM-only drivers
-##DIRS+=usb	# so far, ARM only
+DIRS+=usb	# so far, ARM only
 endif
 
 include $(EROS_SRC)/build/make/makerules.mk
