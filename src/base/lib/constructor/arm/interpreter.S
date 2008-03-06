@@ -48,8 +48,31 @@ ENTRY(_start)
 ENTRY(start)
 #endif
 
-	ldr r0,=InterpreterTable
-loop:	ldmia r0,{r1-r5}
+	ldr r0,=ConstructionTable
+	b loop
+
+	.skip _start + 0x20 - ., 0
+// Destruction interpreter starts at 0x20.
+
+/* We get here from InterpreterDestroy(), which calls:
+  capros_Process_swapAddrSpaceAndPC32Proto(KR_SELF,
+    telospaceCap,
+    0x20,	// well-known address of destruction interpreter
+    finalResult,
+    NULL,	// won't be received by this code
+    oldSpaceCap);
+
+  The passed retCode is returned in w1, which is placed in r2. */
+
+	mov r7,r2	// save it
+	ldr r0,=DestructionTable
+loop:
+	// r0 has address of struct InterpreterStep to interpret.
+	// r7 has final error if any
+	ldr r6,[r0,#72]		// destructionOffset
+	ldmia r0,{r1-r5}
+	cmp r6,#0
+	movlt r5,r7		// if < 0, set snd_w1
 	ldr r14,[r0,#32]	// rcv_keys
 	ldr r12,[r0,#36]	// rcv_limit
 	swi SWI_Invoke
@@ -59,14 +82,18 @@ loop:	ldmia r0,{r1-r5}
 
 	// Return code must be OK:
 	cmp r1,#RC_OK
-	bne error
 
 	/* Other return values are ignored. */
 
-	add r0,r0,#68		// sizeof(Message)
-	b loop
+	addeq r0,r0,#76		// sizeof(struct InterpreterStep)
+	beq loop
 
-	/* On error, call the console to halt the process */
-/* INSTEAD, there should be a parallel table for undoing the construction. */
-error:
-	b .
+	// Got an error in r1.
+	ldr r7,[r0,#68]		// errorResult
+	cmp r7,#1		// faultOnError?
+	swieq SWI_halt
+	ldr r0,=DestructionTable
+	cmp r7,#0		// passErrorThrough?
+	moveq r7,r1
+	add r0,r6		// destructionOffset loaded above
+	b loop

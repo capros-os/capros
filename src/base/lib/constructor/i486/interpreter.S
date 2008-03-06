@@ -47,12 +47,37 @@ ENTRY(_start)
 ENTRY(start)
 #endif
 
-	movl EXT(InterpreterTable),%ebp	/* ptr to Message structure */
+	movl EXT(ConstructionTable),%ebp	// ptr to struct InterpreterStep
+	jmp loop
+
+	.skip _start + 0x20 - ., 0
+// Destruction interpreter starts at 0x20.
+
+/* We get here from InterpreterDestroy(), which calls:
+  capros_Process_swapAddrSpaceAndPC32Proto(KR_SELF,
+    telospaceCap,
+    0x20,	// well-known address of destruction interpreter
+    finalResult,
+    NULL,	// won't be received by this code
+    oldSpaceCap);
+
+  The passed retCode is returned in w1, which is placed in %ebx. */
+
+	/* We have no stack, so we can save the retCode in %esp. */
+	movl	%ebx,%esp
+	movl EXT(DestructionTable),%ebp	// ptr to struct InterpreterStep
 loop:
+	// %ebp has address of struct InterpreterStep to interpret.
+	// %esp has final error if any
 	movl    32(%ebp),%eax	// snd_code
 	movl    36(%ebp),%ebx	// snd_w1
 	movl    40(%ebp),%ecx	// snd_w2
 	movl    44(%ebp),%edx	// snd_w3
+	movl	72(%ebp),%edi	// destructionOffset
+	cmpl	$0,%edi
+	jle 1f
+	movl	%esp,%ebx	// if < 0, set snd_w1
+1:
 	movl    20(%ebp),%esi	// rcv_limit
 	movl    24(%ebp),%edi	// rcv_data
 	int     $0x31		// invocation trap
@@ -66,9 +91,19 @@ loop:
 
 	/* Other return values are ignored. */
 
-	addl	$68,%ebp	// sizeof(Message)
+	addl	$76,%ebp	// sizeof(struct InterpreterStep)
 	jmp loop
 
-	/* On error, call the console to halt the process */
-/* INSTEAD, there should be a parallel table for undoing the construction. */
-error:	jmp .
+error:
+	// Got an error in %eax.
+	movl 68(%ebp),%esp	// errorResult
+	cmpl $1,%esp		// faultOnError?
+	jeq halt
+	movl 72(%ebp),%ebp	// destructionOffset
+	addl EXT(DestructionTable),%ebp
+	cmpl $0,%esp		// passErrorThrough?
+	jne 1f
+	movl %eax,%esp
+1:	jmp loop
+
+halt:	hlt		// fault

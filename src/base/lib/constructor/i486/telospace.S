@@ -1,7 +1,7 @@
 	.file "telospace.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -91,6 +91,9 @@ ENTRY(telospacestart)
     PSKR_SPACE);
 
   The passed retCode is returned in w1, which is placed in %ebx. */
+
+	/* We have no stack, so we can save the retCode in %esp. */
+	movl	%ebx,%esp
 	
 	movl	$sb_reclaim_pages_from_node,%ebp
 	
@@ -116,7 +119,7 @@ ENTRY(telospacestart)
 	movl	$destroy_caller,%ebp
 	
 	movl	$OC_capros_ProcCre_destroyCallerAndReturn,%eax	/* r0 */
-	xorl	%ebx,%ebx			/* r1 */
+	movl	%esp,%ebx			// snd_w1 from retCode
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */
 

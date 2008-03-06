@@ -34,7 +34,7 @@ INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 LIBTARGETS=$(BUILDDIR)/interpreter.o
 
 HEADERS=InterpreterTable.h
-DOMHEADERS=ProtoSpace.h ProtoSpaceDS.h
+DOMHEADERS=ProtoSpace.h ProtoSpaceDS.h InterpreterDestroy.h
 
 include $(EROS_SRC)/build/make/makerules.mk
 

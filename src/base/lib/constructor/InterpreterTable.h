@@ -35,83 +35,143 @@ swapAddrSpaceAndPC32. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Range.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/ProcCre.h>
 #include <idl/capros/Constructor.h>
 
-/* Use this like this:
-struct Message InterpreterTable[] = {
-  MessageStruct(...)
-  MessageStruct(...)
+/* Use like this:
+struct InterpreterStep ConstructionTable[] = {
+  StepStruct(...)
+  StepStruct(...)
+  MsgNewSpace(...)
+};
+struct InterpreterStep DestructionTable[] = {
+  StepStruct(...)
+  StepStruct(...)
+  MsgDestroyProcess(KR_CREATOR, KR_BANK, KR_RETURN)
 };
 */
 
-#define MessageStruct(s_invKey, s_code, s_w1, s_w2, s_w3, \
+struct InterpreterStep {
+  struct Message message;
+
+  /* If this message gets a result other than RC_OK, then:
+       If errorResult is faultOnError, the process faults.
+       Otherwise, we will go to the DestructionTable
+       at the offset in destructionOffset.
+       That offset must be a multiple of sizeof(struct InterpreterStep).
+       At the end of destruction, we will return
+       the error in errorResult, or if that is passErrorThrough,
+       the error that occurred on this step. */
+#define passErrorThrough 0
+#define faultOnError 1
+  result_t errorResult;
+
+  /* If destructionOffset is negative, errorResult must be faultOnError
+       and the final error is passed in s_w1. 
+     Otherwise,
+       destructionOffset is the index in DestructionTable to go to on error. */
+  int32_t destructionOffset;
+};
+
+#define StepStruct(s_invKey, s_code, s_w1, s_w2, s_w3, \
 	s_key0, s_key1, s_key2, \
 	s_len, s_data, \
-	r_key0, r_key1, r_key2, r_rsmkey) \
+	r_key0, r_key1, r_key2, r_rsmkey, \
+	err_res, destr_step) \
 { \
-  .snd_invKey = s_invKey, \
-  .invType = IT_Call, \
-  .snd_code = s_code, \
-  .snd_w1 = s_w1, \
-  .snd_w2 = s_w2, \
-  .snd_w3 = s_w3, \
-  .snd_key0 = s_key0, \
-  .snd_key1 = s_key1, \
-  .snd_key2 = s_key2, \
-  .snd_rsmkey = KR_VOID, /* not used because IT_Call */ \
-  .snd_len = s_len, \
-  .snd_data = s_data, \
-  .rcv_key0 = r_key0, \
-  .rcv_key1 = r_key1, \
-  .rcv_key2 = r_key2, \
-  .rcv_rsmkey = r_rsmkey, \
-  .rcv_limit = 0	/* cannot receive data because no writeable memory */ \
+  .message = { \
+    .snd_invKey = s_invKey, \
+    .invType = IT_Call, \
+    .snd_code = s_code, \
+    .snd_w1 = s_w1, \
+    .snd_w2 = s_w2, \
+    .snd_w3 = s_w3, \
+    .snd_key0 = s_key0, \
+    .snd_key1 = s_key1, \
+    .snd_key2 = s_key2, \
+    .snd_rsmkey = KR_VOID, /* not used because IT_Call */ \
+    .snd_len = s_len, \
+    .snd_data = s_data, \
+    .rcv_key0 = r_key0, \
+    .rcv_key1 = r_key1, \
+    .rcv_key2 = r_key2, \
+    .rcv_rsmkey = r_rsmkey, \
+    .rcv_limit = 0	/* cannot receive data because no writeable memory */ \
+  }, \
+  .errorResult = err_res, \
+  .destructionOffset = destr_step * sizeof(struct InterpreterStep) \
 }
 
 /* Simplified macros: */
 
-#define MsgPw1Pk2Rk2(s_invKey, s_code, s_w1, s_key0, s_key1, r_key0, r_key1) \
-  MessageStruct(s_invKey, s_code, s_w1, 0, 0, \
+#define MsgPw1Pk2Rk2(s_invKey, s_code, s_w1, s_key0, s_key1, r_key0, r_key1, \
+	err_res, destr_step) \
+  StepStruct(s_invKey, s_code, s_w1, 0, 0, \
 	s_key0, s_key1, KR_VOID, \
 	0, 0, \
-	r_key0, r_key1, KR_VOID, KR_VOID)
+	r_key0, r_key1, KR_VOID, KR_VOID, \
+	err_res, destr_step)
 
-#define MsgPkRk(s_invKey, s_code, s_key0, r_key0) \
-  MsgPw1Pk2Rk2(s_invKey, s_code, 0, s_key0, KR_VOID, r_key0, KR_VOID)
+#define MsgPkRk(s_invKey, s_code, s_key0, r_key0, err_res, destr_step) \
+  MsgPw1Pk2Rk2(s_invKey, s_code, 0, s_key0, KR_VOID, r_key0, KR_VOID, \
+	err_res, destr_step)
 
-#define MsgAlloc3(s_invKey, t0, t1, t2, r_key0, r_key1, r_key2) \
-   MessageStruct(s_invKey, OC_capros_SpaceBank_alloc3, \
+// Convenience macros for construction:
+
+#define MsgAlloc3(s_invKey, t0, t1, t2, r_key0, r_key1, r_key2, \
+	err_res, destr_step) \
+   StepStruct(s_invKey, OC_capros_SpaceBank_alloc3, \
     capros_Range_ot##t0 + (capros_Range_ot##t1<<8) \
       + (capros_Range_ot##t2<<16), \
     0, 0, \
     KR_VOID, KR_VOID, KR_VOID, \
     0, 0, \
-    r_key0, r_key1, r_key2, KR_VOID)
+    r_key0, r_key1, r_key2, KR_VOID, \
+	err_res, destr_step)
 
 #define MsgSetL2v(s_invKey, l2v) \
   MsgPw1Pk2Rk2(s_invKey, OC_capros_GPT_setL2v, l2v, \
-    KR_VOID, KR_VOID, KR_VOID, KR_VOID)
+    KR_VOID, KR_VOID, KR_VOID, KR_VOID, faultOnError, 0)
 
 #define MsgMakeGuarded(s_invKey, guard, r_key0) \
   MsgPw1Pk2Rk2(s_invKey, OC_capros_Memory_makeGuarded, guard, \
-    KR_VOID, KR_VOID, r_key0, KR_VOID)
+    KR_VOID, KR_VOID, r_key0, KR_VOID, faultOnError, 0)
 
 #define MsgGPTGetSlot(s_invKey, slot, r_key0) \
   MsgPw1Pk2Rk2(s_invKey, OC_capros_GPT_getSlot, slot, \
-    KR_VOID, KR_VOID, r_key0, KR_VOID)
+    KR_VOID, KR_VOID, r_key0, KR_VOID, faultOnError, 0)
 
 #define MsgGPTSetSlot(s_invKey, slot, s_key0) \
   MsgPw1Pk2Rk2(s_invKey, OC_capros_GPT_setSlot, slot, \
-    s_key0, KR_VOID, KR_VOID, KR_VOID)
+    s_key0, KR_VOID, KR_VOID, KR_VOID, faultOnError, 0)
 
 #define MsgNodeGetSlotExtended(s_invKey, slot, r_key0) \
   MsgPw1Pk2Rk2(s_invKey, OC_capros_Node_getSlotExtended, slot, \
-    KR_VOID, KR_VOID, r_key0, KR_VOID)
+    KR_VOID, KR_VOID, r_key0, KR_VOID, faultOnError, 0)
 
 #define MsgNewSpace(s_key0, pc) \
   MsgPw1Pk2Rk2(KR_SELF, OC_capros_Process_swapAddrSpaceAndPC32, pc, \
-    s_key0, KR_VOID, KR_VOID, KR_VOID)
+    s_key0, KR_VOID, KR_VOID, KR_VOID, faultOnError, 0)
 
-#define MsgNewVCSK(s_invKey, r_key0) \
+#define MsgNewVCSK(s_invKey, p_key0, p_key1, r_key0, err_res, destr_step) \
   MsgPw1Pk2Rk2(s_invKey, OC_capros_Constructor_request, 0, \
-    KR_BANK, KR_SCHED, r_key0, KR_VOID)
+    p_key0, p_key1, r_key0, KR_VOID, err_res, destr_step)
+
+// And for destruction:
+
+#define MsgFree3(s_invKey, s_key0, s_key1, s_key2) \
+  StepStruct(s_invKey, OC_capros_SpaceBank_free3, \
+    0, 0, 0, \
+    s_key0, s_key1, s_key2, \
+    0, 0, \
+    KR_VOID, KR_VOID, KR_VOID, KR_VOID, \
+    faultOnError, 0)
+
+#define MsgDestroy(s_invKey) \
+  MsgPkRk(s_invKey, OC_capros_key_destroy, KR_VOID, KR_VOID, faultOnError, 0)
+
+#define MsgDestroyProcess(s_invKey, s_key0, s_key1) \
+  MsgPw1Pk2Rk2(s_invKey, OC_capros_ProcCre_destroyCallerAndReturn, 0, \
+    s_key0, s_key1, KR_VOID, KR_VOID, faultOnError, \
+    -1 /* special value of destr_step */ )
+
