@@ -105,6 +105,26 @@ db_print_node_key(Key * key, const char * name)
 }
 
 static void
+db_print_proc_key(Key * key, const char * name)
+{
+  db_printf(name);
+
+  db_print_keyflags(key);
+
+  if (keyBits_IsPreparedObjectKey(key)) {
+    ObjectHeader * pObj = key->u.ok.pObj;
+    
+    db_printf(" objh=%#x (", pObj);
+    if (pObj->obType == ot_NtProcessRoot)
+      db_printf("proc=%#x ", pObj->prep_u.context);
+    db_printf("oid=%#llx)\n", pObj->oid);
+  } else {
+    db_printf(" cnt=%#x oid=%#llx\n",
+	      key->u.unprep.count, key->u.unprep.oid);
+  }
+}
+
+static void
 db_print_mem_key(Key * key, const char * name)
 {
   db_printf(name);
@@ -149,13 +169,13 @@ db_eros_print_key(Key* key /*@ not null @*/)
     db_print_node_key(key, "fwdr");
     break;
   case KKT_Node:
-    db_print_node_key(key, "node");
+    db_print_mem_key(key, "node");
     break;
   case KKT_GPT:
     db_print_mem_key(key, "GPT ");
     break;
   case KKT_Process:
-    db_print_node_key(key, "proc");
+    db_print_proc_key(key, "proc");
     break;
   case KKT_Page:
     db_print_mem_key(key, "page");

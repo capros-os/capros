@@ -325,8 +325,10 @@ db_search(register db_addr_t addr, int size,
 {
 	while (count-- != 0) {
 		db_prev = addr;
-		if ((db_get_value(addr, size, false) & mask) == value)
+		if ((db_get_value(addr, size, false) & mask) == value) {
+			db_printf("Match at %#x\n", addr);
 			break;
+		}
 		addr += size;
 	}
 	db_next = addr;
