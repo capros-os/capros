@@ -4,9 +4,9 @@
     <title>The Checkpoint Mechanism</title>
     <meta name=linknotify content=all>
     <meta name=author content="Jonathan Shapiro">
-    <link rel=author rev=made href="mailto:shap@eros-os.org" title="Jonathan S. Shapiro">
+    <link rel=author rev=made href="mailto:shap@eros-os.org"
+	  title="Jonathan S. Shapiro">
   </head>
-
   <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
     <center>
       <h1 class=title>The Checkpoint Mechanism</h1>
@@ -41,77 +41,154 @@
 		fashion, and divides this area dynamically into
 		several generations.  A generation is permitted to
 		occupy up to a fixed percentage of the checkpoint area
-		(typically 65%) before a checkpoint is declared.  A
-		new generation is then started while the checkpointed
-		generation is drained.  The checkpointed generation
-		then becomes the migrating generation.  This devolves
-		to the KeyKOS behavior under normal conditions, but
-		provides greater flexibility in the face of bursts of
+		(typically <b>??</b>%) before a checkpoint must be declared.
+		A new generation is then started and a previous checkpoint
+		generation is migrated.
+		This space utilization strategy provides greater flexibility
+		in the face of bursts of
 		object modifications.  It also allows the checkpoint
 		area to grow more easily.
+	      </p>
+	    </li>
+	    <li>
+	      <p>CapROS can have several generations of checkpoints 
+		which have not yet been migrated (several active
+		checkpoint areas).
+		While KeyKOS had logic
+		which skipped migration of a page (or node) which had been 
+		changed since the checkpoint was taken (because it would be
+		included in the next checkpoint),
+		some of the frequently changed objects would be migrated
+		before they were changed in the current generation. By
+		not starting migration until more than one checkpoint
+		has been taken, active pages and nodes have a chance
+		to be modified before they are even considered for migration.
+	      </p>
+	    </li>
+	    <li>
+	      <p>In order to support Non-volatle RAM devices (NV RAM), which
+		wear out after a limited number of write cycles,
+		CapROS keeps a large number of checkpoint header frames
+		at the beginning of the log area. This strategy limits
+		the number of writes to a single header, and reduces
+		the "heat" of this natural hot spot.
+	      </p>
+	      <p>If we assume 1 checkpoint/second and a design life of 
+		ten years, then there will be about 315,576,000
+		checkpoints taken. If we assume the device has
+		a life-span
+		of 1,000,000 writes before device failure, then 
+		we will need 316 checkpoint header frames.
 	      </p>
 	    </li>
 	    <li>
 	      <p>
 		KeyKOS never reuses space in the checkpoint area; if
 		an object is modified a second time it gets a new
-		location.  The purpose of this is to avoid seeks and
-		head settling delays where possible.
+		location.  The reasons for this choice are to avoid
+		seeks and head settling delays where possible,
+		and to permit chained writes on the 370 disks which
+		allowed actual data rates to approach the theoritical
+		maximum.
 	      </p>
+	      <p>EROS adopted a strategy of re-writing a page in the
+	      original working area location if it was paged out twice
+	      during one checkpoint interval. This strategy had the
+	      advantage of reducing seek distances within a checkpoint.
 	      <p>
-The plan is that CapROS, unlike EROS, will do the same.
+		Because of the need to support NV RAM for checkpoints 
+		CapROS will do the follow the KeyKOS strategy. This
+		strategy has the advantage of eliminating a source of
+		"hot spots" on the disk.
 	      </p>
 	    </li>
 	    <li>
 	      <p>
 		Once KeyKOS begins to reuse a checkpoint area, all
 		memory of that area's prior content is discarded.
+	      </p>
 	      <p>
-		CapROS preserves a record of object locations in the
+		EROS preserves a record of object locations in the
 		checkpoint area until their storage is actually
-		reused.  It should therefore perform fewer seeks to
-		areas outside the checkpoint area.
-What is this useful for?
+		reused. This strategy should reduce the number of
+		seeks to areas outside the checkpoint area, improving
+		disk performance. It will also increase the number of
+		locations for a page or node, allowing fetches to be
+		scheduled on less-active devices. 
+	      </p>
+	      <p>
+		Which strategy CapROS adopts will be up to the person
+		writing the code.
+	      </p>
+	    </li>
+	    <li>
+	      <p>
+		EROS kept 28 bit log location IDs (<i>lid</i>, see
+		below) in the Object Directory part of the checkpoint.
+		This size resulted in a maximum of
+		2<sup>20</sup> frames in the log, which is barely enough to
+		hold the RAM of a modern desktop processor. CapROS may
+		use more. <i>Why does DiskCkpt.h claim 28 bits allows
+		addressing 1,099,511,627,776 "pages" of data in the
+		log? By my reconing, you lose 8 bits for the node
+		index, leaving 20 bits for the frame index, which
+		sounds like a 1,048,576 pages. - WSF</i> CapROS may
+		change this value.
 	      </p>
 	    </li>
 	  </ul>
-	  <p>
-	    The following sections describe how the CapROS checkpoint
-	    area is managed in detail.
-	  </p>
+	  <h3>1.1 CapROS Definitions</h3>
+	      <ul>
+		<li><i>Active area</i> The area containing checkpoints
+		  which have not been migrated.
+		<li><i>Active checkpoint headers</i> The checkpoint
+		headers which describe the active area.
+		<li><i>Stabilized checkpoint</i> A checkpoint where
+		all the pages, nodes, directories, etc. have been
+		written to disk. The last thing written in stabilizing
+		a checkpoint is its checkpoint header.
+		<li><i>Restart checkpoint header</i> The checkpoint
+		header of the most recent checkpoint during a restart.
+		<li><i>Working area</i> The area being used for page
+		out operations as part of virtual memory
+		operations. It will contain the next checkpoint to be
+		declared.
+	      </ul>
 	  <h2>2. On-Disk Checkpoint Area</h2>
 	  <p>
 	    The CapROS checkpoint area is made up of ranges of disk page
 	    frames that are sequentially numbered beginning at zero.
 	    These are referred to as <b>log ranges</b>.  Just as page
 	    frames in object ranges are referred to with <b>oid</b>s,
-	    frames in the log are referred to with <b>lid</b>s.  An
+	    frames in the log are referred to with <b>lid</b>s.  A
 	    <em>lid</em> is constructed by taking the page frame number
 	    and concatenating an 8-bit object offset.
-(8 bits = log(EROS_OBJECTS_PER_FRAME).)
+	    (We assume that 8 {bits) >=
+	    log<sub>2</sub>(EROS_OBJECTS_PER_FRAME).)
+
 	  </p>
 	  <p>
-	    Frames zero and one hold the checkpoint headers of the two
-	    most recently stabilized checkpoints.  Either header A or
-	    header B may represent the most recently stabilized
+	    Frames zero thru N hold the checkpoint headers of all the
+	    stabilized checkpoints.  Any of these headers
+	    may represent the most recently stabilized
 	    checkpoint.  The most recently written header can be
 	    determined by comparing the sequence numbers in the header
-	    pages.
+	    pages.  
 	  </p>
 	  <ul>
 	      <pre>
- Frame 0    1    2                                        N
-+-------+-------+----------------------------------------+
-| hdr A | hdr B | log page frames, dynamically allocated |
-|       |       | to various checkpoint generations      |
-+-------+-------+----------------------------------------+
- LID 0x0  0x100  0x200  ...                            N<<8
+ Frame 0       N-1                                             SIZE
++-------+~~~+--------+----------------------------------------+
+|  hdr  |   |  hdr   | log page frames, dynamically allocated |
+|   0   |   |  N-1   | to various checkpoint generations      |
++-------+~~~+--------+----------------------------------------+
+ LID 0x0     (N-1)<<8 N<<8  ...                                SIZE<<8
 	      </pre>
 	  </ul>
 	  <p>
-	    Log ranges may reside on multiple disks, but the present
+	    Log ranges may reside on multiple disks, <i>but the present
 	    implementation requires that sequential numbering be
-	    preserved.  This presents some difficulties for checkpoint
+	    preserved</i>???.  This presents some difficulties for checkpoint
 	    area rearrangement that we will need in due course to
 	    solve with suitable user-level applications.
 	  </p>
@@ -120,15 +197,35 @@ What is this useful for?
 	    is said to be <b>stabilized</b>.  A stabilized checkpoint
 	    has an associated on-disk directory that describes where
 	    all of the objects in that checkpoint reside.  This
-	    information is stored in a two-level directory structure.
+	    information is stored in a two-level directory
+	    structure. The last step in stabilizing a checkpoint is
+	    writing the associated header.
 	  </p>
 	  <h3>2.1 The Checkpoint Header</h3>
 	  <p>
-	    The root of each directory is the checkpoint header
-	    (either A or B).  The checkpoint header page 
+	    The root of checkpoint directory is the checkpoint header.
+	    The checkpoint header frame
 	    begins with a header structure describing the checkpoint,
 	    followed by the <em>lid</em> values of each second-level
-	    header in the checkpoint area:
+	    header in the checkpoint area.  
+	    <br>
+	    <i>Do we need? The last item in the
+	    checkpoint header is a checksum of the previous
+	    entries. This checksum is included to detect checkpoint
+	    headers which were only partially written due to hardware
+	    failure. We needed this field on the S/370 because
+	    certain write failures (e.g. channel failure) caused
+	    correct checking blocks to be written with made-up
+	    data.</i> 
+	  </p>
+	  <p>
+	    The checkpoint header has enough room for 1017
+	    directory <em>lids</em>. If we assume there are fewer than
+	    341 processes, so only one frame is needed to describe
+	    them, then the checkpoint header and associated object
+	    directory entries can describe a maximum of
+	    259,080 pages or nodes, or slightly over 1 gigabyte
+	    assuming 4K pages and very few nodes.
 	  </p>
 	  <ul>
 	      <pre>
@@ -152,7 +249,7 @@ What is this useful for?
 	      <pre>
 struct DiskCheckpointHdr {
   uint64_t   sequenceNumber;
-  bool       hasMigrated;
+  uint64_t   hasMigrated;
   LogLoc     maxLogLoc;
 
   uint32_t   nDirPage;
@@ -169,10 +266,10 @@ struct DiskCheckpointHdr {
 	      <p>
 		The sequence number allows CapROS to determine which
 		checkpoint is most recent.  When restarting, CapROS
-		first loads the checkpoint headers at <tt>lid=0x0</tt>
-		and <tt>lid=0x100</tt>.  If a drive failure occurred
+		first loads all the checkpoint headers from <tt>lid=0</tt>
+		and <tt>lid=(n-1)<<8</tt>.  If a drive failure occurred
 		while writing a header (detected by bad CRC while
-		rereading the corresponding page frame), that header
+		rereading the corresponding frame), that header
 		is discarded.  Of the valid headers, CapROS then chooses
 		the header with the largest sequence number as the
 		most recent checkpoint.
@@ -181,27 +278,36 @@ struct DiskCheckpointHdr {
 		Note that on recovery CapROS does not attempt to
 		reconstruct <em>all</em> of the checkpoint generations 
 		that may be present in the checkpoint area.  It loads
-		only the most recent one.
+		the directories from the active checkpoint headers,
+		and the thread list from the most recent checkpoint header.
 	      </p>
 	    </dd>
 	    <dt><b>hasMigrated</b></dt>
 	    <dd>
 	      <p>
-		The ``has migrated'' field indicates whether migration 
-		completed for a given checkpoint generation.  If
-		migration has completed, all of the objects in that
-		generation have been successfully copied to their home 
-		locations.  If not, migration must be restarted.
+		The ``has migrated'' field holds the sequence number
+		of the latest checkpoint which was completely migrated
+		when this checkpoint header was written. When
+		restarting from a checkpoint, checkpoints
+		taken after the "hasMigrated" checkpoint in the
+		restart checkpoint header must be migrated, perhaps a
+		second time.
 	      </p>
 	      <p>
-		Once migration <em>has</em> completed, CapROS is free to
+		Once migration <em>has</em> completed, and another
+		checkpoint has bee taken, CapROS is free to
 		begin reusing the object storage associated with a
-		checkpoint area.  The thread directory
-		remains valid, but the object directory should be
-		considered invalid.
+		checkpoint area.  (Until a checkpoint header has been
+		written indicating this checkpoint has been migrated,
+		migration may restart when the system restarts.)
+	      </p>
 	      <p>
-		<em>The migrator should perhaps reset the nDirPage
-		  field to zero under these conditions.</em>
+		The situation becomes more complex if the restart
+		system is coded to allow restart from more than one
+		checkpoint, or if it is desired to recover from a read
+		error on a checkpoint header other than the most
+		recent. The current design does not restart from other
+		than the most recent checkpoint.
 	      </p>
 	    </dd>
 	    <dt><b>maxLogLoc</b></dt>
@@ -214,7 +320,7 @@ struct DiskCheckpointHdr {
 		the last checkpoint.  If the restart process has not
 		managed to build a complete checkpoint area of at
 		least this number of frames, the system will not
-		restart.
+		restart. <i>Do we need this field?</i>
 	      </p>
 	    </dd>
 	    <dt>
@@ -230,20 +336,21 @@ struct DiskCheckpointHdr {
 	      </p>
 	    </dd>
 	  </dl>
-	  <h3>2.2 The Thread Directory</h3>
+	  <h3>2.2 The Thread Directory <i>should be called Process
+	      Directory?</i></h3>
 	  <p>
 	    Each ``thread directory lid'' in the checkpoint header
-	    names the location of a thread directory page.  A thread
-	    directory page consists of a single word describing the
+	    names the location of a thread directory frame.  A thread
+	    directory frame consists of a single word describing the
 	    number of following entries, and then some number of
-	    thread descriptors:
+	    thread descriptors. With 8 byte OIDs and 4 byte ObCounts,
+	    a 4K thread directory frame can describe 341 threads.
 	  </p>
 	  <ul>
 	      <pre>
 struct ThreadDirent {
   OID      oid;
   ObCount  allocCount;
-  uint16_t schedNdx;
 };
 	      </pre>
 	  </ul>
@@ -260,30 +367,35 @@ struct ThreadDirent {
 	    of the node.  The allocation count must be preserved
 	    because threads can sleep for long periods of time during
 	    which the process they occupy may be rescinded.
-Is this correct?
+<i>Is this correct?</i>
 	  </p>
 	  <h3>2.3 The Object Directory</h3>
 	  <p>
 	    The remaining directory lids in the checkpoint header
-	    identify object directory pages.  Each entry holds an
+	    identify object directory frames.  Each entry holds an
 	    object identifier, an allocation count, the type of the
 	    object, and the <em>lid</em> at which the object can be
-	    found.
+	    found. With 8 byte OIDs, 4 byte ObCounts, 3.5 byte LogLoc,
+	    and .5 byte types, each 4k frame can hold a description of
+	    255 objects (allowing for a count of entries at the start
+	    of the frame).
 	  </p>
 	  <ul>
 	      <pre>
 struct CkptDirent {
   OID       oid;
   ObCount   count;
-  LogLoc    logLoc : 24;
-  uint8_t   type;
+  LogLoc    logLoc : 28;
+  uint8_t   type : 4;
 } ;
 	      </pre>
 	  </ul>
 	  <p>
 	    For pages, the count field contains the allocation count.
-	    For nodes, where are the allocation count and call count
-            located?
+	    <i>For nodes, where are the allocation count and call count
+            located?</i> The allocation count is stored in this
+            "count" field, the allocation is stored with the node
+            in the log pot.
 	  </p>
 	  <p>
 	    If the lid field of the directory is zero, then the
@@ -328,7 +440,7 @@ struct CkptDirent {
 	    Execution proceeds until the checkpoint interval
 	    (typically 5 minutes) has passed or the current generation
 	    has come to occupy more than some fixed percentage of the
-	    checkpoint area (typically 65%).  When either event
+	    checkpoint area (typically <b>??</b>%).  When either event
 	    occurs, a checkpoint is declared.  All generations move
 	    one step to the right, and the rightmost generation is
 	    discarded.  Objects may have been written to the current
@@ -371,7 +483,7 @@ struct CkptDirent {
 	  <ul>
 	    <li>
 	      <p>
-		As a set of page frames, each of which is either
+		As a set of page-sized frames, each of which is either
 		<em>allocated</em>, <em>reserved</em>, or
 		<em>free</em>.
 	      </p>
@@ -380,16 +492,14 @@ struct CkptDirent {
 	      <p>
 		As a set of object containers, each of which is one
 		page in size.  A given object container may hold a
-		data page, a node, or a directory
+		data page, a log pot of nodes, or a directory
 		entry.  [They can also hold thread
 		entries, but these are handled as special cases by the 
 		checkpoint logic.]
 	      </p>
 	      <p>
 		If a frame is allocated, then there exists exactly one
-		checkpoint generation associated with that frame, and
-		there is at least one entry in the directory for that
-		generation naming an object in that frame.
+		checkpoint generation associated with that frame.
 	      </p>
 	    </li>
 	  </ul>
@@ -398,7 +508,7 @@ struct CkptDirent {
 	    Before any object can be dirtied, space for it must be
 	    reserved in the current checkpoint.  Herein lies the first
 	    source of complexity.  Because there are multiple nodes
-	    (directory entries) per page, the checkpoint logic must
+	    (directory entries) per frame, the checkpoint logic must
 	    maintain reservation information at two levels for such
 	    objects.  When allocating a new node (directory entry)
 	    would overflow the current frame, a new frame must be
@@ -438,21 +548,19 @@ struct CkptDirent {
 	    </li>
 	    <li>
 	      <p>
-		Assign a new location to the object, and free the old
-		location (if any).
+		Assign a new location to the object.
 	      </p>
 	    </li>
 	  </ul>
 	  <p>
-	    We adopt the second policy.  Since the bottom-level free
-	    frame logic simply needs to know whether a frame is in
-	    use, we have the frame allocation map keep a
-	    <em>count</em> of how many objects occupy a given frame.
-	    When this count goes to zero the frame can be reused.
+	    To avoid "hot spots" on NV RAM, we adopt the second
+	    policy. Even if a frame in the log does not contain an
+	    active entry, we do not reuse it. As a result of these
+	    decisions, we use a simple counter to allocate space in
+	    the log.
 	  </p>
 	  <p>
-	    One reason for adopting the second policy is that a great
-	    many of the objects written to the checkpoint area will
+	    A great many of the objects written to the checkpoint area will
 	    prove to be zero objects.  For our purposes, a zero object
 	    is any of the following:
 	  </p>
@@ -506,8 +614,6 @@ Reserve space for non-zero object
 If (reserved frames - released frames) exceeds 65%
     unreserve everything
     declare checkpoint
-If this object was previously written to disk
-    deallocate any previous storage
 	      </pre>
 	  </ul>
 	  <p>
@@ -564,21 +670,21 @@ else
 	  </p>
 	  <p>
 	    While doing this, the restart logic builds an in-core map
-	    of which page frames in the checkpoint area are part of
+	    of which frames in the checkpoint area are part of
 	    the current checkpoint, and are therefore not available
 	    for allocation.  This is called the <b>checkpoint map</b>.
 	  </p>
 	  <p>
 	    The checkpoint map maintains a <em>count</em>, for each
-	    page frame in the checkpoint area, of the number of
+	    frame in the checkpoint area, of the number of
 	    objects currently stored in that frame.  If a frame has no
 	    objects stored, it is considered reclaimable.  The
-	    checkpoint headers and directory pages are each considered
+	    checkpoint headers and directory frames are each considered
 	    to contain one object.
 	  </p>
 	  <p>
 	    The original KeyKOS design did not reclaim checkpoint
-	    pages, and therefore used a simple bitmap rather than a
+	    frames, and therefore used a simple bitmap rather than a
 	    counted map.  In EROS, we have observed that log pots
 	    containing ``hot'' nodes frequently empty themselves after
 	    being paged out, and it is beneficial to be able to reuse
