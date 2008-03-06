@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -633,6 +633,10 @@ main()
 
     switch (msg->rcv_code) {
     extAddr_t first, last;
+
+    case OC_capros_key_getType:
+      msg->snd_w1 = IKT_capros_SuperNode;
+      break;
 
     case OC_capros_SuperNode_allocateRange:
       first = msg->rcv_w1;
