@@ -25,6 +25,12 @@
 #include <linux/device.h>
 #include <linux/usb.h>
 #include <linux/workqueue.h>
+#include <eros/Invoke.h>
+#include <idl/capros/Node.h>
+#include <idl/capros/SuperNode.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/USBDriver.h>
+#include <domain/assert.h>
 #include "hcd.h"
 #include "usb.h"
 
@@ -239,23 +245,44 @@ static int usb_probe_interface(struct device *dev)
 #endif // CapROS
 
 /* called from driver core with dev locked */
-static int usb_unbind_interface(struct device *dev)
+int usb_unbind_interface(struct device *dev)
 {
-	struct usb_driver *driver = to_usb_driver(dev->driver);
 	struct usb_interface *intf = to_usb_interface(dev);
-	struct usb_device *udev;
+	enum usb_interface_condition oldCondition = intf->condition;
+	struct usb_device * udev = interface_to_usbdev(intf);
 	int error;
 
 	intf->condition = USB_INTERFACE_UNBINDING;
 
 	/* Autoresume for set_interface call below */
-	udev = interface_to_usbdev(intf);
 	error = usb_autoresume_device(udev);
 
 	/* release all urbs for this interface */
 	usb_disable_interface(interface_to_usbdev(intf), intf);
 
+#if 0 // CapROS
+	struct usb_driver *driver = to_usb_driver(dev->driver);
 	driver->disconnect(intf);
+#else
+	result_t result;
+	unsigned long fwdSlot = forwarderSlot(udev, intf->localInterfaceNum);
+	if (oldCondition == USB_INTERFACE_BOUND) {
+		result = capros_Node_getSlotExtended(KR_KEYSTORE,
+			fwdSlot+1,	// driverSlot
+			KR_TEMP0);
+		assert(result == RC_OK);
+		result = capros_USBDriver_disconnect(KR_TEMP0);
+		// Don't worry about any error.
+	}
+	// Rescind the USBDevice cap.
+	result = capros_Node_getSlotExtended(KR_KEYSTORE, fwdSlot, KR_TEMP0);
+	assert(result == RC_OK);
+	result = capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
+	// Don't worry about any error.
+	result = capros_SuperNode_allocateRange(KR_KEYSTORE,
+		fwdSlot, fwdSlot+1);
+	assert(result == RC_OK);
+#endif // CapROS
 
 	/* reset other interface state */
 	usb_set_interface(interface_to_usbdev(intf),
@@ -747,7 +774,7 @@ int usb_register_driver(struct usb_driver *new_driver, struct module *owner,
 	new_driver->drvwrap.driver.name = (char *) new_driver->name;
 	new_driver->drvwrap.driver.bus = &usb_bus_type;
 	new_driver->drvwrap.driver.probe = 0;// usb_probe_interface;
-	new_driver->drvwrap.driver.remove = usb_unbind_interface;
+	new_driver->drvwrap.driver.remove = 0;// usb_unbind_interface;
 	new_driver->drvwrap.driver.owner = owner;
 	new_driver->drvwrap.driver.mod_name = mod_name;
 	spin_lock_init(&new_driver->dynids.lock);

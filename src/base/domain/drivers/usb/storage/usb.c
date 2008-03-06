@@ -69,6 +69,7 @@ Approved for public release, distribution unlimited. */
 #include <domain/assert.h>
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
+#include <idl/capros/USBDriverConstructor.h>
 #include <idl/capros/USBDriverConstructorExtended.h>
 #include <idl/capros/USBDriver.h>
 #include <asm/USBIntf.h>
@@ -956,7 +957,8 @@ static void dissociate_dev(struct us_data *us)
 {
 	US_DEBUGP("-- %s\n", __FUNCTION__);
 
-	kfree(us->sensebuf);
+	usb_buffer_free(us->pusb_dev, US_SENSE_SIZE, us->sensebuf,
+			us->sensebuf_dma);
 
 	/* Free the device-related DMA-mapped buffers */
 	if (us->cr)
@@ -1162,7 +1164,7 @@ static void storage_disconnect(struct usb_interface *intf)
 struct usb_driver usb_storage_driver = {
 	.name =		"usb-storage",
 	.probe =	0,//storage_probe,
-	.disconnect =	storage_disconnect,
+	.disconnect =	0,//storage_disconnect,
 #ifdef CONFIG_PM
 	.suspend =	storage_suspend,
 	.resume =	storage_resume,
@@ -1172,6 +1174,32 @@ struct usb_driver usb_storage_driver = {
 	.id_table =	storage_usb_ids,
 };
 #endif // CapROS
+
+static void __exit usb_stor_exit(void)
+{
+	US_DEBUGP("usb_stor_exit() called\n");
+
+#if 0 // CapROS
+	/* Deregister the driver
+	 * This will cause disconnect() to be called for each
+	 * attached unit
+	 */
+	US_DEBUGP("-- calling usb_deregister()\n");
+	usb_deregister(&usb_storage_driver) ;
+#endif // CapROS
+
+	/* Don't return until all of our control and scanning threads
+	 * have exited.  Since each thread signals threads_gone as its
+	 * last act, we have to call wait_for_completion the right number
+	 * of times.
+	 */
+	while (atomic_read(&total_threads) > 0) {
+		wait_for_completion(&threads_gone);
+		atomic_dec(&total_threads);
+	}
+
+	// usb_usual_clear_present(USB_US_TYPE_STOR);
+}
 
 union {
   capros_SCSIDevice_SCSICommand cmd;
@@ -1250,7 +1278,7 @@ DoReadWrite(Message * msg, bool write)
   }
 }
 
-void
+result_t
 driver_main(void)
 {
   /* We are entered here when the registry has a new device that is
@@ -1304,9 +1332,7 @@ driver_main(void)
   if (ret) {
     // Probe was unsuccessful. 
     capros_USBInterface_probeFailed(KR_USBINTF);
-    assert(false);
-    // need to SEND RC_capros_USBDriverConstructor_ProbeUnsuccessful to KR_RETURN
-    // and destroy self (at the same time).
+    return RC_capros_USBDriverConstructor_ProbeUnsuccessful;
   }
   // Probe was successful.
   result = capros_Process_makeStartKey(KR_SELF, keyInfoUSBDriver, KR_TEMP0);
@@ -1357,8 +1383,10 @@ driver_main(void)
         break;
 
       case OC_capros_USBDriver_disconnect:
-assert(false);//// need to implement
-        break;
+        storage_disconnect(&theIntf);
+	usb_stor_exit();
+        // FIXME: there is a memory leak here somewhere
+        return RC_OK;
 
       case OC_capros_USBDriver_suspend:
 assert(false);//// need to implement
@@ -1403,29 +1431,3 @@ assert(false);//// need to implement
     }
   }
 }
-
-#if 0 // CapROS
-static void __exit usb_stor_exit(void)
-{
-	US_DEBUGP("usb_stor_exit() called\n");
-
-	/* Deregister the driver
-	 * This will cause disconnect() to be called for each
-	 * attached unit
-	 */
-	US_DEBUGP("-- calling usb_deregister()\n");
-	usb_deregister(&usb_storage_driver) ;
-
-	/* Don't return until all of our control and scanning threads
-	 * have exited.  Since each thread signals threads_gone as its
-	 * last act, we have to call wait_for_completion the right number
-	 * of times.
-	 */
-	while (atomic_read(&total_threads) > 0) {
-		wait_for_completion(&threads_gone);
-		atomic_dec(&total_threads);
-	}
-
-	usb_usual_clear_present(USB_US_TYPE_STOR);
-}
-#endif // CapROS

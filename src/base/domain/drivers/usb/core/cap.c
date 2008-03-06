@@ -30,6 +30,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/SuperNode.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/Forwarder.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/Errno.h>
 #include <idl/capros/USBHCD.h>
@@ -80,11 +82,28 @@ SendNewInterface(unsigned long /* cap_t */ mainProc,
   Message * const msg = &Msg;  // to address it consistently
   capros_USBHCD_InterfaceData nid;
   struct usb_device * udev = interface_to_usbdev(intf);
+  unsigned long fwdSlot = forwarderSlot(udev, intf->localInterfaceNum);
+
+  result = capros_SuperNode_allocateRange(KR_KEYSTORE, fwdSlot, fwdSlot+1);
+  assert(result == RC_OK); // FIXME handle error
 
   result = capros_Process_makeStartKey(mainProc,
              (udev->devnum << 8)
                + intf->localInterfaceNum,
              KR_TEMP0);
+  assert(result == RC_OK);
+
+  // Wrap it in a forwarder so we can rescind it later.
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otForwarder, KR_TEMP1);
+  assert(result == RC_OK); // FIXME handle error
+  result = capros_Forwarder_swapTarget(KR_TEMP1, KR_TEMP0, KR_VOID);
+  assert(result == RC_OK);
+  // Save the forwarder.
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE, fwdSlot, KR_TEMP1,
+             KR_VOID);
+  assert(result == RC_OK);
+
+  result = capros_Forwarder_getOpaqueForwarder(KR_TEMP1, 0, KR_TEMP0);
   assert(result == RC_OK);
 
   struct usb_hcd * hcd = bus_to_hcd(theBus);
@@ -317,14 +336,12 @@ HandleGetEndpointDescriptors(Message * msg,
 {
   int i;
 
-printk("HandleGetEndpointDescriptors");////
   struct usb_host_interface * setting = intf->cur_altsetting;
   unsigned int numEndpoints = setting->desc.bNumEndpoints;
   size_t dataSize = sizeof(capros_USB_EndpointDescriptor) * numEndpoints;
   capros_USB_EndpointDescriptor * eps
     = (capros_USB_EndpointDescriptor *) alloca(dataSize);
   if (!eps) {
-printk("HandleGetEndpointDescriptors failed");////
     msg->snd_code = RC_capros_Errno_NoMem;
     return;
   }
@@ -383,7 +400,8 @@ driver_main(void)
     assert(false);    // FIXME handle error
   }
 
-  msg->rcv_key0 = msg->rcv_key1 = msg->rcv_key2 = KR_VOID;
+  msg->rcv_key0 = KR_ARG(0);
+  msg->rcv_key1 = msg->rcv_key2 = KR_VOID;
   msg->rcv_rsmkey = KR_RETURN;
   msg->rcv_data = &msgReceiveBuffer;
   msg->rcv_limit = sizeof(msgReceiveBuffer);
@@ -484,9 +502,7 @@ driver_main(void)
 
       case OC_capros_USBInterface_probeFailed:
       {
-        mark_quiesced(intf);
-        intf->needs_remote_wakeup = 0;
-        intf->condition = USB_INTERFACE_UNBOUND;
+	usb_unbind_interface(&intf->dev);
         break;
       }
 

@@ -8,13 +8,35 @@
  * All of the sysfs file attributes for usb devices and interfaces.
  *
  */
-
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/usb.h>
 #include "usb.h"
 
+#if 0 // CapROS
 /* Active configuration fields */
 #define usb_actconfig_show(field, multiplier, format_string)		\
 static ssize_t  show_##field(struct device *dev,			\
@@ -512,6 +534,7 @@ static inline void usb_create_intf_ep_files(struct usb_interface *intf,
 		usb_create_ep_files(&intf->dev, &iface_desc->endpoint[i],
 				udev);
 }
+#endif // CapROS
 
 static inline void usb_remove_intf_ep_files(struct usb_interface *intf)
 {
@@ -519,10 +542,20 @@ static inline void usb_remove_intf_ep_files(struct usb_interface *intf)
 	int i;
 
 	iface_desc = intf->cur_altsetting;
-	for (i = 0; i < iface_desc->desc.bNumEndpoints; ++i)
+	for (i = 0; i < iface_desc->desc.bNumEndpoints; ++i) {
+#if 0 // CapROS
 		usb_remove_ep_files(&iface_desc->endpoint[i]);
+#else
+		// from endpoint.c:
+		struct ep_device * ep_dev = iface_desc->endpoint[i].ep_dev;
+		if (ep_dev) {
+			device_unregister(&ep_dev->dev);
+		}
+#endif // CapROS
+	}
 }
 
+#if 0 // CapROS
 int usb_create_sysfs_intf_files(struct usb_interface *intf)
 {
 	struct device *dev = &intf->dev;
@@ -541,12 +574,15 @@ int usb_create_sysfs_intf_files(struct usb_interface *intf)
 	usb_create_intf_ep_files(intf, udev);
 	return 0;
 }
+#endif // CapROS
 
 void usb_remove_sysfs_intf_files(struct usb_interface *intf)
 {
+	usb_remove_intf_ep_files(intf);
+#if 0 // CapROS
 	struct device *dev = &intf->dev;
 
-	usb_remove_intf_ep_files(intf);
 	device_remove_file(dev, &dev_attr_interface);
 	sysfs_remove_group(&dev->kobj, &intf_attr_grp);
+#endif // CapROS
 }

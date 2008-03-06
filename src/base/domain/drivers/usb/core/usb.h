@@ -111,6 +111,7 @@ extern struct usb_driver hub_driver;
 
 int usbdev_generic_probe(struct usb_device *udev);
 void usbdev_generic_disconnect(struct usb_device *udev);
+int usb_unbind_interface(struct device * dev);
 
 static inline int is_usb_device(const struct device *dev)
 {
@@ -181,11 +182,17 @@ extern void usb_notify_remove_bus(struct usb_bus *ubus);
 
 /* Define slots for keys in KR_KEYSTORE: */
 #define LKSN_NIWC LKSN_APP
-#define LKSN_DRIVERS LKSN_NIWC+1
+#define LKSN_INTERFACES LKSN_NIWC+1
+/* Beginning at LKSN_INTERFACES, each interface has a pair of slots: */
+static inline unsigned long
+forwarderSlot(struct usb_device * udev, uint8_t localIntfNum)
+{
+  return LKSN_INTERFACES + ((udev->devnum << 8) + localIntfNum) * 2;
+}
 static inline unsigned long
 driverSlot(struct usb_device * udev, uint8_t localIntfNum)
 {
-  return LKSN_DRIVERS + (udev->devnum << 8) + localIntfNum;
+  return forwarderSlot(udev, localIntfNum) + 1;
 }
 
 static inline unsigned long

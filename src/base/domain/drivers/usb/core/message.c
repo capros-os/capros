@@ -25,6 +25,8 @@ Approved for public release, distribution unlimited. */
  * message.c - synchronous message handling
  */
 
+//#define DEBUG
+
 #include <ctype.h>
 //#include <linux/pci.h>	/* for scatterlist macros */
 #include <linux/usb.h>
@@ -1102,12 +1104,8 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 				continue;
 			dev_dbg (&dev->dev, "unregistering interface %s\n",
 				interface->dev.bus_id);
-#if 0 // CapROS
-			usb_remove_sysfs_intf_files(interface);
-#else
-			usb_remove_intf_ep_files(interface);
-#endif // CapROS
-			BUG_ON(true);////device_del (&interface->dev);
+			//usb_remove_sysfs_intf_files(interface);
+			usb_unbind_interface(&interface->dev);
 		}
 
 		/* Now that the interfaces are unbound, nobody should
@@ -1674,6 +1672,7 @@ noArray:
 			intf->dev.bus_id, configuration,
 			intf->cur_altsetting->desc.bInterfaceNumber);
 		// Instead of device_add:
+		intf->dev.is_registered = 1;
 		// Is it a hub?
 		if (dev->descriptor.bDeviceClass == USB_CLASS_HUB
 		    || intf->cur_altsetting->desc.bInterfaceClass

@@ -495,7 +495,7 @@ void usb_destroy_configuration(struct usb_device *dev)
 					  usb_release_interface_cache);
 		}
 		capros_SuperNode_deallocateRange(KR_KEYSTORE,
-			driverSlot(dev, 0), driverSlot(dev, nintf-1) );
+			driverSlot(dev, 0), driverSlot(dev, nintf)-1 );
 	}
 	kfree(dev->config);
 	dev->config = NULL;
