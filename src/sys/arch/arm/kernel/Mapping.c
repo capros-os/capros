@@ -224,9 +224,6 @@ node_ClearGPTHazard(Node * gpt, uint32_t ndx)
     uint8_t l2vField = gpt_GetL2vField(gpt);
     unsigned int l2v = l2vField & GPT_L2V_MASK;
 
-#if 1	// until tested
-    dprintf(true, "Unhazarding void key in GPT, l2v=%d\n", l2v);
-#endif
     if (l2v <= PID_SHIFT
         && ndx >= (1ul << (PID_SHIFT - l2v)) ) {
       /* There is a possibility that this GPT produced a small
