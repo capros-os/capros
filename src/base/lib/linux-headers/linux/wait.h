@@ -251,13 +251,13 @@ do {									\
 		.task_list	= LIST_HEAD_INIT((__wait).task_list),	\
 	};								\
 	add_wait_queue(&wq, &__wait);					\
-	if (condition) {						\
-		remove_wait_queue_if_on_it(&wq, &__wait);		\
-		break;							\
-	} else {							\
+	if (!(condition)) {						\
 		down(&__sem);						\
+		if (timer_pending(&tim))				\
+			continue;					\
 	}								\
-	if (! timer_pending(&tim))  break;				\
+	remove_wait_queue_if_on_it(&wq, &__wait);			\
+	break;								\
 } while (1);								\
 	unsigned long __ret = timer_remaining_time(&tim);		\
 	del_timer(&tim);						\

@@ -25,8 +25,7 @@ Approved for public release, distribution unlimited. */
 
 typedef capros_SCSIControl64_SCSIHostTemplate capros_SCSIControl_SCSIHostTemplate;
 
-#define IKT_capros_SCSIControl IKT_capros_SCSIControl64
-#define capros_SCSIControl_SCSIHostTemplate_SG_ALL capros_SCSIControl64_SCSIHostTemplate_SG_ALL
+#define IKT_capros_SCSIControlAny IKT_capros_SCSIControl64
 
 #define capros_SCSIControl_addHost capros_SCSIControl64_addHost
 #define OC_capros_SCSIControl_addHost OC_capros_SCSIControl64_addHost

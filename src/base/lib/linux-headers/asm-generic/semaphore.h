@@ -38,6 +38,9 @@ struct semaphore {
   int wakeupsWaiting;
   // task_list must be accessed only by the sync process.
   struct list_head task_list;
+#ifdef CONFIG_DEBUG_SEMAPHORE
+  unsigned int locker;	// thread num of last thread to down()
+#endif
 };
 
 #define __SEMAPHORE_INIT(name, cnt)				\
