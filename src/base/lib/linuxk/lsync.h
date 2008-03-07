@@ -87,14 +87,15 @@ the process (usually one). */
 #define LKSN_APP                 (LKSN_STACKS_GPT+1) // available for driver
 
 /* Constituents of driver constructors: */
-#define KC_OSTREAM    0	// required by interpreter
+#define KC_OSTREAM    0
 #define KC_TEXT       1 // read-only portion of the program
 #define KC_DATAVCSK   2	// initial data of the program
-#define KC_LINUX_EMUL 3
-#define KC_SLEEP      4
-#define KC_DEVPRIVS   5
-#define KC_SNODECONSTR 6
-#define KC_APP2(n) 7+(n)
+#define KC_INTERPRETERSPACE 3
+#define KC_LINUX_EMUL 4
+#define KC_SLEEP      5
+#define KC_DEVPRIVS   6
+#define KC_SNODECONSTR 7
+#define KC_APP2(n) 8+(n)
 
 #ifndef __ASSEMBLER__
 
@@ -113,6 +114,7 @@ lthread_new_thread(uint32_t stackSize,
 		   /* out */ unsigned int * newThreadNum);
 void lthread_exit(void);
 void lthread_destroy(unsigned int threadNum);
+void lthread_destroyAll(void);
 uint32_t lthread_getStackPages(unsigned int threadNum);
 void lthreadDeallocateNum(unsigned int threadNum);
 

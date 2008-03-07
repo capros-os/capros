@@ -29,11 +29,20 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Constructor.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/LSync.h>
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
 #include <linux/thread_info.h>
 #include <linux/preempt.h>
 #include <domain/assert.h>
+#include <domain/InterpreterDestroy.h>
+
+#define dbg_alloc 0x01
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u )
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
 
 /* This is the first driver code to run in a usb driver process.
    It sets up the .data and .bss sections in a vcsk. */
@@ -42,66 +51,82 @@ const uint32_t __rt_stack_pointer
    = LK_STACK_BASE + (1UL << LK_LGSTACK_AREA) - SIZEOF_THREAD_INFO;
 const uint32_t __rt_unkept = 1;
 
-extern void driver_main(void);
+extern result_t driver_main(void);
 
 /* We run after dyndriverprotospace.
-   which leaves KR_TEMP2 as the GPT to our address space,
-   and KR_TEMP1 as the GPT to our stacks space.
+   which leaves KR_TEMP3 as the GPT to our address space,
+   and KR_TEMP2 as the GPT to our stacks space.
    The caller of the constructor passed a USBInterface cap
    which is now in KR_ARG(0), and a resume key in KR_RETURN. */
 int
 main(void)
 {
   result_t result;
+  result_t finalResult;
 
   // Unpack some caps.
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
   if (result != RC_OK) {
-    *((int *)0) = 0xbadbad77;	// FIXME
+    /* This should not happen, but until KR_OSTREAM is there,
+    we can't use assert. */
+    *((int *)0) = 0xbadbad77;
   }
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_LINUX_EMUL,
     KR_LINUX_EMUL);
-  assert(result == RC_OK);	// FIXME
+  assert(result == RC_OK);
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SLEEP, KR_SLEEP);
-  assert(result == RC_OK);	// FIXME
+  assert(result == RC_OK);
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_DEVPRIVS, KR_DEVPRIVS);
-  assert(result == RC_OK);	// FIXME
+  assert(result == RC_OK);
   /* Set I/O privileges. */
   result = capros_Process_setIOSpace(KR_SELF, KR_DEVPRIVS);
   assert(result == RC_OK);
 
   // Create the KEYSTORE supernode.
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SNODECONSTR, KR_KEYSTORE);
-  assert(result == RC_OK);	// FIXME
-  result = capros_Constructor_request(KR_KEYSTORE, KR_BANK, KR_SCHED, KR_VOID,
+  assert(result == RC_OK);
+  finalResult = capros_Constructor_request(KR_KEYSTORE,
+                             KR_BANK, KR_SCHED, KR_VOID,
                              KR_KEYSTORE);
-  assert(result == RC_OK);	// FIXME
-  result = capros_SuperNode_allocateRange(KR_KEYSTORE, LKSN_THREAD_PROCESS_KEYS,
+  if (finalResult != RC_OK) {
+    DEBUG(alloc) kprintf(KR_OSTREAM, "failed to create keystore");
+    goto noKeystore;
+  }
+  finalResult = capros_SuperNode_allocateRange(KR_KEYSTORE,
+                      LKSN_THREAD_PROCESS_KEYS,
                       LKSN_APP - 1);
-  assert(result == RC_OK);	// FIXME
+  if (finalResult != RC_OK) {
+    DEBUG(alloc) kprintf(KR_OSTREAM, "failed to expand keystore");
+    goto noMaps;
+  }
   // Populate it.
   capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_THREAD_PROCESS_KEYS+0,
                                KR_SELF, KR_VOID);
   capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_STACKS_GPT,
-                               KR_TEMP1, KR_VOID);
+                               KR_TEMP2, KR_VOID);
 
   // Create the GPT for maps. 
-  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_MAPS_GPT);
-  assert(result == RC_OK);	// FIXME
+  finalResult = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT,
+                  KR_MAPS_GPT);
+  if (finalResult != RC_OK) {
+    DEBUG(alloc) kprintf(KR_OSTREAM, "failed to create MAPS_GPT");
+    goto noMaps;
+  }
   result = capros_GPT_setL2v(KR_MAPS_GPT, 17);
-  assert(result == RC_OK);	// FIXME
+  assert(result == RC_OK);
   // Map it.
-  result = capros_GPT_setSlot(KR_TEMP2, LK_MAPS_BASE / 0x400000, KR_MAPS_GPT);
-  assert(result == RC_OK);	// FIXME
+  result = capros_GPT_setSlot(KR_TEMP3, LK_MAPS_BASE / 0x400000, KR_MAPS_GPT);
+  assert(result == RC_OK);
 
   preempt_count() = 0;
 
   // Create the lsync process.
   unsigned int lsyncThreadNum;
-  result = lthread_new_thread(LSYNC_STACK_SIZE, &lsync_main, NULL,
+  finalResult = lthread_new_thread(LSYNC_STACK_SIZE, &lsync_main, NULL,
                               &lsyncThreadNum);
-  if (result != RC_OK) {
-    assert(false);	// FIXME handle error
+  if (finalResult != RC_OK) {
+    DEBUG(alloc) kprintf(KR_OSTREAM, "failed to create lsync");
+    goto noLsync;
   }
 
   // Get lsync process key
@@ -116,7 +141,39 @@ main(void)
 
   maps_init();
 
-  driver_main();
-  assert(false);	// driver_main should not return!
+  finalResult = driver_main();
+
+  /* Tear down everything. */
+
+  // Do we need to call the library to let it clean up?
+
+  /* The following call has two purposes:
+  It synchronizes with lsync, ensuring that if it was destroying threads,
+  it has finished doing so;
+  and it destroys any stray threads left behind by the driver. */
+  lthread_destroyAll();
+
+  lthread_destroy(lsyncThreadNum);
+noLsync:
+  result = capros_SpaceBank_free1(KR_BANK, KR_MAPS_GPT);
+  assert(result == RC_OK);
+noMaps:
+  result = capros_key_destroy(KR_KEYSTORE);
+  assert(result == RC_OK);
+noKeystore:
+  // Set up caps for destruction.
+  result = capros_Process_getAddrSpace(KR_SELF, KR_TEMP3);
+  assert(result == RC_OK);
+  result = capros_GPT_getSlot(KR_TEMP3, LK_STACK_BASE / 0x400000, KR_TEMP2);
+  assert(result == RC_OK);
+  result = capros_GPT_getSlot(KR_TEMP3, LK_DATA_BASE / 0x400000, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_GPT_getSlot(KR_TEMP2, 0, KR_TEMP1);
+  assert(result == RC_OK);
+  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_INTERPRETERSPACE,
+             KR_ARG(0));
+  assert(result == RC_OK);
+  InterpreterDestroy(KR_ARG(0), KR_TEMP3, finalResult);
+  assert(false);	// InterpreterDestroy should not return!
   return 0;
 }

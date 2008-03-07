@@ -41,7 +41,15 @@ Approved for public release, distribution unlimited. */
 #include <linux/mutex.h>
 #include <linux/thread_info.h>
 
-static DEFINE_MUTEX(threadAllocLock);
+#define dbg_create  0x01
+#define dbg_destroy 0x02
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u )
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
+
+DEFINE_MUTEX(threadAllocLock);
 
 /* There is a maximum of 32 threads (limited by the address space
 at LK_STACK_BASE), so a bit vector of threads fits in 32 bits.
@@ -235,6 +243,46 @@ lthread_getStackPages(unsigned int threadNum)
   return *(uint32_t *)(--sp);
 }
 
+/* For internal use. Use lthread_exit or lthread_destroy instead. */
+// This must be called with the threadAllocLock held.
+void lthread_destroy_internal(unsigned int threadNum)
+{
+  result_t result;
+
+  DEBUG(destroy) kdprintf(KR_OSTREAM, "lthread_destroy_internal num=%d",
+                          threadNum);
+
+  uint32_t stackPages = lthread_getStackPages(threadNum);
+
+  result = capros_Node_getSlotExtended(KR_KEYSTORE,
+             LKSN_STACKS_GPT, KR_TEMP1);
+  assert(result == RC_OK);
+  result = capros_GPT_getSlot(KR_TEMP1, threadNum, KR_TEMP0);
+  assert(result == RC_OK);
+  if (stackPages > 1) {
+    /* Don't bother to optimize by freeing up to 3 pages at once,
+     because the stack is seldom more than 1 page. */
+
+    int i;
+    for (i = 0; i < stackPages; i++) {
+      capros_GPT_getSlot(KR_TEMP0, capros_GPT_nSlots - 1 - i,
+                          KR_TEMP1);
+      assert(result == RC_OK);
+      capros_SpaceBank_free1(KR_BANK, KR_TEMP1);
+    }
+  }
+  // Free top level GPT or single page.
+  capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
+
+  result = capros_Node_getSlotExtended(KR_KEYSTORE,
+             LKSN_THREAD_PROCESS_KEYS + threadNum, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_ProcCre_destroyProcess(KR_CREATOR, KR_BANK, KR_TEMP0);
+  assert(result == RC_OK);
+
+  threadsAlloc &= ~((uint32_t)1 << threadNum);
+}
+
 // Stop the current thread.
 void
 lthread_exit(void)
@@ -243,11 +291,15 @@ lthread_exit(void)
 
   mutex_lock(&threadAllocLock);
 
+  DEBUG(destroy) kdprintf(KR_OSTREAM, "lthread_exit num=%d", threadNum);
+
   capros_LSync_threadDestroy(KR_LSYNC, threadNum);
   assert(false);	// shouldn't get here
 }
 
 // Stop the specified thread.
+// The specified thread must not be the current thread.
+// This must be called only from thread #0.
 void
 lthread_destroy(unsigned int threadNum)
 {
@@ -264,14 +316,18 @@ lthread_destroy(unsigned int threadNum)
 
   mutex_lock(&threadAllocLock);
 
-  capros_LSync_threadDestroy(KR_LSYNC, threadNum);
+  lthread_destroy_internal(threadNum);
+
+  mutex_unlock(&threadAllocLock);
 }
 
-// This must be called with the threadAllocLock held.
-// It deallocates the thread number and releases the lock.
 void
-lthreadDeallocateNum(unsigned int threadNum)
+lthread_destroyAll(void)
 {
-  threadsAlloc &= ~((uint32_t)1 << threadNum);
+  mutex_lock(&threadAllocLock);
+
+  result_t result = capros_LSync_allThreadsDestroy(KR_LSYNC);
+  assert(result == RC_OK);
+
   mutex_unlock(&threadAllocLock);
 }

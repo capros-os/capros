@@ -43,6 +43,7 @@ PROD_PC(dname##_c) = number(0); /* well-known */ \
 PROD_CONSTIT(dname##_c, , KC_OSTREAM) = misc Console; \
 PROD_CONSTIT(dname##_c, , KC_TEXT) = ro dname##_prog[0]; \
 PROD_CONSTIT(dname##_c, , KC_DATAVCSK) = dname##vcsk_c; \
+PROD_CONSTIT(dname##_c, , KC_INTERPRETERSPACE) = dynprotospace; \
 PROD_CONSTIT(dname##_c, , KC_LINUX_EMUL) = dname##le; \
 PROD_CONSTIT(dname##_c, , KC_SLEEP) = misc Sleep; \
 PROD_CONSTIT(dname##_c, , KC_DEVPRIVS) = misc DevicePrivs devcfgbit; \

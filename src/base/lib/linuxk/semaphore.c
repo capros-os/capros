@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -44,6 +44,9 @@ void down(struct semaphore * sem)
     capros_LSync_semaWait(KR_LSYNC, (capros_LSync_pointer)sem,
                           (capros_LSync_pointer)&wq);
   }
+#ifdef CONFIG_DEBUG_SEMAPHORE
+  sem->locker = lk_getCurrentThreadNum();	// remember we have it
+#endif
 }
 
 int
@@ -60,10 +63,15 @@ down_trylock(struct semaphore * sem)
   return 0;	// success
 }
 
+bool tryUp(struct semaphore * sem)
+{
+  return atomic_inc_return(&sem->count) <= 0;
+}
+
 void
 up(struct semaphore * sem)
 {
-  if (atomic_inc_return(&sem->count) <= 0) {
+  if (tryUp(sem)) {
     capros_LSync_semaWakeup(KR_LSYNC, (capros_LSync_pointer)sem);
   }
 }

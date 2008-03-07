@@ -44,6 +44,7 @@ OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/dmapool.o \
   $(BUILDDIR)/driverCore.o \
   $(BUILDDIR)/ioremap.o \
+  $(BUILDDIR)/kmemdup.o \
   $(BUILDDIR)/kobject.o \
   $(BUILDDIR)/kref.o \
   $(BUILDDIR)/kthread.o \

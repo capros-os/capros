@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -43,6 +43,14 @@ Approved for public release, distribution unlimited. */
 #include <linux/rwsem.h>
 #include <linux/wait.h>
 
+// Private interface to semaphore.c:
+bool tryUp(struct semaphore * sem);
+
+// Private interfaces to lthread.c:
+void lthread_destroy_internal(unsigned int threadNum);
+extern uint32_t threadsAlloc;
+extern struct mutex threadAllocLock;
+
 #define dbg_init    0x1
 
 /* Following should be an OR of some of the above */
@@ -65,15 +73,45 @@ Sepuku(result_t retCode)
 static void
 wakeupWQ(wait_queue_t * wq)
 {
-  Message msg;
+  Message msg = {
+    .snd_code = RC_OK,
+    .snd_invKey = KR_TEMP0,
+    .snd_key0 = KR_VOID,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_rsmkey = KR_VOID
+  };
 
   list_del(&wq->task_list);	// remove from list
   capros_Node_getSlotExtended(KR_KEYSTORE,
           LKSN_THREAD_RESUME_KEYS + wq->threadNum,
           KR_TEMP0);
-  msg.snd_code = RC_OK;
-  msg.snd_invKey = KR_TEMP0;
   SEND(&msg);
+}
+
+static void
+doSemaWakeup(struct semaphore * sem)
+{
+  if (list_empty(&sem->task_list)) {
+    sem->wakeupsWaiting++;	// only this thread references wakeupsWaiting
+  } else {
+    wait_queue_t * wq = list_first_entry(&sem->task_list,
+                          wait_queue_t, task_list);
+    wakeupWQ(wq);
+  }
+}
+
+static void
+lsync_mutex_unlock(struct mutex * mut)
+{
+  struct semaphore * sem = &mut->sem;
+
+  /* We can't just use mutex_unlock(), because that may call lsync,
+  which deadlocks. */
+  
+  if (tryUp(sem)) {
+    doSemaWakeup(sem);
+  }
 }
 
 static void
@@ -149,6 +187,14 @@ lsync_main(void * arg)
 
     switch (msg->rcv_code) {
 
+    default:
+      msg->snd_code = RC_capros_key_UnknownRequest;
+      break;
+
+    case OC_capros_key_getType:
+      msg->snd_w1 = IKT_capros_LSync;
+      break;
+
     case OC_capros_LSync_semaWait:
     {
       struct semaphore * sem = (struct semaphore *)msg->rcv_w1;
@@ -172,14 +218,7 @@ lsync_main(void * arg)
 
     case OC_capros_LSync_semaWakeup:
     {
-      struct semaphore * sem = (struct semaphore *)msg->rcv_w1;
-      if (list_empty(&sem->task_list)) {
-        sem->wakeupsWaiting++;	// only this thread references wakeupsWaiting
-      } else {
-        wait_queue_t * wq = list_first_entry(&sem->task_list,
-                              wait_queue_t, task_list);
-        wakeupWQ(wq);
-      }
+      doSemaWakeup((struct semaphore *)msg->rcv_w1);
 
       // Return to caller.
       msg->snd_invKey = KR_RETURN;
@@ -220,50 +259,30 @@ lsync_main(void * arg)
       break;
     }
 
-    case OC_capros_LSync_threadDestroy:
-    {
-      result_t result;
-      unsigned int threadNum = msg->rcv_w1;
-      uint32_t stackPages = lthread_getStackPages(threadNum);
-
-      result = capros_Node_getSlotExtended(KR_KEYSTORE,
-                 LKSN_STACKS_GPT, KR_TEMP1);
-      assert(result == RC_OK);
-      result = capros_GPT_getSlot(KR_TEMP1, threadNum, KR_TEMP0);
-      assert(result == RC_OK);
-      if (stackPages > 1) {
-        /* Don't bother to optimize by freeing up to 3 pages at once,
-         on the assumption that the stack is seldom more than 1 page. */
-
-        int i;
-        for (i = 0; i < stackPages; i++) {
-          capros_GPT_getSlot(KR_TEMP0, capros_GPT_nSlots - 1 - i,
-                              KR_TEMP1);
-          assert(result == RC_OK);
-          capros_SpaceBank_free1(KR_BANK, KR_TEMP1);
-        }
-      }
-      // Free top level GPT or single page.
-      capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
-
-      result = capros_Node_getSlotExtended(KR_KEYSTORE,
-                 LKSN_THREAD_PROCESS_KEYS + threadNum, KR_TEMP0);
-      assert(result == RC_OK);
-      result = capros_ProcCre_destroyProcess(KR_CREATOR, KR_BANK, KR_TEMP0);
-      assert(result == RC_OK);
-
-      lthreadDeallocateNum(threadNum);
+    case OC_capros_LSync_threadDestroy: ;
+      lthread_destroy_internal(msg->rcv_w1);
+      /* The caller locked threadAllocLock. He cannot unlock it,
+      so we do it for him: */
+      lsync_mutex_unlock(&threadAllocLock);
       break;
-    }
+
+    case OC_capros_LSync_allThreadsDestroy: ;
+      /* Destroy all threads except #0 (which is the caller)
+      and #1 (which is this thread). */
+      /* The caller holds threadAllocLock. */
+      do {
+        uint32_t ta = threadsAlloc & ~0x3L;
+        if (ta == 0)
+          break;
+        unsigned int threadNum = ffs(ta) - 1;
+        lthread_destroy_internal(threadNum);
+      } while (true);
+      break;
 
     case OC_capros_key_destroy:
       // Implemented??
       Sepuku(RC_OK);
       /* NOTREACHED */
-
-    default:
-      msg->snd_code = RC_capros_key_UnknownRequest;
-      break;
     }
   }
 }

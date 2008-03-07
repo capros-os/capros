@@ -27,18 +27,24 @@ for a driver built by the constructor. */
 #include <linuxk/lsync.h>
 #include <InterpreterTable.h>
 
-struct Message InterpreterTable[] = {
-  MsgAlloc3(KR_BANK, Page, GPT, GPT, KR_TEMP0, KR_TEMP1, KR_TEMP2),
-  MsgSetL2v(KR_TEMP2, 22),
-  MsgSetL2v(KR_TEMP1, 17),
-  MsgMakeGuarded(KR_TEMP0, (1UL << LK_LGSTACK_AREA) - EROS_PAGE_SIZE, KR_TEMP0),
-  MsgGPTSetSlot(KR_TEMP1, 0, KR_TEMP0),
-  MsgGPTSetSlot(KR_TEMP2, LK_STACK_BASE / 0x400000, KR_TEMP1),
+struct InterpreterStep ConstructionTable[] = {
+  MsgAlloc3(KR_BANK, Page, GPT, GPT, KR_TEMP1, KR_TEMP2, KR_TEMP3,
+            passErrorThrough, 2),
+  MsgSetL2v(KR_TEMP3, 22),
+  MsgSetL2v(KR_TEMP2, 17),
+  MsgMakeGuarded(KR_TEMP1, (1UL << LK_LGSTACK_AREA) - EROS_PAGE_SIZE, KR_TEMP1),
+  MsgGPTSetSlot(KR_TEMP2, 0, KR_TEMP1),
+  MsgGPTSetSlot(KR_TEMP3, LK_STACK_BASE / 0x400000, KR_TEMP2),
   MsgNodeGetSlotExtended(KR_CONSTIT, KC_TEXT, KR_TEMP0),
-  MsgGPTSetSlot(KR_TEMP2, 0, KR_TEMP0),
+  MsgGPTSetSlot(KR_TEMP3, 0, KR_TEMP0),
   MsgNodeGetSlotExtended(KR_CONSTIT, KC_DATAVCSK, KR_TEMP0),
-  MsgNewVCSK(KR_TEMP0, KR_TEMP0),
-  MsgGPTSetSlot(KR_TEMP2, LK_DATA_BASE / 0x400000, KR_TEMP0),
+  MsgNewVCSK(KR_TEMP0, KR_BANK, KR_SCHED, KR_TEMP0, passErrorThrough, 1),
+  MsgGPTSetSlot(KR_TEMP3, LK_DATA_BASE / 0x400000, KR_TEMP0),
   // Start address is well-known
-  MsgNewSpace(KR_TEMP2, 0x1000)
+  MsgNewSpace(KR_TEMP3, 0x1000)
+};
+struct InterpreterStep DestructionTable[] = {
+/* [0] */ MsgDestroy(KR_TEMP0),	// destroy VCSK
+/* [1] */ MsgFree3(KR_BANK, KR_TEMP1, KR_TEMP2, KR_TEMP3),
+/* [2] */ MsgDestroyProcess(KR_CREATOR, KR_BANK, KR_RETURN)
 };
