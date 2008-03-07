@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2007, Strawberry Development Group.
+# Copyright (C) 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -66,10 +66,8 @@ IDL_STUB_DIR=$(EROS_SRC)/base/lib/idlstub/$(BUILDDIR)
 .PHONY: idl-headers
 idl-headers:
 	$(CAPIDL) -D $(EROS_ROOT)/include/idl.tmp -l c-header `find $(EROS_ROOT)/idl -name '*.idl'`
-	$(INSTALL) -d $(EROS_ROOT)/include
 	$(INSTALL) -d $(EROS_ROOT)/include/idl
 	build/bin/dirsync $(EROS_ROOT)/include/idl.tmp $(EROS_ROOT)/include/idl
-	$(INSTALL) -d $(EROS_ROOT)/host/include
 	$(INSTALL) -d $(EROS_ROOT)/host/include/idl
 	build/bin/dirsync $(EROS_ROOT)/include/idl.tmp $(EROS_ROOT)/host/include/idl
 	-rm -rf $(EROS_ROOT)/include/idl.tmp
