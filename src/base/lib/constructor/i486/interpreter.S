@@ -98,7 +98,7 @@ error:
 	// Got an error in %eax.
 	movl 68(%ebp),%esp	// errorResult
 	cmpl $1,%esp		// faultOnError?
-	jeq halt
+	je halt
 	movl 72(%ebp),%ebp	// destructionOffset
 	addl EXT(DestructionTable),%ebp
 	cmpl $0,%esp		// passErrorThrough?
