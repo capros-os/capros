@@ -1,7 +1,7 @@
 	.file	"crt0.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -75,6 +75,10 @@ Approved for public release, distribution unlimited. */
    This code must not damage key registers 0xf (resume key) or 0xc 
    (first key arg).
    */
+	.data
+/* I don't know how to get the loader to align the .data section, so: */
+	.balign EROS_PAGE_SIZE
+ENTRY(start_data_section)
    
 	.text
 ENTRY(_start)
