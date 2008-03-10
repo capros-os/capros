@@ -242,13 +242,13 @@ All normal user objects fall into this class.
     </p>
     <h3>Reset</h3>
     <p>
-      We assume that non-persistent objects are initialized with no
-      capabilities to persistent objects. Given that, when the system restarts,
-      any keys to persistent objects held by non-persistent objects
-      will be lost. This should not be a problem for the 
-      non-persistent object, because it will be initialized to
+      On a restart, the state of the non-persistent world is reset to its
+      initial state. This means that any capabilities acquired during
+      execution will be lost. 
+      This should not be a problem for the 
+      non-persistent world, because it will be initialized to
       a consistent state. However, a persistent object that expected
-      to be invoked will wait forever. 
+      to be invoked by a non-persistent object may wait forever. 
     </p>
     <p>
       We will solve this problem for resume keys. When the system
@@ -272,19 +272,42 @@ All normal user objects fall into this class.
     </p>
     <p>
       Any keys other than resume keys will be dropped on restart.
-      Start keys should not be held, and other keys are probably not
-      a problem. 
+      If a non-persistent object held a start capability to a
+      persistent process, the persistent process will not be notified
+      that the start capability has been dropped.
       As for security, it should be clear that dropping capabilities
       does not open any vulnerabilities. 
     </p>
     <p>
-      Non-persistent objects could be initialized with capabilities to
-      persistent objects, but they must somehow arrange for the objects
-      to be fetched and pinned before using the capabilities,
-      and they must cope with the reset issue.
-      It seems better to avoid this situation.
+      Non-persistent objects in class 2 could be initialized with capabilities
+      to persistent objects, but they must recognize that the
+      persistent object's state may get out of sync.
     </p>
     <h3>Time Travel</h3>
+    <p>
+      Persistent objects may hold capabilities to non-persistent objects.
+      When the system is restarted,
+      from the point of view of the persistent object,
+      the non-persistent objects appear to travel backwards in time
+      to their initial state. 
+      To alert the persistent object that this has happened, on restart
+      this design would rescind all capabilites in persistent objects
+      to non-persistent objects.
+    </p>
+    <p>
+      This can be implemented as follows. During execution, 
+      non-persistent objects may be allocated and rescinded as normal.
+      This may result in incrementing the object's allocation count.
+      We will keep track of the maximum allocation count of any
+      non-persistent object, and save that on a checkpoint.
+      On restart, all non-persistent objects are given an allocation count
+      equal to that maximum plus one. All capabilities in persistent objects
+      to non-persistent objects will thus be rescinded.
+      Capabilities to non-persistent objects in non-persistent objects
+      will be initialized to contain the new allocation count,
+      so those capabilities will be valid. 
+    </p>
+    <h3>Time Travel - older design</h3>
     <p>
       Persistent objects may hold capabilities to non-persistent objects.
       It is the responsibility of the non-persistent world to control
@@ -333,6 +356,37 @@ All normal user objects fall into this class.
       and non-persistent worlds, one may wonder just how to accomplish
       necessary communication. Here are some design ideas. 
     </p>
+    <h2>Example</h2>
+    <p>
+    The DS2490 driver handles a one-wire bus that is connected
+    via a bridge device to the USB. Paging disks will never be attached to
+    the one-wire bus, but they may be attached to USB, so the driver must
+    not cause a deadlock involving USB.
+    Because USB devices are hot-plugged, the driver may come and go.
+    </p>
+    <p>
+    The driver constructor has as a constituent a start capability to 
+    a persistent process. When a device is recognized (either when the
+    system is booted, or when a device is plugged in),
+    a device driver is constructed, consisting of two processes (threads).
+    One thread responds to requests from the USB bus handler, which it
+    must do as class 1 because the USB bus handler also services
+    paging disks. The second thread will respond to requests
+    from persistent processes for one-wire bus operations. 
+    The second thread will be in class 2
+    while it is receiving or replying to requests, and
+    must not hold any locks needed by the first thread at that time.
+    </p>
+    <p>
+    The driver creates a start capability to the second thread, which we
+    will call a W1Bus capability,
+    and passes it to the constituent start capability.
+    The persistent process that receives the W1Bus capability can now call it 
+    to perform one-wire bus operations. 
+    If the device is unplugged, the driver rescinds the W1Bus cap.
+    If the system restarts, the system rescinds the W1Bus cap.
+    </p>
+    <h2>Design Patterns</h2>
     <p>
       A device driver could be divided into different parts,
       each in a different one of the four classes of objects. 
@@ -363,6 +417,7 @@ All normal user objects fall into this class.
       From class 4, we cannot call class 1, so calling class 2
       makes sense. 
     </p>
+    <h2>Other ideas</h2>
     <p>
       Here is an older design:
       A persistent client process (or front end) could fork
