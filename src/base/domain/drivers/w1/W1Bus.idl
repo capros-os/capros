@@ -1,0 +1,107 @@
+package capros;
+
+interface W1Bus extends key {
+
+  exception BusShorted;
+  exception NoDevicePresent;
+  exception AlarmingPresencePulse;
+
+  /* (Note: 128 is the size of the data FIFOs on the DS2490.) */
+  const unsigned short maxBlockSize = 128;
+
+  /* Bus reset and a read for the presence pulse. */
+  /* raises (BusShorted, NoDevicePresent, AlarmingPresencePulse) */
+  void busReset();
+
+  /* Write 0. */
+  void write0();
+
+  /* Write 1, return bit read. */
+  unsigned byte write1Read();
+
+  /* Write a bit. */
+  void writeBit(unsigned byte bit);
+
+  /* Read a byte. Same as 8 write1Read calls. */
+  unsigned byte readByte();
+
+  /* Write a byte. Same as 8 write0 or write1Read calls. */
+  void writeByte(unsigned byte b);
+
+  /* Read a block. Same as a series of readByte calls. */
+  // variable length. Use OC=1
+  //void readBlock(unsigned short len, variable length data);
+
+  /* Write a block. Same as a series of writeByte calls. */
+  // variable length. Use OC=2
+
+  /* Search
+  Given a starting ROM, find the next ROM on the bus.
+  Raises NoDevicePresent if there is no next ROM. */
+  unsigned <64> searchNext(unsigned <64> startROM);
+
+  /* Search for devices with alarm status. */
+  unsigned <64> conditionalSearchNext(unsigned <64> startROM);
+  
+  /* waitForDisconnect
+  Wait until the device is disconnected.
+  The reply capability need not be a resume cap. */
+  void waitForDisconnect();
+
+  /****************** mode commands *******************/
+
+  void resetDevice();
+
+  /* Set bus speed */
+  unsigned byte enum W1Speed {
+    regular = 0,
+    flexible = 1,
+    overdrive = 2
+  };
+  void setSpeed(W1Speed speed);
+
+  /* Set Strong PullUp Duration.
+  dur = 0: infinite
+  dur = 255: not allowed
+  otherwise dur is the duration in units of 16ms. */
+  void setSPUD(unsigned byte dur);
+
+  /* Set PullDown Slew Rate for flexible speed. */
+  unsigned byte enum PDSR {
+    PDSR1500 = 0,	// 15.00 V/us
+    PDSR220  = 1,	//  2.20 V/us
+    PDSR165  = 2,	//  1.65 V/us
+    PDSR137  = 3,	//  1.37 V/us
+    PDSR110  = 4,	//  1.10 V/us
+    PDSR083  = 5,	//  0.83 V/us
+    PDSR070  = 5,	//  0.70 V/us
+    PDSR055  = 7	//  0.55 V/us
+  };
+  void setPDSR(PDSR pdsr);
+
+  /* Set Write 1 low time for flexible speed. */
+  unsigned byte enum W1LT {
+    W1LT08 = 0,	//  8 us
+    W1LT09 = 1,	//  9 us
+    W1LT10 = 2,	// 10 us
+    W1LT11 = 3,	// 11 us
+    W1LT12 = 4,	// 12 us
+    W1LT13 = 5,	// 13 us
+    W1LT14 = 5,	// 14 us
+    W1LT15 = 7	// 15 us
+  };
+  void setW1LT(W1LT w1lt);
+
+  /* Set Data Sample Offset/Write 0 Recovery time for flexible speed. */
+  unsigned byte enum DSO {
+    DSO03 = 0,	//  3 us
+    DSO04 = 1,	//  4 us
+    DSO05 = 2,	//  5 us
+    DSO06 = 3,	//  6 us
+    DSO07 = 4,	//  7 us
+    DSO08 = 5,	//  8 us
+    DSO09 = 6,	//  9 us
+    DSO10 = 7	// 10 us
+  };
+  void setDSO(DSO dso);
+};
