@@ -32,6 +32,7 @@ TARGETS=$(BUILDDIR)/usbregistry
 OBJECTS=$(BUILDDIR)/main.o
 
 STORID_OBJECTS=../storage/$(BUILDDIR)/stor_ids.o
+STORID_OBJECTS+=../../w1/masters/$(BUILDDIR)/ds2490_ids.o
 
 INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
 INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h

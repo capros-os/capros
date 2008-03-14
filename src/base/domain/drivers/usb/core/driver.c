@@ -285,8 +285,8 @@ int usb_unbind_interface(struct device *dev)
 #endif // CapROS
 
 	/* reset other interface state */
-	usb_set_interface(interface_to_usbdev(intf),
-			intf->altsetting[0].desc.bInterfaceNumber,
+	usb_set_altSetting(interface_to_usbdev(intf),
+			intf,
 			0);
 	usb_set_intfdata(intf, NULL);
 

@@ -189,6 +189,8 @@ urbComplete(struct urb * urb, void * retData, unsigned int retSize)
   } else {
     PSEND(msg);
   }
+
+  usb_free_urb(urb);
 }
 
 static void
@@ -550,6 +552,20 @@ driver_main(void)
       {
         struct usb_host_endpoint * ep = getEp(udev, msg->rcv_w1);
         ep->rejecting = false;
+        break;
+      }
+
+      case OC_capros_USBInterface_clearHalt:
+      {
+        int ret = usb_clear_halt(udev, msg->rcv_w1);
+        msg->snd_code = capros_Errno_ErrnoToException(ret);
+        break;
+      }
+
+      case OC_capros_USBInterface_setAlternateSetting:
+      {
+        int ret = usb_set_altSetting(udev, intf, msg->rcv_w1);
+        msg->snd_code = capros_Errno_ErrnoToException(ret);
         break;
       }
 

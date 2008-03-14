@@ -209,3 +209,5 @@ extern bool waitingForNewInterfaces;
 void newInterface(struct usb_interface * intf);
 void makeInterfaceCap(unsigned long /* cap_t */ process,
   struct usb_interface * intf);
+int usb_set_altSetting(struct usb_device *dev,
+  struct usb_interface * iface, int alternate);

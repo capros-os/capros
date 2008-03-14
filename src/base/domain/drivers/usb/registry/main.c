@@ -64,11 +64,13 @@ uint32_t __rt_unkept = 1;
    and grow the list dynamically. */
 
 extern struct usb_device_id storage_usb_ids;
+extern struct usb_device_id ds2490_usb_ids;
 
-#define NUM_DRIVERS 1
+#define NUM_DRIVERS 2
 
 struct usb_driver_registration drivers[NUM_DRIVERS] = {
-  {&storage_usb_ids, 0}
+  {&storage_usb_ids, 0},
+  {&ds2490_usb_ids, 1}
 };
 
 /* returns 0 if no match, 1 if match */

@@ -23,6 +23,7 @@ Approved for public release, distribution unlimited. */
 
 #include <drivers/usbhcd.map>
 #include <drivers/usbstor.map>
+#include <drivers/ds2490.map>
 
 /*********************************************
  * USB Registry
@@ -39,6 +40,7 @@ usbregistryProc symtab = number("usbregistry");
 
 usbregSnode = new node;
 usbregSnode[0] = usbstor_cRequestor;
+usbregSnode[1] = ds2490_cRequestor;
 
 usbregistryProc key reg KR_BANK = primebank;
 usbregistryProc key reg KR_SCHED = sched(8);

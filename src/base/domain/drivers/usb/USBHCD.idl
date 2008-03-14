@@ -146,6 +146,11 @@ interface USBInterface extends USB {
   endpoint has the same format as urb.endpoint.  */
   void clearRejecting(unsigned long endpoint);
 
+  /* Clear any halt/stall condition of the specified endpoint. */
+  void clearHalt(unsigned long endpoint);
+
+  void setAlternateSetting(unsigned byte settingNumber);
+
   /** Reset device
 
   */
@@ -193,7 +198,7 @@ interface USBInterface32 extends USBInterface {
   If the urb is accepted, this method returns RC_OK when the
       transfer is complete.
       NOTE: This behavior is different from Linux usb_submit_urb!
-    If urbResult.status == 0, completion is Void.
+    If urbResult.status == 0, complCap is Void.
     If urbResult.status is not zero, complCap is a resume capability
       and transmission of urbs to the endpoint is temporarily suspended.
       You must send a message to complCap when you want to allow

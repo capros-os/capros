@@ -720,7 +720,8 @@ static int hub_configure(struct usb_hub *hub,
 			hub->tt.hub = hdev;
 			break;
 		case 2:
-			ret = usb_set_interface(hdev, 0, 1);
+			ret = usb_set_altSetting(hdev,
+				usb_ifnum_to_if(hdev, 0), 1);
 			if (ret == 0) {
 				dev_dbg(hub_dev, "TT per port\n");
 				hub->tt.multi = 1;
@@ -3065,7 +3066,7 @@ int usb_reset_device(struct usb_device *udev)
 		 * for altsetting zero.  the interface may have no driver.
 		 */
 		desc = &intf->cur_altsetting->desc;
-		ret = usb_set_interface(udev, desc->bInterfaceNumber,
+		ret = usb_set_altSetting(udev, intf,
 			desc->bAlternateSetting);
 		if (ret < 0) {
 			dev_err(&udev->dev, "failed to restore interface %d "

@@ -30,7 +30,6 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=lib
 DIRS+=storage
-DIRS+=registry
 
 TARGETS=$(BUILDDIR)/usbhcd
 VPATH=core:host

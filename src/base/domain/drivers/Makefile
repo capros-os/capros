@@ -22,7 +22,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: package
+default: install
 
 EROS_SRC=../../..
 include $(EROS_SRC)/build/make/makevars.mk
@@ -37,6 +37,8 @@ DIRS+=network
 # DIRS+=console # broken due to RETRY_SET_LIK
 else	# ARM-only drivers
 DIRS+=usb	# so far, ARM only
+DIRS+=w1
+DIRS+=usb/registry	# must follow USB drivers
 DIRS+=scsi	# so far, ARM only
 endif
 

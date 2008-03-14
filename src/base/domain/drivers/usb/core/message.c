@@ -1167,7 +1167,7 @@ static void usb_enable_interface(struct usb_device *dev,
 }
 
 /**
- * usb_set_interface - Makes a particular alternate setting be current
+ * usb_set_altSetting - Makes a particular alternate setting be current
  * @dev: the device whose interface is being updated
  * @interface: the interface being updated
  * @alternate: the setting being chosen.
@@ -1199,22 +1199,16 @@ static void usb_enable_interface(struct usb_device *dev,
  * Returns zero on success, or else the status code returned by the
  * underlying usb_control_msg_dma() call.
  */
-int usb_set_interface(struct usb_device *dev, int interface, int alternate)
+int usb_set_altSetting(struct usb_device *dev,
+  struct usb_interface * iface, int alternate)
 {
-	struct usb_interface *iface;
+	int interface = usb_interface_getNumber(iface);
 	struct usb_host_interface *alt;
 	int ret;
 	int manual = 0;
 
 	if (dev->state == USB_STATE_SUSPENDED)
 		return -EHOSTUNREACH;
-
-	iface = usb_ifnum_to_if(dev, interface);
-	if (!iface) {
-		dev_dbg(&dev->dev, "selecting invalid interface %d\n",
-			interface);
-		return -EINVAL;
-	}
 
 	alt = usb_altnum_to_altsetting(iface, alternate);
 	if (!alt) {
@@ -1783,6 +1777,5 @@ EXPORT_SYMBOL(usb_string);
 // synchronous calls that also maintain usbcore state
 EXPORT_SYMBOL(usb_clear_halt);
 EXPORT_SYMBOL(usb_reset_configuration);
-EXPORT_SYMBOL(usb_set_interface);
 
 #endif // CapROS
