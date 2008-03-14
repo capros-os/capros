@@ -244,7 +244,13 @@ struct usb_host_interface theSetting;
 struct usb_interface theIntf;
 struct usb_device theUsbDev;
 
-void
+static void
+TearDownStructures(void)
+{
+  usbdev_buffer_destroy();
+}
+
+static void
 SetUpStructures(void)
 {
   result_t result;
@@ -1383,10 +1389,7 @@ driver_main(void)
         break;
 
       case OC_capros_USBDriver_disconnect:
-        storage_disconnect(&theIntf);
-	usb_stor_exit();
-        // FIXME: there is a memory leak here somewhere
-        return RC_OK;
+        goto disconnect;
 
       case OC_capros_USBDriver_suspend:
 assert(false);//// need to implement
@@ -1430,4 +1433,11 @@ assert(false);//// need to implement
     default: assert(false);
     }
   }
+
+disconnect:
+  storage_disconnect(&theIntf);
+  usb_stor_exit();
+  TearDownStructures();
+  // FIXME: there is a memory leak here somewhere
+  return RC_OK;
 }

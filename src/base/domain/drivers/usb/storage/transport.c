@@ -112,11 +112,11 @@ Approved for public release, distribution unlimited. */
  * called more than once or from being called during usb_submit_urb().
  */
 
-void usb_stor_urb_complete_function(struct urb * urb)
+static void usb_stor_urb_complete_function(struct urb * urb)
 {	// does nothing
 }
 
-void usb_stor_msg_timer_function(unsigned long data)
+static void usb_stor_msg_timer_function(unsigned long data)
 {
 	US_DEBUGP("Timeout -- cancelling URB\n");
 	usb_unlink_endpoint(data);
