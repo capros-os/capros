@@ -33,6 +33,47 @@ Approved for public release, distribution unlimited. */
 
 #include <domain/assert.h>
 #include "usbdev.h"
+unsigned long capros_Errno_ExceptionToErrno(unsigned long);
+
+
+/**
+ * usb_get_dev - increments the reference count of the usb device structure
+ * @dev: the device being referenced
+ *
+ * Each live reference to a device should be refcounted.
+ *
+ * Drivers for USB interfaces should normally record such references in
+ * their probe() methods, when they bind to an interface, and release
+ * them by calling usb_put_dev(), in their disconnect() methods.
+ *
+ * A pointer to the device with the incremented reference counter is returned.
+ */
+struct usb_device * usb_get_dev(struct usb_device * dev)
+{
+	if (dev)
+		get_device(&dev->dev);
+	return dev;
+}
+
+/**
+ * usb_put_dev - release a use of the usb device structure
+ * @dev: device that's been disconnected
+ *
+ * Must be called when a user of a device is finished with it.  When the last
+ * user of the device calls this function, the memory of the device is freed.
+ */
+void usb_put_dev(struct usb_device * dev)
+{
+	if (dev)
+		put_device(&dev->dev);
+}
+
+int usb_set_interface(struct usb_device * dev, int interface, int alternate)
+{
+  result_t result = capros_USBInterface_setAlternateSetting(KR_USBINTF,
+	alternate);
+  return capros_Errno_ExceptionToErrno(result);
+}
 
 int usb_reset_composite_device(struct usb_device *udev,
                 struct usb_interface *iface)
@@ -52,4 +93,10 @@ void usb_settoggle(struct usb_device * dev, unsigned char endpointNum,
   unsigned int out, unsigned int bit)
 {
   BUG_ON("usb_settoggle unimplemented!");
+}
+
+int usb_clear_halt(struct usb_device *dev /* unused */, int pipe)
+{
+  result_t result = capros_USBInterface_clearHalt(KR_USBINTF, pipe);
+  return - capros_Errno_ExceptionToErrno(result);
 }

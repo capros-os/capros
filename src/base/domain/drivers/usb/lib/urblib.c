@@ -332,14 +332,19 @@ printk("%s: returning errno %d from submitUrb", __FUNCTION__, errno);////
     if (st) {
       // If accepted and completed with nonzero status,
       // we must return to KR_TEMP0 after the completion routine. 
-      Message msgs;
-      Message * const msg = &msgs;  // to address it consistently
-      msg->snd_key0 = msg->snd_key1 = msg->snd_key2 = msg->snd_rsmkey = KR_VOID;
-      msg->snd_w1 = msg->snd_w2 = msg->snd_w3 = 0;
-      msg->snd_code = RC_OK;
-      msg->snd_len = 0;
-      msg->snd_invKey = KR_TEMP0;
-      PSEND(msg);
+      Message Msg = {
+        .snd_invKey = KR_TEMP0,
+        .snd_code = RC_OK,
+        .snd_w1 = 0,
+        .snd_w2 = 0,
+        .snd_w3 = 0,
+        .snd_key0 = KR_VOID,
+        .snd_key1 = KR_VOID,
+        .snd_key2 = KR_VOID,
+        .snd_rsmkey = KR_VOID,
+        .snd_len = 0
+      };
+      PSEND(&Msg);
     }
     return 0;
   }
