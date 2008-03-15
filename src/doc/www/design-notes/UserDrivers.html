@@ -256,6 +256,9 @@ All normal user objects fall into this class.
       For each resume key it finds, it will save the state of the
       waiting process such that if restarted from that state,
       the process will run and re-execute its CALL invocation. 
+      Assuming that the CALL was directly to a non-persistent process,
+      that cap will have been rescinded (see below), and the
+      response from the now-void cap will signal the restart.
       Alternatively, it could save the state such that if restarted,
       the process will find that the CALL has returned with a
       distinctive reply code.
@@ -330,8 +333,8 @@ All normal user objects fall into this class.
       When a device, to which access is required from persistent objects,
       is recognized, either when the system is booted, or when the
       device is later attached to the system,
-      the driver calls the start cap to the Bridge process
-      passing a cap (the "device cap") (usually a start cap)
+      the driver sends to the start cap to the Bridge process
+      a message containing a cap (the "device cap") (usually a start cap)
       to the non-persistent object (which must be in class 2)
       that provides access to the device.
       The Bridge process is responsible for granting this cap
