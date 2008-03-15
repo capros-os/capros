@@ -256,6 +256,9 @@ All normal user objects fall into this class.
       For each resume key it finds, it will save the state of the
       waiting process such that if restarted from that state,
       the process will run and re-execute its CALL invocation. 
+      Alternatively, it could save the state such that if restarted,
+      the process will find that the CALL has returned with a
+      distinctive reply code.
     </p>
     <p>
       In that case, the operation that was requested by the CALL
@@ -286,107 +289,141 @@ All normal user objects fall into this class.
     <h3>Time Travel</h3>
     <p>
       Persistent objects may hold capabilities to non-persistent objects.
+      A persistent process may hold and call a start key to an object
+      in class 2.
       When the system is restarted,
       from the point of view of the persistent object,
       the non-persistent objects appear to travel backwards in time
       to their initial state. 
       To alert the persistent object that this has happened, on restart
-      this design would rescind all capabilites in persistent objects
+      we will rescind all capabilites in persistent objects
       to non-persistent objects.
     </p>
     <p>
       This can be implemented as follows. During execution, 
-      non-persistent objects may be allocated and rescinded as normal.
+      non-persistent objects may be allocated and rescinded as normal,
+      from a space bank that allocates from a non-persistent range.
       This may result in incrementing the object's allocation count.
       We will keep track of the maximum allocation count of any
       non-persistent object, and save that on a checkpoint.
       On restart, all non-persistent objects are given an allocation count
-      equal to that maximum plus one. All capabilities in persistent objects
+      equal to that maximum plus one.
+      The call count is treated similarly.
+      All capabilities in persistent objects
       to non-persistent objects will thus be rescinded.
       Capabilities to non-persistent objects in non-persistent objects
       will be initialized to contain the new allocation count,
       so those capabilities will be valid. 
     </p>
-    <h3>Time Travel - older design</h3>
-    <p>
-      Persistent objects may hold capabilities to non-persistent objects.
-      It is the responsibility of the non-persistent world to control
-      the capabilities that can find their way to the
-      persistent world.
-      Such capabilities should be designed with the awareness that
-      the non-persistent state is not checkpointed and will be reset
-      when the system is restarted.
-      From the point of view of the persistent object,
-      the non-persistent objects appear to travel backwards in time
-      to their initial state. 
-    </p>
-    <p>
-      A persistent process may hold and call a start key to an object
-      in class 2, provided it has no assumptions about the state
-      of the object. 
-    </p>
-    <p>
-      Clearly a resume key to a non-persistent process suffers from
-      the time travel problem.
-    </p>
-    <p>
-      A memory key to a non-persistent segment may be used for two-way
-      communication, with a protocol that allows the persistent user
-      to discover when the non-persistent state has been reset. 
-      Atomic operations can be used to make consistent updates,
-      but I don't think locks will work across the persistence boundary.
-    </p>
-    <p>
-      If a key to a non-persistent object is held by a persistent process,
-      you should not delete the non-persistent object or revoke the key,
-      because such actions will be undone by time travel.
-    </p>
-    <p>
-      There could be some type of rendezvous object that the user and
-      driver use to pass messages.
-      When both (1) the driver has called to receive a message,
-      and (2) the user has called to send a message, the message is delivered.
-      (This is a bit like a Coyotos Endpoint, but the message is 
-      restricted; no keys can be passed.) 
-      The rendezvous object would be considered non-persistent. 
-    </p>
     <h1>Communication</h1>
     <p>
-      With such severe limitations on the connections between the persistent
-      and non-persistent worlds, one may wonder just how to accomplish
-      necessary communication. Here are some design ideas. 
+      Here is a design for communication between the persistent
+      and non-persistent worlds, that respects the severe limitations
+      described above.
     </p>
+    <p>
+      There is a persistent process with a well-known OID, that we call
+      the Bridge process [need a better name].
+      (There could be more than one Bridge process; for this discussion
+      we assume there is only one.)
+      Non-persistent drivers may have a start cap to the Bridge process.
+      When a device, to which access is required from persistent objects,
+      is recognized, either when the system is booted, or when the
+      device is later attached to the system,
+      the driver calls the start cap to the Bridge process
+      passing a cap (the "device cap") (usually a start cap)
+      to the non-persistent object (which must be in class 2)
+      that provides access to the device.
+      The Bridge process is responsible for granting this cap
+      to the appropriate client of the device.
+    </p>
+    <p>
+      Communication between the device and the client proceeds normally
+      until the system restarts. Then,
+      as described above, the device cap, and any other caps to
+      non-persistent objects, which may have been derived from the
+      device cap, are rescinded.
+      The client will discover the rescission the next time it tries
+      to use one of these caps, and will use that information
+      to initiate whatever restart recovery is appropriate.
+      If and when the device is present after the restart,
+      a new device cap to it will be created and distributed once again
+      as described above. 
+    </p>
+    <h2>Upgrading</h2>
+    <p>
+      This design allows either side of the interface to be upgraded,
+      while protecting against the possibility of an unscheduled
+      restart at any time.
+      To upgrade the non-persistent side:
+    </p>
+<ol>
+<li> Create the new non-persistent objects in the boot image.
+This may be in a new non-persistent disk range.
+<li> Set up the boot image so that when and if
+the system is restarted, it will use the new objects.
+To protect against a restart at any time, this must be atomic.
+That is, there is a point X in time such that
+a restart at any time, up to point X, will use the old objects,
+and a restart at any time after point X will use the new objects.
+<li> Create the new non-persistent objects in the running system,
+and arrange to transfer operation from the old to the new objects.
+Then destroy the old objects.
+This step is no different than upgrading persistent objects. 
+Alternatively, you may restart the system.
+</ol>
+    <p>
+      Upgrading the persistent side can be done as follows:
+    </p>
+<ol>
+<li> Create the new Bridge process.
+<li> Upgrade the non-persistent side to use the new Bridge process.
+This may be as simple as replacing the cap to the old Bridge process,
+or it may require the procedure above.
+<li> Destroy the old Bridge process.
+</ol>
     <h2>Example</h2>
     <p>
-    The DS2490 driver handles a one-wire bus that is connected
-    via a bridge device to the USB. Paging disks will never be attached to
-    the one-wire bus, but they may be attached to USB, so the driver must
-    not cause a deadlock involving USB.
-    Because USB devices are hot-plugged, the driver may come and go.
+      Consider the driver for a USB mouse.
     </p>
     <p>
-    The driver constructor has as a constituent a start capability to 
-    a persistent process. When a device is recognized (either when the
+      The mouse is obviously not a paging device, but it interfaces
+      with the USB bus, which may also have paging devices.
+      In the current implementation, the USB host controller driver
+      (which manages the bus) has dependencies on the USB device drivers.
+      For example, if the mouse is unplugged, the mouse driver receives
+      a notification, to which it must respond promptly.
+      While processing such a notification, the mouse driver is in class 1,
+      because a page fault may depend on the USB host controller driver
+      which depends on the mouse driver.
+    </p>
+    <p>
+    Because USB devices are hot-plugged, the driver is constructed
+    as needed.
+    The constructor has as a constituent a start capability to 
+    the Bridge process. When a mouse is recognized (either when the
     system is booted, or when a device is plugged in),
-    a device driver is constructed, consisting of two processes (threads).
+    a driver is constructed, consisting of two processes (threads).
     One thread responds to requests from the USB bus handler, which it
-    must do as class 1 because the USB bus handler also services
-    paging disks. The second thread will respond to requests
-    from persistent processes for one-wire bus operations. 
+    must do as class 1.
+    The second thread will respond to requests
+    from persistent processes for mouse I/O. 
     The second thread will be in class 2
     while it is receiving or replying to requests, and
     must not hold any locks needed by the first thread at that time.
     </p>
     <p>
-    The driver creates a start capability to the second thread, which we
-    will call a W1Bus capability,
-    and passes it to the constituent start capability.
-    The persistent process that receives the W1Bus capability can now call it 
-    to perform one-wire bus operations. 
-    If the device is unplugged, the driver rescinds the W1Bus cap.
-    If the system restarts, the system rescinds the W1Bus cap.
+    The second thread passes to the Bridge process
+    a start capability to itself, which we
+    will call a mouse capability.
+    If the mouse is unplugged, the driver rescinds the mouse cap.
+    If the system restarts, the system rescinds the mouse cap.
     </p>
     <h2>Design Patterns</h2>
+    <p>
+      Some drivers, such as the serial port driver, are totally separate
+      from the PFH. They can be entirely in class 2. 
+    </p>
     <p>
       A device driver could be divided into different parts,
       each in a different one of the four classes of objects. 
@@ -401,7 +438,7 @@ All normal user objects fall into this class.
       in class 2 that is the user interface, and the rest in class 1
       acting as a server for both the class 2 part and the kernel. 
       The user interface can pin (and unpin) user objects if it is necessary
-      for the class 1 part to access them. 
+      for the class 1 part to read them. 
     </p>
     <p>
       Another design issue concerns protection boundaries. 
@@ -416,52 +453,6 @@ All normal user objects fall into this class.
       with the fewest gate jumps. 
       From class 4, we cannot call class 1, so calling class 2
       makes sense. 
-    </p>
-    <h2>Other ideas</h2>
-    <p>
-      Here is an older design:
-      A persistent client process (or front end) could fork
-      to a start key to a driver
-      with a message that says, for example, "Start reading from location x". 
-      Then the client process does some operation (to be designed)
-      that waits for completion.
-      (Compare with the Linux "wait queue".) 
-      When the read completes, the driver causes the process to be restarted.
-      No data can be sent to the client at this time, because 
-      the client may have been paged out. Instead, the driver places results
-      in a (nonpersistent) shared segment. 
-      The client then re-executes its wait operation, which notes that
-      the operation is completed and returns immediately.
-      The client then looks in the shared segment for any results. 
-    </p>
-    <p>
-      Note that restarting a client process that is waiting on a wait queue
-      is safe, because while waiting there is an Activity structure for the
-      process that is memory-resident.
-      ("Activity" is the name of the kernel structure that tracks
-      processes in the Running state.)
-      The Activity structure is
-      sufficient to page in the rest of the process. 
-      In contrast, when a process has called another process, only the
-      resume capability is left, and the invoker of the resume capability
-      is responsible for paging in the process. 
-    </p>
-    <p>
-      When a persistent client and a non-persistent driver
-      are in communication,
-      it is important to be able to upgrade one or the other while
-      maintaining the communication. 
-      Since the non-persistent world has no capabilities to the
-      persistent world, upgrading a persistent client is no more
-      difficult than upgrading any other persistent object. 
-      To upgrade a non-persistent driver, here is one strategy.
-      Create a new non-persistent disk range and install the new
-      driver in it. Give the client the keys to the new driver and 
-      instruct it to start using them when it next discovers that 
-      the system is rebooted. 
-      Overwrite the old driver on disk, so it will not operate in conflict
-      with the new driver.
-      Then reboot the system. 
     </p>
     <h1>Linux Userspace I/O drivers</h1>
     <p>
