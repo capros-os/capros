@@ -47,8 +47,18 @@ EROS_ROOT=$(firstword $(subst /eros/$(EROS_SRCDIR), ,$(PWD)))/eros
 
 endif
 
+GOOD_TARGET=0
 ifndef EROS_TARGET
 EROS_TARGET=i486
+endif
+ifeq ($(EROS_TARGET),i486)
+GOOD_TARGET=1
+endif
+ifeq ($(EROS_TARGET),arm)
+GOOD_TARGET=1
+endif
+ifneq ($(GOOD_TARGET),1)
+$(error "arm" and "i486" are the only supported values of EROS_TARGET)
 endif
 
 # Sometimes we want i486 (for compatibility with EROS stuff),
