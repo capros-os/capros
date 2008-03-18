@@ -1009,7 +1009,101 @@ struct CoreDirent {
 };
 	      </pre>
 	  </ul>
-	  <hr>
+  <h2>Appendix A - Another approach to NV RAM support</h2>
+    <p>
+      The design selected for CapROS above tries to avoid "hot spots"
+      on disk, but still has "warm spots" in the checkpoint headers
+      and possibly in the home locations. By having a large number of
+      checkpoint headers, the heat in that part of the NV RAM is
+      reduced to a level which should meet the device life requirements.
+    </p>
+    <p>
+      The following design is based on the goal of never re-writing a
+      location in the log until all other locations have been written
+      (exactly once). It was rejected because:
+    </p>
+    <ol>
+      <li>It uses cryptography. Using cryptography introduces the need
+	for a good source of random numbers, and builds a dependence
+	on the quality of cryptographic algorithms which is not
+	present in CapROS for any other reason.
+      </li>
+      <li>It is vulnerable to any kind write error occuring when, after
+	the log has wraped back to the beginning, the first checkpoint
+	header is rewritten. An error rewriting the first checkpoint
+	header will prevent restart from any checkpoint (because you
+	won't be able to find them). This issue could be addressed
+	by replicating the first checkpoint header (in lid=0 and
+	lid=1).
+      </li>
+    </ol>
+    <h3>The design</h3>
+    <p>
+      The log range page with LogDI (lid) 0 is the first checkpoint
+      header. When the disk is formated, it is initialized to all zeroes.
+      LogID 0 is always a checkpoint header, and acts as the root of all
+      the checkpoint headers on the disk. All the log ranges on the
+      system make up a single logical checkpoint area which is written
+      sequentially in order of increasing LogIDs. When a checkpoint
+      reaches the end of the available log ranges, it wraps around to the
+      beginning, starting with lid=1.
+    </p>
+    <p>
+      Each checkpoint header holds pointers to information about the
+      checkpoint, more-or-less following those described in in the
+      chosen design. In addition they hold forward and back pointers
+      to checkpoint headers for previous and subsiquent checkpoints
+      as follows:
+    </p>
+    <pre>
+  HMACValue checksum;
+  LID next;
+  LID previous;
+  LID hasMigrated;
+  HMACKey nextMac;
+  HMACKey previousMac;
+  64bitint serialNumber;
+    </pre>
+    <p>
+      The last operation in a checkpoint is writing the checkpoint header
+      which is usually the first block of the checkpoint. (If the
+      checkpoint wraps the log ranges, lid=0 will be the header for that
+      checkpoint, and the first block of the checkpoint will either
+      contain checkpoint data or remain unused.) Note that while we can
+      calculate the lid of the next checkpoint, and generate a HMACKey
+      for it, the header for that checkpoint will probably not contain a
+      checkpoint header. It will probably be the contents of some old
+      page, a log pot of nodes or checkpoint directory data. We use the
+      HMAC to separate a checkpoint header from the other cases.
+    </p>
+    <p>
+      The restart strategy is:
+    </p>
+    <pre>
+  Read lid=0
+  If that frame is all zeroes, there are no checkpoints. Stop.
+  Do
+    Read the next checkpoint header.
+    If the HMAC does not check or the serialNumber is lower than
+            the previous serialNumber break;
+  Enddo
+    </pre>
+    <p>
+      We how have the most recent checkpoint, and can restart from it.
+      We can use the back pointers to find the checkpoint(s) that need
+      migration. 
+    </p>
+    <h3>Additional Thought</h3>
+    <p>
+      We don't actually need "home ranges" at all. KeyKOS had the concept
+      of "limbo", where, if when it came time to migrate a page or
+      node, its home
+      range wasn't mounted, the kernel simply marked it "dirty" and let
+      it be written into the next checkpoint. This kind of logic could be
+      used for all pages and nodes in the system, eliminating the home
+      locations as hot spots.
+    </p>
+    <hr>
 <table>
 <tr valign=top>
   <td width=92>
