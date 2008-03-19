@@ -1169,7 +1169,7 @@ static void usb_enable_interface(struct usb_device *dev,
 /**
  * usb_set_altSetting - Makes a particular alternate setting be current
  * @dev: the device whose interface is being updated
- * @interface: the interface being updated
+ * @iface: the interface being updated
  * @alternate: the setting being chosen.
  * Context: !in_interrupt ()
  *

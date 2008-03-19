@@ -476,7 +476,7 @@ EXPORT_SYMBOL_GPL(usb_match_one_id);
 
 /**
  * usb_match_id - find first usb_device_id matching device or interface
- * @interface: the interface of interest
+ * @param interface the interface of interest
  * @id: array of usb_device_id structures, terminated by zero entry
  *
  * usb_match_id searches an array of usb_device_id's and returns
