@@ -231,7 +231,7 @@ All normal user objects fall into this class.
       because the PFH must not receive and use the resume key. 
     </p>
     <p>
-      More generally, the PFH could be designed to handle its own faults
+      More generally, the PFH could be designed to handle its own page faults
       recursively. There needs to be some limit on the depth of recursion.
       For simplicity, we will design with no recursion. 
     </p>
@@ -301,6 +301,18 @@ All normal user objects fall into this class.
       To alert the persistent object that this has happened, on restart
       we will rescind all capabilites in persistent objects
       to non-persistent objects.
+    </p>
+    <p>
+      (The effect of this is similar, from the point of view of the
+      persistent world, to what would happen if the
+      non-persistent world were created out of a single space bank,
+      and on restart that bank were asked to reclaim all the space
+      created from it. 
+      Note that on restart, unlike the SpaceBank.destroySpace operation, 
+      resume caps held in objects created under the bank will be
+      effectively invoked with an error code.
+      The equivalent KeyKOS space bank operation did invoke such
+      resume caps, and we believe the CapROS bank should also.)
     </p>
     <p>
       This can be implemented as follows. During execution, 

@@ -17,14 +17,15 @@
 	  </p>
 	  <h2>1. Background</h2>
 	  <p>
-	    The CapROS checkpoint design differs significantly from the
-	    KeyKOS design, but many of the <em>ideas</em> of the
-	    KeyKOS design still pertain.  The KeyKOS design is
+	    The CapROS checkpoint design differs from the
+	    KeyKOS and EROS designs, but many of the <em>ideas</em> of
+	    those designs still pertain.  The KeyKOS design is
 	    described in <a
 	      href="http://www.cis.upenn.edu/~KeyKOS/Checkpoint.html"><em>The 
 		Checkpoint Mechanism in KeyKOS</em></a>.  The
-	    differences between the two systems can be summarized as
-	    follows:
+	    differences between CapROS and the older systems are summarized 
+            here. You can skip this section if you're not interested
+            in the history.
 	  </p>
 	  <ul>
 	    <li>
@@ -41,7 +42,7 @@
 		fashion, and divides this area dynamically into
 		several generations.  A generation is permitted to
 		occupy up to a fixed percentage of the checkpoint area
-		(typically 65%) called the <em>limit-percent</em>
+		(called the <em>limit-percent</em>, typically 65%)
 		before a checkpoint must be declared.
 		A new generation is then started and a previous checkpoint
 		generation is migrated.
@@ -65,8 +66,7 @@
 	    </li>
 	    <li>
 	      <p>CapROS can have several generations of checkpoints 
-		which have not yet been migrated (several active
-		checkpoint areas).
+		which have not yet been migrated.
 		While KeyKOS had logic
 		which skipped migration of a page (or node) which had been 
 		changed since the checkpoint was taken (because it would be
@@ -74,29 +74,22 @@
 		some of the frequently changed objects would be migrated
 		before they were changed in the current generation. By
 		not starting migration until more than one checkpoint
-		has been taken, active pages and nodes have a chance
+		has been taken, active pages and nodes have a greater chance
 		to be modified before they are even considered for migration.
 	      </p>
-	      <p>While there is more than one checkpoint outstanding,
+	      <p>Although there is more than one checkpoint outstanding,
 		this version of the checkpoint logic does not permit
 		restart from other than the most recently stabilized
 		checkpoint.
 	      </p>
 	    </li>
 	    <li>
-	      <p>In order to support Non-volatle RAM devices (NV RAM), which
+	      <p>In order to support flash memory devices, which
 		wear out after a limited number of write cycles,
 		CapROS keeps a large number of checkpoint header frames
 		at the beginning of the log area. This strategy limits
 		the number of writes to a single header, and reduces
 		the "heat" of this natural hot spot.
-	      </p>
-	      <p>If we assume 1 checkpoint/second and a design life of 
-		ten years, then there will be about 315,576,000
-		checkpoints taken. If we assume the device has
-		a life-span
-		of 1,000,000 writes before device failure, then 
-		we will need 316 checkpoint header frames.
 	      </p>
 	    </li>
 	    <li>
@@ -105,17 +98,17 @@
 		an object is modified a second time it gets a new
 		location.  The reasons for this choice are to avoid
 		seeks and head settling delays where possible,
-		and to permit chained writes on the 370 disks which
+		and to permit chained writes on the IBM S/370 disks which
 		allowed actual data rates to approach the theoretical
 		maximum.
 	      </p>
 	      <p>EROS adopted a strategy of re-writing a page in the
 		original working area location if it was paged out twice
 		during one checkpoint interval. This strategy had the
-		advantage of reducing seek distances within a checkpoint.
+		advantage of saving space.
 	      <p>
-		Because of the need to support NV RAM for checkpoints 
-		CapROS will do the follow the KeyKOS strategy. This
+		Because of the need to support logs in flash memory,
+		CapROS will follow the KeyKOS strategy. This
 		strategy has the advantage of eliminating a source of
 		"hot spots" on the disk.
 	      </p>
@@ -126,11 +119,11 @@
 		memory of that area's prior content is discarded.
 	      </p>
 	      <p>
-		EROS preserves a record of object locations in the
-		checkpoint area until their storage is actually
-		reused. This strategy should reduce the number of
+		EROS preserved a record of object locations in the
+		checkpoint area until their storage was actually
+		reused. This strategy reduced the number of
 		seeks to areas outside the checkpoint area, improving
-		disk performance. It will also increase the number of
+		disk performance. It also increased the number of
 		locations for a page or node, allowing fetches to be
 		scheduled on less-active devices. 
 	      </p>
@@ -143,7 +136,7 @@
 	      <p>
 		EROS kept 28 bit log location IDs (<i>lid</i>, see
 		below) in the Object Directory part of the checkpoint.
-		Once you account for the 8 bits of node index,
+		Once you account for the 8 bits of object offset,
 		this size results in a maximum of
 		2<sup>20</sup> frames in the log, which is barely enough to
 		hold the RAM of a modern desktop processor. CapROS
@@ -155,7 +148,7 @@
 		EROS kept a 2 level tree for the on-disk Object
 		Directory. This limited the size of a checkpoint to
 		259,080 objects. CapROS chains Object Directory pages
-		together, so there is no artifical limit on the number
+		together, so there is no artificial limit on the number
 		of objects in a checkpoint. CapROS uses the same
 		technique for the Process Directory in the checkpoint.
 	      </p>
@@ -167,61 +160,103 @@
 	      </p>
 	    </li>
 	  </ul>
-	  <h3>1.1 CapROS Definitions</h3>
-	      <ul>
-		<li><i>Active area</i> The area containing checkpoints
-		  which have not been migrated.
-		<li><i>Active checkpoint headers</i> The checkpoint
-		  headers which describe the active area. They are the
-		  checkpoint headers from most recently written
-		  checkpoint header back to, but not including the
-		  header pointed to by the hasMigrated field in the
-		  most recently written checkpoint header.
-		<li><i>Checkpoint Cursor</i> The next location to be
-		  written in the log.
-		<li><i>Checkpoint depth</i> The number of checkpoints
-		  between the most recent checkpoint and the one being
-		  migrated.
-		<li><i>Limit Percent</i> The maximum amount of the
-		space available for check points in the log which one
-		checkpoint may use.
-		<li><i>Stabilized checkpoint</i> A checkpoint where
-		  all the pages, nodes, directories, etc. have been
-		  written to disk. The last thing written in stabilizing
-		a checkpoint is its checkpoint header.
-		<li><i>Restart checkpoint header</i> The checkpoint
-		  header of the most recent checkpoint during a restart.
-		<li><i>Working area</i> The area being used for page
-		  out operations as part of virtual memory
-		  operations. It will contain the next checkpoint to be
-		  declared.
-	      </ul>
-	  <h2>2. On-Disk Checkpoint Area</h2>
+	  <h3>2. Definitions</h3>
+          <dl>
+            <dt>Demarcation event
+            <dd>A point in time, as of which the state of all the objects
+                  in the system will be preserved.
+                  When the system restarts, it is initialized to the state
+                  at a demarcation event.
+            <dt>Generation
+            <dd>The set of objects that have been changed in the interval
+                  from one demarcation event to the next.
+            <dt>Stabilization event
+            <dd>After a demarcation event is declared, stabilization occurs
+                  when all the state of that generation
+                  (objects, processes, directories, and header)
+                  has been saved to the log.
+                  Writing the generation header is the last act
+                  before stabilization.
+            <dt>Restart generation
+            <dd>The most recent stabilized generation.
+                 This generation will be selected for a restart.
+            <dt>Working generation
+            <dd>The generation after the restart generation.
+                It is not yet stabilized.
+            <dt>Active checkpoint
+            <dd>From the time of a demarcation event until the next
+                stabilization event has occurred, we say that a
+                checkpoint is active. During this time the system
+                is working to stabilize the working generation.
+            <dt>Next generation
+            <dd>While a checkpoint is active, any objects that are changed
+                  belong to the next generation (the one after the 
+                  working generation).
+                  The next generation exists only in RAM, not on disk.
+            <dt>Unmigrated generation
+            <dd>A generation that has not been fully migrated.
+                It may be partially migrated.
+            <dt>Retired generation
+            <dd>A generation that is as old or older than the generation
+                 identified in the migratedSeqNum field of the restart
+                 generation header.
+                 A retired generation has been migrated.
+                 On a restart, retired generations must not be used
+                 because they may have been overwritten with 
+                 unstabilized data.
+            <dt>Log
+            <dd>The area of disk reserved for saving generations.
+                The log is divided into the header log and the main log.
+            <dt>Header Log
+            <dd>The initial portion of the log, used for saving
+                generation headers.
+                Headers are segregated from other generation data
+                so they can be easily located on a restart.
+            <dt>Header log cursor
+            <dd>Headers are written sequentially in a circle. 
+                The header log cursor is the point
+                in the header log where the next header will be written.
+            <dt>Main log
+            <dd>The log, excluding the header log.
+                Generation state data other than headers are written
+                to the main log.
+            <dt>Main log cursor
+            <dd>Generation data other than headers are written
+                sequentially in a circle.
+                The main log cursor is the point
+                in the main log where data will next be written.
+            <dt>Limit percent
+            <dd>The maximum amount of the main log which one
+		generation may use.
+          </dl>
+	  <h2>3. On-Disk Log Area</h2>
 	  <p>
-	    The CapROS checkpoint area is made up of ranges of disk page
+	    The CapROS log area is made up of ranges of disk page
 	    frames that are sequentially numbered beginning at zero.
-	    These are referred to as <b>log ranges</b>.  Just as page
-	    frames in object ranges are referred to with <b>oid</b>s,
-	    frames in the log are referred to with <b>lid</b>s.  A
+	    These are referred to as <b>log ranges</b>.  Just as
+	    objects in object ranges are referred to with object identifiers
+            (<b>oid</b>s),
+	    objects in the log are referred to with log identifiers
+            (<b>lid</b>s).  A
 	    <em>lid</em> is constructed by taking the 56 bit frame number
 	    and concatenating an 8-bit object offset.
-	    (We assume that 8 {bits) >=
-	    log<sub>2</sub>(EROS_OBJECTS_PER_FRAME).)
+	    (8 is log<sub>2</sub>(EROS_OBJECTS_PER_FRAME).)
 	  </p>
 	  <p>
-	    Frames zero thru N hold the checkpoint headers of all the
-	    stabilized checkpoints.  Any of these headers
+	    Frames zero to N are the header log.
+            They hold the checkpoint headers of all the
+	    stabilized generations.  Any of these headers
 	    may represent the most recently stabilized
-	    checkpoint.  The most recently written header can be
+	    generation (the restart generation).
+            The most recently written header can be
 	    determined by comparing the sequence numbers in the header
 	    pages.  
 	  </p>
 	  <ul>
 	      <pre>
- Frame 0       N-1                                             SIZE
+ Frame 0       N-1     N                                       SIZE
 +-------+~~~+--------+----------------------------------------+
-|  hdr  |   |  hdr   | log page frames, dynamically allocated |
-|   0   |   |  N-1   | to various checkpoint generations      |
+|     header log     |               main log                 |
 +-------+~~~+--------+----------------------------------------+
  LID 0x0     (N-1)<<8 N<<8  ...                                SIZE<<8
 	      </pre>
@@ -230,29 +265,29 @@
 	    Log ranges may reside on multiple disks, but the
 	    implementation may require that sequential numbering be
 	    preserved.  This requirement presents some difficulties
-	    for checkpoint
+	    for log
 	    area rearrangement which may, in due course, be
 	    solved with suitable user-level applications.
 	  </p>
 	  <p>
-	    A checkpoint that has been completely written to the disk
-	    is said to be <b>stabilized</b>.  A stabilized checkpoint
+	    A generation that has been completely written to the disk
+	    is said to be <b>stabilized</b>.  A stabilized generation
 	    has an associated on-disk directory that describes where
-	    all of the objects in that checkpoint reside.  This
+	    all of the objects in that generation reside.  This
 	    information is stored in a chained directory
-	    structure. The last step in stabilizing a checkpoint is
+	    structure. The last step in stabilizing a generation is
 	    writing the associated header.
 	  </p>
-	  <h3>2.1 The Checkpoint Header</h3>
+	  <h3>3.1 The Generation Header</h3>
 	  <p>
-	    The root of checkpoint directory is the checkpoint header.
-	    The checkpoint header frame
-	    begins with a header structure describing the checkpoint,
+	    The root of a generation directory is the generation header.
+	    The generation header frame
+	    begins with a header structure describing the generation,
 	    followed by the first (or only) part of the Process Directory.
 	    <p>The last item in the
-	    checkpoint header is a checksum of the previous
-	    entries. This checksum is included to detect checkpoint
-	    headers which were only partially written due to hardware
+	    generation header is a checksum of the previous
+	    entries. This checksum is included to detect
+	    frames which were only partially written due to hardware
 	    failure. We needed this field on the S/370 because
 	    certain write failures (e.g. channel failure) caused the
 	    disk controller to fill out the block with the last byte
@@ -265,11 +300,13 @@ offset          contents
            +------------------+
 0          |     Header       |
            +------------------+
-hdrSize    | process dir lid  |
+hdrSize    | process dir ent  |
            |      ....        |
-           | process dir lid  |
+           | process dir ent  |
            +------------------+
-pageSize-4 | checksum         |
+           |     unused       |
+           +------------------+
+pageSize-4 |    checksum      |
            +------------------+
 	      </pre>
 	  </ul>
@@ -278,14 +315,15 @@ pageSize-4 | checksum         |
 	  </p>
 	  <ul>
 	      <pre>
-struct DiskCheckpointHdr {
+struct DiskGenerationHdr {
   uint64_t   sequenceNumber;
-  uint64_t   hasMigrated;
+  uint64_t   migratedSeqNum;
   LID        firstLogLoc;
   LID        lastLogLoc;
   LID        firstDirPage;
   LID        firstProcessPage;
-  uint32_t   nProcessPage;
+  uint32_t   nProcessDirEntries;
+  uint16_t   nHeaders;
 };
 	      </pre>
 	  </ul>
@@ -299,51 +337,19 @@ struct DiskCheckpointHdr {
 	    <dd>
 	      <p>
 		The sequence number allows CapROS to determine which
-		checkpoint is most recent.  When restarting, CapROS
-		first loads all the checkpoint headers from <tt>lid=0</tt>
-		through <tt>lid=(n-1)&lt;&lt;8</tt>.
-		If a drive failure occurred
-		while writing a header (detected by bad CRC while
-		reading the corresponding frame or by the checksum at
-		the end of the header failing to verify), that header
-		is discarded.  Of the valid headers, CapROS then chooses
-		the header with the largest sequence number as the
-		most recent checkpoint.
-	      </p>
-	      <p>
-		Note that on recovery CapROS does not attempt to
-		reconstruct <em>all</em> of the checkpoint generations 
-		that may be present in the checkpoint area.  It loads
-		the directories from the active checkpoint headers,
-		and the process list from the most recent checkpoint header.
+		generation is most recent.
 	      </p>
 	    </dd>
-	    <dt><b>hasMigrated</b></dt>
+	    <dt><b>migratedSeqNum</b></dt>
 	    <dd>
 	      <p>
-		The ``has migrated'' field holds the sequence number
-		of the latest checkpoint which was completely migrated
-		when this checkpoint header was written. When
-		restarting from a checkpoint, checkpoints
-		taken after the "hasMigrated" checkpoint in the
-		restart checkpoint header must be migrated, perhaps a
-		second time.
+		The "has migrated" field holds the sequence number
+		of the latest generation which was completely migrated
+		when this header was written.
 	      </p>
 	      <p>
-		Once migration <em>has</em> completed, and another
-		checkpoint has been taken, CapROS is free to
-		begin reusing the object storage associated with a
-		checkpoint area.  (Until a checkpoint header has been
-		written indicating this checkpoint has been migrated,
-		migration may restart when the system restarts.)
-	      </p>
-	      <p>
-		The situation becomes more complex if the restart
-		system is coded to allow restart from more than one
-		checkpoint, or if it is desired to recover from a read
-		error on a checkpoint header other than the most
-		recent. The current design does not restart from other
-		than the most recent checkpoint.
+                Note, it would take less space to store the number of
+                unmigrated generations instead of the sequence number.
 	      </p>
 	    </dd>
 	    <dt><b>firstLogLoc</b>, <b>lastLogLoc</b></dt>
@@ -351,17 +357,15 @@ struct DiskCheckpointHdr {
 	      <p>
 		The <tt>firstLogLoc</tt> and <tt>lastLogLoc</tt>
 		fields allow the restart code to determine what part
-		of the log contains this checkpoint. Note that
+		of the main log contains this generation. Note that
 		<tt>firstLogLoc</tt> will be higher than
 		<tt>lastLogLoc</tt> when this
-		checkpoint wraps from the end of the log to the beginning.
-		The restart code can use this span to check
-		that all of the checkpoint area is mounted unless
-		non-contigous log ranges are supported.
-		A more alternate check whould be to check
+		generation wraps from the end of the main log to the beginning.
+              <p>
+		The restart code checks
 		each <tt>lid</tt> when
 		rebuilding the in-core object and process directories.
-		If the most recent checkpoint is not all mounted, the
+		If the most recent generation is not all mounted, the
 		system will not restart.
 	      </p>
 	    </dd>
@@ -372,38 +376,51 @@ struct DiskCheckpointHdr {
 	      <p>
 		The <tt>firstDirPage</tt>
 		and <tt>firstProcessPage</tt>
-		gives the <em>lid</em> of the first page of the Object
-		Directory and respectively the Process Directory.
+		gives the <em>lid</em> of the first frame of the Object
+		Directory and the Process Directory respectively.
 		A zero entry indicates the end of the chain. Note that
 		part of the process directory is held in the
-		checkpoint header page. On an inactive system, that
-		may the the entire process directory.
+		generation header frame. On an inactive system, that
+		may be the entire process directory.
 	      </p>
 	    </dd>
 	    <dt>
-	      <b>nProcessPage</b>
+	      <b>nProcessDirEntries</b>
 	    </dt>
 	    <dd>
 	      <p>
-		The <tt>nProcessPage</tt> gives the number of
+		The <tt>nProcessDirEntries</tt> gives the number of
 		<em>lid</em> entries of Process Directory in the remainder of
-		the checkpoint header.
+		the generation header frame.
+	      </p>
+	      <p>
+		Note that on restart CapROS loads
+		the process list from the most recent generation header only.
+	      </p>
+	    </dd>
+	    <dt>
+	      <b>nHeaders</b>
+	    </dt>
+	    <dd>
+	      <p>
+                This field defines the number of frames in the header log.
+                Its value is the same for all headers.
 	      </p>
 	    </dd>
 	  </dl>
-	  <h3>2.2 The Process Directory</h3>
+	  <h3>3.2 The Process Directory</h3>
 	  <p>
-	    Each ``process directory lid'' in the checkpoint header
+	    The firstProcessPage field of the generation header
 	    names the location of a process directory frame.  A process
 	    directory frame consists of a <em>lid</em> for the next
-	    process directory page, a single word describing the
+	    process directory frame (zero if none), a single word describing the
 	    number of following entries, and then some number of
 	    process descriptors. With 8 byte OIDs and 4 byte ObCounts,
 	    a 4K process directory frame can describe 340 processes.
 	  </p>
 	  <ul>
 	      <pre>
-struct processDirent {
+struct processDirEnt {
   OID      oid;
   ObCount  allocCount;
 };
@@ -411,26 +428,32 @@ struct processDirent {
 	  </ul>
 	  <p>
 	    An entry in the process directory corresponds to a process
-	    that was running at the time the checkpoint was taken.
-	    The process entries from the most current valid checkpoint
-	    are reloaded as part of the system startup process.
+	    that was running at the time of the demarcation event.
+	    The process entries from the restart generation
+	    are reloaded as part of the system startup procedure.
 	  </p>
 	  <p>
-	    The <tt>oid</tt> field identifies the process root node of
-	    the this process.  The
+	    The <tt>oid</tt> field identifies the root node of
+	    the process.  The
 	    <tt>allocCount</tt> field must match the allocation count
 	    of the node.  The allocation count must be preserved
-	    because processes can sleep for long periods of time during
-	    which the nodes they occupy may be rescinded.
+	    because processes can be inactive for long periods of time during
+	    which they may be paged out and rescinded.
 	  </p>
-	  <h3>2.3 The Object Directory</h3>
 	  <p>
-	    The remaining directory lids in the checkpoint header
+            Any processes that were sleeping until a specific time
+            (using the Sleep capability) will be awakened on restart,
+            because we do not store the wakeup time in the
+            process directory.
+	  </p>
+	  <h3>3.3 The Object Directory</h3>
+	  <p>
+	    The remaining directory lids in the generation header
 	    identify object directory frames.  Each entry holds an
-	    object identifier, an allocation count, the type of the
+	    object identifier, the object's allocation and call counts, the type of the
 	    object, and the <em>lid</em> at which the object can be
-	    found. With 8 byte OIDs, 4 byte ObCounts, 8 byte LogLoc,
-	    and 1 byte types, each 4k frame can hold a description of
+	    found. With 8 byte OIDs, 4 byte ObCounts, 8 byte LID,
+	    and 1 byte types, each 4kB frame can hold a description of
 	    163 objects (allowing for a count of entries and a chain
 	    pointer at the start of the frame).
 	  </p>
@@ -441,253 +464,273 @@ struct CkptDirent {
   ObCount   allocCount;
   ObCount   callCount
   LID       logLoc;
-  uint8_t   type;
-} ;
+  uint8_t   allocCountUsed : 1;
+  uint8_t   callCountUsed : 1;
+  uint8_t   type : 6;
+};
 	      </pre>
 	  </ul>
 	  <p>
-	    For pages and nodes, the allocCount field contains the
-	    allocation count. For nodes, the callCount field contains
-	    the call count. For pages the callCount field is zero.
+	    For nodes, the callCount field contains the call count.
+            For other objects, the callCount field is unused.
 	  </p>
 	  <p>
-	    In addition to a bit which tells if the OID is a page or a
-	    node, the type field includes two bits which indicate
-	    whether there are resume keys (callCountUsed) or other
-	    keys (allocCountUsed) that may have the same value for the
-	    respective count.
+            The callCountUsed field indicates whether there may be
+            resume capabilities that have the same value for the
+            callCount.
+            The allocCountUsed field indicates whether there may be
+            capabilities (other than resume capabilities)
+            that have the same value for the allocCount.
 	  </p>
 	  <p>
 	    If the lid field of the directory is zero, then the
-	    corresponding object is either a zero-filled page or a
-	    node filled with null keys.
+	    corresponding object is null: either a zero-filled page or a
+	    node filled with void keys and zero nodeData.
 	    Which one can be determined by the value of the type field.
 	  </p>
 	  <p>
-	    If the lid field is nonzero, the corresponding checkpoint
+	    If the lid field is nonzero, the corresponding log
 	    frame contains either page data or a
-	    ``log pot.''  A log pot is simply a page-sized cluster of
-	    nodes in the checkpoint area.  This is why the lid value
+	    "log pot."  A log pot is simply a page-sized cluster of
+	    nodes in the main log.  This is why the lid value
 	    is concatenated with an object index: the index indicates
 	    which entry in the log pot contains the relevant object.
+            (The object index of a LID, like that of an OID, is 8 bits
+            to allow for future types that may be small enough to fit
+            256 in one frame.)
 	  </p>
-	  <h2>3. Theory of Operation</h2>
+	  <h3>3.4 Flash Memory</h3>
+	  <p>
+            CapROS will support solid-state disks that use flash memory.
+            These devices have a finite number of erase-write cycles 
+            (up to 1,000,000 for NAND flash).
+            If we assume (pessimistically) one checkpoint every ten seconds,
+            a design life of 10 years,
+            and (optimistically) 1,000,000 write cycles,
+            then we will need 32 frames in the header log.
+            (We assume that writing a 4KB frame does not wear adjacent frames.)
+            The main log will need to be sized to hold at least that many
+            generations too. 
+            The migrator will be written to avoid making node pots and
+            tag pots "hot". 
+	  </p>
+	  <h2>4. Theory of Operation</h2>
           <p>
-	    The basic idea behind the CapROS checkpoint design is that
-	    we will divide the information in the checkpoint area into
-	    several generations.  The <em>current</em> generation
-	    corresponds very roughly to the paging area of conventional
-	    operating systems, with the notable exception that
-	    locations in it are not reused until the entire checkpoint
-	    log has wraped. We define an instant in time as of which
-	    the state of all processes and their pages and nodes are
-	    saved as the time when the checkpoint
-	    is <em>declared</em>.
+            In overview, checkpointing operates as follows:
 	  </p>
-          <p>
-	    The <em>checkpoint</em> generation is
-	    the most recently declared checkpoint, which may be only
-	    partially written to the disk.  The <em>stable</em>
-	    generations are the most recent <em>checkpoint depth</em>
-	    checkpoints that have been entirely written to disk.
-	  </p>
+          <ol>
+            <li>Following the restart generation in the log is the 
+                working generation. Objects that are cleaned from RAM
+                are written sequentially to the working generation area.
+            <li>After a while, a demarcation event occurs. Reasons for
+                declaring a demarcation event are discussed below. 
+                The system preserves the state of all dirty objects
+                as of this time.
+            <li>Those dirty objects are cleaned into the working area,
+                and the directories are written.
+            <li>The generation header of the working generation is
+                written to the header log. 
+                The successful completion of this write is a
+                stabilization event, and
+                the generation is said to be stabilized.
+            <li>The working generation becomes the restart generation,
+                and a new working generation comes into existence.
+                The cycle then repeats.
+          </ol>
 	  <center>
-	    <img src="CheckpointLog.gif" alt="Checkpoint Log Arangement">
+	    <object data="CheckpointLog.svg" width=700 height=160>
 	  </center>
           <p>
-	    At any given time, there may be a
-	    checkpoint generation and there will be one or more stable
-	    generations.  The
-	    <em>migrated</em> generations remain in the checkpoint
-	    area until their storage is reclaimed, but all the data in
-	    them have been fully
-	    copied to their home locations, and are shown as available
-	    space in the above diagram.
+            The diagram above shows the layout of the main log.
+            The main log cursor (the next location to be written)
+            is at the left end of the bar.
+	    The <em>retired</em> generations remain in the main log
+	    until their storage is reused.
+            There may be <em>free</em> space if the headers that described
+            that space have been overwritten in the circular header log.
+            The <em>reserved</em> space may be bigger or smaller than
+            the free space.
 	  </p>
 	  <p>
-	    Whenever an object in core is dirtied, space is reserved
-	    for it in the current checkpoint generation. If
-	    the total reserved space reaches the size of the available
-	    space, the process is made to wait until migration can
-	    free some space and the priority of migration is increased. 
+	    Whenever a persistent object in RAM is dirtied, space is reserved
+	    for it in the main log.
+            See below for details of the reservation algorithm.
 	  <p>
-	    Execution proceeds until the checkpoint interval
-	    (typically 5 minutes) has passed or the current generation
-	    has come to occupy more than some fixed percentage of the
-	    checkpoint area (typically 65%).  When either event
-	    occurs, a check is made to see if there is a previous
-	    checkpoint generation which has not yet been
-	    stabilized. If the previous generation has been
-	    stabilized, a new checkpoint is declared.
+            If the checkpoint interval (typically 5 minutes) has passed 
+            since the last demarcation event, a new demarcation event
+            is declared.
+            This ensures that the system can be restarted with
+            data that is no more than 5 minutes old.
+            See below for other reasons to declare a demarcation event.
 	  </p>
 	  <p>
-	    Once the checkpoint is declared, the current generation
-	    becomes the checkpoint generation, and a new current
-	    generation is started.  Checkpointed objects in core are
-	    marked "copy on write", and execution resumes.  All of
-	    the in-core objects associated with the current
-	    generation are then written out to the disk asynchronously
-	    by the checkpointer process.
+            At the demarcation event, dirty objects in RAM are
+            marked "copy on write", 
+            the <em>next</em> generation is started,
+            and execution resumes.
+            At this time we say a checkpoint is <em>active</em>.
+	    All of the dirty objects in the working
+	    generation are then written out to the disk.
 	  </p>
 	  <p>
-	    At any given moment, there is either a checkpoint
-	    generation or a stable generation.  When the last
-	    in-core object in the checkpoint generation has been
+	    When the last dirty
+	    object in the working generation has been
 	    written to disk, along with the process directory and
-	    object directory pages, a new checkpoint header is written and
-	    that generation becomes a stable
-	    generation.  The new checkpoint includes the sequence
-	    number of the last generation that has been completely
-	    migrated. That generation, and any older generations
-	    become available for re-allocation. (Note that the
-	    successfully migrated generations must be saved on disk so
-	    migration will start with the correct generation after a
-	    system restart.
+	    object directory pages, a new generation header is written and
+	    that generation becomes the restart
+	    generation.
 	  </p>
 	  <p>
-	    If migration is not already running, the migrator will be
-	    started on the oldest unmigrated generation. It will
-	    attempt to migrate all subsiquent generations up to, but
-	    not including the last stabilized generation.
+            The header log is written circularly and has its own cursor,
+            so the oldest header is overwritten.
+            In order to be able to recover from an error writing the
+            checkpoint header, we must never overwrite the header
+            of an unretired generation. Therefore we make sure there is
+            always at least one retired header in the header log.
 	  </p>
-	  <h2>4. Migration</h2>
+	  <h2>5. Migration</h2>
+	  <p>
+            <em>Migration</em> is the process of copying objects
+            from the log to their home locations.
+            Migration runs whenever there are any unmigrated
+            stabilized generations, migrating the oldest such generation first.
+            The priority of migration is adjusted to balance the desire
+            to avoid contending with needed disk I/O,
+            with the need to progress fast enough to avoid having to stall
+            processes (as described below).
+	  </p>
 	  <p>
 	    Conceptually, during the migration phase, all the objects
 	    in a stable
-	    generation are copied from the stable generation to their
-	    home locations on the disk.  Once this has completed, the
-	    generation is considered to have migrated, and the
-	    next-to-be-written on-disk
-	    checkpoint header is written to
-	    indicate that migration is done.
+	    generation are copied from the main log to their
+	    home locations on the disk.
+            As an important optimization, objects that are not current
+            need not be migrated, as described in
+	    <a
+	      href="http://www.cis.upenn.edu/~KeyKOS/Checkpoint.html">
+              <em>The Checkpoint Mechanism in KeyKOS</em></a>.
 	  </p>
 	  <p>
-	    There is one important optimization which greatly reduces
-	    the amount of migration that needs to be done. This
-	    optimization is based on the observation that if an object
-	    has changed since it was written into a stable generation,
-	    then it does not need to be migrated because either it is
-	    in a later stable generation, or it will be written as
-	    part of the next checkpoint. If a restart occurs, it will
-	    again be a candidate for migration, and the test for a
-	    more recent version will be made then. While still useful,
-	    this optimization becomes less useful when restart is
-	    permitted from more than one checkpoint.
-	  </p>
-	  <p>
-	    Migration is optimized by a non-persistant process
+	    Migration is optimized by a non-persistent process
 	    external to the kernel. This process may chose to optimize
-	    disk arm motion in the home ranges if the log is
-	    implemented on solid-state memory. The use of a
-	    non-persistant process keeps the external migrator from
-	    the danger of being stalled attempting to dirty an object.
+	    disk arm motion in the home ranges if the disk is
+	    on rotating media; or it may minimize
+            rewrites if the disk is on flash memory.
+	    Because it is non-persistent, the external migrator will
+	    never be stalled attempting to dirty an object.
 	  </p>
           <p>
-	    If an attempt is made to reserve the last available frame
-	    in the log, then migration must be run to free up space,
-	    before more objects may be changed. The dirting process
-	    will be stalled, which may
-	    impact its real-time performance.
+            As the log cursor and the reserved space advance around
+            the circular main log, it may happen that all the space in 
+            retired generations is reserved.
+            In that case, if an attempt is made to dirty another
+            object and increase the reservation, 
+            the dirtying process must be stalled until space is freed up.
+            The priority of migration will be adjusted to avoid this.
           </p>
-	  <h2>5. The Checkpoint Map</h2>
+	  <h2>6. Log Management</h2>
 	  <p>
-	    The checkpoint area storage is interpreted simultaneously 
-	    at two layers:
+            The main log is a circular buffer of frames,
+            each of which is one page in size.
+            A frame may hold a
+		data page, a log pot of nodes, a process directory
+		entry, or an object directory entry in a given generation.
 	  </p>
-	  <ul>
-	    <li>
-	      <p>
-		As a set of page-sized frames, each of which is either
-		<em>allocated</em>, <em>reserved</em>, or
-		<em>free</em>.
-	      </p>
-	    </li>
-	    <li>
-	      <p>
-		As a set of object containers, each of which is one
-		page in size.  A given object container may hold a
-		data page, a log pot of nodes, a process directorty
-		entry, or a directory
-		entry.
-	      </p>
-	      <p>
-		If a frame is allocated, then there exists exactly one
-		checkpoint generation associated with that frame.
-	      </p>
-	    </li>
-	  </ul>
-	  <h3>5.1 Frame Reservation</h3>
+	  <h3>6.1 Frame Reservation</h3>
 	  <p>
-	    Before any object can be dirtied, space for it must be
-	    reserved in the current checkpoint.  Herein lies the first
-	    source of complexity.  Because there are multiple nodes
-	    (directory entries) per frame, the checkpoint logic must
-	    maintain reservation information at two levels for such
-	    objects.  When allocating a new node (directory entry)
-	    would overflow the current frame, a new frame must be
-	    reserved. Space reservation must also account for object
-	    directory, and process directory space.
+	    Before any persistent object can be dirtied, space for it must be
+	    reserved in the main log.
+            The system keeps track of the number of dirty persistent objects
+            of each type.
+            The object reservation is the most amount of space in the main
+            log it could take to save those objects, taking into account:
+            <ul>
+            <li>Multiple nodes can fit in one log pot.
+            <li>There may be a partially assembled log pot
+              that needs to be saved.
+            <li>Space is needed for object directories.
+            <li>Space is needed for process directories. The number of
+              processes is capped by the number of Activity structures
+              allocated in the kernel, so we will reserve space
+              for the maximum number of processes. 
+            </ul>
 	  </p>
 	  <p>
-	    The catch is that we do not actually decide where to store
-	    the newly dirtied object when space for it is reserved.
-	    Instead, we simply keep a count of how many objects of
-	    each type have been reserved.  The reason for this is that
-	    a long time may go by between dirtying the object and
-	    writing it out to disk, and we would therefore like to
-	    decide as late as possible the location in the log at
-	    which the object will be written.
+            The reservation is important because before dirtying an object
+            we need to make sure we will be able to clean it later. 
+            When we clean an object, we can't overwrite any unretired
+            generations, because that data will be needed if the system
+            should restart.
 	  </p>
-	  <h3>5.2 Frame Allocation</h3>
+	  <p>
+	    We do not actually decide where to store
+	    the newly dirtied object when space for it is reserved;
+            we decide that when the object is actually written.
+            Indeed, the object might be null (zero) at the time
+            it is written, and not take any space in the log at all,
+            so the reservation is an upper bound on the space needed.
+	  </p>
+	  <p>
+            While a checkpoint is active, there are some dirty objects in
+            the working generation, and other dirty objects in the
+            next generation. We track the reservation for each
+            generation separately. We shall see below how these are used.
+	  </p>
+	  <h3>6.2 Frame Allocation</h3>
 	  <p>
 	    At some later time, we actually write the dirty object to
 	    the disk.  At this point we actually allocate the log
-	    frame that the object will go to.  If multiple objects
-	    will fit in the frame, a count of the number of slots
-	    allocated is kept in addition to the count of the number
-	    of allocated frames.
+	    frame that the object or log pot will go to.
+            At the same time, the object becomes clean, so we reduce
+            the count of dirty objects, which may reduce the reservation. 
+            This is how reserved space is consumed.
 	  </p>
 	  <p>
-	    Here we arrive at the second complication.  An object can
+	    An object can
 	    be dirtied (reserving space), written out (consuming
-	    space), and subsequently <em>redirtied</em>.  When this
+	    space), and subsequently redirtied.  When this
 	    occurs, there are two possible design options:
 	  </p>
 	  <ul>
 	    <li>
-	      <p>
 		Rewrite the object to its previously assigned
 		location.
-	      </p>
 	    </li>
 	    <li>
-	      <p>
 		Assign a new location to the object.
-	      </p>
+	    </li>
+	  </ul>
+          <p>
+            The first option has several disadvantages:
+	  </p>
+	  <ul>
+	    <li>In the case of a node, it requires two I/O operations:
+              reading the log pot, modifying it, and then rewriting it. 
+	    </li>
+	    <li>On rotating media, it may require moving the head
+              away from the current main log cursor.
+	    </li>
+	    <li>On flash memory, it could create extra wear on that log frame.
 	    </li>
 	  </ul>
 	  <p>
-	    To avoid "hot spots" on NV RAM, we adopt the second
+	    Therefore we adopt the second
 	    policy. Even if a frame in the log does not contain an
-	    active entry, we do not reuse it. As a result of these
-	    decisions, we use a simple counter to allocate space in
+	    active entry, we do not reuse it. As a result, we can use
+            a simple cursor (the main log cursor) to allocate space in
 	    the log.
 	  </p>
 	  <p>
-	    A great many of the objects written to the checkpoint area will
-	    prove to be zero objects.  For our purposes, a zero object
+	    A great many of the objects written to the log will
+	    prove to be null objects.  For our purposes, a null object
 	    is any of the following:
 	  </p>
 	  <ul>
 	    <li>
-	      <p>
 		A zero-filled data page.
-	      </p>
 	    </li>
 	    <li>
-	      <p>
-		A node filled with zero number capabilities.
-	      </p>
+		A node filled with void capabilities and zero nodeData.
 	    </li>
 	  </ul>
 	  <p>
@@ -697,152 +740,127 @@ struct CkptDirent {
 	    make it true.  The reason to do it is that objects
 	    returned to the space bank are generally dirty, and
 	    handling them this way obviates the need to rewrite
-	    now-dead data back to the checkpoint area (or, in the case
-	    of pages, to the home locations).  By storing them as zero
+	    now-dead data back to the log.
+	    By storing them as null
 	    objects, the write bandwidth requirements can be reduced
 	    significantly.</em>
 	  </p>
 	  <p>
-	    The advantage to handling zero objects specially is that
-	    they do not occupy any object storage in the checkpoint log.
-	    The directory entry for a zero object suffices to indicate
-	    that the object is zeroed.
+	    The advantage to handling null objects specially is that
+	    they do not occupy any object storage in the log.
+	    The directory entry for a null object suffices to indicate
+	    that the object is null.
 	  </p>
-	  <h3><a name="cssize">5.3 Algorithms</a></h3>
+	  <h3>6.3 Restart Actions</h3>
+	  <p>
+	    When CapROS is restarted after a shutdown (orderly or otherwise),
+            it first reads the frame at LID 0 to find the size of the
+            header log (nHeaders).
+            It then reads other generation headers in the header log
+            to find the most recent generation header
+            (the one with the highest sequenceNumber).
+            This header identifies the restart generation.
+            CapROS could find the header with the highest sequenceNumber
+            either by reading all the headers, or,
+            if the header log is large, by using a binary search.
+	  </p>
+	  <p>
+	    If a drive failure occurred
+	    while writing a header (detected by bad CRC while
+	    reading the corresponding frame or by the checksum at
+	    the end of the header failing to verify), that header
+	    is discarded.
+	  </p>
+	  <p>
+            The migratedSeqNum value in the restart generation header is
+	    used to determine the unmigrated generations.
+            Those generation headers are read (if not already read)
+            and are used to reload the object directory.
+            Unmigrated generations now need to be migrated
+            (perhaps for the second time).
+            All the older generations are both migrated and retired
+            and are available for allocation and reservation.
+            They must not be migrated or used, because
+            they may have been overwritten with newer, unstabilized
+            data. 
+	  </p>
+	  <p>
+	    The process directory is reloaded from the restart generation.
+            The main log cursor is initialized to the frame following
+            the last frame of the restart generation.
+	  </p>
+	  <p>
+            For simplicity, we consider that no part of an unmigrated
+            generation is available for allocation, even though
+            some frames might be migrated or might not contain current data.
+	  </p>
+	  <p>
+            To avoid deadlock, we must make sure that the disk handler
+            and migrator can always make progress. The design of the
+            disk handler and perhaps the migrator are such that they
+            allocate some storage dynamically. When the system is booted,
+            we must wait until these components have signaled that they have
+            finished allocating dynamic storage, before allowing any
+            persistent objects to be dirtied.
+	  </p>
+	  <h3><a name="cssize">6.4 Algorithms</a></h3>
 	  <p>
 	    There are two algorithms of interest in the checkpoint
 	    logic: reserving the storage for an object and writing an
 	    object to the disk.
 	  </p>
-	  <h4>5.3.1 Space Reservation</h4>
+	  <h4>6.4.1 Space Reservation</h4>
 	  <p>
-	    Just before an object is dirtied, the storage reservation
-	    algorithm is executed. (Note that the object is clean at
-	    the time the checkpoint is declared, so its space is
-	    reserved in the checkpoint that will be current after a
-	    checkpoint is declared. The algorithm goes like this:
+	    Just before a persistent object is dirtied, the storage reservation
+	    algorithm is executed.
+            The algorithm goes like this:
 	  </p>
 	  <ul>
 	      <pre>
-If space available is less than maximum available times <em>Limit Percent</em>
-  AND the last declared checkpoint is stabilized
-    reduce space available by the amount reserved
-    set reserved to zero (we're starting a new checkpoint)
-    declare checkpoint
-If no directory space for the object has been reserved
-    reserve in-core directory space for object
-    reserve on-disk directory space for object
-Reserve space for non-zero object
+If migrator and disk handler are not initialized:
+    Process stalls waiting for those to be initialized.
+If a checkpoint is not active:
+  Calculate tentative working reservation assuming object is dirtied.
+  If size of working area + tentative reservation > size of main log * <em>Limit Percent</em>
+     OR tentative reservation > size of retired generations:
+    Declare a demarcation event (and a checkpoint is now active).
+If a checkpoint is active:
+  Calculate tentative reservation for next generation assuming object is dirtied.
+  If size of working area + working reservation + tentative next reservation
+       > size of migrated generations(retired or not)
+     OR the number of unmigrated generations (including the working generation)
+        >= size of the header log
+    Process cannot dirty now. Process stalls waiting for migration to progress.
+  Else dirty the object and adjust next reservation.
+Else dirty the object and adjust working reservation.
 	      </pre>
-	      <p>
-		Note that if any of these reservations result in space
-		available going to zero, all the reservations made
-		for this call are released and the process is made to
-		wait for migration to free more space.
-	      </p>
 	  </ul>
-          <p>
-	    Defining 1st active frame as the first frame in the active
-	    area, we get:
-	  </p>
-	  <pre>
-    Maximum available (MA) = log size - number of checkpoint headers
-    Space used = (checkpoint cursor - 1st active frame + MA) mod MA
-    Space available = MA - space used.
-	  </pre>
-	  <p>
-	    Note the check for checkpoint size limits.
-	    This is where a checkpoint will be declared for reasons of
-	    space exhaustion.  Until the time comes to actually write
-	    the new object, we must assume that it will be non-zero
-	    and allocate space accordingly.
-	  </p>
-	  <h5>5.3.1.1 Potential Implementation Trap</h5>
-	  <p>
-	    The deallocation of the on-disk object can, under one
-	    boundary condition, cause minor trouble.
-	  </p>
-	  <p>
-	    Nodes go to disk in page-sized chunks called <em>log
-	    pots</em>.  Suppose that a node is dirtied, written to the
-	    log pot that we are currently assembling (at which point
-	    the node is cleaned), and subsequently redirtied.  When it 
-	    is redirtied, the allocation count associated with the log 
-	    pot is decremented.  If it chances that this decrement
-	    causes the log pot allocation count to go to zero, the
-	    pending log pot will be incorrectly considered
-	    reclaimable.
-	  </p>
-	  <p>
-	    This can only arise under conditions of total memory
-	    starvation, and yes, we found this the hard way.  The
-	    solution is to simply maintain an "extra" allocation on
-	    the log pot while its construction is in progress.
-	  </p>
-	  <h4>5.3.2 Object Write</h4>
+	  <h4>6.4.2 Object Write</h4>
 	  <p>
 	    The other algorithm of major interest is the object write
-	    algorithm.  The main source of interest is the handling of
-	    objects that prove to be zero objects when the time comes
-	    to write them.
+	    algorithm.
 	  </p>
 	  <ul>
 	      <pre>
-If object is zero object (increase available space)
-    unreserve disk space for object
-    update in-core checkpoint directory entry accordingly
-else
-    write object to disk and update in-core directory for disk location
+If object is null:
+    update in-core directory entry accordingly
+Else
+    write object to disk and update in-core directory accordingly
+Mark object clean and adjust the corresponding reservation downwards.
 	      </pre>
 	  </ul>
-	  <h3>5.4 Restart Actions</h3>
+	  <h2>7. The Core Directory</h2>
 	  <p>
-	    When CapROS is restarted after a shutdown (orderly or
-	    otherwise), it finds the most recent checkpoint
-	    header by reading all the checkpoint headers and locating
-	    the one with the highest sequenceNumber. This header is
-	    the restart checkpoint header. The hasMigrated value in
-	    that header is
-	    used to determine the active area, and those checkpoint
-	    headers are used to reload the object directory.
-	    The process directory is reloaded from the restart checkpoint
-	    header.
-	  </p>
-	  <p>
-	    While reloading the object directory, the restart logic
-	    determines the highest
-	    and lowest <em>lids</em> in the active area, and whether
-	    the active area wraps around the end of the log area.
-	    The rest of
-	    the log is available for allocation. Allocation starts
-	    with the <em>lid</em> which is one greater than the hi-lid
-	    of the active area, wraping to the first <em>lid</em>
-	    after the checkpoint headers. 
-	  </p>
-	  <p>
-	    The original KeyKOS design did not reclaim checkpoint
-	    frames, and therefore used a simple counter rather than a
-	    counted map.  The EROS developers observed that log pots
-	    containing ``hot'' nodes frequently empty themselves after
-	    being paged out, and it is beneficial to be able to reuse
-	    them. Since CapROS is designed to work with NV RAM,
-	    CapROS uses the KeyKOS counter technique for log
-	    allocation to avoid ``hot'' spots.
-	  </p>
-	  <h2>6. The Core Directory</h2>
-	  <p>
-	    There is a main core directory for all the stable
-	    generations in the log. If there is no
-	    checkpoint generation, i.e. the last checkpoint has
-	    stabilized, the main directory will also hold entries
-	    for the current area. If there is a checkpoint generation,
-	    the main directory hold the entries for it and a "current"
-	    directory is created for the current generation. (The
-	    current directory
+	    There is a main core directory for all the unmigrated
+	    generations, including the working generation,
+            and possibly for some migrated generations as well.
+            If a checkpoint is active, there is also a "current"
+            directory for the next generation.
+            (The current directory
 	    must be searched before the main directory when looking
 	    for the current
-	    version of an object). When a checkpoint generation
-	    stabilizes, the current directory is merged back into the
+	    version of an object). When a stabilization event occurs,
+	    the current directory is merged back into the
 	    main directory. 
 	  </p>
 	  <p>
@@ -851,6 +869,7 @@ else
 	    generation number will need to be saved for each directory
 	    entry or they can be linked in a list headed in the
 	    core generation structure.
+            A number of data structures are possible.
 	  </p>
 	  <ul>
 	      <pre>
@@ -865,7 +884,7 @@ struct CoreDirectory {
 	    <dt><b>migratorSequenceNumber</b></dt>
 	    <dd>
 	      <p>
-		The last completely migrated checkpoint sequence number.
+		The last completely migrated generation sequence number.
 	      </p>
 	    </dd>
 	    <dt><b>oidTree</b></dt>
@@ -876,18 +895,18 @@ struct CoreDirectory {
 	      </p>
 	    </dd>
 	  </dl>
-	  <h2>7. The Core Generation Structure</h2>
+	  <h2>8. The Core Generation Structure</h2>
           <p>
 	    <em>I (wsf) think this structure is overkill, but it is
 	    useful documentation of what the coder will possibily
-	    need. This section should be updated when the code is
-	    written.</em>
+	    need. This whole section is old and should be updated
+            or deleted when the code is written.</em>
 	  </p>
 	  <p>
-	    Each checkpoint generation has an associated in-core
+	    Each generation has an associated in-core
 	    structure.  This structure maintains book-keeping
-	    information concerning the checkpoint and contains the
-	    root pointer for the in-core checkpoint directory.
+	    information concerning the generation and contains the
+	    root pointer for the in-core generation directory.
 	  </p>
 	  <ul>
 	      <pre>
@@ -917,7 +936,7 @@ struct CoreGeneration {
   uint32_t nAllocLogPot;
 #endif
   
-  LogLoc curLogPot;
+  curLogPot;
   uint32_t   nNodesInLogPot;
 };
 	      </pre>
@@ -1009,12 +1028,12 @@ struct CoreDirent {
 };
 	      </pre>
 	  </ul>
-  <h2>Appendix A - Another approach to NV RAM support</h2>
+  <h2>Appendix A - Another approach to flash memory support</h2>
     <p>
       The design selected for CapROS above tries to avoid "hot spots"
       on disk, but still has "warm spots" in the checkpoint headers
       and possibly in the home locations. By having a large number of
-      checkpoint headers, the heat in that part of the NV RAM is
+      checkpoint headers, the heat in that part of the flash memory is
       reduced to a level which should meet the device life requirements.
     </p>
     <p>
@@ -1059,7 +1078,7 @@ struct CoreDirent {
   HMACValue checksum;
   LID next;
   LID previous;
-  LID hasMigrated;
+  LID migratedSeqNum;
   HMACKey nextMac;
   HMACKey previousMac;
   64bitint serialNumber;
@@ -1104,6 +1123,7 @@ struct CoreDirent {
       locations as hot spots.
     </p>
     <hr>
+<a href=http://www.capros.org">CapROS home</a>
 <table>
 <tr valign=top>
   <td width=92>
