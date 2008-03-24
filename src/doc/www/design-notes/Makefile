@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2007, Strawberry Development Group.
+# Copyright (C) 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -67,8 +67,6 @@ include $(EROS_SRC)/build/make/makerules.mk
 install: local-install
 
 local-install: $(GENERATED)
-	$(INSTALL) -d $(EROS_ROOT)/doc
-	$(INSTALL) -d $(EROS_ROOT)/doc/www
 	$(INSTALL) -d $(EROS_ROOT)/doc/www/design-notes
 	$(INSTALL) -h -m 0644 $(HTML_DOCS) $(EROS_ROOT)/doc/www/design-notes
 	$(INSTALL) -m 0644 $(OTHER_DOCS) $(EROS_ROOT)/doc/www/design-notes
