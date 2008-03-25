@@ -100,11 +100,6 @@ unsigned long capros_Errno_ErrnoToException(unsigned long errno);
 #define BRANCH_MAIN			0xCC
 #define BRANCH_AUX			0x33
 
-/*
- * Duration of the strong pull-up pulse in milliseconds.
- */
-#define PULLUP_PULSE_DURATION		750
-
 /* Status flags */
 #define ST_SPUA				0x01  /* Strong Pull-up is active */
 #define ST_PRGA				0x02  /* 12V programming pulse is being generated */
@@ -118,6 +113,11 @@ unsigned long capros_Errno_ErrnoToException(unsigned long errno);
 #define RES_NRS	0x01
 #define RES_SH  0x02
 #define RES_APP 0x04
+#define RES_VPP 0x08
+#define RES_CMP 0x10
+#define RES_CRC 0x20
+#define RES_RDP 0x40
+#define RES_EOS 0x80
 
 #define SPEED_NORMAL			0x00
 #define SPEED_FLEXIBLE			0x01
@@ -128,6 +128,10 @@ unsigned long capros_Errno_ErrnoToException(unsigned long errno);
 #define EP_STATUS			1
 #define EP_DATA_OUT			2
 #define EP_DATA_IN			3
+
+#define CMD_FIFO_SIZE 16
+#define EP2_FIFO_SIZE 128
+#define EP3_FIFO_SIZE 128
 
 /* N.B.: the following are different instances from the ones
 in the core USB HCD. */
@@ -141,10 +145,7 @@ extern unsigned int w1bus_threadNum;
 
 struct ds_device
 {
-	struct list_head	ds_entry;
-
 	struct usb_device	*udev;
-	struct usb_interface	*intf;
 
 	int			ep[NUM_EP];
 };
@@ -176,7 +177,7 @@ Some could be overlaid, but we have to allocate at least a page anyway. */
 struct coherentMemory {
   struct usb_ctrlrequest ctrlreq;
   struct ds_status status;
-  unsigned char dataBuffer[capros_W1Bus_maxBlockSize];
+  unsigned char dataBuffer[capros_W1Bus_maxWriteSize];
 } * cm;
 dma_addr_t coherentMemory_dma;
 #define DMAAddress(field) coherentMemory_dma + offsetof(struct coherentMemory, field)

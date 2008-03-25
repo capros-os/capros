@@ -2,54 +2,244 @@ package capros;
 
 interface W1Bus extends key {
 
-  exception BusShorted;
-  exception NoDevicePresent;
-  exception AlarmingPresencePulse;
+  unsigned short enum StatusCode {
+    OK,
+    ProgramError,
+    SequenceError,
+    BusShorted,
+    NoDevicePresent,
+    AlarmingPresencePulse,
+    BusError,
+    CRCError,
+    Timeout
+  };
+
+  exception ProgramTooLong;
 
   /* (Note: 128 is the size of the data FIFOs on the DS2490.) */
-  const unsigned short maxBlockSize = 128;
-
-  /* Bus reset and a read for the presence pulse. */
-  /* raises (BusShorted, NoDevicePresent, AlarmingPresencePulse) */
-  void busReset();
-
-  /* Write 0. */
-  void write0();
-
-  /* Write 1, return bit read. */
-  unsigned byte write1Read();
-
-  /* Write a bit. */
-  void writeBit(unsigned byte bit);
-
-  /* Read a byte. Same as 8 write1Read calls. */
-  unsigned byte readByte();
-
-  /* Write a byte. Same as 8 write0 or write1Read calls. */
-  void writeByte(unsigned byte b);
-
-  /* Read a block. Same as a series of readByte calls. */
-  // variable length. Use OC=1
-  //void readBlock(unsigned short len, variable length data);
-
-  /* Write a block. Same as a series of writeByte calls. */
-  // variable length. Use OC=2
-
-  /* Search
-  Given a starting ROM, find the next ROM on the bus.
-  Raises NoDevicePresent if there is no next ROM. */
-  unsigned <64> searchNext(unsigned <64> startROM);
-
-  /* Search for devices with alarm status. */
-  unsigned <64> conditionalSearchNext(unsigned <64> startROM);
+  const unsigned short maxReadSize = 128;
+  const unsigned short maxWriteSize = 128;
   
   /* waitForDisconnect
   Wait until the device is disconnected.
   The reply capability need not be a resume cap. */
   void waitForDisconnect();
 
+  /************************* Programming *************************/
+
+  /* The W1Bus capability can execute "programs" written in a specific
+  format, described here. A program allows you to combine several steps
+  in issuing operations on the bus, reducing the number of calls you
+  need to make.
+
+  A program is a sequence of zero or more steps. 
+  A step begins with a step code, followed by data that depends on the
+  step code.
+  A step may produce result data. The result of all the executed steps
+  in sequence is returned by the runProgram method.
+  */
+  const unsigned long maxProgramSize = 128;
+  const unsigned long maxResultsSize = 128;
+
+  unsigned byte enum stepCode {
+
+    /* Send a reset pulse.
+    No result data or status are produced.
+
+    This step cannot be immediately preceded by another resetSimple,
+    else program execution is terminated with status SequenceError.
+
+    This step cannot be the last step of a program,
+    else program execution is terminated with status SequenceError.
+    Use resetNormal instead.
+    */
+    resetSimple = 2,
+
+    /* Send a reset pulse.
+    If the response is:
+      Bus short - program execution terminates with status BusShorted.
+      No presence pulse - program execution terminates with status
+        NoDevicePresent.
+      Alarming presence pulse - program execution terminates with status 
+        AlarmingPresencePulse.
+      Normal presence pulse - no result data is produced,
+        and execution of the program continues.
+    This step cannot be immediately preceded by a resetSimple,
+    else program execution is terminated with status SequenceError.
+    */
+    resetNormal = 3,
+
+    /* Send a reset pulse.
+    If the response is:
+      Bus short - program execution terminates with status BusShorted.
+      No presence pulse - program execution terminates with status
+        NoDevicePresent.
+      Alarming presence pulse - a result byte of 4 is produced,
+        and execution of the program continues.
+      Normal presence pulse - a result byte of 0 is produced,
+        and execution of the program continues.
+    This step cannot be immediately preceded by a resetSimple,
+    else program execution is terminated with status SequenceError.
+    */
+    resetAny = 4,
+
+    /* Set the path.
+    The step code is followed by the 8-byte ROM code of a DS2409 coupler.
+    The bus master sends a Match ROM command followed by that ROM code to
+    address the coupler, followed by a Smart-On Main or Smart-On Auxiliary
+    command. This causes the coupler to issue a reset pulse on the
+    respective line and activate that line. 
+    Thus only devices on that line will respond to further commands
+    (until the next reset pulse).
+
+    If the response to the reset is:
+      Bus short - program execution terminates with status BusShorted.
+      Invalid confirmation byte - program execution terminates with status
+        BusError.
+      No presence pulse - program execution terminates with status
+        NoDevicePresent.
+      Presence pulse - no result data is produced,
+        and execution of the program continues.
+    */
+    setPathMain = 204, // 0xcc
+    setPathAux  = 51, // 0x33
+
+    /* Skip ROM
+    The bus master sends a Skip ROM command on the bus. 
+    */
+    skipROM = 5,
+
+    /* Match ROM
+    The step code is followed by an 8-byte ROM code.
+    The bus master sends a Match ROM command followed by that ROM code,
+    to address a specific device.
+    */
+    matchROM = 85, // 0x55
+
+    /* Search ROM
+    The step code is followed by an 8-byte starting ROM code.
+    The bus master executes the search ROM procedure, finding the 
+    next ROM code at or after the specified starting ROM code.
+    Specifically, for any bit position where there is a conflict
+    (devices exist with both 0 and 1 at that position),
+    the search chooses the bit in the starting ROM code.
+
+    If no device is found with such a ROM code,
+      program execution terminates with status NoDevicePresent.
+    Otherwise, the result data consists of the 8-byte ROM code of
+      the device found, followed by 8 bytes indicating the bit
+      positions at which a conflict was found during the search.
+      The program continues execution with the found device addressed.
+    */
+    searchROM = 240, // 0xf0
+    alarmSearchROM = 236, // 0xec
+
+    /* Write 0
+    The bus master writes a 0 bit to the bus.
+    This step cannot be immediately preceded by a resetSimple,
+    else program execution is terminated with status SequenceError.
+    */
+    write0 = 7,
+
+    /* Write 1
+    The bus master writes a 1 bit to the bus.
+    One result byte is generated, containing the bit read in response.
+    This step cannot be immediately preceded by a resetSimple,
+    else program execution is terminated with status SequenceError.
+    */
+    write1Read = 8,
+
+    /* Write bytes.
+    This step code is followed by one byte containing the number of bytes
+    to write, followed by that number of bytes of data.
+    The bus master writes the specified bytes to the bus.
+   
+    The number of bytes to write must not exceed maxBlockSize,
+    else RequestError is raised.
+    */
+    writeBytes = 9,
+
+    /* Read bytes.
+    This step code is followed by one byte containing the number of bytes
+    to read.
+    The bus master reads that many bytes and returns them as result data.
+   
+    The number of bytes to read must not exceed maxBlockSize,
+    else RequestError is raised.
+    */
+    readBytes = 10,
+
+    /* Read pages with CRC
+    This step code is followed by:
+       one byte containing the log base two of the page size,
+         which may not be zero nor more than 7.
+       one byte containing the number of pages to read,
+       one byte containing the command code to issue,
+       one byte containing the low 8 bits of the starting address, and
+       one byte containing the high 8 bits of the starting address.
+    The bus master sends the specified command and the two bytes of address,
+    and reads the specified amount of data, checking the CRC of each page.
+    If any CRC is in error,
+      program execution terminates with status CRCError.
+      An unspecified amount of result data (up to the total) is returned.
+    If there is no error, the result data is the data read.
+
+    This step cannot be immediately preceded by a resetSimple,
+    else program execution is terminated with status SequenceError.
+   
+    The number of bytes to read must not exceed maxResultsSize,
+    else program execution is terminated with status SequenceError.
+    */
+    readCRC8 = 11,
+    readCRC16 = 12,
+
+    /* Read until 1
+    This step code is followed by one byte containing a timeout value
+    in units of 4 milliseconds.
+    The bus master issues bus reads until a response of 1 is obtained,
+    but no longer than the time specified in the timeout value.
+
+    If the timeout expired,
+      runProgram raises Timeout,
+      and the rest of the program is ignored.
+    If a response of 1 was obtained,
+      execution of the program continues.
+
+    This step cannot be immediately preceded by a resetSimple,
+    else program execution is terminated with status SequenceError.
+    */
+    readUntil1 = 13,
+
+    /* Strong pullup.
+    This step code is followed by one byte specifying the duration of the
+    strong pullup in units of 16 milliseconds.
+    A value of 255 is not allowed, and a value of 0 is reserved.
+
+    This step code may only follow the following step codes: 
+      write0, write1Read, writeBytes, and readBytes.
+    Immediately following that step, the bus master issues a strong
+    pullup to +5V for the specified duration.
+    The actual duration may be somewhat longer, if the bus master
+    does not support the requested duration. 
+   
+    This step must immediately follow either write0, write1Read, or writeBytes,
+    else RequestError is raised.
+    */
+    strongPullup5 =14 
+  };
+
+  /* operation runProgram executes a program as described above.
+  It uses variable-sized input and output data
+  which is not yet supported by IDL.
+  Use OC=3.
+  May raise: ProgramTooLong, ResultsTooLong, or any described above.
+  If an exception is raised,
+    it returns in w1 the number of bytes of program that were executed.
+  */
+
   /****************** mode commands *******************/
 
+  /* Reset the bus master. */
   void resetDevice();
 
   /* Set bus speed */
@@ -59,12 +249,6 @@ interface W1Bus extends key {
     overdrive = 2
   };
   void setSpeed(W1Speed speed);
-
-  /* Set Strong PullUp Duration.
-  dur = 0: infinite
-  dur = 255: not allowed
-  otherwise dur is the duration in units of 16ms. */
-  void setSPUD(unsigned byte dur);
 
   /* Set PullDown Slew Rate for flexible speed. */
   unsigned byte enum PDSR {
