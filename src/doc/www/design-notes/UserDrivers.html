@@ -330,6 +330,16 @@ All normal user objects fall into this class.
       will be initialized to contain the new allocation count,
       so those capabilities will be valid. 
     </p>
+    <p>
+      There is an implementation wrinkle. 
+      On restart, we load and start the non-persistent processes,
+      which then read the checkpoint headers. 
+      We will have to initially load the non-persistent objects
+      with zero allocation and call counts.
+      Once the needed counts are read from the checkpoint headers,
+      and before any persistent objects are loaded,
+      we must adjust the counts of the already-loaded non-persistent objects.
+    </p>
     <h1>Communication</h1>
     <p>
       Here is a design for communication between the persistent
