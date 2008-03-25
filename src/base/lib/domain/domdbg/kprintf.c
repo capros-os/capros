@@ -73,6 +73,24 @@ sprintf_putc(char c, buf *buffer)
   buffer->txt[buffer->len++] = c;
 }
 
+void
+printPrefixSign(void (putc)(char c, buf *buffer), buf * pBuf,
+  char sign, bool sharpflag, int base, const char * digits)
+{
+  if (sign)	// add sign
+    putc(sign, pBuf);
+  else 
+    // Add prefix.
+    if (sharpflag) {
+      if (base == 8) {
+        putc('0', pBuf);
+      } else if (base == 16) {
+        putc('0', pBuf);
+        putc(digits[16], pBuf);      // 'x' or 'X'
+      }
+    }
+}
+
 enum size_modifier {
   sizemod_none = 0,
   sizemod_l,
@@ -88,7 +106,6 @@ printf_guts(void (putc)(char c, buf *buffer),
   char buf[25];
   unsigned long ul;
   unsigned long long ull;
-  int base;
     
   if (fmt == 0) {		/* bogus input specifier */
     putc('?', pBuf);
@@ -105,10 +122,11 @@ printf_guts(void (putc)(char c, buf *buffer),
       continue;
     }
 
+    int base = 0;
     int width = 0;
     char sign = 0;
     int leftAdjust = false;
-    char fillchar = ' ';
+    char padchar = ' ';
     bool sharpflag = false;
     int precision = -1;	// so far, not present
     enum size_modifier sizemod = sizemod_none;
@@ -123,7 +141,7 @@ printf_guts(void (putc)(char c, buf *buffer),
 
     switch (*fmt) {
       case '-': leftAdjust = true; goto flags;
-      case '0': fillchar = '0'; goto flags;
+      case '0': padchar = '0'; goto flags;
       case '#': sharpflag = true; goto flags;
     default: break;
     }
@@ -264,8 +282,8 @@ unumbers:	// print unsigned numbers
 printul:
         do {
 	  *(--p) = digits[ul % base];
-	  ul /= base;
-        } while (ul);
+          --precision;
+        } while ((ul /= base) || precision > 0);
 	break;
 
       case sizemod_ll:
@@ -273,22 +291,9 @@ printul:
 printull:
         do {
 	  *(--p) = digits[ull % base];
-	  ull /= base;
-        } while (ull);
+          --precision;
+        } while ((ull /= base) || precision > 0);
       }
-
-      // Add prefix.
-      if (sharpflag) {
-        if (base == 8) {
-          *(--p) = '0';
-        } else if (base == 16) {
-          *(--p) = digits[16];      // 'x' or 'X'
-          *(--p) = '0';
-        }
-      }
-
-      if (sign)
-        *(--p) = sign;
 
       break;
 
@@ -308,20 +313,38 @@ printull:
 
     if (width) {
       width -= pend - p;	// amount of padding
-      if (width < 0)
-        width = 0;
     }
+
+    // Figure width of prefix or sign, subtract from padding.
+    if (sign)
+      width--;
+    else if (sharpflag) {
+      if (base == 8) {
+        width--;	// for 0
+      } else if (base == 16) {
+        width -= 2;	// for 0x
+      }
+    }
+
+    if (width < 0)
+      width = 0;
+
+    if (padchar != ' ')	// prefix/sign comes before 0 padding
+      printPrefixSign(putc, pBuf, sign, sharpflag, base, digits);
 
     if (! leftAdjust)      // pad on the left
       while (width-- > 0)
-        putc(fillchar, pBuf);
+        putc(padchar, pBuf);
+
+    if (padchar == ' ')	// prefix/sign comes after space padding
+      printPrefixSign(putc, pBuf, sign, sharpflag, base, digits);
 
     /* output the text */
     while (p != pend)
       putc(*p++, pBuf);
 
     while (width-- > 0) // add any padding on the right
-      putc(fillchar, pBuf);
+      putc(padchar, pBuf);
   }
 }
 
