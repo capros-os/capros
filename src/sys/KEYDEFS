@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -28,10 +28,10 @@ primary	Start
 bindto Start Gate
 primary	Resume	/* last gate key */
 bindto Resume Gate
+primary	Process
 primary Forwarder
 primary	Node
 primary	GPT
-primary	Process
 primary	Page /* last object key (i.e. things from the disk) */
 primary	Device
 primary	Number
