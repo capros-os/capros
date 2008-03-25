@@ -237,6 +237,23 @@ db_putchar(int c)
 	/* other characters are assumed non-printing */
 }
 
+void
+printPrefixSign(char sign, bool sharpflag, int base, const char * digits)
+{
+  if (sign)     // add sign
+    db_putchar(sign);
+  else
+    // Add prefix.
+    if (sharpflag) {
+      if (base == 8) {
+        db_putchar('0');
+      } else if (base == 16) {
+        db_putchar('0');
+        db_putchar(digits[16]);      // 'x' or 'X'
+      }
+    }
+}
+
 enum size_modifier {
   sizemod_none = 0,
   sizemod_l,
@@ -250,7 +267,6 @@ db_printf_guts(register const char *fmt, va_list ap)
   register int ch;
   unsigned long ul;
   unsigned long long ull;
-  int base;
 
   /* Smallest base is 8, which takes 1 character per 3 bits. 
   Add 2 for prefix "0x" and 1 for sign. */
@@ -261,12 +277,15 @@ db_printf_guts(register const char *fmt, va_list ap)
       db_putchar(*fmt++);
       continue;
     }
-    char padc = ' ';
+
+    int base;
+    char padchar = ' ';
     int width = 0;
     enum size_modifier sizemod = sizemod_none;
     bool ladjust = false;
     bool sharpflag = false;
-    int neg = 0;
+    int precision = -1;	// so far, not present
+    char sign = 0;
     const char * digits = small_digits;
     
     /* Process a conversion specification. */
@@ -276,7 +295,7 @@ db_printf_guts(register const char *fmt, va_list ap)
 
     switch (*fmt) {
       case '-': ladjust = true; goto flags;
-      case '0': padc = '0'; goto flags;
+      case '0': padchar = '0'; goto flags;
       case '#': sharpflag = true; goto flags;
     default: break;
     }
@@ -295,6 +314,26 @@ db_printf_guts(register const char *fmt, va_list ap)
         width *= 10;
         width += (*fmt - '0');
         fmt++;
+      }
+    }
+
+    /* See if what follows is a precision specifier: */
+    
+    if (*fmt == '.') {
+      fmt++;
+      precision = 0;
+      if (*fmt == '*') {
+        fmt++;
+        precision = va_arg (ap, int);
+        if (precision < 0) {
+          precision = -precision;
+        }
+      } else {
+        while (*fmt >= '0' && *fmt <= '9') {
+          precision *= 10;
+          precision += (*fmt - '0');
+          fmt++; 
+        }
       }
     }
 
@@ -320,17 +359,22 @@ db_printf_guts(register const char *fmt, va_list ap)
     db_putchar(va_arg(ap, int));
     break;
   case 's':
+  {
     p = va_arg(ap, char *);
-    width -= strlen (p);
+    int len = strlen(p);
+    if (precision >= 0 && len > precision)
+      len = precision;
+    width -= len;
     if (!ladjust && width > 0)
       while (width--)
-	db_putchar (padc);
-    while ((ch = *p++))
-      db_putchar(ch);
+	db_putchar(padchar);
+    while (len--)
+      db_putchar(*p++);
     if (ladjust && width > 0)
       while (width--)
-	db_putchar (padc);
+	db_putchar(padchar);
     break;
+  }
   case 'r':
     base = db_radix;
     if (base < 8 || base > 16)
@@ -360,13 +404,13 @@ snumbers:
       case sizemod_ll:
         ull = va_arg(ap, unsigned long long);
         if (ull < 0) {
-          neg = 1;
+          sign = '-';
           ull = -(long long)ull;
         }
         goto printull;
     }
     if ((long)ul < 0) {
-      neg = 1;
+      sign = '-';
       ul = -(long)ul;
     }
     goto printul;
@@ -396,7 +440,8 @@ printul:
         p = buf;
         do {
           *p++ = digits[ul % base];
-        } while (ul /= base);
+          --precision;
+        } while ((ul /= base) || precision > 0);
         break;
 
       case sizemod_ll:
@@ -405,37 +450,44 @@ printull:
         p = buf;
         do {
           *p++ = digits[ull % base];
-        } while (ull /= base);
+          --precision;
+        } while ((ull /= base) || precision > 0);
     }
-
-    // Add prefix.
-    if (sharpflag) {
-      if (base == 8) {
-        *p++ = '0';
-      } else if (base == 16) {
-        *p++ = digits[16];	// 'x' or 'X'
-        *p++ = '0';
-      }
-    }
-    if (neg)
-      *p++ = '-';
 
     if (width) {
       width -= p - buf;	// amount of padding
-      if (width < 0)
-        width = 0;
     }
+
+    // Figure width of prefix or sign, subtract from padding.
+    if (sign)
+      width--;
+    else if (sharpflag) {
+      if (base == 8) {
+        width--;        // for 0
+      } else if (base == 16) {
+        width -= 2;     // for 0x
+      }
+    }
+
+    if (width < 0)
+      width = 0;
+
+    if (padchar != ' ') // prefix/sign comes before 0 padding
+      printPrefixSign(sign, sharpflag, base, digits);
 
     if (! ladjust)	// pad on the left
       while (width-- > 0)
-	db_putchar(padc);
+	db_putchar(padchar);
+
+    if (padchar == ' ') // prefix/sign comes after space padding
+      printPrefixSign(sign, sharpflag, base, digits);
 
     do
       db_putchar(*--p);
     while (p != buf);
 
     while (width-- > 0)	// add any padding on the right
-      db_putchar(padc);
+      db_putchar(padchar);
 
     break;
 
