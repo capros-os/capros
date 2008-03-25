@@ -755,7 +755,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
         } else {
           // This small space has had its domain stolen.
           unsigned int domain = EnsureSSDomain(mva >> PID_SHIFT);
-          printf("Reassigning domain to L1D.\n");
+          DEBUG(pgflt) printf("Reassigning domain to L1D.\n");
           theFLPTEntry |= (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
         }
         * theFLPTEntryP = theFLPTEntry;
