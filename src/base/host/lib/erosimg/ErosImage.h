@@ -2,7 +2,7 @@
 #define __EROSIMAGE_H__
 /*
  * Copyright (C) 1998, 1999, 2001, 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -86,12 +86,12 @@ struct ErosHeader {
   uint32_t	nStartups;	/* number of startup activities */
   uint32_t	startupsOffset;	/* location in file of startups directory */
   
-  uint32_t	nPages;		/* total number of page images */
+  uint32_t	nPages;		/* total number of nonzero page images */
   uint32_t	nZeroPages;	/* total number of zero page images */
   uint32_t	pageOffset;	/* location in file of first page description */
 
-  uint32_t	nNodes;		/* total number of page images */
-  uint32_t	nodeOffset;	/* location in file of first page description */
+  uint32_t	nNodes;		/* total number of node images */
+  uint32_t	nodeOffset;	/* location in file of first node description */
 
   uint32_t	strSize;	/* size of string table */
   uint32_t	strTableOffset;	/* file offset of string table */

@@ -93,7 +93,7 @@ heap_init()
 
   assert((heap_size % EROS_PAGE_SIZE) == 0);
 
-  printf("Heap size is 0x%x bytes.\n", heap_size);
+  printf("Heap size is %#x bytes.\n", heap_size);
 
   mach_HeapInit(heap_size);
 

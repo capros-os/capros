@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -34,7 +34,6 @@ init.hd: $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
 
 hd: $(BUILDDIR)/sysimg $(KERNPATH)
-	$(EROS_ROOT)/host/bin/setvol -D $(EROS_HD)
 	cp $(KERNPATH) $(CAPROS_BOOT_PARTITION)/CapROS-kernel-1
 	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map -g $(CAPROS_BOOT_PARTITION) -v 1 $(EROS_HD) $(BUILDDIR)/sysimg
 

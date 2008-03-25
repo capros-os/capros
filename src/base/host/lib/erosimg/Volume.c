@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -1430,9 +1430,6 @@ vol_Close(Volume *pVol)
                   (uint32_t) (iplOid >> 32),
                   (uint32_t) iplOid);
           fprintf(file, " 0x%08lx", pVol->bootDrive);
-          if (pVol->volHdr.BootFlags & VF_DEBUG) {
-            fputs(" debug", file);
-          }
           fputs("\n", file);
 
           /* Output module commands. */

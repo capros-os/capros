@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,7 +32,6 @@ Approved for public release, distribution unlimited. */
 const char* targname;
 
 int wantBoot = 0;
-int wantDebug = 0;
 const char *kernel_name = 0;
 const char *boot_name = 0;
 #if 0
@@ -51,7 +50,7 @@ main(int argc, char *argv[])
   
   app_Init("setvol");
 
-  while ((c = getopt(argc, argv, "dDk:b:B")) != -1) {
+  while ((c = getopt(argc, argv, "k:b:B")) != -1) {
     switch(c) {
     case 'k':
       kernel_name = optarg;
@@ -64,12 +63,6 @@ main(int argc, char *argv[])
       wantBoot = -1;
       boot_name = 0;
       break;
-    case 'd':
-      wantDebug = 1;
-      break;
-    case 'D':
-      wantDebug = -1;
-      break;
     default:
       opterr++;
     }
@@ -79,8 +72,7 @@ main(int argc, char *argv[])
   argc -= optind;
   argv += optind;
   
-  if (kernel_name == 0 && wantBoot == 0
-      && wantDebug == 0)
+  if (kernel_name == 0 && wantBoot == 0)
     opterr++;
   
   if (argc != 1)
@@ -118,12 +110,6 @@ main(int argc, char *argv[])
   }
   if (wantBoot != 0)
     vol_WriteBootImage(pVol, boot_name);
-  
-  if (wantDebug > 0)
-    vol_SetVolFlag(pVol, VF_DEBUG);
-  else if (wantDebug < 0) {
-    vol_ClearVolFlag(pVol, VF_DEBUG);
-  }
   
   vol_Close(pVol);
   free(pVol);

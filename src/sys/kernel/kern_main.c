@@ -115,7 +115,6 @@ main(void)
   int i;
   OID iplOid;
   uint32_t bootDrive;
-  bool debugBoot;
 
   Activity *idleActivity;
 
@@ -146,9 +145,6 @@ main(void)
     bootDrive = (bootDrive << 4) + charToHex(*p);
   }
 
-  /* Next argument if any is debug flag. */
-  debugBoot = (*p != 0);
-
   physMem_Init();
 
   cpu_BootInit();
@@ -161,8 +157,9 @@ main(void)
 #ifdef OPTION_DDB
   ddb_init();
 
-  if (debugBoot)
-    dprintf(true, "Stopping due to kernel Debug option.\n");
+#if 0
+  dprintf(true, "Stopping due to kernel Debug option.\n");
+#endif
 #endif
 
   objC_InitObjectSources();
