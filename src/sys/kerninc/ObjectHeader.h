@@ -121,10 +121,10 @@ enum {
 #define OFLG_CKPT	0x10u	/* checkpoint version */
 #define OFLG_IO		0x20u	/* object has active I/O in progress */
 #define OFLG_DISKCAPS	0x40u	/* non-resume capabilities to this object exist
-				that are not on the keyRing. */
+				that contain the current allocation count. */
 /* FIXME: there needs to be:
 #define OFLG_DISKRESM	0x80u	 * resume capabilities to this node exist
-				that are not on the keyRing. */
+				that have the current call count. */
 
 struct ObjectHeader {
 /* N.B.: obType must be the first item in ObjectHeader.
