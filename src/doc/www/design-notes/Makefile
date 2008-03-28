@@ -29,6 +29,8 @@ include $(EROS_SRC)/build/make/makevars.mk
 HTML_DOCS= \
 	00DesignNotes.html \
 	AutoConf.html \
+	Checkpoint.html \
+	CheckpointLog.svg \
 	DiskFormatting.html \
 	KernelMemory.html \
 	ContextLoad.html \
@@ -40,7 +42,6 @@ HTML_DOCS= \
 	Multiboot.html \
 	SmallSpaces386.html \
 	POSIX.html \
-	Checkpoint.html \
 	Keeper.html \
 	SpaceBank.html \
 	BootSector386.html \
