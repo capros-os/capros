@@ -91,25 +91,10 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
   if (! objC_EvictFrame(pObj))
     return 0;	// could not evict
 
-  pageH_ToObj(pObj)->oid = oid;
-  pageH_ToObj(pObj)->allocCount = PhysPageAllocCount;
-
-  pageH_ToObj(pObj)->ioCount = 0;	// should this be an assertion?
-
-  assert(objH_GetFlags(pageH_ToObj(pObj),
-                       OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
-  objH_SetFlags(pageH_ToObj(pObj), OFLG_CURRENT);
-
   pObj->objAge = age_NewBorn;
-  pageH_ToObj(pObj)->obType = ot_PtDataPage;
-#ifdef OPTION_OB_MOD_CHECK
-  pageH_ToObj(pObj)->check = objH_CalcCheck(pageH_ToObj(pObj));
-#endif
-
   pageH_MDInitDataPage(pObj);
 
-  objH_ResetKeyRing(pageH_ToObj(pObj));
-  objH_Intern(pageH_ToObj(pObj));
+  objH_InitObj(pageH_ToObj(pObj), oid, PhysPageAllocCount, ot_PtDataPage);
 
   return pageH_ToObj(pObj);
 }

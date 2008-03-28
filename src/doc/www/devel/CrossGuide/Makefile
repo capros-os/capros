@@ -35,6 +35,7 @@ DOCS= \
 	lsvol-ref.html \
 	mkvol-ref.html \
 	mkimage-ref.html \
+	npgen-ref.html \
 	setboot-ref.html \
 	setvol-ref.html \
 	sysgen-ref.html

@@ -78,7 +78,8 @@ void objC_WaitForAvailableNodeFrame();
 Node *objC_GrabNodeFrame();
 
 void objC_AgePageFrames(void);
-PageHeader * objC_GrabPageFrame();
+PageHeader * objC_GrabPageFrame(void);
+void objC_GrabThisPageFrame(PageHeader *);
 void objC_CleanFrame1(ObjectHeader * pObj);
 
 void objC_AddDevicePages(PmemInfo *);

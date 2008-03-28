@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -45,9 +45,10 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/CPU.h>
 #include <kerninc/CpuReserve.h>
-
+#include <disk/NPODescr.h>
 
 struct grub_multiboot_info * MultibootInfoPtr;
+struct NPObjectsDescriptor * NPObDescr;
 
 extern void ioReg_Init();
 extern void UserIrqInit();
@@ -79,10 +80,8 @@ StartIplActivity(OID iplOid)
   assert (keyBits_IsUnprepared(&activity->processKey));
   assert( keyBits_IsHazard(&activity->processKey) == false );
 
-  printf("IPL OID = 0x%08lx%08lx, activity = 0x%08x .\n",
-         (uint32_t) (iplOid >> 32),
-         (uint32_t) iplOid,
-         activity );
+  printf("IPL OID = %#llx, activity = %#.8x .\n",
+         iplOid, activity );
 
   /* Forge a domain key for this activity: */
   k = &activity->processKey; /*@ not null @*/
@@ -111,41 +110,13 @@ StartIplActivity(OID iplOid)
 int
 main(void)
 {
-  const char * p;
-  int i;
-  OID iplOid;
-  uint32_t bootDrive;
-
   Activity *idleActivity;
 
-  /* Parse the "command line" parameters. */
-  p = (const char *)MultibootInfoPtr->cmdline;
-
-#if 0
-  printf("Cmd line %s\n", p);
-#endif
-  /* Skip kernel file name. */
-  while (*p != ' ' && *p != 0) p++;
-  assert(*p == ' ');
-  p++;
-
-  /* String begins with 0xnnnnnnnnnnnnnnnn for ipl key OID. */
-  iplOid = strToUint64(&p);
-
-  /* Next argument is 0xnnnnnnnn for boot drive. */
-  assert(*p == ' ');
-  p++;
-  assert(*p == '0');
-  p++;
-  assert(*p == 'x');
-  p++;
-  bootDrive = 0;
-  for (i = 0; i < 8; i++, p++) {
-    assert(*p != 0);	/* ensure against a short string */
-    bootDrive = (bootDrive << 4) + charToHex(*p);
-  }
+  OID iplOid = NPObDescr->IPLOID;
 
   physMem_Init();
+  /* The Multiboot structure is not needed after this point
+     (but alas remains reserved). */
 
   cpu_BootInit();
 
@@ -163,8 +134,6 @@ main(void)
 #endif
 
   objC_InitObjectSources();
-  /* Multiboot structures not needed after this point
-     (but alas remain reserved). */
 
   UserIrqInit();
 
@@ -195,9 +164,12 @@ main(void)
      is where to do it, though we *should* be able to steal frames
      from the object cache at some point. */
 
-  /* Initialize the object sources, then allocate space for the
+  /* Allocate space for the
      in-core nodes, pages, and the CoreTable: */
   objC_Init();
+
+  extern void preload_Init(void);
+  preload_Init();
   
   printf("Object cache initialized...\n");
 

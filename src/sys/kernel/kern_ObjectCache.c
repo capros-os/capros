@@ -37,6 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/Page-inline.h>
 #include <kerninc/PhysMem.h>
 #include <disk/PagePot.h>
+#include <disk/NPODescr.h>
 #include <arch-kerninc/PTE.h>
 
 #define MAX_SOURCE 16
@@ -54,7 +55,6 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-static void objC_GrabThisPageFrame(PageHeader *);
 static void objC_AllocateUserPages(void);
 
 static bool objC_CleanFrame2(ObjectHeader * pObj);
@@ -250,13 +250,15 @@ AddCoherentPages(PageHeader * pageH, PmemInfo * pmi, kpg_t nPages,
   for (pg = 0;
        pg < nPages;
        pg++, pageH++, oid += EROS_OBJECTS_PER_FRAME) {
+    pageH->physMemRegion = pmi;
+    pageH_MDInitDevicePage(pageH);	// make it coherent
+
     ObjectHeader * pObj = pageH_ToObj(pageH);
     pObj->obType = obType;
-    pageH->physMemRegion = pmi;
     pObj->oid = oid;
     pObj->allocCount = 0;	// FIXME or PhysPageAllocCount??
     objH_SetFlags(pObj, OFLG_CURRENT | OFLG_DIRTY);
-    pageH_MDInitDevicePage(pageH);	// make it coherent
+    // No objH_CalcCheck for device pages.
     objH_ResetKeyRing(pObj);
     objH_Intern(pObj);
   }
@@ -784,25 +786,12 @@ objC_CopyObject(ObjectHeader *pObj)
     newNode->objAge = age_NewBorn;	/* FIX: is this right? */
   }
 
-  newObj->oid = pObj->oid;
-  newObj->allocCount = pObj->allocCount;
+  objH_InitObj(newObj, pObj->oid, pObj->allocCount, pObj->obType);
 
+  objH_SetFlags(newObj, objH_GetFlags(pObj, OFLG_DISKCAPS)); // correct?
   /* The copy is now current. The old object is still the checkpoint
      version. */
-  objH_SetFlags(newObj, OFLG_CURRENT);
   objH_ClearFlags(pObj, OFLG_CURRENT);
-
-  assert(objH_GetFlags(pObj, OFLG_IO) == 0);
-  objH_SetFlags(newObj, objH_GetFlags(pObj, OFLG_DISKCAPS));
-  newObj->ioCount = 0;
-
-  newObj->obType = pObj->obType;
-#ifdef OPTION_OB_MOD_CHECK
-  newObj->check = objH_CalcCheck(newObj);
-#endif
-  assert(keyR_IsEmpty(&newObj->keyRing));
-
-  objH_Intern(newObj);
 
   return newObj;
 }
@@ -814,13 +803,16 @@ objC_CopyObject(ObjectHeader *pObj)
  */
 /* This procedure may Yield. */
 bool
-objC_EvictFrame(PageHeader * pObj)
+objC_EvictFrame(PageHeader * pageH)
 {
   DEBUG(ndalloc)
-    printf("objC_EvictFrame obj=0x%08x type=%d\n", pObj, pageH_GetObType(pObj));
+    printf("objC_EvictFrame obj=0x%08x type=%d\n",
+           pageH, pageH_GetObType(pageH));
 
-  switch (pageH_GetObType(pObj)) {
+  switch (pageH_GetObType(pageH)) {
   case ot_PtFreeFrame:
+    while (pageH->kt_u.free.log2Pages != 0)	// just want one page
+      physMem_SplitContainingFreeBlock(pageH);
     break;
 
   case ot_PtKernelHeap:
@@ -837,9 +829,9 @@ objC_EvictFrame(PageHeader * pObj)
     return false;
 
   case ot_PtDataPage:
-    objC_CleanFrame1(pageH_ToObj(pObj));
-    if (!objC_CleanFrame2(pageH_ToObj(pObj))) {
-      (void) objC_CopyObject(pageH_ToObj(pObj));
+    objC_CleanFrame1(pageH_ToObj(pageH));
+    if (!objC_CleanFrame2(pageH_ToObj(pageH))) {
+      (void) objC_CopyObject(pageH_ToObj(pageH));
   
       /* Since we could not write the old frame out, we assume that it
        * is not backed by anything. In this case, the right thing to do
@@ -848,30 +840,30 @@ objC_EvictFrame(PageHeader * pObj)
        * to release it.
        */
 
-      pageH_ClearFlags(pObj, OFLG_CKPT | OFLG_DIRTY);
+      pageH_ClearFlags(pageH, OFLG_CKPT | OFLG_DIRTY);
     }
-    assert(keyR_IsEmpty(&pageH_ToObj(pObj)->keyRing));
-    ReleaseObjPageFrame(pObj);
+    assert(keyR_IsEmpty(&pageH_ToObj(pageH)->keyRing));
+    ReleaseObjPageFrame(pageH);
     break;
 
   default:
-    pageH_mdType_EvictFrame(pObj);
+    pageH_mdType_EvictFrame(pageH);
     break;
   }
 
 #if 0	// until I figure out what we need to do here
   // Unlink from free list.
   PageHeader * * pp = &objC_firstFreePage;
-  while (*pp != pObj) {
+  while (*pp != pageH) {
     assert(*pp);	// else not found in list
     pp = &(*pp)->kt_u.free.next;
   }
-  (*pp) = pObj->kt_u.free.next;
+  (*pp) = pageH->kt_u.free.next;
   objC_nFreePageFrames--;
 
-  pageH_ToObj(pObj)->obType = ot_PtNewAlloc; /* until further notice */
+  pageH_ToObj(pageH)->obType = ot_PtNewAlloc; /* until further notice */
 
-  objC_GrabThisPageFrame(pObj);
+  objC_GrabThisPageFrame(pageH);
 #else
   assert(false);
 #endif
@@ -1123,7 +1115,7 @@ ObjectCache::RequirePageFrames(uint32_t n)
 }
 #endif
 
-static void
+void
 objC_GrabThisPageFrame(PageHeader *pObj)
 {
   assert(pageH_GetObType(pObj) == ot_PtNewAlloc);
@@ -1179,6 +1171,26 @@ objC_GrabNodeFrame()
   objH_ResetKeyRing(pObj);
     
   return pNode;
+}
+
+void
+objH_InitObj(ObjectHeader * pObj, OID oid, ObCount allocCount,
+  unsigned int obType)
+{
+  pObj->oid = oid;
+  pObj->allocCount = allocCount;
+
+  objH_SetFlags(pObj, OFLG_CURRENT);
+  assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
+
+  assert(pObj->ioCount == 0);
+  pObj->obType = obType;
+#ifdef OPTION_OB_MOD_CHECK
+  pObj->check = objH_CalcCheck(pObj);
+#endif
+
+  objH_ResetKeyRing(pObj);
+  objH_Intern(pObj);
 }
 
 /* Release a page that has an ObjectHeader. */
@@ -1483,7 +1495,6 @@ void
 objC_InitObjectSources()
 {
   unsigned i;
-  struct grub_mod_list * modp;
   ObjectSource * source = KPAtoP(ObjectSource *,
                             physMem_Alloc(sizeof(ObjectSource), &physMem_any));
 
@@ -1502,48 +1513,30 @@ objC_InitObjectSources()
 
   DEBUG (obsrc) printf("objC_InitObjectSources: Added obcache.\n");
   
-  for (i = MultibootInfoPtr->mods_count,
-         modp = KPAtoP(struct grub_mod_list *, MultibootInfoPtr->mods_addr);
-       i > 0;
-       --i, modp++) {
-    uint32_t nObFrames;
-    const char * p = KPAtoP(char *, modp->cmdline);
-    OID startOid;
+  // Set up the preloaded non-persistent objects.
+  struct NPObjectsDescriptor * npod = NPObDescr;	// local copy
+  OID oid = npod->OIDBase;
 
-    /* Skip module file name. */
-    while (*p != ' ' && *p != 0) p++;
-    assert(*p == ' ');
-    p++;
+  /* code for initializing PreloadObSource */
+  source = KPAtoP(ObjectSource *,
+                  physMem_Alloc(sizeof(ObjectSource), &physMem_any));
+  source->name = "preload";
+  source->start = oid;
+  source->end = oid + FrameToOID(npod->numFramesInRange);
+  source->base = 0;	// not used
+  source->objS_Detach = PreloadObSource_Detach;
+  source->objS_GetObject = PreloadObSource_GetObject;
+  source->objS_IsRemovable = ObjectSource_IsRemovable;
+  source->objS_WriteBack = PreloadObSource_WriteBack;
+  source->objS_Invalidate = PreloadObSource_Invalidate;
+  source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
 
-    /* Get starting OID from "command line" string. */
-    startOid = strToUint64(&p);
+  objC_AddSource(source);
 
-    /* Calculate number of OIDs in this division. */
-    nObFrames = (modp->mod_end - modp->mod_start)/EROS_PAGE_SIZE; /* size in pages */
-    /* Preloaded module does not have a checkpoint seqno page. */
-    /* Take out a pot for each whole or partial cluster. */
-    nObFrames -= (nObFrames + (PAGES_PER_PAGE_CLUSTER-1))
-                 / PAGES_PER_PAGE_CLUSTER;
-
-    /* code for initializing PreloadObSource */
-    source = (ObjectSource *)KPAtoP(void *, physMem_Alloc(sizeof(ObjectSource), &physMem_any));
-    source->name = "preload";
-    source->start = startOid;
-    source->end = startOid + (nObFrames * EROS_OBJECTS_PER_FRAME);
-    source->base = PTOV(modp->mod_start);
-    source->objS_Detach = PreloadObSource_Detach;
-    source->objS_GetObject = PreloadObSource_GetObject;
-    source->objS_IsRemovable = ObjectSource_IsRemovable;
-    source->objS_WriteBack = PreloadObSource_WriteBack;
-    source->objS_Invalidate = PreloadObSource_Invalidate;
-    source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
-  
-    objC_AddSource(source);
-
-    DEBUG (obsrc) printf("objC_InitObjectSources: Added preloaded module, startOid=0x%08lx%08lx.\n",
-                         (uint32_t) (startOid >> 32),
-                         (uint32_t) startOid );
-  }
+  DEBUG (obsrc)
+    printf("objC_InitObjectSources: Added preloaded module,"
+           " startOid=%#llx, %d frames.\n",
+           oid, npod->numFramesInRange);
 
   for (i = 0; i < physMem_nPmemInfo; i++) {
     PmemInfo *pmi = &physMem_pmemInfo[i];

@@ -239,7 +239,7 @@ extern "C" {
   ei_GetStartupEntByIndex(const ErosImage *ei, uint32_t ndx)
   { return ei->startupsDir[ndx]; }
 
-  void ei_GetDataPageContent(const ErosImage *, uint32_t pageNdx, uint8_t *buf);
+  void ei_GetDataPageContent(const ErosImage *, uint32_t pageNdx, void * buf);
   void ei_GetNodeContent(const ErosImage *, uint32_t nodeNdx, DiskNodeStruct *node);
 
 #ifdef __cplusplus

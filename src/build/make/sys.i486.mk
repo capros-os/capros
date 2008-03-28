@@ -33,9 +33,16 @@ $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
 init.hd: $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
 
-hd: $(BUILDDIR)/sysimg $(KERNPATH)
-	cp $(KERNPATH) $(CAPROS_BOOT_PARTITION)/CapROS-kernel-1
-	$(EROS_ROOT)/host/bin/sysgen -m $(BUILDDIR)/sysgen.map -g $(CAPROS_BOOT_PARTITION) -v 1 $(EROS_HD) $(BUILDDIR)/sysimg
+ifndef NPRANGESIZE
+NPRANGESIZE=300
+endif
+
+// Link kernel and non-persistent objects:
+np: $(BUILDDIR)/sysimg $(KERNPATH).o
+	$(EROS_ROOT)/host/bin/npgen -m $(BUILDDIR)/sysgen.map -s $(NPRANGESIZE) $(BUILDDIR)/sysimg $(BUILDDIR)/imgdata
+	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
+	$(LD) -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptImage -o $(BUILDDIR)/imgdata2.o $(BUILDDIR)/imgdata.o
+	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(CAPROS_BOOT_PARTITION)/CapROS-kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o
 
 $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol

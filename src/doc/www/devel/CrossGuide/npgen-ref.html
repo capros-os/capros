@@ -1,0 +1,82 @@
+<html>
+<head>
+  <title>CapROS npgen Reference</title>
+</head>
+
+<BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
+<div class=nocss>
+  <br class=nocss>&nbsp;
+</div>
+<table>
+  <tr>
+    <td width="10%" valign=top class=toc>
+      <b>UP</b>
+      <br>&nbsp;
+      <br><a href="../../capros.html"><em>CapROS home</em></a> 
+      <br>&nbsp;
+      <br><a href="Cover.html"><em>Kernel Development
+      Guide</em></a> 
+    </td>
+    <td width=5%>&nbsp;</td>
+    <td valign=top>
+      <center>
+	<H1 class=title><tt>npgen</tt> Reference</H1>
+	<div class=nocss>
+	  <br class=nocss>&nbsp;
+	</div>
+      </center>
+      <h2>Name</h2>
+      <p><b>npgen</b> -- make image file for non-persistent objects</p>
+      <h2>Synopsis</h2>
+      <p><b>npgen</b> -s rangeSize [-m mapfile] [-b baseOID]
+         image_file binary_image</p>
+      <h2>Description</h2>
+      <p> The <b>npgen</b> utility prepares a binary image file
+        containing the non-persistent objects to be loaded with the kernel.
+        The input <b>image_file</b> (from <b>mkimage</b>)
+        defines the non-persistent objects.
+      </p>
+      <p>
+        A range of non-persistent objects containing <em>rangeSize</em>
+        frames will be defined. This range contains the objects
+        defined in the image_file, and additional objects available
+        for allocation by the space bank.
+      </p>
+      <p>
+        Object IDs for objects will be assigned beginning with <em>baseOID</em>
+        (0 if not specified.)
+      </p>
+      <p>If <em>mapfile</em> is specified, npgen outputs there the mapping
+      of indexes in the image_file to OIDs in the binary file.
+      </p>
+      <p>
+        The binary image file contains:
+      </p>
+      <ul>
+        <li>A page frame containing a header
+          with information about the objects and range.
+        <li>Frames containing the initial contents of nodes.
+        <li>Frames containing the initial contents of nonzero pages.
+      </ul>
+    </td>
+    <td valign=top width=15%>&nbsp;</td>
+  </tr>
+</table>
+      <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+      <em>Copyright 2008 by Strawberry Development Group.  All rights reserved.
+      For terms of redistribution, see the <a
+      href="../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
+</body>
+</html>

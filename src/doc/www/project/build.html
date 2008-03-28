@@ -188,9 +188,18 @@ make
           <li>distclean - clean, and also remove install directories under eros/
           </ul>
 	  <h2>2.4. Running a test program</h2>
+	  <p>
+            To run CapROS, you must have a boot partition with a file system 
+            where GRUB will find the files to load.
+            Define CAPROS_BOOT_PARTITION as the name of this partition.
+            For example:
+	  </p>
+<pre>
+export CAPROS_BOOT_PARTITION=/boot
+</pre>
 	  <p> 
-            To run CapROS, you must have a hard disk partition formatted
-            for CapROS. 
+            To run the persistent version (not yet implemented),
+            you must also have a hard disk partition formatted for CapROS. 
 	    Use your handy
 	    <tt>fdisk</tt> equivalent to create a partition, and give it
 	    type 0x95.
@@ -199,15 +208,6 @@ make
 	  </p>
 <pre>
 export EROS_HD=/dev/hda1
-</pre>
-	  <p>
-            You must also have a boot partition with a file system where
-            GRUB will find the files to load. Define
-            CAPROS_BOOT_PARTITION as the name of this partition.
-            For example:
-	  </p>
-<pre>
-export CAPROS_BOOT_PARTITION=/boot
 </pre>
 	  <p>
             Before using the CapROS partition for the first time,
@@ -226,7 +226,7 @@ make init.hd
 	  <ul>
 <pre>
 cd somewhere/eros/src/tutorials/hello-large
-make hd
+make np
 </pre>
 	  </ul>
 	  <p>
@@ -235,7 +235,7 @@ make hd
 	  </p>
 <pre>
 root (hd0,1)     # or the appropriate value for your boot partition
-configfile /CapROS-config-1
+kernel --type=multiboot /CapROS-kernimg
 </pre>
 	  <p>
             You may wish to add an item to your GRUB menu.lst file
@@ -360,21 +360,15 @@ export EROS_TARGET=arm
           <ol><li>
           Build the system for ARM.
           </li><li>
-          Define EROS_HD to some
-          file (it will be used temporarily while building the
-          system image). 
-<pre>
-export EROS_HD=/tftpboot/hdz9
-</pre>
-          </li><li>
           Go to the directory containing the test case you want to run,
           for example src/base/tests/perf/nc.
-          The kernel and initial system state are loaded together in a file
-          (/tftpboot/capros-kernel)
-          that will be loaded into the system's memory. Build it:
+          The kernel text, kernel data, and initial system state are loaded
+          into the system's memory
+          from three separate files in /tftpboot
+          (kerneltext, kerneldata, and imgdata respectively).
+          Build them:
 <pre>
-make init.hd
-make hd
+make np
 </pre>
           </li><li>
           Set up Redboot according to the instructions that came with
@@ -390,9 +384,14 @@ su -c 'yum install tftp tftp-server'
           Boot the EDB9315 to execute Redboot. 
           Give Redboot the commands:
 <pre>
-load -v -r -b 0x00100000 capros-kernel
+load -v -r -b 0x00300000 imgdata
+load -v -r -b 0x00100000 kerneldata
+load -v -r -b 0x00200000 kerneltext
 go
 </pre>
+          kerneltext is loaded last because that sets the default start
+          address for the go command.
+          Consider using Redboot aliases for these commands.
           </li></ol>
 	  </p>
 <table>
@@ -401,7 +400,7 @@ go
 <a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
   </td>
   <td>
-      <em>Copyright 2005, 2006, 2007 by Strawberry Development Group.  All rights reserved.
+      <em>Copyright 2005, 2006, 2007, 2008 by Strawberry Development Group.  All rights reserved.
       For terms of redistribution, see the <a
       href="../legal/license/GPL.html">GNU General Public License</a></em>
 This material is based upon work supported by the US Defense Advanced

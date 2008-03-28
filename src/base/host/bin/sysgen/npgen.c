@@ -22,6 +22,7 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <stdio.h>
 #include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -29,18 +30,18 @@ Approved for public release, distribution unlimited. */
 #include <assert.h>
 
 #include <disk/PagePot.h>
+#include <disk/NPODescr.h>
 
 #include <erosimg/App.h>
 #include <erosimg/Parse.h>
 #include <erosimg/Volume.h>
 #include <erosimg/ErosImage.h>
 
-Volume *pVol;
-
-const char* targname;
-const char* erosimage;
+const char * binName;
+const char * erosimage;
 FILE *map_file = 0;
-OID OIDBase;
+OID OIDBase = 0;
+unsigned long numFramesInRange = 0;
 
 void
 RelocateKey(KeyBits *key, OID nodeBase, OID pageBase,
@@ -75,6 +76,23 @@ RelocateKey(KeyBits *key, OID nodeBase, OID pageBase,
   }
 }
 
+FILE * binfd;
+uint64_t buf[EROS_PAGE_SIZE / sizeof(uint64_t)];
+unsigned int nodesInBuf = 0;
+
+void
+WriteNode(DiskNodeStruct * dn)
+{
+  memcpy(&((DiskNodeStruct *)buf)[nodesInBuf], dn, sizeof (*dn));
+
+  if (++nodesInBuf >= DISK_NODES_PER_PAGE) {
+    int s = fwrite(buf, EROS_PAGE_SIZE, 1, binfd);
+    if (s != 1)
+      diag_fatal(1, "Error writing \"%s\"\n", binName); 
+    nodesInBuf = 0;
+  }
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -82,20 +100,15 @@ main(int argc, char *argv[])
   extern int optind;
   extern char *optarg;
   bool opterr = false;
-  const char * grubDir;
-  const char * suffix;
   ErosImage *image;
-  uint32_t nSubMaps        = 0; /* number of pages of submaps */
-  uint32_t nObjectRange = 0;
   int i;
-  uint32_t nPages, nZeroPages, nNodes;
+  uint32_t nPages, nNodes;
   unsigned ndx;
-  unsigned int drive, partition;
   OID nodeBase, pageBase;
 
   app_Init("sysgen");
 
-  while ((c = getopt(argc, argv, "m:b:g:v:")) != -1) {
+  while ((c = getopt(argc, argv, "m:b:s:")) != -1) {
     switch(c) {
     case 'm':
       map_file = fopen(optarg, "w");
@@ -111,12 +124,10 @@ main(int argc, char *argv[])
         opterr = true;
       break;
 
-    case 'g':
-      grubDir = optarg;
-      break;
-
-    case 'v':
-      suffix = optarg;
+    case 's':
+      i = sscanf(optarg, "%li", &numFramesInRange);
+      if (i != 1)
+        opterr = true;
       break;
 
     default:
@@ -130,99 +141,99 @@ main(int argc, char *argv[])
   if (argc != 2)
     opterr = true;
   
-  if (opterr)
-    diag_fatal(1, "Usage: sysgen [-m mapfile] [-b oidbase] [-g grubdir [-v suffix]] volume-file eros-image\n");
+  if (opterr || !numFramesInRange)
+    diag_fatal(1, "Usage: npgen -s numFramesInRange [-m mapfile] [-b oidbase] eros-image link.bin\n");
   
-  targname = argv[0];
-  erosimage = argv[1];
+  erosimage = argv[0];
+  binName = argv[1];
 
-  {
-    /* Kluge to derive boot volume drive and partition from target name. */
-    /* Assume last character of the name is a digit. */
-    char n;
-    int len = strlen(targname);
-    if (len < 3)
-      diag_fatal(1, "target file name too short\n");
-
-    n = targname[len-1];
-    if (n < '0' || n > '9')
-      diag_fatal(1, "target file name must end in a digit\n");
-
-    if (targname[len-3] == 'f') {	/* fdn */
-      drive = 0x00 + (n-'0');
-      partition = 0;
-    } else if (targname[len-3] == 'd'
-               || targname[len-3] == 'b' ) {	/* hdxn or nbdn */
-      if (n == '0')
-        diag_fatal(1, "Hard disk partion must start with 1\n");
-
-      drive = 0x80 + (targname[len-2]-'a');
-      partition = n-'1';
-    } else
-      diag_fatal(1, "Target file name must be 'hdxn' or 'nbdn' or 'fdn'\n");
-  }
-  
-  pVol = vol_Open(targname, true, grubDir, suffix,
-                  (drive << 24) + (partition << 16) );
-  if ( !pVol )
-    diag_fatal(1, "Could not open \"%s\"\n", targname);
-  
-  vol_ResetVolume(pVol);
+  binfd = fopen(binName, "w");
+  if (! binfd)
+    diag_fatal(1, "Could not open \"%s\"\n", binName); 
   
   image = ei_create();
   ei_ReadFromFile(image, erosimage);
 
-  for (i = 0; i < vol_MaxDiv(pVol); i++) {
-    const Division* d = vol_GetDivision(pVol, i);
-    if (d->type == dt_Object) {
-      KeyBits rk;		/* range key */
-      KeyBits nk;		/* node key */
+  KeyBits rk;		/* range key */
+  KeyBits nk;		/* node key */
 
-      init_RangeKey(&rk, d->startOid, d->endOid);
-      init_NodeKey(&nk, (OID) 0, 0);
-      ei_SetNodeSlot(image, nk, 3 + nObjectRange, rk);
+  init_RangeKey(&rk, OIDBase, OIDBase + FrameToOID(numFramesInRange));
+  init_NodeKey(&nk, (OID) 0, 0);
+  // Set slot 3 of the first node to the range cap:
+  ei_SetNodeSlot(image, nk, 3, rk);
 
-      if (d->startOid == 0) {
-	uint32_t framesInRange;
-
-	/* FIX: this should use OBCOUNT_MAX */
-	if (d->endOid - d->startOid >= (uint64_t) UINT32_MAX)
-	  diag_fatal(1, "Object range w/ start OID=0x0 too "
-		      "large for sysgen\n");
-	  
-	/* store information about the size of the maps that need
-	 * to be set up for the SpaceBank.
-	 */
+  /* store information about the size of the maps that need
+   * to be set up for the SpaceBank. */
 #define DIVRNDUP(x,y) (((x) + (y) - 1)/(y))
-	framesInRange = (d->endOid - d->startOid)/EROS_OBJECTS_PER_FRAME;
-	/* Allocate one bit per frame in the range. */
-	nSubMaps = DIVRNDUP(framesInRange,8*EROS_PAGE_SIZE);
-      }
+  /* Allocate one bit per frame in the range. */
+  uint32_t numSubMapFrames = DIVRNDUP(numFramesInRange, 8*EROS_PAGE_SIZE);
 
-      nObjectRange++;
-    }
-  }
-    
-  nPages = image->hdr.nPages;
-  nZeroPages = image->hdr.nZeroPages;
+  nPages = image->hdr.nPages;	// nonzero pages
+  uint32_t nZeroPages = image->hdr.nZeroPages;
   nNodes = image->hdr.nNodes;
 
-  uint32_t nodeFrames = DIVRNDUP(nNodes, DISK_NODES_PER_PAGE);
+  uint32_t nNodeFrames = DIVRNDUP(nNodes, DISK_NODES_PER_PAGE);
 #undef DIVRNDUP
+
+  uint32_t framesNeeded = numSubMapFrames + nNodeFrames + nPages + nZeroPages;
+  if (numFramesInRange < framesNeeded)
+    diag_fatal(1, "You specified -s %d, %s requires at least %d\n",
+               numFramesInRange, erosimage, framesNeeded);
 
   /* All we need to do here is make sure that we pre-allocate the right
    * number of frames so that when the space bank initializes the free
    * frame list it won't step on anything important.
    */
   
-  nodeBase = OIDBase + FrameToOID(nSubMaps);
-  pageBase = nodeBase + FrameToOID(nodeFrames);
+  nodeBase = OIDBase + FrameToOID(numSubMapFrames);
+  pageBase = nodeBase + FrameToOID(nNodeFrames);
+
+  OID IPLOID = 0;
+  {
+    KeyBits k;
+
+    keyBits_InitToVoid(&k);
+    if (ei_GetDirEnt(image, ":ipl:", &k)) {
+      OID oldOID = k.u.unprep.oid;
+
+      RelocateKey(&k, nodeBase, pageBase, nPages);
+      IPLOID = k.u.unprep.oid;
+
+      if (map_file != NULL)
+	fprintf(map_file, "image :ipl: node ndx 0x%08lx => disk node oid 0x%08lx%08lx\n",
+		 (uint32_t) oldOID,
+		 (uint32_t) (k.u.unprep.oid >> 32), 
+		(uint32_t) k.u.unprep.oid);
+
+    }
+    else
+      diag_printf("Warning: no running domains!\n");
+  }
+
+  struct {
+    struct NPObjectsDescriptor NPODescr;
+    char filler[EROS_PAGE_SIZE - sizeof(struct NPObjectsDescriptor)];
+  } firstFrame = {
+    .NPODescr = {
+      .OIDBase = OIDBase,
+      .IPLOID = IPLOID,
+      .numFramesInRange = numFramesInRange,
+      .numFrames = nPages + nNodeFrames,
+      .numSubMapFrames = numSubMapFrames,
+      .numNodes = nNodes,
+      .numNonzeroPages = nPages
+    }
+  };
+
+  int s = fwrite(&firstFrame, EROS_PAGE_SIZE, 1, binfd);
+  if (s != 1)
+    diag_fatal(1, "Error writing \"%s\"\n", binName); 
 
   /* Copy all of the nodes, relocating the page key and node key
    * OID's appropriately:
    */
+  unsigned slot;
   for (ndx = 0; ndx < nNodes; ndx++) {
-    unsigned slot;
     DiskNodeStruct node;
     OID frame, offset;
 
@@ -239,82 +250,44 @@ main(int argc, char *argv[])
 
     node.oid = oid;
     
-    vol_WriteNode(pVol, oid, &node);
+    WriteNode(&node);
 
     if (map_file != NULL)
       fprintf(map_file, "image node ndx 0x%lx => disk node oid %#llx\n",
 	      ndx, oid);
   }
 
+  // Fill out the last frame:
+  DiskNodeStruct nullNode;
+  nullNode.nodeData = 0;
+  for (slot = 0; slot < EROS_NODE_SIZE; slot++) {
+    keyBits_InitToVoid(&nullNode.slot[slot]);
+  }
+  while (nodesInBuf) {
+    WriteNode(&nullNode);
+  }
+
   /* Write the nonzero pages: */
   for (ndx = 0; ndx < nPages; ndx++) {
-    uint8_t buf[EROS_PAGE_SIZE];
-    
     ei_GetDataPageContent(image, ndx, buf);
 
-    OID oid = FrameObIndexToOID(ndx, 0) + pageBase;
-    vol_WriteDataPage(pVol, oid, buf);
+    int s = fwrite(buf, EROS_PAGE_SIZE, 1, binfd);
+    if (s != 1)
+      diag_fatal(1, "Error writing \"%s\"\n", binName); 
 
+    OID oid = FrameObIndexToOID(ndx, 0) + pageBase;
     if (map_file != NULL)
       fprintf(map_file, "image dpage ndx 0x%lx => disk page oid %#llx\n",
 	      ndx, oid);
   }
-
-  /* Zero the non-contentful pages: */
-  for (ndx = 0; ndx < nZeroPages; ndx++) {
-    OID oid;
-    uint8_t buf[EROS_PAGE_SIZE];
-
-    /* Following is redundant, but useful until zero pages are
-     * implemented:
-     */
-    
-    memset(buf, 0, EROS_PAGE_SIZE);
-    
-    oid = ((ndx + nPages) * EROS_OBJECTS_PER_FRAME) + pageBase;
-    vol_WriteDataPage(pVol, oid, buf);
-
-    if (map_file != NULL)
-      fprintf(map_file, "image zdpage ndx 0x%lx => disk page oid 0x%08lx%08lx\n",
-	      ndx, (uint32_t) (oid >> 32), (uint32_t) oid);
-
-#if 0
-    PagePot pagePot;
-    pagePot.flags = PagePot::ZeroPage;
-    
-    pVol->WritePagePotEntry(oid, pagePot);
-#endif
-  }
-
-  {
-    KeyBits k;
-
-    keyBits_InitToVoid(&k);
-    if (ei_GetDirEnt(image, ":ipl:", &k)) {
-      OID oldOID = k.u.unprep.oid;
-
-      RelocateKey(&k, nodeBase, pageBase, nPages);
-      vol_SetIplKey(pVol, &k);
-
-      if (map_file != NULL)
-	fprintf(map_file, "image :ipl: node ndx 0x%08lx => disk node oid 0x%08lx%08lx\n",
-		 (uint32_t) oldOID,
-		 (uint32_t) (k.u.unprep.oid >> 32), 
-		(uint32_t) k.u.unprep.oid);
-
-    }
-    else
-      diag_printf("Warning: no running domains!\n");
-  }
   
   if (map_file != NULL)
     fclose(map_file);
-
-  vol_Close(pVol);
-  free(pVol);
   
   ei_destroy(image);
   free(image);
+
+  fclose(binfd);
 
   app_Exit();
   exit(0);

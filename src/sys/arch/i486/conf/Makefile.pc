@@ -1,7 +1,7 @@
 # -*- makefile-mode -*-
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -94,14 +94,14 @@ endif
 
 OPTIM += $(EROS_GCC_KERNEL_ALIGN)
 
-LIBS=$(EROS_LIBGCC) -lc
+LIBS=$(EROS_LIBGCC)
 
 # %targets
 
-TARGETS=$(CONFIG).eros 
+TARGETS=$(CONFIG).eros.o
 
 ifeq "$(OPT_DDB)" "1"
-TARGETS += $(CONFIG).eros.debug
+TARGETS += $(CONFIG).eros.debug.o
 else
 OPTIM += -fomit-frame-pointer
 endif
@@ -111,10 +111,6 @@ TARGETS += $(CONFIG).eros.cfg
 endif
 
 OPTIM += -fno-builtin
-
-# The following are no longer needed because there is no C++ in the kernel. */
-CRT1= #../../gplus-lib/gnu_crt1.o
-CRTN= #../../gplus-lib/gnu_crtn.o
 
 CLEANLIST=fd.image boot.image symnames.s image.* # libkey.a
 CLEANLIST += process_asm_offsets.h machine
@@ -171,16 +167,16 @@ install: all
 
 .FORCE:
 
-$(CONFIG).eros: $(BUILDDIR)/lostart.o $(OBJECTS) $(NODEBUG_OBJECTS) $(LIBS)
-	$(LINK) -o $(CONFIG).eros lostart.o $(CRT1) $(OBJECTS) \
-		$(NODEBUG_OBJECTS) $(LIBS) $(CRTN)
-	$(SIZE) $(CONFIG).eros
+$(CONFIG).eros.o: $(BUILDDIR)/lostart.o $(OBJECTS) $(NODEBUG_OBJECTS) $(LIBS)
+	$(LINK) --library-path==/usr/lib -r -o $(CONFIG).eros.o \
+		 lostart.o $(OBJECTS) $(NODEBUG_OBJECTS) $(LIBS) -lc
+	#$(SIZE) $(CONFIG).eros
 
-$(CONFIG).eros.debug: $(BUILDDIR)/lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(LIBS)
-	$(LINK) -o $(CONFIG).eros.debug lostart.o $(CRT1) $(OBJECTS) \
-		$(DEBUG_OBJECTS) $(LIBS) $(CRTN)
-	$(SIZE) $(CONFIG).eros
-	$(SIZE) $(CONFIG).eros.debug
+$(CONFIG).eros.debug.o: $(BUILDDIR)/lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(LIBS)
+	$(LINK) --library-path==/usr/lib -r -o $(CONFIG).eros.debug.o \
+		lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(LIBS) -lc
+	#$(SIZE) $(CONFIG).eros
+	#$(SIZE) $(CONFIG).eros.debug
 
 ifeq "$(OPT_MOPS)" "1"
 $(CONFIG).eros.cfg: $(CFGFILES)
@@ -195,8 +191,8 @@ endif
 # This way of obtaining symnames.s is quite slow. I should undoubtedly
 # replace the awk script with a C program.  Time, however, is short at 
 # the moment.
-$(BUILDDIR)/symnames.s: $(CONFIG).eros $(TOP)/scripts/symtab.awk
-	$(OBJDUMP) --syms --stabs $(CONFIG).eros | $(GAWK) -f $(TOP)/scripts/symtab.awk > $@
+$(BUILDDIR)/symnames.s: $(CONFIG).eros.o $(TOP)/scripts/symtab.awk
+	$(OBJDUMP) --syms --stabs $(CONFIG).eros.o | $(GAWK) -f $(TOP)/scripts/symtab.awk > $@
 
 $(BUILDDIR)/symnames.o: $(BUILDDIR)/symnames.s
 	$(ASM_BUILD)

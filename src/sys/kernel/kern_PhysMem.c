@@ -125,6 +125,32 @@ pmi_FreeOneBlock(PageHeader * pageH, unsigned int j)
   link_insertAfter(&freePages[j], &pageH->kt_u.free.freeLink);
 }
 
+/* Find the free block that contains pageH and split it into two free blocks. */
+void
+physMem_SplitContainingFreeBlock(PageHeader * pageH)
+{
+  kpg_t pgNum;
+  PmemInfo * pmi = pageH->physMemRegion;
+
+  // Find the containing block.
+  while (pageH_GetObType(pageH) != ot_PtFreeFrame) {
+    assert(pageH_GetObType(pageH) == ot_PtSecondary);
+    pgNum = pmi_ToPhysPgNum(pageH, pmi);
+    // Remove the lowest-order 1 bit:
+    pgNum &= pgNum - 1;
+    pageH = physMem_PhysPgNumToPageH(pmi, pgNum);
+  }
+
+  pgNum = pmi_ToPhysPgNum(pageH, pmi);
+  unsigned int j = pageH->kt_u.free.log2Pages;
+  // Remove from free list.
+  link_Unlink(&pageH->kt_u.free.freeLink);
+  // Free each half.
+  j--;
+  pmi_FreeOneBlock(physMem_PhysPgNumToPageH(pmi, pgNum), j);
+  pmi_FreeOneBlock(physMem_PhysPgNumToPageH(pmi, pgNum + (1U << j)), j);
+}
+
 /* Free a block, merging with buddies as needed. */
 void
 physMem_FreeBlock(PageHeader * pageH, unsigned int numPages)

@@ -157,8 +157,10 @@ ob_init(void)
     uint32_t result, keyType;
     capros_Node_getSlot(KR_VOLSIZE, i, KR_TMP);
     result = capros_key_getType(KR_TMP, &keyType);
-    if (result == RC_OK && keyType == AKT_Range)
+    if (result == RC_OK && keyType == AKT_Range) {
+      DEBUG(init) kprintf(KR_OSTREAM, "Range key in volsize slot %d\n", i);
       range_install(KR_TMP);
+    }
   }
   
   DEBUG(init) kdprintf(KR_OSTREAM, "Initializing allocation cache\n");

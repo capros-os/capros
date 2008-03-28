@@ -68,7 +68,7 @@ enum ObType {
   ot_PtNewAlloc,	/* newly allocated frame, not yet typed */
   ot_PtKernelHeap,	/* in use as kernel heap */
   ot_PtDevicePage,	/* data page, but device memory */
-  ot_PtSecondary,	/* Part of a multi-page block, not the first block.
+  ot_PtSecondary,	/* Part of a multi-page free block, not the first frame.
 			No other fields of PageHeader are valid,
 			except physMemRegion. */
   ot_PtDMABlock,	/* first frame of a block allocated for DMA. */
@@ -352,6 +352,9 @@ objH_ResetKeyRing(ObjectHeader* thisPtr)
   keyR_ResetRing(&thisPtr->keyRing);
 }
 
+void
+objH_InitObj(ObjectHeader * pObj, OID oid, ObCount allocCount,
+  unsigned int obType);
 void objH_Intern(ObjectHeader* thisPtr);	/* intern object on the ObList. */
 void objH_Unintern(ObjectHeader* thisPtr);	/* remove object from the ObList. */
 

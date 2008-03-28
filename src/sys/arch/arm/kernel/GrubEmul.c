@@ -25,33 +25,14 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/kernel.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/multiboot.h>
+#include <disk/NPODescr.h>
 
 /* Set things up the way GRUB would, which is what the kernel boot
    expects. */
 
 struct grub_multiboot_info MultibootInfo;
-struct grub_mod_list ModList;
 #define numMmaps 4
 struct grub_mmap MemMap[numMmaps];
-
-/* Kludge: rather than parse the configuration file, we assume the parts
-are of fixed size. */
-#define kernelCmdLen 46	/* not including terminating nul */
-#define moduleCmdLen 33
-struct GrubEmulStuff {
-  char modSize[8];
-  // Following is the sysgen-generated GRUB configuration file.
-  char configFile0[72];
-  char kernelCmd[kernelCmdLen];
-		// "/CapROS-kernel-1 0xdddddddddddddddd 0xdddddddd"
-  char configFile1[9];		// "\n\tmodule "
-  char moduleCmd[moduleCmdLen];	// "/CapROS-PL-3-1 0xdddddddddddddddd"
-  char configFile2[4];		// "\n" and 3 bytes of padding
-  uint32_t modStart[];
-};
-
-char KernelCmdline[kernelCmdLen+1];
-char ModuleCmdline[moduleCmdLen+1];
 
 static void
 MemMap_init(struct grub_mmap * mmp, grub_uint32_t type,
@@ -66,50 +47,11 @@ MemMap_init(struct grub_mmap * mmp, grub_uint32_t type,
 }
 
 void
-GrubEmul(struct GrubEmulStuff * ges)
+GrubEmul(void)
 {
   register struct grub_multiboot_info * mi = &MultibootInfo;
-  mi->flags = (GRUB_MB_INFO_BOOTDEV+GRUB_MB_INFO_CMDLINE
-              +GRUB_MB_INFO_MODS+GRUB_MB_INFO_MEM_MAP);
+  mi->flags = (GRUB_MB_INFO_BOOTDEV + GRUB_MB_INFO_MEM_MAP);
   mi->boot_device = 0;	/* bogus */
-  /* Copy command lines to RAM so we can nul-terminate them. */
-  memcpy(KernelCmdline, ges->kernelCmd, kernelCmdLen);
-  KernelCmdline[kernelCmdLen] = '\0';
-  memcpy(ModuleCmdline, ges->moduleCmd, moduleCmdLen);
-  ModuleCmdline[moduleCmdLen] = '\0';
-  mi->cmdline = (grub_uint32_t)KernelCmdline;
-#if 0
-  printf("GrubEmulStuff 0x%x ", ges);
-#endif
-
-  /* get size of module from hex string */
-  char * c = ges->modSize;
-  int i;
-  uint32_t modSize = 0;
-  for (i = 0; i < 8; i++) {
-    int ch = *c++;
-    if (ch <= '9') {
-      ch = ch - '0';
-    } else {
-      ch = ch - 'a' + 10;
-    }
-    modSize = (modSize << 4) + ch;
-  }
-
-  /* The module information is processed after mach_BootInit, so it
-  assumes the memory map is set up.
-  Thus it will reference addresses using KPAtoP(). 
-  That doesn't work for addresses in flash memory (not implemented). 
-  As a kludge, we subtract PhysMapVA to undo KPAtoP. */
-  ModList.mod_start = ((kpa_t)ges->modStart) - PhysMapVA;
-  ModList.mod_end = ModList.mod_start + modSize;
-  ModList.cmdline = (grub_uint32_t)ModuleCmdline - PhysMapVA;
-#if 0
-  printf(" %x 0x%x %s\n", modSize, ModList.cmdline,
-         (char *)KPAtoP(ModList.cmdline));
-#endif
-  mi->mods_count = 1;
-  mi->mods_addr = (grub_uint32_t)&ModList - PhysMapVA;
 
   struct grub_mmap * mmp = &MemMap[0];
   /* On EP9315, SDRAM is 32MB beginning at 0 ... */
@@ -132,4 +74,5 @@ GrubEmul(struct GrubEmulStuff * ges)
                      -4;	/* that's just the way it is */
 
   MultibootInfoPtr = &MultibootInfo;
+  NPObDescr = KPAtoP(struct NPObjectsDescriptor *, NPObDescrPA);
 }

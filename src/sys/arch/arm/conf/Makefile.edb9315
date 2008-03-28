@@ -94,10 +94,6 @@ CLEANLIST += process_asm_offsets.h machine
 # Text at KTEXTVA.
 LINK=$(LD) -static -N -Ttext 0xfe000000 -Tdata 0xfe100000
 
-# NOTE: it is assumed the end of the kernel code is less than the following constant. If not, increase this constant.
-# The constant in kern-target-asm.h and sys.arm.mk must match.
-KDataPackedAddr=0xfe032000
-
 %options
 
 # DEF += $(OPTIONS)	# Options get defined in the generated kernel-config.h.

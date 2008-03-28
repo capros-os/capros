@@ -1,9 +1,9 @@
 	.file	"lostart.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,6 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*
  * The basic job of the startup code is to load known (reasonable) values
@@ -73,7 +76,7 @@ ENTRY(start)
 	movl	%ebx,EXT(MultibootInfoPtr)
 
 	/* Check required flags. */
-#define REQUIRED_FLAGS (GRUB_MB_INFO_BOOTDEV+GRUB_MB_INFO_CMDLINE+GRUB_MB_INFO_MODS+GRUB_MB_INFO_MEM_MAP)
+#define REQUIRED_FLAGS (GRUB_MB_INFO_BOOTDEV+GRUB_MB_INFO_MEM_MAP)
 	movl	(%ebx),%eax	/* Multiboot flags */
 	andl	$REQUIRED_FLAGS,%eax
 	cmpl	$REQUIRED_FLAGS,%eax
@@ -85,6 +88,8 @@ ENTRY(start)
 
 	/* Now set up the stack (for this CPU). */
 	movl	$(EXT(kernelStack)+EROS_KSTACK_SIZE),%esp
+
+	xorl	%ebp,%ebp	/* mark the end of the stack */
 	
 	/* 
 	 * Now that we have a proper stack, go figure out
@@ -112,36 +117,6 @@ ENTRY(start)
 	
 	popl	%ecx
 #endif
-	
-	/*
-	 * Put up the rest of "EROS" before we call main.
-	 */
-
-	movl	$0x000b8004,%eax
-	movl	$0x0753074F,(%eax)	/* "OS" */
-
-#if __GNUC__ <= 2
-	/* As of GCC3 the handling of constructors changed, and we weren't
-	 * supporting kernel C++ code anyway, so bypass the call to __main()
-	 * when building with the new compiler.
-	 */
-#ifdef __ELF__
-	/*
-	 * Fix: Under a.out format the g++ compiler rearranges the 'main'
-	 * function to call __main as it's first action.  Under ELF, the 
-	 * '.init' section is used to achieve the same result without the
-	 * need to alter code in main(). 
-	 *
-	 * Undoubtedly, there is some officially approved way to run
-	 * the code in the init section, but I don't know what it is
-	 * and I don't have time to figure it out.  Instead, I just
-	 * call __main by hand here.
-	 *
-	 * Beware - global constructors run in a VERY strange context.
-	 */
-	call	EXT(__main)
-#endif
-#endif /* __GNUC__ <= 2 */
 	
 	cmpl	$5,EXT(CpuType)
 	jb	1f		/* don't call it if not supported */
@@ -209,11 +184,6 @@ ENTRY(start)
 	popl	%eax
 
 1:	
-	/*
-	 * Congratulations. We now have a stack.
-	 */
-
-	xorl	%ebp,%ebp	/* mark the end of the stack */
 
   /* Set up the boot console by hand so that we can do kernel
    * diagnostics during startup.  Note that the boot console is output
@@ -221,6 +191,8 @@ ENTRY(start)
    * debugger input later after interrupts have been initialized.
    */
 	call	EXT(kstream_InitStreams)
+
+	movl $EXT(ImageStart),EXT(NPObDescr)
 	call	EXT(main)
 
 	/*

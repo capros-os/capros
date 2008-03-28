@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2007, Strawberry Development Group.
+# Copyright (C) 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -22,16 +22,14 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-# format utility for cross-formatting a volume.  THIS IS NOT A NATIVE TOOL
-default: package
+default: install
 
 EROS_SRC=../../../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-TARGETS=$(BUILDDIR)/sysgen
+TARGETS=$(BUILDDIR)/sysgen $(BUILDDIR)/npgen
 OPTIM=-g
-OBJECTS=$(BUILDDIR)/sysgen.o
 DEF+=   -D_REVEAL_KERNEL_KEY_TYPES_
 INC=	-I$(EROS_ROOT)/host/include $(XENV_INCLUDE)
 LIBS=	$(EROS_ROOT)/host/lib/liberos.a $(EROS_ROOT)/host/lib/libdisk.a
@@ -41,8 +39,11 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 all: $(TARGETS)
 
-$(BUILDDIR)/sysgen: $(OBJECTS) $(LIBS)
-	$(GPLUS) $(GPLUSFLAGS) -o $@ $(OBJECTS) $(LIBS)
+$(BUILDDIR)/npgen: $(BUILDDIR)/npgen.o $(LIBS)
+	$(GPLUS) $(GPLUSFLAGS) -o $@ $(BUILDDIR)/npgen.o $(LIBS)
+
+$(BUILDDIR)/sysgen: $(BUILDDIR)/sysgen.o $(LIBS)
+	$(GPLUS) $(GPLUSFLAGS) -o $@ $(BUILDDIR)/sysgen.o $(LIBS)
 
 install: all
 	$(INSTALL) -d $(EROS_ROOT)/host

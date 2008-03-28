@@ -46,7 +46,6 @@ physMem_Init_MD()
 {
   int32_t mmapLength;
   struct grub_mmap * mp;
-  unsigned int i;
 
 uint32_t mach_ReadCacheType(void);
   uint32_t cacheType = mach_ReadCacheType();
@@ -131,18 +130,8 @@ uint32_t mach_ReadCacheType(void);
 
   /* Multiboot information is in data/bss, no need to reserve. */
  
-  // Reserve RAM occupied by modules.
-  struct grub_mod_list * modp;
-  for (i = MultibootInfoPtr->mods_count,
-         modp = KPAtoP(struct grub_mod_list *, MultibootInfoPtr->mods_addr);
-       i > 0;
-       --i, modp++) {
-    kva_t modVA = PTOV(modp->mod_start);	// virt addr of start of module
-    // (See comments in GrubEmul for why we use the virtual address here.)
-    assert(FlashMemVA < PhysMapVA);	// else test below is wrong
-    if (modVA >= PhysMapVA) {	// if in RAM, not flash memory
-printf("reserving module space at 0x%08x\n", modp->mod_start); ////
-      physMem_ReserveExact(modp->mod_start, modp->mod_end - modp->mod_start);
-    }
-  }
+  /* At the moment, we don't do anything to reserve the memory
+  containing the initialized preloaded non-persistent objects.
+  We simply hope that nothing clobbers those pages before we use them.
+  The reason is that we need to have PageHeaders for those pages. */
 }

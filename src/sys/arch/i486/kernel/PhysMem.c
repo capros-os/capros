@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/util.h>
@@ -66,8 +69,6 @@ physMem_Init_MD()
 {
   uint32_t mmapLength;
   struct grub_mmap * mp;
-  int i;
-  struct grub_mod_list * modp;
 
   DEBUG (init) printf("MultibootInfoPtr = %x\n", MultibootInfoPtr);
 
@@ -114,23 +115,15 @@ physMem_Init_MD()
      The kernel stack is within the bss. */
   physMem_ReserveExact(VTOP(&_start), (kpa_t)((kva_t)&end - (kva_t)&_start));
                                                                                 
-  /* Reserve space occupied by modules. */
-  for (i = MultibootInfoPtr->mods_count,
-         modp = KPAtoP(struct grub_mod_list *, MultibootInfoPtr->mods_addr);
-       i > 0;
-       --i, modp++) {
-    physMem_ReserveExact(modp->mod_start, modp->mod_end - modp->mod_start);
-    printf("Grabbed module at 0x%08x\n", (uint32_t) modp->mod_start);
-  }
+  /* At the moment, we don't do anything to reserve the memory
+  containing the initialized preloaded non-persistent objects.
+  We simply hope that nothing clobbers those pages before we use them.
+  The reason is that we need to have PageHeaders for those pages. */
 
   /* Reserve Multiboot information that we will need later. */
   /* The Multiboot structure itself. */
   physMem_ReserveExact(PtoKPA(MultibootInfoPtr),
                        sizeof(struct grub_multiboot_info));
-
-  /* The modules list. */
-  physMem_ReserveExact(MultibootInfoPtr->mods_addr,
-             MultibootInfoPtr->mods_count * sizeof(struct grub_mod_list) );
 
   physMem_ReservePhysicalMemory();
 }

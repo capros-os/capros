@@ -28,7 +28,7 @@
       <h2>Name</h2>
       <p><b>sysgen</b> -- make new CapROS volume</p>
       <h2>Synopsis</h2>
-      <p><b>sysgen</b> [-m mapfile] [-g grubdir [-v suffix]]
+      <p><b>sysgen</b> [-m mapfile] [-b baseOID] [-g grubdir [-v suffix]]
          volume image_file</p>
       <h2>Description</h2>
       <p> The <b>sysgen</b> utility maps the content of the CapROS image
@@ -52,7 +52,11 @@
       <p>If mapfile is specified, sysgen outputs there the mapping
       of indexes in the image_file to oid's in the volume. </p>
       <p>
-      The principle reason for distinguising between image and volume
+        Object IDs for objects will be assigned beginning with baseOID
+        (0 if not specified.)
+      </p>
+      <p>
+      The principal reason for distinguising between image and volume
       files is flexibility -- the image file captures the logical
       relationships between pages and nodes, while the volume file
       captures the representation of these objects on some particular

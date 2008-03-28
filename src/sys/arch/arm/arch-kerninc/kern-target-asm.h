@@ -44,18 +44,28 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 Physical memory layout:
 At 0x00000000 (KTextPA), exception vectors and kernel code (text and rodata)
 followed by pad to page boundary
-followed by available memory to 1MB boundary (so we can map kernel code
+followed by available memory to 1MB (so we can map kernel code
   as an entire section read-only)
-followed by kernel data, bss
+At 0x00100000:
+  kernel data, bss
 followed by pad to 16KB boundary
 followed by First-Level Page Table for the Null space
 followed by First-Level Page Table for FCSE
-followed by Coarse Page Table for exception vectors
+followed by Coarse Page Table for exception vectors.
+
+At 0x00200000, the kernel text and rodata sections are loaded by the
+boot loader, then copied to KTextPA by lostart.S.
+(Not loaded at 0 by the boot loader, because Redboot runs there.)
+
+At 0x00300000:
+One page containing struct NPObjectsDescriptor
+followed by pages containing initial non-persistent nodes
+followed by pages containing initial non-persistent nonzero pages
+all loaded by the boot loader.
  */
 
-/*
- */
 #define KTextPA    0x00000000	/* start of kernel text in phys mem */
+#define NPObDescrPA 0x00300000
 #define FlashMemPA 0x60000000	/* start of flash memory in phys mem */
 #define AHB_PA	0x80000000
 #define APB_PA	0x80800000
@@ -89,7 +99,7 @@ Otherwise, the FCSE memory space is mapped:
 0xf800.... windows to map other processes
 0xfc00.... (DeviceRegsVA) mapped to physical 0x8000.... 
            memory-mapped device registers
-0xfe00.... (KTextVA) exception vectors and kernel code, read-only
+0xfe00.... (KTextVA) exception vectors and kernel code and read-only data
            (_start to _etext)
            (exception vector is mapped here and at 0xffff0000.
            If it's ever modified, adjust the cache.)
@@ -97,12 +107,15 @@ followed by padding to 1MB boundary (so we can map code ro and data rw
            and still map using section descriptors)
 0xfe10.... (Link command puts data section here because kernel code
            is assumed to be less than 1MB in size.)
-followed by kernel data, bss (read-write)
+followed by kernel data (read-write)
+           (__data_start to _edata)
            Kernel stack is the first thing in the data section
            (despite that it needs no initialization,
            so it will be covered by the same TLB entry as the data and bss
            and so stack overflow will cause a fault.)
-           (Mapped read-write to next 1MB boundary)
+followed by kernel bss
+           (__bss_start__ (= _edata) to _end)
+           (Data and bss are mapped read-write to next 1MB boundary)
            (Boot code assumes data and bss total size is less than 1MB)
 followed by padding to 1MB boundary (so we can map code ro and data rw
            and still map using section descriptors)
@@ -127,12 +140,5 @@ followed by unused
 #define APB_VA		0xfc800000	// AMBA peripheral bus registers
 #define KTextVA		0xfe000000
 #endif
-
-/* N.B.: the value of KDataPackedAddr must match that in the kernel makefiles
-   conf/Makefile.* and sys.arm.mk. */
-/* The kernel data section begins in the flash memory at address
-   KDataPackedAddr - KTextVA + FlashMemPA */
-#define KDataPackedAddr 0xfe032000
-#define KTextPackedSize (KDataPackedAddr - KTextVA)
 
 #endif /* __KERN_TARGET_ASM_ARM_H__ */

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -449,7 +449,7 @@ ei_AddDataPage(ErosImage *ei, const uint8_t *buf, bool readOnly)
 }
 
 void
-ei_GetDataPageContent(const ErosImage *ei, uint32_t ndx, uint8_t* buf)
+ei_GetDataPageContent(const ErosImage * ei, uint32_t ndx, void * buf)
 {
   if (ndx >= ei->hdr.nPages)
     diag_fatal(5, "Not that many pages in image file\n");

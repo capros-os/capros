@@ -82,8 +82,6 @@ extern unsigned long physMem_nPmemInfo;
 extern kpa_t physMem_PhysicalPageBound;
 extern kpsize_t physMem_TotalPhysicalPages;
 
-/* Former member functions of PhysMem */
-
 kpsize_t physMem_MemAvailable(PmemConstraint *, unsigned unitSize);
 
 void physMem_Init();
@@ -121,6 +119,7 @@ physMem_AvailPages(PmemConstraint *mc)
 }
 
 kpg_t pageH_ToPhysPgNum(const PageHeader * pageH);
+void physMem_SplitContainingFreeBlock(PageHeader * pageH);
 
 PageHeader * physMem_AllocateBlock(unsigned int numPages);
 void physMem_FreeBlock(PageHeader * pageH, unsigned int numPages);

@@ -29,7 +29,8 @@ Approved for public release, distribution unlimited. */
 //#define EARLY_CONSOLE 1
 
 #define PUTC(c) \
-	mov r0,c ; str r0,[r10]
+	mov r0,c ; str r0,[r10] ; \
+//	mov r0,#0x1000000 ; 0: subs r0,r0,#1 ; bne 0b
 
 	.text
 	ENTRY(_start)
@@ -64,30 +65,23 @@ getpc:	mov r6,pc	// record the pc
    we use the value in the PC. 
 
    If started by Redboot, we are running out of RAM, presumably at
-   0x00100000, but rather than assume that,
+   0x00200000, but rather than assume that,
    we use the value in the PC.
-   We do assume that the address Redboot loads us at, plus KTextPackedSize,
-   is greater than 1MB (otherwise the copy of the .data section will break). */
+   The .data section is at 0x00100000, and the imgdata is at 0x00300000. */
 
 /* We are linked to run at KTextVA, so until we copy the code to RAM
    and set up the MMU,
    all code must be position independent, and we must not
    use any global variables. */
 
-/* Check that KTextPackedSize isn't too small. */
-	ldr r0,=_etext
-	ldr r1,=_start
-	sub r0,r0,r1
-	cmp r0,#KTextPackedSize
-	blo 1f
-	b .	/* hang here if KTextPackedSize is too small */
-1:
-	PUTC(#66)	// 'B
-
 /* Copy the kernel text section (where we are running)
-   to physical address KTextPA in RAM and map it at MVA KTextVA. */
+   to physical address KTextPA in RAM.
+   Text section here includes rodata. */
 	ldr r4,=KTextPA	// Copy to here
-	ldr r5,=(KTextPA + KTextPackedSize)	// endpoint in RAM
+	ldr r5,=_etext
+	ldr r3,=_start
+	sub r5,r5,r3	// size of text
+	add r5,r5,r4	// PA of end of new location for text
 	sub r8,r4,r6	// distance we are moving the text section
 
 1:	ldr r7,[r6],#4
@@ -99,22 +93,10 @@ getpc:	mov r6,pc	// record the pc
 	add pc,pc,r8
 	nop
 
-/* The kernel data section is loaded following the text section. */
-/* We will copy the kernel data section to physical address KTextPA + 1MB
-and map it at MVA KTextVA + 1MB.  */
-	ldr r3,=(1024*1024 - 1)
-	add r4,r4,r3	// round up to section boundary
-	bic r4,r4,r3	// ...
-	ldr r5,=_edata	// data section (must be on word boundary)
-	ldr r0,=__data_start
-	sub r5,r5,r0	// size of data section
-	add r5,r5,r4
-1:	ldr r0,[r6],#4
-	str r0,[r4],#4
-	cmp r4,r5
-	blo 1b
+	PUTC(#66)	// 'B
 
-// r6 now points to Grub info and module, which follow kernel data section.
+/* If using Redboot, the kernel data section is loaded at physical 0x00100000,
+   which is where we want it. */
 
 /* Set the kernel stack pointer. */
 	ldr sp,=(kstackBot)
@@ -123,10 +105,10 @@ and map it at MVA KTextVA + 1MB.  */
 	str sp,[sp,#-4]	// test store
 
 /* Zero bss. */
-	ldr r5,=_end	// copy the text
-	ldr r0,=_edata
-	add r5,r5,r4
-	sub r5,r5,r0
+	ldr r4,=_edata	// beg of bss section (must be on word boundary)
+	ldr r5,=_end	// end of bss section
+	add r4,r4,r0	// convert to physical address
+	add r5,r5,r0	// convert to physical address
 	mov r0,#0
 1:	cmp r4,r5
 	bhs 2f
@@ -141,21 +123,18 @@ and map it at MVA KTextVA + 1MB.  */
 	bic r4,r4,r3	// ...
 // TODO: it would be nice to use the space we skipped over for pages or CPTs.
 	add r4,r4,#0x4000	// reserve 16KB for the Null FLPT
-	mov r5,r4	// First Level Page Table
+	mov r5,r4	// FCSE First Level Page Table
 	add r4,r4,#0x4000	// size of FLPT
 	mov r7,r4	// Coarse Page Table for exception vectors
 	add r4,r4,#0x400	// size of coarse page table
 /* At this point (all are physical addresses):
 	r4 - end of CPT for exception vectors
 	r5 - FLPT
-	r6 - beginning of Grub info and module
 	r7 - CPT for exception vectors
  */
-#ifdef REDBOOT
-	cmp r6,r4
-	blo .		// hang here if CPT overlaps loaded module
-#endif
+
 	PUTC(#67)	// 'C
+
 /* Clear the FLPT and CPT */
 	mov r0,#0
 	mov r1,r5
@@ -194,6 +173,7 @@ and map it at MVA KTextVA + 1MB.  */
 #else
 #define WriteBackOption 0x0 /* write-through */
 #endif
+	PUTC(#68)	// 'D
 
 /* Set up physical memory map in FLPT. */
 // AP=0b01 domain=0 C=1 B=0 section descriptor
@@ -243,6 +223,8 @@ and map it at MVA KTextVA + 1MB.  */
 	ldr r0,=(0x9 + KTextPA)	// AP=0b00, C=1, B=0
 	str r0,[r7, #(0xf0 << 2)]
 
+	PUTC(#69)	// 'E
+
 /* Enable the MMU. */
 	mcr p15,0,r5,c2,c0,0	// write TTBR
 	ldr r0,=0x55555555	// all client access
@@ -253,6 +235,8 @@ and map it at MVA KTextVA + 1MB.  */
 	mcr p15,0,r0,c10,c0,1	// clear I TLB lockdown
 	mcr p15,0,r0,c7,c7,0	// invalidate ICache and DCache
 #endif // OPTION_NO_MMU
+
+	PUTC(#70)	// 'F
 
 #ifdef EARLY_CONSOLE
 #error	/* Don't use SerialStream before enabling the MMU, because it
@@ -421,7 +405,6 @@ NoClockConfig:
 #else
 	ldr r0,=(FlashMemVA-FlashMemPA)
 #endif
-	add r0,r0,r6	// pass virt addr of GrubEmulStuff
 	bl GrubEmul
 #if 1
 	bl main		// does not return

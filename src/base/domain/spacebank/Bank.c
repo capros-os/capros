@@ -874,7 +874,7 @@ bank_containsOID(Bank *bank, uint8_t type, OID oid)
 
   /* valid key slot */
   uint64_t frameOff = EROS_FRAME_FROM_OID(oid);
-  uint8_t subObj = EROS_OBNDX_IN_FRAME(oid);
+  uint8_t subObj = OIDToObIndex(oid);
 
   obj_frame = bank_getTypeFrame(bank, type);
 
@@ -894,7 +894,7 @@ bank_deallocOID(Bank *bank, uint8_t type, OID oid)
 
   /* valid key slot */
   uint64_t frameOff = EROS_FRAME_FROM_OID(oid);
-  uint8_t subObj = EROS_OBNDX_IN_FRAME(oid);
+  uint8_t subObj = OIDToObIndex(oid);
 
   obj_frame = bank_getTypeFrame(bank, type);
   
