@@ -256,6 +256,22 @@ key_NH_Set(KeyBits *thisPtr, KeyBits* kb)
   }
 }
 
+// key must already be unchained if necessary.
+void
+key_SetToObj(Key * key, ObjectHeader * pObj,
+  unsigned int kkt, unsigned int keyPerms, unsigned int keyData)
+{
+  assert(! keyBits_IsHazard(key));
+
+  keyBits_InitType(key, kkt);
+
+  key->u.ok.pObj = pObj;
+  key->keyData = keyData;
+  key->keyPerms = keyPerms;
+  link_insertAfter(&pObj->keyRing, &key->u.ok.kr);
+  keyBits_SetPrepared(key);
+}
+
 // k must already be unchained if necessary.
 void
 key_SetToProcess(Key * k,

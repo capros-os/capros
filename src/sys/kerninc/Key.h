@@ -154,19 +154,8 @@ key_NH_SetToVoid(Key* thisPtr)
   keyBits_InitToVoid(thisPtr);
 }
 
-INLINE void
-key_NH_SetToObj(Key * key, ObjectHeader * pObj, unsigned int kkt)
-{
-  /* Unchain the old key so we can overwrite it... */
-  key_NH_Unchain(key);
-
-  keyBits_InitType(key, kkt);
-
-  /* Link as next key after object */
-  key->u.ok.pObj = pObj;
-  link_insertAfter(&pObj->keyRing, &key->u.ok.kr);
-  keyBits_SetPrepared(key);
-}
+void key_SetToObj(Key * key, ObjectHeader * pObj,
+  unsigned int kkt, unsigned int keyPerms, unsigned int keyData);
 
 OID  key_GetKeyOid(const Key* thisPtr);
 ObjectHeader *key_GetObjectPtr(const Key* thisPtr);

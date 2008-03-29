@@ -94,7 +94,8 @@ CompareBrand(Invocation* inv /*@ not null @*/, Key* pDomKey, Key* pBrand)
   
   Key * k = inv->exit.pKey[0];
   if (k) {
-    key_NH_SetToObj(k, node_ToObj(procRoot), KKT_Node);
+    key_NH_Unchain(k);
+    key_SetToObj(k, node_ToObj(procRoot), KKT_Node, 0, 0);
   }
 
   return true;
@@ -181,11 +182,12 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       if ( isResume )
 	inv->exit.w2 = inv->entry.key[0]->keyData;
 
-      if (inv->exit.pKey[0]) {
-        key_NH_SetToObj(inv->exit.pKey[0],
-                        node_ToObj(inv->entry.key[0]->u.gk.pContext->procRoot),
-                        KKT_Node);
-	inv->exit.pKey[0]->keyData = 0;
+      Key * key = inv->exit.pKey[0];
+      if (key) {
+        key_NH_Unchain(key);
+        key_SetToObj(key,
+                     node_ToObj(inv->entry.key[0]->u.gk.pContext->procRoot),
+                     KKT_Node, 0, 0);
       }
 
       break;

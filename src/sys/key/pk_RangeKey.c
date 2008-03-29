@@ -202,7 +202,8 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
   
   Key * key = inv->exit.pKey[0];
   if (key) {
-    key_NH_SetToObj(key, pObj, kkt);
+    key_NH_Unchain(key);
+    key_SetToObj(key, pObj, kkt, 0, 0);
   
     // Set defaults for keyData.
     switch (kkt) {

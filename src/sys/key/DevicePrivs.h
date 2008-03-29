@@ -77,7 +77,8 @@ physMem_AllocateDMAPages(Invocation * inv)
 
   Key * key = inv->exit.pKey[0];
   if (key) {
-    key_NH_SetToObj(key, pageH_ToObj(pageH), KKT_Page);
+    key_NH_Unchain(key);
+    key_SetToObj(key, pageH_ToObj(pageH), KKT_Page, 0, 0);
   }
 
   capros_DevPrivs_addr_t pa

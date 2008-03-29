@@ -127,7 +127,8 @@ request_error:
 
     Key * key = inv->exit.pKey[0];
     if (key) {
-      key_NH_SetToObj(key, pageH_ToObj(pageH), KKT_Page);
+      key_NH_Unchain(key);
+      key_SetToObj(key, pageH_ToObj(pageH), KKT_Page, inv->key->keyPerms, 0);
     }
 
     inv->exit.code = RC_OK;
