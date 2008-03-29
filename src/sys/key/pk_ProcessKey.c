@@ -85,9 +85,9 @@ prockey_swapSlot(Invocation * inv, Node * theNode, uint32_t slot)
 
 /* May Yield. */
 void
-ProcessKeyCommon(Invocation * inv, Node * theNode)
+ProcessKeyCommon(Invocation * inv, Process * proc)
 {
-  Process * p;
+  Node * theNode = proc->procRoot;
 
   switch (inv->entry.code) {
   case OC_capros_key_getType:
@@ -122,20 +122,19 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
       inv->exit.w1 = inv->entry.w2;
   case OC_capros_Process_swapAddrSpaceAndPC32:
     {
-      Process * ac = node_GetDomainContext(theNode);
-      proc_Prepare(ac);
+      proc_Prepare(proc);
 
       node_MakeDirty(theNode);
 
       COMMIT_POINT();
 
-      proc_SetPC(ac, inv->entry.w1);
-      if (proc_IsExpectingMsg(ac)) {
+      proc_SetPC(proc, inv->entry.w1);
+      if (proc_IsExpectingMsg(proc)) {
         /* If the process is expecting a message, then when it becomes
         Running, its PC will be incremented. 
         Counteract that here, so the process will start executing
         at the specified PC. */
-        proc_AdjustInvocationPC(ac);
+        proc_AdjustInvocationPC(proc);
       }
       
       prockey_swapSlotCommitted(inv, theNode, ProcAddrSpace);
@@ -174,15 +173,14 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 
   case OC_capros_Process_getKeyReg:
     {
-      Process* ac = node_GetDomainContext(theNode);
-      proc_Prepare(ac);
+      proc_Prepare(proc);
 
       COMMIT_POINT();
 
       uint32_t slot = inv->entry.w1;
 
       if (slot < EROS_NODE_SIZE) {
-	inv_SetExitKey(inv, 0, &ac->keyReg[slot]);
+	inv_SetExitKey(inv, 0, &proc->keyReg[slot]);
 	inv->exit.code = RC_OK;
       }
       else {
@@ -194,8 +192,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 
   case OC_capros_Process_swapKeyReg:
     {
-      Process * ac = node_GetDomainContext(theNode);
-      proc_Prepare(ac);
+      proc_Prepare(proc);
 
       COMMIT_POINT();
 
@@ -210,7 +207,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 			/* slots are the same. */
       keyBits_InitToVoid(&k);
         
-      Key * targetSlot = &ac->keyReg[slot];
+      Key * targetSlot = &proc->keyReg[slot];
       key_NH_Set(&k, targetSlot);
 
       if (slot != KR_VOID) {
@@ -230,8 +227,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 
   case OC_capros_Process_makeStartKey:
     {
-      p = node_GetDomainContext(theNode);
-      proc_Prepare(p);
+      proc_Prepare(proc);
 
       COMMIT_POINT();
       
@@ -246,15 +242,7 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
       Key * k = inv->exit.pKey[0];
       if (k) {		// the key is being received
 	key_NH_Unchain(k);
-        keyBits_InitType(k, KKT_Start);
-	k->keyData = keyData;
-
-        /* Prepare the key, for performance.
-           Be careful, as gate keys do not go on the same key chain as
-           process keys. */
-	k->u.gk.pContext = p;
-	link_insertAfter(&p->keyRing, &k->u.gk.kr);
-	keyBits_SetPrepared(k);
+        key_SetToProcess(k, proc, KKT_Start, keyData);
       }
 
       inv->exit.code = RC_OK;
@@ -262,12 +250,11 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
     }
 
   case OC_capros_Process_makeResumeKey:
-    p = node_GetDomainContext(theNode);
-    proc_Prepare(p);
+    proc_Prepare(proc);
 
     // If there is a resume key, state must be Waiting.
     /* There are several cases to consider:
-      A. p == invoker
+      A. proc == invoker
         A1. Invocation is a Call, invoker == invokee
            Step 1: invoker calls, becomes Waiting.
                    Kernel holds a Resume key to invoker.
@@ -290,23 +277,23 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
                    changed to Waiting. We must make sure the invoker does
                    not run.
            Step 3. passed resume key, if any, is invoked
-      B. p != invoker
+      B. proc != invoker
         B1. Invocation is a Call, invoker == invokee
            No problem.
         B2. Invocation is a Send or Return
            Invoker was running, therefore there can be no resume keys
            to invoker, therefore invoker != invokee.
-           B2a. p == invokee
+           B2a. proc == invokee
              Step 1. Invoker invokes. 
              Step 2. Key operation happens. Invokee must be Waiting,
                      remains Waiting.
                      Resume key to invokee is zapped.
              Step 3. No invokee, so no return.
-           B2b. p != invokee
+           B2b. proc != invokee
              No problem.
     */
 
-    if (p == inv->invokee) {
+    if (proc == inv->invokee) {
       // Cases A1 and B2a.
       /* We are zapping the resume key logically held by the kernel
       to the invokee, therefore we won't return to the invokee. */
@@ -318,26 +305,24 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
 
     /* Clear any activity in the process. This must be done after commit,
     because commit may have cleared p->curActivity. */
-    Activity * act = p->curActivity;
+    Activity * act = proc->curActivity;
     if (act) {
       act_Dequeue(act);
       act_SetContext(act, 0);
-      proc_Deactivate(p);
+      proc_Deactivate(proc);
       act_DeleteActivity(act);
     }
 
-    p->runState = RS_Waiting;
+    proc->runState = RS_Waiting;
 
-    keyR_ZapResumeKeys(&p->keyRing);
+    keyR_ZapResumeKeys(&proc->keyRing);
 
-    if (inv->exit.pKey[0]) {
-      inv_SetExitKey(inv, 0, inv->key);
-      /* Unprepare, because gate keys are chained to the Process,
-         while Process keys are chained to the root node.
-         (Fix this, or use key_MakeUnpreparedCopy instead.) */
-      key_NH_Unprepare(inv->exit.pKey[0]);
-      keyBits_InitType(inv->exit.pKey[0], KKT_Resume);
-      inv->exit.pKey[0]->keyPerms = 0;
+    {
+      Key * k = inv->exit.pKey[0];
+      if (k) {		// the key is being received
+	key_NH_Unchain(k);
+        key_SetToProcess(k, proc, KKT_Resume, 0);
+      }
     }
 
     inv->exit.code = RC_OK;
@@ -350,14 +335,13 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
     {
       struct capros_Process_CommonRegisters32 regs;
 
-      p = node_GetDomainContext(theNode);
-      proc_Prepare(p);
+      proc_Prepare(proc);
 
       proc_SetupExitString(inv->invokee, inv, sizeof(regs));
 
       COMMIT_POINT();
 
-      proc_GetCommonRegs32(p, &regs);
+      proc_GetCommonRegs32(proc, &regs);
 
       regs.len = sizeof(regs);
 
@@ -377,18 +361,17 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
         break;
       }
 
-      p = node_GetDomainContext(theNode);
-      proc_Prepare(p);
+      proc_Prepare(proc);
 
       COMMIT_POINT();
 
 #if 0
-      printf("setRegisters32 p=%#x pc=%#x\n", p, regs.pc);
+      printf("setRegisters32 p=%#x pc=%#x\n", proc, regs.pc);
 #endif
 
       inv_CopyIn(inv, sizeof(regs), &regs);
 
-      proc_SetCommonRegs32(p, &regs);
+      proc_SetCommonRegs32(proc, &regs);
 
       inv->exit.code = RC_OK;
       break;
@@ -400,5 +383,6 @@ ProcessKeyCommon(Invocation * inv, Node * theNode)
     inv->exit.code = RC_capros_key_UnknownRequest;
     break;
   }
+
   ReturnMessage(inv);
 }

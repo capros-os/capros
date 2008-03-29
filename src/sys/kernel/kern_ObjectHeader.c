@@ -246,7 +246,7 @@ objH_MakeObjectDirty(ObjectHeader* thisPtr)
 #endif
 
   assertex(thisPtr, objH_IsUserPinned(thisPtr));
-  assertex(thisPtr, objH_GetFlags(thisPtr, OFLG_CURRENT));
+  assert(objH_GetFlags(thisPtr, OFLG_CURRENT));
 
   if ( objH_IsDirty(thisPtr) && (objH_GetFlags(thisPtr, OFLG_CKPT|OFLG_IO) == 0) )
     return;

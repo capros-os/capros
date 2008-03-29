@@ -47,9 +47,9 @@ extern bool InvocationCommitted;
 ObjectHeader *
 key_GetObjectPtr(const Key* thisPtr)
 {
-  assert( keyBits_IsPreparedObjectKey(thisPtr) );
-  if (keyBits_IsGateKey(thisPtr))
-    return DOWNCAST(thisPtr->u.gk.pContext->procRoot, ObjectHeader);
+  assert(keyBits_IsPreparedObjectKey(thisPtr));
+  if (keyBits_IsProcessType(thisPtr))
+    return node_ToObj(thisPtr->u.gk.pContext->procRoot);
   else
     return thisPtr->u.ok.pObj;
 }
@@ -107,52 +107,46 @@ key_DoPrepare(Key* thisPtr)
   switch(keyBits_GetType(thisPtr)) {		/* not prepared, so not hazarded! */
   case KKT_Resume:
   case KKT_Start:
+  case KKT_Process:
     {
-      /* Gate keys are linked onto the context structure.  First, we
+      /* Keys to a process are linked onto the Process structure.  First, we
        * need to validate the key:
        */
 
-      Process * context = 0;
-      Node *pNode = (Node *) 
-	objC_GetObject(thisPtr->u.unprep.oid, ot_NtUnprepared,
+      pObj = objC_GetObject(thisPtr->u.unprep.oid, ot_NtUnprepared, 
                        thisPtr->u.unprep.count,
                        keyBits_IsType(thisPtr, KKT_Resume) ? false : true);
+      Node * pNode = objH_ToNode(pObj);
 
-      if (keyBits_IsType(thisPtr, KKT_Resume) && pNode->callCount != thisPtr->u.unprep.count)
-	pNode = 0;
+      // FIXME: dereferencing pNode which may be zero
+      if (keyBits_IsType(thisPtr, KKT_Resume)
+          && pNode->callCount != thisPtr->u.unprep.count)
+	pObj = 0;
 
-      if (pNode == 0) {
+      if (pObj == 0) {
 	DEBUG(prepare)
 	  printf("Voiding invalid gate key\n");
         break;	// with pObj == 0
       }
 	
-      assertex(pNode, objC_ValidNodePtr(pNode));
+      assert(objC_ValidNodePtr(pNode));
       
-      objH_TransLock(DOWNCAST(pNode, ObjectHeader));
+      objH_TransLock(pObj);
 
-      context = node_GetDomainContext(pNode);
-      if (! context )		/* malformed domain */
-	fatal("Preparing gate key to malformed domain\n");
+      Process * proc = node_GetProcess(pNode);
 
-      /* Okay, we prepared successfully. */
-      thisPtr->u.gk.pContext = context;
+      thisPtr->u.gk.pContext = proc;
 
-      /* Link into context chain on left or right according to key
+      /* Link into process chain on left or right according to key
        * type.
        */
       if ( keyBits_IsType(thisPtr, KKT_Resume) )
-	link_insertBefore(&context->keyRing, &thisPtr->u.gk.kr);
+	link_insertBefore(&proc->keyRing, &thisPtr->u.gk.kr);
       else
-	link_insertAfter(&context->keyRing, &thisPtr->u.gk.kr);
+	link_insertAfter(&proc->keyRing, &thisPtr->u.gk.kr);
 
       keyBits_SetPrepared(thisPtr);
 
-#if 0
-      printf("Prepared key ");
-      Print();
-#endif
-  
 #ifdef MEM_OB_CHECK
       assert(ck == thisPtr->CalcCheck());
 #endif
@@ -177,7 +171,6 @@ key_DoPrepare(Key* thisPtr)
     }
     
   case KKT_Node:
-  case KKT_Process:
   case KKT_Forwarder:
   case KKT_GPT:
     pObj = objC_GetObject(thisPtr->u.unprep.oid, ot_NtUnprepared, 
@@ -230,23 +223,6 @@ key_DoPrepare(Key* thisPtr)
   return;
 }
 
-#ifndef NDEBUG
-/* May Yield. */
-void
-key_Prepare(Key* thisPtr)
-{
-  assert (InvocationCommitted == false);
-
-  assert(thisPtr);
-
-  if (keyBits_IsUnprepared(thisPtr))
-    key_DoPrepare(thisPtr);
-      
-  if ( keyBits_NeedsPin(thisPtr) )
-    objH_TransLock(thisPtr->u.ok.pObj);
-}
-#endif
-
 void
 key_NH_Set(KeyBits *thisPtr, KeyBits* kb)
 {
@@ -278,6 +254,21 @@ key_NH_Set(KeyBits *thisPtr, KeyBits* kb)
     kb->u.ok.kr.prev = &thisPtr->u.ok.kr;
 #endif
   }
+}
+
+// k must already be unchained if necessary.
+void
+key_SetToProcess(Key * k,
+  Process * p, unsigned int keyType, unsigned int keyData)
+{
+  assert(keyR_IsValid(&p->keyRing, p));
+
+  keyBits_InitType(k, keyType);
+  k->keyData = keyData;
+  k->keyPerms = 0;
+  k->u.gk.pContext = p;
+  link_insertAfter(&p->keyRing, &k->u.gk.kr);
+  keyBits_SetPrepared(k);
 }
 
 void
@@ -341,7 +332,7 @@ key_MakeUnpreparedCopy(Key * dst, const Key * src)
   ObjectHeader * pObj;
   ObCount cnt;
   
-  if (keyBits_IsGateKey(src)) {
+  if (keyBits_IsProcessType(src)) {
     pObj = node_ToObj(src->u.gk.pContext->procRoot);
 
     if (keyBits_IsType(src, KKT_Resume))
@@ -375,7 +366,7 @@ key_NH_Unprepare(Key* thisPtr)
     ObjectHeader * pObj;
     ObCount cnt;
   
-    if (keyBits_IsGateKey(thisPtr)) {
+    if (keyBits_IsProcessType(thisPtr)) {
 #ifndef NDEBUG
       if (ValidCtxtPtr(thisPtr->u.gk.pContext) == false)
 	fatal("Key 0x%08x Kt %d, 0x%08x not valid ctxt ptr\n",
@@ -567,7 +558,7 @@ key_IsValid(const Key* thisPtr)
       
   if ( keyBits_IsPreparedObjectKey(thisPtr) ) {
 #ifndef NDEBUG
-    if ( keyBits_IsGateKey(thisPtr) ) {
+    if ( keyBits_IsProcessType(thisPtr) ) {
       Process *ctxt = thisPtr->u.gk.pContext;
       if (ValidCtxtPtr(ctxt) == false)
 	return false;

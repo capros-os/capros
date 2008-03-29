@@ -93,7 +93,6 @@ proc_FlushKeyRegs(Process * thisPtr)
      */
   }
 
-  thisPtr->keysNode->node_ObjHdr.prep_u.context = 0;
   thisPtr->keysNode->node_ObjHdr.obType = ot_NtUnprepared;
   thisPtr->keysNode = 0;
 
@@ -180,15 +179,13 @@ proc_LoadKeyRegs(Process* thisPtr)
 void
 proc_SyncActivity(Process * thisPtr)
 {
-  Key * procKey = 0;
   assert(thisPtr->curActivity);
   assert(thisPtr->procRoot);
   assert(thisPtr->curActivity->context == thisPtr);
   
-  procKey /*@ not null @*/ = &thisPtr->curActivity->processKey;
+  Key * procKey = &thisPtr->curActivity->processKey;
 
   assert (keyBits_IsHazard(procKey) == false);
-
   /* Not hazarded because activity key */
   key_NH_Unchain(procKey);
 
@@ -260,7 +257,7 @@ proc_Unload(Process * thisPtr)
 
   assert(thisPtr->procRoot);
 
-  thisPtr->procRoot->node_ObjHdr.prep_u.context = 0;
+  thisPtr->procRoot->node_ObjHdr.prep_u.context = 0;	// for safety
   thisPtr->procRoot->node_ObjHdr.obType = ot_NtUnprepared;
   
   keyR_UnprepareAll(&thisPtr->keyRing);	// Why? CRL
@@ -317,6 +314,8 @@ proc_allocate(bool isUser)
   p->faultCode = capros_Process_FC_NoFault;
   p->faultInfo = 0;
   p->kernelFlags = 0;
+  // Set hazards to the default for user. Will be overwritten if kernel proc.
+  p->hazards = hz_DomRoot | hz_KeyRegs | hz_Schedule;
   p->processFlags = 0;
   p->isUserContext = isUser;
   /* FIX: what to do about runState? */

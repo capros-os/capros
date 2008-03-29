@@ -327,11 +327,10 @@ void proc_WriteDisableSmallSpaces();
 
 void proc_AllocUserContexts(); /* machine dependent! */
 Process *proc_allocate(bool isUser);
-void proc_Init_MD(Process * p, bool isUser);
+void proc_Init_MD(Process * p, bool isUser); /* machine dependent */
 void proc_LoadSingleStep(Process * thisPtr);
 void proc_LoadFixRegs(Process* thisPtr);
 void proc_ValidateRegValues(Process* thisPtr);
-void proc_Load(Node* procRoot);
 void proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info);
 
 void proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey);
@@ -352,7 +351,7 @@ void proc_SetCommonRegs32MD(Process * thisPtr,
   struct capros_Process_CommonRegisters32 * regs);	// machine dependent
 
 struct Invocation;
-void ProcessKeyCommon(struct Invocation * inv, Node * theNode);
+void ProcessKeyCommon(struct Invocation * inv, Process *);
 
 #endif /* __ASSEMBLER__ */
 

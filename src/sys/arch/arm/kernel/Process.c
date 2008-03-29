@@ -470,21 +470,6 @@ proc_InvokeProcessKeeper(Process * thisPtr)
                       &processKey, (uint8_t *) &regs, sizeof(regs));
 }
 
-void 
-proc_Load(Node* procRoot)
-{
-  Process *p = proc_allocate(true);
-
-  p->hazards = hz_DomRoot | hz_KeyRegs | hz_Schedule;
-
-  assert(procRoot);
-
-  p->procRoot = procRoot;
-  
-  procRoot->node_ObjHdr.prep_u.context = p;
-  procRoot->node_ObjHdr.obType = ot_NtProcessRoot;
-}
-
 /* Both loads the register values and validates that the process root
  * is well-formed.
  */

@@ -2,7 +2,7 @@
 #define __NODE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -117,9 +117,8 @@ void node_RescindHazardedSlot(Node* thisPtr, uint32_t ndx, bool mustUnprepare);
  * node slot.
  */
 bool node_PrepAsSegment(Node* thisPtr);
-void node_PrepAsDomain(Node* thisPtr);
 
-Process *node_GetDomainContext(Node* thisPtr);
+Process * node_GetProcess(Node * thisPtr);
 
 bool node_Unprepare(Node* thisPtr, bool zapMe);
     

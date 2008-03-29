@@ -45,7 +45,9 @@ ProcessKey(Invocation * inv)
 {
   inv_GetReturnee(inv);
 
-  Node * theNode = (Node *) key_GetObjectPtr(inv->key);
+  assert(keyBits_IsPreparedObjectKey(inv->key));
+  Process * proc = inv->key->u.gk.pContext;
+  Node * theNode = proc->procRoot;
 
   switch (inv->entry.code) {
 
@@ -69,14 +71,13 @@ ProcessKey(Invocation * inv)
     {
       struct capros_arch_i386_Process_Registers regs;
       
-      Process * ac = node_GetDomainContext(theNode);
-      proc_Prepare(ac);
+      proc_Prepare(proc);
 
       proc_SetupExitString(inv->invokee, inv, sizeof(regs));
 
       COMMIT_POINT();
 
-      bool b = proc_GetRegs32(ac, &regs);
+      bool b = proc_GetRegs32(proc, &regs);
       (void)b;		// avoid compiler warning
       assert(b);	// because we prepared the process above
 
@@ -96,21 +97,20 @@ ProcessKey(Invocation * inv)
 	break;
       }
       
-      Process * ac = node_GetDomainContext(theNode);
-      proc_Prepare(ac);
+      proc_Prepare(proc);
 
       COMMIT_POINT();
 
       inv_CopyIn(inv, sizeof(regs), &regs);
 
-      proc_SetRegs32(ac, &regs);
+      proc_SetRegs32(proc, &regs);
 
       inv->exit.code = RC_OK;
       break;
     }
 
   default:
-    return ProcessKeyCommon(inv, theNode);
+    return ProcessKeyCommon(inv, proc);
   }
   ReturnMessage(inv);
 }

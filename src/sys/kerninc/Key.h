@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/KeyStruct.h>
 #include <disk/Key-inline.h>
 #include <kerninc/ObjectHeader.h>
+extern bool InvocationCommitted; // all we need from kerninc/Invocation.h
 
 /* 
  * Key.  A Key is a capability, in the sense of Hydra or the Sigma-7.
@@ -119,21 +120,6 @@ void key_DoPrepare(Key* thisPtr);
 bool key_IsValid(const Key* thisPtr);
 #endif
 
-/* key_Prepare may Yield. */
-#ifdef NDEBUG
-INLINE void 
-key_Prepare(Key* thisPtr)
-{
-  if (keyBits_IsUnprepared(thisPtr))
-    key_DoPrepare(thisPtr);
-  
-  if ( keyBits_NeedsPin(thisPtr) )
-    objH_TransLock(thisPtr->u.ok.pObj);
-}
-#else
-void key_Prepare(Key* thisPtr);
-#endif
-
 void key_MakeUnpreparedCopy(Key * dst, const Key * src);
 
 /* ALL OF THE NH ROUTINES MUST BE CALLED ON NON-HAZARDED KEYS */
@@ -154,6 +140,8 @@ void key_NH_Unprepare(Key* thisPtr);
 /* KS_Set now checks for need to unchain internally. */
 void key_NH_Set(KeyBits *thisPtr, KeyBits* kb);
 
+void key_SetToProcess(Key * k,
+  Process * p, unsigned int keyType, unsigned int keyData);
 void key_SetToNumber(KeyBits *thisPtr, uint32_t hi, uint32_t mid, uint32_t lo);
 
 INLINE void 
@@ -200,202 +188,19 @@ key_NH_RescindKey(Key* thisPtr)
 uint32_t key_CalcCheck(Key* thisPtr);
 #endif
 
-/* Orders on Various Key Types:
- * 
- * KtNumber:
- * 
- *   KeyType
- *   GetData(small);   aslong
- *   GetData(medium);  aslonglong
- *   GetData(large);   asNumber ;-) (spec'd to return as 16 bytes)
- * 
- * KtDataPage:
- * 
- *   Return a read-only key to same page (ROpageKey) - impl in
- *   	Datauint8_t
- *   Read(start, buf)
- * 	DOCNOTE: logically returns entire page, wrapping at the end.
- * 	    this is bounded by the buffer size in implementation.
- *   Write(start, buf) (not on ROkeys)
- * 	DOCNOTE: logically returns entire page, wrapping at the end.
- * 	    this is bounded by the buffer size in implementation.
- *   Clear() - very fast, but don't play poker with Norm. Also, don't
- *   	tell the marketeers, who will subsequently tell the public
- * 	that EROS can clear any size page in one instruction on any
- * 	architectrue. 
- * 
- * KtNode:
- *   get(n,nr) - fetch key in slot N into domain's node register nr.
- *   swap(n,nr) - swap key in slot N with domain's node register nr.
- * 	Don't have to accept the responding key, so this subsumes
- * 	set().
- * 	LIBNOTE: should have a set() in the access library. Blech.
- * 
- *   asMeter()		- obvious conversions (Datauint8_t always 0)
- *   asSegment(Datauint8_t)
- *   asDomain(Datauint8_t)
- *   asTimer(Datauint8_t)
- *   asNode(Datauint8_t)
- *   asFetch(Datauint8_t)
- *   asSensory(Datauint8_t) FIX - norm thinks there's a virtualization
- * 	issue buried here.
- *   datauint8_t() - return the data byte in the return code. (?) Maybe
- * 	should be in register-string
- *   clear() - c.f. page clear. Same problem with marketeers.
- *   numerate(start, buf) - place a number key in the node. In the old
- *      logic, you could create multiple number keys in sequence,
- *      which was useful.  We do not do that for now.
- * 
- * KtMeter:
- *   no protocol outside the Kernel
- *   might have stuff for key cacheing.
- * 
- * KtSegment:
- * 
- *   getROSegment() - does this require dynamic allocation?
- *   read()
- *   write()
- * 
- *   send message to keeper. standard ops on keeper are:
- *   
- * KtDomain:
- *   Bill suggested dividing this into MI/MD parts.
- * 
- *   Machine Independent:
- * 
- *   SetAddressSlot(KeyReg):  - alternative: set both. Option:
- *       give new PC.
- *   SetMeterSlot(KeyReg):
- *   SetKeeperSlot(KeyReg):
- *   SetSymbolSlot():
- * 
- *   GetAddressSlots(KeyReg):
- *   GetMeterSlot(KeyReg):
- *   GetKeeperSlot(KeyReg):
- *   GetSymbolSlot:
- * 
- *   GetStartKey(Datauint8_t):
- *   Reset() - makes the domain available
- *   Stop() => (ResumeKey,GeneralRegs)
- * 
- *   FetchKeyReg(nkr):
- *   SwapKeyReg(nkr):
- * 
- *   GetDomainInfo() - returns general information about the Domain
- *       implementation.
- * 
- *   SetPC():
- *   GetPC():
- * 
- *   SingleStep() - step a single instruction, may fail. Arch defined
- *       on delay slots.
- * 
- *   NOTE: canNOT get the brand or the general registers nodes.
- * 
- *   Machine Dependent:
- * 
- *   Get{General,Float}Registers():
- *   Set{General,Float}Registers():
- * 
- *   GetTrapCode():
- *   SetTrapCode():
- * 
- * KtTimer:
- * 
- *   SetInterval(interval)
- *   SleepFor(interval) - sets interval too
- *   Sleep()		- useful for rendevous
- * 
- * KtStart, KtResume:
- * 
- *   Sends message to the domain itself.
- * 
- * KtFetch:
- *   get(n,nr) - fetch key in slot N into domain's node register nr.
- *   swap(n,nr):
- *   asMeter():
- *   asSegment(Datauint8_t):
- *   asDomain(Datauint8_t):
- *   asTimer(Datauint8_t):
- *   asNode(Datauint8_t):
- * 	these always fail in kernel. Should this be accesViolation or
- *      badOrderCode? 
- * 
- *   asFetch(Datauint8_t) - see Node protocol? What current designs does
- *   	this break?
- *   asSensory(Datauint8_t) - if I can get a fetch key, I can get a sense
- * 	key.
- * 
- *   datauint8_t() - return the data byte in the return code. (?) Maybe
- * 	should be in register-string
- *   clear():
- *   numerate(start, buf):
- * 	- fails, either accessViolation or invalidOrder.
- * 
- * KtRange:
- * 	Range key argument CDAs are expressed as offsets relative to
- * 		the start of the range controlled by the range key.
- *   getPageKey(relative CDA) - policy issue here. Should bank be
- * 	cognizant of disk partitions?
- *   rescindPageKey(relative CDA)
- *   makeSubRangeKey(relative start, count) - NEW and IMPROVED! Well,
- * 	new at least.
- *   validCDA(relative CDA)
- *   maxCDAQuery(buf)
- * 
- * KtHook:
- *   No protocol - just a kernel tool
- * 
- * KtDevice:
- *   Block:
- *     read()
- *     write()
- *     seek()
- *     reset()
- *     init()
- *     control()
- *     size()
- *     shutdown()
- * 
- *   Disk
- *   Screen
- *   WallClock
- *   OPTION_SCSI[0..7] - multimaster; where does this belong?
- * 
- *   Asynch:
- *     read()
- *     write()
- *     ?seek()
- *     reset()
- *     init()
- *     control()
- *     size()
- *     shutdown()
- * 
- *   Keyboard
- *   Mouse
- *   Serial
- *   Parallel
- *   OPTION_SCSI[0..7]
- * 
- *   ?WallClock
- *   ?DiskPackManager - manages removable media
- * 
- * KtMisc:
- *   DomainCreator
- *   Returner
- *   Discrim
- *   DataCreater
- *   DeviceCreator - creator/rescinder of device keys
- *   Journaler
- *   Checkpointer
- *   Shutdown/Reboot
- *   ErrorKey - used by error log daemon
- *   ?ItimerCreator - Wall banging issue
- *   ?OPTION_SCSIKeyCreator - Avoid this if can be done dynamically. Lets me
- *       tell the kernel about the ones it can't decipher.
- * 
- *   Tool specific
- * 
- */
+/* key_Prepare may Yield. */
+INLINE void 
+key_Prepare(Key * thisPtr)
+{
+  assert(! InvocationCommitted);
+  assert(thisPtr);
+
+  if (keyBits_IsUnprepared(thisPtr))
+    key_DoPrepare(thisPtr);
+  
+  // FIXME: Why do gate keys not need pinning?
+  if (keyBits_IsObjectKey(thisPtr) && !keyBits_IsGateKey(thisPtr))
+    objH_TransLock(key_GetObjectPtr(thisPtr));
+}
+
 #endif /* __KERNINC_KEY_H__ */

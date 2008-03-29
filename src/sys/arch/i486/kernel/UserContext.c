@@ -376,28 +376,13 @@ proc_Init_MD(Process * p, bool isUser)
   }
 
   p->md.MappingTable = KernPageDir_pa;
-}
 
-void 
-proc_Load(Node* procRoot)
-{
-  Process *p = proc_allocate(true);
-
-  p->hazards =
 #ifdef EROS_HAVE_FPU
   /* Must be hazarded by float regs so that we can correctly re-issue
    * floating point exceptions on restart:
    */
-    hz_FloatRegs |
+  p->hazards |= hz_FloatRegs;
 #endif
-    hz_DomRoot | hz_KeyRegs | hz_Schedule;
-
-  assert(procRoot);
-
-  p->procRoot = procRoot;
-  
-  procRoot->node_ObjHdr.obType = ot_NtProcessRoot;
-  procRoot->node_ObjHdr.prep_u.context = p;
 }
 
 /* ValidateRegValues() -- runs last to validate that the loaded context

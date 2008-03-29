@@ -52,6 +52,7 @@ Approved for public release, distribution unlimited. */
 
 /* These REALLY need to get defined in StdKeyTypes, lest they drift. */
 #define LAST_GATE_KEYTYPE KKT_Resume
+#define LAST_PROC_KEYTYPE KKT_Process
 #define LAST_OBJECT_KEYTYPE KKT_Page
 #ifndef NDEBUG
 #define FIRST_MISC_KEYTYPE KKT_KeyBits
@@ -319,7 +320,13 @@ keyBits_IsGateKey(const KeyBits *thisPtr)
 {
   return (keyBits_GetType(thisPtr) <= LAST_GATE_KEYTYPE);
 }
-  
+
+INLINE bool 
+keyBits_IsProcessType(const KeyBits * thisPtr)
+{
+  return (keyBits_GetType(thisPtr) <= LAST_PROC_KEYTYPE);
+}
+
 INLINE bool 
 keyBits_IsObjectKey(const KeyBits *thisPtr)
 {
@@ -337,13 +344,7 @@ keyBits_IsPreparedObjectKey(const KeyBits *thisPtr)
 {
   return (keyBits_IsObjectKey(thisPtr) && keyBits_IsPrepared(thisPtr));
 }
-      
-INLINE bool 
-keyBits_NeedsPin(const KeyBits *thisPtr)
-{
-  return (keyBits_IsObjectKey(thisPtr) && !keyBits_IsGateKey(thisPtr));
-}
-  
+ 
 #ifndef NDEBUG
 INLINE bool 
 keyBits_IsMiscKey(const KeyBits *thisPtr)
@@ -358,10 +359,10 @@ keyBits_IsNodeKeyType(const KeyBits *thisPtr)
   switch (keyBits_GetType(thisPtr)) {
   case KKT_Start:
   case KKT_Resume:
+  case KKT_Process:
   case KKT_Forwarder:
   case KKT_Node:
   case KKT_GPT:
-  case KKT_Process:
     return true;
   default:
     return false;

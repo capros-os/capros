@@ -112,12 +112,11 @@ db_print_proc_key(Key * key, const char * name)
   db_print_keyflags(key);
 
   if (keyBits_IsPreparedObjectKey(key)) {
-    ObjectHeader * pObj = key->u.ok.pObj;
+    Process * proc = key->u.gk.pContext;
+    ObjectHeader * pObj = node_ToObj(proc->procRoot);
     
-    db_printf(" objh=%#x (", pObj);
-    if (pObj->obType == ot_NtProcessRoot)
-      db_printf("proc=%#x ", pObj->prep_u.context);
-    db_printf("oid=%#llx)\n", pObj->oid);
+    db_printf(" proc=%#x (oid=%#llx root=0x%08x)\n",
+		proc, pObj->oid, pObj);
   } else {
     db_printf(" cnt=%#x oid=%#llx\n",
 	      key->u.unprep.count, key->u.unprep.oid);
@@ -1017,50 +1016,40 @@ db_invokee_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
   db_eros_print_context(inv.invokee);
 }
 
+static Process *
+getInvokee(void)
+{
+  if (! inv_IsActive(&inv)) {
+    db_printf("No active invocation\n");
+    return NULL;
+  }
+
+  if ( inv.key && keyBits_IsGateKey(inv.key) ) {
+    return inv.key->u.gk.pContext;
+  }
+  else if (inv.entry.key[3] && keyBits_IsGateKey(inv.entry.key[3]) ) {
+    return inv.entry.key[3]->u.gk.pContext;
+  }
+  else
+    return NULL;
+}
+
 void
 db_invokee_kr_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
 			db_expr_t cnt/* count */, char * mdf/* modif */)
 {
-  Process *cc = 0;
-
-  if (inv_IsActive(&inv) == false) {
-    db_printf("No active invocation\n");
-    return;
-  }
-
-  if ( inv.key && keyBits_IsGateKey(inv.key) ) {
-    cc = inv.key->u.gk.pContext;
-  }
-  else if (inv.entry.key[3] && keyBits_IsGateKey(inv.entry.key[3]) ) {
-    cc = inv.entry.key[3]->u.gk.pContext;
-  }
-  else
-    cc = 0;
-
-  db_eros_print_context_keyring(cc);
+  Process * cc = getInvokee();
+  if (cc)
+    db_eros_print_context_keyring(cc);
 }
 
 void
 db_invokee_keys_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
 			db_expr_t cnt/* count */, char * mdf/* modif */)
 {
-  Process *cc = 0;
-
-  if (inv_IsActive(&inv) == false) {
-    db_printf("No active invocation\n");
-    return;
-  }
-
-  if ( inv.key && keyBits_IsGateKey(inv.key) ) {
-    cc = inv.key->u.gk.pContext;
-  }
-  else if (inv.entry.key[3] && keyBits_IsGateKey(inv.entry.key[3]) ) {
-    cc = inv.entry.key[3]->u.gk.pContext;
-  }
-  else
-    cc = 0;
-
-  db_eros_print_context_keyregs(cc);
+  Process * cc = getInvokee();
+  if (cc)
+    db_eros_print_context_keyregs(cc);
 }
 
 void

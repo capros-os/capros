@@ -50,10 +50,12 @@ Approved for public release, distribution unlimited. */
 static bool
 CompareBrand(Invocation* inv /*@ not null @*/, Key* pDomKey, Key* pBrand)
 {
-  assert (keyBits_IsPrepared(pDomKey));
+  assert(keyBits_IsPrepared(pDomKey));
+  assert(keyBits_IsProcessType(pDomKey));
+
   key_Prepare(pBrand);
 
-  Node * procRoot = (Node *) key_GetObjectPtr(pDomKey);
+  Node * procRoot = pDomKey->u.gk.pContext->procRoot;
   Key * otherBrand = node_GetKeyAtSlot(procRoot, ProcBrand);
 
   key_Prepare(otherBrand);
@@ -84,49 +86,15 @@ CompareBrand(Invocation* inv /*@ not null @*/, Key* pDomKey, Key* pBrand)
 	 || pBrand->u.nk.value[2] != otherBrand->u.nk.value[2] )
       return false;
   }
-  
+
+  // The keys match.
   
   inv->exit.w1 = keyBits_GetType(pDomKey);
   inv->exit.w2 = pDomKey->keyData;
   
-  /* Temporary keys of this form MUST NOT BE BUILT until after the
-   * commit point!!!
-   */
-  {
-    Process *pContext = 0;
-    if (keyBits_IsGateKey(pDomKey))
-      pContext = pDomKey->u.gk.pContext;
-
-    if (inv->exit.pKey[0]) {
-      inv_SetExitKey(inv, 0, pDomKey);
-      assert (keyBits_IsPrepared(inv->exit.pKey[0]));
-
-      keyBits_InitType(inv->exit.pKey[0], KKT_Node);
-      keyBits_SetPrepared(inv->exit.pKey[0]);
-
-      /* We have really just copied the input key and smashed it for a
-       * node key.  We now have a prepared node key, UNLESS the input key
-       * was actually a gate key, in which event we have a prepared node
-       * key on the wrong keyring.  Fix up the keyring in that case:
-       */
-      /* This kludge will go away when we link Process keys to the
-      Process instead of the root Node. */
-  
-      if (pContext) {
-        /* Unchain, but do not unprepare -- the objects do not have on-disk
-         * keys. */
-
-	key_NH_Unchain(inv->exit.pKey[0]);
-
-        ObjectHeader *pObj = 0;
-	pObj = DOWNCAST(pContext->procRoot, ObjectHeader);
-	assert (pObj);
-	/* Link as next key after object */
-	inv->exit.pKey[0]->u.ok.pObj = pObj;
-  
-	link_insertAfter(&pObj->keyRing, &inv->exit.pKey[0]->u.ok.kr);
-      }
-    }
+  Key * k = inv->exit.pKey[0];
+  if (k) {
+    key_NH_SetToObj(k, node_ToObj(procRoot), KKT_Node);
   }
 
   return true;
@@ -154,38 +122,32 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
   switch (inv->entry.code) {
   case OC_capros_ProcTool_makeProcess:
     {
+      Key * key0 = inv->entry.key[0];
+      key_Prepare(key0);
+
+      if (! keyBits_IsType(key0, KKT_Node)
+          || keyBits_IsReadOnly(key0)
+          || keyBits_IsNoCall(key0) ) {
+#if 0
+        dprintf(true, "domtool: entry key is not valid\n");
+#endif
+        COMMIT_POINT();
+
+	break;
+      }
+
+      assert(! keyBits_IsHazard(key0));
+      Node * pNode = objH_ToNode(key0->u.ok.pObj);
+      Process * proc = node_GetProcess(pNode);
+
       COMMIT_POINT();
-
-      if (keyBits_IsType(inv->entry.key[0], KKT_Node) == false) {
-#if 0
-        dprintf(true, "domtool: entry key is not node key\n");
-#endif
-	break;
-      }
-
-      if ( keyBits_IsReadOnly(inv->entry.key[0]) ) {
-#if 0
-        printf("domtool: entry key is read only\n");
-#endif
-	break;
-      }
-
-      if ( keyBits_IsNoCall(inv->entry.key[0]) ) {
-#if 0
-        printf("domtool: entry key is no-call\n");
-#endif
-	break;
-      }
-
-      assert ( keyBits_IsHazard(inv->entry.key[0]) == false );
 
       inv->exit.code = RC_OK;
 
-      inv_SetExitKey(inv, 0, inv->entry.key[0]);
-
-      if (inv->exit.pKey[0]) {
-	keyBits_SetType(inv->exit.pKey[0], KKT_Process);
-	inv->exit.pKey[0]->keyData = 0;
+      Key * k = inv->exit.pKey[0];
+      if (k) {	// the key is being received
+        key_NH_Unchain(k);
+        key_SetToProcess(k, proc, KKT_Process, 0);         
       }
       break;
     }
@@ -195,8 +157,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       bool sameBrand;
       key_Prepare(inv->entry.key[0]);
 
-      if (keyBits_IsType(inv->entry.key[0], KKT_Start) == false &&
-	  keyBits_IsType(inv->entry.key[0], KKT_Resume) == false) {
+      if (! keyBits_IsGateKey(inv->entry.key[0])) {
 	COMMIT_POINT();
 	break;
       }
@@ -221,11 +182,9 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 	inv->exit.w2 = inv->entry.key[0]->keyData;
 
       if (inv->exit.pKey[0]) {
-	inv_SetExitKey(inv, 0, inv->entry.key[0]);
-
-	key_NH_Unprepare(inv->exit.pKey[0]);
-			/* Because we want the Node, not the Process */
-	keyBits_SetType(inv->exit.pKey[0], KKT_Node);
+        key_NH_SetToObj(inv->exit.pKey[0],
+                        node_ToObj(inv->entry.key[0]->u.gk.pContext->procRoot),
+                        KKT_Node);
 	inv->exit.pKey[0]->keyData = 0;
       }
 
@@ -276,14 +235,13 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       Key * domKey = node_GetKeyAtSlot(theGPT, capros_GPT_keeperSlot);
 
       key_Prepare(domKey);
-
-      bool isResume = keyBits_IsType(domKey, KKT_Resume);
       
-      if (! keyBits_IsType(domKey, KKT_Start)
-	  && ! isResume ) {
+      if (! keyBits_IsGateKey(domKey)) {
 	COMMIT_POINT();
 	break;
       }
+
+      bool isResume = keyBits_IsType(domKey, KKT_Resume);
       
       if ( CompareBrand(inv, domKey, inv->entry.key[1]) == false ) {
 	break;
@@ -324,8 +282,7 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
 
       key_Prepare(domKey);
       
-      if (! keyBits_IsType(domKey, KKT_Start)
-	  && ! keyBits_IsType(domKey, KKT_Resume) ) {
+      if (! keyBits_IsGateKey(domKey)) {
         COMMIT_POINT();
 	break;
       }

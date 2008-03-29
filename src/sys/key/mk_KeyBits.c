@@ -75,7 +75,6 @@ KeyBitsKey(Invocation* inv /*@ not null @*/)
 
   case OC_capros_KeyBits_get:
     {
-      uint8_t kt;
       struct capros_KeyBits_info kbi;
       KeyBits dupKey;
 
@@ -88,38 +87,13 @@ KeyBitsKey(Invocation* inv /*@ not null @*/)
       kbi.version = capros_KeyBits_VERSION;
       kbi.valid = 1;
 
-      key_Prepare(inv->entry.key[0]);
+      Key * k = inv->entry.key[0];
+      key_Prepare(k);
       
       COMMIT_POINT();
       
-      kt = keyBits_GetType(inv->entry.key[0]);
-      
+      key_MakeUnpreparedCopy(&dupKey, k);
       /* Note that we do NOT expose hazard bits or prepared bits! */
-      keyBits_InitType(&dupKey, kt);
-      keyBits_SetUnprepared(&dupKey);
-      dupKey.keyFlags = 0;
-      dupKey.keyPerms = inv->entry.key[0]->keyPerms;
-      dupKey.keyData = inv->entry.key[0]->keyData;
-
-      if ( keyBits_IsObjectKey(inv->entry.key[0]) ) {
-	ObjectHeader *pObj = inv->entry.key[0]->u.ok.pObj;
-
-	if ( keyBits_IsGateKey(inv->entry.key[0]) )
-	  pObj = DOWNCAST(inv->entry.key[0]->u.gk.pContext->procRoot, ObjectHeader);
-
-	if ( keyBits_IsType(inv->entry.key[0], KKT_Resume) )
-	  dupKey.u.unprep.count = objH_ToNode(pObj)->callCount;
-	else
-	  dupKey.u.unprep.count = pObj->allocCount;
-
-	dupKey.u.unprep.oid = pObj->oid;
-      }
-      else {
-	dupKey.u.nk.value[0] = inv->entry.key[0]->u.nk.value[0];
-	dupKey.u.nk.value[1] = inv->entry.key[0]->u.nk.value[1];
-	dupKey.u.nk.value[2] = inv->entry.key[0]->u.nk.value[2];
-      }
-
 
       memcpy(&kbi.w, &dupKey, sizeof(kbi.w));
 

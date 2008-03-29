@@ -948,7 +948,7 @@ act_Prepare(Activity* thisPtr)
       assert( keyBits_IsHazard(&thisPtr->processKey) == false );
       assert( keyBits_IsPrepared(&thisPtr->processKey) );
 
-      proc = node_GetDomainContext(objH_ToNode(thisPtr->processKey.u.ok.pObj));
+      proc = thisPtr->processKey.u.gk.pContext;
       if (! proc)
 	return false;
     

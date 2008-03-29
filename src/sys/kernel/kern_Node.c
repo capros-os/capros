@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -251,21 +251,40 @@ Node::ObMovedHazardedSlot(uint32_t ndx, ObjectHeader *pNewLoc)
 }
 #endif
 
-Process *
-node_GetDomainContext(Node* thisPtr)
+static void
+node_DoPrepareProcess(Node * pNode)
 {
-  if (thisPtr->node_ObjHdr.obType == ot_NtProcessRoot && thisPtr->node_ObjHdr.prep_u.context)
-    return thisPtr->node_ObjHdr.prep_u.context;
+  assert(pNode);
 
-  node_PrepAsDomain(thisPtr);
+  node_Unprepare(pNode, false);
 
-  proc_Load(thisPtr);
+  /* We mark the domain components dirty as a side effect.
+   * Strictly speaking, this is not necessary, but the number of domains
+   * that get prepared without modification closely approximates 0, and
+   * it's easier to do it here than in the context prepare logic.  Also,
+   * doing the marking here makes it unnecessary to test in the message
+   * transfer path.
+   */
 
+  node_MakeDirty(pNode);
 
-#if 0
-  printf("return ctxt 0x%08x\n", context);
-#endif
-  return thisPtr->node_ObjHdr.prep_u.context;
+  Process * p = proc_allocate(true);
+
+  p->procRoot = pNode;
+
+  pNode->node_ObjHdr.prep_u.context = p; 
+  pNode->node_ObjHdr.obType = ot_NtProcessRoot;
+}
+
+Process *
+node_GetProcess(Node * pNode)
+{
+  if (pNode->node_ObjHdr.obType != ot_NtProcessRoot)
+    node_DoPrepareProcess(pNode);
+
+  assert(pNode->node_ObjHdr.prep_u.context);
+
+  return pNode->node_ObjHdr.prep_u.context;
 }
 
 /* The domain preparation logic has several possible outcomes:
@@ -283,28 +302,6 @@ node_GetDomainContext(Node* thisPtr)
  * the thread on the busted domain stall queue, and force a
  * reschedule.
  */
-
-/* PrepAsDomain marks the domain components dirty as a side effect.
- * Strictly speaking, this is not necessary, but the number of domains
- * that get prepared without modification closely approximates 0, and
- * it's easier to do it here than in the context prepare logic.  Also,
- * doing the marking here makes it unnecessary to test in the message
- * transfer path.
- */
-
-void
-node_PrepAsDomain(Node* thisPtr)
-{
-  if (thisPtr->node_ObjHdr.obType == ot_NtProcessRoot)
-    return;
-
-  node_MakeDirty(thisPtr);
-
-  node_Unprepare(thisPtr, false);
-
-  thisPtr->node_ObjHdr.obType = ot_NtProcessRoot;
-  thisPtr->node_ObjHdr.prep_u.context = 0;
-}
 
 void
 node_SetSlot(Node * thisPtr, uint32_t slot, Invocation * inv)
@@ -377,6 +374,7 @@ node_Unprepare(Node* thisPtr, bool zapMe)
 
 #ifndef NDEBUG
   unsigned int originalObType = thisPtr->node_ObjHdr.obType;
+  assert(originalObType <= ot_NtLAST_NODE_TYPE);
   Process * originalContext = thisPtr->node_ObjHdr.prep_u.context;
 #endif
 
