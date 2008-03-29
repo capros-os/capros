@@ -273,7 +273,7 @@ inv_IsInvocationKey(Invocation* thisPtr, const Key* pKey)
   /* because this gets set up early in the keeper invocation
    * path, /inv.key/ may not be set yet, so check this early.
    */
-  if (pKey == &thisPtr->redNodeKey)
+  if (pKey == &thisPtr->keeperArg)
     return true;
   
   if (thisPtr->key == 0)
@@ -325,8 +325,8 @@ inv_Cleanup(Invocation* thisPtr)
   /* NH_Unprepare is expensive.  Avoid it if possible: */
   if (thisPtr->flags & INV_SCRATCHKEY)
     key_NH_SetToVoid(&thisPtr->scratchKey);
-  if (thisPtr->flags & INV_REDNODEKEY)
-    key_NH_SetToVoid(&thisPtr->redNodeKey);
+  if (thisPtr->flags & INV_KEEPERARG)
+    key_NH_SetToVoid(&thisPtr->keeperArg);
 #if 0
   if (flags & INV_RESUMEKEY)
     resumeKey.NH_VoidKey();

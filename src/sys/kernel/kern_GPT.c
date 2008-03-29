@@ -362,21 +362,16 @@ proc_InvokeSegmentKeeper(
      * passing option turned on, so do not reuse scratchKey.
      */
 
-    keyBits_InitType(&inv.redNodeKey, KKT_GPT);
-    // GPT key has no restrictions.
-    keyBits_SetL2g(&inv.redNodeKey, 64);	// disable guard
-    keyBits_SetPrepared(&inv.redNodeKey);
     objH_TransLock(node_ToObj(wi->keeperGPT));
-    inv.redNodeKey.u.ok.pObj = node_ToObj(wi->keeperGPT);
 
-    link_Init(&inv.redNodeKey.u.ok.kr);
-    link_insertAfter(&wi->keeperGPT->node_ObjHdr.keyRing,
-                     &inv.redNodeKey.u.ok.kr);
-    inv.flags |= INV_REDNODEKEY;
+    key_SetToObj(&inv.keeperArg, node_ToObj(wi->keeperGPT),
+                 KKT_GPT, 0 /* no restrictions */, 0);
+    keyBits_SetL2g(&inv.keeperArg, 64);	// disable guard
+    inv.flags |= INV_KEEPERARG;
 
     proc_InvokeMyKeeper(thisPtr, OC_SEGFAULT, wi->faultCode,
 		 (uint32_t) wi->keeperOffset, (uint32_t) (wi->keeperOffset>>32),
-		 keeperKey, &inv.redNodeKey,
+		 keeperKey, &inv.keeperArg,
 		 0, 0);
   }
   else {		// no segment keeper

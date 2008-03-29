@@ -68,7 +68,7 @@ extern bool ReturneeSetUp;
 #define INV_RESUMEKEY     0x100u
 #endif
 #define INV_SCRATCHKEY    0x200u
-#define INV_REDNODEKEY    0x400u
+#define INV_KEEPERARG     0x400u
 
 #define INV_EXITKEY0      0x001u
 #define INV_EXITKEY3      0x008u
@@ -102,7 +102,7 @@ struct Invocation {
   Key resumeKey;		/* synthesized resume key */
 #endif
   Key scratchKey;		/* for call on red segments; not usually used. */
-  Key redNodeKey;		/* for seg keeper; not usually used. */
+  Key keeperArg;		/* for keeper; not usually used. */
 
   uint32_t invType;		/* extracted for efficiency */
 #define IT_KeeperCall 6		// in this field only, not in a Message

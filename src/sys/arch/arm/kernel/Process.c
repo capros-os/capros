@@ -446,13 +446,6 @@ proc_SetRegs32(Process * thisPtr,
 void
 proc_InvokeProcessKeeper(Process * thisPtr)
 {
-  Key processKey;
-  keyBits_InitToVoid(&processKey);
-
-  keyBits_InitType(&processKey, KKT_Process);
-  processKey.u.unprep.oid = thisPtr->procRoot->node_ObjHdr.oid;
-  processKey.u.unprep.count = thisPtr->procRoot->node_ObjHdr.allocCount;
-
   struct capros_arch_arm_Process_Registers regs;
   proc_GetRegs32(thisPtr, &regs);
 
@@ -466,8 +459,11 @@ proc_InvokeProcessKeeper(Process * thisPtr)
     dprintf(true, "Process faulting, no keeper.\n");
 #endif
 
+  key_SetToProcess(&inv.keeperArg, thisPtr, KKT_Process, 0);
+  inv.flags |= INV_KEEPERARG;
+
   proc_InvokeMyKeeper(thisPtr, OC_PROCFAULT, 0, 0, 0, kpr,
-                      &processKey, (uint8_t *) &regs, sizeof(regs));
+                      &inv.keeperArg, (uint8_t *) &regs, sizeof(regs));
 }
 
 /* Both loads the register values and validates that the process root
