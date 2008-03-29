@@ -282,8 +282,7 @@
 	  <p>
 	    The root of a generation directory is the generation header.
 	    The generation header frame
-	    begins with a header structure describing the generation,
-	    followed by the first (or only) part of the Process Directory.
+	    begins with a header structure describing the generation.
 	    <p>The last item in the
 	    generation header is a checksum of the previous
 	    entries. This checksum is included to detect
@@ -294,17 +293,18 @@
 	    transferred from the channel, and then write a
 	    correct hardware checking block.
 	  </p>
+	  <p>
+            The space between the header and the checksum is used
+            as described below.
+	  </p>
 	  <ul>
 	      <pre>
 offset          contents
            +------------------+
 0          |     Header       |
            +------------------+
-hdrSize    | process dir ent  |
-           |      ....        |
-           | process dir ent  |
-           +------------------+
-           |     unused       |
+hdrSize    |     see text     |
+           |                  |
            +------------------+
 pageSize-4 |    checksum      |
            +------------------+
@@ -320,13 +320,22 @@ struct DiskGenerationHdr {
   uint64_t   migratedSeqNum;
   LID        firstLogLoc;
   LID        lastLogLoc;
-  LID        firstDirPage;
-  LID        firstProcessPage;
+  bool       processDirDirect;
+  bool       objectDirDirect;
   uint32_t   nProcessDirEntries;
+  uint32_t   nObjectDirEntries;
   uint16_t   nHeaders;
 };
 	      </pre>
 	  </ul>
+	  <p>
+The object directory needs to be kept entirely in memory
+until past the end of a checkpoint.
+<em>Question: Instead of chaining directory frames, why not
+write them contiguously at the end of a checkpoint?</em>
+This might make it more efficient to read them in on restart.
+The same question applies to the process directory.
+	  </p>
           <p>Implementor note: The old 32 bit lid was referred to as
             a LogLoc in the code.</p>
 	  <p>
@@ -370,32 +379,35 @@ struct DiskGenerationHdr {
 	      </p>
 	    </dd>
 	    <dt>
-	      <b>firstDirPage</b>, <b>firstProcessPage</b>
+	      <b>processDirDirect</b>, <b>nProcessDirEntries</b>
 	    </dt>
 	    <dd>
 	      <p>
-		The <tt>firstDirPage</tt>
-		and <tt>firstProcessPage</tt>
-		gives the <em>lid</em> of the first frame of the Object
-		Directory and the Process Directory respectively.
-		A zero entry indicates the end of the chain. Note that
-		part of the process directory is held in the
-		generation header frame. On an inactive system, that
-		may be the entire process directory.
+If <tt>processDirDirect</tt> is true, then the process directory is held
+directly in the generation header frame.
+The generation header frame contains a list of the entries.
+<tt>nProcessDirEntries</tt> is the number of entries in that list,
+which follows the header.
+	      </p>
+	      <p>
+If <tt>processDirDirect</tt> is false,
+then the process directory is held in directory frames (described below).
+The generation header frame contains a list of the LIDs of 
+process directory frames
+(additional frames may be chained off those).
+<tt>nProcessDirEntries</tt> is the number of entries in that list,
+which follows the header.
 	      </p>
 	    </dd>
 	    <dt>
-	      <b>nProcessDirEntries</b>
+	      <b>objectDirDirect</b>, <b>nObjectDirEntries</b>
 	    </dt>
 	    <dd>
 	      <p>
-		The <tt>nProcessDirEntries</tt> gives the number of
-		<em>lid</em> entries of Process Directory in the remainder of
-		the generation header frame.
-	      </p>
-	      <p>
-		Note that on restart CapROS loads
-		the process list from the most recent generation header only.
+These fields describe the object directory, similarly
+to the process directory above.
+The list of object directory entries or LIDs in the generation header frame
+folllows the process directory list.
 	      </p>
 	    </dd>
 	    <dt>
@@ -445,6 +457,10 @@ struct processDirEnt {
             (using the Sleep capability) will be awakened on restart,
             because we do not store the wakeup time in the
             process directory.
+	  </p>
+	  <p>
+	Note that on restart CapROS loads
+	the process list from the most recent generation header only.
 	  </p>
 	  <h3>3.3 The Object Directory</h3>
 	  <p>
@@ -805,9 +821,7 @@ struct CkptDirent {
 	  </p>
 	  <h3><a name="cssize">6.4 Algorithms</a></h3>
 	  <p>
-	    There are two algorithms of interest in the checkpoint
-	    logic: reserving the storage for an object and writing an
-	    object to the disk.
+            Here are some algorithms that might not be obvious.
 	  </p>
 	  <h4>6.4.1 Space Reservation</h4>
 	  <p>
@@ -837,8 +851,7 @@ Else dirty the object and adjust working reservation.
 	  </ul>
 	  <h4>6.4.2 Object Write</h4>
 	  <p>
-	    The other algorithm of major interest is the object write
-	    algorithm.
+            When we write an object to the disk, we do the following:
 	  </p>
 	  <ul>
 	      <pre>
@@ -849,6 +862,44 @@ Else
 Mark object clean and adjust the corresponding reservation downwards.
 	      </pre>
 	  </ul>
+	  <h4>6.4.3 Directory Write</h4>
+	  <p>
+            At the end of a checkpoint, we must write the object directory
+and the process directory. Each directory can be one- or two-level,
+and the space allocated to each in the header is variable. 
+This algorithm treats the two directories symmetrically.
+	  </p>
+	  <p>
+Let S be the amount of space in the generation header frame
+after the header.
+	  </p>
+	  <p>
+First, if the total number of entries in both directories fits in S,
+then just put those entries directly in the header frame.
+We are done. 
+	  </p>
+	  <p>
+Otherwise, let L be either the object directory
+or the process directory, whichever is larger,
+and let S be the smaller directory.
+We will use directory frames for at least directory L.
+Let LF be the number of frames required to hold the entries
+for directory L.
+	  </p>
+	  <p>
+Let P be the minimum amount of parallelism we want to have
+when reading the frames of a directory, say 10.
+Let M = min(LF, P).
+We will use at least M entries in the generation header frame
+for entries for the frames of L.
+	  </p>
+	  <p>
+If the entries of S fit in space (S - M), then put those entries
+directly in the generation header frame,
+and use the rest of the frame for L.
+Otherwise, we will use directory frames for S as well as L;
+divide the space S proportionately between L and S. 
+	  </p>
 	  <h2>7. The Core Directory</h2>
 	  <p>
 	    There is a main core directory for all the unmigrated
