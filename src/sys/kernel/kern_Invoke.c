@@ -200,7 +200,7 @@ void
 inv_Commit(Invocation * thisPtr)
 {
   assert(ReturneeSetUp);
-  assert(allocatedActivity == 0);
+  assert(! allocatedActivity);
 
   inv_MaybeDecommit(thisPtr);
 

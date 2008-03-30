@@ -657,9 +657,9 @@ objC_AgeNodeFrames()
 	  pObj->node_ObjHdr.obType == ot_NtKeyRegs) {
 
 
-	if (pObj->node_ObjHdr.prep_u.context &&
-	    ((pObj->node_ObjHdr.prep_u.context == proc_Current()) ||
-	     (inv_IsActive(&inv) && (inv.invokee == pObj->node_ObjHdr.prep_u.context)))) {
+	if ((pObj->node_ObjHdr.prep_u.context == proc_Current()) ||
+	    (inv_IsActive(&inv)
+             && (inv.invokee == pObj->node_ObjHdr.prep_u.context))) {
 	  nStuck++;
 	  pObj->objAge = age_LiveProc;
 	}

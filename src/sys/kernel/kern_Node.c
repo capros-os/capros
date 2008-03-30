@@ -340,7 +340,7 @@ node_IsCurrentDomain(Node* thisPtr)
    * indeed not have a context.
    */
 
-  if (thisPtr->node_ObjHdr.prep_u.context && thisPtr->node_ObjHdr.prep_u.context == proc_Current())
+  if (thisPtr->node_ObjHdr.prep_u.context == proc_Current())
     return true;
 
   return false;
@@ -371,9 +371,7 @@ node_Unprepare(Node* thisPtr, bool zapMe)
       return false;
     }
 
-    if (thisPtr->node_ObjHdr.prep_u.context)
-      proc_Unload(thisPtr->node_ObjHdr.prep_u.context);
-    assert (thisPtr->node_ObjHdr.prep_u.context == 0);
+    proc_Unload(thisPtr->node_ObjHdr.prep_u.context);
   }
   else if (thisPtr->node_ObjHdr.obType == ot_NtKeyRegs || thisPtr->node_ObjHdr.obType == ot_NtRegAnnex) {
     /* First check to make sure we don't deprepare ourselves if we
@@ -381,9 +379,10 @@ node_Unprepare(Node* thisPtr, bool zapMe)
      */
 #if 1
 
-    if (thisPtr->node_ObjHdr.prep_u.context && inv_IsActive(&inv) && thisPtr->node_ObjHdr.prep_u.context == inv.invokee) {
+    if (inv_IsActive(&inv)
+        && thisPtr->node_ObjHdr.prep_u.context == inv.invokee) {
       dprintf(true, "zapping keys/annex of invokee nd=0x%08x"
-		      " ctxt=0x%08x\n", thisPtr, thisPtr->node_ObjHdr.prep_u.context);
+		" ctxt=0x%08x\n", thisPtr, thisPtr->node_ObjHdr.prep_u.context);
     }
 
 #endif
@@ -396,9 +395,7 @@ node_Unprepare(Node* thisPtr, bool zapMe)
       return false;
     }
 
-    if (thisPtr->node_ObjHdr.prep_u.context)
-      proc_Unload(thisPtr->node_ObjHdr.prep_u.context);
-    assert (thisPtr->node_ObjHdr.prep_u.context == 0);
+    proc_Unload(thisPtr->node_ObjHdr.prep_u.context);
   }
   else if (thisPtr->node_ObjHdr.obType == ot_NtSegment) {
     GPT_Unload(thisPtr);

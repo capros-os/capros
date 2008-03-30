@@ -146,7 +146,8 @@ struct ObjectHeader {
 				        or ot_PtDMABlock or ot_PtDMASecondary */
     Process * context;		/* if obType == ot_NtProcessRoot
                                              or ot_NtKeyRegs
-				             (or ot_NtRegAnnex if used) */
+				             (or ot_NtRegAnnex if used),
+                                   this field is valid and non-null. */
     ObjectHeader * nextFree;	/* if obType == ot_NtFreeFrame */
   } prep_u;
   
