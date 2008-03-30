@@ -172,10 +172,8 @@ proc_LoadKeyRegs(Process * thisPtr)
   thisPtr->hazards &= ~hz_KeyRegs;
 }
 
-/* Rewrite the process key back to our current activity.  Note that
- * the activity's process key is not reliable unless this unload has
- * been performed.
- */
+/* Rewrite the process key back to our current activity,
+   prior to clearing Activity.context. */
 void
 proc_SyncActivity(Process * thisPtr)
 {
@@ -189,9 +187,7 @@ proc_SyncActivity(Process * thisPtr)
   /* Not hazarded because activity key */
   key_NH_Unchain(procKey);
 
-  keyBits_InitType(procKey, KKT_Process);
-  procKey->u.unprep.oid = thisPtr->procRoot->node_ObjHdr.oid;
-  procKey->u.unprep.count = thisPtr->procRoot->node_ObjHdr.allocCount; 
+  key_SetToProcess(procKey, thisPtr, KKT_Process, 0);
 }
 
 void

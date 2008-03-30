@@ -75,7 +75,11 @@ struct Activity {
 
   uint8_t state;
 
-  Key processKey;		/* type==KtProcess */
+  Key processKey;
+	/* keyBits_GetType(&processKey) is always KKT_Process or KKT_Void. */
+	/* If Activity.context is non-NULL, it identifies the
+	associated process, and processKey is not meaningful.
+	Otherwise, processKey identifies the associated process or is void. */
 
   uint32_t unused;	/* keep until we fix assembler ofsets */
 
@@ -213,17 +217,9 @@ void act_DeleteCurrent(void);
 INLINE void 
 act_AssignTo(Activity * thisPtr, Process * dc)
 {
+  assert(dc);
+
   act_SetContext(thisPtr, dc);
-  proc_SetActivity(dc, thisPtr);
-
-  /* FIX: Check for preemption! */
-  thisPtr->readyQ = dc->readyQ;
-}
-
-INLINE void 
-act_AssignToCurrent(Activity * thisPtr, Process * dc)
-{
-  act_SetContextCurrent(thisPtr, dc);
   proc_SetActivity(dc, thisPtr);
 
   /* FIX: Check for preemption! */
@@ -233,11 +229,13 @@ act_AssignToCurrent(Activity * thisPtr, Process * dc)
 INLINE void
 act_MigrateFromCurrent(Process * from, Process * to)
 {
+  assert(to);
+  assert(proc_IsRunnable(to));
+
   Activity * thisPtr = from->curActivity;
 
   assert(thisPtr == act_Current());
   assert(from == thisPtr->context);
-  assert(proc_IsRunnable(to));
 
   proc_Deactivate(from);
   act_SetContextCurrent(thisPtr, to);

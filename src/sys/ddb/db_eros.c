@@ -894,9 +894,6 @@ db_activity_print_cmd(db_expr_t addr, int have_addr,
   
   if (t) {
 
-    if (t->context && proc_IsUser(t->context))
-      proc_SyncActivity((Process *) t->context);
-    
 //    db_eros_print_activity(t);
 
     db_printf("%sactivity 0x%08x (%s) proc 0x%08x (%s) prio=%d\n",
@@ -905,8 +902,10 @@ db_activity_print_cmd(db_expr_t addr, int have_addr,
               (t->context ? (proc_IsUser(t->context) ? "user" : "kernel")
                 : "noCtxt"),
 	      /*t->priority*/t->readyQ->mask);
-    db_printf("    (0x%08x): ", &t->processKey);
-    db_eros_print_key(&t->processKey);
+    if (! t->context) {
+      db_printf("    (0x%08x): ", &t->processKey);
+      db_eros_print_key(&t->processKey);
+    }
 
   } 
   else

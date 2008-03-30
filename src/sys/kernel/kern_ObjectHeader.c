@@ -378,7 +378,6 @@ objH_Rescind(ObjectHeader* thisPtr)
 
     node_DoClearThisNode(thisNode);
     node_MakeDirty(thisNode);
-    assert ( thisPtr->obType == ot_NtUnprepared );
   }
   else if (thisPtr->obType == ot_PtDataPage) {
     kva_t pPage;

@@ -120,11 +120,8 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
 
       node_RescindHazardedSlot(pNode, pKey - pNode->slot, mustUnprepare);
 
-      /* Having cleared the hazard, the key we are presently examining 
-	 may not even be on this ring any more -- it may be a
-	 different key entirely.  We therefore restart the loop. */
-      if (keyBits_IsUnprepared(pKey))
-	continue;
+      assert(keyBits_IsUnprepared(pKey));
+      continue;
     }
     else {
       assert ( keyBits_IsPreparedObjectKey(pKey) );
@@ -167,19 +164,8 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
       Process * pContext = containingActivity->context;
 
       if (pContext) {
-	/* The key within the activity may not be current.  I learned
-	 * the hard way that it is possible for a live activity to have
-	 * a prepared key to the thing being destroyed -- it was
-	 * triggered by DCC.  This was hard to debug, as printing out
-	 * the activity caused the key to be deprepared.
-	 */
-
-	/* If the activity key is prepared, then the context is loaded,
-	 * which means we can rely on a valid domain root pointer:
-	 */
-	assert( pContext->procRoot );
-	assert ( pContext->procRoot->node_ObjHdr.oid != key_GetKeyOid(pKey) );
-	proc_SyncActivity(pContext);
+	/* The key within the activity is not meaningful. */
+        key_NH_SetToVoid(pKey);
 	continue;
       }      
       else

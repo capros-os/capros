@@ -821,7 +821,7 @@ act_ValidateActivity(Activity* thisPtr)
   if ((wthis / sizeof(Activity)) >= KTUNE_NACTIVITY)
     fatal("Activity 'this' pointer too high.\n");
 
-  if (!thisPtr->context && keyBits_GetType(&thisPtr->processKey) != KKT_Process  &&
+  if (keyBits_GetType(&thisPtr->processKey) != KKT_Process &&
       ! keyBits_IsVoidKey(&thisPtr->processKey))
     fatal("Activity 0x%08x has bad key type.\n", thisPtr);
 }
@@ -940,17 +940,15 @@ act_Prepare(Activity* thisPtr)
     
       key_Prepare(&thisPtr->processKey);
 
-      if (keyBits_IsType(&thisPtr->processKey, KKT_Process) == false) {
+      if (! keyBits_IsType(&thisPtr->processKey, KKT_Process)) {
 	fatal("Rescinded activity!\n");
 	return false;
       }
   
-      assert( keyBits_IsHazard(&thisPtr->processKey) == false );
-      assert( keyBits_IsPrepared(&thisPtr->processKey) );
+      assert(! keyBits_IsHazard(&thisPtr->processKey));
 
       proc = thisPtr->processKey.u.gk.pContext;
-      if (! proc)
-	return false;
+      assert(proc);
     
       act_SetContextCurrent(thisPtr, proc);
       proc_SetActivity(proc, thisPtr);

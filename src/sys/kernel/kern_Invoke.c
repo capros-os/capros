@@ -253,7 +253,7 @@ inactivate: ;
       assert(proc_curProcess == invoker);
       // but:
       assert(invoker->curActivity == NULL);
-      t->context = NULL;
+      t->context = NULL;	// to guard against (mis)use
 #endif
       allocatedActivity = t;
     }

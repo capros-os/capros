@@ -93,7 +93,7 @@ GateKey(Invocation* inv /*@ not null @*/)
   KernStats.nGateJmp++;
 #endif
 
-  assert(inv->invokee);
+  assert(invokee);
   assert(proc_IsRunnable(invokee));
 
   /* We copy the message here, not calling ReturnMessage(). */
