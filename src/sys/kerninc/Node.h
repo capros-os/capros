@@ -105,6 +105,7 @@ void node_SetEqualTo(Node *thisPtr, const struct DiskNodeStruct *);
 bool node_Validate(Node* thisPtr);
 
 void node_ClearHazard(Node* thisPtr, uint32_t ndx);
+void node_ClearAllHazards(Node * thisPtr);
 
 void node_UnprepareHazardedSlot(Node* thisPtr, uint32_t ndx);
 

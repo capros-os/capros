@@ -34,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/IRQ.h>
 #include <kerninc/ObjectCache.h>
+#include <kerninc/GPT.h>
 
 #define PREPDEBUG
 
@@ -73,16 +74,7 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
       Depend_InvalidateKey(&thisPtr->slot[ndx]);
     }
     else if ( ndx == ProcGenKeys ) {
-      /* This hazard exists to ensure that the domain remains well
-       * formed.  In order to clear it we must decache the entire
-       * domain from the context cache and revert this domain back to
-       * the NtUnprepared form.  We do NOT need to unprepare the
-       * auxiliary nodes.
-       */
-
-      node_Unprepare(thisPtr, true);
-      assert( thisPtr->node_ObjHdr.obType == ot_NtUnprepared );
-      assert( keyBits_IsHazard(&thisPtr->slot[ProcGenKeys]) == false );
+      proc_FlushKeyRegs(thisPtr->node_ObjHdr.prep_u.context);
     }
     else {
       /* FIX: If the slot is not smashed with a number key... */
@@ -99,7 +91,7 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
 		  thisPtr->node_ObjHdr.obType, ndx);
 }
      
-static void
+void
 node_ClearAllHazards(Node * thisPtr)
 {
   unsigned int k;
@@ -119,7 +111,7 @@ node_DoClearThisNode(Node* thisPtr)
 
   assert (InvocationCommitted);
   
-  node_Unprepare(thisPtr, true);
+  node_ClearAllHazards(thisPtr);
 
   for (k = 0; k < EROS_NODE_SIZE; k++) {
     assert (keyBits_IsHazard(&thisPtr->slot[k]) == false); /* node is unprepared! */
@@ -256,7 +248,9 @@ node_DoPrepareProcess(Node * pNode)
 {
   assert(pNode);
 
-  node_Unprepare(pNode, false);
+  /* If it is prepared as anything else, the space bank or process creator
+  messed up. */
+  assert(pNode->node_ObjHdr.obType == ot_NtUnprepared);
 
   /* We mark the domain components dirty as a side effect.
    * Strictly speaking, this is not necessary, but the number of domains
@@ -323,28 +317,14 @@ node_SetSlot(Node * thisPtr, uint32_t slot, Invocation * inv)
 bool
 node_PrepAsSegment(Node* thisPtr)
 {
-  uint8_t ot;
-
   assert(thisPtr);
   if (thisPtr->node_ObjHdr.obType == ot_NtSegment)
     return true;
+
+  /* If it is prepared as anything else, the space bank or process creator
+  messed up. */
+  assert(thisPtr->node_ObjHdr.obType == ot_NtUnprepared);
 	  
-#if 0
-  printf("Preparing oid=");
-  print(oid);
-  printf(" as segment node\n");
-#endif
-
-  ot = thisPtr->node_ObjHdr.obType;
-  
-  if(!node_Unprepare(thisPtr, false)) {
-    /* FIX: this is temporary! */
-    fatal("Couldn't unprepare oid 0x%08x%08x. Was ot=%d\n",
-          (uint32_t) (thisPtr->node_ObjHdr.oid>>32), 
-          (uint32_t) thisPtr->node_ObjHdr.oid, ot);
-    return false;
-  }
-
   thisPtr->node_ObjHdr.obType = ot_NtSegment;
   thisPtr->node_ObjHdr.prep_u.products = 0;
 
@@ -421,21 +401,7 @@ node_Unprepare(Node* thisPtr, bool zapMe)
     assert (thisPtr->node_ObjHdr.prep_u.context == 0);
   }
   else if (thisPtr->node_ObjHdr.obType == ot_NtSegment) {
-#ifdef DBG_WILD_PTR
-    if (dbg_wild_ptr)
-      if (check_Contexts("pre key zap") == false)
-	halt('a');
-#endif
-
-    node_ClearAllHazards(thisPtr);
-
-#ifdef DBG_WILD_PTR
-    if (dbg_wild_ptr)
-      if (check_Contexts("post key zap") == false)
-	halt('b');
-#endif
-  
-    objH_InvalidateProducts(node_ToObj(thisPtr));
+    GPT_Unload(thisPtr);
   }
 
 #ifndef NDEBUG

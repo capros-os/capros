@@ -102,29 +102,29 @@ proc_FlushKeyRegs(Process * thisPtr)
 }
 
 /* May Yield. */
-void 
-proc_LoadKeyRegs(Process* thisPtr)
+static void 
+proc_LoadKeyRegs(Process * thisPtr)
 {
-  Node *kn = 0;
   uint32_t k;
   assert (thisPtr->hazards & hz_KeyRegs);
-  assert (keyBits_IsHazard(&thisPtr->procRoot->slot[ProcGenKeys]) == false);
+  Key * genKeysKey = &thisPtr->procRoot->slot[ProcGenKeys];
+  assert(! keyBits_IsHazard(genKeysKey));
 
+  key_Prepare(genKeysKey);
 
-  if (keyBits_IsType(&thisPtr->procRoot->slot[ProcGenKeys], KKT_Node) == false) {
+  if (! keyBits_IsType(genKeysKey, KKT_Node)) {
     proc_SetMalformed(thisPtr);
     return;
   }
 
-  key_Prepare(&thisPtr->procRoot->slot[ProcGenKeys]);
-  kn = (Node *) key_GetObjectPtr(&thisPtr->procRoot->slot[ProcGenKeys]);
-  assertex(kn,objH_IsUserPinned(DOWNCAST(kn, ObjectHeader)));
-  
+  Node * kn = objH_ToNode(genKeysKey->u.ok.pObj);
+  assert(objH_IsUserPinned(node_ToObj(kn)));
 
   assert ( node_Validate(kn) );
-  node_Unprepare(kn, false);
 
-  if (kn->node_ObjHdr.obType != ot_NtUnprepared || kn == thisPtr->procRoot) {
+  if (kn->node_ObjHdr.obType != ot_NtUnprepared
+        /* Strangely prepared? Process creator shouldn't allow this. */
+      || kn == thisPtr->procRoot) {
     proc_SetMalformed(thisPtr);
     return;
   }
@@ -165,7 +165,7 @@ proc_LoadKeyRegs(Process* thisPtr)
   kn->node_ObjHdr.prep_u.context = thisPtr;
   thisPtr->keysNode = kn;
 
-  keyBits_SetWrHazard(&thisPtr->procRoot->slot[ProcGenKeys]);
+  keyBits_SetWrHazard(genKeysKey);
 
   assert(thisPtr->keysNode);
 

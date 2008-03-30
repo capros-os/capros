@@ -442,6 +442,14 @@ RangeKey(Invocation* inv /*@ not null @*/)
       
       objH_Rescind(pObject);
 
+      if (objH_isNodeType(pObject)) {
+        /* Unprepare the node, in case it is re-allocated as a
+        different type (for example, process to GPT). */
+        // FIXME: what if the object is the running process?
+        // Or the returnee?
+        node_Unprepare(objH_ToNode(pObject), true);
+      }
+
 #ifdef DBG_WILD_PTR
       if (dbg_wild_ptr)
 	check_Consistency("Object rescind()");

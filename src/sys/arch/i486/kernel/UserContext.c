@@ -180,22 +180,6 @@ check_Contexts(const char *c)
 }
 
 void 
-proc_FlushAll()
-{
-  uint32_t c;
-  for (c = 0; c < KTUNE_NCONTEXT; c++) {
-    Process *ctxt = &proc_ContextCache[c];
-
-    /* Unload the context structure, as we are going to COW the process
-     * root anyway.
-     */
-    
-    if (ctxt->isUserContext)
-      proc_Unload(ctxt);
-  }
-}
-
-void 
 proc_DumpFixRegs(Process* thisPtr)
 {
   if (proc_IsNotRunnable(thisPtr))

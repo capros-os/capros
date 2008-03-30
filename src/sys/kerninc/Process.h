@@ -269,9 +269,6 @@ proc_Name(Process* thisPtr)
   return thisPtr->name;
 }
 
-/* Called by checkpoint logic */
-void proc_FlushAll();
-
 void proc_DumpFixRegs(Process* thisPtr);
 #ifdef OPTION_PSEUDO_REGS
 void proc_DumpPseudoRegs(Process* thisPtr);
@@ -311,8 +308,6 @@ void proc_DeliverGateResult(Process* thisPtr,
 void proc_SetupExitString(Process* thisPtr, struct Invocation* inv /*@ not null @*/, uint32_t bound);
 
 void proc_DeliverResult(Process* thisPtr, struct Invocation* inv /*@ not null @*/);
-
-void proc_LoadKeyRegs(Process* thisPtr);
 
 void proc_FlushFixRegs(Process* thisPtr);
 #ifdef EROS_HAVE_FPU

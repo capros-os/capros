@@ -1,7 +1,7 @@
 #ifndef __GPT_H__
 #define __GPT_H__
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -74,5 +74,27 @@ bool segwalk_init(SegWalk * wi, Key * pSegKey, uint64_t va,
 
 bool WalkSeg(SegWalk * wi, uint32_t stopL2v,
              void * pPTE, int mapLevel);
+
+INLINE void
+GPT_Unload(Node * thisPtr)
+{
+  assert(thisPtr->node_ObjHdr.obType == ot_NtSegment);
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    if (! check_Contexts("pre key zap"))
+      halt('a');
+#endif
+
+  node_ClearAllHazards(thisPtr);
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    if (! check_Contexts("post key zap"))
+      halt('b');
+#endif
+  
+  objH_InvalidateProducts(node_ToObj(thisPtr));
+}
 
 #endif /* __GPT_H__ */

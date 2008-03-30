@@ -36,18 +36,15 @@ Approved for public release, distribution unlimited. */
 static void
 InvalidateMaps(GPT * theGPT)
 {
-  /* Invalidate any mapping table entries that depended on the l2v. */
-  /* node_Unprepare also invalidates all products of this GPT.
+  if (theGPT->node_ObjHdr.obType == ot_NtSegment) {
+    /* Invalidate any mapping table entries that depended on the l2v. */
+    /* node_Unprepare also invalidates all products of this GPT.
      This is necessary in the case where the GPT produced a small space,
      but can no longer do so.
      It may be unnecessary in other cases, but this seems like a good time
      to clean them up, since they may very well be useless. */
-#ifdef NDEBUG	// avoid compiler warning
-  (void) node_Unprepare(theGPT, 0);
-#else
-  bool unprepRet = node_Unprepare(theGPT, 0);
-  assert(unprepRet);
-#endif
+    GPT_Unload(theGPT);
+  }
   keyR_UnmapAll(&node_ToObj(theGPT)->keyRing);
 }
 
