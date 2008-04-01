@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Depend.h>
+#include <kerninc/Key-inline.h>
 #include <disk/DiskNodeStruct.h>
 
 static inline bool
@@ -70,8 +71,7 @@ keyR_ClearWriteHazard(KeyRing * thisPtr)
          && ! keyBits_IsRdHazard(pKey) ) {
       /* By excluding read-hazarded keys, we ensure that clearing the
          hazard will not disturb the chain. */
-      Node * pNode = objC_ContainingNode(cur);
-      node_ClearHazard(pNode, pKey - pNode->slot);
+      key_ClearHazard(pKey);
     }
   }
 }
@@ -116,25 +116,24 @@ keyR_RescindAll(KeyRing * thisPtr)
     if ( keyBits_IsHazard(pKey) ) {
       assert ( act_IsActivityKey(pKey) == false );
       assert ( proc_IsKeyReg(pKey) == false );
-      Node * pNode = objC_ContainingNode(pKey);
 
-      node_RescindHazardedSlot(pNode, pKey - pNode->slot);
+      key_ClearHazard(pKey);
 
-      assert(keyBits_IsUnprepared(pKey));
+      /* Having cleared the hazard, the key we are presently examining 
+	 may not even be on this ring any more -- it may be a
+	 different key entirely.  We therefore restart the loop. */
       continue;
     }
-    else {
-      assert ( keyBits_IsPreparedObjectKey(pKey) );
 
-      /* hazard has been cleared, if any */
-      /* Note that we do NOT mark the containing object dirty.
-      If it is clean, the copy on disk has an allocation count,
-      the target object's allocation count is being incremented,
-      and when the copy is read from disk it will be noted to be rescinded. */
-      key_NH_SetToVoid(pKey);
+    assert ( keyBits_IsPreparedObjectKey(pKey) );
 
-      assert (nxt == thisPtr->next);
-    }
+    /* Note that we do NOT mark the containing object dirty.
+    If it is clean, the copy on disk has an allocation count,
+    the target object's allocation count is being incremented,
+    and when the copy is read from disk it will be noted to be rescinded. */
+    key_NH_SetToVoid(pKey);
+
+    assert (nxt == thisPtr->next);
 
     /* If the rescinded key is in a activity that is currently running,
      * we cannot delete the activity.  The current domain may be
@@ -320,7 +319,6 @@ keyR_HasResumeKeys(const KeyRing *thisPtr)
 void
 keyR_ZapResumeKeys(KeyRing *thisPtr)
 {
-  uint8_t oflags = 0;
   Key *pKey = (Key *) thisPtr->prev;
 
 #ifdef DBG_WILD_PTR
@@ -339,32 +337,15 @@ keyR_ZapResumeKeys(KeyRing *thisPtr)
 
      Prepared resume keys cksum as zero, so we do not need to
    * recompute the checksum.
-   * 
-   * It used to be that they were never hazarded, but this is no
-   * longer true -- if a resume key is sitting in a key register that
-   * gets loaded into a process context it can become hazarded.  Note,
-   * however that this is the ONLY case in which a resume key can be
-   * hazarded, and in that case we are going to zap the copy in the
-   * context anyway, so it is okay to bash them both.  The catch
-   * (there is ALWAYS a catch) is that we must preserve the hazard
-   * bits correctly.
    */
   
   while ( thisPtr->prev != thisPtr && keyBits_IsPreparedResumeKey(pKey) ) {
-#ifndef NDEBUG
-
-    if (keyBits_IsHazard(pKey)) {
-      Node *pNode = objC_ContainingNode(pKey);
-      assert (pNode->node_ObjHdr.obType == ot_NtKeyRegs);
-    }
-
-#endif
+    // There are no cases in which a resume key can be hazarded:
+    assert(! keyBits_IsHazard(pKey));
     
-    oflags = pKey->keyFlags & KFL_HAZARD_BITS;
-
     thisPtr->prev = pKey->u.ok.kr.prev;
 
-    /* Note that we do NOT mark the object dirty.  If the object is
+    /* Note that we do NOT mark the containing object dirty.  If the object is
      * already dirty, then it will go out to disk with the key
      * voided.  Otherwise, the key will be stale when the node is
      * re-read, and will be voided on preparation.
@@ -380,8 +361,6 @@ keyR_ZapResumeKeys(KeyRing *thisPtr)
      */
     
     keyBits_InitToVoid(pKey);
-
-    pKey->keyFlags = oflags;
 
     pKey = (Key *) thisPtr->prev;
   }
@@ -433,16 +412,13 @@ keyR_UnprepareAll(KeyRing *thisPtr)
     if ( keyBits_IsHazard(pKey) ) {
       assert ( act_IsActivityKey(pKey) == false );
       assert ( proc_IsKeyReg(pKey) == false );
-      Node * pNode = objC_ContainingNode(pKey);
-      uint32_t slot = pKey - pNode->slot;
 
-      node_UnprepareHazardedSlot(pNode, slot);
+      key_ClearHazard(pKey);
 
       /* Having cleared the hazard, the key we are presently examining 
 	 may not even be on this ring any more -- it may be a
 	 different key entirely.  We therefore restart the loop. */
-      if (keyBits_IsUnprepared(pKey))
-	continue;
+      continue;
     }
     else {
       assert (keyBits_IsHazard(pKey) == false);

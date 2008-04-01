@@ -107,10 +107,6 @@ bool node_Validate(Node* thisPtr);
 void node_ClearHazard(Node* thisPtr, uint32_t ndx);
 void node_ClearAllHazards(Node * thisPtr);
 
-void node_UnprepareHazardedSlot(Node* thisPtr, uint32_t ndx);
-
-void node_RescindHazardedSlot(Node* thisPtr, uint32_t ndx);
-
 /* Prepare node under various sorts of contracts.  In unprepare, set
  * zapMe to true if the *calling* domain should be deprepared in
  * order to satisfy the request.  It shouldn't to satisfy segment
@@ -121,7 +117,7 @@ bool node_PrepAsSegment(Node* thisPtr);
 
 Process * node_GetProcess(Node * thisPtr);
 
-bool node_Unprepare(Node* thisPtr, bool zapMe);
+void node_Unprepare(Node * thisPtr);
     
 void node_DoClearThisNode(Node* thisPtr);
 

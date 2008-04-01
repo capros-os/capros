@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Depend.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/CpuReserve.h>
+#include <kerninc/Key-inline.h>
 
 void
 proc_ClearActivity(Process * proc)
@@ -81,12 +82,13 @@ proc_FlushKeyRegs(Process * thisPtr)
 #endif
 
   for (k = 0; k < EROS_NODE_SIZE; k++) {
-    Key * key = node_GetKeyAtSlot(thisPtr->keysNode, k);
-    keyBits_UnHazard(key);
-    key_NH_Set(key, &thisPtr->keyReg[k]);
+    Key * nodeSlot = node_GetKeyAtSlot(thisPtr->keysNode, k);
+    Key * procSlot = &thisPtr->keyReg[k];
+    assert(! keyBits_IsHazard(nodeSlot));
+    key_NH_Set(nodeSlot, procSlot);
 
     /* Not hazarded because key register */
-    key_NH_SetToVoid(&thisPtr->keyReg[k]);
+    key_NH_SetToVoid(procSlot);
 
     /* We know that the context structure key registers are unhazarded
      * and unlinked by virtue of the fact that they are unloaded.
@@ -132,32 +134,35 @@ proc_LoadKeyRegs(Process * thisPtr)
   node_MakeDirty(kn);
 
   for (k = 0; k < EROS_NODE_SIZE; k++) {
+    Key * procSlot = &thisPtr->keyReg[k];
+    Key * nodeSlot = node_GetKeyAtSlot(kn, k);
 #ifndef NDEBUG
-    if ( keyBits_IsHazard(node_GetKeyAtSlot(kn, k)))
+    if (keyBits_IsHazard(nodeSlot))
       dprintf(true, "Key register slot %d is hazarded in node 0x%08x%08x\n",
 		      k,
 		      (uint32_t) (kn->node_ObjHdr.oid >> 32),
                       (uint32_t) kn->node_ObjHdr.oid);
-
-    /* We know that the context structure key registers are unhazarded
-     * and unprepared by virtue of the fact that they are unloaded,
-     * but check here just in case:
-     */
-    if ( keyBits_IsHazard(&thisPtr->keyReg[k]) )
-      dprintf(true, "Key register %d is hazarded in Process 0x%08x\n",
-		      k, thisPtr);
-
-    if ( keyBits_IsUnprepared(&thisPtr->keyReg[k]) == false )
-      dprintf(true, "Key register %d is prepared in Process 0x%08x\n",
-		      k, thisPtr);
 #endif
 
-    if (k == 0)
-      key_NH_SetToVoid(&thisPtr->keyReg[0]);	/* key register 0 is always void */
-    else
-      key_NH_Set(&thisPtr->keyReg[k], &kn->slot[k]);
+    /* The context structure key registers are unhazarded
+     * and unprepared by virtue of the fact that they are unloaded. */
+    assert(! keyBits_IsHazard(procSlot));
+    assert(keyBits_IsUnprepared(procSlot));
 
-    keyBits_SetRwHazard(node_GetKeyAtSlot(kn ,k));
+    if (k == 0)
+      key_NH_SetToVoid(procSlot);	/* key register 0 is always void */
+    else
+      key_NH_Set(procSlot, nodeSlot);
+
+    /* We used to call keyBits_SetRwHazard(nodeSlot),
+    so reads and writes to the keys node would get the right answer.
+    That resulted in extra logic to avoid unloading the key registers
+    when a key in that node is merely rescinded.
+    Now, we no longer make those slots hazarded.
+    If the process creator behaves properly, no one should
+    read or write the keys node directly after a process is built.
+    If someone does, a read may get stale data or a write may not take effect.
+    */
   }
   
   /* Node is now known to be valid... */
@@ -256,7 +261,8 @@ proc_Unload(Process * thisPtr)
   thisPtr->procRoot->node_ObjHdr.prep_u.context = 0;	// for safety
   thisPtr->procRoot->node_ObjHdr.obType = ot_NtUnprepared;
   
-  keyR_UnprepareAll(&thisPtr->keyRing);	// Why? CRL
+  // An unloaded process has an empty keyRing:
+  keyR_UnprepareAll(&thisPtr->keyRing);
   thisPtr->hazards = 0;
   thisPtr->procRoot = 0;
 

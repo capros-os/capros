@@ -40,6 +40,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/DiskNodeStruct.h>
 #endif
 #include <arch-kerninc/PTE.h>
+#include <kerninc/Key-inline.h>
 
 /* #define THREADDEBUG */
 /*#define RESERVE_DEBUG*/

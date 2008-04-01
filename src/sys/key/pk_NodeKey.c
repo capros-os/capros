@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/Key-inline.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
+#include <kerninc/Key-inline.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Node.h>

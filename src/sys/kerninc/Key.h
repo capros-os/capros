@@ -24,12 +24,9 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-
-/* Dependencies: */
 #include <disk/KeyStruct.h>
 #include <disk/Key-inline.h>
 #include <kerninc/ObjectHeader.h>
-extern bool InvocationCommitted; // all we need from kerninc/Invocation.h
 
 /* 
  * Key.  A Key is a capability, in the sense of Hydra or the Sigma-7.
@@ -166,20 +163,5 @@ void key_Print(const Key* thisPtr);
 #ifdef OPTION_OB_MOD_CHECK
 uint32_t key_CalcCheck(Key* thisPtr);
 #endif
-
-/* key_Prepare may Yield. */
-INLINE void 
-key_Prepare(Key * thisPtr)
-{
-  assert(! InvocationCommitted);
-  assert(thisPtr);
-
-  if (keyBits_IsUnprepared(thisPtr))
-    key_DoPrepare(thisPtr);
-  
-  // FIXME: Why do gate keys not need pinning?
-  if (keyBits_IsObjectKey(thisPtr) && !keyBits_IsGateKey(thisPtr))
-    objH_TransLock(key_GetObjectPtr(thisPtr));
-}
 
 #endif /* __KERNINC_KEY_H__ */

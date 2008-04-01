@@ -75,8 +75,6 @@ Before fetching the key you must get the logical state from wherever it is
 and restore the actual value.
 The following cases occur:
 In a node prepared as a process root, slots for register values.
-In a node prepared as a process key registers, slots for key registers
-  (not necessarily prepared).
 
 When KFL_WHAZARD is set, we say the key is "write-hazarded". 
 This means that there is state elsewhere that depends on the key.
@@ -87,8 +85,6 @@ In a node prepared as a process root, the ProcIoSpace slot.
 In a node prepared as a process root, the ProcSched slot.
 In a node prepared as a process root, the ProcGenKeys slot.
 In a node prepared as a process root, the ProcAddrSpace slot.
-In a node prepared as a process key registers, slots for key registers
-  (not necessarily prepared).
 In a node prepared as a segment, a slot used to build a mapping table entry.
 
 node_ClearHazard() handles all these cases.

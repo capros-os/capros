@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
+#include <kerninc/Key-inline.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Range.h>
@@ -448,9 +449,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       if (objH_isNodeType(pObject)) {
         /* Unprepare the node, in case it is re-allocated as a
         different type (for example, process to GPT). */
-        // FIXME: what if the object is the running process?
-        // Or the returnee?
-        node_Unprepare(objH_ToNode(pObject), true);
+        node_Unprepare(objH_ToNode(pObject));
       }
 
 #ifdef DBG_WILD_PTR

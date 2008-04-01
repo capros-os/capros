@@ -46,6 +46,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/CPU.h>
 #include <kerninc/CpuReserve.h>
 #include <disk/NPODescr.h>
+#include <kerninc/Key-inline.h>
 
 struct grub_multiboot_info * MultibootInfoPtr;
 struct NPObjectsDescriptor * NPObDescr;

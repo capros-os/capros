@@ -47,6 +47,7 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
     return;
 
   switch(thisPtr->node_ObjHdr.obType) {
+  case ot_NtKeyRegs:
   case ot_NtUnprepared:
     fatal("Unprepared Node 0x%08x%08x Corrupted (slot %d).\n",
 	    (uint32_t) (thisPtr->node_ObjHdr.oid>>32), 
@@ -60,10 +61,6 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
     node_ClearGPTHazard(thisPtr, ndx);
     break;
 
-  case ot_NtKeyRegs:
-    proc_FlushKeyRegs(thisPtr->node_ObjHdr.prep_u.context);
-    break;
-      
   case ot_NtProcessRoot:
     /* TRY to Flush just the registers back out of the context
      * structure to clear the write hazard.  That is the common case,
@@ -127,93 +124,6 @@ node_DoClearThisNode(Node* thisPtr)
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("DoClearThisNode");
-#endif
-}
-
-/* UNPREPARE AND RESCIND (and object relocation) OF HAZARDED SLOTS.
- * 
- * The catch is that we don't want to unload the current (or invokee)
- * contexts unnecessarily.  If this slot contains a key that chances
- * to be in a capability register of the current (invokee) context,
- * clearing the hazard will have the effect of rendering the current
- * (invokee) context unrunnable by virtue of having forced an unload
- * of the capability registers node.
- * 
- * If the capability that we are depreparing/rescinding is in a memory
- * context, then we really do need to clear the hazard in order to
- * force the corresponding PTEs to get invalidated.  If, however, the
- * capability that we are clearing is in a NtKeyRegs node, we can
- * cheat.  Ultimately, this capability will get overwritten anyway,
- * and if the capability in the actual context structure is still the
- * same as this one, it will be getting unprepared/rescinded as well
- * as we traverse the key ring.
- * 
- * Note that the last is true only because this function is called
- * ONLY from within KeyRing::RescindAll or KeyRing::UnprepareAll
- * (according to operation).
- */
-void
-node_UnprepareHazardedSlot(Node* thisPtr, uint32_t ndx)
-{
-  Key* key /*@ not null @*/ = &thisPtr->slot[ndx];
-  
-  assert(keyBits_IsPrepared(key));
-  
-  if (thisPtr->node_ObjHdr.obType == ot_NtKeyRegs) {
-    uint8_t oflags = key->keyFlags;
-
-    /* TEMPORARILY clear the hazard: */
-    key->keyFlags &= ~KFL_HAZARD_BITS;
-
-    key_NH_Unprepare(key);
-    
-    /* RESET the hazard: */
-    key->keyFlags = oflags;
-  }
-  else {
-    node_ClearHazard(thisPtr, ndx);
-    
-    key_NH_Unprepare(key);
-  }
-
-#ifdef OPTION_OB_MOD_CHECK
-  if (!objH_IsDirty(DOWNCAST(thisPtr, ObjectHeader)))
-    thisPtr->node_ObjHdr.check = objH_CalcCheck(DOWNCAST(thisPtr, ObjectHeader));
-#endif
-}
-
-/* NOTE: Off the top of my head, I can think of no reason why this
- * capability should NOT be invalidated in place. */
-void 
-node_RescindHazardedSlot(Node* thisPtr, uint32_t ndx)
-{
-  Key* key /*@ not null @*/ = &thisPtr->slot[ndx];
-  
-  assert(keyBits_IsPrepared(key));
-  
-  if (thisPtr->node_ObjHdr.obType == ot_NtKeyRegs) {
-    /* Keys in a keys regs node are hazarded because they are stale.
-    Just rescind the stale key. */
-
-    uint8_t oflags = key->keyFlags;
-
-    /* TEMPORARILY clear the hazard: */
-    key->keyFlags &= ~KFL_HAZARD_BITS;
-
-    key_NH_SetToVoid(key);
-    
-    /* RESET the hazard: */
-    key->keyFlags = oflags;
-  }
-  else {
-    node_ClearHazard(thisPtr, ndx);
-
-    key_NH_SetToVoid(key);
-  }
-  
-#ifdef OPTION_OB_MOD_CHECK
-  if (!objH_IsDirty(DOWNCAST(thisPtr, ObjectHeader)))
-    thisPtr->node_ObjHdr.check = objH_CalcCheck(DOWNCAST(thisPtr, ObjectHeader));
 #endif
 }
 
@@ -339,74 +249,44 @@ node_IsCurrentDomain(Node* thisPtr)
   return false;
 }
 
-bool
-node_Unprepare(Node* thisPtr, bool zapMe)
+void
+node_Unprepare(Node* thisPtr)
 {
-  if (thisPtr->node_ObjHdr.obType == ot_NtUnprepared)
-    return true;
-
 #ifndef NDEBUG
   unsigned int originalObType = thisPtr->node_ObjHdr.obType;
   assert(originalObType <= ot_NtLAST_NODE_TYPE);
-  Process * originalContext = thisPtr->node_ObjHdr.prep_u.context;
 #endif
 
-  if (thisPtr->node_ObjHdr.obType == ot_NtProcessRoot) {
-    /* First check to make sure we don't deprepare ourselves if we
-     * shouldn't.
-     */
+  switch (thisPtr->node_ObjHdr.obType) {
+  case ot_NtUnprepared:
+    return;
 
-    if (zapMe == false && node_IsCurrentDomain(thisPtr)) {
-      dprintf(true, "(0x%08x) Domroot 0x%08x%08x no zapme\n",
-              thisPtr,
-              (uint32_t) (thisPtr->node_ObjHdr.oid >> 32), 
-              (uint32_t) thisPtr->node_ObjHdr.oid);
-      return false;
-    }
-
+  case ot_NtProcessRoot:
+  case ot_NtKeyRegs:
+  case ot_NtRegAnnex:
     proc_Unload(thisPtr->node_ObjHdr.prep_u.context);
-  }
-  else if (thisPtr->node_ObjHdr.obType == ot_NtKeyRegs || thisPtr->node_ObjHdr.obType == ot_NtRegAnnex) {
-    /* First check to make sure we don't deprepare ourselves if we
-     * shouldn't.
-     */
-#if 1
+    assert(thisPtr->node_ObjHdr.obType == ot_NtUnprepared);
+    break;
 
-    if (inv_IsActive(&inv)
-        && thisPtr->node_ObjHdr.prep_u.context == inv.invokee) {
-      dprintf(true, "zapping keys/annex of invokee nd=0x%08x"
-		" ctxt=0x%08x\n", thisPtr, thisPtr->node_ObjHdr.prep_u.context);
-    }
-
-#endif
-
-    if (zapMe == false && node_IsCurrentDomain(thisPtr)) {
-      dprintf(true, "(0x%08x) keys/annex 0x%08x%08x no zapme\n",
-		      thisPtr,
-		      (uint32_t) (thisPtr->node_ObjHdr.oid >> 32),
-                      (uint32_t) thisPtr->node_ObjHdr.oid);
-      return false;
-    }
-
-    proc_Unload(thisPtr->node_ObjHdr.prep_u.context);
-  }
-  else if (thisPtr->node_ObjHdr.obType == ot_NtSegment) {
+  case ot_NtSegment:
     GPT_Unload(thisPtr);
-  }
+    thisPtr->node_ObjHdr.obType = ot_NtUnprepared;
+    break;
+
+  default: ;
+    assert(false);	// should not be trying to unprepare ot_NtFreeFrame
+  } // end of switch on obType
 
 #ifndef NDEBUG
   // All slots should now be unhazarded.
   unsigned int k;
   for (k = 0; k < EROS_NODE_SIZE; k++) {
     if (keyBits_IsHazard(node_GetKeyAtSlot(thisPtr, k))) {
-      dprintf(true, "Hazard after unprepared! slot %d, ot=%d, ctxt=0x%08x\n",
-              k, originalObType, originalContext);
+      dprintf(true, "Hazard after unprepared! slot %d, ot=%d\n",
+              k, originalObType);
     }
   }
 #endif
-
-  thisPtr->node_ObjHdr.obType = ot_NtUnprepared;
-  return true;
 }
 
 bool

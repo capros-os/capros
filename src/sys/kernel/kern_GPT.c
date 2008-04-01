@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/PTE.h>
 #include <idl/capros/GPT.h>
 #include <eros/ProcessState.h>
+#include <kerninc/Key-inline.h>
 
 // #define WALK_DBG
 
