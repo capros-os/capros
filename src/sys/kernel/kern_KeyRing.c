@@ -77,7 +77,7 @@ keyR_ClearWriteHazard(KeyRing * thisPtr)
 }
 
 void
-keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
+keyR_RescindAll(KeyRing * thisPtr)
 {
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
@@ -118,7 +118,7 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
       assert ( proc_IsKeyReg(pKey) == false );
       Node * pNode = objC_ContainingNode(pKey);
 
-      node_RescindHazardedSlot(pNode, pKey - pNode->slot, mustUnprepare);
+      node_RescindHazardedSlot(pNode, pKey - pNode->slot);
 
       assert(keyBits_IsUnprepared(pKey));
       continue;
@@ -127,19 +127,13 @@ keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare)
       assert ( keyBits_IsPreparedObjectKey(pKey) );
 
       /* hazard has been cleared, if any */
-      if (mustUnprepare) {
-	key_NH_Unprepare(pKey);
-      }
-      else {
-	/* Note that we do NOT mark the object dirty.  If the object is
-	 * already dirty, then it will go out to disk with the key
-	 * zeroed.  Otherwise, the key will be stale when the node is
-	 * re-read, and will be zeroed on preparation.
-	 */
-	key_NH_RescindKey(pKey);
-	
-	assert (nxt == thisPtr->next);
-      }
+      /* Note that we do NOT mark the containing object dirty.
+      If it is clean, the copy on disk has an allocation count,
+      the target object's allocation count is being incremented,
+      and when the copy is read from disk it will be noted to be rescinded. */
+      key_NH_SetToVoid(pKey);
+
+      assert (nxt == thisPtr->next);
     }
 
     /* If the rescinded key is in a activity that is currently running,
@@ -334,7 +328,7 @@ keyR_ZapResumeKeys(KeyRing *thisPtr)
     check_Consistency("Top ZapResumeKeys");
 #endif
 
-  /* Prepared resume keys are never in a activity, so we do not need to
+  /* Prepared resume keys are never in an activity, so we do not need to
      check for that. FIXME: We should have a resume key in an Activity
      for processes that are sleeping on SleepQueue; this is necessary to
      handle the case of Send to the sleep key, passing a Resume key to

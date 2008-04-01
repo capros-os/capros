@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Depend.h>
 #include <kerninc/Node.h>
+#include <kerninc/Invocation.h>
 #include <arch-kerninc/PTE.h>
 #include <arch-kerninc/Machine-inline.h>
 
@@ -241,10 +242,6 @@ objH_FlushIfCkpt(ObjectHeader* thisPtr)
 void
 objH_MakeObjectDirty(ObjectHeader* thisPtr)
 {
-#ifndef NDEBUG
-  extern bool InvocationCommitted;
-#endif
-
   assertex(thisPtr, objH_IsUserPinned(thisPtr));
   assert(objH_GetFlags(thisPtr, OFLG_CURRENT));
 
@@ -321,10 +318,8 @@ objH_MakeObjectDirty(ObjectHeader* thisPtr)
 }
 
 void
-objH_Rescind(ObjectHeader* thisPtr)
+objH_Rescind(ObjectHeader * thisPtr)
 {
-  bool hasCaps;
-
   DEBUG(rescind)
     dprintf(true, "Rescinding ot=%d oid=0x%08x%08x\n",
 	    thisPtr->obType,
@@ -338,38 +333,42 @@ objH_Rescind(ObjectHeader* thisPtr)
     dprintf(true, "Keyring of oid 0x%08x%08x invalid!\n",
 	    (uint32_t)(thisPtr->oid>>32), (uint32_t)thisPtr->oid);
 #endif
-
-  hasCaps = objH_GetFlags(thisPtr, OFLG_DISKCAPS);
   
-  keyR_RescindAll(&thisPtr->keyRing, hasCaps);
+  keyR_RescindAll(&thisPtr->keyRing);
 
   if (thisPtr->obType == ot_NtProcessRoot) {
     Process * proc = thisPtr->prep_u.context;
-    keyR_RescindAll(&proc->keyRing, hasCaps);
+    keyR_RescindAll(&proc->keyRing);
   }
 
   DEBUG(rescind)
     dprintf(true, "After 'RescindAll()'\n");
 
-  if (hasCaps) {
+  if (objH_GetFlags(thisPtr, OFLG_AllocCntUsed)) {
     thisPtr->allocCount++;
+    objH_ClearFlags(thisPtr, OFLG_AllocCntUsed);
 
-    /* If object has on-disk keys, must dirty the new object to ensure
-     * that the new counts get written.
-     */
-    if (objH_isNodeType(thisPtr)) {
-      Node * thisNode = objH_ToNode(thisPtr);
-      thisNode->callCount++;
-      node_MakeDirty(thisNode);
-    } else {
-      pageH_MakeDirty(objH_ToPage(thisPtr));
-    }
-
-    objH_ClearFlags(thisPtr, OFLG_DISKCAPS);
-    DEBUG(rescind)
-      dprintf(true, "After bump alloc count\n");
+    /* The object must be dirty to ensure that the new count gets saved. */
+    assert(objH_IsDirty(thisPtr));
   }
 
+  objH_BumpCallCount(thisPtr);
+}
+
+void
+objH_DoBumpCallCount(ObjectHeader * pObj)
+{
+  Node * thisNode = objH_ToNode(pObj);
+  thisNode->callCount++;
+  objH_ClearFlags(pObj, OFLG_CallCntUsed);
+
+  /* The object must be dirty to ensure that the new count gets saved. */
+  assert(objH_IsDirty(pObj));
+}
+
+void
+objH_ClearObj(ObjectHeader * thisPtr)
+{
   /* FIX: Explicitly zeroing defeats the sever operation. */
 
   if (thisPtr->obType <= ot_NtLAST_NODE_TYPE) {
@@ -380,16 +379,13 @@ objH_Rescind(ObjectHeader* thisPtr)
     node_MakeDirty(thisNode);
   }
   else if (thisPtr->obType == ot_PtDataPage) {
-    kva_t pPage;
-
     objH_InvalidateProducts(thisPtr);
 
-    pPage = pageH_GetPageVAddr(objH_ToPage(thisPtr));
+    kva_t pPage = pageH_GetPageVAddr(objH_ToPage(thisPtr));
     kzero((void*)pPage, EROS_PAGE_SIZE);
     pageH_MakeDirty(objH_ToPage(thisPtr));
   }
   else if (thisPtr->obType == ot_PtDevicePage) {
-    fatal("Rescind of device pages not tested -- see shap!\n");
     objH_InvalidateProducts(thisPtr);
 
     /* Do not explicitly zero device pages -- might be microcode! */

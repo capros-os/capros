@@ -96,8 +96,6 @@ ValidateDMAPage(PageHeader * pageH)
   ObjectHeader * pObj = pageH_ToObj(pageH);
 
   assert(objH_GetFlags(pObj, OFLG_IO | OFLG_CKPT) == 0);
-  assert(objH_GetFlags(pObj, OFLG_DISKCAPS) == 0);	/* because
-		no allocation count */
   assert(pObj->oid >= OID_RESERVED_PHYSRANGE);
 #endif
 }
@@ -146,7 +144,7 @@ physMem_DeallocateDMAPages(Invocation * inv)
   unsigned int i;
   for (ph = pageH, i = 0; i < nPages; ph++, i++) {
     ObjectHeader * pObj = pageH_ToObj(ph);
-    keyR_RescindAll(&pObj->keyRing, false /* not hasCaps */);
+    objH_Rescind(pObj);
     objH_InvalidateProducts(pObj);
     objH_Unintern(pObj);	// prepare to free the block
   }

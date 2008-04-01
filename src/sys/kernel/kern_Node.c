@@ -183,28 +183,24 @@ node_UnprepareHazardedSlot(Node* thisPtr, uint32_t ndx)
 }
 
 /* NOTE: Off the top of my head, I can think of no reason why this
- * capability should NOT be invalidated in place.  The mustUnprepare flag
- * gets set when the object in question already has on-disk
- * capabilities, but what relevance this carries for in-place
- * capabilities is decidedly NOT clear to me.
- */
+ * capability should NOT be invalidated in place. */
 void 
-node_RescindHazardedSlot(Node* thisPtr, uint32_t ndx, bool mustUnprepare)
+node_RescindHazardedSlot(Node* thisPtr, uint32_t ndx)
 {
   Key* key /*@ not null @*/ = &thisPtr->slot[ndx];
   
   assert(keyBits_IsPrepared(key));
   
   if (thisPtr->node_ObjHdr.obType == ot_NtKeyRegs) {
+    /* Keys in a keys regs node are hazarded because they are stale.
+    Just rescind the stale key. */
+
     uint8_t oflags = key->keyFlags;
 
     /* TEMPORARILY clear the hazard: */
     key->keyFlags &= ~KFL_HAZARD_BITS;
 
-    if (mustUnprepare)
-      key_NH_Unprepare(key);
-    else
-      key_NH_RescindKey(key);
+    key_NH_SetToVoid(key);
     
     /* RESET the hazard: */
     key->keyFlags = oflags;
@@ -212,10 +208,7 @@ node_RescindHazardedSlot(Node* thisPtr, uint32_t ndx, bool mustUnprepare)
   else {
     node_ClearHazard(thisPtr, ndx);
 
-    if (mustUnprepare)
-      key_NH_Unprepare(key);
-    else
-      key_NH_RescindKey(key);
+    key_NH_SetToVoid(key);
   }
   
 #ifdef OPTION_OB_MOD_CHECK

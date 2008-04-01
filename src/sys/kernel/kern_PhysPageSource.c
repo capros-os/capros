@@ -87,6 +87,7 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
   assert(pObj == &thisPtr->pmi->firstObHdr[relFrameNdx]);
 #endif
 
+#if 0	// revisit this if it turns out we need it
   // FIXME: Where do we check if the page is pinned?
   if (! objC_EvictFrame(pObj))
     return 0;	// could not evict
@@ -95,6 +96,7 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
   pageH_MDInitDataPage(pObj);
 
   objH_InitObj(pageH_ToObj(pObj), oid, PhysPageAllocCount, ot_PtDataPage);
+#endif
 
   return pageH_ToObj(pObj);
 }

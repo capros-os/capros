@@ -546,8 +546,10 @@ ReturnMessage(Invocation * inv)
     if (invokee != proc_curProcess) {
       /* keyR_ZapResumeKeys isn't always needed; may be faster to check
       first if it is necessary: */
-      if (inv->invKeyType != KKT_Start)
+      if (inv->invKeyType != KKT_Start) {
         keyR_ZapResumeKeys(&invokee->keyRing);
+        objH_BumpCallCount(node_ToObj(invokee->procRoot));
+      }
       act_AssignTo(allocatedActivity, invokee);
 
       if (inv->invType == IT_Send) {

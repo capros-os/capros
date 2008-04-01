@@ -188,7 +188,7 @@ key_DoPrepare(Key* thisPtr)
 
     assert ( keyBits_IsHazard(thisPtr) == false );
     assert ( keyBits_IsUnprepared(thisPtr) );
-    key_NH_RescindKey(thisPtr);
+    key_NH_SetToVoid(thisPtr);
     keyBits_SetPrepared(thisPtr);
 #ifdef TEST_STACK
     st.check();
@@ -335,7 +335,7 @@ xchg_key(uint32_t slot0, uint32_t slot1)
 }
 
 // Disregards any read hazard on src.
-// Does not set OFLG_DISKCAPS in the object.
+// Does not set OFLG_*CntUsed in the object.
 void
 key_MakeUnpreparedCopy(Key * dst, const Key * src)
 {
@@ -390,13 +390,16 @@ key_NH_Unprepare(Key* thisPtr)
 #endif
       pObj = node_ToObj(thisPtr->u.gk.pContext->procRoot);
 
-      if (keyBits_IsType(thisPtr, KKT_Resume))
+      if (keyBits_IsType(thisPtr, KKT_Resume)) {
         cnt = objH_ToNode(pObj)->callCount;
-      else
-        cnt = pObj->allocCount;
+        objH_SetFlags(pObj, OFLG_CallCntUsed);
+      } else
+        goto nonresume;
     } else {
       pObj = thisPtr->u.ok.pObj;
+nonresume:
       cnt = pObj->allocCount;
+      objH_SetFlags(pObj, OFLG_AllocCntUsed);
     }
 
 #ifndef NDEBUG
@@ -410,22 +413,10 @@ key_NH_Unprepare(Key* thisPtr)
 	fatal("Key 0x%08x Kt %d, 0x%08x not valid node ptr\n",
 		      thisPtr, keyBits_GetType(thisPtr), pObj);
     }
-
-    /* Physical pages don't really have an allocation count,
-    so if we allowed keys to them to become unprepared,
-    we wouldn't be able to rescind them.
-    Keys to physical pages are held only by processes that we trust
-    not to allow the keys to fall into swappable nodes,
-    so we should never need to unprepare them. */
-    assert(pObj->oid < OID_RESERVED_PHYSRANGE);
 #endif
 
     key_NH_Unchain(thisPtr);
 
-#if 0
-    dprintf(true, "Setting OFLG_DISKCAPS obj=0x%x\n", pObj);
-#endif
-    objH_SetFlags(pObj, OFLG_DISKCAPS);
     thisPtr->u.unprep.oid = pObj->oid;
     thisPtr->u.unprep.count = cnt;
   }

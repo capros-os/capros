@@ -462,12 +462,35 @@ objC_ddb_dump_pinned_objects()
 #endif
 }
 
+static void
+objC_ddb_dump_obj(ObjectHeader * pObj)
+{
+  char goodSum;
+#ifdef OPTION_OB_MOD_CHECK
+  goodSum = (pObj->check == objH_CalcCheck(pObj)) ? 'y' : 'n';
+#else
+  goodSum = '?';
+#endif
+  printf("%#x: %s oid %#llx up:%c cr:%c ck:%c drt:%c%c io:%c sm:%c au:%c cu:%c\n",
+	 pObj,
+	 ddb_obtype_name(pObj->obType),
+	 pObj->oid,
+	 objH_IsUserPinned(pObj) ? 'y' : 'n',
+	 objH_GetFlags(pObj, OFLG_CURRENT) ? 'y' : 'n',
+	 objH_GetFlags(pObj, OFLG_CKPT) ? 'y' : 'n',
+	 objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n',
+	 objH_GetFlags(pObj, OFLG_REDIRTY) ? 'y' : 'n',
+	 objH_GetFlags(pObj, OFLG_IO) ? 'y' : 'n',
+	 goodSum,
+	 objH_GetFlags(pObj, OFLG_AllocCntUsed) ? 'y' : 'n',
+	 objH_GetFlags(pObj, OFLG_CallCntUsed) ? 'y' : 'n');
+}
+
 void
 objC_ddb_dump_pages()
 {
   uint32_t nFree = 0;
   uint32_t pg = 0;
-  char goodSum;
   
   extern void db_printf(const char *fmt, ...);
 
@@ -476,6 +499,7 @@ objC_ddb_dump_pages()
 
     switch (pageH_GetObType(pageH)) {
     case ot_PtFreeFrame:
+    case ot_PtSecondary:
       nFree++;
       break;
 
@@ -487,24 +511,7 @@ objC_ddb_dump_pages()
     case ot_PtDevicePage:
     {
       ObjectHeader * pObj = pageH_ToObj(pageH);
-#ifdef OPTION_OB_MOD_CHECK
-      goodSum = (pObj->check == objH_CalcCheck(pObj)) ? 'y' : 'n';
-#else
-      goodSum = '?';
-#endif
-      printf("%02d: %s oid 0x%08x%08x up:%c cr:%c ck:%c drt:%c%c io:%c sm:%c dc:%c\n",
-	   pg,
-	   ddb_obtype_name(pObj->obType),
-	   (uint32_t) (pObj->oid >> 32),
-	   (uint32_t) (pObj->oid),
-	   objH_IsUserPinned(pObj) ? 'y' : 'n',
-	   objH_GetFlags(pObj, OFLG_CURRENT) ? 'y' : 'n',
-	   objH_GetFlags(pObj, OFLG_CKPT) ? 'y' : 'n',
-	   objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n',
-	   objH_GetFlags(pObj, OFLG_REDIRTY) ? 'y' : 'n',
-	   objH_GetFlags(pObj, OFLG_IO) ? 'y' : 'n',
-	   goodSum,
-	   objH_GetFlags(pObj, OFLG_DISKCAPS) ? 'y' : 'n');
+      objC_ddb_dump_obj(pObj);
       break;
     }
       
@@ -525,7 +532,6 @@ objC_ddb_dump_nodes()
 {
   uint32_t nFree = 0;
   uint32_t nd = 0;
-  char goodSum;
   
   extern void db_printf(const char *fmt, ...);
 
@@ -540,25 +546,7 @@ objC_ddb_dump_nodes()
     if (pObj->obType > ot_NtLAST_NODE_TYPE)
       fatal("Node @0x%08x: object type %d is broken\n", pObj,
 		    pObj->obType); 
-    
-#ifdef OPTION_OB_MOD_CHECK
-    goodSum = (pObj->check == objH_CalcCheck(pObj)) ? 'y' : 'n';
-#else
-    goodSum = '?';
-#endif
-    printf("%02d: %s oid 0x%08x%08x up:%c cr:%c ck:%c drt:%c%c io:%c sm:%c dc:%c\n",
-	   nd,
-	   ddb_obtype_name(pObj->obType),
-	   (uint32_t) (pObj->oid >> 32),
-	   (uint32_t) (pObj->oid),
-	   objH_IsUserPinned(pObj) ? 'y' : 'n',
-	   objH_GetFlags(pObj, OFLG_CURRENT) ? 'y' : 'n',
-	   objH_GetFlags(pObj, OFLG_CKPT) ? 'y' : 'n',
-	   objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n',
-	   objH_GetFlags(pObj, OFLG_REDIRTY) ? 'y' : 'n',
-	   objH_GetFlags(pObj, OFLG_IO) ? 'y' : 'n',
-	   goodSum,
-	   objH_GetFlags(pObj, OFLG_DISKCAPS) ? 'y' : 'n');
+    objC_ddb_dump_obj(pObj);
   }
 
   printf("Total of %d nodes, of which %d are free\n", objC_nNodes, nFree);
@@ -725,6 +713,7 @@ objC_AgeNodeFrames()
 		nStuck, nPinned);
 }
 
+#if 0	// revisit this when we need it
 /* This is used for copy on write processing, and also for frame
  * eviction. The copy becomes current, and is initially clean. The
  * original is no longer current, but may still be the checkpoint
@@ -795,7 +784,9 @@ objC_CopyObject(ObjectHeader *pObj)
 
   return newObj;
 }
+#endif
 
+#if 0	// revisit this if it turns out we need it
 /* Evict the current resident of a page frame. This is called
  * when we need to claim a particular physical page frame.
  * It is satisfactory to accomplish this by grabbing some
@@ -869,6 +860,7 @@ objC_EvictFrame(PageHeader * pageH)
 #endif
   return true;
 }
+#endif
 
 /* Clean out the node/page frame, but do not remove it from memory. */
 /* pObj->obType must be node or ot_PtDataPage. */

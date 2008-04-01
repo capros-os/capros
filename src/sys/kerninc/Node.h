@@ -109,7 +109,7 @@ void node_ClearAllHazards(Node * thisPtr);
 
 void node_UnprepareHazardedSlot(Node* thisPtr, uint32_t ndx);
 
-void node_RescindHazardedSlot(Node* thisPtr, uint32_t ndx, bool mustUnprepare);
+void node_RescindHazardedSlot(Node* thisPtr, uint32_t ndx);
 
 /* Prepare node under various sorts of contracts.  In unprepare, set
  * zapMe to true if the *calling* domain should be deprepared in

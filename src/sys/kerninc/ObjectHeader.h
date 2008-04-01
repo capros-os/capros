@@ -108,23 +108,16 @@ enum {
 /*};*/
 
 
-#define OHAZARD_NONE      0x1u
-#define OHAZARD_WRITE     0x1u
-#define OHAZARD_READ      0x2u
-#define OHAZARD_READWRITE 0x2u
-
-
 #define OFLG_DIRTY	0x01u	/* object has been modified */
 #define OFLG_REDIRTY	0x02u	/* object has been modified since
 				write initiated */
 #define OFLG_CURRENT	0x08u	/* current version */
 #define OFLG_CKPT	0x10u	/* checkpoint version */
 #define OFLG_IO		0x20u	/* object has active I/O in progress */
-#define OFLG_DISKCAPS	0x40u	/* non-resume capabilities to this object exist
+#define OFLG_CallCntUsed  0x40u	/* resume capabilities to this node exist
+				that contain the current call count. */
+#define OFLG_AllocCntUsed 0x80u	/* non-resume capabilities to this object exist
 				that contain the current allocation count. */
-/* FIXME: there needs to be:
-#define OFLG_DISKRESM	0x80u	 * resume capabilities to this node exist
-				that have the current call count. */
 
 struct ObjectHeader {
 /* N.B.: obType must be the first item in ObjectHeader.
@@ -300,6 +293,16 @@ pageH_MakeDirty(PageHeader * pageH)
   pageH->objAge = age_NewBorn;
 }
 
+void objH_DoBumpCallCount(ObjectHeader * pObj);
+
+INLINE void
+objH_BumpCallCount(ObjectHeader * pObj)
+{
+  if (objH_GetFlags(pObj, OFLG_CallCntUsed)) {
+    objH_DoBumpCallCount(pObj);
+  }
+}
+
   /* Object pin counts.  For the moment, there are several in order to
    * let me debug the logic.  Eventually they should all be mergeable.
    * 
@@ -361,6 +364,7 @@ void objH_Unintern(ObjectHeader* thisPtr);	/* remove object from the ObList. */
 
 void objH_FlushIfCkpt(ObjectHeader* thisPtr);
 void objH_Rescind(ObjectHeader* thisPtr);
+void objH_ClearObj(ObjectHeader * thisPtr);
 
 /* Procedures for handling machine-dependent page ObTypes. */
 bool pageH_mdType_CheckPage(PageHeader * pageH);

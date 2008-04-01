@@ -442,6 +442,9 @@ RangeKey(Invocation* inv /*@ not null @*/)
       
       objH_Rescind(pObject);
 
+      /* Clear it, to avoid saving stale state on disk. */
+      objH_ClearObj(pObject);
+
       if (objH_isNodeType(pObject)) {
         /* Unprepare the node, in case it is re-allocated as a
         different type (for example, process to GPT). */

@@ -2,7 +2,7 @@
 #define __KEYRING_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -31,14 +31,8 @@ Approved for public release, distribution unlimited. */
 
 typedef struct Link KeyRing;
 
-/* Former member functions of KeyRing */
-
-/* Resume key zap does not require mustUnprepare, because the kernel
- * guarantees that prepared resume keys only reside in dirty objects.
- */
-
 void keyR_ClearWriteHazard(KeyRing * thisPtr);
-void keyR_RescindAll(KeyRing *thisPtr, bool mustUnprepare);
+void keyR_RescindAll(KeyRing * thisPtr);
 void keyR_ZapResumeKeys(KeyRing *thisPtr);
 void keyR_UnprepareAll(KeyRing *thisPtr);
 void keyR_UnmapAll(KeyRing * thisPtr);

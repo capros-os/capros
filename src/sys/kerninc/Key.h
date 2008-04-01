@@ -163,16 +163,6 @@ uint32_t key_GetAllocCount(const Key* thisPtr);
 
 void key_Print(const Key* thisPtr);
 
-INLINE void 
-key_NH_RescindKey(Key* thisPtr)
-{
-#ifdef __KERNEL__
-  keyBits_Unchain(thisPtr);
-#endif
-
-  keyBits_InitToVoid(thisPtr);
-}
-
 #ifdef OPTION_OB_MOD_CHECK
 uint32_t key_CalcCheck(Key* thisPtr);
 #endif
