@@ -136,7 +136,7 @@
 	      <p>
 		EROS kept 28 bit log location IDs (<i>lid</i>, see
 		below) in the Object Directory part of the checkpoint.
-		Once you account for the 8 bits of object offset,
+		Once you account for the 8 bits of object index,
 		this size results in a maximum of
 		2<sup>20</sup> frames in the log, which is barely enough to
 		hold the RAM of a modern desktop processor. CapROS
@@ -239,8 +239,9 @@
 	    objects in the log are referred to with log identifiers
             (<b>lid</b>s).  A
 	    <em>lid</em> is constructed by taking the 56 bit frame number
-	    and concatenating an 8-bit object offset.
-	    (8 is log<sub>2</sub>(EROS_OBJECTS_PER_FRAME).)
+	    and concatenating an 8-bit object index.
+	    (8 is greater than or equal to 
+	    log<sub>2</sub>(EROS_OBJECTS_PER_FRAME).)
 	  </p>
 	  <p>
 	    Frames zero to N are the header log.
@@ -374,7 +375,10 @@ The same question applies to the process directory.
 		The restart code checks
 		each <tt>lid</tt> when
 		rebuilding the in-core object and process directories.
-		If the most recent generation is not all mounted, the
+		If the most recent version of all the unmigrated
+		objects, the restart generation process directory
+		frames, and the object directory frames for all the
+		unmigrated generations are not all mounted, the
 		system will not restart.
 	      </p>
 	    </dd>
@@ -592,7 +596,7 @@ struct CkptDirent {
 	    When the last dirty
 	    object in the working generation has been
 	    written to disk, along with the process directory and
-	    object directory pages, a new generation header is written and
+	    object directory frames, a new generation header is written and
 	    that generation becomes the restart
 	    generation.
 	  </p>
