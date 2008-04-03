@@ -452,9 +452,16 @@ struct processDirEnt {
 	    The <tt>oid</tt> field identifies the root node of
 	    the process.  The
 	    <tt>allocCount</tt> field must match the allocation count
-	    of the node.  The allocation count must be preserved
-	    because processes can be inactive for long periods of time during
-	    which they may be paged out and rescinded.
+	    of the node.  The allocation count is preserved to avoid
+	    the necessity of:
+	    <ol>
+	      <li>Checking if the node has been rescinded when the
+	      process directory is written (a rare case).</li>
+	      <li>Using special logic to recover the allocation count
+	      for root nodes from the node image during restart for
+	      use in the activity structure, instead of using the normal
+	      node read logic.</li>
+	    </ol>
 	  </p>
 	  <p>
             Any processes that were sleeping until a specific time
