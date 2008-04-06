@@ -317,6 +317,7 @@ pageSize-4 |    checksum      |
 	  <ul>
 	      <pre>
 struct DiskGenerationHdr {
+  uint32_t   versionNumber;
   uint64_t   sequenceNumber;
   uint64_t   migratedSeqNum;
   LID        firstLogLoc;
@@ -340,13 +341,13 @@ struct DiskGenerationHdr {
     <p>
       The process directory must be saved as of the time of the
       demarcation event. It makes sense to write it into contigous log
-      locations immediatly after the pages and log pots that were
-      written before the demarcation even.
+      locations immediately after the pages and log pots that were
+      written before the demarcation event.
     </p>
     <p>
       Contiguous log locations allow easy scheduling of writes and
       reads during checkpoint and restart, as all the locations of the
-      directories are know initially.
+      directories are known initially.
     </p>
           <p>Implementor note: The old 32 bit lid was referred to as
             a LogLoc in the code.</p>
@@ -354,6 +355,13 @@ struct DiskGenerationHdr {
 	    Each of the fields is explained below.
 	  </P>
 	  <dl>
+	    <dt><b>versionNumber</b></dt>
+	    <dd>
+	      <p>
+		The version number of the generation header.
+                This version is number zero.
+	      </p>
+	    </dd>
 	    <dt><b>sequenceNumber</b></dt>
 	    <dd>
 	      <p>
@@ -434,7 +442,7 @@ struct DiskGenerationHdr {
 		the generation header
 		frame. <tt>nObjectDescriptors</tt> is the number of
 		object descriptors in the header. They immediately
-		follow any process directory frames that may be in
+		follow any process descriptors that may be in
 		that header.
 	      </p>
 	    </dd>
@@ -619,14 +627,15 @@ struct ObjectDescriptor {
             the <em>next</em> generation is started,
             and execution resumes.
             At this time we say a checkpoint is <em>active</em>.
-	    All of the dirty objects in the working
-	    generation are then written out to the disk.
+            Then, the process directory is written to the log, and then
+	    all of the dirty objects in the working
+	    generation are written to the log.
 	  </p>
 	  <p>
-	    When the last dirty
+	    After the last dirty
 	    object in the working generation has been
-	    written to disk, along with the process directory and
-	    object directory frames, a new generation header is written and
+	    written to disk, the object directory is written.
+	    Then a new generation header is written and
 	    that generation becomes the restart
 	    generation.
 	  </p>
@@ -909,7 +918,7 @@ Let S be the amount of space in the generation header frame
 after the header.
 	  </p>
 	  <p>
-	    First, if the total number of descriptors in process directory
+	    First, if the total number of descriptors in the process directory
 	    fits in S, then just put them directly in the
 	    header frame and reduce S by the space used.
 	  </p>
