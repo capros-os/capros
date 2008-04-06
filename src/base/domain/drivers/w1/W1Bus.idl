@@ -2,6 +2,11 @@ package capros;
 
 interface W1Bus extends key {
 
+  unsigned short enum BusType {
+    DS9490R,
+    DS9097U
+  };
+
   unsigned short enum StatusCode {
     OK,
     ProgramError,
@@ -93,7 +98,8 @@ interface W1Bus extends key {
     (until the next reset pulse).
 
     If the response to the reset is:
-      Bus short - program execution terminates with status BusShorted.
+      Bus short - program execution may terminate with status BusShorted,
+        or may continue, depending on the implementation.
       Invalid confirmation byte - program execution terminates with status
         BusError.
       No presence pulse - program execution terminates with status
@@ -232,9 +238,14 @@ interface W1Bus extends key {
   It uses variable-sized input and output data
   which is not yet supported by IDL.
   Use OC=3.
-  May raise: ProgramTooLong, ResultsTooLong, or any described above.
-  If an exception is raised,
-    it returns in w1 the number of bytes of program that were executed.
+  May raise ProgramTooLong.
+  Otherwise, it returns in w1 a StatusCode,
+    in w2 the number of bytes of program that were successfully executed,
+    and in w3 the number of bytes of program that were successfully parsed.
+  If the StatusCode is ProgramError or SequenceError,
+    w3 tells you where the error was.
+  Otherwise, if the StatusCode is not OK,
+    w2 tells you where the error was.
   */
 
   /****************** mode commands *******************/

@@ -27,13 +27,16 @@
 #include <eros/Invoke.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/NPLink.h>
+#include <idl/capros/W1Bus.h>
 #include <domain/assert.h>
 #include <asm/USBIntf.h>
 
-#define dbg_prog 0x1
+#define dbg_prog   0x1
+#define dbg_status 0x2
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_prog )////
+#define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -118,7 +121,19 @@ static int ds_send_usb_control(u8 request, u16 value, u16 index)
 
 static int ds_send_control_cmd(u16 value, u16 index)
 {
-	return ds_send_usb_control(CONTROL_CMD, value, index);
+  return ds_send_usb_control(CONTROL_CMD, value, index);
+}
+
+void
+FlushXmitBuffer(void)
+{
+  int err;
+  err = ds_send_control_cmd(CTL_HALT_EXE_IDLE, 0);
+  assert(!err);	// FIXME
+  err = ds_send_control_cmd(CTL_FLUSH_XMT_BUFFER, 0);
+  assert(!err);	// FIXME
+  err = ds_send_control_cmd(CTL_RESUME_EXE, 0);
+  assert(!err);	// FIXME
 }
 
 void
@@ -278,15 +293,11 @@ static int waitStatus(void)
 		err = ds_recv_status();
 		if (err < 0)
 			return err;	// return negative error
-#if 1////
-		dump_status(err);
-#endif
+		DEBUG(status) dump_status(err);
 	} while(!(st->status & ST_IDLE)
 	        && ++count < 100);
 
-#if 1////
-	printk("cnt %d", count);
-#endif
+	DEBUG(status) printk("cnt %d", count);
 	if (count >= 100) {
 		dump_status(err);
 		return 0;
@@ -315,9 +326,15 @@ enum {
   cmdType_none,
   cmdType_resetNormal,
   cmdType_resetAny,
-  cmdType_setPath,
   cmdType_search,
-  cmdType_readCRC
+  cmdType_readCRC,
+#if USE_SETPATH
+  cmdType_setPath,
+#else
+  // Both the values below are safely above the values above.
+  cmdType_checkSmartOnMain = capros_W1Bus_stepCode_setPathMain,
+  cmdType_checkSmartOnAux = capros_W1Bus_stepCode_setPathAux,
+#endif
 };
 
 // # of bytes in dataBuffer to be sent to EP2
@@ -335,16 +352,24 @@ static struct Command {
   uint16_t value;
   uint16_t index;
   uint8_t ep3Size;	// expected ep3 data after this command
+  uint16_t pgmLocation;	/* the index in the program of the first byte
+		of the last step of this command.
+		If there is any error with a command,
+		it is always on the last step. */
 } cmdBuf[cmdBufSize], *cmdNext;
 
 static inline bool
 cmdAtBeginning(void)
 { return cmdNext == &cmdBuf[0]; }
 
+unsigned char * startPgm = (void *)&MsgRcvBuf;
+unsigned char * stepStart;	// start of the current step
+
 static inline void
 NextCmd(void)
 {
   cmdNext->ep3Size = ep3Size;
+  cmdNext->pgmLocation = stepStart - startPgm;
   cmdNext++;
 }
 
@@ -397,7 +422,7 @@ HandleUnsentData(uint16_t spu)
       needReset = 0;
       cmdNext->index = unsentData;
       NextCmd();
-      ep3Size += unsentData;
+      ep3Size += unsentData;	// s/b before the above?
     } else {
       ReadStraightCmd(0);
     }
@@ -409,8 +434,9 @@ HandleUnsentData(uint16_t spu)
 static void
 HandleAnyUnsentData(void)
 {
-  if (unsentData)
+  if (unsentData) {
     HandleUnsentData(0);
+  }
 }
 
 unsigned int
@@ -433,9 +459,9 @@ RunProgram(Message * msg, uint32_t pgmLen)
 {
   int err;
 
-  unsigned char * startPgm = (void *)&MsgRcvBuf;
   unsigned char * endPgm = startPgm + pgmLen;
-  unsigned char * pgm = startPgm;	// where we are in the program
+  unsigned char * pgm;	// where we are in the program
+  pgm = startPgm;
 
   unsigned char * resultStart = (void *)&MsgSndBuf;
   resultNext = resultStart;
@@ -458,6 +484,7 @@ RunProgram(Message * msg, uint32_t pgmLen)
 #define needEP2(n) if (ep2Size + (n) > EP2_FIFO_SIZE) goto endSegment;
 #define needEP3(n) if (ep3Size + (n) > EP3_FIFO_SIZE) goto endSegment;
 #define needCmd(n) if (cmdNext + (n) - cmdBuf > cmdBufSize) goto endSegment;
+      stepStart = pgm;
       unsigned char stepCode = *pgm++;
       DEBUG(prog) printk("stepCode %d", stepCode);
       switch (stepCode) {
@@ -496,8 +523,11 @@ RunProgram(Message * msg, uint32_t pgmLen)
 
       case capros_W1Bus_stepCode_setPathMain:
       case capros_W1Bus_stepCode_setPathAux:
-        HandleAnyUnsentData();
         needPgm(8)
+#if USE_SETPATH
+	/* The DS2490 Set Path command is broken. I was advised by
+	Maxim tech support to do an explicit Smart-On command instead. */
+        HandleAnyUnsentData();
         needEP2(9)
         needEP3(1)
         needCmd(1)
@@ -515,6 +545,26 @@ RunProgram(Message * msg, uint32_t pgmLen)
         not the number of couplers. */
         cmdNext->index = 9;
         NextCmd();
+#else
+	/* Do Smart-On explicitly. */
+	/* Must send: match ROM, ROM, smart-on command, reset stimulus.
+	Then read: reset response, confirmation byte. */
+        needEP2(11)
+        needEP3(2)
+        needCmd(1)	// just need a COMM_READ_STRAIGHT
+        cm->dataBuffer[ep2Size++] = 0x55;	// Match ROM
+        memcpy(&cm->dataBuffer[ep2Size], pgm, 8);
+        ep2Size += 8;
+        pgm += 8;
+        cm->dataBuffer[ep2Size++] = stepCode;	// Smart-On command
+        cm->dataBuffer[ep2Size++] = 0xff;	// reset stimulus
+        unsentData += 11;
+        ReadStraightCmd(2);	// reset response and confirmation byte
+	// Next we must check the response:
+	// Change the type of the Read Straight command.
+	assert((cmdNext-1)->type == cmdType_none);
+        (cmdNext-1)->type = stepCode;	// same as cmdType_checkSmartOn*
+#endif
         break;
 
       case capros_W1Bus_stepCode_skipROM:
@@ -769,6 +819,7 @@ if (ep2Size == 17) {////
         break;
       }
 
+#if USE_SETPATH
       case cmdType_setPath:
       {
         err = waitStatus();
@@ -797,6 +848,28 @@ if (ep2Size == 17) {////
         }
         break;
       }
+#else
+      case cmdType_checkSmartOnMain:
+      case cmdType_checkSmartOnAux:
+      {
+        err = waitStatus();
+        assert(err == 16);	// FIXME handle or report
+        int expected = cmdNext->ep3Size - ep3Gotten;
+        assert(expected >= 2);
+        int err2 = GetEP3Data(expected);
+        assert(!err2);	// FIXME - too little EP3 data
+        err2 = *--resultNext;	// last character gotten
+	uint8_t resetResponse = *--resultNext;
+	if (err2 != cmdNext->type) {	// confirmation byte mismatch
+          printk("path err2=%#.2x", err2);
+          goto terminateBusError;
+	}
+        // resetResponse does not indicate whether the branch is shorted.
+	if (resetResponse & 0x80)
+          goto terminateNoDevice;
+        break;
+      }
+#endif
 
       case cmdType_search:
         err = waitStatus();
@@ -858,12 +931,7 @@ if (ep2Size == 17) {////
       struct ds_status * st = &cm->status;
       if (st->data_out_buffer_status) {
         printk("Clearing excess data");
-        err = ds_send_usb_control(CONTROL_CMD, CTL_HALT_EXE_IDLE, 0);
-        assert(!err);	// FIXME
-        err = ds_send_usb_control(CONTROL_CMD, CTL_FLUSH_XMT_BUFFER, 0);
-        assert(!err);	// FIXME
-        err = ds_send_usb_control(CONTROL_CMD, CTL_RESUME_EXE, 0);
-        assert(!err);	// FIXME
+        FlushXmitBuffer();
       }
     }
     continue;	// process any other segments
@@ -877,13 +945,15 @@ programError:
 preprocessError:
     // None of the current segment was executed.
     msg->snd_w1 = ret;
-    // -1 below is because pgm was incremented to get the stepCode.
-    msg->snd_w2 = segStart - (pgm - 1);
+    // Segments before this one were executed successfully.
+    msg->snd_w2 = segStart - startPgm;
+    msg->snd_w3 = stepStart - startPgm;
     return;
   }
   // Processed all segments.
   unsigned long ret = capros_W1Bus_StatusCode_OK;
-  goto returnLength;
+  msg->snd_w2 = pgm - startPgm;
+  goto returnOK;
 
 terminateShorted:
   ret = capros_W1Bus_StatusCode_BusShorted;
@@ -906,10 +976,16 @@ terminateCRCError:
   goto returnLength;
 
 returnLength:
+  // Get any data for this segment.
+  GetEP3Data(cmdNext->ep3Size - ep3Gotten);
+  FlushXmitBuffer();
+  msg->snd_w2 = cmdNext->pgmLocation;
+returnOK:
   msg->snd_w1 = ret;
-  msg->snd_w2 = -1;	// FIXME what to report here?
+  msg->snd_w3 = pgm - startPgm;
   msg->snd_data = resultStart;
   msg->snd_len = resultNext - resultStart;
+  // FIXME: need to check if the results are too long for our buffer.
   return;
 }
 
@@ -933,9 +1009,9 @@ w1bus_thread(void * arg)
 
   // send the W1Bus cap to the notifyee.
   Msg.snd_invKey = KR_RETURN;
-  Msg.snd_code = RC_OK;
-  Msg.snd_w1 = 0;
-  Msg.snd_w2 = 0;
+  Msg.snd_code = OC_capros_NPLink_RegisterNPCap;
+  Msg.snd_w1 = IKT_capros_W1Bus;
+  Msg.snd_w2 = capros_W1Bus_BusType_DS9490R;
   Msg.snd_w3 = 0;
   Msg.snd_key0 = KR_TEMP0;
   Msg.snd_key1 = KR_VOID;
