@@ -1,0 +1,7 @@
+package capros;
+
+/* This object multiplexes several devices on a 1-Wire network. */
+interface W1Mult extends key 
+{
+  void RegisterBus(key NPCap, unsigned long subType);
+};

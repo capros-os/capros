@@ -1,0 +1,57 @@
+/* -*- Mode: c -*- */
+#ifndef __W1MULT_MAP_
+#define __W1MULT_MAP_
+
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*********************************************************
+ * W1Mult program.
+ *********************************************************/
+
+w1mult_constit = new node; // this is shared
+w1mult_constit[0] = snode_c;
+
+#define W1Mult(name, configseg) \
+name##w1mult_proc = new process; \
+name##w1mult.prog = small program LIBDIR "w1mult"; \
+name##w1mult_proc pc = symbol LIBDIR "w1mult" _start; \
+name##w1mult_proc.space = name##w1mult.prog with page at 0x1e000; \
+name##w1mult_proc.space[31] = configseg; \
+name##w1mult_proc space = name##w1mult_proc.space; \
+name##w1mult_proc schedule = sched(8); \
+name##w1mult_proc symtab = number("w1mult"); \
+name##w1mult_proc key reg 1 = w1mult_constit; \
+name##w1mult_proc key reg 5 = primebank; \
+name##w1mult_proc key reg 6 = sched(8); \
+name##w1mult_proc key reg 7 = misc Console; \
+name##w1mult_proc key reg 8 = misc Sleep; \
+run name##w1mult_proc; \
+name##w1mult = start name##w1mult_proc 0xffff;
+
+w1usbconfig = program segtree LIBDIR "w1usbconfig";
+W1Mult(usb, w1usbconfig)
+ds9490r_notifyee = usbw1mult;
+
+#endif
