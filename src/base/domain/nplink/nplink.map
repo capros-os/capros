@@ -1,0 +1,52 @@
+/* -*- Mode: c -*- */
+#ifndef __NPLINK_MAP_
+#define __NPLINK_MAP_
+
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*********************************************************
+ * NPLink program.
+ *********************************************************/
+
+nplink_proc = new process;
+nplink_constit = new node;
+nplink.prog = small program LIBDIR "nplink";
+nplink_proc pc = symbol LIBDIR "nplink" _start;
+nplink_proc.space = nplink.prog with page at 0x1f000;
+nplink_proc space = nplink_proc.space;
+nplink_proc schedule = sched(8);
+nplink_proc symtab = number("nplink");
+nplink_proc key reg 1 = nplink_constit;
+nplink_proc key reg 7 = misc Console;
+run nplink_proc;
+nplink = start nplink_proc 0;
+
+/* Define ds9490r_notifyee elsewhere. */
+nplink_constit[0] = ds9490r_notifyee;
+/*nplink_constit[1] = ds9097u_notifyee;*/
+
+ds2490_notifyee = nplink;
+
+#endif
