@@ -321,22 +321,33 @@ struct DiskGenerationHdr {
   uint64_t   migratedSeqNum;
   LID        firstLogLoc;
   LID        lastLogLoc;
-  bool       processDirDirect;
-  bool       objectDirDirect;
-  uint32_t   nProcessDirEntries;
-  uint32_t   nObjectDirEntries;
+  LID        firstProcessDirFrame;
+  LID        firstObjectDirFrame;
+  uint32_t   nProcessDirFrames;
+  uint32_t   nObjectDirFrames;
+  uint32_t   nProcessDescriptors;
+  uint32_t   nObjectDescriptors;
   uint16_t   nHeaders;
 };
 	      </pre>
 	  </ul>
-	  <p>
-The object directory needs to be kept entirely in memory
-until past the end of a checkpoint.
-<em>Question: Instead of chaining directory frames, why not
-write them contiguously at the end of a checkpoint?</em>
-This might make it more efficient to read them in on restart.
-The same question applies to the process directory.
-	  </p>
+    <p>
+      The object directory needs to be kept entirely in memory
+      even past when a checkpoint is stabilized. It makes sense to
+      write the entire object directory into sequential log locations
+      at the end of the checkpoint.
+    </p>
+    <p>
+      The process directory must be saved as of the time of the
+      demarcation event. It makes sense to write it into contigous log
+      locations immediatly after the pages and log pots that were
+      written before the demarcation even.
+    </p>
+    <p>
+      Contiguous log locations allow easy scheduling of writes and
+      reads during checkpoint and restart, as all the locations of the
+      directories are know initially.
+    </p>
           <p>Implementor note: The old 32 bit lid was referred to as
             a LogLoc in the code.</p>
 	  <p>
@@ -382,36 +393,49 @@ The same question applies to the process directory.
 		system will not restart.
 	      </p>
 	    </dd>
-	    <dt>
-	      <b>processDirDirect</b>, <b>nProcessDirEntries</b>
-	    </dt>
+	    <dt><b>firstProcessDirFrame</b>, <b>nProcessDirFrames</b></dt>
 	    <dd>
 	      <p>
-If <tt>processDirDirect</tt> is true, then the process directory is held
-directly in the generation header frame.
-The generation header frame contains a list of the entries.
-<tt>nProcessDirEntries</tt> is the number of entries in that list,
-which follows the header.
+		The <tt>firstProcessDirFrame</tt> is the LID of the
+		first frame of the process directory. If the entire
+		process directory is in the checkpoint header, it will
+		be zero. <tt>nProcessDirFrames</tt> is the number of
+		process directory frames.
 	      </p>
+	    </dd>
+	    <dt><b>firstObjectDirFrame</b>, <b>nObjectDirFrames</b></dt>
+	    <dd>
 	      <p>
-If <tt>processDirDirect</tt> is false,
-then the process directory is held in directory frames (described below).
-The generation header frame contains a list of the LIDs of 
-process directory frames
-(additional frames may be chained off those).
-<tt>nProcessDirEntries</tt> is the number of entries in that list,
-which follows the header.
+		The <tt>firstObjectDirFrame</tt> is the LID of the
+		first frame of the object directory. If the entire
+		object directory is in the checkpoint header, it will
+		be zero. <tt>nObjectDirFrames</tt> is the number of
+		object directory frames.
 	      </p>
 	    </dd>
 	    <dt>
-	      <b>objectDirDirect</b>, <b>nObjectDirEntries</b>
+	      <b>nProcessDescriptors</b>
 	    </dt>
 	    <dd>
 	      <p>
-These fields describe the object directory, similarly
-to the process directory above.
-The list of object directory entries or LIDs in the generation header frame
-folllows the process directory list.
+		Part of the process directory may be held in the
+		generation header frame.
+		<tt>nProcessDescriptors</tt> is the number of process
+		descriptors in that list. They immediately follow the
+		header.
+	      </p>
+	    </dd>
+	    <dt>
+	      <b>nObjectDescriptors</b>
+	    </dt>
+	    <dd>
+	      <p>
+		Similarly, part of the object directory may be held in
+		the generation header
+		frame. <tt>nObjectDescriptors</tt> is the number of
+		object descriptors in the header. They immediately
+		follow any process directory frames that may be in
+		that header.
 	      </p>
 	    </dd>
 	    <dt>
@@ -426,17 +450,15 @@ folllows the process directory list.
 	  </dl>
 	  <h3>3.2 The Process Directory</h3>
 	  <p>
-	    The firstProcessPage field of the generation header
-	    names the location of a process directory frame.  A process
-	    directory frame consists of a <em>lid</em> for the next
-	    process directory frame (zero if none), a single word describing the
+	    A process
+	    directory frame consists of a single word describing the
 	    number of following entries, and then some number of
 	    process descriptors. With 8 byte OIDs and 4 byte ObCounts,
-	    a 4K process directory frame can describe 340 processes.
+	    a 4K process directory frame can describe 341 processes.
 	  </p>
 	  <ul>
 	      <pre>
-struct processDirEnt {
+struct processDescriptor{
   OID      oid;
   ObCount  allocCount;
 };
@@ -475,18 +497,18 @@ struct processDirEnt {
 	  </p>
 	  <h3>3.3 The Object Directory</h3>
 	  <p>
-	    The remaining directory lids in the generation header
-	    identify object directory frames.  Each entry holds an
-	    object identifier, the object's allocation and call counts, the type of the
-	    object, and the <em>lid</em> at which the object can be
+	    The object directory frames hold ObjectDescriptors. Each
+	    object descriptor holds an object identifier, the object's
+	    allocation and call counts, the type of the object, and
+	    the <em>lid</em> at which the object can be
 	    found. With 8 byte OIDs, 4 byte ObCounts, 8 byte LID,
 	    and 1 byte types, each 4kB frame can hold a description of
-	    163 objects (allowing for a count of entries and a chain
-	    pointer at the start of the frame).
+	    163 objects (assuming unaligned/packed storage and
+	    allowing for a count of entries at the start of the frame).
 	  </p>
 	  <ul>
 	      <pre>
-struct CkptDirent {
+struct ObjectDescriptor {
   OID       oid;
   ObCount   allocCount;
   ObCount   callCount
@@ -592,7 +614,8 @@ struct CkptDirent {
 	  </p>
 	  <p>
             At the demarcation event, dirty objects in RAM are
-            marked "copy on write", 
+            marked "copy on write", the Activity structure is saved as
+            a process directory,
             the <em>next</em> generation is started,
             and execution resumes.
             At this time we say a checkpoint is <em>active</em>.
@@ -875,41 +898,30 @@ Mark object clean and adjust the corresponding reservation downwards.
 	  </ul>
 	  <h4>6.4.3 Directory Write</h4>
 	  <p>
-            At the end of a checkpoint, we must write the object directory
-and the process directory. Each directory can be one- or two-level,
-and the space allocated to each in the header is variable. 
-This algorithm treats the two directories symmetrically.
+            During checkpoint stabilization, we must write the process
+	    directory and the object directory. 
+	    The space allocated to each in the header is variable. 
+	    Since the process directory is written before the dirty
+	    objects, we treat it first.
 	  </p>
 	  <p>
 Let S be the amount of space in the generation header frame
 after the header.
 	  </p>
 	  <p>
-First, if the total number of entries in both directories fits in S,
-then just put those entries directly in the header frame.
-We are done. 
+	    First, if the total number of descriptors in process directory
+	    fits in S, then just put them directly in the
+	    header frame and reduce S by the space used.
 	  </p>
 	  <p>
-Otherwise, let L be either the object directory
-or the process directory, whichever is larger,
-and let S be the smaller directory.
-We will use directory frames for at least directory L.
-Let LF be the number of frames required to hold the entries
-for directory L.
+	    Otherwise, put the all the descriptors that will fit in
+	    the header frame and set S to zero.
 	  </p>
 	  <p>
-Let P be the minimum amount of parallelism we want to have
-when reading the frames of a directory, say 10.
-Let M = min(LF, P).
-We will use at least M entries in the generation header frame
-for entries for the frames of L.
-	  </p>
-	  <p>
-If the entries of S fit in space (S - M), then put those entries
-directly in the generation header frame,
-and use the rest of the frame for L.
-Otherwise, we will use directory frames for S as well as L;
-divide the space S proportionately between L and S. 
+	    After all the objects have been written, put as many
+	    object descriptors as will fit in the remaining space in
+	    the header frame, and write the rest into object directory
+	    frames at the end of the checkpoint.
 	  </p>
 	  <h2>7. The Core Directory</h2>
 	  <p>
