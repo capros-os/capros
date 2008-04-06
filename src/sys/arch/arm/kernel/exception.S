@@ -78,6 +78,7 @@ traceMsg: .asciz "."
 #endif	// EXCEPTION_TRACE
 
 	.text
+
 // InitExceptionHandlers is entered and exits in Supervisor mode
 // with IRQ and FIQ disabled.
 	ENTRY(InitExceptionHandlers)
@@ -93,6 +94,47 @@ traceMsg: .asciz "."
 	ldr sp,=FIQStackBot
 	msr cpsr_c,#(IRQFIQDisable + CPSRMode_Supervisor)
 	mov pc,r14	// return
+
+#ifndef NDEBUG
+	ENTRY(CheckExceptionHandlerStacks)
+	mrs r3,cpsr	// save
+
+	msr cpsr_c,#(IRQFIQDisable + CPSRMode_Abort)
+	ldr r2,=AbtStackBot
+	cmp sp,r2
+	bne abtStkErr
+	msr cpsr_c,#(IRQFIQDisable + CPSRMode_Undefined)
+	ldr r2,=UndStackBot
+	cmp sp,r2
+	bne undStkErr
+	msr cpsr_c,#(IRQFIQDisable + CPSRMode_IRQ)
+	ldr r2,=IRQStackBot
+	cmp sp,r2
+	bne irqStkErr
+	msr cpsr_c,#(IRQFIQDisable + CPSRMode_FIQ)
+	ldr r2,=FIQStackBot
+	cmp sp,r2
+	bne fiqStkErr
+	msr cpsr_c,#(IRQFIQDisable + CPSRMode_Supervisor)
+	ldr r2,=kstackBot
+	cmp sp,r2
+	bne supStkErr
+
+	msr cpsr,r3	// restore
+	mov pc,r14	// return
+
+abtStkErr:
+undStkErr:
+irqStkErr:
+fiqStkErr:
+supStkErr:
+	ldr r0,=ckStackMsg
+	bl printf
+0:	bl Debugger
+	b 0b
+ckStackMsg:	.asciz "Stack pointer error!\n"
+	.balign 4
+#endif
 
 /***********************************************************************
  Reset handler

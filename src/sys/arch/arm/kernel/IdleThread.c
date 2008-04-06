@@ -41,6 +41,11 @@ IdleActivity_Start(void)
   // which is a Bad Thing.
 
   for(;;) {
+#ifndef NDEBUG
+    extern void CheckExceptionHandlerStacks(void);
+    CheckExceptionHandlerStacks();
+#endif
+
 #if 1
     // Show idle activity
     volatile int x;
