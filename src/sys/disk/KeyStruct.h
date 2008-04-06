@@ -2,7 +2,7 @@
 #define __DISK_KEYSTRUCT_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -26,7 +26,7 @@ Approved for public release, distribution unlimited. */
 
 #include <disk/ErosTypes.h>
 #ifdef __KERNEL__
-#include <kerninc/Link.h>
+#include <eros/Link.h>
 #endif
 
 typedef unsigned KeyType;

@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
  * is returned to the Activity free list.
  */
 
-#include <kerninc/Link.h>
+#include <eros/Link.h>
 #include <kerninc/Key.h>
 #include <kerninc/Process.h>
 #include <kerninc/SysTimer.h>

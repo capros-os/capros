@@ -30,29 +30,30 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=
 DIRS=arch/$(EROS_TARGET) machine
 HEADERS=\
-	target.h \
-	target-asm.h \
 	cap-instr.h \
-	Invoke.h \
-	DevCreKey.h \
-	DeviceKey.h \
-	KeyboardKey.h \
+	CharSrcProto.h \
 	ConsoleKey.h \
-	SchedCreKey.h \
+	DevCreKey.h \
 	Device.h \
-	Reserve.h \
 	DeviceDef.h \
-	KeyConst.h \
+	DeviceKey.h \
 	endian.h \
 	ffs.h \
 	fls.h \
+	Invoke.h \
+	KeyboardKey.h \
+	KeyConst.h \
+       	Link.h \
+	ProcessState.h \
+	ProcStats.h \
+	Reserve.h \
+	SchedCreKey.h \
 	stdarg.h \
+	target.h \
+	target-asm.h \
 	TimeOfDay.h \
 	TimePage.h \
-	ProcStats.h \
-	CharSrcProto.h \
 	TtyKey.h \
-	ProcessState.h
 
 IDLSRC=$(wildcard *.idl)
 

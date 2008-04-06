@@ -27,7 +27,7 @@ Approved for public release, distribution unlimited. */
 /* KeyRing is an overlay on both the KeyBits structure and the
  * ObjectHeader structure.
  */
-#include <kerninc/Link.h>
+#include <eros/Link.h>
 
 typedef struct Link KeyRing;
 
