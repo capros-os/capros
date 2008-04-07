@@ -174,8 +174,6 @@ extern Process*   proc_fpuOwner;	/* FIX: This is not SMP-feasible. */
 extern Process *proc_ContextCache;
 /* End static members */
   
-INLINE Process * proc_Current(void);
-
 /* Former member functions of KernProcess */
 typedef struct KernProcess KernProcess;
 

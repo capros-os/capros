@@ -1,0 +1,10 @@
+package capros;
+
+/** Kernel interface to system control functions.
+ *
+ */
+interface SysTrace extends key {
+  void CheckConsistency();
+
+  void clearKernelStats();
+};

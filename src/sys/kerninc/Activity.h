@@ -160,14 +160,6 @@ act_SetRunning(Activity* thisPtr)
   thisPtr->state = act_Running;
 }
 
-INLINE Process * 
-act_CurContext()
-{
-  Process * p = proc_Current();
-  assert(p);
-  return p;
-}
-
 INLINE bool 
 act_IsUser(Activity* thisPtr)
 {

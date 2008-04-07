@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -18,24 +18,46 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 /* This material is based upon work supported by the US Defense Advanced
-Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
-W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
-#include <string.h>
 #include <kerninc/kernel.h>
+#include <kerninc/util.h>
 #include <kerninc/Invocation.h>
-#include <idl/capros/arch/arm/SysTrace.h>
+#include <kerninc/KernStats.h>
+#include <idl/capros/SysTrace.h>
 
 void
-SysTraceKey(Invocation * inv)
+SysTraceCommon(Invocation * inv, Process * proc)
 {
-  inv_GetReturnee(inv);
+  COMMIT_POINT();
 
   switch(inv->entry.code) {
-  default: ;
-    void SysTraceCommon(Invocation *);
-    SysTraceCommon(inv);
-    return;
+  case OC_capros_key_getType:
+    inv->exit.code = RC_OK;
+    inv->exit.w1 = AKT_SysTrace;
+    break;
+    
+  default:
+    inv->exit.code = RC_capros_key_UnknownRequest;
+    break;
+
+  case OC_capros_SysTrace_CheckConsistency:
+    {
+      // Performance test of check.
+      #include <kerninc/Check.h>
+      check_Consistency("SysTrace");
+
+      inv->exit.code = RC_OK;
+      break;
+    }
+  case OC_capros_SysTrace_clearKernelStats:
+    {
+      kzero(&KernStats, sizeof(KernStats));
+      inv->exit.code = RC_OK;
+      break;
+    }
   }
+
   ReturnMessage(inv);
 }

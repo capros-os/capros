@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -93,6 +93,7 @@ file("key/mk_Checkpoint.c")
 file("key/mk_Console.c")
 file("key/mk_SchedCreator.c")
 file("key/mk_VoidKey.c")
+file("key/mk_SysTraceCommon.c")
 file("kernel/kern_Key.c")
 # file("pci/pci_PCI.cxx")
 # file("pci/pci_dev.cxx")

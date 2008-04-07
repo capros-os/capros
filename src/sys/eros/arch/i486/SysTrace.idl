@@ -1,9 +1,9 @@
 package capros.arch.i386;
 
-/** Kernel interface to number keys.
+/** Kernel interface to i386 system control function.
  *
  */
-interface SysTrace extends capros.key {
+interface SysTrace extends capros.SysTrace {
   unsigned long enum mode {
     cycles   = 0, /* cycles executed */
     instrs   = 1, /* instrs executed */
@@ -32,6 +32,4 @@ interface SysTrace extends capros.key {
   void stopCounter();
   void stopCounterVerbose();
   unsigned long long getCycle();
-
-  void clearKernelStats();
 };

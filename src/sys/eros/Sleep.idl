@@ -7,6 +7,7 @@ interface Sleep extends key {
   /* The following does not work due to a bug in capidl:
   const unsigned <64> infiniteTime = 18446744073709000000; // about UINT64_MAX
   */
+  /* (Note: 2**64 nanoseconds is about 584 years.) */
 
   /* Returns the time in nanoseconds since some time in the past. 
      FIXME: Is this monotonic over checkpoint/restart? */

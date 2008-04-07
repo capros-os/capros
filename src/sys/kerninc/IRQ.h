@@ -2,7 +2,7 @@
 #define __IRQ_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -24,6 +24,7 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <kerninc/Process-inline.h>
 #include <arch-kerninc/SaveArea.h>
 #include <kerninc/StallQueue.h>
 #include <arch-kerninc/IRQ-inline.h>

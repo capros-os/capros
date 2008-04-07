@@ -2,7 +2,7 @@
 #define __PROCESS_INLINE_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -35,6 +35,15 @@ proc_Current(void)
   assert((act_Current() == NULL && proc_curProcess == NULL)
          || (act_Current()->context == proc_curProcess));
   return proc_curProcess;	// could be NULL
+}
+
+// This procedure's name is historical.
+INLINE Process *
+act_CurContext()
+{
+  Process * p = proc_Current();
+  assert(p);
+  return p;
 }
 
 INLINE bool 

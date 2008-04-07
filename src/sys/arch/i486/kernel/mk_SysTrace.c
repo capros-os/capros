@@ -25,17 +25,12 @@ Approved for public release, distribution unlimited. */
 #include <string.h>
 #include <kerninc/kernel.h>
 #include <kerninc/util.h>
-#include <kerninc/Key.h>
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/Machine.h>
-#include <kerninc/Activity.h>
 #include <kerninc/KernStats.h>
 #include <eros/Invoke.h>
-#include <eros/StdKeyType.h>
-
-#include <idl/capros/key.h>
 #include <idl/capros/arch/i386/SysTrace.h>
 
 const char *mach_ModeName(uint32_t mode);
@@ -103,23 +98,17 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
   static uint64_t startInvoke = 0ll;
   static uint64_t startInter = 0ll;
   static int32_t activeMode = 0;
-  
-  if (inv->entry.code == OC_capros_arch_i386_SysTrace_reportCounter)
-    proc_SetupExitString(inv->invokee, inv, sizeof(struct capros_arch_i386_SysTrace_info));
 
-  COMMIT_POINT();
-  
   switch(inv->entry.code) {
-  case OC_capros_key_getType:
-    inv->exit.code = RC_OK;
-    inv->exit.w1 = AKT_SysTrace;
-    break;
+  default: ;
+    void SysTraceCommon(Invocation *);
+    SysTraceCommon(inv);
+    return;
 
-  default:
-    inv->exit.code = RC_capros_key_UnknownRequest;
-    break;
   case OC_capros_arch_i386_SysTrace_startCounter:
     {
+      COMMIT_POINT();
+
       /* Start counted behavior */
 
       startInvoke = KernStats.nInvoke;
@@ -184,6 +173,11 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
     }
   case OC_capros_arch_i386_SysTrace_reportCounter:
     {
+      proc_SetupExitString(inv->invokee, inv,
+                           sizeof(struct capros_arch_i386_SysTrace_info));
+  
+      COMMIT_POINT();
+
       struct capros_arch_i386_SysTrace_info st;
       uint64_t endcy;
 
@@ -214,6 +208,8 @@ SysTraceKey(Invocation* inv /*@ not null @*/)
     }
   case OC_capros_arch_i386_SysTrace_stopCounter:
     {
+      COMMIT_POINT();
+
 #if 0 // Performance test of check.
       uint64_t endcy;
       uint64_t cy;
@@ -344,6 +340,8 @@ for (i=0; i<10; i++) {
       uint64_t ticks;
       uint64_t dms;
       uint32_t ms;
+
+      COMMIT_POINT();
       
       if (activeMode == -1) {
 	inv->exit.code = RC_capros_key_NoAccess;
@@ -435,18 +433,10 @@ for (i=0; i<10; i++) {
       inv->exit.code = RC_OK;
       break;
     }
-  case OC_capros_arch_i386_SysTrace_clearKernelStats:
-    {
-#ifdef OPTION_KERN_TIMING_STATS
-      Invocation::ZeroStats();
-#endif
-      
-      kzero(&KernStats, sizeof(KernStats));
-      inv->exit.code = RC_OK;
-      break;
-    }
   case OC_capros_arch_i386_SysTrace_getCycle:
     {
+      COMMIT_POINT();
+
       uint64_t cy = rdtsc();
       inv->exit.code = RC_OK;
       inv->exit.w1 = (cy >> 32);
