@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group
+ * Copyright (C) 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -23,7 +23,7 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <domain/domdbg.h>
-#include <idl/capros/arch/arm/SysTrace.h>
+#include <idl/capros/SysTrace.h>
 
 #define KR_VOID 0
 #define KR_OSTREAM 10
@@ -76,7 +76,7 @@ main()
     offset += 4;
   }
 
-  capros_arch_arm_SysTrace_CheckConsistency(KR_SYSTRACE);
+  capros_SysTrace_CheckConsistency(KR_SYSTRACE);
 
   kprintf(KR_OSTREAM, "Done\n");
 

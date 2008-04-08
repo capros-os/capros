@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -29,7 +29,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
 #include <domain/domdbg.h>
-#include <idl/capros/arch/arm/SysTrace.h>
+#include <idl/capros/SysTrace.h>
 
 #define KR_VOID 0
 #define KR_ECHO 8
@@ -206,7 +206,7 @@ main()
   result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
   for (i = 0; i < CheckInterations; i++)
-    capros_arch_arm_SysTrace_CheckConsistency(KR_SYSTRACE);
+    capros_SysTrace_CheckConsistency(KR_SYSTRACE);
 
   result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
