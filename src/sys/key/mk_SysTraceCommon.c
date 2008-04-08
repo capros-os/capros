@@ -51,12 +51,18 @@ SysTraceCommon(Invocation * inv, Process * proc)
       inv->exit.code = RC_OK;
       break;
     }
+
   case OC_capros_SysTrace_clearKernelStats:
     {
       kzero(&KernStats, sizeof(KernStats));
       inv->exit.code = RC_OK;
       break;
     }
+
+  case OC_capros_SysTrace_setInvocationTrace:
+    traceInvs = inv->entry.w1;
+    inv->exit.code = RC_OK;
+    break;
   }
 
   ReturnMessage(inv);

@@ -62,6 +62,7 @@ typedef struct ExitBlock ExitBlock;
 #ifndef NDEBUG
 extern bool InvocationCommitted;
 extern bool ReturneeSetUp;
+extern bool traceInvs;
 #endif
 
 #if 0

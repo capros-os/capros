@@ -194,6 +194,7 @@ Invocation inv;
 #ifndef NDEBUG
 bool InvocationCommitted = false;
 bool ReturneeSetUp = false;
+bool traceInvs = false;
 #endif
 
 /* May Yield. */
@@ -652,15 +653,19 @@ proc_DoKeyInvocation(Process* thisPtr)
   inv.invKeyType = keyBits_GetType(inv.key);
 #endif
 
-#ifdef GATEDEBUG
-  printf("Ivk proc=0x%08x ", thisPtr);
-  if (thisPtr->procRoot &&
-      keyBits_IsType(&thisPtr->procRoot->slot[ProcSymSpace], KKT_Number)) {
-    void db_eros_print_number_as_string(Key* k);
-    db_eros_print_number_as_string(&thisPtr->procRoot->slot[ProcSymSpace]);
+#ifndef NDEBUG
+  if (traceInvs) {
+    /* logging mach_TicksToNanoseconds(sysT_Now()) is of little use,
+    because the time to print the message dominates. */
+    printf("Ivk proc=%#x ", thisPtr);
+    if (thisPtr->procRoot &&
+        keyBits_IsType(&thisPtr->procRoot->slot[ProcSymSpace], KKT_Number)) {
+      void db_eros_print_number_as_string(Key* k);
+      db_eros_print_number_as_string(&thisPtr->procRoot->slot[ProcSymSpace]);
+    }
+    printf(" invSlot=%d oc=%#x\n",
+           inv.key - &thisPtr->keyReg[0], inv.entry.code);
   }
-  printf(" invSlot=%d oc=%#x\n",
-         inv.key - &thisPtr->keyReg[0], inv.entry.code);
 #endif
 
   /* If this is a prompt invocation, it MUST be done on a resume key.
