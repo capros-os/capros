@@ -332,7 +332,8 @@ del_timer(struct timer_list * timer)
 
 /* Returns 0 if timer was inactive, 1 if was active. */
 int
-__mod_timer(struct timer_list * timer, unsigned long expires)
+__mod_timer_duration(struct timer_list * timer, unsigned long duration,
+                     uint64_t now64)
 {
   unsigned long flags = 0;
   int ret = 0;
@@ -350,17 +351,9 @@ __mod_timer(struct timer_list * timer, unsigned long expires)
     ret = 1;
   }
 
-  timer->expires = expires;
-
-  /* jiffies overflows 32 bits in 497 days (at HZ=100).
-  We have to assume that no one waits for longer than half that.
-  The following calculations will convert the 32-bit expires time
-  to a 64 bit true expiration time. */
-  uint64_t now64 = get_jiffies_64();	// a reference time close to now
   unsigned long now = (unsigned long) now64;	// jiffies, correctly truncated
-
-  /* Ignore any overflow on the following subtraction: */
-  int32_t duration = expires - now;
+  unsigned int expires = now + duration;
+  timer->expires = expires;	// for the client, not for us
 
   uint64_t caprosExpiration
     = timer->caprosExpiration
@@ -388,6 +381,23 @@ __mod_timer(struct timer_list * timer, unsigned long expires)
 
 /* Returns 0 if timer was inactive, 1 if was active. */
 int
+__mod_timer(struct timer_list * timer, unsigned long expires)
+{
+  /* jiffies overflows 32 bits in 497 days (at HZ=100).
+  We have to assume that no one waits for longer than half that.
+  The following calculations will convert the 32-bit expires time
+  to a 64 bit true expiration time. */
+  uint64_t now64 = get_jiffies_64();
+  unsigned long now = (unsigned long) now64;	// jiffies, correctly truncated
+
+  /* Ignore any overflow on the following subtraction: */
+  int32_t duration = expires - now;
+
+  return __mod_timer_duration(timer, duration, now64);
+}
+
+/* Returns 0 if timer was inactive, 1 if was active. */
+int
 mod_timer(struct timer_list * timer, unsigned long expires)
 {
 #ifdef TIMERDEBUG
@@ -400,6 +410,17 @@ mod_timer(struct timer_list * timer, unsigned long expires)
                 return 1;
 
         return __mod_timer(timer, expires);
+}
+
+/* Returns 0 if timer was inactive, 1 if was active. */
+int
+mod_timer_duration(struct timer_list * timer, unsigned long duration)
+{
+#ifdef TIMERDEBUG
+  kprintf(KR_OSTREAM, "mod_timer_dur 0x%x %d\n", timer, duration);
+#endif
+
+  return __mod_timer_duration(timer, duration, get_jiffies_64());
 }
 
 unsigned long

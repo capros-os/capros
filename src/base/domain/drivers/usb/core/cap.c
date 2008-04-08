@@ -240,6 +240,30 @@ getEp(struct usb_device * udev, unsigned long endpoint)
   }
 }
 
+/* Cached urbs have an urbToCap slot already allocated. */
+unsigned int numCachedUrbs = 0;
+#define maxCachedUrbs 8
+struct urb * urbCache = NULL;
+
+void
+usb_freeUrbWithCap(struct urb * urb)
+{
+  if (urb->complete == &DeviceUrbCompletion	// not iso, no packets
+      && numCachedUrbs < maxCachedUrbs) {	// add to cache
+    numCachedUrbs++;
+    urb->urb_list.next = (void *)urbCache;
+    urbCache = urb;
+  } else {
+#if 0	// no point in this; a single slot never gets deallocated
+    capros_Node_extAddr_t resumeCap = urbToCap(urb);
+    result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
+               resumeCap, resumeCap);
+    (void)result;
+#endif
+    kfree(urb);
+  }
+}
+
 static void
 HandleSubmitUrb(Message * msg, struct usb_device * udev, int numPkts)
 {
@@ -268,20 +292,36 @@ HandleSubmitUrb(Message * msg, struct usb_device * udev, int numPkts)
     return;
   }
 
-  struct urb * urb = usb_alloc_urb(numPkts, GFP_KERNEL);
-  if (! urb) {
-    msg->snd_code = RC_capros_Errno_NoMem;
-    return;
-  }
+  // Get a cached urb if there is one.
+  // Only urbs with numPkts==0 are cached.
+  struct urb * urb;
+  capros_Node_extAddr_t resumeCap;
+  if (! numPkts && urbCache) {
+    assert(numCachedUrbs);
+    numCachedUrbs--;
+    urb = urbCache;
+    urbCache = (void *)urb->urb_list.next;
+    usb_init_urb(urb);
+    resumeCap = urbToCap(urb);
+  } else {
+    urb = usb_alloc_urb(numPkts, GFP_KERNEL);
+    if (! urb) {
+      msg->snd_code = RC_capros_Errno_NoMem;
+      return;
+    }
 
-  // Allocate storage for the caller's resume cap.
-  // Use the address of the urb as a unique address for the cap.
-  capros_Node_extAddr_t resumeCap = urbToCap(urb);
-  result = capros_SuperNode_allocateRange(KR_KEYSTORE, resumeCap, resumeCap);
-  if (result != RC_OK) {
-    msg->snd_code = result;
-    goto fail0;
+    // Allocate storage for the caller's resume cap.
+    // Use the address of the urb as a unique address for the cap.
+    resumeCap = urbToCap(urb);
+    result = capros_SuperNode_allocateRange(KR_KEYSTORE, resumeCap, resumeCap);
+    if (result != RC_OK) {
+      msg->snd_code = result;
+      goto fail0;
+    }
   }
+  /* Remember there is a cap in KR_KEYSTORE associated with this urb,
+  so it can be cached when we are done with it: */
+  urb->hasCap = true;
 
   urb->dev = udev;
   urb->pipe = (inputUrb->endpoint & 0x78080) // endpoint num and direction
@@ -318,9 +358,11 @@ HandleSubmitUrb(Message * msg, struct usb_device * udev, int numPkts)
 
   if (ret) {
     msg->snd_code = capros_Errno_ErrnoToException(-ret);
+#if 0	// no point in this; a single slot never gets deallocated
     result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
                resumeCap, resumeCap);
     (void)result;
+#endif
 fail0:
     usb_free_urb(urb);
     return;

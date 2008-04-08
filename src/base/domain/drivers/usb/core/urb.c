@@ -28,13 +28,17 @@ Approved for public release, distribution unlimited. */
 #include <linux/init.h>
 #include <linux/usb.h>
 #include "hcd.h"
+#include "usb.h"
 
 #define to_urb(d) container_of(d, struct urb, kref)
 
 static void urb_destroy(struct kref *kref)
 {
 	struct urb *urb = to_urb(kref);
-	kfree(urb);
+	if (urb->hasCap)
+		usb_freeUrbWithCap(urb);
+        else
+		kfree(urb);
 }
 
 /**

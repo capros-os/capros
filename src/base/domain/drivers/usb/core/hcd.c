@@ -587,7 +587,7 @@ void usb_hcd_poll_rh_status(struct usb_hcd *hcd)
 	 * exceed that limit if HZ is 100. */
 	if (hcd->uses_new_polling ? hcd->poll_rh :
 			(length == 0 && hcd->status_urb != NULL)) {
-		mod_timer (&hcd->rh_timer, jiffies + msecs_to_jiffies(250));
+		mod_timer_duration(&hcd->rh_timer, msecs_to_jiffies(250));
 	}
 }
 EXPORT_SYMBOL_GPL(usb_hcd_poll_rh_status);
@@ -617,12 +617,12 @@ static int rh_queue_status (struct usb_hcd *hcd, struct urb *urb)
 		urb->hcpriv = hcd;	/* indicate it's queued */
 
 		if (!hcd->uses_new_polling)
-			mod_timer (&hcd->rh_timer, jiffies +
+			mod_timer_duration(&hcd->rh_timer,
 					msecs_to_jiffies(250));
 
 		/* If a status change has already occurred, report it ASAP */
 		else if (hcd->poll_pending)
-			mod_timer (&hcd->rh_timer, jiffies);
+			mod_timer_duration(&hcd->rh_timer, 0);
 		retval = 0;
 	}
 	spin_unlock_irqrestore (&hcd_root_hub_lock, flags);
@@ -1375,7 +1375,7 @@ int usb_bus_start_enum(struct usb_bus *bus, unsigned port_num)
 	 * it may issue others, until at least 50 msecs have passed.
 	 */
 	if (status == 0)
-		mod_timer(&hcd->rh_timer, jiffies + msecs_to_jiffies(10));
+		mod_timer_duration(&hcd->rh_timer, msecs_to_jiffies(10));
 	return status;
 }
 EXPORT_SYMBOL (usb_bus_start_enum);

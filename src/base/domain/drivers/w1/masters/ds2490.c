@@ -32,6 +32,10 @@
 #include <domain/assert.h>
 #include <asm/USBIntf.h>
 
+#ifdef TIMING
+#include <idl/capros/SysTrace.h>
+#endif
+
 #define dbg_prog   0x1
 #define dbg_status 0x2
 
@@ -63,7 +67,7 @@ static int ds_usb_io(capros_USB_urb * urb,
   capros_USBInterface_urbResult urbResult;
 
   setup_timer(&tim, usb_w1_msg_timer_function, endpoint);
-  mod_timer(&tim, jiffies + timeout);
+  mod_timer_duration(&tim, timeout);
 
   result = capros_USBInterface_submitUrb(KR_USBINTF, *urb,
              KR_VOID, KR_VOID, KR_VOID, KR_TEMP0, &urbResult);
@@ -792,7 +796,18 @@ if (ep2Size == 17) {////
       {
         uint8_t app = 0;
         // Check the status from reset
+
+#ifdef TIMING
+      result_t result = capros_SysTrace_setInvocationTrace(KR_SysTrace, true);
+      assert(result == RC_OK);
+#endif
+
         err = waitStatus();
+
+#ifdef TIMING
+      capros_SysTrace_setInvocationTrace(KR_SysTrace, false);
+#endif
+
         assert(err >= 16);	// FIXME handle or report
         if (err > 16) {		// got a result
           uint8_t result = cm->status.results[0];

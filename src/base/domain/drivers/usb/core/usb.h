@@ -203,6 +203,8 @@ urbToCap(struct urb * urb)
   return (unsigned long)urb / sizeof(struct urb);
 }
 
+void usb_freeUrbWithCap(struct urb * urb);
+
 extern struct list_head newInterfacesList;
 extern struct mutex newInterfacesMutex;
 extern bool waitingForNewInterfaces;

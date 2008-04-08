@@ -231,6 +231,7 @@ driver_main(void)
   printk("USB DS2490 driver called.\n");
 
   COPY_KEYREG(KR_ARG(0), KR_USBINTF);
+  capros_Node_getSlotExtended(KR_CONSTIT, KC_SYSTRACE, KR_SysTrace);
     
   // In a coroutine, reply to the caller and ask for the
   // capros_USBDriverConstructorExtended_NewInterfaceData. 

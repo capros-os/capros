@@ -152,7 +152,7 @@ static int usb_stor_msg_common(struct us_data *us, int timeout)
 	if (timeout) {
 		setup_timer(&tim, usb_stor_msg_timer_function,
 			us->current_urb->pipe);
-		mod_timer(&tim, jiffies + timeout);
+		mod_timer_duration(&tim, timeout);
 	}
 
 	/* since the URB will be submitted, it's now okay

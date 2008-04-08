@@ -22,12 +22,16 @@
 #include <idl/capros/W1Bus.h>
 #include "../../usb/lib/usbdev.h"
 
+// #define TIMING
+
 unsigned long capros_Errno_ExceptionToErrno(unsigned long excep);
 unsigned long capros_Errno_ErrnoToException(unsigned long errno);
 
 #define KC_NOTIFY KC_APP2(0)
+#define KC_SYSTRACE KC_APP2(1)
 
 // KR_APP2(0) is KR_USBINTF from lib/usbdev.h
+#define KR_SysTrace KR_APP2(1)
 
 /* COMMAND TYPE CODES */
 #define CONTROL_CMD			0x00

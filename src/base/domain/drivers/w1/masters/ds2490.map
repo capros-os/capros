@@ -32,5 +32,6 @@ Approved for public release, distribution unlimited. */
 DYNDRIVER_CONSTRUCTOR(ds2490, drivers/ds2490, 0)
 // Define nplink elsewhere.
 PROD_CONSTIT(ds2490_c, , KC_APP2(0)) = nplink;
+PROD_CONSTIT(ds2490_c, , KC_APP2(1)) = misc SysTrace;
 
 #endif // __DS2490_MAP_
