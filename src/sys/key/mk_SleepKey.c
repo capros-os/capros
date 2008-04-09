@@ -41,6 +41,9 @@ Approved for public release, distribution unlimited. */
 void
 SleepKey(Invocation* inv /*@ not null @*/)
 {
+  uint64_t u64;
+  uint64_t wakeupTime;
+
   inv_GetReturnee(inv);
 
   switch (inv->entry.code) {
@@ -56,17 +59,28 @@ SleepKey(Invocation* inv /*@ not null @*/)
     }
       
   case OC_capros_Sleep_sleep:
+    u64 = (((uint64_t) inv->entry.w2) << 32)
+                  | ((uint64_t) inv->entry.w1);
+
+    wakeupTime = sysT_Now() + mach_MillisecondsToTicks(u64);
+    goto sleepCommon;
+      
+  case OC_capros_Sleep_sleepForNanoseconds:
+    u64 = (((uint64_t) inv->entry.w2) << 32)
+                  | ((uint64_t) inv->entry.w1);
+
+    wakeupTime = sysT_Now() + mach_NanosecondsToTicks(u64);
+    goto sleepCommon;
+
   case OC_capros_Sleep_sleepTill:
+    u64 = (((uint64_t) inv->entry.w2) << 32)
+                  | ((uint64_t) inv->entry.w1);
+
+    wakeupTime = mach_NanosecondsToTicks(u64);
+    goto sleepCommon;
+
+  sleepCommon:
     {
-      uint64_t ms = (((uint64_t) inv->entry.w2) << 32)
-                    | ((uint64_t) inv->entry.w1);
-
-      uint64_t wakeupTime;
-      if (inv->entry.code == OC_capros_Sleep_sleep)
-        wakeupTime = sysT_Now() + mach_MillisecondsToTicks(ms);
-      else
-        wakeupTime = mach_NanosecondsToTicks(ms);
-
 #if 0
       uint64_t nw = sysT_Now();
       printf("sleep till %#llx now=%#llx diff=%lld\n",

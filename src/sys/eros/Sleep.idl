@@ -17,6 +17,10 @@ interface Sleep extends key {
   /** Sleep until the specified number of milliseconds has passed */
   void sleep(unsigned long long ms);
 
+  /** Sleep until the specified number of nanoseconds has passed */
+  // Due to a bug in capidl, it does not work to use nanoseconds_t here.
+  void sleepForNanoseconds(unsigned long long /* nanoseconds_t */ ns);
+
   /** Sleep until getTimeMonotonic() >= ns. */
   // Due to a bug in capidl, it does not work to use nanoseconds_t here.
   void sleepTill(unsigned long long /* nanoseconds_t */ ns);

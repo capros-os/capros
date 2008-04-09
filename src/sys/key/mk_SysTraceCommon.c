@@ -60,7 +60,9 @@ SysTraceCommon(Invocation * inv, Process * proc)
     }
 
   case OC_capros_SysTrace_setInvocationTrace:
+#ifndef NDEBUG
     traceInvs = inv->entry.w1;
+#endif
     inv->exit.code = RC_OK;
     break;
   }
