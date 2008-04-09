@@ -29,6 +29,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 IMGMAP=w1mult.map
 TARGETS=$(BUILDDIR)/w1mult $(BUILDDIR)/w1usbconfig
+OBJECTS=$(BUILDDIR)/w1mult.o $(BUILDDIR)/DS18B20.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
@@ -39,8 +40,8 @@ IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/w1mult: $(BUILDDIR)/w1mult.o $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(BUILDDIR)/w1mult.o -lsmall $(DOMLIB) -o $@
+$(BUILDDIR)/w1mult: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
+	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB) -o $@
 
 $(BUILDDIR)/w1usbconfig: $(BUILDDIR)/w1usbconfig.o
 	$(DOMLINK) -N -Tdata 0 -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) $(BUILDDIR)/w1usbconfig.o -o $@

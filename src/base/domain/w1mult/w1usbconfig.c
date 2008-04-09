@@ -1,5 +1,5 @@
 
-#include "w1mult.h"
+#include "w1multConfig.h"
 
 struct W1DevConfig _start[] = {
   // A coupler must precede the devices branched off it.

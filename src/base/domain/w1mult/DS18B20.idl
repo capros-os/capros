@@ -1,0 +1,22 @@
+package capros;
+
+/* The interface to a Dallas Semiconductor DS18B20 1-Wire digital thermometer.*/
+interface DS18B20 extends key 
+{
+  /* Set the sampling frequency and resolution.
+
+  The temperature will be sampled every 2**log2Seconds seconds.
+
+  The value will have res binary digits of fraction.
+  res must be in the range 1 through 4.
+  */
+  void configure(unsigned byte log2Seconds, unsigned byte res);
+
+  /* Get the latest temperature available.
+
+  Returns the temperature in units of 1/16 degree Celsius.
+  time is the time at which the temperature was sampled.
+  FIXME: what is the time base and units? Is it monotonic across restart?
+  */
+  void getTemperature(out short temperature, out unsigned long long time);
+};

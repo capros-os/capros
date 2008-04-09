@@ -30,7 +30,6 @@ Approved for public release, distribution unlimited. */
 #include <string.h>
 #include <eros/fls.h>
 #include <eros/target.h>
-#include <eros/Invoke.h>
 #include <eros/machine/cap-instr.h>
 
 #include <idl/capros/key.h>
@@ -38,16 +37,14 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Sleep.h>
 #include <idl/capros/Constructor.h>
 #include <idl/capros/SuperNode.h>
-#include <idl/capros/W1Bus.h>
 #include <idl/capros/W1Mult.h>
 
 #include <domain/domdbg.h>
 #include <domain/assert.h>
-#include <domain/Runtime.h>
 
 #include "w1mult.h"
-
-#define DEBUG
+#include "w1multConfig.h"
+#include "DS18B20.h"
 
 #define KC_SNODEC 0
 
@@ -61,11 +58,6 @@ Approved for public release, distribution unlimited. */
 uint32_t __rt_unkept = 1;
 unsigned long __rt_stack_pointer = 0x1f000;
 
-#define KR_OSTREAM KR_APP(0)
-#define KR_SLEEP   KR_APP(1)
-#define KR_W1BUS   KR_APP(2)
-#define KR_SNODE   KR_APP(3)
-
 bool haveBusKey = false;	// no key in KR_W1BUS yet
 
 // Stuff for programming the 1-Wire bus:
@@ -73,6 +65,7 @@ unsigned char outBuf[capros_W1Bus_maxProgramSize + 1];
 unsigned char * const outBeg = &outBuf[0];
 unsigned char * outCursor;
 unsigned char inBuf[capros_W1Bus_maxResultsSize];
+
 Message RunPgmMsg = {
   .snd_invKey = KR_W1BUS,
   .snd_code = 3,    // for now
@@ -91,6 +84,35 @@ Message RunPgmMsg = {
   .rcv_key2 = KR_VOID,
   .rcv_rsmkey = KR_VOID,
 };
+
+/******************* some utility procedures ************************/
+
+uint64_t
+GetCurrentTime(void)
+{
+  capros_Sleep_nanoseconds_t time;
+  result_t result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &time);
+  assert(result == RC_OK);
+  return time;
+}
+
+uint8_t
+CalcCRC8(uint8_t * data, unsigned int len)
+{
+  int i, j;
+  unsigned int crc = 0;
+
+  for (i = 0; i < len; i++) {		// for each byte
+    unsigned int s = data[i];
+    for (j = 0; j < 8; j++, s>>=1) {	// for each bit
+      if ((s ^ crc) & 0x1) {
+        crc ^= 0x118; // 0b100011000
+      }
+      crc >>= 1;      
+    }
+  }
+  return crc;
+}
 
 /* Run the program from outBeg to outCursor.
 Returns:
@@ -114,32 +136,13 @@ RunProgram(void)
 
 #define maxDevices 50
 
+struct W1Device devices[maxDevices];
+
 enum {
   branchUnknown = 0,
   branchMain = capros_W1Bus_stepCode_setPathMain,
   branchAux  = capros_W1Bus_stepCode_setPathAux
 };
-
-struct W1Device {
-  uint64_t rom;
-  struct W1Device * parent;    // parent coupler or NULL
-  uint8_t mainOrAux;            // which branch of parent
-  struct W1Device * nextInWorkQueue;
-  bool callerWaiting;	// whether snode slot has a resume key for this dev
-  bool found;	// temporary flag for searching
-  union {	// data specific to the type of device
-    struct {
-      uint8_t activeBranch;	// enumerated above
-      bool mainNeedsWork;
-      bool auxNeedsWork;
-    } coupler;
-    struct {
-      int16_t temperature;	// in units of 1/16 degree Celsius
-      capros_Sleep_nanoseconds_t time;	// time at which temperature was the above
-		// does this need to be in absolute real time?
-    } thermom;
-  } u;
-} devices[maxDevices];
 
 unsigned int numDevices = 0;
 
@@ -174,6 +177,34 @@ w1dev_IsBatt(struct W1Device * dev)
   return w1dev_getFamilyCode(dev) == famCode_DS2438;
 }
 #endif
+
+void
+AddressDevice(struct W1Device * dev)
+{
+  wp(capros_W1Bus_stepCode_resetSimple)
+  // Set up path through any couplers.
+  // Address parents from the bus root to the device. 
+  struct W1Device * addressedSoFar = NULL;
+  while (dev->parent != addressedSoFar) {
+    struct W1Device * pdev;
+    uint8_t pdevBranch = dev->mainOrAux;
+    for (pdev = dev->parent;
+         pdev->parent != addressedSoFar;
+         pdev = pdev->parent) {
+      pdevBranch = pdev->mainOrAux;
+    }
+    if (pdev->u.coupler.activeBranch != pdevBranch) {
+      wp(pdevBranch)	// capros_W1Bus_stepCode_setPath*
+      memcpy(outCursor, &pdev->rom, 8);
+      outCursor += 8;
+      addressedSoFar = pdev;
+    }
+  }
+
+  wp(capros_W1Bus_stepCode_matchROM)
+  memcpy(outCursor, &dev->rom, 8);
+  outCursor += 8;
+}
 
 /* Returns -1 if W1Bus cap is gone, else 0. */
 int
@@ -255,9 +286,7 @@ SearchPath(struct W1Device * parent, uint8_t mainOrAux)
 
       memcpy(&rom, inBuf, 8);	// little-endian
       memcpy(&discrep, inBuf+8, 8);
-#ifdef DEBUG
-      kprintf(KR_OSTREAM, "ROM %#.16llx\n", rom);
-#endif
+      DEBUG(search) kprintf(KR_OSTREAM, "ROM %#.16llx\n", rom);
 
       // Is this device in our configuration?
       /* This search could be more efficient, but I don't expect
@@ -294,9 +323,7 @@ SearchPath(struct W1Device * parent, uint8_t mainOrAux)
 
       // Calculate next ROM address to look for.
       // This is tricky because the search begins with the LSB.
-#ifdef DEBUG
-      kprintf(KR_OSTREAM, "discrep %#.16llx ", discrep);
-#endif
+      DEBUG(search) kprintf(KR_OSTREAM, "discrep %#.16llx ", discrep);
       uint64_t mask;
       while (discrep) {
         unsigned int bit = fls64(discrep) - 1;
@@ -309,9 +336,7 @@ SearchPath(struct W1Device * parent, uint8_t mainOrAux)
       }
       if (! discrep) break;	// no more devices
       rom = mask | (rom & (mask - 1));
-#ifdef DEBUG
-      kprintf(KR_OSTREAM, "nextrom %#.16llx\n", rom);
-#endif
+      DEBUG(search) kprintf(KR_OSTREAM, "nextrom %#.16llx\n", rom);
     }
   }
   return 0;
@@ -419,7 +444,7 @@ main(void)
       dev->mainOrAux = cfg->mainOrAux;
     }
     dev->rom = cfg->rom;
-    dev->nextInWorkQueue = NULL;
+    link_Init(&dev->workQueueLink);
     dev->callerWaiting = false;
     // Do device-specific initialization:
     switch (w1dev_getFamilyCode(dev)) {
@@ -429,7 +454,7 @@ main(void)
       dev->u.coupler.auxNeedsWork = false;
       break;
     case famCode_DS18B20:
-      dev->u.thermom.time = 0;	// no temperature yet
+      DS18B20_InitDev(dev);
       break;
     default: break;
     }
@@ -483,6 +508,10 @@ main(void)
       struct W1Device * dev = &devices[Msg.rcv_keyInfo];
 
       switch (w1dev_getFamilyCode(dev)) {
+      case famCode_DS18B20:
+        DS18B20_ProcessRequest(dev, &Msg);
+        break;
+
       case famCode_DS2409:
 
         switch (Msg.rcv_code) {
@@ -497,6 +526,7 @@ main(void)
           break;
 
         }
+        break;
       }		// end of switch on family code
     }
     }

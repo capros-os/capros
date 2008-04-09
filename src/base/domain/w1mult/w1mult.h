@@ -21,10 +21,25 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* w1mult.h */
-
 #include <stdint.h>
-#include <eros/target.h>
+#include <eros/Link.h>
+#include <eros/Invoke.h>
+#include <idl/capros/Sleep.h>
+#include <idl/capros/W1Bus.h>
+#include <domain/Runtime.h>
+
+#define dbg_errors 0x1
+#define dbg_search 0x2
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u )
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
+
+#define KR_OSTREAM KR_APP(0)
+#define KR_SLEEP   KR_APP(1)
+#define KR_W1BUS   KR_APP(2)
+#define KR_SNODE   KR_APP(3)
 
 // The family code is the low byte of the ROM ID.
 enum {
@@ -36,14 +51,47 @@ enum {
   famCode_DS9490R = 0x81,	// custom DS2401 in a DS9490R
 };
 
-enum {
-  branch_main = 0xcc,
-  branch_aux  = 0x33
+struct W1Device {
+  uint64_t rom;
+  uint64_t busyUntil;	// device is busy until this time
+  struct W1Device * parent;    // parent coupler or NULL
+  uint8_t mainOrAux;            // which branch of parent
+  Link workQueueLink;
+  struct W1Device * nextInActiveList;
+  bool callerWaiting;	// whether snode slot has a resume key for this dev
+  bool found;	// temporary flag for searching
+  union {	// data specific to the type of device
+    struct {
+      uint8_t activeBranch;	// enumerated above
+      bool mainNeedsWork;
+      bool auxNeedsWork;
+    } coupler;
+    struct {
+      int16_t temperature;	// in units of 1/16 degree Celsius
+      uint8_t resolution;	// 1 through 4, bits after the binary point
+      capros_Sleep_nanoseconds_t time;	// time at which temperature was the above
+		// does this need to be in absolute real time?
+    } thermom;
+  } u;
 };
 
-struct W1DevConfig {
-  short thisIndex;	// -1 means end of entries
-  short parentIndex;	// -1 means no parent
-  uint8_t mainOrAux;
-  uint64_t rom;
-};
+// Stuff for programming the 1-Wire bus:
+extern unsigned char outBuf[capros_W1Bus_maxProgramSize + 1];
+extern unsigned char * const outBeg;
+extern unsigned char * outCursor;
+extern unsigned char inBuf[capros_W1Bus_maxResultsSize];
+extern Message RunPgmMsg;
+
+// Append a byte to the program.
+#define wp(b) *outCursor++ = (b);
+
+uint64_t GetCurrentTime(void);
+uint8_t CalcCRC8(uint8_t * data, unsigned int len);
+int RunProgram(void);
+void AddressDevice(struct W1Device * dev);
+
+static inline void
+ClearProgram(void)
+{
+  outCursor = outBeg;
+}
