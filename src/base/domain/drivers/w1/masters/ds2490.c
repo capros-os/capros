@@ -27,6 +27,7 @@
 #include <eros/Invoke.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/Sleep.h>
 #include <idl/capros/NPLink.h>
 #include <idl/capros/W1Bus.h>
 #include <domain/assert.h>
@@ -102,6 +103,8 @@ static int ds_usb_io(capros_USB_urb * urb,
     printk("submitUrb got status %d", urbResult.status);
 #endif
     return urbResult.status;	// a negative error number
+    /* FIXME: If this is -ECONNRESET (due to timeout), need to reset
+    the device and try again. */
   }
 
   return 0;
@@ -284,12 +287,31 @@ static int ds_send_data(dma_addr_t buf_dma, int len)
   return err;
 }
 
+/* statusDuration is the amount of bus time the operation would
+normally take, in units of 60 microseconds (one read slot).
+We won't even try to poll the status until we've waited that long. */
+unsigned int statusDuration = 0;
+
 /* Returns:
 If > 0: number of status bytes read.
 If == 0: failed to become idle after 100 tries.
 If < 0: a negative error code. */
 static int waitStatus(void)
 {
+  /* Just sending the USB commands takes some time, so subtract that.
+  The following value is empirically determined so we usually
+  don't have to loop below. */
+#define minimumWait 30
+  if (statusDuration > minimumWait) {
+    /* We want to multiply by 60000,
+    because 60 microseconds is 60000 nanoseconds.
+    0xe000 is 57344 which is close enough and easier to multiply. */
+    capros_Sleep_sleepForNanoseconds(KR_SLEEP,
+        (uint64_t)(statusDuration - minimumWait) * 0xe000);
+  }
+  // else don't bother to sleep.
+  statusDuration = 0;	// finished sleeping
+
 	int err, count = 0;
 
 	struct ds_status * st = &cm->status;
@@ -360,6 +382,8 @@ static struct Command {
 		of the last step of this command.
 		If there is any error with a command,
 		it is always on the last step. */
+  unsigned int duration;	/* the number of time slots (60 microseconds)
+				the command should take. */
 } cmdBuf[cmdBufSize], *cmdNext;
 
 static inline bool
@@ -389,6 +413,7 @@ ReadStraightCmd(unsigned int bytesToRead)
 {
   // If there are any unsent bytes, they can be sent with this command.
   ep3Size += bytesToRead;
+  cmdNext->duration = (unsentData + bytesToRead) * 8;
   cmdNext->type = cmdType_none;
   cmdNext->request = COMM_CMD;
   uint16_t val = COMM_READ_STRAIGHT | COMM_IM;
@@ -396,6 +421,7 @@ ReadStraightCmd(unsigned int bytesToRead)
     // The reset bit is in a different position in this command.
     val |= 0x2;
     needReset = 0;
+    cmdNext->duration += 16;
   }
   if (unsentData) {
     val |= unsentData << 8;
@@ -411,6 +437,7 @@ HandleUnsentData(uint16_t spu)
 {
   // The command space has already been reserved.
   if (unsentData == 1 && ! needReset) {
+    cmdNext->duration = 8;
     cmdNext->type = cmdType_none;
     cmdNext->request = COMM_CMD;
     cmdNext->value = COMM_BYTE_IO | COMM_IM | COMM_ICP | spu;
@@ -420,6 +447,8 @@ HandleUnsentData(uint16_t spu)
     /* COMM_READ_STRAIGHT is preferable to COMM_BLOCK_IO, because
     it doesn't fill EP3. */
     if (spu) {		// can't use COMM_READ_STRAIGHT
+      cmdNext->duration = unsentData * 8;
+      if (needReset) cmdNext->duration += 16;
       cmdNext->type = cmdType_none;
       cmdNext->request = COMM_CMD;
       cmdNext->value = COMM_BLOCK_IO | COMM_IM | spu | needReset;
@@ -519,6 +548,7 @@ RunProgram(Message * msg, uint32_t pgmLen)
         needCmd(1)
         cmdNext->type = cmdType_resetNormal;
       resetCommon:
+        cmdNext->duration = 16;
         cmdNext->request = COMM_CMD;
         cmdNext->value = COMM_1_WIRE_RESET | COMM_IM;
         cmdNext->index = 0;
@@ -540,6 +570,8 @@ RunProgram(Message * msg, uint32_t pgmLen)
         ep2Size += 8;
         pgm += 8;
         cm->dataBuffer[ep2Size++] = stepCode;	// Smart-On command
+        cmdNext->duration = (1+8+1+3) * 8;
+        if (needReset) cmdNext->duration += 16;
         cmdNext->type = cmdType_setPath;
         cmdNext->request = COMM_CMD;
         cmdNext->value = COMM_SET_PATH | COMM_IM | needReset;
@@ -590,6 +622,8 @@ RunProgram(Message * msg, uint32_t pgmLen)
         memcpy(&cm->dataBuffer[ep2Size], pgm, 8);
         ep2Size += 8;
         pgm += 8;
+        cmdNext->duration = (1+8) * 8;
+        if (needReset) cmdNext->duration += 16;
         cmdNext->type = cmdType_none;
         cmdNext->request = COMM_CMD;
         cmdNext->value = COMM_MATCH_ACCESS | COMM_IM | needReset;
@@ -610,6 +644,8 @@ RunProgram(Message * msg, uint32_t pgmLen)
         ep2Size += 8;
         pgm += 8;
         ep3Size += 16;
+        cmdNext->duration = 8 + 64*3;
+        if (needReset) cmdNext->duration += 16;
         cmdNext->type = cmdType_search;
         cmdNext->request = COMM_CMD;
         cmdNext->value = COMM_SEARCH_ACCESS | COMM_IM | COMM_SM
@@ -636,6 +672,9 @@ RunProgram(Message * msg, uint32_t pgmLen)
         needCmd(2)
         if (option == COMM_D)
           ep3Size += 1;
+        cmdNext->duration = 8 + 64*3;
+        if (needReset) cmdNext->duration += 16;
+        cmdNext->duration = 1;
         cmdNext->type = cmdType_none;
         cmdNext->request = COMM_CMD;
         cmdNext->value = COMM_BIT_IO | COMM_IM | option;
@@ -706,6 +745,7 @@ RunProgram(Message * msg, uint32_t pgmLen)
         ep2Size += 3;
         ep3Size += nBytes;
         pgm += 3;
+        cmdNext->duration = nBytes * 8;
         cmdNext->type = cmdType_readCRC;
         cmdNext->request = COMM_CMD;
         cmdNext->value = COMM_READ_CRC_PROT_PAGE | COMM_IM | option;
@@ -725,7 +765,7 @@ RunProgram(Message * msg, uint32_t pgmLen)
       case capros_W1Bus_stepCode_strongPullup5:
       {
         needPgm(1)
-        uint8_t code = *pgm;
+        uint8_t code = *pgm;	// duration, units of 16ms
         if (code == 0 || code == SPUDCode_unknown)
           goto programError;
         if (! cmdAtBeginning()
@@ -737,11 +777,13 @@ RunProgram(Message * msg, uint32_t pgmLen)
           HandleUnsentData(COMM_SPU);
         }
         else goto sequenceError;
-        if (code != lastSPUDCodePgm) {	// need to change duration
+        (cmdNext - 1)->duration += code * (16000/60);
+        if (code != lastSPUDCodePgm) {	// need to change duration first
           struct Command * cmdPrev = cmdNext - 1;
           // Move the last command down.
           *cmdNext = *cmdPrev;
           // Insert the duration command.
+          cmdNext->duration = 0;	// no bus activity for this
           cmdNext->type = cmdType_none;
           cmdPrev->request = MODE_CMD;
           cmdPrev->value = MOD_STRONG_PU_DURATION;
@@ -772,24 +814,22 @@ execute:
     if (ep2Size) {
       err = ds_send_data(DMAAddress(dataBuffer), ep2Size);
       assert(!err);	// FIXME
-if (ep2Size == 17) {////
-//// is the following necessary?
-      err = waitStatus();
-      assert(err == 16);	// FIXME handle or report
-}
     }
 
     ep3Gotten = 0;
+    assert(statusDuration == 0);
     bool needStatus = false;
     for (cmdNext = cmdBuf; cmdNext < cmdEnd; cmdNext++) {
-      DEBUG(prog) printk("executing %#x %#x %#x type %d\n",
+      DEBUG(prog) printk("executing %#x %#x %#x type %d dur %d\n",
                          cmdNext->request, cmdNext->value,
-                         cmdNext->index, cmdNext->type);
+                         cmdNext->index, cmdNext->type,
+                         cmdNext->duration);
 
       err = ds_send_usb_control(cmdNext->request, cmdNext->value,
                                 cmdNext->index);
       assert(!err);	// FIXME
       needStatus = false;	// default
+      statusDuration += cmdNext->duration;
       switch (cmdNext->type) {
       case cmdType_resetNormal:
       case cmdType_resetAny:
