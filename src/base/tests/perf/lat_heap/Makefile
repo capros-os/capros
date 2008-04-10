@@ -41,6 +41,6 @@ include ../test.mk
 install all: $(TARGETS)
 
 $(BUILDDIR)/lat_heap: $(BUILDDIR)/lat_heap.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/lat_heap.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/lat_heap.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

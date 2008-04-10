@@ -40,11 +40,11 @@ include $(EROS_SRC)/build/make/makerules.mk
 all: $(TARGETS)
 
 $(BUILDDIR)/proccre: $(BUILDDIR)/proccre.o $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(BUILDDIR)/proccre.o -lsmall $(DOMLIB) -o $@
+	$(CROSSLINK) $(BUILDDIR)/proccre.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 #	objdump --headers proccre
 
 $(BUILDDIR)/pcc: $(BUILDDIR)/pcc.o $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(BUILDDIR)/pcc.o -lsmall $(DOMLIB) -o $@
+	$(CROSSLINK) $(BUILDDIR)/pcc.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 
 pcc.c: $(BUILDDIR)/constituents.h
 proccre.c: $(BUILDDIR)/constituents.h

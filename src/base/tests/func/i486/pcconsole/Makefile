@@ -45,6 +45,6 @@ install all: $(TARGETS)
 pcconsole.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/pcconsole: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

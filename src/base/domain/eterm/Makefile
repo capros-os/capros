@@ -60,10 +60,10 @@ $(SOURCES): $(BUILDDIR)/constituents.h
 $(TARGETS): $(OBJECTS) $(DOMLIB) $(DOMCRT0)
 
 $(EMAIN):
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(EMAINOBJ) $(LIBS) $(DOMLIB)
+	$(CROSSLINK) -o $@ $(EMAINOBJ) $(LIBS) $(CROSSLIBS)
 
 $(EOUT):
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(ANSIOBJ) $(EOUTOBJ) $(LIBS) $(DOMLIB)
+	$(CROSSLINK) -o $@ $(ANSIOBJ) $(EOUTOBJ) $(LIBS) $(CROSSLIBS)
 
 interfaces: $(IDL)
 	$(INSTALL) -d $(EROS_ROOT)/idl/capros/domain

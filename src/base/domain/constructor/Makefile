@@ -40,14 +40,14 @@ include $(EROS_SRC)/build/make/makerules.mk
 all: $(TARGETS)
 
 $(BUILDDIR)/constructor: $(BUILDDIR)/constructor.o $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(BUILDDIR)/constructor.o -lsmall $(DOMLIB) -o $@
+	$(CROSSLINK) $(BUILDDIR)/constructor.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 #	objdump --headers constructor
 
 metaconstructor.c: $(BUILDDIR)/constituents.h
 constructor.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/metaconstructor: $(BUILDDIR)/metaconstructor.o $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(BUILDDIR)/metaconstructor.o -lsmall $(DOMLIB) -o $@
+	$(CROSSLINK) $(BUILDDIR)/metaconstructor.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 #	objdump --headers metaconstructor
 
 IDL=$(wildcard *.idl)

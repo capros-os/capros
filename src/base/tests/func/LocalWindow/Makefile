@@ -42,6 +42,6 @@ install all: $(TARGETS)
 localwindow.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/localwindow: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

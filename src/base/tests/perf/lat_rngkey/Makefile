@@ -44,6 +44,6 @@ install all: $(TARGETS)
 include ../../test.mk
 
 $(BUILDDIR)/lat_rngkey: $(BUILDDIR)/lat_rngkey.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/lat_rngkey.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/lat_rngkey.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

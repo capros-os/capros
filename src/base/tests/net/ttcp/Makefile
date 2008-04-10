@@ -42,6 +42,6 @@ all: $(TARGETS)
 ttcp.c:	$(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/ttcp: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(OBJECTS) $(CROSSLIBS) 
 
 -include $(BUILDDIR)/.*.m

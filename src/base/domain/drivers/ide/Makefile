@@ -48,7 +48,7 @@ ide_ide.c:	     $(BUILDDIR)/constituents.h ide_group.h ide_hwif.h ide_ide.h
 ide_drive.c:         $(BUILDDIR)/constituents.h ide_group.h ide_hwif.h ide_ide.h
 
 $(BUILDDIR)/ide_ide: $(IDE_IDE_OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(IDE_IDE_OBJECTS) $(DOMLIB)
+	$(CROSSLINK) -o $@ $(IDE_IDE_OBJECTS) $(CROSSLIBS)
 
 
 install: all

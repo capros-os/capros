@@ -44,6 +44,6 @@ install all: $(TARGETS)
 include ../../test.mk
 
 $(BUILDDIR)/pcc_test: $(BUILDDIR)/pcc_test.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/pcc_test.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/pcc_test.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

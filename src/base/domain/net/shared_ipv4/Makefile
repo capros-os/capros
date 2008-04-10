@@ -112,24 +112,24 @@ netif/enet.c:$(BUILDDIR)/constituents.h
 timeout_agent.c:$(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/netsys: $(NETSYSOBJ) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(NETSYSOBJ) $(LIBS) \
+	$(CROSSLINK) -o $@ $(NETSYSOBJ) $(LIBS) \
 	$(DOMLIB) 
 
 # The two helpers for the netsys domain
 $(BUILDDIR)/xmit_helper: $(NETXMITOBJ) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(NETXMITOBJ)	-lsmall $(DOMLIB)
+	$(CROSSLINK) -o $@ $(NETXMITOBJ)	$(SMALL_SPACE) $(CROSSLIBS)
 $(BUILDDIR)/recv_helper: $(NETRECVOBJ) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(NETRECVOBJ) -lsmall $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(NETRECVOBJ) $(SMALL_SPACE) $(CROSSLIBS) 
 
 
 $(BUILDDIR)/helper: $(HELPEROBJ) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(HELPEROBJ) -lsmall $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(HELPEROBJ) $(SMALL_SPACE) $(CROSSLIBS) 
 
 $(BUILDDIR)/enet: $(ENETOBJ) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(ENETOBJ) $(LIBS) $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(ENETOBJ) $(LIBS) $(CROSSLIBS) 
 
 $(BUILDDIR)/timeout_agent: $(TIMEROBJ) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(TIMEROBJ) -lsmall $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(TIMEROBJ) $(SMALL_SPACE) $(CROSSLIBS) 
 
 $(BUILDDIR)/%.o: netif/%.c
 	$(C_BUILD) $(INC)

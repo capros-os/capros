@@ -39,6 +39,6 @@ install all: $(TARGETS)
 include ../bench.mk
 
 $(BUILDDIR)/nullkey: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) -lkeycache $(DOMLIB)
+	$(CROSSLINK) -o $@ $(OBJECTS) -lkeycache $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

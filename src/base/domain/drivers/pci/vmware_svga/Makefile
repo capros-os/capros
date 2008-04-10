@@ -47,7 +47,7 @@ all: $(TARGETS)
 $(OBJECTS):	$(BUILDDIR)/constituents.h $(LOCALHDRS)
 
 $(BUILDDIR)/vmware_svga: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) $(LIBS) $(DOMLIB)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(LIBS) $(CROSSLIBS)
 
 
 install: all

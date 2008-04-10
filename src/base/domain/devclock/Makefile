@@ -41,7 +41,7 @@ interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
 $(BUILDDIR)/devclock: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB) -o $@
+	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

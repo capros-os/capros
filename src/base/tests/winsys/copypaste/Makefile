@@ -48,13 +48,13 @@ $(BUILDDIR)/$(DEMO_FILE):
 $(SOURCES): $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/master: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $@.o $(LIBS) $(DOMLIB)
+	$(CROSSLINK) -o $@ $@.o $(LIBS) $(CROSSLIBS)
 
 $(BUILDDIR)/copier: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $@.o $(LIBS) $(DOMLIB)
+	$(CROSSLINK) -o $@ $@.o $(LIBS) $(CROSSLIBS)
 
 $(BUILDDIR)/paster: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $@.o $(LIBS) $(DOMLIB)
+	$(CROSSLINK) -o $@ $@.o $(LIBS) $(CROSSLIBS)
 
 
 -include $(BUILDDIR)/.*.m

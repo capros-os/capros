@@ -41,6 +41,6 @@ include ../test.mk
 install all: $(TARGETS)
 
 $(BUILDDIR)/ckbench: $(BUILDDIR)/ckbench.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/ckbench.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/ckbench.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

@@ -43,6 +43,6 @@ include ../../../test.mk
 install all: $(TARGETS)
 
 $(BUILDDIR)/iopl: $(BUILDDIR)/iopl.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/iopl.o -lsmall $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/iopl.o $(SMALL_SPACE) $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

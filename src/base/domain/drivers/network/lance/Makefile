@@ -43,9 +43,9 @@ lance.c:$(BUILDDIR)/constituents.h
 helper.c:$(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/lance: $(LANCE) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(LANCE) $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(LANCE) $(CROSSLIBS) 
 $(BUILDDIR)/helper: $(HELPER) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(HELPER) $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(HELPER) $(CROSSLIBS) 
 
 
 install: all

@@ -47,7 +47,7 @@ interfaces: $(IDL)
 $(BUILDDIR)/rangeAl: $(OBJECTS) $(DOMCRT0) $(DOMSBRK) $(DOMLIB)
 # Temporarily including sbrk.o explicitly.
 # It should be in libc. It is required by malloc.
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) $(DOMSBRK) $(DOMLIB) -o $@
+	$(CROSSLINK) $(OBJECTS) $(DOMSBRK) $(CROSSLIBS) -o $@
 
 rangeAl.c: $(BUILDDIR)/constituents.h
 

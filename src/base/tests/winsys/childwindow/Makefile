@@ -42,6 +42,6 @@ all: $(TARGETS)
 test.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/test: $(OBJECTS) $(DOMLIB) $(DOMCRT0) $(DOMAIN)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) $(LIBS) $(DOMLIB)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(LIBS) $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

@@ -41,7 +41,7 @@ all: $(TARGETS)
 directory.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/directory: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB) -o $@
+	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)

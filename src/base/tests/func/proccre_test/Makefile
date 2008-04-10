@@ -41,9 +41,9 @@ include ../../test.mk
 install all: $(TARGETS)
 
 $(BUILDDIR)/proccre_test: $(BUILDDIR)/proccre_test.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/proccre_test.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/proccre_test.o $(CROSSLIBS)
 
 $(BUILDDIR)/hello: $(BUILDDIR)/hello.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/hello.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/hello.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

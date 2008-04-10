@@ -70,10 +70,10 @@ idl: idl-headers stub-depend
 $(BUILDDIR)/consolestream: $(CONSOLESTREAM) $(DOMLIB) $(DOMCRT0) $(DOMSBRK)
 # Temporarily including sbrk.o explicitly.
 # It should be in libc. It is required by malloc.
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(CONSOLESTREAM) $(DOMSBRK) $(LIBS) $(DOMLIB) $(BUILDDIR)/idl.a
+	$(CROSSLINK) -o $@ $(CONSOLESTREAM) $(DOMSBRK) $(LIBS) $(CROSSLIBS) $(BUILDDIR)/idl.a
 
 $(BUILDDIR)/textconsole: $(TEXTCON) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(TEXTCON) -lsmall $(DOMLIB)
+	$(CROSSLINK) -o $@ $(TEXTCON) $(SMALL_SPACE) $(CROSSLIBS)
 
 $(BUILDDIR)/keyclient: $(KEYCLIENT) $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@  $(DOMCRT0) $(KEYCLIENT) $(DOMLIB) $(BUILDDIR)/idl.a

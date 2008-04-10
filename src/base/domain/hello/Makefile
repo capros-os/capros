@@ -40,7 +40,7 @@ include $(EROS_SRC)/build/make/makerules.mk
 all: $(TARGETS)
 
 $(BUILDDIR)/hello: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB) -o $@
+	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 
 hello.c: $(BUILDDIR)/constituents.h
 

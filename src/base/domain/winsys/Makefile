@@ -76,7 +76,7 @@ interfaces: $(IDL)
 winsys.c: $(BUILDDIR)/constituents.h $(CURSORS) debug.h
 
 $(BUILDDIR)/winsys: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) $(SUBDIROBJS) \
+	$(CROSSLINK) -o $@ $(OBJECTS) $(SUBDIROBJS) \
              $(FBMOBJS) $(VMWAREOBJS) $(LIBS) $(DOMLIB)
 
 install: $(TARGETS)

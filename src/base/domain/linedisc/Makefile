@@ -55,7 +55,7 @@ $(SOURCES): $(BUILDDIR)/constituents.h
 $(LDMAIN): $(OBJECTS) $(DOMLIB) $(DOMCRT0) $(DOMSBRK)
 # Temporarily including sbrk.o explicitly.
 # It should be in libc. It is required by malloc.
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) $(DOMSBRK) $(LIBS) $(DOMLIB)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(DOMSBRK) $(LIBS) $(CROSSLIBS)
 
 interfaces: $(IDL)
 	$(INSTALL) -d $(EROS_ROOT)/idl/capros/domain

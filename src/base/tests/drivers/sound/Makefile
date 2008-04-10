@@ -41,6 +41,6 @@ all: $(TARGETS)
 soundtest.c:$(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/soundtest:$(OBJECTS) $(DOMLIB) $(DOMCRT0) $(DOMAIN)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) 
 
 -include $(BUILDDIR)/.*.m

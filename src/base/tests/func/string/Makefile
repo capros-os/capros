@@ -39,9 +39,9 @@ include ../test.mk
 include $(EROS_SRC)/build/make/makerules.mk
 
 $(BUILDDIR)/call: $(BUILDDIR)/call.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/call.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/call.o $(CROSSLIBS)
 
 $(BUILDDIR)/echo: $(BUILDDIR)/echo.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/echo.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/echo.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

@@ -43,9 +43,9 @@ tg3.c:$(BUILDDIR)/constituents.h
 helper.c:$(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/tg3: $(TG3) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(TG3) $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(TG3) $(CROSSLIBS) 
 $(BUILDDIR)/helper: $(HELPER) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(HELPER) $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(HELPER) $(CROSSLIBS) 
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/network/tg3

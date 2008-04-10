@@ -48,10 +48,10 @@ keyclient.c:$(BUILDDIR)/constituents.h
 mouseclient.c:$(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/ps2test: $(PS2TEST) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(PS2TEST) $(DOMLIB)
+	$(CROSSLINK) -o $@ $(PS2TEST) $(CROSSLIBS)
 
 $(BUILDDIR)/textconsole: $(TEXTCON) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(TEXTCON) -lsmall $(DOMLIB)
+	$(CROSSLINK) -o $@ $(TEXTCON) $(SMALL_SPACE) $(CROSSLIBS)
 
 $(BUILDDIR)/keyclient: $(KEYCLIENT) $(DOMLIB) $(DOMCRT0)
 	$(DOMLINK) $(DOMLINKOPT) -o $@  $(DOMCRT0) $(KEYCLIENT) $(DOMLIB)

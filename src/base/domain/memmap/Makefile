@@ -39,7 +39,7 @@ all: $(TARGETS)
 memmap.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/memmap: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) $(DOMLIB) -o $@
+	$(CROSSLINK) $(OBJECTS) $(CROSSLIBS) -o $@
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)

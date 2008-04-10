@@ -267,8 +267,13 @@ DEVSTART=$(EROS_ROOT)/lib/$(EROS_TARGET)/dstart.o
 DOMBASE=0x1000
 DOMLINKOPT=-N -Ttext $(DOMBASE) -static -e _start -L$(EROS_ROOT)/lib/$(EROS_TARGET)
 DOMLINK=$(EROS_LD)
+CROSSLINK=$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0)
 
 DOMLIB += $(DOMCRTN)
+# New name for libs given at the end of the link command:
+CROSSLIBS=$(DOMLIB)
+
+SMALL_SPACE=-lsmall
 
 
 # Really ugly GNU Makeism to extract the name of the current package by

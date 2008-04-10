@@ -38,10 +38,10 @@ include ../tutorial.mk
 #install all: $(TARGETS)
 
 $(BUILDDIR)/trivkpr: $(BUILDDIR)/trivkpr.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/trivkpr.o -lsmall $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/trivkpr.o $(SMALL_SPACE) $(CROSSLIBS)
 
 $(BUILDDIR)/faulter: $(BUILDDIR)/faulter.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/faulter.o -lsmall $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/faulter.o $(SMALL_SPACE) $(CROSSLIBS)
 
 trivkpr.c: $(BUILDDIR)/constituents.h
 faulter.c: $(BUILDDIR)/constituents.h

@@ -57,7 +57,7 @@ $(SOURCES): $(BUILDDIR)/constituents.h
 DIRS=ps2
 
 $(TARGETS): $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) $(DOMLIB)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(CROSSLIBS)
 
 install: all
 	$(INSTALL) -d $(EROS_ROOT)/domain/winsys

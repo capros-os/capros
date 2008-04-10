@@ -41,7 +41,7 @@ all: $(TARGETS)
 pci_probe.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/pci_probe: $(PCI_PROBE_OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(PCI_PROBE_OBJECTS)  $(DOMLIB)
+	$(CROSSLINK) -o $@ $(PCI_PROBE_OBJECTS)  $(CROSSLIBS)
 
 install: $(TARGETS)
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/pci

@@ -40,6 +40,6 @@ include ../../test.mk
 install all: $(TARGETS)
 
 $(BUILDDIR)/vcs_test: $(BUILDDIR)/vcs_test.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/vcs_test.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/vcs_test.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

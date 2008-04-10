@@ -37,6 +37,6 @@ include ../tutorial.mk
 install all: $(TARGETS) $(DOCS)
 
 $(BUILDDIR)/hello: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

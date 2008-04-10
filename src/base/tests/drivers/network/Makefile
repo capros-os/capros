@@ -41,6 +41,6 @@ all: $(TARGETS)
 nettest.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/nettest: $(NETTEST) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(NETTEST) $(DOMLIB)
+	$(CROSSLINK) -o $@ $(NETTEST) $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

@@ -41,7 +41,7 @@ all: $(TARGETS)
 tftp.c:	$(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/tftp: $(TFTP) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(TFTP) $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(TFTP) $(CROSSLIBS) 
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/net/tftp

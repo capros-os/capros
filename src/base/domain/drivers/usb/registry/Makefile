@@ -46,7 +46,7 @@ interfaces: $(IDL)
 ##	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
 $(BUILDDIR)/usbregistry: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) $(STORID_OBJECTS) $(DOMLIB) -o $@
+	$(CROSSLINK) $(OBJECTS) $(STORID_OBJECTS) $(CROSSLIBS) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 

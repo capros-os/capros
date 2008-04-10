@@ -41,7 +41,7 @@ interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
 $(BUILDDIR)/w1mult: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB) -o $@
+	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 
 $(BUILDDIR)/w1usbconfig: $(BUILDDIR)/w1usbconfig.o
 	$(DOMLINK) -N -Tdata 0 -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) $(BUILDDIR)/w1usbconfig.o -o $@

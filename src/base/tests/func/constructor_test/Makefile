@@ -39,7 +39,7 @@ include $(EROS_SRC)/build/make/makerules.mk
 include ../test.mk
 
 $(BUILDDIR)/constructor_test: $(OBJECTS) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) -lsmall $(DOMLIB)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS)
 
 constructor_test.c: $(BUILDDIR)/constituents.h
 

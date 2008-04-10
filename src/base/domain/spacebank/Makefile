@@ -67,7 +67,7 @@ all: $(TARGETS)
 $(SOURCES): $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/spacebank: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) $(DOMLIB) -o $@
+	$(CROSSLINK) $(OBJECTS) $(CROSSLIBS) -o $@
 ## and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 

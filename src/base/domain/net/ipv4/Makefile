@@ -92,14 +92,14 @@ netif/helper.c:$(BUILDDIR)/constituents.h
 timeout_agent.c:$(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/netsys: $(NETSYSOBJ) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(NETSYSOBJ) $(LIBS) \
+	$(CROSSLINK) -o $@ $(NETSYSOBJ) $(LIBS) \
 	$(DOMLIB) 
 
 $(BUILDDIR)/helper: $(HELPEROBJ) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(HELPEROBJ) -lsmall $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(HELPEROBJ) $(SMALL_SPACE) $(CROSSLIBS) 
 
 $(BUILDDIR)/timeout_agent: $(TIMEROBJ) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(TIMEROBJ) -lsmall $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(TIMEROBJ) $(SMALL_SPACE) $(CROSSLIBS) 
 
 $(BUILDDIR)/%.o: netif/%.c
 	$(C_BUILD) $(INC)

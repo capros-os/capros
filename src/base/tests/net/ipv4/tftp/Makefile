@@ -41,6 +41,6 @@ tftpcaller.c:$(BUILDDIR)/constituents.h
 
 
 $(BUILDDIR)/tftpcaller: $(TFTPCALLER) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(TFTPCALLER) $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(TFTPCALLER) $(CROSSLIBS) 
 
 -include $(BUILDDIR)/.*.m

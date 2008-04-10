@@ -39,7 +39,7 @@ include $(EROS_SRC)/build/make/makerules.mk
 all: $(TARGETS)
 
 $(BUILDDIR)/idltest: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0) $(OBJECTS) $(DOMLIB) -o $@
+	$(CROSSLINK) $(OBJECTS) $(CROSSLIBS) -o $@
 
 dotest: $(BUILDDIR)/idltest.c
 

@@ -43,9 +43,9 @@ _3c905c.c:$(BUILDDIR)/constituents.h
 helper.c:$(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/_3c905c: $(_3C905C) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(_3C905C) $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(_3C905C) $(CROSSLIBS) 
 $(BUILDDIR)/helper: $(HELPER) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(HELPER) $(DOMLIB) 
+	$(CROSSLINK) -o $@ $(HELPER) $(CROSSLIBS) 
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/network/3com

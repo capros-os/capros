@@ -42,6 +42,6 @@ install all: $(TARGETS)
 include ../test.mk
 
 $(BUILDDIR)/lat_spcbank: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(OBJECTS) $(DOMLIB)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

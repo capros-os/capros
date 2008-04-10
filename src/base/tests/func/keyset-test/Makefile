@@ -42,6 +42,6 @@ install all: $(TARGETS)
 include ../../test.mk
 
 $(BUILDDIR)/keyset-test: $(BUILDDIR)/keyset-test.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/keyset-test.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/keyset-test.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

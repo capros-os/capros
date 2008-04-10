@@ -42,6 +42,6 @@ install all: $(TARGETS)
 include ../../test.mk
 
 $(BUILDDIR)/test: $(BUILDDIR)/test.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(BUILDDIR)/test.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/test.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

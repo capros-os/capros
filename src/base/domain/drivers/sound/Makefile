@@ -42,7 +42,7 @@ all: $(TARGETS)
 sound.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/sound: $(SOUND_OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o $@ $(DOMCRT0) $(SOUND_OBJECTS)  $(DOMLIB)
+	$(CROSSLINK) -o $@ $(SOUND_OBJECTS)  $(CROSSLIBS)
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/sound
