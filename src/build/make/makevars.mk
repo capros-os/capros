@@ -266,12 +266,15 @@ DEVSTART=$(EROS_ROOT)/lib/$(EROS_TARGET)/dstart.o
 # by both user code and kernel code.
 DOMBASE=0x1000
 DOMLINKOPT=-N -Ttext $(DOMBASE) -static -e _start -L$(EROS_ROOT)/lib/$(EROS_TARGET)
-DOMLINK=$(EROS_LD)
-CROSSLINK=$(DOMLINK) $(DOMLINKOPT) $(DOMCRT0)
+
+CROSSLINK=$(EROS_LD) $(DOMLINKOPT) $(DOMCRT0)
+DRIVERLINK=$(EROS_LD) -Tdata 0x00c00000 $(DOMLINKOPT) -e driver_start $(DEVSTART)
+DYNDRIVERLINK=$(EROS_LD) -Tdata 0x00c00000 $(DOMLINKOPT) $(DOMCRT0) $(DYNDRVSTART)
 
 DOMLIB += $(DOMCRTN)
 # New name for libs given at the end of the link command:
 CROSSLIBS=$(DOMLIB)
+DRIVERLIBS=$(LINUXLIB) $(DOMSBRK) $(DOMLIB)
 
 SMALL_SPACE=-lsmall
 
