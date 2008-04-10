@@ -74,8 +74,6 @@ OPT_MOPS=0
 
 OPTIM += $(EROS_GCC_KERNEL_ALIGN)
 
-LIBS=$(EROS_LIBGCC) -lc
-
 # %targets
 
 TARGETS=$(CONFIG).eros 
@@ -92,7 +90,8 @@ CLEANLIST=fd.image boot.image symnames.s image.* # libkey.a
 CLEANLIST += process_asm_offsets.h machine
 
 # Text at KTEXTVA.
-LINK=$(LD) -static -N -Ttext 0xfe000000 -Tdata 0xfe100000
+LINK=$(GCC) -nostdlib -Wl,-static,-N,-Ttext,0xfe000000,-Tdata,0xfe100000
+LIBS=-lgcc -lc
 
 %options
 
@@ -149,13 +148,13 @@ install: all
 
 .FORCE:
 
-$(CONFIG).eros: $(BUILDDIR)/lostart.o $(OBJECTS) $(NODEBUG_OBJECTS) $(LIBS) $(BUILDDIR)/etext.o
+$(CONFIG).eros: $(BUILDDIR)/lostart.o $(OBJECTS) $(NODEBUG_OBJECTS) $(BUILDDIR)/etext.o
 	$(LINK) -o $(CONFIG).eros lostart.o $(OBJECTS) \
 		$(NODEBUG_OBJECTS) $(LIBS) etext.o
 	$(SIZE) $(CONFIG).eros
 	# $(OBJDUMP) --syms --stabs $(CONFIG).eros > objdumpout ## debug
 
-$(CONFIG).eros.debug: $(BUILDDIR)/lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(LIBS) $(BUILDDIR)/etext.o
+$(CONFIG).eros.debug: $(BUILDDIR)/lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(BUILDDIR)/etext.o
 	$(LINK) -o $(CONFIG).eros.debug lostart.o $(OBJECTS) \
 		$(DEBUG_OBJECTS) $(LIBS) etext.o
 	$(OBJDUMP) --syms --stabs $(CONFIG).eros.debug > objdumpout.debug ## debug
