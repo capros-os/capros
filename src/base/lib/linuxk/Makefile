@@ -96,7 +96,7 @@ interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
 $(BUILDDIR)/dyndriverprotospace: $(DYNOBJECTS)
-	$(DOMLINK) -N -Ttext 0 -static -e _start $(DYNOBJECTS) -o $@
+	$(EROS_LD) -N -Ttext 0 -static -e _start $(DYNOBJECTS) -o $@
 
 install-headers:
 	$(INSTALL) -d $(EROS_ROOT)/include/linuxk
