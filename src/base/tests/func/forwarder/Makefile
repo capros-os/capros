@@ -42,13 +42,9 @@ install all: $(TARGETS)
 include ../../test.mk
 
 $(BUILDDIR)/proc1: $(BUILDDIR)/proc1.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/proc1.map -o $@ $(DOMCRT0) $(BUILDDIR)/proc1.o $(DOMLIB)
-# Temporarily strip symbols to reduce size.
-#	$(EROS_STRIP) --strip-all --keep-symbol=_start $(BUILDDIR)/proc1
+	$(CROSSLINK) -o $@ $(BUILDDIR)/proc1.o $(CROSSLIBS)
 
 $(BUILDDIR)/proc2: $(BUILDDIR)/proc2.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/proc2.map -o $@ $(DOMCRT0) $(BUILDDIR)/proc2.o $(DOMLIB)
-# Temporarily strip symbols to reduce size.
-#	$(EROS_STRIP) --strip-all --keep-symbol=_start $(BUILDDIR)/proc2
+	$(CROSSLINK) -o $@ $(BUILDDIR)/proc2.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

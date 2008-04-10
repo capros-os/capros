@@ -42,6 +42,6 @@ install all: $(TARGETS)
 include ../bench.mk
 
 lat_pgflt: lat_pgflt.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o lat_pgflt $(DOMCRT0) lat_pgflt.o $(DOMLIB)
+	$(CROSSLINK) -o $@ lat_pgflt.o $(CROSSLIBS)
 
 -include .*.m

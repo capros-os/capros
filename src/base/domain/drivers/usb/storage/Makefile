@@ -51,8 +51,8 @@ IDL=$(wildcard *.idl)
 
 DYNDRVSTART=$(EROS_ROOT)/lib/$(EROS_TARGET)/dyndriverstart.o
 
-$(BUILDDIR)/usbstorage: $(OBJECTS) $(DOMCRT0) $(DYNDRVSTART) $(LIBS) $(LINUXLIB) $(DOMSBRK) $(DOMLIB)
-	$(DOMLINK) -Tdata 0x00c00000 $(DOMLINKOPT) $(DOMCRT0) $(DYNDRVSTART) $(OBJECTS) $(LIBS) $(LINUXLIB) $(DOMSBRK) $(DOMLIB) -o $@
+$(BUILDDIR)/usbstorage: $(OBJECTS) $(LIBS) $(DRIVERLIBS)
+	$(DYNDRIVERLINK) $(OBJECTS) $(LIBS) $(DRIVERLIBS) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 

@@ -46,6 +46,6 @@ $(BUILDDIR)/extnode: $(BUILDDIR)/extnode.o $(DOMLIB) $(DOMCRT0)
 	$(CROSSLINK) -o $@ $(BUILDDIR)/extnode.o $(SMALL_SPACE) $(CROSSLIBS)
 
 $(BUILDDIR)/proc2: $(BUILDDIR)/proc2.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/proc2.map -o $@ $(DOMCRT0) $(BUILDDIR)/proc2.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/proc2.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

@@ -42,6 +42,6 @@ install all: $(TARGETS)
 include ../bench.mk
 
 lat_ndtree: lat_ndtree.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o lat_ndtree $(DOMCRT0) lat_ndtree.o $(DOMLIB)
+	$(CROSSLINK) -o $@ lat_ndtree.o $(CROSSLIBS)
 
 -include .*.m

@@ -50,8 +50,8 @@ IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/scsi: $(OBJECTS) $(MAKE_BUILDDIR) $(OBJECTS) $(DEVSTART) $(LINUXLIB) $(DOMSBRK) $(DOMLIB)
-	$(DOMLINK) -Tdata 0x00c00000 $(DOMLINKOPT) -e driver_start $(DEVSTART) $(OBJECTS) $(LINUXLIB) $(DOMSBRK) $(DOMLIB) -o $@
+$(BUILDDIR)/scsi: $(OBJECTS) $(MAKE_BUILDDIR) $(DRIVERLIBS)
+	$(DRIVERLINK) $(OBJECTS) $(DRIVERLIBS) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 

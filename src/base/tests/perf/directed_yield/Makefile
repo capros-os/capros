@@ -42,6 +42,6 @@ install all: $(TARGETS)
 include ../bench.mk
 
 directed_yield: directed_yield.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o directed_yield $(DOMCRT0) directed_yield.o $(DOMLIB)
+	$(CROSSLINK) -o $@ directed_yield.o $(CROSSLIBS)
 
 -include .*.m

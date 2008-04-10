@@ -41,7 +41,7 @@ include $(EROS_SRC)/build/make/makerules.mk
 install all: $(TARGETS)
 
 halt: halt.o
-	$(DOMLINK) $(DOMLINKOPT) -o halt $(OBJECTS) $(LIBS)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(CROSSLIBS)
 
 test.sysimg: all test.old-imgmap
 	$(EROS_ROOT)/bin/old-mkimage -v test.sysimg test.old-imgmap

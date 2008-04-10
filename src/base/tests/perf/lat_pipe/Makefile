@@ -42,6 +42,6 @@ install all: $(TARGETS)
 include ../bench.mk
 
 source: source.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o source $(DOMCRT0) source.o $(DOMLIB)
+	$(CROSSLINK) -o $@ source.o $(CROSSLIBS)
 
 -include .*.m

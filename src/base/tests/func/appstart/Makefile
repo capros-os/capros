@@ -42,9 +42,9 @@ include ../test.mk
 install all: $(TARGETS)
 
 apptest: apptest.o $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) -o apptest $(DOMCRT0) apptest.o $(DOMLIB)
+	$(CROSSLINK) -o $@ apptest.o $(CROSSLIBS)
 
 child: child.o $(DOMLIB)
-	$(DOMLINK) $(DOMLINKOPT) -o child $(DOMCRT0) child.o $(DOMLIB)
+	$(CROSSLINK) -o $@ child.o $(CROSSLIBS)
 
 -include .*.m

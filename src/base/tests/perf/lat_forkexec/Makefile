@@ -42,9 +42,9 @@ install all: $(TARGETS)
 include ../bench.mk
 
 forkexec: forkexec.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o forkexec $(DOMCRT0) forkexec.o $(DOMLIB)
+	$(CROSSLINK) -o $@ forkexec.o $(CROSSLIBS)
 
 hello: hello.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o hello $(DOMCRT0) hello.o $(DOMLIB)
+	$(CROSSLINK) -o $@ hello.o $(CROSSLIBS)
 
 -include .*.m

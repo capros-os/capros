@@ -42,6 +42,6 @@ install all: $(TARGETS)
 include ../bench.mk
 
 nullio: nullio.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o nullio $(DOMCRT0) nullio.o $(DOMLIB)
+	$(CROSSLINK) -o $@ nullio.o $(CROSSLIBS)
 
 -include .*.m

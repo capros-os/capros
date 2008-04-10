@@ -42,6 +42,6 @@ install all: $(TARGETS)
 include ../../test.mk
 
 $(BUILDDIR)/proc1: $(BUILDDIR)/proc1.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/proc1.map -o $@ $(DOMCRT0) $(BUILDDIR)/proc1.o $(DOMLIB)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/proc1.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m

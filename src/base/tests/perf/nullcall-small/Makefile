@@ -42,9 +42,9 @@ install all: $(TARGETS)
 include ../bench.mk
 
 call: call.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o call $(DOMCRT0) call.o $(DOMLIB)
+	$(CROSSLINK) -o $@ call.o $(CROSSLIBS)
 
 echo: echo.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -o echo $(DOMCRT0) echo.o $(DOMLIB)
+	$(CROSSLINK) -o $@ echo.o $(CROSSLIBS)
 
 -include .*.m

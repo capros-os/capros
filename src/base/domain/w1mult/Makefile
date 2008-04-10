@@ -44,7 +44,7 @@ $(BUILDDIR)/w1mult: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 
 $(BUILDDIR)/w1usbconfig: $(BUILDDIR)/w1usbconfig.o
-	$(DOMLINK) -N -Tdata 0 -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) $(BUILDDIR)/w1usbconfig.o -o $@
+	$(EROS_LD) -N -Tdata 0 -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) $(BUILDDIR)/w1usbconfig.o -o $@
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

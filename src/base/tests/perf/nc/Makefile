@@ -41,13 +41,9 @@ install all: $(TARGETS)
 include ../test.mk
 
 $(BUILDDIR)/call: $(CALLOBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/call.map -o $@ $(DOMCRT0) $(CALLOBJECTS) $(DOMLIB)
-# Temporarily strip symbols to reduce size.
-#	$(EROS_STRIP) --strip-all --keep-symbol=_start $(BUILDDIR)/call
+	$(CROSSLINK) -o $@ $(CALLOBJECTS) $(CROSSLIBS)
 
 $(BUILDDIR)/echo: $(BUILDDIR)/echo.o $(DOMLIB) $(DOMCRT0)
-	$(DOMLINK) $(DOMLINKOPT) -Map $(BUILDDIR)/echo.map -o $@ $(DOMCRT0) $(BUILDDIR)/echo.o $(DOMLIB)
-# Temporarily strip symbols to reduce size.
-#	$(EROS_STRIP) --strip-all --keep-symbol=_start $(BUILDDIR)/echo
+	$(CROSSLINK) -o $@ $(BUILDDIR)/echo.o $(CROSSLIBS)
 
 -include $(BUILDDIR)/.*.m
