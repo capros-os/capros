@@ -50,7 +50,6 @@ test key reg KR_APP(4) = seg;
 
 run test;
 
-ds2490_notifyee = start test 0;
+ds9490r_notifyee = start test 0;
+#include <nplink.map>
 #include <drivers/usbregistry.map>
-
-print directory;
