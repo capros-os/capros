@@ -17,15 +17,20 @@
 	  </p>
 	  <h2>1. Background</h2>
 	  <p>
-	    The CapROS checkpoint design differs from the
-	    KeyKOS and EROS designs, but many of the <em>ideas</em> of
-	    those designs still pertain.  The KeyKOS design is
+	    The CapROS checkpoint design is derived from the EROS
+	    checkpoint design. The EROS design differs from the
+	    KeyKOS, but many of the <em>ideas</em> of
+	    that design still pertain.  The KeyKOS design is
 	    described in <a
 	      href="http://www.cis.upenn.edu/~KeyKOS/Checkpoint.html"><em>The 
-		Checkpoint Mechanism in KeyKOS</em></a>.  The
-	    differences between CapROS and the older systems are summarized 
-            here. You can skip this section if you're not interested
-            in the history.
+		Checkpoint Mechanism in KeyKOS</em></a>. The EROS design is
+	    described in <a
+	      href="http://http://www.eros-os.org/papers/storedesign2002.pdf">
+	      <em>The Design Evolution of the EROS Single-Level
+		Store</em></a>.
+	    The differences between CapROS and the other systems are
+	    summarized below. You can skip this section if you're not
+	    interested in the history.
 	  </p>
 	  <ul>
 	    <li>
@@ -38,7 +43,7 @@
 		now the checkpoint area.
 	      </p>
 	      <p>
-		CapROS uses a single checkpoint area in a circular
+		EROS and CapROS use a single checkpoint area in a circular
 		fashion, and divides this area dynamically into
 		several generations.  A generation is permitted to
 		occupy up to a fixed percentage of the checkpoint area
@@ -67,7 +72,7 @@
 	    <li>
 	      <p>CapROS can have several generations of checkpoints 
 		which have not yet been migrated.
-		While KeyKOS had logic
+		While EROS and KeyKOS had logic
 		which skipped migration of a page (or node) which had been 
 		changed since the checkpoint was taken (because it would be
 		included in the next checkpoint),
@@ -105,7 +110,7 @@
 	      <p>EROS adopted a strategy of re-writing a page in the
 		original working area location if it was paged out twice
 		during one checkpoint interval. This strategy had the
-		advantage of saving space.
+		advantage of saving space and reducing seek distances.
 	      <p>
 		Because of the need to support logs in flash memory,
 		CapROS will follow the KeyKOS strategy. This
@@ -138,25 +143,29 @@
 		below) in the Object Directory part of the checkpoint.
 		Once you account for the 8 bits of object index,
 		this size results in a maximum of
-		2<sup>20</sup> frames in the log, which is barely enough to
-		hold the RAM of a modern desktop processor. CapROS
-		uses full-size <i>lid</i> entries in the Object Directory.
+		2<sup>20</sup> frames in the log, which was reasonable
+		for the systems of the time, but now is barely enough to
+		hold the RAM of a modern desktop processor. The CapROS
+		<i>lid</i> is the same size as Object IDs
+		(<i>oid>,</i> (see below).
 	      </p>
 	    </li>
 	    <li>
 	      <p>
 		EROS kept a 2 level tree for the on-disk Object
 		Directory. This limited the size of a checkpoint to
-		259,080 objects. CapROS chains Object Directory pages
-		together, so there is no artificial limit on the number
-		of objects in a checkpoint. CapROS uses the same
-		technique for the Process Directory in the checkpoint.
+		259,080 objects. CapROS writes Object Directory and
+		Process Directory frames contigously in the log,
+		so there is no artificial limit on the number
+		of objects in a checkpoint.
 	      </p>
 	    </li>
 	    <li>
 	      <p>EROS required sequential numbering of the log
 	      ranges. CapROS may relax that requirement depending on
-	      how easy it is in practice.
+	      how easy it is in practice, but it should be noted that
+	      relaxing this requirement may be in conflict with
+	      contigous Object and Process Directories.
 	      </p>
 	    </li>
 	  </ul>
