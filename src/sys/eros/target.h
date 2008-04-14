@@ -67,4 +67,15 @@ Approved for public release, distribution unlimited. */
 typedef uint32_t cap_t;
 typedef fixreg_t result_t;
 
+#ifndef offsetof
+#define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
+#endif
+
+/* From a pointer to a structure member, get a pointer to the structure. */
+#ifndef container_of
+#define container_of(ptr, type, member) \
+  ((type *) ((char *)(ptr) - offsetof(type, member)))
+#else // defined in linux/kernel.h
+#endif
+
 #endif /* __TARGET_H__ */

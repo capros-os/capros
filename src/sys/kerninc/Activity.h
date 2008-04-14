@@ -218,25 +218,6 @@ act_AssignTo(Activity * thisPtr, Process * dc)
   thisPtr->readyQ = dc->readyQ;
 }
 
-INLINE void
-act_MigrateFromCurrent(Process * from, Process * to)
-{
-  assert(to);
-  assert(proc_IsRunnable(to));
-
-  Activity * thisPtr = from->curActivity;
-
-  assert(thisPtr == act_Current());
-  assert(from == thisPtr->context);
-
-  proc_Deactivate(from);
-  act_SetContextCurrent(thisPtr, to);
-  proc_SetActivity(to, thisPtr);
-
-  /* FIX: Check for preemption! */
-  thisPtr->readyQ = to->readyQ;
-}
-
 /* Called by the activity when it wishes to yield the processor: */
 INLINE void act_Yield(void) NORETURN;
 INLINE void
