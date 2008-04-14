@@ -32,14 +32,10 @@ include $(EROS_SRC)/build/make/makerules.mk
 all:
 
 install: $(GENERATED)
-	$(INSTALL) -d $(EROS_ROOT)/doc
-	$(INSTALL) -d $(EROS_ROOT)/doc/www
-	$(INSTALL) -d $(EROS_ROOT)/doc/www/devel
-	$(INSTALL) -d $(EROS_ROOT)/doc/www/devel/ObRef
 	$(INSTALL) -d $(EROS_ROOT)/doc/www/devel/ObRef/standard
 	$(INSTALL) -m 0644 $(GENERATED) \
 		$(EROS_ROOT)/doc/www/devel/ObRef/standard
-	$(INSTALL) -h -m 0644 $(HTML_DOCS) \
+	$(INSTALL) -m 0644 $(HTML_DOCS) \
 		$(EROS_ROOT)/doc/www/devel/ObRef/standard
 
 -include DEPEND

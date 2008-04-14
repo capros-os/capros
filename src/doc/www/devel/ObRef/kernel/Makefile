@@ -41,11 +41,7 @@ include $(EROS_SRC)/build/make/makerules.mk
 all:
 
 install:
-	$(INSTALL) -d $(EROS_ROOT)/doc
-	$(INSTALL) -d $(EROS_ROOT)/doc/www
-	$(INSTALL) -d $(EROS_ROOT)/doc/www/devel
-	$(INSTALL) -d $(EROS_ROOT)/doc/www/devel/ObRef
 	$(INSTALL) -d $(EROS_ROOT)/doc/www/devel/ObRef/kernel
-	$(INSTALL) -h -m 0644 $(DOCS) $(EROS_ROOT)/doc/www/devel/ObRef/kernel
+	$(INSTALL) -m 0644 $(DOCS) $(EROS_ROOT)/doc/www/devel/ObRef/kernel
 
 -include DEPEND

@@ -47,6 +47,6 @@ all: $(DOCS)
 
 install: $(DOCS)
 	$(INSTALL) -d $(EROS_ROOT)/doc/www/project
-	$(INSTALL) -h -m 0644 $(DOCS) $(EROS_ROOT)/doc/www/project
+	$(INSTALL) -m 0644 $(DOCS) $(EROS_ROOT)/doc/www/project
 
 -include DEPEND

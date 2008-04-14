@@ -57,7 +57,6 @@ FIGS=$(notdir $(wildcard ./*.fig))
 GENERATED=$(FIGS:.fig=.gif)
 
 OTHER_DOCS= \
-	ConsistencyMgmt.ps \
 	$(GENERATED)
 
 DIRS=DependencyMgmt EtherLink
@@ -69,7 +68,7 @@ install: local-install
 
 local-install: $(GENERATED)
 	$(INSTALL) -d $(EROS_ROOT)/doc/www/design-notes
-	$(INSTALL) -h -m 0644 $(HTML_DOCS) $(EROS_ROOT)/doc/www/design-notes
-	$(INSTALL) -m 0644 $(OTHER_DOCS) $(EROS_ROOT)/doc/www/design-notes
+	$(INSTALL) -m 0644 $(HTML_DOCS) $(EROS_ROOT)/doc/www/design-notes
+#	$(INSTALL) -m 0644 $(OTHER_DOCS) $(EROS_ROOT)/doc/www/design-notes
 
 -include DEPEND

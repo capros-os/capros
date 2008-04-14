@@ -41,6 +41,6 @@ install: local-install
 local-install:
 	$(INSTALL) -d $(EROS_ROOT)/doc/www/devel
 	#$(INSTALL) -m 0644 $(OTHER_DOCS) $(EROS_ROOT)/doc/www/devel
-	$(INSTALL) -h -m 0644 $(HTML_DOCS) $(EROS_ROOT)/doc/www/devel
+	$(INSTALL) -m 0644 $(HTML_DOCS) $(EROS_ROOT)/doc/www/devel
 
 -include DEPEND

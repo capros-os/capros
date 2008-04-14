@@ -1,7 +1,7 @@
 #!/bin/sh
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
-# Copyright (C) 2007, Strawberry Development Group.
+# Copyright (C) 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -47,7 +47,6 @@
 # you pass '-c', so in non-directory cases we pass '-c'.
 #
 
-FLATTENHTML=${EROS_ROOT}/src/build/bin/flatten-html
 group=`id -n -g`
 owner=`id -n -u`
 if [ -e /bin/chown ]
@@ -64,9 +63,8 @@ fi
 cflag="-c"
 
 dfltmode=0644	# unless directory
-html=no
 
-set -- `getopt cdhg:m:o: $*`
+set -- `getopt cdg:m:o: $*`
 for i in $*
 do
 	case $i in
@@ -76,7 +74,6 @@ do
 	-m)	mode=$2; shift; shift;;
 	-g)	group=$2; shift; shift;;
 	-o)	owner=$2; shift; shift;;
-	-h)	html="yes"; shift;;
 	--)	shift; break;;
 	esac
 done
@@ -89,12 +86,6 @@ mode=${mode:-${dfltmode}}
 #    local src=$1
 #    local target=$2
 #
-#    if [ $html = "yes" ]
-#    then
-#	${EROS_ROOT}/src/build/bin/flatten-html < $src > inst-tmp.html
-#	src="inst-tmp.html"
-#    fi
-#
 #    if cmp -s $src $target
 #    then
 #	# content is identical - just make sure of the modes
@@ -102,11 +93,6 @@ mode=${mode:-${dfltmode}}
 #	${chown} $owner.$group $target
 #    else
 #	install $cflag $strip -g $group -o $owner -m $mode $src $target
-#    fi
-#
-#    if [ $html = "yes" ]
-#    then
-#	rm -f inst-tmp.html
 #    fi
 #}
 
@@ -140,12 +126,6 @@ then
 
 	# install_file $src $target
 
-	if [ $html = "yes" ]
-	then
-	    ${FLATTENHTML} < $src > inst-tmp.html
-	    src="inst-tmp.html"
-	fi
-
 	if cmp -s $src $target
 	then
 	    # content is identical - just make sure of the modes
@@ -153,11 +133,6 @@ then
 	    ${chown} $owner.$group $target
 	else
 	    install -D $cflag $strip -g $group -o $owner -m $mode $src $target
-	fi
-
-	if [ $html = "yes" ]
-	then
-	    rm -f inst-tmp.html
 	fi
 else
 	if [ $# -lt 2 ]
@@ -181,12 +156,6 @@ else
 
 		#install_file $src $target
 
-		if [ $html = "yes" ]
-		then
-		    ${FLATTENHTML} < $src > inst-tmp.html
-		    src="inst-tmp.html"
-		fi
-
 		if cmp -s $src $target
 		then
 		    # content is identical - just make sure of the modes
@@ -194,11 +163,6 @@ else
 		    ${chown} $owner.$group $target
 		else
 		    install -D $cflag $strip -g $group -o $owner -m $mode $src $target
-		fi
-
-		if [ $html = "yes" ]
-		then
-		    rm -f inst-tmp.html
 		fi
 
 		shift

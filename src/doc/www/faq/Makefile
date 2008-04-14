@@ -46,7 +46,7 @@ install: local-install
 
 local-install: $(GIFS)
 	$(INSTALL) -d $(EROS_ROOT)/doc/www/faq
-	$(INSTALL) -h -m 0644 $(HTML_DOCS) $(EROS_ROOT)/doc/www/faq
+	$(INSTALL) -m 0644 $(HTML_DOCS) $(EROS_ROOT)/doc/www/faq
 	$(INSTALL) -m 0644 $(GIFS) $(EROS_ROOT)/doc/www/faq
 #	$(INSTALL) -m 0644 $(OTHER_DOCS) $(EROS_ROOT)/doc/www/faq
 

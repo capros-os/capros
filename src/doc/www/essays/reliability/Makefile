@@ -41,7 +41,7 @@ install: local-install
 
 local-install: $(GENERATED)
 	$(INSTALL) -d $(EROS_ROOT)/doc/www/essays/reliability
-	$(INSTALL) -h -m 0644 $(DOCS) $(EROS_ROOT)/doc/www/essays/reliability
+	$(INSTALL) -m 0644 $(DOCS) $(EROS_ROOT)/doc/www/essays/reliability
 	$(INSTALL) -m 0644 $(GENERATED) $(EROS_ROOT)/doc/www/essays/reliability
 
 -include DEPEND

@@ -36,7 +36,7 @@ install: local-install
 
 local-install:
 	$(INSTALL) -d $(EROS_ROOT)/doc/www
-	$(INSTALL) -h -m 0644 $(DOCS) $(EROS_ROOT)/doc/www
+	$(INSTALL) -m 0644 $(DOCS) $(EROS_ROOT)/doc/www
 	@if [ ! -e $(EROS_ROOT)/doc/www/index.html ]; then\
 		echo "(cd $(EROS_ROOT)/doc/www;ln -s capros.html index.html)";\
 		(cd $(EROS_ROOT)/doc/www;ln -s capros.html index.html);\
