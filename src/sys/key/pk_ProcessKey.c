@@ -321,7 +321,16 @@ ProcessKeyCommon(Invocation * inv, Process * proc)
       Key * k = inv->exit.pKey[0];
       if (k) {		// the key is being received
 	key_NH_Unchain(k);
-        key_SetToProcess(k, proc, KKT_Resume, 0);
+        /* The following is like key_SetToProcess, but puts the key
+        before the list head instead of after,
+        as required for resume keys. */
+        assert(keyR_IsValid(&proc->keyRing, proc));
+        keyBits_InitType(k, KKT_Resume);
+        k->keyData = 0;
+        k->keyPerms = 0;
+        k->u.gk.pContext = proc;
+        link_insertBefore(&proc->keyRing, &k->u.gk.kr);
+        keyBits_SetPrepared(k);
       }
     }
 
