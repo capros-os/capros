@@ -22,7 +22,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: package
+default: install
 
 EROS_SRC=../..
 
@@ -30,8 +30,9 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=linux-headers
 DIRS+=constructor
+DIRS+=idlstub
 DIRS+=domain
-DIRS+=idlstub rbtree util
+DIRS+=rbtree util
 DIRS+=graphics forwarder addrspace xsprintf
 DIRS+= linuxk
 ifneq "$(EROS_TARGET)" "i486"	# not for i486 so far
