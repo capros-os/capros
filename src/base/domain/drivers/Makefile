@@ -35,6 +35,7 @@ ifeq "$(EROS_TARGET)" "i486"	# drivers for i486 only
 DIRS+=sound
 DIRS+=network
 # DIRS+=console # broken due to RETRY_SET_LIK
+DIRS+=w1	# so far, without masters
 else	# ARM-only drivers
 DIRS+=usb	# so far, ARM only
 DIRS+=w1

@@ -28,7 +28,10 @@ EROS_SRC=../../../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
+ifeq "$(EROS_TARGET)" "i486"	# drivers for i486 only
+else	# ARM-only drivers
 DIRS=masters
+endif
 
 INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
 INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
