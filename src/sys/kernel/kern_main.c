@@ -169,10 +169,12 @@ main(void)
      in-core nodes, pages, and the CoreTable: */
   objC_Init();
 
+  printf("Object cache initialized...\n");
+
   extern void preload_Init(void);
   preload_Init();
-  
-  printf("Object cache initialized...\n");
+
+  printf("Preloaded data initialized...\n");
 
 #ifdef KKT_TIMEPAGE
   /* Following should be done before any possibility of a time key
