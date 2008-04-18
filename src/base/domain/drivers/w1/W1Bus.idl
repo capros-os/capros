@@ -98,8 +98,7 @@ interface W1Bus extends key {
     (until the next reset pulse).
 
     If the response to the reset is:
-      Bus short - program execution may terminate with status BusShorted,
-        or may continue, depending on the implementation.
+      Bus short - program execution terminates with status BusShorted.
       Invalid confirmation byte - program execution terminates with status
         BusError.
       No presence pulse - program execution terminates with status
@@ -160,8 +159,8 @@ interface W1Bus extends key {
     to write, followed by that number of bytes of data.
     The bus master writes the specified bytes to the bus.
    
-    The number of bytes to write must not exceed maxBlockSize,
-    else RequestError is raised.
+    The number of bytes to write must not exceed maxWriteSize,
+    else program execution terminates with status ProgramError.
     */
     writeBytes = 9,
 
@@ -170,8 +169,8 @@ interface W1Bus extends key {
     to read.
     The bus master reads that many bytes and returns them as result data.
    
-    The number of bytes to read must not exceed maxBlockSize,
-    else RequestError is raised.
+    The number of bytes to read must not exceed maxWriteSize,
+    else program execution terminates with status ProgramError.
     */
     readBytes = 10,
 
@@ -206,8 +205,7 @@ interface W1Bus extends key {
     but no longer than the time specified in the timeout value.
 
     If the timeout expired,
-      runProgram raises Timeout,
-      and the rest of the program is ignored.
+      program execution is terminated with status Timeout.
     If a response of 1 was obtained,
       execution of the program continues.
 
@@ -220,6 +218,8 @@ interface W1Bus extends key {
     This step code is followed by one byte specifying the duration of the
     strong pullup in units of 16 milliseconds.
     A value of 255 is not allowed, and a value of 0 is reserved.
+    If these values are given,
+      program execution terminates with status ProgramError.
 
     This step code may only follow the following step codes: 
       write0, write1Read, writeBytes, and readBytes.
@@ -229,7 +229,7 @@ interface W1Bus extends key {
     does not support the requested duration. 
    
     This step must immediately follow either write0, write1Read, or writeBytes,
-    else RequestError is raised.
+    else program execution terminates with status SequenceError.
     */
     strongPullup5 =14 
   };
