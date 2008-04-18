@@ -40,7 +40,6 @@ ReadSpad(struct W1Device * dev)
   wp(capros_W1Bus_stepCode_readBytes)
   wp(9)
   int status = RunProgram();
-  ClearProgram();
   if (status) {
     DEBUG(errors) kprintf(KR_OSTREAM, "DS18B20 spad status %d\n", status);
     return status;
@@ -61,7 +60,7 @@ SetConfiguration(struct W1Device * dev)
 {
   DEBUG(thermom) kprintf(KR_OSTREAM, "Setting config");
   uint8_t configReg = (dev->u.thermom.resolution - 1) << 5;
-  ClearProgram();
+  assert(ProgramIsClear());
   AddressDevice(dev);
   wp(capros_W1Bus_stepCode_writeBytes)
   wp(4)
@@ -69,6 +68,7 @@ SetConfiguration(struct W1Device * dev)
   wp(0x7f)	// High alarm - disable
   wp(0x80)	// Low alarm - disable
   wp(configReg)	// configuration register
+  NotReset();
   // Read scratchpad back to verify.
   AddressDevice(dev);
   int status = ReadSpad(dev);
@@ -85,7 +85,7 @@ SetConfiguration(struct W1Device * dev)
   dev->u.thermom.needToWriteEEPROM = true;
 #if 0
   // Write the scratchpad to EEPROM
-  ClearProgram();
+  assert(ProgramIsClear());
   AddressDevice(dev);
   WriteOneByte(0x48);	// copy scratchpad
 
@@ -123,12 +123,11 @@ The device is addressed, since we just completed a searchROM that found it.
 void
 DS18B20_InitDev(struct W1Device * dev)
 {
-  ClearProgram();
+  assert(ProgramIsClear());
   // AddressDevice(dev);	not necessary
   WriteOneByte(0xb4);	// read power supply
   wp(capros_W1Bus_stepCode_write1Read)
   int status = RunProgram();
-  ClearProgram();
   if (status) {
     DEBUG(errors) kprintf(KR_OSTREAM, "DS18B20 read power status %d\n", status);
     dev->found = false;
@@ -145,7 +144,6 @@ DS18B20_InitDev(struct W1Device * dev)
                    dev->rom, dev, dev->u.thermom.resolution);
   if (dev->u.thermom.resolution != 255) {	// if it's configured
     // Make sure the device's configuration matches what we want.
-    ClearProgram();
     AddressDevice(dev);
     status = ReadSpad(dev);
     if (status) {
@@ -177,12 +175,10 @@ ConvertT(struct Branch * br)
 {
   DEBUG(doall) kprintf(KR_OSTREAM, "ConvertT called.\n");
   /* Convert only on this branch, so we must have a smart-on: */
-  EnsureDoAllBranchSmartReset(br);
+  EnsureBranchSmartReset(br);
   wp(capros_W1Bus_stepCode_skipROM);
   WriteOneByte(0x44);	// Convert T
   RunProgram();
-  ClearProgram();
-  DoAllBranchHasReset = false;
 }
 
 uint64_t sampledTime;
@@ -191,11 +187,10 @@ static void
 readTemperature(struct W1Device * dev)
 {
   // The device is on active branches, so we can just address it:
-  ClearProgram();
-  wp(capros_W1Bus_stepCode_resetSimple)
+  assert(ProgramIsClear());
+  ProgramReset();
   ProgramMatchROM(dev);
   ReadSpad(dev);//// check return
-  DoAllBranchHasReset = false;	//// FIXME need a better way to track this
   dev->u.thermom.time = sampledTime;
   dev->u.thermom.temperature = inBuf[0] + (inBuf[1] << 8);
   //// Somewhere, check needToWriteEEPROM
@@ -245,8 +240,8 @@ DS18B20_HeartbeatAction(uint32_t hbCount)
     }
 
     DoAllWorkFunction = &ConvertT;
-    ClearProgram();
-    wp(capros_W1Bus_stepCode_resetSimple)
+    assert(ProgramIsClear());
+    ProgramReset();
     DoAll(&root);
 
     // Wait until all conversions are complete.

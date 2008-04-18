@@ -22,6 +22,7 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <stdint.h>
+#include <string.h>
 #include <eros/Link.h>
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
@@ -81,7 +82,7 @@ struct W1Device {
   struct W1Device * nextInSamplingList;
   bool sampling;
   bool callerWaiting;	// whether snode slot has a resume key for this dev
-  bool found;	// device has been found on the network
+  bool found;		// device has been found on the network
   union {	// data specific to the type of device
     struct {
       capros_W1Bus_stepCode activeBranch;	// enumerated above
@@ -120,6 +121,7 @@ extern unsigned char outBuf[capros_W1Bus_maxProgramSize + 1];
 extern unsigned char * const outBeg;
 extern unsigned char * outCursor;
 extern unsigned char inBuf[capros_W1Bus_maxResultsSize];
+extern struct Branch * resetBranch;
 extern Message RunPgmMsg;
 
 // Append a byte to the program.
@@ -128,10 +130,31 @@ extern Message RunPgmMsg;
 uint8_t CalcCRC8(uint8_t * data, unsigned int len);
 
 void ClearProgram(void);
+void ProgramReset(void);
 void AddressDevice(struct W1Device * dev);
 void ProgramMatchROM(struct W1Device * dev);
 void WriteOneByte(uint8_t b);
 int RunProgram(void);
+
+static inline bool
+ProgramIsClear(void)
+{
+  return outCursor == outBeg;
+}
+
+static inline void
+CopyToProgram(void * data, unsigned int len)
+{
+  memcpy(outCursor, data, len);
+  outCursor += len;
+}
+
+// Indicate that the program does not end with a reset.
+static inline void
+NotReset(void)
+{
+  resetBranch = NULL;
+}
 
 extern capros_Sleep_nanoseconds_t currentTime;
 void RecordCurrentTime(void);
@@ -140,7 +163,6 @@ void InsertTimer(struct w1Timer * timer);
 /* We will sample at least every 2**7 seconds (about 2 minutes). */
 #define maxLog2Seconds 7
 
-extern bool DoAllBranchHasReset;
 extern struct Branch root;
 
 void MarkForSampling(uint32_t hbCount, Link * workQueues,
@@ -150,4 +172,4 @@ extern void (*DoAllWorkFunction)(struct Branch * br);
 void DoAll(struct Branch * br);
 extern void (*DoEachWorkFunction)(struct W1Device * dev);
 void DoEach(struct Branch * br);
-void EnsureDoAllBranchSmartReset(struct Branch * br);
+void EnsureBranchSmartReset(struct Branch * br);

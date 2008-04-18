@@ -27,7 +27,6 @@ Approved for public release, distribution unlimited. */
  */
 
 #include <stdint.h>
-#include <string.h>
 #include <eros/fls.h>
 #include <eros/target.h>
 #include <eros/machine/cap-instr.h>
@@ -69,6 +68,12 @@ bool haveBusKey = false;	// no key in KR_W1BUS yet
 struct Branch root = {
   .whichBranch = 0
 };
+
+/* If we have programmed a reset for a branch, resetBranch identifies it,
+ * otherwise it is NULL.
+ * This helps us avoid unnecessary resets.
+ * A reset takes about 1 ms, so it's worth avoiding. */
+struct Branch * resetBranch;
 
 // Initialize a branch.
 void
@@ -182,13 +187,6 @@ Message RunPgmMsg = {
 };
 
 void
-ClearProgram(void)
-{
-  outCursor = outBeg;
-  nextPPItem = &PPItems[0];
-}
-
-void
 AddPPItem(
   void (*function)(capros_W1Bus_StatusCode status, void * arg),
   void * arg)
@@ -200,11 +198,19 @@ AddPPItem(
 }
 
 void
+ClearProgram(void)
+{
+  outCursor = outBeg;
+  nextPPItem = &PPItems[0];
+}
+
+void
 WriteOneByte(uint8_t b)
 {
   wp(capros_W1Bus_stepCode_writeBytes)
   wp(1)
   wp(b)
+  NotReset();
 }
 
 /* Run the program from outBeg to outCursor.
@@ -215,10 +221,13 @@ Returns:
 int
 RunProgram(void)
 {
+  int returnValue;
   RunPgmMsg.snd_len = outCursor - outBeg;
   result_t result = CALL(&RunPgmMsg);
-  if (result == RC_capros_key_Void)
-    return -1;
+  if (result == RC_capros_key_Void) {
+    returnValue = -1;
+    goto exit;
+  }
   assert(result == RC_OK);
 
   uint32_t status = RunPgmMsg.rcv_w1;
@@ -257,7 +266,10 @@ doPP: ;
       }
     }
   }
-  return RunPgmMsg.rcv_w1;	// needed?
+  returnValue = status;
+exit:
+  ClearProgram();	// set up for the next program
+  return returnValue;
 }
 
 /************************* Heartbeat stuff ************************/
@@ -392,9 +404,16 @@ ProgramSmartOn(struct W1Device * coup, struct Branch * br)
   assert(coup == BranchToCoupler(br));
   
   wp(br->whichBranch)	// capros_W1Bus_stepCode_setPath*
-  memcpy(outCursor, &coup->rom, 8);
-  outCursor += 8;
+  CopyToProgram(&coup->rom, 8);
+  resetBranch = br;
   AddPPItem(PPSmartOn, br);
+}
+
+void
+ProgramReset(void)
+{
+  wp(capros_W1Bus_stepCode_resetSimple);
+  resetBranch = &root;
 }
 
 /* Address a path through couplers.
@@ -402,11 +421,10 @@ ProgramSmartOn(struct W1Device * coup, struct Branch * br)
 If mustSmartOn is true, the last coupler will always be given
 a Smart-On command (useful for limiting a search to that branch).
 */
-
 void
 AddressPath(struct Branch * branch, bool mustSmartOn)
 {
-  wp(capros_W1Bus_stepCode_resetSimple)
+  ProgramReset();
   // Set up path through any couplers.
   // Address parents from the bus root to the device. 
   struct Branch * addressedSoFar = &root;
@@ -430,8 +448,8 @@ void
 ProgramMatchROM(struct W1Device * dev)
 {
   wp(capros_W1Bus_stepCode_matchROM)
-  memcpy(outCursor, &dev->rom, 8);	// little endian
-  outCursor += 8;
+  CopyToProgram(&dev->rom, 8);	// little endian
+  NotReset();
 }
 
 void
@@ -507,27 +525,36 @@ GetActiveBranch(struct W1Device * coup)
   return NULL;
 }
 
-bool DoAllBranchHasReset;
-
+// br must be active
 void
-EnsureBranchReset(void)
+EnsureBranchReset(struct Branch * br)
 {
-  if (! DoAllBranchHasReset) {
-    ClearProgram();
-    // Just need a reset, since this branch is active.
-    wp(capros_W1Bus_stepCode_resetSimple)
+  if (resetBranch) {
+    // Make sure THIS branch is reset.
+    while (1) {
+      if (br == resetBranch)
+        return;		// we're good
+      struct W1Device * dev = BranchToCoupler(br);
+      if (!dev)		// reached the root, this branch isn't reset
+        break;
+      br = dev->parentBranch;
+    }
   }
+  // Just need a reset, since this branch is active.
+  ProgramReset();
 }
 
+/* Ensure that just branch br is reset.
+ * br must be active, that is, reached from the root via active branches. */
 void
-EnsureDoAllBranchSmartReset(struct Branch * br)
+EnsureBranchSmartReset(struct Branch * br)
 {
-  if (! DoAllBranchHasReset) {
+  if (resetBranch != br) {
     DEBUG(doall) kprintf(KR_OSTREAM, "EnsureDoAllBranchSmartReset br=%#x\n",
                          br);
-    ClearProgram();
-    wp(capros_W1Bus_stepCode_resetSimple)
+    ProgramReset();
     if (br != &root) {
+      // Branch is active, so we can address it directly.
       struct W1Device * coup = BranchToCoupler(br);
       ProgramSmartOn(coup, br);
     }
@@ -553,15 +580,13 @@ ActivateNeededBranches(struct Branch * br)
         // Switch to main branch.
         DEBUG(doall) kprintf(KR_OSTREAM,
           "ActivateNeededBranches switching to main of %#llx\n", coup->rom);
-        EnsureBranchReset();
+        EnsureBranchReset(coup->parentBranch);
         ProgramMatchROM(coup);
         WriteOneByte(0xa5);	// direct-on main
         wp(capros_W1Bus_stepCode_readBytes)
         wp(1)		// read confirmation byte
         AddPPItem(PPCouplerDirectOnMain, coup);
         RunProgram();
-        ClearProgram();
-        DoAllBranchHasReset = false;
       }
     } else {
       if (coup->u.coupler.auxBranch.needsWork) {
@@ -569,12 +594,10 @@ ActivateNeededBranches(struct Branch * br)
         // Switch to aux branch.
         DEBUG(doall) kprintf(KR_OSTREAM,
           "ActivateNeededBranches switching to aux of %#llx\n", coup->rom);
-        EnsureBranchReset();
+        EnsureBranchReset(coup->parentBranch);
         // There is no direct-on for the aux branch.
         ProgramSmartOn(coup, &coup->u.coupler.auxBranch);
         RunProgram();//// check return
-        ClearProgram();
-        DoAllBranchHasReset = false;
       }
       } else {
         // Neither branch needs work.
@@ -621,15 +644,13 @@ FinishWork(struct Branch * br)
           kprintf(KR_OSTREAM, "FinishWork coup=%#.16llx switching to %#x\n",
                              coup->rom, otherBranch->whichBranch);
         // Switch to the other branch with a smart-on:
-        EnsureBranchReset();
+        EnsureBranchReset(coup->parentBranch);
         ProgramSmartOn(coup, otherBranch);
         int status = RunProgram();
         if (status) {
           kdprintf(KR_OSTREAM, "FinishWork smart-on got status %d\n", status);
           // FIXME handle this
         }
-        ClearProgram();
-        DoAllBranchHasReset = true;	// smart-on includes a reset
         DoAll(otherBranch);
       }
     }
@@ -675,7 +696,6 @@ void
 DoAll(struct Branch * br)
 {
   DEBUG(doall) kprintf(KR_OSTREAM, "DoAll br=%#x\n", br);
-  DoAllBranchHasReset = true;
   // First, see if any couplers serve just one branch and need to be switched.
   ActivateNeededBranches(br);
   // Do the real work on the active tree:
@@ -695,16 +715,16 @@ SearchPath(struct Branch * br)
   uint64_t rom;
   uint64_t discrep;
 
-  ClearProgram();
+  assert(ProgramIsClear());
   AddressPath(br, true);
-  unsigned char * initCursor = outCursor;	// remember this point
 
   // Deactivate the branch lines of any couplers at this level,
   // so we will search just at this level.
-  *outCursor++ = capros_W1Bus_stepCode_skipROM;
+  wp(capros_W1Bus_stepCode_skipROM)
+  NotReset();
   WriteOneByte(0x66);	// all lines off
-  *outCursor++ = capros_W1Bus_stepCode_readBytes;
-  *outCursor++ = 1;		// read one byte
+  wp(capros_W1Bus_stepCode_readBytes)
+  wp(1)			// read one byte
   // If there are any couplers, they will transmit a confirmation byte.
   // If there are none, this will read ones.
   statusCode = RunProgram();
@@ -714,8 +734,7 @@ SearchPath(struct Branch * br)
   if (statusCode != capros_W1Bus_StatusCode_OK
       || RunPgmMsg.rcv_sent != 1
       || (inBuf[0] != 0x66 && inBuf[0] != 0xff) ) {
-    if (statusCode == capros_W1Bus_StatusCode_NoDevicePresent
-        && RunPgmMsg.rcv_w2 < (initCursor - outBeg) ) {
+    if (statusCode == capros_W1Bus_StatusCode_NoDevicePresent) {
       // No devices on this branch. Nothing to do.
     } else {
       kprintf(KR_OSTREAM, "All lines off got status %d %d %d bytes=%d",
@@ -724,20 +743,17 @@ SearchPath(struct Branch * br)
       kprintf(KR_OSTREAM, "All lines off got byte %#x", inBuf[0]);
       // FIXME recover; repeat?
     }
-    ClearProgram();
   }
   else	// there are devices, and all lines off did not fail
   {
-    ClearProgram();
     // Find ROMs on this branch.
     rom = 0;		// next ROM to find
     while (1) {
       AddressPath(br, true);
       wp(capros_W1Bus_stepCode_searchROM)
-      memcpy(outCursor, &rom, 8);
-      outCursor += 8;
+      CopyToProgram(&rom, 8);
+      NotReset();
       statusCode = RunProgram();
-      ClearProgram();
       if (statusCode < 0)
         return statusCode;
 
@@ -867,7 +883,6 @@ ScanBus(void)
   ClearProgram();
   wp(capros_W1Bus_stepCode_resetNormal)
   int status = RunProgram();
-  ClearProgram();
   switch (status) {
   case capros_W1Bus_StatusCode_BusShorted:
     root.shorted = true;
