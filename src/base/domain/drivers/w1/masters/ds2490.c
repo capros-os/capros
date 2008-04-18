@@ -280,7 +280,7 @@ static int ds_send_data(dma_addr_t buf_dma, int len)
           1000, &count);
 
   if (err < 0) {
-	printk(KERN_ERR "Failed to read 1-wire data from 0x02: err=%d.\n", err);
+	printk(KERN_ERR "Failed to send 1-wire data: err=%d.\n", err);
 	return err;
   }
 
@@ -521,6 +521,8 @@ RunProgram(Message * msg, uint32_t pgmLen)
       unsigned char stepCode = *pgm++;
       DEBUG(prog) printk("stepCode %d", stepCode);
       switch (stepCode) {
+      default:
+        goto programError;
 
       case capros_W1Bus_stepCode_resetSimple:
         HandleAnyUnsentData();
@@ -862,6 +864,7 @@ execute:
         }
         if (cmdNext->type == cmdType_resetAny) {
           // Report whether app or not.
+          // First get data from any previous commands.
           int expected = cmdNext->ep3Size - ep3Gotten;
           assert(expected >= 0);
           err = GetEP3Data(expected);
@@ -915,13 +918,22 @@ execute:
         assert(!err2);	// FIXME - too little EP3 data
         err2 = *--resultNext;	// last character gotten
 	uint8_t resetResponse = *--resultNext;
+        DEBUG(prog) printk("ResetResponse %#x.\n", resetResponse);
 	if (err2 != cmdNext->type) {	// confirmation byte mismatch
           printk("path err2=%#.2x", err2);
-          goto terminateBusError;
+          if (err2 == (cmdNext->type ^ 0xff)) {
+            // Inverted confirmation byte indicates bus shorted.
+            goto terminateBusShorted;
+          } else {
+            goto terminateBusError;
+          }
 	}
         // resetResponse does not indicate whether the branch is shorted.
-	if (resetResponse & 0x80)
+	if (resetResponse & 0x80) {
+          DEBUG(prog) printk("No devices on %s branch.\n",
+                   cmdNext->type == cmdType_checkSmartOnMain ? "main" : "aux");
           goto terminateNoDevice;
+        }
         break;
       }
 #endif
@@ -1022,17 +1034,28 @@ terminateAPP:
   ret = capros_W1Bus_StatusCode_AlarmingPresencePulse;
   goto returnLength;
 
+terminateBusShorted:
+  ret = capros_W1Bus_StatusCode_BusShorted;
+  goto returnLengthGotEP3;
+
 terminateBusError:
   ret = capros_W1Bus_StatusCode_BusError;
-  goto returnLength;
+  goto returnLengthGotEP3;
 
 terminateCRCError:
   ret = capros_W1Bus_StatusCode_CRCError;
   goto returnLength;
 
 returnLength:
-  // Get any data for this segment.
-  GetEP3Data(cmdNext->ep3Size - ep3Gotten);
+  {
+    // Get any data for this segment.
+    unsigned int sizeToGet = cmdNext->ep3Size - ep3Gotten;
+    /* On an error, don't trust the expected size; get no more than is there. */
+    if (cm->status.data_in_buffer_status < sizeToGet)
+      sizeToGet = cm->status.data_in_buffer_status;
+    GetEP3Data(sizeToGet);
+  }
+returnLengthGotEP3:
   FlushXmitBuffer();
   msg->snd_w2 = cmdNext->pgmLocation;
 returnOK:
