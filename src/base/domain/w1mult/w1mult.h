@@ -30,16 +30,21 @@ Approved for public release, distribution unlimited. */
 
 #define dbg_errors 0x1
 #define dbg_search 0x2
+#define dbg_doall  0x4
+#define dbg_server 0x8
+#define dbg_thermom 0x10
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u )
+#define dbg_flags   ( 0u | dbg_errors )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 #define KR_OSTREAM KR_APP(0)
 #define KR_SLEEP   KR_APP(1)
-#define KR_W1BUS   KR_APP(2)
-#define KR_SNODE   KR_APP(3)
+#define KR_TIMPROC KR_APP(2)
+#define KR_W1BUS   KR_APP(3)
+#define KR_SNODE   KR_APP(4)
+#define KR_TIMRESUME KR_APP(5)
 
 // The family code is the low byte of the ROM ID.
 enum {
@@ -51,29 +56,64 @@ enum {
   famCode_DS9490R = 0x81,	// custom DS2401 in a DS9490R
 };
 
+struct W1Device;
+
+enum {
+  branchUnknown = 0,
+  branchMain = capros_W1Bus_stepCode_setPathMain,
+  branchAux  = capros_W1Bus_stepCode_setPathAux
+};
+
+struct Branch {
+  struct W1Device * childCouplers;
+  struct W1Device * childDevices;	// other than couplers
+  capros_W1Bus_stepCode whichBranch;	// branchMain or branchAux, 0 for root
+  bool shorted;
+  bool needsWork;
+};
+
 struct W1Device {
   uint64_t rom;
   uint64_t busyUntil;	// device is busy until this time
-  struct W1Device * parent;    // parent coupler or NULL
-  uint8_t mainOrAux;            // which branch of parent
+  struct Branch * parentBranch;	// branch this device is connected to
   Link workQueueLink;
-  struct W1Device * nextInActiveList;
+  struct W1Device * nextChild;
+  struct W1Device * nextInSamplingList;
+  bool sampling;
   bool callerWaiting;	// whether snode slot has a resume key for this dev
-  bool found;	// temporary flag for searching
+  bool found;	// device has been found on the network
   union {	// data specific to the type of device
     struct {
-      uint8_t activeBranch;	// enumerated above
-      bool mainNeedsWork;
-      bool auxNeedsWork;
+      capros_W1Bus_stepCode activeBranch;	// enumerated above
+      struct Branch mainBranch;
+      struct Branch auxBranch;
     } coupler;
     struct {
       int16_t temperature;	// in units of 1/16 degree Celsius
       uint8_t resolution;	// 1 through 4, bits after the binary point
+			// 255 means the resolution hasn't been specified yet
+      bool needToWriteEEPROM;
       capros_Sleep_nanoseconds_t time;	// time at which temperature was the above
 		// does this need to be in absolute real time?
     } thermom;
   } u;
 };
+
+struct w1Timer {
+  capros_Sleep_nanoseconds_t expiration;
+  Link link;	// link in timerHead
+  // On expiration, we call function(arg)
+  void * arg;
+  void (*function)(void * arg);	
+};
+
+struct W1Device * BranchToCoupler(struct Branch * br);
+
+// Bits in heartbeatDisable:
+#define hbBit_DS18B20 0x01
+#define hbBit_All     0x01
+void DisableHeartbeat(uint32_t bit);
+void EnableHeartbeat(uint32_t bit);
 
 // Stuff for programming the 1-Wire bus:
 extern unsigned char outBuf[capros_W1Bus_maxProgramSize + 1];
@@ -85,13 +125,29 @@ extern Message RunPgmMsg;
 // Append a byte to the program.
 #define wp(b) *outCursor++ = (b);
 
-uint64_t GetCurrentTime(void);
 uint8_t CalcCRC8(uint8_t * data, unsigned int len);
-int RunProgram(void);
-void AddressDevice(struct W1Device * dev);
 
-static inline void
-ClearProgram(void)
-{
-  outCursor = outBeg;
-}
+void ClearProgram(void);
+void AddressDevice(struct W1Device * dev);
+void ProgramMatchROM(struct W1Device * dev);
+void WriteOneByte(uint8_t b);
+int RunProgram(void);
+
+extern capros_Sleep_nanoseconds_t currentTime;
+void RecordCurrentTime(void);
+void InsertTimer(struct w1Timer * timer);
+
+/* We will sample at least every 2**7 seconds (about 2 minutes). */
+#define maxLog2Seconds 7
+
+extern bool DoAllBranchHasReset;
+extern struct Branch root;
+
+void MarkForSampling(uint32_t hbCount, Link * workQueues,
+  struct W1Device * * samplingListHead);
+void MarkSamplingList(struct W1Device * dev);
+extern void (*DoAllWorkFunction)(struct Branch * br);
+void DoAll(struct Branch * br);
+extern void (*DoEachWorkFunction)(struct W1Device * dev);
+void DoEach(struct Branch * br);
+void EnsureDoAllBranchSmartReset(struct Branch * br);

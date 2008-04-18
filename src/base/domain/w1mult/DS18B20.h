@@ -25,5 +25,7 @@ Approved for public release, distribution unlimited. */
 struct W1Device;
 
 void DS18B20_Init(void);
+void DS18B20_InitStruct(struct W1Device * dev);
 void DS18B20_InitDev(struct W1Device * dev);
 void DS18B20_ProcessRequest(struct W1Device * dev, Message * msg);
+void DS18B20_HeartbeatAction(uint32_t hbCount);
