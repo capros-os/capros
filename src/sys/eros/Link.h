@@ -39,6 +39,8 @@ struct Link {
   Link *prev;
 };
 
+#define link_INIT(link) { .next = &(link), .prev = &(link) }
+
 INLINE void
 link_Init(Link * thisPtr)
 {
