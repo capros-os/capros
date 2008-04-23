@@ -147,8 +147,11 @@ ckStackMsg:	.asciz "Stack pointer error!\n"
  Undefined exception handler
  ***********************************************************************/
 	ENTRY(UndefinedExceptionHandler)
+	stmfd sp!, {r12,lr}	/* save some working registers */
+	mrs r12,spsr
+	stmfd sp!,{r0,r2,r3,r12}	// save registers
 	ldr r0,=UndefinedMsg
-	b handlerCommon
+	b toDebugger
 
 /***********************************************************************
  Abort handlers
@@ -700,7 +703,9 @@ SWIOutOfRange:
 // The above deserves a better handler, but until then:
 SwiBadMode:
 	stmfd sp!,{r0,r2,r3,r12}	// save registers
+	ldr r0,=SWIMsg
 
+toDebugger:
 	// Set up the stack like a procedure prolog.
 	// If the exception was from supervisor mode, this will allow
 	// tracing the stack.
@@ -708,7 +713,6 @@ SwiBadMode:
 	stmfd sp!,{fp,ip,lr,pc}
 	sub fp,ip,#4
 
-	ldr r0,=SWIMsg
 	ldr r1,[ip,#20]	// exception pc
 	bl printf
 0:
@@ -762,8 +766,8 @@ r0-r14
 	movs pc,r14	// restore pc and transfer SPSR -> CPSR
 
 ResetMsg:	.asciz "Reset Exception! at 0x%08x"
-UndefinedMsg:	.asciz "Undefined Exception! at 0x%08x"
-SWIMsg:	.asciz "SWI Exception! at 0x%08x"
+UndefinedMsg:	.asciz "Undefined Exception! at 0x%08x\n"
+SWIMsg:	.asciz "SWI Exception! at 0x%08x\n"
 AbortMsg:	.asciz "Abort Exception! at 0x%08x\n"
 UnusedMsg:	.asciz "Unused Exception! at 0x%08x"
 FIQMsg:	.asciz "FIQ Exception! at 0x%08x"
