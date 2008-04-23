@@ -1,0 +1,40 @@
+package capros;
+
+/* The interface to a Dallas Semiconductor DS2450 1-Wire A/D converter. */
+interface DS2450 extends key 
+{
+  /* The configuration for one port of the DS2450.
+
+  If output is true, the port is configured for output,
+    and rangeOrOutput specifies the output value (true = 1 = high).
+
+  If output is false, the port is configured for input.
+    rangeOrOutput specifies the input range (0 = 2.55V, 1 = 5.10 V).
+    The input will be sampled every 2**log2Seconds seconds.
+    The input value will have bitsToConvert bits of resolution
+      (1 <= bitsToConvert <= 16).
+  */
+  /* This should be a union, but unions aren't quite working
+  in the current version of capidl. */
+  struct portConfiguration {
+    boolean output;
+    boolean rangeOrOutput;
+    unsigned byte log2Seconds;
+    unsigned byte bitsToConvert;
+  };
+  struct portsConfiguration {
+    array <portConfiguration, 4> port;
+  };
+  void configurePorts(portsConfiguration config);
+
+  /* Get the latest data available.
+
+  Returns the A/D data.
+  time is the time at which the data were sampled.
+  FIXME: what is the time base and units? Is it monotonic across restart?
+  */
+  struct portsData {
+    array <unsigned short, 4> data;
+  };
+  void getData(out portsData data, out unsigned long long time);
+};

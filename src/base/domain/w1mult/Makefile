@@ -29,7 +29,9 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 IMGMAP=w1mult.map
 TARGETS=$(BUILDDIR)/w1mult $(BUILDDIR)/w1usbconfig
-OBJECTS=$(BUILDDIR)/w1mult.o $(BUILDDIR)/DS18B20.o
+OBJECTS=$(BUILDDIR)/w1mult.o
+OBJECTS+= $(BUILDDIR)/DS18B20.o
+OBJECTS+= $(BUILDDIR)/DS2450.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 
 include $(EROS_SRC)/build/make/makerules.mk

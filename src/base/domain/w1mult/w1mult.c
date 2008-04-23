@@ -46,6 +46,7 @@ Approved for public release, distribution unlimited. */
 #include "w1mult.h"
 #include "w1multConfig.h"
 #include "DS18B20.h"
+#include "DS2450.h"
 
 #define KC_SNODEC 0
 
@@ -109,6 +110,11 @@ Link timerHead;
 void
 InsertTimer(struct w1Timer * timer)
 {
+  DEBUG(timer) kprintf(KR_OSTREAM,
+                 "InsertTimer tim=%#x tim.link=(%#x, %#x), head=(%#x, %#x)\n",
+                 timer, timer->link.next, timer->link.prev,
+                 timerHead.next, timerHead.prev);
+  assert(link_isSingleton(&timer->link));
   // Insert into the ordered list.
   Link * cur = &timerHead;
   Link * nxt;
@@ -131,11 +137,13 @@ RecordCurrentTime(void)
   assert(result == RC_OK);
 }
 
+unsigned int crc;
+
 uint8_t
 CalcCRC8(uint8_t * data, unsigned int len)
 {
   int i, j;
-  unsigned int crc = 0;
+  crc = 0;
 
   for (i = 0; i < len; i++) {		// for each byte
     unsigned int s = data[i];
@@ -147,6 +155,41 @@ CalcCRC8(uint8_t * data, unsigned int len)
     }
   }
   return crc;
+}
+
+void
+CalcCRC16Byte(unsigned char c)
+{
+  int i;
+  for (i = 0; i < 8; i++) {     // for each bit of data
+    // Use low bit of c.
+    if ((crc ^ c) & 0x1) {
+      crc ^= 0x14002;
+    }
+    crc >>= 1;
+    c >>= 1;
+  }
+}
+
+void
+ProgramByteCRC16(uint8_t c)
+{
+  wp(c)
+  CalcCRC16Byte(c);
+}
+
+bool	// true iff OK
+CheckCRC16(void)
+{
+  uint8_t c1 = inBuf[0];
+  uint8_t c2 = inBuf[1];
+
+  bool ok = (((c2 << 8) + c1) ^ crc) == 0xffff;
+  if (! ok) {
+    DEBUG(errors) kprintf(KR_OSTREAM,
+                    "CRC16 calc = 0x%.4x, read = 0x%.2x%.2x\n", crc, c2, c1);
+  }
+  return ok;
 }
 
 /************** Stuff for programming the 1-Wire bus *******************/
@@ -282,15 +325,18 @@ HeartbeatAction(void * arg)
 {
   RecordCurrentTime();
   lastHeartbeatTime = currentTime;
+  DisableHeartbeat(hbBit_hb);
 
   // Let each type of device do its thing:
   DS18B20_HeartbeatAction(heartbeatCount);
+  DS2450_HeartbeatAction(heartbeatCount);
   heartbeatCount++;
 
-  EnableHeartbeat(0);	// Schedule next heartbeat if we can
+  EnableHeartbeat(hbBit_hb);	// Schedule next heartbeat if we can
 }
 
 struct w1Timer heartbeatTimer = {
+  .link = link_INIT(heartbeatTimer.link),
   .function = &HeartbeatAction
 };
 
@@ -486,9 +532,10 @@ MarkSamplingList(struct W1Device * dev)
   }
 }
 
-// workQueue is a pointer to the first of an array of (maxLog2Seconds+1) Links.
+// samplingQueue is a pointer to
+// the first of an array of (maxLog2Seconds+1) Links.
 void
-MarkForSampling(uint32_t hbCount, Link * workQueue,
+MarkForSampling(uint32_t hbCount, Link * samplingQueue,
   struct W1Device * * samplingListHead)
 {
   DEBUG(doall) kprintf(KR_OSTREAM, "MarkForSampling hbCount=%#x\n", hbCount);
@@ -496,15 +543,18 @@ MarkForSampling(uint32_t hbCount, Link * workQueue,
   unsigned int i;
   for (i = 0, hbCount = (hbCount << 1) + 1;
        i <= maxLog2Seconds;
-       i++, workQueue++, hbCount >>= 1) {
+       i++, samplingQueue++, hbCount >>= 1) {
     if (hbCount & 1) {
-      // Mark all devices on this workQueue.
+      // Mark all devices on this samplingQueue.
       Link * lk;
       struct W1Device * dev;
-      for (lk = workQueue->next; lk != workQueue; lk = lk->next) {
-        dev = container_of(lk, struct W1Device, workQueueLink);
+      for (lk = samplingQueue->next; lk != samplingQueue; lk = lk->next) {
+        dev = container_of(lk, struct W1Device, samplingQueueLink);
         if (dev->found) {
-          // Link into sampling list:
+          /* Link into the sampling list.
+          The sampling list records the devices being sampled,
+          so they can be queried later,
+          because the set of devices on the samplingQueues may change. */
           dev->nextInSamplingList = *samplingListHead;
           *samplingListHead = dev;
           MarkDevForSampling(dev);
@@ -550,8 +600,7 @@ void
 EnsureBranchSmartReset(struct Branch * br)
 {
   if (resetBranch != br) {
-    DEBUG(doall) kprintf(KR_OSTREAM, "EnsureDoAllBranchSmartReset br=%#x\n",
-                         br);
+    DEBUG(doall) kprintf(KR_OSTREAM, "EnsureBranchSmartReset br=%#x\n", br);
     ProgramReset();
     if (br != &root) {
       // Branch is active, so we can address it directly.
@@ -688,8 +737,7 @@ void (*DoAllWorkFunction)(struct Branch * br);
  * This procedure organizes the work on the marked devices
  * so as to minimize the amount of switching of couplers.
  *
- * On entry, the branch is active, and a reset has been programmed
- * for just this branch (a smart-on if this is a branch of a coupler).
+ * On entry, the branch is active.
  *
  * On exit, the action has been performed on all the marked devices. */
 void
@@ -793,6 +841,9 @@ SearchPath(struct Branch * br)
             break;
           case famCode_DS18B20:	// thermometer
             DS18B20_InitDev(dev);
+            break;
+          case famCode_DS2450:	// A/D
+            DS2450_InitDev(dev);
             break;
           default: break;
           }
@@ -1001,6 +1052,7 @@ DeliverAnyMessage(Message * msg)
   }
 }
 
+uint32_t MsgBuf[16/4];
 int
 main(void)
 {
@@ -1022,7 +1074,8 @@ main(void)
     .rcv_key1 = KR_VOID,
     .rcv_key2 = KR_VOID,
     .rcv_rsmkey = KR_RETURN,
-    .rcv_limit = 0
+    .rcv_data = MsgBuf,
+    .rcv_limit = sizeof(MsgBuf)
   };
 
   link_Init(&timerHead);
@@ -1030,6 +1083,7 @@ main(void)
 
   // Let each device type initialize:
   DS18B20_Init();
+  DS2450_Init();
 
   // Read the configuration file.
   struct W1DevConfig * cfg;
@@ -1061,8 +1115,9 @@ main(void)
       }
     }
     dev->rom = cfg->rom;
-    link_Init(&dev->workQueueLink);
+    link_Init(&dev->samplingQueueLink);
     dev->callerWaiting = false;
+    dev->onWorkList = false;
     // Do device-specific initialization:
     switch (w1dev_getFamilyCode(dev)) {
     case famCode_DS2409:
@@ -1072,6 +1127,9 @@ main(void)
       break;
     case famCode_DS18B20:
       DS18B20_InitStruct(dev);
+      break;
+    case famCode_DS2450:
+      DS2450_InitStruct(dev);
       break;
     default: break;
     }
@@ -1165,8 +1223,15 @@ main(void)
       struct W1Device * dev = &devices[Msg.rcv_keyInfo];
 
       switch (w1dev_getFamilyCode(dev)) {
+      default:
+        assert(false);
+
       case famCode_DS18B20:
         DS18B20_ProcessRequest(dev, &Msg);
+        break;
+
+      case famCode_DS2450:
+        DS2450_ProcessRequest(dev, &Msg);
         break;
 
       case famCode_DS2409:

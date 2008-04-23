@@ -33,7 +33,9 @@ Approved for public release, distribution unlimited. */
 #define dbg_search 0x2
 #define dbg_doall  0x4
 #define dbg_server 0x8
-#define dbg_thermom 0x10
+#define dbg_timer 0x10
+#define dbg_thermom 0x20
+#define dbg_ad    0x40
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u | dbg_errors )
@@ -75,11 +77,12 @@ struct Branch {
 
 struct W1Device {
   uint64_t rom;
-  uint64_t busyUntil;	// device is busy until this time
   struct Branch * parentBranch;	// branch this device is connected to
-  Link workQueueLink;
   struct W1Device * nextChild;
+  Link samplingQueueLink;
   struct W1Device * nextInSamplingList;
+  struct W1Device * nextInWorkList;
+  bool onWorkList;
   bool sampling;
   bool callerWaiting;	// whether snode slot has a resume key for this dev
   bool found;		// device has been found on the network
@@ -93,10 +96,20 @@ struct W1Device {
       int16_t temperature;	// in units of 1/16 degree Celsius
       uint8_t resolution;	// 1 through 4, bits after the binary point
 			// 255 means the resolution hasn't been specified yet
-      bool needToWriteEEPROM;
-      capros_Sleep_nanoseconds_t time;	// time at which temperature was the above
+      uint8_t spadConfig;	// config register in SPAD
+      uint8_t eepromConfig;	// config register in EEPROM
+      capros_Sleep_nanoseconds_t time;	// time at which temperature was sampled
 		// does this need to be in absolute real time?
     } thermom;
+    struct {
+      capros_Sleep_nanoseconds_t time;	// time at which data was sampled
+      struct portCfg {
+        uint8_t cfglo;
+        uint8_t cfghi;
+      } requestedCfg[4];
+      struct portCfg devCfg[4];
+      uint16_t data[4];		// little-endian
+    } ad;
   } u;
 };
 
@@ -111,8 +124,10 @@ struct w1Timer {
 struct W1Device * BranchToCoupler(struct Branch * br);
 
 // Bits in heartbeatDisable:
-#define hbBit_DS18B20 0x01
-#define hbBit_All     0x01
+#define hbBit_hb      0x01
+#define hbBit_DS18B20 0x02
+#define hbBit_DS2450  0x04
+#define hbBit_All     0x07
 void DisableHeartbeat(uint32_t bit);
 void EnableHeartbeat(uint32_t bit);
 
@@ -127,7 +142,10 @@ extern Message RunPgmMsg;
 // Append a byte to the program.
 #define wp(b) *outCursor++ = (b);
 
+extern unsigned int crc;
 uint8_t CalcCRC8(uint8_t * data, unsigned int len);
+void ProgramByteCRC16(uint8_t c);
+bool CheckCRC16(void);
 
 void ClearProgram(void);
 void ProgramReset(void);
@@ -165,7 +183,7 @@ void InsertTimer(struct w1Timer * timer);
 
 extern struct Branch root;
 
-void MarkForSampling(uint32_t hbCount, Link * workQueues,
+void MarkForSampling(uint32_t hbCount, Link * samplingQueue,
   struct W1Device * * samplingListHead);
 void MarkSamplingList(struct W1Device * dev);
 extern void (*DoAllWorkFunction)(struct Branch * br);
