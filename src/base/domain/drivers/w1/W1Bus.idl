@@ -176,8 +176,8 @@ interface W1Bus extends key {
 
     /* Read pages with CRC
     This step code is followed by:
-       one byte containing the log base two of the page size in bytes,
-         which may not be zero nor more than 7.
+       one byte containing the log base two of the page size in bytes;
+         the log may not be zero nor more than 7.
        one byte containing the number of pages to read,
        one byte containing the command code to issue,
        one byte containing the low 8 bits of the starting address, and
