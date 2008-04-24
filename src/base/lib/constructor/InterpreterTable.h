@@ -55,21 +55,27 @@ struct InterpreterStep {
   struct Message message;
 
   /* If this message gets a result other than RC_OK, then:
-       If errorResult is faultOnError, the process faults.
-       Otherwise, we will go to the DestructionTable
+     If errorResult is faultOnError, the process faults.
+     Otherwise, we will go to the DestructionTable
        at the offset in destructionOffset.
        That offset must be a multiple of sizeof(struct InterpreterStep).
-       At the end of destruction, we will return
-       the error in errorResult, or if that is passErrorThrough,
-       the error that occurred on this step. */
+       If errorResult is passErrorThrough,
+         the error result from this message is copied to the holding cell,
+       otherwise the value in errorResult is copied to the holding cell.
+   */
 #define passErrorThrough 0
 #define faultOnError 1
   result_t errorResult;
 
-  /* If destructionOffset is negative, errorResult must be faultOnError
-       and the final error is passed in s_w1. 
+  /* If destructionOffset is getHolding, errorResult must be faultOnError,
+     and the holding cell is passed in snd_w1.
+     If destructionOffset is setHolding, errorResult must be faultOnError,
+     and if the message gets a result of RC_OK,
+     the value of rcv_w1 is copied to the holding cell.
      Otherwise,
        destructionOffset is the index in DestructionTable to go to on error. */
+#define getHolding (-1)
+#define setHolding (-2)
   int32_t destructionOffset;
 };
 
@@ -77,7 +83,7 @@ struct InterpreterStep {
 	s_key0, s_key1, s_key2, \
 	s_len, s_data, \
 	r_key0, r_key1, r_key2, r_rsmkey, \
-	err_res, destr_step) \
+	err_res, destr_offs) \
 { \
   .message = { \
     .snd_invKey = s_invKey, \
@@ -99,7 +105,7 @@ struct InterpreterStep {
     .rcv_limit = 0	/* cannot receive data because no writeable memory */ \
   }, \
   .errorResult = err_res, \
-  .destructionOffset = destr_step * sizeof(struct InterpreterStep) \
+  .destructionOffset = destr_offs \
 }
 
 /* Simplified macros: */
@@ -110,7 +116,7 @@ struct InterpreterStep {
 	s_key0, s_key1, KR_VOID, \
 	0, 0, \
 	r_key0, r_key1, KR_VOID, KR_VOID, \
-	err_res, destr_step)
+	err_res, destr_step * sizeof(struct InterpreterStep))
 
 #define MsgPkRk(s_invKey, s_code, s_key0, r_key0, err_res, destr_step) \
   MsgPw1Pk2Rk2(s_invKey, s_code, 0, s_key0, KR_VOID, r_key0, KR_VOID, \
@@ -127,7 +133,7 @@ struct InterpreterStep {
     KR_VOID, KR_VOID, KR_VOID, \
     0, 0, \
     r_key0, r_key1, r_key2, KR_VOID, \
-	err_res, destr_step)
+	err_res, destr_step * sizeof(struct InterpreterStep))
 
 #define MsgSetL2v(s_invKey, l2v) \
   MsgPw1Pk2Rk2(s_invKey, OC_capros_GPT_setL2v, l2v, \
@@ -149,9 +155,20 @@ struct InterpreterStep {
   MsgPw1Pk2Rk2(s_invKey, OC_capros_Node_getSlotExtended, slot, \
     KR_VOID, KR_VOID, r_key0, KR_VOID, faultOnError, 0)
 
-#define MsgNewSpace(s_key0, pc) \
-  MsgPw1Pk2Rk2(KR_SELF, OC_capros_Process_swapAddrSpaceAndPC32, pc, \
-    s_key0, KR_VOID, KR_VOID, KR_VOID, faultOnError, 0)
+#define MsgGetNumber(s_invKey) \
+  StepStruct(s_invKey, OC_capros_Number_get, 0, 0, 0, \
+	KR_VOID, KR_VOID, KR_VOID, \
+	0, 0, \
+	KR_VOID, KR_VOID, KR_VOID, KR_VOID, \
+	faultOnError, setHolding)
+
+// Set s_key0 as the address space, and set pc from the holding cell.
+#define MsgNewSpace(s_key0) \
+  StepStruct(KR_SELF, OC_capros_Process_swapAddrSpaceAndPC32, 0, 0, 0, \
+	s_key0, KR_VOID, KR_VOID, \
+	0, 0, \
+	KR_VOID, KR_VOID, KR_VOID, KR_VOID, \
+	faultOnError, getHolding)
 
 #define MsgNewVCSK(s_invKey, p_key0, p_key1, r_key0, err_res, destr_step) \
   MsgPw1Pk2Rk2(s_invKey, OC_capros_Constructor_request, 0, \

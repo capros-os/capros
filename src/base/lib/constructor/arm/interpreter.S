@@ -71,8 +71,8 @@ loop:
 	// r7 has final error if any
 	ldr r6,[r0,#72]		// destructionOffset
 	ldmia r0,{r1-r5}
-	cmp r6,#0
-	movlt r5,r7		// if < 0, set snd_w1
+	cmp r6,#-1		// getHolding?
+	moveq r5,r7		// if == -1, holding cell to snd_w1
 	ldr r14,[r0,#32]	// rcv_keys
 	ldr r12,[r0,#36]	// rcv_limit
 	swi SWI_Invoke
@@ -80,18 +80,21 @@ loop:
 	/* All values are returned in registers, so we don't need any
 	read-write storage. */
 
-	// Return code must be OK:
+	// Check return code:
 	cmp r1,#RC_OK
+	bne notOK
 
+	cmp r6,#-2		// setHolding?
+	moveq r7,r2		// rcv_w1 to holding cell
 	/* Other return values are ignored. */
 
-	addeq r0,r0,#76		// sizeof(struct InterpreterStep)
-	beq loop
+	add r0,r0,#76		// sizeof(struct InterpreterStep)
+	b loop
 
 	// Got an error in r1.
-	ldr r7,[r0,#68]		// errorResult
+notOK:	ldr r7,[r0,#68]		// errorResult
 	cmp r7,#1		// faultOnError?
-	swieq SWI_halt
+	swieq SWI_halt		// yes, fault
 	ldr r0,=DestructionTable
 	cmp r7,#0		// passErrorThrough?
 	moveq r7,r1

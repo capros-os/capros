@@ -63,7 +63,8 @@ ENTRY(start)
 
   The passed retCode is returned in w1, which is placed in %ebx. */
 
-	/* We have no stack, so we can save the retCode in %esp. */
+	/* We have no stack, so we can use %esp as the "holding cell".
+	Save the retCode in %esp. */
 	movl	%ebx,%esp
 	movl EXT(DestructionTable),%ebp	// ptr to struct InterpreterStep
 loop:
@@ -74,9 +75,9 @@ loop:
 	movl    40(%ebp),%ecx	// snd_w2
 	movl    44(%ebp),%edx	// snd_w3
 	movl	72(%ebp),%edi	// destructionOffset
-	cmpl	$0,%edi
-	jle 1f
-	movl	%esp,%ebx	// if < 0, set snd_w1
+	cmpl	$-1,%edi	// getHolding?
+	jne 1f
+	movl	%esp,%ebx	// holding cell to snd_w1
 1:
 	movl    20(%ebp),%esi	// rcv_limit
 	movl    24(%ebp),%edi	// rcv_data
@@ -85,10 +86,14 @@ loop:
 	/* All values are returned in registers, so we don't need any
 	read-write storage. */
 
-	// Return code must be OK:
+	// Check return code:
 	cmpl	$RC_OK,%eax
 	jne error
 
+	cmpl	$-2,%edi	// setHolding?
+	jne 1f
+	movl	%ebx,%esp	// rcv_w1 to holding cell
+1:
 	/* Other return values are ignored. */
 
 	addl	$76,%ebp	// sizeof(struct InterpreterStep)
