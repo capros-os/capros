@@ -751,7 +751,9 @@ RunProgram(Message * msg, uint32_t pgmLen)
         cmdNext->type = cmdType_readCRC;
         cmdNext->request = COMM_CMD;
         cmdNext->value = COMM_READ_CRC_PROT_PAGE | COMM_IM | option;
-        cmdNext->index = logPageSize | (numPages << 8);
+        /* The DS2490 datasheet is wrong: index wants the page size,
+        not the log of the page size. */
+        cmdNext->index = (1UL << logPageSize) | (numPages << 8);
         NextCmd();
         break;
       }
