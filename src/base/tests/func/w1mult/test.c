@@ -36,6 +36,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/DevPrivs.h>
 #include <idl/capros/W1Bus.h>
 #include <idl/capros/DS18B20.h>
+#include <idl/capros/DS2450.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -75,6 +76,29 @@ configureDevN(int n)
 }
 
 void
+configureAD(int n)
+{
+  result_t result;
+  GetDevN(n, KR_TEMP0);
+#define init_2450_port { \
+    .output = 0, \
+    .rangeOrOutput = 1, \
+    .log2Seconds = 1,	/* 2 seconds */ \
+    .bitsToConvert = 8 \
+  }
+  capros_DS2450_portsConfiguration config = {
+    .port = {
+      [0] = init_2450_port,
+      [1] = init_2450_port,
+      [2] = init_2450_port,
+      [3] = init_2450_port
+    }
+  };
+  result = capros_DS2450_configurePorts(KR_TEMP0, config);
+  ckOK
+}
+
+void
 PrintTempDevN(int n)
 {
   result_t result;
@@ -91,6 +115,22 @@ PrintTempDevN(int n)
   }
 }
 
+void
+PrintADDevN(int n)
+{
+  result_t result;
+  capros_DS2450_portsData data;
+  uint64_t time;
+
+  GetDevN(n, KR_TEMP0);
+  result = capros_DS2450_getData(KR_TEMP0, &data, &time);
+  ckOK
+  if (time) {
+    kprintf(KR_OSTREAM, "Dev %d data is %#.4x %#.4x %#.4x %#.4x at %#llx\n",
+            n, data.data[0], data.data[1], data.data[2], data.data[3], time);
+  }
+}
+
 int
 main(void)
 {
@@ -98,19 +138,23 @@ main(void)
 
   kprintf(KR_OSTREAM, "Starting.\n");
 
-  configureDevN(3);
+//  configureDevN(3);
   configureDevN(4);
-  configureDevN(13);
-  configureDevN(19);
-  configureDevN(20);
+ // configureDevN(13);
+  configureAD(17);
+  configureAD(18);
+//  configureDevN(19);
+//  configureDevN(20);
 
   for (;;) {
-    result = capros_Sleep_sleep(KR_SLEEP, 1000);	// sleep 1 second
+    result = capros_Sleep_sleep(KR_SLEEP, 2000);	// sleep 2 seconds
     assert(result == RC_OK);
 
     //PrintTempDevN(3);
     PrintTempDevN(4);
     //PrintTempDevN(13);
+    PrintADDevN(17);
+    PrintADDevN(18);
     PrintTempDevN(19);
     PrintTempDevN(20);
   }
