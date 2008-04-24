@@ -34,35 +34,46 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 KERNDIR=$(EROS_SRC)/sys/libkey
 CAPSTUBDIR=$(EROS_SRC)/sys/arch/$(EROS_TARGET)/capstubs
-VPATH=$(KERNDIR):$(CAPSTUBDIR):domgcc:domdbg:key:crt/$(EROS_TARGET):crt:monitor:
+VPATH=$(KERNDIR):$(CAPSTUBDIR):domdbg:key:crt/$(EROS_TARGET):crt:monitor:
 INC=-Iinclude -I$(EROS_ROOT)/include
 OPTIM=-O
 DIRS=
-COMMON_TARGETS=$(BUILDDIR)/libdomain.a $(BUILDDIR)/sbrk.o
-MACHINE_SOURCES=crt0.S crtn.S
-MACHINE_OBJECTS=$(patsubst %.S,$(BUILDDIR)/%.o,$(MACHINE_SOURCES))
-MACHINE_TARGETS=$(MACHINE_OBJECTS) $(BUILDDIR)/libsmall.a
-TARGETS=$(COMMON_TARGETS) $(MACHINE_TARGETS)
+# DIRS=include/domain/drivers not used
 
-KERNSRC=$(notdir $(wildcard $(KERNDIR)/*.c))
-CAPSTUBSRC=$(notdir $(wildcard $(CAPSTUBDIR)/*.S))
-DBGSRC=$(notdir $(wildcard domdbg/*.c))
-KEYSRC=$(notdir $(wildcard key/*.c))
-CRTSRC=$(notdir $(wildcard crt/libdom*.c))
-MONSRC=$(notdir $(wildcard monitor/*.c))
+TARGETS=$(BUILDDIR)/libc-capros.a
+TARGETS+=$(BUILDDIR)/libcapros-large.a
+TARGETS+=$(BUILDDIR)/libcapros-small.a
 
-LIBDOM_OBJECTS=$(patsubst %.c,$(BUILDDIR)/%.o,$(KERNSRC))
-LIBDOM_OBJECTS+=$(patsubst %.S,$(BUILDDIR)/%.o,$(CAPSTUBSRC))
-LIBDOM_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(DBGSRC))
-LIBDOM_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(KEYSRC))
-LIBDOM_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(CRTSRC))
-LIBDOM_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(MONSRC))
+# KERNSRC=$(notdir $(wildcard $(KERNDIR)/*.c)) not used
+# DBGSRC=$(notdir $(wildcard domdbg/*.c))
+# CRTSRC=$(notdir $(wildcard crt/libdom*.c)) not used
+# MONSRC=$(notdir $(wildcard monitor/*.c)) not used
 
-LIBSMALL_SOURCES=$(notdir $(wildcard crt/small_*.c))
-LIBSMALL_SOURCES+=$(notdir $(wildcard crt/$(EROS_TARGET)/small_*.c))
-LIBSMALL_HOOK=small_rt_hook.S
-LIBSMALL_OBJECTS=$(patsubst %.c,$(BUILDDIR)/%.o,$(LIBSMALL_SOURCES))
-LIBSMALL_OBJECTS+=$(patsubst %.S,$(BUILDDIR)/%.o,$(LIBSMALL_HOOK))
+C_OBJECTS=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard crt/c_*.c)))
+
+SMALL_OBJECTS=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard crt/small_*.c)))
+SMALL_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard crt/$(EROS_TARGET)/small_*.c)))
+SMALL_OBJECTS+=$(patsubst %.S,$(BUILDDIR)/%.o,$(notdir $(wildcard crt/$(EROS_TARGET)/small_*.S)))
+
+LARGE_OBJECTS=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard crt/large_*.c)))
+LARGE_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard crt/$(EROS_TARGET)/large_*.c)))
+LARGE_OBJECTS+=$(patsubst %.S,$(BUILDDIR)/%.o,$(notdir $(wildcard crt/$(EROS_TARGET)/large_*.S)))
+
+# Objects for both large and small:
+CAPROS_OBJECTS=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard crt/capros_*.c)))
+CAPROS_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard crt/$(EROS_TARGET)/capros_*.c)))
+CAPROS_OBJECTS+=$(patsubst %.S,$(BUILDDIR)/%.o,$(notdir $(wildcard crt/$(EROS_TARGET)/capros_*.S)))
+CAPROS_OBJECTS+=$(patsubst %.S,$(BUILDDIR)/%.o,$(notdir $(wildcard $(CAPSTUBDIR)/*.S)))
+# Selected files from domdbg:
+CAPROS_OBJECTS+=$(BUILDDIR)/kprintf.o
+CAPROS_OBJECTS+=$(BUILDDIR)/wrstream.o
+CAPROS_OBJECTS+=$(BUILDDIR)/sbrk.o
+# Selected files from key:
+# (Other stuff in key/ is not used and should be converted to IDL.)
+CAPROS_OBJECTS+=$(BUILDDIR)/protospace.o
+# KEYSRC=$(notdir $(wildcard key/*.c))
+# CAPROS_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(KEYSRC))
+CAPROS_OBJECTS+=$(wildcard ../idlstub/BUILD/$(EROS_TARGET)/*.o)
 
 HEADERS=$(wildcard include/*/*.h) 
 
@@ -70,35 +81,21 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 all: $(TARGETS)
 
-$(BUILDDIR)/libdomain.a: $(LIBDOM_OBJECTS)
-	$(AR) -crv $@ $(LIBDOM_OBJECTS)
-	$(RANLIB) $@
+$(BUILDDIR)/libc-capros.a: $(C_OBJECTS)
+	$(AR) -crv $@ $(C_OBJECTS)
 
-$(BUILDDIR)/libsmall.a: $(LIBSMALL_OBJECTS)
-	$(AR) -crv $@ $(LIBSMALL_OBJECTS)
-	$(RANLIB) $@
+$(BUILDDIR)/libcapros-large.a: $(CAPROS_OBJECTS) $(LARGE_OBJECTS)
+	$(AR) -crv $@ $(CAPROS_OBJECTS) $(LARGE_OBJECTS)
 
-DIRS=include/domain/drivers
-TARDIRS=$(DIRS)
+$(BUILDDIR)/libcapros-small.a: $(CAPROS_OBJECTS) $(SMALL_OBJECTS)
+	$(AR) -crv $@ $(CAPROS_OBJECTS) $(SMALL_OBJECTS)
 
 interfaces:
 	$(INSTALL) -d $(EROS_ROOT)/include/domain
 	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/domain
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/lib
 	$(INSTALL) -d $(EROS_ROOT)/lib/$(EROS_TARGET)
 	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)
-	@for i in $(DIRS); do \
-		if [ -d "$$i" ]; then \
-			$(MAKE) -C $$i $(MAKERULES) install; \
-			if [ $$? -ne 0 ]; then\
-				echo "*** JCV: RECURSIVE BUILD STOPS ***";\
-				exit 1;\
-			fi; \
-		fi; \
-	done
-
-.PRECIOUS: $(KERNSRC) $(LOCALSRC)
 
 -include $(BUILDDIR)/.*.m

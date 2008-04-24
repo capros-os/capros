@@ -38,14 +38,16 @@ Approved for public release, distribution unlimited. */
 /* This is the first code to run in a driver process.
    It sets up the .data and .bss sections in a vcsk. */
 
+const uint32_t __rt_stack_pointer = (0x420000 - SIZEOF_THREAD_INFO);
+
 extern NORETURN void driver_main(void);
 
 /* When called, KR_TEMP1 has a constructor builder key to the VCSK
    for the data section,
    KR_TEMP2 has the GPT to our address space,
    and KR_RETURN has the GPT to our stacks space. */
-void
-driver_start(void)
+int
+main(void)
 {
   // This needs more work to support C++ constructors.
   result_t result;

@@ -32,8 +32,8 @@ DIRS+=serial
 ifeq "$(EROS_TARGET)" "i486"	# drivers for i486 only
 # DIRS+=pci # disabled due to compilation errors
 # DIRS+=ps2 # broken due to RETRY_SET_WAKEINFO
-DIRS+=sound
-DIRS+=network
+# DIRS+=sound # need to convert domain/drivers/SoundKey.h to IDL
+# DIRS+=network # need to convert domain/drivers/PciProbeKey.h and NetKey.h to IDL
 # DIRS+=console # broken due to RETRY_SET_LIK
 DIRS+=w1	# so far, without masters
 else	# ARM-only drivers

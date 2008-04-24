@@ -37,9 +37,6 @@ EROS_OBJDUMP=$(EROS_XENV)/bin/$(CROSS_PREFIX)objdump
 EROS_RANLIB=$(EROS_XENV)/bin/$(CROSS_PREFIX)ranlib
 EROS_STRIP=$(EROS_XENV)/bin/$(CROSS_PREFIX)strip
 
-# Kludge - should not have to have version number here
-EROS_LIBGCC=$(EROS_XENV)/lib/gcc/$(EROS_CROSS_TARGET)-unknown-capros/4.2.3/libgcc.a
-
 ifeq "$(EROS_TARGET)" "i486"
 EROS_GCC_KERNEL_ALIGN=-falign-functions=4
 endif

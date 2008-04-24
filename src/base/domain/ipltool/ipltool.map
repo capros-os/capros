@@ -37,6 +37,7 @@ ipltool pc = symbol LIBDIR "ipltool" _start;
 ipltool space = ipltool.space;
 ipltool schedule = sched(15);	/* high */
 ipltool symtab = number("ipltool");
+ipltool key reg KR_SELF = ipltool;	/* used by _exit */
 
 CONSTIT(ipltool, KC_THREADLIST, 0) = threadlist;
 CONSTIT(ipltool, KC_OSTREAM, 1) = misc Console;

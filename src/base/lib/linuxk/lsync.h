@@ -95,7 +95,8 @@ the process (usually one). */
 #define KC_SLEEP      5
 #define KC_DEVPRIVS   6
 #define KC_SNODECONSTR 7
-#define KC_APP2(n) 8+(n)
+#define KC_STARTADDR  8 // for dynamically-constructed drivers
+#define KC_APP2(n) 9+(n)
 
 #ifndef __ASSEMBLER__
 

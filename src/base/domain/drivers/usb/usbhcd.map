@@ -42,7 +42,7 @@ Approved for public release, distribution unlimited. */
 //// End of module parameters.
 
 usbhcd_prog = program segtree LIBDIR "drivers/usbhcd";
-usbhcd_pc = symbol LIBDIR "drivers/usbhcd" driver_start;
+usbhcd_pc = symbol LIBDIR "drivers/usbhcd" _start;
 
 BOOT_DOMCRE(usbhcd);	// maybe each should have his own??
 

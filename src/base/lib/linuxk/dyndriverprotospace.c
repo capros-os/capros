@@ -26,6 +26,7 @@ for a driver built by the constructor. */
 
 #include <linuxk/lsync.h>
 #include <InterpreterTable.h>
+#include <domain/ProtoSpace.h>
 
 struct InterpreterStep ConstructionTable[] = {
   MsgAlloc3(KR_BANK, Page, GPT, GPT, KR_TEMP1, KR_TEMP2, KR_TEMP3,
@@ -40,8 +41,9 @@ struct InterpreterStep ConstructionTable[] = {
   MsgNodeGetSlotExtended(KR_CONSTIT, KC_DATAVCSK, KR_TEMP0),
   MsgNewVCSK(KR_TEMP0, KR_BANK, KR_SCHED, KR_TEMP0, passErrorThrough, 1),
   MsgGPTSetSlot(KR_TEMP3, LK_DATA_BASE / 0x400000, KR_TEMP0),
-  // Start address is well-known
-  MsgNewSpace(KR_TEMP3, 0x1000)
+  MsgNodeGetSlotExtended(KR_CONSTIT, KC_STARTADDR, KR_TEMP0),
+  MsgGetNumber(KR_TEMP0),
+  MsgNewSpace(KR_TEMP3)
 };
 struct InterpreterStep DestructionTable[] = {
 /* [0] */ MsgDestroy(KR_TEMP0),	// destroy VCSK

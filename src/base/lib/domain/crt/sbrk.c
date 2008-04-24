@@ -26,7 +26,7 @@ Approved for public release, distribution unlimited. */
 struct _reent;
 
 void *
-_sbrk_r (struct _reent * ptr, ptrdiff_t incr)
+_sbrk(ptrdiff_t incr)
 {
   extern char end;		/* Defined by the linker */
   static char * heap_end;

@@ -26,12 +26,10 @@ default: install
 
 EROS_SRC=../../..
 CROSS_BUILD=yes
-CLEANLIST=$(wildcard $(IDL_STUB_DIR)/*.c)
 
 include $(EROS_SRC)/build/make/makevars.mk
 
 VPATH=$(BUILDDIR):arch/$(EROS_TARGET)
-TARGETS=$(BUILDDIR)/libidlstub.a
 # Generated stubs are in $(BUILDDIR)/*.c
 OBJECTS=$(patsubst %.c,%.o,$(wildcard $(BUILDDIR)/*.c))
 # Client (handwritten) stubs are in *.c
@@ -40,18 +38,9 @@ OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(wildcard *.c))
 OBJECTS+=$(patsubst %.S,$(BUILDDIR)/%.o,$(notdir $(wildcard arch/$(EROS_TARGET)/*.S)))
 INC= -I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
 
-$(BUILDDIR)/libidlstub.a: $(OBJECTS)
-	echo $(OBJECTS)
-	$(RM) $@
-	$(AR) -cr $@ $(OBJECTS)
-	$(RANLIB) $@
-
-all:
-	$(MAKE) $(MAKERULES) $(TARGETS)
+all:	$(OBJECTS)
+#	$(MAKE) $(MAKERULES) $(TARGETS)
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/lib
-	$(INSTALL) -d $(EROS_ROOT)/lib/$(EROS_TARGET)
-	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)
 
 include $(EROS_SRC)/build/make/makerules.mk

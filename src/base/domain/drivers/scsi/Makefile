@@ -50,7 +50,7 @@ IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/scsi: $(OBJECTS) $(MAKE_BUILDDIR) $(DRIVERLIBS)
+$(BUILDDIR)/scsi: $(OBJECTS) $(MAKE_BUILDDIR) $(DRIVERLIBS) $(LIBDEP)
 	$(DRIVERLINK) $(OBJECTS) $(DRIVERLIBS) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled

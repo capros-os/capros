@@ -1,9 +1,8 @@
-#ifndef __SCSI_MAP_
-#define __SCSI_MAP_
 /*
+ * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2008, Strawberry Development Group.
  *
- * This file is part of the CapROS Operating System runtime library.
+ * This file is part of the EROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -19,22 +18,19 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
-/* This material is based upon work supported by the US Defense Advanced
-Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-Approved for public release, distribution unlimited. */
 
-//#include <eros/machine/target-asm.h>
+#include <eros/target.h>
+#include <eros/Invoke.h>
+#include <domain/Runtime.h>
+#include <idl/capros/Process.h>
 
-/*********************************************
- * SCSI subsystem.
- *********************************************/
+void
+_exit(int status)
+{
+  capros_Process_makeResumeKey(KR_SELF, KR_VOID);
+  // This will never return, because makeResumeKey zaps the very
+  // resume key it would return via.
 
-BOOT_DOMCRE(scsi);
+l: goto l;	// to satisfy the compiler
+}
 
-scsi_prog = program segtree LIBDIR "drivers/scsi";
-scsi_pc = symbol LIBDIR "drivers/scsi" _start;
-
-DRIVER(scsi, scsi_prog, scsi_pc, 0);
-scsi_proc key reg KR_CREATOR = scsi_proccre;
-
-#endif // __SCSI_MAP_

@@ -35,6 +35,7 @@ dynprotospace = ro small program LIBDIR "dyndriverprotospace";
 /* Set up a constructor for a driver with Linux emulation. */
 #define DYNDRIVER_CONSTRUCTOR(dname, prog, devcfgbit) \
 dname##_prog = program segtree LIBDIR #prog ; \
+dname##_pc = symbol LIBDIR #prog _start; \
 MAKE_VIRTUAL_COPIER_SEG(dname##vcsk, dname##_prog[3]); \
 dname##le = new node; \
 BOOT_CONSTRUCTOR(dname##_c, dname) \
@@ -47,6 +48,7 @@ PROD_CONSTIT(dname##_c, , KC_INTERPRETERSPACE) = dynprotospace; \
 PROD_CONSTIT(dname##_c, , KC_LINUX_EMUL) = dname##le; \
 PROD_CONSTIT(dname##_c, , KC_SLEEP) = misc Sleep; \
 PROD_CONSTIT(dname##_c, , KC_DEVPRIVS) = misc DevicePrivs devcfgbit; \
-PROD_CONSTIT(dname##_c, , KC_SNODECONSTR) = snode_c;
+PROD_CONSTIT(dname##_c, , KC_SNODECONSTR) = snode_c; \
+PROD_CONSTIT(dname##_c, , KC_STARTADDR) = dname##_pc;
 
 #endif //__DYNDRIVER_MAP_

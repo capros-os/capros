@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, 2006, Strawberry Development Group
+# Copyright (C) 2005, 2006, 2008, Strawberry Development Group
 #
 # This file is part of the EROS Operating System.
 #
@@ -17,7 +17,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
+
 default: install
 
 CROSS_BUILD=yes
@@ -67,18 +71,16 @@ $(BUILDDIR)/%.o: $(BUILDDIR)/%.c
 idl: idl-headers stub-depend
 	$(MAKE) $(BUILDDIR)/idl.a
 
-$(BUILDDIR)/consolestream: $(CONSOLESTREAM) $(DOMLIB) $(DOMCRT0) $(DOMSBRK)
-# Temporarily including sbrk.o explicitly.
-# It should be in libc. It is required by malloc.
-	$(CROSSLINK) -o $@ $(CONSOLESTREAM) $(DOMSBRK) $(LIBS) $(CROSSLIBS) $(BUILDDIR)/idl.a
+$(BUILDDIR)/consolestream: $(CONSOLESTREAM) $(DOMLIB)
+	$(CROSSLINK) -o $@ $(CONSOLESTREAM) $(LIBS) $(CROSSLIBS) $(BUILDDIR)/idl.a
 
-$(BUILDDIR)/textconsole: $(TEXTCON) $(DOMLIB) $(DOMCRT0)
+$(BUILDDIR)/textconsole: $(TEXTCON) $(DOMLIB)
 	$(CROSSLINK) -o $@ $(TEXTCON) $(SMALL_SPACE) $(CROSSLIBS)
 
-$(BUILDDIR)/keyclient: $(KEYCLIENT) $(DOMLIB) $(DOMCRT0)
+$(BUILDDIR)/keyclient: $(KEYCLIENT) $(DOMLIB)
 	$(CROSSLINK) -o $@ $(KEYCLIENT) $(CROSSLIBS) $(BUILDDIR)/idl.a
 
-$(BUILDDIR)/mouseclient: $(MOUSECLIENT) $(DOMLIB) $(DOMCRT0)
+$(BUILDDIR)/mouseclient: $(MOUSECLIENT) $(DOMLIB)
 	$(CROSSLINK) -o $@ $(MOUSECLIENT) $(CROSSLIBS)
 
 install: all

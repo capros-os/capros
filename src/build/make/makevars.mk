@@ -250,33 +250,46 @@ EROS_CPP=$(EROS_XENV)/bin/cpp -nostdinc -D$(EROS_TARGET)
 endif
 
 
-DOMLIB= $(EROS_ROOT)/lib/$(EROS_TARGET)/libdomain.a
-DOMLIB += $(EROS_ROOT)/lib/$(EROS_TARGET)/libidlstub.a
-DOMLIB += $(EROS_ROOT)/lib/$(EROS_TARGET)/libdomain.a
-DOMLIB += -lc # libc.a
-DOMLIB += $(EROS_LIBGCC)
-
 LINUXLIB=$(EROS_ROOT)/lib/$(EROS_TARGET)/liblinuxk.a
 
-DOMCRT0=$(EROS_ROOT)/lib/$(EROS_TARGET)/crt0.o
-DOMCRTN=$(EROS_ROOT)/lib/$(EROS_TARGET)/crtn.o
-DOMSBRK=$(EROS_ROOT)/lib/$(EROS_TARGET)/sbrk.o
-DEVSTART=$(EROS_ROOT)/lib/$(EROS_TARGET)/dstart.o
+# Libraries for make dependencies.
+LIBDEP=$(EROS_ROOT)/lib/$(EROS_TARGET)/libc-capros.a
+LIBDEP+=$(EROS_ROOT)/lib/$(EROS_TARGET)/libcapros-large.a
+LIBDEP+=$(EROS_ROOT)/lib/$(EROS_TARGET)/libcapros-small.a
+DOMLIB=$(LIBDEP)	# an older name
+
+# DOMCRT0 is obsolete, but still appears in some make dependency lists.
+DOMCRT0=
+
 # DOMBASE could be zero, but this value helps catch use of NULL pointers
 # by both user code and kernel code.
 DOMBASE=0x1000
-DOMLINKOPT=-N -Ttext $(DOMBASE) -static -e _start -L$(EROS_ROOT)/lib/$(EROS_TARGET)
 
-CROSSLINK=$(EROS_LD) $(DOMLINKOPT) $(DOMCRT0)
-DRIVERLINK=$(EROS_LD) -Tdata 0x00c00000 $(DOMLINKOPT) -e driver_start $(DEVSTART)
-DYNDRIVERLINK=$(EROS_LD) -Tdata 0x00c00000 $(DOMLINKOPT) $(DOMCRT0) $(DYNDRVSTART)
+LINKOPT=-Wl,--section-start,.init=$(DOMBASE) -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) -e _start #-Wl,--verbose
+DOMLINKOPT=$(LINKOPT)
+# Arm linking needs a script to align the data sections:
+ifeq "$(EROS_TARGET)" "arm"
+DOMLINKOPT+=-Wl,--script=$(EROS_SRC)/build/make/proclink.$(EROS_TARGET).link
+endif
+# i486 link lacks --start/end-group; this is a workaround.
+# capros_Process_makeResumeKey is needed by _exit().
+ifeq "$(EROS_TARGET)" "i486"
+DOMLINKOPT+=-Wl,-u,capros_Process_makeResumeKey
+endif
 
-DOMLIB += $(DOMCRTN)
+CROSSLINK=$(EROS_GCC) $(DOMLINKOPT) #-v
+
+DEVSTART=$(EROS_ROOT)/lib/$(EROS_TARGET)/dstart.o
+DRIVERLINKOPT=$(LINKOPT) -Tdata 0x00c00000
+DRIVERLINK=$(EROS_GCC) $(DRIVERLINKOPT) $(DEVSTART)
+
+DYNDRVSTART=$(EROS_ROOT)/lib/$(EROS_TARGET)/dyndriverstart.o
+DYNDRIVERLINK=$(EROS_GCC) $(DRIVERLINKOPT) $(DYNDRVSTART)
+
 # New name for libs given at the end of the link command:
-CROSSLIBS=$(DOMLIB)
-DRIVERLIBS=$(LINUXLIB) $(DOMSBRK) $(DOMLIB)
-
-SMALL_SPACE=-lsmall
+CROSSLIBS=
+DRIVERLIBS=$(LINUXLIB)
+SMALL_SPACE=-small-space
 
 
 # Really ugly GNU Makeism to extract the name of the current package by

@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, 2006, Strawberry Development Group.
+# Copyright (C) 2005, 2006, 2008, Strawberry Development Group.
 #
 # This file is part of the EROS Operating System.
 #
@@ -17,10 +17,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
 
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
-default: package
+default: install
 
 EROS_SRC=../../..
 CROSS_BUILD=yes
@@ -44,10 +46,8 @@ interfaces: $(IDL)
 	$(INSTALL) -d $(EROS_ROOT)/idl/capros
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/rangeAl: $(OBJECTS) $(DOMCRT0) $(DOMSBRK) $(DOMLIB)
-# Temporarily including sbrk.o explicitly.
-# It should be in libc. It is required by malloc.
-	$(CROSSLINK) $(OBJECTS) $(DOMSBRK) $(CROSSLIBS) -o $@
+$(BUILDDIR)/rangeAl: $(OBJECTS) $(DOMLIB)
+	$(CROSSLINK) $(OBJECTS) $(CROSSLIBS) -o $@
 
 rangeAl.c: $(BUILDDIR)/constituents.h
 
