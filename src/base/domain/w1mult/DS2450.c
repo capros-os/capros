@@ -213,6 +213,7 @@ DS2450_InitDev(struct W1Device * dev)
   memcpy(&dev->u.ad.devCfg, &inBuf, 8);
   // Check power-on reset:
   if (dev->u.ad.devCfg[0].cfghi & hi_POR) {
+    DEBUG(ad) kprintf(KR_OSTREAM, "DS2450 %#llx had POR\n", dev->rom);
     status = WriteDS2450MemoryFirst(dev, 0x1c, 0x40);
     if (status) {
       DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 write calib %d\n", status);

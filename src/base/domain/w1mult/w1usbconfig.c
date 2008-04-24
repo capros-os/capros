@@ -21,8 +21,8 @@ struct W1DevConfig _start[] = {
   {14, 0, branch_main, 0xe800000046f90d28ULL},	// DS18B20 outside N cooler
   {15, 0, branch_main, 0xb8000000470d4328ULL},	// DS18B20 outside S cooler
   {16, 0, branch_main, 0x8700000046f05b28ULL},	// DS18B20 study floor
-  {17, 0, branch_main, 0x9000000006160920ULL},	// DS2450 Hobbyboards
-  {18, 0, branch_main, 0x4d00000006190f20ULL},	// DS2450 Hobbyboards
+  {17, 0, branch_main, 0x9000000006160920ULL},	// DS2450 Hobbyboards, HVAC 1-4
+  {18, 0, branch_main, 0x4d00000006190f20ULL},	// DS2450 Hobbyboards, HVAC 5
   // at pool pad:
   {19, 1, branch_main, 0xee00000046f59428ULL},	// DS18B20 from pool/spa
   {20, 1, branch_main, 0xa1000000471c8228ULL},	// DS18B20 from solar
