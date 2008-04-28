@@ -210,6 +210,9 @@
                  identified in the migratedSeqNum field of the restart
                  generation header.
                  A retired generation has been migrated.
+                 The system keeps a directory of objects in the retired
+                 generation(s), so that it can fetch objects from there,
+                 taking advantage of the disk locality of the log.
                  On a restart, retired generations must not be used
                  because they may have been overwritten with 
                  unstabilized data.
@@ -590,7 +593,7 @@ struct ObjectDescriptor {
                 are written sequentially to the working generation area.
             <li>After a while, a demarcation event occurs. Reasons for
                 declaring a demarcation event are discussed below. 
-                The system preserves the state of all dirty objects
+                The system will preserve the state of all dirty objects
                 as of this time.
             <li>Those dirty objects are cleaned into the working area,
                 and the directories are written.
@@ -609,7 +612,9 @@ struct ObjectDescriptor {
           <p>
             The diagram above shows the layout of the main log.
             The main log cursor (the next location to be written)
-            is at the left end of the bar.
+            is at the end of the bar.
+            Note that the log is circular, so the left end and the right end
+            are the same location. 
 	    The <em>retired</em> generations remain in the main log
 	    until their storage is reused.
             There may be <em>free</em> space if the headers that described
@@ -941,19 +946,28 @@ after the header.
 	    the header frame, and write the rest into object directory
 	    frames at the end of the checkpoint.
 	  </p>
-	  <h2>7. The Core Directory</h2>
+	  <h2>7. The In-Core Directory</h2>
 	  <p>
-	    There is a main core directory for all the unmigrated
-	    generations, including the working generation,
-            and possibly for some migrated generations as well.
-            If a checkpoint is active, there is also a "current"
-            directory for the next generation.
-            (The current directory
-	    must be searched before the main directory when looking
-	    for the current
-	    version of an object). When a stabilization event occurs,
-	    the current directory is merged back into the
-	    main directory. 
+            The in-core directory is the data
+            structure that records the location of objects in the log.
+            The in-core directory is simply called the directory when
+            context makes it clear.
+            It is used for three purposes:
+	  </p>
+          <ul>
+            <li>When an object must be paged in from disk, the directory
+              tells whether the current version is in the log and if so where.
+            <li>When a generation is migrated, the directory tells the
+              migrator what objects are in that generation and where they are.
+            <li>When a page is journaled, the directory tells the pager
+              the location of the page that <em>would</em> be current
+              if a restart occurred (the <em>restart</em> version),
+              so that version can be updated.
+          </ul>
+	  <p>
+            The migrator only needs to migrate the current version of an
+            object, so the directory only needs to keep information about
+            the current version of objects and (for pages) the restart version.
 	  </p>
 	  <p>
 	    Note that the migrator will have to be able to find
@@ -961,7 +975,34 @@ after the header.
 	    generation number will need to be saved for each directory
 	    entry or they can be linked in a list headed in the
 	    core generation structure.
-            A number of data structures are possible.
+	  </p>
+	  <p>
+            A number of data structures are possible for the directory.
+            Here is one. Each directory entry is a node in a red-black tree
+            with the oid as the key.
+            Each entry has information about the object:
+            the allocation and call counts, the alloc and call count used bits,
+            and the type. 
+            Each entry also has the LID and generation number of
+            the current version.
+            To find entries by generation, the entry is linked on a
+            doubly-linked chain for its generation.
+            If the object is a page, the entry may also have the LID
+            and generation number of the restart version.
+            (We do not need to link into the chain for the generation
+            of the restart version.)
+	  </p>
+	  <p>
+            When a checkpoint is stabilized,
+            the current version becomes also the restart version;
+            the old restart version is
+            no longer the restart version. Rather than update affected
+            directory entries at this time, we just recognize this
+            situation from the generation numbers, and update the
+            entry whenever we happen to visit it. 
+	  </p>
+	  <p>
+            The following is another, older design:
 	  </p>
 	  <ul>
 	      <pre>
@@ -987,6 +1028,58 @@ struct CoreDirectory {
 	      </p>
 	    </dd>
 	  </dl>
+	  <h3>7.1 Directory Management</h3>
+	  <p>
+            CapROS allocates a fixed, tunable amount of space
+            for directory entries at boot time.
+            The restart code loads the directory with information for
+            the restart generation and all the other unmigrated generations.
+            (It must not load directory information from migrated generations,
+            because those generations may have been freed and overwritten
+            after the restart checkpoint was stabilized.)
+	  </p>
+	  <p>
+            A directory entry is allocated when a dirty persistent object
+            is cleaned, that is, written to the log. 
+            (If that object was already in the log in the same generation,
+            we will get its old entry back, but we do not count on this
+            in managing directory entry allocation.)
+            Thus the number of dirty objects is an upper bound on the number
+            of directory entries we will need to take a checkpoint.
+	  </p>
+	  <p>
+            Before we dirty an object, we check that the number of
+            free directory entries,
+            plus the number of directory entries used by
+            retired generations (these entries could easily be freed),
+            is greater than or equal to the <em>soft limit</em>.
+            The soft limit is a tunable parameter that may be the number
+            of objects that can fit in memory, or may be larger.
+            If we aren't going to exceed the soft limit, we go ahead and
+            dirty the object.
+	  </p>
+	  <p>
+            If we would exceed the soft limit,
+            and a checkpoint isn't in progress,
+            we declare a demarcation event.
+            If the number of free directory entries
+            plus the number that could be freed in retired generations
+            is greater than or equal to the number of dirty objects
+            (including the object about to be dirtied),
+            then we go ahead and dirty the object.
+            Otherwise, the dirtying of the object must wait until
+            this comparison can succeed. 
+	  </p>
+	  <p>
+            At the time an object is cleaned, if there are no free
+            directory entries, we free the oldest retired generation,
+            freeing all its directory entries if any,
+            until there is a free directory entry.
+            (The above algorithm ensures that we can always get
+            a free entry.)
+          </p>
+	  <p>
+	  </p>
 	  <h2>8. The Core Generation Structure</h2>
           <p>
 	    <em>I (wsf) think this structure is overkill, but it is
