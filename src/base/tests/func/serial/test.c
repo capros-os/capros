@@ -34,15 +34,16 @@ to the serial port.
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Sleep.h>
+#include <idl/capros/DS2480B.h>
 
 #include <idl/capros/Constructor.h>
 #include <domain/Runtime.h>
-
+#include <domain/assert.h>
 #include <domain/domdbg.h>
 
-#define KR_SER     KR_APP(0)
-#define KR_OSTREAM KR_APP(1)
-#define KR_SLEEP   KR_APP(2)
+#define KR_OSTREAM KR_APP(0)
+#define KR_SLEEP   KR_APP(1)
+#define KR_SER     KR_APP(2)
 
 
 const uint32_t __rt_stack_pointer = 0x20000;
@@ -323,6 +324,26 @@ main(void)
 {
   result_t result;
   unsigned long err;
+  Message Msg = {
+    .snd_invKey = KR_VOID,
+    .snd_code = RC_OK,
+    .snd_key0 = KR_VOID,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_rsmkey = KR_VOID,
+    .snd_len = 0,
+    .rcv_key0 = KR_SER,
+    .rcv_key1 = KR_VOID,
+    .rcv_key2 = KR_VOID,
+    .rcv_rsmkey = KR_RETURN,
+    .rcv_limit = 0,
+  };
+
+  RETURN(&Msg);
+  assert(Msg.rcv_code == OC_capros_DS2480B_registerPort);
+  // Reply to NPLink:
+  Msg.snd_invKey = KR_RETURN;
+  SEND(&Msg);
 
   result = capros_SerialPort_open(KR_SER, &err);
   ckOK

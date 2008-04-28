@@ -28,27 +28,6 @@ Approved for public release, distribution unlimited. */
 #include <ipltool.map>
 #include <supernode.map>
 #include <vcs.map>
-#include <drivers/serial.map>
-
-#if defined(EROS_TARGET_arm)
-
-SERIAL_DRIVER_AMBA(uart3, SYSCONDeviceCfg_U3EN, APB_PA+UART3_APB_OFS)
-#define serialKey uart3serial
-
-#elif defined(EROS_TARGET_i486)
-
-#include <linux/serial.h>
-#include <asm/serial.h>
-// Values from asm-i386/serial.h
-SERIAL_DRIVER_8250_PORT(com1, BASE_BAUD, 0x3f8, 4, STD_COM_FLAGS)
-//SERIAL_DRIVER_8250_PORT(com2, BASE_BAUD, 0x2f8, 3, STD_COM_FLAGS)
-//SERIAL_DRIVER_8250_PORT(com3, BASE_BAUD, 0x3e8, 4, STD_COM_FLAGS)
-//SERIAL_DRIVER_8250_PORT(com4, BASE_BAUD, 0x2e8, 3, STD_COM4_FLAGS)
-#define serialKey com1serial
-
-#else
-#error "Unknown target"
-#endif
 
 /*
  * Test domain
@@ -64,10 +43,32 @@ test schedule = sched(8);   /* normal */
 test key reg KR_BANK = primebank;
 test key reg KR_SCHED = sched(8);
 
-test key reg KR_APP(0) = serialKey;
-test key reg KR_APP(1) = misc Console;
-test key reg KR_APP(2) = misc Sleep;
+test key reg KR_APP(0) = misc Console;
+test key reg KR_APP(1) = misc Sleep;
 
 run test;
 
-print directory;
+#define serial3_notifyee start test 0
+
+#include <nplink.map>
+#include <drivers/serial.map>
+
+#if defined(EROS_TARGET_arm)
+
+SERIAL_DRIVER_AMBA(uart3, 3, SYSCONDeviceCfg_U3EN, APB_PA+UART3_APB_OFS)
+#define serialKey uart3serial
+
+#elif defined(EROS_TARGET_i486)
+
+#include <linux/serial.h>
+#include <asm/serial.h>
+// Values from asm-i386/serial.h
+SERIAL_DRIVER_8250_PORT(com1, 1, BASE_BAUD, 0x3f8, 4, STD_COM_FLAGS)
+//SERIAL_DRIVER_8250_PORT(com2, 2, BASE_BAUD, 0x2f8, 3, STD_COM_FLAGS)
+//SERIAL_DRIVER_8250_PORT(com3, 3, BASE_BAUD, 0x3e8, 4, STD_COM_FLAGS)
+//SERIAL_DRIVER_8250_PORT(com4, 4, BASE_BAUD, 0x2e8, 3, STD_COM4_FLAGS)
+#define serialKey com1serial
+
+#else
+#error "Unknown target"
+#endif

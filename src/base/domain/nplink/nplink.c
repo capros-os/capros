@@ -35,6 +35,8 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/NPLink.h>
 #include <idl/capros/W1Bus.h>
 #include <idl/capros/W1Mult.h>
+#include <idl/capros/SerialPort.h>
+#include <idl/capros/DS2480B.h>
 
 #include <domain/domdbg.h>
 #include <domain/assert.h>
@@ -49,6 +51,7 @@ uint32_t __rt_unkept = 1;
 
 #define KC_DS9490R 0
 #define KC_DS9097U 1
+#define KC_Serial3 2
 
 #define KR_OSTREAM KR_APP(0)
 
@@ -70,9 +73,29 @@ AssignW1Bus(Message * msg)
       break;
 
     case capros_W1Bus_BusType_DS9097U:
-      result = capros_Node_getSlotExtended(KR_CONSTIT, KC_DS9097U, KR_TEMP0);
+      result = capros_Node_getSlotExtended(KR_CONSTIT, KC_DS9490R, KR_TEMP0);
       assert(result == RC_OK);
       result = capros_W1Mult_RegisterBus(KR_TEMP0, KR_ARG(0), msg->rcv_w2);
+      assert(result == RC_OK);
+      break;
+  }
+}
+
+void
+AssignSerialPort(Message * msg)
+{
+  result_t result;
+
+  // This logic is very ad-hoc.
+  // The subtype in w2 is the hardware port number.
+  switch (msg->rcv_w2) {
+    default:
+      kprintf(KR_OSTREAM, "Unknown serial port # %d.\n", msg->rcv_w2);
+      break;
+    case 3:
+      result = capros_Node_getSlotExtended(KR_CONSTIT, KC_Serial3, KR_TEMP0);
+      assert(result == RC_OK);
+      result = capros_DS2480B_registerPort(KR_TEMP0, KR_ARG(0));
       assert(result == RC_OK);
       break;
   }
@@ -125,6 +148,9 @@ main(void)
       switch (Msg.rcv_w1) {
       case IKT_capros_W1Bus:
         AssignW1Bus(&Msg);
+        break;
+      case IKT_capros_SerialPort:
+        AssignSerialPort(&Msg);
         break;
       }
       break;

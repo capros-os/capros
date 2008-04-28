@@ -32,8 +32,10 @@ Approved for public release, distribution unlimited. */
 #include <linux/serial_core.h>
 
 // Key registers for the main thread:
-#define KR_CONFIG     KR_APP2(0)	// architecture-dependent config param
-#define KR_XMITWAITER KR_APP2(1)
+// KR_PortNum initially has a number cap with the port number.
+#define KR_PortNum KR_APP2(0)
+#define KR_CONFIG     KR_APP2(1)	// architecture-dependent config param
+#define KR_XMITWAITER KR_APP2(2)
 
 bool isTransmitterEmpty(struct uart_port * port);
 void * transmitterEmptyTask(void * arg);

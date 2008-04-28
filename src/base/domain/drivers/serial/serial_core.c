@@ -42,8 +42,11 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <idl/capros/Constructor.h>
 #include <idl/capros/DevPrivs.h>
+#include <idl/capros/NPLink.h>
 
 #include "serialPort.h"
+
+#define KC_NPLINK 0
 
 //#define FAILFAST
 
@@ -54,6 +57,8 @@ Approved for public release, distribution unlimited. */
  * This is used to lock changes in serial line configuration.
  */
 static DEFINE_MUTEX(port_mutex);
+
+uint32_t portNum;
 
 #define msgRcvBufSize UART_XMIT_SIZE
 unsigned char msgRcvBuf[msgRcvBufSize];
@@ -2119,6 +2124,9 @@ driver_main(void)
   Message msgs;
   Message * const msg = &msgs;	// to address it consistently
 
+  result = capros_Number_get32(KR_PortNum, &portNum);
+  assert(result == RC_OK);
+
   // Allocate slots for resume keys to waiters:
   result = capros_SuperNode_allocateRange(KR_KEYSTORE,
                                           xmitWaiterCap, lastWaiterCap);
@@ -2141,6 +2149,15 @@ driver_main(void)
            state, state->port);
 #endif
 
+  // Give our cap to nplink.
+  result = capros_Process_makeStartKey(KR_SELF, 0, KR_TEMP1);
+  assert(result == RC_OK);
+  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_NPLINK, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_NPLink_RegisterNPCap(KR_TEMP0, KR_TEMP1,
+             IKT_capros_SerialPort, portNum);
+  assert(result == RC_OK);
+
   msg->rcv_key0 = msg->rcv_key1 = msg->rcv_key2 = KR_VOID;
   msg->rcv_rsmkey = KR_RETURN;
 
@@ -2155,7 +2172,7 @@ driver_main(void)
     msg->rcv_limit = msgRcvBufSize;
     assert(msg->rcv_limit > sizeof(struct capros_SerialPort_icounter));
     RETURN(msg);
-kdprintf(KR_OSTREAM, "Called, oc=0x%x\n", msg->rcv_code);////
+    //kdprintf(KR_OSTREAM, "Called, oc=0x%x\n", msg->rcv_code);
 
     /* If we were sending from an input buffer, we no longer are. */
     if (inputBufSending != 2) {

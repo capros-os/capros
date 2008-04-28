@@ -34,9 +34,19 @@ Approved for public release, distribution unlimited. */
  *********************************************/
 
 serial_prog = program segtree LIBDIR "drivers/serial";
-serial_pc = symbol LIBDIR "drivers/serial" driver_start;
+serial_pc = symbol LIBDIR "drivers/serial" _start;
 
 BOOT_DOMCRE(serial);	// maybe each should have his own?
+
+serialConstit = new node;	// shared by all instances
+// Define nplink elsewhere.
+serialConstit[0] = nplink;
+
+#define SERIAL_DRIVER_GENERIC(name, num, devcfgbit) \
+DRIVER(name##serial, serial_prog, serial_pc, devcfgbit) \
+name##serial_proc key reg KR_APP2(0) /*KR_PortNum*/ = number(num); \
+name##serial_proc key reg KR_CONSTIT = serialConstit; \
+name##serial_proc key reg KR_CREATOR = serial_proccre;
 
 /* Define target-specific resources. */
 
@@ -56,8 +66,8 @@ serial_le_clocks[1] = uart_devclock;
 
 // Usage: SERIAL_DRIVER_AMBA(uart3, UART3_BASE, SYSCONDeviceCfg_U3EN)
 
-#define SERIAL_DRIVER_AMBA(name, devcfgbit, devRegsPhysAddr) \
-SERIAL_DRIVER_GENERIC(name, devcfgbit) \
+#define SERIAL_DRIVER_AMBA(name, num, devcfgbit, devRegsPhysAddr) \
+SERIAL_DRIVER_GENERIC(name, num, devcfgbit) \
 name##serialle_iomem = new node; \
 name##serialle_iomem[0] = number(1 /* one page */, devRegsPhysAddr, 0); \
 name##serialle_iomem[1] = physpage(devRegsPhysAddr); \
@@ -66,16 +76,13 @@ name##serialle[LE_IOMEM] = name##serialle_iomem;
 
 #elif defined(EROS_TARGET_i486)
 
-#define SERIAL_DRIVER_8250_PORT(name, baud_base, port, irq, flags) \
-SERIAL_DRIVER_GENERIC(name, 0) \
-name##serial_proc key reg KR_APP2(0) = number(baud_base, port + (irq * 65536), flags);
+#define SERIAL_DRIVER_8250_PORT(name, num, baud_base, port, irq, flags) \
+SERIAL_DRIVER_GENERIC(name, num, 0) \
+name##serial_proc key reg KR_CONSTIT = serialConstit;
+name##serial_proc key reg KR_APP2(1) /*KR_CONFIG*/ = number(baud_base, port + (irq * 65536), flags);
 
 #else
 #error "Unknown target"
 #endif
-
-#define SERIAL_DRIVER_GENERIC(name, devcfgbit) \
-DRIVER(name##serial, serial_prog, serial_pc, devcfgbit) \
-name##serial_proc key reg KR_CREATOR = serial_proccre;
 
 #endif

@@ -43,9 +43,17 @@ nplink_proc key reg 7 = misc Console;
 run nplink_proc;
 nplink = start nplink_proc 0;
 
-/* Define ds9490r_notifyee elsewhere. */
+#ifndef ds9490r_notifyee
+#define ds9490r_notifyee void
+#endif
 nplink_constit[0] = ds9490r_notifyee;
+
 /*nplink_constit[1] = ds9097u_notifyee;*/
+
+#ifndef serial3_notifyee
+#define serial3_notifyee void
+#endif
+nplink_constit[2] = serial3_notifyee;
 
 ds2490_notifyee = nplink;
 
