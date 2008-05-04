@@ -135,7 +135,7 @@ void EnableHeartbeat(uint32_t bit);
 extern unsigned char outBuf[capros_W1Bus_maxProgramSize + 1];
 extern unsigned char * const outBeg;
 extern unsigned char * outCursor;
-extern unsigned char inBuf[capros_W1Bus_maxResultsSize];
+extern unsigned char inBuf[capros_W1Bus_maxReadSize];
 extern struct Branch * resetBranch;
 extern Message RunPgmMsg;
 

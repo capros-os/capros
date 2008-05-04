@@ -28,7 +28,7 @@ CROSS_BUILD=yes
 include $(EROS_SRC)/build/make/makevars.mk
 
 IMGMAP=w1mult.map
-TARGETS=$(BUILDDIR)/w1mult $(BUILDDIR)/w1usbconfig
+TARGETS=$(BUILDDIR)/w1mult $(BUILDDIR)/w1usbconfig $(BUILDDIR)/w1ser3config
 OBJECTS=$(BUILDDIR)/w1mult.o
 OBJECTS+= $(BUILDDIR)/DS18B20.o
 OBJECTS+= $(BUILDDIR)/DS2450.o
@@ -49,6 +49,9 @@ $(BUILDDIR)/w1mult: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 
 $(BUILDDIR)/w1usbconfig: $(BUILDDIR)/w1usbconfig.o
 	$(EROS_LD) -N -Tdata 0 -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) $(BUILDDIR)/w1usbconfig.o -o $@
+
+$(BUILDDIR)/w1ser3config: $(BUILDDIR)/w1ser3config.o
+	$(EROS_LD) -N -Tdata 0 -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) $(BUILDDIR)/w1ser3config.o -o $@
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

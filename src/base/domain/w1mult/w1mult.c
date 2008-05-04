@@ -186,8 +186,8 @@ CheckCRC16(void)
 
   bool ok = (((c2 << 8) + c1) ^ crc) == 0xffff;
   if (! ok) {
-    DEBUG(errors) kprintf(KR_OSTREAM,
-                    "CRC16 calc = 0x%.4x, read = 0x%.2x%.2x\n", crc, c2, c1);
+    DEBUG(errors) kdprintf(KR_OSTREAM,
+                   "CRC16 calc = 0x%.4x, read = 0x%.2x%.2x\n", crc, c2, c1);
   }
   return ok;
 }
@@ -197,7 +197,7 @@ CheckCRC16(void)
 unsigned char outBuf[capros_W1Bus_maxProgramSize + 1];
 unsigned char * const outBeg = &outBuf[0];
 unsigned char * outCursor;
-unsigned char inBuf[capros_W1Bus_maxResultsSize];
+unsigned char inBuf[capros_W1Bus_maxReadSize];
 
 /* After a program is executed, we can do some post-processing on some steps. */
 #define maxPPItems 20
@@ -754,7 +754,7 @@ DoAll(struct Branch * br)
 
 /**********************************************************************/
 
-/* Returns -1 if W1Bus cap is gone, else 0. */
+/* Returns -1 if W1Bus cap is gone, else 0 or capros_W1Bus_StatusCode_CRCError. */
 int
 SearchPath(struct Branch * br)
 {
@@ -796,6 +796,7 @@ SearchPath(struct Branch * br)
   {
     // Find ROMs on this branch.
     rom = 0;		// next ROM to find
+    unsigned int tries = 0;
     while (1) {
       AddressPath(br, true);
       wp(capros_W1Bus_stepCode_searchROM)
@@ -810,6 +811,14 @@ SearchPath(struct Branch * br)
       assert(statusCode == capros_W1Bus_StatusCode_OK);
       if (RunPgmMsg.rcv_sent != 16)
         kdprintf(KR_OSTREAM, "SearchROM got %d bytes", RunPgmMsg.rcv_sent);
+
+      unsigned int d = CalcCRC8(inBuf, 8);
+      if (d) {		// invalid CRC
+        DEBUG(errors) kprintf(KR_OSTREAM, "SearchROM got CRC %#.2x!\n", d);
+        if (++tries >= 2)
+          return capros_W1Bus_StatusCode_CRCError;
+        continue;
+      }
 
       memcpy(&rom, inBuf, 8);	// little-endian
       memcpy(&discrep, inBuf+8, 8);
@@ -908,11 +917,6 @@ ScanBus(void)
   if (result == RC_capros_key_Void) \
     return -1; \
   assert(result == RC_OK);
-
-  /* Apparently, rebooting the CPU doesn't reset the device,
-  so do it here: */
-  result = capros_W1Bus_resetDevice(KR_W1BUS);
-  ckres
 
   // Set bus parameters:
   result = capros_W1Bus_setSpeed(KR_W1BUS, capros_W1Bus_W1Speed_flexible);
@@ -1202,9 +1206,13 @@ main(void)
         Msg.snd_code = RC_capros_key_UnknownRequest;
         break;
 
-      case OC_capros_W1Mult_RegisterBus:
+      case OC_capros_W1Mult_registerBus:
         // We don't use the subtype in Msg.rcv_w1.
         COPY_KEYREG(KR_ARG(0), KR_W1BUS);
+        // Return to the caller before invoking the W1Bus cap,
+        // to prevent deadlock.
+        SEND(&Msg);
+
         ScanBus();
         break;
       }
