@@ -44,7 +44,6 @@ interface W1Bus extends key {
   in sequence is returned by the runProgram method.
   */
   const unsigned long maxProgramSize = 128;
-  const unsigned long maxResultsSize = 128;
 
   unsigned byte enum stepCode {
 
@@ -134,6 +133,7 @@ interface W1Bus extends key {
     Otherwise, the result data consists of the 8-byte ROM code of
       the device found, followed by 8 bytes indicating the bit
       positions at which a conflict was found during the search.
+      The ROM code has not been checked for a valid CRC.
       The program continues execution with the found device addressed.
     */
     searchROM = 240, // 0xf0
@@ -159,7 +159,8 @@ interface W1Bus extends key {
     to write, followed by that number of bytes of data.
     The bus master writes the specified bytes to the bus.
    
-    The number of bytes to write must not exceed maxWriteSize,
+    The number of bytes to write must not be zero
+    and must not exceed maxWriteSize,
     else program execution terminates with status ProgramError.
     */
     writeBytes = 9,
@@ -169,7 +170,8 @@ interface W1Bus extends key {
     to read.
     The bus master reads that many bytes and returns them as result data.
    
-    The number of bytes to read must not exceed maxWriteSize,
+    The number of bytes to read must not be zero
+    and must not exceed maxReadSize,
     else program execution terminates with status ProgramError.
     */
     readBytes = 10,
@@ -192,7 +194,7 @@ interface W1Bus extends key {
     This step cannot be immediately preceded by a resetSimple,
     else program execution is terminated with status SequenceError.
    
-    The number of bytes to read must not exceed maxResultsSize,
+    The number of bytes to read must not exceed maxReadSize,
     else program execution is terminated with status SequenceError.
     */
     readCRC8 = 11,
@@ -269,7 +271,7 @@ interface W1Bus extends key {
     PDSR137  = 3,	//  1.37 V/us
     PDSR110  = 4,	//  1.10 V/us
     PDSR083  = 5,	//  0.83 V/us
-    PDSR070  = 5,	//  0.70 V/us
+    PDSR070  = 6,	//  0.70 V/us
     PDSR055  = 7	//  0.55 V/us
   };
   void setPDSR(PDSR pdsr);
@@ -282,7 +284,7 @@ interface W1Bus extends key {
     W1LT11 = 3,	// 11 us
     W1LT12 = 4,	// 12 us
     W1LT13 = 5,	// 13 us
-    W1LT14 = 5,	// 14 us
+    W1LT14 = 6,	// 14 us
     W1LT15 = 7	// 15 us
   };
   void setW1LT(W1LT w1lt);
