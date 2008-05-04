@@ -14,11 +14,13 @@ interface SerialPort extends key {
    * stuffed into the flags buffer.
    */
   /// @brief Indicates there was no error with the associated character
-  const unsigned<8> NORMAL  = 0;
-  const unsigned<8> BREAK   = 1;
-  const unsigned<8> FRAME   = 2;
-  const unsigned<8> PARITY  = 3;
-  const unsigned<8> OVERRUN = 4;
+  unsigned<8> enum Flag {
+    NORMAL  = 0,
+    BREAK   = 1,
+    FRAME   = 2,
+    PARITY  = 3,
+    OVERRUN = 4
+  };
 
   /* NB: both 1->0 and 0->1 transitions are counted except for
      rng where only 0->1 is counted. */
@@ -214,11 +216,33 @@ interface SerialPort extends key {
       support this, but Linux drivers do not support that.) */
   void setModemStatus(unsigned short set, unsigned short clear);
 
-  //// Implemented, but not in IDL:
-  // read, order code 0
-  //   w1 has max number of pairs to read
-  //   returns pairs of bytes: flag (e.g. NORMAL, PARITY, etc.), data
-  // write, order code 1
-  // readNonblocking, order code 2
-  exception Nonblocking; // readNonblocking, no data available
+  /* The following structure has size 4 bytes (!) on some architectures,
+  so we can't use it: 
+  struct InputPair {
+    unsigned byte flag;	// really type Flag
+    unsigned byte data;
+  };
+  */
+
+  // The following are not implemented in IDL because the IDL compiler
+  // isn't up to the task.
+
+  // Order code 0:
+  client void read(unsigned long maxPairs,
+              out unsigned long pairsRead,
+              out unsigned byte data); // this is a lie, the output is actually
+	 			// an array of InputPairs.
+
+  // Order code 1:
+  client void write(unsigned long len,
+                    out unsigned byte data);	// this is a lie, this is
+			// really an input array of bytes.
+
+  exception TimedOut; // readTimeout timed out
+  // Order code 2:
+  client void readTimeout(unsigned long maxPairs,
+                          unsigned long timeout,	// in microseconds
+              out unsigned long pairsRead,
+              out unsigned byte data); // this is a lie, the output is actually
+	 			// an array of InputPairs.
 };

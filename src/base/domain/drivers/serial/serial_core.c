@@ -2038,6 +2038,16 @@ struct read_wait_data {
 };
 DECLARE_WAIT_QUEUE_HEAD(read_wait_queue_head);
 
+void
+readTimeoutFunction(unsigned long data)
+{
+  wake_up(&read_wait_queue_head);
+}
+
+struct timer_list readTimer = {
+  .function = &readTimeoutFunction
+};
+
 // Stuff from tty_io.h.
 
 // Called with port lock held.
@@ -2084,18 +2094,23 @@ tty_flip_buffer_push(struct tty_struct * tty)
 static int
 read_wait_func(wait_queue_t * wait, unsigned mode, int sync, void * key)
 {
+  del_timer(&readTimer);
+
   struct read_wait_data * rwd = wait->private;
 
   unsigned int left = inputBufUsed[inputBufForOutput] - inputBufRead;
-  assert(left > 0);
   unsigned int readCount = rwd->readWaiterCount;
   if (readCount > left)
     readCount = left;	// take min
 
   Message msg;
   SetupReturnToWaiter(&rwd->d, &msg);
-  msg.snd_data = &inputBuf[inputBufForOutput][inputBufRead * 2];
-  msg.snd_len = readCount * 2;
+  if (readCount) {	// have data to return
+    msg.snd_data = &inputBuf[inputBufForOutput][inputBufRead * 2];
+    msg.snd_len = readCount * 2;
+  } else {		// no data, must have timed out
+    msg.snd_code = RC_capros_SerialPort_TimedOut;
+  }
   PSEND(&msg);	// prompt send
 
   rwd->d.inUse = false;
@@ -2256,10 +2271,11 @@ driver_main(void)
       break;
     }
 
-    case 2:	// readNonblocking (not yet working in IDL)
+    case 2:	// readTimeout (not yet working in IDL)
     {
       struct uart_port * port = state->port;
       unsigned long readCount = msg->rcv_w1;	// max number of pairs to read
+      uint32_t timeout = msg->rcv_w2;	// timeout in microseconds
       if (! port		// port isn't open
           || readCount <= 0) {
         msg->snd_code = RC_capros_key_RequestError;
@@ -2273,7 +2289,18 @@ driver_main(void)
       if (left > 0) {
         DoReadNonblocking(msg, left);
       } else {		// must wait
-        msg->snd_code = RC_capros_SerialPort_Nonblocking;
+        if (timeout) {
+          // Converting microseconds to jiffies, round up:
+          mod_timer_duration(&readTimer, timeout / TICK_USEC + 1);
+	  SetupCallerWait(&readWaitGlobal.d, &read_wait_func, state);
+          readWaitGlobal.readWaiterCount = readCount;
+	  add_wait_queue(&read_wait_queue_head, &readWaitGlobal.d.waitQ);
+
+          // The resume key to the caller has been saved.
+          msg->snd_invKey = KR_VOID;
+        } else {
+          msg->snd_code = RC_capros_SerialPort_TimedOut;
+        }
       }
         
       spin_unlock(&port->lock);
