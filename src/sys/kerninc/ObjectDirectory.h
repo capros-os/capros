@@ -19,6 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /** \file ObjectDirectory.h
     \brief CapROS Kernel Object Directory Interface.
@@ -34,7 +37,7 @@
       1. Record new locations for objects
       2. Find the most recent location for an object.
       3. Find all the objects in a particular checkpoint generation.
-      4. Remove all the entries of a particular checkpoint generations.
+      4. Remove all the entries of a particular checkpoint generation.
 */
 
 /** The root of the core directory.
