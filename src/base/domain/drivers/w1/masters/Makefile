@@ -28,8 +28,13 @@ EROS_SRC=../../../../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-TARGETS=$(BUILDDIR)/ds2490
-OBJECTS=$(BUILDDIR)/ds2490.o $(BUILDDIR)/ds2490_cap.o
+TARGETS=$(BUILDDIR)/ds2480b
+ifeq "$(EROS_TARGET)" "i486"	# drivers for i486 only
+else	# ARM-only drivers
+DRIVER_TARGETS+=$(BUILDDIR)/ds2490
+endif
+
+DS2490_OBJECTS=$(BUILDDIR)/ds2490.o $(BUILDDIR)/ds2490_cap.o
 
 LIBS=../../usb/lib/$(BUILDDIR)/libusbdev.a
 
@@ -38,20 +43,27 @@ INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-all: $(TARGETS) $(BUILDDIR)/ds2490_ids.o
+all: $(TARGETS) $(DRIVER_TARGETS) $(BUILDDIR)/ds2490_ids.o
 
 IDL=$(wildcard *.idl)
-##interfaces: $(IDL)
-##	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
+interfaces: $(IDL)
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/ds2490: $(DYNDRVSTART) $(OBJECTS) $(LIBS) $(DRIVERLIBS) $(LIBDEP)
-	$(DYNDRIVERLINK) $(OBJECTS) $(LIBS) $(DRIVERLIBS) -o $@
+$(BUILDDIR)/ds2490: $(DYNDRVSTART) $(DS2490_OBJECTS) $(LIBS) $(DRIVERLIBS) $(LIBDEP)
+	$(DYNDRIVERLINK) $(DS2490_OBJECTS) $(LIBS) $(DRIVERLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+#	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+
+$(BUILDDIR)/ds2480b:  $(BUILDDIR)/ds2480b.o $(DOMLIB)
+	$(CROSSLINK) $(BUILDDIR)/ds2480b.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
+# and for debugging:
+	$(EROS_OBJDUMP) -t --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
 	$(INSTALL) -m 644 ds2490.map $(CAPROS_DOMAIN)/drivers
-	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers
+	$(INSTALL) -m 755 $(DRIVER_TARGETS) $(CAPROS_DOMAIN)/drivers
+	$(INSTALL) -m 644 ds2480b.map $(CAPROS_DOMAIN)
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m

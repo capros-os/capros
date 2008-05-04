@@ -1,0 +1,49 @@
+#ifndef __DS2480B_MAP_
+#define __DS2480B_MAP_
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+
+/*********************************************
+ * DS2480B serial to W1Bus converter.
+ *********************************************/
+
+#define ds2480b(name) \
+name##ds2480b_proc = new process; \
+name##ds2480b.prog = small program LIBDIR "ds2480b"; \
+name##ds2480b_proc pc = symbol LIBDIR "ds2480b" _start; \
+name##ds2480b_proc.space = name##ds2480b.prog with page at 0x1f000; \
+name##ds2480b_proc space = name##ds2480b_proc.space; \
+name##ds2480b_proc schedule = sched(8); \
+name##ds2480b_proc symtab = number("ds2480b"); \
+name##ds2480b_proc key reg KR_SELF = name##ds2480b_proc; \
+name##ds2480b_proc key reg KR_BANK = primebank; \
+name##ds2480b_proc key reg KR_SCHED = sched(8); \
+name##ds2480b_proc key reg KR_APP(0) = misc Console; \
+name##ds2480b_proc key reg KR_APP(2) = misc Sleep; \
+run name##ds2480b_proc;
+// Caller must add:
+// name##ds2480b_proc key reg KR_APP(1) = w1mult;
+// nplink gets: start name##ds2480b_proc 0
+
+#endif // __DS2480B_MAP_

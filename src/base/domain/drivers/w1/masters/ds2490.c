@@ -18,6 +18,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/kernel.h>
 #include <asm/types.h>
@@ -46,7 +49,7 @@
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 unsigned long MsgRcvBuf[capros_W1Bus_maxProgramSize/4];
-unsigned long MsgSndBuf[capros_W1Bus_maxResultsSize/4];
+unsigned long MsgSndBuf[capros_W1Bus_maxReadSize/4];
 
 static void usb_w1_msg_timer_function(unsigned long data)
 {
@@ -631,7 +634,6 @@ RunProgram(Message * msg, uint32_t pgmLen)
         cmdNext->value = COMM_MATCH_ACCESS | COMM_IM | needReset;
         needReset = 0;
         cmdNext->index = stepCode;	// Match ROM command
-	// one coupler at a time
         NextCmd();
         break;
 
@@ -674,8 +676,6 @@ RunProgram(Message * msg, uint32_t pgmLen)
         needCmd(2)
         if (option == COMM_D)
           ep3Size += 1;
-        cmdNext->duration = 8 + 64*3;
-        if (needReset) cmdNext->duration += 16;
         cmdNext->duration = 1;
         cmdNext->type = cmdType_none;
         cmdNext->request = COMM_CMD;
@@ -689,7 +689,7 @@ RunProgram(Message * msg, uint32_t pgmLen)
         needPgm(1)
         unsigned char nBytes = *pgm;
         // Note, maxWriteSize <= EP2_FIFO_SIZE.
-        if (nBytes > capros_W1Bus_maxWriteSize)
+        if (nBytes == 0 || nBytes > capros_W1Bus_maxWriteSize)
           goto programError; // can never do this
         needPgm(1+nBytes)
         needEP2(nBytes)
@@ -714,7 +714,7 @@ RunProgram(Message * msg, uint32_t pgmLen)
         needPgm(1)
         unsigned char nBytes = *pgm;
         // Note, maxReadSize <= EP3_FIFO_SIZE.
-        if (nBytes > capros_W1Bus_maxReadSize)
+        if (nBytes == 0 || nBytes > capros_W1Bus_maxReadSize)
           goto programError; // can never do this
         needEP3(nBytes)
         needCmd(1)
@@ -740,14 +740,15 @@ RunProgram(Message * msg, uint32_t pgmLen)
         if (logPageSize == 0 || logPageSize >= 7) goto programError;
         unsigned char numPages = *(pgm+1);
         unsigned long nBytes = (1UL << logPageSize) * numPages;
-        if (nBytes > EP3_FIFO_SIZE) goto programError; // can never do this
+        if (nBytes > capros_W1Bus_maxReadSize)
+          goto programError; // can never do this
         needEP3(nBytes)
         pgm += 2;
         memcpy(&cm->dataBuffer[ep2Size], pgm, 3);
         ep2Size += 3;
         ep3Size += nBytes;
         pgm += 3;
-        cmdNext->duration = nBytes * 8;
+        cmdNext->duration = (3 + nBytes) * 8;
         cmdNext->type = cmdType_readCRC;
         cmdNext->request = COMM_CMD;
         cmdNext->value = COMM_READ_CRC_PROT_PAGE | COMM_IM | option;
@@ -801,7 +802,7 @@ RunProgram(Message * msg, uint32_t pgmLen)
 
       }
     }
-    // We have preprocessed the entire program.
+    // We have preprocessed the entire segment.
     goto execute;
 
 endSegment:
@@ -993,6 +994,8 @@ execute:
     err = GetEP3Data(expected);
     assert(!err);
 
+    lastSPUDCode = lastSPUDCodePgm;
+
     DEBUG(prog) {	// show status at end of segment
       err = ds_recv_status();
       assert(err >= 16);
@@ -1058,6 +1061,8 @@ returnLength:
     GetEP3Data(sizeToGet);
   }
 returnLengthGotEP3:
+  // There was an error; a SPUD code may or may not have been programmed.
+  lastSPUDCode = SPUDCode_unknown;
   FlushXmitBuffer();
   msg->snd_w2 = cmdNext->pgmLocation;
 returnOK:
@@ -1081,6 +1086,13 @@ w1bus_thread(void * arg)
   result_t result;
   int err;
   Message Msg;
+
+  /* Apparently, rebooting the CPU doesn't reset the device,
+  so do it here: */
+  err = ds_send_control_cmd(CTL_RESET_DEVICE, 0);
+  if (err) {
+    assert(!"implemented");
+  }
 
   result = capros_Process_makeStartKey(KR_SELF, 0, KR_TEMP0);
   assert(result == RC_OK);

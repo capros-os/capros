@@ -1,0 +1,6 @@
+package capros;
+
+interface DS2480B extends key {
+
+  void registerPort(SerialPort port);
+};
