@@ -70,97 +70,12 @@ SerialOut_Init(unsigned int baudRate)
   ckOK
 }
 
-struct inputPair {
-  unsigned char flag;
-  unsigned char data;
-};
-
 #define inBufEntries 100
-struct inputPair inBuf[inBufEntries];
-
-result_t
-capros_SerialPort_read(cap_t ser, struct inputPair * data,
-  unsigned int maxPairs,
-  unsigned int * pairsSent)
-{
-  Message msg = {
-    .snd_invKey = ser,
-    .snd_key0 = KR_VOID,
-    .snd_key1 = KR_VOID,
-    .snd_key2 = KR_VOID,
-    .snd_rsmkey = KR_VOID,
-    .snd_len = 0,
-    .snd_code = 0,////
-    .snd_w1 = maxPairs,
-    .snd_w2 = 0,
-    .snd_w3 = 0,
-    .rcv_key0 = KR_VOID,
-    .rcv_key1 = KR_VOID,
-    .rcv_key2 = KR_VOID,
-    .rcv_rsmkey = KR_VOID,
-    .rcv_data = data,
-    .rcv_limit = maxPairs*2
-  };
-
-  CALL(&msg);
-  *pairsSent = msg.rcv_sent/2;
-  return msg.rcv_code;
-}
-
-result_t
-capros_SerialPort_readNonblocking(cap_t ser, struct inputPair * data,
-  unsigned int maxPairs,
-  unsigned int * pairsSent)
-{
-  Message msg = {
-    .snd_invKey = ser,
-    .snd_key0 = KR_VOID,
-    .snd_key1 = KR_VOID,
-    .snd_key2 = KR_VOID,
-    .snd_rsmkey = KR_VOID,
-    .snd_len = 0,
-    .snd_code = 2,////
-    .snd_w1 = maxPairs,
-    .snd_w2 = 0,
-    .snd_w3 = 0,
-    .rcv_key0 = KR_VOID,
-    .rcv_key1 = KR_VOID,
-    .rcv_key2 = KR_VOID,
-    .rcv_rsmkey = KR_VOID,
-    .rcv_data = data,
-    .rcv_limit = maxPairs*2
-  };
-
-  CALL(&msg);
-  *pairsSent = msg.rcv_sent/2;
-  return msg.rcv_code;
-}
-
-result_t
-capros_SerialPort_write(cap_t ser, const unsigned char * data, unsigned int len)
-{
-  Message msg = {
-    .snd_invKey = ser,
-    .snd_key0 = KR_VOID,
-    .snd_key1 = KR_VOID,
-    .snd_key2 = KR_VOID,
-    .snd_rsmkey = KR_VOID,
-    .snd_data = data,
-    .snd_len = len,
-    .snd_code = 1,////
-    .snd_w1 = 0,
-    .snd_w2 = 0,
-    .snd_w3 = 0,
-    .rcv_key0 = KR_VOID,
-    .rcv_key1 = KR_VOID,
-    .rcv_key2 = KR_VOID,
-    .rcv_rsmkey = KR_VOID,
-    .rcv_limit = 0
-  };
-
-  CALL(&msg);
-  return msg.rcv_code;
-}
+struct InputPair {
+  uint8_t flag;
+  uint8_t data;
+} __attribute__ ((packed))
+inBuf[inBufEntries];
 
 bool doInitialize = true;
 
@@ -211,11 +126,11 @@ void
 SerialIn_Flush(void)
 {
   result_t result;
-  unsigned int pairsSent;
+  uint32_t pairsSent;
   do {
-    result = capros_SerialPort_readNonblocking(KR_SER,
-               inBuf, inBufEntries, &pairsSent);
-    if (result != RC_OK && result != RC_capros_SerialPort_Nonblocking) {
+    result = capros_SerialPort_readTimeout(KR_SER, inBufEntries, 0,
+               &pairsSent, (uint8_t *)inBuf);
+    if (result != RC_OK && result != RC_capros_SerialPort_TimedOut) {
       kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result); \
     }
     if (pairsSent) {
@@ -234,7 +149,7 @@ SerialOut_Flush(void)
 
 void SendOneChar(unsigned char c)
 {
-  result_t result = capros_SerialPort_write(KR_SER, &c, 1);
+  result_t result = capros_SerialPort_write(KR_SER, 1, &c);
   ckOK
 }
 
@@ -262,26 +177,26 @@ void EnsureCommandMode(void)
 
 unsigned char RcvOneChar(void)
 {
-  unsigned int pairsSent;
+  uint32_t pairsSent;
   kprintf(KR_OSTREAM, "Reading ...");
   result_t result = capros_SerialPort_read(KR_SER,
-                      inBuf, 1, &pairsSent);
+                      1, &pairsSent, (uint8_t *)inBuf);
   ckOK
   kprintf(KR_OSTREAM, ", got %d 0x%x.\n", pairsSent, inBuf[0].data);
   switch (inBuf[0].flag) {
-  case capros_SerialPort_BREAK:
+  case capros_SerialPort_Flag_BREAK:
     kprintf(KR_OSTREAM, "Break!\n");
     break;
-  case capros_SerialPort_FRAME:
+  case capros_SerialPort_Flag_FRAME:
     kprintf(KR_OSTREAM, "Frame!\n");
     break;
-  case capros_SerialPort_PARITY:
+  case capros_SerialPort_Flag_PARITY:
     kprintf(KR_OSTREAM, "Parity!\n");
     break;
-  case capros_SerialPort_OVERRUN:
+  case capros_SerialPort_Flag_OVERRUN:
     kprintf(KR_OSTREAM, "Overrun!\n");
     break;
-  case capros_SerialPort_NORMAL:
+  case capros_SerialPort_Flag_NORMAL:
     break;
   }
   return inBuf[0].data;

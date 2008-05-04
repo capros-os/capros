@@ -41,6 +41,7 @@ test space = seg;
 test schedule = sched(8);   /* normal */
 
 test key reg KR_BANK = primebank;
+test key reg KR_SELF = test;
 test key reg KR_SCHED = sched(8);
 
 test key reg KR_APP(0) = misc Console;
@@ -56,7 +57,6 @@ run test;
 #if defined(EROS_TARGET_arm)
 
 SERIAL_DRIVER_AMBA(uart3, 3, SYSCONDeviceCfg_U3EN, APB_PA+UART3_APB_OFS)
-#define serialKey uart3serial
 
 #elif defined(EROS_TARGET_i486)
 
@@ -67,7 +67,6 @@ SERIAL_DRIVER_8250_PORT(com1, 1, BASE_BAUD, 0x3f8, 4, STD_COM_FLAGS)
 //SERIAL_DRIVER_8250_PORT(com2, 2, BASE_BAUD, 0x2f8, 3, STD_COM_FLAGS)
 //SERIAL_DRIVER_8250_PORT(com3, 3, BASE_BAUD, 0x3e8, 4, STD_COM_FLAGS)
 //SERIAL_DRIVER_8250_PORT(com4, 4, BASE_BAUD, 0x2e8, 3, STD_COM4_FLAGS)
-#define serialKey com1serial
 
 #else
 #error "Unknown target"
