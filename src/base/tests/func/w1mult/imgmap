@@ -30,6 +30,11 @@ Approved for public release, distribution unlimited. */
 #include <vcs.map>
 
 #include <w1mult.map>
+
+w1usbconfig = program segtree LIBDIR "w1usbconfig";
+W1Mult(usb, w1usbconfig)
+#define ds9490r_notifyee usbw1mult
+
 #include <nplink.map>
 #include <drivers/usbregistry.map>
 
