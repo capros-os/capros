@@ -42,6 +42,13 @@ Approved for public release, distribution unlimited. */
 #include <domain/assert.h>
 #include <domain/Runtime.h>
 
+#define dbg_run 0x1
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u )
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
+
 /* Memory:
   0: nothing
   0x01000: code
@@ -68,14 +75,14 @@ AssignW1Bus(Message * msg)
       0x...81 (start the search with that value) to identify which one it is. */
       result = capros_Node_getSlotExtended(KR_CONSTIT, KC_DS9490R, KR_TEMP0);
       assert(result == RC_OK);
-      result = capros_W1Mult_RegisterBus(KR_TEMP0, KR_ARG(0), msg->rcv_w2);
+      result = capros_W1Mult_registerBus(KR_TEMP0, KR_ARG(0), msg->rcv_w2);
       assert(result == RC_OK);
       break;
 
     case capros_W1Bus_BusType_DS9097U:
       result = capros_Node_getSlotExtended(KR_CONSTIT, KC_DS9490R, KR_TEMP0);
       assert(result == RC_OK);
-      result = capros_W1Mult_RegisterBus(KR_TEMP0, KR_ARG(0), msg->rcv_w2);
+      result = capros_W1Mult_registerBus(KR_TEMP0, KR_ARG(0), msg->rcv_w2);
       assert(result == RC_OK);
       break;
   }
@@ -127,6 +134,9 @@ main(void)
 
   for(;;) {
     RETURN(&Msg);
+
+    DEBUG(run) kprintf(KR_OSTREAM, "nplink called, oc=%#x w1=%#x\n",
+                       Msg.rcv_code, Msg.rcv_w1);
 
     // Defaults for reply:
     Msg.snd_invKey = KR_RETURN;
