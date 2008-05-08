@@ -59,9 +59,9 @@ ReadSpad(struct W1Device * dev)
   assert(RunPgmMsg.rcv_sent == 9);
   uint8_t crc = CalcCRC8(&inBuf[0], 8);
   if (crc != inBuf[8]) {
-    DEBUG(errors) kprintf(KR_OSTREAM,
-                          "DS18B20 spad crc calc %#.2x read %#.2x\n",
-                          crc, inBuf[8]);
+    DEBUG(errors) kdprintf(KR_OSTREAM,////
+                          "DS18B20 %#llx spad crc calc %#.2x read %#.2x\n",
+                          dev->rom, crc, inBuf[8]);
     return 100;
   }
   return 0;
@@ -270,14 +270,15 @@ readTemperature(struct W1Device * dev)
 static void
 readResultsFunction(void * arg)
 {
-  DEBUG(doall) kprintf(KR_OSTREAM, "readResultsFunction\n");
+  DEBUG(doall) kprintf(KR_OSTREAM, "DS18B20_readResultsFunction\n");
   MarkSamplingList(DS18B20_samplingListHead);
   DoAllWorkFunction = &DoEach;
   DoEachWorkFunction = &readTemperature;
   DoAll(&root);
+  UnmarkSamplingList(DS18B20_samplingListHead);
 
   EndHeartbeat();
-  DEBUG(doall) kprintf(KR_OSTREAM, "readResultsFunction done\n");
+  DEBUG(doall) kprintf(KR_OSTREAM, "DS18B20_readResultsFunction done\n");
 }
 
 static struct w1Timer readResultsTimer = {
@@ -288,9 +289,14 @@ static struct w1Timer readResultsTimer = {
 void
 DS18B20_HeartbeatAction(uint32_t hbCount)
 {
-  DEBUG(doall) kprintf(KR_OSTREAM, "DS18B20_HeartbeatAction called\n"
-                 "wq0=%#x wq1=%#x\n", DS18B20_samplingQueue[0].next,
+  DEBUG(doall) {
+    RecordCurrentTime();
+    kprintf(KR_OSTREAM, "DS18B20_HeartbeatAction called at %llu ms "
+                 "wq0=%#x wq1=%#x\n",
+                 currentTime/1000000,
+                 DS18B20_samplingQueue[0].next,
                  DS18B20_samplingQueue[1].next);
+  }
 
   // Any configuring to do?
   struct W1Device * dev;
@@ -327,13 +333,17 @@ DS18B20_HeartbeatAction(uint32_t hbCount)
     assert(ProgramIsClear());
     DoAll(&root);
 
-    // Wait until all conversions are complete.
+    // When all conversions are complete, read the results.
     RecordCurrentTime();
     sampledTime = currentTime;
+    latestConvertTTime = currentTime;
+
     // A resolution of 1 binary digit takes 93.75 milliseconds.
     readResultsTimer.expiration = sampledTime
       + (93750000ULL << (maxResolution - 1));	// in nanoseconds
     InsertTimer(&readResultsTimer);
+
+    UnmarkSamplingList(DS18B20_samplingListHead);
   } else {
     EndHeartbeat();
   }

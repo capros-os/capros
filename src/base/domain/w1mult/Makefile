@@ -32,6 +32,7 @@ TARGETS=$(BUILDDIR)/w1mult $(BUILDDIR)/w1usbconfig $(BUILDDIR)/w1ser3config
 OBJECTS=$(BUILDDIR)/w1mult.o
 OBJECTS+= $(BUILDDIR)/DS18B20.o
 OBJECTS+= $(BUILDDIR)/DS2450.o
+OBJECTS+= $(BUILDDIR)/DS2438.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 
 include $(EROS_SRC)/build/make/makerules.mk

@@ -1,0 +1,103 @@
+package capros;
+
+/* The interface to a Dallas Semiconductor DS2438 or DS2438A
+   1-Wire smart battery monitor. */
+interface DS2438 extends key 
+{
+  exception BusError;
+  exception Offline;
+
+  /* Set the temperature sampling frequency.
+
+  The temperature will be sampled every 2**log2Seconds seconds.
+  If log2Seconds is 255, the temperature will not be sampled.
+  */
+  void configureTemperature(unsigned byte log2Seconds);
+
+  /* Get the latest temperature available.
+
+  Returns the temperature in units of 1/32 degree Celsius.
+  time is the time at which the temperature was sampled.
+  If no temperature has ever been sampled,
+  time is zero and temperature is not valid.
+  FIXME: what is the time base and units? Is it monotonic across restart?
+
+  This operation can take up to 20 milliseconds or more.
+  */
+  void getTemperature(out short temperature, out unsigned long long time);
+
+  /* Set the voltage sampling frequency.
+
+  Vdd selects the Vdd voltage to be converted if true, Vad if false.
+
+  The configured voltage will be sampled every 2**log2Seconds seconds.
+  If log2Seconds is 255, the voltage will not be sampled.
+  */
+  void configureVoltage(boolean Vdd, unsigned byte log2Seconds);
+
+  /* Get the latest voltage available.
+
+  Returns the voltage in units of 10mV.
+  Note that the DS2438 specs are that Vdd must be >= 2.4V, and
+  Vad is accurate for 1.5V < Vad < 2Vdd.
+
+  time is the time at which the voltage was sampled.
+  If no voltage has ever been sampled,
+  time is zero and temperature is not valid.
+  FIXME: what is the time base and units? Is it monotonic across restart?
+
+  This operation can take up to 10 milliseconds or more.
+  */
+  void getVoltage(out unsigned short voltage, out unsigned long long time);
+
+  /* Configure current measurement. 
+  */
+  unsigned byte enum CurrentConfig {
+    /* No current measurement. */
+    off = 0,
+    /* Current measurement and ICA, but no CCA or DCA. */
+    noAccum = 1,
+    /* Current measurement and ICA, CCA, and DCA, no shadow to EEPROM. */
+    AccumNoEE = 3,
+    /* Current measurement and ICA, CCA, and DCA, shadow to EEPROM. */
+    AccumEE = 7
+  };
+  void configureCurrent(CurrentConfig config);
+
+  /* Read the latest current measurement.
+  The device measures a differential voltage in units of 0.2441 mV.
+  Raises Offline if the device is not on the network (or hasn't been
+    found yet). */
+  short getCurrent();
+
+  unsigned byte readThreshold();
+
+  /* Write the threshold register.
+  As required by the datasheet, this object disables current measurement
+  while writing the register, and then restores the current measurement state.
+  */
+  void writeThreshold(unsigned byte threshold);
+
+  typedef array <unsigned byte, 8> Page;
+
+  /* Read memory page.
+
+  pageNum must not be zero and must not be more than 7.
+
+  The page is recalled from EEPROM/SRAM and then read from the scratchpad.
+  */
+  Page readPage(unsigned byte pageNum);
+
+  /* Write memory page.
+
+  pageNum must not be zero and must not be more than 7.
+  The page is written to the scratchpad, read back for verification,
+  and then copied to EEPROM/SRAM.
+
+  Note: when writing page 1, which contains the offset register,
+  the client is responsible for ensuring that current measurement is disabled.
+  Note: when writing page 7, which contains the CCA and DCA,
+  the client is responsible for ensuring that current accumulation is disabled.
+  */
+  void writePage(unsigned byte pageNum, Page data);
+};

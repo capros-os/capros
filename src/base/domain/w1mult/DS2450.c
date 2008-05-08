@@ -54,29 +54,38 @@ int
 WriteDS2450MemoryFirst(struct W1Device * dev,
   unsigned int startAddr, uint8_t data)
 {
-  AddressDevice(dev);
-  NotReset();
-  crc = 0;
-  wp(capros_W1Bus_stepCode_writeBytes)
-  wp(4)
-  ProgramByteCRC16(0x55);	// write memory
-  currentAddr = startAddr;
-  ProgramByteCRC16(startAddr);
-  ProgramByteCRC16(0);	// high addr
-  ProgramByteCRC16(data);
-  wp(capros_W1Bus_stepCode_readBytes)
-  wp(3)		// read CRC16 and data byte
-  int status = RunProgram();
-  if (status) return status;
-  if (! CheckCRC16())
-    return capros_W1Bus_StatusCode_BusError;
-  if (inBuf[2] != data) {
-    DEBUG(errors) kprintf(KR_OSTREAM,
-                    "DS2450 write memory wrote %#.2x, got %#.2x!\n",
-                    data, inBuf[2]);
-    return capros_W1Bus_StatusCode_BusError;
+  int tries = 0;
+  while (1) {
+    AddressDevice(dev);
+    NotReset();
+    crc = 0;
+    wp(capros_W1Bus_stepCode_writeBytes)
+    wp(4)
+    ProgramByteCRC16(0x55);	// write memory
+    currentAddr = startAddr;
+    ProgramByteCRC16(startAddr);
+    ProgramByteCRC16(0);	// high addr
+    ProgramByteCRC16(data);
+    wp(capros_W1Bus_stepCode_readBytes)
+    wp(3)		// read CRC16 and data byte
+    int status = RunProgram();
+    if (status)
+      return status;
+    if (! CheckCRC16()) {
+      if (++tries < 4)
+        continue;	// try again
+      return capros_W1Bus_StatusCode_CRCError;
+    }
+    if (inBuf[2] != data) {
+      DEBUG(errors) kprintf(KR_OSTREAM,
+                      "DS2450 write memory wrote %#.2x, got %#.2x!\n",
+                      data, inBuf[2]);
+      if (++tries < 4)
+        continue;	// try again
+      return capros_W1Bus_StatusCode_BusError;
+    }
+    return 0;	// success
   }
-  return 0;	// success
 }
 
 int
@@ -91,7 +100,7 @@ WriteDS2450Memory(struct W1Device * dev, uint8_t data)
   int status = RunProgram();
   if (status) return status;
   if (! CheckCRC16())
-    return capros_W1Bus_StatusCode_BusError;
+    return capros_W1Bus_StatusCode_CRCError;
   if (inBuf[2] != data) {
     DEBUG(errors) kprintf(KR_OSTREAM,
                     "DS2450 write memory wrote %#.2x, got %#.2x!\n",
@@ -125,12 +134,23 @@ SendConfig(struct W1Device * dev)
   assert(lastByte >= 0);
 
   DEBUG(ad) kprintf(KR_OSTREAM, "Setting config");
-  int status = WriteDS2450MemoryFirst(dev,
-                 8 + firstByte, requestedBytes[firstByte]);
-  if (status) return status;
-  for (i = firstByte+1; i <= lastByte; i++) {
-    status = WriteDS2450Memory(dev, requestedBytes[i]);
-    if (status) return status;
+  int tries = 0;
+  while (1) {
+    int status = WriteDS2450MemoryFirst(dev,
+                   8 + firstByte, requestedBytes[firstByte]);
+    if (status) {
+statuserr:
+      if (status == capros_W1Bus_StatusCode_CRCError
+          || status == capros_W1Bus_StatusCode_BusError) {
+        if (++tries < 4)
+          continue;	// try again
+      }
+      return status;
+    }
+    for (i = firstByte+1; i <= lastByte; i++) {
+      status = WriteDS2450Memory(dev, requestedBytes[i]);
+      if (status) goto statuserr;
+    }
   }
   memcpy(&dev->u.ad.devCfg, &dev->u.ad.requestedCfg, 8);
   return capros_W1Bus_StatusCode_OK;	// success
@@ -177,18 +197,29 @@ DS2450_InitStruct(struct W1Device * dev)
 int
 ReadMemPage(struct W1Device * dev, unsigned int addr)
 {
-  NotReset();
-  wp(capros_W1Bus_stepCode_readCRC16)
-  wp(3)		// page is 8 bytes
-  wp(1)		// read one page
-  wp(0xaa)	// read memory command
-  wp(addr)	// page 1
-  wp(0)
-  int status = RunProgram();
-  if (! status) {
-    assert(RunPgmMsg.rcv_sent == 8);
+  int tries = 0;
+  while (1) {
+    NotReset();
+    wp(capros_W1Bus_stepCode_readCRC16)
+    wp(3)	// page is 8 bytes
+    wp(1)	// read one page
+    wp(0xaa)	// read memory command
+    wp(addr)	// page 1
+    wp(0)
+    int status = RunProgram();
+    if (status == capros_W1Bus_StatusCode_CRCError) {
+      DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 ReadMemPage got status %d!\n",
+                            status);
+      if (++tries >= 4)
+        return status;
+      AddressDevice(dev);
+      continue; 	// try again
+    }
+    if (! status) {
+      assert(RunPgmMsg.rcv_sent == 8);
+    }
+    return status;
   }
-  return status;
 }
 
 /* This is called to initialize a device that has been found on the network.
@@ -214,11 +245,20 @@ DS2450_InitDev(struct W1Device * dev)
   // Check power-on reset:
   if (dev->u.ad.devCfg[0].cfghi & hi_POR) {
     DEBUG(ad) kprintf(KR_OSTREAM, "DS2450 %#llx had POR\n", dev->rom);
-    status = WriteDS2450MemoryFirst(dev, 0x1c, 0x40);
-    if (status) {
-      DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 write calib %d\n", status);
-      dev->found = false;
-      return;
+    int tries = 0;
+    while (1) {
+      status = WriteDS2450MemoryFirst(dev, 0x1c, 0x40);
+      if (status) {
+        DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 write calib %d\n", status);
+        if (status == capros_W1Bus_StatusCode_CRCError
+            || status == capros_W1Bus_StatusCode_BusError) {
+          if (++tries < 4)
+            continue;	// try again
+        }
+        dev->found = false;
+        return;
+      }
+      break;
     }
     
     // Clear POR in devCfg:
@@ -257,6 +297,8 @@ from going off in sync. */
 
 struct W1Device * DS2450_samplingListHead;
 
+bool ds2450ConvertedOK;
+
 /* We can save addressing each individual device
  * and just issue a Convert to all active devices.
  * Even though some devices may not need all 4 ports converted,
@@ -266,28 +308,36 @@ static void
 Convert(struct Branch * br)
 {
   DEBUG(doall) kprintf(KR_OSTREAM, "Convert called.\n");
-  /* Convert only on this branch, so we must have a smart-on: */
-  EnsureBranchSmartReset(br);
-  wp(capros_W1Bus_stepCode_skipROM);
-  NotReset();
-  crc = 0;
-  wp(capros_W1Bus_stepCode_writeBytes)
-  wp(3)
-  ProgramByteCRC16(0x3c);	// Convert
-  ProgramByteCRC16(0x0f);	// input select mask - all 4 channels
-  ProgramByteCRC16(0x00);	// no presets
+  int tries = 0;
+  while (1) {
+    /* Convert only on this branch, so we must have a smart-on: */
+    EnsureBranchSmartReset(br);
+    wp(capros_W1Bus_stepCode_skipROM);
+    NotReset();
+    crc = 0;
+    wp(capros_W1Bus_stepCode_writeBytes)
+    wp(3)
+    ProgramByteCRC16(0x3c);	// Convert
+    ProgramByteCRC16(0x0f);	// input select mask - all 4 channels
+    ProgramByteCRC16(0x00);	// no presets
 
-  wp(capros_W1Bus_stepCode_readBytes)
-  wp(2)		// read CRC16
-  int status = RunProgram();
-  if (status) {
-    DEBUG(errors) kdprintf(KR_OSTREAM, "DS2450 Convert got status %d\n",
-                           status);
-    return;
-  }
-  if (! CheckCRC16()) {
-    DEBUG(errors) kdprintf(KR_OSTREAM, "DS2450 Convert got CRC error.\n");
-    return;
+    wp(capros_W1Bus_stepCode_readBytes)
+    wp(2)		// read CRC16
+    int status = RunProgram();
+    if (status) {
+      DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 Convert got status %d\n",
+                             status);
+      ds2450ConvertedOK = false;
+      return;
+    }
+    if (! CheckCRC16()) {
+      DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 Convert got CRC error.\n");
+      if (++tries < 4)
+        continue;	// try again
+      ds2450ConvertedOK = false;
+      return;
+    }
+    return;	// all is OK
   }
 }
 
@@ -304,6 +354,8 @@ readData(struct W1Device * dev)
     DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 read data %d\n", status);
     return;
   }
+  DEBUG(doall) kprintf(KR_OSTREAM, "DS2450 %#llx sampled at %llu\n",
+                       dev->rom, sampledTime/1000000);
   dev->u.ad.time = sampledTime;
   memcpy(&dev->u.ad.data, &inBuf, 8);
 }
@@ -311,16 +363,21 @@ readData(struct W1Device * dev)
 static void
 readResultsFunction(void * arg)
 {
-  DEBUG(doall) kprintf(KR_OSTREAM, "readResultsFunction\n");
+  DEBUG(doall) {
+    RecordCurrentTime();
+    kprintf(KR_OSTREAM, "DS2450_readResultsFunction at %lld\n",
+            currentTime/1000000);
+  }
   MarkSamplingList(DS2450_samplingListHead);
   DoAllWorkFunction = &DoEach;
   DoEachWorkFunction = &readData;
   DoAll(&root);
+  UnmarkSamplingList(DS2450_samplingListHead);
 
   converting = false;
 
   EndHeartbeat();
-  DEBUG(doall) kprintf(KR_OSTREAM, "readResultsFunction done\n");
+  DEBUG(doall) kprintf(KR_OSTREAM, "DS2450_readResultsFunction done\n");
 }
 
 static struct w1Timer readResultsTimer = {
@@ -331,7 +388,7 @@ static struct w1Timer readResultsTimer = {
 void
 DS2450_HeartbeatAction(uint32_t hbCount)
 {
-  DEBUG(doall) kprintf(KR_OSTREAM, "DS2450_HeartbeatAction called\n"
+  DEBUG(doall) kprintf(KR_OSTREAM, "DS2450_HeartbeatAction called "
                  "wq0=%#x wq1=%#x\n", DS2450_samplingQueue[0].next,
                  DS2450_samplingQueue[1].next);
 
@@ -348,19 +405,29 @@ DS2450_HeartbeatAction(uint32_t hbCount)
   // Don't let the heart beat again until we are done with this round:
   DisableHeartbeat(hbBit_DS2450);
 
+  ds2450ConvertedOK = true;
   if (DS2450_samplingListHead) {	// if there are any this time
-    converting = true;
-
     DoAllWorkFunction = &Convert;
     DoAll(&root);
 
-    // Wait until all conversions are complete.
-    RecordCurrentTime();
-    sampledTime = currentTime;
-    // Maximum conversion time is 5.12 ms.
-    // There is no offset time because the device must be VCC powered.
-    readResultsTimer.expiration = currentTime + 5120000ULL;
-    InsertTimer(&readResultsTimer);
+    UnmarkSamplingList(DS2450_samplingListHead);
+
+    if (ds2450ConvertedOK) {
+      // When all conversions are complete, read the results.
+      RecordCurrentTime();
+      sampledTime = currentTime;
+      // Maximum conversion time is 5.12 ms.
+      // There is no offset time because the device must be VCC powered.
+      readResultsTimer.expiration = currentTime + 5120000ULL;
+      DEBUG(doall) kprintf(KR_OSTREAM,
+                           "DS2450 sampledTime %lld expiration %lld",
+                           currentTime/1000000,
+                           readResultsTimer.expiration/1000000);
+      InsertTimer(&readResultsTimer);
+      converting = true;
+    } else {
+      EndHeartbeat();
+    }
   } else {
     EndHeartbeat();
   }

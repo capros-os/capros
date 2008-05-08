@@ -36,6 +36,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_timer 0x10
 #define dbg_thermom 0x20
 #define dbg_ad    0x40
+#define dbg_bm    0x80
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u | dbg_errors )
@@ -93,13 +94,13 @@ struct W1Device {
       struct Branch auxBranch;
     } coupler;
     struct {
+      capros_Sleep_nanoseconds_t time;	// time at which temperature was sampled
+		// does this need to be in absolute real time?
       int16_t temperature;	// in units of 1/16 degree Celsius
       uint8_t resolution;	// 1 through 4, bits after the binary point
 			// 255 means the resolution hasn't been specified yet
       uint8_t spadConfig;	// config register in SPAD
       uint8_t eepromConfig;	// config register in EEPROM
-      capros_Sleep_nanoseconds_t time;	// time at which temperature was sampled
-		// does this need to be in absolute real time?
     } thermom;
     struct {
       capros_Sleep_nanoseconds_t time;	// time at which data was sampled
@@ -110,6 +111,16 @@ struct W1Device {
       struct portCfg devCfg[4];
       uint16_t data[4];		// little-endian
     } ad;
+    struct {		// DS2438 battery monitor
+      capros_Sleep_nanoseconds_t tTime;	// time at which temperature was sampled
+      capros_Sleep_nanoseconds_t vTime;	// time at which voltage was sampled
+      uint16_t temperature;
+      uint16_t voltage;
+      bool voltageIsRead;	// whether voltage has been read
+      uint8_t configReg;
+      uint8_t threshReg;
+      uint8_t tempLog2Sec;
+    } bm;
   } u;
 };
 
@@ -178,6 +189,10 @@ extern capros_Sleep_nanoseconds_t currentTime;
 void RecordCurrentTime(void);
 void InsertTimer(struct w1Timer * timer);
 
+/* latestConvertTTime is the time of the most recent Convert T command
+ * that was broadcast (that is, send with Skip ROM). */
+extern capros_Sleep_nanoseconds_t latestConvertTTime;
+
 /* We will sample at least every 2**7 seconds (about 2 minutes). */
 #define maxLog2Seconds 7
 
@@ -186,6 +201,7 @@ extern struct Branch root;
 void MarkForSampling(uint32_t hbCount, Link * samplingQueue,
   struct W1Device * * samplingListHead);
 void MarkSamplingList(struct W1Device * dev);
+void UnmarkSamplingList(struct W1Device * dev);
 extern void (*DoAllWorkFunction)(struct Branch * br);
 void DoAll(struct Branch * br);
 extern void (*DoEachWorkFunction)(struct W1Device * dev);

@@ -46,6 +46,7 @@ Approved for public release, distribution unlimited. */
 #include "w1mult.h"
 #include "w1multConfig.h"
 #include "DS18B20.h"
+#include "DS2438.h"
 #include "DS2450.h"
 
 #define KC_SNODEC 0
@@ -63,6 +64,8 @@ unsigned long __rt_stack_pointer = 0x1e000;
 #define timer_stack_pointer 0x1f000
 
 bool haveBusKey = false;	// no key in KR_W1BUS yet
+
+capros_Sleep_nanoseconds_t latestConvertTTime = 0;
 
 /*************************** Branch stuff ***************************/
 
@@ -102,6 +105,8 @@ BranchToCoupler(struct Branch * br)
 /************************** time stuff  ****************************/
 
 capros_Sleep_nanoseconds_t currentTime;
+
+volatile	// because shared between threads
 capros_Sleep_nanoseconds_t timeToWake = infiniteTime;
 
 // An ordered list of w1Timer's:
@@ -111,8 +116,8 @@ void
 InsertTimer(struct w1Timer * timer)
 {
   DEBUG(timer) kprintf(KR_OSTREAM,
-                 "InsertTimer tim=%#x tim.link=(%#x, %#x), head=(%#x, %#x)\n",
-                 timer, timer->link.next, timer->link.prev,
+                 "InsertTimer tim=%#x %llu head=(%#x, %#x)\n",
+                 timer, timer->expiration/1000000,
                  timerHead.next, timerHead.prev);
   assert(link_isSingleton(&timer->link));
   // Insert into the ordered list.
@@ -186,7 +191,7 @@ CheckCRC16(void)
 
   bool ok = (((c2 << 8) + c1) ^ crc) == 0xffff;
   if (! ok) {
-    DEBUG(errors) kdprintf(KR_OSTREAM,
+    DEBUG(errors) kprintf(KR_OSTREAM,
                    "CRC16 calc = 0x%.4x, read = 0x%.2x%.2x\n", crc, c2, c1);
   }
   return ok;
@@ -328,6 +333,22 @@ HeartbeatAction(void * arg)
   DisableHeartbeat(hbBit_hb);
 
   // Let each type of device do its thing:
+/* DS18B20 and DS2438 both respond to Convert T (0x44).
+ * Thus when the DS18B20 heartbeat broadcasts a Convert T command
+ * (that is, issues it after a Skip ROM), some DS2438's may also convert.
+ * (Note, a temperature conversion takes 10 ms for a DS2438 
+ * and up to 750 ms for a DS18B20.)
+ * We don't want a DS2438 to receive a Convert T command while it is
+ * already busy doing something else (such as a Convert V),
+ * because it might get confused.
+ * Therefore, DS2438_HeartbeatAction will initiate any necessary conversions
+ * AND WAIT for them to complete (only 4 ms for a Convert V),
+ * before continuing on to DS18B20_HeartbeatAction.
+ *
+ * Conversely, DS2438_HeartbeatAction will never broadcast Convert T,
+ * to avoid busying DS18B20's. 
+ */
+  DS2438_HeartbeatAction(heartbeatCount);
   DS18B20_HeartbeatAction(heartbeatCount);
   DS2450_HeartbeatAction(heartbeatCount);
   heartbeatCount++;
@@ -348,7 +369,12 @@ DisableHeartbeat(uint32_t bit)
   heartbeatDisable |= bit;
 }
 
+#if (dbg_flags & dbg_doall)
+#define heartbeatInterval 10000000000ULL	// 10 seconds in nanoseconds
+#else
 #define heartbeatInterval 1000000000ULL	// 1 second in nanoseconds
+#endif
+
 void
 EnableHeartbeat(uint32_t bit)
 {
@@ -532,6 +558,25 @@ MarkSamplingList(struct W1Device * dev)
   }
 }
 
+void
+UnmarkSamplingList(struct W1Device * dev)
+{
+  while (dev) {
+    dev->sampling = false;
+    // Unmark all parent branches as needsWork too.
+    struct Branch * pbr = dev->parentBranch;
+    struct W1Device * coup;
+    while (1) {
+      pbr->needsWork = false;
+      coup = BranchToCoupler(pbr);
+      if (!coup)
+        break;
+      pbr = coup->parentBranch;
+    }
+    dev = dev->nextInSamplingList;
+  }
+}
+
 // samplingQueue is a pointer to
 // the first of an array of (maxLog2Seconds+1) Links.
 void
@@ -550,6 +595,8 @@ MarkForSampling(uint32_t hbCount, Link * samplingQueue,
       struct W1Device * dev;
       for (lk = samplingQueue->next; lk != samplingQueue; lk = lk->next) {
         dev = container_of(lk, struct W1Device, samplingQueueLink);
+        DEBUG(doall) kprintf(KR_OSTREAM, "MFS i=%d dev %#llx found %d\n",
+                             i, dev->rom, dev->found);
         if (dev->found) {
           /* Link into the sampling list.
           The sampling list records the devices being sampled,
@@ -851,6 +898,9 @@ SearchPath(struct Branch * br)
           case famCode_DS18B20:	// thermometer
             DS18B20_InitDev(dev);
             break;
+          case famCode_DS2438:	// battery monitor
+            DS2438_InitDev(dev);
+            break;
           case famCode_DS2450:	// A/D
             DS2450_InitDev(dev);
             break;
@@ -955,7 +1005,8 @@ ScanBus(void)
     // Search for all ROMs.
     for (i = 0; i < numDevices; i++) {
       struct W1Device * dev = &devices[i];
-      dev->found = false;
+      dev->found = false;	// FIXME should do this when the bus cap
+				// is lost, not now.
       // We may have lost the state of the devices:
       if (w1dev_IsCoupler(dev))
           dev->u.coupler.activeBranch = branchUnknown;
@@ -986,6 +1037,7 @@ void
 TimerProcedure(void)
 {
   result_t result;
+  DEBUG(timer) kdprintf(KR_OSTREAM, "Timer process starting");
   
   Message Msg = {
     .snd_invKey = 31,	// a start key to the main process, keyInfo=TimerKeyInfo
@@ -1007,6 +1059,8 @@ TimerProcedure(void)
   };
 
   for (;;) {
+    DEBUG(timer) kprintf(KR_OSTREAM, "Timer waiting till %lld",
+                         timeToWake/1000000);
     result = capros_Sleep_sleepTill(KR_SLEEP, timeToWake);
     assert(result == RC_OK);
     CALL(&Msg);		// call the main process
@@ -1087,6 +1141,7 @@ main(void)
 
   // Let each device type initialize:
   DS18B20_Init();
+  DS2438_Init();
   DS2450_Init();
 
   // Read the configuration file.
@@ -1120,6 +1175,7 @@ main(void)
     }
     dev->rom = cfg->rom;
     link_Init(&dev->samplingQueueLink);
+    dev->found = false;
     dev->callerWaiting = false;
     dev->onWorkList = false;
     // Do device-specific initialization:
@@ -1131,6 +1187,9 @@ main(void)
       break;
     case famCode_DS18B20:
       DS18B20_InitStruct(dev);
+      break;
+    case famCode_DS2438:
+      DS2438_InitStruct(dev);
       break;
     case famCode_DS2450:
       DS2450_InitStruct(dev);
@@ -1175,6 +1234,11 @@ main(void)
     /* Before becoming Available, make sure we will be awoken
     when we need to be. */
     capros_Sleep_nanoseconds_t desiredWakeupTime = GetDesiredExpiration();
+    DEBUG(timer) kprintf(KR_OSTREAM, "About to wait, thead %#x dwut=%lld tr=%d ttw=%lld",
+                   timerHead.next,
+                   desiredWakeupTime/1000000,
+                   timerRunning,
+                   timeToWake/1000000);
     if (timerRunning
         && timeToWake > desiredWakeupTime) {
       /* The timer is waiting too long. Stop and restart him. */
@@ -1183,6 +1247,7 @@ main(void)
     if (!timerRunning) {
       DeliverAnyMessage(&Msg);
       timeToWake = desiredWakeupTime;
+      timerRunning = true;
       Msg.snd_invKey = KR_TIMRESUME;
       Msg.snd_len = 0;
       // Timer isn't particular about anything else.
@@ -1219,6 +1284,7 @@ main(void)
       break;
 
     case TimerKeyInfo:	// timer thread has this key
+      DEBUG(timer) kprintf(KR_OSTREAM, "Timer called");
       timerRunning = false;
       // We return to the timer only when done with timer work.
       COPY_KEYREG(KR_RETURN, KR_TIMRESUME);
@@ -1236,6 +1302,10 @@ main(void)
 
       case famCode_DS18B20:
         DS18B20_ProcessRequest(dev, &Msg);
+        break;
+
+      case famCode_DS2438:
+        DS2438_ProcessRequest(dev, &Msg);
         break;
 
       case famCode_DS2450:
