@@ -21,7 +21,7 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* USB test.
+/* Test for DS2480B and DS2438.
 */
 
 #include <stdint.h>
@@ -37,6 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/W1Bus.h>
 #include <idl/capros/DS18B20.h>
 #include <idl/capros/DS2450.h>
+#include <idl/capros/DS2438.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -46,8 +47,6 @@ Approved for public release, distribution unlimited. */
 #define KR_SLEEP    KR_APP(2)
 #define KR_DEVPRIVS KR_APP(3)
 #define KR_DEVNODE  KR_APP(4)
-#define KR_DS18B20_loose KR_APP(4)
-
 
 const uint32_t __rt_stack_pointer = 0x20000;
 const uint32_t __rt_unkept = 1;
@@ -66,7 +65,7 @@ GetDevN(int n, cap_t cap)
 }
 
 void
-configureDevN(int n)
+configureTemp(int n)
 {
   result_t result;
   GetDevN(n, KR_TEMP0);
@@ -99,6 +98,20 @@ configureAD(int n)
 }
 
 void
+configureBM(int n, bool vdd)
+{
+  result_t result;
+  GetDevN(n, KR_TEMP0);
+  result = capros_DS2438_configureTemperature(KR_TEMP0, 3);	// every 8 sec
+  ckOK
+  result = capros_DS2438_configureVoltage(KR_TEMP0, vdd, 0);	// every 1 sec
+  ckOK
+  result = capros_DS2438_configureCurrent(KR_TEMP0,
+             capros_DS2438_CurrentConfig_AccumNoEE);
+  ckOK
+}
+
+void
 PrintTempDevN(int n)
 {
   result_t result;
@@ -116,7 +129,7 @@ PrintTempDevN(int n)
 }
 
 void
-PrintADDevN(int n)
+PrintAD(int n)
 {
   result_t result;
   capros_DS2450_portsData data;
@@ -131,6 +144,38 @@ PrintADDevN(int n)
   }
 }
 
+void
+PrintBM(int n)
+{
+  result_t result;
+  uint64_t time;
+  uint16_t datau16;
+  int16_t data16;
+
+  GetDevN(n, KR_TEMP0);
+
+  result = capros_DS2438_getTemperature(KR_TEMP0, &data16, &time);
+  ckOK
+  if (time) {
+    kprintf(KR_OSTREAM, "Dev %d temp is %d.%d at %#llu ms\n",
+            n, data16 >> 8, (data16 & 0xff)/26, time/1000000);
+  }
+
+  result = capros_DS2438_getVoltage(KR_TEMP0, &datau16, &time);
+  ckOK
+  if (time) {
+    kprintf(KR_OSTREAM, "voltage is %u mV at %#llu ms\n",
+            datau16 * 10, time/1000000);
+  }
+
+  result = capros_DS2438_getCurrent(KR_TEMP0, &data16);
+  if (result != RC_capros_DS2438_Offline) {
+    ckOK
+    kprintf(KR_OSTREAM, "current is %d\n",
+            data16);
+  }
+}
+
 int
 main(void)
 {
@@ -138,25 +183,27 @@ main(void)
 
   kprintf(KR_OSTREAM, "Starting.\n");
 
-//  configureDevN(3);
-  configureDevN(4);
- // configureDevN(13);
-  configureAD(17);
-  configureAD(18);
-//  configureDevN(19);
-//  configureDevN(20);
+  configureTemp(1);
+  bool vdd2config = true;
+#ifdef all
+  configureBM(2, false);
+  configureBM(3, true);
+  configureBM(4, true);
+#endif
 
   for (;;) {
-    result = capros_Sleep_sleep(KR_SLEEP, 2000);	// sleep 2 seconds
+    configureBM(2, vdd2config);
+    vdd2config = ! vdd2config;
+    result = capros_Sleep_sleep(KR_SLEEP, 10000);	// sleep 1000 seconds
     assert(result == RC_OK);
 
-    //PrintTempDevN(3);
-    PrintTempDevN(4);
-    //PrintTempDevN(13);
-    PrintADDevN(17);
-    PrintADDevN(18);
-    PrintTempDevN(19);
-    PrintTempDevN(20);
+//    PrintTempDevN(1);
+#ifdef all
+    PrintBM(2);
+    PrintBM(3);
+    PrintBM(4);
+#endif
+    PrintBM(2);
   }
 
   kprintf(KR_OSTREAM, "Done.\n");
