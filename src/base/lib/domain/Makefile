@@ -71,6 +71,10 @@ CAPROS_OBJECTS+=$(BUILDDIR)/sbrk.o
 # Selected files from key:
 # (Other stuff in key/ is not used and should be converted to IDL.)
 CAPROS_OBJECTS+=$(BUILDDIR)/protospace.o
+# keyset stuff should be converted to IDL, but until then:
+CAPROS_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard key/keyset*.c)))
+# nfile stuff should be converted to IDL, but until then:
+CAPROS_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard key/nfile*.c)))
 # KEYSRC=$(notdir $(wildcard key/*.c))
 # CAPROS_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(KEYSRC))
 CAPROS_OBJECTS+=$(wildcard ../idlstub/BUILD/$(EROS_TARGET)/*.o)
