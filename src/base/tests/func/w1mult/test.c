@@ -110,8 +110,8 @@ PrintTempDevN(int n)
                &temperature, &time);
   ckOK
   if (time) {
-    kprintf(KR_OSTREAM, "Dev %d temperature is %d.%d Celsius at %#llx\n",
-            n, temperature/16, (temperature%16) >> 1, time);
+    kprintf(KR_OSTREAM, "Dev %d temperature is %d.%d Celsius at %llu ms\n",
+            n, temperature/16, (temperature%16) >> 1, time/1000000);
   }
 }
 
@@ -126,8 +126,15 @@ PrintADDevN(int n)
   result = capros_DS2450_getData(KR_TEMP0, &data, &time);
   ckOK
   if (time) {
-    kprintf(KR_OSTREAM, "Dev %d data is %#.4x %#.4x %#.4x %#.4x at %#llx\n",
-            n, data.data[0], data.data[1], data.data[2], data.data[3], time);
+#if 0
+    kprintf(KR_OSTREAM, "Dev %d data is %#.4x %#.4x %#.4x %#.4x at %llu ms\n",
+            n, data.data[0], data.data[1], data.data[2], data.data[3],
+            time/1000000);
+#else
+    kprintf(KR_OSTREAM, "Dev %d data is %u %u %u %u at %llu ms\n",
+            n, data.data[0], data.data[1], data.data[2], data.data[3],
+            time/1000000);
+#endif
   }
 }
 
@@ -139,24 +146,30 @@ main(void)
   kprintf(KR_OSTREAM, "Starting.\n");
 
 //  configureDevN(3);
-  configureDevN(4);
+//  configureDevN(4);
+  configureAD(5);
  // configureDevN(13);
   configureAD(17);
   configureAD(18);
 //  configureDevN(19);
 //  configureDevN(20);
 
-  for (;;) {
-    result = capros_Sleep_sleep(KR_SLEEP, 2000);	// sleep 2 seconds
-    assert(result == RC_OK);
+  // Give it a chance to get started:
+  result = capros_Sleep_sleep(KR_SLEEP, 3000);	// sleep 3 seconds
+  assert(result == RC_OK);
 
+  for (;;) {
     //PrintTempDevN(3);
-    PrintTempDevN(4);
+//    PrintTempDevN(4);
+    PrintADDevN(5);
     //PrintTempDevN(13);
-    PrintADDevN(17);
-    PrintADDevN(18);
-    PrintTempDevN(19);
-    PrintTempDevN(20);
+//    PrintADDevN(17);
+//    PrintADDevN(18);
+//    PrintTempDevN(19);
+//    PrintTempDevN(20);
+
+    result = capros_Sleep_sleep(KR_SLEEP, 300000);	// sleep 300 seconds
+    assert(result == RC_OK);
   }
 
   kprintf(KR_OSTREAM, "Done.\n");
