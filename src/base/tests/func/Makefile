@@ -1,7 +1,9 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+# Copyright (C) 2008, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -16,8 +18,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
 
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 default: install
 
@@ -26,30 +30,29 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 
 DIRS= $(EROS_TARGET)
-# DIRS+= ansiterm call keybits ticktock domtool
-# DIRS+= trivkpr call-segkpr nullret parmlack spacebank_test
-DIRS+= appstart
+# DIRS+= appstart
+# DIRS+= constructor_test 
+DIRS+= ds2480b
 DIRS+= extended_node
-DIRS+= pcc_test
-DIRS+= proccre_test
-DIRS+= constructor_test 
-# DIRS+= mutex_test
-DIRS+= vcs_test
-# DIRS+= logtest
-# DIRS+= linedisc_test
-# DIRS+= crypt_test
-# DIRS+= quanta
-# DIRS+= lobotomize_test
-# DIRS += nullsend reserve_test ipc_times dbvol_test
-DIRS+= ipl_test
+DIRS+= forwarder
+DIRS+= gate
+# DIRS+= ipl_test
+DIRS+= keyset-test
 DIRS+= LocalWindow
+DIRS+= meminval
+# DIRS+= pcc_test
+# DIRS+= proccre_test
+DIRS+= prockpr
+DIRS+= serial
+DIRS+= shmem
+# DIRS+= string
+DIRS+= supernode
+DIRS+= usb
+DIRS+= vcs_test
+DIRS+= w1
+DIRS+= w1mult
 
-CLEANDIRS=${DIRS} vcs_test spacebank_test keyset-test
-CLEANDIRS+=timepage fpuswitch old_spacebank_test
-CLEANDIRS+=call retag_test rescind_test xtar_test serial_test
-CLEANDIRS+=capinstr-test
-CLEANDIRS+=retry
-CLEANDIRS+=retry-parked
-CLEANDIRS+= $(EROS_TARGET)
+CLEANDIRS=${DIRS} appstart constructor_test ipl_test
+CLEANDIRS+= pcc_test proccre_test string
 
 include $(EROS_SRC)/build/make/makerules.mk

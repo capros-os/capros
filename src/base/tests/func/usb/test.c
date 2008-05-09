@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/USBHCD.h>
+#include <idl/capros/USBInterface32.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/SuperNode.h>
@@ -122,7 +123,7 @@ main(void)
   setup->wIndex = 0;
   setup->wLength = USB_DT_DEVICE_SIZE;
 
-  capros_USB_urb urb;
+  capros_USBInterface32_urb urb;
   urb.endpoint = USB_DIR_IN;
   urb.transfer_flags = capros_USB_transferFlagsEnum_noTransferDMAMap
                      | capros_USB_transferFlagsEnum_noSetupDMAMap;
@@ -132,7 +133,7 @@ main(void)
   urb.interval = 0;
 
   struct capros_USBInterface_urbResult urbres;
-  result = capros_USBInterface_submitUrb(KR_USBIntf, urb,
+  result = capros_USBInterface32_submitUrb(KR_USBIntf, urb,
              KR_VOID, KR_VOID, KR_VOID, KR_TEMP0, &urbres);
   ckOK
   kprintf(KR_OSTREAM, "Status = %d, len=%d, ", urbres.status,

@@ -62,7 +62,7 @@ const uint32_t __rt_unkept = 1;
 unsigned char outBuf[capros_W1Bus_maxProgramSize + 1];
 unsigned char * const outBeg = &outBuf[0];
 unsigned char * outCursor;
-unsigned char inBuf[capros_W1Bus_maxResultsSize];
+unsigned char inBuf[capros_W1Bus_maxReadSize];
 Message RunPgmMsg = {
   .snd_invKey = KR_W1BUS,
   .snd_code = 3,    // for now
@@ -548,7 +548,7 @@ main(void)
       Msg.snd_w1 = 0xbadbad;
       break;
 
-    case OC_capros_W1Mult_RegisterBus:
+    case OC_capros_W1Mult_registerBus:
       kprintf(KR_OSTREAM, "\nGot W1Bus cap.\n");
       TestW1Bus();
     }
