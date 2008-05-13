@@ -28,6 +28,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=
 DOCS= \
+	Boot.html \
 	Cover.html \
 	cross-env.html \
 	build-tut.html \

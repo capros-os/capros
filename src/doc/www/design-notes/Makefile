@@ -44,7 +44,6 @@ HTML_DOCS= \
 	POSIX.html \
 	Keeper.html \
 	SpaceBank.html \
-	BootSector386.html \
 	CapabilityPages.html \
 	CapInvoke.html \
 	UserDrivers.html \
