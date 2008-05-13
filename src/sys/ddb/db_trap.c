@@ -59,10 +59,8 @@ db_trap(int type, int code)
 			  db_inst_count, db_load_count, db_store_count);
 	    }
 
-	    {
+	    // db_activity_print_cmd(0, 0, 0, 0);
 
-	      db_activity_print_cmd(0, 0, 0, 0);
-	    }
 	    if (bkpt)
 		db_printf("Breakpoint at ");
 	    else if (watchpt)
