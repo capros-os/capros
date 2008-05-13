@@ -284,8 +284,13 @@ RcvCharsMin(unsigned int minChars)
                100000,		// timeout: 100,000 us
                &pairsRcvd, (uint8_t *)&inBuf[numInputPairsInBuf]);
     if (result != RC_OK) {
-      DEBUG(errors) kprintf(KR_OSTREAM,
-                      "SerialPort_readTimeout returned %#x\n", result);
+      if (result == RC_capros_SerialPort_TimedOut) {
+        DEBUG(errors) kprintf(KR_OSTREAM,
+                        "SerialPort_readTimeout timed out!\n");
+      } else {
+        DEBUG(errors) kprintf(KR_OSTREAM,
+                        "SerialPort_readTimeout returned %#x\n", result);
+      }
       return -1;
     }
     // Check that the received characters are OK.
