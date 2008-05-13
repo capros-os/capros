@@ -524,7 +524,7 @@ ExitTheKernel_MD(Process * thisPtr)
 {
   /* must have kernel access */
   assert(thisPtr->md.firstLevelMappingTable != 0);
-  assert((thisPtr->md.dacr & 0x3) == 1);
+  assertex(thisPtr, (thisPtr->md.dacr & 0x3) == 1);
   
 #ifndef NDEBUG
 #if 1
