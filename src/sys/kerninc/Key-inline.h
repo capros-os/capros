@@ -30,7 +30,9 @@ Approved for public release, distribution unlimited. */
 #include <disk/KeyStruct.h>
 #include <disk/Key-inline.h>
 
-/* key_Prepare may Yield. */
+/* Prepare this key.
+ * Also lock the designated object for this transaction.
+ * key_Prepare may Yield. */
 INLINE void 
 key_Prepare(Key * thisPtr)
 {

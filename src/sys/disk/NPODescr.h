@@ -26,16 +26,16 @@ Approved for public release, distribution unlimited. */
 #include <disk/ErosTypes.h>
 
 /* This structure conveys to the kernel information about the initial
-non-persistent objects. */
+preloaded objects. */
 
-/* Non-persistent objects occupy a range of OIDs beginning with OIDBase.
+/* Preloaded objects occupy a range of OIDs beginning with OIDBase.
 That range contains the following frames in order:
-  numSubMapFrames reserved for pages for the space bank.
   numNodeFrames of nodes allocated in the image file
     (we do not distinguish null nodes).
   numNonzeroPageFrames of nonzero pages allocated in the image file.
   some number of zero pages allocated in the image file.
-  some number of unallocated frames.
+  frames reserved for submap pages for the space bank.
+  unallocated frames.
 
 The first node (the one at OIDBase + FrameToOID(numNodeFrames))
 is the "volsize" node. It contains:
@@ -43,11 +43,32 @@ is the "volsize" node. It contains:
     respectively that were allocated in the image file
     (including zero and nonzero objects).
     These are stored here by mkimage.
-  Slot 3: a Range cap for the range of non-persistent objects.
+  If we define other frame types, their information will follow slot 1.
+ */
+
+/* Slot volsize_range: a Range cap for the range of objects.
     This range begins at OIDBase and contains all the frames
     enumerated above. 
-    This cap is stored here by npgen.
-*/
+    This cap is stored here by npgen. */
+/* Note, the spacebank will look for range caps in other slots as well,
+ * but for now there are no tools to put them there. */
+#define volsize_range 12
+
+/* Slot volsize_thread contains a node cap to the beginning of the
+ * threadlist constructed using the mkimage "run" directive.
+ * This cap is stored here by an assignment in the mkimage file. */
+#define volsize_thread 13
+
+/* Slot volsize_nplinkKey contains the start cap to the nplink process,
+ * which receives non-persistent caps at boot time.
+ * This cap is stored here by an assignment in the mkimage file
+ * for the persistent objects. */
+#define volsize_nplinkCap 14
+
+/* Slot volsize_pvolsize contains a node cap to the persistent volsize node,
+ * which always has OID VOLSIZE_OID.
+ */
+#define volsize_pvolsize 15
 
 struct NPObjectsDescriptor {
   uint32_t numFrames; // equals numNonzeroPages
@@ -56,12 +77,13 @@ struct NPObjectsDescriptor {
   uint32_t numFramesInRange;	// includes unallocated frames
   OID OIDBase;		// The first OID of the non-persistent objects
   OID IPLOID;		// The OID of the IPL process
-  uint32_t numSubMapFrames;
   uint32_t numNonzeroPages;
   uint32_t numNodes;
+  uint8_t numPreloadImages;	// 1 (if NP only) or 2 (NP and P)
 };
 
-// The following is for the kernel only:
+#ifdef __KERNEL__
 extern struct NPObjectsDescriptor * NPObDescr;
+#endif
 
 #endif /* __NPODESCR_H__ */

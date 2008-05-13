@@ -85,8 +85,6 @@ preload_Init(void)
   OID oid = npod->OIDBase;
 
   // Preload the initialized nodes.
-  oid += FrameToOID(npod->numSubMapFrames);
-
   DEBUG (init)
     printf("Preloading %d nodes and %d pages at OID %#llx\n",
            npod->numNodes, npod->numNonzeroPages, oid);

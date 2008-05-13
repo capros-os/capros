@@ -30,7 +30,17 @@ typedef uint32_t ObCount;
 typedef uint64_t OID;
 typedef OID frame_t;	// (64 - 8) bits suffice
 
+// OIDs between 0 and FIRST_PERSISTENT_OID are for non-persistent objects.
+#define FIRST_PERSISTENT_OID   0x0100000000000000ull
+
+// The first persistent object is the persistent volsize node,
+// which has a well-known OID:
+#define PVOLSIZE_OID FIRST_PERSISTENT_OID
+
+// OIDs between FIRST_PERSISTENT_OID and OID_RESERVED_PHYSRANGE
+// are for persistent objects.
 #define OID_RESERVED_PHYSRANGE 0xff00000000000000ull
+// OIDS from OID_RESERVED_PHYSRANGE are for physical pages.
 
 #define EROS_FRAME_FROM_OID(oid) (oid & ~(EROS_OBJECTS_PER_FRAME-1))
 
