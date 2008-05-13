@@ -55,6 +55,14 @@
       <h2>Description</h2> <p> The <b>mkimage</b> utility creates a
       new CapROS <b>image</b> file based on the description specified in
       <b>description_file</b>.
+      It converts files into CapROS segments, and defines the initial contents
+      of a set of CapROS objects.
+      </p>
+      <p>
+      In a system with persistent objects, there will be two description files
+      and two image files. One describes the initial state of the
+      non-persistent objects, and the other describes the initial state of the
+      persistent objects.
       </p>
       <p>
       Most of the input to <b>mkimage</b> comes from the

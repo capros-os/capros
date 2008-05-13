@@ -1,6 +1,6 @@
 <html>
 <head>
-  <TITLE>Crafting a CapROS System Image</TITLE>
+  <TITLE>Building a CapROS System Image</TITLE>
 </head>
 <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
 <div class=nocss>
@@ -19,56 +19,141 @@
     <td width=5%>&nbsp;</td>
     <td valign=top>
       <center>
-	<H1 class=title>Crafting a System Image</H1>
+	<H1 class=title>Building a CapROS System Image</H1>
 	<div class=nocss>
 	  <br class=nocss>&nbsp;
 	</div>
       </center>
-      <P> This document describes the programs used to generate an initial
-      bootable CapROS environment.  It provides a brief description of
-      the cross environment and system generation tools.
-      <H1>1. Overview</H1>
-      <P>
-      Creating a bootable system image entails the following steps:
-      <OL>
-	<LI> Creating, using a set of cross compilation tools, an CapROS kernel
-	     image and boot sector(s) for the target architecture.
-	<LI> Creating, using a set of cross compilation tools, the domains
-	     required during the initial system load (ISL).
-	<LI> Producing from these domains a single <em>CapROS image file</em>
-	     describing the relationships between the domains and all of the
-	     keys they hold.
-	     (<STRONG>mkimage</STRONG>).
-	<LI> Formatting a volume to include a boot sector, a kernel image
-	     and suitably prepared CapROS divisions, including performing any
-	     necessary bad sector detection and remapping
-	     (<STRONG>mkvol</STRONG>).
-	<LI> Mapping the master CapROS image file onto the nodes and pages
-	     that are actually available on a given volume
-	     (<STRONG>sysgen</STRONG>).
-      </OL>
-      <p> <strong>mkimage</strong> provides the necessary mechanisms to
-      convert UNIX a.out files into CapROS segments, set the values of domain
-      and node registers, and generally wire up a family of collaborating
-      domains.  
-      <p> <strong>mkvol</strong> creates an initial volume image, including
-      bootstrap loader, an optional kernel image, and user-specified 
-      object ranges.  The object ranges created by
-      <strong>mkvol</strong> are initially empty.
-      <p> The <strong>sysgen</strong> utility populates a volume created by
-      <strong>mkvol</strong> with nodes and pages by loading one or more
-      CapROS image files into the volume.  The EROS image files contain
-      relocatable node and page keys; the <strong>sysgen</strong> utility
-      assigns final locations to these nodes and pages. <em>This is about to
-      change - the ErosImage files will no longer hold relocatable page and
-      node keys.  All system initialization nodes/pages will be numbered
-      from oid 0.</em>
-      <P> This document describes the CapROS volume structure and boot
-      process, and the use of the <strong>mkimage</strong>,
-      <strong>mkvol</strong>, and <strong>sysgen</strong> tools.
-
+      <p>
+        When a CapROS system is 
+        <a href="Boot.html">booted</a>,
+        the kernel image and system image are loaded.
+        This document describes the system image:
+        what it contains and how it is constructed.
+        Note, a "system image" is <em>not</em> the same as
+        the file produced by <a href="mkimage-ref.html">mkimage</a>.
+      </p>
+      <p>
+        A system image consists of either:
+      </p>
+      <ul>
+      <li>
+        one <em>preload image</em> containing all the non-persistent objects, or
+      <li>
+        two contigous preload images,
+        the first containing all the non-persistent objects,
+        and the second containing all the initial persistent objects
+        of a big bang. This form is used when a big bang is being set up
+        by preloading the persistent objects into RAM.
+      </ul>
+      <h1>Preload Image</h1>
+      <p>
+        A <em>preload image</em> defines a contiguous range of OIDs,
+        and a set of objects in that range to be preloaded.
+        The range of OIDs is divided into five consecutive regions:
+        nodes, nonzero pages, zero pages, submaps, and unallocated frames.
+        These regions are described in detail below.
+      </p>
+      <p>
+        The first frame of a preload image contains only a structure
+        called NPObjectsDescriptor
+        that defines the starting OID and information about the OID regions.
+        It also tells whether there are one or two preload images,
+        and it defines the OID of the IPL process,
+        the one non-persistent process to be run at boot time.
+        This structure is defined in the file sys/disk/NPODescr.h.
+      </p>
+      <p>
+        A preload image is produced by running
+        <a href="npgen-ref.html">npgen</a>,
+        which takes a mkimage file as input.
+      </p>
+      <h2>Node Frames</h2>
+      <p>
+        Nodes that were allocated in the mkimage file
+        are grouped into node frames and placed in the preload image
+        following the first frame (the one containing the 
+        NPObjectsDescriptor structure).
+        They are assigned OIDs from the first OID of the range.
+      </p>
+      <h2>Nonzero Page Frames</h2>
+      <p>
+        Nonzero pages that were allocated in the mkimage file
+        are placed in the preload image following the node frames.
+        They are assigned OIDs following the node frames.
+      </p>
+      <h2>Zero Page Frames</h2>
+      <p>
+        Zero pages that were allocated in the mkimage file
+        are assigned OIDs following the nonzero page frames.
+        They are not stored in the preload image.
+      </p>
+      <h2>Submap Frames</h2>
+      <p>
+        Each preload image can have one prime spacebank that allocates
+        the objects in the corresponding OID range.
+        Allocating space requires a bit map, which itself takes space.
+        To manage this recursive problem, the spacebank calculates the
+        amount of space that it will require, and reserves
+        this region of OIDs for that space.
+      </p>
+      <h2>Unallocated Frames</h2>
+      <p>
+        All the remaining frames in the OID range are unallocated
+        and are not stored in the preload image.
+      </p>
+      <h1>Special Objects</h1>
+      <p>
+         Mkimage recognizes two objects for special purposes.
+      </p>
+      <h2>Volsize Node</h2>
+      <p>
+        This node is called volsize for historical reasons.
+        The following slots of volsize are used.
+        These slots are described in more detail
+        in the file sys/disk/NPODescr.h.
+      </p>
+      <h3>Slots 0 and 1</h3>
+      <p>
+        These slots hold a number cap containing the number of
+        nodes and pages, respectively, allocated by mkimage in this range.
+        If additional object types are defined,
+        slots after 1 will be used for them.
+      </p>
+      <h3>Slot volsize_range</h3>
+      <p>
+        This slot holds a Range capability for the range of OIDs
+        described by this preload image.
+        The spacebank uses this to determine the number of frames in the range.
+      </p>
+      <h3>Slot volsize_thread</h3>
+      <p>
+        This slot contains a node capability to the threadlist node,
+        described below.
+      </p>
+      <h3>Slot volsize_nplinkCap</h3>
+      <p>
+        In the persistent volsize node,
+        this slot contains a start capability to the nplink process,
+        which receives non-persistent caps at boot time.
+      </p>
+      <h3>Slot volsize_pvolsize</h3>
+      <p>
+        In the non-persistent volsize node,
+        this slot contains a node capability to 
+        the persistent volsize node.
+        This allows the non-persistent world to access the persistent world,
+        in particular the nplink process.
+        The persistent volsize node has a fixed well-known OID.
+      </p>
+      <h2>Threadlist Node</h2>
+      <p>
+        This node is the root of the "threadlist", the list of processes
+        in this OID range to be run.
+      </p>
       <h1>CapROS Volume Structure</h1>
-      <P> An CapROS volume is a logical disk.  On an EROS-formatted floppy,
+      <p>This probably belongs elsewhere.</p>
+      <P> A CapROS volume is a logical disk.  On an EROS-formatted floppy,
       the volume spans the entire disk.  On hard disks things are a bit more
       complicated.  Typically, the system firmware is designed to allow
       multiple independent operating systems to be loaded onto a single
@@ -159,139 +244,8 @@
       starting sector, and the ending sector.
       If the division is an Object or Log division, the division table
       also contains the starting OID or SwapLoc of the division.
-
-      <h1>2. Mkimage: Constructing CapROS Images</h1>
-      <p> An CapROS image file consists of sequentially numbered nodes and
-      pages, and is constructed using the <strong>mkimage</strong> utility.
-      <strong>mkimage</strong> provides the facilities to turn UNIX a.out
-      files into domains, and to establish the initial contents of nodes and
-      pages.
-      <p> A <strong>mkimage</strong> file consists of node and pages, 
-      each having object identifiers starting at 0.  Node and page object
-      identifiers are in independent name spaces, so there is no confusion
-      of numbering.
-      <p> Every CapROS image file has at least one node, whose contents are
-      used by the space bank.  The first key of this node is a number key
-      giving the object identifier of the highest allocated (equivalently:
-      first available) node.  The second key similarly gives the object
-      identifier of the highest allocated page.  A node key to this node is
-      the first key in the image directory, and is inserted under the name
-      <code>volsize</code>.  A key to this node can be handed to the the
-      prime space bank, and is used to avoid reallocating the space that has
-      gone to nodes and pages in the boot image.
-      <h2>2.1. The Image Specification Language</h2>
-      <p> <font color=red>This section needs to be rewritten</font>.
-      <p> <strong>mkimage</strong> produces an CapROS image file based on the
-      instructions provided in a <em>description</em> file.
-      Statements in the description file either import an existing CapROS
-      image into the current image, declare new objects or modify existing
-      objects.
-      </p>
-      <H1>3. Mkvol: Building an CapROS Volume</H1>
-      <H2>3.1 Formatting and Spare Sectors</H2> 
-      <P> <em>How much of this is still true?</em>
-      <P> Volume formatting is performed by the <STRONG>mkvol</STRONG>
-      utility.  The <STRONG>mkvol</STRONG> program formats a raw volume for
-      use as an CapROS volume.  It takes as input a volume map file that
-      describes how the disk should be formatted and the name of the volume
-      file (on UNIX, the <EM>raw</EM> file corresponding to the CapROS
-      parition), and an optional disk descriptor type.  Currently valid
-      descriptor types are <STRONG>fd144</STRONG> and <STRONG>fd</STRONG>.
-      Descriptor types are used to describe the desired layout of the target
-      volume when not writing directly to the raw device.
-      <P> In order for a volume to be usable, the <STRONG>kernel</STRONG>,
-      <STRONG>boot</STRONG>, and <STRONG>divtbl</STRONG> divisions must be
-      error free.  (We know how to remove this restriction for the kernel
-      division, but have not done the necessary work in the boot loader to
-      support sector remapping).
-      <P> Some disk subsystems (SCSI, some IDE) provide automatic sector
-      remapping.  On these subsystems, no <STRONG>spare</STRONG> division is
-      required, and the CapROS kernel relies on the underlying hardware to
-      provide remapping services.  On disk subsystems that require
-      OS-implemented remapping, the <STRONG>spare</STRONG> division will be
-      used, if present, as a pool of spare sectors.  <EM>The spare division
-      is always optional.</EM> If it is not present, no remapping will be
-      performed.  The system generation process, for example, does not place
-      a <STRONG>spare</STRONG> division on the ISL floppies, because we
-      assume that the distribution media will be free of errors.
-      <P> If a <STRONG>spare</STRONG> division is present, the bad sector
-      remapping information is kept in the same disk page as the division
-      table, and directly follows the division table entries.  This allows a
-      disk to have up to 384 bad sectors.  Beyond that number, we think it's
-      probably time to replace the disk.
-      <P> As an CapROS volume is formatted, a list of bad sectors is
-      accumulated by the formatting program.  Bad sectors that are found in
-      Object or Log divisions are added to the BadMap.  Bad sectors
-      that are found in other types of divisions cause formatting to fail.
-      Usually these failures can be worked around by rearranging the volume
-      map to avoid the bad sectors.
-
-      <H2>3.2 The mkvol Volume Map</H2>
-      <P> The <STRONG>mkvol</STRONG> utility performs formatting according
-      to a volume map.  The volume map is essentially a human-readable
-      version of the division table to be created.  It describes the start
-      and end of each division, and for some divisions it provides the file
-      that should be used to initialize that division (for example: the file
-      containing the code for the boot sector).
-      <P> The <CODE>volmap</CODE> file syntax is described in the
-      <a href="mkvol-ref.html">mkvol reference</a>.
-      
-      <H1>3. Sysgen: Mapping Eros Images Onto Volumes</H1>
-      <p> Once an CapROS system image has been constructed and a volume has
-      been formatted, mapping one onto the other is fairly straightforward.
-      Pages from the CapROS image are copied to the actual volume starting
-      with the first page division, and nodes are copied starting with the
-      first node division.
-      <p> As a matter of practical simplicity, the sysgen utility assumes
-      that only zero pages will need to be relocated.  When the time comes
-      to actually write such pages to the volume, final OID's are assigned
-      to these pages and the necessary keys are relocated.  All other
-      objects are assumed to end up at the OID's assigned in the CapROS image
-      volume, which precludes the need for any relocation.
-      <p> A more sophisticated design would enable range placement, but I
-      haven't the energy to build it at this time.
-      <H1>4. The Boot Process</H1>
-      <p> <em>This may want to move to another document</em>
-      <P> When the machine is powered up or reset, the firmware determines
-      which volume (disk or partition) will be booted.  Though the details
-      are machine specific, the firmware typically proceeds by loading a
-      small machine-dependent boot sector from sector 0 of the boot volume.
-      Usually, the boot sector must first load a larger bootstrap routine,
-      which in turn examines the volume map and loads the kernel itself.  At
-      this point, the CapROS kernel proceeds with it's own startup procedure.
-      <P> At a high level, the CapROS kernel startup proceeds as follows:
-      <OL>
-	<LI> Perform the minimum required hardware initialization.
-	<LI> Determine the unique system identifier (iplSysId) of the 
-	     booted volume.
-	<LI> Locate and mount all divisions on all volumes whose iplSysId
-             matches the iplSysId of the booted volume.
-	<LI> Locate the run list and begin executing the running processes.
-             The run list is obtained from the most recent valid
-	     checkpoint image in the swap area.
-      </OL>
-    <P> Note that if unauthorized users are able to physically access the boot
-     media, the system is not secure.
-      <H2>Finding the Unique System Identifier</H2>
-      <P> The bootstrap routine passes the iplSysId, along with some other
-      information, to the kernel in a structure called SysInfo.
-      <H2> Mounting the Divisions</H2>
-      <P> Having determined the unique system identifier, the kernel now
-      loads the master partition table of every disk, and searches for CapROS
-      volumes.  For every CapROS volume that it finds with a matching iplSysId,
-      , it loads the division
-      table.  For every Object and Log division,
-       the division is mounted and the pages and
-      nodes in that division are made available to the object loading
-      subsystem.
-      <H2> Finding the Run List</H2>
-      <P> Once all of the divisions are known, the kernel must locate the
-      list of processes to run from the swap area.  
-      The processes named in the run list are swapped in and scheduled.
-      <P> Once these processes have been started, the system is running
-      normally, and bootstrap processing terminates.
     </td>
-    <td valign=top width=15%>&nbsp;</td>
+    <td valign=top width=5%>&nbsp;</td>
   </tr>
 </table>
       <hr>
@@ -302,10 +256,14 @@
   </td>
   <td>
       <em>Copyright 1998 by Jonathan Shapiro,
-         >Portions copyright 2000 by Charles Landau.
-          Copyright 2005 by Strawberry Development Group.  All rights reserved.
+          Portions copyright 2000 by Charles Landau.
+          Copyright 2005, 2008 by Strawberry Development Group.
+          All rights reserved.
       For terms of redistribution, see the <a
       href="../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
    </td>
 </tr>
 </table>
