@@ -102,16 +102,20 @@ ReadSPADPage(struct W1Device * dev, unsigned int page)
   wp(9)		// read 8 bytes of data and CRC8
   int status = RunProgram();
   if (status) {
+    DEBUG(errors) kprintf(KR_OSTREAM, "DS2438 %#llx ReadSPAD status %#x!\n",
+                          dev->rom, status);
     return status;
   }
 
   DEBUG(bm) kprintf(KR_OSTREAM,
-              "DS2438 %#llx page %d %#.2x %#.2x %#.2x %#.2x %#.2x %#.2x %#.2x %#.2x crc %#.2x\n",
+              "DS2438 %#llx pg %d %#.2x %#.2x %#.2x %#.2x %#.2x %#.2x %#.2x %#.2x crc %#.2x\n",
               dev->rom, page, inBuf[0], inBuf[1], inBuf[2], inBuf[3],
               inBuf[4], inBuf[5], inBuf[6], inBuf[7], inBuf[8]);
 
   int c = CalcCRC8(inBuf, 8);
   if (c != inBuf[8]) {
+    DEBUG(errors) kprintf(KR_OSTREAM, "DS2438 %#llx ReadSPAD CRC error!\n",
+                          dev->rom);
     return capros_W1Bus_StatusCode_CRCError;
   }
 
@@ -123,23 +127,32 @@ ReadSPADPage(struct W1Device * dev, unsigned int page)
 static int
 RecallAndReadPage(struct W1Device * dev, unsigned int page)
 {
-  int status;
-
   NotReset();
   wp(capros_W1Bus_stepCode_writeBytes)
   wp(2)
   wp(0xb8)	// Recall Memory (copy EEPROM/SRAM to scratchpad)
   wp(page)
-#if 0////
-  status = RunProgram();
-  if (status)
-    return status;
-#endif
-  status = ReadSPADPage(dev, page);
-  if (status)
-    return status;
-  return status;
+  return ReadSPADPage(dev, page);
 } 
+
+static int
+AddressRecallAndReadPage(struct W1Device * dev, unsigned int page)
+{
+  int tries = 0;
+  while (1) {
+    AddressDevice(dev);
+    int status = RecallAndReadPage(dev, 0);
+    if (status) {
+      if (status == capros_W1Bus_StatusCode_BusError
+          || status == capros_W1Bus_StatusCode_CRCError) {
+        if (++tries < 4) {
+          continue;	// try again
+        }
+      }
+    }
+    return status;
+  }
+}
 
 // The caller must have checked that the device is not busy.
 static int
@@ -221,14 +234,26 @@ The device is addressed, since we just completed a searchROM that found it.
 void
 DS2438_InitDev(struct W1Device * dev)
 {
+  int status;
+  int tries = 0;
   // AddressDevice(dev);	not necessary
-  int status = RecallAndReadPage(dev, 0);	// read page 0
-  if (status) {
-    DEBUG(errors) kdprintf(KR_OSTREAM,
-           "DS2438 read page 0 status=%d, bytes=%d data= %#.2x %#.2x %#.2x\n",
-           status, RunPgmMsg.rcv_sent, inBuf[0], inBuf[1], inBuf[2]);
-    dev->found = false;
-    return;
+  while (1) {
+    status = RecallAndReadPage(dev, 0);	// read page 0
+    if (status) {
+      DEBUG(errors) kdprintf(KR_OSTREAM,
+             "DS2438 read page 0 status=%d, bytes=%d data= %#.2x %#.2x %#.2x\n",
+             status, RunPgmMsg.rcv_sent, inBuf[0], inBuf[1], inBuf[2]);
+      if (status == capros_W1Bus_StatusCode_BusError
+          || status == capros_W1Bus_StatusCode_CRCError) {
+        if (++tries < 4) {
+          AddressDevice(dev);
+          continue;	// try again
+        }
+      }
+      dev->found = false;
+      return;
+    }
+    break;
   }
   if ((inBuf[0] & 0x7f) != dev->u.bm.configReg
       || inBuf[7] != dev->u.bm.threshReg) {	// need to set configuration
@@ -355,6 +380,7 @@ reqerr:
     DEBUG(bm) kprintf(KR_OSTREAM, "configureV %d", vddBit);
     if ((dev->u.bm.configReg & scr_AD) != vddBit) {	// changing AD bit
       dev->u.bm.configReg ^= scr_AD;
+      dev->u.bm.vTime = 0;	// We don't have a reading for this voltage
       SetConfigurationIfFound(dev);
     }
     break;
@@ -409,8 +435,7 @@ buserr:
       latestConvertTTime = currentTime;
       WaitUntilNotBusy();	// wait for the convert T to finish
       do {
-        AddressDevice(dev);
-        int status = RecallAndReadPage(dev, 0);
+        int status = AddressRecallAndReadPage(dev, 0);
         if (status)
           goto buserr;
       } while (inBuf[0] & scr_TB);	// if still busy, try again
@@ -425,15 +450,14 @@ buserr:
 
   case OC_capros_DS2438_getVoltage:
   {
-    /* We periodically issue Convert T commands.
+    /* We periodically issue Convert V commands.
     If voltageIsRead, we have read the voltage and saved it in dev. */
     if (! dev->u.bm.voltageIsRead
         && dev->found ) {
       /* Get the result from the device. */
       WaitUntilNotBusy();
       do {
-        AddressDevice(dev);
-        int status = RecallAndReadPage(dev, 0);
+        int status = AddressRecallAndReadPage(dev, 0);
         if (status)
           goto buserr;
       } while (inBuf[0] & scr_ADB);	// if still busy, try again
@@ -452,8 +476,7 @@ buserr:
       msg->snd_code = RC_capros_DS2438_Offline;
     } else {
       WaitUntilNotBusy();
-      AddressDevice(dev);
-      int status = RecallAndReadPage(dev, 0);
+      int status = AddressRecallAndReadPage(dev, 0);
       if (status)
         goto buserr;
       msg->snd_w1 = inBuf[5] | (inBuf[6] << 8);
@@ -491,8 +514,7 @@ buserr:
       msg->snd_code = RC_capros_DS2438_Offline;
     } else {
       WaitUntilNotBusy();
-      AddressDevice(dev);
-      int status = RecallAndReadPage(dev, page);
+      int status = AddressRecallAndReadPage(dev, page);
       if (status)
         goto buserr;
       msg->snd_len = 8;

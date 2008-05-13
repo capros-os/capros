@@ -59,7 +59,7 @@ ReadSpad(struct W1Device * dev)
   assert(RunPgmMsg.rcv_sent == 9);
   uint8_t crc = CalcCRC8(&inBuf[0], 8);
   if (crc != inBuf[8]) {
-    DEBUG(errors) kdprintf(KR_OSTREAM,////
+    DEBUG(errors) kprintf(KR_OSTREAM,
                           "DS18B20 %#llx spad crc calc %#.2x read %#.2x\n",
                           dev->rom, crc, inBuf[8]);
     return 100;
