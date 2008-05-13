@@ -29,11 +29,14 @@ Approved for public release, distribution unlimited. */
 #include <assert.h>
 
 #include <disk/PagePot.h>
+#include <disk/NPODescr.h>
 
 #include <erosimg/App.h>
 #include <erosimg/Parse.h>
 #include <erosimg/Volume.h>
 #include <erosimg/ErosImage.h>
+	  
+#define DIVRNDUP(x,y) (((x) + (y) - 1)/(y))
 
 Volume *pVol;
 
@@ -85,7 +88,6 @@ main(int argc, char *argv[])
   const char * grubDir;
   const char * suffix;
   ErosImage *image;
-  uint32_t nSubMaps        = 0; /* number of pages of submaps */
   uint32_t nObjectRange = 0;
   int i;
   uint32_t nPages, nZeroPages, nNodes;
@@ -106,6 +108,7 @@ main(int argc, char *argv[])
       break;
 
     case 'b':
+      // OIDBase ought to be FIRST_PERSISTENT_OID.
       i = sscanf(optarg, "%lli", &OIDBase);
       if (i != 1)
         opterr = true;
@@ -176,27 +179,19 @@ main(int argc, char *argv[])
     const Division* d = vol_GetDivision(pVol, i);
     if (d->type == dt_Object) {
       KeyBits rk;		/* range key */
-      KeyBits nk;		/* node key */
+      KeyBits nk;		/* node key to persistent volsize node */
 
       init_RangeKey(&rk, d->startOid, d->endOid);
       init_NodeKey(&nk, (OID) 0, 0);
-      ei_SetNodeSlot(image, nk, 3 + nObjectRange, rk);
 
-      if (d->startOid == 0) {
-	uint32_t framesInRange;
-
-	/* FIX: this should use OBCOUNT_MAX */
+      if (d->startOid == FIRST_PERSISTENT_OID) {
+        ei_SetNodeSlot(image, nk, volsize_range, rk);
 	if (d->endOid - d->startOid >= (uint64_t) UINT32_MAX)
-	  diag_fatal(1, "Object range w/ start OID=0x0 too "
-		      "large for sysgen\n");
-	  
-	/* store information about the size of the maps that need
-	 * to be set up for the SpaceBank.
-	 */
-#define DIVRNDUP(x,y) (((x) + (y) - 1)/(y))
-	framesInRange = (d->endOid - d->startOid)/EROS_OBJECTS_PER_FRAME;
-	/* Allocate one bit per frame in the range. */
-	nSubMaps = DIVRNDUP(framesInRange,8*EROS_PAGE_SIZE);
+	  diag_fatal(1, "Object range too large for sysgen\n");
+      } else {
+        if (3 + nObjectRange >= volsize_range)
+	  diag_fatal(1, "Too many ranges for volsize\n");
+        ei_SetNodeSlot(image, nk, 3 + nObjectRange, rk);
       }
 
       nObjectRange++;
@@ -208,14 +203,13 @@ main(int argc, char *argv[])
   nNodes = image->hdr.nNodes;
 
   uint32_t nodeFrames = DIVRNDUP(nNodes, DISK_NODES_PER_PAGE);
-#undef DIVRNDUP
 
   /* All we need to do here is make sure that we pre-allocate the right
    * number of frames so that when the space bank initializes the free
    * frame list it won't step on anything important.
    */
   
-  nodeBase = OIDBase + FrameToOID(nSubMaps);
+  nodeBase = OIDBase;
   pageBase = nodeBase + FrameToOID(nodeFrames);
 
   /* Copy all of the nodes, relocating the page key and node key

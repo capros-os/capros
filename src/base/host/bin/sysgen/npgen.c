@@ -102,7 +102,6 @@ main(int argc, char *argv[])
   bool opterr = false;
   ErosImage *image;
   int i;
-  uint32_t nPages, nNodes;
   unsigned ndx;
   OID nodeBase, pageBase;
 
@@ -158,9 +157,10 @@ main(int argc, char *argv[])
   KeyBits nk;		/* node key */
 
   init_RangeKey(&rk, OIDBase, OIDBase + FrameToOID(numFramesInRange));
+  // volsize is always the first node in the image:
   init_NodeKey(&nk, (OID) 0, 0);
-  // Set slot 3 of the first node to the range cap:
-  ei_SetNodeSlot(image, nk, 3, rk);
+  // Set slot volsize_range of the volsize node to the range cap:
+  ei_SetNodeSlot(image, nk, volsize_range, rk);
 
   /* store information about the size of the maps that need
    * to be set up for the SpaceBank. */
@@ -168,9 +168,9 @@ main(int argc, char *argv[])
   /* Allocate one bit per frame in the range. */
   uint32_t numSubMapFrames = DIVRNDUP(numFramesInRange, 8*EROS_PAGE_SIZE);
 
-  nPages = image->hdr.nPages;	// nonzero pages
+  uint32_t nPages = image->hdr.nPages;	// nonzero pages
   uint32_t nZeroPages = image->hdr.nZeroPages;
-  nNodes = image->hdr.nNodes;
+  uint32_t nNodes = image->hdr.nNodes;
 
   uint32_t nNodeFrames = DIVRNDUP(nNodes, DISK_NODES_PER_PAGE);
 #undef DIVRNDUP
@@ -185,13 +185,12 @@ main(int argc, char *argv[])
    * frame list it won't step on anything important.
    */
   
-  nodeBase = OIDBase + FrameToOID(numSubMapFrames);
+  nodeBase = OIDBase;
   pageBase = nodeBase + FrameToOID(nNodeFrames);
 
   OID IPLOID = 0;
   {
     KeyBits k;
-
     keyBits_InitToVoid(&k);
     if (ei_GetDirEnt(image, ":ipl:", &k)) {
       OID oldOID = k.u.unprep.oid;
@@ -219,7 +218,6 @@ main(int argc, char *argv[])
       .IPLOID = IPLOID,
       .numFramesInRange = numFramesInRange,
       .numFrames = nPages + nNodeFrames,
-      .numSubMapFrames = numSubMapFrames,
       .numNodes = nNodes,
       .numNonzeroPages = nPages
     }
