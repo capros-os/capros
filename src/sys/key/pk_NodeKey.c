@@ -118,7 +118,7 @@ SwapSlot(Invocation * inv, Node * theNode, Key * slot)
 }
 
 static void
-WalkExtended(Invocation * inv, Node * curNode, bool write)
+WalkExtended(Invocation * inv, bool write)
 {
 
   inv_GetReturnee(inv);
@@ -129,6 +129,8 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
   unsigned int curL2v = NODE_L2V_MASK + 1;	// max l2v +1
 
   for(;;) {
+    assert(objH_IsUserPinned(key_GetObjectPtr(curKey)));
+
     // Check the guard. 
     unsigned int l2g = keyBits_GetL2g(curKey);
     unsigned int guard = keyBits_GetGuard(curKey);
@@ -156,13 +158,15 @@ WalkExtended(Invocation * inv, Node * curNode, bool write)
       addr -= guard << l2g;
     }
 
-    curNode = objH_ToNode(key_GetObjectPtr(curKey));
     restrictions |= curKey->keyPerms;
 
     if (write && (restrictions & capros_Node_readOnly)) {
       inv->exit.code = RC_capros_key_NoAccess;
       goto fault_exit;
     }
+
+    Node * curNode = objH_ToNode(key_GetObjectPtr(curKey));
+    assert(objH_IsUserPinned(node_ToObj(curNode)));
 
     uint8_t l2vField = node_GetL2vField(curNode);
     unsigned int newL2v = l2vField & NODE_L2V_MASK;
@@ -364,14 +368,14 @@ NodeKey(Invocation * inv)
     if (opaque && (node_GetL2vField(theNode) & NODE_BLOCKED))
       goto check_keeper;
 
-    WalkExtended(inv, theNode, false);
+    WalkExtended(inv, false);
     break;
 
   case OC_capros_Node_swapSlotExtended:
     if (opaque && (node_GetL2vField(theNode) & NODE_BLOCKED))
       goto check_keeper;
 
-    WalkExtended(inv, theNode, true);
+    WalkExtended(inv, true);
     break;
 
   case OC_capros_Node_reduce:
