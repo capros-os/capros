@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
+#include <disk/NPODescr.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Range.h>
@@ -46,8 +47,7 @@ typedef struct Range_s {
   OID     startOID;
   OID     endOID;
   uint64_t length;
-  uint32_t    allocBase;	/* starting FRAME in range map for
-				   this range */
+  uint32_t firstSubmapFrame;
   uint32_t*   srmBase;
 
   /* for optimization */
@@ -83,7 +83,7 @@ static uint32_t curRanges = 0;
 
 uint32_t NextRangeSrmFrame = 0;
 
-static uint32_t range_install(uint32_t kr);
+static uint32_t range_install(uint32_t kr, uint32_t reservedFrames);
 
 /* Format of the volsize node:
    Slot                  Contents
@@ -93,60 +93,27 @@ static uint32_t range_install(uint32_t kr);
                          used by mkimage
  */
 
-static void
-mark_allocated_frames(Range *range0)
-{
-  int i;
-  uint64_t nNode;
-  uint64_t nDataPage;
-
-  OID firstNodeOid = range0->nSubmaps * EROS_OBJECTS_PER_FRAME;
-  OID firstDataPageOid;
-  
-  capros_Node_getSlot(KR_VOLSIZE, capros_Range_otNode, KR_TMP);
-  capros_Number_get64(KR_TMP, &nNode);
-
-  uint32_t nNodeFrames
-    = DIVRNDUP(nNode, objects_per_frame[capros_Range_otNode]);
-
-  firstDataPageOid = firstNodeOid + (nNodeFrames * EROS_OBJECTS_PER_FRAME);
-  
-  capros_Node_getSlot(KR_VOLSIZE, capros_Range_otPage, KR_TMP);
-  capros_Number_get64(KR_TMP, &nDataPage);
-
-  uint32_t nDataPageFrames
-    = DIVRNDUP(nDataPage, objects_per_frame[capros_Range_otPage]);
-
-  uint32_t nFrames = nDataPageFrames + nNodeFrames;
-  
-  if (nFrames + range0->nSubmaps > RangeTable[0].nFrames)
-    kpanic(KR_OSTREAM, "Too many preallocated frames.\n");
-  
-  DEBUG(init)
-    kdprintf(KR_OSTREAM,
-	     "Marking %d submaps allocated. nFrames=0x%x nAvail=0x%llx\n",
-	     range0->nSubmaps, nFrames, range0->nAvailFrames);
-	   
-  for (i = 0; i < nFrames; i++) {
-    uint32_t frame = i + range0->nSubmaps;
-    
-    uint32_t bit = frame % UINT32_BITS;
-    range0->srmBase[frame / UINT32_BITS] &= ~(1u << bit);
-    range0->nAvailFrames--;
-  }
-
-  /* Now add all of the allocate storage to the prime bank's allocated
-     tree.  Note that we mark the entire frame allocated in the tree;
-     the unused entries lie in the residual word. */
-
-  BankPreallType(&primebank, capros_Range_otNode,     firstNodeOid, nNode);
-  BankPreallType(&primebank, capros_Range_otPage, firstDataPageOid, nDataPage);
-}
+uint64_t nNode;		// number of allocated nodes
+uint32_t nNodeFrames;	// number of frames of allocated nodes
+uint64_t nDataPage;	// number of allocated pages
+uint32_t nDataPageFrames;	// number of frames of allocated pages
+uint32_t nAllocFrames;	// nNodeFrames + nDataPageFrames
 
 void
 ob_init(void)
 {
   int i;
+  
+  capros_Node_getSlot(KR_VOLSIZE, capros_Range_otNode, KR_TMP);
+  capros_Number_get64(KR_TMP, &nNode);
+  nNodeFrames = DIVRNDUP(nNode, objects_per_frame[capros_Range_otNode]);
+  
+  capros_Node_getSlot(KR_VOLSIZE, capros_Range_otPage, KR_TMP);
+  capros_Number_get64(KR_TMP, &nDataPage);
+  nDataPageFrames
+    = DIVRNDUP(nDataPage, objects_per_frame[capros_Range_otPage]);
+
+  nAllocFrames = nDataPageFrames + nNodeFrames;
 
   DEBUG(init) kdprintf(KR_OSTREAM, "Installing range keys\n");
 
@@ -159,7 +126,25 @@ ob_init(void)
     result = capros_key_getType(KR_TMP, &keyType);
     if (result == RC_OK && keyType == AKT_Range) {
       DEBUG(init) kprintf(KR_OSTREAM, "Range key in volsize slot %d\n", i);
-      range_install(KR_TMP);
+      if (i == volsize_range) {
+        // This is the range that includes the preallocated objects.
+        range_install(KR_TMP, nAllocFrames);
+        Range * range = &RangeTable[curRanges-1];
+
+        /* Now add all of the allocated storage to the prime bank's allocated
+           tree.  Note that we mark the entire frame allocated in the tree;
+           the unused entries lie in the residual word. */
+
+        OID firstNodeOid = range->startOID;
+        OID firstDataPageOid = firstNodeOid + FrameToOID(nNodeFrames);
+
+        BankPreallType(&primebank, capros_Range_otNode,
+                       firstNodeOid, nNode);
+        BankPreallType(&primebank, capros_Range_otPage,
+                       firstDataPageOid, nDataPage);
+      } else {
+        range_install(KR_TMP, 0);
+      }
     }
   }
   
@@ -171,10 +156,6 @@ ob_init(void)
     node_cache[i].top = 0;
     node_cache[i].ndx = 0;
   }
-    
-  DEBUG(init) kdprintf(KR_OSTREAM, "Marking allocated frames\n");
-
-  mark_allocated_frames(&RangeTable[0]);
   
   DEBUG(init) kdprintf(KR_OSTREAM,
       "Allocated frames are marked. RangeTable[0].nAvail=0x%llx\n",
@@ -346,10 +327,11 @@ map_range(Range *range)
   uint32_t map;
   uint32_t addr = (uint32_t) range->srmBase;
   for (map = 0; map < range->nSubmaps; map++, addr += EROS_PAGE_SIZE) {
-    OID oid = range->startOID + (map * EROS_OBJECTS_PER_FRAME);
+    OID oid = range->startOID + FrameToOID(range->firstSubmapFrame + map);
 
     if (capros_Range_waitPageKey(KR_SRANGE, oid, KR_TMP) != RC_OK)
-      kpanic(KR_OSTREAM, "Couldn't get page key for submap\n");
+      kpanic(KR_OSTREAM, "Couldn't get page key %#llx for submap, range=%#x\n",
+             oid, range);
 
     DEBUG(init) kdprintf(KR_OSTREAM,
                          "Mapping submap oid=0x%08x%08x at 0x%08x\n",
@@ -374,19 +356,21 @@ init_range_map(Range *range)
   
   DEBUG(init) kdprintf(KR_OSTREAM, "Marking submap frame availability\n");
     
-  bzero(range->srmBase, range->nSubmaps * EROS_PAGE_SIZE);
+  bzero(addr, range->nSubmaps * EROS_PAGE_SIZE);
 
-  /* the submaps are never marked available. */
-  for (frame = range->nSubmaps; frame < range->nFrames; frame++) {
-    uint32_t bit = frame % UINT32_BITS;
-    addr[frame / UINT32_BITS] |= (1u << bit);
+  // If there are any allocated frames (between 0 and range->firstSubmapFrame),
+  // leave them marked allocated.
+  // The submaps are never marked available.
+  for (frame = range->firstSubmapFrame + range->nSubmaps;
+       frame < range->nFrames; frame++) {
+    addr[frame / UINT32_BITS] |= (1u << (frame % UINT32_BITS));
   }
 
   DEBUG(init) kdprintf(KR_OSTREAM, "  ... done marking submap frame avail\n");
 }
 
 uint32_t
-range_install(uint32_t kr)
+range_install(uint32_t kr, uint32_t reservedFrames)
 {
   uint64_t len;
   uint64_t oid, endOID;
@@ -415,16 +399,9 @@ range_install(uint32_t kr)
        Overlaps are fine, as long as they are entirely within one previously 
        inserted range*/
     for (index = 0; index < curRanges; index++) {
-      if (RangeTable[index].startOID < oid
+      if (RangeTable[index].startOID <= oid
 	  && RangeTable[index].endOID > oid) {
 	/* this range contains our beginning */
-	if (RangeTable[index].endOID <= endOID) {
-	  return RC_OK; /* we've already covered that area */
-	} else {
-	  return RC_capros_SpaceBank_LimitReached; /* we cannot currently extend ranges */
-	}
-      } else if (RangeTable[index].startOID == oid) {
-	/* begin at the same place */
 	if (RangeTable[index].endOID <= endOID) {
 	  return RC_OK; /* we've already covered that area */
 	} else {
@@ -445,16 +422,19 @@ range_install(uint32_t kr)
   if (NextRangeSrmFrame + nSubMaps > (SRM_TOP - SRM_BASE) / EROS_PAGE_SIZE)
     kpanic(KR_OSTREAM, "No more room at SRM_BASE!\n");
 
+  if (reservedFrames + nSubMaps > nFrames)
+    kpanic(KR_OSTREAM, "Too many preallocated frames.\n");
+
   myRange = &RangeTable[curRanges++]; /* already checked bounds */
   
+  myRange->nAvailFrames = nFrames - reservedFrames - nSubMaps;
   myRange->startOID = oid;
   myRange->endOID = endOID;
   myRange->length = len;
-  myRange->allocBase = NextRangeSrmFrame;
+  myRange->firstSubmapFrame = reservedFrames;
   myRange->srmBase
     = (uint32_t *) (SRM_BASE + (NextRangeSrmFrame * EROS_PAGE_SIZE));
   myRange->nFrames = nFrames;
-  myRange->nAvailFrames = nFrames - nSubMaps;
   myRange->nSubmaps = nSubMaps;
 
   DEBUG(init) kdprintf(KR_OSTREAM,
