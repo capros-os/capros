@@ -150,22 +150,24 @@ PrintBM(int n)
   result_t result;
   uint64_t time;
   uint16_t datau16;
-  int16_t data16;
 
   GetDevN(n, KR_TEMP0);
 
+  result = capros_DS2438_getVoltage(KR_TEMP0, &datau16, &time);
+  ckOK
+  if (time) {
+    unsigned int v = datau16 * 674 / 1000;	// adj v, units 0.1V
+    kprintf(KR_OSTREAM, "Dev %d is %u mV or %u.%u V at %#llu ms\n",
+            n, datau16 * 10, v/10, v%10, time/1000000);
+  }
+
+#if 0
+  int16_t data16;
   result = capros_DS2438_getTemperature(KR_TEMP0, &data16, &time);
   ckOK
   if (time) {
     kprintf(KR_OSTREAM, "Dev %d temp is %d.%d at %#llu ms\n",
             n, data16 >> 8, (data16 & 0xff)/26, time/1000000);
-  }
-
-  result = capros_DS2438_getVoltage(KR_TEMP0, &datau16, &time);
-  ckOK
-  if (time) {
-    kprintf(KR_OSTREAM, "voltage is %u mV at %#llu ms\n",
-            datau16 * 10, time/1000000);
   }
 
   result = capros_DS2438_getCurrent(KR_TEMP0, &data16);
@@ -174,6 +176,7 @@ PrintBM(int n)
     kprintf(KR_OSTREAM, "current is %d\n",
             data16);
   }
+#endif
 }
 
 int
@@ -184,26 +187,31 @@ main(void)
   kprintf(KR_OSTREAM, "Starting.\n");
 
   configureTemp(1);
-  bool vdd2config = true;
+  configureBM(2, true);
+//#define all
 #ifdef all
-  configureBM(2, false);
-  configureBM(3, true);
-  configureBM(4, true);
+  configureBM(5, true);
 #endif
+
+  // Give it a chance to get started.
+  result = capros_Sleep_sleep(KR_SLEEP, 5000);	// sleep 5 seconds
+  assert(result == RC_OK);
 
   for (;;) {
-    configureBM(2, vdd2config);
-    vdd2config = ! vdd2config;
-    result = capros_Sleep_sleep(KR_SLEEP, 10000);	// sleep 1000 seconds
-    assert(result == RC_OK);
-
-//    PrintTempDevN(1);
 #ifdef all
+    configureBM(3, true);
+    configureBM(4, true);
+#endif
+//    PrintTempDevN(1);
     PrintBM(2);
+#ifdef all
     PrintBM(3);
     PrintBM(4);
+    PrintBM(5);
 #endif
-    PrintBM(2);
+
+    result = capros_Sleep_sleep(KR_SLEEP, 300000);	// sleep 300 seconds
+    assert(result == RC_OK);
   }
 
   kprintf(KR_OSTREAM, "Done.\n");
