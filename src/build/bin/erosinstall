@@ -138,7 +138,7 @@ else
 	if [ $# -lt 2 ]
 	then
 		echo erosinstall: insufficent arguments >&2
-		exit 1
+		exit 0
 	fi
 
 	while [ $# -gt 1 ]
