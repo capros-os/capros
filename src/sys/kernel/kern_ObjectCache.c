@@ -490,7 +490,7 @@ void
 objC_ddb_dump_pages()
 {
   uint32_t nFree = 0;
-  uint32_t pg = 0;
+  uint32_t pg;
   
   extern void db_printf(const char *fmt, ...);
 
@@ -504,8 +504,7 @@ objC_ddb_dump_pages()
       break;
 
     case ot_PtNewAlloc:
-    case ot_PtKernelHeap:
-      break;
+      assert(false);	// should not have at this time
 
     case ot_PtDataPage:
     case ot_PtDevicePage:
@@ -514,10 +513,18 @@ objC_ddb_dump_pages()
       objC_ddb_dump_obj(pObj);
       break;
     }
+
+    case ot_PtKernelHeap:
+    case ot_PtDMABlock:
+    case ot_PtDMASecondary:
+      printf("%#x: %s\n",
+             pageH,
+             ddb_obtype_name(pageH_GetObType(pageH)) );
+      break;
       
     default:
-      printf("%02d: %s ",
-             pg,
+      printf("%#x: %s ",
+             pageH,
              ddb_obtype_name(pageH_GetObType(pageH)) );
       pageH_mdType_dump_pages(pageH);
       break;
@@ -1505,30 +1512,36 @@ objC_InitObjectSources()
 
   DEBUG (obsrc) printf("objC_InitObjectSources: Added obcache.\n");
   
-  // Set up the preloaded non-persistent objects.
+  // Set up the preloaded objects.
   struct NPObjectsDescriptor * npod = NPObDescr;	// local copy
-  OID oid = npod->OIDBase;
+  for (i = npod->numPreloadImages; i > 0; i--) {
+    OID oid = npod->OIDBase;
 
-  /* code for initializing PreloadObSource */
-  source = KPAtoP(ObjectSource *,
-                  physMem_Alloc(sizeof(ObjectSource), &physMem_any));
-  source->name = "preload";
-  source->start = oid;
-  source->end = oid + FrameToOID(npod->numFramesInRange);
-  source->base = 0;	// not used
-  source->objS_Detach = PreloadObSource_Detach;
-  source->objS_GetObject = PreloadObSource_GetObject;
-  source->objS_IsRemovable = ObjectSource_IsRemovable;
-  source->objS_WriteBack = PreloadObSource_WriteBack;
-  source->objS_Invalidate = PreloadObSource_Invalidate;
-  source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
+    /* code for initializing PreloadObSource */
+    source = KPAtoP(ObjectSource *,
+                    physMem_Alloc(sizeof(ObjectSource), &physMem_any));
+    source->name = "preload";
+    source->start = oid;
+    source->end = oid + FrameToOID(npod->numFramesInRange);
+    source->base = 0;	// not used
+    source->objS_Detach = PreloadObSource_Detach;
+    source->objS_GetObject = PreloadObSource_GetObject;
+    source->objS_IsRemovable = ObjectSource_IsRemovable;
+    source->objS_WriteBack = PreloadObSource_WriteBack;
+    source->objS_Invalidate = PreloadObSource_Invalidate;
+    source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
 
-  objC_AddSource(source);
+    objC_AddSource(source);
 
-  DEBUG (obsrc)
-    printf("objC_InitObjectSources: Added preloaded module,"
-           " startOid=%#llx, %d frames.\n",
-           oid, npod->numFramesInRange);
+    DEBUG (obsrc)
+      printf("objC_InitObjectSources: Added preloaded module,"
+             " startOid=%#llx, %d frames.\n",
+             oid, npod->numFramesInRange);
+
+    uint32_t thisFrames = 1 + npod->numFrames;  // including the header frame
+    npod = (struct NPObjectsDescriptor *)
+           ((char *)npod + thisFrames * EROS_PAGE_SIZE);
+  }
 
   for (i = 0; i < physMem_nPmemInfo; i++) {
     PmemInfo *pmi = &physMem_pmemInfo[i];

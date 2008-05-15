@@ -22,13 +22,17 @@
 # Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 # W31P4Q-07-C-0070.  Approved for public release, distribution unlimited.
 
-# Set up a kernel and domain state for execution. 
+# Set up a kernel and user state for execution. 
  
 install: $(BUILDDIR)/sysimg
 
 $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
 	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1
 	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
+
+$(BUILDDIR)/psysimg: $(TARGETS) $(PIMGMAP)
+	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(PIMGMAP) 2>&1
+	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(PIMGMAP) $(BUILDDIR)/.psysimg.m >/dev/null  2>&1
 
 init.hd: $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol $(VOLMAP) $(EROS_HD)
@@ -42,11 +46,23 @@ ifndef NPRANGESIZE
 NPRANGESIZE=310
 endif
 
-// Link kernel and non-persistent objects:
-np: $(BUILDDIR)/sysimg $(KERNPATH)
-	$(EROS_ROOT)/host/bin/npgen -m $(BUILDDIR)/sysgen.map -s $(NPRANGESIZE) $(BUILDDIR)/sysimg $(BUILDDIR)/imgdata
+ifndef PRANGESIZE
+PRANGESIZE=310
+endif
+
+$(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata: $(KERNPATH)
 	$(EROS_OBJCOPY) -O binary --remove-section=.data --remove-section=.bss $(KERNPATH) $(BUILDDIR)/kerneltext
 	$(EROS_OBJCOPY) -O binary --only-section=.data $(KERNPATH) $(BUILDDIR)/kerneldata
+
+// Link kernel and non-persistent objects:
+np: $(BUILDDIR)/sysimg $(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata
+	$(EROS_ROOT)/host/bin/npgen -m $(BUILDDIR)/sysgen.map -s $(NPRANGESIZE) $(BUILDDIR)/sysimg $(BUILDDIR)/imgdata
+	cp $(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata $(BUILDDIR)/imgdata $(BOOTDIR)
+
+// Link kernel, non-persistent objects, and persistent objects:
+p: $(BUILDDIR)/sysimg $(BUILDDIR)/psysimg $(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata
+	$(EROS_ROOT)/host/bin/npgen -s $(NPRANGESIZE) $(BUILDDIR)/sysimg -p $(BUILDDIR)/imgdata
+	$(EROS_ROOT)/host/bin/npgen -s $(PRANGESIZE) -b 0x0100000000000000 $(BUILDDIR)/psysimg -a $(BUILDDIR)/imgdata
 	cp $(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata $(BUILDDIR)/imgdata $(BOOTDIR)
 
 $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(KERNPATH) $(VOLMAP)

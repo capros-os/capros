@@ -1,0 +1,97 @@
+/* -*- C -*- */
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <primebank.map>
+#include <pcc.map>
+#include <metacon.map>
+#include <supernode.map>
+#include <vcs.map>
+
+#include <w1mult.map>
+
+w1ser3config = program segtree LIBDIR "w1ser3config";
+W1Mult(ser3, w1ser3config)
+
+#include <ds2480b.map>
+
+ds2480b(ser3)
+ser3ds2480b_proc key reg KR_APP(1) = ser3w1mult;
+#define serial3_notifyee start ser3ds2480b_proc 0
+
+#include <nplink.map>
+//#include <drivers/usbregistry.map>
+
+/* test keys */
+devNode = new node;
+devNode[0] = w1device(ser3, 0);
+devNode[1] = w1device(ser3, 1);
+devNode[2] = w1device(ser3, 2);
+devNode[3] = w1device(ser3, 3);
+devNode[4] = w1device(ser3, 4);
+devNode[5] = w1device(ser3, 5);
+devNode[6] = w1device(ser3, 6);
+devNode[7] = w1device(ser3, 7);
+devNode[8] = w1device(ser3, 8);
+devNode[9] = w1device(ser3, 9);
+devNode[10] = w1device(ser3, 10);
+devNode[11] = w1device(ser3, 11);
+devNode[12] = w1device(ser3, 12);
+devNode[13] = w1device(ser3, 13);
+devNode[14] = w1device(ser3, 14);
+devNode[15] = w1device(ser3, 15);
+devNode[16] = w1device(ser3, 16);
+devNode[17] = w1device(ser3, 17);
+devNode[18] = w1device(ser3, 18);
+devNode[19] = w1device(ser3, 19);
+devNode[20] = w1device(ser3, 20);
+devNode[21] = w1device(ser3, 21);
+devNode[22] = w1device(ser3, 22);
+devNode[23] = w1device(ser3, 23);
+devNode[24] = w1device(ser3, 24);
+devNode[25] = w1device(ser3, 25);
+devNode[26] = w1device(ser3, 26);
+devNode[27] = w1device(ser3, 27);
+devNode[28] = w1device(ser3, 28);
+devNode[29] = w1device(ser3, 29);
+
+/*
+ * Test domain
+ */ 
+test = new process;
+
+test pc = symbol BUILDDIR "test" _start;
+seg = small program BUILDDIR "test";
+seg = seg with page at 0x1f000; /* for stack */
+test space = seg;
+test schedule = sched(8);   /* normal */
+
+test key reg KR_BANK = primebank;
+test key reg KR_SCHED = sched(8);
+
+test key reg KR_APP(1) = misc Console;
+test key reg KR_APP(2) = misc Sleep;
+test key reg KR_APP(3) = misc DevicePrivs;
+test key reg KR_APP(4) = devNode;
+
+run test;

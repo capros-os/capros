@@ -34,9 +34,6 @@ Approved for public release, distribution unlimited. */
 #include <domain/assert.h>
 #include <eros/machine/cap-instr.h>
 
-//#include "../w1_int.h"
-//#include "../w1.h"
-
 //#include "../../usb/lib/usbdev.h"
 #include "ds2490.h"
 

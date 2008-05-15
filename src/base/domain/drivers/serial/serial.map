@@ -23,7 +23,6 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 #include <linuxk/lsync.h>
 #include <eros/Reserve.h>
 #include <asm/thread_info.h>
@@ -39,8 +38,7 @@ serial_pc = symbol LIBDIR "drivers/serial" _start;
 BOOT_DOMCRE(serial);	// maybe each should have his own?
 
 serialConstit = new node;	// shared by all instances
-// Define nplink elsewhere.
-serialConstit[0] = nplink;
+serialConstit[0] = volsize;
 
 #define SERIAL_DRIVER_GENERIC(name, num, devcfgbit) \
 DRIVER(name##serial, serial_prog, serial_pc, devcfgbit) \
@@ -51,6 +49,8 @@ name##serial_proc key reg KR_CREATOR = serial_proccre;
 /* Define target-specific resources. */
 
 #if defined(EROS_TARGET_arm)
+
+#include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 
 #define APB_PA 0x80800000
 #include <devclock.map>
@@ -78,7 +78,7 @@ name##serialle[LE_IOMEM] = name##serialle_iomem;
 
 #define SERIAL_DRIVER_8250_PORT(name, num, baud_base, port, irq, flags) \
 SERIAL_DRIVER_GENERIC(name, num, 0) \
-name##serial_proc key reg KR_CONSTIT = serialConstit;
+name##serial_proc key reg KR_CONSTIT = serialConstit; \
 name##serial_proc key reg KR_APP2(1) /*KR_CONFIG*/ = number(baud_base, port + (irq * 65536), flags);
 
 #else

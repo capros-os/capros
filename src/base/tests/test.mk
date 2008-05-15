@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2005, 2006, 2007, Strawberry Development Group
+# Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -33,6 +33,7 @@ endif
 # Use a target-specific image file if there is one,
 # otherwise the target-independent one.
 IMGMAP=$(if $(wildcard imgmap.$(EROS_TARGET)), imgmap.$(EROS_TARGET), imgmap)
+PIMGMAP=$(if $(wildcard pimgmap.$(EROS_TARGET)), pimgmap.$(EROS_TARGET), pimgmap)
 
 BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(BOOTSTRAP)
 

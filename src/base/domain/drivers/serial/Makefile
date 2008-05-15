@@ -40,6 +40,7 @@ VPATH=arch/$(LINUX_TARGET)
 OBJECTS+= $(BUILDDIR)/core.o
 endif
 INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
+INC+= -I$(EROS_ROOT)/host/include
 INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
 
 include $(EROS_SRC)/build/make/makerules.mk

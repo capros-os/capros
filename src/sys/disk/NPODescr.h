@@ -23,7 +23,9 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#ifndef __ASSEMBLER__
 #include <disk/ErosTypes.h>
+#endif // __ASSEMBLER__
 
 /* This structure conveys to the kernel information about the initial
 preloaded objects. */
@@ -70,6 +72,8 @@ is the "volsize" node. It contains:
  */
 #define volsize_pvolsize 15
 
+#ifndef __ASSEMBLER__
+
 struct NPObjectsDescriptor {
   uint32_t numFrames; // equals numNonzeroPages
 		// + (numNodes + DISK_NODES_PER_PAGE - 1) / DISK_NODES_PER_PAGE
@@ -85,5 +89,7 @@ struct NPObjectsDescriptor {
 #ifdef __KERNEL__
 extern struct NPObjectsDescriptor * NPObDescr;
 #endif
+
+#endif // __ASSEMBLER__
 
 #endif /* __NPODESCR_H__ */

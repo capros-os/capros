@@ -26,6 +26,8 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <disk/NPODescr.h>
+
 /*********************************************************
  * NPLink program.
  *********************************************************/
@@ -41,7 +43,10 @@ nplink_proc symtab = number("nplink");
 nplink_proc key reg 1 = nplink_constit;
 nplink_proc key reg 7 = misc Console;
 run nplink_proc;
-nplink = start nplink_proc 0;
+
+/* Make our cap available to the non-persistent world: */
+volsize[volsize_nplinkCap] = start nplink_proc 0;
+volsize[volsize_thread] = threadlist;
 
 #ifndef ds9490r_notifyee
 #define ds9490r_notifyee void
@@ -54,7 +59,5 @@ nplink_constit[0] = ds9490r_notifyee;
 #define serial3_notifyee void
 #endif
 nplink_constit[2] = serial3_notifyee;
-
-ds2490_notifyee = nplink;
 
 #endif

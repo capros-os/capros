@@ -2,9 +2,10 @@
 
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library,
+ * and is derived from the EROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -38,6 +39,8 @@ ipltool space = ipltool.space;
 ipltool schedule = sched(15);	/* high */
 ipltool symtab = number("ipltool");
 ipltool key reg KR_SELF = ipltool;	/* used by _exit */
+ipltool key reg KR_APP(0) = misc Discrim;
+ipltool key reg KR_APP(1) = volsize;
 
 CONSTIT(ipltool, KC_THREADLIST, 0) = threadlist;
 CONSTIT(ipltool, KC_OSTREAM, 1) = misc Console;

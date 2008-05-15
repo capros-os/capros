@@ -44,6 +44,5 @@ name##ds2480b_proc key reg KR_APP(2) = misc Sleep; \
 run name##ds2480b_proc;
 // Caller must add:
 // name##ds2480b_proc key reg KR_APP(1) = w1mult;
-// nplink gets: start name##ds2480b_proc 0
 
 #endif // __DS2480B_MAP_

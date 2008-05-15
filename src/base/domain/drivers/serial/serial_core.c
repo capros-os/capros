@@ -37,6 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <linux/thread_info.h>
 #include <eros/Invoke.h>	// get RC_OK
 #include <domain/assert.h>
+#include <disk/NPODescr.h>
 #include <idl/capros/SerialPort.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Process.h>
@@ -46,7 +47,7 @@ Approved for public release, distribution unlimited. */
 
 #include "serialPort.h"
 
-#define KC_NPLINK 0
+#define KC_VOLSIZE 0
 
 //#define FAILFAST
 
@@ -2167,8 +2168,19 @@ driver_main(void)
   // Give our cap to nplink.
   result = capros_Process_makeStartKey(KR_SELF, 0, KR_TEMP1);
   assert(result == RC_OK);
-  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_NPLINK, KR_TEMP0);
+  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_VOLSIZE, KR_TEMP0);
   assert(result == RC_OK);
+  result = capros_Node_getSlot(KR_TEMP0, volsize_pvolsize, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_Node_getSlot(KR_TEMP0, volsize_nplinkCap, KR_TEMP0);
+  assert(result == RC_OK);
+#if 0
+  kdprintf(KR_OSTREAM, "About to call nplink");
+  capros_key_type type;
+  result = capros_key_getType(KR_TEMP0, &type);
+  assert(result == RC_OK);
+  printk("nplink type %#x", type);
+#endif
   result = capros_NPLink_RegisterNPCap(KR_TEMP0, KR_TEMP1,
              IKT_capros_SerialPort, portNum);
   assert(result == RC_OK);

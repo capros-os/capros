@@ -52,7 +52,8 @@ typedef struct Range_s {
 
   /* for optimization */
   uint32_t    nFrames;		/* number of frames this range covers    */
-  uint64_t nAvailFrames;	/* number of AVAILABLE frames */
+  uint64_t nAvailFrames;	/* number of available frames.
+				Does not include frames in caches. */
   uint32_t    nSubmaps;		/* number of SubRangeMaps covering
 				   this range */
 } Range;
@@ -102,7 +103,16 @@ uint32_t nAllocFrames;	// nNodeFrames + nDataPageFrames
 void
 ob_init(void)
 {
-  int i;
+  int i, j;
+  
+  DEBUG(init) kdprintf(KR_OSTREAM, "Initializing allocation cache\n");
+
+  for (j = 0; j < NUM_BASE_TYPES; j++) {
+    for (i = 0; i < NCACHE; i++) {
+      caches[j][i].top = 0;
+      caches[j][i].ndx = 0;
+    }
+  }
   
   capros_Node_getSlot(KR_VOLSIZE, capros_Range_otNode, KR_TMP);
   capros_Number_get64(KR_TMP, &nNode);
@@ -148,15 +158,6 @@ ob_init(void)
     }
   }
   
-  DEBUG(init) kdprintf(KR_OSTREAM, "Initializing allocation cache\n");
-
-  for (i = 0; i < NCACHE; i++) {
-    page_cache[i].top = 0;
-    page_cache[i].ndx = 0;
-    node_cache[i].top = 0;
-    node_cache[i].ndx = 0;
-  }
-  
   DEBUG(init) kdprintf(KR_OSTREAM,
       "Allocated frames are marked. RangeTable[0].nAvail=0x%llx\n",
       RangeTable[0].nAvailFrames);
@@ -170,22 +171,17 @@ static bool
 fill_cache(AllocCache* ac)
 {
   int i;
-  uint32_t nWords;
-  Range *r;
-  uint32_t *map;
 
   for (i = 0; i < MAX_RANGES; i++) {
     if (RangeTable[i].nAvailFrames)
-      break;
+      goto found;
   }
+  return false;	// no range has any available frames :-(
 
-  if (i == MAX_RANGES)
-    return false;
-
-  r = &RangeTable[i];
-  map = RangeTable[i].srmBase;
-  
-  nWords = RangeTable[i].nSubmaps * (EROS_PAGE_SIZE/sizeof(uint32_t));
+found: ;
+  Range * r = &RangeTable[i];
+  uint32_t * map = r->srmBase;
+  uint32_t nWords = r->nSubmaps * (EROS_PAGE_SIZE/sizeof(uint32_t));
 
   assert (ac->ndx == ac->top);
   
@@ -205,15 +201,21 @@ fill_cache(AllocCache* ac)
     }
   }
 
+  DEBUG(cache) kdprintf(KR_OSTREAM, "Filled cache %#x, top=%d\n", ac, ac->top);
+
   return (ac->top == 0) ? false : true;
 }
 
+/* Allocates a new frame of the specified type.
+ * If successful, returns RC_OK and returns the OID in *oid.
+ * Otherwise returns RC_capros_SpaceBank_LimitReached.
+ */
 uint32_t
-ob_AllocFrame(Bank *bank, OID *oid, bool wantNode)
+ob_AllocFrame(Bank * bank, OID * oid, unsigned int baseType)
 {
   int i, j;
-  uint32_t ndx = ((uint32_t) bank) % NCACHE;
-  AllocCache *cache = wantNode ? node_cache : page_cache;
+  const uint32_t ndx = ((uint32_t) bank) % NCACHE;
+  AllocCache * cache = caches[baseType];
   AllocCache *ac = &cache[ndx];
 
   assert (ac->ndx <= ac->top);
@@ -225,11 +227,17 @@ ob_AllocFrame(Bank *bank, OID *oid, bool wantNode)
     return RC_OK;
   }
 
+  DEBUG(cache) kdprintf(KR_OSTREAM,
+                        "Bank %d type %d cache %#x is empty, top=%d\n",
+                        ndx, baseType, ac, ac->top);
+
   /* Look in any bank's cache of the same type,
   to avoid retyping a frame. */
   for (i = 0; i < NCACHE; i++) {
     ac = &cache[(i+ndx)%NCACHE];
     if (ac->ndx != ac->top) {
+      DEBUG(cache) kdprintf(KR_OSTREAM, "Bank %d stealing %d from cache %d\n",
+                            ndx, baseType, i+ndx);
       *oid = ac->oid[ac->ndx++];
       return RC_OK;
     }
@@ -237,11 +245,14 @@ ob_AllocFrame(Bank *bank, OID *oid, bool wantNode)
 
   /* Look in any bank's cache of any type. We're desperate. */
   for (j = 0; j < NUM_BASE_TYPES; j++) {
-    AllocCache * anyCache = caches[j];
-    if (anyCache != cache) {
+    if (j != baseType) {	// because baseType was searched above
+      AllocCache * anyCache = caches[j];
       for (i = 0; i < NCACHE; i++) {
         ac = &anyCache[(i+ndx)%NCACHE];
         if (ac->ndx != ac->top) {
+          DEBUG(cache) kdprintf(KR_OSTREAM,
+                                "Bank %d wants %d stealing %d from cache %d\n",
+                                ndx, baseType, j, i+ndx);
           *oid = ac->oid[ac->ndx++];
           return RC_OK;
         }
@@ -257,8 +268,11 @@ ob_AllocFrame(Bank *bank, OID *oid, bool wantNode)
   return RC_capros_SpaceBank_LimitReached;
 }
 
+/* Mark the frame identified by oid as free,
+ * updating subrange and range maps accordingly.
+ * baseType is the object's base type. */
 void
-ob_ReleaseFrame(Bank *bank, OID oid, bool isNode)
+ob_ReleaseFrame(Bank *bank, OID oid, unsigned int baseType)
 {
   int i;
   uint32_t bit;
@@ -266,18 +280,16 @@ ob_ReleaseFrame(Bank *bank, OID oid, bool isNode)
   
   for (i = 0; i < MAX_RANGES; i++) {
     if (RangeTable[i].startOID <= oid && oid < RangeTable[i].endOID)
-      break;
+      goto found;
   }
+  kpanic(KR_OSTREAM, "Released OID not in any known range!\n");
 
-  if (i == MAX_RANGES)
-    kpanic(KR_OSTREAM, "Released OID too large!\n");
-
-
+found: ;
   /* Try returning this frame to the allocation cache to encourage
      rapid reallocation of recently demolished objects. */
   {
-    uint32_t ndx = ((uint32_t) bank) % NCACHE;
-    AllocCache *ac = isNode ? &node_cache[ndx] : &page_cache[ndx];
+    const uint32_t ndx = ((uint32_t) bank) % NCACHE;
+    AllocCache * ac = &caches[baseType][ndx];
 
     assert (ac->ndx <= ac->top);
 
@@ -354,7 +366,8 @@ init_range_map(Range *range)
   uint32_t frame;
   uint32_t *addr = range->srmBase;
   
-  DEBUG(init) kdprintf(KR_OSTREAM, "Marking submap frame availability\n");
+  DEBUG(init) kdprintf(KR_OSTREAM, "Marking %d submap frames\n",
+                       range->nSubmaps);
     
   bzero(addr, range->nSubmaps * EROS_PAGE_SIZE);
 

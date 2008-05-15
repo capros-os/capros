@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Sleep.h>
 #include <idl/capros/NPLink.h>
 #include <idl/capros/W1Bus.h>
+#include <disk/NPODescr.h>
 #include <domain/assert.h>
 #include <asm/USBIntf.h>
 
@@ -1096,10 +1097,14 @@ w1bus_thread(void * arg)
 
   result = capros_Process_makeStartKey(KR_SELF, 0, KR_TEMP0);
   assert(result == RC_OK);
-  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_NOTIFY, KR_RETURN);
+  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_VOLSIZE, KR_TEMP1);
+  assert(result == RC_OK);
+  result = capros_Node_getSlot(KR_TEMP1, volsize_pvolsize, KR_TEMP1);
+  assert(result == RC_OK);
+  result = capros_Node_getSlot(KR_TEMP1, volsize_nplinkCap, KR_RETURN);
   assert(result == RC_OK);
 
-  // send the W1Bus cap to the notifyee.
+  // send the W1Bus cap to nplink
   Msg.snd_invKey = KR_RETURN;
   Msg.snd_code = OC_capros_NPLink_RegisterNPCap;
   Msg.snd_w1 = IKT_capros_W1Bus;

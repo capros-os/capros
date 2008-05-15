@@ -65,70 +65,84 @@ AssertPageIsFree(PageHeader * pageH)
 void
 preload_Init(void)
 {
-  int i;
+  int i, j, k;
 
+  struct NPObjectsDescriptor * npod = NPObDescr;
   kpa_t pagePA = VTOP((kva_t)NPObDescr);
   // Make sure the preloaded data hasn't been inadvertently allocated.
+
+  uint32_t nf = 0;	// number of frames in the preload images
+
+  // npod->numPreloadImages should be 1 or 2, but we don't need to check that.
+  for (k = npod->numPreloadImages; k > 0; k--) {
+    uint32_t thisFrames = 1 + npod->numFrames;	// including the header frame
+    nf += thisFrames;
+    npod = (struct NPObjectsDescriptor *)
+           ((char *)npod + thisFrames * EROS_PAGE_SIZE);
+  }
+
   PageHeader * pageH = objC_PhysPageToObHdr(pagePA);
-  AssertPageIsFree(pageH);
-
-  struct NPObjectsDescriptor * npod = NPObDescr;	// local copy
-
-  pageH++;	// now the first frame of node data
-  pagePA += EROS_PAGE_SIZE;
-
-  for (i = 0; i < npod->numFrames; i++) {
-    AssertPageIsFree(pageH + i);
+  for (i = 0; i < nf; i++) {
+    AssertPageIsFree(pageH++);
   }
   // Whew, preloaded data is safe.
 
-  OID oid = npod->OIDBase;
+  // Load all the preload images.
+  npod = NPObDescr;	// start at beginning again
+  for (k = npod->numPreloadImages; k > 0; k--) {
+    pagePA += EROS_PAGE_SIZE;	// skip frame containing NPObjectsDescriptor
+    OID oid = npod->OIDBase;
 
-  // Preload the initialized nodes.
-  DEBUG (init)
-    printf("Preloading %d nodes and %d pages at OID %#llx\n",
-           npod->numNodes, npod->numNonzeroPages, oid);
+    // Preload the initialized nodes.
+    j = 0;	// number of nodes loaded
+    while (j < npod->numNodes) {	// load node frames
+      // Load a frame of nodes.
+      DiskNodeStruct * dn = KPAtoP(DiskNodeStruct *, pagePA);
+      for (i = 0; i < DISK_NODES_PER_PAGE; i++) {
+        Node * pNode = objC_GrabNodeFrame();
 
-  int j = 0;	// number of nodes loaded
-  while (j < npod->numNodes) {	// load node frames
-    // Load a frame of nodes.
-    DiskNodeStruct * dn = KPAtoP(DiskNodeStruct *, pagePA);
-    for (i = 0; i < DISK_NODES_PER_PAGE; i++) {
-      Node * pNode = objC_GrabNodeFrame();
+        node_SetEqualTo(pNode, dn + i);
+        pNode->objAge = age_NewBorn;
+        objH_InitObj(node_ToObj(pNode), oid + i, 0, ot_NtUnprepared);
 
-      node_SetEqualTo(pNode, dn + i);
-      pNode->objAge = age_NewBorn;
-      objH_InitObj(node_ToObj(pNode), oid + i, 0, ot_NtUnprepared);
-
-      if (++j >= npod->numNodes)
-        break;
+        if (++j >= npod->numNodes)
+          break;
+      }
+      oid += FrameToOID(1);
+      pagePA += EROS_PAGE_SIZE;
     }
-    oid += FrameToOID(1);
-    pagePA += EROS_PAGE_SIZE;
-  }
-  // Leave the npod frame and the node frames free.
+    // Leave the npod frame and the node frames free.
 
-  // Preload the initialized pages.
-  // Just leave them where they are and do the bookkeeping.
-  for (i = 0; i < npod->numNonzeroPages; i++) {
-    PageHeader * pageH = objC_PhysPageToObHdr(pagePA);
+    // Preload the initialized pages.
+    // Just leave them where they are and do the bookkeeping.
+    for (i = 0; i < npod->numNonzeroPages; i++) {
+      pageH = objC_PhysPageToObHdr(pagePA);
 
-    // If it's part of a free block, split it up:
-    while (pageH_GetObType(pageH) != ot_PtFreeFrame
-           || pageH->kt_u.free.log2Pages != 0) {
-      physMem_SplitContainingFreeBlock(pageH);
+      // If it's part of a free block, split it up:
+      while (pageH_GetObType(pageH) != ot_PtFreeFrame
+             || pageH->kt_u.free.log2Pages != 0) {
+        physMem_SplitContainingFreeBlock(pageH);
+      }
+      // Unlink from free list:
+      link_Unlink(&pageH->kt_u.free.freeLink);
+      pageH_ToObj(pageH)->obType = ot_PtNewAlloc;
+
+      objC_GrabThisPageFrame(pageH);
+      pageH_MDInitDataPage(pageH);
+      pageH->objAge = age_NewBorn;
+      objH_InitObj(pageH_ToObj(pageH), oid, 0, ot_PtDataPage);
+
+      oid += FrameToOID(1);
+      pagePA += EROS_PAGE_SIZE;
     }
-    // Unlink from free list:
-    link_Unlink(&pageH->kt_u.free.freeLink);
-    pageH_ToObj(pageH)->obType = ot_PtNewAlloc;
 
-    objC_GrabThisPageFrame(pageH);
-    pageH_MDInitDataPage(pageH);
-    pageH->objAge = age_NewBorn;
-    objH_InitObj(pageH_ToObj(pageH), oid, 0, ot_PtDataPage);
+    printf("Preloaded %d nodes and %d pages at OID %#llx\n",
+           npod->numNodes, npod->numNonzeroPages, npod->OIDBase);
 
-    oid += FrameToOID(1);
-    pagePA += EROS_PAGE_SIZE;
+    // Go on to the next preload image:
+    uint32_t thisFrames = 1 + npod->numFrames;	// including the header frame
+    npod = (struct NPObjectsDescriptor *)
+           ((char *)npod + thisFrames * EROS_PAGE_SIZE);
   }
 }
 

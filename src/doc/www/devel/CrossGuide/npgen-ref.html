@@ -28,7 +28,7 @@
       <h2>Name</h2>
       <p><b>npgen</b> -- make image file for non-persistent objects</p>
       <h2>Synopsis</h2>
-      <p><b>npgen</b> -s rangeSize [-m mapfile] [-b baseOID]
+      <p><b>npgen</b> -s rangeSize [-m mapfile] [-b baseOID] [-a] [-p]
          image_file binary_image</p>
       <h2>Description</h2>
       <p> The <b>npgen</b> utility prepares a binary image file
@@ -50,14 +50,22 @@
       of indexes in the image_file to OIDs in the binary file.
       </p>
       <p>
-        The binary image file contains:
+        If -a is specified, a preload image is appended to the binary_image.
       </p>
-      <ul>
-        <li>A page frame containing a header
-          with information about the objects and range.
-        <li>Frames containing the initial contents of nodes.
-        <li>Frames containing the initial contents of nonzero pages.
-      </ul>
+      <p>
+        If this npgen is for the non-persistent part of a persistent system,
+        specifying -p will place a capability to the persistent volsize node
+        in slot volsize_pvolsize of <em>this</em> volsize node.
+        This is the magic that allows the non-persistent world
+        to communicate with the persistent world.
+        The persistent volsize node has a well-known fixed OID.
+        If -p is not specified, slot volsize_pvolsize will have a node
+        capability to itself.
+      </p>
+      <p>
+        The binary image file is described
+        <a href="build-tut.html">here</a>.
+      </p>
     </td>
     <td valign=top width=15%>&nbsp;</td>
   </tr>

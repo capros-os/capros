@@ -22,13 +22,17 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-# Set up a kernel and domain state for execution. 
+# Set up a kernel and user state for execution. 
  
 install: $(BUILDDIR)/sysimg
 
 $(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
 	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1
 	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
+
+$(BUILDDIR)/psysimg: $(TARGETS) $(IMGMAP)
+	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(IMGMAP) 2>&1
+	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(IMGMAP) $(BUILDDIR)/.psysimg.m >/dev/null  2>&1
 
 init.hd: $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(EROS_HD)
@@ -37,9 +41,21 @@ ifndef NPRANGESIZE
 NPRANGESIZE=300
 endif
 
+ifndef PRANGESIZE
+PRANGESIZE=300
+endif
+
 // Link kernel and non-persistent objects:
 np: $(BUILDDIR)/sysimg $(KERNPATH).o
 	$(EROS_ROOT)/host/bin/npgen -m $(BUILDDIR)/sysgen.map -s $(NPRANGESIZE) $(BUILDDIR)/sysimg $(BUILDDIR)/imgdata
+	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
+	$(LD) -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptImage -o $(BUILDDIR)/imgdata2.o $(BUILDDIR)/imgdata.o
+	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(CAPROS_BOOT_PARTITION)/CapROS-kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o
+
+// Link kernel and non-persistent objects:
+p: $(BUILDDIR)/sysimg $(KERNPATH).o
+	$(EROS_ROOT)/host/bin/npgen -s $(NPRANGESIZE) $(BUILDDIR)/sysimg -p $(BUILDDIR)/imgdata
+	$(EROS_ROOT)/host/bin/npgen -s $(PRANGESIZE) -b 0x0100000000000000 $(BUILDDIR)/psysimg -a $(BUILDDIR)/imgdata
 	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
 	$(LD) -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptImage -o $(BUILDDIR)/imgdata2.o $(BUILDDIR)/imgdata.o
 	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(CAPROS_BOOT_PARTITION)/CapROS-kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o

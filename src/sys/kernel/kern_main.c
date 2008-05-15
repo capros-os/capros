@@ -174,8 +174,6 @@ main(void)
   extern void preload_Init(void);
   preload_Init();
 
-  printf("Preloaded data initialized...\n");
-
 #ifdef KKT_TIMEPAGE
   /* Following should be done before any possibility of a time key
    * getting prepared:

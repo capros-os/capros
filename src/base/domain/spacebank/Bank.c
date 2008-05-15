@@ -777,14 +777,20 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
   if (obj_frame) {
     if (obj_frame->frameMap == 0) {
       /* need to grab another frame. -- reserve it first */
-      if (bank_ReserveFrames(bank, 1) != RC_OK) 
+      if (bank_ReserveFrames(bank, 1) != RC_OK) {
+        DEBUG(nospace)
+          kdprintf(KR_OSTREAM, "spacebank: can't reserve node frame.\n");
 	goto cleanup;
+      }
     
       DEBUG(alloc) kprintf(KR_OSTREAM, "spacebank: allocating new frame\n");
       assert(baseType == capros_Range_otNode);
       retVal = ob_AllocNodeFrame(bank, &newFrame);
-      if (retVal != RC_OK)
-        goto cleanup;
+      if (retVal != RC_OK) {
+        DEBUG(nospace)
+          kdprintf(KR_OSTREAM, "spacebank: can't alloc node frame.\n");
+	goto cleanup;
+      }
 
       /* got some space in newFrame */
       if (bank != &bank0)
@@ -812,14 +818,19 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
   } else {	// no obj_frame
     /* single frame per object type -- preallocate the object */
     if (bank_ReserveFrames(bank, 1) != RC_OK) {
+      DEBUG(nospace)
+        kdprintf(KR_OSTREAM, "spacebank: can't reserve page frame.\n");
       goto cleanup;
     }
     
     DEBUG(alloc) kprintf(KR_OSTREAM, "spacebank: allocating new frame\n");
     assert(baseType == capros_Range_otPage);
     retVal = ob_AllocPageFrame(bank, &newFrame);
-    if (retVal != RC_OK)
+    if (retVal != RC_OK) {
+      DEBUG(nospace)
+        kdprintf(KR_OSTREAM, "spacebank: can't alloc page frame.\n");
       goto cleanup;
+    }
 
     /* got some space in newFrame */
     if (bank != &bank0)
@@ -851,6 +862,8 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
      * points to a zero object
      */
     bank_deallocOID(bank, baseType, oid);
+    DEBUG(nospace)
+      kdprintf(KR_OSTREAM, "spacebank: Range cap error %#x.\n", retval);
     goto cleanup;
   }
 
@@ -859,10 +872,6 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
   return RC_OK;
 
 cleanup:
-
-  // To help find bugs, let the world know:
-  kdprintf(KR_OSTREAM, "spacebank: Out of frames.\n");
-
   return RC_capros_SpaceBank_LimitReached;
 }
 

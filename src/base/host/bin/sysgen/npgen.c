@@ -56,8 +56,6 @@ RelocateKey(KeyBits *key, OID nodeBase, OID pageBase,
         oid += (nPages * EROS_OBJECTS_PER_FRAME);
       }
 
-      assert (oid < 0x100000000llu);
-    
       key->u.unprep.oid = oid;
     }
     // else oid is for a phys page, don't change it
@@ -66,11 +64,7 @@ RelocateKey(KeyBits *key, OID nodeBase, OID pageBase,
     OID oid = key->u.unprep.oid;
     OID frame = oid / DISK_NODES_PER_PAGE;
     OID offset = oid % DISK_NODES_PER_PAGE;
-    frame *= EROS_OBJECTS_PER_FRAME;
-    frame += nodeBase; /* JONADAMS: add in the node base */
-    oid = frame + offset;
-
-    assert (oid < 0x100000000llu);
+    oid = nodeBase + FrameObIndexToOID(frame, offset);
 
     key->u.unprep.oid = oid;
   }
@@ -104,11 +98,22 @@ main(int argc, char *argv[])
   int i;
   unsigned ndx;
   OID nodeBase, pageBase;
+  bool append = false;
+  bool nplink = false;
+  size_t cnt;
 
   app_Init("sysgen");
 
-  while ((c = getopt(argc, argv, "m:b:s:")) != -1) {
+  while ((c = getopt(argc, argv, "apm:b:s:")) != -1) {
     switch(c) {
+    case 'a':
+      append = true;
+      break;
+
+    case 'p':
+      nplink = true;
+      break;
+
     case 'm':
       map_file = fopen(optarg, "w");
       if (map_file == NULL)
@@ -145,13 +150,43 @@ main(int argc, char *argv[])
   
   erosimage = argv[0];
   binName = argv[1];
-
-  binfd = fopen(binName, "w");
-  if (! binfd)
-    diag_fatal(1, "Could not open \"%s\"\n", binName); 
   
   image = ei_create();
   ei_ReadFromFile(image, erosimage);
+
+  if (append) {
+    binfd = fopen(binName, "r+");
+    if (! binfd)
+      diag_fatal(1, "Could not open \"%s\"\n", binName); 
+
+    // Indicate that there is an additional preload image in this file.
+    struct {
+      struct NPObjectsDescriptor NPODescr;
+      char filler[EROS_PAGE_SIZE - sizeof(struct NPObjectsDescriptor)];
+    } firstFrame;
+    cnt = fread(&firstFrame, EROS_PAGE_SIZE, 1, binfd);
+    if (cnt != 1)
+      diag_fatal(1, "Error reading \"%s\"\n", binName); 
+
+    firstFrame.NPODescr.numPreloadImages++;
+
+    // Rewrite the first frame.
+    int err = fseek(binfd, 0, SEEK_SET);
+    if (err)
+      diag_fatal(1, "Error %d seeking on \"%s\"\n", err, binName); 
+    cnt = fwrite(&firstFrame, EROS_PAGE_SIZE, 1, binfd);
+    if (cnt != 1)
+      diag_fatal(1, "Error rewriting \"%s\"\n", binName); 
+
+    // Append our data.
+    err = fseek(binfd, 0, SEEK_END);
+    if (err)
+      diag_fatal(1, "Error %d seeking on \"%s\"\n", err, binName); 
+  } else {
+    binfd = fopen(binName, "w");
+    if (! binfd)
+      diag_fatal(1, "Could not open \"%s\"\n", binName); 
+  }
 
   KeyBits rk;		/* range key */
   KeyBits nk;		/* node key */
@@ -162,8 +197,6 @@ main(int argc, char *argv[])
   // Set slot volsize_range of the volsize node to the range cap:
   ei_SetNodeSlot(image, nk, volsize_range, rk);
 
-  /* store information about the size of the maps that need
-   * to be set up for the SpaceBank. */
 #define DIVRNDUP(x,y) (((x) + (y) - 1)/(y))
   /* Allocate one bit per frame in the range. */
   uint32_t numSubMapFrames = DIVRNDUP(numFramesInRange, 8*EROS_PAGE_SIZE);
@@ -199,15 +232,23 @@ main(int argc, char *argv[])
       IPLOID = k.u.unprep.oid;
 
       if (map_file != NULL)
-	fprintf(map_file, "image :ipl: node ndx 0x%08lx => disk node oid 0x%08lx%08lx\n",
-		 (uint32_t) oldOID,
-		 (uint32_t) (k.u.unprep.oid >> 32), 
-		(uint32_t) k.u.unprep.oid);
-
+	fprintf(map_file,
+                "image :ipl: node ndx 0x%08lx => disk node oid %#llx\n",
+		(uint32_t) oldOID,
+		k.u.unprep.oid);
     }
     else
-      diag_printf("Warning: no running domains!\n");
+      if (! append)
+        diag_printf("Warning: no running domains!\n");
+      // If appending, only the original image needs an IPL process.
   }
+
+#if 0
+  printf("%d nodes (%d frames), %d pages, %d zpages, %d submaps,"
+         " %d free, %d total\n",
+         nNodes, nNodeFrames, nPages, nZeroPages, numSubMapFrames, 
+         numFramesInRange - framesNeeded, numFramesInRange);
+#endif
 
   struct {
     struct NPObjectsDescriptor NPODescr;
@@ -218,13 +259,14 @@ main(int argc, char *argv[])
       .IPLOID = IPLOID,
       .numFramesInRange = numFramesInRange,
       .numFrames = nPages + nNodeFrames,
+      .numPreloadImages = 1,
       .numNodes = nNodes,
       .numNonzeroPages = nPages
     }
   };
 
-  int s = fwrite(&firstFrame, EROS_PAGE_SIZE, 1, binfd);
-  if (s != 1)
+  cnt = fwrite(&firstFrame, EROS_PAGE_SIZE, 1, binfd);
+  if (cnt != 1)
     diag_fatal(1, "Error writing \"%s\"\n", binName); 
 
   /* Copy all of the nodes, relocating the page key and node key
@@ -240,6 +282,14 @@ main(int argc, char *argv[])
     /* Relocate keys: */
     for (slot = 0; slot < EROS_NODE_SIZE; slot++) {
       RelocateKey(&node.slot[slot], nodeBase, pageBase, nPages);
+    }
+
+    if (ndx == 0) {
+      // Set up slot volsize_pvolsize of this volsize node.
+      init_NodeKey(&node.slot[volsize_pvolsize],
+        nplink ? PVOLSIZE_OID	// Link this volsize to persistent volsize
+               : OIDBase,	// link to our own volsize
+        0);
     }
     
     frame = ndx / DISK_NODES_PER_PAGE;
@@ -269,8 +319,8 @@ main(int argc, char *argv[])
   for (ndx = 0; ndx < nPages; ndx++) {
     ei_GetDataPageContent(image, ndx, buf);
 
-    int s = fwrite(buf, EROS_PAGE_SIZE, 1, binfd);
-    if (s != 1)
+    cnt = fwrite(buf, EROS_PAGE_SIZE, 1, binfd);
+    if (cnt != 1)
       diag_fatal(1, "Error writing \"%s\"\n", binName); 
 
     OID oid = FrameObIndexToOID(ndx, 0) + pageBase;
