@@ -2,7 +2,7 @@
 #define __OBJECTSOURCE_H__
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -38,10 +38,7 @@ struct ObjectSource {
   const char *name;
   OID start;
   OID end;	/* last OID +1 */
-  kva_t base;
-  uint32_t nsecs;
   PmemInfo *pmi;
-  ObjectHeader *obHdrs;
   
   /* Fetch page (node) from the backing implementation for this
      range. On success, return an ObjectHeader (Node) pointer for
@@ -67,15 +64,9 @@ struct ObjectSource {
      The GetPage()/GetNode() implementation is free to yield.
   */
      
-  /*void (*objS_InitObjectSource)(ObjectSource *thisPtrm, const char *nm, OID first, OID last);*/
-
-  bool (*objS_Detach)(ObjectSource *thisPtr);
-
   ObjectHeader *
   (*objS_GetObject)(ObjectSource *thisPtr, OID oid, ObType obType, ObCount count, bool useCount);
 
-  bool (*objS_IsRemovable)(ObjectSource *thisPtr, ObjectHeader *obHdr);
-  
   /* Write a page to backing store. Note that the "responsible"
    * ObjectSource can refuse, in which case the page will not be
    * cleanable and will stay in memory. WritePage() is free to yield.
@@ -83,18 +74,12 @@ struct ObjectSource {
   bool (*objS_WriteBack)(ObjectSource *thisPtr, ObjectHeader *obHdr, 
                          bool inBackground /*@ default = false @*/);
   
-  /* Unconditionally remove an object from the object cache. */
-  bool (*objS_Invalidate)(ObjectSource *thisPtr, ObjectHeader *);
-
   /* All ObjectSources are disjoint, but not all object sources
    * actually "implement" the entire range that they claim, so we need
    * to be able to inquire of them what ranges actually exist. */
   void (*objS_FindFirstSubrange)(ObjectSource *thisPtr, OID curStart, OID curEnd,
                                  OID* subStart /*@ not null @*/, 
                                  OID* subEnd /*@ not null @*/);
-#ifdef OPTION_DDB
-  void (*objS_ddb_Dump)();
-#endif
 };
 
 void 
@@ -102,40 +87,17 @@ ObjectSource_FindFirstSubrange(ObjectSource *thisPtr, OID limStart, OID limEnd,
                                OID* subStart /*@ not null @*/, 
                                OID* subEnd /*@ not null @*/);
 
-bool
-ObjectSource_IsRemovable(ObjectSource *thisPtr, ObjectHeader *obHdr);
-
-/**********************************************************************
- *
- * The in-memory object cache is an object source (at least for the
- * moment) 
- *
- **********************************************************************/
-
-bool ObCacheSource_Detach(ObjectSource *thisPtr);
-
-ObjectHeader *
-ObCacheSource_GetObject(ObjectSource *thisPtr, 
-                        OID oid, ObType obType, ObCount count, bool useCount);
-
-bool ObCacheSource_WriteBack(ObjectSource *thisPtr, ObjectHeader *, bool);
-bool ObCacheSource_Invalidate(ObjectSource *thisPtr, ObjectHeader *);
-
-struct DivisionInfo;
-
 /**********************************************************************
  *
  * Any preloaded ram regions are object sources
  *
  **********************************************************************/
-bool PreloadObSource_Detach(ObjectSource *thisPtr);
   
 ObjectHeader *
 PreloadObSource_GetObject(ObjectSource *thisPtr, 
                           OID oid, ObType obType, ObCount count, bool useCount);
 
 bool PreloadObSource_WriteBack(ObjectSource *thisPtr, ObjectHeader *, bool);
-bool PreloadObSource_Invalidate(ObjectSource *thisPtr, ObjectHeader *);
 
 /**********************************************************************
  *
@@ -144,13 +106,5 @@ bool PreloadObSource_Invalidate(ObjectSource *thisPtr, ObjectHeader *);
  **********************************************************************/
 
 void PhysPageSource_Init(ObjectSource * source, PmemInfo * pmi);
-bool PhysPageSource_Detach(ObjectSource *thisPtr);
-
-ObjectHeader *
-PhysPageSource_GetObject(ObjectSource *thisPtr, 
-                         OID oid, ObType obType, ObCount count, bool useCount);
-
-bool PhysPageSource_WriteBack(ObjectSource *thisPtr, ObjectHeader *, bool);
-bool PhysPageSource_Invalidate(ObjectSource *thisPtr, ObjectHeader *);
 
 #endif /* __OBJECTSOURCE_H__ */

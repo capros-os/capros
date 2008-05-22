@@ -63,6 +63,19 @@ node_ToObj(Node * pNode)
   return &pNode->node_ObjHdr;
 }
 
+INLINE void
+objH_SetAge(ObjectHeader * pObj, uint8_t age)
+{
+  // objAge is in different places in nodes and pages.
+  if (objH_isNodeType(pObj)) {
+    Node * pNode = objH_ToNode(pObj);
+    pNode->objAge = age;
+  } else {
+    PageHeader * pageH = objH_ToPage(pObj);
+    pageH->objAge = age;
+  }
+}
+
 INLINE Node *         
 objH_LookupNode(OID oid)
 {

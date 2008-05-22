@@ -32,18 +32,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/PhysMem.h>	/* get MI_DEVICEMEM */
 #include <arch-kerninc/Page-inline.h>
 
-/* We simulate physical page allocation counters using a single
- * universal allocation counter that is bumped for each new
- * allocation. Since the physical page ObjectHeader is pinned, the
- * only time this will get checked is when an old key is prepared
- * following revocation of the underlying physical page.
- *
- * Note that there is a serious potential security hole here if a
- * physical page key is EVER stored into a persistent node, because
- * the user might well get lucky on the allocation count.
- */
-static ObCount PhysPageAllocCount = 0u;
-
 static inline bool
 ValidPhysPage(PmemInfo *pmi, kpa_t pgFrame)
 {
@@ -102,50 +90,6 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 }
 
 bool
-PhysPageSource_Invalidate(ObjectSource *thisPtr, ObjectHeader *pObj)
-{
-  if (pObj->obType == ot_PtDevicePage) {
-    fatal("PhysPageSource::Invalidate(PtDevicePage) is nonsense\n");
-  }
-  else {
-    assert(pObj->obType == ot_PtDataPage);
-
-    kpa_t pgFrame = pageH_GetPageVAddr(objH_ToPage(pObj));
-
-    if (!ValidPhysPage(thisPtr->pmi, pgFrame))
-      return false;
-
-  /* Okay, now this is a real nuisance. Free the frame and bump the
-   * global physical frame allocation count. */
-  
-    assert(keyR_IsEmpty(&pObj->keyRing));
-    assert(pObj->prep_u.products == 0);
-    
-    objH_ClearFlags(pObj, OFLG_DIRTY);
-
-  /* FIX: What about transaction lock? */
-
-    ReleaseObjPageFrame(objH_ToPage(pObj));
-
-    PhysPageAllocCount ++;
-    // FIXME: Does this inadvertently invalidate other pages,
-    // including device pages?
-
-    fatal("PhysPageSource::Invalidate() unimplemented\n");
-  }
-
-  return false;
-}
-
-bool
-PhysPageSource_Detach(ObjectSource *thisPtr)
-{
-  fatal("PhysPageSource::Detach() unimplemented\n");
-
-  return false;
-}
-
-bool
 PhysPageSource_WriteBack(ObjectSource *thisPtr, ObjectHeader *obHdr, bool b)
 {
   fatal("PhysPageSource::WriteBack() unimplemented\n");
@@ -162,11 +106,8 @@ PhysPageSource_Init(ObjectSource * source, PmemInfo * pmi)
   source->end   = OID_RESERVED_PHYSRANGE
                   + ((pmi->bound / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME);
   source->pmi = pmi;
-  source->objS_Detach = PhysPageSource_Detach;
   source->objS_GetObject = PhysPageSource_GetObject;
-  source->objS_IsRemovable = ObjectSource_IsRemovable;
   source->objS_WriteBack = PhysPageSource_WriteBack;
-  source->objS_Invalidate = PhysPageSource_Invalidate;
   source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
   objC_AddSource(source);
 }

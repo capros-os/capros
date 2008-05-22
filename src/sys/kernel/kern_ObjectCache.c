@@ -909,9 +909,6 @@ objC_CleanFrame2(ObjectHeader *pObj)
 
   /* Object must be paged out if dirty: */
   if (objH_IsDirty(pObj)) {
-    if (objC_IsRemovable(pObj) == false)
-      return false;
-
     /* If the object got rescued, it won't have hit ageout age, so
      * the only way it should still be dirty is if the write has not
      * completed:
@@ -1283,10 +1280,10 @@ objC_AddSource(ObjectSource *source)
 		   (unsigned) (source->end));
 
   /* First, verify that the new source does not overlap any existing
-   * source (except for the object cache, of course).
+   * source.
    */
 
-  for (i = 1; i < nSource; i++) {
+  for (i = 0; i < nSource; i++) {
     if (source->end <= sources[i]->start)
       continue;
     if (source->start >= sources[i]->end)
@@ -1308,8 +1305,7 @@ objC_HaveSource(OID oid)
 {
   unsigned i = 0;
 
-  /* NOTE that this skips the ObCache */
-  for (i = 1; i < nSource; i++)
+  for (i = 0; i < nSource; i++)
     if (sources[i]->start <= oid && oid < sources[i]->end)
       return true;
 
@@ -1317,6 +1313,7 @@ objC_HaveSource(OID oid)
   return false;
 }
 
+/* obType must be ot_NtUnprepared or ot_PtDataPage. */
 /* May Yield. */
 ObjectHeader *
 objC_GetObject(OID oid, ObType obType,
@@ -1324,7 +1321,12 @@ objC_GetObject(OID oid, ObType obType,
 {
   unsigned i;
 
-  ObjectHeader *pObj = 0;
+  // Look in the object cache:
+  ObjectHeader * pObj = objH_Lookup(obType, oid);
+  if (pObj) {
+    objH_SetAge(pObj, age_NewBorn);
+    return pObj;
+  }
 
   if (!objC_HaveSource(oid)) {
     dprintf(true, "No source for OID 0x%08x%08x...\n",
@@ -1375,33 +1377,6 @@ objC_WriteBack(ObjectHeader *pObj, bool inBackground)
   return done;
 }
 
-bool
-objC_Invalidate(ObjectHeader *pObj)
-{
-  bool done = false;
-  unsigned i = 0;
-
-  for (i = 0; !done && i < nSource; i++)
-    if (sources[i]->start <= pObj->oid && pObj->oid < sources[i]->end)
-      done = sources[i]->objS_Invalidate(sources[i], pObj);
-
-  return done;
-}
-
-bool
-objC_IsRemovable(ObjectHeader *pObj)
-{
-  bool result = false;
-  unsigned i = 0;
-
-  for (i = 0; !result && i < nSource; i++)
-    if (sources[i]->start <= pObj->oid && pObj->oid < sources[i]->end)
-      result = sources[i]->objS_IsRemovable(sources[i], pObj);
-
-  /* Until proven otherwise: */
-  return result;
-}
-
 void
 objC_FindFirstSubrange(OID limStart, OID limEnd, 
                        OID* subStart /*@ not null @*/, OID* subEnd /*@ not null @*/)
@@ -1423,11 +1398,11 @@ objC_FindFirstSubrange(OID limStart, OID limEnd,
 		   (unsigned long) (limEnd),
 		   nSource);
 
-  /* ObjectSources (ignoring the object cache) implement disjoint
+  /* ObjectSources implement disjoint
    * ranges, but they do not necessarily implement fully populated
    * ranges. 
    */
-  for (i = 1; i < nSource; i++) {
+  for (i = 0; i < nSource; i++) {
     /* Check if the requested range and the source overlap: */
     if (sources[i]->end <= limStart) {
       DEBUG(findfirst)
@@ -1494,28 +1469,17 @@ void
 objC_InitObjectSources()
 {
   unsigned i;
-  ObjectSource * source = KPAtoP(ObjectSource *,
-                            physMem_Alloc(sizeof(ObjectSource), &physMem_any));
+  ObjectSource * source;
 
-  /* code for initializing ObCacheSource */
-  source->name = "obcache";
-  source->start = (OID)0;
-  source->end = ~(OID)0;
-  
-  source->objS_Detach = ObCacheSource_Detach;
-  source->objS_GetObject = ObCacheSource_GetObject;
-  source->objS_IsRemovable = ObjectSource_IsRemovable;
-  source->objS_WriteBack = ObCacheSource_WriteBack;
-  source->objS_Invalidate = ObCacheSource_Invalidate;
-  source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
-  objC_AddSource(source);
-
-  DEBUG (obsrc) printf("objC_InitObjectSources: Added obcache.\n");
-  
   // Set up the preloaded objects.
   struct NPObjectsDescriptor * npod = NPObDescr;	// local copy
   for (i = npod->numPreloadImages; i > 0; i--) {
     OID oid = npod->OIDBase;
+
+    /* For the case of persistent objects (oid == FIRST_PERSISTENT_OID),
+    using PreloadObSource is a temporary expedient until we get 
+    paging working.
+    When changing this, make sure zero pages get initialized somehow. */
 
     /* code for initializing PreloadObSource */
     source = KPAtoP(ObjectSource *,
@@ -1523,12 +1487,8 @@ objC_InitObjectSources()
     source->name = "preload";
     source->start = oid;
     source->end = oid + FrameToOID(npod->numFramesInRange);
-    source->base = 0;	// not used
-    source->objS_Detach = PreloadObSource_Detach;
     source->objS_GetObject = PreloadObSource_GetObject;
-    source->objS_IsRemovable = ObjectSource_IsRemovable;
     source->objS_WriteBack = PreloadObSource_WriteBack;
-    source->objS_Invalidate = PreloadObSource_Invalidate;
     source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
 
     objC_AddSource(source);

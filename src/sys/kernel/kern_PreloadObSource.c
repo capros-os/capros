@@ -209,22 +209,6 @@ PreloadObSource_GetObject(ObjectSource * src, OID oid, ObType obType,
 }
 
 bool
-PreloadObSource_Invalidate(ObjectSource *thisPtr, ObjectHeader *obHdr)
-{
-  fatal("PreloadObSource::Evict() unimplemented\n");
-
-  return false;
-}
-
-bool
-PreloadObSource_Detach(ObjectSource *thisPtr)
-{
-  fatal("PreloadObSource::Detach() unimplemented\n");
-
-  return false;
-}
-
-bool
 PreloadObSource_WriteBack(ObjectSource *thisPtr, ObjectHeader *obHdr, bool b)
 {
   fatal("PreloadObSource::Write() unimplemented\n");

@@ -157,9 +157,6 @@ void objC_ddb_DumpSources();
 ObjectHeader *
 objC_GetObject(OID oid, ObType obType, ObCount count, bool useCount);
 
-/* Return true if object can be removed from the object cache. */
-bool objC_IsRemovable(ObjectHeader *);
-
 /* Write a page to backing store. Note that the "responsible"
  * ObjectSource can refuse, in which case the page will not be
  * cleanable and will stay in memory. WritePage() is free to yield.
@@ -168,12 +165,6 @@ bool objC_IsRemovable(ObjectHeader *);
  */
 bool objC_WriteBack(ObjectHeader *, bool inBackground /*@ default false @*/);
 
-/* Unconditionally remove an object from the object cache. 
- *
- * Returns true on success.
- */
-bool objC_Invalidate(ObjectHeader *);
-  
 void objC_FindFirstSubrange(OID start, OID end, 
                             OID* subStart /*@ not null @*/, OID* subEnd /*@ not null @*/);
 
