@@ -31,7 +31,7 @@ The creation of new CapROS partitions proceeds in steps:
 <ol>
   <li> Create a partition of non-CapROS type.  This ensures that if a
        failure occurs while partition format is in progress the
-       partition will not be seen as an CapROS partition.
+       partition will not be seen as a CapROS partition.
        <p> 
   <li> Obtain a raw disk range key to the new partition.  Use it to
        write a proper CapROS-formatted volume image to the new
@@ -39,7 +39,7 @@ The creation of new CapROS partitions proceeds in steps:
        an empty pair of range tables.
        <p>
   <li> Delete the partition, and create a new partition covering the
-       same range of sectors that is really an CapROS partition
+       same range of sectors that is really a CapROS partition
        (i.e. retype the partition).
        <p> 
   <li> Tell CapROS to try and mount the newly created partition.
@@ -241,31 +241,34 @@ is used for optimization).  For example, a Node frame looks like:
 <h3>Allocation counts</h3>
 <p>
 If the allocation count of an object is N, that means that
-there are <em>no</em> rescinded capabilities (other than resume capabilities)
-containing the object's OID and an allocation count M >= N. 
+there are no capabilities (other than resume capabilities)
+containing the object's OID and an allocation count M > N, and
+there are no <em>rescinded</em> capabilities (other than resume capabilities)
+containing the object's OID and an allocation count M = N. 
 (There may exist
 rescinded capabilities (other than resume capabilities) containing
 the object's OID and an allocation count less than N.)
 <p>
+In the simple case, rescinding capabilities to an object requires incrementing
+the allocation count of the object. 
+To reduce the "wear" on the allocation count, we keep track of some
+in-memory capabilities (they are linked to the object) 
+and we can invalidate these capabilities without incrementing the
+allocation count. 
+A bit called <em>allocCountUsed</em> indicates whether there may be unrescinded
+ capabilities (other than resume capabilities)
+ that contain the current value of the allocation count.
+If the bit indicates that there are no such capabilities,
+rescinding can be done without incrementing the allocation count.
+<p>
 Likewise, if the call count of an object is N, that means that
-there are <em>no</em> rescinded resume capabilities
-containing the object's OID and a call count M >= N. 
+there are no resume capabilities
+containing the object's OID and a call count M > N, and
+there are no <em>rescinded</em> resume capabilities
+containing the object's OID and a call count M = N. 
 (There may exist rescinded resume capabilities containing
 the object's OID and a call count less than N.)
-<p>
-It is possible to change the type of a frame. This requires rescinding all
-capabilities to all objects in the frame. 
-The frame is then initialized with objects of the new type,
-and the tag pot updated to reflect the new type. 
-<p>
-Retyping a frame must not cause any rescinded capabilities to become
-unrescinded.
-Therefore the allocation count and call count of the new objects
-must be set to the <em>maximum</em> of the respective counts of
-all the old objects in the frame.
-<p>Note that even pages must have call counts, because if a frame is retyped
-from nodes to page and back to nodes, we must ensure that resume capabilities
-don't become unrescinded.
+And there is a <em>callCountUsed</em> bit.
 <h3>Tag Pots</h3>
 <p>
 A tag pot has an entry for each frame in its cluster.
@@ -294,11 +297,12 @@ since all the objects in the frame will have the same call count.
 <p><em>For nodes, is there any benefit to storing here the maximum call
 count of the nodes in the frame?</em>
 <dt><b>allocCountUsed</b>
-<dd>The allocCountUsed field indicates whether there may be capabilities
+<dd>The allocCountUsed field indicates whether there may be unrescinded
+ capabilities
  (other than resume capabilities) that have the same value for the allocCount.
 <dt><b>callCountUsed</b>
-<dd>The callCountUsed field indicates whether there may be resume capabilities
- that have the same value for the callCount.
+<dd>The callCountUsed field indicates whether there may be unrescinded
+ resume capabilities that have the same value for the callCount.
 </dl>
 <p>
 To avoid wasting space on alignment, a tag pot is arranged as two arrays:
@@ -313,6 +317,76 @@ struct TagPot {
 </pre>
 <p>
 Using 32-bit counts, a tag pot can describe 455 object frames.
+<h3>Retyping</h3>
+<p>
+It is possible to change the type of a frame.
+It is the space bank that decides when to do this.
+<p>
+Retyping a frame must not cause any rescinded capabilities to become
+unrescinded.
+Therefore the allocation count and call count of the new objects
+must be set to the <em>maximum</em> of the respective counts of
+all the old objects in the frame.
+<p>Note that even pages must have call counts, because if a frame is retyped
+from nodes to page and back to nodes, we must ensure that resume capabilities
+don't become unrescinded.
+<p>Retyping a frame involves the following steps. These steps ensure that
+the retyping operation does not change the state of the last
+committed checkpoint.
+The steps are described in the context of a persistent (checkpointed) system,
+but they apply equally well to a non-persistent (embedded) system.
+<ol>
+  <li>The space bank only retypes a frame when there are no allocated
+  objects in the frame. Therefore there should be no unrescinded capabilities
+  to objects in the frame.
+  Therefore the allocCountUsed and callCountUsed bits of those objects
+  should be zero.
+  <li>The space bank invokes an operation on the Range capability to
+  determine the 
+  maximum allocation count and call count of all the objects in the frame.
+  Note, these counts should not be changing, because the space bank
+  has not yet allocated anything from the frame.
+  <p>The kernel determines the counts by looping over all objects in the frame,
+  getting the count (1) if the object is in memory, from the object header;
+  (2) if the object is in the in-core log directory, from the directory entry;
+  or (3) otherwise, from the home range tag pot (for a page)
+  or home range node pot (for nodes).
+  In other words, we find the count just as we would find the object,
+  except that we do not need the contents of the object.
+  This operation should require at most one disk read.
+  <p>In the case of nodes, the EROS design called for keeping in the tag pot
+  the maximum of the allocation counts of the nodes in that home node pot.
+  (That design would need to keep the maximum call count as well.)
+  This design could save reading the node pot when the frame is retyped,
+  but may require updating and writing the tag pot more frequently.
+  Since retyping should be rare, we choose to not keep node counts
+  in the tag pot. 
+  <li>The space bank then invokes an operation on the Range capability to
+  retype the frame.
+  This is a separate operation from the above,
+  to avoid requiring all the needed objects in memory at once.
+  This operation proceeds in three phases.
+  <ol>
+    <li>Ensure we have enough resources to complete the operation.
+    <li>Destroy vestiges of the old objects.
+    If the object is in memory, we free it.
+    Also, if the object is in the in-core log directory (for any generation),
+    we free that directory entry.
+    <li>Create virgin objects of the new type, for all objects in the frame.
+    These are created in memory, marked dirty, and given an intermediate age.
+    The allocation and call counts are specified by the space bank
+    based on its earlier determination of the maximum counts.
+    It is likely that the space bank will soon allocate at least some
+    of these objects.
+  </ol>
+  <li>Eventually, one or more of the new objects will be migrated.
+  The migrator notices the change of type in the tag pot in the home range.
+  If the frame is now a node pot, the migrator formats the frame as such
+  before migrating to it.
+  The contents and counts of the nodes formatted in this frame
+  do not actually matter, because all the nodes in it were dirtied
+  and will be migrated to it either now or later.
+</ol>
 <hr>
 <table>
 <tr valign=top>
