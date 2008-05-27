@@ -60,6 +60,8 @@ Approved for public release, distribution unlimited. */
 getpc:	mov r6,pc	// record the pc
 	sub r6,r6,#(getpc+8-_start)
 	// r6 has phys addr of start of .text section.
+
+	mov fp,#0	// zero the frame pointer for stack tracing
 /* If started by the boot ROM, we are running out of flash memory.
    Presumably this is at FlashMemPA, but rather than assume that,
    we use the value in the PC. 
