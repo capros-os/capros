@@ -104,13 +104,9 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
 
   /** Report next populated subrange.
    *
-   * Returns the offset and length of then next subrange for which
+   * Returns the offset and length of the next subrange for which
    * backing objects actually exist, starting the search at offset
    * /startOffset/ of the passed range key.
-   *
-   * <b>Note</b>: This operation may be obsoleted in future versions
-   * of the interface, as the idea of OID to location correspondence
-   * is going away.
    */
   void nextSubrange(unsigned long long startOffset, 
 		    out unsigned long long offset, out unsigned long len);
@@ -119,10 +115,6 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    *
    * Returns a range key for a subrange of the current range,
    * begininng at /offset/ and extending for /len/ frames.
-   *
-   * <b>Note</b>: This operation may be obsoleted in future versions
-   * of the interface, as the idea of OID to location correspondence
-   * is going away.
    */
   capros.Range makeSubrange(unsigned long long offset, unsigned long len);
 };

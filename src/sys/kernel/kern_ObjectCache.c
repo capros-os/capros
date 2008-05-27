@@ -40,15 +40,11 @@ Approved for public release, distribution unlimited. */
 #include <disk/NPODescr.h>
 #include <arch-kerninc/PTE.h>
 
-#define MAX_SOURCE 16
-
 #define dbg_cachealloc	0x1	/* initialization */
 #define dbg_ckpt	0x2	/* migration state machine */
 #define dbg_map		0x4	/* migration state machine */
 #define dbg_ndalloc	0x8	/* node allocation */
 #define dbg_pgalloc	0x10	/* page allocation */
-#define dbg_obsrc	0x20	/* addition of object sources */
-#define dbg_findfirst	0x40	/* finding first subrange */
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u )
@@ -135,6 +131,20 @@ objC_Init()
 
   DEBUG(cachealloc)
     printf("%d bytes of available storage after key dep tbl alloc.\n", availBytes);
+
+  /* Add all the device pages.
+     By adding them now, before calling objC_AllocateUserPages(),
+     we can get storage for the PageHeader entries from contiguous
+     physical memory, rather than the heap. */
+  for (i = 0; i < physMem_nPmemInfo; i++) {
+    PmemInfo *pmi = &physMem_pmemInfo[i];
+
+    if (pmi->type == MI_DEVICEMEM || pmi->type == MI_BOOTROM) {
+      // Need to special case the publication of device mem, as we need
+      // object cache entries for these, because there will be keys to them.
+      objC_AddDevicePages(pmi);
+    }
+  }
 
   objC_AllocateUserPages();
 
@@ -1250,285 +1260,4 @@ ReleaseNodeFrame(Node * pNode)
   node_ToObj(pNode)->prep_u.nextFree = node_ToObj(objC_firstFreeNode);
   objC_firstFreeNode = pNode;
   objC_nFreeNodeFrames++;
-}
-
-/****************************************************************
- *
- * Interaction with object sources;
- *
- ****************************************************************/
-
-static DEFQUEUE(SourceWait);
-
-static ObjectSource *sources[MAX_SOURCE];
-static uint32_t nSource = 0;
-
-bool
-objC_AddSource(ObjectSource *source)
-{
-  unsigned i = 0;
-
-  if (nSource == MAX_SOURCE)
-    fatal("Limit on total object sources exceeded\n");
-  
-  DEBUG(obsrc)
-    printf("New source: \"%s\" [0x%08x%08x,0x%08x%08x)\n",
-		   source->name,
-		   (unsigned) (source->start >> 32),
-		   (unsigned) (source->start),
-		   (unsigned) (source->end >> 32),
-		   (unsigned) (source->end));
-
-  /* First, verify that the new source does not overlap any existing
-   * source.
-   */
-
-  for (i = 0; i < nSource; i++) {
-    if (source->end <= sources[i]->start)
-      continue;
-    if (source->start >= sources[i]->end)
-      continue;
-    dprintf(true, "New source 0x%x overlaps existing source 0x%x\n",
-		    source, sources[i]);
-    return false;
-  }
-
-  sources[nSource++] = source;
-
-  sq_WakeAll(&SourceWait, false);
-
-  return true;
-}
-
-bool
-objC_HaveSource(OID oid)
-{
-  unsigned i = 0;
-
-  for (i = 0; i < nSource; i++)
-    if (sources[i]->start <= oid && oid < sources[i]->end)
-      return true;
-
-  /* Until proven otherwise: */
-  return false;
-}
-
-/* obType must be ot_NtUnprepared or ot_PtDataPage. */
-/* May Yield. */
-ObjectHeader *
-objC_GetObject(OID oid, ObType obType,
-               ObCount count, bool useCount)
-{
-  unsigned i;
-
-  // Look in the object cache:
-  ObjectHeader * pObj = objH_Lookup(obType, oid);
-  if (pObj) {
-    objH_SetAge(pObj, age_NewBorn);
-    return pObj;
-  }
-
-  if (!objC_HaveSource(oid)) {
-    dprintf(true, "No source for OID 0x%08x%08x...\n",
-		    (unsigned long) (oid >> 32),
-		    (unsigned long) (oid));
-    act_SleepOn(&SourceWait);
-    act_Yield();
-  }
-
-  for (i = 0; !pObj && i < nSource; i++) {
-    if (sources[i]->start <= oid && oid < sources[i]->end)
-      pObj = sources[i]->objS_GetObject(sources[i], oid, obType, count, useCount);
-  }
-
-  if (pObj) {
-#ifdef DBG_WILD_PTR
-    if (dbg_wild_ptr)
-      check_Consistency("End GetObject()");
-#endif
-
-    if (useCount && pObj->allocCount != count)
-      return 0;
-      
-    return pObj;
-  }
-
-
-  inv_MaybeDecommit(&inv);
-
-
-  fatal("ObjecCache::GetObject(): oid 0x%08x%08x not found\n",
-		(unsigned) (oid >> 32),
-		(unsigned) oid);
-
-  return 0;
-}
-
-bool
-objC_WriteBack(ObjectHeader *pObj, bool inBackground)
-{
-  bool done = false;
-  unsigned i = 0;
-
-  for (i = 0; !done && i < nSource; i++)
-    if (sources[i]->start <= pObj->oid && pObj->oid < sources[i]->end)
-      done = sources[i]->objS_WriteBack(sources[i], pObj, inBackground);
-
-  return done;
-}
-
-void
-objC_FindFirstSubrange(OID limStart, OID limEnd, 
-                       OID* subStart /*@ not null @*/, OID* subEnd /*@ not null @*/)
-{
-  unsigned i = 0;
-
-  /* Bypass entry 0, because the object cache itself can of course
-   * represent anything representable. */
-
-  *subStart = ~0llu;		/* until proven otherwise */
-  *subEnd = ~0llu;
-
-  DEBUG(findfirst)
-    printf("ObCache::FindFirstSubrange(): limStart 0x%08x%08x, "
-		   "limEnd 0x%08x%08x  nSource %d\n",
-		   (unsigned long) (limStart >> 32),
-		   (unsigned long) (limStart),
-		   (unsigned long) (limEnd >> 32),
-		   (unsigned long) (limEnd),
-		   nSource);
-
-  /* ObjectSources implement disjoint
-   * ranges, but they do not necessarily implement fully populated
-   * ranges. 
-   */
-  for (i = 0; i < nSource; i++) {
-    /* Check if the requested range and the source overlap: */
-    if (sources[i]->end <= limStart) {
-      DEBUG(findfirst)
-	printf("Reject %d: end 0x%08x%08x <= limStart\n",
-		       i,
-		       (unsigned long) (sources[i]->end >> 32),
-		       (unsigned long) (sources[i]->end));
-      continue;
-    }
-
-    if (sources[i]->start >= limEnd) {
-      DEBUG(findfirst)
-	printf("Reject %d: start 0x%08x%08x >= limStart\n",
-		       i,
-		       (unsigned long) (sources[i]->start >> 32),
-		       (unsigned long) (sources[i]->start));
-      continue;
-    }
-
-    /* If so, and if the answer could possibly be better than what we
-     * already have, ask the source: */
-    if (sources[i]->start < *subStart) {
-      DEBUG(findfirst)
-	printf("Consulting source %d for [0x%08x%08x, 0x%08x%08x)\n",
-		       i,
-		       (unsigned long) (sources[i]->start >> 32),
-		       (unsigned long) (sources[i]->start),
-		       (unsigned long) (sources[i]->end >> 32),
-		       (unsigned long) (sources[i]->end));
-      sources[i]->objS_FindFirstSubrange(sources[i], limStart, limEnd, subStart, subEnd);
-    }
-  }
-}
-
-#ifdef OPTION_DDB
-void
-objC_ddb_DumpSources()
-{
-  extern void db_printf(const char *fmt, ...);
-  unsigned i = 0;
-
-  for (i = 0; i < nSource; i++) {
-    ObjectSource *src = sources[i];
-    printf("[0x%08x%08x,0x%08x%08x): %s\n",
-	   (unsigned) (src->start >> 32),
-	   (unsigned) src->start,
-	   (unsigned) (src->end >> 32),
-	   (unsigned) src->end,
-	   src->name);
-  }
-
-  if (nSource == 0)
-    printf("No object sources.\n");
-}
-#endif
-
-/****************************************************************
- *
- * Interaction with object sources;
- *
- ****************************************************************/
-
-void
-objC_InitObjectSources()
-{
-  unsigned i;
-  ObjectSource * source;
-
-  // Set up the preloaded objects.
-  struct NPObjectsDescriptor * npod = NPObDescr;	// local copy
-  for (i = npod->numPreloadImages; i > 0; i--) {
-    OID oid = npod->OIDBase;
-
-    /* For the case of persistent objects (oid == FIRST_PERSISTENT_OID),
-    using PreloadObSource is a temporary expedient until we get 
-    paging working.
-    When changing this, make sure zero pages get initialized somehow. */
-
-    /* code for initializing PreloadObSource */
-    source = KPAtoP(ObjectSource *,
-                    physMem_Alloc(sizeof(ObjectSource), &physMem_any));
-    source->name = "preload";
-    source->start = oid;
-    source->end = oid + FrameToOID(npod->numFramesInRange);
-    source->objS_GetObject = PreloadObSource_GetObject;
-    source->objS_WriteBack = PreloadObSource_WriteBack;
-    source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
-
-    objC_AddSource(source);
-
-    DEBUG (obsrc)
-      printf("objC_InitObjectSources: Added preloaded module,"
-             " startOid=%#llx, %d frames.\n",
-             oid, npod->numFramesInRange);
-
-    uint32_t thisFrames = 1 + npod->numFrames;  // including the header frame
-    npod = (struct NPObjectsDescriptor *)
-           ((char *)npod + thisFrames * EROS_PAGE_SIZE);
-  }
-
-  for (i = 0; i < physMem_nPmemInfo; i++) {
-    PmemInfo *pmi = &physMem_pmemInfo[i];
-
-    if (pmi->type == MI_MEMORY) {
-      source = (ObjectSource *)
-            KPAtoP(void *, physMem_Alloc(sizeof(ObjectSource), &physMem_any));
-      PhysPageSource_Init(source, pmi);
-
-      DEBUG (obsrc) printf("objC_InitObjectSources: Added physmem.\n");
-    }
-  }
-
-  // Need to special case the publication of device mem, as we need
-  // object cache entries for these, because there will be keys to them.
-  // This must be done *after* the MI_MEMORY cases,
-  // because malloc() needs to work.
-
-  for (i = 0; i < physMem_nPmemInfo; i++) {
-    PmemInfo *pmi = &physMem_pmemInfo[i];
-
-    if (pmi->type == MI_DEVICEMEM || pmi->type == MI_BOOTROM) {
-      objC_AddDevicePages(pmi);
-      source = (ObjectSource *)KPAtoP(void *, physMem_Alloc(sizeof(ObjectSource), &physMem_any));
-      PhysPageSource_Init(source, pmi);
-
-      DEBUG (obsrc) printf("objC_InitObjectSources: Added BOOTROM.\n");
-    }
-  }
 }

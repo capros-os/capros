@@ -134,8 +134,6 @@ main(void)
 #endif
 #endif
 
-  objC_InitObjectSources();
-
   UserIrqInit();
 
   sysT_BootInit();
@@ -170,6 +168,8 @@ main(void)
   objC_Init();
 
   printf("Object cache initialized...\n");
+
+  objC_InitObjectSources();
 
   extern void preload_Init(void);
   preload_Init();

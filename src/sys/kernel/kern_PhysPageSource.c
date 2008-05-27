@@ -32,30 +32,14 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/PhysMem.h>	/* get MI_DEVICEMEM */
 #include <arch-kerninc/Page-inline.h>
 
-static inline bool
-ValidPhysPage(PmemInfo *pmi, kpa_t pgFrame)
-{
-  kpg_t pgNum = pgFrame / EROS_PAGE_SIZE;
-
-  return (pgNum >= pmi->firstObPgAddr)
-         && ((pgNum - pmi->firstObPgAddr) < pmi->nPages);
-}
-
 /* May Yield. */
 ObjectHeader *
-PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType, 
+PhysPageSource_GetObject(ObjectRange * rng, OID oid, ObType obType, 
 		       ObCount count, bool useCount)
 {
   kpa_t pgFrame = (oid - OID_RESERVED_PHYSRANGE) / EROS_OBJECTS_PER_FRAME;
   
   pgFrame *= EROS_PAGE_SIZE;
-
-  if (!ValidPhysPage(thisPtr->pmi, pgFrame)) {
-    dprintf(true, "OID 0x%08x%08x invalid\n",
-		    (unsigned long) (oid >> 32),
-		    (unsigned long) (oid));
-    return 0;
-  }
 
   PageHeader * pObj = objC_PhysPageToObHdr(pgFrame);
 
@@ -71,8 +55,8 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 
 #ifndef NDEBUG
   kpa_t relFrameNdx = ((kpg_t)(pgFrame / EROS_PAGE_SIZE))
-                      - thisPtr->pmi->firstObPgAddr;
-  assert(pObj == &thisPtr->pmi->firstObHdr[relFrameNdx]);
+                      - rng->pmi->firstObPgAddr;
+  assert(pObj == &rng->pmi->firstObHdr[relFrameNdx]);
 #endif
 
 #if 0	// revisit this if it turns out we need it
@@ -90,24 +74,39 @@ PhysPageSource_GetObject(ObjectSource *thisPtr, OID oid, ObType obType,
 }
 
 bool
-PhysPageSource_WriteBack(ObjectSource *thisPtr, ObjectHeader *obHdr, bool b)
+PhysPageSource_WriteBack(ObjectRange * rng, ObjectHeader *obHdr, bool b)
 {
   fatal("PhysPageSource::WriteBack() unimplemented\n");
 
   return false;
 }
 
+const struct ObjectSource PhysPageObSource = {
+  .name = "physpage",
+  .objS_GetObject = PhysPageSource_GetObject,
+  .objS_WriteBack = PhysPageSource_WriteBack,
+};
+
 void
-PhysPageSource_Init(ObjectSource * source, PmemInfo * pmi)
+PhysPageSource_Init(PmemInfo * pmi)
 {
-  source->name = "physpage";
-  source->start = OID_RESERVED_PHYSRANGE
-                  + ((pmi->base  / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME);
-  source->end   = OID_RESERVED_PHYSRANGE
-                  + ((pmi->bound / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME);
-  source->pmi = pmi;
-  source->objS_GetObject = PhysPageSource_GetObject;
-  source->objS_WriteBack = PhysPageSource_WriteBack;
-  source->objS_FindFirstSubrange = ObjectSource_FindFirstSubrange;
-  objC_AddSource(source);
+  ObjectRange rng;
+
+  rng.source = &PhysPageObSource;
+  rng.start = OID_RESERVED_PHYSRANGE
+                  + FrameToOID(pmi->firstObPgAddr);
+  rng.end   = rng.start + FrameToOID(pmi->nPages);
+  rng.pmi = pmi;
+  objC_AddRange(&rng);
+}
+
+void
+PhysPageObSource_Init(void)
+{
+  unsigned i;
+
+  for (i = 0; i < physMem_nPmemInfo; i++) {
+    PmemInfo *pmi = &physMem_pmemInfo[i];
+    PhysPageSource_Init(pmi);
+  }
 }

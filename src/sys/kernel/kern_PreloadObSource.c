@@ -147,8 +147,8 @@ preload_Init(void)
 }
 
 /* May Yield. */
-ObjectHeader *
-PreloadObSource_GetObject(ObjectSource * src, OID oid, ObType obType, 
+static ObjectHeader *
+PreloadObSource_GetObject(ObjectRange * rng, OID oid, ObType obType, 
                           ObCount count, bool useCount)
 {
   ObjectHeader * pObj;
@@ -156,7 +156,7 @@ PreloadObSource_GetObject(ObjectSource * src, OID oid, ObType obType,
   printf("PreloadObSource_GetObject OID=%#llx type %d\n", oid, obType);
 #endif
 
-  assert(src->start <= oid && oid < src->end);
+  assert(rng->start <= oid && oid < rng->end);
 
   /* All the initialized preloaded objects were set up in the ObCache
   by preload_Init. Therefore this must be an uninitialized object. */
@@ -208,10 +208,45 @@ PreloadObSource_GetObject(ObjectSource * src, OID oid, ObType obType,
   return pObj;
 }
 
-bool
-PreloadObSource_WriteBack(ObjectSource *thisPtr, ObjectHeader *obHdr, bool b)
+static bool
+PreloadObSource_WriteBack(ObjectRange * rng, ObjectHeader *obHdr, bool b)
 {
   fatal("PreloadObSource::Write() unimplemented\n");
 
   return false;
+}
+
+static const ObjectSource PreloadObSource = {
+  .name = "preload",
+  .objS_GetObject = PreloadObSource_GetObject,
+  .objS_WriteBack = PreloadObSource_WriteBack
+};
+
+void
+PreloadObSource_Init(void)
+{
+  unsigned i;
+  ObjectRange rng;
+
+  // Set up the preloaded objects.
+  struct NPObjectsDescriptor * npod = NPObDescr;	// local copy
+  for (i = npod->numPreloadImages; i > 0; i--) {
+    OID oid = npod->OIDBase;
+
+    /* For the case of persistent objects (oid == FIRST_PERSISTENT_OID),
+    using PreloadObSource is a temporary expedient until we get 
+    paging working.
+    When changing this, make sure zero pages get initialized somehow. */
+
+    /* code for initializing PreloadObSource */
+    rng.start = oid;
+    rng.end = oid + FrameToOID(npod->numFramesInRange);
+    rng.source = &PreloadObSource;
+
+    objC_AddRange(&rng);
+
+    uint32_t thisFrames = 1 + npod->numFrames;  // including the header frame
+    npod = (struct NPObjectsDescriptor *)
+           ((char *)npod + thisFrames * EROS_PAGE_SIZE);
+  }
 }

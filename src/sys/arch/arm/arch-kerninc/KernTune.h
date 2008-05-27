@@ -2,7 +2,7 @@
 #define __KERNTUNE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -31,7 +31,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 /* THE FOLLOWING ARE USEFULLY TUNABLE */
 
 /* Number of activities.  EROS is extremely activity-intensive, and
-   activities don't take up any space worth measuring (like 32 bytes
+   activities don't take up any space worth measuring (like 48 bytes
    each).  Most activities are asleep at any given moment.
 
    At present, if activities get exhausted, the SEND operation will
@@ -51,6 +51,18 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
    Making this bigger may alter performance in unusual circumstances;
    it will not alter correctness unless it gets below 4. */
 #define KTUNE_NCONTEXT     512
+
+/* Number of entries in the object range table.
+ * This is the maximum number of object ranges CapROS can support.
+ * Each disk object range takes one entry,
+ * and each range of RAM takes one entry.
+ * An object range table entry takes about 36 bytes. */
+#define KTUNE_NRNGTBLENTS 14
+
+/* Number of entries in the log range table.
+ * This is the maximum number of log ranges CapROS can support.
+ * A log range table entry takes about 36 bytes. */
+#define KTUNE_NLOGTBLENTS 4
 
 /* Amount of mappable physical card memory (i.e. sum over ALL cards)
  * IN MEGABYTES that the kernel should be prepared to map. This means

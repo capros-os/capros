@@ -2,8 +2,10 @@
 #define __KERNTUNE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,6 +21,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /* Kernel parameters. These are used to tune the sizes of
  * various internal tables according to the machine.
@@ -47,6 +52,18 @@
    Making this bigger may alter performance in unusual circumstances;
    it will not alter correctness unless it gets below 4. */
 #define KTUNE_NCONTEXT     512
+
+/* Number of entries in the object range table.
+ * This is the maximum number of object ranges CapROS can support.
+ * Each disk object range takes one entry,
+ * and each range of RAM takes one entry.
+ * An object range table entry takes about 36 bytes. */
+#define KTUNE_NRNGTBLENTS 14
+
+/* Number of entries in the log range table.
+ * This is the maximum number of log ranges CapROS can support.
+ * A log range table entry takes about 36 bytes. */
+#define KTUNE_NLOGTBLENTS 4
 
 /* Amount of mappable physical card memory (i.e. sum over ALL cards)
  * IN MEGABYTES that the kernel should be prepared to map. This means

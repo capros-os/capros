@@ -222,12 +222,8 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
       pmi = physMem_AddRegion(base, bound, MI_DEVICEMEM, readOnly);
 
       if (pmi) {
-	ObjectSource *source;
-
 	objC_AddDevicePages(pmi);
-
-        source = (ObjectSource *)malloc(sizeof(ObjectSource));
-        PhysPageSource_Init(source, pmi);
+        PhysPageSource_Init(pmi);
 
 	inv->exit.code = RC_OK;
       }

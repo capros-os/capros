@@ -24,21 +24,25 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* The ObjectRange class is a struct of function pointers that
- * encapsulates a producer/consumer of objects in a given OID
- * range. Objects in this range are produced by the corresponding
- * ObjectRange instance.
- */
 #include <kerninc/kernel.h>
 #include <kerninc/PhysMem.h>
 #include <kerninc/ObjectCache.h>
 
+struct ObjectSource;
+
+typedef struct ObjectRange {
+  OID start;
+  OID end;	/* last OID +1 */
+  const struct ObjectSource * source;
+  PmemInfo *pmi;
+} ObjectRange;
+
+/* The ObjectSource structure defines a producer/consumer of objects.
+ * The ObjectRange structure defines a producer/consumer of objects
+ * in a specific range of OIDs. */
 
 struct ObjectSource {
   const char *name;
-  OID start;
-  OID end;	/* last OID +1 */
-  PmemInfo *pmi;
   
   /* Fetch page (node) from the backing implementation for this
      range. On success, return an ObjectHeader (Node) pointer for
@@ -65,39 +69,25 @@ struct ObjectSource {
   */
      
   ObjectHeader *
-  (*objS_GetObject)(ObjectSource *thisPtr, OID oid, ObType obType, ObCount count, bool useCount);
+  (*objS_GetObject)(ObjectRange * thisPtr, OID oid, ObType obType, ObCount count, bool useCount);
 
   /* Write a page to backing store. Note that the "responsible"
    * ObjectSource can refuse, in which case the page will not be
    * cleanable and will stay in memory. WritePage() is free to yield.
    */
-  bool (*objS_WriteBack)(ObjectSource *thisPtr, ObjectHeader *obHdr, 
+  bool (*objS_WriteBack)(ObjectRange * thisPtr, ObjectHeader *obHdr, 
                          bool inBackground /*@ default = false @*/);
-  
-  /* All ObjectSources are disjoint, but not all object sources
-   * actually "implement" the entire range that they claim, so we need
-   * to be able to inquire of them what ranges actually exist. */
-  void (*objS_FindFirstSubrange)(ObjectSource *thisPtr, OID curStart, OID curEnd,
-                                 OID* subStart /*@ not null @*/, 
-                                 OID* subEnd /*@ not null @*/);
 };
 
-void 
-ObjectSource_FindFirstSubrange(ObjectSource *thisPtr, OID limStart, OID limEnd,
-                               OID* subStart /*@ not null @*/, 
-                               OID* subEnd /*@ not null @*/);
+bool objC_AddRange(ObjectRange * rng);
 
 /**********************************************************************
  *
  * Any preloaded ram regions are object sources
  *
  **********************************************************************/
-  
-ObjectHeader *
-PreloadObSource_GetObject(ObjectSource *thisPtr, 
-                          OID oid, ObType obType, ObCount count, bool useCount);
 
-bool PreloadObSource_WriteBack(ObjectSource *thisPtr, ObjectHeader *, bool);
+void PreloadObSource_Init(void);
 
 /**********************************************************************
  *
@@ -105,6 +95,7 @@ bool PreloadObSource_WriteBack(ObjectSource *thisPtr, ObjectHeader *, bool);
  *
  **********************************************************************/
 
-void PhysPageSource_Init(ObjectSource * source, PmemInfo * pmi);
+void PhysPageObSource_Init(void);
+void PhysPageSource_Init(PmemInfo * pmi);
 
 #endif /* __OBJECTSOURCE_H__ */

@@ -291,6 +291,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
     {
       OID subStart;
       OID subEnd;
+      // FIXME: this should wait until all disks are mounted.
 
       COMMIT_POINT();
 
