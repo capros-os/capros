@@ -335,6 +335,9 @@ the retyping operation does not change the state of the last
 committed checkpoint.
 The steps are described in the context of a persistent (checkpointed) system,
 but they apply equally well to a non-persistent (embedded) system.
+The space bank does not always know the type of a free frame, so it performs
+these steps to type a frame both when the frame is of the wrong type,
+and when the frame is of an unknown type.
 <ol>
   <li>The space bank only retypes a frame when there are no allocated
   objects in the frame. Therefore there should be no unrescinded capabilities
@@ -346,14 +349,47 @@ but they apply equally well to a non-persistent (embedded) system.
   maximum allocation count and call count of all the objects in the frame.
   Note, these counts should not be changing, because the space bank
   has not yet allocated anything from the frame.
-  <p>The kernel determines the counts by looping over all objects in the frame,
+  <p>The kernel first needs to determine the current type of the frame
+  (if the space bank didn't provide it),
+  so it can determine the number of objects in the frame.
+  This operation also returns the type for use in the second operation below.
+  Here's how the kernel determines the type:
+  <ol>
+    <li>It looks in the in-core object cache for an object (of any type)
+    whose OID is the frame of interest with an offset of zero
+    (in other words, the first object in the frame). If this is found,
+    the object's type determines the frame's type.
+    <li>If the first object in the frame isn't found in memory,
+    there are three cases.
+    <ul>
+      <li>If the frame's source has a backing store (i.e. a range on
+      a mass medium such as a disk),
+      the kernel then looks for the first object in the frame in the
+      in-core log directory, and failing that, in the home range.
+      The directory entry or tag pot will give the type of the frame.
+      Note, the contents of the object isn't needed, just its type,
+      so only the tag pot ever needs to be fetched from disk.
+      <li>If the frame's source is physical memory, the type must be page;
+      such frames are never allocated by space banks and can never be retyped.
+      <li>Otherwise, the frame is in a non-persistent range such as
+      preloaded data or ROM-backed data. Such ranges are not checkpointed.
+      For such ranges, we have a rule that for every
+      frame, either (1) it is a page, or
+      (2) its first object is always in memory.
+      Since we've looked for the first object in the frame unsuccessfully,
+      we now know the frame is a page.
+    </ul>
+  </ol>
+  <p>The kernel next determines the counts
+  by looping over all objects in the frame,
   getting the count (1) if the object is in memory, from the object header;
   (2) if the object is in the in-core log directory, from the directory entry;
   or (3) otherwise, from the home range tag pot (for a page)
   or home range node pot (for nodes).
   In other words, we find the count just as we would find the object,
   except that we do not need the contents of the object.
-  This operation should require at most one disk read.
+  <p>This operation should require at most one disk read to get the tag pot
+  (to find the type) and one disk read to get the node pot.
   <p>In the case of nodes, the EROS design called for keeping in the tag pot
   the maximum of the allocation counts of the nodes in that home node pot.
   (That design would need to keep the maximum call count as well.)
@@ -373,13 +409,18 @@ but they apply equally well to a non-persistent (embedded) system.
     Also, if the object is in the in-core log directory (for any generation),
     we free that directory entry.
     <li>Create virgin objects of the new type, for all objects in the frame.
-    These are created in memory, marked dirty, and given an intermediate age.
+    For persistent objects,
+    these are created by making entries in the in-core directory
+    (for the working generation) indicating that the objects are null.
+    For non-persistent objects, the objects are created in memory.
+    (This supports the rule above that the first object must be in memory.)
     The allocation and call counts are specified by the space bank
     based on its earlier determination of the maximum counts.
-    It is likely that the space bank will soon allocate at least some
-    of these objects.
+    (It is likely that the space bank will soon allocate at least some
+    of these objects.)
   </ol>
-  <li>Eventually, one or more of the new objects will be migrated.
+  <li>Eventually, one or more of the new objects, if persistent,
+  will be migrated.
   The migrator notices the change of type in the tag pot in the home range.
   If the frame is now a node pot, the migrator formats the frame as such
   before migrating to it.
