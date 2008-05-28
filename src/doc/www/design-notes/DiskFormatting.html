@@ -319,8 +319,20 @@ struct TagPot {
 Using 32-bit counts, a tag pot can describe 455 object frames.
 <h3>Retyping</h3>
 <p>
-It is possible to change the type of a frame.
-It is the space bank that decides when to do this.
+It is possible to change the base type of a frame,
+for example from page to node pot or vice versa.
+By "base type" we mean the type of the container of an object.
+For example, forwarders and GPTs are different types, but, as an
+implementation detail, they both occupy a node frame;
+they both are of base type node.
+<p>
+The space bank internally allocates a whole frame at a time to a given
+base type. 
+The space bank does not always know the base type of free frames,
+and allocating the first object in a frame may require changing its type.
+(As an optimization, the space bank preferentially allocates free frames
+that were previously of the same base type, to reduce the amount of retyping
+needed.)
 <p>
 Retyping a frame must not cause any rescinded capabilities to become
 unrescinded.
@@ -335,65 +347,61 @@ the retyping operation does not change the state of the last
 committed checkpoint.
 The steps are described in the context of a persistent (checkpointed) system,
 but they apply equally well to a non-persistent (embedded) system.
-The space bank does not always know the type of a free frame, so it performs
-these steps to type a frame both when the frame is of the wrong type,
-and when the frame is of an unknown type.
 <ol>
-  <li>The space bank only retypes a frame when there are no allocated
+  <li>The space bank invokes a Range capability to request a capability
+  to an object in the frame. The kernel attempts to find the requested
+  object, and discovers that the frame is of the wrong type.
+  The Range operation returns an exception that tells the space bank
+  to retype the frame, and returns the current type of the frame. 
+  <p>Note that the kernel needs to know the current type of the frame. 
+  <ul>
+    <li>For objects whose source has a backing store
+    (i.e. a range on a mass medium
+    such as a disk), the kernel simply looks for the object in all the usual
+    places (in memory, in the in-core log directory, or in the home range),
+    but only to get the type, not the contents of the object. 
+    <li>For objects in a non-persistent range such as
+    preloaded data or ROM-backed data, uninitialized frames are initially given
+    whatever type is first requested. 
+    After that, the frame's objects must remain in memory
+    (even if they are null), so their type can be known.
+  </ul>
+  <li>The space bank only allocates objects of the same base type in a frame.
+  Therefore in this situation there are no allocated
   objects in the frame. Therefore there should be no unrescinded capabilities
   to objects in the frame.
   Therefore the allocCountUsed and callCountUsed bits of those objects
   should be zero.
-  <li>The space bank invokes an operation on the Range capability to
-  determine the 
-  maximum allocation count and call count of all the objects in the frame.
-  Note, these counts should not be changing, because the space bank
+  <li>Knowing the type of the frame, the space bank now knows the number
+  of objects in the frame. It determines the maximum allocation and call counts
+  by iterating over all the objects in the frame, invoking
+  a Range capability operation to get the current counts.
+  Note, the allocation and call counts should not be changing,
+  because the space bank
   has not yet allocated anything from the frame.
-  <p>The kernel first needs to determine the current type of the frame
-  (if the space bank didn't provide it),
-  so it can determine the number of objects in the frame.
-  This operation also returns the type for use in the second operation below.
-  Here's how the kernel determines the type:
-  <ol>
-    <li>It looks in the in-core object cache for an object (of any type)
-    whose OID is the frame of interest with an offset of zero
-    (in other words, the first object in the frame). If this is found,
-    the object's type determines the frame's type.
-    <li>If the first object in the frame isn't found in memory,
-    there are three cases.
-    <ul>
-      <li>If the frame's source has a backing store (i.e. a range on
-      a mass medium such as a disk),
-      the kernel then looks for the first object in the frame in the
-      in-core log directory, and failing that, in the home range.
-      The directory entry or tag pot will give the type of the frame.
-      Note, the contents of the object isn't needed, just its type,
-      so only the tag pot ever needs to be fetched from disk.
-      <li>If the frame's source is physical memory, the type must be page;
-      such frames are never allocated by space banks and can never be retyped.
-      <li>Otherwise, the frame is in a non-persistent range such as
-      preloaded data or ROM-backed data. Such ranges are not checkpointed.
-      For such ranges, we have a rule that for every
-      frame, either (1) it is a page, or
-      (2) its first object is always in memory.
-      Since we've looked for the first object in the frame unsuccessfully,
-      we now know the frame is a page.
-    </ul>
-  </ol>
-  <p>The kernel next determines the counts
-  by looping over all objects in the frame,
-  getting the count (1) if the object is in memory, from the object header;
+  <p>
+  As with obtaining the type, the counts are obtained
+  without requiring the contents of the object
+  (in the case of a page, the contents of the page need not be fetched).
+  Specifically, the kernel
+  gets the counts (1) if the object is in memory, from the object header;
   (2) if the object is in the in-core log directory, from the directory entry;
   or (3) otherwise, from the home range tag pot (for a page)
   or home range node pot (for nodes).
-  In other words, we find the count just as we would find the object,
-  except that we do not need the contents of the object.
-  <p>This operation should require at most one disk read to get the tag pot
-  (to find the type) and one disk read to get the node pot.
+  <p>There is a separate operation for each object, because each object
+  might be in a different node pot in the log, and we don't want to
+  require all the pots to be in memory at once.
+  (This function could be optimized later to return counts for multiple
+  objects in one operation, as long as that can be done
+  without doing multiple fetches of pots on any one operation.)
+
   <p>In the case of nodes, the EROS design called for keeping in the tag pot
   the maximum of the allocation counts of the nodes in that home node pot.
   (That design would need to keep the maximum call count as well.)
-  This design could save reading the node pot when the frame is retyped,
+  Note that this maximum only applies to the nodes whose current version is
+  in the home node pot; some nodes from that pot might have their current
+  version in log pots, and we still need to read those.
+  This design could save reading the home node pot when the frame is retyped,
   but may require updating and writing the tag pot more frequently.
   Since retyping should be rare, we choose to not keep node counts
   in the tag pot. 
@@ -408,12 +416,12 @@ and when the frame is of an unknown type.
     If the object is in memory, we free it.
     Also, if the object is in the in-core log directory (for any generation),
     we free that directory entry.
-    <li>Create virgin objects of the new type, for all objects in the frame.
+    <li>Create nascent objects of the new type, for all objects in the frame.
     For persistent objects,
     these are created by making entries in the in-core directory
     (for the working generation) indicating that the objects are null.
-    For non-persistent objects, the objects are created in memory.
-    (This supports the rule above that the first object must be in memory.)
+    For non-persistent objects, the objects are created as null in memory
+    (non-persistent objects never have directory entries).
     The allocation and call counts are specified by the space bank
     based on its earlier determination of the maximum counts.
     (It is likely that the space bank will soon allocate at least some
