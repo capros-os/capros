@@ -160,7 +160,7 @@ gotObj:
       check_Consistency("End GetObject()");
 #endif
 
-    if (useCount && pObj->allocCount != count)
+    if (useCount && objH_GetAllocCount(pObj) != count)
       return NULL;
       
     objH_SetAge(pObj, age_NewBorn);

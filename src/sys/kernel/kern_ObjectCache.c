@@ -266,7 +266,7 @@ AddCoherentPages(PageHeader * pageH, PmemInfo * pmi, kpg_t nPages,
     ObjectHeader * pObj = pageH_ToObj(pageH);
     pObj->obType = obType;
     pObj->oid = oid;
-    pObj->allocCount = 0;	// FIXME or PhysPageAllocCount??
+    pObj->counts.allocCount = 0;	// FIXME or PhysPageAllocCount??
     objH_SetFlags(pObj, OFLG_CURRENT | OFLG_DIRTY);
     // No objH_CalcCheck for device pages.
     objH_ResetKeyRing(pObj);
@@ -792,7 +792,7 @@ objC_CopyObject(ObjectHeader *pObj)
     newNode->objAge = age_NewBorn;	/* FIX: is this right? */
   }
 
-  objH_InitObj(newObj, pObj->oid, pObj->allocCount, pObj->obType);
+  objH_InitObj(newObj, pObj->oid, pObj->counts.allocCount, pObj->obType);
 
   objH_SetFlags(newObj, objH_GetFlags(pObj, OFLG_DISKCAPS)); // correct?
   /* The copy is now current. The old object is still the checkpoint
@@ -1184,7 +1184,7 @@ objH_InitObj(ObjectHeader * pObj, OID oid, ObCount allocCount,
   unsigned int obType)
 {
   pObj->oid = oid;
-  pObj->allocCount = allocCount;
+  pObj->counts.allocCount = allocCount;
 
   objH_SetFlags(pObj, OFLG_CURRENT);
   assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);

@@ -35,7 +35,7 @@ struct Invocation;
 
 struct Node {
   ObjectHeader node_ObjHdr;
-  ObCount callCount;
+  // See ObjectHeader.h for why the callCount is there not here.
 
   uint8_t objAge;
   uint8_t kernPin;
@@ -61,6 +61,12 @@ INLINE ObjectHeader *
 node_ToObj(Node * pNode)
 {
   return &pNode->node_ObjHdr;
+}
+
+INLINE ObCount
+node_GetCallCount(const Node * pNode)
+{
+  return objH_GetCallCount(& pNode->node_ObjHdr);
 }
 
 INLINE void

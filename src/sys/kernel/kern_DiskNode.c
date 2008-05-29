@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -52,8 +52,8 @@ node_SetEqualTo(Node *thisPtr, const DiskNodeStruct *other)
   /* The invocation does not need to be committed for this one. */
   
   thisPtr->node_ObjHdr.oid = other->oid;
-  thisPtr->node_ObjHdr.allocCount = other->allocCount;
-  thisPtr->callCount = other->callCount;
+  node_ToObj(thisPtr)->counts.allocCount = other->allocCount;
+  node_ToObj(thisPtr)->counts.callCount = other->callCount;
   thisPtr->nodeData = other->nodeData;
 
   for (i = 0; i < EROS_NODE_SIZE; i++) {

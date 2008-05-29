@@ -240,11 +240,11 @@ db_eros_print_key_details(Key* key /*@ not null @*/)
     }
     else if (keyBits_IsType(key, KKT_Resume)) {
       oid = key->u.gk.pContext->procRoot->node_ObjHdr.oid;
-      count = key->u.gk.pContext->procRoot->callCount;
+      count = node_GetCallCount(key->u.gk.pContext->procRoot);
     }
     else if (keyBits_IsType(key, KKT_Start)) {
       oid = key->u.gk.pContext->procRoot->node_ObjHdr.oid;
-      count = key->u.gk.pContext->procRoot->node_ObjHdr.allocCount;
+      count = objH_GetAllocCount(& key->u.gk.pContext->procRoot->node_ObjHdr);
     }
     else {
       oid = key_GetKeyOid(key);
@@ -298,8 +298,9 @@ db_eros_print_node(Node *pNode)
 	    pNode,
 	    (uint32_t) (pNode->node_ObjHdr.oid >> 32),
 	    (uint32_t) (pNode->node_ObjHdr.oid),
-	    pNode->node_ObjHdr.allocCount,
-	    pNode->callCount, pNode->node_ObjHdr.obType, pNode->nodeData);
+	    objH_GetAllocCount(& pNode->node_ObjHdr),
+	    node_GetCallCount(pNode),
+            pNode->node_ObjHdr.obType, pNode->nodeData);
 
 #if !defined(NDEBUG) && 0
   if (pNode->Validate() == false)
@@ -1603,10 +1604,11 @@ db_show_counters_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
   if (pNode == 0)
     db_error("not in core\n");
 
+  ObjectHeader * pObj = node_ToObj(pNode);
   db_printf("Node oid=%#llx ac=0x%08x cc=0x%08x\n",
-	    pNode->node_ObjHdr.oid,
-	    pNode->node_ObjHdr.allocCount,
-	    pNode->callCount);
+	    pObj->oid,
+	    objH_GetAllocCount(pObj),
+	    node_GetCallCount(pNode));
 
 #ifndef NDEBUG
   if (node_Validate(pNode) == false)
@@ -1659,7 +1661,7 @@ db_page_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 	    pageH,
 	    kva,
 	    pageH_ToObj(pageH)->oid,
-	    pageH_ToObj(pageH)->allocCount,
+	    objH_GetAllocCount(pageH_ToObj(pageH)),
 	    pageH_GetObType(pageH));
 }
 
@@ -1695,7 +1697,7 @@ db_pframe_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
   if (pageH_IsObjectType(pObj))
     db_printf("    oid=%#llx ac=0x%08x\n",
               pageH_ToObj(pObj)->oid,
-              pageH_ToObj(pObj)->allocCount );
+              objH_GetAllocCount(pageH_ToObj(pObj)));
 }
 
 void

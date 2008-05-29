@@ -345,7 +345,7 @@ objH_Rescind(ObjectHeader * thisPtr)
     dprintf(true, "After 'RescindAll()'\n");
 
   if (objH_GetFlags(thisPtr, OFLG_AllocCntUsed)) {
-    thisPtr->allocCount++;
+    thisPtr->counts.allocCount++;
     objH_ClearFlags(thisPtr, OFLG_AllocCntUsed);
 
     /* The object must be dirty to ensure that the new count gets saved. */
@@ -358,8 +358,7 @@ objH_Rescind(ObjectHeader * thisPtr)
 void
 objH_DoBumpCallCount(ObjectHeader * pObj)
 {
-  Node * thisNode = objH_ToNode(pObj);
-  thisNode->callCount++;
+  pObj->counts.callCount++;
   objH_ClearFlags(pObj, OFLG_CallCntUsed);
 
   /* The object must be dirty to ensure that the new count gets saved. */
@@ -424,15 +423,8 @@ objH_CalcCheck(const ObjectHeader * thisPtr)
 
 
     pNode = (Node *) thisPtr;
-#if 0
-    ck ^= ((uint32_t *) &allocCount)[0];
-    ck ^= ((uint32_t *) &allocCount)[1];
-    ck ^= ((uint32_t *) &(pNode->callCount))[0];
-    ck ^= ((uint32_t *) &(pNode->callCount))[1];
-#else
-    ck ^= thisPtr->allocCount;
-    ck ^= pNode->callCount;
-#endif
+    ck ^= objH_GetAllocCount(thisPtr);
+    ck ^= node_GetCallCount(pNode);
     
 
     for (i = 0; i < EROS_NODE_SIZE; i++)
@@ -478,7 +470,7 @@ objH_InvalidateProducts(ObjectHeader * thisPtr)
 static void
 PrintObjData(ObjectHeader * thisPtr)
 {
-  printf(" oid=%#llx ac=%#x\n", thisPtr->oid, thisPtr->allocCount);
+  printf(" oid=%#llx ac=%#x\n", thisPtr->oid, objH_GetAllocCount(thisPtr));
   printf(" ioCount=0x%08x flags=0x%02x usrPin=%d\n",
 	 thisPtr->ioCount,
          thisPtr->flags, thisPtr->userPin );

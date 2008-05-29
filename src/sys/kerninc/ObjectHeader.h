@@ -144,7 +144,16 @@ struct ObjectHeader {
     ObjectHeader * nextFree;	/* if obType == ot_NtFreeFrame */
   } prep_u;
   
-  ObCount	allocCount;
+  struct Counts counts;	// allocation and call counts
+  /* Why is there a callCount for pages?
+   * If the page is retyped to be a node frame, this is the callCount
+   * to use for initializing the nodes. 
+   *
+   * Another design option would be to get the callCount from the page's
+   * directory entry or allocation pot,
+   * saving a word in the ObjectHeader.
+   * This requires introducing allocation pots for non-persistent ranges. */
+
   OID   	oid;
 
 #ifdef OPTION_OB_MOD_CHECK
@@ -155,6 +164,18 @@ struct ObjectHeader {
   
   ObjectHeader * hashChainNext;
 };
+
+INLINE ObCount
+objH_GetAllocCount(const ObjectHeader * pObj)
+{
+  return pObj->counts.allocCount;
+}
+
+INLINE ObCount
+objH_GetCallCount(const ObjectHeader * pObj)
+{
+  return pObj->counts.callCount;
+}
 
 INLINE bool
 objH_isNodeType(ObjectHeader * pObj)

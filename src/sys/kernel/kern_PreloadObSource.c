@@ -168,8 +168,8 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid, ObType obType,
     void * dest = (void *) pageH_GetPageVAddr(pageH);
     kzero(dest, EROS_PAGE_SIZE);
 
-    // FIXME: pObj->allocCount not set.
-    if (useCount && pObj->allocCount != count) {
+    // FIXME: pObj->counts.allocCount not set.
+    if (useCount && objH_GetAllocCount(pObj) != count) {
       ReleasePageFrame(pageH);
       return 0;
     }
@@ -184,8 +184,8 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid, ObType obType,
     pObj = node_ToObj(pNode);
 
     // FIXME: set count right.
-    pObj->allocCount = 0;
-    pNode->callCount = 0;
+    pObj->counts.allocCount = 0;
+    pObj->counts.callCount = 0;
     pNode->nodeData = 0;
 
     uint32_t ndx;
@@ -195,7 +195,7 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid, ObType obType,
       keyBits_InitToVoid(&pNode->slot[ndx]);
     }
 
-    if (useCount && pObj->allocCount != count) {
+    if (useCount && objH_GetAllocCount(pObj) != count) {
       ReleaseNodeFrame(pNode);
       return 0;
     }

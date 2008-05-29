@@ -71,7 +71,7 @@ key_GetAllocCount(const Key* thisPtr)
   assert (keyBits_GetType(thisPtr) <= LAST_OBJECT_KEYTYPE);
   
   if ( keyBits_IsPreparedObjectKey(thisPtr) )
-    return key_GetObjectPtr(thisPtr)->allocCount;
+    return objH_GetAllocCount(key_GetObjectPtr(thisPtr));
   return thisPtr->u.unprep.count;
 }
 
@@ -120,7 +120,7 @@ key_DoPrepare(Key* thisPtr)
 
       // FIXME: dereferencing pNode which may be zero
       if (keyBits_IsType(thisPtr, KKT_Resume)
-          && pNode->callCount != thisPtr->u.unprep.count)
+          && node_GetCallCount(pNode) != thisPtr->u.unprep.count)
 	pObj = 0;
 
       if (pObj == 0) {
@@ -352,12 +352,12 @@ key_MakeUnpreparedCopy(Key * dst, const Key * src)
     pObj = node_ToObj(src->u.gk.pContext->procRoot);
 
     if (keyBits_IsType(src, KKT_Resume))
-      cnt = objH_ToNode(pObj)->callCount;
+      cnt = node_GetCallCount(objH_ToNode(pObj));
     else
-      cnt = pObj->allocCount;
+      cnt = objH_GetAllocCount(pObj);
   } else {
     pObj = src->u.ok.pObj;
-    cnt = pObj->allocCount;
+    cnt = objH_GetAllocCount(pObj);
   }
 
   dst->u.unprep.count = cnt;
@@ -391,14 +391,14 @@ key_NH_Unprepare(Key* thisPtr)
       pObj = node_ToObj(thisPtr->u.gk.pContext->procRoot);
 
       if (keyBits_IsType(thisPtr, KKT_Resume)) {
-        cnt = objH_ToNode(pObj)->callCount;
+        cnt = node_GetCallCount(objH_ToNode(pObj));
         objH_SetFlags(pObj, OFLG_CallCntUsed);
       } else
         goto nonresume;
     } else {
       pObj = thisPtr->u.ok.pObj;
 nonresume:
-      cnt = pObj->allocCount;
+      cnt = objH_GetAllocCount(pObj);
       objH_SetFlags(pObj, OFLG_AllocCntUsed);
     }
 
@@ -445,12 +445,12 @@ key_Print(const Key* thisPtr)
     if (keyBits_IsType(thisPtr, KKT_Resume)) {
       printf("0x%08x rsm 0x%08x 0x%08x ",
 		     thisPtr,
-		     pWKey[0], objH_ToNode(pObj)->callCount);
+		     pWKey[0], node_GetCallCount(objH_ToNode(pObj)));
     }
     else {
       printf("0x%08x pob 0x%08x 0x%08x ",
 		     thisPtr,
-		     pWKey[0], pObj->allocCount);
+		     pWKey[0], objH_GetAllocCount(pObj));
     }
     printOid(pObj->oid);
     printf("\n");
@@ -507,7 +507,7 @@ key_CalcCheck(Key* thisPtr)
       ck ^= pOID[0];
       ck ^= pOID[1];
 
-      ck ^= pDomain->node_ObjHdr.allocCount;
+      ck ^= objH_GetAllocCount(& pDomain->node_ObjHdr);
     }
     else {
       /* This pointer hack is simply so that I don't have to remember
@@ -517,7 +517,7 @@ key_CalcCheck(Key* thisPtr)
     
       ck ^= pOID[0];
       ck ^= pOID[1];
-      ck ^= thisPtr->u.ok.pObj->allocCount;
+      ck ^= objH_GetAllocCount(thisPtr->u.ok.pObj);
     }
   }
   else {
