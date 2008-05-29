@@ -792,7 +792,8 @@ objC_CopyObject(ObjectHeader *pObj)
     newNode->objAge = age_NewBorn;	/* FIX: is this right? */
   }
 
-  objH_InitObj(newObj, pObj->oid, pObj->counts.allocCount, pObj->obType);
+  objH_InitObj(newObj, pObj->oid, pObj->counts.allocCount,
+               pObj->counts.callCount,  pObj->obType);
 
   objH_SetFlags(newObj, objH_GetFlags(pObj, OFLG_DISKCAPS)); // correct?
   /* The copy is now current. The old object is still the checkpoint
@@ -1181,10 +1182,12 @@ objC_GrabNodeFrame()
 
 void
 objH_InitObj(ObjectHeader * pObj, OID oid, ObCount allocCount,
+  ObCount callCount,
   unsigned int obType)
 {
   pObj->oid = oid;
   pObj->counts.allocCount = allocCount;
+  pObj->counts.callCount = callCount;
 
   objH_SetFlags(pObj, OFLG_CURRENT);
   assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);

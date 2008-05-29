@@ -52,8 +52,7 @@ node_SetEqualTo(Node *thisPtr, const DiskNodeStruct *other)
   /* The invocation does not need to be committed for this one. */
   
   thisPtr->node_ObjHdr.oid = other->oid;
-  node_ToObj(thisPtr)->counts.allocCount = other->allocCount;
-  node_ToObj(thisPtr)->counts.callCount = other->callCount;
+  node_ToObj(thisPtr)->counts = other->counts;
   thisPtr->nodeData = other->nodeData;
 
   for (i = 0; i < EROS_NODE_SIZE; i++) {

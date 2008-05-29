@@ -103,7 +103,7 @@ preload_Init(void)
 
         node_SetEqualTo(pNode, dn + i);
         pNode->objAge = age_NewBorn;
-        objH_InitObj(node_ToObj(pNode), oid + i, 0, ot_NtUnprepared);
+        objH_InitObj(node_ToObj(pNode), oid + i, 0, 0, ot_NtUnprepared);
 
         if (++j >= npod->numNodes)
           break;
@@ -130,7 +130,7 @@ preload_Init(void)
       objC_GrabThisPageFrame(pageH);
       pageH_MDInitDataPage(pageH);
       pageH->objAge = age_NewBorn;
-      objH_InitObj(pageH_ToObj(pageH), oid, 0, ot_PtDataPage);
+      objH_InitObj(pageH_ToObj(pageH), oid, 0, 0, ot_PtDataPage);
 
       oid += FrameToOID(1);
       pagePA += EROS_PAGE_SIZE;
@@ -203,7 +203,7 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid, ObType obType,
     pNode->objAge = age_NewBorn;
   }
 
-  objH_InitObj(pObj, oid, 0, obType);
+  objH_InitObj(pObj, oid, 0, 0, obType);
 
   return pObj;
 }

@@ -67,7 +67,7 @@ PhysPageSource_GetObject(ObjectRange * rng, OID oid, ObType obType,
   pObj->objAge = age_NewBorn;
   pageH_MDInitDataPage(pObj);
 
-  objH_InitObj(pageH_ToObj(pObj), oid, PhysPageAllocCount, ot_PtDataPage);
+  objH_InitObj(pageH_ToObj(pObj), oid, PhysPageAllocCount, ?, ot_PtDataPage);
 #endif
 
   return pageH_ToObj(pObj);
