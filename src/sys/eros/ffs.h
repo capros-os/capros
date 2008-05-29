@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 
 /*
  * ffs32 - find first (least-significant) 1-bit in word.
+ * The least-significant bit is bit 0 (note this is different from Unix ffs).
  *
  * Undefined if no bit exists, so code should check against 0 first.
  */
@@ -57,6 +58,7 @@ static inline unsigned int ffs32(uint32_t word)
 
 /*
  * ffs64 - find first (least-significant) 1-bit in word.
+ * The least-significant bit is bit 0 (note this is different from Unix ffs).
  *
  * Undefined if no bit exists, so code should check against 0 first.
  */

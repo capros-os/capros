@@ -140,8 +140,9 @@ objC_GetObject(OID oid, ObType obType,
                ObCount count, bool useCount)
 {
   // Look in the object cache:
-  ObjectHeader * pObj = objH_Lookup(obType, oid);
-  if (pObj)
+  ObjectHeader * pObj = objH_Lookup(oid);
+  if (pObj && objH_GetBaseType(pObj) == obType)
+//// if useCount and type is wrong, fail
     goto gotObj;
 
   ObjectRange * rng = LookupOID(oid);

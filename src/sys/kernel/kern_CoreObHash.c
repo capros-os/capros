@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -104,9 +104,7 @@ objH_Intern(ObjectHeader* thisPtr)
   ndx = bucket_ndx(thisPtr->oid);
   
 #ifdef OBHASHDEBUG
-  printf("Interning obhdr 0x%08x oid=", thisPtr);
-  printOid(thisPtr->oid);
-  printf("\n");
+  printf("Interning obhdr 0x%08x oid=%#llx\n", thisPtr, thisPtr->oid);
 #endif
   assert(ObBucket[ndx] != thisPtr);
   
@@ -147,48 +145,23 @@ objH_Unintern(ObjectHeader* thisPtr)
   }
 }
 
-/* ty must be ot_NtUnprepared or ot_PtDataPage. */
 ObjectHeader *
-objH_Lookup(ObType ty, OID oid)
+objH_Lookup(OID oid)
 {
-  ObType obType;
+  ObjectHeader * pOb;
+  
 #ifdef OBHASHDEBUG
-  printf("Lookup ty=%d oid=", ty);
-  printOid(oid);
-  printf("\n");
+  printf("Lookup oid=%#llx\n", oid);
 #endif
   
-  uint32_t ndx = bucket_ndx(oid);
-  
-  ObjectHeader *pOb = 0;
-  
-  for (pOb = ObBucket[ndx]; pOb; pOb = pOb->hashChainNext) {
+  for (pOb = ObBucket[bucket_ndx(oid)]; pOb; pOb = pOb->hashChainNext) {
 #ifdef OBHASHDEBUG
-    printf("ObHdr is 0x%08x ty %d oid is ", pOb, pOb->obType);
-    printOid(pOb->oid);
-    printf("\n", pOb);
+    printf("ObHdr is 0x%08x oid is %#llx\n", pOb, pOb->oid);
 #endif
 
-    if (pOb->oid != oid)
-      continue;
-    
-    obType = (ObType) pOb->obType;
-
-    if (obType <= ot_NtLAST_NODE_TYPE)
-      obType = ot_NtUnprepared;
-
-    if (obType == ot_PtDevicePage)
-      obType = ot_PtDataPage;    
-
-    if (obType == ty) {
-#if 0
-      dprintf(true, "Found oid 0x%08x%08x\n",
-		      (uint32_t) (oid>>32),
-		      (uint32_t) oid);
-#endif
-
+    if (pOb->oid == oid) {
 #ifdef OBHASHDEBUG
-      printf("Found it\n");
+      printf("Found oid %#llx\n", oid);
 #endif
       return pOb;
     }
@@ -197,5 +170,5 @@ objH_Lookup(ObType ty, OID oid)
 #ifdef OBHASHDEBUG
   printf("Not found\n");
 #endif
-  return 0;
+  return NULL;
 }

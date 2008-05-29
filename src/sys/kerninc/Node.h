@@ -79,7 +79,10 @@ objH_SetAge(ObjectHeader * pObj, uint8_t age)
 INLINE Node *         
 objH_LookupNode(OID oid)
 {
-  return objH_ToNode(objH_Lookup(ot_NtUnprepared, oid));
+  ObjectHeader * pObj = objH_Lookup(oid);
+  if (pObj && objH_GetBaseType(pObj) == ot_NtUnprepared)
+    return objH_ToNode(pObj);
+  else return NULL;
 }
 
 INLINE bool
