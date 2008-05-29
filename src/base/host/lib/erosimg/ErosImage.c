@@ -478,8 +478,8 @@ ei_AddNode(ErosImage *ei, bool readOnly)
 
   pNode = &ei->nodeImages[ei->hdr.nNodes];
   oid = ei->hdr.nNodes++;
-  pNode->allocCount = 0;
-  pNode->callCount = 0;
+  pNode->counts.allocCount = 0;
+  pNode->counts.callCount = 0;
   pNode->oid = oid;
   pNode->nodeData = 0;
 

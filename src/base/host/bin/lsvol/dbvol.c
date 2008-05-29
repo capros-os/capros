@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -100,9 +100,9 @@ ProcessCmd()
       diag_printf("Node OID=");
       diag_printOid(node.oid);
       diag_printf(" allocCount=");
-      diag_printCount(node.allocCount);
+      diag_printCount(node.counts.allocCount);
       diag_printf(" callCount=");
-      diag_printCount(node.callCount);
+      diag_printCount(node.counts.callCount);
       diag_printf(" cksum=0x%04x\n", 
 		  ip_cksum((uint16_t*)&node, sizeof(DiskNodeStruct)));
 
@@ -128,9 +128,9 @@ ProcessCmd()
       diag_printf("Node OID=");
       diag_printOid(node.oid);
       diag_printf(" allocCount=");
-      diag_printCount(node.allocCount);
+      diag_printCount(node.counts.allocCount);
       diag_printf(" callCount=");
-      diag_printCount(node.callCount);
+      diag_printCount(node.counts.callCount);
       diag_printf(" cksum=0x%04x\n", 
 		  ip_cksum((uint16_t*)&node, sizeof(DiskNodeStruct)));
 
