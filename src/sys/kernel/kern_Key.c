@@ -101,8 +101,8 @@ CheckTypeAndAllocCount(Key * key, ObjectLocator * pObjLoc,
   if (! CheckObjectType(oid, pObjLoc, baseType))
     return NULL;
 
-  struct Counts counts = GetObjectCounts(oid, pObjLoc);
-  if (counts.allocCount != key->u.unprep.count)
+  ObCount count = GetObjectCount(oid, pObjLoc, false);
+  if (count != key->u.unprep.count)
     return NULL;
 
   ObjectHeader * pObj = GetObject(oid, pObjLoc);
@@ -156,10 +156,9 @@ key_DoPrepare(Key* thisPtr)
                             capros_Range_otNode))
         break;	// with pObj == NULL
 
-      struct Counts counts = GetObjectCounts(thisPtr->u.unprep.oid, &objLoc);
       ObCount countToCompare =
-        keyBits_IsType(thisPtr, KKT_Resume) ? counts.callCount
-                                            : counts.allocCount;
+        GetObjectCount(thisPtr->u.unprep.oid, &objLoc,
+                       keyBits_IsType(thisPtr, KKT_Resume) );
       if (countToCompare != thisPtr->u.unprep.count)
         break;	// with pObj == NULL
 

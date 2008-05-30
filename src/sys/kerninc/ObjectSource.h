@@ -72,7 +72,7 @@ typedef struct ObjectLocator {
 } ObjectLocator;
 
 ObjectLocator GetObjectType(OID oid);
-struct Counts GetObjectCounts(OID oid, ObjectLocator * pObjLoc);
+ObCount GetObjectCount(OID oid, ObjectLocator * pObjLoc, bool callCount);
 ObjectHeader * GetObject(OID oid, const ObjectLocator * pObjLoc);
 
 /* The ObjectSource structure defines a producer/consumer of objects.
@@ -91,9 +91,9 @@ struct ObjectSource {
   ObjectLocator 
   (*objS_GetObjectType)(ObjectRange * rng, OID oid);
 
-  struct Counts 
-  (*objS_GetObjectCounts)(ObjectRange * rng, OID oid,
-                          ObjectLocator * pObjLoc);
+  ObCount
+  (*objS_GetObjectCount)(ObjectRange * rng, OID oid,
+                         ObjectLocator * pObjLoc, bool callCount);
 
   ObjectHeader * 
   (*objS_GetObject)(ObjectRange * rng, OID oid,

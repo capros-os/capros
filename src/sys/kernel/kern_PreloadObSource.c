@@ -164,14 +164,13 @@ PreloadObSource_GetObjectType(ObjectRange * rng, OID oid)
   return objLoc;
 }
 
-static struct Counts
-PreloadObSource_GetObjectCounts(ObjectRange * rng, OID oid,
-  ObjectLocator * pObjLoc)
+static ObCount
+PreloadObSource_GetObjectCount(ObjectRange * rng, OID oid,
+  ObjectLocator * pObjLoc, bool callCount)
 {
   assert(rng->start <= oid && oid < rng->end);
 
-  struct Counts counts = {0, 0};	// FIXME
-  return counts;
+  return 0;	// FIXME
 }
 
 static ObjectHeader *
@@ -234,7 +233,7 @@ PreloadObSource_WriteBack(ObjectRange * rng, ObjectHeader *obHdr, bool b)
 static const ObjectSource PreloadObSource = {
   .name = "preload",
   .objS_GetObjectType = &PreloadObSource_GetObjectType,
-  .objS_GetObjectCounts = &PreloadObSource_GetObjectCounts,
+  .objS_GetObjectCount = &PreloadObSource_GetObjectCount,
   .objS_GetObject = &PreloadObSource_GetObject,
   .objS_WriteBack = &PreloadObSource_WriteBack
 };

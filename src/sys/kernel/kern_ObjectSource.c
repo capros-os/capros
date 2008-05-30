@@ -160,32 +160,34 @@ GetObjectType(OID oid)
   }
 }
 
-struct Counts
-GetObjectCounts(OID oid, ObjectLocator * pObjLoc)
+ObCount
+GetObjectCount(OID oid, ObjectLocator * pObjLoc, bool callCount)
 {
   switch (pObjLoc->locType) {
   default:
     fatal("invalid locType");
 
   case objLoc_ObjectHeader:
-    return pObjLoc->u.objH->counts;
+    if (callCount && objH_isNodeType(pObjLoc->u.objH))
+      return node_GetCallCount(objH_ToNode(pObjLoc->u.objH));
+    else return objH_GetAllocCount(pObjLoc->u.objH);
 
-  // If in the log directory, get counts from there ...
+  // If in the log directory, get count from there ...
 
   case objLoc_TagPot: ;
     if (pObjLoc->objType == capros_Range_otPage) {
       // A page. Counts are in the tag pot.
       //// get counts from tag pot
       ObjectRange * rng = pObjLoc->u.tagPot.range;
-      return rng->source->objS_GetObjectCounts(rng, oid, pObjLoc);////
+      return rng->source->objS_GetObjectCount(rng, oid, pObjLoc, callCount);////
     } else {	// a type in a pot
       ObjectRange * rng = pObjLoc->u.tagPot.range;
-      return rng->source->objS_GetObjectCounts(rng, oid, pObjLoc);
+      return rng->source->objS_GetObjectCount(rng, oid, pObjLoc, callCount);
     }
 
   case objLoc_Preload: ;
     ObjectRange * rng = pObjLoc->u.preload.range;
-    return rng->source->objS_GetObjectCounts(rng, oid, pObjLoc);
+    return rng->source->objS_GetObjectCount(rng, oid, pObjLoc, callCount);
   }
 }
 

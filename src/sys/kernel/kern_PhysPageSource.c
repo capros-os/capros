@@ -48,14 +48,13 @@ PhysPageSource_GetObjectType(ObjectRange * rng, OID oid)
   return objLoc;
 }
 
-struct Counts 
-PhysPageSource_GetObjectCounts(ObjectRange * rng, OID oid,
-  ObjectLocator * pObjLoc)
+static ObCount
+PhysPageSource_GetObjectCount(ObjectRange * rng, OID oid,
+  ObjectLocator * pObjLoc, bool callCount)
 {
   assert(rng->start <= oid && oid < rng->end);
 
-  struct Counts counts = {0, 0};	// FIXME
-  return counts;
+  return 0;	// FIXME
 }
 
 /* May Yield. */
@@ -102,7 +101,7 @@ PhysPageSource_WriteBack(ObjectRange * rng, ObjectHeader *obHdr, bool b)
 const struct ObjectSource PhysPageObSource = {
   .name = "physpage",
   .objS_GetObjectType = &PhysPageSource_GetObjectType,
-  .objS_GetObjectCounts = &PhysPageSource_GetObjectCounts,
+  .objS_GetObjectCount = &PhysPageSource_GetObjectCount,
   .objS_GetObject = &PhysPageSource_GetObject,
   .objS_WriteBack = &PhysPageSource_WriteBack,
 };
