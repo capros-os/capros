@@ -26,7 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/kernel.h>
 #include <kerninc/Node.h>
 #include <kerninc/ObjectSource.h>
-
+#include <kerninc/ObjH-inline.h>
 #include <kerninc/Activity.h>
 
 #define dbg_obsrc	0x20	/* addition of object ranges */
@@ -133,43 +133,86 @@ objC_HaveSource(OID oid)
   return (bool) LookupOID(oid);
 }
 
-/* obType must be ot_NtUnprepared or ot_PtDataPage. */
-/* May Yield. */
-ObjectHeader *
-objC_GetObject(OID oid, ObType obType,
-               ObCount count, bool useCount)
+// May Yield.
+ObjectLocator
+GetObjectType(OID oid)
 {
+  ObjectLocator objLoc;
+
   // Look in the object cache:
   ObjectHeader * pObj = objH_Lookup(oid);
-  if (pObj && objH_GetBaseType(pObj) == obType)
-//// if useCount and type is wrong, fail
-    goto gotObj;
-
-  ObjectRange * rng = LookupOID(oid);
-  if (!rng) {
-    dprintf(true, "No range for OID %#llx!\n", oid);
-    act_SleepOn(&SourceWait);
-    act_Yield();
-  }
-
-  pObj = rng->source->objS_GetObject(rng, oid, obType, count, useCount);
   if (pObj) {
-gotObj:
-#ifdef DBG_WILD_PTR
-    if (dbg_wild_ptr)
-      check_Consistency("End GetObject()");
-#endif
+    objLoc.locType = objLoc_ObjectHeader;
+    objLoc.u.objH = pObj;
+    objLoc.objType = objH_GetBaseType(pObj);
+    return objLoc;
+  } else {
+    // Look in the log directory ...
 
-    if (useCount && objH_GetAllocCount(pObj) != count)
-      return NULL;
-      
-    objH_SetAge(pObj, age_NewBorn);
-    return pObj;
+    // Look in the object source:
+    ObjectRange * rng = LookupOID(oid);
+    if (!rng) {
+      dprintf(true, "No range for OID %#llx!\n", oid);
+      act_SleepOn(&SourceWait);
+      act_Yield();
+    }
+    return rng->source->objS_GetObjectType(rng, oid);
+  }
+}
+
+struct Counts
+GetObjectCounts(OID oid, ObjectLocator * pObjLoc)
+{
+  switch (pObjLoc->locType) {
+  default:
+    fatal("invalid locType");
+
+  case objLoc_ObjectHeader:
+    return pObjLoc->u.objH->counts;
+
+  // If in the log directory, get counts from there ...
+
+  case objLoc_TagPot: ;
+    if (pObjLoc->objType == capros_Range_otPage) {
+      // A page. Counts are in the tag pot.
+      //// get counts from tag pot
+      ObjectRange * rng = pObjLoc->u.tagPot.range;
+      return rng->source->objS_GetObjectCounts(rng, oid, pObjLoc);////
+    } else {	// a type in a pot
+      ObjectRange * rng = pObjLoc->u.tagPot.range;
+      return rng->source->objS_GetObjectCounts(rng, oid, pObjLoc);
+    }
+
+  case objLoc_Preload: ;
+    ObjectRange * rng = pObjLoc->u.preload.range;
+    return rng->source->objS_GetObjectCounts(rng, oid, pObjLoc);
+  }
+}
+
+ObjectHeader *
+GetObject(OID oid, const ObjectLocator * pObjLoc)
+{
+  switch (pObjLoc->locType) {
+  default:
+    fatal("invalid locType");
+
+  case objLoc_ObjectHeader:
+    return pObjLoc->u.objH;
+
+  // If in the log directory, fetch the object ...
+
+  case objLoc_TagPot: ;
+  {
+    ObjectRange * rng = pObjLoc->u.tagPot.range;
+    return rng->source->objS_GetObject(rng, oid, pObjLoc);
   }
 
-  fatal("ObjecCache::GetObject(): oid %#llx not found\n", oid);
-
-  return 0;
+  case objLoc_Preload:
+  {
+    ObjectRange * rng = pObjLoc->u.preload.range;
+    return rng->source->objS_GetObject(rng, oid, pObjLoc);
+  }
+  }
 }
 
 bool

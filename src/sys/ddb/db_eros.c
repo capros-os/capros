@@ -46,6 +46,8 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/PhysMem.h>
 #include <kerninc/KernStats.h>
+#include <kerninc/ObjH-inline.h>
+#include <kerninc/Node-inline.h>
 #include <eros/Reserve.h>
 #include <eros/Invoke.h>
 #include <ddb/db_sym.h>

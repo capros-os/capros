@@ -405,23 +405,6 @@ void objH_DelProduct(ObjectHeader * thisPtr, MapTabHeader * product);
 void ReleaseProduct(MapTabHeader * mth);
 
 ObjectHeader * objH_Lookup(OID oid);
-
-INLINE unsigned int
-objH_GetBaseType(ObjectHeader * pObj)
-{
-  if (pObj->obType <= ot_NtLAST_NODE_TYPE)
-    return ot_NtUnprepared;
-  else return ot_PtDataPage;
-}
-
-INLINE PageHeader *         
-objH_LookupPage(OID oid)
-{
-  ObjectHeader * pObj = objH_Lookup(oid);
-  if (pObj && objH_GetBaseType(pObj) == ot_PtDataPage)
-    return objH_ToPage(pObj);
-  else return NULL;
-}
   
 void objH_StallQueueInit();
 

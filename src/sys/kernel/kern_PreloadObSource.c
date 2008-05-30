@@ -25,6 +25,7 @@ Approved for public release, distribution unlimited. */
 /* ObjectRange driver for preloaded ram ranges */
 
 #include <string.h>
+#include <idl/capros/Range.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>
@@ -103,7 +104,7 @@ preload_Init(void)
 
         node_SetEqualTo(pNode, dn + i);
         pNode->objAge = age_NewBorn;
-        objH_InitObj(node_ToObj(pNode), oid + i, 0, 0, ot_NtUnprepared);
+        objH_InitObj(node_ToObj(pNode), oid + i, 0, 0, capros_Range_otNode);
 
         if (++j >= npod->numNodes)
           break;
@@ -130,7 +131,7 @@ preload_Init(void)
       objC_GrabThisPageFrame(pageH);
       pageH_MDInitDataPage(pageH);
       pageH->objAge = age_NewBorn;
-      objH_InitObj(pageH_ToObj(pageH), oid, 0, 0, ot_PtDataPage);
+      objH_InitObj(pageH_ToObj(pageH), oid, 0, 0, capros_Range_otPage);
 
       oid += FrameToOID(1);
       pagePA += EROS_PAGE_SIZE;
@@ -147,45 +148,62 @@ preload_Init(void)
 }
 
 /* May Yield. */
-static ObjectHeader *
-PreloadObSource_GetObject(ObjectRange * rng, OID oid, ObType obType, 
-                          ObCount count, bool useCount)
+static ObjectLocator
+PreloadObSource_GetObjectType(ObjectRange * rng, OID oid)
 {
-  ObjectHeader * pObj;
-#if 0
-  printf("PreloadObSource_GetObject OID=%#llx type %d\n", oid, obType);
-#endif
+  ObjectLocator objLoc;
 
   assert(rng->start <= oid && oid < rng->end);
 
   /* All the initialized preloaded objects were set up in the ObCache
   by preload_Init. Therefore this must be an uninitialized object. */
 
-  if (obType == ot_PtDataPage) {
+  objLoc.locType = objLoc_Preload;
+  objLoc.objType = capros_Range_otNone;
+  objLoc.u.preload.range = rng;
+  return objLoc;
+}
+
+static struct Counts
+PreloadObSource_GetObjectCounts(ObjectRange * rng, OID oid,
+  ObjectLocator * pObjLoc)
+{
+  assert(rng->start <= oid && oid < rng->end);
+
+  struct Counts counts = {0, 0};	// FIXME
+  return counts;
+}
+
+static ObjectHeader *
+PreloadObSource_GetObject(ObjectRange * rng, OID oid,
+  const ObjectLocator * pObjLoc)
+{
+  ObjectHeader * pObj;
+
+  assert(rng->start <= oid && oid < rng->end);
+
+  switch (pObjLoc->objType) {
+  default: ;
+    assert(false);
+
+  case capros_Range_otPage:
+  {
     PageHeader * pageH = objC_GrabPageFrame();
     pObj = pageH_ToObj(pageH);
 
     void * dest = (void *) pageH_GetPageVAddr(pageH);
     kzero(dest, EROS_PAGE_SIZE);
 
-    // FIXME: pObj->counts.allocCount not set.
-    if (useCount && objH_GetAllocCount(pObj) != count) {
-      ReleasePageFrame(pageH);
-      return 0;
-    }
-
     pageH_MDInitDataPage(pageH);
     pageH->objAge = age_NewBorn;
+    break;
   }
-  else {
-    assert(obType == ot_NtUnprepared);
 
+  case capros_Range_otNode:
+  {
     Node * pNode = objC_GrabNodeFrame();
     pObj = node_ToObj(pNode);
 
-    // FIXME: set count right.
-    pObj->counts.allocCount = 0;
-    pObj->counts.callCount = 0;
     pNode->nodeData = 0;
 
     uint32_t ndx;
@@ -195,15 +213,12 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid, ObType obType,
       keyBits_InitToVoid(&pNode->slot[ndx]);
     }
 
-    if (useCount && objH_GetAllocCount(pObj) != count) {
-      ReleaseNodeFrame(pNode);
-      return 0;
-    }
-
     pNode->objAge = age_NewBorn;
   }
+  }
 
-  objH_InitObj(pObj, oid, 0, 0, obType);
+  // FIXME: set count right.
+  objH_InitObj(pObj, oid, 0, 0, pObjLoc->objType);
 
   return pObj;
 }
@@ -218,8 +233,10 @@ PreloadObSource_WriteBack(ObjectRange * rng, ObjectHeader *obHdr, bool b)
 
 static const ObjectSource PreloadObSource = {
   .name = "preload",
-  .objS_GetObject = PreloadObSource_GetObject,
-  .objS_WriteBack = PreloadObSource_WriteBack
+  .objS_GetObjectType = &PreloadObSource_GetObjectType,
+  .objS_GetObjectCounts = &PreloadObSource_GetObjectCounts,
+  .objS_GetObject = &PreloadObSource_GetObject,
+  .objS_WriteBack = &PreloadObSource_WriteBack
 };
 
 void

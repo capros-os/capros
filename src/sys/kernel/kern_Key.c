@@ -21,13 +21,15 @@
 /* This material is based upon work supported by the US Defense Advanced
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
-     
+
+#include <idl/capros/Range.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Check.h>
 #include <kerninc/Process.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Node.h>
 #include <kerninc/ObjectCache.h>
+#include <kerninc/ObjectSource.h>
 #include <kerninc/KernStats.h>
 #include <eros/Invoke.h>
 
@@ -39,6 +41,8 @@ Approved for public release, distribution unlimited. */
 #define DBCOND(x) (dbg_##x & dbg_flags)
 #define DEBUG(x) if DBCOND(x)
 #define DEBUG2(x,y) if ((dbg_##x|dbg_##y) & dbg_flags)
+
+Key key_VoidKey;
 
 #ifndef NDEBUG
 extern bool InvocationCommitted;
@@ -75,7 +79,44 @@ key_GetAllocCount(const Key* thisPtr)
   return thisPtr->u.unprep.count;
 }
 
-Key key_VoidKey;	/* default constructor */
+// May Yield.
+static bool
+CheckObjectType(OID oid, ObjectLocator * pObjLoc, unsigned int baseType)
+{
+  *pObjLoc = GetObjectType(oid);
+
+  if (pObjLoc->objType == capros_Range_otNone)
+    pObjLoc->objType = baseType;	// we can pick the type to suit
+
+  return (pObjLoc->objType == baseType);
+}
+
+// May Yield.
+static ObjectHeader *
+CheckTypeAndAllocCount(Key * key, ObjectLocator * pObjLoc,
+  unsigned int baseType)
+{
+  OID oid = key->u.unprep.oid;
+
+  if (! CheckObjectType(oid, pObjLoc, baseType))
+    return NULL;
+
+  struct Counts counts = GetObjectCounts(oid, pObjLoc);
+  if (counts.allocCount != key->u.unprep.count)
+    return NULL;
+
+  ObjectHeader * pObj = GetObject(oid, pObjLoc);
+  if (pObj) {
+    /* Link as next key after object */
+    key->u.ok.pObj = pObj;
+    link_insertAfter(&pObj->keyRing, &key->u.ok.kr);
+  }
+
+  // Pin the object.
+  objH_TransLock(pObj);
+
+  return pObj;
+}
 
 /* NOTE: if we are running OB_MOD_CHECK, the key prepare logic does an
  * incremental recomputation on the check field in the containing object.
@@ -84,7 +125,9 @@ Key key_VoidKey;	/* default constructor */
 void
 key_DoPrepare(Key* thisPtr)
 {
-  ObjectHeader *pObj = 0;
+  ObjectHeader * pObj = NULL;
+  ObjectLocator objLoc;
+
   assert( keyBits_IsUnprepared(thisPtr) );
   
   assert ( keyBits_NeedsPrepare(thisPtr) );
@@ -109,30 +152,26 @@ key_DoPrepare(Key* thisPtr)
   case KKT_Start:
   case KKT_Process:
     {
-      /* Keys to a process are linked onto the Process structure.  First, we
-       * need to validate the key:
-       */
+      if (! CheckObjectType(thisPtr->u.unprep.oid, &objLoc,
+                            capros_Range_otNode))
+        break;	// with pObj == NULL
 
-      pObj = objC_GetObject(thisPtr->u.unprep.oid, ot_NtUnprepared, 
-                       thisPtr->u.unprep.count,
-                       keyBits_IsType(thisPtr, KKT_Resume) ? false : true);
+      struct Counts counts = GetObjectCounts(thisPtr->u.unprep.oid, &objLoc);
+      ObCount countToCompare =
+        keyBits_IsType(thisPtr, KKT_Resume) ? counts.callCount
+                                            : counts.allocCount;
+      if (countToCompare != thisPtr->u.unprep.count)
+        break;	// with pObj == NULL
+
+      pObj = GetObject(thisPtr->u.unprep.oid, &objLoc);
+
       Node * pNode = objH_ToNode(pObj);
-
-      // FIXME: dereferencing pNode which may be zero
-      if (keyBits_IsType(thisPtr, KKT_Resume)
-          && node_GetCallCount(pNode) != thisPtr->u.unprep.count)
-	pObj = 0;
-
-      if (pObj == 0) {
-	DEBUG(prepare)
-	  printf("Voiding invalid gate key\n");
-        break;	// with pObj == 0
-      }
-	
       assert(objC_ValidNodePtr(pNode));
-      
+
+      // Pin the object.
       objH_TransLock(pObj);
 
+      // Keys to a process are linked onto the Process structure.
       Process * proc = node_GetProcess(pNode);
 
       thisPtr->u.gk.pContext = proc;
@@ -144,37 +183,18 @@ key_DoPrepare(Key* thisPtr)
 	link_insertBefore(&proc->keyRing, &thisPtr->u.gk.kr);
       else
 	link_insertAfter(&proc->keyRing, &thisPtr->u.gk.kr);
-
-      keyBits_SetPrepared(thisPtr);
-
-#ifdef MEM_OB_CHECK
-      assert(ck == thisPtr->CalcCheck());
-#endif
-    
-#ifdef DBG_WILD_PTR
-      if (dbg_wild_ptr)
-	check_Consistency("In Key::DoPrepare()");
-#endif
-#ifdef TEST_STACK
-      st.check();
-#endif
-      return;
+      
+      break;
     }
 
   case KKT_Page:
-    {
-      pObj = objC_GetObject(thisPtr->u.unprep.oid, ot_PtDataPage, 
-                            thisPtr->u.unprep.count, true);
-      if (pObj)
-	assertex(thisPtr, objC_ValidPagePtr(pObj));
-      break;
-    }
+    pObj = CheckTypeAndAllocCount(thisPtr, &objLoc, capros_Range_otPage);
+    break;
     
   case KKT_Node:
   case KKT_Forwarder:
   case KKT_GPT:
-    pObj = objC_GetObject(thisPtr->u.unprep.oid, ot_NtUnprepared, 
-                          thisPtr->u.unprep.count, true);
+    pObj = CheckTypeAndAllocCount(thisPtr, &objLoc, capros_Range_otNode);
     break;
 
   default:
@@ -195,14 +215,6 @@ key_DoPrepare(Key* thisPtr)
 #endif
     return;
   }
-
-  /* It's definitely an object key.  Pin the object it names. */
-  objH_TransLock(pObj);
-  
-  /* Link as next key after object */
-  thisPtr->u.ok.pObj = pObj;
-  
-  link_insertAfter(&pObj->keyRing, &thisPtr->u.ok.kr);
 
 #ifdef MEM_OB_CHECK
   assert(ck == thisPtr->CalcCheck());

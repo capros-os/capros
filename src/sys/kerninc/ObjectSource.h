@@ -37,45 +37,73 @@ typedef struct ObjectRange {
   PmemInfo *pmi;
 } ObjectRange;
 
+/**********************************************************************
+ *
+ * ObjectLocator stuff:
+ *
+ **********************************************************************/
+
+enum {
+  objLoc_ObjectHeader,
+  objLoc_TagPot,
+  objLoc_Preload
+};
+
+typedef struct ObjectLocator {
+  unsigned int locType;
+  unsigned int objType;		// base type of the object
+			// may be capros_Range_otPage, capros_Range_otNode,
+			// or capros_Range_otNone if type is not determined
+  union {
+    // If locType == objLoc_ObjectHeader:
+    ObjectHeader * objH;
+
+    // If locType == objLoc_TagPot:
+    struct {
+       ObjectRange * range;
+       ObjectHeader * tagPotObjH;
+    } tagPot;
+
+    // If locType == objLoc_Preload:
+    struct {
+       ObjectRange * range;
+    } preload;
+  } u;
+} ObjectLocator;
+
+ObjectLocator GetObjectType(OID oid);
+struct Counts GetObjectCounts(OID oid, ObjectLocator * pObjLoc);
+ObjectHeader * GetObject(OID oid, const ObjectLocator * pObjLoc);
+
 /* The ObjectSource structure defines a producer/consumer of objects.
  * The ObjectRange structure defines a producer/consumer of objects
  * in a specific range of OIDs. */
 
 struct ObjectSource {
   const char *name;
+
+  /* Note: the Get* methods may evict any unpinned object.
+   * The evictor may in turn call a Write* method.
+   * Therefore, executing Get* must not preclude executing Write*
+   * on the same ObjectRange prior to completing the Get*. */
+  /* The Get* and Write* methods may Yield. */
+
+  ObjectLocator 
+  (*objS_GetObjectType)(ObjectRange * rng, OID oid);
+
+  struct Counts 
+  (*objS_GetObjectCounts)(ObjectRange * rng, OID oid,
+                          ObjectLocator * pObjLoc);
+
+  ObjectHeader * 
+  (*objS_GetObject)(ObjectRange * rng, OID oid,
+                    const ObjectLocator * pObjLoc);
   
-  /* Fetch page (node) from the backing implementation for this
-     range. On success, return an ObjectHeader (Node) pointer for
-     the requested object, which has been brought into memory (if
-     needed). On failure, return null pointer.
-
-     It is entirely up to the range provider whether the presenting
-     the object will cause some existing entry in the object cache to
-     be evicted. For example, a ROM range may leave the object in ROM
-     until a copy on write is performed.  In the event that an object
-     needs to be evicted, it is the responsibility of the range
-     provider to choose a frame and tell the object cache manager to
-     evict the current resident. This is often done by allowing the
-     object cache ager to choose the frame.
-
-     Note that the object cache evictor will very likely implement
-     eviction by turning around and calling ObjectRange::Evict() for
-     some range. Therefore, executing an inbound path (the
-     GetPage/GetNode cases) must not preclude calling the outbound
-     path on the same ObjectRange (the Evict procedure) prior to
-     completion of the inbound path.
-
-     The GetPage()/GetNode() implementation is free to yield.
-  */
-     
-  ObjectHeader *
-  (*objS_GetObject)(ObjectRange * thisPtr, OID oid, ObType obType, ObCount count, bool useCount);
-
   /* Write a page to backing store. Note that the "responsible"
    * ObjectSource can refuse, in which case the page will not be
    * cleanable and will stay in memory. WritePage() is free to yield.
    */
-  bool (*objS_WriteBack)(ObjectRange * thisPtr, ObjectHeader *obHdr, 
+  bool (*objS_WriteBack)(ObjectRange * rng, ObjectHeader *obHdr, 
                          bool inBackground /*@ default = false @*/);
 };
 

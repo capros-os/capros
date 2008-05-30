@@ -154,9 +154,6 @@ bool objC_DetachSource(ObjectSource *);
 void objC_ddb_DumpSources();
 #endif
 
-ObjectHeader *
-objC_GetObject(OID oid, ObType obType, ObCount count, bool useCount);
-
 /* Write a page to backing store. Note that the "responsible"
  * ObjectSource can refuse, in which case the page will not be
  * cleanable and will stay in memory. WritePage() is free to yield.

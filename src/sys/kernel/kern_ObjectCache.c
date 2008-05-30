@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/multiboot.h>
 #include <kerninc/util.h>
+#include <kerninc/ObjH-inline.h>
 #include <arch-kerninc/KernTune.h>
 #include <arch-kerninc/Page-inline.h>
 #include <kerninc/PhysMem.h>
@@ -794,6 +795,7 @@ objC_CopyObject(ObjectHeader *pObj)
 
   objH_InitObj(newObj, pObj->oid, pObj->counts.allocCount,
                pObj->counts.callCount,  pObj->obType);
+  // FIXME: Init obtype to capros_Range_ot*.
 
   objH_SetFlags(newObj, objH_GetFlags(pObj, OFLG_DISKCAPS)); // correct?
   /* The copy is now current. The old object is still the checkpoint
@@ -1183,7 +1185,7 @@ objC_GrabNodeFrame()
 void
 objH_InitObj(ObjectHeader * pObj, OID oid, ObCount allocCount,
   ObCount callCount,
-  unsigned int obType)
+  unsigned int baseType)
 {
   pObj->oid = oid;
   pObj->counts.allocCount = allocCount;
@@ -1193,7 +1195,7 @@ objH_InitObj(ObjectHeader * pObj, OID oid, ObCount allocCount,
   assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
 
   assert(pObj->ioCount == 0);
-  pObj->obType = obType;
+  pObj->obType = BaseTypeToObType(baseType);
 #ifdef OPTION_OB_MOD_CHECK
   pObj->check = objH_CalcCheck(pObj);
 #endif

@@ -438,7 +438,7 @@ objH_CalcCheck(const ObjectHeader * thisPtr)
        use the resultant checksum if we expect the page is not modified.
     */
 
-    assert (objC_ValidPagePtr(thisPtr));
+    assertex(thisPtr, objC_ValidPagePtr(thisPtr));
 
     const uint32_t *  pageData = (const uint32_t *)
       pageH_GetPageVAddr(objH_ToPageConst(thisPtr));

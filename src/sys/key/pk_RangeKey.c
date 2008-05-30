@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Key.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/ObjectCache.h>
+#include <kerninc/ObjectSource.h>
 #include <kerninc/Node.h>
 #include <kerninc/GPT.h>
 #include <disk/DiskNodeStruct.h>
@@ -130,11 +131,8 @@ w2w3Offset(Invocation * inv)
 
 static void
 MakeObjectKey(Invocation * inv, uint64_t offset,
-  bool wait, ObType obType, uint8_t kkt)
+  bool wait, ObType baseType, uint8_t kkt)
 {
-  uint32_t obNdx;
-  ObjectHeader *pObj = 0;
-
   /* Figure out the OID for the new key: */
   OID oid = rngStart + offset;
 
@@ -145,9 +143,16 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
     return;
   }
 
-  obNdx = offset % EROS_OBJECTS_PER_FRAME;
+  uint32_t obNdx = offset % EROS_OBJECTS_PER_FRAME;
 
-  inv->flags |= INV_EXITKEY0;
+  const unsigned int objPerPage =
+    baseType == capros_Range_otPage ? 1 : DISK_NODES_PER_PAGE;
+
+  if (obNdx >= objPerPage) {
+    COMMIT_POINT();
+    inv->exit.code = RC_capros_Range_RangeErr;
+    return;
+  }
 
   if (! wait && ! objC_HaveSource(oid)) {
     COMMIT_POINT();
@@ -155,26 +160,27 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
     return;
   }
 
-  const unsigned int objPerPage =
-    obType == ot_PtDataPage ? 1 : DISK_NODES_PER_PAGE;
-  if (obNdx >= objPerPage) {
-    COMMIT_POINT();
-    inv->exit.code = RC_capros_Range_RangeErr;
-    return;
+  ObjectLocator objLoc;
+  objLoc = GetObjectType(oid);
+
+  if (objLoc.objType == capros_Range_otNone)
+    objLoc.objType = baseType;	// we can pick the type to suit
+
+  if (objLoc.objType != baseType) {
+    fatal("retyping not implemented");
   }
 
-  /* If we don't get the object back, it's because of bad frame
-   * type:
-   */
-
-  pObj = objC_GetObject(oid, obType, 0, false);
+  // Get the object, regardless of its allocation count:
+  ObjectHeader * pObj = GetObject(oid, &objLoc);
 
   assert(inv_CanCommit());
   assert(pObj);
 
-  /* It's definitely an object key.  Pin the object it names. */
+  // Pin the object.
 
   objH_TransLock(pObj);
+
+  inv->flags |= INV_EXITKEY0;
 
   if (kkt == KKT_Forwarder) {
     // A Forwarder must always have a number key in slot ForwarderDataSlot.
@@ -464,22 +470,22 @@ RangeKey(Invocation* inv /*@ not null @*/)
 
   case OC_capros_Range_waitPageKey:
     MakeObjectKey(inv, w1w2Offset(inv),
-      true, ot_PtDataPage, KKT_Page);
+      true, capros_Range_otPage, KKT_Page);
     break;
 
   case OC_capros_Range_getPageKey:
     MakeObjectKey(inv, w1w2Offset(inv),
-      false, ot_PtDataPage, KKT_Page);
+      false, capros_Range_otPage, KKT_Page);
     break;
 
   case OC_capros_Range_waitNodeKey:
     MakeObjectKey(inv, w1w2Offset(inv),
-      true, ot_NtUnprepared, KKT_Node);
+      true, capros_Range_otNode, KKT_Node);
     break;
 
   case OC_capros_Range_getNodeKey:
     MakeObjectKey(inv, w1w2Offset(inv),
-      false, ot_NtUnprepared, KKT_Node);
+      false, capros_Range_otNode, KKT_Node);
     break;
 
   case OC_capros_Range_getCap:
@@ -500,10 +506,10 @@ rangeGetWaitCap:
       }
 
       static ObType baseType[capros_Range_otNUM_TYPES] = {
-        [capros_Range_otPage]=ot_PtDataPage,
-        [capros_Range_otNode]=ot_NtUnprepared,
-        [capros_Range_otForwarder]=ot_NtUnprepared,
-        [capros_Range_otGPT]=ot_NtUnprepared,
+        [capros_Range_otPage]=capros_Range_otPage,
+        [capros_Range_otNode]=capros_Range_otNode,
+        [capros_Range_otForwarder]=capros_Range_otNode,
+        [capros_Range_otGPT]=capros_Range_otNode,
       };
       static uint8_t obKKT[capros_Range_otNUM_TYPES] = {
         [capros_Range_otPage]=KKT_Page,

@@ -24,6 +24,7 @@ Approved for public release, distribution unlimited. */
 
 /* ObjectRange driver for preloaded ram ranges */
 
+#include <idl/capros/Range.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>
@@ -32,48 +33,65 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/PhysMem.h>	/* get MI_DEVICEMEM */
 #include <arch-kerninc/Page-inline.h>
 
-/* May Yield. */
-ObjectHeader *
-PhysPageSource_GetObject(ObjectRange * rng, OID oid, ObType obType, 
-		       ObCount count, bool useCount)
+ObjectLocator 
+PhysPageSource_GetObjectType(ObjectRange * rng, OID oid)
 {
+  ObjectLocator objLoc = {
+    .locType = objLoc_Preload,
+    .objType = capros_Range_otPage,	// pages only
+    .u = {
+      .preload = {
+         .range = rng
+      }
+    }
+  };
+  return objLoc;
+}
+
+struct Counts 
+PhysPageSource_GetObjectCounts(ObjectRange * rng, OID oid,
+  ObjectLocator * pObjLoc)
+{
+  assert(rng->start <= oid && oid < rng->end);
+
+  struct Counts counts = {0, 0};	// FIXME
+  return counts;
+}
+
+/* May Yield. */
+ObjectHeader * 
+PhysPageSource_GetObject(ObjectRange * rng, OID oid,
+  const ObjectLocator * pObjLoc)
+{
+  assert(rng->start <= oid && oid < rng->end);
+  assert(pObjLoc->objType == capros_Range_otPage);
+
   kpa_t pgFrame = (oid - OID_RESERVED_PHYSRANGE) / EROS_OBJECTS_PER_FRAME;
-  
   pgFrame *= EROS_PAGE_SIZE;
 
-  PageHeader * pObj = objC_PhysPageToObHdr(pgFrame);
-
-  if (pObj == 0) {
+  PageHeader * pageH = objC_PhysPageToObHdr(pgFrame);
+  if (pageH == 0) {
     dprintf(true, "PhysPageSource::GetObject(): No header!\n");
-    return 0;
+    return NULL;
   }
+
+  ObjectHeader * pObj = pageH_ToObj(pageH);
 
   /* Device pages are entered in the object hash by objC_AddDevicePages(),
      and DMA pages are entered by objC_AddDMAPages(),
      so they should never get here: */
-  assert(pageH_ToObj(pObj)->obType == ot_PtDataPage);
+  assert(pObj->obType == ot_PtDataPage);
 
 #ifndef NDEBUG
   kpa_t relFrameNdx = ((kpg_t)(pgFrame / EROS_PAGE_SIZE))
                       - rng->pmi->firstObPgAddr;
-  assert(pObj == &rng->pmi->firstObHdr[relFrameNdx]);
+  assert(pageH == &rng->pmi->firstObHdr[relFrameNdx]);
 #endif
 
-#if 0	// revisit this if it turns out we need it
-  // FIXME: Where do we check if the page is pinned?
-  if (! objC_EvictFrame(pObj))
-    return 0;	// could not evict
-
-  pObj->objAge = age_NewBorn;
-  pageH_MDInitDataPage(pObj);
-
-  objH_InitObj(pageH_ToObj(pObj), oid, PhysPageAllocCount, ?, ot_PtDataPage);
-#endif
-
-  return pageH_ToObj(pObj);
+  return pObj;
 }
 
-bool
+static bool
 PhysPageSource_WriteBack(ObjectRange * rng, ObjectHeader *obHdr, bool b)
 {
   fatal("PhysPageSource::WriteBack() unimplemented\n");
@@ -83,8 +101,10 @@ PhysPageSource_WriteBack(ObjectRange * rng, ObjectHeader *obHdr, bool b)
 
 const struct ObjectSource PhysPageObSource = {
   .name = "physpage",
-  .objS_GetObject = PhysPageSource_GetObject,
-  .objS_WriteBack = PhysPageSource_WriteBack,
+  .objS_GetObjectType = &PhysPageSource_GetObjectType,
+  .objS_GetObjectCounts = &PhysPageSource_GetObjectCounts,
+  .objS_GetObject = &PhysPageSource_GetObject,
+  .objS_WriteBack = &PhysPageSource_WriteBack,
 };
 
 void
