@@ -531,7 +531,7 @@ struct processDescriptor{
 struct ObjectDescriptor {
   OID       oid;
   ObCount   allocCount;
-  ObCount   callCount
+  ObCount   callCount;
   LID       logLoc;
   uint8_t   allocCountUsed : 1;
   uint8_t   callCountUsed : 1;
@@ -544,12 +544,8 @@ struct ObjectDescriptor {
             For other objects, the callCount field is unused.
 	  </p>
 	  <p>
-            The callCountUsed field indicates whether there may be
-            resume capabilities that have the same value for the
-            callCount.
-            The allocCountUsed field indicates whether there may be
-            capabilities (other than resume capabilities)
-            that have the same value for the allocCount.
+            The allocCountUsed and callCountUsed bits are described
+            <a href="DiskFormatting.html">here</a>.
 	  </p>
 	  <p>
 	    If the lid field of the directory is zero, then the

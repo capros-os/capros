@@ -183,7 +183,7 @@ We also need to document somewhere how systems will be booted from ROM.
         followed by a fixed number of <em>object frames</em>.
   The size of a cluster is determined by the
 number of Object Frames a Tag Pot can keep track of.
-        (The last cluster in a range may have fewer object frames.)
+        (The last cluster in a range may have as few as zero object frames.)
         All frames are the size of the architecture's page.
   So the Object
 Range looks like:
@@ -238,20 +238,28 @@ is used for optimization).  For example, a Node frame looks like:
  ------------------
 </PRE>
 </ul>
-<h3>Allocation counts</h3>
+<h3>Allocation Count</h3>
 <p>
 If the allocation count of an object is N, that means that
-there are no capabilities (other than resume capabilities)
-containing the object's OID and an allocation count M > N, and
-there are no <em>rescinded</em> capabilities (other than resume capabilities)
-containing the object's OID and an allocation count M = N. 
+there are no applicable capabilities
+containing an allocation count M &gt; N, and
+there are no <em>rescinded</em> applicable capabilities
+containing an allocation count M = N. 
 (There may exist
-rescinded capabilities (other than resume capabilities) containing
-the object's OID and an allocation count less than N.)
+rescinded applicable capabilities
+containing an allocation count M &lt; N.)
+For nodes, applicable capabilities are all capabilities
+containing the node's OID.
+other than resume capabilities.
+For all other objects, applicable capabilities are all capabilities
+containing the object's OID.
 <p>
 In the simple case, rescinding capabilities to an object requires incrementing
 the allocation count of the object. 
-To reduce the "wear" on the allocation count, we keep track of some
+<p>When the allocation count reaches its maximum possible value,
+the object is "worn out" and cannot be reused, because we can no longer
+rescind capabilities to it.
+<p>To reduce the "wear" on the allocation count, we keep track of some
 in-memory capabilities (they are linked to the object) 
 and we can invalidate these capabilities without incrementing the
 allocation count. 
@@ -260,15 +268,20 @@ A bit called <em>allocCountUsed</em> indicates whether there may be unrescinded
  that contain the current value of the allocation count.
 If the bit indicates that there are no such capabilities,
 rescinding can be done without incrementing the allocation count.
+With this optimization, it would take an extremely long time for a 32-bit
+allocation count to wear out.
+<h3>Call Count</h3>
 <p>
-Likewise, if the call count of an object is N, that means that
+Nodes contain a call count that is similar to the allocation count,
+but for resume capabilities.
+If the call count of a node is N, that means that
 there are no resume capabilities
-containing the object's OID and a call count M > N, and
+containing the node's OID and a call count M &gt; N, and
 there are no <em>rescinded</em> resume capabilities
-containing the object's OID and a call count M = N. 
+containing the node's OID and a call count M = N. 
 (There may exist rescinded resume capabilities containing
-the object's OID and a call count less than N.)
-And there is a <em>callCountUsed</em> bit.
+the node's OID and a call count M &lt; N.)
+Similarly, there is a <em>callCountUsed</em> bit.
 <h3>Tag Pots</h3>
 <p>
 A tag pot has an entry for each frame in its cluster.
@@ -279,44 +292,27 @@ Each entry has the following fields:
 In the future other types may be implemented (process is high on our list).
 <p>A virgin frame should be typed as a page, since it is easier to
 retype a page to a different type than vice versa.
-<p>If we store bits telling whether there exist non-rescinded capabilities
-containing the page's OID and the current allocation count, they could go here.
 <dt><b>allocationCount</b>
 <dd>If the frame holds a page, this is its allocation count.
 If there were other types with only one object per frame,
 this field might hold the allocation count for that object too.
-<p><em>For nodes, is there any benefit to storing here the maximum allocation
-count of the nodes in the frame?</em>
-<dt><b>callCount</b>
-<dd>If the frame holds a page, this is its call count.
-If there were other types with only one object per frame,
-this field might hold the call count for that object too.
-If there were other types that do not increment the call count,
-this field would hold the call count for those objects too,
-since all the objects in the frame will have the same call count.
-<p><em>For nodes, is there any benefit to storing here the maximum call
-count of the nodes in the frame?</em>
+Otherwise, this field is unused.
 <dt><b>allocCountUsed</b>
-<dd>The allocCountUsed field indicates whether there may be unrescinded
- capabilities
- (other than resume capabilities) that have the same value for the allocCount.
-<dt><b>callCountUsed</b>
-<dd>The callCountUsed field indicates whether there may be unrescinded
- resume capabilities that have the same value for the callCount.
+<dd>If the frame holds a page, this is its allocCountUsed bit.
+If there were other types with only one object per frame,
+this field might hold the allocCountUsed bit for that object too.
+Otherwise, this field is unused.
 </dl>
 <p>
 To avoid wasting space on alignment, a tag pot is arranged as two arrays:
 <pre>
 struct TagPot {
-  struct {
-    ObCount allocationCount;
-    ObCount callCount;
-  } [];
-  uint8_t type [];
+  ObCount allocationCount[];
+  uint8_t typeAndAllocCountUsed[];
 };
 </pre>
 <p>
-Using 32-bit counts, a tag pot can describe 455 object frames.
+Using a 32-bit count, a tag pot can describe 819 object frames.
 <h3>Retyping</h3>
 <p>
 It is possible to change the base type of a frame,
@@ -336,12 +332,22 @@ needed.)
 <p>
 Retyping a frame must not cause any rescinded capabilities to become
 unrescinded.
-Therefore the allocation count and call count of the new objects
-must be set to the <em>maximum</em> of the respective counts of
-all the old objects in the frame.
-<p>Note that even pages must have call counts, because if a frame is retyped
-from nodes to page and back to nodes, we must ensure that resume capabilities
-don't become unrescinded.
+(When a frame is retyped, there are no allocated objects in the frame,
+and therefore no unrescinded capabilities to objects in the frame,
+so we don't need to worry about unrescinded capabilities becoming
+rescinded.)
+This requires that allocation counts and call counts never decrease.
+Here's how we ensure that:
+<ul>
+  <li>When retyping a node frame to any other type, we set the
+  allocation counts of the new objects to the maximum of
+  all the allocation counts and call counts of the old nodes
+  in the frame.
+  <li>When retyping another type to a node frame, we set the
+  allocation counts and call counts of the new objects
+  to the maximum of the allocation counts of the old
+  objects in the frame.
+</ul>
 <p>Retyping a frame involves the following steps. These steps ensure that
 the retyping operation does not change the state of the last
 committed checkpoint.
@@ -366,14 +372,14 @@ but they apply equally well to a non-persistent (embedded) system.
     After that, the frame's objects must remain in memory
     (even if they are null), so their type can be known.
   </ul>
-  <li>The space bank only allocates objects of the same base type in a frame.
-  Therefore in this situation there are no allocated
+  <li> When retyping, there are no allocated
   objects in the frame. Therefore there should be no unrescinded capabilities
   to objects in the frame.
   Therefore the allocCountUsed and callCountUsed bits of those objects
   should be zero.
   <li>Knowing the type of the frame, the space bank now knows the number
-  of objects in the frame. It determines the maximum allocation and call counts
+  of objects in the frame. It determines the maximum allocation count
+  (and, for nodes, call count)
   by iterating over all the objects in the frame, invoking
   a Range capability operation to get the current counts.
   Note, the allocation and call counts should not be changing,
@@ -381,8 +387,7 @@ but they apply equally well to a non-persistent (embedded) system.
   has not yet allocated anything from the frame.
   <p>
   As with obtaining the type, the counts are obtained
-  without requiring the contents of the object
-  (in the case of a page, the contents of the page need not be fetched).
+  without requiring the contents of the object.
   Specifically, the kernel
   gets the counts (1) if the object is in memory, from the object header;
   (2) if the object is in the in-core log directory, from the directory entry;
@@ -397,7 +402,6 @@ but they apply equally well to a non-persistent (embedded) system.
 
   <p>In the case of nodes, the EROS design called for keeping in the tag pot
   the maximum of the allocation counts of the nodes in that home node pot.
-  (That design would need to keep the maximum call count as well.)
   Note that this maximum only applies to the nodes whose current version is
   in the home node pot; some nodes from that pot might have their current
   version in log pots, and we still need to read those.
@@ -407,8 +411,6 @@ but they apply equally well to a non-persistent (embedded) system.
   in the tag pot. 
   <li>The space bank then invokes an operation on the Range capability to
   retype the frame.
-  This is a separate operation from the above,
-  to avoid requiring all the needed objects in memory at once.
   This operation proceeds in three phases.
   <ol>
     <li>Ensure we have enough resources to complete the operation.
@@ -422,11 +424,14 @@ but they apply equally well to a non-persistent (embedded) system.
     (for the working generation) indicating that the objects are null.
     For non-persistent objects, the objects are created as null in memory
     (non-persistent objects never have directory entries).
-    The allocation and call counts are specified by the space bank
+    The allocation counts (and, for nodes, call counts)
+    are specified by the space bank
     based on its earlier determination of the maximum counts.
     (It is likely that the space bank will soon allocate at least some
     of these objects.)
   </ol>
+  <li>The space bank can then once again request a capability to the desired
+  object. The request will now succeed.
   <li>Eventually, one or more of the new objects, if persistent,
   will be migrated.
   The migrator notices the change of type in the tag pot in the home range.
