@@ -44,7 +44,8 @@ Approved for public release, distribution unlimited. */
 
 typedef struct DiskNodeStruct DiskNodeStruct;
 struct DiskNodeStruct {
-  struct Counts counts;
+  ObCount allocCount;
+  ObCount callCount;
   OID oid;
 
   uint16_t nodeData;

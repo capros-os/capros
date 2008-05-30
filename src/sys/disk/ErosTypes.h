@@ -28,11 +28,6 @@ Approved for public release, distribution unlimited. */
 
 typedef uint32_t ObCount;
 
-struct Counts {
-  ObCount allocCount;
-  ObCount callCount;
-};
-
 typedef uint64_t OID;
 typedef OID frame_t;	// (64 - 8) bits suffice
 

@@ -267,7 +267,7 @@ AddCoherentPages(PageHeader * pageH, PmemInfo * pmi, kpg_t nPages,
     ObjectHeader * pObj = pageH_ToObj(pageH);
     pObj->obType = obType;
     pObj->oid = oid;
-    pObj->counts.allocCount = 0;	// FIXME or PhysPageAllocCount??
+    pObj->allocCount = 0;	// FIXME or PhysPageAllocCount??
     objH_SetFlags(pObj, OFLG_CURRENT | OFLG_DIRTY);
     // No objH_CalcCheck for device pages.
     objH_ResetKeyRing(pObj);
@@ -793,8 +793,7 @@ objC_CopyObject(ObjectHeader *pObj)
     newNode->objAge = age_NewBorn;	/* FIX: is this right? */
   }
 
-  objH_InitObj(newObj, pObj->oid, pObj->counts.allocCount,
-               pObj->counts.callCount,  pObj->obType);
+  objH_InitObj(newObj, pObj->oid, pObj->allocCount, pObj->obType);
   // FIXME: Init obtype to capros_Range_ot*.
 
   objH_SetFlags(newObj, objH_GetFlags(pObj, OFLG_DISKCAPS)); // correct?
@@ -1184,12 +1183,10 @@ objC_GrabNodeFrame()
 
 void
 objH_InitObj(ObjectHeader * pObj, OID oid, ObCount allocCount,
-  ObCount callCount,
   unsigned int baseType)
 {
   pObj->oid = oid;
-  pObj->counts.allocCount = allocCount;
-  pObj->counts.callCount = callCount;
+  pObj->allocCount = allocCount;
 
   objH_SetFlags(pObj, OFLG_CURRENT);
   assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);

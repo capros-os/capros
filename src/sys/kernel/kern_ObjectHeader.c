@@ -345,7 +345,7 @@ objH_Rescind(ObjectHeader * thisPtr)
     dprintf(true, "After 'RescindAll()'\n");
 
   if (objH_GetFlags(thisPtr, OFLG_AllocCntUsed)) {
-    thisPtr->counts.allocCount++;
+    thisPtr->allocCount++;
     objH_ClearFlags(thisPtr, OFLG_AllocCntUsed);
 
     /* The object must be dirty to ensure that the new count gets saved. */
@@ -358,7 +358,7 @@ objH_Rescind(ObjectHeader * thisPtr)
 void
 objH_DoBumpCallCount(ObjectHeader * pObj)
 {
-  pObj->counts.callCount++;
+  objH_ToNode(pObj)->callCount++;
   objH_ClearFlags(pObj, OFLG_CallCntUsed);
 
   /* The object must be dirty to ensure that the new count gets saved. */
