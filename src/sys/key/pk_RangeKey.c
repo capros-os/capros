@@ -429,9 +429,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
       OID oid = key_GetKeyOid(key);
       
 #ifdef DEBUG_PAGERANGEKEY
-      dprintf(true, "Rescinding OID 0x%08x%08x\n",
-		      (uint32_t) (oid>>32),
-		      (uint32_t) oid);
+      dprintf(true, "Rescinding OID %#llx\n", oid);
 #endif
       
       if ( oid < rngStart || oid >= rngEnd ) {
@@ -476,16 +474,6 @@ RangeKey(Invocation* inv /*@ not null @*/)
   case OC_capros_Range_getPageKey:
     MakeObjectKey(inv, w1w2Offset(inv),
       false, capros_Range_otPage, KKT_Page);
-    break;
-
-  case OC_capros_Range_waitNodeKey:
-    MakeObjectKey(inv, w1w2Offset(inv),
-      true, capros_Range_otNode, KKT_Node);
-    break;
-
-  case OC_capros_Range_getNodeKey:
-    MakeObjectKey(inv, w1w2Offset(inv),
-      false, capros_Range_otNode, KKT_Node);
     break;
 
   case OC_capros_Range_getCap:

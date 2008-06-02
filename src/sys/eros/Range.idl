@@ -11,6 +11,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
   exception IoErr;
 
   typedef unsigned long long off_t;
+  typedef unsigned long count_t;
 
   /* Object types returned by identify: */
   typedef unsigned byte obType;
@@ -25,7 +26,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    *
    * Reports the length of a given range.
    */
-  unsigned long long query();
+  off_t query();
 
   /** Identify an object.
    *
@@ -35,12 +36,14 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
      or it is opaque, or the object is not in this range.
    */
   void identify(capros.key key, out obType type, 
-  		out unsigned long long offset);
+  		out off_t offset);
 
   /** Rescind an object.
    *
    * Rescinds the passed key if and only if it is a read-write key to
    * an object that was allocated from this range.
+   * Also resets the state of the object to a null state
+   * (zero data, void capabilities), and immediately cleans it and steals it.
    */
   void rescind(capros.key key);
 
@@ -51,7 +54,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * is dismounted or otherwise unavailable, this operation will throw
    * the /RangeErr/ exception.
    */
-  capros.key getPageKey(unsigned long long offset);
+  capros.key getPageKey(off_t offset);
 
   /** Create key to page (blocking).
    *
@@ -60,28 +63,27 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * is dismounted or otherwise unavailable, this operation will block
    * until the range becomes available.
    */
-  capros.key waitPageKey(unsigned long long offset);
+  capros.key waitPageKey(off_t offset);
 
-  /** Create key to node.
+  /** Create a capability to an object.
    *
-   * Creates a node key to the designated node if and only if the
-   * offset falls within the legal bounds of this range. If the range
-   * is dismounted or otherwise unavailable, this operation will throw
-   * the /RangeErr/ exception.
+   * type specifies the type of capability to create.
+   * offset specifies the offset within this range of the OID of the object.
+   * Create a capability to the specified object.
+   * If the range is dismounted or otherwise unavailable,
+   * this operation will throw the /RangeErr/ exception.
    */
-  capros.key getNodeKey(unsigned long long offset);
+  capros.key getCap(obType type, off_t offset);
 
-  /** Create key to node (blocking).
+  /** Create a capability to an object (blocking).
    *
-   * Creates a node key to the designated node if and only if the
-   * offset falls within the legal bounds of this range. If the range
-   * is dismounted or otherwise unavailable, this operation will block
-   * until the range becomes available.
+   * type specifies the type of capability to create.
+   * offset specifies the offset within this range of the OID of the object.
+   * Create a capability to the specified object.
+   * If the range is dismounted or otherwise unavailable,
+   * this operation will throw the /RangeErr/ exception.
    */
-  capros.key waitNodeKey(unsigned long long offset);
-
-  capros.key getCap(obType type, unsigned long long offset);
-  capros.key waitCap(obType type, unsigned long long offset);
+  capros.key waitCap(obType type, off_t offset);
 
   /** Compare two ranges for overlap or relative position.
    *
@@ -100,7 +102,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    */
 
   void compare(capros.Range krCmpRange, out unsigned long how,
-	       out unsigned long long offset);
+	       out off_t offset);
 
   /** Report next populated subrange.
    *
@@ -108,13 +110,34 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * backing objects actually exist, starting the search at offset
    * /startOffset/ of the passed range key.
    */
-  void nextSubrange(unsigned long long startOffset, 
-		    out unsigned long long offset, out unsigned long len);
+  void nextSubrange(off_t startOffset, 
+		    out off_t offset, out unsigned long len);
 
   /** Create a range key for a subrange of this range.
    *
    * Returns a range key for a subrange of the current range,
    * begininng at /offset/ and extending for /len/ frames.
    */
-  capros.Range makeSubrange(unsigned long long offset, unsigned long len);
+  capros.Range makeSubrange(off_t offset, unsigned long len);
+
+  /** Get counts.
+   *
+   * offset specifies the offset within this range of the OID of an object.
+   * Returns the allocation count and call count of the object.
+   * If the object does not have a call count, the allocation count
+   * is returned in both parameters.
+   */
+  void getFrameCounts(off_t offset,
+    out count_t allocationCount, out count_t callCount);
+
+  /** Retype a frame.
+   *
+   * offset specifies a frame (the offset within frame must be zero).
+   * oldType is the current base type of the frame.
+   * newType is the base type that the frame will be changed to.
+   * allocationCount and callCount specify the allocation count and
+   * call count (for objects that use it) for the new object(s) in the frame.
+   */
+  void retypeFrame(off_t offset, obType oldType, obType newType,
+                   count_t allocationCout, count_t callCount);
 };
