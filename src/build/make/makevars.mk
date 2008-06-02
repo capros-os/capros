@@ -271,11 +271,6 @@ DOMLINKOPT=$(LINKOPT)
 ifeq "$(EROS_TARGET)" "arm"
 DOMLINKOPT+=-Wl,--script=$(EROS_SRC)/build/make/proclink.$(EROS_TARGET).link
 endif
-# i486 link lacks --start/end-group; this is a workaround.
-# capros_Process_makeResumeKey is needed by _exit().
-ifeq "$(EROS_TARGET)" "i486"
-DOMLINKOPT+=-Wl,-u,capros_Process_makeResumeKey
-endif
 
 CROSSLINK=$(EROS_GCC) $(DOMLINKOPT) #-v
 
