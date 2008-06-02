@@ -805,14 +805,14 @@ struct ObjectDescriptor {
 	  <p>
 	    The reason these occur with such frequency is that
 	    returning storage to the space bank causes that storage to
-	    be zeroed.  <em>This is not currently true, but we should
-	    make it true.  The reason to do it is that objects
+	    be zeroed.  
+            The reason to do this is that objects
 	    returned to the space bank are generally dirty, and
 	    handling them this way obviates the need to rewrite
 	    now-dead data back to the log.
 	    By storing them as null
 	    objects, the write bandwidth requirements can be reduced
-	    significantly.</em>
+	    significantly.
 	  </p>
 	  <p>
 	    The advantage to handling null objects specially is that
