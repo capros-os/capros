@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
  * Copyright (C) 2001, The EROS Group.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -49,7 +49,7 @@ typedef uint32_t BankPrecludes;
 
 struct Bank_MOFrame {
   uint64_t frameOid;
-  uint32_t    frameMap;
+  uint32_t frameMap;	// bitmap for objects in the frame, 1 == free
 };
 
 typedef struct Bank Bank;       

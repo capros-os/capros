@@ -107,10 +107,7 @@ bank_getTypeFrame(Bank *bank, uint8_t type);
 /*    If /type/ is a multiple-object-per-frame type, returns the
  *  address of /bank/'s frameMap and frameOid cache for that type
  *  in *(/frameMap/) and *(/frameOid/), respectively.
- *    If /type/ is a single-object-per-frame type, returns NULL in
- *  both *(/frameMap/) and *(/frameOid/).
- *
- *    kpanics if the type is not recognized.
+ *    If /type/ is a single-object-per-frame type, returns NULL.
  *
  *    Implemented as a macro for speed.
  */
@@ -552,6 +549,9 @@ DestroyStorage(Bank * bank)
      * rescinding it, the code guarentees that no matter what the
      * frame was filled with, all of the objects in the frame are
      * rescinded. */
+    // FIXME: the above is no longer true.
+    // Try getting a page key. If succeed, rescind it.
+    // If fail, we are told the type of the frame; rescind all objects in it.
 
     DEBUG(children)
       kprintf(KR_OSTREAM,
@@ -641,9 +641,10 @@ BankDestroyBankAndStorage(Bank *bank, bool andStorage)
 	for (i = 0; i < BANKPREC_NUM_PRECLUDES; i++) {
 	  if (curBank->exists[i]) {
 	    uint32_t result;
-	    result = capros_Range_getNodeKey(KR_SRANGE,
-					   curBank->limitedKey[i],
-					   KR_TMP);
+	    result = capros_Range_getCap(KR_SRANGE,
+                                         capros_Range_otNode,
+					 curBank->limitedKey[i],
+					 KR_TMP);
 
 	    if (result != RC_OK) {
 	      DEBUG(children)
