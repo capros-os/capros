@@ -27,7 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/kernel.h>
 typedef OID LID; /* Temporary hack until LID is defined */
 
-/** \file ObjectDirectory.h
+/** \file LogDirectory.h
     \brief CapROS Kernel Object Directory Interface.
 
     The object directory keeps track of the most recent instance of
