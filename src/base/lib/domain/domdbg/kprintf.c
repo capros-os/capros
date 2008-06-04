@@ -261,6 +261,10 @@ printf_guts(void (putc)(char c, buf *buffer),
       goto printul;
     }
 
+    case 'p':
+      sharpflag = true;
+      goto hex;
+
     case 'o':
       base = 8;
       goto unumbers;
@@ -270,6 +274,7 @@ printf_guts(void (putc)(char c, buf *buffer),
     case 'X':
       digits = large_digits;
     case 'x':
+hex:
       base = 16;
 unumbers:	// print unsigned numbers
       switch (sizemod) {
