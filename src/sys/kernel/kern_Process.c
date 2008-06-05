@@ -229,6 +229,11 @@ proc_Unload(Process * thisPtr)
       halt('a');
 #endif
 
+#ifdef OPTION_DDB
+    if (thisPtr->kernelFlags & KF_DDBTRAP)
+      dprintf(true, "Process %#x is being unloaded\n", thisPtr);
+#endif
+
   if (thisPtr->curActivity) {
     proc_SyncActivity(thisPtr);
     act_SetContext(thisPtr->curActivity, NULL);

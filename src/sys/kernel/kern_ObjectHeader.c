@@ -368,8 +368,6 @@ objH_DoBumpCallCount(ObjectHeader * pObj)
 void
 objH_ClearObj(ObjectHeader * thisPtr)
 {
-  /* FIX: Explicitly zeroing defeats the sever operation. */
-
   if (thisPtr->obType <= ot_NtLAST_NODE_TYPE) {
     Node * thisNode = objH_ToNode(thisPtr);
     /* zeroing unprepares and invalidates products too */
