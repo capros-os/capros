@@ -266,11 +266,12 @@ DOMCRT0=
 DOMBASE=0x1000
 
 LINKOPT=-Wl,--section-start,.init=$(DOMBASE) -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) -e _start #-Wl,--verbose
-DOMLINKOPT=$(LINKOPT)
-# Arm linking needs a script to align the data sections:
+# Arm linking needs a script to align the data sections,
+# and to load text at 0x1000 instead of 0.
 ifeq "$(EROS_TARGET)" "arm"
-DOMLINKOPT+=-Wl,--script=$(EROS_SRC)/build/make/proclink.$(EROS_TARGET).link
+LINKOPT+=-Wl,--script=$(EROS_SRC)/build/make/proclink.$(EROS_TARGET).link
 endif
+DOMLINKOPT=$(LINKOPT)
 
 CROSSLINK=$(EROS_GCC) $(DOMLINKOPT) #-v
 
