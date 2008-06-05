@@ -46,6 +46,9 @@ void *
 kthread_proc(void * arg)
 {
   struct kthread_create_info * kci = arg;
+  unsigned int threadNum = lk_getCurrentThreadNum();
+  kciArray[threadNum] = kci;
+
   int ret = (*kci->threadfn)(kci->data);
 
   // kthread function exited, presumably as a result of kthread_stop().
@@ -71,6 +74,10 @@ kthread_run(int (*threadfn)(void *data),
   if (!kci)
     return ERR_PTR(-ENOMEM);
 
+  sema_init(&kci->stop_sem, 0);
+  kci->threadfn = threadfn;
+  kci->data = data;
+
   unsigned int newThreadNum;
   result = lthread_new_thread(kthreadStackSize,
              &kthread_proc, kci,
@@ -80,13 +87,7 @@ kthread_run(int (*threadfn)(void *data),
     return ERR_PTR(-ENOMEM);
   }
 
-  kciArray[newThreadNum] = kci;
-
-  sema_init(&kci->stop_sem, 0);
-  kci->threadfn = threadfn;
-  kci->data = data;
   kci->ts.pid = newThreadNum;
-
   return &kci->ts;
 }
 
