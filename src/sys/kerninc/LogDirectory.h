@@ -1,5 +1,5 @@
-#ifndef OBJECTDIRECTORY_H
-#define OBJECTDIRECTORY_H
+#ifndef LOGDIRECTORY_H
+#define LOGDIRECTORY_H
 /*
  * Copyright (C) 2008, Strawberry Development Group
  *
@@ -25,10 +25,9 @@ Approved for public release, distribution unlimited. */
 
 
 #include <kerninc/kernel.h>
-typedef OID LID; /* Temporary hack until LID is defined */
 
 /** \file LogDirectory.h
-    \brief CapROS Kernel Object Directory Interface.
+    \brief CapROS Kernel Log Directory Interface.
 
     The object directory keeps track of the most recent instance of
     objects written to the log. It will keep up to two locations, one
@@ -41,10 +40,10 @@ typedef OID LID; /* Temporary hack until LID is defined */
       1. Record new locations for objects
       2. Find the most recent location for an object.
       3. Find all the objects in a particular checkpoint generation.
-      4. Remove all the entries of a particular checkpoint generations.
+      4. Remove all the entries of a particular checkpoint generation.
 
 */
-/** The object information maintained by the Object Directory.
+/** The object information maintained by the Log Directory.
  */
 typedef struct ObjectDescriptor {
   OID       oid;                /**<The Object ID of the object. */
@@ -110,7 +109,7 @@ ObjectDescriptor *od_findFirstObject(uint64_t generation);
 */
 ObjectDescriptor *od_findNextObject(uint64_t generation);
 
-/** Remove all the objects in a generation from the Object Directory.
+/** Remove all the objects in a generation from the Log Directory.
 
     Note: This routine may need to be executed in smaller pieces to meet
     real-time requirements.
@@ -119,4 +118,4 @@ ObjectDescriptor *od_findNextObject(uint64_t generation);
 */
 void od_clearGeneration(uint64_t generation);
 
-#endif /* OBJECTDIRECTORY_H */
+#endif /* LOGDIRECTORY_H */
