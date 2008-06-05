@@ -69,16 +69,7 @@ FrameObIndexToOID(frame_t frame, unsigned int obindex)
   return FrameToOID(frame) + obindex;
 }
 
-/* #define NULL_LOGLOC   0 */
-#define ZERO_LID   0		/* object is a zero object */
-#define UNDEF_LID  1		/* no assigned location yet */
-#define DEAD_LID   2		/* storage was released */
-#define VIRGIN_LID 3		/* dirent under construction */
-
-/* Return true if lid represents an actual location */
-#define CONTENT_LID(x) (x >= (0x1u * EROS_OBJECTS_PER_FRAME))
-
-typedef uint32_t logframe_t;
-typedef uint32_t lid_t;
+// An identifier of a location in the log:
+typedef uint64_t LID;
 
 #endif /* ErosTypes.h */
