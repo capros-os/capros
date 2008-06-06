@@ -39,6 +39,12 @@
  * descriptors, but not both.
  */
 
+// FIXME this is wrong, but at least it compiles:
+typedef uint32_t lid_t;
+#define ZERO_LID 0
+#define UNDEF_LID 1
+#define CONTENT_LID(x) (x >= EROS_OBJECTS_PER_FRAME)
+
 enum {
  ck_MaxLidValue = 0x0fffffffu,
 };

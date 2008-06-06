@@ -130,10 +130,6 @@ static void
 vol_Init(Volume *pVol)
 {
   vol_InitVolume(pVol);
-#ifdef DEAD_BAD_MAP /* spare ranges are a thing of the past */
-  pVol->divTable = (Division *) pVol->divPage;
-  pVol->badmap = (BadEnt*) &pVol->divTable[NDIVENT];
-#endif
 }
 
 const CpuReserveInfo *
@@ -332,11 +328,6 @@ vol_DoAddDivision(Volume *pVol, DivType type, uint32_t start, uint32_t sz)
   }
 
   pVol->needSyncHdr = 1;		/* if nothing else, volume size changed */
-  
-#ifdef DEAD_BAD_MAP /* spare ranges are a thing of the past */
-  if (type == dt_Spare)
-    spareDivNdx = div;
-#endif
   
   pVol->divNeedsInit[div] = true;
   pVol->needDivInit = true;
@@ -937,15 +928,18 @@ vol_InitDivisions(Volume *pVol)
 
   for (i = 0; i < pVol->topDiv; i++) {
     if (pVol->divNeedsInit[i]) {
+      diag_printf("Zeroing division ...\n");
       vol_ZeroDivision(pVol, i);
 
       switch (pVol->divTable[i].type) {
       case dt_Object:
       case dt_Kernel:
+        diag_printf("Formating object division ...\n");
 	vol_FormatObjectDivision(pVol, i);
         break;
 
       case dt_Log:
+        diag_printf("Formating log division ...\n");
 	vol_FormatLogDivision(pVol, i);
         break;
 
@@ -1347,8 +1341,11 @@ vol_Close(Volume *pVol)
     return;
   
   vol_InitDivisions(pVol);
+  diag_printf("Syncing header ...\n");
   vol_SyncHdr(pVol);
+  diag_printf("Syncing div tables ...\n");
   vol_SyncDivTables(pVol);
+  diag_printf("Syncing ckpt log ...\n");
   vol_SyncCkptLog(pVol);
 
   if (pVol->grubDir) {

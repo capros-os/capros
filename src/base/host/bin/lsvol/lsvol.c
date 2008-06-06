@@ -30,9 +30,6 @@ int showdiv = 0;
 int showhdr = 0;
 int showckdir = 0;
 int showrsdir = 0;
-#if 0
-int showbad = 0;
-#endif
 
 int main(int argc, char *argv[])
 {
@@ -49,11 +46,6 @@ int main(int argc, char *argv[])
 
   while ((c = getopt(argc, argv, "hdrc")) != -1) {
     switch(c) {
-#if 0
-    case 'b':
-      showbad = 1;
-      break;
-#endif
     case 'd':
       showdiv = 1;
       break;
@@ -71,7 +63,7 @@ int main(int argc, char *argv[])
     }
   }
   
-  if (!showdiv && !showhdr && !showckdir /* && !showbad */)
+  if (!showdiv && !showhdr && !showckdir)
     showdiv = 1;
   
       /* remaining arguments describe node and/or page space divisions */
@@ -108,22 +100,6 @@ int main(int argc, char *argv[])
     PrintRsrvDir(pVol);
   }
   
-#if 0
-  if (showbad) {
-    int i;
-    
-    if (vol.MaxBadEnt())
-      diag_printf("From           To\n");
-    else
-      diag_printf("Badmap Empty\n");
-
-    for (i = 0; i < pVol->MaxBadEnt(); i++) {
-      const BadEnt& be = pVol->GetBadEnt(i);
-      diag_printf("%-8d  ==>  %-8d\n", be.badSec, be.goodSec);
-    }
-  }
-#endif
-
   vol_Close(pVol);
   free(pVol);
 

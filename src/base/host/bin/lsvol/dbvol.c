@@ -299,23 +299,6 @@ ProcessCmd()
     
     xi_destroy(kernelImage);
   }
-#ifdef DEAD_BAD_MAP /* bad maps are a thing of the past */
-  else if (parse_MatchKeyword(&rest, "b") &&
-	   parse_MatchEOL(&rest) ) {
-
-    int i;
-    
-    if (pVol->MaxBadEnt())
-      diag_printf("From           To\n");
-    else
-      diag_printf("Badmap Empty\n");
-
-    for (i = 0; i < pVol->MaxBadEnt(); i++) {
-      const BadEnt& be = pVol->GetBadEnt(i);
-      diag_printf("%-8d  ==>  %-8d\n", be.badSec, be.goodSec);
-    }
-  }
-#endif
   else if ( ( parse_MatchKeyword(&rest, "h") || parse_Match(&rest, "?") ) &&
 	    parse_MatchEOL(&rest) ) {
 
@@ -329,9 +312,6 @@ ProcessCmd()
     diag_printf("  v        - print out the volume header\n");
     diag_printf("  d        - print out the division table\n");
     diag_printf("  r        - print out the rsrv table\n");
-#ifdef DEAD_BAD_MAP
-    diag_printf("  b        - print out the bad block table\n");
-#endif
     diag_printf("  kernel   - install new kernel on existing volume\n");
     diag_printf("  h/?      - display this summary\n");
     diag_printf("\n");
