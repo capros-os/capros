@@ -54,6 +54,11 @@
       added to the volume, or an attribute to be set in the volume
       header.  A single volume may contain up to 64 divisions.
       </p>
+      <p>
+      Spare divisions are not used by CapROS,
+      because both (E)IDE and SCSI drive technologies provide
+      automatic sector remapping.
+      </p>
       <dl>
 	<dt><b>kernel</b> size OID=oid
 	</dt>
@@ -67,21 +72,6 @@
              <p>By convention, the kernel devision OID is 0xFFFF00000000,
              and all OIDs in the range 0FFFF00000000 through
              0xFFFFFFFFFFFF are reserved for future use by the implementation.
-	     </p>
-	</dd>
-	<dt><b>spare</b> size
-	</dt>
-	<dd>
-	     <p>
-	     Add a division containing spare sectors to be used for
-	     sector remapping, where <b>size</b> is
-	     the length of the division in sectors.
-             The size will be rounded up to a page size.
-	     </p>
-	     <p>
-	     Spare divisions are not used by the current kernel,
-	     because both (E)IDE and SCSI drive technologies provide
-	     automatic sector remapping.
 	     </p>
 	</dd>
 	<dt><b>object</b> size OID=oid
