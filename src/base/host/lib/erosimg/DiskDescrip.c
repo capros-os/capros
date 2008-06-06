@@ -24,9 +24,9 @@
 
 static DiskDescrip Descriptors[] = {
 				/* first entry is default! */
-    { "fd144",    512, 2, 18, 80, 0, "fdboot" },
-    { "fd",       512, 2, 18, 80, 0, "fdboot" }, /* fd ==> fd144 */
-    { "badfd144", 512, 2, 18, 80, 20, "fdboot" },
+    { "fd144",    512, 2, 18, 80, "fdboot" },
+    { "fd",       512, 2, 18, 80, "fdboot" }, /* fd ==> fd144 */
+    { "badfd144", 512, 2, 18, 80, "fdboot" },
 };
 
 #define NDESCRIP (sizeof(Descriptors) / sizeof(DiskDescrip))

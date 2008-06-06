@@ -103,21 +103,6 @@ ProcessVolMap()
       }
     }
     else if (parse_MatchStart(&rest, buf) &&
-	     parse_MatchKeyword(&rest, "spare") &&
-	     parse_MatchWord(&rest, &sz) &&
-	     parse_MatchEOL(&rest) ) {
-      if (!sz)
-	diag_fatal(1, "%s, line %d: division size needed for spare division.\n",
-		    volmap, line); 
-	
-      /* round up to a page worth! */
-      if (sz % EROS_PAGE_SECTORS) {
-	sz -= (sz % EROS_PAGE_SECTORS);
-	sz += EROS_PAGE_SECTORS;
-      }
-      vol_AddDivision(pVol, dt_Spare, sz);
-    }
-    else if (parse_MatchStart(&rest, buf) &&
 	     parse_MatchKeyword(&rest, "object") &&
 	     parse_MatchKeyword(&rest, "preload") &&
 	     parse_MatchWord(&rest, &sz) &&

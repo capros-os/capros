@@ -69,7 +69,5 @@ PrintVolHdr(Volume* pVol)
   diag_printf("  %-20s 0x%08x%08x\n", "IPL sysid:",
 	       (uint32_t) (vh->iplSysId >> 32), (uint32_t) vh->iplSysId);
 
-  diag_printf("  %-20s ", "IPL key:");
-  PrintDiskKey(vh->iplKey);
   diag_printf("\n\n");
 }

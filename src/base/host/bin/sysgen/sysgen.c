@@ -280,27 +280,6 @@ main(int argc, char *argv[])
 #endif
   }
 
-  {
-    KeyBits k;
-
-    keyBits_InitToVoid(&k);
-    if (ei_GetDirEnt(image, ":ipl:", &k)) {
-      OID oldOID = k.u.unprep.oid;
-
-      RelocateKey(&k, nodeBase, pageBase, nPages);
-      vol_SetIplKey(pVol, &k);
-
-      if (map_file != NULL)
-	fprintf(map_file, "image :ipl: node ndx 0x%08lx => disk node oid 0x%08lx%08lx\n",
-		 (uint32_t) oldOID,
-		 (uint32_t) (k.u.unprep.oid >> 32), 
-		(uint32_t) k.u.unprep.oid);
-
-    }
-    else
-      diag_printf("Warning: no running domains!\n");
-  }
-  
   if (map_file != NULL)
     fclose(map_file);
 

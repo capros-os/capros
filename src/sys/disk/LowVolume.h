@@ -1,5 +1,5 @@
-#ifndef __LOWVOLUME_HXX__
-#define __LOWVOLUME_HXX__
+#ifndef __LOWVOLUME_H__
+#define __LOWVOLUME_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2008, Strawberry Development Group.
@@ -25,7 +25,8 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
-#include <disk/KeyStruct.h>
+#include <disk/ErosTypes.h>
+//#include <disk/KeyStruct.h>
 
 /* Low-level portion of the EROS volume structure.
  * This header file is included by things like boot code.  Statically
@@ -36,15 +37,7 @@ Approved for public release, distribution unlimited. */
  * 
  * 	1. A Boot Page		(Page 0: must be error free)
  * 	2. A Division Table	(Page 1: must be error free)
- * 	3. A spare sector region
  * 	3. Other divisions as defined by the user
- */
-
-/* In principle, these classes probably ought to live in distinct
- * header files.  In practice, there is essentially nothing you can do
- * with a volume unless you have the division table and the bad map
- * table.  Rather than keep the relationships in multiple files, it
- * seemed better to put them all in one place.
  */
 
 #define EROS_PARTITION_TYPE 0x95
@@ -122,7 +115,6 @@ struct VolHdr {
 				 * to this volume by the formatter.
 				 */
   uint32_t    zipLen;		/* unused */
-  KeyBits     iplKey;		/* unique singleton process to start */
   uint64_t    iplSysId;		/* Unique system identifier */
 
   uint8_t     signature[4];	/* 'E' 'R' 'O' 'S' */
@@ -130,4 +122,4 @@ struct VolHdr {
 typedef struct VolHdr VolHdr;
 #endif
 
-#endif /* __VOLUME_HXX__ */
+#endif /* __LOWVOLUME_H__ */

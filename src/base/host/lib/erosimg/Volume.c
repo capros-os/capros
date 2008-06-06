@@ -490,14 +490,6 @@ vol_SetIplSysId(Volume *pVol, uint64_t dw)
 }
 
 void
-vol_SetIplKey(Volume *pVol, const KeyBits *k)
-{
-  pVol->volHdr.iplKey = *k;
-
-  pVol->needSyncHdr = 1;
-}
-
-void
 vol_WriteKernelImage(Volume *pVol, int div, const ExecImage *pImage)
 {
   const ExecRegion* er;
@@ -636,12 +628,6 @@ vol_DelDivision(Volume *pVol, int ndx)
       diag_fatal(1, "Division type %s cannot be deleted\n",
 		  div_TypeName(pVol->divTable[ndx].type));
       break;
-  break;
-  case dt_Spare:
-    /* Can only delete spare division if no spare sectors are
-     * in use.
-     */
-    break;
   }
 
   for (i = ndx+1; i < pVol->topDiv; i++)
@@ -980,7 +966,6 @@ vol_Create(const char* targname, const char* bootName)
   pVol->volHdr.BootFlags = 0;
   pVol->volHdr.BootSectors = DISK_BOOTSTRAP_SECTORS;
   pVol->volHdr.VolSectors = 0;
-  keyBits_InitToVoid(&pVol->volHdr.iplKey);
   pVol->volHdr.iplSysId = time(NULL); /* get a random value, hopefully unique  */
   pVol->volHdr.signature[0] = 'E';
   pVol->volHdr.signature[1] = 'R';
@@ -1012,11 +997,6 @@ vol_Create(const char* targname, const char* bootName)
   vol_AddFixedDivision(pVol, dt_Boot, 0, DISK_BOOTSTRAP_SECTORS);
   vol_AddFixedDivision(pVol, dt_DivTbl, DISK_BOOTSTRAP_SECTORS,
 		       EROS_PAGE_SECTORS); 
-
-#if 0
-  if (pDisk->badsecs)
-    pVol->AddDivision(dt_Spare, pDisk->badsecs);
-#endif
 
   /* Must initialize divisions first, or writing boot page and
    * sync'ing division tables will fail!
@@ -1405,13 +1385,10 @@ vol_Close(Volume *pVol)
     strncpy(configFname, pVol->grubDir, FILENAME_MAX);
     strncat(configFname, "/CapROS-config-", FILENAME_MAX-strlen(configFname));
     strncat(configFname, pVol->suffix, FILENAME_MAX-strlen(configFname));
-    if (! keyBits_IsType(&pVol->volHdr.iplKey, KKT_Process)) {
-      diag_fatal(1, "No IPL key.\n");
-    } else {
+    {
       unsigned int nameSkip = strlen(pVol->grubDir);
-      OID iplOid;
+      OID iplOid = 0;	// disable for now
 
-        iplOid = pVol->volHdr.iplKey.u.unprep.oid;
         file = fopen(configFname, "w");
         if (file == 0) {
           diag_fatal(1, "Can't open Grub file\n");
