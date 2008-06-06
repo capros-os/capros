@@ -47,6 +47,8 @@ Approved for public release, distribution unlimited. */
  * seemed better to put them all in one place.
  */
 
+#define EROS_PARTITION_TYPE 0x95
+
 enum DivType {
 
 #define __DIVDECL(x) dt_##x,
@@ -95,23 +97,8 @@ div_contains(const struct Division *d, const OID oid)
   return true;
 }
 
-#if 0
-/* Bad sector mapping info. */
-struct BadEnt {
-  unsigned long badSec;	/* the sector being replaced */
-  unsigned long goodSec;	/* the sector we replaced it with */
-
-  BadEnt()
-  { badSec = 0; goodSec = 0; }
-} ;
-#endif
-
 enum {
   NDIVENT = 64,
-#if 0
-  NBADENT = ((EROS_PAGE_SIZE - (64*sizeof(Division))) /
-	     sizeof(BadEnt))
-#endif
 };
 
 #if defined(i386) || defined(i486)
