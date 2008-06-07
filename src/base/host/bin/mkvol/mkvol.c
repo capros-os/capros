@@ -104,15 +104,6 @@ ProcessVolMap()
     }
     else if (parse_MatchStart(&rest, buf) &&
 	     parse_MatchKeyword(&rest, "object") &&
-	     parse_MatchKeyword(&rest, "preload") &&
-	     parse_MatchWord(&rest, &sz) &&
-	     parse_MatchOID(&rest, &oid) &&
-	     parse_MatchEOL(&rest) ) {
-      int div = vol_AddDivisionWithOid(pVol,dt_Object, sz * EROS_PAGE_SECTORS, oid);
-      vol_DivisionSetFlags(pVol, div, DF_PRELOAD);
-    }
-    else if (parse_MatchStart(&rest, buf) &&
-	     parse_MatchKeyword(&rest, "object") &&
 	     parse_MatchWord(&rest, &sz) &&
 	     parse_MatchOID(&rest, &oid) &&
 	     parse_MatchEOL(&rest) ) {

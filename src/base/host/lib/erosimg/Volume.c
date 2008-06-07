@@ -648,11 +648,6 @@ vol_DivisionSetFlags(Volume *pVol, int ndx, uint32_t flags)
 
   pVol->divTable[ndx].flags |= flags;
 
-  diag_printf("Division %d: flags set to [ ", ndx);
-  if (pVol->divTable[ndx].flags & DF_PRELOAD)
-    diag_printf("preload ");
-  diag_printf("]\n");
-
   pVol->needSyncDivisions = true;
 
   return pVol->divTable[ndx].flags;
@@ -667,11 +662,6 @@ vol_DivisionClearFlags(Volume *pVol, int ndx, uint32_t flags)
     diag_fatal(1, "Attempt to update flags for nonexistent division\n");
 
   pVol->divTable[ndx].flags &= ~flags;
-
-  diag_printf("Division %d: flags set to [ ", ndx);
-  if (pVol->divTable[ndx].flags & DF_PRELOAD)
-    diag_printf("preload ");
-  diag_printf("]\n");
 
   pVol->needSyncDivisions = true;
 
@@ -1329,94 +1319,7 @@ vol_Close(Volume *pVol)
   vol_SyncCkptLog(pVol);
 
   if (pVol->grubDir) {
-    /* Write files for Grub. */
-    int fd;
-    FILE * file;
-    char configFname[FILENAME_MAX+1];
-    PreloadedModule * moduleList = 0;
-    PreloadedModule * pm;
-    int div;
-
-    for (div = 0; div < pVol->topDiv; div++) {
-      if (    pVol->divTable[div].type == dt_Object
-          && (pVol->divTable[div].flags & DF_PRELOAD)) {
-        /* Write module file. */
-        pm = (PreloadedModule *)malloc(sizeof(PreloadedModule));
-        if (!pm) {
-          diag_fatal(1, "Out of memory\n");
-        } else {
-          char indexStr[12];
-  
-          pm->next = moduleList;	/* link in */
-          moduleList = pm;
-          pm->startOid = pVol->divTable[div].startOid;
-          strncpy(pm->fname, pVol->grubDir, FILENAME_MAX);
-          strncat(pm->fname, "/CapROS-PL-", FILENAME_MAX-strlen(pm->fname));
-          sprintf(indexStr, "%d", div);
-          strncat(pm->fname, indexStr, FILENAME_MAX-strlen(pm->fname));
-          strncat(pm->fname, "-", FILENAME_MAX-strlen(pm->fname));
-          strncat(pm->fname, pVol->suffix, FILENAME_MAX-strlen(pm->fname));
-
-          /* Write file for Grub. */
-          fd = open(pm->fname, O_WRONLY | O_CREAT | O_TRUNC, 0744);
-          if (fd < 0) {
-            diag_fatal(1, "Can't open Grub file\n");
-          } else {
-            /* Copy the division to the file. */
-            int j;
-            for (j = pVol->divTable[div].start + EROS_PAGE_SECTORS;
-                     /* Adding EROS_PAGE_SECTORS above because
-                        we skip the ckpt seq number page. */
-                 j < pVol->divTable[div].end; j++) {
-              char buf[EROS_SECTOR_SIZE];
-              if (vol_Read(pVol, EROS_SECTOR_SIZE * j,
-                           buf, EROS_SECTOR_SIZE)) {
-                write(fd, buf, EROS_SECTOR_SIZE);
-              }
-            }
-            close(fd);
-          }
-        }
-      }
-      /* The kernel file is not written here.
-         It's copied as an ELF file. */
-    }
-    /* Write Grub configuration file. */
-    strncpy(configFname, pVol->grubDir, FILENAME_MAX);
-    strncat(configFname, "/CapROS-config-", FILENAME_MAX-strlen(configFname));
-    strncat(configFname, pVol->suffix, FILENAME_MAX-strlen(configFname));
-    {
-      unsigned int nameSkip = strlen(pVol->grubDir);
-      OID iplOid = 0;	// disable for now
-
-        file = fopen(configFname, "w");
-        if (file == 0) {
-          diag_fatal(1, "Can't open Grub file\n");
-        } else {
-          fputs("default=0\n", file);
-          fputs("timeout=0\n", file);
-          fputs("title CapROS\n", file);
-          fputs("\troot (hd0,1)\n", file);	/* Hopefully, the /boot partition */
-          fputs("\tkernel --type=multiboot ", file);
-          fputs("/CapROS-kernel-", file);	/* kernel file name */
-          fputs(pVol->suffix, file);
-          fprintf(file, " 0x%08lx%08lx",
-                  (uint32_t) (iplOid >> 32),
-                  (uint32_t) iplOid);
-          fprintf(file, " 0x%08lx", pVol->bootDrive);
-          fputs("\n", file);
-
-          /* Output module commands. */
-          for (pm = moduleList; pm; pm = pm->next) {
-            fputs("\tmodule ", file);
-            fputs(pm->fname+nameSkip, file);
-            fprintf(file, " 0x%08lx%08lx\n",
-                    (uint32_t) (pm->startOid >> 32),
-                    (uint32_t) pm->startOid);
-          }
-          fclose(file);
-        }
-    }
+    diag_fatal(1, "Grub options no longer supported\n");
   }
 
   if (pVol->working_fd == -1)

@@ -58,8 +58,6 @@ PrintDivTable(Volume *pVol)
       diag_printf(")\n");
       if (d->flags) {
 	diag_printf("  [ ");
-	if (d->flags & DF_PRELOAD)
-	  diag_printf("preload ");
 	diag_printf("]\n");
       }
       break;

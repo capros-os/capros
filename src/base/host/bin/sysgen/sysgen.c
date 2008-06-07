@@ -85,8 +85,6 @@ main(int argc, char *argv[])
   extern int optind;
   extern char *optarg;
   bool opterr = false;
-  const char * grubDir;
-  const char * suffix;
   ErosImage *image;
   uint32_t nObjectRange = 0;
   int i;
@@ -97,7 +95,7 @@ main(int argc, char *argv[])
 
   app_Init("sysgen");
 
-  while ((c = getopt(argc, argv, "m:b:g:v:")) != -1) {
+  while ((c = getopt(argc, argv, "m:b:")) != -1) {
     switch(c) {
     case 'm':
       map_file = fopen(optarg, "w");
@@ -114,14 +112,6 @@ main(int argc, char *argv[])
         opterr = true;
       break;
 
-    case 'g':
-      grubDir = optarg;
-      break;
-
-    case 'v':
-      suffix = optarg;
-      break;
-
     default:
       opterr = true;
     }
@@ -134,7 +124,7 @@ main(int argc, char *argv[])
     opterr = true;
   
   if (opterr)
-    diag_fatal(1, "Usage: sysgen [-m mapfile] [-b oidbase] [-g grubdir [-v suffix]] volume-file eros-image\n");
+    diag_fatal(1, "Usage: sysgen [-m mapfile] [-b oidbase] volume-file eros-image\n");
   
   targname = argv[0];
   erosimage = argv[1];
@@ -165,7 +155,7 @@ main(int argc, char *argv[])
       diag_fatal(1, "Target file name must be 'hdxn' or 'nbdn' or 'fdn'\n");
   }
   
-  pVol = vol_Open(targname, true, grubDir, suffix,
+  pVol = vol_Open(targname, true, 0, 0,
                   (drive << 24) + (partition << 16) );
   if ( !pVol )
     diag_fatal(1, "Could not open \"%s\"\n", targname);
