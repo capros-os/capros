@@ -26,17 +26,13 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <disk/ErosTypes.h>
-//#include <disk/KeyStruct.h>
 
-/* Low-level portion of the EROS volume structure.
- * This header file is included by things like boot code.  Statically
- * allocated objects in this header or anything it includes are a
- * profoundly bad idea.
+/* Low-level portion of the CapROS volume structure.
  * 
- * EROS volume structure.  EROS volumes contain:
+ * A CapROS volume (partition) contains:
  * 
- * 	1. A Boot Page		(Page 0: must be error free)
- * 	2. A Division Table	(Page 1: must be error free)
+ * 	1. A page containing a VolHdr	(Page 0: must be error free)
+ * 	2. A page containing an array of NDIVENT Divisions (must be error free)
  * 	3. Other divisions as defined by the user
  */
 
@@ -52,21 +48,15 @@ enum DivType {
 };
 typedef enum DivType DivType;
 
-#ifdef __KERNEL__
-#define BOOT_DISK_DIVISION 0xffff
-#endif
-
-#define DF_PRELOAD  0x1		/* range should be preloaded */
-
 struct Division {
-  uint32_t start;
+  uint32_t start;	// sector # within this volume
   uint32_t end;
   
   OID startOid;
   OID endOid;
 
   uint8_t type;		/* see division type enum, above */
-  uint8_t flags;
+  uint8_t flags;	// at the moment there are no flags
 };
 typedef struct Division Division;
 
@@ -91,10 +81,9 @@ div_contains(const struct Division *d, const OID oid)
 }
 
 enum {
-  NDIVENT = 64,
+  NDIVENT = 64
 };
 
-#if defined(i386) || defined(i486)
 #define VOLHDR_VERSION 1
 
 /* Bits in BootFlags: */
@@ -120,6 +109,5 @@ struct VolHdr {
   uint8_t     signature[4];	/* 'E' 'R' 'O' 'S' */
 } ;
 typedef struct VolHdr VolHdr;
-#endif
 
 #endif /* __LOWVOLUME_H__ */
