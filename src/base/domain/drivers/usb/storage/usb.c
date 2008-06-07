@@ -1211,6 +1211,11 @@ union {
   capros_SCSIDevice_SCSICommand cmd;
 } MsgRcvBuf;
 
+/* Note, we say we allow one queued command per lun, but the implementation
+ * allows only one queued command period.
+ * So we'd better hope there is only one lun per device. */
+bool commandActive = false;
+
 static void
 srb_done(struct scsi_cmnd * srb)
 {
@@ -1235,6 +1240,8 @@ srb_done(struct scsi_cmnd * srb)
   };
   US_DEBUGP("srb_done returning\n");
   SEND(&Msg);	// non-prompt
+
+  commandActive = false;
 }
 
 static void
@@ -1247,6 +1254,12 @@ DoReadWrite(Message * msg, bool write)
   if (msg->rcv_sent < sizeof(capros_SCSIDevice_SCSICommand)
       || sc->cmd_len > sizeof(MsgRcvBuf.cmd.cmnd) ) {
     msg->snd_code = RC_capros_key_RequestError;
+    return;
+  }
+
+  if (commandActive) {
+kprintf(KR_OSTREAM, "SCSI Store I/O %#x busy", sc);////
+    msg->snd_code = RC_capros_Errno_Already;
     return;
   }
 
@@ -1272,10 +1285,12 @@ DoReadWrite(Message * msg, bool write)
   int ret = queuecommand(&theSRB, &srb_done);
   switch (ret) {
   case SCSI_MLQUEUE_HOST_BUSY:
+    // Shouldn't we have caught this above?
     msg->snd_code = RC_capros_Errno_Already;
     return;
 
   case 0:
+    commandActive = true;
     msg->snd_invKey = KR_VOID;
     break;
 
