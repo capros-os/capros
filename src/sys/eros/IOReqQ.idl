@@ -1,0 +1,48 @@
+package capros;
+
+/** Kernel interface to I/O Request Queues.
+ *
+ * The IOReqQ is the interface between the disk paging software and the kernel.
+ */
+interface IOReqQ extends key {
+  exception waitingDisabled;
+
+  unsigned short enum RequestType {
+    readPage,
+    writePage,
+    readTagPot,
+    writeTagPot
+  };
+
+  /** Register a range to this IOReqQ.
+   */
+  void registerOIDRange(unsigned long long
+         /* should be Range.off_t, but CapIDL has a bug */ startOID,
+         unsigned long long /* should be Range.off_t */ endOID,
+         unsigned long opaque);
+  void registerLIDRange(unsigned long long
+         /* should be Range.off_t, but CapIDL has a bug */ startLID,
+         unsigned long long /* should be Range.off_t */ endLID,
+         unsigned long opaque);
+
+  /** Disable waiting.
+   */
+  void disableWaiting();
+  void enableWaiting();
+};
+
+interface IOReqQ32 extends IOReqQ {
+
+  struct IORequest {
+    unsigned long long rangeStartOID;
+    unsigned long rangeOpaque;
+    unsigned long long requestedOID;
+    DMA32.DMAAddress bufferDMAAddr;
+    IOReqQ.RequestType requestType;
+    unsigned long requestID;
+  };
+
+  /** Wait for a request.
+   */
+  IORequest waitForRequest() /* raises(waitingDisabled) */ ;
+};

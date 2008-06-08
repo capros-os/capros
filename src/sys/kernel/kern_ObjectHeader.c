@@ -61,10 +61,11 @@ const char *ddb_obtype_name(uint8_t t)
     "PtNewAlloc",
     "PtKernHeap",
     "PtDevPage",
-    "PtSecondary",
+    "PtTagPot",
     "PtDMABlock",
     "PtDMASecondary",
-    "PtFree"
+    "PtFree",
+    "PtSecondary"
     MD_PAGE_OBNAMES
     , 0
   };

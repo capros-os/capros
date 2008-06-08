@@ -30,11 +30,19 @@ Approved for public release, distribution unlimited. */
 
 struct ObjectSource;
 
+/* Note, ObjectRange is used for both object and log ranges,
+ * and an OID is the same size as a LID. */
 typedef struct ObjectRange {
   OID start;
   OID end;	/* last OID +1 */
   const struct ObjectSource * source;
-  PmemInfo *pmi;
+  union {
+    PmemInfo *pmi;
+    struct {
+      struct IORQ * iorq;
+      uint32_t opaque;
+    } rq;
+  } u;
 } ObjectRange;
 
 /**********************************************************************
@@ -107,7 +115,8 @@ struct ObjectSource {
                          bool inBackground /*@ default = false @*/);
 };
 
-bool objC_AddRange(ObjectRange * rng);
+bool objC_AddRange(const ObjectRange * rng);
+bool AddLIDRange(const ObjectRange * rng);
 
 /**********************************************************************
  *

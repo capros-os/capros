@@ -45,13 +45,16 @@ Approved for public release, distribution unlimited. */
 
 static DEFQUEUE(SourceWait);
 
-static ObjectRange ranges[KTUNE_NRNGTBLENTS];
-static uint32_t nRanges = 0;
+static ObjectRange obRanges[KTUNE_NRNGTBLENTS];
+static uint32_t nObRanges = 0;
+
+static ObjectRange lidRanges[KTUNE_NLOGTBLENTS];
+static uint32_t nLidRanges = 0;
 
 /* On exit, returns u such that ranges[u].start <= oid < ranges[u+1].start .
  * Returns -1 if oid < ranges[0].start . */
 static int
-LookupRange(OID oid)
+LookupRange(OID oid, ObjectRange * ranges, uint32_t nRanges)
 {
   // Binary search for the range containing oid.
   int l = 0;
@@ -69,9 +72,9 @@ LookupRange(OID oid)
 }
 
 static ObjectRange *
-LookupOID(OID oid)
+LookupOID(OID oid, ObjectRange * ranges, uint32_t nRanges)
 {
-  int i = LookupRange(oid);
+  int i = LookupRange(oid, ranges, nRanges);
   if (i < 0)
     return NULL;	// oid is before the first range
 
@@ -82,18 +85,16 @@ LookupOID(OID oid)
 }
 
 bool
-objC_AddRange(ObjectRange * rng)
+AddRange(const ObjectRange * rng, ObjectRange * ranges, uint32_t * pnRanges)
 {
   unsigned int i, j;
-
-  if (nRanges == KTUNE_NRNGTBLENTS)
-    fatal("Limit on total object ranges exceeded\n");
+  uint32_t nRanges = *pnRanges;
   
   DEBUG(obsrc)
     printf("New range: \"%s\" [%#llx,%#llx)\n",
 		   rng->source->name, rng->start, rng->end);
 
-  i = LookupRange(rng->start) + 1;	// may be == nRanges
+  i = LookupRange(rng->start, ranges, nRanges) + 1;	// may be == nRanges
 
   /* Because we do not yet implement mirroring, we check here
    * that the new range does not overlap any existing range. */
@@ -116,6 +117,7 @@ objC_AddRange(ObjectRange * rng)
   // Move higher ranges up.
   for (j = nRanges++; j > i; j--)
       ranges[j] = ranges[j-1];
+  (*pnRanges)++;
  
   ranges[i] = *rng;
 
@@ -128,9 +130,27 @@ objC_AddRange(ObjectRange * rng)
 }
 
 bool
+objC_AddRange(const ObjectRange * rng)
+{
+  if (nObRanges == KTUNE_NRNGTBLENTS)
+    fatal("Limit on total object ranges exceeded\n");
+
+  return AddRange(rng, obRanges, &nObRanges);
+}
+
+bool
+AddLIDRange(const ObjectRange * rng)
+{
+  if (nLidRanges == KTUNE_NLOGTBLENTS)
+    fatal("Limit on total object ranges exceeded\n");
+
+  return AddRange(rng, lidRanges, &nLidRanges);
+}
+
+bool
 objC_HaveSource(OID oid)
 {
-  return (bool) LookupOID(oid);
+  return (bool) LookupOID(oid, obRanges, nObRanges);
 }
 
 // May Yield.
@@ -150,7 +170,7 @@ GetObjectType(OID oid)
     // Look in the log directory ...
 
     // Look in the object source:
-    ObjectRange * rng = LookupOID(oid);
+    ObjectRange * rng = LookupOID(oid, obRanges, nObRanges);
     if (!rng) {
       dprintf(true, "No range for OID %#llx!\n", oid);
       act_SleepOn(&SourceWait);
@@ -220,7 +240,7 @@ GetObject(OID oid, const ObjectLocator * pObjLoc)
 bool
 objC_WriteBack(ObjectHeader * pObj, bool inBackground)
 {
-  ObjectRange * rng = LookupOID(pObj->oid);
+  ObjectRange * rng = LookupOID(pObj->oid, obRanges, nObRanges);
   if (!rng) {
     dprintf(true, "No range for OID %#llx!\n", pObj->oid);
     return false;
@@ -233,17 +253,17 @@ void
 objC_FindFirstSubrange(OID limStart, OID limEnd, 
   OID* subStart /*@ not null @*/, OID* subEnd /*@ not null @*/)
 {
-  int i = LookupRange(limStart);
-  if (i < 0 || ranges[i].end < limStart) {
+  int i = LookupRange(limStart, obRanges, nObRanges);
+  if (i < 0 || obRanges[i].end < limStart) {
     i++;	// limStart is not in a range, so consider the next range
-    if (i >= nRanges) {
+    if (i >= nObRanges) {
       // No next range.
       *subStart = *subEnd = ~0llu;
       return;
     }
   }
 
-  ObjectRange * rng = &ranges[i];
+  ObjectRange * rng = &obRanges[i];
   // limStart <= rng->end;
 
   OID mySubStart = max(limStart, rng->start);
@@ -257,8 +277,8 @@ objC_FindFirstSubrange(OID limStart, OID limEnd,
 
   DEBUG(findfirst)
     printf("ObCache::FindFirstSubrange(): limStart %#llx, "
-	   "limEnd %#llx  nRanges %d subStart %#llx subEnd %#llx\n",
-           limStart, limEnd, nRanges, mySubStart, mySubEnd);
+	   "limEnd %#llx  nObRanges %d subStart %#llx subEnd %#llx\n",
+           limStart, limEnd, nObRanges, mySubStart, mySubEnd);
 }
 
 #ifdef OPTION_DDB
@@ -268,12 +288,12 @@ objC_ddb_DumpSources()
   extern void db_printf(const char *fmt, ...);
   unsigned i = 0;
 
-  for (i = 0; i < nRanges; i++) {
-    ObjectRange * src = &ranges[i];
+  for (i = 0; i < nObRanges; i++) {
+    ObjectRange * src = &obRanges[i];
     printf("[%#llx,%#llx): %s\n", src->start, src->end, src->source->name);
   }
 
-  if (nRanges == 0)
+  if (nObRanges == 0)
     printf("No object sources.\n");
 }
 #endif

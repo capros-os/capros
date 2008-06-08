@@ -75,7 +75,7 @@ primary	SysTrace
 akt SysTrace 0xc484c078
 
 primary	DevicePrivs
-akt DevicePrivs 0x2bd7d3ce   /* Transitional */
+primary IORQ
 
 #if 0
 primary	TimePage

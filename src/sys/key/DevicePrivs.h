@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/IRQ.h>
+#include <kerninc/IORQ.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <kerninc/Key-inline.h>
@@ -154,4 +155,22 @@ physMem_DeallocateDMAPages(Invocation * inv)
   sq_WakeAll(&PageAvailableQueue, false);
 
   inv->exit.code = RC_OK;
+}
+
+INLINE void
+devPrivs_allocateIORQ(Invocation * inv)
+{
+  COMMIT_POINT();
+  IORQ * iorq = IORQ_Allocate();
+  if (iorq) {
+    Key * key = inv->exit.pKey[0];
+    if (key) {
+      key_NH_Unchain(key);
+      keyBits_InitType(key, KKT_IORQ);
+      key->u.nk.value[0] = iorq - IORQs;
+    }
+    inv->exit.code = RC_OK;
+  } else {
+    inv->exit.code = RC_capros_DevPrivs_AllocFail;
+  }
 }

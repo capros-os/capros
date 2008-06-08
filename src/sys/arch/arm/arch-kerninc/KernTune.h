@@ -64,6 +64,14 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
  * A log range table entry takes about 36 bytes. */
 #define KTUNE_NLOGTBLENTS 4
 
+/* Number of I/O Request Queues.
+ * One is needed for each mounted disk. */
+#define KTUNE_NIORQS 4
+
+/* Number of I/O Requests.
+ */
+#define KTUNE_NIOREQS 60 // ??
+
 /* Amount of mappable physical card memory (i.e. sum over ALL cards)
  * IN MEGABYTES that the kernel should be prepared to map. This means
  * things like video memory, shared buffers on network cards, and the
@@ -139,21 +147,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
    probably high enough. */
 #define KTUNE_NIOREGION     32	 /* Number of reservable I/O address
 				    space regions */
-
-/* Max number of partitions we need to remember across all disks.
-   Might need to go up if you have a farm.
-
-   Tune with relative impunity. */
-#define KTUNE_NPARTITION    64	 /* Number of partitions across all
-				    disks */
-
-/* Max number of EROS divisions within those partitions that we might
-   find out there.  This is actually a bit tight, but it's good enough
-   for 16 divisions per disk on a 4 drive system.  Now that node and
-   page divisions are the same maybe it's enough.
-
-   Tune with relative impunity. */
-#define KTUNE_NCOREDIV      64	 /* Number of core division table entries */
 
 
 #if 0

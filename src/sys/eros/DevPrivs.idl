@@ -92,4 +92,8 @@ interface DevPrivs extends key raises(AllocFail) {
   capability returned from allocateDMAPages.
   Caller must ensure there is no I/O in progress to the pages. */
   void deallocateDMAPages(capros.Page pg);
+
+  /** Allocate an IORQ.
+   */
+  capros.IORQ allocateIORQ();
 };

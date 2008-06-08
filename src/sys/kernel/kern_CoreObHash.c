@@ -27,6 +27,13 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/ObjectHeader.h>
 
+#define dbg_hash 0x1
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u )
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
+
 /* Following hash will slightly bias against buckets whose index is 0
  * mod 8, but gives a better good distribution of nodes than anything
  * else I could come up with that didn't use a multiply operation.
@@ -50,8 +57,6 @@ Approved for public release, distribution unlimited. */
 
 #define bucket_ndx(oid)  bucket32_ndx((uint32_t)oid)
    
-
-// #define OBHASHDEBUG
 
 /* static to ensure that it ends up in BSS: */
 static ObjectHeader* ObBucket[KTUNE_NOBBUCKETS];
@@ -103,9 +108,8 @@ objH_Intern(ObjectHeader* thisPtr)
   
   ndx = bucket_ndx(thisPtr->oid);
   
-#ifdef OBHASHDEBUG
-  printf("Interning obhdr 0x%08x oid=%#llx\n", thisPtr, thisPtr->oid);
-#endif
+  DEBUG(hash) printf("Interning obhdr 0x%08x oid=%#llx\n",
+                     thisPtr, thisPtr->oid);
   assert(ObBucket[ndx] != thisPtr);
   
   thisPtr->hashChainNext = ObBucket[ndx];
@@ -150,25 +154,17 @@ objH_Lookup(OID oid)
 {
   ObjectHeader * pOb;
   
-#ifdef OBHASHDEBUG
-  printf("Lookup oid=%#llx\n", oid);
-#endif
+  DEBUG(hash) printf("Lookup oid=%#llx\n", oid);
   
   for (pOb = ObBucket[bucket_ndx(oid)]; pOb; pOb = pOb->hashChainNext) {
-#ifdef OBHASHDEBUG
-    printf("ObHdr is 0x%08x oid is %#llx\n", pOb, pOb->oid);
-#endif
+    DEBUG(hash) printf("ObHdr is 0x%08x oid is %#llx\n", pOb, pOb->oid);
 
     if (pOb->oid == oid) {
-#ifdef OBHASHDEBUG
-      printf("Found oid %#llx\n", oid);
-#endif
+      DEBUG(hash) printf("Found oid %#llx\n", oid);
       return pOb;
     }
   }
 
-#ifdef OBHASHDEBUG
-  printf("Not found\n");
-#endif
+  DEBUG(hash) printf("Not found\n");
   return NULL;
 }

@@ -1,9 +1,7 @@
-#ifndef __IOREGIONHXX__
-#define __IOREGIONHXX__
 /*
- * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
+ * Copyright (C) 2008, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,23 +17,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
-struct IoRegion {
-  uint32_t start;
-  uint32_t end;			/* exclusive. start==end => unused */
-  const char *name;		/* of driver */
-};
+#include <idl/capros/IOReqQ32.h>
 
-typedef struct IoRegion IoRegion;
+typedef capros_IOReqQ32_IORequest capros_IOReqQ_IORequest;
 
-
-/* Former member functions of IoRegion */
-void ioReg_Init();
-
-bool ioReg_IsAvailable(uint32_t start, uint32_t count);
-bool ioReg_Allocate(uint32_t start, uint32_t count, const char *drvr_name);
-void ioReg_Release(uint32_t start, uint32_t count);
-
-
-
-#endif /* __IOREGIONHXX__ */
+#define IKT_capros_IOReqQAny IKT_capros_IOReqQ32
+#define capros_IOReqQ_waitForRequest capros_IOReqQ32_waitForRequest
+#define OC_capros_IOReqQ_waitForRequest OC_capros_IOReqQ32_waitForRequest

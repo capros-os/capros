@@ -144,6 +144,7 @@ check_Pages()
     case ot_PtKernelHeap:
     case ot_PtDMABlock:
     case ot_PtDMASecondary:
+    case ot_PtTagPot:
       continue;
 
     case ot_PtDevicePage:

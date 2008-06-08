@@ -38,6 +38,7 @@ LOCAL_HEADERS=\
 	atomic.h \
 	cap-instr.h \
 	Invoke.h \
+	IORQ.h \
 	endian.h \
 	target-asm.h \
 	io.h \

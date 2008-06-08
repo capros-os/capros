@@ -556,12 +556,18 @@ key_CalcCheck(Key* thisPtr)
 bool
 key_IsValid(const Key* thisPtr)
 {
-  /* Misc keys other than DevicePrivs should have no data. */
-  if ( keyBits_IsMiscKey(thisPtr)
-      && ! keyBits_IsType(thisPtr, KKT_DevicePrivs) ) {
-    if (thisPtr->u.nk.value[0] || thisPtr->u.nk.value[1]
-        || thisPtr->u.nk.value[2] )
-      return false;
+  if (keyBits_IsMiscKey(thisPtr)) {
+    switch (keyBits_GetType(thisPtr)) {
+    // By default, misc keys should have no data.
+    default:
+      if (thisPtr->u.nk.value[0] || thisPtr->u.nk.value[1]
+          || thisPtr->u.nk.value[2] )
+        return false;
+    case KKT_DevicePrivs:
+    case KKT_IORQ:
+      break;
+    }
+    return true;
   }
 
 #if defined(DBG_WILD_PTR)

@@ -525,6 +525,16 @@ objC_ddb_dump_pages()
       break;
     }
 
+    case ot_PtTagPot:
+    {
+      ObjectHeader * pObj = pageH_ToObj(pageH);
+      printf("%#x: %s oid %#llx\n",
+	 pObj,
+	 ddb_obtype_name(pObj->obType),
+	 pObj->oid);
+      break;
+    }
+
     case ot_PtKernelHeap:
     case ot_PtDMABlock:
     case ot_PtDMASecondary:
@@ -1031,6 +1041,8 @@ objC_AgePageFrames(void)
       case ot_PtSecondary:
 	continue;
 
+      case ot_PtTagPot:
+        assert(!"complete");	// check this case
       case ot_PtDataPage:
         break;
 

@@ -92,6 +92,10 @@ Approved for public release, distribution unlimited. */
  * to eat into the keyData field. I'm deferring that primarily for
  * time reasons.
  */
+/* (CRL) Another approach is to force the beginning and of a range
+ * to align on a frame boundary (which seems reasonable), and use the fact
+ * that EROS_OBJECTS_PER_FRAME is 256. Any such range can be represented
+ * in 14 bytes. */
 
 /* #define DEBUG_RANGEKEY */
 

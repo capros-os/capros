@@ -41,6 +41,7 @@ HEADERS=\
 	ffs.h \
 	fls.h \
 	Invoke.h \
+	IORQ32.h \
 	KeyboardKey.h \
 	KeyConst.h \
        	Link.h \

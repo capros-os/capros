@@ -38,6 +38,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/util.h>
 #include <kerninc/Activity.h>
 #include <kerninc/IRQ.h>
+#include <kerninc/IORQ.h>
 #include <kerninc/Debug.h>
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>
@@ -51,7 +52,6 @@ Approved for public release, distribution unlimited. */
 struct grub_multiboot_info * MultibootInfoPtr;
 struct NPObjectsDescriptor * NPObDescr;
 
-extern void ioReg_Init();
 extern void UserIrqInit();
 
 #ifdef OPTION_DDB
@@ -146,7 +146,7 @@ main(void)
 
   inv_InitInv(&inv);
   objH_StallQueueInit();
-  ioReg_Init();
+  IORQ_Init();
 
   printf("Heap initialized...\n");
 

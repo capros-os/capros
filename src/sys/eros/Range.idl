@@ -26,7 +26,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    *
    * Reports the length of a given range.
    */
-  off_t query();
+  unsigned long long /* should be off_t, but CapIDL has a bug */ query();
 
   /** Identify an object.
    *
@@ -36,7 +36,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
      or it is opaque, or the object is not in this range.
    */
   void identify(capros.key key, out obType type, 
-  		out off_t offset);
+    out unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
 
   /** Rescind an object.
    *
@@ -54,7 +54,8 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * is dismounted or otherwise unavailable, this operation will throw
    * the /RangeErr/ exception.
    */
-  capros.key getPageKey(off_t offset);
+  capros.key getPageKey(
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
 
   /** Create key to page (blocking).
    *
@@ -63,7 +64,8 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * is dismounted or otherwise unavailable, this operation will block
    * until the range becomes available.
    */
-  capros.key waitPageKey(off_t offset);
+  capros.key waitPageKey(
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
 
   /** Create a capability to an object.
    *
@@ -73,7 +75,8 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * If the range is dismounted or otherwise unavailable,
    * this operation will throw the /RangeErr/ exception.
    */
-  capros.key getCap(obType type, off_t offset);
+  capros.key getCap(obType type,
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
 
   /** Create a capability to an object (blocking).
    *
@@ -83,7 +86,8 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * If the range is dismounted or otherwise unavailable,
    * this operation will throw the /RangeErr/ exception.
    */
-  capros.key waitCap(obType type, off_t offset);
+  capros.key waitCap(obType type,
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
 
   /** Compare two ranges for overlap or relative position.
    *
@@ -102,7 +106,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    */
 
   void compare(capros.Range krCmpRange, out unsigned long how,
-	       out off_t offset);
+    out unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
 
   /** Report next populated subrange.
    *
@@ -110,15 +114,19 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * backing objects actually exist, starting the search at offset
    * /startOffset/ of the passed range key.
    */
-  void nextSubrange(off_t startOffset, 
-		    out off_t offset, out unsigned long len);
+  void nextSubrange(
+    unsigned long long /* should be off_t, but CapIDL has a bug */ startOffset, 
+    out unsigned long long /* should be off_t */ offset,
+    out unsigned long len);
 
   /** Create a range key for a subrange of this range.
    *
    * Returns a range key for a subrange of the current range,
    * begininng at /offset/ and extending for /len/ frames.
    */
-  capros.Range makeSubrange(off_t offset, unsigned long len);
+  capros.Range makeSubrange(
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
+    unsigned long len);
 
   /** Get counts.
    *
@@ -127,7 +135,8 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * If the object does not have a call count, the allocation count
    * is returned in both parameters.
    */
-  void getFrameCounts(off_t offset,
+  void getFrameCounts(
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
     out count_t allocationCount, out count_t callCount);
 
   /** Retype a frame.
@@ -138,6 +147,8 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * allocationCount and callCount specify the allocation count and
    * call count (for objects that use it) for the new object(s) in the frame.
    */
-  void retypeFrame(off_t offset, obType oldType, obType newType,
-                   count_t allocationCout, count_t callCount);
+  void retypeFrame(
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
+    obType oldType, obType newType,
+    count_t allocationCout, count_t callCount);
 };

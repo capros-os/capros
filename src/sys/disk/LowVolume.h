@@ -49,14 +49,17 @@ enum DivType {
 typedef enum DivType DivType;
 
 struct Division {
-  uint32_t start;	// sector # within this volume
-  uint32_t end;
-  
+  // Beware of alignment: this structure is used on both the host and target.
   OID startOid;
   OID endOid;
 
+  uint32_t start;	// sector # within this volume
+  uint32_t end;
+  
   uint8_t type;		/* see division type enum, above */
   uint8_t flags;	// at the moment there are no flags
+  uint16_t unused1;	// Pad, to avoid alignment differences between
+  uint32_t unused2;	//   target and host.
 };
 typedef struct Division Division;
 
@@ -93,6 +96,7 @@ enum VolHdrFlags {
 typedef enum VolHdrFlags VolHdrFlags;
 
 struct VolHdr {
+  // Beware of alignment: this structure is used on both the host and target.
   char        code[8];		/* leading jump instr */
   uint32_t    HdrVersion;	/* contains VOLHDR_VERSION */
   uint32_t    PageSize;		/* contains EROS_PAGE_SIZE */

@@ -68,12 +68,13 @@ enum ObType {
   ot_PtNewAlloc,	/* newly allocated frame, not yet typed */
   ot_PtKernelHeap,	/* in use as kernel heap */
   ot_PtDevicePage,	/* data page, but device memory */
-  ot_PtSecondary,	/* Part of a multi-page free block, not the first frame.
-			No other fields of PageHeader are valid,
-			except physMemRegion. */
+  ot_PtTagPot,		/* a tag pot. oid = OID of first frame. */
   ot_PtDMABlock,	/* first frame of a block allocated for DMA. */
   ot_PtDMASecondary,	/* subsequent frames of a block allocated for DMA. */
   ot_PtFreeFrame,	/* first frame of a free block */
+  ot_PtSecondary,	/* Part of a multi-page free block, not the first frame.
+			No other fields of PageHeader are valid,
+			except physMemRegion. */
   ot_PtLAST_COMMON_PAGE_TYPE = ot_PtFreeFrame
   MD_PAGE_OBTYPES	// machine-dependent types from PageHeader.h
 };

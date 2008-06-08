@@ -199,6 +199,11 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 
   case OC_capros_DevPrivs_deallocateDMAPages:
     physMem_DeallocateDMAPages(inv);
+    break;
+
+  case OC_capros_DevPrivs_allocateIORQ:
+    devPrivs_allocateIORQ(inv);
+    break;
     
   case OC_capros_DevPrivs_publishMem:
     {
@@ -237,7 +242,7 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
   case OC_capros_key_getType:
     COMMIT_POINT();
     inv->exit.code = RC_OK;
-    inv->exit.w1 = AKT_DevicePrivs;
+    inv->exit.w1 = IKT_capros_DevPrivs;
     break;
 
   default:

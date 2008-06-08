@@ -83,8 +83,8 @@ PhysPageSource_GetObject(ObjectRange * rng, OID oid,
 
 #ifndef NDEBUG
   kpa_t relFrameNdx = ((kpg_t)(pgFrame / EROS_PAGE_SIZE))
-                      - rng->pmi->firstObPgAddr;
-  assert(pageH == &rng->pmi->firstObHdr[relFrameNdx]);
+                      - rng->u.pmi->firstObPgAddr;
+  assert(pageH == &rng->u.pmi->firstObHdr[relFrameNdx]);
 #endif
 
   return pObj;
@@ -115,7 +115,7 @@ PhysPageSource_Init(PmemInfo * pmi)
   rng.start = OID_RESERVED_PHYSRANGE
                   + FrameToOID(pmi->firstObPgAddr);
   rng.end   = rng.start + FrameToOID(pmi->nPages);
-  rng.pmi = pmi;
+  rng.u.pmi = pmi;
   objC_AddRange(&rng);
 }
 
