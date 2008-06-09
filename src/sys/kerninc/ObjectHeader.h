@@ -75,7 +75,7 @@ enum ObType {
   ot_PtSecondary,	/* Part of a multi-page free block, not the first frame.
 			No other fields of PageHeader are valid,
 			except physMemRegion. */
-  ot_PtLAST_COMMON_PAGE_TYPE = ot_PtFreeFrame
+  ot_PtLAST_COMMON_PAGE_TYPE = ot_PtSecondary
   MD_PAGE_OBTYPES	// machine-dependent types from PageHeader.h
 };
 typedef enum ObType ObType;
