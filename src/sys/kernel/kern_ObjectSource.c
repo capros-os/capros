@@ -160,7 +160,7 @@ GetObjectType(OID oid)
   ObjectLocator objLoc;
 
   // Look in the object cache:
-  ObjectHeader * pObj = objH_Lookup(oid);
+  ObjectHeader * pObj = objH_Lookup(oid, false);
   if (pObj) {
     objLoc.locType = objLoc_ObjectHeader;
     objLoc.u.objH = pObj;

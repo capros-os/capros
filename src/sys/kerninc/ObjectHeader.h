@@ -390,7 +390,7 @@ void objH_DelProduct(ObjectHeader * thisPtr, MapTabHeader * product);
   /* Machine dependent -- defined in Mapping.c */
 void ReleaseProduct(MapTabHeader * mth);
 
-ObjectHeader * objH_Lookup(OID oid);
+ObjectHeader * objH_Lookup(OID oid, bool pot);
   
 void objH_StallQueueInit();
 

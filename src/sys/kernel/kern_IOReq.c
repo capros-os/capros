@@ -26,7 +26,9 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/KernTune.h>
 #include <kerninc/IORQ.h>
 #include <kerninc/ObjectSource.h>
+#include <kerninc/ObjectHeader.h>
 #include <eros/target.h>
+#include <disk/TagPot.h>
 
 #define dbg_		0x1
 
@@ -75,7 +77,24 @@ IORQ_Deallocate(IORQ * iorq)
 ObjectLocator 
 IOSource_GetObjectType(ObjectRange * rng, OID oid)
 {
+  ObjectLocator objLoc;
+
+  OID relOid = oid - rng->start;	// OID relative to this range
+  frame_t relFrame = OIDToFrame(relOid);
+  // Object type is in the tag pot.
+  frame_t tagPotRelID = FrameToTagPotRelID(relFrame);
+  frame_t tagPotID = tagPotRelID + rng->start;
+  // Is the tag pot in memory?
+  ObjectHeader * pObj = objH_Lookup(tagPotID, true);
+  if (pObj) {
+    TagPot * tp = (TagPot *)pageH_GetPageVAddr(objH_ToPage(pObj));
+    unsigned int potEntry = FrameIndexInCluster(relFrame);
+    objLoc.objType = tp->typeAndAllocCountUsed[potEntry] & TagTypeMask;
 ////
+    return objLoc;
+  }
+////
+#if 0
   ObjectLocator objLoc = {
     .locType = objLoc_Preload,
     .objType = 0,////capros_Range_otPage,	// pages only
@@ -85,7 +104,9 @@ IOSource_GetObjectType(ObjectRange * rng, OID oid)
       }
     }
   };
+#endif
   fatal("IOSource::WriteBack() unimplemented\n");
+  objLoc.objType = 0;
   return objLoc;
 }
 

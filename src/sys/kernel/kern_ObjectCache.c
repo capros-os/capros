@@ -37,7 +37,6 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/KernTune.h>
 #include <arch-kerninc/Page-inline.h>
 #include <kerninc/PhysMem.h>
-#include <disk/PagePot.h>
 #include <disk/NPODescr.h>
 #include <arch-kerninc/PTE.h>
 
@@ -186,6 +185,9 @@ objC_AllocateUserPages(void)
   objC_coreTable = KPAtoP(PageHeader *,
              physMem_Alloc(trialNPages*sizeof(PageHeader), &physMem_any));
   assert(objC_coreTable);
+
+  DEBUG(cachealloc)
+    printf("Allocated %#x PageHeaders at %#x\n", trialNPages, objC_coreTable);
 
   /* On the way through this loop, objC_nPages holds the total number
    * of pages in all previous allocations until the very end.

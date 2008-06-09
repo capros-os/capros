@@ -34,7 +34,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/Node.h>
 #include <eros/Device.h>
-#include <disk/PagePot.h>
 #include <disk/DiskNodeStruct.h>
 #include <disk/NPODescr.h>
 #include <arch-kerninc/Page-inline.h>

@@ -29,7 +29,7 @@ Approved for public release, distribution unlimited. */
 INLINE Node *         
 objH_LookupNode(OID oid)
 {
-  ObjectHeader * pObj = objH_Lookup(oid);
+  ObjectHeader * pObj = objH_Lookup(oid, false);
   if (pObj && objH_GetBaseType(pObj) == capros_Range_otNode)
     return objH_ToNode(pObj);
   else return NULL;

@@ -150,7 +150,7 @@ objH_Unintern(ObjectHeader* thisPtr)
 }
 
 ObjectHeader *
-objH_Lookup(OID oid)
+objH_Lookup(OID oid, bool pot /* must be 0 or 1 */ )
 {
   ObjectHeader * pOb;
   
@@ -159,7 +159,8 @@ objH_Lookup(OID oid)
   for (pOb = ObBucket[bucket_ndx(oid)]; pOb; pOb = pOb->hashChainNext) {
     DEBUG(hash) printf("ObHdr is 0x%08x oid is %#llx\n", pOb, pOb->oid);
 
-    if (pOb->oid == oid) {
+    if (pOb->oid == oid
+        && (pOb->obType == ot_PtTagPot) == pot) {
       DEBUG(hash) printf("Found oid %#llx\n", oid);
       return pOb;
     }
