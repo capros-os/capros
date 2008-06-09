@@ -89,15 +89,6 @@
 	      </p>
 	    </li>
 	    <li>
-	      <p>In order to support flash memory devices, which
-		wear out after a limited number of write cycles,
-		CapROS keeps a large number of checkpoint header frames
-		at the beginning of the log area. This strategy limits
-		the number of writes to a single header, and reduces
-		the "heat" of this natural hot spot.
-	      </p>
-	    </li>
-	    <li>
 	      <p>
 		KeyKOS never reuses space in the checkpoint area; if
 		an object is modified a second time it gets a new
@@ -218,23 +209,16 @@
                  unstabilized data.
             <dt>Log
             <dd>The area of disk reserved for saving generations.
-                The log is divided into the header log and the main log.
-            <dt>Header Log
-            <dd>The initial portion of the log, used for saving
-                generation headers.
-                Headers are segregated from other generation data
-                so they can be easily located on a restart.
-            <dt>Header log cursor
-            <dd>Headers are written sequentially in a circle. 
-                The header log cursor is the point
-                in the header log where the next header will be written.
+                The log is divided into the header area and the main log.
+            <dt>Header Area
+            <dd>The first two frames of the log,
+                used to hold checkpoint headers.
             <dt>Main log
             <dd>The log, excluding the header log.
-                Generation state data other than headers are written
+                Generation headers and other generation data are written
                 to the main log.
             <dt>Main log cursor
-            <dd>Generation data other than headers are written
-                sequentially in a circle.
+            <dd>Generation data are written sequentially in a circle.
                 The main log cursor is the point
                 in the main log where data will next be written.
             <dt>Limit percent
@@ -252,26 +236,16 @@
             (<b>lid</b>s).  A
 	    <em>lid</em> is constructed by taking the 56 bit frame number
 	    and concatenating an 8-bit object index.
-	    (8 is greater than or equal to 
+	    (8 is equal to 
 	    log<sub>2</sub>(EROS_OBJECTS_PER_FRAME).)
-	  </p>
-	  <p>
-	    Frames zero to N are the header log.
-            They hold the checkpoint headers of all the
-	    stabilized generations.  Any of these headers
-	    may represent the most recently stabilized
-	    generation (the restart generation).
-            The most recently written header can be
-	    determined by comparing the sequence numbers in the header
-	    pages.  
 	  </p>
 	  <ul>
 	      <pre>
- Frame 0       N-1     N                                       SIZE
-+-------+~~~+--------+----------------------------------------+
-|     header log     |               main log                 |
-+-------+~~~+--------+----------------------------------------+
- LID 0x0     (N-1)<<8 N<<8  ...                                SIZE<<8
+ Frame 0  1      2                                       SIZE
++-------+------+----------------------------------------+
+| header area  |               main log                 |
++-------+------+----------------------------------------+
+ LID 0x0        2<<8  ...                                SIZE<<8
 	      </pre>
 	  </ul>
 	  <p>
@@ -289,9 +263,29 @@
 	    all of the objects in that generation reside.  This
 	    information is stored in a chained directory
 	    structure. The last step in stabilizing a generation is
-	    writing the associated header.
+	    writing the associated checkpoint header.
 	  </p>
-	  <h3>3.1 The Generation Header</h3>
+	  <h3>3.1 The Checkpoint Header</h3>
+	  <p>
+	    Frames zero and one of the log are the header area.
+            They hold the two most recent checkpoint headers.
+            There are two headers so that if there is a disk error
+            writing a header, there will still be another valid
+            header that can be used for restart.
+	  </p>
+	  <p>
+            The checkpoint header contains an identifying header,
+            containing the generation number of the restart generation,
+            The header with the highest generation number
+            is the most recent header.
+            Only the most recent valid header is used for restart.
+	  </p>
+	  <p>
+            The checkpoint header also contains an array of LIDs of the
+            generation headers of all the unmigrated generations.
+            This imposes an upper limit of about 500 unmigrated generations.
+	  </p>
+	  <h3>3.2 The Generation Header</h3>
 	  <p>
 	    The root of a generation directory is the generation header.
 	    The generation header frame
@@ -468,7 +462,7 @@ struct DiskGenerationHdr {
 	      </p>
 	    </dd>
 	  </dl>
-	  <h3>3.2 The Process Directory</h3>
+	  <h3>3.3 The Process Directory</h3>
 	  <p>
 	    A process
 	    directory frame consists of a single word describing the
@@ -515,7 +509,7 @@ struct processDescriptor{
 	Note that on restart CapROS loads
 	the process list from the most recent generation header only.
 	  </p>
-	  <h3>3.3 The Object Directory</h3>
+	  <h3>3.4 The Object Directory</h3>
 	  <p>
 	    The object directory frames hold ObjectDescriptors. Each
 	    object descriptor holds an object identifier, the object's
@@ -564,20 +558,30 @@ struct ObjectDescriptor {
             to allow for future types that may be small enough to fit
             256 in one frame.)
 	  </p>
-	  <h3>3.4 Flash Memory</h3>
+	  <h3>3.5 Flash Memory</h3>
 	  <p>
             CapROS will support solid-state disks that use flash memory.
             These devices have a finite number of erase-write cycles 
             (up to 1,000,000 for NAND flash).
+            When the device is written, a block of memory (as large as 256KB)
+            is first erased, then written.
+	  <p>
+            The header area is a "hot spot" on the disk because it is
+            written once on every checkpoint.
             If we assume (pessimistically) one checkpoint every ten seconds,
-            a design life of 10 years,
             and (optimistically) 1,000,000 write cycles,
-            then we will need 32 frames in the header log.
-            (We assume that writing a 4KB frame does not wear adjacent frames.)
-            The main log will need to be sized to hold at least that many
-            generations too. 
+            the header will wear out in only 115 days.
+            An earlier design had a large header area in an attempt to 
+            spread out writes, but the large erase block size makes
+            that approach impractical.
+	  <p>
+            Flash memory devices intended to replace disks generally have
+            some mechanism for wear leveling.
+            We will rely on that mechanism to handle the header area "hot spot".
             The migrator will be written to avoid making node pots and
             tag pots "hot". 
+            The main log should be sized to hold several
+            generations to avoid a hot spot there. 
 	  </p>
 	  <h2>4. Theory of Operation</h2>
           <p>
@@ -594,7 +598,8 @@ struct ObjectDescriptor {
             <li>Those dirty objects are cleaned into the working area,
                 and the directories are written.
             <li>The generation header of the working generation is
-                written to the header log. 
+                written into the working area. 
+            <li>A checkpoint header is written to the header area.
                 The successful completion of this write is a
                 stabilization event, and
                 the generation is said to be stabilized.
@@ -645,17 +650,15 @@ struct ObjectDescriptor {
 	    After the last dirty
 	    object in the working generation has been
 	    written to disk, the object directory is written.
-	    Then a new generation header is written and
-	    that generation becomes the restart
-	    generation.
+	    Then a new generation header is written;
+	    that generation will become the restart generation.
 	  </p>
 	  <p>
-            The header log is written circularly and has its own cursor,
-            so the oldest header is overwritten.
-            In order to be able to recover from an error writing the
-            checkpoint header, we must never overwrite the header
-            of an unretired generation. Therefore we make sure there is
-            always at least one retired header in the header log.
+            Then a checkpoint header is written to the header area.
+            Alternate checkpoint headers are written to alternate
+            locations in the header area,
+            so the older header is overwritten,
+            and there is always a good header. 
 	  </p>
 	  <h2>5. Migration</h2>
 	  <p>
@@ -695,15 +698,17 @@ struct ObjectDescriptor {
             In that case, if an attempt is made to dirty another
             object and increase the reservation, 
             the dirtying process must be stalled until space is freed up.
-            The priority of migration will be adjusted to avoid this.
+            The priority of migration will be adjusted to
+            reduce the likelihood of this happening.
           </p>
 	  <h2>6. Log Management</h2>
 	  <p>
             The main log is a circular buffer of frames,
             each of which is one page in size.
             A frame may hold a
-		data page, a log pot of nodes, a process directory
-		entry, or an object directory entry in a given generation.
+	    data page, a log pot of nodes, a process directory
+	    frame, an object directory frame,
+            or a generation header.
 	  </p>
 	  <h3>6.1 Frame Reservation</h3>
 	  <p>
@@ -722,6 +727,7 @@ struct ObjectDescriptor {
               processes is capped by the number of Activity structures
               allocated in the kernel, so we will reserve space
               for the maximum number of processes. 
+            <li>One frame is needed for the generation header.
             </ul>
 	  </p>
 	  <p>
@@ -823,15 +829,11 @@ struct ObjectDescriptor {
 	  <h3>6.3 Restart Actions</h3>
 	  <p>
 	    When CapROS is restarted after a shutdown (orderly or otherwise),
-            it first reads the frame at LID 0 to find the size of the
-            header log (nHeaders).
-            It then reads other generation headers in the header log
-            to find the most recent generation header
-            (the one with the highest sequenceNumber).
-            This header identifies the restart generation.
-            CapROS could find the header with the highest sequenceNumber
-            either by reading all the headers, or,
-            if the header log is large, by using a binary search.
+            it first reads the frames at LIDs 0 and 1 and determines
+            which one is the most recent valid checkpoint header
+            (the one with the highest generation number).
+            This header identifies the restart generation 
+            and all the unmigrated generations.
 	  </p>
 	  <p>
 	    If a drive failure occurred
@@ -841,10 +843,11 @@ struct ObjectDescriptor {
 	    is discarded.
 	  </p>
 	  <p>
-            The migratedSeqNum value in the restart generation header is
-	    used to determine the unmigrated generations.
-            Those generation headers are read (if not already read)
-            and are used to reload the object directory.
+            Then all the unmigrated generation headers are read.
+            The migratedSeqNum value in the restart generation header
+	    validates the number of unmigrated generations.
+            Those generation headers
+            are used to reload the object directory.
             Unmigrated generations now need to be migrated
             (perhaps for the second time).
             All the older generations are both migrated and retired
