@@ -27,7 +27,6 @@ Approved for public release, distribution unlimited. */
 #include <stdio.h>
 #include <unistd.h>
 
-#include <disk/PagePot.h>
 
 #include <erosimg/App.h>
 #include <erosimg/Parse.h>

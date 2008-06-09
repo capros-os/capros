@@ -27,7 +27,6 @@ Approved for public release, distribution unlimited. */
 
 #include <disk/LowVolume.h>
 #include <disk/ErosTypes.h>
-#include <disk/PagePot.h>
 #include <disk/DiskNodeStruct.h>
 #include <erosimg/DiskCkpt.h>
 #include <erosimg/Intern.h>
@@ -55,7 +54,8 @@ struct CkptDirent;
 typedef struct VolPagePot VolPagePot;
 struct VolPagePot {
   ObCount count;
-  uint8_t    type;
+  uint8_t type;
+  uint8_t allocCountUsed;	// TagAllocCountUsedMask or 0
 };
   
 typedef struct Volume Volume;

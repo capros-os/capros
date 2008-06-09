@@ -28,7 +28,6 @@ Approved for public release, distribution unlimited. */
 #include <string.h>
 #include <assert.h>
 
-#include <disk/PagePot.h>
 #include <disk/NPODescr.h>
 
 #include <erosimg/App.h>

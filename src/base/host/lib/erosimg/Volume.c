@@ -36,7 +36,7 @@ Approved for public release, distribution unlimited. */
 #include <sys/fcntl.h>
 #include <sys/stat.h>
 
-#include <disk/PagePot.h>
+#include <disk/TagPot.h>
 #include <erosimg/App.h>
 #include <erosimg/Volume.h>
 #include <erosimg/DiskDescrip.h>
@@ -63,9 +63,7 @@ vol_GetOidFrameVolOffset(Volume *pVol, int ndx, OID oid)
 
   assert ((d->startOid % EROS_OBJECTS_PER_FRAME) == 0);
 
-  relPage = (uint32_t) ((oid - d->startOid) / EROS_OBJECTS_PER_FRAME);
-  relPage += (relPage / DATA_PAGES_PER_PAGE_CLUSTER);
-  relPage += 1;			/* clusters precede data */
+  relPage = FrameToRangeLoc(OIDToFrame(oid - d->startOid));
 
   relPage += 1;			/* skip ckpt sequence pg */
   
@@ -211,7 +209,7 @@ vol_AddDivisionWithOid(Volume *pVol, DivType type, uint32_t sz, OID oid)
     nObFrames--;
 
     /* Take out a pot for each whole or partial cluster. */
-    nObFrames -= (nObFrames + (PAGES_PER_PAGE_CLUSTER-1)) / PAGES_PER_PAGE_CLUSTER;
+    nObFrames -= (nObFrames + (RangeLocsPerCluster-1)) / RangeLocsPerCluster;
 
     endOid = oid + (nObFrames * EROS_OBJECTS_PER_FRAME);
     break;
@@ -874,6 +872,7 @@ vol_SyncDivTables(Volume *pVol)
   if (!pVol->needSyncDivisions)
     return;
   
+  diag_printf("Syncing div tables ...\n");
   assert(pVol->working_fd >= 0);
   
   for (div = 0; div < pVol->topDiv; div++) {
@@ -1142,6 +1141,10 @@ vol_SyncHdr(Volume *pVol)
   char buf[EROS_PAGE_SIZE];
   int i;
   
+  if (! pVol->needSyncHdr)
+    return;
+
+  diag_printf("Syncing header ...\n");
   assert(pVol->working_fd >= 0);
 
   vol_Read(pVol, 0, buf, EROS_PAGE_SIZE);
@@ -1178,6 +1181,7 @@ vol_SyncCkptLog(Volume *pVol)
   if (!pVol->needSyncCkptLog)
     return;
   
+  diag_printf("Syncing ckpt log ...\n");
   assert(pVol->working_fd >= 0);
 
   assert((pVol->maxCkptDirent % ckdp_maxDirEnt) == 0);
@@ -1311,11 +1315,8 @@ vol_Close(Volume *pVol)
     return;
   
   vol_InitDivisions(pVol);
-  diag_printf("Syncing header ...\n");
   vol_SyncHdr(pVol);
-  diag_printf("Syncing div tables ...\n");
   vol_SyncDivTables(pVol);
-  diag_printf("Syncing ckpt log ...\n");
   vol_SyncCkptLog(pVol);
 
   if (pVol->grubDir) {
@@ -1658,8 +1659,6 @@ static uint32_t
 vol_GetOidPagePotVolOffset(Volume *pVol, int ndx, OID oid)
 {
   const Division *d = &pVol->divTable[ndx];
-  uint32_t relPage;
-  uint32_t whichCluster;
   uint32_t pagePotFrame;
   uint32_t pageOffset;
   uint32_t divStart;
@@ -1667,11 +1666,10 @@ vol_GetOidPagePotVolOffset(Volume *pVol, int ndx, OID oid)
   assert(d->type == dt_Object);
   assert(div_contains(d, oid));
   
-  assert ((d->startOid % EROS_OBJECTS_PER_FRAME) == 0);
+  assert(OIDToObIndex(d->startOid) == 0);
   
-  relPage = (uint32_t) ((oid - d->startOid) / EROS_OBJECTS_PER_FRAME);
-  whichCluster = (uint32_t) (relPage / DATA_PAGES_PER_PAGE_CLUSTER);
-  pagePotFrame = whichCluster * PAGES_PER_PAGE_CLUSTER;
+  pagePotFrame = FrameToCluster(OIDToFrame(oid - d->startOid))
+                 * RangeLocsPerCluster;
 
   pagePotFrame ++;		/* for ckpt sequence number pg */
 
@@ -1693,9 +1691,6 @@ vol_ReadPagePotEntry(Volume *pVol, OID oid, VolPagePot *pPagePot)
     if ( d->type == dt_Object && div_contains(d, oid) ) {
       bool result;
       uint32_t offset;
-      uint32_t relPage;
-      uint32_t potEntry;
-      PagePot *pp;
 
       assert ((d->startOid % EROS_OBJECTS_PER_FRAME) == 0);
 
@@ -1705,12 +1700,13 @@ vol_ReadPagePotEntry(Volume *pVol, OID oid, VolPagePot *pPagePot)
       if (result == false)
 	return result;
 
-      relPage = (uint32_t) ((oid - d->startOid) / EROS_OBJECTS_PER_FRAME);
-      
-      pp = (PagePot *) data;
-      potEntry = relPage % DATA_PAGES_PER_PAGE_CLUSTER;
-      pPagePot->type = pp->type[potEntry];
-      pPagePot->count = pp->count[potEntry];
+      TagPot * tp = (TagPot *) data;
+      unsigned int potEntry
+        = FrameIndexInCluster(OIDToFrame(oid - d->startOid));
+      pPagePot->type = tp->typeAndAllocCountUsed[potEntry] & TagTypeMask;
+      pPagePot->allocCountUsed = tp->typeAndAllocCountUsed[potEntry]
+                                 & TagAllocCountUsedMask;
+      pPagePot->count = tp->count[potEntry];
 
       return true;
     }
@@ -1731,9 +1727,6 @@ vol_WritePagePotEntry(Volume *pVol, OID oid, const VolPagePot *pPagePot)
     if ( d->type == dt_Object && div_contains(d, oid) ) {
       bool result;
       uint32_t offset;
-      uint32_t relPage;
-      PagePot *pp;
-      uint32_t potEntry;
 
       assert ((d->startOid % EROS_OBJECTS_PER_FRAME) == 0);
 
@@ -1743,12 +1736,12 @@ vol_WritePagePotEntry(Volume *pVol, OID oid, const VolPagePot *pPagePot)
       if (result == false)
 	return result;
 
-      relPage = (uint32_t) ((oid - d->startOid) / EROS_OBJECTS_PER_FRAME);
-      
-      pp = (PagePot *) data;
-      potEntry = relPage % DATA_PAGES_PER_PAGE_CLUSTER;
-      pp->type[potEntry] = pPagePot->type;
-      pp->count[potEntry] = pPagePot->count;
+      TagPot * tp = (TagPot *) data;
+      unsigned int potEntry
+        = FrameIndexInCluster(OIDToFrame(oid - d->startOid));
+      tp->typeAndAllocCountUsed[potEntry]
+        = pPagePot->type | pPagePot->allocCountUsed;
+      tp->count[potEntry] = pPagePot->count;
 
       if ( !vol_Write(pVol, offset, data, EROS_PAGE_SIZE) )
 	diag_fatal(5, "Volume write failed at offset %d.\n", offset);
