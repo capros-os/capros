@@ -136,6 +136,8 @@ struct scsi_device {
 	atomic_t iodone_cnt;
 	atomic_t ioerr_cnt;
 
+	unsigned int threadNum;	// of thread serving IORQ
+
 	int timeout;
 
 	struct device		sdev_gendev;
