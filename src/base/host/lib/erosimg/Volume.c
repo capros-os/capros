@@ -65,8 +65,6 @@ vol_GetOidFrameVolOffset(Volume *pVol, int ndx, OID oid)
 
   relPage = FrameToRangeLoc(OIDToFrame(oid - d->startOid));
 
-  relPage += 1;			/* skip ckpt sequence pg */
-  
   divStart = d->start * EROS_SECTOR_SIZE;
   pageOffset = relPage * EROS_PAGE_SIZE;
 
@@ -199,14 +197,9 @@ vol_AddDivisionWithOid(Volume *pVol, DivType type, uint32_t sz, OID oid)
   case dt_Kernel:
   case dt_Object:
 
-    /* Must have at least space for the first page, one pot, and one frame. */
-    if (nObFrames < 3)
+    /* Must have at least space for one pot and one frame. */
+    if (nObFrames < 2)
       diag_fatal(1, "Range must have at least 3 frames.\n");
-
-    /* Take out one for the first page, which is used to capture
-     * seqno of most recent checkpoint.
-     */
-    nObFrames--;
 
     /* Take out a pot for each whole or partial cluster. */
     nObFrames -= (nObFrames + (RangeLocsPerCluster-1)) / RangeLocsPerCluster;
@@ -389,7 +382,9 @@ vol_FormatObjectDivision(Volume *pVol, int ndx)
   for (oid = d->startOid; oid < d->endOid; oid += EROS_OBJECTS_PER_FRAME) {
     VolPagePot pagePot;
     vol_ReadPagePotEntry(pVol, oid, &pagePot);
-    pagePot.type = FRM_TYPE_ZDPAGE;
+    pagePot.type = FRM_TYPE_DPAGE;
+    pagePot.isZero = TagIsZero;
+    pagePot.allocCountUsed = 0;
     pagePot.count = 0;
     vol_WritePagePotEntry(pVol, oid, &pagePot);
     oid++;
@@ -1385,12 +1380,11 @@ vol_ValidOid(Volume *pVol, int ndx, OID oid)
   vol_GetPagePotInfo(pVol, oid, &frameInfo);
   
   switch (frameInfo.type) {
-  case FRM_TYPE_ZDPAGE:
   case FRM_TYPE_DPAGE:
-    return (obOffset == 0) ? true : false;
+    return (obOffset == 0);
 
   case FRM_TYPE_NODE:
-    return (obOffset < DISK_NODES_PER_PAGE) ? true : false;
+    return (obOffset < DISK_NODES_PER_PAGE);
   default:
     return false;
   }
@@ -1419,12 +1413,11 @@ vol_GetOidVolOffset(Volume *pVol, int ndx, OID oid)
     vol_GetPagePotInfo(pVol, oid, &frameInfo);
   
     switch (frameInfo.type) {
-    case FRM_TYPE_ZDPAGE:
     case FRM_TYPE_DPAGE:
       obOffset *= EROS_PAGE_SIZE;
       break;
     case FRM_TYPE_NODE:
-      obOffset *= sizeof(DiskNodeStruct);
+      obOffset *= sizeof(DiskNode);
       break;
     default:
       diag_fatal(1, "Unknown object type tag!\n");
@@ -1445,6 +1438,7 @@ vol_GetPagePotInfo(Volume *pVol, OID oid, VolPagePot *pPot)
   if (cpd) {
     pPot->count = cpd->count;
     pPot->type = cpd->type;
+    pPot->isZero = (cpd->lid == 0) ? TagIsZero : 0;
 
     return true;
   }
@@ -1472,22 +1466,20 @@ vol_ReadDataPage(Volume *pVol, OID oid, uint8_t *buf)
     return false;
   }
 
-  switch(pp.type) {
-  case FRM_TYPE_ZDPAGE:
-    memset(buf, 0, EROS_PAGE_SIZE);
-    return true;
-  case FRM_TYPE_DPAGE:
-    break;
-  default:
+  if (pp.type != FRM_TYPE_DPAGE) {
     diag_printf("Requested OID not a page frame\n");
     return false;
   }
-  
+
+  if (pp.isZero) {
+    memset(buf, 0, EROS_PAGE_SIZE);
+    return true;
+  }
+
   cpd = vol_LookupObject(pVol, oid);
     
   if (cpd) {
     assert (CONTENT_LID(cpd->lid));
-    assert (cpd->type != FRM_TYPE_ZDPAGE);
     
     if (vol_ReadLogPage(pVol, cpd->lid, buf) == false)
       return false;
@@ -1510,8 +1502,7 @@ vol_ReadDataPage(Volume *pVol, OID oid, uint8_t *buf)
       
       vol_ReadPagePotEntry(pVol, oid, &frameInfo);
 
-      if ((frameInfo.type != FRM_TYPE_DPAGE) &&
-	  (frameInfo.type != FRM_TYPE_ZDPAGE)) {
+      if (frameInfo.type != FRM_TYPE_DPAGE) {
 	diag_printf("Non-page frame\n");
 	return false;
       }
@@ -1541,7 +1532,7 @@ vol_WriteDataPage(Volume *pVol, OID oid, const uint8_t *buf)
     
   cpd = vol_LookupObject(pVol, oid);
     
-  if (cpd && cpd->type != FRM_TYPE_DPAGE && cpd->type != FRM_TYPE_ZDPAGE)
+  if (cpd && cpd->type != FRM_TYPE_DPAGE)
     return false;
   
   /* If a location has already been fabricated, write it there even if
@@ -1560,20 +1551,19 @@ vol_WriteDataPage(Volume *pVol, OID oid, const uint8_t *buf)
     if (((d->type == dt_Object) || (d->type == dt_Kernel)) &&
 	div_contains(d, oid)) {
       VolPagePot frameInfo;
-      uint8_t wantTag;
       uint32_t offset;
 
       vol_ReadPagePotEntry(pVol, oid, &frameInfo);
 
       assert ((oid % EROS_OBJECTS_PER_FRAME) == 0);
 
-      wantTag = isZeroPage ? FRM_TYPE_ZDPAGE : FRM_TYPE_DPAGE;
-      if (frameInfo.type != wantTag) {
-	diag_debug(1, "Re-tagging frame for OID 0x%08x%08x to %d\n",
-		    (uint32_t) (oid >> 32),
-		    (uint32_t) (oid),
-		    wantTag);
-	frameInfo.type = wantTag;
+      uint8_t zeroTag = isZeroPage ? TagIsZero : 0;
+      if (frameInfo.type != FRM_TYPE_DPAGE
+          || frameInfo.isZero != zeroTag) {
+	diag_debug(1, "Re-tagging frame for OID %#llx to %d page\n", oid,
+		   zeroTag);
+	frameInfo.type = FRM_TYPE_DPAGE;
+	frameInfo.isZero = zeroTag;
 	vol_WritePagePotEntry(pVol, oid, &frameInfo);
       }
 
@@ -1597,18 +1587,18 @@ vol_WriteDataPage(Volume *pVol, OID oid, const uint8_t *buf)
 	      (uint32_t)(oid>>32), (uint32_t)oid);
   
   {
-    lid_t lid = ZERO_LID;
-    uint8_t type = FRM_TYPE_ZDPAGE;
+    lid_t lid;
 
-    if (isZeroPage == false) {
+    if (isZeroPage) {
+      lid = ZERO_LID;
+    } else {
       lid = vol_AllocLogPage(pVol);
-      type = FRM_TYPE_DPAGE;
   
       if (vol_WriteLogPage(pVol, lid, buf) == false)
 	return false;
     }
   
-    vol_AddDirent(pVol, oid, 0, lid, type);
+    vol_AddDirent(pVol, oid, 0, lid, FRM_TYPE_DPAGE);
   }
 
   return true;
@@ -1671,8 +1661,6 @@ vol_GetOidPagePotVolOffset(Volume *pVol, int ndx, OID oid)
   pagePotFrame = FrameToCluster(OIDToFrame(oid - d->startOid))
                  * RangeLocsPerCluster;
 
-  pagePotFrame ++;		/* for ckpt sequence number pg */
-
   pageOffset = pagePotFrame * EROS_PAGE_SIZE;
   divStart = d->start * EROS_SECTOR_SIZE;
   
@@ -1703,9 +1691,10 @@ vol_ReadPagePotEntry(Volume *pVol, OID oid, VolPagePot *pPagePot)
       TagPot * tp = (TagPot *) data;
       unsigned int potEntry
         = FrameIndexInCluster(OIDToFrame(oid - d->startOid));
-      pPagePot->type = tp->typeAndAllocCountUsed[potEntry] & TagTypeMask;
-      pPagePot->allocCountUsed = tp->typeAndAllocCountUsed[potEntry]
+      pPagePot->type = tp->tags[potEntry] & TagTypeMask;
+      pPagePot->allocCountUsed = tp->tags[potEntry]
                                  & TagAllocCountUsedMask;
+      pPagePot->isZero = tp->tags[potEntry] & TagIsZero;
       pPagePot->count = tp->count[potEntry];
 
       return true;
@@ -1739,8 +1728,8 @@ vol_WritePagePotEntry(Volume *pVol, OID oid, const VolPagePot *pPagePot)
       TagPot * tp = (TagPot *) data;
       unsigned int potEntry
         = FrameIndexInCluster(OIDToFrame(oid - d->startOid));
-      tp->typeAndAllocCountUsed[potEntry]
-        = pPagePot->type | pPagePot->allocCountUsed;
+      tp->tags[potEntry]
+        = pPagePot->type | pPagePot->allocCountUsed | pPagePot->isZero;
       tp->count[potEntry] = pPagePot->count;
 
       if ( !vol_Write(pVol, offset, data, EROS_PAGE_SIZE) )
@@ -1754,7 +1743,7 @@ vol_WritePagePotEntry(Volume *pVol, OID oid, const VolPagePot *pPagePot)
 }
 
 bool
-vol_ReadNode(Volume *pVol, OID oid, DiskNodeStruct *pNode)
+vol_ReadNode(Volume * pVol, OID oid, DiskNode * pNode)
 {
   int div;
   CkptDirent* ccd = vol_LookupObject(pVol, oid);
@@ -1762,7 +1751,7 @@ vol_ReadNode(Volume *pVol, OID oid, DiskNodeStruct *pNode)
   if (ccd && ccd->type == FRM_TYPE_NODE && ccd->lid != UNDEF_LID) {
     uint32_t i;
     uint8_t logPage[EROS_PAGE_SIZE];
-    DiskNodeStruct* logPot = (DiskNodeStruct *) logPage;
+    DiskNode * logPot = (DiskNode *) logPage;
 
     assert (CONTENT_LID(ccd->lid));
     
@@ -1771,7 +1760,7 @@ vol_ReadNode(Volume *pVol, OID oid, DiskNodeStruct *pNode)
 
     for (i = 0; i < DISK_NODES_PER_PAGE; i++) {
       if (logPot[i].oid == oid) {
-	memcpy(pNode, &logPot[i], sizeof(DiskNodeStruct));
+	memcpy(pNode, &logPot[i], sizeof(DiskNode));
 	return true;
       }
     }
@@ -1800,7 +1789,7 @@ vol_ReadNode(Volume *pVol, OID oid, DiskNodeStruct *pNode)
       
       offset = vol_GetOidVolOffset(pVol, div, oid);
 
-      return vol_Read(pVol, offset, pNode, sizeof(DiskNodeStruct));
+      return vol_Read(pVol, offset, pNode, sizeof(DiskNode));
     }
   }
 
@@ -1808,10 +1797,10 @@ vol_ReadNode(Volume *pVol, OID oid, DiskNodeStruct *pNode)
 }
 
 bool
-vol_WriteNodeToLog(Volume *pVol, OID oid, const DiskNodeStruct *pNode)
+vol_WriteNodeToLog(Volume * pVol, OID oid, const DiskNode * pNode)
 {
   uint8_t logPage[EROS_PAGE_SIZE];
-  DiskNodeStruct* logPot = (DiskNodeStruct *) logPage;
+  DiskNode * logPot = (DiskNode *) logPage;
   uint8_t ndx;
 
   assert (oid == pNode->oid);
@@ -1825,7 +1814,7 @@ vol_WriteNodeToLog(Volume *pVol, OID oid, const DiskNodeStruct *pNode)
 
   ndx = pVol->curLogPotLid % EROS_OBJECTS_PER_FRAME;
   
-  memcpy(&logPot[ndx], pNode, sizeof(DiskNodeStruct));
+  memcpy(&logPot[ndx], pNode, sizeof(DiskNode));
 
   if (vol_WriteLogPage(pVol, pVol->curLogPotLid, logPage) == false)
     return false;
@@ -1843,7 +1832,7 @@ static bool
 vol_FormatNodeFrame(Volume *pVol, int div, OID frameOID)
 {
   char buf[EROS_PAGE_SIZE];
-  DiskNodeStruct *pdn = (DiskNodeStruct *) buf;
+  DiskNode * pdn = (DiskNode *) buf;
   int nd;
   uint32_t offset;
 
@@ -1863,7 +1852,7 @@ vol_FormatNodeFrame(Volume *pVol, int div, OID frameOID)
 }
 
 bool
-vol_WriteNode(Volume *pVol, OID oid, const DiskNodeStruct *pNode)
+vol_WriteNode(Volume *pVol, OID oid, const DiskNode * pNode)
 {
   CkptDirent* ccd = vol_LookupObject(pVol, oid);
   int div;
@@ -1873,7 +1862,7 @@ vol_WriteNode(Volume *pVol, OID oid, const DiskNodeStruct *pNode)
   
   if (ccd && CONTENT_LID(ccd->lid)) {
     uint8_t logPage[EROS_PAGE_SIZE];
-    DiskNodeStruct* logPot = (DiskNodeStruct *) logPage;
+    DiskNode * logPot = (DiskNode *) logPage;
     uint32_t i;
 
     if (vol_ReadLogPage(pVol, ccd->lid, logPage) == false)
@@ -1881,7 +1870,7 @@ vol_WriteNode(Volume *pVol, OID oid, const DiskNodeStruct *pNode)
 
     for (i = 0; i < DISK_NODES_PER_PAGE; i++) {
       if (logPot[i].oid == oid) {
-	memcpy(&logPot[i], pNode, sizeof(DiskNodeStruct));
+	memcpy(&logPot[i], pNode, sizeof(DiskNode));
 
 	if (vol_WriteLogPage(pVol, ccd->lid, logPage) == false)
 	  return false;
@@ -1921,7 +1910,7 @@ vol_WriteNode(Volume *pVol, OID oid, const DiskNodeStruct *pNode)
 
       offset = vol_GetOidVolOffset(pVol, div, oid);
 
-      if ( !vol_Write(pVol, offset, pNode, sizeof(DiskNodeStruct)) )
+      if ( !vol_Write(pVol, offset, pNode, sizeof(DiskNode)) )
 	diag_fatal(5, "Volume write failed at offset %d.\n", offset);
 
       return true;
@@ -1968,13 +1957,13 @@ vol_ContainsPage(Volume *pVol, OID oid)
   CkptDirent* ccd = vol_LookupObject(pVol, oid);
   VolPagePot frameInfo;
 
-  if (ccd && (ccd->type == FRM_TYPE_DPAGE || ccd->type == FRM_TYPE_ZDPAGE))
+  if (ccd && (ccd->type == FRM_TYPE_DPAGE))
     return true;
   
   if (vol_ReadPagePotEntry(pVol, oid, &frameInfo) == false)
     return false;
   
-  if (frameInfo.type != FRM_TYPE_DPAGE && frameInfo.type != FRM_TYPE_ZDPAGE)
+  if (frameInfo.type != FRM_TYPE_DPAGE)
     return false;
   
   return true;

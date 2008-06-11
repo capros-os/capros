@@ -40,6 +40,8 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/KeyConst.h>
 #include <disk/DiskLSS.h>
+#include <disk/DiskGPT.h>
+#include <disk/Node.h>
 
 #include <idl/capros/Range.h>
 #include <idl/capros/GPT.h>
@@ -80,7 +82,7 @@ BlssToL2v(unsigned int blss)
   return (blss -1 - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS;
 }
 
-static DiskNodeStruct *
+static DiskNode *
 ei_GetNodeP(const ErosImage *ei, KeyBits nodeKey)
 {
   if (keyBits_IsNodeKeyType(&nodeKey) == false)
@@ -96,7 +98,7 @@ ei_GetAnyBlss(const ErosImage * ei, KeyBits key)
   switch (type) {
   case KKT_GPT:
   {
-    struct DiskNodeStruct * theGPT = ei_GetNodeP(ei, key);
+    struct DiskNode * theGPT = ei_GetNodeP(ei, key);
     return L2vToBlss(* gpt_l2vField(& theGPT->nodeData) & GPT_L2V_MASK);
   }
 
@@ -225,20 +227,20 @@ void
 ei_GrowNodeTable(ErosImage *ei, uint32_t newMax)
 {
   if (ei->maxNode < newMax) {
-    DiskNodeStruct *newNodeImages;
+    DiskNode * newNodeImages;
     unsigned i;
     ei->maxNode = newMax;
     ei->maxNode += (NODE_ALLOC_QUANTA - 1);
     ei->maxNode -= (ei->maxNode % NODE_ALLOC_QUANTA);
 
     newNodeImages = 
-      (DiskNodeStruct *) malloc(sizeof(DiskNodeStruct) * ei->maxNode);
+      (DiskNode *) malloc(sizeof(DiskNode) * ei->maxNode);
 
     for (i = 0; i < ei->maxNode; i++)
       init_DiskNode(&newNodeImages[i]);
 
     if (ei->nodeImages)
-      memcpy(newNodeImages, ei->nodeImages, ei->hdr.nNodes * sizeof(DiskNodeStruct)); 
+      memcpy(newNodeImages, ei->nodeImages, ei->hdr.nNodes * sizeof(DiskNode)); 
 
     free(ei->nodeImages);
     ei->nodeImages = newNodeImages;
@@ -458,18 +460,18 @@ ei_GetDataPageContent(const ErosImage * ei, uint32_t ndx, void * buf)
 }
 
 void
-ei_GetNodeContent(const ErosImage *ei, uint32_t ndx, DiskNodeStruct *pNode)
+ei_GetNodeContent(const ErosImage * ei, uint32_t ndx, DiskNode * pNode)
 {
   if (ndx >= ei->hdr.nNodes)
     diag_fatal(5, "Not that many nodes in image file\n");
   
-  memcpy(pNode, &ei->nodeImages[ndx], sizeof(DiskNodeStruct));
+  memcpy(pNode, &ei->nodeImages[ndx], sizeof(DiskNode));
 }
 
 KeyBits
 ei_AddNode(ErosImage *ei, bool readOnly)
 {
-  DiskNodeStruct *pNode;
+  DiskNode * pNode;
   OID oid;
   unsigned i;
 
@@ -658,7 +660,7 @@ ei_GetBlss(ErosImage * ei, KeyBits gptKey)
   if (! keyBits_IsType(&gptKey, KKT_GPT))
     diag_fatal(5,"GetBlss expects GPT key!\n");
 
-  struct DiskNodeStruct * theGPT = ei_GetNodeP(ei, gptKey);
+  struct DiskNode * theGPT = ei_GetNodeP(ei, gptKey);
   uint8_t * l2vf = gpt_l2vField(& theGPT->nodeData);
   return *l2vf & GPT_L2V_MASK;
 }
@@ -677,7 +679,7 @@ ei_SetBlss(ErosImage * ei, KeyBits gptKey, unsigned int blss)
   if (! keyBits_IsType(&gptKey, KKT_GPT))
     diag_fatal(5,"SetBlss expects GPT key!\n");
 
-  struct DiskNodeStruct * theGPT = ei_GetNodeP(ei, gptKey);
+  struct DiskNode * theGPT = ei_GetNodeP(ei, gptKey);
   uint8_t * l2vf = gpt_l2vField(& theGPT->nodeData);
   * l2vf = (*l2vf & ~GPT_L2V_MASK) | l2v;
   return true;
@@ -692,7 +694,7 @@ ei_SetGPTFlags(ErosImage *ei, KeyBits gptKey, uint8_t flags)
   if (! keyBits_IsType(&gptKey, KKT_GPT))
     diag_fatal(5,"SetBlss expects GPT key!\n");
 
-  struct DiskNodeStruct * theGPT = ei_GetNodeP(ei, gptKey);
+  struct DiskNode * theGPT = ei_GetNodeP(ei, gptKey);
   uint8_t * l2vf = gpt_l2vField(& theGPT->nodeData);
   * l2vf |= flags;
 }
@@ -708,7 +710,7 @@ ei_SetArchitecture(ErosImage *ei, enum ExecArchitecture arch)
 void
 ei_ValidateImage(ErosImage *ei, const char* target)
 {
-  DiskNodeStruct *pNode;
+  DiskNode * pNode;
 
   if (ei->hdr.nDirEnt == 0)
     diag_fatal(2, "No directory entries in \"%s\"!\n", target);
@@ -757,7 +759,7 @@ ei_WriteToFile(ErosImage *ei, const char *target)
   ei->hdr.nodeOffset = ei->hdr.pageOffset;
   ei->hdr.nodeOffset += ei->hdr.nPages * EROS_PAGE_SIZE;
   ei->hdr.strTableOffset = ei->hdr.nodeOffset;
-  ei->hdr.strTableOffset += ei->hdr.nNodes * sizeof(DiskNodeStruct);
+  ei->hdr.strTableOffset += ei->hdr.nNodes * sizeof(DiskNode);
   ei->hdr.strSize = strpool_Size(ei->pool);
 
   sz = sizeof(ErosHeader);
@@ -776,7 +778,7 @@ ei_WriteToFile(ErosImage *ei, const char *target)
   if (write(tfd, ei->pageImages, sz) != sz)
     diag_fatal(3, "Unable to write page images\n");
 
-  sz = ei->hdr.nNodes * sizeof(DiskNodeStruct);
+  sz = ei->hdr.nNodes * sizeof(DiskNode);
   if (write(tfd, ei->nodeImages, sz) != sz)
     diag_fatal(3, "Unable to write node images\n");
 
@@ -829,7 +831,7 @@ ei_ReadFromFile(ErosImage *ei, const char *source)
   expect += ei->hdr.nDirEnt * sizeof(EiDirent);
   expect += ei->hdr.nStartups * sizeof(EiDirent);
   expect += ei->hdr.nPages * EROS_PAGE_SIZE;
-  expect += ei->hdr.nNodes * sizeof(DiskNodeStruct);
+  expect += ei->hdr.nNodes * sizeof(DiskNode);
   expect += ei->hdr.strSize;
 
   if (expect != statbuf.st_size)
@@ -898,12 +900,12 @@ ei_ReadFromFile(ErosImage *ei, const char *source)
 
   {
     unsigned i;
-    ei->nodeImages = (DiskNodeStruct *) malloc(sizeof(DiskNodeStruct) * ei->maxNode);
+    ei->nodeImages = (DiskNode *) malloc(sizeof(DiskNode) * ei->maxNode);
 
     for (i = 0; i < ei->maxNode; i++)
       init_DiskNode(&ei->nodeImages[i]);
   }
-  sz = ei->hdr.nNodes * sizeof(DiskNodeStruct);
+  sz = ei->hdr.nNodes * sizeof(DiskNode);
   
   if (lseek(sfd, ei->hdr.nodeOffset, SEEK_SET) < 0)
     diag_fatal(2, "Cannot seek to node images in \"%s\"\n", source);
@@ -1312,7 +1314,7 @@ ei_DoPrintSegment(const ErosImage *ei, uint32_t slot, KeyBits segKey,
   switch(keyBits_GetType(&segKey)) {
   case KKT_GPT:
   {
-    struct DiskNodeStruct * theGPT = ei_GetNodeP(ei, segKey);
+    struct DiskNode * theGPT = ei_GetNodeP(ei, segKey);
     uint8_t l2vf = * gpt_l2vField(& theGPT->nodeData);
 
     if (annotation)

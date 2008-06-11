@@ -2,7 +2,7 @@
 #define __DISKKEY_H__
 /*
  * Copyright (C) 1998, 1999, 2001, 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -38,7 +38,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <disk/KeyStruct.h>
 #include <disk/Key-inline.h>
-#include <disk/DiskNodeStruct.h>
+#include <disk/DiskNode.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -66,7 +66,7 @@ void init_SmallNumberKey(KeyBits *dk, uint32_t first)
 }
 
 INLINE void
-init_DiskNode(DiskNodeStruct *dn)
+init_DiskNode(DiskNode * dn)
 {
   unsigned u;
 

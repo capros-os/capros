@@ -41,6 +41,8 @@ Approved for public release, distribution unlimited. */
 #include <erosimg/DiskKey.h>
 #include <eros/KeyConst.h>
 #include <disk/DiskLSS.h>
+#include <disk/DiskGPT.h>
+#include <disk/Node.h>
 #include <disk/Forwarder.h>
 #include <eros/StdKeyType.h>
 #include <idl/capros/GPT.h>

@@ -206,7 +206,7 @@ main(int argc, char *argv[])
    */
   for (ndx = 0; ndx < nNodes; ndx++) {
     unsigned slot;
-    DiskNodeStruct node;
+    DiskNode node;
     OID frame, offset;
 
     ei_GetNodeContent(image, ndx, &node);

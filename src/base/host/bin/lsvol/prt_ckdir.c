@@ -117,38 +117,22 @@ PrintCkptDir(Volume* pVol)
     CkptDirent de = vol_GetDirent(pVol, i);
 
     char pageNode = (de.type == FRM_TYPE_NODE) ? 'N' : 'P';
-      
-    const char *cty = "??";
-    switch(de.type) {
-    case FRM_TYPE_ZDPAGE:
-      cty = "zd";
-      break;
-    case FRM_TYPE_DPAGE:
-      cty = "dp";
-      break;      
-    case FRM_TYPE_NODE:
-      cty = "nd";
-      break;
-    }
     
     if (de.lid == ZERO_LID)
-      diag_printf("%c   %s OID=0x%08x%08x  %-8d   <zero>\n",
+      diag_printf("%c   OID=0x%08x%08x  %-8d   <zero>\n",
 		   pageNode,
-		   cty,
 		   (uint32_t) (de.oid >> 32),
 		   (uint32_t) de.oid,
 		   de.count);
     else if (de.lid == UNDEF_LID)
-      diag_printf("%c   %s OID=0x%08x%08x  %-8d   <UNDEF!>\n",
+      diag_printf("%c   OID=0x%08x%08x  %-8d   <UNDEF!>\n",
 		   pageNode,
-		   cty,
 		   (uint32_t) (de.oid >> 32),
 		   (uint32_t) de.oid,
 		   de.count);
     else 
-      diag_printf("%c   %s OID=0x%08x%08x  %-8d   0x%08x\n",
+      diag_printf("%c   OID=0x%08x%08x  %-8d   0x%08x\n",
 		   pageNode,
-		   cty,
 		   (uint32_t) (de.oid >> 32),
 		   (uint32_t) de.oid,
 		   de.count,

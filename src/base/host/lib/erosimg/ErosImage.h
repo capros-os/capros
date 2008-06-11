@@ -108,7 +108,7 @@ struct ErosImage {
   StringPool *pool;
   
   uint8_t *pageImages;
-  struct DiskNodeStruct *nodeImages;
+  struct DiskNode * nodeImages;
   struct EiDirent *dir;
   struct EiDirent *startupsDir;
 
@@ -240,7 +240,7 @@ extern "C" {
   { return ei->startupsDir[ndx]; }
 
   void ei_GetDataPageContent(const ErosImage *, uint32_t pageNdx, void * buf);
-  void ei_GetNodeContent(const ErosImage *, uint32_t nodeNdx, DiskNodeStruct *node);
+  void ei_GetNodeContent(const ErosImage *, uint32_t nodeNdx, DiskNode * node);
 
 #ifdef __cplusplus
 }

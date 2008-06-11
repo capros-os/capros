@@ -74,9 +74,9 @@ uint64_t buf[EROS_PAGE_SIZE / sizeof(uint64_t)];
 unsigned int nodesInBuf = 0;
 
 void
-WriteNode(DiskNodeStruct * dn)
+WriteNode(DiskNode * dn)
 {
-  memcpy(&((DiskNodeStruct *)buf)[nodesInBuf], dn, sizeof (*dn));
+  memcpy(&((DiskNode *)buf)[nodesInBuf], dn, sizeof (*dn));
 
   if (++nodesInBuf >= DISK_NODES_PER_PAGE) {
     int s = fwrite(buf, EROS_PAGE_SIZE, 1, binfd);
@@ -273,7 +273,7 @@ main(int argc, char *argv[])
    */
   unsigned slot;
   for (ndx = 0; ndx < nNodes; ndx++) {
-    DiskNodeStruct node;
+    DiskNode node;
     OID frame, offset;
 
     ei_GetNodeContent(image, ndx, &node);
@@ -305,7 +305,7 @@ main(int argc, char *argv[])
   }
 
   // Fill out the last frame:
-  DiskNodeStruct nullNode;
+  DiskNode nullNode;
   nullNode.nodeData = 0;
   for (slot = 0; slot < EROS_NODE_SIZE; slot++) {
     keyBits_InitToVoid(&nullNode.slot[slot]);

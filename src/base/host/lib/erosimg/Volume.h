@@ -27,7 +27,7 @@ Approved for public release, distribution unlimited. */
 
 #include <disk/LowVolume.h>
 #include <disk/ErosTypes.h>
-#include <disk/DiskNodeStruct.h>
+#include <disk/DiskNode.h>
 #include <erosimg/DiskCkpt.h>
 #include <erosimg/Intern.h>
 #include <eros/Reserve.h>
@@ -56,6 +56,7 @@ struct VolPagePot {
   ObCount count;
   uint8_t type;
   uint8_t allocCountUsed;	// TagAllocCountUsedMask or 0
+  uint8_t isZero;		// TagIsZero or 0
 };
   
 typedef struct Volume Volume;
@@ -129,7 +130,7 @@ int vol_AddFixedDivision(Volume *, DivType, uint32_t start, uint32_t sz);
 void vol_WriteImageAtDivisionOffset(Volume *, int div, const struct ExecImage *pImage,
 				    uint32_t offset);
 
-bool vol_WriteNodeToLog(Volume *, OID oid, const DiskNodeStruct *pNode);
+bool vol_WriteNodeToLog(Volume *, OID oid, const DiskNode * pNode);
 
 Volume *vol_Create(const char* filename, const char* bootImage);
 Volume *vol_Open(const char* filename, bool forRewriting,
@@ -175,8 +176,8 @@ bool vol_WriteLogPage(Volume *, const lid_t lid, const uint8_t* buf);
 /* object I/O.  All of this assumes allocation/call count of 0! */
 bool vol_ReadDataPage(Volume *, OID oid, uint8_t* buf);
 bool vol_WriteDataPage(Volume *, OID oid, const uint8_t* buf);
-bool vol_ReadNode(Volume *, OID oid, DiskNodeStruct *node);
-bool vol_WriteNode(Volume *, OID oid, const DiskNodeStruct *node);
+bool vol_ReadNode(Volume *, OID oid, DiskNode * node);
+bool vol_WriteNode(Volume *, OID oid, const DiskNode * node);
 bool vol_GetPagePotInfo(Volume *, OID oid, VolPagePot *);
 bool vol_ReadPagePotEntry(Volume *, OID oid, VolPagePot *);
 bool vol_WritePagePotEntry(Volume *, OID oid, const VolPagePot *);

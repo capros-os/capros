@@ -92,7 +92,7 @@ ProcessCmd()
       parse_MatchOIDVal(&rest, &oid) &&
       parse_MatchEOL(&rest) ) {
 
-    DiskNodeStruct node;
+    DiskNode node;
     if (vol_ReadNode(pVol, oid, &node) ) {
       unsigned i;
 
@@ -103,7 +103,7 @@ ProcessCmd()
       diag_printf(" callCount=");
       diag_printCount(node.callCount);
       diag_printf(" cksum=0x%04x\n", 
-		  ip_cksum((uint16_t*)&node, sizeof(DiskNodeStruct)));
+		  ip_cksum((uint16_t*)&node, sizeof(DiskNode)));
 
       for (i = 0; i < EROS_NODE_SIZE; i++) {
 	diag_printf("  [%02d]  ",i);
@@ -118,11 +118,11 @@ ProcessCmd()
 	   parse_MatchOIDVal(&rest, &oid) &&
 	   parse_MatchEOL(&rest) ) {
 
-    DiskNodeStruct node;
+    DiskNode node;
     if ( vol_ReadNode(pVol, oid, &node) ) {
       unsigned i;
       uint32_t *wpNode = (uint32_t *) &node;
-      uint32_t nWords = sizeof(DiskNodeStruct) / sizeof(uint32_t);
+      uint32_t nWords = sizeof(DiskNode) / sizeof(uint32_t);
 
       diag_printf("Node OID=");
       diag_printOid(node.oid);
@@ -131,7 +131,7 @@ ProcessCmd()
       diag_printf(" callCount=");
       diag_printCount(node.callCount);
       diag_printf(" cksum=0x%04x\n", 
-		  ip_cksum((uint16_t*)&node, sizeof(DiskNodeStruct)));
+		  ip_cksum((uint16_t*)&node, sizeof(DiskNode)));
 
       for (i = 0; i < nWords;) {
 	unsigned j;
