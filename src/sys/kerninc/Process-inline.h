@@ -27,7 +27,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Node.h>
-#include <disk/DiskNodeStruct.h>
 
 INLINE Process *
 proc_Current(void)

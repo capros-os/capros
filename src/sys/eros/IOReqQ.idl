@@ -8,10 +8,8 @@ interface IOReqQ extends key {
   exception waitingDisabled;
 
   unsigned short enum RequestType {
-    readPage,
-    writePage,
-    readTagPot,
-    writeTagPot
+    readRangeLoc,
+    writeRangeLoc
   };
 
   /** Register a range to this IOReqQ.
@@ -36,7 +34,7 @@ interface IOReqQ32 extends IOReqQ {
   struct IORequest {
     unsigned long long rangeStartOID;
     unsigned long rangeOpaque;
-    unsigned long long requestedOID;
+    unsigned long long rangeLoc;	/* page number in this range */
     DMA32.DMAAddress bufferDMAAddr;
     IOReqQ.RequestType requestType;
     unsigned long requestID;

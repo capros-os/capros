@@ -31,17 +31,18 @@ BUILDDIR=.
 TARGETS=
 DIRS=
 HEADERS=\
-	target.h \
 	asm.h \
 	atomic.h \
 	cap-instr.h \
-	Invoke.h \
+	DevPrivs.h \
 	endian.h \
-	target-asm.h \
-	pseudoregs.h \
-	traceregs.h \
+	Invoke.h \
 	io.h \
 	IORQ.h \
+	pseudoregs.h \
+	target.h \
+	target-asm.h \
+	traceregs.h \
 
 GENERATED=$(HEADERS)
 

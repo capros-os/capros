@@ -31,7 +31,6 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/Process-inline.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
-#include <disk/DiskNodeStruct.h>
 
 /* #define GK_DEBUG */
 

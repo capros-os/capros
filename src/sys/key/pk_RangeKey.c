@@ -29,7 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/Node.h>
 #include <kerninc/GPT.h>
-#include <disk/DiskNodeStruct.h>
+#include <disk/DiskNode.h>
 #include <disk/Forwarder.h>
 
 #include <eros/Invoke.h>

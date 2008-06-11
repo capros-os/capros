@@ -69,7 +69,8 @@ typedef struct ObjectLocator {
     // If locType == objLoc_TagPot:
     struct {
        ObjectRange * range;
-       ObjectHeader * tagPotObjH;
+       PageHeader * tagPotPageH;
+       unsigned int potEntry;
     } tagPot;
 
     // If locType == objLoc_Preload:

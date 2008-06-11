@@ -1,7 +1,7 @@
-#ifndef __IORQ_H__
-#define __IORQ_H__
+#ifndef __DISK_DISKGPT_H__
+#define __DISK_DISKGPT_H__
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -23,33 +23,19 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <eros/Link.h>
-#include <kerninc/StallQueue.h>
+/* For a GPT, the first byte of nodeData contains: */
+#define GPT_L2V_MASK 0x3f
+#define GPT_BACKGROUND 0x40
+#define GPT_KEEPER 0x80
 
-struct PageHeader;
-struct ObjectRange;
+#ifndef __ASSEMBLER__
 
-typedef struct IORequest {
-  Link lk;
-  struct PageHeader * pageH;	// page to read into or write from
-  struct ObjectRange * objRange;
-  uint64_t rangeLoc;		// location requested, relative to objRange
-  StallQueue sq;
-  void (*doneFn)(struct IORequest * ioreq);	// function to call when done
-  uint16_t requestCode;	// capros_IOReqQ_RequestType_*
-} IORequest;
+INLINE uint8_t * 
+gpt_l2vField(uint16_t * nodeDatap)
+{
+  return (uint8_t *) nodeDatap;
+}
 
-typedef struct IORQ {
-  Link lk;	/* If free, lk.next is link in the free list.
-		Otherwise lk is the chain of linked IORequests. */
-} IORQ;
+#endif // __ASSEMBLER__
 
-extern IORQ IORQs[];
-
-void IORQ_Init(void);
-IORequest * IOReq_Allocate(void);
-void IOReq_Deallocate(IORequest * iorq);
-IORQ * IORQ_Allocate(void);
-void IORQ_Deallocate(IORQ * iorq);
-
-#endif /* __IORQ_H__ */
+#endif /* __DISK_DISKGPT_H__ */

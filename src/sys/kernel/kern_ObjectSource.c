@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/ObjH-inline.h>
 #include <kerninc/Activity.h>
+#include <disk/TagPot.h>
 
 #define dbg_obsrc	0x20	/* addition of object ranges */
 #define dbg_findfirst	0x40	/* finding first subrange */
@@ -196,10 +197,9 @@ GetObjectCount(OID oid, ObjectLocator * pObjLoc, bool callCount)
 
   case objLoc_TagPot: ;
     if (pObjLoc->objType == capros_Range_otPage) {
-      // A page. Counts are in the tag pot.
-      //// get counts from tag pot
-      ObjectRange * rng = pObjLoc->u.tagPot.range;
-      return rng->source->objS_GetObjectCount(rng, oid, pObjLoc, callCount);////
+      // A page. The count is in the tag pot.
+      TagPot * tp = (TagPot *)pageH_GetPageVAddr(pObjLoc->u.tagPot.tagPotPageH);
+      return tp->count[pObjLoc->u.tagPot.potEntry];
     } else {	// a type in a pot
       ObjectRange * rng = pObjLoc->u.tagPot.range;
       return rng->source->objS_GetObjectCount(rng, oid, pObjLoc, callCount);

@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/Node.h>
 #include <eros/Device.h>
-#include <disk/DiskNodeStruct.h>
+#include <disk/DiskNode.h>
 #include <disk/NPODescr.h>
 #include <arch-kerninc/Page-inline.h>
 #include <arch-kerninc/kern-target.h>
@@ -97,14 +97,14 @@ preload_Init(void)
     j = 0;	// number of nodes loaded
     while (j < npod->numNodes) {	// load node frames
       // Load a frame of nodes.
-      DiskNodeStruct * dn = KPAtoP(DiskNodeStruct *, pagePA);
+      DiskNode * dn = KPAtoP(DiskNode *, pagePA);
       for (i = 0; i < DISK_NODES_PER_PAGE; i++) {
         Node * pNode = objC_GrabNodeFrame();
 
         node_SetEqualTo(pNode, dn + i);
-        pNode->objAge = age_NewBorn;
+        node_ToObj(pNode)->allocCount = 0;	// FIXME
         pNode->callCount = 0;	// FIXME
-        objH_InitObj(node_ToObj(pNode), oid + i, 0, capros_Range_otNode);
+        objH_InitObj(node_ToObj(pNode), oid + i, capros_Range_otNode);
 
         if (++j >= npod->numNodes)
           break;
@@ -130,8 +130,9 @@ preload_Init(void)
 
       objC_GrabThisPageFrame(pageH);
       pageH_MDInitDataPage(pageH);
+      pageH_ToObj(pageH)->allocCount = 0;	// FIXME
       pageH->objAge = age_NewBorn;
-      objH_InitObj(pageH_ToObj(pageH), oid, 0, capros_Range_otPage);
+      objH_InitObj(pageH_ToObj(pageH), oid, capros_Range_otPage);
 
       oid += FrameToOID(1);
       pagePA += EROS_PAGE_SIZE;
@@ -218,7 +219,7 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid,
   }
 
   // FIXME: set count right.
-  objH_InitObj(pObj, oid, 0, pObjLoc->objType);
+  objH_InitObj(pObj, oid, pObjLoc->objType);
 
   return pObj;
 }

@@ -36,9 +36,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/PhysMem.h>
 #include <kerninc/CpuReserve.h>
 #include <kerninc/util.h>
-#ifndef NDEBUG
-#include <disk/DiskNodeStruct.h>
-#endif
 #include <arch-kerninc/PTE.h>
 #include <kerninc/Key-inline.h>
 

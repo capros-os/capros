@@ -365,8 +365,7 @@ objH_ResetKeyRing(ObjectHeader* thisPtr)
 }
 
 void
-objH_InitObj(ObjectHeader * pObj, OID oid, ObCount allocCount,
-  unsigned int obType);
+objH_InitObj(ObjectHeader * pObj, OID oid, unsigned int obType);
 void objH_Intern(ObjectHeader* thisPtr);	/* intern object on the ObList. */
 void objH_Unintern(ObjectHeader* thisPtr);	/* remove object from the ObList. */
 

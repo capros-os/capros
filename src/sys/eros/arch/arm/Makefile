@@ -36,6 +36,7 @@ LOCAL_HEADERS=\
 	asm.h \
 	atomic.h \
 	cap-instr.h \
+	DevPrivs.h \
 	Invoke.h \
 	IORQ.h \
 	IRQSWI.h \

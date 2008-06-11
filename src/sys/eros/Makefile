@@ -37,6 +37,7 @@ HEADERS=\
 	Device.h \
 	DeviceDef.h \
 	DeviceKey.h \
+	DevPrivs32.h \
 	endian.h \
 	ffs.h \
 	fls.h \

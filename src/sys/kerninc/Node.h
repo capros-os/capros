@@ -26,9 +26,9 @@ Approved for public release, distribution unlimited. */
 
 #include "ObjectHeader.h"
 #include "Key.h"
-#include <disk/DiskNodeStruct.h>
+#include <disk/Node.h>
 
-struct DiskNodeStruct;
+struct DiskNode;
 struct Invocation;
 
 /*typedef struct Node Node;*/
@@ -114,7 +114,7 @@ node_SetL2vField(Node * node, unsigned int f)
   * node_l2vField(& node->nodeData) = f;
 }
 
-void node_SetEqualTo(Node *thisPtr, const struct DiskNodeStruct *);
+void node_SetEqualTo(Node *thisPtr, const struct DiskNode *);
 
 bool node_Validate(Node* thisPtr);
 

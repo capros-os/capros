@@ -24,7 +24,6 @@ Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
 #include <kerninc/Process.h>
-#include <disk/DiskNodeStruct.h>
 #include <kerninc/Key.h>
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/Node.h>

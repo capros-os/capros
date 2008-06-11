@@ -23,7 +23,6 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <string.h>
-#include <disk/DiskNodeStruct.h>
 #include <kerninc/kernel.h>
 #include <kerninc/Process.h>
 #include <kerninc/Activity.h>

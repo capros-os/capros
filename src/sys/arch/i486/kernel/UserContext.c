@@ -39,7 +39,6 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/PTE.h>
 #include "TSS.h"
 #include <eros/Invoke.h>
-#include <disk/DiskNodeStruct.h>
 #include <eros/ProcessState.h>
 #include <idl/capros/arch/i386/Process.h>
 #include <kerninc/Invocation.h>

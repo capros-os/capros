@@ -29,7 +29,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Node.h>
 #include <kerninc/Activity.h>
 #include <eros/Invoke.h>
-#include <disk/DiskNodeStruct.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/arch/arm/Process.h>

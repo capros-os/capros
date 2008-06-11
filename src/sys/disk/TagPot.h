@@ -61,25 +61,32 @@ FrameToRangeLoc(frame_t relFrame)
 
 /* The "relative ID" of a tag pot is the relative OID of the first
  * frame in its cluster. */
-INLINE OID
-FrameToTagPotRelID(frame_t relFrame)
+INLINE frame_t
+ClusterToTagPotRelID(frame_t cluster)
 {
-  return FrameToCluster(relFrame) * FramesPerCluster;
+  return cluster * FramesPerCluster;
 }
 
-/* typeAndAllocCountUsed[i] has: */
+INLINE frame_t
+ClusterToTagPotRangeLoc(frame_t cluster)
+{
+  return cluster * (FramesPerCluster + 1);
+}
+
+/* TagPot.tags[i] has: */
 #define TagAllocCountUsedMask 0x80
-#define TagTypeMask           0x7f
+#define TagIsZero             0x40
+#define TagTypeMask           0x3f
 
 // Frame types:
-#define FRM_TYPE_ZDPAGE		0 /* zero page/empty frame */
-#define FRM_TYPE_DPAGE		1
-#define FRM_TYPE_ZNODE		2 /* zero node -- only in ckpt log */
-#define FRM_TYPE_NODE		3
+// Note: these must match capros_Range_ot*!
+//#define FRM_TYPE_ZDPAGE		0 /* zero page/empty frame */
+#define FRM_TYPE_DPAGE		0
+#define FRM_TYPE_NODE		1
 
 typedef struct TagPot {
   ObCount count[FramesPerCluster];
-  uint8_t typeAndAllocCountUsed[FramesPerCluster];
+  uint8_t  tags[FramesPerCluster];
 } TagPot;
 
 #endif /* __DISK_TAGPOT_H__ */

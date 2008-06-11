@@ -805,7 +805,8 @@ objC_CopyObject(ObjectHeader *pObj)
     newNode->objAge = age_NewBorn;	/* FIX: is this right? */
   }
 
-  objH_InitObj(newObj, pObj->oid, pObj->allocCount, pObj->obType);
+  newObj->allocCount = pObj->allocCount;
+  objH_InitObj(newObj, pObj->oid, pObj->obType);
   // FIXME: Init obtype to capros_Range_ot*.
 
   objH_SetFlags(newObj, objH_GetFlags(pObj, OFLG_DISKCAPS)); // correct?
@@ -1196,11 +1197,9 @@ objC_GrabNodeFrame()
 }
 
 void
-objH_InitObj(ObjectHeader * pObj, OID oid, ObCount allocCount,
-  unsigned int baseType)
+objH_InitObj(ObjectHeader * pObj, OID oid, unsigned int baseType)
 {
   pObj->oid = oid;
-  pObj->allocCount = allocCount;
 
   objH_SetFlags(pObj, OFLG_CURRENT);
   assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);

@@ -1,5 +1,5 @@
-#ifndef __DISK_DISKNODESTRUCT_HXX__
-#define __DISK_DISKNODESTRUCT_HXX__
+#ifndef __DISK_DISKNODE_H__
+#define __DISK_DISKNODE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2007, 2008, Strawberry Development Group.
@@ -24,11 +24,6 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-// Values for the Process runState:
-#define RS_Available 0
-#define RS_Waiting   1
-#define RS_Running   2
-
 #ifndef __ASSEMBLER__
 /* This structure defines the *layout* of the disk node structure so
  * that various elements of the kernel can fetch things from ROM and
@@ -42,38 +37,19 @@ Approved for public release, distribution unlimited. */
 
 #include "KeyStruct.h"
 
-typedef struct DiskNodeStruct DiskNodeStruct;
-struct DiskNodeStruct {
+typedef struct DiskNode {
   ObCount allocCount;
   ObCount callCount;
   OID oid;
 
   uint16_t nodeData;
   KeyBits slot[EROS_NODE_SIZE];
-} ;
+} DiskNode;
 
-/* For a GPT, the first byte of nodeData contains: */
-#define GPT_L2V_MASK 0x3f
-#define GPT_BACKGROUND 0x40
-#define GPT_KEEPER 0x80
-INLINE uint8_t * 
-gpt_l2vField(uint16_t * nodeDatap)
-{
-  return (uint8_t *) nodeDatap;
-}
-
-/* For a node, the first byte of nodeData contains: */
-#define NODE_L2V_MASK GPT_L2V_MASK
-#define NODE_BLOCKED 0x40
-#define NODE_KEEPER  0x80 
-INLINE uint8_t * 
-node_l2vField(uint16_t * nodeDatap)
-{
-  return gpt_l2vField(nodeDatap);
-}
+#define DISK_NODES_PER_PAGE (EROS_PAGE_SIZE / sizeof(DiskNode))
 
 INLINE uint8_t *
-proc_runStateField(DiskNodeStruct * dn)
+proc_runStateField(DiskNode * dn)
 {
   /* N.B. This must match the location in the LAYOUT file. */
   return ((uint8_t *) &dn->slot[8].u.nk.value) + 8;
@@ -81,22 +57,4 @@ proc_runStateField(DiskNodeStruct * dn)
 
 #endif // __ASSEMBLER__
 
-/* Slots of a process root. Changes here should be matched in the
- * architecture-dependent layout files and also in the mkimage grammar
- * restriction checking logic. */
-#define ProcSched             0
-#define ProcKeeper            1
-#define ProcAddrSpace         2
-#define ProcGenKeys           3
-#define ProcIoSpace           4
-#define ProcSymSpace          5
-#define ProcBrand             6
-/*			      7    unused */
-// 8 has fault code, fault info, and runState.
-#define ProcPCandSP           9
-#define ProcFirstRootRegSlot  8
-#define ProcLastRootRegSlot   31
-
-#define DISK_NODES_PER_PAGE (EROS_PAGE_SIZE / sizeof(DiskNodeStruct))
-
-#endif /* __DISK_DISKNODESTRUCT_HXX__ */
+#endif /* __DISK_DISKNODE_H__ */

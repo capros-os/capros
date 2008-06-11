@@ -39,10 +39,11 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/Invoke.h>
 
-#include <disk/DiskNodeStruct.h>
+#include <disk/DiskNode.h>
 
+// Copy a DiskNode to this Node.
 void 
-node_SetEqualTo(Node *thisPtr, const DiskNodeStruct *other)
+node_SetEqualTo(Node * thisPtr, const DiskNode * other)
 {
   uint32_t i = 0;
 
@@ -55,6 +56,7 @@ node_SetEqualTo(Node *thisPtr, const DiskNodeStruct *other)
   node_ToObj(thisPtr)->allocCount = other->allocCount;
   thisPtr->callCount = other->callCount;
   thisPtr->nodeData = other->nodeData;
+  thisPtr->objAge = age_NewBorn;
 
   for (i = 0; i < EROS_NODE_SIZE; i++) {
     assert(keyBits_IsHazard(&thisPtr->slot[i]) == false);

@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
-#include <idl/capros/DevPrivs.h>
+#include <eros/machine/DevPrivs.h>
 #include <key/DevicePrivs.h>
 #include "IRQ386.h"
 

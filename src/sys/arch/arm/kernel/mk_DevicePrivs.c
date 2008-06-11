@@ -36,7 +36,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 
 #include <idl/capros/key.h>
-#include <idl/capros/DevPrivs.h>
+#include <eros/machine/DevPrivs.h>
 #include <key/DevicePrivs.h>
 
 #define SYSCON (SYSCONStruct(APB_VA + SYSCON_APB_OFS))

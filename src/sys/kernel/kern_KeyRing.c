@@ -32,7 +32,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/Depend.h>
 #include <kerninc/Key-inline.h>
-#include <disk/DiskNodeStruct.h>
 
 static inline bool
 proc_IsKeyReg(const Key * pKey)

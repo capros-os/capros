@@ -30,7 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <eros/Invoke.h>
 #include <idl/capros/key.h>
-#include <idl/capros/IORQ.h>
+#include <eros/machine/IORQ.h>
 
 extern const struct ObjectSource IOObSource;
 
@@ -49,8 +49,8 @@ IORQKey(Invocation * inv)
   inv->exit.code = RC_OK;	// default
 
   switch (inv->entry.code) {
-  case OC_capros_IORQ_registerOIDRange:
-  case OC_capros_IORQ_registerLIDRange:
+  case OC_capros_IOReqQ_registerOIDRange:
+  case OC_capros_IOReqQ_registerLIDRange:
     if (inv->entry.len < sizeof(OID)) {
       inv->exit.code = RC_capros_key_RequestError;
     } else {
@@ -60,16 +60,16 @@ IORQKey(Invocation * inv)
       rng.u.rq.opaque = inv->entry.w3;
       rng.u.rq.iorq = iorq;
       rng.source = &IOObSource;
-      if (inv->entry.code == OC_capros_IORQ_registerOIDRange)
+      if (inv->entry.code == OC_capros_IOReqQ_registerOIDRange)
         objC_AddRange(&rng);
       else
         AddLIDRange(&rng);
     }
     break;
 
-  case OC_capros_IORQ_disableWaiting:
-  case OC_capros_IORQ_enableWaiting:
-  case OC_capros_IORQ_waitForRequest:
+  case OC_capros_IOReqQ_disableWaiting:
+  case OC_capros_IOReqQ_enableWaiting:
+  case OC_capros_IOReqQ_waitForRequest:
     assert(!"complete");
     break;
 
@@ -80,7 +80,7 @@ IORQKey(Invocation * inv)
     break;
 
   case OC_capros_key_getType:
-    inv->exit.w1 = IKT_capros_IORQ;
+    inv->exit.w1 = IKT_capros_IOReqQ;
     break;
 
   default:
