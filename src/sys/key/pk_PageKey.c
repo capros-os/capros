@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/ObjectCache.h>
+#include <kerninc/PhysMem.h>
 #include <kerninc/Key-inline.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>

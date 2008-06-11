@@ -25,15 +25,12 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include "ObjectHeader.h"
-#include "PhysMem.h"
+struct PmemInfo;
+struct KeyBits;
 
-typedef struct Depend Depend;
-typedef struct ObjectSource ObjectSource;
-/*typedef struct PmemInfo PmemInfo;*/
-
+#if 0
 struct ObjectCache {
   
-#if 0
   /* For an explanation of why this particular set of calls is needed,
    * see kern_Persist.cxx
    */
@@ -53,9 +50,9 @@ struct ObjectCache {
   
   static void RequirePageFrames(uint32_t n);
   static ObjectHeader *IoCommitGrabPageFrame();	/* must be prompt! */
-#endif
 
 };
+#endif
 
 extern uint32_t objC_nNodes;
 extern Node *objC_nodeTable;
@@ -82,7 +79,7 @@ PageHeader * objC_GrabPageFrame(void);
 void objC_GrabThisPageFrame(PageHeader *);
 void objC_CleanFrame1(ObjectHeader * pObj);
 
-void objC_AddDevicePages(PmemInfo *);
+void objC_AddDevicePages(struct PmemInfo *);
 void objC_AddDMAPages(PageHeader * pageH, kpg_t nPages);
 
 INLINE uint32_t 
@@ -130,7 +127,7 @@ Node *objC_GetCoreNodeFrame(uint32_t ndx);
 #ifndef NDEBUG
 bool objC_ValidNodePtr(const Node *pNode);
 bool objC_ValidPagePtr(const ObjectHeader *pObj);
-bool objC_ValidKeyPtr(const Key *pKey);
+bool objC_ValidKeyPtr(const struct KeyBits *pKey);
 #endif
 
 #ifdef OPTION_DDB
@@ -145,9 +142,7 @@ void objC_ddb_dump_nodes();
  *
  *************************************************************/
 
-bool objC_AddSource(ObjectSource *);
 bool objC_HaveSource(OID oid);
-bool objC_DetachSource(ObjectSource *);
 
 
 #ifdef OPTION_DDB

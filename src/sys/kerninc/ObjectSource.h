@@ -88,7 +88,7 @@ ObjectHeader * GetObject(OID oid, const ObjectLocator * pObjLoc);
  * The ObjectRange structure defines a producer/consumer of objects
  * in a specific range of OIDs. */
 
-struct ObjectSource {
+typedef struct ObjectSource {
   const char *name;
 
   /* Note: the Get* methods may evict any unpinned object.
@@ -114,7 +114,7 @@ struct ObjectSource {
    */
   bool (*objS_WriteBack)(ObjectRange * rng, ObjectHeader *obHdr, 
                          bool inBackground /*@ default = false @*/);
-};
+} ObjectSource;
 
 bool objC_AddRange(const ObjectRange * rng);
 bool AddLIDRange(const ObjectRange * rng);
