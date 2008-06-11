@@ -30,6 +30,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/scsi
 OBJECTS=$(BUILDDIR)/cap.o
+OBJECTS+=$(BUILDDIR)/disk.o
 OBJECTS+=$(BUILDDIR)/scsi.o
 OBJECTS+=$(BUILDDIR)/hosts.o
 OBJECTS+=$(BUILDDIR)/scsi_devinfo.o
@@ -41,6 +42,7 @@ OBJECTS+=$(BUILDDIR)/stubs.o
 
 INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
 INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
+INC+=-I$(EROS_ROOT)/host/include # for disk/*
 
 include $(EROS_SRC)/build/make/makerules.mk
 

@@ -64,8 +64,12 @@ Approved for public release, distribution unlimited. */
 #include <scsi/scsi_transport.h>
 #include <scsi/scsi_eh.h>
 
+#include <domain/domdbg.h>
+#include <domain/assert.h>
+
 #include "scsi_priv.h"
 #include "scsi_logging.h"
+#include "disk.h"
 
 #define ALLOC_FAILURE_MSG	KERN_ERR "%s: Allocation failure during" \
 	" SCSI scanning, some SCSI devices might not be configured\n"
@@ -966,6 +970,8 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
 	if (!async && scsi_sysfs_add_sdev(sdev) != 0)
 		return SCSI_SCAN_NO_RESPONSE;
 #endif // CapROS
+	/* Don't mount the disk now, because the read commands
+	and the scanning inquiry commands may overtax some hosts. */
 
 	return SCSI_SCAN_LUN_PRESENT;
 }
@@ -1668,7 +1674,7 @@ static void scsi_scan_channel(struct Scsi_Host *shost, unsigned int channel,
 {
 	uint order_id;
 
-	if (id == SCAN_WILD_CARD)
+	if (id == SCAN_WILD_CARD) {
 		for (id = 0; id < shost->max_id; ++id) {
 			/*
 			 * XXX adapter drivers when possible (FCP, iSCSI)
@@ -1689,6 +1695,7 @@ static void scsi_scan_channel(struct Scsi_Host *shost, unsigned int channel,
 			__scsi_scan_target(&shost->shost_gendev, channel,
 					order_id, lun, rescan);
 		}
+	}
 	else
 		__scsi_scan_target(&shost->shost_gendev, channel,
 				id, lun, rescan);
@@ -1711,11 +1718,12 @@ int scsi_scan_host_selected(struct Scsi_Host *shost, unsigned int channel,
 
 	mutex_lock(&shost->scan_mutex);
 	if (scsi_host_scan_allowed(shost)) {
-		if (channel == SCAN_WILD_CARD)
+		if (channel == SCAN_WILD_CARD) {
 			for (channel = 0; channel <= shost->max_channel;
 			     channel++)
 				scsi_scan_channel(shost, channel, id, lun,
 						  rescan);
+		}
 		else
 			scsi_scan_channel(shost, channel, id, lun, rescan);
 	}
@@ -1834,6 +1842,22 @@ static void do_scsi_scan_host(struct Scsi_Host *shost)
 	} else {
 		scsi_scan_host_selected(shost, SCAN_WILD_CARD, SCAN_WILD_CARD,
 				SCAN_WILD_CARD, 0);
+	}
+
+	// We wait until scanning is finished to initiate mounting,
+	// to avoid queueing more than one command at a time.
+	struct scsi_device * sdev;
+	int numMounted = 0;
+	list_for_each_entry(sdev, &shost->__devices, siblings) {
+		if (sdev->sdev_state == SDEV_RUNNING) {
+			// Some hosts (USB storage e.g.) say they allow 1 cmd
+			// per lun, but in fact allow only 1 cmd per host.
+			// Therefore we hope there is only one lun:
+			assert(numMounted == 0);
+			numMounted++;
+
+			mount_capros_disk(sdev);
+		}
 	}
 }
 

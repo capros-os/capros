@@ -3,6 +3,7 @@ package capros;
 /** This is the interface that the SCSI subsystem uses to communicate
 to an instance of a low-level driver,
 irrespective of the size of DMA addresses.
+*** Should be called SCSIHost??
 */
 interface SCSIDevice extends key {
 
