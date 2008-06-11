@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -35,7 +35,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
 #include <eros/StdKeyType.h>
-#include <disk/DiskNodeStruct.h>
+#include <disk/Node.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/ProcTool.h>
