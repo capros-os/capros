@@ -71,5 +71,6 @@ FrameObIndexToOID(frame_t frame, unsigned int obindex)
 
 // An identifier of a location in the log:
 typedef uint64_t LID;
+#define CONTENT_LID(x) ((x) != 0)	// LID is the location of contents
 
 #endif /* ErosTypes.h */
