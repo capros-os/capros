@@ -214,7 +214,7 @@
             <dd>The first two frames of the log,
                 used to hold checkpoint headers.
             <dt>Main log
-            <dd>The log, excluding the header log.
+            <dd>The log, excluding the header area.
                 Generation headers and other generation data are written
                 to the main log.
             <dt>Main log cursor
@@ -334,7 +334,6 @@ struct DiskGenerationHdr {
   uint32_t   nObjectDirFrames;
   uint32_t   nProcessDescriptors;
   uint32_t   nObjectDescriptors;
-  uint16_t   nHeaders;
 };
 	      </pre>
 	  </ul>
@@ -450,15 +449,6 @@ struct DiskGenerationHdr {
 		object descriptors in the header. They immediately
 		follow any process descriptors that may be in
 		that header.
-	      </p>
-	    </dd>
-	    <dt>
-	      <b>nHeaders</b>
-	    </dt>
-	    <dd>
-	      <p>
-                This field defines the number of frames in the header log.
-                Its value is the same for all headers.
 	      </p>
 	    </dd>
 	  </dl>
@@ -618,8 +608,8 @@ struct ObjectDescriptor {
             are the same location. 
 	    The <em>retired</em> generations remain in the main log
 	    until their storage is reused.
-            There may be <em>free</em> space if the headers that described
-            that space have been overwritten in the circular header log.
+            There may be <em>free</em> space if the directory entries
+            that described that space have been freed.
             The <em>reserved</em> space may be bigger or smaller than
             the free space.
 	  </p>
@@ -899,7 +889,7 @@ If a checkpoint is active:
   If size of working area + working reservation + tentative next reservation
        > size of migrated generations(retired or not)
      OR the number of unmigrated generations (including the working generation)
-        >= size of the header log
+        >= the maximum number of generations permitted in the directory
     Process cannot dirty now. Process stalls waiting for migration to progress.
   Else dirty the object and adjust next reservation.
 Else dirty the object and adjust working reservation.
