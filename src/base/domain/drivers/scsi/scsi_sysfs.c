@@ -804,7 +804,7 @@ int scsi_sysfs_add_sdev(struct scsi_device *sdev)
 		}
 	}
 
-	transport_add_device(&sdev->sdev_gendev);
+	// transport_add_device(&sdev->sdev_gendev);
  out:
 	return error;
 
@@ -812,7 +812,7 @@ int scsi_sysfs_add_sdev(struct scsi_device *sdev)
 	scsi_device_set_state(sdev, SDEV_CANCEL);
 
 	device_del(&sdev->sdev_gendev);
-	transport_destroy_device(&sdev->sdev_gendev);
+	// transport_destroy_device(&sdev->sdev_gendev);
 	put_device(&sdev->sdev_gendev);
 
 	return error;

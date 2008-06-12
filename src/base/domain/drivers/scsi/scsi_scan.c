@@ -343,7 +343,7 @@ static struct scsi_device *scsi_alloc_sdev(struct scsi_target *starget,
 	return sdev;
 
 out_device_destroy:
-	transport_destroy_device(&sdev->sdev_gendev);
+	// transport_destroy_device(&sdev->sdev_gendev);
 	put_device(&sdev->sdev_gendev);
 out:
 	if (display_failure_msg)
@@ -440,9 +440,9 @@ static struct scsi_target *scsi_alloc_target(struct device *parent,
 
 	list_add_tail(&starget->siblings, &shost->__targets);
 	spin_unlock_irqrestore(shost->host_lock, flags);
+#if 0 // CapROS
 	/* allocate and add */
 	transport_setup_device(dev);
-#if 0 // CapROS
 	error = device_add(dev);
 #else
 	error = 0;
@@ -452,12 +452,12 @@ static struct scsi_target *scsi_alloc_target(struct device *parent,
 		spin_lock_irqsave(shost->host_lock, flags);
 		list_del_init(&starget->siblings);
 		spin_unlock_irqrestore(shost->host_lock, flags);
-		transport_destroy_device(dev);
+		// transport_destroy_device(dev);
 		put_device(parent);
 		kfree(starget);
 		return NULL;
 	}
-	transport_add_device(dev);
+	// transport_add_device(dev);
 	if (shost->hostt->target_alloc) {
 		error = shost->hostt->target_alloc(starget);
 
@@ -497,9 +497,9 @@ static void scsi_target_reap_usercontext(struct work_struct *work)
 	struct Scsi_Host *shost = dev_to_shost(starget->dev.parent);
 	unsigned long flags;
 
-	transport_remove_device(&starget->dev);
+	// transport_remove_device(&starget->dev);
 	device_del(&starget->dev);
-	transport_destroy_device(&starget->dev);
+	// transport_destroy_device(&starget->dev);
 	spin_lock_irqsave(shost->host_lock, flags);
 	if (shost->hostt->target_destroy)
 		shost->hostt->target_destroy(starget);
@@ -944,7 +944,7 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
 	if (*bflags & BLIST_RETRY_HWERROR)
 		sdev->retry_hwerror = 1;
 
-	transport_configure_device(&sdev->sdev_gendev);
+	// transport_configure_device(&sdev->sdev_gendev);
 
 	if (sdev->host->hostt->slave_configure) {
 		int ret = sdev->host->hostt->slave_configure(sdev);
@@ -981,7 +981,7 @@ static inline void scsi_destroy_sdev(struct scsi_device *sdev)
 	scsi_device_set_state(sdev, SDEV_DEL);
 	if (sdev->host->hostt->slave_destroy)
 		sdev->host->hostt->slave_destroy(sdev);
-	transport_destroy_device(&sdev->sdev_gendev);
+	// transport_destroy_device(&sdev->sdev_gendev);
 	put_device(&sdev->sdev_gendev);
 }
 

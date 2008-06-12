@@ -232,6 +232,7 @@ int scsi_execute_async(struct scsi_device *sdev, const unsigned char *cmd,
   return -1;
 }
 
+#if 0
 // linux/transport_class.h
 void transport_remove_device(struct device * dev)
 {
@@ -253,6 +254,7 @@ void transport_configure_device(struct device * dev)
 void transport_destroy_device(struct device * dev)
 {
 }
+#endif
 
 // linux/device.h
 void class_device_unregister(struct class_device * dev)
