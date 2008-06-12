@@ -37,6 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <sys/stat.h>
 
 #include <disk/TagPot.h>
+#include <disk/CkptRoot.h>
 #include <erosimg/App.h>
 #include <erosimg/Volume.h>
 #include <erosimg/DiskDescrip.h>
@@ -74,8 +75,6 @@ vol_GetOidFrameVolOffset(Volume *pVol, int ndx, OID oid)
 static void
 vol_InitVolume(Volume *pVol)
 {
-  int i;
-
   pVol->working_fd = -1;
   pVol->target_fd = -1;
   pVol->topDiv = 0;
@@ -83,13 +82,14 @@ vol_InitVolume(Volume *pVol)
   pVol->lastAvailLogLid = 0;
   pVol->firstAvailLogLid = (2 * EROS_OBJECTS_PER_FRAME);
 
-  pVol->dskCkptHdr0 = (DiskCheckpoint*) malloc(EROS_PAGE_SIZE);
-  pVol->dskCkptHdr1 = (DiskCheckpoint*) malloc(EROS_PAGE_SIZE);
+  pVol->dskCkptHdr0 = (CkptRoot *) malloc(EROS_PAGE_SIZE);
+  pVol->dskCkptHdr1 = (CkptRoot *) malloc(EROS_PAGE_SIZE);
   pVol->curDskCkpt = pVol->dskCkptHdr0;
   pVol->oldDskCkpt = pVol->dskCkptHdr1;
   
   pVol->rewriting = true;
 
+#if 0 // this is not working now ...
   pVol->ckptDir = 0;
   pVol->maxCkptDirent = 0;
   pVol->nCkptDirent = 0;
@@ -97,53 +97,18 @@ vol_InitVolume(Volume *pVol)
   pVol->threadDir = 0;
   pVol->maxThreadDirent = 0;
   pVol->nThreadDirent = 0;
+#endif
 
-  pVol->reserveTable = 
-    (CpuReserveInfo *) malloc(sizeof(CpuReserveInfo) * MAX_CPU_RESERVE);
-  bzero(pVol->reserveTable, sizeof(CpuReserveInfo) * MAX_CPU_RESERVE);
-  
-  /* Following just for now... */
-  for (i = 0; i < STD_CPU_RESERVE; i++) {
-    pVol->reserveTable[i].index = i;
-    pVol->reserveTable[i].normPrio = i;
-    pVol->reserveTable[i].rsrvPrio = -2;
-  }
-  for (i = STD_CPU_RESERVE; i < MAX_CPU_RESERVE; i++) {
-    pVol->reserveTable[i].index = i;
-    pVol->reserveTable[i].normPrio = -2;
-    pVol->reserveTable[i].rsrvPrio = -2;
-  }
-  
   pVol->needSyncDivisions = false;
   pVol->needSyncHdr = false;
   pVol->needSyncCkptLog = false;
   pVol->needDivInit = false;
-
-  pVol->curLogPotLid = UNDEF_LID;
 }
 
 static void
 vol_Init(Volume *pVol)
 {
   vol_InitVolume(pVol);
-}
-
-const CpuReserveInfo *
-vol_GetReserve(const Volume *pVol, uint32_t ndx)
-{
-  if (ndx >= MAX_CPU_RESERVE)
-    diag_fatal(1, "Reserve %d is out of range\n");
-  
-  return &pVol->reserveTable[ndx];
-}
-
-void
-vol_SetReserve(Volume *pVol, const CpuReserveInfo *pCri)
-{
-  if (pCri->index >= MAX_CPU_RESERVE)
-    diag_fatal(1, "Reserve %d is out of range\n");
-  
-  pVol->reserveTable[pCri->index] = *pCri;
 }
 
 static bool
@@ -216,7 +181,7 @@ vol_AddDivisionWithOid(Volume *pVol, DivType type, uint32_t sz, OID oid)
     break;
   }
   
-  if ((type != dt_Log) && (oid % EROS_OBJECTS_PER_FRAME))
+  if (oid % EROS_OBJECTS_PER_FRAME)
     diag_fatal(1, "Starting OID for range must be multiple of %d\n",
 		EROS_OBJECTS_PER_FRAME);
     
@@ -318,7 +283,7 @@ vol_DoAddDivision(Volume *pVol, DivType type, uint32_t start, uint32_t sz)
       pVol->volHdr.AltDivTable = start;
   }
 
-  pVol->needSyncHdr = 1;		/* if nothing else, volume size changed */
+  pVol->needSyncHdr = 1;	/* if nothing else, volume size changed */
   
   pVol->divNeedsInit[div] = true;
   pVol->needDivInit = true;
@@ -328,6 +293,7 @@ vol_DoAddDivision(Volume *pVol, DivType type, uint32_t start, uint32_t sz)
   return div;
 }
 
+// Select a free location on the volume for this division.
 int
 vol_AddAdjustableDivision(Volume *pVol, DivType type, uint32_t sz)
 {
@@ -416,22 +382,16 @@ vol_FormatLogDivision(Volume *pVol, int ndx)
   d = &pVol->divTable[ndx];
   
   if (d->startOid == 0) {
-    pVol->oldDskCkpt->hdr.sequenceNumber = 0;
-    pVol->oldDskCkpt->hdr.hasMigrated = true;
-    pVol->oldDskCkpt->hdr.maxLogLid = pVol->topLogLid;
-    pVol->oldDskCkpt->hdr.nRsrvPage = 0;
-    pVol->oldDskCkpt->hdr.nThreadPage = 0;
-    pVol->oldDskCkpt->hdr.nDirPage = 0;
+    pVol->oldDskCkpt->versionNumber = CkptRootVersion;
+    pVol->oldDskCkpt->maxNPAllocCount = 0;
+    pVol->oldDskCkpt->mostRecentGenerationNumber = 0;	// means no ckpt
 
-    pVol->curDskCkpt->hdr.sequenceNumber = 1;
-    pVol->curDskCkpt->hdr.hasMigrated = false;
-    pVol->curDskCkpt->hdr.maxLogLid = pVol->topLogLid;
-    pVol->curDskCkpt->hdr.nRsrvPage = 0;
-    pVol->curDskCkpt->hdr.nThreadPage = 0;
-    pVol->curDskCkpt->hdr.nDirPage = 0;
+    pVol->curDskCkpt->versionNumber = CkptRootVersion;
+    pVol->curDskCkpt->maxNPAllocCount = 0;
+    pVol->curDskCkpt->mostRecentGenerationNumber = 0;	// means no ckpt
 
-    vol_WriteLogPage(pVol,(lid_t)0, (uint8_t *) pVol->dskCkptHdr0);
-    vol_WriteLogPage(pVol, (lid_t)(1*EROS_OBJECTS_PER_FRAME), (uint8_t *) pVol->dskCkptHdr1);
+    vol_WriteLogPage(pVol, FrameToOID(0), pVol->dskCkptHdr0);
+    vol_WriteLogPage(pVol, FrameToOID(1), pVol->dskCkptHdr1);
   }
 
   pVol->needSyncCkptLog = true;
@@ -722,16 +682,19 @@ vol_WriteBootImage(Volume *pVol, const char *bootName)
 static CkptDirent*
 vol_LookupObject(Volume *pVol, OID oid)
 {
+#if 0 // this is not working now ...
   uint32_t i;
 
   for (i = 0; i < pVol->nCkptDirent; i++) {
     if ( pVol->ckptDir[i].oid == oid )
       return &pVol->ckptDir[i];
   }
+#endif
 
   return 0;
 }
 
+#if 0 // this is not working now ...
 static lid_t
 vol_AllocLogDirPage(Volume *pVol)
 {
@@ -782,15 +745,16 @@ vol_AddDirent(Volume *pVol, OID oid, ObCount allocCount, lid_t lid, uint8_t ckOb
 
   pVol->needSyncCkptLog = true;
 }
+#endif
 
 static void
 vol_LoadLogHeaders(Volume *pVol)
 {
-  vol_ReadLogPage(pVol, 0, (uint8_t*) pVol->dskCkptHdr0);
-  vol_ReadLogPage(pVol, 1*EROS_OBJECTS_PER_FRAME, (uint8_t*) pVol->dskCkptHdr1);
+  vol_ReadLogPage(pVol, FrameToOID(0), pVol->dskCkptHdr0);
+  vol_ReadLogPage(pVol, FrameToOID(1), pVol->dskCkptHdr1);
 
-  if (pVol->dskCkptHdr0->hdr.sequenceNumber > 
-      pVol->dskCkptHdr1->hdr.sequenceNumber) {
+  if (pVol->dskCkptHdr0->mostRecentGenerationNumber > 
+      pVol->dskCkptHdr1->mostRecentGenerationNumber) {
     pVol->curDskCkpt = pVol->dskCkptHdr0;
     pVol->oldDskCkpt = pVol->dskCkptHdr1;
   }
@@ -803,26 +767,11 @@ vol_LoadLogHeaders(Volume *pVol)
 static void
 vol_LoadLogDirectory(Volume *pVol)
 {
+#if 0	// This is not working now ...
   uint32_t logEnt = 0;
   uint32_t d;
 
   assert(pVol->curDskCkpt);
-  
-  /* Read in the reserve table: */
-  for (d = 0; d < pVol->curDskCkpt->hdr.nRsrvPage; d++, logEnt++) {
-    uint8_t dirPage[EROS_PAGE_SIZE];
-    ReserveDirPage *rdp;
-    uint32_t entry;
-
-    vol_ReadLogPage(pVol, pVol->curDskCkpt->dirPage[logEnt], dirPage);
-    rdp = (ReserveDirPage*) dirPage;
-
-    for (entry = 0; entry < rdp->hdr.nDirent; entry++) {
-      CpuReserveInfo *cri = &rdp->entry[entry];
-	
-      memcpy(&pVol->reserveTable[cri->index], cri, sizeof(CpuReserveInfo));
-    }
-  }
 
   /* Read the thread directory from the current checkpoint. */
   for (d = 0; d < pVol->curDskCkpt->hdr.nThreadPage; d++, logEnt++) {
@@ -857,6 +806,7 @@ vol_LoadLogDirectory(Volume *pVol)
       }
     }
   }
+#endif
 }
 
 static void
@@ -1069,17 +1019,7 @@ vol_Open(const char* targname, bool rewriting,
   return pVol;
 }
 
-static lid_t
-vol_AllocLogPage(Volume *pVol)
-{
-  if (pVol->lastAvailLogLid <= pVol->firstAvailLogLid)
-    diag_fatal(3, "Log pages exhausted\n");
-
-  pVol->lastAvailLogLid -= EROS_OBJECTS_PER_FRAME;
-
-  return pVol->lastAvailLogLid;
-}
-
+#if 0 // this is not working now ...
 static void
 vol_GrowThreadDir(Volume *pVol)
 {
@@ -1129,6 +1069,7 @@ vol_AddThread(Volume *pVol, OID oid, ObCount allocCount, uint16_t rsrvNdx)
 
   return true;
 }
+#endif
 
 static void
 vol_SyncHdr(Volume *pVol)
@@ -1161,13 +1102,13 @@ vol_SyncHdr(Volume *pVol)
 static void
 vol_SyncCkptLog(Volume *pVol)
 {
+#if 0	// this is not working now ...
   uint32_t dirPgCount = 0;
   uint32_t startDirPage = 0;
   uint32_t curDirLid = 2*EROS_OBJECTS_PER_FRAME;
   uint8_t dirPage[EROS_PAGE_SIZE];
   CpuReserveInfo *cri = pVol->reserveTable;
   uint32_t residual = MAX_CPU_RESERVE;
-  ReserveDirPage *rdp;
   ThreadDirent *tde;
   ThreadDirPage *tdp;
   CkptDirent *cpd;
@@ -1182,34 +1123,9 @@ vol_SyncCkptLog(Volume *pVol)
   assert((pVol->maxCkptDirent % ckdp_maxDirEnt) == 0);
   assert((pVol->maxThreadDirent % tdp_maxDirEnt) == 0);
 
-  /* Write out the reserve table: */
-  startDirPage = dirPgCount;
-  
-  rdp = (ReserveDirPage*) dirPage;
-
-  while (residual) {
-    uint32_t count = residual;
-    if (count > rdp_maxDirEnt)
-      count = rdp_maxDirEnt;
-
-    rdp->hdr.nDirent = count;
-    
-    memcpy(rdp->entry, cri, sizeof(CpuReserveInfo) * count);
-    vol_WriteLogPage(pVol, curDirLid, dirPage);
-
-    pVol->curDskCkpt->dirPage[dirPgCount] = curDirLid;
-
-    curDirLid += EROS_OBJECTS_PER_FRAME;
-    dirPgCount++;
-    cri += count;
-    residual -= count;
-  }
-	 
-  pVol->curDskCkpt->hdr.nRsrvPage = dirPgCount - startDirPage;
-
   /* Write out the thread directory: */
 
-   tde = pVol->threadDir;
+  tde = pVol->threadDir;
   residual = pVol->nThreadDirent;
   startDirPage = dirPgCount;
 
@@ -1269,10 +1185,11 @@ vol_SyncCkptLog(Volume *pVol)
     pVol->curDskCkpt->hdr.hasMigrated = true;
 
   /* I don't know which one is current -- just rewrite them both. */
-  vol_WriteLogPage(pVol, (lid_t)0, (uint8_t *) pVol->dskCkptHdr0);
-  vol_WriteLogPage(pVol, (lid_t)1*EROS_OBJECTS_PER_FRAME, (uint8_t *) pVol->dskCkptHdr1);
+  vol_WriteLogPage(pVol, FrameToOID(0), pVol->dskCkptHdr0);
+  vol_WriteLogPage(pVol, FrameToOID(1), pVol->dskCkptHdr1);
   
   pVol->needSyncCkptLog = 0;
+#endif
 }
 
 void
@@ -1436,9 +1353,10 @@ vol_GetPagePotInfo(Volume *pVol, OID oid, VolPagePot *pPot)
   CkptDirent* cpd = vol_LookupObject(pVol, oid);
     
   if (cpd) {
-    pPot->count = cpd->count;
+    pPot->count = cpd->allocCount;
     pPot->type = cpd->type;
-    pPot->isZero = (cpd->lid == 0) ? TagIsZero : 0;
+    pPot->isZero = CONTENT_LID(cpd->logLoc) ? 0 : TagIsZero;
+    pPot->allocCountUsed = cpd->allocCountUsed;
 
     return true;
   }
@@ -1479,12 +1397,8 @@ vol_ReadDataPage(Volume *pVol, OID oid, uint8_t *buf)
   cpd = vol_LookupObject(pVol, oid);
     
   if (cpd) {
-    assert (CONTENT_LID(cpd->lid));
-    
-    if (vol_ReadLogPage(pVol, cpd->lid, buf) == false)
-      return false;
-
-    return true;
+    assert (CONTENT_LID(cpd->logLoc));
+    return vol_ReadLogPage(pVol, cpd->logLoc, buf);
   }
 
   for (div = 0; div < pVol->topDiv; div++) {
@@ -1538,11 +1452,8 @@ vol_WriteDataPage(Volume *pVol, OID oid, const uint8_t *buf)
   /* If a location has already been fabricated, write it there even if
    * it is a zero page.
    */
-  if ( cpd && CONTENT_LID(cpd->lid) ) {
-    if (vol_WriteLogPage(pVol, cpd->lid, buf) == false)
-      return false;
-
-    return true;
+  if ( cpd && CONTENT_LID(cpd->logLoc) ) {
+    return vol_WriteLogPage(pVol, cpd->logLoc, buf);
   }
   
   for (div = 0; div < pVol->topDiv; div++) {
@@ -1579,34 +1490,15 @@ vol_WriteDataPage(Volume *pVol, OID oid, const uint8_t *buf)
   if (pVol->rewriting == false)
     return false;
   
-  /* If we get here, we didn't find what we wanted.  Allocate space
-   * for this page in the checkpoint log.
-   */
-
-  diag_fatal(1, "Cannot write page with OID 0x%08x%08x -- no home location\n",
-	      (uint32_t)(oid>>32), (uint32_t)oid);
+  diag_fatal(1, "Cannot write page with OID %#llx -- no home location\n",
+	      oid);
   
-  {
-    lid_t lid;
-
-    if (isZeroPage) {
-      lid = ZERO_LID;
-    } else {
-      lid = vol_AllocLogPage(pVol);
-  
-      if (vol_WriteLogPage(pVol, lid, buf) == false)
-	return false;
-    }
-  
-    vol_AddDirent(pVol, oid, 0, lid, FRM_TYPE_DPAGE);
-  }
-
-  return true;
+  return false;
 }
 
 /* Log I/O support: */
 bool
-vol_ReadLogPage(Volume *pVol, const lid_t lid, uint8_t *buf)
+vol_ReadLogPage(Volume * pVol, const LID lid, void * buf)
 {
   int div;
 
@@ -1616,7 +1508,7 @@ vol_ReadLogPage(Volume *pVol, const lid_t lid, uint8_t *buf)
     if (d->type == dt_Log && div_contains(d, lid)) {
       uint32_t offset = vol_GetLogFrameVolOffset(pVol, div, lid);
 
-      return vol_Read(pVol, offset, buf, EROS_PAGE_SIZE);
+      return vol_Read(pVol, offset, (uint8_t *)buf, EROS_PAGE_SIZE);
     }
   }
 
@@ -1624,7 +1516,7 @@ vol_ReadLogPage(Volume *pVol, const lid_t lid, uint8_t *buf)
 }
 
 bool
-vol_WriteLogPage(Volume *pVol, const lid_t lid, const uint8_t *buf)
+vol_WriteLogPage(Volume *pVol, const LID lid, const void * buf)
 {
   int div;
 
@@ -1634,7 +1526,7 @@ vol_WriteLogPage(Volume *pVol, const lid_t lid, const uint8_t *buf)
     if (d->type == dt_Log && div_contains(d, lid)) {
       uint32_t offset = vol_GetLogFrameVolOffset(pVol, div, lid);
 
-      if ( !vol_Write(pVol, offset, buf, EROS_PAGE_SIZE) )
+      if ( !vol_Write(pVol, offset, (const uint8_t *)buf, EROS_PAGE_SIZE) )
 	diag_fatal(5, "Volume write failed at offset %d.\n", offset);
     }
   }
@@ -1748,14 +1640,14 @@ vol_ReadNode(Volume * pVol, OID oid, DiskNode * pNode)
   int div;
   CkptDirent* ccd = vol_LookupObject(pVol, oid);
     
-  if (ccd && ccd->type == FRM_TYPE_NODE && ccd->lid != UNDEF_LID) {
+  if (ccd && ccd->type == FRM_TYPE_NODE) {
     uint32_t i;
     uint8_t logPage[EROS_PAGE_SIZE];
     DiskNode * logPot = (DiskNode *) logPage;
 
-    assert (CONTENT_LID(ccd->lid));
+    assert (CONTENT_LID(ccd->logLoc));
     
-    if (vol_ReadLogPage(pVol, ccd->lid, logPage) == false)
+    if (vol_ReadLogPage(pVol, ccd->logLoc, logPage) == false)
       return false;
 
     for (i = 0; i < DISK_NODES_PER_PAGE; i++) {
@@ -1796,38 +1688,6 @@ vol_ReadNode(Volume * pVol, OID oid, DiskNode * pNode)
   return false;
 }
 
-bool
-vol_WriteNodeToLog(Volume * pVol, OID oid, const DiskNode * pNode)
-{
-  uint8_t logPage[EROS_PAGE_SIZE];
-  DiskNode * logPot = (DiskNode *) logPage;
-  uint8_t ndx;
-
-  assert (oid == pNode->oid);
-  
-  if (pVol->curLogPotLid == UNDEF_LID) {
-    pVol->curLogPotLid = vol_AllocLogPage(pVol);
-  }
-
-  if (vol_ReadLogPage(pVol, pVol->curLogPotLid, logPage) == false)
-    return false;
-
-  ndx = pVol->curLogPotLid % EROS_OBJECTS_PER_FRAME;
-  
-  memcpy(&logPot[ndx], pNode, sizeof(DiskNode));
-
-  if (vol_WriteLogPage(pVol, pVol->curLogPotLid, logPage) == false)
-    return false;
-
-  vol_AddDirent(pVol, oid, 0, pVol->curLogPotLid, FRM_TYPE_NODE);
-  pVol->curLogPotLid++;
-  
-  if (pVol->curLogPotLid % EROS_OBJECTS_PER_FRAME == DISK_NODES_PER_PAGE)
-    pVol->curLogPotLid = UNDEF_LID;
-
-  return true;
-}
-
 static bool
 vol_FormatNodeFrame(Volume *pVol, int div, OID frameOID)
 {
@@ -1860,22 +1720,19 @@ vol_WriteNode(Volume *pVol, OID oid, const DiskNode * pNode)
   if (ccd && ccd->type != FRM_TYPE_NODE)
     return false;
   
-  if (ccd && CONTENT_LID(ccd->lid)) {
+  if (ccd && CONTENT_LID(ccd->logLoc)) {
     uint8_t logPage[EROS_PAGE_SIZE];
     DiskNode * logPot = (DiskNode *) logPage;
     uint32_t i;
 
-    if (vol_ReadLogPage(pVol, ccd->lid, logPage) == false)
+    if (vol_ReadLogPage(pVol, ccd->logLoc, logPage) == false)
       return false;
 
     for (i = 0; i < DISK_NODES_PER_PAGE; i++) {
       if (logPot[i].oid == oid) {
 	memcpy(&logPot[i], pNode, sizeof(DiskNode));
 
-	if (vol_WriteLogPage(pVol, ccd->lid, logPage) == false)
-	  return false;
-
-	return true;
+	return vol_WriteLogPage(pVol, ccd->logLoc, logPage);
       }
     }
 
@@ -1920,16 +1777,10 @@ vol_WriteNode(Volume *pVol, OID oid, const DiskNode * pNode)
   if (pVol->rewriting == false)
     return false;
   
-  /* If we get here, we didn't find what we wanted.  Allocate space
-   * for this node in the checkpoint log.
-   */
-
   diag_fatal(1, "Cannot write node with OID 0x%08x%08x -- no home location\n",
 	      (uint32_t)(oid>>32), (uint32_t)oid);
-  if ( !vol_WriteNodeToLog(pVol, oid, pNode) )
-    diag_fatal(5, "Volume write to log failed\n");
 
-  return true;
+  return false;
 }
 
 	

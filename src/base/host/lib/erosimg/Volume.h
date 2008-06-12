@@ -25,12 +25,14 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <disk/ErosTypes.h>
 #include <disk/LowVolume.h>
 #include <disk/ErosTypes.h>
 #include <disk/DiskNode.h>
-#include <erosimg/DiskCkpt.h>
+#include <disk/DiskObjDescr.h>
 #include <erosimg/Intern.h>
-#include <eros/Reserve.h>
+
+typedef struct DiskObjectDescriptor CkptDirent;	// an older name
 
 /* EROS volume structure.  EROS volumes contain:
  * 
@@ -48,7 +50,6 @@ Approved for public release, distribution unlimited. */
  */
 
 struct ExecImage;
-struct DiskCheckpoint;
 struct CkptDirent;
 
 typedef struct VolPagePot VolPagePot;
@@ -73,9 +74,9 @@ struct Volume {
   Division	divTable[NDIVENT];
   int topDiv;
 
-  lid_t topLogLid;
-  lid_t lastAvailLogLid;
-  lid_t firstAvailLogLid;
+  LID topLogLid;
+  LID lastAvailLogLid;
+  LID firstAvailLogLid;
 
   /* Managing the volume's checkpoint directory is a pain in the
    * butt.  The current logic works fine for creating new volumes and
@@ -92,14 +93,13 @@ struct Volume {
   const char * suffix;	/* suffix for Grub files */
   uint32_t bootDrive;	/* boot drive for kernel command, for Grub */
 
-  DiskCheckpoint *dskCkptHdr0;
-  DiskCheckpoint *dskCkptHdr1;
+  struct CkptRoot * dskCkptHdr0;
+  struct CkptRoot * dskCkptHdr1;
 
-  DiskCheckpoint *curDskCkpt;
-  DiskCheckpoint *oldDskCkpt;
+  struct CkptRoot * curDskCkpt;
+  struct CkptRoot * oldDskCkpt;
   
-  struct CpuReserveInfo *reserveTable;
-  
+#if 0 // this is not working now ...
   ThreadDirent* threadDir;
   uint32_t nThreadDirent;
   uint32_t maxThreadDirent;
@@ -107,8 +107,7 @@ struct Volume {
   CkptDirent* ckptDir;
   uint32_t maxCkptDirent;
   uint32_t nCkptDirent;
-
-  lid_t curLogPotLid;
+#endif
 
   bool	divNeedsInit[NDIVENT];
   bool  needDivInit;
@@ -171,8 +170,8 @@ const VolHdr *vol_GetVolHdr(Volume *pVolume)
   return &pVolume->volHdr; 
 }
 
-bool vol_ReadLogPage(Volume *, const lid_t lid, uint8_t* buf);
-bool vol_WriteLogPage(Volume *, const lid_t lid, const uint8_t* buf);
+bool vol_ReadLogPage(Volume *, const LID lid, void * buf);
+bool vol_WriteLogPage(Volume *, const LID lid, const void * buf);
 /* object I/O.  All of this assumes allocation/call count of 0! */
 bool vol_ReadDataPage(Volume *, OID oid, uint8_t* buf);
 bool vol_WriteDataPage(Volume *, OID oid, const uint8_t* buf);
@@ -187,9 +186,8 @@ void vol_SetVolFlag(Volume *, VolHdrFlags);
 void vol_ClearVolFlag(Volume *, VolHdrFlags);
 void vol_SetIplSysId(Volume *, uint64_t dw);
 bool vol_AddThread(Volume *, OID oid, ObCount count, uint16_t rsrvNdx);
-void vol_SetReserve(Volume *, const CpuReserveInfo *rsrv);
-const CpuReserveInfo *vol_GetReserve(const Volume *, uint32_t ndx);
 
+#if 0 // this is not working now ...
 INLINE uint32_t 
 vol_NumDirent(const Volume *pVolume)
 {
@@ -200,12 +198,6 @@ INLINE uint32_t
 vol_NumThread(const Volume *pVolume)
 {
   return pVolume->nThreadDirent;
-}
-
-INLINE uint32_t 
-vol_NumReserve(const Volume *pVolume)
-{
-  return MAX_CPU_RESERVE;
 }
 
 INLINE
@@ -221,6 +213,7 @@ vol_GetThread(const Volume *pVolume, uint32_t ndx)
 {
   return pVolume->threadDir[ndx];
 }
+#endif
 
 #ifdef __cplusplus
 }

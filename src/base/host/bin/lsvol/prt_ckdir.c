@@ -26,12 +26,20 @@ Approved for public release, distribution unlimited. */
 #include <erosimg/App.h>
 #include <erosimg/Volume.h>
 #include <disk/TagPot.h>
+#include <disk/CkptRoot.h>
 
 void
 PrintCkptDir(Volume* pVol)
 {
-  uint32_t rsrvStart;
-  uint32_t rsrvEnd;
+  diag_printf("Checkpoint header:\n");
+  diag_printf("  sequenceNumber        %#llx\n",
+	       pVol->curDskCkpt->mostRecentGenerationNumber);
+  diag_printf("  maxLogLid             0x%x\n",
+	       pVol->curDskCkpt->endLog);
+  diag_printf("  maxNPAllocCount       %#x\n",
+	       pVol->curDskCkpt->maxNPAllocCount);
+		 
+#if 0	// this is not working now ...
   uint32_t thrdStart;
   uint32_t thrdEnd;
   uint32_t dirStart;
@@ -39,34 +47,10 @@ PrintCkptDir(Volume* pVol)
   uint32_t pg;
   unsigned i;
 
-  diag_printf("Checkpoint header:\n");
-  diag_printf("  sequenceNumber        0x%08x%08x\n",
-	       (uint32_t) (pVol->curDskCkpt->hdr.sequenceNumber >> 32),
-	       (uint32_t) pVol->curDskCkpt->hdr.sequenceNumber);
-  diag_printf("  hasMigrated           %c\n",
-	       pVol->curDskCkpt->hdr.hasMigrated ? 'y' : 'n');
-  diag_printf("  maxLogLid             0x%x\n",
-	       pVol->curDskCkpt->hdr.maxLogLid);
-  diag_printf("  nDirPage              %d\n",
-	       pVol->curDskCkpt->hdr.nDirPage);
-  diag_printf("  nThreadPage           %d\n",
-	       pVol->curDskCkpt->hdr.nThreadPage);
-  diag_printf("  nReservePage          %d\n",
-	       pVol->curDskCkpt->hdr.nRsrvPage);
-		 
-  rsrvStart = 0;
-  rsrvEnd = pVol->curDskCkpt->hdr.nRsrvPage;
   thrdStart = rsrvEnd;
   thrdEnd = thrdStart + pVol->curDskCkpt->hdr.nThreadPage;
   dirStart = thrdEnd;
   dirEnd = dirStart + pVol->curDskCkpt->hdr.nDirPage;
-
-  diag_printf("\nCheckpoint reserve pages at log locations:\n");
-  for (pg = rsrvStart; pg < rsrvEnd; ) {
-    for (; pg < rsrvEnd; pg++)
-      diag_printf("  0x%08x", pVol->curDskCkpt->dirPage[pg]);
-    diag_printf("\n");
-  }
 
   diag_printf("\nCheckpoint thread pages at log locations:\n");
   for (pg = thrdStart; pg < thrdEnd; ) {
@@ -80,25 +64,6 @@ PrintCkptDir(Volume* pVol)
     for (; pg < dirEnd; pg++)
       diag_printf("  0x%08x", pVol->curDskCkpt->dirPage[pg]);
     diag_printf("\n");
-  }
-
-  diag_printf("\nReserves:\n");
-  for (i = 0; i < vol_NumReserve(pVol); i++) {
-    const CpuReserveInfo *r = vol_GetReserve(pVol, i);
-    if (r->normPrio == -2 && r->rsrvPrio == -2)
-      continue;
-    
-    diag_printf("[%3d] period 0x%08x%08x duration 0x%08x%08x\n"
-		 "     quanta 0x%08x%08x normPrio %d rsrvPrio %d\n",
-		 r->index,
-		 (uint32_t) (r->period >> 32),
-		 (uint32_t) (r->period),
-		 (uint32_t) (r->duration >> 32),
-		 (uint32_t) (r->duration),
-		 (uint32_t) (r->quanta >> 32),
-		 (uint32_t) (r->quanta),
-		 r->normPrio,
-		 r->rsrvPrio);
   }
 
   diag_printf("\nThreads:\n");
@@ -118,14 +83,8 @@ PrintCkptDir(Volume* pVol)
 
     char pageNode = (de.type == FRM_TYPE_NODE) ? 'N' : 'P';
     
-    if (de.lid == ZERO_LID)
+    if (! CONTENT_LID(de.lid))
       diag_printf("%c   OID=0x%08x%08x  %-8d   <zero>\n",
-		   pageNode,
-		   (uint32_t) (de.oid >> 32),
-		   (uint32_t) de.oid,
-		   de.count);
-    else if (de.lid == UNDEF_LID)
-      diag_printf("%c   OID=0x%08x%08x  %-8d   <UNDEF!>\n",
 		   pageNode,
 		   (uint32_t) (de.oid >> 32),
 		   (uint32_t) de.oid,
@@ -138,4 +97,5 @@ PrintCkptDir(Volume* pVol)
 		   de.count,
 		   de.lid);
   }
+#endif
 }

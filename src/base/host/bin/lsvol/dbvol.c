@@ -267,12 +267,6 @@ ProcessCmd()
     PrintDivTable(pVol);
   }
   else if (parse_MatchStart(&rest, buf) &&
-	   parse_MatchKeyword(&rest, "r") &&
-	   parse_MatchEOL(&rest) ) {
-    extern void PrintRsrvDir(Volume *);
-    PrintRsrvDir(pVol);
-  }
-  else if (parse_MatchStart(&rest, buf) &&
 	   parse_MatchKeyword(&rest, "kernel") &&
 	   parse_MatchFileName(&rest, &fileName) &&
 	   parse_MatchEOL(&rest) ) {

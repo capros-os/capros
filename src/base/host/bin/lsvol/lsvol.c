@@ -29,7 +29,6 @@ const char* targname;
 int showdiv = 0;
 int showhdr = 0;
 int showckdir = 0;
-int showrsdir = 0;
 
 int main(int argc, char *argv[])
 {
@@ -44,16 +43,13 @@ int main(int argc, char *argv[])
    
  app_Init("lsvol");
 
-  while ((c = getopt(argc, argv, "hdrc")) != -1) {
+  while ((c = getopt(argc, argv, "hdc")) != -1) {
     switch(c) {
     case 'd':
       showdiv = 1;
       break;
     case 'c':
       showckdir = 1;
-      break;
-    case 'r':
-      showrsdir = 1;
       break;
     case 'h':
       showhdr = 1;
@@ -93,11 +89,6 @@ int main(int argc, char *argv[])
   if (showckdir) {
     extern void PrintCkptDir(Volume*);
     PrintCkptDir(pVol);
-  }
-  
-  if (showrsdir) {
-    extern void PrintRsrvDir(Volume*);
-    PrintRsrvDir(pVol);
   }
   
   vol_Close(pVol);
