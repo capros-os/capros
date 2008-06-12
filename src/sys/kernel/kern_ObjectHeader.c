@@ -47,6 +47,12 @@ Approved for public release, distribution unlimited. */
 
 uint16_t objH_CurrentTransaction = 1; /* guarantee nonzero! */
 
+// The maximum allocation count of any nonpersistent object.
+ObCount maxNPAllocCount = 0;
+
+// The allocation count of nonpersistent objects at restart.
+ObCount restartNPAllocCount = 0;
+
 #ifdef OPTION_DDB
 const char *ddb_obtype_name(uint8_t t)
 {
@@ -347,6 +353,11 @@ objH_Rescind(ObjectHeader * thisPtr)
 
   if (objH_GetFlags(thisPtr, OFLG_AllocCntUsed)) {
     thisPtr->allocCount++;
+
+    // Track the maximum count of any nonpersistent object.
+    if (thisPtr->allocCount > maxNPAllocCount)
+      maxNPAllocCount = thisPtr->allocCount;
+
     objH_ClearFlags(thisPtr, OFLG_AllocCntUsed);
 
     /* The object must be dirty to ensure that the new count gets saved. */
@@ -359,7 +370,13 @@ objH_Rescind(ObjectHeader * thisPtr)
 void
 objH_DoBumpCallCount(ObjectHeader * pObj)
 {
-  objH_ToNode(pObj)->callCount++;
+  Node * node = objH_ToNode(pObj);
+  node->callCount++;
+
+  // Track the maximum count of any nonpersistent object.
+  if (node->callCount > maxNPAllocCount)
+    maxNPAllocCount = node->callCount;
+
   objH_ClearFlags(pObj, OFLG_CallCntUsed);
 
   /* The object must be dirty to ensure that the new count gets saved. */

@@ -31,7 +31,8 @@ Approved for public release, distribution unlimited. */
 struct ObjectSource;
 
 /* Note, ObjectRange is used for both object and log ranges,
- * and an OID is the same size as a LID. */
+ * and an OID is the same size as a LID. 
+ * Log ranges can only have source = IOObSource. */
 typedef struct ObjectRange {
   OID start;
   OID end;	/* last OID +1 */
@@ -108,12 +109,11 @@ typedef struct ObjectSource {
   (*objS_GetObject)(ObjectRange * rng, OID oid,
                     const ObjectLocator * pObjLoc);
   
-  /* Write a page to backing store. Note that the "responsible"
-   * ObjectSource can refuse, in which case the page will not be
-   * cleanable and will stay in memory. WritePage() is free to yield.
-   */
-  bool (*objS_WriteBack)(ObjectRange * rng, ObjectHeader *obHdr, 
-                         bool inBackground /*@ default = false @*/);
+  /* Write a frame to the range.
+   * This will only be called for the IOObSource. */
+  void
+  (*objS_WriteRangeLoc)(ObjectRange * rng, frame_t rangeLoc,
+                        PageHeader * pageH);
 } ObjectSource;
 
 bool objC_AddRange(const ObjectRange * rng);

@@ -62,6 +62,21 @@ AssertPageIsFree(PageHeader * pageH)
   }
 }
 
+static void
+InitPreloadedObj(ObjectHeader * pObj, OID oid, unsigned int type)
+{
+  pObj->allocCount = restartNPAllocCount;
+  objH_InitObj(pObj, oid, type);
+  // Object is dirty because we just initialized it:
+  objH_SetFlags(pObj, OFLG_DIRTY);
+  if (oid < FIRST_PERSISTENT_OID) {
+    // not persistent, not cleanable
+    objH_ClearFlags(pObj, OFLG_Cleanable);
+  } else {
+    objH_SetFlags(pObj, OFLG_Cleanable);
+  }
+}
+
 void
 preload_Init(void)
 {
@@ -102,9 +117,8 @@ preload_Init(void)
         Node * pNode = objC_GrabNodeFrame();
 
         node_SetEqualTo(pNode, dn + i);
-        node_ToObj(pNode)->allocCount = 0;	// FIXME
-        pNode->callCount = 0;	// FIXME
-        objH_InitObj(node_ToObj(pNode), oid + i, capros_Range_otNode);
+        pNode->callCount = restartNPAllocCount;
+        InitPreloadedObj(node_ToObj(pNode), oid + i, capros_Range_otNode);
 
         if (++j >= npod->numNodes)
           break;
@@ -130,9 +144,8 @@ preload_Init(void)
 
       objC_GrabThisPageFrame(pageH);
       pageH_MDInitDataPage(pageH);
-      pageH_ToObj(pageH)->allocCount = 0;	// FIXME
       pageH->objAge = age_NewBorn;
-      objH_InitObj(pageH_ToObj(pageH), oid, capros_Range_otPage);
+      InitPreloadedObj(pageH_ToObj(pageH), oid, capros_Range_otPage);
 
       oid += FrameToOID(1);
       pagePA += EROS_PAGE_SIZE;
@@ -171,7 +184,7 @@ PreloadObSource_GetObjectCount(ObjectRange * rng, OID oid,
 {
   assert(rng->start <= oid && oid < rng->end);
 
-  return 0;	// FIXME
+  return restartNPAllocCount;
 }
 
 static ObjectHeader *
@@ -204,7 +217,7 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid,
     Node * pNode = objC_GrabNodeFrame();
     pObj = node_ToObj(pNode);
 
-    pNode->callCount = 0;	// FIXME
+    pNode->callCount = restartNPAllocCount;
     pNode->nodeData = 0;
 
     uint32_t ndx;
@@ -218,18 +231,16 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid,
   }
   }
 
-  // FIXME: set count right.
-  objH_InitObj(pObj, oid, pObjLoc->objType);
+  InitPreloadedObj(pObj, oid, pObjLoc->objType);
 
   return pObj;
 }
 
-static bool
-PreloadObSource_WriteBack(ObjectRange * rng, ObjectHeader *obHdr, bool b)
+static void
+PreloadObSource_WriteRangeLoc(ObjectRange * rng, frame_t rangeLoc,
+  PageHeader * pageH)
 {
-  fatal("PreloadObSource::Write() unimplemented\n");
-
-  return false;
+  assert(false);	// should not be called
 }
 
 static const ObjectSource PreloadObSource = {
@@ -237,7 +248,7 @@ static const ObjectSource PreloadObSource = {
   .objS_GetObjectType = &PreloadObSource_GetObjectType,
   .objS_GetObjectCount = &PreloadObSource_GetObjectCount,
   .objS_GetObject = &PreloadObSource_GetObject,
-  .objS_WriteBack = &PreloadObSource_WriteBack
+  .objS_WriteRangeLoc = &PreloadObSource_WriteRangeLoc
 };
 
 void
@@ -251,17 +262,29 @@ PreloadObSource_Init(void)
   for (i = npod->numPreloadImages; i > 0; i--) {
     OID oid = npod->OIDBase;
 
-    /* For the case of persistent objects (oid == FIRST_PERSISTENT_OID),
-    using PreloadObSource is a temporary expedient until we get 
-    paging working.
-    When changing this, make sure zero pages get initialized somehow. */
+    if (oid < FIRST_PERSISTENT_OID) {
+      // Preloaded non-persistent objects.
+      // PreloadObSource will supply null objects for uninitialized objects.
+      rng.start = oid;
+      rng.end = oid + FrameToOID(npod->numFramesInRange);
+      rng.source = &PreloadObSource;
 
-    /* code for initializing PreloadObSource */
-    rng.start = oid;
-    rng.end = oid + FrameToOID(npod->numFramesInRange);
-    rng.source = &PreloadObSource;
+      objC_AddRange(&rng);
+    } else {
+      // Preloaded persistent objects.
+      // This is one way to initialize a big bang.
+#if 1	// if operating without any disk (during development):
+      // PreloadObSource will supply null objects for uninitialized objects.
+      rng.start = oid;
+      rng.end = oid + FrameToOID(npod->numFramesInRange);
+      rng.source = &PreloadObSource;
 
-    objC_AddRange(&rng);
+      objC_AddRange(&rng);
+#else	// if operating with disk:
+      // Need to make sure zero pages get initialized somehow,
+      // perhaps by formatting the disk.
+#endif
+    }
 
     uint32_t thisFrames = 1 + npod->numFrames;  // including the header frame
     npod = (struct NPObjectsDescriptor *)

@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/TagPot.h>
 #include <disk/DiskNode.h>
 #include <eros/machine/IORQ.h>
+#include <idl/capros/Range.h>
 
 #define dbg_		0x1
 
@@ -186,68 +187,109 @@ IOSource_GetObjectType(ObjectRange * rng, OID oid)
   act_Yield();
 }
 
-static ObCount
-IOSource_GetObjectCount(ObjectRange * rng, OID oid,
-  ObjectLocator * pObjLoc, bool callCount)
+// May Yield.
+static PageHeader *
+EnsureObjectPot(ObjectRange * rng, OID oid)
 {
-  assert(rng->start <= oid && oid < rng->end);
-
   frame_t frame = OIDToFrame(oid);
   OID relOid = oid - rng->start;	// OID relative to this range
   frame_t relFrame = OIDToFrame(relOid);
 
   // Is the pot in memory?
   ObjectHeader * pObj = objH_Lookup(frame, true);////
-  if (pObj) {
-    // A node pot is just an array of DiskNode's.
-    DiskNode * dn = (DiskNode *)pageH_GetPageVAddr(objH_ToPage(pObj));
-    dn += OIDToObIndex(relOid);
-    return callCount ? dn->callCount : dn->allocCount;
+  if (! pObj) {
+    // Read in the pot.
+    // FIXME need to avoid reading the same pot multiple times!
+    IORequest * ioreq = AllocateIOReqAndPage();
+    ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
+    ioreq->objRange = rng;
+    ioreq->rangeLoc = FrameToRangeLoc(relFrame);
+    ioreq->doneFn = &IOReq_WakeSQ;
+    sq_Init(&ioreq->sq);
+    act_SleepOn(&ioreq->sq);
+    act_Yield();
+    // act_Yield does not return
   }
-  // Read in the pot.
-  // FIXME need to avoid reading the same pot multiple times!
-  IORequest * ioreq = AllocateIOReqAndPage();
-  ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
-  ioreq->objRange = rng;
-  ioreq->rangeLoc = FrameToRangeLoc(relFrame);
-  ioreq->doneFn = &IOReq_WakeSQ;
-  sq_Init(&ioreq->sq);
-  act_SleepOn(&ioreq->sq);
-  act_Yield();
+  return objH_ToPage(pObj);
 }
 
-/* May Yield. */
+// May Yield.
+static ObCount
+IOSource_GetObjectCount(ObjectRange * rng, OID oid,
+  ObjectLocator * pObjLoc, bool callCount)
+{
+  assert(rng->start <= oid && oid < rng->end);
+
+  PageHeader * pageH = EnsureObjectPot(rng, oid);
+
+  OID relOid = oid - rng->start;	// OID relative to this range
+
+  // A node pot is just an array of DiskNode's.
+  DiskNode * dn = (DiskNode *)pageH_GetPageVAddr(pageH);
+  dn += OIDToObIndex(relOid);
+  return callCount ? dn->callCount : dn->allocCount;
+}
+
+// May Yield.
 ObjectHeader * 
 IOSource_GetObject(ObjectRange * rng, OID oid,
   const ObjectLocator * pObjLoc)
 {
-  assert(rng->start <= oid && oid < rng->end);
-  fatal("IOSource::WriteBack() unimplemented\n");
+  PageHeader * pageH;
 
-#if 0
-  // Is the pot in memory?
-  ObjectHeader * pObj = objH_Lookup(frame, true);////
-  if (pObj) {
+  assert(rng->start <= oid && oid < rng->end);
+
+  OID relOid = oid - rng->start;	// OID relative to this range
+
+  switch (pObjLoc->objType) {
+  default: ;
+    assert(false);	// invalid type
+
+  case capros_Range_otPage: ;
+    // Read in the page.
+    // FIXME need to avoid reading the same page multiple times!
+    IORequest * ioreq = AllocateIOReqAndPage();
+    ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
+    ioreq->objRange = rng;
+    ioreq->rangeLoc = FrameToRangeLoc(OIDToFrame(relOid));
+    ioreq->doneFn = &IOReq_WakeSQ;
+    sq_Init(&ioreq->sq);
+    act_SleepOn(&ioreq->sq);
+    act_Yield();
+    // act_Yield does not return
+    break;
+
+  case capros_Range_otNode:
+    pageH = EnsureObjectPot(rng, oid);
+
     Node * pNode = objC_GrabNodeFrame();
+
     // A node pot is just an array of DiskNode's.
-    DiskNode * dn = (DiskNode *)pageH_GetPageVAddr(objH_ToPage(pObj));
+    DiskNode * dn = (DiskNode *)pageH_GetPageVAddr(pageH);
     dn += OIDToObIndex(relOid);
     node_SetEqualTo(pNode, dn);
-    objH_InitObj(node_ToObj(pNode), oid, capros_Range_otNode);
-
-    return 0;	// FIXME
+    ObjectHeader * pObj = node_ToObj(pNode);
+    objH_InitObj(pObj, oid, capros_Range_otNode);
+    objH_ClearFlags(pObj, OFLG_DIRTY);
+    objH_SetFlags(pObj, OFLG_Cleanable);
+    return pObj;
   }
-#endif
-
-  return NULL;////
 }
 
-static bool
-IOSource_WriteBack(ObjectRange * rng, ObjectHeader *obHdr, bool b)
+static void
+IOSource_WriteRangeLoc(ObjectRange * rng, frame_t rangeLoc,
+  PageHeader * pageH)
 {
-  fatal("IOSource::WriteBack() unimplemented\n");
-
-  return false;
+  IORequest * ioreq = IOReq_AllocateOrWait();
+  ioreq->pageH = pageH;
+  ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
+  ioreq->objRange = rng;
+  ioreq->rangeLoc = rangeLoc;
+  ioreq->doneFn = &IOReq_WakeSQ;////
+  sq_Init(&ioreq->sq);
+  act_SleepOn(&ioreq->sq);
+  act_Yield();
+  // act_Yield does not return
 }
 
 const struct ObjectSource IOObSource = {
@@ -255,6 +297,6 @@ const struct ObjectSource IOObSource = {
   .objS_GetObjectType = &IOSource_GetObjectType,
   .objS_GetObjectCount = &IOSource_GetObjectCount,
   .objS_GetObject = &IOSource_GetObject,
-  .objS_WriteBack = &IOSource_WriteBack,
+  .objS_WriteRangeLoc = &IOSource_WriteRangeLoc,
 };
 

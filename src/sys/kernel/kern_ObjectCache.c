@@ -274,6 +274,8 @@ AddCoherentPages(PageHeader * pageH, PmemInfo * pmi, kpg_t nPages,
     // No objH_CalcCheck for device pages.
     objH_ResetKeyRing(pObj);
     objH_Intern(pObj);
+    objH_SetFlags(pObj, OFLG_DIRTY);
+    objH_ClearFlags(pObj, OFLG_Cleanable);
   }
 }
 

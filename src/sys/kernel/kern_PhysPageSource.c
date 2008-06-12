@@ -90,12 +90,11 @@ PhysPageSource_GetObject(ObjectRange * rng, OID oid,
   return pObj;
 }
 
-static bool
-PhysPageSource_WriteBack(ObjectRange * rng, ObjectHeader *obHdr, bool b)
+static void
+PhysPageSource_WriteRangeLoc(ObjectRange * rng, frame_t rangeLoc,
+  PageHeader * pageH)
 {
-  fatal("PhysPageSource::WriteBack() unimplemented\n");
-
-  return false;
+  assert(false);	// should not be called
 }
 
 const struct ObjectSource PhysPageObSource = {
@@ -103,7 +102,7 @@ const struct ObjectSource PhysPageObSource = {
   .objS_GetObjectType = &PhysPageSource_GetObjectType,
   .objS_GetObjectCount = &PhysPageSource_GetObjectCount,
   .objS_GetObject = &PhysPageSource_GetObject,
-  .objS_WriteBack = &PhysPageSource_WriteBack,
+  .objS_WriteRangeLoc = &PhysPageSource_WriteRangeLoc,
 };
 
 void

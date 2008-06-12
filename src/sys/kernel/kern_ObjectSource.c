@@ -246,7 +246,8 @@ objC_WriteBack(ObjectHeader * pObj, bool inBackground)
     return false;
   }
 
-  return rng->source->objS_WriteBack(rng, pObj, inBackground);
+////  return rng->source->objS_WriteBack(rng, pObj, inBackground);
+  return false;	// for now
 }
 
 void

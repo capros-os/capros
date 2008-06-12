@@ -40,6 +40,8 @@ struct PmemInfo;
 
 #include <arch-kerninc/PageHeader.h>
 
+extern ObCount restartNPAllocCount;
+
 /* Enable the option OB_MOD_CHECK **in your configuration file** if
  * you are debugging the kernel, and want to verify that modified bits
  * are getting properly set.  Note that this option causes the
@@ -112,6 +114,9 @@ enum {
 #define OFLG_DIRTY	0x01u	/* object has been modified */
 #define OFLG_REDIRTY	0x02u	/* object has been modified since
 				write initiated */
+#define OFLG_Cleanable  0x04	/* object is persistent.
+				This is a shortcut for inquring of the object's
+				ObjectSource. */
 #define OFLG_CURRENT	0x08u	/* current version */
 #define OFLG_CKPT	0x10u	/* checkpoint version */
 #define OFLG_IO		0x20u	/* object has active I/O in progress */
