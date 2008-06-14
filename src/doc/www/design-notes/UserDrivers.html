@@ -331,6 +331,28 @@ All normal user objects fall into this class.
       so those capabilities will be valid. 
     </p>
     <p>
+      There are two ways to calculate the maximum allocation count.
+    </p>
+    <ul>
+      <li>
+        In the first, we recognize that when an object's allocCountUsed
+        bit is on, that object's allocation count will be incremented
+        when the object is rescinded. The count saved on a checkpoint
+        should be the count that results in rescinding all the
+        non-persistent objects, so it should be based on the
+        incremented count. 
+      <li>
+        In the second, we simply assume that the allocCountUsed bits
+        of non-persistent objects is on, and save the maximum
+        of the unincremented counts, plus one.
+        This number may be larger than necessary, but it is safe.
+    </ul>
+      The second method may increment the maximum count faster than
+      the first, but only by the number of restarts.
+      We will implement the second method, because the first method
+      requires more code, and therefore time, at the point when
+      a capability is unprepared.
+    <p>
       There is an implementation wrinkle. 
       On restart, we load and start the non-persistent processes,
       which then read the checkpoint headers. 

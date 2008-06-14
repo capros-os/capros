@@ -197,7 +197,7 @@
             <dd>A generation that has not been fully migrated.
                 It may be partially migrated.
             <dt>Retired generation
-            <dd>A generation that is as old or older than the generation
+            <dd>A generation that is as old as or older than the generation
                  identified in the migratedSeqNum field of the restart
                  generation header.
                  A retired generation has been migrated.
@@ -275,7 +275,7 @@
 	  </p>
 	  <p>
             The checkpoint header contains an identifying header,
-            containing the generation number of the restart generation,
+            containing the generation number of the restart generation.
             The header with the highest generation number
             is the most recent header.
             Only the most recent valid header is used for restart.
@@ -285,38 +285,21 @@
             generation headers of all the unmigrated generations.
             This imposes an upper limit of about 500 unmigrated generations.
 	  </p>
-	  <h3>3.2 The Generation Header</h3>
-	  <p>
-	    The root of a generation directory is the generation header.
-	    The generation header frame
-	    begins with a header structure describing the generation.
-	    <p>The last item in the
-	    generation header is a checksum of the previous
-	    entries. This checksum is included to detect
+	    <p>The last item in the generation header is a field
+            used to validate the correctness of the previous data.
+	    This field is included to detect
 	    frames which were only partially written due to hardware
 	    failure. We needed this field on the S/370 because
 	    certain write failures (e.g. channel failure) caused the
 	    disk controller to fill out the block with the last byte
 	    transferred from the channel, and then write a
 	    correct hardware checking block.
-	  </p>
+	  <h3>3.2 The Generation Header</h3>
 	  <p>
-            The space between the header and the checksum is used
-            as described below.
+	    The root of a generation directory is the generation header.
+	    The generation header frame
+	    begins with a header structure describing the generation.
 	  </p>
-	  <ul>
-	      <pre>
-offset          contents
-           +------------------+
-0          |     Header       |
-           +------------------+
-hdrSize    |     see text     |
-           |                  |
-           +------------------+
-pageSize-4 |    checksum      |
-           +------------------+
-	      </pre>
-	  </ul>
 	  <p>
 	    The header structure is:
 	  </p>
@@ -364,20 +347,19 @@ struct DiskGenerationHdr {
 	    <dd>
 	      <p>
 		The version number of the generation header.
-                This version is number zero.
 	      </p>
 	    </dd>
 	    <dt><b>sequenceNumber</b></dt>
 	    <dd>
 	      <p>
-		The sequence number allows CapROS to determine which
+		The generation sequence number allows CapROS to determine which
 		generation is most recent.
 	      </p>
 	    </dd>
 	    <dt><b>migratedSeqNum</b></dt>
 	    <dd>
 	      <p>
-		The "has migrated" field holds the sequence number
+		This field holds the sequence number
 		of the latest generation which was completely migrated
 		when this header was written.
 	      </p>
@@ -409,21 +391,23 @@ struct DiskGenerationHdr {
 	    <dt><b>firstProcessDirFrame</b>, <b>nProcessDirFrames</b></dt>
 	    <dd>
 	      <p>
-		The <tt>firstProcessDirFrame</tt> is the LID of the
-		first frame of the process directory. If the entire
-		process directory is in the checkpoint header, it will
-		be zero. <tt>nProcessDirFrames</tt> is the number of
+                <tt>nProcessDirFrames</tt> is the number of
 		process directory frames.
+                If the entire process directory is in the checkpoint header,
+                it will be zero.
+		The <tt>firstProcessDirFrame</tt> is the LID of the
+		first frame of the process directory.
 	      </p>
 	    </dd>
 	    <dt><b>firstObjectDirFrame</b>, <b>nObjectDirFrames</b></dt>
 	    <dd>
 	      <p>
-		The <tt>firstObjectDirFrame</tt> is the LID of the
-		first frame of the object directory. If the entire
-		object directory is in the checkpoint header, it will
-		be zero. <tt>nObjectDirFrames</tt> is the number of
+                <tt>nObjectDirFrames</tt> is the number of
 		object directory frames.
+                If the entire object directory is in the checkpoint header,
+                it will be zero.
+		The <tt>firstObjectDirFrame</tt> is the LID of the
+		first frame of the object directory.
 	      </p>
 	    </dd>
 	    <dt>
