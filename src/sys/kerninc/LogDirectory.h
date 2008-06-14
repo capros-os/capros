@@ -70,7 +70,8 @@ typedef struct ObjectDescriptor {
     @param[in] lid The location of the object in the checkpoint log.
     @param[in] generation The log generation of the object.
 */
-void od_recordLocation(ObjectDescriptor *od, LID lid, uint64_t generation);
+void
+ld_recordLocation(ObjectDescriptor *od, LID lid, uint64_t generation);
 
 /** Find an object in the directory.
 
@@ -79,11 +80,11 @@ void od_recordLocation(ObjectDescriptor *od, LID lid, uint64_t generation);
     generations still in the directory.
 
     @param[in] oid The object ID to be located.
-    @param[in] type The type of the object.
     @return A pointer to the ObjectDescriptor for the object or NULL if the
             object is not in the log.
 */
-ObjectDescriptor *od_findObject(OID oid, uint8_t type);
+ObjectDescriptor *
+ld_findObject(OID oid);
 
 /** Find the first object of a generation.
 
@@ -100,7 +101,8 @@ ObjectDescriptor *od_findObject(OID oid, uint8_t type);
     @param[in] generation The generation number to scan.
     @return The ObjectDescriptor of the first object in a generation scan.
 */
-ObjectDescriptor *od_findFirstObject(uint64_t generation);
+ObjectDescriptor *
+ld_findFirstObject(uint64_t generation);
 
 /** Find the next object of a generation.
 
@@ -110,7 +112,8 @@ ObjectDescriptor *od_findFirstObject(uint64_t generation);
     @param[in] generation The generation number to scan.
     @return The ObjectDescriptor of the next object in a generation scan.
 */
-ObjectDescriptor *od_findNextObject(uint64_t generation);
+ObjectDescriptor *
+ld_findNextObject(uint64_t generation);
 
 /** Remove all the objects in a generation from the Log Directory.
 
@@ -119,6 +122,7 @@ ObjectDescriptor *od_findNextObject(uint64_t generation);
 
     @param uint64_t generation The generation to clear.
 */
-void od_clearGeneration(uint64_t generation);
+void
+ld_clearGeneration(uint64_t generation);
 
 #endif /* LOGDIRECTORY_H */
