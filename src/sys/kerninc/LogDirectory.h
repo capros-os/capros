@@ -43,6 +43,9 @@ Approved for public release, distribution unlimited. */
       4. Remove all the entries of a particular checkpoint generation.
 
 */
+
+extern LID logCursor;	// next place to write in the main log
+
 /** The object information maintained by the Log Directory.
  */
 typedef struct ObjectDescriptor {

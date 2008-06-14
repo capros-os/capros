@@ -48,7 +48,18 @@ typedef struct CkptRoot {
 
   // The LIDs of the headers of the unmigrated generations,
   // in order beginning with the most recent:
-  LID generations[MaxUnmigratedGenerations];	// 0 if not used
+  LID generations[MaxUnmigratedGenerations];	// UNUSED_LID if not used
+
+  uint64_t checkGenNum;	// a copy of mostRecentGenerationNumber,
+			// to check that the full structure was written
+			// (a checksum would be better...)
+
+#define IntegrityByteValue 0xf7
+  uint8_t integrityByte;	// set to IntegrityByteValue
+			// to catch certain errors
 } CkptRoot;
+
+#define CKPT_ROOT_0 FrameToOID(0)
+#define CKPT_ROOT_1 FrameToOID(1)
 
 #endif // __CKPTROOT_H__

@@ -35,7 +35,6 @@ struct GenDirHdr {
 typedef struct DiskGenerationHdr {
   // Beware of alignment: this structure is used on both the host and target.
   uint32_t versionNumber;
-  uint32_t nHeaders;
   uint64_t generationNumber;
   uint64_t migratedGenNumber;
   LID firstLid;

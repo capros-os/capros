@@ -1653,9 +1653,11 @@ db_page_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
     /*NOTREACHED*/
   }
   
-  PageHeader * pageH = objH_LookupPage(oid);
-  if (pageH == 0)
+  ObjectHeader * pObj = objH_Lookup(oid, 0);
+  if (! pObj || objH_GetBaseType(pObj) != capros_Range_otPage)
     db_error("not in core\n");
+
+  PageHeader * pageH = objH_ToPage(pObj);
 
   kva = pageH_GetPageVAddr(pageH);
   

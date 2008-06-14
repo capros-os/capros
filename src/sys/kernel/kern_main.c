@@ -58,8 +58,6 @@ extern void UserIrqInit();
 extern void ddb_init();
 #endif
 
-extern Activity *StartIdleActivity();
-
 #if 0
 ReadyQueue iplRQ = {
   &prioQueues[pr_High],
@@ -111,8 +109,6 @@ StartIplActivity(OID iplOid)
 int
 main(void)
 {
-  Activity *idleActivity;
-
   OID iplOid = NPObDescr->IPLOID;
 
   physMem_Init();
@@ -157,7 +153,10 @@ main(void)
 
   res_AllocReserves();
 
-  idleActivity = StartIdleActivity();
+  extern Activity * StartIdleActivity(void);
+  Activity * idleActivity = StartIdleActivity();
+  extern void CreateMigratorActivity(void);
+  CreateMigratorActivity();
  
   /* NOTE: If we need to reserve extra space for the kernel heap, this
      is where to do it, though we *should* be able to steal frames

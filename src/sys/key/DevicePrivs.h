@@ -83,8 +83,7 @@ physMem_AllocateDMAPages(Invocation * inv)
     key_SetToObj(key, pageH_ToObj(pageH), KKT_Page, 0, 0);
   }
 
-  capros_DevPrivs_addr_t pa
-    = (kpa_t)pageH_ToPhysPgNum(pageH)<< EROS_PAGE_LGSIZE;
+  capros_DevPrivs_addr_t pa = pageH_ToPhysAddr(pageH);
   inv->exit.w1 = pa;
   inv->exit.w2 = pa >> 32;
 

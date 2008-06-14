@@ -56,8 +56,10 @@ IORQ_Init(void)
   // All IORQs are free:
   for (i = 0; i < KTUNE_NIORQS; i++) {
     IORQ * iorq = &IORQs[i];
+    iorq->needsSyncCache = false;
     iorq->lk.next = freeIORQs;
     freeIORQs = &iorq->lk;
+    sq_Init(& iorq->waiter);
   }
 
   // All IOReqs are free:
@@ -74,6 +76,7 @@ IOReq_Allocate(void)
   IORequest * ioreq = container_of(freeIOReqs, IORequest, lk);
   if (ioreq) {
     freeIOReqs = ioreq->lk.next;
+    link_Init(&ioreq->lk);
   }
   return ioreq;
   
@@ -102,6 +105,7 @@ AllocateIOReqAndPage(void)
   IORequest * ioreq = IOReq_Allocate();
   if (ioreq) {
     ioreq->pageH = pageH;
+    pageH->ioreq = ioreq;
     return ioreq;
   }
 
@@ -129,6 +133,7 @@ IORQ_Allocate(void)
   IORQ * iorq = container_of(freeIORQs, IORQ, lk);
   if (iorq) {
     freeIORQs = iorq->lk.next;
+    link_Init(&iorq->lk);
   }
   return iorq;
   
@@ -143,14 +148,44 @@ IORQ_Deallocate(IORQ * iorq)
 
 // ************************ IOSource stuff **************************
 
-static void
-IOReq_WakeSQ(struct IORequest * ioreq)
+void
+IOReq_EndRead(IORequest * ioreq)
 {
   // The IORequest is done.
-  //// Mark the page as no longer having I/O.
+  // Mark the page as no longer having I/O.
+  PageHeader * pageH = ioreq->pageH;
+  pageH->ioreq = NULL;
+  objH_ClearFlags(pageH_ToObj(pageH), OFLG_Fetching);
   sq_WakeAll(&ioreq->sq, false);
+  // Caller has unlinked the ioreq and will deallocate it.
 }
 
+void
+IOReq_WakeSQ(IORequest * ioreq)
+{
+  // The IORequest is done.
+  // Mark the page as no longer having I/O.
+  PageHeader * pageH = ioreq->pageH;
+  pageH->ioreq = NULL;
+  sq_WakeAll(&ioreq->sq, false);
+  // Caller has unlinked the ioreq and will deallocate it.
+}
+
+// May Yield.
+void
+objH_EnsureNotFetching(ObjectHeader * pObj)
+{
+  if (objH_GetFlags(pObj, OFLG_Fetching)) {
+    // Must be a page or pot:
+    assert(pObj->obType > ot_NtLAST_NODE_TYPE);
+    PageHeader * pageH = objH_ToPage(pObj);
+    // Wait for the fetching to finish.
+    act_SleepOn(&pageH->ioreq->sq);
+    act_Yield();
+  }
+}
+
+// May Yield.
 ObjectLocator 
 IOSource_GetObjectType(ObjectRange * rng, OID oid)
 {
@@ -164,8 +199,9 @@ IOSource_GetObjectType(ObjectRange * rng, OID oid)
   frame_t tagPotID = tagPotRelID + rng->start;
 
   // Is the tag pot in memory?
-  ObjectHeader * pObj = objH_Lookup(tagPotID, true);
+  ObjectHeader * pObj = objH_Lookup(tagPotID, ot_PtTagPot);
   if (pObj) {
+    objH_EnsureNotFetching(pObj);
     objLoc.locType = objLoc_TagPot;
     objLoc.u.tagPot.tagPotPageH = objH_ToPage(pObj);
     objLoc.u.tagPot.range = rng;
@@ -176,15 +212,34 @@ IOSource_GetObjectType(ObjectRange * rng, OID oid)
     return objLoc;
   }
   // Read in the tag pot.
-  // FIXME need to avoid reading the same pot multiple times!
   IORequest * ioreq = AllocateIOReqAndPage();
+
+  /* Initialize the pot.
+  We add it to the object hash now, with the flag OFLG_Fetching,
+  so that if there is another request for the pot while it is being fetched,
+  it won't be fetched twice.
+  (The same is true of object pots and pages.) */
+  PageHeader * pageH = ioreq->pageH;
+  pObj = pageH_ToObj(pageH);
+  pObj->obType = ot_PtTagPot;
+  objH_InitObj(pObj, tagPotID);
+  objH_SetFlags(pObj, OFLG_Fetching);
+
   ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
   ioreq->objRange = rng;
   ioreq->rangeLoc = ClusterToTagPotRangeLoc(clusterNum);
-  ioreq->doneFn = &IOReq_WakeSQ;
+  ioreq->doneFn = &IOReq_EndRead;
   sq_Init(&ioreq->sq);
   act_SleepOn(&ioreq->sq);
   act_Yield();
+}
+
+void
+ioreq_Enqueue(IORequest * ioreq)
+{
+  IORQ * iorq = ioreq->objRange->u.rq.iorq;
+  link_insertAfter(& iorq->lk, & ioreq->lk);
+  sq_WakeAll(& iorq->waiter, false);
 }
 
 // May Yield.
@@ -196,21 +251,29 @@ EnsureObjectPot(ObjectRange * rng, OID oid)
   frame_t relFrame = OIDToFrame(relOid);
 
   // Is the pot in memory?
-  ObjectHeader * pObj = objH_Lookup(frame, true);////
-  if (! pObj) {
-    // Read in the pot.
-    // FIXME need to avoid reading the same pot multiple times!
-    IORequest * ioreq = AllocateIOReqAndPage();
-    ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
-    ioreq->objRange = rng;
-    ioreq->rangeLoc = FrameToRangeLoc(relFrame);
-    ioreq->doneFn = &IOReq_WakeSQ;
-    sq_Init(&ioreq->sq);
-    act_SleepOn(&ioreq->sq);
-    act_Yield();
-    // act_Yield does not return
-  }
-  return objH_ToPage(pObj);
+  ObjectHeader * pObj = objH_Lookup(frame, ot_PtObjPot);
+  if (pObj)
+    return objH_ToPage(pObj);
+
+  objH_EnsureNotFetching(pObj);
+  // Read in the pot.
+  IORequest * ioreq = AllocateIOReqAndPage();
+
+  // Initialize the pot.
+  PageHeader * pageH = ioreq->pageH;
+  pObj = pageH_ToObj(pageH);
+  pObj->obType = ot_PtObjPot;
+  objH_InitObj(pObj, oid);
+  objH_SetFlags(pObj, OFLG_Fetching);
+
+  ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
+  ioreq->objRange = rng;
+  ioreq->rangeLoc = FrameToRangeLoc(relFrame);
+  ioreq->doneFn = &IOReq_EndRead;
+  sq_Init(&ioreq->sq);
+  act_SleepOn(&ioreq->sq);
+  act_Yield();
+  // act_Yield does not return
 }
 
 // May Yield.
@@ -252,7 +315,7 @@ IOSource_GetObject(ObjectRange * rng, OID oid,
     ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
     ioreq->objRange = rng;
     ioreq->rangeLoc = FrameToRangeLoc(OIDToFrame(relOid));
-    ioreq->doneFn = &IOReq_WakeSQ;
+    ioreq->doneFn = &IOReq_EndRead;
     sq_Init(&ioreq->sq);
     act_SleepOn(&ioreq->sq);
     act_Yield();
@@ -269,7 +332,8 @@ IOSource_GetObject(ObjectRange * rng, OID oid,
     dn += OIDToObIndex(relOid);
     node_SetEqualTo(pNode, dn);
     ObjectHeader * pObj = node_ToObj(pNode);
-    objH_InitObj(pObj, oid, capros_Range_otNode);
+    pObj->obType = ot_NtUnprepared;
+    objH_InitObj(pObj, oid);
     objH_ClearFlags(pObj, OFLG_DIRTY);
     objH_SetFlags(pObj, OFLG_Cleanable);
     return pObj;

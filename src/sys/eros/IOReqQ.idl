@@ -27,6 +27,19 @@ interface IOReqQ extends key {
    */
   void disableWaiting();
   void enableWaiting();
+
+  /** Complete a request.
+
+   Signal the completion of the IORequest with the specified requestID
+   value.
+
+   errno is 0 if the request completed successfully.
+
+   "Completed successfully" means that the buffer is no longer needed,
+   but does not mean that data written has reached a nonvolatile medium.
+   */
+  void completeRequest(unsigned long requestID,
+                       unsigned long errno);
 };
 
 interface IOReqQ32 extends IOReqQ {

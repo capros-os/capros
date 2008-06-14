@@ -49,13 +49,4 @@ BaseTypeToObType(unsigned int baseType)
   }
 }
 
-INLINE PageHeader *         
-objH_LookupPage(OID oid)
-{
-  ObjectHeader * pObj = objH_Lookup(oid, false);
-  if (pObj && objH_GetBaseType(pObj) == capros_Range_otPage)
-    return objH_ToPage(pObj);
-  else return NULL;
-}
-
 #endif // __OBJH_INLINE_H_

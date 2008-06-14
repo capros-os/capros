@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/ObjectSource.h>
 #include <kerninc/Node.h>
+#include <kerninc/ObjH-inline.h>
 #include <eros/Device.h>
 #include <disk/DiskNode.h>
 #include <disk/NPODescr.h>
@@ -66,7 +67,8 @@ static void
 InitPreloadedObj(ObjectHeader * pObj, OID oid, unsigned int type)
 {
   pObj->allocCount = restartNPAllocCount;
-  objH_InitObj(pObj, oid, type);
+  pObj->obType = BaseTypeToObType(type);
+  objH_InitObj(pObj, oid);
   // Object is dirty because we just initialized it:
   objH_SetFlags(pObj, OFLG_DIRTY);
   if (oid < FIRST_PERSISTENT_OID) {

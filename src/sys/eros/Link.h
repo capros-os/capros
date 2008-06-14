@@ -67,6 +67,7 @@ link_insertBetween(Link * thisPtr, Link * p, Link * n)
   thisPtr->next = n;
 }
 
+// Insert thisPtr after head p.
 INLINE void
 link_insertAfter(Link * p, Link * thisPtr)
 {

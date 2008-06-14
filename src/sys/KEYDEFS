@@ -49,20 +49,20 @@ primary	PhysRange   /* Physical page range, not elegantly subdivisible */
 noakt   PhysRange
 bindto  PhysRange Range
 
+/* Misc keys begin here. */
+
+primary	Void
+
 primary	KeyBits
 akt KeyBits 0xdc007fec
 primary	Discrim
 akt Discrim 0x5a789281
 
-primary	Returner
-obsolete Returner
-
 primary	ProcessTool
 akt ProcessTool 0x98ef205c
-primary	Checkpoint
 
-primary	Void
-akt   Void 0xbb5c424b
+primary	Checkpoint
+primary MigratorTool
 
 primary	Sleep
 akt Sleep 0x332142e3
@@ -90,22 +90,6 @@ reserved TimeOfDay    /* Still deciding on this. */
    device really should be primitive when a kernel debugger is
    present. */
 primary	Keyboard
-
-/* Following is highly experimental -- it is intended to let the
-   kernel invoke itself via the ordinary capability invocation
-   mechanism so that the Yield() logic can be safely unified. It is
-   NOT intended that this type of capability should ever be given to a
-   process, though doing so has no overt security consequences.  The
-   only operation performed by a LogPage key is to cause that log page
-   to get page-faulted into memory. It returns RC_OK on success.
-   Hmm.  I suppose that this might be used to learn the size of the
-   log, so it should probably return RC_OK if the requested frame is
-   out of range too; since the only legitemate client is the kernel,
-   we're not really going to pay attention anyway. */
-
-/* primary	LogFrame */
-
-/* primary	LogAppend */
 
 domain	PCC
 domain	MetaConstructor

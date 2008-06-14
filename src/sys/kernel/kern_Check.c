@@ -145,6 +145,7 @@ check_Pages()
     case ot_PtDMABlock:
     case ot_PtDMASecondary:
     case ot_PtTagPot:
+    case ot_PtObjPot:
       continue;
 
     case ot_PtDevicePage:
@@ -160,9 +161,6 @@ check_Pages()
       ObjectHeader * pObj = pageH_ToObj(pPage);
       if (!objH_GetFlags(pObj, OFLG_DIRTY)) {
         assert (objH_GetFlags(pObj, OFLG_DIRTY) == 0);
-        if (objH_GetFlags(pObj, OFLG_REDIRTY))
-          printf("Frame %d ty=%d, flg=0x%02x redirty but not dirty!!\n",
-		       pg, pObj->obType, pObj->flags);
 
         uint32_t chk = objH_CalcCheck(pObj);
 
@@ -170,10 +168,9 @@ check_Pages()
           printf("Frame %d Chk=0x%x CalcCheck=0x%x flgs=0x%02x ty=%d\n on pg OID ",
                  pg, pObj->check, chk, pObj->flags, pObj->obType);
 	  printOid(pObj->oid);
-	  printf("  pPage 0x%08x dirty: %c reDirty: %c\n",
+	  printf("  pPage 0x%08x dirty: %c\n",
 		       pPage,
-		       (objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n'),
-		       (objH_GetFlags(pObj, OFLG_REDIRTY) ? 'y' : 'n'));
+		       (objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n'));
 	  result = false;
         }
       }

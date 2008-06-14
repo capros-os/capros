@@ -42,6 +42,13 @@ typedef struct IORequest {
 typedef struct IORQ {
   Link lk;	/* If free, lk.next is link in the free list.
 		Otherwise lk is the chain of linked IORequests. */
+  StallQueue waiter;
+
+  /* needsSyncCache is true iff writes have been done to this device
+   * but no subsequent SYNCHRONIZE_CACHE operation,
+   * so the data written might be only in volatile memory.
+   * needsSyncCache is false if the IORQ is free. */
+  bool needsSyncCache;
 } IORQ;
 
 extern IORQ IORQs[];
@@ -51,5 +58,12 @@ IORequest * IOReq_Allocate(void);
 void IOReq_Deallocate(IORequest * iorq);
 IORQ * IORQ_Allocate(void);
 void IORQ_Deallocate(IORQ * iorq);
+
+IORequest * AllocateIOReqAndPage(void);
+
+void ioreq_Enqueue(IORequest * ioreq);
+
+// A useful completion function:
+void IOReq_EndRead(IORequest * ioreq);
 
 #endif /* __IORQ_H__ */

@@ -149,8 +149,9 @@ objH_Unintern(ObjectHeader* thisPtr)
   }
 }
 
+/* type must be ot_PtTagPot, ot_PtObjPot, or zero for any object */
 ObjectHeader *
-objH_Lookup(OID oid, bool pot /* must be 0 or 1 */ )
+objH_Lookup(OID oid, unsigned int type)
 {
   ObjectHeader * pOb;
   
@@ -159,10 +160,14 @@ objH_Lookup(OID oid, bool pot /* must be 0 or 1 */ )
   for (pOb = ObBucket[bucket_ndx(oid)]; pOb; pOb = pOb->hashChainNext) {
     DEBUG(hash) printf("ObHdr is 0x%08x oid is %#llx\n", pOb, pOb->oid);
 
-    if (pOb->oid == oid
-        && (pOb->obType == ot_PtTagPot) == pot) {
-      DEBUG(hash) printf("Found oid %#llx\n", oid);
-      return pOb;
+    if (pOb->oid == oid) {
+      unsigned int obType = pOb->obType;
+      if (obType < ot_PtLAST_OBJECT_TYPE)
+        obType = 0;	// not a pot
+      if (obType == type) {
+        DEBUG(hash) printf("Found oid %#llx\n", oid);
+        return pOb;
+      }
     }
   }
 

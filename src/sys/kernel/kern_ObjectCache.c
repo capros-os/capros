@@ -486,7 +486,7 @@ objC_ddb_dump_obj(ObjectHeader * pObj)
 #else
   goodSum = '?';
 #endif
-  printf("%#x: %s oid %#llx up:%c cr:%c ck:%c drt:%c%c io:%c sm:%c au:%c cu:%c\n",
+  printf("%#x: %s oid %#llx up:%c cr:%c ck:%c drt:%c io:%c sm:%c au:%c cu:%c\n",
 	 pObj,
 	 ddb_obtype_name(pObj->obType),
 	 pObj->oid,
@@ -494,7 +494,6 @@ objC_ddb_dump_obj(ObjectHeader * pObj)
 	 objH_GetFlags(pObj, OFLG_CURRENT) ? 'y' : 'n',
 	 objH_GetFlags(pObj, OFLG_CKPT) ? 'y' : 'n',
 	 objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n',
-	 objH_GetFlags(pObj, OFLG_REDIRTY) ? 'y' : 'n',
 	 objH_GetFlags(pObj, OFLG_IO) ? 'y' : 'n',
 	 goodSum,
 	 objH_GetFlags(pObj, OFLG_AllocCntUsed) ? 'y' : 'n',
@@ -530,6 +529,7 @@ objC_ddb_dump_pages()
     }
 
     case ot_PtTagPot:
+    case ot_PtObjPot:
     {
       ObjectHeader * pObj = pageH_ToObj(pageH);
       printf("%#x: %s oid %#llx\n",
@@ -808,7 +808,7 @@ objC_CopyObject(ObjectHeader *pObj)
   }
 
   newObj->allocCount = pObj->allocCount;
-  objH_InitObj(newObj, pObj->oid, pObj->obType);
+  objH_InitObj(newObj, pObj->oid);
   // FIXME: Init obtype to capros_Range_ot*.
 
   objH_SetFlags(newObj, objH_GetFlags(pObj, OFLG_DISKCAPS)); // correct?
@@ -1047,6 +1047,7 @@ objC_AgePageFrames(void)
 	continue;
 
       case ot_PtTagPot:
+      case ot_PtObjPot:
         assert(!"complete");	// check this case
       case ot_PtDataPage:
         break;
@@ -1199,15 +1200,13 @@ objC_GrabNodeFrame()
 }
 
 void
-objH_InitObj(ObjectHeader * pObj, OID oid, unsigned int baseType)
+objH_InitObj(ObjectHeader * pObj, OID oid)
 {
   pObj->oid = oid;
 
   objH_SetFlags(pObj, OFLG_CURRENT);
-  assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_REDIRTY|OFLG_IO) == 0);
+  assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_IO) == 0);
 
-  assert(pObj->ioCount == 0);
-  pObj->obType = BaseTypeToObType(baseType);
 #ifdef OPTION_OB_MOD_CHECK
   pObj->check = objH_CalcCheck(pObj);
 #endif

@@ -55,7 +55,7 @@ Approved for public release, distribution unlimited. */
 #define LAST_PROC_KEYTYPE KKT_Process
 #define LAST_OBJECT_KEYTYPE KKT_Page
 #ifndef NDEBUG
-#define FIRST_MISC_KEYTYPE KKT_KeyBits
+#define FIRST_MISC_KEYTYPE KKT_Void
 #endif
 
 enum Priority {

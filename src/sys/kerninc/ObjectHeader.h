@@ -37,6 +37,7 @@ typedef struct Node Node;
 typedef struct ObjectHeader ObjectHeader;
 typedef struct PageHeader PageHeader;
 struct PmemInfo;
+struct IORequest;
 
 #include <arch-kerninc/PageHeader.h>
 
@@ -70,9 +71,11 @@ enum ObType {
   ot_PtNewAlloc,	/* newly allocated frame, not yet typed */
   ot_PtKernelHeap,	/* in use as kernel heap */
   ot_PtDevicePage,	/* data page, but device memory */
-  ot_PtTagPot,		/* a tag pot. oid = OID of first frame. */
   ot_PtDMABlock,	/* first frame of a block allocated for DMA. */
   ot_PtDMASecondary,	/* subsequent frames of a block allocated for DMA. */
+  ot_PtLAST_OBJECT_TYPE = ot_PtDMASecondary,	// no objects after here
+  ot_PtTagPot,		/* a tag pot. oid = OID of first frame. */
+  ot_PtObjPot,		/* an object pot. oid = OID of first object. */
   ot_PtFreeFrame,	/* first frame of a free block */
   ot_PtSecondary,	/* Part of a multi-page free block, not the first frame.
 			No other fields of PageHeader are valid,
@@ -95,12 +98,8 @@ extern const char *ddb_obtype_name(uint8_t);
  * 
  * When an object is prepared, we conclude that it is an important
  * object, and promote it back to the NewBorn generation.
- * 
- * PROJECT: Some student should examine the issues associated with
- * aging policy management.
  */
 
-/*struct Age {*/
 enum {
   age_NewBorn = 0,		/* just loaded into memory */
   age_LiveProc = 1,		/* node age for live processes */
@@ -108,12 +107,12 @@ enum {
   age_Invalidate = 6,		/* time to invalidate to see if active */
   age_PageOut = 7,		/* time to page out if dirty */
 };
-/*};*/
 
-
+// Values in flags:
 #define OFLG_DIRTY	0x01u	/* object has been modified */
-#define OFLG_REDIRTY	0x02u	/* object has been modified since
-				write initiated */
+#define OFLG_Fetching	0x02u	/* object is being fetched (from disk).
+				Should only be on for pages and pots.
+				If on, ioreq is non-NULL. */
 #define OFLG_Cleanable  0x04	/* object is persistent.
 				This is a shortcut for inquring of the object's
 				ObjectSource. */
@@ -158,8 +157,6 @@ struct ObjectHeader {
   uint32_t	check;		/* check field */
 #endif
 
-  uint32_t	ioCount;	/* for object frames */
-  
   ObjectHeader * hashChainNext;
 };
 
@@ -197,6 +194,7 @@ struct PageHeader {
   } kt_u;
 
   struct PmemInfo * physMemRegion;	// The region this page is in.
+  struct IORequest * ioreq;	// NULL iff there is no I/O to this page
   uint8_t objAge;
   uint8_t kernPin;
 };
@@ -283,13 +281,13 @@ pageH_ClearFlags(PageHeader * thisPtr, uint32_t w)
 INLINE void 
 objH_SetDirtyFlag(ObjectHeader* thisPtr)
 {
-  thisPtr->flags |= (OFLG_DIRTY|OFLG_REDIRTY);
+  thisPtr->flags |= (OFLG_DIRTY);
 }
 
 INLINE uint32_t 
 objH_IsDirty(const ObjectHeader* thisPtr)
 {
-  return objH_GetFlags(thisPtr, OFLG_DIRTY|OFLG_REDIRTY);
+  return objH_GetFlags(thisPtr, OFLG_DIRTY);
 }
 
 INLINE uint32_t 
@@ -370,9 +368,11 @@ objH_ResetKeyRing(ObjectHeader* thisPtr)
 }
 
 void
-objH_InitObj(ObjectHeader * pObj, OID oid, unsigned int obType);
+objH_InitObj(ObjectHeader * pObj, OID oid);
 void objH_Intern(ObjectHeader* thisPtr);	/* intern object on the ObList. */
 void objH_Unintern(ObjectHeader* thisPtr);	/* remove object from the ObList. */
+
+void objH_EnsureNotFetching(ObjectHeader * pObj);
 
 void objH_FlushIfCkpt(ObjectHeader* thisPtr);
 void objH_Rescind(ObjectHeader* thisPtr);
@@ -394,7 +394,7 @@ void objH_DelProduct(ObjectHeader * thisPtr, MapTabHeader * product);
   /* Machine dependent -- defined in Mapping.c */
 void ReleaseProduct(MapTabHeader * mth);
 
-ObjectHeader * objH_Lookup(OID oid, bool pot);
+ObjectHeader * objH_Lookup(OID oid, unsigned int type);
   
 void objH_StallQueueInit();
 
@@ -458,9 +458,6 @@ pageH_IsKernelPinned(PageHeader * thisPtr)
  * rHazard  Object content is undefined because an I/O is in progress
  *          into the object. Read/Write at your own risk, without
  *          any guarantees.
- * 
- * ioActive One or more I/Os are in progress on this object.  Implies
- *          ioCount > 0.
  * 
  * pageOut  Object is marked for pageout. Pageout will proceed to
  *          either the current area or the chkpt area depending on the

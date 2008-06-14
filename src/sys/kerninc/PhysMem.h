@@ -119,6 +119,13 @@ physMem_AvailPages(PmemConstraint *mc)
 }
 
 kpg_t pageH_ToPhysPgNum(const PageHeader * pageH);
+
+INLINE kpa_t
+pageH_ToPhysAddr(const PageHeader * pageH)
+{
+  return ((kpa_t)pageH_ToPhysPgNum(pageH)) << EROS_PAGE_LGSIZE;
+}
+
 void physMem_SplitContainingFreeBlock(PageHeader * pageH);
 
 PageHeader * physMem_AllocateBlock(unsigned int numPages);

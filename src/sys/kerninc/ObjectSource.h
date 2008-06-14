@@ -30,6 +30,8 @@ Approved for public release, distribution unlimited. */
 
 struct ObjectSource;
 
+extern LID logWrapPoint;
+
 /* Note, ObjectRange is used for both object and log ranges,
  * and an OID is the same size as a LID. 
  * Log ranges can only have source = IOObSource. */
@@ -45,6 +47,17 @@ typedef struct ObjectRange {
     } rq;
   } u;
 } ObjectRange;
+
+INLINE bool
+range_Contains(ObjectRange * rng, OID oid)
+{
+  return rng->start <= oid && oid < rng->end;
+}
+
+ObjectRange * LidToRange(LID lid);
+
+void restart_LIDMounted(ObjectRange * rng);
+void CalcLogExtent(void);
 
 /**********************************************************************
  *

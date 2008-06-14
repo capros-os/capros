@@ -32,25 +32,34 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/key.h>
 #include <eros/machine/IORQ.h>
 
+#define dbg_wait	0x1
+#define dbg_complete	0x2
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u | dbg_wait | dbg_complete )
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
+
 extern const struct ObjectSource IOObSource;
 
 void
 IORQKey(Invocation * inv)
 {
+  IORequest * ioreq;
+
   inv_GetReturnee(inv);
 
   uint32_t index = inv->key->u.nk.value[0];
   assert(index < KTUNE_NIORQS);
   IORQ * iorq = &IORQs[index];
-  (void)iorq;////
-
-  COMMIT_POINT();
 
   inv->exit.code = RC_OK;	// default
 
   switch (inv->entry.code) {
   case OC_capros_IOReqQ_registerOIDRange:
   case OC_capros_IOReqQ_registerLIDRange:
+    COMMIT_POINT();
+
     if (inv->entry.len < sizeof(OID)) {
       inv->exit.code = RC_capros_key_RequestError;
     } else {
@@ -67,23 +76,75 @@ IORQKey(Invocation * inv)
     }
     break;
 
+  case OC_capros_IOReqQ_waitForRequest:
+    DEBUG(wait) printf("IOReqQ wait\n");
+
+    if (link_isSingleton(& iorq->lk)) {	// no requests
+      act_SleepOn(&iorq->waiter);
+      act_Yield();
+    }
+
+    proc_SetupExitString(inv->invokee, inv, sizeof(capros_IOReqQ_IORequest));
+
+    COMMIT_POINT();
+
+    ioreq = container_of(iorq->lk.prev, IORequest, lk);
+    link_Unlink(&ioreq->lk);
+
+    ObjectRange * rng = ioreq->objRange;
+
+    capros_IOReqQ_IORequest capReq = {
+      .rangeStartOID = rng->start,
+      .rangeOpaque = rng->u.rq.opaque,
+      .rangeLoc = ioreq->rangeLoc,
+      .bufferDMAAddr = pageH_ToPhysAddr(ioreq->pageH),
+      .requestType = ioreq->requestCode,
+      // For the requestID just use the address of the IORequest.
+      // This is admittedly not very robust.
+      .requestID = (unsigned long)ioreq
+    };
+    inv_CopyOut(inv, sizeof(capros_IOReqQ_IORequest), &capReq);
+    break;
+
+  case OC_capros_IOReqQ_completeRequest:
+    ioreq = (IORequest *)inv->entry.w1;
+    unsigned long errno = inv->entry.w2;
+    if (errno)
+      printf("IOReqQ complete errno=%d!\n", errno);
+
+    DEBUG(complete) printf("IOReqQ complete %#x\n", ioreq);
+
+    // Call the done function:
+    (*ioreq->doneFn)(ioreq);
+    IOReq_Deallocate(ioreq);
+
+    COMMIT_POINT();
+    break;
+
   case OC_capros_IOReqQ_disableWaiting:
   case OC_capros_IOReqQ_enableWaiting:
-  case OC_capros_IOReqQ_waitForRequest:
     assert(!"complete");
+
+    COMMIT_POINT();
     break;
 
   case OC_capros_key_destroy:
+    COMMIT_POINT();
+
     // This is really "deallocate" not "destroy", since it doesn't
     // rescind any keys.
     IORQ_Deallocate(iorq);
     break;
 
   case OC_capros_key_getType:
+    COMMIT_POINT();
+
     inv->exit.w1 = IKT_capros_IOReqQ;
     break;
 
   default:
+    COMMIT_POINT();
+
     inv->exit.code = RC_capros_key_UnknownRequest;
     break;
   }

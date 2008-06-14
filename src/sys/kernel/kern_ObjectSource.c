@@ -52,6 +52,8 @@ static uint32_t nObRanges = 0;
 static ObjectRange lidRanges[KTUNE_NLOGTBLENTS];
 static uint32_t nLidRanges = 0;
 
+LID logWrapPoint;
+
 /* On exit, returns u such that ranges[u].start <= oid < ranges[u+1].start .
  * Returns -1 if oid < ranges[0].start . */
 static int
@@ -72,6 +74,7 @@ LookupRange(OID oid, ObjectRange * ranges, uint32_t nRanges)
   return u;
 }
 
+// Find the range containing the specified OID or LID.
 static ObjectRange *
 LookupOID(OID oid, ObjectRange * ranges, uint32_t nRanges)
 {
@@ -85,7 +88,7 @@ LookupOID(OID oid, ObjectRange * ranges, uint32_t nRanges)
   else return NULL;
 }
 
-bool
+ObjectRange *	// or NULL if failed
 AddRange(const ObjectRange * rng, ObjectRange * ranges, uint32_t * pnRanges)
 {
   unsigned int i, j;
@@ -127,7 +130,7 @@ AddRange(const ObjectRange * rng, ObjectRange * ranges, uint32_t * pnRanges)
   DEBUG(obsrc)
     printf("AddRange: returning\n");
 
-  return true;
+  return &ranges[i];
 }
 
 bool
@@ -145,13 +148,42 @@ AddLIDRange(const ObjectRange * rng)
   if (nLidRanges == KTUNE_NLOGTBLENTS)
     fatal("Limit on total object ranges exceeded\n");
 
-  return AddRange(rng, lidRanges, &nLidRanges);
+  ObjectRange * newRng = AddRange(rng, lidRanges, &nLidRanges);
+  if (! newRng)
+    return false;
+
+  restart_LIDMounted(newRng);
+  return true;
 }
 
 bool
 objC_HaveSource(OID oid)
 {
   return (bool) LookupOID(oid, obRanges, nObRanges);
+}
+
+// Find the ObjectRange containing this LID.
+// Return NULL if none.
+ObjectRange *
+LidToRange(LID lid)
+{
+  return LookupOID(lid, lidRanges, nLidRanges);
+}
+
+// Calculate logWrapPoint, which is the smallest LID such that
+// all smaller LIDs are mounted.
+void
+CalcLogExtent(void)
+{
+  LID limit = 0;	// end of what we have found so far
+  for (;;) {
+    ObjectRange * rng = LidToRange(limit);
+    if (! rng) {
+      logWrapPoint = limit;
+      return;
+    }
+    limit = rng->end;
+  }
 }
 
 // May Yield.
@@ -161,10 +193,10 @@ GetObjectType(OID oid)
   ObjectLocator objLoc;
 
   // Look in the object cache:
-  ObjectHeader * pObj = objH_Lookup(oid, false);
+  ObjectHeader * pObj = objH_Lookup(oid, 0);
   if (pObj) {
     objLoc.locType = objLoc_ObjectHeader;
-    objLoc.u.objH = pObj;
+    objLoc.u.objH = pObj;	// Beware, pObj may have OFLG_Fetching
     objLoc.objType = objH_GetBaseType(pObj);
     return objLoc;
   } else {
@@ -181,6 +213,7 @@ GetObjectType(OID oid)
   }
 }
 
+// May Yield.
 ObCount
 GetObjectCount(OID oid, ObjectLocator * pObjLoc, bool callCount)
 {
@@ -189,6 +222,7 @@ GetObjectCount(OID oid, ObjectLocator * pObjLoc, bool callCount)
     fatal("invalid locType");
 
   case objLoc_ObjectHeader:
+    objH_EnsureNotFetching(pObjLoc->u.objH);
     if (callCount && objH_isNodeType(pObjLoc->u.objH))
       return node_GetCallCount(objH_ToNode(pObjLoc->u.objH));
     else return objH_GetAllocCount(pObjLoc->u.objH);
@@ -211,6 +245,7 @@ GetObjectCount(OID oid, ObjectLocator * pObjLoc, bool callCount)
   }
 }
 
+// May Yield.
 ObjectHeader *
 GetObject(OID oid, const ObjectLocator * pObjLoc)
 {
@@ -219,6 +254,7 @@ GetObject(OID oid, const ObjectLocator * pObjLoc)
     fatal("invalid locType");
 
   case objLoc_ObjectHeader:
+    objH_EnsureNotFetching(pObjLoc->u.objH);
     return pObjLoc->u.objH;
 
   // If in the log directory, fetch the object ...

@@ -568,6 +568,8 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   
   /* If va is simply out of range, then forget the whole thing: */
   if (va >= UserEndVA) {
+    if (proc_IsKernel(p))
+      return true;
 #if 0
     dprintf(true, "Process accessed kernel space at 0x%08x, pc=0x%08x\n",
             va, p->trapFrame.r15);
@@ -1056,5 +1058,8 @@ LoadWordFromUserVirtualSpace(uva_t userAddr, uint32_t * resultP)
   if (LoadWordFromUserSpace(userAddr, resultP))
     return;
 
-  assert(false);	// DoPageFault didn't Yield and didn't fix it?
+  // DoPageFault didn't Yield and didn't fix it?
+  assert(proc_IsKernel(act_CurContext()));
+  // For kernel processes, "user" space includes kernel space.
+  *resultP = *(uint32_t *)userAddr;
 }

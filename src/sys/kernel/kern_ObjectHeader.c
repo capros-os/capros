@@ -190,7 +190,6 @@ ObjectHeader::DoCopyOnWrite()
 		 (uint32_t) pObj->oid);
 #endif
   pObj->SetFlags(GetFlags(OFLG_DISKCAPS));
-  pObj->ioCount = 0;
   pObj->userPin = 0;
   pObj->prstPin = 0;
 #ifdef OPTION_OB_MOD_CHECK
@@ -313,14 +312,6 @@ objH_MakeObjectDirty(ObjectHeader* thisPtr)
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Top RegisterDirtyObject()");
-#endif
-
-#if 0  
-  uint32_t ocpl = IRQ::splhigh()
-  printf("** Object ");
-  print(oid);
-  printf(" marked dirty.\n");
-  IRQ::splx(ocpl);
 #endif
 }
 
@@ -487,8 +478,7 @@ static void
 PrintObjData(ObjectHeader * thisPtr)
 {
   printf(" oid=%#llx ac=%#x\n", thisPtr->oid, objH_GetAllocCount(thisPtr));
-  printf(" ioCount=0x%08x flags=0x%02x usrPin=%d\n",
-	 thisPtr->ioCount,
+  printf(" flags=0x%02x usrPin=%d\n",
          thisPtr->flags, thisPtr->userPin );
 #ifdef OPTION_OB_MOD_CHECK
   printf("check=0x%08x calcCheck 0x%08x:\n", thisPtr->check,
