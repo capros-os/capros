@@ -367,6 +367,26 @@ vol_FormatObjectDivision(Volume *pVol, int ndx)
   }
 }
 
+static void
+InitCkptRoot(Volume * pVol, CkptRoot * root, LID lid)
+{
+  int i;
+
+  memset(root, 0, EROS_PAGE_SIZE);	// clear out any cruft
+
+  root->versionNumber = CkptRootVersion;
+  root->maxNPAllocCount = 0;
+  root->checkGenNum = 
+    root->mostRecentGenerationNumber = 0;	// means no ckpt
+  root->endLog = UNUSED_LID;
+  for (i = 0; i < MaxUnmigratedGenerations; i++) {
+    root->generations[i] = UNUSED_LID;
+  }
+  root->integrityByte = IntegrityByteValue;
+
+  vol_WriteLogPage(pVol, lid, root);
+}
+
 /* Once the log division has been zeroed, we simply need to write
  * suitable checkpoint header pages:
  */
@@ -382,16 +402,8 @@ vol_FormatLogDivision(Volume *pVol, int ndx)
   d = &pVol->divTable[ndx];
   
   if (d->startOid == 0) {
-    pVol->oldDskCkpt->versionNumber = CkptRootVersion;
-    pVol->oldDskCkpt->maxNPAllocCount = 0;
-    pVol->oldDskCkpt->mostRecentGenerationNumber = 0;	// means no ckpt
-
-    pVol->curDskCkpt->versionNumber = CkptRootVersion;
-    pVol->curDskCkpt->maxNPAllocCount = 0;
-    pVol->curDskCkpt->mostRecentGenerationNumber = 0;	// means no ckpt
-
-    vol_WriteLogPage(pVol, FrameToOID(0), pVol->dskCkptHdr0);
-    vol_WriteLogPage(pVol, FrameToOID(1), pVol->dskCkptHdr1);
+    InitCkptRoot(pVol, pVol->dskCkptHdr0, CKPT_ROOT_0);
+    InitCkptRoot(pVol, pVol->dskCkptHdr1, CKPT_ROOT_1);
   }
 
   pVol->needSyncCkptLog = true;
@@ -750,8 +762,8 @@ vol_AddDirent(Volume *pVol, OID oid, ObCount allocCount, lid_t lid, uint8_t ckOb
 static void
 vol_LoadLogHeaders(Volume *pVol)
 {
-  vol_ReadLogPage(pVol, FrameToOID(0), pVol->dskCkptHdr0);
-  vol_ReadLogPage(pVol, FrameToOID(1), pVol->dskCkptHdr1);
+  vol_ReadLogPage(pVol, CKPT_ROOT_0, pVol->dskCkptHdr0);
+  vol_ReadLogPage(pVol, CKPT_ROOT_1, pVol->dskCkptHdr1);
 
   if (pVol->dskCkptHdr0->mostRecentGenerationNumber > 
       pVol->dskCkptHdr1->mostRecentGenerationNumber) {
@@ -1185,8 +1197,8 @@ vol_SyncCkptLog(Volume *pVol)
     pVol->curDskCkpt->hdr.hasMigrated = true;
 
   /* I don't know which one is current -- just rewrite them both. */
-  vol_WriteLogPage(pVol, FrameToOID(0), pVol->dskCkptHdr0);
-  vol_WriteLogPage(pVol, FrameToOID(1), pVol->dskCkptHdr1);
+  vol_WriteLogPage(pVol, CKPT_ROOT_0, pVol->dskCkptHdr0);
+  vol_WriteLogPage(pVol, CKPT_ROOT_1, pVol->dskCkptHdr1);
   
   pVol->needSyncCkptLog = 0;
 #endif
