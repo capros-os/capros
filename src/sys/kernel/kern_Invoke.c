@@ -41,6 +41,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <eros/KeyConst.h>	// segment and wrapper defs
 #include <kerninc/Key-inline.h>
+#include <kerninc/Node-inline.h>
 
 #include <disk/Forwarder.h>
 #include <idl/capros/Forwarder.h>
@@ -550,7 +551,7 @@ ReturnMessage(Invocation * inv)
       first if it is necessary: */
       if (inv->invKeyType != KKT_Start) {
         keyR_ZapResumeKeys(&invokee->keyRing);
-        objH_BumpCallCount(node_ToObj(invokee->procRoot));
+        node_BumpCallCount(invokee->procRoot);
       }
       act_AssignTo(allocatedActivity, invokee);
 

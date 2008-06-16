@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Depend.h>
 #include <kerninc/Node.h>
 #include <kerninc/Invocation.h>
+#include <kerninc/Node-inline.h>
 #include <arch-kerninc/PTE.h>
 #include <arch-kerninc/Machine-inline.h>
 
@@ -334,9 +335,13 @@ objH_Rescind(ObjectHeader * thisPtr)
   
   keyR_RescindAll(&thisPtr->keyRing);
 
-  if (thisPtr->obType == ot_NtProcessRoot) {
-    Process * proc = thisPtr->prep_u.context;
-    keyR_RescindAll(&proc->keyRing);
+  if (objH_isNodeType(thisPtr)) {
+    node_BumpCallCount(objH_ToNode(thisPtr));
+
+    if (thisPtr->obType == ot_NtProcessRoot) {
+      Process * proc = thisPtr->prep_u.context;
+      keyR_RescindAll(&proc->keyRing);
+    }
   }
 
   DEBUG(rescind)
@@ -354,24 +359,21 @@ objH_Rescind(ObjectHeader * thisPtr)
     /* The object must be dirty to ensure that the new count gets saved. */
     assert(objH_IsDirty(thisPtr));
   }
-
-  objH_BumpCallCount(thisPtr);
 }
 
 void
-objH_DoBumpCallCount(ObjectHeader * pObj)
+node_DoBumpCallCount(Node * node)
 {
-  Node * node = objH_ToNode(pObj);
   node->callCount++;
 
   // Track the maximum count of any nonpersistent object.
   if (node->callCount > maxNPAllocCount)
     maxNPAllocCount = node->callCount;
 
-  objH_ClearFlags(pObj, OFLG_CallCntUsed);
+  objH_ClearFlags(node_ToObj(node), OFLG_CallCntUsed);
 
   /* The object must be dirty to ensure that the new count gets saved. */
-  assert(objH_IsDirty(pObj));
+  assert(objH_IsDirty(node_ToObj(node)));
 }
 
 void

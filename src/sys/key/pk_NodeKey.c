@@ -166,7 +166,6 @@ WalkExtended(Invocation * inv, bool write)
     }
 
     Node * curNode = objH_ToNode(key_GetObjectPtr(curKey));
-    assert(objH_IsUserPinned(node_ToObj(curNode)));
 
     uint8_t l2vField = node_GetL2vField(curNode);
     unsigned int newL2v = l2vField & NODE_L2V_MASK;

@@ -155,6 +155,7 @@ IOReq_EndRead(IORequest * ioreq)
   // Mark the page as no longer having I/O.
   PageHeader * pageH = ioreq->pageH;
   pageH->ioreq = NULL;
+  pageH->objAge = age_NewBorn;
   objH_ClearFlags(pageH_ToObj(pageH), OFLG_Fetching);
   sq_WakeAll(&ioreq->sq, false);
   // Caller has unlinked the ioreq and will deallocate it.
@@ -202,6 +203,7 @@ IOSource_GetObjectType(ObjectRange * rng, OID oid)
   ObjectHeader * pObj = objH_Lookup(tagPotID, ot_PtTagPot);
   if (pObj) {
     objH_EnsureNotFetching(pObj);
+    objH_ToPage(pObj)->objAge = age_NewBorn;	// mark referenced
     objLoc.locType = objLoc_TagPot;
     objLoc.u.tagPot.tagPotPageH = objH_ToPage(pObj);
     objLoc.u.tagPot.range = rng;
@@ -252,10 +254,12 @@ EnsureObjectPot(ObjectRange * rng, OID oid)
 
   // Is the pot in memory?
   ObjectHeader * pObj = objH_Lookup(frame, ot_PtObjPot);
-  if (pObj)
+  if (pObj) {
+    objH_EnsureNotFetching(pObj);
+    objH_ToPage(pObj)->objAge = age_NewBorn;	// mark referenced
     return objH_ToPage(pObj);
+  }
 
-  objH_EnsureNotFetching(pObj);
   // Read in the pot.
   IORequest * ioreq = AllocateIOReqAndPage();
 

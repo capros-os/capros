@@ -89,23 +89,15 @@ typedef enum ObType ObType;
 extern const char *ddb_obtype_name(uint8_t);
 #endif
 
-/* OBJECT AGING POLICY:
- * 
- * Objects are brought in as NewBorn objects, and age until they reach
- * the Invalidate generation.  At that point all outstanding keys are
- * deprepared.  If they make it to the PageOut generation we kick them
- * out of memory (writing if necessary).
- * 
- * When an object is prepared, we conclude that it is an important
- * object, and promote it back to the NewBorn generation.
- */
-
+// Values for objAge:
 enum {
-  age_NewBorn = 0,		/* just loaded into memory */
-  age_LiveProc = 1,		/* node age for live processes */
-  age_NewLogPg = 2,		/* not as important as user pages. */
-  age_Invalidate = 6,		/* time to invalidate to see if active */
-  age_PageOut = 7,		/* time to page out if dirty */
+  age_NewBorn	= 0,		/* just referenced */
+  age_LiveProc	= 1,		/* node age for live processes */
+  age_NewLogPg	= 2,		/* not as important as user pages. */
+  age_Invalidate = 3,		/* time to invalidate to see if active */
+  age_Clean	= 5,		/* time to clean */
+  age_Steal	= 6,		/* time to steal */
+  age_PageOut = 7,	//// temporary so it will compile
 };
 
 // Values in flags:
@@ -302,16 +294,6 @@ pageH_MakeDirty(PageHeader * pageH)
 {
   objH_MakeObjectDirty(pageH_ToObj(pageH));
   pageH->objAge = age_NewBorn;
-}
-
-void objH_DoBumpCallCount(ObjectHeader * pObj);
-
-INLINE void
-objH_BumpCallCount(ObjectHeader * pObj)
-{
-  if (objH_GetFlags(pObj, OFLG_CallCntUsed)) {
-    objH_DoBumpCallCount(pObj);
-  }
 }
 
   /* Object pin counts.  For the moment, there are several in order to

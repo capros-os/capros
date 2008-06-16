@@ -42,9 +42,21 @@ key_Prepare(Key * thisPtr)
   if (keyBits_IsUnprepared(thisPtr))
     key_DoPrepare(thisPtr);
   
-  // FIXME: Why do gate keys not need pinning?
-  if (keyBits_IsObjectKey(thisPtr) && !keyBits_IsGateKey(thisPtr))
-    objH_TransLock(key_GetObjectPtr(thisPtr));
+  unsigned int kt = keyBits_GetType(thisPtr);
+
+  if (kt <= LAST_OBJECT_KEYTYPE) {	// it's an object key
+    if (kt <= LAST_PROC_KEYTYPE) {
+      // FIXME: how do we lock processes and their constituents?
+    } else {
+      ObjectHeader * pObj = thisPtr->u.ok.pObj;
+      if (kt <= LAST_NODE_KEYTYPE) {
+        objH_ToNode(pObj)->objAge = age_NewBorn;
+      } else {
+        objH_ToPage(pObj)->objAge = age_NewBorn;
+      }
+      objH_TransLock(pObj);
+    }
+  }
 }
 
 INLINE void

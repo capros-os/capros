@@ -24,7 +24,18 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <kerninc/Node.h>
+#include <kerninc/ObjH-inline.h>
 #include <idl/capros/Range.h>
+
+void node_DoBumpCallCount(Node * node);
+
+INLINE void
+node_BumpCallCount(Node * node)
+{
+  if (objH_GetFlags(node_ToObj(node), OFLG_CallCntUsed)) {
+    node_DoBumpCallCount(node);
+  }
+}
 
 INLINE Node *         
 objH_LookupNode(OID oid)

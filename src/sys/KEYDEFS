@@ -28,10 +28,10 @@ primary	Start
 bindto Start Gate
 primary	Resume	/* last gate key */
 bindto Resume Gate
-primary	Process
+primary	Process	/* last process key */
 primary Forwarder
 primary	Node
-primary	GPT
+primary	GPT /* last node key */
 primary	Page /* last object key (i.e. things from the disk) */
 primary	Device
 primary	Number

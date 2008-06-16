@@ -53,6 +53,7 @@ Approved for public release, distribution unlimited. */
 /* These REALLY need to get defined in StdKeyTypes, lest they drift. */
 #define LAST_GATE_KEYTYPE KKT_Resume
 #define LAST_PROC_KEYTYPE KKT_Process
+#define LAST_NODE_KEYTYPE KKT_GPT
 #define LAST_OBJECT_KEYTYPE KKT_Page
 #ifndef NDEBUG
 #define FIRST_MISC_KEYTYPE KKT_Void

@@ -171,7 +171,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
     objLoc.objType = baseType;	// we can pick the type to suit
 
   if (objLoc.objType != baseType) {
-    fatal("retyping not implemented");
+    fatal("retyping not implemented yet");
   }
 
   // Get the object, regardless of its allocation count:

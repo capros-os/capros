@@ -921,6 +921,7 @@ objC_CleanFrame1(ObjectHeader *pObj)
   /* Clean up the object we are reclaiming so we can free it: */
 
   keyR_UnprepareAll(&pObj->keyRing);	/* This zaps any PTE's as a side effect. */
+  //// Use keyR_UnmapAll instead?
 }
 
 /* pObj->obType must be node or ot_PtDataPage. */
@@ -953,6 +954,17 @@ objC_CleanFrame2(ObjectHeader *pObj)
 
   return true;
 }
+
+/* OBJECT AGING POLICY:
+ * 
+ * Objects are brought in as NewBorn objects, and age until they reach
+ * the Invalidate generation.  At that point all outstanding keys are
+ * deprepared.  If they make it to the PageOut generation we kick them
+ * out of memory (writing if necessary).
+ * 
+ * When an object is prepared, we conclude that it is an important
+ * object, and promote it back to the NewBorn generation.
+ */
 
 /* The page frame ager is one of the places where a bunch of sticky
  * issues all collide.  Some design principles that we would LIKE to
@@ -1016,97 +1028,111 @@ void
 objC_AgePageFrames(void)
 {
   static uint32_t curPage = 0;
-  uint32_t count = 0;
 
-  uint32_t nStuck = 0;
-  uint32_t nPasses = 200;	/* arbitrary - catches kernel bugs and */
-				/* dickhead kernel hackers (like me) */
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Before AgePageFrames()");
 #endif
 
-  do {
-    for (count = 0; count < objC_nPages; count++, curPage++) {
-      if (curPage >= objC_nPages)
-	curPage = 0;
-
-      PageHeader * pObj = objC_GetCorePageFrame(curPage);
-      
-      /* Some page types do not get aged: */
-      switch (pageH_GetObType(pObj)) {
-      case ot_PtNewAlloc:
-      case ot_PtDevicePage:
-      case ot_PtKernelHeap:
-      case ot_PtDMABlock:
-      case ot_PtDMASecondary:
-	nStuck++;
-      case ot_PtFreeFrame:
-      case ot_PtSecondary:
-	continue;
-
-      case ot_PtTagPot:
-      case ot_PtObjPot:
-        assert(!"complete");	// check this case
-      case ot_PtDataPage:
-        break;
-
-      default:
-        if (pageH_mdType_AgingExempt(pObj))
-          continue;
-      }
-	  
-      /* Some pages cannot be aged because they are active or pinned: */
-      if (objH_IsUserPinned(pageH_ToObj(pObj)))
-	continue;
-
-      /* Since the object isn't pinned, set its transaction ID to zero
-      so it won't inadvertently be considered pinned
-      when objH_CurrentTransaction overflows. */
-      pageH_ToObj(pObj)->userPin = 0;
-
-      if (pageH_IsKernelPinned(pObj))
-	continue;
+  while (1) {
+    PageHeader * pageH = objC_GetCorePageFrame(curPage);
     
-      if (pObj->objAge == age_PageOut) {
-        if (pageH_GetObType(pObj) > ot_PtLAST_COMMON_PAGE_TYPE) {
-          // It's a machine-dependent frame type.
-          if (! pageH_mdType_AgingSteal(pObj))
-            continue;	// couldn't steal it
-        } else {
-          objC_CleanFrame1(pageH_ToObj(pObj));
-	  if (objC_CleanFrame2(pageH_ToObj(pObj)) == false)
-	    continue;
-    
-	  assert(!pageH_IsDirty(pObj));
+    /* Some page types do not get aged: */
+    switch (pageH_GetObType(pageH)) {
+    case ot_PtNewAlloc:
+    case ot_PtDevicePage:
+    case ot_PtKernelHeap:
+    case ot_PtDMABlock:
+    case ot_PtDMASecondary:
 
-	  /* Remove this page from the cache and return it to the free page
-	   * list:
-	   */
-          assert(keyR_IsEmpty(&pageH_ToObj(pObj)->keyRing));
-	  ReleaseObjPageFrame(pObj);
-        }
+    case ot_PtFreeFrame:
+    case ot_PtSecondary:
+      goto nextPage;
 
-	curPage++;
-	return;
-      }
-      
-      pObj->objAge++;
+    case ot_PtTagPot:
+    case ot_PtObjPot:
+      assert(!"complete");	// check this case
+      break;
 
-      if (pObj->objAge == age_Invalidate) {
-        if (pageH_GetObType(pObj) > ot_PtLAST_COMMON_PAGE_TYPE) {
-          // It's a machine-dependent frame type.
-          if (pageH_mdType_AgingClean(pObj)) {
-	    curPage++;	// it was freed
-	    return;
-          }
-        } else {
-	  objC_CleanFrame1(pageH_ToObj(pObj));
-        }
-      }
+    case ot_PtDataPage:
+      if (! objH_GetFlags(pageH_ToObj(pageH), OFLG_Cleanable))
+        goto nextPage;
+      break;
+
+    default:
+      if (pageH_mdType_AgingExempt(pageH))
+        goto nextPage;
     }
-  } while (--nPasses);
+  
+    /* Some pages cannot be aged because they are active or pinned: */
+    if (objH_IsUserPinned(pageH_ToObj(pageH)))
+      goto nextPage;
+
+    /* Since the object isn't pinned, set its transaction ID to zero
+    so it won't inadvertently be considered pinned
+    when objH_CurrentTransaction overflows. */
+    pageH_ToObj(pageH)->userPin = 0;
+
+    if (pageH_IsKernelPinned(pageH))
+      goto nextPage;
+
+    switch (pageH->objAge) {
+    case age_Steal:
+      break;
+
+    case age_Clean:
+      goto bumpAge;
+
+    case age_Invalidate:
+      if (pageH_GetObType(pageH) > ot_PtLAST_COMMON_PAGE_TYPE) {
+        // It's a machine-dependent frame type.
+        if (pageH_mdType_AgingClean(pageH)) {
+          curPage++;	// it was freed
+          return;
+        }
+      } else {
+        objC_CleanFrame1(pageH_ToObj(pageH));
+      }
+      goto bumpAge;
+
+    default:
+    bumpAge:
+      pageH->objAge++;
+      break;
+    }
+    if (pageH->objAge == age_PageOut) {
+      if (pageH_GetObType(pageH) > ot_PtLAST_COMMON_PAGE_TYPE) {
+        // It's a machine-dependent frame type.
+        if (! pageH_mdType_AgingSteal(pageH))
+          goto nextPage;	// couldn't steal it
+      } else {
+        objC_CleanFrame1(pageH_ToObj(pageH));
+        if (objC_CleanFrame2(pageH_ToObj(pageH)) == false)
+          goto nextPage;
+  
+        assert(!pageH_IsDirty(pageH));
+
+        /* Remove this page from the cache and return it to the free page
+         * list:
+         */
+        assert(keyR_IsEmpty(&pageH_ToObj(pageH)->keyRing));
+        ReleaseObjPageFrame(pageH);
+      }
+
+      curPage++;
+      return;
+    }
+    
+    pageH->objAge++;
+
+    if (pageH->objAge == age_Invalidate) {
+    }
+
+  nextPage:
+    if (++curPage >= objC_nPages)
+      curPage = 0;
+  }
 }
 
 /* May Yield. */
