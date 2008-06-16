@@ -49,11 +49,7 @@ key_Prepare(Key * thisPtr)
       // FIXME: how do we lock processes and their constituents?
     } else {
       ObjectHeader * pObj = thisPtr->u.ok.pObj;
-      if (kt <= LAST_NODE_KEYTYPE) {
-        objH_ToNode(pObj)->objAge = age_NewBorn;
-      } else {
-        objH_ToPage(pObj)->objAge = age_NewBorn;
-      }
+      objH_SetReferenced(pObj);	// combine w/ objH_TransLock?
       objH_TransLock(pObj);
     }
   }

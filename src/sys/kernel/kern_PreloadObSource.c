@@ -146,7 +146,7 @@ preload_Init(void)
 
       objC_GrabThisPageFrame(pageH);
       pageH_MDInitDataPage(pageH);
-      pageH->objAge = age_NewBorn;
+      pageH_SetReferenced(pageH);
       InitPreloadedObj(pageH_ToObj(pageH), oid, capros_Range_otPage);
 
       oid += FrameToOID(1);
@@ -210,7 +210,7 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid,
     kzero(dest, EROS_PAGE_SIZE);
 
     pageH_MDInitDataPage(pageH);
-    pageH->objAge = age_NewBorn;
+    pageH_SetReferenced(pageH);
     break;
   }
 
@@ -229,7 +229,7 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid,
       keyBits_InitToVoid(&pNode->slot[ndx]);
     }
 
-    pNode->objAge = age_NewBorn;
+    node_SetReferenced(pNode);
   }
   }
 

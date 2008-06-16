@@ -613,7 +613,7 @@ objC_AgeNodeFrames()
 
       pObj = objC_GetCoreNodeFrame(curNode);
     
-      assert(pObj->objAge <= age_PageOut);
+      assert(node_ToObj(pObj)->objAge <= age_PageOut);
     
       assert (objH_GetFlags(node_ToObj(pObj), OFLG_IO) == 0);
     
@@ -681,7 +681,7 @@ objC_AgeNodeFrames()
 	    (inv_IsActive(&inv)
              && (inv.invokee == pObj->node_ObjHdr.prep_u.context))) {
 	  nStuck++;
-	  pObj->objAge = age_LiveProc;
+	  node_SetReferenced(pObj);
 	}
 
       }
@@ -695,14 +695,14 @@ objC_AgeNodeFrames()
        * to write them until they hit the ageout age.
        */
     
-      if (pObj->objAge == age_Invalidate)
+      if (node_ToObj(pObj)->objAge == age_Invalidate)
 	/* Clean the frame, but do not invalidate products yet,
 	 * because the object may get resurrected.
 	 */
 	objC_CleanFrame1(node_ToObj(pObj));
 
-      if (pObj->objAge < age_PageOut) {
-	pObj->objAge++;
+      if (node_ToObj(pObj)->objAge < age_PageOut) {
+	node_ToObj(pObj)->objAge++;
 
 	continue;
       }
@@ -784,7 +784,7 @@ objC_CopyObject(ObjectHeader *pObj)
     toAddr = pageH_GetPageVAddr(newPage);
 
     memcpy((void *) toAddr, (void *) fromAddr, EROS_PAGE_SIZE);
-    newPage->objAge = age_NewBorn;	/* FIX: is this right? */
+    pageH_SetReferenced(newPage);	/* FIX: is this right? */
     pageH_MDInitDataPage(newPage);
   }
   else { /* It's a node */
@@ -804,7 +804,7 @@ objC_CopyObject(ObjectHeader *pObj)
       key_NH_Set(node_GetKeyAtSlot(newNode, i), node_GetKeyAtSlot(oldNode, i));
 
     }
-    newNode->objAge = age_NewBorn;	/* FIX: is this right? */
+    node_SetReferenced(newNode);	/* FIX: is this right? */
   }
 
   newObj->allocCount = pObj->allocCount;
@@ -1077,7 +1077,7 @@ objC_AgePageFrames(void)
     if (pageH_IsKernelPinned(pageH))
       goto nextPage;
 
-    switch (pageH->objAge) {
+    switch (pageH_ToObj(pageH)->objAge) {
     case age_Steal:
       break;
 
@@ -1098,10 +1098,10 @@ objC_AgePageFrames(void)
 
     default:
     bumpAge:
-      pageH->objAge++;
+      pageH_ToObj(pageH)->objAge++;
       break;
     }
-    if (pageH->objAge == age_PageOut) {
+    if (pageH_ToObj(pageH)->objAge == age_PageOut) {
       if (pageH_GetObType(pageH) > ot_PtLAST_COMMON_PAGE_TYPE) {
         // It's a machine-dependent frame type.
         if (! pageH_mdType_AgingSteal(pageH))
@@ -1124,9 +1124,9 @@ objC_AgePageFrames(void)
       return;
     }
     
-    pageH->objAge++;
+    pageH_ToObj(pageH)->objAge++;
 
-    if (pageH->objAge == age_Invalidate) {
+    if (pageH_ToObj(pageH)->objAge == age_Invalidate) {
     }
 
   nextPage:
@@ -1178,7 +1178,7 @@ objC_GrabThisPageFrame(PageHeader *pObj)
 
   assert(pte_ObIsNotWritable(pObj));
 
-  pObj->objAge = age_NewBorn;
+  pageH_SetReferenced(pObj);
 }
 
 Node *
@@ -1219,7 +1219,7 @@ objC_GrabNodeFrame()
   DEBUG(ndalloc)
     printf("Allocated node=0x%08x nfree=%d\n", pNode, objC_nFreeNodeFrames);
 
-  pNode->objAge = age_NewBorn;
+  node_SetReferenced(pNode);
   objH_ResetKeyRing(pObj);
     
   return pNode;

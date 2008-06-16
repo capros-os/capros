@@ -56,7 +56,7 @@ node_SetEqualTo(Node * thisPtr, const DiskNode * other)
   node_ToObj(thisPtr)->allocCount = other->allocCount;
   thisPtr->callCount = other->callCount;
   thisPtr->nodeData = other->nodeData;
-  thisPtr->objAge = age_NewBorn;
+  node_SetReferenced(thisPtr);
 
   for (i = 0; i < EROS_NODE_SIZE; i++) {
     assert(keyBits_IsHazard(&thisPtr->slot[i]) == false);

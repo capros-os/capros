@@ -119,13 +119,23 @@ enum {
 struct ObjectHeader {
 /* N.B.: obType must be the first item in ObjectHeader.
    This puts it in the same location as PageHeader.kt_u.*.obType. */
-  uint8_t	obType;		/* page type or node prepcode */
-    
-  uint8_t	flags;
+  uint8_t obType;		/* page type or node prepcode */
 
-  uint16_t	userPin;
+  /* If space is at a premium, obType and objAge could be packed
+   * into one byte. */
+  uint8_t objAge;
 
-  KeyRing	keyRing;
+  uint16_t userPin;
+
+  KeyRing keyRing;
+
+  uint8_t flags;
+
+  OID oid;
+  
+  ObCount allocCount;
+
+  ObjectHeader * hashChainNext;
 
   union {
     /* Data for specific obType's */
@@ -140,16 +150,10 @@ struct ObjectHeader {
                                    this field is valid and non-null. */
     ObjectHeader * nextFree;	/* if obType == ot_NtFreeFrame */
   } prep_u;
-  
-  ObCount allocCount;
-
-  OID   	oid;
 
 #ifdef OPTION_OB_MOD_CHECK
-  uint32_t	check;		/* check field */
+  uint32_t check;		/* check field */
 #endif
-
-  ObjectHeader * hashChainNext;
 };
 
 INLINE ObCount
@@ -162,6 +166,12 @@ INLINE bool
 objH_isNodeType(ObjectHeader * pObj)
 {
   return pObj->obType <= ot_NtLAST_NODE_TYPE;
+}
+
+INLINE void
+objH_SetReferenced(ObjectHeader * pObj)
+{
+  pObj->objAge = age_NewBorn;
 }
 
 struct PageHeader {
@@ -187,7 +197,6 @@ struct PageHeader {
 
   struct PmemInfo * physMemRegion;	// The region this page is in.
   struct IORequest * ioreq;	// NULL iff there is no I/O to this page
-  uint8_t objAge;
   uint8_t kernPin;
 };
 
@@ -216,6 +225,12 @@ pageH_GetObType(PageHeader * pageH)
 {
   /* obType is in the same location in all variants of kt_u. */
   return pageH_ToObj(pageH)->obType;
+}
+
+INLINE void
+pageH_SetReferenced(PageHeader * pageH)
+{
+  objH_SetReferenced(pageH_ToObj(pageH));
 }
 
 INLINE bool
@@ -293,7 +308,7 @@ INLINE void
 pageH_MakeDirty(PageHeader * pageH)
 {
   objH_MakeObjectDirty(pageH_ToObj(pageH));
-  pageH->objAge = age_NewBorn;
+  pageH_SetReferenced(pageH);
 }
 
   /* Object pin counts.  For the moment, there are several in order to

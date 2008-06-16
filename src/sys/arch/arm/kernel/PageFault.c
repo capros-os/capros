@@ -870,7 +870,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     if (thePTE & PTE_CACHEABLE) {
       // tracking LRU
       PageHeader * pageH = objC_PhysPageToObHdr(thePTE & PTE_FRAMEBITS);
-      pageH->objAge = age_LiveProc;	// it's been used
+      pageH_SetReferenced(pageH);
       thePTE |= PTE_SMALLPAGE;
       thePTEP->w_value = thePTE;
       havePage = true;

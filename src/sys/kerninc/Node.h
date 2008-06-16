@@ -38,7 +38,6 @@ struct Node {
 
   ObCount callCount;
 
-  uint8_t objAge;
   uint8_t kernPin;
 
   uint16_t nodeData;
@@ -71,16 +70,9 @@ node_GetCallCount(const Node * pNode)
 }
 
 INLINE void
-objH_SetAge(ObjectHeader * pObj, uint8_t age)
+node_SetReferenced(Node * pNode)
 {
-  // objAge is in different places in nodes and pages.
-  if (objH_isNodeType(pObj)) {
-    Node * pNode = objH_ToNode(pObj);
-    pNode->objAge = age;
-  } else {
-    PageHeader * pageH = objH_ToPage(pObj);
-    pageH->objAge = age;
-  }
+  objH_SetReferenced(node_ToObj(pNode));
 }
 
 INLINE bool
@@ -93,7 +85,7 @@ INLINE void
 node_MakeDirty(Node * pNode)
 {
   objH_MakeObjectDirty(node_ToObj(pNode));
-  pNode->objAge = age_NewBorn;
+  node_SetReferenced(pNode);
 }
 
 INLINE Key *
