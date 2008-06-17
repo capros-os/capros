@@ -50,9 +50,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
  * #define XLATEDEBUG
  */
 
-Process * proc_ContextCache = NULL;
-Process * proc_ContextCacheRegion = NULL;
-
 #define userCPSRBits (0xff000000 | MASK_CPSR_Thumb)
 		/* bits that the user can play with */
 
@@ -92,123 +89,13 @@ proc_ValidateRegValues(Process* thisPtr)
   }
 }
 
-void 
-proc_AllocUserContexts()
+// One-time initialization:
+void
+proc_InitProcessMD(Process * proc)
 {
-  int i = 0;
-  Process * contextCache = proc_ContextCacheRegion;
-
-  if (contextCache == NULL)
-    contextCache = MALLOC(Process, KTUNE_NCONTEXT);
-  else {
-    printf("Context caches already allocated at 0x%08x\n", contextCache);
-  }
-
-  /* This is to make sure that the name field does not overflow: */
-  assert (KTUNE_NCONTEXT < 1000);
-
-  for (i = 0; i < KTUNE_NCONTEXT; i++) {
-    int k;
-    Process *p = &contextCache[i];
-    keyR_ResetRing(&p->keyRing);
-    sq_Init(&p->stallQ);
-
-    for (k = 0; k < EROS_PROCESS_KEYREGS; k++)
-      keyBits_InitToVoid(&p->keyReg[k]);
-
-    p->procRoot = 0;
-    p->keysNode = 0;
-    p->isUserContext = true;		/* until proven otherwise */
-    /*p->priority = pr_Never;*/
-    p->faultCode = capros_Process_FC_NoFault;
-    p->faultInfo = 0;
-    p->kernelFlags = 0;
-    p->processFlags = 0;
-    p->hazards = 0u;	/* deriver should change this! */
-    p->curActivity = 0;
-    
-    p->name[0] = 'u';
-    p->name[1] = 's';
-    p->name[2] = 'e';
-    p->name[3] = 'r';
-    p->name[4] = '0' + (i / 100);
-    p->name[5] = '0' + ((i % 100) / 10);
-    p->name[6] = '0' + (i % 10);
-    p->name[7] = 0;
-
-  }
-
-  proc_ContextCache = contextCache;
-
-  check_Contexts("Initial check");
-
-  printf("Allocated User Contexts: 0x%x at 0x%08x\n",
-		 sizeof(Process[KTUNE_NCONTEXT]),
-		 proc_ContextCache);
 }
 
-/* FIX: It is unfortunate that some of these checks require !NDEBUG.
- * Should they?
- */
-/* The string c is for diagnostic identification only. */
-bool
-check_Contexts(const char *c)
-{
-  int i = 0;
-#ifndef NDEBUG
-  unsigned k = 0;
-#endif
-  bool result = true;
-  
-  irqFlags_t flags = local_irq_save();
-
-  /* It is possible for this to get called from interrupt handlers
-   * before the context cache has been allocated.
-   */
-  if (proc_ContextCache) {
-    for (i = 0; i < KTUNE_NCONTEXT; i++) {
-      Process *p = &proc_ContextCache[i];
-    
-#ifndef NDEBUG
-      if (keyR_IsValid(&p->keyRing, p) == false) {
-	result = false;
-	break;
-      }
-#endif
-    
-#ifndef NDEBUG
-      for (k = 0; k < EROS_PROCESS_KEYREGS; k++) {
-	if (key_IsValid(&p->keyReg[0]) == false) {
-	  result = false;
-	  break;
-	}
-      }
-#endif
-
-      if (p->procRoot
-          && p->procRoot->node_ObjHdr.obType == ot_NtFreeFrame ) {
-	dprintf(true, "Context 0x%08x has free process root 0x%08x\n",
-			p, p->procRoot);
-	result = false;
-      }
-
-      if (p->keysNode
-          && p->keysNode->node_ObjHdr.obType == ot_NtFreeFrame ) {
-	dprintf(true, "Context 0x%08x has free keys node 0x%08x\n",
-			p, p->keysNode);
-	result = false;
-      }
-
-      if (result == false)
-	break;
-    }
-  }
-
-  local_irq_restore(flags);
-
-  return result;
-}
-
+// Initialization on each allocation:
 void
 proc_Init_MD(Process * p, bool isUser)
 {

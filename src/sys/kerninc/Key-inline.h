@@ -42,16 +42,13 @@ key_Prepare(Key * thisPtr)
   if (keyBits_IsUnprepared(thisPtr))
     key_DoPrepare(thisPtr);
   
-  unsigned int kt = keyBits_GetType(thisPtr);
-
-  if (kt <= LAST_OBJECT_KEYTYPE) {	// it's an object key
-    if (kt <= LAST_PROC_KEYTYPE) {
-      // FIXME: how do we lock processes and their constituents?
-    } else {
-      ObjectHeader * pObj = thisPtr->u.ok.pObj;
-      objH_SetReferenced(pObj);	// combine w/ objH_TransLock?
-      objH_TransLock(pObj);
-    }
+  if (keyBits_IsObjectKey(thisPtr)) {
+    // The following works for keys that designate a process too,
+    // due to a representation pun.
+    ObjectHeader * pObj = thisPtr->u.ok.pObj;
+      // or proc_ToObj(thisPtr->u.gk.pContext)
+    objH_SetReferenced(pObj);	// combine w/ objH_TransLock?
+    objH_TransLock(pObj);
   }
 }
 

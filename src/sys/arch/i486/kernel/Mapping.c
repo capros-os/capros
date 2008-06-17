@@ -724,8 +724,8 @@ mach_HeapInit(kpsize_t heap_size)
      /* Cannot just store this to proc_ContextCache, since the
 	checking logic tests that against NULL to see if it should run
 	consistency checks. */
-     extern kva_t proc_ContextCacheRegion;
-     proc_ContextCacheRegion = cache_va;
+     extern Process * proc_ContextCacheRegion;
+     proc_ContextCacheRegion = (Process *)cache_va;
    }
  }
 #endif

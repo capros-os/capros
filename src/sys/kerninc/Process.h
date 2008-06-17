@@ -95,9 +95,26 @@ enum Hazards {
   hz_SingleStep   = 0x80u 	/* context may have a live activity */
 };
 
+/* Use of this procedure is a warning that we are relying on the kludgy
+ * representation pun of the first 4 fields of the Process structure. */
+INLINE ObjectHeader *
+proc_ToObj(Process * proc)
+{
+  return (ObjectHeader *)proc;
+}
+
 struct Process {
-  /* Pieces of the currently loaded domain: */
-  KeyRing	keyRing;
+/* Kludge alert: The first 4 fields here match exactly the corresponding
+ * fields of ObjectHeader (representation pun).
+ * Some day, Process will be a first-class object type,
+ * and it will include an ObjectHeader. */
+  uint8_t obType;               // not used
+
+  uint8_t objAge;
+
+  uint16_t userPin;
+
+  KeyRing keyRing;
 
   StallQueue    stallQ;  /* procs waiting for this to be available */
   
@@ -318,7 +335,10 @@ void proc_FlushKeyRegs(Process* thisPtr);
 void proc_WriteDisableSmallSpaces();
 #endif
 
-void proc_AllocUserContexts(); /* machine dependent! */
+bool check_Contexts(const char *);
+
+void proc_InitProcessMD(Process * proc);	//machine dependent
+void proc_AllocUserContexts(void);
 Process *proc_allocate(bool isUser);
 void proc_Init_MD(Process * p, bool isUser); /* machine dependent */
 void proc_LoadSingleStep(Process * thisPtr);

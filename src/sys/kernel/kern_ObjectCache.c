@@ -642,48 +642,22 @@ objC_AgeNodeFrames()
 #endif
       /* DO NOT AGE OUT CONSTITUENTS OF AN ACTIVE CONTEXT
        * 
-       * If a node has an active context structure, it is not a
-       * candidate for ageing.  This pins a (relatively) small number
-       * of nodes in memory, but guarantees that the invoker and the
-       * invokee in a given invocation will not get aged out.
-       * Simultaneously, it guarantees that on invocation of a process
-       * capability the process context will not go out due to ageing.
-       * 
-       * The reason this is an issue is because we short-circuit the
-       * pin of the constituents in Process::Prepare().
-       * 
-       * In SMP implementations we will need to pin contexts in the
-       * same way that we pin nodes, in order to ensure that one
-       * processor does not remove a context that is active on
-       * another.
-       * 
-       * One unfortunate aspect of this design rule is that it becomes
-       * substantially harder to test the ageing mechanism.  This rule
-       * has the effect of increasing the minimum number of nodes
-       * required to successfully operate the system.  This issue can
-       * be eliminated once we start pinning process structures.
+       * This is an issue because when we access a process
+       * we mark the process pinned and referenced, but not the
+       * constituent nodes.
        *
-       * FIX: This is actually not good, as stale processes can
-       * potentially liver in the context cache for quite a long
-       * time. At some point, we need to introduce a context cache
-       * cleaning mechanism so that the non-persistent kernel will
-       * have one. Hmm. I suppose that context cache flush can
-       * continue to be triggered by the Checkpoint timer even in the
-       * non-persistent kernel.
+       * This logic moves the design in the direction of making
+       * processes first-class objects. Processes have their own
+       * pins and their own aging mechanism.
+       * The constituent nodes just happen to be in node space
+       * instead of in process space.
        */
     
       if (pObj->node_ObjHdr.obType == ot_NtProcessRoot ||
 	  pObj->node_ObjHdr.obType == ot_NtRegAnnex ||
 	  pObj->node_ObjHdr.obType == ot_NtKeyRegs) {
-
-
-	if ((pObj->node_ObjHdr.prep_u.context == proc_Current()) ||
-	    (inv_IsActive(&inv)
-             && (inv.invokee == pObj->node_ObjHdr.prep_u.context))) {
 	  nStuck++;
-	  node_SetReferenced(pObj);
-	}
-
+          continue;
       }
       
       /* THIS ALGORITHM IS NOT THE SAME AS THE PAGE AGEING ALGORITHM!!!

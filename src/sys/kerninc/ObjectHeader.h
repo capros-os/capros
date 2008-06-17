@@ -117,6 +117,9 @@ enum {
 				that contain the current allocation count. */
 
 struct ObjectHeader {
+/* Kludge alert: The first 4 fields here match exactly the corresponding
+ * fields of Process(representation pun). */
+
 /* N.B.: obType must be the first item in ObjectHeader.
    This puts it in the same location as PageHeader.kt_u.*.obType. */
   uint8_t obType;		/* page type or node prepcode */
