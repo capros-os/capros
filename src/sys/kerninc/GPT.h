@@ -41,6 +41,10 @@ gpt_SetL2vField(GPT * gpt, unsigned int f)
 }
 
 struct SegWalk {
+  /* The objects referred to by memObj, backgroundGPT, and keeperGPT
+   * (if nonzero and not backgroundGPT) are user pinned
+   * and marked referenced. */
+
   struct ObjectHeader * memObj;
   uint64_t offset;
 

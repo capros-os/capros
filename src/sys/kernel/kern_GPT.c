@@ -363,8 +363,6 @@ proc_InvokeSegmentKeeper(
      * passing option turned on, so do not reuse scratchKey.
      */
 
-    objH_TransLock(node_ToObj(wi->keeperGPT));
-
     key_SetToObj(&inv.keeperArg, node_ToObj(wi->keeperGPT),
                  KKT_GPT, 0 /* no restrictions */, 0);
     keyBits_SetL2g(&inv.keeperArg, 64);	// disable guard

@@ -180,9 +180,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
   assert(inv_CanCommit());
   assert(pObj);
 
-  // Pin the object.
-
-  objH_TransLock(pObj);
+  objH_TransLock(pObj);	// Pin the object.
 
   inv->flags |= INV_EXITKEY0;
 

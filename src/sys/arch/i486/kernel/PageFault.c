@@ -389,8 +389,11 @@ static void
 SegWalk_InitFromMT(SegWalk * wi, MapTabHeader * mth)
 {
   wi->backgroundGPT = mth->backgroundGPT;
+  if (wi->backgroundGPT)
+    objH_TransLock(node_ToObj(wi->backgroundGPT));
   wi->keeperGPT = SEGWALK_GPT_UNKNOWN;
   wi->memObj = mth->producer;
+  objH_TransLock(wi->memObj);
 }
 
 uint32_t DoPageFault_CallCounter;

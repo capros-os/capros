@@ -738,7 +738,7 @@ objC_CopyObject(ObjectHeader *pObj)
 
   assert(pObj->prep_u.products == 0);
 
-  objH_TransLock(pObj);
+  objH_TransLock(pObj);	// needed?
 
   if (pObj->obType == ot_PtDataPage) {
     assert(keyR_IsEmpty(&pObj->keyRing));
@@ -1003,7 +1003,6 @@ objC_AgePageFrames(void)
 {
   static uint32_t curPage = 0;
 
-
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Before AgePageFrames()");
@@ -1019,7 +1018,6 @@ objC_AgePageFrames(void)
     case ot_PtKernelHeap:
     case ot_PtDMABlock:
     case ot_PtDMASecondary:
-
     case ot_PtFreeFrame:
     case ot_PtSecondary:
       goto nextPage;
@@ -1048,17 +1046,21 @@ objC_AgePageFrames(void)
     when objH_CurrentTransaction overflows. */
     pageH_ToObj(pageH)->userPin = 0;
 
-    if (pageH_IsKernelPinned(pageH))
+    if (pageH_IsKernelPinned(pageH)
+        || objH_GetFlags(pageH_ToObj(pageH), OFLG_Fetching) )
       goto nextPage;
 
     switch (pageH_ToObj(pageH)->objAge) {
-    case age_Steal:
-      break;
-
-    case age_Clean:
-      goto bumpAge;
-
     case age_Invalidate:
+      /* First, we check whether the object is really not recently used.
+       * Normally, any reference to the object sets its objAge to age_NewBorn
+       * (in objH_SetReferenced). 
+       * However, references through mapping table entries happen without
+       * benefit of updating objAge.
+       * So at this stage we invalidate the mapping table entries. If the
+       * object is referenced,
+       * the entry will be rebuilt and the age updated then.
+       */
       if (pageH_GetObType(pageH) > ot_PtLAST_COMMON_PAGE_TYPE) {
         // It's a machine-dependent frame type.
         if (pageH_mdType_AgingClean(pageH)) {
@@ -1069,6 +1071,16 @@ objC_AgePageFrames(void)
         objC_CleanFrame1(pageH_ToObj(pageH));
       }
       goto bumpAge;
+
+    case age_Clean:
+      /* At this stage, we initiate cleaning of the object if it is dirty. */
+      assert(incomplete);
+      goto bumpAge;
+
+    case age_Steal:
+      /* Now it's time to evict the object and steal the frame. */
+      assert(incomplete);
+      break;
 
     default:
     bumpAge:

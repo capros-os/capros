@@ -545,16 +545,3 @@ prNodeObj:
   }
 }
 #endif
-
-/* #define PIN_DEBUG */
-
-#ifndef NDEBUG
-void
-objH_TransLock(ObjectHeader* thisPtr)
-{
-#ifdef PIN_DEBUG
-  printf("Pinning obhdr 0x%08x\n", this);
-#endif
-  thisPtr->userPin = objH_CurrentTransaction;
-}
-#endif

@@ -112,9 +112,6 @@ CheckTypeAndAllocCount(Key * key, ObjectLocator * pObjLoc,
     link_insertAfter(&pObj->keyRing, &key->u.ok.kr);
   }
 
-  // Pin the object.
-  objH_TransLock(pObj);
-
   return pObj;
 }
 
@@ -166,9 +163,6 @@ key_DoPrepare(Key* thisPtr)
 
       Node * pNode = objH_ToNode(pObj);
       assert(objC_ValidNodePtr(pNode));
-
-      // Pin the object.
-      objH_TransLock(pObj);
 
       // Keys to a process are linked onto the Process structure.
       Process * proc = node_GetProcess(pNode);

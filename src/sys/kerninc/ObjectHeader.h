@@ -93,7 +93,7 @@ extern const char *ddb_obtype_name(uint8_t);
 enum {
   age_NewBorn	= 0,		/* just referenced */
   age_LiveProc	= 1,		/* node age for live processes */
-  age_NewLogPg	= 2,		/* not as important as user pages. */
+  age_NewObjPot	= 2,		// not as important as user objects.
   age_Invalidate = 3,		/* time to invalidate to see if active */
   age_Clean	= 5,		/* time to clean */
   age_Steal	= 6,		/* time to steal */
@@ -345,15 +345,12 @@ objH_BeginTransaction()
 void pageH_KernPin(PageHeader *);   /* object is pinned for kernel reasons */
 void pageH_KernUnpin(PageHeader *);
 
-#ifdef NDEBUG
 INLINE void 
 objH_TransLock(ObjectHeader* thisPtr)	/* lock for current transaction */
 {
   thisPtr->userPin = objH_CurrentTransaction;
+  objH_SetReferenced(thisPtr);
 }
-#else
-void objH_TransLock(ObjectHeader* thisPtr);  /* lock for current transaction */
-#endif
 
 INLINE bool   
 objH_IsUserPinned(ObjectHeader* thisPtr)

@@ -358,9 +358,7 @@ proc_DoPrepare(Process * thisPtr)
   assert(thisPtr->procRoot);
   assert (thisPtr->isUserContext);
 
-  objH_TransLock(node_ToObj(thisPtr->procRoot));
-  if (thisPtr->keysNode)
-    objH_TransLock(node_ToObj(thisPtr->keysNode));
+  objH_TransLock(proc_ToObj(thisPtr));
   
   thisPtr->hazards &= ~hz_Malformed;	/* until proven otherwise */
   

@@ -184,6 +184,7 @@ objH_EnsureNotFetching(ObjectHeader * pObj)
     act_SleepOn(&pageH->ioreq->sq);
     act_Yield();
   }
+  objH_TransLock(pObj);
 }
 
 // May Yield.
@@ -203,7 +204,6 @@ IOSource_GetObjectType(ObjectRange * rng, OID oid)
   ObjectHeader * pObj = objH_Lookup(tagPotID, ot_PtTagPot);
   if (pObj) {
     objH_EnsureNotFetching(pObj);
-    pageH_SetReferenced(objH_ToPage(pObj));
     objLoc.locType = objLoc_TagPot;
     objLoc.u.tagPot.tagPotPageH = objH_ToPage(pObj);
     objLoc.u.tagPot.range = rng;
@@ -256,7 +256,7 @@ EnsureObjectPot(ObjectRange * rng, OID oid)
   ObjectHeader * pObj = objH_Lookup(frame, ot_PtObjPot);
   if (pObj) {
     objH_EnsureNotFetching(pObj);
-    pageH_SetReferenced(objH_ToPage(pObj));
+    pObj->objAge = age_NewObjPot;	// mark referenced, but not strongly
     return objH_ToPage(pObj);
   }
 

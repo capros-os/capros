@@ -47,7 +47,6 @@ key_Prepare(Key * thisPtr)
     // due to a representation pun.
     ObjectHeader * pObj = thisPtr->u.ok.pObj;
       // or proc_ToObj(thisPtr->u.gk.pContext)
-    objH_SetReferenced(pObj);	// combine w/ objH_TransLock?
     objH_TransLock(pObj);
   }
 }
