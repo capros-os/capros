@@ -30,17 +30,22 @@ Approved for public release, distribution unlimited. */
     \brief CapROS Kernel Log Directory Interface.
 
     The object directory keeps track of the most recent instance of
-    objects written to the log. It will keep up to two locations, one
-    in the working generation, if there is a working generation, and
-    the most recent version in the restart generation, unmigrated 
-    generation(s), migrated but not retired generation(s), and the
-    retired generation(s).
+    objects written to the log. In the descriptions below, this location
+    is called the "Primary Location".
+
+    It will, in addition, keep up an additional location for the object
+    to allow the journalize write operation to locate the version which
+    will become current should a restart occur before another checkpoint.
 
     It provides operations to:
       1. Record new locations for objects
-      2. Find the most recent location for an object.
-      3. Find all the objects in a particular checkpoint generation.
-      4. Remove all the entries of a particular checkpoint generation.
+      2. Find the primary location for an object.
+      3. Find all the objects whose primary locations are part of a 
+         particular checkpoint generation.
+      4. Remove all the entries of a particular generation and earlier
+         generations.
+      5. (Not implemented) Find the most recent location for an object
+         which is earlier than a specified generation number.
 
 */
 
@@ -64,7 +69,8 @@ typedef struct ObjectDescriptor {
 /** Record the location of an object.
 
     The call includes the generation number so it may be used during
-    restart.
+    restart. Object locations should be recorded in ascending order of
+    generation number.
 
     @param[in] od The Object Descriptor for the object.
     @param[in] lid The location of the object in the checkpoint log.
@@ -75,9 +81,9 @@ ld_recordLocation(ObjectDescriptor *od, LID lid, uint64_t generation);
 
 /** Find an object in the directory.
 
-    This routine will return the LID of most recent version of the object
-    in the working generation, the restart generation, or any of the earlier
-    generations still in the directory.
+    This routine will return the primary location LID of the object
+    in the working generation, the restart generation, or any of
+    the earlier generations still in the directory.
 
     @param[in] oid The object ID to be located.
     @return A pointer to the ObjectDescriptor for the object or NULL if the
@@ -88,34 +94,37 @@ ld_findObject(OID oid);
 
 /** Find the first object of a generation.
 
-    This routine starts the scan of all objects in a generation.
-    od_nextObject continues the scan. There may be up to two scans in
-    progress at any time (one for the checkpoint routines and one for
-    migration). They are separated by using different generation numbers.
+    This routine starts a scan of all objects in a generation.
+    od_nextObject continues the scan. There may be up to one scan in
+    progress at any time for any particular generation. Only objects
+    whose primary location is in the given generation will be returned.
 
     Note the the order of objects in a generation is undefined. If it needs
     to be defined for some reason, like optimizing migration, then that
     need will be an additional constraint on the implementation of the
-    object directory.
+    object directory or the use of the returned values.
 
     @param[in] generation The generation number to scan.
-    @return The ObjectDescriptor of the first object in a generation scan.
+    @return The ObjectDescriptor of the first object in a generation scan
+            or NULL.
 */
 ObjectDescriptor *
 ld_findFirstObject(uint64_t generation);
 
 /** Find the next object of a generation.
 
-    This routine continues the scan of all objects in a generation.
-    See od_findFirstObject for more information.
+    This routine continues the scan of all objects whose primary location
+    is in a generation. See od_findFirstObject for more information.
 
     @param[in] generation The generation number to scan.
-    @return The ObjectDescriptor of the next object in a generation scan.
+    @return The ObjectDescriptor of the next object in a generation scan
+            or NULL.
 */
 ObjectDescriptor *
 ld_findNextObject(uint64_t generation);
 
-/** Remove all the objects in a generation from the Log Directory.
+/** Remove all the objects in a generation, and all earlier generations,
+    from the Log Directory.
 
     Note: This routine may need to be executed in smaller pieces to meet
     real-time requirements.
