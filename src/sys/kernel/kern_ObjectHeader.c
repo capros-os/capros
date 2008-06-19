@@ -249,7 +249,11 @@ objH_FlushIfCkpt(ObjectHeader* thisPtr)
 void
 objH_MakeObjectDirty(ObjectHeader* thisPtr)
 {
-  assertex(thisPtr, objH_IsUserPinned(thisPtr));
+  assert(objH_IsUserPinned(thisPtr)
+         || ((   thisPtr->obType == ot_NtProcessRoot
+              || thisPtr->obType == ot_NtKeyRegs
+              || thisPtr->obType == ot_NtRegAnnex)
+             && objH_IsUserPinned(proc_ToObj(thisPtr->prep_u.context)) ) );
   assert(objH_GetFlags(thisPtr, OFLG_CURRENT));
 
   if ( objH_IsDirty(thisPtr) && (objH_GetFlags(thisPtr, OFLG_CKPT|OFLG_IO) == 0) )

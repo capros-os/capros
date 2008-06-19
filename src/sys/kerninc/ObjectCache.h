@@ -77,7 +77,6 @@ Node *objC_GrabNodeFrame();
 void objC_AgePageFrames(void);
 PageHeader * objC_GrabPageFrame(void);
 void objC_GrabThisPageFrame(PageHeader *);
-void objC_CleanFrame1(ObjectHeader * pObj);
 
 void objC_AddDevicePages(struct PmemInfo *);
 void objC_AddDMAPages(PageHeader * pageH, kpg_t nPages);

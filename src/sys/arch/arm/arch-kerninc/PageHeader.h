@@ -1,7 +1,7 @@
 #ifndef __MACHINE_PAGEHEADER_H__
 #define __MACHINE_PAGEHEADER_H__
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 /* Machine-dependent data for the ObjectHeader. */ 
 
 #define MD_PAGE_OBTYPES \
+  , ot_PtMappingPage1	/* first-level page table (not implemented yet) */ \
   , ot_PtMappingPage2	// second-level page table
 
 #define MD_PAGE_OBNAMES \

@@ -36,6 +36,7 @@ Approved for public release, distribution unlimited. */
 #include "Process486.h"
 #include "lostart.h"
 
+#define dbg_depend	0x1
 #define dbg_map		0x4	/* migration state machine */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
@@ -849,26 +850,17 @@ mach_EnableVirtualMapping()
 
 #include <kerninc/KernStats.h>
 #include <kerninc/ObjectCache.h>
-void
-KeyDependEntry_Invalidate(KeyDependEntry * kde)
-{
-  uint32_t from;
-  uint32_t to;
 
+static void
+KeyDependEntry_Track(KeyDependEntry * kde)
+{
   if (kde->start == 0) {	// unused entry
-#ifdef DBG_WILD_PTR
-    if (dbg_wild_ptr)
-      check_Consistency("KeyDependEntry_Invalidate(): unused entry");    
-#endif
     return;
   }
   
-  KernStats.nDepInval++;
-  
-#ifdef DEPEND_DEBUG
-  printf("Invalidating key entries start=0x%08x, count=%d\n",
-	      kde->start, kde->pteCount);
-#endif
+  DEBUG(depend) printf("Invalidating key entries start=0x%08x, count=%d\n",
+                       kde->start, kde->pteCount);
+
   if (kde->pteCount == 0) {
     Process * const p = (Process *) kde->start;
     assert(IsInProcess(kde->start));
@@ -885,93 +877,68 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
       mach_SetMappingTable(KernPageDir_pa);
     }
   } else {
-  // Begin indenting preserved.
+    unsigned int count = kde->pteCount;
+    PTE * from = (PTE *)kde->start;
+    kva_t mapping_page_kva = (kva_t)kde->start & ~EROS_PAGE_MASK;
+    PTE * ptePage = (PTE *) mapping_page_kva;
+    PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
+    if (pMappingPage) {
+      /* If it is no longer a mapping page, stop. */
+      if (pageH_GetObType(pMappingPage) != ot_PtMappingPage) {
+        kde->start = 0;
+        return;
+      }
 
-  kva_t mapping_page_kva = ((kva_t)kde->start & ~EROS_PAGE_MASK);
-  PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
-  /* pMappingPage could be zero, if the mapping page was allocated
-     at kernel initialization and therefore doesn't have an
-     associated PageHeader. */
+      /* It is possible that this frame got retasked into a page directory 
+      with stale depend entries still live.  Those entries may span PTE 
+      slots that we should not zap under any conditions (kernel pages,
+      small space directory pointers).  Make sure we don't zap those: */
 
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("KeyDependEntry_Invalidate(): got mapping page");    
-#endif
-
-  /* If it is no longer a mapping page, stop. */
-  if (pMappingPage && (pageH_GetObType(pMappingPage) != ot_PtMappingPage)) {
-    kde->start = 0;
-    return;
-  }
-
-  PTE * ptePage = (PTE*) mapping_page_kva;
-
-  from = (PTE *)kde->start - ptePage;
-  to = from + kde->pteCount;
-
-  assert (from <= NPTE_PER_PAGE);
-  assert (to <= NPTE_PER_PAGE);
-  
-  /* It is possible that this frame got retasked into a page directory 
-     with stale depend entries still live.  Those entries may span PTE 
-     slots that we should not zap under any conditions (kernel pages,
-     small space directory pointers).  Make sure we don't zap those: */
-
-  if (pMappingPage && pMappingPage->kt_u.mp.tableSize == 1)
-    to = min(to, (UMSGTOP >> 22));
-  
-#if 0
-  printf("Invalidating PTE (hdr 0x%08x) from 0x%08x to 0x%08x\n",
-		 pMappingPage, &ptePage[from], &ptePage[to]);
-#endif
-  
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("KeyDependEntry_Invalidate(): pre pte zap");
-#endif
-
-  while (from < to) {
-    PTE *pPTE = &ptePage[from];
-    
-    pte_Invalidate(pPTE);
-#ifdef DBG_WILD_PTR
-    if (dbg_wild_ptr)
-      check_Consistency("KeyDependEntry_Invalidate(): post pte zap");
-#endif
-
-    from++;
-  }
-
-#if defined(OPTION_SMALL_SPACES) && !defined(NDEBUG)
-#if 0 /* architecture-specific; disabled for now */
-  if (pMappingPage && pMappingPage->kt_u.mp.tableSize == 1) {
-    PTE *kpgdir = KernPageDir;
-    uint32_t i;
-    
-    /* Some of the kernel-related entries may not match, because the
-     * fast mapping buffers cause them to change.
-     */
-    for (i = (UMSGTOP >> 22); i < (KVA >> 22); i++) {
-      /* used to be  if (ptePage[i] != kpgdir[i]) */
-      if (pte_NotEqualTo(&ptePage[i], &kpgdir[i]))
-	dprintf(true,
-			"uPDE 0x%08x (at 0x%08x) != "
-			"kPDE 0x%08x (at 0x%08x) uObHdr 0x%08x\n",
-			pte_AsWord(&ptePage[i]), ptePage + i, 
-			pte_AsWord(&kpgdir[i]), kpgdir +i,
-			pMappingPage); 
+      if (pMappingPage->kt_u.mp.tableSize == 1) {
+        unsigned int maxCount = (UMSGTOP >> 22) - (from - ptePage);
+        count = min(count, maxCount);
+      }
+    } else {
+      /* pMappingPage could be zero, if the mapping page was allocated
+      at kernel initialization and therefore doesn't have an
+      associated PageHeader. */
     }
-  }
+
+#if 0
+    printf("Invalidating PTE (hdr 0x%08x) from 0x%08x to 0x%08x\n",
+		 pMappingPage, from, from + count);
 #endif
-#endif
-  // End indenting preserved.
+    
+    while (count--) {
+      pte_Invalidate(from++);
+    }
   }
 
   kde->start = 0;
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("KeyDependEntry_Invalidate(): end");
-#endif
+}
+
+void
+KeyDependEntry_Invalidate(KeyDependEntry * kde)
+{
+  KernStats.nDepInval++;
+
+  KeyDependEntry_Track(kde);
+}
+
+void
+KeyDependEntry_TrackReferenced(KeyDependEntry * kde)
+{
+  KernStats.nDepTrackRef++;
+
+  KeyDependEntry_Track(kde);
+}
+
+void
+KeyDependEntry_TrackDirty(KeyDependEntry * kde)
+{
+  KernStats.nDepTrackDirty++;
+
+  KeyDependEntry_Track(kde);
 }
 
 void
@@ -1052,8 +1019,8 @@ pageH_mdType_EvictFrame(PageHeader * pageH)
   ReleaseProduct(& pageH->kt_u.mp);
 }
 
-bool
-pageH_mdType_AgingExempt(PageHeader * pageH)
+bool	// return true iff page was freed
+pageH_mdType_Aging(PageHeader * pageH)
 {
   assert(pageH_GetObType(pageH) == ot_PtMappingPage);
   /* Mapping pages cannot go out if their producer is pinned,
@@ -1061,33 +1028,20 @@ pageH_mdType_AgingExempt(PageHeader * pageH)
 
   ObjectHeader * pProducer = pageH->kt_u.mp.producer;
   if (objH_IsUserPinned(pProducer))
+    return false;	// don't age, don't steal
+  // if (objH_IsKernelPinned(pProducer)) return false;
+
+  switch (pageH_ToObj(pageH)->objAge) {
+  case age_MTInvalidate:
+    MapTab_ClearRefs(& pageH->kt_u.mp);
+  default:
+    pageH_ToObj(pageH)->objAge++;
+    break;
+
+  case age_MTSteal:
+    ReleaseProduct(& pageH->kt_u.mp);
     return true;
-  // if (objH_IsKernelPinned(pProducer)) return true;
-  return false;
-}
-
-bool	// return true iff page was freed
-pageH_mdType_AgingClean(PageHeader * pageH)
-{
-  assert(pageH_GetObType(pageH) == ot_PtMappingPage);
-  /* It's a lot cheaper to regenerate a mapping page than to
-   * read some other page back in from the disk...
-   */
-  ReleaseProduct(& pageH->kt_u.mp);
-  return true;
-}
-
-bool
-pageH_mdType_AgingSteal(PageHeader * pageH)
-{
-  assert(pageH_GetObType(pageH) == ot_PtMappingPage);
-  /* Mapping pages should never make it to PageOut age, because
-   * they should be zapped at the invalidate age. It's
-   * relatively cheap to rebuild them, and zapping them eagerly
-   * has the desirable consequence of keeping their associated
-   * nodes in memory if the process is still active.
-   */
-  assert(false);
+  }
   return false;
 }
 

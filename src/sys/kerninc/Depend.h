@@ -106,7 +106,7 @@
    entry to see if the memory is currently a mapping table. 
    If a page is stolen and reused for a different mapping table,
    KeyDependEntry_Invalidate will invalidate the entry in the new table,
-   which is useless but harmless. 
+   which is unfortunate but harmless. 
    If the table entry is in an area of memory that has no PageHeader,
    it is either in a Process structure or in a mapping table that
    was allocated early in system initialization; in neither case is the
@@ -199,7 +199,9 @@ typedef struct KeyDependEntry {
 
 #define SLOT_TAG(pKey) ( (((unsigned) pKey) >> 4) & 0xfffffu )
 
-void KeyDependEntry_Invalidate(KeyDependEntry * );
+void KeyDependEntry_Invalidate(KeyDependEntry * kde);
+void KeyDependEntry_TrackReferenced(KeyDependEntry * kde);
+void KeyDependEntry_TrackDirty(KeyDependEntry * kde);
 
 INLINE bool 
 KeyDependEntry_InUse(KeyDependEntry const * kde)
@@ -208,7 +210,9 @@ KeyDependEntry_InUse(KeyDependEntry const * kde)
 }
 
 void Depend_AddKey(Key *, void *, int mapLevel);
-void Depend_InvalidateKey(Key *key);
+void Depend_InvalidateKey(Key * key);
+void Depend_TrackReferenced(Key * key);
+void Depend_TrackDirty(Key * key);
 
 void Depend_InitKeyDependTable(uint32_t nNodes);
 

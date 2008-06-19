@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/multiboot.h>
 #include <kerninc/util.h>
+#include <kerninc/IORQ.h>
 #include <kerninc/ObjH-inline.h>
 #include <arch-kerninc/KernTune.h>
 #include <arch-kerninc/Page-inline.h>
@@ -53,6 +54,7 @@ Approved for public release, distribution unlimited. */
 
 static void objC_AllocateUserPages(void);
 
+static void objC_CleanFrame1(ObjectHeader *pObj);
 static bool objC_CleanFrame2(ObjectHeader * pObj);
 
 uint32_t objC_nNodes;
@@ -873,25 +875,9 @@ objC_EvictFrame(PageHeader * pageH)
 /* Clean out the node/page frame, but do not remove it from memory. */
 /* pObj->obType must be node or ot_PtDataPage. */
 /* May Yield. */
-void
+static void
 objC_CleanFrame1(ObjectHeader *pObj)
 {
-  /* If this object is due to go out and actively involved in I/O,
-   * then we are still waiting for the effects of the last call to
-   * complete, and we should put the current activity to sleep on this
-   * object:
-   */
-  if (objH_GetFlags(pObj, OFLG_IO)) {
-    if (! act_Current() )
-      // act_Current() is generally only zero during initialization.
-      fatal("Insufficient memory for initialization\n");
-    else {
-      act_SleepOn(ObjectStallQueueFromObHdr(pObj));
-      act_Yield();
-    }
-    assert (false);
-  }
-
   /* Clean up the object we are reclaiming so we can free it: */
 
   keyR_UnprepareAll(&pObj->keyRing);	/* This zaps any PTE's as a side effect. */
@@ -929,73 +915,55 @@ objC_CleanFrame2(ObjectHeader *pObj)
   return true;
 }
 
+static void
+pageH_Clean(PageHeader * pageH)
+{
+  if (! pageH_IsDirty(pageH))
+    return;
+
+  switch (pageH_GetObType(pageH)) {
+  case ot_PtObjPot:
+    /* Object pots are cleaned as soon as they are dirtied,
+    so they should not get here. */
+  default: ;
+    assert(false);
+
+  case ot_PtTagPot:
+    assert(!"complete");	////
+    break;
+
+  case ot_PtDataPage:
+    keyR_TrackDirty(&pageH_ToObj(pageH)->keyRing);
+    pageH_ClearFlags(pageH, OFLG_DIRTY);
+    // While it is being cleaned, it is marked not dirty, and I/O in progress.
+    assert(!"complete");	////
+  }
+}
+
 /* OBJECT AGING POLICY:
  * 
- * Objects are brought in as NewBorn objects, and age until they reach
- * the Invalidate generation.  At that point all outstanding keys are
- * deprepared.  If they make it to the PageOut generation we kick them
- * out of memory (writing if necessary).
- * 
- * When an object is prepared, we conclude that it is an important
- * object, and promote it back to the NewBorn generation.
+ * Objects are brought in as NewBorn objects.
+ * If they are explicitly referenced, the age is reset to NewBorn.
+ * Objects age until they reach the Invalidate age.
+ * At that point all mapping table entries dependent on the object are
+ * invalidated, to detect implicit references via them.
+ *
+ * At age_Clean, we initiate cleaning the object (if it is dirty).
+ * At age_Steal, we steal the object frame.
  */
 
-/* The page frame ager is one of the places where a bunch of sticky
- * issues all collide.  Some design principles that we would LIKE to
- * satisfy:
+/* To ensure that we can make progress, IORequests for cleaning
+ * are in a different pool from IORequests for reading.
+ * The relative pool sizes can be adjusted, and this may help
+ * manage the disk bandwidth.
+ *
+ * Note: It might be beneficial to clean objects (if the I/O bandwidth
+ * is available) without aging objects.
+ * This will help the next checkpoint to stabilize more quickly.
  * 
- *  1. Pages should be aged without regard to cleanliness.  The issue
- *     is that ageing which favors reclaiming clean pages will tend to
- *     reclaim code pages.
- * 
- *  2. The CPU should not sit idle when frames are reclaimable.  This
- *     conflicts with principle (1), since any policy that satisfies
- *     (1) implies stalling somewhere.
- * 
- *  3. Real-time and non-real-time processes should not have resource
- *     conflicts imposed by the ager.  This means both on the frames
- *     themselves (easy to solve by coloring) and on the I/O Request
- *     structures (which is much harder).
- * 
- * I can see no way to satisfy all of these constraints at once.  For
- * that matter, I can't see any solution that always satisfies (1) and
- * (2) simultaneously.  The problem is that cleaning takes time which
- * is many orders of magnitude longer than a context switch.
- * 
- * The best solution I have come up with is to try to ameliorate
- * matters by impedance matching.  Under normal circumstances, the
- * ager is the only generator of writes in the system.  During
- * stabilization and migration, any write it may do is more likely to
- * help than hurt.  These plus the journaling logic are ALL of the
- * sources of writes in the system, and we know that object reads and
- * writes can never conflict (if the object is already in core to be
- * written, then we won't be reading it from the disk).
- * 
- * This leaves two concerns:
- * 
- *   1. Ensuring that there is no contention on the I/O request pool.
- *   2. Ensuring that there is limited contention for disk bandwidth.
- * 
- * Since reads and writes do not conflict, (1) can be resolved by
- * splitting the I/O request pools by read/write (not currently
- * implemented).  If this split is implemented, (2) can be
- * accomplished by the simple expedient of restricting the relative
- * I/O request pool sizes.
- * 
- * In an attempt to limit the impact of delays due to dirty objects,
- * the ager attempts to write objects long before they are candidates
- * for reclamation (i.e. we run a unified ageing and cleaning policy
- * -- this may want to be revisited in the future, as if the outbound
- * I/O bandwidth is available we might as well use it).
- * 
- * The ageing policy proceeds as follows: when ageing is invoked, run
- * the ager until one of the following happens:
- * 
- *   1. We find a page to reclaim
- *   2. We find a dirty page due to be written.
- * 
- * If (2) occurs, initiate the write and attempt to find a bounded
- * number (currently 5) of additional writes to initiate.
+ * Note: Once we have initiated cleaning of a dirty page, perhaps
+ * we should initiate a few more at that time,
+ * while the disk head is at the log.
  */
 
 void
@@ -1011,8 +979,8 @@ objC_AgePageFrames(void)
   while (1) {
     PageHeader * pageH = objC_GetCorePageFrame(curPage);
     
-    /* Some page types do not get aged: */
     switch (pageH_GetObType(pageH)) {
+    /* Some page types do not get aged: */
     case ot_PtNewAlloc:
     case ot_PtDevicePage:
     case ot_PtKernelHeap:
@@ -1024,7 +992,6 @@ objC_AgePageFrames(void)
 
     case ot_PtTagPot:
     case ot_PtObjPot:
-      assert(!"complete");	// check this case
       break;
 
     case ot_PtDataPage:
@@ -1033,8 +1000,12 @@ objC_AgePageFrames(void)
       break;
 
     default:
-      if (pageH_mdType_AgingExempt(pageH))
-        goto nextPage;
+      // It's a machine-dependent frame type.
+      if (pageH_mdType_Aging(pageH)) {
+        curPage++;	// it was freed
+        return;
+      }
+      goto nextPage;
     }
   
     /* Some pages cannot be aged because they are active or pinned: */
@@ -1057,62 +1028,51 @@ objC_AgePageFrames(void)
        * (in objH_SetReferenced). 
        * However, references through mapping table entries happen without
        * benefit of updating objAge.
-       * So at this stage we invalidate the mapping table entries. If the
-       * object is referenced,
+       * So at this stage we invalidate the mapping table entries.
+       * If the object is referenced,
        * the entry will be rebuilt and the age updated then.
        */
-      if (pageH_GetObType(pageH) > ot_PtLAST_COMMON_PAGE_TYPE) {
-        // It's a machine-dependent frame type.
-        if (pageH_mdType_AgingClean(pageH)) {
-          curPage++;	// it was freed
-          return;
-        }
-      } else {
-        objC_CleanFrame1(pageH_ToObj(pageH));
-      }
+      keyR_TrackReferenced(&pageH_ToObj(pageH)->keyRing);
       goto bumpAge;
 
     case age_Clean:
       /* At this stage, we initiate cleaning of the object if it is dirty. */
-      assert(incomplete);
+      pageH_Clean(pageH);
       goto bumpAge;
 
     case age_Steal:
       /* Now it's time to evict the object and steal the frame. */
-      assert(incomplete);
-      break;
+
+      /* Dirtying a page also references it, which resets the age.
+      If we are at age_Steal, it wasn't referenced since age_Clean,
+      therefore it shouldn't be dirty either. */
+      assert(! pageH_IsDirty(pageH));
+
+      if (pageH->ioreq) {
+        /* We are still waiting for a previously initiated clean
+        to complete. Wait now for it to complete.
+        Otherwise, we would go on to preferentially steal clean pages,
+        usually code pages. */
+        act_SleepOn(&pageH->ioreq->sq);
+        act_Yield();
+      }
+
+      // Steal this frame.
+      objH_InvalidateProducts(pageH_ToObj(pageH));
+      /* Remove this page from the cache and return it to the free page
+       * list:
+       */
+      assert(keyR_IsEmpty(&pageH_ToObj(pageH)->keyRing));
+      assert(!"complete");	////
+      ReleaseObjPageFrame(pageH);
+
+      curPage++;
+      return;
 
     default:
     bumpAge:
       pageH_ToObj(pageH)->objAge++;
       break;
-    }
-    if (pageH_ToObj(pageH)->objAge == age_PageOut) {
-      if (pageH_GetObType(pageH) > ot_PtLAST_COMMON_PAGE_TYPE) {
-        // It's a machine-dependent frame type.
-        if (! pageH_mdType_AgingSteal(pageH))
-          goto nextPage;	// couldn't steal it
-      } else {
-        objC_CleanFrame1(pageH_ToObj(pageH));
-        if (objC_CleanFrame2(pageH_ToObj(pageH)) == false)
-          goto nextPage;
-  
-        assert(!pageH_IsDirty(pageH));
-
-        /* Remove this page from the cache and return it to the free page
-         * list:
-         */
-        assert(keyR_IsEmpty(&pageH_ToObj(pageH)->keyRing));
-        ReleaseObjPageFrame(pageH);
-      }
-
-      curPage++;
-      return;
-    }
-    
-    pageH_ToObj(pageH)->objAge++;
-
-    if (pageH_ToObj(pageH)->objAge == age_Invalidate) {
     }
 
   nextPage:
@@ -1231,20 +1191,11 @@ objH_InitObj(ObjectHeader * pObj, OID oid)
 void
 ReleaseObjPageFrame(PageHeader * pageH)
 {
-  DEBUG(ndalloc)
+  DEBUG(pgalloc)
     printf("ReleaseObjPageFrame pageH=0x%08x\n", pageH);
 
-  assert(pageH);
-  
-  /* Not certain that *anything* handed to ReleaseObjPageFrame() should be
-   * dirty, but...
-   */
-  if (objH_GetFlags(pageH_ToObj(pageH), OFLG_CKPT))
-    assert (!pageH_IsDirty(pageH));
-
-#ifndef NDEBUG
+  assert(!pageH_IsDirty(pageH));
   assert(pte_ObIsNotWritable(pageH));
-#endif
 
   objH_Unintern(pageH_ToObj(pageH));
     

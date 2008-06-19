@@ -92,12 +92,16 @@ extern const char *ddb_obtype_name(uint8_t);
 // Values for objAge:
 enum {
   age_NewBorn	= 0,		/* just referenced */
-  age_LiveProc	= 1,		/* node age for live processes */
-  age_NewObjPot	= 2,		// not as important as user objects.
-  age_Invalidate = 3,		/* time to invalidate to see if active */
-  age_Clean	= 5,		/* time to clean */
-  age_Steal	= 6,		/* time to steal */
+  age_NewObjPot	= 1,		// not as important as user objects.
+  age_Invalidate = 2,		/* time to invalidate to see if active */
+  age_Clean	= 4,		/* time to clean */
+  age_Steal	= 5,		/* time to steal */
   age_PageOut = 7,	//// temporary so it will compile
+
+  /* Mapping tables have more rapid aging,
+  because they are easy to regenerate. */
+  age_MTInvalidate = 2,
+  age_MTSteal	= 4,
 };
 
 // Values in flags:
@@ -380,9 +384,7 @@ bool pageH_mdType_CheckPage(PageHeader * pageH);
 void pageH_mdType_dump_pages(PageHeader * pageH);
 void pageH_mdType_dump_header(PageHeader * pageH);
 void pageH_mdType_EvictFrame(PageHeader * pageH);
-bool pageH_mdType_AgingExempt(PageHeader * pageH);
-bool pageH_mdType_AgingClean(PageHeader * pageH);
-bool pageH_mdType_AgingSteal(PageHeader * pageH);
+bool pageH_mdType_Aging(PageHeader * pageH);
 
 void objH_InvalidateProducts(ObjectHeader * thisPtr);
 void objH_AddProduct(ObjectHeader * thisPtr, MapTabHeader * product);

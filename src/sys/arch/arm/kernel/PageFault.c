@@ -46,9 +46,10 @@ unsigned int EnsureSSDomain(unsigned int ssid);
 
 #define dbg_pgflt	0x1	/* steps in taking snapshot */
 #define dbg_cache	0x2
+#define dbg_track	0x4
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u )
+#define dbg_flags   ( 0u | dbg_track ) ////
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -543,6 +544,110 @@ SegWalk_InitFromMT(SegWalk * wi, MapTabHeader * mth)
   wi->restrictions = mth->readOnly ? capros_Memory_readOnly : 0;
 }
 
+// May Yield.
+static void
+FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
+  MapTabHeader * mth2, ula_t mva)
+{
+  if (isWrite)
+    pageH_MakeDirty(pageH);
+
+  // Ensure cache coherency. 
+  unsigned int cacheClass = pageH->kt_u.ob.cacheAddr & EROS_PAGE_MASK;
+  bool canCache = true;	// until proven otherwise
+
+  switch (cacheClass) {
+  case CACHEADDR_NONE:	// not previously mapped
+    if (isWrite) {
+      assert(! mth2->readOnly);
+      DEBUG(cache) printf("0x%08x CACHEADDR_NONE to WRITEABLE\n", pageH);
+      pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_WRITEABLE;
+			// Note, mva has low bits clear
+    } else {
+      if (! mth2->readOnly) {
+        DEBUG(cache) printf("0x%08x CACHEADDR_NONE to ONEREADER\n", pageH);
+        pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_ONEREADER;
+      } else {	// page table could be mapped at multiple MVAs
+        DEBUG(cache) printf("0x%08x CACHEADDR_NONE to READERS\n", pageH);
+        pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_READERS;
+      }
+    }
+    break;
+  case CACHEADDR_ONEREADER:	// read only at one MVA
+    if (! mth2->readOnly	// table is at a single MVA
+        && pageH->kt_u.ob.cacheAddr == mva) {
+      if (isWrite) {
+        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to WRITEABLE\n", pageH);
+        pageH->kt_u.ob.cacheAddr |= CACHEADDR_WRITEABLE;
+      }
+    } else {	// different address
+      if (isWrite) {
+        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to UNCACHED\n", pageH);
+        pageH_MakeUncached(pageH);
+        canCache = false;
+      } else {
+        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to READERS\n", pageH);
+        pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
+      }
+    }
+    break;
+  case CACHEADDR_WRITEABLE:	// writeable at one MVA
+    if (! mth2->readOnly	// table is at a single MVA
+        && (pageH->kt_u.ob.cacheAddr & ~EROS_PAGE_MASK) == mva) {
+      // Nothing to do.
+    } else {	// different address
+      if (isWrite) {
+        DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to UNCACHED\n", pageH);
+        pageH_MakeUncached(pageH);
+        canCache = false;
+      } else {
+        /* This page was previously written.
+        We could go to the CACHEADDR_UNCACHED state.
+        But since the writer may have stopped writing, let's try
+        going to CACHEADDR_READERS. */
+        /* We must unmap all writeable PTEs. The following unmaps
+        read-only PTEs too, which is somewhat unfortunate. */
+        DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to READERS\n", pageH);
+        keyR_UnmapAll(&pageH_ToObj(pageH)->keyRing);
+        pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
+      }
+    }
+    break;
+  case CACHEADDR_READERS:	// readers at multiple MVAs
+    if (isWrite) {
+      DEBUG(cache) printf("0x%08x CACHEADDR_READERS to UNCACHED\n", pageH);
+      pageH_MakeUncached(pageH);
+      canCache = false;
+    }
+    // else nothing to do
+    break;
+  case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
+    canCache = false;
+    break;
+  default: assert(false);
+  }
+
+#if 0
+  printf("Setting PTE 0x%08x addr 0x%08x write %c cache %c\n",
+         thePTEP, pageAddr,
+         (isWrite ? 'y' : 'n'),
+         (canCache ? 'y' : 'n') );
+#endif
+  PTE_Set(thePTEP, pageAddr + PTE_SMALLPAGE
+  	/* AP bits, 11 for write, 10 for read */
+          + (isWrite ? 0xff0
+                       + (canCache ? PTE_CACHEABLE
+#ifdef OPTION_WRITEBACK
+                                        | PTE_BUFFERABLE
+#endif
+                          : 0) 
+                     : 0xaa0
+                       + (canCache ? PTE_CACHEABLE | PTE_BUFFERABLE : 0)
+// for read-only access, PTE_BUFFERABLE is not significant.
+// See comments in PTEarm.h for why we set it here.
+         ) );
+}
+
 uint32_t DoPageFault_CallCounter;
 
 /* Returns ... */
@@ -597,7 +702,8 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
                ->kt_u.mp.hdrs[0];
     if ((p->md.dacr & 0xc) == 0) {	// has access to domain 1?
       // no, tracking LRU
-      mth1->mthAge = age_LiveProc;	// it's been used
+      mth1->mthAge = age_NewBorn;	// it's been used
+      DEBUG(track) dprintf(true, "Tracking LRU, L1D.\n");
       p->md.dacr |= 0x4;	// restore access to domain 1
     }
   }
@@ -755,7 +861,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
         // FIXME: can avoid the table walk since we already have the CPT
         if (theFLPTEntry & L1D_DOMAIN_MASK) {
           // Tracking LRU.
-          mth2->mthAge = age_LiveProc;	// it's been used
+          mth2->mthAge = age_NewBorn;	// it's been used
           theFLPTEntry |= L1D_COARSE_PT;
         } else {
           // This small space has had its domain stolen.
@@ -845,17 +951,15 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
       unsigned int ap = (thePTE >> 4) & 0x3;
       switch (ap) {
       case 2:	// readonly
-        if (! thePTE & PTE_BUFFERABLE) {
+        if ((thePTE & (PTE_CACHEABLE | PTE_BUFFERABLE)) == PTE_CACHEABLE) {
           // tracking dirty
-          PageHeader * pageH = objC_PhysPageToObHdr(thePTE & PTE_FRAMEBITS);
-          assert(pageH && false);	// mark page dirty
-          (void)pageH;		// keep the compiler happy
-          thePTE |= 0xff0
-#ifdef OPTION_WRITEBACK
-                          | PTE_BUFFERABLE
-#endif
-                                           ;
-          thePTEP->w_value = thePTE;
+          assert(isWrite);	// else why did we fault?
+          kpa_t pageAddr = thePTE & PTE_FRAMEBITS;
+          PageHeader * pageH = objC_PhysPageToObHdr(pageAddr);
+          FillPTE(thePTEP, pageH, pageAddr, isWrite, mth2, mva);
+          DEBUG(track) dprintf(true, "Tracking dirty, PTE %#x -> %#x\n",
+                               thePTE, thePTEP->w_value);
+          havePage = true;
         } else {
           if (! isWrite)
             havePage = true;	// have all the access we need
@@ -872,10 +976,12 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   } else {	// not valid
     if (thePTE & PTE_CACHEABLE) {
       // tracking LRU
-      PageHeader * pageH = objC_PhysPageToObHdr(thePTE & PTE_FRAMEBITS);
+      kpa_t pageAddr = thePTE & PTE_FRAMEBITS;
+      PageHeader * pageH = objC_PhysPageToObHdr(pageAddr);
       pageH_SetReferenced(pageH);
-      thePTE |= PTE_SMALLPAGE;
-      thePTEP->w_value = thePTE;
+      FillPTE(thePTEP, pageH, pageAddr, isWrite, mth2, mva);
+      DEBUG(track) dprintf(true, "Tracking LRU, PTE %#x -> %#x\n",
+                           thePTE, thePTEP->w_value);
       havePage = true;
     }
     // else really not valid
@@ -916,114 +1022,18 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
            || wi.memObj->obType == ot_PtDevicePage
            || wi.memObj->obType == ot_PtDMABlock
            || wi.memObj->obType == ot_PtDMASecondary);
-    PageHeader * const pageH = objH_ToPage(wi.memObj);
 
-    if (isWrite)
-      pageH_MakeDirty(pageH);
+    PageHeader * const pageH = objH_ToPage(wi.memObj);
 
     pte_Invalidate(thePTEP);	/* remember to purge TLB and cache */
 
-    // Ensure cache coherency. 
-    unsigned int cacheClass = pageH->kt_u.ob.cacheAddr & EROS_PAGE_MASK;
-    bool canCache = true;	// until proven otherwise
-
-    switch (cacheClass) {
-    case CACHEADDR_NONE:	// not previously mapped
-      if (isWrite) {
-        assert(! mth2->readOnly);
-        DEBUG(cache) printf("0x%08x CACHEADDR_NONE to WRITEABLE\n", pageH);
-        pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_WRITEABLE;
-			// Note, mva has low bits clear
-      } else {
-        if (! mth2->readOnly) {
-          DEBUG(cache) printf("0x%08x CACHEADDR_NONE to ONEREADER\n", pageH);
-          pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_ONEREADER;
-        } else {	// page table could be mapped at multiple MVAs
-          DEBUG(cache) printf("0x%08x CACHEADDR_NONE to READERS\n", pageH);
-          pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_READERS;
-        }
-      }
-      break;
-    case CACHEADDR_ONEREADER:	// read only at one MVA
-      if (! mth2->readOnly	// table is at a single MVA
-          && pageH->kt_u.ob.cacheAddr == mva) {
-        if (isWrite) {
-          DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to WRITEABLE\n", pageH);
-          pageH->kt_u.ob.cacheAddr |= CACHEADDR_WRITEABLE;
-        }
-      } else {	// different address
-        if (isWrite) {
-          DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to UNCACHED\n", pageH);
-          pageH_MakeUncached(pageH);
-          canCache = false;
-        } else {
-          DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to READERS\n", pageH);
-          pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
-        }
-      }
-      break;
-    case CACHEADDR_WRITEABLE:	// writeable at one MVA
-      if (! mth2->readOnly	// table is at a single MVA
-          && (pageH->kt_u.ob.cacheAddr & ~EROS_PAGE_MASK) == mva) {
-        // Nothing to do.
-      } else {	// different address
-        if (isWrite) {
-          DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to UNCACHED\n", pageH);
-          pageH_MakeUncached(pageH);
-          canCache = false;
-        } else {
-          /* This page was previously written.
-          We could go to the CACHEADDR_UNCACHED state.
-          But since the writer may have stopped writing, let's try
-          going to CACHEADDR_READERS. */
-          /* We must unmap all writeable PTEs. The following unmaps
-          read-only PTEs too, which is somewhat unfortunate. */
-          DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to READERS\n", pageH);
-          keyR_UnmapAll(&pageH_ToObj(pageH)->keyRing);
-          pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
-        }
-      }
-      break;
-    case CACHEADDR_READERS:	// readers at muiltiple MVAs
-      if (isWrite) {
-        DEBUG(cache) printf("0x%08x CACHEADDR_READERS to UNCACHED\n", pageH);
-        pageH_MakeUncached(pageH);
-        canCache = false;
-      }
-      // else nothing to do
-      break;
-    case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
-      canCache = false;
-      break;
-    default: assert(false);
-    }
-
-    kpa_t pageAddr = VTOP(pageH_GetPageVAddr(pageH));
+    kpa_t pageAddr = pageH_GetPhysAddr(pageH);
 
 #ifndef NDEBUG
     if (dbg_inttrap)
       printf("Traversed to page at 0x%08x\n", pageAddr);
 #endif
-
-#if 0
-    printf("Setting PTE 0x%08x addr 0x%08x write %c cache %c\n",
-           thePTEP, pageAddr,
-           (isWrite ? 'y' : 'n'),
-           (canCache ? 'y' : 'n') );
-#endif
-    PTE_Set(thePTEP, pageAddr + PTE_SMALLPAGE
-  	/* AP bits, 11 for write, 10 for read */
-            + (isWrite ? 0xff0
-                         + (canCache ? PTE_CACHEABLE
-#ifdef OPTION_WRITEBACK
-                                          | PTE_BUFFERABLE
-#endif
-                            : 0) 
-                       : 0xaa0
-                         + (canCache ? PTE_CACHEABLE | PTE_BUFFERABLE : 0)
-// for read-only access, PTE_BUFFERABLE is not significant.
-// See comments in PTEarm.h for why we set it here.
-           ) );
+    FillPTE(thePTEP, pageH, pageAddr, isWrite, mth2, mva);
   } else {
     DEBUG(pgflt)
       printf("Found PTE\n");

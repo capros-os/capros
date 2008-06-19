@@ -36,6 +36,8 @@ void keyR_RescindAll(KeyRing * thisPtr);
 void keyR_ZapResumeKeys(KeyRing *thisPtr);
 void keyR_UnprepareAll(KeyRing *thisPtr);
 void keyR_UnmapAll(KeyRing * thisPtr);
+void keyR_TrackReferenced(KeyRing * thisPtr);
+void keyR_TrackDirty(KeyRing * thisPtr);
 bool keyR_HasResumeKeys(const KeyRing *thisPtr);
 struct ObjectHeader;
 void keyR_ObjectMoved(KeyRing *thisPtr, struct ObjectHeader *);

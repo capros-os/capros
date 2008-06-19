@@ -36,10 +36,13 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <arch-kerninc/PTE.h>
 
-/* KeyDependEntry_Invalidate is in the architecture-specific file Mapping.c. */
+/* KeyDependEntry_Invalidate, KeyDependEntry_TrackReferenced,
+ * and KeyDependEntry_TrackDirty are in the architecture-specific file
+ * Mapping.c. */
 
 #define dbg_alloc	0x1u
 #define dbg_reuse	0x2u
+#define dbg_invalidate	0x4u
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u )
@@ -243,39 +246,22 @@ Depend_AddKey(Key * pKey, void * mte, int mapLevel)
 }
 
 void
-Depend_InvalidateKey(Key* pKey)
+Depend_InvalidateKey(Key * pKey)
 {
   bool didZap = false;
   uint32_t i;
   
-#ifdef DEPEND_DEBUG
-  printf("Invalidating depend entries for key=0x%08x\n", pKey);
-#endif
+  DEBUG(invalidate)
+    printf("Invalidating depend entries for key=%#x\n", pKey);
 
-  uint32_t whichBucket = keybucket_ndx(pKey);
-  KeyDependEntry* bucket
-    = &KeyDependTable[whichBucket * KeyBucketSize];
-
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    if (check_Contexts("Before really zapping") == false)
-      halt('a');
-#endif
+  KeyDependEntry * bucket
+    = &KeyDependTable[keybucket_ndx(pKey)* KeyBucketSize];
 
   for (i = 0; i < KeyBucketSize; i++) {
     if (bucket[i].slotTag == SLOT_TAG(pKey)) {
       didZap = true;
 
       KeyDependEntry_Invalidate(&bucket[i]);
-#ifdef DBG_WILD_PTR
-      if (dbg_wild_ptr) {
-	if (check_Contexts("after zap") == false) {
-	  printf("Depend start 0x%08x, count 0x%x\n",
-			 bucket[i].start, bucket[i].pteCount);
-	  halt('b');
-	}
-      }
-#endif
     }
   }
 
@@ -284,6 +270,42 @@ Depend_InvalidateKey(Key* pKey)
   }
 
   keyBits_UnHazard(pKey);
+}
+
+void
+Depend_TrackReferenced(Key * pKey)
+{
+  uint32_t i;
+  
+  DEBUG(invalidate)
+    printf("Tracking referenced for depend entries for key=%#x\n", pKey);
+
+  KeyDependEntry * bucket
+    = &KeyDependTable[keybucket_ndx(pKey)* KeyBucketSize];
+
+  for (i = 0; i < KeyBucketSize; i++) {
+    if (bucket[i].slotTag == SLOT_TAG(pKey)) {
+      KeyDependEntry_TrackReferenced(&bucket[i]);
+    }
+  }
+}
+
+void
+Depend_TrackDirty(Key * pKey)
+{
+  uint32_t i;
+  
+  DEBUG(invalidate)
+    printf("Tracking dirty for depend entries for key=%#x\n", pKey);
+
+  KeyDependEntry * bucket
+    = &KeyDependTable[keybucket_ndx(pKey)* KeyBucketSize];
+
+  for (i = 0; i < KeyBucketSize; i++) {
+    if (bucket[i].slotTag == SLOT_TAG(pKey)) {
+      KeyDependEntry_TrackDirty(&bucket[i]);
+    }
+  }
 }
 
 #ifdef OPTION_DDB

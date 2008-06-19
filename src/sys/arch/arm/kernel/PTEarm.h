@@ -120,8 +120,10 @@ Domain    Descriptor     Access   Meaning
  n/a       00   1 x  xx none none tracking LRU (note 2)
 no access  10   x x  xx none none something mapped but not for this process
  manager   10   x x  xx  rw  n/a  for kernel copy across 2 small spaces?
- client    10   x x  11  rw   rw  normal user R/W area
+ client    10   1 w  11  rw   rw  normal user R/W area (note 5)
+ client    10   0 0  11  rw   rw  noncacheable user R/W area
  client    10   1 1  10  rw   ro  normal user RO area
+ client    10   0 0  10  rw   ro  noncacheable user RO area
  client    10   1 0  10  rw   ro  tracking dirty (note 3)
 0, client  10   x x  01  rw  none kernel-only R/W data
 0, client  10   x x  00  ro  none kernel RO data, e.g. code
@@ -143,7 +145,7 @@ Note 2:
    There may be cache entries dependent on this PTE.
 
 Note 3:
-   This PTE should grant write access (as though AP=0b11 and B=1),
+   This PTE should grant write access (as though AP=0b11),
    but is temporarily read-only because we are tracking whether the page
    is dirty, or because of some other write hazard.
    This provides a mechanism to efficiently restore the access. 
@@ -151,6 +153,9 @@ Note 3:
 Note 4:
    There are no cache entries dependent on this PTE
    (or there is a pending cache flush).
+
+Note 5:
+   The B bit is 1 if the WRITEBACK option is used, otherwise 0.
  */
 #define PTE_ZAPPED       0x0	/* designates nothing */
 #define PTE_IN_PROGRESS  PTE_BUFFERABLE

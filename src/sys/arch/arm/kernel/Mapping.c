@@ -35,12 +35,13 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <arch-kerninc/PTE.h>
 #include "arm.h"
 
+#define dbg_track	0x2
 #define dbg_map		0x4	/* migration state machine */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u )
+#define dbg_flags   ( 0u | dbg_track ) ////
 
 extern kva_t heap_start;
 extern kva_t heap_end;
@@ -98,6 +99,48 @@ struct SmallSpace {
 } SmallSpaces[NumSmallSpaces];
 
 
+/********************** First level mapping table entries ****************/
+
+// Invalidate a first level mapping table entry.
+void
+FLMTE_Invalidate(uint32_t * descrP)
+{
+  uint32_t descr = * descrP;
+  if (descr & L1D_VALIDBITS) {	// it was valid
+    PteZapped = flushCache = true;
+  } else {
+    // It was invalid, but could there be cache entries dependent on it?
+    if (descr == PTE_ZAPPED) return;
+    if (descr != PTE_IN_PROGRESS)
+      flushCache = true;
+    // Even if it was invalid, we want to change it to PTE_ZAPPED.
+  }
+  *descrP = PTE_ZAPPED;
+}
+
+static void
+FLMTE_TrackReferenced(uint32_t * pFLMTE)
+{
+  // Turn this FLMTE into the form used for tracking LRU.
+  const uint32_t val = *pFLMTE;
+  if (val & L1D_VALIDBITS) {	// it was valid
+    // Mark it temporarily invalid:
+    *pFLMTE &= ~L1D_VALIDBITS;
+    PteZapped = true;
+    DEBUG(track) dprintf(true, "Tracking LRU, FLMTE %#x -> %#x\n",
+                         val, *pFLMTE);
+    // Leave any cache entries intact.
+  }
+}
+
+static void
+FLMTE_TrackDirty(uint32_t * pFLMTE)
+{
+  assert(false);	// this shouldn't happen
+}
+
+/*************************** Page table entries *********************/
+
 void 
 pte_Invalidate(PTE* thisPtr)
 {
@@ -114,21 +157,33 @@ pte_Invalidate(PTE* thisPtr)
   thisPtr->w_value = PTE_ZAPPED;
 }
 
-// Invalidate a first level mapping table entry.
-void
-InvalidateFLMTE(uint32_t * descrP)
+static void
+PTE_TrackReferenced(PTE * pPTE)
 {
-  uint32_t descr = * descrP;
-  if (descr & L1D_VALIDBITS) {	// it was valid
-    PteZapped = flushCache = true;
-  } else {
-    // It was invalid, but could there be cache entries dependent on it?
-    if (descr == PTE_ZAPPED) return;
-    if (descr != PTE_IN_PROGRESS)
-      flushCache = true;
-    // Even if it was invalid, we want to change it to PTE_ZAPPED.
+  // Turn this PTE into the form used for tracking LRU.
+  const uint32_t pteval = pPTE->w_value;
+  if (pteval & PTE_VALIDBITS) {	// it was valid
+    pPTE->w_value = pteval & ~PTE_VALIDBITS;
+    PteZapped = true;
+    DEBUG(track) dprintf(true, "Tracking LRU, PTE %#x -> %#x\n",
+                         pteval, pPTE->w_value);
+    // Leave any cache entries intact.
   }
-  *descrP = PTE_ZAPPED;
+}
+
+static void
+PTE_TrackDirty(PTE * pPTE)
+{
+  // Turn this PTE into the form used for tracking Dirty.
+  const uint32_t pteval = pPTE->w_value;
+  if ((pteval & (PTE_VALIDBITS | 0xff0)) == (PTE_SMALLPAGE | 0xff)) {
+    pPTE->w_value = (pteval & ~(PTE_CACHEABLE | PTE_BUFFERABLE | 0xff0))
+                    | (PTE_CACHEABLE | 0xaa0);
+    PteZapped = true;
+    DEBUG(track) dprintf(true, "Tracking dirty, PTE %#x -> %#x\n",
+                         pteval, pPTE->w_value);
+    // Leave any cache entries intact.
+  }
 }
 
 void
@@ -141,49 +196,88 @@ proc_ResetMappingTable(Process * p)
   p->md.pid = 0;	// this may overwrite PID_IN_PROGRESS
 }
 
-void
-KeyDependEntry_Invalidate(KeyDependEntry * kde)
+static void
+KeyDependEntry_Track(KeyDependEntry * kde,
+  void (*FLMTEFunc)(uint32_t *),
+  void (*PTEFunc)(PTE *))
 {
   if (kde->start == 0) {	// unused entry
     return;
   }
   
-  KernStats.nDepInval++;
-  
-#if 0
-  printf("Invalidating key entries start=0x%08x, count=%d\n",
-	      kde->start, kde->pteCount);
-#endif
   if (kde->pteCount == 0) {
     Process * const p = (Process *) kde->start;
     assert(IsInProcess(kde->start));
     proc_ResetMappingTable(p);
 	       
-     /* If this product is the active mapping table:
-     Nothing to be done; TTBR, PID, and DACR will be reloaded
-     when we next go to user mode. */
+    /* If this product is the active mapping table:
+    Nothing to be done; TTBR, PID, and DACR will be reloaded
+    when we next go to user mode. */
   } else {
+    int i;
     kva_t mapping_page_kva = ((kva_t)kde->start & ~EROS_PAGE_MASK);
     PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
-    /* pMappingPage could be zero, if the mapping page was allocated
-       at kernel initialization and therefore doesn't have an
-       associated PageHeader. */
+    unsigned int obType;
+    if (pMappingPage) {
+      obType = pageH_GetObType(pMappingPage);
+    } else {
+      /* pMappingPage could be zero,
+      if the mapping page was allocated at kernel initialization
+      and therefore doesn't have an associated PageHeader. */
+      assert(mapping_page_kva != (kva_t)FLPT_NullVA);	/* null table shouldn't
+			have any depend entries! */
+      if (mapping_page_kva == (kva_t)FLPT_FCSEVA)
+        obType = ot_PtMappingPage1;
+      else
+        obType = ot_PtMappingPage2;
+    }
 
-    /* If it is no longer a mapping page, stop. */
-    // FIXME: support first level mapping pages too.
-    if (pMappingPage && (pageH_GetObType(pMappingPage) != ot_PtMappingPage2)) {
+    switch (obType) {
+    default:
+      /* If it is no longer a mapping page, stop. */
       kde->start = 0;
       return;
-    }
 
-    PTE * pPTE = (PTE *)kde->start;
-    int i;
-    for (i = 0; i < kde->pteCount; i++, pPTE++) {
-      pte_Invalidate(pPTE);
+    case ot_PtMappingPage1: ;
+      uint32_t * pFLMTE = (uint32_t *)kde->start;
+      for (i = 0; i < kde->pteCount; i++, pFLMTE++) {
+        (*FLMTEFunc)(pFLMTE);
+      }
+      break;
+    
+    case ot_PtMappingPage2: ;
+      PTE * pPTE = (PTE *)kde->start;
+      for (i = 0; i < kde->pteCount; i++, pPTE++) {
+        (*PTEFunc)(pPTE);
+      }
     }
   }
+}
+
+void
+KeyDependEntry_Invalidate(KeyDependEntry * kde)
+{
+  KernStats.nDepInval++;
+  
+  KeyDependEntry_Track(kde, &FLMTE_Invalidate, &pte_Invalidate);
 
   kde->start = 0;
+}
+
+void
+KeyDependEntry_TrackReferenced(KeyDependEntry * kde)
+{
+  KernStats.nDepTrackRef++;
+  
+  KeyDependEntry_Track(kde, &FLMTE_TrackReferenced, &PTE_TrackReferenced);
+}
+
+void
+KeyDependEntry_TrackDirty(KeyDependEntry * kde)
+{
+  KernStats.nDepTrackDirty++;
+  
+  KeyDependEntry_Track(kde, &FLMTE_TrackDirty, &PTE_TrackDirty);
 }
 
 /* Zap all references to this mapping table. */
@@ -194,7 +288,8 @@ MapTab_ClearRefs(MapTabHeader * mth)
   keyR_ClearWriteHazard(& producer->keyRing);
 
   /* If the producer also produces a higher table, there could be
-     a reference from that table to this one. */
+     a reference from that table to this one,
+     that isn't tracked by Depend because there is no mediating key. */
   if (mth->tableSize == 0) {
     MapTabHeader * product;
     for (product = producer->prep_u.products;
@@ -203,7 +298,7 @@ MapTab_ClearRefs(MapTabHeader * mth)
       if (product->tableSize) {	// if a first level table
         if (product->tableCacheAddr) {	// small space
           uint32_t ndx = product->tableCacheAddr >> L1D_ADDR_SHIFT;
-          InvalidateFLMTE(& FLPT_FCSEVA[ndx]);
+          FLMTE_Invalidate(& FLPT_FCSEVA[ndx]);
         } else {		// large space
           // void * pte = MapTabHeaderToKVA(product);
           assert(false); //// FIXME need to invalidate 0th entry
@@ -327,7 +422,7 @@ ReleaseSmallSpace(unsigned int pid)
   uint32_t ndx = pid << (PID_SHIFT - L1D_ADDR_SHIFT);
   unsigned int i;
   for (i = 0; i < 1ul << (PID_SHIFT - L1D_ADDR_SHIFT); i++)
-    InvalidateFLMTE(& FLPT_FCSEVA[ndx+i]);
+    FLMTE_Invalidate(& FLPT_FCSEVA[ndx+i]);
 
   // Free the domain for this small space if any.
   unsigned int domain = SmallSpaces[pid].domain;
@@ -587,13 +682,13 @@ AllocateCPT(void)
 }
 
 // If all the mapping tables in this page are free, free the page.
-void
+bool
 Check2ndLevelMappingTableFree(PageHeader * pageH)
 {
   int i;
   for (i=0; i<4; i++) {
     if (! pageH->kt_u.mp.hdrs[i].isFree)
-      return;
+      return false;
   }
   // unchain them from free list
   for (i=0; i<4; i++) {
@@ -606,6 +701,7 @@ Check2ndLevelMappingTableFree(PageHeader * pageH)
     *mthpp = mth->next;	// unchain it
   }
   ReleasePageFrame(pageH);
+  return true;
 }
 
 /* After calling this procedure, the caller must call
@@ -654,45 +750,70 @@ pageH_mdType_EvictFrame(PageHeader * pageH)
   Check2ndLevelMappingTableFree(pageH);
 }
 
-bool
-pageH_mdType_AgingExempt(PageHeader * pageH)
+static void
+MapTab_TrackReferenced(MapTabHeader * mth)
 {
-  assert(pageH_GetObType(pageH) == ot_PtMappingPage2);
-  /* Pinning a page or node also pins any produced mapping tables. */
+  ObjectHeader * producer = mth->producer;
+  keyR_TrackReferenced(& producer->keyRing);
 
-  int i;
-  for (i=0; i<4; i++) {
-    MapTabHeader * mth = & pageH->kt_u.mp.hdrs[i];
-    if (objH_IsUserPinned(mth->producer))
-      return true;
-    // if (objH_IsKernelPinned(mth->producer)) return true;
+  /* If the producer also produces a higher table, there could be
+     a reference from that table to this one,
+     that isn't tracked by Depend because there is no mediating key. */
+  if (mth->tableSize == 0) {
+    MapTabHeader * product;
+    for (product = producer->prep_u.products;
+         product;
+         product = product->next) {
+      if (product->tableSize) {	// if a first level table
+        if (product->tableCacheAddr) {	// small space
+          uint32_t ndx = product->tableCacheAddr >> L1D_ADDR_SHIFT;
+          uint32_t * FLMTE = & FLPT_FCSEVA[ndx];
+          FLMTE_TrackReferenced(FLMTE);
+        } else {		// large space
+          // void * pte = MapTabHeaderToKVA(product);
+          assert(false); //// FIXME need to invalidate 0th entry
+        }
+      }
+    }
   }
-  return false;
 }
 
 bool	// return true iff page was freed
-pageH_mdType_AgingClean(PageHeader * pageH)
+pageH_mdType_Aging(PageHeader * pageH)
 {
-  assert(pageH_GetObType(pageH) == ot_PtMappingPage2);
-  /* It's a lot cheaper to regenerate a mapping page than to
-   * read some other page back in from the disk...
-   */
-  pageH_mdType_EvictFrame(pageH);
-  return true;
-}
+  int i;
 
-bool
-pageH_mdType_AgingSteal(PageHeader * pageH)
-{
-  assert(pageH_GetObType(pageH) == ot_PtMappingPage2);
-  /* Mapping pages should never make it to PageOut age, because
-   * they should be zapped at the invalidate age. It's
-   * relatively cheap to rebuild them, and zapping them eagerly
-   * has the desirable consequence of keeping their associated
-   * nodes in memory if the process is still active.
-   */
-  assert(false);
-  return false;
+  switch (pageH_GetObType(pageH)) {
+  default:
+    assert(false);
+    return false;
+
+  case ot_PtMappingPage1:
+    assert(false);	// not implemented yet
+    return false;
+
+  case ot_PtMappingPage2:
+    for (i=0; i<4; i++) {
+      MapTabHeader * mth = & pageH->kt_u.mp.hdrs[i];
+      if (! mth->isFree) {
+        /* Pinning a page or node also pins any produced mapping tables. */
+        if (! objH_IsUserPinned(mth->producer)
+            /* && ! objH_IsKernelPinned(mth->producer) */ ) {
+          switch (mth->mthAge) {
+          case age_MTInvalidate:
+            MapTab_TrackReferenced(mth);
+          default:
+            mth->mthAge++;
+            break;
+
+          case age_MTSteal:
+            Release2ndLevelMappingTable(mth);
+          }
+        }
+      }
+    }
+    return Check2ndLevelMappingTableFree(pageH);
+  }
 }
 
 #ifdef OPTION_DDB
