@@ -66,7 +66,7 @@ void init_SmallNumberKey(KeyBits *dk, uint32_t first)
 }
 
 INLINE void
-init_DiskNode(DiskNode * dn)
+init_DiskNodeKeys(DiskNode * dn)
 {
   unsigned u;
 

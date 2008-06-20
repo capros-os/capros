@@ -306,7 +306,7 @@ main(int argc, char *argv[])
 
   // Fill out the last frame:
   DiskNode nullNode;
-  nullNode.nodeData = 0;
+  memset(&nullNode, 0, sizeof(DiskNode));
   for (slot = 0; slot < EROS_NODE_SIZE; slot++) {
     keyBits_InitToVoid(&nullNode.slot[slot]);
   }

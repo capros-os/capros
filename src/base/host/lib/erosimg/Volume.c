@@ -1711,11 +1711,8 @@ vol_FormatNodeFrame(Volume *pVol, int div, OID frameOID)
   bzero (buf, EROS_PAGE_SIZE);
 	
   for (nd = 0; nd < DISK_NODES_PER_PAGE; nd++) {
-    uint32_t slot;
-
+    init_DiskNodeKeys(&pdn[nd]);
     pdn[nd].oid = frameOID + nd;
-    for (slot = 0; slot < EROS_NODE_SIZE; slot++)
-      keyBits_InitToVoid(&pdn[nd].slot[slot]);
   }
 
   offset = vol_GetOidVolOffset(pVol, div, frameOID);

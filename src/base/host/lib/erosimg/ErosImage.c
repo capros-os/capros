@@ -237,7 +237,7 @@ ei_GrowNodeTable(ErosImage *ei, uint32_t newMax)
       (DiskNode *) malloc(sizeof(DiskNode) * ei->maxNode);
 
     for (i = 0; i < ei->maxNode; i++)
-      init_DiskNode(&newNodeImages[i]);
+      init_DiskNodeKeys(&newNodeImages[i]);
 
     if (ei->nodeImages)
       memcpy(newNodeImages, ei->nodeImages, ei->hdr.nNodes * sizeof(DiskNode)); 
@@ -473,20 +473,15 @@ ei_AddNode(ErosImage *ei, bool readOnly)
 {
   DiskNode * pNode;
   OID oid;
-  unsigned i;
 
   if (ei->hdr.nNodes >= ei->maxNode)
     ei_GrowNodeTable(ei, ei->maxNode + NODE_ALLOC_QUANTA);
 
   pNode = &ei->nodeImages[ei->hdr.nNodes];
+  memset(pNode, 0, sizeof(DiskNode));
   oid = ei->hdr.nNodes++;
-  pNode->allocCount = 0;
-  pNode->callCount = 0;
   pNode->oid = oid;
-  pNode->nodeData = 0;
-
-  for (i = 0; i < EROS_NODE_SIZE; i++)
-    keyBits_InitToVoid(&pNode->slot[i]);
+  init_DiskNodeKeys(pNode);
 
   {
     KeyBits key;
@@ -903,7 +898,7 @@ ei_ReadFromFile(ErosImage *ei, const char *source)
     ei->nodeImages = (DiskNode *) malloc(sizeof(DiskNode) * ei->maxNode);
 
     for (i = 0; i < ei->maxNode; i++)
-      init_DiskNode(&ei->nodeImages[i]);
+      init_DiskNodeKeys(&ei->nodeImages[i]);
   }
   sz = ei->hdr.nNodes * sizeof(DiskNode);
   
