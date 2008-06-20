@@ -243,7 +243,7 @@ unchain_node(TreeNode *n) {
             and positive if od1 is greater than od2.
 */
 static int
-comp(ObjectDescriptor *od1, ObjectDescriptor *od2) {
+comp(const ObjectDescriptor *od1, const ObjectDescriptor *od2) {
   return od1->oid - od2->oid;
 }
 
@@ -462,7 +462,7 @@ tree_insert_fixup(TreeHead *tree, TreeNode *x) {
 
 
 static TreeNode *
-binary_insert(TreeHead *tree, ObjectDescriptor *od, LID lid, 
+binary_insert(TreeHead *tree, const ObjectDescriptor *od, LID lid, 
 	      uint64_t generation) {
 #ifndef NDEBUG
   int whichcase;
@@ -915,7 +915,7 @@ find_node(TreeHead *directory, OID oid) {
     @param[in] lid The location of the object in the checkpoint log.
     @param[in] generation The log generation of the object.
 */
-void ld_recordLocation(ObjectDescriptor *od, LID lid, uint64_t generation) {
+void ld_recordLocation(const ObjectDescriptor *od, LID lid, uint64_t generation) {
   assert(TREE_NIL->color == TREE_BLACK);
   TreeHead *tree;
 
@@ -1026,7 +1026,7 @@ void ld_recordLocation(ObjectDescriptor *od, LID lid, uint64_t generation) {
     @return A pointer to the ObjectDescriptor for the object or NULL if the
             object is not in the log.
 */
-ObjectDescriptor *ld_findObject(OID oid) {
+const ObjectDescriptor *ld_findObject(OID oid) {
   TreeNode *n = find_node(&working_directory, oid);
   if (NULL != n) return &n->od;
   n = find_node(&log_directory, oid);
@@ -1050,7 +1050,7 @@ ObjectDescriptor *ld_findObject(OID oid) {
     @param[in] generation The generation number to scan.
     @return The ObjectDescriptor of the first object in a generation scan.
 */
-ObjectDescriptor *ld_findFirstObject(uint64_t generation) {
+const ObjectDescriptor *ld_findFirstObject(uint64_t generation) {
   int gti = get_generation_index(generation);
   GT *gte = &generation_table[gti];
   if (NULL == gte->head) return NULL;
@@ -1066,7 +1066,7 @@ ObjectDescriptor *ld_findFirstObject(uint64_t generation) {
     @param[in] generation The generation number to scan.
     @return The ObjectDescriptor of the next object in a generation scan.
 */
-ObjectDescriptor *ld_findNextObject(uint64_t generation) {
+const ObjectDescriptor *ld_findNextObject(uint64_t generation) {
   int gti = get_generation_index(generation);
   GT *gte = &generation_table[gti];
   if (NULL == gte->cursor) return NULL;

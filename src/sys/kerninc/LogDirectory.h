@@ -77,7 +77,7 @@ typedef struct ObjectDescriptor {
     @param[in] generation The log generation of the object.
 */
 void
-ld_recordLocation(ObjectDescriptor *od, LID lid, uint64_t generation);
+ld_recordLocation(const ObjectDescriptor *od, LID lid, uint64_t generation);
 
 /** Find an object in the directory.
 
@@ -89,7 +89,7 @@ ld_recordLocation(ObjectDescriptor *od, LID lid, uint64_t generation);
     @return A pointer to the ObjectDescriptor for the object or NULL if the
             object is not in the log.
 */
-ObjectDescriptor *
+const ObjectDescriptor *
 ld_findObject(OID oid);
 
 /** Find the first object of a generation.
@@ -108,7 +108,7 @@ ld_findObject(OID oid);
     @return The ObjectDescriptor of the first object in a generation scan
             or NULL.
 */
-ObjectDescriptor *
+const ObjectDescriptor *
 ld_findFirstObject(uint64_t generation);
 
 /** Find the next object of a generation.
@@ -120,7 +120,7 @@ ld_findFirstObject(uint64_t generation);
     @return The ObjectDescriptor of the next object in a generation scan
             or NULL.
 */
-ObjectDescriptor *
+const ObjectDescriptor *
 ld_findNextObject(uint64_t generation);
 
 /** Remove all the objects in a generation, and all earlier generations,
