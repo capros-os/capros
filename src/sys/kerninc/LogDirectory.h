@@ -73,11 +73,10 @@ typedef struct ObjectDescriptor {
     generation number.
 
     @param[in] od The Object Descriptor for the object.
-    @param[in] lid The location of the object in the checkpoint log.
     @param[in] generation The log generation of the object.
 */
 void
-ld_recordLocation(const ObjectDescriptor *od, LID lid, uint64_t generation);
+ld_recordLocation(const ObjectDescriptor *od, uint64_t generation);
 
 /** Find an object in the directory.
 

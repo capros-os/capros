@@ -462,7 +462,7 @@ tree_insert_fixup(TreeHead *tree, TreeNode *x) {
 
 
 static TreeNode *
-binary_insert(TreeHead *tree, const ObjectDescriptor *od, LID lid, 
+binary_insert(TreeHead *tree, const ObjectDescriptor *od, 
 	      uint64_t generation) {
 #ifndef NDEBUG
   int whichcase;
@@ -485,11 +485,10 @@ binary_insert(TreeHead *tree, const ObjectDescriptor *od, LID lid,
 #ifdef VERBOSE
       printf("Update OID %lld in node 0x%08x\n", od->oid, x);
 #endif
-      x->od = *od;
-      x->od.logLoc = lid;
       unchain_node(x);
       x->generation = generation;
       chain_node(x);
+      x->od = *od;
 #ifndef NDEBUG
       assert (tree_validate(tree, tree->root) );
 #endif
@@ -511,7 +510,6 @@ binary_insert(TreeHead *tree, const ObjectDescriptor *od, LID lid,
   tn->right = TREE_NIL;
   tn->parent = TREE_NIL;
   tn->generation = generation;
-  tn->od.logLoc = lid;
   chain_node(tn);
 
   tn->parent = y;
@@ -912,10 +910,9 @@ find_node(TreeHead *directory, OID oid) {
     restart.
 
     @param[in] od The Object Descriptor for the object.
-    @param[in] lid The location of the object in the checkpoint log.
     @param[in] generation The log generation of the object.
 */
-void ld_recordLocation(const ObjectDescriptor *od, LID lid, uint64_t generation) {
+void ld_recordLocation(const ObjectDescriptor *od, uint64_t generation) {
   assert(TREE_NIL->color == TREE_BLACK);
   TreeHead *tree;
 
@@ -946,7 +943,7 @@ void ld_recordLocation(const ObjectDescriptor *od, LID lid, uint64_t generation)
 	  /* We are done with tn - keep pointer for loop end test */
 	  TreeNode *next = tn->next;
 	  tree_remove_node(&working_directory, tn);
-	  TreeNode *nn = binary_insert(&log_directory, &od, od.logLoc, gen);
+	  TreeNode *nn = binary_insert(&log_directory, &od, gen);
 
 	  if (NULL != nn) {
 	    
@@ -997,7 +994,7 @@ void ld_recordLocation(const ObjectDescriptor *od, LID lid, uint64_t generation)
   } else {
     tree = &log_directory;
   }
-  TreeNode *tn = binary_insert(tree, od, lid, generation);
+  TreeNode *tn = binary_insert(tree, od, generation);
 
   if (NULL == tn) return;
 
@@ -1145,7 +1142,7 @@ odEqual(ObjectDescriptor *a, ObjectDescriptor *b) {
     @param[in] a The object descriptor to print.
 */
 static void
-printOD(ObjectDescriptor *a) {
+printOD(const ObjectDescriptor *a) {
   if (a != NULL) {
     printf("oid=%lld\n   allocCount=%d\n   callCount=%d\n"
 	   "   logLoc=%lld\n   allocCountUsed=%d\n"
@@ -1188,13 +1185,14 @@ makeAGeneration(uint64_t generation, uint64_t randomSeed) {
   for (i=0; i<this_pass; i++) {
     r = rand();
     t.oid = r;
+    t.logLoc = i+MAX_TEST_OBJECTS*generation;
     t.allocCount = r / 5; 
     t.callCount = r / 3;
     t.type = (r / 7 ) & 1;
     
     //        printf("t: "); printOD(&t);
     
-    ld_recordLocation(&t, i+MAX_TEST_OBJECTS*generation, generation);
+    ld_recordLocation(&t, generation);
   }
 }
 
@@ -1215,7 +1213,7 @@ checkAGeneration(uint64_t generation, uint64_t randomSeed) {
 
   printf("Running findNextObject for generation %d\n", generation);
 
-  ObjectDescriptor *od;
+  const ObjectDescriptor *od;
   int count = 0;
   for (od=ld_findFirstObject(generation);
        NULL!=od;
@@ -1231,7 +1229,7 @@ checkAGeneration(uint64_t generation, uint64_t randomSeed) {
 
   for (i=0; i<this_pass; i++) {
     r = rand();
-    ObjectDescriptor *rv = ld_findObject(r);
+    const ObjectDescriptor *rv = ld_findObject(r);
     // printf("r: "); printOD(rv);
     if (rv->oid != r || rv->callCount != (r/3) || rv->allocCount != (r/5)
 	|| rv->type != ((r/7)&1)
