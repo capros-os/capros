@@ -55,11 +55,6 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-static void objC_AllocateUserPages(void);
-
-static void objC_CleanFrame1(ObjectHeader *pObj);
-static bool objC_CleanFrame2(ObjectHeader * pObj);
-
 uint32_t objC_nNodes;
 uint32_t objC_nFreeNodeFrames;
 Node *objC_nodeTable;
@@ -67,97 +62,6 @@ Node *objC_firstFreeNode;
 
 uint32_t objC_nPages;
 PageHeader * objC_coreTable;
-
-/* Now that CachedDomains is a tunable, domain cache and depend
- * entries are allocated well before we get here.  The new logic only
- * needs to worry about allocating nodes, pages, and core table
- * entries.  Nodes and pages are allocated in equal proportions, with
- * one core table entry per page.
- */
-
-void
-objC_Init()
-{
-  uint32_t availBytes;
-  uint32_t allocQuanta;
-  uint32_t i;
-
-  availBytes = physMem_AvailBytes(&physMem_any);
-    
-  DEBUG(cachealloc)
-    printf("%d bytes of available storage, sizeof(Node) = %d,"
-           " sizeof(ObjectHeader) = %d.\n",
-           availBytes, sizeof(Node), sizeof(ObjectHeader));
-
-  allocQuanta =
-    sizeof(Node) + EROS_PAGE_SIZE + sizeof(ObjectHeader);
-
-  objC_nNodes = availBytes / allocQuanta;
-    
-#ifdef TESTING_AGEING
-  objC_nNodes = 90;			/* This is one less than logtst requires. */
-#endif
-  
-  objC_nodeTable = KPAtoP(Node *,
-                     physMem_Alloc(objC_nNodes*sizeof(Node), &physMem_any));
-  kzero(objC_nodeTable, objC_nNodes*sizeof(Node));
-
-  for (i = 0; i < objC_nNodes; i++) {
-    unsigned int j;
-    Node * n = &objC_nodeTable[i];
-
-    for (j = 0; j < EROS_NODE_SIZE; j++)
-      keyBits_InitType(node_GetKeyAtSlot(n, j), KKT_Void);
-
-    keyR_ResetRing(&n->node_ObjHdr.keyRing);
-    // n->node_ObjHdr.flags = 0;
-    // n->node_ObjHdr.userPin = 0;
-    n->node_ObjHdr.obType = ot_NtFreeFrame;
-  }
-
-  DEBUG(cachealloc)
-    printf("Allocated Nodes: 0x%x at 0x%08x\n",
-		   sizeof(Node[objC_nNodes]), objC_nodeTable);
-
-  /* Drop all the nodes on the free node list: */
-  for (i = 0; i < objC_nNodes; i++) {
-    /* object type is set in constructor... */
-    assert (objC_nodeTable[i].node_ObjHdr.obType == ot_NtFreeFrame);
-    objC_nodeTable[i].node_ObjHdr.prep_u.nextFree
-      = node_ToObj(&objC_nodeTable[i+1]);
-  }
-  
-  objC_nodeTable[objC_nNodes - 1].node_ObjHdr.prep_u.nextFree = 0;
-  objC_firstFreeNode = &objC_nodeTable[0];
-
-  objC_nFreeNodeFrames = objC_nNodes;
-
-  Depend_InitKeyDependTable(objC_nNodes);
-
-  DEBUG(cachealloc)
-    printf("%d bytes of available storage after key dep tbl alloc.\n", availBytes);
-
-  /* Add all the device pages.
-     By adding them now, before calling objC_AllocateUserPages(),
-     we can get storage for the PageHeader entries from contiguous
-     physical memory, rather than the heap. */
-  for (i = 0; i < physMem_nPmemInfo; i++) {
-    PmemInfo *pmi = &physMem_pmemInfo[i];
-
-    if (pmi->type == MI_DEVICEMEM || pmi->type == MI_BOOTROM) {
-      // Need to special case the publication of device mem, as we need
-      // object cache entries for these, because there will be keys to them.
-      objC_AddDevicePages(pmi);
-    }
-  }
-
-  objC_AllocateUserPages();
-
-  DEBUG(cachealloc)
-    printf("%d cached domains, %d nodes, %d pages\n",
-		   KTUNE_NCONTEXT,
-		   objC_nNodes, objC_nPages);
-}
 
 Node *
 objC_ContainingNode(void * vp)
@@ -442,154 +346,124 @@ objC_ValidKeyPtr(const Key *pKey)
 }
 #endif
 
-#ifdef OPTION_DDB
+/* Put a page on the free list. */
+/* Caller must have already removed all previous entanglements. */
 void
-objC_ddb_dump_pinned_objects()
+ReleasePageFrame(PageHeader * pageH)
 {
-  extern void db_printf(const char *fmt, ...);
-  uint32_t userPins = 0;
-  uint32_t nd, pg;
-
-  for (nd = 0; nd < objC_nNodes; nd++) {
-    Node * pNode = objC_GetCoreNodeFrame(nd);
-    ObjectHeader * pObj = node_ToObj(pNode);
-    if (objH_IsUserPinned(pObj) || node_IsKernelPinned(pNode)) {
-      if (objH_IsUserPinned(pObj))
-	userPins++;
-      printf("node 0x%08x%08x\n",
-	     (uint32_t) (pObj->oid >> 32),
-	     (uint32_t) pObj->oid);
-    }
-  }
-
-  for (pg = 0; pg < objC_nPages; pg++) {
-    PageHeader * pageH = objC_GetCorePageFrame(pg);
-    ObjectHeader * pObj = pageH_ToObj(pageH);
-    if (objH_IsUserPinned(pObj) || pageH_IsKernelPinned(pageH)) {
-      if (objH_IsUserPinned(pObj))
-	userPins++;
-      printf("page 0x%08x%08x\n",
-	     (uint32_t) (pObj->oid >> 32),
-	     (uint32_t) pObj->oid);
-    }
-  }
-
-#ifdef OLD_PIN
-  printf("User pins found: %d official count: %d\n", userPins,
-	 ObjectHeader::PinnedObjectCount);
-#else
-  printf("User pins found: %d \n", userPins);
-#endif
+  physMem_FreeBlock(pageH, 1);
 }
 
-static void
-objC_ddb_dump_obj(ObjectHeader * pObj)
+void
+ReleaseNodeFrame(Node * pNode)
 {
-  char goodSum;
+  DEBUG(ndalloc)
+    printf("ReleaseNodeFrame node=%#x\n", pNode);
+
+  assert(!objH_IsDirty(node_ToObj(pNode)));
+
+#ifndef NDEBUG
+  uint32_t i = 0;
+  for (i = 0; i < EROS_NODE_SIZE; i++)
+    assertex (pNode, keyBits_IsUnprepared(&pNode->slot[i]));
+#endif
+
+  objH_Unintern(node_ToObj(pNode));
+    
+  node_ToObj(pNode)->obType = ot_NtFreeFrame;
+
+  node_ToObj(pNode)->prep_u.nextFree = node_ToObj(objC_firstFreeNode);
+  objC_firstFreeNode = pNode;
+  objC_nFreeNodeFrames++;
+}
+
+/* Release a page that has an ObjectHeader. */
+void
+ReleaseObjPageFrame(PageHeader * pageH)
+{
+  DEBUG(pgalloc)
+    printf("ReleaseObjPageFrame pageH=0x%08x\n", pageH);
+
+  assert(!pageH_IsDirty(pageH));
+  assert(pte_ObIsNotWritable(pageH));
+
+  objH_Unintern(pageH_ToObj(pageH));
+    
+  ReleasePageFrame(pageH);
+}
+
+void
+objH_InitObj(ObjectHeader * pObj, OID oid)
+{
+  pObj->oid = oid;
+
+  objH_SetFlags(pObj, OFLG_CURRENT);
+  assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_IO) == 0);
+
 #ifdef OPTION_OB_MOD_CHECK
-  goodSum = (pObj->check == objH_CalcCheck(pObj)) ? 'y' : 'n';
-#else
-  goodSum = '?';
+  pObj->check = objH_CalcCheck(pObj);
 #endif
-  printf("%#x: %s oid %#llx up:%c cr:%c ck:%c drt:%c io:%c sm:%c au:%c cu:%c\n",
-	 pObj,
-	 ddb_obtype_name(pObj->obType),
-	 pObj->oid,
-	 objH_IsUserPinned(pObj) ? 'y' : 'n',
-	 objH_GetFlags(pObj, OFLG_CURRENT) ? 'y' : 'n',
-	 objH_GetFlags(pObj, OFLG_CKPT) ? 'y' : 'n',
-	 objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n',
-	 objH_GetFlags(pObj, OFLG_IO) ? 'y' : 'n',
-	 goodSum,
-	 objH_GetFlags(pObj, OFLG_AllocCntUsed) ? 'y' : 'n',
-	 objH_GetFlags(pObj, OFLG_CallCntUsed) ? 'y' : 'n');
+
+  objH_ResetKeyRing(pObj);
+  objH_Intern(pObj);
 }
 
 void
-objC_ddb_dump_pages()
+objC_GrabThisPageFrame(PageHeader *pObj)
 {
-  uint32_t nFree = 0;
-  uint32_t pg;
-  
-  extern void db_printf(const char *fmt, ...);
+  assert(pageH_GetObType(pObj) == ot_PtNewAlloc);
 
-  for (pg = 0; pg < objC_nPages; pg++) {
-    PageHeader * pageH = objC_GetCorePageFrame(pg);
+  PmemInfo * pmi = pObj->physMemRegion;	// preserve this field
+  kzero(pObj, sizeof(*pObj));
+  pObj->physMemRegion = pmi;
 
-    switch (pageH_GetObType(pageH)) {
-    case ot_PtFreeFrame:
-    case ot_PtSecondary:
-      nFree++;
-      break;
+  assert(pte_ObIsNotWritable(pObj));
 
-    case ot_PtNewAlloc:
-      assert(false);	// should not have at this time
-
-    case ot_PtDataPage:
-    case ot_PtDevicePage:
-    {
-      ObjectHeader * pObj = pageH_ToObj(pageH);
-      objC_ddb_dump_obj(pObj);
-      break;
-    }
-
-    case ot_PtTagPot:
-    case ot_PtHomePot:
-    case ot_PtLogPot:
-    {
-      ObjectHeader * pObj = pageH_ToObj(pageH);
-      printf("%#x: %s oid %#llx\n",
-	 pObj,
-	 ddb_obtype_name(pObj->obType),
-	 pObj->oid);
-      break;
-    }
-
-    case ot_PtKernelHeap:
-    case ot_PtDMABlock:
-    case ot_PtDMASecondary:
-      printf("%#x: %s\n",
-             pageH,
-             ddb_obtype_name(pageH_GetObType(pageH)) );
-      break;
-      
-    default:
-      printf("%#x: %s ",
-             pageH,
-             ddb_obtype_name(pageH_GetObType(pageH)) );
-      pageH_mdType_dump_pages(pageH);
-      break;
-    }
-  }
-
-  printf("Total of %d pages, of which %d are free\n", objC_nPages, nFree);
+  pageH_SetReferenced(pObj);
 }
 
-void
-objC_ddb_dump_nodes()
+/* Clean out the node/page frame, but do not remove it from memory. */
+/* pObj->obType must be node or ot_PtDataPage. */
+/* May Yield. */
+static void
+objC_CleanFrame1(ObjectHeader *pObj)
 {
-  uint32_t nFree = 0;
-  uint32_t nd = 0;
-  
-  extern void db_printf(const char *fmt, ...);
+  /* Clean up the object we are reclaiming so we can free it: */
 
-  for (nd = 0; nd < objC_nNodes; nd++) {
-    ObjectHeader *pObj = node_ToObj(objC_GetCoreNodeFrame(nd));
+  keyR_UnprepareAll(&pObj->keyRing);	/* This zaps any PTE's as a side effect. */
+  //// Use keyR_UnmapAll instead?
+}
 
-    if (pObj->obType == ot_NtFreeFrame) {
-      nFree++;
-      continue;
-    }
+/* pObj->obType must be node or ot_PtDataPage. */
+bool
+objC_CleanFrame2(ObjectHeader *pObj)
+{
+  if (pObj->obType <= ot_NtLAST_NODE_TYPE)
+    /* FIXME: shouldn't we write back the node *before* clearing it? */
+    node_DoClearThisNode((Node *)pObj);
 
-    if (pObj->obType > ot_NtLAST_NODE_TYPE)
-      fatal("Node @0x%08x: object type %d is broken\n", pObj,
-		    pObj->obType); 
-    objC_ddb_dump_obj(pObj);
+  else
+    objH_InvalidateProducts(pObj);
+
+  /* Object must be paged out if dirty: */
+  if (objH_IsDirty(pObj)) {
+    /* If the object got rescued, it won't have hit ageout age, so
+     * the only way it should still be dirty is if the write has not
+     * completed:
+     */
+
+    DEBUG(ckpt)
+      dprintf(true, "ty %d oid 0x%08x%08x slq=0x%08x\n",
+		      pObj->obType,
+		      (uint32_t) (pObj->oid >> 32),
+		      (uint32_t) pObj->oid,
+		      ObjectStallQueueFromObHdr(pObj));
+    
+    objC_WriteBack(pObj, false);	/*** return value not used? */
   }
 
-  printf("Total of %d nodes, of which %d are free\n", objC_nNodes, nFree);
+  return true;
 }
-#endif
 
 /* The first numNodesToClean entries of nodesToClean are candidates
  * for cleaning. They may have been referenced since being added. */
@@ -803,80 +677,49 @@ objC_AgeNodeFrames()
 		nStuck, nPinned);
 }
 
-#if 0	// revisit this when we need it
-/* This is used for copy on write processing, and also for frame
- * eviction. The copy becomes current, and is initially clean. The
- * original is no longer current, but may still be the checkpoint
- * version. */
-/* May Yield. */
-static ObjectHeader *
-objC_CopyObject(ObjectHeader *pObj)
+Node *
+objC_GrabNodeFrame()
 {
-  ObjectHeader *newObj;
-  kva_t fromAddr;
-  kva_t toAddr;
-  unsigned i = 0;
+  Node *pNode = 0;
+
+  if (objC_firstFreeNode == 0)
+    objC_AgeNodeFrames();
+  
+  assert(objC_firstFreeNode);
+  assert(objC_nFreeNodeFrames);
+  
+  pNode = objC_firstFreeNode;
+  objC_firstFreeNode = (Node *) objC_firstFreeNode->node_ObjHdr.prep_u.nextFree;
+  objC_nFreeNodeFrames--;
+
+  ObjectHeader * const pObj = &pNode->node_ObjHdr;
+  assert(pObj->obType == ot_NtFreeFrame);
+
+  /* Rip it off the hash chain, if need be: */
+  objH_Unintern(pObj);	/* Should it ever be interned? */
+  assert(keyR_IsEmpty(&pObj->keyRing));
+  kzero(pObj, sizeof(ObjectHeader));
+
+  pNode->node_ObjHdr.obType = ot_NtUnprepared;
+
+#ifndef NDEBUG
+  uint32_t i;
+  for (i = 0; i < EROS_NODE_SIZE; i++) {
+    if (keyBits_IsUnprepared(&pNode->slot[i]) == false)
+      dprintf(true, "Virgin node 0x%08x had prepared slot %d\n",
+		pNode, i);
+  }
+#endif
+  assert(objC_ValidNodePtr(pNode));
 
   DEBUG(ndalloc)
-    printf("objC_CopyObject obj=0x%08x\n", pObj);
+    printf("Allocated node=0x%08x nfree=%d\n", pNode, objC_nFreeNodeFrames);
 
-  assert(pObj->prep_u.products == 0);
-
-  objH_TransLock(pObj);	// needed?
-
-  if (pObj->obType == ot_PtDataPage) {
-    assert(keyR_IsEmpty(&pObj->keyRing));
-    /* Copy data page only, not ot_PtDevicePage. */
-    /* Object is now free of encumberance, but it wasn't an evictable
-     * object, and it may be dirty. We need to find another location
-     * for it.
-     */
-    assert(pte_ObIsNotWritable(objH_ToPage(pObj)));
-
-    PageHeader * newPage = objC_GrabPageFrame();
-    newObj = pageH_ToObj(newPage);
-
-    assert(newObj != pObj);
-
-    fromAddr = pageH_GetPageVAddr(objH_ToPage(pObj));
-    toAddr = pageH_GetPageVAddr(newPage);
-
-    memcpy((void *) toAddr, (void *) fromAddr, EROS_PAGE_SIZE);
-    pageH_SetReferenced(newPage);	/* FIX: is this right? */
-    pageH_MDInitDataPage(newPage);
-  }
-  else { /* It's a node */
-    assert (pObj->obType <= ot_NtLAST_NODE_TYPE
-            && pObj->obType != ot_NtFreeFrame);
-    assert(keyR_IsEmpty(&pObj->keyRing));
-
-    Node * oldNode = (Node *) pObj;
-    Node * newNode = objC_GrabNodeFrame();
-    newObj = node_ToObj(newNode);
-
-    assert(newObj != pObj);
-
-    newNode->callCount = oldNode->callCount;
-    for (i = 0; i < EROS_NODE_SIZE; i++) {
-
-      key_NH_Set(node_GetKeyAtSlot(newNode, i), node_GetKeyAtSlot(oldNode, i));
-
-    }
-    node_SetReferenced(newNode);	/* FIX: is this right? */
-  }
-
-  newObj->allocCount = pObj->allocCount;
-  objH_InitObj(newObj, pObj->oid);
-  // FIXME: Init obtype to capros_Range_ot*.
-
-  objH_SetFlags(newObj, objH_GetFlags(pObj, OFLG_DISKCAPS)); // correct?
-  /* The copy is now current. The old object is still the checkpoint
-     version. */
-  objH_ClearFlags(pObj, OFLG_CURRENT);
-
-  return newObj;
+  node_SetReferenced(pNode);
+  objH_ResetKeyRing(pObj);
+    
+  return pNode;
 }
-#endif
 
 #if 0	// revisit this if it turns out we need it
 /* Evict the current resident of a page frame. This is called
@@ -953,49 +796,6 @@ objC_EvictFrame(PageHeader * pageH)
   return true;
 }
 #endif
-
-/* Clean out the node/page frame, but do not remove it from memory. */
-/* pObj->obType must be node or ot_PtDataPage. */
-/* May Yield. */
-static void
-objC_CleanFrame1(ObjectHeader *pObj)
-{
-  /* Clean up the object we are reclaiming so we can free it: */
-
-  keyR_UnprepareAll(&pObj->keyRing);	/* This zaps any PTE's as a side effect. */
-  //// Use keyR_UnmapAll instead?
-}
-
-/* pObj->obType must be node or ot_PtDataPage. */
-bool
-objC_CleanFrame2(ObjectHeader *pObj)
-{
-  if (pObj->obType <= ot_NtLAST_NODE_TYPE)
-    /* FIXME: shouldn't we write back the node *before* clearing it? */
-    node_DoClearThisNode((Node *)pObj);
-
-  else
-    objH_InvalidateProducts(pObj);
-
-  /* Object must be paged out if dirty: */
-  if (objH_IsDirty(pObj)) {
-    /* If the object got rescued, it won't have hit ageout age, so
-     * the only way it should still be dirty is if the write has not
-     * completed:
-     */
-
-    DEBUG(ckpt)
-      dprintf(true, "ty %d oid 0x%08x%08x slq=0x%08x\n",
-		      pObj->obType,
-		      (uint32_t) (pObj->oid >> 32),
-		      (uint32_t) pObj->oid,
-		      ObjectStallQueueFromObHdr(pObj));
-    
-    objC_WriteBack(pObj, false);	/*** return value not used? */
-  }
-
-  return true;
-}
 
 static void
 pageH_Clean(PageHeader * pageH)
@@ -1195,122 +995,167 @@ ObjectCache::RequirePageFrames(uint32_t n)
 }
 #endif
 
-void
-objC_GrabThisPageFrame(PageHeader *pObj)
+#if 0	// revisit this when we need it
+/* This is used for copy on write processing, and also for frame
+ * eviction. The copy becomes current, and is initially clean. The
+ * original is no longer current, but may still be the checkpoint
+ * version. */
+/* May Yield. */
+static ObjectHeader *
+objC_CopyObject(ObjectHeader *pObj)
 {
-  assert(pageH_GetObType(pObj) == ot_PtNewAlloc);
+  ObjectHeader *newObj;
+  kva_t fromAddr;
+  kva_t toAddr;
+  unsigned i = 0;
 
-  PmemInfo * pmi = pObj->physMemRegion;	// preserve this field
-  kzero(pObj, sizeof(*pObj));
-  pObj->physMemRegion = pmi;
+  DEBUG(ndalloc)
+    printf("objC_CopyObject obj=0x%08x\n", pObj);
 
-  assert(pte_ObIsNotWritable(pObj));
+  assert(pObj->prep_u.products == 0);
 
-  pageH_SetReferenced(pObj);
-}
+  objH_TransLock(pObj);	// needed?
 
-Node *
-objC_GrabNodeFrame()
-{
-  Node *pNode = 0;
+  if (pObj->obType == ot_PtDataPage) {
+    assert(keyR_IsEmpty(&pObj->keyRing));
+    /* Copy data page only, not ot_PtDevicePage. */
+    /* Object is now free of encumberance, but it wasn't an evictable
+     * object, and it may be dirty. We need to find another location
+     * for it.
+     */
+    assert(pte_ObIsNotWritable(objH_ToPage(pObj)));
 
-  if (objC_firstFreeNode == 0)
-    objC_AgeNodeFrames();
-  
-  assert(objC_firstFreeNode);
-  assert(objC_nFreeNodeFrames);
-  
-  pNode = objC_firstFreeNode;
-  objC_firstFreeNode = (Node *) objC_firstFreeNode->node_ObjHdr.prep_u.nextFree;
-  objC_nFreeNodeFrames--;
+    PageHeader * newPage = objC_GrabPageFrame();
+    newObj = pageH_ToObj(newPage);
 
-  ObjectHeader * const pObj = &pNode->node_ObjHdr;
-  assert(pObj->obType == ot_NtFreeFrame);
+    assert(newObj != pObj);
 
-  /* Rip it off the hash chain, if need be: */
-  objH_Unintern(pObj);	/* Should it ever be interned? */
-  assert(keyR_IsEmpty(&pObj->keyRing));
-  kzero(pObj, sizeof(ObjectHeader));
+    fromAddr = pageH_GetPageVAddr(objH_ToPage(pObj));
+    toAddr = pageH_GetPageVAddr(newPage);
 
-  pNode->node_ObjHdr.obType = ot_NtUnprepared;
-
-#ifndef NDEBUG
-  uint32_t i;
-  for (i = 0; i < EROS_NODE_SIZE; i++) {
-    if (keyBits_IsUnprepared(&pNode->slot[i]) == false)
-      dprintf(true, "Virgin node 0x%08x had prepared slot %d\n",
-		pNode, i);
+    memcpy((void *) toAddr, (void *) fromAddr, EROS_PAGE_SIZE);
+    pageH_SetReferenced(newPage);	/* FIX: is this right? */
+    pageH_MDInitDataPage(newPage);
   }
-#endif
-  assert(objC_ValidNodePtr(pNode));
+  else { /* It's a node */
+    assert (pObj->obType <= ot_NtLAST_NODE_TYPE
+            && pObj->obType != ot_NtFreeFrame);
+    assert(keyR_IsEmpty(&pObj->keyRing));
 
-  DEBUG(ndalloc)
-    printf("Allocated node=0x%08x nfree=%d\n", pNode, objC_nFreeNodeFrames);
+    Node * oldNode = (Node *) pObj;
+    Node * newNode = objC_GrabNodeFrame();
+    newObj = node_ToObj(newNode);
 
-  node_SetReferenced(pNode);
-  objH_ResetKeyRing(pObj);
-    
-  return pNode;
+    assert(newObj != pObj);
+
+    newNode->callCount = oldNode->callCount;
+    for (i = 0; i < EROS_NODE_SIZE; i++) {
+
+      key_NH_Set(node_GetKeyAtSlot(newNode, i), node_GetKeyAtSlot(oldNode, i));
+
+    }
+    node_SetReferenced(newNode);	/* FIX: is this right? */
+  }
+
+  newObj->allocCount = pObj->allocCount;
+  objH_InitObj(newObj, pObj->oid);
+  // FIXME: Init obtype to capros_Range_ot*.
+
+  objH_SetFlags(newObj, objH_GetFlags(pObj, OFLG_DISKCAPS)); // correct?
+  /* The copy is now current. The old object is still the checkpoint
+     version. */
+  objH_ClearFlags(pObj, OFLG_CURRENT);
+
+  return newObj;
 }
-
-void
-objH_InitObj(ObjectHeader * pObj, OID oid)
-{
-  pObj->oid = oid;
-
-  objH_SetFlags(pObj, OFLG_CURRENT);
-  assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_IO) == 0);
-
-#ifdef OPTION_OB_MOD_CHECK
-  pObj->check = objH_CalcCheck(pObj);
-#endif
-
-  objH_ResetKeyRing(pObj);
-  objH_Intern(pObj);
-}
-
-/* Release a page that has an ObjectHeader. */
-void
-ReleaseObjPageFrame(PageHeader * pageH)
-{
-  DEBUG(pgalloc)
-    printf("ReleaseObjPageFrame pageH=0x%08x\n", pageH);
-
-  assert(!pageH_IsDirty(pageH));
-  assert(pte_ObIsNotWritable(pageH));
-
-  objH_Unintern(pageH_ToObj(pageH));
-    
-  ReleasePageFrame(pageH);
-}
-
-/* Put a page on the free list. */
-/* Caller must have already removed all previous entanglements. */
-void
-ReleasePageFrame(PageHeader * pageH)
-{
-  physMem_FreeBlock(pageH, 1);
-}
-
-void
-ReleaseNodeFrame(Node * pNode)
-{
-  DEBUG(ndalloc)
-    printf("ReleaseNodeFrame node=%#x\n", pNode);
-
-  assert(!objH_IsDirty(node_ToObj(pNode)));
-
-#ifndef NDEBUG
-  uint32_t i = 0;
-  for (i = 0; i < EROS_NODE_SIZE; i++)
-    assertex (pNode, keyBits_IsUnprepared(&pNode->slot[i]));
 #endif
 
-  objH_Unintern(node_ToObj(pNode));
-    
-  node_ToObj(pNode)->obType = ot_NtFreeFrame;
+/* Process and Depend entries are allocated before we get here.
+ * Here we allocate only nodes, pages, and core table
+ * entries.  Nodes and pages are allocated in equal proportions, with
+ * one core table entry per page.
+ */
 
-  node_ToObj(pNode)->prep_u.nextFree = node_ToObj(objC_firstFreeNode);
-  objC_firstFreeNode = pNode;
-  objC_nFreeNodeFrames++;
+void
+objC_Init()
+{
+  uint32_t availBytes;
+  uint32_t allocQuanta;
+  uint32_t i;
+
+  availBytes = physMem_AvailBytes(&physMem_any);
+    
+  DEBUG(cachealloc)
+    printf("%d bytes of available storage, sizeof(Node) = %d,"
+           " sizeof(ObjectHeader) = %d.\n",
+           availBytes, sizeof(Node), sizeof(ObjectHeader));
+
+  allocQuanta =
+    sizeof(Node) + EROS_PAGE_SIZE + sizeof(ObjectHeader);
+
+  objC_nNodes = availBytes / allocQuanta;
+    
+#ifdef TESTING_AGEING
+  objC_nNodes = 90;			/* This is one less than logtst requires. */
+#endif
+  
+  objC_nodeTable = KPAtoP(Node *,
+                     physMem_Alloc(objC_nNodes*sizeof(Node), &physMem_any));
+  kzero(objC_nodeTable, objC_nNodes*sizeof(Node));
+
+  for (i = 0; i < objC_nNodes; i++) {
+    unsigned int j;
+    Node * n = &objC_nodeTable[i];
+
+    for (j = 0; j < EROS_NODE_SIZE; j++)
+      keyBits_InitType(node_GetKeyAtSlot(n, j), KKT_Void);
+
+    keyR_ResetRing(&n->node_ObjHdr.keyRing);
+    // n->node_ObjHdr.flags = 0;
+    // n->node_ObjHdr.userPin = 0;
+    n->node_ObjHdr.obType = ot_NtFreeFrame;
+  }
+
+  DEBUG(cachealloc)
+    printf("Allocated Nodes: 0x%x at 0x%08x\n",
+		   sizeof(Node[objC_nNodes]), objC_nodeTable);
+
+  /* Drop all the nodes on the free node list: */
+  for (i = 0; i < objC_nNodes; i++) {
+    /* object type is set in constructor... */
+    assert (objC_nodeTable[i].node_ObjHdr.obType == ot_NtFreeFrame);
+    objC_nodeTable[i].node_ObjHdr.prep_u.nextFree
+      = node_ToObj(&objC_nodeTable[i+1]);
+  }
+  
+  objC_nodeTable[objC_nNodes - 1].node_ObjHdr.prep_u.nextFree = 0;
+  objC_firstFreeNode = &objC_nodeTable[0];
+
+  objC_nFreeNodeFrames = objC_nNodes;
+
+  Depend_InitKeyDependTable(objC_nNodes);
+
+  DEBUG(cachealloc)
+    printf("%d bytes of available storage after key dep tbl alloc.\n", availBytes);
+
+  /* Add all the device pages.
+     By adding them now, before calling objC_AllocateUserPages(),
+     we can get storage for the PageHeader entries from contiguous
+     physical memory, rather than the heap. */
+  for (i = 0; i < physMem_nPmemInfo; i++) {
+    PmemInfo *pmi = &physMem_pmemInfo[i];
+
+    if (pmi->type == MI_DEVICEMEM || pmi->type == MI_BOOTROM) {
+      // Need to special case the publication of device mem, as we need
+      // object cache entries for these, because there will be keys to them.
+      objC_AddDevicePages(pmi);
+    }
+  }
+
+  objC_AllocateUserPages();
+
+  DEBUG(cachealloc)
+    printf("%d cached domains, %d nodes, %d pages\n",
+		   KTUNE_NCONTEXT,
+		   objC_nNodes, objC_nPages);
 }
