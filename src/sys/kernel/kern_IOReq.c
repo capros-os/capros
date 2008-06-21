@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/Activity.h>
+#include <kerninc/LogDirectory.h>
 #include <eros/target.h>
 #include <disk/TagPot.h>
 #include <disk/DiskNode.h>
@@ -146,6 +147,19 @@ IORQ_Deallocate(IORQ * iorq)
   freeIORQs = &iorq->lk;
 }
 
+// ************************ Log stuff **************************
+
+LID
+NextLogLoc(void)
+{
+  LID lid = logCursor;
+  assert(lid);
+
+  if (++logCursor >= logWrapPoint) 
+    logCursor = MAIN_LOG_START;	// wrap to the beginning
+  return lid;
+}
+
 // ************************ IOSource stuff **************************
 
 void
@@ -244,6 +258,7 @@ ioreq_Enqueue(IORequest * ioreq)
   sq_WakeAll(& iorq->waiter, false);
 }
 
+// Find or get an object pot from the home range.
 // May Yield.
 static PageHeader *
 EnsureObjectPot(ObjectRange * rng, OID oid)

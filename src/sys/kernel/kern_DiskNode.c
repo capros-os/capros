@@ -41,21 +41,48 @@ Approved for public release, distribution unlimited. */
 
 #include <disk/DiskNode.h>
 
+// Copy a Node to a DiskNode
+void
+node_CopyToDiskNode(Node * pNode, DiskNode * dn)
+{
+  unsigned int i;
+  ObjectHeader * pObj = node_ToObj(pNode);
+
+  dn->oid = pObj->oid;
+  dn->allocCount = pObj->allocCount;
+  dn->callCount = pNode->callCount;
+  dn->nodeData = pNode->nodeData;
+  dn->allocCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_AllocCntUsed));
+  dn->callCountUsed  = boolToBit(objH_GetFlags(pObj, OFLG_CallCntUsed));
+
+  for (i = 0; i < EROS_NODE_SIZE; i++) {
+    node_ClearHazard(pNode, i);
+    key_MakeUnpreparedCopy(&dn->slot[i], node_GetKeyAtSlot(pNode, i));
+  }
+}
+
 // Copy a DiskNode to this Node.
 void 
 node_SetEqualTo(Node * thisPtr, const DiskNode * other)
 {
-  uint32_t i = 0;
+  unsigned int i;
+  ObjectHeader * pObj = node_ToObj(thisPtr);
 
-  assert (keyR_IsEmpty(&thisPtr->node_ObjHdr.keyRing));
-  assert (thisPtr->node_ObjHdr.obType == ot_NtUnprepared);
+  assert(keyR_IsEmpty(&pObj->keyRing));
+  assert(pObj->obType == ot_NtUnprepared);
 
   /* The invocation does not need to be committed for this one. */
   
-  thisPtr->node_ObjHdr.oid = other->oid;
-  node_ToObj(thisPtr)->allocCount = other->allocCount;
+  pObj->oid = other->oid;
+  pObj->allocCount = other->allocCount;
   thisPtr->callCount = other->callCount;
   thisPtr->nodeData = other->nodeData;
+  objH_ClearFlags(pObj, OFLG_AllocCntUsed | OFLG_CallCntUsed);
+  if (other->allocCountUsed)
+    objH_SetFlags(pObj, OFLG_AllocCntUsed);
+  if (other->callCountUsed)
+    objH_SetFlags(pObj, OFLG_CallCntUsed);
+
   node_SetReferenced(thisPtr);
 
   for (i = 0; i < EROS_NODE_SIZE; i++) {

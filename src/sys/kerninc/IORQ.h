@@ -66,4 +66,6 @@ void ioreq_Enqueue(IORequest * ioreq);
 // A useful completion function:
 void IOReq_EndRead(IORequest * ioreq);
 
+LID NextLogLoc(void);
+
 #endif /* __IORQ_H__ */

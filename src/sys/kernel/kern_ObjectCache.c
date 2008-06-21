@@ -34,11 +34,13 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/multiboot.h>
 #include <kerninc/util.h>
 #include <kerninc/IORQ.h>
+#include <kerninc/LogDirectory.h>
 #include <kerninc/ObjH-inline.h>
 #include <arch-kerninc/KernTune.h>
 #include <arch-kerninc/Page-inline.h>
 #include <kerninc/PhysMem.h>
 #include <disk/NPODescr.h>
+#include <disk/DiskNode.h>
 #include <arch-kerninc/PTE.h>
 
 #define dbg_cachealloc	0x1	/* initialization */
@@ -587,8 +589,71 @@ objC_ddb_dump_nodes()
 }
 #endif
 
-/* Queue for activitys that are waiting for available page frames: */
-DEFQUEUE(PageAvailableQueue);
+/* The first numNodesToClean entries of nodesToClean are candidates
+ * for cleaning. They may have been referenced since being added. */
+Node * nodesToClean[DISK_NODES_PER_PAGE];
+unsigned int numNodesToClean = 0;
+
+/* Returns true iff freed some nodes. */
+// May Yield
+bool
+CleanAPotOfNodes(bool force)
+{
+  unsigned int i;
+
+  if (numNodesToClean < DISK_NODES_PER_PAGE
+      && ! force)
+    return false;	// wait till we get more nodes
+
+  for (i = 0; i < numNodesToClean; i++) {
+    Node * pNode = nodesToClean[i];
+    if (node_ToObj(pNode)->objAge < age_Steal) {
+      // It was referenced after it was added.
+      // It's no longer a candidate to clean.
+      // Remove it.
+      nodesToClean[i--] = nodesToClean[--numNodesToClean];
+      // numNodesToClean now < DISK_NODES_PER_PAGE.
+      if (! force)
+        return false;
+    }
+  }
+
+  IORequest * ioreq = AllocateIOReqAndPage();	// may Yield
+  PageHeader * pageH = ioreq->pageH;
+  ObjectHeader * pObj;
+
+  // Now we are committed to creating a log pot.
+
+  LID lid = NextLogLoc();
+  ObjectRange * rng = LidToRange(lid);
+  assert(rng);	// it had better be mounted
+
+  DiskNode * dn = (DiskNode *)pageH_GetPageVAddr(pageH);
+  for (i = 0; i < numNodesToClean; i++, dn++) {
+    Node * pNode = nodesToClean[i];
+    pObj = node_ToObj(pNode);
+    node_CopyToDiskNode(pNode, dn);
+    ObjectDescriptor objDescr = {
+      .oid = pObj->oid,
+      .allocCount = pObj->allocCount,
+      .callCount = pNode->callCount,
+      .logLoc = lid + i,
+      .allocCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_AllocCntUsed)),
+      .callCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_CallCntUsed)),
+      .type = capros_Range_otNode
+    };
+    ld_recordLocation(&objDescr, workingGenerationNumber);
+  }
+#if 0
+  LID relLid = lid - rng->start;	// LID relative to this range
+  pObj = pageH_ToObj(pageH);
+  pObj->obType = ot_PtObjPot;
+  objH_InitObj(pObj, oid);
+  objH_SetFlags(pObj, OFLG_Fetching);
+#endif
+    assert(!"complete");
+  return true;
+}
 
 /* May Yield. */
 static void
@@ -597,51 +662,43 @@ objC_AgeNodeFrames()
   static uint32_t curNode = 0;
   uint32_t nStuck = 0;
   uint32_t nPinned = 0;
-  int pass = 0;
-  uint32_t count = 0;
-  Node *pObj = 0;
+  int pass;
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Before AgeNodeFrames()");
 #endif
 
-  for (pass = 0; pass <= age_PageOut; pass++) {
+  for (pass = 0; pass <= age_Steal; pass++) {
     nPinned = 0;
     nStuck = 0;
-    for (count = 0; count < objC_nNodes; count++, curNode++) {
-      if (curNode >= objC_nNodes)
-	curNode = 0;
-
-      pObj = objC_GetCoreNodeFrame(curNode);
+    uint32_t count;
+    for (count = 0; count < objC_nNodes; count++) {
+      Node * pNode = objC_GetCoreNodeFrame(curNode);
+      ObjectHeader * pObj = node_ToObj(pNode);
     
-      assert(node_ToObj(pObj)->objAge <= age_PageOut);
+      if (pObj->obType == ot_NtFreeFrame)
+	return;
     
-      assert (objH_GetFlags(node_ToObj(pObj), OFLG_IO) == 0);
+      assert(pObj->objAge <= age_Steal);
     
-      if (objH_IsUserPinned(node_ToObj(pObj))
-          || node_IsKernelPinned(pObj) ) {
+      if (objH_IsUserPinned(pObj)
+          || node_IsKernelPinned(pNode) ) {
 	nPinned++;
 	nStuck++;
-	continue;
+	goto nextNode;
       }
 
       /* Since the object isn't pinned, set its transaction ID to zero
       so it won't inadvertently be considered pinned
       when objH_CurrentTransaction overflows. */
-      node_ToObj(pObj)->userPin = 0;
-    
-      if (pObj->node_ObjHdr.obType == ot_NtFreeFrame)
-	continue;
+      pObj->userPin = 0;
 
-#ifdef OPTION_DISKLESS
-      /* In the diskless kernel, dirty objects are only removed as a
-       * result of being destroyed. Otherwise, they linger pointlessly
-       * in a kind of Camus-esque twilight of nonexistence.
-       */
-      if (pObj->IsDirty())
-	continue;
-#endif
+      if (! objH_GetFlags(pObj, OFLG_Cleanable)) {
+	nStuck++;
+	goto nextNode;
+      }
+
       /* DO NOT AGE OUT CONSTITUENTS OF AN ACTIVE CONTEXT
        * 
        * This is an issue because when we access a process
@@ -655,65 +712,80 @@ objC_AgeNodeFrames()
        * instead of in process space.
        */
     
-      if (pObj->node_ObjHdr.obType == ot_NtProcessRoot ||
-	  pObj->node_ObjHdr.obType == ot_NtRegAnnex ||
-	  pObj->node_ObjHdr.obType == ot_NtKeyRegs) {
+      if (pObj->obType == ot_NtProcessRoot ||
+	  pObj->obType == ot_NtRegAnnex ||
+	  pObj->obType == ot_NtKeyRegs) {
 	  nStuck++;
-          continue;
+          goto nextNode;
       }
       
       /* THIS ALGORITHM IS NOT THE SAME AS THE PAGE AGEING ALGORITHM!!!
        * 
-       * While nodes are promptly cleanable (just write them to a log
-       * pot and let the page cleaner work on them), there is still no
-       * sense tying up log I/O bandwidth writing the ones that are
-       * highly active.  We therefore invalidate them, but we don't try
-       * to write them until they hit the ageout age.
+       * Nodes are promptly cleanable (just write them to a log
+       * pot), so we don't clean them until the age_Steal stage.
        */
+
+      switch (pObj->objAge) {
+      case age_Invalidate:
+        keyR_TrackReferenced(&pObj->keyRing);
+      default:
+	pObj->objAge++;
+        break;
+
+      case age_Steal:
     
-      if (node_ToObj(pObj)->objAge == age_Invalidate)
-	/* Clean the frame, but do not invalidate products yet,
-	 * because the object may get resurrected.
-	 */
-	objC_CleanFrame1(node_ToObj(pObj));
+        DEBUG(ckpt)
+	  dprintf(false, "Ageing out node=0x%08x oty=%d dirty=%c oid=%#llx\n",
+			pNode, pObj->obType,
+			(objH_IsDirty(pObj) ? 'y' : 'n'), pObj->oid);
 
-      if (node_ToObj(pObj)->objAge < age_PageOut) {
-	node_ToObj(pObj)->objAge++;
+        if (objH_IsDirty(pObj)) {
+          if (node_IsNull(pNode)) {
+            ObjectDescriptor objDescr = {
+              .oid = pObj->oid,
+              .allocCount = pObj->allocCount,
+              .callCount = pNode->callCount,
+              .logLoc = 0,	// it's null
+              .allocCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_AllocCntUsed)),
+              .callCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_CallCntUsed)),
+              .type = capros_Range_otNode
+            };
+            ld_recordLocation(&objDescr, workingGenerationNumber);
+            objH_ClearFlags(pObj, OFLG_DIRTY);	// cleaned it to the log dir
+            goto stealNode;
+          } else {
+          }
+      objC_CleanFrame1(pObj);
+      objC_CleanFrame2(pObj);
 
-	continue;
-      }
-    
-      DEBUG(ckpt)
-	dprintf(false, "Ageing out node=0x%08x oty=%d dirty=%c oid=0x%08x%08x\n",
-			pObj, pObj->node_ObjHdr.obType,
-			(objH_IsDirty(node_ToObj(pObj)) ? 'y' : 'n'),
-			(uint32_t) (pObj->node_ObjHdr.oid >> 32),
-			(uint32_t) (pObj->node_ObjHdr.oid));
+        } else {
+        stealNode:
+          // Steal this frame.
+          objH_InvalidateProducts(pObj);
+          // Remove this page from the cache and return it to the free list:
+          assert(keyR_IsEmpty(&pObj->keyRing));
+          assert(!"complete");	////
+        }
+        curNode++;
 
-      objC_CleanFrame1(node_ToObj(pObj));
-      objC_CleanFrame2(node_ToObj(pObj));
-
-      /* Make sure that the next process that wants a frame is
-       * unlikely to choose the same node frame:
-       */
-      curNode++;
-
-      assert (!objH_IsDirty(node_ToObj(pObj)));
-      assert(keyR_IsEmpty(&pObj->node_ObjHdr.keyRing));
-    
-      /* Remove this node from the cache and return it to the free node
-       * list: */
-      ReleaseNodeFrame(pObj);
+        /* Remove this node from the cache and return it to the free node
+         * list: */
+        ReleaseNodeFrame(pNode);
 
 #if defined(TESTING_AGEING) && 0
-      dprintf(true, "AgeNodeFrame(): Object evicted\n");
+        dprintf(true, "AgeNodeFrame(): Object evicted\n");
 #endif
 #ifdef DBG_WILD_PTR
-      if (dbg_wild_ptr)
-	check_Consistency("After AgeNodeFrames()");
+        if (dbg_wild_ptr)
+          check_Consistency("After AgeNodeFrames()");
 #endif
 
-      return;
+        return;
+      }
+
+    nextNode:
+      if (++curNode >= objC_nNodes)
+	curNode = 0;
     }
   }
 
@@ -1033,7 +1105,10 @@ objC_AgePageFrames(void)
        * the entry will be rebuilt and the age updated then.
        */
       keyR_TrackReferenced(&pageH_ToObj(pageH)->keyRing);
-      goto bumpAge;
+    default:
+    bumpAge:
+      pageH_ToObj(pageH)->objAge++;
+      break;
 
     case age_Clean:
       /* At this stage, we initiate cleaning of the object if it is dirty. */
@@ -1068,11 +1143,6 @@ objC_AgePageFrames(void)
 
       curPage++;
       return;
-
-    default:
-    bumpAge:
-      pageH_ToObj(pageH)->objAge++;
-      break;
     }
 
   nextPage:
@@ -1208,8 +1278,6 @@ void
 ReleasePageFrame(PageHeader * pageH)
 {
   physMem_FreeBlock(pageH, 1);
-
-  sq_WakeAll(&PageAvailableQueue, false);
 }
 
 void

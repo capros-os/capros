@@ -151,7 +151,6 @@ physMem_DeallocateDMAPages(Invocation * inv)
   }
 
   physMem_FreeBlock(pageH, nPages);
-  sq_WakeAll(&PageAvailableQueue, false);
 
   inv->exit.code = RC_OK;
 }

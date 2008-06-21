@@ -106,7 +106,9 @@ node_SetL2vField(Node * node, unsigned int f)
   * node_l2vField(& node->nodeData) = f;
 }
 
+bool node_IsNull(Node * pNode);
 void node_SetEqualTo(Node *thisPtr, const struct DiskNode *);
+void node_CopyToDiskNode(Node * pNode, struct DiskNode * dn);
 
 bool node_Validate(Node* thisPtr);
 

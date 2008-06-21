@@ -96,6 +96,22 @@ node_ClearAllHazards(Node * thisPtr)
   }
 }
 
+bool
+node_IsNull(Node * pNode)
+{
+  if (pNode->nodeData)
+    return false;
+  unsigned int i;
+  for (i = 0; i < EROS_NODE_SIZE; i++) {
+    node_ClearHazard(pNode, i);
+    Key * key = node_GetKeyAtSlot(pNode, i);
+    assert(! keyBits_IsHazard(key)); /* node is unprepared! */
+    if (keyBits_GetType(key) != KKT_Void)
+      return false;
+  }
+  return true;
+}
+
 // Caller must make the node dirty.
 /* CAREFUL -- this operation can have the side effect of blowing away
  * the current thread!

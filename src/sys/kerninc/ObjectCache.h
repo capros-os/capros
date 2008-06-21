@@ -61,7 +61,6 @@ extern uint32_t objC_nPages;
 extern PageHeader * objC_coreTable;
 
 extern uint32_t objC_nFreeNodeFrames;
-extern struct StallQueue PageAvailableQueue;
   
 /* Initialization */
 void objC_Init();

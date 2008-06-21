@@ -49,6 +49,12 @@ INLINE uint32_t align_up_uint32(uint32_t x,
 kpa_t align_up(kpa_t addr, uint32_t alignment); /* alignment must be power of 2 */
 kpa_t align_down(kpa_t addr, uint32_t alignment); /* alignment must be power of 2 */
 
+INLINE unsigned int
+boolToBit(bool b)
+{
+  return b != 0;
+}
+
 size_t strlen(const char *c1);
 int strcmp(const char *c1, const char *c2);
 char *strcpy(char *c1, const char *c2);

@@ -47,7 +47,8 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-LID logCursor;	// next place to write in the main log
+uint64_t workingGenerationNumber;
+LID logCursor = 0;	// next place to write in the main log
 LID currentRoot;	// CKPT_ROOT_0 or CKPT_ROOT_1
 Activity * migratorActivity;
 
@@ -177,6 +178,7 @@ DoRestartStep(void)
       assert(false); //// incomplete
     }
 
+    workingGenerationNumber = curRoot->mostRecentGenerationNumber + 1;
     if (curRoot->mostRecentGenerationNumber == 0) {
       // No checkpoint has been taken.
       logCursor = MAIN_LOG_START;

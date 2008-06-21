@@ -50,6 +50,8 @@ Approved for public release, distribution unlimited. */
 */
 
 extern LID logCursor;	// next place to write in the main log
+extern LID logWrapPoint;	// end of main log
+extern uint64_t workingGenerationNumber;
 
 /** The object information maintained by the Log Directory.
  */
