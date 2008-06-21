@@ -176,6 +176,18 @@ IOReq_EndRead(IORequest * ioreq)
 }
 
 void
+IOReq_EndWrite(IORequest * ioreq)
+{
+  // The IORequest is done.
+  // Mark the page as no longer having I/O.
+  PageHeader * pageH = ioreq->pageH;
+  pageH->ioreq = NULL;
+  pageH_ToObj(pageH)->objAge = age_Steal;
+  sq_WakeAll(&ioreq->sq, false);
+  // Caller has unlinked the ioreq and will deallocate it.
+}
+
+void
 IOReq_WakeSQ(IORequest * ioreq)
 {
   // The IORequest is done.
@@ -246,6 +258,7 @@ IOSource_GetObjectType(ObjectRange * rng, OID oid)
   ioreq->rangeLoc = ClusterToTagPotRangeLoc(clusterNum);
   ioreq->doneFn = &IOReq_EndRead;
   sq_Init(&ioreq->sq);
+  ioreq_Enqueue(ioreq);
   act_SleepOn(&ioreq->sq);
   act_Yield();
 }
@@ -261,14 +274,14 @@ ioreq_Enqueue(IORequest * ioreq)
 // Find or get an object pot from the home range.
 // May Yield.
 static PageHeader *
-EnsureObjectPot(ObjectRange * rng, OID oid)
+EnsureHomePot(ObjectRange * rng, OID oid)
 {
   frame_t frame = OIDToFrame(oid);
   OID relOid = oid - rng->start;	// OID relative to this range
   frame_t relFrame = OIDToFrame(relOid);
 
   // Is the pot in memory?
-  ObjectHeader * pObj = objH_Lookup(frame, ot_PtObjPot);
+  ObjectHeader * pObj = objH_Lookup(frame, ot_PtHomePot);
   if (pObj) {
     objH_EnsureNotFetching(pObj);
     pObj->objAge = age_NewObjPot;	// mark referenced, but not strongly
@@ -281,7 +294,7 @@ EnsureObjectPot(ObjectRange * rng, OID oid)
   // Initialize the pot.
   PageHeader * pageH = ioreq->pageH;
   pObj = pageH_ToObj(pageH);
-  pObj->obType = ot_PtObjPot;
+  pObj->obType = ot_PtHomePot;
   objH_InitObj(pObj, oid);
   objH_SetFlags(pObj, OFLG_Fetching);
 
@@ -290,6 +303,7 @@ EnsureObjectPot(ObjectRange * rng, OID oid)
   ioreq->rangeLoc = FrameToRangeLoc(relFrame);
   ioreq->doneFn = &IOReq_EndRead;
   sq_Init(&ioreq->sq);
+  ioreq_Enqueue(ioreq);
   act_SleepOn(&ioreq->sq);
   act_Yield();
   // act_Yield does not return
@@ -302,7 +316,7 @@ IOSource_GetObjectCount(ObjectRange * rng, OID oid,
 {
   assert(rng->start <= oid && oid < rng->end);
 
-  PageHeader * pageH = EnsureObjectPot(rng, oid);
+  PageHeader * pageH = EnsureHomePot(rng, oid);
 
   OID relOid = oid - rng->start;	// OID relative to this range
 
@@ -329,20 +343,20 @@ IOSource_GetObject(ObjectRange * rng, OID oid,
 
   case capros_Range_otPage: ;
     // Read in the page.
-    // FIXME need to avoid reading the same page multiple times!
     IORequest * ioreq = AllocateIOReqAndPage();
     ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
     ioreq->objRange = rng;
     ioreq->rangeLoc = FrameToRangeLoc(OIDToFrame(relOid));
     ioreq->doneFn = &IOReq_EndRead;
     sq_Init(&ioreq->sq);
+    ioreq_Enqueue(ioreq);
     act_SleepOn(&ioreq->sq);
     act_Yield();
     // act_Yield does not return
     break;
 
   case capros_Range_otNode:
-    pageH = EnsureObjectPot(rng, oid);
+    pageH = EnsureHomePot(rng, oid);
 
     Node * pNode = objC_GrabNodeFrame();
 
@@ -370,6 +384,7 @@ IOSource_WriteRangeLoc(ObjectRange * rng, frame_t rangeLoc,
   ioreq->rangeLoc = rangeLoc;
   ioreq->doneFn = &IOReq_WakeSQ;////
   sq_Init(&ioreq->sq);
+  ioreq_Enqueue(ioreq);
   act_SleepOn(&ioreq->sq);
   act_Yield();
   // act_Yield does not return

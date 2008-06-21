@@ -63,8 +63,9 @@ IORequest * AllocateIOReqAndPage(void);
 
 void ioreq_Enqueue(IORequest * ioreq);
 
-// A useful completion function:
+// Useful completion functions:
 void IOReq_EndRead(IORequest * ioreq);
+void IOReq_EndWrite(IORequest * ioreq);
 
 LID NextLogLoc(void);
 

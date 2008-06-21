@@ -69,6 +69,8 @@ const char *ddb_obtype_name(uint8_t t)
     "PtKernHeap",
     "PtDevPage",
     "PtTagPot",
+    "PtHomePot",
+    "PtLogPot",
     "PtDMABlock",
     "PtDMASecondary",
     "PtFree",

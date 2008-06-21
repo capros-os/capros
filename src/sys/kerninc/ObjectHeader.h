@@ -75,7 +75,10 @@ enum ObType {
   ot_PtDMASecondary,	/* subsequent frames of a block allocated for DMA. */
   ot_PtLAST_OBJECT_TYPE = ot_PtDMASecondary,	// no objects after here
   ot_PtTagPot,		/* a tag pot. oid = OID of first frame. */
-  ot_PtObjPot,		/* an object pot. oid = OID of first object. */
+  ot_PtHomePot,		/* an object pot from a home range.
+			 oid = OID of first object. */
+  ot_PtLogPot,		/* an object pot from the log.
+			 oid = LID of the pot. */
   ot_PtFreeFrame,	/* first frame of a free block */
   ot_PtSecondary,	/* Part of a multi-page free block, not the first frame.
 			No other fields of PageHeader are valid,

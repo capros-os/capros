@@ -145,7 +145,8 @@ check_Pages()
     case ot_PtDMABlock:
     case ot_PtDMASecondary:
     case ot_PtTagPot:
-    case ot_PtObjPot:
+    case ot_PtHomePot:
+    case ot_PtLogPot:
       continue;
 
     case ot_PtDevicePage:

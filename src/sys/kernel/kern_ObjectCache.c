@@ -42,6 +42,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/NPODescr.h>
 #include <disk/DiskNode.h>
 #include <arch-kerninc/PTE.h>
+#include <eros/machine/IORQ.h>
 
 #define dbg_cachealloc	0x1	/* initialization */
 #define dbg_ckpt	0x2	/* migration state machine */
@@ -533,7 +534,8 @@ objC_ddb_dump_pages()
     }
 
     case ot_PtTagPot:
-    case ot_PtObjPot:
+    case ot_PtHomePot:
+    case ot_PtLogPot:
     {
       ObjectHeader * pObj = pageH_ToObj(pageH);
       printf("%#x: %s oid %#llx\n",
@@ -643,15 +645,23 @@ CleanAPotOfNodes(bool force)
       .type = capros_Range_otNode
     };
     ld_recordLocation(&objDescr, workingGenerationNumber);
+    //// Don't release if (force)?
+    keyR_UnprepareAll(&pObj->keyRing);
+    ReleaseNodeFrame(pNode);
   }
-#if 0
-  LID relLid = lid - rng->start;	// LID relative to this range
+
+  // Write the pot.
   pObj = pageH_ToObj(pageH);
-  pObj->obType = ot_PtObjPot;
-  objH_InitObj(pObj, oid);
+  pObj->obType = ot_PtLogPot;
+  objH_InitObj(pObj, lid);
   objH_SetFlags(pObj, OFLG_Fetching);
-#endif
-    assert(!"complete");
+
+  ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
+  ioreq->objRange = rng;
+  ioreq->rangeLoc = OIDToFrame(lid - rng->start);
+  ioreq->doneFn = &IOReq_EndWrite;
+  sq_Init(&ioreq->sq);
+  ioreq_Enqueue(ioreq);
   return true;
 }
 
@@ -994,12 +1004,13 @@ pageH_Clean(PageHeader * pageH)
     return;
 
   switch (pageH_GetObType(pageH)) {
-  case ot_PtObjPot:
-    /* Object pots are cleaned as soon as they are dirtied,
+  case ot_PtLogPot:
+    /* Log pots are cleaned as soon as they are dirtied,
     so they should not get here. */
   default: ;
     assert(false);
 
+  case ot_PtHomePot:
   case ot_PtTagPot:
     assert(!"complete");	////
     break;
@@ -1063,7 +1074,8 @@ objC_AgePageFrames(void)
       goto nextPage;
 
     case ot_PtTagPot:
-    case ot_PtObjPot:
+    case ot_PtHomePot:
+    case ot_PtLogPot:
       break;
 
     case ot_PtDataPage:
@@ -1284,15 +1296,9 @@ void
 ReleaseNodeFrame(Node * pNode)
 {
   DEBUG(ndalloc)
-    printf("ReleaseNodeFrame node=0x%08x\n", pNode);
+    printf("ReleaseNodeFrame node=%#x\n", pNode);
 
-  assert(pNode);
-
-  /* Not certain that *anything* handed to ReleaseNodeFrame() should be
-   * dirty, but...
-   */
-  if (objH_GetFlags(node_ToObj(pNode), OFLG_CKPT))
-    assert(!objH_IsDirty(node_ToObj(pNode)));
+  assert(!objH_IsDirty(node_ToObj(pNode)));
 
 #ifndef NDEBUG
   uint32_t i = 0;

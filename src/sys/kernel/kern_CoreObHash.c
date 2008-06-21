@@ -149,7 +149,8 @@ objH_Unintern(ObjectHeader* thisPtr)
   }
 }
 
-/* type must be ot_PtTagPot, ot_PtObjPot, or zero for any object */
+/* type must be ot_PtTagPot, ot_PtHomePot, ot_PtLogPot,
+ * or zero for any object */
 ObjectHeader *
 objH_Lookup(OID oid, unsigned int type)
 {
