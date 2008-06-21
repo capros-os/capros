@@ -38,11 +38,13 @@ Approved for public release, distribution unlimited. */
 #include "KeyStruct.h"
 
 typedef struct DiskNode {
+  OID oid;
   ObCount allocCount;
   ObCount callCount;
-  OID oid;
 
   uint16_t nodeData;
+  bool allocCountUsed;
+  bool callCountUsed;
   KeyBits slot[EROS_NODE_SIZE];
 } DiskNode;
 
