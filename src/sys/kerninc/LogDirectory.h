@@ -44,8 +44,8 @@ Approved for public release, distribution unlimited. */
          particular checkpoint generation.
       4. Remove all the entries of a particular generation and earlier
          generations.
-      5. (Not implemented) Find the most recent location for an object
-         which is earlier than a specified generation number.
+      5. Find the most recent location for an object which is earlier
+         than a specified generation number.
 
 */
 
@@ -74,6 +74,9 @@ typedef struct ObjectDescriptor {
     restart. Object locations should be recorded in ascending order of
     generation number.
 
+    Note: This routine invalidates all pointers returned by ld_findObject,
+    ld_findFirstObject, or ld_findNextObject.
+
     @param[in] od The Object Descriptor for the object.
     @param[in] generation The log generation of the object.
 */
@@ -88,10 +91,32 @@ ld_recordLocation(const ObjectDescriptor *od, uint64_t generation);
 
     @param[in] oid The object ID to be located.
     @return A pointer to the ObjectDescriptor for the object or NULL if the
-            object is not in the log.
+            object is not in the log. This pointer will be good until
+	    a change is made to the log directory, either adding or
+	    modifing an entry, or deleting a generation.
 */
 const ObjectDescriptor *
 ld_findObject(OID oid);
+
+
+/** Find an object older than a given generation in the directory.
+
+    This routine will return the primary location LID of the object
+    if it is older than the given generation. It will return the previous
+    primary location if the primary is of the given generation or younger,
+    and the previous primary is older than the given generation.
+
+    @param[in] oid The object ID to be located.
+    @param[in] generation The generation the object must be older than.
+    @return A pointer to the ObjectDescriptor for the object or NULL if the
+            object is not in the log, or the log entry is younger or 
+	    equal in age to generation.. This pointer will be good until
+	    a change is made to the log directory, either adding or
+	    modifing an entry, or deleting a generation.
+*/
+const ObjectDescriptor *
+ld_findOldObject(OID oid, uint64_t generation);
+
 
 /** Find the first object of a generation.
 
@@ -107,7 +132,9 @@ ld_findObject(OID oid);
 
     @param[in] generation The generation number to scan.
     @return The ObjectDescriptor of the first object in a generation scan
-            or NULL.
+            or NULL. This pointer will be good until
+	    a change is made to the log directory, either adding or
+	    modifing an entry, or deleting a generation.
 */
 const ObjectDescriptor *
 ld_findFirstObject(uint64_t generation);
@@ -119,7 +146,9 @@ ld_findFirstObject(uint64_t generation);
 
     @param[in] generation The generation number to scan.
     @return The ObjectDescriptor of the next object in a generation scan
-            or NULL.
+            or NULL. This pointer will be good until
+	    a change is made to the log directory, either adding or
+	    modifing an entry, or deleting a generation.
 */
 const ObjectDescriptor *
 ld_findNextObject(uint64_t generation);
@@ -129,6 +158,9 @@ ld_findNextObject(uint64_t generation);
 
     Note: This routine may need to be executed in smaller pieces to meet
     real-time requirements.
+
+    Note: This routine invalidates all pointers returned by ld_findObject,
+    ld_findOldObject, ld_findFirstObject, or ld_findNextObject.
 
     @param uint64_t generation The generation to clear.
 */

@@ -35,21 +35,31 @@ Approved for public release, distribution unlimited. */
 #define NUMBER_LOG_DIR_ENTRIES 5000
 
 typedef struct TreeNode {
-  	uint64_t generation;
-	ObjectDescriptor od;
+  /* Data that describes the primary location of the object. */
+  uint64_t generation;
+  ObjectDescriptor od;
+
+  /* Data that describes the previous primary location of the object */
+  uint8_t ppGenerationDelta; /* Difference between ppgeneration and
+				the primary generation. If this field is
+			        zero, there is no previous primary data. */
+  ObjectDescriptor ppod;     /* ObjectDescriptor for previous location */
+
   /* Data for the RB tree */
-	struct TreeNode *left;
-  	struct TreeNode *right;
-  	struct TreeNode *parent;
-  	int color;
+  struct TreeNode *left;
+  struct TreeNode *right;
+  struct TreeNode *parent;
+  int color;
+
   /* Data for the doublely linked list */
-        struct TreeNode *prev;
-        struct TreeNode *next;
+  struct TreeNode *prev;
+  struct TreeNode *next;
 } TreeNode;
 
 #define TREE_NIL (&log_directory_nil_node)
 TreeNode log_directory_nil_node = {
-  0, { 0, 0, 0, 0, 0, 0, 0}, TREE_NIL, TREE_NIL, TREE_NIL, TREE_BLACK,
+  0, { 0, 0, 0, 0, 0, 0, 0},    0, { 0, 0, 0, 0, 0, 0, 0},
+  TREE_NIL, TREE_NIL, TREE_NIL, TREE_BLACK,
   NULL, NULL};
 
 TreeNode nodes[NUMBER_LOG_DIR_ENTRIES];
@@ -59,32 +69,26 @@ typedef struct TreeHead {
   TreeNode *root;
 } TreeHead;
 
-/** Objects cleaned more recently than the restart generation.
 
-    When searching for the most recent location of an object, this
-    tree will be searched first. If no entry is found in this tree,
-    the log_directory tree will be searched next.
- */
-TreeHead working_directory = {TREE_NIL};
+/** Objects known to the log directory.
 
-/** Objects from the restart generation and earlier generations.
-
-    When looking for a log location for a journal write, this is the
-    only tree that will be searched.
+    When looking for a log location for a journal write, check the generation
+    of the primary location for the entry. If it is the working generation,
+    use the data from the previous primary. If generation of that entry is
+    a migrated and commited generation, use the home location.
  */
 TreeHead log_directory = {TREE_NIL};
 
 /** Headers for lists of all TreeNodes of a given generation.
 
-    In addition to two trees we keep for locating the working generation
-    version of an OID and the most recent of the restart and previous
-    generations. Each of nodes are kept in a linked list by generation
+    In addition to the tree we keep for locating the objects by OID,
+    each of the nodes is kept in a linked list by generation
     to enable us to quickly delete them when we overlay an old generation
-    with more recent data.
+    with more recent data and to scan them for writing the checkpoint
+    directory and for migration.
 
-    Generations older than highest_generation - LD_MAX_GENERATIONS 
-    are all lumped together in the list addressed by 
-    generation_table[LD_MAX_GENERATIONS].
+    If a generation older than highest_generation - LD_MAX_GENERATIONS 
+    is found, that is an error.
  */
 #define LD_MAX_GENERATIONS 15
 typedef struct {
@@ -131,38 +135,16 @@ free_node(TreeNode *tn) {
 
 /** Return the index in the generation table for a given generation.
 
-    Note that all generations older than LD_MAX_GENERATIONS are kept in
-    the last entry.
-
     @param[in] generation The generation for which the index is wanted
     @return The index for the generation table.
 */
 static int
 get_generation_index(uint64_t generation) {
   uint64_t gdelta = highest_generation - generation;
-  return (gdelta > LD_MAX_GENERATIONS ? LD_MAX_GENERATIONS : gdelta);
+  assert(gdelta < LD_MAX_GENERATIONS);
+  return gdelta;
 }
 
-
-/** Merge a list into the lumped together list.
-
-    @param[in] tn A TreeNode in the list to merge.
-*/
-static void
-merge_list(/*NullOK*/ TreeNode *tn) {
-  if (NULL == tn) return; /* Nothing to do */
-  assert(NULL == generation_table[LD_MAX_GENERATIONS].cursor);
-  if (NULL ==generation_table[LD_MAX_GENERATIONS].head) {
-    /* There are no entries in the lumped end. Just move these there. */
-    generation_table[LD_MAX_GENERATIONS].head = tn;
-  } else {
-    TreeNode *x = generation_table[LD_MAX_GENERATIONS].head;
-    x->prev->next = tn->prev;
-    tn->prev->next = x->prev;
-    x->prev = tn;
-    tn->prev = x;
-  }
-}
 
 /** Chain a node into the generation chain.
 
@@ -185,7 +167,7 @@ chain_node(TreeNode *n) {
 }
 
 #ifndef NDEBUG
-/** Sanity check the generaion chain. */
+/** Sanity check the generation chain. */
 static bool
 chains_validate(void) {
   int count = 0;
@@ -242,9 +224,11 @@ unchain_node(TreeNode *n) {
     @return negative if od1 is less than od2, 0 if they are equal,
             and positive if od1 is greater than od2.
 */
-static int
+inline static int
 comp(const ObjectDescriptor *od1, const ObjectDescriptor *od2) {
-  return od1->oid - od2->oid;
+  if (od1->oid < od2->oid) return -1;
+  else if (od1->oid == od2->oid) return 0;
+  return 1;
 }
 
 #ifndef NDEBUG
@@ -455,15 +439,15 @@ tree_insert_fixup(TreeHead *tree, TreeNode *x) {
     that node will be update and no new node will be inserted.
 
     @param[in] tree The top node of the tree.
-    @param[in] tn The node to insert.
+    @param[in] od The object information to insert.
+    @param[in] generation The generation of the object.
     @return A pointer to the node inserted, or NULL if an existing
     node was updated.
 */
 
 
 static TreeNode *
-binary_insert(TreeHead *tree, const ObjectDescriptor *od, 
-	      uint64_t generation) {
+binary_insert(TreeHead *tree, const ObjectDescriptor *od, uint64_t generation) {
 #ifndef NDEBUG
   int whichcase;
 #endif
@@ -486,9 +470,14 @@ binary_insert(TreeHead *tree, const ObjectDescriptor *od,
       printf("Update OID %lld in node 0x%08x\n", od->oid, x);
 #endif
       unchain_node(x);
+      if (x->generation < generation) {
+	assert(generation - x->generation < (uint8_t)0xff);
+	x->ppGenerationDelta = generation - x->generation;
+	x->ppod = x->od;
+      }
+      x->od = *od;
       x->generation = generation;
       chain_node(x);
-      x->od = *od;
 #ifndef NDEBUG
       assert (tree_validate(tree, tree->root) );
 #endif
@@ -510,6 +499,7 @@ binary_insert(TreeHead *tree, const ObjectDescriptor *od,
   tn->right = TREE_NIL;
   tn->parent = TREE_NIL;
   tn->generation = generation;
+  tn->ppGenerationDelta = 0;
   chain_node(tn);
 
   tn->parent = y;
@@ -914,8 +904,8 @@ find_node(TreeHead *directory, OID oid) {
 */
 void ld_recordLocation(const ObjectDescriptor *od, uint64_t generation) {
   assert(TREE_NIL->color == TREE_BLACK);
-  TreeHead *tree;
-
+  TreeHead *tree = &log_directory;
+  
   if (generation > highest_generation) {
     if (0 == highest_generation) {
       /* Startup. Initialize the generation table */
@@ -931,51 +921,14 @@ void ld_recordLocation(const ObjectDescriptor *od, uint64_t generation) {
       }
       assert(0 == log_entry_count);
     } else {
-      /* Move the most recent generation from the working directory
-	 to the log directory. */
-      TreeNode *tn = generation_table[0].head;
-      if (NULL != tn) {
-	TreeNode *end = tn->prev;
-	for (;;) {
-	  /* Save information from node to be deleted */
-	  ObjectDescriptor od = tn->od;
-	  uint64_t gen = tn->generation;
-	  /* We are done with tn - keep pointer for loop end test */
-	  TreeNode *next = tn->next;
-	  tree_remove_node(&working_directory, tn);
-	  TreeNode *nn = binary_insert(&log_directory, &od, gen);
-
-	  if (NULL != nn) {
-	    
-	    nn->color = TREE_RED;
-	    
-	    tree_insert_fixup(&log_directory, nn);
-	    
-	    log_directory.root->color = TREE_BLACK;
-	    assert(log_directory.root->parent == TREE_NIL);
-	    assert(TREE_NIL->color == TREE_BLACK);
-	    
-#ifndef NDEBUG
-	    if ( !tree_validate(&log_directory, log_directory.root) ) {
-	      printf("Tree bad after ld_recordLocation()\n");
-	      assert(FALSE);
-	    }
-#endif
-	  }
-	  if (tn == end) break;
-	  tn = next;
-	}
-      }
-      assert(working_directory.root == TREE_NIL);
-
       /* Move the generation table to accomodate the new generation */
       uint64_t move_size = generation - highest_generation;
       int ms = (move_size > LD_MAX_GENERATIONS
 		? LD_MAX_GENERATIONS : move_size);
       int i;
       for (i=LD_MAX_GENERATIONS-1; i>=LD_MAX_GENERATIONS-ms; i--) {
-	/* These generations get added to the lump at the end */
-	merge_list(generation_table[i].head);
+	/* If there are any nodes in these generations, it is an error */
+	assert(generation_table[i].head == NULL);
       }
       for (; i>=0; i--) {
 	/* These generations are kept lower in the table */
@@ -988,24 +941,20 @@ void ld_recordLocation(const ObjectDescriptor *od, uint64_t generation) {
       }
     }
     highest_generation = generation;
-    tree = &working_directory;
-  } else if (generation == highest_generation) {
-    tree = &working_directory;
-  } else {
-    tree = &log_directory;
   }
+  
   TreeNode *tn = binary_insert(tree, od, generation);
-
+  
   if (NULL == tn) return;
-
+  
   tn->color = TREE_RED;
-
+  
   tree_insert_fixup(tree, tn);
-
+  
   tree->root->color = TREE_BLACK;
   assert(tree->root->parent == TREE_NIL);
   assert(TREE_NIL->color == TREE_BLACK);
-
+  
 #ifndef NDEBUG
   if ( !tree_validate(tree, tree->root) ) {
     printf("Tree bad after ld_recordLocation()\n");
@@ -1017,17 +966,46 @@ void ld_recordLocation(const ObjectDescriptor *od, uint64_t generation) {
 
 /** Find an object in the directory.
 
-    This routine will return the LIDs of objects in the working generation.
+    This routine will return primary location information for objects.
 
     @param[in] oid The object ID to be located.
     @return A pointer to the ObjectDescriptor for the object or NULL if the
             object is not in the log.
 */
 const ObjectDescriptor *ld_findObject(OID oid) {
-  TreeNode *n = find_node(&working_directory, oid);
+  TreeNode *n = find_node(&log_directory, oid);
   if (NULL != n) return &n->od;
-  n = find_node(&log_directory, oid);
-  if (NULL != n) return &n->od;
+  return NULL;
+}
+
+
+/** Find an object older than a given generation in the directory.
+
+    This routine will return the primary location LID of the object
+    if it is older than the given generation. It will return the previous
+    primary location if the primary is of the given generation or younger,
+    and the previous primary is older than the given generation.
+
+    @param[in] oid The object ID to be located.
+    @param[in] generation The generation the object must be older than.
+    @return A pointer to the ObjectDescriptor for the object or NULL if the
+            object is not in the log, or the log entry is younger or 
+	    equal in age to generation.
+
+	    NOTE: This pointer will be good until another call is made
+	    to ld_findOldObject.
+*/
+const ObjectDescriptor *
+ld_findOldObject(OID oid, uint64_t generation) {
+  TreeNode *n = find_node(&log_directory, oid);
+  if (NULL == n) return NULL;
+  if (n->generation < generation) {
+    return &n->od;
+  }
+  uint64_t nppgen = n->generation - n->ppGenerationDelta;
+  if (generation > nppgen) {
+    return &n->ppod;
+  }
   return NULL;
 }
 
@@ -1084,21 +1062,22 @@ const ObjectDescriptor *ld_findNextObject(uint64_t generation) {
 */
 void ld_clearGeneration(uint64_t generation) {
   assert (generation <= highest_generation);
-
+  
   int gti = get_generation_index(generation);
-  TreeNode *tn = generation_table[gti].head;
-  TreeHead *tree = (0 == gti ? &working_directory : &log_directory);
-
-  if (NULL == tn) return;
-  while (tn->next != tn) {
-    tree_remove_node(tree, tn->next);
+  for (; gti < LD_MAX_GENERATIONS; gti++) {
+    TreeNode *tn = generation_table[gti].head;
+    TreeHead *tree = &log_directory;
+    
+    if (NULL == tn) continue;
+    while (tn->next != tn) {
+      tree_remove_node(tree, tn->next);
+    }
+    tree_remove_node(tree, tn);
+    generation_table[gti].head = NULL;
+    generation_table[gti].cursor = NULL;
   }
-  tree_remove_node(tree, tn);
-  generation_table[gti].head = NULL;
-  generation_table[gti].cursor = NULL;
 }
-
-
+ 
 
 
 
@@ -1116,7 +1095,6 @@ rand(void) {
   return (rand_state >> 32) & 0x7fffffff;
 }
 
-#ifdef NOT_USED
 /** Compare two object descriptors for equality.
 
     @param[in] a The first object descriptor to compare.
@@ -1124,7 +1102,7 @@ rand(void) {
     @return TRUE if they are equal, FALSE otherwise.
 */
 static bool
-odEqual(ObjectDescriptor *a, ObjectDescriptor *b) {
+odEqual(const ObjectDescriptor *a, const ObjectDescriptor *b) {
   if (a->oid != b->oid) return false;
   if (a->allocCount != b->allocCount) return false;
   if (a->callCount != b->callCount) return false;
@@ -1134,7 +1112,6 @@ odEqual(ObjectDescriptor *a, ObjectDescriptor *b) {
   if (a->type != b->type) return false;
   return true;
 }
-#endif
 
 
 /** Print the contents of an object descriptor.
@@ -1244,6 +1221,42 @@ checkAGeneration(uint64_t generation, uint64_t randomSeed) {
 }
 
 
+/** Test a previous primary generation worth of entries in the tree.
+
+    @param[in] generation The generation number of the previous entry.
+    @param[in] randomSeed The seed for generating random numbers.
+*/
+static void
+checkDuplicateGeneration(uint64_t generation, uint64_t randomSeed) {
+  int this_pass;
+  uint32_t r;
+  int i;
+  
+  rand_state = randomSeed;
+  this_pass = rand() % MAX_TEST_OBJECTS;
+
+  printf("Fetching %d objects for previous generation %d\n",
+	 this_pass, generation);
+
+  for (i=0; i<this_pass; i++) {
+    r = rand();
+    const ObjectDescriptor *rv = ld_findOldObject(r, generation+1);
+    const ObjectDescriptor *cv = ld_findObject(r);
+    assert (!odEqual(rv, cv));
+    // printf("r: "); printOD(rv);
+    if (rv->oid != r || rv->callCount != (r/3) || rv->allocCount != (r/5)
+	|| rv->type != ((r/7)&1)
+	|| rv->logLoc != i+MAX_TEST_OBJECTS*generation) {
+      printf("ld_findObject failed on OID %d\n", r);
+      printf("rv: "); printOD(rv);
+      printf("oid=%d, allocCount=%d, callCount=%d, type=%d, logLoc= %d\n",
+	     r, r/5, r/3, (r/7)&1, i+MAX_TEST_OBJECTS*generation);
+      assert(FALSE);
+    }
+  }
+}
+
+
 /** Run a unit test on the log directory.
  */
 int main() {
@@ -1254,7 +1267,6 @@ int main() {
   uint64_t save_random_state[NBR_GENERATIONS];
   int i, j;
 
-  printf("working_directory at 0x%08x\n", &working_directory);
   printf("log_directory at 0x%08x\n", &log_directory);
   printf("TREE_NIL at 0x%08x\n", TREE_NIL);
   rand(); /* First random number is zero, clear it */
@@ -1272,6 +1284,11 @@ int main() {
     }
     makeAGeneration(generation, save_random_state[i]);
     checkAGeneration(generation, save_random_state[i]);
+    if (0 == (i % INTRODUCE_DUPLICATES) && i>0 ) {
+      printf("Checking previous entries for generation %d\n", generation);
+      checkDuplicateGeneration(generation-INTRODUCE_DUPLICATES,
+			       save_random_state[i]);
+    }
     if (i>=MIGRATE_DEPTH) {
       printf("Clearing generation %d\n", generation-MIGRATE_DEPTH);
       ld_clearGeneration(generation-MIGRATE_DEPTH);
@@ -1284,7 +1301,7 @@ int main() {
       rand_state = high_random_state;
     }
   }
-  /* Clear all but the last generation, can't clear the working generation */
+  /* Clear all generations */
   for (i=NBR_GENERATIONS-INTRODUCE_DUPLICATES; i<NBR_GENERATIONS; i++) {
     printf("Clearing generation %d\n", i+GENERATION_OFFSET);
     ld_clearGeneration(i+GENERATION_OFFSET);
