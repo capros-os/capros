@@ -36,7 +36,7 @@ Approved for public release, distribution unlimited. */
 
 typedef struct TreeNode {
   /* Data that describes the primary location of the object. */
-  uint64_t generation;
+  GenNum generation;
   ObjectDescriptor od;
 
   /* Data that describes the previous primary location of the object */
@@ -97,7 +97,7 @@ typedef struct {
 } GT;
 
 GT generation_table[LD_MAX_GENERATIONS+1];
-uint64_t highest_generation = 0;
+GenNum highest_generation = 0;
 int log_entry_count = 0; /** Number of allocated TreeNodes */
 
 /** Allocate a TreeNode from the free list.
@@ -139,8 +139,8 @@ free_node(TreeNode *tn) {
     @return The index for the generation table.
 */
 static int
-get_generation_index(uint64_t generation) {
-  uint64_t gdelta = highest_generation - generation;
+get_generation_index(GenNum generation) {
+  GenNum gdelta = highest_generation - generation;
   assert(gdelta < LD_MAX_GENERATIONS);
   return gdelta;
 }
@@ -447,7 +447,7 @@ tree_insert_fixup(TreeHead *tree, TreeNode *x) {
 
 
 static TreeNode *
-binary_insert(TreeHead *tree, const ObjectDescriptor *od, uint64_t generation) {
+binary_insert(TreeHead *tree, const ObjectDescriptor *od, GenNum generation) {
 #ifndef NDEBUG
   int whichcase;
 #endif
@@ -790,7 +790,7 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
   
   {
     ObjectDescriptor zvalue = z->od;	/* SHAP */
-    uint64_t generation = z->generation;
+    GenNum generation = z->generation;
 
     if (y != z) {
       unchain_node(z);  /* Remove z from the generation chain */
@@ -902,7 +902,7 @@ find_node(TreeHead *directory, OID oid) {
     @param[in] od The Object Descriptor for the object.
     @param[in] generation The log generation of the object.
 */
-void ld_recordLocation(const ObjectDescriptor *od, uint64_t generation) {
+void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
   assert(TREE_NIL->color == TREE_BLACK);
   TreeHead *tree = &log_directory;
   
@@ -922,7 +922,7 @@ void ld_recordLocation(const ObjectDescriptor *od, uint64_t generation) {
       assert(0 == log_entry_count);
     } else {
       /* Move the generation table to accomodate the new generation */
-      uint64_t move_size = generation - highest_generation;
+      GenNum move_size = generation - highest_generation;
       int ms = (move_size > LD_MAX_GENERATIONS
 		? LD_MAX_GENERATIONS : move_size);
       int i;
@@ -996,13 +996,13 @@ const ObjectDescriptor *ld_findObject(OID oid) {
 	    to ld_findOldObject.
 */
 const ObjectDescriptor *
-ld_findOldObject(OID oid, uint64_t generation) {
+ld_findOldObject(OID oid, GenNum generation) {
   TreeNode *n = find_node(&log_directory, oid);
   if (NULL == n) return NULL;
   if (n->generation < generation) {
     return &n->od;
   }
-  uint64_t nppgen = n->generation - n->ppGenerationDelta;
+  GenNum nppgen = n->generation - n->ppGenerationDelta;
   if (generation > nppgen) {
     return &n->ppod;
   }
@@ -1025,7 +1025,7 @@ ld_findOldObject(OID oid, uint64_t generation) {
     @param[in] generation The generation number to scan.
     @return The ObjectDescriptor of the first object in a generation scan.
 */
-const ObjectDescriptor *ld_findFirstObject(uint64_t generation) {
+const ObjectDescriptor *ld_findFirstObject(GenNum generation) {
   int gti = get_generation_index(generation);
   GT *gte = &generation_table[gti];
   if (NULL == gte->head) return NULL;
@@ -1041,7 +1041,7 @@ const ObjectDescriptor *ld_findFirstObject(uint64_t generation) {
     @param[in] generation The generation number to scan.
     @return The ObjectDescriptor of the next object in a generation scan.
 */
-const ObjectDescriptor *ld_findNextObject(uint64_t generation) {
+const ObjectDescriptor *ld_findNextObject(GenNum generation) {
   int gti = get_generation_index(generation);
   GT *gte = &generation_table[gti];
   if (NULL == gte->cursor) return NULL;
@@ -1058,9 +1058,9 @@ const ObjectDescriptor *ld_findNextObject(uint64_t generation) {
     Note: This routine may need to be executed in smaller pieces to meet
     real-time requirements.
 
-    @param uint64_t generation The generation to clear.
+    @param[in] generation The generation to clear.
 */
-void ld_clearGeneration(uint64_t generation) {
+void ld_clearGeneration(GenNum generation) {
   assert (generation <= highest_generation);
   
   int gti = get_generation_index(generation);
@@ -1140,7 +1140,7 @@ printOD(const ObjectDescriptor *a) {
 */
 #define MAX_TEST_OBJECTS 1000
 static void
-makeAGeneration(uint64_t generation, uint64_t randomSeed) {
+makeAGeneration(GenNum generation, uint64_t randomSeed) {
   int this_pass;
   uint32_t r;
   int i;
@@ -1180,7 +1180,7 @@ makeAGeneration(uint64_t generation, uint64_t randomSeed) {
     @param[in] randomSeed The seed for generating random numbers.
 */
 static void
-checkAGeneration(uint64_t generation, uint64_t randomSeed) {
+checkAGeneration(GenNum generation, uint64_t randomSeed) {
   int this_pass;
   uint32_t r;
   int i;
@@ -1227,7 +1227,7 @@ checkAGeneration(uint64_t generation, uint64_t randomSeed) {
     @param[in] randomSeed The seed for generating random numbers.
 */
 static void
-checkDuplicateGeneration(uint64_t generation, uint64_t randomSeed) {
+checkDuplicateGeneration(GenNum generation, uint64_t randomSeed) {
   int this_pass;
   uint32_t r;
   int i;

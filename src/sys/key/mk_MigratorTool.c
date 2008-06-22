@@ -47,7 +47,7 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-uint64_t workingGenerationNumber;
+GenNum workingGenerationNumber;
 LID logCursor = 0;	// next place to write in the main log
 LID currentRoot;	// CKPT_ROOT_0 or CKPT_ROOT_1
 Activity * migratorActivity;

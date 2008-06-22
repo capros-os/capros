@@ -51,7 +51,7 @@ Approved for public release, distribution unlimited. */
 
 extern LID logCursor;	// next place to write in the main log
 extern LID logWrapPoint;	// end of main log
-extern uint64_t workingGenerationNumber;
+extern GenNum workingGenerationNumber;
 
 /** The object information maintained by the Log Directory.
  */
@@ -81,7 +81,7 @@ typedef struct ObjectDescriptor {
     @param[in] generation The log generation of the object.
 */
 void
-ld_recordLocation(const ObjectDescriptor *od, uint64_t generation);
+ld_recordLocation(const ObjectDescriptor *od, GenNum generation);
 
 /** Find an object in the directory.
 
@@ -115,7 +115,7 @@ ld_findObject(OID oid);
 	    modifing an entry, or deleting a generation.
 */
 const ObjectDescriptor *
-ld_findOldObject(OID oid, uint64_t generation);
+ld_findOldObject(OID oid, GenNum generation);
 
 
 /** Find the first object of a generation.
@@ -137,7 +137,7 @@ ld_findOldObject(OID oid, uint64_t generation);
 	    modifing an entry, or deleting a generation.
 */
 const ObjectDescriptor *
-ld_findFirstObject(uint64_t generation);
+ld_findFirstObject(GenNum generation);
 
 /** Find the next object of a generation.
 
@@ -151,7 +151,7 @@ ld_findFirstObject(uint64_t generation);
 	    modifing an entry, or deleting a generation.
 */
 const ObjectDescriptor *
-ld_findNextObject(uint64_t generation);
+ld_findNextObject(GenNum generation);
 
 /** Remove all the objects in a generation, and all earlier generations,
     from the Log Directory.
@@ -162,9 +162,9 @@ ld_findNextObject(uint64_t generation);
     Note: This routine invalidates all pointers returned by ld_findObject,
     ld_findOldObject, ld_findFirstObject, or ld_findNextObject.
 
-    @param uint64_t generation The generation to clear.
+    @param[in] generation The generation to clear.
 */
 void
-ld_clearGeneration(uint64_t generation);
+ld_clearGeneration(GenNum generation);
 
 #endif /* LOGDIRECTORY_H */
