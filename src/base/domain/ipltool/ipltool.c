@@ -61,6 +61,13 @@ unsigned long __rt_stack_pointer = 0x20000;
 unsigned long __rt_runtime_hook = 0;
 uint32_t __rt_unkept = 1;
 
+#define dbg_init	0x1 
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u )
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
+
 void
 ProcessThreadlist(void)
 {
@@ -90,6 +97,8 @@ ProcessThreadlist(void)
         continue;
 
       if (keyType == AKT_Process) {
+        DEBUG(init) kdprintf(KR_OSTREAM,
+                      "Starting process in key %d\n", KR_FAULT);
 	/* If the key is a process key, fabricate a fault key to it in
 	   order to set it in motion. */
 	capros_Process_makeResumeKey(KR_FAULT, KR_FAULT);
@@ -99,6 +108,8 @@ ProcessThreadlist(void)
       }
       else {
 	/* Assume it's a constructor key */
+        DEBUG(init) kdprintf(KR_OSTREAM,
+                      "Starting constructor in key %d\n", KR_FAULT);
 	msg.snd_code = OC_capros_Constructor_request;
 	msg.snd_invKey = KR_FAULT;
       }
@@ -127,6 +138,7 @@ main()
   // See if there are preloaded persistent threads.
   capros_Node_getSlot(KR_VOLSIZE, volsize_pvolsize, KR_TEMP1);
   // Is this a different volsize node?
+  capros_Node_getSlot(KR_CONSTIT, KC_THREADLIST, KR_TEMP0);
   bool equal;
   result = capros_Discrim_compare(KR_DISCRIM, KR_TEMP0, KR_TEMP1, &equal);
   assert(result == RC_OK);
