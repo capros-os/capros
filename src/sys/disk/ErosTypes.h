@@ -78,4 +78,6 @@ typedef uint64_t LID;
 // The log begins with the two CkptRoots.
 #define MAIN_LOG_START FrameToOID(2)
 
+typedef uint32_t GenNum;	// a generation number
+
 #endif /* ErosTypes.h */
