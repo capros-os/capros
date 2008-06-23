@@ -477,8 +477,6 @@ CleanAPotOfNodes(bool force)
       .allocCount = pObj->allocCount,
       .callCount = pNode->callCount,
       .logLoc = lid + i,
-      .allocCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_AllocCntUsed)),
-      .callCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_CallCntUsed)),
       .type = capros_Range_otNode
     };
     ld_recordLocation(&objDescr, workingGenerationNumber);
@@ -600,8 +598,6 @@ objC_AgeNodeFrames(void)
               .allocCount = pObj->allocCount,
               .callCount = pNode->callCount,
               .logLoc = 0,	// it's null
-              .allocCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_AllocCntUsed)),
-              .callCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_CallCntUsed)),
               .type = capros_Range_otNode
             };
             ld_recordLocation(&objDescr, workingGenerationNumber);
@@ -815,9 +811,7 @@ IOReq_EndPageClean(IORequest * ioreq)
       .oid = pObj->oid,
       .logLoc = FrameToOID(ioreq->rangeLoc) + ioreq->objRange->start,
       .allocCount = pObj->allocCount,
-      .allocCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_AllocCntUsed)),
       .callCount = 0,	// not used
-      .callCountUsed = 0,	// not used
       .type = capros_Range_otPage
     };
     ld_recordLocation(&objDescr, workingGenerationNumber);

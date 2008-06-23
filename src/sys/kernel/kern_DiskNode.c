@@ -52,8 +52,6 @@ node_CopyToDiskNode(Node * pNode, DiskNode * dn)
   dn->allocCount = pObj->allocCount;
   dn->callCount = pNode->callCount;
   dn->nodeData = pNode->nodeData;
-  dn->allocCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_AllocCntUsed));
-  dn->callCountUsed  = boolToBit(objH_GetFlags(pObj, OFLG_CallCntUsed));
 
   for (i = 0; i < EROS_NODE_SIZE; i++) {
     node_ClearHazard(pNode, i);
@@ -77,11 +75,17 @@ node_SetEqualTo(Node * thisPtr, const DiskNode * other)
   pObj->allocCount = other->allocCount;
   thisPtr->callCount = other->callCount;
   thisPtr->nodeData = other->nodeData;
-  objH_ClearFlags(pObj, OFLG_AllocCntUsed | OFLG_CallCntUsed);
-  if (other->allocCountUsed)
-    objH_SetFlags(pObj, OFLG_AllocCntUsed);
-  if (other->callCountUsed)
-    objH_SetFlags(pObj, OFLG_CallCntUsed);
+
+  /* The AllocCntUsed and CallCntUsed bits are not stored on disk.
+   * If we did store them on disk, then changing the bits would constitute
+   * dirtying the object.
+   * The bits are set when prepared keys to the object are unprepared,
+   * which occurs when cleaning a node.
+   * It would be very inconvenient, and possibly result in deadlock,
+   * if cleaning a node resulted in dirtying many other objects. 
+   *
+   * Since the bits are not on disk, we have to assume they are set: */
+  objH_SetFlags(pObj, OFLG_AllocCntUsed | OFLG_CallCntUsed);
 
   node_SetReferenced(thisPtr);
 

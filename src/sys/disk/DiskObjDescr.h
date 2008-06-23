@@ -30,16 +30,12 @@ Approved for public release, distribution unlimited. */
 // (2) it saves space on disk.
 
 struct DiskObjectDescriptor {
-  OID       oid;                /**<The Object ID of the object. */
-  ObCount   allocCount;         /**<The allocation count of the object. */
-  ObCount   callCount;          /**<The call count of the object. */
-  LID       logLoc;             /**<The Log location ID where the object
+  OID       oid;		/**<The Object ID of the object. */
+  ObCount   allocCount;		/**<The allocation count of the object. */
+  ObCount   callCount;		/**<The call count of the object. */
+  LID       logLoc;		/**<The Log location ID where the object
 				   is stored in the log. */
-  uint8_t   allocCountUsed : 1; /**<TRUE if the allocation count is stored
-				   in some other object. */
-  uint8_t   callCountUsed : 1;  /**<TRUE if the call count is stored in
-				   some other object. */
-  uint8_t   type : 6;           /**<The type of the object. */
+  uint8_t   type;		/**<The type of the object. */
 } __attribute__ ((packed));
 typedef struct DiskObjectDescriptor DiskObjectDescriptor;
 

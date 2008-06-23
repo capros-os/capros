@@ -43,8 +43,6 @@ typedef struct DiskNode {
   ObCount callCount;
 
   uint16_t nodeData;
-  bool allocCountUsed;
-  bool callCountUsed;
   KeyBits slot[EROS_NODE_SIZE];
 } DiskNode;
 

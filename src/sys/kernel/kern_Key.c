@@ -340,7 +340,11 @@ xchg_key(uint32_t slot0, uint32_t slot1)
 }
 
 // Disregards any read hazard on src.
-// Does not set OFLG_*CntUsed in the object.
+/* Note, this procedure may set OFLG_AllocCntUsed or OFLG_CallCntUsed,
+ * which can accelerate the overflow of the allocation or call counts,
+ * so it should not be used indiscriminately.
+ * It is used only when cleaning (which is limited by disk bandwidth)
+ * or by the closely held KeyBits key. */
 void
 key_MakeUnpreparedCopy(Key * dst, const Key * src)
 {
@@ -356,13 +360,19 @@ key_MakeUnpreparedCopy(Key * dst, const Key * src)
   if (keyBits_IsProcessType(src)) {
     pObj = node_ToObj(src->u.gk.pContext->procRoot);
 
-    if (keyBits_IsType(src, KKT_Resume))
+    if (keyBits_IsType(src, KKT_Resume)) {
       cnt = node_GetCallCount(objH_ToNode(pObj));
-    else
+      objH_SetFlags(pObj, OFLG_CallCntUsed);
+    } else {
       cnt = objH_GetAllocCount(pObj);
+      objH_SetFlags(pObj, OFLG_AllocCntUsed);
+    }
   } else {
     pObj = src->u.ok.pObj;
     cnt = objH_GetAllocCount(pObj);
+    /* Note, setting OFLG_AllocCntUsed and OFLG_CallCntUsed does not
+     * dirty the object. These bits are always assumed to be on on the disk. */
+    objH_SetFlags(pObj, OFLG_AllocCntUsed);
   }
 
   dst->u.unprep.count = cnt;
@@ -471,76 +481,41 @@ key_Print(const Key* thisPtr)
 uint32_t
 key_CalcCheck(Key* thisPtr)
 {
-  uint32_t *pWKey = 0;
-  uint32_t ck = 0;
+  int i;
+  Key k;
 
   assert(thisPtr);
-
-#if 1
-  /* Portable version: */
-  {
-    int i;
-    Key k;
         
-    key_MakeUnpreparedCopy(&k, thisPtr);
+  /* The following is similar to key_MakeUnpreparedCopy(&k, thisPtr),
+   * but does not set AllocCntUsed or CallCntUsed flags. */
+  k = *thisPtr;
+  k.keyFlags &= ~(KFL_HAZARD_BITS | KFL_PREPARED);
 
-    assert(k.keyFlags == 0);
+  if (keyBits_IsObjectKey(thisPtr) && ! keyBits_IsUnprepared(thisPtr)) {
+    ObjectHeader * pObj;
+    ObCount cnt;
     
-    pWKey = (uint32_t *) &k;
+    if (keyBits_IsProcessType(thisPtr)) {
+      pObj = node_ToObj(thisPtr->u.gk.pContext->procRoot);
 
-    for (i = 0; i < (sizeof(Key) / sizeof(uint32_t)); i++) 
-      ck ^= pWKey[i];
-  }
-#else
-  pWKey = (uint32_t *) thisPtr;
-
-  if ( keyBits_IsPreparedObjectKey(thisPtr) ) {
-    if (keyBits_IsType(thisPtr, KKT_Resume)) {
-      /* Inject the checksum for a void key instead so that
-       * zapping them won't change the checksum:
-       */
-
-      ck = key_CalcCheck(&key_VoidKey);
+      if (keyBits_IsType(thisPtr, KKT_Resume))
+        cnt = node_GetCallCount(objH_ToNode(pObj));
+      else
+        cnt = objH_GetAllocCount(pObj);
+    } else {
+      pObj = thisPtr->u.ok.pObj;
+      cnt = objH_GetAllocCount(pObj);
     }
-    else if (keyBits_IsType(thisPtr, KKT_Start)) {
-      /* This pointer hack is simply so that I don't have to remember
-       * machine specific layout conventions for long long
-       */
-    
-      Node *pDomain = thisPtr->u.gk.pContext->procRoot;
-      uint32_t *pOID = (uint32_t *) &pDomain->node_ObjHdr.oid;
-      ck ^= pOID[0];
-      ck ^= pOID[1];
 
-      ck ^= objH_GetAllocCount(& pDomain->node_ObjHdr);
-    }
-    else {
-      /* This pointer hack is simply so that I don't have to remember
-       * machine specific layout conventions for long long
-       */
-      uint32_t *pOID = (uint32_t *) &thisPtr->u.ok.pObj->oid;
-    
-      ck ^= pOID[0];
-      ck ^= pOID[1];
-      ck ^= objH_GetAllocCount(thisPtr->u.ok.pObj);
-    }
+    k.u.unprep.count = cnt;
+    k.u.unprep.oid = pObj->oid;
   }
-  else {
-    ck ^= pWKey[0];
-    ck ^= pWKey[1];
-    ck ^= pWKey[2];
-  }
-
-  /* mask out prepared, hazard bits! */
-  {
-    uint8_t saveKeyFlags = thisPtr->keyFlags;
-    thisPtr->keyFlags &= ~KFL_ALL_FLAG_BITS;
-
-    ck ^= pWKey[3];
   
-    thisPtr->keyFlags = saveKeyFlags;
-  }
-#endif
+  uint32_t * pWKey = (uint32_t *) &k;
+  uint32_t ck = 0;
+
+  for (i = 0; i < (sizeof(Key) / sizeof(uint32_t)); i++) 
+    ck ^= pWKey[i];
 
   return ck;
 }

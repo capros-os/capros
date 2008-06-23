@@ -357,7 +357,8 @@ objH_Rescind(ObjectHeader * thisPtr)
     thisPtr->allocCount++;
 
     // Track the maximum count of any nonpersistent object.
-    if (thisPtr->allocCount > maxNPAllocCount)
+    if (! objH_GetFlags(thisPtr, OFLG_Cleanable)
+        && thisPtr->allocCount > maxNPAllocCount)
       maxNPAllocCount = thisPtr->allocCount;
 
     objH_ClearFlags(thisPtr, OFLG_AllocCntUsed);
@@ -368,18 +369,19 @@ objH_Rescind(ObjectHeader * thisPtr)
 }
 
 void
-node_DoBumpCallCount(Node * node)
+node_DoBumpCallCount(Node * pNode)
 {
-  node->callCount++;
+  pNode->callCount++;
 
   // Track the maximum count of any nonpersistent object.
-  if (node->callCount > maxNPAllocCount)
-    maxNPAllocCount = node->callCount;
+  if (! objH_GetFlags(node_ToObj(pNode), OFLG_Cleanable)
+      && pNode->callCount > maxNPAllocCount)
+    maxNPAllocCount = pNode->callCount;
 
-  objH_ClearFlags(node_ToObj(node), OFLG_CallCntUsed);
+  objH_ClearFlags(node_ToObj(pNode), OFLG_CallCntUsed);
 
   /* The object must be dirty to ensure that the new count gets saved. */
-  assert(objH_IsDirty(node_ToObj(node)));
+  assert(objH_IsDirty(node_ToObj(pNode)));
 }
 
 void
