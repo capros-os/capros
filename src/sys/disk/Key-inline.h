@@ -410,9 +410,12 @@ INLINE void
 keyBits_InitToVoid(KeyBits *thisPtr)
 {
   keyBits_InitType(thisPtr, KKT_Void);
+#ifndef NDEBUG
+  // These shouldn't matter, but for cleanliness:
   thisPtr->u.nk.value[0] = 0;
   thisPtr->u.nk.value[1] = 0;
   thisPtr->u.nk.value[2] = 0;
+#endif
 }
 
 #ifdef __cplusplus

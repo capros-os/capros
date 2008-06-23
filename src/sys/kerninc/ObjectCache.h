@@ -101,7 +101,6 @@ bool objC_EvictFrame(PageHeader * pObj);
 
 /* Releases node/page frame to free list */
 void ReleasePageFrame(PageHeader * pageH);
-void ReleaseObjPageFrame(PageHeader * pageH);
 void ReleaseNodeFrame(Node * pNode);
 
 Node *objC_ContainingNode(void *);

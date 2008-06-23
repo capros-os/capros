@@ -52,6 +52,8 @@ LID logCursor = 0;	// next place to write in the main log
 LID currentRoot;	// CKPT_ROOT_0 or CKPT_ROOT_1
 Activity * migratorActivity;
 
+DEFQUEUE(RestartQueue);	// waiting for restart to finish
+
 // Restart state:
 
 LID lidNeeded = 0;
@@ -192,6 +194,8 @@ DoRestartStep(void)
 
     break;
   }
+  // Restart is done.
+  sq_WakeAll(&RestartQueue, false);
 }
 
 /* May Yield. */

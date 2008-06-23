@@ -99,7 +99,6 @@ enum {
   age_Invalidate = 2,		/* time to invalidate to see if active */
   age_Clean	= 4,		/* time to clean */
   age_Steal	= 5,		/* time to steal */
-  age_PageOut = 7,	//// temporary so it will compile
 
   /* Mapping tables have more rapid aging,
   because they are easy to regenerate. */

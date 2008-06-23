@@ -53,6 +53,8 @@ typedef struct IORQ {
 
 extern IORQ IORQs[];
 
+extern struct StallQueue RestartQueue;
+
 void IORQ_Init(void);
 IORequest * IOReq_Allocate(void);
 void IOReq_Deallocate(IORequest * iorq);
@@ -60,6 +62,8 @@ IORQ * IORQ_Allocate(void);
 void IORQ_Deallocate(IORQ * iorq);
 
 IORequest * AllocateIOReqAndPage(void);
+IORequest * IOReqCleaning_AllocateOrWait(void);
+IORequest * AllocateIOReqCleaningAndPage(void);
 
 void ioreq_Enqueue(IORequest * ioreq);
 

@@ -46,12 +46,12 @@ Approved for public release, distribution unlimited. */
 
 #define dbg_cachealloc	0x1	/* initialization */
 #define dbg_ckpt	0x2	/* migration state machine */
-#define dbg_map		0x4	/* migration state machine */
+#define dbg_aging	0x4
 #define dbg_ndalloc	0x8	/* node allocation */
 #define dbg_pgalloc	0x10	/* page allocation */
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u )
+#define dbg_flags   ( 0u | dbg_aging)////
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -354,13 +354,19 @@ ReleasePageFrame(PageHeader * pageH)
   physMem_FreeBlock(pageH, 1);
 }
 
+/* Remove this node from the cache and return it to the free node list: */
 void
 ReleaseNodeFrame(Node * pNode)
 {
   DEBUG(ndalloc)
     printf("ReleaseNodeFrame node=%#x\n", pNode);
 
-  assert(!objH_IsDirty(node_ToObj(pNode)));
+  ObjectHeader * pObj = node_ToObj(pNode);
+
+  assert(!objH_IsDirty(pObj));
+
+  objH_InvalidateProducts(pObj);
+  keyR_UnprepareAll(&pObj->keyRing);
 
 #ifndef NDEBUG
   uint32_t i = 0;
@@ -368,17 +374,17 @@ ReleaseNodeFrame(Node * pNode)
     assertex (pNode, keyBits_IsUnprepared(&pNode->slot[i]));
 #endif
 
-  objH_Unintern(node_ToObj(pNode));
-    
-  node_ToObj(pNode)->obType = ot_NtFreeFrame;
+  objH_Unintern(pObj);
 
-  node_ToObj(pNode)->prep_u.nextFree = node_ToObj(objC_firstFreeNode);
+  pObj->obType = ot_NtFreeFrame;
+
+  pObj->prep_u.nextFree = node_ToObj(objC_firstFreeNode);
   objC_firstFreeNode = pNode;
   objC_nFreeNodeFrames++;
 }
 
 /* Release a page that has an ObjectHeader. */
-void
+static void
 ReleaseObjPageFrame(PageHeader * pageH)
 {
   DEBUG(pgalloc)
@@ -422,49 +428,6 @@ objC_GrabThisPageFrame(PageHeader *pObj)
   pageH_SetReferenced(pObj);
 }
 
-/* Clean out the node/page frame, but do not remove it from memory. */
-/* pObj->obType must be node or ot_PtDataPage. */
-/* May Yield. */
-static void
-objC_CleanFrame1(ObjectHeader *pObj)
-{
-  /* Clean up the object we are reclaiming so we can free it: */
-
-  keyR_UnprepareAll(&pObj->keyRing);	/* This zaps any PTE's as a side effect. */
-  //// Use keyR_UnmapAll instead?
-}
-
-/* pObj->obType must be node or ot_PtDataPage. */
-bool
-objC_CleanFrame2(ObjectHeader *pObj)
-{
-  if (pObj->obType <= ot_NtLAST_NODE_TYPE)
-    /* FIXME: shouldn't we write back the node *before* clearing it? */
-    node_DoClearThisNode((Node *)pObj);
-
-  else
-    objH_InvalidateProducts(pObj);
-
-  /* Object must be paged out if dirty: */
-  if (objH_IsDirty(pObj)) {
-    /* If the object got rescued, it won't have hit ageout age, so
-     * the only way it should still be dirty is if the write has not
-     * completed:
-     */
-
-    DEBUG(ckpt)
-      dprintf(true, "ty %d oid 0x%08x%08x slq=0x%08x\n",
-		      pObj->obType,
-		      (uint32_t) (pObj->oid >> 32),
-		      (uint32_t) pObj->oid,
-		      ObjectStallQueueFromObHdr(pObj));
-    
-    objC_WriteBack(pObj, false);	/*** return value not used? */
-  }
-
-  return true;
-}
-
 /* The first numNodesToClean entries of nodesToClean are candidates
  * for cleaning. They may have been referenced since being added. */
 Node * nodesToClean[DISK_NODES_PER_PAGE];
@@ -494,7 +457,7 @@ CleanAPotOfNodes(bool force)
     }
   }
 
-  IORequest * ioreq = AllocateIOReqAndPage();	// may Yield
+  IORequest * ioreq = AllocateIOReqCleaningAndPage();	// may Yield
   PageHeader * pageH = ioreq->pageH;
   ObjectHeader * pObj;
 
@@ -520,7 +483,6 @@ CleanAPotOfNodes(bool force)
     };
     ld_recordLocation(&objDescr, workingGenerationNumber);
     //// Don't release if (force)?
-    keyR_UnprepareAll(&pObj->keyRing);
     ReleaseNodeFrame(pNode);
   }
 
@@ -541,17 +503,25 @@ CleanAPotOfNodes(bool force)
 
 /* May Yield. */
 static void
-objC_AgeNodeFrames()
+objC_AgeNodeFrames(void)
 {
   static uint32_t curNode = 0;
   uint32_t nStuck = 0;
   uint32_t nPinned = 0;
   int pass;
 
+  DEBUG(aging) printf("objC_AgeNodeFrames called.\n");
+
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Before AgeNodeFrames()");
 #endif
+
+  /* It may be that we already have a potful of nodes to be cleaned, 
+   * but they didn't get cleaned because we were unable to get a page frame
+   * or IORequest. Therefore check again here. */ 
+  if (CleanAPotOfNodes(false))
+    goto bumpAndReturn;	// freed some nodes
 
   for (pass = 0; pass <= age_Steal; pass++) {
     nPinned = 0;
@@ -638,33 +608,17 @@ objC_AgeNodeFrames()
             objH_ClearFlags(pObj, OFLG_DIRTY);	// cleaned it to the log dir
             goto stealNode;
           } else {
+            /* Add this dirty node to the list of candidates for cleaning. */
+            assert(numNodesToClean < DISK_NODES_PER_PAGE);
+            nodesToClean[numNodesToClean++] = pNode;
+            if (CleanAPotOfNodes(false))
+              goto bumpAndReturn;	// freed some nodes
           }
-      objC_CleanFrame1(pObj);
-      objC_CleanFrame2(pObj);
-
-        } else {
-        stealNode:
-          // Steal this frame.
-          objH_InvalidateProducts(pObj);
-          // Remove this page from the cache and return it to the free list:
-          assert(keyR_IsEmpty(&pObj->keyRing));
-          assert(!"complete");	////
+        } else {	// node is clean
+        stealNode:	// Steal this node.
+          ReleaseNodeFrame(pNode);
+          goto bumpAndReturn;
         }
-        curNode++;
-
-        /* Remove this node from the cache and return it to the free node
-         * list: */
-        ReleaseNodeFrame(pNode);
-
-#if defined(TESTING_AGEING) && 0
-        dprintf(true, "AgeNodeFrame(): Object evicted\n");
-#endif
-#ifdef DBG_WILD_PTR
-        if (dbg_wild_ptr)
-          check_Consistency("After AgeNodeFrames()");
-#endif
-
-        return;
       }
 
     nextNode:
@@ -675,32 +629,44 @@ objC_AgeNodeFrames()
 
   fatal("%d stuck nodes of which %d are pinned\n",
 		nStuck, nPinned);
+
+bumpAndReturn:
+  // We freed some nodes.
+
+#if defined(TESTING_AGEING) && 0
+  dprintf(true, "AgeNodeFrame(): Object evicted\n");
+#endif
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr)
+    check_Consistency("After AgeNodeFrames()");
+#endif
+
+  // No point in reconsidering the node we just freed:
+  if (++curNode >= objC_nNodes)
+    curNode = 0;
+  return;
 }
 
 Node *
 objC_GrabNodeFrame()
 {
-  Node *pNode = 0;
-
   if (objC_firstFreeNode == 0)
     objC_AgeNodeFrames();
   
   assert(objC_firstFreeNode);
   assert(objC_nFreeNodeFrames);
   
-  pNode = objC_firstFreeNode;
-  objC_firstFreeNode = (Node *) objC_firstFreeNode->node_ObjHdr.prep_u.nextFree;
+  Node * pNode = objC_firstFreeNode;
+  objC_firstFreeNode = objH_ToNode(node_ToObj(objC_firstFreeNode)->prep_u.nextFree);
   objC_nFreeNodeFrames--;
 
-  ObjectHeader * const pObj = &pNode->node_ObjHdr;
+  ObjectHeader * const pObj = node_ToObj(pNode);
   assert(pObj->obType == ot_NtFreeFrame);
 
-  /* Rip it off the hash chain, if need be: */
-  objH_Unintern(pObj);	/* Should it ever be interned? */
   assert(keyR_IsEmpty(&pObj->keyRing));
   kzero(pObj, sizeof(ObjectHeader));
 
-  pNode->node_ObjHdr.obType = ot_NtUnprepared;
+  pObj->obType = ot_NtUnprepared;
 
 #ifndef NDEBUG
   uint32_t i;
@@ -717,11 +683,43 @@ objC_GrabNodeFrame()
 
   node_SetReferenced(pNode);
   objH_ResetKeyRing(pObj);
-    
+
   return pNode;
 }
 
 #if 0	// revisit this if it turns out we need it
+
+/* pObj->obType must be node or ot_PtDataPage. */
+bool
+objC_CleanFrame2(ObjectHeader *pObj)
+{
+  if (pObj->obType <= ot_NtLAST_NODE_TYPE)
+    /* FIXME: shouldn't we write back the node *before* clearing it? */
+    node_DoClearThisNode((Node *)pObj);
+
+  else
+    objH_InvalidateProducts(pObj);
+
+  /* Object must be paged out if dirty: */
+  if (objH_IsDirty(pObj)) {
+    /* If the object got rescued, it won't have hit ageout age, so
+     * the only way it should still be dirty is if the write has not
+     * completed:
+     */
+
+    DEBUG(ckpt)
+      dprintf(true, "ty %d oid 0x%08x%08x slq=0x%08x\n",
+		      pObj->obType,
+		      (uint32_t) (pObj->oid >> 32),
+		      (uint32_t) pObj->oid,
+		      ObjectStallQueueFromObHdr(pObj));
+    
+    objC_WriteBack(pObj, false);	/*** return value not used? */
+  }
+
+  return true;
+}
+
 /* Evict the current resident of a page frame. This is called
  * when we need to claim a particular physical page frame.
  * It is satisfactory to accomplish this by grabbing some
@@ -755,7 +753,7 @@ objC_EvictFrame(PageHeader * pageH)
     return false;
 
   case ot_PtDataPage:
-    objC_CleanFrame1(pageH_ToObj(pageH));
+    keyR_UnprepareAll(&pageH_ToObj(pageH)->keyRing);	/* This zaps any PTE's as a side effect. */
     if (!objC_CleanFrame2(pageH_ToObj(pageH))) {
       (void) objC_CopyObject(pageH_ToObj(pageH));
   
@@ -798,6 +796,37 @@ objC_EvictFrame(PageHeader * pageH)
 #endif
 
 static void
+IOReq_EndPageClean(IORequest * ioreq)
+{
+  // The IORequest is done.
+  PageHeader * pageH = ioreq->pageH;
+  ObjectHeader * pObj = pageH_ToObj(pageH);
+
+  // Mark the page as no longer having I/O.
+  pageH->ioreq = NULL;
+
+  if (pageH_IsDirty(pageH)) {
+    // The page was dirtied while it was being written.
+    // Tough luck; writing the page was a waste of time.
+    // This log location will not be used.
+    // No point in making a log directory entry.
+  } else {
+    ObjectDescriptor objDescr = {
+      .oid = pObj->oid,
+      .logLoc = FrameToOID(ioreq->rangeLoc) + ioreq->objRange->start,
+      .allocCount = pObj->allocCount,
+      .allocCountUsed = boolToBit(objH_GetFlags(pObj, OFLG_AllocCntUsed)),
+      .callCount = 0,	// not used
+      .callCountUsed = 0,	// not used
+      .type = capros_Range_otPage
+    };
+    ld_recordLocation(&objDescr, workingGenerationNumber);
+  }
+  sq_WakeAll(&ioreq->sq, false);
+  // Caller has unlinked the ioreq and will deallocate it.
+}
+
+static void
 pageH_Clean(PageHeader * pageH)
 {
   if (! pageH_IsDirty(pageH))
@@ -819,7 +848,21 @@ pageH_Clean(PageHeader * pageH)
     keyR_TrackDirty(&pageH_ToObj(pageH)->keyRing);
     pageH_ClearFlags(pageH, OFLG_DIRTY);
     // While it is being cleaned, it is marked not dirty, and I/O in progress.
-    assert(!"complete");	////
+
+    IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
+    ioreq->pageH = pageH;	// link page and ioreq
+    pageH->ioreq = ioreq;
+
+    LID lid = NextLogLoc();
+    ObjectRange * rng = LidToRange(lid);
+    assert(rng);	// it had better be mounted
+
+    ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
+    ioreq->objRange = rng;
+    ioreq->rangeLoc = OIDToFrame(lid - rng->start);
+    ioreq->doneFn = &IOReq_EndPageClean;
+    sq_Init(&ioreq->sq);
+    ioreq_Enqueue(ioreq);
   }
 }
 
@@ -853,114 +896,130 @@ void
 objC_AgePageFrames(void)
 {
   static uint32_t curPage = 0;
+  uint32_t nStuck = 0;
+  uint32_t nPinned = 0;
+  int pass;
+
+  DEBUG(aging) printf("objC_AgePageFrames called.");
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Before AgePageFrames()");
 #endif
 
-  while (1) {
-    PageHeader * pageH = objC_GetCorePageFrame(curPage);
-    
-    switch (pageH_GetObType(pageH)) {
-    /* Some page types do not get aged: */
-    case ot_PtNewAlloc:
-    case ot_PtDevicePage:
-    case ot_PtKernelHeap:
-    case ot_PtDMABlock:
-    case ot_PtDMASecondary:
-    case ot_PtFreeFrame:
-    case ot_PtSecondary:
-      goto nextPage;
-
-    case ot_PtTagPot:
-    case ot_PtHomePot:
-    case ot_PtLogPot:
-      break;
-
-    case ot_PtDataPage:
-      if (! objH_GetFlags(pageH_ToObj(pageH), OFLG_Cleanable))
+  for (pass = 0; pass <= age_Steal; pass++) {
+    nPinned = 0;
+    nStuck = 0;
+    uint32_t count;
+    for (count = 0; count < objC_nNodes; count++) {
+      PageHeader * pageH = objC_GetCorePageFrame(curPage);
+      
+      switch (pageH_GetObType(pageH)) {
+      /* Some page types do not get aged: */
+      case ot_PtNewAlloc:
+      case ot_PtDevicePage:
+      case ot_PtKernelHeap:
+      case ot_PtDMABlock:
+      case ot_PtDMASecondary:
+      case ot_PtFreeFrame:
+      case ot_PtSecondary:
+        nStuck++;
         goto nextPage;
-      break;
 
-    default:
-      // It's a machine-dependent frame type.
-      if (pageH_mdType_Aging(pageH)) {
-        curPage++;	// it was freed
+      case ot_PtTagPot:
+      case ot_PtHomePot:
+      case ot_PtLogPot:
+        break;
+
+      case ot_PtDataPage:
+        if (! objH_GetFlags(pageH_ToObj(pageH), OFLG_Cleanable))
+          goto nextPage;
+        break;
+
+      default:
+        // It's a machine-dependent frame type.
+        if (pageH_mdType_Aging(pageH)) {
+          curPage++;	// it was freed
+          return;
+        }
+        goto nextPage;
+      }
+  
+      /* Some pages cannot be aged because they are active or pinned: */
+      if (objH_IsUserPinned(pageH_ToObj(pageH))
+          || pageH_IsKernelPinned(pageH) ) {
+        nPinned++;
+        nStuck++;
+        goto nextPage;
+      }
+
+      /* Since the object isn't pinned, set its transaction ID to zero
+      so it won't inadvertently be considered pinned
+      when objH_CurrentTransaction overflows. */
+      pageH_ToObj(pageH)->userPin = 0;
+
+      if (objH_GetFlags(pageH_ToObj(pageH), OFLG_Fetching) ) {
+        nStuck++;
+        goto nextPage;
+      }
+
+      switch (pageH_ToObj(pageH)->objAge) {
+      case age_Invalidate:
+        /* First, we check whether the object is really not recently used.
+         * Normally, any reference to the object sets its objAge to age_NewBorn
+         * (in objH_SetReferenced). 
+         * However, references through mapping table entries happen without
+         * benefit of updating objAge.
+         * So at this stage we invalidate the mapping table entries.
+         * If the object is referenced,
+         * the entry will be rebuilt and the age updated then.
+         */
+        keyR_TrackReferenced(&pageH_ToObj(pageH)->keyRing);
+      default:
+      bumpAge:
+        pageH_ToObj(pageH)->objAge++;
+        break;
+
+      case age_Clean:
+        /* At this stage, we initiate cleaning of the object if it is dirty. */
+        pageH_Clean(pageH);
+        goto bumpAge;
+
+      case age_Steal:
+        /* Now it's time to evict the object and steal the frame. */
+
+        /* Dirtying a page also references it, which resets the age.
+        If we are at age_Steal, it wasn't referenced since age_Clean,
+        therefore it shouldn't be dirty either. */
+        assert(! pageH_IsDirty(pageH));
+
+        if (pageH->ioreq) {
+          /* We are still waiting for a previously initiated clean
+          to complete. Wait now for it to complete.
+          Otherwise, we would go on to preferentially steal clean pages,
+          usually code pages. */
+          act_SleepOn(&pageH->ioreq->sq);
+          act_Yield();
+        }
+
+        // Steal this frame.
+        objH_InvalidateProducts(pageH_ToObj(pageH));
+        keyR_UnprepareAll(&pageH_ToObj(pageH)->keyRing);
+        ReleaseObjPageFrame(pageH);
+
+        if (++curPage >= objC_nPages)
+          curPage = 0;
         return;
       }
-      goto nextPage;
+
+    nextPage:
+      if (++curPage >= objC_nPages)
+        curPage = 0;
     }
-  
-    /* Some pages cannot be aged because they are active or pinned: */
-    if (objH_IsUserPinned(pageH_ToObj(pageH)))
-      goto nextPage;
-
-    /* Since the object isn't pinned, set its transaction ID to zero
-    so it won't inadvertently be considered pinned
-    when objH_CurrentTransaction overflows. */
-    pageH_ToObj(pageH)->userPin = 0;
-
-    if (pageH_IsKernelPinned(pageH)
-        || objH_GetFlags(pageH_ToObj(pageH), OFLG_Fetching) )
-      goto nextPage;
-
-    switch (pageH_ToObj(pageH)->objAge) {
-    case age_Invalidate:
-      /* First, we check whether the object is really not recently used.
-       * Normally, any reference to the object sets its objAge to age_NewBorn
-       * (in objH_SetReferenced). 
-       * However, references through mapping table entries happen without
-       * benefit of updating objAge.
-       * So at this stage we invalidate the mapping table entries.
-       * If the object is referenced,
-       * the entry will be rebuilt and the age updated then.
-       */
-      keyR_TrackReferenced(&pageH_ToObj(pageH)->keyRing);
-    default:
-    bumpAge:
-      pageH_ToObj(pageH)->objAge++;
-      break;
-
-    case age_Clean:
-      /* At this stage, we initiate cleaning of the object if it is dirty. */
-      pageH_Clean(pageH);
-      goto bumpAge;
-
-    case age_Steal:
-      /* Now it's time to evict the object and steal the frame. */
-
-      /* Dirtying a page also references it, which resets the age.
-      If we are at age_Steal, it wasn't referenced since age_Clean,
-      therefore it shouldn't be dirty either. */
-      assert(! pageH_IsDirty(pageH));
-
-      if (pageH->ioreq) {
-        /* We are still waiting for a previously initiated clean
-        to complete. Wait now for it to complete.
-        Otherwise, we would go on to preferentially steal clean pages,
-        usually code pages. */
-        act_SleepOn(&pageH->ioreq->sq);
-        act_Yield();
-      }
-
-      // Steal this frame.
-      objH_InvalidateProducts(pageH_ToObj(pageH));
-      /* Remove this page from the cache and return it to the free page
-       * list:
-       */
-      assert(keyR_IsEmpty(&pageH_ToObj(pageH)->keyRing));
-      assert(!"complete");	////
-      ReleaseObjPageFrame(pageH);
-
-      curPage++;
-      return;
-    }
-
-  nextPage:
-    if (++curPage >= objC_nPages)
-      curPage = 0;
   }
+
+  fatal("%d stuck pages of which %d are pinned\n",
+		nStuck, nPinned);
 }
 
 /* May Yield. */
@@ -1108,7 +1167,7 @@ objC_Init()
     Node * n = &objC_nodeTable[i];
 
     for (j = 0; j < EROS_NODE_SIZE; j++)
-      keyBits_InitType(node_GetKeyAtSlot(n, j), KKT_Void);
+      keyBits_InitToVoid(node_GetKeyAtSlot(n, j));
 
     keyR_ResetRing(&n->node_ObjHdr.keyRing);
     // n->node_ObjHdr.flags = 0;

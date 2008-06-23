@@ -68,9 +68,11 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
  * One is needed for each mounted disk. */
 #define KTUNE_NIORQS 4
 
-/* Number of I/O Requests.
- */
+/* Number of I/O Requests for fetching. */
 #define KTUNE_NIOREQS 60 // ??
+
+/* Number of I/O Requests for cleaning. */
+#define KTUNE_NIOREQS_CLEANING 60 // ??
 
 /* Amount of mappable physical card memory (i.e. sum over ALL cards)
  * IN MEGABYTES that the kernel should be prepared to map. This means

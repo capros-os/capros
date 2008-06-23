@@ -127,7 +127,7 @@ FLMTE_TrackReferenced(uint32_t * pFLMTE)
     // Mark it temporarily invalid:
     *pFLMTE &= ~L1D_VALIDBITS;
     PteZapped = true;
-    DEBUG(track) dprintf(true, "Tracking LRU, FLMTE %#x -> %#x\n",
+    DEBUG(track) printf("Tracking LRU, FLMTE %#x -> %#x\n",
                          val, *pFLMTE);
     // Leave any cache entries intact.
   }
@@ -163,10 +163,11 @@ PTE_TrackReferenced(PTE * pPTE)
   // Turn this PTE into the form used for tracking LRU.
   const uint32_t pteval = pPTE->w_value;
   if (pteval & PTE_VALIDBITS) {	// it was valid
+    assert((pteval & PTE_VALIDBITS) == PTE_SMALLPAGE);
     pPTE->w_value = pteval & ~PTE_VALIDBITS;
     PteZapped = true;
-    DEBUG(track) dprintf(true, "Tracking LRU, PTE %#x -> %#x\n",
-                         pteval, pPTE->w_value);
+    DEBUG(track) printf("Tracking LRU, PTE %#x -> %#x\n",
+                        pteval, pPTE->w_value);
     // Leave any cache entries intact.
   }
 }
@@ -215,7 +216,7 @@ KeyDependEntry_Track(KeyDependEntry * kde,
     when we next go to user mode. */
   } else {
     int i;
-    kva_t mapping_page_kva = ((kva_t)kde->start & ~EROS_PAGE_MASK);
+    kva_t mapping_page_kva = (kva_t)kde->start & ~EROS_PAGE_MASK;
     PageHeader * pMappingPage = objC_PhysPageToObHdr(VTOP(mapping_page_kva));
     unsigned int obType;
     if (pMappingPage) {
@@ -224,9 +225,11 @@ KeyDependEntry_Track(KeyDependEntry * kde,
       /* pMappingPage could be zero,
       if the mapping page was allocated at kernel initialization
       and therefore doesn't have an associated PageHeader. */
-      assert(mapping_page_kva != (kva_t)FLPT_NullVA);	/* null table shouldn't
-			have any depend entries! */
-      if (mapping_page_kva == (kva_t)FLPT_FCSEVA)
+      kva_t mapping_page_kva_16k = (kva_t)kde->start & ~(0x4000 - 1);
+
+      // The null table shouldn't have any depend entries:
+      assert(mapping_page_kva_16k != (kva_t)FLPT_NullVA);
+      if (mapping_page_kva_16k == (kva_t)FLPT_FCSEVA)
         obType = ot_PtMappingPage1;
       else
         obType = ot_PtMappingPage2;

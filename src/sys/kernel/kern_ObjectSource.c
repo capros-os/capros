@@ -104,16 +104,18 @@ AddRange(const ObjectRange * rng, ObjectRange * ranges, uint32_t * pnRanges)
    * that the new range does not overlap any existing range. */
 
   if (i > 0) {
-    if (ranges[i-1].end > rng->start)
+    if (ranges[i-1].end > rng->start) {
       dprintf(true,
               "New range [%#llx,%#llx) overlaps existing range [%#llx,%#llx)\n",
               rng->start, rng->end, ranges[i-1].start, ranges[i-1].end);
+    }
   }
   if (i < nRanges)
-    if (ranges[i].start < rng->end)
+    if (ranges[i].start < rng->end) {
       dprintf(true,
               "New range [%#llx,%#llx) overlaps existing range [%#llx,%#llx)\n",
               rng->start, rng->end, ranges[i].start, ranges[i].end);
+    }
   
   DEBUG(obsrc)
     printf("AddRange: found %d nRanges=%d\n", i, nRanges);

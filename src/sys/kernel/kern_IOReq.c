@@ -42,8 +42,13 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
+/* To avoid deadlock, IORequests for cleaning are segregated from others. */
+
 IORequest IOReqs[KTUNE_NIOREQS];
 Link * freeIOReqs = NULL;
+
+IORequest IOReqsCleaning[KTUNE_NIOREQS_CLEANING];
+Link * freeIOReqsCleaning = NULL;
 
 IORQ IORQs[KTUNE_NIORQS];
 Link * freeIORQs = NULL;
@@ -69,6 +74,12 @@ IORQ_Init(void)
     ioreq->lk.next = freeIOReqs;
     freeIOReqs = &ioreq->lk;
   }
+
+  for (i = 0; i < KTUNE_NIOREQS_CLEANING; i++) {
+    IORequest * ioreq = &IOReqsCleaning[i];
+    ioreq->lk.next = freeIOReqsCleaning;
+    freeIOReqsCleaning = &ioreq->lk;
+  }
 }
 
 IORequest *
@@ -80,7 +91,6 @@ IOReq_Allocate(void)
     link_Init(&ioreq->lk);
   }
   return ioreq;
-  
 }
 
 static DEFQUEUE(IOReqWait);
@@ -126,6 +136,62 @@ IOReq_Deallocate(IORequest * ioreq)
   sq_WakeAll(&IOReqWait, false);
 }
 
+// ******************** IORequest for cleaning stuff *********************
+
+IORequest *
+IOReqCleaning_Allocate(void)
+{
+  IORequest * ioreq = container_of(freeIOReqsCleaning, IORequest, lk);
+  if (ioreq) {
+    freeIOReqsCleaning = ioreq->lk.next;
+    link_Init(&ioreq->lk);
+  }
+  return ioreq;
+}
+
+static DEFQUEUE(IOReqCleaningWait);
+
+// Yields if can't allocate.
+IORequest *
+IOReqCleaning_AllocateOrWait(void)
+{
+  IORequest * ioreq = IOReqCleaning_Allocate();
+  if (ioreq)
+    return ioreq;
+
+  dprintf(true, "No IOReqCleaning\n");
+  act_SleepOn(&IOReqCleaningWait);
+  act_Yield();
+}
+
+// Yields if can't allocate.
+IORequest *
+AllocateIOReqCleaningAndPage(void)
+{
+  PageHeader * pageH = objC_GrabPageFrame();
+  IORequest * ioreq = IOReqCleaning_Allocate();
+  if (ioreq) {
+    ioreq->pageH = pageH;
+    pageH->ioreq = ioreq;
+    return ioreq;
+  }
+
+  ReleasePageFrame(pageH);
+
+  dprintf(true, "No IOReqCleaning\n");
+  act_SleepOn(&IOReqCleaningWait);
+  act_Yield();
+}
+
+void
+IOReqCleaning_Deallocate(IORequest * ioreq)
+{
+  ioreq->lk.next = freeIOReqsCleaning;
+  freeIOReqsCleaning = &ioreq->lk;
+
+  sq_WakeAll(&IOReqCleaningWait, false);
+}
+
 // ************************ IORQ stuff **************************
 
 IORQ *
@@ -152,9 +218,16 @@ IORQ_Deallocate(IORQ * iorq)
 LID
 NextLogLoc(void)
 {
-  LID lid = logCursor;
-  assert(lid);
+  while (! logCursor) {
+    // Restart hasn't finished.
+    // This can happen if persistent objects are preloaded rather than
+    // loaded from the last checkpoint.
+    printf("Waiting for restart to complete.\n");
+    act_SleepOn(&RestartQueue);
+    act_Yield();
+  }
 
+  LID lid = logCursor;
   if (++logCursor >= logWrapPoint) 
     logCursor = MAIN_LOG_START;	// wrap to the beginning
   return lid;
@@ -179,8 +252,8 @@ void
 IOReq_EndWrite(IORequest * ioreq)
 {
   // The IORequest is done.
-  // Mark the page as no longer having I/O.
   PageHeader * pageH = ioreq->pageH;
+  // Mark the page as no longer having I/O.
   pageH->ioreq = NULL;
   pageH_ToObj(pageH)->objAge = age_Steal;
   sq_WakeAll(&ioreq->sq, false);

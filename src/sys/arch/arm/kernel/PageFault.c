@@ -703,7 +703,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
     if ((p->md.dacr & 0xc) == 0) {	// has access to domain 1?
       // no, tracking LRU
       mth1->mthAge = age_NewBorn;	// it's been used
-      DEBUG(track) dprintf(true, "Tracking LRU, L1D.\n");
+      DEBUG(track) dprintf(true, "Tracked LRU, restore domain 1.\n");
       p->md.dacr |= 0x4;	// restore access to domain 1
     }
   }
@@ -861,6 +861,9 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
         // FIXME: can avoid the table walk since we already have the CPT
         if (theFLPTEntry & L1D_DOMAIN_MASK) {
           // Tracking LRU.
+          DEBUG(track) printf("Tracked LRU, L1D %#x -> %#x\n",
+                         theFLPTEntry, theFLPTEntry | L1D_COARSE_PT);
+
           mth2->mthAge = age_NewBorn;	// it's been used
           theFLPTEntry |= L1D_COARSE_PT;
         } else {
@@ -957,7 +960,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
           kpa_t pageAddr = thePTE & PTE_FRAMEBITS;
           PageHeader * pageH = objC_PhysPageToObHdr(pageAddr);
           FillPTE(thePTEP, pageH, pageAddr, isWrite, mth2, mva);
-          DEBUG(track) dprintf(true, "Tracking dirty, PTE %#x -> %#x\n",
+          DEBUG(track) printf("Tracked dirty, PTE %#x -> %#x\n",
                                thePTE, thePTEP->w_value);
           havePage = true;
         } else {
@@ -980,7 +983,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
       PageHeader * pageH = objC_PhysPageToObHdr(pageAddr);
       pageH_SetReferenced(pageH);
       FillPTE(thePTEP, pageH, pageAddr, isWrite, mth2, mva);
-      DEBUG(track) dprintf(true, "Tracking LRU, PTE %#x -> %#x\n",
+      DEBUG(track) printf("Tracked LRU, PTE %#x -> %#x\n",
                            thePTE, thePTEP->w_value);
       havePage = true;
     }
