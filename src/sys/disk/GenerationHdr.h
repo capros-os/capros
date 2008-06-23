@@ -51,17 +51,4 @@ struct DiskProcessDescriptor {
   ObCount allocCount;
 } __attribute__ ((packed));
 
-// struct DiskObjectDescriptor is packed because
-// (1) it needs to be the same on the host and target, and
-// (2) it saves space on disk.
-struct DiskObjectDescriptor {
-  OID oid;
-  ObCount allocCount;
-  ObCount callCount;
-  LID lid;
-  uint8_t allocCountUsed : 1;
-  uint8_t callCountUsed : 1;
-  uint8_t type : 6;
-} __attribute__ ((packed));
-
 #endif // __GENERATIONHDR_H__
