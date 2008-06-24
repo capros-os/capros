@@ -56,7 +56,6 @@ typedef struct VolPagePot VolPagePot;
 struct VolPagePot {
   ObCount count;
   uint8_t type;
-  uint8_t allocCountUsed;	// TagAllocCountUsedMask or 0
   uint8_t isZero;		// TagIsZero or 0
 };
   

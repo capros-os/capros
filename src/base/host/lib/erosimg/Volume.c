@@ -350,7 +350,6 @@ vol_FormatObjectDivision(Volume *pVol, int ndx)
     vol_ReadPagePotEntry(pVol, oid, &pagePot);
     pagePot.type = FRM_TYPE_DPAGE;
     pagePot.isZero = TagIsZero;
-    pagePot.allocCountUsed = 0;
     pagePot.count = 0;
     vol_WritePagePotEntry(pVol, oid, &pagePot);
     oid++;
@@ -1368,7 +1367,6 @@ vol_GetPagePotInfo(Volume *pVol, OID oid, VolPagePot *pPot)
     pPot->count = cpd->allocCount;
     pPot->type = cpd->type;
     pPot->isZero = CONTENT_LID(cpd->logLoc) ? 0 : TagIsZero;
-    pPot->allocCountUsed = cpd->allocCountUsed;
 
     return true;
   }
@@ -1596,8 +1594,6 @@ vol_ReadPagePotEntry(Volume *pVol, OID oid, VolPagePot *pPagePot)
       unsigned int potEntry
         = FrameIndexInCluster(OIDToFrame(oid - d->startOid));
       pPagePot->type = tp->tags[potEntry] & TagTypeMask;
-      pPagePot->allocCountUsed = tp->tags[potEntry]
-                                 & TagAllocCountUsedMask;
       pPagePot->isZero = tp->tags[potEntry] & TagIsZero;
       pPagePot->count = tp->count[potEntry];
 
@@ -1633,7 +1629,7 @@ vol_WritePagePotEntry(Volume *pVol, OID oid, const VolPagePot *pPagePot)
       unsigned int potEntry
         = FrameIndexInCluster(OIDToFrame(oid - d->startOid));
       tp->tags[potEntry]
-        = pPagePot->type | pPagePot->allocCountUsed | pPagePot->isZero;
+        = pPagePot->type | pPagePot->isZero;
       tp->count[potEntry] = pPagePot->count;
 
       if ( !vol_Write(pVol, offset, data, EROS_PAGE_SIZE) )
