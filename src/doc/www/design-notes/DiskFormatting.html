@@ -270,6 +270,14 @@ If the bit indicates that there are no such capabilities,
 rescinding can be done without incrementing the allocation count.
 With this optimization, it would take an extremely long time for a 32-bit
 allocation count to wear out.
+<p>The <em>allocCountUsed</em> bit is not stored on the disk.
+When an object is fetched from disk, it's <em>allocCountUsed</em> bit
+is set to one.
+(If we did store the bit on the disk, then we would have to consider 
+the object dirty whenever the bit is set (or cleared).
+The bit is set when an in-memory capability is converted to the
+out-of-memory form, and for technical reasons it's not possible
+to dirty the target object at that time.)
 <h3>Call Count</h3>
 <p>
 Nodes contain a call count that is similar to the allocation count,
@@ -281,7 +289,8 @@ there are no <em>rescinded</em> resume capabilities
 containing the node's OID and a call count M = N. 
 (There may exist rescinded resume capabilities containing
 the node's OID and a call count M &lt; N.)
-Similarly, there is a <em>callCountUsed</em> bit.
+Similarly, there is a <em>callCountUsed</em> bit,
+and it's not stored on disk either.
 <h3>Tag Pots</h3>
 <p>
 A tag pot has an entry for each frame in its cluster.
@@ -297,18 +306,13 @@ retype a page to a different type than vice versa.
 If there were other types with only one object per frame,
 this field might hold the allocation count for that object too.
 Otherwise, this field is unused.
-<dt><b>allocCountUsed</b>
-<dd>If the frame holds a page, this is its allocCountUsed bit.
-If there were other types with only one object per frame,
-this field might hold the allocCountUsed bit for that object too.
-Otherwise, this field is unused.
 </dl>
 <p>
 To avoid wasting space on alignment, a tag pot is arranged as two arrays:
 <pre>
 struct TagPot {
   ObCount allocationCount[];
-  uint8_t typeAndAllocCountUsed[];
+  uint8_t type[];
 };
 </pre>
 <p>

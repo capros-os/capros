@@ -260,9 +260,8 @@
 	    A generation that has been completely written to the disk
 	    is said to be <b>stabilized</b>.  A stabilized generation
 	    has an associated on-disk directory that describes where
-	    all of the objects in that generation reside.  This
-	    information is stored in a chained directory
-	    structure. The last step in stabilizing a generation is
+	    all of the objects in that generation reside.
+	    The last step in stabilizing a generation is
 	    writing the associated checkpoint header.
 	  </p>
 	  <h3>3.1 The Checkpoint Header</h3>
@@ -385,7 +384,7 @@ struct DiskGenerationHdr {
 		objects, the restart generation process directory
 		frames, and the object directory frames for all the
 		unmigrated generations are not all mounted, the
-		system will not restart.
+		system will not restart until they are mounted.
 	      </p>
 	    </dd>
 	    <dt><b>firstProcessDirFrame</b>, <b>nProcessDirFrames</b></dt>
