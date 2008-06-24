@@ -58,7 +58,7 @@ typedef struct TreeNode {
 
 #define TREE_NIL (&log_directory_nil_node)
 TreeNode log_directory_nil_node = {
-  0, { 0, 0, 0, 0, 0, 0, 0},    0, { 0, 0, 0, 0, 0, 0, 0},
+  0, { 0, 0, 0, 0, 0 },    0, { 0, 0, 0, 0, 0 },
   TREE_NIL, TREE_NIL, TREE_NIL, TREE_BLACK,
   NULL, NULL};
 
@@ -1107,8 +1107,6 @@ odEqual(const ObjectDescriptor *a, const ObjectDescriptor *b) {
   if (a->allocCount != b->allocCount) return false;
   if (a->callCount != b->callCount) return false;
   if (a->logLoc != b->logLoc) return false;
-  if (a->allocCountUsed != b->allocCountUsed) return false;
-  if (a->callCountUsed != b->callCountUsed) return false;
   if (a->type != b->type) return false;
   return true;
 }
@@ -1122,10 +1120,9 @@ static void
 printOD(const ObjectDescriptor *a) {
   if (a != NULL) {
     printf("oid=%lld\n   allocCount=%d\n   callCount=%d\n"
-	   "   logLoc=%lld\n   allocCountUsed=%d\n"
-	   "   callCountUsed=%d\n   type=%d\n",
+	   "   logLoc=%lld\n   type=%d\n",
 	   a->oid, a->allocCount, a->callCount, a->logLoc,
-	   a->allocCountUsed, a->callCountUsed, a->type);
+	   a->type);
   } else {
     printf("NULL\n");
   }
@@ -1150,8 +1147,6 @@ makeAGeneration(GenNum generation, uint64_t randomSeed) {
     27, /* alloccount */
     43, /* call count */
     0, /* log loc */
-    true, /* alloc count used */
-    true, /* call count used */
     1};   /* type */
   
   rand_state = randomSeed;

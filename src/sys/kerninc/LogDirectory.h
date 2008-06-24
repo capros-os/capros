@@ -61,11 +61,7 @@ typedef struct ObjectDescriptor {
   ObCount   callCount;          /**<The call count of the object. */
   LID       logLoc;             /**<The Log location ID where the object
 				   is stored in the log. */
-  uint8_t   allocCountUsed : 1; /**<TRUE if the allocation count is stored
-				   in some other object. */
-  uint8_t   callCountUsed : 1;  /**<TRUE if the call count is stored in
-				   some other object. */
-  uint8_t   type : 6;           /**<The type of the object. */
+  uint8_t   type;               /**<The type of the object. */
 } ObjectDescriptor;
 
 /** Record the location of an object.
