@@ -34,9 +34,10 @@ Approved for public release, distribution unlimited. */
 #define dbg_realloc    0x100u   /* reallocation rate */
 #define dbg_nospace    0x200	/* out of space errors */
 #define dbg_cache      0x400	/* caches */
+#define dbg_retype     0x800	/* changing the type of a frame */
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_nospace )
+#define dbg_flags   ( 0u | dbg_nospace | dbg_retype )////
 
 #define CND_DEBUG(x) (dbg_##x & dbg_flags)
 #define DEBUG(x) if (CND_DEBUG(x))

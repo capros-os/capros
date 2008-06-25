@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -374,12 +374,15 @@ buy a virgin node from space bank and set node key to have blss =
 			       "paddr = 0x%08x", paddr);
 
 	if (paddr < (paddr_start + paddr_size)) {
-	  result = capros_Range_waitPageKey(KR_PHYSRANGE,
-					  (paddr / EROS_PAGE_SIZE) *
+          capros_Range_obType currentType;
+	  result = capros_Range_waitCap(KR_PHYSRANGE,
+                                        capros_Range_otPage,
+					(paddr / EROS_PAGE_SIZE) *
 					  EROS_OBJECTS_PER_FRAME,
-					  KR_NEWPAGE);
+                                        &currentType,
+					KR_NEWPAGE);
 
-	  if (result != RC_OK)
+	  if (result != RC_OK || currentType != capros_Range_otNone)
 	    kprintf(KR_OSTREAM, "** ERROR: range_waitobjectkey returned %u",
 		    result);
 	  capros_GPT_setSlot(KR_GPT, slot, KR_NEWPAGE);

@@ -222,7 +222,7 @@ NextLogLoc(void)
     // Restart hasn't finished.
     // This can happen if persistent objects are preloaded rather than
     // loaded from the last checkpoint.
-    printf("Waiting for restart to complete.\n");
+    printf("NextLogLoc waiting for restart to complete.\n");
     act_SleepOn(&RestartQueue);
     act_Yield();
   }

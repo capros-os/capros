@@ -16,4 +16,8 @@ interface MigratorTool extends key {
   void restartStep();
 
   void migrationStep();
+
+  /** Wait until restart is finished.
+   */
+  void waitForRestart();
 };

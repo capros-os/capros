@@ -202,6 +202,8 @@ bool traceInvs = false;
 void 
 inv_Commit(Invocation * thisPtr)
 {
+  assert(!InvocationCommitted);	// can only commit once
+  assert(act_CurContext()->runState == RS_Running);
   assert(ReturneeSetUp);
   assert(! allocatedActivity);
 

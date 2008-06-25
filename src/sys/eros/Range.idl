@@ -47,47 +47,36 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    */
   void rescind(capros.key key);
 
-  /** Create key to page.
-   *
-   * Creates a page key to the designated page if and only if the
-   * offset falls within the legal bounds of this range. If the range
-   * is dismounted or otherwise unavailable, this operation will throw
-   * the /RangeErr/ exception.
-   */
-  capros.key getPageKey(
-    unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
-
-  /** Create key to page (blocking).
-   *
-   * Creates a page key to the designated page if and only if the
-   * offset falls within the legal bounds of this range. If the range
-   * is dismounted or otherwise unavailable, this operation will block
-   * until the range becomes available.
-   */
-  capros.key waitPageKey(
-    unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
-
   /** Create a capability to an object.
    *
    * type specifies the type of capability to create.
    * offset specifies the offset within this range of the OID of the object.
-   * Create a capability to the specified object.
+   * The offset must fall withing the bounds of this range,
+   * otherwise RangeErr is raised.
+   *
+   * If the object's frame is not of the requested type,
+   * the method returns a Void capability,
+   * and returns the current base type of the frame in currentBaseType.
+   *
+   * Otherwise, the method returns a capability to the specified object,
+   * and returns otNone in currentBaseType.
+   *
    * If the range is dismounted or otherwise unavailable,
    * this operation will throw the /RangeErr/ exception.
    */
   capros.key getCap(obType type,
-    unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
+    out obType currentBaseType);
 
   /** Create a capability to an object (blocking).
    *
-   * type specifies the type of capability to create.
-   * offset specifies the offset within this range of the OID of the object.
-   * Create a capability to the specified object.
-   * If the range is dismounted or otherwise unavailable,
-   * this operation will throw the /RangeErr/ exception.
+   * This method is the same as getCap, except that
+   * if the range is dismounted or otherwise unavailable,
+   * this operation will block until the range becomes available.
    */
   capros.key waitCap(obType type,
-    unsigned long long /* should be off_t, but CapIDL has a bug */ offset);
+    unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
+    out obType currentBaseType);
 
   /** Compare two ranges for overlap or relative position.
    *
@@ -130,25 +119,28 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
 
   /** Get counts.
    *
-   * offset specifies the offset within this range of the OID of an object.
-   * Returns the allocation count and call count of the object.
-   * If the object does not have a call count, the allocation count
-   * is returned in both parameters.
+   * offset specifies the OID of an object relative to this range.
+   * The offset must be withing this range, otherwise RangeErr is raised.
+   * Returns the allocation count of the object.
+   * If the object has a call count, the maximum of the allocation count
+   * and call count is returned.
    */
   void getFrameCounts(
     unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
-    out count_t allocationCount, out count_t callCount);
+    out count_t allocationCount);
 
   /** Retype a frame.
    *
-   * offset specifies a frame (the offset within frame must be zero).
+   * offset specifies the OID of a frame relative to this range.
+   * The offset within frame must be zero, otherwise RangeErr is raised.
+   * The offset must be withing this range, otherwise RangeErr is raised.
    * oldType is the current base type of the frame.
    * newType is the base type that the frame will be changed to.
-   * allocationCount and callCount specify the allocation count and
-   * call count (for objects that use it) for the new object(s) in the frame.
+   * allocationCount specifies the allocation count (and
+   * call count, for nodes) for the new object(s) in the frame.
    */
   void retypeFrame(
     unsigned long long /* should be off_t, but CapIDL has a bug */ offset,
-    obType oldType, obType newType,
-    count_t allocationCout, count_t callCount);
+    obType oldBaseType, obType newBaseType,
+    count_t allocationCount);
 };

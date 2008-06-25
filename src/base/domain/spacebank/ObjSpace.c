@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Range.h>
 #include <idl/capros/Number.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Page.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -47,6 +48,19 @@ typedef struct Range_s {
   OID     startOID;
   OID     endOID;
   uint64_t length;
+
+  /* On a big bang, the space bank will clear every object the first time
+   * it allocates it. Objects are always cleared when deallocated
+   * (so they don't have to be saved on disk),
+   * so they do not need to be cleared on subsequent allocations.
+   * All objects in this range from startOID up to (not including)
+   * endClearedOIDs have been cleared.
+   *
+   * This logic allows one to do a big bang without formatting the disk
+   * to clear all the unallocated objects,
+   * which is helpful during development. */
+  OID endClearedOIDs;
+
   uint32_t firstSubmapFrame;
   uint32_t*   srmBase;
 
@@ -84,7 +98,7 @@ static uint32_t curRanges = 0;
 
 uint32_t NextRangeSrmFrame = 0;
 
-static uint32_t range_install(uint32_t kr, uint32_t reservedFrames);
+static Range * range_install(uint32_t kr, uint32_t reservedFrames);
 
 /* Format of the volsize node:
    Slot                  Contents
@@ -138,8 +152,8 @@ ob_init(void)
       DEBUG(init) kprintf(KR_OSTREAM, "Range key in volsize slot %d\n", i);
       if (i == volsize_range) {
         // This is the range that includes the preallocated objects.
-        range_install(KR_TMP, nAllocFrames);
-        Range * range = &RangeTable[curRanges-1];
+        Range * range = range_install(KR_TMP, nAllocFrames);
+        assert(range);
 
         /* Now add all of the allocated storage to the prime bank's allocated
            tree.  Note that we mark the entire frame allocated in the tree;
@@ -153,7 +167,9 @@ ob_init(void)
         BankPreallType(&primebank, capros_Range_otPage,
                        firstDataPageOid, nDataPage);
       } else {
-        range_install(KR_TMP, 0);
+        Range * range = range_install(KR_TMP, 0);
+        assert(range);
+        (void)range;	// not otherwise used
       }
     }
   }
@@ -195,7 +211,22 @@ found: ;
     while (map[i] && ac->top < MAX_CACHE_ENT) {
       uint32_t w = ffs(map[i]) - 1;
       uint32_t frame = i * UINT32_BITS + w;
-      ac->oid[ac->top++] = r->startOID + (frame * EROS_OBJECTS_PER_FRAME);
+      OID oid = r->startOID + (frame * EROS_OBJECTS_PER_FRAME);
+      // Ensure the frame has been cleared:
+      while (r->endClearedOIDs <= oid) {
+        result_t retval;
+        DEBUG(cache) kprintf(KR_OSTREAM, "SB clearing %#llx\n",
+                             r->endClearedOIDs);
+        // It is easiest to clear it as a page.
+        // It might be better to clear it as the type of this cache.
+        retval = GetCapAndRetype(capros_Range_otPage,
+                   r->endClearedOIDs, KR_TEMP0);
+        assert(retval == RC_OK);
+        retval = capros_Page_zero(KR_TEMP0);
+        assert(retval == RC_OK);
+        r->endClearedOIDs += EROS_OBJECTS_PER_FRAME;
+      }
+      ac->oid[ac->top++] = oid;
       map[i] &= ~(1u << w);
       r->nAvailFrames--;  /* We've taken one */
     }
@@ -227,7 +258,7 @@ ob_AllocFrame(Bank * bank, OID * oid, unsigned int baseType)
     return RC_OK;
   }
 
-  DEBUG(cache) kdprintf(KR_OSTREAM,
+  DEBUG(cache) kprintf(KR_OSTREAM,
                         "Bank %d type %d cache %#x is empty, top=%d\n",
                         ndx, baseType, ac, ac->top);
 
@@ -236,7 +267,7 @@ ob_AllocFrame(Bank * bank, OID * oid, unsigned int baseType)
   for (i = 0; i < NCACHE; i++) {
     ac = &cache[(i+ndx)%NCACHE];
     if (ac->ndx != ac->top) {
-      DEBUG(cache) kdprintf(KR_OSTREAM, "Bank %d stealing %d from cache %d\n",
+      DEBUG(cache) kprintf(KR_OSTREAM, "Bank %d stealing %d from cache %d\n",
                             ndx, baseType, i+ndx);
       *oid = ac->oid[ac->ndx++];
       return RC_OK;
@@ -250,7 +281,7 @@ ob_AllocFrame(Bank * bank, OID * oid, unsigned int baseType)
       for (i = 0; i < NCACHE; i++) {
         ac = &anyCache[(i+ndx)%NCACHE];
         if (ac->ndx != ac->top) {
-          DEBUG(cache) kdprintf(KR_OSTREAM,
+          DEBUG(cache) kprintf(KR_OSTREAM,
                                 "Bank %d wants %d stealing %d from cache %d\n",
                                 ndx, baseType, j, i+ndx);
           *oid = ac->oid[ac->ndx++];
@@ -341,7 +372,8 @@ map_range(Range *range)
   for (map = 0; map < range->nSubmaps; map++, addr += EROS_PAGE_SIZE) {
     OID oid = range->startOID + FrameToOID(range->firstSubmapFrame + map);
 
-    if (capros_Range_waitPageKey(KR_SRANGE, oid, KR_TMP) != RC_OK)
+    if (GetCapAndRetype(capros_Range_otPage, oid, KR_TMP)
+        != RC_OK)
       kpanic(KR_OSTREAM, "Couldn't get page key %#llx for submap, range=%#x\n",
              oid, range);
 
@@ -382,7 +414,8 @@ init_range_map(Range *range)
   DEBUG(init) kdprintf(KR_OSTREAM, "  ... done marking submap frame avail\n");
 }
 
-uint32_t
+// Returns NULL if unsuccessful.
+Range *
 range_install(uint32_t kr, uint32_t reservedFrames)
 {
   uint64_t len;
@@ -393,7 +426,7 @@ range_install(uint32_t kr, uint32_t reservedFrames)
   Range *myRange;
   
   if (curRanges == MAX_RANGES)
-    return RC_capros_SpaceBank_LimitReached;
+    return NULL;
 
   /* Divine the length of the range: */
   if (capros_Range_query(kr, &len) != RC_OK)
@@ -415,15 +448,11 @@ range_install(uint32_t kr, uint32_t reservedFrames)
       if (RangeTable[index].startOID <= oid
 	  && RangeTable[index].endOID > oid) {
 	/* this range contains our beginning */
-	if (RangeTable[index].endOID <= endOID) {
-	  return RC_OK; /* we've already covered that area */
-	} else {
-	  return RC_capros_SpaceBank_LimitReached; /* we cannot currently extend ranges */
-	}
+	return NULL;
       } else if (RangeTable[index].startOID > oid
 		 && RangeTable[index].startOID < endOID) {
 	/* we contain their start -- this is bad */
-	return RC_capros_SpaceBank_LimitReached; /* we cannot currently extend ranges */
+	return NULL; /* we cannot currently extend ranges */
       } 
     }  
   }
@@ -443,6 +472,7 @@ range_install(uint32_t kr, uint32_t reservedFrames)
   myRange->nAvailFrames = nFrames - reservedFrames - nSubMaps;
   myRange->startOID = oid;
   myRange->endOID = endOID;
+  myRange->endClearedOIDs = oid + FrameToOID(reservedFrames);
   myRange->length = len;
   myRange->firstSubmapFrame = reservedFrames;
   myRange->srmBase
@@ -461,5 +491,5 @@ range_install(uint32_t kr, uint32_t reservedFrames)
   
   NextRangeSrmFrame += nSubMaps;
   
-  return RC_OK;
+  return myRange;
 }

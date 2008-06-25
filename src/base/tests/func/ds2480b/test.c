@@ -188,7 +188,7 @@ main(void)
 
   configureTemp(1);
   configureBM(2, true);
-//#define all
+#define all
 #ifdef all
   configureBM(5, true);
 #endif
@@ -210,7 +210,7 @@ main(void)
     PrintBM(5);
 #endif
 
-    result = capros_Sleep_sleep(KR_SLEEP, 300000);	// sleep 300 seconds
+    result = capros_Sleep_sleep(KR_SLEEP, 3000);	// sleep 3 seconds
     assert(result == RC_OK);
   }
 

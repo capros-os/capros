@@ -41,6 +41,7 @@ ipltool symtab = number("ipltool");
 ipltool key reg KR_SELF = ipltool;	/* used by _exit */
 ipltool key reg KR_APP(0) = misc Discrim;
 ipltool key reg KR_APP(1) = volsize;
+ipltool key reg KR_APP(2) = misc MigratorTool;
 
 CONSTIT(ipltool, KC_THREADLIST, 0) = threadlist;
 CONSTIT(ipltool, KC_OSTREAM, 1) = misc Console;

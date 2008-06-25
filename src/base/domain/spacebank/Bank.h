@@ -85,6 +85,10 @@ void bank_init(void);
  *     Initialized the Bank structures etc.
  */
 
+result_t
+GetCapAndRetype(capros_Range_obType obType,
+  OID offset, cap_t kr);
+
 uint32_t
 bank_ReserveFrames(Bank *bank, uint32_t count);
 /* bank_ReserveFrames:

@@ -384,7 +384,7 @@ ReleaseNodeFrame(Node * pNode)
 }
 
 /* Release a page that has an ObjectHeader. */
-static void
+void
 ReleaseObjPageFrame(PageHeader * pageH)
 {
   DEBUG(pgalloc)
@@ -412,6 +412,23 @@ objH_InitObj(ObjectHeader * pObj, OID oid)
 
   objH_ResetKeyRing(pObj);
   objH_Intern(pObj);
+}
+
+void
+objH_InitDirtyObj(ObjectHeader * pObj, OID oid, unsigned int baseType,
+  ObCount allocCount)
+{
+  pObj->allocCount = allocCount;
+  pObj->obType = BaseTypeToObType(baseType);
+  objH_InitObj(pObj, oid);
+  // Object is dirty because we just initialized it:
+  objH_SetFlags(pObj, OFLG_DIRTY);
+  if (oid < FIRST_PERSISTENT_OID) {
+    // not persistent, not cleanable
+    objH_ClearFlags(pObj, OFLG_Cleanable);
+  } else {
+    objH_SetFlags(pObj, OFLG_Cleanable);
+  }
 }
 
 void
@@ -488,7 +505,6 @@ CleanAPotOfNodes(bool force)
   pObj = pageH_ToObj(pageH);
   pObj->obType = ot_PtLogPot;
   objH_InitObj(pObj, lid);
-  objH_SetFlags(pObj, OFLG_Fetching);
 
   ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
   ioreq->objRange = rng;
@@ -1037,6 +1053,74 @@ objC_GrabPageFrame(void)
   objC_GrabThisPageFrame(pageH);
 
   return pageH;
+}
+
+// Ensure that there are at least numFrames free objects.
+void
+EnsureObjFrames(unsigned int baseType, unsigned int numFrames)
+{
+  switch (baseType) {
+  default: ;
+    assert(false);
+
+  case capros_Range_otPage:
+    // FIXME: this loop may never terminate!
+    while (physMem_numFreePageFrames < numFrames)
+      objC_AgePageFrames();
+    break;
+
+  case capros_Range_otNode:
+    // FIXME: this loop may never terminate!
+    while (objC_nFreeNodeFrames < numFrames)
+      objC_AgeNodeFrames();
+    break;
+  }
+}
+
+ObjectHeader *
+CreateNewNullObject(unsigned int baseType, OID oid, ObCount allocCount)
+{
+  ObjectHeader * pObj;
+
+  switch (baseType) {
+  default: ;
+    assert(false);
+
+  case capros_Range_otPage:
+  {
+    PageHeader * pageH = objC_GrabPageFrame();
+    pObj = pageH_ToObj(pageH);
+
+    void * dest = (void *) pageH_GetPageVAddr(pageH);
+    kzero(dest, EROS_PAGE_SIZE);
+
+    pageH_MDInitDataPage(pageH);
+    pageH_SetReferenced(pageH);
+    break;
+  }
+
+  case capros_Range_otNode:
+  {
+    Node * pNode = objC_GrabNodeFrame();
+    pObj = node_ToObj(pNode);
+
+    pNode->callCount = allocCount;	// use for call count too
+    pNode->nodeData = 0;
+
+    uint32_t ndx;
+    for (ndx = 0; ndx < EROS_NODE_SIZE; ndx++) {
+      assert (keyBits_IsUnprepared(&pNode->slot[ndx]));
+      /* not hazarded because newly loaded node */
+      keyBits_InitToVoid(&pNode->slot[ndx]);
+    }
+
+    node_SetReferenced(pNode);
+  }
+  }
+
+  objH_InitDirtyObj(pObj, oid, baseType, allocCount);
+
+  return pObj;
 }
 
 #if 0

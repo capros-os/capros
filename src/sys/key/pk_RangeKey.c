@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/Node.h>
 #include <kerninc/GPT.h>
+#include <kerninc/LogDirectory.h>
 #include <disk/DiskNode.h>
 #include <disk/Forwarder.h>
 
@@ -44,6 +45,11 @@ Approved for public release, distribution unlimited. */
 #ifdef DBG_WILD_PTR
 #include <kerninc/Check.h>
 #endif
+
+const unsigned int objectsPerFrame[2] = {
+  [capros_Range_otPage] = 1,
+  [capros_Range_otNode] = DISK_NODES_PER_PAGE
+};
 
 /*
  * There is a problem with range keys that is pretty well
@@ -149,8 +155,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
 
   uint32_t obNdx = offset % EROS_OBJECTS_PER_FRAME;
 
-  const unsigned int objPerPage =
-    baseType == capros_Range_otPage ? 1 : DISK_NODES_PER_PAGE;
+  const unsigned int objPerPage = objectsPerFrame[baseType];
 
   if (obNdx >= objPerPage) {
     COMMIT_POINT();
@@ -171,7 +176,11 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
     objLoc.objType = baseType;	// we can pick the type to suit
 
   if (objLoc.objType != baseType) {
-    fatal("retyping not implemented yet");
+    // Need to retype the frame.
+    COMMIT_POINT();
+    inv->exit.code = RC_OK;
+    inv->exit.w1 = objLoc.objType;
+    return;
   }
 
   // Get the object, regardless of its allocation count:
@@ -240,6 +249,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
 #endif
 
   inv->exit.code = RC_OK;  /* set the exit code */
+  inv->exit.w1 = capros_Range_otNone;
   
   return;
 }
@@ -258,6 +268,30 @@ key_GetRange(Key * key, /* out */ OID * rngStart)
   else {
     *rngStart = key->u.rk.oid;
     return key->u.rk.oid + key->u.rk.count;
+  }
+}
+
+static void
+RetypeDestroyOldObjects(unsigned int oldType, OID oid)
+{
+  int i;
+
+  for (i = 0; i < objectsPerFrame[oldType]; i++, oid++) {
+    // Destroy vestiges of the old type.
+    // Remove it from memory.
+    ObjectHeader * pObj = objH_Lookup(oid, 0);
+    if (pObj) {
+      objH_ClearFlags(pObj, OFLG_DIRTY);	// discard data
+      if (objH_isNodeType(pObj)) {
+        ReleaseNodeFrame(objH_ToNode(pObj));
+      } else {
+        objH_InvalidateProducts(pObj);
+        keyR_UnprepareAll(&pObj->keyRing);
+        ReleaseObjPageFrame(objH_ToPage(pObj));
+      }
+    }
+    // Destroy any log directory entry.
+    ////assert(!"complete");
   }
 }
 
@@ -468,16 +502,6 @@ RangeKey(Invocation* inv /*@ not null @*/)
       break;
     }
 
-  case OC_capros_Range_waitPageKey:
-    MakeObjectKey(inv, w1w2Offset(inv),
-      true, capros_Range_otPage, KKT_Page);
-    break;
-
-  case OC_capros_Range_getPageKey:
-    MakeObjectKey(inv, w1w2Offset(inv),
-      false, capros_Range_otPage, KKT_Page);
-    break;
-
   case OC_capros_Range_getCap:
     waitFlag = false;
     goto rangeGetWaitCap;
@@ -556,6 +580,103 @@ rangeGetWaitCap:
       }
       break;
     }
+
+  case OC_capros_Range_getFrameCounts:
+  {
+    OID oid = w1w2Offset(inv) + rngStart;
+    if (oid >= rngEnd) {
+      COMMIT_POINT();
+      inv->exit.code = RC_capros_Range_RangeErr;
+      break;
+    }
+
+    ObjectLocator objLoc;
+    objLoc = GetObjectType(oid);
+
+    assert(objLoc.objType != capros_Range_otNone);
+
+    // Get the counts:
+    ObCount allocCount = GetObjectCount(oid, &objLoc, false);
+    if (objLoc.objType == capros_Range_otNode) {
+      ObCount callCount = GetObjectCount(oid, &objLoc, true);
+      allocCount = max(allocCount, callCount);
+    }
+
+    COMMIT_POINT();
+
+    inv->exit.w1 = allocCount;
+    inv->exit.code = RC_OK;
+
+    break;
+  }
+
+  case OC_capros_Range_retypeFrame:
+  {
+    int i;
+    struct {
+      capros_Range_obType newType;
+      uint8_t pad[3];	// align
+      capros_Range_count_t allocationCount;
+    } stringParams;
+
+    if (inv->entry.len < sizeof(stringParams)) {	// string too short
+      COMMIT_POINT();
+      inv->exit.code = RC_capros_key_RequestError;
+      break;
+    }
+
+    inv_CopyIn(inv, sizeof(stringParams), &stringParams);
+
+    OID oid = w1w2Offset(inv) + rngStart;
+    if (oid >= rngEnd
+        || OIDToObIndex(oid) != 0) {
+      COMMIT_POINT();
+      inv->exit.code = RC_capros_Range_RangeErr;
+      break;
+    }
+
+    unsigned int oldType = inv->entry.w3;
+
+    if (oid < FIRST_PERSISTENT_OID) {
+      // A non-persistent frame.
+      // Ensure we can get enough new objects
+      EnsureObjFrames(stringParams.newType,
+                      objectsPerFrame[stringParams.newType]);
+
+      COMMIT_POINT();
+
+      RetypeDestroyOldObjects(oldType, oid);
+
+      // Make new null objects in memory.
+      for (i = 0; i < objectsPerFrame[stringParams.newType]; i++, oid++) {
+        CreateNewNullObject(stringParams.newType,
+                            oid, stringParams.allocationCount);
+      }
+    } else {
+      // A persistent frame.
+      //// get enough new dirents
+      COMMIT_POINT();
+
+      RetypeDestroyOldObjects(oldType, oid);
+
+      // Make new null objects in the log directory.
+      ObjectDescriptor objDesc = {
+        .allocCount = stringParams.allocationCount,
+        .callCount = stringParams.allocationCount,
+        .logLoc = 0,		// object is null
+        .type = stringParams.newType
+      };
+      for (i = 0; i < objectsPerFrame[stringParams.newType]; i++, oid++) {
+        objDesc.oid = oid;
+        ld_recordLocation(&objDesc, workingGenerationNumber);
+      }
+    }
+
+    inv->exit.code = RC_OK;
+
+    break;
+  }
+
   default:
     COMMIT_POINT();
 

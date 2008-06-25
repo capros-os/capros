@@ -382,6 +382,51 @@ BankGetLimits(Bank * bank, /*OUT*/ capros_SpaceBank_limits * getLimits)
   return RC_OK;
 }
 
+result_t
+GetCapAndRetype(capros_Range_obType obType,
+  OID offset, cap_t kr)
+{
+  result_t retval;
+
+  capros_Range_obType currentType;
+  retval = capros_Range_getCap(KR_SRANGE, obType, offset,
+             &currentType, kr);
+  if (retval != RC_OK)
+    return retval;
+  if (currentType != capros_Range_otNone) {
+    assert(currentType <= capros_Range_otNode);
+    // Need to retype this frame.
+    DEBUG(retype) kprintf(KR_OSTREAM, "Retyping oidOfs=%#llx, old=%d new=%d",
+                          offset, currentType, obType);
+    OID firstOffset = FrameToOID(OIDToFrame(offset));
+    OID curOffset;
+    ObCount maxCount = 0;
+    int i;
+    for (i = 0, curOffset = firstOffset;
+         i < objects_per_frame[currentType];
+         i++, curOffset++) {
+      capros_Range_count_t allocationCount;
+      retval = capros_Range_getFrameCounts(KR_SRANGE, curOffset,
+                 &allocationCount);
+      assert(retval == RC_OK);
+      if (allocationCount > maxCount)	// take max
+        maxCount = allocationCount;
+    }
+
+    retval = capros_Range_retypeFrame(KR_SRANGE,
+               firstOffset, currentType, typeToBaseType[obType], maxCount);
+    assert(retval == RC_OK);
+
+    // getCap should now succeed with the right type:
+    retval = capros_Range_getCap(KR_SRANGE, obType, offset,
+             &currentType, kr);
+    if (retval != RC_OK)
+      return retval;
+    assert(currentType == capros_Range_otNone);
+  }
+  return RC_OK;
+}
+
 uint32_t
 BankCreateKey(Bank *bank, BankPrecludes limits, uint32_t kr)
 {
@@ -392,7 +437,7 @@ BankCreateKey(Bank *bank, BankPrecludes limits, uint32_t kr)
   if (bank->exists[limits]) {
     /* we've already fab'ed the node, just make a new forwarder key */
     
-    retval = capros_Range_getCap(KR_SRANGE, capros_Range_otForwarder,
+    retval = GetCapAndRetype(capros_Range_otForwarder,
 			       bank->limitedKey[limits],
 			       kr);
     if (retval != RC_OK) return retval;
@@ -558,7 +603,7 @@ DestroyStorage(Bank * bank)
 	      "DestroyStorage: Destroying frame 0x"DW_HEX"\n",
 	      DW_HEX_ARG(curFrame));
 
-    retVal = capros_Range_getPageKey(KR_SRANGE,curFrame,KR_TMP);
+    retVal = GetCapAndRetype(capros_Range_otPage, curFrame, KR_TMP);
     if (retVal != RC_OK) {
       kdprintf(KR_OSTREAM,
 	       "DestroyStorage: Error getting page key to "
@@ -641,10 +686,9 @@ BankDestroyBankAndStorage(Bank *bank, bool andStorage)
 	for (i = 0; i < BANKPREC_NUM_PRECLUDES; i++) {
 	  if (curBank->exists[i]) {
 	    uint32_t result;
-	    result = capros_Range_getCap(KR_SRANGE,
-                                         capros_Range_otNode,
-					 curBank->limitedKey[i],
-					 KR_TMP);
+	    result = GetCapAndRetype(capros_Range_otNode,
+				     curBank->limitedKey[i],
+				     KR_TMP);
 
 	    if (result != RC_OK) {
 	      DEBUG(children)
@@ -850,7 +894,7 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
 	      "spacebank: getting object key "DW_HEX"\n",
 	      DW_HEX_ARG(oid));
     
-  retval = capros_Range_getCap(KR_SRANGE, type, oid, kr);
+  retval = GetCapAndRetype(type, oid, kr);
 
   DEBUG(alloc)
     kprintf(KR_OSTREAM,

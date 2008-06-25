@@ -76,6 +76,7 @@ Node *objC_GrabNodeFrame();
 void objC_AgePageFrames(void);
 PageHeader * objC_GrabPageFrame(void);
 void objC_GrabThisPageFrame(PageHeader *);
+void EnsureObjFrames(unsigned int baseType, unsigned int numFrames);
 
 void objC_AddDevicePages(struct PmemInfo *);
 void objC_AddDMAPages(PageHeader * pageH, kpg_t nPages);
@@ -101,6 +102,7 @@ bool objC_EvictFrame(PageHeader * pObj);
 
 /* Releases node/page frame to free list */
 void ReleasePageFrame(PageHeader * pageH);
+void ReleaseObjPageFrame(PageHeader * pageH);
 void ReleaseNodeFrame(Node * pNode);
 
 Node *objC_ContainingNode(void *);
@@ -120,6 +122,9 @@ objC_NumCoreNodeFrames()
 
 PageHeader * objC_GetCorePageFrame(uint32_t ndx);
 Node *objC_GetCoreNodeFrame(uint32_t ndx);
+
+ObjectHeader *
+CreateNewNullObject(unsigned int baseType, OID oid, ObCount allocCount);
 
 #ifndef NDEBUG
 bool objC_ValidNodePtr(const Node *pNode);

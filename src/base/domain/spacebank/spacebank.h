@@ -51,7 +51,8 @@ extern int ffs(int);
 
 bool heap_insert_page(uint32_t addr, uint32_t pageKR);
 
-#define MAX_RANGES 256
+/* Currently there is no way to specify more than EROS_NODE_SIZE ranges. */
+#define MAX_RANGES EROS_NODE_SIZE
 
 /* Layout of memory. */
 /* Following MUST agree with values in primebank.map: */

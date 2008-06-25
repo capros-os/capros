@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group
+ * Copyright (C) 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -177,9 +177,15 @@ initialize(void)
 #error "This is an i386 console driver.  You are not running an i386.  Sorry."
 #endif
 
-  capros_Range_waitPageKey(KR_PHYSRANGE,
+  capros_Range_obType currentType;
+  result = capros_Range_waitCap(KR_PHYSRANGE,
+                      capros_Range_otPage,
 		      (0xb8000 / EROS_PAGE_SIZE) * EROS_OBJECTS_PER_FRAME,
+                      &currentType,
 		      KR_SCRATCH);
+  if (result != RC_OK || currentType != capros_Range_otPage)
+    kprintf(KR_OSTREAM, "textconsole::getCap--Failed");
+
   capros_GPT_setSlot(KR_ADDRSPC, 1, KR_SCRATCH);
 
   kprintf(KR_OSTREAM, "Calling outb on 0x3D4\n");

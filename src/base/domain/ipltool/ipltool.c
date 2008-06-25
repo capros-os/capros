@@ -39,6 +39,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Discrim.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/MigratorTool.h>
 
 #include <idl/capros/Constructor.h>
 #include <domain/domdbg.h>
@@ -48,11 +49,12 @@ Approved for public release, distribution unlimited. */
 
 #define KR_DISCRIM    KR_APP(0)
 #define KR_VOLSIZE    KR_APP(1)
-#define KR_PRIMEBANK  KR_APP(2)
+#define KR_MIGRTOOL   KR_APP(2)
 #define KR_NEWSCHED   KR_APP(3)
 #define KR_FAULT      KR_APP(4)
 #define KR_THREADLIST KR_APP(5)
 #define KR_OSTREAM    KR_APP(6)
+#define KR_PRIMEBANK  KR_APP(7)
 
 /* This program is one shot with no backing environment -- stack page
  * is provided in the map file.
@@ -143,6 +145,12 @@ main()
   result = capros_Discrim_compare(KR_DISCRIM, KR_TEMP0, KR_TEMP1, &equal);
   assert(result == RC_OK);
   if (! equal) {
+    // First wait for restart to complete.
+    // Otherwise, we start using the log and the log directory
+    // before they are initialized.
+    result = capros_MigratorTool_waitForRestart(KR_MIGRTOOL);
+    assert(result == RC_OK);
+
     capros_Node_getSlot(KR_TEMP1, volsize_thread, KR_THREADLIST);
     kprintf(KR_OSTREAM, "IPL Tool starting persistent processes.\n");
     ProcessThreadlist();

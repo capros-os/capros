@@ -63,22 +63,6 @@ AssertPageIsFree(PageHeader * pageH)
   }
 }
 
-static void
-InitPreloadedObj(ObjectHeader * pObj, OID oid, unsigned int type)
-{
-  pObj->allocCount = restartNPAllocCount;
-  pObj->obType = BaseTypeToObType(type);
-  objH_InitObj(pObj, oid);
-  // Object is dirty because we just initialized it:
-  objH_SetFlags(pObj, OFLG_DIRTY);
-  if (oid < FIRST_PERSISTENT_OID) {
-    // not persistent, not cleanable
-    objH_ClearFlags(pObj, OFLG_Cleanable);
-  } else {
-    objH_SetFlags(pObj, OFLG_Cleanable);
-  }
-}
-
 void
 preload_Init(void)
 {
@@ -114,19 +98,23 @@ preload_Init(void)
     j = 0;	// number of nodes loaded
     while (j < npod->numNodes) {	// load node frames
       // Load a frame of nodes.
+      /* Note: The last frame may have some nodes beyond npod->numNodes.
+       * These are as-yet-unallocated by the space bank,
+       * and initialized to null by npgen.
+       * We preload them here, so the space bank does not have to remember
+       * that they need to be cleared. */
       DiskNode * dn = KPAtoP(DiskNode *, pagePA);
       for (i = 0; i < DISK_NODES_PER_PAGE; i++) {
         Node * pNode = objC_GrabNodeFrame();
 
         node_SetEqualTo(pNode, dn + i);
         pNode->callCount = restartNPAllocCount;
-        InitPreloadedObj(node_ToObj(pNode), oid + i, capros_Range_otNode);
-
-        if (++j >= npod->numNodes)
-          break;
+        objH_InitDirtyObj(node_ToObj(pNode), oid + i, capros_Range_otNode,
+                         restartNPAllocCount);
       }
       oid += FrameToOID(1);
       pagePA += EROS_PAGE_SIZE;
+      j += DISK_NODES_PER_PAGE;
     }
     // Leave the npod frame and the node frames free.
 
@@ -147,7 +135,8 @@ preload_Init(void)
       objC_GrabThisPageFrame(pageH);
       pageH_MDInitDataPage(pageH);
       pageH_SetReferenced(pageH);
-      InitPreloadedObj(pageH_ToObj(pageH), oid, capros_Range_otPage);
+      objH_InitDirtyObj(pageH_ToObj(pageH), oid, capros_Range_otPage,
+                       restartNPAllocCount);
 
       oid += FrameToOID(1);
       pagePA += EROS_PAGE_SIZE;
@@ -193,49 +182,9 @@ static ObjectHeader *
 PreloadObSource_GetObject(ObjectRange * rng, OID oid,
   const ObjectLocator * pObjLoc)
 {
-  ObjectHeader * pObj;
-
   assert(rng->start <= oid && oid < rng->end);
 
-  switch (pObjLoc->objType) {
-  default: ;
-    assert(false);
-
-  case capros_Range_otPage:
-  {
-    PageHeader * pageH = objC_GrabPageFrame();
-    pObj = pageH_ToObj(pageH);
-
-    void * dest = (void *) pageH_GetPageVAddr(pageH);
-    kzero(dest, EROS_PAGE_SIZE);
-
-    pageH_MDInitDataPage(pageH);
-    pageH_SetReferenced(pageH);
-    break;
-  }
-
-  case capros_Range_otNode:
-  {
-    Node * pNode = objC_GrabNodeFrame();
-    pObj = node_ToObj(pNode);
-
-    pNode->callCount = restartNPAllocCount;
-    pNode->nodeData = 0;
-
-    uint32_t ndx;
-    for (ndx = 0; ndx < EROS_NODE_SIZE; ndx++) {
-      assert (keyBits_IsUnprepared(&pNode->slot[ndx]));
-      /* not hazarded because newly loaded node */
-      keyBits_InitToVoid(&pNode->slot[ndx]);
-    }
-
-    node_SetReferenced(pNode);
-  }
-  }
-
-  InitPreloadedObj(pObj, oid, pObjLoc->objType);
-
-  return pObj;
+  return CreateNewNullObject(pObjLoc->objType, oid, restartNPAllocCount);
 }
 
 static void
@@ -275,7 +224,7 @@ PreloadObSource_Init(void)
     } else {
       // Preloaded persistent objects.
       // This is one way to initialize a big bang.
-#if 1	// if operating without any disk (during development):
+#if 0	// if operating without any disk (during development):
       // PreloadObSource will supply null objects for uninitialized objects.
       rng.start = oid;
       rng.end = oid + FrameToOID(npod->numFramesInRange);
@@ -283,8 +232,7 @@ PreloadObSource_Init(void)
 
       objC_AddRange(&rng);
 #else	// if operating with disk:
-      // Need to make sure zero pages get initialized somehow,
-      // perhaps by formatting the disk.
+      // When a disk range is mounted it will add a source.
 #endif
     }
 

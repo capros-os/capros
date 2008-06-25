@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2007, Strawberry Development Group
+ * Copyright (C) 2005, 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -24,7 +24,7 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <disk/DiskNodeStruct.h>
+#include <disk/DiskNode.h>
 #include <domain/domdbg.h>
 #include <idl/capros/SysTrace.h>
 

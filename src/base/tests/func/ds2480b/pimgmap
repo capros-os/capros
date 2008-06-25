@@ -28,6 +28,8 @@ Approved for public release, distribution unlimited. */
 #include <supernode.map>
 #include <vcs.map>
 
+volsize[13] = threadlist;
+
 #include <w1mult.map>
 
 w1ser3config = program segtree LIBDIR "w1ser3config";
@@ -40,7 +42,6 @@ ser3ds2480b_proc key reg KR_APP(1) = ser3w1mult;
 #define serial3_notifyee start ser3ds2480b_proc 0
 
 #include <nplink.map>
-//#include <drivers/usbregistry.map>
 
 /* test keys */
 devNode = new node;

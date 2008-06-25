@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2007, Strawberry Development Group
+# Copyright (C) 2007, 2008, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -34,7 +34,7 @@ TARGETS=$(BUILDDIR)/lat_rngkey
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/lat_rngkey.o
 INC=-I$(EROS_ROOT)/include
-INC += -I$(EROS_ROOT)/host/include # for DiskNodeStruct.h
+INC += -I$(EROS_ROOT)/host/include # for DiskNode.h
 VOLMAP=bench.volmap
 
 include $(EROS_SRC)/build/make/makerules.mk

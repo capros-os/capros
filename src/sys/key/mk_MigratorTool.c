@@ -183,15 +183,16 @@ DoRestartStep(void)
     workingGenerationNumber = curRoot->mostRecentGenerationNumber + 1;
     if (curRoot->mostRecentGenerationNumber == 0) {
       // No checkpoint has been taken.
-      logCursor = MAIN_LOG_START;
       // Is the amount of mounted log reasonable?
       if (OIDToFrame(logWrapPoint) < physMem_TotalPhysicalPages) {
         assert(!"implemented");	// FIXME wait for more log to be mounted
       }
+      logCursor = MAIN_LOG_START;
       break;	// restart is done!
     }
     assert(false); //// incomplete
 
+    // Set logCursor last.
     break;
   }
   // Restart is done.
@@ -227,6 +228,16 @@ MigratorToolKey(Invocation* inv)
 
   case OC_capros_MigratorTool_migrationStep:
     DoMigrationStep();
+    COMMIT_POINT();
+    break;
+
+  case OC_capros_MigratorTool_waitForRestart:
+    if (logCursor == 0) {
+      DEBUG(restart)
+        printf("MigrTool_waitForRestart waiting for restart to complete.\n");
+      act_SleepOn(&RestartQueue);
+      act_Yield();
+    }
     COMMIT_POINT();
     break;
   }
@@ -286,5 +297,7 @@ CreateMigratorActivity(void)
   // Endow it with the migrator tool.
   Key * k = & migratorActivity->context->keyReg[KR_MigrTool];
   keyBits_InitType(k, KKT_MigratorTool);
+
+  printf("Created migrator process at %#x\n", migratorActivity->context);
 }
 
