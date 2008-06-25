@@ -265,7 +265,7 @@ DOMCRT0=
 # by both user code and kernel code.
 DOMBASE=0x1000
 
-LINKOPT=-Wl,--section-start,.init=$(DOMBASE) -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) -e _start #-Wl,--verbose
+LINKOPT=-Wl,--section-start,.init=$(DOMBASE) -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) -e _start #-Wl,--verbose -v
 # Arm linking needs a script to align the data sections,
 # and to load text at 0x1000 instead of 0.
 ifeq "$(EROS_TARGET)" "arm"
