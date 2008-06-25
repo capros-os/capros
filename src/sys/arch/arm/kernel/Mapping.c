@@ -514,6 +514,11 @@ EnsureSSDomain(unsigned int ssid)
       unsigned int pid = MMUDomains[lastDomainStolen].pid; // nonzero
       assert(SmallSpaces[pid].domain == lastDomainStolen);
 
+      // Stealing the current pid is suboptimal:
+      if ((act_CurContext()->md.pid >> PID_SHIFT) == pid) {
+        continue;
+      }
+
       /* Invalidate all level 1 descriptors for this pid. */
       /* Note: we invalidate the descriptors, but leave some information
       behind so they can be quickly revalidated if we assign a new

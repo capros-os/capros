@@ -297,6 +297,14 @@ printf("faulting on exit rcv_data addr, va=0x%x\n", va);////
       }
       goto revalidate;	// it should have a non-null FLPT now
     }
+
+    if (act_CurContext()->md.firstLevelMappingTable == FLPT_NullPA) {
+      // The current process currently has no address map at all.
+      // This can happen if the map was stolen, say in EnsureSSDomain.
+      // Start over and hope for better luck next time.
+      act_Yield();
+    }
+
     // Processes are using different maps.
     fatal("proc_SetupExitString cross-space unimplemented!\n");
   }
