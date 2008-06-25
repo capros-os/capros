@@ -32,7 +32,7 @@ Approved for public release, distribution unlimited. */
 #define TREE_RED 0
 #define TREE_BLACK 1
 
-#define NUMBER_LOG_DIR_ENTRIES 5000
+#define NUMBER_LOG_DIR_ENTRIES 8000
 
 typedef struct TreeNode {
   /* Data that describes the primary location of the object. */
@@ -94,11 +94,13 @@ TreeHead log_directory = {TREE_NIL};
 typedef struct {
   TreeNode *head;
   TreeNode *cursor;
+  unsigned long count;
 } GT;
 
-GT generation_table[LD_MAX_GENERATIONS+1];
+GT generation_table[LD_MAX_GENERATIONS];
 GenNum highest_generation = 0;
 int log_entry_count = 0; /** Number of allocated TreeNodes */
+GenNum last_retired_generation = 0;
 
 /** Allocate a TreeNode from the free list.
 
@@ -153,6 +155,7 @@ get_generation_index(GenNum generation) {
 static void
 chain_node(TreeNode *n) {
   int gti = get_generation_index(n->generation);
+  generation_table[gti].count++;
   if (NULL == generation_table[gti].head) {
     generation_table[gti].head = n;
     n->next = n;
@@ -170,9 +173,10 @@ chain_node(TreeNode *n) {
 /** Sanity check the generation chain. */
 static bool
 chains_validate(void) {
-  int count = 0;
+  int total_count = 0;
   int gti;
-  for (gti=0; gti<=LD_MAX_GENERATIONS; gti++) {
+  for (gti=0; gti<LD_MAX_GENERATIONS; gti++) {
+    int chain_count = 0;
     if (NULL == generation_table[gti].head) {
       assert(NULL == generation_table[gti].cursor);
       continue;
@@ -186,14 +190,17 @@ chains_validate(void) {
       if (!cursor_found) cursor_found = (x == cursor);
       assert(y->prev == x);
       assert(x->next == y);
-      count++;
+      chain_count++;
       if (x == last) break;
       x = y;
       y = x->next;
     }
+    assert(chain_count == generation_table[gti].count);
+    total_count += chain_count;
   }
-  if (count == log_entry_count) return TRUE;
-  printf("%d TreeNodes allocated, %d in chains\n", log_entry_count, count);
+  if (total_count == log_entry_count) return TRUE;
+  printf("%d TreeNodes allocated, %d in chains\n",
+	 log_entry_count, total_count);
   return FALSE;
 }
 #endif
@@ -206,6 +213,7 @@ chains_validate(void) {
 static void
 unchain_node(TreeNode *n) {
   int gti = get_generation_index(n->generation);
+  assert( (generation_table[gti].count--) > 0);
   GT *gte = &generation_table[gti];
   if (gte->head == n) gte->head = n->prev;
   if (gte->head == n) gte->head = NULL;
@@ -709,7 +717,7 @@ rbtree_contains(TreeHead *tree, TreeNode *node) {
 
 
 /** Remove a node from a tree.
-    
+
     @param[in] tree The tree head for the tree.
     @param[in] node The node to remove.
 */
@@ -910,9 +918,10 @@ void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
     if (0 == highest_generation) {
       /* Startup. Initialize the generation table */
       int i;
-      for (i=0; i<=LD_MAX_GENERATIONS; i++) {
+      for (i=0; i<LD_MAX_GENERATIONS; i++) {
 	generation_table[i].head = NULL;
 	generation_table[i].cursor = NULL;
+	generation_table[i].count = 0;
       }
       /* Chain the TreeNodes on the free list */
       log_entry_count = NUMBER_LOG_DIR_ENTRIES;
@@ -938,6 +947,7 @@ void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
 	/* And set the earliest entries to NULL */
 	generation_table[i].head = NULL;
 	generation_table[i].cursor = NULL;
+	generation_table[i].count = 0;
       }
     }
     highest_generation = generation;
@@ -1073,11 +1083,86 @@ void ld_clearGeneration(GenNum generation) {
       tree_remove_node(tree, tn->next);
     }
     tree_remove_node(tree, tn);
-    generation_table[gti].head = NULL;
-    generation_table[gti].cursor = NULL;
+    assert(generation_table[gti].head == NULL);
+    assert(generation_table[gti].cursor == NULL);
   }
 }
  
+
+
+/** Inform the Log Directory that a generation has been migrated, and a
+    checkpoint written which records that fact.
+
+    The Log Directory is free to re-use entries referring to retired
+    generations should space be needed for recording more recent objects
+    in the directory.
+
+    @param[in] generation The generation which has been retired.
+*/
+void
+ld_generationRetired(GenNum generation) {
+  assert(generation > last_retired_generation);
+  last_retired_generation = generation;
+}
+
+
+/** Return the number of available log directory entries.
+
+    A directory entry is considered available if it is either:
+      (a) On the free list, or
+      (b) Used to record a member of a retired generation.
+
+    @return The number of available directory entries.
+*/
+unsigned long
+ld_numAvailableEntries(void) {
+  unsigned long count = NUMBER_LOG_DIR_ENTRIES - log_entry_count;
+  if (0 == last_retired_generation) return count;
+  int i = get_generation_index(last_retired_generation);
+  for (; i<LD_MAX_GENERATIONS; i++) {
+    count += generation_table[i].count;
+  }
+  return count;
+}
+
+
+/** Return the number of OIDs in the working generation.
+
+    The Log Directory considers the highest numbered generation to be
+    the working generation. After a demarcation event, the checkpoint
+    logic stabilizes the working generation. Any objects which are 
+    altered during this time period are part of the next generation.
+    When the stabilization event occurs which commits the checkpoint,
+    these objects become logically part of the new working generation.
+    The Log Directory will not notice that this event has occured until
+    the first entry for the new generation is recorded with
+    ld_recordLocation.
+
+    @return The number of entries in the most recent generation recorded
+            in the log directory.
+*/
+unsigned long
+ld_numWorkingEntries(void) {
+  return generation_table[0].count;
+}
+
+
+/** Remove a log directory entry.
+
+    This entry is designed for re-typing disk frames (currently between
+    holding nodes and holding pages). It removes all information about
+    both primary and previous primary locations from the directory.
+
+    @param[in] oid Is the OID to remove.
+*/
+void
+ld_removeObjectEntry(OID oid) {
+  TreeHead *tree = &log_directory;
+  TreeNode *n = find_node(tree, oid);
+  if (NULL == n) return;
+    
+  tree_remove_node(tree, n);
+}
 
 
 
@@ -1134,9 +1219,10 @@ printOD(const ObjectDescriptor *a) {
 
     @param[in] generation The generation number to create.
     @param[in] randomSeed The seed for generating random numbers.
+    @return The number of entries created.
 */
 #define MAX_TEST_OBJECTS 1000
-static void
+static int
 makeAGeneration(GenNum generation, uint64_t randomSeed) {
   int this_pass;
   uint32_t r;
@@ -1166,6 +1252,8 @@ makeAGeneration(GenNum generation, uint64_t randomSeed) {
     
     ld_recordLocation(&t, generation);
   }
+  assert(i == ld_numWorkingEntries());
+  return i;
 }
 
 
@@ -1173,9 +1261,10 @@ makeAGeneration(GenNum generation, uint64_t randomSeed) {
 
     @param[in] generation The generation number to create.
     @param[in] randomSeed The seed for generating random numbers.
+    @param[in] oid The oid of an object which has been deleted or zero
 */
 static void
-checkAGeneration(GenNum generation, uint64_t randomSeed) {
+checkAGeneration(GenNum generation, uint64_t randomSeed, OID oid) {
   int this_pass;
   uint32_t r;
   int i;
@@ -1192,27 +1281,31 @@ checkAGeneration(GenNum generation, uint64_t randomSeed) {
        od=ld_findNextObject(generation)) {
     count++;
   }
-  if (count != this_pass) {
-    printf("Generation %d built with %d objects, scanned %d\n",
-	   generation, this_pass, count);
+  if (count + (0==oid ? 0 : 1) != this_pass) {
+    printf("Generation %d built with %d objects, scanned %d, deletedOid %lld\n",
+	   generation, this_pass, count, oid);
     assert(FALSE);
   }
-  printf("Fetching %d objects for generation %d\n", this_pass, generation);
 
   for (i=0; i<this_pass; i++) {
     r = rand();
     const ObjectDescriptor *rv = ld_findObject(r);
-    // printf("r: "); printOD(rv);
-    if (rv->oid != r || rv->callCount != (r/3) || rv->allocCount != (r/5)
-	|| rv->type != ((r/7)&1)
-	|| rv->logLoc != i+MAX_TEST_OBJECTS*generation) {
-      printf("ld_findObject failed on OID %d\n", r);
-      printf("rv: "); printOD(rv);
-      printf("oid=%d, allocCount=%d, callCount=%d, type=%d, logLoc= %d\n",
-	     r, r/5, r/3, (r/7)&1, i+MAX_TEST_OBJECTS*generation);
-      assert(FALSE);
+    if (r == oid) {
+      assert(NULL == rv);
+    } else {
+      // printf("r: "); printOD(rv);
+      if (rv->oid != r || rv->callCount != (r/3) || rv->allocCount != (r/5)
+	  || rv->type != ((r/7)&1)
+	  || rv->logLoc != i+MAX_TEST_OBJECTS*generation) {
+	printf("ld_findObject failed on OID %d\n", r);
+	printf("rv: "); printOD(rv);
+	printf("oid=%d, allocCount=%d, callCount=%d, type=%d, logLoc= %d\n",
+	       r, r/5, r/3, (r/7)&1, i+MAX_TEST_OBJECTS*generation);
+	assert(FALSE);
+      }
     }
   }
+  printf("Fetched %d objects for generation %d\n", count, generation);
 }
 
 
@@ -1220,9 +1313,10 @@ checkAGeneration(GenNum generation, uint64_t randomSeed) {
 
     @param[in] generation The generation number of the previous entry.
     @param[in] randomSeed The seed for generating random numbers.
+    @param[in] oid The oid of an object which has been deleted or zero
 */
 static void
-checkDuplicateGeneration(GenNum generation, uint64_t randomSeed) {
+checkDuplicateGeneration(GenNum generation, uint64_t randomSeed, OID oid) {
   int this_pass;
   uint32_t r;
   int i;
@@ -1237,29 +1331,43 @@ checkDuplicateGeneration(GenNum generation, uint64_t randomSeed) {
     r = rand();
     const ObjectDescriptor *rv = ld_findOldObject(r, generation+1);
     const ObjectDescriptor *cv = ld_findObject(r);
-    assert (!odEqual(rv, cv));
-    // printf("r: "); printOD(rv);
-    if (rv->oid != r || rv->callCount != (r/3) || rv->allocCount != (r/5)
-	|| rv->type != ((r/7)&1)
-	|| rv->logLoc != i+MAX_TEST_OBJECTS*generation) {
-      printf("ld_findObject failed on OID %d\n", r);
-      printf("rv: "); printOD(rv);
-      printf("oid=%d, allocCount=%d, callCount=%d, type=%d, logLoc= %d\n",
-	     r, r/5, r/3, (r/7)&1, i+MAX_TEST_OBJECTS*generation);
-      assert(FALSE);
+    if (r == oid) {
+      assert(NULL == rv);
+      assert(NULL == cv);
+    } else if (0==i && 0==oid) { /* Checking before primary deleted */
+      assert(NULL == rv);
+      assert(NULL != cv);
+    } else {
+      assert (!odEqual(rv, cv));
+      // printf("r: "); printOD(rv);
+      if (rv->oid != r || rv->callCount != (r/3) || rv->allocCount != (r/5)
+	  || rv->type != ((r/7)&1)
+	  || rv->logLoc != i+MAX_TEST_OBJECTS*generation) {
+	printf("ld_findObject failed on OID %d\n", r);
+	printf("rv: "); printOD(rv);
+	printf("oid=%d, allocCount=%d, callCount=%d, type=%d, logLoc= %d\n",
+	       r, r/5, r/3, (r/7)&1, i+MAX_TEST_OBJECTS*generation);
+	assert(FALSE);
+      }
     }
   }
 }
 
+typedef struct {
+  uint64_t rand_state; /* Rand generator state at start of generation */
+  OID deleted_oid;     /* OID of deleted entry or 0 */
+  int count;           /* Number of directory nodes in this generation */
+} test_state;
 
 /** Run a unit test on the log directory.
  */
 int main() {
 #define NBR_GENERATIONS 100
-#define MIGRATE_DEPTH 5
+#define MIGRATE_DEPTH 5  /* How many generations the migrator is behind */
+#define RETIRED_DEPTH (MIGRATE_DEPTH+3) /* How many generations to keep */
 #define INTRODUCE_DUPLICATES (MIGRATE_DEPTH-2)
 #define GENERATION_OFFSET 1000
-  uint64_t save_random_state[NBR_GENERATIONS];
+  test_state state[NBR_GENERATIONS] = { {0,0,0} };
   int i, j;
 
   printf("log_directory at 0x%08x\n", &log_directory);
@@ -1272,28 +1380,82 @@ int main() {
     
     if (0 == (i % INTRODUCE_DUPLICATES) && i>0 ) {
       printf("Starting duplicate generation %d\n", generation);
-      save_random_state[i] = save_random_state[i-INTRODUCE_DUPLICATES];
+      state[i].rand_state = state[i-INTRODUCE_DUPLICATES].rand_state;
     } else {
-      save_random_state[i] = rand_state;
+      state[i].rand_state = rand_state;
       printf("Starting generation %d\n", generation);
     }
-    makeAGeneration(generation, save_random_state[i]);
-    checkAGeneration(generation, save_random_state[i]);
+
+    /* Make a generation of entries and check them */
+    state[i].count = makeAGeneration(generation, state[i].rand_state);
+    checkAGeneration(generation, state[i].rand_state, 0);
+
+    /* If we made entries to duplicate a previous generation, check
+       the previous primary generation */
     if (0 == (i % INTRODUCE_DUPLICATES) && i>0 ) {
       printf("Checking previous entries for generation %d\n", generation);
       checkDuplicateGeneration(generation-INTRODUCE_DUPLICATES,
-			       save_random_state[i]);
+			       state[i].rand_state, 0);
+      state[i-INTRODUCE_DUPLICATES].count = 0; /* No entries used by old gen */
     }
+
+    /* Delete an entry in the most recent generation */
+    {
+      rand_state = state[i].rand_state;
+      OID oid = rand(); /* Toss first random number */
+      if (0 != oid) {
+	oid = rand();     /* Get oid to delete */
+	assert(NULL != ld_findObject(oid));
+	ld_removeObjectEntry(oid);
+	state[i].count--;
+	state[i].deleted_oid = oid;
+      } else {
+	state[i].deleted_oid = 0;
+      }
+      assert(ld_numWorkingEntries() == state[i].count);
+      checkAGeneration(generation, state[i].rand_state, state[i].deleted_oid);
+      
+      /* If we made entries to duplicate a previous generation, check
+	 the previous primary generation */
+      if (0 == (i % INTRODUCE_DUPLICATES) && i>0 ) {
+	printf("Checking previous entries for generation %d\n", generation);
+	checkDuplicateGeneration(generation-INTRODUCE_DUPLICATES,
+				 state[i].rand_state, state[i].deleted_oid);
+      }
+    }
+
+    /* Inform the log directory of retired generations */
     if (i>=MIGRATE_DEPTH) {
-      printf("Clearing generation %d\n", generation-MIGRATE_DEPTH);
-      ld_clearGeneration(generation-MIGRATE_DEPTH);
+      printf("Marking generation %d as retired\n", generation-MIGRATE_DEPTH);
+      ld_generationRetired(generation-RETIRED_DEPTH);
+    }
+
+    /* Clear out the oldest entrie(s) */
+    if (i>=RETIRED_DEPTH) {
+      printf("Clearing generation %d\n", generation-RETIRED_DEPTH);
+      ld_clearGeneration(generation-RETIRED_DEPTH);
+      state[i-RETIRED_DEPTH].count = 0;
     }
     for (j=i-INTRODUCE_DUPLICATES+1; j<=i; j++) {
       if (j<0) continue;
-      checkAGeneration(j+GENERATION_OFFSET, save_random_state[j]);
+      checkAGeneration(j+GENERATION_OFFSET, state[j].rand_state,
+		       state[j].deleted_oid);
     }
     if (0 == (i % INTRODUCE_DUPLICATES) && i>0 ) {
       rand_state = high_random_state;
+    }
+
+    /* Check the number of available entries */
+    {
+      int ent_count = NUMBER_LOG_DIR_ENTRIES;
+      int ii;
+      for (ii=0; ii<RETIRED_DEPTH; ii++) {
+	int jj = i - ii;
+	if (jj < 0) continue;
+	ent_count -= state[jj].count;
+      }
+      int avail = ld_numAvailableEntries();
+      assert(avail == ent_count);
     }
   }
   /* Clear all generations */
@@ -1301,7 +1463,8 @@ int main() {
     printf("Clearing generation %d\n", i+GENERATION_OFFSET);
     ld_clearGeneration(i+GENERATION_OFFSET);
     for (j=i+1; j<NBR_GENERATIONS; j++) {
-      checkAGeneration(j+GENERATION_OFFSET, save_random_state[j]);
+      checkAGeneration(j+GENERATION_OFFSET, state[j].rand_state,
+		       state[j].deleted_oid);
     }
   }
   return 0;

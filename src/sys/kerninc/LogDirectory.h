@@ -163,4 +163,60 @@ ld_findNextObject(GenNum generation);
 void
 ld_clearGeneration(GenNum generation);
 
+
+/** Inform the Log Directory that a generation has been migrated, and a
+    checkpoint written which records that fact.
+
+    The Log Directory is free to re-use entries referring to retired
+    generations should space be needed for recording more recent objects
+    in the directory.
+
+    @param[in] generation The generation which has been retired.
+*/
+void
+ld_generationRetired(GenNum generation);
+
+
+/** Return the number of available log directory entries.
+
+    A directory entry is considered available if it is either:
+      (a) On the free list, or
+      (b) Used to record a member of a retired generation.
+
+    @return The number of available directory entries.
+*/
+unsigned long
+ld_numAvailableEntries(void);
+
+
+/** Return the number of OIDs in the working generation.
+
+    The Log Directory considers the highest numbered generation to be
+    the working generation. After a demarcation event, the checkpoint
+    logic stabilizes the working generation. Any objects which are 
+    altered during this time period are part of the next generation.
+    When the stabilization event occurs which commits the checkpoint,
+    these objects become logically part of the new working generation.
+    The Log Directory will not notice that this event has occured until
+    the first entry for the new generation is recorded with
+    ld_recordLocation.
+
+    @return The number of entries in the most recent generation recorded
+            in the log directory.
+*/
+unsigned long
+ld_numWorkingEntries(void);
+
+
+/** Remove a log directory entry.
+
+    This entry is designed for re-typing disk frames (currently between
+    holding nodes and holding pages). It removes all information about
+    both primary and previous primary locations from the directory.
+
+    @param[in] oid Is the OID to remove.
+*/
+void
+ld_removeObjectEntry(OID oid);
+
 #endif /* LOGDIRECTORY_H */
