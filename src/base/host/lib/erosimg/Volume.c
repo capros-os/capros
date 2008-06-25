@@ -344,25 +344,13 @@ vol_FormatObjectDivision(Volume *pVol, int ndx)
     diag_fatal(1, "Attempt to format nonexistent division\n");
   
   d = &pVol->divTable[ndx];
-  
+
   for (oid = d->startOid; oid < d->endOid; oid += EROS_OBJECTS_PER_FRAME) {
     VolPagePot pagePot;
-    vol_ReadPagePotEntry(pVol, oid, &pagePot);
     pagePot.type = FRM_TYPE_DPAGE;
     pagePot.isZero = TagIsZero;
     pagePot.count = 0;
     vol_WritePagePotEntry(pVol, oid, &pagePot);
-    oid++;
-  }
-
-  /* Set up a first page with suitable ckpt sequence number: */
-  {
-    uint8_t buf[EROS_PAGE_SIZE];
-    uint64_t *seqNo = (uint64_t *) buf;
-
-    *seqNo = 1;
-
-    vol_Write(pVol, d->start * EROS_SECTOR_SIZE, buf, EROS_PAGE_SIZE);
   }
 }
 
