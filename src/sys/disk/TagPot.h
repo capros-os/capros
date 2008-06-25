@@ -74,9 +74,8 @@ ClusterToTagPotRangeLoc(frame_t cluster)
 }
 
 /* TagPot.tags[i] has: */
-#define TagAllocCountUsedMask 0x80
-#define TagIsZero             0x40
-#define TagTypeMask           0x3f
+#define TagIsZero             0x80
+#define TagTypeMask           0x7f
 
 // Frame types:
 // Note: these must match capros_Range_ot*!
