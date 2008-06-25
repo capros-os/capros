@@ -21,8 +21,6 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-//#include <stdlib.h>
-//#include <scsi/scsi_host.h>
 #include <scsi/scsi.h>
 #include <scsi/scsi_eh.h>
 #include <scsi/scsi_cmnd.h>
@@ -33,16 +31,8 @@ Approved for public release, distribution unlimited. */
 #include <domain/assert.h>
 #include <eros/Invoke.h>
 #include <disk/LowVolume.h>
-//#include <idl/capros/Node.h>
-//#include <idl/capros/Forwarder.h>
-//#include <idl/capros/SuperNode.h>
-//#include <idl/capros/SpaceBank.h>
-//#include <idl/capros/Process.h>
 #include <eros/machine/DevPrivs.h>
 #include <eros/machine/IORQ.h>
-//#include <asm/SCSICtrl.h>
-//#include <idl/capros/SCSIHost.h>
-//#include <idl/capros/SCSIDevice32.h>
 
 #define KR_IORQ KR_APP2(0)
 
@@ -76,15 +66,16 @@ putBE32(uint32_t value, uint8_t * p)
   p[3] = value;
 }
 
-int
-readSDev(struct scsi_device * sdev, 
+static int
+xferSDev(struct scsi_device * sdev, 
   uint32_t startSector, uint32_t nrSects,	// bytes / EROS_SECTOR_SIZE
-  void * buffer, dma_addr_t buffer_dma)
+  void * buffer, dma_addr_t buffer_dma,
+  uint8_t opcode)
 {
   int err;
   struct scsi_sense_hdr sshdr;
   uint8_t scsi_cmd[MAX_COMMAND_SIZE];
-  scsi_cmd[0] = READ_10;
+  scsi_cmd[0] = opcode;	// READ_10 or WRITE_10
   scsi_cmd[1] = 0;
   putBE32(startSector, &scsi_cmd[2]);
   scsi_cmd[6] = 0;
@@ -99,6 +90,14 @@ readSDev(struct scsi_device * sdev,
     printk("readSDev got err %d\n", err);
 
   return err;
+}
+
+static inline int
+readSDev(struct scsi_device * sdev, 
+  uint32_t startSector, uint32_t nrSects,	// bytes / EROS_SECTOR_SIZE
+  void * buffer, dma_addr_t buffer_dma)
+{
+  return xferSDev(sdev, startSector, nrSects, buffer, buffer_dma, READ_10);
 }
 
 void
@@ -142,7 +141,7 @@ parse_capros_partition(struct scsi_device * sdev,
       break;
 
     case dt_Object:
-      DEBUG(mount) kdprintf(KR_OSTREAM, "Obj division at %#llx\n", d->startOid);
+      DEBUG(mount) kprintf(KR_OSTREAM, "Obj division at %#llx\n", d->startOid);
       // Sanity check the division:
       if (d->end <= d->start) {
         kdprintf(KR_OSTREAM, "Division %#x invalid!\n", d);
@@ -231,8 +230,41 @@ disk_thread(void * arg)
     return NULL;
   }
 
-  kdprintf(KR_OSTREAM, "disk_thread serving queue\n");
-  for (;;) {}
+  DEBUG(mount) kprintf(KR_OSTREAM, "disk_thread serving queue\n");
+  for (;;) {
+    result_t result;
+    capros_IOReqQ_IORequest Ioreq;
+    int err;
+    unsigned int opcode;
+
+    result = capros_IOReqQ_waitForRequest(KR_IORQ, &Ioreq);
+    assert(result == RC_OK);
+
+    DEBUG(mount) kprintf(KR_OSTREAM, "disk_thread serving request, %#x\n",
+                         &Ioreq);
+    switch (Ioreq.requestType) {
+    default: ;
+      assert(false);
+
+    case capros_IOReqQ_RequestType_readRangeLoc:
+      opcode = READ_10;
+      goto xferRangeLoc;
+
+    case capros_IOReqQ_RequestType_writeRangeLoc:
+      opcode = WRITE_10;
+    xferRangeLoc: ;
+      // At the moment there is no parallelism in serving I/O requests.
+      err = xferSDev(sdev,
+              Ioreq.rangeOpaque // starting sector of the range
+              + Ioreq.rangeLoc * (EROS_PAGE_SIZE / EROS_SECTOR_SIZE),
+              EROS_PAGE_SIZE / EROS_SECTOR_SIZE,
+              NULL, Ioreq.bufferDMAAddr, opcode);
+      result = capros_IOReqQ_completeRequest(KR_IORQ,
+                 Ioreq.requestID, err);
+      assert(result == RC_OK);
+      break;
+    }
+  }
 }
 
 void
