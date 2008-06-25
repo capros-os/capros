@@ -296,10 +296,8 @@ db_eros_print_node(Node *pNode)
   bool isKeyRegs;
   uint32_t i = 0;
 
-  db_printf("Node (0x%08x) 0x%x%08x ac=0x%08x cc=0x%08x ot=%d data=0x%x\n",
-	    pNode,
-	    (uint32_t) (pNode->node_ObjHdr.oid >> 32),
-	    (uint32_t) (pNode->node_ObjHdr.oid),
+  db_printf("Node (0x%08x) oid=%#llx ac=0x%08x cc=0x%08x ot=%d data=0x%x\n",
+	    pNode, pNode->node_ObjHdr.oid,
 	    objH_GetAllocCount(& pNode->node_ObjHdr),
 	    node_GetCallCount(pNode),
             pNode->node_ObjHdr.obType, pNode->nodeData);
