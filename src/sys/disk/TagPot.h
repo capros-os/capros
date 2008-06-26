@@ -86,6 +86,7 @@ ClusterToTagPotRangeLoc(frame_t cluster)
 typedef struct TagPot {
   ObCount count[FramesPerCluster];
   uint8_t  tags[FramesPerCluster];
+  uint8_t pad;	// fill out to a page
 } TagPot;
 
 #endif /* __DISK_TAGPOT_H__ */

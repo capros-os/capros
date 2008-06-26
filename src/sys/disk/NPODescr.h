@@ -81,8 +81,10 @@ struct NPObjectsDescriptor {
   uint32_t numFramesInRange;	// includes unallocated frames
   OID OIDBase;		// The first OID of the non-persistent objects
   OID IPLOID;		// The OID of the IPL process
-  uint32_t numNonzeroPages;
   uint32_t numNodes;
+  uint32_t numNonzeroPages;
+  uint32_t numZeroPages;	// zero pages allocated in mkimage
+  uint32_t numSubmaps;		// pages reserved for space bank submaps
   uint8_t numPreloadImages;	// 1 (if NP only) or 2 (NP and P)
 };
 

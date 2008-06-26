@@ -260,7 +260,9 @@ main(int argc, char *argv[])
       .numFrames = nPages + nNodeFrames,
       .numPreloadImages = 1,
       .numNodes = nNodes,
-      .numNonzeroPages = nPages
+      .numNonzeroPages = nPages,
+      .numZeroPages = nZeroPages,
+      .numSubmaps = numSubMapFrames
     }
   };
 
