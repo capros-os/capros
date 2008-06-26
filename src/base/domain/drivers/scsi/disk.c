@@ -141,7 +141,8 @@ parse_capros_partition(struct scsi_device * sdev,
       break;
 
     case dt_Object:
-      DEBUG(mount) kprintf(KR_OSTREAM, "Obj division at %#llx\n", d->startOid);
+      DEBUG(mount) kprintf(KR_OSTREAM, "Obj division oid %#llx at %d\n",
+                     d->startOid, d->start);
       // Sanity check the division:
       if (d->end <= d->start) {
         kdprintf(KR_OSTREAM, "Division %#x invalid!\n", d);
