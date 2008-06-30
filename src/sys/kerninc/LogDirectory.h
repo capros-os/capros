@@ -95,23 +95,26 @@ const ObjectDescriptor *
 ld_findObject(OID oid);
 
 
-/** Find an object older than a given generation in the directory.
+/** Find an object for a journalize write.
 
-    This routine will return the primary location LID of the object
-    if it is older than the given generation. It will return the previous
-    primary location if the primary is of the given generation or younger,
-    and the previous primary is older than the given generation.
+    This routine will the most recent location LID for the object
+    if and only if: 
+      (1) It is older than the given generation.
+      (2) It is younger than the most recent generation specified in a
+          call to ld_generationRetired().
+    If there is no location meeting these requirements, it will return NULL.
 
     @param[in] oid The object ID to be located.
     @param[in] generation The generation the object must be older than.
-    @return A pointer to the ObjectDescriptor for the object or NULL if the
-            object is not in the log, or the log entry is younger or 
-	    equal in age to generation.. This pointer will be good until
-	    a change is made to the log directory, either adding or
+    @return A pointer to the LID for the object or NULL if the object
+            is not in the log, the log entry is younger or equal in age
+	    to generation, or the entry is older than the most recent
+	    retired generation. This pointer will be good until
+	    a change is made to the log directory, adding, deleting, or
 	    modifing an entry, or deleting a generation.
 */
-const ObjectDescriptor *
-ld_findOldObject(OID oid, GenNum generation);
+const LID *
+ld_findObjectForJournal(OID oid, GenNum generation);
 
 
 /** Find the first object of a generation.

@@ -24,6 +24,28 @@ Approved for public release, distribution unlimited. */
 
 /* The RB-Tree implementation is based on one from the OpenCM code base */
 
+
+/* Now that you've read the words from our sponsors, here's some stuff that
+ * might be actually useful. This description assumes familarity with
+ * LogDirectory.h, which defines the external interface.
+ * 
+ * The log directory keeps its information in a data structure called a
+ * TreeNode (defined below). One of these is used for each OID recorded
+ * in the directory. These nodes are organized two ways:
+ *  (1) They are placed in an RB tree, indexed by OID.
+ *  (2) All the Primary Locations for a given generation are linked together
+ *      in a doubly-linked list headed in the generation_table, which has
+ *      an entry for each generation. (Yes, there is a compile-time limit
+ *      on the maximum number of generations that can be described in the
+ *      directory.)
+ *
+ * The generation_table is an array. Its index is the highest generation
+ * number seen minus the generation number of the entry as calculated by
+ * get_generation_index(). In addition to the chain head for the generation
+ * chain, the generation_table maintains the number of Primary Locations
+ * in the generation, and a cursor used by ld_getNextObject().
+ */
+
 #include "kerninc/LogDirectory.h"
 
 #define FALSE false
@@ -43,7 +65,7 @@ typedef struct TreeNode {
   uint8_t ppGenerationDelta; /* Difference between ppgeneration and
 				the primary generation. If this field is
 			        zero, there is no previous primary data. */
-  ObjectDescriptor ppod;     /* ObjectDescriptor for previous location */
+  LID ppLogLoc;              /* LID for previous location */
 
   /* Data for the RB tree */
   struct TreeNode *left;
@@ -58,7 +80,7 @@ typedef struct TreeNode {
 
 #define TREE_NIL (&log_directory_nil_node)
 TreeNode log_directory_nil_node = {
-  0, { 0, 0, 0, 0, 0 },    0, { 0, 0, 0, 0, 0 },
+  0, { 0, 0, 0, 0, 0 },    0, 0,
   TREE_NIL, TREE_NIL, TREE_NIL, TREE_BLACK,
   NULL, NULL};
 
@@ -478,10 +500,18 @@ binary_insert(TreeHead *tree, const ObjectDescriptor *od, GenNum generation) {
       printf("Update OID %lld in node 0x%08x\n", od->oid, x);
 #endif
       unchain_node(x);
-      if (x->generation < generation) {
+      /* If same object and useful for journalize write */
+      if (generation > x->generation
+	  && x->generation > last_retired_generation
+	  && x->od.allocCount == od->allocCount
+	  && x->od.callCount == od->callCount
+	  && x->od.type == od->type) {
+	/* Save as previous location */
 	assert(generation - x->generation < (uint8_t)0xff);
 	x->ppGenerationDelta = generation - x->generation;
-	x->ppod = x->od;
+	x->ppLogLoc = x->od.logLoc;
+      } else {
+	x->ppGenerationDelta = 0;
       }
       x->od = *od;
       x->generation = generation;
@@ -989,32 +1019,35 @@ const ObjectDescriptor *ld_findObject(OID oid) {
 }
 
 
-/** Find an object older than a given generation in the directory.
+/** Find an object for a journalize write.
 
-    This routine will return the primary location LID of the object
-    if it is older than the given generation. It will return the previous
-    primary location if the primary is of the given generation or younger,
-    and the previous primary is older than the given generation.
+    This routine will the most recent location LID for the object
+    if and only if: 
+      (1) It is older than the given generation.
+      (2) It is younger than the most recent generation specified in a
+          call to ld_generationRetired().
+    If there is no location meeting these requirements, it will return NULL.
 
     @param[in] oid The object ID to be located.
     @param[in] generation The generation the object must be older than.
-    @return A pointer to the ObjectDescriptor for the object or NULL if the
-            object is not in the log, or the log entry is younger or 
-	    equal in age to generation.
-
-	    NOTE: This pointer will be good until another call is made
-	    to ld_findOldObject.
+    @return A pointer to the LID for the object or NULL if the object
+            is not in the log, the log entry is younger or equal in age
+	    to generation, or the entry is older than the most recent
+	    retired generation. This pointer will be good until
+	    a change is made to the log directory, adding, deleting, or
+	    modifing an entry, or deleting a generation.
 */
-const ObjectDescriptor *
-ld_findOldObject(OID oid, GenNum generation) {
-  TreeNode *n = find_node(&log_directory, oid);
+const LID *
+ld_findObjectForJournal(OID oid, GenNum generation) {
+TreeNode *n = find_node(&log_directory, oid);
   if (NULL == n) return NULL;
-  if (n->generation < generation) {
-    return &n->od;
+  if (generation > n->generation && n->generation > last_retired_generation) {
+    return &n->ppLogLoc;
   }
+  if (0 == n->ppGenerationDelta) return NULL; /* no pp data */
   GenNum nppgen = n->generation - n->ppGenerationDelta;
-  if (generation > nppgen) {
-    return &n->ppod;
+  if (generation > nppgen && nppgen > last_retired_generation) {
+    return &n->ppLogLoc;
   }
   return NULL;
 }
@@ -1180,6 +1213,7 @@ rand(void) {
   return (rand_state >> 32) & 0x7fffffff;
 }
 
+#ifdef NOT_USED
 /** Compare two object descriptors for equality.
 
     @param[in] a The first object descriptor to compare.
@@ -1195,7 +1229,7 @@ odEqual(const ObjectDescriptor *a, const ObjectDescriptor *b) {
   if (a->type != b->type) return false;
   return true;
 }
-
+#endif
 
 /** Print the contents of an object descriptor.
 
@@ -1329,26 +1363,17 @@ checkDuplicateGeneration(GenNum generation, uint64_t randomSeed, OID oid) {
 
   for (i=0; i<this_pass; i++) {
     r = rand();
-    const ObjectDescriptor *rv = ld_findOldObject(r, generation+1);
+    const LID *pl = ld_findObjectForJournal(r, generation+1);
     const ObjectDescriptor *cv = ld_findObject(r);
     if (r == oid) {
-      assert(NULL == rv);
+      assert(NULL == pl);
       assert(NULL == cv);
     } else if (0==i && 0==oid) { /* Checking before primary deleted */
-      assert(NULL == rv);
+      assert(NULL == pl);
       assert(NULL != cv);
     } else {
-      assert (!odEqual(rv, cv));
+      assert (*pl != cv->logLoc);
       // printf("r: "); printOD(rv);
-      if (rv->oid != r || rv->callCount != (r/3) || rv->allocCount != (r/5)
-	  || rv->type != ((r/7)&1)
-	  || rv->logLoc != i+MAX_TEST_OBJECTS*generation) {
-	printf("ld_findObject failed on OID %d\n", r);
-	printf("rv: "); printOD(rv);
-	printf("oid=%d, allocCount=%d, callCount=%d, type=%d, logLoc= %d\n",
-	       r, r/5, r/3, (r/7)&1, i+MAX_TEST_OBJECTS*generation);
-	assert(FALSE);
-      }
     }
   }
 }
