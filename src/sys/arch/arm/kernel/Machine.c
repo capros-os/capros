@@ -39,6 +39,13 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 void InterruptInit(void);
 void mach_InitHardClock(void);
 
+void
+mach_FlushTLBsCaches(void)
+{
+  SetMapWork_TLBCache();
+  mach_DoMapWork(mapWork);
+}
+
 /* mach_BootInit()
  * 
  * On entry:

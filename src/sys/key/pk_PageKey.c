@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/PhysMem.h>
+#include <kerninc/IORQ.h>
 #include <kerninc/Key-inline.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
@@ -42,7 +43,6 @@ PageKey(Invocation* inv /*@ not null @*/)
   inv_GetReturnee(inv);
 
   PageHeader * pageH = objH_ToPage(key_GetObjectPtr(inv->key));
-  kva_t pageAddress = pageH_GetPageVAddr(pageH);
 
   switch(inv->entry.code) {
 
@@ -60,12 +60,35 @@ PageKey(Invocation* inv /*@ not null @*/)
       break;
     }
 
+    if (pageH->ioreq) {		// wait for cleaning to complete
+      act_SleepOn(&pageH->ioreq->sq);
+      act_Yield();
+    }
+
     /* Mark the object dirty. */
     pageH_MakeDirty(pageH);
 
     COMMIT_POINT();
 
-    kzero((void*)pageAddress, EROS_PAGE_SIZE);
+    if (pageH_ToObj(pageH)->oid < FIRST_PERSISTENT_OID) {
+      kva_t pageAddress = pageH_MapCoherentWrite(pageH);
+      kzero((void*)pageAddress, EROS_PAGE_SIZE);
+      pageH_UnmapCoherentWrite(pageH);
+    } else {
+#if 0
+      /* Here we could just zero the page, but that requires minding
+       * cache coherence, which may require cache flushes.
+       * The following is probably more efficient in some use cases. */
+      objH_InvalidateProducts(pageH_ToObj(pageH));
+      keyR_UnprepareAll(& pageH_ToObj(pageH)->keyRing);
+      ReleaseObjPageFrame(pageH);
+      ... save to the log as zero
+#else
+      kva_t pageAddress = pageH_MapCoherentWrite(pageH);
+      kzero((void*)pageAddress, EROS_PAGE_SIZE);
+      pageH_UnmapCoherentWrite(pageH);
+#endif
+    }
 
     inv->exit.code = RC_OK;
     break;
@@ -80,6 +103,8 @@ PageKey(Invocation* inv /*@ not null @*/)
 	break;
       }
 
+      key_Prepare(inv->entry.key[0]);
+
       /* FIX: This is now wrong: phys pages, time page */
       if (keyBits_IsType(inv->entry.key[0], KKT_Page) == false) {
 	COMMIT_POINT();
@@ -90,15 +115,17 @@ PageKey(Invocation* inv /*@ not null @*/)
       /* Mark the object dirty. */
       pageH_MakeDirty(pageH);
 
-      key_Prepare(inv->entry.key[0]);
-
       assert(keyBits_IsPrepared(inv->key));
 
       COMMIT_POINT();
 
-      kva_t copiedPage = pageH_GetPageVAddr(objH_ToPage(key_GetObjectPtr(inv->entry.key[0])));
+      PageHeader * sourcePage = objH_ToPage(key_GetObjectPtr(inv->entry.key[0]));
 
-      memcpy((void *) pageAddress, (void *) copiedPage, EROS_PAGE_SIZE);
+      kva_t pageAddress = pageH_MapCoherentWrite(pageH);
+      kva_t sourceAddress = pageH_MapCoherentRead(sourcePage);
+      memcpy((void *) pageAddress, (void *) sourceAddress, EROS_PAGE_SIZE);
+      pageH_UnmapCoherentRead(sourcePage);
+      pageH_UnmapCoherentWrite(pageH);
 						    
       inv->exit.code = RC_OK;
       break;

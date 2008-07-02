@@ -54,6 +54,9 @@ extern kva_t heap_bound;
 kpa_t FLPT_FCSEPA;
 uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
 
+/* Virtual address of the coarse page table mapped at 0xfff00000: */
+uint32_t * HighCPTVA;
+
 /* FLPT_NullPA is the physical address of the Null First Level Page Table.
    This is used for a process when its map isn't known yet. */
 kpa_t FLPT_NullPA;
@@ -107,12 +110,12 @@ FLMTE_Invalidate(uint32_t * descrP)
 {
   uint32_t descr = * descrP;
   if (descr & L1D_VALIDBITS) {	// it was valid
-    PteZapped = flushCache = true;
+    SetMapWork_TLBCache();
   } else {
     // It was invalid, but could there be cache entries dependent on it?
     if (descr == PTE_ZAPPED) return;
     if (descr != PTE_IN_PROGRESS)
-      flushCache = true;
+      SetMapWork_InvalidateCache();
     // Even if it was invalid, we want to change it to PTE_ZAPPED.
   }
   *descrP = PTE_ZAPPED;
@@ -126,7 +129,7 @@ FLMTE_TrackReferenced(uint32_t * pFLMTE)
   if (val & L1D_VALIDBITS) {	// it was valid
     // Mark it temporarily invalid:
     *pFLMTE &= ~L1D_VALIDBITS;
-    PteZapped = true;
+    SetMapWork_TLB();
     DEBUG(track) printf("Tracking LRU, FLMTE %#x -> %#x\n",
                          val, *pFLMTE);
     // Leave any cache entries intact.
@@ -146,12 +149,12 @@ pte_Invalidate(PTE* thisPtr)
 {
   const uint32_t pteval = thisPtr->w_value;
   if (pteval & PTE_VALIDBITS) {	// it was valid
-    PteZapped = flushCache = true;
+    SetMapWork_TLBCache();
   } else {
     // It was invalid, but could there be cache entries dependent on it?
     if (pteval == PTE_ZAPPED) return;
     if (pteval != PTE_IN_PROGRESS)
-      flushCache = true;
+      SetMapWork_InvalidateCache();
     // Even if it was invalid, we want to change it to PTE_ZAPPED.
   }
   thisPtr->w_value = PTE_ZAPPED;
@@ -165,7 +168,7 @@ PTE_TrackReferenced(PTE * pPTE)
   if (pteval & PTE_VALIDBITS) {	// it was valid
     assert((pteval & PTE_VALIDBITS) == PTE_SMALLPAGE);
     pPTE->w_value = pteval & ~PTE_VALIDBITS;
-    PteZapped = true;
+    SetMapWork_TLB();
     DEBUG(track) printf("Tracking LRU, PTE %#x -> %#x\n",
                         pteval, pPTE->w_value);
     // Leave any cache entries intact.
@@ -180,7 +183,7 @@ PTE_TrackDirty(PTE * pPTE)
   if ((pteval & (PTE_VALIDBITS | 0xff0)) == (PTE_SMALLPAGE | 0xff)) {
     pPTE->w_value = (pteval & ~(PTE_CACHEABLE | PTE_BUFFERABLE | 0xff0))
                     | (PTE_CACHEABLE | 0xaa0);
-    PteZapped = true;
+    SetMapWork_TLB();
     DEBUG(track) dprintf(true, "Tracking dirty, PTE %#x -> %#x\n",
                          pteval, pPTE->w_value);
     // Leave any cache entries intact.
@@ -365,6 +368,10 @@ mach_HeapInit(kpsize_t heap_size)
 
   FLPT_FCSEVA = KPAtoP(uint32_t *, FLPT_FCSEPA);
 
+  // The CPT mapped at 0xfff00000 was allocated just above FLPT_FCSEPA.
+  // Get its address now:
+  HighCPTVA = KPAtoP(uint32_t *, FLPT_FCSEPA + 0x4000);
+
   /* In lostart, we temporarily initialized FLPT_FCSEVA[KTextPA >> 20]
   to map the same memory as FLPT_FCSEVA[KTextVA >> 20].
   Clear that map now, just to be tidy. */
@@ -539,7 +546,8 @@ EnsureSSDomain(unsigned int ssid)
       SmallSpaces[pid].domain = 0;	// no longer has it
       MMUDomains[lastDomainStolen].pid = 0;
     }
-    PteZapped = true;	// remember to flush the TLB (but not the cache)
+    // remember to flush the TLB (but not the cache)
+    SetMapWork_TLB();
 
 assignDomain:
     // Assign the domain we found.
@@ -821,6 +829,93 @@ pageH_mdType_Aging(PageHeader * pageH)
       }
     }
     return Check2ndLevelMappingTableFree(pageH);
+  }
+}
+
+/* When the kernel needs to read or write a page that is also accessed
+ * by processes, it needs to be concerned with cache coherency. 
+ * When reading, it calls pageH_MapCoherentRead before reading, and
+ * pageH_UnmapCoherentRead afterwards. 
+ * When writing, it calls pageH_MapCoherentWrite before writing, and
+ * pageH_UnmapCoherentWrite afterwards.
+ *
+ * You can have one read map and one write map active at once.
+ * The read map uses TempMap0VA and the write map uses TempMap1VA. */
+
+kva_t
+pageH_MapCoherentRead(PageHeader * pageH)
+{
+  switch (pageH->kt_u.ob.cacheAddr & EROS_PAGE_MASK) {
+  default: ;
+    assert(false);
+
+  case CACHEADDR_READERS:	// readers at multiple MVAs
+    // We are just another reader.
+    return PTOV(pageH_GetPhysAddr(pageH));
+
+  case CACHEADDR_WRITEABLE:	// writeable at one MVA
+    // There may be dirty cache entries for this page, so clean them:
+    SetMapWork_CleanCache();
+    mach_DoCacheWork(mapWork);
+  case CACHEADDR_NONE:	// not previously mapped
+  case CACHEADDR_ONEREADER:	// read only at one MVA
+  case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
+    // Map the page uncached.
+    HighCPTVA[(TempMap0VA & CPT_ADDR_MASK) >> EROS_PAGE_LGSIZE]
+      = pageH_GetPhysAddr(pageH) + 0x000 + PTE_SMALLPAGE;
+    mach_FlushBothTLBs();
+    return TempMap0VA;
+  }
+}
+
+void
+pageH_UnmapCoherentRead(PageHeader * pageH)
+{
+  /* Leave the mapping there. We will purge the TLB the next time we use it. */
+}
+
+kva_t
+pageH_MapCoherentWrite(PageHeader * pageH)
+{
+  switch (pageH->kt_u.ob.cacheAddr & EROS_PAGE_MASK) {
+  default: ;
+    assert(false);
+
+  case CACHEADDR_NONE:	// not previously mapped
+  case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
+    // Map the page uncached.
+    HighCPTVA[(TempMap1VA & CPT_ADDR_MASK) >> EROS_PAGE_LGSIZE]
+      = pageH_GetPhysAddr(pageH) + 0x550 + PTE_SMALLPAGE;
+    mach_FlushBothTLBs();
+    return TempMap1VA;
+
+  case CACHEADDR_WRITEABLE:	// writeable at one MVA
+    // There may be dirty cache entries for this page, so clean them:
+    SetMapWork_CleanCache();
+    mach_DoCacheWork(mapWork);
+  case CACHEADDR_ONEREADER:	// read only at one MVA
+  case CACHEADDR_READERS:	// readers at multiple MVAs
+    return PTOV(pageH_GetPhysAddr(pageH));
+  }
+}
+
+void
+pageH_UnmapCoherentWrite(PageHeader * pageH)
+{
+  switch (pageH->kt_u.ob.cacheAddr & EROS_PAGE_MASK) {
+  default: ;
+    assert(false);
+
+  case CACHEADDR_NONE:	// not previously mapped
+  case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
+    break;
+
+  case CACHEADDR_ONEREADER:	// read only at one MVA
+  case CACHEADDR_WRITEABLE:	// writeable at one MVA
+  case CACHEADDR_READERS:	// readers at multiple MVAs
+    SetMapWork_InvalidateCache();
+    mach_DoCacheWork(mapWork);
+    break;
   }
 }
 

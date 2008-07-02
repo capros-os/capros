@@ -946,7 +946,7 @@ db_inv_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
   else
     db_printf("Invoked key not yet determined\n");
 
-  if (inv_CanCommit() == false) {
+  if (MapsWereInvalidated()) {
     db_printf("NOTE: invocation will retry\n");
   }
 }

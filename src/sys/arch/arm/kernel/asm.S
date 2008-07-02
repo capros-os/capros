@@ -22,40 +22,47 @@ Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 	
 #include <eros/arch/arm/asm.h>
+#include "PTEarm.h"
 
 	.text
 /* Assorted short assembler routines,
    not performance-critical enough to warrant declaring inline. */
 
+	ENTRY(mach_DoMapWork)
+	str lr,[sp, #-4]!	// push return address
 
-	ENTRY(mach_FlushBothTLBs)
-	mov r0,#0
-	mcr p15,0,r0,c8,c7,0
-	ldr r1,=PteZapped
-	strb r0,[r1]	// clear the flag
+	tst r0,#MapWork_TLB
+	blne mach_FlushBothTLBs
+
+	ldr lr,[sp],#4		// restore return address
+	// Fall into mach_DoCacheWork
+
+	ENTRY(mach_DoCacheWork)
+	/* Cleaning the cache must be done before any invalidating.
+	If MapWork_InvalidateCache is set,
+	MapWork_CleanCache must also be set. */
+
+	// r0 has mapWork.
+	tst r0,#MapWork_CleanCache
+	beq 3f
+	// Clean the cache.
 #if 0
-	ldr r0,=TLBMsg
-	b printf
+	str lr,[sp, #-4]!	/* push return address */
+	ldr r0,=2f
+	bl printf
+	ldr lr,[sp],#4		/* pop return address */
 	.section .rodata
-TLBMsg:	.asciz "Flushed TLB\n"
+2:	.asciz "Cleaned Cache\n"
 	.text
+	ldr r1,=mapWork
+	ldr r0,[r1]
 #else
-	mov pc,lr
+	ldr r1,=mapWork
 #endif
-
-	ENTRY(mach_ReadCacheType)
-	mrc p15,0,r0,c0,c0,1	// read cache type register to r0
-	mov pc,lr
-
-	ENTRY(mach_FlushTLBsCaches)
-	mov r0,#0
-	mcr p15,0,r0,c8,c7,0
-	ldr r1,=PteZapped
-	strb r0,[r1]	// clear the flag
-	// fall into mach_FlushBothCaches
-
-/* "Flush" here means "clean and invalidate". */
-	ENTRY(mach_FlushBothCaches)
+	bic r0,#MapWork_CleanCache	// clear the flag
+	str r0,[r1]
+/* We need to do the above store BEFORE cleaning the cache.
+Otherwise a subsequent InvalidateCache will lose the data. */
 #ifdef OPTION_WRITEBACK
 	/* Here is the downside of OPTION_WRITEBACK.
            This takes at least 12.8 microseconds on the EDB9315. */
@@ -63,26 +70,61 @@ TLBMsg:	.asciz "Flushed TLB\n"
 	ldr r2,=cacheSetIndexCarry
 	ldr r1,[r1]
 	ldr r2,[r2]
-	mov r0,#0
-0:	mcr p15,0,r0,c7,c14,2	// clean and invalidate data cache
-	add r0,r0,r1	// add increment for next set
-	add r0,r0,r2	// propagate any carry to index field
-	bics r0,r0,r2	// prepare for next carry
+	mov r3,#0
+0:	mcr p15,0,r3,c7,c10,2	// clean data cache
+	add r3,r3,r1	// add increment for next set
+	add r3,r3,r2	// propagate any carry to index field
+	bics r3,r3,r2	// prepare for next carry
 	bne 0b
 #endif
-	mov r0,#0
-	mcr p15,0,r0,c7,c7,0	// invalidate entire cache(s)
-	ldr r1,=flushCache
-	strb r0,[r1]	// clear the flag
+	// r0 still has mapWork
+
+3:	tst r0,#MapWork_InvalidateCache
+	moveq pc,lr		// if not invalidating, return
+	// Invalidate the cache.
+	mov r1,#0
+	mcr p15,0,r1,c7,c7,0	// invalidate entire cache(s)
 #if 0
-	ldr r0,=TLBCacheMsg
-	b printf
+	str lr,[sp, #-4]!	/* push return address */
+	ldr r0,=2f
+	bl printf
+	ldr lr,[sp],#4		/* pop return address */
 	.section .rodata
-TLBCacheMsg:	.asciz "Flushed TLB&Cache\n"
+2:	.asciz "Invalidated Cache\n"
 	.text
+	ldr r1,=mapWork
+	ldr r0,[r1]
 #else
-	mov pc,lr
+	ldr r1,=mapWork
 #endif
+	bic r0,#MapWork_InvalidateCache	// clear the flag
+	str r0,[r1]
+	mov pc,lr		// return
+
+
+	ENTRY(mach_FlushBothTLBs)
+	mov r0,#0
+	mcr p15,0,r0,c8,c7,0
+#if 0
+	str lr,[sp, #-4]!	/* push return address */
+	ldr r0,=TLBMsg
+	bl printf
+	ldr lr,[sp],#4		/* pop return address */
+	.section .rodata
+TLBMsg:	.asciz "Flushed TLB\n"
+	.text
+#endif
+	ldr r1,=mapWork
+	ldr r0,[r1]
+	bic r0,#MapWork_TLB	// clear the flag
+	str r0,[r1]
+	// Return with mapWork in r0
+	mov pc,lr
+
+
+	ENTRY(mach_ReadCacheType)
+	mrc p15,0,r0,c0,c0,1	// read cache type register to r0
+	mov pc,lr
 
 	ENTRY(mach_ReadTTBR)
 	mrc p15,0,r0,c2,c0

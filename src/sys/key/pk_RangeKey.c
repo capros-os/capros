@@ -36,6 +36,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <kerninc/Key-inline.h>
+#include <arch-kerninc/PTE.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Range.h>
@@ -186,7 +187,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
   // Get the object, regardless of its allocation count:
   ObjectHeader * pObj = GetObject(oid, &objLoc);
 
-  assert(inv_CanCommit());
+  assert(! MapsWereInvalidated());
   assert(pObj);
 
   objH_TransLock(pObj);	// Pin the object.

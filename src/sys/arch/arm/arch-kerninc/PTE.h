@@ -2,7 +2,7 @@
 #define __PTE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -30,8 +30,6 @@ typedef struct PTE PTE;
 #include <kernel/PTEarm.h>
 /* PTEarm.h has declarations private to the architecture (HAL). 
    This file, arch-kerninc/PTE.h, has declarations exported outside the HAL. */
-
-extern bool PteZapped, flushCache;
 
 INLINE bool
 pte_isValid(PTE *pte)
@@ -75,13 +73,21 @@ struct PageHeader;
 bool pte_ObIsNotWritable(struct PageHeader * pObj);
 #endif
 
+/* If preparation causes a depend entry to get zapped, it may be something
+ * vital to the current operation that got zapped.  Check for that. */
+INLINE bool
+MapsWereInvalidated(void)
+{
+  return mapWork & MapWork_TLB;
+}
+
 INLINE void
 UpdateTLB(void)
 {
-  if (PteZapped)
-    mach_FlushBothTLBs();
-  if (flushCache)
-    mach_FlushBothCaches();
+  if (mapWork) {
+    mach_DoMapWork(mapWork);
+    assert(! mapWork);
+  }
 }
 
 #endif /* __PTE_H__ */

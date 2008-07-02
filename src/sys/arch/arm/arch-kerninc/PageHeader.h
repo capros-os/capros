@@ -49,13 +49,18 @@ Approved for public release, distribution unlimited. */
 MVA means modified virtual address. A page's MVA may be zero.
 
 1. Not mapped at any MVA. cacheAddr has CACHEADDR_NONE.
+   The cache has no entries for the page.
 2. Mapped readonly at one MVA. cacheAddr has the MVA
    (low bit is CACHEADDR_ONEREADER).
+   The cache may have clean entries for that MVA.
 3. Mapped writeable at one MVA. cacheAddr has the MVA, with the
    low bit set to CACHEADDR_WRITEABLE.
+   The cache may have clean or dirty entries for that MVA.
 4. Mapped readonly at multiple MVAs. cacheAddr has CACHEADDR_READERS.
+   The cache may have clean entries for multiple addresses.
 5. Mapped writeable at some MVA, and also mapped at a different MVA.
    cacheAddr has CACHEADDR_UNCACHED.
+   The cache has no entries for the page.
 
 A device page is always CACHEADDR_UNCACHED. Think of such pages as being
 writeable by the hardware. 

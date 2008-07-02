@@ -85,17 +85,6 @@ extern uint32_t ddb_inv_flags;
 #define DDB_INV_pflag  0x20u	/* a per-process debug flag has been set */
 #endif /* OPTION_DDB */
 
-/* Former member functions of Invocation */
-
-/* If preparation causes a depend entry to get zapped, it may be something
- * vital to the current operation that got zapped.  Check for that. */
-INLINE bool 
-inv_CanCommit()
-{
-  extern bool PteZapped;
-  return PteZapped ? false : true;
-}
-
 struct Invocation {
   uint32_t flags;
   Key *key;			/* key that was invoked */
@@ -165,14 +154,6 @@ void inv_InitInv(Invocation *thisPtr);
 bool inv_IsInvocationKey(Invocation* thisPtr, const Key *);
 
 void inv_RetryInvocation(Invocation* thisPtr) NORETURN;
-
-/* May Yield. */
-INLINE void 
-inv_MaybeDecommit(Invocation* thisPtr)
-{
-  if (! inv_CanCommit())
-    inv_RetryInvocation(thisPtr);
-}
 
 void inv_Commit(Invocation* thisPtr);
 

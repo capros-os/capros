@@ -95,6 +95,14 @@ struct PageHeader;
 bool pte_ObIsNotWritable(struct PageHeader * pObj);
 #endif
 
+/* If preparation causes a depend entry to get zapped, it may be something
+ * vital to the current operation that got zapped.  Check for that. */
+INLINE bool
+MapsWereInvalidated(void)
+{
+  return PteZapped;
+}
+
 INLINE void
 UpdateTLB(void)
 {

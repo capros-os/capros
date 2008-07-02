@@ -370,8 +370,8 @@ objH_ResetKeyRing(ObjectHeader* thisPtr)
   keyR_ResetRing(&thisPtr->keyRing);
 }
 
-void
-objH_InitObj(ObjectHeader * pObj, OID oid);
+void objH_InitObj(ObjectHeader * pObj, OID oid);
+void objH_InitPresentObj(ObjectHeader * pObj, OID oid);
 void objH_InitDirtyObj(ObjectHeader * pObj, OID oid, unsigned int baseType,
   ObCount allocCount);
 void objH_Intern(ObjectHeader* thisPtr);	/* intern object on the ObList. */
@@ -434,6 +434,12 @@ pageH_GetPageVAddr(const PageHeader * pageH)
   But that only works if all pages are always mapped. */
   return PTOV(pageH_GetPhysAddr(pageH));
 }
+
+// Machine-dependent procedures for coherent mapping:
+kva_t pageH_MapCoherentRead(PageHeader * pageH);
+void pageH_UnmapCoherentRead(PageHeader * pageH);
+kva_t pageH_MapCoherentWrite(PageHeader * pageH);
+void pageH_UnmapCoherentWrite(PageHeader * pageH);
 
 INLINE bool   
 pageH_IsKernelPinned(PageHeader * thisPtr)

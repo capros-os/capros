@@ -249,6 +249,19 @@ IOReq_EndRead(IORequest * ioreq)
 }
 
 void
+IOReq_EndReadPage(IORequest * ioreq)
+{
+#ifdef OPTION_OB_MOD_CHECK
+  {
+    ObjectHeader * pObj = pageH_ToObj(ioreq->pageH);
+    pObj->check = objH_CalcCheck(pObj);
+  }
+#endif
+
+  IOReq_EndRead(ioreq);
+}
+
+void
 IOReq_EndWrite(IORequest * ioreq)
 {
   // The IORequest is done.
@@ -329,7 +342,7 @@ IOSource_GetObjectType(ObjectRange * rng, OID oid)
   ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
   ioreq->objRange = rng;
   ioreq->rangeLoc = ClusterToTagPotRangeLoc(clusterNum);
-  ioreq->doneFn = &IOReq_EndRead;
+  ioreq->doneFn = &IOReq_EndReadPage;
   sq_Init(&ioreq->sq);
   ioreq_Enqueue(ioreq);
   act_SleepOn(&ioreq->sq);
@@ -340,6 +353,9 @@ void
 ioreq_Enqueue(IORequest * ioreq)
 {
   IORQ * iorq = ioreq->objRange->u.rq.iorq;
+#if 0
+  dprintf(true, "ioreq_Enqueue %#x rl=%lld\n", ioreq, ioreq->rangeLoc);
+#endif
   link_insertAfter(& iorq->lk, & ioreq->lk);
   sq_WakeAll(& iorq->waiter, false);
 }
@@ -374,7 +390,7 @@ EnsureHomePot(ObjectRange * rng, OID oid)
   ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
   ioreq->objRange = rng;
   ioreq->rangeLoc = FrameToRangeLoc(relFrame);
-  ioreq->doneFn = &IOReq_EndRead;
+  ioreq->doneFn = &IOReq_EndReadPage;
   sq_Init(&ioreq->sq);
   ioreq_Enqueue(ioreq);
   act_SleepOn(&ioreq->sq);
@@ -405,6 +421,7 @@ IOSource_GetObject(ObjectRange * rng, OID oid,
   const ObjectLocator * pObjLoc)
 {
   PageHeader * pageH;
+  ObjectHeader * pObj;
 
   assert(rng->start <= oid && oid < rng->end);
 
@@ -415,12 +432,26 @@ IOSource_GetObject(ObjectRange * rng, OID oid,
     assert(false);	// invalid type
 
   case capros_Range_otPage: ;
+    TagPot * tp = (TagPot *)pageH_GetPageVAddr(pObjLoc->u.tagPot.tagPotPageH);
+    unsigned int potEntry = pObjLoc->u.tagPot.potEntry;
+    if (tp->tags[potEntry] & TagIsZero) {
+      return CreateNewNullObject(capros_Range_otPage, oid, tp->count[potEntry]);
+    }
+
     // Read in the page.
     IORequest * ioreq = AllocateIOReqAndPage();
+
+    // Initialize the page.
+    pageH = ioreq->pageH;
+    pObj = pageH_ToObj(pageH);
+    pObj->obType = ot_PtDataPage;
+    objH_InitObj(pObj, oid);
+    objH_SetFlags(pObj, OFLG_Fetching);
+
     ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
     ioreq->objRange = rng;
     ioreq->rangeLoc = FrameToRangeLoc(OIDToFrame(relOid));
-    ioreq->doneFn = &IOReq_EndRead;
+    ioreq->doneFn = &IOReq_EndReadPage;
     sq_Init(&ioreq->sq);
     ioreq_Enqueue(ioreq);
     act_SleepOn(&ioreq->sq);
@@ -437,9 +468,9 @@ IOSource_GetObject(ObjectRange * rng, OID oid,
     DiskNode * dn = (DiskNode *)pageH_GetPageVAddr(pageH);
     dn += OIDToObIndex(relOid);
     node_SetEqualTo(pNode, dn);
-    ObjectHeader * pObj = node_ToObj(pNode);
+    pObj = node_ToObj(pNode);
     pObj->obType = ot_NtUnprepared;
-    objH_InitObj(pObj, oid);
+    objH_InitPresentObj(pObj, oid);
     objH_ClearFlags(pObj, OFLG_DIRTY);
     objH_SetFlags(pObj, OFLG_Cleanable);
     return pObj;

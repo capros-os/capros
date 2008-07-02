@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/GPT.h>
 #include <kerninc/IRQ.h>
 #include <arch-kerninc/Process-inline.h>
+#include <arch-kerninc/PTE.h>
 #ifdef OPTION_DDB
 #include <eros/StdKeyType.h>
 #endif
@@ -207,7 +208,9 @@ inv_Commit(Invocation * thisPtr)
   assert(ReturneeSetUp);
   assert(! allocatedActivity);
 
-  inv_MaybeDecommit(thisPtr);
+  // Do we need to decommit this invocation?
+  if (MapsWereInvalidated())
+    inv_RetryInvocation(thisPtr);	// Yields
 
   /* Revise the invoker state. */
   Process * invoker = act_CurContext();

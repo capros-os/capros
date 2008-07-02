@@ -44,23 +44,22 @@ unsigned int act_yieldState = 0;
 // A bool is sufficient, but an int is more efficient.
 unsigned int timerWork = 0;
 
-/* PteZapped serves two purposes.
-   1. It says whether the TLB needs to be flushed. This allows us to defer,
-      and thus possibly combine, TLB flushes. The procedure UpdateTLB()
-      checks PteZapped; if true, it flushes the cache and clears PteZapped.
+/* mapWork serves two purposes.
+   1. It says whether the TLB needs to be flushed and/or the cache cleaned
+      or invalidated. This allows us to defer, and thus possibly combine,
+      TLB and cache operations. The procedure UpdateTLB()
+      checks mapWork; if true, it does the required work and clears mapWork.
    2. It says whether some mapped memory may have been invalidated 
       during the dry run of some kernel operation.
    These two uses are compatible because UpdateTLB is only called right
    before returning to user mode. 
    If you are considering calling it elsewhere, because you want the TLB
-   up to date, do this instead: if PteZapped, act_Yield (which will retry
+   up to date, do this instead: if mapWork, act_Yield (which will retry
    the operation). 
- */
-bool PteZapped = false;
 
-/* Flushing the TLB does not necessarily require flushing the cache,
-   so use a separate flag for that. */
-bool flushCache = false;
+   Bits in mapWork are defined in PTEarm.h.
+ */
+unsigned int mapWork = 0;
 
 #ifdef OPTION_KERN_STATS
 struct KernStats_s  KernStats;

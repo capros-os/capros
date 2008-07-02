@@ -59,7 +59,7 @@ uint32_t mach_ReadCacheType(void);
   if (cacheType & 0x4000)	// M bit is one, associativity is 50% higher
     logDataCacheAssociativity++;	// round log up
 
-  // Calculate constants for the cleaning code in mach_FlushBothCaches.
+  // Calculate constants for the cleaning code in mach_DoCacheWork.
   cacheSetIndexIncrement = 1ul << logDataCacheLineLength;
   cacheSetIndexCarry = (1ul << (32-logDataCacheAssociativity))
     - (1ul << (logDataCacheLineLength + logDataCacheNSets));

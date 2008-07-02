@@ -166,6 +166,11 @@ Note 5:
 #define CSwapLoad     2
 #define CSwapStore    3
 
+// Bits for mapWork:
+#define MapWork_TLB             0x1
+#define MapWork_CleanCache      0x2
+#define MapWork_InvalidateCache 0x4
+
 #ifndef __ASSEMBLER__
 
 #include <kerninc/ObjectHeader.h>
@@ -175,9 +180,55 @@ Note 5:
 extern kpa_t FLPT_FCSEPA;
 extern uint32_t * FLPT_FCSEVA;	/* Virtual address of the above */
 
+extern uint32_t * HighCPTVA;
+
 /* FLPT_NullPA is the physical address of the Null First Level Page Table. */
 extern kpa_t FLPT_NullPA;
 extern uint32_t * FLPT_NullVA;	/* Virtual address of the above */
+
+// MapWork_* are defined above.
+extern unsigned int mapWork;
+
+//#define TRACK_MAPWORK
+
+INLINE void
+SetMapWork_TLB(void)
+{
+#ifdef TRACK_MAPWORK
+  printf("SetMapWork %#x -> %#x\n", mapWork, mapWork | MapWork_TLB);
+#endif
+  mapWork |= MapWork_TLB;
+}
+
+INLINE void
+SetMapWork_CleanCache(void)
+{
+#ifdef TRACK_MAPWORK
+  printf("SetMapWork %#x -> %#x\n", mapWork, mapWork | MapWork_CleanCache);
+#endif
+  mapWork |= MapWork_CleanCache;
+}
+
+INLINE void
+SetMapWork_InvalidateCache(void)
+{
+#ifdef TRACK_MAPWORK
+  printf("SetMapWork %#x -> %#x\n", mapWork,
+         mapWork | MapWork_CleanCache | MapWork_InvalidateCache);
+#endif
+  mapWork |= MapWork_CleanCache | MapWork_InvalidateCache;
+}
+
+INLINE void
+SetMapWork_TLBCache(void)
+{
+#ifdef TRACK_MAPWORK
+  dprintf(true, "SetMapWork %#x -> %#x\n", mapWork,
+         MapWork_TLB | MapWork_CleanCache | MapWork_InvalidateCache);
+#endif
+  mapWork = MapWork_TLB | MapWork_CleanCache | MapWork_InvalidateCache;
+}
+
 
 struct PTE {
   uint32_t w_value;
@@ -214,8 +265,9 @@ MapTabHeaderToKVA(MapTabHeader * mth)
   return (void *) (va + (mth->ndxInPage)*CPT_SIZE);
 }
 
-void mach_FlushBothTLBs(void);
-void mach_FlushBothCaches(void);
+void mach_DoMapWork(unsigned int mw);
+void mach_DoCacheWork(unsigned int mw);
+unsigned int mach_FlushBothTLBs(void);
 void mach_FlushTLBsCaches(void);
 kpa_t mach_ReadTTBR(void);
 void mach_LoadTTBR(kpa_t ttbr);

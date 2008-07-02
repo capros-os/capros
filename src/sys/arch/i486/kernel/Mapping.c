@@ -1045,6 +1045,28 @@ pageH_mdType_Aging(PageHeader * pageH)
   return false;
 }
 
+/* IA32 has a physically-tagged cache, so it does not have coherency issues: */
+kva_t
+pageH_MapCoherentRead(PageHeader * pageH)
+{
+  return PTOV(pageH_GetPhysAddr(pageH));
+}
+
+void
+pageH_UnmapCoherentRead(PageHeader * pageH)
+{ }
+
+kva_t
+pageH_MapCoherentWrite(PageHeader * pageH)
+{
+  return PTOV(pageH_GetPhysAddr(pageH));
+}
+
+void
+pageH_UnmapCoherentWrite(PageHeader * pageH)
+{ }
+
+
 #ifdef OPTION_DDB
 
 void

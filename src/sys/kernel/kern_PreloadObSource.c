@@ -68,12 +68,13 @@ preload_Init(void)
 {
   int i, j, k;
 
-  struct NPObjectsDescriptor * npod = NPObDescr;
+  struct NPObjectsDescriptor * npod;
   kpa_t pagePA = VTOP((kva_t)NPObDescr);
   // Make sure the preloaded data hasn't been inadvertently allocated.
 
   uint32_t nf = 0;	// number of frames in the preload images
 
+  npod = NPObDescr;
   // npod->numPreloadImages should be 1 or 2, but we don't need to check that.
   for (k = npod->numPreloadImages; k > 0; k--) {
     uint32_t thisFrames = 1 + npod->numFrames;	// including the header frame
@@ -142,10 +143,32 @@ preload_Init(void)
       pagePA += EROS_PAGE_SIZE;
     }
 
-    printf("Preloaded %d nodes and %d pages at OID %#llx\n",
-           npod->numNodes, npod->numNonzeroPages, npod->OIDBase);
+    printf("Preloaded %d nodes and %d pages at OID %#llx, zp=%d submaps=%d\n",
+           npod->numNodes, npod->numNonzeroPages, npod->OIDBase,
+           npod->numZeroPages, npod->numSubmaps);
 
     // Go on to the next preload image:
+    uint32_t thisFrames = 1 + npod->numFrames;	// including the header frame
+    npod = (struct NPObjectsDescriptor *)
+           ((char *)npod + thisFrames * EROS_PAGE_SIZE);
+  }
+
+  /* Now that the preloaded data is safe,
+   * allocate the zero pages and submaps.
+   * This is not necessary for non-persistent preloaded pages, because
+   * PreloadObSource_GetObject will create them as zero,
+   * but for persistent pages it's needed, because there might be
+   * stale data on the disk. */
+  npod = NPObDescr;
+  for (k = npod->numPreloadImages; k > 0; k--) {
+    OID oid = npod->OIDBase + FrameToOID(npod->numFrames);
+
+    for (j = npod->numZeroPages + npod->numSubmaps;
+         j > 0; j--) {
+      CreateNewNullObject(capros_Range_otPage, oid, restartNPAllocCount);
+      oid += FrameToOID(1);
+    }
+
     uint32_t thisFrames = 1 + npod->numFrames;	// including the header frame
     npod = (struct NPObjectsDescriptor *)
            ((char *)npod + thisFrames * EROS_PAGE_SIZE);

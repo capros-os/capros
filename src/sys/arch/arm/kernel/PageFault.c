@@ -44,7 +44,7 @@ unsigned int EnsureSSDomain(unsigned int ssid);
 
 // #define WALK_LOUD
 
-#define dbg_pgflt	0x1	/* steps in taking snapshot */
+#define dbg_pgflt	0x1
 #define dbg_cache	0x2
 #define dbg_track	0x4
 
@@ -287,7 +287,7 @@ pageH_MakeUncached(PageHeader * pageH)
   keyR_UnmapAll(&pageH_ToObj(pageH)->keyRing);
   pageH->kt_u.ob.cacheAddr = CACHEADDR_UNCACHED;
   /* If and when PTEs to this page are rebuilt, they will be uncached. */
-  flushCache = true;
+  SetMapWork_InvalidateCache();
 }
 
 /* Walk the current object's products looking for an acceptable product: */
@@ -609,6 +609,7 @@ FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
         read-only PTEs too, which is somewhat unfortunate. */
         DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to READERS\n", pageH);
         keyR_UnmapAll(&pageH_ToObj(pageH)->keyRing);
+        SetMapWork_CleanCache();
         pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
       }
     }
@@ -886,7 +887,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
     // Entry was invalid, but could there be cache entries dependent on it?
     if (theFLPTEntry & L1D_COARSE_PT_ADDR)
-      flushCache = true;
+      SetMapWork_InvalidateCache();
     * theFLPTEntryP = PTE_IN_PROGRESS;
 
     /* Translate bits 31:22 of the address: */

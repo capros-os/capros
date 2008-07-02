@@ -737,8 +737,10 @@ toDebugger:
 	ldr sp,=(kstackBot)	// empty the kernel stack!
 #if 0	// if trying to find a bug
 	mov r4,r0
-	bl mach_FlushBothTLBs
-	bl mach_FlushBothCaches
+	ldr r1,=mapWork
+	mov r0,#(MapWork_TLB+MapWork_CleanCache+MapWork_InvalidateCache)
+	str r0,[r1]
+	bl mach_DoMapWork
 	mov r0,r4
 #endif
 

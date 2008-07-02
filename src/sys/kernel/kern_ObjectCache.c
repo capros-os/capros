@@ -406,12 +406,18 @@ objH_InitObj(ObjectHeader * pObj, OID oid)
   objH_SetFlags(pObj, OFLG_CURRENT);
   assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_IO) == 0);
 
+  objH_ResetKeyRing(pObj);
+  objH_Intern(pObj);
+}
+
+void
+objH_InitPresentObj(ObjectHeader * pObj, OID oid)
+{
 #ifdef OPTION_OB_MOD_CHECK
   pObj->check = objH_CalcCheck(pObj);
 #endif
 
-  objH_ResetKeyRing(pObj);
-  objH_Intern(pObj);
+  objH_InitObj(pObj, oid);
 }
 
 void
@@ -420,7 +426,7 @@ objH_InitDirtyObj(ObjectHeader * pObj, OID oid, unsigned int baseType,
 {
   pObj->allocCount = allocCount;
   pObj->obType = BaseTypeToObType(baseType);
-  objH_InitObj(pObj, oid);
+  objH_InitPresentObj(pObj, oid);
   // Object is dirty because we just initialized it:
   objH_SetFlags(pObj, OFLG_DIRTY);
   if (oid < FIRST_PERSISTENT_OID) {
@@ -504,7 +510,7 @@ CleanAPotOfNodes(bool force)
   // Write the pot.
   pObj = pageH_ToObj(pageH);
   pObj->obType = ot_PtLogPot;
-  objH_InitObj(pObj, lid);
+  objH_InitPresentObj(pObj, lid);
 
   ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
   ioreq->objRange = rng;
@@ -1195,7 +1201,7 @@ objC_CopyObject(ObjectHeader *pObj)
   }
 
   newObj->allocCount = pObj->allocCount;
-  objH_InitObj(newObj, pObj->oid);
+  objH_InitPresentObj(newObj, pObj->oid);
   // FIXME: Init obtype to capros_Range_ot*.
 
   objH_SetFlags(newObj, objH_GetFlags(pObj, OFLG_DISKCAPS)); // correct?

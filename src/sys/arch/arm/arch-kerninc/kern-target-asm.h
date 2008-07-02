@@ -120,6 +120,10 @@ followed by kernel bss
 followed by padding to 1MB boundary (so we can map code ro and data rw
            and still map using section descriptors)
 followed by unused
+0xfff00000 for temporary map to a user page
+0xfff01000 unused
+0xfff02000 for temporary map to a user page
+0xfff03000 unused
 0xffff0000 exception vectors, read-only
 0xffff1000 unused, to guard against small negative integers used as pointers
            by accident.
@@ -139,6 +143,8 @@ followed by unused
 #define AHB_VA		0xfc000000	// AMBA high-speed bus registers
 #define APB_VA		0xfc800000	// AMBA peripheral bus registers
 #define KTextVA		0xfe000000
+#define TempMap0VA	0xfff00000
+#define TempMap1VA	0xfff02000
 #endif
 
 #endif /* __KERN_TARGET_ASM_ARM_H__ */
