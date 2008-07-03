@@ -48,7 +48,7 @@ OBJECTS=$(addprefix $(BUILDDIR)/,$(SOURCES:.c=.o))
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 INC += -I$(EROS_ROOT)/host/include # for DiskNode.h and ErosTypes.h
 # DEFS possibilities include -DNDEBUG, -DPARANIOD
-DEFS= -DNDEBUG 
+##DEFS= -DNDEBUG 
 
 ifeq "$(EROS_TARGET)" "i486" # only for i486 target
 ASM_SOURCES=rdtsc.S

@@ -75,12 +75,15 @@ typedef struct Range_s {
 Range RangeTable[MAX_RANGES];
 
 #define MAX_CACHE_ENT 64
-#define NCACHE 128
 typedef struct AllocCache_s {
   uint32_t ndx;
   uint32_t top;
   OID  oid[MAX_CACHE_ENT];
 } AllocCache;
+
+/* NCACHE is the number of caches, and should be about the largest
+ * number of distinct banks expected. */
+#define NCACHE 64
 
 /* The node frame cache is segregated to capture recently DE-allocated
    nodes.  It exists to reduce the number of retags, as switching from
@@ -472,7 +475,9 @@ range_install(uint32_t kr, uint32_t reservedFrames)
   myRange->nAvailFrames = nFrames - reservedFrames - nSubMaps;
   myRange->startOID = oid;
   myRange->endOID = endOID;
-  myRange->endClearedOIDs = oid + FrameToOID(reservedFrames);
+  /* Reserved frames are initialized in preload_Init(),
+   * and we initialize submaps. All others need to be initialized: */
+  myRange->endClearedOIDs = oid + FrameToOID(reservedFrames + nSubMaps);
   myRange->length = len;
   myRange->firstSubmapFrame = reservedFrames;
   myRange->srmBase
@@ -480,9 +485,9 @@ range_install(uint32_t kr, uint32_t reservedFrames)
   myRange->nFrames = nFrames;
   myRange->nSubmaps = nSubMaps;
 
-  DEBUG(init) kdprintf(KR_OSTREAM,
-           "Installed range [0x%llx,0x%llx) nf=0x%llx\n",
-           oid, endOID, myRange->nAvailFrames );
+  DEBUG(init) kprintf(KR_OSTREAM,
+      "Installed range %#x [0x%llx,0x%llx) rsrvd %d, subm=%d, avail=%lld\n",
+      myRange, oid, endOID, reservedFrames, nSubMaps, myRange->nAvailFrames);
   
   map_range(myRange);
   init_range_map(myRange);

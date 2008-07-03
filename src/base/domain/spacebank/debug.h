@@ -37,7 +37,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_retype     0x800	/* changing the type of a frame */
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_nospace | dbg_retype )////
+#define dbg_flags   ( 0u | dbg_nospace )
 
 #define CND_DEBUG(x) (dbg_##x & dbg_flags)
 #define DEBUG(x) if (CND_DEBUG(x))

@@ -21,6 +21,7 @@
 
 #include <string.h>
 #include <eros/target.h>
+#include <domain/Runtime.h>
 #include <domain/domdbg.h>
 #include "assert.h"
 #include "misc.h"

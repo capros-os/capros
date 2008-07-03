@@ -36,6 +36,7 @@ Approved for public release, distribution unlimited. */
 
 #include "misc.h"
 #include "debug.h"
+#include "assert.h"
 #include "spacebank.h"
 #include "Bank.h"
 
@@ -93,6 +94,7 @@ heap_insert_page(uint32_t addr, uint32_t krPage)
     addr &= addrMask;
 
     result = capros_GPT_getSlot(krtree, slot, krwalk);
+    assert(result == RC_OK);
 
     result = capros_key_getType(krwalk, &kt);
     if (result == RC_capros_key_Void) {
@@ -113,9 +115,11 @@ heap_insert_page(uint32_t addr, uint32_t krPage)
       }
 
       result = capros_GPT_setL2v(krwalk, BlssToL2v(keylss));
+      assert(result == RC_OK);
 
       /* insert new node into tree. */
       result = capros_GPT_setSlot(krtree, slot, krwalk);
+      assert(result == RC_OK);
     } else {	// have a GPT
       if (kt != AKT_GPT)
         kpanic(KR_OSTREAM,
