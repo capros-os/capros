@@ -61,7 +61,8 @@ typedef struct ObjectDescriptor {
   ObCount   callCount;          /**<The call count of the object. */
   LID       logLoc;             /**<The Log location ID where the object
 				   is stored in the log. */
-  uint8_t   type;               /**<The type of the object. */
+  uint8_t   type;               /**<The base type of the object:
+			capros_Range_otPage or capros_Range_otNode. */
 } ObjectDescriptor;
 
 /** Record the location of an object.

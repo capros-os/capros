@@ -67,6 +67,7 @@ void CalcLogExtent(void);
 
 enum {
   objLoc_ObjectHeader,
+  objLoc_ObjectDescriptor,
   objLoc_TagPot,
   objLoc_Preload
 };
@@ -79,6 +80,13 @@ typedef struct ObjectLocator {
   union {
     // If locType == objLoc_ObjectHeader:
     ObjectHeader * objH;
+
+    // If locType == objLoc_ObjectDescriptor:
+    struct {
+      ObCount allocCount;
+      ObCount callCount;
+      LID logLoc;
+    } objDesc;
 
     // If locType == objLoc_TagPot:
     struct {

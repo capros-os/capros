@@ -1097,11 +1097,12 @@ CreateNewNullObject(unsigned int baseType, OID oid, ObCount allocCount)
     PageHeader * pageH = objC_GrabPageFrame();
     pObj = pageH_ToObj(pageH);
 
-    void * dest = (void *) pageH_GetPageVAddr(pageH);
-    kzero(dest, EROS_PAGE_SIZE);
-
     pageH_MDInitDataPage(pageH);
     pageH_SetReferenced(pageH);
+
+    kva_t pageAddr = pageH_MapCoherentWrite(pageH);
+    kzero((void *)pageAddr, EROS_PAGE_SIZE);
+    pageH_UnmapCoherentWrite(pageH);
     break;
   }
 

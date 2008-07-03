@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectSource.h>
 #include <kerninc/ObjH-inline.h>
 #include <kerninc/Activity.h>
+#include <kerninc/LogDirectory.h>
 #include <disk/TagPot.h>
 
 #define dbg_obsrc	0x20	/* addition of object ranges */
@@ -202,7 +203,16 @@ GetObjectType(OID oid)
     objLoc.objType = objH_GetBaseType(pObj);
     return objLoc;
   } else {
-    // Look in the log directory ...
+    // Look in the log directory.
+    const ObjectDescriptor * objDescP = ld_findObject(oid);
+    if (objDescP) {
+      objLoc.locType = objLoc_ObjectDescriptor;
+      objLoc.objType = objDescP->type;
+      objLoc.u.objDesc.allocCount = objDescP->allocCount;
+      objLoc.u.objDesc.callCount = objDescP->callCount;
+      objLoc.u.objDesc.logLoc = objDescP->logLoc;
+      return objLoc;
+    }
 
     // Look in the object source:
     ObjectRange * rng = LookupOID(oid, obRanges, nObRanges);
@@ -229,7 +239,10 @@ GetObjectCount(OID oid, ObjectLocator * pObjLoc, bool callCount)
       return node_GetCallCount(objH_ToNode(pObjLoc->u.objH));
     else return objH_GetAllocCount(pObjLoc->u.objH);
 
-  // If in the log directory, get count from there ...
+  case objLoc_ObjectDescriptor:
+    if (callCount)
+      return pObjLoc->u.objDesc.callCount;
+    else return pObjLoc->u.objDesc.allocCount;
 
   case objLoc_TagPot: ;
     if (pObjLoc->objType == capros_Range_otPage) {
@@ -259,7 +272,19 @@ GetObject(OID oid, const ObjectLocator * pObjLoc)
     objH_EnsureNotFetching(pObjLoc->u.objH);
     return pObjLoc->u.objH;
 
-  // If in the log directory, fetch the object ...
+  case objLoc_ObjectDescriptor:
+  {
+    LID lid = pObjLoc->u.objDesc.logLoc;
+    if (!lid) {		// a null object
+      ObjectHeader * pObj = CreateNewNullObject(pObjLoc->objType, oid,
+                              pObjLoc->u.objDesc.allocCount);
+      if (pObjLoc->objType == capros_Range_otNode)
+        objH_ToNode(pObj)->callCount = pObjLoc->u.objDesc.callCount;
+      return pObj;
+    } else {		// fetch the object from the log
+      assert(!"complete");
+    }
+  }
 
   case objLoc_TagPot: ;
   {
