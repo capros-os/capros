@@ -441,6 +441,8 @@ void pageH_UnmapCoherentRead(PageHeader * pageH);
 kva_t pageH_MapCoherentWrite(PageHeader * pageH);
 void pageH_UnmapCoherentWrite(PageHeader * pageH);
 
+Node * pageH_GetNodeFromPot(PageHeader * pageH, unsigned int obIndex);
+
 INLINE bool   
 pageH_IsKernelPinned(PageHeader * thisPtr)
 {

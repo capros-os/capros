@@ -58,6 +58,9 @@ ObjectRange * LidToRange(LID lid);
 
 void restart_LIDMounted(ObjectRange * rng);
 void CalcLogExtent(void);
+void objRange_FetchPage(ObjectRange * rng, OID oid, frame_t rangeLoc) NORETURN;
+void objRange_FetchPot(ObjectRange * rng, OID oidOrLid, 
+  frame_t rangeLoc, ObType obType) NORETURN;
 
 /**********************************************************************
  *

@@ -282,7 +282,30 @@ GetObject(OID oid, const ObjectLocator * pObjLoc)
         objH_ToNode(pObj)->callCount = pObjLoc->u.objDesc.callCount;
       return pObj;
     } else {		// fetch the object from the log
-      assert(!"complete");
+      ObjectRange * rng = LidToRange(lid);
+      assert(rng);	// else lid is not mounted. FIXME
+      switch (pObjLoc->objType) {
+      default: ;
+        assert(false);
+
+      case capros_Range_otPage:
+dprintf(true, "Fetching page from log.\n");////
+        objRange_FetchPage(rng, oid, lid - rng->start);
+        break;
+
+      case capros_Range_otNode:
+dprintf(true, "Fetching node from log.\n");////
+        LID potLid = FrameToOID(OIDToFrame(lid));	// 1st LID in frame
+        ObjectHeader * pObj = objH_Lookup(potLid, ot_PtLogPot);
+        if (pObj) {	// we have the log pot
+          objH_EnsureNotFetching(pObj);
+          pObj->objAge = age_NewObjPot;	// mark referenced, but not strongly
+          return node_ToObj(pageH_GetNodeFromPot(objH_ToPage(pObj),
+                                                 OIDToObIndex(lid) ));
+        }
+        objRange_FetchPot(rng, lid, lid - rng->start, ot_PtLogPot);
+        break;
+      }
     }
   }
 

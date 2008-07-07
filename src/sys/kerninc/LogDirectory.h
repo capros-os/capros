@@ -65,6 +65,31 @@ typedef struct ObjectDescriptor {
 			capros_Range_otPage or capros_Range_otNode. */
 } ObjectDescriptor;
 
+typedef struct TreeNode {
+  /* Data that describes the primary location of the object. */
+  GenNum generation;
+  ObjectDescriptor od;
+
+  /* Data that describes the previous primary location of the object */
+  uint8_t ppGenerationDelta; /* Difference between ppgeneration and
+				the primary generation. If this field is
+			        zero, there is no previous primary data. */
+  LID ppLogLoc;              /* LID for previous location */
+
+  /* Data for the RB tree */
+  struct TreeNode *left;
+  struct TreeNode *right;
+  struct TreeNode *parent;
+  int color;
+
+  /* Data for the doublely linked list */
+  struct TreeNode *prev;
+  struct TreeNode *next;
+} TreeNode;
+
+extern unsigned long numLogDirEntries;
+extern TreeNode * logDirNodes;
+
 /** Record the location of an object.
 
     The call includes the generation number so it may be used during

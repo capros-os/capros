@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Node.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Node-inline.h>
+#include <disk/DiskNode.h>
 #include <arch-kerninc/PTE.h>
 #include <arch-kerninc/Machine-inline.h>
 
@@ -411,6 +412,24 @@ objH_ClearObj(ObjectHeader * thisPtr)
 
   DEBUG(rescind)
     dprintf(true, "After zero object\n");
+}
+
+// May Yield.
+Node *
+pageH_GetNodeFromPot(PageHeader * pageH, unsigned int obIndex)
+{
+  Node * pNode = objC_GrabNodeFrame();
+
+  // A node pot is just an array of DiskNode's.
+  DiskNode * dn = (DiskNode *)pageH_GetPageVAddr(pageH);
+  dn += obIndex;
+  node_SetEqualTo(pNode, dn);
+  ObjectHeader * pObj = node_ToObj(pNode);
+  pObj->obType = ot_NtUnprepared;
+  objH_InitPresentObj(pObj, pObj->oid);
+  objH_ClearFlags(pObj, OFLG_DIRTY);
+  objH_SetFlags(pObj, OFLG_Cleanable);
+  return pNode;
 }
 
 #ifdef OPTION_OB_MOD_CHECK

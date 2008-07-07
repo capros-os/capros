@@ -54,29 +54,8 @@ Approved for public release, distribution unlimited. */
 #define TREE_RED 0
 #define TREE_BLACK 1
 
-#define NUMBER_LOG_DIR_ENTRIES 8000
-
-typedef struct TreeNode {
-  /* Data that describes the primary location of the object. */
-  GenNum generation;
-  ObjectDescriptor od;
-
-  /* Data that describes the previous primary location of the object */
-  uint8_t ppGenerationDelta; /* Difference between ppgeneration and
-				the primary generation. If this field is
-			        zero, there is no previous primary data. */
-  LID ppLogLoc;              /* LID for previous location */
-
-  /* Data for the RB tree */
-  struct TreeNode *left;
-  struct TreeNode *right;
-  struct TreeNode *parent;
-  int color;
-
-  /* Data for the doublely linked list */
-  struct TreeNode *prev;
-  struct TreeNode *next;
-} TreeNode;
+unsigned long numLogDirEntries;
+TreeNode * logDirNodes;
 
 #define TREE_NIL (&log_directory_nil_node)
 TreeNode log_directory_nil_node = {
@@ -84,7 +63,6 @@ TreeNode log_directory_nil_node = {
   TREE_NIL, TREE_NIL, TREE_NIL, TREE_BLACK,
   NULL, NULL};
 
-TreeNode nodes[NUMBER_LOG_DIR_ENTRIES];
 TreeNode *free_list = NULL;
 
 typedef struct TreeHead {
@@ -104,7 +82,7 @@ TreeHead log_directory = {TREE_NIL};
 /** Headers for lists of all TreeNodes of a given generation.
 
     In addition to the tree we keep for locating the objects by OID,
-    each of the nodes is kept in a linked list by generation
+    each of the logDirNodes is kept in a linked list by generation
     to enable us to quickly delete them when we overlay an old generation
     with more recent data and to scan them for writing the checkpoint
     directory and for migration.
@@ -954,9 +932,9 @@ void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
 	generation_table[i].count = 0;
       }
       /* Chain the TreeNodes on the free list */
-      log_entry_count = NUMBER_LOG_DIR_ENTRIES;
-      for (i=0; i<NUMBER_LOG_DIR_ENTRIES; i++) {
-	free_node(&nodes[i]);
+      log_entry_count = numLogDirEntries;
+      for (i=0; i<numLogDirEntries; i++) {
+	free_node(&logDirNodes[i]);
       }
       assert(0 == log_entry_count);
     } else {
@@ -966,7 +944,7 @@ void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
 		? LD_MAX_GENERATIONS : move_size);
       int i;
       for (i=LD_MAX_GENERATIONS-1; i>=LD_MAX_GENERATIONS-ms; i--) {
-	/* If there are any nodes in these generations, it is an error */
+	/* If there are any logDirNodes in these generations, it is an error */
 	assert(generation_table[i].head == NULL);
       }
       for (; i>=0; i--) {
@@ -1149,7 +1127,7 @@ ld_generationRetired(GenNum generation) {
 */
 unsigned long
 ld_numAvailableEntries(void) {
-  unsigned long count = NUMBER_LOG_DIR_ENTRIES - log_entry_count;
+  unsigned long count = numLogDirEntries - log_entry_count;
   if (0 == last_retired_generation) return count;
   int i = get_generation_index(last_retired_generation);
   for (; i<LD_MAX_GENERATIONS; i++) {
@@ -1472,7 +1450,7 @@ int main() {
 
     /* Check the number of available entries */
     {
-      int ent_count = NUMBER_LOG_DIR_ENTRIES;
+      int ent_count = numLogDirEntries;
       int ii;
       for (ii=0; ii<RETIRED_DEPTH; ii++) {
 	int jj = i - ii;

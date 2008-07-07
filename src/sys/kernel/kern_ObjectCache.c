@@ -1215,11 +1215,12 @@ objC_CopyObject(ObjectHeader *pObj)
 #endif
 
 /* Process and Depend entries are allocated before we get here.
- * Here we allocate only nodes, pages, and core table
- * entries.  Nodes and pages are allocated in equal proportions, with
- * one core table entry per page.
+ * Here we allocate only logDirNodes, nodes, pages, and PageHeader's.
+ * Nodes and pages are allocated in equal proportions, with
+ * one PageHeader per page.
+ * There are twice as many logDirNodes as nodes+pages
+ * (to allow for dirtying all objects in memory for each of 2 checkpoints).
  */
-
 void
 objC_Init()
 {
@@ -1231,13 +1232,16 @@ objC_Init()
     
   DEBUG(cachealloc)
     printf("%d bytes of available storage, sizeof(Node) = %d,"
-           " sizeof(ObjectHeader) = %d.\n",
-           availBytes, sizeof(Node), sizeof(ObjectHeader));
+           " sizeof(PageHeader) = %d.\n"
+           "sizeof(TreeNode) = %d\n",
+           availBytes, sizeof(Node), sizeof(PageHeader), sizeof(TreeNode));
 
   allocQuanta =
-    sizeof(Node) + EROS_PAGE_SIZE + sizeof(ObjectHeader);
+    sizeof(Node) + EROS_PAGE_SIZE + sizeof(PageHeader)
+    + 2 * sizeof(TreeNode);
 
   objC_nNodes = availBytes / allocQuanta;
+  numLogDirEntries = objC_nNodes * 2;
     
 #ifdef TESTING_AGEING
   objC_nNodes = 90;			/* This is one less than logtst requires. */
@@ -1295,11 +1299,17 @@ objC_Init()
       objC_AddDevicePages(pmi);
     }
   }
+  
+  // Allocate logDirNodes:
+  logDirNodes = KPAtoP(TreeNode *,
+          physMem_Alloc(numLogDirEntries*sizeof(TreeNode), &physMem_any));
+  kzero(logDirNodes, numLogDirEntries*sizeof(TreeNode));
 
+  // Allocate pages:
   objC_AllocateUserPages();
 
-  DEBUG(cachealloc)
-    printf("%d cached domains, %d nodes, %d pages\n",
-		   KTUNE_NCONTEXT,
-		   objC_nNodes, objC_nPages);
+  printf("Object cache initialized:\n"
+         "  %d cached domains, %d nodes, %d pages, %d logDirNodes\n",
+	 KTUNE_NCONTEXT,
+	 objC_nNodes, objC_nPages, numLogDirEntries);
 }

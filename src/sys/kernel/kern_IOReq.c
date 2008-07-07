@@ -299,6 +299,33 @@ objH_EnsureNotFetching(ObjectHeader * pObj)
   objH_TransLock(pObj);
 }
 
+// Yields.
+void
+objRange_FetchPage(ObjectRange * rng, OID oid, frame_t rangeLoc)
+{
+  PageHeader * pageH;
+  ObjectHeader * pObj;
+  // Read in the page.
+  IORequest * ioreq = AllocateIOReqAndPage();
+
+  // Initialize the page.
+  pageH = ioreq->pageH;
+  pObj = pageH_ToObj(pageH);
+  pObj->obType = ot_PtDataPage;
+  objH_InitObj(pObj, oid);
+  objH_SetFlags(pObj, OFLG_Fetching);
+
+  ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
+  ioreq->objRange = rng;
+  ioreq->rangeLoc = rangeLoc;
+  ioreq->doneFn = &IOReq_EndReadPage;
+  sq_Init(&ioreq->sq);
+  ioreq_Enqueue(ioreq);
+  act_SleepOn(&ioreq->sq);
+  act_Yield();
+  // act_Yield does not return
+}
+
 // May Yield.
 ObjectLocator 
 IOSource_GetObjectType(ObjectRange * rng, OID oid)
@@ -360,6 +387,30 @@ ioreq_Enqueue(IORequest * ioreq)
   sq_WakeAll(& iorq->waiter, false);
 }
 
+void
+objRange_FetchPot(ObjectRange * rng, OID oidOrLid,
+  frame_t rangeLoc, ObType obType)
+{
+  IORequest * ioreq = AllocateIOReqAndPage();
+
+  // Initialize the pot.
+  PageHeader * pageH = ioreq->pageH;
+  ObjectHeader * pObj = pageH_ToObj(pageH);
+  pObj->obType = obType;
+  objH_InitObj(pObj, oidOrLid);
+  objH_SetFlags(pObj, OFLG_Fetching);
+
+  ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
+  ioreq->objRange = rng;
+  ioreq->rangeLoc = rangeLoc;
+  ioreq->doneFn = &IOReq_EndReadPage;
+  sq_Init(&ioreq->sq);
+  ioreq_Enqueue(ioreq);
+  act_SleepOn(&ioreq->sq);
+  act_Yield();
+  // act_Yield does not return
+}
+
 // Find or get an object pot from the home range.
 // May Yield.
 static PageHeader *
@@ -370,7 +421,7 @@ EnsureHomePot(ObjectRange * rng, OID oid)
   frame_t relFrame = OIDToFrame(relOid);
 
   // Is the pot in memory?
-  ObjectHeader * pObj = objH_Lookup(frame, ot_PtHomePot);
+  ObjectHeader * pObj = objH_Lookup(FrameToOID(frame), ot_PtHomePot);
   if (pObj) {
     objH_EnsureNotFetching(pObj);
     pObj->objAge = age_NewObjPot;	// mark referenced, but not strongly
@@ -378,24 +429,7 @@ EnsureHomePot(ObjectRange * rng, OID oid)
   }
 
   // Read in the pot.
-  IORequest * ioreq = AllocateIOReqAndPage();
-
-  // Initialize the pot.
-  PageHeader * pageH = ioreq->pageH;
-  pObj = pageH_ToObj(pageH);
-  pObj->obType = ot_PtHomePot;
-  objH_InitObj(pObj, oid);
-  objH_SetFlags(pObj, OFLG_Fetching);
-
-  ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
-  ioreq->objRange = rng;
-  ioreq->rangeLoc = FrameToRangeLoc(relFrame);
-  ioreq->doneFn = &IOReq_EndReadPage;
-  sq_Init(&ioreq->sq);
-  ioreq_Enqueue(ioreq);
-  act_SleepOn(&ioreq->sq);
-  act_Yield();
-  // act_Yield does not return
+  objRange_FetchPot(rng, oid, FrameToRangeLoc(relFrame), ot_PtHomePot);
 }
 
 // May Yield.
@@ -420,9 +454,6 @@ ObjectHeader *
 IOSource_GetObject(ObjectRange * rng, OID oid,
   const ObjectLocator * pObjLoc)
 {
-  PageHeader * pageH;
-  ObjectHeader * pObj;
-
   assert(rng->start <= oid && oid < rng->end);
 
   OID relOid = oid - rng->start;	// OID relative to this range
@@ -437,43 +468,12 @@ IOSource_GetObject(ObjectRange * rng, OID oid,
     if (tp->tags[potEntry] & TagIsZero) {
       return CreateNewNullObject(capros_Range_otPage, oid, tp->count[potEntry]);
     }
-
-    // Read in the page.
-    IORequest * ioreq = AllocateIOReqAndPage();
-
-    // Initialize the page.
-    pageH = ioreq->pageH;
-    pObj = pageH_ToObj(pageH);
-    pObj->obType = ot_PtDataPage;
-    objH_InitObj(pObj, oid);
-    objH_SetFlags(pObj, OFLG_Fetching);
-
-    ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
-    ioreq->objRange = rng;
-    ioreq->rangeLoc = FrameToRangeLoc(OIDToFrame(relOid));
-    ioreq->doneFn = &IOReq_EndReadPage;
-    sq_Init(&ioreq->sq);
-    ioreq_Enqueue(ioreq);
-    act_SleepOn(&ioreq->sq);
-    act_Yield();
-    // act_Yield does not return
+    objRange_FetchPage(rng, oid, FrameToRangeLoc(OIDToFrame(relOid)));
     break;
 
-  case capros_Range_otNode:
-    pageH = EnsureHomePot(rng, oid);
-
-    Node * pNode = objC_GrabNodeFrame();
-
-    // A node pot is just an array of DiskNode's.
-    DiskNode * dn = (DiskNode *)pageH_GetPageVAddr(pageH);
-    dn += OIDToObIndex(relOid);
-    node_SetEqualTo(pNode, dn);
-    pObj = node_ToObj(pNode);
-    pObj->obType = ot_NtUnprepared;
-    objH_InitPresentObj(pObj, oid);
-    objH_ClearFlags(pObj, OFLG_DIRTY);
-    objH_SetFlags(pObj, OFLG_Cleanable);
-    return pObj;
+  case capros_Range_otNode: ;
+    PageHeader * pageH = EnsureHomePot(rng, oid);
+    return node_ToObj(pageH_GetNodeFromPot(pageH, OIDToObIndex(relOid)));
   }
 }
 

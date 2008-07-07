@@ -166,8 +166,6 @@ main(void)
      in-core nodes, pages, and the CoreTable: */
   objC_Init();
 
-  printf("Object cache initialized...\n");
-
   objC_InitObjectSources();
 
   extern void preload_Init(void);
