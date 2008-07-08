@@ -309,26 +309,14 @@ inv_Cleanup(Invocation* thisPtr)
 #endif
 
   /* NH_Unprepare is expensive.  Avoid it if possible: */
-  if (thisPtr->flags & INV_SCRATCHKEY)
-    key_NH_SetToVoid(&thisPtr->scratchKey);
-  if (thisPtr->flags & INV_KEEPERARG)
-    key_NH_SetToVoid(&thisPtr->keeperArg);
-#if 0
-  if (flags & INV_RESUMEKEY)
-    resumeKey.NH_VoidKey();
-#endif
-#if 0
-  if (thisPtr->flags & INV_EXITKEY0)
-    exit.key[0].NH_VoidKey();
-  if (flags & INV_EXITKEY3)
-    exit.key[3].INH_VoidKey();
-  if (flags & INV_EXITKEYOTHER) {
-    exit.key[1].NH_VoidKey();
-    exit.key[2].NH_VoidKey();
-  }
-#endif
+  if (thisPtr->flags) {
+    if (thisPtr->flags & INV_SCRATCHKEY)
+      key_NH_SetToVoid(&thisPtr->scratchKey);
+    if (thisPtr->flags & INV_KEEPERARG)
+      key_NH_SetToVoid(&thisPtr->keeperArg);
   
-  thisPtr->flags = 0;
+    thisPtr->flags = 0;
+  }
 }
 
 /* Yields, does not return. */

@@ -65,15 +65,9 @@ extern bool ReturneeSetUp;
 extern bool traceInvs;
 #endif
 
-#if 0
-#define INV_RESUMEKEY     0x100u
-#endif
+// Values for Invocation.flags:
 #define INV_SCRATCHKEY    0x200u
 #define INV_KEEPERARG     0x400u
-
-#define INV_EXITKEY0      0x001u
-#define INV_EXITKEY3      0x008u
-#define INV_EXITKEYOTHER  0x00eu
 
 #ifdef OPTION_DDB
 extern uint32_t ddb_inv_flags;

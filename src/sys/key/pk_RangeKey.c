@@ -414,7 +414,6 @@ RangeKey(Invocation* inv /*@ not null @*/)
       }
 
       key = inv->exit.pKey[0];
-      inv->flags |= INV_EXITKEY0;
 
       if (key) {
 	/* Unchain the old key so we can overwrite it... */
