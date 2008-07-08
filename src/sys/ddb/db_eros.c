@@ -933,9 +933,9 @@ db_inv_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
     theTypeName = invTypeName[invType];
   
   if (inv.key) {
-    db_printf("Invoked key 0x%08x ity=%d(%s) ikt=%d kd=%d st=%d inv count=%U\n"
+    db_printf("Invoked key 0x%08x ity=%d(%s) kt=%d kd=%d inv count=%U\n"
 	      " OC=0x%08x (%d)\n",
-	      inv.key, invType, theTypeName, inv.invKeyType,
+	      inv.key, invType, theTypeName,
 	      keyBits_GetType(inv.key), inv.key->keyData,
 	      KernStats.nInvoke,
 	      inv.entry.code,

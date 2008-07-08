@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/Activity.h>
 #include <kerninc/KernStats.h>
+#include <kerninc/Key-inline.h>
 #include <arch-kerninc/Process-inline.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
@@ -38,8 +39,13 @@ Approved for public release, distribution unlimited. */
 void
 GateKey(Invocation* inv /*@ not null @*/)
 {
+  Key * invKey = inv->key;
+
+  if (key_PrepareForInv(invKey))
+    return;
+
   /* Make a local copy (so the compiler can optimize it) */
-  Process * invokee = inv->key->u.gk.pContext;
+  Process * invokee = invKey->u.gk.pContext;
   if (! proc_IsRunnable(invokee)) {
     proc_DoPrepare(invokee);		/* may yield */
 
@@ -49,7 +55,7 @@ GateKey(Invocation* inv /*@ not null @*/)
 #endif
 
       /* Pretend we invoked a void key. */
-      // No need to set inv->key and inv->invKeyType.
+      // No need to set inv->key.
       VoidKey(inv);
       return;
     }
@@ -62,10 +68,12 @@ GateKey(Invocation* inv /*@ not null @*/)
 #endif
 
   // Check invokee's state.
-  assert(! keyBits_IsType(inv->key, KKT_Resume)
+  assert(! keyBits_IsType(invKey, KKT_Resume)
          || invokee->runState == RS_Waiting );
 
-  if (inv->invKeyType == KKT_Start && invokee->runState != RS_Available) {
+  unsigned int invKeyType = keyBits_GetType(invKey);
+
+  if (invKeyType == KKT_Start && invokee->runState != RS_Available) {
   
 #ifdef GATEDEBUG
     dprintf(GATEDEBUG>2, "Start key, not Available\n");
@@ -81,7 +89,7 @@ GateKey(Invocation* inv /*@ not null @*/)
   inv_SetupExitBlock(inv);
 
 #ifdef GK_DEBUG
-  printf("Enter GateKey(), invokedKey=0x%08x\n", inv->key);
+  printf("Enter GateKey(), invokedKey=%#x\n", invKey);
 #endif
   
   proc_SetupExitString(invokee, inv, inv->entry.len);
@@ -97,7 +105,7 @@ GateKey(Invocation* inv /*@ not null @*/)
 
   /* We copy the message here, not calling ReturnMessage(). */
 
-  if (inv->invKeyType == KKT_Resume)
+  if (invKeyType == KKT_Resume)
     keyR_ZapResumeKeys(&invokee->keyRing);
   act_AssignTo(allocatedActivity, invokee);
 

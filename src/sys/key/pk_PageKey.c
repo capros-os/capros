@@ -31,22 +31,27 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/PhysMem.h>
 #include <kerninc/IORQ.h>
+#include <kerninc/LogDirectory.h>
 #include <kerninc/Key-inline.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <idl/capros/Page.h>
+#include <idl/capros/Range.h>
 
 /* May Yield. */
 void
 PageKey(Invocation* inv /*@ not null @*/)
 {
-  inv_GetReturnee(inv);
+  PageHeader * pageH;
 
-  PageHeader * pageH = objH_ToPage(key_GetObjectPtr(inv->key));
+  inv_GetReturnee(inv);
 
   switch(inv->entry.code) {
 
   case OC_capros_key_getType:
+    if (key_PrepareForInv(inv->key))
+      return;
+
     COMMIT_POINT();
 
     inv->exit.code = RC_OK;
@@ -54,46 +59,65 @@ PageKey(Invocation* inv /*@ not null @*/)
     break;
 
   case OC_capros_Page_zero:		/* zero page */
+    /* Since we are zeroing the page, no point in fetching it.
+     * Don't prepare the key, just validate it. */
+    if (key_ValidateForInv(inv->key))
+      return;		// key is rescinded
+
     if (keyBits_IsReadOnly(inv->key)) {
       COMMIT_POINT();
       inv->exit.code = RC_capros_key_NoAccess;
       break;
     }
 
-    if (pageH->ioreq) {		// wait for cleaning to complete
-      act_SleepOn(&pageH->ioreq->sq);
-      act_Yield();
-    }
+    if (keyBits_IsPrepared(inv->key)) {
+      pageH = objH_ToPage(key_GetObjectPtr(inv->key));
 
-    /* Mark the object dirty. */
-    pageH_MakeDirty(pageH);
+      if (pageH->ioreq) {		// wait for cleaning to complete
+        act_SleepOn(&pageH->ioreq->sq);
+        act_Yield();
+      }
 
-    COMMIT_POINT();
+      /* Mark the object dirty. */
+      pageH_MakeDirty(pageH);
 
-    if (pageH_ToObj(pageH)->oid < FIRST_PERSISTENT_OID) {
+      COMMIT_POINT();
+
       kva_t pageAddress = pageH_MapCoherentWrite(pageH);
       kzero((void*)pageAddress, EROS_PAGE_SIZE);
       pageH_UnmapCoherentWrite(pageH);
     } else {
-#if 0
-      /* Here we could just zero the page, but that requires minding
-       * cache coherence, which may require cache flushes.
-       * The following is probably more efficient in some use cases. */
-      objH_InvalidateProducts(pageH_ToObj(pageH));
-      keyR_UnprepareAll(& pageH_ToObj(pageH)->keyRing);
-      ReleaseObjPageFrame(pageH);
-      ... save to the log as zero
-#else
-      kva_t pageAddress = pageH_MapCoherentWrite(pageH);
-      kzero((void*)pageAddress, EROS_PAGE_SIZE);
-      pageH_UnmapCoherentWrite(pageH);
-#endif
+      /* The page isn't in memory.
+       * Let's zero it without bringing in the old data. */
+      if (inv->key->u.unprep.oid < FIRST_PERSISTENT_OID) {
+        // Non-persistent pages are created as zero by
+        // PreloadObSource_GetObject().
+
+        COMMIT_POINT();
+      } else {
+        // FIXME ensure enough LogDirectory entries?
+
+        COMMIT_POINT();
+
+        ObjectDescriptor objDescr = {
+          .oid = inv->key->u.unprep.oid,
+          .allocCount = inv->key->u.unprep.count,
+          .logLoc = 0,	// it's zero
+          .type = capros_Range_otPage
+        };
+        ld_recordLocation(&objDescr, workingGenerationNumber);
+      }
     }
 
     inv->exit.code = RC_OK;
     break;
     
   case OC_capros_Page_clone:
+    // FIXME: we don't really need to fetch the page from disk for this.
+    if (key_PrepareForInv(inv->key))
+      return;
+    pageH = objH_ToPage(key_GetObjectPtr(inv->key));
+
     {
       /* copy content of page key in arg0 to current page */
 
@@ -132,6 +156,10 @@ PageKey(Invocation* inv /*@ not null @*/)
     }
 
   case OC_capros_Page_getNthPage:
+    if (key_PrepareForInv(inv->key))
+      return;
+    pageH = objH_ToPage(key_GetObjectPtr(inv->key));
+
   {
     unsigned int ordinal = inv->entry.w1;
 
@@ -166,6 +194,9 @@ request_error:
 
   default:
     // Handle methods inherited from Memory object.
+    if (key_PrepareForInv(inv->key))
+      return;
+
     MemoryKey(inv);
     return;
   }

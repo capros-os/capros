@@ -731,9 +731,7 @@ rbtree_contains(TreeHead *tree, TreeNode *node) {
 */
 static void
 tree_remove_node(TreeHead * tree, TreeNode *z) {
-#ifndef NDEBUG
   int whichcase = 0;
-#endif
   
   TreeNode *y = TREE_NIL;
   TreeNode *x = TREE_NIL;

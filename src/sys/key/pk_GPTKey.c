@@ -128,6 +128,9 @@ MemoryKey(Invocation * inv)
 void
 GPTKey(Invocation * inv)
 {
+  if (key_PrepareForInv(inv->key))
+    return;
+
   GPT * theGPT = objH_ToNode(key_GetObjectPtr(inv->key));
   bool opaque = inv->key->keyPerms & capros_Memory_opaque;
 

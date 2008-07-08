@@ -91,9 +91,116 @@ CheckObjectType(OID oid, ObjectLocator * pObjLoc, unsigned int baseType)
   return (pObjLoc->objType == baseType);
 }
 
+static void
+PrepareKeyToProcess(Key * key, Node * pNode)
+{
+  assert(objC_ValidNodePtr(pNode));
+
+  // Keys to a process are linked onto the Process structure.
+  Process * proc = node_GetProcess(pNode);
+
+  key->u.gk.pContext = proc;
+
+  // Link into process chain on left or right according to key type.
+  if (keyBits_IsType(key, KKT_Resume))
+    link_insertBefore(&proc->keyRing, &key->u.gk.kr);
+  else
+    link_insertAfter(&proc->keyRing, &key->u.gk.kr);
+    
+  keyBits_SetPrepared(key);
+}
+
+// May Yield.
+static bool
+CheckTypeAndAllocCount(Key * key, ObjectLocator * pObjLoc,
+  unsigned int baseType)
+{
+  OID oid = key->u.unprep.oid;
+
+  if (! CheckObjectType(oid, pObjLoc, baseType))
+    return true;
+
+  ObCount count = GetObjectCount(oid, pObjLoc, false);
+  if (count != key->u.unprep.count)
+    return true;
+
+  // If the object happens to be in memory:
+  if (pObjLoc->locType == objLoc_ObjectHeader) {
+    ObjectHeader * pObj = pObjLoc->u.objH;
+    if (! objH_GetFlags(pObj, OFLG_Fetching)) {
+      /* Link as next key after object */
+      key->u.ok.pObj = pObj;
+      link_insertAfter(&pObj->keyRing, &key->u.ok.kr);
+      keyBits_SetPrepared(key);
+    }
+  }
+
+  return false;
+}
+
+// May Yield.
+bool	// returns true iff key is voided
+key_DoValidate(Key * thisPtr)
+{
+  ObjectLocator objLoc;
+
+  assert(keyBits_IsUnprepared(thisPtr));
+  
+  switch(keyBits_GetType(thisPtr)) {	/* not prepared, so not hazarded! */
+  case KKT_Resume:
+  case KKT_Start:
+  case KKT_Process:
+    {
+      if (! CheckObjectType(thisPtr->u.unprep.oid, &objLoc,
+                            capros_Range_otNode))
+        break;
+
+      ObCount countToCompare =
+        GetObjectCount(thisPtr->u.unprep.oid, &objLoc,
+                       keyBits_IsType(thisPtr, KKT_Resume) );
+      if (countToCompare != thisPtr->u.unprep.count)
+        break;
+
+      // If the object happens to be in memory:
+      if (objLoc.locType == objLoc_ObjectHeader) {
+        ObjectHeader * pObj = objLoc.u.objH;
+        assert(! objH_GetFlags(pObj, OFLG_Fetching));	// because its a node
+        PrepareKeyToProcess(thisPtr, objH_ToNode(pObj));
+      }
+
+      return false;	// key is valid
+    }
+
+  case KKT_Page:
+    if (! CheckTypeAndAllocCount(thisPtr, &objLoc, capros_Range_otPage)) {
+      return false;	// key is valid
+    }
+    break;
+    
+  case KKT_Node:
+  case KKT_Forwarder:
+  case KKT_GPT:
+    if (! CheckTypeAndAllocCount(thisPtr, &objLoc, capros_Range_otNode))
+      return false;	// key is valid
+    break;
+
+  default:
+    return false;
+  }
+  
+  // Key is rescinded.
+  DEBUG(prepare)
+    dprintf(true, "Voiding invalid key\n");
+
+  assert(! keyBits_IsHazard(thisPtr));
+  assert(keyBits_IsUnprepared(thisPtr));
+  key_NH_SetToVoid(thisPtr);
+  return true;
+}
+
 // May Yield.
 static ObjectHeader *
-CheckTypeAndAllocCount(Key * key, ObjectLocator * pObjLoc,
+DoGetObject(Key * key, ObjectLocator * pObjLoc,
   unsigned int baseType)
 {
   OID oid = key->u.unprep.oid;
@@ -119,7 +226,7 @@ CheckTypeAndAllocCount(Key * key, ObjectLocator * pObjLoc,
  * incremental recomputation on the check field in the containing object.
  */
 /* May Yield. */
-void
+bool	// returns true iff key is voided
 key_DoPrepare(Key* thisPtr)
 {
   ObjectHeader * pObj = NULL;
@@ -127,24 +234,13 @@ key_DoPrepare(Key* thisPtr)
 
   assert( keyBits_IsUnprepared(thisPtr) );
   
-  assert ( keyBits_NeedsPrepare(thisPtr) );
-
   KernStats.nKeyPrep++;
   
-#ifdef TEST_STACK
-  StackTester st;
-#endif
- 
-#if 0
-  if (ktByte > UNPREPARED(LAST_PREPARED_KEYTYPE))
-    return;
-#endif
-
 #ifdef MEM_OB_CHECK
   uint32_t ck = thisPtr->CalcCheck();
 #endif
   
-  switch(keyBits_GetType(thisPtr)) {		/* not prepared, so not hazarded! */
+  switch(keyBits_GetType(thisPtr)) {	/* not prepared, so not hazarded! */
   case KKT_Resume:
   case KKT_Start:
   case KKT_Process:
@@ -160,39 +256,27 @@ key_DoPrepare(Key* thisPtr)
         break;	// with pObj == NULL
 
       pObj = GetObject(thisPtr->u.unprep.oid, &objLoc);
+      PrepareKeyToProcess(thisPtr, objH_ToNode(pObj));
 
-      Node * pNode = objH_ToNode(pObj);
-      assert(objC_ValidNodePtr(pNode));
-
-      // Keys to a process are linked onto the Process structure.
-      Process * proc = node_GetProcess(pNode);
-
-      thisPtr->u.gk.pContext = proc;
-
-      /* Link into process chain on left or right according to key
-       * type.
-       */
-      if ( keyBits_IsType(thisPtr, KKT_Resume) )
-	link_insertBefore(&proc->keyRing, &thisPtr->u.gk.kr);
-      else
-	link_insertAfter(&proc->keyRing, &thisPtr->u.gk.kr);
-      
-      break;
+#ifdef MEM_OB_CHECK
+      assert(ck == thisPtr->CalcCheck());
+#endif
+      return false;
     }
 
   case KKT_Page:
-    pObj = CheckTypeAndAllocCount(thisPtr, &objLoc, capros_Range_otPage);
+    pObj = DoGetObject(thisPtr, &objLoc, capros_Range_otPage);
     break;
     
   case KKT_Node:
   case KKT_Forwarder:
   case KKT_GPT:
-    pObj = CheckTypeAndAllocCount(thisPtr, &objLoc, capros_Range_otNode);
+    pObj = DoGetObject(thisPtr, &objLoc, capros_Range_otNode);
     break;
 
   default:
     keyBits_SetPrepared(thisPtr);
-    return;
+    return false;
   }
   
   if (pObj == 0) {
@@ -203,10 +287,7 @@ key_DoPrepare(Key* thisPtr)
     assert ( keyBits_IsUnprepared(thisPtr) );
     key_NH_SetToVoid(thisPtr);
     keyBits_SetPrepared(thisPtr);
-#ifdef TEST_STACK
-    st.check();
-#endif
-    return;
+    return true;
   }
 
 #ifdef MEM_OB_CHECK
@@ -214,18 +295,7 @@ key_DoPrepare(Key* thisPtr)
 #endif
     
   keyBits_SetPrepared(thisPtr);
-#if 0
-  printf("Prepared key ");
-  Print();
-#endif
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("End Key::DoPrepare()");
-#endif
-#ifdef TEST_STACK
-  st.check();
-#endif
-  return;
+  return false;
 }
 
 void

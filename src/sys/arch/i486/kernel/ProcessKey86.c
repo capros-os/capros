@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Key.h>
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>
+#include <kerninc/Key-inline.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Node.h>
 #include <eros/Invoke.h>
@@ -42,6 +43,9 @@ void proc_SetRegs32(Process * thisPtr,
 void
 ProcessKey(Invocation * inv)
 {
+  if (key_PrepareForInv(inv->key))
+    return;
+
   inv_GetReturnee(inv);
 
   assert(keyBits_IsPreparedObjectKey(inv->key));

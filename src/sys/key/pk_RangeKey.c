@@ -184,70 +184,90 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
     return;
   }
 
-  // Get the object, regardless of its allocation count:
-  ObjectHeader * pObj = GetObject(oid, &objLoc);
+  Key * key = inv->exit.pKey[0];
 
-  assert(! MapsWereInvalidated());
-  assert(pObj);
-
-  objH_TransLock(pObj);	// Pin the object.
-
-  inv->flags |= INV_EXITKEY0;
-
-  if (kkt == KKT_Forwarder) {
-    // A Forwarder must always have a number key in slot ForwarderDataSlot.
-    /* Note: We are trusting holders of a Range key not to get a Node key
-    to the same object, overwrite the number key, and then use the Forwarder. */
-    Key * keynum = node_GetKeyAtSlot(objH_ToNode(pObj), ForwarderDataSlot);
-    if (! keyBits_IsType(keynum, KKT_Number) ) {
-      node_MakeDirty(objH_ToNode(pObj));
-
-      COMMIT_POINT();
-
-      key_NH_Unchain(keynum);
-      keyBits_InitType(keynum, KKT_Number);
-      keynum->u.nk.value[0] = 0;
-      keynum->u.nk.value[1] = 0;
-      keynum->u.nk.value[2] = 0;
-    } else {
-      // it is already a number key. Preserve it and its data.
-
-      COMMIT_POINT();
-    }
-  } else {
+  switch (kkt) {
+  default: ;
+    // We don't need the actual object,
+    // but we do need its current allocation count.
+    ObCount obCount = GetObjectCount(oid, &objLoc, false);
 
     COMMIT_POINT();
-  }
-  
-  Key * key = inv->exit.pKey[0];
-  if (key) {
-    key_NH_Unchain(key);
-    key_SetToObj(key, pObj, kkt, 0, 0);
-  
-    // Set defaults for keyData.
-    switch (kkt) {
-    case KKT_GPT: ;
+
+    if (key) {
+      key_NH_Unchain(key);
+      keyBits_InitType(key, kkt);
+      key->u.unprep.oid = oid;
+      key->u.unprep.count = obCount;
+    }
+    break;
+
+  case KKT_Forwarder:
+  case KKT_GPT: ;
+    // These types require initialization, so we need the actual object.
+    // Get the object, regardless of its allocation count:
+    ObjectHeader * pObj = GetObject(oid, &objLoc);
+
+    assert(! MapsWereInvalidated());
+    assert(pObj);
+
+    objH_TransLock(pObj);	// Pin the object.
+
+    if (kkt == KKT_Forwarder) {
+      // A Forwarder must always have a number key in slot ForwarderDataSlot.
+      /* Note: We are trusting holders of a Range key not to get a Node key to
+      the same object, overwrite the number key, and then use the Forwarder. */
+      Key * keynum = node_GetKeyAtSlot(objH_ToNode(pObj), ForwarderDataSlot);
+      if (! keyBits_IsType(keynum, KKT_Number) ) {
+        // Put a number key there.
+        node_MakeDirty(objH_ToNode(pObj));
+
+        COMMIT_POINT();
+
+        key_NH_Unchain(keynum);
+        keyBits_InitType(keynum, KKT_Number);
+        keynum->u.nk.value[0] = 0;
+        keynum->u.nk.value[1] = 0;
+        keynum->u.nk.value[2] = 0;
+      } else {
+        // it is already a number key. Preserve it and its data.
+
+        COMMIT_POINT();
+      }
+    } else {	// it's a GPT
       // Ensure the l2v is valid.
       GPT * theGPT = objH_ToNode(pObj);
       uint8_t l2vField = gpt_GetL2vField(theGPT);
       uint8_t oldL2v = l2vField & GPT_L2V_MASK;
-      if (oldL2v < EROS_PAGE_LGSIZE)
+      if (oldL2v < EROS_PAGE_LGSIZE) {
+        node_MakeDirty(theGPT);
+
+        COMMIT_POINT();
+
         gpt_SetL2vField(theGPT, l2vField - oldL2v + EROS_PAGE_LGSIZE);
-      // Fall into Page case to set l2g.
+      } else {
+        COMMIT_POINT();
+      }
+    }
+    
+    if (key) {
+      key_NH_Unchain(key);
+      key_SetToObj(key, pObj, kkt, 0, 0);
+    }
+  }
+  
+  if (key) {
+    // Set default for keyData.
+    switch (kkt) {
+    case KKT_GPT:
     case KKT_Page:
-      // For page, l2v isn't used.
     case KKT_Node:
-      // For node, any l2v is valid.
       // Default l2g for memory and node keys is 64 to disable guard test.
       keyBits_SetL2g(key, 64);
       break;
     default: break;
     }
   }
-
-#ifdef DEBUG_PAGERANGEKEY
-  dprintf(true, "pObject is 0x%08x\n", pObj);
-#endif
 
   inv->exit.code = RC_OK;  /* set the exit code */
   inv->exit.w1 = capros_Range_otNone;

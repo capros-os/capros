@@ -109,9 +109,8 @@ typedef struct KeyBits Key;
 
 extern Key key_VoidKey;
 
-/* Former member functions of Key */
-
-void key_DoPrepare(Key* thisPtr);
+bool key_DoPrepare(Key* thisPtr);
+bool key_DoValidate(Key * thisPtr);
 
 #ifndef NDEBUG
 bool key_IsValid(const Key* thisPtr);

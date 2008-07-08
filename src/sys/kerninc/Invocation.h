@@ -102,11 +102,6 @@ struct Invocation {
 
   uint32_t sentLen;		/* amount sent (may be more than received) */
   
-  // #define invKeyType key->keyType
-#ifndef invKeyType
-  uint8_t invKeyType;		/* extracted from the key for efficiency */
-#endif
-
   Process *invokee;		/* extracted from the key for efficiency */
 };
 

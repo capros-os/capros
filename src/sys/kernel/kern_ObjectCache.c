@@ -118,10 +118,6 @@ objC_AllocateUserPages(void)
 
     assert(np == physMem_AvailPages(&xmc));
 
-#ifdef TESTING_AGEING
-    np = min (np, 50);
-#endif
-
     pmi->nPages = np;
     pmi->firstObPgAddr
       = physMem_Alloc(EROS_PAGE_SIZE * np, &xmc) >> EROS_PAGE_LGSIZE;
@@ -651,7 +647,7 @@ objC_AgeNodeFrames(void)
 bumpAndReturn:
   // We freed some nodes.
 
-#if defined(TESTING_AGEING) && 0
+#if 0
   dprintf(true, "AgeNodeFrame(): Object evicted\n");
 #endif
 #ifdef DBG_WILD_PTR
@@ -1243,10 +1239,6 @@ objC_Init()
   objC_nNodes = availBytes / allocQuanta;
   numLogDirEntries = objC_nNodes * 2;
     
-#ifdef TESTING_AGEING
-  objC_nNodes = 90;			/* This is one less than logtst requires. */
-#endif
-  
   objC_nodeTable = KPAtoP(Node *,
                      physMem_Alloc(objC_nNodes*sizeof(Node), &physMem_any));
   kzero(objC_nodeTable, objC_nNodes*sizeof(Node));

@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/Node.h>
 #include <kerninc/Activity.h>
+#include <kerninc/Key-inline.h>
 #include <disk/Forwarder.h>
 #include <eros/Invoke.h>
 #include <eros/KeyConst.h>
@@ -36,6 +37,9 @@ Approved for public release, distribution unlimited. */
 void
 ForwarderKey(Invocation* inv)
 {
+  if (key_PrepareForInv(inv->key))
+    return;
+
   uint32_t slot;
   Node * theNode = (Node *) key_GetObjectPtr(inv->key);
 

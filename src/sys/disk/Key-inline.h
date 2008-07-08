@@ -331,12 +331,6 @@ keyBits_IsObjectKey(const KeyBits *thisPtr)
 }
 
 INLINE bool 
-keyBits_NeedsPrepare(const KeyBits *thisPtr)
-{
-  return keyBits_IsUnprepared(thisPtr);
-}
-  
-INLINE bool 
 keyBits_IsPreparedObjectKey(const KeyBits *thisPtr)
 {
   return (keyBits_IsObjectKey(thisPtr) && keyBits_IsPrepared(thisPtr));

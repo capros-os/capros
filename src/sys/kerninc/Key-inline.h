@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Invocation.h>
+#include <kerninc/Node.h>
 #include <disk/KeyStruct.h>
 #include <disk/Key-inline.h>
 
@@ -49,6 +50,54 @@ key_Prepare(Key * thisPtr)
       // or proc_ToObj(thisPtr->u.gk.pContext)
     objH_TransLock(pObj);
   }
+}
+
+/* Validate this key to be invoked.
+ * Also lock the designated object for this transaction.
+ * This checks that the key is not rescinded, but does not
+ * fetch the object. */
+/* If the key is voided, true is returned. Do no further processing. */
+// May Yield.
+INLINE bool
+key_ValidateForInv(Key * thisPtr)
+{
+  assert(! InvocationCommitted);
+  assert(thisPtr);
+
+  if (keyBits_IsUnprepared(thisPtr)) {
+    if (key_DoValidate(thisPtr)) {
+      VoidKey(&inv);
+      return true;
+    }
+  }
+  return false;
+}
+
+/* Prepare this key to be invoked.
+ * Also lock the designated object for this transaction. */
+/* If the key is voided, true is returned. Do no further processing. */
+// May Yield.
+INLINE bool
+key_PrepareForInv(Key * thisPtr)
+{
+  assert(! InvocationCommitted);
+  assert(thisPtr);
+
+  if (keyBits_IsUnprepared(thisPtr)) {
+    if (key_DoPrepare(thisPtr)) {
+      VoidKey(&inv);
+      return true;
+    }
+  }
+  
+  if (keyBits_IsObjectKey(thisPtr)) {
+    // The following works for keys that designate a process too,
+    // due to a representation pun.
+    ObjectHeader * pObj = thisPtr->u.ok.pObj;
+      // or proc_ToObj(thisPtr->u.gk.pContext)
+    objH_TransLock(pObj);
+  }
+  return false;
 }
 
 INLINE void

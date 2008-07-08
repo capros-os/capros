@@ -68,16 +68,6 @@ uint32_t ddb_inv_flags = 0;
 #define __EROS_PRIMARY_KEYDEF(x, isValid, bindTo) void bindTo##Key (Invocation* msg);
 #include <eros/StdKeyType.h>
 
-#if 0
-static void
-UnknownKey(Invocation* inv /*@ not null @*/)
-{
-  key_Print(inv->key);
-  fatal("Invocation of unknown primary key type 0x%x\n",
-        keyBits_GetType(inv->key));
-}
-#endif
-
 void
 UnimplementedKey(Invocation* inv /*@ not null @*/)
 {
@@ -88,18 +78,6 @@ UnimplementedKey(Invocation* inv /*@ not null @*/)
 #ifndef OPTION_KBD
 #define KeyboardKey VoidKey
 #endif
-
-INLINE void 
-proc_KeyDispatch(Invocation *pInv)
-{
-  switch (inv.invKeyType) {
-#define __EROS_PRIMARY_KEYDEF(kn, isValid, bindTo) case KKT_##kn: bindTo##Key(pInv); break;
-#include <eros/StdKeyType.h>
-    default:
-      UnimplementedKey(pInv);
-      break;
-  }
-}
 
 #ifdef OPTION_KERN_TIMING_STATS
 // The +1 below is for the internal type IT_KeeperCall.
@@ -554,7 +532,7 @@ ReturnMessage(Invocation * inv)
     if (invokee != proc_curProcess) {
       /* keyR_ZapResumeKeys isn't always needed; may be faster to check
       first if it is necessary: */
-      if (inv->invKeyType != KKT_Start) {
+      if (keyBits_GetType(inv->key)!= KKT_Start) {
         keyR_ZapResumeKeys(&invokee->keyRing);
         node_BumpCallCount(invokee->procRoot);
       }
@@ -612,7 +590,6 @@ inv_InvokeGateOrVoid(Invocation * inv, Key * invKey)
   if (keyBits_IsGateKey(invKey) ) {
     /* Not hazarded because invocation key */
     inv->key = invKey;
-    inv->invKeyType = keyBits_GetType(inv->key);
     GateKey(inv);
   }
   else {
@@ -654,11 +631,6 @@ BeginInvocation(void)
 void 
 proc_DoKeyInvocation(Process* thisPtr)
 {
-  key_Prepare(inv.key);
-#ifndef invKeyType
-  inv.invKeyType = keyBits_GetType(inv.key);
-#endif
-
 #ifndef NDEBUG
   if (traceInvs) {
     /* logging mach_TicksToNanoseconds(sysT_Now()) is of little use,
@@ -678,16 +650,11 @@ proc_DoKeyInvocation(Process* thisPtr)
      If it isn't a resume key, treat it like a void key. */
   if (invType_IsPrompt(inv.invType)) {
     inv.invType &= ~IT_PReturn;	// clear low bit, convert to nonprompt type
-    if (inv.invKeyType != KKT_Resume) {
+    if (keyBits_GetType(inv.key) != KKT_Resume) {
       /* dprintf(true, "Prompt invocation on non-resume key!\n"); */
       inv.key = &key_VoidKey;
-#ifndef invKeyType
-      inv.invKeyType = KKT_Void;
-#endif
     }
   }
-
-  assert(keyBits_IsPrepared(inv.key));
 
   /* capros_Process_PF_ExpectingMessage isn't significant while RS_Running,
   so it is OK to change it before the invocation is committed.
@@ -712,7 +679,7 @@ proc_DoKeyInvocation(Process* thisPtr)
 	  (inv.invokee && inv.invokee->kernelFlags & KF_DDBINV) ))
        )
     dprintf(true, "About to invoke key handler (inv.ty=%d) ic=%d\n",
-		    inv.invKeyType, KernStats.nInvoke);
+		    keyBits_GetType(inv.key), KernStats.nInvoke);
 #endif
 
 #if defined(OPTION_KERN_TIMING_STATS)
@@ -725,20 +692,27 @@ proc_DoKeyInvocation(Process* thisPtr)
      Yielding if necessary.
   2. Commit the invocation. 
   3. Perform the (side) effects of the object. 
-  4. Return any keys to the invokee. (I want to change this: it should return to the caller of proc_KeyDispatch the number of keys returned; this code will then
+  4. Return any keys to the invokee. (I want to change this: it should return to the procedure caller the number of keys returned; this code will then
 return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
   5. Return any string to the invokee, setting inv.sentLen.
   6. Set any return words in inv.
   7. Set keyData if any in inv.
    */
 #ifdef GATEDEBUG
-  dprintf(GATEDEBUG>2, "Before proc_KeyDispatch\n");
+  dprintf(GATEDEBUG>2, "Before Key Dispatch\n");
 #endif
 
-  proc_KeyDispatch(&inv);
+  switch (keyBits_GetType(inv.key)) {
+#define __EROS_PRIMARY_KEYDEF(kn, isValid, bindTo) \
+  case KKT_##kn: bindTo##Key(&inv); break;
+#include <eros/StdKeyType.h>
+  default:
+    UnimplementedKey(&inv);
+    break;
+  }
 
 #ifdef GATEDEBUG
-  dprintf(GATEDEBUG>2, "After proc_KeyDispatch\n");
+  dprintf(GATEDEBUG>2, "After Key Dispatch\n");
 #endif
 
 #ifndef NDEBUG
@@ -753,9 +727,9 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
       extern uint64_t inv_handler_cy;
       uint64_t post_handler = rdtsc();
       inv_handler_cy += (post_handler - pre_handler);
-      inv_KeyHandlerCycles[inv.invKeyType][inv.invType] +=
+      inv_KeyHandlerCycles[keyBits_GetType(inv.key)][inv.invType] +=
 	(post_handler - pre_handler);
-      inv_KeyHandlerCounts[inv.invKeyType][inv.invType] ++;
+      inv_KeyHandlerCounts[keyBits_GetType(inv.key)][inv.invType] ++;
     }
   }  
 #endif
@@ -774,7 +748,7 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
 	  (inv.invokee && inv.invokee->kernelFlags & KF_DDBINV) )) ||
        ( DDB_STOP(keyerr) &&
 	 !invoked_gate_key &&
-	 (inv.invKeyType != KKT_Void) &&
+	 (keyBits_GetType(inv.key) != KKT_Void) &&
 	 (inv.exit.code != RC_OK) ) )
     dprintf(true, "Before DeliverResult() (invokee=0x%08x)\n",
 		    inv.invokee); 
