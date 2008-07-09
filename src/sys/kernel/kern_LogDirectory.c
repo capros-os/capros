@@ -92,7 +92,7 @@ typedef struct TreeNode {
 } TreeNode;
 
 unsigned long numLogDirEntries;
-TreeNode * logDirNodes;
+TreeNode * logDirNodes = NULL;
 
 #define TREE_NIL (&log_directory_nil_node)
 TreeNode log_directory_nil_node = {

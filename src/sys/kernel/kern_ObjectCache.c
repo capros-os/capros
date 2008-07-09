@@ -364,11 +364,12 @@ ReleaseNodeFrame(Node * pNode)
   objH_InvalidateProducts(pObj);
   keyR_UnprepareAll(&pObj->keyRing);
 
-#ifndef NDEBUG
-  uint32_t i = 0;
-  for (i = 0; i < EROS_NODE_SIZE; i++)
-    assertex (pNode, keyBits_IsUnprepared(&pNode->slot[i]));
-#endif
+  unsigned int i;
+  for (i = 0; i < EROS_NODE_SIZE; i++) {
+    Key * key = node_GetKeyAtSlot(pNode, i);
+    assert(! keyBits_IsHazard(key));
+    key_NH_Unprepare(key);
+  }
 
   objH_Unintern(pObj);
 
@@ -387,7 +388,8 @@ ReleaseObjPageFrame(PageHeader * pageH)
     printf("ReleaseObjPageFrame pageH=0x%08x\n", pageH);
 
   assert(!pageH_IsDirty(pageH));
-  assert(pte_ObIsNotWritable(pageH));
+  // The following test is slow:
+  // assert(pte_ObIsNotWritable(pageH));
 
   objH_Unintern(pageH_ToObj(pageH));
     
@@ -442,7 +444,8 @@ objC_GrabThisPageFrame(PageHeader *pObj)
   kzero(pObj, sizeof(*pObj));
   pObj->physMemRegion = pmi;
 
-  assert(pte_ObIsNotWritable(pObj));
+  // The following test is slow:
+  // assert(pte_ObIsNotWritable(pObj));
 
   pageH_SetReferenced(pObj);
 }
@@ -491,6 +494,7 @@ CleanAPotOfNodes(bool force)
     Node * pNode = nodesToClean[i];
     pObj = node_ToObj(pNode);
     node_CopyToDiskNode(pNode, dn);
+    pObj->flags &= ~OFLG_DIRTY;	// it's clean now
     ObjectDescriptor objDescr = {
       .oid = pObj->oid,
       .allocCount = pObj->allocCount,
@@ -503,6 +507,9 @@ CleanAPotOfNodes(bool force)
     ReleaseNodeFrame(pNode);
   }
 
+#if 0
+  printf("Cleaning a pot of nodes, lid=%#llx.\n", lid);
+#endif
   // Write the pot.
   pObj = pageH_ToObj(pageH);
   pObj->obType = ot_PtLogPot;
@@ -662,7 +669,7 @@ bumpAndReturn:
 }
 
 Node *
-objC_GrabNodeFrame()
+objC_GrabNodeFrame(void)
 {
   if (objC_firstFreeNode == 0)
     objC_AgeNodeFrames();
@@ -1163,7 +1170,8 @@ objC_CopyObject(ObjectHeader *pObj)
      * object, and it may be dirty. We need to find another location
      * for it.
      */
-    assert(pte_ObIsNotWritable(objH_ToPage(pObj)));
+    // The following test is slow:
+    // assert(pte_ObIsNotWritable(objH_ToPage(pObj)));
 
     PageHeader * newPage = objC_GrabPageFrame();
     newObj = pageH_ToObj(newPage);
@@ -1299,6 +1307,7 @@ objC_Init()
   logDir = KPAtoP(void *,
           physMem_Alloc(numLogDirEntries*sizeofLogDirEntry, &physMem_any));
   kzero(logDir, numLogDirEntries*sizeofLogDirEntry);
+  ld_defineDirectory(logDir);
 
   // Allocate pages:
   objC_AllocateUserPages();
