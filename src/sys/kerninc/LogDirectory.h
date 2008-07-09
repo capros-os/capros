@@ -53,6 +53,14 @@ extern LID logCursor;	// next place to write in the main log
 extern LID logWrapPoint;	// end of main log
 extern GenNum workingGenerationNumber;
 
+/** The  number of  Log Directory entries.
+
+    This field is filled in by kern_ObjectCache.c and used by
+    the log directory.
+*/
+extern unsigned long numLogDirEntries;
+
+
 /** The object information maintained by the Log Directory.
  */
 typedef struct ObjectDescriptor {
@@ -65,30 +73,6 @@ typedef struct ObjectDescriptor {
 			capros_Range_otPage or capros_Range_otNode. */
 } ObjectDescriptor;
 
-typedef struct TreeNode {
-  /* Data that describes the primary location of the object. */
-  GenNum generation;
-  ObjectDescriptor od;
-
-  /* Data that describes the previous primary location of the object */
-  uint8_t ppGenerationDelta; /* Difference between ppgeneration and
-				the primary generation. If this field is
-			        zero, there is no previous primary data. */
-  LID ppLogLoc;              /* LID for previous location */
-
-  /* Data for the RB tree */
-  struct TreeNode *left;
-  struct TreeNode *right;
-  struct TreeNode *parent;
-  int color;
-
-  /* Data for the doublely linked list */
-  struct TreeNode *prev;
-  struct TreeNode *next;
-} TreeNode;
-
-extern unsigned long numLogDirEntries;
-extern TreeNode * logDirNodes;
 
 /** Record the location of an object.
 
@@ -247,5 +231,32 @@ ld_numWorkingEntries(void);
 */
 void
 ld_removeObjectEntry(OID oid);
+
+
+/** Get the size of an individual log directory entry.
+
+    Get the size of the individual storage elements used to record OIDs
+    in the log. Used during initialization to have an external procedure
+    allocate the space for the log directory.
+
+    @return The size of a single entry in the log directory.
+*/
+uint32_t
+ld_getDirEntrySize(void);
+
+
+/** Define the storage for the log directory.
+
+    Define the storage to be used by the log directory. It must be large
+    enough to contain numLogDirEntries of ld_getDirEntrySize each. The caller
+    must fill in numLogDirEntries before calling this routine.
+
+    NOTE: This routine must be called before using the Log Directory. The 
+    only entry that may be called before this one is ld_getDirEntrySize.
+
+    @param[in] logDirectory Is the address of the area.
+*/
+void
+ld_defineDirectory(void * logDirectory);
 
 #endif /* LOGDIRECTORY_H */

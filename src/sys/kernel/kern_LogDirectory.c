@@ -48,11 +48,48 @@ Approved for public release, distribution unlimited. */
 
 #include "kerninc/LogDirectory.h"
 
+#define dbg_tree	0x1u
+#define dbg_chain	0x2u
+#define dbg_verbose	0x4u
+
+/* Following should be an OR of some of the above */
+#ifndef dbg_flags
+#ifndef SELF_TEST
+#define dbg_flags   ( 0u )
+#else
+#define dbg_flags   ( dbg_tree | dbg_chain )
+#endif
+#endif
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
+
 #define FALSE false
 #define TRUE true
 
 #define TREE_RED 0
 #define TREE_BLACK 1
+
+typedef struct TreeNode {
+  /* Data that describes the primary location of the object. */
+  GenNum generation;
+  ObjectDescriptor od;
+
+  /* Data that describes the previous primary location of the object */
+  uint8_t ppGenerationDelta; /* Difference between ppgeneration and
+				the primary generation. If this field is
+			        zero, there is no previous primary data. */
+  LID ppLogLoc;              /* LID for previous location */
+
+  /* Data for the RB tree */
+  struct TreeNode *left;
+  struct TreeNode *right;
+  struct TreeNode *parent;
+  int color;
+
+  /* Data for the doublely linked list */
+  struct TreeNode *prev;
+  struct TreeNode *next;
+} TreeNode;
 
 unsigned long numLogDirEntries;
 TreeNode * logDirNodes;
@@ -124,11 +161,11 @@ alloc_node(void) {
 */
 static void
 free_node(TreeNode *tn) {
-#ifndef NDEBUG
-  tn->left = tn->right = tn->parent = tn->prev = NULL;
-  tn->generation = -1;
-  if (tn == generation_table[0].head) assert(FALSE);
-#endif
+  DEBUG(tree) {
+    tn->left = tn->right = tn->parent = tn->prev = NULL;
+    tn->generation = -1;
+    assert(tn != generation_table[0].head);
+  }
   tn->next = free_list;
   free_list = tn;
   assert( (--log_entry_count) >= 0);
@@ -169,7 +206,7 @@ chain_node(TreeNode *n) {
   }
 }
 
-#ifndef NDEBUG
+#if (dbg_flags & dbg_chain)
 /** Sanity check the generation chain. */
 static bool
 chains_validate(void) {
@@ -239,7 +276,7 @@ comp(const ObjectDescriptor *od1, const ObjectDescriptor *od2) {
   return 1;
 }
 
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
 
 /** Recursively validate the substructure of a RB tree - for debugging.
 
@@ -313,11 +350,12 @@ tree_validate_recurse(TreeHead *tree, TreeNode *node) {
 */
 static bool
 tree_validate(TreeHead *tree, TreeNode *node) {
-  if (!chains_validate()) return FALSE;
-
+#if (dbg_flags & dbg_chain)
+  assert(chains_validate());
+#endif
   return tree_validate_recurse(tree, node);
 }
-#endif /* NDEBUG */
+#endif /* dbg_tree */
 
 /** Rotate the nodes in the tree clockwise to balance the tree and
     maintain the assertion that no child of a red node is red.
@@ -456,14 +494,14 @@ tree_insert_fixup(TreeHead *tree, TreeNode *x) {
 
 static TreeNode *
 binary_insert(TreeHead *tree, const ObjectDescriptor *od, GenNum generation) {
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
   int whichcase;
 #endif
 
   TreeNode *y = TREE_NIL;
   TreeNode *x = tree->root;
 
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
   assert( tree_validate(tree, tree->root) );
 #endif
   
@@ -474,9 +512,9 @@ binary_insert(TreeHead *tree, const ObjectDescriptor *od, GenNum generation) {
 
     y = x;
     if (comp(od, &x->od) == 0) {
-#ifdef VERBOSE
-      printf("Update OID %lld in node 0x%08x\n", od->oid, x);
-#endif
+      DEBUG(verbose) {
+	printf("Update OID %lld in node 0x%08x\n", od->oid, x);
+      }
       unchain_node(x);
       /* If same object and useful for journalize write */
       if (generation > x->generation
@@ -494,7 +532,7 @@ binary_insert(TreeHead *tree, const ObjectDescriptor *od, GenNum generation) {
       x->od = *od;
       x->generation = generation;
       chain_node(x);
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
       assert (tree_validate(tree, tree->root) );
 #endif
       return NULL;
@@ -506,7 +544,7 @@ binary_insert(TreeHead *tree, const ObjectDescriptor *od, GenNum generation) {
     }
   }
 
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
   assert( tree_validate(tree, tree->root) );
 #endif
   TreeNode *tn = alloc_node();
@@ -520,30 +558,29 @@ binary_insert(TreeHead *tree, const ObjectDescriptor *od, GenNum generation) {
 
   tn->parent = y;
 
-#ifdef VERBOSE
-  printf("Insert OID %lld node 0x%08x into 0x%08x\n", tn->od.oid, tn, tree);
-#endif
+  DEBUG(verbose) {
+    printf("Insert OID %lld node 0x%08x into 0x%08x\n", tn->od.oid, tn, tree);
+  }
   
   if (y == TREE_NIL) {
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
     whichcase = 1;
 #endif
     tree->root = tn;
   }
   else {
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
     whichcase = 2;
 #endif
-    
     if (comp(&tn->od, &y->od) < 0) { /*if ( CMP(tree, z, y) < 0 ) { */
       y->left = tn;
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
       assert( tree_validate(tree, tree->root) );
 #endif
     }
     else {
       y->right = tn;
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
       assert( tree_validate(tree, tree->root) );
 #endif
     }
@@ -553,7 +590,7 @@ binary_insert(TreeHead *tree, const ObjectDescriptor *od, GenNum generation) {
 
   assert(tree->root->parent == TREE_NIL);
 
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
   if ( tree_validate(tree, tree->root) == FALSE ) {
     printf("Bad post-insert validation, case %d\n", whichcase);
     assert (FALSE);
@@ -686,7 +723,7 @@ remove_fixup(TreeHead *tree, TreeNode *x) {
 }
 
 
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
 /** Test if a (sub)tree contains a node.
     
     @param[in] tree The node to search from.
@@ -731,7 +768,9 @@ rbtree_contains(TreeHead *tree, TreeNode *node) {
 */
 static void
 tree_remove_node(TreeHead * tree, TreeNode *z) {
+#if (dbg_flags & dbg_tree)
   int whichcase = 0;
+#endif
   
   TreeNode *y = TREE_NIL;
   TreeNode *x = TREE_NIL;
@@ -739,11 +778,11 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
   assert(tree->root->parent == TREE_NIL);
   assert(TREE_NIL->color == TREE_BLACK);
 
-#ifdef VERBOSE
-  printf("Remove node 0x%08x from 0x%08x\n", z, tree);
-#endif  
+  DEBUG(verbose) {
+    printf("Remove node 0x%08x from 0x%08x\n", z, tree);
+  }
 
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
   if ( tree_validate(tree, tree->root) == FALSE ) {
     printf("Bad pre-remove validation, case 0x%08x\n", whichcase);
     assert (FALSE);
@@ -753,7 +792,9 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
   assert (z != TREE_NIL);
 
   if (z->left == TREE_NIL || z->right == TREE_NIL) {
+#if (dbg_flags & dbg_tree)
     whichcase |= 0x1;
+#endif
     /* Node to delete has only one child or none; can just splice it */
     /* out. */
     y = z;
@@ -775,11 +816,15 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
 
   /* If y was the root, have to update the tree. */
   if (y->parent == TREE_NIL) {
+#if (dbg_flags & dbg_tree)
     whichcase |= 0x10;
+#endif
     tree->root = x;
   }
   else {
+#if (dbg_flags & dbg_tree)
     whichcase |= 0x20;
+#endif
     if (y == y->parent->left) {
       y->parent->left = x;
     }
@@ -788,15 +833,15 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
     }
   }
 
-#ifndef NDEBUG
-  {
-    if ( rbtree_contains(tree, y) ) {
-      printf("x=0x%08x, y=0x%08x, z=0x%08x tree=0x%08x\n", x,
-	      y, z, tree);
-      printf("Deleted node 0x%08x still referenced before fixup!\n", y);
-    }
+#if (dbg_flags & dbg_tree)
+  if ( rbtree_contains(tree, y) ) {
+    printf("x=0x%08x, y=0x%08x, z=0x%08x tree=0x%08x\n", x,
+	   y, z, tree);
+    printf("Deleted node 0x%08x still referenced before fixup!\n", y);
+    assert(FALSE);
   }
 #endif
+
 
   /* Until I actually understand the fixup transformation, do this */
   /* just as the book would have us do and then fix the fact that the */
@@ -815,10 +860,10 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
     if ( y->color == TREE_BLACK )
       remove_fixup(tree, x);
 
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
     if ( rbtree_contains(tree, (y!=z) ? y : z) )
       printf("Deleted znode 0x%08x still referenced by after fixup!\n", z);
-
+    
     if ( tree_validate(tree, tree->root) == FALSE ) {
       printf("Bad post-remove validation, case 0x%08x\n",  whichcase);
       assert (FALSE);
@@ -826,12 +871,14 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
 #endif
 
     if (y != z) {
-#ifndef NDEBUG
-      if ( rbtree_contains(tree, y) )
+#if (dbg_flags & dbg_tree)
+      if ( rbtree_contains(tree, y) ) {
 	printf("Deleted ynode (post fixup) 0x%08x still referenced "
-		"by after fixup!\n", z);
+	       "by after fixup!\n", z);
+	assert(FALSE);
+      }
 #endif
-
+    
       /* The tree is now correct, but for the slight detail that we have
        * deleted the wrong node.  It needed to be done that way for
        * remove_fixup to work.  At this point, Y is unreferenced, and
@@ -847,12 +894,12 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
       z->od = zvalue;
       z->generation = generation;
       chain_node(z);
-
+      
       y->parent = z->parent;
       y->left = z->left;
       y->right = z->right;
       y->color = z->color;
-
+      
       if (y->parent != TREE_NIL) {
 	if (y->parent->left == z)
 	  y->parent->left = y;
@@ -866,19 +913,22 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
       
       if (tree->root == z)
 	tree->root = y;
-
+      
       assert (TREE_NIL->color == TREE_BLACK);
     }      
   }
-#ifndef NDEBUG
-  if ( rbtree_contains(tree, z) )
-    printf("Deleted znode (post fixup) 0x%08x still "
-	    "referenced by after fixup!\n", z);
-
+#if (dbg_flags & dbg_tree)
   if ( tree_validate(tree, tree->root) == FALSE ) {
     printf("Bad post-remove validation, case 0x%08x\n", whichcase);
     assert (FALSE);
   }
+  if ( rbtree_contains(tree, z) ) {
+    printf("Deleted znode (post fixup) 0x%08x still "
+	   "referenced by after fixup!\n", z);
+    assert(FALSE);
+  }
+#elif (dbg_flags & dbg_chain)
+  assert(chains_validate());
 #endif
   unchain_node(z);
   free_node(z);
@@ -930,6 +980,7 @@ void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
 	generation_table[i].count = 0;
       }
       /* Chain the TreeNodes on the free list */
+      printf("numLogDirEntries=%d\n", numLogDirEntries);
       log_entry_count = numLogDirEntries;
       for (i=0; i<numLogDirEntries; i++) {
 	free_node(&logDirNodes[i]);
@@ -971,11 +1022,13 @@ void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
   assert(tree->root->parent == TREE_NIL);
   assert(TREE_NIL->color == TREE_BLACK);
   
-#ifndef NDEBUG
+#if (dbg_flags & dbg_tree)
   if ( !tree_validate(tree, tree->root) ) {
     printf("Tree bad after ld_recordLocation()\n");
     assert(FALSE);
   }
+#elif (dbg_flags & dbg_chain)
+  assert(chains_validate());
 #endif
 }
 
@@ -1175,6 +1228,34 @@ ld_removeObjectEntry(OID oid) {
 
 
 
+/** Get the size of an individual log directory entry.
+
+    Get the size of the individual storage elements used to record OIDs
+    in the log. Used during initialization to have an external procedure
+    allocate the space for the log directory.
+
+    @return The size of a single entry in the log directory.
+*/
+uint32_t
+ld_getDirEntrySize(void) {
+  return sizeof(TreeNode);
+}
+
+
+/** Define the storage for the log directory.
+
+    Define the storage to be used by the log directory. It must be large
+    enough to contain numLogDirEntries of ld_getDirEntrySize each. The caller
+    must fill in numLogDirEntries before calling this routine.
+
+    @param[in] logDirectory Is the address of the area.
+*/
+void
+ld_defineDirectory(void * logDirectory) {
+  logDirNodes = (TreeNode *)logDirectory;
+}
+
+
 #ifdef SELF_TEST
 /* Code to unit test the RB tree logic */
 
@@ -1368,11 +1449,17 @@ int main() {
 #define RETIRED_DEPTH (MIGRATE_DEPTH+3) /* How many generations to keep */
 #define INTRODUCE_DUPLICATES (MIGRATE_DEPTH-2)
 #define GENERATION_OFFSET 1000
+#define TEST_DIR_ENTRIES 6000
   test_state state[NBR_GENERATIONS] = { {0,0,0} };
   int i, j;
+  TreeNode dirStorage[TEST_DIR_ENTRIES];
+
+  numLogDirEntries = TEST_DIR_ENTRIES;
+  ld_defineDirectory(dirStorage);
 
   printf("log_directory at 0x%08x\n", &log_directory);
   printf("TREE_NIL at 0x%08x\n", TREE_NIL);
+  printf("numLogDirEntries=%d\n", numLogDirEntries);
   rand(); /* First random number is zero, clear it */
 
   for (i=0; i<NBR_GENERATIONS; i++) {

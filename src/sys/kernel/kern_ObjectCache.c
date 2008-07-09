@@ -1223,18 +1223,21 @@ objC_Init()
   uint32_t availBytes;
   uint32_t allocQuanta;
   uint32_t i;
+  uint32_t sizeofLogDirEntry;
+  void * logDir;
 
   availBytes = physMem_AvailBytes(&physMem_any);
-    
+  sizeofLogDirEntry = ld_getDirEntrySize();
+
   DEBUG(cachealloc)
     printf("%d bytes of available storage, sizeof(Node) = %d,"
            " sizeof(PageHeader) = %d.\n"
            "sizeof(TreeNode) = %d\n",
-           availBytes, sizeof(Node), sizeof(PageHeader), sizeof(TreeNode));
+           availBytes, sizeof(Node), sizeof(PageHeader), sizeofLogDirEntry);
 
   allocQuanta =
     sizeof(Node) + EROS_PAGE_SIZE + sizeof(PageHeader)
-    + 2 * sizeof(TreeNode);
+    + 2 * sizeofLogDirEntry;
 
   objC_nNodes = availBytes / allocQuanta;
   numLogDirEntries = objC_nNodes * 2;
@@ -1293,9 +1296,9 @@ objC_Init()
   }
   
   // Allocate logDirNodes:
-  logDirNodes = KPAtoP(TreeNode *,
-          physMem_Alloc(numLogDirEntries*sizeof(TreeNode), &physMem_any));
-  kzero(logDirNodes, numLogDirEntries*sizeof(TreeNode));
+  logDir = KPAtoP(void *,
+          physMem_Alloc(numLogDirEntries*sizeofLogDirEntry, &physMem_any));
+  kzero(logDir, numLogDirEntries*sizeofLogDirEntry);
 
   // Allocate pages:
   objC_AllocateUserPages();
