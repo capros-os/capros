@@ -390,8 +390,8 @@ int usb_stor_bulk_transfer_buf(struct us_data *us, unsigned int pipe,
 {
 	int result;
 
-	US_DEBUGP("%s:\n  xfer %u bytes buf %#x dma %#x\n", __FUNCTION__, length,
-		buf, data_dma);
+	US_DEBUGP("%s:\n  xfer %u bytes buf %#x dma %#x pipe %#x\n",
+		__FUNCTION__, length, buf, data_dma, pipe);
 
 	/* fill and submit the URB */
 	usb_fill_bulk_urb(us->current_urb, us->pusb_dev, pipe, buf, length,
