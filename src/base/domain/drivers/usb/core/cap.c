@@ -196,6 +196,10 @@ urbComplete(struct urb * urb, void * retData, unsigned int retSize)
 static void
 DeviceUrbCompletion(struct urb * urb)
 {
+#if 0	// if early detection of errors
+  if (urb->status)
+    kdprintf(KR_OSTREAM, "Urb status %d\n", urb->status);
+#endif
   capros_USBInterface_urbResult urbres = {
     .status = urb->status,
     .actual_length = urb->actual_length,
