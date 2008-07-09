@@ -49,7 +49,7 @@ PageKey(Invocation* inv /*@ not null @*/)
   switch(inv->entry.code) {
 
   case OC_capros_key_getType:
-    if (key_PrepareForInv(inv->key))
+    if (key_ValidateForInv(inv->key))
       return;
 
     COMMIT_POINT();
