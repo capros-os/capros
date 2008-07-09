@@ -70,6 +70,7 @@ static int
 xferSDev(struct scsi_device * sdev, 
   uint32_t startSector, uint32_t nrSects,	// bytes / EROS_SECTOR_SIZE
   void * buffer, dma_addr_t buffer_dma,
+  int data_direction,
   uint8_t opcode)
 {
   int err;
@@ -82,7 +83,7 @@ xferSDev(struct scsi_device * sdev,
   putBE16(nrSects, &scsi_cmd[7]);
   scsi_cmd[9] = 0;
 
-  err = scsi_execute_req(sdev, scsi_cmd, DMA_FROM_DEVICE, 
+  err = scsi_execute_req(sdev, scsi_cmd, data_direction, 
                          buffer, buffer_dma, 
                          nrSects * EROS_SECTOR_SIZE, &sshdr,
                          10*HZ, 3);
@@ -97,7 +98,8 @@ readSDev(struct scsi_device * sdev,
   uint32_t startSector, uint32_t nrSects,	// bytes / EROS_SECTOR_SIZE
   void * buffer, dma_addr_t buffer_dma)
 {
-  return xferSDev(sdev, startSector, nrSects, buffer, buffer_dma, READ_10);
+  return xferSDev(sdev, startSector, nrSects, buffer, buffer_dma,
+                  DMA_FROM_DEVICE, READ_10);
 }
 
 void
@@ -237,6 +239,7 @@ disk_thread(void * arg)
     capros_IOReqQ_IORequest Ioreq;
     int err;
     unsigned int opcode;
+    int data_direction;
 
     result = capros_IOReqQ_waitForRequest(KR_IORQ, &Ioreq);
     assert(result == RC_OK);
@@ -249,17 +252,19 @@ disk_thread(void * arg)
 
     case capros_IOReqQ_RequestType_readRangeLoc:
       opcode = READ_10;
+      data_direction = DMA_FROM_DEVICE;
       goto xferRangeLoc;
 
     case capros_IOReqQ_RequestType_writeRangeLoc:
       opcode = WRITE_10;
+      data_direction = DMA_TO_DEVICE;
     xferRangeLoc: ;
       // At the moment there is no parallelism in serving I/O requests.
       err = xferSDev(sdev,
               Ioreq.rangeOpaque // starting sector of the range
               + Ioreq.rangeLoc * (EROS_PAGE_SIZE / EROS_SECTOR_SIZE),
               EROS_PAGE_SIZE / EROS_SECTOR_SIZE,
-              NULL, Ioreq.bufferDMAAddr, opcode);
+              NULL, Ioreq.bufferDMAAddr, data_direction, opcode);
       result = capros_IOReqQ_completeRequest(KR_IORQ,
                  Ioreq.requestID, err);
       assert(result == RC_OK);
