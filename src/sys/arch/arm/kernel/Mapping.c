@@ -448,7 +448,9 @@ ReleaseSmallSpace(unsigned int pid)
   uint32_t pid32 = pid << PID_SHIFT;
   for (i = 0; i < KTUNE_NCONTEXT; i++) {
     Process * p = &proc_ContextCache[i];
-    assert(p->md.pid != pid32);
+    if (p->procRoot) {
+      assertex(p, p->md.pid != pid32);
+    }
   }
 #endif
 
