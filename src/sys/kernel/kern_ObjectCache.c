@@ -49,6 +49,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_aging	0x4
 #define dbg_ndalloc	0x8	/* node allocation */
 #define dbg_pgalloc	0x10	/* page allocation */
+#define dbg_nodelist	0x20	// free node list
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u | dbg_aging)////
@@ -222,7 +223,7 @@ objC_AddDMAPages(PageHeader * pageH, kpg_t nPages)
 PageHeader *
 objC_GetCorePageFrame(uint32_t ndx)
 {
-  unsigned rgn = 0;
+  unsigned int rgn;
 
   for (rgn = 0; rgn < physMem_nPmemInfo; rgn++) {
     PmemInfo *pmi= &physMem_pmemInfo[rgn];
@@ -350,24 +351,46 @@ ReleasePageFrame(PageHeader * pageH)
   physMem_FreeBlock(pageH, 1);
 }
 
-/* Remove this node from the cache and return it to the free node list: */
+static void
+CheckFreeNodeList(void)
+{
+#if (dbg_flags & dbg_nodelist)
+  unsigned long num;
+  Node * pNode;
+  for (num = 0, pNode = objC_firstFreeNode;
+       pNode;
+       pNode = objH_ToNode(node_ToObj(pNode)->prep_u.nextFree) ) {
+    assertex(pNode, node_ToObj(pNode)->obType == ot_NtFreeFrame);
+    num++;
+    if (num > objC_nFreeNodeFrames)
+      dprintf(true, "Free node chain too long! %#x %#x %d\n",
+              objC_firstFreeNode, pNode, objC_nFreeNodeFrames);
+  }
+  assert(num == objC_nFreeNodeFrames);
+#endif
+}
+
+/* Remove this node from the cache and return it to the free node list.
+ * There must be no hazarded keys in the node. */
 void
 ReleaseNodeFrame(Node * pNode)
 {
   DEBUG(ndalloc)
     printf("ReleaseNodeFrame node=%#x\n", pNode);
 
+  DEBUG(nodelist) CheckFreeNodeList();
   ObjectHeader * pObj = node_ToObj(pNode);
 
+  assert(pObj->obType != ot_NtFreeFrame);
   assert(!objH_IsDirty(pObj));
 
-  objH_InvalidateProducts(pObj);
   keyR_UnprepareAll(&pObj->keyRing);
+  objH_InvalidateProducts(pObj);
 
   unsigned int i;
   for (i = 0; i < EROS_NODE_SIZE; i++) {
     Key * key = node_GetKeyAtSlot(pNode, i);
-    assert(! keyBits_IsHazard(key));
+    assertex(pNode, ! keyBits_IsHazard(key));
     key_NH_Unprepare(key);
   }
 
@@ -378,6 +401,8 @@ ReleaseNodeFrame(Node * pNode)
   pObj->prep_u.nextFree = node_ToObj(objC_firstFreeNode);
   objC_firstFreeNode = pNode;
   objC_nFreeNodeFrames++;
+
+  DEBUG(nodelist) CheckFreeNodeList();
 }
 
 /* Release a page that has an ObjectHeader. */
@@ -436,24 +461,43 @@ objH_InitDirtyObj(ObjectHeader * pObj, OID oid, unsigned int baseType,
 }
 
 void
-objC_GrabThisPageFrame(PageHeader *pObj)
+objC_GrabThisPageFrame(PageHeader *pageH)
 {
-  assert(pageH_GetObType(pObj) == ot_PtNewAlloc);
+  assert(pageH_GetObType(pageH) == ot_PtNewAlloc);
 
-  PmemInfo * pmi = pObj->physMemRegion;	// preserve this field
-  kzero(pObj, sizeof(*pObj));
-  pObj->physMemRegion = pmi;
+  PmemInfo * pmi = pageH->physMemRegion;	// preserve this field
+  kzero(pageH, sizeof(*pageH));
+  pageH->physMemRegion = pmi;
+  pageH_ToObj(pageH)->obType = ot_PtNewAlloc;	// restore
 
   // The following test is slow:
-  // assert(pte_ObIsNotWritable(pObj));
+  // assert(pte_ObIsNotWritable(pageH));
 
-  pageH_SetReferenced(pObj);
+  pageH_SetReferenced(pageH);
 }
 
 /* The first numNodesToClean entries of nodesToClean are candidates
  * for cleaning. They may have been referenced since being added. */
 Node * nodesToClean[DISK_NODES_PER_PAGE];
 unsigned int numNodesToClean = 0;
+
+/* Add this node to the list of candidates for cleaning. */
+static void
+AddNodeToClean(Node * pNode)
+{
+  unsigned int i;
+
+  assert(objH_IsDirty(node_ToObj(pNode)));
+  assert(numNodesToClean < DISK_NODES_PER_PAGE);
+
+  // We mustn't have duplicates:
+  for (i = 0; i < numNodesToClean; i++) {
+    if (pNode == nodesToClean[i])
+      return;
+  }
+  // OK to add it:
+  nodesToClean[numNodesToClean++] = pNode;
+}
 
 /* Returns true iff freed some nodes. */
 // May Yield
@@ -468,8 +512,8 @@ CleanAPotOfNodes(bool force)
 
   for (i = 0; i < numNodesToClean; i++) {
     Node * pNode = nodesToClean[i];
-    if (node_ToObj(pNode)->objAge < age_Steal) {
-      // It was referenced after it was added.
+    if (node_ToObj(pNode)->objAge < age_Steal	// It was referenced
+        || node_ToObj(pNode)->obType == ot_NtFreeFrame) { // It was freed
       // It's no longer a candidate to clean.
       // Remove it.
       nodesToClean[i--] = nodesToClean[--numNodesToClean];
@@ -629,14 +673,13 @@ objC_AgeNodeFrames(void)
             objH_ClearFlags(pObj, OFLG_DIRTY);	// cleaned it to the log dir
             goto stealNode;
           } else {
-            /* Add this dirty node to the list of candidates for cleaning. */
-            assert(numNodesToClean < DISK_NODES_PER_PAGE);
-            nodesToClean[numNodesToClean++] = pNode;
+            AddNodeToClean(pNode);
             if (CleanAPotOfNodes(false))
               goto bumpAndReturn;	// freed some nodes
           }
         } else {	// node is clean
         stealNode:	// Steal this node.
+          node_ClearAllHazards(pNode);
           ReleaseNodeFrame(pNode);
           goto bumpAndReturn;
         }
@@ -671,6 +714,8 @@ bumpAndReturn:
 Node *
 objC_GrabNodeFrame(void)
 {
+  DEBUG(nodelist) CheckFreeNodeList();
+
   if (objC_firstFreeNode == 0)
     objC_AgeNodeFrames();
   
@@ -678,11 +723,12 @@ objC_GrabNodeFrame(void)
   assert(objC_nFreeNodeFrames);
   
   Node * pNode = objC_firstFreeNode;
-  objC_firstFreeNode = objH_ToNode(node_ToObj(objC_firstFreeNode)->prep_u.nextFree);
+  ObjectHeader * const pObj = node_ToObj(pNode);
+  assertex(pNode, pObj->obType == ot_NtFreeFrame);
+
+  objC_firstFreeNode = objH_ToNode(pObj->prep_u.nextFree);
   objC_nFreeNodeFrames--;
 
-  ObjectHeader * const pObj = node_ToObj(pNode);
-  assert(pObj->obType == ot_NtFreeFrame);
 
   assert(keyR_IsEmpty(&pObj->keyRing));
   kzero(pObj, sizeof(ObjectHeader));
@@ -704,6 +750,8 @@ objC_GrabNodeFrame(void)
 
   node_SetReferenced(pNode);
   objH_ResetKeyRing(pObj);
+
+  DEBUG(nodelist) CheckFreeNodeList();
 
   return pNode;
 }
@@ -930,7 +978,7 @@ objC_AgePageFrames(void)
     nPinned = 0;
     nStuck = 0;
     uint32_t count;
-    for (count = 0; count < objC_nNodes; count++) {
+    for (count = 0; count < objC_nPages; count++) {
       PageHeader * pageH = objC_GetCorePageFrame(curPage);
       
       switch (pageH_GetObType(pageH)) {
@@ -1281,8 +1329,9 @@ objC_Init()
   
   objC_nodeTable[objC_nNodes - 1].node_ObjHdr.prep_u.nextFree = 0;
   objC_firstFreeNode = &objC_nodeTable[0];
-
   objC_nFreeNodeFrames = objC_nNodes;
+
+  DEBUG(nodelist) CheckFreeNodeList();
 
   Depend_InitKeyDependTable(objC_nNodes);
 

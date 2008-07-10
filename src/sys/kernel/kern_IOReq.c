@@ -71,12 +71,14 @@ IORQ_Init(void)
   // All IOReqs are free:
   for (i = 0; i < KTUNE_NIOREQS; i++) {
     IORequest * ioreq = &IOReqs[i];
+    ioreq->cleaning = false;	// constant hereafter
     ioreq->lk.next = freeIOReqs;
     freeIOReqs = &ioreq->lk;
   }
 
   for (i = 0; i < KTUNE_NIOREQS_CLEANING; i++) {
     IORequest * ioreq = &IOReqsCleaning[i];
+    ioreq->cleaning = true;	// constant hereafter
     ioreq->lk.next = freeIOReqsCleaning;
     freeIOReqsCleaning = &ioreq->lk;
   }
@@ -127,15 +129,6 @@ AllocateIOReqAndPage(void)
   act_Yield();
 }
 
-void
-IOReq_Deallocate(IORequest * ioreq)
-{
-  ioreq->lk.next = freeIOReqs;
-  freeIOReqs = &ioreq->lk;
-
-  sq_WakeAll(&IOReqWait, false);
-}
-
 // ******************** IORequest for cleaning stuff *********************
 
 IORequest *
@@ -159,7 +152,6 @@ IOReqCleaning_AllocateOrWait(void)
   if (ioreq)
     return ioreq;
 
-  dprintf(true, "No IOReqCleaning\n");
   act_SleepOn(&IOReqCleaningWait);
   act_Yield();
 }
@@ -178,18 +170,23 @@ AllocateIOReqCleaningAndPage(void)
 
   ReleasePageFrame(pageH);
 
-  dprintf(true, "No IOReqCleaning\n");
   act_SleepOn(&IOReqCleaningWait);
   act_Yield();
 }
 
 void
-IOReqCleaning_Deallocate(IORequest * ioreq)
+IOReq_Deallocate(IORequest * ioreq)
 {
-  ioreq->lk.next = freeIOReqsCleaning;
-  freeIOReqsCleaning = &ioreq->lk;
-
-  sq_WakeAll(&IOReqCleaningWait, false);
+  // Return it to the proper pool:
+  if (ioreq->cleaning) {
+    ioreq->lk.next = freeIOReqsCleaning;
+    freeIOReqsCleaning = &ioreq->lk;
+    sq_WakeAll(&IOReqCleaningWait, false);
+  } else {
+    ioreq->lk.next = freeIOReqs;
+    freeIOReqs = &ioreq->lk;
+    sq_WakeAll(&IOReqWait, false);
+  }
 }
 
 // ************************ IORQ stuff **************************
@@ -228,7 +225,8 @@ NextLogLoc(void)
   }
 
   LID lid = logCursor;
-  if (++logCursor >= logWrapPoint) 
+  logCursor += FrameToOID(1);
+  if (logCursor >= logWrapPoint) 
     logCursor = MAIN_LOG_START;	// wrap to the beginning
   return lid;
 }
