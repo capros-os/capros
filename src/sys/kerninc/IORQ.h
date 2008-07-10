@@ -37,6 +37,7 @@ typedef struct IORequest {
   StallQueue sq;
   void (*doneFn)(struct IORequest * ioreq);	// function to call when done
   uint16_t requestCode;	// capros_IOReqQ_RequestType_*
+  bool cleaning;	// which pool this came from
 } IORequest;
 
 typedef struct IORQ {
