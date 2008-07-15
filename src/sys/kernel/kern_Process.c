@@ -633,7 +633,7 @@ ValidCtxtPtr(const Process *ctxt)
   return false;
 }
 
-bool 
+Process *
 proc_ValidKeyReg(const Key *pKey)
 {
   uint32_t ctxt;
@@ -642,7 +642,7 @@ proc_ValidKeyReg(const Key *pKey)
   if ( ((uint32_t) pKey < (uint32_t) proc_ContextCache ) || 
        ((uint32_t) pKey >= (uint32_t)
 	&proc_ContextCache[KTUNE_NCONTEXT]) )
-    return false;
+    return NULL;
 
   /* Find the containing context: */
   ctxt = ((uint32_t) pKey) - ((uint32_t) proc_ContextCache);
@@ -652,15 +652,15 @@ proc_ValidKeyReg(const Key *pKey)
   
   if ( ((uint32_t) pKey < (uint32_t) &p->keyReg[0] ) || 
        ((uint32_t) pKey >= (uint32_t) &p->keyReg[EROS_PROCESS_KEYREGS]) )
-    return false;
+    return NULL;
 
   offset = ((uint32_t) pKey) - ((uint32_t) &p->keyReg[0]);
 
   offset %= sizeof(Key);
   if (offset == 0)
-    return true;
+    return p;
   
-  return false;
+  return NULL;
 }
 
 bool

@@ -136,6 +136,7 @@ bool objC_ValidKeyPtr(const struct KeyBits *pKey);
 void objC_ddb_dump_pinned_objects();
 void objC_ddb_dump_pages();
 void objC_ddb_dump_nodes();
+void objC_ddb_dump_procs(void);
 #endif
 
 /*************************************************************

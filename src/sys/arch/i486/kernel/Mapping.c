@@ -1066,6 +1066,18 @@ void
 pageH_UnmapCoherentWrite(PageHeader * pageH)
 { }
 
+void
+pageH_PrepareForDMAOutput(PageHeader * pageH)
+{
+  assert(!"complete");	// needs an implementation!
+}
+
+void
+pageH_PrepareForDMAInput(PageHeader * pageH)
+{
+  assert(!"complete");	// needs an implementation!
+}
+
 
 #ifdef OPTION_DDB
 

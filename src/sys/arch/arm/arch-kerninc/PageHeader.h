@@ -37,15 +37,16 @@ Approved for public release, distribution unlimited. */
 
 #define MD_PAGE_OBFIELDS \
   ula_t cacheAddr;
-/* cacheAddr applies only to pages with obType ==
-   ot_PtDataPage or ot_PtDevicePage. */
+/* cacheAddr applies only to user-mappable pages; those with obType ==
+   ot_PtDataPage, ot_PtDevicePage, ot_PtDMABlock, or ot_PtDMASecondary. */
 
 #define CACHEADDR_ONEREADER 0
 #define CACHEADDR_WRITEABLE 1
 #define CACHEADDR_NONE 2
 #define CACHEADDR_READERS 3
 #define CACHEADDR_UNCACHED 4
-/* To support cache coherency, a data page is in one of the following states.
+/* To support cache coherency, a user-mappable page is in
+one of the following states.
 MVA means modified virtual address. A page's MVA may be zero.
 
 1. Not mapped at any MVA. cacheAddr has CACHEADDR_NONE.
@@ -64,6 +65,21 @@ MVA means modified virtual address. A page's MVA may be zero.
 
 A device page is always CACHEADDR_UNCACHED. Think of such pages as being
 writeable by the hardware. 
+
+The kernel can read and write pages at the kernel address
+PTOV(pageH_GetPhysAddr(pageH)).
+These addresses are mapped write-through, so they never have dirty
+cache entries.
+User-mappable pages (including DMA pages) may have cache entries
+at the kernel address, but they are stale.
+Pages of type ot_PtFreeFrame, ot_PtSecondary, and ot_PtNewAlloc
+may also have stale cache entries at the kernel address,
+but they have no other cache entries.
+Pages of type ot_PtKernelUse, ot_Pt*Pot, and ot_PtMappingPage*
+may have live cache entries at the kernel address,
+and no other cache entries.
+
+The kernel addresses TempMap0VA and TempMap1VA are always mapped uncached.
 */
 
 /*

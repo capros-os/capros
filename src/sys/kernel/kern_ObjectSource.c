@@ -289,12 +289,10 @@ GetObject(OID oid, const ObjectLocator * pObjLoc)
         assert(false);
 
       case capros_Range_otPage:
-dprintf(true, "Fetching page from log.\n");////
-        objRange_FetchPage(rng, oid, lid - rng->start);
+        objRange_FetchPage(rng, oid, OIDToFrame(lid - rng->start));
         break;
 
-      case capros_Range_otNode:
-dprintf(true, "Fetching node from log.\n");////
+      case capros_Range_otNode: ;
         LID potLid = FrameToOID(OIDToFrame(lid));	// 1st LID in frame
         ObjectHeader * pObj = objH_Lookup(potLid, ot_PtLogPot);
         if (pObj) {	// we have the log pot
@@ -303,7 +301,7 @@ dprintf(true, "Fetching node from log.\n");////
           return node_ToObj(pageH_GetNodeFromPot(objH_ToPage(pObj),
                                                  OIDToObIndex(lid) ));
         }
-        objRange_FetchPot(rng, lid, lid - rng->start, ot_PtLogPot);
+        objRange_FetchPot(rng, lid, OIDToFrame(lid - rng->start), ot_PtLogPot);
         break;
       }
     }

@@ -90,19 +90,11 @@ PhysPageSource_GetObject(ObjectRange * rng, OID oid,
   return pObj;
 }
 
-static void
-PhysPageSource_WriteRangeLoc(ObjectRange * rng, frame_t rangeLoc,
-  PageHeader * pageH)
-{
-  assert(false);	// should not be called
-}
-
 const struct ObjectSource PhysPageObSource = {
   .name = "physpage",
   .objS_GetObjectType = &PhysPageSource_GetObjectType,
   .objS_GetObjectCount = &PhysPageSource_GetObjectCount,
-  .objS_GetObject = &PhysPageSource_GetObject,
-  .objS_WriteRangeLoc = &PhysPageSource_WriteRangeLoc,
+  .objS_GetObject = &PhysPageSource_GetObject
 };
 
 void

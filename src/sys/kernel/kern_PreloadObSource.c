@@ -210,19 +210,11 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid,
   return CreateNewNullObject(pObjLoc->objType, oid, restartNPAllocCount);
 }
 
-static void
-PreloadObSource_WriteRangeLoc(ObjectRange * rng, frame_t rangeLoc,
-  PageHeader * pageH)
-{
-  assert(false);	// should not be called
-}
-
 static const ObjectSource PreloadObSource = {
   .name = "preload",
   .objS_GetObjectType = &PreloadObSource_GetObjectType,
   .objS_GetObjectCount = &PreloadObSource_GetObjectCount,
-  .objS_GetObject = &PreloadObSource_GetObject,
-  .objS_WriteRangeLoc = &PreloadObSource_WriteRangeLoc
+  .objS_GetObject = &PreloadObSource_GetObject
 };
 
 void

@@ -91,10 +91,11 @@ Otherwise, the FCSE memory space is mapped:
            address space and accessible only to the kernel.
 0xa000.... (HeapVA) Kernel heap.
 0xb000.... (FlashMemVA) mapped to flash memory.
-0xc000.... (PhysMapVA) mapped to all physical memory. Beware: don't access user
-           memory via this map, or you will get cache aliases. 
-           This is only for page tables and other kernel-only memory
+0xc000.... (PhysMapVA) mapped to all physical memory.
+           This is mainly for page tables and other kernel-only memory
            that is not accessed at any other address.
+           Beware: when accessing user memory via this map,
+           you must use the procedures pageH_*MapCoherent*.
            TODO: Need work to support memory above physical address 0x2fffffff.
 0xf800.... windows to map other processes
 0xfc00.... (DeviceRegsVA) mapped to physical 0x8000.... 

@@ -218,16 +218,14 @@ revalidate: ;
   // FIXME: who checks that this is word-aligned?
   va += offsetof(Message, rcv_data);	// VA of Message.rcv_data
   // Must calculate MVA because this proc's PID may not be loaded.
-  va = proc_VAToMVA(thisPtr, va);
   if (act_CurContext()->md.firstLevelMappingTable
       == thisPtr->md.firstLevelMappingTable ) {
     // Processes are using the same map.
     // The PID of act_CurContext() is loaded.
     mach_LoadDACR(thisPtr->md.dacr);
     // Ensure the destination is mapped.
-    if (! LoadWordFromUserSpace(va, (uint32_t *)&va)) {
+    if (! LoadWordFromUserSpace(proc_VAToMVA(thisPtr, va), (uint32_t *)&va)) {
       // Not mapped, try to map it.
-printf("faulting on exit rcv_data addr, va=0x%x\n", va);////
       // FIXME: Does proc_DoPageFault check access (wrong domain)?
       if (! proc_DoPageFault(thisPtr, va,
             false /* read only */, true /* prompt */ )) {

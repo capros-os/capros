@@ -268,6 +268,7 @@ MapTabHeaderToKVA(MapTabHeader * mth)
 void mach_DoMapWork(unsigned int mw);
 void mach_DoCacheWork(unsigned int mw);
 unsigned int mach_FlushBothTLBs(void);
+void mach_DrainWriteBuffer(void);
 void mach_FlushTLBsCaches(void);
 kpa_t mach_ReadTTBR(void);
 void mach_LoadTTBR(kpa_t ttbr);

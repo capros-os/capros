@@ -122,6 +122,11 @@ TLBMsg:	.asciz "Flushed TLB\n"
 	mov pc,lr
 
 
+	ENTRY(mach_DrainWriteBuffer)
+	mov r0,#0
+	mcr p15,0,r0,c7,c10,4
+	mov pc,lr
+
 	ENTRY(mach_ReadCacheType)
 	mrc p15,0,r0,c0,c0,1	// read cache type register to r0
 	mov pc,lr

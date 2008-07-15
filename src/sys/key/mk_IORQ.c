@@ -36,7 +36,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_complete	0x2
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_wait | dbg_complete )
+#define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 

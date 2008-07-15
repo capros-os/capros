@@ -365,6 +365,7 @@ extern void	db_show_kreserves_cmd(db_expr_t, int, db_expr_t, char*);
 #endif
 extern void	db_show_pages_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_nodes_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_show_procs_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_counters_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_key_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_node_cmd(db_expr_t, int, db_expr_t, char*);
@@ -411,6 +412,7 @@ struct db_command db_show_cmds[] = {
 	{ "pins",       db_show_pins_cmd,	0,	0 },
 	{ "pmem",       db_show_pmem_cmd,	0,	0 },
 	{ "proc",       db_ctxt_print_cmd,	0,	0 },
+	{ "procs",      db_show_procs_cmd,	0,	0 },
 	{ "pte",        db_show_pte_cmd,	0,	0 },
 	{ "regs",	db_show_regs,		0,	0 },
 #if 0

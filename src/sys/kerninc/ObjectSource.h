@@ -130,12 +130,6 @@ typedef struct ObjectSource {
   ObjectHeader * 
   (*objS_GetObject)(ObjectRange * rng, OID oid,
                     const ObjectLocator * pObjLoc);
-  
-  /* Write a frame to the range.
-   * This will only be called for the IOObSource. */
-  void
-  (*objS_WriteRangeLoc)(ObjectRange * rng, frame_t rangeLoc,
-                        PageHeader * pageH);
 } ObjectSource;
 
 bool objC_AddRange(const ObjectRange * rng);

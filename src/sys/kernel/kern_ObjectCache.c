@@ -52,7 +52,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_nodelist	0x20	// free node list
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_aging)////
+#define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -538,7 +538,7 @@ CleanAPotOfNodes(bool force)
     Node * pNode = nodesToClean[i];
     pObj = node_ToObj(pNode);
     node_CopyToDiskNode(pNode, dn);
-    pObj->flags &= ~OFLG_DIRTY;	// it's clean now
+    objH_ClearFlags(pObj, OFLG_DIRTY);	// it's clean now
     ObjectDescriptor objDescr = {
       .oid = pObj->oid,
       .allocCount = pObj->allocCount,
@@ -808,7 +808,7 @@ objC_EvictFrame(PageHeader * pageH)
       physMem_SplitContainingFreeBlock(pageH);
     break;
 
-  case ot_PtKernelHeap:
+  case ot_PtKernelUse:
     return false;	// not implemented yet: FIXME
 
   case ot_PtNewAlloc:
@@ -914,6 +914,9 @@ pageH_Clean(PageHeader * pageH)
   case ot_PtDataPage:
     keyR_TrackDirty(&pageH_ToObj(pageH)->keyRing);
     pageH_ClearFlags(pageH, OFLG_DIRTY);
+#ifdef OPTION_OB_MOD_CHECK
+    pageH_ToObj(pageH)->check = objH_CalcCheck(pageH_ToObj(pageH));
+#endif
     // While it is being cleaned, it is marked not dirty, and I/O in progress.
 
     IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
@@ -967,7 +970,7 @@ objC_AgePageFrames(void)
   uint32_t nPinned = 0;
   int pass;
 
-  DEBUG(aging) printf("objC_AgePageFrames called.");
+  DEBUG(aging) printf("objC_AgePageFrames called.\n");
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
@@ -985,7 +988,7 @@ objC_AgePageFrames(void)
       /* Some page types do not get aged: */
       case ot_PtNewAlloc:
       case ot_PtDevicePage:
-      case ot_PtKernelHeap:
+      case ot_PtKernelUse:
       case ot_PtDMABlock:
       case ot_PtDMASecondary:
       case ot_PtFreeFrame:

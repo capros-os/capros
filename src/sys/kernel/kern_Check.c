@@ -141,7 +141,7 @@ check_Pages()
     }
 
     case ot_PtNewAlloc:
-    case ot_PtKernelHeap:
+    case ot_PtKernelUse:
     case ot_PtDMABlock:
     case ot_PtDMASecondary:
     case ot_PtTagPot:

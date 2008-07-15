@@ -26,12 +26,15 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/kernel.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Node.h>
+#include <kerninc/Process.h>
+#include <kerninc/Activity.h>
+#include <kerninc/IORQ.h>
+#include <ddb/db_output.h>
 
 #ifdef OPTION_DDB
 void
 objC_ddb_dump_pinned_objects()
 {
-  extern void db_printf(const char *fmt, ...);
   uint32_t userPins = 0;
   uint32_t nd, pg;
 
@@ -96,8 +99,6 @@ objC_ddb_dump_pages()
   uint32_t nFree = 0;
   uint32_t pg;
   
-  extern void db_printf(const char *fmt, ...);
-
   for (pg = 0; pg < objC_nPages; pg++) {
     PageHeader * pageH = objC_GetCorePageFrame(pg);
 
@@ -130,7 +131,7 @@ objC_ddb_dump_pages()
       break;
     }
 
-    case ot_PtKernelHeap:
+    case ot_PtKernelUse:
     case ot_PtDMABlock:
     case ot_PtDMASecondary:
       printf("%#x: %s\n",
@@ -156,8 +157,6 @@ objC_ddb_dump_nodes()
   uint32_t nFree = 0;
   uint32_t nd = 0;
   
-  extern void db_printf(const char *fmt, ...);
-
   for (nd = 0; nd < objC_nNodes; nd++) {
     ObjectHeader *pObj = node_ToObj(objC_GetCoreNodeFrame(nd));
 
@@ -173,5 +172,82 @@ objC_ddb_dump_nodes()
   }
 
   printf("Total of %d nodes, of which %d are free\n", objC_nNodes, nFree);
+}
+
+void
+objC_ddb_dump_procs(void)
+{
+  uint32_t nFree = 0;
+  unsigned int i;
+  
+  for (i = 0; i < KTUNE_NCONTEXT; i++) {
+    Process * proc = &proc_ContextCache[i];
+    if (proc->procRoot) {
+      printf("%#x (%s)",
+        proc, proc_Name(proc) );
+      if (keyBits_IsType(&proc->procRoot->slot[ProcSymSpace], KKT_Number)) {
+        db_printf(" (");
+        db_eros_print_number_as_string(&proc->procRoot->slot[ProcSymSpace]);
+        db_printf(")");
+      }
+      switch (proc->runState) {
+      default:
+        printf(": Runstate=%d!", proc->runState);
+        break;
+
+      case RS_Running:
+        printf(": Running");
+        break;
+
+      case RS_Available:
+        printf(": Available");
+        break;
+
+      case RS_Waiting:
+        printf(": Waiting");
+        // Find the resume capability to this process.
+        if (! link_isSingleton(&proc->keyRing)) {
+          Key * key = (Key *) proc->keyRing.prev;
+          if (keyBits_IsPreparedResumeKey(key)) {
+            Process * p2 = proc_ValidKeyReg(key);
+            if (p2) {
+              printf(" on proc %#x", p2);
+            }
+          }
+          // There could be more than one resume key, but we only
+          // examine one.
+        }
+        break;
+      }
+      if (proc->curActivity) {
+        Activity * act = proc->curActivity;
+        printf(", act=%#x, %s",
+               act, act_stateNames[act->state]);
+        if (act->state == act_Stall) {
+          StallQueue * sq = act->lastq;
+          kva_t sqa = (kva_t)sq;
+          printf(" q=%#x", sq);
+          // Try to identify the queue.
+          if (sq == &IOReqWait)
+            printf(" (IOReqWait)");
+          else if (sq == &IOReqCleaningWait)
+            printf(" (IOReqCleaningWait)");
+          else if (sqa >= (kva_t)&IORQs[0] && sqa < (kva_t)&IORQs[KTUNE_NIORQS])
+            printf(" (IOReq)");
+          else if (sqa >= (kva_t)&proc_ContextCache[0]
+                   && sqa < (kva_t)&proc_ContextCache[KTUNE_NCONTEXT])
+            printf(" (process)");
+        }
+      }
+      if (proc->faultCode) {
+        printf(" FaultCode %d", proc->faultCode);
+      }
+      printf("\n");
+    } else {
+      nFree++;
+    }
+  }
+
+  printf("Total of %d procs, of which %d are free\n", KTUNE_NCONTEXT, nFree);
 }
 #endif

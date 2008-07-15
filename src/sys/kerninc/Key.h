@@ -163,4 +163,8 @@ void key_Print(const Key* thisPtr);
 uint32_t key_CalcCheck(Key* thisPtr);
 #endif
 
+#ifdef OPTION_DDB
+void db_eros_print_number_as_string(Key * k);
+#endif
+
 #endif /* __KERNINC_KEY_H__ */

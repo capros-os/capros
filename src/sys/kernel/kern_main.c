@@ -178,6 +178,17 @@ main(void)
   sysT_InitTimePage();
 #endif
 
+//#define TEST_AGING
+#ifdef TEST_AGING
+  while (objC_nFreeNodeFrames > 500) {
+    objC_GrabNodeFrame();
+  }
+  while (physMem_numFreePageFrames > 500) {
+    PageHeader * pageH = objC_GrabPageFrame();
+    pageH_ToObj(pageH)->obType = ot_PtKernelUse;
+  }
+#endif
+
   irq_DISABLE();
 
   act_SetRunning(idleActivity);

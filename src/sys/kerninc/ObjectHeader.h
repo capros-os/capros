@@ -69,7 +69,7 @@ enum ObType {
   ot_NtLAST_NODE_TYPE = ot_NtFreeFrame,
   ot_PtDataPage,	/* page holding a user data Page */
   ot_PtNewAlloc,	/* newly allocated frame, not yet typed */
-  ot_PtKernelHeap,	/* in use as kernel heap */
+  ot_PtKernelUse,	/* in use as kernel heap or other kernel use */
   ot_PtDevicePage,	/* data page, but device memory */
   ot_PtDMABlock,	/* first frame of a block allocated for DMA. */
   ot_PtDMASecondary,	/* subsequent frames of a block allocated for DMA. */
@@ -440,6 +440,8 @@ kva_t pageH_MapCoherentRead(PageHeader * pageH);
 void pageH_UnmapCoherentRead(PageHeader * pageH);
 kva_t pageH_MapCoherentWrite(PageHeader * pageH);
 void pageH_UnmapCoherentWrite(PageHeader * pageH);
+void pageH_PrepareForDMAOutput(PageHeader * pageH);
+void pageH_PrepareForDMAInput(PageHeader * pageH);
 
 Node * pageH_GetNodeFromPot(PageHeader * pageH, unsigned int obIndex);
 

@@ -95,7 +95,7 @@ IOReq_Allocate(void)
   return ioreq;
 }
 
-static DEFQUEUE(IOReqWait);
+DEFQUEUE(IOReqWait);
 
 // Yields if can't allocate.
 IORequest *
@@ -142,7 +142,7 @@ IOReqCleaning_Allocate(void)
   return ioreq;
 }
 
-static DEFQUEUE(IOReqCleaningWait);
+DEFQUEUE(IOReqCleaningWait);
 
 // Yields if can't allocate.
 IORequest *
@@ -308,6 +308,9 @@ objRange_FetchPage(ObjectRange * rng, OID oid, frame_t rangeLoc)
 
   // Initialize the page.
   pageH = ioreq->pageH;
+#if 0
+  printf("objRange_FetchPage pageH %#x oid %#llx\n", pageH, oid);
+#endif
   pObj = pageH_ToObj(pageH);
   pObj->obType = ot_PtDataPage;
   objH_InitObj(pObj, oid);
@@ -377,6 +380,19 @@ IOSource_GetObjectType(ObjectRange * rng, OID oid)
 void
 ioreq_Enqueue(IORequest * ioreq)
 {
+  switch (ioreq->requestCode) {
+  default: ;
+    assert(false);
+
+  case capros_IOReqQ_RequestType_readRangeLoc:
+    pageH_PrepareForDMAInput(ioreq->pageH);
+    break;
+
+  case capros_IOReqQ_RequestType_writeRangeLoc:
+    pageH_PrepareForDMAOutput(ioreq->pageH);
+    break;
+  }
+
   IORQ * iorq = ioreq->objRange->u.rq.iorq;
 #if 0
   dprintf(true, "ioreq_Enqueue %#x rl=%lld\n", ioreq, ioreq->rangeLoc);
@@ -475,28 +491,10 @@ IOSource_GetObject(ObjectRange * rng, OID oid,
   }
 }
 
-static void
-IOSource_WriteRangeLoc(ObjectRange * rng, frame_t rangeLoc,
-  PageHeader * pageH)
-{
-  IORequest * ioreq = IOReq_AllocateOrWait();
-  ioreq->pageH = pageH;
-  ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
-  ioreq->objRange = rng;
-  ioreq->rangeLoc = rangeLoc;
-  ioreq->doneFn = &IOReq_WakeSQ;////
-  sq_Init(&ioreq->sq);
-  ioreq_Enqueue(ioreq);
-  act_SleepOn(&ioreq->sq);
-  act_Yield();
-  // act_Yield does not return
-}
-
 const struct ObjectSource IOObSource = {
   .name = "I/O",
   .objS_GetObjectType = &IOSource_GetObjectType,
   .objS_GetObjectCount = &IOSource_GetObjectCount,
-  .objS_GetObject = &IOSource_GetObject,
-  .objS_WriteRangeLoc = &IOSource_WriteRangeLoc,
+  .objS_GetObject = &IOSource_GetObject
 };
 

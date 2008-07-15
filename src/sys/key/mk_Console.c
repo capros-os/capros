@@ -53,11 +53,15 @@ ConsoleKey(Invocation* inv /*@ not null @*/)
       }
 
       if (inv->entry.len) {
+        if (*(inv->entry.data) == 0)	// bug catcher
+          dprintf(true, "OC_Console_Put with null in string, %#x.\n",
+                  inv->entry.data);
 	kstream_PutBuf(inv->entry.data, inv->entry.len);
 
 	if (inv->entry.data[inv->entry.len-1] != '\n')
 	  printf("\n");
       }
+
       inv->exit.code = RC_OK;
       break;
     }

@@ -1553,6 +1553,12 @@ db_show_nodes_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 }
 
 void
+db_show_procs_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
+{
+  objC_ddb_dump_procs();
+}
+
+void
 db_user_continue_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 {
   continue_user_bpt = true;

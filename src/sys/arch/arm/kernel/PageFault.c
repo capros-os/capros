@@ -49,7 +49,7 @@ unsigned int EnsureSSDomain(unsigned int ssid);
 #define dbg_track	0x4
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_track ) ////
+#define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 

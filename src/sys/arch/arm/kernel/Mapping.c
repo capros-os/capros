@@ -41,7 +41,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_track ) ////
+#define dbg_flags   ( 0u )
 
 extern kva_t heap_start;
 extern kva_t heap_end;
@@ -853,6 +853,9 @@ pageH_MapCoherentRead(PageHeader * pageH)
 
   case CACHEADDR_READERS:	// readers at multiple MVAs
     // We are just another reader.
+    // But there could be stale cache entries at the kernel address:
+    SetMapWork_InvalidateCache();
+    mach_DoCacheWork(mapWork);
     return PTOV(pageH_GetPhysAddr(pageH));
 
   case CACHEADDR_WRITEABLE:	// writeable at one MVA
@@ -904,21 +907,52 @@ pageH_MapCoherentWrite(PageHeader * pageH)
 void
 pageH_UnmapCoherentWrite(PageHeader * pageH)
 {
+  /* Page was mapped uncached or write-through, so no need to clean cache. */
+}
+
+void
+pageH_PrepareForDMAOutput(PageHeader * pageH)
+{
   switch (pageH->kt_u.ob.cacheAddr & EROS_PAGE_MASK) {
   default: ;
     assert(false);
 
-  case CACHEADDR_NONE:	// not previously mapped
-  case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
+  case CACHEADDR_WRITEABLE:	// writeable at one MVA
+    // There may be dirty cache entries for this page, so clean them:
+    SetMapWork_CleanCache();
+    mach_DoCacheWork(mapWork);
     break;
 
+  case CACHEADDR_NONE:	// not previously mapped
   case CACHEADDR_ONEREADER:	// read only at one MVA
-  case CACHEADDR_WRITEABLE:	// writeable at one MVA
+  case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
   case CACHEADDR_READERS:	// readers at multiple MVAs
+    break;
+  }
+  mach_DrainWriteBuffer();
+}
+
+/* There must be no user cache entries for this page. */
+void
+pageH_PrepareForDMAInput(PageHeader * pageH)
+{
+  switch (pageH_GetObType(pageH)) {
+  case ot_PtKernelUse:
+  case ot_PtTagPot:
+  case ot_PtHomePot:
+  case ot_PtLogPot:
+  case ot_PtMappingPage1:
+  case ot_PtMappingPage2: ;
+    // This page is for kernel use,
+    // so we mustn't have any stale cache entries:
     SetMapWork_InvalidateCache();
     mach_DoCacheWork(mapWork);
     break;
+
+  default: ;
+    break;
   }
+  mach_DrainWriteBuffer();
 }
 
 #ifdef OPTION_DDB

@@ -100,7 +100,9 @@ StartCkptRootRead(LID lid)
   ioreq->doneFn = &IOReq_EndRead;
   sq_Init(&ioreq->sq);
   ioreq_Enqueue(ioreq);
-  return ioreq->pageH;
+  PageHeader * pageH = ioreq->pageH;
+  pageH_ToObj(pageH)->obType = ot_PtKernelUse;
+  return pageH;
 }
 
 static bool

@@ -223,7 +223,7 @@ void proc_DumpFloatRegs(Process* thisPtr);
 #ifndef NDEBUG
 bool ValidCtxtPtr(const Process * ctxt);
 bool ValidCtxtKeyRingPtr(const KeyRing* kr);
-bool proc_ValidKeyReg(const Key * pKey);
+Process * proc_ValidKeyReg(const Key * pKey);
 #endif
 
 void proc_DoPrepare(Process* thisPtr);

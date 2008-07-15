@@ -436,7 +436,6 @@ pageH_GetNodeFromPot(PageHeader * pageH, unsigned int obIndex)
 uint32_t
 objH_CalcCheck(const ObjectHeader * thisPtr)
 {
-  Node *pNode = 0;
   uint32_t i = 0;
   uint32_t ck = 0;
   uint32_t w = 0;
@@ -457,8 +456,7 @@ objH_CalcCheck(const ObjectHeader * thisPtr)
      * counts, and key slots.
      */
 
-
-    pNode = (Node *) thisPtr;
+    Node * pNode = (Node *) thisPtr;
     ck ^= objH_GetAllocCount(thisPtr);
     ck ^= node_GetCallCount(pNode);
     
@@ -507,41 +505,57 @@ static void
 PrintObjData(ObjectHeader * thisPtr)
 {
   printf(" oid=%#llx ac=%#x\n", thisPtr->oid, objH_GetAllocCount(thisPtr));
-  printf(" flags=0x%02x usrPin=%d\n",
+  printf(" flags=0x%02x usrPin=%d",
          thisPtr->flags, thisPtr->userPin );
 #ifdef OPTION_OB_MOD_CHECK
-  printf("check=0x%08x calcCheck 0x%08x:\n", thisPtr->check,
+  printf(" check=%#x calcCheck=%#x", thisPtr->check,
 #if 1
          objH_CalcCheck(thisPtr)
-#else
+#else	// Sometimes we don't want to call objH_CalcCheck,
+	// because it mutates the memory system.
          0xbadbad00
 #endif
         );
+#endif
+  printf("\n");
 }
 
 void
 objH_ddb_dump(ObjectHeader * thisPtr)
 {
-  extern void db_printf(const char *fmt, ...);
-
-  printf("Object Header 0x%08x obtype %d (%s)\n", thisPtr,
+  printf("ObHdr %#x type %d (%s) ", thisPtr,
          thisPtr->obType,
 	 ddb_obtype_name(thisPtr->obType) );
-#endif
 
   switch(thisPtr->obType) {
   case ot_PtFreeFrame:
     printf(" lgsz=%d", objH_ToPage(thisPtr)->kt_u.free.log2Pages);
+  case ot_PtDMASecondary:
     goto pgRgn;
+
   case ot_PtDataPage:
   case ot_PtDevicePage:
+  case ot_PtTagPot:
+  case ot_PtHomePot:
+  case ot_PtLogPot:
     PrintObjData(thisPtr);
-  case ot_PtKernelHeap:
+  case ot_PtNewAlloc:
+  case ot_PtKernelUse:
   case ot_PtSecondary:
   case ot_PtDMABlock:
-  case ot_PtDMASecondary:
 pgRgn:
+    if (objH_ToPage(thisPtr)->ioreq)
+      printf(" ioreq=%#x", objH_ToPage(thisPtr)->ioreq);
+    if (objH_ToPage(thisPtr)->kernPin)
+      printf(" kernPin=%d", objH_ToPage(thisPtr)->kernPin);
     printf(" region=0x%08x\n", objH_ToPage(thisPtr)->physMemRegion);
+    break;
+
+  default:
+    if (thisPtr->obType > ot_PtLAST_COMMON_PAGE_TYPE) {
+      pageH_mdType_dump_header(objH_ToPage(thisPtr));
+      goto pgRgn;
+    }
     break;
 
   case ot_NtSegment:
@@ -563,11 +577,6 @@ pgRgn:
 prNodeObj:
     PrintObjData(thisPtr);
   case ot_NtFreeFrame:
-    break;
-
-  default:
-    if (thisPtr->obType > ot_PtLAST_COMMON_PAGE_TYPE)
-      pageH_mdType_dump_header(objH_ToPage(thisPtr));
     break;
   }
 }
