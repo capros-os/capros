@@ -1258,7 +1258,9 @@ DoReadWrite(Message * msg, bool write)
   }
 
   if (commandActive) {
-kprintf(KR_OSTREAM, "SCSI Store I/O %#x busy", sc);////
+#if 1	// if catching bugs
+    kdprintf(KR_OSTREAM, "SCSI Store I/O %#x busy", sc);
+#endif
     msg->snd_code = RC_capros_Errno_Already;
     return;
   }
@@ -1281,16 +1283,17 @@ kprintf(KR_OSTREAM, "SCSI Store I/O %#x busy", sc);////
   result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_COMMANDREPLY,
 		KR_RETURN, KR_VOID);
   assert(result == RC_OK);
+  commandActive = true;
 
   int ret = queuecommand(&theSRB, &srb_done);
   switch (ret) {
   case SCSI_MLQUEUE_HOST_BUSY:
+    commandActive = false;
     // Shouldn't we have caught this above?
     msg->snd_code = RC_capros_Errno_Already;
     return;
 
   case 0:
-    commandActive = true;
     msg->snd_invKey = KR_VOID;
     break;
 
