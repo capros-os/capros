@@ -206,8 +206,11 @@ allocTree_insertOIDs(TREE *tree, uint8_t type, OID oid, uint32_t count)
      * will never match treeKey, so tree_find will be run..
      */
     theNode = tree->lastInsert;
-  else
+  else {
+    TREENODE * root = tree->root;
+    assert(root);
     theNode = tree_find(tree->root,treeKey);
+  }
 
   if (theNode == TREE_NIL) {
     theNode = tree_newNode(treeKey);
@@ -387,8 +390,8 @@ allocTree_removeOID(TREE *tree, struct Bank *bank, uint8_t type, OID oid)
   if (theNode->body.type[offset] != type) {
     debug_print_node(theNode);
     kpanic(KR_OSTREAM,
-	   "allocTree_removeOID passed OID 0x"DW_HEX", whose "
-	   "type (%s)is not the same as the one passed in (%s)\n",
+	   "allocTree_removeOID passed OID 0x"DW_HEX",\n"
+	   "whose type (%u) is not the same as the one passed in (%u)\n",
 	   DW_HEX_ARG(oid),
 	   theNode->body.type[offset],
 	   type);

@@ -38,12 +38,12 @@ Approved for public release, distribution unlimited. */
 /* Invalid type for internal use */
 #define SBOT_INVALID 0xff
 
-#define NUM_BASE_TYPES 2	// just nodes and pages
+#define NUM_BASE_TYPES capros_Range_otNumBaseTypes	// just nodes and pages
 
 extern const char *type_name(int t);
 extern bool valid_type(int t);
-extern uint32_t objects_per_frame[capros_Range_otNUM_TYPES];
-extern uint32_t objects_map_mask[capros_Range_otNUM_TYPES];
+extern uint32_t objects_per_frame[NUM_BASE_TYPES];
+extern uint32_t objects_map_mask[NUM_BASE_TYPES];
 extern uint8_t typeToBaseType[capros_Range_otNUM_TYPES];
 extern int ffs(int);
 

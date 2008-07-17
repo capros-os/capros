@@ -102,18 +102,22 @@ bank_initializeBank(Bank *bank,
  *     Always succeeds.
  */
 
-struct Bank_MOFrame *
-bank_getTypeFrame(Bank *bank, uint8_t type);
+
 /*    If /type/ is a multiple-object-per-frame type, returns the
- *  address of /bank/'s frameMap and frameOid cache for that type
- *  in *(/frameMap/) and *(/frameOid/), respectively.
+ *  address of /bank/'s frameMap and frameOid cache for that type.
  *    If /type/ is a single-object-per-frame type, returns NULL.
- *
- *    Implemented as a macro for speed.
  */
-#define bank_getTypeFrame(bank, type) \
-   (((type) == capros_Range_otNode)? (&(bank)->nodeFrame) \
-      : (struct Bank_MOFrame *)NULL)
+INLINE struct Bank_MOFrame *
+bank_getTypeFrame(Bank * bank, uint8_t baseType)
+{
+  switch (baseType) {
+  case capros_Range_otNode:
+    return &bank->nodeFrame;
+
+  default:	// single-object-per-frame
+    return (struct Bank_MOFrame *)NULL;
+  }
+}
 
 static uint32_t
 bank_initKeyNode(uint32_t krNode, Bank *bank, BankPrecludes limits);
@@ -763,14 +767,16 @@ BankDeallocObject(Bank * bank, uint32_t kr)
   uint32_t code;
     
   code = capros_Range_identify(KR_SRANGE, kr, &obType, &oid);
-  if (code != RC_OK) {
+  if (code != RC_OK || obType >= capros_Range_otNUM_TYPES) {
     DEBUG(dealloc)
 	kdprintf(KR_OSTREAM,
-		 "SpaceBank: range_identify failed (%u)\n",
-		 code);
+		 "SpaceBank: range_identify failed, code %u obType %u\n",
+		 code, obType);
     return code;
   }
-    
+
+  obType = typeToBaseType[obType];
+
   if (! bank_containsOID(bank, obType, oid)) {
     DEBUG (dealloc)
       kdprintf(KR_OSTREAM, "Bank does not contain %s 0x"DW_HEX"\n",
@@ -796,8 +802,8 @@ BankDeallocObject(Bank * bank, uint32_t kr)
     if (result != RC_OK || nType != RC_capros_key_Void) {
       /* Didn't dealloc! */
       kpanic(KR_OSTREAM,
-             "spacebank: rescind successful but new keytype not Number\n"
-             "           (passed in type %s, new type %d, OID "
+             "spacebank: rescind successful but new keytype not Void\n"
+             "           (passed in type %u, new type %u, OID "
              "0x"DW_HEX")\n",
              obType,
              nType,
@@ -922,7 +928,7 @@ cleanup:
 
 
 uint32_t
-bank_containsOID(Bank *bank, uint8_t type, OID oid)
+bank_containsOID(Bank *bank, uint8_t baseType, OID oid)
 {
   struct Bank_MOFrame *obj_frame;
 
@@ -930,7 +936,7 @@ bank_containsOID(Bank *bank, uint8_t type, OID oid)
   uint64_t frameOff = EROS_FRAME_FROM_OID(oid);
   uint8_t subObj = OIDToObIndex(oid);
 
-  obj_frame = bank_getTypeFrame(bank, type);
+  obj_frame = bank_getTypeFrame(bank, baseType);
 
   if (obj_frame) {
     if (obj_frame->frameMap != 0u && obj_frame->frameOid == frameOff) {
@@ -993,7 +999,7 @@ bank_deallocOID(Bank *bank, uint8_t type, OID oid)
 	    "spacebank: oid 0x"DW_HEX" (%s) not in bank "
 	    "to dealloc\n",
 	    DW_HEX_ARG(oid),
-	    type_name(oid)
+	    type_name(type)
 	   );
     return 0;
   } else {
@@ -1056,7 +1062,7 @@ BankPreallType(Bank *bank,
 	/* not a recognized multi-page object */
 	kpanic(KR_OSTREAM,
 	       "Spacebank: Fatal error: bank_preall_type got "
-	       "unsupported >1 per page type (%i)!\n",
+	       "unsupported >1 per page type (%u)!\n",
 	       type);
 	       
 	break; /* BREAK */

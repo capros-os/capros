@@ -54,12 +54,13 @@ Approved for public release, distribution unlimited. */
 #include "Bank.h"
 #include "ObjSpace.h"
 #include "malloc.h"
+#include "assert.h"
 
 #define min(a,b) ((a) <= (b) ? (a) : (b))
 
-uint32_t objects_per_frame[capros_Range_otNUM_TYPES];
-uint32_t objects_map_mask[capros_Range_otNUM_TYPES];
-static const char *type_names[capros_Range_otNUM_TYPES];
+uint32_t objects_per_frame[NUM_BASE_TYPES];
+uint32_t objects_map_mask[NUM_BASE_TYPES];
+static const char * type_names[NUM_BASE_TYPES];
 
 uint8_t typeToBaseType[capros_Range_otNUM_TYPES] = {
   [capros_Range_otPage]      = capros_Range_otPage,
@@ -463,7 +464,7 @@ InitSpaceBank(void)
   DEBUG(init) kdprintf(KR_OSTREAM,
 	   "spacebank: spacebank initializing\n");
 
-  for (x = 0; x < capros_Range_otNUM_TYPES; x++) {
+  for (x = 0; x < NUM_BASE_TYPES; x++) {
     objects_per_frame[x] = 0u;
     objects_map_mask[x] = 0u;
     type_names[x] = "Invalid";
@@ -501,15 +502,10 @@ InitSpaceBank(void)
 }
 
 const char *
-type_name(int t)
+type_name(int baseType)
 {
-  switch (t) {
-  case capros_Range_otPage:
-  case capros_Range_otNode:
-    return type_names[t];
-  default:
-    return "unknown";
-  }
+  assert(baseType < NUM_BASE_TYPES);
+  return type_names[baseType];
 }
 
 bool
