@@ -58,8 +58,10 @@ ConsoleKey(Invocation* inv /*@ not null @*/)
                   inv->entry.data);
 	kstream_PutBuf(inv->entry.data, inv->entry.len);
 
+#if 0
 	if (inv->entry.data[inv->entry.len-1] != '\n')
 	  printf("\n");
+#endif
       }
 
       inv->exit.code = RC_OK;

@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/IRQ.h>
 #include <kerninc/IORQ.h>
+#include <kerninc/GPT.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <kerninc/Key-inline.h>
@@ -49,10 +50,10 @@ physMem_AllocateDMAPages(Invocation * inv)
     ((capros_DevPrivs_addr_t)inv->entry.w3 << 32);
 
   if (nPages > (1U << capros_DevPrivs_logMaxDMABlockSize)) {
-      COMMIT_POINT();
+    COMMIT_POINT();
 
-      inv->exit.code = RC_capros_key_RequestError;
-      return;
+    inv->exit.code = RC_capros_key_RequestError;
+    return;
   }
 
   PageHeader * pageH;
@@ -171,4 +172,38 @@ devPrivs_allocateIORQ(Invocation * inv)
   } else {
     inv->exit.code = RC_capros_DevPrivs_AllocFail;
   }
+}
+
+INLINE void
+devPrivs_DeclarePFHProcess(Invocation * inv)
+{
+  Key * key = inv->entry.key[0];
+  key_Prepare(key);
+  if (! keyBits_IsType(key, KKT_Process)) {
+    COMMIT_POINT();
+
+    inv->exit.code = RC_capros_key_RequestError;
+    return;
+  }
+
+  Process * proc = key->u.gk.pContext;
+
+  Node * pNode = proc->procRoot;
+  if (node_ToObj(pNode)->oid >= FIRST_PERSISTENT_OID) {
+    // Only non-persistent can be a PFH.
+    COMMIT_POINT();
+
+    inv->exit.code = RC_capros_key_RequestError;
+    return;
+  }
+
+  // Go through the process's address space, 
+  // allocating and pinning all addressable mapping tables.
+  proc_LockAllMapTabs(proc);
+
+  COMMIT_POINT();
+
+  proc->kernelFlags |= KF_PFH;
+
+  inv->exit.code = RC_OK;
 }

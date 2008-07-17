@@ -716,6 +716,8 @@ objC_GrabNodeFrame(void)
 {
   DEBUG(nodelist) CheckFreeNodeList();
 
+  assert(! proc_Current() || ! proc_IsPFH(proc_Current()));
+
   if (objC_firstFreeNode == 0)
     objC_AgeNodeFrames();
   
@@ -1068,8 +1070,7 @@ objC_AgePageFrames(void)
           to complete. Wait now for it to complete.
           Otherwise, we would go on to preferentially steal clean pages,
           usually code pages. */
-          act_SleepOn(&pageH->ioreq->sq);
-          act_Yield();
+          SleepOnPFHQueue(&pageH->ioreq->sq);
         }
 
         // Steal this frame.
@@ -1097,6 +1098,8 @@ PageHeader *
 objC_GrabPageFrame(void)
 {
   PageHeader * pageH;
+
+  assert(! proc_Current() || ! proc_IsPFH(proc_Current()));
 
   while (1) {
     // Try to allocate one page.

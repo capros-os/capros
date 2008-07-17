@@ -204,6 +204,10 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
   case OC_capros_DevPrivs_allocateIORQ:
     devPrivs_allocateIORQ(inv);
     break;
+
+  case OC_capros_DevPrivs_declarePFHProcess:
+    devPrivs_DeclarePFHProcess(inv);
+    break;
     
   case OC_capros_DevPrivs_publishMem:
     {

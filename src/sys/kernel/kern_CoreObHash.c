@@ -163,7 +163,7 @@ objH_Lookup(OID oid, unsigned int type)
 
     if (pOb->oid == oid) {
       unsigned int obType = pOb->obType;
-      if (obType < ot_PtLAST_OBJECT_TYPE)
+      if (obType <= ot_PtLAST_OBJECT_TYPE)
         obType = 0;	// not a pot
       if (obType == type) {
         DEBUG(hash) printf("Found oid %#llx\n", oid);

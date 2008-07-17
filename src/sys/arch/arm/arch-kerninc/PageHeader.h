@@ -125,6 +125,11 @@ struct MapTabHeader {
   uint8_t tableSize    : 1;	/* 1 for first level table or small space,
 				0 for second level page table */
   uint8_t isFree       : 1;
+
+  /* A mapping table is pinned iff it is used by a page fault handler process.
+   * It remains pinned until it is destroyed. */
+  uint8_t kernelPin    : 1;
+
   uint8_t producerNdx  : (EROS_NODE_LGSIZE-1);
   uint8_t ndxInPage    : 2;	/* mp.hdrs[ndxInPage] == this */
 };

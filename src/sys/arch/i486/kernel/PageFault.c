@@ -396,15 +396,214 @@ SegWalk_InitFromMT(SegWalk * wi, MapTabHeader * mth)
   objH_TransLock(wi->memObj);
 }
 
+/* Find or create a first level mapping table for this access.
+ * If successful, returns false,
+ *   returns a pointer to the table in *pMth1,
+ *   and sets up *pwi for the walk from that table.
+ * If the access faults, returns true,
+ *   and sets up *pwi with the fault info. */
+static bool
+GetFirstLevelMappingTable(Process * p, uva_t va, bool isWrite,
+  PageHeader * * ppTableHdr, SegWalk * pwi)
+{
+  PageHeader * pTableHdr;
+  PTE * pTable;
+
+  /* See if there is already a page directory. */
+  if (p->md.MappingTable == KernPageDir_pa
+      || p->md.MappingTable == PTE_IN_PROGRESS ) {	// Need a page directory
+    p->md.MappingTable = PTE_IN_PROGRESS;
+  
+    if (! segwalk_init(pwi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace),
+                       va, p, 0)) {
+      return true;
+    }
+
+    /* Begin the traversal... */
+    const int walk_root_l2v = 32;
+    if ( ! WalkSeg(pwi, walk_root_l2v,
+		   p, 0) ) { 
+      return true;
+    }
+
+    DEBUG(pgflt)
+      printf("Traversed to top level\n");
+
+    /* If a depend entry was reclaimed, we may have just zapped
+     * the very mapping table entry we are building: */
+    if (p->md.MappingTable != PTE_IN_PROGRESS) {
+      dprintf(true, "Zapped MT root\n");
+      act_Yield();
+    }
+  
+    /* See if a mapping table has already been built for this address
+     * space.  If so, just use it. */
+    pTableHdr =
+      FindProduct(pwi, 1, ! (pwi->restrictions & capros_Memory_readOnly));
+  
+    if (pTableHdr == 0) {
+      pTableHdr = proc_MakeNewPageDirectory(pwi);
+
+#ifdef WALK_LOUD
+      dprintf(false, "new pgdir, ");
+#endif
+    } else {
+#ifdef WALK_LOUD
+      dprintf(false, "found pgdir, ");
+#endif
+    }
+
+    assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+
+    pTable = (PTE *) pageH_GetPageVAddr(pTableHdr);
+
+    /* Note, the physical address of the page directory must be
+       representable in 32 bits, even in PAE mode. */
+    p->md.MappingTable = (kpmap_t)VTOP(pTable);
+
+  } else {		// Already have a page directory
+    pTable = (PTE *) (PTOV(p->md.MappingTable) & ~EROS_PAGE_MASK);
+    pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
+    assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+
+    DEBUG(pgflt)
+      printf("Found top level\n");
+  
+    SegWalk_InitFromMT(pwi, &pTableHdr->kt_u.mp);
+    pwi->offset = va;
+    pwi->restrictions = pTableHdr->kt_u.mp.readOnly
+                        ? capros_Memory_readOnly : 0;
+   
+    if (isWrite && pTableHdr->kt_u.mp.readOnly) {
+      pwi->faultCode = capros_Process_FC_AccessViolation;
+      return true;
+    }
+
+#ifdef WALK_LOUD
+    dprintf(false, "have pgdir, ");
+#endif
+  }
+  
+  assert(pwi->memObj == pTableHdr->kt_u.mp.producer);
+  
+  /* pTable is a page directory conveying suitable access rights from
+     the top, and pTableHdr is its header.
+     *pwi reflects the path to this point. */
+  *ppTableHdr = pTableHdr;
+  return false;
+}
+
+/* Find or create a coarse page table for this access.
+ * If successful, returns false,
+ *   returns a pointer to the table in *pMth2,
+ *   and sets up *pwi for the walk from that table.
+ * If the access faults, returns true,
+ *   and sets up *pwi with the fault info. */
+static bool
+GetSecondLevelMappingTable(PageHeader * mth1, SegWalk * pwi, uva_t va,
+  bool isWrite,
+  PageHeader * * pMth2)
+{
+  PTE * pTable = (PTE *) pageH_GetPageVAddr(mth1);
+
+  /* See if the PDE has the necessary permissions: */
+  uint32_t pdeNdx = (va >> 22) & 0x3ffu;
+  PTE * thePDE = &pTable[pdeNdx];
+
+  PageHeader * pTableHdr;
+  if ( pte_is(thePDE, PTE_V) ) {
+    if (isWrite && ! pte_is(thePDE, PTE_W)) {
+      pwi->faultCode = capros_Process_FC_AccessViolation;
+      return true;
+    }
+
+    /* We have a valid PDE with the necessary permissions! */
+    pTable = KPAtoP(PTE *, pte_PageFrame(thePDE));
+    pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
+    assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+
+    DEBUG(pgflt)
+      printf("Found second level\n");
+      
+    SegWalk_InitFromMT(pwi, &pTableHdr->kt_u.mp);
+    pwi->offset = va & ((1ul << 22) - 1);
+    /* pwi->restrictions & capros_Memory_readOnly must be 0.
+       pwi->restrictions & capros_Memory_noCall is not significant
+       because pwi->keeperGPT is SEGWALK_GPT_UNKNOWN. */
+    pwi->restrictions = 0;
+
+#ifdef WALK_LOUD
+    dprintf(false, "have pt, ");
+#endif
+  } else {
+    // user PDE is not valid.
+
+    /* Start building the PDE entry: */
+
+    thePDE->w_value = PTE_IN_PROGRESS;
+
+    /* Translate the top 8 (10) bits of the address: */
+    if ( ! WalkSeg(pwi, 22, thePDE, 1) ) {
+      return true;
+    }
+
+    DEBUG(pgflt)
+      printf("Traversed to second level\n");
+
+    if (thePDE->w_value == PTE_ZAPPED)
+      act_Yield();
+    assert(thePDE->w_value == PTE_IN_PROGRESS);
+
+    /* If we get this far, we need the page table to proceed further.
+     * See if we need to build a new page table: */
+
+    /* Level 0 product is never a read-only product.  We use
+     * the write permission bit at the PDE level.
+     */
+    pTableHdr = FindProduct(pwi, 0, true);
+
+    if (pTableHdr == 0) {
+      pTableHdr = MakeNewPageTable(pwi);
+
+#ifdef WALK_LOUD
+      dprintf(false, "new pt, ");
+#endif
+    } else {
+#ifdef WALK_LOUD
+      dprintf(false, "found pt, ");
+#endif
+    }
+    assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
+
+    /* On x86, the page table is always RW, and we rely on
+       the write permission bit at the PDE level: */
+    assert(! pTableHdr->kt_u.mp.readOnly);
+
+    pTable = (PTE *) pageH_GetPageVAddr(pTableHdr);
+
+    thePDE->w_value = 0;    
+    pte_set(thePDE, (VTOP((kva_t)pTable) & PTE_FRAMEBITS));
+    pte_set(thePDE, PTE_ACC|PTE_USER|PTE_V);
+    if (! (pwi->restrictions & capros_Memory_readOnly))
+      pte_set(thePDE, PTE_W);
+    else {
+      /* Having captured the readOnly restriction to this point,
+         the PTE must be RO only if there is an RO flag
+         from this point forward, because we may share this page table
+         with address spaces where it is writeable. */
+      pwi->restrictions &= ~ capros_Memory_readOnly;
+    }
+  }
+  *pMth2 = pTableHdr;
+  return false;
+}
+
 uint32_t DoPageFault_CallCounter;
 
 /* May Yield. */
 bool
 proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 {
-  const int walk_root_l2v = 32;
-  const int walk_top_l2v = 22;
-
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Top of DoPageFault()");
@@ -520,179 +719,17 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
   else	// the large space case follows
 #endif
   {	// beginning of large space case
-    PTE * pTable;
-    PageHeader * pTableHdr;
+    PageHeader * pTableHdr1;
+    if (GetFirstLevelMappingTable(p, va, isWrite, &pTableHdr1, &wi))
+      goto fault_exit;
 
-    /* See if there is already a page directory. */
-    if (p->md.MappingTable == KernPageDir_pa
-        || p->md.MappingTable == PTE_IN_PROGRESS ) {	// Need a page directory
-      p->md.MappingTable = PTE_IN_PROGRESS;
-  
-      if (! segwalk_init(&wi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace),
-                         va, p, 0)) {
-        goto fault_exit;
-      }
-
-      /* Begin the traversal... */
-      if ( ! WalkSeg(&wi, walk_root_l2v,
-		     p, 0) ) { 
-        goto fault_exit;
-      }
-
-      DEBUG(pgflt)
-        printf("Traversed to top level\n");
-
-      /* If a depend entry was reclaimed, we may have just zapped
-       * the very mapping table entry we are building: */
-      if (p->md.MappingTable != PTE_IN_PROGRESS) {
-        dprintf(true, "Zapped MT root\n");
-        act_Yield();
-      }
-  
-      /* See if a mapping table has already been built for this address
-       * space.  If so, just use it. */
-      pTableHdr =
-        FindProduct(&wi, 1, ! (wi.restrictions & capros_Memory_readOnly));
-    
-      if (pTableHdr == 0) {
-        pTableHdr = proc_MakeNewPageDirectory(&wi);
-
-#ifdef WALK_LOUD
-        dprintf(false, "new pgdir, ");
-#endif
-      } else {
-#ifdef WALK_LOUD
-        dprintf(false, "found pgdir, ");
-#endif
-      }
-
-      assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
-
-      pTable = (PTE *) pageH_GetPageVAddr(pTableHdr);
-
-      /* Note, the physical address of the page directory must be
-         representable in 32 bits, even in PAE mode. */
-      p->md.MappingTable = (kpmap_t)VTOP(pTable);
-
-    } else {		// Already have a page directory
-      pTable = (PTE *) (PTOV(p->md.MappingTable) & ~EROS_PAGE_MASK);
-      pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
-      assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
-
-      DEBUG(pgflt)
-        printf("Found top level\n");
-    
-      SegWalk_InitFromMT(&wi, &pTableHdr->kt_u.mp);
-      wi.offset = va;
-      wi.restrictions = pTableHdr->kt_u.mp.readOnly
-                        ? capros_Memory_readOnly : 0;
-   
-      if (isWrite && pTableHdr->kt_u.mp.readOnly) {
-        wi.faultCode = capros_Process_FC_AccessViolation;
-        goto fault_exit;
-      }
-
-#ifdef WALK_LOUD
-      dprintf(false, "have pgdir, ");
-#endif
-    }
-  
-    assert(wi.memObj == pTableHdr->kt_u.mp.producer);
-    
-    /* pTable is a page directory conveying suitable access rights from
-       the top, and pTableHdr is its header.
-       wi reflects the path to this point. */
-
-    /* See if the PDE has the necessary permissions: */
-    uint32_t pdeNdx = (la >> 22) & 0x3ffu;
-    PTE * thePDE = &pTable[pdeNdx];
-
-    if ( pte_is(thePDE, PTE_V) ) {
-      if (isWrite && ! pte_is(thePDE, PTE_W)) {
-        wi.faultCode = capros_Process_FC_AccessViolation;
-        goto fault_exit;
-      }
-
-      /* We have a valid PDE with the necessary permissions! */
-      pTable = KPAtoP(PTE *, pte_PageFrame(thePDE));
-      pTableHdr = objC_PhysPageToObHdr(PtoKPA(pTable));
-      assert(pTableHdr && pageH_GetObType(pTableHdr) == ot_PtMappingPage);
-
-      DEBUG(pgflt)
-        printf("Found second level\n");
-        
-      SegWalk_InitFromMT(&wi, &pTableHdr->kt_u.mp);
-      wi.offset = va & ((1ul << 22) - 1);
-      /* wi.restrictions & capros_Memory_readOnly must be 0.
-         wi.restrictions & capros_Memory_noCall is not significant
-         because wi.keeperGPT is SEGWALK_GPT_UNKNOWN. */
-      wi.restrictions = 0;
-
-#ifdef WALK_LOUD
-      dprintf(false, "have pt, ");
-#endif
-    } else {
-      // user PDE is not valid.
-
-      /* Start building the PDE entry: */
-
-      thePDE->w_value = PTE_IN_PROGRESS;
-
-      /* Translate the top 8 (10) bits of the address: */
-      if ( ! WalkSeg(&wi, walk_top_l2v, thePDE, 1) ) {
-        goto fault_exit;
-      }
-
-      DEBUG(pgflt)
-        printf("Traversed to second level\n");
-
-      if (thePDE->w_value == PTE_ZAPPED)
-        act_Yield();
-      assert(thePDE->w_value == PTE_IN_PROGRESS);
-
-      /* If we get this far, we need the page table to proceed further.
-       * See if we need to build a new page table: */
-
-      /* Level 0 product is never a read-only product.  We use
-       * the write permission bit at the PDE level.
-       */
-      pTableHdr = FindProduct(&wi, 0, true);
-
-      if (pTableHdr == 0) {
-        pTableHdr = MakeNewPageTable(&wi);
-
-#ifdef WALK_LOUD
-        dprintf(false, "new pt, ");
-#endif
-      } else {
-#ifdef WALK_LOUD
-        dprintf(false, "found pt, ");
-#endif
-      }
-      assert(pageH_GetObType(pTableHdr) == ot_PtMappingPage);
-
-      /* On x86, the page table is always RW, and we rely on
-         the write permission bit at the PDE level: */
-      assert(! pTableHdr->kt_u.mp.readOnly);
-
-      pTable = (PTE *) pageH_GetPageVAddr(pTableHdr);
-
-      thePDE->w_value = 0;    
-      pte_set(thePDE, (VTOP((kva_t)pTable) & PTE_FRAMEBITS));
-      pte_set(thePDE, PTE_ACC|PTE_USER|PTE_V);
-      if (! (wi.restrictions & capros_Memory_readOnly))
-        pte_set(thePDE, PTE_W);
-      else {
-        /* Having captured the readOnly restriction to this point,
-           the PTE must be RO only if there is an RO flag
-           from this point forward, because we may share this page table
-           with address spaces where it is writeable. */
-        wi.restrictions &= ~ capros_Memory_readOnly;
-      }
-    }
+    PageHeader * pTableHdr2;
+    if (GetSecondLevelMappingTable(pTableHdr1, &wi, va, isWrite, &pTableHdr2))
+      goto fault_exit;
 
     // Now we have a good PDE.
   
+    PTE * pTable = (PTE *) pageH_GetPageVAddr(pTableHdr2);
     thePTE = &pTable[(la >> 12) & 0x3ff];
   }	// end of large space case
 
@@ -783,6 +820,7 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 
   pTable->kt_u.mp.obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 1;
+  pTable->kt_u.mp.kernelPin = 0;
 
   pTable->kt_u.mp.backgroundGPT = wi->backgroundGPT;
   pTable->kt_u.mp.readOnly = BOOL(wi->restrictions & capros_Memory_readOnly);
@@ -825,6 +863,7 @@ MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
   PageHeader * pTable = objC_GrabPageFrame();
   pTable->kt_u.mp.obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 0;
+  pTable->kt_u.mp.kernelPin = 0;
   
   pTable->kt_u.mp.backgroundGPT = wi->backgroundGPT;
   /* All page tables have readOnly == 0. We use the readOnly protection
@@ -846,4 +885,38 @@ MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
   objH_AddProduct(wi->memObj, &pTable->kt_u.mp);
 
   return pTable;
+}
+
+void
+proc_LockAllMapTabs(Process * proc)
+{
+#ifdef OPTION_SMALL_SPACES
+  if (proc->md.smallPTE)
+    // Process has a small space.
+    // All small space tables are permanently allocated,
+    // so there is no locking to do.
+    return;
+#endif
+
+  // First, get the first level mapping table.
+  SegWalk wi;
+  PageHeader * pTableHdr1;
+  if (GetFirstLevelMappingTable(proc, 0, false, &pTableHdr1, &wi))
+    return;	// no address space, nothing to lock
+
+  pTableHdr1->kt_u.mp.kernelPin = 1;	// lock it
+
+  /* Find and lock all second level tables. */
+  uva_t va;
+  for (va = 0; va < UMSGTOP; va += (1UL << 22)) {
+    // Reinitialize wi:
+    if (GetFirstLevelMappingTable(proc, va, false, &pTableHdr1, &wi))
+      return;		// shouldn't happen
+
+    PageHeader * pTableHdr2;
+    if (GetSecondLevelMappingTable(pTableHdr1, &wi, va, false, &pTableHdr2))
+      continue;
+
+    pTableHdr2->kt_u.mp.kernelPin = 1;	// lock it
+  }
 }

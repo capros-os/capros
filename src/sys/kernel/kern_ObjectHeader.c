@@ -66,14 +66,14 @@ const char *ddb_obtype_name(uint8_t t)
     "NtRegAnnex",
     "NtFree",
     "PtDataPage",
-    "PtNewAlloc",
-    "PtKernHeap",
     "PtDevPage",
+    "PtDMABlock",
+    "PtDMASecondary",
     "PtTagPot",
     "PtHomePot",
     "PtLogPot",
-    "PtDMABlock",
-    "PtDMASecondary",
+    "PtNewAlloc",
+    "PtKernUse",
     "PtFree",
     "PtSecondary"
     MD_PAGE_OBNAMES

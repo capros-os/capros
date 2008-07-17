@@ -78,6 +78,7 @@ bool segwalk_init(SegWalk * wi, Key * pSegKey, uint64_t va,
 
 bool WalkSeg(SegWalk * wi, uint32_t stopL2v,
              void * pPTE, int mapLevel);
+void proc_LockAllMapTabs(Process * proc);
 
 INLINE void
 GPT_Unload(Node * thisPtr)

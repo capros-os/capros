@@ -92,6 +92,17 @@ interface DevPrivs extends key raises(AllocFail) {
   capability returned from allocateDMAPages.
   Caller must ensure there is no I/O in progress to the pages. */
   void deallocateDMAPages(capros.Page pg);
+
+  /** Declare a Page Fault Handler process.
+
+  This operation tells the kernel that the specified process,
+  which must be non-persistent,
+  is part of the user-mode page fault handler (disk driver).
+  To avoid deadlock, all the mapping tables of the process's address space
+  will be locked in memory.
+  After this point the process must not cause any physical memory
+  to be allocated. */
+  void declarePFHProcess(Process proc);
 };
 
 interface DevPrivs32 extends DevPrivs raises(DevPrivs.AllocFail) {

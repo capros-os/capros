@@ -1,7 +1,7 @@
 #ifndef __MACHINE_PAGEHEADER_H__
 #define __MACHINE_PAGEHEADER_H__
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -46,6 +46,10 @@ struct MapTabHeader {
 
   uint8_t readOnly     : 1;
   uint8_t tableSize    : 1;	/* 0 for page table, 1 for page directory */
+
+  /* A mapping table is pinned iff it is used by a page fault handler process.
+   * It remains pinned until it is destroyed. */
+  uint8_t kernelPin    : 1;
     
 /* The fields next, producer, and backgroundGPT
    are required by the machine-independent code. */

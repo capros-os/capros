@@ -14,6 +14,16 @@ interface ProcTool extends key {
   Otherwise it raises key.NoAccess. */
   capros.key identifyProcess(capros.key procKey, capros.key brand);
 
+  /** Identify a gate key with brand.
+
+  If gateKey is a start or resume key whose brand is the specified brand,
+  then this operation returns:
+    in nodeKey, a node key to the root node of the process
+      designated by gateKey;
+    in keyType, 1 if gateKey is a start key and 2 if it is a resume key;
+    in keyInfo, 0 if gateKey is a resume key
+                and the keyData if it is a start key.
+  */
   void canOpener(capros.key gateKey, capros.key brand, out capros.key nodeKey,
 		 out unsigned long keyType, out unsigned long keyInfo);
 

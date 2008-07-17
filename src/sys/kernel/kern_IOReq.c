@@ -53,6 +53,14 @@ Link * freeIOReqsCleaning = NULL;
 IORQ IORQs[KTUNE_NIORQS];
 Link * freeIORQs = NULL;
 
+void
+SleepOnPFHQueue(StallQueue * sq)
+{
+  assert(! proc_IsPFH(act_CurContext()));
+  act_SleepOn(sq);
+  act_Yield();
+}
+
 // ************************ IORequest stuff **************************
 
 void
@@ -106,8 +114,7 @@ IOReq_AllocateOrWait(void)
     return ioreq;
 
   dprintf(true, "No IOReq\n");
-  act_SleepOn(&IOReqWait);
-  act_Yield();
+  SleepOnPFHQueue(&IOReqWait);
 }
 
 // Yields if can't allocate.
@@ -125,8 +132,7 @@ AllocateIOReqAndPage(void)
   ReleasePageFrame(pageH);
 
   dprintf(true, "No IOReq\n");
-  act_SleepOn(&IOReqWait);
-  act_Yield();
+  SleepOnPFHQueue(&IOReqWait);
 }
 
 // ******************** IORequest for cleaning stuff *********************
@@ -144,6 +150,13 @@ IOReqCleaning_Allocate(void)
 
 DEFQUEUE(IOReqCleaningWait);
 
+static void SleepOnIOReqCleaning(void) NORETURN;
+static void
+SleepOnIOReqCleaning(void)
+{
+  SleepOnPFHQueue(&IOReqCleaningWait);
+}
+
 // Yields if can't allocate.
 IORequest *
 IOReqCleaning_AllocateOrWait(void)
@@ -152,8 +165,7 @@ IOReqCleaning_AllocateOrWait(void)
   if (ioreq)
     return ioreq;
 
-  act_SleepOn(&IOReqCleaningWait);
-  act_Yield();
+  SleepOnIOReqCleaning();
 }
 
 // Yields if can't allocate.
@@ -169,9 +181,7 @@ AllocateIOReqCleaningAndPage(void)
   }
 
   ReleasePageFrame(pageH);
-
-  act_SleepOn(&IOReqCleaningWait);
-  act_Yield();
+  SleepOnIOReqCleaning();
 }
 
 void
@@ -198,6 +208,9 @@ IORQ_Allocate(void)
   if (iorq) {
     freeIORQs = iorq->lk.next;
     link_Init(&iorq->lk);
+#ifndef NDEBUG
+    iorq->creatorOID = node_ToObj(act_CurContext()->procRoot)->oid;
+#endif
   }
   return iorq;
   
@@ -220,8 +233,7 @@ NextLogLoc(void)
     // This can happen if persistent objects are preloaded rather than
     // loaded from the last checkpoint.
     printf("NextLogLoc waiting for restart to complete.\n");
-    act_SleepOn(&RestartQueue);
-    act_Yield();
+    SleepOnPFHQueue(&RestartQueue);
   }
 
   LID lid = logCursor;
@@ -291,8 +303,7 @@ objH_EnsureNotFetching(ObjectHeader * pObj)
     assert(pObj->obType > ot_NtLAST_NODE_TYPE);
     PageHeader * pageH = objH_ToPage(pObj);
     // Wait for the fetching to finish.
-    act_SleepOn(&pageH->ioreq->sq);
-    act_Yield();
+    SleepOnPFHQueue(&pageH->ioreq->sq);
   }
   objH_TransLock(pObj);
 }
@@ -322,8 +333,7 @@ objRange_FetchPage(ObjectRange * rng, OID oid, frame_t rangeLoc)
   ioreq->doneFn = &IOReq_EndReadPage;
   sq_Init(&ioreq->sq);
   ioreq_Enqueue(ioreq);
-  act_SleepOn(&ioreq->sq);
-  act_Yield();
+  SleepOnPFHQueue(&ioreq->sq);
   // act_Yield does not return
 }
 
@@ -373,8 +383,7 @@ IOSource_GetObjectType(ObjectRange * rng, OID oid)
   ioreq->doneFn = &IOReq_EndReadPage;
   sq_Init(&ioreq->sq);
   ioreq_Enqueue(ioreq);
-  act_SleepOn(&ioreq->sq);
-  act_Yield();
+  SleepOnPFHQueue(&ioreq->sq);
 }
 
 void
@@ -420,9 +429,7 @@ objRange_FetchPot(ObjectRange * rng, OID oidOrLid,
   ioreq->doneFn = &IOReq_EndReadPage;
   sq_Init(&ioreq->sq);
   ioreq_Enqueue(ioreq);
-  act_SleepOn(&ioreq->sq);
-  act_Yield();
-  // act_Yield does not return
+  SleepOnPFHQueue(&ioreq->sq);
 }
 
 // Find or get an object pot from the home range.

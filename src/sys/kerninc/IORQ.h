@@ -50,6 +50,10 @@ typedef struct IORQ {
    * so the data written might be only in volatile memory.
    * needsSyncCache is false if the IORQ is free. */
   bool needsSyncCache;
+
+#ifndef NDEBUG
+  OID creatorOID;	// who allocated this
+#endif
 } IORQ;
 
 extern IORQ IORQs[];
@@ -57,6 +61,8 @@ extern IORQ IORQs[];
 extern struct StallQueue RestartQueue;
 extern struct StallQueue IOReqWait;
 extern struct StallQueue IOReqCleaningWait;
+
+void SleepOnPFHQueue(StallQueue * sq) NORETURN;
 
 void IORQ_Init(void);
 IORequest * IOReq_Allocate(void);

@@ -68,8 +68,6 @@ enum ObType {
   ot_NtFreeFrame,	/* unallocated */
   ot_NtLAST_NODE_TYPE = ot_NtFreeFrame,
   ot_PtDataPage,	/* page holding a user data Page */
-  ot_PtNewAlloc,	/* newly allocated frame, not yet typed */
-  ot_PtKernelUse,	/* in use as kernel heap or other kernel use */
   ot_PtDevicePage,	/* data page, but device memory */
   ot_PtDMABlock,	/* first frame of a block allocated for DMA. */
   ot_PtDMASecondary,	/* subsequent frames of a block allocated for DMA. */
@@ -79,6 +77,8 @@ enum ObType {
 			 oid = OID of first object. */
   ot_PtLogPot,		/* an object pot from the log.
 			 oid = LID of the pot. */
+  ot_PtNewAlloc,	/* newly allocated frame, not yet typed */
+  ot_PtKernelUse,	/* in use as kernel heap or other kernel use */
   ot_PtFreeFrame,	/* first frame of a free block */
   ot_PtSecondary,	/* Part of a multi-page free block, not the first frame.
 			No other fields of PageHeader are valid,
@@ -251,8 +251,7 @@ pageH_IsFree(PageHeader * pageH)
 INLINE bool
 pageH_IsObjectType(PageHeader * pageH)
 {
-  unsigned int type = pageH_GetObType(pageH);
-  return (type == ot_PtDataPage) || (type == ot_PtDevicePage);
+  return pageH_GetObType(pageH) <= ot_PtLAST_OBJECT_TYPE;
 }
 
 #ifndef NDEBUG

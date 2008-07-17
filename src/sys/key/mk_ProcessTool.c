@@ -156,7 +156,6 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
   case OC_capros_ProcTool_canOpener:
     {
       bool isResume;
-      bool sameBrand;
       key_Prepare(inv->entry.key[0]);
 
       if (! keyBits_IsGateKey(inv->entry.key[0])) {
@@ -168,20 +167,16 @@ ProcessToolKey(Invocation* inv /*@ not null @*/)
       
       inv->exit.code = RC_OK;
 
-      sameBrand = CompareBrand(inv, inv->entry.key[0], inv->entry.key[1]);
-
-      COMMIT_POINT();
-
-      if (!sameBrand)
+      if (! CompareBrand(inv, inv->entry.key[0], inv->entry.key[1]))
 	break;
 
-      /* Must be either start or resume, by virtue of test above. */
-      /* FIX: yes, but why compare against exit.w1?? */
-      inv->exit.w1 = (inv->exit.w1 == KKT_Start) ? 1 : 2;
-
-      /* FIX: This seems exceptionally broken to me! */
-      if ( isResume )
+      if (isResume) {
+        inv->exit.w1 = 2;
+        inv->exit.w2 = 0;
+      } else {
+        inv->exit.w1 = 1;
 	inv->exit.w2 = inv->entry.key[0]->keyData;
+      }
 
       Key * key = inv->exit.pKey[0];
       if (key) {

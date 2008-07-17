@@ -544,6 +544,283 @@ SegWalk_InitFromMT(SegWalk * wi, MapTabHeader * mth)
   wi->restrictions = mth->readOnly ? capros_Memory_readOnly : 0;
 }
 
+/* Find or create a first level mapping table for this access.
+ * If successful, returns false,
+ *   returns a pointer to the table in *pMth1,
+ *   and sets up *pwi for the walk from that table.
+ * If the access faults, returns true,
+ *   and sets up *pwi with the fault info. */
+static bool
+GetFirstLevelMappingTable(Process * p, uva_t va, bool isWrite,
+  MapTabHeader * * pMth1, SegWalk * pwi)
+{
+  MapTabHeader * mth1;
+  if (p->md.firstLevelMappingTable == FLPT_NullPA) {
+    mth1 = 0;
+  }
+  else if (p->md.firstLevelMappingTable == FLPT_FCSEPA) {
+    // has a small space
+    if (va & PID_MASK) {	// needs a large space
+      // large space not implemented yet
+      fatal("Process accessed large space at 0x%08x\n", va);
+    }
+    mth1 = SmallSpace_GetMth(p->md.pid >> PID_SHIFT);
+  } else {		// has a full space
+    mth1 = & objC_PhysPageToObHdr(p->md.firstLevelMappingTable)
+               ->kt_u.mp.hdrs[0];
+    if ((p->md.dacr & 0xc) == 0) {	// has access to domain 1?
+      // no, tracking LRU
+      mth1->mthAge = age_NewBorn;	// it's been used
+      DEBUG(track) dprintf(true, "Tracked LRU, restore domain 1.\n");
+      p->md.dacr |= 0x4;	// restore access to domain 1
+    }
+  }
+
+  pwi->needWrite = isWrite;
+  pwi->traverseCount = 0;
+  if (! mth1) {
+    // Need to find the first-level page table.
+    if (! segwalk_init(pwi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace),
+                       va, p, 0)) {
+      return true;
+    }
+
+    proc_ResetMappingTable(p);
+    p->md.pid = PID_IN_PROGRESS;
+    /* Note: WalkSeg below may Yield, so the state of p->md has to be
+       valid for execution. */
+  
+    /* Begin the traversal... */
+    const int walk_root_l2v = 32;
+    if ( ! WalkSeg(pwi, walk_root_l2v, p, 0) ) {
+      /* We could clear PID_IN_PROGRESS here, but it's not necessary,
+      as we already have to handle the possibility of the entry being
+      left as PID_IN_PROGRESS if WalkSeg Yields. */
+      return true;
+    }
+
+    DEBUG(pgflt)
+      printf("Traversed to top level\n");
+
+    /* It is unlikely but possible that one of the depend entries created
+    in walking this portion of the tree was reclaimed by a later entry
+    created in walking this portion. Check for that here. */
+    if (p->md.pid != PID_IN_PROGRESS)
+      act_Yield();	// try again
+
+    uint32_t productNdx = pwi->offset >> 32;
+    mth1 = FindProduct(pwi, 1, productNdx, va /* not used */);
+    if (mth1 == 0) {
+      // None found. Need to produce a mapping table. 
+      // Large or small space?
+      /* Note: We used to produce a small space if va would fit in one. 
+      The following example shows why that is wrong.
+      Suppose a process has a map with different pages at 0x0 and 0x04000000.
+      It references 0, gets a small space, and happens to get pid 0x04000000.
+      Now it references 0x04000000.
+      It will get the aliased page at 0x0, not the page that should be at
+      0x04000000. 
+
+      We must produce a large space if the space has anything mapped above
+      0x01ffffff. */
+      if (pwi->memObj->obType <= ot_NtLAST_NODE_TYPE) {
+        // It is a GPT, not a single page.
+        GPT * gpt = objH_ToNode(pwi->memObj);
+        uint8_t l2vField = gpt_GetL2vField(gpt);
+        unsigned int l2v = l2vField & GPT_L2V_MASK;
+        if (l2v > PID_SHIFT - EROS_NODE_LGSIZE) {
+          if (l2v > PID_SHIFT) {
+            /* Slot 0 could refer to a GPT with addresses above
+            (1 << PID_SHIFT). */
+ largespace:
+            fatal("Process is using large space at 0x%08x\n", va);
+          }
+          unsigned int startSlot = 1ul << (PID_SHIFT - l2v);
+          /* The first startSlot slots span a small space.
+          If all the other slots are void, this GPT can produce a small space.
+          */
+          unsigned int maxSlot;
+          if (l2vField & GPT_KEEPER) {        // it has a keeper
+            maxSlot = capros_GPT_keeperSlot -1;
+          }
+          else maxSlot = capros_GPT_nSlots -1;
+          if (l2vField & GPT_BACKGROUND) {
+            maxSlot = capros_GPT_backgroundSlot -1;
+              /* backgroundSlot < keeperSlot, so this must come last. */
+          }
+
+          unsigned int i;
+          for (i = startSlot; i <= maxSlot; i++) {
+            Key * k = node_GetKeyAtSlot(gpt, i);
+            if (! keyBits_IsVoidKey(k))
+              goto largespace;
+          }
+
+          // It can produce a small space.
+          /* Must hazard the void keys. If any is changed, the problem
+          in the example above could occur. */
+          for (i = startSlot; i <= maxSlot; i++) {
+            Key * k = node_GetKeyAtSlot(gpt, i);
+            keyBits_SetWrHazard(k);
+          }
+        }
+        // else its l2v is too small to produce a large space.
+      }
+      // else it's a page, therefore can't be a large space.
+
+      mth1 = AllocateSmallSpace();
+      if (mth1 == 0) fatal("Could not allocate small space?\n");
+      InitMapTabHeader(mth1, pwi, productNdx);
+    }
+
+    // Have a large or small space?
+    unsigned int ssid = mth1->tableCacheAddr >> PID_SHIFT;
+    if (ssid == 0)	// if large space
+      assert(false);	// because large space not implemented yet
+    p->md.flmtProducer = pwi->memObj;
+    p->md.firstLevelMappingTable = FLPT_FCSEPA;
+    p->md.pid = ssid << PID_SHIFT;
+
+    /* Ensure the small space has a domain assigned. */
+    unsigned int domain = EnsureSSDomain(ssid);
+    p->md.dacr = (0x1 << (domain * 2)) | 0x1 /* include domain 0 for kernel */;
+
+#ifndef NDEBUG
+    if (dbg_inttrap)
+      printf("Got small space\n");
+#endif
+  } else {
+    assert(mth1->producerNdx == 0);
+    pwi->offset = va;
+    SegWalk_InitFromMT(pwi, mth1);
+
+    DEBUG(pgflt)
+      printf("Found top level, mth1=0x%x\n", mth1);
+  }
+
+  *pMth1 = mth1;	// return mth1
+  return false;		// successful
+}
+
+/* Find or create a coarse page table for this access.
+ * If successful, returns false,
+ *   returns a pointer to the table in *pMth2,
+ *   the domain in *pDomain,
+ *   and sets up *pwi for the walk from that table.
+ * If the access faults, returns true,
+ *   and sets up *pwi with the fault info. */
+static bool
+GetCPT(MapTabHeader * mth1, SegWalk * pwi, ula_t mva, bool isWrite,
+  MapTabHeader * * pMth2, unsigned int * pDomain)
+{
+  /* Small space only for now. */
+  uint32_t * theFLPTEntryP = & FLPT_FCSEVA[mva >> L1D_ADDR_SHIFT];
+  uint32_t theFLPTEntry = *theFLPTEntryP;
+
+  MapTabHeader * mth2 = 0;
+  if (theFLPTEntry & L1D_VALIDBITS) {	// already valid
+    // Can't be a section descriptor, because we never fault on those.
+    assert((theFLPTEntry & L1D_VALIDBITS) == (L1D_COARSE_PT & L1D_VALIDBITS));
+    kpa_t pa = theFLPTEntry & L1D_COARSE_PT_ADDR;	// phys addr of CPT
+    PageHeader * pageH = objC_PhysPageToObHdr(pa & ~ EROS_PAGE_MASK);
+    mth2 = & pageH->kt_u.mp.hdrs[(pa & EROS_PAGE_MASK) >> CPT_LGSIZE];
+  } else {
+    if (theFLPTEntry & ~L1D_VALIDBITS) {
+      // The entry is not valid, but it has other bits on.
+
+      /* It's possible for an entry to be left as PTE_IN_PROGRESS.
+         If so, ignore it as if it were PTE_ZAPPED. */
+      if (theFLPTEntry != PTE_IN_PROGRESS) {
+        kpa_t pa = theFLPTEntry & L1D_COARSE_PT_ADDR;	// phys addr of CPT
+        PageHeader * pageH = objC_PhysPageToObHdr(pa & ~ EROS_PAGE_MASK);
+        mth2 = & pageH->kt_u.mp.hdrs[(pa & EROS_PAGE_MASK) >> CPT_LGSIZE];
+        if (theFLPTEntry & L1D_DOMAIN_MASK) {
+          // Tracking LRU.
+          DEBUG(track) printf("Tracked LRU, L1D %#x -> %#x\n",
+                         theFLPTEntry, theFLPTEntry | L1D_COARSE_PT);
+
+          mth2->mthAge = age_NewBorn;	// it's been used
+          theFLPTEntry |= L1D_COARSE_PT;
+        } else {
+          // This small space has had its domain stolen.
+          unsigned int domain = EnsureSSDomain(mva >> PID_SHIFT);
+          DEBUG(pgflt) printf("Reassigning domain to L1D.\n");
+          theFLPTEntry |= (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
+        }
+        * theFLPTEntryP = theFLPTEntry;
+      }
+    } else {
+      assert(theFLPTEntry == PTE_ZAPPED);
+    }
+  }
+
+  unsigned int domain = (theFLPTEntry & L1D_DOMAIN_MASK) >> L1D_DOMAIN_SHIFT;
+
+  if (! mth2) {
+    // Need to find the needed CPT.
+
+    // Entry was invalid, but could there be cache entries dependent on it?
+    if (theFLPTEntry & L1D_COARSE_PT_ADDR)
+      SetMapWork_InvalidateCache();
+    * theFLPTEntryP = PTE_IN_PROGRESS;
+
+    /* Translate bits 31:22 of the address: */
+    if ( ! WalkSeg(pwi, L1D_ADDR_SHIFT, theFLPTEntryP, 1) ) {
+      /* We could clear PTE_IN_PROGRESS here, but it's not necessary,
+      as we already have to handle the possibility of the entry being
+      left as PTE_IN_PROGRESS if WalkSeg Yields. */
+      return true;
+    }
+
+#ifndef NDEBUG
+    if (dbg_inttrap)
+      printf("Traversed to second level\n");
+#endif
+    DEBUG(pgflt)
+      printf("Traversed to second level\n");
+
+    if (* theFLPTEntryP != PTE_IN_PROGRESS)
+      // Entry was zapped, try all over again.
+      act_Yield();
+
+    // printf("pwi->offset=0x%08x ", pwi->offset);
+    uint32_t productNdx = pwi->offset >> L1D_ADDR_SHIFT;
+    ula_t cacheAddr = mva >> L1D_ADDR_SHIFT << L1D_ADDR_SHIFT;
+    mth2 = FindProduct(pwi, 0, productNdx, cacheAddr);
+
+    if (mth2 == 0) {
+      mth2 = AllocateCPT();
+      InitMapTabHeader(mth2, pwi, productNdx);
+      mth2->tableCacheAddr = cacheAddr;
+      void * tableAddr = MapTabHeaderToKVA(mth2);
+
+      DEBUG(pgflt) printf("physAddr=0x%08x\n", VTOP((kva_t)tableAddr));
+
+      // PTE_ZAPPED == 0, so we can just clear the table:
+      kzero(tableAddr, CPT_SIZE);
+    }
+    assert(pwi->memObj == mth2->producer);
+
+    PTE * pTable = (PTE *) MapTabHeaderToKVA(mth2);
+
+    /* Set the entry in the first-level page table to refer to
+       the second-level table. */
+    * theFLPTEntryP =
+      VTOP((kva_t)pTable) + (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
+  } else {	// already have the CPT
+    pwi->offset = (pwi->offset & ((1ul << L1D_ADDR_SHIFT) -1))
+                + (((uint32_t)mth2->producerNdx) << L1D_ADDR_SHIFT);
+    SegWalk_InitFromMT(pwi, mth2);
+
+    DEBUG(pgflt)
+      printf("Found second level, mth2=0x%x\n", mth2);
+  }
+
+  *pMth2 = mth2;
+  *pDomain = domain;
+  return false;
+}
+
 // May Yield.
 static void
 FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
@@ -656,9 +933,6 @@ uint32_t DoPageFault_CallCounter;
 bool
 proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 {
-  const int walk_root_l2v = 32;
-  const int walk_top_l2v = L1D_ADDR_SHIFT;
-  
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr)
     check_Consistency("Top of DoPageFault()");
@@ -688,263 +962,19 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
   }
 
   MapTabHeader * mth1;
-  if (p->md.firstLevelMappingTable == FLPT_NullPA) {
-    mth1 = 0;
-  }
-  else if (p->md.firstLevelMappingTable == FLPT_FCSEPA) {
-    // has a small space
-    if (va & PID_MASK) {	// needs a large space
-      // large space not implemented yet
-      fatal("Process accessed large space at 0x%08x\n", va);
-    }
-    mth1 = SmallSpace_GetMth(p->md.pid >> PID_SHIFT);
-  } else {		// has a full space
-    mth1 = & objC_PhysPageToObHdr(p->md.firstLevelMappingTable)
-               ->kt_u.mp.hdrs[0];
-    if ((p->md.dacr & 0xc) == 0) {	// has access to domain 1?
-      // no, tracking LRU
-      mth1->mthAge = age_NewBorn;	// it's been used
-      DEBUG(track) dprintf(true, "Tracked LRU, restore domain 1.\n");
-      p->md.dacr |= 0x4;	// restore access to domain 1
-    }
-  }
-
-  /* Set up a SegWalk structure and start building the necessary
-   * mapping table, PDE, and PTE entries.
-   */
   SegWalk wi;
-  wi.needWrite = isWrite;
-  wi.traverseCount = 0;
-  if (! mth1) {
-    // Need to find the first-level page table.
-    if (! segwalk_init(&wi, node_GetKeyAtSlot(p->procRoot, ProcAddrSpace),
-                       va, p, 0)) {
-      goto fault_exit;
-    }
-
-    proc_ResetMappingTable(p);
-    p->md.pid = PID_IN_PROGRESS;
-    /* Note: WalkSeg below may Yield, so the state of p->md has to be
-       valid for execution. */
-  
-    /* Begin the traversal... */
-    if ( ! WalkSeg(&wi, walk_root_l2v, p, 0) ) {
-      /* We could clear PID_IN_PROGRESS here, but it's not necessary,
-      as we already have to handle the possibility of the entry being
-      left as PID_IN_PROGRESS if WalkSeg Yields. */
-      goto fault_exit;
-    }
-
-    DEBUG(pgflt)
-      printf("Traversed to top level\n");
-
-    /* It is unlikely but possible that one of the depend entries created
-    in walking this portion of the tree was reclaimed by a later entry
-    created in walking this portion. Check for that here. */
-    if (p->md.pid != PID_IN_PROGRESS)
-      act_Yield();	// try again
-
-    uint32_t productNdx = wi.offset >> 32;
-    mth1 = FindProduct(&wi, 1, productNdx, va /* not used */);
-    if (mth1 == 0) {
-      // None found. Need to produce a mapping table. 
-      // Large or small space?
-      /* Note: We used to produce a small space if va would fit in one. 
-      The following example shows why that is wrong.
-      Suppose a process has a map with different pages at 0x0 and 0x04000000.
-      It references 0, gets a small space, and happens to get pid 0x04000000.
-      Now it references 0x04000000.
-      It will get the aliased page at 0x0, not the page that should be at
-      0x04000000. 
-
-      We must produce a large space if the space has anything mapped above
-      0x01ffffff. */
-      if (wi.memObj->obType <= ot_NtLAST_NODE_TYPE) {
-        // It is a GPT, not a single page.
-        GPT * gpt = objH_ToNode(wi.memObj);
-        uint8_t l2vField = gpt_GetL2vField(gpt);
-        unsigned int l2v = l2vField & GPT_L2V_MASK;
-        if (l2v > PID_SHIFT - EROS_NODE_LGSIZE) {
-          if (l2v > PID_SHIFT) {
-            /* Slot 0 could refer to a GPT with addresses above
-            (1 << PID_SHIFT). */
- largespace:
-            fatal("Process is using large space at 0x%08x\n", va);
-          }
-          unsigned int startSlot = 1ul << (PID_SHIFT - l2v);
-          /* The first startSlot slots span a small space.
-          If all the other slots are void, this GPT can produce a small space.
-          */
-          unsigned int maxSlot;
-          if (l2vField & GPT_KEEPER) {        // it has a keeper
-            maxSlot = capros_GPT_keeperSlot -1;
-          }
-          else maxSlot = capros_GPT_nSlots -1;
-          if (l2vField & GPT_BACKGROUND) {
-            maxSlot = capros_GPT_backgroundSlot -1;
-              /* backgroundSlot < keeperSlot, so this must come last. */
-          }
-
-          unsigned int i;
-          for (i = startSlot; i <= maxSlot; i++) {
-            Key * k = node_GetKeyAtSlot(gpt, i);
-            if (! keyBits_IsVoidKey(k))
-              goto largespace;
-          }
-
-          // It can produce a small space.
-          /* Must hazard the void keys. If any is changed, the problem
-          in the example above could occur. */
-          for (i = startSlot; i <= maxSlot; i++) {
-            Key * k = node_GetKeyAtSlot(gpt, i);
-            keyBits_SetWrHazard(k);
-          }
-        }
-        // else its l2v is too small to produce a large space.
-      }
-      // else it's a page, therefore can't be a large space.
-
-      mth1 = AllocateSmallSpace();
-      if (mth1 == 0) fatal("Could not allocate small space?\n");
-      InitMapTabHeader(mth1, &wi, productNdx);
-    }
-
-    // Have a large or small space?
-    unsigned int ssid = mth1->tableCacheAddr >> PID_SHIFT;
-    if (ssid == 0)	// if large space
-      assert(false);	// because large space not implemented yet
-    p->md.flmtProducer = wi.memObj;
-    p->md.firstLevelMappingTable = FLPT_FCSEPA;
-    p->md.pid = ssid << PID_SHIFT;
-
-    /* Ensure the small space has a domain assigned. */
-    unsigned int domain = EnsureSSDomain(ssid);
-    p->md.dacr = (0x1 << (domain * 2)) | 0x1 /* include domain 0 for kernel */;
-
-#ifndef NDEBUG
-    if (dbg_inttrap)
-      printf("Got small space\n");
-#endif
-  } else {
-    assert(mth1->producerNdx == 0);
-    wi.offset = va;
-    SegWalk_InitFromMT(&wi, mth1);
-
-    DEBUG(pgflt)
-      printf("Found top level, mth1=0x%x\n", mth1);
-  }
+  if (GetFirstLevelMappingTable(p, va, isWrite, &mth1, &wi))
+    goto fault_exit;
 
   const ula_t mva = (va + p->md.pid) & ~EROS_PAGE_MASK;
 
-  /* Small space only for now. */
-  uint32_t * theFLPTEntryP = & FLPT_FCSEVA[mva >> L1D_ADDR_SHIFT];
-  uint32_t theFLPTEntry = *theFLPTEntryP;
+  MapTabHeader * mth2;
+  unsigned int domain;
+  if (GetCPT(mth1, &wi, mva, isWrite, &mth2, &domain))
+    goto fault_exit;
 
-  PTE * pTable;
-  MapTabHeader * mth2 = 0;
-  if (theFLPTEntry & L1D_VALIDBITS) {	// already valid
-    // Can't be a section descriptor, because we never fault on those.
-    assert((theFLPTEntry & L1D_VALIDBITS) == (L1D_COARSE_PT & L1D_VALIDBITS));
-    kpa_t pa = theFLPTEntry & L1D_COARSE_PT_ADDR;	// phys addr of CPT
-    PageHeader * pageH = objC_PhysPageToObHdr(pa & ~ EROS_PAGE_MASK);
-    mth2 = & pageH->kt_u.mp.hdrs[(pa & EROS_PAGE_MASK) >> CPT_LGSIZE];
-    // FIXME: can avoid the table walk since we already have the CPT
-  } else {
-    if (theFLPTEntry & ~L1D_VALIDBITS) {
-      // The entry is not valid, but it has other bits on.
-
-      /* It's possible for an entry to be left as PTE_IN_PROGRESS.
-         If so, ignore it as if it were PTE_ZAPPED. */
-      if (theFLPTEntry != PTE_IN_PROGRESS) {
-        kpa_t pa = theFLPTEntry & L1D_COARSE_PT_ADDR;	// phys addr of CPT
-        PageHeader * pageH = objC_PhysPageToObHdr(pa & ~ EROS_PAGE_MASK);
-        mth2 = & pageH->kt_u.mp.hdrs[(pa & EROS_PAGE_MASK) >> CPT_LGSIZE];
-        // FIXME: can avoid the table walk since we already have the CPT
-        if (theFLPTEntry & L1D_DOMAIN_MASK) {
-          // Tracking LRU.
-          DEBUG(track) printf("Tracked LRU, L1D %#x -> %#x\n",
-                         theFLPTEntry, theFLPTEntry | L1D_COARSE_PT);
-
-          mth2->mthAge = age_NewBorn;	// it's been used
-          theFLPTEntry |= L1D_COARSE_PT;
-        } else {
-          // This small space has had its domain stolen.
-          unsigned int domain = EnsureSSDomain(mva >> PID_SHIFT);
-          DEBUG(pgflt) printf("Reassigning domain to L1D.\n");
-          theFLPTEntry |= (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
-        }
-        * theFLPTEntryP = theFLPTEntry;
-      }
-    } else {
-      assert(theFLPTEntry == PTE_ZAPPED);
-    }
-  }
-
-  unsigned int domain = (theFLPTEntry & L1D_DOMAIN_MASK) >> L1D_DOMAIN_SHIFT;
-
-  if (! mth2) {
-    // Need to find the needed CPT.
-
-    // Entry was invalid, but could there be cache entries dependent on it?
-    if (theFLPTEntry & L1D_COARSE_PT_ADDR)
-      SetMapWork_InvalidateCache();
-    * theFLPTEntryP = PTE_IN_PROGRESS;
-
-    /* Translate bits 31:22 of the address: */
-    if ( ! WalkSeg(&wi, walk_top_l2v, theFLPTEntryP, 1) ) {
-      /* We could clear PTE_IN_PROGRESS here, but it's not necessary,
-      as we already have to handle the possibility of the entry being
-      left as PTE_IN_PROGRESS if WalkSeg Yields. */
-      goto fault_exit;
-    }
-
-#ifndef NDEBUG
-    if (dbg_inttrap)
-      printf("Traversed to second level\n");
-#endif
-    DEBUG(pgflt)
-      printf("Traversed to second level\n");
-
-    if (* theFLPTEntryP != PTE_IN_PROGRESS)
-      // Entry was zapped, try all over again.
-      act_Yield();
-
-    // printf("wi.offset=0x%08x ", wi.offset);
-    uint32_t productNdx = wi.offset >> L1D_ADDR_SHIFT;
-    ula_t cacheAddr = mva >> L1D_ADDR_SHIFT << L1D_ADDR_SHIFT;
-    mth2 = FindProduct(&wi, 0, productNdx, cacheAddr);
-
-    if (mth2 == 0) {
-      mth2 = AllocateCPT();
-      InitMapTabHeader(mth2, &wi, productNdx);
-      mth2->tableCacheAddr = cacheAddr;
-      void * tableAddr = MapTabHeaderToKVA(mth2);
-
-      DEBUG(pgflt) printf("physAddr=0x%08x\n", VTOP((kva_t)tableAddr));
-
-      // PTE_ZAPPED == 0, so we can just clear the table:
-      kzero(tableAddr, CPT_SIZE);
-    }
-    assert(wi.memObj == mth2->producer);
-
-    pTable = (PTE *) MapTabHeaderToKVA(mth2);
-
-    /* Set the entry in the first-level page table to refer to
-       the second-level table. */
-    * theFLPTEntryP =
-      VTOP((kva_t)pTable) + (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
-  } else {	// already have the CPT
-    wi.offset = (wi.offset & ((1ul << L1D_ADDR_SHIFT) -1))
-                + (((uint32_t)mth2->producerNdx) << L1D_ADDR_SHIFT);
-    SegWalk_InitFromMT(&wi, mth2);
-
-    pTable = (PTE *) MapTabHeaderToKVA(mth2);
-
-    DEBUG(pgflt)
-      printf("Found second level, mth2=0x%x\n", mth2);
-  }
-  
   /* Now find the page and fill in the PTE. */
+  PTE * pTable = (PTE *) MapTabHeaderToKVA(mth2);
   PTE * thePTEP = &pTable[(mva >> EROS_PAGE_ADDR_BITS) & 0xff];
   uint32_t thePTE = thePTEP->w_value;
 
@@ -960,6 +990,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
           assert(isWrite);	// else why did we fault?
           kpa_t pageAddr = thePTE & PTE_FRAMEBITS;
           PageHeader * pageH = objC_PhysPageToObHdr(pageAddr);
+          objH_TransLock(pageH_ToObj(pageH));
           FillPTE(thePTEP, pageH, pageAddr, isWrite, mth2, mva);
           DEBUG(track) printf("Tracked dirty, PTE %#x -> %#x\n",
                                thePTE, thePTEP->w_value);
@@ -982,7 +1013,7 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
       // tracking LRU
       kpa_t pageAddr = thePTE & PTE_FRAMEBITS;
       PageHeader * pageH = objC_PhysPageToObHdr(pageAddr);
-      pageH_SetReferenced(pageH);
+      objH_TransLock(pageH_ToObj(pageH));
       FillPTE(thePTEP, pageH, pageAddr, isWrite, mth2, mva);
       DEBUG(track) printf("Tracked LRU, PTE %#x -> %#x\n",
                            thePTE, thePTEP->w_value);
@@ -1079,4 +1110,38 @@ LoadWordFromUserVirtualSpace(uva_t userAddr, uint32_t * resultP)
   assert(proc_IsKernel(act_CurContext()));
   // For kernel processes, "user" space includes kernel space.
   *resultP = *(uint32_t *)userAddr;
+}
+
+void
+proc_LockAllMapTabs(Process * proc)
+{
+  // First, get the first level mapping table.
+  MapTabHeader * mth1;
+  SegWalk wi;
+  if (GetFirstLevelMappingTable(proc, 0, false, &mth1, &wi))
+    return;	// no address space, nothing to lock
+
+  mth1->kernelPin = 1;
+
+  uva_t topAddr;
+  if (proc->md.firstLevelMappingTable == FLPT_FCSEPA) {	// small space
+    topAddr = 1UL << PID_SHIFT;
+  } else {	// large space
+    topAddr = UserEndVA;
+  }
+
+  /* Find and lock all second level tables. */
+  uva_t va;
+  for (va = 0; va < topAddr; va += CPT_SPAN) {
+    // Reinitialize wi:
+    if (GetFirstLevelMappingTable(proc, va, false, &mth1, &wi))
+      return;	// shouldn't happen
+
+    const ula_t mva = (va + proc->md.pid) & ~EROS_PAGE_MASK;
+    MapTabHeader * mth2;
+    unsigned int domain;
+    if (GetCPT(mth1, &wi, mva, false, &mth2, &domain))
+      continue;
+    mth2->kernelPin = 1;
+  }
 }

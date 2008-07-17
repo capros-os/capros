@@ -17,6 +17,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
   typedef unsigned byte obType;
   const obType otPage = 0;
   const obType otNode = 1;
+  const obType otNumBaseTypes = 2;	// the above are the base types
   const obType otForwarder = 2;
   const obType otGPT = 3;
   const obType otNUM_TYPES = 4;

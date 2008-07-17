@@ -73,6 +73,10 @@ struct SegWalk;
    I/O operations. */
 #define KF_IoPriv 0x01
 
+/* KF_PFH indicates a process that is part of the user-mode
+ * page fault handler. As such it itself must never fault. */
+#define KF_PFH    0x02
+
 /* KF_DDBINV and KF_DDBTRAP are a temporary expedient until
    we are able to get a minimal per-process debugger running. */
 #define KF_DDBINV    0x40 /* process invocations should be
@@ -221,6 +225,14 @@ void proc_DumpFloatRegs(Process* thisPtr);
 #endif
 
 #ifndef NDEBUG
+// Return whether this process is part of the user-mode Page Fault Handler
+// (mainly, the disk driver).
+INLINE bool
+proc_IsPFH(const Process * proc)
+{
+  return proc->kernelFlags & KF_PFH;
+}
+
 bool ValidCtxtPtr(const Process * ctxt);
 bool ValidCtxtKeyRingPtr(const KeyRing* kr);
 Process * proc_ValidKeyReg(const Key * pKey);

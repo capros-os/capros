@@ -479,12 +479,15 @@ AllocateSmallSpace(void)
     // Advance the cursor, counting down and wrapping.
     if (--lastSSStolen == 0) lastSSStolen = NumSmallSpaces-1;
     if (i == 0) lastSSAssigned = lastSSStolen;
+    /* We don't care if the small space is kernelPinned,
+     * because reconstructing it doesn't require any I/O. */
 
     ReleaseSmallSpace(lastSSStolen);
   }
 
 assignSS:
   SmallSpaces[lastSSAssigned].mth.isFree = 0;	/* grab it */
+  SmallSpaces[lastSSAssigned].mth.kernelPin = 0;
   assert(SmallSpaces[lastSSAssigned].domain == 0);
 #if 0
   printf("Allocating small space %d\n", lastSSAssigned);
@@ -696,6 +699,7 @@ AllocateCPT(void)
   mth = freeCPTs;
   freeCPTs = mth->next;
   mth->isFree = 0;
+  mth->kernelPin = 0;
   return mth;
 }
 
@@ -753,6 +757,7 @@ ReleaseProduct(MapTabHeader * mth)
   }
 }
 
+#if 0
 void
 pageH_mdType_EvictFrame(PageHeader * pageH)
 {
@@ -761,12 +766,15 @@ pageH_mdType_EvictFrame(PageHeader * pageH)
   int i;
   for (i=0; i<4; i++) {
     MapTabHeader * mth = &pageH->kt_u.mp.hdrs[i];
-    if (! mth->isFree)
+    if (! mth->isFree) {
+      assert(! mth->kernelPin);
       Release2ndLevelMappingTable(mth);
+    }
   }
   // Page can now be freed. The following call cleans up and frees the page:
   Check2ndLevelMappingTableFree(pageH);
 }
+#endif
 
 static void
 MapTab_TrackReferenced(MapTabHeader * mth)
@@ -816,7 +824,8 @@ pageH_mdType_Aging(PageHeader * pageH)
       if (! mth->isFree) {
         /* Pinning a page or node also pins any produced mapping tables. */
         if (! objH_IsUserPinned(mth->producer)
-            /* && ! objH_IsKernelPinned(mth->producer) */ ) {
+            /* && ! objH_IsKernelPinned(mth->producer) */
+            & ! mth->kernelPin ) {
           switch (mth->mthAge) {
           case age_MTInvalidate:
             MapTab_TrackReferenced(mth);

@@ -1012,17 +1012,24 @@ ReleaseProduct(MapTabHeader * mth)
   ReleasePageFrame(MapTab_ToPageH(mth));
 }
 
+#if 0
 void
 pageH_mdType_EvictFrame(PageHeader * pageH)
 {
   assert(pageH_GetObType(pageH) == ot_PtMappingPage);
+  assert(! pageH->kt_u.mp.kernelPin);
   ReleaseProduct(& pageH->kt_u.mp);
 }
+#endif
 
 bool	// return true iff page was freed
 pageH_mdType_Aging(PageHeader * pageH)
 {
   assert(pageH_GetObType(pageH) == ot_PtMappingPage);
+
+  if (pageH->kt_u.mp.kernelPin)
+    return false;
+
   /* Mapping pages cannot go out if their producer is pinned,
   because they are likely to be involved in page translation. */
 
