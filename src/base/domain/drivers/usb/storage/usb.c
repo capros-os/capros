@@ -72,6 +72,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/USBDriverConstructor.h>
 #include <idl/capros/USBDriverConstructorExtended.h>
 #include <idl/capros/USBDriver.h>
+#include <idl/capros/DevPrivs.h>
 #include <asm/USBIntf.h>
 #include <asm/SCSIDev.h>
 #include <asm/SCSICtrl.h>
@@ -438,6 +439,8 @@ static int usb_stor_control_thread(void * __us)
 {
 	struct us_data *us = (struct us_data *)__us;
 	struct Scsi_Host *host = us_to_host(us);
+
+	capros_DevPrivs_declarePFHProcess(KR_DEVPRIVS, KR_SELF);
 
 	for(;;) {
 		US_DEBUGP("*** thread sleeping.\n");
@@ -1214,7 +1217,13 @@ union {
 /* Note, we say we allow one queued command per lun, but the implementation
  * allows only one queued command period.
  * So we'd better hope there is only one lun per device. */
-bool commandActive = false;
+
+enum {
+  cmdActive_no,
+  cmdActive_yes		// LKSN_COMMANDREPLY has a resume cap
+};
+// commandActive is shared by multiple threads, so make it atomic:
+atomic_t commandActive = ATOMIC_INIT(cmdActive_no);
 
 static void
 srb_done(struct scsi_cmnd * srb)
@@ -1224,6 +1233,9 @@ srb_done(struct scsi_cmnd * srb)
   result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_COMMANDREPLY,
 		KR_TEMP0);
   assert(result == RC_OK);
+
+  // LKSN_COMMANDREPLY is now free:
+  atomic_set(&commandActive, cmdActive_no);
 
   Message Msg = {
     .snd_invKey = KR_TEMP0,
@@ -1240,8 +1252,6 @@ srb_done(struct scsi_cmnd * srb)
   };
   US_DEBUGP("srb_done returning\n");
   SEND(&Msg);	// non-prompt
-
-  commandActive = false;
 }
 
 static void
@@ -1257,7 +1267,7 @@ DoReadWrite(Message * msg, bool write)
     return;
   }
 
-  if (commandActive) {
+  if (atomic_read(&commandActive) != cmdActive_no) {
 #if 1	// if catching bugs
     kdprintf(KR_OSTREAM, "SCSI Store I/O %#x busy", sc);
 #endif
@@ -1283,12 +1293,12 @@ DoReadWrite(Message * msg, bool write)
   result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_COMMANDREPLY,
 		KR_RETURN, KR_VOID);
   assert(result == RC_OK);
-  commandActive = true;
+  atomic_set(&commandActive, cmdActive_yes);
 
   int ret = queuecommand(&theSRB, &srb_done);
   switch (ret) {
   case SCSI_MLQUEUE_HOST_BUSY:
-    commandActive = false;
+    atomic_set(&commandActive, cmdActive_no);
     // Shouldn't we have caught this above?
     msg->snd_code = RC_capros_Errno_Already;
     return;
@@ -1363,6 +1373,8 @@ driver_main(void)
   assert(result == RC_OK);
   result = capros_USBInterface_registerDriver(KR_USBINTF, KR_TEMP0);
   assert(result == RC_OK);
+
+  capros_DevPrivs_declarePFHProcess(KR_DEVPRIVS, KR_SELF);
 
   // reply to the registry
   Msg.snd_invKey = KR_RETURN;
