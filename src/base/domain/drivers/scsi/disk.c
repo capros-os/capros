@@ -37,9 +37,10 @@ Approved for public release, distribution unlimited. */
 #define KR_IORQ KR_APP2(0)
 
 #define dbg_mount 0x1
+#define dbg_server 0x2
 
 /* Following should be an OR of some of the above */
-#define dbg_flags ( 0u | dbg_mount )////
+#define dbg_flags ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -194,6 +195,8 @@ disk_thread(void * arg)
 
   bool caprosPartitions = false;
 
+  capros_DevPrivs_declarePFHProcess(KR_DEVPRIVS, KR_SELF);
+
   // Scan the primary partitions:
   struct partition * parti;
   for (i = 0, parti = (struct partition *)&buffer[446]; i < 4; i++, parti++) {
@@ -233,7 +236,7 @@ disk_thread(void * arg)
     return NULL;
   }
 
-  DEBUG(mount) kprintf(KR_OSTREAM, "disk_thread serving queue\n");
+  DEBUG(server) kprintf(KR_OSTREAM, "disk_thread serving queue\n");
   for (;;) {
     result_t result;
     capros_IOReqQ_IORequest Ioreq;
@@ -244,7 +247,7 @@ disk_thread(void * arg)
     result = capros_IOReqQ_waitForRequest(KR_IORQ, &Ioreq);
     assert(result == RC_OK);
 
-    DEBUG(mount) kprintf(KR_OSTREAM, "disk_thread serving request, %#x\n",
+    DEBUG(server) kprintf(KR_OSTREAM, "disk_thread serving request, %#x\n",
                          &Ioreq);
     switch (Ioreq.requestType) {
     default: ;
