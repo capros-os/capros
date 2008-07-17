@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group
+ * Copyright (C) 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -67,7 +67,7 @@ main(void)
   int volatile * x = (int *)0xbadbad00;
   *x;
 
-  kprintf(KR_OSTREAM, "After fault\n");
+  kprintf(KR_OSTREAM, "After fault\nDone.\n");
 
   return 0;
 }
