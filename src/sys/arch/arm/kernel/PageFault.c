@@ -1106,8 +1106,10 @@ LoadWordFromUserVirtualSpace(uva_t userAddr, uint32_t * resultP)
    *
    * So if any user maps were invalidated, we simply Yield
    * and hope for better luck next time. */
-  if (MapsWereInvalidated())
+  if (MapsWereInvalidated()) {
+    KernStats.nYieldForMaps++;
     act_Yield();
+  }
 
   // Try a simple load first.
   if (LoadWordFromUserSpace(userAddr, resultP))

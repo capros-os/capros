@@ -26,6 +26,8 @@ Approved for public release, distribution unlimited. */
 /* Machine-dependent declarations for KernStats. */ 
 
 #define MD_KERN_STATS_FIELDS \
-  uint64_t nPageUncache;	// number of times we made a page uncached
+  uint64_t nPageUncache;	/* number of times we made a page uncached */ \
+  uint64_t nYieldForMaps;	/* number of times we retried an operation */ \
+				/* because a map might have been invalidated. */
 
 #endif // __MACHINE_KERNSTATS_H__
