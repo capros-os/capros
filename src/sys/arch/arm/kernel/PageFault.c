@@ -1095,6 +1095,20 @@ fault_exit:
 void
 LoadWordFromUserVirtualSpace(uva_t userAddr, uint32_t * resultP)
 {
+  /* Because we are about to use the user-accessible map,
+   * we need to make sure it is correct. 
+   *
+   * We could call UpdateTLB, but there is a problem with that.
+   * If we validated access to a user page (say in proc_SetupEntryBlock),
+   * then the page was stolen, UpdateTLB would correctly
+   * invalidate any TLB entry to that page,
+   * but then the kernel would crash when it tried to access the page.
+   *
+   * So if any user maps were invalidated, we simply Yield
+   * and hope for better luck next time. */
+  if (MapsWereInvalidated())
+    act_Yield();
+
   // Try a simple load first.
   if (LoadWordFromUserSpace(userAddr, resultP))
     return;

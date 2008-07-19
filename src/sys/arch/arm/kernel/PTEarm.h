@@ -166,10 +166,40 @@ Note 5:
 #define CSwapLoad     2
 #define CSwapStore    3
 
-// Bits for mapWork:
-#define MapWork_TLB             0x1
-#define MapWork_CleanCache      0x2
-#define MapWork_InvalidateCache 0x4
+/* Bits for mapWork are defined here.
+ * These bits are gathered into a single word so they can be quickly tested
+ * in UpdateTLB().
+ * These bits help the kernel avoid invalidating and cleaning the TLB
+ * and cache more often than necessary.
+ *
+ * MapWork_UserTLBWrong means that some user-accessible TLB entries
+ * may be incorrect.
+ *
+ * MapWork_UserCacheWrong means that some user-accessible cache entries
+ * may be incorrect.
+ *
+ * MapWork_UserDirtyWrong means that there may be user-accessible
+ * dirty cache entries for pages not marked CACHEADDR_WRITEABLE.
+ *
+ * MapWork_KernClearedTLB means that the TLB has been invalidated
+ * since the last time user-accessible TLB entries may have been created,
+ * therefore there are no user-accessible TLB entries.
+ *
+ * MapWork_KernInvalidatedCache means that the cache has been invalidated
+ * since the last time user-accessible cache entries may have been created,
+ * therefore there are no user-accessible cache entries.
+ *
+ * MapWork_KernCleanedCache means that the cache has been cleaned
+ * since the last time user-accessible dirty cache entries
+ * may have been created,
+ * therefore there are no user-accessible dirty cache entries.
+ */
+#define MapWork_UserTLBWrong         0x1
+#define MapWork_UserCacheWrong       0x2
+#define MapWork_UserDirtyWrong       0x4
+#define MapWork_KernClearedTLB       0x100
+#define MapWork_KernInvalidatedCache 0x200
+#define MapWork_KernCleanedCache     0x400
 
 #ifndef __ASSEMBLER__
 
@@ -195,18 +225,18 @@ INLINE void
 SetMapWork_TLB(void)
 {
 #ifdef TRACK_MAPWORK
-  printf("SetMapWork %#x -> %#x\n", mapWork, mapWork | MapWork_TLB);
+  printf("SetMapWork %#x -> %#x\n", mapWork, mapWork | MapWork_UserTLBWrong);
 #endif
-  mapWork |= MapWork_TLB;
+  mapWork |= MapWork_UserTLBWrong;
 }
 
 INLINE void
 SetMapWork_CleanCache(void)
 {
 #ifdef TRACK_MAPWORK
-  printf("SetMapWork %#x -> %#x\n", mapWork, mapWork | MapWork_CleanCache);
+  printf("SetMapWork %#x -> %#x\n", mapWork, mapWork | MapWork_UserDirtyWrong);
 #endif
-  mapWork |= MapWork_CleanCache;
+  mapWork |= MapWork_UserDirtyWrong;
 }
 
 INLINE void
@@ -214,9 +244,9 @@ SetMapWork_InvalidateCache(void)
 {
 #ifdef TRACK_MAPWORK
   printf("SetMapWork %#x -> %#x\n", mapWork,
-         mapWork | MapWork_CleanCache | MapWork_InvalidateCache);
+         mapWork | MapWork_UserDirtyWrong | MapWork_UserCacheWrong);
 #endif
-  mapWork |= MapWork_CleanCache | MapWork_InvalidateCache;
+  mapWork |= MapWork_UserDirtyWrong | MapWork_UserCacheWrong;
 }
 
 INLINE void
@@ -224,9 +254,9 @@ SetMapWork_TLBCache(void)
 {
 #ifdef TRACK_MAPWORK
   dprintf(true, "SetMapWork %#x -> %#x\n", mapWork,
-         MapWork_TLB | MapWork_CleanCache | MapWork_InvalidateCache);
+         MapWork_UserTLBWrong | MapWork_UserDirtyWrong | MapWork_UserCacheWrong);
 #endif
-  mapWork = MapWork_TLB | MapWork_CleanCache | MapWork_InvalidateCache;
+  mapWork = MapWork_UserTLBWrong | MapWork_UserDirtyWrong | MapWork_UserCacheWrong;
 }
 
 
@@ -265,9 +295,9 @@ MapTabHeaderToKVA(MapTabHeader * mth)
   return (void *) (va + (mth->ndxInPage)*CPT_SIZE);
 }
 
-void mach_DoMapWork(unsigned int mw);
-void mach_DoCacheWork(unsigned int mw);
-unsigned int mach_FlushBothTLBs(void);
+void mach_DoMapWork(unsigned int work);
+void mach_DoCacheWork(unsigned int work);
+void mach_FlushBothTLBs(void);
 void mach_DrainWriteBuffer(void);
 void mach_FlushTLBsCaches(void);
 kpa_t mach_ReadTTBR(void);

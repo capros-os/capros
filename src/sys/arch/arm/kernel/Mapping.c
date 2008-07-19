@@ -860,20 +860,26 @@ pageH_MapCoherentRead(PageHeader * pageH)
   default: ;
     assert(false);
 
-  case CACHEADDR_READERS:	// readers at multiple MVAs
-    // We are just another reader.
-    // But there could be stale cache entries at the kernel address:
-    SetMapWork_InvalidateCache();
-    mach_DoCacheWork(mapWork);
-    return PTOV(pageH_GetPhysAddr(pageH));
-
   case CACHEADDR_WRITEABLE:	// writeable at one MVA
-    // There may be dirty cache entries for this page, so clean them:
-    SetMapWork_CleanCache();
-    mach_DoCacheWork(mapWork);
+    // There may be dirty cache entries for this page, so clean them.
+    // If we also need to invalidate the cache, this is a good time
+    // to do it.
+    mach_DoCacheWork(mapWork | MapWork_UserDirtyWrong);
   case CACHEADDR_NONE:	// not previously mapped
   case CACHEADDR_ONEREADER:	// read only at one MVA
   case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
+
+  /* For case CACHEADDR_READERS, we could just access the page
+   * at PTOV(pageH_GetPhysAddr(pageH)).
+   * But since there could be stale cache entries at that address,
+   * we would have to call
+   * mach_DoCacheWork(MapWork_UserCacheWrong | MapWork_UserDirtyWrong).
+   * Instead, just map it uncached.
+   * Since we generally only read the page once,
+   * we are going to have to fetch from RAM in either case.
+   * This way, we avoid disturbing the useful stuff in the cache. */
+  case CACHEADDR_READERS:	// readers at multiple MVAs
+
     // Map the page uncached.
     HighCPTVA[(TempMap0VA & CPT_ADDR_MASK) >> EROS_PAGE_LGSIZE]
       = pageH_GetPhysAddr(pageH) + 0x000 + PTE_SMALLPAGE;
@@ -905,8 +911,9 @@ pageH_MapCoherentWrite(PageHeader * pageH)
 
   case CACHEADDR_WRITEABLE:	// writeable at one MVA
     // There may be dirty cache entries for this page, so clean them:
-    SetMapWork_CleanCache();
-    mach_DoCacheWork(mapWork);
+    // If we also need to invalidate the cache, this is a good time
+    // to do it.
+    mach_DoCacheWork(mapWork | MapWork_UserDirtyWrong);
   case CACHEADDR_ONEREADER:	// read only at one MVA
   case CACHEADDR_READERS:	// readers at multiple MVAs
     return PTOV(pageH_GetPhysAddr(pageH));
@@ -928,8 +935,9 @@ pageH_PrepareForDMAOutput(PageHeader * pageH)
 
   case CACHEADDR_WRITEABLE:	// writeable at one MVA
     // There may be dirty cache entries for this page, so clean them:
-    SetMapWork_CleanCache();
-    mach_DoCacheWork(mapWork);
+    // If we also need to invalidate the cache, this is a good time
+    // to do it.
+    mach_DoCacheWork(mapWork | MapWork_UserDirtyWrong);
     break;
 
   case CACHEADDR_NONE:	// not previously mapped
@@ -954,8 +962,7 @@ pageH_PrepareForDMAInput(PageHeader * pageH)
   case ot_PtMappingPage2: ;
     // This page is for kernel use,
     // so we mustn't have any stale cache entries:
-    SetMapWork_InvalidateCache();
-    mach_DoCacheWork(mapWork);
+    mach_DoCacheWork(MapWork_UserCacheWrong | MapWork_UserDirtyWrong);
     break;
 
   default: ;

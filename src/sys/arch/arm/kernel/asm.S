@@ -28,41 +28,51 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 /* Assorted short assembler routines,
    not performance-critical enough to warrant declaring inline. */
 
+/** mach_DoMapWork
+
+r0 bits MapWork_User* have the work to be done. */
 	ENTRY(mach_DoMapWork)
-	str lr,[sp, #-4]!	// push return address
+	tst r0,#MapWork_UserTLBWrong
+	beq 1f
+	// TLB has a problem
+	ldr r1,=mapWork
+	ldr r2,[r1]
+	// If it hasn't been corrected, do so now.
+	tst r2,#MapWork_KernClearedTLB
+	bne 1f		// already cleared it
+	stmfd sp!,{r0,lr}
+	bl mach_FlushBothTLBs
+	ldmfd sp!,{r0,lr}
+1:	// Fall into mach_DoCacheWork
 
-	tst r0,#MapWork_TLB
-	blne mach_FlushBothTLBs
+/** mach_DoCacheWork
 
-	ldr lr,[sp],#4		// restore return address
-	// Fall into mach_DoCacheWork
-
+r0 bits MapWork_UserCacheWrong and MapWork_UserDirtyWrong
+have the work to be done. */
 	ENTRY(mach_DoCacheWork)
+	tst r0,#MapWork_UserDirtyWrong
 	/* Cleaning the cache must be done before any invalidating.
-	If MapWork_InvalidateCache is set,
-	MapWork_CleanCache must also be set. */
-
-	// r0 has mapWork.
-	tst r0,#MapWork_CleanCache
-	beq 3f
+	If MapWork_UserCacheWrong is set,
+	MapWork_UserDirtyWrong must also be set. */
+	moveq pc,lr	// nothing to clean, therefore nothing to invalidate
+	ldr r1,=mapWork
+	ldr r2,[r1]
+	tst r2,#MapWork_KernCleanedCache
+	movne pc,lr	// already cleaned, therefore already invalidated too
+	orr r2,r2,#MapWork_KernCleanedCache
+	str r2,[r1]	// set the bit to indicate we cleaned the cache
+/* We need to do the above store BEFORE cleaning the cache.
+Otherwise a subsequent InvalidateCache will lose the data. */
 	// Clean the cache.
 #if 0
-	str lr,[sp, #-4]!	/* push return address */
+	stmfd sp!,{r0,r1,lr}
 	ldr r0,=2f
 	bl printf
-	ldr lr,[sp],#4		/* pop return address */
 	.section .rodata
 2:	.asciz "Cleaned Cache\n"
 	.text
-	ldr r1,=mapWork
-	ldr r0,[r1]
-#else
-	ldr r1,=mapWork
+	ldmfd sp!,{r0,r1,lr}
 #endif
-	bic r0,#MapWork_CleanCache	// clear the flag
-	str r0,[r1]
-/* We need to do the above store BEFORE cleaning the cache.
-Otherwise a subsequent InvalidateCache will lose the data. */
 #ifdef OPTION_WRITEBACK
 	/* Here is the downside of OPTION_WRITEBACK.
            This takes at least 12.8 microseconds on the EDB9315. */
@@ -77,28 +87,30 @@ Otherwise a subsequent InvalidateCache will lose the data. */
 	bics r3,r3,r2	// prepare for next carry
 	bne 0b
 #endif
-	// r0 still has mapWork
+	// r0 still has work to be done
 
-3:	tst r0,#MapWork_InvalidateCache
+3:	tst r0,#MapWork_UserCacheWrong
 	moveq pc,lr		// if not invalidating, return
+	ldr r1,=mapWork
+	ldr r2,[r1]
+	tst r2,#MapWork_KernInvalidatedCache
+	movne pc,lr		// already invalidated
+	orr r2,r2,#MapWork_KernCleanedCache
 	// Invalidate the cache.
-	mov r1,#0
-	mcr p15,0,r1,c7,c7,0	// invalidate entire cache(s)
+	mov r3,#0
+	mcr p15,0,r3,c7,c7,0	// invalidate entire cache(s)
 #if 0
-	str lr,[sp, #-4]!	/* push return address */
+	stmfd sp!,{r1,r2,lr}
 	ldr r0,=2f
 	bl printf
-	ldr lr,[sp],#4		/* pop return address */
+	ldmfd sp!,{r1,r2,lr}
 	.section .rodata
 2:	.asciz "Invalidated Cache\n"
 	.text
-	ldr r1,=mapWork
-	ldr r0,[r1]
-#else
-	ldr r1,=mapWork
 #endif
-	bic r0,#MapWork_InvalidateCache	// clear the flag
-	str r0,[r1]
+	/* The following store must be done AFTER invalidating the cache,
+	else it will be lost. */
+	str r2,[r1]	// set the bit to indicate we cleaned the cache
 	mov pc,lr		// return
 
 
@@ -116,9 +128,8 @@ TLBMsg:	.asciz "Flushed TLB\n"
 #endif
 	ldr r1,=mapWork
 	ldr r0,[r1]
-	bic r0,#MapWork_TLB	// clear the flag
+	orr r0,r0,#MapWork_KernClearedTLB
 	str r0,[r1]
-	// Return with mapWork in r0
 	mov pc,lr
 
 
@@ -148,7 +159,8 @@ TLBMsg:	.asciz "Flushed TLB\n"
 	mov pc,lr
 
 /* LoadWordFromUserSpace
-   Returns true iff successful. */
+   Returns true iff successful.
+   Before calling, you must call UpdateTLB() so the user-mode map is correct. */
 	ENTRY(LoadWordFromUserSpace)
 /* The following instruction will fault if the user does not have access.
    The fault handler recognizes this instruction address. */

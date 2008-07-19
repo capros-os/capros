@@ -224,6 +224,10 @@ revalidate: ;
     // The PID of act_CurContext() is loaded.
     mach_LoadDACR(thisPtr->md.dacr);
     // Ensure the destination is mapped.
+    // Make sure the user-mode map is correct:
+    if (MapsWereInvalidated())
+      act_Yield();
+
     if (! LoadWordFromUserSpace(proc_VAToMVA(thisPtr, va), (uint32_t *)&va)) {
       // Not mapped, try to map it.
       // FIXME: Does proc_DoPageFault check access (wrong domain)?

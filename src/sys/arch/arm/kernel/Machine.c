@@ -42,8 +42,8 @@ void mach_InitHardClock(void);
 void
 mach_FlushTLBsCaches(void)
 {
-  SetMapWork_TLBCache();
-  mach_DoMapWork(mapWork);
+  mach_DoMapWork(MapWork_UserTLBWrong
+                 | MapWork_UserCacheWrong | MapWork_UserDirtyWrong);
 }
 
 /* mach_BootInit()

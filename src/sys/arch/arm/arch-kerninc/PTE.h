@@ -78,7 +78,8 @@ bool pte_ObIsNotWritable(struct PageHeader * pObj);
 INLINE bool
 MapsWereInvalidated(void)
 {
-  return mapWork & MapWork_TLB;
+  return mapWork & (MapWork_UserTLBWrong
+                    | MapWork_UserCacheWrong | MapWork_UserDirtyWrong);
 }
 
 INLINE void
@@ -86,7 +87,11 @@ UpdateTLB(void)
 {
   if (mapWork) {
     mach_DoMapWork(mapWork);
-    assert(! mapWork);
+    /* UpdateTLB is called when we are going to user mode.
+     * It may also be called when the kernel uses the user-mode map.
+     * In either case, user-accessible TLB and cache entries
+     * could be created, so we need to clear MapWork_Kern*. */
+    mapWork = 0;
   }
 }
 
