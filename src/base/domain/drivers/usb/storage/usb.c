@@ -1295,7 +1295,9 @@ DoReadWrite(Message * msg, bool write)
   assert(result == RC_OK);
   atomic_set(&commandActive, cmdActive_yes);
 
+  scsi_lock(theHost);
   int ret = queuecommand(&theSRB, &srb_done);
+  scsi_unlock(theHost);
   switch (ret) {
   case SCSI_MLQUEUE_HOST_BUSY:
     atomic_set(&commandActive, cmdActive_no);
