@@ -375,8 +375,8 @@ inv_CopyOut(Invocation* thisPtr, uint32_t len, void *data)
   }
 }
 
-/* Copy at most COUNT bytes in from the process.  If the process
- * send length is less than COUNT, copy the number of bytes in the
+/* Copy at most len bytes in from the process.  If the process
+ * send length is less than len, copy the number of bytes in the
  * send buffer.  Return the number of bytes transferred.
  */
 uint32_t 
@@ -385,7 +385,7 @@ inv_CopyIn(Invocation* thisPtr, uint32_t len, void *data)
   if (thisPtr->entry.len < len)
     len = thisPtr->entry.len;
   
-  if (thisPtr->entry.len)
+  if (len)
     memcpy(data, thisPtr->entry.data, len);
 
   return len;

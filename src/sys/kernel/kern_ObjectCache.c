@@ -919,22 +919,44 @@ pageH_Clean(PageHeader * pageH)
 #ifdef OPTION_OB_MOD_CHECK
     pageH_ToObj(pageH)->check = objH_CalcCheck(pageH_ToObj(pageH));
 #endif
-    // While it is being cleaned, it is marked not dirty, and I/O in progress.
 
-    IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
-    ioreq->pageH = pageH;	// link page and ioreq
-    pageH->ioreq = ioreq;
+    // Is the page zero?
+    kva_t pgAddr = pageH_MapCoherentRead(pageH);
+    /* The following loop could be optimized with machine-specific code. */
+    uint64_t * pgArray = (uint64_t *)pgAddr;
+    unsigned int i;
+    for (i = 0; i < EROS_PAGE_SIZE/sizeof(uint64_t); i++) {
+      if (pgArray[i])
+        break;
+    }
+    pageH_UnmapCoherentRead(pageH);
+    if (i == EROS_PAGE_SIZE/sizeof(uint64_t)) {	// The page is zero.
+      ObjectDescriptor objDescr = {
+        .oid = pageH_ToObj(pageH)->oid,
+        .logLoc = 0,	// it's zero, has no logLoc
+        .allocCount = pageH_ToObj(pageH)->allocCount,
+        .callCount = 0,	// not used
+        .type = capros_Range_otPage
+      };
+      ld_recordLocation(&objDescr, workingGenerationNumber);
+    } else {		// the page is not zero
+      // While it is being cleaned, it is marked not dirty, and I/O in progress.
 
-    LID lid = NextLogLoc();
-    ObjectRange * rng = LidToRange(lid);
-    assert(rng);	// it had better be mounted
+      IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
+      ioreq->pageH = pageH;	// link page and ioreq
+      pageH->ioreq = ioreq;
 
-    ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
-    ioreq->objRange = rng;
-    ioreq->rangeLoc = OIDToFrame(lid - rng->start);
-    ioreq->doneFn = &IOReq_EndPageClean;
-    sq_Init(&ioreq->sq);
-    ioreq_Enqueue(ioreq);
+      LID lid = NextLogLoc();
+      ObjectRange * rng = LidToRange(lid);
+      assert(rng);	// it had better be mounted
+
+      ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
+      ioreq->objRange = rng;
+      ioreq->rangeLoc = OIDToFrame(lid - rng->start);
+      ioreq->doneFn = &IOReq_EndPageClean;
+      sq_Init(&ioreq->sq);
+      ioreq_Enqueue(ioreq);
+    }
   }
 }
 
