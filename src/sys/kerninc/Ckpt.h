@@ -1,9 +1,9 @@
-#ifndef __FRAMEINFO_HXX__
-#define __FRAMEINFO_HXX__
+#ifndef __CKPT_H__
+#define __CKPT_H__
 /*
- * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
+ * Copyright (C) 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -19,19 +19,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
-struct FrameInfo {
-  CoreDivision *cd;
-  OID oid;
-  OID obFrameOid;
-  uint32_t obFrameNdx;
-  uint32_t relObFrame;
-  uint32_t clusterNo;
-  OID tagFrameOid;
-  uint32_t relTagFrame;
-  uint32_t tagEntry;
+enum {
+  ckpt_NotActive = 0,
+  ckpt_Phase1,
+};
+extern unsigned int ckptState;
 
-  FrameInfo(OID oid);
-} ;
-
-#endif /* __FRAMEINFO_HXX__ */
+#endif /* __CKPT_H__ */

@@ -204,14 +204,12 @@ sysT_Wakeup(savearea_t *sa)
   sleeping processes' invocations. 
   If we did that work now, all the variables involved would have to be
   protected with irq disable.
-  To avoid that, we just set the flag timerWork here,
-  and do the wakeups in ExitTheKernel (a "software interrupt).
-  Also set act_yieldState so timerWork will be noticed. */
+  To avoid that, we just set the flag dw_timer here,
+  and do the wakeups in ExitTheKernel (a "software interrupt"). */
 
   /* Nothing to wait for until that work is done. */
   sysT_wakeup = UINT64_MAX;
-  timerWork = true;
-  act_yieldState = true;
+  deferredWork |= dw_timer;
 
   irq_Enable(IRQ_FROM_EXCEPTION(sa->ExceptNo));
 }
@@ -219,7 +217,7 @@ sysT_Wakeup(savearea_t *sa)
 void
 sysT_ResetWakeTime(void)
 {
-  if (timerWork)
+  if (deferredWork & dw_timer)
     sysT_wakeup = UINT64_MAX;
   else
     sysT_wakeup = sysT_WakeupTime();

@@ -311,7 +311,7 @@ act_DeleteActivity(Activity *t)
 #endif
     act_curActivity = NULL;
     proc_curProcess = NULL;
-    /* act_curActivity == 0 ==> act_yieldState == ys_ShouldYield */
+    /* act_curActivity == 0 ==> deferredWork & dw_reschedule */
     act_ForceResched();
   }
 
@@ -583,9 +583,9 @@ act_DoReschedule(void)
   if (act_Current() == 0) {
     //printf("in no current Activity case...calling ChooseNew\n");
     act_ChooseNewCurrentActivity();
-    act_yieldState = 0;
+    deferredWork &= ~dw_reschedule;
   }
-  else if (act_yieldState == ys_ShouldYield) {
+  else if (deferredWork & dw_reschedule) {
     /* Current activity may be stalled or dead; if so, don't stick it
      * back on the run list!
      */
@@ -598,7 +598,7 @@ act_DoReschedule(void)
 #endif
     }
 
-    act_yieldState = 0;
+    deferredWork &= ~dw_reschedule;
     act_ChooseNewCurrentActivity();
   }
   
@@ -683,7 +683,7 @@ act_DoReschedule(void)
   assert (act_Current()->readyQ == act_CurContext()->readyQ);
   assert(local_irq_disabled());
 
-  act_yieldState = 0;		/* until proven otherwise */
+  deferredWork &= ~dw_reschedule;	/* until proven otherwise */
 
   if (act_Current()->readyQ->mask & (1u<<pr_Reserve)) {
     Reserve * r = (Reserve *)act_Current()->readyQ->other;
@@ -707,11 +707,21 @@ act_DoReschedule(void)
   assert(local_irq_disabled());
 }
 
+/* Set the global variable that will force rescheduling
+ * on the next return to user mode. */
+void
+act_ForceResched(void)
+{
+  irqFlags_t flags = local_irq_save();
+  deferredWork |= dw_reschedule;
+  local_irq_restore(flags);
+}
+
 void
 HandleDeferredWork(void)
 {
-  if (timerWork) {
-    timerWork = false;
+  if (deferredWork & dw_timer) {
+    deferredWork &= ~dw_timer;
 
     // FIXME: check that all variables are properly locked by irq
     sysT_WakeupAt();
@@ -727,7 +737,7 @@ ExitTheKernel(void)
 
   UpdateTLB();
 
-  if (act_yieldState) {
+  if (deferredWork) {
     HandleDeferredWork();
   }
   else if (! act_IsRunnable(act_Current())) {

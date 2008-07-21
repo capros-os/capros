@@ -53,10 +53,6 @@ enum {
   act_NUM_STATES,
 };
  
-enum {
-  ys_ShouldYield = 0x1
-};
-
 /* The activity structure captures the portion of a process's state
  * that MUST remain in core while the process is logically running or
  * blocked.  An idle process is free to go out of core.
@@ -95,8 +91,12 @@ struct Activity {
 
 extern const char *act_stateNames[act_NUM_STATES]; 
 
-extern unsigned int act_yieldState;
-extern unsigned int timerWork;
+/* Bits in deferredWork: */
+#define dw_reschedule 0x1
+#define dw_timer      0x2
+/* deferredWork must only be used with interrupts disabled. */
+extern unsigned int deferredWork;
+
 extern Activity * act_curActivity;
 extern Process * proc_curProcess;
 
@@ -176,15 +176,7 @@ bool act_Prepare(Activity* thisPtr);
 void act_Wakeup(Activity* thisPtr);
 
 void act_DoReschedule();
-
-/* Set the global variable that will force rescheduling
-   on the next return to user mode. */
-INLINE void 
-act_ForceResched(void)
-{
-  act_yieldState = ys_ShouldYield;
-}
-
+void act_ForceResched(void);
 
 void ExitTheKernel(void) NORETURN;
 void ExitTheKernel_MD(Process *);		// architecture-dependent

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -56,13 +56,9 @@ Activity * act_curActivity __attribute__((aligned(4),
 struct Process * proc_curProcess __attribute__((aligned(4),
                                            section(".data"))) = 0;
 
-// A bool is sufficient, but an int is more efficient.
-unsigned int act_yieldState __attribute__((aligned(4),
-					   section(".data"))) = 0;
+unsigned int deferredWork __attribute__((aligned(4),
+				        section(".data"))) = 0;
 
-// A bool is sufficient, but an int is more efficient.
-unsigned int timerWork __attribute__((aligned(4),
-				   section(".data"))) = 0;
 #ifdef OPTION_KERN_TIMING_STATS
 uint32_t inv_delta_reset __attribute__((aligned(4),
 					section(".data")));

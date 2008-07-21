@@ -375,7 +375,7 @@ stackMsg:	.asciz "IRQ Stack is off"
 	// This is the same test as in ExitTheKernel(), except that
 	// interrupts can only wake up Processes, not suspend them;
 	// the current Process cannot become unrunnable.
-	ldr r0,=act_yieldState
+	ldr r0,=deferredWork
 	ldr r0,[r0]
 	msr spsr_cxsf,r11	// used if quickly returning
 	cmp r0,#0

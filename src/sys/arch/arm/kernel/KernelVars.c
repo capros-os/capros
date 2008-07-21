@@ -38,11 +38,7 @@ struct Activity * act_curActivity = 0;
    (or NULL if act_curActivity is NULL). */
 struct Process * proc_curProcess = 0;
 
-// A bool is sufficient, but an int is more efficient.
-unsigned int act_yieldState = 0;
-
-// A bool is sufficient, but an int is more efficient.
-unsigned int timerWork = 0;
+unsigned int deferredWork = 0;
 
 /* mapWork serves two purposes.
    1. It says whether the TLB needs to be flushed and/or the cache cleaned

@@ -181,14 +181,12 @@ TC1OIHandler(VICIntSource * vis)
     sleeping processes' invocations. 
     If we did that work now, all the variables involved would have to be
     protected with irq disable.
-    To avoid that, we just set the flag timerWork here,
-    and do the wakeups in ExitTheKernel (a "software interrupt).
-    Also set act_yieldState so timerWork will be noticed. */
+    To avoid that, we just set the flag dw_timer here,
+    and do the wakeups in ExitTheKernel (a "software interrupt"). */
 
     /* Nothing to wait for until that work is done. */
     sysT_wakeup = UINT64_MAX;
-    timerWork = true;
-    act_yieldState = true;
+    deferredWork |= dw_timer;
   }
   /* If sysT_wakeup > now, it is because the time could not hold the
      full wait time. Just reload the timer. */
