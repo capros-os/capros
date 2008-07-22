@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/Activity.h>
 #include <kerninc/LogDirectory.h>
+#include <kerninc/Ckpt.h>
 #include <eros/target.h>
 #include <disk/TagPot.h>
 #include <disk/DiskNode.h>
@@ -228,8 +229,7 @@ IORQ_Deallocate(IORQ * iorq)
 LID
 NextLogLoc(void)
 {
-  while (! logCursor) {
-    // Restart hasn't finished.
+  while (! restartIsDone()) {
     // This can happen if persistent objects are preloaded rather than
     // loaded from the last checkpoint.
     printf("NextLogLoc waiting for restart to complete.\n");

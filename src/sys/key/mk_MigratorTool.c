@@ -48,8 +48,13 @@ Approved for public release, distribution unlimited. */
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 GenNum workingGenerationNumber;
-LID logCursor = 0;	// next place to write in the main log
 LID currentRoot;	// CKPT_ROOT_0 or CKPT_ROOT_1
+LID logCursor = 0;	// next place to write in the main log
+LID oldestNonRetiredGenLid;
+LID workingGenFirstLid;
+uint64_t monotonicTimeOfRestart;
+uint64_t monotonicTimeOfLastDemarc;
+frame_t logSizeLimited;
 Activity * migratorActivity;
 
 DEFQUEUE(RestartQueue);	// waiting for restart to finish
@@ -189,7 +194,14 @@ DoRestartStep(void)
       if (OIDToFrame(logWrapPoint) < physMem_TotalPhysicalPages) {
         assert(!"implemented");	// FIXME wait for more log to be mounted
       }
+      monotonicTimeOfRestart = 0;
+      monotonicTimeOfLastDemarc = 0;
       logCursor = MAIN_LOG_START;
+      workingGenFirstLid = MAIN_LOG_START;
+      oldestNonRetiredGenLid = MAIN_LOG_START;
+      logSizeLimited = (OIDToFrame(logWrapPoint - MAIN_LOG_START)
+                        * KTUNE_LOG_LIMIT_PERCENT_NUMERATOR)
+                       / LOG_LIMIT_PERCENT_DENOMINATOR;
       break;	// restart is done!
     }
     assert(false); //// incomplete
@@ -197,7 +209,8 @@ DoRestartStep(void)
     // Set logCursor last.
     break;
   }
-  // Restart is done.
+  // Restart is done and the migrator is initialized (it has allocated
+  // all the space it needs).
   sq_WakeAll(&RestartQueue, false);
 }
 
@@ -259,6 +272,8 @@ void
 MigratorStart(void)
 {
   DEBUG(restart) printf("Start Migrator thread, act=%#x\n", migratorActivity);
+
+  // FIXME: allocate all the space we will need up front.
 
   // The migrator thread begins by performing a restart.
 

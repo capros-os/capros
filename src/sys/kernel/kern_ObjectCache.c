@@ -427,7 +427,7 @@ objH_InitObj(ObjectHeader * pObj, OID oid)
   pObj->oid = oid;
 
   objH_SetFlags(pObj, OFLG_CURRENT);
-  assert(objH_GetFlags(pObj, OFLG_CKPT|OFLG_DIRTY|OFLG_IO) == 0);
+  // Other flags default to zero.
 
   objH_ResetKeyRing(pObj);
   objH_Intern(pObj);

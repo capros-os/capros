@@ -75,6 +75,12 @@ Approved for public release, distribution unlimited. */
 /* Number of I/O Requests for cleaning. */
 #define KTUNE_NIOREQS_CLEANING 60 // ??
 
+/* The log limit percent.
+ * This is the maximum fraction of the checkpoint log that may be used
+ * by a single generation. */
+#define KTUNE_LOG_LIMIT_PERCENT_NUMERATOR \
+          (LOG_LIMIT_PERCENT_DENOMINATOR * 70 / 100)	// 70%
+
 /* Amount of mappable physical card memory (i.e. sum over ALL cards)
  * IN MEGABYTES that the kernel should be prepared to map. This means
  * things like video memory, shared buffers on network cards, and the

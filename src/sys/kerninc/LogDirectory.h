@@ -51,6 +51,19 @@ Approved for public release, distribution unlimited. */
 
 extern LID logCursor;	// next place to write in the main log
 extern LID logWrapPoint;	// end of main log
+
+/* oldestNonRetiredGenLid is the LID following the last LID of the
+ * newest retired generation. */
+extern LID oldestNonRetiredGenLid;
+
+/* workingGenFirstLid is the LID of the first frame of the
+ * working generation. */
+extern LID workingGenFirstLid;
+
+#define LOG_LIMIT_PERCENT_DENOMINATOR 256
+/* logSizeLimited is the size of the main log times the limit percent. */
+extern frame_t logSizeLimited;
+
 extern GenNum workingGenerationNumber;
 
 /** The  number of  Log Directory entries.

@@ -79,7 +79,7 @@ objC_ddb_dump_obj(ObjectHeader * pObj)
 #else
   goodSum = '?';
 #endif
-  printf("%#x: %s oid %#llx up:%c cr:%c ck:%c drt:%c io:%c sm:%c au:%c cu:%c\n",
+  printf("%#x: %s oid %#llx up:%c cr:%c ck:%c drt:%c kro:%c sm:%c au:%c cu:%c\n",
 	 pObj,
 	 ddb_obtype_name(pObj->obType),
 	 pObj->oid,
@@ -87,7 +87,7 @@ objC_ddb_dump_obj(ObjectHeader * pObj)
 	 objH_GetFlags(pObj, OFLG_CURRENT) ? 'y' : 'n',
 	 objH_GetFlags(pObj, OFLG_CKPT) ? 'y' : 'n',
 	 objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n',
-	 objH_GetFlags(pObj, OFLG_IO) ? 'y' : 'n',
+	 objH_GetFlags(pObj, OFLG_KRO) ? 'y' : 'n',
 	 goodSum,
 	 objH_GetFlags(pObj, OFLG_AllocCntUsed) ? 'y' : 'n',
 	 objH_GetFlags(pObj, OFLG_CallCntUsed) ? 'y' : 'n');

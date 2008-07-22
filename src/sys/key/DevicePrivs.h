@@ -97,7 +97,6 @@ ValidateDMAPage(PageHeader * pageH)
 #ifndef NDEBUG
   ObjectHeader * pObj = pageH_ToObj(pageH);
 
-  assert(objH_GetFlags(pObj, OFLG_IO | OFLG_CKPT) == 0);
   assert(pObj->oid >= OID_RESERVED_PHYSRANGE);
 #endif
 }

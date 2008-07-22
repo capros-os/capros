@@ -37,6 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/CpuReserve.h>
 #include <kerninc/util.h>
 #include <arch-kerninc/PTE.h>
+#include <kerninc/Ckpt.h>
 #include <kerninc/Key-inline.h>
 
 /* #define THREADDEBUG */
@@ -726,6 +727,11 @@ HandleDeferredWork(void)
     // FIXME: check that all variables are properly locked by irq
     sysT_WakeupAt();
   }
+
+  if (deferredWork & dw_checkpoint) {
+    ckpt_DoWork();
+  }
+
   act_DoReschedule();
 }
 

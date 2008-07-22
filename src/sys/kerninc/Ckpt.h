@@ -23,10 +23,41 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <kerninc/LogDirectory.h>
+
 enum {
   ckpt_NotActive = 0,
   ckpt_Phase1,
 };
 extern unsigned int ckptState;
+
+/* monotonicTimeOfRestart is the time of the demarcation event
+ * from which we restarted, in units of nanoseconds. */
+extern uint64_t monotonicTimeOfRestart;
+
+/* monotonicTimeOfLastDemarc is the time of the most recent demarcation event,
+ * in units of nanoseconds.
+ * That checkpoint may not be stabilized yet. */
+extern uint64_t monotonicTimeOfLastDemarc;
+
+extern struct StallQueue WaitForCkptInactive;
+
+INLINE bool
+ckptIsActive(void)
+{
+  return ckptState;
+}
+
+INLINE bool
+restartIsDone(void)
+{
+  // logCursor is zero until reset sets it to its proper value,
+  // which is always nonzero.
+  return logCursor != 0;
+}
+
+unsigned long CalcLogReservation(void);
+void DeclareDemarcationEvent(void);
+void ckpt_DoWork(void);
 
 #endif /* __CKPT_H__ */

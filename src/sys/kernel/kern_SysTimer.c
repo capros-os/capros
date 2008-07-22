@@ -31,6 +31,8 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/CPU.h>
 #include <kerninc/CpuReserve.h>
 #include <kerninc/Invocation.h>
+#include <kerninc/Ckpt.h>
+#include <kerninc/IORQ.h>
 
 /* The system time, the last time we read it. 
 Call sysT_Now() to update this. 
@@ -64,6 +66,18 @@ IsLeapYear(uint32_t yr)
   if (yr % 4 == 0)
     return true;
   return false;
+}
+
+// May Yield.
+uint64_t
+sysT_NowPersistent(void)
+{
+  // monotonicTimeOfRestart isn't valid until restart is done.
+  if (! restartIsDone()) {
+    SleepOnPFHQueue(&RestartQueue);
+  }
+
+  return mach_TicksToNanoseconds(sysT_Now()) + monotonicTimeOfRestart;
 }
 
 uint64_t

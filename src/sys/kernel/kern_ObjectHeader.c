@@ -32,6 +32,8 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Depend.h>
 #include <kerninc/Node.h>
 #include <kerninc/Invocation.h>
+#include <kerninc/Ckpt.h>
+#include <kerninc/LogDirectory.h>
 #include <kerninc/Node-inline.h>
 #include <disk/DiskNode.h>
 #include <arch-kerninc/PTE.h>
@@ -54,6 +56,10 @@ ObCount maxNPAllocCount = 0;
 
 // The allocation count of nonpersistent objects at restart.
 ObCount restartNPAllocCount = 0;
+
+// numDirtyObjects and numDirtyLogPots are initialized to zero by the loader.
+unsigned long numDirtyObjects[capros_Range_otNumBaseTypes];
+unsigned long numDirtyLogPots;
 
 #ifdef OPTION_DDB
 const char *ddb_obtype_name(uint8_t t)
@@ -184,9 +190,6 @@ ObjectHeader::DoCopyOnWrite()
   
   assert(kernPin == 0);
   
-  ClearFlags(OFLG_CURRENT);
-  pObj->SetFlags(OFLG_CURRENT);
-  pObj->ClearFlags(OFLG_CKPT|OFLG_IO|OFLG_DIRTY|OFLG_REDIRTY);
 #ifdef DBG_CLEAN
   printf("Object 0x%08x ty %d oid=0x%08x%08x COW copy cleaned\n",
 		 pObj, pObj->obType,
@@ -250,76 +253,122 @@ objH_FlushIfCkpt(ObjectHeader* thisPtr)
 }
 
 void
-objH_MakeObjectDirty(ObjectHeader* thisPtr)
+objH_MakeObjectDirty(ObjectHeader * pObj)
 {
-  assert(objH_IsUserPinned(thisPtr)
-         || ((   thisPtr->obType == ot_NtProcessRoot
-              || thisPtr->obType == ot_NtKeyRegs
-              || thisPtr->obType == ot_NtRegAnnex)
-             && objH_IsUserPinned(proc_ToObj(thisPtr->prep_u.context)) ) );
-  assert(objH_GetFlags(thisPtr, OFLG_CURRENT));
+  assert(objH_IsUserPinned(pObj)
+         || ((   pObj->obType == ot_NtProcessRoot
+              || pObj->obType == ot_NtKeyRegs
+              || pObj->obType == ot_NtRegAnnex)
+             && objH_IsUserPinned(proc_ToObj(pObj->prep_u.context)) ) );
+  assert(objH_GetFlags(pObj, OFLG_CURRENT));
 
-  if ( objH_IsDirty(thisPtr) && (objH_GetFlags(thisPtr, OFLG_CKPT|OFLG_IO) == 0) )
+  if (objH_IsDirty(pObj))	// already dirty
     return;
   
-  assert (InvocationCommitted == false);
+  assert(! InvocationCommitted);
 
-  if (thisPtr->obType == ot_PtDataPage ||
-      thisPtr->obType == ot_PtDevicePage ||
-      thisPtr->obType <= ot_NtLAST_NODE_TYPE)
-    assert(objH_IsUserPinned(thisPtr));
-  
-  objH_FlushIfCkpt(thisPtr);
-  
 #ifdef OPTION_OB_MOD_CHECK
-  if (objH_IsDirty(thisPtr) == 0 && thisPtr->check != objH_CalcCheck(thisPtr))
+  if (pObj->check != objH_CalcCheck(pObj))
     fatal("MakeObjectDirty(0x%08x): not dirty and bad checksum!\n",
-		  thisPtr);
+		  pObj);
 #endif
 
-#if 0
-  /* This was correct only because we were not reassigning new
-   * locations every time an object was dirtied.  Now that we are
-   * doing reassignment, we must reregister.
-   */
-  
-  if (IsDirty()) {
-    /* in case a write is in progress, mark reDirty, but must not do
-     * this before registration unless we know the object is already
-     * dirty.  Note that we already know this object to be current!
-     */
-    SetFlags(OFLG_REDIRTY);
-    return;
-  }
-#endif
-  
+  if (objH_GetFlags(pObj, OFLG_Cleanable)) {	// it's persistent
+    /* If this system was started from a checkpoint,
+     * including a big bang whose persistent objects are initialized
+     * as a checkpoint on disk,
+     * there won't be any persistent objects in memory until the restart
+     * has begun fetching them from disk. 
+     * If this system was started as a big bang with persistent objects
+     * preloaded in RAM,
+     * the IPL process won't start any persistent processes until the
+     * restart is done. 
+     * The migrator process initializes itself and allocates all the
+     * storage it needs before it starts the restart.
+     * Therefore in all cases, the migrator and at least one disk driver
+     * have been initialized, and can run without allocating further RAM.
+     * Therefore it is safe to begin dirtying objects, because
+     * we know we will be able to clean them eventually. */
+
+    unsigned int baseType = objH_isNodeType(pObj) ? capros_Range_otNode
+                                                    : capros_Range_otPage;
+    // Tentatively count this object as dirty:
+    numDirtyObjects[baseType]++;
+
+    unsigned long availDirEnts = ld_numAvailableEntries();
+
+    if (! ckptIsActive()) {
+      // Calc space needed to complete a checkpoint:
+      unsigned long tentRes = CalcLogReservation();
+
+      // Calc space available for checkpoint:
+      frame_t retGenFrames = OIDToFrame(oldestNonRetiredGenLid - logCursor);
+      if (oldestNonRetiredGenLid < logCursor)
+        retGenFrames += OIDToFrame(logWrapPoint - MAIN_LOG_START);
+
+      if (tentRes > retGenFrames) {	// not enough space in log
+        numDirtyObjects[baseType]--;	// undo tentative count
+        DeclareDemarcationEvent();
+	// The above yields, but this process is immediately eligible
+	// to run again, at which time it will take the
+	// "checkpoint is active" path.
+      }
+
+      // Calc space in working area:
+      frame_t wkgSpace = OIDToFrame(logCursor - workingGenFirstLid);
+      if (logCursor < workingGenFirstLid)
+        wkgSpace += OIDToFrame(logWrapPoint - MAIN_LOG_START);
+
+      if ((wkgSpace + tentRes) > logSizeLimited) { // generation too big
+        numDirtyObjects[baseType]--;	// undo tentative count
+        DeclareDemarcationEvent();
+	// The above yields, but this process is immediately eligible
+	// to run again, at which time it will take the
+	// "checkpoint is active" path.
+      }
+
+      unsigned long softLimit = objC_nPages + objC_nNodes; // for now
+
+      if (availDirEnts < softLimit) {	// dir ents getting low
+        numDirtyObjects[baseType]--;	// undo tentative count
+        DeclareDemarcationEvent();
+	// The above yields, but this process is immediately eligible
+	// to run again, at which time it will take the
+	// "checkpoint is active" path.
+      }
+    } else {	// a checkpoint is active
+      assert(!"complete");
+    }
+
+    unsigned long totalDirtyObjs =
+      numDirtyObjects[capros_Range_otNode]
+      + numDirtyObjects[capros_Range_otPage];
+    if (availDirEnts < totalDirtyObjs) {	// not enough dir ents
+      numDirtyObjects[baseType]--;	// undo tentative count
+      dprintf(true, "Not enough dirents to dirty object. %d %d\n",
+              availDirEnts, totalDirtyObjs);
+      assert(!"complete");
+    }
+
+
+//// old stuff:
+    objH_FlushIfCkpt(pObj);
+
 #ifdef OPTION_PERSISTENT
-  Checkpoint::RegisterDirtyObject(this);
+    Checkpoint::RegisterDirtyObject(this);
 #endif
 
-  objH_SetDirtyFlag(thisPtr);
-  objH_ClearFlags(thisPtr, OFLG_CKPT);
-  
-#if 0
-  /* FIX: Why should we ever do this here? */
-  ClearFlags(OFLG_REDIRTY);
-#endif
-
-#ifdef DBG_CLEAN
-  {
-    OID oid = thisPtr->oid;
-    dprintf(true,
-	    "Marked pObj=0x%08x oid=0x%08x%08x dirty. dirty: %c chk: %c\n",
-	    thisPtr,
-	    (uint32_t) (oid >> 32), (uint32_t) (oid),
-	    objH_GetFlags(thisPtr, OFLG_DIRTY) ? 'y' : 'n',
-	    objH_GetFlags(thisPtr, OFLG_CKPT) ? 'y' : 'n');
   }
-#endif
 
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("Top RegisterDirtyObject()");
+  objH_SetDirtyFlag(pObj);
+  objH_ClearFlags(pObj, OFLG_CKPT);
+  
+#if 1//// until tested, then #ifdef DBG_CLEAN
+  dprintf(true,
+	  "Marked pObj=0x%08x oid=%#llx dirty. dirty: %c chk: %c\n",
+	  pObj, pObj->oid,
+	  objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n',
+	  objH_GetFlags(pObj, OFLG_CKPT) ? 'y' : 'n');
 #endif
 }
 
@@ -327,13 +376,9 @@ void
 objH_Rescind(ObjectHeader * thisPtr)
 {
   DEBUG(rescind)
-    dprintf(true, "Rescinding ot=%d oid=0x%08x%08x\n",
-	    thisPtr->obType,
-            (uint32_t) (thisPtr->oid >> 32), (uint32_t) thisPtr->oid);
+    dprintf(true, "Rescinding ot=%d oid=%#llx\n",
+	    thisPtr->obType, thisPtr->oid);
 
-  assert (objH_GetFlags(thisPtr, OFLG_IO|OFLG_CKPT) == 0);
-  assert (objH_GetFlags(thisPtr, OFLG_CURRENT) == OFLG_CURRENT);
-  
 #ifndef NDEBUG
   if (!keyR_IsValid(&thisPtr->keyRing, thisPtr))
     dprintf(true, "Keyring of oid 0x%08x%08x invalid!\n",

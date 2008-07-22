@@ -43,6 +43,9 @@ struct IORequest;
 
 extern ObCount restartNPAllocCount;
 
+extern unsigned long numDirtyObjects[];
+extern unsigned long numDirtyLogPots;
+
 /* Enable the option OB_MOD_CHECK **in your configuration file** if
  * you are debugging the kernel, and want to verify that modified bits
  * are getting properly set.  Note that this option causes the
@@ -116,7 +119,7 @@ enum {
 				ObjectSource. */
 #define OFLG_CURRENT	0x08u	/* current version */
 #define OFLG_CKPT	0x10u	/* checkpoint version */
-#define OFLG_IO		0x20u	/* object has active I/O in progress */
+#define OFLG_KRO	0x20u	/* object is Kernel-read-only */
 #define OFLG_CallCntUsed  0x40u	/* resume capabilities to this node exist
 				that contain the current call count. */
 #define OFLG_AllocCntUsed 0x80u	/* non-resume capabilities to this object exist
@@ -441,6 +444,8 @@ kva_t pageH_MapCoherentWrite(PageHeader * pageH);
 void pageH_UnmapCoherentWrite(PageHeader * pageH);
 void pageH_PrepareForDMAOutput(PageHeader * pageH);
 void pageH_PrepareForDMAInput(PageHeader * pageH);
+
+void pageH_MakeReadOnly(PageHeader * pageH);
 
 Node * pageH_GetNodeFromPot(PageHeader * pageH, unsigned int obIndex);
 

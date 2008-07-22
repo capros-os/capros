@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Machine.h>
 #include <kerninc/SysTimer.h>
 #include <kerninc/IRQ.h>
+#include <kerninc/Ckpt.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 
@@ -48,16 +49,20 @@ SleepKey(Invocation* inv /*@ not null @*/)
 
   switch (inv->entry.code) {
   case OC_capros_Sleep_getTimeMonotonic:
+    u64 = mach_TicksToNanoseconds(sysT_Now());
+
+returnu64:
     COMMIT_POINT();
       
-    {
-      uint64_t nsec = mach_TicksToNanoseconds(sysT_Now());
-      inv->exit.w1 = (uint32_t) nsec;	// low word
-      inv->exit.w2 = nsec >> 32;
-      inv->exit.code = RC_OK;
-      break;
-    }
+    inv->exit.w1 = (uint32_t) u64;	// low word
+    inv->exit.w2 = u64 >> 32;
+    inv->exit.code = RC_OK;
+    break;
       
+  case OC_capros_Sleep_getPersistentMonotonicTime:
+    u64 = sysT_NowPersistent();
+    goto returnu64;
+
   case OC_capros_Sleep_sleep:
     u64 = (((uint64_t) inv->entry.w2) << 32)
                   | ((uint64_t) inv->entry.w1);

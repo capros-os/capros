@@ -23,103 +23,60 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <kerninc/kernel.h>
-#include <kerninc/Key.h>
-#include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
-#include <eros/Invoke.h>
-#include <eros/StdKeyType.h>
+#include <kerninc/SysTimer.h>
+#include <kerninc/Ckpt.h>
+#include <kerninc/IORQ.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Checkpoint.h>
 
-/* There is a curious consequence of the way EROS handles checkpoints
- * that I don't see how to elegantly avoid.  The call to
- * TakeCheckpoint() must be able to yield (which it will do if
- * migration has not completed), so it must be done here.
- * Unfortunately, the effect of this is that the PC snapshot for the
- * migration process itself is the PC of the call to takecheckpoint.
- * The consequences of system failure are a bit bewildering:
- * 
- * If migration succeeds before failing, this will result in a
- *   redundant call to TakeCheckpoint() on restart, since the migrator
- *   PC still points to the TakeCheckpoint() call.  At restart time, a
- *   marginal checkpoint isn't exactly that expensive, so who really
- *   cares.
- * 
- * If migration is interrupted by failure, what happens on restart
- *   depends on whether the migration manages to complete before the
- *   system restarts this thread.  If this thread starts up before
- *   migration completion, then the marginal call to TakeCheckpoint()
- *   will be ignored.  If it starts up after migration completes, we
- *   will take an extra checkpoint.
- * 
- * There are three possible ways to address this:
- * 
- *   1. Ignore it -- it's hardly critical.
- *   
- *   2. Ensure that migration has completed, hand-advance the PC
- *      before calling TakeCheckpoint(), and then hand-rollback the
- *      PC.  This is frought with opportunities for race conditions,
- *      and has the effect that TakeCheckpoint appears to never
- *      return.
- * 
- *   3. Have the TakeCheckpoint call accept as an argument the index
- *      of the checkpoint to be taken, so that it can ignore the call
- *      if the last checkpoint count is <= that index.  This is
- *      probably the cleanest solution, and what I will eventually do.
- * 
- */
-
 void
-CheckpointKey(Invocation* inv /*@ not null @*/)
+CheckpointKey(Invocation * inv)
 {
   inv_GetReturnee(inv);
 
   switch (inv->entry.code) {
-  case OC_capros_Checkpoint_migrate:
-    {
-#ifdef OPTION_PERSISTENT
-#error "Implement ProcessMigration"
-      if (Checkpoint::ProcessMigration())
-	inv.exit.w1 = true;
-      else
-	inv.exit.w1 = false;
+  case OC_capros_Checkpoint_ensureCheckpoint:
+  {
+    uint64_t timeToSave = (((uint64_t) inv->entry.w2) << 32)
+                          | ((uint64_t) inv->entry.w1);
+    uint64_t timeNow = sysT_NowPersistent();
 
-      inv.exit.code = RC_OK;
-#else
-      inv->exit.code = RC_capros_key_NotPersistent;
-#endif
-
+    if (timeToSave > timeNow) {
       COMMIT_POINT();
-  
+
+      inv->exit.code = RC_capros_Checkpoint_FutureTime;
       break;
     }
-  case OC_capros_Checkpoint_snapshot:
-    {
-#ifdef OPTION_PERSISTENT
-#error "Implement TakeCheckpoint"
-      /* While it is not possible for this operation to fail, it may
-       * well yield several times pursuing migration before it
-       * succeeds:
-       */
-      
-      if (Checkpoint::IsStable())
-	Checkpoint::TakeCheckpoint();
 
-      inv.exit.code = RC_OK;
-#else
-      inv->exit.code = RC_capros_key_NotPersistent;
-#endif
+    inv->exit.code = RC_OK;
+
+    if (monotonicTimeOfLastDemarc >= timeToSave) {
+      // There is a recent-enough checkpoint.
       COMMIT_POINT();
-  
+
       break;
     }
+
+    if (ckptIsActive()) {
+      SleepOnPFHQueue(&WaitForCkptInactive);
+    }
+
+    COMMIT_POINT();
+
+    DeclareDemarcationEvent();
+
+    break;
+  }
+
   case OC_capros_key_getType:
     inv->exit.code = RC_OK;
-    inv->exit.w1 = AKT_Checkpoint;
+    inv->exit.w1 = IKT_capros_Checkpoint;
     COMMIT_POINT();
   
     break;
+
   default:
     inv->exit.code = RC_capros_key_UnknownRequest;
     COMMIT_POINT();

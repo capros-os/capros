@@ -37,6 +37,7 @@ typedef struct DiskGenerationHdr {
   uint32_t versionNumber;
   uint64_t generationNumber;
   uint64_t migratedGenNumber;
+  uint64_t monotonicTimeOfDemarc;	// in units of nanoseconds
   LID firstLid;
   LID lastLid;
   struct GenDirHdr processDir;
