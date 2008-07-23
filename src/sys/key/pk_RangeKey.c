@@ -656,7 +656,7 @@ rangeGetWaitCap:
 
     unsigned int oldType = inv->entry.w3;
 
-    if (oid < FIRST_PERSISTENT_OID) {
+    if (! OIDIsPersistent(oid)) {
       // A non-persistent frame.
       // Ensure we can get enough new objects
       EnsureObjFrames(stringParams.newType,

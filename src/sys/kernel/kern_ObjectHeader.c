@@ -250,7 +250,8 @@ objH_MakeObjectDirty(ObjectHeader * pObj)
       break;
 
     case capros_Range_otNode:
-      assert(!"complete");
+      node_MitigateKRO(objH_ToNode(pObj));
+      break;
     }
   }
 

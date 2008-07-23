@@ -728,10 +728,6 @@ HandleDeferredWork(void)
     sysT_WakeupAt();
   }
 
-  if (deferredWork & dw_checkpoint) {
-    ckpt_DoWork();
-  }
-
   act_DoReschedule();
 }
 

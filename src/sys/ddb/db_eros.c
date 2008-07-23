@@ -399,7 +399,7 @@ db_eros_print_context(Process *cc)
 	db_printf("  oid=<unknown>\n");
     }
 
-    db_printf("  Fault Code=0x%08x Fault Info = 0x%08x procFlags=0x%02x\n"
+    db_printf("  Fault Code=%u Fault Info=%#x procFlags=0x%02x\n"
 	      "  haz=0x%x prio=%d",
 	      cc->faultCode, cc->faultInfo, cc->processFlags,
 	      cc->hazards, /*cc->priority*/cc->readyQ->mask);

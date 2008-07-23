@@ -34,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/multiboot.h>
 #include <kerninc/util.h>
 #include <kerninc/IORQ.h>
+#include <kerninc/Ckpt.h>
 #include <kerninc/LogDirectory.h>
 #include <kerninc/ObjH-inline.h>
 #include <arch-kerninc/KernTune.h>
@@ -55,6 +56,8 @@ Approved for public release, distribution unlimited. */
 #define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
+
+DEFQUEUE(KROQueue);
 
 uint32_t objC_nNodes;
 uint32_t objC_nFreeNodeFrames;
@@ -452,11 +455,11 @@ objH_InitDirtyObj(ObjectHeader * pObj, OID oid, unsigned int baseType,
   objH_InitPresentObj(pObj, oid);
   // Object is dirty because we just initialized it:
   objH_SetFlags(pObj, OFLG_DIRTY);
-  if (oid < FIRST_PERSISTENT_OID) {
+  if (OIDIsPersistent(oid)) {
+    objH_SetFlags(pObj, OFLG_Cleanable);
+  } else {
     // not persistent, not cleanable
     objH_ClearFlags(pObj, OFLG_Cleanable);
-  } else {
-    objH_SetFlags(pObj, OFLG_Cleanable);
   }
 }
 
@@ -499,9 +502,23 @@ AddNodeToClean(Node * pNode)
   nodesToClean[numNodesToClean++] = pNode;
 }
 
+static void
+node_ClearDirty(Node * pNode)
+{
+  ObjectHeader * pObj = node_ToObj(pNode);
+
+  if (objH_GetFlags(pObj, OFLG_KRO)) {
+    numKRONodes--;
+    assert(numKRONodes >= 0);
+    objH_ClearFlags(pObj, OFLG_KRO);
+    sq_WakeAll(&KROQueue, false);
+  }
+  objH_ClearFlags(pObj, OFLG_DIRTY);	// cleaned it to the log dir
+}
+
 /* Returns true iff freed some nodes. */
 // May Yield
-bool
+static bool
 CleanAPotOfNodes(bool force)
 {
   unsigned int i;
@@ -538,7 +555,7 @@ CleanAPotOfNodes(bool force)
     Node * pNode = nodesToClean[i];
     pObj = node_ToObj(pNode);
     node_CopyToDiskNode(pNode, dn);
-    objH_ClearFlags(pObj, OFLG_DIRTY);	// it's clean now
+    node_ClearDirty(pNode);
     ObjectDescriptor objDescr = {
       .oid = pObj->oid,
       .allocCount = pObj->allocCount,
@@ -547,8 +564,6 @@ CleanAPotOfNodes(bool force)
       .type = capros_Range_otNode
     };
     ld_recordLocation(&objDescr, workingGenerationNumber);
-    //// Don't release if (force)?
-    ReleaseNodeFrame(pNode);
   }
 
 #if 0
@@ -568,6 +583,30 @@ CleanAPotOfNodes(bool force)
   return true;
 }
 
+/* Returns true if cleaned it,
+ * false if queued it to be cleaned. */
+static bool
+node_Clean(Node * pNode)
+{
+  ObjectHeader * pObj = node_ToObj(pNode);
+
+  if (node_IsNull(pNode)) {
+    ObjectDescriptor objDescr = {
+      .oid = pObj->oid,
+      .allocCount = pObj->allocCount,
+      .callCount = pNode->callCount,
+      .logLoc = 0,	// it's null
+      .type = capros_Range_otNode
+    };
+    ld_recordLocation(&objDescr, workingGenerationNumber);
+    node_ClearDirty(pNode);
+    return true;
+  } else {
+    AddNodeToClean(pNode);
+    return CleanAPotOfNodes(false);
+  }
+}
+
 /* May Yield. */
 static void
 objC_AgeNodeFrames(void)
@@ -576,6 +615,7 @@ objC_AgeNodeFrames(void)
   uint32_t nStuck = 0;
   uint32_t nPinned = 0;
   int pass;
+  Node * pNode = 0;
 
   DEBUG(aging) printf("objC_AgeNodeFrames called.\n");
 
@@ -587,15 +627,17 @@ objC_AgeNodeFrames(void)
   /* It may be that we already have a potful of nodes to be cleaned, 
    * but they didn't get cleaned because we were unable to get a page frame
    * or IORequest. Therefore check again here. */ 
-  if (CleanAPotOfNodes(false))
-    goto bumpAndReturn;	// freed some nodes
+  if (CleanAPotOfNodes(false)) {	// cleaned some nodes
+    pNode = nodesToClean[0];		// one that we cleaned
+    goto stealNode;
+  }
 
   for (pass = 0; pass <= age_Steal; pass++) {
     nPinned = 0;
     nStuck = 0;
     uint32_t count;
     for (count = 0; count < objC_nNodes; count++) {
-      Node * pNode = objC_GetCoreNodeFrame(curNode);
+      pNode = objC_GetCoreNodeFrame(curNode);
       ObjectHeader * pObj = node_ToObj(pNode);
     
       if (pObj->obType == ot_NtFreeFrame)
@@ -661,27 +703,10 @@ objC_AgeNodeFrames(void)
 			(objH_IsDirty(pObj) ? 'y' : 'n'), pObj->oid);
 
         if (objH_IsDirty(pObj)) {
-          if (node_IsNull(pNode)) {
-            ObjectDescriptor objDescr = {
-              .oid = pObj->oid,
-              .allocCount = pObj->allocCount,
-              .callCount = pNode->callCount,
-              .logLoc = 0,	// it's null
-              .type = capros_Range_otNode
-            };
-            ld_recordLocation(&objDescr, workingGenerationNumber);
-            objH_ClearFlags(pObj, OFLG_DIRTY);	// cleaned it to the log dir
+          if (node_Clean(pNode))
             goto stealNode;
-          } else {
-            AddNodeToClean(pNode);
-            if (CleanAPotOfNodes(false))
-              goto bumpAndReturn;	// freed some nodes
-          }
         } else {	// node is clean
-        stealNode:	// Steal this node.
-          node_ClearAllHazards(pNode);
-          ReleaseNodeFrame(pNode);
-          goto bumpAndReturn;
+          goto stealNode;
         }
       }
 
@@ -694,8 +719,10 @@ objC_AgeNodeFrames(void)
   fatal("%d stuck nodes of which %d are pinned\n",
 		nStuck, nPinned);
 
-bumpAndReturn:
-  // We freed some nodes.
+stealNode:	// Steal pNode.
+  assert(! objH_GetFlags(node_ToObj(pNode), OFLG_DIRTY));
+  node_ClearAllHazards(pNode);
+  ReleaseNodeFrame(pNode);
 
 #if 0
   dprintf(true, "AgeNodeFrame(): Object evicted\n");
@@ -756,6 +783,56 @@ objC_GrabNodeFrame(void)
   DEBUG(nodelist) CheckFreeNodeList();
 
   return pNode;
+}
+
+unsigned int KRONodeCleanCursor;	// next node to clean
+
+// Clean the next KRO node.
+void
+CleanAKRONode(void)
+{
+  assert(KRONodeCleanCursor < objC_nNodes);
+  assert(numKRONodes);
+  assert(numNodesToClean < DISK_NODES_PER_PAGE);////?
+
+  for (;;KRONodeCleanCursor++) {
+    Node * pNode = objC_GetCoreNodeFrame(KRONodeCleanCursor);
+    ObjectHeader * pObj = node_ToObj(pNode);
+    if (objH_GetFlags(pObj, OFLG_KRO)) {
+      node_Clean(pNode);
+      if (numKRONodes == 0)	// we've scanned them all
+        if (numNodesToClean)
+          CleanAPotOfNodes(true);	// force out the last pot
+      return;
+    }
+  }
+}
+
+/* This procedure is called when we want to mutate a node that is
+ * Kernel Read Only.
+ *
+ * If the node can't be made writeable, this enqueues the current process
+ * on KROQueue or another queue and Yields. */
+void
+node_MitigateKRO(Node * pNode)
+{
+  ObjectHeader * pObj = node_ToObj(pNode);
+
+  assert(pObj->obType != ot_NtFreeFrame);
+  assert(objH_GetFlags(pObj, OFLG_Cleanable | OFLG_DIRTY | OFLG_KRO)
+         == (OFLG_Cleanable | OFLG_DIRTY | OFLG_KRO));
+
+  CleanAPotOfNodes(false);	// ensure numNodesToClean < DISK_NODES_PER_PAGE
+  if (! objH_GetFlags(pObj, OFLG_KRO))	// it got cleaned
+    return;
+  if (node_Clean(pNode))
+    return;
+  /* The node was queued to be cleaned.
+  Keep cleaning nodes until the pot is cleaned.
+  These may not be "hot" nodes, but they do need to be cleaned eventually,
+  and most likely can be cleaned (to a pot) without requiring I/O. */
+  while (objH_GetFlags(pObj, OFLG_KRO))
+    CleanAKRONode();
 }
 
 #if 0	// revisit this if it turns out we need it

@@ -228,7 +228,7 @@ PreloadObSource_Init(void)
   for (i = npod->numPreloadImages; i > 0; i--) {
     OID oid = npod->OIDBase;
 
-    if (oid < FIRST_PERSISTENT_OID) {
+    if (! OIDIsPersistent(oid)) {
       // Preloaded non-persistent objects.
       // PreloadObSource will supply null objects for uninitialized objects.
       rng.start = oid;

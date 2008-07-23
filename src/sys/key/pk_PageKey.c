@@ -89,7 +89,7 @@ PageKey(Invocation* inv /*@ not null @*/)
     } else {
       /* The page isn't in memory.
        * Let's zero it without bringing in the old data. */
-      if (inv->key->u.unprep.oid < FIRST_PERSISTENT_OID) {
+      if (! OIDIsPersistent(inv->key->u.unprep.oid)) {
         // Non-persistent pages are created as zero by
         // PreloadObSource_GetObject().
 

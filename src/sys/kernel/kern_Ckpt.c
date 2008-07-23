@@ -32,12 +32,25 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Check.h>
 #include <kerninc/ObjH-inline.h>
 #include <idl/capros/Range.h>
+#include <idl/capros/MigratorTool.h>
+#include <eros/Invoke.h>
+
+#define dbg_ckpt	0x1
+
+/* Following should be an OR of some of the above */
+#define dbg_flags   ( 0u | dbg_ckpt )
+
+#define DEBUG(x) if (dbg_##x & dbg_flags)
 
 unsigned int ckptState = ckpt_NotActive;
 
-unsigned long numKROFrames = 0;
+long numKROFrames = 0;
+long numKRONodes = 0;
+unsigned int KROPageCleanCursor;
+unsigned int KRONodeCleanCursor;
 
 DEFQUEUE(WaitForCkptInactive);
+DEFQUEUE(WaitForCkptNeeded);
 
 /* Return the amount of log needed to checkpoint all the dirty objects. */
 unsigned long
@@ -71,10 +84,7 @@ DeclareDemarcationEvent(void)
   assert(!ckptIsActive());
 
   ckptState = ckpt_Phase1;
-  // Defer doing the work until the current operation has quiesced:
-  irqFlags_t flags = local_irq_save();
-  deferredWork |= dw_checkpoint;
-  local_irq_restore(flags);
+  sq_WakeAll(&WaitForCkptNeeded, false);
 }
 
 void
@@ -99,11 +109,15 @@ CheckpointPage(PageHeader * pageH)
   // access, because that's how we track whether it becomes dirty.
 }
 
+// DoPhase1Work does NOT Yield. It must be atomic.
 static void
 DoPhase1Work(void)
 {
   // Don't checkpoint a broken system:
   check_Consistency("before ckpt");
+
+  KROPageCleanCursor = 0;
+  KRONodeCleanCursor = 0;
 
   // Scan all pages.
   unsigned long objNum;
@@ -123,8 +137,10 @@ DoPhase1Work(void)
       }
       break;
 
-    case ot_PtLogPot:
     case ot_PtDataPage:
+      if (! OIDIsPersistent(pageH_ToObj(pageH)->oid))
+        break;
+    case ot_PtLogPot:
       assertex(pageH, ! objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO));
 
       CheckpointPage(pageH);
@@ -140,6 +156,9 @@ DoPhase1Work(void)
     if (pObj->obType == ot_NtFreeFrame)
       continue;
 
+    if (! OIDIsPersistent(pObj->oid))
+      break;
+
     if (objH_GetFlags(pObj, OFLG_DIRTY)) {
       assert(! objH_GetFlags(pObj, OFLG_KRO));
       // Make this node Kernel Read Only.
@@ -147,28 +166,64 @@ DoPhase1Work(void)
       /* Unpreparing the node ensures that when we next try to dirty
        * the node, we will notice it is KRO. */
       node_Unprepare(pNode);
-      // numKROFrames++;
+      numKRONodes++;
       objH_SetFlags(pObj, OFLG_KRO);
     }
   }
 
   monotonicTimeOfLastDemarc = sysT_NowPersistent();
+
+  ckptState = ckpt_Phase2;
+}
+
+static void
+DoPhase2Work(void)
+{
+  assert(!"complete");
 }
 
 void
-ckpt_DoWork(void)
+DoCheckpointStep(void)
 {
-  // IRQ can be enabled during checkpoing work:
-  irq_ENABLE();
-
   switch (ckptState) {
   default: ;
     assert(false);
 
+  case ckpt_NotActive:
+    DEBUG(ckpt) printf("DoCheckpointStep not active\n");
+    act_SleepOn(&WaitForCkptNeeded);
+    act_Yield();
+    
   case ckpt_Phase1:
+    DEBUG(ckpt) printf("DoCheckpointStep P1\n");
     DoPhase1Work();
+  case ckpt_Phase2:
+    DEBUG(ckpt) printf("DoCheckpointStep P2\n");
+    DoPhase2Work();
     break;
   }
+}
 
-  irq_DISABLE();	// restore
+void
+CheckpointThread(void)
+{
+  DEBUG(ckpt) printf("Start Checkpoint thread, act=%#x\n", checkpointActivity);
+
+  Message Msg = {
+    .snd_invKey = KR_MigrTool,
+    .snd_code = OC_capros_MigratorTool_checkpointStep,
+    .snd_key0 = KR_VOID,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_rsmkey = KR_VOID,
+    .rcv_limit = 0,
+    .rcv_key0 = KR_VOID,
+    .rcv_key1 = KR_VOID,
+    .rcv_key2 = KR_VOID,
+    .rcv_rsmkey = KR_VOID
+  };
+
+  for (;;) {
+    CALL(&Msg);
+  }
 }

@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
 enum {
   ckpt_NotActive = 0,
   ckpt_Phase1,
+  ckpt_Phase2,
 };
 extern unsigned int ckptState;
 
@@ -41,6 +42,16 @@ extern uint64_t monotonicTimeOfRestart;
 extern uint64_t monotonicTimeOfLastDemarc;
 
 extern struct StallQueue WaitForCkptInactive;
+extern struct StallQueue WaitForCkptNeeded;
+
+extern long numKROFrames;
+extern long numKRONodes;
+extern unsigned int KROPageCleanCursor;
+extern unsigned int KRONodeCleanCursor;
+
+extern struct Activity * checkpointActivity;
+
+#define KR_MigrTool 7
 
 INLINE bool
 ckptIsActive(void)
@@ -58,6 +69,6 @@ restartIsDone(void)
 
 unsigned long CalcLogReservation(void);
 void DeclareDemarcationEvent(void);
-void ckpt_DoWork(void);
+void DoCheckpointStep(void);
 
 #endif /* __CKPT_H__ */

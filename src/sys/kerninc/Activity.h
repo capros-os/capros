@@ -94,7 +94,6 @@ extern const char *act_stateNames[act_NUM_STATES];
 /* Bits in deferredWork: */
 #define dw_reschedule 0x1
 #define dw_timer      0x2
-#define dw_checkpoint 0x4
 /* deferredWork must only be used with interrupts disabled. */
 extern unsigned int deferredWork;
 

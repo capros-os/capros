@@ -4,16 +4,19 @@ package capros;
 
 Restart and migration are driven by a non-persistent process
 called the migrator process.
+Checkpointing is driven by another non-persistent process.
 One reason for this has to do with process control.
 If, for example, the sequence stalls waiting for a resource
 such as a page frame, the kernel will put this process on a StallQueue,
 and wake it up when the resource is available.
 This process can then restart the sequence using this capability.
-Only the migrator process should hold this capability.
+Only the migrator and checkpoint processes should hold this capability.
  */
 interface MigratorTool extends key {
 
   void restartStep();
+
+  void checkpointStep();
 
   void migrationStep();
 

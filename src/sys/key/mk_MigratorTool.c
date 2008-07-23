@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/IORQ.h>
 #include <kerninc/LogDirectory.h>
 #include <kerninc/PhysMem.h>
+#include <kerninc/Ckpt.h>
 #include <disk/CkptRoot.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
@@ -56,6 +57,7 @@ uint64_t monotonicTimeOfRestart;
 uint64_t monotonicTimeOfLastDemarc;
 frame_t logSizeLimited;
 Activity * migratorActivity;
+Activity * checkpointActivity;
 
 DEFQUEUE(RestartQueue);	// waiting for restart to finish
 
@@ -211,6 +213,7 @@ DoRestartStep(void)
   }
   // Restart is done and the migrator is initialized (it has allocated
   // all the space it needs).
+  act_Wakeup(checkpointActivity);
   sq_WakeAll(&RestartQueue, false);
 }
 
@@ -241,13 +244,18 @@ MigratorToolKey(Invocation* inv)
     COMMIT_POINT();
     break;
 
+  case OC_capros_MigratorTool_checkpointStep: ;
+    DoCheckpointStep();
+    COMMIT_POINT();
+    break;
+
   case OC_capros_MigratorTool_migrationStep:
     DoMigrationStep();
     COMMIT_POINT();
     break;
 
   case OC_capros_MigratorTool_waitForRestart:
-    if (logCursor == 0) {
+    if (! restartIsDone()) {
       DEBUG(restart)
         printf("MigrTool_waitForRestart waiting for restart to complete.\n");
       act_SleepOn(&RestartQueue);
@@ -260,7 +268,6 @@ MigratorToolKey(Invocation* inv)
 }
 
 #define StackSize 256
-#define KR_MigrTool 7
 
 /* Most of the work of restart and migration is done in the kernel.
  * This thread just drives the execution.
@@ -301,20 +308,36 @@ MigratorStart(void)
   }
 }
 
-void
-CreateMigratorActivity(void)
+static void
+CreateKernelThread(const char * name, Priority prio,
+  void (*func)(void), Activity * * ppAct)
 {
   fixreg_t * stack = MALLOC(fixreg_t, StackSize);
 
-  migratorActivity = kact_InitKernActivity("Migr", pr_Normal,
-    dispatchQueues[pr_Normal], &MigratorStart,
+  Activity * act = kact_InitKernActivity(name, prio,
+    dispatchQueues[prio], func,
     stack, &stack[StackSize]);
-  migratorActivity->readyQ = dispatchQueues[pr_Normal];
+  act->readyQ = dispatchQueues[prio];
 
   // Endow it with the migrator tool.
-  Key * k = & migratorActivity->context->keyReg[KR_MigrTool];
+  Key * k = & act->context->keyReg[KR_MigrTool];
   keyBits_InitType(k, KKT_MigratorTool);
 
+  *ppAct = act;
+}
+
+void
+CreateMigratorActivity(void)
+{
+  CreateKernelThread("Migr", pr_Normal, &MigratorStart,
+                     &migratorActivity);
+
   printf("Created migrator process at %#x\n", migratorActivity->context);
+
+  void CheckpointThread(void);
+  CreateKernelThread("Ckpt", pr_High, &CheckpointThread,
+                     &checkpointActivity);
+
+  printf("Created checkpoint thread at %#x\n", checkpointActivity->context);
 }
 

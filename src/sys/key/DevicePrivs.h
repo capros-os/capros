@@ -188,7 +188,7 @@ devPrivs_DeclarePFHProcess(Invocation * inv)
   Process * proc = key->u.gk.pContext;
 
   Node * pNode = proc->procRoot;
-  if (node_ToObj(pNode)->oid >= FIRST_PERSISTENT_OID) {
+  if (OIDIsPersistent(node_ToObj(pNode)->oid)) {
     // Only non-persistent can be a PFH.
     COMMIT_POINT();
 

@@ -437,6 +437,7 @@ pageH_GetPageVAddr(const PageHeader * pageH)
 }
 
 PageHeader * pageH_MitigateKRO(PageHeader * old);
+void node_MitigateKRO(Node * pNode);
 
 // Machine-dependent procedures for coherent mapping:
 kva_t pageH_MapCoherentRead(PageHeader * pageH);

@@ -43,6 +43,13 @@ typedef OID frame_t;	// (64 - 8) bits suffice
 #define OID_RESERVED_PHYSRANGE 0xff00000000000000ull
 // OIDS from OID_RESERVED_PHYSRANGE are for physical pages.
 
+// oid must not be >= OID_RESERVED_PHYSRANGE.
+INLINE bool
+OIDIsPersistent(OID oid)
+{
+  return oid >= FIRST_PERSISTENT_OID;
+}
+
 #define EROS_FRAME_FROM_OID(oid) (oid & ~(EROS_OBJECTS_PER_FRAME-1))
 
 INLINE unsigned int

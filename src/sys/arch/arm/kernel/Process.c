@@ -142,8 +142,6 @@ kproc_Init(
   return p;
 }
 
-extern void resume_from_kernel_interrupt(savearea_t *) NORETURN;
-
 void
 DumpFixRegs(const savearea_t * sa)
 {

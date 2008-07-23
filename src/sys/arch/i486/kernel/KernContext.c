@@ -90,14 +90,7 @@ kproc_Init(
   p->trapFrame.SS = sel_KProcData;
 
   p->trapFrame.EIP = (uint32_t) pc;
-
-  /* YES the first of these is dead code.  It suppresses the unused
-   * argument warning if DBG_WILD_PTR is not enabled.
-   */
-  p->trapFrame.ESP = (uint32_t) stkBottom;
   p->trapFrame.ESP = (uint32_t) stkTop;
     
   return p;
 }
-
-extern void resume_from_kernel_interrupt(savearea_t *) NORETURN;
