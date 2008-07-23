@@ -381,7 +381,6 @@ void objH_Unintern(ObjectHeader* thisPtr);	/* remove object from the ObList. */
 
 void objH_EnsureNotFetching(ObjectHeader * pObj);
 
-void objH_FlushIfCkpt(ObjectHeader* thisPtr);
 void objH_Rescind(ObjectHeader* thisPtr);
 void objH_ClearObj(ObjectHeader * thisPtr);
 
@@ -437,6 +436,8 @@ pageH_GetPageVAddr(const PageHeader * pageH)
   return PTOV(pageH_GetPhysAddr(pageH));
 }
 
+PageHeader * pageH_MitigateKRO(PageHeader * old);
+
 // Machine-dependent procedures for coherent mapping:
 kva_t pageH_MapCoherentRead(PageHeader * pageH);
 void pageH_UnmapCoherentRead(PageHeader * pageH);
@@ -444,8 +445,6 @@ kva_t pageH_MapCoherentWrite(PageHeader * pageH);
 void pageH_UnmapCoherentWrite(PageHeader * pageH);
 void pageH_PrepareForDMAOutput(PageHeader * pageH);
 void pageH_PrepareForDMAInput(PageHeader * pageH);
-
-void pageH_MakeReadOnly(PageHeader * pageH);
 
 Node * pageH_GetNodeFromPot(PageHeader * pageH, unsigned int obIndex);
 

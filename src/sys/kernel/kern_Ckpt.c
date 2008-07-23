@@ -30,9 +30,12 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Ckpt.h>
 #include <kerninc/LogDirectory.h>
 #include <kerninc/Check.h>
+#include <kerninc/ObjH-inline.h>
 #include <idl/capros/Range.h>
 
 unsigned int ckptState = ckpt_NotActive;
+
+unsigned long numKROFrames = 0;
 
 DEFQUEUE(WaitForCkptInactive);
 
@@ -82,7 +85,6 @@ CheckpointPage(PageHeader * pageH)
   if (objH_GetFlags(pObj, OFLG_DIRTY)) {
     assert(! objH_GetFlags(pObj, OFLG_KRO));
     // Make this page Kernel Read Only.
-#if 0	// not implemented yet
     switch (pageH_GetObType(pageH)) {
     default:
       break;
@@ -92,8 +94,9 @@ CheckpointPage(PageHeader * pageH)
     }
     numKROFrames++;
     objH_SetFlags(pObj, OFLG_KRO);
-#endif
   }
+  // else it's not marked dirty, in which case it isn't mapped with write
+  // access, because that's how we track whether it becomes dirty.
 }
 
 static void
@@ -103,11 +106,9 @@ DoPhase1Work(void)
   check_Consistency("before ckpt");
 
   // Scan all pages.
-  unsigned long pgNum;
-  for (pgNum = 0; pgNum < objC_nPages; pgNum++) {
-    PageHeader * pageH = objC_GetCorePageFrame(pgNum);
-
-    assert(! objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO));
+  unsigned long objNum;
+  for (objNum = 0; objNum < objC_nPages; objNum++) {
+    PageHeader * pageH = objC_GetCorePageFrame(objNum);
 
     switch (pageH_GetObType(pageH)) {
     default:
@@ -115,6 +116,8 @@ DoPhase1Work(void)
 
     case ot_PtTagPot:
     case ot_PtHomePot:
+      assertex(pageH, ! objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO));
+
       if (objH_GetFlags(pageH_ToObj(pageH), OFLG_DIRTY)) {
         assert(!"complete");	// figure this out later
       }
@@ -122,8 +125,30 @@ DoPhase1Work(void)
 
     case ot_PtLogPot:
     case ot_PtDataPage:
+      assertex(pageH, ! objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO));
+
       CheckpointPage(pageH);
       break;
+    }
+  }
+
+  // Scan all nodes.
+  for (objNum = 0; objNum < objC_nNodes; objNum++) {
+    Node * pNode = objC_GetCoreNodeFrame(objNum);
+    ObjectHeader * pObj = node_ToObj(pNode);
+
+    if (pObj->obType == ot_NtFreeFrame)
+      continue;
+
+    if (objH_GetFlags(pObj, OFLG_DIRTY)) {
+      assert(! objH_GetFlags(pObj, OFLG_KRO));
+      // Make this node Kernel Read Only.
+
+      /* Unpreparing the node ensures that when we next try to dirty
+       * the node, we will notice it is KRO. */
+      node_Unprepare(pNode);
+      // numKROFrames++;
+      objH_SetFlags(pObj, OFLG_KRO);
     }
   }
 

@@ -1092,6 +1092,7 @@ db_kstat_show_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 	    "nDepMerge 0x%08x%08x\n"
 
 	    "nDepInval 0x%08x%08x  "
+	    "nDepMakRO %#16llx  "
 	    "nDepTrkRf %#16llx  "
 	    "nDepTrkDr %#16llx  "
 	    "nDepZap   0x%08x%08x\n"
@@ -1115,6 +1116,7 @@ db_kstat_show_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 	    DB64(KernStats.nDepMerge),
 
 	    DB64(KernStats.nDepInval),
+            KernStats.nDepMakeRO,
             KernStats.nDepTrackRef,
             KernStats.nDepTrackDirty,
 	    DB64(KernStats.nDepZap),

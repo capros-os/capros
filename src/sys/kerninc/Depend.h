@@ -200,6 +200,7 @@ typedef struct KeyDependEntry {
 #define SLOT_TAG(pKey) ( (((unsigned) pKey) >> 4) & 0xfffffu )
 
 void KeyDependEntry_Invalidate(KeyDependEntry * kde);
+void KeyDependEntry_MakeRO(KeyDependEntry * kde);
 void KeyDependEntry_TrackReferenced(KeyDependEntry * kde);
 void KeyDependEntry_TrackDirty(KeyDependEntry * kde);
 
@@ -210,9 +211,8 @@ KeyDependEntry_InUse(KeyDependEntry const * kde)
 }
 
 void Depend_AddKey(Key *, void *, int mapLevel);
+void Depend_VisitEntries(Key * pKey, void (*func)(KeyDependEntry *));
 void Depend_InvalidateKey(Key * key);
-void Depend_TrackReferenced(Key * key);
-void Depend_TrackDirty(Key * key);
 
 void Depend_InitKeyDependTable(uint32_t nNodes);
 

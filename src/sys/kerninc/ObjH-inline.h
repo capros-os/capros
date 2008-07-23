@@ -24,6 +24,7 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <kerninc/ObjectHeader.h>
+#include <kerninc/Depend.h>
 #include <idl/capros/Range.h>
 
 INLINE unsigned int
@@ -47,6 +48,13 @@ BaseTypeToObType(unsigned int baseType)
   case capros_Range_otPage:
     return ot_PtDataPage;
   }
+}
+
+INLINE void
+pageH_MakeReadOnly(PageHeader * pageH)
+{
+  keyR_ProcessAllMaps(&pageH_ToObj(pageH)->keyRing,
+                      &KeyDependEntry_MakeRO);
 }
 
 #endif // __OBJH_INLINE_H_

@@ -246,66 +246,29 @@ Depend_AddKey(Key * pKey, void * mte, int mapLevel)
 }
 
 void
+Depend_VisitEntries(Key * pKey, void (*func)(KeyDependEntry *))
+{
+  uint32_t i;
+  
+  DEBUG(invalidate)
+    printf("Visiting depend entries for key=%#x\n", pKey);
+
+  KeyDependEntry * bucket
+    = &KeyDependTable[keybucket_ndx(pKey)* KeyBucketSize];
+
+  for (i = 0; i < KeyBucketSize; i++) {
+    if (bucket[i].slotTag == SLOT_TAG(pKey)) {
+      (*func)(&bucket[i]);
+    }
+  }
+}
+
+void
 Depend_InvalidateKey(Key * pKey)
 {
-  bool didZap = false;
-  uint32_t i;
-  
-  DEBUG(invalidate)
-    printf("Invalidating depend entries for key=%#x\n", pKey);
-
-  KeyDependEntry * bucket
-    = &KeyDependTable[keybucket_ndx(pKey)* KeyBucketSize];
-
-  for (i = 0; i < KeyBucketSize; i++) {
-    if (bucket[i].slotTag == SLOT_TAG(pKey)) {
-      didZap = true;
-
-      KeyDependEntry_Invalidate(&bucket[i]);
-    }
-  }
-
-  if (didZap) {
-    KernStats.nDepZap++;
-  }
+  Depend_VisitEntries(pKey, &KeyDependEntry_Invalidate);
 
   keyBits_UnHazard(pKey);
-}
-
-void
-Depend_TrackReferenced(Key * pKey)
-{
-  uint32_t i;
-  
-  DEBUG(invalidate)
-    printf("Tracking referenced for depend entries for key=%#x\n", pKey);
-
-  KeyDependEntry * bucket
-    = &KeyDependTable[keybucket_ndx(pKey)* KeyBucketSize];
-
-  for (i = 0; i < KeyBucketSize; i++) {
-    if (bucket[i].slotTag == SLOT_TAG(pKey)) {
-      KeyDependEntry_TrackReferenced(&bucket[i]);
-    }
-  }
-}
-
-void
-Depend_TrackDirty(Key * pKey)
-{
-  uint32_t i;
-  
-  DEBUG(invalidate)
-    printf("Tracking dirty for depend entries for key=%#x\n", pKey);
-
-  KeyDependEntry * bucket
-    = &KeyDependTable[keybucket_ndx(pKey)* KeyBucketSize];
-
-  for (i = 0; i < KeyBucketSize; i++) {
-    if (bucket[i].slotTag == SLOT_TAG(pKey)) {
-      KeyDependEntry_TrackDirty(&bucket[i]);
-    }
-  }
 }
 
 #ifdef OPTION_DDB

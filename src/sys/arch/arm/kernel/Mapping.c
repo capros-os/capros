@@ -82,7 +82,8 @@ A process using a small address space runs with the Process ID for that space.
 SmallSpaces[0] is unused.
 
 For 0 < i < NumSmallSpaces,
-the following states are possible for SmallSpaces[i]:
+the following states are possible for SmallSpaces[i]
+(NOTE not for SmallSpaces[0]):
 1. mth.isFree is nonzero. Nothing is mapped in this small space. 
 2. mth.isFree is zero and domain is nonzero. 
    This domain is assigned to this space.
@@ -99,6 +100,7 @@ Invariant: SmallSpaces[i].mth.tableCacheAddr == i << PID_SHIFT.
 struct SmallSpace {
   MapTabHeader mth;
   unsigned char domain;	/* the domain owned by this PID, 0 if none */
+  Link procs;		/* Processes using this small space */
 } SmallSpaces[NumSmallSpaces];
 
 
@@ -134,6 +136,12 @@ FLMTE_TrackReferenced(uint32_t * pFLMTE)
                          val, *pFLMTE);
     // Leave any cache entries intact.
   }
+}
+
+static void
+FLMTE_MakeRO(uint32_t * pFLMTE)
+{
+  assert(false);	// this shouldn't happen
 }
 
 static void
@@ -176,11 +184,31 @@ PTE_TrackReferenced(PTE * pPTE)
 }
 
 static void
+PTE_MakeRO(PTE * pPTE)
+{
+  const uint32_t pteval = pPTE->w_value;
+  if ((pteval & (PTE_VALIDBITS | 0xff0)) == (PTE_SMALLPAGE | 0xff)) {
+    // It's a PTE that grants user write access.
+    // Change to read-only.
+    pPTE->w_value = (pteval & ~0xff0) | 0xaa0
+#ifndef OPTION_WRITEBACK
+                    | (pteval & PTE_CACHEABLE ? PTE_BUFFERABLE : 0)
+#endif
+                    ;
+    SetMapWork_TLB();
+    DEBUG(track) dprintf(true, "Tracking dirty, PTE %#x -> %#x\n",
+                         pteval, pPTE->w_value);
+    // Leave any cache entries intact.
+  }
+}
+
+static void
 PTE_TrackDirty(PTE * pPTE)
 {
   // Turn this PTE into the form used for tracking Dirty.
   const uint32_t pteval = pPTE->w_value;
   if ((pteval & (PTE_VALIDBITS | 0xff0)) == (PTE_SMALLPAGE | 0xff)) {
+    // It's a PTE that grants user write access.
     pPTE->w_value = (pteval & ~(PTE_CACHEABLE | PTE_BUFFERABLE | 0xff0))
                     | (PTE_CACHEABLE | 0xaa0);
     SetMapWork_TLB();
@@ -198,6 +226,7 @@ proc_ResetMappingTable(Process * p)
   p->md.dacr = 0x1;	/* client access for domain 0 only,
 	which means all user-mode accesses will fault. */
   p->md.pid = 0;	// this may overwrite PID_IN_PROGRESS
+  link_Unlink(&p->md.pidLink);
 }
 
 static void
@@ -268,6 +297,14 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
   KeyDependEntry_Track(kde, &FLMTE_Invalidate, &pte_Invalidate);
 
   kde->start = 0;
+}
+
+void
+KeyDependEntry_MakeRO(KeyDependEntry * kde)
+{
+  KernStats.nDepMakeRO++;
+  
+  KeyDependEntry_Track(kde, &FLMTE_MakeRO, &PTE_MakeRO);
 }
 
 void
@@ -412,6 +449,7 @@ mach_HeapInit(kpsize_t heap_size)
     SmallSpaces[i].mth.tableCacheAddr = i << PID_SHIFT;
     SmallSpaces[i].mth.tableSize = 1;
     SmallSpaces[i].domain = 0;
+    link_Init(&SmallSpaces[i].procs);
   }
 }
 
@@ -424,7 +462,18 @@ SmallSpace_GetMth(unsigned int ss)
 static void
 ReleaseSmallSpace(unsigned int pid)
 {
-  MapTabHeader * mth = & SmallSpaces[pid].mth;
+  struct SmallSpace * ss = &SmallSpaces[pid];
+
+  // Stop any processes from using this small space.
+  while (! link_isSingleton(&ss->procs)) {
+    Link * l = ss->procs.next;
+    link_Unlink(l);
+    Process * proc = container_of(l, Process, md.pidLink);
+    assert(ValidCtxtPtr(proc));
+    proc_ResetMappingTable(proc);
+  }
+
+  MapTabHeader * mth = &ss->mth;
 
   objH_DelProduct(mth->producer, mth);
 
@@ -435,15 +484,14 @@ ReleaseSmallSpace(unsigned int pid)
     FLMTE_Invalidate(& FLPT_FCSEVA[ndx+i]);
 
   // Free the domain for this small space if any.
-  unsigned int domain = SmallSpaces[pid].domain;
+  unsigned int domain = ss->domain;
   if (domain) {
-    SmallSpaces[pid].domain = 0;	// no longer has it
+    ss->domain = 0;	// no longer has it
     MMUDomains[domain].pid = 0;
   }
 
   /* There should be no processes holding this pid; they should
-  have had their pid invalidated when the key to the producer was
-  unhazarded. */
+  have had their pid invalidated above. */
 #ifndef NDEBUG
   uint32_t pid32 = pid << PID_SHIFT;
   for (i = 0; i < KTUNE_NCONTEXT; i++) {
@@ -493,6 +541,15 @@ assignSS:
   printf("Allocating small space %d\n", lastSSAssigned);
 #endif
   return &SmallSpaces[lastSSAssigned].mth;
+}
+
+/* This process is now to use the specified small space. */
+void
+AssignSSToProc(Process * proc, unsigned int ssid)
+{
+  proc->md.firstLevelMappingTable = FLPT_FCSEPA;
+  proc->md.pid = ssid << PID_SHIFT;
+  link_insertAfter(&SmallSpaces[ssid].procs, &proc->md.pidLink);
 }
 
 unsigned int lastDomainAssigned = 1;
@@ -780,7 +837,7 @@ static void
 MapTab_TrackReferenced(MapTabHeader * mth)
 {
   ObjectHeader * producer = mth->producer;
-  keyR_TrackReferenced(& producer->keyRing);
+  keyR_ProcessAllMaps(& producer->keyRing, &KeyDependEntry_TrackReferenced);
 
   /* If the producer also produces a higher table, there could be
      a reference from that table to this one,

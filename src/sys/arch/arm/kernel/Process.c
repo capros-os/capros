@@ -99,6 +99,7 @@ proc_InitProcessMD(Process * proc)
 void
 proc_Init_MD(Process * p, bool isUser)
 {
+  link_Init(&p->md.pidLink);
   proc_ResetMappingTable(p);
 }
 

@@ -177,6 +177,8 @@ gen	uint8_t    uint8_t    processFlags
 proc	uint32_t   *          readyQ
 proc	uint32_t   *          curThread
 
+opaque	uint32_t   *          pidLinkNext
+opaque	uint32_t   *          pidLinkPrev
 proc	uint32_t   *          flmtProducer
 proc	uint32_t   *          firstLevelMappingTable
 proc	uint32_t   *          pid

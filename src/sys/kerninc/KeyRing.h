@@ -29,15 +29,15 @@ Approved for public release, distribution unlimited. */
  */
 #include <eros/Link.h>
 
+struct KeyDependEntry;
 typedef struct Link KeyRing;
 
 void keyR_ClearWriteHazard(KeyRing * thisPtr);
 void keyR_RescindAll(KeyRing * thisPtr);
 void keyR_ZapResumeKeys(KeyRing *thisPtr);
 void keyR_UnprepareAll(KeyRing *thisPtr);
-void keyR_UnmapAll(KeyRing * thisPtr);
-void keyR_TrackReferenced(KeyRing * thisPtr);
-void keyR_TrackDirty(KeyRing * thisPtr);
+void keyR_ProcessAllMaps(KeyRing * thisPtr,
+       void (*func)(struct KeyDependEntry *));
 bool keyR_HasResumeKeys(const KeyRing *thisPtr);
 struct ObjectHeader;
 void keyR_ObjectMoved(KeyRing *thisPtr, struct ObjectHeader *);

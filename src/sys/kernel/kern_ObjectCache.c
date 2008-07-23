@@ -648,7 +648,7 @@ objC_AgeNodeFrames(void)
 
       switch (pObj->objAge) {
       case age_Invalidate:
-        keyR_TrackReferenced(&pObj->keyRing);
+        keyR_ProcessAllMaps(&pObj->keyRing, &KeyDependEntry_TrackReferenced);
       default:
 	pObj->objAge++;
         break;
@@ -914,7 +914,8 @@ pageH_Clean(PageHeader * pageH)
     break;
 
   case ot_PtDataPage:
-    keyR_TrackDirty(&pageH_ToObj(pageH)->keyRing);
+    keyR_ProcessAllMaps(&pageH_ToObj(pageH)->keyRing,
+                        &KeyDependEntry_TrackDirty);
     pageH_ClearFlags(pageH, OFLG_DIRTY);
 #ifdef OPTION_OB_MOD_CHECK
     pageH_ToObj(pageH)->check = objH_CalcCheck(pageH_ToObj(pageH));
@@ -958,6 +959,21 @@ pageH_Clean(PageHeader * pageH)
       ioreq_Enqueue(ioreq);
     }
   }
+}
+
+/* This procedure is called when we want to mutate a page that is
+ * Kernel Read Only.
+ *
+ * If the page is made writeable, this returns a reference to the same frame.
+ * If the current version of the page is moved to a new frame and made
+ * writeable, this returns a reference to the new frame.
+ * If the page can't be made writeable, this enqueues the current process
+ * on KROQueue and Yields. */
+PageHeader *
+pageH_MitigateKRO(PageHeader * old)
+{
+  assert(!"complete");
+  return NULL;
 }
 
 /* OBJECT AGING POLICY:
@@ -1068,7 +1084,8 @@ objC_AgePageFrames(void)
          * If the object is referenced,
          * the entry will be rebuilt and the age updated then.
          */
-        keyR_TrackReferenced(&pageH_ToObj(pageH)->keyRing);
+        keyR_ProcessAllMaps(&pageH_ToObj(pageH)->keyRing,
+                            &KeyDependEntry_TrackReferenced);
       default:
       bumpAge:
         pageH_ToObj(pageH)->objAge++;

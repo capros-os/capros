@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/GPT.h>
 #include <kerninc/Activity.h>
+#include <kerninc/Depend.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <kerninc/Key-inline.h>
@@ -46,7 +47,7 @@ InvalidateMaps(GPT * theGPT)
      to clean them up, since they may very well be useless. */
     GPT_Unload(theGPT);
   }
-  keyR_UnmapAll(&node_ToObj(theGPT)->keyRing);
+  keyR_ProcessAllMaps(&node_ToObj(theGPT)->keyRing, &KeyDependEntry_Invalidate);
 }
 
 /* May Yield. */

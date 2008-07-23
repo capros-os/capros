@@ -23,6 +23,8 @@
 Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
+#include <eros/Link.h>
+
 struct ObjectHeader;
 
 /* Machine-dependent data that go in the Process structure. */
@@ -70,6 +72,9 @@ Notes:
 */
 
 typedef struct ProcMD {
+  Link pidLink;		/* Link in list of processes with this pid,
+			if pid is nonzero */
+
   struct ObjectHeader * flmtProducer;
   /* The following are cached from the above: */
   kpa_t firstLevelMappingTable;

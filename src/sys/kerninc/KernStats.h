@@ -32,6 +32,7 @@ struct KernStats_s {
   uint64_t nDepend;
   uint64_t nDepMerge;
   uint64_t nDepInval;
+  uint64_t nDepMakeRO;
   uint64_t nDepTrackRef;
   uint64_t nDepTrackDirty;
   uint64_t nDepZap;

@@ -471,9 +471,9 @@ keyR_UnprepareAll(KeyRing *thisPtr)
 /* Find all keys on this KeyRing that could have Depend entries,
  * and call func for each one.
  * This object must be a page or node (not a Process). */
-static void
+void
 keyR_ProcessAllMaps(KeyRing * thisPtr,
-  void (*func)(Key *))
+  void (*func)(KeyDependEntry *))
 {
   Key * pKey = (Key *) thisPtr->next;
 
@@ -490,15 +490,16 @@ keyR_ProcessAllMaps(KeyRing * thisPtr,
     assert(objC_ValidKeyPtr(pKey));
     assert(keyBits_IsPreparedObjectKey(pKey));
     
-    if ( keyBits_IsHazard(pKey) ) {
+    if (keyBits_IsHazard(pKey)) {
       Node * pNode = objC_ContainingNode(pKey);
-      uint32_t ndx = pKey - pNode->slot;
-
       switch(pNode->node_ObjHdr.obType) {
       case ot_NtProcessRoot:
-        if (ndx == ProcAddrSpace) {
+        if ((pKey - pNode->slot) == ProcAddrSpace) {
       case ot_NtSegment:
-          (*func)(&pNode->slot[ndx]);
+          Depend_VisitEntries(pKey, func);
+
+          if (func == &KeyDependEntry_Invalidate)	// if invalidating,
+            keyBits_UnHazard(pKey);	// key is no longer hazarded
         }
         break;
       default:
@@ -514,30 +515,3 @@ keyR_ProcessAllMaps(KeyRing * thisPtr,
     check_Consistency("Bottom UnmapAll()");
 #endif
 }
-
-/* Unmap all address space mapping entries dependent on keys to this object,
-which must be a page or node (not a Process). */
-void
-keyR_UnmapAll(KeyRing * thisPtr)
-{
-  keyR_ProcessAllMaps(thisPtr, &Depend_InvalidateKey);
-}
-
-/* Track referenced for all address space mapping entries
-dependent on keys to this object,
-which must be a page or node (not a Process). */
-void
-keyR_TrackReferenced(KeyRing * thisPtr)
-{
-  keyR_ProcessAllMaps(thisPtr, &Depend_TrackReferenced);
-}
-
-/* Track dirty for all address space mapping entries
-dependent on keys to this object,
-which must be a page or node (not a Process). */
-void
-keyR_TrackDirty(KeyRing * thisPtr)
-{
-  keyR_ProcessAllMaps(thisPtr, &Depend_TrackDirty);
-}
-

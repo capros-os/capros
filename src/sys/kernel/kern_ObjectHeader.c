@@ -233,26 +233,6 @@ ObjectHeader::DoCopyOnWrite()
 #endif
 
 void
-objH_FlushIfCkpt(ObjectHeader* thisPtr)
-{
-#ifdef OPTION_PERSISTENT
-#error "This needs an implementation."
-  /* If this page is involved in checkpointing, run the COW logic. */
-  if (GetFlags(OFLG_CKPT) && IsDirty()) {
-    assert (IsFree() == false);
-    if (obType <= ObType::NtLAST_NODE_TYPE) {
-      Checkpoint::WriteNodeToLog((Node *) this);
-      assert (!IsDirty());
-    }
-    else  
-      Persist::WritePage(this, true);
-  }
-#else
-  assert(!objH_GetFlags(thisPtr, OFLG_CKPT));
-#endif
-}
-
-void
 objH_MakeObjectDirty(ObjectHeader * pObj)
 {
   assert(objH_IsUserPinned(pObj)
@@ -260,7 +240,19 @@ objH_MakeObjectDirty(ObjectHeader * pObj)
               || pObj->obType == ot_NtKeyRegs
               || pObj->obType == ot_NtRegAnnex)
              && objH_IsUserPinned(proc_ToObj(pObj->prep_u.context)) ) );
-  assert(objH_GetFlags(pObj, OFLG_CURRENT));
+
+  if (objH_GetFlags(pObj, OFLG_KRO)) {
+    switch (objH_GetBaseType(pObj)) {
+    default:	// page
+      if (pageH_MitigateKRO(objH_ToPage(pObj)) != objH_ToPage(pObj))
+        // the current version moved
+        act_Yield();	// simplest way to recover is to start over
+      break;
+
+    case capros_Range_otNode:
+      assert(!"complete");
+    }
+  }
 
   if (objH_IsDirty(pObj))	// already dirty
     return;
@@ -290,8 +282,8 @@ objH_MakeObjectDirty(ObjectHeader * pObj)
      * Therefore it is safe to begin dirtying objects, because
      * we know we will be able to clean them eventually. */
 
-    unsigned int baseType = objH_isNodeType(pObj) ? capros_Range_otNode
-                                                    : capros_Range_otPage;
+    unsigned int baseType = objH_GetBaseType(pObj);
+
     // Tentatively count this object as dirty:
     numDirtyObjects[baseType]++;
 
@@ -349,19 +341,9 @@ objH_MakeObjectDirty(ObjectHeader * pObj)
               availDirEnts, totalDirtyObjs);
       assert(!"complete");
     }
-
-
-//// old stuff:
-    objH_FlushIfCkpt(pObj);
-
-#ifdef OPTION_PERSISTENT
-    Checkpoint::RegisterDirtyObject(this);
-#endif
-
   }
 
   objH_SetDirtyFlag(pObj);
-  objH_ClearFlags(pObj, OFLG_CKPT);
   
 #if 1//// until tested, then #ifdef DBG_CLEAN
   dprintf(true,

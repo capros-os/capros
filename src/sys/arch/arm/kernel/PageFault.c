@@ -35,12 +35,15 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/GPT.h>
 #include <kerninc/IRQ.h>
+#include <kerninc/Depend.h>
+#include <kerninc/ObjH-inline.h>
 #include <arch-kerninc/Process.h>
 #include <arch-kerninc/PTE.h>
 #include <idl/capros/GPT.h>
 
 MapTabHeader * AllocateSmallSpace(void);
 unsigned int EnsureSSDomain(unsigned int ssid);
+void AssignSSToProc(Process * proc, unsigned int ssid);
 
 // #define WALK_LOUD
 
@@ -284,7 +287,8 @@ pageH_MakeUncached(PageHeader * pageH)
   KernStats.nPageUncache++;
 
   /* Unmap all references to this page, because they are cacheable. */
-  keyR_UnmapAll(&pageH_ToObj(pageH)->keyRing);
+  keyR_ProcessAllMaps(&pageH_ToObj(pageH)->keyRing,
+                            &KeyDependEntry_Invalidate);
   pageH->kt_u.ob.cacheAddr = CACHEADDR_UNCACHED;
   /* If and when PTEs to this page are rebuilt, they will be uncached. */
   SetMapWork_InvalidateCache();
@@ -678,8 +682,7 @@ GetFirstLevelMappingTable(Process * p, uva_t va, bool isWrite,
     if (ssid == 0)	// if large space
       assert(false);	// because large space not implemented yet
     p->md.flmtProducer = pwi->memObj;
-    p->md.firstLevelMappingTable = FLPT_FCSEPA;
-    p->md.pid = ssid << PID_SHIFT;
+    AssignSSToProc(p, ssid);
 
     /* Ensure the small space has a domain assigned. */
     unsigned int domain = EnsureSSDomain(ssid);
@@ -882,10 +885,9 @@ FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
         We could go to the CACHEADDR_UNCACHED state.
         But since the writer may have stopped writing, let's try
         going to CACHEADDR_READERS. */
-        /* We must unmap all writeable PTEs. The following unmaps
-        read-only PTEs too, which is somewhat unfortunate. */
         DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to READERS\n", pageH);
-        keyR_UnmapAll(&pageH_ToObj(pageH)->keyRing);
+        /* We must unmap all writeable PTEs. */
+        pageH_MakeReadOnly(pageH);
         SetMapWork_CleanCache();
         pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
       }

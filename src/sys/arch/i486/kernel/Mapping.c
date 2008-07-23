@@ -76,18 +76,6 @@ MapTab_ClearRefs(MapTabHeader * mth)
 }
 
 #ifdef OPTION_SMALL_SPACES
-#include <kerninc/Invocation.h>
-void 
-proc_WriteDisableSmallSpaces()
-{
-  uint32_t nFrames = KTUNE_NCONTEXT / 32;
-  PTE *pte = proc_smallSpaces;
-  unsigned i = 0;
-  
-  for (i = 0; i < nFrames * NPTE_PER_PAGE; i++)
-    pte_WriteProtect(&pte[i]);
-}
-
 static void
 MakeSmallSpaces()
 {
@@ -852,7 +840,7 @@ mach_EnableVirtualMapping()
 #include <kerninc/ObjectCache.h>
 
 static void
-KeyDependEntry_Track(KeyDependEntry * kde)
+KeyDependEntry_Track(KeyDependEntry * kde, void (*func)(PTE *))
 {
   if (kde->start == 0) {	// unused entry
     return;
@@ -922,7 +910,15 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
 {
   KernStats.nDepInval++;
 
-  KeyDependEntry_Track(kde);
+  KeyDependEntry_Track(kde, &pte_Invalidate);
+}
+
+void
+KeyDependEntry_MakeRO(KeyDependEntry * kde)
+{
+  KernStats.nDepMakeRO++;
+
+  KeyDependEntry_Track(kde, &pte_WriteProtect);
 }
 
 void
@@ -930,7 +926,7 @@ KeyDependEntry_TrackReferenced(KeyDependEntry * kde)
 {
   KernStats.nDepTrackRef++;
 
-  KeyDependEntry_Track(kde);
+  KeyDependEntry_Track(kde, &pte_Invalidate);
 }
 
 void
@@ -938,7 +934,7 @@ KeyDependEntry_TrackDirty(KeyDependEntry * kde)
 {
   KernStats.nDepTrackDirty++;
 
-  KeyDependEntry_Track(kde);
+  KeyDependEntry_Track(kde, &pte_WriteProtect);
 }
 
 void
