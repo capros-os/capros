@@ -77,6 +77,8 @@ void objC_AgePageFrames(void);
 PageHeader * objC_GrabPageFrame(void);
 void objC_GrabThisPageFrame(PageHeader *);
 void EnsureObjFrames(unsigned int baseType, unsigned int numFrames);
+void CleanAKRONode(void);
+void CleanAKROPage(void);
 
 void objC_AddDevicePages(struct PmemInfo *);
 void objC_AddDMAPages(PageHeader * pageH, kpg_t nPages);

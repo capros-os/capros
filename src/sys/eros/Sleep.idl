@@ -2,7 +2,9 @@ package capros;
 
 /** Interface to allow processes to sleep voluntarily.
  */
-interface Sleep extends key {
+interface Sleep extends key raises(Restart) {
+  exception Restart;	// operation was ended by a system restart
+
   typedef unsigned <64> nanoseconds_t;
   /* The following does not work due to a bug in capidl:
   const unsigned <64> infiniteTime = 18446744073709000000; // about UINT64_MAX
@@ -24,16 +26,28 @@ interface Sleep extends key {
   // Due to a bug in capidl, it does not work to use nanoseconds_t here.
   getPersistentMonotonicTime();
 
-  /** Sleep until the specified number of milliseconds has passed */
+  /** Sleep until the specified number of milliseconds has passed.
+  If a system restart occurs (and the caller is persistent),
+  the operation raises Restart at that time.
+  */
   void sleep(unsigned long long ms);
 
-  /** Sleep until the specified number of nanoseconds has passed */
+  /** Sleep until the specified number of nanoseconds has passed.
+  If a system restart occurs (and the caller is persistent),
+  the operation raises Restart at that time.
+  */
   // Due to a bug in capidl, it does not work to use nanoseconds_t here.
   void sleepForNanoseconds(unsigned long long /* nanoseconds_t */ ns);
 
-  /** Sleep until getTimeMonotonic() >= ns. */
+  /** Sleep until getTimeMonotonic() >= ns.
+  If a system restart occurs (and the caller is persistent),
+  the operation raises Restart at that time.
+  */
   // Due to a bug in capidl, it does not work to use nanoseconds_t here.
   void sleepTill(unsigned long long /* nanoseconds_t */ ns);
+
+  /* At the moment there is no sleepTillPersistent,
+  due to implementation difficulties. */
 
 
   const unsigned long DelayMaxMicroseconds = 5000000;

@@ -44,7 +44,7 @@ proc_ClearActivity(Process * proc)
   assert(act);
 
   act_Dequeue(act);
-  act_SetContext(act, 0);
+  act_SetContext(act, NULL);
   proc_Deactivate(proc);
   act_DeleteActivity(act);
 }
@@ -520,18 +520,53 @@ check_Contexts(const char *c)
       }
 #endif
 
-      if (p->procRoot
-          && p->procRoot->node_ObjHdr.obType == ot_NtFreeFrame ) {
-	dprintf(true, "Context 0x%08x has free process root 0x%08x\n",
-			p, p->procRoot);
-	result = false;
-      }
+      if (p->procRoot) {
+        if (node_ToObj(p->procRoot)->obType != ot_NtProcessRoot) {
+	  dprintf(true, "Context %#x process root %#x has type %d\n",
+			p, p->procRoot, node_ToObj(p->procRoot)->obType);
+	  result = false;
+        }
 
-      if (p->keysNode
-          && p->keysNode->node_ObjHdr.obType == ot_NtFreeFrame ) {
-	dprintf(true, "Context 0x%08x has free keys node 0x%08x\n",
-			p, p->keysNode);
-	result = false;
+        if (! p->keysNode) {
+	  dprintf(true, "Context %#x has no keysNode\n", p);
+	  result = false;
+        } else {
+          if (node_ToObj(p->keysNode)->obType != ot_NtKeyRegs) {
+	    dprintf(true, "Context %#x keysNode %#x has type %d\n",
+		  	  p, p->keysNode, node_ToObj(p->keysNode)->obType);
+	    result = false;
+          }
+        }
+
+        bool statesOK = false;	// until proven otherwise
+        switch (p->runState) {
+        default:
+          break;
+
+        case RS_Running:
+          if (p->curActivity
+              && p->curActivity->state != act_Sleeping )
+            statesOK = true;
+          break;
+
+        case RS_Waiting:
+          // If it has an activity, it must be sleeping:
+          if (p->curActivity)
+            statesOK = p->curActivity->state == act_Sleeping;
+          else
+            statesOK = true;
+          break;
+
+        case RS_Available:
+          statesOK = ! p->curActivity;	// should have no activity
+          break;
+        }
+        if (! statesOK) {
+	  dprintf(true, "Context %#x state %d has Activity %#x state %d\n",
+                  p, p->runState, p->curActivity,
+                  (p->curActivity ? p->curActivity->state : 0));
+	  result = false;
+        }
       }
 
       if (result == false)

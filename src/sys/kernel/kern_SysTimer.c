@@ -96,6 +96,8 @@ void
 sysT_AddSleeper(Activity * t, uint64_t wakeTime)
 {
   assert(link_isSingleton(&t->q_link));
+  assert(t->context);
+  assert(t->context->runState == RS_Waiting);
 
 #if 0
   uint64_t now = sysT_Now();
@@ -147,6 +149,34 @@ sysT_BootInit()
 {
 }
 
+void
+sysT_actWake(Activity * act, result_t rc)
+{
+  Process * invokee = act->context;
+  assert(invokee);
+
+  // The process's state may have been changed, so revalidate:
+  if (invokee->runState != RS_Waiting)
+    return;
+
+  invokee->runState = RS_Running;
+
+  keyR_ZapResumeKeys(&invokee->keyRing);
+
+  if (proc_IsExpectingMsg(invokee)) {
+    // We may be in an interrupt, so we can't use the global inv.
+    Invocation tempInv = {
+      .exit.code = rc,
+      .exit.w1 = 0,
+      .exit.w2 = 0,
+      .exit.w3 = 0,
+      .sentLen = 0
+    };
+    proc_DeliverResult(invokee, &tempInv);
+    proc_AdvancePostInvocationPC(invokee);
+  }
+}
+
 /* Perform all wakeups to be done at (or before) the specified time.
    After exit, caller must recalculate the wakeup time.
    This procedure is called from the clock interrupt with IRQ disabled.  */
@@ -163,29 +193,18 @@ sysT_WakeupAt(void)
     Activity * t = container_of(SleepQueue.q_head.next, Activity, q_link);
     if (t->wakeTime > now)
       break;
+    // Wake up this Activity.
     link_Unlink(&t->q_link);
+    act_Wakeup(t);
 
     // Complete this process's sleep invocation.
 
     Process * invokee = t->context;
-
-#if 0
-    dprintf(false, "Waking from sleep, p=%#x pc=%#x.\n", invokee,
-      invokee->trapFrame.r15);
-#endif
-
-    act_Wakeup(t);
-    invokee->runState = RS_Running;
-
-    keyR_ZapResumeKeys(&invokee->keyRing);
-
-    if (proc_IsExpectingMsg(invokee)) {
-      // Set up message to return in inv, which is not otherwise used here.
-      inv.exit.code = RC_OK;
-      inv.exit.w1 = inv.exit.w2 = inv.exit.w3 = 0;
-      inv.sentLen = 0;
-      proc_DeliverResult(invokee, &inv);
-      proc_AdvancePostInvocationPC(invokee);
+    if (invokee) {
+      // Return from its Sleep invocation.
+      sysT_actWake(t, RC_OK);
+    } else {
+      t->actHazard = actHaz_WakeOK;	// remember to do it later
     }
   }
 

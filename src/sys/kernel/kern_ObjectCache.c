@@ -657,7 +657,8 @@ objC_AgeNodeFrames(void)
       when objH_CurrentTransaction overflows. */
       pObj->userPin = 0;
 
-      if (! objH_GetFlags(pObj, OFLG_Cleanable)) {
+      if (! objH_GetFlags(pObj, OFLG_Cleanable)
+          || (ckptIsActive() && ! objH_GetFlags(pObj, OFLG_KRO))) {
 	nStuck++;
 	goto nextNode;
       }
@@ -1038,6 +1039,25 @@ pageH_Clean(PageHeader * pageH)
   }
 }
 
+unsigned int KROPageCleanCursor;	// next page to clean
+
+// Clean the next KRO page.
+void
+CleanAKROPage(void)
+{
+  assert(KROPageCleanCursor < objC_nPages);
+  assert(numKROPages);
+
+  for (;;KROPageCleanCursor++) {
+    PageHeader * pageH = objC_GetCorePageFrame(KROPageCleanCursor);
+    ObjectHeader * pObj = pageH_ToObj(pageH);
+    if (objH_GetFlags(pObj, OFLG_KRO)) {
+      pageH_Clean(pageH);
+      return;
+    }
+  }
+}
+
 /* This procedure is called when we want to mutate a page that is
  * Kernel Read Only.
  *
@@ -1119,7 +1139,9 @@ objC_AgePageFrames(void)
         break;
 
       case ot_PtDataPage:
-        if (! objH_GetFlags(pageH_ToObj(pageH), OFLG_Cleanable))
+        if (! objH_GetFlags(pageH_ToObj(pageH), OFLG_Cleanable)
+            || (ckptIsActive()
+                && ! objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO)))
           goto nextPage;
         break;
 

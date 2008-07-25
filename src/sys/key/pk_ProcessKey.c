@@ -307,7 +307,7 @@ ProcessKeyCommon(Invocation * inv, Process * proc)
     Activity * act = proc->curActivity;
     if (act) {
       act_Dequeue(act);
-      act_SetContext(act, 0);
+      act_SetContext(act, NULL);
       proc_Deactivate(proc);
       act_DeleteActivity(act);
     }

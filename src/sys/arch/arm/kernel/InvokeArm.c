@@ -45,6 +45,7 @@ proc_VAToMVA(Process * thisPtr, uva_t va)
   else return va;
 }
 
+/* This may be called from an interrupt. */
 void 
 proc_DeliverResult(Process * thisPtr, Invocation * inv /*@ not null @*/)
 {

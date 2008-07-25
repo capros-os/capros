@@ -44,7 +44,7 @@ Approved for public release, distribution unlimited. */
 
 unsigned int ckptState = ckpt_NotActive;
 
-long numKROFrames = 0;
+long numKROPages = 0;	// including pots
 long numKRONodes = 0;
 unsigned int KROPageCleanCursor;
 unsigned int KRONodeCleanCursor;
@@ -102,7 +102,7 @@ CheckpointPage(PageHeader * pageH)
     case ot_PtDataPage:
       pageH_MakeReadOnly(pageH);
     }
-    numKROFrames++;
+    numKROPages++;
     objH_SetFlags(pObj, OFLG_KRO);
   }
   // else it's not marked dirty, in which case it isn't mapped with write
@@ -179,6 +179,15 @@ DoPhase1Work(void)
 static void
 DoPhase2Work(void)
 {
+  // FIXME! Since the checkpoint process has high priority,
+  // it will always get IORequest blocks before users,
+  // so "clean me first" won't work!
+  while (numKRONodes)
+    CleanAKRONode();
+
+  while (numKROPages)
+    CleanAKROPage();
+
   assert(!"complete");
 }
 

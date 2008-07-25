@@ -338,13 +338,13 @@ proc_SetupExitString(Process* thisPtr,
   proc_ClearFault(thisPtr);
 }
 
+/* This may be called from an interrupt. */
 void 
 proc_DeliverResult(Process* thisPtr, Invocation* inv /*@ not null @*/)
 {
   /* No need to call Prepare() here -- it has already been  called in
    * the invocation path.
    */
-  uint32_t rcvPtr;
   assert(proc_IsRunnable(thisPtr));
 
   /* copy return code and words */
@@ -353,8 +353,6 @@ proc_DeliverResult(Process* thisPtr, Invocation* inv /*@ not null @*/)
   thisPtr->trapFrame.ECX = inv->exit.w2;
   thisPtr->trapFrame.EDX = inv->exit.w3;
 
-  rcvPtr = thisPtr->trapFrame.EDI;
-  
   /* Data has already been copied out, so don't need to copy here.  DO
    * need to deliver the data length, however:
    */

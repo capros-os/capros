@@ -39,6 +39,7 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/PTE.h>
 #include <kerninc/Ckpt.h>
 #include <kerninc/Key-inline.h>
+#include <idl/capros/Sleep.h>
 
 /* #define THREADDEBUG */
 /*#define RESERVE_DEBUG*/
@@ -58,7 +59,7 @@ Activity *act_ActivityTable = 0;
 /* During an invocation, we may allocate an Activity for later use: */
 Activity * allocatedActivity = 0;
 
-DEFQUEUE(freeActivityList);
+static DEFQUEUE(freeActivityList);
 uint32_t act_RunQueueMap = 0;
 
 INLINE bool 
@@ -257,7 +258,7 @@ kact_InitKernActivity(const char * name,
 }
 
 Activity *
-act_AllocActivity() 
+act_AllocActivity(void) 
 {
   if (sq_IsEmpty(&freeActivityList))
     fatal("Activitys exhausted\n");
@@ -265,15 +266,11 @@ act_AllocActivity()
   Activity * t = act_DequeueNext(&freeActivityList);
   /*printf("returning activity with p = %d\n", t->priority);*/
 
+  t->actHazard = actHaz_None;
+
   return t;
 }
 
-/* Note -- at one point I tried to make all activitys have domain keys,
- * and inoperative activitys have domain keys with bad values.  This
- * DOES NOT WORK, because if the root of the process is rescinded with
- * a prepared key in an outstanding activity that key will get zeroed.
- * Yuck!.
- */
 void
 act_AllocActivityTable() 
 {
@@ -476,7 +473,7 @@ act_DeleteCurrent(void)
   Activity * thisPtr = act_Current();
   if (thisPtr->context)
     proc_Deactivate(thisPtr->context);
-  act_SetContextCurrent(thisPtr, 0);
+  act_SetContextCurrent(thisPtr, NULL);
   act_DeleteActivity(thisPtr);
 }
 
@@ -951,6 +948,7 @@ act_Prepare(Activity* thisPtr)
       key_Prepare(&thisPtr->processKey);
 
       if (! keyBits_IsType(&thisPtr->processKey, KKT_Process)) {
+        // Is this fatal, or should the activity simply go away quietly?
 	fatal("Rescinded activity!\n");
 	return false;
       }
@@ -958,10 +956,26 @@ act_Prepare(Activity* thisPtr)
       assert(! keyBits_IsHazard(&thisPtr->processKey));
 
       proc = thisPtr->processKey.u.gk.pContext;
-      assert(proc);
     
       act_SetContextCurrent(thisPtr, proc);
       proc_SetActivity(proc, thisPtr);
+
+      if (thisPtr->actHazard != actHaz_None) {
+        switch (thisPtr->actHazard) {
+        default: ;
+          fatal("");
+
+        case actHaz_WakeOK:
+          sysT_actWake(thisPtr, RC_OK);
+          thisPtr->actHazard = actHaz_None;
+          break;
+
+        case actHaz_WakeRestart:
+          sysT_actWake(thisPtr, RC_capros_Sleep_Restart);
+          thisPtr->actHazard = actHaz_None;
+          break;
+        }
+      }
     }
 
 #ifdef ACTIVITYDEBUG

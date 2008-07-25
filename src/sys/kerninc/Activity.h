@@ -40,25 +40,67 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/SysTimer.h>
 #include <kerninc/ReadyQueue.h>
 
-/* Values for Activity.state */
-enum {
-  act_Free,		/* Free activity. On the FreeActivityList. */
-  act_Ready,		/* On a ReadyQueue */
-  act_Running,		/* Active on a processor. Not on any queue.
-                           The activity is act_curActivity. */
-  act_Stall,		/* blocked on an event, not expecting result(s).
-                           On a StallQueue. */
-  act_Sleeping,		/* Doing an operation on the Sleep capability */
+/* Values for Activity.state:
 
-  act_NUM_STATES,
+act_Free: free, on the FreeActivityList.
+
+act_Ready: on a ReadyQueue.
+  If it has a Process, the Process's runState is RS_Running.
+
+act_Running: active on a processor, not on any queue.
+  The activity is act_curActivity.
+  It has a Process and the Process's runState is RS_Running.
+
+act_Stall: blocked on an event, on a StallQueue.
+  If it has a Process, the Process's runState is RS_Running.
+  When the event occurs, the process will be restarted.
+
+act_Sleeping: blocked on a timer, on the SleepQueue.
+  If it has a Process, the Process's runState is RS_Waiting.
+
+act_Stall is used to block before an operation is committed
+(therefore the operation can be restarted when the block is removed).
+act_Sleeping is used to block after an operation is commited.
+It is logically equivalent to the kernel holding a Resume key to the
+process, and when the event occurs, using that Resume key to return
+to the process.
+The difference is seen when an invoker does a SEND to a key such as Sleep
+and passes a Resume key to another process (the returnee aka invokee)
+to be returned to when the operation completes.
+If the invoker blocks, we use act_Stall. If the returnee is blocked,
+we use act_Sleep.
+
+act_Stall is used for short waits (such as for I/O) or for some closely
+held keys (migrator tool, I/O interrupt).
+act_Sleep is used for the Sleep key, where the wait could be long.
+act_Sleep gives a more accurate implementation (SEND to Sleep works the same
+whether Sleep is implemented in or out of the kernel),
+but is more difficult to implement in the kernel,
+because it requires saving information about when and how to return.
+In particular, on a checkpoint we do not save timer information.
+It is particularly important to implement the Sleep key this way,
+because otherwise it is difficult to implement "wait for n minutes";
+if you restart the invoker after n minutes, it will simply wait for
+another n minutes.
+*/
+enum {
+  act_Free,
+  act_Ready,
+  act_Running,
+  act_Stall,
+  act_Sleeping,
+
+  act_NUM_STATES
 };
+
+// Values for actHazard:
+#define actHaz_None 0
+#define actHaz_WakeOK 1
+#define actHaz_WakeRestart 2
  
 /* The activity structure captures the portion of a process's state
  * that MUST remain in core while the process is logically running or
  * blocked.  An idle process is free to go out of core.
- *
- * When one process invokes another, it's activity table slot is
- * transferred, but it's VCPU entry is not.
  */
 
 typedef struct Activity Activity;
@@ -70,6 +112,8 @@ struct Activity {
   StallQueue *lastq;
 
   uint8_t state;
+
+  uint8_t actHazard;
 
   Key processKey;
 	/* keyBits_GetType(&processKey) is always KKT_Process or KKT_Void. */
