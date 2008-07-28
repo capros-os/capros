@@ -147,6 +147,8 @@ extern Process * proc_curProcess;
 extern Activity *act_ActivityTable;
 extern Activity * allocatedActivity;
 
+extern unsigned int numFreeActivities;
+
 /* Prototypes for former member functions of Activity */
 
 Activity * kact_InitKernActivity(const char * name, 

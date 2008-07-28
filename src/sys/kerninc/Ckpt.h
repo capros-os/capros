@@ -44,7 +44,7 @@ extern uint64_t monotonicTimeOfLastDemarc;
 extern struct StallQueue WaitForCkptInactive;
 extern struct StallQueue WaitForCkptNeeded;
 
-extern long numKROPages;
+extern long numKRODirtyPages;
 extern long numKRONodes;
 extern unsigned int KROPageCleanCursor;
 extern unsigned int KRONodeCleanCursor;

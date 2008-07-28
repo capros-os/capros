@@ -107,8 +107,6 @@ void ReleasePageFrame(PageHeader * pageH);
 void ReleaseObjPageFrame(PageHeader * pageH);
 void ReleaseNodeFrame(Node * pNode);
 
-Node *objC_ContainingNode(void *);
-
 /* For use by the consistency checker: */
 INLINE uint32_t 
 objC_NumCorePageFrames()

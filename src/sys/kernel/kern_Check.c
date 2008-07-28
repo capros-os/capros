@@ -111,6 +111,7 @@ check_Nodes()
   return result;
 }
 
+// Returns false if an error.
 bool
 check_Pages()
 {

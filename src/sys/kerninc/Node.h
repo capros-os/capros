@@ -110,6 +110,10 @@ bool node_IsNull(Node * pNode);
 void node_SetEqualTo(Node *thisPtr, const struct DiskNode *);
 void node_CopyToDiskNode(Node * pNode, struct DiskNode * dn);
 
+#ifndef NDEBUG
+Node * node_ValidNodeKeyPtr(const Key * pKey);
+#endif
+Node * node_ContainingNode(const Key * pKey);
 bool node_Validate(Node* thisPtr);
 
 void node_ClearHazard(Node* thisPtr, uint32_t ndx);

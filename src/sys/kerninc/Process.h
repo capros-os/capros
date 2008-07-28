@@ -195,9 +195,6 @@ extern Process*   proc_fpuOwner;	/* FIX: This is not SMP-feasible. */
 extern Process *proc_ContextCache;
 /* End static members */
   
-/* Former member functions of KernProcess */
-typedef struct KernProcess KernProcess;
-
 Process *kproc_Init(const char * name,
 		    Priority prio,
                     struct ReadyQueue *rq,

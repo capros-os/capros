@@ -600,8 +600,10 @@ key_IsValid(const Key* thisPtr)
     // By default, misc keys should have no data.
     default:
       if (thisPtr->u.nk.value[0] || thisPtr->u.nk.value[1]
-          || thisPtr->u.nk.value[2] )
+          || thisPtr->u.nk.value[2] ) {
+	printf("Misc key %#x has data\n", thisPtr);
         return false;
+      }
     case KKT_DevicePrivs:
     case KKT_IORQ:
       break;
@@ -609,26 +611,18 @@ key_IsValid(const Key* thisPtr)
     return true;
   }
 
-#if defined(DBG_WILD_PTR)
-  /* Following is a debugging-only check. */
-  if (keyBits_IsObjectKey(thisPtr) && key_GetKeyOid(thisPtr) > 0x100000000llu) {
-    OID oid = key_GetKeyOid(thisPtr);
-    
-    printf("Key 0x%08x has invalid OID 0x%08x%08x\n",
-		   thisPtr, (uint32_t) (oid>>32), (uint32_t) oid);
-  }
-#endif
-      
   if ( keyBits_IsPreparedObjectKey(thisPtr) ) {
 #ifndef NDEBUG
     if ( keyBits_IsProcessType(thisPtr) ) {
-      Process *ctxt = thisPtr->u.gk.pContext;
-      if (ValidCtxtPtr(ctxt) == false)
+      Process * proc = thisPtr->u.gk.pContext;
+      if (! ValidCtxtPtr(proc)) {
+	printf("Key %#x has invalid proc ptr %#x\n", thisPtr, proc);
 	return false;
+      }
     }
     else if ( keyBits_IsType(thisPtr, KKT_Page) ) {
       ObjectHeader *pObject = thisPtr->u.ok.pObj;
-      if ( objC_ValidPagePtr(pObject) == false ) {
+      if (! objC_ValidPagePtr(pObject)) {
 	key_Print(thisPtr);
 	printf("Key 0x%08x has invalid pObject 0x%08x\n",
 		       thisPtr, pObject);
@@ -645,7 +639,7 @@ key_IsValid(const Key* thisPtr)
       Node *pNode = 0;
       assertex (thisPtr, keyBits_IsObjectKey(thisPtr) );
       pNode = (Node *) thisPtr->u.ok.pObj;
-      if ( objC_ValidNodePtr(pNode) == false ) {
+      if (! objC_ValidNodePtr(pNode)) {
 	printf("0x%x is not a valid node ptr\n", pNode);
 	return false;
       }

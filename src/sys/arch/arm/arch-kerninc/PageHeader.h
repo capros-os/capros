@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
   , ot_PtMappingPage2	// second-level page table
 
 #define MD_PAGE_OBNAMES \
+  , "PtMapPage1"	\
   , "PtMapPage2"
 
 #define MD_PAGE_VARIANTS \

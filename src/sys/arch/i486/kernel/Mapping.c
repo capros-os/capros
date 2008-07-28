@@ -981,11 +981,8 @@ pageH_mdType_CheckPage(PageHeader * pPage)
 	return false;
       }
       if (!pageH_IsDirty(thePageHdr)) {
-	printf("Writable PTE=0x%08x (map page 0x%08x), clean pg"
-		       " 0x%08x%08x\n",
-		       pte_AsWord(thePTE), pte,
-		       (uint32_t) (pageH_ToObj(thePageHdr)->oid >> 32),
-		       (uint32_t) pageH_ToObj(thePageHdr)->oid);
+	printf("Writable PTE=0x%08x (map page 0x%08x), clean pg %#x\n"
+		       pte_AsWord(thePTE), pte, thePageHdr);
 
 	return false;
       }

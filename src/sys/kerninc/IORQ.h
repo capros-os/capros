@@ -80,6 +80,7 @@ void ioreq_Enqueue(IORequest * ioreq);
 void IOReq_EndRead(IORequest * ioreq);
 void IOReq_EndWrite(IORequest * ioreq);
 
+LID IncrementLID(LID lid);
 LID NextLogLoc(void);
 
 #endif /* __IORQ_H__ */

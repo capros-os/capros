@@ -168,7 +168,7 @@ keyR_RescindAll(KeyRing * thisPtr)
     if ( !(inv_IsActive(&inv) && inv_IsInvocationKey(&inv, pKey)) && 
 	 !act_IsActivityKey(pKey) &&
 	 !proc_IsKeyReg(pKey) ) {
-      Node *pNode = objC_ContainingNode(pKey);
+      Node *pNode = node_ContainingNode(pKey);
       pNode->node_ObjHdr.check = objH_CalcCheck(DOWNCAST(pNode, ObjectHeader));
     }
 #endif
@@ -455,7 +455,7 @@ keyR_UnprepareAll(KeyRing *thisPtr)
     if ( !(inv_IsActive(&inv) && inv_IsInvocationKey(&inv, pKey)) && 
 	 !act_IsActivityKey(pKey) &&
 	 !proc_IsKeyReg(pKey) ) {
-      Node * pNode = objC_ContainingNode(pKey);
+      Node * pNode = node_ContainingNode(pKey);
       pNode->node_ObjHdr.check = objH_CalcCheck(DOWNCAST(pNode, ObjectHeader));
     }
 #endif
@@ -491,7 +491,7 @@ keyR_ProcessAllMaps(KeyRing * thisPtr,
     assert(keyBits_IsPreparedObjectKey(pKey));
     
     if (keyBits_IsHazard(pKey)) {
-      Node * pNode = objC_ContainingNode(pKey);
+      Node * pNode = node_ContainingNode(pKey);
       switch(pNode->node_ObjHdr.obType) {
       case ot_NtProcessRoot:
         if ((pKey - pNode->slot) == ProcAddrSpace) {

@@ -60,6 +60,7 @@ Activity *act_ActivityTable = 0;
 Activity * allocatedActivity = 0;
 
 static DEFQUEUE(freeActivityList);
+unsigned int numFreeActivities = 0;
 uint32_t act_RunQueueMap = 0;
 
 INLINE bool 
@@ -264,7 +265,8 @@ act_AllocActivity(void)
     fatal("Activitys exhausted\n");
 
   Activity * t = act_DequeueNext(&freeActivityList);
-  /*printf("returning activity with p = %d\n", t->priority);*/
+  assert(numFreeActivities);
+  numFreeActivities--;
 
   t->actHazard = actHaz_None;
 
@@ -324,6 +326,7 @@ act_DeleteActivity(Activity *t)
   t->readyQ = dispatchQueues[pr_Never];	// just in case
 
   act_Enqueue(t, &freeActivityList);
+  numFreeActivities++;
 }
 
 #ifndef NDEBUG

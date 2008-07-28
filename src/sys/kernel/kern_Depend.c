@@ -254,7 +254,7 @@ Depend_VisitEntries(Key * pKey, void (*func)(KeyDependEntry *))
     printf("Visiting depend entries for key=%#x\n", pKey);
 
   KeyDependEntry * bucket
-    = &KeyDependTable[keybucket_ndx(pKey)* KeyBucketSize];
+    = &KeyDependTable[keybucket_ndx(pKey) * KeyBucketSize];
 
   for (i = 0; i < KeyBucketSize; i++) {
     if (bucket[i].slotTag == SLOT_TAG(pKey)) {

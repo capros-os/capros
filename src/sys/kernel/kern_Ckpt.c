@@ -21,12 +21,15 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <string.h>
 #include <kerninc/kernel.h>
 #include <disk/DiskNode.h>
 #include <disk/GenerationHdr.h>
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/ObjectCache.h>
-#include <kerninc/IRQ.h>
+#include <kerninc/ObjectSource.h>
+#include <kerninc/Activity.h>
+#include <kerninc/IORQ.h>
 #include <kerninc/Ckpt.h>
 #include <kerninc/LogDirectory.h>
 #include <kerninc/Check.h>
@@ -34,6 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Range.h>
 #include <idl/capros/MigratorTool.h>
 #include <eros/Invoke.h>
+#include <eros/machine/IORQ.h>
 
 #define dbg_ckpt	0x1
 
@@ -44,10 +48,13 @@ Approved for public release, distribution unlimited. */
 
 unsigned int ckptState = ckpt_NotActive;
 
-long numKROPages = 0;	// including pots
+long numKRODirtyPages = 0;	// including pots
 long numKRONodes = 0;
 unsigned int KROPageCleanCursor;
 unsigned int KRONodeCleanCursor;
+
+PageHeader * GenHdrPageH;
+LID nextProcDirLid;
 
 DEFQUEUE(WaitForCkptInactive);
 DEFQUEUE(WaitForCkptNeeded);
@@ -76,6 +83,22 @@ CalcLogReservation(void)
 #undef DirEntsPerPage
 }
 
+PageHeader * reservedPages = NULL;
+unsigned int numReservedPages = 0;
+
+// May Yield.
+static void
+ReservePages(unsigned int numPagesWanted)
+{
+  while (numReservedPages < numPagesWanted) {
+    PageHeader * pageH = objC_GrabPageFrame();
+    numReservedPages++;
+    // Link into free list:
+    *(PageHeader * *)&pageH->kt_u.free.freeLink.next = reservedPages;
+    reservedPages = pageH;
+  }
+}
+
 // Declare a demarcation event, which is the beginning of a checkpoint.
 // Yields.
 void
@@ -102,7 +125,7 @@ CheckpointPage(PageHeader * pageH)
     case ot_PtDataPage:
       pageH_MakeReadOnly(pageH);
     }
-    numKROPages++;
+    numKRODirtyPages++;
     objH_SetFlags(pObj, OFLG_KRO);
   }
   // else it's not marked dirty, in which case it isn't mapped with write
@@ -113,6 +136,36 @@ CheckpointPage(PageHeader * pageH)
 static void
 DoPhase1Work(void)
 {
+  int i;
+  // Grab a page for the generation header:
+  GenHdrPageH = objC_GrabPageFrame();
+  DiskGenerationHdr * genHdr
+    = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
+
+  // Reserve pages for the process directory.
+
+  int numActivities = KTUNE_NACTIVITY - numFreeActivities;
+  /* Note, some of the Activitys will be for non-persistent processes,
+  so this is an upper bound on the number we need.
+  It won't hurt to have an extra free page or two around. */
+
+  // Some can go in the generation header:
+  numActivities -= (EROS_PAGE_SIZE - sizeof(DiskGenerationHdr))
+                   / sizeof(struct DiskProcessDescriptor);
+  // Reserve pages for the rest:
+  if (numActivities > 0) {
+#define numActivitiesPerPage (EROS_PAGE_SIZE / sizeof(struct DiskProcessDescriptor))
+    ReservePages((numActivities + numActivitiesPerPage - 1)
+                 / numActivitiesPerPage);
+    /* Note, if the above Yields, when restarted we will start at
+    DoPhase1Work, which will recalculate numActivities,
+    which may have changed. */
+  }
+
+  /* This is the moment of demarcation.
+  From here through the end of DoPhase1Work, we must NOT Yield.
+  This must be atomic. */
+
   // Don't checkpoint a broken system:
   check_Consistency("before ckpt");
 
@@ -171,9 +224,108 @@ DoPhase1Work(void)
     }
   }
 
+  // Save Activity's to the process directory.
+  struct DiskProcessDescriptor * dpd;
+  dpd = (struct DiskProcessDescriptor *)
+        ((char *)genHdr + sizeof(DiskGenerationHdr));
+  unsigned int dpdsInCurrentPage = 0;
+  bool inHdr = true;
+  PageHeader * * nextProcDirFramePP = &reservedPages;
+  // Where to store the number of descriptors in the current page:
+  uint32_t * numDpdsLoc = &genHdr->processDir.nDescriptors;
+  genHdr->processDir.firstDirFrame = 0;
+  genHdr->processDir.nDirFrames = 0;	// so far
+  for (i = 0; i < KTUNE_NACTIVITY; i++) {
+    Activity * act = &act_ActivityTable[i];
+    if (act->state != act_Free) {
+      OID procOid;
+      ObCount procAllocCount;
+      if (act->context) {	// process info is in the Process structure
+        Process * proc = act->context;
+        if (proc_IsKernel(proc))
+          continue;
+        ObjectHeader * pObj = node_ToObj(proc->procRoot);
+#if 0
+        printf("P1 act=%#x proc=%#x root=%#x\n", act, proc, pObj);
+#endif
+        procOid = pObj->oid;
+        procAllocCount = pObj->allocCount;
+      } else {
+        if (! keyBits_IsType(&act->processKey, KKT_Process))
+          continue;	// process was rescinded
+        procOid = key_GetKeyOid(&act->processKey);
+        procAllocCount = key_GetAllocCount(&act->processKey);
+      }
+      if (OIDIsPersistent(procOid)) {
+        // Is there room for another DiskProcessDescriptor in this page?
+        kva_t roomInPage = (- (kva_t)dpd) & EROS_PAGE_MASK;
+        if (roomInPage < sizeof(struct DiskProcessDescriptor)) {
+          // Finish the current page.
+          *numDpdsLoc = dpdsInCurrentPage;
+          // Set up the next page.
+          PageHeader * pageH = *nextProcDirFramePP;
+          assert(pageH);	// else we didn't reserve enough!
+          LID lid = NextLogLoc();
+          if (inHdr) {		// this is the first full frame
+            genHdr->processDir.firstDirFrame = lid;
+            nextProcDirLid = lid;
+            inHdr = false;
+          }
+          genHdr->processDir.nDirFrames++;
+          numDpdsLoc = (uint32_t *)pageH_GetPageVAddr(pageH);
+          dpd = (struct DiskProcessDescriptor *)
+                ((kva_t)numDpdsLoc + sizeof(uint32_t));
+          // Follow the chain:
+          nextProcDirFramePP
+            = (PageHeader * *)& pageH->kt_u.free.freeLink.next;
+        }
+        uint8_t hazToSave;
+        if (act->state == act_Sleeping && act->actHazard == actHaz_None)
+          // On restart, wake sleepers with an error.
+          hazToSave = actHaz_WakeRestart;
+        else
+          hazToSave = act->actHazard;;
+        // Use memcpy, because dpd is unaligned and packed.
+        memcpy(&dpd->oid, &procOid, sizeof(OID));
+        memcpy(&dpd->allocCount, &procAllocCount, sizeof(ObCount));
+        memcpy(&dpd->actHazard, &hazToSave, sizeof(dpd->actHazard));
+        dpd++;
+        dpdsInCurrentPage++;
+      }
+    }
+  }
+  // Finish the last page.
+  *numDpdsLoc = dpdsInCurrentPage;
+
+  // Free any unused reserved pages:
+  while (1) {
+    PageHeader * pageH = *nextProcDirFramePP;
+    if (! pageH)
+      break;
+    // Follow the chain:
+    nextProcDirFramePP
+      = (PageHeader * *)& pageH->kt_u.free.freeLink.next;
+    ReleasePageFrame(pageH);
+  }
+
   monotonicTimeOfLastDemarc = sysT_NowPersistent();
 
   ckptState = ckpt_Phase2;
+}
+
+static void
+IOReq_EndDirWrite(IORequest * ioreq)
+{
+  // The IORequest is done.
+  PageHeader * pageH = ioreq->pageH;
+
+  // Mark the page as no longer having I/O.
+  pageH->ioreq = NULL;
+
+  assert(sq_IsEmpty(&ioreq->sq));
+  // Caller has unlinked the ioreq and will deallocate it.
+
+  ReleasePageFrame(pageH);
 }
 
 static void
@@ -182,13 +334,44 @@ DoPhase2Work(void)
   // FIXME! Since the checkpoint process has high priority,
   // it will always get IORequest blocks before users,
   // so "clean me first" won't work!
+
+  // Write the process directory frames.
+  while (reservedPages) {
+    PageHeader * pageH = reservedPages;
+    IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
+    ioreq->pageH = pageH;	// link page and ioreq
+    pageH->ioreq = ioreq;
+
+    ObjectRange * rng = LidToRange(nextProcDirLid);
+    assert(rng);	// it had better be mounted
+
+    ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
+    ioreq->objRange = rng;
+    ioreq->rangeLoc = OIDToFrame(nextProcDirLid - rng->start);
+    ioreq->doneFn = &IOReq_EndDirWrite;
+    sq_Init(&ioreq->sq);	// won't be used
+    ioreq_Enqueue(ioreq);
+
+    reservedPages = *(PageHeader * *)&pageH->kt_u.free.freeLink.next;
+    nextProcDirLid = IncrementLID(nextProcDirLid);
+  }
+
   while (numKRONodes)
     CleanAKRONode();
 
-  while (numKROPages)
+  /* The stages in the life of a typical page are:
+  1. Page is dirty
+  2. A demarcation event occurs. The page is now dirty and KRO.
+  3. The page is queued to be cleaned by the disk driver.
+     It is marked KRO and clean. (We always mark a page clean *before*
+     cleaning it, so we will know if it is dirtied while being cleaned.)
+  4. The cleaning finishes. The page is now clean, not KRO. */
+  while (numKRODirtyPages)
     CleanAKROPage();
 
   assert(!"complete");
+
+  ckptState = ckpt_Phase3;
 }
 
 void

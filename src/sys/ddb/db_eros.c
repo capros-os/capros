@@ -449,27 +449,17 @@ db_show_sizes_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
 
 
 void
-db_eros_print_context_keyring(Process *cc)
+db_eros_print_keyring(KeyRing * kr)
 {
-  Key *kr = (Key*) &cc->keyRing;
-  Key *k = (Key *) kr->u.gk.kr.next;
-
-  while (k != kr) {
-#if 0
-    /* This was obsoleted by the NEW_KSTACK logic, and I have not
-       resurrected it yet. */
-    extern uint32_t InterruptStackTop;
-    extern uint32_t InterruptStackBottom;
-
-    if ( ( (uint32_t) k >= (uint32_t) &InterruptStackBottom ) &&
-	 ( (uint32_t) k < (uint32_t) &InterruptStackTop ) )
-      db_printf("*** next key is on kernel stack:\n");
-#endif
-
-    db_printf("(0x%08x): ", k);
+  Link * l;
+  for (l = kr->next; l != kr; l = l->next) {
+    db_printf("(%#x): ", l);
+    // The following works for process keys as well as object keys.
+    Key * k = container_of(l, Key, u.ok.kr);
+    Node * pNode = node_ValidNodeKeyPtr(k);
+    if (pNode)
+      db_printf("(in node %#x): ", pNode);
     db_eros_print_key(k);
-
-    k = (Key *) k->u.gk.kr.next;
   }
 }
 
@@ -860,13 +850,38 @@ db_rsrvchain_print_cmd(db_expr_t addr, int have_addr,
 }
 #endif
 
+static void
+showDepEntry(KeyDependEntry * kde)
+{
+  db_printf("(%#x): cnt %d at %#x\n",
+            kde, kde->pteCount, kde->start);
+}
+
+void
+db_show_depend_cmd(db_expr_t addr, int have_addr, db_expr_t cnt, char * mdf)
+{
+  if (have_addr == 0)
+    db_error("requires address\n");
+
+  Depend_VisitEntries((Key *)addr, &showDepEntry);
+}
+
+void
+db_show_keyring_cmd(db_expr_t addr, int have_addr, db_expr_t cnt, char * mdf)
+{
+  if (have_addr == 0)
+    db_error("requires address\n");
+
+  db_eros_print_keyring((KeyRing *)addr);
+}
+
 void
 db_ctxt_kr_print_cmd(db_expr_t addr, int have_addr,
 		     db_expr_t cnt/* count */, char * mdf/* modif */)
 {
   Process *cc =
     have_addr ? (Process *) addr : act_CurContext();
-  db_eros_print_context_keyring(cc);
+  db_eros_print_keyring(&cc->keyRing);
 }
 
 void
@@ -1032,15 +1047,6 @@ getInvokee(void)
   }
   else
     return NULL;
-}
-
-void
-db_invokee_kr_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
-			db_expr_t cnt/* count */, char * mdf/* modif */)
-{
-  Process * cc = getInvokee();
-  if (cc)
-    db_eros_print_context_keyring(cc);
 }
 
 void
@@ -1483,7 +1489,7 @@ db_check_pages_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 }
 
 void
-db_check_ctxt_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
+db_check_procs_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 {
   if (check_Contexts("ddb"))
     db_printf("processes are okay\n");

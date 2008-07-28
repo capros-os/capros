@@ -29,7 +29,7 @@ Approved for public release, distribution unlimited. */
 struct GenDirHdr {
   LID firstDirFrame;
   uint32_t nDirFrames;
-  uint32_t nDescriptors;
+  uint32_t nDescriptors;	// number of descriptors in the header frame
 };
 
 typedef struct DiskGenerationHdr {
@@ -50,6 +50,7 @@ typedef struct DiskGenerationHdr {
 struct DiskProcessDescriptor {
   OID oid;
   ObCount allocCount;
+  uint8_t actHazard;
 } __attribute__ ((packed));
 
 #endif // __GENERATIONHDR_H__

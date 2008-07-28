@@ -57,8 +57,6 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-DEFQUEUE(KROQueue);
-
 uint32_t objC_nNodes;
 uint32_t objC_nFreeNodeFrames;
 Node *objC_nodeTable;
@@ -66,17 +64,6 @@ Node *objC_firstFreeNode;
 
 uint32_t objC_nPages;
 PageHeader * objC_coreTable;
-
-Node *
-objC_ContainingNode(void * vp)
-{
-  char * bp = (char *) vp;
-  char * nt = (char *) objC_nodeTable;
-  int nchars = bp - nt;
-  Node * pNode = &objC_nodeTable[nchars/sizeof(Node)];
-  assert(objC_ValidNodePtr(pNode));
-  return pNode;
-}
 
 static void
 objC_AllocateUserPages(void)
@@ -306,41 +293,17 @@ objC_ValidNodePtr(const Node *pObj)
 bool
 objC_ValidKeyPtr(const Key *pKey)
 {
-  uint32_t wobj = (uint32_t) pKey;
-  uint32_t wbase = (uint32_t) objC_nodeTable;
-  uint32_t wtop = (uint32_t) (objC_nodeTable + objC_nNodes);
-  uint32_t delta;
-  uint32_t i = 0;
-  Node *pNode = 0;
-
   if (inv_IsInvocationKey(&inv, pKey))
     return true;
 
-  if ( proc_ValidKeyReg(pKey) )
+  if (proc_ValidKeyReg(pKey))
     return true;
 
-  if ( act_ValidActivityKey(0, pKey) ) /* first parameter is unused in act_ValidActivityKey() */
+  if (act_ValidActivityKey(0, pKey)) /* first parameter is unused in act_ValidActivityKey() */
     return true;
 
-  if (wobj < wbase)
-    return false;
-  if (wobj >= wtop)
-    return false;
-
-  /* It's in the right range to be a pointer into a node.  See if it's
-   * at a valid slot:
-   */
-  
-  delta = wobj - wbase;
-
-  delta /= sizeof(Node);
-
-  pNode = objC_nodeTable + delta;
-
-  for (i = 0; i < EROS_NODE_SIZE; i++) {
-    if ( node_GetKeyAtSlot(pNode, i) == pKey )
-      return true;
-  }
+  if (node_ValidNodeKeyPtr(pKey))
+    return true;
 
   return false;
 }
@@ -503,6 +466,13 @@ AddNodeToClean(Node * pNode)
 }
 
 static void
+objH_ClearKRO(ObjectHeader * pObj)
+{
+  objH_ClearFlags(pObj, OFLG_KRO);
+  sq_WakeAll(ObjectStallQueueFromObHdr(pObj), false);
+}
+
+static void
 node_ClearDirty(Node * pNode)
 {
   ObjectHeader * pObj = node_ToObj(pNode);
@@ -510,8 +480,7 @@ node_ClearDirty(Node * pNode)
   if (objH_GetFlags(pObj, OFLG_KRO)) {
     numKRONodes--;
     assert(numKRONodes >= 0);
-    objH_ClearFlags(pObj, OFLG_KRO);
-    sq_WakeAll(&KROQueue, false);
+    objH_ClearKRO(pObj);
   }
   objH_ClearFlags(pObj, OFLG_DIRTY);	// cleaned it to the log dir
 }
@@ -813,7 +782,7 @@ CleanAKRONode(void)
  * Kernel Read Only.
  *
  * If the node can't be made writeable, this enqueues the current process
- * on KROQueue or another queue and Yields. */
+ * on the ObjectStallQueue or another queue and Yields. */
 void
 node_MitigateKRO(Node * pNode)
 {
@@ -945,6 +914,16 @@ objC_EvictFrame(PageHeader * pageH)
 #endif
 
 static void
+page_ClearAnyKRO(PageHeader * pageH)
+{
+  ObjectHeader * pObj = pageH_ToObj(pageH);
+
+  if (objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO)) {
+    objH_ClearKRO(pObj);
+  }
+}
+
+static void
 IOReq_EndPageClean(IORequest * ioreq)
 {
   // The IORequest is done.
@@ -953,6 +932,12 @@ IOReq_EndPageClean(IORequest * ioreq)
 
   // Mark the page as no longer having I/O.
   pageH->ioreq = NULL;
+
+  // If it's KRO, it had better not be dirty:
+  assert(! objH_GetFlags(pObj, OFLG_KRO)
+         || ! objH_GetFlags(pObj, OFLG_DIRTY) );
+
+  page_ClearAnyKRO(pageH);
 
   if (pageH_IsDirty(pageH)) {
     // The page was dirtied while it was being written.
@@ -973,18 +958,23 @@ IOReq_EndPageClean(IORequest * ioreq)
   // Caller has unlinked the ioreq and will deallocate it.
 }
 
+// May Yield.
 static void
 pageH_Clean(PageHeader * pageH)
 {
   if (! pageH_IsDirty(pageH))
     return;
 
+  if (pageH->ioreq) {	// It is already being cleaned
+    SleepOnPFHQueue(&pageH->ioreq->sq);	// wait for that to finish first
+  }
+
   switch (pageH_GetObType(pageH)) {
   case ot_PtLogPot:
     /* Log pots are cleaned as soon as they are dirtied,
     so they should not get here. */
   default: ;
-    assert(false);
+    assertex(pageH, false);
 
   case ot_PtHomePot:
   case ot_PtTagPot:
@@ -995,6 +985,10 @@ pageH_Clean(PageHeader * pageH)
     keyR_ProcessAllMaps(&pageH_ToObj(pageH)->keyRing,
                         &KeyDependEntry_TrackDirty);
     pageH_ClearFlags(pageH, OFLG_DIRTY);
+    if (objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO)) {
+      numKRODirtyPages--;
+      assert(numKRODirtyPages >= 0);
+    }
 #ifdef OPTION_OB_MOD_CHECK
     pageH_ToObj(pageH)->check = objH_CalcCheck(pageH_ToObj(pageH));
 #endif
@@ -1018,6 +1012,7 @@ pageH_Clean(PageHeader * pageH)
         .type = capros_Range_otPage
       };
       ld_recordLocation(&objDescr, workingGenerationNumber);
+      page_ClearAnyKRO(pageH);
     } else {		// the page is not zero
       // While it is being cleaned, it is marked not dirty, and I/O in progress.
 
@@ -1045,15 +1040,20 @@ unsigned int KROPageCleanCursor;	// next page to clean
 void
 CleanAKROPage(void)
 {
-  assert(KROPageCleanCursor < objC_nPages);
-  assert(numKROPages);
+  assert(numKRODirtyPages);
 
-  for (;;KROPageCleanCursor++) {
-    PageHeader * pageH = objC_GetCorePageFrame(KROPageCleanCursor);
+  for (;;) {
+    assert(KROPageCleanCursor < objC_nPages);
+    PageHeader * pageH = objC_GetCorePageFrame(KROPageCleanCursor++);
     ObjectHeader * pObj = pageH_ToObj(pageH);
-    if (objH_GetFlags(pObj, OFLG_KRO)) {
-      pageH_Clean(pageH);
-      return;
+    switch (pObj->obType) {
+    case ot_PtDataPage:
+    case ot_PtLogPot:
+      if (objH_GetFlags(pObj, OFLG_KRO)) {
+        pageH_Clean(pageH);
+        return;
+      }
+    default: ;
     }
   }
 }
@@ -1065,7 +1065,7 @@ CleanAKROPage(void)
  * If the current version of the page is moved to a new frame and made
  * writeable, this returns a reference to the new frame.
  * If the page can't be made writeable, this enqueues the current process
- * on KROQueue and Yields. */
+ * on the ObjectStallQueue and Yields. */
 PageHeader *
 pageH_MitigateKRO(PageHeader * old)
 {

@@ -226,6 +226,16 @@ IORQ_Deallocate(IORQ * iorq)
 
 // ************************ Log stuff **************************
 
+// Add one frame to lid, wrapping if necessary.
+LID
+IncrementLID(LID lid)
+{
+  lid += FrameToOID(1);
+  if (lid >= logWrapPoint) 
+    return MAIN_LOG_START;	// wrap to the beginning
+  return lid;
+}
+
 LID
 NextLogLoc(void)
 {
@@ -237,9 +247,7 @@ NextLogLoc(void)
   }
 
   LID lid = logCursor;
-  logCursor += FrameToOID(1);
-  if (logCursor >= logWrapPoint) 
-    logCursor = MAIN_LOG_START;	// wrap to the beginning
+  logCursor = IncrementLID(logCursor);
   return lid;
 }
 

@@ -187,7 +187,7 @@ static void
 PTE_MakeRO(PTE * pPTE)
 {
   const uint32_t pteval = pPTE->w_value;
-  if ((pteval & (PTE_VALIDBITS | 0xff0)) == (PTE_SMALLPAGE | 0xff)) {
+  if ((pteval & (PTE_VALIDBITS | 0xff0)) == (PTE_SMALLPAGE | 0xff0)) {
     // It's a PTE that grants user write access.
     // Change to read-only.
     pPTE->w_value = (pteval & ~0xff0) | 0xaa0
@@ -207,7 +207,7 @@ PTE_TrackDirty(PTE * pPTE)
 {
   // Turn this PTE into the form used for tracking Dirty.
   const uint32_t pteval = pPTE->w_value;
-  if ((pteval & (PTE_VALIDBITS | 0xff0)) == (PTE_SMALLPAGE | 0xff)) {
+  if ((pteval & (PTE_VALIDBITS | 0xff0)) == (PTE_SMALLPAGE | 0xff0)) {
     // It's a PTE that grants user write access.
     pPTE->w_value = (pteval & ~(PTE_CACHEABLE | PTE_BUFFERABLE | 0xff0))
                     | (PTE_CACHEABLE | 0xaa0);
@@ -707,11 +707,8 @@ pageH_mdType_CheckPage(PageHeader * pPage)
               return false;
             }
             if (!pageH_IsDirty(thePageHdr)) {
-              printf("Writable PTE=0x%08x (map page 0x%08x), clean pg"
-		         " 0x%08x%08x\n",
-		         pteWord, pte,
-		         (uint32_t) (pageH_ToObj(thePageHdr)->oid >> 32),
-		         (uint32_t) pageH_ToObj(thePageHdr)->oid );
+              printf("Writable PTE=0x%08x (map page 0x%08x), clean pg %#x\n",
+		         pteWord, pte, thePageHdr);
 
               return false;
             }

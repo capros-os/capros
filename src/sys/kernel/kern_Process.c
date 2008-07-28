@@ -505,7 +505,7 @@ check_Contexts(const char *c)
       Process *p = &proc_ContextCache[i];
     
 #ifndef NDEBUG
-      if (keyR_IsValid(&p->keyRing, p) == false) {
+      if (! keyR_IsValid(&p->keyRing, p)) {
 	result = false;
 	break;
       }
@@ -513,7 +513,7 @@ check_Contexts(const char *c)
     
 #ifndef NDEBUG
       for (k = 0; k < EROS_PROCESS_KEYREGS; k++) {
-	if (key_IsValid(&p->keyReg[0]) == false) {
+	if (! key_IsValid(&p->keyReg[0])) {
 	  result = false;
 	  break;
 	}

@@ -304,6 +304,40 @@ node_Unprepare(Node* thisPtr)
 #endif
 }
 
+#ifndef NDEBUG
+/* If pKey is a pointer to a key in a node,
+ * return a pointer to the node, else NULL. */
+Node *
+node_ValidNodeKeyPtr(const Key * pKey)
+{
+  char * wobj = (char *) pKey;
+  char * wbase = (char *) objC_nodeTable;
+  if (wobj < wbase)
+    return NULL;
+  if (wobj >= (char *) (objC_nodeTable + objC_nNodes))
+    return NULL;
+
+  // It's in the right range to be a pointer into a node.
+  Node * pNode = objC_nodeTable + ((wobj - wbase) / sizeof(Node));
+
+  // See if it's at a valid slot:
+  ptrdiff_t delta = wobj - (char *)&pNode->slot[0];
+  if (delta < 0			// in the header
+      || delta % sizeof(Key))	// or not on a Key boundary
+    return NULL;
+
+  return pNode;
+}
+#endif
+
+Node *
+node_ContainingNode(const Key * pKey)
+{
+  assert(node_ValidNodeKeyPtr(pKey));
+  ptrdiff_t nchars = (char *)pKey - (char *)objC_nodeTable;
+  return &objC_nodeTable[nchars/sizeof(Node)];
+}
+
 bool
 node_Validate(Node* thisPtr)
 {

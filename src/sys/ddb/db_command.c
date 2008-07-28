@@ -344,6 +344,7 @@ extern void	db_rsrv_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_rsrvchain_print_cmd(db_expr_t, int, db_expr_t, char*);
 #endif
 extern void	db_ctxt_print_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_show_keyring_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_ctxt_kr_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_ctxt_keys_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_activity_print_cmd(db_expr_t, int, db_expr_t, char*);
@@ -351,8 +352,8 @@ extern void	db_inv_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_entry_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_exit_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_invokee_print_cmd(db_expr_t, int, db_expr_t, char*);
-extern void	db_invokee_kr_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_invokee_keys_print_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_show_depend_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_irq_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_pins_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_pmem_cmd(db_expr_t, int, db_expr_t, char*);
@@ -389,6 +390,7 @@ struct db_command db_show_cmds[] = {
 	{ "breaks",	db_listbreak_cmd, 	0,	0 },
 	{ "cckr",       db_ctxt_kr_print_cmd,	0,	0 },
 	/* 	{ "count",	db_show_counters_cmd,	0,	0 }, */
+	{ "depend",	db_show_depend_cmd,	0,	0 },
 	{ "entry",      db_entry_print_cmd,	0,	0 },
 	{ "exit",       db_exit_print_cmd,	0,	0 },
 #ifdef EROS_TARGET_i486
@@ -400,7 +402,7 @@ struct db_command db_show_cmds[] = {
 	{ "irq",        db_show_irq_cmd,	0,	0 },
 	{ "key",        db_show_key_cmd,	0,	0 },
 	{ "keyregs",    db_ctxt_keys_print_cmd,	0,	0 },
-	{ "keyring",    db_ctxt_kr_print_cmd,	0,	0 },
+	{ "keyring",    db_show_keyring_cmd,	0,	0 },
 #if 0
 	{ "krsrvs",     db_show_kreserves_cmd,	0,	0 },
 #endif
@@ -536,12 +538,12 @@ struct db_command db_debug_cmds[] = {
 	{ (char *)0, }
 };
 
-extern void	db_check_ctxt_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_check_procs_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_check_pages_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_check_nodes_cmd(db_expr_t, int, db_expr_t, char*);
 
 struct db_command db_check_cmds[] = {
-	{ "procs",	db_check_ctxt_cmd,	0,		0 },
+	{ "procs",	db_check_procs_cmd,	0,		0 },
 	{ "nodes",	db_check_nodes_cmd,	0,		0 },
 	{ "pages",	db_check_pages_cmd,     0,		0 },
 	{ (char *)0, }
