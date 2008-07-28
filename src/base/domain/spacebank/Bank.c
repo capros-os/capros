@@ -862,7 +862,7 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
     DEBUG(alloc)
       kprintf(KR_OSTREAM,
 		   "Allocated %s oid=0x%08x%08x. Map now 0x%08x\n",
-		   type_name(type),
+		   type_name(baseType),
 		   (uint32_t) (oid >> 32),
 		   (uint32_t) oid,
 		   obj_frame->frameMap);
@@ -902,12 +902,10 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
     
   retval = GetCapAndRetype(type, oid, kr);
 
-  DEBUG(alloc)
-    kprintf(KR_OSTREAM,
-	    "spacebank: got back %x\n",
-	    retval);
-    
   if (retval != RC_OK) {
+    DEBUG(alloc)
+      kprintf(KR_OSTREAM, "spacebank: got back %x\n", retval);
+    
     /* ack! we've got to undo everything!
      * note that we don't need to rescind the key we made, since it
      * points to a zero object
