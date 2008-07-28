@@ -131,9 +131,11 @@
               the key registers of the invokee.
           <dt>show key &lt;address&gt
           <dd>Print the key at the specified address.
-          <dt>show keyring [&lt;address&gt]
+          <dt>show keyring &lt;address&gt;
+          <dd>Print all the keys on the specified keyring.
+          <dt>show cckr [&lt;address&gt;]
           <dd>Print all the keys that refer to the process
-              context at the specified address (the keyring of the context).
+              context at the specified address (the keyring of the process).
               If no address is specified, this command prints
               the information for the current process.
           <dt>show activity [&lt;address&gt]
@@ -147,6 +149,8 @@
               of a top-level mapping table.
               For the &lt;nPages&gt pages beginning at virtual address
               &lt;base&gt, this command prints the PTEs for each address.
+          <dt>show depend &lt;address&gt;
+          <dd>Show all depend entries for the specified key address.
           <dt>show proc [&lt;address&gt;]
           <dd>Print the Process at the specified address.
               If no address is specified, this command prints the current
