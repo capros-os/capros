@@ -55,7 +55,7 @@ ProcessKey(Invocation * inv)
   switch (inv->entry.code) {
 
   case OC_capros_arch_i386_Process_setIoSpace:
-    node_MakeDirty(theNode);
+    node_EnsureWritable(theNode);
 
     COMMIT_POINT();
 

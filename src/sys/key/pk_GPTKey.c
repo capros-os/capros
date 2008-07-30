@@ -259,7 +259,7 @@ request_error:
 	break;
       }
 
-      node_MakeDirty(theGPT);
+      node_EnsureWritable(theGPT);
 
       COMMIT_POINT();
   
@@ -281,8 +281,7 @@ request_error:
 
       key_Prepare(inv->entry.key[0]);
 
-      /* Mark the object dirty. */
-      node_MakeDirty(theGPT);
+      node_EnsureWritable(theGPT);
 
       COMMIT_POINT();
 

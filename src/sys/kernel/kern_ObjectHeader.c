@@ -231,7 +231,7 @@ EnoughWorkingDirEnts(unsigned long availWorkingDirEnts)
 }
 
 void
-objH_MakeObjectDirty(ObjectHeader * pObj)
+objH_EnsureWritable(ObjectHeader * pObj)
 {
   assert(objH_IsUserPinned(pObj)
          || ((   pObj->obType == ot_NtProcessRoot
@@ -461,14 +461,14 @@ objH_ClearObj(ObjectHeader * thisPtr)
     /* zeroing unprepares and invalidates products too */
 
     node_DoClearThisNode(thisNode);
-    node_MakeDirty(thisNode);
+    node_EnsureWritable(thisNode);
   }
   else if (thisPtr->obType == ot_PtDataPage) {
     objH_InvalidateProducts(thisPtr);
 
     kva_t pPage = pageH_GetPageVAddr(objH_ToPage(thisPtr));
     kzero((void*)pPage, EROS_PAGE_SIZE);
-    pageH_MakeDirty(objH_ToPage(thisPtr));
+    pageH_EnsureWritable(objH_ToPage(thisPtr));
   }
   else if (thisPtr->obType == ot_PtDevicePage) {
     objH_InvalidateProducts(thisPtr);

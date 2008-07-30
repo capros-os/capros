@@ -96,7 +96,7 @@ Desensitize(Key *k)
 static void
 SwapSlot(Invocation * inv, Node * theNode, Key * slot)
 {
-  node_MakeDirty(theNode);
+  node_EnsureWritable(theNode);
 
   COMMIT_POINT();
   
@@ -412,7 +412,7 @@ NodeKey(Invocation * inv)
 	break;
       }
 
-      node_MakeDirty(theNode);
+      node_EnsureWritable(theNode);
 
       /* If we zero it, we're going to nail all of it's dependencies
        * anyway:
@@ -456,7 +456,7 @@ NodeKey(Invocation * inv)
       
       inv->exit.code = RC_OK;
 
-      node_MakeDirty(theNode);
+      node_EnsureWritable(theNode);
 
       COMMIT_POINT();
 
@@ -588,8 +588,7 @@ NodeKey(Invocation * inv)
 	break;
       }
 
-      /* Mark the object dirty. */
-      node_MakeDirty(theNode);
+      node_EnsureWritable(theNode);
 
       key_Prepare(inv->entry.key[0]);
 

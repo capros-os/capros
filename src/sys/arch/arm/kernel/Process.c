@@ -362,7 +362,7 @@ proc_LoadFixRegs(Process* thisPtr)
   assert(thisPtr->hazards & hz_DomRoot);
 
   assert(thisPtr->procRoot);
-  node_MakeDirty(thisPtr->procRoot);
+  node_EnsureWritable(thisPtr->procRoot);
 
 #ifdef ProcAltMsgBuf
 #error "Type checks need revision"

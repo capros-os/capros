@@ -75,7 +75,7 @@ prockey_swapSlotCommitted(Invocation * inv, Node * theNode, uint32_t slot)
 static void
 prockey_swapSlot(Invocation * inv, Node * theNode, uint32_t slot)
 {
-  node_MakeDirty(theNode);
+  node_EnsureWritable(theNode);
 
   COMMIT_POINT();
 
@@ -123,7 +123,7 @@ ProcessKeyCommon(Invocation * inv, Process * proc)
     {
       proc_Prepare(proc);
 
-      node_MakeDirty(theNode);
+      node_EnsureWritable(theNode);
 
       COMMIT_POINT();
 
@@ -141,7 +141,7 @@ ProcessKeyCommon(Invocation * inv, Process * proc)
     }
 
   case OC_capros_Process_setIOSpace:
-    node_MakeDirty(theNode);
+    node_EnsureWritable(theNode);
 
     COMMIT_POINT();
 

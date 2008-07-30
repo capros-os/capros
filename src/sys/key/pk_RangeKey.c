@@ -220,7 +220,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
       Key * keynum = node_GetKeyAtSlot(objH_ToNode(pObj), ForwarderDataSlot);
       if (! keyBits_IsType(keynum, KKT_Number) ) {
         // Put a number key there.
-        node_MakeDirty(objH_ToNode(pObj));
+        node_EnsureWritable(objH_ToNode(pObj));
 
         COMMIT_POINT();
 
@@ -240,7 +240,7 @@ MakeObjectKey(Invocation * inv, uint64_t offset,
       uint8_t l2vField = gpt_GetL2vField(theGPT);
       uint8_t oldL2v = l2vField & GPT_L2V_MASK;
       if (oldL2v < EROS_PAGE_LGSIZE) {
-        node_MakeDirty(theGPT);
+        node_EnsureWritable(theGPT);
 
         COMMIT_POINT();
 
@@ -497,7 +497,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 
       ObjectHeader * pObject = key_GetObjectPtr(key);
 
-      objH_MakeObjectDirty(pObject);	// does not reset the age
+      objH_EnsureWritable(pObject);	// does not reset the age
 
       COMMIT_POINT();
       

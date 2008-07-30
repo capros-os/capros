@@ -130,7 +130,7 @@ getSlot:
       }
 	
 swapSlot:
-      node_MakeDirty(theNode);
+      node_EnsureWritable(theNode);
 
       COMMIT_POINT();
 
@@ -173,7 +173,7 @@ swapSlot:
       KeyBits * dataKey = node_GetKeyAtSlot(theNode, ForwarderDataSlot);
       assert(keyBits_IsType(dataKey, KKT_Number));
 
-      node_MakeDirty(theNode);
+      node_EnsureWritable(theNode);
       
       COMMIT_POINT();
 
@@ -185,7 +185,7 @@ swapSlot:
 
   case OC_capros_Forwarder_clearBlocked:
     {
-      node_MakeDirty(theNode);
+      node_EnsureWritable(theNode);
 
       COMMIT_POINT();
 
@@ -200,7 +200,7 @@ swapSlot:
 
   case OC_capros_Forwarder_setBlocked:
     {
-      node_MakeDirty(theNode);
+      node_EnsureWritable(theNode);
 
       COMMIT_POINT();
 

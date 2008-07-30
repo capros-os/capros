@@ -178,7 +178,7 @@ node_DoPrepareProcess(Node * pNode)
    * transfer path.
    */
 
-  node_MakeDirty(pNode);
+  node_EnsureWritable(pNode);
 
   Process * p = proc_allocate(true);
 
@@ -218,7 +218,7 @@ node_GetProcess(Node * pNode)
 void
 node_SetSlot(Node * thisPtr, uint32_t slot, Invocation * inv)
 {
-  node_MakeDirty(thisPtr);
+  node_EnsureWritable(thisPtr);
 
   COMMIT_POINT();
   

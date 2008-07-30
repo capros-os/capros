@@ -134,7 +134,7 @@ proc_LoadKeyRegs(Process * thisPtr)
     return;
   }
 
-  node_MakeDirty(kn);
+  node_EnsureWritable(kn);
 
   for (k = 0; k < EROS_NODE_SIZE; k++) {
     Key * procSlot = &thisPtr->keyReg[k];

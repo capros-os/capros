@@ -82,9 +82,9 @@ node_IsKernelPinned(Node * thisPtr)
 }
 
 INLINE void
-node_MakeDirty(Node * pNode)
+node_EnsureWritable(Node * pNode)
 {
-  objH_MakeObjectDirty(node_ToObj(pNode));
+  objH_EnsureWritable(node_ToObj(pNode));
   node_SetReferenced(pNode);
 }
 

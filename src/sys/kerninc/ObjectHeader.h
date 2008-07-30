@@ -315,11 +315,11 @@ pageH_IsDirty(PageHeader * thisPtr)
   return objH_IsDirty(pageH_ToObj(thisPtr));
 }
 
-void objH_MakeObjectDirty(ObjectHeader* thisPtr);
+void objH_EnsureWritable(ObjectHeader* thisPtr);
 INLINE void
-pageH_MakeDirty(PageHeader * pageH)
+pageH_EnsureWritable(PageHeader * pageH)
 {
-  objH_MakeObjectDirty(pageH_ToObj(pageH));
+  objH_EnsureWritable(pageH_ToObj(pageH));
   pageH_SetReferenced(pageH);
 }
 

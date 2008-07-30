@@ -78,8 +78,7 @@ PageKey(Invocation* inv /*@ not null @*/)
         act_Yield();
       }
 
-      /* Mark the object dirty. */
-      pageH_MakeDirty(pageH);
+      pageH_EnsureWritable(pageH);
 
       COMMIT_POINT();
 
@@ -136,8 +135,7 @@ PageKey(Invocation* inv /*@ not null @*/)
 	break;
       }
 
-      /* Mark the object dirty. */
-      pageH_MakeDirty(pageH);
+      pageH_EnsureWritable(pageH);
 
       assert(keyBits_IsPrepared(inv->key));
 

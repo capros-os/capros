@@ -830,7 +830,7 @@ FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
   MapTabHeader * mth2, ula_t mva)
 {
   if (isWrite)
-    pageH_MakeDirty(pageH);
+    pageH_EnsureWritable(pageH);
 
   // Ensure cache coherency. 
   unsigned int cacheClass = pageH->kt_u.ob.cacheAddr & EROS_PAGE_MASK;

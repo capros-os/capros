@@ -766,7 +766,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
          || wi.memObj->obType == ot_PtDevicePage);
   
   if (isWrite) {
-    pageH_MakeDirty(objH_ToPage(wi.memObj));
+    pageH_EnsureWritable(objH_ToPage(wi.memObj));
   }
 
   kpa_t pageAddr = VTOP(pageH_GetPageVAddr(objH_ToPage(wi.memObj)));
