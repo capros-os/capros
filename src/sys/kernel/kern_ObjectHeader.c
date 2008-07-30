@@ -36,6 +36,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/LogDirectory.h>
 #include <kerninc/Node-inline.h>
 #include <disk/DiskNode.h>
+#include <disk/CkptRoot.h>
 #include <arch-kerninc/PTE.h>
 #include <arch-kerninc/Machine-inline.h>
 
@@ -57,8 +58,9 @@ ObCount maxNPAllocCount = 0;
 // The allocation count of nonpersistent objects at restart.
 ObCount restartNPAllocCount = 0;
 
-// numDirtyObjects and numDirtyLogPots are initialized to zero by the loader.
-unsigned long numDirtyObjects[capros_Range_otNumBaseTypes];
+// The following are initialized to zero by the loader.
+unsigned long numDirtyObjectsWorking[capros_Range_otNumBaseTypes];
+unsigned long numDirtyObjectsNext[capros_Range_otNumBaseTypes];
 unsigned long numDirtyLogPots;
 
 #ifdef OPTION_DDB
@@ -134,12 +136,6 @@ void
 ObjectHeader::DoCopyOnWrite()
 {
   assert (obType > ObType::NtLAST_NODE_TYPE);
-#if 0
-  dprintf(true,
-		  "Trying copy on write, ty %d oid 0x%08x%08x "
-		  "hdr 0x%08x\n",
-		  obType, (uint32_t) (oid >> 32), (uint32_t) (oid), this);
-#endif
 
   assert(GetFlags(OFLG_CKPT) && IsDirty());
   
@@ -190,12 +186,6 @@ ObjectHeader::DoCopyOnWrite()
   
   assert(kernPin == 0);
   
-#ifdef DBG_CLEAN
-  printf("Object 0x%08x ty %d oid=0x%08x%08x COW copy cleaned\n",
-		 pObj, pObj->obType,
-		 (uint32_t) (pObj->oid >> 32),
-		 (uint32_t) pObj->oid);
-#endif
   pObj->SetFlags(GetFlags(OFLG_DISKCAPS));
   pObj->userPin = 0;
   pObj->prstPin = 0;
@@ -218,12 +208,6 @@ ObjectHeader::DoCopyOnWrite()
    * point we would find the wrong one.
    */
   
-
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("Bottom DoCopyOnWrite()");
-#endif
-
   /* Since we may have come here by way of the page fault code, we are
    * now forced to Yield(), because there are almost certainly
    * outstanding pointers to this object on the stack:
@@ -231,6 +215,20 @@ ObjectHeader::DoCopyOnWrite()
   Thread::Current()->Yield();
 }
 #endif
+
+static bool
+EnoughWorkingDirEnts(unsigned long availWorkingDirEnts)
+{
+  unsigned long totalDirtyObjsWorking =
+    numDirtyObjectsWorking[capros_Range_otNode]
+    + numDirtyObjectsWorking[capros_Range_otPage];
+  if (availWorkingDirEnts < totalDirtyObjsWorking) {	// not enough dir ents
+    dprintf(true, "Not enough dirents to dirty object. %d %d\n",
+            availWorkingDirEnts, totalDirtyObjsWorking);
+    return false;
+  }
+  return true;
+}
 
 void
 objH_MakeObjectDirty(ObjectHeader * pObj)
@@ -241,23 +239,14 @@ objH_MakeObjectDirty(ObjectHeader * pObj)
               || pObj->obType == ot_NtRegAnnex)
              && objH_IsUserPinned(proc_ToObj(pObj->prep_u.context)) ) );
 
-  if (objH_GetFlags(pObj, OFLG_KRO)) {
-    switch (objH_GetBaseType(pObj)) {
-    default:	// page
-      if (pageH_MitigateKRO(objH_ToPage(pObj)) != objH_ToPage(pObj))
-        // the current version moved
-        act_Yield();	// simplest way to recover is to start over
-      break;
-
-    case capros_Range_otNode:
-      node_MitigateKRO(objH_ToNode(pObj));
-      break;
-    }
-  }
-
-  if (objH_IsDirty(pObj))	// already dirty
+  if (objH_IsDirty(pObj)
+      && ! objH_GetFlags(pObj, OFLG_KRO) )	// already writeable
     return;
-  
+
+  // Non-persistent objects are always dirty and never KRO,
+  // so the object must be persistent:
+  assert(objH_GetFlags(pObj, OFLG_Cleanable));
+
   assert(! InvocationCommitted);
 
 #ifdef OPTION_OB_MOD_CHECK
@@ -266,92 +255,143 @@ objH_MakeObjectDirty(ObjectHeader * pObj)
 		  pObj);
 #endif
 
-  if (objH_GetFlags(pObj, OFLG_Cleanable)) {	// it's persistent
-    /* If this system was started from a checkpoint,
-     * including a big bang whose persistent objects are initialized
-     * as a checkpoint on disk,
-     * there won't be any persistent objects in memory until the restart
-     * has begun fetching them from disk. 
-     * If this system was started as a big bang with persistent objects
-     * preloaded in RAM,
-     * the IPL process won't start any persistent processes until the
-     * restart is done. 
-     * The migrator process initializes itself and allocates all the
-     * storage it needs before it starts the restart.
-     * Therefore in all cases, the migrator and at least one disk driver
-     * have been initialized, and can run without allocating further RAM.
-     * Therefore it is safe to begin dirtying objects, because
-     * we know we will be able to clean them eventually. */
+  /* If this system was started from a checkpoint,
+   * including a big bang whose persistent objects are initialized
+   * as a checkpoint on disk,
+   * there won't be any persistent objects in memory until the restart
+   * has begun fetching them from disk. 
+   * If this system was started as a big bang with persistent objects
+   * preloaded in RAM,
+   * the IPL process won't start any persistent processes until the
+   * restart is done. 
+   * The migrator process initializes itself and allocates all the
+   * storage it needs before it starts the restart.
+   * Therefore in all cases, the migrator and at least one disk driver
+   * have been initialized, and can run without allocating further RAM.
+   * Therefore it is safe to begin dirtying objects, because
+   * we know we will be able to clean them eventually. */
 
-    unsigned int baseType = objH_GetBaseType(pObj);
+  unsigned int baseType = objH_GetBaseType(pObj);
+
+  unsigned long availWorkingDirEnts = ld_numAvailableEntries(retiredGeneration);
+
+  if (! ckptIsActive()) {
+    assert(! objH_GetFlags(pObj, OFLG_KRO));
 
     // Tentatively count this object as dirty:
-    numDirtyObjects[baseType]++;
+    numDirtyObjectsWorking[baseType]++;
 
-    unsigned long availDirEnts = ld_numAvailableEntries();
+    // Calc space needed to complete a checkpoint:
+    unsigned long tentRes
+      = CalcLogReservation(numDirtyObjectsWorking, ld_numWorkingEntries());
 
-    if (! ckptIsActive()) {
-      // Calc space needed to complete a checkpoint:
-      unsigned long tentRes = CalcLogReservation();
+    // Calc space available for checkpoint:
+    frame_t retGenFrames = OIDToFrame(oldestNonRetiredGenLid - logCursor);
+    if (oldestNonRetiredGenLid < logCursor)	// account for circular log
+      retGenFrames += OIDToFrame(logWrapPoint - MAIN_LOG_START);
 
-      // Calc space available for checkpoint:
-      frame_t retGenFrames = OIDToFrame(oldestNonRetiredGenLid - logCursor);
-      if (oldestNonRetiredGenLid < logCursor)
-        retGenFrames += OIDToFrame(logWrapPoint - MAIN_LOG_START);
+    if (tentRes > retGenFrames) {	// not enough space in log
+      goto declareDemarc;
+    }
 
-      if (tentRes > retGenFrames) {	// not enough space in log
-        numDirtyObjects[baseType]--;	// undo tentative count
-        DeclareDemarcationEvent();
-	// The above yields, but this process is immediately eligible
-	// to run again, at which time it will take the
-	// "checkpoint is active" path.
-      }
+    // Calc space in working area:
+    frame_t wkgSpace = OIDToFrame(logCursor - workingGenFirstLid);
+    if (logCursor < workingGenFirstLid)	// account for circular log
+      wkgSpace += OIDToFrame(logWrapPoint - MAIN_LOG_START);
 
-      // Calc space in working area:
-      frame_t wkgSpace = OIDToFrame(logCursor - workingGenFirstLid);
-      if (logCursor < workingGenFirstLid)
-        wkgSpace += OIDToFrame(logWrapPoint - MAIN_LOG_START);
+    if ((wkgSpace + tentRes) > logSizeLimited) { // generation too big
+      goto declareDemarc;
+    }
 
-      if ((wkgSpace + tentRes) > logSizeLimited) { // generation too big
-        numDirtyObjects[baseType]--;	// undo tentative count
-        DeclareDemarcationEvent();
-	// The above yields, but this process is immediately eligible
-	// to run again, at which time it will take the
-	// "checkpoint is active" path.
-      }
+    unsigned long softLimit = objC_nPages + objC_nNodes; // for now
 
-      unsigned long softLimit = objC_nPages + objC_nNodes; // for now
+    if (availWorkingDirEnts < softLimit) {	// dir ents getting low
+  declareDemarc:
+      numDirtyObjectsWorking[baseType]--;	// undo tentative count
+      DeclareDemarcationEvent();
+      goto ckptActive;		// a checkpoint is now active
+    }
 
-      if (availDirEnts < softLimit) {	// dir ents getting low
-        numDirtyObjects[baseType]--;	// undo tentative count
-        DeclareDemarcationEvent();
-	// The above yields, but this process is immediately eligible
-	// to run again, at which time it will take the
-	// "checkpoint is active" path.
-      }
-    } else {	// a checkpoint is active
+    if (! EnoughWorkingDirEnts(availWorkingDirEnts)) {
+      numDirtyObjectsWorking[baseType]--;	// undo tentative count
       assert(!"complete");
     }
 
+    // It is OK to dirty the object. Let the tentative count stand.
+  } else {	// a checkpoint is active
+  ckptActive:
+    if (! EnoughWorkingDirEnts(availWorkingDirEnts)) {
+      // Not enough dir ents to clean the dirty working versions.
+      assert(!"complete");
+    }
+
+    // Tentatively count this object as dirty:
+    numDirtyObjectsNext[baseType]++;
+
+    GenNum nextRetiredGenNum = GetNextRetiredGeneration();
+
+    unsigned long availNextDirEnts = ld_numAvailableEntries(nextRetiredGenNum);
     unsigned long totalDirtyObjs =
-      numDirtyObjects[capros_Range_otNode]
-      + numDirtyObjects[capros_Range_otPage];
-    if (availDirEnts < totalDirtyObjs) {	// not enough dir ents
-      numDirtyObjects[baseType]--;	// undo tentative count
-      dprintf(true, "Not enough dirents to dirty object. %d %d\n",
-              availDirEnts, totalDirtyObjs);
+      numDirtyObjectsWorking[capros_Range_otNode]
+      + numDirtyObjectsWorking[capros_Range_otPage]
+      + numDirtyObjectsNext[capros_Range_otNode]
+      + numDirtyObjectsNext[capros_Range_otPage];
+    if (availNextDirEnts < totalDirtyObjs) {
+      // Not enough dir ents to clean the dirty working and next versions.
+      numDirtyObjectsNext[baseType]--;	// undo tentative count
+      dprintf(true, "Not enough next dirents to dirty object. %d %d\n",
+              availNextDirEnts, totalDirtyObjs);
       assert(!"complete");
     }
+
+    // Calc space needed to complete the current checkpoint and the next one:
+    unsigned long tentRes
+      = CalcLogReservation(numDirtyObjectsWorking, ld_numWorkingEntries())
+        + CalcLogReservation(numDirtyObjectsNext, 0);
+
+    // Calc space available for those checkpoints:
+    frame_t retGenFrames = OIDToFrame(oldestNonNextRetiredGenLid - logCursor);
+    if (oldestNonNextRetiredGenLid < logCursor)	// account for circular log
+      retGenFrames += OIDToFrame(logWrapPoint - MAIN_LOG_START);
+
+    if (tentRes > retGenFrames	// not enough space in log
+        || (workingGenerationNumber - nextRetiredGenNum)
+           > MaxUnmigratedGenerations
+		// not enough space in next CkptRoot.generations[]
+       ) {
+      numDirtyObjectsNext[baseType]--;	// undo tentative count
+      assert(!"complete");	// wait for a migration to complete
+    }
+
+    // Undo tentative count, because MitigateKRO may Yield.
+    numDirtyObjectsNext[baseType]--;
+
+    if (objH_GetFlags(pObj, OFLG_KRO)) {
+      switch (objH_GetBaseType(pObj)) {
+      default:	// page
+        if (pageH_MitigateKRO(objH_ToPage(pObj)) != objH_ToPage(pObj))
+          // the current version moved
+          act_Yield();	// simplest way to recover is to start over
+        break;
+
+      case capros_Range_otNode:
+        node_MitigateKRO(objH_ToNode(pObj));
+        break;
+      }
+    }
+
+    // Now definitely count this object as dirty:
+    numDirtyObjectsNext[baseType]++;
   }
 
   objH_SetDirtyFlag(pObj);
   
 #if 1//// until tested, then #ifdef DBG_CLEAN
   dprintf(true,
-	  "Marked pObj=0x%08x oid=%#llx dirty. dirty: %c chk: %c\n",
+	  "Marked pObj=0x%08x oid=%#llx dirty. dirty: %c wkg: %c\n",
 	  pObj, pObj->oid,
 	  objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n',
-	  objH_GetFlags(pObj, OFLG_CKPT) ? 'y' : 'n');
+	  objH_GetFlags(pObj, OFLG_Working) ? 'y' : 'n');
 #endif
 }
 

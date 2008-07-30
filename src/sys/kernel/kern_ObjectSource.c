@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjH-inline.h>
 #include <kerninc/Activity.h>
 #include <kerninc/LogDirectory.h>
+#include <kerninc/Ckpt.h>
 #include <disk/TagPot.h>
 
 #define dbg_obsrc	0x20	/* addition of object ranges */
@@ -52,8 +53,6 @@ static uint32_t nObRanges = 0;
 
 ObjectRange lidRanges[KTUNE_NLOGTBLENTS];
 uint32_t nLidRanges = 0;
-
-LID logWrapPoint;
 
 /* On exit, returns u such that ranges[u].start <= oid < ranges[u+1].start .
  * Returns -1 if oid < ranges[0].start . */
@@ -318,19 +317,6 @@ GetObject(OID oid, const ObjectLocator * pObjLoc)
     return rng->source->objS_GetObject(rng, oid, pObjLoc);
   }
   }
-}
-
-bool
-objC_WriteBack(ObjectHeader * pObj, bool inBackground)
-{
-  ObjectRange * rng = LookupOID(pObj->oid, obRanges, nObRanges);
-  if (!rng) {
-    dprintf(true, "No range for OID %#llx!\n", pObj->oid);
-    return false;
-  }
-
-////  return rng->source->objS_WriteBack(rng, pObj, inBackground);
-  return false;	// for now
 }
 
 void

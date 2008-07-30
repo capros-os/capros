@@ -249,10 +249,6 @@ KeyRing::ObjectMoved(struct ObjectHeader *newObj)
   newObj->kr.prev->next = &newObj->kr;
     
   ResetRing();
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("Bottom ObjectMover()");
-#endif
 }
 #endif
 

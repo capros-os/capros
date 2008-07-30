@@ -697,12 +697,9 @@ pageH_mdType_CheckPage(PageHeader * pPage)
               return false;
             }
 
-            if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_CKPT)) {
-              printf("Writable PTE=0x%08x (map page 0x%08x), ckpt pg"
-  		       " 0x%08x%08x\n",
-		       pteWord, pte,
-		       (uint32_t) (pageH_ToObj(thePageHdr)->oid >> 32),
-		       (uint32_t) pageH_ToObj(thePageHdr)->oid );
+            if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_KRO)) {
+              printf("Writable PTE=0x%08x (map page 0x%08x), KRO pg %#x\n",
+		       pteWord, pte, thePageHdr);
 
               return false;
             }

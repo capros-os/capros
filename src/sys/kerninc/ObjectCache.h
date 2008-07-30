@@ -153,14 +153,6 @@ bool objC_HaveSource(OID oid);
 void objC_ddb_DumpSources();
 #endif
 
-/* Write a page to backing store. Note that the "responsible"
- * ObjectSource can refuse, in which case the page will not be
- * cleanable and will stay in memory. WritePage() is free to yield.
- *
- * Returns true on success.
- */
-bool objC_WriteBack(ObjectHeader *, bool inBackground /*@ default false @*/);
-
 void objC_FindFirstSubrange(OID start, OID end, 
                             OID* subStart /*@ not null @*/, OID* subEnd /*@ not null @*/);
 

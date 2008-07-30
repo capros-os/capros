@@ -1172,15 +1172,16 @@ ld_generationRetired(GenNum generation) {
 
     A directory entry is considered available if it is either:
       (a) On the free list, or
-      (b) Used to record a member of a retired generation.
+      (b) Used to record a member of a generation as old or older than
+          the specified generation.
 
     @return The number of available directory entries.
 */
 unsigned long
-ld_numAvailableEntries(void) {
+ld_numAvailableEntries(GenNum generation) {
   unsigned long count = numLogDirEntries - log_entry_count;
-  if (0 == last_retired_generation) return count;
-  int i = get_generation_index(last_retired_generation);
+  if (0 == generation) return count;
+  int i = get_generation_index(generation);
   for (; i<LD_MAX_GENERATIONS; i++) {
     count += generation_table[i].count;
   }

@@ -166,7 +166,7 @@ AddCoherentPages(PageHeader * pageH, PmemInfo * pmi, kpg_t nPages,
     pObj->obType = obType;
     pObj->oid = oid;
     pObj->allocCount = 0;	// FIXME or PhysPageAllocCount??
-    objH_SetFlags(pObj, OFLG_CURRENT | OFLG_DIRTY);
+    objH_SetFlags(pObj, OFLG_DIRTY);
     // No objH_CalcCheck for device pages.
     objH_ResetKeyRing(pObj);
     objH_Intern(pObj);
@@ -392,8 +392,7 @@ objH_InitObj(ObjectHeader * pObj, OID oid)
 {
   pObj->oid = oid;
 
-  objH_SetFlags(pObj, OFLG_CURRENT);
-  // Other flags default to zero.
+  // Flags default to zero.
 
   objH_ResetKeyRing(pObj);
   objH_Intern(pObj);
@@ -807,37 +806,6 @@ node_MitigateKRO(Node * pNode)
 
 #if 0	// revisit this if it turns out we need it
 
-/* pObj->obType must be node or ot_PtDataPage. */
-bool
-objC_CleanFrame2(ObjectHeader *pObj)
-{
-  if (pObj->obType <= ot_NtLAST_NODE_TYPE)
-    /* FIXME: shouldn't we write back the node *before* clearing it? */
-    node_DoClearThisNode((Node *)pObj);
-
-  else
-    objH_InvalidateProducts(pObj);
-
-  /* Object must be paged out if dirty: */
-  if (objH_IsDirty(pObj)) {
-    /* If the object got rescued, it won't have hit ageout age, so
-     * the only way it should still be dirty is if the write has not
-     * completed:
-     */
-
-    DEBUG(ckpt)
-      dprintf(true, "ty %d oid 0x%08x%08x slq=0x%08x\n",
-		      pObj->obType,
-		      (uint32_t) (pObj->oid >> 32),
-		      (uint32_t) pObj->oid,
-		      ObjectStallQueueFromObHdr(pObj));
-    
-    objC_WriteBack(pObj, false);	/*** return value not used? */
-  }
-
-  return true;
-}
-
 /* Evict the current resident of a page frame. This is called
  * when we need to claim a particular physical page frame.
  * It is satisfactory to accomplish this by grabbing some
@@ -1078,17 +1046,54 @@ CleanAKROPage(void)
   }
 }
 
+static void
+CopyPage(PageHeader * old, PageHeader * new)
+{
+  kva_t oldAddr = pageH_MapCoherentRead(old);
+  kva_t newAddr = pageH_MapCoherentWrite(new);
+
+  memcpy((void *) newAddr, (void *) oldAddr, EROS_PAGE_SIZE);
+
+  pageH_UnmapCoherentRead(old);
+  pageH_UnmapCoherentWrite(new);
+  pageH_SetReferenced(new);
+}
+
 /* This procedure is called when we want to mutate a page that is
  * Kernel Read Only.
  *
  * If the page is made writeable, this returns a reference to the same frame.
+ *
  * If the current version of the page is moved to a new frame and made
  * writeable, this returns a reference to the new frame.
+ * Any locks on the original page are ignored, so the caller is advised to
+ * Yield.
+ *
  * If the page can't be made writeable, this enqueues the current process
  * on the ObjectStallQueue and Yields. */
 PageHeader *
 pageH_MitigateKRO(PageHeader * old)
 {
+  assert(objH_GetFlags(pageH_ToObj(old), OFLG_KRO));
+
+  PageHeader * new = objC_GrabPageFrame();
+  pageH_MDInitDataPage(new);
+  CopyPage(old, new);
+
+  if (old->ioreq) {
+    // The old page has I/O, so it can't be moved.
+  } else {
+  }
+  /* NOTE: We have to set the dirty bit on the current version here.
+  If we don't, the page could be stolen.
+  (It's unlikely to be stolen soon, but possible.)
+  If it is reaccessed before the Working version is written to disk,
+  the Working version won't be found, because it is not in the object hash.
+  It will fetch an older version from disk. 
+
+  Therefore the caller must ensure, before calling, that it is OK to set
+  the dirty bit; that the log and directory reservations will succeed.
+  */
   assert(!"complete");
   return NULL;
 }

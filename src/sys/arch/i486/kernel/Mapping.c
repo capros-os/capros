@@ -971,12 +971,9 @@ pageH_mdType_CheckPage(PageHeader * pPage)
       PageHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);
       assert(thePageHdr && pageH_IsObjectType(thePageHdr));
 
-      if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_CKPT)) {
-	printf("Writable PTE=0x%08x (map page 0x%08x), ckpt pg"
-		       " 0x%08x%08x\n",
-		       pte_AsWord(thePTE), pte,
-		       (uint32_t) (pageH_ToObj(thePageHdr)->oid >> 32),
-		       (uint32_t) pageH_ToObj(thePageHdr)->oid);
+      if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_KRO)) {
+        printf("Writable PTE=0x%08x (map page 0x%08x), KRO pg %#x\n",
+	       pte_AsWord(thePTE), pte, thePageHdr);
 
 	return false;
       }

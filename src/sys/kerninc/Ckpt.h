@@ -52,6 +52,28 @@ extern unsigned int KRONodeCleanCursor;
 
 extern struct Activity * checkpointActivity;
 
+extern LID logCursor;	// next place to write in the main log
+extern LID logWrapPoint;	// end of main log
+
+/* oldestNonRetiredGenLid is the LID following the last LID of the
+ * newest retired generation. */
+extern LID oldestNonRetiredGenLid;
+
+/* oldestNonNextRetiredGenLid is valid only while a checkpoint is active.
+ * It is the LID following the last LID of the generation
+ * returned by GetNextRetiredGeneration(). */
+extern LID oldestNonNextRetiredGenLid;
+
+/* workingGenFirstLid is the LID of the first frame of the
+ * working generation. */
+extern LID workingGenFirstLid;
+
+#define LOG_LIMIT_PERCENT_DENOMINATOR 256
+/* logSizeLimited is the size of the main log times the limit percent. */
+extern frame_t logSizeLimited;
+
+extern GenNum retiredGeneration;
+
 #define KR_MigrTool 7
 
 INLINE bool
@@ -68,7 +90,30 @@ restartIsDone(void)
   return logCursor != 0;
 }
 
-unsigned long CalcLogReservation(void);
+/* GetNextRetiredGeneration should be called only while a checkpoint is active.
+ * It returns the generation number of the newest generation for which
+ * it is known that it will be retired after the current checkpoint
+ * is stabilized. */
+INLINE GenNum
+GetNextRetiredGeneration(void)
+{
+  extern GenNum nextRetiredGeneration;
+  extern GenNum migratedGeneration;
+
+  assert(ckptIsActive());
+  if (nextRetiredGeneration)
+    /* It is possible that a generation will be migrated between the time
+    the generation header is fixed and the time it has been written to disk,
+    in which case we want the value in the header: */
+    return nextRetiredGeneration;
+  else
+    /* It is possible that another generation will be migrated before
+    the checkpoint is stabilized, but this is the best we can be sure of: */
+    return migratedGeneration;
+}
+
+unsigned long CalcLogReservation(unsigned long numDirtyObjects[],
+  unsigned long existingLogEntries);
 void DeclareDemarcationEvent(void);
 void DoCheckpointStep(void);
 

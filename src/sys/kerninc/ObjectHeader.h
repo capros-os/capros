@@ -43,7 +43,8 @@ struct IORequest;
 
 extern ObCount restartNPAllocCount;
 
-extern unsigned long numDirtyObjects[];
+extern unsigned long numDirtyObjectsWorking[];
+extern unsigned long numDirtyObjectsNext[];
 extern unsigned long numDirtyLogPots;
 
 /* Enable the option OB_MOD_CHECK **in your configuration file** if
@@ -110,19 +111,19 @@ enum {
 };
 
 // Values in flags:
-#define OFLG_DIRTY	0x01u	/* object has been modified */
-#define OFLG_Fetching	0x02u	/* object is being fetched (from disk).
+#define OFLG_DIRTY	0x01	/* object has been modified */
+#define OFLG_Fetching	0x02	/* object is being fetched (from disk).
 				Should only be on for pages and pots.
 				If on, ioreq is non-NULL. */
 #define OFLG_Cleanable  0x04	/* object is persistent.
 				This is a shortcut for inquring of the object's
 				ObjectSource. */
-#define OFLG_CURRENT	0x08u	/* current version */
-#define OFLG_CKPT	0x10u	/* checkpoint version */
-#define OFLG_KRO	0x20u	/* object is Kernel-read-only */
-#define OFLG_CallCntUsed  0x40u	/* resume capabilities to this node exist
+/* unused		0x08	*/
+#define OFLG_Working	0x10	/* working version, not current (==> KRO) */
+#define OFLG_KRO	0x20	/* object is Kernel-read-only */
+#define OFLG_CallCntUsed 0x40	/* resume capabilities to this node exist
 				that contain the current call count. */
-#define OFLG_AllocCntUsed 0x80u	/* non-resume capabilities to this object exist
+#define OFLG_AllocCntUsed 0x80	/* non-resume capabilities to this object exist
 				that contain the current allocation count. */
 
 struct ObjectHeader {

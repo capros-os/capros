@@ -46,6 +46,14 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
+LID logCursor = 0;	// next place to write in the main log
+LID logWrapPoint;
+LID oldestNonRetiredGenLid;
+LID oldestNonNextRetiredGenLid;
+LID workingGenFirstLid;
+frame_t logSizeLimited;
+GenNum retiredGeneration = 0;
+
 unsigned int ckptState = ckpt_NotActive;
 
 long numKRODirtyPages = 0;	// including pots
@@ -64,26 +72,47 @@ unsigned int rangesSynced;
 PageHeader * reservedPages = NULL;
 unsigned int numReservedPages = 0;
 
+
+/*
+If no checkpoint is active, nextRetiredGeneration is undefined.
+If a checkpoint is active and the migratedGenNumber field in the
+  DiskGenerationHdr has been fixed,
+  nextRetiredGeneration has the value in that field.
+If a checkpoint is active and the migratedGenNumber field in the
+  DiskGenerationHdr has not been fixed,
+  nextRetiredGeneration has zero.
+*/
+GenNum nextRetiredGeneration = 0;
+
+GenNum migratedGeneration = 0;	// the latest fully migrated generation
+
 DEFQUEUE(WaitForCkptInactive);
 DEFQUEUE(WaitForCkptNeeded);
 DEFQUEUE(WaitForObjDirWritten);
 
 /* During a checkpoint, persistent pages can be in the following states:
 
-  OFLG_   I/O Generation(s) DirEnt Notes
-KRO Dirty  *1               exists
- 1    1    0  Wkg             no   need to clean
- 1    1   cln Wkg             no   Before the demarcation event, this page
-                                   began to be cleaned and was redirtied.
- 1    0   cln Wkg             yes  being cleaned
- 0    0    0  Wkg and Next    yes  
- 0    0   fet Wkg and Next    yes  being fetched
- 0    1    0          Next    no   can't be cleaned now
+ -- OFLG_ --  I/O Generation(s) DirEnt Notes
+KRO Dirty Wkg  *1         *2    exists
+ 1    1    0   0  Wkg and Cur     no   need to clean
+ 1    1    1   0  Wkg             no   need to clean
+ 1    1    0  cln Wkg and Cur     no   Before the demarcation event, this page
+                                       began to be cleaned and was redirtied.
+ 1    1    1  cln Wkg             no   Ditto, and the page was COW'ed before
+                                       the clean finished.
+ 1    0    0  cln Wkg and Cur     yes  being cleaned
+ 1    0    1  cln Wkg             yes  being cleaned
+ 0    0    0   0  Wkg and Cur     yes  
+ 0    0    0  fet Wkg and Cur     yes  being fetched
+ 0    1    0   0          Cur     no   can't be cleaned now
 
  *1 This state is a combination of ioreq and OFLG_Fetching:
-    0: ioreq == 0
-    cln: ioreq != 0, OFLG_Fetching == 0
-    fet: ioreq != 0, OFLG_Fetching == 1
+    0: ioreq == 0                       (no I/O)
+    cln: ioreq != 0, OFLG_Fetching == 0 (being cleaned)
+    fet: ioreq != 0, OFLG_Fetching == 1 (being fetched)
+
+ *2 "Cur" means this page is the current version and can be found
+    by objH_Lookup.
 */
 
 INLINE void
@@ -95,7 +124,8 @@ minEqualsL(long * var, long value)
 
 /* Return the amount of log needed to checkpoint all the dirty objects. */
 unsigned long
-CalcLogReservation(void)
+CalcLogReservation(unsigned long numDirtyObjects[],
+  unsigned long existingLogEntries)
 {
   unsigned long total = 0;
   total += (numDirtyObjects[capros_Range_otNode] + DISK_NODES_PER_PAGE - 1)
@@ -104,7 +134,7 @@ CalcLogReservation(void)
   total += numDirtyLogPots;
   // Space to write out the log directory:
 #define DirEntsPerPage (EROS_PAGE_SIZE / sizeof(ObjectDescriptor))
-  total += (ld_numWorkingEntries()
+  total += (existingLogEntries
             + numDirtyObjects[capros_Range_otNode]
             + numDirtyObjects[capros_Range_otPage] + DirEntsPerPage - 1)
            / DirEntsPerPage;
@@ -371,7 +401,16 @@ WriteDirEntsToPage(struct DiskObjectDescriptor * dod)
     kva_t roomInPage = (- (kva_t)dod) & EROS_PAGE_MASK;
     if (roomInPage < sizeof(struct DiskObjectDescriptor))
       break;		// no more will fit
-    //// write one
+
+    const ObjectDescriptor * od = ld_findNextObject(workingGenerationNumber);
+    assert(od);		// else ran out before count ran out
+    // dod is unaligned and packed, so use memcpy.
+    memcpy(&dod->oid, &od->oid, sizeof(OID));
+    memcpy(&dod->allocCount, &od->allocCount, sizeof(ObCount));
+    memcpy(&dod->callCount, &od->callCount, sizeof(ObCount));
+    memcpy(&dod->lid, &od->logLoc, sizeof(LID));
+    memcpy(&dod->type, &od->type, sizeof(uint8_t));
+
     dod++;
     numDirEntsInPage++;
     numDirEntsToSave--;
@@ -426,7 +465,7 @@ DoPhase2Work(void)
   // All the dir ents for the working generation have now been created,
   // even though pages may still be queued for the disk driver.
   numDirEntsToSave = ld_numWorkingEntries();
-  //// reset scan
+  ld_resetScan(workingGenerationNumber);
 
   // Some can go in the generation header:
   DiskGenerationHdr * genHdr
@@ -538,6 +577,9 @@ DoPhase3Work(void)
   if (numDirEntsToSave) {
     SleepOnPFHQueue(&WaitForObjDirWritten);
   }
+
+  // Verify that there are no more dir ents:
+  assert(ld_findNextObject(workingGenerationNumber) == NULL);
 
   // Wait for all the previous log writes to get to nonvolatile media.
   while (nextRangeToSync < nLidRanges) {

@@ -50,12 +50,8 @@ Approved for public release, distribution unlimited. */
 
 GenNum workingGenerationNumber;
 LID currentRoot;	// CKPT_ROOT_0 or CKPT_ROOT_1
-LID logCursor = 0;	// next place to write in the main log
-LID oldestNonRetiredGenLid;
-LID workingGenFirstLid;
 uint64_t monotonicTimeOfRestart;
 uint64_t monotonicTimeOfLastDemarc;
-frame_t logSizeLimited;
 Activity * migratorActivity;
 Activity * checkpointActivity;
 
