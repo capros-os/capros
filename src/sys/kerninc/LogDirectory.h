@@ -140,10 +140,12 @@ const LID *
 ld_findObjectForJournal(OID oid, GenNum generation);
 
 
-/** Find the first object of a generation.
+/** Start the scan of a generation.
 
-    This routine starts a scan of all objects in a generation.
-    ld_nextObject continues the scan. There may be up to one scan in
+    This routine sets the cursor used by ld_findNextObject to the 
+    first object of the generation. It may be used to start a scan of 
+    all objects in a generation. ld_findNextObject returns successive
+    ObjectDescriptors for the generation. There may be up to one scan in
     progress at any time for any particular generation. Only objects
     whose primary location is in the given generation will be returned.
 
@@ -153,18 +155,14 @@ ld_findObjectForJournal(OID oid, GenNum generation);
     object directory or the use of the returned values.
 
     @param[in] generation The generation number to scan.
-    @return The ObjectDescriptor of the first object in a generation scan
-            or NULL. This pointer will be good until
-	    a change is made to the log directory, either adding or
-	    modifing an entry, or deleting a generation.
 */
-const ObjectDescriptor *
-ld_findFirstObject(GenNum generation);
+void
+ld_resetScan(GenNum generation);
 
 /** Find the next object of a generation.
 
     This routine continues the scan of all objects whose primary location
-    is in a generation. See ld_findFirstObject for more information.
+    is in a generation. See ld_resetScan for more information.
 
     @param[in] generation The generation number to scan.
     @return The ObjectDescriptor of the next object in a generation scan

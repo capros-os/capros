@@ -255,10 +255,10 @@ unchain_node(TreeNode *n) {
   if (gte->head == n) gte->head = n->prev;
   if (gte->head == n) gte->head = NULL;
   if (gte->cursor == n) gte->cursor = n->next;
-  if (gte->cursor == n) gte->cursor = NULL;
   n->prev->next = n->next;
   n->next->prev = n->prev;
   n->next = n->prev = n;
+  if (gte->cursor == gte->head) gte->cursor = NULL;
 }
 
 
@@ -1082,27 +1082,26 @@ TreeNode *n = find_node(&log_directory, oid);
 }
 
 
-/** Find the first object of a generation.
+/** Start the scan of a generation.
 
-    This routine starts the scan of all objects in a generation.
-    ld_nextObject continues the scan. There may be up to two scans in
-    progress at any time (one for the checkpoint routines and one for
-    migration). They are separated by using different generation numbers.
+    This routine sets the cursor used by ld_findNextObject to the 
+    first object of the generation. It may be used to start a scan of 
+    all objects in a generation. ld_findNextObject returns successive
+    ObjectDescriptors for the generation. There may be up to one scan in
+    progress at any time for any particular generation. Only objects
+    whose primary location is in the given generation will be returned.
 
     Note the the order of objects in a generation is undefined. If it needs
     to be defined for some reason, like optimizing migration, then that
     need will be an additional constraint on the implementation of the
-    object directory.
+    object directory or the use of the returned values.
 
     @param[in] generation The generation number to scan.
-    @return The ObjectDescriptor of the first object in a generation scan.
 */
-const ObjectDescriptor *ld_findFirstObject(GenNum generation) {
+void ld_resetScan(GenNum generation) {
   int gti = get_generation_index(generation);
   GT *gte = &generation_table[gti];
-  if (NULL == gte->head) return NULL;
   gte->cursor = gte->head;
-  return &gte->cursor->od;
 }
 
 /** Find the next object of a generation.
@@ -1117,12 +1116,13 @@ const ObjectDescriptor *ld_findNextObject(GenNum generation) {
   int gti = get_generation_index(generation);
   GT *gte = &generation_table[gti];
   if (NULL == gte->cursor) return NULL;
+  ObjectDescriptor *od = &gte->cursor->od;
   if (gte->cursor->next == gte->head) {
     gte->cursor = NULL;
-    return NULL;
+  } else {
+    gte->cursor = gte->cursor->next;
   }
-  gte->cursor = gte->cursor->next;
-  return &gte->cursor->od;
+  return od;
 }
 
 /** Remove all the objects in a generation from the Object Directory.
@@ -1367,7 +1367,8 @@ checkAGeneration(GenNum generation, uint64_t randomSeed, OID oid) {
 
   const ObjectDescriptor *od;
   int count = 0;
-  for (od=ld_findFirstObject(generation);
+  ld_resetScan(generation);
+  for (od=ld_findNextObject(generation);
        NULL!=od;
        od=ld_findNextObject(generation)) {
     count++;
