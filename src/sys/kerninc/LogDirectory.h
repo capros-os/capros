@@ -193,6 +193,9 @@ ld_generationRetired(GenNum generation);
       (b) Used to record a member of a generation as old or older than
           the specified generation.
 
+    @param[in] generation The youngest generation to count. All older 
+               generations will be included in the count. If generation
+	       is zero, all generations will be included in the count.
     @return The number of available directory entries.
 */
 unsigned long
