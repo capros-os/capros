@@ -50,8 +50,8 @@ static DEFQUEUE(SourceWait);
 static ObjectRange obRanges[KTUNE_NRNGTBLENTS];
 static uint32_t nObRanges = 0;
 
-static ObjectRange lidRanges[KTUNE_NLOGTBLENTS];
-static uint32_t nLidRanges = 0;
+ObjectRange lidRanges[KTUNE_NLOGTBLENTS];
+uint32_t nLidRanges = 0;
 
 LID logWrapPoint;
 
@@ -89,7 +89,7 @@ LookupOID(OID oid, ObjectRange * ranges, uint32_t nRanges)
   else return NULL;
 }
 
-ObjectRange *	// or NULL if failed
+static ObjectRange *
 AddRange(const ObjectRange * rng, ObjectRange * ranges, uint32_t * pnRanges)
 {
   unsigned int i, j;
@@ -142,7 +142,8 @@ objC_AddRange(const ObjectRange * rng)
   if (nObRanges == KTUNE_NRNGTBLENTS)
     fatal("Limit on total object ranges exceeded\n");
 
-  return AddRange(rng, obRanges, &nObRanges);
+  AddRange(rng, obRanges, &nObRanges);
+  return true;
 }
 
 bool
@@ -152,8 +153,6 @@ AddLIDRange(const ObjectRange * rng)
     fatal("Limit on total object ranges exceeded\n");
 
   ObjectRange * newRng = AddRange(rng, lidRanges, &nLidRanges);
-  if (! newRng)
-    return false;
 
   restart_LIDMounted(newRng);
   return true;

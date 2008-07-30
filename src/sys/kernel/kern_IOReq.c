@@ -263,7 +263,7 @@ IOReq_EndRead(IORequest * ioreq)
   pageH_SetReferenced(pageH);
   objH_ClearFlags(pageH_ToObj(pageH), OFLG_Fetching);
   sq_WakeAll(&ioreq->sq, false);
-  // Caller has unlinked the ioreq and will deallocate it.
+  IOReq_Deallocate(ioreq);
 }
 
 void
@@ -288,18 +288,7 @@ IOReq_EndWrite(IORequest * ioreq)
   pageH->ioreq = NULL;
   pageH_ToObj(pageH)->objAge = age_Steal;
   sq_WakeAll(&ioreq->sq, false);
-  // Caller has unlinked the ioreq and will deallocate it.
-}
-
-void
-IOReq_WakeSQ(IORequest * ioreq)
-{
-  // The IORequest is done.
-  // Mark the page as no longer having I/O.
-  PageHeader * pageH = ioreq->pageH;
-  pageH->ioreq = NULL;
-  sq_WakeAll(&ioreq->sq, false);
-  // Caller has unlinked the ioreq and will deallocate it.
+  IOReq_Deallocate(ioreq);
 }
 
 // May Yield.

@@ -97,7 +97,8 @@ IORQKey(Invocation * inv)
       .rangeStartOID = rng->start,
       .rangeOpaque = rng->u.rq.opaque,
       .rangeLoc = ioreq->rangeLoc,
-      .bufferDMAAddr = pageH_ToPhysAddr(ioreq->pageH),
+      .bufferDMAAddr = (ioreq->pageH ? pageH_ToPhysAddr(ioreq->pageH)
+                                     : 0xbadbadda),
       .requestType = ioreq->requestCode,
       // For the requestID just use the address of the IORequest.
       // This is admittedly not very robust.
@@ -116,7 +117,6 @@ IORQKey(Invocation * inv)
 
     // Call the done function:
     (*ioreq->doneFn)(ioreq);
-    IOReq_Deallocate(ioreq);
 
     COMMIT_POINT();
     break;

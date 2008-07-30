@@ -77,6 +77,7 @@ void objC_AgePageFrames(void);
 PageHeader * objC_GrabPageFrame(void);
 void objC_GrabThisPageFrame(PageHeader *);
 void EnsureObjFrames(unsigned int baseType, unsigned int numFrames);
+void CreateLogDirEntryForNonzeroPage(PageHeader * pageH);
 void CleanAKRONode(void);
 void CleanAKROPage(void);
 

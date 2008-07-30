@@ -29,6 +29,7 @@ enum {
   ckpt_NotActive = 0,
   ckpt_Phase1,
   ckpt_Phase2,
+  ckpt_Phase3,
 };
 extern unsigned int ckptState;
 

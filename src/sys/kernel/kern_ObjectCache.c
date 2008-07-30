@@ -913,6 +913,21 @@ objC_EvictFrame(PageHeader * pageH)
 }
 #endif
 
+void
+CreateLogDirEntryForNonzeroPage(PageHeader * pageH)
+{
+  IORequest * ioreq = pageH->ioreq;
+  ObjectHeader * pObj = pageH_ToObj(pageH);
+  ObjectDescriptor objDescr = {
+    .oid = pObj->oid,
+    .logLoc = FrameToOID(ioreq->rangeLoc) + ioreq->objRange->start,
+    .allocCount = pObj->allocCount,
+    .callCount = 0,	// not used
+    .type = capros_Range_otPage
+  };
+  ld_recordLocation(&objDescr, workingGenerationNumber);
+}
+
 static void
 page_ClearAnyKRO(PageHeader * pageH)
 {
@@ -937,25 +952,21 @@ IOReq_EndPageClean(IORequest * ioreq)
   assert(! objH_GetFlags(pObj, OFLG_KRO)
          || ! objH_GetFlags(pObj, OFLG_DIRTY) );
 
-  page_ClearAnyKRO(pageH);
-
   if (pageH_IsDirty(pageH)) {
     // The page was dirtied while it was being written.
     // Tough luck; writing the page was a waste of time.
     // This log location will not be used.
     // No point in making a log directory entry.
   } else {
-    ObjectDescriptor objDescr = {
-      .oid = pObj->oid,
-      .logLoc = FrameToOID(ioreq->rangeLoc) + ioreq->objRange->start,
-      .allocCount = pObj->allocCount,
-      .callCount = 0,	// not used
-      .type = capros_Range_otPage
-    };
-    ld_recordLocation(&objDescr, workingGenerationNumber);
+    if (! objH_GetFlags(pObj, OFLG_KRO))
+      CreateLogDirEntryForNonzeroPage(pageH);
+    // else KRO, dir ent was created earlier.
   }
+
+  page_ClearAnyKRO(pageH);
+
   sq_WakeAll(&ioreq->sq, false);
-  // Caller has unlinked the ioreq and will deallocate it.
+  IOReq_Deallocate(ioreq);
 }
 
 // May Yield.
@@ -1028,6 +1039,13 @@ pageH_Clean(PageHeader * pageH)
       ioreq->objRange = rng;
       ioreq->rangeLoc = OIDToFrame(lid - rng->start);
       ioreq->doneFn = &IOReq_EndPageClean;
+
+      if (objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO))
+        /* We know it will stay clean, so we might as well create the
+        dir ent now, rather than in IOReq_EndPageClean. That also ensures
+        that all dir ents have been created by checkpoint phase 3. */
+        CreateLogDirEntryForNonzeroPage(pageH);
+
       sq_Init(&ioreq->sq);
       ioreq_Enqueue(ioreq);
     }
@@ -1036,21 +1054,23 @@ pageH_Clean(PageHeader * pageH)
 
 unsigned int KROPageCleanCursor;	// next page to clean
 
-// Clean the next KRO page.
+// Clean the next dirty KRO page.
 void
 CleanAKROPage(void)
 {
   assert(numKRODirtyPages);
 
-  for (;;) {
+  for (;;KROPageCleanCursor++) {
     assert(KROPageCleanCursor < objC_nPages);
-    PageHeader * pageH = objC_GetCorePageFrame(KROPageCleanCursor++);
+    PageHeader * pageH = objC_GetCorePageFrame(KROPageCleanCursor);
     ObjectHeader * pObj = pageH_ToObj(pageH);
     switch (pObj->obType) {
     case ot_PtDataPage:
     case ot_PtLogPot:
-      if (objH_GetFlags(pObj, OFLG_KRO)) {
-        pageH_Clean(pageH);
+      if (objH_GetFlags(pObj, OFLG_KRO | OFLG_DIRTY)
+          == (OFLG_KRO | OFLG_DIRTY)) {
+        pageH_Clean(pageH);	// may Yield
+        // KROPageCleanCursor++ not necessary
         return;
       }
     default: ;

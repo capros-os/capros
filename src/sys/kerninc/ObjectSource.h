@@ -46,6 +46,9 @@ typedef struct ObjectRange {
   } u;
 } ObjectRange;
 
+extern ObjectRange lidRanges[];
+extern uint32_t nLidRanges;
+
 INLINE bool
 range_Contains(ObjectRange * rng, OID oid)
 {

@@ -9,7 +9,8 @@ interface IOReqQ extends key {
 
   unsigned short enum RequestType {
     readRangeLoc,
-    writeRangeLoc
+    writeRangeLoc,
+    synchronizeCache	// write any cached data to nonvolatile media
   };
 
   /** Register a range to this IOReqQ.

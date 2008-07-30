@@ -53,11 +53,45 @@ long numKRONodes = 0;
 unsigned int KROPageCleanCursor;
 unsigned int KRONodeCleanCursor;
 
-PageHeader * GenHdrPageH;
+PageHeader * GenHdrPageH = NULL;
 LID nextProcDirLid;
+PageHeader * * nextProcDirFramePP;
+PageHeader * * ProcDirFramesWritten;
+unsigned long numDirEntsToSave;
+unsigned int nextRangeToSync;
+unsigned int rangesSynced;
+
+PageHeader * reservedPages = NULL;
+unsigned int numReservedPages = 0;
 
 DEFQUEUE(WaitForCkptInactive);
 DEFQUEUE(WaitForCkptNeeded);
+DEFQUEUE(WaitForObjDirWritten);
+
+/* During a checkpoint, persistent pages can be in the following states:
+
+  OFLG_   I/O Generation(s) DirEnt Notes
+KRO Dirty  *1               exists
+ 1    1    0  Wkg             no   need to clean
+ 1    1   cln Wkg             no   Before the demarcation event, this page
+                                   began to be cleaned and was redirtied.
+ 1    0   cln Wkg             yes  being cleaned
+ 0    0    0  Wkg and Next    yes  
+ 0    0   fet Wkg and Next    yes  being fetched
+ 0    1    0          Next    no   can't be cleaned now
+
+ *1 This state is a combination of ioreq and OFLG_Fetching:
+    0: ioreq == 0
+    cln: ioreq != 0, OFLG_Fetching == 0
+    fet: ioreq != 0, OFLG_Fetching == 1
+*/
+
+INLINE void
+minEqualsL(long * var, long value)
+{
+  if (*var > value)
+    *var = value;
+}
 
 /* Return the amount of log needed to checkpoint all the dirty objects. */
 unsigned long
@@ -82,9 +116,6 @@ CalcLogReservation(void)
 #undef ProcEntsPerPage
 #undef DirEntsPerPage
 }
-
-PageHeader * reservedPages = NULL;
-unsigned int numReservedPages = 0;
 
 // May Yield.
 static void
@@ -115,8 +146,12 @@ CheckpointPage(PageHeader * pageH)
 {
   ObjectHeader * pObj = pageH_ToObj(pageH);
 
-  if (objH_GetFlags(pObj, OFLG_DIRTY)) {
-    assert(! objH_GetFlags(pObj, OFLG_KRO));
+  assert(! objH_GetFlags(pObj, OFLG_KRO));
+
+  if (objH_GetFlags(pObj, OFLG_DIRTY)
+    /* If this page is being cleaned, we must make it KRO to ensure
+       it stays clean: */
+      || (pageH->ioreq && ! objH_GetFlags(pObj, OFLG_Fetching))) {
     // Make this page Kernel Read Only.
     switch (pageH_GetObType(pageH)) {
     default:
@@ -125,26 +160,29 @@ CheckpointPage(PageHeader * pageH)
     case ot_PtDataPage:
       pageH_MakeReadOnly(pageH);
     }
-    numKRODirtyPages++;
     objH_SetFlags(pObj, OFLG_KRO);
+    if (objH_GetFlags(pObj, OFLG_DIRTY)) {
+      numKRODirtyPages++;
+    } else {
+      /* This page is being cleaned and is clean.
+      Since it is now KRO, we know it will stay clean, so we can create
+      the log directory entry now. */
+      CreateLogDirEntryForNonzeroPage(pageH);
+    }
   }
-  // else it's not marked dirty, in which case it isn't mapped with write
-  // access, because that's how we track whether it becomes dirty.
 }
 
-// DoPhase1Work does NOT Yield. It must be atomic.
 static void
 DoPhase1Work(void)
 {
   int i;
-  // Grab a page for the generation header:
-  GenHdrPageH = objC_GrabPageFrame();
+  // Grab a page for the generation header, if we haven't already:
+  if (! GenHdrPageH)
+    GenHdrPageH = objC_GrabPageFrame();
   DiskGenerationHdr * genHdr
     = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
 
-  // Reserve pages for the process directory.
-
-  int numActivities = KTUNE_NACTIVITY - numFreeActivities;
+  long numActivities = KTUNE_NACTIVITY - numFreeActivities;
   /* Note, some of the Activitys will be for non-persistent processes,
   so this is an upper bound on the number we need.
   It won't hurt to have an extra free page or two around. */
@@ -152,15 +190,23 @@ DoPhase1Work(void)
   // Some can go in the generation header:
   numActivities -= (EROS_PAGE_SIZE - sizeof(DiskGenerationHdr))
                    / sizeof(struct DiskProcessDescriptor);
-  // Reserve pages for the rest:
-  if (numActivities > 0) {
+  minEqualsL(&numActivities, 0);
+  // Number of pages we need for the rest:
 #define numActivitiesPerPage (EROS_PAGE_SIZE / sizeof(struct DiskProcessDescriptor))
-    ReservePages((numActivities + numActivitiesPerPage - 1)
-                 / numActivitiesPerPage);
-    /* Note, if the above Yields, when restarted we will start at
-    DoPhase1Work, which will recalculate numActivities,
-    which may have changed. */
-  }
+  long pagesToReserve = (numActivities + numActivitiesPerPage - 1)
+                       / numActivitiesPerPage;
+  // Reserve at least 2 for object directory frames.
+  // We reserve them now rather than in phase 3, because at that time
+  // no cleaning can be done, so pages might not be available.
+  /* FIXME: What is the right number to reserve?
+  We don't know the exact number of directory frames that will be needed,
+  because the directory entries haven't all been created yet.
+  We should have a few for each disk. */
+  minEqualsL(&pagesToReserve, 2);
+  ReservePages(pagesToReserve);
+  /* Note, if the above Yields, when restarted we will start at
+  DoPhase1Work, which will recalculate numActivities,
+  which may have changed. */
 
   /* This is the moment of demarcation.
   From here through the end of DoPhase1Work, we must NOT Yield.
@@ -230,7 +276,8 @@ DoPhase1Work(void)
         ((char *)genHdr + sizeof(DiskGenerationHdr));
   unsigned int dpdsInCurrentPage = 0;
   bool inHdr = true;
-  PageHeader * * nextProcDirFramePP = &reservedPages;
+  nextProcDirFramePP = &reservedPages;
+  ProcDirFramesWritten = nextProcDirFramePP;
   // Where to store the number of descriptors in the current page:
   uint32_t * numDpdsLoc = &genHdr->processDir.nDescriptors;
   genHdr->processDir.firstDirFrame = 0;
@@ -313,19 +360,23 @@ DoPhase1Work(void)
   ckptState = ckpt_Phase2;
 }
 
-static void
-IOReq_EndDirWrite(IORequest * ioreq)
+// Note, dod is not aligned!
+static unsigned int
+WriteDirEntsToPage(struct DiskObjectDescriptor * dod)
 {
-  // The IORequest is done.
-  PageHeader * pageH = ioreq->pageH;
-
-  // Mark the page as no longer having I/O.
-  pageH->ioreq = NULL;
-
-  assert(sq_IsEmpty(&ioreq->sq));
-  // Caller has unlinked the ioreq and will deallocate it.
-
-  ReleasePageFrame(pageH);
+  unsigned int numDirEntsInPage = 0;
+  while (1) {
+    if (! numDirEntsToSave)
+      break;		// no more to write
+    kva_t roomInPage = (- (kva_t)dod) & EROS_PAGE_MASK;
+    if (roomInPage < sizeof(struct DiskObjectDescriptor))
+      break;		// no more will fit
+    //// write one
+    dod++;
+    numDirEntsInPage++;
+    numDirEntsToSave--;
+  }
+  return numDirEntsInPage;
 }
 
 static void
@@ -336,9 +387,10 @@ DoPhase2Work(void)
   // so "clean me first" won't work!
 
   // Write the process directory frames.
-  while (reservedPages) {
-    PageHeader * pageH = reservedPages;
+  while (ProcDirFramesWritten != nextProcDirFramePP) {
+    PageHeader * pageH = *ProcDirFramesWritten;
     IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
+    DEBUG(ckpt) printf("Writing proc dir frame %#x\n", pageH);
     ioreq->pageH = pageH;	// link page and ioreq
     pageH->ioreq = ioreq;
 
@@ -348,11 +400,11 @@ DoPhase2Work(void)
     ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
     ioreq->objRange = rng;
     ioreq->rangeLoc = OIDToFrame(nextProcDirLid - rng->start);
-    ioreq->doneFn = &IOReq_EndDirWrite;
+    ioreq->doneFn = &IOReq_EndWrite;
     sq_Init(&ioreq->sq);	// won't be used
     ioreq_Enqueue(ioreq);
 
-    reservedPages = *(PageHeader * *)&pageH->kt_u.free.freeLink.next;
+    ProcDirFramesWritten = (PageHeader * *)&pageH->kt_u.free.freeLink.next;
     nextProcDirLid = IncrementLID(nextProcDirLid);
   }
 
@@ -365,13 +417,144 @@ DoPhase2Work(void)
   3. The page is queued to be cleaned by the disk driver.
      It is marked KRO and clean. (We always mark a page clean *before*
      cleaning it, so we will know if it is dirtied while being cleaned.)
-  4. The cleaning finishes. The page is now clean, not KRO. */
+  4. The cleaning finishes. The page is now clean and not KRO. */
   while (numKRODirtyPages)
     CleanAKROPage();
 
-  assert(!"complete");
+  // Phase 2 is committed. Nothing below Yields.
+
+  // All the dir ents for the working generation have now been created,
+  // even though pages may still be queued for the disk driver.
+  numDirEntsToSave = ld_numWorkingEntries();
+  //// reset scan
+
+  // Some can go in the generation header:
+  DiskGenerationHdr * genHdr
+    = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
+  struct DiskObjectDescriptor * dod = (struct DiskObjectDescriptor *)
+      (char *)genHdr
+      + sizeof(DiskGenerationHdr)
+      + genHdr->processDir.nDescriptors
+        * sizeof(struct DiskProcessDescriptor);
+
+  // Write dir ents to the generation header:
+  genHdr->objectDir.nDescriptors = WriteDirEntsToPage(dod);
+  genHdr->objectDir.firstDirFrame = 0;	// no frame yet
+  genHdr->objectDir.nDirFrames = 0;
+
+  nextRangeToSync = 0;
+  rangesSynced = 0;
 
   ckptState = ckpt_Phase3;
+}
+
+static void IOReq_EndObDirWrite(IORequest * ioreq);
+
+static void
+WriteAPageOfObDirEnts(PageHeader * pageH, IORequest * ioreq)
+{
+  // Fill the page with dir ents:
+  uint32_t * objDirFrame = (uint32_t *)pageH_GetPageVAddr(pageH);
+  struct DiskObjectDescriptor * dod
+    = (struct DiskObjectDescriptor *)(objDirFrame + 1);
+  *objDirFrame = WriteDirEntsToPage(dod);
+
+  // Write it to disk:
+  DEBUG(ckpt) printf("Writing ob dir frame %#x\n", pageH);
+  ioreq->pageH = pageH;	// link page and ioreq
+  pageH->ioreq = ioreq;
+
+  // There is no cleaning going on, so the LIDs we allocate here
+  // will be consecutive.
+  LID lid = NextLogLoc();
+  DiskGenerationHdr * genHdr
+    = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
+  if (genHdr->objectDir.firstDirFrame == 0)
+    genHdr->objectDir.firstDirFrame = lid;
+  genHdr->objectDir.nDirFrames++;
+
+  ObjectRange * rng = LidToRange(lid);
+  assert(rng);	// it had better be mounted
+
+  ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
+  ioreq->objRange = rng;
+  ioreq->rangeLoc = OIDToFrame(lid - rng->start);
+  ioreq->doneFn = &IOReq_EndObDirWrite;
+  sq_Init(&ioreq->sq);	// won't be used
+  ioreq_Enqueue(ioreq);
+}
+
+static void
+IOReq_EndObDirWrite(IORequest * ioreq)
+{
+  // The IORequest is done.
+  assert(sq_IsEmpty(&ioreq->sq));
+  PageHeader * pageH = ioreq->pageH;
+
+  // Mark the page as no longer having I/O.
+  pageH->ioreq = NULL;
+
+  if (numDirEntsToSave) {
+    // Use this page and ioreq to write another page of dir ents.
+    WriteAPageOfObDirEnts(pageH, ioreq);
+    if (! numDirEntsToSave)	// we have now written them all
+      sq_WakeAll(&WaitForObjDirWritten, false);
+  } else {
+    IOReq_Deallocate(ioreq);
+    ReleasePageFrame(pageH);
+  }
+}
+
+static void
+IOReq_EndSync(IORequest * ioreq)
+{
+  // The IORequest is done.
+  assert(sq_IsEmpty(&ioreq->sq));
+
+  if (++rangesSynced >= nextRangeToSync)
+    sq_WakeAll(&WaitForObjDirWritten, false);
+
+  IOReq_Deallocate(ioreq);
+}
+
+static void
+DoPhase3Work(void)
+{
+  /* Pages for the directory were reserved earlier.
+  Now would be a bad time to reserve pages, because nothing can be cleaned. */
+  // Now put all the reserved pages to work as object directory frames:
+  while (reservedPages) {
+    PageHeader * pageH = reservedPages;
+    // Unlink it:
+    reservedPages = *(PageHeader * *)&pageH->kt_u.free.freeLink.next;
+    if (numDirEntsToSave) {
+      IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
+      WriteAPageOfObDirEnts(pageH, ioreq);
+    } else {
+      ReleasePageFrame(pageH);
+    }
+  }
+
+  if (numDirEntsToSave) {
+    SleepOnPFHQueue(&WaitForObjDirWritten);
+  }
+
+  // Wait for all the previous log writes to get to nonvolatile media.
+  while (nextRangeToSync < nLidRanges) {
+    IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
+    ObjectRange * rng = &lidRanges[nextRangeToSync++];
+
+    ioreq->pageH = NULL;
+    ioreq->requestCode = capros_IOReqQ_RequestType_synchronizeCache;
+    ioreq->objRange = rng;
+    ioreq->doneFn = &IOReq_EndSync;
+    sq_Init(&ioreq->sq);	// won't be used
+    ioreq_Enqueue(ioreq);
+  }
+  if (rangesSynced < nextRangeToSync)
+    SleepOnPFHQueue(&WaitForObjDirWritten);
+
+  assert(!"complete");
 }
 
 void
@@ -392,6 +575,9 @@ DoCheckpointStep(void)
   case ckpt_Phase2:
     DEBUG(ckpt) printf("DoCheckpointStep P2\n");
     DoPhase2Work();
+  case ckpt_Phase3:
+    DEBUG(ckpt) printf("DoCheckpointStep P3\n");
+    DoPhase3Work();
     break;
   }
 }
