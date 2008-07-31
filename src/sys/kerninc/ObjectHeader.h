@@ -81,6 +81,9 @@ enum ObType {
 			 oid = OID of first object. */
   ot_PtLogPot,		/* an object pot from the log.
 			 oid = LID of the pot. */
+  ot_PtWorkingCopy,	/* The working generation version of a data page.
+			It has an OID but is not found by objH_Lookup.
+			OFLG_KRO must be set. */
   ot_PtNewAlloc,	/* newly allocated frame, not yet typed */
   ot_PtKernelUse,	/* in use as kernel heap or other kernel use */
   ot_PtFreeFrame,	/* first frame of a free block */
@@ -119,7 +122,7 @@ enum {
 				This is a shortcut for inquring of the object's
 				ObjectSource. */
 /* unused		0x08	*/
-#define OFLG_Working	0x10	/* working version, not current (==> KRO) */
+/* unused		0x10	*/
 #define OFLG_KRO	0x20	/* object is Kernel-read-only */
 #define OFLG_CallCntUsed 0x40	/* resume capabilities to this node exist
 				that contain the current call count. */
@@ -176,7 +179,7 @@ objH_GetAllocCount(const ObjectHeader * pObj)
 }
 
 INLINE bool
-objH_isNodeType(ObjectHeader * pObj)
+objH_isNodeType(const ObjectHeader * pObj)
 {
   return pObj->obType <= ot_NtLAST_NODE_TYPE;
 }
@@ -203,6 +206,13 @@ struct PageHeader {
 				in this free block */
       Link freeLink;		// link in the free list
     } free;		/* if obType == ot_PtFreeFrame */
+
+    struct {
+      uint8_t obType;		/* this is only used by ReservePages in Ckpt.c,
+				which lazily leaves obType == ot_PtNewAlloc */
+
+      PageHeader * next;	// next reserved page
+    } link;		/* if obType == ot_PtNewAlloc */
 
     MD_PAGE_VARIANTS
 
@@ -270,6 +280,7 @@ extern uint16_t objH_CurrentTransaction; /* current transaction number */
 
 
 #ifdef OPTION_OB_MOD_CHECK
+uint32_t pageH_CalcCheck(const PageHeader * pageH);
 uint32_t objH_CalcCheck(const ObjectHeader* thisPtr);
 #endif
 

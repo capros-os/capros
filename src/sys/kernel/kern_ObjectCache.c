@@ -969,7 +969,7 @@ pageH_Clean(PageHeader * pageH)
       assert(numKRODirtyPages >= 0);
     }
 #ifdef OPTION_OB_MOD_CHECK
-    pageH_ToObj(pageH)->check = objH_CalcCheck(pageH_ToObj(pageH));
+    pageH_ToObj(pageH)->check = pageH_CalcCheck(pageH);
 #endif
 
     // Is the page zero?
@@ -1075,27 +1075,68 @@ PageHeader *
 pageH_MitigateKRO(PageHeader * old)
 {
   assert(objH_GetFlags(pageH_ToObj(old), OFLG_KRO));
+  assert(pageH_GetObType(old) == ot_PtDataPage);
 
+  /* FIXME: When we try to grab a page frame, we should not clean too
+  aggressively. Rather than steal potentially useful pages,
+  we should put this page at the head of the list of pages to clean. */
   PageHeader * new = objC_GrabPageFrame();
   pageH_MDInitDataPage(new);
   CopyPage(old, new);
+#ifdef OPTION_OB_MOD_CHECK
+  pageH_ToObj(new)->check = pageH_ToObj(old)->check;
+#endif
 
   if (old->ioreq) {
     // The old page has I/O, so it can't be moved.
-  } else {
-  }
-  /* NOTE: We have to set the dirty bit on the current version here.
-  If we don't, the page could be stolen.
-  (It's unlikely to be stolen soon, but possible.)
-  If it is reaccessed before the Working version is written to disk,
-  the Working version won't be found, because it is not in the object hash.
-  It will fetch an older version from disk. 
+    printf("Moving KRO page with I/O, %#x\n", old);////
+    /* NOTE: We have to set the dirty bit on the current version here.
+    If we don't, the page could be stolen.
+    (It's unlikely to be stolen soon, but possible.)
+    If it is reaccessed before the Working version is written to disk,
+    the Working version won't be found, because it is not in the object hash.
+    It will fetch an older version from disk. 
 
-  Therefore the caller must ensure, before calling, that it is OK to set
-  the dirty bit; that the log and directory reservations will succeed.
-  */
-  assert(!"complete");
-  return NULL;
+    Therefore the caller must ensure, before calling, that it is OK to set
+    the dirty bit; that the log and directory reservations will succeed.
+    */
+
+    // The original page will be the working version, and
+    // the new page will be the current version.
+    // This is a bit like stealing the original page, and
+    // fetching it into the new page.
+
+    // Producer is moving, so invalidate any products:
+    objH_InvalidateProducts(pageH_ToObj(old));
+
+    // If would be easy to just unprepare all the keys to the old page,
+    // but that would set OFLG_allocCntUsed unnecessarily.
+#if 0////
+        keyR_UnprepareAll(&pageH_ToObj(pageH)->keyRing);
+        ReleaseObjPageFrame(pageH);
+copy allocCntUsed bits from old to new
+#endif
+   
+    // The newly allocated page will be the current version.
+    assert(!"complete");
+    return NULL;
+  } else {
+    assert(objH_GetFlags(pageH_ToObj(old), OFLG_DIRTY));
+    printf("Copying KRO page, %#x\n", old);////
+
+    // The newly allocated page will be the working version.
+    // Set up its PageHeader.
+    pageH_ToObj(new)->obType = ot_PtWorkingCopy;
+    objH_SetFlags(pageH_ToObj(new), OFLG_DIRTY | OFLG_KRO | OFLG_Cleanable);
+    pageH_ToObj(new)->oid = pageH_ToObj(old)->oid;
+    pageH_ToObj(new)->allocCount = pageH_ToObj(old)->allocCount;
+
+    // The original page is no longer KRO:
+    objH_ClearFlags(pageH_ToObj(old), OFLG_KRO);
+    // Leave OFLG_DIRTY set; see comment above for why.
+
+    return old;
+  }
 }
 
 /* OBJECT AGING POLICY:
@@ -1149,6 +1190,7 @@ objC_AgePageFrames(void)
       switch (pageH_GetObType(pageH)) {
       /* Some page types do not get aged: */
       case ot_PtNewAlloc:
+      case ot_PtWorkingCopy:
       case ot_PtDevicePage:
       case ot_PtKernelUse:
       case ot_PtDMABlock:

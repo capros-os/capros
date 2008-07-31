@@ -80,6 +80,7 @@ const char *ddb_obtype_name(uint8_t t)
     "PtTagPot",
     "PtHomePot",
     "PtLogPot",
+    "PtWkgCopy",
     "PtNewAlloc",
     "PtKernUse",
     "PtFree",
@@ -388,10 +389,9 @@ objH_EnsureWritable(ObjectHeader * pObj)
   
 #if 1//// until tested, then #ifdef DBG_CLEAN
   dprintf(true,
-	  "Marked pObj=0x%08x oid=%#llx dirty. dirty: %c wkg: %c\n",
+	  "Marked pObj=0x%08x oid=%#llx dirty. dirty: %c\n",
 	  pObj, pObj->oid,
-	  objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n',
-	  objH_GetFlags(pObj, OFLG_Working) ? 'y' : 'n');
+	  objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n');
 #endif
 }
 
@@ -502,56 +502,33 @@ pageH_GetNodeFromPot(PageHeader * pageH, unsigned int obIndex)
 
 #ifdef OPTION_OB_MOD_CHECK
 uint32_t
-objH_CalcCheck(const ObjectHeader * thisPtr)
+pageH_CalcCheck(const PageHeader * pageH)
 {
-  uint32_t i = 0;
+  unsigned int w;
   uint32_t ck = 0;
-  uint32_t w = 0;
   
-#ifndef NDEBUG
-  uint8_t oflags = thisPtr->flags;
-#endif
-#if 0
-  printf("Calculating cksum for 0x%08x\n", this);
-  printf("OID is 0x%08x%08x, ty %d\n", (uint32_t) (oid>>32),
-		 (uint32_t) oid, obType);
-#endif
-  
-  if (thisPtr->obType <= ot_NtLAST_NODE_TYPE) {
+  /* Note, we access the page via the physical map, which can cause
+     cache incoherency if the page was written via some other
+     virtual address. But this should not matter, because we only
+     use the resultant checksum if we expect the page is not modified.
+  */
 
-    assert (objC_ValidNodePtr((Node *) thisPtr));
-    /* Object is a node - compute XOR including allocation count, call
-     * counts, and key slots.
-     */
+  const uint32_t *  pageData = (const uint32_t *) pageH_GetPageVAddr(pageH);
 
-    Node * pNode = (Node *) thisPtr;
-    ck ^= objH_GetAllocCount(thisPtr);
-    ck ^= node_GetCallCount(pNode);
-    
-
-    for (i = 0; i < EROS_NODE_SIZE; i++)
-      ck ^= key_CalcCheck(node_GetKeyAtSlot(pNode, i));
-
-  }
-  else {		// it's a page
-    /* Note, we access the page via the physical map, which can cause
-       cache incoherency if the page was written via some other
-       virtual address. But this should not matter, because we only
-       use the resultant checksum if we expect the page is not modified.
-    */
-
-    assertex(thisPtr, objC_ValidPagePtr(thisPtr));
-
-    const uint32_t *  pageData = (const uint32_t *)
-      pageH_GetPageVAddr(objH_ToPageConst(thisPtr));
-
-    for (w = 0; w < EROS_PAGE_SIZE/sizeof(uint32_t); w++)
-      ck ^= pageData[w];
-  }
-
-  assert(thisPtr->flags == oflags);
+  for (w = 0; w < EROS_PAGE_SIZE/sizeof(uint32_t); w++)
+    ck ^= pageData[w];
 
   return ck;
+}
+
+uint32_t
+objH_CalcCheck(const ObjectHeader * thisPtr)
+{
+  if (objH_isNodeType(thisPtr)) {
+    return node_CalcCheck(objH_ToNodeConst(thisPtr));
+  } else {		// it's a page
+    return pageH_CalcCheck(objH_ToPageConst(thisPtr));
+  }
 }
 #endif
 
@@ -602,6 +579,7 @@ objH_ddb_dump(ObjectHeader * thisPtr)
     goto pgRgn;
 
   case ot_PtDataPage:
+  case ot_PtWorkingCopy:
   case ot_PtDevicePage:
   case ot_PtTagPot:
   case ot_PtHomePot:

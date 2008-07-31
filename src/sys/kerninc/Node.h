@@ -54,7 +54,7 @@ objH_ToNode(ObjectHeader * pObj)
 INLINE const Node *
 objH_ToNodeConst(const ObjectHeader * pObj)
 {
-  return container_of(pObj, const Node, node_ObjHdr);
+  return container_of(pObj, Node, node_ObjHdr);
 }
 
 INLINE ObjectHeader *
@@ -110,6 +110,7 @@ bool node_IsNull(Node * pNode);
 void node_SetEqualTo(Node *thisPtr, const struct DiskNode *);
 void node_CopyToDiskNode(Node * pNode, struct DiskNode * dn);
 
+Node * node_ContainingNodeIfNodeKeyPtr(const Key * pKey);
 #ifndef NDEBUG
 Node * node_ValidNodeKeyPtr(const Key * pKey);
 #endif
@@ -139,5 +140,9 @@ void NodeClone(Node * toNode, Key * fromKey);
 
 // The following is architecture-specific.
 void node_ClearGPTHazard(Node * thisPtr, uint32_t ndx);
+
+#ifdef OPTION_OB_MOD_CHECK
+uint32_t node_CalcCheck(const Node * pNode);
+#endif
 
 #endif /* __NODE_H__ */

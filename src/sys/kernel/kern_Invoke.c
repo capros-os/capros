@@ -253,6 +253,7 @@ inactivate: ;
 #endif
 }
 
+#ifndef NDEBUG
 bool 
 inv_IsInvocationKey(Invocation* thisPtr, const Key* pKey)
 {
@@ -273,6 +274,7 @@ inv_IsInvocationKey(Invocation* thisPtr, const Key* pKey)
   
   return false;
 }
+#endif
 
 /* Some fields in Invocation are assumed to be initialized at the
    beginning of an invocation. Initialize them here, and also in inv_Cleanup. */

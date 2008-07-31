@@ -549,7 +549,7 @@ key_Print(const Key* thisPtr)
 
 #ifdef OPTION_OB_MOD_CHECK
 uint32_t
-key_CalcCheck(Key* thisPtr)
+key_CalcCheck(const Key * thisPtr)
 {
   int i;
   Key k;

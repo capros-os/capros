@@ -79,12 +79,11 @@ objC_ddb_dump_obj(ObjectHeader * pObj)
 #else
   goodSum = '?';
 #endif
-  printf("%#x: %s oid %#llx up:%c wkg:%c drt:%c kro:%c sm:%c au:%c cu:%c\n",
+  printf("%#x: %s oid %#llx up:%c drt:%c kro:%c sm:%c au:%c cu:%c\n",
 	 pObj,
 	 ddb_obtype_name(pObj->obType),
 	 pObj->oid,
 	 objH_IsUserPinned(pObj) ? 'y' : 'n',
-	 objH_GetFlags(pObj, OFLG_Working) ? 'y' : 'n',
 	 objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n',
 	 objH_GetFlags(pObj, OFLG_KRO) ? 'y' : 'n',
 	 goodSum,
@@ -121,6 +120,7 @@ objC_ddb_dump_pages()
     case ot_PtTagPot:
     case ot_PtHomePot:
     case ot_PtLogPot:
+    case ot_PtWorkingCopy:
     {
       ObjectHeader * pObj = pageH_ToObj(pageH);
       printf("%#x: %s oid %#llx\n",

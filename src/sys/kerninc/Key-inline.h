@@ -103,6 +103,7 @@ key_PrepareForInv(Key * thisPtr)
 INLINE void
 key_ClearHazard(Key * pKey)
 {
+  assert(node_ValidNodeKeyPtr(pKey));
   Node * pNode = node_ContainingNode(pKey);
   node_ClearHazard(pNode, pKey - pNode->slot);
 }

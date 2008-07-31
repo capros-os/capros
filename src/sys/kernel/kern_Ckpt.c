@@ -92,8 +92,8 @@ DEFQUEUE(WaitForObjDirWritten);
 
 /* During a checkpoint, persistent pages can be in the following states:
 
- -- OFLG_ --  I/O Generation(s) DirEnt Notes
-KRO Dirty Wkg  *1         *2    exists
+  OFLG_   Wkg I/O Generation(s) DirEnt Notes
+KRO Dirty  *1  *2         *3    exists
  1    1    0   0  Wkg and Cur     no   need to clean
  1    1    1   0  Wkg             no   need to clean
  1    1    0  cln Wkg and Cur     no   Before the demarcation event, this page
@@ -106,12 +106,15 @@ KRO Dirty Wkg  *1         *2    exists
  0    0    0  fet Wkg and Cur     yes  being fetched
  0    1    0   0          Cur     no   can't be cleaned now
 
- *1 This state is a combination of ioreq and OFLG_Fetching:
+ *1 0 indicates obType is ot_PtDataPage
+    1 indicates obType is ot_PtWorkingCopy
+
+ *2 This state is a combination of ioreq and OFLG_Fetching:
     0: ioreq == 0                       (no I/O)
     cln: ioreq != 0, OFLG_Fetching == 0 (being cleaned)
     fet: ioreq != 0, OFLG_Fetching == 1 (being fetched)
 
- *2 "Cur" means this page is the current version and can be found
+ *3 "Cur" means this page is the current version and can be found
     by objH_Lookup.
 */
 
@@ -155,7 +158,7 @@ ReservePages(unsigned int numPagesWanted)
     PageHeader * pageH = objC_GrabPageFrame();
     numReservedPages++;
     // Link into free list:
-    *(PageHeader * *)&pageH->kt_u.free.freeLink.next = reservedPages;
+    pageH->kt_u.link.next = reservedPages;
     reservedPages = pageH;
   }
 }
@@ -353,8 +356,7 @@ DoPhase1Work(void)
           dpd = (struct DiskProcessDescriptor *)
                 ((kva_t)numDpdsLoc + sizeof(uint32_t));
           // Follow the chain:
-          nextProcDirFramePP
-            = (PageHeader * *)& pageH->kt_u.free.freeLink.next;
+          nextProcDirFramePP = & pageH->kt_u.link.next;
         }
         uint8_t hazToSave;
         if (act->state == act_Sleeping && act->actHazard == actHaz_None)
@@ -380,8 +382,7 @@ DoPhase1Work(void)
     if (! pageH)
       break;
     // Follow the chain:
-    nextProcDirFramePP
-      = (PageHeader * *)& pageH->kt_u.free.freeLink.next;
+    nextProcDirFramePP = & pageH->kt_u.link.next;
     ReleasePageFrame(pageH);
   }
 
@@ -443,7 +444,7 @@ DoPhase2Work(void)
     sq_Init(&ioreq->sq);	// won't be used
     ioreq_Enqueue(ioreq);
 
-    ProcDirFramesWritten = (PageHeader * *)&pageH->kt_u.free.freeLink.next;
+    ProcDirFramesWritten = &pageH->kt_u.link.next;
     nextProcDirLid = IncrementLID(nextProcDirLid);
   }
 
@@ -565,7 +566,7 @@ DoPhase3Work(void)
   while (reservedPages) {
     PageHeader * pageH = reservedPages;
     // Unlink it:
-    reservedPages = *(PageHeader * *)&pageH->kt_u.free.freeLink.next;
+    reservedPages = pageH->kt_u.link.next;
     if (numDirEntsToSave) {
       IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
       WriteAPageOfObDirEnts(pageH, ioreq);

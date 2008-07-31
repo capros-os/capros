@@ -63,6 +63,7 @@ proc_IsWellFormed(Process* thisPtr)
   else return true;
 }
 
+#ifndef NDEBUG
 /* Returns true iff p points within the Process area. */
 INLINE bool 
 IsInProcess(const void * p)
@@ -74,6 +75,7 @@ IsInProcess(const void * p)
   }
   return false;
 }
+#endif
 
 INLINE void 
 proc_ClearFault(Process * thisPtr)

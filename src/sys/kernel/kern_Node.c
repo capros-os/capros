@@ -39,6 +39,25 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/Invoke.h>
 
+#ifdef OPTION_OB_MOD_CHECK
+uint32_t
+node_CalcCheck(const Node * pNode)
+{
+  unsigned int i;
+  uint32_t ck = 0;
+  
+  // Compute XOR including allocation count, call counts, and key slots.
+
+  ck ^= objH_GetAllocCount(&pNode->node_ObjHdr);
+  ck ^= node_GetCallCount(pNode);
+
+  for (i = 0; i < EROS_NODE_SIZE; i++)
+    ck ^= key_CalcCheck(&pNode->slot[i]);
+
+  return ck;
+}
+#endif
+
 void
 node_ClearHazard(Node* thisPtr, uint32_t ndx)
 {
@@ -304,11 +323,11 @@ node_Unprepare(Node* thisPtr)
 #endif
 }
 
-#ifndef NDEBUG
-/* If pKey is a pointer to a key in a node,
+/* Given that pKey is a valid key pointer,
+ * if pKey is a pointer to a key in a node,
  * return a pointer to the node, else NULL. */
 Node *
-node_ValidNodeKeyPtr(const Key * pKey)
+node_ContainingNodeIfNodeKeyPtr(const Key * pKey)
 {
   char * wobj = (char *) pKey;
   char * wbase = (char *) objC_nodeTable;
@@ -318,13 +337,24 @@ node_ValidNodeKeyPtr(const Key * pKey)
     return NULL;
 
   // It's in the right range to be a pointer into a node.
-  Node * pNode = objC_nodeTable + ((wobj - wbase) / sizeof(Node));
+  return objC_nodeTable + ((wobj - wbase) / sizeof(Node));
+}
 
-  // See if it's at a valid slot:
-  ptrdiff_t delta = wobj - (char *)&pNode->slot[0];
-  if (delta < 0			// in the header
-      || delta % sizeof(Key))	// or not on a Key boundary
-    return NULL;
+#ifndef NDEBUG
+/* If pKey is a valid pointer to a key in a node,
+ * return a pointer to the node, else NULL. */
+Node *
+node_ValidNodeKeyPtr(const Key * pKey)
+{
+  Node * pNode = node_ContainingNodeIfNodeKeyPtr(pKey);
+
+  if (pNode) {
+    // See if it's at a valid slot:
+    ptrdiff_t delta = (char *)pKey - (char *)&pNode->slot[0];
+    if (delta < 0			// in the header
+        || delta % sizeof(Key))	// or not on a Key boundary
+      return NULL;
+  }
 
   return pNode;
 }
@@ -368,8 +398,8 @@ node_Validate(Node* thisPtr)
 #endif
   
 #ifdef OPTION_OB_MOD_CHECK
-  if (objH_IsDirty(DOWNCAST(thisPtr, ObjectHeader)) == false) {
-    uint32_t chk = objH_CalcCheck(DOWNCAST(thisPtr, ObjectHeader));
+  if (! objH_IsDirty(node_ToObj(thisPtr))) {
+    uint32_t chk = node_CalcCheck(thisPtr);
   
     if ( thisPtr->node_ObjHdr.check != chk ) {
       printf("Invalid Frame 0x%08x Chk=0x%x CalcCheck=0x%x on node ",

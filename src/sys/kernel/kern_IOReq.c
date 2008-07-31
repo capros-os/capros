@@ -271,8 +271,8 @@ IOReq_EndReadPage(IORequest * ioreq)
 {
 #ifdef OPTION_OB_MOD_CHECK
   {
-    ObjectHeader * pObj = pageH_ToObj(ioreq->pageH);
-    pObj->check = objH_CalcCheck(pObj);
+    PageHeader * pageH = ioreq->pageH;
+    pageH_ToObj(pageH)->check = pageH_CalcCheck(pageH);
   }
 #endif
 

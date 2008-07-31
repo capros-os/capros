@@ -104,7 +104,6 @@ void
 objH_Intern(ObjectHeader* thisPtr)
 {
   uint32_t ndx = 0;
-  assert(! objH_GetFlags(thisPtr, OFLG_Working));
   
   ndx = bucket_ndx(thisPtr->oid);
   

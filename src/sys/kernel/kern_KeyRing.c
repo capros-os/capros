@@ -33,12 +33,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Depend.h>
 #include <kerninc/Key-inline.h>
 
-static inline bool
-proc_IsKeyReg(const Key * pKey)
-{
-  return IsInProcess(pKey);	// this check is good enough
-}
-
 #ifndef NDEBUG
 // This is like keyR_IsValid, but only requires one parameter.
 static bool
@@ -109,13 +103,7 @@ keyR_RescindAll(KeyRing * thisPtr)
     KeyRing * nxt = pKey->u.ok.kr.next;
 #endif
 
-    /* Note that thread-embodied and process-embodied keys are never
-     * hazarded:
-     */
     if ( keyBits_IsHazard(pKey) ) {
-      assert ( act_IsActivityKey(pKey) == false );
-      assert ( proc_IsKeyReg(pKey) == false );
-
       key_ClearHazard(pKey);
 
       /* Having cleared the hazard, the key we are presently examining 
@@ -155,21 +143,15 @@ keyR_RescindAll(KeyRing * thisPtr)
       assert(containingActivity);
       Process * pContext = containingActivity->context;
 
-      if (pContext) {
-	/* The key within the activity is not meaningful. */
-        key_NH_SetToVoid(pKey);
-	continue;
-      }      
-      else
+      if (! pContext)
 	act_Wakeup(containingActivity);
+      /* else the key within the activity is not meaningful. */
     }
 
 #ifdef OPTION_OB_MOD_CHECK
-    if ( !(inv_IsActive(&inv) && inv_IsInvocationKey(&inv, pKey)) && 
-	 !act_IsActivityKey(pKey) &&
-	 !proc_IsKeyReg(pKey) ) {
-      Node *pNode = node_ContainingNode(pKey);
-      pNode->node_ObjHdr.check = objH_CalcCheck(DOWNCAST(pNode, ObjectHeader));
+    Node * pNode = node_ContainingNodeIfNodeKeyPtr(pKey);
+    if (pNode) {
+      node_ToObj(pNode)->check = node_CalcCheck(pNode);
     }
 #endif
   }
@@ -225,7 +207,6 @@ KeyRing::ObjectMoved(struct ObjectHeader *newObj)
 	continue;
     }
     else {
-      assert (pKey->IsHazard() == false);
       assert ( pKey->IsPrepared() );
 
       pKey->ok.pObj = newObj;
@@ -234,11 +215,9 @@ KeyRing::ObjectMoved(struct ObjectHeader *newObj)
     }
     
 #ifdef OPTION_OB_MOD_CHECK
-    if ( !inv.IsInvocationKey(pKey) && 
-	 !Activity::IsActivityKey(pKey) &&
-	 !Process::IsKeyReg(pKey) ) {
-      Node *pNode = ObjectCache::ContainingNode(pKey);
-      pNode->ob.check = pNode->CalcCheck();
+    Node * pNode = node_ContainingNodeIfNodeKeyPtr(pKey);
+    if (pNode) {
+      node_ToObj(pNode)->check = node_CalcCheck(pNode);
     }
 #endif
   }
@@ -379,7 +358,7 @@ keyR_UnprepareAll(KeyRing *thisPtr)
     dprintf(true, "Keyring 0x%08x is invalid\n", thisPtr);
 #endif
   
-  while (thisPtr->next != (KeyRing*) thisPtr) {
+  while (thisPtr->next != thisPtr) {
     Key *pKey = (Key *) thisPtr->next;
 
 #ifndef NDEBUG
@@ -405,9 +384,6 @@ keyR_UnprepareAll(KeyRing *thisPtr)
 #endif
     
     if ( keyBits_IsHazard(pKey) ) {
-      assert ( act_IsActivityKey(pKey) == false );
-      assert ( proc_IsKeyReg(pKey) == false );
-
       key_ClearHazard(pKey);
 
       /* Having cleared the hazard, the key we are presently examining 
@@ -416,7 +392,6 @@ keyR_UnprepareAll(KeyRing *thisPtr)
       continue;
     }
     else {
-      assert (keyBits_IsHazard(pKey) == false);
       assert ( keyBits_IsPreparedObjectKey(pKey) );
 
       /* If we are unpreparing a activity-resident key, and that activity
@@ -448,11 +423,9 @@ keyR_UnprepareAll(KeyRing *thisPtr)
     }
     
 #ifdef OPTION_OB_MOD_CHECK
-    if ( !(inv_IsActive(&inv) && inv_IsInvocationKey(&inv, pKey)) && 
-	 !act_IsActivityKey(pKey) &&
-	 !proc_IsKeyReg(pKey) ) {
-      Node * pNode = node_ContainingNode(pKey);
-      pNode->node_ObjHdr.check = objH_CalcCheck(DOWNCAST(pNode, ObjectHeader));
+    Node * pNode = node_ContainingNodeIfNodeKeyPtr(pKey);
+    if (pNode) {
+      node_ToObj(pNode)->check = node_CalcCheck(pNode);
     }
 #endif
   }
@@ -488,7 +461,7 @@ keyR_ProcessAllMaps(KeyRing * thisPtr,
     
     if (keyBits_IsHazard(pKey)) {
       Node * pNode = node_ContainingNode(pKey);
-      switch(pNode->node_ObjHdr.obType) {
+      switch (pNode->node_ObjHdr.obType) {
       case ot_NtProcessRoot:
         if ((pKey - pNode->slot) == ProcAddrSpace) {
       case ot_NtSegment:

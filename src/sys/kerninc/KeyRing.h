@@ -49,7 +49,7 @@ bool keyR_IsValid(const KeyRing *thisPtr, const void *);
 INLINE bool 
 keyR_IsEmpty(const KeyRing *thisPtr)
 {
-  return (thisPtr->next == thisPtr);
+  return link_isSingleton(thisPtr);
 }
   
 INLINE void 

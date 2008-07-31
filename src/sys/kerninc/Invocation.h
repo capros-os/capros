@@ -140,13 +140,12 @@ inv_IsActive(Invocation* thisPtr)
 
 void inv_InitInv(Invocation *thisPtr);
 
-bool inv_IsInvocationKey(Invocation* thisPtr, const Key *);
-
 void inv_RetryInvocation(Invocation* thisPtr) NORETURN;
 
 void inv_Commit(Invocation* thisPtr);
 
 #ifndef NDEBUG
+  bool inv_IsInvocationKey(Invocation * thisPtr, const Key *);
   bool inv_IsCorrupted(Invocation* thisPtr);
 #endif
 

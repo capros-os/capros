@@ -150,6 +150,13 @@ check_Pages()
     case ot_PtLogPot:
       continue;
 
+    case ot_PtWorkingCopy:
+      if (! objH_GetFlags(pageH_ToObj(pPage), OFLG_KRO)) {
+        printf("pageH %#x wkg copy but not KRO\n", pPage);
+        result = false;
+      }
+      continue;
+
     case ot_PtDevicePage:
     case ot_PtDataPage:
 #ifndef NDEBUG
@@ -164,7 +171,7 @@ check_Pages()
       if (!objH_GetFlags(pObj, OFLG_DIRTY)) {
         assert (objH_GetFlags(pObj, OFLG_DIRTY) == 0);
 
-        uint32_t chk = objH_CalcCheck(pObj);
+        uint32_t chk = pageH_CalcCheck(pPage);
 
         if (pObj->check != chk) {
           printf("Frame %d Chk=0x%x CalcCheck=0x%x flgs=0x%02x ty=%d\n on pg OID ",

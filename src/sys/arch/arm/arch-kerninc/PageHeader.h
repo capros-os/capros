@@ -73,8 +73,8 @@ These addresses are mapped write-through, so they never have dirty
 cache entries.
 User-mappable pages (including DMA pages) may have cache entries
 at the kernel address, but they are stale.
-Pages of type ot_PtFreeFrame, ot_PtSecondary, and ot_PtNewAlloc
-may also have stale cache entries at the kernel address,
+Pages of type ot_PtFreeFrame, ot_PtSecondary, ot_PtNewAlloc, and
+ot_PtWorkingCopy may also have stale cache entries at the kernel address,
 but they have no other cache entries.
 Pages of type ot_PtKernelUse, ot_Pt*Pot, and ot_PtMappingPage*
 may have live cache entries at the kernel address,

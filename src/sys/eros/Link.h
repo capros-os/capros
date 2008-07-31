@@ -81,7 +81,7 @@ link_insertBefore(Link * n, Link * thisPtr)
 }
 
 INLINE bool
-link_isSingleton(Link *l)
+link_isSingleton(const Link * l)
 {
   return (l->next == l);
 }
