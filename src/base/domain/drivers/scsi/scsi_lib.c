@@ -733,9 +733,9 @@ void scsi_run_host_queues(struct Scsi_Host *shost)
 static struct scsi_cmnd *scsi_end_request(struct scsi_cmnd *cmd, int uptodate,
 					  int bytes, int requeue)
 {
-#if 0 // CapROS
 	request_queue_t *q = cmd->device->request_queue;
 	struct request *req = cmd->request;
+#if 0 // CapROS
 	unsigned long flags;
 
 	/*
@@ -747,10 +747,18 @@ static struct scsi_cmnd *scsi_end_request(struct scsi_cmnd *cmd, int uptodate,
 
 		if (blk_pc_request(req))
 			leftover = req->data_len;
+#else
+	if (cmd->resid != 0) {
+#endif
 
 		/* kill remainder if no retrys */
 		if (!uptodate && blk_noretry_request(req))
+#if 0 // CapROS
+			int leftover = cmd->resid;
 			end_that_request_chunk(req, 0, leftover);
+#else
+			BUG_ON("unimplemented");
+#endif
 		else {
 			if (requeue) {
 				/*
@@ -765,6 +773,7 @@ static struct scsi_cmnd *scsi_end_request(struct scsi_cmnd *cmd, int uptodate,
 		}
 	}
 
+#if 0 // CapROS
 	add_disk_randomness(req->rq_disk);
 
 	spin_lock_irqsave(q->queue_lock, flags);
@@ -773,9 +782,6 @@ static struct scsi_cmnd *scsi_end_request(struct scsi_cmnd *cmd, int uptodate,
 	end_that_request_last(req, uptodate);
 	spin_unlock_irqrestore(q->queue_lock, flags);
 #else
-	if (cmd->resid != 0) {
-		BUG_ON("unimplemented");
-	}
 	// handle tags?
 #endif // CapROS
 
@@ -1878,6 +1884,7 @@ scsi_mode_select(struct scsi_device *sdev, int pf, int sp, int modepage,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(scsi_mode_select);
+#endif // CapROS
 
 /**
  *	scsi_mode_sense - issue a mode sense, falling back from 10 to 
@@ -1899,7 +1906,8 @@ EXPORT_SYMBOL_GPL(scsi_mode_select);
  **/
 int
 scsi_mode_sense(struct scsi_device *sdev, int dbd, int modepage,
-		  unsigned char *buffer, int len, int timeout, int retries,
+		  unsigned char *buffer, dma_addr_t buffer_dma,
+		 int len, int timeout, int retries,
 		  struct scsi_mode_data *data, struct scsi_sense_hdr *sshdr)
 {
 	unsigned char cmd[12];
@@ -1938,7 +1946,8 @@ scsi_mode_sense(struct scsi_device *sdev, int dbd, int modepage,
 
 	memset(buffer, 0, len);
 
-	result = scsi_execute_req(sdev, cmd, DMA_FROM_DEVICE, buffer, len,
+	result = scsi_execute_req(sdev, cmd, DMA_FROM_DEVICE,
+				  buffer, buffer_dma, len,
 				  sshdr, timeout, retries);
 
 	/* This code looks awful: what it's doing is making sure an
@@ -1990,6 +1999,7 @@ scsi_mode_sense(struct scsi_device *sdev, int dbd, int modepage,
 }
 EXPORT_SYMBOL(scsi_mode_sense);
 
+#if 0 // CapROS
 int
 scsi_test_unit_ready(struct scsi_device *sdev, int timeout, int retries)
 {

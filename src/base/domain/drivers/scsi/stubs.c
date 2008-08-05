@@ -277,3 +277,8 @@ void device_del(struct device * dev)
 {
   BUG_ON("unimplemented");
 }
+
+void set_disk_ro(struct gendisk * disk, int flag)
+{
+  disk->policy = flag;
+}

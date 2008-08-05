@@ -966,10 +966,8 @@ static int scsi_add_lun(struct scsi_device *sdev, unsigned char *inq_result,
 	 * register it and tell the rest of the kernel
 	 * about it.
 	 */
-#if 0 // CapROS
 	if (!async && scsi_sysfs_add_sdev(sdev) != 0)
 		return SCSI_SCAN_NO_RESPONSE;
-#endif // CapROS
 	/* Don't mount the disk now, because the read commands
 	and the scanning inquiry commands may overtax some hosts. */
 

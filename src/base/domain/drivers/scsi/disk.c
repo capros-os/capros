@@ -89,7 +89,7 @@ xferSDev(struct scsi_device * sdev,
                          nrSects * EROS_SECTOR_SIZE, &sshdr,
                          10*HZ, 3);
   if (err)
-    printk("readSDev got err %d\n", err);
+    printk("xferSDev got err %d\n", err);
 
   return err;
 }
@@ -103,7 +103,7 @@ readSDev(struct scsi_device * sdev,
                   DMA_FROM_DEVICE, READ_10);
 }
 
-void
+static void
 parse_capros_partition(struct scsi_device * sdev,
   uint32_t startSector, uint32_t nrSects,
   uint8_t * buffer, dma_addr_t buffer_dma)
@@ -272,6 +272,19 @@ disk_thread(void * arg)
                  Ioreq.requestID, err);
       assert(result == RC_OK);
       break;
+
+    case capros_IOReqQ_RequestType_synchronizeCache:
+    {
+      int sd_issue_flush(struct device *, sector_t *);
+      int err = sd_issue_flush(&sdev->sdev_gendev, NULL /* not used */ );
+      if (err)
+        printk("Sync cache got err %d\n", err);
+
+      result = capros_IOReqQ_completeRequest(KR_IORQ,
+                 Ioreq.requestID, err);
+      assert(result == RC_OK);
+      break;
+    }
     }
   }
 }

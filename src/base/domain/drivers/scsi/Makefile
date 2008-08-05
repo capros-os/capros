@@ -38,6 +38,7 @@ OBJECTS+=$(BUILDDIR)/scsi_error.o
 OBJECTS+=$(BUILDDIR)/scsi_scan.o
 OBJECTS+=$(BUILDDIR)/scsi_sysfs.o
 OBJECTS+=$(BUILDDIR)/scsi_lib.o
+OBJECTS+=$(BUILDDIR)/sd.o
 OBJECTS+=$(BUILDDIR)/stubs.o
 
 INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include

@@ -38,6 +38,7 @@ Approved for public release, distribution unlimited. */
 #include <scsi/scsi_host.h>
 //#include <scsi/scsi_tcq.h>
 #include <scsi/scsi_transport.h>
+#include <scsi/scsi_driver.h>
 
 #include "scsi_priv.h"
 #include "scsi_logging.h"
@@ -293,9 +294,10 @@ static struct class sdev_class = {
 	.name		= "scsi_device",
 	.release	= scsi_device_cls_release,
 };
+#endif // CapROS
 
 /* all probing is done in the individual ->probe routines */
-static int scsi_bus_match(struct device *dev, struct device_driver *gendrv)
+int scsi_bus_match(struct device *dev, struct device_driver *gendrv)
 {
 	struct scsi_device *sdp = to_scsi_device(dev);
 	if (sdp->no_uld_attach)
@@ -303,6 +305,7 @@ static int scsi_bus_match(struct device *dev, struct device_driver *gendrv)
 	return (sdp->inq_periph_qual == SCSI_INQ_PQ_CON)? 1: 0;
 }
 
+#if 0 // CapROS
 static int scsi_bus_uevent(struct device *dev, char **envp, int num_envp,
 		           char *buffer, int buffer_size)
 {
@@ -749,6 +752,7 @@ static int attr_add(struct device *dev, struct device_attribute *attr)
 
 	return device_create_file(dev, attr);
 }
+#endif // CapROS
 
 /**
  * scsi_sysfs_add_sdev - add scsi device to sysfs
@@ -759,25 +763,45 @@ static int attr_add(struct device *dev, struct device_attribute *attr)
  **/
 int scsi_sysfs_add_sdev(struct scsi_device *sdev)
 {
-	int error, i;
+	int error;
 
 	if ((error = scsi_device_set_state(sdev, SDEV_RUNNING)) != 0)
 		return error;
 
+#if 0 // CapROS
 	error = device_add(&sdev->sdev_gendev);
 	if (error) {
 		put_device(sdev->sdev_gendev.parent);
 		printk(KERN_INFO "error 1\n");
 		return error;
 	}
+#else
+	if (scsi_bus_match(&sdev->sdev_gendev,
+			   NULL /* not used */ ) != 0) {
+		// Compare with really_probe.
+		extern struct scsi_driver sd_template;
+		error = (*sd_template.gendrv.probe)(&sdev->sdev_gendev);
+	}
+#endif
+#if 0 // CapROS
 	error = class_device_add(&sdev->sdev_classdev);
 	if (error) {
 		printk(KERN_INFO "error 2\n");
 		goto clean_device;
+
+ clean_device:
+		scsi_device_set_state(sdev, SDEV_CANCEL);
+
+		device_del(&sdev->sdev_gendev);
+		// transport_destroy_device(&sdev->sdev_gendev);
+		put_device(&sdev->sdev_gendev);
+
+		return error;
 	}
 
 	/* take a reference for the sdev_classdev; this is
 	 * released by the sdev_class .release */
+	int i;
 	get_device(&sdev->sdev_gendev);
 	if (sdev->host->hostt->sdev_attrs) {
 		for (i = 0; sdev->host->hostt->sdev_attrs[i]; i++) {
@@ -804,20 +828,11 @@ int scsi_sysfs_add_sdev(struct scsi_device *sdev)
 		}
 	}
 
-	// transport_add_device(&sdev->sdev_gendev);
+	transport_add_device(&sdev->sdev_gendev);
  out:
-	return error;
-
- clean_device:
-	scsi_device_set_state(sdev, SDEV_CANCEL);
-
-	device_del(&sdev->sdev_gendev);
-	// transport_destroy_device(&sdev->sdev_gendev);
-	put_device(&sdev->sdev_gendev);
-
+#endif // CapROS
 	return error;
 }
-#endif // CapROS
 
 void __scsi_remove_device(struct scsi_device *sdev)
 {
