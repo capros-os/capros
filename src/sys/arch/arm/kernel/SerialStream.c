@@ -35,7 +35,33 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #define UART1 (UARTStruct(APB_VA + UART1_APB_OFS))
 #define SYSCON (SYSCONStruct(APB_VA + SYSCON_APB_OFS))
 
-void SerialStream_Put(uint8_t c);
+#define WRAP_LINES
+#ifdef WRAP_LINES
+unsigned int curCol;	// column where the cursor is at, 0 == first column
+#define MaxColumns 80
+#define TABSTOP 8
+#endif
+
+static void
+RawOutput(uint8_t c)
+{
+  /* Wait until transmit buffer not full. */
+  while (UART1.Flag & UARTFlag_TXFF) ;
+  UART1.Data = c;
+}
+
+#ifdef WRAP_LINES
+static void
+SpacingChar(void)
+{
+  if (curCol >= MaxColumns) {
+    curCol = 0;
+    RawOutput(CR);
+    RawOutput(LF);
+  }
+  curCol++;
+}
+#endif
 
 void
 SerialStream_Flush(void)
@@ -65,14 +91,40 @@ SerialStream_Init(void)
   { int i;
     for (i = 55; i > 0; i--) ;
   }
+
+#ifdef WRAP_LINES
+  curCol = 0;
+#endif
 }
 
 void
 SerialStream_Put(uint8_t c)
 {
-  /* Wait until transmit buffer not full. */
-  while (UART1.Flag & UARTFlag_TXFF) ;
-  UART1.Data = c;
+#ifdef WRAP_LINES
+  if (kstream_IsPrint(c)) {
+    SpacingChar();
+  }
+  else {
+    /* Handle the non-printing characters: */
+    switch (c) {
+    case BS:
+      if (curCol)
+	curCol--;
+      break;
+    case TAB:
+      SpacingChar();
+      while (curCol % TABSTOP)
+        SpacingChar();
+      break;
+    case CR:
+      curCol = 0;
+      break;
+    default:
+      break;
+    }
+  }
+#endif
+  RawOutput(c);
 }
 
 #ifdef OPTION_DDB
