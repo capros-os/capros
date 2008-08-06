@@ -185,7 +185,9 @@ db_eros_print_key(Key* key /*@ not null @*/)
     assert(! keyBits_IsObjectKey(key));
     switch (kt) {
     case KKT_Void:
-      db_printf("void\n");
+      db_printf("void");
+      db_print_keyflags(key);
+      db_printf("\n");
       break;
     case KKT_Number:
       db_printf("num ");
@@ -291,10 +293,7 @@ db_eros_print_key_details(Key* key /*@ not null @*/)
 void
 db_eros_print_node(Node *pNode)
 {
-  bool wasPrepared;
-  bool isRoot;
-  bool isKeyRegs;
-  uint32_t i = 0;
+  uint32_t i;
 
   db_printf("Node (0x%08x) oid=%#llx ac=0x%08x cc=0x%08x ot=%d data=0x%x\n",
 	    pNode, pNode->node_ObjHdr.oid,
@@ -303,45 +302,15 @@ db_eros_print_node(Node *pNode)
             pNode->node_ObjHdr.obType, pNode->nodeData);
 
 #if !defined(NDEBUG) && 0
-  if (pNode->Validate() == false)
+  if (! pNode->Validate())
     db_error("...Is not valid\n");
 #endif
   
-  wasPrepared = BOOL(((pNode->node_ObjHdr.obType == ot_NtProcessRoot ||
-		       pNode->node_ObjHdr.obType == ot_NtKeyRegs) &&
-		      pNode->node_ObjHdr.prep_u.context));
-  
-  isRoot = BOOL((pNode->node_ObjHdr.obType == ot_NtProcessRoot &&
-		 pNode->node_ObjHdr.prep_u.context));
-  if (isRoot) {
-    for (i = 0; i < EROS_NODE_SIZE; i++) {
-
-      if (keyBits_IsRdHazard(&pNode->slot[i]))
-	proc_FlushProcessSlot((Process *) pNode->node_ObjHdr.prep_u.context, i);
-
-    }
-  }
-
-
-  isKeyRegs = BOOL((pNode->node_ObjHdr.obType == ot_NtKeyRegs &&
-		  pNode->node_ObjHdr.prep_u.context));
-  if (isKeyRegs) {
-    for (i = 0; i < EROS_NODE_SIZE; i++) {
-  
-      if (keyBits_IsRdHazard(&pNode->slot[i]))
-	proc_WriteBackKeySlot((Process *) pNode->node_ObjHdr.prep_u.context, i);
-  
-    }
-  }
-
   for (i = 0; i < EROS_NODE_SIZE; i++) {
     Key* key /*@ not null @*/ = node_GetKeyAtSlot(pNode, i);
     db_printf(" [%02d] (0x%08x) ", i, key);
     db_eros_print_key(key);
   }
-
-  if (wasPrepared)
-    proc_Prepare(pNode->node_ObjHdr.prep_u.context);
 }
 
 void
