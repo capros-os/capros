@@ -150,10 +150,6 @@ ConsoleStream_Put(uint8_t c)
   const int TABSTOP = 8;
   uint32_t posCol = offset % cols;
 
-  /* On newline, clear to EOL: */
-  if (c == CR)
-    if (offset % cols) Scroll (offset, offset + (cols - posCol), (cols - posCol));
-
   if (kstream_IsPrint(c)) {
     SetPosition(offset, c);
     offset++;
@@ -188,6 +184,9 @@ ConsoleStream_Put(uint8_t c)
       break;
 #endif
     case CR:
+      /* On newline, clear to EOL: */
+      if (offset % cols)
+        Scroll (offset, offset + (cols - posCol), (cols - posCol));
       offset -= (offset % cols);
       break;
     }
