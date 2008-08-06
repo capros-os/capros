@@ -26,10 +26,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <disk/ErosTypes.h>
 
-#define MaxUnmigratedGenerations 240
+#define MaxUnmigratedGenerations 20
 #define CkptRootVersion 1
 
-/* The CkptRoot is stored in LID 0 and 1.
+/* The CkptRoot is stored in LID CKPT_ROOT_0 and CKPT_ROOT_1.
  * The more recent of the two is the stabilized checkpoint. */
 
 typedef struct CkptRoot {

@@ -490,6 +490,7 @@ static bool
 CleanAPotOfNodes(bool force)
 {
   unsigned int i;
+  ObjectHeader * pObj;
 
   if (numNodesToClean < DISK_NODES_PER_PAGE
       && ! force)
@@ -497,8 +498,10 @@ CleanAPotOfNodes(bool force)
 
   for (i = 0; i < numNodesToClean; i++) {
     Node * pNode = nodesToClean[i];
-    if (node_ToObj(pNode)->objAge < age_Steal	// It was referenced
-        || node_ToObj(pNode)->obType == ot_NtFreeFrame) { // It was freed
+    pObj = node_ToObj(pNode);
+    if ((pObj->objAge < age_Steal	// It was referenced
+         && ! objH_GetFlags(pObj, OFLG_KRO) )	// and not KRO
+        || pObj->obType == ot_NtFreeFrame) { // It was freed
       // It's no longer a candidate to clean.
       // Remove it.
       nodesToClean[i--] = nodesToClean[--numNodesToClean];
@@ -510,7 +513,6 @@ CleanAPotOfNodes(bool force)
 
   IORequest * ioreq = AllocateIOReqCleaningAndPage();	// may Yield
   PageHeader * pageH = ioreq->pageH;
-  ObjectHeader * pObj;
 
   // Now we are committed to creating a log pot.
 
@@ -533,6 +535,7 @@ CleanAPotOfNodes(bool force)
     };
     ld_recordLocation(&objDescr, workingGenerationNumber);
   }
+  numNodesToClean = 0;
 
 #if 0
   printf("Cleaning a pot of nodes, lid=%#llx.\n", lid);
@@ -755,26 +758,28 @@ objC_GrabNodeFrame(void)
 }
 
 unsigned int KRONodeCleanCursor;	// next node to clean
+/* All nodes before KRONodeCleanCursor are either not KRO
+ * or are queued to be cleaned. */
 
 // Clean the next KRO node.
-void
+// Return true if cleaned one, false if there are no more.
+bool
 CleanAKRONode(void)
 {
-  assert(KRONodeCleanCursor < objC_nNodes);
-  assert(numKRONodes);
   assert(numNodesToClean < DISK_NODES_PER_PAGE);////?
 
-  for (;;KRONodeCleanCursor++) {
-    Node * pNode = objC_GetCoreNodeFrame(KRONodeCleanCursor);
+  while (KRONodeCleanCursor < objC_nNodes) {
+    Node * pNode = objC_GetCoreNodeFrame(KRONodeCleanCursor++);
     ObjectHeader * pObj = node_ToObj(pNode);
     if (objH_GetFlags(pObj, OFLG_KRO)) {
       node_Clean(pNode);
-      if (numKRONodes == 0)	// we've scanned them all
-        if (numNodesToClean)
-          CleanAPotOfNodes(true);	// force out the last pot
-      return;
+      return true;
     }
   }
+  if (numNodesToClean)
+    CleanAPotOfNodes(true);	// force out the last pot
+  assert(! numKRONodes);
+  return false;
 }
 
 /* This procedure is called when we want to mutate a node that is
@@ -1074,7 +1079,9 @@ CopyPage(PageHeader * old, PageHeader * new)
 PageHeader *
 pageH_MitigateKRO(PageHeader * old)
 {
-  assert(objH_GetFlags(pageH_ToObj(old), OFLG_KRO));
+  assert(objH_GetFlags(pageH_ToObj(old),
+                       OFLG_KRO | OFLG_Cleanable | OFLG_Fetching )
+         == (OFLG_KRO | OFLG_Cleanable) );
   assert(pageH_GetObType(old) == ot_PtDataPage);
 
   /* FIXME: When we try to grab a page frame, we should not clean too
@@ -1086,20 +1093,11 @@ pageH_MitigateKRO(PageHeader * old)
 #ifdef OPTION_OB_MOD_CHECK
   pageH_ToObj(new)->check = pageH_ToObj(old)->check;
 #endif
+  pageH_ToObj(new)->allocCount = pageH_ToObj(old)->allocCount;
 
   if (old->ioreq) {
     // The old page has I/O, so it can't be moved.
     printf("Moving KRO page with I/O, %#x\n", old);////
-    /* NOTE: We have to set the dirty bit on the current version here.
-    If we don't, the page could be stolen.
-    (It's unlikely to be stolen soon, but possible.)
-    If it is reaccessed before the Working version is written to disk,
-    the Working version won't be found, because it is not in the object hash.
-    It will fetch an older version from disk. 
-
-    Therefore the caller must ensure, before calling, that it is OK to set
-    the dirty bit; that the log and directory reservations will succeed.
-    */
 
     // The original page will be the working version, and
     // the new page will be the current version.
@@ -1109,17 +1107,33 @@ pageH_MitigateKRO(PageHeader * old)
     // Producer is moving, so invalidate any products:
     objH_InvalidateProducts(pageH_ToObj(old));
 
+    // Set up new PageHeader:
+    // Copy OFLG_*CntUsed:
+    pageH_ToObj(new)->flags = pageH_ToObj(old)->flags;
+    objH_ClearFlags(pageH_ToObj(new), OFLG_KRO);
+    /* NOTE: We have to set the dirty bit on the current version here.
+    If we don't, the page could be stolen.
+    (It's unlikely to be stolen soon, but possible.)
+    If it is reaccessed before the Working version is written to disk,
+    the Working version won't be found, because it is not in the object hash.
+    It will fetch an older version from disk. 
+
+    Therefore the caller must ensure, before calling, that it is OK to set
+    the dirty bit; that the log and directory reservations will succeed. */
+    objH_SetFlags(pageH_ToObj(new), OFLG_DIRTY);
+
+    pageH_ToObj(new)->obType = ot_PtDataPage;
+    objH_InitObj(pageH_ToObj(new), pageH_ToObj(old)->oid);
+    pageH_MDInitDataPage(new);
+
+    pageH_ToObj(old)->obType = ot_PtWorkingCopy;
+    objH_Unintern(pageH_ToObj(old));
+
     // If would be easy to just unprepare all the keys to the old page,
     // but that would set OFLG_allocCntUsed unnecessarily.
-#if 0////
-        keyR_UnprepareAll(&pageH_ToObj(pageH)->keyRing);
-        ReleaseObjPageFrame(pageH);
-copy allocCntUsed bits from old to new
-#endif
+    keyR_ObjectMoved(&pageH_ToObj(old)->keyRing, pageH_ToObj(new));
    
-    // The newly allocated page will be the current version.
-    assert(!"complete");
-    return NULL;
+    return new;
   } else {
     assert(objH_GetFlags(pageH_ToObj(old), OFLG_DIRTY));
     printf("Copying KRO page, %#x\n", old);////
@@ -1128,8 +1142,8 @@ copy allocCntUsed bits from old to new
     // Set up its PageHeader.
     pageH_ToObj(new)->obType = ot_PtWorkingCopy;
     objH_SetFlags(pageH_ToObj(new), OFLG_DIRTY | OFLG_KRO | OFLG_Cleanable);
+    // OFLG_*CntUsed aren't used in new.
     pageH_ToObj(new)->oid = pageH_ToObj(old)->oid;
-    pageH_ToObj(new)->allocCount = pageH_ToObj(old)->allocCount;
 
     // The original page is no longer KRO:
     objH_ClearFlags(pageH_ToObj(old), OFLG_KRO);
@@ -1360,7 +1374,6 @@ CreateNewNullObject(unsigned int baseType, OID oid, ObCount allocCount)
     pObj = pageH_ToObj(pageH);
 
     pageH_MDInitDataPage(pageH);
-    pageH_SetReferenced(pageH);
 
     kva_t pageAddr = pageH_MapCoherentWrite(pageH);
     kzero((void *)pageAddr, EROS_PAGE_SIZE);

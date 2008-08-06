@@ -27,13 +27,12 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Activity.h>
+#include <kerninc/KernStream.h>
 #include <eros/Invoke.h>
 #include <eros/StdKeyType.h>
 #include <eros/ConsoleKey.h>
 
 #include <idl/capros/key.h>
-
-extern void kstream_PutBuf(uint8_t *s, uint32_t len);
 
 
 /* May Yield. */

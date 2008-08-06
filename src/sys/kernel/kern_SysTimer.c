@@ -200,7 +200,7 @@ sysT_WakeupAt(void)
     // Complete this process's sleep invocation.
 
     Process * invokee = t->context;
-    if (invokee) {
+    if (invokee && proc_IsRunnable(invokee)) {
       // Return from its Sleep invocation.
       sysT_actWake(t, RC_OK);
     } else {

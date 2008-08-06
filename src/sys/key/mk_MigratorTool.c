@@ -178,15 +178,61 @@ DoRestartStep(void)
       ReleasePageFrame(pageA);
     }
 
-    if (curRoot->maxNPAllocCount) {
-      // Adjust allocation and call counts of non-persistent objects.
-      // This ensures that capabilities to them in persistent objects
-      // will be rescinded.
-      assert(false); //// incomplete
+    // Adjust allocation and call counts of non-persistent objects.
+    assert(restartNPAllocCount == 0);	// not updated yet
+    ObCount newRestartCount = curRoot->maxNPAllocCount + 1;
+    // The +1 above ensures that capabilities to non-persistent objects
+    // in persistent objects will be rescinded.
+
+    // restartNPAllocCount ensures that any new NP objects will
+    // have the correct count:
+    restartNPAllocCount = newRestartCount;
+
+    // Adjust the counts of existing objects.
+    unsigned long objNum;
+
+    // Scan all nodes:
+    for (objNum = 0; objNum < objC_nNodes; objNum++) {
+      int i;
+      Node * pNode = objC_GetCoreNodeFrame(objNum);
+      ObjectHeader * pObj = node_ToObj(pNode);
+
+      if (pObj->obType == ot_NtFreeFrame)
+        continue;
+
+      if (! OIDIsPersistent(pObj->oid)) {
+        pObj->allocCount += newRestartCount;
+        pNode->callCount += newRestartCount;
+
+        for (i = 0; i < EROS_NODE_SIZE; i++) {
+          Key * pKey = node_GetKeyAtSlot(pNode, i);
+          if (keyBits_IsRdHazard(pKey))
+            key_ClearHazard(pKey);
+          if (keyBits_IsUnprepared(pKey) && keyBits_IsObjectKey(pKey)
+              && ! OIDIsPersistent(pKey->u.unprep.oid) ) {
+            if (keyBits_IsHazard(pKey))
+              key_ClearHazard(pKey);
+            pKey->u.unprep.count += newRestartCount;
+          }
+        }
+      }
+      // else, there could be persistent objects if they were preloaded.
+    }
+
+    // Scan all pages:
+    for (objNum = 0; objNum < objC_nPages; objNum++) {
+      PageHeader * pageH = objC_GetCorePageFrame(objNum);
+      ObjectHeader * pObj = pageH_ToObj(pageH);
+
+      if ((pObj->obType == ot_PtDataPage || pObj->obType == ot_PtDevicePage)
+          && ! OIDIsPersistent(pObj->oid) ) {
+        pObj->allocCount += newRestartCount;
+      }
     }
 
     workingGenerationNumber = curRoot->mostRecentGenerationNumber + 1;
-    if (curRoot->mostRecentGenerationNumber == 0) {
+    if (true || //// until we get restart working
+curRoot->mostRecentGenerationNumber == 0) {
       // No checkpoint has been taken.
       // Is the amount of mounted log reasonable?
       if (OIDToFrame(logWrapPoint) < physMem_TotalPhysicalPages) {

@@ -331,6 +331,22 @@ key_NH_Set(KeyBits *thisPtr, KeyBits* kb)
   }
 }
 
+void
+key_NH_Move(Key * to, Key * from)
+{
+  assert(! keyBits_IsHazard(to));
+  assert(! keyBits_IsHazard(from));
+  assert(! keyBits_IsPrepared(to));
+
+  *to = *from;
+
+  if (keyBits_IsPreparedObjectKey(from)) {
+    // Fix up chain pointers:
+    to->u.ok.kr.prev->next = to->u.ok.kr.next->prev = &to->u.ok.kr;
+  }
+  keyBits_InitToVoid(from);
+}
+
 // key must already be unchained if necessary.
 void
 key_SetToObj(Key * key, ObjectHeader * pObj,

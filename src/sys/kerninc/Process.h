@@ -357,10 +357,6 @@ void proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info);
 
 void proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey);
 
-#ifdef OPTION_DDB
-void proc_WriteBackKeySlot(Process* thisPtr, uint32_t whichKey);
-#endif
-
 void proc_SyncActivity(Process* thisPtr);
 
 void proc_Unload(Process* thisPtr);

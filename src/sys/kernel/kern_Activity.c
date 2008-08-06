@@ -625,7 +625,7 @@ act_DoReschedule(void)
      * we are rescheduling, since we want the activity entry back promptly
      * and it doesn't take that long to test.
      */
-    if ( act_Current() && act_Prepare(act_Current()) == false ) {
+    if (! act_Prepare(act_Current())) {
       assert( act_IsUser(act_Current()) );
       
 
@@ -902,109 +902,79 @@ act_Name(Activity* thisPtr)
 bool 
 act_Prepare(Activity* thisPtr)
 {
-  static uint32_t count;
-
-  assert(thisPtr == act_Current());
-  
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr && 0)
     check_Consistency("Before ThrdPrepare()");
 #endif
 
-  /* In the absence of the PTE zap case, which is now handled
-   * separately, it is not clear that we still need the for(;;)
-   * loop...
-   */
-  
-  for (count = 0; count < 20;count++) {
-    /* If we have a context, the activity ain't dead yet! */
-    
-    if ( thisPtr->context && proc_IsRunnable(thisPtr->context) ) {
-#if CONV
-      assert (thisPtr->priority == thisPtr->context->priority);
-#else
-      assert (thisPtr->readyQ == thisPtr->context->readyQ);
-#endif
-      
-      return true;
-    }
-    
-    assert (thisPtr->state != act_Free); /* is the old code right?? */
-    
-    /* Probably not necessary, but it doesn't do any harm: */
-    assert( act_Current() == thisPtr );
+  assert(thisPtr->state != act_Free);
+  assert(act_Current() == thisPtr);
 
-    /* Try to prepare this activity to run: */
+  Process * proc = thisPtr->context;
+
+  /* Try to prepare this activity to run: */
 #ifdef ACTIVITYDEBUG
-    printf("Preparing user activity\n");
+  printf("Preparing user activity\n");
 #endif
-  
-    Process * proc = thisPtr->context;
-    if (! proc) {
-      /* Domain root may have been rescinded.... */
 
-#if 0
-      printf("Prepping dom key ");
-      key_Print(&thisPtr->processKey);
-#endif
-    
-      key_Prepare(&thisPtr->processKey);
+  if (! proc) {
+    /* Domain root may have been rescinded.... */
 
-      if (! keyBits_IsType(&thisPtr->processKey, KKT_Process)) {
-        // Is this fatal, or should the activity simply go away quietly?
+    key_Prepare(&thisPtr->processKey);
+
+    if (! keyBits_IsType(&thisPtr->processKey, KKT_Process)) {
+      // Is this fatal, or should the activity simply go away quietly?
 	fatal("Rescinded activity!\n");
 	return false;
-      }
+    }
   
-      assert(! keyBits_IsHazard(&thisPtr->processKey));
+    assert(! keyBits_IsHazard(&thisPtr->processKey));
 
-      proc = thisPtr->processKey.u.gk.pContext;
-    
-      act_SetContextCurrent(thisPtr, proc);
-      proc_SetActivity(proc, thisPtr);
-
-      if (thisPtr->actHazard != actHaz_None) {
-        switch (thisPtr->actHazard) {
-        default: ;
-          fatal("");
-
-        case actHaz_WakeOK:
-          sysT_actWake(thisPtr, RC_OK);
-          thisPtr->actHazard = actHaz_None;
-          break;
-
-        case actHaz_WakeRestart:
-          sysT_actWake(thisPtr, RC_capros_Sleep_Restart);
-          thisPtr->actHazard = actHaz_None;
-          break;
-        }
-      }
-    }
-
-#ifdef ACTIVITYDEBUG
-    printf("Preparing Process 0x%08x..\n", proc);
-#endif
-
-    proc_Prepare(proc);
-
-    if ( proc_IsRunnable(proc) ) {
-#if CONV
-      assert (thisPtr->priority == proc->priority);
-#else
-      assert (thisPtr->readyQ = proc->readyQ);
-#endif
-#ifdef DBG_WILD_PTR
-      if (dbg_wild_ptr && 0)
-	check_Consistency("After ThrdPrepare()");
-#endif
-      return true;
-    }
-
-    /* The Process could not be prepared. */
+    proc = thisPtr->processKey.u.gk.pContext;
+  
+    act_SetContextCurrent(thisPtr, proc);
+    proc_SetActivity(proc, thisPtr);
   }
 
-  dprintf(true, "Activity start loop exceeded\n");
-  return false;
+#ifdef ACTIVITYDEBUG
+  printf("Preparing Process 0x%08x..\n", proc);
+#endif
+
+  if (proc_IsNotRunnable(proc)) {
+    proc_DoPrepare(proc);
+    // If proc_DoPrepare was unable to make it runnable:
+    if (proc_IsNotRunnable(proc)) {
+      printf("Process %#x is malformed.\n", proc);
+      return false;
+    }
+  }
+
+  assert(proc_IsRunnable(proc));
+
+  if (thisPtr->actHazard != actHaz_None) {
+    switch (thisPtr->actHazard) {
+    default: ;
+      fatal("");
+
+    case actHaz_WakeOK:
+      sysT_actWake(thisPtr, RC_OK);
+      thisPtr->actHazard = actHaz_None;
+      break;
+
+    case actHaz_WakeRestart:
+      sysT_actWake(thisPtr, RC_capros_Sleep_Restart);
+      thisPtr->actHazard = actHaz_None;
+      break;
+    }
+  }
+
+  assert (thisPtr->readyQ = proc->readyQ);
+
+#ifdef DBG_WILD_PTR
+  if (dbg_wild_ptr && 0)
+	check_Consistency("After ThrdPrepare()");
+#endif
+  return true;
 }
 
 void // does not return

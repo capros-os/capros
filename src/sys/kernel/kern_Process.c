@@ -87,11 +87,8 @@ proc_FlushKeyRegs(Process * thisPtr)
   for (k = 0; k < EROS_NODE_SIZE; k++) {
     Key * nodeSlot = node_GetKeyAtSlot(thisPtr->keysNode, k);
     Key * procSlot = &thisPtr->keyReg[k];
-    assert(! keyBits_IsHazard(nodeSlot));
-    key_NH_Set(nodeSlot, procSlot);
-
-    /* Not hazarded because key register */
-    key_NH_SetToVoid(procSlot);
+    keyBits_UnHazard(nodeSlot);
+    key_NH_Move(nodeSlot, procSlot);
 
     /* We know that the context structure key registers are unhazarded
      * and unlinked by virtue of the fact that they are unloaded.
@@ -149,23 +146,15 @@ proc_LoadKeyRegs(Process * thisPtr)
 
     /* The context structure key registers are unhazarded
      * and unprepared by virtue of the fact that they are unloaded. */
-    assert(! keyBits_IsHazard(procSlot));
-    assert(keyBits_IsUnprepared(procSlot));
 
     if (k == 0)
-      key_NH_SetToVoid(procSlot);	/* key register 0 is always void */
-    else
-      key_NH_Set(procSlot, nodeSlot);
+      key_NH_SetToVoid(nodeSlot);	/* key register 0 is always void */
 
-    /* We used to call keyBits_SetRwHazard(nodeSlot),
-    so reads and writes to the keys node would get the right answer.
-    That resulted in extra logic to avoid unloading the key registers
-    when a key in that node is merely rescinded.
-    Now, we no longer make those slots hazarded.
-    If the process creator behaves properly, no one should
-    read or write the keys node directly after a process is built.
-    If someone does, a read may get stale data or a write may not take effect.
-    */
+    /* Note: We move the key from the keys node to the Process,
+    leaving Void in the keys node, to avoid unloading the key registers
+    merely because a key in that node is rescinded. */
+    key_NH_Move(procSlot, nodeSlot);
+    keyBits_SetRwHazard(nodeSlot);
   }
   
   /* Node is now known to be valid... */
@@ -174,8 +163,6 @@ proc_LoadKeyRegs(Process * thisPtr)
   thisPtr->keysNode = kn;
 
   keyBits_SetWrHazard(genKeysKey);
-
-  assert(thisPtr->keysNode);
 
   thisPtr->hazards &= ~hz_KeyRegs;
 }
@@ -528,8 +515,8 @@ check_Contexts(const char *c)
         }
 
         if (! p->keysNode) {
-	  dprintf(true, "Context %#x has no keysNode\n", p);
-	  result = false;
+          if (! p->hazards & hz_KeyRegs)
+	    result = false;
         } else {
           if (node_ToObj(p->keysNode)->obType != ot_NtKeyRegs) {
 	    dprintf(true, "Context %#x keysNode %#x has type %d\n",
@@ -634,21 +621,6 @@ proc_AllocUserContexts(void)
 		 sizeof(Process[KTUNE_NCONTEXT]),
 		 proc_ContextCache);
 }
-
-#ifdef OPTION_DDB
-void
-proc_WriteBackKeySlot(Process* thisPtr, uint32_t k)
-{
-  /* Write back a single key in support of DDB getting the display correct */
-  assert ((thisPtr->hazards & hz_KeyRegs) == 0);
-  assert (objH_IsDirty(node_ToObj(thisPtr->keysNode)));
-
-  keyBits_UnHazard(&thisPtr->keysNode->slot[k]);
-  key_NH_Set(&thisPtr->keysNode->slot[k], &thisPtr->keyReg[k]);
-
-  keyBits_SetRwHazard(&thisPtr->keysNode->slot[k]);
-}
-#endif
 
 #ifndef NDEBUG
 bool

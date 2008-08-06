@@ -61,19 +61,14 @@ node_CalcCheck(const Node * pNode)
 void
 node_ClearHazard(Node* thisPtr, uint32_t ndx)
 {
-  if (keyBits_IsHazard(&thisPtr->slot[ndx]) == false)
+  Key * pKey = &thisPtr->slot[ndx];
+
+  if (! keyBits_IsHazard(pKey))
     return;
 
   switch(thisPtr->node_ObjHdr.obType) {
-  case ot_NtKeyRegs:
-  case ot_NtUnprepared:
-    fatal("Unprepared Node 0x%08x%08x Corrupted (slot %d).\n",
-	    (uint32_t) (thisPtr->node_ObjHdr.oid>>32), 
-	    (uint32_t) thisPtr->node_ObjHdr.oid, ndx);
-    break;
-    
   case ot_NtSegment:
-    if ( keyBits_IsRdHazard(&thisPtr->slot[ndx]) )
+    if (keyBits_IsRdHazard(pKey))
       fatal("Segment Node Corrupted!\n");
 
     node_ClearGPTHazard(thisPtr, ndx);
@@ -86,9 +81,10 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
      */
 
     if (ndx == ProcAddrSpace) {
-      Depend_InvalidateKey(&thisPtr->slot[ndx]);
+      Depend_InvalidateKey(pKey);
     }
     else if ( ndx == ProcGenKeys ) {
+  case ot_NtKeyRegs:
       proc_FlushKeyRegs(thisPtr->node_ObjHdr.prep_u.context);
     }
     else {
@@ -96,14 +92,14 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
       proc_FlushProcessSlot(thisPtr->node_ObjHdr.prep_u.context, ndx);
     }
     break;
+
+  case ot_NtUnprepared:
   default:
     fatal("Clear hazard on unknown type\n");
     break;
   }
 
-  if (keyBits_IsHazard(&thisPtr->slot[ndx]) != false)
-    fatal("Error. Node ty=%d slot=%d still hazarded\n",
-		  thisPtr->node_ObjHdr.obType, ndx);
+  assert(! keyBits_IsHazard(pKey));
 }
      
 void
@@ -160,25 +156,6 @@ node_DoClearThisNode(Node* thisPtr)
     check_Consistency("DoClearThisNode");
 #endif
 }
-
-#if 0
-void
-Node::ObMovedHazardedSlot(uint32_t ndx, ObjectHeader *pNewLoc)
-{
-  Key& key = slot[ndx];
-  
-  assert(key.IsPrepared());
-  
-  ClearHazard(ndx);
-
-  key.ok.pObj = pNewLoc;
-
-#ifdef OPTION_OB_MOD_CHECK
-  if (!IsDirty())
-    ob.check = CalcCheck();
-#endif
-}
-#endif
 
 static void
 node_DoPrepareProcess(Node * pNode)

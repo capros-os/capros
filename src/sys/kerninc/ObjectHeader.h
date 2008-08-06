@@ -42,6 +42,7 @@ struct IORequest;
 #include <arch-kerninc/PageHeader.h>
 
 extern ObCount restartNPAllocCount;
+extern ObCount maxNPAllocCount;
 
 extern unsigned long numDirtyObjectsWorking[];
 extern unsigned long numDirtyObjectsNext[];

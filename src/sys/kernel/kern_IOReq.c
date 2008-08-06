@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/LogDirectory.h>
 #include <kerninc/Ckpt.h>
+#include <arch-kerninc/Page-inline.h>
 #include <eros/target.h>
 #include <disk/TagPot.h>
 #include <disk/DiskNode.h>
@@ -322,6 +323,7 @@ objRange_FetchPage(ObjectRange * rng, OID oid, frame_t rangeLoc)
   pObj = pageH_ToObj(pageH);
   pObj->obType = ot_PtDataPage;
   objH_InitObj(pObj, oid);
+  pageH_MDInitDataPage(pageH);
   objH_SetFlags(pObj, OFLG_Fetching);
 
   ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
@@ -396,6 +398,9 @@ ioreq_Enqueue(IORequest * ioreq)
 
   case capros_IOReqQ_RequestType_writeRangeLoc:
     pageH_PrepareForDMAOutput(ioreq->pageH);
+    break;
+
+  case capros_IOReqQ_RequestType_synchronizeCache:
     break;
   }
 

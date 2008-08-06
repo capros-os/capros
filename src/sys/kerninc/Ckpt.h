@@ -30,6 +30,8 @@ enum {
   ckpt_Phase1,
   ckpt_Phase2,
   ckpt_Phase3,
+  ckpt_Phase4,
+  ckpt_Phase5,
 };
 extern unsigned int ckptState;
 
@@ -54,6 +56,7 @@ extern struct Activity * checkpointActivity;
 
 extern LID logCursor;	// next place to write in the main log
 extern LID logWrapPoint;	// end of main log
+extern LID currentRoot;
 
 /* oldestNonRetiredGenLid is the LID following the last LID of the
  * newest retired generation. */

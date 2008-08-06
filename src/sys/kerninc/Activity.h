@@ -269,6 +269,7 @@ act_Yield(void)
   }
 #endif
 
+  /* mach_Yield clears the stack (!) and goes to act_HandleYieldEntry. */
   extern void mach_Yield(void) NORETURN;
   mach_Yield();
 }

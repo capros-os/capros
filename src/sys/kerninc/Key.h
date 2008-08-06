@@ -133,8 +133,8 @@ key_NH_Unchain(Key* thisPtr)
 /* Convert the key to its unprepared form. */
 void key_NH_Unprepare(Key* thisPtr);
 
-/* KS_Set now checks for need to unchain internally. */
 void key_NH_Set(KeyBits *thisPtr, KeyBits* kb);
+void key_NH_Move(Key * to, Key * from);
 
 void key_SetToProcess(Key * k,
   Process * p, unsigned int keyType, unsigned int keyData);

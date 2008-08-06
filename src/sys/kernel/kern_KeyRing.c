@@ -161,58 +161,27 @@ keyR_RescindAll(KeyRing * thisPtr)
 #endif
 }
 
-#if 0
-/* This is only called from the checkpoint code, and relies utterly on
- * the fact that it is never called for a node.
- */
 void
-KeyRing::ObjectMoved(struct ObjectHeader *newObj)
+keyR_ObjectMoved(KeyRing * keyR, ObjectHeader * newObj)
 {
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("Top ObjectMoved");
-#endif
+  Link * prev = keyR;
+  while (prev->next != keyR) {
+    Key * pKey = (Key *) prev->next;
 
-  /* Algorithm below fails if the ring is empty */
-  if (next == (KeyRing*) this)
-    return;
-  
-  KeyRing *nxt = next;
-  
-  while (nxt != (KeyRing*) this) {
-    Key *pKey = (Key *) nxt;
+    assert(keyBits_IsPrepared(pKey));
 
-    assert (pKey->GetType() == KKT_Page);
-
-    /* We need to ensure that any outstanding dependencies on the prior
-     * location of this page (as occurs in page table entries) will be
-     * reconstructed.  Actually, once we need to do this I'm half
-     * tempted to just deprepare all of the keys
-     */
-    
-    /* Note that activity-embodied and process-embodied keys are never hazarded: */
-    if ( pKey->IsHazard() ) {
-      assert ( Activity::IsActivityKey(pKey) == false );
-      assert ( Process::IsKeyReg(pKey) == false );
-      Node *pNode = ObjectCache::ContainingNode(pKey);
-      assert ( ObjectCache::ValidNodePtr(pNode) );
-      uint32_t slot = pKey - pNode->slot;
-
-      pNode->ObMovedHazardedSlot(slot);
+    if (keyBits_IsHazard(pKey)) {
+      key_ClearHazard(pKey);
 
       /* Having cleared the hazard, the key we are presently examining 
 	 may not even be on this ring any more -- it may be a
-	 different key entirely.  We therefore restart the loop. */
-      if (pKey->IsUnprepared())
+	 different key entirely.  We therefore check prev again. */
+      if (! keyBits_IsPrepared(pKey))
 	continue;
     }
-    else {
-      assert ( pKey->IsPrepared() );
+    pKey->u.ok.pObj = newObj;
 
-      pKey->ok.pObj = newObj;
-
-      nxt = pKey->ok.next;
-    }
+    prev = &pKey->u.ok.kr;
     
 #ifdef OPTION_OB_MOD_CHECK
     Node * pNode = node_ContainingNodeIfNodeKeyPtr(pKey);
@@ -222,14 +191,15 @@ KeyRing::ObjectMoved(struct ObjectHeader *newObj)
 #endif
   }
 
-  newObj->kr.next = next;
-  newObj->kr.prev = prev;
-  newObj->kr.next->prev = &newObj->kr;
-  newObj->kr.prev->next = &newObj->kr;
-    
-  ResetRing();
+  // Now move the whole chain to the new object.
+  Link * next = keyR->next;
+  prev = keyR->prev;
+  keyR_ResetRing(keyR);
+  newObj->keyRing.next = next;
+  newObj->keyRing.prev = prev;
+  next->prev = &newObj->keyRing;
+  prev->next = &newObj->keyRing;
 }
-#endif
 
 #ifndef NDEBUG
 bool

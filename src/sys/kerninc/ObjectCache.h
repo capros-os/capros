@@ -78,7 +78,7 @@ PageHeader * objC_GrabPageFrame(void);
 void objC_GrabThisPageFrame(PageHeader *);
 void EnsureObjFrames(unsigned int baseType, unsigned int numFrames);
 void CreateLogDirEntryForNonzeroPage(PageHeader * pageH);
-void CleanAKRONode(void);
+bool CleanAKRONode(void);
 void CleanAKROPage(void);
 
 void objC_AddDevicePages(struct PmemInfo *);

@@ -59,13 +59,11 @@ CheckpointKey(Invocation * inv)
       break;
     }
 
-    if (ckptIsActive()) {
-      SleepOnPFHQueue(&WaitForCkptInactive);
+    if (! ckptIsActive()) {
+      DeclareDemarcationEvent();
     }
-
-    COMMIT_POINT();
-
-    DeclareDemarcationEvent();
+    SleepOnPFHQueue(&WaitForCkptInactive);
+    // does not return
 
     break;
   }

@@ -25,6 +25,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/kernel.h>
 #include <disk/DiskNode.h>
 #include <disk/GenerationHdr.h>
+#include <disk/CkptRoot.h>
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/ObjectSource.h>
@@ -40,6 +41,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/machine/IORQ.h>
 
 #define dbg_ckpt	0x1
+#define dbg_sync	0x2
+#define dbg_numnodes	0x4
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u | dbg_ckpt )
@@ -62,8 +65,8 @@ unsigned int KROPageCleanCursor;
 unsigned int KRONodeCleanCursor;
 
 PageHeader * GenHdrPageH = NULL;
-LID nextProcDirLid;
-PageHeader * * nextProcDirFramePP;
+DiskGenerationHdr * genHdr;
+
 PageHeader * * ProcDirFramesWritten;
 unsigned long numDirEntsToSave;
 unsigned int nextRangeToSync;
@@ -85,6 +88,13 @@ If a checkpoint is active and the migratedGenNumber field in the
 GenNum nextRetiredGeneration = 0;
 
 GenNum migratedGeneration = 0;	// the latest fully migrated generation
+
+/* The LIDs of the generation headers of all the unmigrated generations: */
+LID unmigratedGenHdrLid[MaxUnmigratedGenerations];
+/* Pointer to the next entry to use in unmigratedGenHdrLid.
+The entry before that one has the LID of the GenHdr of the
+working generation. */
+LID * nextUGHL = &unmigratedGenHdrLid[0];
 
 DEFQUEUE(WaitForCkptInactive);
 DEFQUEUE(WaitForCkptNeeded);
@@ -125,6 +135,13 @@ minEqualsL(long * var, long value)
     *var = value;
 }
 
+INLINE void
+maxEqualsL(long * var, long value)
+{
+  if (*var < value)
+    *var = value;
+}
+
 /* Return the amount of log needed to checkpoint all the dirty objects. */
 unsigned long
 CalcLogReservation(unsigned long numDirtyObjects[],
@@ -148,6 +165,38 @@ CalcLogReservation(unsigned long numDirtyObjects[],
   return total;
 #undef ProcEntsPerPage
 #undef DirEntsPerPage
+}
+
+static void
+IOReq_EndSync(IORequest * ioreq)
+{
+  // The IORequest is done.
+  assert(sq_IsEmpty(&ioreq->sq));
+  DEBUG(sync) printf("EndSync synced %d\n", rangesSynced);
+
+  if (++rangesSynced >= nextRangeToSync)
+    sq_WakeAll(&WaitForObjDirWritten, false);
+
+  IOReq_Deallocate(ioreq);
+}
+
+// Wait for all the previous log writes to get to nonvolatile media.
+static void
+DoSync(void)
+{
+  while (nextRangeToSync < nLidRanges) {
+    IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
+    ObjectRange * rng = &lidRanges[nextRangeToSync++];
+
+    ioreq->pageH = NULL;
+    ioreq->requestCode = capros_IOReqQ_RequestType_synchronizeCache;
+    ioreq->objRange = rng;
+    ioreq->doneFn = &IOReq_EndSync;
+    sq_Init(&ioreq->sq);	// won't be used
+    ioreq_Enqueue(ioreq);
+  }
+  if (rangesSynced < nextRangeToSync)
+    SleepOnPFHQueue(&WaitForObjDirWritten);
 }
 
 // May Yield.
@@ -174,7 +223,90 @@ DeclareDemarcationEvent(void)
   sq_WakeAll(&WaitForCkptNeeded, false);
 }
 
-void
+// Variables for StoreProcessInfo:
+static struct DiskProcessDescriptor * dpd;
+unsigned int dpdsInCurrentPage;
+bool inHdr;
+// Where to store the number of descriptors in the current page:
+uint32_t * numDpdsLoc;
+PageHeader * * nextProcDirFramePP;
+LID nextProcDirLid;
+
+static void
+StoreProcessInfo(OID procOid, ObCount procAllocCount, uint8_t hazToSave)
+{
+  // Is there room for another DiskProcessDescriptor in this page?
+  kva_t roomInPage = (- (kva_t)dpd) & EROS_PAGE_MASK;
+  if (roomInPage < sizeof(struct DiskProcessDescriptor)) {
+    // Finish the current page.
+    DEBUG(ckpt) printf("Going to next page of process directory.\n");
+
+    *numDpdsLoc = dpdsInCurrentPage;
+    // Set up the next page.
+    PageHeader * pageH = *nextProcDirFramePP;
+    assert(pageH);	// else we didn't reserve enough!
+    LID lid = NextLogLoc();
+    if (inHdr) {		// this is the first full frame
+      genHdr->processDir.firstDirFrame = lid;
+      nextProcDirLid = lid;
+      inHdr = false;
+    }
+    genHdr->processDir.nDirFrames++;
+    numDpdsLoc = (uint32_t *)pageH_GetPageVAddr(pageH);
+    dpd = (struct DiskProcessDescriptor *)
+          ((kva_t)numDpdsLoc + sizeof(uint32_t));
+    // Follow the chain:
+    nextProcDirFramePP = & pageH->kt_u.link.next;
+  }
+  // Use memcpy, because dpd is unaligned and packed.
+  memcpy(&dpd->oid, &procOid, sizeof(OID));
+  memcpy(&dpd->allocCount, &procAllocCount, sizeof(ObCount));
+  memcpy(&dpd->actHazard, &hazToSave, sizeof(dpd->actHazard));
+  dpd++;
+  dpdsInCurrentPage++;
+}
+
+static bool
+ProcIsDuplicate(OID procOid, ObCount procAllocCount)
+{
+  struct DiskProcessDescriptor * dpdCursor = (struct DiskProcessDescriptor *)
+        ((char *)genHdr + sizeof(DiskGenerationHdr));
+  PageHeader * * nextProcDirFramePPCursor = &reservedPages;
+
+  while (dpdCursor != dpd) {
+    // Is there room for another DiskProcessDescriptor in this page?
+    kva_t roomInPage = (- (kva_t)dpdCursor) & EROS_PAGE_MASK;
+    if (roomInPage < sizeof(struct DiskProcessDescriptor)) {
+      // Go to the next page.
+      PageHeader * pageH = *nextProcDirFramePPCursor;
+      assert(pageH);
+      dpdCursor = (struct DiskProcessDescriptor *)
+            (pageH_GetPageVAddr(pageH) + sizeof(uint32_t));
+      // Follow the chain:
+      nextProcDirFramePPCursor = & pageH->kt_u.link.next;
+    }
+
+    OID dpdOid;
+    // Use memcpy, because dpd is unaligned and packed.
+    memcpy(&dpdOid, &dpdCursor->oid, sizeof(OID));
+
+    if (dpdOid == procOid) {	// OID matches
+      ObCount dpdAllocCount;
+      memcpy(&dpdAllocCount, &dpdCursor->allocCount, sizeof(ObCount));
+      if (procAllocCount > dpdAllocCount) {
+        // Save only the newest allocation count.
+        memcpy(&dpdCursor->allocCount, &procAllocCount, sizeof(ObCount));
+      }
+      return true;		// this is a duplicate
+    }
+
+    // Go on to the next saved DiskProcessDescriptor:
+    dpdCursor++;
+  }
+  return false;
+}
+
+static void
 CheckpointPage(PageHeader * pageH)
 {
   ObjectHeader * pObj = pageH_ToObj(pageH);
@@ -205,20 +337,51 @@ CheckpointPage(PageHeader * pageH)
   }
 }
 
+#if (dbg_numnodes & dbg_flags)
+static void
+ValidateNumKRONodes(void)
+{
+  unsigned int nodeNum;
+  unsigned int calcKRO = 0;
+  for (nodeNum = 0; nodeNum < objC_nNodes; nodeNum++) {
+    Node * pNode = objC_GetCoreNodeFrame(nodeNum);
+    ObjectHeader * pObj = node_ToObj(pNode);
+    if (objH_GetFlags(pObj, OFLG_KRO)) {
+      calcKRO++;
+    }
+  }
+  assert(numKRONodes == calcKRO);
+}
+#endif
+
 static void
 DoPhase1Work(void)
 {
   int i;
-  // Grab a page for the generation header, if we haven't already:
+  unsigned long objNum;
+
+  // Grab a page for the generation header (if this is our first time
+  // through here this checkpoint):
   if (! GenHdrPageH)
     GenHdrPageH = objC_GrabPageFrame();
-  DiskGenerationHdr * genHdr
-    = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
+  genHdr = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
 
-  long numActivities = KTUNE_NACTIVITY - numFreeActivities;
-  /* Note, some of the Activitys will be for non-persistent processes,
-  so this is an upper bound on the number we need.
-  It won't hurt to have an extra free page or two around. */
+  /* The number of process directory entries we need is:
+  - the number of Activity's allocated to persistent processes, plus
+  - the number of Resume keys to persistent processes in
+    non-persistent nodes. 
+
+  The latter number is unknown and potentially large.
+  However, note that when we restart from this checkpoint,
+  all the process directory entries must be loaded into
+  Activity structures. If there are more process directory entries
+  than there are Activity structures, we will be unable to restart.
+  Therefore the number of Activity structures is an upper bound
+  on the number of process directory entries we need to save,
+  if the checkpoint is to be restartable and the number of
+  Activity structures is the same on restart as it is now.
+  */
+  long numActivities = KTUNE_NACTIVITY;
 
   // Some can go in the generation header:
   numActivities -= (EROS_PAGE_SIZE - sizeof(DiskGenerationHdr))
@@ -235,15 +398,16 @@ DoPhase1Work(void)
   We don't know the exact number of directory frames that will be needed,
   because the directory entries haven't all been created yet.
   We should have a few for each disk. */
-  minEqualsL(&pagesToReserve, 2);
+  maxEqualsL(&pagesToReserve, 2);
   ReservePages(pagesToReserve);
-  /* Note, if the above Yields, when restarted we will start at
-  DoPhase1Work, which will recalculate numActivities,
-  which may have changed. */
+
+  DEBUG(ckpt) printf("In phase 1, reservedPages=%#x\n", reservedPages);
 
   /* This is the moment of demarcation.
   From here through the end of DoPhase1Work, we must NOT Yield.
   This must be atomic. */
+
+  genHdr->persistentTimeOfDemarc = sysT_NowPersistent();
 
   // Don't checkpoint a broken system:
   check_Consistency("before ckpt");
@@ -251,8 +415,86 @@ DoPhase1Work(void)
   KROPageCleanCursor = 0;
   KRONodeCleanCursor = 0;
 
+  // Initialize StoreProcessInfo:
+  dpd = (struct DiskProcessDescriptor *)
+        ((char *)genHdr + sizeof(DiskGenerationHdr));
+  dpdsInCurrentPage = 0;
+  inHdr = true;
+  nextProcDirFramePP = &reservedPages;
+  numDpdsLoc = &genHdr->processDir.nDescriptors;
+  genHdr->processDir.firstDirFrame = 0;
+  genHdr->processDir.nDirFrames = 0;	// so far
+
+  // Scan all nodes.
+  for (objNum = 0; objNum < objC_nNodes; objNum++) {
+    Node * pNode = objC_GetCoreNodeFrame(objNum);
+    ObjectHeader * pObj = node_ToObj(pNode);
+
+    if (pObj->obType == ot_NtFreeFrame)
+      continue;
+
+    if (OIDIsPersistent(pObj->oid)) {
+      if (objH_GetFlags(pObj, OFLG_DIRTY)) {
+        assert(! objH_GetFlags(pObj, OFLG_KRO));
+        // Make this node Kernel Read Only.
+
+        /* Unpreparing the node ensures that when we next try to dirty
+         * the node, we will notice it is KRO. */
+        node_Unprepare(pNode);
+        numKRONodes++;
+        objH_SetFlags(pObj, OFLG_KRO);
+      }
+    } else {	// a non-persistent node
+      for (i = 0; i < EROS_NODE_SIZE; i++) {
+        Key * pKey = node_GetKeyAtSlot(pNode, i);
+        if (keyBits_IsType(pKey, KKT_Resume)) {
+          OID procOid;
+          ObCount procAllocCount;
+          // This is similar to key_GetKeyOid.
+          if (keyBits_IsPrepared(pKey)) {
+            ObjectHeader * pObj = node_ToObj(pKey->u.gk.pContext->procRoot);
+            procOid = pObj->oid;
+            procAllocCount = pObj->allocCount;
+          } else {
+            procOid = pKey->u.unprep.oid;
+            procAllocCount = pKey->u.unprep.count;
+          }
+          if (OIDIsPersistent(procOid)) {
+            DEBUG(ckpt) printf("Resume key to %#llx in NP node\n", procOid);
+
+            /* pKey is a resume key in a non-persistent node
+            to a persistent process.
+            On a restart from this checkpoint, the non-persistent world
+            will be reinitialized and this resume key will be lost.
+            To prevent the persistent process from hanging forever,
+            we checkpoint it in a way so that when restarted,
+            it will see an error return from the resume key. */
+
+            /* There could be more than one such resume key to the same
+            process, so ensure this is not a duplicate.
+            Yes, this is an O(n squared) algorithm,
+            but the number of such keys should be small.
+
+            An alternative would be to handle prepared keys by
+            marking the Process structure, then scanning all Process
+            structures. But unprepared keys still need to use
+            the O(n squared) algorithm.
+
+            This process is in the RS_Waiting state,
+            so it will never be a duplicate of a process identified
+            by an Activity structure. Those are stored later. */
+            if (! ProcIsDuplicate(procOid, procAllocCount))
+              StoreProcessInfo(procOid, procAllocCount, actHaz_WakeRestart);
+          }
+        }
+      }
+    }
+
+  }
+
+  DEBUG(numnodes) ValidateNumKRONodes();
+
   // Scan all pages.
-  unsigned long objNum;
   for (objNum = 0; objNum < objC_nPages; objNum++) {
     PageHeader * pageH = objC_GetCorePageFrame(objNum);
 
@@ -280,41 +522,7 @@ DoPhase1Work(void)
     }
   }
 
-  // Scan all nodes.
-  for (objNum = 0; objNum < objC_nNodes; objNum++) {
-    Node * pNode = objC_GetCoreNodeFrame(objNum);
-    ObjectHeader * pObj = node_ToObj(pNode);
-
-    if (pObj->obType == ot_NtFreeFrame)
-      continue;
-
-    if (! OIDIsPersistent(pObj->oid))
-      break;
-
-    if (objH_GetFlags(pObj, OFLG_DIRTY)) {
-      assert(! objH_GetFlags(pObj, OFLG_KRO));
-      // Make this node Kernel Read Only.
-
-      /* Unpreparing the node ensures that when we next try to dirty
-       * the node, we will notice it is KRO. */
-      node_Unprepare(pNode);
-      numKRONodes++;
-      objH_SetFlags(pObj, OFLG_KRO);
-    }
-  }
-
   // Save Activity's to the process directory.
-  struct DiskProcessDescriptor * dpd;
-  dpd = (struct DiskProcessDescriptor *)
-        ((char *)genHdr + sizeof(DiskGenerationHdr));
-  unsigned int dpdsInCurrentPage = 0;
-  bool inHdr = true;
-  nextProcDirFramePP = &reservedPages;
-  ProcDirFramesWritten = nextProcDirFramePP;
-  // Where to store the number of descriptors in the current page:
-  uint32_t * numDpdsLoc = &genHdr->processDir.nDescriptors;
-  genHdr->processDir.firstDirFrame = 0;
-  genHdr->processDir.nDirFrames = 0;	// so far
   for (i = 0; i < KTUNE_NACTIVITY; i++) {
     Activity * act = &act_ActivityTable[i];
     if (act->state != act_Free) {
@@ -337,56 +545,25 @@ DoPhase1Work(void)
         procAllocCount = key_GetAllocCount(&act->processKey);
       }
       if (OIDIsPersistent(procOid)) {
-        // Is there room for another DiskProcessDescriptor in this page?
-        kva_t roomInPage = (- (kva_t)dpd) & EROS_PAGE_MASK;
-        if (roomInPage < sizeof(struct DiskProcessDescriptor)) {
-          // Finish the current page.
-          *numDpdsLoc = dpdsInCurrentPage;
-          // Set up the next page.
-          PageHeader * pageH = *nextProcDirFramePP;
-          assert(pageH);	// else we didn't reserve enough!
-          LID lid = NextLogLoc();
-          if (inHdr) {		// this is the first full frame
-            genHdr->processDir.firstDirFrame = lid;
-            nextProcDirLid = lid;
-            inHdr = false;
-          }
-          genHdr->processDir.nDirFrames++;
-          numDpdsLoc = (uint32_t *)pageH_GetPageVAddr(pageH);
-          dpd = (struct DiskProcessDescriptor *)
-                ((kva_t)numDpdsLoc + sizeof(uint32_t));
-          // Follow the chain:
-          nextProcDirFramePP = & pageH->kt_u.link.next;
-        }
         uint8_t hazToSave;
         if (act->state == act_Sleeping && act->actHazard == actHaz_None)
           // On restart, wake sleepers with an error.
           hazToSave = actHaz_WakeRestart;
         else
           hazToSave = act->actHazard;;
-        // Use memcpy, because dpd is unaligned and packed.
-        memcpy(&dpd->oid, &procOid, sizeof(OID));
-        memcpy(&dpd->allocCount, &procAllocCount, sizeof(ObCount));
-        memcpy(&dpd->actHazard, &hazToSave, sizeof(dpd->actHazard));
-        dpd++;
-        dpdsInCurrentPage++;
+
+        StoreProcessInfo(procOid, procAllocCount, hazToSave);
       }
     }
   }
   // Finish the last page.
   *numDpdsLoc = dpdsInCurrentPage;
 
-  // Free any unused reserved pages:
-  while (1) {
-    PageHeader * pageH = *nextProcDirFramePP;
-    if (! pageH)
-      break;
-    // Follow the chain:
-    nextProcDirFramePP = & pageH->kt_u.link.next;
-    ReleasePageFrame(pageH);
-  }
-
   monotonicTimeOfLastDemarc = sysT_NowPersistent();
+
+  ProcDirFramesWritten = &reservedPages;
+
+  DEBUG(ckpt) printf("End phase 1, reservedPages=%#x\n", reservedPages);
 
   ckptState = ckpt_Phase2;
 }
@@ -448,8 +625,11 @@ DoPhase2Work(void)
     nextProcDirLid = IncrementLID(nextProcDirLid);
   }
 
-  while (numKRONodes)
-    CleanAKRONode();
+  DEBUG(ckpt) printf("numKRONodes=%d\n", numKRONodes);
+  // Clean nodes before pages, because this will generate node pots.
+  while (CleanAKRONode()) {
+    DEBUG(numnodes) ValidateNumKRONodes();
+  }
 
   /* The stages in the life of a typical page are:
   1. Page is dirty
@@ -546,20 +726,22 @@ IOReq_EndObDirWrite(IORequest * ioreq)
 }
 
 static void
-IOReq_EndSync(IORequest * ioreq)
+IOReq_EndGenHdrWrite(IORequest * ioreq)
 {
+  DEBUG(ckpt) printf("EndGenHdrWrite\n");
+
   // The IORequest is done.
-  assert(sq_IsEmpty(&ioreq->sq));
+  sq_WakeAll(&ioreq->sq, false);
 
-  if (++rangesSynced >= nextRangeToSync)
-    sq_WakeAll(&WaitForObjDirWritten, false);
-
-  IOReq_Deallocate(ioreq);
+  // Hang on to the page and ioreq; they will be used for the checkpoint root.
 }
 
 static void
 DoPhase3Work(void)
 {
+  DEBUG(ckpt) printf("Ckpt phase 3 reservedPages=%#x\n",
+                     reservedPages);
+
   /* Pages for the directory were reserved earlier.
   Now would be a bad time to reserve pages, because nothing can be cleaned. */
   // Now put all the reserved pages to work as object directory frames:
@@ -575,6 +757,9 @@ DoPhase3Work(void)
     }
   }
 
+  DEBUG(ckpt) printf("Ckpt phase 3 numDirEntsToSave=%d\n",
+                     numDirEntsToSave);
+
   if (numDirEntsToSave) {
     SleepOnPFHQueue(&WaitForObjDirWritten);
   }
@@ -582,20 +767,130 @@ DoPhase3Work(void)
   // Verify that there are no more dir ents:
   assert(ld_findNextObject(workingGenerationNumber) == NULL);
 
-  // Wait for all the previous log writes to get to nonvolatile media.
-  while (nextRangeToSync < nLidRanges) {
-    IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
-    ObjectRange * rng = &lidRanges[nextRangeToSync++];
+  IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
 
-    ioreq->pageH = NULL;
-    ioreq->requestCode = capros_IOReqQ_RequestType_synchronizeCache;
-    ioreq->objRange = rng;
-    ioreq->doneFn = &IOReq_EndSync;
-    sq_Init(&ioreq->sq);	// won't be used
-    ioreq_Enqueue(ioreq);
+  // Phase 3 is committed. Nothing below Yields.
+
+  // Initialize the rest of the generation header:
+  LID hdrLid = NextLogLoc();
+  DiskGenerationHdr * genHdr
+    = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
+  genHdr->versionNumber = 1;
+  genHdr->generationNumber = workingGenerationNumber;
+  genHdr->migratedGenNumber = migratedGeneration;
+  genHdr->firstLid = workingGenFirstLid;
+  genHdr->lastLid = hdrLid;
+
+  // Write the generation header:
+  PageHeader * pageH = GenHdrPageH;
+  DEBUG(ckpt) printf("Writing gen dir frame %#x\n", pageH);
+  ioreq->pageH = pageH;	// link page and ioreq
+  pageH->ioreq = ioreq;
+
+  ObjectRange * rng = LidToRange(hdrLid);
+  assert(rng);	// it had better be mounted
+
+  ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
+  ioreq->objRange = rng;
+  ioreq->rangeLoc = OIDToFrame(hdrLid - rng->start);
+  ioreq->doneFn = &IOReq_EndGenHdrWrite;
+  sq_Init(&ioreq->sq);
+  ioreq_Enqueue(ioreq);
+
+  ckptState = ckpt_Phase4;
+
+  // Wait for generation header to be written:
+  SleepOnPFHQueue(&ioreq->sq);
+}
+
+static void
+IOReq_EndCkptRootWrite(IORequest * ioreq)
+{
+  DEBUG(ckpt) printf("EndCkptRootWrite\n");
+
+  // The IORequest is done.
+  sq_WakeAll(&ioreq->sq, false);
+  PageHeader * pageH = ioreq->pageH;
+
+  // Mark the page as no longer having I/O.
+  pageH->ioreq = NULL;
+
+  IOReq_Deallocate(ioreq);
+  ReleasePageFrame(pageH);
+}
+
+static void
+DoPhase4Work(void)
+{
+  DEBUG(ckpt) printf("Ckpt phase 4 nextRangeToSync=%d nLidRanges=%d\n",
+                     nextRangeToSync, nLidRanges);
+
+  DoSync();
+
+  // Phase 4 is committed. Nothing below Yields.
+
+  // Reuse the generation header page for the checkpoint root.
+  CkptRoot * ckroot
+    = (CkptRoot *)pageH_GetPageVAddr(GenHdrPageH);
+  // Initialize the checkpoint root:
+  ckroot->versionNumber = CkptRootVersion;
+  ckroot->maxNPAllocCount = maxNPAllocCount;
+  ckroot->checkGenNum
+    = ckroot->mostRecentGenerationNumber = workingGenerationNumber;
+  ckroot->endLog = logWrapPoint;
+  ckroot->integrityByte = IntegrityByteValue;
+
+  unsigned int numUnmigrGens = workingGenerationNumber - migratedGeneration;
+  LID * lidCursor = nextUGHL;
+  int i;
+  for (i = 0; i < numUnmigrGens; i++) {
+    if (lidCursor <= &unmigratedGenHdrLid[0])
+      lidCursor = &unmigratedGenHdrLid[MaxUnmigratedGenerations];
+    lidCursor--;
+    ckroot->generations[i] = *lidCursor;
   }
-  if (rangesSynced < nextRangeToSync)
-    SleepOnPFHQueue(&WaitForObjDirWritten);
+  for (; i < MaxUnmigratedGenerations; i++)
+    ckroot->generations[i] = UNUSED_LID;
+
+  // Switch root locations:
+  LID nextRoot = currentRoot ^ (CKPT_ROOT_0 ^ CKPT_ROOT_1);
+
+  // Write the checkpoint root:
+  PageHeader * pageH = GenHdrPageH;
+  DEBUG(ckpt) printf("Writing ck root frame %#x\n", pageH);
+  // page and ioreq are already linked
+  IORequest * ioreq = pageH->ioreq;
+
+  ObjectRange * rng = LidToRange(nextRoot);
+  assert(rng);	// it had better be mounted
+
+  ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
+  ioreq->objRange = rng;
+  ioreq->rangeLoc = OIDToFrame(nextRoot - rng->start);
+  ioreq->doneFn = &IOReq_EndCkptRootWrite;
+  sq_Init(&ioreq->sq);	// won't be used
+  ioreq_Enqueue(ioreq);
+
+  nextRangeToSync = 0;
+  rangesSynced = 0;
+
+  ckptState = ckpt_Phase5;
+
+  // Wait for checkpoint root to be written:
+  SleepOnPFHQueue(&ioreq->sq);
+}
+
+static void
+DoPhase5Work(void)
+{
+  DEBUG(ckpt) printf("Ckpt phase 5 nextRangeToSync=%d nLidRanges=%d\n",
+                     nextRangeToSync, nLidRanges);
+
+  // Wait for checkpoint root to be written:
+  DoSync();
+
+  // Phase 5 is committed. Nothing below Yields.
+  // The checkpoint is committed.
 
   assert(!"complete");
 }
@@ -621,6 +916,12 @@ DoCheckpointStep(void)
   case ckpt_Phase3:
     DEBUG(ckpt) printf("DoCheckpointStep P3\n");
     DoPhase3Work();
+  case ckpt_Phase4:
+    DEBUG(ckpt) printf("DoCheckpointStep P4\n");
+    DoPhase4Work();
+  case ckpt_Phase5:
+    DEBUG(ckpt) printf("DoCheckpointStep P5\n");
+    DoPhase5Work();
     break;
   }
 }
