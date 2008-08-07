@@ -500,9 +500,7 @@ struct ObjectDescriptor {
   ObCount   allocCount;
   ObCount   callCount;
   LID       logLoc;
-  uint8_t   allocCountUsed : 1;
-  uint8_t   callCountUsed : 1;
-  uint8_t   type : 6;
+  uint8_t   type;
 };
 	      </pre>
 	  </ul>
@@ -511,8 +509,8 @@ struct ObjectDescriptor {
             For other objects, the callCount field is unused.
 	  </p>
 	  <p>
-            The allocCountUsed and callCountUsed bits are described
-            <a href="DiskFormatting.html">here</a>.
+            The allocCountUsed and callCountUsed bits are not stored
+            on disk. They are assumed to be one for objects on disk.
 	  </p>
 	  <p>
 	    If the lid field of the directory is zero, then the
