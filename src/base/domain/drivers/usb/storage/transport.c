@@ -228,24 +228,9 @@ int usb_stor_control_msg(struct us_data *us, unsigned int pipe,
  */
 int usb_stor_clear_halt(struct us_data *us, unsigned int pipe)
 {
-	int result;
-	int endp = usb_pipeendpoint(pipe);
-
-	if (usb_pipein (pipe))
-		endp |= USB_DIR_IN;
-
-	result = usb_stor_control_msg(us, us->send_ctrl_pipe,
-		USB_REQ_CLEAR_FEATURE, USB_RECIP_ENDPOINT,
-		USB_ENDPOINT_HALT, endp,
-		NULL, 0, 0, 3*HZ);
-
-	/* reset the endpoint toggle */
-	if (result >= 0)
-		usb_settoggle(us->pusb_dev, usb_pipeendpoint(pipe),
-				usb_pipeout(pipe), 0);
-
-	US_DEBUGP("%s: result = %d\n", __FUNCTION__, result);
-	return result;
+	/* usb_clear_halt no longer reads status (for the above reason),
+	so we can just call it: */
+	return usb_clear_halt(NULL /* unused */, pipe);
 }
 
 
@@ -790,6 +775,8 @@ static int
 dataStage(struct scsi_cmnd * srb, struct us_data * us, unsigned int pipe)
 {
 	int result;
+	US_DEBUGP("data stage pipe %#x dma %#x len %d\n",
+		pipe, srb->request_buffer_dma, srb->request_bufflen);
 	result = usb_stor_bulk_transfer_sg(us, pipe,
 			srb->request_buffer /* this is meaningless */,
 			srb->request_buffer_dma,
