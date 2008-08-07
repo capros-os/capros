@@ -51,11 +51,14 @@ Approved for public release, distribution unlimited. */
 
 LID logCursor = 0;	// next place to write in the main log
 LID logWrapPoint;
+LID currentRoot;	// CKPT_ROOT_0 or CKPT_ROOT_1
 LID oldestNonRetiredGenLid;
 LID oldestNonNextRetiredGenLid;
 LID workingGenFirstLid;
 frame_t logSizeLimited;
+GenNum workingGenerationNumber;
 GenNum retiredGeneration = 0;
+uint64_t monotonicTimeOfLastDemarc;
 
 unsigned int ckptState = ckpt_NotActive;
 
@@ -492,7 +495,9 @@ DoPhase1Work(void)
 
   }
 
+#if (dbg_numnodes & dbg_flags)
   DEBUG(numnodes) ValidateNumKRONodes();
+#endif
 
   // Scan all pages.
   for (objNum = 0; objNum < objC_nPages; objNum++) {
@@ -628,7 +633,9 @@ DoPhase2Work(void)
   DEBUG(ckpt) printf("numKRONodes=%d\n", numKRONodes);
   // Clean nodes before pages, because this will generate node pots.
   while (CleanAKRONode()) {
+#if (dbg_numnodes & dbg_flags)
     DEBUG(numnodes) ValidateNumKRONodes();
+#endif
   }
 
   /* The stages in the life of a typical page are:
@@ -890,9 +897,15 @@ DoPhase5Work(void)
   DoSync();
 
   // Phase 5 is committed. Nothing below Yields.
-  // The checkpoint is committed.
+  // The checkpoint is stabilized.
 
+  // There is now a new working generation:
+  workingGenerationNumber++;
+  workingGenFirstLid = logCursor;
   assert(!"complete");
+
+  ckptState = ckpt_NotActive;
+  sq_WakeAll(&WaitForCkptInactive, false);
 }
 
 void
@@ -902,6 +915,7 @@ DoCheckpointStep(void)
   default: ;
     assert(false);
 
+notActive:
   case ckpt_NotActive:
     DEBUG(ckpt) printf("DoCheckpointStep not active\n");
     act_SleepOn(&WaitForCkptNeeded);
@@ -922,7 +936,7 @@ DoCheckpointStep(void)
   case ckpt_Phase5:
     DEBUG(ckpt) printf("DoCheckpointStep P5\n");
     DoPhase5Work();
-    break;
+    goto notActive;
   }
 }
 
