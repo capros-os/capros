@@ -65,7 +65,8 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #define KTUNE_NLOGTBLENTS 4
 
 /* Number of I/O Request Queues.
- * One is needed for each mounted disk. */
+ * We need at least one for each mounted disk, more if optimizing
+ * arm motion. */
 #define KTUNE_NIORQS 4
 
 /* Number of I/O Requests for fetching. */
