@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/ObjectSource.h>
 #include <kerninc/Node.h>
+#include <kerninc/Ckpt.h>
 #include <kerninc/ObjH-inline.h>
 #include <eros/Device.h>
 #include <disk/DiskNode.h>
@@ -76,6 +77,7 @@ preload_Init(void)
 
   npod = NPObDescr;
   // npod->numPreloadImages should be 1 or 2, but we don't need to check that.
+  IsPreloadedBigBang = npod->numPreloadImages > 1;
   for (k = npod->numPreloadImages; k > 0; k--) {
     uint32_t thisFrames = 1 + npod->numFrames;	// including the header frame
     nf += thisFrames;

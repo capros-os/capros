@@ -94,9 +94,15 @@ enum {
 };
 
 // Values for actHazard:
+enum {actHaz_None,
+      actHaz_WakeOK,
+      actHaz_WakeRestart,
+      actHaz_END};
+#if 0
 #define actHaz_None 0
 #define actHaz_WakeOK 1
 #define actHaz_WakeRestart 2
+#endif
  
 /* The activity structure captures the portion of a process's state
  * that MUST remain in core while the process is logically running or
@@ -305,6 +311,7 @@ act_IsActivityKey(const Key *pKey)
 }
 
 Activity * act_AllocActivity();
+void StartActivity(OID oid, ObCount count, uint8_t haz);
 void act_AllocActivityTable();
 
 #endif /* __ACTIVITY_H__ */

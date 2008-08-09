@@ -67,44 +67,6 @@ ReadyQueue iplRQ = {
 };
 #endif
 
-static void
-StartIplActivity(OID iplOid)
-{
-  Activity *activity = 0;
-  Key *k = 0;
-
-  activity = act_AllocActivity();
-  assert(activity);
-
-  assert (keyBits_IsUnprepared(&activity->processKey));
-  assert( keyBits_IsHazard(&activity->processKey) == false );
-
-  printf("IPL OID = %#llx, activity = %#.8x .\n",
-         iplOid, activity );
-
-  /* Forge a domain key for this activity: */
-  k = &activity->processKey; /*@ not null @*/
-
-  keyBits_InitType(k, KKT_Process);
-  k->u.unprep.oid = iplOid;
-  k->u.unprep.count = 0;	/* Is this right? */
-
-  /* The process prepare logic will appropriately adjust this priority
-     if it is wrong -- this guess only has to be good enough to get
-     the activity scheduled. */
-
-  activity->readyQ = dispatchQueues[pr_High];
- 
-  /*activity->priority = pr_High;*/
-
-  /* is this wrong?*/
-#if 1
-  kstream_BeginUserActivities();
-#endif
-
-  act_Wakeup(activity);
-}
-
 // Does not return.
 int
 main(void)
@@ -192,7 +154,14 @@ main(void)
 
   act_SetRunning(idleActivity);
 
-  StartIplActivity(iplOid);
+  printf("IPL OID = %#llx\n", iplOid);
+
+  /* is this wrong?*/
+#if 1
+  kstream_BeginUserActivities();
+#endif
+
+  StartActivity(iplOid, restartNPAllocCount, actHaz_None);
   
   ExitTheKernel();		/* does not return. */
 }

@@ -168,18 +168,15 @@ check_Pages()
 
 #ifdef OPTION_OB_MOD_CHECK
       ObjectHeader * pObj = pageH_ToObj(pPage);
-      if (!objH_GetFlags(pObj, OFLG_DIRTY)) {
-        assert (objH_GetFlags(pObj, OFLG_DIRTY) == 0);
-
+      if (!objH_IsDirty(pObj)) {
         uint32_t chk = pageH_CalcCheck(pPage);
 
         if (pObj->check != chk) {
           printf("Frame %d Chk=0x%x CalcCheck=0x%x flgs=0x%02x ty=%d\n on pg OID ",
                  pg, pObj->check, chk, pObj->flags, pObj->obType);
 	  printOid(pObj->oid);
-	  printf("  pPage 0x%08x dirty: %c\n",
-		       pPage,
-		       (objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n'));
+	  printf("  pPage 0x%08x dirty\n",
+		       pPage);
 	  result = false;
         }
       }

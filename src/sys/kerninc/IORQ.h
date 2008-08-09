@@ -71,6 +71,7 @@ IORQ * IORQ_Allocate(void);
 void IORQ_Deallocate(IORQ * iorq);
 
 IORequest * AllocateIOReqAndPage(void);
+IORequest * IOReqCleaning_Allocate(void);
 IORequest * IOReqCleaning_AllocateOrWait(void);
 IORequest * AllocateIOReqCleaningAndPage(void);
 

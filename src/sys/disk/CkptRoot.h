@@ -41,14 +41,17 @@ typedef struct CkptRoot {
 
   uint64_t mostRecentGenerationNumber;
 
+  uint32_t numUnmigratedGenerations;
+
   // The last LID in the log + 1.
   // This tells us when the entire log is mounted.
   // Is this needed?
   LID endLog;
 
-  // The LIDs of the headers of the unmigrated generations,
-  // in order beginning with the most recent:
-  LID generations[MaxUnmigratedGenerations];	// UNUSED_LID if not used
+  /* The LIDs of the generation headers of all the unmigrated generations,
+  plus the newest migrated generation,
+  in order beginning with the most recent: */
+  LID generations[MaxUnmigratedGenerations+1];
 
   uint64_t checkGenNum;	// a copy of mostRecentGenerationNumber,
 			// to check that the full structure was written

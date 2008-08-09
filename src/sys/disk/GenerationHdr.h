@@ -36,12 +36,16 @@ typedef struct DiskGenerationHdr {
   // Beware of alignment: this structure is used on both the host and target.
   uint32_t versionNumber;
   uint64_t generationNumber;
-  uint64_t migratedGenNumber;
-  uint64_t persistentTimeOfDemarc;	// in units of nanoseconds
   LID firstLid;
   LID lastLid;
-  struct GenDirHdr processDir;
   struct GenDirHdr objectDir;
+
+  /* The following could be in the CkptRoot, but putting them here helps
+  if we ever support restarting from generations older than the newest. */
+
+  struct GenDirHdr processDir;
+
+  uint64_t persistentTimeOfDemarc;	// in units of nanoseconds
 } DiskGenerationHdr;
 
 // struct DiskProcessDescriptor is packed because

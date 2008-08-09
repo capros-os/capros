@@ -57,7 +57,9 @@ extern struct Activity * checkpointActivity;
 
 extern LID logCursor;	// next place to write in the main log
 extern LID logWrapPoint;	// end of main log
-extern LID currentRoot;
+extern LID currentRootLID;
+
+extern LID unmigratedGenHdrLid[];
 
 /* oldestNonRetiredGenLid is the LID following the last LID of the
  * newest retired generation. */
@@ -76,9 +78,19 @@ extern LID workingGenFirstLid;
 /* logSizeLimited is the size of the main log times the limit percent. */
 extern frame_t logSizeLimited;
 
+extern GenNum migratedGeneration;
 extern GenNum retiredGeneration;
 
+extern bool IsPreloadedBigBang;
+
 #define KR_MigrTool 7
+
+extern PageHeader * GenHdrPageH;
+extern struct DiskGenerationHdr * genHdr;	// virtual address of the above
+
+extern PageHeader * reservedPages;
+extern unsigned int numReservedPages;
+void ReservePages(unsigned int numPagesWanted);
 
 INLINE bool
 ckptIsActive(void)
@@ -120,5 +132,7 @@ unsigned long CalcLogReservation(unsigned long numDirtyObjects[],
   unsigned long existingLogEntries);
 void DeclareDemarcationEvent(void);
 void DoCheckpointStep(void);
+
+void PostCheckpointProcessing(void);
 
 #endif /* __CKPT_H__ */

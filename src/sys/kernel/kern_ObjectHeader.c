@@ -41,9 +41,10 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/Machine-inline.h>
 
 #define dbg_rescind	0x1	/* steps in taking snapshot */
+#define dbg_ew		0x2	// EnsureWriteable
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   (0)
+#define dbg_flags   ( 0 | dbg_ew )
 
 #define DBCOND(x) (dbg_##x & dbg_flags)
 #define DEBUG(x) if DBCOND(x)
@@ -207,6 +208,8 @@ objH_EnsureWritable(ObjectHeader * pObj)
       retGenFrames += OIDToFrame(logWrapPoint - MAIN_LOG_START);
 
     if (tentRes > retGenFrames) {	// not enough space in log
+      DEBUG(ew) printf("Log space low, %d < %d\n",
+                       retGenFrames, tentRes);
       goto declareDemarc;
     }
 
@@ -216,12 +219,17 @@ objH_EnsureWritable(ObjectHeader * pObj)
       wkgSpace += OIDToFrame(logWrapPoint - MAIN_LOG_START);
 
     if ((wkgSpace + tentRes) > logSizeLimited) { // generation too big
+      DEBUG(ew) printf("Gen too big, %d > %d\n",
+                       (wkgSpace + tentRes), logSizeLimited);
       goto declareDemarc;
     }
 
     unsigned long softLimit = objC_nPages + objC_nNodes; // for now
 
     if (availWorkingDirEnts < softLimit) {	// dir ents getting low
+      DEBUG(ew) printf("Low dir ents, %d < %d\n",
+                       availWorkingDirEnts, softLimit);
+
   declareDemarc:
       numDirtyObjectsWorking[baseType]--;	// undo tentative count
       DeclareDemarcationEvent();
@@ -303,10 +311,8 @@ objH_EnsureWritable(ObjectHeader * pObj)
   objH_SetDirtyFlag(pObj);
   
 #if 1//// until tested, then #ifdef DBG_CLEAN
-  dprintf(true,
-	  "Marked pObj=0x%08x oid=%#llx dirty. dirty: %c\n",
-	  pObj, pObj->oid,
-	  objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n');
+  printf("Marked dirty pObj=0x%08x oid=%#llx.\n",
+	 pObj, pObj->oid);
 #endif
 }
 

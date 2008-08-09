@@ -312,16 +312,16 @@ pageH_ClearFlags(PageHeader * thisPtr, uint32_t w)
 INLINE void 
 objH_SetDirtyFlag(ObjectHeader* thisPtr)
 {
-  thisPtr->flags |= (OFLG_DIRTY);
+  objH_SetFlags(thisPtr, OFLG_DIRTY);
 }
 
-INLINE uint32_t 
+INLINE bool
 objH_IsDirty(const ObjectHeader* thisPtr)
 {
   return objH_GetFlags(thisPtr, OFLG_DIRTY);
 }
 
-INLINE uint32_t 
+INLINE bool
 pageH_IsDirty(PageHeader * thisPtr)
 {
   return objH_IsDirty(pageH_ToObj(thisPtr));

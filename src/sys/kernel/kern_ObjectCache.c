@@ -166,11 +166,10 @@ AddCoherentPages(PageHeader * pageH, PmemInfo * pmi, kpg_t nPages,
     pObj->obType = obType;
     pObj->oid = oid;
     pObj->allocCount = 0;	// FIXME or PhysPageAllocCount??
-    objH_SetFlags(pObj, OFLG_DIRTY);
+    objH_SetDirtyFlag(pObj);
     // No objH_CalcCheck for device pages.
     objH_ResetKeyRing(pObj);
     objH_Intern(pObj);
-    objH_SetFlags(pObj, OFLG_DIRTY);
     objH_ClearFlags(pObj, OFLG_Cleanable);
   }
 }
@@ -416,7 +415,7 @@ objH_InitDirtyObj(ObjectHeader * pObj, OID oid, unsigned int baseType,
   pObj->obType = BaseTypeToObType(baseType);
   objH_InitPresentObj(pObj, oid);
   // Object is dirty because we just initialized it:
-  objH_SetFlags(pObj, OFLG_DIRTY);
+  objH_SetDirtyFlag(pObj);
   if (OIDIsPersistent(oid)) {
     objH_SetFlags(pObj, OFLG_Cleanable);
   } else {
@@ -482,6 +481,10 @@ node_ClearDirty(Node * pNode)
     objH_ClearKRO(pObj);
   }
   objH_ClearFlags(pObj, OFLG_DIRTY);	// cleaned it to the log dir
+
+#ifdef OPTION_OB_MOD_CHECK
+  pObj->check = node_CalcCheck(pNode);
+#endif
 }
 
 /* Returns true iff freed some nodes. */
@@ -692,7 +695,7 @@ objC_AgeNodeFrames(void)
 		nStuck, nPinned);
 
 stealNode:	// Steal pNode.
-  assert(! objH_GetFlags(node_ToObj(pNode), OFLG_DIRTY));
+  assert(! objH_IsDirty(node_ToObj(pNode)));
   node_ClearAllHazards(pNode);
   ReleaseNodeFrame(pNode);
 
@@ -923,7 +926,7 @@ IOReq_EndPageClean(IORequest * ioreq)
 
   // If it's KRO, it had better not be dirty:
   assert(! objH_GetFlags(pObj, OFLG_KRO)
-         || ! objH_GetFlags(pObj, OFLG_DIRTY) );
+         || ! objH_IsDirty(pObj) );
 
   if (pageH_IsDirty(pageH)) {
     // The page was dirtied while it was being written.
@@ -1120,7 +1123,7 @@ pageH_MitigateKRO(PageHeader * old)
 
     Therefore the caller must ensure, before calling, that it is OK to set
     the dirty bit; that the log and directory reservations will succeed. */
-    objH_SetFlags(pageH_ToObj(new), OFLG_DIRTY);
+    objH_SetDirtyFlag(pageH_ToObj(new));
 
     pageH_ToObj(new)->obType = ot_PtDataPage;
     objH_InitObj(pageH_ToObj(new), pageH_ToObj(old)->oid);
@@ -1135,7 +1138,7 @@ pageH_MitigateKRO(PageHeader * old)
    
     return new;
   } else {
-    assert(objH_GetFlags(pageH_ToObj(old), OFLG_DIRTY));
+    assert(pageH_IsDirty(old));
     printf("Copying KRO page, %#x\n", old);////
 
     // The newly allocated page will be the working version.
@@ -1520,7 +1523,7 @@ objC_Init()
     + 2 * sizeofLogDirEntry;
 
   objC_nNodes = availBytes / allocQuanta;
-  numLogDirEntries = objC_nNodes * 2;
+  numLogDirEntries = objC_nNodes * 4;
     
   objC_nodeTable = KPAtoP(Node *,
                      physMem_Alloc(objC_nNodes*sizeof(Node), &physMem_any));

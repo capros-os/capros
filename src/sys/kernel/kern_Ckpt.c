@@ -51,7 +51,7 @@ Approved for public release, distribution unlimited. */
 
 LID logCursor = 0;	// next place to write in the main log
 LID logWrapPoint;
-LID currentRoot;	// CKPT_ROOT_0 or CKPT_ROOT_1
+LID currentRootLID;	// CKPT_ROOT_0 or CKPT_ROOT_1
 LID oldestNonRetiredGenLid;
 LID oldestNonNextRetiredGenLid;
 LID workingGenFirstLid;
@@ -75,29 +75,29 @@ unsigned long numDirEntsToSave;
 unsigned int nextRangeToSync;
 unsigned int rangesSynced;
 
-PageHeader * reservedPages = NULL;
-unsigned int numReservedPages = 0;
-
 
 /*
 If no checkpoint is active, nextRetiredGeneration is undefined.
-If a checkpoint is active and the migratedGenNumber field in the
-  DiskGenerationHdr has been fixed,
-  nextRetiredGeneration has the value in that field.
-If a checkpoint is active and the migratedGenNumber field in the
-  DiskGenerationHdr has not been fixed,
+If a checkpoint is active and the numUnmigratedGenerations field in the
+  CkptRoot has been fixed,
+  nextRetiredGeneration has workingGenerationNumber - the value in that field.
+If a checkpoint is active and the numUnmigratedGenerations field in the
+  CkptRoot has not been fixed,
   nextRetiredGeneration has zero.
+This handles the case in which migration of a generation is completed
+  during the write of the checkpoint root.
 */
 GenNum nextRetiredGeneration = 0;
 
 GenNum migratedGeneration = 0;	// the latest fully migrated generation
 
-/* The LIDs of the generation headers of all the unmigrated generations: */
-LID unmigratedGenHdrLid[MaxUnmigratedGenerations];
-/* Pointer to the next entry to use in unmigratedGenHdrLid.
-The entry before that one has the LID of the GenHdr of the
-working generation. */
-LID * nextUGHL = &unmigratedGenHdrLid[0];
+/* The LIDs of the generation headers of all the unmigrated generations,
+plus the newest migrated generation
+in order from most recent (the restart generation) to older: */
+LID unmigratedGenHdrLid[MaxUnmigratedGenerations + 1];
+/* Pointer to the entry in unmigratedGenHdrLid containing the LID
+of the GenHdr of the most recent generation (the restart generation). */
+LID * wkgUGHL = &unmigratedGenHdrLid[0];
 
 DEFQUEUE(WaitForCkptInactive);
 DEFQUEUE(WaitForCkptNeeded);
@@ -202,8 +202,12 @@ DoSync(void)
     SleepOnPFHQueue(&WaitForObjDirWritten);
 }
 
+
+PageHeader * reservedPages = NULL;
+unsigned int numReservedPages = 0;
+
 // May Yield.
-static void
+void
 ReservePages(unsigned int numPagesWanted)
 {
   while (numReservedPages < numPagesWanted) {
@@ -222,8 +226,29 @@ DeclareDemarcationEvent(void)
 {
   assert(!ckptIsActive());
 
+  DEBUG(ckpt) dprintf(true, "DeclareDemarcationEvent\n");
+
   ckptState = ckpt_Phase1;
   sq_WakeAll(&WaitForCkptNeeded, false);
+}
+
+void
+PostCheckpointProcessing(void)
+{
+  // At this point, wkgUGHL has been advanced,
+  // but workingGenerationNumber hasn't.
+  // We have saved everything on disk, so migrated == retired.
+  unsigned int numUnmigrGens = workingGenerationNumber - migratedGeneration;
+  LID * UGHLP = wkgUGHL + numUnmigrGens;
+  if (UGHLP > &unmigratedGenHdrLid[MaxUnmigratedGenerations])
+    UGHLP -= MaxUnmigratedGenerations + 1;	// wrap
+  // UGHLP now points to the LID of the hdr of the newest migrated gen.
+  oldestNonRetiredGenLid = IncrementLID(*UGHLP);
+
+  // Start a new working generation:
+  workingGenerationNumber++;
+
+  workingGenFirstLid = logCursor;
 }
 
 // Variables for StoreProcessInfo:
@@ -316,7 +341,7 @@ CheckpointPage(PageHeader * pageH)
 
   assert(! objH_GetFlags(pObj, OFLG_KRO));
 
-  if (objH_GetFlags(pObj, OFLG_DIRTY)
+  if (objH_IsDirty(pObj)
     /* If this page is being cleaned, we must make it KRO to ensure
        it stays clean: */
       || (pageH->ioreq && ! objH_GetFlags(pObj, OFLG_Fetching))) {
@@ -329,7 +354,7 @@ CheckpointPage(PageHeader * pageH)
       pageH_MakeReadOnly(pageH);
     }
     objH_SetFlags(pObj, OFLG_KRO);
-    if (objH_GetFlags(pObj, OFLG_DIRTY)) {
+    if (objH_IsDirty(pObj)) {
       numKRODirtyPages++;
     } else {
       /* This page is being cleaned and is clean.
@@ -365,9 +390,10 @@ DoPhase1Work(void)
 
   // Grab a page for the generation header (if this is our first time
   // through here this checkpoint):
-  if (! GenHdrPageH)
+  if (! GenHdrPageH) {
     GenHdrPageH = objC_GrabPageFrame();
-  genHdr = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
+    genHdr = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
+  }
 
   /* The number of process directory entries we need is:
   - the number of Activity's allocated to persistent processes, plus
@@ -437,7 +463,7 @@ DoPhase1Work(void)
       continue;
 
     if (OIDIsPersistent(pObj->oid)) {
-      if (objH_GetFlags(pObj, OFLG_DIRTY)) {
+      if (objH_IsDirty(pObj)) {
         assert(! objH_GetFlags(pObj, OFLG_KRO));
         // Make this node Kernel Read Only.
 
@@ -511,7 +537,7 @@ DoPhase1Work(void)
     case ot_PtHomePot:
       assertex(pageH, ! objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO));
 
-      if (objH_GetFlags(pageH_ToObj(pageH), OFLG_DIRTY)) {
+      if (pageH_IsDirty(pageH)) {
         assert(!"complete");	// figure this out later
       }
       break;
@@ -656,8 +682,6 @@ DoPhase2Work(void)
   ld_resetScan(workingGenerationNumber);
 
   // Some can go in the generation header:
-  DiskGenerationHdr * genHdr
-    = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
   struct DiskObjectDescriptor * dod = (struct DiskObjectDescriptor *)
       (char *)genHdr
       + sizeof(DiskGenerationHdr)
@@ -694,8 +718,6 @@ WriteAPageOfObDirEnts(PageHeader * pageH, IORequest * ioreq)
   // There is no cleaning going on, so the LIDs we allocate here
   // will be consecutive.
   LID lid = NextLogLoc();
-  DiskGenerationHdr * genHdr
-    = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
   if (genHdr->objectDir.firstDirFrame == 0)
     genHdr->objectDir.firstDirFrame = lid;
   genHdr->objectDir.nDirFrames++;
@@ -729,6 +751,7 @@ IOReq_EndObDirWrite(IORequest * ioreq)
   } else {
     IOReq_Deallocate(ioreq);
     ReleasePageFrame(pageH);
+    numReservedPages--;
   }
 }
 
@@ -761,6 +784,7 @@ DoPhase3Work(void)
       WriteAPageOfObDirEnts(pageH, ioreq);
     } else {
       ReleasePageFrame(pageH);
+      numReservedPages--;
     }
   }
 
@@ -778,13 +802,16 @@ DoPhase3Work(void)
 
   // Phase 3 is committed. Nothing below Yields.
 
-  // Initialize the rest of the generation header:
+  // Allocate a frame in the log for the generation header:
   LID hdrLid = NextLogLoc();
-  DiskGenerationHdr * genHdr
-    = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
+  if (wkgUGHL <= &unmigratedGenHdrLid[0])
+    wkgUGHL = &unmigratedGenHdrLid[MaxUnmigratedGenerations + 1];
+  wkgUGHL--;
+  *wkgUGHL = hdrLid;
+
+  // Initialize the rest of the generation header:
   genHdr->versionNumber = 1;
   genHdr->generationNumber = workingGenerationNumber;
-  genHdr->migratedGenNumber = migratedGeneration;
   genHdr->firstLid = workingGenFirstLid;
   genHdr->lastLid = hdrLid;
 
@@ -823,7 +850,10 @@ IOReq_EndCkptRootWrite(IORequest * ioreq)
   pageH->ioreq = NULL;
 
   IOReq_Deallocate(ioreq);
+  assert(pageH == GenHdrPageH);
   ReleasePageFrame(pageH);
+  GenHdrPageH = NULL;
+  genHdr = NULL;	// for safety
 }
 
 static void
@@ -848,19 +878,22 @@ DoPhase4Work(void)
   ckroot->integrityByte = IntegrityByteValue;
 
   unsigned int numUnmigrGens = workingGenerationNumber - migratedGeneration;
-  LID * lidCursor = nextUGHL;
+  ckroot->numUnmigratedGenerations = numUnmigrGens;
+  nextRetiredGeneration = migratedGeneration;
+
+  LID * lidCursor = wkgUGHL;
   int i;
-  for (i = 0; i < numUnmigrGens; i++) {
-    if (lidCursor <= &unmigratedGenHdrLid[0])
-      lidCursor = &unmigratedGenHdrLid[MaxUnmigratedGenerations];
-    lidCursor--;
+  for (i = 0; i < numUnmigrGens + 1; i++) {
     ckroot->generations[i] = *lidCursor;
+    if (++lidCursor >= &unmigratedGenHdrLid[MaxUnmigratedGenerations+1])
+      lidCursor = &unmigratedGenHdrLid[0];	// wrap
   }
+  // For safety, fill the rest of the array:
   for (; i < MaxUnmigratedGenerations; i++)
     ckroot->generations[i] = UNUSED_LID;
 
   // Switch root locations:
-  LID nextRoot = currentRoot ^ (CKPT_ROOT_0 ^ CKPT_ROOT_1);
+  currentRootLID ^= (CKPT_ROOT_0 ^ CKPT_ROOT_1);
 
   // Write the checkpoint root:
   PageHeader * pageH = GenHdrPageH;
@@ -868,12 +901,12 @@ DoPhase4Work(void)
   // page and ioreq are already linked
   IORequest * ioreq = pageH->ioreq;
 
-  ObjectRange * rng = LidToRange(nextRoot);
+  ObjectRange * rng = LidToRange(currentRootLID);
   assert(rng);	// it had better be mounted
 
   ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
   ioreq->objRange = rng;
-  ioreq->rangeLoc = OIDToFrame(nextRoot - rng->start);
+  ioreq->rangeLoc = OIDToFrame(currentRootLID- rng->start);
   ioreq->doneFn = &IOReq_EndCkptRootWrite;
   sq_Init(&ioreq->sq);	// won't be used
   ioreq_Enqueue(ioreq);
@@ -899,10 +932,10 @@ DoPhase5Work(void)
   // Phase 5 is committed. Nothing below Yields.
   // The checkpoint is stabilized.
 
-  // There is now a new working generation:
-  workingGenerationNumber++;
-  workingGenFirstLid = logCursor;
-  assert(!"complete");
+  assert(numReservedPages == 0);
+  assert(reservedPages == NULL);
+
+  PostCheckpointProcessing();
 
   ckptState = ckpt_NotActive;
   sq_WakeAll(&WaitForCkptInactive, false);

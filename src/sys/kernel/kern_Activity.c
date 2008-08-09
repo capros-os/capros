@@ -264,13 +264,39 @@ act_AllocActivity(void)
   if (sq_IsEmpty(&freeActivityList))
     fatal("Activitys exhausted\n");
 
-  Activity * t = act_DequeueNext(&freeActivityList);
+  Activity * act = act_DequeueNext(&freeActivityList);
   assert(numFreeActivities);
   numFreeActivities--;
 
-  t->actHazard = actHaz_None;
+  act->actHazard = actHaz_None;
 
-  return t;
+  assert(keyBits_IsUnprepared(&act->processKey));
+  assert(! keyBits_IsHazard(&act->processKey));
+
+  return act;
+}
+
+void
+StartActivity(OID oid, ObCount count, uint8_t haz)
+{
+  Activity * act = act_AllocActivity();
+
+  /* Forge a domain key for this activity: */
+  Key * k = &act->processKey;
+
+  keyBits_InitType(k, KKT_Process);
+  k->u.unprep.oid = oid;
+  k->u.unprep.count = count;
+
+  act->actHazard = haz;
+
+  /* The process prepare logic will appropriately adjust this priority
+     if it is wrong -- this guess only has to be good enough to get
+     the activity scheduled. */
+
+  act->readyQ = dispatchQueues[pr_High];
+ 
+  act_Wakeup(act);
 }
 
 void
