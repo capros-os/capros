@@ -173,9 +173,10 @@
             <dt>Stabilization event
             <dd>After a demarcation event is declared, stabilization occurs
                   when all the state of that generation
-                  (objects, processes, directories, and header)
+                  (objects, processes, directories, generation header, and
+                  checkpoint header)
                   has been saved to the log.
-                  Writing the generation header is the last act
+                  Writing the checkpoint header is the last act
                   before stabilization.
             <dt>Restart generation
             <dd>The most recent stabilized generation.
@@ -197,10 +198,10 @@
             <dd>A generation that has not been fully migrated.
                 It may be partially migrated.
             <dt>Retired generation
-            <dd>A generation that is as old as or older than the generation
-                 identified in the migratedSeqNum field of the restart
-                 generation header.
-                 A retired generation has been migrated.
+            <dd>A generation that is identified as migrated
+                 in the most recent checkpoint header.
+                 (Additional generations may have been migrated since that
+                 header was written; they are migrated but not retired.)
                  The system keeps a directory of objects in the retired
                  generation(s), so that it can fetch objects from there,
                  taking advantage of the disk locality of the log.
@@ -275,14 +276,17 @@
 	  <p>
             The checkpoint header contains an identifying header,
             containing the generation number of the restart generation.
+            (This structure is called CkptRoot in the code.)
             The header with the highest generation number
             is the most recent header.
             Only the most recent valid header is used for restart.
 	  </p>
 	  <p>
-            The checkpoint header also contains an array of LIDs of the
+            The checkpoint header also contains the number of
+            unmigrated generations, and an array of LIDs of the
             generation headers of all the unmigrated generations.
-            This imposes an upper limit of about 500 unmigrated generations.
+            There is a limit, currently 20, on the number of
+            unmigrated generations.
 	  </p>
 	    <p>The last item in the generation header is a field
             used to validate the correctness of the previous data.
@@ -306,8 +310,7 @@
 	      <pre>
 struct DiskGenerationHdr {
   uint32_t   versionNumber;
-  uint64_t   sequenceNumber;
-  uint64_t   migratedSeqNum;
+  GenNum     sequenceNumber;
   LID        firstLogLoc;
   LID        lastLogLoc;
   LID        firstProcessDirFrame;
@@ -353,18 +356,6 @@ struct DiskGenerationHdr {
 	      <p>
 		The generation sequence number allows CapROS to determine which
 		generation is most recent.
-	      </p>
-	    </dd>
-	    <dt><b>migratedSeqNum</b></dt>
-	    <dd>
-	      <p>
-		This field holds the sequence number
-		of the latest generation which was completely migrated
-		when this header was written.
-	      </p>
-	      <p>
-                Note, it would take less space to store the number of
-                unmigrated generations instead of the sequence number.
 	      </p>
 	    </dd>
 	    <dt><b>firstLogLoc</b>, <b>lastLogLoc</b></dt>
@@ -815,8 +806,8 @@ struct ObjectDescriptor {
 	  </p>
 	  <p>
             Then all the unmigrated generation headers are read.
-            The migratedSeqNum value in the restart generation header
-	    validates the number of unmigrated generations.
+            The number of unmigrated generations is given in the
+            checkpoint header.
             Those generation headers
             are used to reload the object directory.
             Unmigrated generations now need to be migrated
@@ -977,7 +968,7 @@ after the header.
 	  <ul>
 	      <pre>
 struct CoreDirectory {
-  uint64_t migratorSequenceNumber;
+  GenNum migratorSequenceNumber;
   CoreDirent *oidTree;
 
 };
@@ -1226,7 +1217,7 @@ struct CoreDirent {
       Each checkpoint header holds pointers to information about the
       checkpoint, more-or-less following those described in in the
       chosen design. In addition they hold forward and back pointers
-      to checkpoint headers for previous and subsiquent checkpoints
+      to checkpoint headers for previous and subsequent checkpoints
       as follows:
     </p>
     <pre>
