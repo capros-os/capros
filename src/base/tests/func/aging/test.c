@@ -67,11 +67,11 @@ int
 main(void)
 {
   result_t result;
-  uint32_t obType = capros_Range_otNode;
+  uint32_t obType = capros_Range_otPage;
   unsigned int numCreated;
   unsigned int numToCreate = 13000;
 
-  kprintf(KR_OSTREAM, "Starting.\n");
+  kprintf(KR_OSTREAM, "Starting aging test, type=%d.\n", obType);
 
   result = capros_Constructor_request(KR_SNODEC,
                                KR_BANK, KR_SCHED, KR_VOID,
