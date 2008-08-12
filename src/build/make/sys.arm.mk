@@ -26,11 +26,11 @@
  
 install: $(BUILDDIR)/sysimg
 
-$(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP)
+$(BUILDDIR)/sysimg: $(TARGETS) $(IMGMAP) $(MAKE_BUILDDIR)
 	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) 2>&1
 	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/sysimg $(IMGMAP) $(BUILDDIR)/.sysimg.m >/dev/null  2>&1
 
-$(BUILDDIR)/psysimg: $(TARGETS) $(PIMGMAP)
+$(BUILDDIR)/psysimg: $(TARGETS) $(PIMGMAP) $(MAKE_BUILDDIR)
 	$(MKIMAGE) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(PIMGMAP) 2>&1
 	@$(MKIMAGEDEP) $(MKIMAGEFLAGS) -o $(BUILDDIR)/psysimg $(PIMGMAP) $(BUILDDIR)/.psysimg.m >/dev/null  2>&1
 
