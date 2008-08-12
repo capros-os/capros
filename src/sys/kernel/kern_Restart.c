@@ -117,12 +117,22 @@ StartCkptRootRead(LID lid)
 static bool
 ValidateCkptRoot(CkptRoot * root)
 {
-  if (root->versionNumber != CkptRootVersion)
+  if (root->versionNumber != CkptRootVersion) {
+    DEBUG(restart) printf("Ckpt root %#x has version %d\n",
+                          root, root->versionNumber);
     return false;
-  if (root->mostRecentGenerationNumber != root->checkGenNum)
+  }
+  if (root->mostRecentGenerationNumber != root->checkGenNum) {
+    DEBUG(restart) printf("Ckpt root %#x has mrgn=%d ckgn=%d\n",
+                          root, root->mostRecentGenerationNumber,
+                          root->checkGenNum );
     return false;
-  if (root->integrityByte != IntegrityByteValue)
+  }
+  if (root->integrityByte != IntegrityByteValue) {
+    DEBUG(restart) printf("Ckpt root %#x has integrityByte %d\n",
+                          root, root->integrityByte);
     return false;
+  }
   return true;
 }
 
@@ -185,6 +195,10 @@ AdjustNPCounts(void)
 static void
 FinishRestart(void)
 {
+  monotonicTimeOfRestart = monotonicTimeOfLastDemarc;
+
+  retiredGeneration = migratedGeneration;
+
   memcpy(unmigratedGenHdrLid, &curRoot->generations,
          sizeof(curRoot->generations));
   // wkgUGHL is initialized to &unmigratedGenHdrLid[0].
@@ -202,6 +216,11 @@ FinishRestart(void)
   ReleasePageFrame(currentRootPageH);
 
   restartPhase = restartPhase_Done;
+
+  // Restart is done and the migrator is initialized (it has allocated
+  // all the space it needs).
+  act_Wakeup(checkpointActivity);
+  sq_WakeAll(&RestartQueue, false);
 }
 
 static void
@@ -225,11 +244,15 @@ DoRestartPhaseWaitingRoot1(void)
       curRoot = root0;
     } else {
       // Both roots are valid. Choose the newer one.
+      DEBUG(restart)
+        printf("Root 0 restart gen=%lld, root 1 restart gen=%lld\n",
+          root0->mostRecentGenerationNumber, root1->mostRecentGenerationNumber);
       curRoot = root0->mostRecentGenerationNumber
                 > root1->mostRecentGenerationNumber
                 ? root0 : root1;
     }
   }
+
   if (curRoot == root0) {
     currentRootLID = CKPT_ROOT_0;
     ReleasePageFrame(pageB);	// Free the old root.
@@ -239,6 +262,7 @@ DoRestartPhaseWaitingRoot1(void)
     ReleasePageFrame(pageA);
     currentRootPageH = pageB;
   }
+  DEBUG(restart) printf("Using root at %#llx\n", currentRootLID);
 
   if (IsPreloadedBigBang) {
     /* We are doing a big bang by preloading the persistent objects.
@@ -252,10 +276,14 @@ DoRestartPhaseWaitingRoot1(void)
     }
 
     // Oldest unmigrated generation starts at the beginning of the log:
-    curRoot->generations[0] = MAIN_LOG_START - 1;
+    curRoot->generations[0] = MAIN_LOG_START - FrameToOID(1);
+			// should probably be logWrapPoint instead
 
-    migratedGeneration = workingGenerationNumber = 0;
-    monotonicTimeOfRestart = 0;
+    /* GenNum 0 is used as a special case for nextRetiredGeneration.
+    GenNum 1 will be the (nonexistent) restart generation, which needs
+    no migration.
+    GenNum 2 will be the first actual generation. */
+    migratedGeneration = workingGenerationNumber = 1;
     monotonicTimeOfLastDemarc = 0;
 
     FinishRestart();
@@ -267,9 +295,12 @@ DoRestartPhaseWaitingRoot1(void)
 
   AdjustNPCounts();
 
-  workingGenerationNumber = curRoot->mostRecentGenerationNumber + 1;
+  // This is actually the restart generation number; workingGenerationNumber
+  // will be incremented in FinishRestart.
+  workingGenerationNumber = curRoot->mostRecentGenerationNumber;
 
   genIndex = curRoot->numUnmigratedGenerations;
+  DEBUG(restart) printf("NumUnmigrGens=%d\n", genIndex);
   assert(0 < genIndex && genIndex <= MaxUnmigratedGenerations);
 
   restartPhase = restartPhase_Phase4;
@@ -303,6 +334,9 @@ AddProcDescriptor(struct DiskProcessDescriptor * dpd)
 
   assert(haz < actHaz_END);
 
+  DEBUG(restart) printf("Starting proc at oid %#llx ac %#x haz %#x\n",
+                   oid, count, haz);
+
   StartActivity(oid, count, haz);
 }
 
@@ -311,6 +345,7 @@ ReadDirFrame(PageHeader * pageH,
   void (*doneFn)(struct IORequest * ioreq))
 {
   IORequest * ioreq = pageH->ioreq;	// already has an IORequest
+  assert(ioreq->pageH == pageH);
 
   ObjectRange * rng = LidToRange(curDirLID);
   assert(rng);	// it had better be mounted
@@ -321,6 +356,8 @@ ReadDirFrame(PageHeader * pageH,
   ioreq->doneFn = doneFn;
   sq_Init(&ioreq->sq);
   ioreq_Enqueue(ioreq);
+  DEBUG(restart) printf("Reading dir, pageH=%#x ioreq=%#x\n",
+                        pageH, ioreq);
 
   curDirLID = IncrementLID(curDirLID);
   numDirFramesRead++;
@@ -364,15 +401,14 @@ static void
 DoneProcessingProcDirFrames(void)
 {
 
-  monotonicTimeOfRestart
-    = monotonicTimeOfLastDemarc = genHdr->persistentTimeOfDemarc;
-
-  // This is actually the restart generation number; workingGenerationNumber
-  // will be incremented in FinishRestart.
-  workingGenerationNumber = curRoot->mostRecentGenerationNumber;
+  monotonicTimeOfLastDemarc = genHdr->persistentTimeOfDemarc;
+  monotonicTimeOfRestart = monotonicTimeOfLastDemarc;
 
   migratedGeneration = curRoot->mostRecentGenerationNumber
                        - curRoot->numUnmigratedGenerations;
+
+  DEBUG(restart) printf("DoneProcessingProcDirFrames wkgGen=%d+1 migGen=%d\n",
+                   workingGenerationNumber, migratedGeneration);
 
   // Free all the pages we used:
   FreePageAndIOReq(GenHdrPageH);
@@ -434,6 +470,7 @@ static void
 IOReq_EndObDirRead(IORequest * ioreq)
 {
   DEBUG(restart) printf("EndObDirRead\n");
+  assert(numDirFramesProcessed < numDirFramesRead);
 
   PageHeader * pageH = ioreq->pageH;
   kva_t pageAddr = pageH_GetPageVAddr(pageH);
@@ -492,6 +529,7 @@ IOReq_EndProcDirRead(IORequest * ioreq)
   }
 
   numDirFramesProcessed++;
+  assert(numDirFramesProcessed <= numDirFramesRead);
 
   DEBUG(restart) printf("EndProcDirRead, nodfr=%d, nodfp=%d, ndf=%d\n",
     numDirFramesRead, numDirFramesProcessed, genHdr->processDir.nDirFrames);
@@ -511,7 +549,8 @@ IOReq_EndProcDirRead(IORequest * ioreq)
 static void
 IOReq_EndGenHdrRead(IORequest * ioreq)
 {
-  DEBUG(restart) printf("EndGenHdrRead %d\n", genIndex);
+  DEBUG(restart) printf("EndGenHdrRead genIndex=%d gh->genNum=%d wkgGen=%d\n",
+             genIndex, genHdr->generationNumber, workingGenerationNumber);
 
   // The IORequest is done.
   assert(sq_IsEmpty(&ioreq->sq));
@@ -521,8 +560,7 @@ IOReq_EndGenHdrRead(IORequest * ioreq)
 
   // Process any object directory entries in the header.
   int i;
-  struct DiskObjectDescriptor * objDescr
-    = (struct DiskObjectDescriptor *)
+  struct DiskObjectDescriptor * objDescr = (struct DiskObjectDescriptor *)
      ((char *)genHdr + sizeof(*genHdr)
       + (genHdr->processDir.nDescriptors
          * sizeof(struct DiskProcessDescriptor) ) );
@@ -541,6 +579,7 @@ IOReq_EndGenHdrRead(IORequest * ioreq)
     PageHeader * pageH = reservedPages;
     while (pageH && numDirFramesRead < genHdr->objectDir.nDirFrames) {
       ReadObDirFrame(pageH);
+      pageH = pageH->kt_u.link.next;
     }
   } else {
     // No obdir frames to read, so we are done reading obdir frames.
@@ -623,8 +662,4 @@ DoRestartStep(void)
       break;
     }
   }
-  // Restart is done and the migrator is initialized (it has allocated
-  // all the space it needs).
-  act_Wakeup(checkpointActivity);
-  sq_WakeAll(&RestartQueue, false);
 }

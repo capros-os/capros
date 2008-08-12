@@ -760,10 +760,6 @@ objC_GrabNodeFrame(void)
   return pNode;
 }
 
-unsigned int KRONodeCleanCursor;	// next node to clean
-/* All nodes before KRONodeCleanCursor are either not KRO
- * or are queued to be cleaned. */
-
 // Clean the next KRO node.
 // Return true if cleaned one, false if there are no more.
 bool
@@ -1027,8 +1023,6 @@ pageH_Clean(PageHeader * pageH)
     }
   }
 }
-
-unsigned int KROPageCleanCursor;	// next page to clean
 
 // Clean the next dirty KRO page.
 void

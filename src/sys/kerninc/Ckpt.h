@@ -38,10 +38,6 @@ extern unsigned int ckptState;
 /* monotonicTimeOfRestart is the time of the demarcation event
  * from which we restarted, in units of nanoseconds. */
 extern uint64_t monotonicTimeOfRestart;
-
-/* monotonicTimeOfLastDemarc is the time of the most recent demarcation event,
- * in units of nanoseconds.
- * That checkpoint may not be stabilized yet. */
 extern uint64_t monotonicTimeOfLastDemarc;
 
 extern struct StallQueue WaitForCkptInactive;
@@ -50,32 +46,21 @@ extern struct StallQueue RestartQueue;
 
 extern long numKRODirtyPages;
 extern long numKRONodes;
-extern unsigned int KROPageCleanCursor;
-extern unsigned int KRONodeCleanCursor;
 
 extern struct Activity * checkpointActivity;
 
-extern LID logCursor;	// next place to write in the main log
-extern LID logWrapPoint;	// end of main log
+extern LID logCursor;
+extern LID logWrapPoint;
 extern LID currentRootLID;
 
 extern LID unmigratedGenHdrLid[];
-
-/* oldestNonRetiredGenLid is the LID following the last LID of the
- * newest retired generation. */
 extern LID oldestNonRetiredGenLid;
-
-/* oldestNonNextRetiredGenLid is valid only while a checkpoint is active.
- * It is the LID following the last LID of the generation
- * returned by GetNextRetiredGeneration(). */
-extern LID oldestNonNextRetiredGenLid;
 
 /* workingGenFirstLid is the LID of the first frame of the
  * working generation. */
 extern LID workingGenFirstLid;
 
 #define LOG_LIMIT_PERCENT_DENOMINATOR 256
-/* logSizeLimited is the size of the main log times the limit percent. */
 extern frame_t logSizeLimited;
 
 extern GenNum migratedGeneration;
@@ -91,6 +76,11 @@ extern struct DiskGenerationHdr * genHdr;	// virtual address of the above
 extern PageHeader * reservedPages;
 extern unsigned int numReservedPages;
 void ReservePages(unsigned int numPagesWanted);
+
+extern unsigned int KROPageCleanCursor;
+extern unsigned int KRONodeCleanCursor;
+
+LID GetOldestNonNextRetiredGenLid(void);
 
 INLINE bool
 ckptIsActive(void)
@@ -114,7 +104,6 @@ INLINE GenNum
 GetNextRetiredGeneration(void)
 {
   extern GenNum nextRetiredGeneration;
-  extern GenNum migratedGeneration;
 
   assert(ckptIsActive());
   if (nextRetiredGeneration)

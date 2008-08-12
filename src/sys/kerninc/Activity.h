@@ -49,7 +49,7 @@ act_Ready: on a ReadyQueue.
 
 act_Running: active on a processor, not on any queue.
   The activity is act_curActivity.
-  It has a Process and the Process's runState is RS_Running.
+  If it has a Process, the Process's runState is RS_Running.
 
 act_Stall: blocked on an event, on a StallQueue.
   If it has a Process, the Process's runState is RS_Running.

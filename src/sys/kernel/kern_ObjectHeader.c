@@ -150,19 +150,13 @@ EnoughWorkingDirEnts(unsigned long availWorkingDirEnts)
 void
 objH_EnsureWritable(ObjectHeader * pObj)
 {
-  assert(objH_IsUserPinned(pObj)
-         || ((   pObj->obType == ot_NtProcessRoot
-              || pObj->obType == ot_NtKeyRegs
-              || pObj->obType == ot_NtRegAnnex)
-             && objH_IsUserPinned(proc_ToObj(pObj->prep_u.context)) ) );
-
   if (objH_IsDirty(pObj)
       && ! objH_GetFlags(pObj, OFLG_KRO) )	// already writeable
     return;
 
   // Non-persistent objects are always dirty and never KRO,
   // so the object must be persistent:
-  assert(objH_GetFlags(pObj, OFLG_Cleanable));
+  assertex(pObj, objH_GetFlags(pObj, OFLG_Cleanable));
 
   assert(! InvocationCommitted);
 
@@ -208,7 +202,7 @@ objH_EnsureWritable(ObjectHeader * pObj)
       retGenFrames += OIDToFrame(logWrapPoint - MAIN_LOG_START);
 
     if (tentRes > retGenFrames) {	// not enough space in log
-      DEBUG(ew) printf("Log space low, %d < %d\n",
+      DEBUG(ew) printf("Log space low, %lld < %d\n",
                        retGenFrames, tentRes);
       goto declareDemarc;
     }
@@ -274,6 +268,7 @@ objH_EnsureWritable(ObjectHeader * pObj)
         + CalcLogReservation(numDirtyObjectsNext, 0);
 
     // Calc space available for those checkpoints:
+    LID oldestNonNextRetiredGenLid = GetOldestNonNextRetiredGenLid();
     frame_t retGenFrames = OIDToFrame(oldestNonNextRetiredGenLid - logCursor);
     if (oldestNonNextRetiredGenLid < logCursor)	// account for circular log
       retGenFrames += OIDToFrame(logWrapPoint - MAIN_LOG_START);

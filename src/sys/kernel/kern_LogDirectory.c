@@ -1163,7 +1163,7 @@ void ld_clearGeneration(GenNum generation) {
 */
 void
 ld_generationRetired(GenNum generation) {
-  assert(generation > last_retired_generation);
+  assert(generation >= last_retired_generation);
   last_retired_generation = generation;
 }
 

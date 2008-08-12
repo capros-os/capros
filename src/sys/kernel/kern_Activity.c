@@ -860,6 +860,30 @@ act_ValidateActivity(Activity* thisPtr)
   if (keyBits_GetType(&thisPtr->processKey) != KKT_Process &&
       ! keyBits_IsVoidKey(&thisPtr->processKey))
     fatal("Activity 0x%08x has bad key type.\n", thisPtr);
+
+  Process * proc = thisPtr->context;
+  switch (thisPtr->state) {
+  default:
+    assert(false);
+
+  case act_Free:
+    assert(! proc);
+    break;
+
+  case act_Running:
+    assert(thisPtr == act_Current());
+  case act_Ready:
+  case act_Stall:
+    if (proc) {
+      assert(proc->runState == RS_Running);
+    }
+    break;
+
+  case act_Sleeping:
+    if (proc) {
+      assert(proc->runState == RS_Waiting);
+    }
+  }
 }
 
 
@@ -950,7 +974,7 @@ act_Prepare(Activity* thisPtr)
 
     if (! keyBits_IsType(&thisPtr->processKey, KKT_Process)) {
       // Is this fatal, or should the activity simply go away quietly?
-	fatal("Rescinded activity!\n");
+	fatal("Rescinded activity %#x!\n", thisPtr);
 	return false;
     }
   
@@ -1019,8 +1043,8 @@ act_HandleYieldEntry(void)
 
   /* If we yielded from within the IPC path, we better not be yielding
      after the call to COMMIT_POINT(): */
-  assert (InvocationCommitted == false);
-  assert(allocatedActivity == 0);
+  assert(! InvocationCommitted);
+  assert(allocatedActivity == NULL);
 
 #ifndef NDEBUG
   act_ValidateActivity(act_Current());
@@ -1029,8 +1053,6 @@ act_HandleYieldEntry(void)
   inv_Cleanup(&inv);
   
   act_ForceResched();
-
-  assertex(act_CurContext(), act_CurContext()->runState == RS_Running);
 
   /* At this time, the activity rescheduler logic thinks it must run
      disabled. I am not convinced that it really needs to, but it is

@@ -58,7 +58,13 @@ Link * freeIORQs = NULL;
 void
 SleepOnPFHQueue(StallQueue * sq)
 {
-  assert(! proc_IsPFH(act_CurContext()));
+  /* The service of this queue depends on the user-mode Page Fault Handler.
+  If a process that is part of the Page Fault Handler sleeps here,
+  there is a possible deadlock.
+  If the current activity has no process, the process has been paged out
+  so it cannot be a part of the Page Fault Handler. */
+  assert(! proc_Current() || ! proc_IsPFH(proc_Current()));
+
   act_SleepOn(sq);
   act_Yield();
 }
@@ -310,6 +316,8 @@ objH_EnsureNotFetching(ObjectHeader * pObj)
 void
 objRange_FetchPage(ObjectRange * rng, OID oid, frame_t rangeLoc)
 {
+  assert(OIDIsPersistent(oid));
+
   PageHeader * pageH;
   ObjectHeader * pObj;
   // Read in the page.
@@ -324,7 +332,7 @@ objRange_FetchPage(ObjectRange * rng, OID oid, frame_t rangeLoc)
   pObj->obType = ot_PtDataPage;
   objH_InitObj(pObj, oid);
   pageH_MDInitDataPage(pageH);
-  objH_SetFlags(pObj, OFLG_Fetching);
+  objH_SetFlags(pObj, OFLG_Fetching | OFLG_Cleanable);
 
   ioreq->requestCode = capros_IOReqQ_RequestType_readRangeLoc;
   ioreq->objRange = rng;
