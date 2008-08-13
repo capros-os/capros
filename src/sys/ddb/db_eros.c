@@ -358,8 +358,9 @@ db_eros_print_context(Process *cc)
 	       : ((cc->runState == RS_Waiting)
 		  ? "Waiting"
 		  : "Avail")));
+    db_printf("act=%#x ", cc->curActivity);
     if (cc->isUserContext) {
-      db_printf("domain root=0x%08x", cc->procRoot);
+      db_printf("root=%#x", cc->procRoot);
 
       if (cc->procRoot) {
 	db_printf("  oid=%#llx\n", cc->procRoot->node_ObjHdr.oid);
@@ -881,12 +882,12 @@ db_activity_print_cmd(db_expr_t addr, int have_addr,
 
 //    db_eros_print_activity(t);
 
-    db_printf("%sactivity 0x%08x (%s) proc 0x%08x (%s) prio=%d\n",
+    db_printf("%sactivity 0x%08x (%s) proc 0x%08x (%s) prio=%d lastq=%#x\n",
 	      cur_str,
 	      t, act_stateNames[t->state], t->context,
               (t->context ? (proc_IsUser(t->context) ? "user" : "kernel")
                 : "noCtxt"),
-	      /*t->priority*/t->readyQ->mask);
+	      /*t->priority*/t->readyQ->mask, t->lastq);
     if (! t->context) {
       db_printf("    (0x%08x): ", &t->processKey);
       db_eros_print_key(&t->processKey);
@@ -1364,6 +1365,13 @@ db_prof_all_cmd(db_expr_t, int, db_expr_t, char*)
   show_prof(totCount, UINT32_MAX);
 }
 #endif
+
+void
+db_show_ioreqs_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
+{
+  extern void db_show_ioreqs(void);
+  db_show_ioreqs();
+}
 
 void
 db_show_irq_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)

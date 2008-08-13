@@ -354,6 +354,7 @@ extern void	db_exit_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_invokee_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_invokee_keys_print_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_depend_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_show_ioreqs_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_irq_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_pins_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_pmem_cmd(db_expr_t, int, db_expr_t, char*);
@@ -386,6 +387,8 @@ struct db_command db_show_all_cmds[] = {
 };
 
 struct db_command db_show_cmds[] = {
+	{ "activities", db_show_uactivity_cmd,	0,	0 },
+	{ "activity",   db_activity_print_cmd,	0,	0 },
 	{ "all",	0,			0,	db_show_all_cmds },
 	{ "breaks",	db_listbreak_cmd, 	0,	0 },
 	{ "cckr",       db_ctxt_kr_print_cmd,	0,	0 },
@@ -399,6 +402,7 @@ struct db_command db_show_cmds[] = {
 	{ "inv",        db_inv_print_cmd,	0,	0 },
 	{ "invkeys",    db_invokee_keys_print_cmd,0,	0 },
 	{ "invokee",    db_invokee_print_cmd,	0,	0 },
+	{ "ioreqs",     db_show_ioreqs_cmd,	0,	0 },
 	{ "irq",        db_show_irq_cmd,	0,	0 },
 	{ "key",        db_show_key_cmd,	0,	0 },
 	{ "keyregs",    db_ctxt_keys_print_cmd,	0,	0 },
@@ -425,8 +429,6 @@ struct db_command db_show_cmds[] = {
 	{ "sa",         db_show_savearea_cmd,	0,	0 },
 	{ "sizes",      db_show_sizes_cmd,	0,	0 },
 	{ "sources",    db_show_sources,	0,	0 },
-	{ "activity",   db_activity_print_cmd,	0,	0 },
-	{ "activities", db_show_uactivity_cmd,	0,	0 },
 	{ "walkinfo",	db_show_walkinfo_cmd, 	0,	0 },
 #ifdef OPTION_OPTION_DDB_WATCH
 	{ "watches",	db_listwatch_cmd, 	0,	0 },

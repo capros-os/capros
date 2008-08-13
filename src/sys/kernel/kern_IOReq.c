@@ -88,6 +88,7 @@ IORQ_Init(void)
   for (i = 0; i < KTUNE_NIOREQS; i++) {
     IORequest * ioreq = &IOReqs[i];
     ioreq->cleaning = false;	// constant hereafter
+    ioreq->pageH = NULL;
     ioreq->lk.next = freeIOReqs;
     freeIOReqs = &ioreq->lk;
   }
@@ -95,6 +96,7 @@ IORQ_Init(void)
   for (i = 0; i < KTUNE_NIOREQS_CLEANING; i++) {
     IORequest * ioreq = &IOReqsCleaning[i];
     ioreq->cleaning = true;	// constant hereafter
+    ioreq->pageH = NULL;
     ioreq->lk.next = freeIOReqsCleaning;
     freeIOReqsCleaning = &ioreq->lk;
   }
@@ -195,6 +197,7 @@ AllocateIOReqCleaningAndPage(void)
 void
 IOReq_Deallocate(IORequest * ioreq)
 {
+  ioreq->pageH = NULL;	// for safety and to mark free
   // Return it to the proper pool:
   if (ioreq->cleaning) {
     ioreq->lk.next = freeIOReqsCleaning;
@@ -424,6 +427,8 @@ void
 objRange_FetchPot(ObjectRange * rng, OID oidOrLid,
   frame_t rangeLoc, ObType obType)
 {
+  assert(OIDToObIndex(oidOrLid) == 0);
+
   IORequest * ioreq = AllocateIOReqAndPage();
 
   // Initialize the pot.
@@ -515,3 +520,29 @@ const struct ObjectSource IOObSource = {
   .objS_GetObject = &IOSource_GetObject
 };
 
+#ifdef OPTION_DDB
+static void
+db_show_ioreq(IORequest * ioreq)
+{
+  printf("%#x: cln=%d pageH=%#x objRng=%#x reqCode=%d\n",
+         ioreq, ioreq->cleaning, ioreq->pageH,
+         ioreq->objRange, ioreq->requestCode);
+}
+
+void
+db_show_ioreqs(void)
+{
+  int i;
+  for (i = 0; i < KTUNE_NIOREQS; i++) {
+    IORequest * ioreq = &IOReqs[i];
+    if (ioreq->pageH)
+      db_show_ioreq(ioreq);
+  }
+
+  for (i = 0; i < KTUNE_NIOREQS_CLEANING; i++) {
+    IORequest * ioreq = &IOReqsCleaning[i];
+    if (ioreq->pageH)
+      db_show_ioreq(ioreq);
+  }
+}
+#endif

@@ -299,7 +299,8 @@ GetObject(OID oid, const ObjectLocator * pObjLoc)
           return node_ToObj(pageH_GetNodeFromPot(objH_ToPage(pObj),
                                                  OIDToObIndex(lid) ));
         }
-        objRange_FetchPot(rng, lid, OIDToFrame(lid - rng->start), ot_PtLogPot);
+        objRange_FetchPot(rng, potLid, OIDToFrame(potLid - rng->start),
+                          ot_PtLogPot);
         break;
       }
     }

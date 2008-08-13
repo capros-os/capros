@@ -80,6 +80,17 @@ void ReservePages(unsigned int numPagesWanted);
 extern unsigned int KROPageCleanCursor;
 extern unsigned int KRONodeCleanCursor;
 
+extern GenNum nextRetiredGeneration;
+
+enum {
+  restartPhase_Begin,	// waiting for LIDs 0 and 1 to be mounted
+  restartPhase_QueuingRoot1,
+  restartPhase_WaitingRoot1,
+  restartPhase_Phase4,
+  restartPhase_Done
+};
+extern unsigned int restartPhase;
+
 LID GetOldestNonNextRetiredGenLid(void);
 
 INLINE bool
@@ -91,9 +102,7 @@ ckptIsActive(void)
 INLINE bool
 restartIsDone(void)
 {
-  // logCursor is zero until reset sets it to its proper value,
-  // which is always nonzero.
-  return logCursor != 0;
+  return restartPhase == restartPhase_Done;
 }
 
 /* GetNextRetiredGeneration should be called only while a checkpoint is active.
@@ -103,9 +112,7 @@ restartIsDone(void)
 INLINE GenNum
 GetNextRetiredGeneration(void)
 {
-  extern GenNum nextRetiredGeneration;
-
-  assert(ckptIsActive());
+  assert(ckptIsActive() || ! restartIsDone());
   if (nextRetiredGeneration)
     /* It is possible that a generation will be migrated between the time
     the generation header is fixed and the time it has been written to disk,

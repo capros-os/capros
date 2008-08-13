@@ -60,13 +60,6 @@ PageHeader * pageB;
 PageHeader * currentRootPageH;
 CkptRoot * curRoot;
 
-enum {
-  restartPhase_Begin,	// waiting for LIDs 0 and 1 to be mounted
-  restartPhase_QueuingRoot1,
-  restartPhase_WaitingRoot1,
-  restartPhase_Phase4,
-  restartPhase_Done
-};
 unsigned int restartPhase = restartPhase_Begin;
 
 unsigned int genIndex;
@@ -197,7 +190,7 @@ FinishRestart(void)
 {
   monotonicTimeOfRestart = monotonicTimeOfLastDemarc;
 
-  retiredGeneration = migratedGeneration;
+  nextRetiredGeneration = migratedGeneration;
 
   memcpy(unmigratedGenHdrLid, &curRoot->generations,
          sizeof(curRoot->generations));
@@ -207,7 +200,6 @@ FinishRestart(void)
                     * KTUNE_LOG_LIMIT_PERCENT_NUMERATOR)
                    / LOG_LIMIT_PERCENT_DENOMINATOR;
 
-  // Set logCursor last - it is the marker for restart done.
   logCursor
     = IncrementLID(curRoot->generations[0]);
 

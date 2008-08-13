@@ -32,6 +32,7 @@ struct ObjectRange;
 typedef struct IORequest {
   Link lk;
   struct PageHeader * pageH;	// page to read into or write from
+				// NULL iff IORequest is free
   struct ObjectRange * objRange;
   uint64_t rangeLoc;		// location requested, relative to objRange
   StallQueue sq;

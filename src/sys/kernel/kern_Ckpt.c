@@ -286,6 +286,9 @@ DeclareDemarcationEvent(void)
 void
 PostCheckpointProcessing(void)
 {
+  assert(nextRetiredGeneration);
+  retiredGeneration = nextRetiredGeneration;
+
   DEBUG(ckpt) printf("PostCkptProcessing  wkgGen=%d+1 retGen=%d\n",
                      workingGenerationNumber, retiredGeneration);
 
@@ -985,9 +988,6 @@ DoPhase5Work(void)
 
   assert(numReservedPages == 0);
   assert(reservedPages == NULL);
-
-  assert(nextRetiredGeneration);
-  retiredGeneration = nextRetiredGeneration;
 
   // Advance wkgUGHL:
   wkgUGHL = nextWkgUGHL;

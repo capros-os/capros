@@ -534,7 +534,7 @@ pgRgn:
   case ot_NtProcessRoot:
   case ot_NtKeyRegs:
   case ot_NtRegAnnex:
-    printf(" context=0x%08x\n", thisPtr->prep_u.context);
+    printf(" proc=%#x\n", thisPtr->prep_u.context);
   case ot_NtUnprepared:
 prNodeObj:
     PrintObjData(thisPtr);
