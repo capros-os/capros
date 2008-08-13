@@ -252,7 +252,7 @@ DoSync(void)
 
 
 PageHeader * reservedPages = NULL;
-unsigned int numReservedPages = 0;
+unsigned int numReservedPages = 0;	// length of the above chain
 
 // May Yield.
 void
@@ -802,7 +802,6 @@ IOReq_EndObDirWrite(IORequest * ioreq)
   } else {
     IOReq_Deallocate(ioreq);
     ReleasePageFrame(pageH);
-    numReservedPages--;
   }
 }
 
@@ -830,12 +829,12 @@ DoPhase3Work(void)
     PageHeader * pageH = reservedPages;
     // Unlink it:
     reservedPages = pageH->kt_u.link.next;
+    numReservedPages--;
     if (numDirEntsToSave) {
       IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
       WriteAPageOfObDirEnts(pageH, ioreq);
     } else {
       ReleasePageFrame(pageH);
-      numReservedPages--;
     }
   }
 

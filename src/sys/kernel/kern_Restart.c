@@ -407,6 +407,7 @@ DoneProcessingProcDirFrames(void)
   while (reservedPages) {
     PageHeader * pageH = reservedPages;
     reservedPages = pageH->kt_u.link.next;
+    numReservedPages--;
     FreePageAndIOReq(pageH);
   }
 
@@ -444,6 +445,7 @@ DoneProcessingObDirFrames(void)
       PageHeader * pageH = reservedPages;
       while (pageH && numDirFramesRead < genHdr->processDir.nDirFrames) {
         ReadProcDirFrame(pageH);
+        pageH = pageH->kt_u.link.next;
       }
     } else {
       // No frames to read, so we are done reading.
@@ -597,7 +599,7 @@ DoRestartPhase4(void)
 
   // Get a pool of pages for reading the object directory:
   // What is the right number to reserve? Get 2 for now.
-  // Must have an IORequest for each one, plus the header.
+  // Must have an IORequest for each one, plus one for the header.
   assert(KTUNE_NIORQS >= (2+1));
   ReservePages(2);
 
