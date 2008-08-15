@@ -105,6 +105,8 @@ HEADERS=\
  siginfo.h \
  signal.h \
  sizes.h \
+ socket.h \
+ sockios.h \
  spinlock.h \
  stat.h \
  string.h \
