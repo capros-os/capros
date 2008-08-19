@@ -3,7 +3,7 @@
  * Copyright (c) 2001   David Howells (dhowells@redhat.com).
  * - Derived partially from ideas by Andrea Arcangeli <andrea@suse.de>
  * - Derived also from comments by Linus
- * Portions Copyright (C) 2007, Strawberry Development Group.
+ * Portions Copyright (C) 2007, 2008, Strawberry Development Group.
  */
 /* This material is based upon work supported by the US Defense Advanced
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
@@ -56,8 +56,8 @@ struct rw_semaphore {
 { \
   .activity = ATOMIC_INIT(0), \
   .contenders = ATOMIC_INIT(0), \
-  .readWaiters  = { &(name).readWaiters, &(name).readWaiters } \
-  .writeWaiters = { &(name).writeWaiters, &(name).writeWaiters } \
+  .readWaiters  = { &(name).readWaiters, &(name).readWaiters }, \
+  .writeWaiters = { &(name).writeWaiters, &(name).writeWaiters }, \
   __RWSEM_DEP_MAP_INIT(name) \
 }
 

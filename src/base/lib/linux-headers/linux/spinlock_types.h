@@ -32,13 +32,13 @@ typedef struct {
   struct mutex mutx;
 } raw_spinlock_t;
 
-#define __RAW_SPIN_LOCK_UNLOCKED(name) { __MUTEX_INITIALIZER(name.mutx) }
+#define __RAW_SPIN_LOCK_UNLOCKED(name) { __MUTEX_INITIALIZER((name).mutx) }
 
 typedef struct {
   struct rw_semaphore rwsem;
 } raw_rwlock_t;
 
-#define __RAW_RW_LOCK_UNLOCKED(name) { __RWSEM_INITIALIZER(name) }
+#define __RAW_RW_LOCK_UNLOCKED(name) { __RWSEM_INITIALIZER((name).rwsem) }
 
 #endif // CONFIG_SPINLOCK_USES_IRQ
 
@@ -96,7 +96,7 @@ typedef struct {
 				.owner_cpu = -1,			\
 				SPIN_DEP_MAP_INIT(lockname) }
 #define __RW_LOCK_UNLOCKED(lockname)					\
-	(rwlock_t)	{	.raw_lock = __RAW_RW_LOCK_UNLOCKED,	\
+	(rwlock_t)	{	.raw_lock = __RAW_RW_LOCK_UNLOCKED((lockname).raw_lock),	\
 				.magic = RWLOCK_MAGIC,			\
 				.owner = SPINLOCK_OWNER_INIT,		\
 				.owner_cpu = -1,			\
@@ -106,7 +106,7 @@ typedef struct {
 	(spinlock_t)	{	.raw_lock = __RAW_SPIN_LOCK_UNLOCKED((lockname).raw_lock),	\
 				SPIN_DEP_MAP_INIT(lockname) }
 #define __RW_LOCK_UNLOCKED(lockname) \
-	(rwlock_t)	{	.raw_lock = __RAW_RW_LOCK_UNLOCKED,	\
+	(rwlock_t)	{	.raw_lock = __RAW_RW_LOCK_UNLOCKED(lockname.raw_lock),	\
 				RW_DEP_MAP_INIT(lockname) }
 #endif
 
