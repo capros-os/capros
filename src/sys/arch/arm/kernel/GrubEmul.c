@@ -54,11 +54,22 @@ GrubEmul(void)
   mi->boot_device = 0;	/* bogus */
 
   struct grub_mmap * mmp = &MemMap[0];
-  /* On EP9315, SDRAM is 32MB beginning at 0 ... */
+
+#ifdef CAPROS_MACH_edb9315
+  /* SDRAM is 32MB beginning at 0 ... */
   MemMap_init(mmp++, 1 /* available RAM */, 0, 0x02000000);
 
   /* and 32MB beginning at 0x04000000 */
   MemMap_init(mmp++, 1 /* available RAM */, 0x04000000, 0x02000000);
+#endif
+
+#ifdef CAPROS_MACH_edb9315a
+  /* SDRAM is 32MB beginning at 0xc0000000 ... */
+  MemMap_init(mmp++, 1 /* available RAM */, 0xc0000000, 0x02000000);
+
+  /* and 32MB beginning at 0xc4000000 */
+  MemMap_init(mmp++, 1 /* available RAM */, 0xc4000000, 0x02000000);
+#endif
 
   /* On EP9315, AHB device registers. */
   MemMap_init(mmp++, 4567 /* private convention: device registers */,

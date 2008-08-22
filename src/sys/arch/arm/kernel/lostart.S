@@ -37,24 +37,56 @@ Approved for public release, distribution unlimited. */
 #define REDBOOT
 #ifndef REDBOOT
 	.ascii "CRUS"	// magic header for Boot ROM
+/* Enter here from boot loader. */
+	ldr r10,=(APB_PA + UART1_APB_OFS)	// for PUTC
 #else
 	msr cpsr_c,#0xd3	// disable IRQ, FIQ, enter supervisor mode
 	ldr r10,=(APB_PA + UART1_APB_OFS)	// for PUTC
+0:	ldr r0,[r10,#0x18]	// Flag
+	tst r0,#0x8	// BUSY
+	bne 0b
+
 	PUTC(#65)	// 'A
 // Redboot starts us with MMU enabled, disable it now.
 // FIXME: On EDB9315A, phys mem starts at 0xc0000000 and Redboot's map
 // is not trivial. 
+
+	mrc p15,0,r9,c2,c0,0	// read TTBR
+	bic r9,r9,#0xff
+	bic r9,r9,#0x3f00
+#if 0	// where did Redboot put the FLMT?
+	mov r0,r9,LSR #28
+	and r0,r0,#0xf
+	add r0,r0,#0x30
+	PUTC(r0)
+	mov r0,r9,LSR #24
+	and r0,r0,#0xf
+	add r0,r0,#0x30
+	PUTC(r0)
+	mov r0,r9,LSR #20
+	and r0,r0,#0xf
+	add r0,r0,#0x30
+	PUTC(r0)
+	mov r0,r9,LSR #16
+	and r0,r0,#0xf
+	add r0,r0,#0x30
+	PUTC(r0)
+	mov r0,r9,LSR #12
+	and r0,r0,#0xf
+	add r0,r0,#0x30
+	PUTC(r0)
+#endif
+
 	mrc p15,0,r8,c1,c0,0	// read control register 1
-	bic r8,r8,#0x1200	// disenable ICache, clear R bit
+	bic r8,r8,#0x1200	// disable ICache, clear R bit
 	orr r8,r8,#0x2100	// high exception vectors, set S bit
-	bic r8,r8,#0x007	// disenable DCache, alignmt fault, MMU
+	bic r8,r8,#0x007	// disable DCache, alignmt fault, MMU
 	mcr p15,0,r8,c1,c0,0	// write control register 1
 // Redboot leaves Ethernet controller active. Reset it.
 	ldr r1,=(AHB_PA+EMAC_AHB_OFS)	// 0x80010000
 	mov r0,#1		// RESET bit
 	str r0,[r1,#0x20]	// SelfCtl register
 #endif
-/* Enter here from boot loader. */
 /* When we get here from the boot ROM, we are in Supervisor mode,
    in ARM (not Thumb) execution state, with IRQ and FIQ both disabled. */
 getpc:	mov r6,pc	// record the pc

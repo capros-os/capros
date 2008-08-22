@@ -64,8 +64,17 @@ followed by pages containing initial non-persistent nonzero pages
 all loaded by the boot loader.
  */
 
-#define KTextPA    0x00000000	/* start of kernel text in phys mem */
-#define NPObDescrPA 0x00300000
+#ifdef CAPROS_MACH_edb9315
+#define FirstRAMAddr 0x00000000
+#endif
+
+#ifdef CAPROS_MACH_edb9315a
+#define FirstRAMAddr 0xc0000000
+#endif
+
+#define KTextPA     (FirstRAMAddr + 0x00000000)
+#define NPObDescrPA (FirstRAMAddr + 0x00300000)
+
 #define FlashMemPA 0x60000000	/* start of flash memory in phys mem */
 #define AHB_PA	0x80000000
 #define APB_PA	0x80800000
