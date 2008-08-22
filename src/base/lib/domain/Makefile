@@ -77,7 +77,7 @@ CAPROS_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard key/keyset*.c
 CAPROS_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard key/nfile*.c)))
 # KEYSRC=$(notdir $(wildcard key/*.c))
 # CAPROS_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(KEYSRC))
-CAPROS_OBJECTS+=$(wildcard ../idlstub/BUILD/$(EROS_TARGET)/*.o)
+CAPROS_OBJECTS+=$(wildcard ../idlstub/$(BUILDDIR)/*.o)
 
 HEADERS=$(wildcard include/*/*.h) 
 
