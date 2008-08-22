@@ -537,9 +537,14 @@ check_Contexts(const char *c)
           break;
 
         case RS_Waiting:
-          // If it has an activity, it must be sleeping:
           if (p->curActivity)
-            statesOK = p->curActivity->state == act_Sleeping;
+            /* If it has an activity, it must be sleeping.
+            Exception: When a process calls a kernel key, it is treated
+            like a call to the kernel followed by a return,
+            so the process is RS_Waiting even though the Activity
+            is act_Running. */
+            statesOK = p->curActivity->state == act_Sleeping
+                       || p == proc_Current() ;
           else
             statesOK = true;
           break;
