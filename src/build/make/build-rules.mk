@@ -27,7 +27,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 endif
 
 # The following variables depend on things set in the makefile:
-GCCFLAGS=$(CFLAGS) $(OPTIM) $(GCC_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
+GCCFLAGS=$(CFLAGS) $(OPTIM) $(GCC_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) -DCAPROS_MACH_$(CAPROS_MACH) $(DEF)
 GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(OPTIM) $(GPLUS_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
 MKIMAGEFLAGS=-a $(EROS_TARGET) -DBUILDDIR='"$(BUILDDIR)/"' -DEROS_TARGET_$(EROS_TARGET) -DLIBDIR=\"/eros/lib/$(EROS_TARGET)/\" -I$(CAPROS_DOMAIN) -I$(EROS_ROOT)/host/include -I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
 

@@ -56,9 +56,16 @@ GOOD_TARGET=1
 endif
 ifeq ($(EROS_TARGET),arm)
 GOOD_TARGET=1
+ifndef CAPROS_MACH
+CAPROS_MACH=edb9315
+endif
 endif
 ifneq ($(GOOD_TARGET),1)
 $(error "arm" and "i486" are the only supported values of EROS_TARGET)
+endif
+
+ifndef CAPROS_MACH
+CAPROS_MACH=generic
 endif
 
 # Sometimes we want i486 (for compatibility with EROS stuff),
@@ -291,6 +298,8 @@ SMALL_SPACE=-small-space
 # empty, so the appropriate word is the second one.
 PACKAGE=$(word 1, $(strip $(subst /, ,$(subst $(EROS_ROOT)/src/,,$(PWD)))))
 
+TARGETMACH=$(EROS_TARGET)-$(CAPROS_MACH)
+
 PKG_ROOT=$(EROS_ROOT)/pkg/${PACKAGE}
 PKG_SRC=$(EROS_ROOT)/$(EROS_SRCDIR)/${PACKAGE}
 
@@ -313,7 +322,7 @@ ifeq "$(PACKAGE)" "build"
 BUILDDIR=.
 endif
 ifeq "$(BUILDDIR)" ""
-BUILDDIR=BUILD/$(EROS_TARGET)
+BUILDDIR=BUILD/$(TARGETMACH)
 endif
 endif
 
@@ -322,6 +331,7 @@ showme:
 	@echo "EROS_SRCDIR: " $(EROS_SRCDIR)
 	@echo "EROS_XENV: " $(EROS_XENV)
 	@echo "EROS_TARGET: " $(EROS_TARGET)
+	@echo "CAPROS_MACH: " $(CAPROS_MACH)
 	@echo "PKG_ROOT:" $(PKG_ROOT)
 	@echo "PKG_SRC:" $(PKG_SRC)
 	@echo "BUILDDIR:" $(BUILDDIR)
