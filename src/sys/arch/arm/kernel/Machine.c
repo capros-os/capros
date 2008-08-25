@@ -30,6 +30,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/SysTimer.h>
 #include <kerninc/KernStream.h>
 #include <kerninc/Process-inline.h>
+#include <kerninc/mach-rtc.h>
 #include <eros/arch/arm/mach-ep93xx/ep9315-syscon.h>
 #include <arch-kerninc/kern-target-asm.h>
 #include <arch-kerninc/PTE.h>
@@ -101,6 +102,10 @@ mach_BootInit()
   irq_ENABLE_for_IRQ();
   
   mach_InitHardClock();
+
+  int RtcInit(void);
+  int err = RtcInit();
+  assert(!err);
   
 #ifdef OPTION_DDB
   kstream_dbg_stream->EnableDebuggerInput();

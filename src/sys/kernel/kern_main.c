@@ -132,13 +132,6 @@ main(void)
   extern void preload_Init(void);
   preload_Init();
 
-#ifdef KKT_TIMEPAGE
-  /* Following should be done before any possibility of a time key
-   * getting prepared:
-   */
-  sysT_InitTimePage();
-#endif
-
 //#define TEST_AGING
 #ifdef TEST_AGING
   while (objC_nFreeNodeFrames > 500) {

@@ -369,11 +369,7 @@ keyBits_IsSegKeyType(const KeyBits *thisPtr)
 INLINE bool 
 keyBits_IsDataPageType(const KeyBits *thisPtr)
 {
-  return (keyBits_IsType(thisPtr, KKT_Page) 
-#ifdef KKT_TimePage
-          || keyBits_IsType(thisPtr, KKT_TimePage)
-#endif
-          );
+  return (keyBits_IsType(thisPtr, KKT_Page));
 }
 
 INLINE bool 

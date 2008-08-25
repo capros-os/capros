@@ -24,11 +24,13 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+struct Activity;
+struct Process;
+
 extern uint32_t loopsPer8us;
 
 extern uint64_t sysT_latestTime;
 
-struct Activity;
 extern struct Activity * ActivityChain;
 
 uint64_t sysT_NowPersistent(void);
@@ -43,11 +45,21 @@ void sysT_CancelAlarm(struct Activity *);
 
 void sysT_BootInit();
 
-#ifdef KT_TIMEPAGE
-void sysT_InitTimePage();
-extern struct ObjectHeader *sysT_TimePageHdr;
-#endif
+void SleepInvokee(struct Process * invokee, uint64_t wakeupTime);
 
-bool IsLeapYear(uint32_t yr);
+#include <kerninc/Machine.h>
+
+/* Spin wait for w * 62.5 ns.
+ * w must be <= 32768, so the wait must be <= 2.048 ms. */
+/* Make this inline so the compiler can take advantage of the fact
+ * that the parameter is usually a constant. */
+INLINE void
+SpinWait62ns(unsigned long w)
+{
+  w *= loopsPer8us;
+  w /= 8*16;
+  if (w > 0)
+    mach_Delay(w);
+}
 
 #endif /* __SYSTIMER_H__ */

@@ -38,6 +38,20 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/key.h>
 #include <idl/capros/Sleep.h>
 
+void
+SleepInvokee(Process * invokee, uint64_t wakeupTime)
+{
+  assert(proc_IsRunnable(invokee));
+  assert(link_isSingleton(& act_Current()->q_link));
+
+  if (invokee != proc_curProcess) {
+    act_AssignTo(allocatedActivity, invokee);
+  }
+
+  act_SleepUntilTick(invokee->curActivity, wakeupTime);
+  act_ForceResched();
+}
+
 /* May Yield. */
 void
 SleepKey(Invocation* inv /*@ not null @*/)
@@ -92,8 +106,6 @@ returnu64:
              wakeupTime, nw, wakeupTime - nw);
 #endif
 
-      assert(link_isSingleton(& act_Current()->q_link));
-
       COMMIT_POINT();
 
       /* We have now taken care of the invoker.
@@ -104,16 +116,7 @@ returnu64:
       if (! invokee)
         break;	// no one to wake up at the end of the wait
 
-      assert(proc_IsRunnable(invokee));
-
-      if (invokee != proc_curProcess) {
-        act_AssignTo(allocatedActivity, invokee);
-      }
-
-      assert(link_isSingleton(& act_Current()->q_link));
-
-      act_SleepUntilTick(invokee->curActivity, wakeupTime);
-      act_ForceResched();
+      SleepInvokee(invokee, wakeupTime);
 
       return;	// don't call ReturnMessage
     }

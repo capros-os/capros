@@ -76,14 +76,7 @@ akt SysTrace 0xc484c078
 
 primary	DevicePrivs
 primary IORQ
-
-#if 0
-primary	TimePage
-reserved TimePage     /* Still deciding on this. */
-
-primary	TimeOfDay
-reserved TimeOfDay    /* Still deciding on this. */
-#endif
+primary RTC
 
 /* Following needs to go away, but only after I figure out how the kernel
    debugger should be wired to avoid it. It might turn out that this

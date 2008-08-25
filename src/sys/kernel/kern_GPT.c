@@ -95,9 +95,6 @@ processKey(SegWalk * wi, Key * pSegKey, uint64_t va)
     break;
 
   case KKT_Page:
-#ifdef KKT_TimePage
-  case KKT_TimePage:
-#endif
     // nothing to do
     break;
 

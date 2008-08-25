@@ -23,6 +23,8 @@
 Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
+#include "kernel/arm.h"
+
 typedef unsigned long irqFlags_t;
 
 INLINE void

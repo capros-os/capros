@@ -31,9 +31,9 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/util.h>
 #include <kerninc/PhysMem.h>
 #include <kerninc/SysTimer.h>
+#include <kerninc/mach-rtc.h>
 #include <kerninc/PCI.h>
 #include <kerninc/IRQ.h>
-#include <eros/TimeOfDay.h>
 #include <idl/capros/arch/i386/SysTrace.h>
 #include <arch-kerninc/PTE.h>
 #include "CpuFeatures.h"
@@ -184,61 +184,39 @@ mach_BootInit()
   printf("Motherboard interrupts initialized\n");
 }
 
-static inline
-uint32_t BcdToBin(uint32_t val)
+int
+RtcSave(capros_RTC_time_t newTime)
 {
-  return ((val)=((val)&15) + ((val)>>4)*10);
+  return 0;	// nothing to do?
 }
 
-inline static uint32_t yeartoday(unsigned year)
+static unsigned int
+cmosBcd(unsigned int byte)
 {
-  return (IsLeapYear(year) ? 366 : 365);
+  return BCDToBin(cmos_cmosByte(byte));
 }
 
-void
-mach_GetHardwareTimeOfDay(TimeOfDay* tod)
+capros_RTC_time_t
+RtcRead(void)
 {
-  static uint32_t month_length[12] = {
-    31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31
-  };
-  uint32_t i = 0;
-  uint32_t yr = 0;
-  
-  tod->sec = cmos_cmosByte(0x0);
-  tod->min = cmos_cmosByte(0x2);
-  tod->hr = cmos_cmosByte(0x4);
-  tod->dayOfWeek = cmos_cmosByte(0x6);
-  tod->dayOfMonth = cmos_cmosByte(0x7);
-  tod->month = cmos_cmosByte(0x8);
-  tod->year = cmos_cmosByte(0x9);
-  
-  tod->sec = BcdToBin(tod->sec);
-  tod->min = BcdToBin(tod->min);
-  tod->hr = BcdToBin(tod->hr);
-  tod->dayOfMonth = BcdToBin(tod->dayOfMonth);
-  tod->dayOfWeek = BcdToBin(tod->dayOfWeek);
-  tod->month = BcdToBin(tod->month);
-  tod->year = BcdToBin(tod->year);
-  if (tod->year < 70)		/* correct for y2k rollover */
-    tod->year += 100;
-  
-  tod->year += 1900;		/* correct for century. */
-  
-  tod->dayOfYear = 0;
-  for (i = 0; i < tod->month; i++)
-    tod->dayOfYear += month_length[i];
-
-  tod->dayOfYear += tod->dayOfMonth;
-
-  if (tod->month > 1 && IsLeapYear(tod->year))
-    tod->dayOfYear++;
-
-  /* Compute coordinated universal time: */
-  tod->utcDay = 0;
-  for (yr = 1970; yr < tod->year; yr++)
-    tod->utcDay += yeartoday(yr);
-  tod->utcDay += tod->dayOfYear;
+  return kernMktime(
+    cmosBcd(0x9),	// year
+    cmosBcd(0x8),	// month
+    cmosBcd(0x7),	// day of month
+    cmosBcd(0x4),	// hours
+    cmosBcd(0x2),	// minutes
+    cmosBcd(0x0)	// seconds
+    );
+  // We don't use:
+  // cmosBcd(0x6)	// day of week
 }
+
+int
+RtcSet(capros_RTC_time_t newTime)
+{
+  return -1;	// not implemented
+}
+
 
 /* This cannot be run until the kernel has it's own map -- the gift
  * map we get from the bootstrap code at the moment is too small.

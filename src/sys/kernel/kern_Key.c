@@ -622,6 +622,7 @@ key_IsValid(const Key* thisPtr)
       }
     case KKT_DevicePrivs:
     case KKT_IORQ:
+    case KKT_RTC:
       break;
     }
     return true;

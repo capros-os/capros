@@ -53,8 +53,6 @@ HEADERS=\
 	stdarg.h \
 	target.h \
 	target-asm.h \
-	TimeOfDay.h \
-	TimePage.h \
 	TtyKey.h \
 
 IDLSRC=$(wildcard *.idl)

@@ -28,7 +28,6 @@ Approved for public release, distribution unlimited. */
  * machine independent initialization.
  */
 
-#include <eros/TimeOfDay.h>
 struct Process;
 
 enum mach_BusType {
@@ -64,10 +63,6 @@ void mach_InitializeFPU();
 void mach_DisableFPU();
 void mach_EnableFPU();
 #endif
-
-/*typedef struct TimeOfDay TimeOfDay;*/
-
-void mach_GetHardwareTimeOfDay(TimeOfDay*);
 
 void mach_HardReset();
 

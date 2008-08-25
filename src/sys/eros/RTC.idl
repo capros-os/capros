@@ -1,0 +1,18 @@
+package capros;
+
+/** 
+@brief RTC - Real Time Clock
+*/
+interface RTC extends key raises (key.RequestError) {
+
+  /** The GMT time in seconds since 1/1/1970. */
+  typedef unsigned long time_t;
+
+  time_t getTime();
+};
+
+interface RTCSet extends RTC {
+  /** If the specified time can't be represented in the hardware,
+  we raise key.RequestError. */
+  void setTime(RTC.time_t newTime);
+};

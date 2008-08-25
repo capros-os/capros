@@ -56,4 +56,6 @@ file("arch/arm/capstubs/call.S")
 file("arch/arm/kernel/ConsoleStream.c")
 file("arch/arm/kernel/SerialStream.c", output_on_tty0)
 
+file("arch/arm/mach-$(CAPROS_MACH)/mach-rtc.c")
+
 include("../../../files.common")

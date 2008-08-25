@@ -56,18 +56,6 @@ SpinWaitUs(uint32_t w)
     mach_Delay(w);
 }
 
-bool
-IsLeapYear(uint32_t yr)
-{
-  if (yr % 400 == 0)
-    return true;
-  if (yr % 100 == 0)
-    return false;
-  if (yr % 4 == 0)
-    return true;
-  return false;
-}
-
 // May Yield.
 uint64_t
 sysT_NowPersistent(void)
@@ -210,78 +198,3 @@ sysT_WakeupAt(void)
 
   sysT_ResetWakeTime();
 }
-
-#ifdef KKT_TIMEPAGE
-#error this is not the case.
-/* This is hopelessly stale! */
-#include <eros/TimePage.h>
-#include <eros/TimeOfDay.h>
-/*#include <kerninc/PhysMem.h>*/
-
-/**************************************************
- * SUPPORT FOR THE TIME PAGE
- **************************************************/
-static volatile TimePageStruct *eros_tod_struct = 0;
-PageHeader * sysT_TimePageHdr = 0;
-
-Timer TimePageTimer;
-
-struct timeval wallBase;
-
-void TimePageTick(Timer *t)
-{
-  uint64_t timenow = sysT_Now();
-  uint32_t now_secs = 0;
-  uint32_t now_usecs = 0;
-
-  timenow = mach_TicksToMilliseconds(timenow);
-
-  now_secs = timenow/1000;
-  now_usecs = timenow % 1000;
-
-  irqFlags_t flags = local_irq_save();
-
-  eros_tod_struct->tps_sinceboot.tv_secs = now_secs;
-  eros_tod_struct->tps_sinceboot.tv_usecs = now_usecs;
-
-  /* Time of day init zeroed usecs, so no need to do that
-     arithmetic. */
-  eros_tod_struct->tps_wall.tv_secs = wallBase.tv_secs + now_secs;
-  eros_tod_struct->tps_wall.tv_usecs = now_usecs;
-
-  local_irq_restore(flags);
-
-  tim_WakeupIn(&TimePageTimer, 5ul, TimePageTick);
-}
-
-#define HRS_PER_DAY 24
-#define MINS_PER_HR 60
-#define SECS_PER_MIN 60
-#define SECS_PER_HR (SECS_PER_MIN * MINS_PER_HR)
-#define SECS_PER_DAY (HRS_PER_DAY * SECS_PER_HR)
-
-void
-sysT_InitTimePage()
-{
-  TimeOfDay tod;
-  printf("Fabricating TOD Page\n");
-
-  sysT_TimePageHdr = objC_GrabPageFrame();
-  
-  eros_tod_struct = (TimePageStruct *)
-    pageH_GetPageVAddr(sysT_TimePageHdr);
-
-  eros_tod_struct->tps_version = TIMEPAGE_VERSION;
-  eros_tod_struct->tps_sinceboot.tv_secs = 0;
-  eros_tod_struct->tps_sinceboot.tv_usecs = 0;
-  eros_tod_struct->tps_wall.tv_secs = 0;
-  eros_tod_struct->tps_wall.tv_usecs = 0;
-
-  mach_GetHardwareTimeOfDay(&tod);
-  wallBase.tv_usecs = 0;
-  wallBase.tv_secs = tod.utcDay * SECS_PER_DAY;
-
-  tim_WakeupIn(&TimePageTimer, 5ul, TimePageTick);
-}
-
-#endif

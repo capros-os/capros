@@ -46,8 +46,4 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 /* Size of each process block in the Fast Context Switch Extension */
 #define FCSE_Range 0x02000000
 
-#ifndef __ASSEMBLER__
-void raw_local_irq_enable(void);
-void raw_local_irq_disable(void);
-#endif /* __ASSEMBLER__  */
 #endif /* __ARM_H__ */
