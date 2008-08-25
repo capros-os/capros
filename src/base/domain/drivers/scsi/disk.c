@@ -179,6 +179,8 @@ disk_thread(void * arg)
   uint8_t * buffer;
   dma_addr_t buffer_dma;
 
+  DEBUG(server) kdprintf(KR_OSTREAM, "disk_thread started.\n");
+
   buffer = dma_alloc_coherent(shost->shost_gendev.parent,
                               EROS_PAGE_SIZE, &buffer_dma, 0);
   if (!buffer) {
@@ -248,7 +250,7 @@ disk_thread(void * arg)
     assert(result == RC_OK);
 
     DEBUG(server) kprintf(KR_OSTREAM, "disk_thread serving request, %#x\n",
-                         &Ioreq);
+                          &Ioreq);
     switch (Ioreq.requestType) {
     default: ;
       assert(false);
