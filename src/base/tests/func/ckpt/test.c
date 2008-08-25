@@ -68,7 +68,10 @@ main(void)
   result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otNode, KR_NODE);
   ckOK
 
-  for (i = 0; i < 1; i++) {
+  for (i = 0; i < 3; i++) {
+    result = capros_Sleep_sleep(KR_SLEEP, 5*1000);	// sleep 5 seconds
+    ckOK
+
     result = capros_Sleep_getPersistentMonotonicTime(KR_SLEEP, &timeToSave);
     ckOK
 
@@ -78,7 +81,7 @@ main(void)
     result = capros_Checkpoint_ensureCheckpoint(KR_CHECKPOINT, timeToSave);
     ckOK
 
-    kprintf(KR_OSTREAM, "Checkpoint done.\n", timeToSave/1000000);
+    kprintf(KR_OSTREAM, "%d checkpoints done.\n", i+1);
 
     // Dirty the node.
     result = capros_Node_swapSlot(KR_NODE, 0, KR_BANK, KR_VOID);
