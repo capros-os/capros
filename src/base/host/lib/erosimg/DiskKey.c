@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -44,13 +44,7 @@ init_MiscKey(KeyBits *dk, uint16_t ty, uint32_t n0)
 {
   keyBits_InitToVoid(dk);
   keyBits_InitType(dk, ty);
-#ifdef KT_TimePage
-  if (ty == KT_TimePage) {
-    keyBits_SetReadOnly(dk);
-  }
-  else
-#endif
-    dk->keyData = 0;
+  dk->keyData = 0;
   
   dk->u.nk.value[2] = 0;
   dk->u.nk.value[1] = 0;

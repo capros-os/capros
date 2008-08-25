@@ -1,7 +1,7 @@
 %{
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -1494,9 +1494,6 @@ segkey:  key {
 	  SHOWPARSE("=== segkey -> key\n");
           if (keyBits_IsSegModeType(&$1) == false
 	       && keyBits_IsVoidKey(&$1) == false
-#ifdef KKT_TimePage
-	       && $1.IsType(KKT_TimePage) == false
-#endif
 	       ) {
 	     diag_printf("%s:%d: must be segment or "
 			 "segtree key\n",
