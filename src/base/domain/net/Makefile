@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -30,9 +30,9 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=
 ifeq "$(EROS_TARGET)" "i486" # only for i486 target
-# DIRS+=ipv4 # broken due to RETRY_SET_LIK
+# DIRS+=ipv4 # broken due to RETRY_SET_LIK and TimeOfDay
 DIRS+=tftp
-# DIRS+=shared_ipv4 # broken due to RETRY_SET_LIK
+# DIRS+=shared_ipv4 # broken due to RETRY_SET_LIK and TimeOfDay
 endif
 
 include $(EROS_SRC)/build/make/makerules.mk
