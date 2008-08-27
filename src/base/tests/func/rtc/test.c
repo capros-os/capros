@@ -24,6 +24,7 @@ Approved for public release, distribution unlimited. */
 /* Test the Real Time Clock.
 */
 
+#include <time.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/RTC.h>
@@ -85,8 +86,18 @@ main(void)
   ckOK
   pd(time);
 
-  time = (10957 + 8*365+2)*24*60*60;
-  kprintf(KR_OSTREAM, "Setting time to %u\n", time);
+  //time = (10957 + 8*365+2)*24*60*60;
+  struct tm t = {
+    .tm_year = 2008 - 1900,
+    .tm_mon = 8,
+    .tm_mday = 25,
+    .tm_hour = 11 + 8,
+    .tm_min = 4,
+    .tm_sec = 0,
+    .tm_isdst = 0,
+  };
+  time = mktime(&t);
+  kdprintf(KR_OSTREAM, "Setting time to %u (c to continue):", time);
   result = capros_RTCSet_setTime(KR_RTCSET, time);
   ckOK
 
