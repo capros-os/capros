@@ -694,6 +694,18 @@ ei_SetGPTFlags(ErosImage *ei, KeyBits gptKey, uint8_t flags)
   * l2vf |= flags;
 }
 
+uint16_t
+ei_GetNodeData(ErosImage *ei, KeyBits nodeKey)
+{
+  return ei_GetNodeP(ei, nodeKey)->nodeData;
+}
+
+void
+ei_SetNodeData(ErosImage *ei, KeyBits nodeKey, uint16_t nd)
+{
+  ei_GetNodeP(ei, nodeKey)->nodeData = nd;
+}
+
 void
 ei_SetArchitecture(ErosImage *ei, enum ExecArchitecture arch)
 {
@@ -1205,6 +1217,7 @@ ei_PrintNode(const ErosImage *ei, KeyBits nodeKey)
 {
   unsigned i;
 
+  diag_printf("nodeData=%#.4x\n", ei_GetNodeP(ei, nodeKey)->nodeData);
   for (i = 0; i < EROS_NODE_SIZE; i++) {
     KeyBits key = ei_GetNodeSlot(ei, nodeKey, i);
 

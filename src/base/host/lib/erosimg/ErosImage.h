@@ -202,6 +202,8 @@ extern "C" {
   KeyBits ei_GetNodeSlot(const ErosImage *, KeyBits nodeKey, uint32_t slot);
   KeyBits ei_GetNodeSlotFromIndex(const ErosImage *, uint32_t nodeNdx, uint32_t slot);
   void ei_SetGPTFlags(ErosImage *ei, KeyBits nodeKey, uint8_t flags);
+  uint16_t ei_GetNodeData(ErosImage *ei, KeyBits nodeKey);
+  void ei_SetNodeData(ErosImage *ei, KeyBits nodeKey, uint16_t nd);
 
   /* Construction support for segments.  Given a segment root key and
    * an offset, hand back a new segment root key:

@@ -1041,6 +1041,8 @@ key:   NULLKEY {
 	  nodeKey = $2;
       
 	  key = ei_AddNode(image, false);
+          // Copy nodeData:
+          ei_SetNodeData(image, key, ei_GetNodeData(image, nodeKey));
 	  for (i = 0; i < EROS_NODE_SIZE; i++) {
 	    KeyBits tmp = ei_GetNodeSlot(image, nodeKey, i);
 	    ei_SetNodeSlot(image, key, i, tmp);
