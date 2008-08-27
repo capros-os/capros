@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -63,6 +63,10 @@ main(void)
   Message msg;
   
   capros_Number_get(KR_PARAMS, &rate, &enable_reg, &enable_mask);
+#if 0
+  kdprintf(KR_OSTREAM, "Devclock rate=%u reg=%#x mask=%#x\n",
+           rate, enable_reg, enable_mask);
+#endif
 
   bool hasEnableReg = enable_reg != 0;
   enable_reg &= EROS_PAGE_MASK;

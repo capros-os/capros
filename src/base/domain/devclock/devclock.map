@@ -3,7 +3,7 @@
 #define __DEVCLOCK_MAP_
 
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -30,7 +30,7 @@ Approved for public release, distribution unlimited. */
  * DEVCLOCK program.
  *********************************************************/
 
-devclock.prog = small program LIBDIR "devclock";
+devclock.prog = program ro segtree LIBDIR "devclock";
 
 /* FIXME: if there is no device register, devRegAddr is zero,
    and we construct a key for physical page zero. */
@@ -38,12 +38,15 @@ devclock.prog = small program LIBDIR "devclock";
 #define DEVCLOCK(name, rate, devRegAddr, enableMask) \
   name##_devclock_proc = new process; \
   name##_devclock_proc pc = symbol LIBDIR "devclock" _start; \
-  name##_devclock_proc.space = devclock.prog with page at 0x1f000; \
+  name##_devclock_dataseg = program rw segtree LIBDIR "devclock"; \
+  name##_devclock.prog = clone devclock.prog; \
+  name##_devclock.prog = name##_devclock.prog with subseg name##_devclock_dataseg[8] at 0x8000; \
+  name##_devclock_proc.space = name##_devclock.prog with page at 0x1f000; \
   name##_devclock_procregpage = physpage ((devRegAddr) & ~EROS_PAGE_MASK); \
   name##_devclock_proc.space[0x1d] = name##_devclock_procregpage; \
   name##_devclock_proc space = name##_devclock_proc.space; \
   name##_devclock_proc schedule = sched(8 /* use 14? */ ); \
-  name##_devclock_proc symtab = number("devclock"); \
+  name##_devclock_proc symtab = number("devclk" #name); \
   name##_devclock_proc key reg 7 = number(rate, (devRegAddr), (enableMask)); \
   name##_devclock_proc key reg 8 = misc Console; \
   run name##_devclock_proc; \
