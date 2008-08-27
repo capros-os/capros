@@ -154,9 +154,21 @@ InterruptInit(void)
   for (i=0; i < NUM_INTERRUPT_SOURCES; i++) {
     VICIntSource * vis = &VICIntSources[i];
     vis->priority = PRIO_Unallocated;
+    vis->assignedPriority = 16;		// default is nonvectored
     vis->sourceNum = i;
     sq_Init(&vis->sleeper);
   }
+
+  // Statically assign vectored interrupt sources.
+  // Vectors must be unique within each VIC.
+  // VIC1:
+  VICIntSources[VIC_Source_TC1OI].assignedPriority = 0;
+  VICIntSources[VIC_Source_TC3OI].assignedPriority = 15;
+  // VIC2:
+  VICIntSources[VIC_Source_INT_MAC].assignedPriority = 2;	// Ethernet
+  VICIntSources[VIC_Source_USHINTR].assignedPriority = 4;	// USB
+  VICIntSources[VIC_Source_INT_UART1].assignedPriority = 9;
+  VICIntSources[VIC_Source_INT_UART3].assignedPriority = 12;
 }
 
 void
@@ -165,7 +177,6 @@ UserIrqInit(void)
   // We initialized this as part of InterruptInit above.
 }
 
-/* priority is the priority within this source's VIC. */
 void
 InterruptSourceSetup(unsigned int source, int priority, ISRType handler)
 {
@@ -174,6 +185,11 @@ InterruptSourceSetup(unsigned int source, int priority, ISRType handler)
   uint32_t sourceBit = 1ul << source32;
   VICInfo * vicInfo = &VICInfos[source >> 5];
 
+  /* priority is ignored. */
+  priority = vicSource->assignedPriority;
+  // priority is the priority within this source's VIC.
+  if (priority == 16)
+    printf("Warning, interrupt source %d has no vector assigned.\n", source);
   vicSource->priority = priority;
   if (priority == -1) {	// FIQ
     vicInfo->regs->IntSelect |= sourceBit;

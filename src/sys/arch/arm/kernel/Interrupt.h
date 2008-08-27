@@ -57,6 +57,10 @@ typedef struct VICIntSource {
 #define PRIO_Unallocated (-2)
   signed char priority;
 
+  /* Priorities are statically assigned here, because architecture-independent
+  code doesn't know about them. */
+  signed char assignedPriority;
+
   unsigned char sourceNum;
 
   /* Enabled state and software interrupt state are stored only in
