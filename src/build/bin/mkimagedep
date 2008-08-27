@@ -2,9 +2,10 @@
 #
 # Copyright (C) 1998, 1999, Jonathan Adams.
 # Copyright (C) 2001, The EROS Group
-# Copyright (C) 2006, Strawberry Development Group
+# Copyright (C) 2006, 2008, Strawberry Development Group
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -19,7 +20,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-#
+
+# This material is based upon work supported by the US Defense Advanced
+# Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+# Approved for public release, distribution unlimited.
 
 usage() {
    echo  usage: "$0" -o outfile [cppopts] imgfile genfile >&2
@@ -144,6 +148,7 @@ echo "${OUTFILE}: ${INFILE} \\"
 # Comments are below.
 { /lib/cpp ${CPPARGS} ${INFILE} || touch "${ERRFILE}"; } \
   | { sed -e 's:number *(\( *\"[^\"]*\" *\)*)::g' \
+           -e 's:print\( *\"[^\"]*\"\)*::g' \
            -e '/^[^#]*\(\"[^\"]*\"[^\"]*\)\+$/ !d' \
            -e 's:[^"]*\"\([^\"]*\)"[^\"]*:\1:g' \
            -e 's:/eros/:'" ${EROS_ROOT}/"':g' \
@@ -169,25 +174,28 @@ fi
 #          Delete anything of the form 'number("string" "string"... )',
 #          because these really are strings, not file names.
 #
-#        2. '/^[^#]*\(\"[^\"]*\"[^\"]*\)\+$/ !d'
+#        2. Delete anything of the form 'print "string" "string" ...
+#          because these really are strings, not file names.
+#
+#        3. '/^[^#]*\(\"[^\"]*\"[^\"]*\)\+$/ !d'
 #          KEEP all lines which do not have a # in their beginnings and 
 #         which have an even number of quotes in them. 
 #         (the # lines are the preprocessor's line number information)
 #         (the ! inverts the effect of the match)
 #
-#        3. 's:[^"]*\"\([^\"]*\)"[^\"]*:\1:g' 
+#        4. 's:[^"]*\"\([^\"]*\)"[^\"]*:\1:g' 
 #          Removes all non-quoted parts of the line, resulting in 
 #         list consisting only of the quoted parts, with quotes removed.
 #         Quotes may be split as in C (i.e. "foo" "bar" is valid).
 #
-#        4. 's:/eros/:'" ${EROS_ROOT}/"':g' 
+#        5. 's:/eros/:'" ${EROS_ROOT}/"':g' 
 #          Replaces all references to /eros with the current value of
 #         ${EROS_ROOT}.
 #
-#        5. 's:^\(.*\)$:\1 \\:g'
+#        6. 's:^\(.*\)$:\1 \\:g'
 #          Adds a backslash to the end of each line
 #
-#        6. 's:^\(.*\): \1:g' \
+#        7. 's:^\(.*\): \1:g' \
 #          Adds a space at the beginning of all dependency lines for
 #         readability.
 #
