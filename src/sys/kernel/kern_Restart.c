@@ -212,7 +212,7 @@ FinishRestart(void)
   // Restart is done and the migrator is initialized (it has allocated
   // all the space it needs).
   act_Wakeup(checkpointActivity);
-  sq_WakeAll(&RestartQueue, false);
+  sq_WakeAll(&RestartQueue);
 }
 
 static void

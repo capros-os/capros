@@ -105,7 +105,7 @@ DoUsermodeInterrupt(VICIntSource * vis)
   irq_DISABLE();
 
   vis->isPending = true;
-  sq_WakeAll(&vis->sleeper, false);
+  sq_WakeAll(&vis->sleeper);
 
   // write VectAddr to reenable interrupts of lower or equal priority
   if (sourceNum >= 32) {	// if on VIC2
@@ -238,7 +238,7 @@ InterruptSourceUnset(unsigned int source)
   // Wake up any sleeper.
   /* No need to disable IRQ before manipulating vicSource->sleeper,
   because this particular interrupt has been disabled. */
-  sq_WakeAll(&vicSource->sleeper, false);
+  sq_WakeAll(&vicSource->sleeper);
 }
 
 void

@@ -127,7 +127,7 @@ AddRange(const ObjectRange * rng, ObjectRange * ranges, uint32_t * pnRanges)
  
   ranges[i] = *rng;
 
-  sq_WakeAll(&SourceWait, false);
+  sq_WakeAll(&SourceWait);
   
   DEBUG(obsrc)
     printf("AddRange: returning\n");

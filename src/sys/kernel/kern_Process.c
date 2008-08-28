@@ -263,7 +263,7 @@ proc_Unload(Process * thisPtr)
 
   // dprintf(false,  "Unload of context 0x%08x complete\n", thisPtr);
 
-  sq_WakeAll(&thisPtr->stallQ, false);
+  sq_WakeAll(&thisPtr->stallQ);
 exit: ;
   assert(! thisPtr->curActivity);
 }
@@ -466,7 +466,7 @@ proc_DoPrepare(Process * thisPtr)
    * and prepare correctly.
    */
 
-  sq_WakeAll(&thisPtr->stallQ, false);
+  sq_WakeAll(&thisPtr->stallQ);
 }
 
 /* FIX: It is unfortunate that some of these checks require !NDEBUG.

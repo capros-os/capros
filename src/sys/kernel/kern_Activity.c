@@ -801,7 +801,7 @@ ExitTheKernel(void)
 
 // May be called from an interrupt.
 void 
-sq_WakeAll(StallQueue* q, bool b/* verbose*/)
+sq_WakeAll(StallQueue * q)
 {
   Activity *t;
 

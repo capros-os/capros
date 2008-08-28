@@ -371,7 +371,7 @@ irq_UnsetHandler(uint32_t irq)
 
   // Wake up any sleeper.
   struct UserIrq *uirq = &UserIrqEntries[irq];
-  sq_WakeAll(&uirq->sleepers, false);
+  sq_WakeAll(&uirq->sleepers);
 }
 
 /* Handler for interrupts using the DevicePrivs key. */
@@ -389,6 +389,6 @@ DoUsermodeInterrupt(savearea_t *ia)
 #endif
 
   uirq->isPending = true;
-  sq_WakeAll(&uirq->sleepers, false);
+  sq_WakeAll(&uirq->sleepers);
 }
 

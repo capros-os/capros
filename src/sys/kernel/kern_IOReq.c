@@ -202,11 +202,11 @@ IOReq_Deallocate(IORequest * ioreq)
   if (ioreq->cleaning) {
     ioreq->lk.next = freeIOReqsCleaning;
     freeIOReqsCleaning = &ioreq->lk;
-    sq_WakeAll(&IOReqCleaningWait, false);
+    sq_WakeAll(&IOReqCleaningWait);
   } else {
     ioreq->lk.next = freeIOReqs;
     freeIOReqs = &ioreq->lk;
-    sq_WakeAll(&IOReqWait, false);
+    sq_WakeAll(&IOReqWait);
   }
 }
 
@@ -272,7 +272,7 @@ IOReq_EndRead(IORequest * ioreq)
   pageH->ioreq = NULL;
   pageH_SetReferenced(pageH);
   objH_ClearFlags(pageH_ToObj(pageH), OFLG_Fetching);
-  sq_WakeAll(&ioreq->sq, false);
+  sq_WakeAll(&ioreq->sq);
   IOReq_Deallocate(ioreq);
 }
 
@@ -297,7 +297,7 @@ IOReq_EndWrite(IORequest * ioreq)
   // Mark the page as no longer having I/O.
   pageH->ioreq = NULL;
   pageH_ToObj(pageH)->objAge = age_Steal;
-  sq_WakeAll(&ioreq->sq, false);
+  sq_WakeAll(&ioreq->sq);
   IOReq_Deallocate(ioreq);
 }
 
@@ -420,7 +420,7 @@ ioreq_Enqueue(IORequest * ioreq)
   dprintf(true, "ioreq_Enqueue %#x rl=%lld\n", ioreq, ioreq->rangeLoc);
 #endif
   link_insertAfter(& iorq->lk, & ioreq->lk);
-  sq_WakeAll(& iorq->waiter, false);
+  sq_WakeAll(& iorq->waiter);
 }
 
 void

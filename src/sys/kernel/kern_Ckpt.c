@@ -226,7 +226,7 @@ IOReq_EndSync(IORequest * ioreq)
   DEBUG(sync) printf("EndSync synced %d\n", rangesSynced);
 
   if (++rangesSynced >= nextRangeToSync)
-    sq_WakeAll(&WaitForObjDirWritten, false);
+    sq_WakeAll(&WaitForObjDirWritten);
 
   IOReq_Deallocate(ioreq);
 }
@@ -279,7 +279,7 @@ DeclareDemarcationEvent(void)
   nextRetiredGeneration = 0;
 
   ckptState = ckpt_Phase1;
-  sq_WakeAll(&WaitForCkptNeeded, false);
+  sq_WakeAll(&WaitForCkptNeeded);
 }
 
 // This is called after a checkpoint and also after restart.
@@ -798,7 +798,7 @@ IOReq_EndObDirWrite(IORequest * ioreq)
     // Use this page and ioreq to write another page of dir ents.
     WriteAPageOfObDirEnts(pageH, ioreq);
     if (! numDirEntsToSave)	// we have now written them all
-      sq_WakeAll(&WaitForObjDirWritten, false);
+      sq_WakeAll(&WaitForObjDirWritten);
   } else {
     IOReq_Deallocate(ioreq);
     ReleasePageFrame(pageH);
@@ -811,7 +811,7 @@ IOReq_EndGenHdrWrite(IORequest * ioreq)
   DEBUG(ckpt) printf("EndGenHdrWrite\n");
 
   // The IORequest is done.
-  sq_WakeAll(&ioreq->sq, false);
+  sq_WakeAll(&ioreq->sq);
 
   // Hang on to the page and ioreq; they will be used for the checkpoint root.
 }
@@ -895,7 +895,7 @@ IOReq_EndCkptRootWrite(IORequest * ioreq)
   DEBUG(ckpt) printf("EndCkptRootWrite\n");
 
   // The IORequest is done.
-  sq_WakeAll(&ioreq->sq, false);
+  sq_WakeAll(&ioreq->sq);
   PageHeader * pageH = ioreq->pageH;
 
   // Mark the page as no longer having I/O.
@@ -994,7 +994,7 @@ DoPhase5Work(void)
   PostCheckpointProcessing();
 
   ckptState = ckpt_NotActive;
-  sq_WakeAll(&WaitForCkptInactive, false);
+  sq_WakeAll(&WaitForCkptInactive);
 }
 
 void

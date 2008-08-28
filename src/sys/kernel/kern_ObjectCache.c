@@ -467,7 +467,7 @@ static void
 objH_ClearKRO(ObjectHeader * pObj)
 {
   objH_ClearFlags(pObj, OFLG_KRO);
-  sq_WakeAll(ObjectStallQueueFromObHdr(pObj), false);
+  sq_WakeAll(ObjectStallQueueFromObHdr(pObj));
 }
 
 static void
@@ -937,7 +937,7 @@ IOReq_EndPageClean(IORequest * ioreq)
 
   page_ClearAnyKRO(pageH);
 
-  sq_WakeAll(&ioreq->sq, false);
+  sq_WakeAll(&ioreq->sq);
   IOReq_Deallocate(ioreq);
 }
 

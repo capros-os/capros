@@ -53,7 +53,7 @@ sq_IsEmpty(StallQueue * thisPtr)
   return link_isSingleton(&thisPtr->q_head);
 }
 
-void sq_WakeAll(StallQueue* thisPtr, bool verbose /*@ default false @*/);
+void sq_WakeAll(StallQueue * thisPtr);
 
 #define INITQUEUE(name) { &name.q_head, &name.q_head }
 #define DEFQUEUE(name) \

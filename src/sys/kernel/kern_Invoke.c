@@ -200,7 +200,7 @@ inv_Commit(Invocation * thisPtr)
 #if 0
     dprintf(false, "Wake up the waiters sleeping on dr=0x%08x\n", invoker);
 #endif
-    sq_WakeAll(&invoker->stallQ, false);
+    sq_WakeAll(&invoker->stallQ);
     goto inactivate;
 
   case IT_Send:

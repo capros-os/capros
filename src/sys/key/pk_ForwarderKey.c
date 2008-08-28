@@ -192,7 +192,7 @@ swapSlot:
       theNode->nodeData &= ~ForwarderBlocked;
 
       // Wake up any processes that were blocked.
-      sq_WakeAll(ObjectStallQueueFromObHdr(node_ToObj(theNode)), false);
+      sq_WakeAll(ObjectStallQueueFromObHdr(node_ToObj(theNode)));
 
       inv->exit.code = RC_OK;
       break;
