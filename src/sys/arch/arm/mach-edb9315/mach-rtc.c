@@ -281,7 +281,7 @@ RtcInit(void)
 
 #if 0
   dprintf(false, "Read RTC %02x %02x %02x %02x %02x %02x %02x calc %u\n",
-    regs.seconds, regs.minutes, regs.hour, regs.day,
+    regs.seconds, regs.minutes, regs.hours, regs.day,
     regs.date, regs.month, regs.year, newTime );
 #endif
 
@@ -345,7 +345,7 @@ RtcSave(capros_RTC_time_t newTime)
 
 #if 0
   dprintf(false, "Set RTC %02x %02x %02x %02x %02x %02x %02x\n",
-    regs.seconds, regs.minutes, regs.hour, regs.day,
+    regs.seconds, regs.minutes, regs.hours, regs.day,
     regs.date, regs.month, regs.year );
 #endif
 
