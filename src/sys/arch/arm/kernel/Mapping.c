@@ -409,12 +409,6 @@ mach_HeapInit(kpsize_t heap_size)
   // Get its address now:
   HighCPTVA = KPAtoP(uint32_t *, FLPT_FCSEPA + 0x4000);
 
-  /* In lostart, we temporarily initialized FLPT_FCSEVA[KTextPA >> 20]
-  to map the same memory as FLPT_FCSEVA[KTextVA >> 20].
-  Clear that map now, just to be tidy. */
-  FLPT_FCSEVA[KTextPA >> 20] = 0;
-  mach_FlushBothTLBs();
-
   /* Initialize the heap space. */
   heap_start = HeapVA;
   heap_end = HeapVA;

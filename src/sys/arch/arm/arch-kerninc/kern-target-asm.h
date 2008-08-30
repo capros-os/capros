@@ -42,11 +42,11 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 /*
 Physical memory layout:
-At 0x00000000 (KTextPA), exception vectors and kernel code (text and rodata)
+At KTextPA, exception vectors and kernel code (text and rodata)
 followed by pad to page boundary
 followed by available memory to 1MB (so we can map kernel code
   as an entire section read-only)
-At 0x00100000:
+At KTextPA + 0x00100000:
   kernel data, bss
 followed by pad to 16KB boundary
 followed by First-Level Page Table for the Null space

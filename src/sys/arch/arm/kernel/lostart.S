@@ -28,6 +28,12 @@ Approved for public release, distribution unlimited. */
 
 //#define EARLY_CONSOLE 1
 
+#ifdef OPTION_WRITEBACK
+#define WriteBackOption 0x4 /* PTE_BUFFERABLE for write-back */
+#else
+#define WriteBackOption 0x0 /* write-through */
+#endif
+
 #define PUTC(c) \
 	mov r0,c ; str r0,[r10] ; \
 //	mov r0,#0x1000000 ; 0: subs r0,r0,#1 ; bne 0b
@@ -54,6 +60,7 @@ Approved for public release, distribution unlimited. */
 	mrc p15,0,r9,c2,c0,0	// read TTBR
 	bic r9,r9,#0xff
 	bic r9,r9,#0x3f00
+
 #if 0	// where did Redboot put the FLMT?
 	mov r0,r9,LSR #28
 	and r0,r0,#0xf
@@ -76,6 +83,16 @@ Approved for public release, distribution unlimited. */
 	add r0,r0,#0x30
 	PUTC(r0)
 #endif
+	// Redboot seems to put the TTBR in the second page of physical
+	// memory. Get the beginning of physical memory:
+	sub r9,r9,#0x4000
+
+	// Redboot maps physical memory at address zero
+	// and also at address virtual = physical.
+	// Go to the virtual = physical address before disabling the MMU.
+	add pc,pc,r9
+	nop
+	PUTC(#66)	// 'B
 
 	mrc p15,0,r8,c1,c0,0	// read control register 1
 	bic r8,r8,#0x1200	// disable ICache, clear R bit
@@ -86,6 +103,7 @@ Approved for public release, distribution unlimited. */
 	ldr r1,=(AHB_PA+EMAC_AHB_OFS)	// 0x80010000
 	mov r0,#1		// RESET bit
 	str r0,[r1,#0x20]	// SelfCtl register
+	PUTC(#67)	// 'C
 #endif
 /* When we get here from the boot ROM, we are in Supervisor mode,
    in ARM (not Thumb) execution state, with IRQ and FIQ both disabled. */
@@ -99,9 +117,10 @@ getpc:	mov r6,pc	// record the pc
    we use the value in the PC. 
 
    If started by Redboot, we are running out of RAM, presumably at
-   0x00200000, but rather than assume that,
+   FirstRAMAddr + 0x00200000, but rather than assume that,
    we use the value in the PC.
-   The .data section is at 0x00100000, and the imgdata is at 0x00300000. */
+   The .data section is at FirstRAMAddr + 0x00100000,
+   and the imgdata is at FirstRAMAddr + 0x00300000. */
 
 /* We are linked to run at KTextVA, so until we copy the code to RAM
    and set up the MMU,
@@ -122,12 +141,13 @@ getpc:	mov r6,pc	// record the pc
 	str r7,[r4],#4
 	cmp r4,r5
 	blo 1b
+	PUTC(#68)	// 'D
 
 /* Jump to this code in RAM. */
 	add pc,pc,r8
 	nop
 
-	PUTC(#66)	// 'B
+	PUTC(#69)	// 'E
 
 /* If using Redboot, the kernel data section is loaded at physical 0x00100000,
    which is where we want it. */
@@ -163,68 +183,18 @@ getpc:	mov r6,pc	// record the pc
 	add r4,r4,#0x400	// size of coarse page table
 /* At this point (all are physical addresses):
 	r4 - end of CPT for exception vectors
-	r5 - FLPT
+	r5 - FCSE FLPT
 	r7 - CPT for exception vectors
  */
 
-	PUTC(#67)	// 'C
+	PUTC(#70)	// 'F
 
-/* Clear the FLPT and CPT */
+/* Clear the FCSE FLPT and CPT */
 	mov r0,#0
 	mov r1,r5
 1:	str r0,[r1],#4
 	cmp r1,r4
 	blo 1b
-
-/* Map whole sections (1MB). */
-	ldr r3,=(1024*1024)	// size of a section
-/* Set up device registers in FLPT. */
-// AP=0b01 domain=0 C=0 B=0 section descriptor
-	ldr r0,=(0x00000412 + 0x80000000)
-	ldr r1,=(32*1024*1024)	// size of memory to map
-	add r1,r1,r0
-	ldr r2,=(DeviceRegsVA >> (20-2))
-	add r2,r2,r5
-1:	str r0,[r2], #4
-	add r0,r0,r3
-	cmp r0,r1
-	bne 1b
-
-/* Map flash memory in FLPT. */
-// AP=0b01 domain=0 C=0 B=0 section descriptor
-	ldr r0,=(0x00000412 + FlashMemPA)
-	ldr r1,=(PhysMapVA - FlashMemVA)	// size of memory to map
-	add r1,r1,r0
-	ldr r2,=(FlashMemVA >> (20-2))
-	add r2,r2,r5
-1:	str r0,[r2], #4
-	add r0,r0,r3
-	cmp r0,r1
-	bne 1b
-
-#ifdef OPTION_WRITEBACK
-#define WriteBackOption 0x4 /* PTE_BUFFERABLE for write-back */
-#else
-#define WriteBackOption 0x0 /* write-through */
-#endif
-	PUTC(#68)	// 'D
-
-/* Set up physical memory map in FLPT. */
-// AP=0b01 domain=0 C=1 B=0 section descriptor
-// Always use write-through, because this is mainly used for mapping tables.
-	ldr r0,=(0x0000041a)
-/* TODO: Would we benefit by making this not cacheable or not buffered? */
-/* TODO: Need to fix this to handle memory that isn't contiguous with 
-   address zero. */
-/* TODO: Avoid mapping memory that doesn't exist. */
-	ldr r1,=0x30000000	// size of phys mem map
-	add r1,r1,r0
-	ldr r2,=(PhysMapVA >> (20-2))
-	add r2,r2,r5
-1:	str r0,[r2], #4
-	add r0,r0,r3
-	cmp r0,r1
-	bne 1b
 
 /* Set up kernel code in FLPT. */
 /* Assume less than 1MB. */
@@ -234,7 +204,7 @@ getpc:	mov r6,pc	// record the pc
 	str r0,[r5, r1]
 /* Temporarily map kernel code at KTextPA also so we can continue executing
    when we enable the MMU. 
-   This map will be cleared later in map_HeapInit. */
+   This map will be cleared below. */
 	ldr r0,=(0x0000041a + KTextPA)	// map read-write
 	ldr r1,=(KTextPA >> (20-2))
 	str r0,[r5, r1]
@@ -252,12 +222,12 @@ getpc:	mov r6,pc	// record the pc
 	add r0,r0,r7	// PA of CPT
 	ldr r1,=(0xfff00000 >> (20-2))
 	str r0,[r5, r1]
-/* Set up page for exception vectors, referring to physical address zero. */
+/* Set up page for exception vectors, referring to page zero of kernel text. */
 /* Note, the vectors aren't there yet. They will be written below. */
 	ldr r0,=(0x9 + KTextPA)	// AP=0b00, C=1, B=0
 	str r0,[r7, #(0xf0 << 2)]
 
-	PUTC(#69)	// 'E
+	PUTC(#71)	// 'G
 
 /* Enable the MMU. */
 	mcr p15,0,r5,c2,c0,0	// write TTBR
@@ -270,7 +240,7 @@ getpc:	mov r6,pc	// record the pc
 	mcr p15,0,r0,c7,c7,0	// invalidate ICache and DCache
 #endif // OPTION_NO_MMU
 
-	PUTC(#70)	// 'F
+	PUTC(#72)	// 'H
 
 #ifdef EARLY_CONSOLE
 #error	/* Don't use SerialStream before enabling the MMU, because it
@@ -288,24 +258,80 @@ getpc:	mov r6,pc	// record the pc
 	mcr p15,0,r8,c1,c0,0	// write control register 1
 #endif // OPTION_NO_MMU
 
+	// Note, we can't use PUTC here, because device registers aren't mapped.
+
 	ldr sp,=(kstackBot)
-
-// Go to new code location.
-	add pc,pc,#(KTextVA - KTextPA)
-	nop
-
-#ifdef EARLY_CONSOLE
-	mov r0,#'C
-	bl SerialStream_Put
-#endif
 
 #ifndef OPTION_NO_MMU
 	ldr r0,=FLPT_FCSEPA
 	str r5,[r0]	// save ptr to FLPT
 #endif // OPTION_NO_MMU
 
+	add r5,r5,#(KTextVA - KTextPA)	// virtual address of FCSE FLPT
+
+// Go to new code location.
+	add pc,pc,#(KTextVA - KTextPA)
+	nop
+
+/* Clear the temporary map of kernel code at KTextPA.
+Do this before setting up other maps, because the other maps might
+be at the same address! */
+	mov r0,#0
+	ldr r1,=(KTextPA >> (20-2))
+	str r0,[r5, r1]
+	// Clean the just-written word from the cache to the FLPT.
+	add r1,r1,r5
+	mcr p15,0,r1,c7,c10,1
+	mcr p15,0,r0,c8,c7,0	// flush both TLBs
+
+/* Map whole sections (1MB). */
+	ldr r3,=(1024*1024)	// size of a section
+/* Set up device registers in FLPT. */
+// AP=0b01 domain=0 C=0 B=0 section descriptor
+	ldr r0,=(0x00000412 + 0x80000000)
+	ldr r1,=(32*1024*1024)	// size of memory to map
+	add r1,r1,r0
+	ldr r2,=(DeviceRegsVA >> (20-2))
+	add r2,r2,r5
+1:	str r0,[r2], #4
+	add r0,r0,r3
+	cmp r0,r1
+	bne 1b
+
+	ldr r10,=(APB_VA + UART1_APB_OFS)	// for PUTC
+	PUTC(#73)	// 'I
+
+/* Map flash memory in FLPT. */
+// AP=0b01 domain=0 C=0 B=0 section descriptor
+	ldr r0,=(0x00000412 + FlashMemPA)
+	ldr r1,=(PhysMapVA - FlashMemVA)	// size of memory to map
+	add r1,r1,r0
+	ldr r2,=(FlashMemVA >> (20-2))
+	add r2,r2,r5
+1:	str r0,[r2], #4
+	add r0,r0,r3
+	cmp r0,r1
+	bne 1b
+
+/* Set up physical memory map in FLPT. */
+// AP=0b01 domain=0 C=1 B=0 section descriptor
+// Always use write-through, because this is mainly used for mapping tables.
+	ldr r0,=(0x0000041a + FirstRAMAddr)
+/* TODO: Would we benefit by making this not cacheable? */
+/* TODO: Avoid mapping memory that doesn't exist. */
+	ldr r1,=0x30000000	// size of phys mem map
+	add r1,r1,r0
+	ldr r2,=(PhysMapVA >> (20-2))
+	add r2,r2,r5
+1:	str r0,[r2], #4
+	add r0,r0,r3
+	cmp r0,r1
+	bne 1b
+
+	PUTC(#74)	// 'J
+
 #ifdef EARLY_CONSOLE
-	mov r0,#'7
+	mov r0,#'C
 	bl SerialStream_Put
 #endif
 
@@ -408,7 +434,7 @@ Configure PLL1 to output:
 NoClockConfig:
 /* Set up exception vectors.
    These will overwrite the first few instructions of this file. */
-	ldr r2,=(KTextPA + PhysMapVA)	
+	ldr r2,=(KTextPA - FirstRAMAddr + PhysMapVA)	
 		// VA of page containing exception vectors
 	ldr r3,=0xffff0008	// VA at which vector will execute,
 			// + 8 for value pc will have when it executes
@@ -441,6 +467,7 @@ NoClockConfig:
 #endif
 	bl GrubEmul
 #if 1
+
 	bl main		// does not return
 #else
 	mrc p15,0,r0,c1,c0	// get CP15 reg 1 for display
@@ -465,7 +492,15 @@ NoClockConfig:
 #endif
 #endif
 
-/* Procedure to store a branch to the address in r1. */
+/* Set up an exception vector.
+This procedure has a nonstandard calling convention.
+The location following the call has the address of an exception handler.
+r2 has the writeable virtual address of the exception vector.
+r3 has the virtual address at which the vector will execute,
+	 + 8 for the value the pc will have when it executes.
+This procedure stores a branch to the exception handler
+r2 and r3 are updated.
+*/
 setVector:
 	ldr r1,[lr]	// get data following call
 	sub r1,r1,r3
@@ -475,6 +510,24 @@ setVector:
 	str r1,[r2], #4
 	add r3,r3,#4
 	add pc,lr,#4	// return, skipping data word
+
+#if 0
+// Diagnostic procedure to print the high 3 hex digits of r9.
+printHigh3:
+	mov r0,r9,LSR #28
+	and r0,r0,#0xf
+	add r0,r0,#0x30
+	PUTC(r0)
+	mov r0,r9,LSR #24
+	and r0,r0,#0xf
+	add r0,r0,#0x30
+	PUTC(r0)
+	mov r0,r9,LSR #20
+	and r0,r0,#0xf
+	add r0,r0,#0x30
+	PUTC(r0)
+	mov pc,r14
+#endif
 
 ENTRY(halt)
 	b .

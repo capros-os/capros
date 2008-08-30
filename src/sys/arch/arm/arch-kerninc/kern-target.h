@@ -55,14 +55,14 @@ typedef uint32_t        ula_t;	/* user modified virtual address */
 INLINE kpa_t
 VTOP(kva_t va)
 {
-  return va - PhysMapVA;
+  return va - PhysMapVA + FirstRAMAddr;
 }
 
 /* Convert physical address to kernel virtual address. */
 INLINE kva_t
 PTOV(kpa_t pa)
 {
-  return pa + PhysMapVA;
+  return pa - FirstRAMAddr + PhysMapVA;
 }
 
 /* (Kernel) Physical Address to Pointer (typed kernel virtual address) */
