@@ -28,31 +28,33 @@ Approved for public release, distribution unlimited. */
 #include "../kernel/ep93xx-gpio.h"
 #include "../kernel/mach-ep93xx.c"	// get RtcRead and RtcSet
 
-/* Declarations for the DS1337 battery-backed serial real time clock
- * on the EDB9315 board. 
- * (Battery must be connected to jumper JP26.
- * BEWARE! This battery also powers SRAM which uses 10mA.) */
+/* Declarations for the ISL1208 battery-backed serial real time clock
+ * on the EDB9315A board. */
 
-#define DS1337_ADDR 0xd0
-#define DS1337_READ 0x01
+#define ISL1208_ADDR 0xde
+#define ISL1208_READ 0x01
 
-struct DS1337Registers {
+struct ISL1208Registers {
   uint8_t seconds;
   uint8_t minutes;
   uint8_t hours;
-  uint8_t day;
   uint8_t date;
   uint8_t month;
   uint8_t year;
-  uint8_t A1Seconds;
-  uint8_t A1Minutes;
-  uint8_t A1Hour;
-  uint8_t A1DayDate;
-  uint8_t A2Minutes;
-  uint8_t A2Hour;
-  uint8_t A2DayDate;
-  uint8_t control;
-  uint8_t status;
+  uint8_t day;
+  uint8_t Status;
+  uint8_t IntAlarm;
+  uint8_t reserved;
+  uint8_t AnalogTrim;
+  uint8_t DigitalTrim;
+  uint8_t ASeconds;
+  uint8_t AMinutes;
+  uint8_t AHours;
+  uint8_t ADate;
+  uint8_t AMonth;
+  uint8_t ADay;
+  uint8_t User1;
+  uint8_t User2;
 };
 
 /* Timing constants:
@@ -65,8 +67,8 @@ Maximum clock frequency is 400kHz, so minimum period is 2500 ns. */
 
 #define GPIO (GPIOStruct(APB_VA + GPIO_APB_OFS))
 
-// EECLK is the DS1337 clock SCL.
-// EEDAT is the DS1337 data SDA.
+// EECLK is the ISL1208 clock SCL.
+// EEDAT is the ISL1208 data SDA.
 
 // Bits in GPIO Port G:
 #define EECLKBit 0x01
@@ -151,7 +153,7 @@ SendByte(unsigned int byte)
   int ack = ReadData();
   SetClkZero();
   if (ack)
-    dprintf(true, "DS1337 did not acknowledge!\n");
+    dprintf(true, "ISL1208 did not acknowledge!\n");
 }
 
 static uint8_t
@@ -205,7 +207,7 @@ CheckEEDATHigh(const char * where)
 }
 
 static void
-DS1337Init(void)
+ISL1208Init(void)
 {
   GPIOInit();
   SetClkOne();
@@ -222,7 +224,7 @@ DS1337Init(void)
   SetClkZero();
 
   // Address the device
-  SendByte(DS1337_ADDR);
+  SendByte(ISL1208_ADDR);
   // Caller will send the register address.
 }
 
@@ -241,15 +243,15 @@ SendSTOP(void)
   CheckEEDATHigh("STOP");
 }
 
-/* On the EDB9315 RtcInit loads the EP9315's RTC from the EDB9315's
- * battery-backed RTC, which is a DS1337. */
+/* On the EDB9315A RtcInit loads the EP9315's RTC from the EDB9315A's
+ * battery-backed RTC, which is a ISL1208. */
 /* This takes about a millisecond to execute. */
 int
 RtcInit(void)
 {
-  struct DS1337Registers regs;
+  struct ISL1208Registers regs;
 
-  DS1337Init();
+  ISL1208Init();
   // Send register address
   SendByte(0);
 
@@ -264,27 +266,27 @@ RtcInit(void)
   SetClkZero();
 
   // Address the device
-  SendByte(DS1337_ADDR + DS1337_READ);
+  SendByte(ISL1208_ADDR + ISL1208_READ);
 
-  // Read the time from the DS1337.
+  // Read the time from the ISL1208.
   int i;
   uint8_t * bp = &regs.seconds;
-  for (i = 7; i > 0; i--) {
+  for (i = 6; i > 0; i--) {
     *bp++ = ReadByte(!i);
   }
 
   SendSTOP();
 
   uint32_t newTime = kernMktime(BCDToBin(regs.year) + 2000,
-    BCDToBin(regs.month & 0x1f),
+    BCDToBin(regs.month),
     BCDToBin(regs.date),
-    BCDToBin(regs.hours),
+    BCDToBin(regs.hours & 0x3f),
     BCDToBin(regs.minutes),
     BCDToBin(regs.seconds) );
 
 #if 0
-  dprintf(false, "Read RTC %02x %02x %02x %02x %02x %02x %02x calc %u\n",
-    regs.seconds, regs.minutes, regs.hours, regs.day,
+  dprintf(false, "Read RTC %02x %02x %02x %02x %02x %02x calc %u\n",
+    regs.seconds, regs.minutes, regs.hours,
     regs.date, regs.month, regs.year, newTime );
 #endif
 
@@ -294,14 +296,14 @@ RtcInit(void)
   return 0;
 }
 
-/* On the EDB9315 RtcSave saves the specified time to the EDB9315's
- * battery-backed RTC, which is a DS1337. */
+/* On the EDB9315A RtcSave saves the specified time to the EDB9315A's
+ * battery-backed RTC, which is a ISL1208. */
 /* This takes about a millisecond to execute. */
 int
 RtcSave(capros_RTC_time_t newTime)
 {
   int i;
-  struct DS1337Registers regs;
+  struct ISL1208Registers regs;
 
   // Convert newTime to regs.
   struct kernTm tm;
@@ -309,29 +311,30 @@ RtcSave(capros_RTC_time_t newTime)
 
   regs.seconds = BinToBCD(tm.seconds);
   regs.minutes = BinToBCD(tm.minutes);
-  regs.hours = BinToBCD(tm.hours);
+  regs.hours = BinToBCD(tm.hours) | 0x80;	// 24 hour time
   regs.date = BinToBCD(tm.date);
   regs.month = BinToBCD(tm.month);
   int year = tm.year - 2000;
   if (! (year >= 0 && year < 100))	// only for years 20xx
     return -1;
   regs.year = BinToBCD(year);
-  regs.day = 1;		// we don't care about this, but make it valid
 
-  DS1337Init();
-  // Send register address
-  SendByte(0x0e);
+  ISL1208Init();
+  SendByte(0x07);	// register address
 
-  SendByte(0x04);	// Control Register; enable oscillator, disable sq wv
-  SendByte(0);		// Clear OSF in Status Register; data are valid
+  SendByte(0x90);	// Status Register: Write RTC enable, auto reset enable
+  SendByte(0x10);	// FOBATB
 
-  // Send the time to the DS1337.
+  ISL1208Init();
+  SendByte(0x00);	// register address
+
+  // Send the time to the ISL1208.
   uint8_t * bp = &regs.seconds;
-#define WORKAROUND	// Workaround for a bizarre bug somewhere
+//#define WORKAROUND	// Workaround for a bizarre bug somewhere
 #ifdef WORKAROUND
   uint8_t save[7], *sp = &save[0];
 #endif
-  for (i = 7; i > 0; i--) {
+  for (i = 6; i > 0; i--) {
 #ifdef WORKAROUND
     uint8_t c = *bp;
     *sp++=c; 
@@ -347,8 +350,8 @@ RtcSave(capros_RTC_time_t newTime)
 #endif
 
 #if 0
-  dprintf(false, "Set RTC %02x %02x %02x %02x %02x %02x %02x\n",
-    regs.seconds, regs.minutes, regs.hours, regs.day,
+  dprintf(false, "Set RTC %02x %02x %02x %02x %02x %02x\n",
+    regs.seconds, regs.minutes, regs.hours & 0x7f,
     regs.date, regs.month, regs.year );
 #endif
 
