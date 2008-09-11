@@ -25,6 +25,8 @@ Approved for public release, distribution unlimited. */
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
 #include <domain/domdbg.h>
+#include <linux/spinlock.h>
+#include <linux/jiffies.h>
 
 int printk(const char *fmt, ...)
 {
@@ -45,5 +47,42 @@ void panic(const char * fmt, ...)
   kvprintf(KR_OSTREAM, fmt, args);
   va_end(args);
 
-  capros_Console_KDB(KR_OSTREAM);
+  while (1)
+    capros_Console_KDB(KR_OSTREAM);
+}
+
+/*
+ * printk rate limiting, lifted from the networking subsystem.
+ *
+ * This enforces a rate limit: not more than one kernel message
+ * every printk_ratelimit_jiffies to make a denial-of-service
+ * attack impossible.
+ */
+int __printk_ratelimit(int ratelimit_jiffies, int ratelimit_burst)
+{
+	static DEFINE_SPINLOCK(ratelimit_lock);
+	static unsigned long toks = 10 * 5 * HZ;
+	static unsigned long last_msg;
+	static int missed;
+	unsigned long flags;
+	unsigned long now = jiffies;
+
+	spin_lock_irqsave(&ratelimit_lock, flags);
+	toks += now - last_msg;
+	last_msg = now;
+	if (toks > (ratelimit_burst * ratelimit_jiffies))
+		toks = ratelimit_burst * ratelimit_jiffies;
+	if (toks >= ratelimit_jiffies) {
+		int lost = missed;
+
+		missed = 0;
+		toks -= ratelimit_jiffies;
+		spin_unlock_irqrestore(&ratelimit_lock, flags);
+		if (lost)
+			printk(KERN_WARNING "printk: %d messages suppressed.\n", lost);
+		return 1;
+	}
+	missed++;
+	spin_unlock_irqrestore(&ratelimit_lock, flags);
+	return 0;
 }
