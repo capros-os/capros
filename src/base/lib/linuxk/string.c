@@ -19,11 +19,13 @@
  * -  Kissed strtok() goodbye
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/types.h>
 #include <linux/string.h>
-#include <linux/ctype.h>
+//#include <linux/ctype.h>
 #include <linux/module.h>
 
+#if 0 // CapROS
 #ifndef __HAVE_ARCH_STRNICMP
 /**
  * strnicmp - Case insensitive, length-limited string comparison
@@ -311,6 +313,7 @@ char *strrchr(const char *s, int c)
 }
 EXPORT_SYMBOL(strrchr);
 #endif
+#endif // CapROS
 
 #ifndef __HAVE_ARCH_STRNCHR
 /**
@@ -329,6 +332,7 @@ char *strnchr(const char *s, size_t count, int c)
 EXPORT_SYMBOL(strnchr);
 #endif
 
+#if 0 // CapROS
 /**
  * strstrip - Removes leading and trailing whitespace from @s.
  * @s: The string to be stripped.
@@ -660,3 +664,4 @@ void *memchr(const void *s, int c, size_t n)
 }
 EXPORT_SYMBOL(memchr);
 #endif
+#endif // CapROS

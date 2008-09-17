@@ -3,14 +3,41 @@
  *
  *  Copyright (C) 1991, 1992  Linus Torvalds
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
+#include <linuxk/linux-emul.h>
+#include <linux/kprobes.h>
 #include <linux/module.h>
+#if 0 // CapROS
 #include <linux/mm.h>
 #include <linux/utsname.h>
 #include <linux/mman.h>
 #include <linux/smp_lock.h>
+#endif // CapROS
 #include <linux/notifier.h>
 #include <linux/reboot.h>
+#if 0 // CapROS
 #include <linux/prctl.h>
 #include <linux/highuid.h>
 #include <linux/fs.h>
@@ -34,8 +61,10 @@
 
 #include <linux/compat.h>
 #include <linux/syscalls.h>
+#endif // CapROS
 #include <linux/kprobes.h>
 
+#if 0 // CapROS
 #include <asm/uaccess.h>
 #include <asm/io.h>
 #include <asm/unistd.h>
@@ -104,6 +133,7 @@ EXPORT_SYMBOL(cad_pid);
  */
 
 static BLOCKING_NOTIFIER_HEAD(reboot_notifier_list);
+#endif // CapROS
 
 /*
  *	Notifier chain core routines.  The exported routines below
@@ -173,6 +203,7 @@ static int __kprobes notifier_call_chain(struct notifier_block **nl,
 	return ret;
 }
 
+#if 0 // CapROS
 /*
  *	Atomic notifier chain routines.  Registration and unregistration
  *	use a spinlock, and call_chain is synchronized by RCU (no locks).
@@ -265,8 +296,9 @@ int __kprobes atomic_notifier_call_chain(struct atomic_notifier_head *nh,
 {
 	return __atomic_notifier_call_chain(nh, val, v, -1, NULL);
 }
-
 EXPORT_SYMBOL_GPL(atomic_notifier_call_chain);
+#endif // CapROS
+
 /*
  *	Blocking notifier chain routines.  All access to the chain is
  *	synchronized by an rwsem.
@@ -288,6 +320,7 @@ int blocking_notifier_chain_register(struct blocking_notifier_head *nh,
 {
 	int ret;
 
+#if 0 // CapROS
 	/*
 	 * This code gets used during boot-up, when task switching is
 	 * not yet working and interrupts must remain disabled.  At
@@ -295,6 +328,7 @@ int blocking_notifier_chain_register(struct blocking_notifier_head *nh,
 	 */
 	if (unlikely(system_state == SYSTEM_BOOTING))
 		return notifier_chain_register(&nh->head, n);
+#endif // CapROS
 
 	down_write(&nh->rwsem);
 	ret = notifier_chain_register(&nh->head, n);
@@ -319,6 +353,7 @@ int blocking_notifier_chain_unregister(struct blocking_notifier_head *nh,
 {
 	int ret;
 
+#if 0 // CapROS
 	/*
 	 * This code gets used during boot-up, when task switching is
 	 * not yet working and interrupts must remain disabled.  At
@@ -326,6 +361,7 @@ int blocking_notifier_chain_unregister(struct blocking_notifier_head *nh,
 	 */
 	if (unlikely(system_state == SYSTEM_BOOTING))
 		return notifier_chain_unregister(&nh->head, n);
+#endif // CapROS
 
 	down_write(&nh->rwsem);
 	ret = notifier_chain_unregister(&nh->head, n);
@@ -461,6 +497,7 @@ int raw_notifier_call_chain(struct raw_notifier_head *nh,
 
 EXPORT_SYMBOL_GPL(raw_notifier_call_chain);
 
+#if 0 // CapROS
 /*
  *	SRCU notifier chain routines.    Registration and unregistration
  *	use a mutex, and call_chain is synchronized by SRCU (no locks).
@@ -2277,3 +2314,4 @@ asmlinkage long sys_getcpu(unsigned __user *cpup, unsigned __user *nodep,
 	}
 	return err ? -EFAULT : 0;
 }
+#endif // CapROS

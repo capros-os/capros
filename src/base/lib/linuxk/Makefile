@@ -52,6 +52,7 @@ OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/lthread.o \
   $(BUILDDIR)/lsync.o \
   $(BUILDDIR)/maps.o \
+  $(BUILDDIR)/notifier.o \
   $(BUILDDIR)/platform.o \
   $(BUILDDIR)/printk.o \
   $(BUILDDIR)/resource.o \
@@ -59,6 +60,7 @@ OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/sleep.o \
   $(BUILDDIR)/slob.o \
   $(BUILDDIR)/softirq.o \
+  $(BUILDDIR)/string.o \
   $(BUILDDIR)/stubs.o \
   $(BUILDDIR)/threadnum.o \
   $(BUILDDIR)/threadstart.o \
@@ -69,13 +71,18 @@ OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/wait.o \
   $(BUILDDIR)/workqueue.o
 
+ifeq "$(EROS_TARGET)" "i386"
+OBJECTS+=$(BUILDDIR)/checksum.o
+else
 ifeq "$(EROS_TARGET)" "arm"
 OBJECTS+=$(BUILDDIR)/bitops.o
+OBJECTS+=$(BUILDDIR)/csumpartialcopy.o
 OBJECTS+=$(BUILDDIR)/devclock.o
 OBJECTS+=$(BUILDDIR)/div64.o
 OBJECTS+=$(BUILDDIR)/findbit.o
 OBJECTS+=$(BUILDDIR)/memzero.o
 OBJECTS+=$(BUILDDIR)/traps.o
+endif
 endif
 
 TARGETS=$(BUILDDIR)/liblinuxk.a $(BUILDDIR)/dstart.o

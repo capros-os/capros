@@ -296,6 +296,7 @@ void tasklet_init(struct tasklet_struct *t,
 
 EXPORT_SYMBOL(tasklet_init);
 
+#if 0
 void tasklet_kill(struct tasklet_struct *t)
 {
 	if (in_interrupt())
@@ -311,3 +312,4 @@ void tasklet_kill(struct tasklet_struct *t)
 }
 
 EXPORT_SYMBOL(tasklet_kill);
+#endif

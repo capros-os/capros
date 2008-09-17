@@ -40,7 +40,9 @@ Approved for public release, distribution unlimited. */
 
 const uint32_t __rt_stack_pointer = (0x420000 - SIZEOF_THREAD_INFO);
 
-extern NORETURN void driver_main(void);
+extern void driver_main(void);
+/* driver_main should be NORETURN, but don't declare it so,
+ * so we can detect whether it returns. */
 
 /* When called, KR_TEMP1 has a constructor builder key to the VCSK
    for the data section,
@@ -105,4 +107,6 @@ main(void)
   maps_init();
 
   driver_main();
+  assert(false);	// driver_main should not return
+  return 0;
 }

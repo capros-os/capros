@@ -339,7 +339,7 @@ EXPORT_SYMBOL_GPL(platform_device_del);
  */
 int platform_device_register(struct platform_device * pdev)
 {
-//	device_initialize(&pdev->dev);
+	device_initialize(&pdev->dev);
 	return platform_device_add(pdev);
 }
 EXPORT_SYMBOL_GPL(platform_device_register);
