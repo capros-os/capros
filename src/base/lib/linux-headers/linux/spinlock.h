@@ -115,7 +115,7 @@ do {								\
 } while (0)
 #else
 # define rwlock_init(lock)					\
-	do { *(lock) = RW_LOCK_UNLOCKED; } while (0)
+	do { *(lock) = __RW_LOCK_UNLOCKED(*(lock)); } while (0)
 #endif
 
 #define spin_is_locked(lock)	__raw_spin_is_locked(&(lock)->raw_lock)

@@ -106,7 +106,7 @@ typedef struct {
 	(spinlock_t)	{	.raw_lock = __RAW_SPIN_LOCK_UNLOCKED((lockname).raw_lock),	\
 				SPIN_DEP_MAP_INIT(lockname) }
 #define __RW_LOCK_UNLOCKED(lockname) \
-	(rwlock_t)	{	.raw_lock = __RAW_RW_LOCK_UNLOCKED(lockname.raw_lock),	\
+	(rwlock_t)	{	.raw_lock = __RAW_RW_LOCK_UNLOCKED((lockname).raw_lock),	\
 				RW_DEP_MAP_INIT(lockname) }
 #endif
 
