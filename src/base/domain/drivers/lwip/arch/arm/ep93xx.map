@@ -1,0 +1,100 @@
+#ifndef __LWIP_MAP_
+#define __LWIP_MAP_
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <eros/arch/arm/mach-ep93xx/ep9315.h>
+#include <linuxk/lsync.h>
+#include <eros/machine/target-asm.h>
+#include <eros/Reserve.h>
+#include <asm/thread_info.h>
+#include <drivers/driver.map>
+
+/*********************************************
+ * Driver for lwIP - lightweight Internet Protocol.
+ *********************************************/
+
+eth_prog = program segtree LIBDIR "drivers/lwip";
+eth_pc = symbol LIBDIR "drivers/lwip" _start;
+
+BOOT_DOMCRE(eth);
+
+ethConstit = new node;	// shared by all instances
+ethConstit[0] = volsize;
+
+#define fourByteVal(a,b,c,d) ((((a)*256+(b))*256+(c))*256+(d))
+
+/* Define target-specific resources. */
+
+#if defined(EROS_TARGET_arm)
+
+/*********************************************
+ * ARM EP93xx Ethernet driver.
+ *********************************************/
+
+#define AHB_PA 0x80000000
+#define ethPhysreg (AHB_PA + EMAC_AHB_OFS)
+#define ethpg(i) ethle_iomem[1+(i)] = physpage(ethPhysreg+(i)*EROS_PAGE_SIZE);
+
+/* Usage:
+ETH_DRIVER(fourByteVal(192,168,0,38),	// IP address
+           fourByteVal(255,255,255,0),	// mask
+           fourByteVal(192,168,0,1)	// gateway
+           );
+*/
+
+// KR_APP2(0) below is KR_IPAddrs.
+// ethle_iomem gets 16 pages of device registers.
+#define ETH_DRIVER(ip,mask,gw) \
+DRIVER(eth, eth_prog, eth_pc, 0); \
+eth_proc key reg KR_CONSTIT = ethConstit; \
+eth_proc key reg KR_CREATOR = eth_proccre; \
+eth_proc key reg KR_APP2(0) = number(ip,mask,gw); \
+ethle_iomem = new node; \
+ethle_iomem[0] = number(16, ethPhysreg, 0); \
+ethpg(0) \
+ethpg(1) \
+ethpg(2) \
+ethpg(3) \
+ethpg(4) \
+ethpg(5) \
+ethpg(6) \
+ethpg(7) \
+ethpg(8) \
+ethpg(9) \
+ethpg(10) \
+ethpg(11) \
+ethpg(12) \
+ethpg(13) \
+ethpg(14) \
+ethpg(15) \
+ethle[LE_IOMEM] = ethle_iomem; \
+ethKey = eth;
+
+#elif defined(EROS_TARGET_i486)
+
+#else
+#error "Unknown target"
+#endif
+
+#endif
