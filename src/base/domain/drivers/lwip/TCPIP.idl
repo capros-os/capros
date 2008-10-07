@@ -5,7 +5,11 @@ interface TCPSocket extends key {
   const unsigned long maxWriteLength = 4096;
   const unsigned long maxReadLength = 4096;
 
+  const unsigned byte flagPush   =  8;	// send this data ASAP
+  const unsigned byte flagUrgent = 32;
+
   exception NoMem;	// server does not have enough memory for the operation
+  exception Already;
 
   /** close - Close the connection.
   May raise NoMem, in which case the connection is not closed. 
@@ -18,13 +22,19 @@ interface TCPSocket extends key {
   is not yet up to the task. */
 
   // Order code 0:
+  // flags has flagUrgent if there remains urgent data to be read
+  // Raises Already if a read is already in progress.
   client void read(unsigned long maxBytesToRead,
-                   out unsigned long pairsRead,
+                   out unsigned long bytesRead,
+                   out unsigned byte flags,
                    out unsigned byte data); /* this is a lie, the output
 				 is actually an array of bytes. */
 
   // Order code 1:
+  // flags may be any combination of flagsPush and flagsUrgent.
+  // Raises Already if a write is already in progress.
   client void write(unsigned long len,
+                    unsigned byte flags,
                     out unsigned byte data); /* this is a lie, this is
 				really an input array of bytes. */
 };

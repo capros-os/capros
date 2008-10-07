@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
 #define TCP_SND_BUF (TCP_MSS * 2)
 
 #define LWIP_DEBUG
-#define ETHARP_DEBUG LWIP_DBG_ON
+//#define ETHARP_DEBUG LWIP_DBG_ON
 #define IP_DEBUG    LWIP_DBG_ON
 #define TCP_DEBUG   LWIP_DBG_ON
 
