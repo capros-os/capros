@@ -44,3 +44,5 @@ all:	$(OBJECTS)
 install: all
 
 include $(EROS_SRC)/build/make/makerules.mk
+
+-include $(BUILDDIR)/.*.m
