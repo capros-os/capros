@@ -7,7 +7,23 @@
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
+ *
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
@@ -23,6 +39,8 @@
 #include <asm/arch/ep93xx-regs.h>
 #include <asm/arch/platform.h>
 #include <asm/io.h>
+
+#include <domain/assert.h>
 
 #define DRV_MODULE_NAME		"ep93xx-eth"
 #define DRV_MODULE_VERSION	"0.1"
@@ -444,6 +462,7 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
 	int i;
 
 	for (i = 0; i < RX_QUEUE_ENTRIES; i += 2) {
+#if 0 // CapROS
 		dma_addr_t d;
 
 		d = ep->descs->rdesc[i].buf_addr;
@@ -452,9 +471,15 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
 
 		if (ep->rx_buf[i] != NULL)
 			free_page((unsigned long)ep->rx_buf[i]);
+#else
+		if (ep->rx_buf[i] != NULL)
+			dma_free_coherent(NULL, PAGE_SIZE, ep->rx_buf[i],
+					ep->descs->rdesc[i].buf_addr);
+#endif
 	}
 
 	for (i = 0; i < TX_QUEUE_ENTRIES; i += 2) {
+#if 0 // CapROS
 		dma_addr_t d;
 
 		d = ep->descs->tdesc[i].buf_addr;
@@ -463,6 +488,11 @@ static void ep93xx_free_buffers(struct ep93xx_priv *ep)
 
 		if (ep->tx_buf[i] != NULL)
 			free_page((unsigned long)ep->tx_buf[i]);
+#else
+		if (ep->tx_buf[i] != NULL)
+			dma_free_coherent(NULL, PAGE_SIZE, ep->tx_buf[i],
+					ep->descs->tdesc[i].buf_addr);
+#endif
 	}
 
 	dma_free_coherent(NULL, sizeof(struct ep93xx_descs), ep->descs,
@@ -486,6 +516,7 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 		void *page;
 		dma_addr_t d;
 
+#if 0 // CapROS
 		page = (void *)__get_free_page(GFP_KERNEL | GFP_DMA);
 		if (page == NULL)
 			goto err;
@@ -495,6 +526,12 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 			free_page((unsigned long)page);
 			goto err;
 		}
+#else
+		page = dma_alloc_coherent(NULL, PAGE_SIZE, &d,
+					 GFP_KERNEL | GFP_DMA);
+		if (page == NULL)
+			goto err;
+#endif
 
 		ep->rx_buf[i] = page;
 		ep->descs->rdesc[i].buf_addr = d;
@@ -509,6 +546,7 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 		void *page;
 		dma_addr_t d;
 
+#if 0 // CapROS
 		page = (void *)__get_free_page(GFP_KERNEL | GFP_DMA);
 		if (page == NULL)
 			goto err;
@@ -518,6 +556,12 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 			free_page((unsigned long)page);
 			goto err;
 		}
+#else
+		page = dma_alloc_coherent(NULL, PAGE_SIZE, &d,
+					 GFP_KERNEL | GFP_DMA);
+		if (page == NULL)
+			goto err;
+#endif
 
 		ep->tx_buf[i] = page;
 		ep->descs->tdesc[i].buf_addr = d;
@@ -640,12 +684,16 @@ static int ep93xx_open(struct net_device *dev)
 		return -ENOMEM;
 
 	if (is_zero_ether_addr(dev->dev_addr)) {
+#if 0 // CapROS
 		random_ether_addr(dev->dev_addr);
 		printk(KERN_INFO "%s: generated random MAC address "
 			"%.2x:%.2x:%.2x:%.2x:%.2x:%.2x.\n", dev->name,
 			dev->dev_addr[0], dev->dev_addr[1],
 			dev->dev_addr[2], dev->dev_addr[3],
 			dev->dev_addr[4], dev->dev_addr[5]);
+#else
+		BUG_ON("unimplemented");
+#endif
 	}
 
 	if (ep93xx_start_hw(dev)) {
@@ -688,6 +736,7 @@ static int ep93xx_close(struct net_device *dev)
 	return 0;
 }
 
+#if 0 // CapROS
 static int ep93xx_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	struct ep93xx_priv *ep = netdev_priv(dev);
@@ -695,6 +744,7 @@ static int ep93xx_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 	return generic_mii_ioctl(&ep->mii, data, cmd, NULL);
 }
+#endif
 
 static int ep93xx_mdio_read(struct net_device *dev, int phy_id, int reg)
 {
@@ -792,7 +842,7 @@ struct net_device *ep93xx_dev_alloc(struct ep93xx_eth_data *data)
 	dev->hard_start_xmit = ep93xx_xmit;
 	dev->open = ep93xx_open;
 	dev->stop = ep93xx_close;
-	dev->do_ioctl = ep93xx_ioctl;
+	dev->do_ioctl = NULL;	// ep93xx_ioctl;
 
 	dev->features |= NETIF_F_SG | NETIF_F_HW_CSUM;
 	dev->weight = 64;
@@ -821,8 +871,8 @@ static int ep93xx_eth_remove(struct platform_device *pdev)
 		iounmap(ep->base_addr);
 
 	if (ep->res != NULL) {
-		release_resource(ep->res);
-		kfree(ep->res);
+                release_mem_region(ep->res->start,
+				ep->res->end - ep->res->start + 1);
 	}
 
 	free_netdev(dev);
@@ -913,6 +963,68 @@ static int __init ep93xx_eth_init_module(void)
 static void __exit ep93xx_eth_cleanup_module(void)
 {
 	platform_driver_unregister(&ep93xx_eth_driver);
+}
+
+// From mach-ep93xx/edb9315a.c:
+static struct ep93xx_eth_data edb9315a_eth_data = {
+	.phy_id			= 1,
+};
+
+static struct resource edb9315a_eth_resource[] = {
+	{
+		.start	= EP93XX_ETHERNET_PHYS_BASE,
+		.end	= EP93XX_ETHERNET_PHYS_BASE + 0xffff,
+		.flags	= IORESOURCE_MEM,
+	}, {
+		.start	= IRQ_EP93XX_ETHERNET,
+		.end	= IRQ_EP93XX_ETHERNET,
+		.flags	= IORESOURCE_IRQ,
+	}
+};
+
+static struct platform_device edb9315a_eth_device = {
+	.name		= "ep93xx-eth",
+	.id		= -1,
+	.dev		= {
+		.platform_data	= &edb9315a_eth_data,
+	},
+	.num_resources	= 2,
+	.resource	= edb9315a_eth_resource,
+};
+
+/*
+ * Start here.
+ */
+void
+driver_main(void)
+{
+  int ret;
+
+  // subsys_initcall functions:
+  int __init net_dev_init(void);
+  net_dev_init();
+
+  // fs_initcall functions:
+  int __init inet_init(void);
+  inet_init();
+
+  // module_init functions:
+  ret = ep93xx_eth_init_module();
+  assert(!ret);
+
+  // Get our MAC addr.
+  void __iomem * ethAddr
+    = ioremap(edb9315a_eth_device.resource[0].start, EROS_PAGE_SIZE);
+  assert(ethAddr);
+  memcpy(edb9315a_eth_data.dev_addr, ((char *)ethAddr) + 0x50, 6);
+  iounmap(ethAddr);
+
+  platform_device_register(&edb9315a_eth_device);
+
+  // device_add eventually does the following:
+  edb9315a_eth_device.dev.driver = &ep93xx_eth_driver.driver;
+  ret = ep93xx_eth_driver.driver.probe(&edb9315a_eth_device.dev);
+  assert(!ret);
 }
 
 module_init(ep93xx_eth_init_module);

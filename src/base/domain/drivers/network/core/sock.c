@@ -90,6 +90,28 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/capability.h>
 #include <linux/errno.h>
@@ -98,7 +120,7 @@
 #include <linux/in.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/proc_fs.h>
+//#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/sched.h>
 #include <linux/timer.h>
@@ -121,10 +143,12 @@
 #include <linux/skbuff.h>
 #include <net/request_sock.h>
 #include <net/sock.h>
+#if 0 // CapROS
 #include <net/xfrm.h>
 #include <linux/ipsec.h>
 
 #include <linux/filter.h>
+#endif // CapROS
 
 #ifdef CONFIG_INET
 #include <net/tcp.h>
@@ -198,6 +222,7 @@ __u32 sysctl_rmem_default __read_mostly = SK_RMEM_MAX;
 /* Maximal space eaten by iovec or ancilliary data plus some space */
 int sysctl_optmem_max __read_mostly = sizeof(unsigned long)*(2*UIO_MAXIOV+512);
 
+#if 0 // CapROS
 static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
 {
 	struct timeval tv;
@@ -210,6 +235,7 @@ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
 		return -EDOM;
 
 	if (tv.tv_sec < 0) {
+#if 0 // CapROS
 		static int warned = 0;
 		*timeo_p = 0;
 		if (warned < 10 && net_ratelimit())
@@ -218,6 +244,9 @@ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
 			       "tries to set negative timeout\n",
 			        current->comm, current->pid);
 		return 0;
+#else
+		panic("negative timeout");
+#endif // CapROS
 	}
 	*timeo_p = MAX_SCHEDULE_TIMEOUT;
 	if (tv.tv_sec == 0 && tv.tv_usec == 0)
@@ -226,7 +255,9 @@ static int sock_set_timeout(long *timeo_p, char __user *optval, int optlen)
 		*timeo_p = tv.tv_sec*HZ + (tv.tv_usec+(1000000/HZ-1))/(1000000/HZ);
 	return 0;
 }
+#endif // CapROS
 
+#if 0 // CapROS
 static void sock_warn_obsolete_bsdism(const char *name)
 {
 	static int warned;
@@ -238,6 +269,7 @@ static void sock_warn_obsolete_bsdism(const char *name)
 		warned++;
 	}
 }
+#endif // CapROS
 
 static void sock_disable_timestamp(struct sock *sk)
 {
@@ -262,9 +294,13 @@ int sock_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 		goto out;
 	}
 
+#if 0 // CapROS
 	err = sk_filter(sk, skb);
 	if (err)
 		goto out;
+#else
+	BUG_ON(sk->sk_filter);	// filtering not supported
+#endif
 
 	skb->dev = NULL;
 	skb_set_owner_r(skb, sk);
@@ -289,8 +325,10 @@ int sk_receive_skb(struct sock *sk, struct sk_buff *skb, const int nested)
 {
 	int rc = NET_RX_SUCCESS;
 
+#if 0 // CapROS
 	if (sk_filter(sk, skb))
 		goto discard_and_relse;
+#endif // CapROS
 
 	skb->dev = NULL;
 
@@ -313,7 +351,9 @@ int sk_receive_skb(struct sock *sk, struct sk_buff *skb, const int nested)
 out:
 	sock_put(sk);
 	return rc;
+#if 0 // CapROS
 discard_and_relse:
+#endif // CapROS
 	kfree_skb(skb);
 	goto out;
 }
@@ -333,6 +373,7 @@ struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie)
 }
 EXPORT_SYMBOL(__sk_dst_check);
 
+#if 0 // CapROS
 struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie)
 {
 	struct dst_entry *dst = sk_dst_get(sk);
@@ -346,7 +387,9 @@ struct dst_entry *sk_dst_check(struct sock *sk, u32 cookie)
 	return dst;
 }
 EXPORT_SYMBOL(sk_dst_check);
+#endif // CapROS
 
+#if 0 // CapROS
 /*
  *	This is meant for all protocols to use and covers goings on
  *	at the socket level. Everything here is generic.
@@ -628,10 +671,14 @@ set_rcvbuf:
 		rcu_read_lock_bh();
 		filter = rcu_dereference(sk->sk_filter);
 		if (filter) {
+#if 0 // CapROS
 			rcu_assign_pointer(sk->sk_filter, NULL);
 			sk_filter_release(sk, filter);
 			rcu_read_unlock_bh();
 			break;
+#else
+			panic("filters not implemented");
+#endif // CapROS
 		}
 		rcu_read_unlock_bh();
 		ret = -ENONET;
@@ -825,6 +872,7 @@ lenout:
 		return -EFAULT;
 	return 0;
 }
+#endif // CapROS
 
 /*
  * Initialize an sk_lock.
@@ -896,8 +944,12 @@ void sk_free(struct sock *sk)
 
 	filter = rcu_dereference(sk->sk_filter);
 	if (filter) {
+#if 0 // CapROS
 		sk_filter_release(sk, filter);
 		rcu_assign_pointer(sk->sk_filter, NULL);
+#else
+		panic("filters not implemented");
+#endif // CapROS
 	}
 
 	sock_disable_timestamp(sk);
@@ -954,8 +1006,13 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
 
 		filter = newsk->sk_filter;
 		if (filter != NULL)
+#if 0 // CapROS
 			sk_filter_charge(newsk, filter);
+#else
+			panic("filters not implemented");
+#endif // CapROS
 
+#if 0 // CapROS
 		if (unlikely(xfrm_sk_clone_policy(newsk))) {
 			/* It is still raw copy of parent, so invalidate
 			 * destructor and make plain sk_free() */
@@ -964,6 +1021,7 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
 			newsk = NULL;
 			goto out;
 		}
+#endif // CapROS
 
 		newsk->sk_err	   = 0;
 		newsk->sk_priority = 0;
@@ -987,7 +1045,9 @@ struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
 		if (newsk->sk_prot->sockets_allocated)
 			atomic_inc(newsk->sk_prot->sockets_allocated);
 	}
+#if 0 // CapROS
 out:
+#endif // CapROS
 	return newsk;
 }
 
@@ -1137,6 +1197,7 @@ void sock_kfree_s(struct sock *sk, void *mem, int size)
  */
 static long sock_wait_for_wmem(struct sock * sk, long timeo)
 {
+#if 0 // CapROS
 	DEFINE_WAIT(wait);
 
 	clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
@@ -1157,6 +1218,11 @@ static long sock_wait_for_wmem(struct sock * sk, long timeo)
 	}
 	finish_wait(sk->sk_sleep, &wait);
 	return timeo;
+#else
+	void unimplemented(char *);
+	unimplemented("sk_wait_data");
+	return 0;
+#endif // CapROS
 }
 
 
@@ -1233,15 +1299,19 @@ static struct sk_buff *sock_alloc_send_pskb(struct sock *sk,
 		err = -EAGAIN;
 		if (!timeo)
 			goto failure;
+#if 0 // CapROS
 		if (signal_pending(current))
 			goto interrupted;
+#endif // CapROS
 		timeo = sock_wait_for_wmem(sk, timeo);
 	}
 
 	skb_set_owner_w(skb, sk);
 	return skb;
 
+#if 0 // CapROS
 interrupted:
+#endif // CapROS
 	err = sock_intr_errno(timeo);
 failure:
 	*errcode = err;
@@ -1256,6 +1326,7 @@ struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size,
 
 static void __lock_sock(struct sock *sk)
 {
+#if 0 // CapROS
 	DEFINE_WAIT(wait);
 
 	for (;;) {
@@ -1268,6 +1339,10 @@ static void __lock_sock(struct sock *sk)
 			break;
 	}
 	finish_wait(&sk->sk_lock.wq, &wait);
+#else
+	void unimplemented(char *);
+	unimplemented("sk_wait_data");
+#endif // CapROS
 }
 
 static void __release_sock(struct sock *sk)
@@ -1311,6 +1386,7 @@ static void __release_sock(struct sock *sk)
  */
 int sk_wait_data(struct sock *sk, long *timeo)
 {
+#if 0 // CapROS
 	int rc;
 	DEFINE_WAIT(wait);
 
@@ -1320,6 +1396,11 @@ int sk_wait_data(struct sock *sk, long *timeo)
 	clear_bit(SOCK_ASYNC_WAITDATA, &sk->sk_socket->flags);
 	finish_wait(sk->sk_sleep, &wait);
 	return rc;
+#else
+	void unimplemented(char *);
+	unimplemented("sk_wait_data");
+	return 0;
+#endif // CapROS
 }
 
 EXPORT_SYMBOL(sk_wait_data);
@@ -1475,12 +1556,14 @@ static void sock_def_destruct(struct sock *sk)
 	kfree(sk->sk_protinfo);
 }
 
+#if 0 // CapROS
 void sk_send_sigurg(struct sock *sk)
 {
 	if (sk->sk_socket && sk->sk_socket->file)
 		if (send_sigurg(&sk->sk_socket->file->f_owner))
 			sk_wake_async(sk, 3, POLL_PRI);
 }
+#endif // CapROS
 
 void sk_reset_timer(struct sock *sk, struct timer_list* timer,
 		    unsigned long expires)
@@ -1604,6 +1687,7 @@ int sock_get_timestamp(struct sock *sk, struct timeval __user *userstamp)
 }
 EXPORT_SYMBOL(sock_get_timestamp);
 
+#if 0 // CapROS
 int sock_get_timestampns(struct sock *sk, struct timespec __user *userstamp)
 {
 	struct timespec ts;
@@ -1619,6 +1703,7 @@ int sock_get_timestampns(struct sock *sk, struct timespec __user *userstamp)
 	return copy_to_user(userstamp, &ts, sizeof(ts)) ? -EFAULT : 0;
 }
 EXPORT_SYMBOL(sock_get_timestampns);
+#endif // CapROS
 
 void sock_enable_timestamp(struct sock *sk)
 {
@@ -1732,7 +1817,7 @@ void sk_common_release(struct sock *sk)
 
 	sock_orphan(sk);
 
-	xfrm_sk_free_policy(sk);
+//	xfrm_sk_free_policy(sk);
 
 	sk_refcnt_debug_release(sk);
 	sock_put(sk);

@@ -37,26 +37,55 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/mm.h>
 #include <linux/socket.h>
+#if 0 // CapROS
 #include <linux/in.h>
 #include <linux/inet.h>
 #include <linux/ip.h>
+#endif
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/skbuff.h>
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/if_ether.h>
+#if 0 // CapROS
 #include <net/dst.h>
+#endif
 #include <net/arp.h>
+#if 0 // CapROS
 #include <net/sock.h>
 #include <net/ipv6.h>
 #include <net/ip.h>
+#endif
 #include <asm/uaccess.h>
 #include <asm/system.h>
 
@@ -214,6 +243,7 @@ static int eth_header_parse(struct sk_buff *skb, unsigned char *haddr)
 	return ETH_ALEN;
 }
 
+#if 0 // CapROS
 /**
  * eth_header_cache - fill cache entry from neighbour
  * @neigh: source neighbour
@@ -238,6 +268,7 @@ int eth_header_cache(struct neighbour *neigh, struct hh_cache *hh)
 	hh->hh_len = ETH_HLEN;
 	return 0;
 }
+#endif
 
 /**
  * eth_header_cache_update - update cache entry
@@ -299,7 +330,7 @@ void ether_setup(struct net_device *dev)
 	dev->hard_header	= eth_header;
 	dev->rebuild_header 	= eth_rebuild_header;
 	dev->set_mac_address 	= eth_mac_addr;
-	dev->hard_header_cache	= eth_header_cache;
+	dev->hard_header_cache	= NULL; // eth_header_cache;
 	dev->header_cache_update= eth_header_cache_update;
 	dev->hard_header_parse	= eth_header_parse;
 

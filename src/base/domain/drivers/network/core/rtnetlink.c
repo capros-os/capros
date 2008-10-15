@@ -15,6 +15,28 @@
  *	Fixes:
  *	Vitaly E. Lavrov		RTA_OK arithmetics was wrong.
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/errno.h>
 #include <linux/module.h>
@@ -32,24 +54,24 @@
 #include <linux/capability.h>
 #include <linux/skbuff.h>
 #include <linux/init.h>
-#include <linux/security.h>
+//#include <linux/security.h>
 #include <linux/mutex.h>
-#include <linux/if_addr.h>
+//#include <linux/if_addr.h>
 
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <asm/string.h>
 
-#include <linux/inet.h>
+//#include <linux/inet.h>
 #include <linux/netdevice.h>
-#include <net/ip.h>
-#include <net/protocol.h>
+//#include <net/ip.h>
+//#include <net/protocol.h>
 #include <net/arp.h>
-#include <net/route.h>
-#include <net/udp.h>
+//#include <net/route.h>
+//#include <net/udp.h>
 #include <net/sock.h>
 #include <net/pkt_sched.h>
-#include <net/fib_rules.h>
+//#include <net/fib_rules.h>
 #include <net/rtnetlink.h>
 
 struct rtnl_link
@@ -84,6 +106,7 @@ int rtnl_trylock(void)
 	return mutex_trylock(&rtnl_mutex);
 }
 
+#if 0 // CapROS
 int rtattr_parse(struct rtattr *tb[], int maxattr, struct rtattr *rta, int len)
 {
 	memset(tb, 0, sizeof(struct rtattr*)*maxattr);
@@ -967,3 +990,4 @@ EXPORT_SYMBOL(rtnl_unlock);
 EXPORT_SYMBOL(rtnl_unicast);
 EXPORT_SYMBOL(rtnl_notify);
 EXPORT_SYMBOL(rtnl_set_sk_err);
+#endif // CapROS

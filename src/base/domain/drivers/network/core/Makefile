@@ -1,9 +1,7 @@
 #
-# Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
 # Copyright (C) 2008, Strawberry Development Group.
 #
-# This file is part of the CapROS Operating System,
-# and is derived from the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,19 +23,30 @@
 
 default: install
 
-EROS_SRC=../../../..
+CROSS_BUILD=yes
+
+EROS_SRC=../../../../..
+INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC+= -I$(EROS_ROOT)/include/linux-headers
+INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=core sched ipv4 netlink
-ifeq "$(EROS_TARGET)" "i486"	# drivers for i486 only
-# commented out, because need to convert
-# domain/drivers/PciProbeKey.h and NetKey.h to IDL
-# DIRS+=3com
-# DIRS+=lance
-# DIRS+=tg3
-else	# ARM-only drivers
-DIRS+=arm
-endif
+OBJECTS=
+OBJECTS+=$(BUILDDIR)/dev.o
+OBJECTS+=$(BUILDDIR)/eth.o
+OBJECTS+=$(BUILDDIR)/link_watch.o
+OBJECTS+=$(BUILDDIR)/mii.o
+OBJECTS+=$(BUILDDIR)/neighbour.o
+OBJECTS+=$(BUILDDIR)/rtnetlink.o
+OBJECTS+=$(BUILDDIR)/skbuff.o
+OBJECTS+=$(BUILDDIR)/sock.o
+OBJECTS+=$(BUILDDIR)/stubs.o
+OBJECTS+=$(BUILDDIR)/utils.o
 
 include $(EROS_SRC)/build/make/makerules.mk
 
+all: $(OBJECTS)
+
+install: all
+
+-include $(BUILDDIR)/.*.m

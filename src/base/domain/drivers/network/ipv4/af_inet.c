@@ -66,6 +66,28 @@
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or (at your option) any later version.
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/err.h>
 #include <linux/errno.h>
@@ -86,21 +108,25 @@
 #include <linux/stat.h>
 #include <linux/init.h>
 #include <linux/poll.h>
+#if 0 // CapROS
 #include <linux/netfilter_ipv4.h>
 #include <linux/random.h>
+#endif // CapROS
 
 #include <asm/uaccess.h>
 #include <asm/system.h>
 
 #include <linux/inet.h>
-#include <linux/igmp.h>
+//#include <linux/igmp.h>
 #include <linux/inetdevice.h>
 #include <linux/netdevice.h>
 #include <net/ip.h>
 #include <net/protocol.h>
 #include <net/arp.h>
+#if 0 // CapROS
 #include <net/route.h>
 #include <net/ip_fib.h>
+#endif // CapROS
 #include <net/inet_connection_sock.h>
 #include <net/tcp.h>
 #include <net/udp.h>
@@ -109,9 +135,11 @@
 #include <net/sock.h>
 #include <net/raw.h>
 #include <net/icmp.h>
+#if 0 // CapROS
 #include <net/ipip.h>
 #include <net/inet_common.h>
 #include <net/xfrm.h>
+#endif // CapROS
 #ifdef CONFIG_IP_MROUTE
 #include <linux/mroute.h>
 #endif
@@ -217,6 +245,7 @@ out:
 	return err;
 }
 
+#if 0 // CapROS
 u32 inet_ehash_secret __read_mostly;
 EXPORT_SYMBOL(inet_ehash_secret);
 
@@ -236,6 +265,7 @@ void build_ehash_secret(void)
 	spin_unlock_bh(&inetsw_lock);
 }
 EXPORT_SYMBOL(build_ehash_secret);
+#endif // CapROS
 
 /*
  *	Create an inet socket.
@@ -407,8 +437,11 @@ int inet_release(struct socket *sock)
 		 * linger..
 		 */
 		timeout = 0;
-		if (sock_flag(sk, SOCK_LINGER) &&
-		    !(current->flags & PF_EXITING))
+		if (sock_flag(sk, SOCK_LINGER)
+#if 0 // CapROS
+			 && !(current->flags & PF_EXITING)
+#endif // CapROS
+			)
 			timeout = sk->sk_lingertime;
 		sock->sk = NULL;
 		sk->sk_prot->close(sk, timeout);
@@ -416,6 +449,7 @@ int inet_release(struct socket *sock)
 	return 0;
 }
 
+#if 0 // CapROS
 /* It is off by default, see below. */
 int sysctl_ip_nonlocal_bind __read_mostly;
 
@@ -499,6 +533,7 @@ out_release_sock:
 out:
 	return err;
 }
+#endif // CapROS
 
 int inet_dgram_connect(struct socket *sock, struct sockaddr * uaddr,
 		       int addr_len, int flags)
@@ -515,24 +550,25 @@ int inet_dgram_connect(struct socket *sock, struct sockaddr * uaddr,
 
 static long inet_wait_for_connect(struct sock *sk, long timeo)
 {
-	DEFINE_WAIT(wait);
-
-	prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
-
 	/* Basic assumption: if someone sets sk->sk_err, he _must_
 	 * change state of the socket from TCP_SYN_*.
 	 * Connect() does not allow to get error notifications
 	 * without closing the socket.
 	 */
-	while ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
-		release_sock(sk);
-		timeo = schedule_timeout(timeo);
-		lock_sock(sk);
-		if (signal_pending(current) || !timeo)
-			break;
-		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
-	}
-	finish_wait(sk->sk_sleep, &wait);
+
+	bool stop;
+
+	release_sock(sk);
+	/* In CapROS there are no signals, so the following will always
+	return the remaining timeout. */
+	timeo = wait_event_interruptible_timeout(*sk->sk_sleep,
+			(lock_sock(sk),
+			 stop = !((1 << sk->sk_state)
+			          & (TCPF_SYN_SENT | TCPF_SYN_RECV) ),
+			 release_sock(sk),
+			 stop),
+			timeo);
+	lock_sock(sk);
 	return timeo;
 }
 
@@ -593,8 +629,10 @@ int inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 			goto out;
 
 		err = sock_intr_errno(timeo);
+#if 0 // CapROS
 		if (signal_pending(current))
 			goto out;
+#endif // CapROS
 	}
 
 	/* Connection was closed by RST, timeout, ICMP error
@@ -761,6 +799,7 @@ int inet_shutdown(struct socket *sock, int how)
 	return err;
 }
 
+#if 0 // CapROS
 /*
  *	ioctl() calls you can issue on an INET socket. Most of these are
  *	device configuration and stuff and very rarely used. Some ioctls
@@ -815,18 +854,19 @@ int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 	}
 	return err;
 }
+#endif // CapROS
 
 const struct proto_ops inet_stream_ops = {
 	.family		   = PF_INET,
 	.owner		   = THIS_MODULE,
 	.release	   = inet_release,
-	.bind		   = inet_bind,
+	.bind		   = 0,//inet_bind,
 	.connect	   = inet_stream_connect,
 	.socketpair	   = sock_no_socketpair,
 	.accept		   = inet_accept,
 	.getname	   = inet_getname,
 	.poll		   = tcp_poll,
-	.ioctl		   = inet_ioctl,
+	.ioctl		   = 0,//inet_ioctl,
 	.listen		   = inet_listen,
 	.shutdown	   = inet_shutdown,
 	.setsockopt	   = sock_common_setsockopt,
@@ -845,13 +885,13 @@ const struct proto_ops inet_dgram_ops = {
 	.family		   = PF_INET,
 	.owner		   = THIS_MODULE,
 	.release	   = inet_release,
-	.bind		   = inet_bind,
+	.bind		   = 0,//inet_bind,
 	.connect	   = inet_dgram_connect,
 	.socketpair	   = sock_no_socketpair,
 	.accept		   = sock_no_accept,
 	.getname	   = inet_getname,
 	.poll		   = udp_poll,
-	.ioctl		   = inet_ioctl,
+	.ioctl		   = 0,//inet_ioctl,
 	.listen		   = sock_no_listen,
 	.shutdown	   = inet_shutdown,
 	.setsockopt	   = sock_common_setsockopt,
@@ -874,13 +914,13 @@ static const struct proto_ops inet_sockraw_ops = {
 	.family		   = PF_INET,
 	.owner		   = THIS_MODULE,
 	.release	   = inet_release,
-	.bind		   = inet_bind,
+	.bind		   = 0,//inet_bind,
 	.connect	   = inet_dgram_connect,
 	.socketpair	   = sock_no_socketpair,
 	.accept		   = sock_no_accept,
 	.getname	   = inet_getname,
 	.poll		   = datagram_poll,
-	.ioctl		   = inet_ioctl,
+	.ioctl		   = 0,//inet_ioctl,
 	.listen		   = sock_no_listen,
 	.shutdown	   = inet_shutdown,
 	.setsockopt	   = sock_common_setsockopt,
@@ -941,6 +981,7 @@ static struct inet_protosw inetsw_array[] =
 
 #define INETSW_ARRAY_LEN (sizeof(inetsw_array) / sizeof(struct inet_protosw))
 
+#if 0 // CapROS
 void inet_register_protosw(struct inet_protosw *p)
 {
 	struct list_head *lh;
@@ -1125,6 +1166,7 @@ int inet_sk_rebuild_header(struct sock *sk)
 }
 
 EXPORT_SYMBOL(inet_sk_rebuild_header);
+#endif // CapROS
 
 static int inet_gso_send_check(struct sk_buff *skb)
 {
@@ -1218,6 +1260,7 @@ out:
 	return segs;
 }
 
+#if 0 // CapROS
 unsigned long snmp_fold_field(void *mib[], int offt)
 {
 	unsigned long res = 0;
@@ -1257,6 +1300,7 @@ void snmp_mib_free(void *ptr[2])
 	ptr[0] = ptr[1] = NULL;
 }
 EXPORT_SYMBOL_GPL(snmp_mib_free);
+#endif // CapROS
 
 #ifdef CONFIG_IP_MULTICAST
 static struct net_protocol igmp_protocol = {
@@ -1340,7 +1384,7 @@ static struct packet_type ip_packet_type = {
 	.gso_segment = inet_gso_segment,
 };
 
-static int __init inet_init(void)
+int __init inet_init(void)
 {
 	struct sk_buff *dummy_skb;
 	struct inet_protosw *q;
@@ -1485,6 +1529,7 @@ static int __init ipv4_proc_init(void)
 }
 #endif /* CONFIG_PROC_FS */
 
+#if 0 // CapROS
 MODULE_ALIAS_NETPROTO(PF_INET);
 
 EXPORT_SYMBOL(inet_accept);
@@ -1504,3 +1549,4 @@ EXPORT_SYMBOL(inet_stream_ops);
 EXPORT_SYMBOL(inet_unregister_protosw);
 EXPORT_SYMBOL(net_statistics);
 EXPORT_SYMBOL(sysctl_ip_nonlocal_bind);
+#endif // CapROS

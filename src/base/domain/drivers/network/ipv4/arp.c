@@ -73,6 +73,28 @@
  *					sending (e.g. insert 8021q tag).
  *		Harald Welte	:	convert to make use of jenkins hash
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/module.h>
 #include <linux/types.h>
@@ -88,11 +110,11 @@
 #include <linux/inetdevice.h>
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
-#include <linux/fddidevice.h>
+//#include <linux/fddidevice.h>
 #include <linux/if_arp.h>
-#include <linux/trdevice.h>
+//#include <linux/trdevice.h>
 #include <linux/skbuff.h>
-#include <linux/proc_fs.h>
+//#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/stat.h>
 #include <linux/init.h>
@@ -129,7 +151,7 @@ struct neigh_table *clip_tbl_hook;
 /*
  *	Interface to generic neighbour cache.
  */
-static u32 arp_hash(const void *pkey, const struct net_device *dev);
+static __u32 arp_hash(const void *pkey, const struct net_device *dev);
 static int arp_constructor(struct neighbour *neigh);
 static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb);
 static void arp_error_report(struct neighbour *neigh, struct sk_buff *skb);
@@ -226,7 +248,7 @@ int arp_mc_map(__be32 addr, u8 *haddr, struct net_device *dev, int dir)
 }
 
 
-static u32 arp_hash(const void *pkey, const struct net_device *dev)
+static __u32 arp_hash(const void *pkey, const struct net_device *dev)
 {
 	return jhash_2words(*(u32 *)pkey, dev->ifindex, arp_tbl.hash_rnd);
 }

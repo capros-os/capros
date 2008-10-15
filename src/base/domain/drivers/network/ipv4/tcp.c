@@ -211,8 +211,31 @@
  *		modify it under the terms of the GNU General Public License
  *		as published by the Free Software Foundation; either version
  *		2 of the License, or(at your option) any later version.
+ */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
  *
- * Description of States:
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/* Description of States:
  *
  *	TCP_SYN_SENT		sent a connection request, waiting for ack
  *
@@ -261,9 +284,9 @@
 
 #include <net/icmp.h>
 #include <net/tcp.h>
-#include <net/xfrm.h>
+//#include <net/xfrm.h>
 #include <net/ip.h>
-#include <net/netdma.h>
+//#include <net/netdma.h>
 
 #include <asm/uaccess.h>
 #include <asm/ioctls.h>
@@ -698,7 +721,7 @@ int tcp_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
 
 	while (--iovlen >= 0) {
 		int seglen = iov->iov_len;
-		unsigned char __user *from = iov->iov_base;
+		char __user *from = iov->iov_base;
 
 		iov++;
 
@@ -900,7 +923,7 @@ static int tcp_recv_urg(struct sock *sk, long timeo,
 
 	if (tp->urg_data & TCP_URG_VALID) {
 		int err = 0;
-		char c = tp->urg_data;
+		unsigned char c = tp->urg_data;
 
 		if (!(flags & MSG_PEEK))
 			tp->urg_data = TCP_URG_READ;
@@ -1107,6 +1130,7 @@ int tcp_read_sock(struct sock *sk, read_descriptor_t *desc,
 int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 		size_t len, int nonblock, int flags, int *addr_len)
 {
+#if 0 // CapROS needs something different...
 	struct tcp_sock *tp = tcp_sk(sk);
 	int copied = 0;
 	u32 peek_seq;
@@ -1159,10 +1183,12 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 		if (tp->urg_data && tp->urg_seq == *seq) {
 			if (copied)
 				break;
+#if 0 // CapROS has no signals
 			if (signal_pending(current)) {
 				copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
 				break;
 			}
+#endif // CapROS
 		}
 
 		/* Next get a buffer. */
@@ -1201,7 +1227,7 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 			    sk->sk_state == TCP_CLOSE ||
 			    (sk->sk_shutdown & RCV_SHUTDOWN) ||
 			    !timeo ||
-			    signal_pending(current) ||
+			    // signal_pending(current) ||
 			    (flags & MSG_PEEK))
 				break;
 		} else {
@@ -1232,10 +1258,12 @@ int tcp_recvmsg(struct kiocb *iocb, struct sock *sk, struct msghdr *msg,
 				break;
 			}
 
+#if 0 // CapROS has no signals
 			if (signal_pending(current)) {
 				copied = sock_intr_errno(timeo);
 				break;
 			}
+#endif // CapROS
 		}
 
 		tcp_cleanup_rbuf(sk, copied);
@@ -1487,6 +1515,13 @@ out:
 recv_urg:
 	err = tcp_recv_urg(sk, timeo, msg, len, flags, addr_len);
 	goto out;
+#else
+	void unimplemented(const char *);
+	unimplemented(__FUNCTION__);
+	tcp_recv_urg(NULL, 0, NULL, 0, 0, NULL);
+	tcp_prequeue_process(NULL);
+	return 0;
+#endif // CapROS
 }
 
 /*
@@ -1764,7 +1799,7 @@ int tcp_disconnect(struct sock *sk, int flags)
 	inet_csk_delack_init(sk);
 	tcp_init_send_head(sk);
 	memset(&tp->rx_opt, 0, sizeof(tp->rx_opt));
-	__sk_dst_reset(sk);
+//	__sk_dst_reset(sk);
 
 	BUG_TRAP(!inet->num || icsk->icsk_bind_hash);
 
@@ -1987,6 +2022,7 @@ int compat_tcp_setsockopt(struct sock *sk, int level, int optname,
 EXPORT_SYMBOL(compat_tcp_setsockopt);
 #endif
 
+#if 0 // CapROS
 /* Return information about state of tcp endpoint in API format. */
 void tcp_get_info(struct sock *sk, struct tcp_info *info)
 {
@@ -2046,6 +2082,7 @@ void tcp_get_info(struct sock *sk, struct tcp_info *info)
 }
 
 EXPORT_SYMBOL_GPL(tcp_get_info);
+#endif // CapROS
 
 static int do_tcp_getsockopt(struct sock *sk, int level,
 		int optname, char __user *optval, int __user *optlen)
@@ -2428,12 +2465,12 @@ void __init tcp_init(void)
 	 *
 	 * The methodology is similar to that of the buffer cache.
 	 */
+	int scale = /*(num_physpages >= 128 * 1024) ? 13 :*/ 15;
 	tcp_hashinfo.ehash =
 		alloc_large_system_hash("TCP established",
 					sizeof(struct inet_ehash_bucket),
 					thash_entries,
-					(num_physpages >= 128 * 1024) ?
-					13 : 15,
+					scale,
 					0,
 					&tcp_hashinfo.ehash_size,
 					NULL,
@@ -2449,8 +2486,7 @@ void __init tcp_init(void)
 		alloc_large_system_hash("TCP bind",
 					sizeof(struct inet_bind_hashbucket),
 					tcp_hashinfo.ehash_size,
-					(num_physpages >= 128 * 1024) ?
-					13 : 15,
+					scale,
 					0,
 					&tcp_hashinfo.bhash_size,
 					NULL,

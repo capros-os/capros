@@ -14,21 +14,43 @@
  *	Vitaly E. Lavrov	releasing NULL neighbor in neigh_add.
  *	Harald Welte		Add neighbour cache statistics like rtstat
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/socket.h>
 #include <linux/netdevice.h>
-#include <linux/proc_fs.h>
+//#include <linux/proc_fs.h>
 #ifdef CONFIG_SYSCTL
 #include <linux/sysctl.h>
 #endif
-#include <linux/times.h>
+//#include <linux/times.h>
 #include <net/neighbour.h>
 #include <net/dst.h>
 #include <net/sock.h>
-#include <net/netevent.h>
+//#include <net/netevent.h>
 #include <net/netlink.h>
 #include <linux/rtnetlink.h>
 #include <linux/random.h>
@@ -827,8 +849,14 @@ static void neigh_timer_handler(unsigned long arg)
 out:
 		write_unlock(&neigh->lock);
 	}
-	if (notify)
+	if (notify) {
+#if 0 // CapROS
 		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, neigh);
+#else
+		void unimplemented(const char *);
+		unimplemented("NETEVENT_NEIGH_UPDATE");
+#endif // CapROS
+	}
 
 #ifdef CONFIG_ARPD
 	if (notify && neigh->parms->app_probes)
@@ -1061,8 +1089,14 @@ out:
 	}
 	write_unlock_bh(&neigh->lock);
 
-	if (notify)
+	if (notify) {
+#if 0 // CapROS
 		call_netevent_notifiers(NETEVENT_NEIGH_UPDATE, neigh);
+#else
+		void unimplemented(const char *);
+		unimplemented("NETEVENT_NEIGH_UPDATE");
+#endif // CapROS
+	}
 #ifdef CONFIG_ARPD
 	if (notify && neigh->parms->app_probes)
 		neigh_app_notify(neigh);

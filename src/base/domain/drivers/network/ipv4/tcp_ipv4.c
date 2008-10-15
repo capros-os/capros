@@ -22,6 +22,28 @@
  *      as published by the Free Software Foundation; either version
  *      2 of the License, or (at your option) any later version.
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 /*
  * Changes:
@@ -60,22 +82,22 @@
 #include <linux/cache.h>
 #include <linux/jhash.h>
 #include <linux/init.h>
-#include <linux/times.h>
+//#include <linux/times.h>
 
 #include <net/icmp.h>
 #include <net/inet_hashtables.h>
 #include <net/tcp.h>
-#include <net/transp_v6.h>
-#include <net/ipv6.h>
-#include <net/inet_common.h>
+//#include <net/transp_v6.h>
+//#include <net/ipv6.h>
+//#include <net/inet_common.h>
 #include <net/timewait_sock.h>
-#include <net/xfrm.h>
-#include <net/netdma.h>
+//#include <net/xfrm.h>
+//#include <net/netdma.h>
 
 #include <linux/inet.h>
-#include <linux/ipv6.h>
+//#include <linux/ipv6.h>
 #include <linux/stddef.h>
-#include <linux/proc_fs.h>
+//#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 
 #include <linux/crypto.h>
@@ -95,7 +117,8 @@ void tcp_v4_send_check(struct sock *sk, int len, struct sk_buff *skb);
 #ifdef CONFIG_TCP_MD5SIG
 static struct tcp_md5sig_key *tcp_v4_md5_do_lookup(struct sock *sk,
 						   __be32 addr);
-static int tcp_v4_do_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+static int tcp_v4_do_calc_md5_hash(unsigned char *md5_hash,
+				   struct tcp_md5sig_key *key,
 				   __be32 saddr, __be32 daddr,
 				   struct tcphdr *th, int protocol,
 				   int tcplen);
@@ -288,6 +311,7 @@ failure:
 	return err;
 }
 
+#if 0 // CapROS
 /*
  * This routine does path mtu discovery as defined in RFC1191.
  */
@@ -334,6 +358,7 @@ static void do_pmtu_discovery(struct sock *sk, struct iphdr *iph, u32 mtu)
 		tcp_simple_retransmit(sk);
 	} /* else let the usual retransmit timer handle it */
 }
+#endif // CapROS
 
 /*
  * This routine is called by the ICMP module when it gets some
@@ -353,6 +378,7 @@ static void do_pmtu_discovery(struct sock *sk, struct iphdr *iph, u32 mtu)
 
 void tcp_v4_err(struct sk_buff *skb, u32 info)
 {
+#if 0 // CapROS temporary?
 	struct iphdr *iph = (struct iphdr *)skb->data;
 	struct tcphdr *th = (struct tcphdr *)(skb->data + (iph->ihl << 2));
 	struct tcp_sock *tp;
@@ -496,6 +522,10 @@ void tcp_v4_err(struct sk_buff *skb, u32 info)
 out:
 	bh_unlock_sock(sk);
 	sock_put(sk);
+#else
+	void unimplemented(const char *);
+	unimplemented(__FUNCTION__);
+#endif // CapROS
 }
 
 /* This routine computes an IPv4 TCP checksum. */
@@ -1018,7 +1048,8 @@ static int tcp_v4_parse_md5_keys(struct sock *sk, char __user *optval,
 				 newkey, cmd.tcpm_keylen);
 }
 
-static int tcp_v4_do_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+static int tcp_v4_do_calc_md5_hash(unsigned char *md5_hash,
+				   struct tcp_md5sig_key *key,
 				   __be32 saddr, __be32 daddr,
 				   struct tcphdr *th, int protocol,
 				   int tcplen)
@@ -1104,7 +1135,7 @@ clear_hash_noput:
 	goto out;
 }
 
-int tcp_v4_calc_md5_hash(char *md5_hash, struct tcp_md5sig_key *key,
+int tcp_v4_calc_md5_hash(unsigned char *md5_hash, struct tcp_md5sig_key *key,
 			 struct sock *sk,
 			 struct dst_entry *dst,
 			 struct request_sock *req,
@@ -1334,8 +1365,14 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	ireq->loc_addr = daddr;
 	ireq->rmt_addr = saddr;
 	ireq->opt = tcp_v4_save_options(sk, skb);
-	if (!want_cookie)
+	if (!want_cookie) {
+#if 0 // CapROS
 		TCP_ECN_create_request(req, tcp_hdr(skb));
+#else
+		void unimplemented(const char *);
+		unimplemented(__FUNCTION__);
+#endif // CapROS
+	}
 
 	if (want_cookie) {
 #ifdef CONFIG_SYN_COOKIES
@@ -1467,7 +1504,8 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
 		 * memory, then we end up not copying the key
 		 * across. Shucks.
 		 */
-		char *newkey = kmemdup(key->key, key->keylen, GFP_ATOMIC);
+		unsigned char *newkey
+		  = kmemdup(key->key, key->keylen, GFP_ATOMIC);
 		if (newkey != NULL)
 			tcp_v4_md5_do_add(newsk, inet_sk(sk)->daddr,
 					  newkey, key->keylen);
@@ -1666,12 +1704,16 @@ process:
 	if (sk->sk_state == TCP_TIME_WAIT)
 		goto do_time_wait;
 
+#if 0 // CapROS
 	if (!xfrm4_policy_check(sk, XFRM_POLICY_IN, skb))
 		goto discard_and_relse;
+#endif // CapROS
 	nf_reset(skb);
 
+#if 0 // CapROS
 	if (sk_filter(sk, skb))
 		goto discard_and_relse;
+#endif // CapROS
 
 	skb->dev = NULL;
 
@@ -1699,8 +1741,10 @@ process:
 	return ret;
 
 no_tcp_socket:
+#if 0 // CapROS
 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb))
 		goto discard_it;
+#endif // CapROS
 
 	if (skb->len < (th->doff << 2) || tcp_checksum_complete(skb)) {
 bad_packet:
@@ -1714,15 +1758,19 @@ discard_it:
 	kfree_skb(skb);
 	return 0;
 
+#if 0 // CapROS
 discard_and_relse:
+#endif // CapROS
 	sock_put(sk);
 	goto discard_it;
 
 do_time_wait:
+#if 0 // CapROS
 	if (!xfrm4_policy_check(NULL, XFRM_POLICY_IN, skb)) {
 		inet_twsk_put(inet_twsk(sk));
 		goto discard_it;
 	}
+#endif // CapROS
 
 	if (skb->len < (th->doff << 2) || tcp_checksum_complete(skb)) {
 		TCP_INC_STATS_BH(TCP_MIB_INERRS);

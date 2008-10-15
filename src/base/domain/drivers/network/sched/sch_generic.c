@@ -10,6 +10,28 @@
  *              Jamal Hadi Salim, <hadi@cyberus.ca> 990601
  *              - Ingress support
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <asm/uaccess.h>
 #include <asm/system.h>
@@ -22,7 +44,7 @@
 #include <linux/mm.h>
 #include <linux/socket.h>
 #include <linux/sockios.h>
-#include <linux/in.h>
+//#include <linux/in.h>
 #include <linux/errno.h>
 #include <linux/interrupt.h>
 #include <linux/netdevice.h>
@@ -31,7 +53,7 @@
 #include <linux/init.h>
 #include <linux/rcupdate.h>
 #include <linux/list.h>
-#include <net/sock.h>
+//#include <net/sock.h>
 #include <net/pkt_sched.h>
 
 /* Main transmission queue. */
@@ -219,6 +241,7 @@ static void dev_watchdog_init(struct net_device *dev)
 	dev->watchdog_timer.function = dev_watchdog;
 }
 
+#if 0 // CapROS
 void __netdev_watchdog_up(struct net_device *dev)
 {
 	if (dev->tx_timeout) {
@@ -256,6 +279,7 @@ void netif_carrier_off(struct net_device *dev)
 	if (!test_and_set_bit(__LINK_STATE_NOCARRIER, &dev->state))
 		linkwatch_fire_event(dev);
 }
+#endif // CapROS
 
 /* "NOOP" scheduler: the best scheduler, recommended for all interfaces
    under all circumstances. It is difficult to invent anything faster or
@@ -299,6 +323,7 @@ struct Qdisc noop_qdisc = {
 	.list		=	LIST_HEAD_INIT(noop_qdisc.list),
 };
 
+#if 0 // CapROS
 static struct Qdisc_ops noqueue_qdisc_ops = {
 	.id		=	"noqueue",
 	.priv_size	=	0,
@@ -569,6 +594,7 @@ void dev_deactivate(struct net_device *dev)
 	while (test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
 		yield();
 }
+#endif // CapROS
 
 void dev_init_scheduler(struct net_device *dev)
 {
@@ -581,6 +607,7 @@ void dev_init_scheduler(struct net_device *dev)
 	dev_watchdog_init(dev);
 }
 
+#if 0 // CapROS
 void dev_shutdown(struct net_device *dev)
 {
 	struct Qdisc *qdisc;
@@ -608,3 +635,4 @@ EXPORT_SYMBOL(qdisc_destroy);
 EXPORT_SYMBOL(qdisc_reset);
 EXPORT_SYMBOL(qdisc_lock_tree);
 EXPORT_SYMBOL(qdisc_unlock_tree);
+#endif // CapROS
