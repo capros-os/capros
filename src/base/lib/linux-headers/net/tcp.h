@@ -573,7 +573,9 @@ struct tcp_skb_cb {
 
 #define TCP_SKB_CB(__skb)	((struct tcp_skb_cb *)&((__skb)->cb[0]))
 
+#if 0 // CapROS
 #include <net/tcp_ecn.h>
+#endif // CapROS
 
 /* Due to TSO, an SKB can be composed of multiple actual
  * packets.  To keep these tracked properly, we use this.
@@ -1119,7 +1121,7 @@ struct tcp_md5sig_pool {
 #define TCP_MD5SIG_MAXKEYS	(~(u32)0)	/* really?! */
 
 /* - functions */
-extern int			tcp_v4_calc_md5_hash(char *md5_hash,
+extern int			tcp_v4_calc_md5_hash(unsigned char *md5_hash,
 						     struct tcp_md5sig_key *key,
 						     struct sock *sk,
 						     struct dst_entry *dst,
@@ -1322,7 +1324,7 @@ struct tcp_sock_af_ops {
 #ifdef CONFIG_TCP_MD5SIG
 	struct tcp_md5sig_key	*(*md5_lookup) (struct sock *sk,
 						struct sock *addr_sk);
-	int			(*calc_md5_hash) (char *location,
+	int			(*calc_md5_hash) (unsigned char *location,
 						  struct tcp_md5sig_key *md5,
 						  struct sock *sk,
 						  struct dst_entry *dst,

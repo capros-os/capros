@@ -2,9 +2,11 @@
 #define __LINUX_RTNETLINK_H
 
 #include <linux/netlink.h>
+#if 0 // CapROS
 #include <linux/if_link.h>
 #include <linux/if_addr.h>
 #include <linux/neighbour.h>
+#endif // CapROS
 
 /****
  *		Routing/neighbour discovery messages.

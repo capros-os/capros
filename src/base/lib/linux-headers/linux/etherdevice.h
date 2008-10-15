@@ -26,7 +26,9 @@
 
 #include <linux/if_ether.h>
 #include <linux/netdevice.h>
+#if 0 // CapROS
 #include <linux/random.h>
+#endif
 
 #ifdef __KERNEL__
 extern int		eth_header(struct sk_buff *skb, struct net_device *dev,
@@ -109,6 +111,7 @@ static inline int is_valid_ether_addr(const u8 *addr)
 	return !is_multicast_ether_addr(addr) && !is_zero_ether_addr(addr);
 }
 
+#if 0 // CapROS
 /**
  * random_ether_addr - Generate software assigned random Ethernet address
  * @addr: Pointer to a six-byte array containing the Ethernet address
@@ -122,6 +125,7 @@ static inline void random_ether_addr(u8 *addr)
 	addr [0] &= 0xfe;	/* clear multicast bit */
 	addr [0] |= 0x02;	/* set local assignment bit (IEEE802) */
 }
+#endif
 
 /**
  * compare_ether_addr - Compare two Ethernet addresses

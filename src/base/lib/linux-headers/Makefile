@@ -30,6 +30,7 @@ LINUXSUNRPC_HEADERS=$(wildcard linux/sunrpc/*.h)
 LINUXUSB_HEADERS=$(wildcard linux/usb/*.h)
 ASMGENERIC_HEADERS=$(wildcard asm-generic/*.h)
 ASMGENERICBITOPS_HEADERS=$(wildcard asm-generic/bitops/*.h)
+NET_HEADERS=$(wildcard net/*.h)
 SCSI_HEADERS=$(wildcard scsi/*.h)
 
 EROS_SRC=../../..
@@ -63,5 +64,7 @@ install:
 	$(INSTALL) -m 644 $(ASMGENERIC_HEADERS) $(EROS_ROOT)/include/linux-headers/asm-generic/
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/asm-generic/bitops/
 	$(INSTALL) -m 644 $(ASMGENERICBITOPS_HEADERS) $(EROS_ROOT)/include/linux-headers/asm-generic/bitops/
+	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/net/
+	$(INSTALL) -m 644 $(NET_HEADERS) $(EROS_ROOT)/include/linux-headers/net/
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/scsi/
 	$(INSTALL) -m 644 $(SCSI_HEADERS) $(EROS_ROOT)/include/linux-headers/scsi/

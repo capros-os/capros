@@ -14,6 +14,7 @@ extern void	rtnl_register(int protocol, int msgtype,
 extern int	rtnl_unregister(int protocol, int msgtype);
 extern void	rtnl_unregister_all(int protocol);
 
+#if 0 // CapROS
 static inline int rtnl_msg_family(struct nlmsghdr *nlh)
 {
 	if (nlmsg_len(nlh) >= sizeof(struct rtgenmsg))
@@ -21,5 +22,6 @@ static inline int rtnl_msg_family(struct nlmsghdr *nlh)
 	else
 		return AF_UNSPEC;
 }
+#endif // CapROS
 
 #endif

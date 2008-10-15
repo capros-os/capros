@@ -26,6 +26,7 @@
 #include <linux/ip.h>
 #include <linux/in.h>
 #include <linux/skbuff.h>
+#include <linux/sysctl.h>
 
 #include <net/inet_sock.h>
 #include <net/snmp.h>
@@ -128,7 +129,7 @@ extern int		ip4_datagram_connect(struct sock *sk,
  *      multicast packets.
  */
 
-static inline void ip_tr_mc_map(__be32 addr, char *buf)
+static inline void ip_tr_mc_map(__be32 addr, u8 * buf)
 {
 	buf[0]=0xC0;
 	buf[1]=0x00;
@@ -248,7 +249,7 @@ static inline void ip_select_ident_more(struct iphdr *iph, struct dst_entry *dst
  *	Map a multicast IP onto multicast MAC for type ethernet.
  */
 
-static inline void ip_eth_mc_map(__be32 naddr, char *buf)
+static inline void ip_eth_mc_map(__be32 naddr, u8 * buf)
 {
 	__u32 addr=ntohl(naddr);
 	buf[0]=0x01;
@@ -266,7 +267,7 @@ static inline void ip_eth_mc_map(__be32 naddr, char *buf)
  *	Leave P_Key as 0 to be filled in by driver.
  */
 
-static inline void ip_ib_mc_map(__be32 naddr, char *buf)
+static inline void ip_ib_mc_map(__be32 naddr, u8 * buf)
 {
 	__u32 addr;
 	buf[0]  = 0;		/* Reserved */

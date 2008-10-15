@@ -16,7 +16,7 @@
 
 
 #include <linux/interrupt.h>
-#include <linux/ipv6.h>
+//#include <linux/ipv6.h>
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/socket.h>
@@ -27,6 +27,7 @@
 #include <net/inet_connection_sock.h>
 #include <net/inet_sock.h>
 #include <net/route.h>
+#include <net/inet_timewait_sock.h>
 #include <net/sock.h>
 #include <net/tcp_states.h>
 
@@ -107,7 +108,7 @@ struct inet_hashinfo {
 	 */
 	struct inet_bind_hashbucket	*bhash;
 
-	int				bhash_size;
+	unsigned int			bhash_size;
 	unsigned int			ehash_size;
 
 	/* All sockets in TCP_LISTEN state will be in here.  This is the only

@@ -13,6 +13,7 @@
 #include <linux/mutex.h>
 #include <linux/rwsem.h>
 #include <linux/srcu.h>
+#include <linux/spinlock.h>
 
 /*
  * Notifier chains are of four types:

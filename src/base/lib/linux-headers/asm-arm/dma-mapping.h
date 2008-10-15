@@ -90,6 +90,8 @@ dma_free_noncoherent(struct device *dev, size_t size, void *cpu_addr,
  */
 extern void *
 dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t gfp);
+void * capros_dma_alloc_coherent(dma_addr_t dma_mask,
+  size_t size, dma_addr_t *handle);
 
 /**
  * dma_free_coherent - free memory allocated by dma_alloc_coherent

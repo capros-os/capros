@@ -23,7 +23,7 @@
 #include <asm/types.h>
 #include <linux/spinlock.h>
 #include <linux/net.h>
-#include <linux/textsearch.h>
+//#include <linux/textsearch.h>
 #include <net/checksum.h>
 #include <linux/rcupdate.h>
 #include <linux/dmaengine.h>
@@ -396,9 +396,11 @@ extern unsigned int   skb_seq_read(unsigned int consumed, const u8 **data,
 				   struct skb_seq_state *st);
 extern void	      skb_abort_seq_read(struct skb_seq_state *st);
 
+#if 0 // CapROS
 extern unsigned int   skb_find_text(struct sk_buff *skb, unsigned int from,
 				    unsigned int to, struct ts_config *config,
 				    struct ts_state *state);
+#endif
 
 #ifdef NET_SKBUFF_DATA_USES_OFFSET
 static inline unsigned char *skb_end_pointer(const struct sk_buff *skb)
@@ -1428,6 +1430,7 @@ static inline int skb_linearize_cow(struct sk_buff *skb)
 	       __skb_linearize(skb) : 0;
 }
 
+#if 0 // CapROS
 /**
  *	skb_postpull_rcsum - update checksum for received skb after pull
  *	@skb: buffer to update
@@ -1445,6 +1448,7 @@ static inline void skb_postpull_rcsum(struct sk_buff *skb,
 	if (skb->ip_summed == CHECKSUM_COMPLETE)
 		skb->csum = csum_sub(skb->csum, csum_partial(start, len, 0));
 }
+#endif
 
 unsigned char *skb_pull_rcsum(struct sk_buff *skb, unsigned int len);
 

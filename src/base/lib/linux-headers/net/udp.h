@@ -27,7 +27,8 @@
 #include <net/sock.h>
 #include <net/snmp.h>
 #include <net/ip.h>
-#include <linux/ipv6.h>
+#include <linux/udp.h>
+//#include <linux/ipv6.h>
 #include <linux/seq_file.h>
 #include <linux/poll.h>
 

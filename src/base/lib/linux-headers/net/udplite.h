@@ -4,7 +4,7 @@
 #ifndef _UDPLITE_H
 #define _UDPLITE_H
 
-#include <net/ip6_checksum.h>
+//#include <net/ip6_checksum.h>
 
 /* UDP-Lite socket options */
 #define UDPLITE_SEND_CSCOV   10 /* sender partial coverage (as sent)      */
@@ -22,7 +22,8 @@ DECLARE_SNMP_STAT(struct udp_mib, udplite_statistics);
 static __inline__ int udplite_getfrag(void *from, char *to, int  offset,
 				      int len, int odd, struct sk_buff *skb)
 {
-	return memcpy_fromiovecend(to, (struct iovec *) from, offset, len);
+	return memcpy_fromiovecend((unsigned char *)to,
+				 (struct iovec *) from, offset, len);
 }
 
 /* Designate sk as UDP-Lite socket */

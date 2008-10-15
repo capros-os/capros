@@ -12,7 +12,9 @@
 #include <linux/rtnetlink.h>
 #include <linux/rcupdate.h>
 #include <linux/jiffies.h>
+#if 0 // CapROS
 #include <net/neighbour.h>
+#endif // CapROS
 #include <asm/processor.h>
 
 /*
@@ -196,11 +198,13 @@ static inline void dst_rcu_free(struct rcu_head *head)
 	dst_free(dst);
 }
 
+#if 0 // CapROS
 static inline void dst_confirm(struct dst_entry *dst)
 {
 	if (dst)
 		neigh_confirm(dst->neighbour);
 }
+#endif // CapROS
 
 static inline void dst_negative_advice(struct dst_entry **dst_p)
 {

@@ -56,7 +56,7 @@ typedef enum {
 
 #ifdef __KERNEL__
 #include <linux/stringify.h>
-#include <linux/random.h>
+//#include <linux/random.h>
 
 #define SOCK_ASYNC_NOSPACE	0
 #define SOCK_ASYNC_WAITDATA	1

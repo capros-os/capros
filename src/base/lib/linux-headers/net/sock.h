@@ -48,9 +48,11 @@
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>	/* struct sk_buff */
 #include <linux/mm.h>
+//#ifdef CONFIG_SECURITY_NETWORK
 #include <linux/security.h>
+//#endif
 
-#include <linux/filter.h>
+//#include <linux/filter.h>
 
 #include <asm/atomic.h>
 #include <net/dst.h>
@@ -865,6 +867,7 @@ extern void sk_common_release(struct sock *sk);
 /* Initialise core socket variables */
 extern void sock_init_data(struct socket *sock, struct sock *sk);
 
+#if 0 // CapROS
 /**
  *	sk_filter - run a packet through a socket filter
  *	@sk: sock associated with &sk_buff
@@ -933,6 +936,7 @@ static inline void sk_filter_charge(struct sock *sk, struct sk_filter *fp)
 	atomic_inc(&fp->refcnt);
 	atomic_add(sk_filter_len(fp), &sk->sk_omem_alloc);
 }
+#endif // CapROS
 
 /*
  * Socket reference counting postulates.
@@ -991,7 +995,9 @@ static inline void sock_graft(struct sock *sk, struct socket *parent)
 	sk->sk_sleep = &parent->wait;
 	parent->sk = sk;
 	sk->sk_socket = parent;
+#ifdef CONFIG_SECURITY_NETWORK
 	security_sock_graft(sk, parent);
+#endif
 	write_unlock_bh(&sk->sk_callback_lock);
 }
 
@@ -1017,6 +1023,7 @@ __sk_dst_get(struct sock *sk)
 	return sk->sk_dst_cache;
 }
 
+#if 0 // CapROS
 static inline struct dst_entry *
 sk_dst_get(struct sock *sk)
 {
@@ -1029,6 +1036,7 @@ sk_dst_get(struct sock *sk)
 	read_unlock(&sk->sk_dst_lock);
 	return dst;
 }
+#endif // CapROS
 
 static inline void
 __sk_dst_set(struct sock *sk, struct dst_entry *dst)
@@ -1040,6 +1048,7 @@ __sk_dst_set(struct sock *sk, struct dst_entry *dst)
 	dst_release(old_dst);
 }
 
+#if 0 // CapROS
 static inline void
 sk_dst_set(struct sock *sk, struct dst_entry *dst)
 {
@@ -1065,6 +1074,7 @@ sk_dst_reset(struct sock *sk)
 	__sk_dst_reset(sk);
 	write_unlock(&sk->sk_dst_lock);
 }
+#endif // CapROS
 
 extern struct dst_entry *__sk_dst_check(struct sock *sk, u32 cookie);
 

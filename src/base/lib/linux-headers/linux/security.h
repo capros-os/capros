@@ -23,19 +23,21 @@
 #define __LINUX_SECURITY_H
 
 #include <linux/fs.h>
-#include <linux/binfmts.h>
+//#include <linux/binfmts.h>
 #include <linux/signal.h>
 #include <linux/resource.h>
 #include <linux/sem.h>
-#include <linux/shm.h>
-#include <linux/msg.h>
+//#include <linux/shm.h>
+//#include <linux/msg.h>
 #include <linux/sched.h>
-#include <linux/key.h>
-#include <linux/xfrm.h>
+//#include <linux/key.h>
+//#include <linux/xfrm.h>
+struct xfrm_sec_ctx;
 #include <net/flow.h>
 
 struct ctl_table;
 
+#if 0 // CapROS
 /*
  * These functions are in security/capability.c and are used
  * as the default capabilities functions
@@ -55,6 +57,7 @@ extern int cap_task_post_setuid (uid_t old_ruid, uid_t old_euid, uid_t old_suid,
 extern void cap_task_reparent_to_init (struct task_struct *p);
 extern int cap_syslog (int type);
 extern int cap_vm_enough_memory (long pages);
+#endif // CapROS
 
 struct msghdr;
 struct sk_buff;
@@ -92,6 +95,7 @@ struct sched_param;
 struct swap_info_struct;
 struct request_sock;
 
+#if 0 // CapROS
 /* bprm_apply_creds unsafe reasons */
 #define LSM_UNSAFE_SHARE	1
 #define LSM_UNSAFE_PTRACE	2
@@ -2797,6 +2801,7 @@ static inline void security_release_secctx(char *secdata, u32 seclen)
 {
 }
 #endif	/* CONFIG_SECURITY */
+#endif // CapROS
 
 #ifdef CONFIG_SECURITY_NETWORK
 static inline int security_unix_stream_connect(struct socket * sock,

@@ -37,7 +37,7 @@
 
 #include <linux/device.h>
 #include <linux/percpu.h>
-#include <linux/dmaengine.h>
+//#include <linux/dmaengine.h>
 
 struct vlan_group;
 struct ethtool_ops;
@@ -604,7 +604,7 @@ static inline struct net_device *first_net_device(void)
 
 extern int 			netdev_boot_setup_check(struct net_device *dev);
 extern unsigned long		netdev_boot_base(const char *prefix, int unit);
-extern struct net_device    *dev_getbyhwaddr(unsigned short type, char *hwaddr);
+extern struct net_device    *dev_getbyhwaddr(unsigned short type, u8 * hwaddr);
 extern struct net_device *dev_getfirstbyhwtype(unsigned short type);
 extern struct net_device *__dev_getfirstbyhwtype(unsigned short type);
 extern void		dev_add_pack(struct packet_type *pt);

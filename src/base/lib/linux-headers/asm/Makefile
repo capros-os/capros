@@ -41,6 +41,7 @@ HEADERS=\
  byteorder.h \
  cache.h \
  cacheflush.h \
+ checksum.h \
  cmpxchg.h \
  cpu-single.h \
  cpufeature.h \
@@ -49,6 +50,7 @@ HEADERS=\
  desc.h \
  device.h \
  div64.h \
+ dma.h \
  dma-mapping.h \
  domain.h \
  dyntick.h \
@@ -86,6 +88,7 @@ HEADERS=\
  percpu.h \
  pgtable.h \
  pgtable-hwdef.h \
+ poll.h \
  posix_types.h \
  proc-fns.h \
  processor.h \

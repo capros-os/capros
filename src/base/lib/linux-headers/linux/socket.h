@@ -38,7 +38,7 @@ typedef unsigned short	sa_family_t;
  
 struct sockaddr {
 	sa_family_t	sa_family;	/* address family, AF_xxx	*/
-	char		sa_data[14];	/* 14 bytes of protocol address	*/
+	u8		sa_data[14];	/* 14 bytes of protocol address	*/
 };
 
 struct linger {
