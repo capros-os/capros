@@ -1,7 +1,7 @@
 package capros;
 
 /* The internal capability by which the interrupt handler calls the
-main TCP thread. */
-interface TCPIPInt extends key {
+main IP thread. */
+interface IPInt extends key {
   void processInterrupt(unsigned long fcn, unsigned long arg);
 };

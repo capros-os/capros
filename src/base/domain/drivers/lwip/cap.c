@@ -35,8 +35,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Forwarder.h>
 #include <idl/capros/Process.h>
-#include <idl/capros/TCPIP.h>
-#include <idl/capros/TCPIPInt.h>
+#include <idl/capros/IP.h>
+#include <idl/capros/UDPPort.h>
+#include <idl/capros/IPInt.h>
 #include <idl/capros/NPLink.h>
 #include <domain/assert.h>
 #include <eros/machine/cap-instr.h>
@@ -57,29 +58,21 @@ Approved for public release, distribution unlimited. */
 #define dbg_rx 2
 #define dbg_conn 4
 #define dbg_cap  8
+#define dbg_listen 0x10
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_tx | dbg_rx | dbg_conn | dbg_cap )
+#define dbg_flags   ( 0u | dbg_tx | dbg_rx | dbg_conn | dbg_cap | dbg_listen )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
-
-// KeyInfo values for start capabilities to this process:
-#define keyInfo_TCPIP 0
-#define keyInfo_Timer 1
-#define keyInfo_Device 2
-#define keyInfo_Socket 3
-#define keyInfo_ListenSocket 4
 
 /* A TCPSocket capability is an opaque capability to a forwarder
  * whose target is a start capability to this process
  * with keyInfo_Socket.
  *
- * A TCPListenSocket capability is an opaque capability to a forwarder
- * whose target is a start capability to this process
- * with keyInfo_ListenSocket.
+ * Likewise for TCPListenSocket and UDPPort.
  *
- * A TCPIP capability is a start capability to this process
- * with keyInfo_TCPIP.
+ * An IP capability is a start capability to this process
+ * with keyInfo_IP.
  */
 
 /* Order codes on timer key: */
@@ -144,7 +137,8 @@ enum TCPSk_state {
   TCPSk_state_None,
   TCPSk_state_Connect,
   TCPSk_state_Listen,
-  TCPSk_state_Close
+  TCPSk_state_Closing,
+  TCPSk_state_Closed
 };
 
 #define maxRecvQPBufs 5
@@ -152,11 +146,16 @@ enum TCPSk_state {
 struct TCPSocket {
   struct tcp_pcb * pcb;
   int TCPSk_state;
-  bool reading;
-  bool writing;
-  const unsigned char * writeData; // if writing == true, the next data to write
-  unsigned int writeLen;   // if writing == true, the amount of data to write
-  u8_t writePush;	// TCP_WRITE_FLAG_MORE or 0
+  bool receiving;
+  bool sending;
+
+  /* Each TCPSocket has a send buffer allocated. sendBuf points to it.
+  If sending, sendBuf has the data.
+  If not sending, sendBuf is available to replace curRcvBuf. */
+  unsigned char * sendBuf;
+  const unsigned char * sendData; // if sending == true, the next data to send
+  unsigned int sendLen;   // if sending == true, the amount of data to send
+  u8_t sendPush;	// TCP_WRITE_FLAG_MORE or 0
 
   /* recvQ is a circular buffer of pbufs of data received.
    * recvQIn is where the next pbuf will be put.
@@ -166,27 +165,48 @@ struct TCPSocket {
   struct pbuf * * recvQIn;
   struct pbuf * * recvQOut;
   unsigned int recvQNum;
-  unsigned int readerMaxLen;
-  /* The reading process can read as little as one byte at a time,
+  unsigned int receiverMaxLen;
+  /* The receiving process can read as little as one byte at a time,
    * so we must keep track of how much of the first pbuf chain has been read. */
   struct pbuf * curRecvPbuf;
   unsigned int curRecvBytesProcessed;	// number of bytes of curRecvPbuf
 		// that have already been delivered
 };
 
-/*************************** TCP Reading ******************************/
+#define maxAcceptQEntries 5
 
-#define sndBufWords ((capros_TCPSocket_maxReadLength \
+struct TCPListenSocket {
+  struct tcp_pcb * pcb;
+  bool listening;
+  // int TCPSk_state;
+
+  /* acceptQ is a circular buffer of entries of connections received.
+   * acceptQIn is where the next entry will be put.
+   * acceptQOut is where the next entry to be removed is.
+   * acceptQNum is the number of entries in the buffer. */
+  struct TCPSocket * acceptQ[maxAcceptQEntries];
+  struct TCPSocket * * acceptQIn;
+  struct TCPSocket * * acceptQOut;
+  unsigned int acceptQNum;
+};
+
+static void CloseAndDestroy(struct TCPSocket * sock);
+
+/*************************** TCP Receiving ******************************/
+
+#define sndBufWords ((capros_TCPSocket_maxReceiveLength \
          + sizeof(unsigned long)-1) / sizeof(unsigned long))
 unsigned long sndBuf[sndBufWords];
 
+// Should we deliver received data to the client now?
 static bool
 DeliverDataNow(struct TCPSocket * sock, unsigned int maxLen)
 {
   if (sock->recvQNum == 0)
     return false;	// there is no data to deliver
 
-  if (sock->TCPSk_state == TCPSk_state_Close)
+  if (sock->TCPSk_state == TCPSk_state_Closing
+      || sock->TCPSk_state == TCPSk_state_Closed)
     return true;	// deliver final data
 
   struct pbuf * * pp = sock->recvQOut;
@@ -206,6 +226,15 @@ DeliverDataNow(struct TCPSocket * sock, unsigned int maxLen)
 
   /* We might also want to return true if we need to free up pbufs. */
   return false;
+}
+
+static void
+ConsumePbuf(struct TCPSocket * sock)
+{
+  pbuf_free(* sock->recvQOut);
+  if (++sock->recvQOut >= &sock->recvQ[maxRecvQPBufs])
+    sock->recvQOut = &sock->recvQ[0];	// wrap around
+  --sock->recvQNum;
 }
 
 unsigned int
@@ -245,15 +274,41 @@ GatherRecvData(struct TCPSocket * sock, unsigned int maxLen)
 		// note we might have to check tot_len instead of NULL
         sock->curRecvPbuf = p;
       } else {	// finished this chain
-        pbuf_free(* sock->recvQOut);
-        if (++sock->recvQOut >= &sock->recvQ[maxRecvQPBufs])
-          sock->recvQOut = &sock->recvQ[0];	// wrap around
-        if (--sock->recvQNum == 0)
+        ConsumePbuf(sock);
+        if (sock->recvQNum == 0)
           break;	// no more buffers
       }
     }
   }
   return outp - (uint8_t *)&sndBuf[0];	// number of bytes copied
+}
+
+static void
+ReturnToReceiver(struct TCPSocket * sock, unsigned int bytesReceived,
+  uint32_t rc)
+{
+  result_t result;
+
+  const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
+  result = capros_Node_getSlotExtended(KR_KEYSTORE,
+                                       slot+sco_receiver, KR_TEMP0);
+  assert(result == RC_OK);
+
+  Message Msg = {
+    .snd_invKey = KR_TEMP0,
+    .snd_code = rc,
+    .snd_w1 = bytesReceived,
+    .snd_w2 = 0,	// urgent flag is not implemented yet
+    .snd_w3 = 0,
+    .snd_key0 = KR_VOID,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_rsmkey = KR_VOID,
+    .snd_len = bytesReceived,
+    .snd_data = sndBuf
+  };
+  PSEND(&Msg);	// prompt send
+  sock->receiving = false;
 }
 
 // recv_tcp is called when data is received from the network.
@@ -269,8 +324,7 @@ recv_tcp(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 
   if (!p) {	// NULL means connection is closed
 printk("recv_tcp NULL pbuf\n");////
-    assert(sock->TCPSk_state == TCPSk_state_None);
-    sock->TCPSk_state = TCPSk_state_Close;
+    sock->TCPSk_state = TCPSk_state_Closed;	//??
   } else {
     if (sock->recvQNum >= maxRecvQPBufs) {	// queue is full
       return ERR_MEM;
@@ -284,109 +338,107 @@ printk("recv_tcp NULL pbuf\n");////
     }
   }
 
-  // Wake any reader.
-  if (sock->reading) {
-    if (DeliverDataNow(sock, sock->readerMaxLen)) {
-      result_t result;
-      unsigned int bytesRead = GatherRecvData(sock, sock->readerMaxLen);
-
-      // Return to reader.
-      const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
-      result = capros_Node_getSlotExtended(KR_KEYSTORE,
-                                           slot+sco_reader, KR_TEMP0);
-      assert(result == RC_OK);
-
-      Message Msg = {
-        .snd_invKey = KR_TEMP0,
-        .snd_w1 = bytesRead,
-        .snd_w2 = 0,	// urgent flag is not implemented yet
-        .snd_w3 = 0,
-        .snd_key0 = KR_VOID,
-        .snd_key1 = KR_VOID,
-        .snd_key2 = KR_VOID,
-        .snd_rsmkey = KR_VOID,
-        .snd_len = bytesRead,
-        .snd_data = sndBuf
-      };
-      Msg.snd_code = RC_OK;
-
-      PSEND(&Msg);	// prompt send
+  // Wake any receiver.
+  if (sock->receiving) {
+    if (DeliverDataNow(sock, sock->receiverMaxLen)) {
+      unsigned int bytesReceived = GatherRecvData(sock, sock->receiverMaxLen);
+      ReturnToReceiver(sock, bytesReceived, RC_OK);
     }
   }
 
-  if (sock->TCPSk_state == TCPSk_state_Close
+  if (sock->TCPSk_state == TCPSk_state_Closed
       && sock->recvQNum == 0) {	// closed and no more data to deliver
-    kdprintf(KR_OSTREAM, "Close - not yet implemented");////
+    CloseAndDestroy(sock);
   }
   return ERR_OK;
 }
 
-// Read TCP data.
+// Receive TCP data.
 static void
-TCPRead(Message * msg)
+TCPReceive(Message * msg)
 {
   struct TCPSocket * sock = (struct TCPSocket *)msg->rcv_w3;
 	// word from forwarder
 
   uint32_t maxLen = msg->rcv_w1;
-  if (maxLen <= 0 || maxLen > capros_TCPSocket_maxReadLength) {
+  if (maxLen <= 0 || maxLen > capros_TCPSocket_maxReceiveLength) {
     msg->snd_code = RC_capros_key_RequestError;
     return;
   }
 
-  if (sock->reading) {
+  if (sock->receiving) {
     msg->snd_code = RC_capros_TCPSocket_Already;
     return;
   }
 
   if (DeliverDataNow(sock, maxLen)) {
     // Return data immediately.
-    unsigned int bytesRead = GatherRecvData(sock, maxLen);
+    unsigned int bytesReceived = GatherRecvData(sock, maxLen);
     msg->snd_data = sndBuf;
-    msg->snd_len = bytesRead;
-    msg->snd_w1 = bytesRead;
+    msg->snd_len = bytesReceived;
+    msg->snd_w1 = bytesReceived;
     msg->snd_w2 = 0;	// urgent flag is not implemented yet
   } else {
     result_t result;
     // Save the caller:
     const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
-    result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot+sco_reader,
+    result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot+sco_receiver,
                                           KR_RETURN, KR_VOID);
     assert(result == RC_OK);
     msg->snd_invKey = KR_VOID;
 
-    sock->readerMaxLen = maxLen;
-    sock->reading = true;
+    sock->receiverMaxLen = maxLen;
+    sock->receiving = true;
   }
 }
 
 /*************************** TCP Writing ******************************/
 
-#define rcvBufWords ((capros_TCPSocket_maxWriteLength \
-         + sizeof(unsigned long)-1) / sizeof(unsigned long))
-/* We have two receive buffers. One may hold data from a write operation
- * while the other is used to receive other messages.
- * This avoids copying the data being written. */
-unsigned long rcvBufA[rcvBufWords];
-unsigned long rcvBufB[rcvBufWords];
-unsigned char * curRcvBuf = (unsigned char *)&rcvBufA;
+/* The receive buffer size must be big enough for anything the main thread
+ * could receive. */
+#define rcvBufSize (capros_TCPSocket_maxSendLength > MMS_LIMIT ? \
+                    capros_TCPSocket_maxSendLength : MMS_LIMIT)
+unsigned char * curRcvBuf;
 
+static unsigned char *
+AllocRcvBuf(void)
+{
+  unsigned char * buf = malloc(rcvBufSize);
+  if (buf) {
+    // Ensure the receive buffer is allocated by VCSK:
+    buf[0] = 0;
+    buf[rcvBufSize-1] = 0;
+  }
+  return buf;
+}
+
+// Also used for close finished.
 static void
-writeFinished(struct TCPSocket * sock, err_t err)
+sendFinished(struct TCPSocket * sock, err_t err)
 {
   result_t result;
+  uint32_t rc;
   const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
 
-  if (err != ERR_OK) {
-    kdprintf(KR_OSTREAM, "writeFinished err=%d!\n", err);
+  // Translate err to a CapROS return code.
+  switch (err) {
+  default:
+    kdprintf(KR_OSTREAM, "sendFinished err=%d!\n", err);
+  case ERR_OK:
+    rc = RC_OK;
+    break;
+  case ERR_CLSD:
+    rc = RC_capros_key_Void;
+    break;
   }
 
-  // Return to writer.
-  result = capros_Node_getSlotExtended(KR_KEYSTORE, slot+sco_writer, KR_TEMP0);
+  // Return to sender.
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, slot+sco_sender, KR_TEMP0);
   assert(result == RC_OK);
 
   Message Msg = {
     .snd_invKey = KR_TEMP0,
+    .snd_code = rc,
     .snd_w1 = 0,
     .snd_w2 = 0,
     .snd_w3 = 0,
@@ -396,21 +448,19 @@ writeFinished(struct TCPSocket * sock, err_t err)
     .snd_rsmkey = KR_VOID,
     .snd_len = 0,
   };
-
-  Msg.snd_code = RC_OK;
-
   PSEND(&Msg);	// prompt send
+  sock->sending = false;
 }
 
 static void
-do_writemore(struct TCPSocket * sock)
+do_sendmore(struct TCPSocket * sock)
 {
   err_t err;
-  unsigned int push = sock->writePush;
-  unsigned int len = sock->writeLen;
+  unsigned int push = sock->sendPush;
+  unsigned int len = sock->sendLen;
   unsigned int avail = tcp_sndbuf(sock->pcb);
 
-  DEBUG(tx) printk("do_writemore(%#x) len=%d avail=%d\n",
+  DEBUG(tx) printk("do_sendmore(%#x) len=%d avail=%d\n",
                    sock, len, avail);
 
   if (len > avail) {
@@ -418,11 +468,11 @@ do_writemore(struct TCPSocket * sock)
     push = 0;		// not the last data, don't push yet
   }
 
-  err = tcp_write(sock->pcb, sock->writeData, len, push);
+  err = tcp_write(sock->pcb, sock->sendData, len, push);
   switch (err) {
   default:
     kdprintf(KR_OSTREAM, "tcp_write err %d!\n", err);
-    writeFinished(sock, err);
+    sendFinished(sock, err);
     break;
 
   case ERR_MEM:
@@ -434,28 +484,28 @@ do_writemore(struct TCPSocket * sock)
 
   case ERR_OK:
     err = tcp_output_nagle(sock->pcb);
-    sock->writeData += len;
-    if ((sock->writeLen -= len) == 0)
-      writeFinished(sock, err);
+    sock->sendData += len;
+    if ((sock->sendLen -= len) == 0)
+      sendFinished(sock, err);
   }
 }
 
 // Write TCP data.
 static void
-TCPWrite(Message * msg)
+TCPSend(Message * msg)
 {
   result_t result;
 
   struct TCPSocket * sock = (struct TCPSocket *)msg->rcv_w3;
 	// word from forwarder
 
-  uint32_t totalLen = msg->rcv_w1;
-  if (totalLen > capros_TCPSocket_maxWriteLength) {
+  uint32_t totalLen = LWIP_MIN(msg->rcv_limit, msg->rcv_sent);
+  if (totalLen > capros_TCPSocket_maxSendLength) {
     msg->snd_code = RC_capros_key_RequestError;
     return;
   }
 
-  uint8_t flags = msg->rcv_w2;
+  uint8_t flags = msg->rcv_w1;
   if (flags & ~(capros_TCPSocket_flagPush | capros_TCPSocket_flagUrgent)) {
     // Invalid flag bits.
     msg->snd_code = RC_capros_key_RequestError;
@@ -465,30 +515,109 @@ TCPWrite(Message * msg)
   //// Urgent flag is not implemented yet:
   assert(!(flags & capros_TCPSocket_flagUrgent));
 
-  if (sock->writing) {
+  if (sock->sending || sock->TCPSk_state == TCPSk_state_Closed) {
     msg->snd_code = RC_capros_TCPSocket_Already;
     return;
   }
 
-  sock->writeData = curRcvBuf;
-  sock->writeLen = totalLen;
+  sock->sendData = curRcvBuf;
+  sock->sendLen = totalLen;
   bool push = flags & (capros_TCPSocket_flagPush
                        | capros_TCPSocket_flagUrgent);	// urgent implies push
-  sock->writePush = push ? TCP_WRITE_FLAG_MORE : 0;
-  sock->writing = true;
+  sock->sendPush = push ? TCP_WRITE_FLAG_MORE : 0;
+  sock->sending = true;
 
-  // Switch receive buffers:
-  curRcvBuf = (unsigned char *)
-             ((mem_ptr_t)curRcvBuf ^ ((mem_ptr_t)rcvBufA ^ (mem_ptr_t)rcvBufB));
+  // Switch receive buffers. This saves copying the data.
+  unsigned char * tmp = curRcvBuf;
+  curRcvBuf = sock->sendBuf;
+  sock->sendBuf = tmp;
 
   // Save the caller:
   const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
-  result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot+sco_writer,
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot+sco_sender,
                                         KR_RETURN, KR_VOID);
   assert(result == RC_OK);
   msg->snd_invKey = KR_VOID;
 
-  do_writemore(sock);
+  do_sendmore(sock);
+}
+
+// recv buffer must be empty, and the pcb must be deallocated
+static void
+CloseAndDestroy(struct TCPSocket * sock)
+{
+  result_t result;
+
+  if (sock->receiving) {
+    // Return to the receiver as though the capability is already gone:
+    ReturnToReceiver(sock, 0, RC_capros_key_Void);
+  }
+  if (sock->sending) {
+    sendFinished(sock, ERR_CLSD);
+  }
+  const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, slot+sco_forwarder,
+                                       KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
+  // Freeing the forwarder invalidates all the capabilities to it.
+  result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
+                                            slot, slot+sco_numSlots-1);
+  free(sock->sendBuf);
+  free(sock);
+}
+
+/*************************** TCP Closing ******************************/
+
+static void
+TCPAbort(Message * msg)
+{
+  struct TCPSocket * sock = (struct TCPSocket *)msg->rcv_w3;
+	// word from forwarder
+
+  sock->TCPSk_state = TCPSk_state_Closed;
+  tcp_abort(sock->pcb);
+
+  // Drain the recv queue.
+  while (sock->recvQNum) {
+    ConsumePbuf(sock);
+  }
+  CloseAndDestroy(sock);
+}
+
+static bool	// returns true if succeeded
+TryClose(struct TCPSocket * sock)
+{
+  err_t err = tcp_close(sock->pcb);
+  if (err == ERR_OK) {
+    sock->TCPSk_state = TCPSk_state_Closed;
+    return true;
+  } else
+    return false;
+}
+
+static void
+TCPClose(Message * msg)
+{
+  struct TCPSocket * sock = (struct TCPSocket *)msg->rcv_w3;
+	// word from forwarder
+
+  if (sock->sending || sock->TCPSk_state == TCPSk_state_Closed) {
+    msg->snd_code = RC_capros_TCPSocket_Already;
+    return;
+  }
+
+  if (! TryClose(sock)) {	// could not close right now
+    // Save the caller:
+    result_t result;
+    const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
+    result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot+sco_sender,
+                                          KR_RETURN, KR_VOID);
+    assert(result == RC_OK);
+    sock->sending = true;
+    sock->TCPSk_state = TCPSk_state_Closing;
+    msg->snd_invKey = KR_VOID;
+  }
 }
 
 /*************************** TCP Connecting ******************************/
@@ -496,16 +625,48 @@ TCPWrite(Message * msg)
 static err_t
 sent_tcp(void *arg, struct tcp_pcb *pcb, u16_t len)
 {
-  printk("sent_tcp\n");
-////
+  struct TCPSocket * sock = arg;
+
+  if (sock->TCPSk_state == TCPSk_state_Closing && sock->sending) {
+    // We are trying to close. Try again.
+    if (TryClose(sock)) {	// succeeded in closing
+      sendFinished(sock, ERR_OK);
+    }
+  }
   return ERR_OK;
 }
 
 static err_t
 poll_tcp(void *arg, struct tcp_pcb *pcb)
 {
-////
+  struct TCPSocket * sock = arg;
+
+  if (sock->TCPSk_state == TCPSk_state_Closing && sock->sending) {
+    // We are trying to close. Try again.
+    if (TryClose(sock)) {	// succeeded in closing
+      sendFinished(sock, ERR_OK);
+    }
+  }
   return ERR_OK;
+}
+
+// On entry, KR_TEMP1 has forwarder cap.
+// Creates socket capability in KR_TEMP1.
+static void
+CreateSocketCap(struct TCPSocket * sock)
+{
+  result_t result;
+
+  result = capros_Process_makeStartKey(KR_SELF, keyInfo_Socket, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_Forwarder_swapTarget(KR_TEMP1, KR_TEMP0, KR_VOID);
+  assert(result == RC_OK);
+  uint32_t dummy;
+  result = capros_Forwarder_swapDataWord(KR_TEMP1, (uint32_t)sock, &dummy);
+  assert(result == RC_OK);
+  result = capros_Forwarder_getOpaqueForwarder(KR_TEMP1,
+                      capros_Forwarder_sendWord, KR_TEMP1);
+  assert(result == RC_OK);
 }
 
 static void
@@ -534,23 +695,14 @@ CompleteConnection(struct TCPSocket * sock, err_t err)
     kdprintf(KR_OSTREAM, "CompleteConnection err %d\n", err);
 
   case ERR_RST:
-    rc = RC_capros_TCPIP_Refused;
+    rc = RC_capros_IP_Refused;
     break;
   case ERR_OK:
     // Return a TCPSocket capability:
     result = capros_Node_getSlotExtended(KR_KEYSTORE, slot+sco_forwarder,
                                          KR_TEMP1);
     assert(result == RC_OK);
-    result = capros_Process_makeStartKey(KR_SELF, keyInfo_Socket, KR_TEMP0);
-    assert(result == RC_OK);
-    result = capros_Forwarder_swapTarget(KR_TEMP1, KR_TEMP0, KR_VOID);
-    assert(result == RC_OK);
-    uint32_t dummy;
-    result = capros_Forwarder_swapDataWord(KR_TEMP1, (uint32_t)sock, &dummy);
-    assert(result == RC_OK);
-    result = capros_Forwarder_getOpaqueForwarder(KR_TEMP1,
-                        capros_Forwarder_sendWord, KR_TEMP1);
-    assert(result == RC_OK);
+    CreateSocketCap(sock);
 
     Msg.snd_key0 = KR_TEMP1;	// override default of KR_VOID
     rc = RC_OK;
@@ -597,6 +749,271 @@ err_tcp(void * arg, err_t err)
   }
 }
 
+/* If successful, returns the socket, and leaves a capability to the
+ * forwarder in KR_TEMP1. */
+static struct TCPSocket *
+CreateSocket(void)
+{
+  result_t result;
+
+  struct TCPSocket * sock = malloc(sizeof(struct TCPSocket));
+  if (!sock)
+    goto errExit0;
+
+  /* buf must be malloc'ed separately from sock, because it may be
+  traded away from this socket. */
+  unsigned char * buf = AllocRcvBuf();
+  if (!buf)
+    goto errExit1;
+
+  // Allocate capability slots for this connection.
+  // They are addressed using the sock address.
+  const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
+  result = capros_SuperNode_allocateRange(KR_KEYSTORE,
+                                          slot, slot+sco_numSlots-1);
+  if (result != RC_OK) {
+    goto errExit2;
+  }
+
+  // Allocate the forwarder now. If this fails we don't want to disturb
+  // the target of the connection.
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otForwarder,
+		KR_TEMP1);
+  if (result != RC_OK) {
+    goto errExit3;
+  }
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot+sco_forwarder,
+                                        KR_TEMP1, KR_VOID);
+  assert(result == RC_OK);
+
+  sock->sendBuf = buf;
+  sock->TCPSk_state = TCPSk_state_None;
+  sock->sending = false;
+  sock->receiving = false;
+  sock->recvQIn = sock->recvQOut = &sock->recvQ[0];
+  sock->recvQNum = 0;
+  return sock;
+
+errExit3:
+  result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
+                                            slot, slot+sco_numSlots-1);
+errExit2:
+  free(buf);
+errExit1:
+  free(sock);
+errExit0:
+  return NULL;
+}
+
+static void
+SocketInit(struct TCPSocket * sock, struct tcp_pcb * pcb)
+{
+  sock->pcb = pcb;
+  // Set callbacks:
+  tcp_arg(pcb, sock);
+  tcp_recv(pcb, &recv_tcp);
+  tcp_sent(pcb, &sent_tcp);
+  tcp_poll(pcb, &poll_tcp, 4);
+  tcp_err(pcb, &err_tcp);
+}
+
+/*************************** TCP Listening ******************************/
+
+static err_t
+accept_tcp(void * arg, struct tcp_pcb *newpcb, err_t err)
+{
+  struct TCPListenSocket * ls = arg;
+
+  DEBUG(listen) printk("accept_tcp %#x\n", ls);
+  if (ls->acceptQNum >= maxAcceptQEntries)
+    return ERR_MEM;
+
+  struct TCPSocket * sock = CreateSocket();
+  if (!sock) {
+    return ERR_MEM;
+  }
+  SocketInit(sock, newpcb);
+
+  if (ls->listening) {
+    DEBUG(listen) printk("accept_tcp waking up\n");
+    result_t result;
+
+    CreateSocketCap(sock);
+
+    // Return to caller of Accept.
+    const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)ls;
+    result = capros_Node_getSlotExtended(KR_KEYSTORE, slot+ls_accepter,
+                                         KR_TEMP0);
+    assert(result == RC_OK);
+
+    Message Msg = {
+      .snd_invKey = KR_TEMP0,
+      .snd_code = RC_OK,
+      .snd_w1 = 0,
+      .snd_w2 = 0,
+      .snd_w3 = 0,
+      .snd_key0 = KR_TEMP1,
+      .snd_key1 = KR_VOID,
+      .snd_key2 = KR_VOID,
+      .snd_rsmkey = KR_VOID,
+      .snd_len = 0,
+    };
+
+    PSEND(&Msg);	// prompt send
+  } else {
+    DEBUG(listen) printk("accept_tcp queueing\n");
+    // Add to the accept queue:
+    *ls->acceptQIn = sock;
+    if (++ls->acceptQIn >= &ls->acceptQ[maxAcceptQEntries])
+      ls->acceptQIn = &ls->acceptQ[0];	// wrap around
+    ls->acceptQNum++;
+  }
+
+  return ERR_OK;
+}
+
+static void
+err_lstcp(void * arg, err_t err)
+{
+kdprintf(KR_OSTREAM, "err_lstcp %d\n", err);////
+////
+}
+
+// Accept a connection.
+static void
+TCPAccept(Message * msg)
+{
+  result_t result;
+  struct TCPListenSocket * ls = (struct TCPListenSocket *)msg->rcv_w3;
+	// word from forwarder
+
+  if (ls->listening) {
+    msg->snd_code = RC_capros_TCPSocket_Already;
+    return;
+  }
+
+  if (ls->acceptQNum) {	// there is a connection queued
+    DEBUG(listen) printk("TCPAccept immediate return\n");
+    struct TCPSocket * sock = * ls->acceptQOut;
+    if (++ls->acceptQOut >= &ls->acceptQ[maxAcceptQEntries])
+      ls->acceptQOut = &ls->acceptQ[0];	// wrap around
+    ls->acceptQNum--;
+    
+    // Return a TCPSocket capability:
+    const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
+    result = capros_Node_getSlotExtended(KR_KEYSTORE, slot+sco_forwarder,
+                                         KR_TEMP1);
+    assert(result == RC_OK);
+    CreateSocketCap(sock);
+
+    msg->snd_key0 = KR_TEMP1;	// override default of KR_VOID
+  } else {		// no connection, we must wait
+    DEBUG(listen) printk("TCPAccept waiting\n");
+    // Save the caller:
+    result_t result;
+    const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)ls;
+    result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot+ls_accepter,
+                                          KR_RETURN, KR_VOID);
+    assert(result == RC_OK);
+    ls->listening = true;
+    msg->snd_invKey = KR_VOID;
+  }
+}
+
+// Listen on a local port.
+static void
+TCPListen(Message * msg)
+{
+  err_t err;
+  result_t result;
+
+  unsigned int portNum = msg->rcv_w1;
+
+  struct TCPListenSocket * ls = malloc(sizeof(struct TCPListenSocket));
+  if (!ls) {
+    msg->snd_code = RC_capros_IP_NoMem;
+    return;
+  }
+
+  // Allocate capability slots for this connection.
+  // They are addressed using the ls address.
+  const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)ls;
+  result = capros_SuperNode_allocateRange(KR_KEYSTORE,
+                                          slot, slot+ls_numSlots-1);
+  if (result != RC_OK) {
+    msg->snd_code = RC_capros_IP_NoMem;
+    goto errExit1;
+  }
+
+  // Allocate the forwarder.
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otForwarder,
+		KR_TEMP1);
+  if (result != RC_OK) {
+    msg->snd_code = RC_capros_IP_NoMem;
+    goto errExit2;
+  }
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot+ls_forwarder,
+                                        KR_TEMP1, KR_VOID);
+  assert(result == RC_OK);
+
+  struct tcp_pcb * pcb = tcp_new();
+  if (!pcb) {
+    msg->snd_code = RC_capros_IP_NoMem;
+    goto errExit3;
+  }
+
+  ls->acceptQIn = ls->acceptQOut = &ls->acceptQ[0];
+  ls->acceptQNum = 0;
+  ls->listening = false;
+
+  // Now bind it to the local port.
+  err = tcp_bind(pcb, IP_ADDR_ANY/*???*/, portNum);
+  if (err != ERR_OK) {
+    msg->snd_code = RC_capros_IP_Already;
+    goto errExit4;
+  }
+
+  struct tcp_pcb * listenPcb = tcp_listen(pcb);
+  if (!listenPcb) {
+    msg->snd_code = RC_capros_IP_NoMem;
+    goto errExit3;
+  }
+  ls->pcb = listenPcb;
+  // Set callbacks:
+  tcp_arg(listenPcb, ls);
+  tcp_accept(listenPcb, &accept_tcp);
+  //tcp_poll(listenPcb, &poll_tcp, 4);
+  tcp_err(listenPcb, &err_lstcp);
+
+  // Return a TCPListenSocket capability:
+  result = capros_Process_makeStartKey(KR_SELF, keyInfo_ListenSocket, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_Forwarder_swapTarget(KR_TEMP1, KR_TEMP0, KR_VOID);
+  assert(result == RC_OK);
+  uint32_t dummy;
+  result = capros_Forwarder_swapDataWord(KR_TEMP1, (uint32_t)ls, &dummy);
+  assert(result == RC_OK);
+  result = capros_Forwarder_getOpaqueForwarder(KR_TEMP1,
+                        capros_Forwarder_sendWord, KR_TEMP1);
+  assert(result == RC_OK);
+
+  msg->snd_key0 = KR_TEMP1;	// override default of KR_VOID
+  return;
+
+errExit4:
+  tcp_abort(pcb);
+errExit3:
+  result = capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
+errExit2:
+  result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
+                                            slot, slot+ls_numSlots-1);
+errExit1:
+  free(ls);
+  return;
+}
+
+/*************************** TCP Connecting ******************************/
+
 // Create an ipv4 connection.
 static void
 TCPConnect(Message * msg)
@@ -607,59 +1024,20 @@ TCPConnect(Message * msg)
   uint32_t ipAddr = msg->rcv_w1;	// host format
   unsigned int portNum = msg->rcv_w2;
 
-  struct TCPSocket * sock = malloc(sizeof(struct TCPSocket));
+  struct TCPSocket * sock = CreateSocket();
   if (!sock) {
-    msg->snd_code = RC_capros_TCPIP_NoMem;
+    msg->snd_code = RC_capros_IP_NoMem;
     return;
   }
-
-  // Allocate capability slots for this connection.
-  // They are addressed using the sock address.
   const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
-  result = capros_SuperNode_allocateRange(KR_KEYSTORE,
-                                          slot, slot+sco_numSlots-1);
-  if (result != RC_OK) {
-    msg->snd_code = RC_capros_TCPIP_NoMem;
-    goto errExit1;
-  }
-
-  // Allocate the forwarder now. If this fails we don't want to disturb
-  // the target of the connection.
-  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otForwarder,
-		KR_TEMP0);
-  if (result != RC_OK) {
-    msg->snd_code = RC_capros_TCPIP_NoMem;
-    goto errExit2;
-  }
-  result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot+sco_forwarder,
-                                        KR_TEMP0, KR_VOID);
-  assert(result == RC_OK);
 
   struct tcp_pcb * pcb = tcp_new();
   if (!pcb) {
-    msg->snd_code = RC_capros_TCPIP_NoMem;
+    msg->snd_code = RC_capros_IP_NoMem;
     goto errExit3;
   }
 
-  sock->pcb = pcb;
-  sock->TCPSk_state = TCPSk_state_None;
-  sock->writing = false;
-  sock->reading = false;
-  sock->recvQIn = sock->recvQOut = &sock->recvQ[0];
-  sock->recvQNum = 0;
-  // Set callbacks:
-  tcp_arg(pcb, sock);
-  tcp_recv(pcb, &recv_tcp);
-  tcp_sent(pcb, &sent_tcp);
-  tcp_poll(pcb, &poll_tcp, 4);
-  tcp_err(pcb, &err_tcp);
-
-  // Now bind it to a local port.
-  err = tcp_bind(pcb, IP_ADDR_ANY/*???*/, 0 /* find a free port */);
-  if (err != ERR_OK) {
-    msg->snd_code = RC_capros_TCPIP_NoMem;	// bogus
-    goto errExit;
-  }
+  SocketInit(sock, pcb);
 
   // Connect.
   sock->TCPSk_state = TCPSk_state_Connect;
@@ -668,7 +1046,7 @@ TCPConnect(Message * msg)
   };
   err = tcp_connect(pcb, &ipa, portNum, &do_connected);
   if (err != ERR_OK) {
-    msg->snd_code = RC_capros_TCPIP_NoMem;	// bogus
+    msg->snd_code = RC_capros_IP_NoMem;	// bogus
     //// clean up
     goto errExit;
   }
@@ -683,11 +1061,9 @@ TCPConnect(Message * msg)
 errExit:
   tcp_abort(pcb);
 errExit3:
-  result = capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
-errExit2:
+  result = capros_SpaceBank_free1(KR_BANK, KR_TEMP1);
   result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
                                             slot, slot+sco_numSlots-1);
-errExit1:
   free(sock);
   return;
 }
@@ -701,11 +1077,8 @@ driver_main(void)
   Message Msg;
   Message * const msg = &Msg;
 
-  // Ensure the receive buffers are allocated by VCSK:
-  rcvBufA[0] = 0;
-  rcvBufA[rcvBufWords-1] = 0;
-  rcvBufB[0] = 0;
-  rcvBufB[rcvBufWords-1] = 0;
+  curRcvBuf = AllocRcvBuf();
+  assert(curRcvBuf);
 
   struct ip_addr ipaddr, ipmask, ipgw;
   uint32_t ipInt, msInt, gwInt;
@@ -731,7 +1104,7 @@ driver_main(void)
   assert(result == RC_OK);
 
   // Give our cap to nplink.
-  result = capros_Process_makeStartKey(KR_SELF, keyInfo_TCPIP, KR_TEMP1);
+  result = capros_Process_makeStartKey(KR_SELF, keyInfo_IP, KR_TEMP1);
   assert(result == RC_OK);
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_VOLSIZE, KR_TEMP0);
   assert(result == RC_OK);
@@ -740,7 +1113,7 @@ driver_main(void)
   result = capros_Node_getSlot(KR_TEMP0, volsize_nplinkCap, KR_TEMP0);
   assert(result == RC_OK);
   result = capros_NPLink_RegisterNPCap(KR_TEMP0, KR_TEMP1,
-             IKT_capros_TCPIP, 0);
+             IKT_capros_IP, 0);
   assert(result == RC_OK);
 
   printk("EP93xx Ethernet driver started.\n");
@@ -768,7 +1141,7 @@ driver_main(void)
   for (;;) {
     msg->rcv_key0 = msg->rcv_key1 = msg->rcv_key2 = KR_VOID;
     msg->rcv_rsmkey = KR_RETURN;
-    msg->rcv_limit = sizeof(rcvBufA);	// both are the same size
+    msg->rcv_limit = rcvBufSize;
     msg->rcv_data = curRcvBuf;
 
     RETURN(&Msg);
@@ -789,8 +1162,8 @@ driver_main(void)
     default:
       assert(false);
 
-    case keyInfo_TCPIP:
-      DEBUG(cap) kprintf(KR_OSTREAM, "Called TCPIP, oc=%#x\n", Msg.rcv_code);
+    case keyInfo_IP:
+      DEBUG(cap) kprintf(KR_OSTREAM, "Called IP, oc=%#x\n", Msg.rcv_code);
 
       switch (Msg.rcv_code) {
       default:
@@ -798,15 +1171,19 @@ driver_main(void)
         break;
 
       case OC_capros_key_getType:
-        Msg.snd_w1 = IKT_capros_TCPIP;
+        Msg.snd_w1 = IKT_capros_IP;
         break;
   
-      case OC_capros_TCPIP_connect:
+      case OC_capros_IP_connect:
         TCPConnect(&Msg);
         break;
   
-      case OC_capros_TCPIP_listen:
-        ////
+      case OC_capros_IP_listen:
+        TCPListen(&Msg);
+        break;
+  
+      case OC_capros_IP_createUDPPort:
+        UDPCreate(&Msg);
         break;
       }
       break;
@@ -822,9 +1199,15 @@ driver_main(void)
       case OC_capros_key_getType:
         Msg.snd_w1 = IKT_capros_TCPListenSocket;
         break;
+
+      case OC_capros_key_destroy:
+        kdprintf(KR_OSTREAM, "ListenSocket.destroy not implemented\n");
+		// because I don't know how yet
+        ////
+        break;
   
       case OC_capros_TCPListenSocket_accept:
-        ////
+        TCPAccept(&Msg);
         break;
       }
       break;
@@ -842,19 +1225,50 @@ driver_main(void)
         break;
   
       case OC_capros_TCPSocket_close:
-        ////
+        TCPClose(&Msg);
         break;
   
+      case OC_capros_key_destroy:
       case OC_capros_TCPSocket_abort:
-        ////
+        TCPAbort(&Msg);
         break;
   
       case 0:	// OC_capros_TCPSocket_read
-        TCPRead(&Msg);
+        TCPReceive(&Msg);
         break;
   
-      case 1:	// OC_capros_TCPSocket_write
-        TCPWrite(&Msg);
+      case 1:	// OC_capros_TCPSocket_send
+        TCPSend(&Msg);
+        break;
+      }
+      break;
+
+    case keyInfo_UDPPort:
+      DEBUG(cap) kprintf(KR_OSTREAM, "Called UDPPort, oc=%#x\n", Msg.rcv_code);
+
+      switch (Msg.rcv_code) {
+      default:
+        Msg.snd_code = RC_capros_key_UnknownRequest;
+        break;
+
+      case OC_capros_key_getType:
+        Msg.snd_w1 = IKT_capros_UDPPort;
+        break;
+  
+      case OC_capros_key_destroy:
+        UDPDestroy(&Msg);
+        break;
+  
+      case OC_capros_UDPPort_getMaxSizes:
+        UDPGetMaxSizes(&Msg);
+        break;
+
+      case 0:	// OC_capros_UDPPort_receive
+        UDPReceive(&Msg);
+        break;
+  
+      case 1:	// OC_capros_UDPPort_send
+        UDPSend(&Msg);
         break;
       }
       break;
@@ -872,8 +1286,6 @@ driver_main(void)
         break;
 
       case OC_timer_tcp:
-        DEBUG(cap) kprintf(KR_OSTREAM, "TTmr ");
-
         tcp_tmr();
         break;
       }
@@ -888,10 +1300,10 @@ driver_main(void)
         break;
 
       case OC_capros_key_getType:
-        Msg.snd_w1 = IKT_capros_TCPIPInt;
+        Msg.snd_w1 = IKT_capros_IPInt;
         break;
   
-      case OC_capros_TCPIPInt_processInterrupt: ;
+      case OC_capros_IPInt_processInterrupt: ;
         // Call the specified function in this thread:
         void (*fcn)(uint32_t status) = (void (*)(uint32_t)) Msg.rcv_w1;
         (*fcn)(Msg.rcv_w2);

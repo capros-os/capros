@@ -57,7 +57,7 @@ Approved for public release, distribution unlimited. */
 #include <asm/arch/ep93xx-regs.h>
 #include <asm/arch/platform.h>
 #include <asm/io.h>
-#include <idl/capros/TCPIPInt.h>
+#include <idl/capros/IPInt.h>
 
 #include "../../cap.h"
 
@@ -65,7 +65,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_rx 2
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_tx | dbg_rx )
+#define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -384,43 +384,47 @@ poll_some_more:
 static err_t
 low_level_output(struct netif *netif, struct pbuf *p)
 {
+  assert(p->tot_len <= netif->mtu);
+  assert(netif->mtu <= MAX_PKT_SIZE);
+
+  /* We are forced to copy the data here, because the data may be
+  deallocated as soon as we return.
+  lwIP provides no mechanism to defer the deallocation. */
+
+  if (ep->tx_pending >= TX_QUEUE_ENTRIES)
+    // There are no buffers available.
+    return ERR_MEM;
+
 #if ETH_PAD_SIZE
   pbuf_header(p, -ETH_PAD_SIZE); /* drop the padding word */
 #endif
 
+  struct ep93xx_priv * ep = &theEp;
+  int entry = ep->tx_pointer;
+  uint8_t * bp = ep->tx_buf[entry];
+
   struct pbuf * q = p;
   while (1) {
-    /* Send the data from the pbuf to the interface, one pbuf at a
-       time. The size of the data in each pbuf is kept in the ->len
-       variable. */
     int len = q->len;	// The size of the data in the pbuf
-    assert(len <= MAX_PKT_SIZE);
-    bool last_pbuf = q->tot_len == len;
 
-    DEBUG(tx) kprintf(KR_OSTREAM, "Sending pbuf %#x payload %#x len %d\n",
-			 q, q->payload, len);
+    DEBUG(tx) kprintf(KR_OSTREAM,
+                "Sending pbuf %#x payload %#x len %d entry %d\n",
+			 q, q->payload, len, entry);
 
-    struct ep93xx_priv * ep = &theEp;
+    memcpy(bp, q->payload, len);
+    bp += len;
 
-    assert(ep->tx_pending < TX_QUEUE_ENTRIES);	// because:
-    assert(TCP_SND_QUEUELEN <= TX_QUEUE_ENTRIES);
-
-    int entry = ep->tx_pointer;
-    ep->tx_pointer = (ep->tx_pointer + 1) & (TX_QUEUE_ENTRIES - 1);
-
-    ep->descs->tdesc[entry].tdesc1 =
-    	(last_pbuf ? TDESC1_EOF : 0)
-    	| (entry << 16) | (len & 0xfff);
-    memcpy(ep->tx_buf[entry], q->payload, len);
-
-    ep->tx_pending++;
-
-    wrl(ep, REG_TXDENQ, 1);	// add 1 to number of descrs in queue
-
-    if (last_pbuf)
+    if (q->tot_len == len)
       break;	// last pbuf of the packet
     q = q->next;
   }
+  ep->descs->tdesc[entry].tdesc1 = TDESC1_EOF
+    	| (entry << 16) | (p->tot_len & 0xfff);
+
+  ep->tx_pointer = (ep->tx_pointer + 1) & (TX_QUEUE_ENTRIES - 1);
+  ep->tx_pending++;
+
+  wrl(ep, REG_TXDENQ, 1);	// add 1 to number of descrs in queue
 
 #if ETH_PAD_SIZE
   pbuf_header(p, ETH_PAD_SIZE); /* reclaim the padding word */
@@ -443,18 +447,20 @@ static void ep93xx_tx_complete(void)
 		if (!(tstat0 & TSTAT0_TXFP))
 			break;	// frame not processed yet
 
-		DEBUG(tx) printk("tx completed entry=%d tstat0=%#x, descs=%#x\n",
-				entry, tstat0, ep->descs);
+		DEBUG(tx) printk("tx completed entry=%d tstat0=%#x, descs PA=%#x VA=%#x\n",
+				entry, tstat0, ep->descs_dma_addr, ep->descs);
 		assert(ep->tx_pending > 0);
-
-		tstat->tstat0 = 0;
 
 		if (tstat0 & TSTAT0_FA)
 			printk(KERN_CRIT "ep93xx_tx_complete: frame aborted "
 					 " %.8x\n", tstat0);
+#if 1	// Disable this if we transmit multiple buffers for one frame.
 		if ((tstat0 & TSTAT0_BUFFER_INDEX) != entry)
 			printk(KERN_CRIT "ep93xx_tx_complete: entry mismatch "
 					 " %.8x\n", tstat0);
+#endif
+
+		tstat->tstat0 = 0;
 
 		// Track statistics:
 		if (tstat0 & TSTAT0_TXWE) {
@@ -500,8 +506,8 @@ static irqreturn_t ep93xx_irq(int irq, void *dev_id)
 
 	/* For concurrency control, do interrupt work in the main thread. */
 	/* An alternative design would be to use a semaphore. */
-	capros_TCPIPInt_processInterrupt(KR_DeviceEntry,
-					(uint32_t)&ep93xx_do_irq, status);
+	capros_IPInt_processInterrupt(KR_DeviceEntry,
+				(uint32_t)&ep93xx_do_irq, status);
 
 	return IRQ_HANDLED;
 }

@@ -1,0 +1,139 @@
+package capros;
+
+interface IPDefs {
+  typedef unsigned <32> ipv4Address;
+  typedef unsigned <16> portNumber;
+};
+
+interface UDPPort extends key {
+
+  exception NoMem;	// server does not have enough memory for the operation
+  exception Already;
+  exception NoPort;
+  exception NoRoute;
+
+  void getMaxSizes(IPDefs.ipv4Address destipaddr,
+                   out unsigned long maxReceiveSize,
+                   out unsigned long maxSendSize);
+
+  /* UDPPort obeys key.destroy().
+     This releases the reserved local port and other resources. */
+
+  /* The following two are not implemented in IDL because the IDL compiler
+  is not yet up to the task. */
+
+  /* Order code 0:
+  Raises Already if a receive is already in progress.
+
+  A datagram can be as large as the maxReceiveSize returned by getMaxSizes.
+  The entire datagram is returned.
+  If you receive fewer bytes than that, the excess is lost.
+   */
+  client void receive(unsigned long maxBytesToReceive,
+                      out IPDefs.ipv4Address sourceipaddr,
+                      out IPDefs.portNumber sourceport,
+                      out unsigned long bytesReceived,
+                      out unsigned byte data); /* this is a lie, the output
+				 is actually an array of bytes. */
+
+  /* Order code 1:
+  May raise Already if a send is already in progress.
+  Raises NoPort if LocalPortAny was specified when the UDPPort was created,
+  and there is no local port available.
+  Raises NoRoute if destipaddr cannot be reached.
+   */
+  client void send(IPDefs.ipv4Address destipaddr, IPDefs.portNumber destport,
+                   unsigned long len,
+                   out unsigned byte data); /* this is a lie, this is
+				really an input array of bytes. */
+};
+
+interface TCPSocket extends key {
+
+  const unsigned long maxSendLength = 4096;
+  const unsigned long maxReceiveLength = 4096;
+
+  const unsigned byte flagPush   =  8;	// send this data ASAP
+  const unsigned byte flagUrgent = 32;
+
+  exception NoMem;	// server does not have enough memory for the operation
+  exception Already;
+
+  /** close - Close the connection.
+  May raise NoMem, in which case the connection is not closed. 
+  Raises Already if there is already a send or close in progress,
+  or a close has already been done.
+  This returns as soon as the close has been queued for transmission.
+  It may not have been received yet at the other end.
+  You may continue to receive, but not send.
+  */
+  void close();
+
+  void abort();
+
+  /* The following two are not implemented in IDL because the IDL compiler
+  is not yet up to the task. */
+
+  /* Order code 0:
+  flags has flagUrgent if there remains urgent data to be received
+  Raises Already if a receive is already in progress.
+   */
+  client void receive(unsigned long maxBytesToReceive,
+                      out unsigned long bytesReceived,
+                      out unsigned byte flags,
+                      out unsigned byte data); /* this is a lie, the output
+				 is actually an array of bytes. */
+
+  /* Order code 1:
+  flags may be any combination of flagsPush and flagsUrgent.
+  Raises Already if there is already a send or close in progress,
+  or a close has been done.
+  This returns as soon as the data has been queued for transmission.
+  It may not have been received yet at the other end.
+   */
+  client void send(unsigned long len,
+                   unsigned byte flags,
+                   out unsigned byte data); /* this is a lie, this is
+				really an input array of bytes. */
+};
+
+interface TCPListenSocket extends key {
+  /** accept - wait for a connection on this local port.
+  Raises Already if there is already a process waiting for a connection.
+  */
+  TCPSocket accept();
+
+  /* TCPListenSocket obeys key.destroy().
+     This releases the reserved local port. */
+};
+
+interface IP extends key {
+
+  exception NoMem;	// server does not have enough memory for the operation
+  exception Refused;
+  exception Already;
+
+  const IPDefs.portNumber LocalPortAny = 0;
+
+  /** connect - Create a connection ("active open").
+  Specify the remote ipaddr and port.
+  A local port number will be selected.
+  May raise Refused.
+  Raises NoMem if cannot allocate resources.
+  */
+  TCPSocket connect(IPDefs.ipv4Address ipaddr, IPDefs.portNumber port);
+
+  /** listen - Reserve a local port for listening.
+  Raises NoMem if cannot allocate resources.
+  Raises Already if the port is already reserved.
+  */
+  TCPListenSocket listen(IPDefs.portNumber localPort);
+
+  /** createUDPPort - Create a UDP socket.
+  Specify the local port for receiving. Specify LocalPortAny to have
+  a port assigned.
+  Raises NoMem if cannot allocate resources.
+  Raises Already if the port is already reserved.
+  */
+  UDPPort createUDPPort(IPDefs.portNumber localPort);
+};

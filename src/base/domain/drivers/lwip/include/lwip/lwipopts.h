@@ -35,7 +35,7 @@ Approved for public release, distribution unlimited. */
 
 #define LWIP_DEBUG
 //#define ETHARP_DEBUG LWIP_DBG_ON
-#define IP_DEBUG    LWIP_DBG_ON
-#define TCP_DEBUG   LWIP_DBG_ON
+//#define IP_DEBUG    LWIP_DBG_ON
+//#define TCP_DEBUG   LWIP_DBG_ON
 
 #endif /* __LWIP_LWIPOPTS_H__ */

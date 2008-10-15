@@ -35,6 +35,7 @@ TARGETS=$(BUILDDIR)/lwip
 
 OBJECTS=
 OBJECTS+= $(BUILDDIR)/cap.o
+OBJECTS+= $(BUILDDIR)/capudp.o
 ##OBJECTS+= $(BUILDDIR)/mii.o
 # from arch/$(EROS_TARGET)/$(CAPROS_MACH):
 OBJECTS+= $(BUILDDIR)/dev.o
