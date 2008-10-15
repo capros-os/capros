@@ -53,7 +53,6 @@ OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/lsync.o \
   $(BUILDDIR)/maps.o \
   $(BUILDDIR)/notifier.o \
-  $(BUILDDIR)/page_alloc.o \
   $(BUILDDIR)/platform.o \
   $(BUILDDIR)/printk.o \
   $(BUILDDIR)/resource.o \
@@ -71,6 +70,7 @@ OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/vsprintf.o \
   $(BUILDDIR)/wait.o \
   $(BUILDDIR)/workqueue.o
+##  $(BUILDDIR)/page_alloc.o
 
 ifeq "$(EROS_TARGET)" "i386"
 OBJECTS+=$(BUILDDIR)/checksum.o
