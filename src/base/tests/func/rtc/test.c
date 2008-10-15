@@ -57,7 +57,7 @@ pd(capros_RTC_time_t time)
   dtime = dtime - hr * (60*60);
   int minu = dtime / 60;
   int sec = dtime - minu * 60;
-  kprintf(KR_OSTREAM, "RTC is %u jday=%u time=%u:%u:%u\n",
+  kprintf(KR_OSTREAM, "RTC is %u jday=%u time=%u:%.2u:%.2u\n",
     time, jd, hr, minu, sec);
 }
 
@@ -86,18 +86,18 @@ main(void)
   ckOK
   pd(time);
 
-  //time = (10957 + 8*365+2)*24*60*60;
   struct tm t = {
     .tm_year = 2008 - 1900,
-    .tm_mon = 8,
-    .tm_mday = 25,
-    .tm_hour = 11 + 8,
-    .tm_min = 4,
+    .tm_mon = 9 - 1,
+    .tm_mday = 6,
+    .tm_hour = 15 + 8,
+    .tm_min = 49,
     .tm_sec = 0,
     .tm_isdst = 0,
   };
   time = mktime(&t);
-  kdprintf(KR_OSTREAM, "Setting time to %u (c to continue):", time);
+  unsigned long jd = time / (24*60*60);
+  kdprintf(KR_OSTREAM, "Setting time to %u jday=%d (c to continue):", time, jd);
   result = capros_RTCSet_setTime(KR_RTCSET, time);
   ckOK
 
