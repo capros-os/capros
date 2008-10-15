@@ -50,7 +50,7 @@ IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/ds2490: $(DYNDRVSTART) $(DS2490_OBJECTS) $(LIBS) $(DRIVERLIBS) $(LIBDEP)
+$(BUILDDIR)/ds2490: $(DYNDRVSTART) $(DS2490_OBJECTS) $(LIBS) $(DRIVERDEPS)
 	$(DYNDRIVERLINK) $(DS2490_OBJECTS) $(LIBS) $(DRIVERLIBS) -o $@
 # and for debugging:
 #	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled

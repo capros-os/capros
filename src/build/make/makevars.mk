@@ -288,6 +288,7 @@ DYNDRIVERLINK=$(EROS_GCC) $(DRIVERLINKOPT) $(DYNDRVSTART)
 # New name for libs given at the end of the link command:
 CROSSLIBS=
 DRIVERLIBS=$(LINUXLIB)
+DRIVERDEPS=$(DRIVERLIBS) $(DEVSTART) $(LIBDEP)
 SMALL_SPACE=-small-space
 
 

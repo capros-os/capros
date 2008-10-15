@@ -49,7 +49,7 @@ IDL=$(wildcard *.idl)
 ##interfaces: $(IDL)
 ##	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/usbstorage: $(OBJECTS) $(LIBS) $(DRIVERLIBS) $(LIBDEP)
+$(BUILDDIR)/usbstorage: $(OBJECTS) $(LIBS) $(DRIVERDEPS)
 	$(DYNDRIVERLINK) $(OBJECTS) $(LIBS) $(DRIVERLIBS) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
