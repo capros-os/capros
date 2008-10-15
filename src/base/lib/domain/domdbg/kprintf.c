@@ -93,6 +93,7 @@ printPrefixSign(void (putc)(char c, buf *buffer), buf * pBuf,
 
 enum size_modifier {
   sizemod_none = 0,
+  sizemod_h,
   sizemod_l,
   sizemod_ll
 };
@@ -195,6 +196,11 @@ printf_guts(void (putc)(char c, buf *buffer),
         sizemod = sizemod_l;
         goto nosize;
       }
+
+    case 'h':
+      sizemod = sizemod_h;
+      break;
+
     default: goto nosize;
     }
     fmt++;
@@ -235,6 +241,10 @@ printf_guts(void (putc)(char c, buf *buffer),
       switch (sizemod) {
       case sizemod_none:
 	l = va_arg(ap, int);
+        break;
+
+      case sizemod_h:
+	l = (short) va_arg(ap, int);
         break;
 
       case sizemod_l:
@@ -280,6 +290,10 @@ unumbers:	// print unsigned numbers
       switch (sizemod) {
       case sizemod_none:
 	ul = va_arg(ap, unsigned int);
+        goto printul;
+
+      case sizemod_h:
+	ul = (unsigned short) va_arg(ap, unsigned int);
         goto printul;
 
       case sizemod_l:
