@@ -197,7 +197,8 @@ WritePage(struct W1Device * dev, unsigned int page, uint8_t * data)
     if (status) {
       return status;
     }
-    result_t result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &VEEExpiry);
+    result_t result;
+    result = capros_Sleep_getPersistentMonotonicTime(KR_SLEEP, &VEEExpiry);
     assert(result == RC_OK);
     VEEExpiry += 10000000;	// Copy will be done 10 ms from now
     return capros_W1Bus_StatusCode_OK;

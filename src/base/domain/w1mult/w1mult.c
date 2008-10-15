@@ -138,7 +138,8 @@ InsertTimer(struct w1Timer * timer)
 void
 RecordCurrentTime(void)
 {
-  result_t result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &currentTime);
+  result_t result;
+  result = capros_Sleep_getPersistentMonotonicTime(KR_SLEEP, &currentTime);
   assert(result == RC_OK);
 }
 

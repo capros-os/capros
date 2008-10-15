@@ -15,8 +15,8 @@ interface DS18B20 extends key
   /* Get the latest temperature available.
 
   Returns the temperature in units of 1/16 degree Celsius.
-  time is the time at which the temperature was sampled.
-  FIXME: what is the time base and units? Is it monotonic across restart?
+  time is the time at which the temperature was sampled,
+  in the same units as capros.Sleep.getPersistentMonotonicTime.
   */
   void getTemperature(out short temperature, out unsigned long long time);
 };

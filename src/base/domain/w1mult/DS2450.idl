@@ -30,8 +30,8 @@ interface DS2450 extends key
   /* Get the latest data available.
 
   Returns the A/D data.
-  time is the time at which the data were sampled.
-  FIXME: what is the time base and units? Is it monotonic across restart?
+  time is the time at which the data were sampled,
+  in the same units as capros.Sleep.getPersistentMonotonicTime.
   */
   struct portsData {
     array <unsigned short, 4> data;

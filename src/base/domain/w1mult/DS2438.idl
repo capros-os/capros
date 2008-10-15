@@ -17,10 +17,10 @@ interface DS2438 extends key
   /* Get the latest temperature available.
 
   Returns the temperature in units of 1/32 degree Celsius.
-  time is the time at which the temperature was sampled.
+  time is the time at which the temperature was sampled,
+  in the same units as capros.Sleep.getPersistentMonotonicTime.
   If no temperature has ever been sampled,
   time is zero and temperature is not valid.
-  FIXME: what is the time base and units? Is it monotonic across restart?
 
   This operation can take up to 20 milliseconds or more.
   */
@@ -41,10 +41,10 @@ interface DS2438 extends key
   Note that the DS2438 specs are that Vdd must be >= 2.4V, and
   Vad is accurate for 1.5V < Vad < 2Vdd.
 
-  time is the time at which the voltage was sampled.
+  time is the time at which the voltage was sampled,
+  in the same units as capros.Sleep.getPersistentMonotonicTime.
   If no voltage has ever been sampled,
   time is zero and temperature is not valid.
-  FIXME: what is the time base and units? Is it monotonic across restart?
 
   This operation can take up to 10 milliseconds or more.
   */
