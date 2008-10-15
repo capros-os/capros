@@ -105,7 +105,8 @@ Otherwise, the FCSE memory space is mapped:
            that is not accessed at any other address.
            Beware: when accessing user memory via this map,
            you must use the procedures pageH_*MapCoherent*.
-           TODO: Need work to support memory above physical address 0x2fffffff.
+           TODO: Need work to support memory in a range of size greater
+           than 0x30000000.
 0xf800.... windows to map other processes
 0xfc00.... (DeviceRegsVA) mapped to physical 0x8000.... 
            memory-mapped device registers
