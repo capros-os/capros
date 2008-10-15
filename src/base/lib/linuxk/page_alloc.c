@@ -13,28 +13,53 @@
  *  Per cpu hot/cold page lists, bulk allocation, Martin J. Bligh, Sept 2002
  *          (lots of bits borrowed from Ingo Molnar & Andrew Morton)
  */
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <linuxk/linux-emul.h>
 
 #include <linux/stddef.h>
 #include <linux/mm.h>
-#include <linux/swap.h>
+//#include <linux/swap.h>
 #include <linux/interrupt.h>
 #include <linux/pagemap.h>
 #include <linux/bootmem.h>
 #include <linux/compiler.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/suspend.h>
-#include <linux/pagevec.h>
+//#include <linux/suspend.h>
+//#include <linux/pagevec.h>
 #include <linux/blkdev.h>
 #include <linux/slab.h>
 #include <linux/notifier.h>
 #include <linux/topology.h>
 #include <linux/sysctl.h>
-#include <linux/cpu.h>
-#include <linux/cpuset.h>
+//#include <linux/cpu.h>
+//#include <linux/cpuset.h>
 #include <linux/memory_hotplug.h>
 #include <linux/nodemask.h>
 #include <linux/vmalloc.h>
+#if 0 // CapROS
 #include <linux/mempolicy.h>
 #include <linux/stop_machine.h>
 #include <linux/sort.h>
@@ -45,7 +70,9 @@
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
 #include "internal.h"
+#endif // CapROS
 
+#if 0 // CapROS
 /*
  * MCD - HACK: Find somewhere to initialize this EARLY, or make this
  * initializer cleaner
@@ -3293,6 +3320,7 @@ static int __init set_hashdist(char *str)
 }
 __setup("hashdist=", set_hashdist);
 #endif
+#endif // CapROS
 
 /*
  * allocate a large system hash table from bootmem
@@ -3316,7 +3344,7 @@ void *__init alloc_large_system_hash(const char *tablename,
 	/* allow the kernel cmdline to have a say */
 	if (!numentries) {
 		/* round applicable memory size up to nearest megabyte */
-		numentries = nr_kernel_pages;
+		numentries = 1024; //// tune this! was nr_kernel_pages;
 		numentries += (1UL << (20 - PAGE_SHIFT)) - 1;
 		numentries >>= 20 - PAGE_SHIFT;
 		numentries <<= 20 - PAGE_SHIFT;
@@ -3335,7 +3363,7 @@ void *__init alloc_large_system_hash(const char *tablename,
 
 	/* limit allocation size to 1/16 total memory by default */
 	if (max == 0) {
-		max = ((unsigned long long)nr_all_pages << PAGE_SHIFT) >> 4;
+		max = 32*1024*1024 /*((unsigned long long)nr_all_pages << PAGE_SHIFT)*/ >> 4;
 		do_div(max, bucketsize);
 	}
 
@@ -3346,16 +3374,15 @@ void *__init alloc_large_system_hash(const char *tablename,
 
 	do {
 		size = bucketsize << log2qty;
-		if (flags & HASH_EARLY)
+		if (flags & HASH_EARLY) {
+#if 0 // CapROS
 			table = alloc_bootmem(size);
-		else if (hashdist)
-			table = __vmalloc(size, GFP_ATOMIC, PAGE_KERNEL);
-		else {
-			unsigned long order;
-			for (order = 0; ((1UL << order) << PAGE_SHIFT) < size; order++)
-				;
-			table = (void*) __get_free_pages(GFP_ATOMIC, order);
+#else
+			panic("alloc_large_system_hash HASH_EARLY unimplemented");
+#endif // CapROS
 		}
+		else
+			table = kmalloc(size, GFP_ATOMIC);
 	} while (!table && size > PAGE_SIZE && --log2qty);
 
 	if (!table)
@@ -3374,6 +3401,7 @@ void *__init alloc_large_system_hash(const char *tablename,
 
 	return table;
 }
+#if 0 // CapROS
 
 #ifdef CONFIG_OUT_OF_LINE_PFN_TO_PAGE
 struct page *pfn_to_page(unsigned long pfn)
@@ -3389,3 +3417,4 @@ EXPORT_SYMBOL(page_to_pfn);
 #endif /* CONFIG_OUT_OF_LINE_PFN_TO_PAGE */
 
 
+#endif // CapROS

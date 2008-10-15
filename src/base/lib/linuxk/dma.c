@@ -36,8 +36,8 @@ Approved for public release, distribution unlimited. */
 #include <domain/assert.h>
 
 void *
-dma_alloc_coherent(struct device *dev,
-  size_t size, dma_addr_t *handle, gfp_t gfp)
+capros_dma_alloc_coherent(dma_addr_t dma_mask,
+  size_t size, dma_addr_t *handle)
 {
   result_t result;
   unsigned int i;
@@ -56,7 +56,7 @@ dma_alloc_coherent(struct device *dev,
   // Allocate physical pages.
   capros_DevPrivs_addr_t physAddr;
   result = capros_DevPrivs_allocateDMAPages(KR_DEVPRIVS, nPages,
-             dev->coherent_dma_mask, &physAddr, KR_TEMP0);
+             dma_mask, &physAddr, KR_TEMP0);
   if (result != RC_OK) {
     maps_liberate(blockStart, nPages);
     return NULL;
@@ -76,6 +76,14 @@ dma_alloc_coherent(struct device *dev,
 
   *handle = physAddr;
   return maps_pgOffsetToAddr(blockStart);
+}
+
+// Linux-compatible procedure:
+void *
+dma_alloc_coherent(struct device *dev,
+  size_t size, dma_addr_t *handle, gfp_t gfp)
+{
+  return capros_dma_alloc_coherent(dev->coherent_dma_mask, size, handle);
 }
 
 void
