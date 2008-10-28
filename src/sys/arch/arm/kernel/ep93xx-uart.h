@@ -1,7 +1,7 @@
 #ifndef __EP9315_UART_H_
 #define __EP9315_UART_H_
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -82,7 +82,7 @@ typedef struct UARTRegisters {
   uint32_t LinCtrlLow;
   uint32_t Ctrl;
   uint32_t Flag;
-  uint32_t IntIDlntClr;
+  uint32_t IntIDIntClr;
   uint32_t IrLowPwrCntr;	/* UART2 only */
   uint32_t unused1;
   uint32_t DMACtrl;

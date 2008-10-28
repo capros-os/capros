@@ -8,7 +8,7 @@ interface SysTrace extends key {
 
   void clearKernelStats();
 
-  /* Set tracing of invocations on or off. 
+  /* Set tracing of invocations and page faults on or off. 
   */
   void setInvocationTrace(boolean onOff);
 };

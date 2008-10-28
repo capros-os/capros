@@ -1518,7 +1518,7 @@ objC_Init()
 
   objC_nNodes = availBytes / allocQuanta;
   numLogDirEntries = objC_nNodes * 4;
-    
+ 
   objC_nodeTable = KPAtoP(Node *,
                      physMem_Alloc(objC_nNodes*sizeof(Node), &physMem_any));
   kzero(objC_nodeTable, objC_nNodes*sizeof(Node));

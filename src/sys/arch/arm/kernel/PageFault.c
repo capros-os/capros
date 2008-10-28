@@ -37,6 +37,9 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/IRQ.h>
 #include <kerninc/Depend.h>
 #include <kerninc/ObjH-inline.h>
+#ifndef NDEBUG
+#include <kerninc/Invocation.h>
+#endif
 #include <arch-kerninc/Process.h>
 #include <arch-kerninc/PTE.h>
 #include <idl/capros/GPT.h>
@@ -941,6 +944,11 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 #endif
 
   DoPageFault_CallCounter++;
+
+#ifndef NDEBUG
+  if (traceInvs)
+    printf("Pfl proc=%#x pc=%#x va=%#x\n", p, p->trapFrame.r15, va);
+#endif
   
   DEBUG(pgflt) {
     printf("DoPageFault: proc=0x%08x PC 0x%08x va=0x%08x, isWrite=%c prompt=%c\n",
