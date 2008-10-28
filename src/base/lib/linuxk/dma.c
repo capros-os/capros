@@ -42,7 +42,7 @@ capros_dma_alloc_coherent(dma_addr_t dma_mask,
   result_t result;
   unsigned int i;
 
-#if 1
+#if 0
   printk("dma_alloc_coherent(0x%x)\n", size);
 #endif
 
@@ -92,7 +92,7 @@ dma_free_coherent(struct device *dev, size_t size, void *cpu_addr,
 {
   result_t result;
 
-#if 1
+#if 0
   kprintf(KR_OSTREAM, "dma_free_coherent(0x%x, 0x%x)\n", size, cpu_addr);
 #endif
 
