@@ -88,6 +88,7 @@ extern int mod_timer(struct timer_list *timer, unsigned long expires);
 /* mod_timer_duration(t, d) is equivalent to mod_timer(t, jiffies+d),
    and is actually faster. */
 int mod_timer_duration(struct timer_list *timer, unsigned long duration);
+int capros_mod_timer_duration(struct timer_list *timer, uint64_t durationNsec);
 
 unsigned long timer_remaining_time(struct timer_list * timer);
 

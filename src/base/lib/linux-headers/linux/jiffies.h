@@ -1,6 +1,29 @@
 #ifndef _LINUX_JIFFIES_H
 #define _LINUX_JIFFIES_H
 
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 #include <linux/calc64.h>
 #include <linux/kernel.h>
 #include <linux/types.h>
@@ -252,6 +275,9 @@ extern unsigned int jiffies_to_usecs(const unsigned long j);
 /* the above will overflow 32 bits in 1.2 hours, so we provide: */
 uint64_t jiffies64_to_usecs(uint64_t j);
 extern unsigned long msecs_to_jiffies(const unsigned int m);
+static inline unsigned long nsecs_to_jiffies(uint64_t ns) {
+  return ns / ((uint64_t)1000000000/HZ);
+}
 extern unsigned long usecs_to_jiffies(const unsigned int u);
 extern unsigned long timespec_to_jiffies(const struct timespec *value);
 extern void jiffies_to_timespec(const unsigned long jiffies1,
