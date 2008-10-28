@@ -91,6 +91,7 @@ main(void)
   result = lthread_new_thread(LSYNC_STACK_SIZE, &lsync_main, NULL,
                               &lsyncThreadNum);
   if (result != RC_OK) {
+    kdprintf(KR_OSTREAM, "%#x ", result);
     assert(false);	// FIXME handle error
   }
 

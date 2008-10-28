@@ -59,8 +59,8 @@ thread_info structure, of which only preempt_count is used. */
 #define KR_LINUX_EMUL KR_APP(1) // Node of keys for Linux driver environment
 #define KR_LSYNC      KR_APP(2)	// start key to lsync process
 #define KR_SLEEP      KR_APP(3) // to speed up getting jiffies
-#define KR_DEVPRIVS   KR_APP(4) // to speed up getting jiffies
-#define KR_MAPS_GPT   KR_APP(5) // 
+#define KR_MAPS_GPT   KR_APP(4) // 
+#define KR_DEVPRIVS   KR_APP(5) // to speed up getting jiffies
 #define KR_APP2(i)    KR_APP(6+(i)) // first available key reg for driver
 
 /* Slots in the node in KR_LINUX_EMUL: */

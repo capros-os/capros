@@ -111,6 +111,7 @@ install-headers:
 	$(INSTALL) -d $(EROS_ROOT)/include/linuxk
 	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/linuxk
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
+	$(INSTALL) -m 644 lprog.map $(CAPROS_DOMAIN)
 	$(INSTALL) -m 644 driver.map dyndriver.map $(CAPROS_DOMAIN)/drivers
 
 install: install-headers $(TARGETS)

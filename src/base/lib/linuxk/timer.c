@@ -441,9 +441,9 @@ del_timer(struct timer_list * timer)
 }
 
 /* Returns 0 if timer was inactive, 1 if was active. */
-int
-__mod_timer_duration(struct timer_list * timer, unsigned long duration,
-                     uint64_t now64)
+static int
+__mod_timer_duration(struct timer_list * timer, unsigned long durationNsec,
+                     uint64_t nowNsec)
 {
   unsigned long flags = 0;
   int ret = 0;
@@ -461,13 +461,12 @@ __mod_timer_duration(struct timer_list * timer, unsigned long duration,
     ret = 1;
   }
 
-  unsigned long now = (unsigned long) now64;	// jiffies, correctly truncated
-  unsigned int expires = now + duration;
+  unsigned long now = nsecs_to_jiffies(nowNsec);
+  unsigned int expires = now + nsecs_to_jiffies(durationNsec);
   timer->expires = expires;	// for the client, not for us
 
   uint64_t caprosExpiration
-    = timer->caprosExpiration
-    = jiffies64_to_usecs(now64 + duration) * 1000;	// nanoseconds
+    = timer->caprosExpiration = nowNsec + durationNsec;
 
 #if 0
   printk("mod_timer, exp=%u jif=%u capexp=%llu\n",
@@ -497,13 +496,15 @@ __mod_timer(struct timer_list * timer, unsigned long expires)
   We have to assume that no one waits for longer than half that.
   The following calculations will convert the 32-bit expires time
   to a 64 bit true expiration time. */
-  uint64_t now64 = get_jiffies_64();
+  uint64_t time;
+  capros_Sleep_getTimeMonotonic(KR_SLEEP, &time);
+  uint64_t now64 = nsecs_to_jiffies(time);
   unsigned long now = (unsigned long) now64;	// jiffies, correctly truncated
 
   /* Ignore any overflow on the following subtraction: */
   int32_t duration = expires - now;
 
-  return __mod_timer_duration(timer, duration, now64);
+  return __mod_timer_duration(timer, jiffies_to_usecs(duration)*1000, time);
 }
 
 /* Returns 0 if timer was inactive, 1 if was active. */
@@ -524,13 +525,23 @@ mod_timer(struct timer_list * timer, unsigned long expires)
 
 /* Returns 0 if timer was inactive, 1 if was active. */
 int
+capros_mod_timer_duration(struct timer_list * timer,
+  uint64_t durationNsec)
+{
+  uint64_t time;
+  capros_Sleep_getTimeMonotonic(KR_SLEEP, &time);
+  return __mod_timer_duration(timer, durationNsec, time);
+}
+
+/* Returns 0 if timer was inactive, 1 if was active. */
+int
 mod_timer_duration(struct timer_list * timer, unsigned long duration)
 {
 #ifdef TIMERDEBUG
   kprintf(KR_OSTREAM, "mod_timer_dur 0x%x %d\n", timer, duration);
 #endif
 
-  return __mod_timer_duration(timer, duration, get_jiffies_64());
+  return capros_mod_timer_duration(timer, jiffies_to_usecs(duration)*1000);
 }
 
 unsigned long

@@ -108,8 +108,7 @@ get_jiffies_64(void)
 {
   uint64_t time;
   capros_Sleep_getTimeMonotonic(KR_SLEEP, &time);
-  // Convert nanoseconds to jiffies.
-  return time / ((uint64_t)1000000000/HZ);
+  return nsecs_to_jiffies(time);
 }
 
 void
