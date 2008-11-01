@@ -110,15 +110,16 @@ interface TCPListenSocket extends key {
 interface IP extends key {
 
   exception NoMem;	// server does not have enough memory for the operation
-  exception Refused;
   exception Already;
+  exception Refused;
+  exception Aborted;
 
   const IPDefs.portNumber LocalPortAny = 0;
 
   /** connect - Create a connection ("active open").
   Specify the remote ipaddr and port.
   A local port number will be selected.
-  May raise Refused.
+  May raise Refused or Aborted.
   Raises NoMem if cannot allocate resources.
   */
   TCPSocket connect(IPDefs.ipv4Address ipaddr, IPDefs.portNumber port);

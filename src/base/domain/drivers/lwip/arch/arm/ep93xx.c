@@ -65,7 +65,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_rx 2
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u )
+#define dbg_flags   ( 0u | )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -266,6 +266,12 @@ static void ep93xx_rx(void)
 			break;
 		}
 		// Both RFP bits are on.
+#if 0	// show all input data
+		int i;
+		for (i = 0; i < length; i++)
+			printk(" %.2x", ((uint8_t *)ep->rx_buf[entry])[i]);
+		printk("\n");
+#endif
 
 		rstat->rstat0 = 0;
 		rstat->rstat1 = 0;

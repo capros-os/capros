@@ -21,15 +21,8 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
-#include <string.h>
-#include <stdlib.h>
-#include <linux/kernel.h>
-#include <linux/timer.h>
-#undef TIME_WAIT
 #include <eros/Invoke.h>
-//#include <disk/NPODescr.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/SuperNode.h>
@@ -37,20 +30,10 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <idl/capros/IP.h>
 #include <idl/capros/UDPPort.h>
-//#include <idl/capros/IPInt.h>
-//#include <idl/capros/NPLink.h>
 #include <domain/assert.h>
-//#include <eros/machine/cap-instr.h>
 
-#include <lwip/stats.h>
-#include <lwip/mem.h>
-#include <lwip/memp.h>
 #include <lwip/pbuf.h>
-#include <netif/etharp.h>
-#include <ipv4/lwip/ip.h>
 #include <lwip/udp.h>
-#include <lwip/tcp.h>
-#include <lwip/init.h>
 
 #include "cap.h"
 
@@ -58,7 +41,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_rx 2
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_tx | dbg_rx )
+#define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -111,7 +94,7 @@ static inline void
 rqi_ReturnToReceiver(struct recvQItem * rqi, cap_t receiver)
 {
   struct pbuf * p = rqi->pbuf;
-  ReturnToReceiver(KR_TEMP0, p->payload, p->len,
+  ReturnToReceiver(receiver, p->payload, p->len,
                    RC_OK, rqi->ipAddr, rqi->port);
   pbuf_free(p);
 }
@@ -306,6 +289,7 @@ UDPReceive(Message * msg)
   }
 
   if (sock->recvQNum == 0) {	// there is no data now
+    DEBUG(rx) kprintf(KR_OSTREAM, "UDPReceive: waiting\n");
     // Save the caller:
     const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
     result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot+udp_receiver,
@@ -314,6 +298,7 @@ UDPReceive(Message * msg)
 
     sock->receiving = true;
   } else {			// deliver data
+    DEBUG(rx) kprintf(KR_OSTREAM, "UDPReceive: got data\n");
     /* Rather than send the message to the caller by RETURNing to KR_RETURN,
     we will PSEND to KR_RETURN and then RETURN to KR_VOID.
     This allows us to free the pbuf after it is used. */

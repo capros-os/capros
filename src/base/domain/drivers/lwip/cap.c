@@ -697,6 +697,11 @@ CompleteConnection(struct TCPSocket * sock, err_t err)
   case ERR_RST:
     rc = RC_capros_IP_Refused;
     break;
+
+  case ERR_ABRT:
+    rc = RC_capros_IP_Aborted;
+    break;
+
   case ERR_OK:
     // Return a TCPSocket capability:
     result = capros_Node_getSlotExtended(KR_KEYSTORE, slot+sco_forwarder,
@@ -1280,8 +1285,6 @@ driver_main(void)
         break;
 
       case OC_timer_arp:
-        DEBUG(cap) kprintf(KR_OSTREAM, "TArp ");
-
         etharp_tmr();
         break;
 
