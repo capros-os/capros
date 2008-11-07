@@ -61,7 +61,7 @@ static DEFINE_MUTEX(port_mutex);
 
 uint32_t portNum;
 
-#define msgRcvBufSize UART_XMIT_SIZE
+#define msgRcvBufSize capros_SerialPort_maxWriteBytes
 unsigned char msgRcvBuf[msgRcvBufSize];
 
 /* Define slots for keys in KR_KEYSTORE: */
@@ -2140,6 +2140,9 @@ driver_main(void)
   Message msgs;
   Message * const msg = &msgs;	// to address it consistently
 
+  // Check that we don't advertise more than we can accept:
+  assert(capros_SerialPort_maxWriteBytes <= UART_XMIT_SIZE);
+
   result = capros_Number_get32(KR_PortNum, &portNum);
   assert(result == RC_OK);
 
@@ -2253,7 +2256,7 @@ driver_main(void)
       break;
     }
 
-    case 0:	// read (not yet working in IDL)
+    case 0:	// capros_SerialPort_read (not yet working in IDL)
     {
       struct uart_port * port = state->port;
       unsigned long readCount = msg->rcv_w1;	// max number of pairs to read
@@ -2283,7 +2286,7 @@ driver_main(void)
       break;
     }
 
-    case 2:	// readTimeout (not yet working in IDL)
+    case 2:	// capros_SerialPort_readTimeout (not yet working in IDL)
     {
       struct uart_port * port = state->port;
       unsigned long readCount = msg->rcv_w1;	// max number of pairs to read
