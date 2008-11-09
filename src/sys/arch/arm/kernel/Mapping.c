@@ -514,7 +514,7 @@ AllocateSmallSpace(void)
       goto assignSS;
     }
   }
-#if 1	// until it's tested
+#if 0
   dprintf(true, "Stealing small spaces.\n");
 #endif
   for (i = 0; i < KTUNE_NSSSTEAL; i++) {
