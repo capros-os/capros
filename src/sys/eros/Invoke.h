@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -42,6 +42,7 @@ extern fixreg_t CALL(Message*);
 extern void SEND(Message*);
 extern void PSEND(Message*);
 extern fixreg_t RETURN(Message*);
+extern fixreg_t NPRETURN(Message*);
 
   /* Generic form: */
 extern fixreg_t INVOKECAP(Message*);
