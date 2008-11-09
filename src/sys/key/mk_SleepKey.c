@@ -95,7 +95,7 @@ returnu64:
     u64 = (((uint64_t) inv->entry.w2) << 32)
                   | ((uint64_t) inv->entry.w1);
 
-    wakeupTime = mach_NanosecondsToTicks(u64);
+    wakeupTime = mach_NanosecondsToTicks(u64) + 1;	// +1 to round up
     goto sleepCommon;
 
   sleepCommon:
