@@ -52,9 +52,11 @@ is the "volsize" node. It contains:
     This range begins at OIDBase and contains all the frames
     enumerated above. 
     This cap is stored here by npgen. */
-/* Note, the spacebank will look for range caps in other slots as well,
- * but for now there are no tools to put them there. */
-#define volsize_range 12
+/* Slots volsize_range+1 through volsize_range_last inclusive may contain
+   Range capabilities for additional ranges for the space bank.
+   For now there are no tools to put them there. */
+#define volsize_range 6
+#define volsize_range_last 12
 
 /* Slot volsize_thread contains a node cap to the beginning of the
  * threadlist constructed using the mkimage "run" directive.
