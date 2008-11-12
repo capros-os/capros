@@ -144,10 +144,11 @@ ob_init(void)
 
   DEBUG(init) kdprintf(KR_OSTREAM, "Installing range keys\n");
 
-  /* search through all the keys in the volsize, looking for
-   * range keys
+  /* Search through slots in the volsize, looking for range keys.
+     Note, don't search all slots; you could deadlock calling
+     capros_key_getType on nplink.
    */
-  for (i = 0; i < EROS_NODE_SIZE; i++) {
+  for (i = volsize_range; i <= volsize_range_last; i++) {
     uint32_t result, keyType;
     capros_Node_getSlot(KR_VOLSIZE, i, KR_TMP);
     result = capros_key_getType(KR_TMP, &keyType);
