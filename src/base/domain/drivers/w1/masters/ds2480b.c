@@ -479,9 +479,8 @@ CheckSPUDResponse(void)
 {
   if (settingSPUD) {
     // Check the response from the SPUD command.
-    if (RcvCharsMin(1) < 0) {
-      assert(!"implemented");
-    }
+    if (RcvCharsMin(1) < 0)
+      return false;
     if (! MatchDataByte(configSPUD + (currentSPUDCode << 1)))
       return false;
   }
@@ -790,9 +789,8 @@ execute: ;
       case capros_W1Bus_stepCode_resetNormal:
       {
         // get the response byte
-        if (RcvCharsMin(1) < 0) {
-          assert(!"implemented");
-        }
+        if (RcvCharsMin(1) < 0)
+          goto terminateBusError;
         c = inBuf[numInputPairsProcessed++].data & 0xdf;
         if ((c & 0xfc) != 0xcc) {
           DEBUG(errors) kprintf(KR_OSTREAM, "Sent reset got %#.2x!n", c);
@@ -826,9 +824,8 @@ execute: ;
       case capros_W1Bus_stepCode_setPathMain:
       case capros_W1Bus_stepCode_setPathAux:
       {
-        if (RcvCharsMin(12) < 0) {
-          assert(!"implemented");
-        }
+        if (RcvCharsMin(12) < 0)
+          goto terminateBusError;
         if (! MatchDataByte(0x55)	// Match ROM response
             || ! MatchDataBytes(pgm, 8)	// match ROM
             || ! MatchDataByte(stepCode)
@@ -854,17 +851,15 @@ execute: ;
       }
 
       case capros_W1Bus_stepCode_skipROM:
-        if (RcvCharsMin(1) < 0) {
-          assert(!"implemented");
-        }
+        if (RcvCharsMin(1) < 0)
+          goto terminateBusError;
         if (! MatchDataByte(0xcc))	// Skip ROM response
           goto terminateBusError;
         break;
 
       case capros_W1Bus_stepCode_matchROM:
-        if (RcvCharsMin(9) < 0) {
-          assert(!"implemented");
-        }
+        if (RcvCharsMin(9) < 0)
+          goto terminateBusError;
         if (! MatchDataByte(stepCode)	// Match ROM response
             || ! MatchDataBytes(pgm, 8))	// match ROM
           goto terminateBusError;
@@ -873,9 +868,8 @@ execute: ;
 
       case capros_W1Bus_stepCode_searchROM:
       case capros_W1Bus_stepCode_alarmSearchROM:
-        if (RcvCharsMin(17) < 0) {
-          assert(!"implemented");
-        }
+        if (RcvCharsMin(17) < 0)
+          goto terminateBusError;
         if (! MatchDataByte(stepCode))	// Search ROM response
           goto terminateBusError;
         uint8_t rom[8];
@@ -915,14 +909,12 @@ execute: ;
       writeCommonPP:
         if (pgm + 1 < segEnd
             && *(pgm + 1) == capros_W1Bus_stepCode_strongPullup5) {
-          if (! CheckSPUDResponse()) {
-            assert(!"implemented");
-          }
+          if (! CheckSPUDResponse())
+            goto terminateBusError;
           option += commandPulseArm;
         }
-        if (RcvCharsMin(1) < 0) {
-          assert(!"implemented");
-        }
+        if (RcvCharsMin(1) < 0)
+          goto terminateBusError;
         c = inBuf[numInputPairsProcessed++].data;
         option += commandWrite0 - 1 + gBusSpeed;	// expected response
         if (c != option
@@ -938,9 +930,8 @@ execute: ;
       case capros_W1Bus_stepCode_writeBytes:
       case capros_W1Bus_stepCode_readBytes:
         nBytes = *pgm;
-        if (RcvCharsMin(nBytes) < 0) {
-          assert(!"implemented");
-        }
+        if (RcvCharsMin(nBytes) < 0)
+          goto terminateBusError;
         uint8_t * nextStep = pgm + 1;
         if (stepCode == capros_W1Bus_stepCode_writeBytes) {
           if (! MatchDataBytes(pgm+1, nBytes-1))
@@ -956,12 +947,10 @@ execute: ;
         if (nextStep < segEnd
             && *nextStep == capros_W1Bus_stepCode_strongPullup5) {
 
-          if (! CheckSPUDResponse()) {
-            assert(!"implemented");
-          }
-          if (RcvCharsMin(3) < 0) {
-            assert(!"implemented");
-          }
+          if (! CheckSPUDResponse())
+            goto terminateBusError;
+          if (RcvCharsMin(3) < 0)
+            goto terminateBusError;
           // Check response to pulse arm.
           c = inBuf[numInputPairsProcessed++].data;
           if ((c & 0xfc) != (commandPulse5VStrong & 0xfc)) {
@@ -989,9 +978,8 @@ execute: ;
           if (! serial_sendData()) {
             assert(!"implemented");
           }
-          if (RcvCharsMin(1) < 0) {
-            assert(!"implemented");
-          }
+          if (RcvCharsMin(1) < 0)
+            goto terminateBusError;
           // Check response to pulse disarm.
           c = inBuf[numInputPairsProcessed++].data;
           if ((c & 0xfc) != (commandPulse5VStrong & 0xfc)) {
@@ -1024,9 +1012,8 @@ execute: ;
         unsigned int pageSize = (1UL << *pgm);
         unsigned char numPages = *(pgm+1);
         unsigned long nBytesRcvd = (pageSize + option) * numPages;
-        if (RcvCharsMin(3 + nBytesRcvd) < 0) {
-          assert(!"implemented");
-        }
+        if (RcvCharsMin(3 + nBytesRcvd) < 0)
+          goto terminateBusError;
         if (! MatchDataBytes(pgm+2, 3))	// preamble
           goto terminateBusError;
         // Check CRC.

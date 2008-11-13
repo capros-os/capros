@@ -43,9 +43,11 @@ Approved for public release, distribution unlimited. */
 
 #define dbg_prog   0x1
 #define dbg_status 0x2
+#define dbg_server 0x4
+#define dbg_errors 0x8
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u )
+#define dbg_flags   ( 0u | dbg_errors )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -54,6 +56,7 @@ unsigned long MsgSndBuf[capros_W1Bus_maxReadSize/4];
 
 static void usb_w1_msg_timer_function(unsigned long data)
 {
+  DEBUG(errors) printk("DS2490 USB operation timed out!\n");
   usb_unlink_endpoint(data);
 }
 
@@ -252,8 +255,17 @@ static unsigned long ds_recv_data(dma_addr_t buf_dma, int len)
 		printk(KERN_INFO "Resetting device after ST_EPOF.\n");
 		int err = ds_send_control_cmd(CTL_RESET_DEVICE, 0);
 		assert(!err);	// FIXME
+		count = ds_recv_status();
+		assert(count >= 16);	// FIXME
 	}
-	assert(false);	// FIXME
+	// Let's attempt some error recovery: retry once
+	err = ds_usb_io(&urb, endpoint, 1000, &count);
+	if (err < 0) {
+		printk(KERN_INFO "%s second err=%d\n", __func__, err);
+		assert(false);	// FIXME
+	} else {
+		kdprintf(KR_OSTREAM, "%s retried OK.\n", __func__);
+	}
   }
 
 #if 0
@@ -1129,6 +1141,7 @@ w1bus_thread(void * arg)
     Msg.rcv_limit = sizeof(MsgRcvBuf);
 
     RETURN(&Msg);
+    DEBUG(server) printk("ds2490 called, %#x\n", Msg.rcv_code);
 
     // Set up defaults for return:
     Msg.snd_invKey = KR_RETURN;
