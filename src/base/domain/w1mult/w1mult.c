@@ -1145,6 +1145,8 @@ main(void)
   DS2438_Init();
   DS2450_Init();
 
+  DEBUG(server) kprintf(KR_OSTREAM, "w1mult started\n");
+
   // Read the configuration file.
   struct W1DevConfig * cfg;
   for (cfg = (void *)configFileAddr;
