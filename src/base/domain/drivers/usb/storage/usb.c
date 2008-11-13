@@ -160,7 +160,7 @@ struct scsi_device theDevice = {
   .host = &hostAlloc.h
 };
 
-static unsigned int delay_use = 5;
+static unsigned int delay_use = 0;
 //module_param(delay_use, uint, S_IRUGO | S_IWUSR);
 //MODULE_PARM_DESC(delay_use, "seconds to delay before using a new device");
 
