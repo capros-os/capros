@@ -1,0 +1,13 @@
+package capros;
+
+/* Explain This object . */
+interface SWCA extends key 
+{
+  void registerBus(key NPCap, unsigned long subType);
+};
+
+// Interface for internal use only:
+interface SWCANotify extends key
+{
+  void notify();
+};
