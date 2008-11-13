@@ -63,7 +63,7 @@ DEFINE_MUTEX(lock);
 
 uint32_t TCPPortNum;
 uint32_t serialPortNum;
-uint32_t iPAddress;
+uint32_t IPAddress;
 
 unsigned int read_threadNum;
 unsigned int write_threadNum;
