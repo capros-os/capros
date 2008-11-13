@@ -33,7 +33,6 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/GPT.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Sleep.h>
-#include <idl/capros/DevPrivs.h>
 #include <idl/capros/W1Bus.h>
 #include <idl/capros/DS18B20.h>
 #include <idl/capros/DS2450.h>
@@ -44,7 +43,6 @@ Approved for public release, distribution unlimited. */
 
 #define KR_OSTREAM  KR_APP(1)
 #define KR_SLEEP    KR_APP(2)
-#define KR_DEVPRIVS KR_APP(3)
 #define KR_DEVNODE  KR_APP(4)
 #define KR_DS18B20_loose KR_APP(4)
 
@@ -146,7 +144,7 @@ main(void)
   kprintf(KR_OSTREAM, "Starting.\n");
 
 //  configureDevN(3);
-//  configureDevN(4);
+  configureDevN(4);
   configureAD(5);
  // configureDevN(13);
   configureAD(17);
@@ -160,7 +158,7 @@ main(void)
 
   for (;;) {
     //PrintTempDevN(3);
-//    PrintTempDevN(4);
+    PrintTempDevN(4);
     PrintADDevN(5);
     //PrintTempDevN(13);
 //    PrintADDevN(17);
@@ -168,7 +166,7 @@ main(void)
 //    PrintTempDevN(19);
 //    PrintTempDevN(20);
 
-    result = capros_Sleep_sleep(KR_SLEEP, 300000);	// sleep 300 seconds
+    result = capros_Sleep_sleep(KR_SLEEP, 2000);	// sleep 2 seconds
     assert(result == RC_OK);
   }
 
