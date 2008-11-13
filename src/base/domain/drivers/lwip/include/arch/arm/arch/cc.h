@@ -58,7 +58,9 @@ typedef u32_t mem_ptr_t;
 int printk(const char * fmt, ...);
 #define LWIP_PLATFORM_DIAG(x) do {printk x;} while(0)
 
-#define LWIP_PLATFORM_ASSERT(x) assert(x)
+#define LWIP_PLATFORM_ASSERT(x) \
+  kdprintf(KR_OSTREAM, "%s:%d: failed assertion `" x "'\n", \
+           __FILE__, __LINE__ )
 
 /* The library has no htons etc, so we must provide them: */
 static inline u16_t lwip_swab16(u16_t x) {

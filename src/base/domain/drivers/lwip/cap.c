@@ -59,9 +59,10 @@ Approved for public release, distribution unlimited. */
 #define dbg_conn 4
 #define dbg_cap  8
 #define dbg_listen 0x10
+#define dbg_errors 0x20
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_tx | dbg_rx | dbg_conn | dbg_cap | dbg_listen )
+#define dbg_flags   ( 0u | dbg_errors )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -141,7 +142,7 @@ enum TCPSk_state {
   TCPSk_state_Closed
 };
 
-#define maxRecvQPBufs 5
+#define maxRecvQPBufs 10
 
 struct TCPSocket {
   struct tcp_pcb * pcb;
@@ -161,7 +162,6 @@ struct TCPSocket {
    * recvQIn is where the next pbuf will be put.
    * recvQOut is where the next pbuf to be removed is.
    * recvQNum is the number of pbufs in the buffer. */
-  struct pbuf * recvQ[maxRecvQPBufs];
   struct pbuf * * recvQIn;
   struct pbuf * * recvQOut;
   unsigned int recvQNum;
@@ -171,6 +171,7 @@ struct TCPSocket {
   struct pbuf * curRecvPbuf;
   unsigned int curRecvBytesProcessed;	// number of bytes of curRecvPbuf
 		// that have already been delivered
+  struct pbuf * recvQ[maxRecvQPBufs];
 };
 
 #define maxAcceptQEntries 5
@@ -280,7 +281,9 @@ GatherRecvData(struct TCPSocket * sock, unsigned int maxLen)
       }
     }
   }
-  return outp - (uint8_t *)&sndBuf[0];	// number of bytes copied
+  unsigned int totalLen = outp - (uint8_t *)&sndBuf[0];	// num of bytes copied
+  tcp_recved(sock->pcb, totalLen);	// let the sender send more
+  return totalLen;
 }
 
 static void
@@ -309,9 +312,11 @@ ReturnToReceiver(struct TCPSocket * sock, unsigned int bytesReceived,
   };
   PSEND(&Msg);	// prompt send
   sock->receiving = false;
+  DEBUG(rx) kprintf(KR_OSTREAM, "lwip woke rcvr\n");
 }
 
 // recv_tcp is called when data is received from the network.
+// We are responsible for freeing the pbuf if we return ERR_OK.
 static err_t
 recv_tcp(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 {
@@ -323,10 +328,10 @@ recv_tcp(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
   assert(err == ERR_OK);	// else how to handle it?
 
   if (!p) {	// NULL means connection is closed
-printk("recv_tcp NULL pbuf\n");////
     sock->TCPSk_state = TCPSk_state_Closed;	//??
   } else {
     if (sock->recvQNum >= maxRecvQPBufs) {	// queue is full
+      DEBUG(errors) kdprintf(KR_OSTREAM, "Sock %#x recvQ full!\n", sock);
       return ERR_MEM;
     }
     * sock->recvQIn = p;	// note, p is NULL if the connection was closed
@@ -462,6 +467,8 @@ do_sendmore(struct TCPSocket * sock)
 
   DEBUG(tx) printk("do_sendmore(%#x) len=%d avail=%d\n",
                    sock, len, avail);
+  if (avail == 0)
+    DEBUG(errors) kdprintf(KR_OSTREAM, "tcp_sndbuf no space available!");
 
   if (len > avail) {
     len = avail;	// send no more than we can
@@ -476,6 +483,7 @@ do_sendmore(struct TCPSocket * sock)
     break;
 
   case ERR_MEM:
+    DEBUG(errors) kdprintf(KR_OSTREAM, "tcp_write ERR_MEM.\n", err);
     /* ERR_MEM is a temporary error,
      * so we wait for sent_tcp or poll_tcp to be called. */
     // Try tcp_output anyway:
@@ -484,6 +492,9 @@ do_sendmore(struct TCPSocket * sock)
 
   case ERR_OK:
     err = tcp_output_nagle(sock->pcb);
+    if (err != ERR_OK)
+      DEBUG(errors) kdprintf(KR_OSTREAM, "tcp_output returned %d.\n", err);
+
     sock->sendData += len;
     if ((sock->sendLen -= len) == 0)
       sendFinished(sock, err);
@@ -742,7 +753,8 @@ err_tcp(void * arg, err_t err)
 {
   struct TCPSocket * sock = arg;
 
-  printk("err_tcp %d sock %#x state %d\n", err, sock, sock->TCPSk_state);////
+  DEBUG(errors) printk("err_tcp %d sock %#x state %d\n",
+                  err, sock, sock->TCPSk_state);
 
   switch (sock->TCPSk_state) {
   default: ;

@@ -31,11 +31,13 @@ Approved for public release, distribution unlimited. */
 #include <stdlib.h>		// and declare it
 #define MEM_ALIGNMENT 4	// correct for ARM
 #define TCP_MSS 1024
-#define TCP_SND_BUF (TCP_MSS * 2)
+#define TCP_SND_BUF (TCP_MSS * 4)
 
 #define LWIP_DEBUG
 //#define ETHARP_DEBUG LWIP_DBG_ON
 //#define IP_DEBUG    LWIP_DBG_ON
 //#define TCP_DEBUG   LWIP_DBG_ON
+#define TCP_OUTPUT_DEBUG LWIP_DBG_ON
+#define LWIP_DBG_MIN_LEVEL LWIP_DBG_LEVEL_SEVERE
 
 #endif /* __LWIP_LWIPOPTS_H__ */

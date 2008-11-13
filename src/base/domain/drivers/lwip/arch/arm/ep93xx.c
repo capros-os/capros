@@ -61,11 +61,12 @@ Approved for public release, distribution unlimited. */
 
 #include "../../cap.h"
 
-#define dbg_tx 1
-#define dbg_rx 2
+#define dbg_tx     0x1
+#define dbg_rx     0x2
+#define dbg_errors 0x4
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | )
+#define dbg_flags   ( 0u | dbg_errors )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -245,6 +246,26 @@ static struct net_device_stats *ep93xx_get_stats(struct net_device *dev)
 }
 #endif
 
+static void
+printPacket(unsigned int pktLength, int entry, unsigned int maxBytesToPrint)
+{
+#define maxMaxBTP 100
+  char printBuffer[maxMaxBTP *3 + 1];
+  if (maxBytesToPrint > maxMaxBTP)
+    maxBytesToPrint = maxMaxBTP;	// take min
+  char * printCursor = &printBuffer[0];
+  unsigned int printLength = pktLength;
+  if (printLength > maxBytesToPrint)
+    printLength = maxBytesToPrint;
+  int i;
+  for (i = 0; i < printLength; i++) {
+    sprintf(printCursor, " %.2x",
+            ((uint8_t *)ep->rx_buf[entry])[i]);
+    printCursor += 3;
+  }
+  printk("%s\n", printBuffer);
+}
+
 static void ep93xx_rx(void)
 {
 	struct ep93xx_priv * ep = &theEp;
@@ -259,19 +280,20 @@ static void ep93xx_rx(void)
 		u32 rstat1 = rstat->rstat1;
 		int length = rstat1 & RSTAT1_FRAME_LENGTH;
 
-		DEBUG(rx) printk("ep93xx_rx rcvd entry %d st0=%#x st1=%#x len=%d at %#x\n",
-			entry, rstat0, rstat1, length, ep->rx_buf[entry]);
-
 		if (!(rstat0 & RSTAT0_RFP) || !(rstat1 & RSTAT1_RFP)) {
 			break;
 		}
+
+		DEBUG(rx) printk("ep93xx_rx rcvd entry %d st0=%#x st1=%#x len=%d iplen=%d\n",
+			entry, rstat0, rstat1, length,
+			((uint8_t *)ep->rx_buf[entry])[17]);
+
 		// Both RFP bits are on.
-#if 0	// show all input data
-		int i;
-		for (i = 0; i < length; i++)
-			printk(" %.2x", ((uint8_t *)ep->rx_buf[entry])[i]);
-		printk("\n");
+		DEBUG(rx) {
+#if 0	// show input data
+		  printPacket(length, entry, 56);
 #endif
+		}
 
 		rstat->rstat0 = 0;
 		rstat->rstat1 = 0;
@@ -287,6 +309,8 @@ static void ep93xx_rx(void)
 					 " %.8x %.8x\n", rstat0, rstat1);
 
 		if (!(rstat0 & RSTAT0_RWE)) {
+			DEBUG(errors) kdprintf(KR_OSTREAM,
+			  "rstat0 & RSTAT0_RWE\n");
 			ep->stats.rx_errors++;
 			if (rstat0 & RSTAT0_OE)
 				ep->stats.rx_fifo_errors++;
@@ -320,6 +344,7 @@ static void ep93xx_rx(void)
 			}
 
 			struct eth_hdr * ethhdr = p->payload;
+			err_t errNum;
 
 			switch (ntohs(ethhdr->type)) {
 			  /* IP or ARP packet? */
@@ -332,15 +357,23 @@ static void ep93xx_rx(void)
 #endif /* PPPOE_SUPPORT */
 			    /* full packet send to tcpip_thread to process */
 			    // Note, netif->input is ethernet_input().
-			    if (gNetif->input(p, gNetif) != ERR_OK)
-			     { LWIP_DEBUGF(NETIF_DEBUG,
+			    errNum = gNetif->input(p, gNetif);
+			    if (errNum != ERR_OK) {
+			      DEBUG(errors) kdprintf(KR_OSTREAM,
+                                "ethernet_input error %d\n", errNum);
+			      LWIP_DEBUGF(NETIF_DEBUG,
 			              ("ethernetif_input: IP input error\n"));
 			       pbuf_free(p);
 			       p = NULL;
-			     }
+			    }
 			    break;
 
 			  default:
+			    DEBUG(errors) {
+			      printPacket(length, entry, 60);
+			      kprintf(KR_OSTREAM,
+			        "Eth pkt type is %#x\n", ntohs(ethhdr->type));
+                            }
 			    pbuf_free(p);
 			    p = NULL;
 			    break;
@@ -348,6 +381,8 @@ static void ep93xx_rx(void)
 
 			LINK_STATS_INC(link.recv);
 		} else {
+			DEBUG(errors) kdprintf(KR_OSTREAM,
+                                        "Can't alloc pbuf!\n");
 			LINK_STATS_INC(link.memerr);
 			LINK_STATS_INC(link.drop);
 		}
@@ -414,8 +449,8 @@ low_level_output(struct netif *netif, struct pbuf *p)
     int len = q->len;	// The size of the data in the pbuf
 
     DEBUG(tx) kprintf(KR_OSTREAM,
-                "Sending pbuf %#x payload %#x len %d entry %d\n",
-			 q, q->payload, len, entry);
+                 "Sending pbuf %#x payload %#x len %d entry %d\n",
+		 q, q->payload, len, entry);
 
     memcpy(bp, q->payload, len);
     bp += len;
@@ -423,6 +458,15 @@ low_level_output(struct netif *netif, struct pbuf *p)
     if (q->tot_len == len)
       break;	// last pbuf of the packet
     q = q->next;
+  }
+
+  DEBUG(tx) {
+#if 1	// show all output data
+    int i;
+    for (i = 0; i < (p->tot_len & 0xfff); i++)
+      printk(" %.2x", ((uint8_t *)ep->tx_buf[entry])[i]);
+    printk("\n");
+#endif
   }
   ep->descs->tdesc[entry].tdesc1 = TDESC1_EOF
     	| (entry << 16) | (p->tot_len & 0xfff);
