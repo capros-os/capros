@@ -381,7 +381,6 @@ TestW1Bus(void)
   result = capros_W1Bus_resetDevice(KR_W1BUS);
   ckOK
 
-#if 0
   result = capros_W1Bus_setSpeed(KR_W1BUS, capros_W1Bus_W1Speed_flexible);
   ckOK
 
@@ -398,7 +397,6 @@ TestW1Bus(void)
   outCursor = outBeg + capros_W1Bus_maxProgramSize + 1;
   result = DoRunProgram();
   assert(result == RC_capros_W1Bus_ProgramTooLong);
-#endif
 
 #if 1	// reset loop
   {
@@ -457,10 +455,8 @@ TestW1Bus(void)
   }
 #endif
 
-#if 0
   // Search for all ROMs.
   SearchPath(NULL, 0);
-#endif
 
 #if 0
   uint64_t rom;
