@@ -26,7 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/TCPSocket.h>
 
 result_t
-capros_TCPSocket_write(cap_t _self, uint32_t len, uint8_t flags, uint8_t * data)
+capros_TCPSocket_send(cap_t _self, uint32_t len, uint8_t flags, uint8_t * data)
 {
   Message msg = {
     .snd_invKey = _self,
@@ -37,9 +37,9 @@ capros_TCPSocket_write(cap_t _self, uint32_t len, uint8_t flags, uint8_t * data)
     .snd_data = data,
     .snd_len = len,
     .snd_code = 1,////
-    .snd_w1 = len,
-    .snd_w2 = flags,
-    .snd_w3 = 0,
+    .snd_w1 = flags,
+    .snd_w2 = 0,
+    .snd_w3 = 0,	// will be overwritten with forwarder word
     .rcv_key0 = KR_VOID,
     .rcv_key1 = KR_VOID,
     .rcv_key2 = KR_VOID,

@@ -23,11 +23,11 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <idl/capros/TCPSocket.h>
+#include <idl/capros/UDPPort.h>
 
 result_t
-capros_TCPSocket_read(cap_t _self, uint32_t maxBytesToRead,
-  uint32_t * bytesRead, uint8_t * flags, uint8_t * data)
+capros_UDPPort_send(cap_t _self, uint32_t destipaddr, uint16_t destport,
+  uint32_t len, uint8_t * data)
 {
   Message msg = {
     .snd_invKey = _self,
@@ -35,21 +35,19 @@ capros_TCPSocket_read(cap_t _self, uint32_t maxBytesToRead,
     .snd_key1 = KR_VOID,
     .snd_key2 = KR_VOID,
     .snd_rsmkey = KR_VOID,
-    .snd_len = 0,
-    .snd_code = 0,////
-    .snd_w1 = maxBytesToRead,
-    .snd_w2 = 0,
-    .snd_w3 = 0,
+    .snd_data = data,
+    .snd_len = len,
+    .snd_code = 1,////
+    .snd_w1 = destipaddr,
+    .snd_w2 = destport,
+    .snd_w3 = 0,	// will be overwritten with forwarder word
     .rcv_key0 = KR_VOID,
     .rcv_key1 = KR_VOID,
     .rcv_key2 = KR_VOID,
     .rcv_rsmkey = KR_VOID,
-    .rcv_data = data,
-    .rcv_limit = maxBytesToRead
+    .rcv_limit = 0
   };
 
   CALL(&msg);
-  *bytesRead = msg.rcv_sent;	// should be same as msg.rcv_w1
-  *flags = msg.rcv_w2;
   return msg.rcv_code;
 }
