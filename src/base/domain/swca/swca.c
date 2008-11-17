@@ -47,7 +47,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Constructor.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/SerialPort.h>
-#include <idl/capros/DS2480B.h>	// temporary
+#include <idl/capros/NPLinkee.h>
 #include <idl/capros/RTC.h>
 #include <idl/capros/SWCANotify.h>
 
@@ -76,7 +76,7 @@ Approved for public release, distribution unlimited. */
 #define LKSN_SERIAL LKSN_APP	// holds the serial port key if we have one
 #define LKSN_NOTIFY (LKSN_SERIAL+1)
 
-#define keyInfo_nplink 0xffff	// nplink has this key
+#define keyInfo_nplinkee 0xffff	// nplink has this key
 #define keyInfo_notify 1
 
 typedef capros_RTC_time_t RTC_time;		// real time, seconds
@@ -809,8 +809,8 @@ InputProcedure(void * data /* unused */ )
                       // found it
                       as->menuNum = i;
                       as->menuItemNum = j;
-                      kprintf(KR_OSTREAM, "Menu %d item %d\n",
-                              as->menuNum, as->menuItemNum);
+                      DEBUG(input) kprintf(KR_OSTREAM, "Menu %d item %d\n",
+                                           as->menuNum, as->menuItemNum);
                       // Set the number of retries to find the next menu:
                       menuRetries = 6;
                       goto foundMenu;
@@ -1121,13 +1121,13 @@ checkWork:
       To prevent input overrun, we must not take long on any operation. */
       break;
 
-    case keyInfo_nplink:
+    case keyInfo_nplinkee:
       switch (Msg.rcv_code) {
       default:
         Msg.snd_code = RC_capros_key_UnknownRequest;
         break;
 
-      case OC_capros_DS2480B_registerPort:
+      case OC_capros_NPLinkee_registerNPCap:
         COPY_KEYREG(KR_ARG(0), KR_SERIAL);
         // Return to the caller before invoking the serial cap,
         // to prevent deadlock.

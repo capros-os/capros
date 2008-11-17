@@ -1,6 +1,5 @@
 #
-# Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2008, Strawberry Development Group.
+# Copyright (C) 2007, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -22,28 +21,5 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: install
-
-EROS_SRC=../../..
-include $(EROS_SRC)/build/make/makevars.mk
-
-DIRS=
-DIRS+=serial
-## DIRS+=network # not used, see lwip
-ifeq "$(EROS_TARGET)" "i486"	# drivers for i486 only
-# DIRS+=pci # disabled due to compilation errors
-# DIRS+=ps2 # broken due to RETRY_SET_WAKEINFO
-# DIRS+=sound # need to convert domain/drivers/SoundKey.h to IDL
-# DIRS+=console # broken due to RETRY_SET_LIK
-DIRS+=w1	# so far, without masters
-else	# ARM-only drivers
-DIRS+=usb	# so far, ARM only
-DIRS+=w1
-DIRS+=usb/registry	# must follow USB drivers
-DIRS+=scsi	# so far, ARM only
-DIRS+=lwip	# so far, ARM only
-DIRS+=netser	# requires lwip
-endif
-
-include $(EROS_SRC)/build/make/makerules.mk
-
+kernel 140 OID=0xFFFF000000000000
+object preload 233 OID=0x0

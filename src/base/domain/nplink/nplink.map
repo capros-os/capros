@@ -55,9 +55,19 @@ nplink_constit[0] = ds9490r_notifyee;
 
 /*nplink_constit[1] = ds9097u_notifyee;*/
 
+#ifndef ip_notifyee
+#define ip_notifyee void
+#endif
+nplink_constit[2] = ip_notifyee;
+
 #ifndef serial3_notifyee
 #define serial3_notifyee void
 #endif
-nplink_constit[2] = serial3_notifyee;
+nplink_constit[3] = serial3_notifyee;
+
+#ifndef serial6_notifyee
+#define serial6_notifyee void
+#endif
+nplink_constit[6] = serial6_notifyee;
 
 #endif

@@ -58,6 +58,7 @@ DIRS+=nfile
 DIRS+=pipe
 DIRS+=sigmux
 DIRS+=supernode
+DIRS+=swca
 DIRS+=vcsk
 #DIRS+=displaymgr
 # DIRS+=winsys # broken due to RETRY_SET_WAKEINFO

@@ -33,10 +33,11 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Node.h>
 #include <idl/capros/Number.h>
 #include <idl/capros/NPLink.h>
+#include <idl/capros/NPLinkee.h>
 #include <idl/capros/W1Bus.h>
 #include <idl/capros/W1Mult.h>
 #include <idl/capros/SerialPort.h>
-#include <idl/capros/DS2480B.h>
+#include <idl/capros/IP.h>
 
 #include <domain/domdbg.h>
 #include <domain/assert.h>
@@ -58,9 +59,29 @@ uint32_t __rt_unkept = 1;
 
 #define KC_DS9490R 0
 #define KC_DS9097U 1
-#define KC_Serial3 2
+#define KC_IP      2
+#define KC_Serial3 3
+#define KC_Serial6 6
 
 #define KR_OSTREAM KR_APP(0)
+
+void
+AssignW1BusTo(uint32_t kc, uint32_t w, const char * name)
+{
+  result_t result;
+  result = capros_Node_getSlotExtended(KR_CONSTIT, kc, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_W1Mult_registerBus(KR_TEMP0, KR_ARG(0), w);
+  switch (result) {
+  default:
+    kprintf(KR_OSTREAM, "Handler for %s returned %#x\n", name, result);
+    break;
+  case RC_capros_key_Void:
+    kprintf(KR_OSTREAM, "No handler for %s\n", name);
+  case RC_OK:
+    break;
+  }
+}
 
 void
 AssignW1Bus(Message * msg)
@@ -69,17 +90,14 @@ AssignW1Bus(Message * msg)
 
   // This logic is very ad-hoc.
   switch (msg->rcv_w2) {
-    case capros_W1Bus_BusType_DS9490R:
+    case capros_W1Bus_BusType_DS9490R:	// USB 1-wire master
       /* If we wanted to support multiple DS9490R's, 
       we should here search for the included custom DS2401 with ROM ID
       0x...81 (start the search with that value) to identify which one it is. */
-      result = capros_Node_getSlotExtended(KR_CONSTIT, KC_DS9490R, KR_TEMP0);
-      assert(result == RC_OK);
-      result = capros_W1Mult_registerBus(KR_TEMP0, KR_ARG(0), msg->rcv_w2);
-      assert(result == RC_OK);
+      AssignW1BusTo(KC_DS9490R, msg->rcv_w2, "DS9490R USB 1-wire master");
       break;
 
-    case capros_W1Bus_BusType_DS9097U:
+    case capros_W1Bus_BusType_DS9097U:	// serial 1-wire master
       result = capros_Node_getSlotExtended(KR_CONSTIT, KC_DS9490R, KR_TEMP0);
       assert(result == RC_OK);
       result = capros_W1Mult_registerBus(KR_TEMP0, KR_ARG(0), msg->rcv_w2);
@@ -92,18 +110,50 @@ void
 AssignSerialPort(Message * msg)
 {
   result_t result;
+  capros_Node_extAddr_t slot;
 
-  // This logic is very ad-hoc.
   // The subtype in w2 is the hardware port number.
   switch (msg->rcv_w2) {
     default:
       kprintf(KR_OSTREAM, "Unknown serial port # %d.\n", msg->rcv_w2);
+      return;
+    case 3:	// UART3
+      slot = KC_Serial3;
       break;
-    case 3:
-      result = capros_Node_getSlotExtended(KR_CONSTIT, KC_Serial3, KR_TEMP0);
+    case 6:	// Netburner port 3
+      slot = KC_Serial6;
+      break;
+  }
+  DEBUG(run) kprintf(KR_OSTREAM, "nplink assigning serial port... ");
+  result = capros_Node_getSlotExtended(KR_CONSTIT, slot, KR_TEMP0);
+  assert(result == RC_OK);
+
+  result = capros_NPLinkee_registerNPCap(KR_TEMP0, KR_ARG(0),
+                                         msg->rcv_w1, msg->rcv_w2);
+  assert(result == RC_OK);
+
+  DEBUG(run) kprintf(KR_OSTREAM, "nplink done.\n");
+}
+
+void
+AssignIp(Message * msg)
+{
+  result_t result;
+
+  // This logic is very ad-hoc.
+  // The subtype in w2 is the device number.
+  switch (msg->rcv_w2) {
+    default:
+      kprintf(KR_OSTREAM, "Unknown IP # %d.\n", msg->rcv_w2);
+      break;
+    case 0:
+      result = capros_Node_getSlotExtended(KR_CONSTIT, KC_IP, KR_TEMP0);
       assert(result == RC_OK);
-      result = capros_DS2480B_registerPort(KR_TEMP0, KR_ARG(0));
-      assert(result == RC_OK);
+      result = capros_NPLinkee_registerNPCap(KR_TEMP0, KR_ARG(0),
+                                             msg->rcv_w1, msg->rcv_w2);
+      if (result != RC_OK) {
+        kprintf(KR_OSTREAM, "No recipient for IP cap.\n");
+      }
       break;
   }
 }
@@ -135,7 +185,7 @@ main(void)
   for(;;) {
     RETURN(&Msg);
 
-    DEBUG(run) kprintf(KR_OSTREAM, "nplink called, oc=%#x w1=%#x\n",
+    DEBUG(run) kprintf(KR_OSTREAM, "nplink was called, oc=%#x w1=%#x\n",
                        Msg.rcv_code, Msg.rcv_w1);
 
     // Defaults for reply:
@@ -156,11 +206,17 @@ main(void)
 
     case OC_capros_NPLink_RegisterNPCap:
       switch (Msg.rcv_w1) {
+      default:
+        kprintf(KR_OSTREAM, "nplink: Unrecognized type %#x!\n", Msg.rcv_w1);
+        break;
       case IKT_capros_W1Bus:
         AssignW1Bus(&Msg);
         break;
       case IKT_capros_SerialPort:
         AssignSerialPort(&Msg);
+        break;
+      case IKT_capros_IP:
+        AssignIp(&Msg);
         break;
       }
       break;

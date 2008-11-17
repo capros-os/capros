@@ -34,7 +34,7 @@ to the serial port.
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Sleep.h>
-#include <idl/capros/DS2480B.h>
+#include <idl/capros/NPLinkee.h>
 
 #include <idl/capros/Constructor.h>
 #include <domain/Runtime.h>
@@ -255,7 +255,7 @@ main(void)
   };
 
   RETURN(&Msg);
-  assert(Msg.rcv_code == OC_capros_DS2480B_registerPort);
+  assert(Msg.rcv_code == OC_capros_NPLinkee_registerNPCap);
   // Reply to NPLink:
   Msg.snd_invKey = KR_RETURN;
   SEND(&Msg);

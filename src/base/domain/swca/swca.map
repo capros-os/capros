@@ -44,6 +44,7 @@ swca_constit[0] = misc RTC;
 LPROG(name##swca, swca_prog, swca_pc, sched(8)) \
 name##swca_proc key reg KR_CONSTIT = swca_constit; \
 name##swca_proc key reg KR_CREATOR = swca_proccre; \
-name##swca = start name##swca_proc 0xffff;
+name##swca = start name##swca_proc 0; \
+name##swca_nplinkee = start name##swca_proc 0xffff;
 
 #endif

@@ -31,7 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SerialPort.h>
 #include <idl/capros/W1Mult.h>
 #include <idl/capros/W1Bus.h>
-#include <idl/capros/DS2480B.h>
+#include <idl/capros/NPLinkee.h>
 #include <idl/capros/Errno.h>
 #include <domain/assert.h>
 
@@ -50,8 +50,8 @@ unsigned long __rt_stack_pointer = 0x20000;
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-#define keyInfo_DS2480B 0
-#define keyInfo_W1Bus   1
+#define keyInfo_nplinkee 0
+#define keyInfo_W1Bus    1
 
 #define KR_OSTREAM KR_APP(0)
 #define KR_W1MULT  KR_APP(1)
@@ -1226,9 +1226,9 @@ main(void)
     Msg.snd_len = 0;
 
     switch (Msg.rcv_keyInfo) {
-    case keyInfo_DS2480B:
+    case keyInfo_nplinkee:
       DEBUG(init) kprintf(KR_OSTREAM, "DS2480B got serial port.\n");
-      assert(Msg.rcv_code == OC_capros_DS2480B_registerPort);
+      assert(Msg.rcv_code == OC_capros_NPLinkee_registerNPCap);
 
       COPY_KEYREG(KR_ARG(0), KR_Serial);
 
