@@ -112,7 +112,7 @@ recv_udp(void * arg, struct udp_pcb * pcb,
   DEBUG(rx) kprintf(KR_OSTREAM, "recv_udp\n");
 
   if (sock->recvQNum >= maxRecvQPBufs) {	// queue is full
-kdprintf(KR_OSTREAM, "recv_udp: queue full, discarding datagram!\n");
+kdprintf(KR_OSTREAM, "recv_udp: queue full, discarding datagram!\n");////
     return;
   }
   // Save the datagram in the queue:
@@ -125,6 +125,9 @@ kdprintf(KR_OSTREAM, "recv_udp: queue full, discarding datagram!\n");
   if (sock->receiving) {
     result_t result;
 
+    // Can only be receiving if the buffer was empty:
+    assert(sock->recvQOut == rqi);
+
     const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
     result = capros_Node_getSlotExtended(KR_KEYSTORE,
                                          slot+udp_receiver, KR_TEMP0);
@@ -132,11 +135,12 @@ kdprintf(KR_OSTREAM, "recv_udp: queue full, discarding datagram!\n");
     sock->receiving = false;
 
     rqi_ReturnToReceiver(rqi, KR_TEMP0);
+    // Don't bother to increment recvQIn and recvQOut.
+  } else {
+    if (++sock->recvQIn >= &sock->recvQ[maxRecvQPBufs])
+      sock->recvQIn = &sock->recvQ[0];	// wrap around
+    sock->recvQNum++;
   }
-
-  if (++sock->recvQIn >= &sock->recvQ[maxRecvQPBufs])
-    sock->recvQIn = &sock->recvQ[0];	// wrap around
-  sock->recvQNum++;
 }
 
 void
