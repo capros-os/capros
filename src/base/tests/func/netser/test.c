@@ -33,7 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/GPT.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Sleep.h>
-//#include <idl/capros/SWCA.h>
+#include <idl/capros/SWCA.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -41,7 +41,7 @@ Approved for public release, distribution unlimited. */
 
 #define KR_OSTREAM  KR_APP(1)
 #define KR_SLEEP    KR_APP(2)
-#define KR_DS18B20_loose KR_APP(4)
+#define KR_SWCA     KR_APP(3)
 
 
 const uint32_t __rt_stack_pointer = 0x20000;
@@ -52,6 +52,27 @@ const uint32_t __rt_unkept = 1;
     kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result); \
   }
 
+void
+ReadLoad(unsigned int inverterNum)
+{
+  result_t result;
+  unsigned short amps;
+  capros_RTC_time_t tim;
+
+  while (1) {
+    result = capros_SWCA_getLoadAmps(KR_SWCA, inverterNum, &amps, &tim);
+    if (result != RC_capros_SWCA_noData)
+      break;
+    kprintf(KR_OSTREAM, "No data yet, rereading.\n");
+
+    result = capros_Sleep_sleep(KR_SLEEP, 2000);	// sleep 2 seconds
+    assert(result == RC_OK);
+  }
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d %d amps at %d\n",
+          inverterNum+1, amps, tim);
+}
+
 int
 main(void)
 {
@@ -59,13 +80,16 @@ main(void)
 
   kprintf(KR_OSTREAM, "Starting.\n");
 
-  // Give it a chance to get started:
-while (1) {
-  result = capros_Sleep_sleep(KR_SLEEP, 3000);	// sleep 3 seconds
-  assert(result == RC_OK);
-}
+  capros_key_type typ;
+  result = capros_key_getType(KR_SWCA, &typ);
+  ckOK
+  if (typ != IKT_capros_SWCA)
+    kdprintf(KR_OSTREAM, "Line %d type is 0x%08x!\n", __LINE__, typ);
 
-////
+  ReadLoad(0);
+  ReadLoad(1);
+  ReadLoad(2);
+
   kprintf(KR_OSTREAM, "Done.\n");
 
   return 0;
