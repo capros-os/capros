@@ -1,9 +1,7 @@
 #
-# Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, Strawberry Development Group
 #
-# This file is part of the CapROS Operating System,
-# and is derived from the EROS Operating System.
+# This file is part of the CapROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -25,38 +23,26 @@
 
 default: install
 
-EROS_SRC=../../..
+CROSS_BUILD=yes
+
+EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
+TARGETS=$(BUILDDIR)/test
+OPTIM=-O
+OBJECTS=$(BUILDDIR)/test.o
+INC=-I$(EROS_ROOT)/include
 
-DIRS= $(EROS_TARGET)
-# DIRS+= appstart
-# DIRS+= constructor_test 
-DIRS+= ds2480b
-DIRS+= extended_node
-DIRS+= forwarder
-DIRS+= gate
-DIRS+= hai
-# DIRS+= ipl_test
-DIRS+= keyset-test
-DIRS+= LocalWindow
-DIRS+= meminval
-DIRS+= net
-DIRS+= netser
-# DIRS+= pcc_test
-# DIRS+= proccre_test
-DIRS+= prockpr
-DIRS+= serial
-DIRS+= shmem
-# DIRS+= string
-DIRS+= supernode
-DIRS+= swca
-DIRS+= usb
-DIRS+= vcs_test
-DIRS+= w1
-DIRS+= w1mult
-
-CLEANDIRS=${DIRS} appstart constructor_test ipl_test
-CLEANDIRS+= pcc_test proccre_test string
+NPRANGESIZE=390
 
 include $(EROS_SRC)/build/make/makerules.mk
+
+install all: $(TARGETS)
+
+include ../../test.mk
+
+$(BUILDDIR)/test: $(BUILDDIR)/test.o $(DOMLIB) $(DOMCRT0)
+	$(CROSSLINK) -o $@ $(BUILDDIR)/test.o $(CROSSLIBS)
+#	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+
+-include $(BUILDDIR)/.*.m
