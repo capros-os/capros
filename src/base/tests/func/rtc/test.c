@@ -52,13 +52,13 @@ void
 pd(capros_RTC_time_t time)
 {
   unsigned long jd = time / (24*60*60);
-  unsigned long dtime = time - jd * (24*60*60);
-  int hr = dtime / (60*60);
-  dtime = dtime - hr * (60*60);
-  int minu = dtime / 60;
-  int sec = dtime - minu * 60;
-  kprintf(KR_OSTREAM, "RTC is %u jday=%u time=%u:%.2u:%.2u\n",
-    time, jd, hr, minu, sec);
+  kprintf(KR_OSTREAM, "RTC is %u jday=%u ",
+    time, jd);
+
+  struct tm * ts = gmtime((long *)&time);
+  kprintf(KR_OSTREAM, "%d/%d/%d %u:%.2u:%.2u\n",
+          ts->tm_mon+1, ts->tm_mday, ts->tm_year+1900,
+          ts->tm_hour, ts->tm_min, ts->tm_sec);
 }
 
 int
@@ -88,10 +88,10 @@ main(void)
 
   struct tm t = {
     .tm_year = 2008 - 1900,
-    .tm_mon = 9 - 1,
-    .tm_mday = 6,
+    .tm_mon = 11 - 1,
+    .tm_mday = 17,
     .tm_hour = 15 + 8,
-    .tm_min = 49,
+    .tm_min = 10,
     .tm_sec = 0,
     .tm_isdst = 0,
   };
