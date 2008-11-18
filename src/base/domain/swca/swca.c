@@ -49,6 +49,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SerialPort.h>
 #include <idl/capros/NPLinkee.h>
 #include <idl/capros/RTC.h>
+#include <idl/capros/SWCA.h>
 #include <idl/capros/SWCANotify.h>
 
 #include <domain/Runtime.h>
@@ -77,6 +78,7 @@ Approved for public release, distribution unlimited. */
 #define LKSN_NOTIFY (LKSN_SERIAL+1)
 
 #define keyInfo_nplinkee 0xffff	// nplink has this key
+#define keyInfo_swca   0
 #define keyInfo_notify 1
 
 typedef capros_RTC_time_t RTC_time;		// real time, seconds
@@ -202,6 +204,7 @@ struct Task {
 //  {oneThirdSec, 2, -1},
   {twoSec,      2, 3, 3},
 };
+#define numInverters 3
 #define numTasks (sizeof(taskList) / sizeof(struct Task))
 struct Task * currentTask = &taskList[0];
 mono_time soonestTaskTime;
@@ -1099,7 +1102,7 @@ checkWork:
         }
       }		// end of switch (transmittingAdapterNum)
       mutex_unlock(&lock);
-    }
+    }	// end of if haveSerialKey
 
     RETURN(&Msg);
 
@@ -1127,6 +1130,10 @@ checkWork:
         Msg.snd_code = RC_capros_key_UnknownRequest;
         break;
 
+      case OC_capros_key_getType:
+        Msg.snd_w1 = IKT_capros_NPLinkee;
+        break;
+
       case OC_capros_NPLinkee_registerNPCap:
         COPY_KEYREG(KR_ARG(0), KR_SERIAL);
         // Return to the caller before invoking the serial cap,
@@ -1142,6 +1149,36 @@ checkWork:
         mutex_unlock(&inputProcMutex);
         GetMonoTime();
         NextTask();	// select the first task
+        break;
+      }
+      break;
+
+    case keyInfo_swca:
+      switch (Msg.rcv_code) {
+      default:
+        Msg.snd_code = RC_capros_key_UnknownRequest;
+        break;
+
+      case OC_capros_key_getType:
+        Msg.snd_w1 = IKT_capros_SWCA;
+        break;
+
+      case OC_capros_SWCA_getLoadAmps:
+        if (Msg.rcv_w1 >= numInverters) {
+          Msg.snd_code = RC_capros_SWCA_noInverter;
+          break;
+        }
+        AdapterState * as = &adapterStates[Msg.rcv_w1];
+        mutex_lock(&lock);
+        RTC_time t = as->loadTime;
+        int val = as->load;
+        mutex_unlock(&lock);
+        if (t == 0) {
+          Msg.snd_code = RC_capros_SWCA_noData;
+          break;
+        }
+        Msg.snd_w1 = val;
+        Msg.snd_w2 = t;
         break;
       }
       break;

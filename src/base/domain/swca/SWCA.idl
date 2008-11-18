@@ -3,7 +3,13 @@ package capros;
 /* Explain This object . */
 interface SWCA extends key 
 {
-  void registerBus(key NPCap, unsigned long subType);
+  exception noInverter;	// the specified inverter does not exist
+  exception noData;	// no data are available yet
+
+  /* Get the latest data from the specified inverter.
+  inverterNum is zero-based. */
+  void getLoadAmps(unsigned byte inverterNum,
+                   out unsigned short amps, out RTC.time_t time);
 };
 
 // Interface for internal use only:
