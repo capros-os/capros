@@ -3,8 +3,10 @@
 
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
+ * Copyright (C) 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library,
+ * and is derived from the EROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -22,20 +24,25 @@
  */
 
 /* Convenience routine for creating an EROS thread. Pass in a space
+   bank key, a keyreg for temporary storage, the stack pointer
+   for the new thread, the address to which to set the program
+   counter, and the keyreg into which to store the process key to the
+   new thread. */
+/* Returns: an exception from capros_ProcCre_createProcess,
+   RC_Ethread_Unexpected_Err, or RC_OK. */
+uint32_t 
+ethread_new_thread1(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_pointer,
+		   uint32_t program_counter,
+		   /* result */ cap_t kr_new_thread);
+
+/* Convenience routine for creating an EROS thread. Pass in a space
    bank key, a keyreg for temporary storage, a requested stack size
    for the new thread, the address to which to set the program
    counter, and the keyreg into which to store the start key to the
    new thread. */
-
-/* Exceptions */
-#define RC_Ethread_Create_Process_Err  10
-#define RC_Ethread_Copy_AddrSpace_Err  11
-#define RC_Ethread_Copy_SchedKey_Err   12
-#define RC_Ethread_Copy_Keyregs_Err    13
+/* Returns: an exception from capros_ProcCre_createProcess, RC_OK, or: */
+#define RC_Ethread_Unexpected_Err      13
 #define RC_Ethread_Malloc_Err          14
-#define RC_Ethread_SetRegs_Err         15
-#define RC_Ethread_Make_Fault_Key_Err  16
-#define RC_Ethread_Make_Start_Key_Err  17
 
 uint32_t ethread_new_thread(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_size,
 			    uint32_t program_counter,
