@@ -37,7 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/W1Bus.h>
 #include <idl/capros/W1Mult.h>
 #include <idl/capros/SerialPort.h>
-#include <idl/capros/IP.h>
+#include <idl/capros/NPIP.h>
 
 #include <domain/domdbg.h>
 #include <domain/assert.h>
@@ -215,7 +215,7 @@ main(void)
       case IKT_capros_SerialPort:
         AssignSerialPort(&Msg);
         break;
-      case IKT_capros_IP:
+      case IKT_capros_NPIP:
         AssignIp(&Msg);
         break;
       }

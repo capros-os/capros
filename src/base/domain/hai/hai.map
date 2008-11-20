@@ -1,0 +1,59 @@
+/* -*- Mode: c -*- */
+#ifndef __HAI_MAP_
+#define __HAI_MAP_
+
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*********************************************************
+ * HAI program.
+ *********************************************************/
+
+hai_pc = symbol LIBDIR "hai" _start;
+BOOT_DOMCRE(hai);
+
+/* pk0 is the first 4 bytes of the HAI's private encryption key,
+   with the first byte in the MSB.
+   Similarly pk1, pk2, and pk3 are the other 12 bytes. */
+#define HAI(name, ipaddr, port, pk0, pk1, pk2, pk3) \
+name##hai_proc = new process; \
+name##hai_proc pc = hai_pc; \
+name##hai_prog = small program LIBDIR "hai"; \
+name##hai_space = name##hai_prog with page at 0x1f000; \
+name##hai_proc space = name##hai_space; \
+name##hai_proc schedule = sched(8); \
+name##hai_proc symtab = number("hai"); \
+name##hai_proc key reg KR_CREATOR = hai_proccre; \
+name##hai_proc key reg KR_SELF = name##hai_proc; \
+name##hai_proc key reg KR_BANK = primebank; \
+name##hai_proc key reg KR_SCHED = sched(8); \
+name##hai_proc key reg KR_APP(0) = misc Console; \
+name##hai_proc key reg KR_APP(1) = misc RTC; \
+name##hai_proc key reg KR_APP(2) = number(ipaddr, port, pk0); \
+name##hai_proc key reg KR_APP(3) = number(pk1, pk2, pk3); \
+name##hai_proc key reg KR_APP(4) = ip; \
+name##hai = start name##hai_proc 0; \
+run name##hai_proc;
+
+#endif

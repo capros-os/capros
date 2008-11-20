@@ -3,6 +3,11 @@ package capros;
 interface IPDefs {
   typedef unsigned <32> ipv4Address;
   typedef unsigned <16> portNumber;
+
+  exception NoMem;	// server does not have enough memory for the operation
+  exception Already;
+  exception Refused;
+  exception Aborted;
 };
 
 interface UDPPort extends key {
@@ -109,32 +114,37 @@ interface TCPListenSocket extends key {
 
 interface IP extends key {
 
-  exception NoMem;	// server does not have enough memory for the operation
-  exception Already;
-  exception Refused;
-  exception Aborted;
-
-  const IPDefs.portNumber LocalPortAny = 0;
+  /** createUDPPort - Create a UDP socket.
+  An available local port number will be selected.
+  Raises IPDefs.NoMem if cannot allocate resources.
+  */
+  UDPPort createUDPPort();
 
   /** connect - Create a connection ("active open").
   Specify the remote ipaddr and port.
-  A local port number will be selected.
-  May raise Refused or Aborted.
-  Raises NoMem if cannot allocate resources.
+  An available local port number will be selected.
+  May raise IPDefs.Refused or IPDefs.Aborted.
+  Raises IPDefs.NoMem if cannot allocate resources.
   */
-  TCPSocket connect(IPDefs.ipv4Address ipaddr, IPDefs.portNumber port);
+  TCPSocket TCPConnect(IPDefs.ipv4Address ipaddr, IPDefs.portNumber port);
+};
 
-  /** listen - Reserve a local port for listening.
-  Raises NoMem if cannot allocate resources.
-  Raises Already if the port is already reserved.
-  */
-  TCPListenSocket listen(IPDefs.portNumber localPort);
+/* A capability with authority over a specific local UDP port number. */
+interface UDPPortNum extends key {
 
-  /** createUDPPort - Create a UDP socket.
-  Specify the local port for receiving. Specify LocalPortAny to have
-  a port assigned.
-  Raises NoMem if cannot allocate resources.
-  Raises Already if the port is already reserved.
+  /** createUDPPort - Open a UDP socket on the local port.
+  Raises IPDefs.NoMem if cannot allocate resources.
+  Raises IPDefs.Already if the port is already open.
   */
-  UDPPort createUDPPort(IPDefs.portNumber localPort);
+  UDPPort createUDPPort();
+};
+
+/* A capability with authority over a specific local TCP port number. */
+interface TCPPortNum extends key {
+
+  /** listen - Open the local port for listening.
+  Raises IPDefs.NoMem if cannot allocate resources.
+  Raises IPDefs.Already if the port is already open.
+  */
+  TCPListenSocket listen();
 };

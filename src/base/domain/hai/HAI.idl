@@ -1,0 +1,89 @@
+package capros;
+
+/* Interface to a Home Automation Inc. (HAI) Omni controller. */
+interface HAI extends key 
+{
+  struct SystemStatus {
+    unsigned byte timeDateValid;	// 0 or 1
+    unsigned byte year;		// 0 through 99
+    unsigned byte month;	// 1 through 12
+    unsigned byte day;		// 1 through 31
+    unsigned byte dayOfWeek;	// 1 (Monday) through 7 (Sunday)
+    unsigned byte hour;		// 0 through 23
+    unsigned byte minute;	// 0 through 59
+    unsigned byte second;	// 0 through 59
+    unsigned byte DST;		// 1 if daylight savings time else 0
+    unsigned byte sunriseHour;	// 0 through 23
+    unsigned byte sunriseMinute;	// 0 through 59
+    unsigned byte sunsetHour;	// 0 through 23
+    unsigned byte sunsetMinute;	// 0 through 59
+    unsigned byte batteryReading;	// ?
+  };
+  void getSystemStatus(out RTC.time_t asOf, out SystemStatus status);
+
+  /// @brief Get the status of a unit.
+  /* For a counter, condition is the value of the counter.
+     timeLeft is in seconds.
+     asOf is the time as of which the status was read. */
+  void getUnitStatus(unsigned short unit,
+                     out RTC.time_t asOf,
+                     out unsigned byte condition, out unsigned short timeLeft);
+
+  unsigned byte enum Command {
+    /// @brief Turn the unit off indefinitely.
+    /// param1 must be zero.
+    UnitOff,
+
+    /// @brief Turn the unit off for param1 seconds.
+    /// param1 must be between 1 and 99 inclusive.
+    UnitOffForSeconds,
+
+    /// @brief Turn the unit off for param1 minutes.
+    /// param1 must be between 1 and 99 inclusive.
+    UnitOffForMinutes,
+
+    /// @brief Turn the unit off for param1 hours.
+    /// param1 must be between 1 and 18 inclusive.
+    UnitOffForHours,
+
+    /// @brief Turn the unit on indefinitely.
+    /// param1 must be zero.
+    UnitOn,
+
+    /// @brief Turn the unit on for param1 seconds.
+    /// param1 must be between 1 and 99 inclusive.
+    UnitOnForSeconds,
+
+    /// @brief Turn the unit on for param1 minutes.
+    /// param1 must be between 1 and 99 inclusive.
+    UnitOnForMinutes,
+
+    /// @brief Turn the unit on for param1 hours.
+    /// param1 must be between 1 and 18 inclusive.
+    UnitOnForHours,
+
+    /// @brief Decrement the unit counter.
+    /// param1 must be zero.
+    UnitDecrement,
+
+    /// @brief Increment the unit counter.
+    /// param1 must be zero.
+    UnitIncrement,
+
+    /// @brief Set the unit counter to param1.
+    /// param1 must be between 0 and 255 inclusive.
+    UnitSet
+  };
+  void setUnitStatus(unsigned short unit, Command cmd, unsigned byte param1);
+
+  /* for future: 
+  execute button n
+  get zone n status
+  */
+};
+
+/* Interface for internal use. */
+interface HAIIPLink extends key
+{
+  capros.IP getIP();
+};

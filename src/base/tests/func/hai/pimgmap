@@ -25,17 +25,36 @@ Approved for public release, distribution unlimited. */
 #include <primebank.map>
 #include <pcc.map>
 #include <metacon.map>
-#include <ipltool.map>
 #include <supernode.map>
 #include <vcs.map>
 
-#include <drivers/usbregistry.map>
+#include <ip.map>
+#define ip_notifyee ip_nplinkee
 
-#if defined(EROS_TARGET_arm)
-#include <drivers/arch/arm-edb9315a/lwip.map>   // FIXME s/b TARGETMACH
+#include <hai.map>
 
-ETH_DRIVER(fourByteVal(192,168,0,38),   // IP address
-           fourByteVal(255,255,255,0),  // mask
-           fourByteVal(192,168,0,1)     // gateway
-           );
-#endif
+volsize[13] = threadlist;
+
+#include <nplink.map>
+#include "hai.key"	// HAI macro call with parameters
+
+/*
+ * Test domain
+ */ 
+test = new process;
+test pc = symbol BUILDDIR "test" _start;
+seg = small program BUILDDIR "test";
+seg = seg with page at 0x1f000; /* for stack */
+test space = seg;
+test schedule = sched(8);   /* normal */
+test symtab = number("test");
+
+test key reg KR_SELF = test;
+test key reg KR_BANK = primebank;
+test key reg KR_SCHED = sched(8);
+
+test key reg KR_APP(1) = misc Console;
+test key reg KR_APP(2) = misc Sleep;
+test key reg KR_APP(3) = ahai;
+
+run test;

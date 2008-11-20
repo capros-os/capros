@@ -31,7 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/DevPrivs.h>
-#include <idl/capros/IP.h>
+#include <idl/capros/NPIP.h>
 #include <idl/capros/NPLinkee.h>
 
 #include <linux/usb/ch9.h>
@@ -92,7 +92,7 @@ main(void)
 
   result = capros_key_getType(KR_IP, &theType);
   ckOK
-  assert(theType == IKT_capros_IP);
+  assert(theType == IKT_capros_NPIP);
 
   // Create a socket:
 
@@ -101,13 +101,13 @@ main(void)
   // Connect to Linux echo port
 #define testIPAddr fourByteVal(192,168,0,32)
 #define testIPPort 7	// echo port
-  result = capros_IP_connect(KR_IP, testIPAddr, testIPPort,
+  result = capros_NPIP_connect(KR_IP, testIPAddr, testIPPort,
 				KR_TCPSocket);
   switch (result) {
   default:
     kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result);
     break;
-  case RC_capros_IP_Refused:
+  case RC_capros_IPDefs_Refused:
     kdprintf(KR_OSTREAM, "Connection refused.\n");
     break;
   case RC_OK:
@@ -142,7 +142,7 @@ main(void)
   // Test UDP.
 
   kprintf(KR_OSTREAM, "Creating UDP port.\n");
-  result = capros_IP_createUDPPort(KR_IP, capros_IP_LocalPortAny,
+  result = capros_NPIP_createUDPPort(KR_IP, capros_NPIP_LocalPortAny,
                                    KR_UDPPort);
   ckOK
 
@@ -179,7 +179,7 @@ main(void)
   // Test Listen.
   kprintf(KR_OSTREAM, "Starting Listen test on port 7.\n");
 
-  result = capros_IP_listen(KR_IP, 7,
+  result = capros_NPIP_listen(KR_IP, 7,
 				KR_TCPListenSocket);
   ckOK
 

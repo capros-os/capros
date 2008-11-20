@@ -36,7 +36,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <idl/capros/Number.h>
 #include <idl/capros/SerialPort.h>
-#include <idl/capros/IP.h>
+#include <idl/capros/NPIP.h>
 #include <idl/capros/TCPSocket.h>
 #include <idl/capros/NPLink.h>
 #include <domain/assert.h>
@@ -431,12 +431,12 @@ driver_main(void)
         break;
       }
 
-      result = capros_IP_connect(KR_IP, IPAddress, TCPPortNum, KR_TCPSocket);
+      result = capros_NPIP_connect(KR_IP, IPAddress, TCPPortNum, KR_TCPSocket);
       switch (result) {
-      default: ;	// could be RC_capros_IP_NoMem
+      default: ;	// could be RC_capros_NPIP_NoMem
         assert(false);
-      case RC_capros_IP_Refused:
-      case RC_capros_IP_Aborted:
+      case RC_capros_IPDefs_Refused:
+      case RC_capros_IPDefs_Aborted:
         printk("Netser %d connection returned %#x.\n",
                            serialPortNum, result);
         Msg.snd_code = RC_capros_key_NoAccess;

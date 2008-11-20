@@ -28,7 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Forwarder.h>
 #include <idl/capros/Process.h>
-#include <idl/capros/IP.h>
+#include <idl/capros/NPIP.h>
 #include <idl/capros/UDPPort.h>
 #include <domain/assert.h>
 
@@ -173,21 +173,21 @@ UDPCreate(Message * msg)
 
   struct UDPPort * sock = malloc(sizeof(struct UDPPort));
   if (!sock) {
-    msg->snd_code = RC_capros_IP_NoMem;
+    msg->snd_code = RC_capros_IPDefs_NoMem;
     goto errExit0;
   }
 
   struct udp_pcb * pcb = udp_new();
   if (!pcb) {
-    msg->snd_code = RC_capros_IP_NoMem;
+    msg->snd_code = RC_capros_IPDefs_NoMem;
     goto errExit1;
   }
 
-  if (localPort != capros_IP_LocalPortAny) {	// he specified a local port
+  if (localPort != capros_NPIP_LocalPortAny) {	// he specified a local port
     err = udp_bind(pcb, IP_ADDR_ANY, localPort);
     if (err != ERR_OK) {
       assert(err == ERR_USE);
-      msg->snd_code = RC_capros_IP_Already;
+      msg->snd_code = RC_capros_IPDefs_Already;
       goto errExit2;
     }
   }

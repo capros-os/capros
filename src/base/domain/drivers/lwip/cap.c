@@ -35,7 +35,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Forwarder.h>
 #include <idl/capros/Process.h>
-#include <idl/capros/IP.h>
+#include <idl/capros/NPIP.h>
 #include <idl/capros/UDPPort.h>
 #include <idl/capros/IPInt.h>
 #include <idl/capros/NPLink.h>
@@ -706,11 +706,11 @@ CompleteConnection(struct TCPSocket * sock, err_t err)
     kdprintf(KR_OSTREAM, "CompleteConnection err %d\n", err);
 
   case ERR_RST:
-    rc = RC_capros_IP_Refused;
+    rc = RC_capros_IPDefs_Refused;
     break;
 
   case ERR_ABRT:
-    rc = RC_capros_IP_Aborted;
+    rc = RC_capros_IPDefs_Aborted;
     break;
 
   case ERR_OK:
@@ -948,7 +948,7 @@ TCPListen(Message * msg)
 
   struct TCPListenSocket * ls = malloc(sizeof(struct TCPListenSocket));
   if (!ls) {
-    msg->snd_code = RC_capros_IP_NoMem;
+    msg->snd_code = RC_capros_IPDefs_NoMem;
     return;
   }
 
@@ -958,7 +958,7 @@ TCPListen(Message * msg)
   result = capros_SuperNode_allocateRange(KR_KEYSTORE,
                                           slot, slot+ls_numSlots-1);
   if (result != RC_OK) {
-    msg->snd_code = RC_capros_IP_NoMem;
+    msg->snd_code = RC_capros_IPDefs_NoMem;
     goto errExit1;
   }
 
@@ -966,7 +966,7 @@ TCPListen(Message * msg)
   result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otForwarder,
 		KR_TEMP1);
   if (result != RC_OK) {
-    msg->snd_code = RC_capros_IP_NoMem;
+    msg->snd_code = RC_capros_IPDefs_NoMem;
     goto errExit2;
   }
   result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot+ls_forwarder,
@@ -975,7 +975,7 @@ TCPListen(Message * msg)
 
   struct tcp_pcb * pcb = tcp_new();
   if (!pcb) {
-    msg->snd_code = RC_capros_IP_NoMem;
+    msg->snd_code = RC_capros_IPDefs_NoMem;
     goto errExit3;
   }
 
@@ -986,13 +986,13 @@ TCPListen(Message * msg)
   // Now bind it to the local port.
   err = tcp_bind(pcb, IP_ADDR_ANY/*???*/, portNum);
   if (err != ERR_OK) {
-    msg->snd_code = RC_capros_IP_Already;
+    msg->snd_code = RC_capros_IPDefs_Already;
     goto errExit4;
   }
 
   struct tcp_pcb * listenPcb = tcp_listen(pcb);
   if (!listenPcb) {
-    msg->snd_code = RC_capros_IP_NoMem;
+    msg->snd_code = RC_capros_IPDefs_NoMem;
     goto errExit3;
   }
   ls->pcb = listenPcb;
@@ -1043,14 +1043,14 @@ TCPConnect(Message * msg)
 
   struct TCPSocket * sock = CreateSocket();
   if (!sock) {
-    msg->snd_code = RC_capros_IP_NoMem;
+    msg->snd_code = RC_capros_IPDefs_NoMem;
     return;
   }
   const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
 
   struct tcp_pcb * pcb = tcp_new();
   if (!pcb) {
-    msg->snd_code = RC_capros_IP_NoMem;
+    msg->snd_code = RC_capros_IPDefs_NoMem;
     goto errExit3;
   }
 
@@ -1063,7 +1063,7 @@ TCPConnect(Message * msg)
   };
   err = tcp_connect(pcb, &ipa, portNum, &do_connected);
   if (err != ERR_OK) {
-    msg->snd_code = RC_capros_IP_NoMem;	// bogus
+    msg->snd_code = RC_capros_IPDefs_NoMem;	// bogus
     //// clean up
     goto errExit;
   }
@@ -1130,7 +1130,7 @@ driver_main(void)
   result = capros_Node_getSlot(KR_TEMP0, volsize_nplinkCap, KR_TEMP0);
   assert(result == RC_OK);
   result = capros_NPLink_RegisterNPCap(KR_TEMP0, KR_TEMP1,
-             IKT_capros_IP, 0);
+             IKT_capros_NPIP, 0);
   assert(result == RC_OK);
 
   printk("EP93xx Ethernet driver started.\n");
@@ -1188,18 +1188,18 @@ driver_main(void)
         break;
 
       case OC_capros_key_getType:
-        Msg.snd_w1 = IKT_capros_IP;
+        Msg.snd_w1 = IKT_capros_NPIP;
         break;
   
-      case OC_capros_IP_connect:
+      case OC_capros_NPIP_connect:
         TCPConnect(&Msg);
         break;
   
-      case OC_capros_IP_listen:
+      case OC_capros_NPIP_listen:
         TCPListen(&Msg);
         break;
   
-      case OC_capros_IP_createUDPPort:
+      case OC_capros_NPIP_createUDPPort:
         UDPCreate(&Msg);
         break;
       }

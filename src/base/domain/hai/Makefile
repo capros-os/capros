@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, Strawberry Development Group
+# Copyright (C) 2008, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -23,28 +23,31 @@
 
 default: install
 
+EROS_SRC=../../..
 CROSS_BUILD=yes
-
-EROS_SRC=../../../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-TARGETS=$(BUILDDIR)/test
-OPTIM=-O
-OBJECTS=$(BUILDDIR)/test.o
-INC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
-
-NPRANGESIZE=420
-
-VOLMAP=volmap
+IMGMAP=hai.map
+TARGETS=$(BUILDDIR)/hai
+OBJECTS=$(BUILDDIR)/hai.o
+INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+INC+= -I$(EROS_ROOT)/include/linux-headers
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-install all: $(TARGETS)
+all: $(TARGETS)
 
-include ../../test.mk
+IDL=$(wildcard *.idl)
+interfaces: $(IDL)
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/test: $(BUILDDIR)/test.o $(DOMLIB) $(DOMCRT0)
-	$(CROSSLINK) -o $@ $(BUILDDIR)/test.o $(CROSSLIBS) -lcrypto
+$(BUILDDIR)/hai: $(OBJECTS) $(DOMLIB)
+	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@ -lcrypto
+# and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+
+install: all
+	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 $(IMGMAP) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m
