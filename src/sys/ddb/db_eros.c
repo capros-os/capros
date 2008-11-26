@@ -918,7 +918,7 @@ db_inv_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
     theTypeName = invTypeName[invType];
   
   if (inv.key) {
-    db_printf("Invoked key 0x%08x ity=%d(%s) kt=%d kd=%d inv count=%U\n"
+    db_printf("Invoked key 0x%08x ity=%d(%s) kt=%d kd=%d inv count=%llu\n"
 	      " OC=0x%08x (%d)\n",
 	      inv.key, invType, theTypeName,
 	      keyBits_GetType(inv.key), inv.key->keyData,
@@ -1500,6 +1500,13 @@ db_show_obhdr_cmd(db_expr_t addr, int have_addr, db_expr_t det, char* ch)
     db_error("requires address\n");
 
   objH_ddb_dump((ObjectHeader *) addr);
+}
+
+void
+db_show_readylist_cmd(db_expr_t addr, int have_addr, db_expr_t det, char* ch)
+{
+  extern void db_show_readylist(void);
+  db_show_readylist();
 }
 
 void

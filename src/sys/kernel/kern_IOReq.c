@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/LogDirectory.h>
 #include <kerninc/Ckpt.h>
+#include <kerninc/ObjH-inline.h>
 #include <arch-kerninc/Page-inline.h>
 #include <eros/target.h>
 #include <disk/TagPot.h>
@@ -280,10 +281,7 @@ void
 IOReq_EndReadPage(IORequest * ioreq)
 {
 #ifdef OPTION_OB_MOD_CHECK
-  {
-    PageHeader * pageH = ioreq->pageH;
-    pageH_ToObj(pageH)->check = pageH_CalcCheck(pageH);
-  }
+  pageH_SetCheck(ioreq->pageH);
 #endif
 
   IOReq_EndRead(ioreq);

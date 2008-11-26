@@ -25,6 +25,7 @@ Approved for public release, distribution unlimited. */
 
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/Depend.h>
+#include <arch-kerninc/Page-inline.h>
 #include <idl/capros/Range.h>
 
 INLINE unsigned int
@@ -55,6 +56,67 @@ pageH_MakeReadOnly(PageHeader * pageH)
 {
   keyR_ProcessAllMaps(&pageH_ToObj(pageH)->keyRing,
                       &KeyDependEntry_MakeRO);
+}
+
+#ifdef OPTION_OB_MOD_CHECK
+INLINE bool
+objH_IsUnwriteable(ObjectHeader * pObj)
+{
+  return ! objH_IsDirty(pObj)
+         || objH_GetFlags(pObj, OFLG_KRO)
+         || objH_MD_IsUnwriteable(pObj);
+}
+
+INLINE void
+node_SetCheck(Node * pNode)
+{
+  node_ToObj(pNode)->check = node_CalcCheck(pNode);
+}
+
+INLINE void
+pageH_SetCheck(PageHeader * pageH)
+{
+  pageH_ToObj(pageH)->check = pageH_CalcCheck(pageH);
+}
+
+INLINE void
+objH_SetCheck(ObjectHeader * pObj)
+{
+  pObj->check = objH_CalcCheck(pObj);
+}
+#endif
+
+// Call this just BEFORE making the object unwriteable.
+INLINE void
+nodeH_BecomeUnwriteable(Node * pNode)
+{ 
+#ifdef OPTION_OB_MOD_CHECK
+  // if not previously unwriteable:
+  if (! objH_IsUnwriteable(node_ToObj(pNode)))
+    node_SetCheck(pNode);
+#endif
+}
+
+// Call this just BEFORE making the object unwriteable.
+INLINE void
+pageH_BecomeUnwriteable(PageHeader * pageH)
+{ 
+#ifdef OPTION_OB_MOD_CHECK
+  // if not previously unwriteable:
+  if (! objH_IsUnwriteable(pageH_ToObj(pageH)))
+    pageH_SetCheck(pageH);
+#endif
+}
+
+// Call this just BEFORE making the object unwriteable.
+INLINE void
+objH_BecomeUnwriteable(ObjectHeader * pObj)
+{ 
+#ifdef OPTION_OB_MOD_CHECK
+  // if not previously unwriteable:
+  if (! objH_IsUnwriteable(pObj))
+    objH_SetCheck(pObj);
+#endif
 }
 
 #endif // __OBJH_INLINE_H_

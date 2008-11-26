@@ -30,6 +30,8 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Machine.h>
 #include <kerninc/rbtree.h>
 #include <kerninc/Process-inline.h>
+#include <eros/ffs.h>
+#include <eros/fls.h>
 
 static void indexFixup(void);
 
@@ -69,6 +71,15 @@ static int res_nextFree = 0;
 typedef int (*qsortfn)(void *, void *);
 extern void readyq_ReserveWakeup(ReadyQueue *r, struct Activity *t);
 extern void readyq_ReserveTimeout(ReadyQueue *r, struct Activity *t);
+
+INLINE int
+flsb(uint32_t x)
+{
+  if (!x)
+    return 0;
+  else
+    return ffs32(x) + 1;
+}
 
 int
 res_cmpfn(void *v1, void *v2)
@@ -280,7 +291,7 @@ res_find_earliest_reserve()
 {
   res_active* top = res_ResTreeRoot;
   int s = SPAN;
-  unsigned ndx = tmp_flsb(top->bits);
+  unsigned ndx = flsb(top->bits);
 
 #if 0
   printf("in find_earliest, map = %d ,ndx = %d\n", top->bits, ndx);
@@ -349,7 +360,7 @@ res_SetInactive(uint32_t ndx)
   res_ReserveTable[ndx].isActive = false;
 #ifdef RESERVE_DEBUG
   printf("reserve %d set inactive. res_map = %d", ndx, top->bits);
-  printf(" run queue map = %d\n", fmsb(act_RunQueueMap));
+  printf(" run queue map = %d\n", fls32(act_RunQueueMap) -1);
 #endif
 }
 

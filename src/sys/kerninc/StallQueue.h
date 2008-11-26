@@ -28,9 +28,10 @@ Approved for public release, distribution unlimited. */
 
 struct Activity;
 
-/* Stall Queues are simply link structures. The struct exists against
-   the possibility that it may become useful to do various sorts of
-   per-queue book keeping for testing purposes. */
+/* Stall Queues are simply link structures.
+   The items on the list are Activitys.
+   The struct exists against the possibility that it may become useful
+   to do various sorts of per-queue bookkeeping for testing purposes. */
 typedef struct StallQueue StallQueue;
 struct StallQueue {
   Link q_head;

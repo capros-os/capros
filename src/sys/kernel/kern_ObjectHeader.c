@@ -162,7 +162,7 @@ objH_EnsureWritable(ObjectHeader * pObj)
 
 #ifdef OPTION_OB_MOD_CHECK
   if (pObj->check != objH_CalcCheck(pObj))
-    fatal("MakeObjectDirty(0x%08x): not dirty and bad checksum!\n",
+    fatal("objH_EnsureWritable(%#x): unwriteable and bad checksum!\n",
 		  pObj);
 #endif
 
@@ -187,7 +187,7 @@ objH_EnsureWritable(ObjectHeader * pObj)
   unsigned long availWorkingDirEnts = ld_numAvailableEntries(retiredGeneration);
 
   if (! ckptIsActive()) {
-    assert(! objH_GetFlags(pObj, OFLG_KRO));
+    assertex(pObj, ! objH_GetFlags(pObj, OFLG_KRO));
 
     // Tentatively count this object as dirty:
     numDirtyObjectsWorking[baseType]++;
@@ -510,7 +510,9 @@ pgRgn:
       printf(" ioreq=%#x", objH_ToPage(thisPtr)->ioreq);
     if (objH_ToPage(thisPtr)->kernPin)
       printf(" kernPin=%d", objH_ToPage(thisPtr)->kernPin);
-    printf(" region=0x%08x\n", objH_ToPage(thisPtr)->physMemRegion);
+    printf(" region=0x%08x physAddr=%#x\n",
+           objH_ToPage(thisPtr)->physMemRegion,
+           pageH_GetPhysAddr(objH_ToPage(thisPtr)));
     break;
 
   default:

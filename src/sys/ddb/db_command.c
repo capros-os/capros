@@ -372,6 +372,7 @@ extern void	db_show_counters_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_key_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_node_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_obhdr_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_show_readylist_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_sources(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_savearea_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_sizes_cmd(db_expr_t, int, db_expr_t, char*);
@@ -420,6 +421,7 @@ struct db_command db_show_cmds[] = {
 	{ "proc",       db_ctxt_print_cmd,	0,	0 },
 	{ "procs",      db_show_procs_cmd,	0,	0 },
 	{ "pte",        db_show_pte_cmd,	0,	0 },
+	{ "readylist",  db_show_readylist_cmd,	0,	0 },
 	{ "regs",	db_show_regs,		0,	0 },
 #if 0
 	{ "rsrvs",      db_show_reserves_cmd,	0,	0 },

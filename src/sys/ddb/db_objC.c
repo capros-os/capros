@@ -123,8 +123,8 @@ objC_ddb_dump_pages()
     case ot_PtWorkingCopy:
     {
       ObjectHeader * pObj = pageH_ToObj(pageH);
-      printf("%#x: %s oid %#llx\n",
-	 pObj,
+      printf("%#x(%d): %s oid %#llx\n",
+	 pObj, pg,
 	 ddb_obtype_name(pObj->obType),
 	 pObj->oid);
       break;

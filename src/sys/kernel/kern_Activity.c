@@ -40,6 +40,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Ckpt.h>
 #include <kerninc/Key-inline.h>
 #include <idl/capros/Sleep.h>
+#include <eros/fls.h>
 
 /* #define THREADDEBUG */
 /*#define RESERVE_DEBUG*/
@@ -506,8 +507,8 @@ act_DeleteCurrent(void)
   act_DeleteActivity(thisPtr);
 }
 
-inline void 
-act_ChooseNewCurrentActivity()
+void 
+act_ChooseNewCurrentActivity(void)
 {    
   int runQueueNdx;
   Reserve *res = 0;
@@ -515,11 +516,11 @@ act_ChooseNewCurrentActivity()
   assert(local_irq_disabled());
 
   //printf("starting ChooseNew()...\n");
-  /* idle activitys should always be ready */
-  assert(act_RunQueueMap);
 
   for ( ;; ) {
-    runQueueNdx = fmsb(act_RunQueueMap);
+    /* idle activitys should always be ready */
+    assert(act_RunQueueMap);
+    runQueueNdx = fls32(act_RunQueueMap) - 1;
 
     //printf("run queue ndx = %d\n", runQueueNdx);
     if (runQueueNdx == pr_Reserve) {
@@ -590,9 +591,6 @@ act_ChooseNewCurrentActivity()
  * into the main code body and setting up a recovery block here.
  */
 
-/* FIX: Somewhere in here the context pins are not getting updated
- * correctly.  It's not important until we do SMP.
- */
 // May Yield.
 void 
 act_DoReschedule(void)
@@ -644,7 +642,7 @@ act_DoReschedule(void)
 		   proc_Current() ? proc_Current()->faultCode : 0);
 #endif
 
-    assert (act_Current());
+    assert(act_Current());
     
     /* If activity cannot be successfully prepared, it cannot (ever) run,
      * and should be returned to the free activity list.  Do this even if
@@ -652,14 +650,14 @@ act_DoReschedule(void)
      * and it doesn't take that long to test.
      */
     if (! act_Prepare(act_Current())) {
-      assert( act_IsUser(act_Current()) );
+      assert(act_IsUser(act_Current()));
       
 
       /* We shouldn't be having this happen YET */
       fatal("Current activity no longer runnable\n");
 
       act_DeleteActivity(act_Current());
-      assert (act_Current() == 0);
+      assert(act_Current() == 0);
       act_ChooseNewCurrentActivity();
     }
 
@@ -761,6 +759,12 @@ HandleDeferredWork(void)
 void
 ExitTheKernel(void)
 {
+#ifdef OPTION_DDB
+  extern bool ddb_activity_uqueue_debug;
+  if (ddb_activity_uqueue_debug)
+    dprintf(true, "ExitTheKernel\n");
+#endif
+
   assert(local_irq_disabled());
 
   UpdateTLB();
@@ -1063,3 +1067,42 @@ act_HandleYieldEntry(void)
   
   ExitTheKernel();
 }
+
+#ifdef OPTION_DDB
+void
+db_print_readyQueue(ReadyQueue * rq)
+{
+  printf("mask=%#x other=%#x wake=%#x, to=%#x\n",
+    rq->mask, rq->other, rq->doWakeup, rq->doQuantaTimeout);
+  if (!sq_IsEmpty(&rq->queue)) {
+    printf("Activitys on queue: ");
+    Link * lk;
+    for (lk = rq->queue.q_head.next; lk != &rq->queue.q_head; lk = lk->next) {
+      printf("%#x ", lk);
+    }
+    printf("\n");
+  }
+}
+
+void
+db_show_readylist(void)
+{
+  int runQueueNdx;
+
+  printf("RunQueueMap=%#.8x\n", act_RunQueueMap);
+  for (runQueueNdx = pr_High; runQueueNdx >= 0; runQueueNdx--) {
+    if (runQueueNdx == pr_Reserve) {
+      int i;
+      for (i = 0; i < 32; i++) {
+        Reserve * res = &res_ReserveTable[i];
+        printf("Reserve[%d]: ", i);
+        db_print_readyQueue(&res->readyQ);
+      }
+    } else {
+      printf("dispatchQueues[%d]: ", runQueueNdx);
+      db_print_readyQueue(dispatchQueues[runQueueNdx]);
+    }
+  }
+}
+#endif
+

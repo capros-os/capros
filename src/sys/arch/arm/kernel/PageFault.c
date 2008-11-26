@@ -892,6 +892,7 @@ FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
         /* We must unmap all writeable PTEs. */
         pageH_MakeReadOnly(pageH);
         SetMapWork_CleanCache();
+        pageH_BecomeUnwriteable(pageH);
         pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
       }
     }

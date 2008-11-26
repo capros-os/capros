@@ -37,4 +37,14 @@ pageH_MDInitDevicePage(PageHeader * pageH)
   pageH->kt_u.ob.cacheAddr = CACHEADDR_UNCACHED;
 }
 
+#ifdef OPTION_OB_MOD_CHECK
+INLINE bool
+objH_MD_IsUnwriteable(ObjectHeader * pObj)
+{
+  return ! objH_isNodeType(pObj)
+         && pObj->obType <= ot_PtLAST_OBJECT_TYPE
+         && objH_ToPage(pObj)->kt_u.ob.cacheAddr == CACHEADDR_READERS;
+}
+#endif
+
 #endif // __MACHINE_PAGE_INLINE_H__

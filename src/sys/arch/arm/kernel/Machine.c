@@ -105,6 +105,7 @@ mach_BootInit()
 
   int RtcInit(void);
   int err = RtcInit();
+  (void)err;
   assert(!err);
   
 #ifdef OPTION_DDB

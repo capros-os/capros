@@ -32,4 +32,13 @@ INLINE void
 pageH_MDInitDevicePage(PageHeader * pageH)
 {
 }
+
+#ifdef OPTION_OB_MOD_CHECK
+INLINE bool
+objH_MD_IsUnwriteable(ObjectHeader * pObj)
+{
+  return false;
+}
+#endif
+
 #endif // __MACHINE_PAGE_INLINE_H__

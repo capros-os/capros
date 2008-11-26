@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Node.h>
 #include <kerninc/IRQ.h>
+#include <kerninc/ObjH-inline.h>
 
 void
 check_Consistency(const char *msg)
@@ -168,7 +169,7 @@ check_Pages()
 
 #ifdef OPTION_OB_MOD_CHECK
       ObjectHeader * pObj = pageH_ToObj(pPage);
-      if (!objH_IsDirty(pObj)) {
+      if (objH_IsUnwriteable(pObj)) {
         uint32_t chk = pageH_CalcCheck(pPage);
 
         if (pObj->check != chk) {

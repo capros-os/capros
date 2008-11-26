@@ -43,6 +43,8 @@ Approved for public release, distribution unlimited. */
 #define dbg_ckpt	0x1
 #define dbg_sync	0x2
 #define dbg_numnodes	0x4
+#define dbg_numpages	0x8
+#define dbg_procs       0x10
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u | dbg_ckpt )
@@ -75,6 +77,7 @@ unsigned int ckptState = ckpt_NotActive;
 
 long numKRODirtyPages = 0;	// including pots
 long numKRONodes = 0;
+unsigned int KROPageCleanCursor = 0;	// next page to clean
 
 GenNum migratedGeneration = 0;	// the latest fully migrated generation
 
@@ -97,7 +100,6 @@ PageHeader * GenHdrPageH = NULL;
 DiskGenerationHdr * genHdr;
 static LID thisGenHdrLid;
 
-unsigned int KROPageCleanCursor;	// next page to clean
 unsigned int KRONodeCleanCursor;	// next node to clean
 /* All nodes before KRONodeCleanCursor are either not KRO
  * or are queued to be cleaned. */
@@ -134,8 +136,8 @@ KRO Dirty  *1  *2         *3    exists
                                        began to be cleaned and was redirtied.
  1    1    1  cln Wkg             no   Ditto, and the page was COW'ed before
                                        the clean finished.
- 1    0    0  cln Wkg and Cur     yes  being cleaned
- 1    0    1  cln Wkg             yes  being cleaned
+ 1    0    0  cln Wkg and Cur     yes  being cleaned *4
+ 1    0    1  cln Wkg             yes  being cleaned *4
  0    0    0   0  Wkg and Cur     yes  
  0    0    0  fet Wkg and Cur     yes  being fetched
  0    1    0   0          Cur     no   can't be cleaned now
@@ -150,6 +152,8 @@ KRO Dirty  *1  *2         *3    exists
 
  *3 "Cur" means this page is the current version and can be found
     by objH_Lookup.
+
+ *4 Page is nonzero (otherwise it would have been cleaned instantly)
 */
 
 INLINE void
@@ -248,6 +252,22 @@ DoSync(void)
   }
   if (rangesSynced < nextRangeToSync)
     SleepOnPFHQueue(&WaitForObjDirWritten);
+  // All writes are now completed.
+  DEBUG(numpages) {
+    unsigned int pageNum;
+    // Scan all pages.
+    for (pageNum = 0; pageNum < objC_nPages; pageNum++) {
+      PageHeader * pageH = objC_GetCorePageFrame(pageNum);
+      ObjectHeader * pObj = pageH_ToObj(pageH);
+      (void)pObj;
+      // Nothing should be being cleaned now.
+      // GenHdrPageH is an exception because we leave pageH->ioreq set
+      // even after the I/O is completed.
+      assertex(pObj, pageH->ioreq == 0 || objH_GetFlags(pObj, OFLG_Fetching)
+                     || pageH == GenHdrPageH);
+      assertex(pObj, ! objH_GetFlags(pObj, OFLG_KRO));
+    }
+  }
 }
 
 
@@ -319,11 +339,10 @@ StoreProcessInfo(OID procOid, ObCount procAllocCount, uint8_t hazToSave)
   kva_t roomInPage = (- (kva_t)dpd) & EROS_PAGE_MASK;
   if (roomInPage < sizeof(struct DiskProcessDescriptor)) {
     // Finish the current page.
-    DEBUG(ckpt) printf("Going to next page of process directory.\n");
-
     *numDpdsLoc = dpdsInCurrentPage;
     // Set up the next page.
     PageHeader * pageH = *nextProcDirFramePP;
+    DEBUG(ckpt) printf("Process directory pageH %#x\n", pageH);
     assert(pageH);	// else we didn't reserve enough!
     LID lid = NextLogLoc();
     if (inHdr) {		// this is the first full frame
@@ -405,6 +424,7 @@ CheckpointPage(PageHeader * pageH)
     case ot_PtDataPage:
       pageH_MakeReadOnly(pageH);
     }
+    objH_BecomeUnwriteable(pObj);
     objH_SetFlags(pObj, OFLG_KRO);
     if (objH_IsDirty(pObj)) {
       numKRODirtyPages++;
@@ -431,6 +451,41 @@ ValidateNumKRONodes(void)
     }
   }
   assert(numKRONodes == calcKRO);
+}
+#endif
+
+#if (dbg_numpages & dbg_flags)
+static void
+ValidateNumKROPages(void)
+{
+  unsigned int pageNum;
+  unsigned int calcKRO = 0;
+  // Scan all pages.
+  for (pageNum = 0; pageNum < objC_nPages; pageNum++) {
+    PageHeader * pageH = objC_GetCorePageFrame(pageNum);
+    ObjectHeader * pObj = pageH_ToObj(pageH);
+    switch (pObj->obType) {
+    default:
+      assertex(pageH, ! pageH->ioreq);
+    case ot_PtTagPot:
+    case ot_PtHomePot:
+    case ot_PtLogPot:
+      assertex(pageH, ! objH_GetFlags(pObj, OFLG_KRO));
+      break;
+
+    case ot_PtWorkingCopy:
+    case ot_PtDataPage:
+      if (objH_GetFlags(pObj, OFLG_KRO)) {
+        if (objH_GetFlags(pObj, OFLG_DIRTY)) {
+          calcKRO++;
+        } else {
+          // Must be being cleaned:
+          assertex(pageH, pageH->ioreq && ! objH_GetFlags(pObj, OFLG_Fetching));
+        }
+      }
+    }
+  }
+  assert(numKRODirtyPages == calcKRO);
 }
 #endif
 
@@ -494,7 +549,6 @@ DoPhase1Work(void)
   // Don't checkpoint a broken system:
   check_Consistency("before ckpt");
 
-  KROPageCleanCursor = 0;
   KRONodeCleanCursor = 0;
 
   // Initialize StoreProcessInfo:
@@ -542,7 +596,7 @@ DoPhase1Work(void)
             procAllocCount = pKey->u.unprep.count;
           }
           if (OIDIsPersistent(procOid)) {
-            DEBUG(ckpt) printf("Resume key to %#llx in NP node\n", procOid);
+            DEBUG(procs) printf("Resume key to %#llx in NP node\n", procOid);
 
             /* pKey is a resume key in a non-persistent node
             to a persistent process.
@@ -574,7 +628,7 @@ DoPhase1Work(void)
 
   }
 
-#if (dbg_numnodes & dbg_flags)
+#if (dbg_numnodes & dbg_flags)	// because it isn't declared otherwise
   DEBUG(numnodes) ValidateNumKRONodes();
 #endif
 
@@ -606,6 +660,10 @@ DoPhase1Work(void)
     }
   }
 
+#if (dbg_numpages & dbg_flags)	// because it isn't declared otherwise
+  DEBUG(numpages) ValidateNumKROPages();
+#endif
+
   // Save Activity's to the process directory.
   for (i = 0; i < KTUNE_NACTIVITY; i++) {
     Activity * act = &act_ActivityTable[i];
@@ -636,6 +694,7 @@ DoPhase1Work(void)
         else
           hazToSave = act->actHazard;;
 
+        DEBUG(procs) printf("Saving proc oid=%#llx\n", procOid);
         StoreProcessInfo(procOid, procAllocCount, hazToSave);
       }
     }
@@ -707,10 +766,11 @@ DoPhase2Work(void)
     nextProcDirLid = IncrementLID(nextProcDirLid);
   }
 
-  DEBUG(ckpt) printf("numKRONodes=%d\n", numKRONodes);
+  DEBUG(ckpt) printf("numKRONodes=%d, numKRODirtyPages=%d pgCursor=%d, nPages=%d\n",
+                numKRONodes, numKRODirtyPages, KROPageCleanCursor, objC_nPages);
   // Clean nodes before pages, because this will generate node pots.
   while (CleanAKRONode()) {
-#if (dbg_numnodes & dbg_flags)
+#if (dbg_numnodes & dbg_flags)	// because it isn't declared otherwise
     DEBUG(numnodes) ValidateNumKRONodes();
 #endif
   }
@@ -722,8 +782,12 @@ DoPhase2Work(void)
      It is marked KRO and clean. (We always mark a page clean *before*
      cleaning it, so we will know if it is dirtied while being cleaned.)
   4. The cleaning finishes. The page is now clean and not KRO. */
-  while (numKRODirtyPages)
+  while (numKRODirtyPages) {
     CleanAKROPage();
+#if (dbg_numpages & dbg_flags)	// because it isn't declared otherwise
+    DEBUG(numpages) ValidateNumKROPages();
+#endif
+  }
 
   // Phase 2 is committed. Nothing below Yields.
 
@@ -827,6 +891,7 @@ DoPhase3Work(void)
   // Now put all the reserved pages to work as object directory frames:
   while (reservedPages) {
     PageHeader * pageH = reservedPages;
+    DEBUG(ckpt) printf("Using obDir pageH %#x\n", pageH);
     // Unlink it:
     reservedPages = pageH->kt_u.link.next;
     numReservedPages--;

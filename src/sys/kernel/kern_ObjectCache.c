@@ -128,6 +128,7 @@ objC_AllocateUserPages(void)
   printf("nPages = %d (0x%x)\n", nPages, nPages);
 #endif
 
+  memset(objC_coreTable, 0, objC_nPages * sizeof(PageHeader));
   /* Initialize all the core table entries: */
 
   PageHeader * pObHdr = objC_coreTable;
@@ -401,7 +402,7 @@ void
 objH_InitPresentObj(ObjectHeader * pObj, OID oid)
 {
 #ifdef OPTION_OB_MOD_CHECK
-  pObj->check = objH_CalcCheck(pObj);
+  objH_SetCheck(pObj);
 #endif
 
   objH_InitObj(pObj, oid);
@@ -480,11 +481,8 @@ node_ClearDirty(Node * pNode)
     assert(numKRONodes >= 0);
     objH_ClearKRO(pObj);
   }
+  nodeH_BecomeUnwriteable(pNode);
   objH_ClearFlags(pObj, OFLG_DIRTY);	// cleaned it to the log dir
-
-#ifdef OPTION_OB_MOD_CHECK
-  pObj->check = node_CalcCheck(pNode);
-#endif
 }
 
 /* Returns true iff freed some nodes. */
@@ -520,6 +518,7 @@ CleanAPotOfNodes(bool force)
   // Now we are committed to creating a log pot.
 
   LID lid = NextLogLoc();
+  DEBUG(ckpt) printf("Writing LID %#llx\n", lid);
   ObjectRange * rng = LidToRange(lid);
   assert(rng);	// it had better be mounted
 
@@ -900,13 +899,22 @@ CreateLogDirEntryForNonzeroPage(PageHeader * pageH)
   ld_recordLocation(&objDescr, workingGenerationNumber);
 }
 
-static void
-page_ClearAnyKRO(PageHeader * pageH)
+void
+DoneCleaningPage(PageHeader * pageH)
 {
   ObjectHeader * pObj = pageH_ToObj(pageH);
 
-  if (objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO)) {
+  // Clear any KRO:
+  if (objH_GetFlags(pObj, OFLG_KRO))
     objH_ClearKRO(pObj);
+
+  if (pageH_GetObType(pageH) == ot_PtWorkingCopy) {
+    // Done cleaning a WorkingCopy.
+    // We have no further use for the page, so free it.
+    assert(! pageH_IsDirty(pageH));
+    assert(! pObj->prep_u.products);
+    assert(keyR_IsEmpty(&pageH_ToObj(pageH)->keyRing));
+    ReleasePageFrame(pageH);
   }
 }
 
@@ -935,10 +943,40 @@ IOReq_EndPageClean(IORequest * ioreq)
     // else KRO, dir ent was created earlier.
   }
 
-  page_ClearAnyKRO(pageH);
+  DoneCleaningPage(pageH);
 
   sq_WakeAll(&ioreq->sq);
   IOReq_Deallocate(ioreq);
+}
+
+static void
+CleanZeroPage(PageHeader * pageH)
+{
+  ObjectDescriptor objDescr = {
+    .oid = pageH_ToObj(pageH)->oid,
+    .logLoc = 0,	// it's zero, has no logLoc
+    .allocCount = pageH_ToObj(pageH)->allocCount,
+    .callCount = 0,	// not used
+    .type = capros_Range_otPage
+  };
+  ld_recordLocation(&objDescr, workingGenerationNumber);
+  DoneCleaningPage(pageH);
+}
+
+/* On entry pgAddr is the virtual address of a page mapped by
+ * pageH_MapCoherentRead.
+ * Returns i such that the first i bytes of the page are known to be zero. */
+static unsigned int
+PageTestZero(kva_t pgAddr)
+{
+  /* The following loop could be optimized with machine-specific code. */
+  uint64_t * pgArray = (uint64_t *)pgAddr;
+  unsigned int i;
+  for (i = 0; i < EROS_PAGE_SIZE; i += sizeof(uint64_t)) {
+    if (pgArray[i/sizeof(uint64_t)])
+      break;
+  }
+  return i;
 }
 
 // May Yield.
@@ -967,39 +1005,30 @@ pageH_Clean(PageHeader * pageH)
   case ot_PtDataPage:
     keyR_ProcessAllMaps(&pageH_ToObj(pageH)->keyRing,
                         &KeyDependEntry_TrackDirty);
+  case ot_PtWorkingCopy: ;
+    /* IOReqCleaning_AllocateOrWait may Yield. If so we want to do it
+    before clearing OFLG_DIRTY, even though we only need the ioreq
+    if the page turns out to be nonzero. */
+    IORequest * ioreq = IOReqCleaning_AllocateOrWait();
+    // Beware, must not Yield below without freeing ioreq.
+
+    pageH_BecomeUnwriteable(pageH);
     pageH_ClearFlags(pageH, OFLG_DIRTY);
     if (objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO)) {
       numKRODirtyPages--;
       assert(numKRODirtyPages >= 0);
     }
-#ifdef OPTION_OB_MOD_CHECK
-    pageH_ToObj(pageH)->check = pageH_CalcCheck(pageH);
-#endif
 
     // Is the page zero?
     kva_t pgAddr = pageH_MapCoherentRead(pageH);
-    /* The following loop could be optimized with machine-specific code. */
-    uint64_t * pgArray = (uint64_t *)pgAddr;
-    unsigned int i;
-    for (i = 0; i < EROS_PAGE_SIZE/sizeof(uint64_t); i++) {
-      if (pgArray[i])
-        break;
-    }
+    unsigned int i = PageTestZero(pgAddr);
     pageH_UnmapCoherentRead(pageH);
-    if (i == EROS_PAGE_SIZE/sizeof(uint64_t)) {	// The page is zero.
-      ObjectDescriptor objDescr = {
-        .oid = pageH_ToObj(pageH)->oid,
-        .logLoc = 0,	// it's zero, has no logLoc
-        .allocCount = pageH_ToObj(pageH)->allocCount,
-        .callCount = 0,	// not used
-        .type = capros_Range_otPage
-      };
-      ld_recordLocation(&objDescr, workingGenerationNumber);
-      page_ClearAnyKRO(pageH);
+    if (i == EROS_PAGE_SIZE) {	// The page is zero.
+      IOReq_Deallocate(ioreq);	// don't need this after all
+      CleanZeroPage(pageH);
     } else {		// the page is not zero
       // While it is being cleaned, it is marked not dirty, and I/O in progress.
 
-      IORequest * ioreq = IOReqCleaning_AllocateOrWait();	// may Yield
       ioreq->pageH = pageH;	// link page and ioreq
       pageH->ioreq = ioreq;
 
@@ -1024,17 +1053,18 @@ pageH_Clean(PageHeader * pageH)
   }
 }
 
-// Clean the next dirty KRO page.
+// Clean a dirty KRO page.
 void
 CleanAKROPage(void)
 {
   assert(numKRODirtyPages);
+  unsigned int cursorAtEntry = KROPageCleanCursor;
 
-  for (;;KROPageCleanCursor++) {
-    assert(KROPageCleanCursor < objC_nPages);
+  do {
     PageHeader * pageH = objC_GetCorePageFrame(KROPageCleanCursor);
     ObjectHeader * pObj = pageH_ToObj(pageH);
     switch (pObj->obType) {
+    case ot_PtWorkingCopy:
     case ot_PtDataPage:
     case ot_PtLogPot:
       if (objH_GetFlags(pObj, OFLG_KRO | OFLG_DIRTY)
@@ -1043,22 +1073,14 @@ CleanAKROPage(void)
         // KROPageCleanCursor++ not necessary
         return;
       }
+      break;
     default: ;
     }
-  }
-}
 
-static void
-CopyPage(PageHeader * old, PageHeader * new)
-{
-  kva_t oldAddr = pageH_MapCoherentRead(old);
-  kva_t newAddr = pageH_MapCoherentWrite(new);
-
-  memcpy((void *) newAddr, (void *) oldAddr, EROS_PAGE_SIZE);
-
-  pageH_UnmapCoherentRead(old);
-  pageH_UnmapCoherentWrite(new);
-  pageH_SetReferenced(new);
+    // Advance the cursor
+    if (++KROPageCleanCursor >= objC_nPages)
+      KROPageCleanCursor = 0;	// wrap
+  } while (KROPageCleanCursor != cursorAtEntry);
 }
 
 /* This procedure is called when we want to mutate a page that is
@@ -1081,18 +1103,57 @@ pageH_MitigateKRO(PageHeader * old)
          == (OFLG_KRO | OFLG_Cleanable) );
   assert(pageH_GetObType(old) == ot_PtDataPage);
 
+  // If the page is zero, we can clean it immediately:
+  kva_t oldAddr = pageH_MapCoherentRead(old);
+  unsigned int i = PageTestZero(oldAddr);
+  if (i == EROS_PAGE_SIZE) {	// the page is zero
+    assert(objH_IsDirty(pageH_ToObj(old)));	// can't be KRO, clean, and zero
+    if (! old->ioreq) {
+      // Clean this zero page now.
+      pageH_UnmapCoherentRead(old);
+      keyR_ProcessAllMaps(&pageH_ToObj(old)->keyRing,
+                          &KeyDependEntry_TrackDirty);
+      pageH_BecomeUnwriteable(old);
+      pageH_ClearFlags(old, OFLG_DIRTY);
+      numKRODirtyPages--;
+      assert(numKRODirtyPages >= 0);
+      CleanZeroPage(old);
+      return old;
+    }
+    /* The page is being cleaned.
+    This can happen if, before the start of a checkpoint,
+    the page is nonzero, we start to clean it, then we dirty it
+    making it zero, then a demarcation event occurs.
+    In this case, even though the page is zero,
+    we must not clean it now (making a log directory entry indicating
+    the page is zero); if we did then when the clean finishes,
+    seeing the page is clean,
+    it will make a log directory entry, overwriting the zero entry. */
+  }
   /* FIXME: When we try to grab a page frame, we should not clean too
   aggressively. Rather than steal potentially useful pages,
   we should put this page at the head of the list of pages to clean. */
   PageHeader * new = objC_GrabPageFrame();
   pageH_MDInitDataPage(new);
-  CopyPage(old, new);
+  kva_t newAddr = pageH_MapCoherentWrite(new);
+
+  // Copy the part we know is zero (no point in re-reading it):
+  memset((void *) newAddr, 0, i);
+  // Copy the rest:
+  memcpy((uint8_t *)newAddr + i, (uint8_t *) oldAddr + i, EROS_PAGE_SIZE - i);
+
+  pageH_UnmapCoherentWrite(new);
+  pageH_UnmapCoherentRead(old);
+  pageH_SetReferenced(new);
+
 #ifdef OPTION_OB_MOD_CHECK
   pageH_ToObj(new)->check = pageH_ToObj(old)->check;
 #endif
   pageH_ToObj(new)->allocCount = pageH_ToObj(old)->allocCount;
 
-  if (old->ioreq) {
+  if (old->ioreq
+      || objH_IsUserPinned(pageH_ToObj(old))
+      || pageH_IsKernelPinned(old) ) {
     // The old page has I/O, so it can't be moved.
     printf("Moving KRO page with I/O, %#x\n", old);////
 

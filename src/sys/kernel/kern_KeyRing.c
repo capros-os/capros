@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/Depend.h>
 #include <kerninc/Key-inline.h>
+#include <kerninc/ObjH-inline.h>
 
 #ifndef NDEBUG
 // This is like keyR_IsValid, but only requires one parameter.
@@ -151,7 +152,7 @@ keyR_RescindAll(KeyRing * thisPtr)
 #ifdef OPTION_OB_MOD_CHECK
     Node * pNode = node_ContainingNodeIfNodeKeyPtr(pKey);
     if (pNode) {
-      node_ToObj(pNode)->check = node_CalcCheck(pNode);
+      node_SetCheck(pNode);
     }
 #endif
   }
@@ -186,7 +187,7 @@ keyR_ObjectMoved(KeyRing * keyR, ObjectHeader * newObj)
 #ifdef OPTION_OB_MOD_CHECK
     Node * pNode = node_ContainingNodeIfNodeKeyPtr(pKey);
     if (pNode) {
-      node_ToObj(pNode)->check = node_CalcCheck(pNode);
+      node_SetCheck(pNode);
     }
 #endif
   }
@@ -395,7 +396,7 @@ keyR_UnprepareAll(KeyRing *thisPtr)
 #ifdef OPTION_OB_MOD_CHECK
     Node * pNode = node_ContainingNodeIfNodeKeyPtr(pKey);
     if (pNode) {
-      node_ToObj(pNode)->check = node_CalcCheck(pNode);
+      node_SetCheck(pNode);
     }
 #endif
   }

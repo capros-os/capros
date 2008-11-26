@@ -34,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/IRQ.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/GPT.h>
+#include <kerninc/ObjH-inline.h>
 
 #define PREPDEBUG
 
@@ -375,7 +376,7 @@ node_Validate(Node* thisPtr)
 #endif
   
 #ifdef OPTION_OB_MOD_CHECK
-  if (! objH_IsDirty(node_ToObj(thisPtr))) {
+  if (objH_IsUnwriteable(node_ToObj(thisPtr))) {
     uint32_t chk = node_CalcCheck(thisPtr);
   
     if ( thisPtr->node_ObjHdr.check != chk ) {

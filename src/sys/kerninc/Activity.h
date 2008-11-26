@@ -98,11 +98,6 @@ enum {actHaz_None,
       actHaz_WakeOK,
       actHaz_WakeRestart,
       actHaz_END};
-#if 0
-#define actHaz_None 0
-#define actHaz_WakeOK 1
-#define actHaz_WakeRestart 2
-#endif
  
 /* The activity structure captures the portion of a process's state
  * that MUST remain in core while the process is logically running or
@@ -187,11 +182,24 @@ act_SetContextNotCurrent(Activity * thisPtr, Process * ctxt)
   thisPtr->context = ctxt;
 }
 
+INLINE void
+act_SetCurProcess(Process * proc)
+{
+#if defined(OPTION_DDB)
+  extern bool ddb_uyield_debug;
+  if (ddb_uyield_debug)
+    dprintf(true, "CurProc changes from %#x to %#x\n", proc_curProcess, proc); 
+#endif
+
+  proc_curProcess = proc; 
+}
+
 INLINE void 
 act_SetContextCurrent(Activity * thisPtr, Process * ctxt) 
 {
   assert(thisPtr == act_Current());
-  proc_curProcess = thisPtr->context = ctxt;
+  thisPtr->context = ctxt;
+  act_SetCurProcess(ctxt);
 }
 
 INLINE void 
@@ -199,7 +207,7 @@ act_SetContext(Activity * thisPtr, Process * ctxt)
 {
   thisPtr->context = ctxt;
   if (thisPtr == act_Current())
-    proc_curProcess = ctxt;
+    act_SetCurProcess(ctxt);
 }
 
 /* Must be under irq_DISABLE */
@@ -208,7 +216,7 @@ act_SetRunning(Activity* thisPtr)
 {
   link_Unlink(&thisPtr->q_link);
   act_curActivity = thisPtr;
-  proc_curProcess = thisPtr->context;
+  act_SetCurProcess(thisPtr->context);
   thisPtr->state = act_Running;
 }
 

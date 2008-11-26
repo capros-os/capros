@@ -335,6 +335,12 @@ regMsg:	.asciz "ISR not saving regs!\n"
 	.balign 4
 1:
 #endif
+
+#ifdef EXCEPTION_TRACE
+	mov r0,sp
+	bl traceLog
+#endif
+
 #ifndef NDEBUG
 	ldmfd sp!,{r0, r11}
 #endif
