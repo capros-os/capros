@@ -94,6 +94,12 @@
             allinv, gate, keyerr, keeper, return,
             segwalk, uqueue, uyield. These flags enable debugging
             stops throughout the kernel.
+        <dl>
+           <dt>uqueue
+           <dd>Stops when a user process is queued or exits the kernel.
+           <dt>uyield
+           <dd>Stops when a user process yields or the current process changes.
+        </dl>
         <dt>mesg procinv [<i>addr</i>]
         <dd>Toggle a flag that enables a debugging stop when the process
             at the specified <i>addr</i> performs an invocation.
@@ -168,6 +174,8 @@
           <dd>Print information about all the pages in memory.
           <dt>show procs
           <dd>Print information about all the processes in memory.
+          <dt>show readylist
+          <dd>Print the list of processes ready to run.
           <dt>show pmem
           <dd>Print information about all the regions of physical memory
               (PmemInfo).
