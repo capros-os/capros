@@ -55,8 +55,12 @@ $(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata: $(KERNPATH)
 	$(EROS_OBJCOPY) -O binary --only-section=.data $(KERNPATH) $(BUILDDIR)/kerneldata
 
 // Link kernel and non-persistent objects:
+# To run with non-persistent objects only, leave RESTART_CKPT empty
+#   and run without a disk.
+# To restart from a checkpoint on disk, run with a disk and
+#   set RESTART_CKPT to "-p" to properly link device drivers.
 np: $(BUILDDIR)/sysimg $(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata
-	$(EROS_ROOT)/host/bin/npgen -m $(BUILDDIR)/sysgen.map -s $(NPRANGESIZE) $(BUILDDIR)/sysimg $(BUILDDIR)/imgdata
+	$(EROS_ROOT)/host/bin/npgen -s $(NPRANGESIZE) $(BUILDDIR)/sysimg $(RESTART_CKPT) $(BUILDDIR)/imgdata
 	cp $(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata $(BUILDDIR)/imgdata $(BOOTDIR)
 
 // Link kernel, non-persistent objects, and persistent objects:
