@@ -25,15 +25,16 @@ Approved for public release, distribution unlimited. */
 #include <primebank.map>
 #include <pcc.map>
 #include <metacon.map>
+#include <ipltool.map>
 #include <supernode.map>
 #include <vcs.map>
+
+#include <ckptr.map>
 
 #include <ip.map>
 #define ip_notifyee ip_nplinkee
 
 #include <hai.map>
-
-volsize[13] = threadlist;
 
 #include <nplink.map>
 #include "hai.key"	// HAI macro call with parameters

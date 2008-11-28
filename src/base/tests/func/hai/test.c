@@ -84,6 +84,9 @@ main(void)
           ss.sunsetHour, ss.sunsetMinute,
           ss.batteryReading);
 
+  result = capros_Sleep_sleep(KR_SLEEP, 60*1000);	// wait 1 minute
+  // a checkpoint will be taken here.
+
   result = capros_HAI_setUnitStatus(KR_HAI, 261, capros_HAI_Command_UnitOffForSeconds, 8);
   ckOK
 

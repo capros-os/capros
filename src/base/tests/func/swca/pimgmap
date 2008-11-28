@@ -25,6 +25,7 @@ Approved for public release, distribution unlimited. */
 #include <primebank.map>
 #include <pcc.map>
 #include <metacon.map>
+#include <ipltool.map>
 #include <supernode.map>
 #include <vcs.map>
 
@@ -32,7 +33,6 @@ Approved for public release, distribution unlimited. */
 
 SWCA(ps)
 #define serial3_notifyee psswca_nplinkee
-volsize[13] = threadlist;
 
 #include <nplink.map>
 
