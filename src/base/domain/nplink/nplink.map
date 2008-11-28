@@ -46,7 +46,6 @@ run nplink_proc;
 
 /* Make our cap available to the non-persistent world: */
 volsize[volsize_nplinkCap] = start nplink_proc 0;
-volsize[volsize_thread] = threadlist;
 
 #ifndef ds9490r_notifyee
 #define ds9490r_notifyee void
