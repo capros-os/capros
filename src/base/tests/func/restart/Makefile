@@ -32,7 +32,8 @@ TARGETS=
 OPTIM=-O
 INC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
 
-NPRANGESIZE=310
+RESTART_CKPT=-p
+NPRANGESIZE=420
 
 include $(EROS_SRC)/build/make/makerules.mk
 
