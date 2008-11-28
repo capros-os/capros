@@ -33,20 +33,17 @@ Approved for public release, distribution unlimited. */
 ipltool.space = small program LIBDIR "ipltool";
 ipltool.space = ipltool.space with page at 0x1f000;
 
-ipltool = new process with constituents;
+ipltool = new process;
 ipltool pc = symbol LIBDIR "ipltool" _start;
 ipltool space = ipltool.space;
 ipltool schedule = sched(15);	/* high */
 ipltool symtab = number("ipltool");
 ipltool key reg KR_SELF = ipltool;	/* used by _exit */
-ipltool key reg KR_APP(0) = misc Discrim;
+ipltool key reg KR_APP(0) = misc Console;
 ipltool key reg KR_APP(1) = volsize;
-ipltool key reg KR_APP(2) = misc MigratorTool;
-
-CONSTIT(ipltool, KC_THREADLIST, 0) = threadlist;
-CONSTIT(ipltool, KC_OSTREAM, 1) = misc Console;
-CONSTIT(ipltool, KC_PRIMEBANK, 2) = primebank;
-CONSTIT(ipltool, KC_NEWSCHED, 3) = sched(8);
+ipltool key reg KR_APP(2) = primebank;
+ipltool key reg KR_APP(3) = sched(8);
+ipltool key reg KR_APP(4) = threadlist;
 
 /* This is the IPL process (which is the whole point!) */
 ipl ipltool;

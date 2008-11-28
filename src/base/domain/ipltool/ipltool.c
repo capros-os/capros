@@ -47,14 +47,13 @@ Approved for public release, distribution unlimited. */
 #include <domain/Runtime.h>
 #include "constituents.h"
 
-#define KR_DISCRIM    KR_APP(0)
+#define KR_OSTREAM    KR_APP(0)
 #define KR_VOLSIZE    KR_APP(1)
-#define KR_MIGRTOOL   KR_APP(2)
+#define KR_PRIMEBANK  KR_APP(2)
 #define KR_NEWSCHED   KR_APP(3)
-#define KR_FAULT      KR_APP(4)
-#define KR_THREADLIST KR_APP(5)
-#define KR_OSTREAM    KR_APP(6)
-#define KR_PRIMEBANK  KR_APP(7)
+#define KR_THREADLIST KR_APP(4)
+#define KR_FAULT      KR_APP(5)
+
 
 /* This program is one shot with no backing environment -- stack page
  * is provided in the map file.
@@ -126,35 +125,9 @@ ProcessThreadlist(void)
 int
 main()
 {
-  result_t result;
-
-  capros_Node_getSlot(KR_CONSTIT, KC_THREADLIST, KR_THREADLIST);
-  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  capros_Node_getSlot(KR_CONSTIT, KC_PRIMEBANK, KR_PRIMEBANK);
-  capros_Node_getSlot(KR_CONSTIT, KC_NEWSCHED, KR_NEWSCHED);
-
   kprintf(KR_OSTREAM, "IPL Tool says hello!\n");
 
   ProcessThreadlist();
-
-  // See if there are preloaded persistent threads.
-  capros_Node_getSlot(KR_VOLSIZE, volsize_pvolsize, KR_TEMP1);
-  // Is this a different volsize node?
-  capros_Node_getSlot(KR_CONSTIT, KC_THREADLIST, KR_TEMP0);
-  bool equal;
-  result = capros_Discrim_compare(KR_DISCRIM, KR_TEMP0, KR_TEMP1, &equal);
-  assert(result == RC_OK);
-  if (! equal) {
-    // First wait for restart to complete.
-    // Otherwise, we start using the log and the log directory
-    // before they are initialized.
-    result = capros_MigratorTool_waitForRestart(KR_MIGRTOOL);
-    assert(result == RC_OK);
-
-    capros_Node_getSlot(KR_TEMP1, volsize_thread, KR_THREADLIST);
-    kprintf(KR_OSTREAM, "IPL Tool starting persistent processes.\n");
-    ProcessThreadlist();
-  }
 
   return 0;
 }
