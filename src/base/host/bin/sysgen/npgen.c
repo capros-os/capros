@@ -237,9 +237,7 @@ main(int argc, char *argv[])
 		k.u.unprep.oid);
     }
     else
-      if (! append)
-        diag_printf("Warning: no running domains!\n");
-      // If appending, only the original image needs an IPL process.
+      diag_printf("Warning: no ipl process!\n");
   }
 
 #if 0
