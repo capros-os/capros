@@ -364,24 +364,27 @@ All normal user objects fall into this class.
     </p>
     <h1>Communication</h1>
     <p>
-      Here is a design for communication between the persistent
-      and non-persistent worlds, that respects the severe limitations
+      The design for communication between the persistent
+      and non-persistent worlds respects the severe limitations
       described above.
     </p>
     <p>
-      There is a persistent process with a well-known OID, that we call
-      the Bridge process [need a better name].
-      (There could be more than one Bridge process; for this discussion
-      we assume there is only one.)
-      Non-persistent drivers may have a start cap to the Bridge process.
+      There is a persistent node called (for historical reasons) Volsize
+      with a well-known OID (PVOLSIZE_OID which is 0x0100000000000000).
+      A slot (volsize_nplinkCap) of this node contains a start capability
+      to a persistent bridge process called NPLink (Non-Persistent Link). 
+      Non-persistent drivers access the persistent Volsize node
+      to obtain the capability to NPLink. 
+    </p>
+    <p>
       When a device, to which access is required from persistent objects,
       is recognized, either when the system is booted, or when the
       device is later attached to the system,
-      the driver sends to the start cap to the Bridge process
+      the driver sends to the start cap to the NPLINK process
       a message containing a cap (the "device cap") (usually a start cap)
       to the non-persistent object (which must be in class 2)
       that provides access to the device.
-      The Bridge process is responsible for granting this cap
+      The NPLink process is responsible for granting this cap
       to the appropriate client of the device.
     </p>
     <p>
@@ -423,11 +426,12 @@ Alternatively, you may restart the system.
       Upgrading the persistent side can be done as follows:
     </p>
 <ol>
-<li> Create the new Bridge process.
-<li> Upgrade the non-persistent side to use the new Bridge process.
-This may be as simple as replacing the cap to the old Bridge process,
-or it may require the procedure above.
-<li> Destroy the old Bridge process.
+<li> Create the new NPLink process.
+<li> Overwrite the slot in the persistent Volsize node with the cap
+to the new NPLink process.
+<li> Ensure the old NPLink process is no longer being used. This can be done
+by waiting for a sufficient time, or by rebooting the system.
+<li> Destroy the old NPLink process.
 </ol>
     <h2>Example</h2>
     <p>
@@ -447,8 +451,10 @@ or it may require the procedure above.
     <p>
     Because USB devices are hot-plugged, the driver is constructed
     as needed.
-    The constructor has as a constituent a start capability to 
-    the Bridge process. When a mouse is recognized (either when the
+    The constructor has as a constituent a capability to the non-persistent
+    Volsize node, which has a capability to the persistent Volsize node,
+    which has a start capability to 
+    the NPLink process. When a mouse is recognized (either when the
     system is booted, or when a device is plugged in),
     a driver is constructed, consisting of two processes (threads).
     One thread responds to requests from the USB bus handler, which it
@@ -460,7 +466,7 @@ or it may require the procedure above.
     must not hold any locks needed by the first thread at that time.
     </p>
     <p>
-    The second thread passes to the Bridge process
+    The second thread passes to the NPLink process
     a start capability to itself, which we
     will call a mouse capability.
     If the mouse is unplugged, the driver rescinds the mouse cap.
