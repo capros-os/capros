@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjH-inline.h>
 #include <kerninc/Activity.h>
 #include <kerninc/LogDirectory.h>
+#include <kerninc/IORQ.h>
 #include <kerninc/Ckpt.h>
 #include <disk/TagPot.h>
 
@@ -201,15 +202,20 @@ GetObjectType(OID oid)
     objLoc.objType = objH_GetBaseType(pObj);
     return objLoc;
   } else {
-    // Look in the log directory.
-    const ObjectDescriptor * objDescP = ld_findObject(oid);
-    if (objDescP) {
-      objLoc.locType = objLoc_ObjectDescriptor;
-      objLoc.objType = objDescP->type;
-      objLoc.u.objDesc.allocCount = objDescP->allocCount;
-      objLoc.u.objDesc.callCount = objDescP->callCount;
-      objLoc.u.objDesc.logLoc = objDescP->logLoc;
-      return objLoc;
+    if (OIDIsPersistent(oid)) {	// Look in the log directory.
+      // Since the log directory is initialized by Restart,
+      // wait for restart to be done.
+      if (! restartIsDone())
+        SleepOnPFHQueue(&RestartQueue);
+      const ObjectDescriptor * objDescP = ld_findObject(oid);
+      if (objDescP) {
+        objLoc.locType = objLoc_ObjectDescriptor;
+        objLoc.objType = objDescP->type;
+        objLoc.u.objDesc.allocCount = objDescP->allocCount;
+        objLoc.u.objDesc.callCount = objDescP->callCount;
+        objLoc.u.objDesc.logLoc = objDescP->logLoc;
+        return objLoc;
+      }
     }
 
     // Look in the object source:

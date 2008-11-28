@@ -40,15 +40,13 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/PTE.h>
 #include <arch-kerninc/Machine-inline.h>
 
-#define dbg_rescind	0x1	/* steps in taking snapshot */
+#define dbg_rescind	0x1
 #define dbg_ew		0x2	// EnsureWriteable
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0 | dbg_ew )
+#define dbg_flags   ( 0x0 )
 
-#define DBCOND(x) (dbg_##x & dbg_flags)
-#define DEBUG(x) if DBCOND(x)
-#define DEBUG2(x,y) if ((dbg_##x|dbg_##y) & dbg_flags)
+#define DEBUG(x) if (dbg_##x & dbg_flags)
 
 
 uint16_t objH_CurrentTransaction = 1; /* guarantee nonzero! */
@@ -305,10 +303,8 @@ objH_EnsureWritable(ObjectHeader * pObj)
 
   objH_SetDirtyFlag(pObj);
   
-#if 1//// until tested, then #ifdef DBG_CLEAN
-  printf("Marked dirty pObj=0x%08x oid=%#llx.\n",
+  DEBUG(ew) printf("Marked dirty pObj=0x%08x oid=%#llx.\n",
 	 pObj, pObj->oid);
-#endif
 }
 
 void

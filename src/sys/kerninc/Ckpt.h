@@ -67,6 +67,7 @@ extern GenNum migratedGeneration;
 extern GenNum retiredGeneration;
 
 extern bool IsPreloadedBigBang;
+extern OID PersistentIPLOID;
 
 #define KR_MigrTool 7
 

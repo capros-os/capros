@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Invocation.h>
 #include <kerninc/Ckpt.h>
+#include <kerninc/IORQ.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/MigratorTool.h>
@@ -80,8 +81,7 @@ MigratorToolKey(Invocation* inv)
     if (! restartIsDone()) {
       DEBUG(migr)
         printf("MigrTool_waitForRestart waiting for restart to complete.\n");
-      act_SleepOn(&RestartQueue);
-      act_Yield();
+      SleepOnPFHQueue(&RestartQueue);
     }
     COMMIT_POINT();
     break;

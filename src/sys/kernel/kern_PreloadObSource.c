@@ -71,18 +71,26 @@ preload_Init(void)
 
   struct NPObjectsDescriptor * npod;
   kpa_t pagePA = VTOP((kva_t)NPObDescr);
+
   // Make sure the preloaded data hasn't been inadvertently allocated.
 
-  uint32_t nf = 0;	// number of frames in the preload images
-
   npod = NPObDescr;
-  // npod->numPreloadImages should be 1 or 2, but we don't need to check that.
-  IsPreloadedBigBang = npod->numPreloadImages > 1;
-  for (k = npod->numPreloadImages; k > 0; k--) {
-    uint32_t thisFrames = 1 + npod->numFrames;	// including the header frame
-    nf += thisFrames;
+  // Count the non-persistent preloaded objects.
+  uint32_t nf = 1 + npod->numFrames; // number of frames in the preload images
+				// including the header frame
+  switch (npod->numPreloadImages) {
+  default:
+    assert(false);
+
+  case 2:
+    // Include the persistent preloaded objects.
     npod = (struct NPObjectsDescriptor *)
-           ((char *)npod + thisFrames * EROS_PAGE_SIZE);
+           ((char *)NPObDescr + nf * EROS_PAGE_SIZE);
+    nf += 1 + npod->numFrames;	// including the header frame
+    PersistentIPLOID = npod->IPLOID;
+    IsPreloadedBigBang = true;
+  case 1:
+    break;
   }
 
   PageHeader * pageH = objC_PhysPageToObHdr(pagePA);
@@ -241,16 +249,7 @@ PreloadObSource_Init(void)
     } else {
       // Preloaded persistent objects.
       // This is one way to initialize a big bang.
-#if 0	// if operating without any disk (during development):
-      // PreloadObSource will supply null objects for uninitialized objects.
-      rng.start = oid;
-      rng.end = oid + FrameToOID(npod->numFramesInRange);
-      rng.source = &PreloadObSource;
-
-      objC_AddRange(&rng);
-#else	// if operating with disk:
       // When a disk range is mounted it will add a source.
-#endif
     }
 
     uint32_t thisFrames = 1 + npod->numFrames;  // including the header frame

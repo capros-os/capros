@@ -250,7 +250,7 @@ IncrementLID(LID lid)
 LID
 NextLogLoc(void)
 {
-  while (! restartIsDone()) {
+  if (! restartIsDone()) {
     // This can happen if persistent objects are preloaded rather than
     // loaded from the last checkpoint.
     printf("NextLogLoc waiting for restart to complete.\n");

@@ -39,8 +39,7 @@ That range contains the following frames in order:
   frames reserved for submap pages for the space bank.
   unallocated frames.
 
-The first node (the one at OIDBase + FrameToOID(numNodeFrames))
-is the "volsize" node. It contains:
+The first node (the one at OIDBase) is the "volsize" node. It contains:
   Slots 0 and 1: number caps containing the number of pages and nodes
     respectively that were allocated in the image file
     (including zero and nonzero objects).
@@ -58,11 +57,6 @@ is the "volsize" node. It contains:
 #define volsize_range 6
 #define volsize_range_last 12
 
-/* Slot volsize_thread contains a node cap to the beginning of the
- * threadlist constructed using the mkimage "run" directive.
- * This cap is stored here by an assignment in the mkimage file. */
-#define volsize_thread 13
-
 /* Slot volsize_nplinkKey contains the start cap to the nplink process,
  * which receives non-persistent caps at boot time.
  * This cap is stored here by an assignment in the mkimage file
@@ -70,7 +64,7 @@ is the "volsize" node. It contains:
 #define volsize_nplinkCap 14
 
 /* Slot volsize_pvolsize contains a node cap to the persistent volsize node,
- * which always has OID VOLSIZE_OID.
+ * which always has OID PVOLSIZE_OID.
  */
 #define volsize_pvolsize 15
 

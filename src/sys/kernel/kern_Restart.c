@@ -46,7 +46,9 @@ extern Activity * migratorActivity;
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 uint64_t monotonicTimeOfRestart;
-bool IsPreloadedBigBang;
+bool IsPreloadedBigBang = false;
+// If IsPreloadedBigBang is true, then we have:
+OID PersistentIPLOID;
 
 DEFQUEUE(RestartQueue);	// waiting for restart to finish
 
@@ -279,6 +281,11 @@ DoRestartPhaseWaitingRoot1(void)
     monotonicTimeOfLastDemarc = 0;
 
     FinishRestart();
+
+    // Start the persistent IPL process.
+    DEBUG(restart) printf("Starting persistent IPL proc oid=%#llx\n",
+                          PersistentIPLOID);
+    StartActivity(PersistentIPLOID, restartNPAllocCount, actHaz_None);
 
     return;	// restart is done!
   }
