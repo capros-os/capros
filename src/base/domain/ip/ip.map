@@ -1,6 +1,6 @@
 /* -*- Mode: c -*- */
-#ifndef __SWCA_MAP_
-#define __SWCA_MAP_
+#ifndef __IP_MAP_
+#define __IP_MAP_
 
 /*
  * Copyright (C) 2008, Strawberry Development Group.
@@ -29,9 +29,6 @@ Approved for public release, distribution unlimited. */
 /*********************************************************
  * Persistent IP program.
  *********************************************************/
-
-ip_prog = program segtree LIBDIR "ip";
-ip_pc = symbol LIBDIR "ip" _start;
 
 BOOT_DOMCRE(ip);
 

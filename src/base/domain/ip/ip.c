@@ -61,6 +61,7 @@ bool haveMain = false;
 void
 nplinkee_main(void)
 {
+  result_t result;
   Message Msg = {
     .snd_invKey = KR_VOID,
     .snd_key0 = KR_VOID,
@@ -105,9 +106,11 @@ nplinkee_main(void)
         haveNPIP = true;
         if (haveMain) {
           Msg.snd_invKey = KR_RetMain;
+          Msg.snd_key0 = KR_NPIP;
           PSEND(&Msg);
           haveMain = false;
           Msg.snd_invKey = KR_RETURN;
+          Msg.snd_key0 = KR_VOID;
         }
         break;
       }
@@ -120,6 +123,12 @@ nplinkee_main(void)
         break;
 
       case OC_getNPIP:
+        if (haveNPIP) {		// we think we have it; do we really?
+          capros_key_type keyType;
+          result = capros_key_getType(KR_NPIP, &keyType);
+          if (result != RC_OK)
+            haveNPIP = false;	// sure enough, it's gone
+        }
         if (haveNPIP) {
           Msg.snd_key0 = KR_NPIP;
         } else {
