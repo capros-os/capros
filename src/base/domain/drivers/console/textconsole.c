@@ -161,8 +161,8 @@ initialize(void)
   result = capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::Start key--Failed");
   
-  result = capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
-  if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::setIoSpace--Failed");
+  result = capros_Process_setIOSpace(KR_SELF, KR_DEVPRIVS);
+  if(result!=RC_OK) kprintf(KR_OSTREAM,"textconsole::setIOSpace--Failed");
   kprintf(KR_OSTREAM, "Should now have IOspace key in slot\n");
   
   result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_ADDRSPC);

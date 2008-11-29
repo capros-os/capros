@@ -148,8 +148,15 @@ ProcessKeyCommon(Invocation * inv, Process * proc)
     node_ClearHazard(theNode, ProcIoSpace);
 
     key_NH_Set(node_GetKeyAtSlot(theNode, ProcIoSpace), inv->entry.key[0]);
-        
-    act_Prepare(act_Current());
+ 
+    /* If the invoked process is the current process, setting ProcIoSpace
+    will cause this process to be unloaded. Ensure it is reloaded. */
+    {
+      bool prepared = act_Prepare(act_Current());
+      (void)prepared;	// avert compiler warning
+      // But setting ProcIoSpace can't cause us to become unrunnable:
+      assert(prepared);
+    }
       
     inv->exit.code = RC_OK;
     break;

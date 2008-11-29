@@ -50,23 +50,8 @@ ProcessKey(Invocation * inv)
 
   assert(keyBits_IsPreparedObjectKey(inv->key));
   Process * proc = inv->key->u.gk.pContext;
-  Node * theNode = proc->procRoot;
 
   switch (inv->entry.code) {
-
-  case OC_capros_arch_i386_Process_setIoSpace:
-    node_EnsureWritable(theNode);
-
-    COMMIT_POINT();
-
-    node_ClearHazard(theNode, ProcIoSpace);
-
-    key_NH_Set(node_GetKeyAtSlot(theNode, ProcIoSpace), inv->entry.key[0]);
-
-    act_Prepare(act_Current());
-      
-    inv->exit.code = RC_OK;
-    break;
 
   case OC_capros_arch_i386_Process_getRegisters:
     assert( proc_IsRunnable(inv->invokee) );

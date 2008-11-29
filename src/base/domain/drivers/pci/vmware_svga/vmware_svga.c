@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System distribution.
  *
@@ -963,7 +963,7 @@ int main(void)
   capros_Node_getSlot(KR_CONSTIT, KC_ZERO_SPACE, KR_ZERO_SPACE);
 
   /* Move the DEVPRIVS key to the ProcIoSpace slot so we can do io calls. */
-  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
+  capros_Process_setIOSpace(KR_SELF, KR_DEVPRIVS);
 
   /* Make a start key to pass back to constructor.  This key
      implements the VideoDriverKey interface. */

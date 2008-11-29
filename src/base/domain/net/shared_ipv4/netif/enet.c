@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System distribution.
  *
@@ -322,7 +322,7 @@ main(void)
   COPY_KEYREG(KR_ARG(0),KR_CONSTREAM);
 
   /* Move the DEVPRIVS key to the ProcIOSpace so we can do i/o calls */
-  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
+  capros_Process_setIOSpace(KR_SELF, KR_DEVPRIVS);
    
   /* Prepare address space for mapping */
   if (addrspace_prep_for_mapping(KR_SELF, KR_BANK, KR_SCRATCH, 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group
+ * Copyright (C) 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -175,8 +175,8 @@ main(void)
   node_extended_copy(KR_CONSTIT, KC_SLEEP,KR_SLEEP);
   node_extended_copy(KR_CONSTIT,KC_DEVPRIVS,KR_DEVPRIVS);
   
-  /* Move the DEVPRIVS key to the ProcIoSpace so we can do i/o calls */
-  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
+  /* Copy the DEVPRIVS key to the IOSpace so we can do i/o calls */
+  capros_Process_setIOSpace(KR_SELF, KR_DEVPRIVS);
 
   /* Construct the network system */
   result = constructor_request(KR_NETSYS_C,KR_BANK,KR_SCHED,

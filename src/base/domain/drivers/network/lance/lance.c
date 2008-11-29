@@ -919,7 +919,7 @@ main(void)
   capros_Node_getSlot(KR_CONSTIT, KC_HELPER_C, KR_HELPER_C);
     
   /* Move the DEVPRIVS key to the ProcIoSpace slot so we can do io calls */
-  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
+  capros_Process_setIOSpace(KR_SELF, KR_DEVPRIVS);
   capros_Process_makeStartKey(KR_SELF, 0, KR_START);
   
   msg.snd_invKey = KR_RETURN;

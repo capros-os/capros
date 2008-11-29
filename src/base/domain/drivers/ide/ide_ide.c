@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2007, Strawberry Development Group
+ * Copyright (C) 2005, 2007, 2008, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -962,8 +962,8 @@ void init_caps()
     OKAY( node_copy( KR_CONSTIT, KC_DEVICEPRIVS, KR_DEVICEPRIVS),
 	  "drive.c: node_copy: KR_DEVICEPRIVS" );
 
-    OKAY( capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVICEPRIVS), 
-	  "drive.c: setIoSpace: KR_DEVICEPRIVS\n" ); 
+    OKAY( capros_Process_setIOSpace(KR_SELF, KR_DEVICEPRIVS), 
+	  "drive.c: setIOSpace: KR_DEVICEPRIVS\n" ); 
 
     OKAY( capros_Process_makeStartKey( KR_SELF, 0, KR_START ), 
 	  "drive.c: node_copy: KR_START\n" );

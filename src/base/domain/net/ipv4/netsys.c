@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System distribution.
  *
@@ -273,7 +273,7 @@ main(void)
   node_extended_copy(KR_CONSTIT,KC_TIMEOUT_AGENT,KR_TIMEOUT_AGENT);
   
   /* Move the DEVPRIVS key to the ProcIOSpace so we can do i/o calls */
-  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
+  capros_Process_setIOSpace(KR_SELF, KR_DEVPRIVS);
   
   /* Make a generic start key to self  */
   capros_Process_makeStartKey(KR_SELF,TIMEOUT_AGENT_INTERFACE,

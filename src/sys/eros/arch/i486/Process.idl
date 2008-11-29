@@ -79,6 +79,4 @@ interface Process extends capros.Process raises (capros.key.RequestError) {
 
   Registers getRegisters();
   void setRegisters(Registers regs);
-
-  void setIoSpace(capros.key devprivskey);
 };

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System distribution.
  *
@@ -868,7 +868,7 @@ main(void)
 
   /* Move the DEVPRIVS key to the ProcIoSpace slot so this domain can
      do port-io calls */
-  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
+  capros_Process_setIOSpace(KR_SELF, KR_DEVPRIVS);
 
   /* Fabricate a generic start key to self */
   if (capros_Process_makeStartKey(KR_SELF, WINDOW_SYSTEM_INTERFACE, 

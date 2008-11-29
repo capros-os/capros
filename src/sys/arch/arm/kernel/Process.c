@@ -184,7 +184,6 @@ proc_FlushFixRegs(Process * thisPtr)
     keyBits_UnHazard(key);
   }
 
-  // ProcIoSpace affects EFLAGS.IOPL.
   key = node_GetKeyAtSlot(thisPtr->procRoot, ProcIoSpace);
   assert(keyBits_IsWrHazard(key));
   keyBits_UnHazard(key);
@@ -387,6 +386,7 @@ proc_LoadFixRegs(Process* thisPtr)
   for (k = ProcFirstRootRegSlot; k <= ProcLastRootRegSlot; k++)
     keyBits_SetRwHazard(node_GetKeyAtSlot(thisPtr->procRoot, k));
 
+  // ProcIoSpace affects proc_HasDevicePrivileges which affects KF_IoPriv.
   keyBits_SetWrHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcIoSpace));
 
   thisPtr->hazards &= ~hz_DomRoot;

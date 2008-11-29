@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System distribution.
  *
@@ -178,7 +178,7 @@ main(void)
   capros_Node_getSlot(KR_CONSTIT, KC_DEVPRIVS,  KR_DEVPRIVS);
   capros_Node_getSlot(KR_CONSTIT, KC_PHYSRANGE, KR_PHYSRANGE);
   capros_Node_getSlot(KR_CONSTIT, KC_SLEEP, KR_SLEEP);
-  capros_arch_i386_Process_setIoSpace(KR_SELF, KR_DEVPRIVS);
+  capros_Process_setIOSpace(KR_SELF, KR_DEVPRIVS);
 
  /*Make a start key to pass back to the constructor*/
   capros_Process_makeStartKey(KR_SELF,0,KR_START);
