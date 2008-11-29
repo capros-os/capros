@@ -788,10 +788,22 @@ struct ObjectDescriptor {
 	    The directory entry for a null object suffices to indicate
 	    that the object is null.
 	  </p>
-	  <h3>6.3 Restart Actions</h3>
+	  <h3>6.3 Restart Sequence</h3>
 	  <p>
-	    When CapROS is restarted after a shutdown (orderly or otherwise),
-            it first reads the frames at LIDs 0 and 1 and determines
+            When CapROS is booted, it normally looks for a checkpoint
+            on disk. (See <a href="../devel/CrossGuide/Boot.html">Booting</a>
+            for other boot scenarios.)
+            CapROS disk volumes (partitions) are identified with an IPLSysId
+            that is unique for each system.
+            This allows one CapROS system to format disks for another CapROS
+            system without confusing them.
+          </p>
+          <p>
+            The restart sequence finds
+            the configured disks, using a combination of
+            configuration data and probing.
+            It mounts all divisions of all volumes with the correct IPLSysId.
+            Then it reads the checkpoint headers at LIDs 0 and 1 and determines
             which one is the most recent valid checkpoint header
             (the one with the highest generation number).
             This header identifies the restart generation 

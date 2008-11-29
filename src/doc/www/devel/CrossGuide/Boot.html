@@ -14,10 +14,10 @@
     <ol>
     <li>The kernel and preloaded objects are loaded into RAM.
     <li>The kernel runs and initializes itself.
-    <li>The kernel runs the IPL process, which in turn starts the
-      initially running non-persistent processes.
-    <li>In a persistent system, one of the non-persistent processes
-      restarts the persistent processes from the last checkpoint or big bang.
+    <li>The kernel runs the nonpersistent IPL process, which in turn starts the
+      other initially running nonpersistent processes.
+    <li>The kernel executes the restart sequence, which initializes
+      the persistent objects.
     </ol>
     <h1>Loading the kernel and preloaded objects</h1>
     <p>
@@ -25,7 +25,7 @@
       Preloaded objects are those that are loaded at the same time
       as the kernel. 
       Non-preloaded objects are loaded from disk by the CapROS pager.
-      Preloaded objects include all non-persistent objects,
+      Preloaded objects include all nonpersistent objects,
       and may include the persistent objects that define a big bang.
       The <a href="../devel/CrossGuide/build-tut.html">build tutorial</a>
       has more information on the big bang.
@@ -58,7 +58,7 @@
     </ul>
     <h1>Kernel initialization</h1>
     <p>
-      Kernel initialization will be documented later.
+      Kernel initialization is not yet documented.
     </p>
     <h1>IPL process</h1>
     <p>
@@ -96,29 +96,58 @@
       This method limits the big bang objects to what will fit in RAM,
       but it is more convenient for development.
     </ul>
-    <h1>Restart from checkpoint</h1>
+    <h1>Restart Sequence</h1>
     <p>
-      In a persistent system that is restarting from a checkpoint,
-      or that is performing a big bang using the method that loads
-      the initial objects from disk,
-      a nonpersistent process loads the persistent objects and state.
-      This may be the IPL process, or another process
-      (the latter is more easily configured).
-    </p>
+      There are several different scenarios for the restart sequence. 
+    <ul>
+    <li><h2>Big Bang from Preloaded Objects</h2>
+      <p>
+        In this scenario, the initial (big bang) persistent objects
+        are preloaded into RAM.
+        The system image of the persistent objects should contain an
+        IPL process. The IPL process is started in the restart sequence,
+        and it in turn starts the other persistent processes.
+        If there is any checkpoint on disk, it is ignored.
+      </p>
+      <p>
+        To build such a system, npgen is run twice, once to create an
+        image file of the nonpersistent objects, and once to create an
+        image file of the persistent objects.
+        When building the nonpersistent objects, the -p option must be
+        given to npgen.
+      </p>
+      <p>
+        After the system is initialized and running, it can be checkpointed
+        to disk. Note that it takes at least two checkpoints to overwrite
+        any old checkpoint that may already be on the disk. 
+      </p>
+    <li><h2>Restart from Disk</h2>
+      <p>
+        If there are no preloaded persistent objects, but there is
+        a disk with a checkpoint, the restart sequence loads the state of
+        the persistent world from the checkpoint.
+        See the <a href="../../design-notes/Checkpoint.html">
+        Checkpoint Mechanism</a> for details. 
+        The checkpoint on disk may be either the previous state of the
+        system saved by a checkpoint, or a big bang (including an IPL process)
+        written to disk by sysgen. 
+      </p>
+      <p>
+        When building the nonpersistent objects, the -p option must be
+        given to npgen so the nonpersistent world can find the
+        persistent world. 
+      </p>
+    <li><h2>Nonpersistent system</h2>
+      <p>
+        If there are no preloaded persistent objects and no disk
+        with a checkpoint, the system runs without any persistent objects;
+        it is nonpersistent only. 
+        In this case the -p option must <em>not</em> be given to npgen.
+      </p>
+    </ul>
     <p>
-      CapROS disk volumes (partitions) are identified with an IPLSysId
-      that is unique for each system.
-      This allows one CapROS system to format disks for another CapROS system
-      without confusing them.
-    </p>
-    <p>
-      The restart process finds
-      the configured disks, using a combination of
-      configuration data and probing. 
-      It mounts all divisions of all volumes with the correct IPLSysId.
-      Then it reads the checkpoint headers and loads and starts
-      the running persistent processes. 
-      This will be documented in detail later.
+      As an implementation detail, the restart sequence is driven by
+      a kernel process.
     </p>
   <hr>
 <table>
