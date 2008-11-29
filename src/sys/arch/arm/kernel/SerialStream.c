@@ -64,11 +64,11 @@ unbufferedOutput(uint8_t c)
 #define outBufferSize 4000
 uint8_t outBuffer[outBufferSize];	// circular buffer for output
 unsigned int outBufChars = 0;	// number of characters in outBuffer
+	// Access outBufChars only with interrupts disabled
 uint8_t * outBufInP = &outBuffer[0];	// where next char will go
 uint8_t * outBufOutP = &outBuffer[0];	// where next char will come from
 				// accessed only at interrupt level
 
-// Interrupts must be disabled.
 static void
 bufferedOutput(uint8_t c)
 {
@@ -122,10 +122,25 @@ setInterruptEnable(void)
   UART1.Ctrl = ctrl;
 }
 
+// Interrupts must be disabled.
 static void
 outputBufferedChar(void)
 {
   uint8_t * p = outBufOutP;
+#ifndef NDEBUG
+  static bool ignoreError = false;
+  if (!ignoreError) {
+    uint8_t * q = p + outBufChars;
+    if (q >= &outBuffer[outBufferSize])
+      q -= outBufferSize;	// wrap
+    // assert(q == outBufInP);	// we can't print now!
+    if (q != outBufInP) {
+      ignoreError = true;	// otherwise we will recurse forever!
+      printf("OutP=%#x InP=%#x chars=%d\n", p, outBufInP, outBufChars);
+      Debugger();
+    }
+  }
+#endif
   UART1.Data = *p;
   if (++p >= &outBuffer[outBufferSize])
     p = &outBuffer[0];	// wrap
