@@ -422,8 +422,6 @@ NodeKey(Invocation * inv)
 
       node_DoClearThisNode(theNode);
 
-      act_Prepare(act_Current());
-      
       break;
     }
 #endif

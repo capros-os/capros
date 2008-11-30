@@ -227,12 +227,6 @@ act_IsUser(Activity* thisPtr)
   return ( thisPtr->context == 0 || proc_IsUser(thisPtr->context) );
 }
   
-/* If prepare returns false, the activity is dead and should be placed
- * on the free list.  This can happen if the process root has been
- * rescinded.
- */
-bool act_Prepare(Activity* thisPtr);
-
 void act_Wakeup(Activity* thisPtr);
 
 void act_DoReschedule();

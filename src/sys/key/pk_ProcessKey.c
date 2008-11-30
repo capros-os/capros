@@ -66,8 +66,6 @@ prockey_swapSlotCommitted(Invocation * inv, Node * theNode, uint32_t slot)
      on-disk keys. */
   key_NH_Unchain(&k);
 
-  act_Prepare(act_Current());
-      
   inv->exit.code = RC_OK;
   return;
 }
@@ -149,15 +147,6 @@ ProcessKeyCommon(Invocation * inv, Process * proc)
 
     key_NH_Set(node_GetKeyAtSlot(theNode, ProcIoSpace), inv->entry.key[0]);
  
-    /* If the invoked process is the current process, setting ProcIoSpace
-    will cause this process to be unloaded. Ensure it is reloaded. */
-    {
-      bool prepared = act_Prepare(act_Current());
-      (void)prepared;	// avert compiler warning
-      // But setting ProcIoSpace can't cause us to become unrunnable:
-      assert(prepared);
-    }
-      
     inv->exit.code = RC_OK;
     break;
   

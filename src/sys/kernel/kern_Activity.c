@@ -46,6 +46,7 @@ Approved for public release, distribution unlimited. */
 /*#define RESERVE_DEBUG*/
 
 static void act_Enqueue(Activity * t, StallQueue * q);
+static bool PrepareCurrentActivity(void);
 
 const char *act_stateNames[act_NUM_STATES] = {
     "Free",
@@ -649,9 +650,8 @@ act_DoReschedule(void)
      * we are rescheduling, since we want the activity entry back promptly
      * and it doesn't take that long to test.
      */
-    if (! act_Prepare(act_Current())) {
+    if /* while? */ (! PrepareCurrentActivity()) {
       assert(act_IsUser(act_Current()));
-      
 
       /* We shouldn't be having this happen YET */
       fatal("Current activity no longer runnable\n");
@@ -953,9 +953,10 @@ act_Name(Activity* thisPtr)
  */
 
 /* May Yield. */
-bool 
-act_Prepare(Activity* thisPtr)
+static bool 
+PrepareCurrentActivity(void)
 {
+  Activity * thisPtr = act_Current();
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr && 0)
     check_Consistency("Before ThrdPrepare()");
