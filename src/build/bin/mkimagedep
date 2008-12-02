@@ -149,9 +149,11 @@ echo "${OUTFILE}: ${INFILE} \\"
 { /lib/cpp ${CPPARGS} ${INFILE} || touch "${ERRFILE}"; } \
   | { sed -e 's:number *(\( *\"[^\"]*\" *\)*)::g' \
            -e 's:print\( *\"[^\"]*\"\)*::g' \
-           -e '/^[^#]*\(\"[^\"]*\"[^\"]*\)\+$/ !d' \
+           -e 's:;:\n:g' \
+      || touch "${ERRFILE}"; } \
+  | { sed -e '/^[^#]*\(\"[^\"]*\"[^\"]*\)\+$/ !d' \
            -e 's:[^"]*\"\([^\"]*\)"[^\"]*:\1:g' \
-           -e 's:/eros/:'" ${EROS_ROOT}/"':g' \
+           -e 's:^/eros/:'" ${EROS_ROOT}/"':g' \
            -e 's:^\(.*\)$:\1 \\:g' \
            -e 's:^\(.*\): \1:g' \
       || touch "${ERRFILE}"; } \
@@ -177,25 +179,29 @@ fi
 #        2. Delete anything of the form 'print "string" "string" ...
 #          because these really are strings, not file names.
 #
-#        3. '/^[^#]*\(\"[^\"]*\"[^\"]*\)\+$/ !d'
+#        3. 's:;:\n:g' \
+#          Change semicolons to end-of-lines, so separate strings
+#          are on separate lines.
+#
+#        4. '/^[^#]*\(\"[^\"]*\"[^\"]*\)\+$/ !d'
 #          KEEP all lines which do not have a # in their beginnings and 
 #         which have an even number of quotes in them. 
 #         (the # lines are the preprocessor's line number information)
 #         (the ! inverts the effect of the match)
 #
-#        4. 's:[^"]*\"\([^\"]*\)"[^\"]*:\1:g' 
+#        5. 's:[^"]*\"\([^\"]*\)"[^\"]*:\1:g' 
 #          Removes all non-quoted parts of the line, resulting in 
 #         list consisting only of the quoted parts, with quotes removed.
 #         Quotes may be split as in C (i.e. "foo" "bar" is valid).
 #
-#        5. 's:/eros/:'" ${EROS_ROOT}/"':g' 
+#        6. 's:^/eros/:'" ${EROS_ROOT}/"':g' 
 #          Replaces all references to /eros with the current value of
 #         ${EROS_ROOT}.
 #
-#        6. 's:^\(.*\)$:\1 \\:g'
+#        7. 's:^\(.*\)$:\1 \\:g'
 #          Adds a backslash to the end of each line
 #
-#        7. 's:^\(.*\): \1:g' \
+#        8. 's:^\(.*\): \1:g' \
 #          Adds a space at the beginning of all dependency lines for
 #         readability.
 #
