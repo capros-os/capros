@@ -85,7 +85,7 @@ ifndef EROS_CONFIG
 EROS_CONFIG=DEFAULT
 endif
 
-CAPROS_DOMAIN=$(EROS_ROOT)/lib/$(EROS_TARGET)
+CAPROS_DOMAIN=$(EROS_ROOT)/lib/$(TARGETMACH)
 
 VMWARE=$(EROS_ROOT)/src/build/bin/vmdbg
 export EROS_ROOT
@@ -257,12 +257,12 @@ EROS_CPP=$(EROS_XENV)/bin/cpp -nostdinc -D$(EROS_TARGET)
 endif
 
 
-LINUXLIB=$(EROS_ROOT)/lib/$(EROS_TARGET)/liblinuxk.a
+LINUXLIB=$(CAPROS_DOMAIN)/liblinuxk.a
 
 # Libraries for make dependencies.
-LIBDEP=$(EROS_ROOT)/lib/$(EROS_TARGET)/libc-capros.a
-LIBDEP+=$(EROS_ROOT)/lib/$(EROS_TARGET)/libcapros-large.a
-LIBDEP+=$(EROS_ROOT)/lib/$(EROS_TARGET)/libcapros-small.a
+LIBDEP=$(CAPROS_DOMAIN)/libc-capros.a
+LIBDEP+=$(CAPROS_DOMAIN)/libcapros-large.a
+LIBDEP+=$(CAPROS_DOMAIN)/libcapros-small.a
 DOMLIB=$(LIBDEP)	# an older name
 
 # DOMCRT0 is obsolete, but still appears in some make dependency lists.
@@ -272,17 +272,17 @@ DOMCRT0=
 # by both user code and kernel code.
 DOMBASE=0x1000
 
-LINKOPT=-Wl,--section-start,.init=$(DOMBASE) -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) -e _start #-Wl,--verbose -v
+LINKOPT=-Wl,--section-start,.init=$(DOMBASE) -static -L$(CAPROS_DOMAIN) -e _start #-Wl,--verbose -v
 DOMLINKOPT=$(LINKOPT)
 
 CROSSLINK=$(EROS_GCC) $(DOMLINKOPT) #-v
 
-DEVSTART=$(EROS_ROOT)/lib/$(EROS_TARGET)/dstart.o
+DEVSTART=$(CAPROS_DOMAIN)/dstart.o
 # Put the read/write section at 0x00c00000:
 DRIVERLINKOPT=$(LINKOPT) -Wl,--section-start,.eh_frame=0x00c00000
 DRIVERLINK=$(EROS_GCC) $(DRIVERLINKOPT) $(DEVSTART)
 
-DYNDRVSTART=$(EROS_ROOT)/lib/$(EROS_TARGET)/dyndriverstart.o
+DYNDRVSTART=$(CAPROS_DOMAIN)/dyndriverstart.o
 DYNDRIVERLINK=$(EROS_GCC) $(DRIVERLINKOPT) $(DYNDRVSTART)
 
 # New name for libs given at the end of the link command:

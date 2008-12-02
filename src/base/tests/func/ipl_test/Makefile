@@ -33,8 +33,6 @@ CLEANLIST=test.sysimg test.sysvol
 INC=-I$(EROS_ROOT)/include/unix -I$(EROS_ROOT)/include
 DEF=-D_POSIX_SOURCE -DEROS
 UXLIB=$(EROS_ROOT)/lib/libunix.a
-BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/boot
-KERNEL=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(EROS_CONFIG).eros.debug
 #CFLAGS+=-DDEBUG
 VOLMAP=volmap
 

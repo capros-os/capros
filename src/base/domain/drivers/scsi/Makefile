@@ -62,7 +62,5 @@ install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
 	$(INSTALL) -m 644 scsi.map $(CAPROS_DOMAIN)/drivers
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)/drivers
-#	$(INSTALL) -d $(EROS_ROOT)/lib/$(EROS_TARGET)
-#	$(INSTALL) -m 0644 $(LIBTARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)
 
 -include $(BUILDDIR)/.*.m

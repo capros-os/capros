@@ -31,7 +31,7 @@ Approved for public release, distribution unlimited. */
 
 #include <w1mult.map>
 
-w1ser3config = program segtree LIBDIR "w1ser3config";
+w1ser3config = program segtree "~/sdg/config/" BUILDDIR "w1ser3config";
 W1Mult(ser3, w1ser3config)
 
 #include <ds2480b.map>

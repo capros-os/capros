@@ -32,7 +32,6 @@ OBJECTS=call.o echo.o
 CLEANLIST=test.sysimg test.sysvol
 INC=-I$(EROS_ROOT)/include
 
-BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/boot
 VOLMAP=../bench.volmap
 
 include $(EROS_SRC)/build/make/makerules.mk

@@ -161,8 +161,8 @@ $(OBJECTS): $(BUILDDIR)/gen.SaveArea.h $(BUILDDIR)/gen.REGMOVE.h
 all:	$(TARGETS)
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/lib/$(EROS_TARGET)/image
-	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)/image/
+	$(INSTALL) -d $(CAPROS_DOMAIN)/image
+	$(INSTALL) -m 0644 $(TARGETS) $(CAPROS_DOMAIN)/image/
 
 .FORCE:
 

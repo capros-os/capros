@@ -35,9 +35,7 @@ endif
 IMGMAP=$(if $(wildcard imgmap.$(EROS_TARGET)), imgmap.$(EROS_TARGET), imgmap)
 PIMGMAP=$(if $(wildcard pimgmap.$(EROS_TARGET)), pimgmap.$(EROS_TARGET), pimgmap)
 
-BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(BOOTSTRAP)
-
-KERNDIR=$(EROS_ROOT)/lib/$(EROS_TARGET)/image
+KERNDIR=$(CAPROS_DOMAIN)/image
 
 # If a kernel option is specified, use it.
 # Otherwise, if there is a debug kernel, use it.

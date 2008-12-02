@@ -31,7 +31,6 @@ OPTIM=-O
 OBJECTS=$(BUILDDIR)/call.o $(BUILDDIR)/echo.o
 INC=-I$(EROS_ROOT)/include
 
-BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/boot
 VOLMAP=../test.volmap
 
 include ../test.mk

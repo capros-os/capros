@@ -55,7 +55,7 @@ run test;
 #define ip_notifyee start test 0
 
 #include <nplink.map>
-#include <drivers/arch/arm-edb9315a/lwip.map>	// FIXME s/b TARGETMACH
+#include <drivers/lwip.map>
 
 ETH_DRIVER(fourByteVal(192,168,0,38),	// IP address
            fourByteVal(255,255,255,0),	// mask

@@ -32,8 +32,8 @@ include $(EROS_SRC)/build/make/makerules.mk
 all: 
 
 install: all
-	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers/arch/$(TARGETMACH)
-	$(INSTALL) -m 644 lwip.map ../ep93xx.map $(CAPROS_DOMAIN)/drivers/arch/$(TARGETMACH)
+	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
+	$(INSTALL) -m 644 lwip.map ../ep93xx.map $(CAPROS_DOMAIN)/drivers
 
 -include $(BUILDDIR)/.*.m
 

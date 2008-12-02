@@ -46,7 +46,7 @@ $(BUILDDIR)/libusbdev.a: $(LIBOBJECTS) $(MAKE_BUILDDIR)
 	$(RANLIB) $@
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/lib/$(EROS_TARGET)
-	$(INSTALL) -m 0644 $(LIBTARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)
+	$(INSTALL) -d $(CAPROS_DOMAIN)
+	$(INSTALL) -m 0644 $(LIBTARGETS) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m

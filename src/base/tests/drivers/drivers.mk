@@ -1,8 +1,9 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
 #
-# This file is part of the EROS Operating System.
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -33,16 +34,14 @@ endif
 
 OPTIM=-O
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
-BOOT=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(BOOTSTRAP)
 
 # Following is picked up from environment variable if present.
-KERNDIR=$(EROS_ROOT)/lib/$(EROS_TARGET)/image
+KERNDIR=$(CAPROS_DOMAIN)/image
 ifeq "" "$(findstring $(EROS_CONFIG).eros.debug,$(wildcard $(KERNDIR)/*))"
 KERNEL=$(EROS_CONFIG).eros
 else
 KERNEL=$(EROS_CONFIG).eros.debug
 endif
 KERNPATH=$(KERNDIR)/$(KERNEL)
-KERNDEP=$(EROS_ROOT)/lib/$(EROS_TARGET)/image/$(KERNEL)
 
 include $(EROS_SRC)/build/make/sys.$(EROS_TARGET).mk

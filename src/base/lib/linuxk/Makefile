@@ -90,7 +90,7 @@ TARGETS=$(BUILDDIR)/liblinuxk.a $(BUILDDIR)/dstart.o
 TARGETS+=$(BUILDDIR)/dyndriverprotospace
 TARGETS+=$(BUILDDIR)/dyndriverstart.o
 
-DYNOBJECTS=$(EROS_ROOT)/lib/$(EROS_TARGET)/interpreter.o
+DYNOBJECTS=$(CAPROS_DOMAIN)/interpreter.o
 DYNOBJECTS+=$(BUILDDIR)/dyndriverprotospace.o
 
 include $(EROS_SRC)/build/make/makerules.mk
@@ -115,6 +115,6 @@ install-headers:
 	$(INSTALL) -m 644 driver.map dyndriver.map $(CAPROS_DOMAIN)/drivers
 
 install: install-headers $(TARGETS)
-	$(INSTALL) -m 0644 $(TARGETS) $(EROS_ROOT)/lib/$(EROS_TARGET)
+	$(INSTALL) -m 0644 $(TARGETS) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m
