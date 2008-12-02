@@ -92,6 +92,11 @@ struct InputPair {
 } __attribute__ ((packed))
 inBuf[inBufEntries];
 
+struct ValueAndTime {
+  int val;
+  RTC_time time;
+};
+
 #define numAdapters 8
 typedef struct AdapterState {
   unsigned int num;	// 0 through numAdapters-1, fixed for this adapter
@@ -104,8 +109,8 @@ typedef struct AdapterState {
 
   // Values read from the inverter:
   // (Read under lock to ensure value and time match.)
-  int load;	// in amps AC
-  RTC_time loadTime;
+  struct ValueAndTime invChg;	// value in amps AC
+  struct ValueAndTime load;	// value in amps AC
 } AdapterState;
 AdapterState adapterStates[numAdapters];
 
@@ -198,10 +203,13 @@ struct Task {
 #define oneThirdSec 333333333
 #define twoSec 2000000000
 //  {oneThirdSec, 0, -1},	// LED tasks not implemented yet
+  {twoSec,      0, 3, 1},
   {twoSec,      0, 3, 3},
 //  {oneThirdSec, 1, -1},
+  {twoSec,      1, 3, 1},
   {twoSec,      1, 3, 3},
 //  {oneThirdSec, 2, -1},
+  {twoSec,      2, 3, 1},
   {twoSec,      2, 3, 3},
 };
 #define numInverters 3
@@ -305,13 +313,20 @@ procYN(AdapterState * as)
 }
 
 bool
-procInvChg(AdapterState * as)
+procValue(AdapterState * as, struct ValueAndTime * vt)
 {
   int value;
   if (ConvertInt(as, &value))
     return true;
-  // Value not currently stored.
+  vt->val = value;
+  vt->time = GetRTCTime();
   return false;
+}
+
+bool
+procInvChg(AdapterState * as)
+{
+  return procValue(as, &as->invChg);
 }
 
 bool
@@ -327,12 +342,7 @@ procInputAmps(AdapterState * as)
 bool
 procLoad(AdapterState * as)
 {
-  int value;
-  if (ConvertInt(as, &value))
-    return true;
-  as->load = value;
-  as->loadTime = GetRTCTime();
-  return false;
+  return procValue(as, &as->load);
 }
 
 bool
@@ -911,7 +921,29 @@ SendCommand(uint8_t cmd)
   assert(result == RC_OK);
 }
 
+void
+DoGetValue(Message * msg, AdapterState * as, struct ValueAndTime * vt)
+{
+  if (msg->rcv_w1 >= numInverters) {
+    msg->snd_code = RC_capros_SWCA_noInverter;
+    return;
+  }
+  // Note, as and vt are not validated until this point.
+  // Don't use them before this point.
+  mutex_lock(&lock);
+  RTC_time t = vt->time;
+  int val = vt->val;
+  mutex_unlock(&lock);
+  if (t == 0) {
+    msg->snd_code = RC_capros_SWCA_noData;
+    return;
+  }
+  msg->snd_w1 = val;
+  msg->snd_w2 = t;
+}
+
 uint32_t MsgBuf[16/4];
+
 int
 driver_main(void)
 {
@@ -1154,6 +1186,8 @@ checkWork:
       break;
 
     case keyInfo_swca:
+    {
+      AdapterState * as;
       switch (Msg.rcv_code) {
       default:
         Msg.snd_code = RC_capros_key_UnknownRequest;
@@ -1163,27 +1197,20 @@ checkWork:
         Msg.snd_w1 = IKT_capros_SWCA;
         break;
 
+      case OC_capros_SWCA_getInvChgAmps:
+        as = &adapterStates[Msg.rcv_w1];
+        DoGetValue(&Msg, as, &as->invChg);
+        break;
+
       case OC_capros_SWCA_getLoadAmps:
-        if (Msg.rcv_w1 >= numInverters) {
-          Msg.snd_code = RC_capros_SWCA_noInverter;
-          break;
-        }
-        AdapterState * as = &adapterStates[Msg.rcv_w1];
-        mutex_lock(&lock);
-        RTC_time t = as->loadTime;
-        int val = as->load;
-        mutex_unlock(&lock);
-        if (t == 0) {
-          Msg.snd_code = RC_capros_SWCA_noData;
-          break;
-        }
-        Msg.snd_w1 = val;
-        Msg.snd_w2 = t;
+        as = &adapterStates[Msg.rcv_w1];
+        DoGetValue(&Msg, as, &as->load);
         break;
       }
       break;
+    }
 
-    default:
+    default:	// of keyInfo
     {
     }
     }
