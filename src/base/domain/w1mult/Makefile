@@ -28,7 +28,8 @@ CROSS_BUILD=yes
 include $(EROS_SRC)/build/make/makevars.mk
 
 IMGMAP=w1mult.map
-TARGETS=$(BUILDDIR)/w1mult $(BUILDDIR)/w1usbconfig $(BUILDDIR)/w1ser3config
+HEADERS=w1multConfig.h
+TARGETS=$(BUILDDIR)/w1mult
 OBJECTS=$(BUILDDIR)/w1mult.o
 OBJECTS+= $(BUILDDIR)/DS18B20.o
 OBJECTS+= $(BUILDDIR)/DS2450.o
@@ -42,17 +43,13 @@ all: $(TARGETS)
 IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
+	$(INSTALL) -d $(EROS_ROOT)/include
+	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include
 
 $(BUILDDIR)/w1mult: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
-
-$(BUILDDIR)/w1usbconfig: $(BUILDDIR)/w1usbconfig.o
-	$(EROS_LD) -N -Tdata 0 -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) $(BUILDDIR)/w1usbconfig.o -o $@
-
-$(BUILDDIR)/w1ser3config: $(BUILDDIR)/w1ser3config.o
-	$(EROS_LD) -N -Tdata 0 -static -L$(EROS_ROOT)/lib/$(EROS_TARGET) $(BUILDDIR)/w1ser3config.o -o $@
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
