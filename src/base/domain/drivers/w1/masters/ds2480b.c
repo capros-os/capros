@@ -271,6 +271,9 @@ ChangeBaudRate(uint32_t baudRate, int baudCmd)
 }
 
 // Read at least minChars characters, more if available.
+// Return 0 if OK.
+// Return -1 if a timeout error.
+// Return -2 if a data error.
 int
 RcvCharsMin(unsigned int minChars)
 {
@@ -1170,14 +1173,14 @@ DS2480B_Init(void)
     }
     int err = RcvChars(2);
     if (err < 0) {
-      DEBUG(errors) kdprintf(KR_OSTREAM, "RcvChars got %d! triesLeft=%d\n",
-                             err, triesLeft);
+      DEBUG(errors) kprintf(KR_OSTREAM, "RcvChars got %d! triesLeft=%d\n",
+                            err, triesLeft);
       continue;		// try again
     }
     if (inBuf[0].data != RBR9600) {
       DEBUG(errors) kprintf(KR_OSTREAM, "DS2480B read baud rate got %#.2x! inbuf %#x\n",
                             inBuf[0].data, inBuf);
-      assert(!"implemented");
+      continue;		// try again
     }
     if ((inBuf[1].data & 0xfc) != ((commandWrite1 + gBusSpeed) & 0xfc)) {
       assert(!"implemented");
