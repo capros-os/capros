@@ -1,0 +1,49 @@
+/* -*- Mode: c -*- */
+#ifndef __CKPTR_MAP_
+#define __CKPTR_MAP_
+
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*********************************************************
+ * Checkpointer program.
+ *********************************************************/
+
+ckptr_prog = small program LIBDIR "ckptr";
+ckptr_space = ckptr_prog with page at 0x1f000; 
+
+ckptr_proc = new process;
+ckptr_proc space = ckptr_space;
+ckptr_proc pc = symbol LIBDIR "ckptr" _start;
+ckptr_proc schedule = sched(8);
+ckptr_proc symtab = number("ckptr");
+ckptr_proc key reg KR_SELF = ckptr_proc;
+ckptr_proc key reg KR_BANK = primebank;
+ckptr_proc key reg KR_SCHED = sched(8);
+ckptr_proc key reg KR_APP(0) = misc Console;
+ckptr_proc key reg KR_APP(1) = misc Sleep;
+ckptr_proc key reg KR_APP(2) = misc Checkpoint;
+run ckptr_proc;
+
+#endif
