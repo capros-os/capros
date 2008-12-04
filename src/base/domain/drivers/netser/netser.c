@@ -35,6 +35,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/Number.h>
+#include <idl/capros/Sleep.h>
 #include <idl/capros/SerialPort.h>
 #include <idl/capros/NPIP.h>
 #include <idl/capros/TCPSocket.h>
@@ -44,9 +45,10 @@ Approved for public release, distribution unlimited. */
 
 #define dbg_read  0x1
 #define dbg_write 0x2
+#define dbg_conn  0x4
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u )
+#define dbg_flags   ( 0x0 )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -86,8 +88,86 @@ unsigned long readMaxPairs;
 enum {
   readerCap = LKSN_APP,
   writerCap,
-  lastLksnCap = writerCap
+  socketCap,
+  lastLksnCap = socketCap
 };
+
+/***************************  Socket creation stuff  ***********************/
+
+DEFINE_MUTEX(connLock);
+
+// Connection state (valid only under connLock):
+#define cs_ReadThreadHas  0x1
+#define cs_WriteThreadHas 0x2
+// Initially, both threads have the best socket we have
+// (they will immediately discover it's no good):
+unsigned int connState = cs_ReadThreadHas | cs_WriteThreadHas;
+
+// If connState is nonzero, we have a socket cap in socketCap.
+
+// Get or create a socket cap.
+// mask is cs_ReadThreadHas or cs_WriteThreadHas.
+// Returns false if serial port not open, true if got socket cap.
+bool
+GetSocket(unsigned int mask)
+{
+  result_t result;
+
+  if (! isOpen)
+    return false;
+
+  mutex_lock(&connLock);
+  if (connState & mask) {
+    // This thread is complaining about the cap we gave it,
+    // so assume it is no longer good and create a new socket.
+    for (;;) {	// loop trying to create socket
+      DEBUG(conn) printk("Netser %d creating socket.\n", serialPortNum);
+      result = capros_NPIP_connect(KR_IP, IPAddress, TCPPortNum, KR_TCPSocket);
+      switch (result) {
+      default:	// could be RC_capros_NPIP_NoMem
+        assert(false);
+
+      case RC_capros_IPDefs_Refused:
+        printk("Netser %d connection refused.\n", serialPortNum);
+        break;
+
+      case RC_capros_IPDefs_Aborted:
+        printk("Netser %d connection aborted.\n", serialPortNum);
+        break;
+
+      case RC_OK:
+        // Save socket cap.
+        result = capros_Node_swapSlotExtended(KR_KEYSTORE,
+                   socketCap, KR_TCPSocket, KR_VOID);
+        assert(result == RC_OK);
+
+        // We created a new socket and gave it to this thread.
+        // The other thread doesn't have it.
+        connState = mask;
+
+        mutex_unlock(&connLock);
+        return true;
+      }
+
+      // We failed to create the socket.
+      // Wait a bit and try again.
+      result = capros_Sleep_sleep(KR_SLEEP, 5000);	// wait 5 seconds
+      assert(result == RC_OK);
+    }
+  } else {
+    // This thread is complaining about its cap,
+    // but it doesn't have the latest socket. Give it the socket.
+    result = capros_Node_getSlotExtended(KR_KEYSTORE, socketCap, KR_TCPSocket);
+    assert(result == RC_OK);
+
+    // The following is equivalent to connState |= mask,
+    // since the other bit will always be set already.
+    connState = cs_ReadThreadHas | cs_WriteThreadHas;
+
+    mutex_unlock(&connLock);
+    return true;
+  }
+}
 
 /*****************************  Reading stuff  *************************/
 
@@ -103,7 +183,7 @@ uint8_t flags;
 // Call under lock.
 // The data is in serReadBuf.
 void
-WakeUpReader(unsigned long charsToDeliver)
+WakeUpReader(unsigned long charsToDeliver, uint32_t rc)
 {
   result_t result;
 
@@ -114,7 +194,7 @@ WakeUpReader(unsigned long charsToDeliver)
 
   Message Msg = {
     .snd_invKey = KR_TEMP0,
-    .snd_code = (charsToDeliver ? RC_OK : RC_capros_SerialPort_TimedOut),
+    .snd_code = rc,
     .snd_w1 = charsToDeliver,
     .snd_w2 = 0,
     .snd_w3 = 0,
@@ -141,21 +221,28 @@ readThread(void * data)
       if (netChars == 0) {
         mutex_unlock(&lock);
         DEBUG(read) printk("Netser reading net.\n");
-        result = capros_TCPSocket_receive(KR_TCPSocket, maxReadChars,
-                   &netChars, &flags, &netReadBuf[0]);
-        switch (result) {
-        default: ;
-          assert(false);
-        case RC_capros_key_Void:
-          assert(false);	// FIXME connection closed
-        case RC_OK: ;
+        for (;;) {
+          result = capros_TCPSocket_receive(KR_TCPSocket, maxReadChars,
+                     &netChars, &flags, &netReadBuf[0]);
+          switch (result) {
+          default:
+            assert(false);
+          case RC_capros_key_Void:
+            if (GetSocket(cs_ReadThreadHas))
+              continue;		// try reading again
+            // Serial port is closed.
+            netChars = 0;	// return to the reader with no data
+          case RC_OK:
+            break;
+          }
+          break;
         }
         DEBUG(read) printk("Netser read got %d chars\n", netChars);
-        assert(netChars > 0);
+        // assert(netChars > 0 || ! isOpen); // disabled due to timing window
         firstChar = 0;
         mutex_lock(&lock);
-        // Now we have netChars > 0, but the reader may have disappeared
-        // (due to timeout).
+        // Now we have data for the reader,
+        // but the reader may have disappeared (due to timeout).
       } else {
         // Deliver characters to the reader.
         assert(readMaxPairs > 0);
@@ -167,8 +254,7 @@ readThread(void * data)
           serReadBuf[charsToDeliver *2 + 1] = c;
           charsToDeliver++;
         }
-        assert(charsToDeliver > 0);
-        WakeUpReader(charsToDeliver);
+        WakeUpReader(charsToDeliver, RC_OK);
       }
     } else {
       // Wait for a reader.
@@ -203,7 +289,7 @@ timerFunction(unsigned long data)
 {
   mutex_lock(&lock);
   if (readState == RS_haveReader) {
-    WakeUpReader(0);
+    WakeUpReader(0, RC_capros_SerialPort_TimedOut);
   }
   mutex_unlock(&lock);
 }
@@ -263,12 +349,22 @@ writeThread(void * data)
     }
 
     // Send raw data.
-    result = capros_TCPSocket_send(KR_TCPSocket, writeLen,
-               capros_TCPSocket_flagPush, writeBuf);
-    switch (result) {
-    default: ;
-      assert(false);	// FIXME handle connection closed
-    case RC_OK: ;
+    for (;;) {
+      result = capros_TCPSocket_send(KR_TCPSocket, writeLen,
+                 capros_TCPSocket_flagPush, writeBuf);
+      switch (result) {
+      default:
+        assert(false);
+
+      case RC_capros_TCPSocket_Already:	// we closed the connection
+      case RC_capros_key_Void:
+        if (GetSocket(cs_WriteThreadHas))
+          continue;		// try reading again
+        // The serial port is closed. Just discard the data.
+      case RC_OK:
+        break;
+      }
+      break;
     }
 
     // Return to the writer.
@@ -431,35 +527,11 @@ driver_main(void)
         break;
       }
 
-      result = capros_NPIP_connect(KR_IP, IPAddress, TCPPortNum, KR_TCPSocket);
-      switch (result) {
-      default: ;	// could be RC_capros_NPIP_NoMem
-        assert(false);
-      case RC_capros_IPDefs_Refused:
-      case RC_capros_IPDefs_Aborted:
-        printk("Netser %d connection returned %#x.\n",
-                           serialPortNum, result);
-        Msg.snd_code = RC_capros_key_NoAccess;
-        break;
+      /* It might be nice to create the connection here,
+      and return any error as RC_capros_key_NoAccess. */
+      isOpen = true;
 
-      case RC_OK:
-        isOpen = true;
-
-        // Pass TCPSocket cap to threads.
-        result = capros_Node_getSlotExtended(KR_KEYSTORE,
-                   LKSN_THREAD_PROCESS_KEYS + read_threadNum, KR_TEMP0);
-        assert(result == RC_OK);
-        result = capros_Process_swapKeyReg(KR_TEMP0,
-                   KR_TCPSocket, KR_TCPSocket, KR_VOID);
-        assert(result == RC_OK);
-
-        result = capros_Node_getSlotExtended(KR_KEYSTORE,
-                   LKSN_THREAD_PROCESS_KEYS + write_threadNum, KR_TEMP0);
-        assert(result == RC_OK);
-        result = capros_Process_swapKeyReg(KR_TEMP0,
-                   KR_TCPSocket, KR_TCPSocket, KR_VOID);
-        assert(result == RC_OK);
-      }
+      // Threads will create the connection.
       break;
     }
 
@@ -474,12 +546,14 @@ driver_main(void)
         break;
       }
 
+      isOpen = false;
+
       result = capros_TCPSocket_close(KR_TCPSocket);
       switch (result) {
-      default: ;
+      default:
         assert(false);	// FIXME
       case RC_OK:
-        isOpen = false;
+        break;
       }
       break;
     }
