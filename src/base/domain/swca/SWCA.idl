@@ -9,9 +9,9 @@ interface SWCA extends key
   /* Get the latest data from the specified inverter.
   inverterNum is zero-based. */
   void getInvChgAmps(unsigned byte inverterNum,
-                   out unsigned short amps, out RTC.time_t time);
+                   out short amps, out RTC.time_t time);
   void getLoadAmps(unsigned byte inverterNum,
-                   out unsigned short amps, out RTC.time_t time);
+                   out short amps, out RTC.time_t time);
 };
 
 // Interface for internal use only:

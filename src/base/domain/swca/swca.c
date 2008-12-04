@@ -154,6 +154,12 @@ bool nextIsLEDs;
 DEFINE_MUTEX(inputProcMutex);
 DEFINE_MUTEX(lock);
 
+static void
+printControlPanel(AdapterState * as)
+{
+  kprintf(KR_OSTREAM, "\n%.16s\n%.16s\n", &as->lcd[0][0], &as->lcd[1][0]);
+}
+
 /******************************  Time stuff  *****************************/
 
 static void
@@ -551,7 +557,8 @@ ConvertInt(AdapterState * as, int * value)
                           *(p-2), c8, c8);
     return true;
   }
-  *value = ((c7 - '0')*10 + (c8 - '0'))*10 + (c9 - '0');
+  int absValue = ((c7 - '0')*10 + (c8 - '0'))*10 + (c9 - '0');
+  *value = sign > 0 ? absValue : -absValue;
   //kprintf(KR_OSTREAM, "ConvertInt %d\n", *value);
   return false;		// OK
 }
@@ -652,10 +659,7 @@ ProcessCharacter(AdapterState * as, uint8_t c)
     *as->cursor++ = c;
     if (as->cursor > &as->lcd[1][15]) {	// past end of screen
       as->cursor = &as->lcd[0][0]; // wrap
-      DEBUG(input) {
-        kprintf(KR_OSTREAM, "\n%.16s\n%.16s\n", &as->lcd[0][0],
-                &as->lcd[1][0]);
-      }
+      DEBUG(input) printControlPanel(as);
     }
     return true;	// it was a printable character
   } else if (c >= 128 && c <= 143) {	// first line cursor position
@@ -666,7 +670,9 @@ ProcessCharacter(AdapterState * as, uint8_t c)
   } else {
     switch (c) {
     default:
+#if 0	// these errors are so common, don't report them:
       DEBUG(errors) kprintf(KR_OSTREAM, "%d UNKNOWN ", c);
+#endif
       ResetInputState();
     // Don't know what the following mean:
     case 160:
@@ -832,8 +838,8 @@ InputProcedure(void * data /* unused */ )
                     mi++;
                   }
                 }
-                DEBUG(errors) kdprintf(KR_OSTREAM, "%.16s unrecognized\n",
-                                       &as->lcd[0][0]);
+                DEBUG(errors) kprintf(KR_OSTREAM, "%.16s unrecognized\n",
+                                      &as->lcd[0][0]);
                 as->menuNum = -1;	// unrecognized menu
               foundMenu:
               notifyServer:
@@ -887,14 +893,6 @@ InitSerialPort(void)
   haveSerialKey = true;
 }
 
-char
-menuUpDownCmd(int d)
-{
-  if (d > 0)
-    return 'R';		// menu right
-  else return 'L';	// menu left
-}
-
 #define selectTimeout 1000000000 // one second
 void
 SelectAdapter(unsigned int num)	// 0-7
@@ -907,6 +905,7 @@ SelectAdapter(unsigned int num)	// 0-7
 //  sendData[1] = 227;	// code to get LEDs
   selectTime = monoNow;
   capros_mod_timer_duration(&tmr, selectTimeout);
+  DEBUG(time) kprintf(KR_OSTREAM, "SelectAdapter set timeout\n");
   result = capros_SerialPort_write(KR_SERIAL, 1/*2*/, &sendData[0]);
   assert(result == RC_OK);
 }
@@ -1054,6 +1053,8 @@ checkWork:
               if (timeToWait > 0) {
                 // Give the previous command some time to work.
                 capros_mod_timer_duration(&tmr, timeToWait);
+                DEBUG(time) kprintf(KR_OSTREAM,
+                              "Select menu set timeout in %llu\n", timeToWait);
                 DEBUG(sched) kprintf(KR_OSTREAM, "Wait for cmd for %lld\n",
                                      timeToWait);
                 break;
@@ -1068,32 +1069,37 @@ checkWork:
               }
               cmd = 'U';	// menu item up
             } else {		// current menu is known
-              // Give a command to get from the menu we're at
-              // to the one we want.
-              if (wantedMenuNum == 0 && wantedMenuItemNum == 1)
-                cmd = 'I';	// Go directly to Set Inverter menu item
-              else if (wantedMenuNum == 1 && wantedMenuItemNum == 1)
-                cmd = 'G';	// Go directly to Set Generator menu item
-              else if (as->menuNum == -1) {
-                if (wantedMenuNum >= setupMenuNum)
-                  cmd = 19;	// control-S for Setup menu
-                else if (wantedMenuNum == 0)
-                  cmd = 'I';	// Inverter Mode menu
-                else if (wantedMenuNum == 1)
-                  cmd = 'G';	// Generator Mode menu
-                else cmd = 'L';	// menu down
-              } else if (as->menuNum != wantedMenuNum) {
+              /* Give a command to get from the menu we're at
+              to the one we want.
+              Note: we don't use the 'I' and 'G' commands to go directly
+              to the Set Inverter and Set Generator menu items,
+              because if we happen to be there already, those commands
+              change the setting, which would be dangerous.
+              In general we can't know if we are there already, because
+              someone could be independently pressing buttons on the
+              hardware control panel. */
+              if (as->menuNum != wantedMenuNum) {
+                // We need to go to a different menu.
+                int diff = wantedMenuNum - as->menuNum;
+                bool useS;
                 if (wantedMenuNum >= setupMenuNum) {
                   // Going to a setup menu.
-                  if (as->menuNum < setupMenuNum
-                      // Go directly to Setup Menu if it is shorter:
-                      || wantedMenuNum * 2 < as->menuNum + setupMenuNum - 1)
-                    cmd = 19;	// control-S for Setup menu
-                  else cmd = menuUpDownCmd(wantedMenuNum - as->menuNum);
-                } else if (wantedMenuNum * 2 < as->menuNum)
-                  // Go directly to Generator Menu if it is shorter:
-                  cmd = 'G';
-                else cmd = menuUpDownCmd(wantedMenuNum - as->menuNum);
+                  useS = as->menuNum < setupMenuNum	// must go to setup
+                         // else already in setup menus, but
+                         // go directly to Setup Menu if it is shorter:
+                         || wantedMenuNum - setupMenuNum + 1 < diff;
+                } else {
+                  // Going to a non-setup menu.
+                  // Go directly to the Setup menu if it is shorter:
+                  useS = setupMenuNum + 1 - wantedMenuNum
+                         < (diff >= 0 ? diff : -diff);
+                }
+                if (useS)
+                  cmd = 19;	// control-S for Setup menu
+                else if (diff > 0)
+                  cmd = 'R';	// menu right
+                else
+                  cmd = 'L';	// menu left
               } else {
                 // right menu, wrong item
                 if (wantedMenuItemNum < as->menuItemNum)
@@ -1102,8 +1108,8 @@ checkWork:
               }
             }
             DEBUG(server) kprintf(KR_OSTREAM,
-                            "At (%d,%d) want (%d,%d), menu cmd %c\n",
-                            as->menuNum, as->menuItemNum,
+                            "Inv %d at (%d,%d) want (%d,%d), menu cmd %c\n",
+                            as->num, as->menuNum, as->menuItemNum,
                             wantedMenuNum, wantedMenuItemNum,
                             cmd == 19 /* control-S */ ? 's' : cmd );
             MenuIsUnknown(as);	// set unknown because we are changing
@@ -1119,6 +1125,8 @@ checkWork:
             if (timeToSoonestTask > 0) {
               // Wait until time for a task.
               capros_mod_timer_duration(&tmr, timeToSoonestTask);
+              DEBUG(time) kprintf(KR_OSTREAM,
+                            "Task set timeout in %llu\n", timeToSoonestTask);
               DEBUG(sched) kprintf(KR_OSTREAM, "Wait for task time\n");
             } else {
               NextTask();	// select the next task to do
