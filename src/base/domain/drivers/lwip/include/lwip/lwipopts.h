@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #define MEM_ALIGNMENT 4	// correct for ARM
 #define TCP_MSS 1024
 #define TCP_SND_BUF (TCP_MSS * 4)
+#define PBUF_POOL_SIZE 24
 
 #define LWIP_DEBUG
 //#define ETHARP_DEBUG LWIP_DBG_ON

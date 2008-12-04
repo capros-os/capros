@@ -142,7 +142,7 @@ enum TCPSk_state {
   TCPSk_state_Closed
 };
 
-#define maxRecvQPBufs 10
+#define maxRecvQPBufs 20
 
 struct TCPSocket {
   struct tcp_pcb * pcb;
@@ -757,8 +757,21 @@ err_tcp(void * arg, err_t err)
                   err, sock, sock->TCPSk_state);
 
   switch (sock->TCPSk_state) {
-  default: ;
+  default:
     assert(false);
+
+  case TCPSk_state_None:
+    switch (err) {
+    default:
+      assert(false);
+
+    case ERR_ABRT:
+    case ERR_RST:
+      sock->TCPSk_state = TCPSk_state_Closed;	//??
+      assert(! sock->receiving);	// why is the close delivered this way?
+      // Need to wake up reader?
+    }
+    break;
 
   case TCPSk_state_Connect:
     CompleteConnection(sock, err);
