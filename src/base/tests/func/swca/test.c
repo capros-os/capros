@@ -65,7 +65,7 @@ main(void)
   if (typ != IKT_capros_SWCA)
     kdprintf(KR_OSTREAM, "Line %d type is 0x%08x!\n", __LINE__, typ);
 
-  unsigned short amps;
+  short amps;
   capros_RTC_time_t tim;
 
   while (1) {

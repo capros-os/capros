@@ -56,7 +56,7 @@ void
 ReadLoad(unsigned int inverterNum)
 {
   result_t result;
-  unsigned short amps;
+  short amps;
   capros_RTC_time_t tim;
 
   while (1) {
