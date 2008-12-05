@@ -380,10 +380,11 @@ sprintf(char *pBuf, const char* fmt, ...)
   theBuffer.len = 0;
 
   printf_guts(sprintf_putc, &theBuffer, fmt, listp);
+  sprintf_putc(0, &theBuffer);	// add terminating NUL
 
   va_end(listp);
 
-  return 0;
+  return theBuffer.len - 1;
 }
 
 void
