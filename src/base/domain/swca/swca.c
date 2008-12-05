@@ -62,10 +62,10 @@ Approved for public release, distribution unlimited. */
 #define dbg_inputData 0x8
 #define dbg_sched  0x10
 #define dbg_time   0x20
+#define dbg_leds   0x40
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u | dbg_errors )
-
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 #define KC_RTC 0
@@ -104,13 +104,17 @@ typedef struct AdapterState {
   char * cursor;
   char * underscore;	// NULL if none
   uint8_t LEDs;
+  uint8_t LEDsBlink;
+  RTC_time LEDsTime;
+  mono_time LEDTimeChanged[8];	// time the LED last changed
   int menuNum;		// -1 if unknown
   int menuItemNum;
 
   // Values read from the inverter:
   // (Read under lock to ensure value and time match.)
-  struct ValueAndTime invChg;	// value in amps AC
-  struct ValueAndTime load;	// value in amps AC
+  struct ValueAndTime invChg;	// inverter/charger in amps AC
+  struct ValueAndTime load;	// load in amps AC
+  struct ValueAndTime battActV;	// battery actual volts DC * 10
 } AdapterState;
 AdapterState adapterStates[numAdapters];
 
@@ -128,11 +132,13 @@ mono_time commandTime = 0;	// time at which we gave the last command
 				// FIXME should be atomic
 
 // The adapter we want to select:
-unsigned int wantedAdapterNum;
-// The menu we want to select (meaningless if wantedAdapterNum == -1):
-int wantedMenuNum;
-// The menu item we want to select (meaningless if wantedAdapterNum == -1):
-int wantedMenuItemNum;
+unsigned int wantedAdapterNum = 0;
+// The menu we want to select (or -1 if we want LEDs):
+int wantedMenuNum = -1;
+// The menu item we want to select (meaningless if wantedMenuNum == -1):
+int wantedMenuItemNum = 0;
+bool gotLEDs;
+bool gettingLEDs;
 unsigned int selectRetries;
 unsigned int menuRetries;
 
@@ -148,8 +154,12 @@ enum {
 };
 int transmittingAdapterNum;
 
-// After receiving a 227, the next character is the LEDs value:
-bool nextIsLEDs;
+// How to treat the next input character:
+enum {
+  nextIsControl,
+  nextIsLEDs,
+  nextIsUnknown
+} inputState;
 
 DEFINE_MUTEX(inputProcMutex);
 DEFINE_MUTEX(lock);
@@ -197,6 +207,14 @@ GetMonoTime(void)
 
 /****************************  Task management  ***************************/
 
+// Sampling intervals:
+#define twoSec  2000000000LL
+#define tenSec 10000000000LL
+
+/* The LED blink period is about one second.
+ * Sample every 1/3 second to make sure we catch transitions. */
+#define oneThirdSec 333333333LL
+
 /* We loop through the task list, going to each specified menu item,
  * to sample data. */
 struct Task {
@@ -204,24 +222,30 @@ struct Task {
   unsigned int adapterNum;
   unsigned int menuNum;	// -1 means get LEDs
   unsigned int menuItemNum;
-  mono_time lastSampled;	// monotonic time in ns
+  mono_time nextSampleTime;	// monotonic time in ns
 } taskList[] = {
-#define oneThirdSec 333333333
-#define twoSec 2000000000
-//  {oneThirdSec, 0, -1},	// LED tasks not implemented yet
+  {twoSec,      0, -1},	// don't need to know if this inverter's LEDs are blinkg
   {twoSec,      0, 3, 1},
   {twoSec,      0, 3, 3},
-//  {oneThirdSec, 1, -1},
+  {oneThirdSec, 1, -1},	// check for blinking
+			/* Note, by checking only one inverter for blinking,
+			we avoid selecting inverters every 1/3 second. */
   {twoSec,      1, 3, 1},
   {twoSec,      1, 3, 3},
-//  {oneThirdSec, 2, -1},
+  // Sample the battery voltage occasionally so we can compare it to
+  // an independent reading:
+  {tenSec,      1, 3, 4},
+  {twoSec,      2, -1},	// don't need to know if this inverter's LEDs are blinkg
   {twoSec,      2, 3, 1},
   {twoSec,      2, 3, 3},
 };
 #define numInverters 3
 #define numTasks (sizeof(taskList) / sizeof(struct Task))
-struct Task * currentTask = &taskList[0];
-mono_time soonestTaskTime;
+struct Task * currentTask = &taskList[numTasks - 1];
+
+/* nextTaskTime is the time at which the chronologically next task
+ * is to be done, or zero if a task is at hand now. */
+mono_time nextTaskTime;
 
 // Find the next task to do.
 // monoNow must be up to date.
@@ -229,31 +253,34 @@ mono_time soonestTaskTime;
 void
 NextTask(void)
 {
-  soonestTaskTime = infiniteTime;
+  nextTaskTime = infiniteTime;
   struct Task * loopStart = currentTask;
   do {
     if (++currentTask >= &taskList[numTasks])
       currentTask = &taskList[0];	// wrap
     // Do we need to do this task now?
-    mono_time timeToDo = currentTask->lastSampled + currentTask->period;
+    mono_time timeToDo = currentTask->nextSampleTime;
     if (timeToDo <= monoNow) {		// do it now
       DEBUG(sched) kprintf(KR_OSTREAM, "Starting task (%d,%d,%d).\n",
                      currentTask->adapterNum, currentTask->menuNum,
                      currentTask->menuItemNum);
-      wantedAdapterNum = currentTask->adapterNum;
-      transmittingAdapterNum = ta_NeedFirstSelect;
-      assert(currentTask->menuNum >= 0);//// LEDs not implemented yet
       wantedMenuNum = currentTask->menuNum;
       wantedMenuItemNum = currentTask->menuItemNum;
-      soonestTaskTime = 0;	// signal that this task is in progress
+      gotLEDs = false;	// in case wantedMenuNum == -1
+      gettingLEDs = false;	// in case wantedMenuNum == -1
+      nextTaskTime = 0;	// signal that this task is in progress
+      wantedAdapterNum = currentTask->adapterNum;
+      if (transmittingAdapterNum != wantedAdapterNum)
+	// Select the new adapter:
+        transmittingAdapterNum = ta_NeedFirstSelect;
       return;
     } else {		// do it later
-      if (soonestTaskTime > timeToDo )	// take min
-        soonestTaskTime = timeToDo;
+      if (nextTaskTime > timeToDo )	// take min
+        nextTaskTime = timeToDo;
     }
   } while (currentTask != loopStart);
-  // No task needs to be done now. Return with soonestTaskTime > monoNow.
-  DEBUG(sched) kprintf(KR_OSTREAM, "No task till %lld.\n", soonestTaskTime);
+  // No task needs to be done now. Return with nextTaskTime > monoNow.
+  DEBUG(sched) kprintf(KR_OSTREAM, "No task till %lld.\n", nextTaskTime);
 }
 
 // We have lost synchronization with the input stream.
@@ -261,9 +288,9 @@ void
 ResetInputState(void)
 {
   transmittingAdapterNum = ta_NeedFirstSelect;
-  /* Set nextIsLEDs is true to ignore the next character received,
+  /* Set inputState to ignore the next character received,
   because it might be an LEDs value, which could be any value. */
-  nextIsLEDs = true;
+  inputState = nextIsUnknown;
 }
 
 static void
@@ -281,6 +308,10 @@ ResetAdapterState(AdapterState * as)
   /* We don't really know where the cursor is, but it has to point somewhere:*/
   as->cursor = &as->lcd[0][0];
   as->underscore = NULL;
+  int i;
+  for (i = 0; i < 8; i++) {
+    as->LEDTimeChanged[i] = 0;
+  }
 }
 
 /********************** Menu item procedures *****************************/
@@ -319,7 +350,7 @@ procYN(AdapterState * as)
 }
 
 bool
-procValue(AdapterState * as, struct ValueAndTime * vt)
+procIntValue(AdapterState * as, struct ValueAndTime * vt)
 {
   int value;
   if (ConvertInt(as, &value))
@@ -330,9 +361,20 @@ procValue(AdapterState * as, struct ValueAndTime * vt)
 }
 
 bool
+proc2p1Value(AdapterState * as, struct ValueAndTime * vt)
+{
+  int value;
+  if (Convert2p1(as, &value))
+    return true;
+  vt->val = value;
+  vt->time = GetRTCTime();
+  return false;
+}
+
+bool
 procInvChg(AdapterState * as)
 {
-  return procValue(as, &as->invChg);
+  return procIntValue(as, &as->invChg);
 }
 
 bool
@@ -348,17 +390,13 @@ procInputAmps(AdapterState * as)
 bool
 procLoad(AdapterState * as)
 {
-  return procValue(as, &as->load);
+  return procIntValue(as, &as->load);
 }
 
 bool
 procBattAct(AdapterState * as)
 {
-  int value;
-  if (Convert2p1(as, &value))
-    return true;
-  // Value not currently stored.
-  return false;
+  return proc2p1Value(as, &as->battActV);
 }
 
 bool
@@ -554,7 +592,7 @@ ConvertInt(AdapterState * as, int * value)
 
   if (! isdigit(c9) || ! isdigit(c8) || ! isdigit(c7)) {
     DEBUG(errors) kprintf(KR_OSTREAM, "ConvertInt of %c%c%c failed!\n",
-                          *(p-2), c8, c8);
+                          *(p-2), c8, c9);
     return true;
   }
   int absValue = ((c7 - '0')*10 + (c8 - '0'))*10 + (c9 - '0');
@@ -601,6 +639,20 @@ menuItemCompare(AdapterState * as, struct MenuItem * mi)
   return ! memcmp(&as->lcd[0][0], &mi->lcd[0][0], 16 + mi->addlCompare);
 }
 
+// Call under lock. Exits not under lock.
+void
+CompletedTask(void)
+{
+  DEBUG(sched) kprintf(KR_OSTREAM, "Task (%d,%d,%d) done.\n",
+                 currentTask->adapterNum, currentTask->menuNum,
+                 currentTask->menuItemNum);
+  GetMonoTime();
+  currentTask->nextSampleTime = monoNow + currentTask->period;
+  NextTask();
+  mutex_unlock(&lock);
+  InputNotifyServer();	// not under lock!
+}
+
 // Call not under lock.
 void
 CheckEndOfField(AdapterState * as)
@@ -608,7 +660,16 @@ CheckEndOfField(AdapterState * as)
   mutex_lock(&lock);
   if (as->menuNum >= 0) {	// we are on a known menu
     struct MenuItem * mi = &menuItems[as->menuNum][as->menuItemNum];
-    if (as->cursor + mi->valueFieldEnd == &as->lcd[1][16]) {
+    int vfeAdj = mi->valueFieldEnd;
+    /* mi->valueFieldEnd is the number of characters from the end of the field
+    to the end of the LCD panel.
+    If mi->valueFieldEnd == 0, we are looking for a field that ends
+    exactly at the end of the LCD panel.
+    But in that case the cursor has already wrapped to the beginning,
+    so we need to adjust: */
+    if (vfeAdj == 0)
+      vfeAdj = 32;
+    if (as->cursor + vfeAdj == &as->lcd[1][16]) {
       // We just received the last character of a value field.
       bool (*valueProc)(AdapterState *) = mi->valueProc;
       if (valueProc) {
@@ -616,19 +677,12 @@ CheckEndOfField(AdapterState * as)
           ;	// invalid value: what to do here?
         else {		// successful
           // Does this complete the current task?
-          if (soonestTaskTime == 0) {	// there is a current task
+          if (nextTaskTime == 0) {	// there is a current task
             struct Task * ct = currentTask;
             if (ct->adapterNum == transmittingAdapterNum
                 && ct->menuNum == as->menuNum
                 && ct->menuItemNum == as->menuItemNum) {	// it does
-              DEBUG(sched) kprintf(KR_OSTREAM, "Task (%d,%d,%d) done.\n",
-                 currentTask->adapterNum, currentTask->menuNum,
-                 currentTask->menuItemNum);
-              GetMonoTime();
-              currentTask->lastSampled = monoNow;
-              NextTask();
-              mutex_unlock(&lock);
-              InputNotifyServer();	// not under lock!
+              CompletedTask();
               return;
             }
           }
@@ -674,9 +728,21 @@ ProcessCharacter(AdapterState * as, uint8_t c)
       DEBUG(errors) kprintf(KR_OSTREAM, "%d UNKNOWN ", c);
 #endif
       ResetInputState();
-    // Don't know what the following mean:
+    // Don't know what the following mean, but they seem harmless,
+    // so don't reset the state on their account:
+    case   2:
+    case  14:
+    case  18:
+    case 144:
+    case 154:
     case 160:
+    case 164:
+    case 184:
+    case 223:
     case 224:
+    case 228:
+    case 237:
+    case 239:
       break;
 
     case 225:
@@ -692,7 +758,7 @@ ProcessCharacter(AdapterState * as, uint8_t c)
       break;
 
     case 227:
-      nextIsLEDs = true;
+      inputState = nextIsLEDs;
       break;
     }
   }
@@ -758,11 +824,52 @@ InputProcedure(void * data /* unused */ )
       mutex_lock(&lock);
       AdapterState * as = (transmittingAdapterNum >= 0
                      ? &adapterStates[transmittingAdapterNum] : &dummyAdapter);
-      if (nextIsLEDs) {
-        as->LEDs = c;
-        nextIsLEDs = false;
+      switch (inputState) {
+      case nextIsLEDs:
+        // c has the new LEDs state.
+        {
+          as->LEDsTime = GetRTCTime();
+          GetMonoTime();
+          DEBUG(leds) kprintf(KR_OSTREAM, "Inv %d read LEDs=%#x getting=%d got=%d\n",
+                        transmittingAdapterNum, c, gettingLEDs, gotLEDs);
+          int i;
+          for (i = 0; i < 8; i++) {	// process each bit
+            unsigned int mask = 1 << i;
+            // Determine whether the LED is blinking.
+/* The LEDs blink with a period of about 1 second.
+ * We use 2 seconds here to be safe. */
+#define BlinkPeriod 2000000000LL	// in ns
+            bool steady = monoNow > as->LEDTimeChanged[i] + BlinkPeriod;
+            if ((as->LEDs ^ c) & mask) {	// changed state
+              if (! steady) 
+                as->LEDsBlink |= mask;	// it's blinking
+              // else it might be blinking; we won't know for a while.
+              as->LEDTimeChanged[i] = monoNow;
+            } else {			// same state as before
+              if (steady)
+                as->LEDsBlink &= ~mask;	// it's not blinking
+            }
+          }
+          as->LEDs = c;
+          // Does this complete the current task?
+          if (nextTaskTime == 0) {	// there is a current task
+            struct Task * ct = currentTask;
+            if (ct->adapterNum == transmittingAdapterNum
+                && ct->menuNum == -1 ) {	// it does
+              gotLEDs = true;
+              DEBUG(leds) kprintf(KR_OSTREAM, "Read LEDs completed.\n");
+              CompletedTask();
+              mutex_lock(&lock);
+            }
+          }
+        }
+        // fall into the below
+      default:	// nextIsUnknown, ignore the character
+        inputState = nextIsControl;
         mutex_unlock(&lock);
-      } else {
+        break;
+
+      case nextIsControl:
         //DEBUG(sched) kprintf(KR_OSTREAM, "taNum=%d ", transmittingAdapterNum);
         switch (transmittingAdapterNum) {
         case ta_NeedFirstScreen:
@@ -847,7 +954,7 @@ InputProcedure(void * data /* unused */ )
                 // Skip CheckEndOfField, because the field may not be
                 // filled in yet.
                 InputNotifyServer();
-              } else {
+              } else {	// Completed a previously recognized screen.
                 mutex_unlock(&lock);
                 CheckEndOfField(as);
               }
@@ -859,7 +966,7 @@ InputProcedure(void * data /* unused */ )
             mutex_unlock(&lock);
           }
         }	// end of switch (transmittingAdapterNum)
-      }		// end of not nextIsLEDs
+      }		// end of switch (inputState)
       nochar: ;
     }
   }
@@ -902,7 +1009,6 @@ SelectAdapter(unsigned int num)	// 0-7
 
   assert(num < numAdapters);
   sendData[0] = num + 1;
-//  sendData[1] = 227;	// code to get LEDs
   selectTime = monoNow;
   capros_mod_timer_duration(&tmr, selectTimeout);
   DEBUG(time) kprintf(KR_OSTREAM, "SelectAdapter set timeout\n");
@@ -942,6 +1048,162 @@ DoGetValue(Message * msg, AdapterState * as, struct ValueAndTime * vt)
 }
 
 uint32_t MsgBuf[16/4];
+
+// Entered under lock, exits unlocked.
+// Returns true if did everything we could,
+//   false if need to recheck the current task.
+static bool
+DoTask(void)
+{
+  DEBUG(sched) kprintf(KR_OSTREAM, "taNum=%d ", transmittingAdapterNum);
+  switch (transmittingAdapterNum) {
+  case ta_NeedFirstScreen:
+  case ta_InFirstScreen:
+  case ta_NeedSecondScreen: ;
+    // Have we timed out?
+    int64_t timeToWait = selectTime + selectTimeout - monoNow;
+    if (timeToWait <= 0) {	// timed out
+      DEBUG(errors) kprintf(KR_OSTREAM, "Selecting %d timed out\n",
+                            wantedAdapterNum);
+      transmittingAdapterNum = ta_NeedFirstSelect;
+      if (--selectRetries == 0) {		// too many retries
+        DEBUG(errors)
+          printk("Too many retries to select adapter; selecting a different adapter\n");
+        // Try selecting a different adapter:
+        SelectAdapter(wantedAdapterNum == 0 ? 1 : 0);
+        transmittingAdapterNum = ta_NeedFirstScreen;
+        break;
+      }
+  case ta_NeedFirstSelect:
+  case ta_NeedSecondSelect:
+      SelectAdapter(wantedAdapterNum);
+      DEBUG(sched) kprintf(KR_OSTREAM, "Selecting %d\n", wantedAdapterNum);
+      transmittingAdapterNum++;
+			// to ta_NeedFirstScreen or ta_NeedSecondScreen
+      break;
+    }
+    DEBUG(sched) kprintf(KR_OSTREAM, "Wait to select\n");
+    break;	// just wait
+
+  default:
+    assert(transmittingAdapterNum == wantedAdapterNum);
+    AdapterState * as = &adapterStates[wantedAdapterNum];
+    if (wantedMenuNum == -1 && ! gotLEDs) {
+#define ledsTimeout 500000000 // 0.5 second
+      // Need to read the LEDs.
+      mutex_unlock(&lock);
+//// bug, may have gotLEDs by now.
+      while (1) {	// loop at most twice
+        DEBUG(leds) kprintf(KR_OSTREAM, "Read LEDs completed.\n");
+        if (gettingLEDs) {
+          // Allow time for the previous command:
+          int64_t timeToWait = commandTime + ledsTimeout - monoNow;
+          if (timeToWait > 0) {
+            // Give the previous command some time to work.
+            capros_mod_timer_duration(&tmr, timeToWait);
+            DEBUG(time) kprintf(KR_OSTREAM,
+                          "Get LEDs set timeout in %llu\n", timeToWait);
+            break;
+          }
+          // Previous command timed out.
+          if (--menuRetries == 0) {		// too many retries
+            DEBUG(errors)
+              printk("Get LEDs timed out; reselecting adapter\n");
+            // Try reselecting the adapter:
+            transmittingAdapterNum = ta_NeedFirstSelect;
+            return false;
+          }
+          // else retry getting the LEDs
+        }
+        SendCommand(227);	// command to get LEDs
+        gettingLEDs = true;
+        menuRetries = 4;
+      }
+      return true;
+    } else if (as->menuNum != wantedMenuNum
+               || as->menuItemNum != wantedMenuItemNum ) {
+#define commandTimeout 1000000000 // 1 second
+      // Not on the menu item we want.
+      mutex_unlock(&lock);
+      while (1) {	// loop at most twice
+        char cmd;
+        if (as->menuNum == -1) { // current menu unknown, or executing cmd
+          // Allow time for the previous command:
+          int64_t timeToWait = commandTime + commandTimeout - monoNow;
+          if (timeToWait > 0) {
+            // Give the previous command some time to work.
+            capros_mod_timer_duration(&tmr, timeToWait);
+            DEBUG(time) kprintf(KR_OSTREAM,
+                          "Select menu set timeout in %llu\n", timeToWait);
+            break;
+          }
+          // current menu is unknown, and previous command timed out
+          if (--menuRetries == 0) {		// too many retries
+            DEBUG(errors)
+              printk("Menu select timed out; reselecting adapter\n");
+            // Try reselecting the adapter:
+            transmittingAdapterNum = ta_NeedFirstSelect;
+            return false;
+          }
+          cmd = 'U';	// menu item up
+        } else {		// current menu is known
+          /* Give a command to get from the menu we're at
+          to the one we want.
+          Note: we don't use the 'I' and 'G' commands to go directly
+          to the Set Inverter and Set Generator menu items,
+          because if we happen to be there already, those commands
+          change the setting, which would be dangerous.
+          In general we can't know if we are there already, because
+          someone could be independently pressing buttons on the
+          hardware control panel. */
+          if (as->menuNum != wantedMenuNum) {
+            // We need to go to a different menu.
+            int diff = wantedMenuNum - as->menuNum;
+            bool useS;
+            if (wantedMenuNum >= setupMenuNum) {
+              // Going to a setup menu.
+              useS = as->menuNum < setupMenuNum	// must go to setup
+                     // else already in setup menus, but
+                     // go directly to Setup Menu if it is shorter:
+                     || wantedMenuNum - setupMenuNum + 1 < diff;
+            } else {
+              // Going to a non-setup menu.
+              // Go directly to the Setup menu if it is shorter:
+              useS = setupMenuNum + 1 - wantedMenuNum
+                     < (diff >= 0 ? diff : -diff);
+            }
+            if (useS)
+              cmd = 19;	// control-S for Setup menu
+            else if (diff > 0)
+              cmd = 'R';	// menu right
+            else
+              cmd = 'L';	// menu left
+          } else {
+            // right menu, wrong item
+            if (wantedMenuItemNum < as->menuItemNum)
+              cmd = 'U';	// menu item up
+            else cmd = 'D';	// menu item down
+          }
+        }
+        DEBUG(server) kprintf(KR_OSTREAM,
+                        "Inv %d at (%d,%d) want (%d,%d), menu cmd %c\n",
+                        as->num, as->menuNum, as->menuItemNum,
+                        wantedMenuNum, wantedMenuItemNum,
+                        cmd == 19 /* control-S */ ? 's' : cmd );
+        MenuIsUnknown(as);	// set unknown because we are changing
+        SendCommand(cmd);
+      }
+      return true;
+    } else {
+      // we have the menu item we want
+      DEBUG(sched) kprintf(KR_OSTREAM, "Waiting for task. ");
+      // Just let the current task finish.
+      del_timer(&tmr);	// currently no timeout for this
+    }
+  }	// end of switch (transmittingAdapterNum)
+  mutex_unlock(&lock);
+  return true;
+}
 
 int
 driver_main(void)
@@ -1004,144 +1266,32 @@ driver_main(void)
   for(;;) {
     // Before RETURNing, see if there is any work to be done.
     if (haveSerialKey) {
-checkWork:
-      GetMonoTime();
-      mutex_lock(&lock);
-      DEBUG(sched) kprintf(KR_OSTREAM, "taNum=%d ", transmittingAdapterNum);
-      switch (transmittingAdapterNum) {
-      case ta_NeedFirstScreen:
-      case ta_InFirstScreen:
-      case ta_NeedSecondScreen: ;
-        // Have we timed out?
-        int64_t timeToWait = selectTime + selectTimeout - monoNow;
-        if (timeToWait <= 0) {	// timed out
-          DEBUG(errors) kprintf(KR_OSTREAM, "Selecting %d timed out\n",
-                                wantedAdapterNum);
-          transmittingAdapterNum = ta_NeedFirstSelect;
-          if (--selectRetries == 0) {		// too many retries
-            DEBUG(errors)
-              printk("Too many retries to select adapter; selecting a different adapter\n");
-            // Try selecting a different adapter:
-            SelectAdapter(wantedAdapterNum == 0 ? 1 : 0);
-            transmittingAdapterNum = ta_NeedFirstScreen;
+      for (;;) {
+        mutex_lock(&lock);
+        GetMonoTime();
+        // Any task to do?
+        DEBUG(time) kprintf(KR_OSTREAM, "stt=%llu ", nextTaskTime);
+        if (nextTaskTime != 0) {	// no task is in progress
+          int64_t timeToNextTask = nextTaskTime - monoNow;
+          if (timeToNextTask > 0) {
+            // Wait until time for a task.
+            capros_mod_timer_duration(&tmr, timeToNextTask);
+            DEBUG(time) kprintf(KR_OSTREAM,
+                          "Task set timeout in %llu\n", timeToNextTask);
+            mutex_unlock(&lock);
             break;
+          } else {	// time for the next task
+            NextTask();	// select the next task to do
+            assert(nextTaskTime == 0);
+            goto doTask;
           }
-      case ta_NeedFirstSelect:
-      case ta_NeedSecondSelect:
-          SelectAdapter(wantedAdapterNum);
-          DEBUG(sched) kprintf(KR_OSTREAM, "Selecting %d\n", wantedAdapterNum);
-          transmittingAdapterNum++;
-			// to ta_NeedFirstScreen or ta_NeedSecondScreen
-          break;
-        }
-        DEBUG(sched) kprintf(KR_OSTREAM, "Wait to select\n");
-        break;	// just wait
-
-      default:
-        assert(transmittingAdapterNum == wantedAdapterNum);
-        AdapterState * as = &adapterStates[wantedAdapterNum];
-#define commandTimeout 1000000000 // 1 second
-        if (as->menuNum != wantedMenuNum
-            || as->menuItemNum != wantedMenuItemNum ) {
-          // Not on the menu item we want.
-          mutex_unlock(&lock);
-          while (1) {	// loop at most twice
-            char cmd;
-            if (as->menuNum == -1) { // current menu unknown, or executing cmd
-              // Allow time for the previous command:
-              int64_t timeToWait = commandTime + commandTimeout - monoNow;
-              if (timeToWait > 0) {
-                // Give the previous command some time to work.
-                capros_mod_timer_duration(&tmr, timeToWait);
-                DEBUG(time) kprintf(KR_OSTREAM,
-                              "Select menu set timeout in %llu\n", timeToWait);
-                DEBUG(sched) kprintf(KR_OSTREAM, "Wait for cmd for %lld\n",
-                                     timeToWait);
-                break;
-              }
-              // current menu is unknown, and previous command timed out
-              if (--menuRetries == 0) {		// too many retries
-                DEBUG(errors)
-                  printk("Menu select timed out; reselecting adapter\n");
-                // Try reselecting the adapter:
-                transmittingAdapterNum = ta_NeedFirstSelect;
-                goto checkWork;
-              }
-              cmd = 'U';	// menu item up
-            } else {		// current menu is known
-              /* Give a command to get from the menu we're at
-              to the one we want.
-              Note: we don't use the 'I' and 'G' commands to go directly
-              to the Set Inverter and Set Generator menu items,
-              because if we happen to be there already, those commands
-              change the setting, which would be dangerous.
-              In general we can't know if we are there already, because
-              someone could be independently pressing buttons on the
-              hardware control panel. */
-              if (as->menuNum != wantedMenuNum) {
-                // We need to go to a different menu.
-                int diff = wantedMenuNum - as->menuNum;
-                bool useS;
-                if (wantedMenuNum >= setupMenuNum) {
-                  // Going to a setup menu.
-                  useS = as->menuNum < setupMenuNum	// must go to setup
-                         // else already in setup menus, but
-                         // go directly to Setup Menu if it is shorter:
-                         || wantedMenuNum - setupMenuNum + 1 < diff;
-                } else {
-                  // Going to a non-setup menu.
-                  // Go directly to the Setup menu if it is shorter:
-                  useS = setupMenuNum + 1 - wantedMenuNum
-                         < (diff >= 0 ? diff : -diff);
-                }
-                if (useS)
-                  cmd = 19;	// control-S for Setup menu
-                else if (diff > 0)
-                  cmd = 'R';	// menu right
-                else
-                  cmd = 'L';	// menu left
-              } else {
-                // right menu, wrong item
-                if (wantedMenuItemNum < as->menuItemNum)
-                  cmd = 'U';	// menu item up
-                else cmd = 'D';	// menu item down
-              }
-            }
-            DEBUG(server) kprintf(KR_OSTREAM,
-                            "Inv %d at (%d,%d) want (%d,%d), menu cmd %c\n",
-                            as->num, as->menuNum, as->menuItemNum,
-                            wantedMenuNum, wantedMenuItemNum,
-                            cmd == 19 /* control-S */ ? 's' : cmd );
-            MenuIsUnknown(as);	// set unknown because we are changing
-            SendCommand(cmd);
-          }
-          mutex_lock(&lock);
         } else {
-          // we have the menu item we want
-          // Any task to do?
-          DEBUG(time) kprintf(KR_OSTREAM, "stt=%llu ", soonestTaskTime);
-          if (soonestTaskTime != 0) {	// no task is in progress
-            int64_t timeToSoonestTask = soonestTaskTime - monoNow;
-            if (timeToSoonestTask > 0) {
-              // Wait until time for a task.
-              capros_mod_timer_duration(&tmr, timeToSoonestTask);
-              DEBUG(time) kprintf(KR_OSTREAM,
-                            "Task set timeout in %llu\n", timeToSoonestTask);
-              DEBUG(sched) kprintf(KR_OSTREAM, "Wait for task time\n");
-            } else {
-              NextTask();	// select the next task to do
-              assert(soonestTaskTime == 0);
-              mutex_unlock(&lock);
-              goto checkWork;
-            }
-          } else {
-            DEBUG(sched) kprintf(KR_OSTREAM, "Waiting for task ");
-            // Just let the current task finish.
-            del_timer(&tmr);	// currently no timeout for this
-          }
+        doTask:
+          if (DoTask())		// Note, DoTask unlocks
+            break;
+          // else check the task again
         }
-      }		// end of switch (transmittingAdapterNum)
-      mutex_unlock(&lock);
+      }
     }	// end of if haveSerialKey
 
     RETURN(&Msg);
@@ -1205,6 +1355,27 @@ checkWork:
         Msg.snd_w1 = IKT_capros_SWCA;
         break;
 
+      case OC_capros_SWCA_getLEDs:
+      {
+        if (Msg.rcv_w1 >= numInverters) {
+          Msg.snd_code = RC_capros_SWCA_noInverter;
+          break;;
+        }
+        as = &adapterStates[Msg.rcv_w1];
+        mutex_lock(&lock);
+        RTC_time t = as->LEDsTime;
+        uint8_t LEDs = as->LEDs;
+        uint8_t LEDsBlink = as->LEDsBlink;
+        mutex_unlock(&lock);
+        if (t == 0) {
+          Msg.snd_code = RC_capros_SWCA_noData;
+          break;
+        }
+        Msg.snd_w1 = LEDs;
+        Msg.snd_w2 = LEDsBlink;
+        break;
+      }
+
       case OC_capros_SWCA_getInvChgAmps:
         as = &adapterStates[Msg.rcv_w1];
         DoGetValue(&Msg, as, &as->invChg);
@@ -1213,6 +1384,11 @@ checkWork:
       case OC_capros_SWCA_getLoadAmps:
         as = &adapterStates[Msg.rcv_w1];
         DoGetValue(&Msg, as, &as->load);
+        break;
+
+      case OC_capros_SWCA_getBatteryVolts:
+        as = &adapterStates[Msg.rcv_w1];
+        DoGetValue(&Msg, as, &as->battActV);
         break;
       }
       break;
