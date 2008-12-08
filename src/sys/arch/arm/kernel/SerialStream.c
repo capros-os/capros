@@ -70,6 +70,28 @@ uint8_t * outBufOutP = &outBuffer[0];	// where next char will come from
 				// accessed only at interrupt level
 
 static void
+ValidateBuffer(void)
+{
+#ifndef NDEBUG
+  static bool ignoreError = false;
+
+  if (!ignoreError) {
+    uint8_t * p = outBufOutP;
+    uint8_t * q = p + outBufChars;
+    if (q >= &outBuffer[outBufferSize])
+      q -= outBufferSize;	// wrap
+    // assert(q == outBufInP);	// we can't print now! So:
+    if (q != outBufInP) {
+      ignoreError = true;	// otherwise we will recurse forever!
+      printf("OutP=%#x InP=%#x chars=%d\n                ",
+             p, outBufInP, outBufChars);
+      Debugger();
+    }
+  }
+#endif
+}
+
+static void
 bufferedOutput(uint8_t c)
 {
   irqFlags_t flags = mach_local_irq_save();	// to protect outBufChars
@@ -82,6 +104,7 @@ bufferedOutput(uint8_t c)
     outputBufferedChar();
   }
 
+  ValidateBuffer();
   uint8_t * p = outBufInP;
   *p = c;
   if (++p >= &outBuffer[outBufferSize])
@@ -89,6 +112,7 @@ bufferedOutput(uint8_t c)
   outBufInP = p;
   if (0 == outBufChars++)
     setInterruptEnable();
+  ValidateBuffer();
 
   mach_local_irq_restore(flags);
 }
@@ -126,21 +150,8 @@ setInterruptEnable(void)
 static void
 outputBufferedChar(void)
 {
+  ValidateBuffer();
   uint8_t * p = outBufOutP;
-#ifndef NDEBUG
-  static bool ignoreError = false;
-  if (!ignoreError) {
-    uint8_t * q = p + outBufChars;
-    if (q >= &outBuffer[outBufferSize])
-      q -= outBufferSize;	// wrap
-    // assert(q == outBufInP);	// we can't print now!
-    if (q != outBufInP) {
-      ignoreError = true;	// otherwise we will recurse forever!
-      printf("OutP=%#x InP=%#x chars=%d\n", p, outBufInP, outBufChars);
-      Debugger();
-    }
-  }
-#endif
   UART1.Data = *p;
   if (++p >= &outBuffer[outBufferSize])
     p = &outBuffer[0];	// wrap
