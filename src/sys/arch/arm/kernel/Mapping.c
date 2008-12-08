@@ -302,7 +302,6 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
   
   KeyDependEntry_Track(kde, &FLMTE_Invalidate, &pte_Invalidate);
 
-assert((uint32_t)kde != 0xc57c30b4);////
   kde->start = 0;
 }
 
