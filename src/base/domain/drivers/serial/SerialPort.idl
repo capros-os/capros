@@ -4,6 +4,9 @@ package capros;
 @brief SerialPort
 
 A SerialPort is a low-level interface to a UART-style serial device.
+
+Like all I/O capabilities, a SerialPort capability becomes Void
+when the system Restarts. 
 */
 interface SerialPort extends key {
 
