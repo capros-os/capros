@@ -152,10 +152,10 @@ FLMTE_TrackDirty(uint32_t * pFLMTE)
 
 /*************************** Page table entries *********************/
 
+/* Call this before reducing the authority of a PTE. */
 void 
-pte_Invalidate(PTE* thisPtr)
+pte_Reduce(uint32_t pteval)
 {
-  const uint32_t pteval = thisPtr->w_value;
   if (pteval & PTE_VALIDBITS) {	// it was valid
     SetMapWork_TLBCache();
   } else {
@@ -165,6 +165,12 @@ pte_Invalidate(PTE* thisPtr)
       SetMapWork_InvalidateCache();
     // Even if it was invalid, we want to change it to PTE_ZAPPED.
   }
+}
+
+void 
+pte_Invalidate(PTE * thisPtr)
+{
+  pte_Reduce(thisPtr->w_value);
   thisPtr->w_value = PTE_ZAPPED;
 }
 
@@ -296,6 +302,7 @@ KeyDependEntry_Invalidate(KeyDependEntry * kde)
   
   KeyDependEntry_Track(kde, &FLMTE_Invalidate, &pte_Invalidate);
 
+assert((uint32_t)kde != 0xc57c30b4);////
   kde->start = 0;
 }
 
@@ -685,21 +692,21 @@ pageH_mdType_CheckPage(PageHeader * pPage)
             kpa_t pageFrame = pte_PageFrame(thePTE);
             PageHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);
             if (! thePageHdr || ! pageH_IsObjectType(thePageHdr)) {
-              printf("Writable PTE=0x%08x at 0x%08x refers to non-object,"
-  		       " pPage=%#x, thePageHdr=%#x\n",
+              printf("Writable PTE=%#x at %#x (map hdr %#x) refers to non-object,"
+  		       " thePageHdr=%#x\n",
 		       pteWord, thePTE, pPage, thePageHdr);
               return false;
             }
 
             if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_KRO)) {
-              printf("Writable PTE=0x%08x (map page 0x%08x), KRO pg %#x\n",
-		       pteWord, pte, thePageHdr);
+              printf("Writable PTE=%#x at %#x (map hdr %#x) KRO pg %#x\n",
+		       pteWord, thePTE, pPage, thePageHdr);
 
               return false;
             }
             if (!pageH_IsDirty(thePageHdr)) {
-              printf("Writable PTE=0x%08x (map page 0x%08x), clean pg %#x\n",
-		         pteWord, pte, thePageHdr);
+              printf("Writable PTE=%#x at %#x (map hdr %#x) clean pg %#x\n",
+		         pteWord, thePTE, pPage, thePageHdr);
 
               return false;
             }

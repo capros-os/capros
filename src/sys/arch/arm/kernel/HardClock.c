@@ -36,7 +36,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #define VIC2 (VIC2Struct(AHB_VA + VIC2_AHB_OFS))
 #define Timers (TimersStruct(APB_VA + TIMER_APB_OFS))
 
-/* The Cirrus EP93xx has three timers.
+/* The Cirrus EP93xx has four timers.
 
 We use Timer 3 free-running to keep track of the current time since boot.
 (See sysT_Now for details.)
@@ -44,6 +44,10 @@ We use Timer 3 free-running to keep track of the current time since boot.
 We use Timer 1 to interrupt when we next need to wake up.
 
 We run both timers at 2 kHz (more precisely, 1.9939 kHz).
+
+We don't use timer 4 currently. It overflows in 12.9 days, and there is no
+interrupt, so code must sample and count the overflows. 
+We should use this instead of timer 3.
 
 We don't use the tick (64 Hz) interrupt at all.
  */

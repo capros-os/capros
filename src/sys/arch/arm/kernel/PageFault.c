@@ -852,7 +852,7 @@ FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
         pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_ONEREADER;
       } else {	// page table could be mapped at multiple MVAs
         DEBUG(cache) printf("0x%08x CACHEADDR_NONE to READERS\n", pageH);
-        pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_READERS;
+        pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
       }
     }
     break;
@@ -909,6 +909,17 @@ FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
     canCache = false;
     break;
   default: assert(false);
+  }
+
+  if (thePTEP->w_value == PTE_ZAPPED) {
+    // Entry was zapped by Depend, try all over again.
+
+#ifndef NDEBUG
+    if (dbg_inttrap)
+      printf("Depend zap at page\n");
+#endif
+
+    act_Yield();
   }
 
 #if 0
@@ -1051,17 +1062,6 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
 
     DEBUG(pgflt)
       printf("Traversed to page\n");
-
-    if (thePTEP->w_value == PTE_ZAPPED) {
-      // Entry was zapped by Depend, try all over again.
-
-#ifndef NDEBUG
-      if (dbg_inttrap)
-        printf("Depend zap at page\n");
-#endif
-
-      act_Yield();
-    }
     
     assert(wi.memObj);
     assert(wi.memObj->obType == ot_PtDataPage
@@ -1070,15 +1070,15 @@ proc_DoPageFault(Process * p, uva_t va, bool isWrite, bool prompt)
            || wi.memObj->obType == ot_PtDMASecondary);
 
     PageHeader * const pageH = objH_ToPage(wi.memObj);
-
-    pte_Invalidate(thePTEP);	/* remember to purge TLB and cache */
-
     kpa_t pageAddr = pageH_GetPhysAddr(pageH);
+
+    pte_Reduce(thePTEP->w_value);	/* remember to purge TLB and cache */
 
 #ifndef NDEBUG
     if (dbg_inttrap)
       printf("Traversed to page at 0x%08x\n", pageAddr);
 #endif
+
     FillPTE(thePTEP, pageH, pageAddr, isWrite, mth2, mva);
   } else {
     DEBUG(pgflt)

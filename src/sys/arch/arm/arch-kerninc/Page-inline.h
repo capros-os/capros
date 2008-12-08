@@ -41,9 +41,20 @@ pageH_MDInitDevicePage(PageHeader * pageH)
 INLINE bool
 objH_MD_IsUnwriteable(ObjectHeader * pObj)
 {
-  return ! objH_isNodeType(pObj)
-         && pObj->obType <= ot_PtLAST_OBJECT_TYPE
-         && objH_ToPage(pObj)->kt_u.ob.cacheAddr == CACHEADDR_READERS;
+  if (objH_isNodeType(pObj)
+      || pObj->obType > ot_PtLAST_OBJECT_TYPE)
+    return false;
+  // It's an object page.
+  // Check the cache class.
+  switch (objH_ToPage(pObj)->kt_u.ob.cacheAddr & EROS_PAGE_MASK) {
+  default:
+    return false;
+
+  case CACHEADDR_NONE:
+  case CACHEADDR_ONEREADER:
+  case CACHEADDR_READERS:
+    return true;
+  }
 }
 #endif
 

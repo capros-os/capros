@@ -37,6 +37,7 @@ pte_isValid(PTE *pte)
   return pte->w_value & PTE_VALIDBITS;
 }
 
+void pte_Reduce(uint32_t pteval);
 void pte_Invalidate(PTE* thisPtr);
 
 INLINE kpa_t 
