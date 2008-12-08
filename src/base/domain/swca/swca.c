@@ -82,8 +82,7 @@ Approved for public release, distribution unlimited. */
 #define keyInfo_notify 1
 
 typedef capros_RTC_time_t RTC_time;		// real time, seconds
-typedef capros_Sleep_nanoseconds_t mono_time;	// monotonic time since restart,
-						// in nanoseconds
+typedef capros_Sleep_nanoseconds_t mono_time;	// monotonic time in nanoseconds
 
 #define inBufEntries 100	// hopefully enough
 struct InputPair {
@@ -161,7 +160,9 @@ enum {
   nextIsUnknown
 } inputState;
 
-DEFINE_MUTEX(inputProcMutex);
+/* SerialCapSem is "up"ed when we receive a SerialPort capability,
+ * and "down"ed when the input process accepts one. */
+__DECLARE_SEMAPHORE_GENERIC(SerialCapSem, 0);
 DEFINE_MUTEX(lock);
 
 static void
@@ -200,7 +201,7 @@ void
 GetMonoTime(void)
 {
   result_t result;
-  result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &monoNow);
+  result = capros_Sleep_getPersistentMonotonicTime(KR_SLEEP, &monoNow);
   assert(result == RC_OK);
   DEBUG(time) kprintf(KR_OSTREAM, "monoNow set %llu\n", monoNow);
 }
@@ -776,201 +777,203 @@ InputProcedure(void * data /* unused */ )
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_RTC, KR_RTC);
   assert(result == RC_OK);
 
-  mutex_lock(&inputProcMutex);	// wait for the SerialPort key
-  result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_SERIAL, KR_SERIAL);
-  assert(result == RC_OK);
-
   DEBUG(input) kprintf(KR_OSTREAM, "Input process starting\n");
 
-  for (;;) {
-    uint32_t pairsRcvd;
-    result = capros_SerialPort_read(KR_SERIAL, 
-               inBufEntries, &pairsRcvd, (uint8_t *)&inBuf[0]);
-    if (result != RC_OK) {
-      DEBUG(errors) kdprintf(KR_OSTREAM,
-                      "SerialPort_read returned %#x\n", result);
-      break;
-    }
-    unsigned int i;
-    for (i = 0; i < pairsRcvd; i++) {
-      switch (inBuf[i].flag) {
-      case capros_SerialPort_Flag_NORMAL:
-        break;
-      case capros_SerialPort_Flag_BREAK:
-        DEBUG(errors) kprintf(KR_OSTREAM, "BREAK ");
-        assert(inBuf[i].data == 0);
-        ResetInputState();
-        goto nochar;
-      case capros_SerialPort_Flag_FRAME:
-        DEBUG(errors) kprintf(KR_OSTREAM, "FRAME ");
-        ResetInputState();
-        break;
-      case capros_SerialPort_Flag_PARITY:
-        DEBUG(errors) kprintf(KR_OSTREAM, "PARITY ");
-        ResetInputState();
-        break;
-      case capros_SerialPort_Flag_OVERRUN:
-        DEBUG(errors) kprintf(KR_OSTREAM, "OVERRUN ");
-        ResetInputState();
-        goto nochar;
-      default:
+  for (;;) {	// loop getting good SerialPort caps
+    down(&SerialCapSem);	// wait for a SerialPort cap
+    result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_SERIAL, KR_SERIAL);
+    assert(result == RC_OK);
+
+    for (;;) {	// loop reading data
+      uint32_t pairsRcvd;
+      result = capros_SerialPort_read(KR_SERIAL, 
+                 inBufEntries, &pairsRcvd, (uint8_t *)&inBuf[0]);
+      if (result != RC_OK) {
         DEBUG(errors) kdprintf(KR_OSTREAM,
-                        "SerialPort flag is %d ",
-                        inBuf[i].flag);
+                        "SerialPort_read returned %#x\n", result);
+        break;
       }
-      // Process the character.
-      uint8_t c = inBuf[i].data;
-      DEBUG(inputData) kprintf(KR_OSTREAM, "%d ", c);
-      mutex_lock(&lock);
-      AdapterState * as = (transmittingAdapterNum >= 0
-                     ? &adapterStates[transmittingAdapterNum] : &dummyAdapter);
-      switch (inputState) {
-      case nextIsLEDs:
-        // c has the new LEDs state.
-        {
-          as->LEDsTime = GetRTCTime();
-          GetMonoTime();
-          DEBUG(leds) kprintf(KR_OSTREAM, "Inv %d read LEDs=%#x getting=%d got=%d\n",
-                        transmittingAdapterNum, c, gettingLEDs, gotLEDs);
-          int i;
-          for (i = 0; i < 8; i++) {	// process each bit
-            unsigned int mask = 1 << i;
-            // Determine whether the LED is blinking.
+      unsigned int i;
+      for (i = 0; i < pairsRcvd; i++) {
+        switch (inBuf[i].flag) {
+        case capros_SerialPort_Flag_NORMAL:
+          break;
+        case capros_SerialPort_Flag_BREAK:
+          DEBUG(errors) kprintf(KR_OSTREAM, "BREAK ");
+          assert(inBuf[i].data == 0);
+          ResetInputState();
+          goto nochar;
+        case capros_SerialPort_Flag_FRAME:
+          DEBUG(errors) kprintf(KR_OSTREAM, "FRAME ");
+          ResetInputState();
+          break;
+        case capros_SerialPort_Flag_PARITY:
+          DEBUG(errors) kprintf(KR_OSTREAM, "PARITY ");
+          ResetInputState();
+          break;
+        case capros_SerialPort_Flag_OVERRUN:
+          DEBUG(errors) kprintf(KR_OSTREAM, "OVERRUN ");
+          ResetInputState();
+          goto nochar;
+        default:
+          DEBUG(errors) kdprintf(KR_OSTREAM,
+                          "SerialPort flag is %d ",
+                          inBuf[i].flag);
+        }
+        // Process the character.
+        uint8_t c = inBuf[i].data;
+        DEBUG(inputData) kprintf(KR_OSTREAM, "%d ", c);
+        mutex_lock(&lock);
+        AdapterState * as = (transmittingAdapterNum >= 0
+                       ? &adapterStates[transmittingAdapterNum] : &dummyAdapter);
+        switch (inputState) {
+        case nextIsLEDs:
+          // c has the new LEDs state.
+          {
+            as->LEDsTime = GetRTCTime();
+            GetMonoTime();
+            DEBUG(leds) kprintf(KR_OSTREAM, "Inv %d read LEDs=%#x getting=%d got=%d\n",
+                          transmittingAdapterNum, c, gettingLEDs, gotLEDs);
+            int i;
+            for (i = 0; i < 8; i++) {	// process each bit
+              unsigned int mask = 1 << i;
+              // Determine whether the LED is blinking.
 /* The LEDs blink with a period of about 1 second.
  * We use 2 seconds here to be safe. */
 #define BlinkPeriod 2000000000LL	// in ns
-            bool steady = monoNow > as->LEDTimeChanged[i] + BlinkPeriod;
-            if ((as->LEDs ^ c) & mask) {	// changed state
-              if (! steady) 
-                as->LEDsBlink |= mask;	// it's blinking
-              // else it might be blinking; we won't know for a while.
-              as->LEDTimeChanged[i] = monoNow;
-            } else {			// same state as before
-              if (steady)
-                as->LEDsBlink &= ~mask;	// it's not blinking
+              bool steady = monoNow > as->LEDTimeChanged[i] + BlinkPeriod;
+              if ((as->LEDs ^ c) & mask) {	// changed state
+                if (! steady) 
+                  as->LEDsBlink |= mask;	// it's blinking
+                // else it might be blinking; we won't know for a while.
+                as->LEDTimeChanged[i] = monoNow;
+              } else {			// same state as before
+                if (steady)
+                  as->LEDsBlink &= ~mask;	// it's not blinking
+              }
+            }
+            as->LEDs = c;
+            // Does this complete the current task?
+            if (nextTaskTime == 0) {	// there is a current task
+              struct Task * ct = currentTask;
+              if (ct->adapterNum == transmittingAdapterNum
+                  && ct->menuNum == -1 ) {	// it does
+                gotLEDs = true;
+                DEBUG(leds) kprintf(KR_OSTREAM, "Read LEDs completed.\n");
+                CompletedTask();
+                mutex_lock(&lock);
+              }
             }
           }
-          as->LEDs = c;
-          // Does this complete the current task?
-          if (nextTaskTime == 0) {	// there is a current task
-            struct Task * ct = currentTask;
-            if (ct->adapterNum == transmittingAdapterNum
-                && ct->menuNum == -1 ) {	// it does
-              gotLEDs = true;
-              DEBUG(leds) kprintf(KR_OSTREAM, "Read LEDs completed.\n");
-              CompletedTask();
-              mutex_lock(&lock);
-            }
-          }
-        }
-        // fall into the below
-      default:	// nextIsUnknown, ignore the character
-        inputState = nextIsControl;
-        mutex_unlock(&lock);
-        break;
-
-      case nextIsControl:
-        //DEBUG(sched) kprintf(KR_OSTREAM, "taNum=%d ", transmittingAdapterNum);
-        switch (transmittingAdapterNum) {
-        case ta_NeedFirstScreen:
-          if (c == 128) {	// start of the first LCD screen
-            transmittingAdapterNum = ta_InFirstScreen;
-          }
-        case ta_NeedFirstSelect:
-        case ta_NeedSecondSelect:
-        processChar:
-          ProcessCharacter(as, c);	// process char w/ dummyAdapter
-        unlock1:
+          // fall into the below
+        default:	// nextIsUnknown, ignore the character
+          inputState = nextIsControl;
           mutex_unlock(&lock);
           break;
 
-        case ta_InFirstScreen:
-          if (ProcessCharacter(as, c)) {	// process char w/ dummyAdapter
-            // it was a printable character
-            if (CursorAtBegOfScreen(as)) {
-              // First screen completed.
-              transmittingAdapterNum = ta_NeedSecondSelect;
-              goto notifyServer;
+        case nextIsControl:
+          //DEBUG(sched) kprintf(KR_OSTREAM, "taNum=%d ", transmittingAdapterNum);
+          switch (transmittingAdapterNum) {
+          case ta_NeedFirstScreen:
+            if (c == 128) {	// start of the first LCD screen
+              transmittingAdapterNum = ta_InFirstScreen;
             }
-          }
-          goto unlock1;
+          case ta_NeedFirstSelect:
+          case ta_NeedSecondSelect:
+          processChar:
+            ProcessCharacter(as, c);	// process char w/ dummyAdapter
+          unlock1:
+            mutex_unlock(&lock);
+            break;
 
-        case ta_NeedSecondScreen:
-          if (c == 128) {	// start of the second LCD screen
-            transmittingAdapterNum = wantedAdapterNum;	// selected it
-            as = &adapterStates[transmittingAdapterNum];
-            DEBUG(input) kprintf(KR_OSTREAM, "Selected %d at %#x\n",
-                                 as->num, as);
-            ResetAdapterState(as);	// don't know the state now
-            // Set the number of retries to select the next adapter:
-            selectRetries = 6;
-            goto haveAdapter;
-          }
-          goto processChar;	// process char w/ dummyAdapter
-
-        default:
-        haveAdapter:
-          assert(transmittingAdapterNum >= 0);	// adapter is known
-          if (ProcessCharacter(as, c)) {
-            // it was a printable character
-            if (CursorAtBegOfScreen(as)
-                && as->lcd[0][0] != 0) {
-              // Completed a screen.
-              if (as->menuNum >= 0) {
-                // Are we on the menu item we think we are on?
-                struct MenuItem * mi = &menuItems[as->menuNum][as->menuItemNum];
-                if (! menuItemCompare(as, mi)) {	// no
-                  MenuIsUnknown(as);
-                }
+          case ta_InFirstScreen:
+            if (ProcessCharacter(as, c)) {	// process char w/ dummyAdapter
+              // it was a printable character
+              if (CursorAtBegOfScreen(as)) {
+                // First screen completed.
+                transmittingAdapterNum = ta_NeedSecondSelect;
+                goto notifyServer;
               }
-              if (as->menuNum < 0) {
-                // Are we on a menu item we recognize?
-                int i, j;
-                struct MenuItem * mi = NULL;
-                for (i = 0; i < numMenus; i++) {
-                  j = 0;
-                  mi = &menuItems[i][0];
-                  while (mi->lcd[0][0]) {	// while an item exists
-                    if (menuItemCompare(as, mi)) {
-                      // found it
-                      as->menuNum = i;
-                      as->menuItemNum = j;
-                      DEBUG(input) kprintf(KR_OSTREAM, "Menu %d item %d\n",
-                                           as->menuNum, as->menuItemNum);
-                      // Set the number of retries to find the next menu:
-                      menuRetries = 6;
-                      goto foundMenu;
-                    }
-                    j++;
-                    mi++;
+            }
+            goto unlock1;
+
+          case ta_NeedSecondScreen:
+            if (c == 128) {	// start of the second LCD screen
+              transmittingAdapterNum = wantedAdapterNum;	// selected it
+              as = &adapterStates[transmittingAdapterNum];
+              DEBUG(input) kprintf(KR_OSTREAM, "Selected %d at %#x\n",
+                                   as->num, as);
+              ResetAdapterState(as);	// don't know the state now
+              // Set the number of retries to select the next adapter:
+              selectRetries = 6;
+              goto haveAdapter;
+            }
+            goto processChar;	// process char w/ dummyAdapter
+
+          default:
+          haveAdapter:
+            assert(transmittingAdapterNum >= 0);	// adapter is known
+            if (ProcessCharacter(as, c)) {
+              // it was a printable character
+              if (CursorAtBegOfScreen(as)
+                  && as->lcd[0][0] != 0) {
+                // Completed a screen.
+                if (as->menuNum >= 0) {
+                  // Are we on the menu item we think we are on?
+                  struct MenuItem * mi = &menuItems[as->menuNum][as->menuItemNum];
+                  if (! menuItemCompare(as, mi)) {	// no
+                    MenuIsUnknown(as);
                   }
                 }
-                DEBUG(errors) kprintf(KR_OSTREAM, "%.16s unrecognized\n",
-                                      &as->lcd[0][0]);
-                as->menuNum = -1;	// unrecognized menu
-              foundMenu:
-              notifyServer:
-                mutex_unlock(&lock);
-                // Skip CheckEndOfField, because the field may not be
-                // filled in yet.
-                InputNotifyServer();
-              } else {	// Completed a previously recognized screen.
+                if (as->menuNum < 0) {
+                  // Are we on a menu item we recognize?
+                  int i, j;
+                  struct MenuItem * mi = NULL;
+                  for (i = 0; i < numMenus; i++) {
+                    j = 0;
+                    mi = &menuItems[i][0];
+                    while (mi->lcd[0][0]) {	// while an item exists
+                      if (menuItemCompare(as, mi)) {
+                        // found it
+                        as->menuNum = i;
+                        as->menuItemNum = j;
+                        DEBUG(input) kprintf(KR_OSTREAM, "Menu %d item %d\n",
+                                             as->menuNum, as->menuItemNum);
+                        // Set the number of retries to find the next menu:
+                        menuRetries = 6;
+                        goto foundMenu;
+                      }
+                      j++;
+                      mi++;
+                    }
+                  }
+                  DEBUG(errors) kprintf(KR_OSTREAM, "%.16s unrecognized\n",
+                                        &as->lcd[0][0]);
+                  as->menuNum = -1;	// unrecognized menu
+                foundMenu:
+                notifyServer:
+                  mutex_unlock(&lock);
+                  // Skip CheckEndOfField, because the field may not be
+                  // filled in yet.
+                  InputNotifyServer();
+                } else {	// Completed a previously recognized screen.
+                  mutex_unlock(&lock);
+                  CheckEndOfField(as);
+                }
+              } else {	// printable character not at end of screen
                 mutex_unlock(&lock);
                 CheckEndOfField(as);
               }
-            } else {	// printable character not at end of screen
+            } else {
               mutex_unlock(&lock);
-              CheckEndOfField(as);
             }
-          } else {
-            mutex_unlock(&lock);
-          }
-        }	// end of switch (transmittingAdapterNum)
-      }		// end of switch (inputState)
-      nochar: ;
+          }	// end of switch (transmittingAdapterNum)
+        }		// end of switch (inputState)
+        nochar: ;
+      }
     }
+    // SerialPort key no longer valid.
   }
-  // SerialPort key no longer valid.
   assert(false);// not implemented
   return 0;
 }
@@ -1257,7 +1260,6 @@ driver_main(void)
   ResetAdapterState(&dummyAdapter);
   dummyAdapter.num = -1;
 
-  mutex_lock(&inputProcMutex);
   struct task_struct * inputThread = kthread_run(&InputProcedure, 0, "");
   if (IS_ERR(inputThread)) {
     assert(false);	// FIXME
@@ -1335,8 +1337,8 @@ driver_main(void)
         result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_SERIAL,
                    KR_SERIAL, KR_VOID);
         assert(result == RC_OK);
+        up(&SerialCapSem);	// allow input proc to use it
 
-        mutex_unlock(&inputProcMutex);
         GetMonoTime();
         NextTask();	// select the first task
         break;
