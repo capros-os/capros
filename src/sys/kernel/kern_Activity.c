@@ -358,19 +358,17 @@ act_DeleteActivity(Activity *t)
 }
 
 #ifndef NDEBUG
-
-bool 
-act_ValidActivityKey(Activity* thisPtr, const Key* pKey)
+Activity *
+act_ValidActivityKey(const Key * pKey)
 {
   int i;
   for (i = 0; i < KTUNE_NACTIVITY; i++) {
-    if ( &act_ActivityTable[i].processKey == pKey )
-      return true;
+    Activity * act = &act_ActivityTable[i];
+    if (&act->processKey == pKey)
+      return act;
   }
-
-  return false;
+  return NULL;
 }
-
 #endif
 
 static void

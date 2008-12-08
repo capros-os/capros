@@ -289,26 +289,6 @@ objC_ValidNodePtr(const Node *pObj)
 }
 #endif
 
-#ifndef NDEBUG
-bool
-objC_ValidKeyPtr(const Key *pKey)
-{
-  if (inv_IsInvocationKey(&inv, pKey))
-    return true;
-
-  if (proc_ValidKeyReg(pKey))
-    return true;
-
-  if (act_ValidActivityKey(0, pKey)) /* first parameter is unused in act_ValidActivityKey() */
-    return true;
-
-  if (node_ValidNodeKeyPtr(pKey))
-    return true;
-
-  return false;
-}
-#endif
-
 /* Put a page on the free list. */
 /* Caller must have already removed all previous entanglements. */
 void

@@ -130,7 +130,6 @@ CreateNewNullObject(unsigned int baseType, OID oid, ObCount allocCount);
 #ifndef NDEBUG
 bool objC_ValidNodePtr(const Node *pNode);
 bool objC_ValidPagePtr(const ObjectHeader *pObj);
-bool objC_ValidKeyPtr(const struct KeyBits *pKey);
 #endif
 
 #ifdef OPTION_DDB

@@ -114,6 +114,7 @@ bool key_DoValidate(Key * thisPtr);
 
 #ifndef NDEBUG
 bool key_IsValid(const Key* thisPtr);
+int key_ValidKeyPtr(const Key * pKey);
 #endif
 
 void key_MakeUnpreparedCopy(Key * dst, const Key * src);

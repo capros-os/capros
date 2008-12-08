@@ -321,6 +321,8 @@ PostCheckpointProcessing(void)
   workingGenFirstLid = logCursor;
 
   ld_generationRetired(retiredGeneration);
+
+  DEBUG(ckpt) check_Consistency("after ckpt");
 }
 
 // Variables for StoreProcessInfo:
@@ -424,7 +426,7 @@ CheckpointPage(PageHeader * pageH)
     case ot_PtDataPage:
       pageH_MakeReadOnly(pageH);
     }
-    objH_BecomeUnwriteable(pObj);
+    pageH_BecomeUnwriteable(pageH);
     objH_SetFlags(pObj, OFLG_KRO);
     if (objH_IsDirty(pObj)) {
       numKRODirtyPages++;
@@ -578,6 +580,7 @@ DoPhase1Work(void)
          * the node, we will notice it is KRO. */
         node_Unprepare(pNode);
         numKRONodes++;
+        nodeH_BecomeUnwriteable(pNode);
         objH_SetFlags(pObj, OFLG_KRO);
       }
     } else {	// a non-persistent node
@@ -705,6 +708,8 @@ DoPhase1Work(void)
   ProcDirFramesWritten = &reservedPages;
 
   DEBUG(ckpt) printf("End phase 1, reservedPages=%#x\n", reservedPages);
+
+  DEBUG(ckpt) check_Consistency("after ckpt P1");
 
   ckptState = ckpt_Phase2;
 }

@@ -87,7 +87,7 @@ keyR_RescindAll(KeyRing * thisPtr)
     Key *pKey = (Key *) thisPtr->next;
 
 #ifndef NDEBUG
-    if ( objC_ValidKeyPtr(pKey)  == false ) {
+    if (! key_ValidKeyPtr(pKey)) {
       key_Print(pKey);
       fatal("Invalid keyring ptr. Ring=0x%08x pKey=0x%08x\n",
 		    thisPtr, pKey);
@@ -213,7 +213,7 @@ keyR_IsValid(const KeyRing *thisPtr, const void *pObj)
     assert(nxt);
     Key * const nxtKey = (Key *)nxt;
 
-    if ( ! objC_ValidKeyPtr(nxtKey) ) {
+    if (! key_ValidKeyPtr(nxtKey)) {
       dprintf(true, "Key 0x%08x is not valid in keyring 0x%08x\n",
 		    nxt, thisPtr);
       return false;
@@ -333,7 +333,7 @@ keyR_UnprepareAll(KeyRing *thisPtr)
     Key *pKey = (Key *) thisPtr->next;
 
 #ifndef NDEBUG
-    if ( objC_ValidKeyPtr(pKey)  == false ) {
+    if (! key_ValidKeyPtr(pKey)) {
       key_Print(pKey);
       fatal("Invalid keyring ptr. Ring=0x%08x pKey=0x%08x\n",
 		    thisPtr, pKey);
@@ -374,8 +374,8 @@ keyR_UnprepareAll(KeyRing *thisPtr)
        */
 
 #ifndef NDEBUG
-      if ( pKey->u.ok.kr.next != thisPtr &&
-	   objC_ValidKeyPtr((Key*)pKey->u.ok.kr.next)  == false )
+      if (pKey->u.ok.kr.next != thisPtr
+	  && ! key_ValidKeyPtr((Key*)pKey->u.ok.kr.next) )
 	fatal("keyring 0x%08x: pKey 0x%08x w/ bad next ptr 0x%08x\n",
 		      thisPtr, pKey, pKey->u.ok.kr.next);
 #endif
@@ -427,7 +427,7 @@ keyR_ProcessAllMaps(KeyRing * thisPtr,
 #endif
   
   while ((KeyRing *)pKey != thisPtr) {
-    assert(objC_ValidKeyPtr(pKey));
+    assert(key_ValidKeyPtr(pKey));
     assert(keyBits_IsPreparedObjectKey(pKey));
     
     if (keyBits_IsHazard(pKey)) {

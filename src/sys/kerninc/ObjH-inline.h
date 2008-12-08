@@ -108,15 +108,4 @@ pageH_BecomeUnwriteable(PageHeader * pageH)
 #endif
 }
 
-// Call this just BEFORE making the object unwriteable.
-INLINE void
-objH_BecomeUnwriteable(ObjectHeader * pObj)
-{ 
-#ifdef OPTION_OB_MOD_CHECK
-  // if not previously unwriteable:
-  if (! objH_IsUnwriteable(pObj))
-    objH_SetCheck(pObj);
-#endif
-}
-
 #endif // __OBJH_INLINE_H_

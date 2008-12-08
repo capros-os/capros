@@ -285,7 +285,7 @@ act_Yield(void)
 void act_HandleYieldEntry(void) NORETURN;
 
 #ifndef NDEBUG
-bool act_ValidActivityKey(Activity* thisPtr, const Key *pKey);
+Activity * act_ValidActivityKey(const Key * pKey);
 #endif
 
 INLINE Activity* 

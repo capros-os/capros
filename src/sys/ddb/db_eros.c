@@ -426,9 +426,22 @@ db_eros_print_keyring(KeyRing * kr)
     db_printf("(%#x): ", l);
     // The following works for process keys as well as object keys.
     Key * k = container_of(l, Key, u.ok.kr);
-    Node * pNode = node_ValidNodeKeyPtr(k);
-    if (pNode)
-      db_printf("(in node %#x): ", pNode);
+    switch (key_ValidKeyPtr(k)) {
+    case 1:
+      db_printf("(in node %#x): ", node_ValidNodeKeyPtr(k));
+      break;
+
+    case 2:
+      db_printf("(keyreg in Process %#x): ", proc_ValidKeyReg(k));
+      break;
+
+    case 3:
+      db_printf("(in activity %#x): ", act_ValidActivityKey(k));
+      break;
+
+    default:
+      break;
+    }
     db_eros_print_key(k);
   }
 }

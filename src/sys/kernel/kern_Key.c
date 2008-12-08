@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/ObjectSource.h>
 #include <kerninc/KernStats.h>
+#include <kerninc/Invocation.h>
 #include <eros/Invoke.h>
 
 #define dbg_prepare	0x1	/* steps in taking snapshot */
@@ -629,7 +630,6 @@ key_IsValid(const Key* thisPtr)
   }
 
   if ( keyBits_IsPreparedObjectKey(thisPtr) ) {
-#ifndef NDEBUG
     if ( keyBits_IsProcessType(thisPtr) ) {
       Process * proc = thisPtr->u.gk.pContext;
       if (! ValidCtxtPtr(proc)) {
@@ -667,17 +667,15 @@ key_IsValid(const Key* thisPtr)
 	return false;
       }
     }
-#endif
 
     if ( keyBits_IsObjectKey(thisPtr) ) {
       /* KeyRing pointers must either point to key slots or to
        * object root.
        */
-#ifndef NDEBUG
       KeyRing * krn = thisPtr->u.ok.kr.next;
       KeyRing * krp = thisPtr->u.ok.kr.prev;
 
-      if ( ! ( objC_ValidKeyPtr((Key *) krn) ||
+      if ( ! ( key_ValidKeyPtr((Key *) krn) ||
 	       objC_ValidPagePtr(keyR_ToObj(krn)) ||
 	       objC_ValidNodePtr(objH_ToNodeConst(keyR_ToObj(krn))) ||
 	       ValidCtxtKeyRingPtr(krn) ) ) {
@@ -685,7 +683,7 @@ key_IsValid(const Key* thisPtr)
 	return false;
       }
       
-      if ( ! ( objC_ValidKeyPtr((Key *) krp) ||
+      if ( ! ( key_ValidKeyPtr((Key *) krp) ||
 	       objC_ValidPagePtr(keyR_ToObj(krp)) ||
 	       objC_ValidNodePtr(objH_ToNodeConst(keyR_ToObj(krp))) ||
 	       ValidCtxtKeyRingPtr(krp) ) ) {
@@ -704,9 +702,34 @@ key_IsValid(const Key* thisPtr)
 		       thisPtr);
 	return false;
       }
-#endif
     }
   }
   return true;
+}
+#endif
+
+#ifndef NDEBUG
+/* Returns:
+ 0 if pKey is not a valid key pointer,
+ 1 if it is a key in a Node,
+ 2 if it is a keyreg in a Process,
+ 3 if it is a key in an Activity,
+ 4 if it is a key in the Invocation structure. */
+int
+key_ValidKeyPtr(const Key *pKey)
+{
+  if (inv_IsInvocationKey(&inv, pKey))
+    return 4;
+
+  if (proc_ValidKeyReg(pKey))
+    return 2;
+
+  if (act_ValidActivityKey(pKey))
+    return 3;
+
+  if (node_ValidNodeKeyPtr(pKey))
+    return 1;
+
+  return 0;
 }
 #endif

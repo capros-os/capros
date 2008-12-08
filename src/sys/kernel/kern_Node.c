@@ -379,11 +379,11 @@ node_Validate(Node* thisPtr)
   if (objH_IsUnwriteable(node_ToObj(thisPtr))) {
     uint32_t chk = node_CalcCheck(thisPtr);
   
-    if ( thisPtr->node_ObjHdr.check != chk ) {
-      printf("Invalid Frame 0x%08x Chk=0x%x CalcCheck=0x%x on node ",
-		     thisPtr, thisPtr->node_ObjHdr.check, chk);
+    if (node_ToObj(thisPtr)->check != chk ) {
+      printf("Unwriteable node %#x OID=", thisPtr);
       printOid(thisPtr->node_ObjHdr.oid);
-      printf("\n");
+      printf(" invalid, Chk=%#x CalcCheck=%#x\n",
+             thisPtr->node_ObjHdr.check, chk);
 
 #if 0
       for (uint32_t i = 0; i < EROS_NODE_SIZE; i++)
