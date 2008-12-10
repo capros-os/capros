@@ -1,650 +1,446 @@
 <html>
   <head>
-    <title>EPG: Run Time Environments</title>
+    <title>CapROS Runtime Environment</title>
   </head>
+  <BODY BGCOLOR="#fff0ff" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
 
-  <BODY BGCOLOR="#ffeedd" text="#000000" link="#0000ee" vlink="#551a8b" alink="#ff0000">
-    <div class=nocss>
-      <br class=nocss>&nbsp;
-      <br class=nocss>&nbsp;
-    </div>
     <table>
       <tr>
-	<td width="10%" valign=top class=toc>
-	  <b>UP</b>
+	<td width="12%" valign=top class=toc>
+          <IMG src="../../img/PolabearSmall.gif" align=center>
 	  <br>&nbsp;
-	  <br><a href="../../eros.html"><em>EROS Web</em></a> 
+	  <br><b>UP</b>
 	  <br>&nbsp;
-	  <br><a href="../00Devel.html"><em>Developer Documentation</em></a> 
+	  <br><a href="../../capros.html"><em>CapROS Home</em></a> 
 	  <br>&nbsp;
 	  <br><a href="Cover.html"><em>Programmer's Guide</em></a> 
 	</td>
-	<td width="5%">&nbsp;</td>
+	<td width="3%">&nbsp;</td>
 	<td valign=top>
 	  <center>
-	    <h1 class=title>Run Time Environment</h1>
-	    <em>D R A F T</em>
-	    <div class=nocss>
-	      <br class=nocss>&nbsp;
-	      <br class=nocss>&nbsp;
-	    </div>
+	    <h1 class=title>CapROS Runtime Environment</h1>
 	  </center>
 	  <p>
-	    <!--IMG src="../../img/construction.gif" align=left--!>
-	    <p> If
-	    you are trying to write real programs, it's useful to know
-	    what the state of the world is when the program begins
-	    excution.  This page provides a description of how the
-	    usual EROS runtime mechanism works.  The EROS kernel is
+	    <p>
+	    This page provides a description of how the
+	    standard native CapROS runtime mechanism works.
+            The CapROS kernel is
 	    not responsible for process construction; it is therefore
-	    not a party to any startup conventions about these
-	    programs.  It is possible to build many different startup
-	    conventions.  This is useful primarily for the sake of
-	    environment emulation.  <p> The description given here
-	    describes the startup and shutdown conventions for
-	    <em>native</em> EROS programs.  More specifically, this
-	    page describes the convention that is assumed by the EROS
-	    <a
-	      href="../ObRef/concepts/Constructor.html">Constructor</a>.
-	    There are a few primordial processes that implement these
-	    conventions a bit differently.  <p> Briefly, the
-	    programmer's view of process startup is fairly
-	    straightforward.  When the program's <code>main()</code>
-	    procedure is entered, the program has a well-defined set
-	    of initial capabilities in it's capability registers.  The
-	    program performs any necessary initialization and becomes
-	    available for requests.  At some later time, the process
-	    will be told to destroy itself, and will return a final
-	    result code.  The following notes walk through the
-	    initialization and teardown of processes.  <h2>1. Process
-	    Fabrication</h2> <p> EROS programs are usually built by
-	    constructors, and the construction process if typically
-	    recursive. In the common case, even the process address
-	    space is constructed by another constructor. This leads to
-	    apparently conflicting objectives:
-	  </p>
-	  <ul>
-	    <li>
-	      <p>
-		The constructor cannot recursively invoke these
-		constructors, because their runtime is potentially
-		long, and it is undesirable for the process's
-		constructor to be busy for long periods of time
-		(principle: make the customer pay for it).
-	      </p>
-	    </li>
-	    <li>
-	      <p>
-		The program cannot initialize itself without an
-		address space.
-	      </p>
-	    </li>
-	  </ul>
-	  <p>
-	    To resolve this conflict, process fabrication is done by a
-	    temporary program known as the <strong>protospace</strong>
-	    from within the new process itself.
-	  </p>
-	  <p>
-	    To minimize confusion, imagine that the program we are
-	    trying to fabricate will be called <strong>foo</strong>,
-	    and the address space for this program will be called
-	    <strong>foospace</strong>.
-	  </p>
-	  <h3>1.1 Construction</h3>
-	  <p>
-	    The first stage is to construct the shell of the new
-	    process and populate it with the protospace program.  This
-	    proceeds as follows:
-	  </p>
-	  <ol>
-	    <li> 
-	      <p>
-		The foo constructor buys a new process from it's
-		process creator.  This process is unpopulated, so it's
-		really just the framework for a process.
-	      </p>
-	    </li>
-	    <li> 
-	      <p>
-		The foo constructor populates the key registers of
-		this nascent process as follows:
-	      </p>
+	    not a party to any runtime conventions about these
+	    programs.
+            <p> We first describe the runtime environment at the time
+            the program's <code>main()</code> procedure is entered.
+            Then we describe how the process is built and torn down. 
+          <h2>1. Program Execution Environment</h2>
+          <h3>1.1 Standard Program Execution Environment</h3>
+	    <p>
+	     When the program's <code>main()</code>
+	    procedure is entered, the program has the following
+	    initial capabilities in its capability registers.
+            Declarations of these symbols are in 
+            <code>&lt;domain/Runtime.h&gt;</code>.
 	      <table>
 		<tr valign=top>
-		  <td><strong>KR0</strong></td> <td>A void key.  Key
-		  register zero <em>always</em> holds a void key.
+		  <td><strong>KR_VOID</strong></td> <td>This key
+		  register (register zero) <em>always</em> holds a void key.
 		  This value is hard-wired, and cannot be changed by
 		  the program.</td>
 		</tr>
 		<tr valign=top>
-		  <td><strong>KR1</strong></td>
+		  <td><strong>KR_CONSTIT</strong></td>
 		  <td>A <strong>read-only node key</strong> to the
 		    process's initial services (i.e. to the
-		  constituents node).</td>
+		  constituents node).
+                    The constituents node is the principal means of
+                    endowing a program with the specific capabilities
+                    it needs.</td>
 		</tr>
 		<tr valign=top>
-		  <td><strong>KR2</strong></td>
+		  <td><strong>KR_SELF</strong></td>
 		  <td>A <strong>process key</strong> to the process
 		    itself.</td>
 		</tr>
 		<tr valign=top>
-		  <td><strong>KR3</strong></td>
+		  <td><strong>KR_CREATOR</strong></td>
 		  <td>A start key to the process's <strong>process
-		      creator</strong>.</td>
+		      creator</strong>. A process can use this to
+                      tear itself down.</td>
 		</tr>
 		<tr valign=top>
-		  <td><strong>KR4</strong></td>
-		  <td>A start key to the process's <strong>space
+		  <td><strong>KR_BANK</strong></td>
+		  <td>A key to the process's <strong>space
 		      bank</strong>.</td>
 		</tr>
 		<tr valign=top>
-		  <td><strong>KR5</strong></td>
+		  <td><strong>KR_SCHED</strong></td>
 		  <td>A duplicate of the process's <strong>schedule
 		      key</strong>.</td> 
 		</tr>
 		<tr valign=top>
-		  <td><strong>KR6</strong></td>
-		  <td>A constructor key to the constructor for the
-		    process's keeper.</td> 
-		</tr>
-		<tr valign=top>
-		  <td><strong>KR7</strong></td>
-		  <td>A constructor key to the constructor for the process's
-		    address space, or the address space key itself.</td>
-		</tr>
-		<tr valign=top>
-		  <td><strong>KR8</strong></td>
-		  <td>A number key containing the initial program counter for
-		    the foo program. <em,>FIX: Is this still true?</em></td>
-		</tr>
-		<tr valign=top>
-		  <td><strong>KR9..KR30</strong></td>
-		  <td>Void keys.</td>
-		</tr>
-		<tr valign=top>
-		  <td><strong>KR31</strong></td>
+		  <td><strong>KR_RETURN</strong></td>
 		  <td>A <strong>resume key</strong> to the process that
 		    caused this process to be started.</td>
 		</tr>
 	      </table>
+              <p> The process is free to use other key registers for its
+                own purposes. You should not assume these registers
+                are initially void; they may have keys left over from
+                constructing the process.
+                There are names and conventions for these key registers:
+	      <table>
+		<tr valign=top>
+		  <td><strong>KR_APP(n)</strong></td>
+		  <td>KR_APP(0), KR_APP(1), etc. are a set of key registers
+                    typically used for long-term storage of keys.
+                    Currently n can be up to 16, but it would be unwise to
+                    count on more than about 14. </td>
+		</tr>
+		<tr valign=top>
+		  <td><strong>KR_TEMP0, KR_TEMP1, KR_TEMP2, KR_TEMP3</strong></td>
+		  <td>Key registers for very short-term use.
+                    The convention is that these should be used only
+                    between procedure calls, or as parameters or results
+                    of procedure calls.
+                    In other words, you must assume that any procedure
+                    you call may disturb these registers.
+                    (IDL procedures (for example capros_Node_getSlot())
+                    are a notable exception; they do not disturb any
+                    key registers except those explicitly specified
+                    as parameters.)</td>
+		</tr>
+		<tr valign=top>
+		  <td><strong>KR_ARG(n)</strong></td>
+		  <td>This convention may be dropped.
+                    <em>What about parameters to the constructor?</em></td>
+		</tr>
+	      </table>
 	      <p>
-		This initial process image runs under the schedule
-		designated by the requesting process.  It's address
-		space is a read-only page key to an <em>immutable</em>
-		address space known as the
-		<strong>protospace</strong>.
+		The process initially has no keeper.
+                Perhaps in the future there will be a way to define
+                an initial keeper. 
 	      </p>
-	      <p>
-		The initial process <em>has no keeper</em>.
-	      </p>
-	    </li>
-	    <li> 
-	      <p>
-		Control is now transferred to the
-		<strong>protospace</strong> program.  Protospace is
-		most reasonably thought of as part of the constructor
-		logic.  The proper protospace entry point is well
-		known to the constructor.
-	      </p>
-	    </li>
-	  </ol>
-	  <h3>1.2 Protospace Initialization</h3> 
-	  <p>
-	    Protospace must now construct the initial address space
-	    and keeper for the new process:
-	  </p>
-	  <ol>
-	    <li>
-	      <p>
-		Protospace Fabricates the program's address space
-		segment by invoking the address space constructor key
-		(in this case the foospace constructor).
-	      </p>
-	    </li>
-	    <li>
-	      <p>
-		Protospace then overwrites the keys in slots KR7..KR8
-		with zero number keys; these keys will not be passed
-		to the foo program unless they are included in the
-		initial services node.
-	      </p>
-	    </li>
-	    <li> 
-	      <p>
-		Finally, the protospace invokes the process key with
-		the "swap space and PC" invocation, setting the
-		address space of the process to the real address space
-		(the foo address space) and the real entry point (the
-		foo entry point).
-	      </p>
-	    </li>
-	    <li>
-	      <p>
-		Execution of the real program begins.
-	      </p>
-	    </li>
-	  </ol>
-          <p>
-            Note that protospace makes use of key registers during
-            startup. When building an image map, programmers should
-	    not place capabilities that the program will need into
-            capability registers. They should go in the constituents node.
-          </p>
-	  <h3>1.3 New Process Startup</h3>
-	  <p>
-	    On entry, the new process inherits the key register state
-	    that was left by the protospace.  This is identical to the
-	    initial key registers described above, except that
-	    register <strong>KR7</strong> and <strong>KR8</strong>
-	    hold zero number keys.
-	  </p>
-	  <p>
-	    Depending on the type of address space used for this
-	    process, the process may initially have no stack or modifiable 
-	    data. Three kinds of spaces exist in the current system:
-	  </p>
-
-	  <ul>
-	    <li>
-	      <p>
-		The address space is immutable, in which case having
-		no stack is appropriate.  A small number of primordial
-		programs run from an immutable address space.
-	      </p>
-	    </li>
-	    <li>
-	      <p>
-		The address space is a small space (i.e. one that does
-		not have a keeper).  In this case the space is
-		initially immutable, but the runtime startup code
-		immediately constructs a mutable stack.  The process
-		destruction logic assumes that a mutable space is 32
-		pages or less, with the stack at the top.  Small
-		spaces are provided primarily as a convenience for
-		small utility domains, and are not suited to the
-		construction of large service programs.
-	      </p>
-	    </li>
-	    <li>
-	      <p>
-		The address space is a virtual-copy space, in which
-		case the stack will be automatically filled in as page
-		faults occur.
-	      </p>
-	    </li>
-	  </ul>
-	  <p>
-	    The run-time library determines the type of the address
-	    space by examining the global variable
-	    <code>__rt_stack_pages</code>.  Details about how this is handled
-	    are described in Section 3.
-	    Once the stack and heap are allocated, the run-time
-	    library branches to <code>__rt_start()</code>, which is
-	    intended to give the high-level language runtime a chance
-	    to perform further initialization before invoking
-	    <code>main()</code>.
-	  </p>
-	  <p>
-	    If necessary, the process must arrange to call on it's own
-	    behalf any constructors whose products it may need.
-	  </p>
-	  <h2>2. Process Teardown</h2>
-	  <p>
-	    Just as the process must arrange to initialize itself, it
-	    must arrange to destroy itself if it honors the
-	    <strong>OC_Destroy</strong> request.  Since the process
-	    created it's own address space, it must destroy it.
-	    careful look at the object reference manual will show that
-	    the <strong>destroy</strong> operation <em>is expected to
-	    return</em>.  The question is, ``How can a program that no
-	    longer has an address space return to anyone?''
-	  </p>
-	  <h3>2.1 Process Finalization</h3>
-	  <p>
-	    A process that wishes to honor the
-	    <strong>OC_Destroy</strong> order code must hang on to
-	    it's process creator key.  If the process runs in a kept
-	    address space, it must also retain access to the
-	    protospace page.
-	  </p>
-	  <p>
-	    When asked to destroy itself, the process should first
-	    destroy (recursively) any services it has built.  It
-	    should then arrange to jump back into the protospace
-	    address space for the last phase of the destruction by
-	    calling <code>DestroyMyself()</code>.
-	  </p>
-	  <p>
-	    On entry to <code>DestroyMyself()</code>, the process key
-	    registers should hold the following values:
-	  </p>
-
-	  <center>
-	    <table width="85%">
-	      <tr valign=top>
-		<td><strong>KR1</strong></td>
-		<td>A <strong>process key</strong> to the process itself.</td>
-	      </tr>
-	      <tr valign=top>
-		<td><strong>KR31</strong></td>
-		<td>A <strong>resume key</strong> to the process that
-		  requested the destruction of this process (if any).</td>
-	      </tr>
-	    </table>
-	  </center>
-	  <p>
-	    How shutdown is accomplished depends on the process
-	    address space:
-	  </p>
-	  <p>
-	    The <code>DestroyMyself()</code> library routine first
-	    sells back any process-allocated stack space, and then
-	    examines the process address space key to decide how
-	    shutdown should be performed:
-	  </p>
-	  <ul>
-	    <li>
-	      <p>
-		If the address space is immutable, or if the address
-		space consists of a single page, the process can
-		simply invoke it's process creator with the
-		<strong>DestroyCallerAndReturn</strong> order code.
-	      </p>
-	    </li>
-	    <li>
-	      <p>
-		If the address space is a more complex space, the
-		process must first switch to a teardown address space
-		(usually just protospace).  The teardown space issues
-		an <strong>OC_Destroy</strong> request on the
-		process's address space and then invokes the
-		<strong>DestroyCallerAndReturn</strong> request on the
-		process creator.
-	      </p>
-	    </li>
-	  </ul>
-	  <p>
-	    The process creator now gets control, and demolishes the
-	    process structure.  Finally, it returns to the designated
-	    resume key, confirming to the original caller (the one who
-	    asked the foo process to self-destruct) that the foo
-	    process has been successfully destroyed.
-	  </p>
-	  <p>
-	    Note that protospace itself is a shared resource that does
-	    <em>not</em> get destroyed.
-	  </p>
-	  <h3>2.2 Caveats</h3>
-	  <p>
-	    There are some circumstances under which the destroy
-	    request may fail:
-	  </p>
-	  <ul>
-	    <li>
-	      <p>
-		The space bank from which the process was purchased
-		has been destroyed.
-	      </p>
-	    </li>
-	    <li>
-	      <p>
-		The process creator from which the process was
-		purchased has been destroyed (this happens when the
-		associated constructor is destroyed).
-	      </p>
-	    </li>
-	    <li>
-	      <p>
-		The process itself has altered the state needed by the
-		destruction logic.
-	      </p>
-	    </li>
-	  </ul>
-	  <p>
-	    Destruction is therefore done on a ``best effort'' basis.
-	    A client who wishes to unconditionally ensure that it's
-	    space can be reclaimed should arrange to fabricate its
-	    services under a separate subspace bank, and destroy the
-	    entire subspace.  Note that doing so does not permit the
-	    services to perform finalization, and should be viewed as
-	    a way of recovering from buggy or pernicious services
-	    rather than as a way of tearing down programs in general.
-	  </p>
-	      <H2>3. Small and Normal Process Models</H2>
+            <p> Your main procedure should be declared as simply
+              <code>int main(void)</code>.
+              CapROS programs don't receive parameters via argc and argv.
+	    <p> When the program is finished, it should destroy itself
+              and if appropriate return to its caller (as described below),
+              rather than return from <code>main()</code>.
+              If the program does return from <code>main()</code>.
+            the return code is discarded and the process is not torn down.
+          <h3>1.2 Linux Program Execution Environment</h3>
+            <p> Programs that run in the Linux kernel emulation environment have
+              additional conventions.
+              For example, some of the KR_APP(n) registers are used by the
+              emulation.
+              See the header file &lt;linuxk/lsync.h&gt; for details.
+          <h3>1.3 Memory Allocation</h3>
+            <p> There are two models of memory allocation used in CapROS.
+              The initialization and teardown procedures are different
+              for the two models. 
+            <h4>1.3.1 Automatic Memory Allocation</h4>
 	    <p>
-	      There are two primary runtime models for EROS processes:
-	      normal and ``small''.  All EROS platforms support both
-	      process models. The normal model provides a fairly
-	      complete ``cocoon'' for the process. This relieves the
-	      application designer of the need to worry about page
-	      fault handling or stack/heap collision, but it comes at
-	      a cost: the application is required to have a memory
-	      keeper that will service page faults for the heap and
-	      the stack.
+              In this model, storage for bss, data, stack, and heap 
+              is automatically allocated from a space bank when the
+              storage is first referenced.
+              This convenience comes at a cost; the address space
+              consists of a VCS (Virtual Copy Segment) that gets control
+              on page faults and uses copy-on-write techniques to 
+              create the storage on demand. 
 	    </p>
 	    <p>
-	      The small model exists to provide a low-overhead
-	      execution environment for processes that have only a
-	      small amount of state, and also to provide a
-	      minimal-demand runtime environment that can be used to
-	      <em>implement</em> the richer environment. Low overhead
-	      comes at the cost of correspondingly reduced runtime
-	      support.
+              There is one <em>important caveat</em> when using this model.
+              If the process issues a capability invocation that receives
+              a data string into memory, that memory cannot be automatically
+              allocated. 
+              (No page fault occurs, because the string is transferred
+              under the control of the sending process.)
+              If not previously allocated, the invocation will fail.
+              Before receiving a string into memory, you must ensure
+              that the memory is allocated by storing to each page in the
+              string.
 	    </p>
-	    <p>
-	      Surprisingly, we find that many processes run very
-	      happily using the small runtime model. Where feasible,
-	      use of the small model is preferred, because small model
-	      processes have lower startup overheads. On some
-	      architectures, small processes also provide more
-	      efficient entry/exit costs during interprocess
-	      communication (start and resume key invocation).
-	    </p>
-	    <p>
-	      As of this writing, the differences between the two
-	      models come down to two issues:
-	    </p>
-	    <ul>
-	      <li>
-		<p>
-		  <em>Memory Allocation</em>: How much underlying
-		  runtime support is assumed by the memory management
-		  libraries. In particular, who allocates dynamic
-		  storage?
-		</p>
-	      </li>
-	      <li>
-		<p>
-		  <em>Small Spaces</em> What address range
-		  restrictions are imposed on the process if it is to
-		  gain the benefit of faster context switch times?
-		</p>
-	      </li>
-	    </ul>
-	    <p>
-	      At the implementation level, these issues are entirely
-	      independent: one concerns the behavior of the
-	      application runtime library. The other concerns
-	      favoritism applied to certain procsses by the
-	      kernel. Typically, however, we find that processes are
-	      concerned about both or neither of these issues.
-	    </p>
-	    <p>
-	      Since the small space issue is simpler, we will deal
-	      with that first.
-	    </p>
-	    <h3>3.1 Small Address Spaces</h3>
-	    <p>
-	      On some architectures, notably the x86, the kernel
-	      provides preferred support for processes that use only a
-	      small amount of virtual address space. Specifically, any
-	      process that restricts itself to virtual addresses in
-	      the range [0, 32*PageSize-1] will be mapped by the
-	      kernel into a so-called <em>small space</em>. Small
-	      spaces take advantage of some dirty segmenting tricks to
-	      be simultaneously mapped in all address spaces, which
-	      leads to significantly improved context switch
-	      efficiency. Programmers writing performance-critical
-	      code may wish to take advantage of this by writing
-	      programs that meet the small space constraint.
-	    </p>
-	    <p>
-	      Under the covers, the kernel actually runs
-	      <em>every</em> process as a small process until the
-	      first time the process violates the small process
-	      addressing constraints. That is: processes are assumed
-	      to be small until a reference at a higher virtual
-	      address is actually observed.  At that point, the
-	      process is <em>graduated</em> to large procss
-	      status. While all of this is transparent to the
-	      application, authors of performance-critical
-	      applications may find it helpful to know where the magic
-	      addressing threshold is.
-	    </p>
-	    <p>
-	      The 32 page restriction is motivated by internal
-	      implementation convenience in the kernel.  Future
-	      kernels may provide greater flexibility in this regard.
-	    </p>
-	    <p>
-	      In order to play nicely with the small space
-	      optimization, the ``small process'' runtime library
-	      typically sets up the process stack to begin at 128k and
-	      grow downward.
-	    </p>
-	    <h3>3.2 Memory Allocation</h3>
-	    <p>
-	      Most programs find it convenient to assume that memory
-	      allocation will be handled transparently by a memory
-	      keeper. Typically, these programs are fabricated as
-	      ``virtual copies'' (copied via copy on write) of some
-	      original program image. The first time an existing page
-	      is modified, a private copy of that page is made for the
-	      application. Similarly, when a previously undefined
-	      address is first read, a new, empty (zero) page is
-	      allocated ``on demand'' for that location.
-	    </p>
-	    <p>
-	      This model is convenient, because heap and stack growth
-	      are transparently handled, but this convenience comes at
-	      a cost. A per-address-space memory keeper must exist,
-	      and this keeper must be instantiated before the program
-	      runs.
-	    </p>
+            <h4>1.3.2 Self-managed Memory Allocation</h4>
 	    <p>
 	      To minimize overhead, some programs may find it more
 	      appropriate to manage their own memory. This is actually
-	      important enough that some support for it exists in the
-	      core runtime libraries. 
+              necessary to <em>implement</em> the richer environment.
+	      Low overhead comes at the cost of correspondingly reduced runtime
+	      support.
 	    </p>
 	    <p>
-	      Self-managed memory raises three concerns:
-	    </p>
-	    <ul>
-	      <li>
-		<p>
-		  If the stack overflows, there is no keeper to catch
-		  the overflow. A small program author must therefore
-		  know in advance how deep the stack may become.
-		</p>
-	      </li>
-	      <li>
-		<p>
-		  When the heap grows, the application must arrange to
-		  allocate the necessary pages and place them in the
-		  address space at the appropriate locations.
-		</p>
-	      </li>
-	      <li>
-		<p>
-		  Because there is no memory keeper for a self-managed
-		  process, the teardown protocol for the process
-		  address space must be different from the teardown
-		  protocol for kept spaces.
-		</p>
-	      </li>
-	    </ul>
-	    <p>
-	      The runtime library deals with the memory management
-	      issues via three variables that can be overridden by the
-	      application as needed. The three variables and their
-	      defaults in each runtime model are shown below:
-	    </p>
-	    <table>
-	      <tbody>
-		<tr valign="top">
-		  <td><b>Variable</b></td>
-		  <td><b>Small Runtime Value</b></td>
-		  <td><b>Normal Runtime Value</b></td>
-		  <td><b>Meaning</b></td>
-		</tr>
-		<tr valign="top">
-		  <td><tt>__rt_stack_pointer</tt></td>
-		  <td>0x20000 (128k)</td>
-		  <td>0xc0000000 (3g)</td>
-		  <td>The initial value of the stack pointer.</td>
-		</tr>
-		<tr valign="top">
-		  <td><tt>__rt_stack_pages</tt></td>
-		  <td>1</td>
-		  <td>0</td>
-		  <td>
-		    The number of pages that should be explicitly
-		    allocated by the crt0 code to contain 
-		    the stack. If the entire space is a kept space,
-		    this allocation will be handled transparently by
-		    the keeper, and no explicit allocation by crt0 is
-		    required.
-		  </td>
-		</tr>
-		<tr valign="top">
-		  <td><tt>__rt_kept_heap</tt></td>
-		  <td>0 (false)</td>
-		  <td>1 (true)</td>
-		  <td>
-		    Whether heap faults will be handled by a
-		    keeper. The library implementation of
-		    <tt>brk()</tt> consults this variable to determine
-		    how to grow the heap.
-		  </td>
-		</tr>
-	      </tbody>
-	    </table>
-	    <p>
-	      Each of these symbols is defined as a <em>weak</em>
-	      symbol by the standard runtime libraries. The normal
-	      case values are defined in <tt>crtn.o</tt>. Applications
-	      built with <tt>-lsmall</tt> receive overridden versions
-	      of these variables corresponding to the values shown
-	      for the small runtime above.
+              In this model, storage for bss, data, and stack are allocated
+              by the runtime system when the process is initialized
+              (this is described below).
+              If the process uses a heap, it must define its own
+              <code>sbrk()</code> or <code>_sbrk()</code> procedures
+              to manage heap storage.
+              Most programs using this model don't require a heap.
 	    </p>
 	    <p>
-	      During it's lifetime, an application may well switch
-	      from one mode to another. For example, an initially
-	      small-model application may allocate a kept heap area,
-	      set up the heap there, and change the value of
-	      <tt>__rt_kept_heap</tt> accordingly.  Mechanisms for
-	      managing heaps in this way are included in the
-	      <tt>-lselfheap</tt> library.
+              The stack does not grow, so the program must know
+              in advance the amount of stack required. 
+              Since program development tools seldom provide this
+              information, the stack size must be conservatively estimated
+              or determined experimentally.
 	    </p>
-	    <p>
-	      Programmers are advised that the heap support routines
-	      compiled into the <tt>-lsmall</tt> library presume that
-	      the application has been created using <b>mkimage</b> as
-	      a small process. The functions provided in the
-	      conventional runtime library are more general.
-	    </p>
+	  <h2>2. Process Initialization</h2>
+          <p> There are several variants of CapROS process initialization,
+            to accommodate programs with various requirements. 
+            Most programmers will not need to know this detail.
+            It is documented here mainly because the information is hard
+            to find elsewhere.
+          <h3>2.1 Program linking</h3>
+            <p> A basic understanding of how a CapROS program is linked
+              into an executable file is needed to understand initialization.
+              CapROS programs are linked using a cross-linker
+              with some custom features. Look at the CapROS source code
+              for some examples of how to use the cross-linker
+              including required libraries.
+            <p> The cross-linker automatically includes crt1.o which
+              contains the first code executed in the program.
+              Execution begins at the symbol <code>_start</code> and
+              does the following:
+              <ol>
+              <li> Examine the variable <code>__rt_runtime_hook</code>
+                 and if it is nonzero, branch to that address.
+                 We'll see below how this is used.
+              <li> Load the stack pointer with the contents of the
+                 variable <code>__rt_stack_pointer</code>.
+              <li> Call the procedure <code>__domain_startup</code>.
+              <li> <code>__domain_startup</code> is responsible for
+                initializing and finalizing the language environment.
+                This is where C++ static constructors and destructors
+                are called.
+                This is done by calling <code>atexit(_fini)</code> and
+                <code>_init()</code>, and then calling <code>exit</code>
+                ater <code>main</code> has returned.
+                <em>Implementation issue</em>:
+                This logic is currently disabled, because <code>atexit</code>
+                pulls in malloc and sbrk, which must be avoided in
+                certain very low-level processes.
+                Consequently C++ is not currently supported.
+              <li> <code>__domain_startup</code> calls <code>main</code>.
+              <li> In most cases <code>main</code> will never return.
+	      When the program is finished, it should destroy itself
+              and if appropriate return to its caller (as described below).
+                If it does, <code>__domain_startup</code>
+                passes the return code to <code>_exit</code>
+                (rather than <code>exit</code>).
+              <li> <code>_exit</code> performs an invocation on the
+                process's own key (which must be in KR_SELF)
+                that causes the process to stop running.
+                The return code is discarded and the process is not torn down.
+                <code>_exit</code> never returns.
+              </ol>
+            <p> The cross-linker also automatically includes crti.o and crtn.0
+              which are used to build the <code>_init</code> and
+              <code>_fini</code> procedures in the .init and .fini
+              sections respectively.
+          <h3>2.2 Linkage Models</h3>
+          <h4>2.2.1 Small Linkage Model</h4>
+            <p> The option <code>-small-space</code> instructs the linker to
+            build a "small" address space. This means that the default locations
+            for the program, stack, and heap are chosen to keep the
+            address space compact, which improves efficiency. 
+            In particular the address space can be represented in a single GPT.
+            This option causes the linker to use the library option
+            -lcapros-small. 
+            <p> Currently, this option defines <code>__rt_runtime_hook</code>
+            to point to a procedure that does the following:
+            <ol>
+              <li> If the variable <code>__rt_stack_pages</code> is nonzero,
+              it specifies the number of pages of stack to create.
+              The address space is cloned into a new GPT, the stack pages
+              are allocated and installed in the new GPT at addresses
+              0x1f000 and below, and
+              the new GPT is installed as the process's address space.
+              (This is tricky assembler code, because the process starts out
+              with no read-write storage and must bootstrap itself.)
+              <p> In this case the variable <code>__rt_stack_pointer</code>
+              must contain 0x20000. 
+              On the other hand, if <code>__rt_stack_pages</code> is zero,
+              the stack must have been created already and
+              <code>__rt_stack_pointer</code> must point to its bottom. 
+              libcapros-small defines <code>__rt_stack_pointer</code>
+              to be 0x20000; you can override this by defining it yourself.
+              <li> The stack pointer is set to the value in 
+              <code>__rt_stack_pointer</code>.
+              <li> Pages for the .bss and .data sections are allocated
+              and installed in the address space, and the .bss area
+              is initialized. The .data area will be initially zero. 
+              <li> We then go back to <code>_start</code>, after setting
+              <code>__rt_runtime_hook</code> to zero so this procedure
+              won't be repeated. 
+            <p> This will probably change.
+            </ol>
+          <h4>2.2.2 Large Linkage Model</h4>
+            <p> The option <code>-large-space</code> instructs the linker to
+            build a "large" address space. This means that the default locations
+            for the program, stack, and heap are chosen to maximize
+            the space available for stack and heap.
+            This option causes the linker to use the library option
+            -lcapros-large. 
+            This option is the default.
+            <p> Currently, this option weakly defines
+            <code>__rt_runtime_hook</code>
+            as zero. The address space is assumed to be completely
+            constructed before the process runs. 
+            <code>__rt_stack_pointer</code> must contain the initial
+            stack pointer. 
+            libcapros-large defines <code>__rt_stack_pointer</code>
+            to be 0x2000000 on ARM and 0x80000000 on x86;
+            you can override this by defining it yourself.
+          <h4>2.2.3 Small Address Spaces</h4>
+            <p> On the IA32 architecture, the kernel currently has an
+            optimization for address spaces that fit in the range
+            [0, 0x20000). Processes with such address spaces
+            enjoy better context switch efficiency.
+            <p> On the ARM architecture, the kernel has an optimization 
+            for address spaces that fit in the range
+            [0, 0x2000000). Processes with such address spaces
+            enjoy much better context switch efficiency, because
+            the kernel uses the ARM Fast Context Switch Extension. 
+          <h3>2.3 Initialization using the Constructor</h3>
+          <p> CapROS programs are usually built by Constructors.
+            To avoid having the Constructor busy longer than necessary,
+            the new process's address space is built by the process itself.
+	  <p>
+	    To accomplish this bootstrapping, process fabrication is done by a
+	    temporary program known as the <strong>protospace</strong>
+	    from within the new process itself.
+	  </p>
+	  <p>
+	    The first step in process construction is to allocate the new
+	    process and initialize its key registers (as described above)
+            and its schedule key.
+            The new process's address space is set to a read-only
+            immutable address space known as the <strong>protospace</strong>.
+            The protospace program is part of the constructor logic.
+            The constructor starts the new process running at the
+            beginning of the protospace program.
+	  </p>
+            The protospace program supports two types of address space
+            construction, depending on the nature of the key that was
+            specified (to the Constructor) as the address space
+            for new products. 
+          <ul>
+            <li> The specified address space key may be a constructor
+              for an address space. If that key responds to a getType call
+              by saying it is a constructor, then the protospace invokes
+              the constructor to get an address space. 
+              That address space is then installed
+              as the process's address space, and the new program is started.
+            <li> Otherwise, the specified address space key
+              is installed directly
+              as the process's address space, and the new program is started.
+              In this case the program has no per-instance storage
+              and is responsible for any further population of its
+              address space. 
+              <p> To support construction of more complex address spaces,
+              there is a means to build a read-only immutable program
+              that can then build a more general address space.
+              This uses an assembly program that interprets a table of
+              invocations to be executed to build the address space. 
+              You must define the table to build the space as you want it.
+              For details see
+              <code>base/lib/constructor/InterpreterTable.h</code>
+              and related files.
+          </ul>
+	  <p>
+	    On entry, the new process inherits the key register state
+	    that was left by the protospace.
+            This will be the default runtime environment defined above.
+	  <p>
+	    If the new program was linked as a small space,
+            it can then create its own stack and data areas
+            as described above for crt1. 
+            If the new address space was constructed from a VCS,
+            its stack and data areas will be filled in as page faults occur.
+	  <h2>3. Process Teardown</h2>
+	  <p>
+	    Just as the process must arrange to initialize itself, it
+	    must arrange to destroy itself.  Since the process
+	    created its own address space, it must destroy it.
+            The challenge of destruction is
+	    the <strong>capros_key_destroy</strong> request.
+	    Careful look at the object reference manual will show that
+	    the <strong>destroy</strong> operation <em>is expected to
+	    return</em>.  The question is, "How can a program that no
+	    longer has an address space return to anyone?"
+            This is the inverse of the bootstrapping problem. 
+	  </p>
+	  <p>
+            The answer is, we rely on the process creator for help.
+	    A process that wishes to honor the
+	    <strong>OC_Destroy</strong> order code must hang on to
+	    its process creator key.  If the process runs in a kept
+	    address space, it must also retain access to the
+	    protospace address space.
+	  </p>
+	  <p>
+	    When asked to destroy itself, the process should of course first
+	    destroy anything it has explicitly built.
+	    Then, how teardown is accomplished depends on the process
+	    address space.
+          <ul>
+          <li> If it was built as a small process by the protospace,
+            it must undo that by calling <code>protospace_destroy_small</code>.
+            <code>protospace_destroy_small</code> is declared and
+            documented in <code>domain/ProtoSpaceDS.h</code>.
+          <p> <code>protospace_destroy_small</code> installs the protospace
+            address space and goes to an entry point in that space
+            known as the <strong>telospace</strong>.
+            (Greek root <em>telo-</em> is the opposite of <em>proto-</em>.)
+            That code returns to the space bank any pages in the old
+            address space that were created, returns the GPT to the bank,
+            and then invokes the <code>destroyCallerAndReturn</code>
+            method on the process creator.
+	  <li>
+            <p>If the process's address space was built from a VCS,
+            it can call <code>protospace_destroy</code>.
+            However, there is a note that that procedure is obsolete. 
+            This may not be working currently. 
+          <li>
+            If the address space was a more complex space built using
+            the interpreter facility, a corresponding facility will
+            tear down the space. See <code>InterpreterDestroy</code>,
+            which is declared and documented in
+            <code>base/lib/constructor/InterpreterTable.h</code>.
+          </ul>
+	  <p>
+            Note that all this is initiated by the program
+            (usually in response to a destroy request), which means
+            it happens before <code>main()</code> returns.
+            Since <code>main()</code> never returns,
+            static destructors and <code>atexit()</code> procedures
+            are never called. These facilities are not supported.
+	  </p>
+	  <p>
+	    Note that protospace itself is a shared resource that does
+	    <em>not</em> get destroyed, as is the interpreter table.
+	  </p>
 
-	  <hr>
-	  <em>Copyright 2001 by Jonathan Shapiro & K. Johansen.  All rights
-	  reserved.  For terms of redistribution, see the <a
-	  href="../../legal/license/GPL.html">EROS License
-	  Agreement</a></em>
 	</td>
-	<td valign=top width="15%">&nbsp;</td>
       </tr>
     </table>
+	  <hr>
+<table>
+<tr valign=top>
+  <td width=92>
+<a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
+  </td>
+  <td>
+  <em>Copyright 2001 by Jonathan Shapiro & K. Johansen.
+      Copyright 2008, Strawberry Development Group.
+      All rights reserved.
+      For terms of redistribution, see the <a
+      href="../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
+   </td>
+</tr>
+</table>
   </body>
 </html>
 
