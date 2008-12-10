@@ -38,8 +38,6 @@ struct Node {
 
   ObCount callCount;
 
-  uint8_t kernPin;
-
   uint16_t nodeData;
   
   Key slot[EROS_NODE_SIZE];
@@ -73,12 +71,6 @@ INLINE void
 node_SetReferenced(Node * pNode)
 {
   objH_SetReferenced(node_ToObj(pNode));
-}
-
-INLINE bool
-node_IsKernelPinned(Node * thisPtr)
-{
-  return (thisPtr->kernPin != 0);
 }
 
 INLINE void

@@ -41,33 +41,22 @@ objC_ddb_dump_pinned_objects()
   for (nd = 0; nd < objC_nNodes; nd++) {
     Node * pNode = objC_GetCoreNodeFrame(nd);
     ObjectHeader * pObj = node_ToObj(pNode);
-    if (objH_IsUserPinned(pObj) || node_IsKernelPinned(pNode)) {
-      if (objH_IsUserPinned(pObj))
-	userPins++;
-      printf("node 0x%08x%08x\n",
-	     (uint32_t) (pObj->oid >> 32),
-	     (uint32_t) pObj->oid);
+    if (objH_IsUserPinned(pObj)) {
+      userPins++;
+      printf("node %#llx\n", pObj->oid);
     }
   }
 
   for (pg = 0; pg < objC_nPages; pg++) {
     PageHeader * pageH = objC_GetCorePageFrame(pg);
     ObjectHeader * pObj = pageH_ToObj(pageH);
-    if (objH_IsUserPinned(pObj) || pageH_IsKernelPinned(pageH)) {
-      if (objH_IsUserPinned(pObj))
-	userPins++;
-      printf("page 0x%08x%08x\n",
-	     (uint32_t) (pObj->oid >> 32),
-	     (uint32_t) pObj->oid);
+    if (objH_IsUserPinned(pObj)) {
+      userPins++;
+      printf("page %#llx\n", pObj->oid);
     }
   }
 
-#ifdef OLD_PIN
-  printf("User pins found: %d official count: %d\n", userPins,
-	 ObjectHeader::PinnedObjectCount);
-#else
   printf("User pins found: %d \n", userPins);
-#endif
 }
 
 static void

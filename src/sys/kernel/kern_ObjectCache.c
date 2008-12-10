@@ -598,8 +598,7 @@ objC_AgeNodeFrames(void)
     
       assert(pObj->objAge <= age_Steal);
     
-      if (objH_IsUserPinned(pObj)
-          || node_IsKernelPinned(pNode) ) {
+      if (objH_IsUserPinned(pObj)) {
 	nPinned++;
 	nStuck++;
 	goto nextNode;
@@ -610,8 +609,7 @@ objC_AgeNodeFrames(void)
       when objH_CurrentTransaction overflows. */
       pObj->userPin = 0;
 
-      if (! objH_GetFlags(pObj, OFLG_Cleanable)
-          || (ckptIsActive() && ! objH_GetFlags(pObj, OFLG_KRO))) {
+      if (! objH_GetFlags(pObj, OFLG_Cleanable)) {
 	nStuck++;
 	goto nextNode;
       }
@@ -657,6 +655,13 @@ objC_AgeNodeFrames(void)
 			(objH_IsDirty(pObj) ? 'y' : 'n'), pObj->oid);
 
         if (objH_IsDirty(pObj)) {
+          /* During a checkpoint, the current version can't be cleaned;
+          it must go into the next generation. */
+          if (ckptIsActive() && ! objH_GetFlags(pObj, OFLG_KRO)) {
+            nStuck++;
+            goto nextNode;
+          }
+
           if (node_Clean(pNode))
             goto stealNode;
         } else {	// node is clean
@@ -963,9 +968,6 @@ PageTestZero(kva_t pgAddr)
 static void
 pageH_Clean(PageHeader * pageH)
 {
-  if (! pageH_IsDirty(pageH))
-    return;
-
   if (pageH->ioreq) {	// It is already being cleaned
     SleepOnPFHQueue(&pageH->ioreq->sq);	// wait for that to finish first
   }
@@ -1132,8 +1134,7 @@ pageH_MitigateKRO(PageHeader * old)
   pageH_ToObj(new)->allocCount = pageH_ToObj(old)->allocCount;
 
   if (old->ioreq
-      || objH_IsUserPinned(pageH_ToObj(old))
-      || pageH_IsKernelPinned(old) ) {
+      || objH_IsUserPinned(pageH_ToObj(old)) ) {
     // The old page has I/O, so it can't be moved.
     printf("Moving KRO page with I/O, %#x\n", old);////
 
@@ -1258,10 +1259,21 @@ objC_AgePageFrames(void)
         break;
 
       case ot_PtDataPage:
-        if (! objH_GetFlags(pageH_ToObj(pageH), OFLG_Cleanable)
-            || (ckptIsActive()
-                && ! objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO)))
+        if (! objH_GetFlags(pageH_ToObj(pageH), OFLG_Cleanable))
           goto nextPage;
+  
+        /* Pinned pages cannot be stolen. No point in aging them either,
+        because they are recently used. */
+        if (objH_IsUserPinned(pageH_ToObj(pageH))) {
+          nPinned++;
+          nStuck++;
+          goto nextPage;
+        }
+
+        /* Since the object isn't pinned, set its transaction ID to zero
+        so it won't inadvertently be considered pinned
+        when objH_CurrentTransaction overflows. */
+        pageH_ToObj(pageH)->userPin = 0;
         break;
 
       default:
@@ -1272,19 +1284,6 @@ objC_AgePageFrames(void)
         }
         goto nextPage;
       }
-  
-      /* Some pages cannot be aged because they are active or pinned: */
-      if (objH_IsUserPinned(pageH_ToObj(pageH))
-          || pageH_IsKernelPinned(pageH) ) {
-        nPinned++;
-        nStuck++;
-        goto nextPage;
-      }
-
-      /* Since the object isn't pinned, set its transaction ID to zero
-      so it won't inadvertently be considered pinned
-      when objH_CurrentTransaction overflows. */
-      pageH_ToObj(pageH)->userPin = 0;
 
       if (objH_GetFlags(pageH_ToObj(pageH), OFLG_Fetching) ) {
         nStuck++;
@@ -1311,7 +1310,17 @@ objC_AgePageFrames(void)
 
       case age_Clean:
         /* At this stage, we initiate cleaning of the object if it is dirty. */
-        pageH_Clean(pageH);
+        if (pageH_IsDirty(pageH)) {
+          /* During a checkpoint, the current version can't be cleaned;
+          it must go into the next generation. */
+          if (ckptIsActive()
+              && ! objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO) ) {
+            nStuck++;
+            goto nextPage;
+          }
+  
+          pageH_Clean(pageH);
+        }
         goto bumpAge;
 
       case age_Steal:

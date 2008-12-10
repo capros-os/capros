@@ -1017,27 +1017,23 @@ pageH_mdType_Aging(PageHeader * pageH)
 {
   assert(pageH_GetObType(pageH) == ot_PtMappingPage);
 
-  if (pageH->kt_u.mp.kernelPin)
-    return false;
-
-  /* Mapping pages cannot go out if their producer is pinned,
-  because they are likely to be involved in page translation. */
-
   ObjectHeader * pProducer = pageH->kt_u.mp.producer;
-  if (objH_IsUserPinned(pProducer))
-    return false;	// don't age, don't steal
-  // if (objH_IsKernelPinned(pProducer)) return false;
 
-  switch (pageH_ToObj(pageH)->objAge) {
-  case age_MTInvalidate:
-    MapTab_ClearRefs(& pageH->kt_u.mp);
-  default:
-    pageH_ToObj(pageH)->objAge++;
-    break;
+  /* Pinning a page or node also pins any produced mapping tables. */
+  if (! objH_IsUserPinned(pProducer)
+      && objH_GetFlags(pProducer, OFLG_Cleanable)
+      && ! pageH->kt_u.mp.kernelPin ) {
+    switch (pageH_ToObj(pageH)->objAge) {
+    case age_MTInvalidate:
+      MapTab_ClearRefs(& pageH->kt_u.mp);
+    default:
+      pageH_ToObj(pageH)->objAge++;
+      break;
 
-  case age_MTSteal:
-    ReleaseProduct(& pageH->kt_u.mp);
-    return true;
+    case age_MTSteal:
+      ReleaseProduct(& pageH->kt_u.mp);
+      return true;
+    }
   }
   return false;
 }

@@ -93,20 +93,6 @@ const char *ddb_obtype_name(uint8_t t)
 #endif
 
 void
-pageH_KernPin(PageHeader * thisPtr)
-{
-  assert(thisPtr->kernPin < BYTE_MAX);
-  thisPtr->kernPin++;
-}
-
-void
-pageH_KernUnpin(PageHeader * thisPtr)
-{
-  assert(thisPtr->kernPin);
-  thisPtr->kernPin--;
-}
-
-void
 objH_AddProduct(ObjectHeader * thisPtr, MapTabHeader * product)
 {
   product->next = thisPtr->prep_u.products;
@@ -504,8 +490,6 @@ objH_ddb_dump(ObjectHeader * thisPtr)
 pgRgn:
     if (objH_ToPage(thisPtr)->ioreq)
       printf(" ioreq=%#x", objH_ToPage(thisPtr)->ioreq);
-    if (objH_ToPage(thisPtr)->kernPin)
-      printf(" kernPin=%d", objH_ToPage(thisPtr)->kernPin);
     printf(" region=0x%08x physAddr=%#x\n",
            objH_ToPage(thisPtr)->physMemRegion,
            pageH_GetPhysAddr(objH_ToPage(thisPtr)));

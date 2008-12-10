@@ -142,6 +142,12 @@ struct ObjectHeader {
    * into one byte. */
   uint8_t objAge;
 
+  /* The object is pinned if userPin == objH_CurrentTransaction.
+  It may be unlocked in two ways:
+  - By setting it to zero (objH_CurrentTransaction is never zero).
+  - At the end of a transaction (when we leave the kernel)
+    by changing objH_CurrentTransaction.
+   */
   uint16_t userPin;
 
   KeyRing keyRing;
@@ -221,7 +227,6 @@ struct PageHeader {
 
   struct PmemInfo * physMemRegion;	// The region this page is in.
   struct IORequest * ioreq;	// NULL iff there is no I/O to this page
-  uint8_t kernPin;
 };
 
 INLINE PageHeader *
@@ -335,24 +340,6 @@ pageH_EnsureWritable(PageHeader * pageH)
   pageH_SetReferenced(pageH);
 }
 
-  /* Object pin counts.  For the moment, there are several in order to
-   * let me debug the logic.  Eventually they should all be mergeable.
-   * 
-   *   userPin -- pins held by the user activity.  Automatically
-   *              released whenever the activity yields or leaves the
-   * 		  kernel.
-   * 
-   *   kernPin -- pins held by a kernel activity.  Must be released
-   *              explicitly.
-   * 
-   * userPin and kernPin are acquired and released via the same
-   * interface -- Pin/Unpin.  Unpin is a no-op if the caller is a user
-   * activity.
-   * 
-   * If ANY of the pin counts is nonzero, the 'pinned' bit is set.
-   * 
-   */
-  
 INLINE void 
 objH_BeginTransaction()
 {
@@ -363,9 +350,6 @@ objH_BeginTransaction()
   will be erroneously considered pinned, but that is harmless. */
 }
     
-void pageH_KernPin(PageHeader *);   /* object is pinned for kernel reasons */
-void pageH_KernUnpin(PageHeader *);
-
 INLINE void 
 objH_TransLock(ObjectHeader* thisPtr)	/* lock for current transaction */
 {
@@ -461,12 +445,6 @@ void pageH_PrepareForDMAOutput(PageHeader * pageH);
 void pageH_PrepareForDMAInput(PageHeader * pageH);
 
 Node * pageH_GetNodeFromPot(PageHeader * pageH, unsigned int obIndex);
-
-INLINE bool   
-pageH_IsKernelPinned(PageHeader * thisPtr)
-{
-  return (thisPtr->kernPin != 0);
-}
 
 /* MEANINGS OF FLAGS FIELDS:
  * 

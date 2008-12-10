@@ -875,8 +875,8 @@ pageH_mdType_Aging(PageHeader * pageH)
       if (! mth->isFree) {
         /* Pinning a page or node also pins any produced mapping tables. */
         if (! objH_IsUserPinned(mth->producer)
-            /* && ! objH_IsKernelPinned(mth->producer) */
-            & ! mth->kernelPin ) {
+            && objH_GetFlags(mth->producer, OFLG_Cleanable)
+            && ! mth->kernelPin ) {
           switch (mth->mthAge) {
           case age_MTInvalidate:
             MapTab_TrackReferenced(mth);
