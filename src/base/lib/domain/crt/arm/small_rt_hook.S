@@ -43,10 +43,9 @@ Approved for public release, distribution unlimited. */
    The application is expected to provide the startup code with the
    information as to what sort of initialization it requires by exporting
    the symbols __rt_stack_pages, __rt_stack_pointer, and __rt_runtime_hook.
-   These symbols should live in read-only data space.
 
    This file defines __rt_runtime_hook to contain __rt_small_startup,
-   which causes the code at _start in crt0.S to jump to this code.
+   which causes the code at _start in crt1.S to jump to this code.
 
    If __rt_stack_pages is nonzero, this code:
    1. purchases a node to be the new address space root.

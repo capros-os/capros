@@ -136,8 +136,8 @@ perform_lobotomy:
 	simpleCall(pc_value, PSKR_PROC_PC, OC_capros_Number_get, 0,
 		KR_VOID, KR_VOID, KR_VOID)
 	mov r6,r2	// save rcv_w1, which is the PC
-		
-	/* New program PC is now in r2 (w1).  Switch to the real
+
+	/* New program PC is now in r6.  Switch to the real
 	   address space and proceed... */
 	/* rcv_key1 is returned as void. Accept it in PSKR_PROC_PC
 	to clear that slot that we used temporarily. */
