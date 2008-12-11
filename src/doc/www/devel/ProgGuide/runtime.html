@@ -232,7 +232,7 @@
                 The return code is discarded and the process is not torn down.
                 <code>_exit</code> never returns.
               </ol>
-            <p> The cross-linker also automatically includes crti.o and crtn.0
+            <p> The cross-linker also automatically includes crti.o and crtn.o
               which are used to build the <code>_init</code> and
               <code>_fini</code> procedures in the .init and .fini
               sections respectively.
@@ -243,10 +243,15 @@
             for the program, stack, and heap are chosen to keep the
             address space compact, which improves efficiency. 
             In particular the address space can be represented in a single GPT.
-            This option causes the linker to use the library option
-            -lcapros-small. 
-            <p> Currently, this option defines <code>__rt_runtime_hook</code>
-            to point to a procedure that does the following:
+            This option causes the linker to use the library 
+            libcapros-small. 
+            <p> libcapros-small currently defines
+            <code>__rt_stack_pointer</code> as 0x20000.
+            If you define <code>__rt_stack_pointer</code>, the linker
+            will not load the definition in libcapros-small, so you can 
+            specify your own stack pointer instead of the above.
+            <p> libcapros-small defines <code>__rt_runtime_hook</code>
+            to point to a procedure that currently does the following:
             <ol>
               <li> If the variable <code>__rt_stack_pages</code> is nonzero,
               it specifies the number of pages of stack to create.
@@ -261,8 +266,6 @@
               On the other hand, if <code>__rt_stack_pages</code> is zero,
               the stack must have been created already and
               <code>__rt_stack_pointer</code> must point to its bottom. 
-              libcapros-small defines <code>__rt_stack_pointer</code>
-              to be 0x20000; you can override this by defining it yourself.
               <li> The stack pointer is set to the value in 
               <code>__rt_stack_pointer</code>.
               <li> Pages for the .bss and .data sections are allocated
@@ -271,8 +274,12 @@
               <li> We then go back to <code>_start</code>, after setting
               <code>__rt_runtime_hook</code> to zero so this procedure
               won't be repeated. 
-            <p> This will probably change.
             </ol>
+            <p> This procedure will probably change at some point.
+            <p> If you define <code>__rt_runtime_hook</code>, the linker
+            will not load the definition in libcapros-small, so you can 
+            specify your own procedure (or none) instead of the above.
+            You had better know what you are doing.
           <h4>2.2.2 Large Linkage Model</h4>
             <p> The option <code>-large-space</code> instructs the linker to
             build a "large" address space. This means that the default locations
@@ -335,8 +342,11 @@
               as the process's address space, and the new program is started.
               In this case the program has no per-instance storage
               and is responsible for any further population of its
-              address space. 
-              <p> To support construction of more complex address spaces,
+              address space. There are two common ways to do so:
+            <ul>
+              <li>The program can use the small-space runtime hook
+                described above.
+              <li> To support construction of more complex address spaces,
               there is a means to build a read-only immutable program
               that can then build a more general address space.
               This uses an assembly program that interprets a table of
@@ -345,6 +355,7 @@
               For details see
               <code>base/lib/constructor/InterpreterTable.h</code>
               and related files.
+            </ul>
           </ul>
 	  <p>
 	    On entry, the new process inherits the key register state
