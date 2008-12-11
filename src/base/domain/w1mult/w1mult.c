@@ -49,7 +49,8 @@ Approved for public release, distribution unlimited. */
 #include "DS2438.h"
 #include "DS2450.h"
 
-#define KC_SNODEC 0
+/* Bypass all the usual initialization. */
+unsigned long __rt_runtime_hook = 0;
 
 /* Memory:
   0: nothing
@@ -57,11 +58,11 @@ Approved for public release, distribution unlimited. */
   0x1d000: main stack
   0x1e000: timer stack
   0x1f000: config file */
-#define configFileAddr 0x1f000
-
-uint32_t __rt_unkept = 1;
 unsigned long __rt_stack_pointer = 0x1e000;
 #define timer_stack_pointer 0x1f000
+#define configFileAddr 0x1f000
+
+#define KC_SNODEC 0
 
 bool haveBusKey = false;	// no key in KR_W1BUS yet
 

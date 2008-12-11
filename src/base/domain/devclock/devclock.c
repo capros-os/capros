@@ -35,6 +35,9 @@ Approved for public release, distribution unlimited. */
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
+/* Bypass all the usual initialization. */
+unsigned long __rt_runtime_hook = 0;
+
 #define __raw_readl(a) (*(volatile unsigned long *)(a))
 #define __raw_writel(v,a) (*(volatile unsigned long *)(a) = (v))
 

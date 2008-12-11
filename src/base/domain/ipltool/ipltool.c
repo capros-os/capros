@@ -47,20 +47,15 @@ Approved for public release, distribution unlimited. */
 #include <domain/Runtime.h>
 #include "constituents.h"
 
+/* Bypass all the usual initialization. */
+unsigned long __rt_runtime_hook = 0;
+
 #define KR_OSTREAM    KR_APP(0)
 #define KR_VOLSIZE    KR_APP(1)
 #define KR_PRIMEBANK  KR_APP(2)
 #define KR_NEWSCHED   KR_APP(3)
 #define KR_THREADLIST KR_APP(4)
 #define KR_FAULT      KR_APP(5)
-
-
-/* This program is one shot with no backing environment -- stack page
- * is provided in the map file.
- * Bypass all the usual initialization. */
-unsigned long __rt_stack_pointer = 0x20000;
-unsigned long __rt_runtime_hook = 0;
-uint32_t __rt_unkept = 1;
 
 #define dbg_init	0x1 
 

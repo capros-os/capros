@@ -30,6 +30,9 @@ Approved for public release, distribution unlimited. */
 #include <domain/Runtime.h>
 #include <domain/assert.h>
 
+/* Bypass all the usual initialization. */
+unsigned long __rt_runtime_hook = 0;
+
 // The interval between checkpoints in seconds:
 #define CheckpointInterval (4*60)
 

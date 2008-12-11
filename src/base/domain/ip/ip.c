@@ -32,6 +32,9 @@ Approved for public release, distribution unlimited. */
 #include <domain/assert.h>
 #include <eros/machine/cap-instr.h>
 
+/* Bypass all the usual initialization. */
+unsigned long __rt_runtime_hook = 0;
+
 #define dbg_server 1
 
 /* Following should be an OR of some of the above */
