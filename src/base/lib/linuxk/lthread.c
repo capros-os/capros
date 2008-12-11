@@ -172,15 +172,19 @@ lthread_new_thread(uint32_t stackSize,
   /* Copy the address space to the new thread */
   result = capros_Process_getAddrSpace(KR_SELF, KR_TEMP0);
   assert(result == RC_OK);
-
   result = capros_Process_swapAddrSpace(KR_NEWTHREAD, KR_TEMP0, KR_VOID);
   assert(result == RC_OK);
   
   /* Copy schedule key */
   result = capros_Process_getSchedule(KR_SELF, KR_TEMP0);
   assert(result == RC_OK);
-
   result = capros_Process_swapSchedule(KR_NEWTHREAD, KR_TEMP0, KR_VOID);
+  assert(result == RC_OK);
+  
+  /* Copy symspace key */
+  result = capros_Process_getSymSpace(KR_SELF, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_Process_swapSymSpace(KR_NEWTHREAD, KR_TEMP0, KR_VOID);
   assert(result == RC_OK);
   
   /* Set I/O privileges. */
