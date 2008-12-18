@@ -56,9 +56,9 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Node.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/IndexedKeyStore.h>
 
 #include <domain/ConstructorKey.h>
-#include <domain/DirectoryKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
@@ -86,15 +86,6 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-
-
-
-/* Theoretically, directories can be more than 1Gb in length, however,
- * in practice this seems unlikely, and we don't currently support
- * it. */
-
-#define	doff_t		Word
-#define	MAXDIRSIZE	0x4000000 /* 1 GB */
 
 /* A directory consists of some number of directory entry structures,
  * which are of variable length.  Each directory entry has a struct
@@ -202,16 +193,9 @@ typedef uint32_t bool;
 const uint32_t __rt_stack_pages = 0x1 + N_FREEMAP_PAGE;
 
 /* First dirent is at the address of the VCS */
-#define VCS_LOCATION 0x40000000u
+#define VCS_LOCATION 0x00100000u
 
 struct direct * const first_entry = (struct direct *) VCS_LOCATION;
-
-static unsigned int
-BlssToL2v(unsigned int blss)
-{
-  // assert(blss > 0);
-  return (blss -1 - EROS_PAGE_BLSS) * EROS_NODE_LGSIZE + EROS_PAGE_ADDR_BITS;
-}
 
 /* Allocate a slot in the supernode. */
 uint32_t
@@ -293,7 +277,7 @@ lookup (char *name, uint32_t kr, state_t *state)
   struct direct *dp = find(name, state);
 
   if (!dp)
-    return RC_Directory_NotFound;
+    return RC_capros_IndexedKeyStore_NotFound;
   
   DEBUG(lookup) kdprintf(KR_OSTREAM, "lookup(\"%s\"): call to snode w/ entry %d\n",
 	   name, dp->d_entno);
@@ -323,7 +307,7 @@ unlink(char *name, uint32_t kr, state_t * state)
     return RC_OK;
   }
   else
-    return RC_Directory_NotFound;
+    return RC_capros_IndexedKeyStore_NotFound;
 }
 
 /* The passed dirent contains sufficient space. */
@@ -495,7 +479,7 @@ link(char *name, uint32_t kr, state_t * state)
   struct direct *dp = find(name, state);
 
   if (dp)
-    return RC_Directory_Exists;
+    return RC_capros_IndexedKeyStore_Exists;
 
   /* This is NOT the standard roundup.  if the name is exactly a
      multiple of 4 bytes, we WANT the trailing 4 bytes to get added: */
@@ -512,6 +496,8 @@ link(char *name, uint32_t kr, state_t * state)
   dp = first_entry;
 
   if ( (dp = find_space(len, state)) == 0 ) {
+    /* FIXME: Need to check if we exceed the maximum size of the directory. */
+
     dp = state->dir_top;
     bcopy(&blank_page, state->dir_top, sizeof(blank_page));
     state->dir_top =
@@ -520,7 +506,7 @@ link(char *name, uint32_t kr, state_t * state)
 
   DEBUG(link) kdprintf(KR_OSTREAM, "Inserting dirent at dp=0x%08x\n", dp);
   if ( insert_dirent(dp, name, kr, state) == false )
-    return RC_Directory_NoSpace;
+    return RC_capros_IndexedKeyStore_NoSpace;
   
   return RC_OK;
 }
@@ -530,26 +516,26 @@ ProcessRequest(Message *msg, state_t *state)
 {
   switch (msg->rcv_code) {
     
-    
-  case OC_Directory_Lookup:
+  case 0:	// OC_capros_IndexedKeyStore_get
     DEBUG(op) kprintf(KR_OSTREAM, "DIR: lookup(\"%s\")\n", state->name);
     msg->snd_code = lookup (state->name, KR_ARG0, state);
     msg->snd_key0 = KR_ARG0;
     break;
 
-  case OC_Directory_Link:
+  case 1:	// OC_capros_IndexedKeyStore_put
     DEBUG(op) kprintf(KR_OSTREAM, "DIR: link(\"%s\", <key>)\n", state->name);
     msg->snd_code = link (state->name, msg->rcv_key0, state);
     break;
 
-  case OC_Directory_Unlink:
+  case 2:	// OC_capros_IndexedKeyStore_delete
     DEBUG(op) kprintf(KR_OSTREAM, "DIR: unlink(\"%s\") => <key>\n", state->name);
     msg->snd_code = unlink (state->name, msg->rcv_key0, state);
     break;
 
   case OC_capros_key_getType:			/* check alleged keytype */
+    DEBUG(op) kprintf(KR_OSTREAM, "DIR: getType()\n");
     msg->snd_code = RC_OK;
-    msg->snd_w1 = AKT_Directory;
+    msg->snd_w1 = IKT_capros_IndexedKeyStore;
     break;
 
   default:
@@ -582,8 +568,7 @@ Initialize(state_t *state)
   if (result != RC_OK)
     DEBUG(init) kdprintf(KR_OSTREAM, "DIR: spcbank GPTs exhausted\n", result);
   
-  /* make that GPT LSS=TOP_LSS */
-  capros_GPT_setL2v(KR_ARG0, BlssToL2v(EROS_ADDRESS_BLSS));
+  capros_GPT_setL2v(KR_ARG0, 17);
 
   /* plug in newly allocated ZSF */
   DEBUG(init) kdprintf(KR_OSTREAM, 
@@ -645,7 +630,6 @@ main()
 
 
   DEBUG(init) kdprintf(KR_OSTREAM, "DIR: Got start key. Ready to rock and roll\n");
-  kdprintf(KR_OSTREAM, "DIR: Got start key. Ready to rock and roll\n");
   msg.snd_invKey = KR_RETURN;
   msg.snd_key0 = KR_ARG0;
   msg.snd_key1 = KR_VOID;
@@ -678,8 +662,6 @@ main()
     ((uint8_t *) msg.rcv_data)[got] = 0;
 
     msg.snd_key0 = KR_VOID;		 /* until otherwise proven */
-    kdprintf(KR_OSTREAM, "Before ProcessRequest(): freemap = 0x%08x\n",
-	     state.freeMap);
   } while ( ProcessRequest(&msg, &state) );
 
   return 0;
