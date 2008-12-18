@@ -285,16 +285,38 @@ InitMapTabHeader(MapTabHeader * mth,
 }
 
 static void
-pageH_MakeUncached(PageHeader * pageH)
+pageH_UnmapOldAddrs(PageHeader * pageH)
 {
+  keyR_ProcessAllMaps(&pageH_ToObj(pageH)->keyRing,
+                            &KeyDependEntry_Invalidate);
+  SetMapWork_InvalidateCache();
+}
+
+#define AddrSwitchThrashTime 100000000ULL	// 0.1 sec in ns
+/* Returns whether the page can now be cached. */
+static bool
+pageH_ConsiderUncached(PageHeader * pageH)
+{
+  // Are we thrashing on access to different addresses?
+  uint64_t now = mach_TicksToNanoseconds(sysT_Now());
+  if (pageH->kt_u.ob.timeOfLastAddrSwitch + AddrSwitchThrashTime < now) {
+    // No, switch to the new address.
+    DEBUG(cache) printf("NONE\n");
+    pageH_UnmapOldAddrs(pageH);
+    return true;
+  }
+
+  // Already switched recently. Rather than switching back and forth
+  // frequently, make the page uncached.
+  DEBUG(cache) printf("UNCACHED\n");
+//dprintf(true, "Making pageh %#x uncached.", pageH);////
   KernStats.nPageUncache++;
 
   /* Unmap all references to this page, because they are cacheable. */
-  keyR_ProcessAllMaps(&pageH_ToObj(pageH)->keyRing,
-                            &KeyDependEntry_Invalidate);
+  pageH_UnmapOldAddrs(pageH);
   pageH->kt_u.ob.cacheAddr = CACHEADDR_UNCACHED;
   /* If and when PTEs to this page are rebuilt, they will be uncached. */
-  SetMapWork_InvalidateCache();
+  return false;
 }
 
 /* Walk the current object's products looking for an acceptable product: */
@@ -840,18 +862,24 @@ FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
   bool canCache = true;	// until proven otherwise
 
   switch (cacheClass) {
+  ca_none:
   case CACHEADDR_NONE:	// not previously mapped
     if (isWrite) {
+      // DEBUG(cache) printf("%#x CACHEADDR_NONE to WRITEABLE\n", pageH);
+    ca_noneWrite:
       assert(! mth2->readOnly);
-      DEBUG(cache) printf("0x%08x CACHEADDR_NONE to WRITEABLE\n", pageH);
       pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_WRITEABLE;
 			// Note, mva has low bits clear
+      pageH->kt_u.ob.timeOfLastAddrSwitch
+        = mach_TicksToNanoseconds(sysT_Now());
     } else {
       if (! mth2->readOnly) {
-        DEBUG(cache) printf("0x%08x CACHEADDR_NONE to ONEREADER\n", pageH);
+        // DEBUG(cache) printf("%#x CACHEADDR_NONE to ONEREADER\n", pageH);
         pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_ONEREADER;
+        pageH->kt_u.ob.timeOfLastAddrSwitch
+          = mach_TicksToNanoseconds(sysT_Now());
       } else {	// page table could be mapped at multiple MVAs
-        DEBUG(cache) printf("0x%08x CACHEADDR_NONE to READERS\n", pageH);
+        // DEBUG(cache) printf("%#x CACHEADDR_NONE to READERS\n", pageH);
         pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
       }
     }
@@ -860,16 +888,18 @@ FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
     if (! mth2->readOnly	// table is at a single MVA
         && pageH->kt_u.ob.cacheAddr == mva) {
       if (isWrite) {
-        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to WRITEABLE\n", pageH);
+        // DEBUG(cache) printf("%#x CACHEADDR_ONEREADER to WRITEABLE\n", pageH);
         pageH->kt_u.ob.cacheAddr |= CACHEADDR_WRITEABLE;
       }
     } else {	// different address
       if (isWrite) {
-        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to UNCACHED\n", pageH);
-        pageH_MakeUncached(pageH);
-        canCache = false;
+        DEBUG(cache) printf("%#x CACHEADDR_ONEREADER %#x new %#x to ",
+                       pageH, pageH->kt_u.ob.cacheAddr, mva);
+        canCache = pageH_ConsiderUncached(pageH);
+        if (canCache)
+          goto ca_none;
       } else {
-        DEBUG(cache) printf("0x%08x CACHEADDR_ONEREADER to READERS\n", pageH);
+        DEBUG(cache) printf("%#x CACHEADDR_ONEREADER to READERS\n", pageH);
         pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
       }
     }
@@ -879,29 +909,18 @@ FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
         && (pageH->kt_u.ob.cacheAddr & ~EROS_PAGE_MASK) == mva) {
       // Nothing to do.
     } else {	// different address
-      if (isWrite) {
-        DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to UNCACHED\n", pageH);
-        pageH_MakeUncached(pageH);
-        canCache = false;
-      } else {
-        /* This page was previously written.
-        We could go to the CACHEADDR_UNCACHED state.
-        But since the writer may have stopped writing, let's try
-        going to CACHEADDR_READERS. */
-        DEBUG(cache) printf("0x%08x CACHEADDR_WRITEABLE to READERS\n", pageH);
-        /* We must unmap all writeable PTEs. */
-        pageH_MakeReadOnly(pageH);
-        SetMapWork_CleanCache();
-        pageH_BecomeUnwriteable(pageH);
-        pageH->kt_u.ob.cacheAddr = CACHEADDR_READERS;
-      }
+      DEBUG(cache) printf("%#x CACHEADDR_WRITEABLE %#x new %#x to ",
+                     pageH, pageH->kt_u.ob.cacheAddr & ~EROS_PAGE_MASK, mva);
+      canCache = pageH_ConsiderUncached(pageH);
+      if (canCache)
+        goto ca_none;
     }
     break;
   case CACHEADDR_READERS:	// readers at multiple MVAs
     if (isWrite) {
-      DEBUG(cache) printf("0x%08x CACHEADDR_READERS to UNCACHED\n", pageH);
-      pageH_MakeUncached(pageH);
-      canCache = false;
+      DEBUG(cache) printf("%#x CACHEADDR_READERS to WRITEABLE\n", pageH);
+      pageH_UnmapOldAddrs(pageH);
+      goto ca_noneWrite;
     }
     // else nothing to do
     break;

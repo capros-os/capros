@@ -37,7 +37,10 @@ Approved for public release, distribution unlimited. */
   struct MapTabsVariant mp;
 
 #define MD_PAGE_OBFIELDS \
-  ula_t cacheAddr;
+  ula_t cacheAddr; \
+  uint64_t timeOfLastAddrSwitch; /* in non-persistent nanoseconds */
+/* timeOfLastAddrSwitch is in units of mach_TicksToNanoseconds(sysT_Now()) */
+
 /* cacheAddr applies only to user-mappable pages; those with obType ==
    ot_PtDataPage, ot_PtDevicePage, ot_PtDMABlock, or ot_PtDMASecondary. */
 
@@ -51,17 +54,22 @@ one of the following states.
 MVA means modified virtual address. A page's MVA may be zero.
 
 1. Not mapped at any MVA. cacheAddr has CACHEADDR_NONE.
+   timeOfLastAddrSwitch is unused.
    The cache has no entries for the page.
 2. Mapped readonly at one MVA. cacheAddr has the MVA
    (low bit is CACHEADDR_ONEREADER).
+   timeOfLastAddrSwitch has the time cacheAddr was set.
    The cache may have clean entries for that MVA.
 3. Mapped writeable at one MVA. cacheAddr has the MVA, with the
    low bit set to CACHEADDR_WRITEABLE.
+   timeOfLastAddrSwitch has the time cacheAddr was set.
    The cache may have clean or dirty entries for that MVA.
 4. Mapped readonly at multiple MVAs. cacheAddr has CACHEADDR_READERS.
+   timeOfLastAddrSwitch is unused.
    The cache may have clean entries for multiple addresses.
 5. Mapped writeable at some MVA, and also mapped at a different MVA.
    cacheAddr has CACHEADDR_UNCACHED.
+   timeOfLastAddrSwitch is unused.
    The cache has no entries for the page.
 
 A device page is always CACHEADDR_UNCACHED. Think of such pages as being
@@ -114,9 +122,9 @@ struct MapTabHeader {
 
 	/* If this is a first level table, tableCacheAddr == 0.
 	If this is a small space, tableCacheAddr == the PID.
-	If this is a second level page table and rwProduct == 1,
+	If this is a second level page table and readOnly == 0,
 	tableCacheAddr has the single MVA at which this table may be mapped.
-	If this is a second level page table and rwProduct == 0,
+	If this is a second level page table and readOnly == 1,
 	tableCacheAddr is unused. */
   ula_t tableCacheAddr;
 
