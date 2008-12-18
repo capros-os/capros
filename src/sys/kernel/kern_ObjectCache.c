@@ -1085,6 +1085,13 @@ pageH_MitigateKRO(PageHeader * old)
          == (OFLG_KRO | OFLG_Cleanable) );
   assert(pageH_GetObType(old) == ot_PtDataPage);
 
+#ifdef OPTION_OB_MOD_CHECK // too slow?
+  uint32_t cc = pageH_CalcCheck(old);
+  if (pageH_ToObj(old)->check != cc)
+    fatal("pageH_MitigateKRO(%#x): chk=%#x CalcCheck=%#x\n",
+	  old, pageH_ToObj(old)->check, cc);
+#endif
+
   // If the page is zero, we can clean it immediately:
   kva_t oldAddr = pageH_MapCoherentRead(old);
   unsigned int i = PageTestZero(oldAddr);

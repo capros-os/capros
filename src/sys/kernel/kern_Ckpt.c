@@ -771,8 +771,6 @@ DoPhase2Work(void)
     nextProcDirLid = IncrementLID(nextProcDirLid);
   }
 
-  DEBUG(ckpt) printf("numKRONodes=%d, numKRODirtyPages=%d pgCursor=%d, nPages=%d\n",
-                numKRONodes, numKRODirtyPages, KROPageCleanCursor, objC_nPages);
   // Clean nodes before pages, because this will generate node pots.
   while (CleanAKRONode()) {
 #if (dbg_numnodes & dbg_flags)	// because it isn't declared otherwise
@@ -815,6 +813,8 @@ DoPhase2Work(void)
 
   nextRangeToSync = 0;
   rangesSynced = 0;
+
+  DEBUG(ckpt) check_Consistency("after ckpt P2");
 
   ckptState = ckpt_Phase3;
 }

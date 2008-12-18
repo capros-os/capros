@@ -173,11 +173,8 @@ check_Pages()
         uint32_t chk = pageH_CalcCheck(pPage);
 
         if (pObj->check != chk) {
-          printf("Frame %d Chk=0x%x CalcCheck=0x%x flgs=0x%02x ty=%d\n on pg OID ",
-                 pg, pObj->check, chk, pObj->flags, pObj->obType);
-	  printOid(pObj->oid);
-	  printf("  pPage 0x%08x dirty\n",
-		       pPage);
+          printf("pageH=%#x Chk=%#x CalcCheck=%#x flgs=%#02x OID=%#llx\n",
+                 pPage, pObj->check, chk, pObj->flags, pObj->oid);
 	  result = false;
         }
       }
