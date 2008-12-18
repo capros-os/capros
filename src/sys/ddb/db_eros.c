@@ -428,12 +428,18 @@ db_eros_print_keyring(KeyRing * kr)
     Key * k = container_of(l, Key, u.ok.kr);
     switch (key_ValidKeyPtr(k)) {
     case 1:
-      db_printf("(in node %#x): ", node_ValidNodeKeyPtr(k));
+    {
+      Node * node = node_ValidNodeKeyPtr(k);
+      db_printf("(in node %#x slot %d): ", node, k - node->slot);
       break;
+    }
 
     case 2:
-      db_printf("(keyreg in Process %#x): ", proc_ValidKeyReg(k));
+    {
+      Process * proc = proc_ValidKeyReg(k);
+      db_printf("(in Process %#x keyreg %d): ", proc, k - proc->keyReg);
       break;
+    }
 
     case 3:
       db_printf("(in activity %#x): ", act_ValidActivityKey(k));
