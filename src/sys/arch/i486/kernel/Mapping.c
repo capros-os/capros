@@ -843,10 +843,6 @@ mach_EnableVirtualMapping()
 static void
 KeyDependEntry_Track(KeyDependEntry * kde, void (*func)(PTE *))
 {
-  if (kde->start == 0) {	// unused entry
-    return;
-  }
-  
   DEBUG(depend) printf("Invalidating key entries start=0x%08x, count=%d\n",
                        kde->start, kde->pteCount);
 

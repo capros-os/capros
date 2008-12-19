@@ -257,8 +257,10 @@ Depend_VisitEntries(Key * pKey, void (*func)(KeyDependEntry *))
     = &KeyDependTable[keybucket_ndx(pKey) * KeyBucketSize];
 
   for (i = 0; i < KeyBucketSize; i++) {
-    if (bucket[i].slotTag == SLOT_TAG(pKey)) {
-      (*func)(&bucket[i]);
+    KeyDependEntry * kde = &bucket[i];
+    if (kde->slotTag == SLOT_TAG(pKey)
+        && KeyDependEntry_InUse(kde) ) {
+      (*func)(kde);
     }
   }
 }

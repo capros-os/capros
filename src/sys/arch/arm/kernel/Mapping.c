@@ -241,10 +241,6 @@ KeyDependEntry_Track(KeyDependEntry * kde,
   void (*FLMTEFunc)(uint32_t *),
   void (*PTEFunc)(PTE *))
 {
-  if (kde->start == 0) {	// unused entry
-    return;
-  }
-  
   if (kde->pteCount == 0) {
     Process * const p = (Process *) kde->start;
     assert(IsInProcess(kde->start));
