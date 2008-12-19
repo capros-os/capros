@@ -59,18 +59,15 @@ physMem_AllocateDMAPages(Invocation * inv)
   PageHeader * pageH;
   while (1) {
     (void)mask;	// FIXME: mask is currently not used.
-    pageH = physMem_AllocateBlock(nPages);
-    if (pageH) break;
+
+    if (OKToGrabPages(nPages, false)) {
+      pageH = physMem_AllocateBlock(nPages);
+      if (pageH) break;
+    }
 
     // FIXME: If there are a few free frames, try to rearrange them 
     // to be a contiguous block.
 
-    /* FIXME: Don't wait for pages to be cleaned, since it could be
-    the page cleaner that needs the space!
-    Sorry, using Linux drivers, we have no guarantee that the space needed
-    will be available. */
-
-    // WaitForAvailablePageFrame
     objC_AgePageFrames();
   }
 

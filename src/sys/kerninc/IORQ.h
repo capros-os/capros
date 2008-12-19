@@ -65,6 +65,13 @@ extern struct StallQueue IOReqCleaningWait;
 
 void SleepOnPFHQueue(StallQueue * sq) NORETURN;
 
+static void SleepOnIOReqCleaning(void) NORETURN;
+INLINE void
+SleepOnIOReqCleaning(void)
+{
+  SleepOnPFHQueue(&IOReqCleaningWait);
+}
+
 void IORQ_Init(void);
 IORequest * IOReq_Allocate(void);
 void IOReq_Deallocate(IORequest * iorq);
@@ -84,5 +91,7 @@ void IOReq_EndWrite(IORequest * ioreq);
 
 LID IncrementLID(LID lid);
 LID NextLogLoc(void);
+
+void CleanLogPot(struct PageHeader * pageH, IORequest * ioreq);
 
 #endif /* __IORQ_H__ */

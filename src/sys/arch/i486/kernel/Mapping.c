@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/util.h>
 #include <kerninc/Activity.h>
 #include <kerninc/Node.h>
+#include <kerninc/PhysMem.h>
 #include <arch-kerninc/PTE.h>
 #include "CpuFeatures.h"
 #include "Process486.h"
@@ -945,13 +946,15 @@ node_ClearGPTHazard(Node * thisPtr, uint32_t ndx)
 
 /* Procedure used by Check: */
 bool
-pageH_mdType_CheckPage(PageHeader * pPage)
+pageH_mdType_CheckPage(PageHeader * pPage, unsigned int * nmtf)
 {
   PTE* pte = 0;
   uint32_t ent = 0;
   PTE* thePTE = 0; /*@ not null @*/
 
   assert(pageH_GetObType(pPage) == ot_PtMappingPage);
+
+  (*nmtf)++;
 
   if (pPage->kt_u.mp.tableSize == 1)
     return true;
@@ -1000,6 +1003,7 @@ ReleaseProduct(MapTabHeader * mth)
   /* Don't need to invalidate the entries in the page. */
 
   ReleasePageFrame(MapTab_ToPageH(mth));
+  physMem_numMapTabPageFrames--;
 }
 
 #if 0

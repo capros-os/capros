@@ -492,15 +492,12 @@ CleanAPotOfNodes(bool force)
     }
   }
 
-  IORequest * ioreq = AllocateIOReqCleaningAndPage();	// may Yield
-  PageHeader * pageH = ioreq->pageH;
+  PageHeader * pageH = objC_GrabPageFrame();	// may Yield
 
   // Now we are committed to creating a log pot.
 
   LID lid = NextLogLoc();
   DEBUG(ckpt) printf("Writing LID %#llx\n", lid);
-  ObjectRange * rng = LidToRange(lid);
-  assert(rng);	// it had better be mounted
 
   DiskNode * dn = (DiskNode *)pageH_GetPageVAddr(pageH);
   for (i = 0; i < numNodesToClean; i++, dn++) {
@@ -519,20 +516,16 @@ CleanAPotOfNodes(bool force)
   }
   numNodesToClean = 0;
 
-#if 0
-  printf("Cleaning a pot of nodes, lid=%#llx.\n", lid);
-#endif
-  // Write the pot.
+  // Initialize the pot.
   pObj = pageH_ToObj(pageH);
   pObj->obType = ot_PtLogPot;
   objH_InitPresentObj(pObj, lid);
 
-  ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
-  ioreq->objRange = rng;
-  ioreq->rangeLoc = OIDToFrame(lid - rng->start);
-  ioreq->doneFn = &IOReq_EndWrite;
-  sq_Init(&ioreq->sq);
-  ioreq_Enqueue(ioreq);
+  // Clean it right away if possible.
+  IORequest * ioreq = IOReqCleaning_Allocate();
+  if (ioreq)
+    CleanLogPot(pageH, ioreq);
+
   return true;
 }
 
@@ -702,8 +695,6 @@ objC_GrabNodeFrame(void)
 {
   DEBUG(nodelist) CheckFreeNodeList();
 
-  assert(! proc_Current() || ! proc_IsPFH(proc_Current()));
-
   if (objC_firstFreeNode == 0)
     objC_AgeNodeFrames();
   
@@ -716,7 +707,6 @@ objC_GrabNodeFrame(void)
 
   objC_firstFreeNode = objH_ToNode(pObj->prep_u.nextFree);
   objC_nFreeNodeFrames--;
-
 
   assert(keyR_IsEmpty(&pObj->keyRing));
   kzero(pObj, sizeof(ObjectHeader));
@@ -964,18 +954,21 @@ PageTestZero(kva_t pgAddr)
   return i;
 }
 
-// May Yield.
-static void
+/* If we succeed in initiating cleaning this page, we return false.
+   If we can't clean the page now, and the current process is not the PFH,
+     we Yield.
+   Otherwise we return true.
+     (Causing the PFH to Yield could result in deadlock.) */
+static bool
 pageH_Clean(PageHeader * pageH)
 {
   if (pageH->ioreq) {	// It is already being cleaned
+    if (proc_IsPFH(proc_Current()))
+      return true;
     SleepOnPFHQueue(&pageH->ioreq->sq);	// wait for that to finish first
   }
 
   switch (pageH_GetObType(pageH)) {
-  case ot_PtLogPot:
-    /* Log pots are cleaned as soon as they are dirtied,
-    so they should not get here. */
   default: ;
     assertex(pageH, false);
 
@@ -984,6 +977,21 @@ pageH_Clean(PageHeader * pageH)
     assert(!"complete");	////
     break;
 
+  case ot_PtLogPot:
+  {
+    /* Log pots are cleaned as soon as they are dirtied, if possible.
+    If not, we clean them here. */
+    IORequest * ioreq = IOReqCleaning_Allocate();
+    if (! ioreq) {
+      if (proc_IsPFH(proc_Current()))
+        return true;
+      SleepOnIOReqCleaning();
+    }
+    // Beware, must not Yield below without freeing ioreq.
+    CleanLogPot(pageH, ioreq);
+    break;
+  }
+
   case ot_PtDataPage:
     keyR_ProcessAllMaps(&pageH_ToObj(pageH)->keyRing,
                         &KeyDependEntry_TrackDirty);
@@ -991,7 +999,12 @@ pageH_Clean(PageHeader * pageH)
     /* IOReqCleaning_AllocateOrWait may Yield. If so we want to do it
     before clearing OFLG_DIRTY, even though we only need the ioreq
     if the page turns out to be nonzero. */
-    IORequest * ioreq = IOReqCleaning_AllocateOrWait();
+    IORequest * ioreq = IOReqCleaning_Allocate();
+    if (! ioreq) {
+      if (proc_IsPFH(proc_Current()))
+        return true;
+      SleepOnIOReqCleaning();
+    }
     // Beware, must not Yield below without freeing ioreq.
 
     pageH_BecomeUnwriteable(pageH);
@@ -1033,6 +1046,7 @@ pageH_Clean(PageHeader * pageH)
       ioreq_Enqueue(ioreq);
     }
   }
+  return false;
 }
 
 // Clean a dirty KRO page.
@@ -1051,7 +1065,9 @@ CleanAKROPage(void)
     case ot_PtLogPot:
       if (objH_GetFlags(pObj, OFLG_KRO | OFLG_DIRTY)
           == (OFLG_KRO | OFLG_DIRTY)) {
-        pageH_Clean(pageH);	// may Yield
+        bool b = pageH_Clean(pageH);	// may Yield
+        (void)b;
+        assert(!b);	// PFH should never call this
         // KROPageCleanCursor++ not necessary
         return;
       }
@@ -1326,7 +1342,8 @@ objC_AgePageFrames(void)
             goto nextPage;
           }
   
-          pageH_Clean(pageH);
+          if (pageH_Clean(pageH))
+            goto nextPage;	// couldn't clean it and we are the PFH
         }
         goto bumpAge;
 
@@ -1343,6 +1360,8 @@ objC_AgePageFrames(void)
           to complete. Wait now for it to complete.
           Otherwise, we would go on to preferentially steal clean pages,
           usually code pages. */
+          if (proc_IsPFH(proc_Current()))
+            goto nextPage;	// we are the PFH, must find another page
           SleepOnPFHQueue(&pageH->ioreq->sq);
         }
 
@@ -1366,20 +1385,44 @@ objC_AgePageFrames(void)
 		nStuck, nPinned);
 }
 
+bool
+OKToGrabPages(unsigned int numPages, bool forMT)
+{
+  /* We reserve KTUNE_MapTabReserve frames for free frames and mapping tables.
+  This prevents a deadlock when the PFH needs a frame but a page has to be
+  cleaned first (cleaning requires the PFH). 
+  Mapping tables can be freed without requiring
+  the user-mode Page Fault Handler (PFH). */
+  if ((int)(physMem_numFreePageFrames + physMem_numMapTabPageFrames)
+      - numPages >= KTUNE_MapTabReserve)
+    return true;
+
+  /* If the request is for a mapping table, that is OK: */
+  if (forMT)
+    return true;
+
+  /* If it is the user-mode Page Fault Handler asking for the page(s),
+  always allow it. Otherwise we risk deadlock, because stealing a page
+  may require cleaning it, which requires the PFH. */
+  if (proc_IsPFH(proc_Current()))
+    return true;
+
+  return false;
+}
+
 /* May Yield. */
 PageHeader *
-objC_GrabPageFrame(void)
+objC_GrabPageFrame2(bool forMT)
 {
   PageHeader * pageH;
 
-  assert(! proc_Current() || ! proc_IsPFH(proc_Current()));
-
   while (1) {
     // Try to allocate one page.
-    pageH = physMem_AllocateBlock(1);
-    if (pageH) break;
+    if (OKToGrabPages(1, forMT)) {
+      pageH = physMem_AllocateBlock(1);
+      if (pageH) break;
+    }
 
-    // WaitForAvailablePageFrame
     objC_AgePageFrames();
   };
 

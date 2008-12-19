@@ -32,6 +32,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Activity.h>
+#include <kerninc/PhysMem.h>
 #include <arch-kerninc/PTE.h>
 #include "arm.h"
 
@@ -664,7 +665,7 @@ mach_EnsureHeap(kva_t target)
 /* Procedure used by Check: */
 
 bool
-pageH_mdType_CheckPage(PageHeader * pPage)
+pageH_mdType_CheckPage(PageHeader * pPage, unsigned int * nmtf)
 {
   PTE* pte;
   uint32_t ent;
@@ -673,6 +674,8 @@ pageH_mdType_CheckPage(PageHeader * pPage)
   assert(pageH_GetObType(pPage) == ot_PtMappingPage2);
   assert(pPage->kt_u.mp.hdrs[0].tableSize == 0);
 	// top level table not fully implemented
+
+  (*nmtf)++;
 
   int i;
   for (i=0; i<4; i++) {
@@ -736,7 +739,8 @@ AllocateCPT(void)
   MapTabHeader * mth;
 
   if (! freeCPTs) {
-    PageHeader * pageH = objC_GrabPageFrame();
+    PageHeader * pageH = objC_GrabPageFrame2(true);
+    physMem_numMapTabPageFrames++;
     pageH->kt_u.mp.obType = ot_PtMappingPage2;
     int i;
     for (i=0; i<4; i++) {
@@ -774,6 +778,7 @@ Check2ndLevelMappingTableFree(PageHeader * pageH)
     *mthpp = mth->next;	// unchain it
   }
   ReleasePageFrame(pageH);
+  physMem_numMapTabPageFrames--;
   return true;
 }
 

@@ -28,6 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Node.h>
 #include <kerninc/IRQ.h>
+#include <kerninc/PhysMem.h>
 #include <kerninc/ObjH-inline.h>
 
 void
@@ -118,7 +119,8 @@ check_Pages()
 {
   int i;
   uint32_t pg;
-  bool result = true;
+  unsigned int numFree = 0;
+  unsigned int numMapTabFrames = 0;
 
   irqFlags_t flags = local_irq_save();
 
@@ -135,10 +137,10 @@ check_Pages()
         PageHeader * pPage2 = objC_GetCorePageFrame(++pg);
         if (pageH_GetObType(pPage2) != ot_PtSecondary) {
           printf("Frame %#x free but %#x not secondary\n", pPage, pPage2);
-          result = false;
-          goto exitLoop;
+          goto fail;
         }
       }
+      numFree += nPages;
       continue;
     }
 
@@ -154,7 +156,7 @@ check_Pages()
     case ot_PtWorkingCopy:
       if (! objH_GetFlags(pageH_ToObj(pPage), OFLG_KRO)) {
         printf("pageH %#x wkg copy but not KRO\n", pPage);
-        result = false;
+        goto fail;
       }
       continue;
 
@@ -162,8 +164,7 @@ check_Pages()
     case ot_PtDataPage:
 #ifndef NDEBUG
       if ( !keyR_IsValid(&pageH_ToObj(pPage)->keyRing, pPage) ) {
-        result = false;
-        break;
+        goto fail;
       }
 #endif
 
@@ -175,24 +176,36 @@ check_Pages()
         if (pObj->check != chk) {
           printf("pageH=%#x Chk=%#x CalcCheck=%#x flgs=%#02x OID=%#llx\n",
                  pPage, pObj->check, chk, pObj->flags, pObj->oid);
-	  result = false;
+          goto fail;
         }
       }
 #endif
       break;
 
     default:
-      if (! pageH_mdType_CheckPage(pPage)) {
-	result = false;
+      if (! pageH_mdType_CheckPage(pPage, &numMapTabFrames)) {
+        goto fail;
       }
       break;
     }
-
-    if (! result) break;	// no point continuing the loop
   }
-exitLoop:
+
+  if (numFree != physMem_numFreePageFrames) {
+    printf("physMem_numFreePageFrames=%d, calc=%d\n",
+           physMem_numFreePageFrames, numFree);
+    goto fail;
+  }
+
+  if (numMapTabFrames != physMem_numMapTabPageFrames) {
+    printf("physMem_numMapTabPageFrames=%d, calc=%d\n",
+           physMem_numMapTabPageFrames, numMapTabFrames);
+    goto fail;
+  }
 
   local_irq_restore(flags);
+  return true;
 
-  return result;
+fail:
+  local_irq_restore(flags);
+  return false;
 }

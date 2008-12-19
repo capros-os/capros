@@ -51,6 +51,7 @@ PmemInfo *physMem_pmemInfo = &PhysicalMemoryInfo[0];
 unsigned long physMem_nPmemInfo;
 
 kpg_t physMem_numFreePageFrames = 0;
+kpg_t physMem_numMapTabPageFrames = 0;
 
 #define logMaxFreePageBlock capros_DevPrivs_logMaxDMABlockSize
 // largest block size we can allocate

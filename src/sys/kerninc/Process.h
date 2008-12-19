@@ -222,14 +222,6 @@ void proc_DumpFloatRegs(Process* thisPtr);
 #endif
 
 #ifndef NDEBUG
-// Return whether this process is part of the user-mode Page Fault Handler
-// (mainly, the disk driver).
-INLINE bool
-proc_IsPFH(const Process * proc)
-{
-  return proc->kernelFlags & KF_PFH;
-}
-
 bool ValidCtxtPtr(const Process * ctxt);
 bool ValidCtxtKeyRingPtr(const KeyRing* kr);
 Process * proc_ValidKeyReg(const Key * pKey);
@@ -276,13 +268,13 @@ proc_SetActivity(Process* thisPtr, struct Activity *activity)
 }
   
 INLINE bool 
-proc_IsUser(Process* thisPtr)
+proc_IsUser(const Process * thisPtr)
 {
   return thisPtr->isUserContext;
 }
 
 INLINE bool 
-proc_IsKernel(Process* thisPtr)
+proc_IsKernel(const Process * thisPtr)
 {
   return !thisPtr->isUserContext;
 }

@@ -95,19 +95,6 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #define KTUNE_MAX_CARDMEM 128
 
-/* Maximum size IN MEGABYTES of the checkpoint log area that can be
-   supported by this kernel.  This determines the size of the submap
-   array.  This number is probably as large as you want to go, since
-   above this point you are starting to lose locality on current
-   generation drives.
-
-   CAUTION: If you reduce this, and your actual checkpoint area holds
-   more than this amount of stuff, YOUR SYSTEM WILL NOT RECOVER.
-
-   FIX: At present this is not actually checked by the restart logic.
-   It definitely should be. */ 
-#define KTUNE_MAXCKLOGSIZE  256	 /* In MEGABYTES. */
-
 /* Max number of block disk controllers on the system.  This is a
    plausible number for a PC, but probably not for, say, a large
    database machine.  Can be changed if you like; the disk structures
@@ -169,22 +156,22 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 				    devices) */
 #endif
 
-/* Following are computed or recomputed on the basis of the values
-   above.  Do not mess with these unless you know what you are about;
-   they check vital kernel sanity conditions. */
-
-
-#define KTUNE_MAXCKLOGSIZE  256	 /* In MEGABYTES. */
-
-
-#define CKPT_MAP_BYTES_PER_MBYTE ((1024*1024)/EROS_PAGE_SIZE)
-#define CKPT_MAP_BYTES  (KTUNE_MAXCKLOGSIZE * CKPT_MAP_BYTES_PER_MBYTE)
-
-/* CKPT_MAXFREESUBMAP is the number of submap structures that should
-   be allocated for use as checkpoint frame allocation counrs.  One
-   byte is needed for each page in the checkpoint log area. */
-#define CKPT_MAXSUBMAP \
-     ((CKPT_MAP_BYTES + EROS_PAGE_SIZE - 1) / EROS_PAGE_SIZE)
+/* KTUNE_MapTabReserve is the number of page frames reserved for mapping
+   tables and for allocations by the user-mode page fault handler (PFH).
+   (Note, number of frames, not tables). 
+   This must be big enough to ensure that the non-persistent objects
+   that comprise the PFH can make progress, otherwise it could deadlock.
+   Too big, and you're reserving pages that could be put to better use. */
+/* Here's how I calculated the number below:
+   The PFH uses at least the following "Linux emulation" address spaces:
+     USB HCD
+     USB Registry
+     USB Storage
+     SCSI
+   Each of these use 4 CPT's directly, plus one each for a VCSK and Supernode,
+   for a total of 4*(4+2) = 24 CPT's which is 6 pages.
+   Add a few more pages for the space bank and some page allocations. */
+#define KTUNE_MapTabReserve 20
 
 /* KTUNE_NDOMAINSTEAL is the number of ARM domains we will steal when
    we have run out of the 15. 

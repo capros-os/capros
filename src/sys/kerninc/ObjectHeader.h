@@ -290,7 +290,7 @@ uint32_t pageH_CalcCheck(const PageHeader * pageH);
 uint32_t objH_CalcCheck(const ObjectHeader* thisPtr);
 #endif
 
-INLINE void 
+INLINE void
 objH_SetFlags(ObjectHeader* thisPtr, uint32_t w)
 {
   thisPtr->flags |= w;
@@ -302,19 +302,19 @@ objH_GetFlags(const ObjectHeader* thisPtr, uint32_t w)
   return (thisPtr->flags & w);
 }
 
-INLINE void 
+INLINE void
 objH_ClearFlags(ObjectHeader * thisPtr, uint32_t w)
 {
   thisPtr->flags &= ~w;
 }
 
-INLINE void 
+INLINE void
 pageH_ClearFlags(PageHeader * thisPtr, uint32_t w)
 {
   objH_ClearFlags(pageH_ToObj(thisPtr), w);
 }
 
-INLINE void 
+INLINE void
 objH_SetDirtyFlag(ObjectHeader* thisPtr)
 {
   objH_SetFlags(thisPtr, OFLG_DIRTY);
@@ -340,7 +340,7 @@ pageH_EnsureWritable(PageHeader * pageH)
   pageH_SetReferenced(pageH);
 }
 
-INLINE void 
+INLINE void
 objH_BeginTransaction()
 {
   /* Increment by two, to ensure it is never zero.
@@ -350,7 +350,7 @@ objH_BeginTransaction()
   will be erroneously considered pinned, but that is harmless. */
 }
     
-INLINE void 
+INLINE void
 objH_TransLock(ObjectHeader* thisPtr)	/* lock for current transaction */
 {
   thisPtr->userPin = objH_CurrentTransaction;
@@ -363,7 +363,7 @@ objH_IsUserPinned(ObjectHeader* thisPtr)
   return (thisPtr->userPin == objH_CurrentTransaction);
 }
   
-INLINE void 
+INLINE void
 objH_ResetKeyRing(ObjectHeader* thisPtr)
 {
   keyR_ResetRing(&thisPtr->keyRing);
@@ -382,7 +382,7 @@ void objH_Rescind(ObjectHeader* thisPtr);
 void objH_ClearObj(ObjectHeader * thisPtr);
 
 /* Procedures for handling machine-dependent page ObTypes. */
-bool pageH_mdType_CheckPage(PageHeader * pageH);
+bool pageH_mdType_CheckPage(PageHeader * pageH, unsigned int * nmtf);
 void pageH_mdType_dump_pages(PageHeader * pageH);
 void pageH_mdType_dump_header(PageHeader * pageH);
 void pageH_mdType_EvictFrame(PageHeader * pageH);

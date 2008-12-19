@@ -37,6 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Debug.h>
 #include <kerninc/Process.h>
 #include <kerninc/GPT.h>
+#include <kerninc/PhysMem.h>
 #include <arch-kerninc/Process.h>
 #include "Process486.h"
 #include <arch-kerninc/PTE.h>
@@ -816,7 +817,8 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 static PageHeader *
 proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 {
-  PageHeader * pTable = objC_GrabPageFrame();
+  PageHeader * pTable = objC_GrabPageFrame2(true);
+  physMem_numMapTabPageFrames++;
 
   pTable->kt_u.mp.obType = ot_PtMappingPage;
   pTable->kt_u.mp.tableSize = 1;

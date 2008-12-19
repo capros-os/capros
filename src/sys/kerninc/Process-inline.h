@@ -112,4 +112,22 @@ proc_HasDevicePrivileges(Process * thisPtr)
   return keyBits_IsType(&thisPtr->procRoot->slot[ProcIoSpace], KKT_DevicePrivs);
 }
 
+/* Return whether this process is part of the user-mode Page Fault Handler
+   (mainly, the disk driver). */
+INLINE bool
+proc_IsPFH(const Process * proc /* may be NULL */ )
+{
+  if (! proc || proc_IsKernel(proc))
+    return false;
+
+  /* We used to have:
+    return proc->kernelFlags & KF_PFH;
+  but since almost every non-persistent process
+  is likely to be working on behalf of the PFH, we have instead: */
+  // return ! OIDIsPersistent(node_ToObj(proc->procRoot)->oid);
+  // The following is faster:
+  return ! objH_GetFlags(node_ToObj(proc->procRoot), OFLG_Cleanable);
+  // KF_PFH should go away once we are convinced this is the right thing. */
+}
+
 #endif /* __PROCESS_INLINE_H__ */

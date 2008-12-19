@@ -61,10 +61,8 @@ SleepOnPFHQueue(StallQueue * sq)
 {
   /* The service of this queue depends on the user-mode Page Fault Handler.
   If a process that is part of the Page Fault Handler sleeps here,
-  there is a possible deadlock.
-  If the current activity has no process, the process has been paged out
-  so it cannot be a part of the Page Fault Handler. */
-  assert(! proc_Current() || ! proc_IsPFH(proc_Current()));
+  there is a possible deadlock. */
+  assert(! proc_IsPFH(proc_Current()));
 
   act_SleepOn(sq);
   act_Yield();
@@ -160,13 +158,6 @@ IOReqCleaning_Allocate(void)
 }
 
 DEFQUEUE(IOReqCleaningWait);
-
-static void SleepOnIOReqCleaning(void) NORETURN;
-static void
-SleepOnIOReqCleaning(void)
-{
-  SleepOnPFHQueue(&IOReqCleaningWait);
-}
 
 // Yields if can't allocate.
 IORequest *
@@ -419,6 +410,22 @@ ioreq_Enqueue(IORequest * ioreq)
 #endif
   link_insertAfter(& iorq->lk, & ioreq->lk);
   sq_WakeAll(& iorq->waiter);
+}
+
+void
+CleanLogPot(PageHeader * pageH, IORequest * ioreq)
+{
+  ioreq->pageH = pageH;
+  pageH->ioreq = ioreq;
+  LID lid = pageH_ToObj(pageH)->oid;
+  ObjectRange * rng = LidToRange(lid);
+  assert(rng);	// it had better be mounted
+  ioreq->requestCode = capros_IOReqQ_RequestType_writeRangeLoc;
+  ioreq->objRange = rng;
+  ioreq->rangeLoc = OIDToFrame(lid - rng->start);
+  ioreq->doneFn = &IOReq_EndWrite;
+  sq_Init(&ioreq->sq);
+  ioreq_Enqueue(ioreq);
 }
 
 void

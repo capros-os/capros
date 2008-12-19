@@ -71,10 +71,19 @@ void objC_InitObjectSources();
 PageHeader * objC_PhysPageToObHdr(kpa_t pagepa);
 
 void objC_WaitForAvailableNodeFrame();
+bool OKToGrabPages(unsigned int numPages, bool forMT);
 Node *objC_GrabNodeFrame();
 
 void objC_AgePageFrames(void);
-PageHeader * objC_GrabPageFrame(void);
+PageHeader * objC_GrabPageFrame2(bool forMT);
+
+// Grab a page frame for something other than a mapping table.
+INLINE PageHeader *
+objC_GrabPageFrame(void)
+{
+  return objC_GrabPageFrame2(false);
+}
+
 void objC_GrabThisPageFrame(PageHeader *);
 void EnsureObjFrames(unsigned int baseType, unsigned int numFrames);
 void CreateLogDirEntryForNonzeroPage(PageHeader * pageH);

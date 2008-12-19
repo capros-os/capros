@@ -141,6 +141,7 @@ preload_Init(void)
       }
       // Unlink from free list:
       link_Unlink(&pageH->kt_u.free.freeLink);
+      physMem_numFreePageFrames -= 1;
       pageH_ToObj(pageH)->obType = ot_PtNewAlloc;
 
       objC_GrabThisPageFrame(pageH);

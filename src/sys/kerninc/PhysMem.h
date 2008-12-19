@@ -82,6 +82,7 @@ extern unsigned long physMem_nPmemInfo;
 extern kpa_t physMem_PhysicalPageBound;
 extern kpsize_t physMem_TotalPhysicalPages;
 extern kpg_t physMem_numFreePageFrames;
+extern kpg_t physMem_numMapTabPageFrames;
 
 kpsize_t physMem_MemAvailable(PmemConstraint *, unsigned unitSize);
 
