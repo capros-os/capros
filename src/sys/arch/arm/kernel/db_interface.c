@@ -52,8 +52,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/IRQ.h>
 #include <arch-kerninc/PTE.h>
 
-#define cnpollc(x) kstream_dbg_stream->SetDebugging((x))
-
 extern void db_trap(int type, int code);
 
 int	db_active = 0;
@@ -101,9 +99,9 @@ kdb_trap(int type,	// always T_BPTFLT
 
 	irqFlags_t flags = local_irq_save();
 	db_active++;
-	cnpollc(true);
+	kstream_dbg_stream->SetDebugging(true);
 	db_trap(type, code);
-	cnpollc(false);
+	kstream_dbg_stream->SetDebugging(false);
 	db_active--;
 	local_irq_restore(flags);
 

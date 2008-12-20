@@ -46,6 +46,7 @@ unsigned int curCol;	// column where the cursor is at, 0 == first column
 static void setInterruptEnable(void);
 static void unbufferedOutput(uint8_t c);
 static void outputBufferedChar(void);
+void SerialStream_SetDebugging(bool onOff);
 
 /* outputProc starts off as unbufferedOutput.
  * After we enable interrupts, it becomes bufferedOutput,
@@ -83,6 +84,7 @@ ValidateBuffer(void)
     // assert(q == outBufInP);	// we can't print now! So:
     if (q != outBufInP) {
       ignoreError = true;	// otherwise we will recurse forever!
+      SerialStream_SetDebugging(true);	// helps get the following msg out
       printf("OutP=%#x InP=%#x chars=%d\n                ",
              p, outBufInP, outBufChars);
       Debugger();
