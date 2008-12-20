@@ -873,6 +873,7 @@ FillPTE(PTE * thePTEP, PageHeader * pageH, kpa_t pageAddr, bool isWrite,
       pageH->kt_u.ob.timeOfLastAddrSwitch
         = mach_TicksToNanoseconds(sysT_Now());
     } else {
+      pageH_BecomeUnwriteable(pageH);
       if (! mth2->readOnly) {
         // DEBUG(cache) printf("%#x CACHEADDR_NONE to ONEREADER\n", pageH);
         pageH->kt_u.ob.cacheAddr = mva | CACHEADDR_ONEREADER;
