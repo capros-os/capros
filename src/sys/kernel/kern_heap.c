@@ -128,7 +128,7 @@ heap_AcquirePage(void)
 
     PageHeader * pageH = objC_GrabPageFrame();
 
-    kpa_t pa = VTOP(pageH_GetPageVAddr(pageH));
+    kpa_t pa = pageH_GetPhysAddr(pageH);
     pageH_ToObj(pageH)->obType = ot_PtKernelUse;
     // objH_SetFlags(pageH, OFLG_DIRTY);	/* always */
 

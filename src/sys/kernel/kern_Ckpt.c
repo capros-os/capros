@@ -265,7 +265,7 @@ DoSync(void)
       // even after the I/O is completed.
       assertex(pObj, pageH->ioreq == 0 || objH_GetFlags(pObj, OFLG_Fetching)
                      || pageH == GenHdrPageH);
-      assertex(pObj, ! objH_GetFlags(pObj, OFLG_KRO));
+      assertex(pObj, ! objH_IsKRO(pObj));
     }
   }
 }
@@ -294,7 +294,7 @@ DeclareDemarcationEvent(void)
 {
   assert(!ckptIsActive());
 
-  DEBUG(ckpt) dprintf(true, "DeclareDemarcationEvent\n");
+  DEBUG(ckpt) printf("DeclareDemarcationEvent\n");
 
   nextRetiredGeneration = 0;
 
@@ -412,7 +412,7 @@ CheckpointPage(PageHeader * pageH)
 {
   ObjectHeader * pObj = pageH_ToObj(pageH);
 
-  assert(! objH_GetFlags(pObj, OFLG_KRO));
+  assert(! objH_IsKRO(pObj));
 
   if (objH_IsDirty(pObj)
     /* If this page is being cleaned, we must make it KRO to ensure
@@ -448,7 +448,7 @@ ValidateNumKRONodes(void)
   for (nodeNum = 0; nodeNum < objC_nNodes; nodeNum++) {
     Node * pNode = objC_GetCoreNodeFrame(nodeNum);
     ObjectHeader * pObj = node_ToObj(pNode);
-    if (objH_GetFlags(pObj, OFLG_KRO)) {
+    if (objH_IsKRO(pObj)) {
       calcKRO++;
     }
   }
@@ -472,12 +472,12 @@ ValidateNumKROPages(void)
     case ot_PtTagPot:
     case ot_PtHomePot:
     case ot_PtLogPot:
-      assertex(pageH, ! objH_GetFlags(pObj, OFLG_KRO));
+      assertex(pageH, ! objH_IsKRO(pObj));
       break;
 
     case ot_PtWorkingCopy:
     case ot_PtDataPage:
-      if (objH_GetFlags(pObj, OFLG_KRO)) {
+      if (objH_IsKRO(pObj)) {
         if (objH_GetFlags(pObj, OFLG_DIRTY)) {
           calcKRO++;
         } else {
@@ -573,7 +573,7 @@ DoPhase1Work(void)
 
     if (OIDIsPersistent(pObj->oid)) {
       if (objH_IsDirty(pObj)) {
-        assert(! objH_GetFlags(pObj, OFLG_KRO));
+        assert(! objH_IsKRO(pObj));
         // Make this node Kernel Read Only.
 
         /* Unpreparing the node ensures that when we next try to dirty
@@ -645,7 +645,7 @@ DoPhase1Work(void)
 
     case ot_PtTagPot:
     case ot_PtHomePot:
-      assertex(pageH, ! objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO));
+      assertex(pageH, ! objH_IsKRO(pageH_ToObj(pageH)));
 
       if (pageH_IsDirty(pageH)) {
         assert(!"complete");	// figure this out later
@@ -656,7 +656,7 @@ DoPhase1Work(void)
       if (! OIDIsPersistent(pageH_ToObj(pageH)->oid))
         break;
     case ot_PtLogPot:
-      assertex(pageH, ! objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO));
+      assertex(pageH, ! objH_IsKRO(pageH_ToObj(pageH)));
 
       CheckpointPage(pageH);
       break;

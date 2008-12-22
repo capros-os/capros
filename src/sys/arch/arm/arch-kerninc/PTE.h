@@ -91,7 +91,8 @@ UpdateTLB(void)
     /* UpdateTLB is called when we are going to user mode.
      * It may also be called when the kernel uses the user-mode map.
      * In either case, user-accessible TLB and cache entries
-     * could be created, so we need to clear MapWork_Kern*. */
+     * could be created, so we need to clear MapWork_KernClearedTLB,
+     * MapWork_KernCleanedCache, and MapWork_KernInvalidatedCache. */
     mapWork = 0;
   }
 }

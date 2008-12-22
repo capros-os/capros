@@ -286,8 +286,8 @@ extern uint16_t objH_CurrentTransaction; /* current transaction number */
 
 
 #ifdef OPTION_OB_MOD_CHECK
-uint32_t pageH_CalcCheck(const PageHeader * pageH);
-uint32_t objH_CalcCheck(const ObjectHeader* thisPtr);
+uint32_t pageH_CalcCheck(PageHeader * pageH);
+uint32_t objH_CalcCheck(ObjectHeader * pObj);
 #endif
 
 INLINE void
@@ -318,6 +318,12 @@ INLINE void
 objH_SetDirtyFlag(ObjectHeader* thisPtr)
 {
   objH_SetFlags(thisPtr, OFLG_DIRTY);
+}
+
+INLINE bool
+objH_IsKRO(const ObjectHeader * thisPtr)
+{
+  return objH_GetFlags(thisPtr, OFLG_KRO);
 }
 
 INLINE bool
@@ -384,6 +390,7 @@ void objH_ClearObj(ObjectHeader * thisPtr);
 /* Procedures for handling machine-dependent page ObTypes. */
 bool pageH_mdType_CheckPage(PageHeader * pageH, unsigned int * nmtf);
 void pageH_mdType_dump_pages(PageHeader * pageH);
+void pageH_mdFields_dump_header(PageHeader * pageH);
 void pageH_mdType_dump_header(PageHeader * pageH);
 void pageH_mdType_EvictFrame(PageHeader * pageH);
 bool pageH_mdType_Aging(PageHeader * pageH);

@@ -63,7 +63,7 @@ INLINE bool
 objH_IsUnwriteable(ObjectHeader * pObj)
 {
   return ! objH_IsDirty(pObj)
-         || objH_GetFlags(pObj, OFLG_KRO)
+         || objH_IsKRO(pObj)
          || objH_MD_IsUnwriteable(pObj);
 }
 

@@ -270,13 +270,17 @@ revalidate: ;
         fatal("proc_SetupExitString needs to fault, unimplemented!");
     }
 
-    uva_t pgPtr = va & ~EROS_PAGE_MASK;
+    uva_t pgPtr;
     // Validate every destination page.
-    for (; pgPtr < vaTop; pgPtr += EROS_PAGE_SIZE) {
-      uint32_t word;
+    for (pgPtr = va;
+         pgPtr < vaTop;
+         pgPtr = (pgPtr + EROS_PAGE_SIZE) & ~EROS_PAGE_MASK ) {
+      /* The area to receive the string is subject to being written,
+      so we are entitled to write to it here even though the
+      invocation is not committed yet. */
       /* Convert to MVA explicitly, because the destination process's
       pid is not loaded. */
-      if (! LoadWordFromUserSpace(proc_VAToMVA(thisPtr, pgPtr), &word)) {
+      if (! StoreByteToUserSpace(proc_VAToMVA(thisPtr, pgPtr), 0)) {
         // Not mapped, try to map it.
         if (! proc_DoPageFault(thisPtr, pgPtr,
               true /* write */, true /* prompt */ )) {

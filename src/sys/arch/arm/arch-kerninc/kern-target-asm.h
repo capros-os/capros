@@ -103,6 +103,8 @@ Otherwise, the FCSE memory space is mapped:
 0xc000.... (PhysMapVA) mapped to all physical memory.
            This is mainly for page tables and other kernel-only memory
            that is not accessed at any other address.
+           This is mapped write-through, so there are no dirty cache
+           entries at these addresses.
            Beware: when accessing user memory via this map,
            you must use the procedures pageH_*MapCoherent*.
            TODO: Need work to support memory in a range of size greater

@@ -73,8 +73,8 @@ objC_ddb_dump_obj(ObjectHeader * pObj)
 	 ddb_obtype_name(pObj->obType),
 	 pObj->oid,
 	 objH_IsUserPinned(pObj) ? 'y' : 'n',
-	 objH_GetFlags(pObj, OFLG_DIRTY) ? 'y' : 'n',
-	 objH_GetFlags(pObj, OFLG_KRO) ? 'y' : 'n',
+	 objH_IsDirty(pObj) ? 'y' : 'n',
+	 objH_IsKRO(pObj) ? 'y' : 'n',
 	 goodSum,
 	 objH_GetFlags(pObj, OFLG_AllocCntUsed) ? 'y' : 'n',
 	 objH_GetFlags(pObj, OFLG_CallCntUsed) ? 'y' : 'n');

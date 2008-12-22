@@ -22,6 +22,7 @@ Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 	
 #include <eros/arch/arm/asm.h>
+#include "arm.h"
 #include "PTEarm.h"
 
 	.text
@@ -59,58 +60,66 @@ have the work to be done. */
 	ldr r2,[r1]
 	tst r2,#MapWork_KernCleanedCache
 	movne pc,lr	// already cleaned, therefore already invalidated too
-	orr r2,r2,#MapWork_KernCleanedCache
-	str r2,[r1]	// set the bit to indicate we cleaned the cache
-/* We need to do the above store BEFORE cleaning the cache.
-Otherwise a subsequent InvalidateCache will lose the data. */
-	// Clean the cache.
-#if 0
-	stmfd sp!,{r0,r1,lr}
-	ldr r0,=2f
-	bl printf
-	.section .rodata
-2:	.asciz "Cleaned Cache\n"
-	.text
-	ldmfd sp!,{r0,r1,lr}
+// We are definitely going to clean the cache.
+	// Are we also going to invalidate?
+	tst r0,#MapWork_UserCacheWrong
+#ifdef OPTION_WRITEBACK
+	ldr r0,=cacheSetIndexCarry
+	ldr r3,=cacheSetIndexIncrement
+	ldr r0,[r0]
+	ldr r3,[r3]
 #endif
+        beq 3f		// not invalidating
+	tst r2,#MapWork_KernInvalidatedCache
+	bne 3f		// already invalidated
+// Clean and invalidate the cache.
+	orr r2,r2,#(MapWork_KernCleanedCache | MapWork_KernInvalidatedCache)
+	str r2,[r1]	// set the Kern*Cache bits to indicate work we did
+	mov r1,#0	// cache index
 #ifdef OPTION_WRITEBACK
 	/* Here is the downside of OPTION_WRITEBACK.
            This takes at least 12.8 microseconds on the EDB9315. */
-	ldr r1,=cacheSetIndexIncrement
-	ldr r2,=cacheSetIndexCarry
-	ldr r1,[r1]
-	ldr r2,[r2]
-	mov r3,#0
-0:	mcr p15,0,r3,c7,c10,2	// clean data cache
-	add r3,r3,r1	// add increment for next set
-	add r3,r3,r2	// propagate any carry to index field
-	bics r3,r3,r2	// prepare for next carry
+0:	mcr p15,0,r1,c7,c14,2	// clean and invalidate data cache line
+	add r1,r1,r3	// add increment for next set, and propagate carry
+	bics r1,r1,r0	// prepare for next carry
 	bne 0b
+#else
+	mcr p15,0,r1,c7,c7,0	// invalidate entire cache(s)
 #endif
-	// r0 still has work to be done
-
-3:	tst r0,#MapWork_UserCacheWrong
-	moveq pc,lr		// if not invalidating, return
-	ldr r1,=mapWork
-	ldr r2,[r1]
-	tst r2,#MapWork_KernInvalidatedCache
-	movne pc,lr		// already invalidated
-	orr r2,r2,#MapWork_KernCleanedCache
-	// Invalidate the cache.
-	mov r3,#0
-	mcr p15,0,r3,c7,c7,0	// invalidate entire cache(s)
 #if 0
-	stmfd sp!,{r1,r2,lr}
+	stmfd sp!,{lr}
 	ldr r0,=2f
 	bl printf
-	ldmfd sp!,{r1,r2,lr}
 	.section .rodata
-2:	.asciz "Invalidated Cache\n"
+2:	.asciz "Cleaned and invalidated cache\n"
 	.text
+	ldmfd sp!,{lr}
 #endif
-	/* The following store must be done AFTER invalidating the cache,
-	else it will be lost. */
-	str r2,[r1]	// set the bit to indicate we cleaned the cache
+	mov pc,lr		// return
+
+// Get here if cleaning but not invalidating.
+3:	orr r2,r2,#MapWork_KernCleanedCache
+	str r2,[r1]	// set the KernCleanedCache bit to indicate work we did
+
+	// Clean the cache.
+#ifdef OPTION_WRITEBACK
+	/* Here is the downside of OPTION_WRITEBACK.
+           This takes at least 12.8 microseconds on the EDB9315. */
+	mov r1,#0	// cache index
+0:	mcr p15,0,r1,c7,c10,2	// clean data cache line
+	add r1,r1,r3	// add increment for next set, and propagate carry
+	bics r1,r1,r0	// prepare for next carry
+	bne 0b
+#if 0
+	stmfd sp!,{lr}
+	ldr r0,=2f
+	bl printf
+	.section .rodata
+2:	.asciz "Cleaned cache\n"
+	.text
+	ldmfd sp!,{lr}
+#endif
+#endif
 	mov pc,lr		// return
 
 
@@ -174,6 +183,24 @@ TLBMsg:	.asciz "Flushed TLB\n"
 	ENTRY(LoadWordFromUserSpaceReturn)
 	mov r0,#0	/* return false */
 	mov pc,lr
+
+
+/* StoreByteToUserSpace
+   Returns true iff successful.
+   Before calling, you must call UpdateTLB() so the user-mode map is correct. */
+	ENTRY(StoreByteToUserSpace)
+/* The following instruction will fault if the user does not have access.
+   The fault handler recognizes this instruction address. */
+	ENTRY(StoreByteToUserSpaceInstr)
+	strbt r1,[r0]
+	mov r0,#1	/* successful, return true */
+	mov pc,lr
+
+/* If the above access failed, we get here. */
+	ENTRY(StoreByteToUserSpaceReturn)
+	mov r0,#0	/* return false */
+	mov pc,lr
+
 
 /* SafeLoadByte
    Returns true iff successful. */

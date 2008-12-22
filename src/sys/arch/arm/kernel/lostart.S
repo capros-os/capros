@@ -54,8 +54,7 @@ Approved for public release, distribution unlimited. */
 
 	PUTC(#65)	// 'A
 // Redboot starts us with MMU enabled, disable it now.
-// FIXME: On EDB9315A, phys mem starts at 0xc0000000 and Redboot's map
-// is not trivial. 
+// FIXME: Do we need to clean the cache here?
 
 	mrc p15,0,r9,c2,c0,0	// read TTBR
 	bic r9,r9,#0xff
@@ -281,7 +280,7 @@ be at the same address! */
 	str r0,[r5, r1]
 	// Clean the just-written word from the cache to the FLPT.
 	add r1,r1,r5
-	mcr p15,0,r1,c7,c10,1
+	mcr p15,0,r1,c7,c10,1	// clean DCache single entry
 	mcr p15,0,r0,c8,c7,0	// flush both TLBs
 
 /* Map whole sections (1MB). */

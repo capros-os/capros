@@ -229,6 +229,7 @@ AbortBadMode:
 
 TransferTable:
 	.long LoadWordFromUserSpaceInstr,LoadWordFromUserSpaceReturn
+	.long StoreByteToUserSpaceInstr,StoreByteToUserSpaceReturn
 	.long SafeLoadByteInstr,SafeLoadByteReturn
 	.long SafeStoreByteInstr,SafeStoreByteReturn
 	.long SWI_CSwap32_Ref1,SWI_CSwap32_Fault1

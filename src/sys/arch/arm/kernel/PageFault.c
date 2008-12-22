@@ -212,7 +212,7 @@ pte_ObIsNotWritable(PageHeader * pageH)
   uint32_t ent;
   
   /* Start by building a writable PTE for the page: */
-  uint32_t pagePA = VTOP(pageH_GetPageVAddr(pageH));
+  uint32_t pagePA = pageH_GetPhysAddr(pageH);
 
 #ifdef OPTION_SMALL_SPACES
   /* Check small spaces first: */

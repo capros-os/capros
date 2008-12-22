@@ -456,7 +456,7 @@ node_ClearDirty(Node * pNode)
 {
   ObjectHeader * pObj = node_ToObj(pNode);
 
-  if (objH_GetFlags(pObj, OFLG_KRO)) {
+  if (objH_IsKRO(pObj)) {
     numKRONodes--;
     assert(numKRONodes >= 0);
     objH_ClearKRO(pObj);
@@ -481,7 +481,7 @@ CleanAPotOfNodes(bool force)
     Node * pNode = nodesToClean[i];
     pObj = node_ToObj(pNode);
     if ((pObj->objAge < age_Steal	// It was referenced
-         && ! objH_GetFlags(pObj, OFLG_KRO) )	// and not KRO
+         && ! objH_IsKRO(pObj) )	// and not KRO
         || pObj->obType == ot_NtFreeFrame) { // It was freed
       // It's no longer a candidate to clean.
       // Remove it.
@@ -650,7 +650,7 @@ objC_AgeNodeFrames(void)
         if (objH_IsDirty(pObj)) {
           /* During a checkpoint, the current version can't be cleaned;
           it must go into the next generation. */
-          if (ckptIsActive() && ! objH_GetFlags(pObj, OFLG_KRO)) {
+          if (ckptIsActive() && ! objH_IsKRO(pObj)) {
             nStuck++;
             goto nextNode;
           }
@@ -744,7 +744,7 @@ CleanAKRONode(void)
   while (KRONodeCleanCursor < objC_nNodes) {
     Node * pNode = objC_GetCoreNodeFrame(KRONodeCleanCursor++);
     ObjectHeader * pObj = node_ToObj(pNode);
-    if (objH_GetFlags(pObj, OFLG_KRO)) {
+    if (objH_IsKRO(pObj)) {
       node_Clean(pNode);
       return true;
     }
@@ -770,7 +770,7 @@ node_MitigateKRO(Node * pNode)
          == (OFLG_Cleanable | OFLG_DIRTY | OFLG_KRO));
 
   CleanAPotOfNodes(false);	// ensure numNodesToClean < DISK_NODES_PER_PAGE
-  if (! objH_GetFlags(pObj, OFLG_KRO))	// it got cleaned
+  if (! objH_IsKRO(pObj))	// it got cleaned
     return;
   if (node_Clean(pNode))
     return;
@@ -778,7 +778,7 @@ node_MitigateKRO(Node * pNode)
   Keep cleaning nodes until the pot is cleaned.
   These may not be "hot" nodes, but they do need to be cleaned eventually,
   and most likely can be cleaned (to a pot) without requiring I/O. */
-  while (objH_GetFlags(pObj, OFLG_KRO))
+  while (objH_IsKRO(pObj))
     CleanAKRONode();
 }
 
@@ -880,7 +880,7 @@ DoneCleaningPage(PageHeader * pageH)
   ObjectHeader * pObj = pageH_ToObj(pageH);
 
   // Clear any KRO:
-  if (objH_GetFlags(pObj, OFLG_KRO))
+  if (objH_IsKRO(pObj))
     objH_ClearKRO(pObj);
 
   if (pageH_GetObType(pageH) == ot_PtWorkingCopy) {
@@ -904,8 +904,7 @@ IOReq_EndPageClean(IORequest * ioreq)
   pageH->ioreq = NULL;
 
   // If it's KRO, it had better not be dirty:
-  assert(! objH_GetFlags(pObj, OFLG_KRO)
-         || ! objH_IsDirty(pObj) );
+  assert(! objH_IsKRO(pObj) || ! objH_IsDirty(pObj) );
 
   if (pageH_IsDirty(pageH)) {
     // The page was dirtied while it was being written.
@@ -913,7 +912,7 @@ IOReq_EndPageClean(IORequest * ioreq)
     // This log location will not be used.
     // No point in making a log directory entry.
   } else {
-    if (! objH_GetFlags(pObj, OFLG_KRO))
+    if (! objH_IsKRO(pObj))
       CreateLogDirEntryForNonzeroPage(pageH);
     // else KRO, dir ent was created earlier.
   }
@@ -1009,7 +1008,7 @@ pageH_Clean(PageHeader * pageH)
 
     pageH_BecomeUnwriteable(pageH);
     pageH_ClearFlags(pageH, OFLG_DIRTY);
-    if (objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO)) {
+    if (objH_IsKRO(pageH_ToObj(pageH))) {
       numKRODirtyPages--;
       assert(numKRODirtyPages >= 0);
     }
@@ -1036,7 +1035,7 @@ pageH_Clean(PageHeader * pageH)
       ioreq->rangeLoc = OIDToFrame(lid - rng->start);
       ioreq->doneFn = &IOReq_EndPageClean;
 
-      if (objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO))
+      if (objH_IsKRO(pageH_ToObj(pageH)))
         /* We know it will stay clean, so we might as well create the
         dir ent now, rather than in IOReq_EndPageClean. That also ensures
         that all dir ents have been created by checkpoint phase 3. */
@@ -1337,7 +1336,7 @@ objC_AgePageFrames(void)
           /* During a checkpoint, the current version can't be cleaned;
           it must go into the next generation. */
           if (ckptIsActive()
-              && ! objH_GetFlags(pageH_ToObj(pageH), OFLG_KRO) ) {
+              && ! objH_IsKRO(pageH_ToObj(pageH)) ) {
             nStuck++;
             goto nextPage;
           }

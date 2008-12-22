@@ -696,7 +696,7 @@ pageH_mdType_CheckPage(PageHeader * pPage, unsigned int * nmtf)
               return false;
             }
 
-            if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_KRO)) {
+            if (objH_IsKRO(pageH_ToObj(thePageHdr))) {
               printf("Writable PTE=%#x at %#x (map hdr %#x) KRO pg %#x\n",
 		       pteWord, thePTE, pPage, thePageHdr);
 
@@ -922,7 +922,7 @@ pageH_MapCoherentRead(PageHeader * pageH)
   case CACHEADDR_UNCACHED:	// writer(s) and multiple MVAs
 
   /* For case CACHEADDR_READERS, we could just access the page
-   * at PTOV(pageH_GetPhysAddr(pageH)).
+   * at pageH_GetPageVAddr(pageH).
    * But since there could be stale cache entries at that address,
    * we would have to call
    * mach_DoCacheWork(MapWork_UserCacheWrong | MapWork_UserDirtyWrong).
@@ -968,7 +968,7 @@ pageH_MapCoherentWrite(PageHeader * pageH)
     mach_DoCacheWork(mapWork | MapWork_UserDirtyWrong);
   case CACHEADDR_ONEREADER:	// read only at one MVA
   case CACHEADDR_READERS:	// readers at multiple MVAs
-    return PTOV(pageH_GetPhysAddr(pageH));
+    return pageH_GetPageVAddr(pageH);
   }
 }
 
@@ -1037,6 +1037,12 @@ DumpMapTabHdr(MapTabHeader * mth)
 {
   printf("    producer=0x%08x\n",
          mth->producer );
+}
+
+void
+pageH_mdFields_dump_header(PageHeader * pageH)
+{
+  printf(" cacheAddr=%#x\n", pageH->kt_u.ob.cacheAddr);
 }
 
 void

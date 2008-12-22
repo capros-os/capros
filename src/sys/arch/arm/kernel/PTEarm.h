@@ -264,14 +264,14 @@ struct PTE {
   uint32_t w_value;
 };
 
-INLINE void PTE_Set(PTE * pte, uint32_t val)
+INLINE void PTE_Set(struct PTE * pte, uint32_t val)
 {
   pte->w_value = val;
 }
 
 #ifdef KVA_PTEBUF
 /* Defined in IPC-vars.c: */
-extern PTE* pte_kern_ptebuf;
+extern struct PTE * pte_kern_ptebuf;
 #endif
 
 // mth cannot be for a small space.
@@ -306,6 +306,7 @@ void mach_LoadPID(uint32_t pid);
 void mach_LoadDACR(uint32_t dacr);
 bool LoadWordFromUserSpace(uva_t userAddr, uint32_t * resultP);
 void LoadWordFromUserVirtualSpace(uva_t userAddr, uint32_t * resultP);
+bool StoreByteToUserSpace(uva_t userAddr, uint32_t byte);
 bool SafeLoadByte(uint8_t * addr, uint8_t * resultP);
 bool SafeStoreByte(uint8_t * addr, uint8_t value);
 MapTabHeader * AllocateCPT(void);

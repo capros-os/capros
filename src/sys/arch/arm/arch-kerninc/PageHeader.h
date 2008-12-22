@@ -42,7 +42,13 @@ Approved for public release, distribution unlimited. */
 /* timeOfLastAddrSwitch is in units of mach_TicksToNanoseconds(sysT_Now()) */
 
 /* cacheAddr applies only to user-mappable pages; those with obType ==
-   ot_PtDataPage, ot_PtDevicePage, ot_PtDMABlock, or ot_PtDMASecondary. */
+   ot_PtDataPage, ot_PtDevicePage, ot_PtDMABlock, or ot_PtDMASecondary.
+
+   For all other types, including ot_PtFreeFrame:
+     There is no user map.
+     timeOfLastAddrSwitch is unused.
+     The cache has no entries for the page at user addresses,
+     and no dirty entries, but may have clean entries at PhysMapVA. */
 
 #define CACHEADDR_ONEREADER 0
 #define CACHEADDR_WRITEABLE 1
@@ -52,6 +58,8 @@ Approved for public release, distribution unlimited. */
 /* To support cache coherency, a user-mappable page is in
 one of the following states.
 MVA means modified virtual address. A page's MVA may be zero.
+In all cases, there may be clean stale cache entries at PhysMapVA, but
+they won't be used.
 
 1. Not mapped at any MVA. cacheAddr has CACHEADDR_NONE.
    timeOfLastAddrSwitch is unused.
@@ -76,7 +84,7 @@ A device page is always CACHEADDR_UNCACHED. Think of such pages as being
 writeable by the hardware. 
 
 The kernel can read and write pages at the kernel address
-PTOV(pageH_GetPhysAddr(pageH)).
+pageH_GetPageVAddr(pageH).
 These addresses are mapped write-through, so they never have dirty
 cache entries.
 User-mappable pages (including DMA pages) may have cache entries

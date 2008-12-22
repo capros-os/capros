@@ -27,10 +27,10 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/PhysMem.h>
 #include <kerninc/multiboot.h>
 
-#define dbg_init	0x1u
+#define dbg_init	0x1
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u )
+#define dbg_flags   ( 0x0 )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -60,9 +60,10 @@ uint32_t mach_ReadCacheType(void);
     logDataCacheAssociativity++;	// round log up
 
   // Calculate constants for the cleaning code in mach_DoCacheWork.
-  cacheSetIndexIncrement = 1ul << logDataCacheLineLength;
   cacheSetIndexCarry = (1ul << (32-logDataCacheAssociativity))
     - (1ul << (logDataCacheLineLength + logDataCacheNSets));
+  cacheSetIndexIncrement = (1ul << logDataCacheLineLength)
+    + cacheSetIndexCarry;
 
   DEBUG (init) printf("CacheType %x, lll=%d, lassoc=%d, lnsets=%d\n",
          cacheType, logDataCacheLineLength, logDataCacheAssociativity,

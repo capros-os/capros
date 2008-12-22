@@ -135,7 +135,7 @@ void
 objH_EnsureWritable(ObjectHeader * pObj)
 {
   if (objH_IsDirty(pObj)
-      && ! objH_GetFlags(pObj, OFLG_KRO) )	// already writeable
+      && ! objH_IsKRO(pObj) )	// already writeable
     return;
 
   // Non-persistent objects are always dirty and never KRO,
@@ -171,7 +171,7 @@ objH_EnsureWritable(ObjectHeader * pObj)
   unsigned long availWorkingDirEnts = ld_numAvailableEntries(retiredGeneration);
 
   if (! ckptIsActive()) {
-    assertex(pObj, ! objH_GetFlags(pObj, OFLG_KRO));
+    assertex(pObj, ! objH_IsKRO(pObj));
 
     // Tentatively count this object as dirty:
     numDirtyObjectsWorking[baseType]++;
@@ -269,7 +269,7 @@ objH_EnsureWritable(ObjectHeader * pObj)
     // Undo tentative count, because MitigateKRO may Yield.
     numDirtyObjectsNext[baseType]--;
 
-    if (objH_GetFlags(pObj, OFLG_KRO)) {
+    if (objH_IsKRO(pObj)) {
       switch (objH_GetBaseType(pObj)) {
       default:	// page
         if (pageH_MitigateKRO(objH_ToPage(pObj)) != objH_ToPage(pObj))
@@ -400,32 +400,27 @@ pageH_GetNodeFromPot(PageHeader * pageH, unsigned int obIndex)
 
 #ifdef OPTION_OB_MOD_CHECK
 uint32_t
-pageH_CalcCheck(const PageHeader * pageH)
+pageH_CalcCheck(PageHeader * pageH)
 {
   unsigned int w;
   uint32_t ck = 0;
   
-  /* Note, we access the page via the physical map, which can cause
-     cache incoherency if the page was written via some other
-     virtual address. But this should not matter, because we only
-     use the resultant checksum if we expect the page is not modified.
-  */
-
-  const uint32_t *  pageData = (const uint32_t *) pageH_GetPageVAddr(pageH);
+  const uint32_t *  pageData = (const uint32_t *) pageH_MapCoherentRead(pageH);
 
   for (w = 0; w < EROS_PAGE_SIZE/sizeof(uint32_t); w++)
     ck ^= pageData[w];
+  pageH_UnmapCoherentRead(pageH);
 
   return ck;
 }
 
 uint32_t
-objH_CalcCheck(const ObjectHeader * thisPtr)
+objH_CalcCheck(ObjectHeader * thisPtr)
 {
   if (objH_isNodeType(thisPtr)) {
-    return node_CalcCheck(objH_ToNodeConst(thisPtr));
+    return node_CalcCheck(objH_ToNode(thisPtr));
   } else {		// it's a page
-    return pageH_CalcCheck(objH_ToPageConst(thisPtr));
+    return pageH_CalcCheck(objH_ToPage(thisPtr));
   }
 }
 #endif
@@ -483,6 +478,7 @@ objH_ddb_dump(ObjectHeader * thisPtr)
   case ot_PtHomePot:
   case ot_PtLogPot:
     PrintObjData(thisPtr);
+    pageH_mdFields_dump_header(objH_ToPage(thisPtr));
   case ot_PtNewAlloc:
   case ot_PtKernelUse:
   case ot_PtSecondary:

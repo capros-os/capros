@@ -154,7 +154,7 @@ check_Pages()
       continue;
 
     case ot_PtWorkingCopy:
-      if (! objH_GetFlags(pageH_ToObj(pPage), OFLG_KRO)) {
+      if (! objH_IsKRO(pageH_ToObj(pPage))) {
         printf("pageH %#x wkg copy but not KRO\n", pPage);
         goto fail;
       }
