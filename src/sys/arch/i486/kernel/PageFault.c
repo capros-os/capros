@@ -197,7 +197,7 @@ pte_ObIsNotWritable(PageHeader * pageH)
   uint32_t ent;
   
   /* Start by building a writable PTE for the page: */
-  uint32_t kvaw = pageH_GetPageVAddr(pageH);
+  uint32_t kvaw = pageH_GetPhysAddr(pageH);
 
   kvaw |= PTE_W;
 
@@ -770,7 +770,7 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
     pageH_EnsureWritable(objH_ToPage(wi.memObj));
   }
 
-  kpa_t pageAddr = VTOP(pageH_GetPageVAddr(objH_ToPage(wi.memObj)));
+  kpa_t pageAddr = pageH_GetPhysAddr(objH_ToPage(wi.memObj));
 
   assert ((pageAddr & EROS_PAGE_MASK) == 0);
   // Must not be within the kernel:

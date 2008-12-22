@@ -970,7 +970,7 @@ pageH_mdType_CheckPage(PageHeader * pPage, unsigned int * nmtf)
       PageHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);
       assert(thePageHdr && pageH_IsObjectType(thePageHdr));
 
-      if (objH_GetFlags(pageH_ToObj(thePageHdr), OFLG_KRO)) {
+      if (objH_IsKRO(pageH_ToObj(thePageHdr))) {
         printf("Writable PTE=0x%08x (map page 0x%08x), KRO pg %#x\n",
 	       pte_AsWord(thePTE), pte, thePageHdr);
 
@@ -1042,7 +1042,7 @@ pageH_mdType_Aging(PageHeader * pageH)
 kva_t
 pageH_MapCoherentRead(PageHeader * pageH)
 {
-  return PTOV(pageH_GetPhysAddr(pageH));
+  return pageH_GetPageVAddr(pageH);
 }
 
 void
@@ -1052,7 +1052,7 @@ pageH_UnmapCoherentRead(PageHeader * pageH)
 kva_t
 pageH_MapCoherentWrite(PageHeader * pageH)
 {
-  return PTOV(pageH_GetPhysAddr(pageH));
+  return pageH_GetPageVAddr(pageH);
 }
 
 void
@@ -1091,6 +1091,11 @@ pageH_mdType_dump_pages(PageHeader * pageH)
     producerType = 'p';
   }
   printf("prod %c\n", producerType);
+}
+
+void
+pageH_mdFields_dump_header(PageHeader * pageH)
+{
 }
 
 void
