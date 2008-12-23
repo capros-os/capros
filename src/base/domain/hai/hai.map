@@ -40,7 +40,6 @@ BOOT_DOMCRE(hai);
 name##hai_proc = new process; \
 name##hai_proc pc = hai_pc; \
 name##hai_prog = small program LIBDIR "hai"; \
-name##hai_space = name##hai_prog with page at 0x1f000; \
 name##hai_proc space = name##hai_space; \
 name##hai_proc schedule = sched(8); \
 name##hai_proc symtab = number("hai"); \
