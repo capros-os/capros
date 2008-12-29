@@ -100,7 +100,7 @@ for i; do
    esac
 done
 
-CPPARGS="${CPPARGS} ${STDINC}"
+CPPARGS="${CPPARGS} ${STDINC} -include ${EROS_ROOT}/host/include/mkimage.preinclude"
 
 if test $# -ne 2 -a $# -ne 1; then
    usage
