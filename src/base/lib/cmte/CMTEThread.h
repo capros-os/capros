@@ -1,5 +1,7 @@
+#ifndef __CMTETHREAD_H
+#define __CMTETHREAD_H
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -21,14 +23,23 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <domain/cmte.h>
-#include <domain/cmte_stackPtr.h>
+#include <eros/target.h>	// get result_t
 
-unsigned int lk_getCurrentThreadNum(void)
-{
-  /* See which area the stack pointer falls in. */
-  /* Note, the highest addresses in the stack contain the struct thread_info.
-   Therefore the sp can never point above the highest address in the stack,
-   even if the stack is completely empty. */
-  return (current_stack_pointer - LK_STACK_BASE) >> LK_LGSTACK_AREA;
-}
+// Values that are not thread numbers:
+#define noThread (-1)
+#define noThread2 (-2)
+
+/* If stackSize > 0x1f000, returns RC_capros_key_RequestError.
+ * If no more threads can be created (max is 32),
+ *   returns RC_capros_CMTEThread_NoMoreThreads.
+ * May return any exception from capros_ProcCre_createProcess().
+ */
+#define RC_capros_CMTEThread_NoMoreThreads (-1)
+result_t
+CMTEThread_create(uint32_t stackSize,
+		  void * (* start_routine)(void *), void * arg,
+		  /* out */ unsigned int * newThreadNum);
+void CMTEThread_exit(void);
+void CMTEThread_destroy(unsigned int threadNum);
+
+#endif // __CMTETHREAD_H

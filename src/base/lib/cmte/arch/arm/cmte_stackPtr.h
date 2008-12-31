@@ -1,5 +1,7 @@
+#ifndef __STACKPTR_H
+#define __STACKPTR_H
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -21,14 +23,5 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <domain/cmte.h>
-#include <domain/cmte_stackPtr.h>
-
-unsigned int lk_getCurrentThreadNum(void)
-{
-  /* See which area the stack pointer falls in. */
-  /* Note, the highest addresses in the stack contain the struct thread_info.
-   Therefore the sp can never point above the highest address in the stack,
-   even if the stack is completely empty. */
-  return (current_stack_pointer - LK_STACK_BASE) >> LK_LGSTACK_AREA;
-}
+register unsigned long current_stack_pointer asm("sp");
+#endif // __STACKPTR_H

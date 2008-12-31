@@ -1,5 +1,5 @@
-#ifndef __LPROG_MAP_
-#define __LPROG_MAP_
+#ifndef __CMTE_MAP_
+#define __CMTE_MAP_
 /*
  * Copyright (C) 2008, Strawberry Development Group.
  *
@@ -23,15 +23,14 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <linuxk/lsync.h>
-#include <asm/thread_info.h>
+#include <domain/cmte.h>
 
-/* Linux programs are loaded with code at 0x1000 and data at 0x00c00000.
+/* CMTE programs are loaded with code at 0x1000 and data at 0x00c00000.
    Therefore the l2v of prog is 22,
    the code is in prog[0], and data in prog[3]. */
 
-/* Set up a program with Linux emulation. */
-#define LPROG(dname, prog, progpc, schedKey) \
+/* Set up a program with the CapROS Multi-Threading Environment. */
+#define CMTE(dname, prog, progpc, schedKey) \
 dname##_space = new GPT with lss 3;	/* l2v = 22 */ \
 dname##_space[0] = ro prog[0]; \
 dname##_stacks = new GPT with lss 2;	/* l2v = 17 */ \
@@ -44,7 +43,7 @@ MAKE_VIRTUAL_COPIER_SEG(dname##data, prog[3]); \
  \
 dname##_proc = new process; \
 dname##_proc pc = progpc; \
-dname##_proc sp = (0x420000 - SIZEOF_THREAD_INFO); \
+dname##_proc sp = (0x420000 - 4); \
 dname##_proc space = dname##_space; \
 dname##_proc schedule = schedKey; \
 dname##_proc symtab = number(#dname); \
@@ -60,4 +59,4 @@ dname##_proc key reg KR_TEMP2   = dname##_space; \
 dname##_proc key reg KR_RETURN  = dname##_stacks; \
 run dname##_proc
 
-#endif //__LPROG_MAP_
+#endif //__CMTE_MAP_

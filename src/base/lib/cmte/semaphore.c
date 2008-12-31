@@ -21,25 +21,26 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <linuxk/linux-emul.h>
-#include <asm-generic/semaphore.h>
-#include <linux/wait.h>
+#include <domain/cmtesync.h>
+#include <domain/CMTESemaphore.h>
+#include <eros/machine/atomic.h>
 #include <idl/capros/LSync.h>
-#include <linuxk/lsync.h>
 
-
-void sema_init(struct semaphore *sem, int val)
+void
+CMTESemaphore_init(CMTESemaphore * sem, int val)
 {
-  atomic_set(&sem->count, val);
+  capros_atomic32_set(&sem->count, val);
   sem->wakeupsWaiting = 0;
-  INIT_LIST_HEAD(&sem->task_list);
+  link_Init(&sem->task_list);
 }
 
-void down(struct semaphore * sem)
+void
+CMTESemaphore_down(CMTESemaphore * sem)
 {
-  might_sleep();
-  if (atomic_dec_return(&sem->count) < 0) {
-    wait_queue_t wq;
+  // might_sleep();
+  // Decrement the count:
+  if ((int32_t) capros_atomic32_add_return(&sem->count, -1) < 0) {
+    CMTEWaitQueue wq;
     wq.threadNum = lk_getCurrentThreadNum();
     capros_LSync_semaWait(KR_LSYNC, (capros_LSync_pointer)sem,
                           (capros_LSync_pointer)&wq);
@@ -49,29 +50,32 @@ void down(struct semaphore * sem)
 #endif
 }
 
+// Returns true iff successful.
 int
-down_trylock(struct semaphore * sem)
+CMTESemaphore_tryDown(CMTESemaphore * sem)
 {
-  int newcnt = atomic_read(&sem->count);
-  int cnt;
+  int32_t newcnt = capros_atomic32_read(&sem->count);
+  int32_t cnt;
   do {
-    if (newcnt <= 0) return 1;	// too bad
+    if (newcnt <= 0) return false;	// too bad
     cnt = newcnt;
     /* If the count is still cnt, decrement it. */
-    newcnt = atomic_cmpxchg(&sem->count, cnt, cnt - 1);
+    newcnt = capros_atomic32_cmpxchg(&sem->count, cnt, cnt - 1);
   } while (newcnt != cnt);
-  return 0;	// success
+  return true;	// success
 }
 
-bool tryUp(struct semaphore * sem)
+// Private interface for sync process.
+bool
+CMTESemaphore_tryUp(CMTESemaphore * sem)
 {
-  return atomic_inc_return(&sem->count) <= 0;
+  return (int32_t) capros_atomic32_add_return(&sem->count, 1) <= 0;
 }
 
 void
-up(struct semaphore * sem)
+CMTESemaphore_up(CMTESemaphore * sem)
 {
-  if (tryUp(sem)) {
+  if (CMTESemaphore_tryUp(sem)) {
     capros_LSync_semaWakeup(KR_LSYNC, (capros_LSync_pointer)sem);
   }
 }

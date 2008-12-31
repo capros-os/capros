@@ -1,6 +1,6 @@
 package capros;
 
-/** Interface to the Linux driver sync process.
+/** Interface to the CapROS Multi-Threaded Environment sync process.
  *
  */
 interface LSync extends key {

@@ -21,11 +21,12 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* LSync -- Synchronization process for Linux kernel emulation.
-*/
+/* Synchronization process for CapROS Multi-Threaded Environment. */
 
 #include <eros/target.h>
+#include <eros/container_of.h>
 #include <eros/Invoke.h>
+#include <eros/ffs.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/ProcCre.h>
@@ -36,20 +37,17 @@ Approved for public release, distribution unlimited. */
 #include <domain/domdbg.h>
 #include <domain/assert.h>
 #include <domain/ProtoSpaceDS.h>
-#include <linuxk/linux-emul.h>
-#include <linuxk/lsync.h>
-
-#include <asm/semaphore.h>
-#include <linux/rwsem.h>
-#include <linux/wait.h>
+#include <domain/cmtesync.h>
+#include <domain/CMTESemaphore.h>
+#include <domain/CMTERWSemaphore.h>
 
 // Private interface to semaphore.c:
-bool tryUp(struct semaphore * sem);
+bool CMTESemaphore_tryUp(CMTESemaphore * sem);
 
 // Private interfaces to lthread.c:
 void lthread_destroy_internal(unsigned int threadNum);
 extern uint32_t threadsAlloc;
-extern struct mutex threadAllocLock;
+extern CMTESemaphore threadAllocLock;
 
 #define dbg_init    0x1
 
@@ -71,7 +69,7 @@ Sepuku(result_t retCode)
 }
 
 static void
-wakeupWQ(wait_queue_t * wq)
+wakeupWQ(CMTEWaitQueue * wq)
 {
   Message msg = {
     .snd_code = RC_OK,
@@ -82,59 +80,61 @@ wakeupWQ(wait_queue_t * wq)
     .snd_rsmkey = KR_VOID
   };
 
-  list_del(&wq->task_list);	// remove from list
+  link_UnlinkUnsafe(&wq->link);	// remove from list
   capros_Node_getSlotExtended(KR_KEYSTORE,
           LKSN_THREAD_RESUME_KEYS + wq->threadNum,
           KR_TEMP0);
   SEND(&msg);
 }
 
-static void
-doSemaWakeup(struct semaphore * sem)
+// Get the first CMTEWaitQueue on a non-empty list.
+INLINE CMTEWaitQueue *
+link_first_wq(Link * list)
 {
-  if (list_empty(&sem->task_list)) {
+  return container_of(list->next, CMTEWaitQueue, link);
+}
+
+static void
+doSemaWakeup(CMTESemaphore * sem)
+{
+  if (link_isSingleton(&sem->task_list)) {
     sem->wakeupsWaiting++;	// only this thread references wakeupsWaiting
   } else {
-    wait_queue_t * wq = list_first_entry(&sem->task_list,
-                          wait_queue_t, task_list);
+    CMTEWaitQueue * wq = link_first_wq(&sem->task_list);
     wakeupWQ(wq);
   }
 }
 
 static void
-lsync_mutex_unlock(struct mutex * mut)
+lsync_mutex_unlock(CMTESemaphore * sem)
 {
-  struct semaphore * sem = &mut->sem;
-
-  /* We can't just use mutex_unlock(), because that may call lsync,
+  /* We can't just use CMTEMutex_unlock(), because that may call lsync,
   which deadlocks. */
   
-  if (tryUp(sem)) {
+  if (CMTESemaphore_tryUp(sem)) {
     doSemaWakeup(sem);
   }
 }
 
 static void
-checkRwSem(struct rw_semaphore * sem)
+checkRwSem(CMTERWSemaphore * sem)
 {
   // Writers have priority:
-  if (! list_empty(&sem->writeWaiters)) {
-    if (__rwtrylock_write(sem)) {
+  if (! link_isSingleton(&sem->writeWaiters)) {
+    if (CMTERWSemaphore_tryDownWrite(sem)) {
       // A writer got the lock.
-      wait_queue_t * wq = list_first_entry(&sem->writeWaiters,
-                            wait_queue_t, task_list);
-      atomic_dec(&sem->contenders);
+      CMTEWaitQueue * wq = link_first_wq(&sem->writeWaiters);
+      capros_atomic32_add_return(&sem->contenders, -1);
       wakeupWQ(wq);
       return;		// no one else can get it
     }
   }
   
-  while (! list_empty(&sem->readWaiters)) {
-    if (__rwtrylock_read(sem)) {
+  while (! link_isSingleton(&sem->readWaiters)) {
+    if (CMTERWSemaphore_tryDownRead(sem)) {
       // A reader got the lock.
-      wait_queue_t * wq = list_first_entry(&sem->readWaiters,
-                            wait_queue_t, task_list);
-      atomic_dec(&sem->contenders);
+      CMTEWaitQueue * wq = link_first_wq(&sem->readWaiters);
+      capros_atomic32_add_return(&sem->contenders, -1);
       wakeupWQ(wq);
     }
     else break;		// no readers can get it
@@ -197,8 +197,8 @@ lsync_main(void * arg)
 
     case OC_capros_LSync_semaWait:
     {
-      struct semaphore * sem = (struct semaphore *)msg->rcv_w1;
-      wait_queue_t * wq = (wait_queue_t *)msg->rcv_w2;
+      CMTESemaphore * sem = (CMTESemaphore *)msg->rcv_w1;
+      CMTEWaitQueue * wq = (CMTEWaitQueue *)msg->rcv_w2;
       // The caller has already decremented the count. 
       if (sem->wakeupsWaiting > 0) {
         // The wakeup already came in.
@@ -206,7 +206,7 @@ lsync_main(void * arg)
         msg->snd_code = RC_OK;
         break;		// return to the caller
       }
-      list_add_tail(&wq->task_list, &sem->task_list);
+      link_insertBefore(&sem->task_list, &wq->link);
 
       // Save the resume key to the waiting thread.
       capros_Node_swapSlotExtended(KR_KEYSTORE,
@@ -218,7 +218,7 @@ lsync_main(void * arg)
 
     case OC_capros_LSync_semaWakeup:
     {
-      doSemaWakeup((struct semaphore *)msg->rcv_w1);
+      doSemaWakeup((CMTESemaphore *)msg->rcv_w1);
 
       // Return to caller.
       msg->snd_invKey = KR_RETURN;
@@ -228,12 +228,12 @@ lsync_main(void * arg)
 
     case OC_capros_LSync_rwsemWait:
     {
-      struct rw_semaphore * sem = (struct rw_semaphore *)msg->rcv_w1;
+      CMTERWSemaphore * sem = (CMTERWSemaphore *)msg->rcv_w1;
       bool write = msg->rcv_w2;
-      wait_queue_t * wq = (wait_queue_t *)msg->rcv_w3;
+      CMTEWaitQueue * wq = (CMTEWaitQueue *)msg->rcv_w3;
 
-      list_add_tail(&wq->task_list,
-                    write ? &sem->writeWaiters : &sem->readWaiters);
+      link_insertBefore(write ? &sem->writeWaiters : &sem->readWaiters,
+                        &wq->link);
 
       // Save the resume key to the waiting thread.
       capros_Node_swapSlotExtended(KR_KEYSTORE,
@@ -249,7 +249,7 @@ lsync_main(void * arg)
 
     case OC_capros_LSync_rwsemWakeup:
     {
-      struct rw_semaphore * sem = (struct rw_semaphore *)msg->rcv_w1;
+      CMTERWSemaphore * sem = (CMTERWSemaphore *)msg->rcv_w1;
 
       checkRwSem(sem);
 
@@ -274,7 +274,7 @@ lsync_main(void * arg)
         uint32_t ta = threadsAlloc & ~0x3L;
         if (ta == 0)
           break;
-        unsigned int threadNum = ffs(ta) - 1;
+        unsigned int threadNum = ffs32(ta) - 1;
         lthread_destroy_internal(threadNum);
       } while (true);
       break;

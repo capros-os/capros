@@ -30,12 +30,15 @@ We allocate only whole pages.
 The address of a block of size s is always a multiple of 2**(ceiling(log2(s))).
 */
 
+#include <eros/target.h>
+#include <eros/container_of.h>
 #include <eros/Invoke.h>	// get RC_OK
-#include <linuxk/linux-emul.h>
-#include <linuxk/lsync.h>
+#include <domain/cmtesync.h>
+#include <domain/CMTESemaphore.h>
 #include <string.h>
-#include <linux/list.h>
-#include <linux/mutex.h>
+#include <eros/Link.h>
+#include <eros/fls.h>
+#include <eros/ffs.h>
 #include <idl/capros/Void.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/GPT.h>
@@ -58,33 +61,34 @@ The address of a block of size s is always a multiple of 2**(ceiling(log2(s))).
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 struct mpage {
-  struct list_head listLink;	// valid if isFree
+  Link listLink;	// valid if isFree
   unsigned short kval;	// valid if isFree
   bool isFree;
 } mpages[numpages];
 
 // avail_list[n] is for blocks of size 2**n pages.
-struct list_head avail_list[logMaxBlockSize + 1];
+Link avail_list[logMaxBlockSize + 1];
 
-static DEFINE_MUTEX(mapsLock);
+static CMTEMutex_DECLARE_Unlocked(mapsLock);
 
 static void
 liberateOneBlock(unsigned long jAddr, unsigned int j)
 {
-  DEBUG(alloc) printk("maps liberating 2**%d at 0x%x\n", j, jAddr);
+  DEBUG(alloc) kprintf(KR_OSTREAM, "maps liberating 2**%d at 0x%x\n", j, jAddr);
   struct mpage * jmp = &mpages[jAddr];
   jmp->isFree = true;
   jmp->kval = j;
-  list_add(&jmp->listLink, &avail_list[j]);
+  link_insertAfter(&avail_list[j], &jmp->listLink);
 }
 
 static void
 maps_liberate_locked(unsigned long pageAddr, unsigned long numPages)
 {
   do {
-    DEBUG(alloc) printk("maps liberating %d at 0x%x\n", numPages, pageAddr);
+    DEBUG(alloc) kprintf(KR_OSTREAM,
+                         "maps liberating %d at 0x%x\n", numPages, pageAddr);
     // Free the smallest block at the end.
-    unsigned int j = __ffs(numPages);
+    unsigned int j = ffs32(numPages);
     if (j > logMaxBlockSize) {
       j = logMaxBlockSize;
     }
@@ -102,7 +106,7 @@ recheck:
         if (pmp->isFree
             && pmp->kval == j) {
           // Merge with buddy.
-          list_del(&pmp->listLink);	// remove from free list
+          link_UnlinkUnsafe(&pmp->listLink);	// remove from free list
           j++;
           if (pAddr < jAddr)
             jAddr = pAddr;
@@ -133,40 +137,42 @@ maps_addrToPgOffset(unsigned long addr)
 void
 maps_liberate(unsigned long pgOffset, unsigned long numPages)
 {
-  mutex_lock(&mapsLock);
+  CMTEMutex_lock(&mapsLock);
 
   maps_liberate_locked(pgOffset, numPages);
 
-  mutex_unlock(&mapsLock);
+  CMTEMutex_unlock(&mapsLock);
 }
 
 // Returns page offset within maps area, or -1 if can't allocate.
 long
 maps_reserve(unsigned long numPages)
 {
-  DEBUG(alloc) printk("maps reserving %d\n", numPages);
-  unsigned int k = fls(numPages - 1);
+  DEBUG(alloc) kprintf(KR_OSTREAM, "maps reserving %d\n", numPages);
+  unsigned int k = fls32(numPages - 1);
   // 2**(k-1) < numPages <= 2**(k)
   assert(k <= logMaxBlockSize);	// else block is too big
 
-  mutex_lock(&mapsLock);
+  CMTEMutex_lock(&mapsLock);
 
   // Look for a free block.
   unsigned int j;
   for (j = k; j <= logMaxBlockSize; j++)
-    if (! list_empty(&avail_list[j]))
+    if (! link_isSingleton(&avail_list[j]))
       goto foundj;
 
   return -1;	// too bad
   
 
 foundj: ;
-  struct mpage * jmp = list_first_entry(&avail_list[j], struct mpage, listLink);
+  struct mpage * jmp
+    = container_of(avail_list[j].next, struct mpage, listLink);
   assert(jmp->isFree);
-  list_del(&jmp->listLink);	// remove from free list
+  link_UnlinkUnsafe(&jmp->listLink);	// remove from free list
   jmp->isFree = false;
   unsigned long block = jmp - mpages;
-  DEBUG(alloc) printk("maps reserve found 2**%d at 0x%x\n", j, block);
+  DEBUG(alloc) kprintf(KR_OSTREAM,
+                       "maps reserve found 2**%d at 0x%x %#x\n", j, block, jmp);
 
   unsigned long x = block;
   unsigned long jj = 1UL << j;
@@ -184,7 +190,7 @@ foundj: ;
     }
   }
 
-  mutex_unlock(&mapsLock);
+  CMTEMutex_unlock(&mapsLock);
 
   return block;
 }
@@ -194,7 +200,7 @@ maps_init(void)
 {
   int i;
   for (i=0; i <= logMaxBlockSize; i++) {
-    INIT_LIST_HEAD(&avail_list[i]);
+    link_Init(&avail_list[i]);
   }
   // mpages is initially zero.
   // Free all of the address space.
@@ -210,9 +216,9 @@ maps_mapPage(unsigned long pgOffset, cap_t pageCap)
   int gpt17slot = pgOffset / capros_GPT_nSlots;
   int gpt12slot = pgOffset % capros_GPT_nSlots;
 
-  DEBUG(alloc) printk("maps mapPage at 0x%x\n", pgOffset);
+  DEBUG(alloc) kprintf(KR_OSTREAM, "maps mapPage at 0x%x\n", pgOffset);
 
-  mutex_lock(&mapsLock);
+  CMTEMutex_lock(&mapsLock);
 
   result = capros_GPT_getSlot(KR_MAPS_GPT, gpt17slot, KR_TEMP1);
   assert(result == RC_OK);
@@ -237,7 +243,7 @@ maps_mapPage(unsigned long pgOffset, cap_t pageCap)
   else
     assert(result == RC_OK);
 
-  mutex_unlock(&mapsLock);
+  CMTEMutex_unlock(&mapsLock);
 
   return RC_OK;
 }

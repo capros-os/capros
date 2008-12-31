@@ -1,5 +1,7 @@
+#ifndef __CMTESYNC_H
+#define __CMTESYNC_H
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -21,14 +23,23 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <domain/cmte.h>
-#include <domain/cmte_stackPtr.h>
+/* Common declarations for the CapROS Multi-Threading Environment. */
 
-unsigned int lk_getCurrentThreadNum(void)
-{
-  /* See which area the stack pointer falls in. */
-  /* Note, the highest addresses in the stack contain the struct thread_info.
-   Therefore the sp can never point above the highest address in the stack,
-   even if the stack is completely empty. */
-  return (current_stack_pointer - LK_STACK_BASE) >> LK_LGSTACK_AREA;
-}
+#include <eros/target.h>	// get result_t
+#include <eros/Link.h>
+#include <domain/cmte.h>
+
+//typedef uint32_t uva_t;	/* user (unmodified) virtual address */
+
+unsigned int lk_getCurrentThreadNum(void);
+
+typedef struct CMTEWaitQueue {
+  Link link;
+  unsigned int threadNum;
+} CMTEWaitQueue;
+
+void CMTEThread_destroyAll(void);
+void * lsync_main(void *);
+#define LSYNC_STACK_SIZE 4096
+
+#endif // __CMTESYNC_H

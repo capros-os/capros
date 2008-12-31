@@ -24,7 +24,7 @@ Approved for public release, distribution unlimited. */
 /* This table is used by an interpreter to construct the address space
 for a driver built by the constructor. */
 
-#include <linuxk/lsync.h>
+#include <domain/cmte.h>
 #include <InterpreterTable.h>
 #include <domain/ProtoSpace.h>
 
@@ -33,7 +33,7 @@ struct InterpreterStep ConstructionTable[] = {
             passErrorThrough, 2),
   MsgSetL2v(KR_TEMP3, 22),
   MsgSetL2v(KR_TEMP2, 17),
-  MsgMakeGuarded(KR_TEMP1, (1UL << LK_LGSTACK_AREA) - EROS_PAGE_SIZE, KR_TEMP1),
+  MsgMakeGuarded(KR_TEMP1, LK_STACK_AREA - EROS_PAGE_SIZE, KR_TEMP1),
   MsgGPTSetSlot(KR_TEMP2, 0, KR_TEMP1),
   MsgGPTSetSlot(KR_TEMP3, LK_STACK_BASE / 0x400000, KR_TEMP2),
   MsgNodeGetSlotExtended(KR_CONSTIT, KC_TEXT, KR_TEMP0),
