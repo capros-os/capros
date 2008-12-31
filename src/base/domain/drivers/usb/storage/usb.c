@@ -908,6 +908,10 @@ static int usb_stor_acquire_resources(struct us_data *us)
 	int p;
 	struct task_struct *th;
 
+	// Timers require resources, so get them now:
+	struct timer_list tim;
+	init_timer(&tim);	// this is sufficient
+
 	us->current_urb = usb_alloc_urb(0, GFP_KERNEL);
 	if (!us->current_urb) {
 		US_DEBUGP("URB allocation failed\n");
@@ -925,6 +929,9 @@ static int usb_stor_acquire_resources(struct us_data *us)
 	atomic_inc(&total_threads);
 
 	/* Start up our control thread */
+        /* Note, as soon as usb_stor_control_thread runs, it calls
+	capros_DevPrivs_declarePFHProcess, so all other resources must
+	be acquired first. */
 	th = kthread_run(usb_stor_control_thread, us, "usb-storage");
 	if (IS_ERR(th)) {
 		complete(&threads_gone);

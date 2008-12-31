@@ -382,7 +382,7 @@ int usb_stor_bulk_transfer_buf(struct us_data *us, unsigned int pipe,
 	usb_fill_bulk_urb(us->current_urb, us->pusb_dev, pipe, buf, length,
 		      NULL, NULL);
 	us->current_urb->transfer_dma = data_dma;
-	result = usb_stor_msg_common(us, 0);
+	result = usb_stor_msg_common(us, 5*HZ);	// is this timeout OK?
 
 	/* store the actual length of the data transferred */
 	if (act_len)

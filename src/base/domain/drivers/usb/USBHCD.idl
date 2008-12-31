@@ -216,7 +216,7 @@ interface USBInterface32 extends USBInterface {
   exception Inval;
   exception NoSpc;	There is not enough bandwidth for the transfer
   exception MsgSize;
-  exception ConnReset;	Was stoopped by unlinkQueuedUrbs before it started
+  exception ConnReset;	Was stopped by unlinkQueuedUrbs before it started
   exception Shutdown;
   exception HostUnreach;
   */
