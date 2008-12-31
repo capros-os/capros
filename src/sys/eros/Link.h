@@ -39,7 +39,7 @@ struct Link {
   Link *prev;
 };
 
-#define link_INIT(link) { .next = &(link), .prev = &(link) }
+#define link_Initializer(link) { .next = &(link), .prev = &(link) }
 
 INLINE void
 link_Init(Link * thisPtr)
@@ -48,13 +48,24 @@ link_Init(Link * thisPtr)
   thisPtr->next = thisPtr;
 }
 
+// Leaves thisPtr->prev and next undefined.
 INLINE void 
-link_Unlink(Link * thisPtr) 
+link_UnlinkUnsafe(Link * thisPtr) 
 {
   Link * nxt = thisPtr->next;
   Link * prv = thisPtr->prev;
   nxt->prev = prv;
   prv->next = nxt;
+#ifndef NDEBUG
+  thisPtr->next = NULL;
+  thisPtr->prev = NULL;
+#endif
+}
+
+INLINE void 
+link_Unlink(Link * thisPtr) 
+{
+  link_UnlinkUnsafe(thisPtr);
   link_Init(thisPtr);
 }
 
@@ -74,6 +85,7 @@ link_insertAfter(Link * p, Link * thisPtr)
   link_insertBetween(thisPtr, p, p->next);
 }
 
+// Insert thisPtr before head n.
 INLINE void
 link_insertBefore(Link * n, Link * thisPtr)
 {

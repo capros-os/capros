@@ -2,8 +2,7 @@ package capros;
 
 /** Interface to allow processes to sleep voluntarily.
  */
-interface Sleep extends key raises(Restart) {
-  exception Restart;	// operation was ended by a system restart
+interface Sleep extends key raises(key.Restart) {
 
   typedef unsigned <64> nanoseconds_t;
   /* The following does not work due to a bug in capidl:
@@ -28,26 +27,35 @@ interface Sleep extends key raises(Restart) {
 
   /** Sleep until the specified number of milliseconds has passed.
   If a system restart occurs (and the caller is persistent),
-  the operation raises Restart at that time.
+  the operation raises key.Restart at that time.
   */
   void sleep(unsigned long long ms);
 
   /** Sleep until the specified number of nanoseconds has passed.
   If a system restart occurs (and the caller is persistent),
-  the operation raises Restart at that time.
+  the operation raises key.Restart at that time.
   */
   // Due to a bug in capidl, it does not work to use nanoseconds_t here.
   void sleepForNanoseconds(unsigned long long /* nanoseconds_t */ ns);
 
   /** Sleep until getTimeMonotonic() >= ns.
   If a system restart occurs (and the caller is persistent),
-  the operation raises Restart at that time.
+  the operation raises key.Restart at that time.
   */
   // Due to a bug in capidl, it does not work to use nanoseconds_t here.
   void sleepTill(unsigned long long /* nanoseconds_t */ ns);
 
-  /* At the moment there is no sleepTillPersistent,
-  due to implementation difficulties. */
+  /** Sleep until getPersistentMonotonicTime() >= ns.
+  This operation waits if necessary until the restart procedure has completed,
+  therefore it should be used only by persistent processes. */
+  client void sleepTillPersistent(unsigned long long /* nanoseconds_t */ ns);
+
+  /** Sleep until either getPersistentMonotonicTime() >= ns
+        or a restart occurs, whichever happens first.
+  If a system restart occurs, the operation raises key.Restart at that time.
+  This operation waits if necessary until the restart procedure has completed,
+  therefore it should be used only by persistent processes. */
+  void sleepTillPersistentOrRestart(unsigned long long /* nanoseconds_t */ ns);
 
 
   const unsigned long DelayMaxMicroseconds = 5000000;

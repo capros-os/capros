@@ -33,6 +33,7 @@ HEADERS=\
 	cap-instr.h \
 	CharSrcProto.h \
 	ConsoleKey.h \
+	container_of.h \
 	DevCreKey.h \
 	Device.h \
 	DeviceDef.h \

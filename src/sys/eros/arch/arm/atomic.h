@@ -2,7 +2,7 @@
 #define __MACHINE_ATOMIC_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -32,6 +32,23 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 
+typedef volatile uint32_t capros_atomic32;
+
+#define capros_atomic32_Initializer(i) (i)
+
+INLINE uint32_t
+capros_atomic32_read(capros_atomic32 * a)
+{
+  return *a;
+}
+
+// Following are for uniprocessor:
+INLINE void
+capros_atomic32_set(capros_atomic32 * a, uint32_t v)
+{
+  *a = v;
+}
+
 /*
  * The effect of SWI SWI_CSwap32 is to execute the following block of code as
  * an atomic instruction
@@ -45,7 +62,7 @@ return current_val;
  */
 
 INLINE uint32_t
-capros_atomic_cmpxchg32(volatile uint32_t * p_word,
+capros_atomic32_cmpxchg(capros_atomic32 * p_word,
   uint32_t oldVal, uint32_t newVal)
 {
   register uint32_t r0 __asm__("r0") = (uint32_t) p_word;
@@ -60,34 +77,34 @@ capros_atomic_cmpxchg32(volatile uint32_t * p_word,
 
 // Add i to *p_word and return the result.
 INLINE uint32_t
-capros_atomic_add32_return(uint32_t i, volatile uint32_t * p_word)
+capros_atomic32_add_return(capros_atomic32 * p_word, uint32_t i)
 {
   uint32_t oldVal;
   uint32_t val = *p_word;
   do {
     oldVal = val;
-    val = capros_atomic_cmpxchg32(p_word, val, val + i);
+    val = capros_atomic32_cmpxchg(p_word, val, val + i);
   } while (val != oldVal);
   return val + i;
 }
 
 INLINE bool
-ATOMIC_SWAP32(volatile uint32_t* p_word, uint32_t old, uint32_t newVal)
+ATOMIC_SWAP32(capros_atomic32 * p_word, uint32_t old, uint32_t newVal)
 {
-  uint32_t old_val = capros_atomic_cmpxchg32(p_word, old, newVal);
+  uint32_t old_val = capros_atomic32_cmpxchg(p_word, old, newVal);
   return (old == old_val);
 }
 
 INLINE void
-ATOMIC_INC32(volatile uint32_t * p_word)
+ATOMIC_INC32(capros_atomic32 * p_word)
 {
-  (void) capros_atomic_add32_return(1, p_word);
+  (void) capros_atomic32_add_return(p_word, 1);
 }
 
 INLINE void
-ATOMIC_DEC32(volatile uint32_t * p_word)
+ATOMIC_DEC32(capros_atomic32 * p_word)
 {
-  (void) capros_atomic_add32_return(-1, p_word);
+  (void) capros_atomic32_add_return(p_word, -1);
 }
 
 #endif /* __MACHINE_ATOMIC_H__ */
