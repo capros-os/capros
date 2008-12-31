@@ -33,6 +33,9 @@ Approved for public release, distribution unlimited. */
 #define TCP_MSS 1024
 #define TCP_SND_BUF (TCP_MSS * 4)
 #define PBUF_POOL_SIZE 24
+// I see no harm in making the following large:
+#define TCP_SND_QUEUELEN                (16 * (TCP_SND_BUF/TCP_MSS))
+#define MEMP_NUM_TCP_SEG                TCP_SND_QUEUELEN
 
 #define LWIP_DEBUG
 //#define ETHARP_DEBUG LWIP_DBG_ON

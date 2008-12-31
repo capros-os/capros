@@ -52,7 +52,7 @@ typedef u32_t mem_ptr_t;
 
 /* Plaform specific diagnostic output */
 #include <domain/Runtime.h>
-#define KR_OSTREAM KR_APP(0)
+#define KR_OSTREAM KR_APP(3)	// all we need from cmte.h
 #include <domain/domdbg.h>
 #include <domain/assert.h>
 int printk(const char * fmt, ...);

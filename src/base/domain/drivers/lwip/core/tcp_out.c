@@ -255,6 +255,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
       seg->dataptr = ptr;
 
       /* Second, allocate a pbuf for the headers. */
+// Is this premature, since bufs may be combined and thus need only one hdr?
       if ((seg->p = pbuf_alloc(PBUF_TRANSPORT, 0, PBUF_RAM)) == NULL) {
         /* If allocation fails, we have to deallocate the data pbuf as
          * well. */
@@ -339,6 +340,7 @@ tcp_enqueue(struct tcp_pcb *pcb, void *arg, u16_t len,
       TCP_STATS_INC(tcp.err);
       goto memerr;
     }
+    // queue->p->len could now be zero. Performance bug reported.
     pbuf_cat(useg->p, queue->p);
     useg->len += queue->len;
     useg->next = queue->next;
