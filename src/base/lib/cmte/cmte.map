@@ -1,0 +1,63 @@
+#ifndef __LPROG_MAP_
+#define __LPROG_MAP_
+/*
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <linuxk/lsync.h>
+#include <asm/thread_info.h>
+
+/* Linux programs are loaded with code at 0x1000 and data at 0x00c00000.
+   Therefore the l2v of prog is 22,
+   the code is in prog[0], and data in prog[3]. */
+
+/* Set up a program with Linux emulation. */
+#define LPROG(dname, prog, progpc, schedKey) \
+dname##_space = new GPT with lss 3;	/* l2v = 22 */ \
+dname##_space[0] = ro prog[0]; \
+dname##_stacks = new GPT with lss 2;	/* l2v = 17 */ \
+dname##_space[LK_STACK_BASE / 0x400000] = dname##_stacks; \
+dname##_stack = new page;		/* stack size is one page */ \
+dname##_stacks[0] = dname##_stack with guard 0x1f000; \
+dname##_maps = new GPT with lss 2;	/* l2v = 17 */ \
+dname##_space[LK_MAPS_BASE / 0x400000] = dname##_maps; \
+MAKE_VIRTUAL_COPIER_SEG(dname##data, prog[3]); \
+ \
+dname##_proc = new process; \
+dname##_proc pc = progpc; \
+dname##_proc sp = (0x420000 - SIZEOF_THREAD_INFO); \
+dname##_proc space = dname##_space; \
+dname##_proc schedule = schedKey; \
+dname##_proc symtab = number(#dname); \
+dname##_proc key reg KR_KEYSTORE = snode_c; \
+dname##_proc key reg KR_SELF    = dname##_proc; \
+dname##_proc key reg KR_BANK    = primebank; \
+dname##_proc key reg KR_SCHED   = schedKey; \
+dname##_proc key reg KR_OSTREAM = misc Console; \
+dname##_proc key reg KR_SLEEP   = misc Sleep; \
+dname##_proc key reg KR_MAPS_GPT = dname##_maps; \
+dname##_proc key reg KR_TEMP1   = dname##data_c; \
+dname##_proc key reg KR_TEMP2   = dname##_space; \
+dname##_proc key reg KR_RETURN  = dname##_stacks; \
+run dname##_proc
+
+#endif //__LPROG_MAP_
