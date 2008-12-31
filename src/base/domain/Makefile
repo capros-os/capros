@@ -41,6 +41,7 @@ DIRS+=ipltool
 # TEMPORARILY REMOVED because not right:
 # crypt
 #DIRS+=cons_front
+DIRS+=ckptr
 DIRS+=console
 DIRS+=w1mult
 DIRS+=nplink
