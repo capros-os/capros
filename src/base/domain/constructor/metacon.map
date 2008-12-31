@@ -122,13 +122,12 @@ CONSTIT(metacon, KC_CON_CONSTIT, 7) = con_constit;
 metacon key reg KR_SELF = metacon;
 metacon key reg KR_BANK = primebank;
 metacon key reg KR_SCHED = sched(8);
-metacon key reg KR_RTBITS = primordial_runtime_bits;
 
 run metacon;
 
 metacon = start metacon 0;
 constructor_verifier = start metacon 1;
-primordial_runtime_bits[RKT_CNS_VERIFIER] = constructor_verifier;
+//primordial_runtime_bits[RKT_CNS_VERIFIER] = constructor_verifier;
 
 /* print domain metacon.dom */
 /* hide constructor.seg; */
@@ -152,7 +151,6 @@ hide protospace.pc;		/* well known to be zero */
    cname##_process key reg KR_SELF = cname##_process; \
    cname##_process key reg KR_BANK = primebank; \
    cname##_process key reg KR_SCHED = sched(8); \
-   cname##_process key reg KR_RTBITS = primordial_runtime_bits; \
    CONSTIT(cname##_process, KC_DISCRIM, 0) = misc Discrim; \
    CONSTIT(cname##_process, KC_OSTREAM, 1) = misc Console; \
    CONSTIT(cname##_process, KC_YIELDCRE, 2) = cname##_proccre; \

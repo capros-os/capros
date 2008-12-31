@@ -68,12 +68,10 @@ uint32_t __rt_unkept = 1;
 #define KR_SCRATCH      KR_APP(0)
 #define KR_OSTREAM      KR_APP(2)
 #define KR_YIELDCRE     KR_APP(3)
-#define KR_YIELDBITS    KR_APP(4)
 #define KR_NEWDOM       KR_APP(5)
 
 #define KR_PROD_CON0    KR_APP(6) /* product's constituents */
 #define KR_PROD_XCON    KR_APP(7) /* product's extended constituents */
-#define KR_RO_YIELDBITS KR_APP(8) /* product's extended constituents */
 
 #define KR_ARG0    KR_ARG(0)
 #define KR_ARG1    KR_ARG(1)
@@ -161,15 +159,6 @@ InitConstructor(ConstructorInfo *ci)
                             capros_Range_otNode | (capros_Range_otNode << 8),
                             KR_PROD_CON0, KR_PROD_XCON);
   }
-    
-
-  /* Create a runtime bits node appropriate for our yields: */
-  capros_SpaceBank_alloc1(KR_BANK, capros_Range_otNode, KR_YIELDBITS);
-  capros_Node_clone(KR_YIELDBITS, KR_RTBITS);
-  capros_Node_swapSlot(KR_YIELDBITS, RKT_CREATOR, KR_YIELDCRE, KR_VOID);
-
-  /* Now make a read-only yieldbits key. */
-  capros_Node_reduce(KR_YIELDBITS, capros_Node_readOnly, KR_RO_YIELDBITS); 
 }
 
 /* In spite of unorthodox fabrication, the constructor self-destructs
@@ -181,7 +170,7 @@ Sepuku()
   
   /* Give up the first constituent node. */
   /* Give up the second constituent node */
-  capros_SpaceBank_free3(KR_BANK, KR_PROD_CON0, KR_PROD_XCON, KR_YIELDBITS);
+  capros_SpaceBank_free2(KR_BANK, KR_PROD_CON0, KR_PROD_XCON);
 
   /* capros_Node_getSlot(KR_CONSTIT, KC_MYDOMCRE, KR_DOMCRE); */
   capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPACE, KR_PROD_CON0);
@@ -220,7 +209,6 @@ MakeNewProduct(Message *msg)
   capros_Node_clone(KR_SCRATCH, KR_PROD_CON0);
 
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_CONSTIT, KR_SCRATCH, KR_VOID);
-  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_RTBITS, KR_RO_YIELDBITS, KR_VOID);
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Populate new domain\n");
 

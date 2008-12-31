@@ -58,7 +58,6 @@ uint32_t __rt_unkept = 1;
 #define KR_OSTREAM      KR_APP(4) /* our mouth */
 #define KR_NEWDOM       KR_APP(5) /* where new constructor goes */
 #define KR_YIELDBITS    KR_APP(6)
-#define KR_RO_YIELDBITS KR_APP(7)
 
 #define KR_ARG0    KR_ARG(0)
 #define KR_ARG1    KR_ARG(1)
@@ -82,14 +81,6 @@ InitMetaCon(MetaConInfo *mci)
   capros_Node_getSlot(KR_CONSTIT, KC_YIELDCRE, KR_YIELDCRE);
   capros_Node_getSlot(KR_CONSTIT, KC_CON_SEG, KR_CON_SEG);
   /*   capros_Node_getSlot(KR_CONSTIT, KC_CON_CONSTIT, KR_CON_CONSTIT); */
-
-  /* Create a runtime bits node appropriate for our yields: */
-  capros_SpaceBank_alloc1(KR_BANK, capros_Range_otNode, KR_YIELDBITS);
-  capros_Node_clone(KR_YIELDBITS, KR_RTBITS);
-  capros_Node_swapSlot(KR_YIELDBITS, RKT_CREATOR, KR_YIELDCRE, KR_VOID);
-
-  /* Now make a read-only yieldbits key. */
-  capros_Node_reduce(KR_YIELDBITS, capros_Node_readOnly, KR_RO_YIELDBITS); 
 }
 
 uint32_t
@@ -130,9 +121,6 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
   capros_Node_clone(KR_ALTSCRATCH, KR_CONSTIT);
   (void) capros_Process_swapKeyReg(KR_NEWDOM, 1, KR_ALTSCRATCH, KR_VOID);
 #undef KR_ALTSCRATCH
-
-  /* runtime bits to product KR 2 */
-  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_RTBITS, KR_RO_YIELDBITS, KR_VOID);
 
   /* Install the address space of the new constructor */
   (void) capros_Process_swapAddrSpaceAndPC32(KR_NEWDOM, KR_CON_SEG,
