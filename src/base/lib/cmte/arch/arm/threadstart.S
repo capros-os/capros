@@ -33,4 +33,4 @@ Approved for public release, distribution unlimited. */
 	mov lr,pc	// set return address
 	mov pc,r1	// go to procedure
 // If the procedure returns, exit the thread.
-	bl lthread_exit	// does not return
+	bl CMTEThread_exit	// does not return

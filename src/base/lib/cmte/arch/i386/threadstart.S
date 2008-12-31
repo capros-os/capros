@@ -31,4 +31,4 @@ Approved for public release, distribution unlimited. */
 /* The starting procedure and argument are on the stack. */
 	call *4(%esp)
 // If the procedure returns, exit the thread.
-	call lthread_exit	// does not return
+	call CMTEThread_exit	// does not return
