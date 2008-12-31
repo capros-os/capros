@@ -381,7 +381,7 @@ readResultsFunction(void * arg)
 }
 
 static struct w1Timer readResultsTimer = {
-  .link = link_INIT(readResultsTimer.link),
+  .link = link_Initializer(readResultsTimer.link),
   .function = &readResultsFunction
 };
 

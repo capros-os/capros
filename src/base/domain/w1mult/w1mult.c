@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <stdint.h>
 #include <eros/fls.h>
 #include <eros/target.h>
+#include <eros/container_of.h>
 #include <eros/machine/cap-instr.h>
 
 #include <idl/capros/key.h>
@@ -359,7 +360,7 @@ HeartbeatAction(void * arg)
 }
 
 struct w1Timer heartbeatTimer = {
-  .link = link_INIT(heartbeatTimer.link),
+  .link = link_Initializer(heartbeatTimer.link),
   .function = &HeartbeatAction
 };
 

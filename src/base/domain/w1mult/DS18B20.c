@@ -193,7 +193,7 @@ DoneCopyingFunction(void * arg)
 }
 
 static struct w1Timer doneCopyingTimer = {
-  .link = link_INIT(doneCopyingTimer.link),
+  .link = link_Initializer(doneCopyingTimer.link),
   .function = &DoneCopyingFunction
 };
 
@@ -282,7 +282,7 @@ readResultsFunction(void * arg)
 }
 
 static struct w1Timer readResultsTimer = {
-  .link = link_INIT(readResultsTimer.link),
+  .link = link_Initializer(readResultsTimer.link),
   .function = &readResultsFunction
 };
 
