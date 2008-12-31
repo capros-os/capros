@@ -32,10 +32,10 @@ Approved for public release, distribution unlimited. */
 #include <stdint.h>
 #include <string.h>
 #include <ctype.h>
-#include <linuxk/linux-emul.h>
-#include <linuxk/lsync.h>
-#include <linux/kthread.h>
-#include <linux/mutex.h>
+#include <domain/cmte.h>
+#include <domain/CMTESemaphore.h>
+#include <domain/CMTETimer.h>
+#include <domain/CMTEThread.h>
 #include <eros/target.h>
 #include <eros/machine/cap-instr.h>
 #include <eros/Invoke.h>
@@ -70,11 +70,11 @@ Approved for public release, distribution unlimited. */
 
 #define KC_RTC 0
 
-#define KR_RTC     KR_APP2(0)	// Input process only
-#define KR_SERIAL  KR_APP2(1)
-#define KR_NOTIFY  KR_APP2(2)	// Input process only
+#define KR_RTC     KR_CMTE(0)	// Input process only
+#define KR_SERIAL  KR_CMTE(1)
+#define KR_NOTIFY  KR_CMTE(2)	// Input process only
 
-#define LKSN_SERIAL LKSN_APP	// holds the serial port key if we have one
+#define LKSN_SERIAL LKSN_CMTE	// holds the serial port key if we have one
 #define LKSN_NOTIFY (LKSN_SERIAL+1)
 
 #define keyInfo_nplinkee 0xffff	// nplink has this key
@@ -162,8 +162,8 @@ enum {
 
 /* SerialCapSem is "up"ed when we receive a SerialPort capability,
  * and "down"ed when the input process accepts one. */
-__DECLARE_SEMAPHORE_GENERIC(SerialCapSem, 0);
-DEFINE_MUTEX(lock);
+CMTESemaphore_DECLARE(SerialCapSem, 0);
+CMTEMutex_DECLARE_Unlocked(lock);
 
 static void
 printControlPanel(AdapterState * as)
@@ -184,7 +184,7 @@ timerProcedure(unsigned long data)
   assert(result == RC_OK);
 }
 
-DEFINE_TIMER(tmr, &timerProcedure, 0, 0);
+CMTETimer_Define(tmr, &timerProcedure, 0);
 
 RTC_time
 GetRTCTime(void)
@@ -650,7 +650,7 @@ CompletedTask(void)
   GetMonoTime();
   currentTask->nextSampleTime = monoNow + currentTask->period;
   NextTask();
-  mutex_unlock(&lock);
+  CMTEMutex_unlock(&lock);
   InputNotifyServer();	// not under lock!
 }
 
@@ -658,7 +658,7 @@ CompletedTask(void)
 void
 CheckEndOfField(AdapterState * as)
 {
-  mutex_lock(&lock);
+  CMTEMutex_lock(&lock);
   if (as->menuNum >= 0) {	// we are on a known menu
     struct MenuItem * mi = &menuItems[as->menuNum][as->menuItemNum];
     int vfeAdj = mi->valueFieldEnd;
@@ -691,7 +691,7 @@ CheckEndOfField(AdapterState * as)
       }
     }
   }
-  mutex_unlock(&lock);
+  CMTEMutex_unlock(&lock);
 }
 
 // After we receive the last character of an LCD screen, the cursor wraps
@@ -767,7 +767,7 @@ ProcessCharacter(AdapterState * as, uint8_t c)
 }
 
 // The input thread executes this procedure.
-int
+void *
 InputProcedure(void * data /* unused */ )
 {
   result_t result;
@@ -780,7 +780,7 @@ InputProcedure(void * data /* unused */ )
   DEBUG(input) kprintf(KR_OSTREAM, "Input process starting\n");
 
   for (;;) {	// loop getting good SerialPort caps
-    down(&SerialCapSem);	// wait for a SerialPort cap
+    CMTESemaphore_down(&SerialCapSem);	// wait for a SerialPort cap
     result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_SERIAL, KR_SERIAL);
     assert(result == RC_OK);
 
@@ -823,7 +823,7 @@ InputProcedure(void * data /* unused */ )
         // Process the character.
         uint8_t c = inBuf[i].data;
         DEBUG(inputData) kprintf(KR_OSTREAM, "%d ", c);
-        mutex_lock(&lock);
+        CMTEMutex_lock(&lock);
         AdapterState * as = (transmittingAdapterNum >= 0
                        ? &adapterStates[transmittingAdapterNum] : &dummyAdapter);
         switch (inputState) {
@@ -861,14 +861,14 @@ InputProcedure(void * data /* unused */ )
                 gotLEDs = true;
                 DEBUG(leds) kprintf(KR_OSTREAM, "Read LEDs completed.\n");
                 CompletedTask();
-                mutex_lock(&lock);
+                CMTEMutex_lock(&lock);
               }
             }
           }
           // fall into the below
         default:	// nextIsUnknown, ignore the character
           inputState = nextIsControl;
-          mutex_unlock(&lock);
+          CMTEMutex_unlock(&lock);
           break;
 
         case nextIsControl:
@@ -883,7 +883,7 @@ InputProcedure(void * data /* unused */ )
           processChar:
             ProcessCharacter(as, c);	// process char w/ dummyAdapter
           unlock1:
-            mutex_unlock(&lock);
+            CMTEMutex_unlock(&lock);
             break;
 
           case ta_InFirstScreen:
@@ -952,20 +952,20 @@ InputProcedure(void * data /* unused */ )
                   as->menuNum = -1;	// unrecognized menu
                 foundMenu:
                 notifyServer:
-                  mutex_unlock(&lock);
+                  CMTEMutex_unlock(&lock);
                   // Skip CheckEndOfField, because the field may not be
                   // filled in yet.
                   InputNotifyServer();
                 } else {	// Completed a previously recognized screen.
-                  mutex_unlock(&lock);
+                  CMTEMutex_unlock(&lock);
                   CheckEndOfField(as);
                 }
               } else {	// printable character not at end of screen
-                mutex_unlock(&lock);
+                CMTEMutex_unlock(&lock);
                 CheckEndOfField(as);
               }
             } else {
-              mutex_unlock(&lock);
+              CMTEMutex_unlock(&lock);
             }
           }	// end of switch (transmittingAdapterNum)
         }		// end of switch (inputState)
@@ -1013,10 +1013,13 @@ SelectAdapter(unsigned int num)	// 0-7
   assert(num < numAdapters);
   sendData[0] = num + 1;
   selectTime = monoNow;
-  capros_mod_timer_duration(&tmr, selectTimeout);
+  CMTETimer_setDuration(&tmr, selectTimeout);
   DEBUG(time) kprintf(KR_OSTREAM, "SelectAdapter set timeout\n");
   result = capros_SerialPort_write(KR_SERIAL, 1/*2*/, &sendData[0]);
-  assert(result == RC_OK);
+  if (result != RC_OK) {
+    kprintf(KR_OSTREAM, "capros_SerialPort_write rc=%#x\n", result);
+    assert(result == RC_OK);
+  }
 }
 
 void
@@ -1038,10 +1041,10 @@ DoGetValue(Message * msg, AdapterState * as, struct ValueAndTime * vt)
   }
   // Note, as and vt are not validated until this point.
   // Don't use them before this point.
-  mutex_lock(&lock);
+  CMTEMutex_lock(&lock);
   RTC_time t = vt->time;
   int val = vt->val;
-  mutex_unlock(&lock);
+  CMTEMutex_unlock(&lock);
   if (t == 0) {
     msg->snd_code = RC_capros_SWCA_noData;
     return;
@@ -1071,7 +1074,7 @@ DoTask(void)
       transmittingAdapterNum = ta_NeedFirstSelect;
       if (--selectRetries == 0) {		// too many retries
         DEBUG(errors)
-          printk("Too many retries to select adapter; selecting a different adapter\n");
+          kprintf(KR_OSTREAM, "Too many retries to select adapter; selecting a different adapter\n");
         // Try selecting a different adapter:
         SelectAdapter(wantedAdapterNum == 0 ? 1 : 0);
         transmittingAdapterNum = ta_NeedFirstScreen;
@@ -1094,7 +1097,7 @@ DoTask(void)
     if (wantedMenuNum == -1 && ! gotLEDs) {
 #define ledsTimeout 500000000 // 0.5 second
       // Need to read the LEDs.
-      mutex_unlock(&lock);
+      CMTEMutex_unlock(&lock);
 //// bug, may have gotLEDs by now.
       while (1) {	// loop at most twice
         DEBUG(leds) kprintf(KR_OSTREAM, "Read LEDs completed.\n");
@@ -1103,7 +1106,7 @@ DoTask(void)
           int64_t timeToWait = commandTime + ledsTimeout - monoNow;
           if (timeToWait > 0) {
             // Give the previous command some time to work.
-            capros_mod_timer_duration(&tmr, timeToWait);
+            CMTETimer_setDuration(&tmr, timeToWait);
             DEBUG(time) kprintf(KR_OSTREAM,
                           "Get LEDs set timeout in %llu\n", timeToWait);
             break;
@@ -1111,7 +1114,7 @@ DoTask(void)
           // Previous command timed out.
           if (--menuRetries == 0) {		// too many retries
             DEBUG(errors)
-              printk("Get LEDs timed out; reselecting adapter\n");
+              kprintf(KR_OSTREAM, "Get LEDs timed out; reselecting adapter\n");
             // Try reselecting the adapter:
             transmittingAdapterNum = ta_NeedFirstSelect;
             return false;
@@ -1127,7 +1130,7 @@ DoTask(void)
                || as->menuItemNum != wantedMenuItemNum ) {
 #define commandTimeout 1000000000 // 1 second
       // Not on the menu item we want.
-      mutex_unlock(&lock);
+      CMTEMutex_unlock(&lock);
       while (1) {	// loop at most twice
         char cmd;
         if (as->menuNum == -1) { // current menu unknown, or executing cmd
@@ -1135,7 +1138,7 @@ DoTask(void)
           int64_t timeToWait = commandTime + commandTimeout - monoNow;
           if (timeToWait > 0) {
             // Give the previous command some time to work.
-            capros_mod_timer_duration(&tmr, timeToWait);
+            CMTETimer_setDuration(&tmr, timeToWait);
             DEBUG(time) kprintf(KR_OSTREAM,
                           "Select menu set timeout in %llu\n", timeToWait);
             break;
@@ -1143,7 +1146,7 @@ DoTask(void)
           // current menu is unknown, and previous command timed out
           if (--menuRetries == 0) {		// too many retries
             DEBUG(errors)
-              printk("Menu select timed out; reselecting adapter\n");
+              kprintf(KR_OSTREAM, "Menu select timed out; reselecting adapter\n");
             // Try reselecting the adapter:
             transmittingAdapterNum = ta_NeedFirstSelect;
             return false;
@@ -1201,15 +1204,15 @@ DoTask(void)
       // we have the menu item we want
       DEBUG(sched) kprintf(KR_OSTREAM, "Waiting for task. ");
       // Just let the current task finish.
-      del_timer(&tmr);	// currently no timeout for this
+      CMTETimer_delete(&tmr);	// currently no timeout for this
     }
   }	// end of switch (transmittingAdapterNum)
-  mutex_unlock(&lock);
+  CMTEMutex_unlock(&lock);
   return true;
 }
 
 int
-driver_main(void)
+cpte_main(void)
 {
   result_t result;
   int i;
@@ -1233,6 +1236,9 @@ driver_main(void)
     .rcv_data = MsgBuf,
     .rcv_limit = sizeof(MsgBuf)
   };
+
+  result = CMTETimer_setup();
+  assert(result == RC_OK);
 
   // wait for things to settle:
   DEBUG(server) capros_Sleep_sleep(KR_SLEEP, 2000);
@@ -1260,16 +1266,15 @@ driver_main(void)
   ResetAdapterState(&dummyAdapter);
   dummyAdapter.num = -1;
 
-  struct task_struct * inputThread = kthread_run(&InputProcedure, 0, "");
-  if (IS_ERR(inputThread)) {
-    assert(false);	// FIXME
-  }
+  unsigned int inputThreadNum;
+  result = CMTEThread_create(2048, &InputProcedure, 0, &inputThreadNum);
+  assert(result == RC_OK);	// FIXME
 
   for(;;) {
     // Before RETURNing, see if there is any work to be done.
     if (haveSerialKey) {
       for (;;) {
-        mutex_lock(&lock);
+        CMTEMutex_lock(&lock);
         GetMonoTime();
         // Any task to do?
         DEBUG(time) kprintf(KR_OSTREAM, "stt=%llu ", nextTaskTime);
@@ -1277,10 +1282,10 @@ driver_main(void)
           int64_t timeToNextTask = nextTaskTime - monoNow;
           if (timeToNextTask > 0) {
             // Wait until time for a task.
-            capros_mod_timer_duration(&tmr, timeToNextTask);
+            CMTETimer_setDuration(&tmr, timeToNextTask);
             DEBUG(time) kprintf(KR_OSTREAM,
                           "Task set timeout in %llu\n", timeToNextTask);
-            mutex_unlock(&lock);
+            CMTEMutex_unlock(&lock);
             break;
           } else {	// time for the next task
             NextTask();	// select the next task to do
@@ -1337,7 +1342,7 @@ driver_main(void)
         result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_SERIAL,
                    KR_SERIAL, KR_VOID);
         assert(result == RC_OK);
-        up(&SerialCapSem);	// allow input proc to use it
+        CMTESemaphore_up(&SerialCapSem);	// allow input proc to use it
 
         GetMonoTime();
         NextTask();	// select the first task
@@ -1364,11 +1369,11 @@ driver_main(void)
           break;;
         }
         as = &adapterStates[Msg.rcv_w1];
-        mutex_lock(&lock);
+        CMTEMutex_lock(&lock);
         RTC_time t = as->LEDsTime;
         uint8_t LEDs = as->LEDs;
         uint8_t LEDsBlink = as->LEDsBlink;
-        mutex_unlock(&lock);
+        CMTEMutex_unlock(&lock);
         if (t == 0) {
           Msg.snd_code = RC_capros_SWCA_noData;
           break;

@@ -20,12 +20,12 @@ interface SWCA extends key
   // LED masks: (are these correct?)
   const unsigned byte LEDOverCurrent = 1;
   const unsigned byte LEDFloat       = 2;
-  const unsigned byte LEDAC2In       = 4;
+  const unsigned byte LEDAC2In       = 4;	// verified correct
   const unsigned byte LEDInverting   = 8;	// verified correct
   const unsigned byte LEDError       = 16;
-  const unsigned byte LEDBulk        = 32;
-  const unsigned byte LEDAC1In       = 64;
-  const unsigned byte LEDLineTie     = 128;
+  const unsigned byte LEDBulk        = 128;	// verified correct
+  //const unsigned byte LEDAC1In       = 64;
+  //const unsigned byte LEDLineTie     = 128;
   void getLEDs(unsigned byte inverterNum,
                out unsigned byte LEDs, out unsigned byte LEDsBlink);
 };

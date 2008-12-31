@@ -30,7 +30,7 @@ Approved for public release, distribution unlimited. */
  * SWCA program.
  *********************************************************/
 
-#include <lprog.map>
+#include <cmte.map>
 
 swca_prog = program segtree LIBDIR "swca";
 swca_pc = symbol LIBDIR "swca" _start;
@@ -41,7 +41,7 @@ swca_constit = new node; // this is shared
 swca_constit[0] = misc RTC;
 
 #define SWCA(name) \
-LPROG(name##swca, swca_prog, swca_pc, sched(8)) \
+CMTE(name##swca, swca_prog, swca_pc, sched(8)) \
 name##swca_proc key reg KR_CONSTIT = swca_constit; \
 name##swca_proc key reg KR_CREATOR = swca_proccre; \
 name##swca = start name##swca_proc 0; \

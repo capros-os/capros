@@ -41,9 +41,10 @@ IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/swca: $(OBJECTS) $(DEVSTART) $(DRIVERDEPS)
-	$(DRIVERLINK) $(OBJECTS) $(DRIVERLIBS) -o $@
+$(BUILDDIR)/swca: $(OBJECTS) $(CMTEDEPS)
+	$(CMTELINK) $(OBJECTS) $(CMTELIBS) -o $@
 # and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
