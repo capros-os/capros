@@ -178,34 +178,39 @@ objC_ddb_dump_procs(void)
         db_eros_print_number_as_string(&proc->procRoot->slot[ProcSymSpace]);
         db_printf(")");
       }
-      switch (proc->runState) {
-      default:
-        printf(": Runstate=%d!", proc->runState);
-        break;
+      if (! (proc->hazards & hz_DomRoot)) {
+        switch (proc->runState) {
+        default:
+          printf(": Runstate=%d!", proc->runState);
+          break;
 
-      case RS_Running:
-        printf(": Running");
-        break;
+        case RS_Running:
+          printf(": Running");
+          break;
 
-      case RS_Available:
-        printf(": Available");
-        break;
+        case RS_Available:
+          printf(": Available");
+          break;
 
-      case RS_Waiting:
-        printf(": Waiting");
-        // Find the resume capability to this process.
-        if (! link_isSingleton(&proc->keyRing)) {
-          Key * key = (Key *) proc->keyRing.prev;
-          if (keyBits_IsPreparedResumeKey(key)) {
-            Process * p2 = proc_ValidKeyReg(key);
-            if (p2) {
-              printf(" on proc %#x", p2);
+        case RS_Waiting:
+          printf(": Waiting");
+          // Find the resume capability to this process.
+          if (! link_isSingleton(&proc->keyRing)) {
+            Key * key = (Key *) proc->keyRing.prev;
+            if (keyBits_IsPreparedResumeKey(key)) {
+              Process * p2 = proc_ValidKeyReg(key);
+              if (p2) {
+                printf(" on proc %#x", p2);
+              }
             }
+            // There could be more than one resume key, but we only
+            // examine one.
           }
-          // There could be more than one resume key, but we only
-          // examine one.
+          break;
         }
-        break;
+        if (proc->faultCode) {
+          printf(" FaultCode %d", proc->faultCode);
+        }
       }
       if (proc->curActivity) {
         Activity * act = proc->curActivity;
@@ -226,9 +231,6 @@ objC_ddb_dump_procs(void)
                    && sqa < (kva_t)&proc_ContextCache[KTUNE_NCONTEXT])
             printf(" (process)");
         }
-      }
-      if (proc->faultCode) {
-        printf(" FaultCode %d", proc->faultCode);
       }
       printf("\n");
     } else {

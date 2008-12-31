@@ -360,19 +360,23 @@ db_eros_print_context(Process *cc)
 		  : "Avail")));
     db_printf("act=%#x ", cc->curActivity);
     if (cc->isUserContext) {
-      db_printf("root=%#x", cc->procRoot);
+      db_printf("root=%#x  ", cc->procRoot);
 
       if (cc->procRoot) {
-	db_printf("  oid=%#llx\n", cc->procRoot->node_ObjHdr.oid);
+	db_printf("oid=%#llx\n", cc->procRoot->node_ObjHdr.oid);
       }
       else
-	db_printf("  oid=<unknown>\n");
+	db_printf("\n");
+    } else {
+      db_printf("(kernel)\n");
     }
 
     db_printf("  Fault Code=%u Fault Info=%#x procFlags=0x%02x\n"
-	      "  haz=0x%x prio=%d",
+	      "  haz=0x%x",
 	      cc->faultCode, cc->faultInfo, cc->processFlags,
-	      cc->hazards, /*cc->priority*/cc->readyQ->mask);
+	      cc->hazards);
+    if (! (cc->hazards & hz_Schedule))
+      db_printf(" prio=%d", /*cc->priority*/cc->readyQ->mask);
     db_eros_print_context_md(cc);
  
     if (cc->procRoot && 
@@ -901,12 +905,13 @@ db_activity_print_cmd(db_expr_t addr, int have_addr,
 
 //    db_eros_print_activity(t);
 
-    db_printf("%sactivity 0x%08x (%s) proc 0x%08x (%s) prio=%d lastq=%#x\n",
+    db_printf("%sactivity %#x (%s) proc %#x (%s) prio=%#x\n"
+              " haz=%d lastq=%#x\n",
 	      cur_str,
 	      t, act_stateNames[t->state], t->context,
               (t->context ? (proc_IsUser(t->context) ? "user" : "kernel")
                 : "noCtxt"),
-	      /*t->priority*/t->readyQ->mask, t->lastq);
+	      /*t->priority*/t->readyQ->mask, t->actHazard, t->lastq);
     if (! t->context) {
       db_printf("    (0x%08x): ", &t->processKey);
       db_eros_print_key(&t->processKey);
