@@ -114,9 +114,9 @@ main()
 
   result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
 
-  uint32_t atomicVar;
+  capros_atomic32 atomicVar;
   for (i = 0; i < PSITER; i++)
-    capros_atomic_add32_return(1, &atomicVar);
+    capros_atomic32_add_return(&atomicVar, 1);
 
   result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
   kprintf(KR_OSTREAM, "%10u ns per iter\n",
