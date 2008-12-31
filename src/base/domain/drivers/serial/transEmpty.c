@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
+#include <domain/CMTEThread.h>
 #include "serialPort.h"
 
 unsigned int transmitterEmptyThreadNum = noThread;
@@ -137,7 +138,7 @@ int
 CreateTransmitterEmptyTask(void)
 {
   // Create the transmitterEmpty process.
-  result_t result = lthread_new_thread(transmitterEmptyTaskStackSize,
+  result_t result = CMTEThread_create(transmitterEmptyTaskStackSize,
                       &transmitterEmptyTask, NULL, &transmitterEmptyThreadNum);
   if (result != RC_OK) {
     return -ENOMEM;
@@ -156,7 +157,7 @@ CreateTransmitterEmptyTask(void)
 void
 DestroyTransmitterEmptyTask(void)
 {
-  lthread_destroy(transmitterEmptyThreadNum);
+  CMTEThread_destroy(transmitterEmptyThreadNum);
   transmitterEmptyThreadNum = noThread;
 }
 
@@ -164,5 +165,5 @@ void
 TransmitterEmptySepuku(void)
 {
   transmitterEmptyThreadNum = noThread;
-  lthread_exit();
+  CMTEThread_exit();
 }

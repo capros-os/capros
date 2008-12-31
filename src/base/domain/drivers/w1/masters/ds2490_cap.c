@@ -23,7 +23,7 @@ Approved for public release, distribution unlimited. */
 
 #include <stdlib.h>
 #include <linux/kernel.h>
-//#include <linux/mod_devicetable.h>
+#include <domain/CMTEThread.h>
 #include <eros/Invoke.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
@@ -257,7 +257,7 @@ driver_main(void)
   // Probe was successful.
 
   // Create w1bus thread.
-  result = lthread_new_thread(4096, &w1bus_thread, NULL, &w1bus_threadNum);
+  result = CMTEThread_create(4096, &w1bus_thread, NULL, &w1bus_threadNum);
   if (result != RC_OK) {
     ds_disconnect(&theIntf);
 failed:

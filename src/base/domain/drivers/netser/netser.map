@@ -23,7 +23,7 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <lprog.map>
+#include <cmte.map>
 
 /*********************************************
  * Network to serial port driver.
@@ -37,8 +37,10 @@ BOOT_DOMCRE(netser);
 netser_constit = new node;
 netser_constit[0] = volsize;
 
+/* Although the CMTE wasn't designed for non-persistent processes,
+this should work: */
 #define NETSER(name, serPort, IPAddr, TCPPort, IPCap) \
-LPROG(name##netser, netser_prog, netser_pc, sched(8)) \
+CMTE(name##netser, netser_prog, netser_pc, sched(8)) \
 name##netser_proc key reg KR_CONSTIT = netser_constit; \
 name##netser_proc key reg KR_CREATOR = netser_proccre; \
 name##netser_proc key reg KR_APP2(0) = number(serPort, TCPPort, IPAddr); \

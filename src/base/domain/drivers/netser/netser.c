@@ -29,7 +29,8 @@ Approved for public release, distribution unlimited. */
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
 #include <linux/mutex.h>
-#include <linux/timer.h>
+#include <linux/timer.h>	// use non-persistent timers
+#include <domain/CMTEThread.h>
 #include <eros/Invoke.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/SuperNode.h>
@@ -448,11 +449,11 @@ driver_main(void)
   kprintf(KR_OSTREAM, "Netser driver called, serPort=%d.\n", serialPortNum);
 
   // Create read thread.
-  result = lthread_new_thread(4096, &readThread, NULL, &read_threadNum);
+  result = CMTEThread_create(4096, &readThread, NULL, &read_threadNum);
   assert(result == RC_OK);
 
   // Create write thread.
-  result = lthread_new_thread(4096, &writeThread, NULL, &write_threadNum);
+  result = CMTEThread_create(4096, &writeThread, NULL, &write_threadNum);
   assert(result == RC_OK);
 
   // Create start capabilities to threads.

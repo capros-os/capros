@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/LowVolume.h>
 #include <eros/machine/DevPrivs.h>
 #include <eros/machine/IORQ.h>
+#include <domain/CMTEThread.h>
 
 #define KR_IORQ KR_APP2(0)
 
@@ -302,7 +303,7 @@ mount_capros_disk(struct scsi_device * sdev)
   case TYPE_RBC:
   case TYPE_DISK:
     if (sdev->inq_periph_qual == 0) {	// a device is connected
-      result = lthread_new_thread(4096, &disk_thread, sdev, &sdev->threadNum);
+      result = CMTEThread_create(4096, &disk_thread, sdev, &sdev->threadNum);
       if (result != RC_OK) {
         kprintf(KR_OSTREAM, "mount_capros_disk could not create thread!\n");
         return;
