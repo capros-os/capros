@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -26,6 +26,8 @@ Approved for public release, distribution unlimited. */
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
 #include <linux/kthread.h>
+#include <domain/cmtesync.h>
+#include <domain/CMTEThread.h>
 
 #define kthreadStackSize 2048	// just a guess
 
@@ -79,7 +81,7 @@ kthread_run(int (*threadfn)(void *data),
   kci->data = data;
 
   unsigned int newThreadNum;
-  result = lthread_new_thread(kthreadStackSize,
+  result = CMTEThread_create(kthreadStackSize,
              &kthread_proc, kci,
              &newThreadNum);
   if (result != RC_OK) {

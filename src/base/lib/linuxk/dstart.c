@@ -29,83 +29,32 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Constructor.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/Sleep.h>
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
-#include <linux/thread_info.h>
-#include <linux/preempt.h>
+#include <domain/CMTEMaps.h>
 #include <domain/assert.h>
 
-/* This is the first code to run in a driver process.
-   It sets up the .data and .bss sections in a vcsk. */
-
-const uint32_t __rt_stack_pointer = (0x420000 - SIZEOF_THREAD_INFO);
+/* This is the code to initialize a driver process. */
 
 extern void driver_main(void);
 /* driver_main should be NORETURN, but don't declare it so,
  * so we can detect whether it returns. */
 
-/* When called, KR_TEMP1 has a constructor builder key to the VCSK
-   for the data section,
-   KR_TEMP2 has the GPT to our address space,
-   and KR_RETURN has the GPT to our stacks space. */
 int
-main(void)
+cpte_main(void)
 {
-  // This needs more work to support C++ constructors.
   result_t result;
 
-  // Create the VCSK for our .data. .bss, and heap.
-  result = capros_Constructor_request(KR_TEMP1, KR_BANK, KR_SCHED, KR_VOID,
-                                      KR_TEMP0);
-  if (result != RC_OK) {
-    *((int *)0) = 0xbadbad77;	// FIXME
-  }
-
-  result = capros_GPT_setSlot(KR_TEMP2, 3, KR_TEMP0);
-  if (result != RC_OK) {
-    *((int *)0) = 0xbadbad77;	// FIXME
-  }
-
-  /* Validate that SIZEOF_THREAD_INFO is correct, or at least good enough. */
-  assert(SIZEOF_THREAD_INFO
-         >= offsetof(struct thread_info, preempt_count)
-            + sizeof(((struct thread_info *)0)->preempt_count) );
-
-  preempt_count() = 0;
-
-  // Create the KEYSTORE object.
-  result = capros_Constructor_request(KR_KEYSTORE, KR_BANK, KR_SCHED, KR_VOID,
-                             KR_KEYSTORE);
-  assert(result == RC_OK);	// FIXME
-  result = capros_SuperNode_allocateRange(KR_KEYSTORE, LKSN_THREAD_PROCESS_KEYS,
-                      LKSN_APP - 1);
-  assert(result == RC_OK);	// FIXME
-  // Populate it.
-  capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_THREAD_PROCESS_KEYS+0,
-                               KR_SELF, KR_VOID);
-  capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_STACKS_GPT,
-                               KR_RETURN, KR_VOID);
-
-  // Create the lsync process.
-  unsigned int lsyncThreadNum;
-  result = lthread_new_thread(LSYNC_STACK_SIZE, &lsync_main, NULL,
-                              &lsyncThreadNum);
-  if (result != RC_OK) {
-    kdprintf(KR_OSTREAM, "%#x ", result);
-    assert(false);	// FIXME handle error
-  }
-
-  // Get lsync process key
-  result = capros_Node_getSlotExtended(KR_KEYSTORE,
-                              LKSN_THREAD_PROCESS_KEYS + lsyncThreadNum,
-                              KR_TEMP0);
-  assert(result == RC_OK);
-  result = capros_Process_makeStartKey(KR_TEMP0, 0, KR_LSYNC);
-  assert(result == RC_OK);
-  result = capros_Process_swapKeyReg(KR_TEMP0, KR_LSYNC, KR_LSYNC, KR_VOID);
-  assert(result == RC_OK);
+  assert(LKSN_APP == LKSN_CMTE);	// otherwise need to allocate
+		// range in KR_KEYSTORE
 
   maps_init();
+
+  // Initialize delayCalibrationConstant.
+  result = capros_Sleep_getDelayCalibration(KR_SLEEP,
+             &delayCalibrationConstant);
+  assert(result == RC_OK);
 
   driver_main();
   assert(false);	// driver_main should not return

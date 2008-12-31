@@ -25,17 +25,13 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <domain/Runtime.h>
-#include <idl/capros/GPT.h>
-#include <idl/capros/Constructor.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/Process.h>
-#include <idl/capros/LSync.h>
+#include <idl/capros/Sleep.h>
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
-#include <linux/thread_info.h>
-#include <linux/preempt.h>
+#include <domain/CMTEMaps.h>
 #include <domain/assert.h>
-#include <domain/InterpreterDestroy.h>
 
 #define dbg_alloc 0x01
 
@@ -47,10 +43,6 @@ Approved for public release, distribution unlimited. */
 /* This is the first driver code to run in a usb driver process.
    It sets up the .data and .bss sections in a vcsk. */
 
-const uint32_t __rt_stack_pointer
-   = LK_STACK_BASE + (1UL << LK_LGSTACK_AREA) - SIZEOF_THREAD_INFO;
-const uint32_t __rt_unkept = 1;
-
 extern result_t driver_main(void);
 
 /* We run after dyndriverprotospace.
@@ -59,22 +51,14 @@ extern result_t driver_main(void);
    The caller of the constructor passed a USBInterface cap
    which is now in KR_ARG(0), and a resume key in KR_RETURN. */
 int
-main(void)
+cmte_main(void)
 {
   result_t result;
   result_t finalResult;
 
   // Unpack some caps.
-  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  if (result != RC_OK) {
-    /* This should not happen, but until KR_OSTREAM is there,
-    we can't use assert. */
-    *((int *)0) = 0xbadbad77;
-  }
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_LINUX_EMUL,
     KR_LINUX_EMUL);
-  assert(result == RC_OK);
-  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SLEEP, KR_SLEEP);
   assert(result == RC_OK);
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_DEVPRIVS, KR_DEVPRIVS);
   assert(result == RC_OK);
@@ -82,98 +66,19 @@ main(void)
   result = capros_Process_setIOSpace(KR_SELF, KR_DEVPRIVS);
   assert(result == RC_OK);
 
-  // Create the KEYSTORE supernode.
-  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SNODECONSTR, KR_KEYSTORE);
-  assert(result == RC_OK);
-  finalResult = capros_Constructor_request(KR_KEYSTORE,
-                             KR_BANK, KR_SCHED, KR_VOID,
-                             KR_KEYSTORE);
-  if (finalResult != RC_OK) {
-    DEBUG(alloc) kprintf(KR_OSTREAM, "failed to create keystore");
-    goto noKeystore;
-  }
-  finalResult = capros_SuperNode_allocateRange(KR_KEYSTORE,
-                      LKSN_THREAD_PROCESS_KEYS,
-                      LKSN_APP - 1);
-  if (finalResult != RC_OK) {
-    DEBUG(alloc) kprintf(KR_OSTREAM, "failed to expand keystore");
-    goto noMaps;
-  }
-  // Populate it.
-  capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_THREAD_PROCESS_KEYS+0,
-                               KR_SELF, KR_VOID);
-  capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_STACKS_GPT,
-                               KR_TEMP2, KR_VOID);
-
-  // Create the GPT for maps. 
-  finalResult = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT,
-                  KR_MAPS_GPT);
-  if (finalResult != RC_OK) {
-    DEBUG(alloc) kprintf(KR_OSTREAM, "failed to create MAPS_GPT");
-    goto noMaps;
-  }
-  result = capros_GPT_setL2v(KR_MAPS_GPT, 17);
-  assert(result == RC_OK);
-  // Map it.
-  result = capros_GPT_setSlot(KR_TEMP3, LK_MAPS_BASE / 0x400000, KR_MAPS_GPT);
-  assert(result == RC_OK);
-
-  preempt_count() = 0;
-
-  // Create the lsync process.
-  unsigned int lsyncThreadNum;
-  finalResult = lthread_new_thread(LSYNC_STACK_SIZE, &lsync_main, NULL,
-                              &lsyncThreadNum);
-  if (finalResult != RC_OK) {
-    DEBUG(alloc) kprintf(KR_OSTREAM, "failed to create lsync");
-    goto noLsync;
-  }
-
-  // Get lsync process key
-  result = capros_Node_getSlotExtended(KR_KEYSTORE,
-                              LKSN_THREAD_PROCESS_KEYS + lsyncThreadNum,
-                              KR_TEMP0);
-  assert(result == RC_OK);
-  result = capros_Process_makeStartKey(KR_TEMP0, 0, KR_LSYNC);
-  assert(result == RC_OK);
-  result = capros_Process_swapKeyReg(KR_TEMP0, KR_LSYNC, KR_LSYNC, KR_VOID);
-  assert(result == RC_OK);
+  assert(LKSN_APP == LKSN_CMTE);	// otherwise need to allocate
+		// range in KR_KEYSTORE
 
   maps_init();
 
+  // Initialize delayCalibrationConstant.
+  result = capros_Sleep_getDelayCalibration(KR_SLEEP,
+             &delayCalibrationConstant);
+  assert(result == RC_OK);
+
   finalResult = driver_main();
 
-  /* Tear down everything. */
+  ////maps_fini();
 
-  // Do we need to call the library to let it clean up?
-
-  /* The following call has two purposes:
-  It synchronizes with lsync, ensuring that if it was destroying threads,
-  it has finished doing so;
-  and it destroys any stray threads left behind by the driver. */
-  lthread_destroyAll();
-
-  lthread_destroy(lsyncThreadNum);
-noLsync:
-  result = capros_SpaceBank_free1(KR_BANK, KR_MAPS_GPT);
-  assert(result == RC_OK);
-noMaps:
-  result = capros_key_destroy(KR_KEYSTORE);
-  assert(result == RC_OK);
-noKeystore:
-  // Set up caps for destruction.
-  result = capros_Process_getAddrSpace(KR_SELF, KR_TEMP3);
-  assert(result == RC_OK);
-  result = capros_GPT_getSlot(KR_TEMP3, LK_STACK_BASE / 0x400000, KR_TEMP2);
-  assert(result == RC_OK);
-  result = capros_GPT_getSlot(KR_TEMP3, LK_DATA_BASE / 0x400000, KR_TEMP0);
-  assert(result == RC_OK);
-  result = capros_GPT_getSlot(KR_TEMP2, 0, KR_TEMP1);
-  assert(result == RC_OK);
-  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_INTERPRETERSPACE,
-             KR_ARG(0));
-  assert(result == RC_OK);
-  InterpreterDestroy(KR_ARG(0), KR_TEMP3, finalResult);
-  assert(false);	// InterpreterDestroy should not return!
-  return 0;
+  return finalResult;
 }

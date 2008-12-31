@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -33,6 +33,8 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Node.h>
 #include <idl/capros/DevPrivs.h>
 #include <domain/assert.h>
+#include <domain/cmtesync.h>
+#include <domain/CMTEThread.h>
 
 #define IntStackSize 1024 // I have no idea what this should be
 
@@ -128,11 +130,11 @@ int request_irq(unsigned int irq, irq_handler_t handler,
   };
   unsigned int newThreadNum;
 
-  result_t lthres = lthread_new_thread(IntStackSize, interrupt_thread_func,
+  result_t lthres = CMTEThread_create(IntStackSize, interrupt_thread_func,
              &args, &newThreadNum);
   down(&args.arglock);
 
-  if (lthres) {
+  if (lthres != RC_OK) {
     capros_DevPrivs_releaseIRQ(KR_DEVPRIVS, irq);
     return -EINVAL;
   }

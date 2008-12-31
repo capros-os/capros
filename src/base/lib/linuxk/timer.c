@@ -36,6 +36,8 @@ Approved for public release, distribution unlimited. */
 #include <domain/assert.h>
 #include <linux/timer.h>
 #include <linux/sched.h>
+#include <domain/cmtesync.h>
+#include <domain/CMTEThread.h>
 
 // #define TIMERDEBUG
 
@@ -254,6 +256,8 @@ timerThreadProc(void * arg)
 #ifdef TIMERDEBUG
     kprintf(KR_OSTREAM, "timer result=0x%x\n", result);
 #endif
+    /* This program is intended for non-persistent processes, so
+    we will never see RC_capros_key_Restart here. */
     assert(result == RC_OK);
 
 #ifdef TIMERDEBUG
@@ -273,6 +277,8 @@ timerThreadProc(void * arg)
     case ttsTeleporting:
       // Another process is teleporting us. Just wait while they do it.
       capros_Sleep_sleepTill(KR_SLEEP, capros_Sleep_infiniteTime);
+      /* This program is intended for non-persistent processes, so
+      we will never see RC_capros_key_Restart here. */
       assert(false);	// shouldn't get here
 
     case ttsSleeping:
@@ -325,7 +331,7 @@ ensure_timer_thread(void)
     // Create the timer thread.
     timerThreadNum = noThread2;	// prevent duplicate creations
     spin_unlock_irqrestore(&timerLock, flags);
-    result_t result = lthread_new_thread(timerThreadStackSize,
+    result_t result = CMTEThread_create(timerThreadStackSize,
                         &timerThreadProc, NULL, &timerThreadNum);
     if (result != RC_OK) {
       printk("Unable to start timer thread, reason = 0x%x\n", result);
@@ -574,5 +580,7 @@ signed long
 schedule_timeout_uninterruptible(signed long timeout)
 {
   capros_Sleep_sleep(KR_SLEEP, jiffies_to_msecs(timeout));
+  /* This program is intended for non-persistent processes, so
+  we will never see RC_capros_key_Restart here. */
   return 0;	// no signals
 }

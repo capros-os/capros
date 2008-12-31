@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -34,6 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <linuxk/lsync.h>
 #include <asm/io.h>
 #include <linux/mutex.h>
+#include <domain/CMTEMaps.h>
 
 void __iomem *
 __ioremap(unsigned long offset, unsigned long size, unsigned long flags)

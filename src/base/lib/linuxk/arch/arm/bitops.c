@@ -4,7 +4,7 @@
  *  Linus Torvalds (test_bit).
  * Big endian support: Copyright 2001, Nicolas Pitre
  *  reworked by rmk.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -42,7 +42,7 @@ Approved for public release, distribution unlimited. */
   do {
 
 #define atomic_end \
-    newVal = capros_atomic_cmpxchg32(p, oldVal, newVal); \
+    newVal = capros_atomic32_cmpxchg(p, oldVal, newVal); \
     if (newVal == oldVal) break; \
     oldVal = newVal; \
   } while (1);

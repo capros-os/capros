@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <linuxk/lsync.h>
 #include <asm/io.h>
 #include <linux/mutex.h>
+#include <domain/CMTEMaps.h>
 
 void __iomem *
 __arm_ioremap(unsigned long offset, size_t size, unsigned int flags)

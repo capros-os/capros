@@ -34,7 +34,7 @@ VPATH=arch/$(LINUX_TARGET)
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
 OPTIM=-O
 DIRS=
-OBJECTS=$(BUILDDIR)/rwsem.o \
+OBJECTS=\
   $(BUILDDIR)/alloc.o \
   $(BUILDDIR)/archstubs.o \
   $(BUILDDIR)/completion.o \
@@ -49,21 +49,15 @@ OBJECTS=$(BUILDDIR)/rwsem.o \
   $(BUILDDIR)/kref.o \
   $(BUILDDIR)/kthread.o \
   $(BUILDDIR)/lirq.o \
-  $(BUILDDIR)/lthread.o \
-  $(BUILDDIR)/lsync.o \
-  $(BUILDDIR)/maps.o \
   $(BUILDDIR)/notifier.o \
   $(BUILDDIR)/platform.o \
   $(BUILDDIR)/printk.o \
   $(BUILDDIR)/resource.o \
-  $(BUILDDIR)/semaphore.o \
   $(BUILDDIR)/sleep.o \
   $(BUILDDIR)/slob.o \
   $(BUILDDIR)/softirq.o \
   $(BUILDDIR)/string.o \
   $(BUILDDIR)/stubs.o \
-  $(BUILDDIR)/threadnum.o \
-  $(BUILDDIR)/threadstart.o \
   $(BUILDDIR)/timer.o \
   $(BUILDDIR)/tty_ioctl.o \
   $(BUILDDIR)/utsname.o \
@@ -87,11 +81,7 @@ endif
 endif
 
 TARGETS=$(BUILDDIR)/liblinuxk.a $(BUILDDIR)/dstart.o
-TARGETS+=$(BUILDDIR)/dyndriverprotospace
 TARGETS+=$(BUILDDIR)/dyndriverstart.o
-
-DYNOBJECTS=$(CAPROS_DOMAIN)/interpreter.o
-DYNOBJECTS+=$(BUILDDIR)/dyndriverprotospace.o
 
 include $(EROS_SRC)/build/make/makerules.mk
 
@@ -104,14 +94,10 @@ IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/dyndriverprotospace: $(DYNOBJECTS)
-	$(EROS_LD) -N -Ttext 0 -static -e _start $(DYNOBJECTS) -o $@
-
 install-headers:
 	$(INSTALL) -d $(EROS_ROOT)/include/linuxk
 	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/linuxk
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
-	$(INSTALL) -m 644 lprog.map $(CAPROS_DOMAIN)
 	$(INSTALL) -m 644 driver.map dyndriver.map $(CAPROS_DOMAIN)/drivers
 
 install: install-headers $(TARGETS)

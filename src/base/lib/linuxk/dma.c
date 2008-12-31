@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <linuxk/lsync.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
+#include <domain/CMTEMaps.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Page.h>
 #include <idl/capros/DevPrivs.h>

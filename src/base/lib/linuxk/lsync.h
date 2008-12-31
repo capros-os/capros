@@ -26,42 +26,12 @@ Approved for public release, distribution unlimited. */
 /* lsync.h -- Synchronization process for Linux kernel emulation.
 */
 
-
-/* Memory layout: */
-
-/* 0x0: nothing. To catch misuse of NULL pointers.
-0x1000: beginning of code, read only */
-
-#define LK_STACK_BASE 0x00400000
-/* Thread stacks are allocated as follows:
-0x00400000 through 0x0041ffff: area for stack for thread 0
-  The actual stack is from 0x0041ffff down through whatever its size is.
-0x00420000 through 0x0043ffff: area for stack for thread 1
-etc. */
-/* The highest addresses in the stack contain the Linux
-thread_info structure, of which only preempt_count is used. */
-#define LK_LGSTACK_AREA 17
-#define LK_STACK_AREA (1ul << LK_LGSTACK_AREA)	// 0x00020000
-
-#define LK_MAX_THREADS 32
-
-#define LK_MAPS_BASE 0x00800000	// area for ioremap()
-
-#define LK_DATA_BASE 0x00c00000 // .data, .bss, and heap, backed by a VCSK
-// Limit of memory is 0x02000000, because that is the limit of an ARM
-// small space. 
-
+#include <domain/cmte.h>
 
 /* Key registers: */
-#include <domain/Runtime.h>
-#define KR_KEYSTORE 2
-#define KR_OSTREAM    KR_APP(0)
-#define KR_LINUX_EMUL KR_APP(1) // Node of keys for Linux driver environment
-#define KR_LSYNC      KR_APP(2)	// start key to lsync process
-#define KR_SLEEP      KR_APP(3) // to speed up getting jiffies
-#define KR_MAPS_GPT   KR_APP(4) // 
-#define KR_DEVPRIVS   KR_APP(5) // to speed up getting jiffies
-#define KR_APP2(i)    KR_APP(6+(i)) // first available key reg for driver
+#define KR_LINUX_EMUL KR_CMTE(0) // Node of keys for Linux driver environment
+#define KR_DEVPRIVS   KR_CMTE(1)
+#define KR_APP2(i)    KR_CMTE(2+(i)) // first available key reg for driver
 
 /* Slots in the node in KR_LINUX_EMUL: */
 #define LE_CLOCKS 0
@@ -75,64 +45,17 @@ the process (usually one). */
 //// Combine clocks, iomem, etc. into one extended node to save space?
 // (at the cost of time)
 
-
 /* Slots in the supernode KR_KEYSTORE: */
-/* For 0 < i < LK_MAX_THREADS (*not* 0),
-     keystore[LKSN_THREAD_PROCESS_KEYS + i] has the process key to thread i,
-   and keystore[LKSN_THREAD_RESUME_KEYS + i] is reserved for
-     a resume key to thread i. */
-#define LKSN_THREAD_PROCESS_KEYS 0
-#define LKSN_THREAD_RESUME_KEYS  LK_MAX_THREADS
-#define LKSN_STACKS_GPT          (LKSN_THREAD_RESUME_KEYS+LK_MAX_THREADS)
-#define LKSN_APP                 (LKSN_STACKS_GPT+1) // available for driver
+#define LKSN_APP                 LKSN_CMTE // available for driver
 
 /* Constituents of driver constructors: */
-#define KC_OSTREAM    0
-#define KC_TEXT       1 // read-only portion of the program
-#define KC_DATAVCSK   2	// initial data of the program
-#define KC_INTERPRETERSPACE 3
-#define KC_LINUX_EMUL 4
-#define KC_SLEEP      5
-#define KC_DEVPRIVS   6
-#define KC_SNODECONSTR 7
-#define KC_STARTADDR  8 // for dynamically-constructed drivers
-#define KC_APP2(n) 9+(n)
+#define KC_LINUX_EMUL KC_CMTE(0)
+#define KC_DEVPRIVS   KC_CMTE(1)
+#define KC_APP2(n)    KC_CMTE(2+(n))
 
 #ifndef __ASSEMBLER__
-
-#undef KR_RTBITS
-#include <eros/target.h>	// get result_t
-
-typedef uint32_t uva_t;	/* user (unmodified) virtual address */
-
-#define noThread (-1)
-#define noThread2 (-2)
-unsigned int lk_getCurrentThreadNum(void);
-
-result_t
-lthread_new_thread(uint32_t stackSize,
-		   void * (* start_routine)(void *), void * arg,
-		   /* out */ unsigned int * newThreadNum);
-void lthread_exit(void);
-void lthread_destroy(unsigned int threadNum);
-void lthread_destroyAll(void);
-uint32_t lthread_getStackPages(unsigned int threadNum);
-void lthreadDeallocateNum(unsigned int threadNum);
-
-void * lsync_main(void *);
-#define LSYNC_STACK_SIZE 4096
-
+#include <stdint.h>
 extern uint32_t delayCalibrationConstant;
-
-void maps_init(void);
-long maps_reserve(unsigned long pageSize /* size in pages */ );
-void maps_liberate(unsigned long pgOffset,
-                   unsigned long pageSize /* size in pages */ );
-void * maps_pgOffsetToAddr(unsigned long pgOffset);
-unsigned long maps_addrToPgOffset(unsigned long addr);
-result_t maps_mapPage(unsigned long pgOffset, cap_t pageCap);
-void maps_getCap(unsigned long pgOffset, cap_t pageCap);
-
-#endif // __ASSEMBLER__
+#endif
 
 #endif // __LSYNC_H

@@ -25,30 +25,13 @@ Approved for public release, distribution unlimited. */
 
 #include <linuxk/lsync.h>
 #include <supernode.map>
-
-dynprotospace = ro small program LIBDIR "dyndriverprotospace";
-
-/* Driver programs are loaded with code at 0x1000 and data at 0x00c00000.
-   Therefore the l2v of prog is 22,
-   the code is in prog[0], and data in prog[3]. */
+#include <dyncmte.map>
 
 /* Set up a constructor for a driver with Linux emulation. */
 #define DYNDRIVER_CONSTRUCTOR(dname, prog, devcfgbit) \
-dname##_prog = program segtree LIBDIR #prog ; \
-dname##_pc = symbol LIBDIR #prog _start; \
-MAKE_VIRTUAL_COPIER_SEG(dname##vcsk, dname##_prog[3]); \
+DYNCMTE_CONSTRUCTOR(dname, prog); \
 dname##le = new node; \
-BOOT_CONSTRUCTOR(dname##_c, dname) \
-PROD_SPACE(dname##_c) = dynprotospace; \
-PROD_PC(dname##_c) = number(0); /* well-known */ \
-PROD_CONSTIT(dname##_c, , KC_OSTREAM) = misc Console; \
-PROD_CONSTIT(dname##_c, , KC_TEXT) = ro dname##_prog[0]; \
-PROD_CONSTIT(dname##_c, , KC_DATAVCSK) = dname##vcsk_c; \
-PROD_CONSTIT(dname##_c, , KC_INTERPRETERSPACE) = dynprotospace; \
 PROD_CONSTIT(dname##_c, , KC_LINUX_EMUL) = dname##le; \
-PROD_CONSTIT(dname##_c, , KC_SLEEP) = misc Sleep; \
-PROD_CONSTIT(dname##_c, , KC_DEVPRIVS) = misc DevicePrivs devcfgbit; \
-PROD_CONSTIT(dname##_c, , KC_SNODECONSTR) = snode_c; \
-PROD_CONSTIT(dname##_c, , KC_STARTADDR) = dname##_pc;
+PROD_CONSTIT(dname##_c, , KC_DEVPRIVS) = misc DevicePrivs devcfgbit;
 
 #endif //__DYNDRIVER_MAP_

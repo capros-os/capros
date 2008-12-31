@@ -21,9 +21,6 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* Emulation for Linux procedures request_irq and free_irq.
-*/
-
 #include <linuxk/linux-emul.h>
 #include <linuxk/lsync.h>
 #include <eros/Invoke.h>	// get RC_OK

@@ -157,7 +157,6 @@ static void insert_work(struct cpu_workqueue_struct *cwq,
 	up(&cwq->more_work);
 }
 
-/* Preempt must be disabled. */
 static void __queue_work(struct cpu_workqueue_struct *cwq,
 			 struct work_struct *work)
 {
@@ -184,8 +183,7 @@ int fastcall queue_work(struct workqueue_struct *wq, struct work_struct *work)
 
 	if (!test_and_set_bit(WORK_STRUCT_PENDING, work_data_bits(work))) {
 		BUG_ON(!list_empty(&work->entry));
-		__queue_work(wq_per_cpu(wq, get_cpu()), work);
-		put_cpu();
+		__queue_work(wq_per_cpu(wq, smp_processor_id()), work);
 		ret = 1;
 	}
 	return ret;

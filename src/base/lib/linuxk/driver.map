@@ -24,11 +24,11 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <linuxk/lsync.h>
-#include <lprog.map>
+#include <cmte.map>
 
 /* Set up a driver with Linux emulation. */
 #define DRIVER(dname, prog, progpc, devcfgbit) \
-LPROG(dname, prog, progpc, sched(8 /* or higher? */ )) \
+CMTE(dname, prog, progpc, sched(8 /* or higher? */ )) \
 dname##le = new node; \
 dname##_proc iospace = misc DevicePrivs devcfgbit; \
 dname##_proc key reg KR_DEVPRIVS = misc DevicePrivs devcfgbit; \
