@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -21,39 +21,18 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
 
-void mach_Delay(unsigned int n);
-
-/* Delay for w microseconds. 
-   w must be <= 32768 and calibrationConstant must be < (1UL << 17)
-   (to avoid overflow in the multiplication). */
-static void
-delay(uint32_t w, uint32_t calibrationConstant)
-{
-  w *= calibrationConstant;
-  w /= 8;
-  if (w > 0)
-    mach_Delay(w);
-}
-
+/* This is not implemented in the kernel, because it is difficult to
+ * implement correctly if the invocation is a SEND or RETURN. */
 result_t
-capros_Sleep_delayMicroseconds(cap_t _self,
-  uint32_t microseconds, uint32_t calibrationConstant)
+capros_Sleep_sleepTillPersistent(cap_t _self, capros_Sleep_nanoseconds_t ns)
 {
-  if (microseconds > capros_Sleep_DelayMaxMicroseconds)
-    return RC_capros_key_RequestError;
-
-  if (calibrationConstant == 0	// probably uninitialized
-      || calibrationConstant >= (1UL << 17))
-    return RC_capros_key_RequestError;
-
-  while (microseconds >= 32768) {
-    delay(32768, calibrationConstant);
-    microseconds -= 32768;
-  }
-  delay(microseconds, calibrationConstant);
-
-  return RC_OK;
+  result_t result;
+  do {
+    result = capros_Sleep_sleepTillPersistentOrRestart(_self, ns);
+  } while (result == RC_capros_key_Restart);
+  return result;
 }
