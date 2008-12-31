@@ -255,13 +255,13 @@ All normal user objects fall into this class.
       takes a checkpoint, it will examine all non-persistent nodes. 
       For each resume key it finds, it will save the state of the
       waiting process such that if restarted from that state,
+      the process will find that the CALL has returned with a
+      distinctive reply code (RC_capros_key_Restart).
+      Alternatively, it could save the state such that if restarted,
       the process will run and re-execute its CALL invocation. 
       Assuming that the CALL was directly to a non-persistent process,
       that cap will have been rescinded (see below), and the
       response from the now-void cap will signal the restart.
-      Alternatively, it could save the state such that if restarted,
-      the process will find that the CALL has returned with a
-      distinctive reply code.
     </p>
     <p>
       In that case, the operation that was requested by the CALL
