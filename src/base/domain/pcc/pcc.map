@@ -2,9 +2,10 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2008, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System runtime library.
+ * This file is part of the CapROS Operating System runtime library,
+ * and is derived from the EROS Operating System runtime library.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -20,6 +21,9 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #ifdef __PCC_MAP__
 #error "pcc.map multiply included"
@@ -56,15 +60,10 @@ CONSTIT(pcc, KC_DOMCRE_SEG, 3)     = proccre.seg;
 CONSTIT(pcc, KC_OURBRAND,   4)     = proccre_brand;
 CONSTIT(pcc, KC_DOMCRE_CONSTIT, 5) = ro proccre_constit;
 
-/* RKT_DESTROY set in destroy.map */
-/* RKT_CNS_VERIFIER set in metacon.map */
-/* RKT_AUDIT_LOG set in in syslog.map */
-
 /* PCC registers: */
 pcc key reg KR_SELF   = pcc;
 pcc key reg KR_BANK   = primebank;	/* should be bank_verifier! */
 pcc key reg KR_SCHED  = sched(8);
-pcc key reg KR_RTBITS = primordial_runtime_bits;
 
 /* pcc key reg 15 = start pcc.dom 65535  brand of all proccre's */
 
@@ -72,8 +71,6 @@ pcc key reg KR_RTBITS = primordial_runtime_bits;
 run pcc;
 
 pcc = start pcc 0;
-
-primordial_runtime_bits[RKT_CREATOR]      = start pcc 0;
 
 /***********************************************************************
  * Various initially frozen factories need their own proccres.
@@ -92,6 +89,5 @@ primordial_runtime_bits[RKT_CREATOR]      = start pcc 0;
    name##_proccre_process key reg KR_SELF = name##_proccre_process; \
    name##_proccre_process key reg KR_BANK = primebank; \
    name##_proccre_process key reg KR_SCHED = sched(8); \
-   name##_proccre_process key reg KR_RTBITS = primordial_runtime_bits; \
    run name##_proccre_process; \
    name##_proccre = start name##_proccre_process 0;

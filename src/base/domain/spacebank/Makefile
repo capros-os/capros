@@ -69,6 +69,7 @@ $(SOURCES): $(BUILDDIR)/constituents.h
 $(BUILDDIR)/spacebank: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) $(OBJECTS) $(CROSSLIBS) -o $@
 ## and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 IDL=$(wildcard *.idl)

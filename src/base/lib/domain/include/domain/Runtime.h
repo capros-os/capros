@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -33,7 +33,14 @@ Approved for public release, distribution unlimited. */
 #define KR_VOID 0
 /* KR_VOID is also defined in eros/Invoke.h, as this is a kernel constraint. */
 #define KR_CONSTIT          1	  /* constituents node */
-#define KR_RTBITS           2	  /* runtime components */
+//			    2	  /* used for KR_KEYSTORE */
+
+    /* A capability to the process creator who can created your
+     * process. Without access to this process creator, a process
+     * cannot perform the OC_Destroy operation, because it has no
+     * means to demolish it's own process. Further, without its
+     * process creator a process has no means to return a result from
+     * the OC_Destroy operation. */
 #define KR_CREATOR          3	  /* start key to process creator of self */
 #define KR_SELF             4	  /* process key to self */
 #define KR_BANK             5	  /* working storage */
@@ -71,14 +78,6 @@ or as parameters or results of procedure calls. */
  * For each capability, the rationale for inclusion is also described.
  */
 
-    /* A capability to the process creator who can created your
-     * process. Without access to this process creator, a process
-     * cannot perform the OC_Destroy operation, because it has no
-     * means to demolish it's own process. Further, without its
-     * process creator a process has no means to return a result from
-     * the OC_Destroy operation. */
-#define RKT_CREATOR        0
-
     /* Space Bank verifier. Used to determine whether a capability
      * that alleges to be a valid space bank capability is in fact a
      * valid space bank capability. Since the space bank is provided
@@ -94,7 +93,7 @@ or as parameters or results of procedure calls. */
      * your constructor to determine if it was safe to instantiate
      * you.
      */
-#define RKT_SB_VERIFIER    2
+//#define RKT_SB_VERIFIER    2
 
     /* Constructor verifier. Used to determine whether a capability
      * that alleges to be a constructor is in fact a constructor.
@@ -109,12 +108,12 @@ or as parameters or results of procedure calls. */
      * contract is that this is the same constructor verifier used by
      * your constructor to determine if your constiuents were
      * discreet. */
-#define RKT_CNS_VERIFIER   3
+//#define RKT_CNS_VERIFIER   3
 
     /* Audit log capability. The audit log capability provides access
      * to a rate-limited logging mechanism (an OStream). Every process
      * received a uniquely distinguished audit logging capability.
      */
-#define RKT_AUDIT_LOG      4
+//#define RKT_AUDIT_LOG      4
 
 #endif /* __RUNTIME_H__ */

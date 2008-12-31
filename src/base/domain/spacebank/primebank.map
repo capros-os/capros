@@ -98,18 +98,13 @@ CONSTIT(spacebank, KC_DOMTOOL, 3) = misc ProcessTool;
  */
 
 primordial_runtime_bits = new ro node;
-  /* RKT_CREATOR is set in pcc.map. */
+  /* primordial_runtime_bits isn't currently used. */
   /* RKT_SB_VERIFIER is set below. */
-  /* Note that RKT_CNS_VERIFIER is not used by any of the primordial
-   * domains, but is set in metacon.map so that the constructor can
-   * clone this node, override the creator, and pass the result to new
-   * yields as their runtime environment. */
   /* RKT_AUDIT_LOG temporarily set here to KR_OSTREAM, but will
    * eventually be overridden in syslog.map */
-primordial_runtime_bits[RKT_AUDIT_LOG]     = misc Console;
+//primordial_runtime_bits[RKT_AUDIT_LOG]     = misc Console;
 
 spacebank key reg  KR_SELF = spacebank; /* domain key to spacebank */
-spacebank key reg  KR_RTBITS = primordial_runtime_bits;
 
 run spacebank;
 
@@ -134,6 +129,6 @@ bank_verifier target = start spacebank 0x03; /* no destroy, no chg limits */
 CONSTIT(spacebank, KC_VERIFIER, 5) = bank_verifier;
 bank_verifier = bank_verifier as sendWord opaque forwarder key;
 
-primordial_runtime_bits[RKT_SB_VERIFIER] = bank_verifier;
+//primordial_runtime_bits[RKT_SB_VERIFIER] = bank_verifier;
 
 hide spacebank;
