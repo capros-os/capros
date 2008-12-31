@@ -91,10 +91,25 @@ returnu64:
     wakeupTime = sysT_Now() + mach_NanosecondsToTicks(u64);
     goto sleepCommon;
 
+  case OC_capros_Sleep_sleepTillPersistentOrRestart:
+    WaitForRestartDone();	// wait until monotonicTimeOfRestart is valid
+    u64 = (((uint64_t) inv->entry.w2) << 32)
+                  | ((uint64_t) inv->entry.w1);
+    // The following test ensures that u64 - monotonicTimeOfRestart
+    // won't be negative.
+    if (u64 < monotonicTimeOfRestart)
+      goto returnOK;
+
+    u64 = u64 - monotonicTimeOfRestart;
+	// non-persistent wakeup time in ns
+
+    goto sleepCommonNs;
+
   case OC_capros_Sleep_sleepTill:
     u64 = (((uint64_t) inv->entry.w2) << 32)
                   | ((uint64_t) inv->entry.w1);
 
+  sleepCommonNs:
     wakeupTime = mach_NanosecondsToTicks(u64) + 1;	// +1 to round up
     goto sleepCommon;
 
@@ -129,10 +144,12 @@ returnu64:
     break;
     
   case OC_capros_key_getType:
+    inv->exit.w1 = AKT_Sleep;
+
+  returnOK:
     COMMIT_POINT();
       
     inv->exit.code = RC_OK;
-    inv->exit.w1 = AKT_Sleep;
     break;
 
   default:

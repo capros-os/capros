@@ -223,9 +223,9 @@ DoGetObject(Key * key, ObjectLocator * pObjLoc,
   return pObj;
 }
 
-/* NOTE: if we are running OB_MOD_CHECK, the key prepare logic does an
- * incremental recomputation on the check field in the containing object.
- */
+/* NOTE: if we are running OB_MOD_CHECK, the key prepare logic does not
+ * change the check field in the containing object.
+ * The check field is always computed as a function of the unprepared key. */
 /* May Yield. */
 bool	// returns true iff key is voided
 key_DoPrepare(Key* thisPtr)
@@ -253,8 +253,9 @@ key_DoPrepare(Key* thisPtr)
       ObCount countToCompare =
         GetObjectCount(thisPtr->u.unprep.oid, &objLoc,
                        keyBits_IsType(thisPtr, KKT_Resume) );
-      if (countToCompare != thisPtr->u.unprep.count)
+      if (countToCompare != thisPtr->u.unprep.count) {
         break;	// with pObj == NULL
+      }
 
       pObj = GetObject(thisPtr->u.unprep.oid, &objLoc);
       PrepareKeyToProcess(thisPtr, objH_ToNode(pObj));
@@ -282,7 +283,7 @@ key_DoPrepare(Key* thisPtr)
   
   if (pObj == 0) {
     DEBUG(prepare)
-      dprintf(true, "Voiding invalid key\n");
+      dprintf(true, "Voiding invalid key %#x\n", thisPtr);
 
     assert ( keyBits_IsHazard(thisPtr) == false );
     assert ( keyBits_IsUnprepared(thisPtr) );

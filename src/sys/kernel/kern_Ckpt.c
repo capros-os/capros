@@ -695,7 +695,7 @@ DoPhase1Work(void)
           // On restart, wake sleepers with an error.
           hazToSave = actHaz_WakeRestart;
         else
-          hazToSave = act->actHazard;;
+          hazToSave = act->actHazard;
 
         DEBUG(procs) printf("Saving proc oid=%#llx\n", procOid);
         StoreProcessInfo(procOid, procAllocCount, hazToSave);

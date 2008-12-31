@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/ErosTypes.h>
 #include <kerninc/KeyRing.h>
 #include <arch-kerninc/KernTune.h>
+#include <eros/container_of.h>
 
 #ifndef __STDKEYTYPE_H__
 #include <eros/StdKeyType.h>

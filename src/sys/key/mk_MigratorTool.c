@@ -78,11 +78,7 @@ MigratorToolKey(Invocation* inv)
     break;
 
   case OC_capros_MigratorTool_waitForRestart:
-    if (! restartIsDone()) {
-      DEBUG(migr)
-        printf("MigrTool_waitForRestart waiting for restart to complete.\n");
-      SleepOnPFHQueue(&RestartQueue);
-    }
+    WaitForRestartDone();
     COMMIT_POINT();
     break;
   }

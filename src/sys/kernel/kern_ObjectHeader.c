@@ -142,6 +142,9 @@ objH_EnsureWritable(ObjectHeader * pObj)
   // so the object must be persistent:
   assertex(pObj, objH_GetFlags(pObj, OFLG_Cleanable));
 
+  // Can objects being fetched get here?
+  assertex(pObj, ! objH_GetFlags(pObj, OFLG_Fetching));
+
   assert(! InvocationCommitted);
 
 #ifdef OPTION_OB_MOD_CHECK

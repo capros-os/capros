@@ -203,10 +203,8 @@ GetObjectType(OID oid)
     return objLoc;
   } else {
     if (OIDIsPersistent(oid)) {	// Look in the log directory.
-      // Since the log directory is initialized by Restart,
-      // wait for restart to be done.
-      if (! restartIsDone())
-        SleepOnPFHQueue(&RestartQueue);
+      // Since the log directory is initialized by Restart:
+      WaitForRestartDone();
       const ObjectDescriptor * objDescP = ld_findObject(oid);
       if (objDescP) {
         objLoc.locType = objLoc_ObjectDescriptor;

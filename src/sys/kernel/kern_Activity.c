@@ -460,7 +460,6 @@ act_SleepUntilTick(Activity * thisPtr, uint64_t tick)
 
   sysT_AddSleeper(thisPtr, tick);
 
-  thisPtr->state = act_Sleeping;
   InactivateReserve(thisPtr);
 
   local_irq_restore(flags);
@@ -876,13 +875,25 @@ act_ValidateActivity(Activity* thisPtr)
     assert(thisPtr == act_Current());
   case act_Ready:
   case act_Stall:
-    if (proc) {
-      assert(proc->runState == RS_Running);
+    if (proc && ! (proc->hazards & hz_DomRoot)) {
+      switch (thisPtr->actHazard) {
+      default:
+        assert(false);
+
+      case actHaz_None:
+        assert(proc->runState == RS_Running);
+        break;
+
+      case actHaz_WakeOK:
+      case actHaz_WakeRestart:
+        assert(proc->runState == RS_Waiting);
+        break;
+      }
     }
     break;
 
   case act_Sleeping:
-    if (proc) {
+    if (proc && ! (proc->hazards & hz_DomRoot)) {
       assert(proc->runState == RS_Waiting);
     }
   }
@@ -1015,7 +1026,7 @@ PrepareCurrentActivity(void)
       break;
 
     case actHaz_WakeRestart:
-      sysT_actWake(thisPtr, RC_capros_Sleep_Restart);
+      sysT_actWake(thisPtr, RC_capros_key_Restart);
       thisPtr->actHazard = actHaz_None;
       break;
     }

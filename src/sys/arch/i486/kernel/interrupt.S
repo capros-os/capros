@@ -1,7 +1,7 @@
 	.file	"interrupt.S"
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -1073,6 +1073,8 @@ kern_seg_load:
 
 	/* Invoked key is a prepared start key. 
 	 * Need to check that invokee is in the available state. */
+	/* Note, runState isn't valid if process has hazards;
+	 * we check for hazards below. */
 
 	cmpb	$RS_Available,PR_OFF_runState(%eax)
 	jne	Standard_Gate_Path

@@ -121,13 +121,18 @@ proc_IsPFH(const Process * proc /* may be NULL */ )
     return false;
 
   /* We used to have:
-    return proc->kernelFlags & KF_PFH;
-  but since almost every non-persistent process
-  is likely to be working on behalf of the PFH, we have instead: */
-  // return ! OIDIsPersistent(node_ToObj(proc->procRoot)->oid);
-  // The following is faster:
-  return ! objH_GetFlags(node_ToObj(proc->procRoot), OFLG_Cleanable);
-  // KF_PFH should go away once we are convinced this is the right thing. */
+   return ! OIDIsPersistent(node_ToObj(proc->procRoot)->oid);
+   The following is faster:
+   return ! objH_GetFlags(node_ToObj(proc->procRoot), OFLG_Cleanable);
+  since almost every non-persistent process
+  is likely to be working on behalf of the PFH.
+  But that doesn't work, because in its initialization drivers may
+  register with nplink (i.e. access persistent data).
+  So we have instead: */
+  return proc->kernelFlags & KF_PFH;
+  /* This is actually flawed because many non-persistent processes fail to
+  register as part of the PFH even though they are working on behalf of
+  the PFH (e.g. VCSK, SuperNode). */
 }
 
 #endif /* __PROCESS_INLINE_H__ */

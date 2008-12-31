@@ -45,18 +45,23 @@ Approved for public release, distribution unlimited. */
 act_Free: free, on the FreeActivityList.
 
 act_Ready: on a ReadyQueue.
-  If it has a Process, the Process's runState is RS_Running.
+  If it has a Process (without hz_DomRoot):
+   If actHazard has actHaz_None, the Process's runState is RS_Running.
+   If actHazard has actHaz_WakeOK or actHaz_WakeRestart,
+     the Process's runState is RS_Waiting.
 
 act_Running: active on a processor, not on any queue.
   The activity is act_curActivity.
-  If it has a Process, the Process's runState is RS_Running.
+  If it has a Process (without hz_DomRoot), the Process's runState is
+    the same as in the act_Ready state.
 
 act_Stall: blocked on an event, on a StallQueue.
-  If it has a Process, the Process's runState is RS_Running.
   When the event occurs, the process will be restarted.
+  If it has a Process (without hz_DomRoot), the Process's runState is
+    the same as in the act_Ready state.
 
 act_Sleeping: blocked on a timer, on the SleepQueue.
-  If it has a Process, the Process's runState is RS_Waiting.
+ If it has a Process (without hz_DomRoot), the Process's runState is RS_Waiting.
 
 act_Stall is used to block before an operation is committed
 (therefore the operation can be restarted when the block is removed).
@@ -131,7 +136,7 @@ struct Activity {
    * timer keys.
    */
 
-  uint64_t wakeTime; /* if asleep, when to wake up, in ticks */
+  uint64_t wakeTime; /* if state == act_Sleeping, when to wake up, in ticks */
 } ;
 
 extern const char *act_stateNames[act_NUM_STATES]; 

@@ -525,39 +525,41 @@ check_Contexts(const char *c)
           }
         }
 
-        bool statesOK = false;	// until proven otherwise
-        switch (p->runState) {
-        default:
-          break;
+        if (! (p->hazards & hz_DomRoot)) {
+          bool statesOK = false;	// until proven otherwise
+          switch (p->runState) {
+          default:
+            break;
 
-        case RS_Running:
-          if (p->curActivity
-              && p->curActivity->state != act_Sleeping )
-            statesOK = true;
-          break;
+          case RS_Running:
+            if (p->curActivity
+                && p->curActivity->state != act_Sleeping )
+              statesOK = true;
+            break;
 
-        case RS_Waiting:
-          if (p->curActivity)
-            /* If it has an activity, it must be sleeping.
-            Exception: When a process calls a kernel key, it is treated
-            like a call to the kernel followed by a return,
-            so the process is RS_Waiting even though the Activity
-            is act_Running. */
-            statesOK = p->curActivity->state == act_Sleeping
-                       || p == proc_Current() ;
-          else
-            statesOK = true;
-          break;
+          case RS_Waiting:
+            if (p->curActivity)
+              /* If it has an activity, it must be sleeping.
+              Exception: When a process calls a kernel key, it is treated
+              like a call to the kernel followed by a return,
+              so the process is RS_Waiting even though the Activity
+              is act_Running. */
+              statesOK = p->curActivity->state == act_Sleeping
+                         || p == proc_Current() ;
+            else
+              statesOK = true;
+            break;
 
-        case RS_Available:
-          statesOK = ! p->curActivity;	// should have no activity
-          break;
-        }
-        if (! statesOK) {
-	  dprintf(true, "Context %#x state %d has Activity %#x state %d\n",
-                  p, p->runState, p->curActivity,
-                  (p->curActivity ? p->curActivity->state : 0));
-	  result = false;
+          case RS_Available:
+            statesOK = ! p->curActivity;	// should have no activity
+            break;
+          }
+          if (! statesOK) {
+	    dprintf(true, "Context %#x state %d has Activity %#x state %d\n",
+                    p, p->runState, p->curActivity,
+                    (p->curActivity ? p->curActivity->state : 0));
+	    result = false;
+          }
         }
       }
 

@@ -61,9 +61,7 @@ uint64_t
 sysT_NowPersistent(void)
 {
   // monotonicTimeOfRestart isn't valid until restart is done.
-  if (! restartIsDone()) {
-    SleepOnPFHQueue(&RestartQueue);
-  }
+  WaitForRestartDone();
 
   return mach_TicksToNanoseconds(sysT_Now()) + monotonicTimeOfRestart;
 }
@@ -74,6 +72,7 @@ sysT_WakeupTime(void)
   uint64_t ret = cpu->preemptTime;
   if (! sq_IsEmpty(&SleepQueue)) {
     Activity * t = container_of(SleepQueue.q_head.next, Activity, q_link);
+    assertex(t, t->state == act_Sleeping);
     if (t->wakeTime < ret)
       return t->wakeTime;
   }
@@ -85,6 +84,7 @@ sysT_AddSleeper(Activity * t, uint64_t wakeTime)
 {
   assert(link_isSingleton(&t->q_link));
   assert(t->context);
+  assert(! (t->context->hazards & hz_DomRoot));
   assert(t->context->runState == RS_Waiting);
 
 #if 0
@@ -95,6 +95,7 @@ sysT_AddSleeper(Activity * t, uint64_t wakeTime)
 
   t->lastq = &SleepQueue;
   t->wakeTime = wakeTime;
+  t->state = act_Sleeping;
 
   irqFlags_t flags = local_irq_save();
 
@@ -141,7 +142,7 @@ void
 sysT_actWake(Activity * act, result_t rc)
 {
   Process * invokee = act->context;
-  assert(invokee);
+  assert(! (invokee->hazards & hz_DomRoot));
 
   // The process's state may have been changed, so revalidate:
   if (invokee->runState != RS_Waiting)
@@ -179,6 +180,7 @@ sysT_WakeupAt(void)
 
   while (! sq_IsEmpty(&SleepQueue)) {
     Activity * t = container_of(SleepQueue.q_head.next, Activity, q_link);
+    assert(t->state == act_Sleeping);
     if (t->wakeTime > now)
       break;
     // Wake up this Activity.

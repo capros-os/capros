@@ -136,10 +136,10 @@ struct Process {
    */
   uint8_t hazards;
 
-  uint8_t runState;
+  uint8_t runState;	// valid iff not hz_DomRoot
 
   /* Bits in processFlags are defined in Process.idl. */
-  uint8_t processFlags;
+  uint8_t processFlags;	// valid iff not hz_DomRoot
 
   struct ReadyQueue *readyQ;   /* ready queue info for this process */
 
@@ -155,7 +155,7 @@ struct Process {
 
   ProcMD md;	/* Machine-Dependent stuff */
 
-  savearea_t	    trapFrame;
+  savearea_t	    trapFrame;	// valid iff not hz_DomRoot
 #ifdef OPTION_PSEUDO_REGS
   pseudoregs_t      pseudoRegs;
 #endif
@@ -164,8 +164,8 @@ struct Process {
   /* This should immediately follow fixRegs: */
   Key               keyReg[EROS_PROCESS_KEYREGS];
 
-  uint32_t          faultCode;
-  uint32_t          faultInfo;
+  uint32_t          faultCode;	// valid iff not hz_DomRoot
+  uint32_t          faultInfo;	// valid iff not hz_DomRoot
   
 #ifdef EROS_HAVE_FPU
   /* FPU support: */

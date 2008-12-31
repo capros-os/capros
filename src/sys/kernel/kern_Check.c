@@ -168,9 +168,17 @@ check_Pages()
       }
 #endif
 
-#ifdef OPTION_OB_MOD_CHECK
       ObjectHeader * pObj = pageH_ToObj(pPage);
-      if (objH_IsUnwriteable(pObj)) {
+      if (objH_GetFlags(pObj, OFLG_Fetching)) {
+        if (objH_GetFlags(pObj, OFLG_DIRTY | OFLG_KRO)) {
+          printf("pageH=%#x flgs=%#02x OID=%#llx, Fetching and (Dirty or KRO)\n",
+                 pPage, pObj->flags, pObj->oid);
+          goto fail;
+        }
+      }
+#ifdef OPTION_OB_MOD_CHECK
+      if (! objH_GetFlags(pObj, OFLG_Fetching)
+          && objH_IsUnwriteable(pObj)) {
         uint32_t chk = pageH_CalcCheck(pPage);
 
         if (pObj->check != chk) {
