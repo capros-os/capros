@@ -127,7 +127,7 @@ static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 // Add i to v and return the result.
 static inline int atomic_add_return(int i, atomic_t *v)
 {
-	return capros_atomic_add32_return(i, &v->counter);
+	return capros_atomic32_add_return(&v->counter, i);
 }
 
 static inline int atomic_sub_return(int i, atomic_t *v)
@@ -137,7 +137,7 @@ static inline int atomic_sub_return(int i, atomic_t *v)
 
 static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 {
-	return capros_atomic_cmpxchg32(&v->counter, old, new);
+	return capros_atomic32_cmpxchg(&v->counter, old, new);
 }
 
 static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
@@ -146,7 +146,7 @@ static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 	int val = *addr;
 	do {
 		oldVal = val;
-		val = capros_atomic_cmpxchg32((volatile uint32_t *)addr,
+		val = capros_atomic32_cmpxchg((volatile uint32_t *)addr,
                                               val, val & ~mask);
 	} while (val != oldVal);
 }

@@ -169,9 +169,11 @@ radix_tree_gang_lookup_tag(struct radix_tree_root *root, void **results,
 		unsigned int tag);
 int radix_tree_tagged(struct radix_tree_root *root, unsigned int tag);
 
+#if 0 // CapROS
 static inline void radix_tree_preload_end(void)
 {
 	preempt_enable();
 }
+#endif // CapROS
 
 #endif /* _LINUX_RADIX_TREE_H */

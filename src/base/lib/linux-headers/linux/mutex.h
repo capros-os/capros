@@ -4,7 +4,7 @@
  * started by Ingo Molnar:
  *
  *  Copyright (C) 2004, 2005, 2006 Red Hat, Inc., Ingo Molnar <mingo@redhat.com>
- * Portions Copyright (C) 2007, Strawberry Development Group.
+ * Portions Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file contains the main data structure and API definitions.
  */
@@ -83,7 +83,7 @@ struct mutex {
  */
 static inline int fastcall mutex_is_locked(struct mutex *lock)
 {
-	return atomic_read(&lock->sem.count) <= 0;
+	return capros_atomic32_read(&lock->sem.csem.count) <= 0;
 }
 
 static inline void fastcall mutex_lock(struct mutex *lock)

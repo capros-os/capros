@@ -25,6 +25,7 @@
 #include <asm/uaccess.h>
 #include <asm/checksum.h>
 
+#if 0 // CapROS
 #ifndef _HAVE_ARCH_COPY_AND_CSUM_FROM_USER
 static inline
 __wsum csum_and_copy_from_user (const void __user *src, void *dst,
@@ -56,6 +57,7 @@ static __inline__ __wsum csum_and_copy_to_user
 	return (__force __wsum)-1; /* invalid checksum */
 }
 #endif
+#endif // CapROS
 
 static inline __wsum csum_add(__wsum csum, __wsum addend)
 {

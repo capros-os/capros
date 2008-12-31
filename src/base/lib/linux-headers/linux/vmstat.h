@@ -62,6 +62,7 @@ static inline void __count_vm_event(enum vm_event_item item)
 	__get_cpu_var(vm_event_states).event[item]++;
 }
 
+#if 0 // CapROS
 static inline void count_vm_event(enum vm_event_item item)
 {
 	get_cpu_var(vm_event_states).event[item]++;
@@ -78,6 +79,7 @@ static inline void count_vm_events(enum vm_event_item item, long delta)
 	get_cpu_var(vm_event_states).event[item] += delta;
 	put_cpu();
 }
+#endif // CapROS
 
 extern void all_vm_events(unsigned long *);
 #ifdef CONFIG_HOTPLUG

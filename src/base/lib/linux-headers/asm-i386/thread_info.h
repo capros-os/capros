@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2002  David Howells (dhowells@redhat.com)
  * - Incorporating suggestions made by Linus Torvalds and Dave Miller
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  */
 /* This material is based upon work supported by the US Defense Advanced
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
@@ -10,8 +10,6 @@ Approved for public release, distribution unlimited. */
 
 #ifndef _ASM_THREAD_INFO_H
 #define _ASM_THREAD_INFO_H
-
-#define SIZEOF_THREAD_INFO 24 // only need preempt_count in CapROS
 
 #ifdef __KERNEL__
 
@@ -31,12 +29,15 @@ Approved for public release, distribution unlimited. */
 #ifndef __ASSEMBLY__
 
 struct thread_info {
+#if 0 // CapROS
 	struct task_struct	*task;		/* main task structure */
 	struct exec_domain	*exec_domain;	/* execution domain */
 	unsigned long		flags;		/* low level flags */
 	unsigned long		status;		/* thread-synchronous flags */
 	__u32	preempt_flags;	/* interrupt flags when preempt disabled */
+#endif // CapROS
 	int			preempt_count;	/* 0 => preemptable, <0 => BUG */
+#if 0 // CapROS
 	__u32			cpu;		/* current CPU */
 
 
@@ -51,6 +52,7 @@ struct thread_info {
 						   of nested (IRQ) stacks
 						*/
 	__u8			supervisor_stack[0];
+#endif // CapROS
 };
 
 #else /* !__ASSEMBLY__ */
@@ -97,7 +99,8 @@ register unsigned long current_stack_pointer asm("esp") __attribute_used__;
 /* how to get the thread information struct from C */
 static inline struct thread_info *current_thread_info(void)
 {
-	return (struct thread_info *)(current_stack_pointer & ~(THREAD_SIZE - 1));
+	/* In CapROS the thread_info is the thread local data. */
+	return (struct thread_info *) CMTE_getThreadLocalDataAddr();
 }
 
 /* thread information allocation */

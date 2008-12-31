@@ -1,7 +1,7 @@
 #ifndef __ASM_GENERIC_SEMAPHORE_H
 #define __ASM_GENERIC_SEMAPHORE_H
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,22 +32,14 @@ Approved for public release, distribution unlimited. */
 #include <asm/atomic.h>
 #include <idl/capros/LSync.h>
 #include <linuxk/lsync.h>
+#include <domain/CMTESemaphore.h>
 
 struct semaphore {
-  atomic_t count;
-  int wakeupsWaiting;
-  // task_list must be accessed only by the sync process.
-  struct list_head task_list;
-#ifdef CONFIG_DEBUG_SEMAPHORE
-  unsigned int locker;	// thread num of last thread to down()
-#endif
+  CMTESemaphore csem;
 };
 
 #define __SEMAPHORE_INIT(name, cnt)				\
-{								\
-	.count	= ATOMIC_INIT(cnt),				\
-	.wakeupsWaiting = 0,					\
-	.task_list      = { &(name).task_list, &(name).task_list } \
+{ .csem = CMTESemaphore_Initializer((name).csem, cnt)		\
 }
 
 #define __DECLARE_SEMAPHORE_GENERIC(name,count)	\
@@ -56,7 +48,10 @@ struct semaphore {
 #define DECLARE_MUTEX(name)		__DECLARE_SEMAPHORE_GENERIC(name,1)
 #define DECLARE_MUTEX_LOCKED(name)	__DECLARE_SEMAPHORE_GENERIC(name,0)
 
-void sema_init(struct semaphore *sem, int val);
+static inline void sema_init(struct semaphore *sem, int val)
+{
+  CMTESemaphore_init(&sem->csem, val);
+}
 
 static inline void init_MUTEX(struct semaphore *sem)
 {
@@ -69,7 +64,10 @@ static inline void init_MUTEX_LOCKED(struct semaphore *sem)
 }
 
 
-void down(struct semaphore * sem);
+static inline void down(struct semaphore * sem)
+{
+  CMTESemaphore_down(&sem->csem);
+}
 
 static inline int down_interruptible (struct semaphore * sem)
 {
@@ -77,8 +75,14 @@ static inline int down_interruptible (struct semaphore * sem)
   return 0;  // there are no signals in CapROS
 }
 
-int down_trylock(struct semaphore * sem);
+static inline int down_trylock(struct semaphore * sem)
+{
+  return ! CMTESemaphore_tryDown(&sem->csem);
+}
 
-void up(struct semaphore * sem);
+static inline void up(struct semaphore * sem)
+{
+  CMTESemaphore_up(&sem->csem);
+}
 
 #endif // __ASM_GENERIC_SEMAPHORE_H

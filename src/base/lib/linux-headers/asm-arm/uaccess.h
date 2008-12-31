@@ -58,11 +58,13 @@ extern int __put_user_bad(void);
 #define USER_DS		TASK_SIZE
 #define get_fs()	(current_thread_info()->addr_limit)
 
+#if 0 // CapROS
 static inline void set_fs(mm_segment_t fs)
 {
 	current_thread_info()->addr_limit = fs;
 	modify_domain(DOMAIN_KERNEL, fs ? DOMAIN_CLIENT : DOMAIN_MANAGER);
 }
+#endif // CapROS
 
 #define segment_eq(a,b)	((a) == (b))
 
@@ -395,6 +397,7 @@ extern unsigned long __must_check __clear_user(void __user *addr, unsigned long 
 extern unsigned long __must_check __strncpy_from_user(char *to, const char __user *from, unsigned long count);
 extern unsigned long __must_check __strnlen_user(const char __user *s, long n);
 
+#if 0 // CapROS
 static inline unsigned long __must_check copy_from_user(void *to, const void __user *from, unsigned long n)
 {
 	if (access_ok(VERIFY_READ, from, n))
@@ -410,10 +413,12 @@ static inline unsigned long __must_check copy_to_user(void __user *to, const voi
 		n = __copy_to_user(to, from, n);
 	return n;
 }
+#endif // CapROS
 
 #define __copy_to_user_inatomic __copy_to_user
 #define __copy_from_user_inatomic __copy_from_user
 
+#if 0 // CapROS
 static inline unsigned long __must_check clear_user(void __user *to, unsigned long n)
 {
 	if (access_ok(VERIFY_WRITE, to, n))
@@ -440,5 +445,6 @@ static inline long __must_check strnlen_user(const char __user *s, long n)
 
 	return res;
 }
+#endif // CapROS
 
 #endif /* _ASMARM_UACCESS_H */

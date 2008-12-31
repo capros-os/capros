@@ -1368,6 +1368,7 @@ static inline int skb_padto(struct sk_buff *skb, unsigned int len)
 	return skb_pad(skb, len-size);
 }
 
+#if 0 // CapROS
 static inline int skb_add_data(struct sk_buff *skb,
 			       char __user *from, int copy)
 {
@@ -1387,6 +1388,7 @@ static inline int skb_add_data(struct sk_buff *skb,
 	__skb_trim(skb, off);
 	return -EFAULT;
 }
+#endif // CapROS
 
 static inline int skb_can_coalesce(struct sk_buff *skb, int i,
 				   struct page *page, int off)

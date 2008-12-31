@@ -2,7 +2,7 @@
  *  linux/include/asm-arm/thread_info.h
  *
  *  Copyright (C) 2002 Russell King.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -14,8 +14,6 @@ Approved for public release, distribution unlimited. */
 
 #ifndef __ASM_ARM_THREAD_INFO_H
 #define __ASM_ARM_THREAD_INFO_H
-
-#define SIZEOF_THREAD_INFO 8	// only need preempt_count in CapROS
 
 #ifdef __KERNEL__
 
@@ -57,8 +55,11 @@ struct cpu_context_save {
  * __switch_to() assumes cpu_context follows immediately after cpu_domain.
  */
 struct thread_info {
+#if 0 // CapROS
 	__u32	preempt_flags;	/* interrupt flags when preempt disabled */
+#endif // CapROS
 	int			preempt_count;	/* 0 => preemptable, <0 => bug */
+#if 0 // CapROS
 	unsigned long		flags;		/* low level flags */
 	mm_segment_t		addr_limit;	/* address limit */
 	struct task_struct	*task;		/* main task structure */
@@ -73,6 +74,7 @@ struct thread_info {
 	union fp_state		fpstate __attribute__((aligned(8)));
 	union vfp_state		vfpstate;
 	struct restart_block	restart_block;
+#endif // CapROS
 };
 
 #define INIT_THREAD_INFO(tsk)						\
@@ -103,10 +105,8 @@ static inline struct thread_info *current_thread_info(void) __attribute_const__;
 
 static inline struct thread_info *current_thread_info(void)
 {
-	/* In CapROS the thread_info is at the high end of the stack. */
-	return (struct thread_info *)
-               ((current_stack_pointer & ~(LK_STACK_AREA - 1))
-                + LK_STACK_AREA - SIZEOF_THREAD_INFO);
+	/* In CapROS the thread_info is the thread local data. */
+	return (struct thread_info *) CMTE_getThreadLocalDataAddr();
 }
 
 /* thread information allocation */

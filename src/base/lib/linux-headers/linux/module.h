@@ -391,6 +391,7 @@ void __symbol_put(const char *symbol);
 #define symbol_put(x) __symbol_put(MODULE_SYMBOL_PREFIX #x)
 void symbol_put_addr(void *addr);
 
+#if 0 // CapROS
 /* Sometimes we know we already have a refcount, and it's easier not
    to handle the error case (which only happens with rmmod --wait). */
 static inline void __module_get(struct module *module)
@@ -416,6 +417,7 @@ static inline int try_module_get(struct module *module)
 	}
 	return ret;
 }
+#endif // CapROS
 
 extern void module_put(struct module *module);
 

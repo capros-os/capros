@@ -1544,6 +1544,7 @@ static inline void unlock_task_sighand(struct task_struct *tsk,
 	spin_unlock_irqrestore(&tsk->sighand->siglock, *flags);
 }
 
+#if 0 // CapROS
 #ifndef __HAVE_THREAD_FUNCTIONS
 
 #define task_thread_info(task)	((struct thread_info *)(task)->stack)
@@ -1641,6 +1642,7 @@ static inline int lock_need_resched(spinlock_t *lock)
 		return 1;
 	return 0;
 }
+#endif // CapROS
 
 /*
  * Reevaluate whether the task has signals pending delivery.
