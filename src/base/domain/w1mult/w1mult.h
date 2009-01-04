@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/W1Bus.h>
+#include <idl/capros/RTC.h>
 #include <domain/Runtime.h>
 
 #define dbg_errors 0x1
@@ -45,10 +46,11 @@ Approved for public release, distribution unlimited. */
 
 #define KR_OSTREAM KR_APP(0)
 #define KR_SLEEP   KR_APP(1)
-#define KR_TIMPROC KR_APP(2)
-#define KR_W1BUS   KR_APP(3)
-#define KR_SNODE   KR_APP(4)
-#define KR_TIMRESUME KR_APP(5)
+#define KR_RTC     KR_APP(2)
+#define KR_TIMPROC KR_APP(3)
+#define KR_W1BUS   KR_APP(4)
+#define KR_SNODE   KR_APP(5)
+#define KR_TIMRESUME KR_APP(6)
 
 // The family code is the low byte of the ROM ID.
 enum {
@@ -94,8 +96,7 @@ struct W1Device {
       struct Branch auxBranch;
     } coupler;
     struct {
-      capros_Sleep_nanoseconds_t time;	// time at which temperature was sampled
-		// does this need to be in absolute real time?
+      capros_RTC_time_t time;	// time at which temperature was sampled
       int16_t temperature;	// in units of 1/16 degree Celsius
       uint8_t resolution;	// 1 through 4, bits after the binary point
 			// 255 means the resolution hasn't been specified yet
@@ -103,7 +104,7 @@ struct W1Device {
       uint8_t eepromConfig;	// config register in EEPROM
     } thermom;
     struct {
-      capros_Sleep_nanoseconds_t time;	// time at which data was sampled
+      capros_RTC_time_t time;	// time at which data was sampled
       struct portCfg {
         uint8_t cfglo;
         uint8_t cfghi;
@@ -112,8 +113,8 @@ struct W1Device {
       uint16_t data[4];		// little-endian
     } ad;
     struct {		// DS2438 battery monitor
-      capros_Sleep_nanoseconds_t tTime;	// time at which temperature was sampled
-      capros_Sleep_nanoseconds_t vTime;	// time at which voltage was sampled
+      capros_RTC_time_t tTime;	// time at which temperature was sampled
+      capros_RTC_time_t vTime;	// time at which voltage was sampled
       uint16_t temperature;
       uint16_t voltage;
       bool voltageIsRead;	// whether voltage has been read
@@ -187,6 +188,9 @@ NotReset(void)
 
 extern capros_Sleep_nanoseconds_t currentTime;
 void RecordCurrentTime(void);
+extern capros_RTC_time_t currentRTC;
+void RecordCurrentRTC(void);
+
 void InsertTimer(struct w1Timer * timer);
 
 /* latestConvertTTime is the time of the most recent Convert T command

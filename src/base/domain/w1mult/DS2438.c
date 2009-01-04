@@ -319,6 +319,7 @@ DS2438_HeartbeatAction(uint32_t hbCount)
     DoAll(&root);
     // We could be busy on the Convert V for 10 ms:
     RecordCurrentTime();
+    RecordCurrentRTC();
     VEEExpiry = currentTime + 10000000;
     DEBUG(bm) kprintf(KR_OSTREAM, "Sampled at %llu ms", currentTime/1000000);
 
@@ -327,7 +328,7 @@ DS2438_HeartbeatAction(uint32_t hbCount)
     // Record the time sampled:
     struct W1Device * dev;
     for (dev = DS2438_samplingListHead; dev; dev = dev->nextInSamplingList) {
-      dev->u.bm.vTime = currentTime;
+      dev->u.bm.vTime = currentRTC;
       dev->u.bm.voltageIsRead = false;	// converted, but not read
     }
 
@@ -415,12 +416,12 @@ reqerr:
     /* We do not broadcast Convert T (that is, send with Skip ROM) for DS2438's
     because that could trigger DS18B20's, which would make them busy
     for up to 750 ms. Instead, we just read each device when we need to. */
-    RecordCurrentTime();
+    RecordCurrentRTC();
     // If the reading we have is too old, read again.
     if ((dev->u.bm.tTime == 0
-         || currentTime > dev->u.bm.tTime
-                          + (1000000000ULL << dev->u.bm.tempLog2Sec) )
+         || currentRTC >= dev->u.bm.tTime + (1 << dev->u.bm.tempLog2Sec) )
         && dev->found ) {
+      RecordCurrentTime();
       WaitUntilNotBusy();
       AddressDevice(dev);
       wp(capros_W1Bus_stepCode_writeBytes)
@@ -432,6 +433,7 @@ buserr:
         msg->snd_code = RC_capros_DS2438_BusError;
         break;
       }
+      RecordCurrentRTC();
       RecordCurrentTime();
       latestConvertTTime = currentTime;
       WaitUntilNotBusy();	// wait for the convert T to finish
@@ -440,12 +442,11 @@ buserr:
         if (status)
           goto buserr;
       } while (inBuf[0] & scr_TB);	// if still busy, try again
-      dev->u.bm.tTime = currentTime;
+      dev->u.bm.tTime = currentRTC;
       dev->u.bm.temperature = inBuf[1] | (inBuf[2] << 8);
     }
     msg->snd_w1 = dev->u.bm.temperature;
-    msg->snd_w2 = (uint32_t) dev->u.bm.tTime;
-    msg->snd_w3 = dev->u.bm.tTime >> 32;
+    msg->snd_w2 = dev->u.bm.tTime;
     break;
   }
 
@@ -466,8 +467,7 @@ buserr:
       dev->u.bm.voltage = inBuf[3] | (inBuf[4] << 8);
     }
     msg->snd_w1 = dev->u.bm.voltage;
-    msg->snd_w2 = (uint32_t) dev->u.bm.vTime;
-    msg->snd_w3 = dev->u.bm.vTime >> 32;
+    msg->snd_w2 = dev->u.bm.vTime;
     break;
   }
 
@@ -480,7 +480,9 @@ buserr:
       int status = AddressRecallAndReadPage(dev, 0);
       if (status)
         goto buserr;
+      RecordCurrentRTC();
       msg->snd_w1 = inBuf[5] | (inBuf[6] << 8);
+      msg->snd_w2 = currentRTC;
     }
     break;
   }

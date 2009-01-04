@@ -47,8 +47,6 @@ name##w1mult_proc key reg KR_CONSTIT = w1mult_constit; \
 name##w1mult_proc key reg KR_SELF = name##w1mult_proc; \
 name##w1mult_proc key reg KR_BANK = primebank; \
 name##w1mult_proc key reg KR_SCHED = sched(8); \
-name##w1mult_proc key reg KR_APP(0) = misc Console; \
-name##w1mult_proc key reg KR_APP(1) = misc Sleep; \
 run name##w1mult_proc; \
 name##w1mult = start name##w1mult_proc 0xffff; \
  \
@@ -63,7 +61,10 @@ name##w1tim_proc key reg KR_SCHED = sched(8); \
 name##w1tim_proc key reg KR_APP(0) = misc Console; \
 name##w1tim_proc key reg KR_APP(1) = misc Sleep; \
 name##w1tim_proc key reg KR_RETURN = start name##w1mult_proc 0xfffe; \
-name##w1mult_proc key reg KR_APP(2) = name##w1tim_proc;
+name##w1mult_proc key reg KR_APP(0) = misc Console; \
+name##w1mult_proc key reg KR_APP(1) = misc Sleep; \
+name##w1mult_proc key reg KR_APP(2) = misc RTC; \
+name##w1mult_proc key reg KR_APP(3) = name##w1tim_proc;
 
 #define w1device(bus, num) start bus##w1mult_proc num
 

@@ -31,10 +31,10 @@ interface DS2450 extends key
 
   Returns the A/D data.
   time is the time at which the data were sampled,
-  in the same units as capros.Sleep.getPersistentMonotonicTime.
+  in the same units as capros.RTC.getTime.
   */
   struct portsData {
     array <unsigned short, 4> data;
   };
-  void getData(out portsData data, out unsigned long long time);
+  void getData(out portsData data, out RTC.time_t time);
 };

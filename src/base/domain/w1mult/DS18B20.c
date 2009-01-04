@@ -253,7 +253,7 @@ ConvertT(struct Branch * br)
   RunProgram();
 }
 
-uint64_t sampledTime;
+capros_RTC_time_t sampledTime;
 
 static void
 readTemperature(struct W1Device * dev)
@@ -334,12 +334,13 @@ DS18B20_HeartbeatAction(uint32_t hbCount)
     DoAll(&root);
 
     // When all conversions are complete, read the results.
+    RecordCurrentRTC();
     RecordCurrentTime();
-    sampledTime = currentTime;
+    sampledTime = currentRTC;
     latestConvertTTime = currentTime;
 
     // A resolution of 1 binary digit takes 93.75 milliseconds.
-    readResultsTimer.expiration = sampledTime
+    readResultsTimer.expiration = currentTime
       + (93750000ULL << (maxResolution - 1));	// in nanoseconds
     InsertTimer(&readResultsTimer);
 
@@ -388,8 +389,7 @@ DS18B20_ProcessRequest(struct W1Device * dev, Message * msg)
   {
     //// wait if no data?
     msg->snd_w1 = dev->u.thermom.temperature;
-    msg->snd_w2 = (uint32_t)dev->u.thermom.time;
-    msg->snd_w3 = (dev->u.thermom.time >> 32);
+    msg->snd_w2 = dev->u.thermom.time;
   }
     break;
 

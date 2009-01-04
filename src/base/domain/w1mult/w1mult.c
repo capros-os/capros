@@ -65,7 +65,7 @@ unsigned long __rt_stack_pointer = 0x1e000;
 
 #define KC_SNODEC 0
 
-bool haveBusKey = false;	// no key in KR_W1BUS yet
+bool haveBusKey = false;	// no key in KR_W1BUS yet (unused?)
 
 capros_Sleep_nanoseconds_t latestConvertTTime = 0;
 
@@ -107,6 +107,7 @@ BranchToCoupler(struct Branch * br)
 /************************** time stuff  ****************************/
 
 capros_Sleep_nanoseconds_t currentTime;
+capros_RTC_time_t currentRTC;
 
 volatile	// because shared between threads
 capros_Sleep_nanoseconds_t timeToWake = infiniteTime;
@@ -142,6 +143,14 @@ RecordCurrentTime(void)
 {
   result_t result;
   result = capros_Sleep_getPersistentMonotonicTime(KR_SLEEP, &currentTime);
+  assert(result == RC_OK);
+}
+
+void
+RecordCurrentRTC(void)
+{
+  result_t result;
+  result = capros_RTC_getTime(KR_RTC, &currentRTC);
   assert(result == RC_OK);
 }
 
@@ -275,13 +284,14 @@ RunProgram(void)
   int returnValue;
   RunPgmMsg.snd_len = outCursor - outBeg;
   result_t result = CALL(&RunPgmMsg);
-  if (result == RC_capros_key_Void) {
+  if (result == RC_capros_key_Restart || result == RC_capros_key_Void) {
     returnValue = -1;
     goto exit;
   }
   assert(result == RC_OK);
 
   uint32_t status = RunPgmMsg.rcv_w1;
+  returnValue = status;	// default
 
   switch (status) {
   case capros_W1Bus_StatusCode_ProgramError:
@@ -299,7 +309,11 @@ RunProgram(void)
   default:
     DEBUG(errors)
       kprintf(KR_OSTREAM, "w1mult RunProgram got status %d", status);
+    goto errPP;
 
+  case capros_W1Bus_StatusCode_SysRestart:
+    returnValue = -1;
+errPP:
   case capros_W1Bus_StatusCode_NoDevicePresent:
     errorLoc = RunPgmMsg.rcv_w2;	// # bytes successfully executed
 
@@ -317,7 +331,6 @@ doPP: ;
       }
     }
   }
-  returnValue = status;
 exit:
   ClearProgram();	// set up for the next program
   return returnValue;
@@ -957,33 +970,39 @@ SearchPath(struct Branch * br)
   return 0;
 }
 
+bool
+CheckRestart(result_t result)
+{
+  if (result == RC_capros_key_Restart || result == RC_capros_key_Void) {
+    haveBusKey = false;
+    return true;
+  }
+  assert(result == RC_OK);
+  return false;
+}
+
 /* We just got a new W1Bus cap.
  */
-int	// returns -1 if W1Bus cap went away.
+void
 ScanBus(void)
 {
   result_t result;
   int statusCode;
   int i;
 
-#define ckres \
-  if (result == RC_capros_key_Void) \
-    return -1; \
-  assert(result == RC_OK);
-
   // Set bus parameters:
   result = capros_W1Bus_setSpeed(KR_W1BUS, capros_W1Bus_W1Speed_flexible);
-  ckres
+  if (CheckRestart(result)) return;
 
   result = capros_W1Bus_setPDSR(KR_W1BUS, capros_W1Bus_PDSR_PDSR137);
         // 1.37 V/us
-  ckres
+  if (CheckRestart(result)) return;
 
   result = capros_W1Bus_setW1LT(KR_W1BUS, capros_W1Bus_W1LT_W1LT11);    // 11 us
-  ckres
+  if (CheckRestart(result)) return;
 
   result = capros_W1Bus_setDSO(KR_W1BUS, capros_W1Bus_DSO_DSO10);  // 10 us
-  ckres
+  if (CheckRestart(result)) return;
 
   Branch_Init(&root);
 
@@ -1017,7 +1036,7 @@ ScanBus(void)
 
     statusCode = SearchPath(&root);
     if (statusCode < 0)
-      return statusCode;
+      return;
 
     for (i = 0; i < numDevices; i++) {
       if (! devices[i].found) {
@@ -1031,7 +1050,6 @@ ScanBus(void)
     RecordCurrentTime();
     HeartbeatAction(NULL);	// First heartbeat
   }
-  return 0;
 }
 
 #define TimerKeyInfo 0xfffe

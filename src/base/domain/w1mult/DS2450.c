@@ -341,7 +341,7 @@ Convert(struct Branch * br)
   }
 }
 
-uint64_t sampledTime;
+capros_RTC_time_t sampledTime;
 
 static void
 readData(struct W1Device * dev)
@@ -354,8 +354,8 @@ readData(struct W1Device * dev)
     DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 read data %d\n", status);
     return;
   }
-  DEBUG(doall) kprintf(KR_OSTREAM, "DS2450 %#llx sampled at %llu\n",
-                       dev->rom, sampledTime/1000000);
+  DEBUG(doall) kprintf(KR_OSTREAM, "DS2450 %#llx sampled at %u\n",
+                       dev->rom, sampledTime);
   dev->u.ad.time = sampledTime;
   memcpy(&dev->u.ad.data, &inBuf, 8);
 }
@@ -414,14 +414,15 @@ DS2450_HeartbeatAction(uint32_t hbCount)
 
     if (ds2450ConvertedOK) {
       // When all conversions are complete, read the results.
+      RecordCurrentRTC();
       RecordCurrentTime();
-      sampledTime = currentTime;
+      sampledTime = currentRTC;
       // Maximum conversion time is 5.12 ms.
       // There is no offset time because the device must be VCC powered.
       readResultsTimer.expiration = currentTime + 5120000ULL;
       DEBUG(doall) kprintf(KR_OSTREAM,
-                           "DS2450 sampledTime %lld expiration %lld",
-                           currentTime/1000000,
+                           "DS2450 sampledTime %u expiration %lld",
+                           sampledTime,
                            readResultsTimer.expiration/1000000);
       InsertTimer(&readResultsTimer);
       converting = true;
@@ -489,8 +490,7 @@ reqerr:
   case OC_capros_DS2450_getData:
   {
     //// wait if no data?
-    msg->snd_w1 = (uint32_t)dev->u.ad.time;
-    msg->snd_w2 = (dev->u.ad.time >> 32);
+    msg->snd_w1 = dev->u.ad.time;
     msg->snd_data = &dev->u.ad.data;
     msg->snd_len = 8;
     break;
