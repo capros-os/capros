@@ -211,7 +211,7 @@ All normal user objects fall into this class.
       Here are the design constraints for the interaction of the four
       classes of objects.
     </p>
-    <h3>Deadlock</h3>
+    <h3>Deadlock when Fetching</h3>
     <p>
       The PFH must never reference unpinned objects, because that
       would lead to a deadlock. 
@@ -239,6 +239,27 @@ All normal user objects fall into this class.
       Another constraint applies to locks (such as semaphores, mutexes,
       or spinlocks) that are used by the PFH. 
       While holding such a lock, a process must obey the same rules as the PFH.
+    </p>
+    <h3>Deadlock when Cleaning</h3>
+    <p>
+      When the kernel allocates a page frame, if space is not available,
+      it begins cleaning pages. Meanwhile the process requesting the space
+      waits for the cleaning to finish. Similarly, when a node frame is
+      needed, it may require cleaning nodes into a node pot,
+      which in turn may require a page frame,
+      which may require page cleaning.
+    </p>
+    <p>
+      If the PFH needs to allocate a page frame, this could lead to deadlock.
+      The PFH may allocate pages or nodes to expand heap space,
+      or to build a mapping table (mapping tables are allocated
+      from page frame space). 
+    </p>
+    <p>
+      To address this problem, the kernel reserves a number of page frames
+      (KTUNE_MapTabReserve) for mapping tables and for allocations by the PFH.
+      If this number is large enough to guarantee that the PFH can
+      finish cleaning, then the deadlock is eliminated.
     </p>
     <h3>Reset</h3>
     <p>
