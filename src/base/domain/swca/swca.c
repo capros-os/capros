@@ -789,8 +789,13 @@ InputProcedure(void * data /* unused */ )
       result = capros_SerialPort_read(KR_SERIAL, 
                  inBufEntries, &pairsRcvd, (uint8_t *)&inBuf[0]);
       if (result != RC_OK) {
-        DEBUG(errors) kdprintf(KR_OSTREAM,
+        DEBUG(errors) kprintf(KR_OSTREAM,
                         "SerialPort_read returned %#x\n", result);
+      }
+      if (result == RC_capros_key_Restart || result == RC_capros_key_Void)
+        break;	// need a new SerialPort cap
+      if (result != RC_OK) {	// unexpected error
+        kdprintf(KR_OSTREAM, "SerialPort_read returned %#x\n", result);
         break;
       }
       unsigned int i;
@@ -987,6 +992,8 @@ InitSerialPort(void)
   uint32_t openErr;
 
   result = capros_SerialPort_open(KR_SERIAL, &openErr);
+  if (result == RC_capros_key_Restart || result == RC_capros_key_Void)
+    return;	// as initialized as it is going to get
   assert(result == RC_OK);
 
   struct capros_SerialPort_termios2 termio = {
@@ -997,6 +1004,8 @@ InitSerialPort(void)
     .c_ospeed = 9600
   };
   result = capros_SerialPort_setTermios2(KR_SERIAL, termio);
+  if (result == RC_capros_key_Restart || result == RC_capros_key_Void)
+    return;	// as initialized as it is going to get
   assert(result == RC_OK);
 
   ResetInputState();
@@ -1016,6 +1025,8 @@ SelectAdapter(unsigned int num)	// 0-7
   CMTETimer_setDuration(&tmr, selectTimeout);
   DEBUG(time) kprintf(KR_OSTREAM, "SelectAdapter set timeout\n");
   result = capros_SerialPort_write(KR_SERIAL, 1/*2*/, &sendData[0]);
+  if (result == RC_capros_key_Restart || result == RC_capros_key_Void)
+    return;	// too bad
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "capros_SerialPort_write rc=%#x\n", result);
     assert(result == RC_OK);
@@ -1029,6 +1040,8 @@ SendCommand(uint8_t cmd)
 
   commandTime = monoNow;
   result = capros_SerialPort_write(KR_SERIAL, 1, &cmd);
+  if (result == RC_capros_key_Restart || result == RC_capros_key_Void)
+    return;	// too bad
   assert(result == RC_OK);
 }
 
