@@ -101,15 +101,15 @@ PrintTempDevN(int n)
 {
   result_t result;
   short temperature;
-  uint64_t time;
+  capros_RTC_time_t time;
 
   GetDevN(n, KR_TEMP0);
   result = capros_DS18B20_getTemperature(KR_TEMP0,
                &temperature, &time);
   ckOK
   if (time) {
-    kprintf(KR_OSTREAM, "Dev %d temperature is %d.%d Celsius at %llu ms\n",
-            n, temperature/16, (temperature%16) >> 1, time/1000000);
+    kprintf(KR_OSTREAM, "Dev %d temperature is %d.%d Celsius at %lu sec\n",
+            n, temperature/16, (temperature%16) >> 1, time);
   }
 }
 
@@ -118,20 +118,20 @@ PrintADDevN(int n)
 {
   result_t result;
   capros_DS2450_portsData data;
-  uint64_t time;
+  capros_RTC_time_t time;
 
   GetDevN(n, KR_TEMP0);
   result = capros_DS2450_getData(KR_TEMP0, &data, &time);
   ckOK
   if (time) {
 #if 0
-    kprintf(KR_OSTREAM, "Dev %d data is %#.4x %#.4x %#.4x %#.4x at %llu ms\n",
+    kprintf(KR_OSTREAM, "Dev %d data is %#.4x %#.4x %#.4x %#.4x at %lu sec\n",
             n, data.data[0], data.data[1], data.data[2], data.data[3],
-            time/1000000);
+            time);
 #else
-    kprintf(KR_OSTREAM, "Dev %d data is %u %u %u %u at %llu ms\n",
+    kprintf(KR_OSTREAM, "Dev %d data is %u %u %u %u at %lu sec\n",
             n, data.data[0], data.data[1], data.data[2], data.data[3],
-            time/1000000);
+            time);
 #endif
   }
 }

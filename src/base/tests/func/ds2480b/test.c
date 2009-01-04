@@ -116,14 +116,14 @@ PrintTempDevN(int n)
 {
   result_t result;
   short temperature;
-  uint64_t time;
+  capros_RTC_time_t time;
 
   GetDevN(n, KR_TEMP0);
   result = capros_DS18B20_getTemperature(KR_TEMP0,
                &temperature, &time);
   ckOK
   if (time) {
-    kprintf(KR_OSTREAM, "Dev %d temperature is %d.%d Celsius at %#llx\n",
+    kprintf(KR_OSTREAM, "Dev %d temperature is %d.%d Celsius at %#lx\n",
             n, temperature/16, (temperature%16) >> 1, time);
   }
 }
@@ -133,13 +133,13 @@ PrintAD(int n)
 {
   result_t result;
   capros_DS2450_portsData data;
-  uint64_t time;
+  capros_RTC_time_t time;
 
   GetDevN(n, KR_TEMP0);
   result = capros_DS2450_getData(KR_TEMP0, &data, &time);
   ckOK
   if (time) {
-    kprintf(KR_OSTREAM, "Dev %d data is %#.4x %#.4x %#.4x %#.4x at %#llx\n",
+    kprintf(KR_OSTREAM, "Dev %d data is %#.4x %#.4x %#.4x %#.4x at %#lx\n",
             n, data.data[0], data.data[1], data.data[2], data.data[3], time);
   }
 }
@@ -148,7 +148,7 @@ void
 PrintBM(int n)
 {
   result_t result;
-  uint64_t time;
+  capros_RTC_time_t time;
   uint16_t datau16;
 
   GetDevN(n, KR_TEMP0);
@@ -157,8 +157,8 @@ PrintBM(int n)
   ckOK
   if (time) {
     unsigned int v = datau16 * 674 / 1000;	// adj v, units 0.1V
-    kprintf(KR_OSTREAM, "Dev %d is %u mV or %u.%u V at %#llu ms\n",
-            n, datau16 * 10, v/10, v%10, time/1000000);
+    kprintf(KR_OSTREAM, "Dev %d is %u mV or %u.%u V at %#lu sec\n",
+            n, datau16 * 10, v/10, v%10, time);
   }
 
 #if 0
@@ -166,8 +166,8 @@ PrintBM(int n)
   result = capros_DS2438_getTemperature(KR_TEMP0, &data16, &time);
   ckOK
   if (time) {
-    kprintf(KR_OSTREAM, "Dev %d temp is %d.%d at %#llu ms\n",
-            n, data16 >> 8, (data16 & 0xff)/26, time/1000000);
+    kprintf(KR_OSTREAM, "Dev %d temp is %d.%d at %#lu sec\n",
+            n, data16 >> 8, (data16 & 0xff)/26, time);
   }
 
   result = capros_DS2438_getCurrent(KR_TEMP0, &data16);

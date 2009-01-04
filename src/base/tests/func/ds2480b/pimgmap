@@ -36,8 +36,7 @@ W1Mult(ser3, w1ser3config)
 
 #include <ds2480b.map>
 
-ds2480b(ser3)
-ser3ds2480b_proc key reg KR_APP(1) = ser3w1mult;
+ds2480b(ser3, ser3w1mult)
 #define serial3_notifyee start ser3ds2480b_proc 0
 
 #include <nplink.map>
