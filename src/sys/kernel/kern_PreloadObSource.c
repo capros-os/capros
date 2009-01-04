@@ -64,6 +64,23 @@ AssertPageIsFree(PageHeader * pageH)
   }
 }
 
+static PageHeader *
+AllocateThisPhysPage(kpa_t pagePA)
+{
+  PageHeader * pageH = objC_PhysPageToObHdr(pagePA);
+
+  // If it's part of a free block, split it up:
+  while (pageH_GetObType(pageH) != ot_PtFreeFrame
+         || pageH->kt_u.free.log2Pages != 0) {
+    physMem_SplitContainingFreeBlock(pageH);
+  }
+  // Unlink from free list:
+  link_Unlink(&pageH->kt_u.free.freeLink);
+  physMem_numFreePageFrames -= 1;
+  pageH_ToObj(pageH)->obType = ot_PtNewAlloc;
+  return pageH;
+}
+
 void
 preload_Init(void)
 {
@@ -102,6 +119,11 @@ preload_Init(void)
   // Load all the preload images.
   npod = NPObDescr;	// start at beginning again
   for (k = npod->numPreloadImages; k > 0; k--) {
+    /* Un-free the page containing the struct NPObjectsDescriptor,
+    so it won't be allocated and clobbered below when we allocate
+    zero pages. */
+    AllocateThisPhysPage(VTOP((kva_t)npod));
+
     pagePA += EROS_PAGE_SIZE;	// skip frame containing NPObjectsDescriptor
     OID oid = npod->OIDBase;
 
@@ -132,17 +154,7 @@ preload_Init(void)
     // Preload the initialized pages.
     // Just leave them where they are and do the bookkeeping.
     for (i = 0; i < npod->numNonzeroPages; i++) {
-      pageH = objC_PhysPageToObHdr(pagePA);
-
-      // If it's part of a free block, split it up:
-      while (pageH_GetObType(pageH) != ot_PtFreeFrame
-             || pageH->kt_u.free.log2Pages != 0) {
-        physMem_SplitContainingFreeBlock(pageH);
-      }
-      // Unlink from free list:
-      link_Unlink(&pageH->kt_u.free.freeLink);
-      physMem_numFreePageFrames -= 1;
-      pageH_ToObj(pageH)->obType = ot_PtNewAlloc;
+      pageH = AllocateThisPhysPage(pagePA);
 
       objC_GrabThisPageFrame(pageH);
       pageH_MDInitDataPage(pageH);
@@ -181,6 +193,12 @@ preload_Init(void)
     }
 
     uint32_t thisFrames = 1 + npod->numFrames;	// including the header frame
+
+    /* Now that we're done with the struct NPObjectsDescriptor,
+    free its page. */
+    pageH = objC_PhysPageToObHdr(VTOP((kva_t)npod));
+    ReleasePageFrame(pageH);
+
     npod = (struct NPObjectsDescriptor *)
            ((char *)npod + thisFrames * EROS_PAGE_SIZE);
   }

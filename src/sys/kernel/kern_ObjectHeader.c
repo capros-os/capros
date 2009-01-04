@@ -354,6 +354,7 @@ node_DoBumpCallCount(Node * pNode)
   assert(objH_IsDirty(node_ToObj(pNode)));
 }
 
+// Object must be writeable.
 void
 objH_ClearObj(ObjectHeader * thisPtr)
 {
@@ -362,14 +363,12 @@ objH_ClearObj(ObjectHeader * thisPtr)
     /* zeroing unprepares and invalidates products too */
 
     node_DoClearThisNode(thisNode);
-    node_EnsureWritable(thisNode);
   }
   else if (thisPtr->obType == ot_PtDataPage) {
     objH_InvalidateProducts(thisPtr);
 
     kva_t pPage = pageH_GetPageVAddr(objH_ToPage(thisPtr));
     kzero((void*)pPage, EROS_PAGE_SIZE);
-    pageH_EnsureWritable(objH_ToPage(thisPtr));
   }
   else if (thisPtr->obType == ot_PtDevicePage) {
     objH_InvalidateProducts(thisPtr);

@@ -103,6 +103,14 @@ objH_ddb_dump_bucket(uint32_t bucket)
 void
 objH_Intern(ObjectHeader* thisPtr)
 {
+#if 0
+  if (thisPtr->obType <= ot_PtLAST_OBJECT_TYPE) {	// an object
+    ObjectHeader * ob = objH_Lookup(thisPtr->oid, 0);
+    if (ob)
+      dprintf(true, "objH_Intern adding %#x but %#x exists!\n",
+              thisPtr, ob);
+  }
+#endif
   uint32_t ndx = 0;
   
   ndx = bucket_ndx(thisPtr->oid);

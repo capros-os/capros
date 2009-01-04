@@ -415,7 +415,7 @@ objC_GrabThisPageFrame(PageHeader *pageH)
   pageH->physMemRegion = pmi;
   pageH_ToObj(pageH)->obType = ot_PtNewAlloc;	// restore
 
-  // The following test is slow:
+  // The following test is too slow even for the debug version:
   // assert(pte_ObIsNotWritable(pageH));
 
   pageH_SetReferenced(pageH);
@@ -1183,12 +1183,12 @@ pageH_MitigateKRO(PageHeader * old)
     the dirty bit; that the log and directory reservations will succeed. */
     objH_SetDirtyFlag(pageH_ToObj(new));
 
+    pageH_ToObj(old)->obType = ot_PtWorkingCopy;
+    objH_Unintern(pageH_ToObj(old));
+
     pageH_ToObj(new)->obType = ot_PtDataPage;
     objH_InitObj(pageH_ToObj(new), pageH_ToObj(old)->oid);
     pageH_MDInitDataPage(new);
-
-    pageH_ToObj(old)->obType = ot_PtWorkingCopy;
-    objH_Unintern(pageH_ToObj(old));
 
     // If would be easy to just unprepare all the keys to the old page,
     // but that would set OFLG_allocCntUsed unnecessarily.
