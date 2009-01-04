@@ -28,7 +28,7 @@ Approved for public release, distribution unlimited. */
  * DS2480B serial to W1Bus converter.
  *********************************************/
 
-#define ds2480b(name) \
+#define ds2480b(name, w1mult) \
 name##ds2480b_proc = new process; \
 name##ds2480b.prog = small program LIBDIR "ds2480b"; \
 name##ds2480b_proc pc = symbol LIBDIR "ds2480b" _start; \
@@ -40,9 +40,8 @@ name##ds2480b_proc key reg KR_SELF = name##ds2480b_proc; \
 name##ds2480b_proc key reg KR_BANK = primebank; \
 name##ds2480b_proc key reg KR_SCHED = sched(8); \
 name##ds2480b_proc key reg KR_APP(0) = misc Console; \
+name##ds2480b_proc key reg KR_APP(1) = w1mult; \
 name##ds2480b_proc key reg KR_APP(2) = misc Sleep; \
 run name##ds2480b_proc;
-// Caller must add:
-// name##ds2480b_proc key reg KR_APP(1) = w1mult;
 
 #endif // __DS2480B_MAP_

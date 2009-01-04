@@ -1,6 +1,7 @@
 package capros;
 
 interface W1Bus extends key {
+  /* Any of these methods may raise key.Restart. */
 
   unsigned short enum BusType {
     DS9490R,
@@ -16,10 +17,12 @@ interface W1Bus extends key {
     AlarmingPresencePulse,
     BusError,
     CRCError,
-    Timeout
+    Timeout,
+    SysRestart
   };
 
   exception ProgramTooLong;
+  exception BusError;
 
   /* (Note: 128 is the size of the data FIFOs on the DS2490.) */
   const unsigned short maxReadSize = 128;
@@ -252,7 +255,9 @@ interface W1Bus extends key {
 
   /****************** mode commands *******************/
 
-  /* Reset the bus master. */
+  /* Reset the bus master.
+  May raise BusError.
+  */
   void resetDevice();
 
   /* Set bus speed */
@@ -263,7 +268,9 @@ interface W1Bus extends key {
   };
   void setSpeed(W1Speed speed);
 
-  /* Set PullDown Slew Rate for flexible speed. */
+  /* Set PullDown Slew Rate for flexible speed.
+  May raise BusError.
+  */
   unsigned byte enum PDSR {
     PDSR1500 = 0,	// 15.00 V/us
     PDSR220  = 1,	//  2.20 V/us
@@ -276,7 +283,9 @@ interface W1Bus extends key {
   };
   void setPDSR(PDSR pdsr);
 
-  /* Set Write 1 low time for flexible speed. */
+  /* Set Write 1 low time for flexible speed.
+  May raise BusError.
+  */
   unsigned byte enum W1LT {
     W1LT08 = 0,	//  8 us
     W1LT09 = 1,	//  9 us
@@ -289,7 +298,9 @@ interface W1Bus extends key {
   };
   void setW1LT(W1LT w1lt);
 
-  /* Set Data Sample Offset/Write 0 Recovery time for flexible speed. */
+  /* Set Data Sample Offset/Write 0 Recovery time for flexible speed.
+  May raise BusError.
+  */
   unsigned byte enum DSO {
     DSO03 = 0,	//  3 us
     DSO04 = 1,	//  4 us

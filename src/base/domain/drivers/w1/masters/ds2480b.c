@@ -26,6 +26,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/machine/cap-instr.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/Forwarder.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/NPLink.h>
 #include <idl/capros/SerialPort.h>
@@ -57,6 +59,7 @@ unsigned long __rt_stack_pointer = 0x20000;
 #define KR_W1MULT  KR_APP(1)
 #define KR_SLEEP   KR_APP(2)
 #define KR_Serial  KR_APP(3)
+#define KR_Forwarder KR_APP(4) // non-opaque Forwarder for W1Bus cap
 
 // DS2480B codes
 
@@ -108,6 +111,35 @@ msDelay(int len)
   assert(result == RC_OK);
 }
 
+void
+RescindAnyW1BusCap(void)
+{
+  capros_SpaceBank_free1(KR_BANK, KR_Forwarder);
+  // Ignore any error; KR_Forwarder could be Void.
+}
+
+INLINE result_t
+StatusCodeToException(unsigned int status)
+{
+  switch (status) {
+  default:	// capros_W1Bus_StatusCode_BusError
+    return RC_capros_W1Bus_BusError;
+  case capros_W1Bus_StatusCode_SysRestart:
+    return RC_capros_key_Restart;
+  }
+}
+
+bool
+CheckRestart(result_t result)
+{
+  if (result == RC_capros_key_Restart || result == RC_capros_key_Void) {
+    haveSerial = false;
+    RescindAnyW1BusCap();
+    return true;
+  }
+  return false;
+}
+
 /* There are several buffers used in this program. 
  *
  * MsgRcvBuf receives data from processes that call start caps
@@ -143,28 +175,33 @@ inBuf[inBufEntries];
 unsigned int numInputPairsProcessed;
 unsigned int numInputPairsInBuf;
 
-bool	// true iff successful
+bool	// true iff successful, false if system restart
 serial_sendData(void)
 {
   result_t result;
   result = capros_SerialPort_write(KR_Serial, sendlen, &sendpacket[0]);
+  if (CheckRestart(result))
+    return false;
   if (result != RC_OK) {
     DEBUG(errors) kprintf(KR_OSTREAM, "SerialPort_write returned %#x\n",
                           result);
-    return false;
+    assert(false);	// bug
   }
   sendlen = 0;	// reset for next packet
   return true;
 }
 
-void
+bool
 SerialOut_Flush(void)
 {
   result_t result = capros_SerialPort_waitUntilSent(KR_Serial);
+  if (CheckRestart(result))
+    return false;
   assert(result == RC_OK);
+  return true;
 }
 
-void
+bool
 SerialIn_Flush(void)
 {
   msDelay(100);	// FIXME: we need a more reliable way to know that
@@ -177,9 +214,12 @@ SerialIn_Flush(void)
                inBufEntries, 0 /* timeout */,
                &pairsRcvd, (uint8_t *)&inBuf[0]);
   } while (result == RC_OK && pairsRcvd == inBufEntries);
+  if (CheckRestart(result))
+    return false;
+  return true;
 }
 
-void
+bool
 SerialOut_Init(unsigned int baudRate)
 {
   struct capros_SerialPort_termios2 termio = {
@@ -192,7 +232,10 @@ SerialOut_Init(unsigned int baudRate)
   };
 
   result_t result = capros_SerialPort_setTermios2(KR_Serial, termio);
+  if (CheckRestart(result))
+    return false;
   assert(result == RC_OK);
+  return true;
 }
 
 bool inDataMode;
@@ -237,7 +280,7 @@ uint32_t currentBaudRate;
 #define baudPref9600 30
 int baudPreference;
 
-bool
+bool	// return false iff Restart
 ChangeBaudRate(uint32_t baudRate, int baudCmd)
 {
   /* Beware:
@@ -256,25 +299,29 @@ ChangeBaudRate(uint32_t baudRate, int baudCmd)
   }
   result_t result;
   result = capros_SerialPort_write(KR_Serial, p - smallBuf, smallBuf);
+  if (CheckRestart(result))
+    return false;
   if (result != RC_OK) {
     DEBUG(errors) kprintf(KR_OSTREAM, "SerialPort_write returned %#x\n",
                           result);
-    return false;
+    assert(false);
   }
-  SerialOut_Flush();
+  if (! SerialOut_Flush())
+    return false;
   currentBaudRate = baudRate;
-  SerialOut_Init(baudRate);
+  if (! SerialOut_Init(baudRate))
+    return false;
   // Response byte is sent at the new rate.
   // Since that may be garbled, just flush any input.
-  SerialIn_Flush();
-  return true;
+  return SerialIn_Flush();
 }
 
 // Read at least minChars characters, more if available.
-// Return 0 if OK.
-// Return -1 if a timeout error.
-// Return -2 if a data error.
-int
+/* Returns:
+ * 0 if OK.
+ * capros_W1Bus_StatusCode_BusError if a timeout or data error
+ * capros_W1Bus_StatusCode_SysRestart if restart */
+unsigned int
 RcvCharsMin(unsigned int minChars)
 {
   result_t result;
@@ -286,6 +333,8 @@ RcvCharsMin(unsigned int minChars)
                inBufEntries - numInputPairsInBuf,
                100000,		// timeout: 100,000 us
                &pairsRcvd, (uint8_t *)&inBuf[numInputPairsInBuf]);
+    if (CheckRestart(result))
+      return capros_W1Bus_StatusCode_SysRestart;
     if (result != RC_OK) {
       if (result == RC_capros_SerialPort_TimedOut) {
         DEBUG(errors) kprintf(KR_OSTREAM,
@@ -293,8 +342,9 @@ RcvCharsMin(unsigned int minChars)
       } else {
         DEBUG(errors) kprintf(KR_OSTREAM,
                         "SerialPort_readTimeout returned %#x\n", result);
+        assert(false);
       }
-      return -1;
+      return capros_W1Bus_StatusCode_BusError;
     }
     // Check that the received characters are OK.
     unsigned int i;
@@ -302,10 +352,10 @@ RcvCharsMin(unsigned int minChars)
       if (inBuf[numInputPairsInBuf + i].flag
           != capros_SerialPort_Flag_NORMAL) {
         DEBUG(errors) kprintf(KR_OSTREAM,
-                        "SerialPort_readTimeout inbuf[%d] is %d\n",
+                        "SerialPort_readTimeout inbuf[%d].flag is %d\n",
                         numInputPairsInBuf + i,
                         inBuf[numInputPairsInBuf + i].flag);
-        return -2;
+        return capros_W1Bus_StatusCode_BusError;
       }
     }
     numInputPairsInBuf += pairsRcvd;
@@ -314,7 +364,7 @@ RcvCharsMin(unsigned int minChars)
 }
 
 // Expecting exactly numChars characters.
-int
+unsigned int
 RcvChars(unsigned int numChars)
 {
   // Empty the buffer:
@@ -322,35 +372,36 @@ RcvChars(unsigned int numChars)
   numInputPairsInBuf = 0;
 
   int res = RcvCharsMin(numChars);
-  if (res < 0)
+  if (res != 0)
     return res;
   if (numInputPairsInBuf > numChars) {
     DEBUG(errors) kprintf(KR_OSTREAM,
                     "RcvChars got %d extra chars\n",
                     numInputPairsInBuf - numChars);
-    return -3;
+    return capros_W1Bus_StatusCode_BusError;
   }
   return 0;
 }
 
-bool
+result_t
 SendConfigCommand(uint8_t command)	// low bit of command is zero
 {
   EnsureCommandMode();
   wp(command + 0x01);
   if (! serial_sendData()) {
-    return false;
+    return RC_capros_key_Restart;
   }
-  if (RcvChars(1) < 0) {
-    return false;
+  unsigned int err = RcvChars(1);
+  if (err != 0) {
+    return StatusCodeToException(err);
   }
   uint8_t c = inBuf[0].data;
   if (c != command) {
     DEBUG(errors) kprintf(KR_OSTREAM, "Config command sent %#.2x got %#.2x\n",
                           command, c);
-    return false;
+    return RC_capros_W1Bus_BusError;
   }
-  return true;
+  return RC_OK;
 }
 
 uint8_t * const startPgm = (void *)&MsgRcvBuf;
@@ -477,17 +528,18 @@ MatchDataBytes(const uint8_t * p, unsigned int num)
   return true;
 }
 
-bool
+unsigned int
 CheckSPUDResponse(void)
 {
   if (settingSPUD) {
     // Check the response from the SPUD command.
-    if (RcvCharsMin(1) < 0)
-      return false;
+    unsigned int ret = RcvCharsMin(1);
+    if (ret != 0)
+      return ret;
     if (! MatchDataByte(configSPUD + (currentSPUDCode << 1)))
-      return false;
+      return capros_W1Bus_StatusCode_BusError;
   }
-  return true;
+  return 0;
 }
 
 unsigned int crc;
@@ -508,6 +560,7 @@ void
 RunProgram(Message * msg, uint32_t pgmLen)
 {
   result_t result;
+  unsigned long ret;
 
   unsigned char * endPgm = startPgm + pgmLen;
   unsigned char * pgm;	// where we are in the program
@@ -761,9 +814,17 @@ execute: ;
     result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &startTime);
     assert(result == RC_OK);
 
+    // The input buffer is empty:
+    numInputPairsProcessed = 0;
+    numInputPairsInBuf = 0;
+
+    // We will go through the segment again, doing post-processing.
+    pgm = segStart;
+
     // Send all the commands and data.
     if (! serial_sendData()) {
-      assert(!"implemented");
+      pgm++;	// as expected by terminateSysRestart
+      goto terminateSysRestart;
     }
 
     // Give it time to execute.
@@ -772,13 +833,6 @@ execute: ;
     startTime += duration * 60000;
     result = capros_Sleep_sleepTill(KR_SLEEP, startTime);
     assert(result == RC_OK);
-
-    // The input buffer is empty:
-    numInputPairsProcessed = 0;
-    numInputPairsInBuf = 0;
-
-    // Go through the segment again, doing post-processing.
-    pgm = segStart;
 
     while (pgm < segEnd) {	// process steps first pass
       unsigned char stepCode = *pgm++;
@@ -792,8 +846,8 @@ execute: ;
       case capros_W1Bus_stepCode_resetNormal:
       {
         // get the response byte
-        if (RcvCharsMin(1) < 0)
-          goto terminateBusError;
+        if ((ret = RcvCharsMin(1)) != 0)
+          goto terminateGotRet;
         c = inBuf[numInputPairsProcessed++].data & 0xdf;
         if ((c & 0xfc) != 0xcc) {
           DEBUG(errors) kprintf(KR_OSTREAM, "Sent reset got %#.2x!n", c);
@@ -827,8 +881,8 @@ execute: ;
       case capros_W1Bus_stepCode_setPathMain:
       case capros_W1Bus_stepCode_setPathAux:
       {
-        if (RcvCharsMin(12) < 0)
-          goto terminateBusError;
+        if ((ret = RcvCharsMin(12)) != 0)
+          goto terminateGotRet;
         if (! MatchDataByte(0x55)	// Match ROM response
             || ! MatchDataBytes(pgm, 8)	// match ROM
             || ! MatchDataByte(stepCode)
@@ -854,15 +908,15 @@ execute: ;
       }
 
       case capros_W1Bus_stepCode_skipROM:
-        if (RcvCharsMin(1) < 0)
-          goto terminateBusError;
+        if ((ret = RcvCharsMin(1)) != 0)
+          goto terminateGotRet;
         if (! MatchDataByte(0xcc))	// Skip ROM response
           goto terminateBusError;
         break;
 
       case capros_W1Bus_stepCode_matchROM:
-        if (RcvCharsMin(9) < 0)
-          goto terminateBusError;
+        if ((ret = RcvCharsMin(9)) != 0)
+          goto terminateGotRet;
         if (! MatchDataByte(stepCode)	// Match ROM response
             || ! MatchDataBytes(pgm, 8))	// match ROM
           goto terminateBusError;
@@ -871,8 +925,8 @@ execute: ;
 
       case capros_W1Bus_stepCode_searchROM:
       case capros_W1Bus_stepCode_alarmSearchROM:
-        if (RcvCharsMin(17) < 0)
-          goto terminateBusError;
+        if ((ret = RcvCharsMin(17)) != 0)
+          goto terminateGotRet;
         if (! MatchDataByte(stepCode))	// Search ROM response
           goto terminateBusError;
         uint8_t rom[8];
@@ -912,12 +966,12 @@ execute: ;
       writeCommonPP:
         if (pgm + 1 < segEnd
             && *(pgm + 1) == capros_W1Bus_stepCode_strongPullup5) {
-          if (! CheckSPUDResponse())
-            goto terminateBusError;
+          if ((ret = CheckSPUDResponse()) != 0)
+            goto terminateGotRet;
           option += commandPulseArm;
         }
-        if (RcvCharsMin(1) < 0)
-          goto terminateBusError;
+        if ((ret = RcvCharsMin(1)) != 0)
+          goto terminateGotRet;
         c = inBuf[numInputPairsProcessed++].data;
         option += commandWrite0 - 1 + gBusSpeed;	// expected response
         if (c != option
@@ -933,8 +987,8 @@ execute: ;
       case capros_W1Bus_stepCode_writeBytes:
       case capros_W1Bus_stepCode_readBytes:
         nBytes = *pgm;
-        if (RcvCharsMin(nBytes) < 0)
-          goto terminateBusError;
+        if ((ret = RcvCharsMin(nBytes)) != 0)
+          goto terminateGotRet;
         uint8_t * nextStep = pgm + 1;
         if (stepCode == capros_W1Bus_stepCode_writeBytes) {
           if (! MatchDataBytes(pgm+1, nBytes-1))
@@ -950,10 +1004,10 @@ execute: ;
         if (nextStep < segEnd
             && *nextStep == capros_W1Bus_stepCode_strongPullup5) {
 
-          if (! CheckSPUDResponse())
-            goto terminateBusError;
-          if (RcvCharsMin(3) < 0)
-            goto terminateBusError;
+          if ((ret = CheckSPUDResponse()) != 0)
+            goto terminateGotRet;
+          if ((ret = RcvCharsMin(3)) != 0)
+            goto terminateGotRet;
           // Check response to pulse arm.
           c = inBuf[numInputPairsProcessed++].data;
           if ((c & 0xfc) != (commandPulse5VStrong & 0xfc)) {
@@ -978,11 +1032,10 @@ execute: ;
           EnsureCommandMode();
           wp(commandPulse5VStrong);	// pulse and disarm
           wp(commandPulseTerminate);	// terminate the pulse, leave disarmed
-          if (! serial_sendData()) {
-            assert(!"implemented");
-          }
-          if (RcvCharsMin(1) < 0)
-            goto terminateBusError;
+          if (! serial_sendData())
+            goto terminateSysRestart;
+          if ((ret = RcvCharsMin(1)) != 0)
+            goto terminateGotRet;
           // Check response to pulse disarm.
           c = inBuf[numInputPairsProcessed++].data;
           if ((c & 0xfc) != (commandPulse5VStrong & 0xfc)) {
@@ -1015,8 +1068,8 @@ execute: ;
         unsigned int pageSize = (1UL << *pgm);
         unsigned char numPages = *(pgm+1);
         unsigned long nBytesRcvd = (pageSize + option) * numPages;
-        if (RcvCharsMin(3 + nBytesRcvd) < 0)
-          goto terminateBusError;
+        if ((ret = RcvCharsMin(3 + nBytesRcvd)) != 0)
+          goto terminateGotRet;
         if (! MatchDataBytes(pgm+2, 3))	// preamble
           goto terminateBusError;
         // Check CRC.
@@ -1066,8 +1119,8 @@ execute: ;
 
     continue;	// process any other segments
 
-sequenceError: ;
-    unsigned long ret = capros_W1Bus_StatusCode_SequenceError;
+sequenceError:
+    ret = capros_W1Bus_StatusCode_SequenceError;
     goto preprocessError;
 
 programError:
@@ -1081,7 +1134,7 @@ preprocessError:
     return;
   }
   // Processed all segments.
-  unsigned long ret = capros_W1Bus_StatusCode_OK;
+  ret = capros_W1Bus_StatusCode_OK;
   msg->snd_w2 = pgm - startPgm;
   goto returnOK;
 
@@ -1110,7 +1163,15 @@ terminateCRCError:
   goto returnLength;
 
 returnLength:
-  SerialIn_Flush();
+  if (! SerialIn_Flush())
+    goto terminateSysRestart;
+  goto returnLengthGotEP3;
+
+terminateSysRestart:
+  ret = capros_W1Bus_StatusCode_SysRestart;
+  goto returnLengthGotEP3;
+
+terminateGotRet:
 returnLengthGotEP3:
   msg->snd_w2 = pgm - 1 - startPgm;	// pgm successfully executed
 returnOK:
@@ -1122,7 +1183,12 @@ returnOK:
   return;
 }
 
-bool
+/* Returns one of:
+RC_OK
+RC_capros_key_Restart
+RC_capros_W1Bus_BusError
+*/
+result_t
 DS2480B_Init(void)
 {
   result_t result;
@@ -1140,42 +1206,52 @@ DS2480B_Init(void)
   DEBUG(init) kprintf(KR_OSTREAM, "DS2480B opening serial port...");
   uint32_t openErr;
   result = capros_SerialPort_open(KR_Serial, &openErr);
+  if (CheckRestart(result))
+    goto restarted;
   assert(result == RC_OK);
   DEBUG(init) kprintf(KR_OSTREAM, " done.\n");
 
   int triesLeft = 3;
   while (triesLeft--) {
-    SerialOut_Init(4800);
+    if (! SerialOut_Init(4800))
+      goto restarted;
     // A NUL at 4800 baud is seen as a break at 9600 baud.
     wp(0);
-    if (! serial_sendData()) {
-      assert(!"implemented");
-    }
-    SerialOut_Flush();
+    if (! serial_sendData())
+      goto restarted;
+    if (! SerialOut_Flush())
+      goto restarted;
     msDelay(5);
-    SerialOut_Init(9600);
+    if (! SerialOut_Init(9600))
+      goto restarted;
 
     // Send initial Reset command after master reset for timing
     wp(commandReset + gBusSpeed);
-    if (! serial_sendData()) {
-      assert(!"implemented");
-    }
-    SerialOut_Flush();
-    SerialIn_Flush();
+    if (! serial_sendData())
+      goto restarted;
+    if (! SerialOut_Flush())
+      goto restarted;
+    if (! SerialIn_Flush())
+      goto restarted;
 
     // Read the baud rate (to test the command block)
     wp((configRBR >> 3) + 0x01);
     // Do 1 bit operation (to test 1-Wire block)
     wp(commandWrite1 + gBusSpeed);
 
-    if (! serial_sendData()) {
-      assert(!"implemented");
-    }
-    int err = RcvChars(2);
-    if (err < 0) {
+    if (! serial_sendData())
+      goto restarted;
+    unsigned int err = RcvChars(2);
+    switch (err) {
+    default:	// capros_W1Bus_StatusCode_BusError
       DEBUG(errors) kprintf(KR_OSTREAM, "RcvChars got %d! triesLeft=%d\n",
                             err, triesLeft);
       continue;		// try again
+
+    case capros_W1Bus_StatusCode_SysRestart:
+      goto restarted;
+
+    case 0: break;
     }
     if (inBuf[0].data != RBR9600) {
       DEBUG(errors) kprintf(KR_OSTREAM, "DS2480B read baud rate got %#.2x! inbuf %#x\n",
@@ -1185,10 +1261,13 @@ DS2480B_Init(void)
     if ((inBuf[1].data & 0xfc) != ((commandWrite1 + gBusSpeed) & 0xfc)) {
       assert(!"implemented");
     }
-    return true;	// success
+    return RC_OK;	// success
   }
   DEBUG(errors) kdprintf(KR_OSTREAM, "DS2480B_Init failed!\n");
-  return false;
+  return RC_capros_W1Bus_BusError;
+
+restarted:
+  return RC_capros_key_Restart;
 }
 
 int
@@ -1238,12 +1317,22 @@ main(void)
       // Return to nplink before using the serial port.
       SEND(&Msg);
 
-      if (! DS2480B_Init()) {
-        assert(!"implemented");
+      if (DS2480B_Init() != RC_OK) {
+        // Serial port is broken, or gone already.
+        haveSerial = false;
+        break;
       }
 
       // Notify W1Mult:
+      RescindAnyW1BusCap();
+      result = capros_SpaceBank_alloc1(KR_BANK,
+                 capros_Range_otForwarder, KR_Forwarder);
+      assert(result == RC_OK);	// FIXME handle allocation failure
       result = capros_Process_makeStartKey(KR_SELF, keyInfo_W1Bus, KR_TEMP0);
+      assert(result == RC_OK);
+      result = capros_Forwarder_swapTarget(KR_Forwarder, KR_TEMP0, KR_VOID);
+      assert(result == RC_OK);
+      result = capros_Forwarder_getOpaqueForwarder(KR_Forwarder, 0, KR_TEMP0);
       assert(result == RC_OK);
       result = capros_W1Mult_registerBus(KR_W1MULT, KR_TEMP0, 0);
       assert(result == RC_OK);
@@ -1272,9 +1361,7 @@ main(void)
         break;
   
       case OC_capros_W1Bus_resetDevice:
-        if (! DS2480B_Init()) {
-          Msg.snd_code = RC_capros_Errno_ConnReset;
-        }
+        Msg.snd_code = DS2480B_Init();
         break;
   
       case OC_capros_W1Bus_setSpeed:
@@ -1291,9 +1378,7 @@ main(void)
           Msg.snd_code = RC_capros_key_RequestError;
           break;
         }
-        if (! SendConfigCommand(configPDSRC + (Msg.rcv_w1 << 1))) {
-          Msg.snd_code = RC_capros_Errno_ConnReset;
-        }
+        Msg.snd_code =  SendConfigCommand(configPDSRC + (Msg.rcv_w1 << 1));
         break;
   
       case OC_capros_W1Bus_setW1LT:
@@ -1301,9 +1386,7 @@ main(void)
           Msg.snd_code = RC_capros_key_RequestError;
           break;
         }
-        if (! SendConfigCommand(configW1LT + (Msg.rcv_w1 << 1))) {
-          Msg.snd_code = RC_capros_Errno_ConnReset;
-        }
+        Msg.snd_code = SendConfigCommand(configW1LT + (Msg.rcv_w1 << 1));
         break;
   
       case OC_capros_W1Bus_setDSO:
@@ -1311,9 +1394,7 @@ main(void)
           Msg.snd_code = RC_capros_key_RequestError;
           break;
         }
-        if (! SendConfigCommand(configDSO + (Msg.rcv_w1 << 1))) {
-          Msg.snd_code = RC_capros_Errno_ConnReset;
-        }
+        Msg.snd_code = SendConfigCommand(configDSO + (Msg.rcv_w1 << 1));
         break;
   
       }
