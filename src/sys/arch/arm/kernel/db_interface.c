@@ -301,7 +301,13 @@ db_disasm(db_addr_t loc, bool altfmt)
 void
 KernStats_PrintMD(void)
 {
-  db_printf("nPageUncache 0x%08x%08x\n",
-            DB64(KernStats.nPageUncache)
+  db_printf("nUncache  %16llu  "
+            "nYldMaps  %16llu  "
+            "nDomSteal %16llu  "
+            "nSSSteal  %16llu\n",
+            KernStats.nPageUncache,
+            KernStats.nYieldForMaps,
+            KernStats.nDomainSteal,
+            KernStats.nSmallSpaceSteal
             );
 }

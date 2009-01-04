@@ -1,7 +1,7 @@
 #ifndef __MACHINE_KERNSTATS_H__
 #define __MACHINE_KERNSTATS_H__
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -28,6 +28,8 @@ Approved for public release, distribution unlimited. */
 #define MD_KERN_STATS_FIELDS \
   uint64_t nPageUncache;	/* number of times we made a page uncached */ \
   uint64_t nYieldForMaps;	/* number of times we retried an operation */ \
-				/* because a map might have been invalidated. */
+			/* because a map might have been invalidated. */ \
+  uint64_t nDomainSteal;	/* number of times we stole domains */ \
+  uint64_t nSmallSpaceSteal;	/* number of times we stole small spaces */
 
 #endif // __MACHINE_KERNSTATS_H__

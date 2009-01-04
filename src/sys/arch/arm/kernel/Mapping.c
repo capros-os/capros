@@ -517,9 +517,7 @@ AllocateSmallSpace(void)
       goto assignSS;
     }
   }
-#if 0
-  dprintf(true, "Stealing small spaces.\n");
-#endif
+  KernStats.nSmallSpaceSteal++;
   for (i = 0; i < KTUNE_NSSSTEAL; i++) {
     // Advance the cursor, counting down and wrapping.
     if (--lastSSStolen == 0) lastSSStolen = NumSmallSpaces-1;
@@ -570,9 +568,7 @@ EnsureSSDomain(unsigned int ssid)
     from other processes, we should temporarily disfavor running
     this process, giving the other processes more opportunity
     to use the resources before they are stolen. */
-#if 0
-    printf("Recycling domains\n");
-#endif
+    KernStats.nDomainSteal++;
     for (i = 0; i < KTUNE_NDOMAINSTEAL; i++) {
       // Advance the cursor, counting down and wrapping.
       if (--lastDomainStolen == 0) lastDomainStolen = 15;
