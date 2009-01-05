@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -46,10 +46,8 @@ $(TARGETS): $(OBJECTS)
 	$(RANLIB) $@
 
 install:
-	$(INSTALL) -d $(EROS_ROOT)/lib
 	$(INSTALL) -d $(CAPROS_DOMAIN)
 	$(INSTALL) -m 0644 $(TARGETS) $(CAPROS_DOMAIN)
-	$(INSTALL) -d $(EROS_ROOT)/include
 	$(INSTALL) -d $(EROS_ROOT)/include/ethread
 	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/ethread
 

@@ -1,9 +1,8 @@
 #ifndef __ETHREAD_H__
 #define __ETHREAD_H__
-
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -22,29 +21,40 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
-/* Convenience routine for creating an EROS thread. Pass in a space
-   bank key, a keyreg for temporary storage, the stack pointer
-   for the new thread, the address to which to set the program
-   counter, and the keyreg into which to store the process key to the
-   new thread. */
+/* Convenience routine for creating an EROS thread. Pass in:
+   a space bank key,
+   the stack pointer for the new thread,
+   the address to which to set the program counter,
+   and the keyreg into which to store the process key to the new thread. */
+/* Clobbers only KR_TEMP0. */
 /* Returns: an exception from capros_ProcCre_createProcess,
    RC_Ethread_Unexpected_Err, or RC_OK. */
 uint32_t 
-ethread_new_thread1(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_pointer,
+ethread_new_thread1(cap_t kr_bank, uint32_t stack_pointer,
 		   uint32_t program_counter,
 		   /* result */ cap_t kr_new_thread);
 
-/* Convenience routine for creating an EROS thread. Pass in a space
-   bank key, a keyreg for temporary storage, a requested stack size
-   for the new thread, the address to which to set the program
-   counter, and the keyreg into which to store the start key to the
-   new thread. */
+/* After calling ethread_new_thread1, call ethread_start to start
+ * the new thread running. */
+/* Clobbers only KR_TEMP0. */
+void ethread_start(cap_t thread);
+
+/* Convenience routine for creating an EROS thread. Pass in:
+   a space bank key,
+   a requested stack size for the new thread,
+   the address to which to set the program counter,
+   and the keyreg into which to store the start key to the new thread.
+   Starts the thread running. */
+/* Clobbers only KR_TEMP0. */
 /* Returns: an exception from capros_ProcCre_createProcess, RC_OK, or: */
 #define RC_Ethread_Unexpected_Err      13
 #define RC_Ethread_Malloc_Err          14
 
-uint32_t ethread_new_thread(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_size,
+uint32_t ethread_new_thread(cap_t kr_bank, uint32_t stack_size,
 			    uint32_t program_counter,
 			    /* result */ cap_t kr_new_thread);
 

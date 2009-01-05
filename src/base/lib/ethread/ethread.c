@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -40,38 +40,37 @@ Approved for public release, distribution unlimited. */
 
 /* Convenience routine for creating an EROS thread */
 uint32_t 
-ethread_new_thread1(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_pointer,
+ethread_new_thread1(cap_t kr_bank, uint32_t stack_pointer,
 		    uint32_t program_counter,
 		    /* result */ cap_t kr_new_thread)
 {
   uint32_t kr;
   result_t result;
-  Message msg;
   
   result = capros_ProcCre_createProcess(KR_CREATOR, kr_bank, kr_new_thread);
   if (result != RC_OK)
     return result;
 
   /* Copy the address space to the new thread */
-  result = capros_Process_getAddrSpace(KR_SELF, kr_tmp);
+  result = capros_Process_getAddrSpace(KR_SELF, KR_TEMP0);
   assert(result == RC_OK);
 
-  result = capros_Process_swapAddrSpace(kr_new_thread, kr_tmp, KR_VOID);
+  result = capros_Process_swapAddrSpace(kr_new_thread, KR_TEMP0, KR_VOID);
   assert(result == RC_OK);
   
   /* Copy schedule key */
-  result = capros_Process_getSchedule(KR_SELF, kr_tmp);
+  result = capros_Process_getSchedule(KR_SELF, KR_TEMP0);
   assert(result == RC_OK);
 
-  result = capros_Process_swapSchedule(kr_new_thread, kr_tmp, KR_VOID);
+  result = capros_Process_swapSchedule(kr_new_thread, KR_TEMP0, KR_VOID);
   assert(result == RC_OK);
 
   /* Now just copy all key registers */
   for (kr = 0; kr < EROS_NODE_SIZE; kr++) {
-    result = capros_Process_getKeyReg(KR_SELF, kr, kr_tmp);
+    result = capros_Process_getKeyReg(KR_SELF, kr, KR_TEMP0);
     assert(result == RC_OK);
 
-    result = capros_Process_swapKeyReg(kr_new_thread, kr, kr_tmp, KR_VOID);
+    result = capros_Process_swapKeyReg(kr_new_thread, kr, KR_TEMP0, KR_VOID);
     assert(result == RC_OK);
   }
 
@@ -87,20 +86,30 @@ ethread_new_thread1(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_pointer,
   result = capros_Process_setRegisters32(kr_new_thread, regs);
   assert(result == RC_OK);
   
-  result = capros_Process_makeResumeKey(kr_new_thread, kr_tmp);
-  assert(result == RC_OK);
+  return RC_OK;
+}
+
+void
+ethread_start(cap_t thread)
+{
+  capros_Process_makeResumeKey(thread, KR_TEMP0);
   
   /* Invoke the fault key to start the thread */
-  memset(&msg, 0, sizeof(Message));
-  msg.snd_invKey = kr_tmp;
+  Message msg = {
+    .snd_invKey = KR_TEMP0,
+    .snd_key0 = KR_VOID,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_rsmkey = KR_VOID,
+    .snd_len = 0,
+    .snd_code = 0
+  };
   PSEND(&msg);
-
-  return RC_OK;
 }
 
 /* Convenience routine for creating an EROS thread */
 uint32_t 
-ethread_new_thread(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_size,
+ethread_new_thread(cap_t kr_bank, uint32_t stack_size,
 		   uint32_t program_counter,
 		   /* result */ cap_t kr_new_thread)
 {
@@ -112,13 +121,15 @@ ethread_new_thread(cap_t kr_bank, cap_t kr_tmp, uint32_t stack_size,
   if (stack == NULL)
     return RC_Ethread_Malloc_Err;
 
-  result = ethread_new_thread1(kr_bank, kr_tmp, 
+  result = ethread_new_thread1(kr_bank,
                    (uint32_t)stack + stack_size, program_counter,
 		   kr_new_thread);
   if (result != RC_OK) {
     free(stack);
     return result;
   }
+
+  ethread_start(kr_new_thread);
   
   /* Fabricate a start key */
   result = capros_Process_makeStartKey(kr_new_thread, 0, kr_new_thread);
