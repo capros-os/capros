@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System distribution.
  *
@@ -261,7 +261,7 @@ main(void)
 
   /* Create two threads: one for input and one for output.  This
      "main" thread will be the dispatcher. */
-  result = ethread_new_thread(KR_BANK, KR_SCRATCH, STACK_SIZE,
+  result = ethread_new_thread(KR_BANK, STACK_SIZE,
 			      (uint32_t)&input_main, KR_IN_THREAD);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "**ERROR: linedisc couldn't create input thread:"
@@ -269,7 +269,7 @@ main(void)
     return -1;
   }
 
-  result = ethread_new_thread(KR_BANK, KR_SCRATCH, STACK_SIZE,
+  result = ethread_new_thread(KR_BANK, STACK_SIZE,
 			      (uint32_t)&output_main, KR_OUT_THREAD);
   if (result != RC_OK) {
     kprintf(KR_OSTREAM, "**ERROR: linedisc couldn't create output thread:"

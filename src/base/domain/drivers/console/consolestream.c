@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System distribution.
  *
@@ -373,7 +373,7 @@ main(void)
   
   /* make a thread for the console in */
   {
-    result_t result = ethread_new_thread(KR_BANK, KR_SCRATCH, 4000,
+    result_t result = ethread_new_thread(KR_BANK, 4000,
 					 (uint32_t)&console_in, KR_CHARSRC);
     if (result != RC_OK) {
       kprintf(KR_OSTREAM, "** ERROR: consolestream unable to create "
@@ -385,7 +385,7 @@ main(void)
   
   /* make a thread for console out */
   {
-    result_t result = ethread_new_thread(KR_BANK, KR_SCRATCH, 4000,
+    result_t result = ethread_new_thread(KR_BANK, 4000,
 					 (uint32_t)&console_out, KR_CHARSINK);
     if (result != RC_OK) {
       kprintf(KR_OSTREAM, "** ERROR: consolestream unable to create "
