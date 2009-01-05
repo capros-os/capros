@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, Jonathan S. Shapiro.
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -34,14 +34,3 @@ DIRS+=hello-large
 DIRS+=triv-keeper
 
 include $(EROS_SRC)/build/make/pkgrules.mk
-
-# If VOLMAP is defined, use that,
-# otherwise use a local target-specific volmap file if there is one,
-# otherwise use the local target-independent volmap file if there is one,
-# otherwise use the generic file test.volmap here.
-ifndef VOLMAP
-VOLMAP=$(if $(wildcard volmap.$(EROS_TARGET)), volmap.$(EROS_TARGET), $(if $(wildcard volmap), volmap, ../../test.volmap))
-endif
-
-include $(EROS_SRC)/build/make/sys.$(EROS_TARGET).mk
-
