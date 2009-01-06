@@ -101,7 +101,8 @@
                     The convention is that these should be used only
                     between procedure calls, or as parameters or results
                     of procedure calls.
-                    In other words, you must assume that any procedure
+                    In other words, unless otherwise documented,
+                    you must assume that any procedure
                     you call may disturb these registers.
                     (IDL procedures (for example capros_Node_getSlot())
                     are a notable exception; they do not disturb any
@@ -110,8 +111,13 @@
 		</tr>
 		<tr valign=top>
 		  <td><strong>KR_ARG(n)</strong></td>
-		  <td>This convention may be dropped.
-                    <em>What about parameters to the constructor?</em></td>
+		  <td>KR_ARG(0), KR_ARG(1), and KR_ARG(2) are
+                    key registers that may be used by the program for any
+                    purpose. Often they are used by a server to receive
+                    keys from the caller.
+                    <p>When a constructor requestor object is called
+                    to construct a new instance, the new process receives
+                    the third key parameter to the request in KR_ARG(0).</td>
 		</tr>
 	      </table>
 	      <p>
