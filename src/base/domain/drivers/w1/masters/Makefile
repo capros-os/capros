@@ -53,12 +53,12 @@ interfaces: $(IDL)
 $(BUILDDIR)/ds2490: $(DYNDRVSTART) $(DS2490_OBJECTS) $(LIBS) $(DRIVERDEPS)
 	$(DYNDRIVERLINK) $(DS2490_OBJECTS) $(LIBS) $(DRIVERLIBS) -o $@
 # and for debugging:
-#	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled2490
 
 $(BUILDDIR)/ds2480b:  $(BUILDDIR)/ds2480b.o $(DOMLIB)
 	$(CROSSLINK) $(BUILDDIR)/ds2480b.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
-	$(EROS_OBJDUMP) -t --disassemble $@ >$(BUILDDIR)/disassembled
+#	$(EROS_OBJDUMP) -t --disassemble $@ >$(BUILDDIR)/disassembled2480b
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers

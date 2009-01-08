@@ -15,7 +15,8 @@ interface W1Bus extends key {
     BusShorted,
     NoDevicePresent,
     AlarmingPresencePulse,
-    BusError,
+    BusError,	// After this error, the bus state is unknown
+		// and all parameters should be reset.
     CRCError,
     Timeout,
     SysRestart

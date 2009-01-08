@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2004 Evgeniy Polyakov <johnpol@2ka.mipt.ru>
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -60,10 +60,12 @@ static void usb_w1_msg_timer_function(unsigned long data)
   usb_unlink_endpoint(data);
 }
 
+#define USB_Timeout2 (2*HZ)
+
 /* Returns 0 or a negative error number. */
 static int ds_usb_io(capros_USB_urb * urb,
   unsigned long endpoint,	// endpoint # and direction
-  unsigned int timeout,
+  unsigned int timeout,		// in jiffies
   unsigned long * actual_length)
 {
   result_t result;
@@ -130,7 +132,7 @@ static int ds_send_usb_control(u8 request, u16 value, u16 index)
     .setup_dma = DMAAddress(ctrlreq)
   };
 
-  return ds_usb_io(&urb, theDSDev.ep[EP_CONTROL] << 15, 1000, 0);
+  return ds_usb_io(&urb, theDSDev.ep[EP_CONTROL] << 15, USB_Timeout2, 0);
 }
 
 static int ds_send_control_cmd(u16 value, u16 index)
@@ -228,7 +230,9 @@ dump_status(int count)
 	}
 }
 
-static unsigned long ds_recv_data(dma_addr_t buf_dma, int len)
+// Returns a positive count, or a negative error.
+static long
+ds_recv_data(dma_addr_t buf_dma, int len)
 {
   unsigned long count;
   int err;
@@ -240,7 +244,7 @@ static unsigned long ds_recv_data(dma_addr_t buf_dma, int len)
     .transfer_buffer_length = len,
   };
 
-  err = ds_usb_io(&urb, endpoint, 1000, &count);
+  err = ds_usb_io(&urb, endpoint, USB_Timeout2, &count);
   if (err < 0) {
 	printk(KERN_INFO "err=%d, Clearing ep0x%x.\n", err,
 		theDSDev.ep[EP_DATA_IN]);
@@ -259,10 +263,10 @@ static unsigned long ds_recv_data(dma_addr_t buf_dma, int len)
 		assert(count >= 16);	// FIXME
 	}
 	// Let's attempt some error recovery: retry once
-	err = ds_usb_io(&urb, endpoint, 1000, &count);
-	if (err < 0) {
-		printk(KERN_INFO "%s second err=%d\n", __func__, err);
-		assert(false);	// FIXME
+	int err2 = ds_usb_io(&urb, endpoint, USB_Timeout2, &count);
+	if (err2 < 0) {
+		printk(KERN_INFO "%s second err=%d\n", __func__, err2);
+		return err;
 	} else {
 		kdprintf(KR_OSTREAM, "%s retried OK.\n", __func__);
 	}
@@ -293,7 +297,7 @@ static int ds_send_data(dma_addr_t buf_dma, int len)
   };
 
   err = ds_usb_io(&urb, (theDSDev.ep[EP_DATA_OUT] << 15),
-          1000, &count);
+          USB_Timeout2, &count);
 
   if (err < 0) {
 	printk(KERN_ERR "Failed to send 1-wire data: err=%d.\n", err);
@@ -488,12 +492,17 @@ HandleAnyUnsentData(void)
   }
 }
 
-unsigned int
+// Return a negative error code,
+// or a nonnegative size of shortfall.
+int
 GetEP3Data(unsigned int expected)
 {
   if (expected > 0) {	// there should be data in EP3 to get
-    unsigned long actualLen = ds_recv_data(DMAAddress(dataBuffer), expected);
+    long actualLen = ds_recv_data(DMAAddress(dataBuffer), expected);
     DEBUG(prog) printk("GetEP3 expected %d got %d", expected, actualLen);
+    if (actualLen < 0)	// an error
+      return actualLen;
+    assert(actualLen <= expected);
 
     memcpy(resultNext, cm->dataBuffer, actualLen);
     resultNext += actualLen;
@@ -884,6 +893,8 @@ execute:
           int expected = cmdNext->ep3Size - ep3Gotten;
           assert(expected >= 0);
           err = GetEP3Data(expected);
+          if (err < 0)
+            goto terminateBusError;
           assert(!err);	// FIXME - too little EP3 data
           *resultNext++ = app;
           ep3Gotten++;
@@ -901,6 +912,8 @@ execute:
         int expected = cmdNext->ep3Size - ep3Gotten;
         assert(expected >= 1);
         int err2 = GetEP3Data(expected);
+        if (err2 < 0)
+          goto terminateBusError;
         assert(!err2);	// FIXME - too little EP3 data
         err2 = *--resultNext;	// last character gotten
         if (err > 16) {		// got a result
@@ -931,6 +944,8 @@ execute:
         int expected = cmdNext->ep3Size - ep3Gotten;
         assert(expected >= 2);
         int err2 = GetEP3Data(expected);
+        if (err2 < 0)
+          goto terminateBusError;
         assert(!err2);	// FIXME - too little EP3 data
         err2 = *--resultNext;	// last character gotten
 	uint8_t resetResponse = *--resultNext;
@@ -970,6 +985,8 @@ execute:
         int expected = cmdNext->ep3Size - ep3Gotten;
         assert(expected >= 16);
         err = GetEP3Data(expected);
+        if (err < 0)
+          goto terminateBusError;
         DEBUG(prog) printk("search shortfall %d", err);
         if (err == 8) {	// we did not get the discrepancy information
           memset(resultNext, 0, 8);	// supply zeros
@@ -1005,6 +1022,8 @@ execute:
     // Get any final data for this segment.
     int expected = (cmdNext - 1)->ep3Size - ep3Gotten;
     err = GetEP3Data(expected);
+    if (err < 0)
+      goto terminateBusError;
     assert(!err);
 
     lastSPUDCode = lastSPUDCodePgm;
@@ -1071,7 +1090,9 @@ returnLength:
     /* On an error, don't trust the expected size; get no more than is there. */
     if (cm->status.data_in_buffer_status < sizeToGet)
       sizeToGet = cm->status.data_in_buffer_status;
-    GetEP3Data(sizeToGet);
+    int err = GetEP3Data(sizeToGet);
+    if (err < 0)
+      goto terminateBusError;
   }
 returnLengthGotEP3:
   // There was an error; a SPUD code may or may not have been programmed.
