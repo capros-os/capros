@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -1111,107 +1111,110 @@ DoTask(void)
 #define ledsTimeout 500000000 // 0.5 second
       // Need to read the LEDs.
       CMTEMutex_unlock(&lock);
-//// bug, may have gotLEDs by now.
-      while (1) {	// loop at most twice
-        DEBUG(leds) kprintf(KR_OSTREAM, "Read LEDs completed.\n");
-        if (gettingLEDs) {
-          // Allow time for the previous command:
-          int64_t timeToWait = commandTime + ledsTimeout - monoNow;
-          if (timeToWait > 0) {
-            // Give the previous command some time to work.
-            CMTETimer_setDuration(&tmr, timeToWait);
-            DEBUG(time) kprintf(KR_OSTREAM,
-                          "Get LEDs set timeout in %llu\n", timeToWait);
-            break;
-          }
-          // Previous command timed out.
-          if (--menuRetries == 0) {		// too many retries
-            DEBUG(errors)
-              kprintf(KR_OSTREAM, "Get LEDs timed out; reselecting adapter\n");
-            // Try reselecting the adapter:
-            transmittingAdapterNum = ta_NeedFirstSelect;
-            return false;
-          }
-          // else retry getting the LEDs
-        }
-        SendCommand(227);	// command to get LEDs
+      // gotLEDs could now be set; there is a harmless race.
+      int64_t timeToWait;
+      if (! gettingLEDs) {	// first attempt to get LEDs
         gettingLEDs = true;
         menuRetries = 4;
+      } else {
+        // Allow time for the previous command:
+        timeToWait = commandTime + ledsTimeout - monoNow;
+        if (timeToWait > 0)
+          goto setLEDsTimer;	// Give the previous command more time to work.
+        DEBUG(leds) kprintf(KR_OSTREAM, "Get LEDs timed out.\n");
+        if (--menuRetries == 0) {		// too many retries
+          DEBUG(errors)
+            kprintf(KR_OSTREAM, "Get LEDs timed out; reselecting adapter\n");
+          // Try reselecting the adapter:
+          transmittingAdapterNum = ta_NeedFirstSelect;
+          return false;
+        }
+        // else retry getting the LEDs
       }
+      SendCommand(227);	// command to get LEDs
+      // timeToWait = commandTime + ledsTimeout - monoNow;
+      // Since we just set commandTime to monoNow:
+      timeToWait = ledsTimeout;
+    setLEDsTimer:
+      CMTETimer_setDuration(&tmr, timeToWait);
+      DEBUG(time) kprintf(KR_OSTREAM,
+                          "Get LEDs set timeout in %llu\n", timeToWait);
       return true;
     } else if (as->menuNum != wantedMenuNum
                || as->menuItemNum != wantedMenuItemNum ) {
 #define commandTimeout 1000000000 // 1 second
       // Not on the menu item we want.
       CMTEMutex_unlock(&lock);
-      while (1) {	// loop at most twice
-        char cmd;
-        if (as->menuNum == -1) { // current menu unknown, or executing cmd
-          // Allow time for the previous command:
-          int64_t timeToWait = commandTime + commandTimeout - monoNow;
-          if (timeToWait > 0) {
-            // Give the previous command some time to work.
-            CMTETimer_setDuration(&tmr, timeToWait);
-            DEBUG(time) kprintf(KR_OSTREAM,
-                          "Select menu set timeout in %llu\n", timeToWait);
-            break;
-          }
-          // current menu is unknown, and previous command timed out
-          if (--menuRetries == 0) {		// too many retries
-            DEBUG(errors)
-              kprintf(KR_OSTREAM, "Menu select timed out; reselecting adapter\n");
-            // Try reselecting the adapter:
-            transmittingAdapterNum = ta_NeedFirstSelect;
-            return false;
-          }
-          cmd = 'U';	// menu item up
-        } else {		// current menu is known
-          /* Give a command to get from the menu we're at
-          to the one we want.
-          Note: we don't use the 'I' and 'G' commands to go directly
-          to the Set Inverter and Set Generator menu items,
-          because if we happen to be there already, those commands
-          change the setting, which would be dangerous.
-          In general we can't know if we are there already, because
-          someone could be independently pressing buttons on the
-          hardware control panel. */
-          if (as->menuNum != wantedMenuNum) {
-            // We need to go to a different menu.
-            int diff = wantedMenuNum - as->menuNum;
-            bool useS;
-            if (wantedMenuNum >= setupMenuNum) {
-              // Going to a setup menu.
-              useS = as->menuNum < setupMenuNum	// must go to setup
-                     // else already in setup menus, but
-                     // go directly to Setup Menu if it is shorter:
-                     || wantedMenuNum - setupMenuNum + 1 < diff;
-            } else {
-              // Going to a non-setup menu.
-              // Go directly to the Setup menu if it is shorter:
-              useS = setupMenuNum + 1 - wantedMenuNum
-                     < (diff >= 0 ? diff : -diff);
-            }
-            if (useS)
-              cmd = 19;	// control-S for Setup menu
-            else if (diff > 0)
-              cmd = 'R';	// menu right
-            else
-              cmd = 'L';	// menu left
-          } else {
-            // right menu, wrong item
-            if (wantedMenuItemNum < as->menuItemNum)
-              cmd = 'U';	// menu item up
-            else cmd = 'D';	// menu item down
-          }
+      int64_t timeToWait;
+      char cmd;
+      if (as->menuNum == -1) { // current menu unknown, or executing cmd
+        // Allow time for the previous command:
+        timeToWait = commandTime + commandTimeout - monoNow;
+        if (timeToWait > 0)
+          goto setMenuTimer;	// Give the previous command some time to work.
+        // current menu is unknown, and previous command timed out
+        if (--menuRetries == 0) {		// too many retries
+          DEBUG(errors)
+            kprintf(KR_OSTREAM, "Menu select timed out; reselecting adapter\n");
+          // Try reselecting the adapter:
+          transmittingAdapterNum = ta_NeedFirstSelect;
+          return false;
         }
-        DEBUG(server) kprintf(KR_OSTREAM,
-                        "Inv %d at (%d,%d) want (%d,%d), menu cmd %c\n",
-                        as->num, as->menuNum, as->menuItemNum,
-                        wantedMenuNum, wantedMenuItemNum,
-                        cmd == 19 /* control-S */ ? 's' : cmd );
-        MenuIsUnknown(as);	// set unknown because we are changing
-        SendCommand(cmd);
+        // We're lost; retry a menu command
+        cmd = 'U';	// menu item up
+      } else {		// current menu is known
+        /* Give a command to get from the menu we're at
+        to the one we want.
+        Note: we don't use the 'I' and 'G' commands to go directly
+        to the Set Inverter and Set Generator menu items,
+        because if we happen to be there already, those commands
+        change the setting, which would be dangerous.
+        In general we can't know if we are there already, because
+        someone could be independently pressing buttons on the
+        hardware control panel. */
+        if (as->menuNum != wantedMenuNum) {
+          // We need to go to a different menu.
+          int diff = wantedMenuNum - as->menuNum;
+          bool useS;
+          if (wantedMenuNum >= setupMenuNum) {
+            // Going to a setup menu.
+            useS = as->menuNum < setupMenuNum	// must go to setup
+                   // else already in setup menus, but
+                   // go directly to Setup Menu if it is shorter:
+                   || wantedMenuNum - setupMenuNum + 1 < diff;
+          } else {
+            // Going to a non-setup menu.
+            // Go directly to the Setup menu if it is shorter:
+            useS = setupMenuNum + 1 - wantedMenuNum
+                   < (diff >= 0 ? diff : -diff);
+          }
+          if (useS)
+            cmd = 19;	// control-S for Setup menu
+          else if (diff > 0)
+            cmd = 'R';	// menu right
+          else
+            cmd = 'L';	// menu left
+        } else {
+          // right menu, wrong item
+          if (wantedMenuItemNum < as->menuItemNum)
+            cmd = 'U';	// menu item up
+          else cmd = 'D';	// menu item down
+        }
       }
+      DEBUG(server) kprintf(KR_OSTREAM,
+                      "Inv %d at (%d,%d) want (%d,%d), menu cmd %c\n",
+                      as->num, as->menuNum, as->menuItemNum,
+                      wantedMenuNum, wantedMenuItemNum,
+                      cmd == 19 /* control-S */ ? 's' : cmd );
+      MenuIsUnknown(as);	// set unknown because we are changing
+      SendCommand(cmd);
+      // timeToWait = commandTime + commandTimeout - monoNow;
+      // We just set commandTime to monoNow, so:
+      timeToWait = commandTimeout;
+    setMenuTimer:
+      CMTETimer_setDuration(&tmr, timeToWait);
+      DEBUG(time) kprintf(KR_OSTREAM,
+                        "Select menu set timeout in %llu\n", timeToWait);
       return true;
     } else {
       // we have the menu item we want
