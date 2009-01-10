@@ -1,0 +1,26 @@
+Building openssl for CapROS
+
+Openssl must be configured for the specific system and processor architecture target.
+To this end, the Configure program has two CapROS targets:
+
+  CapROS-arm
+  CapROS-i486
+
+There are many options to Configure. The two Configure commands which have been
+successfully executed are:
+
+./Configure  no-hw no-threads no-shared no-zlib no-asm no-krb5 CapROS-arm
+./Configure  no-hw no-threads no-shared no-zlib no-asm no-krb5 CapROS-i486
+
+The only make command known to successfully compile is:
+
+make build_libs
+
+Performance on the i486 architecture might improve significantly if no-asm is
+removed, but this has not been tried.
+
+There are some hints at the end of the INSTALL file on how to have object code for
+multiple architectures at the same time. I really don't understand it.
+
+Bill Frantz - January 9, 2009
+
