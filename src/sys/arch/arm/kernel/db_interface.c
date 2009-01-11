@@ -301,10 +301,10 @@ db_disasm(db_addr_t loc, bool altfmt)
 void
 KernStats_PrintMD(void)
 {
-  db_printf("nUncache  %16llu  "
-            "nYldMaps  %16llu  "
-            "nDomSteal %16llu  "
-            "nSSSteal  %16llu\n",
+  db_printf("nUncache  %6llu  "
+            "nYldMaps  %6llu  "
+            "nDomSteal %6llu  "
+            "nSSSteal  %6llu\n",
             KernStats.nPageUncache,
             KernStats.nYieldForMaps,
             KernStats.nDomainSteal,
