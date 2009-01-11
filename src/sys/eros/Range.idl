@@ -44,7 +44,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * Rescinds the passed key if and only if it is a read-write key to
    * an object that was allocated from this range.
    * Also resets the state of the object to a null state
-   * (zero data, void capabilities), and immediately cleans it and steals it.
+   * (zero data, void capabilities).
    */
   void rescind(capros.key key);
 
