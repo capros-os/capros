@@ -2,7 +2,7 @@
 #define __OBJECTSOURCE_H__
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -137,14 +137,6 @@ typedef struct ObjectSource {
 
 bool objC_AddRange(const ObjectRange * rng);
 bool AddLIDRange(const ObjectRange * rng);
-
-/**********************************************************************
- *
- * Any preloaded ram regions are object sources
- *
- **********************************************************************/
-
-void PreloadObSource_Init(void);
 
 /**********************************************************************
  *

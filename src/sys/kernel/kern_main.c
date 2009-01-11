@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -127,10 +127,10 @@ main(void)
      in-core nodes, pages, and the CoreTable: */
   objC_Init();
 
-  objC_InitObjectSources();
-
   extern void preload_Init(void);
   preload_Init();
+
+  objC_InitObjectSources();
 
 //#define TEST_AGING
 #ifdef TEST_AGING

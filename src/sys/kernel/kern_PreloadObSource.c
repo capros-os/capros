@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -49,6 +49,8 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
+static const ObjectSource PreloadObSource;
+
 void
 AssertPageIsFree(PageHeader * pageH)
 {
@@ -88,44 +90,54 @@ preload_Init(void)
 
   struct NPObjectsDescriptor * npod;
   kpa_t pagePA = VTOP((kva_t)NPObDescr);
+  PageHeader * pageH;
 
   // Make sure the preloaded data hasn't been inadvertently allocated.
 
   npod = NPObDescr;
-  // Count the non-persistent preloaded objects.
-  uint32_t nf = 1 + npod->numFrames; // number of frames in the preload images
-				// including the header frame
-  switch (npod->numPreloadImages) {
-  default:
-    assert(false);
+  int numImages = npod->numPreloadImages;
+  pageH = objC_PhysPageToObHdr(pagePA);
+  for (k = 0; k < numImages; k++) {
+    if (k == 1) {	// We are preloading persistent objects
+      PersistentIPLOID = npod->IPLOID;
+      IsPreloadedBigBang = true;
+    }
 
-  case 2:
-    // Include the persistent preloaded objects.
+    /* Un-free the page containing the struct NPObjectsDescriptor,
+    so it won't be allocated and clobbered below when we allocate
+    zero pages and ranges. */
+    AssertPageIsFree(pageH++);	// it must be free
+    AllocateThisPhysPage(VTOP((kva_t)npod));
+
+    uint32_t thisFrames = 1 + npod->numFrames;  // including the header frame
     npod = (struct NPObjectsDescriptor *)
-           ((char *)NPObDescr + nf * EROS_PAGE_SIZE);
-    nf += 1 + npod->numFrames;	// including the header frame
-    PersistentIPLOID = npod->IPLOID;
-    IsPreloadedBigBang = true;
-  case 1:
-    break;
-  }
-
-  PageHeader * pageH = objC_PhysPageToObHdr(pagePA);
-  for (i = 0; i < nf; i++) {
-    AssertPageIsFree(pageH++);
+           ((char *)npod + thisFrames * EROS_PAGE_SIZE);
+    for (i = 1; i < thisFrames; i++) {
+      AssertPageIsFree(pageH++);
+    }
   }
   // Whew, preloaded data is safe.
 
   // Load all the preload images.
   npod = NPObDescr;	// start at beginning again
   for (k = npod->numPreloadImages; k > 0; k--) {
-    /* Un-free the page containing the struct NPObjectsDescriptor,
-    so it won't be allocated and clobbered below when we allocate
-    zero pages. */
-    AllocateThisPhysPage(VTOP((kva_t)npod));
-
     pagePA += EROS_PAGE_SIZE;	// skip frame containing NPObjectsDescriptor
     OID oid = npod->OIDBase;
+
+    if (! OIDIsPersistent(oid)) {
+      // Preloaded non-persistent objects.
+      // PreloadObSource will supply null objects for uninitialized objects.
+      ObjectRange rng;
+      rng.start = oid;
+      rng.end = oid + FrameToOID(npod->numFramesInRange);
+      rng.source = &PreloadObSource;
+
+      objC_AddRange(&rng);
+    } else {
+      // Preloaded persistent objects.
+      // This is one way to initialize a big bang.
+      // When a disk range is mounted it will add a source.
+    }
 
     // Preload the initialized nodes.
     j = 0;	// number of nodes loaded
@@ -245,34 +257,3 @@ static const ObjectSource PreloadObSource = {
   .objS_GetObjectCount = &PreloadObSource_GetObjectCount,
   .objS_GetObject = &PreloadObSource_GetObject
 };
-
-void
-PreloadObSource_Init(void)
-{
-  unsigned i;
-  ObjectRange rng;
-
-  // Set up the preloaded objects.
-  struct NPObjectsDescriptor * npod = NPObDescr;	// local copy
-  for (i = npod->numPreloadImages; i > 0; i--) {
-    OID oid = npod->OIDBase;
-
-    if (! OIDIsPersistent(oid)) {
-      // Preloaded non-persistent objects.
-      // PreloadObSource will supply null objects for uninitialized objects.
-      rng.start = oid;
-      rng.end = oid + FrameToOID(npod->numFramesInRange);
-      rng.source = &PreloadObSource;
-
-      objC_AddRange(&rng);
-    } else {
-      // Preloaded persistent objects.
-      // This is one way to initialize a big bang.
-      // When a disk range is mounted it will add a source.
-    }
-
-    uint32_t thisFrames = 1 + npod->numFrames;  // including the header frame
-    npod = (struct NPObjectsDescriptor *)
-           ((char *)npod + thisFrames * EROS_PAGE_SIZE);
-  }
-}

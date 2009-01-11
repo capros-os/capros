@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -376,7 +376,7 @@ objC_ddb_DumpSources()
 void
 objC_InitObjectSources(void)
 {
-  PreloadObSource_Init();
+  // PreloadObSource's were created in preload_Init().
 
   PhysPageObSource_Init();
 }
