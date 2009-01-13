@@ -31,6 +31,7 @@ GENERATED=$(BUILDDIR)/constituents.h
 TARGETS=$(BUILDDIR)/netlistener
 OBJECTS=$(BUILDDIR)/netlistener.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
+IMGMAP=netlistener.map
 
 include $(EROS_SRC)/build/make/makerules.mk
 
@@ -47,7 +48,7 @@ $(BUILDDIR)/netlistener: $(OBJECTS) $(DOMLIB)
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
-	$(INSTALL) -m 644 netlistener.map $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 $(IMGMAP) $(CAPROS_DOMAIN)
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m

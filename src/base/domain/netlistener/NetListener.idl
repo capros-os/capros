@@ -7,7 +7,7 @@ interface NetListener extends key {
 
   /*
   Raises exceptions raised by Constructor.request. */
-  void listen(TCPListenSocket socket, ConnectionHandler handler);
+  void listen(TCPListenSocket socket, ConstructorRequestor handler);
 
   /* NetListener obeys key.destroy().
      This releases the reserved local port and other resources. */

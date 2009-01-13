@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <idl/capros/NetListener.h>
 #include <idl/capros/TCPListenSocket.h>
+#include <idl/capros/Constructor.h>
 #include <idl/capros/Node.h>
 
 #include <domain/domdbg.h>
@@ -153,7 +154,6 @@ listen(Message *argmsg)
 {
   DEBUG(init) kdprintf(KR_OSTREAM, "NetListener: waiting for connections\n");
   result_t rc = capros_TCPListenSocket_accept(KR_TCP_PORTNO, KR_SOCKET);
-  Message msg;
 
   switch (rc) {
   case RC_OK:
