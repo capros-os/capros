@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -67,9 +67,6 @@ Approved for public release, distribution unlimited. */
 #else
 #define KR_TCPSocket KR_APP(4)
 #endif
-
-const uint32_t __rt_stack_pointer = 0x20000;
-const uint32_t __rt_unkept = 1;
 
 typedef capros_RTC_time_t RTC_time;		// real time, seconds
 
