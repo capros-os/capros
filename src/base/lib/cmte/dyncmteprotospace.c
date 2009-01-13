@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -26,7 +26,6 @@ for a driver built by the constructor. */
 
 #include <domain/cmte.h>
 #include <InterpreterTable.h>
-#include <domain/ProtoSpace.h>
 
 struct InterpreterStep ConstructionTable[] = {
   MsgAlloc3(KR_BANK, Page, GPT, GPT, KR_TEMP1, KR_TEMP2, KR_TEMP3,

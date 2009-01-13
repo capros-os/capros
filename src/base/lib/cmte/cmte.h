@@ -1,7 +1,7 @@
 #ifndef __CMTE_H
 #define __CMTE_H
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -82,7 +82,7 @@ thread_info structure, of which only preempt_count is used. */
 #define KC_CMTE(i)    (7+(i))
 
 #ifndef __ASSEMBLER__
-#include <domain/cmte_stackPtr.h>
+#include <eros/machine/StackPtr.h>
 
 /* The highest word on the stack contains thread local data: */
 static inline void * *

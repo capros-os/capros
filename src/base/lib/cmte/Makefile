@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -28,8 +28,7 @@ HEADERS=cmte.h cmtesync.h \
   CMTESemaphore.h \
   CMTERWSemaphore.h \
   CMTEThread.h \
-  CMTETimer.h \
-  arch/$(LINUX_TARGET)/cmte_stackPtr.h
+  CMTETimer.h
 
 EROS_SRC=../../..
 CROSS_BUILD=yes

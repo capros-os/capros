@@ -11,7 +11,7 @@ interface Page extends Memory
   void zero();
 
   /* Sets the contents of the page equal to the contents of fromPage.
-     Raises NoAccess if the key is read only.
+     Raises NoAccess if the invoked key is read only.
      Raises RequestError if fromPage is not a page key. */
   void clone(capros.key fromPage);
 
