@@ -23,7 +23,6 @@ Approved for public release, distribution unlimited. */
 
 #include <stddef.h>
 #include <eros/target.h>
-#include <eros/StdKeyType.h>	// get AKT_netlistener
 #include <eros/Invoke.h>
 #include <domain/Runtime.h>
 #include <domain/ProtoSpaceDS.h>
@@ -128,7 +127,7 @@ processRequest(Message *argmsg)
   case OC_capros_key_getType: /* Key type */
     {
       argmsg->snd_code = RC_OK;
-      argmsg->snd_w1 = AKT_NetListener;
+      argmsg->snd_w1 = IKT_capros_NetListener;
       break;
     }
   case OC_capros_key_destroy:
@@ -150,53 +149,18 @@ processRequest(Message *argmsg)
 }
 
 int
-listen(Message *argmsg) {
+listen(Message *argmsg)
+{
   DEBUG(init) kdprintf(KR_OSTREAM, "NetListener: waiting for connections\n");
-  int rc = capros_TCPListenSocket_accept(KR_TCP_PORTNO, KR_SOCKET);
+  result_t rc = capros_TCPListenSocket_accept(KR_TCP_PORTNO, KR_SOCKET);
   Message msg;
 
   switch (rc) {
   case RC_OK:
     {
-      // construct(KR_CONNECTION_HANDLER_C, KR_BANK, KR_SCHED, KR_TEMP0);
-      msg.snd_invKey = KR_CONNECTION_HANDLER_C;
-      msg.snd_key0 = KR_BANK;
-      msg.snd_key1 = KR_SCHED;
-      msg.snd_key2 = KR_TEMP0;
-      msg.snd_rsmkey = KR_VOID;
-      msg.snd_data = 0;
-      msg.snd_len = 0;
-      msg.snd_code = 0;
-      msg.snd_w1 = 0;
-      msg.snd_w2 = 0;
-      msg.snd_w3 = 0;
-      
-      msg.rcv_key0 = KR_TEMP0;
-      msg.rcv_key1 = KR_VOID;
-      msg.rcv_key2 = KR_VOID;
-      msg.rcv_rsmkey = KR_VOID;
-      msg.rcv_limit = 0;
-      msg.rcv_data = 0;
-      msg.rcv_code = 0;
-      msg.rcv_w1 = 0;
-      msg.rcv_w2 = 0;
-      msg.rcv_w3 = 0;
-      CALL(&msg);
-      
-      // newConnection(TCPSocket socket);
-      
-      msg.snd_invKey = KR_TEMP0;
-      msg.snd_key0 = KR_SOCKET;
-      msg.snd_key1 = KR_VOID;
-      msg.snd_key2 = KR_VOID;
-      msg.snd_rsmkey = KR_VOID;
-      msg.snd_data = 0;
-      msg.snd_len = 0;
-      msg.snd_code = 0;
-      msg.snd_w1 = 0;
-      msg.snd_w2 = 0;
-      msg.snd_w3 = 0;
-      SEND(&msg);
+      rc = capros_Constructor_request(KR_CONNECTION_HANDLER_C,
+             KR_BANK, KR_SCHED, KR_SOCKET, KR_VOID);
+      argmsg->snd_code = rc;
     }
   default: return 1;
   }

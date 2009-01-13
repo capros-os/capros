@@ -29,10 +29,8 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 GENERATED=$(BUILDDIR)/constituents.h
 TARGETS=$(BUILDDIR)/netlistener
-OPTIM=-O
 OBJECTS=$(BUILDDIR)/netlistener.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
-IMGMAP=netlistener.map
 
 include $(EROS_SRC)/build/make/makerules.mk
 
@@ -44,7 +42,7 @@ interfaces: $(IDL)
 
 netlistener.c: $(BUILDDIR)/constituents.h
 
-$(BUILDDIR)/netlistener: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
+$(BUILDDIR)/netlistener: $(OBJECTS) $(DOMLIB)
 	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 
 install: all

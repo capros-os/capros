@@ -1,4 +1,6 @@
 /* -*- Mode: c -*- */
+#ifndef __NETLISTENER_MAP_
+#define __NETLISTENER_MAP_
 
 /*
  * Copyright (C) 2009, Strawberry Development Group.
@@ -19,8 +21,15 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
-PROD_SPACE(netlistener_c) = netlistener_vcs_c;
-PROD_PC(netlistener_c) = symbol LIBDIR "netlistener/netlistener" _start;
+BOOT_CONSTRUCTOR(netlistener_c, netlistener);
+PROD_SPACE(netlistener_c) = small program LIBDIR "netlistener";
+PROD_PC(netlistener_c) = symbol LIBDIR "netlistener" _start;
+PROD_SYM(netlistener_c) = number("netlistener");
 PROD_CONSTIT(netlistener_c,KC_OSTREAM,3) = misc Console;
 PROD_CONSTIT(netlistener_c,KC_PROTOSPACE,4) = protospace;
+
+#endif // __NETLISTENER_MAP_
