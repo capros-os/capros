@@ -97,3 +97,4 @@ domain	ConstructorRequestor
 domain	Directory
 domain	File
 domain	SigMux
+domain  NetListener

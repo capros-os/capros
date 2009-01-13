@@ -1,0 +1,18 @@
+package capros;
+
+interface ConnectionHandler extends key {
+
+  void newConnection(TCPSocket socket);
+};
+
+interface NetListener extends key {
+
+  exception NoMem;	// server does not have enough memory for the operation
+  exception Already;    // There is alread a listener on the socket
+
+  void listen(TCPListenSocket socket, ConnectionHandler handler);
+
+  /* NetListener obeys key.destroy().
+     This releases the reserved local port and other resources. */
+  /* NetListener obeys key.getType(). */
+};

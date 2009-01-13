@@ -12,9 +12,9 @@ SHLIB_VERSION_HISTORY=
 SHLIB_MAJOR=0
 SHLIB_MINOR=9.8
 SHLIB_EXT=
-PLATFORM=CapROS-i486
+PLATFORM=CapROS-arm
 OPTIONS= no-asm no-camellia no-capieng no-cms no-gmp no-hw no-krb5 no-mdc2 no-montasm no-rc5 no-rfc3779 no-seed no-shared no-threads no-tlsext no-zlib no-zlib-dynamic
-CONFIGURE_ARGS=no-hw no-threads no-shared no-zlib no-asm no-krb5 CapROS-i486
+CONFIGURE_ARGS=no-hw no-threads no-shared no-zlib no-asm no-krb5 CapROS-arm
 SHLIB_TARGET=
 
 # HERE indicates where this Makefile lives.  This can be used to indicate
@@ -59,7 +59,7 @@ OPENSSLDIR=/usr/local/ssl
 # equal 4.
 # PKCS1_CHECK - pkcs1 tests.
 
-CC= /capros/host/bin/i386-unknown-capros-gcc
+CC= /capros/host/bin/arm-unknown-capros-gcc
 CFLAG= -Wall -DOPENSSL_IMPLEMENTS_strncasecmp -DNO_SYSLOG -DOPENSSL_NO_DGRAM
 DEPFLAG= -DOPENSSL_NO_CAMELLIA -DOPENSSL_NO_CAPIENG -DOPENSSL_NO_CMS -DOPENSSL_NO_GMP -DOPENSSL_NO_MDC2 -DOPENSSL_NO_RC5 -DOPENSSL_NO_RFC3779 -DOPENSSL_NO_SEED -DOPENSSL_NO_TLSEXT 
 PEX_LIBS= 

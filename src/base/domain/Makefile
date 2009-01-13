@@ -72,6 +72,7 @@ DIRS+=net
 DIRS+=timer
 
 DIRS+=devclock
+DIRS+=netlistener
 
 COREMAP=core_stuff.map
 COREMAPWINSYS=core_stuff_winsys.map
