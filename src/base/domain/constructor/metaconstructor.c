@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -109,18 +109,11 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
   (void) capros_Process_swapSchedule(KR_NEWDOM, KR_ARG1, KR_VOID);
   (void) capros_Process_swapKeyReg(KR_NEWDOM, 5, KR_ARG1, KR_VOID);
 
-#define KR_ALTSCRATCH KR_ARG1
-  /* Build a constituents node: */
-  result = capros_SpaceBank_alloc1(KR_ARG0, capros_Range_otNode, KR_ALTSCRATCH);
-  if (result != RC_OK)
-    goto destroy_product;
-
   /* The new constructor constituents are the same as ours, so just
-     duplicate that: */
+     make a read-only key to the constituents node: */
+  capros_Node_reduce(KR_CONSTIT, capros_Node_readOnly, KR_TEMP0);
 
-  capros_Node_clone(KR_ALTSCRATCH, KR_CONSTIT);
-  (void) capros_Process_swapKeyReg(KR_NEWDOM, 1, KR_ALTSCRATCH, KR_VOID);
-#undef KR_ALTSCRATCH
+  capros_Process_swapKeyReg(KR_NEWDOM, KR_CONSTIT, KR_TEMP0, KR_VOID);
 
   /* Install the address space of the new constructor */
   (void) capros_Process_swapAddrSpaceAndPC32(KR_NEWDOM, KR_CON_SEG,
@@ -139,10 +132,6 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
   msg->snd_invKey = KR_SCRATCH;
 
   return RC_OK;
-
-destroy_product:
-  (void) capros_ProcCre_destroyProcess(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
-  return RC_capros_key_NoMoreNodes;
 }
 
 int

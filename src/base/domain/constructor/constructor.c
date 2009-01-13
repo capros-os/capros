@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -175,8 +175,6 @@ Sepuku()
   /* capros_Node_getSlot(KR_CONSTIT, KC_MYDOMCRE, KR_DOMCRE); */
   capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPACE, KR_PROD_CON0);
 
-  capros_SpaceBank_free1(KR_BANK, KR_CONSTIT);
-
   /* Invoke the protospace with arguments indicating that we should be
      demolished as a small space domain */
   protospace_destroy(KR_VOID, KR_PROD_CON0, KR_SELF,
@@ -199,16 +197,10 @@ MakeNewProduct(Message *msg)
   /* NOTE that if capros_ProcCre_createProcess succeeded, we know it's a good
      space bank. */
   
-  /* Build a constiuents node, since we will need the scratch register
-     later */
-  result = capros_SpaceBank_alloc1(KR_ARG0, capros_Range_otNode, KR_SCRATCH);
-  if (result != RC_OK)
-    goto destroy_product;
+  /* Make a read-only key to the constituents node: */
+  capros_Node_reduce(KR_PROD_CON0, capros_Node_readOnly, KR_TEMP0);
 
-  /* clone the product constituents into the new constituents node: */
-  capros_Node_clone(KR_SCRATCH, KR_PROD_CON0);
-
-  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_CONSTIT, KR_SCRATCH, KR_VOID);
+  capros_Process_swapKeyReg(KR_NEWDOM, KR_CONSTIT, KR_TEMP0, KR_VOID);
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Populate new domain\n");
 
@@ -272,10 +264,6 @@ MakeNewProduct(Message *msg)
 	/* We would like to pass the order code on to the product,
 	but it is not receiving a message, so the following doesn't matter. */
   return msg->rcv_code;
-
-destroy_product:
-  (void) capros_ProcCre_destroyProcess(KR_YIELDCRE, KR_ARG0, KR_NEWDOM);
-  return RC_capros_key_NoMoreNodes;
 }
 
 int

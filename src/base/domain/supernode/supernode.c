@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -557,8 +557,6 @@ void
 Sepuku(result_t retCode)
 {
   capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPC, KR_TEMP0);
-
-  capros_SpaceBank_free1(KR_BANK, KR_CONSTIT);
 
   /* Invoke the protospace to destroy us and return. */
   protospace_destroy_small(KR_TEMP0, retCode);

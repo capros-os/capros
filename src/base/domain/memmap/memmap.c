@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -492,8 +492,6 @@ void
 Sepuku()
 {
   capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPC, KR_GPT);
-
-  capros_SpaceBank_free1(KR_BANK, KR_CONSTIT);
 
   /* Invoke the protospace with arguments indicating that we should be
      demolished as a small space domain */
