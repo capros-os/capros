@@ -187,6 +187,7 @@ static inline void __set_tss_desc(unsigned int cpu, unsigned int entry, const vo
 	(info)->seg_not_present	== 1	&& \
 	(info)->useable		== 0	)
 
+#if 0 // CapROS
 static inline void clear_LDT(void)
 {
 	set_ldt(NULL, 0);
@@ -206,6 +207,7 @@ static inline void load_LDT(mm_context_t *pc)
 	load_LDT_nolock(pc);
 	preempt_enable();
 }
+#endif // CapROS
 
 static inline unsigned long get_desc_base(unsigned long *desc)
 {

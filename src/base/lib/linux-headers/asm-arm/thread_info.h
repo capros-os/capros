@@ -2,7 +2,7 @@
  *  linux/include/asm-arm/thread_info.h
  *
  *  Copyright (C) 2002 Russell King.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -19,7 +19,7 @@ Approved for public release, distribution unlimited. */
 
 #include <linux/compiler.h>
 #include <asm/fpstate.h>
-#include <linuxk/lsync.h>
+#include <domain/cmte.h>
 
 #define THREAD_SIZE_ORDER	1
 #define THREAD_SIZE		8192
