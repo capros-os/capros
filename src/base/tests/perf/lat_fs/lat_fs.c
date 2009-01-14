@@ -26,7 +26,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/Node.h>
+#include <domain/Runtime.h>
 #include <domain/domdbg.h>
+#include <domain/assert.h>
 #include <domain/ConstructorKey.h>
 #include <domain/NFileKey.h>
 
@@ -38,23 +40,13 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-#define KR_NFILEC   1
-#define KR_SELF     2
-#define KR_SCHED    3
-#define KR_BANK     4
-#define KR_OSTREAM  5
-#define KR_SYSTRACE 6
-#define KR_MYSEG    8
-#define KR_NFILESRV 9
-#define KR_SCRATCH  10
-#define KR_TMPNODE  11
+#define KR_OSTREAM  KR_APP(0)
+#define KR_NFILEC   KR_APP(1)
+#define KR_SLEEP    KR_APP(2)
+#define KR_TMPNODE  KR_APP(3)
 
-#define KR_FD       12
-#define KR_FD0      12
-#define KR_FD1      13
-
-#define KR_SLEEP    27
-
+#define KR_NFILESRV KR_APP(4)
+#define KR_FD0      KR_APP(5)
 
 #define NITER       20
 
@@ -64,37 +56,6 @@ const uint32_t __rt_stack_pages = 0;
 const uint32_t __rt_stack_pointer = 0x20000;
 
 uint32_t buf[EROS_MESSAGE_LIMIT/sizeof(uint32_t)];
-
-#ifdef NDEBUG
-#define assert(ignore) ((void) 0)
-#else
-
-extern int __assert(const char *, const char *, int);
-
-#define assert(expression)  \
-  ((void) ((expression) ? 0 : __assert (#expression, __FILE__, __LINE__)))
-
-int __assert(const char *expr, const char *file, int line)
-{
-  kdprintf(KR_OSTREAM, "%s:%d: Assertion failed: '%s'\n",
-	   file, line, expr);
-  return 0;
-}
-#endif
-
-void
-setup()
-{
-  uint32_t result;
-  
-  DEBUG(init)
-    kdprintf(KR_OSTREAM, "About to call nfilec\n");
-
-  result = constructor_request(KR_NFILEC, KR_BANK, KR_SCHED, KR_VOID,
-			       KR_NFILESRV);
-  DEBUG(init)
-    kdprintf(KR_OSTREAM, "Constructor returned ok to reg %d\n", KR_NFILESRV);
-}
 
 #define NPASS 3
 #define BENCHMARK
@@ -118,7 +79,7 @@ static int sizes[] = { 0,
 int
 main()
 {
-  uint32_t result;
+  result_t result;
   uint32_t len;
   int i, pass, file;
   uint64_t startTime, endTime;
@@ -126,7 +87,13 @@ main()
   for (i = 0; i < EROS_MESSAGE_LIMIT/sizeof(uint32_t); i++)
     buf[i] = 0xdeadbeef;
   
-  setup();
+  DEBUG(init)
+    kdprintf(KR_OSTREAM, "About to call nfilec\n");
+
+  result = constructor_request(KR_NFILEC, KR_BANK, KR_SCHED, KR_VOID,
+			       KR_NFILESRV);
+  DEBUG(init)
+    kdprintf(KR_OSTREAM, "Constructor returned ok to reg %d\n", KR_NFILESRV);
 
   kprintf(KR_OSTREAM, "Sleep a while\n");
   capros_Sleep_sleep(KR_SLEEP, 2000);
@@ -175,7 +142,7 @@ main()
 	{
 	  capros_Node_getSlot(KR_TMPNODE, file, KR_FD0);
 
-	  nfile_destroy(KR_FD0);
+	  capros_key_destroy(KR_FD0);
 	}
       result = capros_Sleep_getTimeMonotonic(KR_SLEEP, &endTime);
 
@@ -202,7 +169,7 @@ main()
     if (result != RC_OK || len != EROS_PAGE_SIZE*2)
       kdprintf(KR_OSTREAM, "nfile_rd: result 0x%x len %d\n", result, len);
 
-    nfile_destroy(KR_FD0);
+    capros_key_destroy(KR_FD0);
     
 #if 0
     /* Should be able to read 0 bytes from a new file: */

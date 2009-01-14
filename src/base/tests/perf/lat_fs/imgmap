@@ -2,7 +2,7 @@
 
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -54,20 +54,16 @@ lat_fs schedule = sched(8);	/* normal */
 /* lat_fs brand = start pcc 65535; */
 
 /* lat_fs registers: */
-lat_fs key reg 1 = nfilec;
-lat_fs key reg 2 = lat_fs;
-lat_fs key reg 3 = sched(8);
-lat_fs key reg 4 = primebank;
-lat_fs key reg 5 = misc Console;
-lat_fs key reg 6 = misc SysTrace;
-// Regs 7 and above are KR_APP(), used by ...
-lat_fs key reg 11 = new node;
-lat_fs key reg 27 = misc Sleep;
+lat_fs key reg KR_SELF = lat_fs;
+lat_fs key reg KR_BANK = primebank;
+lat_fs key reg KR_SCHED = sched(8);
+lat_fs key reg KR_APP(0) = misc Console;
+lat_fs key reg KR_APP(1) = nfilec;
+lat_fs key reg KR_APP(2) = misc Sleep;
+lat_fs key reg KR_APP(3) = new node;
 
 /* print domain lat_fs.dom */
 hide lat_fs.seg;
 hide lat_fs.pc;
 
 run lat_fs;
-
-print directory
