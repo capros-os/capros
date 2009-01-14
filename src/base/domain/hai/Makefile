@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008, Strawberry Development Group
+# Copyright (C) 2008, 2009, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -41,8 +41,8 @@ IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/hai: $(OBJECTS) $(DOMLIB)
-	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@ -lcrypto
+$(BUILDDIR)/hai: $(OBJECTS) $(CMTEDEPS)
+	$(CMTELINK) $(OBJECTS) $(CMTELIBS) -o $@ -lcrypto
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 

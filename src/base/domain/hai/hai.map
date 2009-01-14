@@ -1,9 +1,8 @@
 /* -*- Mode: c -*- */
 #ifndef __HAI_MAP_
 #define __HAI_MAP_
-
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -21,7 +20,6 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
-
 /* This material is based upon work supported by the US Defense Advanced
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
@@ -30,29 +28,21 @@ Approved for public release, distribution unlimited. */
  * HAI program.
  *********************************************************/
 
+#include <cmte.map>
+
+hai_prog = program segtree LIBDIR "hai";
 hai_pc = symbol LIBDIR "hai" _start;
-hai_prog = small program LIBDIR "hai";
 BOOT_DOMCRE(hai);
 
 /* pk0 is the first 4 bytes of the HAI's private encryption key,
    with the first byte in the MSB.
    Similarly pk1, pk2, and pk3 are the other 12 bytes. */
 #define HAI(name, ipaddr, port, pk0, pk1, pk2, pk3) \
-name##hai_proc = new process; \
-name##hai_proc pc = hai_pc; \
-name##hai_proc space = hai_prog; \
-name##hai_proc schedule = sched(8); \
-name##hai_proc symtab = number("hai"); \
-name##hai_proc key reg KR_CREATOR = hai_proccre; \
-name##hai_proc key reg KR_SELF = name##hai_proc; \
-name##hai_proc key reg KR_BANK = primebank; \
-name##hai_proc key reg KR_SCHED = sched(8); \
-name##hai_proc key reg KR_APP(0) = misc Console; \
-name##hai_proc key reg KR_APP(1) = misc RTC; \
-name##hai_proc key reg KR_APP(2) = number(ipaddr, port, pk0); \
-name##hai_proc key reg KR_APP(3) = number(pk1, pk2, pk3); \
-name##hai_proc key reg KR_APP(4) = ip; \
-name##hai = start name##hai_proc 0; \
-run name##hai_proc;
+CMTE(name##hai, hai_prog, hai_pc, sched(8), hai_proccre); \
+name##hai_proc key reg KR_CMTE(0) = misc RTC; \
+name##hai_proc key reg KR_CMTE(1) = number(ipaddr, port, pk0); \
+name##hai_proc key reg KR_CMTE(2) = number(pk1, pk2, pk3); \
+name##hai_proc key reg KR_CMTE(3) = ip; \
+name##hai = start name##hai_proc 0;
 
 #endif

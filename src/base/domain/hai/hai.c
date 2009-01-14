@@ -35,6 +35,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/HAI.h>
 #include <idl/capros/IP.h>
 #include <idl/capros/RTC.h>
+#include <domain/cmte.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -56,16 +57,15 @@ Approved for public release, distribution unlimited. */
      June 2008. */
 #define PROTOCOL 1
 
-#define KR_OSTREAM KR_APP(0)
-#define KR_RTC     KR_APP(1)
-#define KR_CONFIG1 KR_APP(2)
-#define KR_CONFIG2 KR_APP(3)
-#define KR_IP      KR_APP(4)
+#define KR_RTC     KR_CMTE(0)
+#define KR_CONFIG1 KR_CMTE(1)
+#define KR_CONFIG2 KR_CMTE(2)
+#define KR_IP      KR_CMTE(3)
 
 #if (PROTOCOL == 1)
-#define KR_UDPPort KR_APP(5)
+#define KR_UDPPort KR_CMTE(4)
 #else
-#define KR_TCPSocket KR_APP(4)
+#define KR_TCPSocket KR_CMTE(4)
 #endif
 
 typedef capros_RTC_time_t RTC_time;		// real time, seconds
@@ -530,7 +530,7 @@ SimpleRequest(uint8_t typeCode,
 /**************************** main server loop *************************/
 
 int
-main(void)
+cmte_main(void)
 {
   result_t result;
 
