@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -604,7 +604,7 @@ ProcessRequest(Message *msg, server_state *ss)
       msg->snd_key0 = KR_CURFILE;
       break;
     }
-  case OC_NFile_Destroy:
+  case OC_capros_key_destroy:
     {
       ino_s *ino = (ino_s *)msg->rcv_w3;
 
