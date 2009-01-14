@@ -3,7 +3,7 @@
 #define __SWCA_MAP_
 
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -21,7 +21,6 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
  */
-
 /* This material is based upon work supported by the US Defense Advanced
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
@@ -41,9 +40,8 @@ swca_constit = new node; // this is shared
 swca_constit[0] = misc RTC;
 
 #define SWCA(name) \
-CMTE(name##swca, swca_prog, swca_pc, sched(8)) \
+CMTE(name##swca, swca_prog, swca_pc, sched(8), swca_proccre) \
 name##swca_proc key reg KR_CONSTIT = swca_constit; \
-name##swca_proc key reg KR_CREATOR = swca_proccre; \
 name##swca = start name##swca_proc 0; \
 name##swca_nplinkee = start name##swca_proc 0xffff;
 

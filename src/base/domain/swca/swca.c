@@ -613,7 +613,7 @@ Convert2p1(AdapterState * as, int * value)
   char c3 = *++p;
   char c4 = *++p;
   if (! isdigit(c1) || ! isdigit(c2) || c3 != '.' || ! isdigit(c4)) {
-    DEBUG(errors) kdprintf(KR_OSTREAM, "Convert2p1 of %c%c%c%c failed!\n",
+    DEBUG(errors) kprintf(KR_OSTREAM, "Convert2p1 of %c%c%c%c failed!\n",
                           c1, c2, c3, c4);
     return true;
   }
@@ -1228,7 +1228,7 @@ DoTask(void)
 }
 
 int
-cpte_main(void)
+cmte_main(void)
 {
   result_t result;
   int i;
