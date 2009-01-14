@@ -13,6 +13,7 @@ interface DS2450 extends key
     The input will be sampled every 2**log2Seconds seconds.
     The input value will have bitsToConvert bits of resolution
       (1 <= bitsToConvert <= 16).
+      Note, the DS2450 has only 8 bits of accuracy.
   */
   /* This should be a union, but unions aren't quite working
   in the current version of capidl. */

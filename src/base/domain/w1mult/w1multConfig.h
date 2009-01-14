@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,7 +32,7 @@ enum {
 
 struct W1DevConfig {
   short thisIndex;	// -1 means end of entries
-  short parentIndex;	// -1 means no parent
-  uint8_t mainOrAux;
+  short parentIndex;	// -1 means no parent coupler
+  uint8_t mainOrAux;	// which branch of parent coupler
   uint64_t rom;
 };
