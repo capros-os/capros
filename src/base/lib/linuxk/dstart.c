@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -42,7 +42,7 @@ extern void driver_main(void);
  * so we can detect whether it returns. */
 
 int
-cpte_main(void)
+cmte_main(void)
 {
   result_t result;
 

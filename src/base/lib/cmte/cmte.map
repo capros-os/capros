@@ -30,7 +30,7 @@ Approved for public release, distribution unlimited. */
    the code is in prog[0], and data in prog[3]. */
 
 /* Set up a program with the CapROS Multi-Threading Environment. */
-#define CMTE(dname, prog, progpc, schedKey) \
+#define CMTE(dname, prog, progpc, schedKey, proccre) \
 dname##_space = new GPT with lss 3;	/* l2v = 22 */ \
 dname##_space[0] = ro prog[0]; \
 dname##_stacks = new GPT with lss 2;	/* l2v = 17 */ \
@@ -48,6 +48,7 @@ dname##_proc space = dname##_space; \
 dname##_proc schedule = schedKey; \
 dname##_proc symtab = number(#dname); \
 dname##_proc key reg KR_KEYSTORE = snode_c; \
+dname##_proc key reg KR_CREATOR = proccre; \
 dname##_proc key reg KR_SELF    = dname##_proc; \
 dname##_proc key reg KR_BANK    = primebank; \
 dname##_proc key reg KR_SCHED   = schedKey; \

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -39,8 +39,8 @@ Approved for public release, distribution unlimited. */
 const uint32_t __rt_stack_pointer
   = (LK_STACK_BASE + LK_STACK_AREA- sizeof(void *));
 
-extern void cpte_main(void);
-/* cpte_main should be NORETURN, but don't declare it so,
+extern void cmte_main(void);
+/* cmte_main should be NORETURN, but don't declare it so,
  * so we can detect whether it returns. */
 
 /* When called, KR_TEMP1 has a constructor builder key to the VCSK
@@ -99,7 +99,7 @@ main(void)
   result = capros_Process_swapKeyReg(KR_TEMP0, KR_LSYNC, KR_LSYNC, KR_VOID);
   assert(result == RC_OK);
 
-  cpte_main();
-  assert(false);	// cpte_main should not return
+  cmte_main();
+  assert(false);	// cmte_main should not return
   return 0;
 }
