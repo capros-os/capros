@@ -44,11 +44,15 @@ Approved for public release, distribution unlimited. */
 #define KR_OSTREAM  KR_APP(1)
 #define KR_SLEEP    KR_APP(2)
 #define KR_DEVNODE  KR_APP(4)
-#define KR_DS18B20_loose KR_APP(4)
 
+// Slots in KR_DEVNODE:
+#define dev_pool_DS18B20 4
+#define dev_pool_DS2450  5
+#define dev_attic_DS18B20 6
+#define dev_poolReturn_DS18B20 19
+#define dev_poolSolar_DS18B20 20
 
 const uint32_t __rt_stack_pointer = 0x20000;
-const uint32_t __rt_unkept = 1;
 
 #define ckOK \
   if (result != RC_OK) { \
@@ -110,6 +114,8 @@ PrintTempDevN(int n)
   if (time) {
     kprintf(KR_OSTREAM, "Dev %d temperature is %d.%d Celsius at %lu sec\n",
             n, temperature/16, (temperature%16) >> 1, time);
+  } else {
+    kprintf(KR_OSTREAM, "Dev %d not sampled\n", n);
   }
 }
 
@@ -144,13 +150,14 @@ main(void)
   kprintf(KR_OSTREAM, "Starting.\n");
 
 //  configureDevN(3);
-  configureDevN(4);
-  configureAD(5);
+  configureDevN(dev_pool_DS18B20);
+  configureAD(dev_pool_DS2450);
+  configureDevN(dev_attic_DS18B20);
  // configureDevN(13);
   configureAD(17);
   configureAD(18);
-//  configureDevN(19);
-//  configureDevN(20);
+  configureDevN(dev_poolReturn_DS18B20);
+  configureDevN(dev_poolSolar_DS18B20);
 
   // Give it a chance to get started:
   result = capros_Sleep_sleep(KR_SLEEP, 3000);	// sleep 3 seconds
@@ -158,13 +165,14 @@ main(void)
 
   for (;;) {
     //PrintTempDevN(3);
-    PrintTempDevN(4);
-    PrintADDevN(5);
+    PrintTempDevN(dev_pool_DS18B20);
+    PrintADDevN(dev_pool_DS2450);
+    PrintTempDevN(dev_attic_DS18B20);
     //PrintTempDevN(13);
 //    PrintADDevN(17);
 //    PrintADDevN(18);
-//    PrintTempDevN(19);
-//    PrintTempDevN(20);
+    PrintTempDevN(dev_poolReturn_DS18B20);
+    PrintTempDevN(dev_poolSolar_DS18B20);
 
     result = capros_Sleep_sleep(KR_SLEEP, 2000);	// sleep 2 seconds
     assert(result == RC_OK);
