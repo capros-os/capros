@@ -36,6 +36,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/IP.h>
 #include <idl/capros/RTC.h>
 #include <domain/cmte.h>
+#include <domain/CMTETimer.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -44,9 +45,10 @@ Approved for public release, distribution unlimited. */
 
 #define dbg_server 0x1
 #define dbg_data   0x2
+#define dbg_errors 0x4
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u )
+#define dbg_flags   ( 0u | dbg_errors)////
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -269,6 +271,19 @@ NetSend(unsigned int len)
   };
 }
 
+void
+TimerFunction(unsigned long data)
+{
+  DEBUG(errors) kprintf(KR_OSTREAM, "HAI receive timed out.\n");
+  /* Destroy the port/socket. This will abort any connection and
+  wake up the receiver with an exception. */
+#if (PROTOCOL == 1)
+  capros_key_destroy(KR_UDPPort);
+#else // TCP
+  capros_key_destroy(KR_TCPSocket);
+#endif
+}
+
 /* Receive a UDP packet into recvBuf.
  * If the port capability is void, returns -1,
  * otherwise returns the number of bytes received. */
@@ -277,6 +292,9 @@ NetReceive(void)
 {
   result_t result;
   uint32_t lenRecvd;
+
+  CMTETimer_Define(tmr, &TimerFunction, 0);
+  CMTETimer_setDuration(&tmr, 3000000000ULL);	// set timer for 3 seconds
 #if (PROTOCOL == 1)
   uint32_t sourceIPAddr;
   uint16_t sourceIPPort;
@@ -284,7 +302,9 @@ NetReceive(void)
   result = capros_UDPPort_receive(KR_UDPPort, sizeof(recvBuf),
 			&sourceIPAddr, &sourceIPPort,
                         &lenRecvd, recvBuf);
-  assert(result == RC_OK);
+  CMTETimer_delete(&tmr);
+  if (result != RC_OK)
+    return -1;
   DEBUG(server) kprintf(KR_OSTREAM, "Received %d bytes from %#x:%d:\n",
           lenRecvd, sourceIPAddr, sourceIPPort);
 #else // TCP
@@ -292,7 +312,9 @@ NetReceive(void)
   // FIXME: need a timeout for this
   result = capros_TCPSocket_receive(KR_TCPSocket, sizeof(recvBuf),
                                     &lenRecvd, &flagsRecvd, recvBuf);
-  assert(result == RC_OK);
+  CMTETimer_delete(&tmr);
+  if (result != RC_OK)
+    return -1;
   DEBUG(server) kprintf(KR_OSTREAM, "Received %d bytes\n", lenRecvd);
 #endif
 
@@ -553,6 +575,9 @@ cmte_main(void)
     .rcv_data = NULL,
     .rcv_limit = 0
   };
+
+  result = CMTETimer_setup();
+  assert(result == RC_OK);	// FIXME
 
   // Get configuration data:
   uint32_t pk0, pk1, pk2, pk3;	// bytes of the private key
