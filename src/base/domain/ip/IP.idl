@@ -65,6 +65,12 @@ interface TCPSocket extends key {
   exception Already;
 
   /** close - Close the connection.
+
+  After the close operation:
+  - No more sends are allowed.
+  - Existing sends will finish.
+  - Receive is still allowed until the other end acknowledges the close.
+
   May raise NoMem, in which case the connection is not closed. 
   Raises Already if there is already a send or close in progress,
   or a close has already been done.
