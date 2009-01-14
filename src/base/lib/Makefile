@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -36,10 +36,10 @@ DIRS+=domain
 DIRS+=rbtree util
 DIRS+=graphics forwarder addrspace xsprintf
 DIRS+= cmte linuxk
+DIRS+=ethread
 ifneq "$(EROS_TARGET)" "i486"	# not for i486 so far
 endif
 ifeq "$(EROS_TARGET)" "i486"	# only for i486 so far
-DIRS+=ethread
 endif
 # keycache was a failed experiment.
 # DIRS += libc unix
