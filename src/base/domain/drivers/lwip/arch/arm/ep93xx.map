@@ -1,7 +1,7 @@
 #ifndef __LWIP_MAP_
 #define __LWIP_MAP_
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -66,9 +66,8 @@ ETH_DRIVER(fourByteVal(192,168,0,38),	// IP address
 // KR_APP2(0) below is KR_IPAddrs.
 // ethle_iomem gets 16 pages of device registers.
 #define ETH_DRIVER(ip,mask,gw) \
-DRIVER(eth, eth_prog, eth_pc, 0); \
+DRIVER(eth, eth_prog, eth_pc, eth_proccre, 0); \
 eth_proc key reg KR_CONSTIT = ethConstit; \
-eth_proc key reg KR_CREATOR = eth_proccre; \
 eth_proc key reg KR_APP2(0) = number(ip,mask,gw); \
 ethle_iomem = new node; \
 ethle_iomem[0] = number(16, ethPhysreg, 0); \

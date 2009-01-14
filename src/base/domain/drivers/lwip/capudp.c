@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -352,5 +352,11 @@ UDPSend(Message * msg)
   p->len = p->tot_len = len;
 
   err = udp_send(sock->pcb, p);
-  assert(err == ERR_OK);	//// FIXME need to handle
+  switch (err) {
+  default:
+    kdprintf(KR_OSTREAM, "udp_send returned %d!\n", err);
+    assert(false);	//// FIXME handle this
+  case ERR_OK:
+    break;
+  }
 }

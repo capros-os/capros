@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -315,6 +315,17 @@ ReturnToReceiver(struct TCPSocket * sock, unsigned int bytesReceived,
   DEBUG(rx) kprintf(KR_OSTREAM, "lwip woke rcvr\n");
 }
 
+void
+WakeAnyReceiver(struct TCPSocket * sock)
+{
+  if (sock->receiving) {
+    if (DeliverDataNow(sock, sock->receiverMaxLen)) {
+      unsigned int bytesReceived = GatherRecvData(sock, sock->receiverMaxLen);
+      ReturnToReceiver(sock, bytesReceived, RC_OK);
+    }
+  }
+}
+
 // recv_tcp is called when data is received from the network.
 // We are responsible for freeing the pbuf if we return ERR_OK.
 static err_t
@@ -343,13 +354,7 @@ recv_tcp(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
     }
   }
 
-  // Wake any receiver.
-  if (sock->receiving) {
-    if (DeliverDataNow(sock, sock->receiverMaxLen)) {
-      unsigned int bytesReceived = GatherRecvData(sock, sock->receiverMaxLen);
-      ReturnToReceiver(sock, bytesReceived, RC_OK);
-    }
-  }
+  WakeAnyReceiver(sock);
 
   if (sock->TCPSk_state == TCPSk_state_Closed
       && sock->recvQNum == 0) {	// closed and no more data to deliver
@@ -768,8 +773,12 @@ err_tcp(void * arg, err_t err)
     case ERR_ABRT:
     case ERR_RST:
       sock->TCPSk_state = TCPSk_state_Closed;	//??
-      assert(! sock->receiving);	// why is the close delivered this way?
-      // Need to wake up reader?
+      // Sometimes, the closing of the connection is delivered this way
+      // rather than with recv_tcp() with NULL pbuf. I don't know why.
+      WakeAnyReceiver(sock);
+
+      if (sock->recvQNum == 0)	// closed and no more data to deliver
+        CloseAndDestroy(sock);
     }
     break;
 
