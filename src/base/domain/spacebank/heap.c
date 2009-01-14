@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan Adams.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -71,7 +71,7 @@ heap_insert_page(uint32_t addr, uint32_t krPage)
     uint32_t result, keyType;
     
     result = capros_key_getType(krtree, &keyType);
-    if (result != RC_OK || keyType != AKT_GPT)
+    if (result != RC_OK || keyType != IKT_capros_GPT)
       kpanic(KR_OSTREAM, "spacebank: Wrong key type in segtree on"
 	     " path 0x%08x\n", addr);
 
@@ -121,7 +121,7 @@ heap_insert_page(uint32_t addr, uint32_t krPage)
       result = capros_GPT_setSlot(krtree, slot, krwalk);
       assert(result == RC_OK);
     } else {	// have a GPT
-      if (kt != AKT_GPT)
+      if (kt != IKT_capros_GPT)
         kpanic(KR_OSTREAM,
                "spacebank: heap_insert_page(): Bad key type 0x%x in segtree\n",
                kt);

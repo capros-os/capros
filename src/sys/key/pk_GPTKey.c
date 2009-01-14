@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -301,7 +301,7 @@ request_error:
       COMMIT_POINT();
 
       inv->exit.code = RC_OK;
-      inv->exit.w1 = AKT_GPT;
+      inv->exit.w1 = IKT_capros_GPT;
       break;
     }
 

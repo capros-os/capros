@@ -11,7 +11,8 @@ interface GPT extends Memory raises (key.RequestError) {
 
   /* All these methods raise key.RequestError if the key is opaque. */
 
-  /* Return the l2v field of this GPT. */
+  /* Return the l2v field of this GPT.
+     Each slot of the GPT is a subspace of size 2**l2v bytes. */
   unsigned byte getL2v(); 
 
   /* Set the l2v field of this GPT. */

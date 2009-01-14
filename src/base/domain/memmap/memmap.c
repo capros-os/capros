@@ -29,11 +29,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/cap-instr.h>
-#include <eros/KeyConst.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Range.h>
 #include <idl/capros/GPT.h>
+#include <idl/capros/Page.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
@@ -333,7 +333,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 				subsegBlss);
 
 	result = capros_key_getType(KR_SCRATCH, &kt);
-	if (result != RC_OK || kt != AKT_GPT) {
+	if (result != RC_OK || kt != IKT_capros_GPT) {
 	  DEBUG(invalid) kprintf(KR_OSTREAM, "  subsegBlss %d invalid!\n",
 				  subsegBlss);
 	  break;
@@ -517,7 +517,7 @@ ReturnWritableSubtree(uint32_t krTree)
       /* Segment has been fully demolished. */
       return 0;
 
-    if (kt == AKT_Page || kt == AKT_GPT)
+    if (kt == IKT_capros_Page || kt == IKT_capros_GPT)
       result = capros_Memory_getRestrictions(krTree, &perms);
 
     if (perms & capros_Memory_readOnly)
@@ -525,11 +525,11 @@ ReturnWritableSubtree(uint32_t krTree)
          unmodified. */
       return 0;
 
-    if (kt == AKT_Page) {
+    if (kt == IKT_capros_Page) {
       capros_SpaceBank_free1(KR_BANK, krTree);
       return 1;			/* more to do */
     }
-    else if (kt == AKT_GPT) {
+    else if (kt == IKT_capros_GPT) {
       int i;
       for (i = 0; i < EROS_NODE_SIZE; i++) {
 	uint32_t sub_kt;
@@ -541,16 +541,16 @@ ReturnWritableSubtree(uint32_t krTree)
 	result = capros_key_getType(KR_SCRATCH2, &sub_kt);
 
         // FIXME: this is clearly wrong!
-	if (kt == AKT_Page || kt == AKT_GPT)
+	if (kt == IKT_capros_Page || kt == IKT_capros_GPT)
           result = capros_Memory_getRestrictions(krTree, &subPerms);
 
 	if ((subPerms & capros_Memory_readOnly) == 0) {
 	  /* do nothing */
 	}
-	else if (sub_kt == AKT_Page) {
+	else if (sub_kt == IKT_capros_Page) {
 	  capros_SpaceBank_free1(KR_BANK, KR_SCRATCH2);
 	}
-	else if (sub_kt == AKT_GPT) {
+	else if (sub_kt == IKT_capros_GPT) {
 	  COPY_KEYREG(KR_SCRATCH2, KR_SCRATCH);
 	  kt = sub_kt;
 	  break;

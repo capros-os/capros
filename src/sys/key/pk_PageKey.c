@@ -55,7 +55,7 @@ PageKey(Invocation* inv /*@ not null @*/)
     COMMIT_POINT();
 
     inv->exit.code = RC_OK;
-    inv->exit.w1 = AKT_Page;
+    inv->exit.w1 = IKT_capros_Page;
     break;
 
   case OC_capros_Page_zero:		/* zero page */
