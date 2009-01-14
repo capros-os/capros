@@ -2,7 +2,7 @@
 #define __INTERPRETERDESTROY_H__
 
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -40,7 +40,7 @@ address space.
 oldSpaceCap is the key register to receive a key to the current
 address space.
 
-retCode is the return code to be used by the MsgDestroyProcess macro.
+finalResult is the return code to be used by the MsgDestroyProcess macro.
 No other data or keys may be returned.
 */
 

@@ -1,6 +1,6 @@
 	.file "telospace.S"
 /*
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -90,11 +90,11 @@ ENTRY(telospacestart)
 /* We get here from protospace_destroy_small(), which calls:
   capros_Process_swapAddrSpaceAndPC32Proto(KR_SELF, PSKR_PROTO,
     0x400,      // well known telospace address
-    retCode,    // w2_in
+    finalResult,    // w2_in
     &w1_out,
     PSKR_SPACE);
 
-  The passed retCode is returned in w1, which is placed in r2. */
+  The passed finalResult is returned in w1, which is placed in r2. */
 
 	mov r7,r2	// save it
 

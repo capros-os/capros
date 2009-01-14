@@ -1,7 +1,7 @@
 	.file "telospace.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -86,13 +86,13 @@ ENTRY(telospacestart)
 /* We get here from protospace_destroy_small(), which calls:
   capros_Process_swapAddrSpaceAndPC32Proto(KR_SELF, PSKR_PROTO,
     0x400,      // well known telospace address
-    retCode,    // w2_in
+    finalResult,    // w2_in
     &w1_out,
     PSKR_SPACE);
 
-  The passed retCode is returned in w1, which is placed in %ebx. */
+  The passed finalResult is returned in w1, which is placed in %ebx. */
 
-	/* We have no stack, so we can save the retCode in %esp. */
+	/* We have no stack, so we can save the finalResult in %esp. */
 	movl	%ebx,%esp
 	
 	movl	$sb_reclaim_pages_from_node,%ebp
@@ -119,7 +119,7 @@ ENTRY(telospacestart)
 	movl	$destroy_caller,%ebp
 	
 	movl	$OC_capros_ProcCre_destroyCallerAndReturn,%eax	/* r0 */
-	movl	%esp,%ebx			// snd_w1 from retCode
+	movl	%esp,%ebx			// snd_w1 from finalResult
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */
 

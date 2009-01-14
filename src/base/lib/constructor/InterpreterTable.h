@@ -124,6 +124,16 @@ struct InterpreterStep {
 
 // Convenience macros for construction:
 
+#define MsgAlloc1(s_invKey, t0, r_key0, err_res, destr_step) \
+  MsgPw1Pk2Rk2(s_invKey, OC_capros_SpaceBank_alloc1, \
+    capros_Range_ot##t0, \
+    KR_VOID, KR_VOID, r_key0, KR_VOID, err_res, destr_step)
+
+#define MsgAlloc2(s_invKey, t0, t1, r_key0, r_key1, err_res, destr_step) \
+  MsgPw1Pk2Rk2(s_invKey, OC_capros_SpaceBank_alloc2,  \
+    capros_Range_ot##t0 + (capros_Range_ot##t1<<8), \
+    KR_VOID, KR_VOID, r_key0, r_key1, err_res, destr_step)
+
 #define MsgAlloc3(s_invKey, t0, t1, t2, r_key0, r_key1, r_key2, \
 	err_res, destr_step) \
    StepStruct(s_invKey, OC_capros_SpaceBank_alloc3, \
@@ -134,6 +144,9 @@ struct InterpreterStep {
     0, 0, \
     r_key0, r_key1, r_key2, KR_VOID, \
 	err_res, destr_step * sizeof(struct InterpreterStep))
+
+#define MsgClonePage(s_invKey, fromPage) \
+  MsgPkRk(s_invKey, OC_capros_Page_clone, fromPage, KR_VOID, faultOnError, 0)
 
 #define MsgSetL2v(s_invKey, l2v) \
   MsgPw1Pk2Rk2(s_invKey, OC_capros_GPT_setL2v, l2v, \
@@ -150,6 +163,10 @@ struct InterpreterStep {
 #define MsgGPTSetSlot(s_invKey, slot, s_key0) \
   MsgPw1Pk2Rk2(s_invKey, OC_capros_GPT_setSlot, slot, \
     s_key0, KR_VOID, KR_VOID, KR_VOID, faultOnError, 0)
+
+#define MsgNodeGetSlot(s_invKey, slot, r_key0) \
+  MsgPw1Pk2Rk2(s_invKey, OC_capros_Node_getSlot, slot, \
+    KR_VOID, KR_VOID, r_key0, KR_VOID, faultOnError, 0)
 
 #define MsgNodeGetSlotExtended(s_invKey, slot, r_key0) \
   MsgPw1Pk2Rk2(s_invKey, OC_capros_Node_getSlotExtended, slot, \
@@ -175,6 +192,14 @@ struct InterpreterStep {
     p_key0, p_key1, r_key0, KR_VOID, err_res, destr_step)
 
 // And for destruction:
+
+#define MsgFree1(s_invKey, s_key0) \
+  MsgPkRk(s_invKey, OC_capros_SpaceBank_free1, s_key0, KR_VOID, \
+    faultOnError, 0)
+
+#define MsgFree2(s_invKey, s_key0, s_key1) \
+  MsgPw1Pk2Rk2(s_invKey, OC_capros_SpaceBank_free2, 0, s_key0, s_key1, \
+    KR_VOID, KR_VOID, faultOnError, 0)
 
 #define MsgFree3(s_invKey, s_key0, s_key1, s_key2) \
   StepStruct(s_invKey, OC_capros_SpaceBank_free3, \
