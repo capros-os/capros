@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/Activity.h>
 #include <kerninc/IORQ.h>
+#include <kerninc/SysTimer.h>
 #include <ddb/db_output.h>
 
 #ifdef OPTION_DDB
@@ -216,7 +217,12 @@ objC_ddb_dump_procs(void)
         Activity * act = proc->curActivity;
         printf(", act=%#x, %s",
                act, act_stateNames[act->state]);
-        if (act->state == act_Stall) {
+        switch (act->state) {
+        case act_Sleeping:
+          printf(" for %lld ticks", act->wakeTime - sysT_latestTime);
+          break;
+
+        case act_Stall: ;
           StallQueue * sq = act->lastq;
           kva_t sqa = (kva_t)sq;
           printf(" q=%#x", sq);
@@ -230,6 +236,7 @@ objC_ddb_dump_procs(void)
           else if (sqa >= (kva_t)&proc_ContextCache[0]
                    && sqa < (kva_t)&proc_ContextCache[KTUNE_NCONTEXT])
             printf(" (process)");
+        default: ;
         }
       }
       printf("\n");

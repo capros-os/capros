@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -34,7 +34,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Ckpt.h>
 #include <kerninc/IORQ.h>
 
-/* The system time, the last time we read it. 
+/* The system time, the last time we read it, in ticks.
 Call sysT_Now() to update this. 
 Read with irq disabled, because it may be updated in an interrupt. */
 uint64_t sysT_latestTime;
