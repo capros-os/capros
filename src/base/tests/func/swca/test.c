@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -65,21 +65,102 @@ main(void)
   if (typ != IKT_capros_SWCA)
     kdprintf(KR_OSTREAM, "Line %d type is 0x%08x!\n", __LINE__, typ);
 
-  short amps;
+  short value;
+  capros_SWCA_GenMode genModeValue;
   capros_RTC_time_t tim;
+
+  result = capros_SWCA_getEqualizeTime(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d equalize time =%d\n",
+          0+1, value);
+
+  result = capros_SWCA_getLBCOVolts(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d LBCO volts*10=%d\n",
+          0+1, value);
+
+  result = capros_SWCA_getMaxChargeAmps(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d max charge amps =%d\n",
+          0+1, value);
+
+  result = capros_SWCA_getGenAmps(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d gen amps =%d\n",
+          0+1, value);
+
+  result = capros_SWCA_get15MinStartVolts(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d 15 min start volts*10=%d\n",
+          0+1, value);
+
+  // Get generator mode.
+  result = capros_SWCA_getGeneratorMode(KR_SWCA, 1, &genModeValue);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d gen mode = %d\n",
+          0+1, genModeValue);
+  capros_SWCA_GenMode originalMode = genModeValue;
+
+  // Set generator mode.
+  result = capros_SWCA_setGeneratorMode(KR_SWCA, 1, capros_SWCA_GenMode_Off);
+  ckOK
+
+  // Get generator mode.
+  result = capros_SWCA_getGeneratorMode(KR_SWCA, 1, &genModeValue);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d gen mode = %d\n",
+          0+1, genModeValue);
+
+  // Set generator mode back.
+  result = capros_SWCA_setGeneratorMode(KR_SWCA, 1, originalMode);
+  ckOK
+
+  // Get generator mode.
+  result = capros_SWCA_getGeneratorMode(KR_SWCA, 1, &genModeValue);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d gen mode = %d\n",
+          0+1, genModeValue);
+
+
+  // Get bulk volts.
+  result = capros_SWCA_getBulkVolts(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d bulk volts*10=%d\n",
+          0+1, value);
+  short originalBV = value;
+
+  // Set bulk volts.
+  result = capros_SWCA_setBulkVolts(KR_SWCA, 1, originalBV-4);
+  ckOK
+
+  // Get bulk volts.
+  result = capros_SWCA_getBulkVolts(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d bulk volts*10=%d\n",
+          0+1, value);
+
+  // Set bulk volts back.
+  result = capros_SWCA_setBulkVolts(KR_SWCA, 1, originalBV);
+  ckOK
+
+  // Get bulk volts.
+  result = capros_SWCA_getBulkVolts(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d bulk volts*10=%d\n",
+          0+1, value);
 
   while (1) {
     result = capros_Sleep_sleep(KR_SLEEP, 2000);	// sleep 2 seconds
     assert(result == RC_OK);
 
-    result = capros_SWCA_getLoadAmps(KR_SWCA, 0, &amps, &tim);
+    result = capros_SWCA_getLoadAmps(KR_SWCA, 0, &value, &tim);
     if (result != RC_capros_SWCA_noData)
       break;
     kprintf(KR_OSTREAM, "No data yet, rereading.\n");
   }
   ckOK
   kprintf(KR_OSTREAM, "Inverter %d %d amps at %d\n",
-          0+1, amps, tim);
+          0+1, value, tim);
 
   kprintf(KR_OSTREAM, "Done.\n");
 
