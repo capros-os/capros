@@ -5,6 +5,9 @@ interface SWCA extends key
 {
   exception noInverter;	// the specified inverter does not exist
   exception noData;	// no data are available yet
+  exception already;
+
+  // The following are sampled periodically, and the latest sample is returned.
 
   /* Get the latest data from the specified inverter.
   inverterNum is zero-based. */
@@ -28,6 +31,56 @@ interface SWCA extends key
   //const unsigned byte LEDLineTie     = 128;
   void getLEDs(unsigned byte inverterNum,
                out unsigned byte LEDs, out unsigned byte LEDsBlink);
+
+  // The following are executed on request.
+  // All raise already if a request is already in progress.
+  // All "set" operations raise key.RequestError if the value is
+  //   not acceptable.
+  // All voltages in v10 are scaled as voltage * 10
+  //   and must be a multiple of 0.2 volts.
+  // All times in tm are in units of 10 minutes.
+
+  unsigned byte enum GenMode {
+    Off,
+    Auto,
+    On,
+    Eq	// equalize
+  };
+  void getGeneratorMode(unsigned byte inverterNum, out GenMode mode);
+  void setGeneratorMode(unsigned byte inverterNum, GenMode mode);
+
+  void getLBCOVolts(unsigned byte inverterNum, out short v10);
+  void setLBCOVolts(unsigned byte inverterNum, short v10);
+
+  void getBulkVolts(unsigned byte inverterNum, out short v10);
+  void setBulkVolts(unsigned byte inverterNum, short v10);
+
+  void getAbsorptionTime(unsigned byte inverterNum, out short tm);
+  void setAbsorptionTime(unsigned byte inverterNum, short tm);
+
+  void getFloatVolts(unsigned byte inverterNum, out short v10);
+  void setFloatVolts(unsigned byte inverterNum, short v10);
+
+  void getEqualizeVolts(unsigned byte inverterNum, out short v10);
+  void setEqualizeVolts(unsigned byte inverterNum, short v10);
+
+  void getEqualizeTime(unsigned byte inverterNum, out short tm);
+  void setEqualizeTime(unsigned byte inverterNum, short tm);
+
+  void getMaxChargeAmps(unsigned byte inverterNum, out short amps);
+  void setMaxChargeAmps(unsigned byte inverterNum, short amps);
+
+  void getGenAmps(unsigned byte inverterNum, out short amps);
+  void setGenAmps(unsigned byte inverterNum, short amps);
+
+  void get24HourStartVolts(unsigned byte inverterNum, out short v10);
+  void set24HourStartVolts(unsigned byte inverterNum, short v10);
+
+  void get2HourStartVolts(unsigned byte inverterNum, out short v10);
+  void set2HourStartVolts(unsigned byte inverterNum, short v10);
+
+  void get15MinStartVolts(unsigned byte inverterNum, out short v10);
+  void set15MinStartVolts(unsigned byte inverterNum, short v10);
 };
 
 // Interface for internal use only:

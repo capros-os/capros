@@ -76,10 +76,19 @@ Approved for public release, distribution unlimited. */
 
 #define LKSN_SERIAL LKSN_CMTE	// holds the serial port key if we have one
 #define LKSN_NOTIFY (LKSN_SERIAL+1)
+#define LKSN_WAITER (LKSN_NOTIFY+1)
+#define LKSN_Last LKSN_WAITER
 
 #define keyInfo_nplinkee 0xffff	// nplink has this key
 #define keyInfo_swca   0
 #define keyInfo_notify 1
+
+bool haveWaiter = false;	// LKSN_WAITER has a resume key
+uint32_t waiterCode;		// parameters from waiter
+unsigned int waiterAdapterNum;
+unsigned int waiterMenuNum;
+unsigned int waiterMenuItemNum;
+uint32_t waiterW2;
 
 typedef capros_RTC_time_t RTC_time;		// real time, seconds
 typedef capros_Sleep_nanoseconds_t mono_time;	// monotonic time in nanoseconds
@@ -109,13 +118,14 @@ typedef struct AdapterState {
   int menuNum;		// -1 if unknown
   int menuItemNum;
 
-  // Values read from the inverter:
+  // Values read from the inverter with RTC:
   // (Read under lock to ensure value and time match.)
   struct ValueAndTime invChg;	// inverter/charger in amps AC
   struct ValueAndTime load;	// load in amps AC
   struct ValueAndTime battActV;	// battery actual volts DC * 10
 } AdapterState;
 AdapterState adapterStates[numAdapters];
+int requestData;
 
 // When we don't know which adapter is transmitting, this serves as a sink:
 AdapterState dummyAdapter;
@@ -152,6 +162,12 @@ enum {
   ta_NeedSecondScreen
 };
 int transmittingAdapterNum;
+
+/* curMenuMonoTime is valid if transmittingAdapterNum >= 0
+and adapterStates[transmittingAdapterNum].menuNum != -1.
+It is the time at which the menu item value was received,
+or zero if the value hasn't been received yet. */
+mono_time curMenuMonoTime;
 
 // How to treat the next input character:
 enum {
@@ -208,6 +224,11 @@ GetMonoTime(void)
 
 /****************************  Task management  ***************************/
 
+/* Terminology:
+ * A "task" is a periodically-scheduled job.
+ * A "request" is a one-time job in response to a client request.
+ * A request has higher priority than tasks. */
+
 // Sampling intervals:
 #define twoSec  2000000000LL
 #define tenSec 10000000000LL
@@ -244,13 +265,39 @@ struct Task {
 #define numTasks (sizeof(taskList) / sizeof(struct Task))
 struct Task * currentTask = &taskList[numTasks - 1];
 
+enum {
+  js_none,	// doing nothing; there could be work to be done
+  js_task,	// executing a task
+  js_request,	// executing a request
+  js_waiting	// nothing to do until nextTaskTime
+} jobState = js_none;
 /* nextTaskTime is the time at which the chronologically next task
- * is to be done, or zero if a task is at hand now. */
+ * is to be done. Valid if taskStats == js_waiting. */
 mono_time nextTaskTime;
 
-// Find the next task to do.
-// monoNow must be up to date.
-// Call under lock.
+void
+StartTaskOrRequest(unsigned int adapterNum,
+  unsigned int menuNum, unsigned int menuItemNum)
+{
+  wantedAdapterNum = adapterNum;
+  wantedMenuNum = menuNum;
+  wantedMenuItemNum = menuItemNum;
+  if (transmittingAdapterNum != wantedAdapterNum)
+    // Select the new adapter:
+    transmittingAdapterNum = ta_NeedFirstSelect;
+}
+
+void
+StartRequest(void)
+{
+  DEBUG(sched) kprintf(KR_OSTREAM, "Starting request (%d,%d,%d,%#x).\n",
+                       waiterAdapterNum, waiterMenuNum,
+                       waiterMenuItemNum, waiterCode);
+  jobState = js_request;
+  StartTaskOrRequest(waiterAdapterNum, waiterMenuNum, waiterMenuItemNum);
+}
+
+// Look for a task.
 void
 NextTask(void)
 {
@@ -265,15 +312,11 @@ NextTask(void)
       DEBUG(sched) kprintf(KR_OSTREAM, "Starting task (%d,%d,%d).\n",
                      currentTask->adapterNum, currentTask->menuNum,
                      currentTask->menuItemNum);
-      wantedMenuNum = currentTask->menuNum;
-      wantedMenuItemNum = currentTask->menuItemNum;
       gotLEDs = false;	// in case wantedMenuNum == -1
       gettingLEDs = false;	// in case wantedMenuNum == -1
-      nextTaskTime = 0;	// signal that this task is in progress
-      wantedAdapterNum = currentTask->adapterNum;
-      if (transmittingAdapterNum != wantedAdapterNum)
-	// Select the new adapter:
-        transmittingAdapterNum = ta_NeedFirstSelect;
+      jobState = js_task;
+      StartTaskOrRequest(currentTask->adapterNum, currentTask->menuNum,
+                         currentTask->menuItemNum);
       return;
     } else {		// do it later
       if (nextTaskTime > timeToDo )	// take min
@@ -282,6 +325,7 @@ NextTask(void)
   } while (currentTask != loopStart);
   // No task needs to be done now. Return with nextTaskTime > monoNow.
   DEBUG(sched) kprintf(KR_OSTREAM, "No task till %lld.\n", nextTaskTime);
+  jobState = js_waiting;
 }
 
 // We have lost synchronization with the input stream.
@@ -362,7 +406,51 @@ procIntValue(AdapterState * as, struct ValueAndTime * vt)
 }
 
 bool
-proc2p1Value(AdapterState * as, struct ValueAndTime * vt)
+procIntRequest(AdapterState * as)
+{
+  int value;
+  if (ConvertInt(as, &value))
+    return true;
+  requestData = value;
+  return false;
+}
+
+bool
+proc2p1Request(AdapterState * as)
+{
+  int value;
+  if (Convert2p1(as, &value))
+    return true;
+  requestData = value;
+  return false;
+}
+
+/* Convert a time of the form hh:mm to a number of minutes
+ * in units of ten minutes.
+ * If input is not valid, return true,
+ * else return false and store value in requestData. */
+bool
+procHMRequest(AdapterState * as)
+{
+  const char * p = &as->lcd[1][11];
+  char c0 = *p;
+  char c1 = *++p;
+  char c2 = *++p;
+  char c3 = *++p;
+  char c4 = *++p;
+  if (! isdigit(c0) || ! isdigit(c1) || c2 != ':'
+      || ! isdigit(c3) || c3 > '5' || c4 != '0' ) {
+    DEBUG(errors) kprintf(KR_OSTREAM, "ConvertHM of %c%c%c%c%c failed!\n",
+                          c0, c1, c2, c3, c4);
+    return true;
+  }
+  int value = ((c0 - '0')*10 + (c1 - '0'))*6 + (c3 - '0');
+  requestData = value;
+  return false;		// OK
+}
+
+bool
+proc2p1ValueTime(AdapterState * as, struct ValueAndTime * vt)
 {
   int value;
   if (Convert2p1(as, &value))
@@ -397,7 +485,7 @@ procLoad(AdapterState * as)
 bool
 procBattAct(AdapterState * as)
 {
-  return proc2p1Value(as, &as->battActV);
+  return proc2p1ValueTime(as, &as->battActV);
 }
 
 bool
@@ -450,6 +538,40 @@ procReadFreq(AdapterState * as)
   return false;
 }
 
+// Returns -1 if underscore position is not valid.
+static int
+UnderscoreToGenMode(AdapterState * as)
+{
+  assert(as->underscore);
+  long underscorePosition = as->underscore - &as->lcd[0][0];
+  switch (underscorePosition) {
+  default:
+    DEBUG(errors) {
+      printControlPanel(as);
+      kprintf(KR_OSTREAM, "underscore position %d\n", underscorePosition);
+    }
+    return -1;
+  case 16:
+    return capros_SWCA_GenMode_Off;
+  case 20:
+    return capros_SWCA_GenMode_Auto;
+  case 25:
+    return capros_SWCA_GenMode_On;
+  case 29:
+    return capros_SWCA_GenMode_Eq;
+  }
+}
+
+bool
+procGenMode(AdapterState * as)
+{
+  int m = UnderscoreToGenMode(as);
+  if (m < 0)
+    return true;	// invalid underscore position
+  requestData = m;
+  return false;
+}
+
 #define numMenus 20
 #define setupMenuNum 8	// zero origin
 struct MenuItem {
@@ -469,7 +591,7 @@ struct MenuItem {
   [0][1] = {{"Set Inverter    ","OFF SRCH  ON CHG"}},
 
   [1][0] = {{"Generator Mode  ","               2"}},
-  [1][1] = {{"Set Generator   ","OFF AUTO  ON EQ "}},
+  [1][1] = {{"Set Generator   ","OFF AUTO  ON EQ "}, 0, 0, 0, procGenMode},
   [1][2] = {{"Gen under/over  ","speed           "}, procYN},
   [1][3] = {{"Generator start ","error           "}, procYN},
   [1][4] = {{"Generator sync  ","error           "}, procYN},
@@ -515,30 +637,41 @@ struct MenuItem {
 
   [8][0] = {{"Inverter Setup  ","               9"}},
   [8][1] = {{"Set Grid Usage  ","FLT SELL SLT LBX"}},
-  [8][2] = {{"Set Low battery ","cut out VDC     "}, proc2p1, 0, 11},
-  [8][3] = {{"Set LBCO delay  ","minutes         "}, procInt},
-  [8][4] = {{"Set Low battery ","cut in VDC      "}, proc2p1, 0, 11},
-  [8][5] = {{"Set High battery","cut out VDC     "}, proc2p1},
-  [8][6] = {{"Set search      ","watts           "}, procInt, 0, 7},
-  [8][7] = {{"Set search      ","spacing         "}, procInt, 0, 7},
+  [8][2] = {{"Set Low battery ","cut out VDC     "}, proc2p1Request, 0, 11},
+  [8][3] = {{"Set LBCO delay  ","minutes         "}, procIntRequest},
+  [8][4] = {{"Set Low battery ","cut in VDC      "}, proc2p1Request, 0, 11},
+  [8][5] = {{"Set High battery","cut out VDC     "}, proc2p1Request},
+  [8][6] = {{"Set search      ","watts           "}, procIntRequest, 0, 7},
+  [8][7] = {{"Set search      ","spacing         "}, procIntRequest, 0, 7},
 
   [9][0] = {{"Battery Charging","              10"}},
+  [9][1] = {{"Set Bulk        ","volts DC        "}, proc2p1Request},
+  [9][2] = {{"Set Absorbtion  ","time h:m        "}, procHMRequest},
+  [9][3] = {{"Set Float       ","volts DC        "}, proc2p1Request},
+  [9][4] = {{"Set Equalize    ","volts DC        "}, proc2p1Request, 0, 8},
+  [9][5] = {{"Set Equalize    ","time h:m        "}, procHMRequest, 0, 8},
+  [9][6] = {{"Set Max Charge  ","amps AC         "}, procIntRequest, 2},
+  [9][7] = {{"Set Temp Comp   ","LeadAcid NiCad  "}},
 
   [10][0] = {{"AC Inputs       ","              11"}},
+  [10][1] = {{"Set Grid (AC1)  ","amps AC         "}, procIntRequest, 2},
+  [10][2] = {{"Set Gen (AC2)   ","amps AC         "}, procIntRequest, 2},
+  [10][3] = {{"Set Input lower ","limit VAC       "}, procIntRequest},
+  [10][4] = {{"Set Input upper ","limit VAC       "}, procIntRequest},
 
   [11][0] = {{"Gen Auto Start  ","setup         12"}},
-  [11][1] = {{"Set Load Start  ","amps AC         "}, procInt, 2, 9},
-  [11][2] = {{"Set Load Start  ","delay min       "}, proc2p1, 0, 9},
-  [11][3] = {{"Set Load Stop   ","delay min       "}, proc2p1},
-  [11][4] = {{"Set 24 hr start ","volts DC        "}, proc2p1},
-  [11][5] = {{"Set 2  hr start ","volts DC        "}, proc2p1},
-  [11][6] = {{"Set 15 min start","volts DC        "}, proc2p1},
-  [11][7] = {{"Read LBCO 30 sec","start VDC       "}, proc2p1},
-  [11][8] = {{"Set Exercise    ","period days     "}, procInt},
+  [11][1] = {{"Set Load Start  ","amps AC         "}, procIntRequest, 2, 9},
+  [11][2] = {{"Set Load Start  ","delay min       "}, proc2p1Request, 0, 9},
+  [11][3] = {{"Set Load Stop   ","delay min       "}, proc2p1Request},
+  [11][4] = {{"Set 24 hr start ","volts DC        "}, proc2p1Request},
+  [11][5] = {{"Set 2  hr start ","volts DC        "}, proc2p1Request},
+  [11][6] = {{"Set 15 min start","volts DC        "}, proc2p1Request},
+  [11][7] = {{"Read LBCO 30 sec","start VDC       "}, proc2p1Request},
+  [11][8] = {{"Set Exercise    ","period days     "}, procIntRequest},
 
   [12][0] = {{"Gen starting    ","details       13"}},
 
-  [13][0] = {{"Auxiliary Relays","R9 R10 R11    14"}},
+  [13][0] = {{"Auxilary Relays ","R9 R10 R11    14"}},
 
   [14][0] = {{"Bulk Charge     ","Trigger Timer 15"}},
 
@@ -640,25 +773,10 @@ menuItemCompare(AdapterState * as, struct MenuItem * mi)
   return ! memcmp(&as->lcd[0][0], &mi->lcd[0][0], 16 + mi->addlCompare);
 }
 
-// Call under lock. Exits not under lock.
-void
-CompletedTask(void)
-{
-  DEBUG(sched) kprintf(KR_OSTREAM, "Task (%d,%d,%d) done.\n",
-                 currentTask->adapterNum, currentTask->menuNum,
-                 currentTask->menuItemNum);
-  GetMonoTime();
-  currentTask->nextSampleTime = monoNow + currentTask->period;
-  NextTask();
-  CMTEMutex_unlock(&lock);
-  InputNotifyServer();	// not under lock!
-}
-
-// Call not under lock.
+// Called under lock, exits not under lock.
 void
 CheckEndOfField(AdapterState * as)
 {
-  CMTEMutex_lock(&lock);
   if (as->menuNum >= 0) {	// we are on a known menu
     struct MenuItem * mi = &menuItems[as->menuNum][as->menuItemNum];
     int vfeAdj = mi->valueFieldEnd;
@@ -677,16 +795,11 @@ CheckEndOfField(AdapterState * as)
         if ((*valueProc)(as))
           ;	// invalid value: what to do here?
         else {		// successful
-          // Does this complete the current task?
-          if (nextTaskTime == 0) {	// there is a current task
-            struct Task * ct = currentTask;
-            if (ct->adapterNum == transmittingAdapterNum
-                && ct->menuNum == as->menuNum
-                && ct->menuItemNum == as->menuItemNum) {	// it does
-              CompletedTask();
-              return;
-            }
-          }
+          GetMonoTime();
+          curMenuMonoTime = monoNow;
+          CMTEMutex_unlock(&lock);
+          InputNotifyServer();
+          return;
         }
       }
     }
@@ -704,7 +817,11 @@ CursorAtBegOfScreen(AdapterState * as)
 }
 
 // Call under lock.
-bool
+enum {
+  pc_printable,
+  pc_underscore,
+  pc_other
+}
 ProcessCharacter(AdapterState * as, uint8_t c)
 {
   if (c >= 240)
@@ -716,7 +833,7 @@ ProcessCharacter(AdapterState * as, uint8_t c)
       as->cursor = &as->lcd[0][0]; // wrap
       DEBUG(input) printControlPanel(as);
     }
-    return true;	// it was a printable character
+    return pc_printable;
   } else if (c >= 128 && c <= 143) {	// first line cursor position
     as->cursor = &as->lcd[0][0] + (c-128);
     as->menuNum = -1;		// could be a new menu
@@ -748,22 +865,14 @@ ProcessCharacter(AdapterState * as, uint8_t c)
 
     case 225:
       as->underscore = as->cursor;
-      if (as->menuNum >= 0) {	// we are on a known menu
-        struct MenuItem * mi = &menuItems[as->menuNum][as->menuItemNum];
-        bool (*underscoreProc)(AdapterState *) = mi->underscoreProc;
-        if (underscoreProc)
-          // Call procedure under lock:
-          if ((*underscoreProc)(as))
-            ;	// invalid position; what to do here?
-      }
-      break;
+      return pc_underscore;
 
     case 227:
       inputState = nextIsLEDs;
       break;
     }
   }
-  return false;	// not a printable character
+  return pc_other;	// not a printable character
 }
 
 // The input thread executes this procedure.
@@ -811,11 +920,11 @@ InputProcedure(void * data /* unused */ )
         case capros_SerialPort_Flag_FRAME:
           DEBUG(errors) kprintf(KR_OSTREAM, "FRAME ");
           ResetInputState();
-          break;
+          goto nochar;
         case capros_SerialPort_Flag_PARITY:
           DEBUG(errors) kprintf(KR_OSTREAM, "PARITY ");
           ResetInputState();
-          break;
+          goto nochar;
         case capros_SerialPort_Flag_OVERRUN:
           DEBUG(errors) kprintf(KR_OSTREAM, "OVERRUN ");
           ResetInputState();
@@ -858,17 +967,13 @@ InputProcedure(void * data /* unused */ )
               }
             }
             as->LEDs = c;
-            // Does this complete the current task?
-            if (nextTaskTime == 0) {	// there is a current task
-              struct Task * ct = currentTask;
-              if (ct->adapterNum == transmittingAdapterNum
-                  && ct->menuNum == -1 ) {	// it does
-                gotLEDs = true;
-                DEBUG(leds) kprintf(KR_OSTREAM, "Read LEDs completed.\n");
-                CompletedTask();
-                CMTEMutex_lock(&lock);
-              }
-            }
+            gotLEDs = true;
+            inputState = nextIsControl;
+            GetMonoTime();
+            curMenuMonoTime = monoNow;
+            CMTEMutex_unlock(&lock);
+            InputNotifyServer();
+            break;
           }
           // fall into the below
         default:	// nextIsUnknown, ignore the character
@@ -892,7 +997,8 @@ InputProcedure(void * data /* unused */ )
             break;
 
           case ta_InFirstScreen:
-            if (ProcessCharacter(as, c)) {	// process char w/ dummyAdapter
+            // process char w/ dummyAdapter
+            if (ProcessCharacter(as, c) == pc_printable) {
               // it was a printable character
               if (CursorAtBegOfScreen(as)) {
                 // First screen completed.
@@ -918,7 +1024,8 @@ InputProcedure(void * data /* unused */ )
           default:
           haveAdapter:
             assert(transmittingAdapterNum >= 0);	// adapter is known
-            if (ProcessCharacter(as, c)) {
+            switch (ProcessCharacter(as, c)) {
+            case pc_printable:
               // it was a printable character
               if (CursorAtBegOfScreen(as)
                   && as->lcd[0][0] != 0) {
@@ -942,6 +1049,9 @@ InputProcedure(void * data /* unused */ )
                         // found it
                         as->menuNum = i;
                         as->menuItemNum = j;
+                        /* We are at the menu item, but the value may not
+                        be valid yet. */
+                        curMenuMonoTime = 0;
                         DEBUG(input) kprintf(KR_OSTREAM, "Menu %d item %d\n",
                                              as->menuNum, as->menuItemNum);
                         // Set the number of retries to find the next menu:
@@ -957,19 +1067,37 @@ InputProcedure(void * data /* unused */ )
                   as->menuNum = -1;	// unrecognized menu
                 foundMenu:
                 notifyServer:
-                  CMTEMutex_unlock(&lock);
                   // Skip CheckEndOfField, because the field may not be
                   // filled in yet.
-                  InputNotifyServer();
-                } else {	// Completed a previously recognized screen.
                   CMTEMutex_unlock(&lock);
-                  CheckEndOfField(as);
+                  InputNotifyServer();	// not needed if at the wanted menu item
+                } else {	// Completed a previously recognized screen.
+                  CheckEndOfField(as);	// also unlocks
                 }
               } else {	// printable character not at end of screen
-                CMTEMutex_unlock(&lock);
-                CheckEndOfField(as);
+                CheckEndOfField(as);	// also unlocks
               }
-            } else {
+              break;
+            case pc_underscore:
+              if (as->menuNum >= 0) {	// we are on a known menu
+                struct MenuItem * mi = &menuItems[as->menuNum][as->menuItemNum];
+                bool (*underscoreProc)(AdapterState *) = mi->underscoreProc;
+                if (underscoreProc) {
+                  // Call procedure under lock:
+                  if ((*underscoreProc)(as))
+                    ;	// invalid position; don't set curMenuMonoTime
+                  else {		// successful
+                    GetMonoTime();
+                    curMenuMonoTime = monoNow;
+                    CMTEMutex_unlock(&lock);
+                    InputNotifyServer();
+                    break;
+                  }
+                }
+              }
+              CMTEMutex_unlock(&lock);
+              break;
+            case pc_other:
               CMTEMutex_unlock(&lock);
             }
           }	// end of switch (transmittingAdapterNum)
@@ -1012,27 +1140,7 @@ InitSerialPort(void)
   haveSerialKey = true;
 }
 
-#define selectTimeout 1000000000 // one second
-void
-SelectAdapter(unsigned int num)	// 0-7
-{
-  result_t result;
-  uint8_t sendData[2];
-
-  assert(num < numAdapters);
-  sendData[0] = num + 1;
-  selectTime = monoNow;
-  CMTETimer_setDuration(&tmr, selectTimeout);
-  DEBUG(time) kprintf(KR_OSTREAM, "SelectAdapter set timeout\n");
-  result = capros_SerialPort_write(KR_SERIAL, 1/*2*/, &sendData[0]);
-  if (result == RC_capros_key_Restart || result == RC_capros_key_Void)
-    return;	// too bad
-  if (result != RC_OK) {
-    kprintf(KR_OSTREAM, "capros_SerialPort_write rc=%#x\n", result);
-    assert(result == RC_OK);
-  }
-}
-
+// monoNow must be current.
 void
 SendCommand(uint8_t cmd)
 {
@@ -1041,8 +1149,23 @@ SendCommand(uint8_t cmd)
   commandTime = monoNow;
   result = capros_SerialPort_write(KR_SERIAL, 1, &cmd);
   if (result == RC_capros_key_Restart || result == RC_capros_key_Void)
+    // Set haveSerialKey false here?
     return;	// too bad
-  assert(result == RC_OK);
+  if (result != RC_OK) {
+    kdprintf(KR_OSTREAM, "capros_SerialPort_write rc=%#x\n", result);
+  }
+}
+
+// monoNow must be current.
+#define selectTimeout 1000000000 // one second
+void
+SelectAdapter(unsigned int num)	// 0-7
+{
+  assert(num < numAdapters);
+  selectTime = monoNow;
+  CMTETimer_setDuration(&tmr, selectTimeout);
+  DEBUG(time) kprintf(KR_OSTREAM, "SelectAdapter set timeout\n");
+  SendCommand(num + 1);
 }
 
 void
@@ -1068,11 +1191,14 @@ DoGetValue(Message * msg, AdapterState * as, struct ValueAndTime * vt)
 
 uint32_t MsgBuf[16/4];
 
-// Entered under lock, exits unlocked.
-// Returns true if did everything we could,
-//   false if need to recheck the current task.
+/*
+ * If we are at the wanted adapter, menu, and menu item and have its data,
+ *   returns true and exits still under lock.
+ * Otherwise attempts to navigate to the wanted adapter, menu, and menu item,
+ *   returns false, and exits not under lock.
+ */
 static bool
-DoTask(void)
+DoMenu(void)
 {
   DEBUG(sched) kprintf(KR_OSTREAM, "taNum=%d ", transmittingAdapterNum);
   switch (transmittingAdapterNum) {
@@ -1107,62 +1233,77 @@ DoTask(void)
   default:
     assert(transmittingAdapterNum == wantedAdapterNum);
     AdapterState * as = &adapterStates[wantedAdapterNum];
-    if (wantedMenuNum == -1 && ! gotLEDs) {
+    DEBUG(sched) kprintf(KR_OSTREAM, "wMenu=%d gotLEDs=%d ",
+                         wantedMenuNum, gotLEDs);
+    if (wantedMenuNum == -1) {
+      if (! gotLEDs) {
 #define ledsTimeout 500000000 // 0.5 second
-      // Need to read the LEDs.
-      CMTEMutex_unlock(&lock);
-      // gotLEDs could now be set; there is a harmless race.
-      int64_t timeToWait;
-      if (! gettingLEDs) {	// first attempt to get LEDs
-        gettingLEDs = true;
-        menuRetries = 4;
-      } else {
-        // Allow time for the previous command:
-        timeToWait = commandTime + ledsTimeout - monoNow;
-        if (timeToWait > 0)
-          goto setLEDsTimer;	// Give the previous command more time to work.
-        DEBUG(leds) kprintf(KR_OSTREAM, "Get LEDs timed out.\n");
-        if (--menuRetries == 0) {		// too many retries
-          DEBUG(errors)
-            kprintf(KR_OSTREAM, "Get LEDs timed out; reselecting adapter\n");
-          // Try reselecting the adapter:
-          transmittingAdapterNum = ta_NeedFirstSelect;
-          return false;
+        // Need to read the LEDs.
+        int64_t timeToWait;
+        if (! gettingLEDs) {	// first attempt to get LEDs
+          gettingLEDs = true;
+          menuRetries = 4;
+        } else {
+          // Allow time for the previous command:
+          timeToWait = commandTime + ledsTimeout - monoNow;
+          if (timeToWait > 0) {
+            CMTEMutex_unlock(&lock);
+            goto setLEDsTimer;	// Give the previous command more time to work.
+          }
+          DEBUG(leds) kprintf(KR_OSTREAM, "Get LEDs timed out.\n");
+          if (--menuRetries == 0) {		// too many retries
+            DEBUG(errors)
+              kprintf(KR_OSTREAM, "Get LEDs timed out; reselecting adapter\n");
+            // Try reselecting the adapter:
+            SelectAdapter(wantedAdapterNum);
+            transmittingAdapterNum = ta_NeedFirstScreen;
+            break;
+          }
+          // else retry getting the LEDs
         }
-        // else retry getting the LEDs
+        CMTEMutex_unlock(&lock);
+        SendCommand(227);	// command to get LEDs
+        // timeToWait = commandTime + ledsTimeout - monoNow;
+        // Since we just set commandTime to monoNow:
+        timeToWait = ledsTimeout;
+      setLEDsTimer:
+        CMTETimer_setDuration(&tmr, timeToWait);
+        DEBUG(time) kprintf(KR_OSTREAM,
+                            "Get LEDs set timeout in %llu\n", timeToWait);
+        return false;
+      } else {	// gotLEDs
+        return true;	// exit under lock
       }
-      SendCommand(227);	// command to get LEDs
-      // timeToWait = commandTime + ledsTimeout - monoNow;
-      // Since we just set commandTime to monoNow:
-      timeToWait = ledsTimeout;
-    setLEDsTimer:
-      CMTETimer_setDuration(&tmr, timeToWait);
-      DEBUG(time) kprintf(KR_OSTREAM,
-                          "Get LEDs set timeout in %llu\n", timeToWait);
-      return true;
     } else if (as->menuNum != wantedMenuNum
                || as->menuItemNum != wantedMenuItemNum ) {
+      DEBUG(sched) kprintf(KR_OSTREAM, "asMenu=%d wMenIt=%d asMenIt=%d\n",
+                         as->menuNum, wantedMenuItemNum, as->menuItemNum);
 #define commandTimeout 1000000000 // 1 second
       // Not on the menu item we want.
-      CMTEMutex_unlock(&lock);
       int64_t timeToWait;
       char cmd;
       if (as->menuNum == -1) { // current menu unknown, or executing cmd
+    checkMenuTime:
         // Allow time for the previous command:
         timeToWait = commandTime + commandTimeout - monoNow;
-        if (timeToWait > 0)
+        if (timeToWait > 0) {
+          CMTEMutex_unlock(&lock);
           goto setMenuTimer;	// Give the previous command some time to work.
+        }
         // current menu is unknown, and previous command timed out
         if (--menuRetries == 0) {		// too many retries
           DEBUG(errors)
             kprintf(KR_OSTREAM, "Menu select timed out; reselecting adapter\n");
           // Try reselecting the adapter:
-          transmittingAdapterNum = ta_NeedFirstSelect;
-          return false;
+          SelectAdapter(wantedAdapterNum);
+          transmittingAdapterNum = ta_NeedFirstScreen;
+          break;
         }
+        CMTEMutex_unlock(&lock);
         // We're lost; retry a menu command
         cmd = 'U';	// menu item up
       } else {		// current menu is known
+        CMTEMutex_unlock(&lock);
         /* Give a command to get from the menu we're at
         to the one we want.
         Note: we don't use the 'I' and 'G' commands to go directly
@@ -1175,20 +1316,8 @@ DoTask(void)
         if (as->menuNum != wantedMenuNum) {
           // We need to go to a different menu.
           int diff = wantedMenuNum - as->menuNum;
-          bool useS;
-          if (wantedMenuNum >= setupMenuNum) {
-            // Going to a setup menu.
-            useS = as->menuNum < setupMenuNum	// must go to setup
-                   // else already in setup menus, but
-                   // go directly to Setup Menu if it is shorter:
-                   || wantedMenuNum - setupMenuNum + 1 < diff;
-          } else {
-            // Going to a non-setup menu.
-            // Go directly to the Setup menu if it is shorter:
-            useS = setupMenuNum + 1 - wantedMenuNum
-                   < (diff >= 0 ? diff : -diff);
-          }
-          if (useS)
+          if (wantedMenuNum >= setupMenuNum	// going to a setup menu
+              && as->menuNum < setupMenuNum)	// from a non-setup menu
             cmd = 19;	// control-S for Setup menu
           else if (diff > 0)
             cmd = 'R';	// menu right
@@ -1215,16 +1344,187 @@ DoTask(void)
       CMTETimer_setDuration(&tmr, timeToWait);
       DEBUG(time) kprintf(KR_OSTREAM,
                         "Select menu set timeout in %llu\n", timeToWait);
-      return true;
+      return false;
     } else {
       // we have the menu item we want
-      DEBUG(sched) kprintf(KR_OSTREAM, "Waiting for task. ");
-      // Just let the current task finish.
-      CMTETimer_delete(&tmr);	// currently no timeout for this
+      DEBUG(sched) kprintf(KR_OSTREAM, "cmmt=%llu cmdt=%llu ttw=%llu",
+                           curMenuMonoTime, commandTime,
+                           commandTime + commandTimeout - monoNow );
+      if (curMenuMonoTime) {	// and we have the data there
+        return true;	// exit under lock
+      } else {
+        // Just waiting for data for this menu item to come in.
+        goto checkMenuTime;
+      }
     }
   }	// end of switch (transmittingAdapterNum)
   CMTEMutex_unlock(&lock);
-  return true;
+  return false;
+}
+
+void
+CompleteRequest(uint32_t w1)
+{
+  result_t result;
+
+  assert(haveWaiter);
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_WAITER, KR_TEMP0);
+  assert(result == RC_OK);
+
+  Message Msg = {
+    .snd_invKey = KR_TEMP0,
+    .snd_key0 = KR_VOID,
+    .snd_key1 = KR_VOID,
+    .snd_key2 = KR_VOID,
+    .snd_rsmkey = KR_VOID,
+    .snd_len = 0,
+    .snd_code = RC_OK,
+    .snd_w1 = w1,
+    .snd_w2 = 0,
+    .snd_w3 = 0,
+  };
+  SEND(&Msg);
+  haveWaiter = false;
+}
+
+/* If we the current request is completed,
+ *   returns true and exits still under lock.
+ * Otherwise takes action on the current request,
+ *   returns false, and exits not under lock.
+ */
+bool
+AdjustUpOrDown(int diff)
+{
+  if (diff == 0) {
+    CompleteRequest(0);
+    return true;
+  }
+  CMTEMutex_unlock(&lock);
+  SendCommand(diff < 0 ? '-' : '+');
+  // Wait until we get the whole menu back before trying again.
+  MenuIsUnknown(&adapterStates[transmittingAdapterNum]);
+  // currently, no timeout for these commands
+  return false;
+}
+
+/* If we the current request is completed,
+ *   returns true and exits still under lock.
+ * Otherwise takes action on the current request,
+ *   returns false, and exits not under lock.
+ */
+bool
+AdjustUnderscore(uint32_t mode, int wanted, int numModes)
+{
+  int distance = mode - wanted;
+  if (distance == 0) {
+    CompleteRequest(0);
+    return true;
+  }
+  CMTEMutex_unlock(&lock);
+  int modDistance = distance < 0 ? numModes + distance : distance;
+  SendCommand(modDistance == 1 ? '-' : '+');
+  // Wait until we get the whole menu back before trying again.
+  MenuIsUnknown(&adapterStates[transmittingAdapterNum]);
+  // currently, no timeout for these commands
+  return false;
+}
+
+/* If we the current request is completed,
+ *   returns true and exits still under lock.
+ * Otherwise takes action on the current request,
+ *   returns false, and exits not under lock.
+ */
+bool
+DoRequest(void)
+{
+  if (DoMenu()) {
+    // We are at the wanted menu item and have data. Now what?
+    switch (waiterCode) {
+    default:
+      assert(false);
+
+    case OC_capros_SWCA_getLBCOVolts:
+    case OC_capros_SWCA_getBulkVolts:
+    case OC_capros_SWCA_getAbsorptionTime:
+    case OC_capros_SWCA_getFloatVolts:
+    case OC_capros_SWCA_getEqualizeVolts:
+    case OC_capros_SWCA_getEqualizeTime:
+    case OC_capros_SWCA_getMaxChargeAmps:
+    case OC_capros_SWCA_getGenAmps:
+    case OC_capros_SWCA_get24HourStartVolts:
+    case OC_capros_SWCA_get2HourStartVolts:
+    case OC_capros_SWCA_get15MinStartVolts:
+      CompleteRequest(requestData);
+      return true;
+
+    case OC_capros_SWCA_setLBCOVolts:
+    case OC_capros_SWCA_setBulkVolts:
+    case OC_capros_SWCA_setAbsorptionTime:
+    case OC_capros_SWCA_setFloatVolts:
+    case OC_capros_SWCA_setEqualizeVolts:
+    case OC_capros_SWCA_setEqualizeTime:
+    case OC_capros_SWCA_setMaxChargeAmps:
+    case OC_capros_SWCA_setGenAmps:
+    case OC_capros_SWCA_set24HourStartVolts:
+    case OC_capros_SWCA_set2HourStartVolts:
+    case OC_capros_SWCA_set15MinStartVolts:
+      return AdjustUpOrDown(waiterW2 - requestData);
+
+    case OC_capros_SWCA_getGeneratorMode:
+      CompleteRequest(requestData);
+      return true;
+
+    case OC_capros_SWCA_setGeneratorMode:
+      return AdjustUnderscore(requestData, waiterW2, 4);
+    }
+  }
+  return false;
+}
+
+void
+WaiterRequest(Message * msg, unsigned int menuNum, unsigned int menuItemNum)
+{
+  result_t result;
+
+  if (haveWaiter) {
+    msg->snd_code = RC_capros_SWCA_already;
+  } else {
+    waiterMenuNum = menuNum;
+    waiterMenuItemNum = menuItemNum;
+    result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_WAITER,
+               KR_RETURN, KR_VOID);
+    assert(result == RC_OK);
+    waiterCode = msg->rcv_code;
+    waiterAdapterNum = msg->rcv_w1;
+    waiterW2 = msg->rcv_w2;
+    haveWaiter = true;
+    /* At the end of the current task, the input proc will notice
+    this request and execute it. */
+    msg->snd_invKey = KR_VOID;
+  }
+}
+
+void
+VoltsRequest(Message * msg, unsigned int menuNum, unsigned int menuItemNum,
+  int32_t min, int32_t max)
+{
+  if (msg->rcv_w2 < min		// too low
+      || msg->rcv_w2 > max	// too high
+      || msg->rcv_w2 & 1 )	// odd
+    msg->snd_code = RC_capros_key_RequestError;
+  else
+    WaiterRequest(msg, menuNum, menuItemNum);
+}
+
+void
+IntRequest(Message * msg, unsigned int menuNum, unsigned int menuItemNum,
+  int32_t min, int32_t max)
+{
+  if (msg->rcv_w2 < min		// too low
+      || msg->rcv_w2 > max )	// too high
+    msg->snd_code = RC_capros_key_RequestError;
+  else
+    WaiterRequest(msg, menuNum, menuItemNum);
 }
 
 int
@@ -1263,7 +1563,7 @@ cmte_main(void)
 
   // Allocate slot in KR_KEYSTORE:
   result = capros_SuperNode_allocateRange(KR_KEYSTORE,
-                                          LKSN_SERIAL, LKSN_NOTIFY);
+                                          LKSN_SERIAL, LKSN_Last);
   if (result != RC_OK) {
     assert(result == RC_OK);	// FIXME
   }
@@ -1289,30 +1589,60 @@ cmte_main(void)
   for(;;) {
     // Before RETURNing, see if there is any work to be done.
     if (haveSerialKey) {
-      for (;;) {
-        CMTEMutex_lock(&lock);
-        GetMonoTime();
-        // Any task to do?
-        DEBUG(time) kprintf(KR_OSTREAM, "stt=%llu ", nextTaskTime);
-        if (nextTaskTime != 0) {	// no task is in progress
+      CMTEMutex_lock(&lock);
+      GetMonoTime();
+      // Any task to do?
+      if (jobState == js_none) {
+  nextJob:
+        // Find the next job to do.
+        if (haveWaiter) {
+          StartRequest();
+        } else {
+          NextTask();
+        }
+      }
+      DEBUG(sched) kprintf(KR_OSTREAM, "js=%u ", jobState);
+      switch (jobState) {
+      default:
+        assert(false);
+      case js_waiting:
+        if (haveWaiter) {
+          // Interrupt the wait to start a request.
+          StartRequest();
+      case js_request:
+          if (DoRequest())
+            goto nextJob;
+        } else {
           int64_t timeToNextTask = nextTaskTime - monoNow;
           if (timeToNextTask > 0) {
-            // Wait until time for a task.
+            // Nothing to do now but wait for the next task.
+            // Set a timer to wake us up then.
             CMTETimer_setDuration(&tmr, timeToNextTask);
             DEBUG(time) kprintf(KR_OSTREAM,
                           "Task set timeout in %llu\n", timeToNextTask);
             CMTEMutex_unlock(&lock);
-            break;
-          } else {	// time for the next task
+          } else {	// it is now time for the next task
             NextTask();	// select the next task to do
-            assert(nextTaskTime == 0);
-            goto doTask;
+            assert(jobState == js_task);
+      case js_task:
+            if (DoMenu()) {
+              // This should complete the current task.
+              struct Task * ct = currentTask;
+              assert(ct->adapterNum == transmittingAdapterNum);
+              assert(ct->menuNum == wantedMenuNum);
+              if (ct->menuNum == -1) {	// got LEDs
+                DEBUG(leds) kprintf(KR_OSTREAM, "Read LEDs completed.\n");
+                DEBUG(sched) kprintf(KR_OSTREAM, "Task (%d,leds) done.\n",
+                                     ct->adapterNum);
+              } else {
+                assert(ct->menuItemNum == wantedMenuItemNum);
+                DEBUG(sched) kprintf(KR_OSTREAM, "Task (%d,%d,%d) done.\n",
+                               ct->adapterNum, ct->menuNum, ct->menuItemNum);
+              }
+              ct->nextSampleTime = curMenuMonoTime + ct->period;
+              goto nextJob;
+            }
           }
-        } else {
-        doTask:
-          if (DoTask())		// Note, DoTask unlocks
-            break;
-          // else check the task again
         }
       }
     }	// end of if haveSerialKey
@@ -1361,7 +1691,6 @@ cmte_main(void)
         CMTESemaphore_up(&SerialCapSem);	// allow input proc to use it
 
         GetMonoTime();
-        NextTask();	// select the first task
         break;
       }
       break;
@@ -1412,6 +1741,106 @@ cmte_main(void)
       case OC_capros_SWCA_getBatteryVolts:
         as = &adapterStates[Msg.rcv_w1];
         DoGetValue(&Msg, as, &as->battActV);
+        break;
+
+      // Requests:
+      case OC_capros_SWCA_getGeneratorMode:
+        WaiterRequest(&Msg, 1, 1);
+        break;
+
+      case OC_capros_SWCA_setGeneratorMode:
+        if (Msg.rcv_w2 > capros_SWCA_GenMode_Eq)
+          Msg.snd_code = RC_capros_key_RequestError;
+        else
+          WaiterRequest(&Msg, 1, 1);
+        break;
+
+      case OC_capros_SWCA_getLBCOVolts:
+        WaiterRequest(&Msg, 8, 2);
+        break;
+
+      case OC_capros_SWCA_setLBCOVolts:
+        VoltsRequest(&Msg, 8, 2, 320, 640);
+        break;
+
+      case OC_capros_SWCA_getBulkVolts:
+        WaiterRequest(&Msg, 9, 1);
+        break;
+
+      case OC_capros_SWCA_setBulkVolts:
+        VoltsRequest(&Msg, 9, 1, 400, 640);
+        break;
+
+      case OC_capros_SWCA_getAbsorptionTime:
+        WaiterRequest(&Msg, 9, 2);
+        break;
+
+      case OC_capros_SWCA_setAbsorptionTime:
+        IntRequest(&Msg, 9, 2, 0, 23*6+5);
+        break;
+
+      case OC_capros_SWCA_getFloatVolts:
+        WaiterRequest(&Msg, 9, 3);
+        break;
+
+      case OC_capros_SWCA_setFloatVolts:
+        VoltsRequest(&Msg, 9, 3, 400, 640);
+        break;
+
+      case OC_capros_SWCA_getEqualizeVolts:
+        WaiterRequest(&Msg, 9, 4);
+        break;
+
+      case OC_capros_SWCA_setEqualizeVolts:
+        VoltsRequest(&Msg, 9, 4, 400, 640);
+        break;
+
+      case OC_capros_SWCA_getEqualizeTime:
+        WaiterRequest(&Msg, 9, 5);
+        break;
+
+      case OC_capros_SWCA_setEqualizeTime:
+        IntRequest(&Msg, 9, 5, 0, 23*6+5);
+        break;
+
+      case OC_capros_SWCA_getMaxChargeAmps:
+        WaiterRequest(&Msg, 9, 6);
+        break;
+
+      case OC_capros_SWCA_setMaxChargeAmps:
+        IntRequest(&Msg, 9, 6, 1, 35);
+        break;
+
+      case OC_capros_SWCA_getGenAmps:
+        WaiterRequest(&Msg, 10, 2);
+        break;
+
+      case OC_capros_SWCA_setGenAmps:
+        IntRequest(&Msg, 10, 2, 0, 63);
+        break;
+
+      case OC_capros_SWCA_get24HourStartVolts:
+        WaiterRequest(&Msg, 11, 4);
+        break;
+
+      case OC_capros_SWCA_set24HourStartVolts:
+        VoltsRequest(&Msg, 11, 4, 200, 710);
+        break;
+
+      case OC_capros_SWCA_get2HourStartVolts:
+        WaiterRequest(&Msg, 11, 5);
+        break;
+
+      case OC_capros_SWCA_set2HourStartVolts:
+        VoltsRequest(&Msg, 11, 5, 200, 710);
+        break;
+
+      case OC_capros_SWCA_get15MinStartVolts:
+        WaiterRequest(&Msg, 11, 6);
+        break;
+
+      case OC_capros_SWCA_set15MinStartVolts:
+        VoltsRequest(&Msg, 11, 6, 200, 710);
         break;
       }
       break;
