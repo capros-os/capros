@@ -32,18 +32,25 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/TCPListenSocket.h>
 #include <idl/capros/Constructor.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Discrim.h>
+#include <ethread/ethread.h>
 
 #include <domain/domdbg.h>
 
 /* Constituent node contents */
 #include "constituents.h"
 
+/* Constants for setting up the listen process */
+#define STACK_SIZE 4096
 
 /* Key registers */
 #define KR_TCP_PORTNO KR_APP(1) /* The TCP local port key - for listen */
 #define KR_CONNECTION_HANDLER_C KR_APP(2) /* The Construstor for the
 					     connection handler */
 #define KR_SOCKET     KR_APP(3) /* The socket from the listen socket */
+#define KR_LISTENER   KR_APP(4) /* The listener key or VOID if no listener */
+#define KR_HANDLER    KR_APP(5) /* The connection handler object */
+#define KR_DISCRIM    KR_APP(6) /* The Discrim key to test for listener proc */
 #define KR_OSTREAM    KR_APP(9)	/* only used for debugging */
 
 /* DEBUG stuff */
@@ -58,7 +65,7 @@ Approved for public release, distribution unlimited. */
 
 
 /* Internal routine prototypes */
-int listen (Message *argmsg);
+uint32_t listen (Message *argmsg);
 int processRequest(Message *argmsg);
 
 
@@ -69,6 +76,8 @@ main(void)
   char buff[256]; // Initial parameters
   
   capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM); // for debug
+  capros_Node_getSlot(KR_CONSTIT, KC_DISCRIM, KR_DISCRIM); 
+  capros_Process_getKeyReg(KR_SELF, KR_VOID, KR_LISTENER); // Ensure VOID
 
   msg.snd_invKey = KR_VOID;
   msg.snd_key0 = KR_VOID;
@@ -107,7 +116,8 @@ processRequest(Message *argmsg)
 {
   uint32_t result = RC_OK;
   uint32_t code = argmsg->rcv_code;
-  
+  Message msg;
+
   argmsg->snd_len = 0;
   argmsg->snd_w1 = 0;
   argmsg->snd_w2 = 0;
@@ -120,9 +130,34 @@ processRequest(Message *argmsg)
   switch (code) {
   case OC_capros_NetListener_listen:
     {
+      result_t ret;
+      capros_Discrim_classify(KR_DISCRIM, KR_LISTENER, &ret);
+      if (capros_Discrim_clVoid != ret) {
+	argmsg->snd_code = RC_capros_NetListener_Already;
+	break;
+      }
+
       capros_Process_getKeyReg(KR_SELF, KR_ARG(0), KR_TCP_PORTNO);
       capros_Process_getKeyReg(KR_SELF, KR_ARG(1), KR_CONNECTION_HANDLER_C);
-      result = listen(argmsg);
+      result = ethread_new_thread(KR_BANK, STACK_SIZE,
+				  (uint32_t)&listen, KR_LISTENER);
+      if (RC_OK == result) {
+	/* Send the listener the port and handler keys */
+	msg.snd_invKey = KR_LISTENER;
+	msg.snd_key0 = KR_TCP_PORTNO;
+	msg.snd_key1 = KR_CONNECTION_HANDLER_C;
+	msg.snd_key2 = KR_VOID;
+	msg.snd_rsmkey = KR_VOID;
+	msg.snd_data = 0;
+	msg.snd_len = 0;
+	msg.snd_code = 0;
+	msg.snd_w1 = 0;
+	msg.snd_w2 = 0;
+	msg.snd_w3 = 0;
+	SEND(&msg);
+      }
+      //      result = listen(argmsg);
+      argmsg->snd_code = result;
       break;
     }
   case OC_capros_key_getType: /* Key type */
@@ -149,20 +184,64 @@ processRequest(Message *argmsg)
   return 1;
 }
 
-int
+uint32_t
 listen(Message *argmsg)
 {
-  DEBUG(init) kdprintf(KR_OSTREAM, "NetListener: waiting for connections\n");
-  result_t rc = capros_TCPListenSocket_accept(KR_TCP_PORTNO, KR_SOCKET);
+  Message msg;
 
-  switch (rc) {
-  case RC_OK:
-    {
-      rc = capros_Constructor_request(KR_CONNECTION_HANDLER_C,
-             KR_BANK, KR_SCHED, KR_SOCKET, KR_VOID);
-      argmsg->snd_code = rc;
+  /* Set up to receive the port and handler constructor keys */
+  msg.snd_invKey = KR_VOID;
+  msg.snd_key0 = KR_VOID;
+  msg.snd_key1 = KR_VOID;
+  msg.snd_key2 = KR_VOID;
+  msg.snd_rsmkey = KR_VOID;
+  msg.snd_data = 0;
+  msg.snd_len = 0;
+  msg.snd_code = 0;
+  msg.snd_w1 = 0;
+  msg.snd_w2 = 0;
+  msg.snd_w3 = 0;
+
+  msg.rcv_key0 = KR_TCP_PORTNO;
+  msg.rcv_key1 = KR_CONNECTION_HANDLER_C;
+  msg.rcv_key2 = KR_VOID;
+  msg.rcv_rsmkey = KR_RETURN;
+  msg.rcv_limit = 0;
+  msg.rcv_data = NULL;
+  msg.rcv_code = 0;
+  msg.rcv_w1 = 0;
+  msg.rcv_w2 = 0;
+  msg.rcv_w3 = 0;
+  RETURN(&msg);
+
+  DEBUG(init) kdprintf(KR_OSTREAM, "NetListener: waiting for connections\n");
+  while (1) {
+    result_t rc = capros_TCPListenSocket_accept(KR_TCP_PORTNO, KR_SOCKET);
+    
+    switch (rc) {
+    case RC_OK:
+      {
+	rc = capros_Constructor_request(KR_CONNECTION_HANDLER_C,
+					KR_BANK, KR_SCHED, KR_SOCKET, KR_HANDLER);
+	/* TODO Save handler for debugging etc. */
+	/* Send the handler off to serve the socket */
+	msg.snd_invKey = KR_HANDLER;
+	msg.snd_key0 = KR_VOID;
+	msg.snd_key1 = KR_VOID;
+	msg.snd_key2 = KR_VOID;
+	msg.snd_rsmkey = KR_VOID;
+	msg.snd_data = 0;
+	msg.snd_len = 0;
+	msg.snd_code = 0;
+	msg.snd_w1 = 0;
+	msg.snd_w2 = 0;
+	msg.snd_w3 = 0;
+	SEND(&msg);
+
+	argmsg->snd_code = rc;
+      }
+    default: return 1;
     }
-  default: return 1;
+    return 1;
   }
-  return 1;
 }
