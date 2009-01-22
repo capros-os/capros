@@ -32,6 +32,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <idl/capros/key.h>
 #include <idl/capros/Number.h>
+#include <idl/capros/Node.h>
+#include <idl/capros/SuperNode.h>
 #include <idl/capros/HAI.h>
 #include <idl/capros/IP.h>
 #include <idl/capros/RTC.h>
@@ -48,7 +50,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_errors 0x4
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_errors)////
+#define dbg_flags   ( 0u | dbg_errors)
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -57,7 +59,7 @@ Approved for public release, distribution unlimited. */
      and "Omni-Link Serial Protocol Description" 10P17 Rev H September 2004.
    Protocol 2 is Omni-Link II as described in document 20P00 Rev 2.16
      June 2008. */
-#define PROTOCOL 1
+#define PROTOCOL 2
 
 #define KR_RTC     KR_CMTE(0)
 #define KR_CONFIG1 KR_CMTE(1)
@@ -69,6 +71,8 @@ Approved for public release, distribution unlimited. */
 #else
 #define KR_TCPSocket KR_CMTE(4)
 #endif
+
+#define LKSN_Socket LKSN_CMTE
 
 typedef capros_RTC_time_t RTC_time;		// real time, seconds
 
@@ -125,6 +129,21 @@ enum {
 #define mtype_Ack 0x05
 #else
 #define startCharacter 0x21
+#define mtype_Ack 0x01
+enum objectType {
+  ot_zone = 1,
+  ot_unit,
+  ot_button,
+  ot_code,
+  ot_area,
+  ot_thermostat,
+  ot_message,
+  ot_auxSensor,
+  ot_audioSource,
+  ot_audioZone,
+  ot_expansionEnclosure,
+  ot_console
+};
 #endif
 
 #define ol2HeaderSize 4	// size of the Omni-Link II application header
@@ -220,11 +239,16 @@ CreatePort(void)
   DEBUG(server) kprintf(KR_OSTREAM, "Max size rcv %d snd %d\n", maxReceiveSize, maxSendSize);
   // We had better be able to send a message in a single packet:
   assert(maxSendSize >= maxSendMsgLen + ol2HeaderSize);
+
+  // Save it where the timer thread can get it:
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_UDPPort,
+             KR_VOID);
+  assert(result == RC_OK);
 #else	// TCP
   DEBUG(server) kprintf(KR_OSTREAM, "Connecting using TCP.\n");
 
-  result = capros_IP_connect(KR_IP, HAIIpAddr, HAIPort,
-			     KR_TCPSocket);
+  result = capros_IP_TCPConnect(KR_IP, HAIIpAddr, HAIPort,
+			        KR_TCPSocket);
   switch (result) {
   default:
     kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result);
@@ -240,6 +264,11 @@ CreatePort(void)
   }
 
   DEBUG(server) kprintf(KR_OSTREAM, "Connected.\n");
+
+  // Save it where the timer thread can get it:
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_TCPSocket,
+             KR_VOID);
+  assert(result == RC_OK);
 #endif
 }
 
@@ -274,14 +303,14 @@ NetSend(unsigned int len)
 void
 TimerFunction(unsigned long data)
 {
+  result_t result;
+
   DEBUG(errors) kprintf(KR_OSTREAM, "HAI receive timed out.\n");
   /* Destroy the port/socket. This will abort any connection and
   wake up the receiver with an exception. */
-#if (PROTOCOL == 1)
-  capros_key_destroy(KR_UDPPort);
-#else // TCP
-  capros_key_destroy(KR_TCPSocket);
-#endif
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_TEMP0);
+  assert(result == RC_OK);
+  capros_key_destroy(KR_TEMP0);
 }
 
 /* Receive a UDP packet into recvBuf.
@@ -298,7 +327,6 @@ NetReceive(void)
 #if (PROTOCOL == 1)
   uint32_t sourceIPAddr;
   uint16_t sourceIPPort;
-  // FIXME: need a timeout for this
   result = capros_UDPPort_receive(KR_UDPPort, sizeof(recvBuf),
 			&sourceIPAddr, &sourceIPPort,
                         &lenRecvd, recvBuf);
@@ -309,7 +337,6 @@ NetReceive(void)
           lenRecvd, sourceIPAddr, sourceIPPort);
 #else // TCP
   uint8_t flagsRecvd;
-  // FIXME: need a timeout for this
   result = capros_TCPSocket_receive(KR_TCPSocket, sizeof(recvBuf),
                                     &lenRecvd, &flagsRecvd, recvBuf);
   CMTETimer_delete(&tmr);
@@ -578,6 +605,9 @@ cmte_main(void)
 
   result = CMTETimer_setup();
   assert(result == RC_OK);	// FIXME
+  result = capros_SuperNode_allocateRange(KR_KEYSTORE,
+                                          LKSN_Socket, LKSN_Socket);
+  assert(result == RC_OK);	// FIXME
 
   // Get configuration data:
   uint32_t pk0, pk1, pk2, pk3;	// bytes of the private key
@@ -593,7 +623,7 @@ cmte_main(void)
   // Needed to ensure crypto is set up:
   CreateSession();
 
-  for(;;) {
+  for (;;) {
     RETURN(&Msg);
 
     DEBUG(server) kprintf(KR_OSTREAM, "hai was called, OC=%#x\n",
@@ -617,7 +647,11 @@ cmte_main(void)
 
     case OC_capros_HAI_getSystemStatus:
     {
-      SimpleRequest(0x13 /* 0x18 */, 0x14, 15+1);
+#if (PROTOCOL == 1)
+      SimpleRequest(0x13, 0x14, 15+1);
+#else
+      SimpleRequest(0x18, 0x19, 15+1);
+#endif
       Msg.snd_w1 = getRTC();
       Msg.snd_data = &recvMessage[3];
       Msg.snd_len = sizeof(capros_HAI_SystemStatus);
@@ -628,17 +662,32 @@ cmte_main(void)
     {
       unsigned int unit = Msg.rcv_w1;
       while (1) {	// loop until successful
+#if (PROTOCOL == 1)
         sendMessage[2] = 0x17;
         ShortToBE(unit, &sendMessage[3]);
         ShortToBE(unit, &sendMessage[5]);
         int recvLen = OL2SendAndGetReply(5, 0x18, 4);
         if (recvLen >= 0) {
+          Msg.snd_w2 = recvMessage[3];
+          Msg.snd_w3 = BEToShort(&recvMessage[4]);
           break;
         }
+#else
+        sendMessage[2] = 0x22;
+        sendMessage[3] = ot_unit;
+        ShortToBE(unit, &sendMessage[4]);
+        ShortToBE(unit, &sendMessage[6]);
+        int recvLen = OL2SendAndGetReply(6, 0x23, 7);
+        if (recvLen >= 0
+            && recvMessage[3] == ot_unit
+            && BEToShort(&recvMessage[4]) == unit ) {
+          Msg.snd_w2 = recvMessage[6];
+          Msg.snd_w3 = BEToShort(&recvMessage[7]);
+          break;
+        }
+#endif
       }
       Msg.snd_w1 = getRTC();
-      Msg.snd_w2 = recvMessage[3];
-      Msg.snd_w3 = BEToShort(&recvMessage[4]);
       break;
     }
 
@@ -724,7 +773,11 @@ cmte_main(void)
         break;
       }
       while (1) {	// loop until successful
+#if (PROTOCOL == 1)
         sendMessage[2] = 0x0f;
+#else
+        sendMessage[2] = 0x14;
+#endif
         sendMessage[3] = haiCmd;
         sendMessage[4] = haiParam1;
         ShortToBE(unit, &sendMessage[5]);
