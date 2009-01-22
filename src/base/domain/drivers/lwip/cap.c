@@ -540,7 +540,7 @@ TCPSend(Message * msg)
   sock->sendLen = totalLen;
   bool push = flags & (capros_TCPSocket_flagPush
                        | capros_TCPSocket_flagUrgent);	// urgent implies push
-  sock->sendPush = push ? TCP_WRITE_FLAG_MORE : 0;
+  sock->sendPush = push ? 0 : TCP_WRITE_FLAG_MORE;
   sock->sending = true;
 
   // Switch receive buffers. This saves copying the data.

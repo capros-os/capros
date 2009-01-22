@@ -37,8 +37,9 @@ Approved for public release, distribution unlimited. */
 
 #include "cap.h"
 
-#define dbg_tx 1
-#define dbg_rx 2
+#define dbg_tx      0x1
+#define dbg_rx      0x2
+#define dbg_destroy 0x4
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u )
@@ -256,6 +257,8 @@ UDPDestroy(Message * msg)
   struct UDPPort * sock = (struct UDPPort *)msg->rcv_w3;
 	// word from forwarder
 
+  DEBUG(destroy) kprintf(KR_OSTREAM, "UDPDestroy, receiving=%d\n",
+                        sock->receiving);
   if (sock->receiving) {
     // Return to the receiver as though the capability is already gone:
     const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
