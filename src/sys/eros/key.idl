@@ -8,7 +8,7 @@ package capros;
  * they warrant inclusion in the common ancestor of all interfaces.
  */
 abstract interface key raises(Void, UnknownRequest, RequestError, 
-			      NoAccess, NoMoreNodes, NoMorePages, 
+			      NoAccess, 
 			      NotPersistent) {
   exception Void;
   exception UnknownRequest;
@@ -23,8 +23,6 @@ abstract interface key raises(Void, UnknownRequest, RequestError,
   // exception names must conceptually be globally unique.
 
   exception BadBank;
-  exception NoMoreNodes;
-  exception NoMorePages;
   exception NotPersistent;
 
   const unsigned long msgLimit = 65536;
