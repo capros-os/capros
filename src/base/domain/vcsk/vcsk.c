@@ -123,7 +123,7 @@ L2v goes down by EROS_NODE_LGSIZE at each level - no levels are skipped.
 #define KR_ZINDEX   KR_APP(3)	/* index of primordial zero space */ 
 #define KR_OSTREAM  KR_APP(4)
 #define KR_L1_NODE  KR_APP(5)		/* last L1 node we COW'd a page into */
-#define KR_PG_CACHE KR_APP(6)		/* really 13, 14, 15 */
+#define KR_PG_CACHE KR_APP(6)		/* really KR_APP(6, 7, 8) */
 
 #define KR_NEWOBJ  KR_ARG(0)
 #define KR_SEGMENT KR_ARG(2)
@@ -287,49 +287,45 @@ GetBlss(uint32_t krMem)
   }
   return L2vToBlss(l2v);
 }
-  
-uint32_t
-AllocPage(state *pState)
+
+cap_t
+AllocPage(state * pState, result_t * resultp)
 {
+  result_t result;
 #if 1
   if (pState->npage == 0) {
-    if (capros_SpaceBank_alloc3(KR_BANK,
+    result = capros_SpaceBank_alloc3(KR_BANK,
           capros_Range_otPage
           | ((capros_Range_otPage | (capros_Range_otPage << 8)) << 8),
-			       KR_PG_CACHE + 1,
-			       KR_PG_CACHE + 2,
-			       KR_PG_CACHE + 3) == RC_OK) {
+			            KR_PG_CACHE + 0,
+			            KR_PG_CACHE + 1,
+			            KR_PG_CACHE + 2);
+    if (result == RC_OK) {
       pState->npage = 3;
-    }
-    else if (capros_SpaceBank_alloc2(KR_BANK,
-               capros_Range_otPage | (capros_Range_otPage << 8),
-			       KR_PG_CACHE + 1,
-			       KR_PG_CACHE + 2 ) == RC_OK) {
-      pState->npage = 2;
-    }
-    else if (capros_SpaceBank_alloc1(KR_BANK,
-                               capros_Range_otPage,
-			       KR_PG_CACHE + 1 ) == RC_OK) {
-      pState->npage = 1;
-    }
-    else {
-      DEBUG(returns) kprintf(KR_OSTREAM, "AllocPage failed\n");
-      return KR_VOID;
+    } else {
+      // We could try allocating 2 pages here,
+      // but that does not seem like a worthwhile optimization,
+      // since there is a good chance it won't succeed.
+      result = capros_SpaceBank_alloc1(KR_BANK,
+                                       capros_Range_otPage,
+  			               KR_PG_CACHE + 0 );
+      if (result == RC_OK) {
+        pState->npage = 1;
+      } else {
+        DEBUG(returns) kprintf(KR_OSTREAM, "AllocPage failed\n");
+        *resultp = result;
+        return KR_VOID;
+      }
     }
   }
-  
-  {
-    uint32_t kr = KR_PG_CACHE + pState->npage;
-    pState->npage--;
-
-    return kr;
-  }
+  return KR_PG_CACHE + --pState->npage;
 #else
-  if (capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage,
-			     KR_NEWOBJ ) == RC_OK)
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_NEWOBJ);
+  if (result == RC_OK)
     return KR_NEWOBJ;
   else {
     DEBUG(returns) kprintf(KR_OSTREAM, "AllocPage failed\n");
+    *resultp = result;
     return KR_VOID;
   }
 #endif
@@ -356,7 +352,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	 /first_zero_offset/.
       */
       
-      uint32_t result;
+      result_t result;
       
       pState->was_access = false;
       
@@ -382,9 +378,10 @@ HandleSegmentFault(Message *pMsg, state *pState)
 				  subsegBlss, offsetBlss);
       
 	  /* Buy a new GPT to expand with: */
-	  if (capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_NEWOBJ)
-              != RC_OK)
-	    return RC_capros_key_NoMoreNodes;
+          result = capros_SpaceBank_alloc1(KR_BANK,
+                                           capros_Range_otGPT, KR_NEWOBJ);
+	  if (result != RC_OK)
+	    return result;
       
 	  /* Make that node have BLSS == subsegBlss+1: */
           capros_GPT_setL2v(KR_NEWOBJ, BlssToL2v(subsegBlss+1));
@@ -503,7 +500,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 
       uint8_t subsegBlss;
       
-      uint32_t result;
+      result_t result;
       uint32_t orig_offset = offset;
       
       bool needTraverse = true;
@@ -616,9 +613,10 @@ HandleSegmentFault(Message *pMsg, state *pState)
 				 subsegBlss);
 
 	  /* Buy a new read-write GPT: */
-	  if (capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_NEWOBJ)
-              != RC_OK )
-	    return RC_capros_key_NoMoreNodes;
+          result = capros_SpaceBank_alloc1(KR_BANK,
+                                           capros_Range_otGPT, KR_NEWOBJ);
+	  if (result != RC_OK)
+	    return result;
       
 	  /* Copy the slots and l2v from the old subseg into the new: */
 	  capros_GPT_clone(KR_NEWOBJ, KR_SCRATCH);
@@ -664,13 +662,13 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	   insert ZERO_EXTEND_BY pages at a time. */
 	for (count = 0; ((slot < EROS_NODE_SIZE) &&
 			 (count < ZERO_EXTEND_BY)); count++, slot++) {
-	  uint32_t kr = AllocPage(pState);
+	  cap_t kr = AllocPage(pState, &result);
 
 	  if (kr == KR_VOID) {
 	    if (count)
 	      break;
 	    else
-	      return RC_capros_key_NoMorePages;
+	      return result;	// failed to get any pages
 	  }
 
 	  capros_GPT_setSlot(KR_L1_NODE, slot, kr);
@@ -686,9 +684,9 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	return RC_OK;
       }
       else {
-	uint32_t kr = AllocPage(pState);
+	cap_t kr = AllocPage(pState, &result);
 	if (kr == KR_VOID)
-	  return RC_capros_key_NoMorePages;
+	  return result;
 
 	capros_Page_clone(kr, KR_SCRATCH);
 	    
