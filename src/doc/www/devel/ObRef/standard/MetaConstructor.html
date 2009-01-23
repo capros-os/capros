@@ -89,7 +89,8 @@
 	       <strong>RK0</strong>
 	     </td>
 	     <td>
-	       A builder's key to the new factory.
+	       A builder's key to the new factory, if the operation
+               was successful.
 	     </td>
 	   </tr>
 	   <tr valign=top>
@@ -105,22 +106,10 @@
 	   </tr>
 	   <tr valign=top>
 	     <td align=right>
-	       <em>RC_NoMoreNodes</em>
+	       <em>RC_capros_SpaceBank_LimitReached</em>
 	     </td>
-	     <td> Space bank ran out of nodes while creating new
-	       factory.  All successfully allocated nodes and pages
-	       have been returned to the space bank. RK0 is a
-	       void key.
-	     </td>
-	   </tr>
-	   <tr valign=top>
-	     <td align=right>
-	       <em>RC_NoMorePages</em>
-	     </td>
-	     <td> Space bank ran out of pages while creating new
-	       factory.  All successfully allocated nodes and pages
-	       have been returned to the space bank. RK0 is a
-	       void key.
+	     <td> There was insufficient space in the space bank to create the
+	       new factory. 
 	     </td>
 	   </tr>
 	 </table>
@@ -170,8 +159,12 @@
   </dl>
 </div>
 <hr>
-<em>Copyright 1998, 2001 by Jonathan Shapiro.  All rights reserved.  For terms of 
-redistribution, see the 
+<em>Copyright 1998, 2001 by Jonathan Shapiro.
+    Copyright 2009, Strawberry Development Group.
+  All rights reserved.  For terms of redistribution, see the 
 <a href="../../../legal/license/GPL.html">GNU General Public License</a></em>
+This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited.
 </td><td width="10%">&nbsp;</td></tr></table></BODY>
 </html>
