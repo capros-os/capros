@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -31,6 +31,7 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
 {
   uint32_t isGood;
   int i;
+  result_t result;
 
   DEBUG kdprintf(KR_OSTREAM, "Check official bank...\n");
 
@@ -43,11 +44,11 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
 #if defined(EROS_TARGET_i486)
 
   /* Bank is okay, try to buy the space: */
-  if (capros_SpaceBank_alloc2(krBank,
+  result = capros_SpaceBank_alloc2(krBank,
                               capros_Range_otNode | (capros_Range_otNode << 8),
-                              krDomKey, KR_SCRATCH0
-			     ) != RC_OK )
-    return RC_capros_key_NoMoreNodes;
+                              krDomKey, KR_SCRATCH0 );
+  if (result != RC_OK)
+    return result;
 
   DEBUG kdprintf(KR_OSTREAM, "Assemble them\n");
 
@@ -100,11 +101,11 @@ create_new_process(uint32_t krBank, uint32_t krDomKey)
 #elif defined(EROS_TARGET_arm)
 
   /* Bank is okay, try to buy the space: */
-  if (capros_SpaceBank_alloc2(krBank,
+  result = capros_SpaceBank_alloc2(krBank,
                               capros_Range_otNode | (capros_Range_otNode << 8),
-                              krDomKey, KR_SCRATCH0
-			     ) != RC_OK )
-    return RC_capros_key_NoMoreNodes;
+                              krDomKey, KR_SCRATCH0 );
+  if (result != RC_OK)
+    return result;
 
   DEBUG kdprintf(KR_OSTREAM, "Assemble them\n");
 
