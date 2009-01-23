@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -156,7 +156,7 @@ driver_main(void)
 	result = capros_SpaceBank_alloc1(KR_BANK,
 	  capros_Range_otForwarder, KR_TEMP1);
 	if (result != RC_OK) {
-          msg->snd_code = RC_capros_key_NoMoreNodes;
+          msg->snd_code = result;
 	  goto noForwarder;
 	}
 	result = capros_Process_makeStartKey(KR_SELF, keyInfoSCSIDevice,

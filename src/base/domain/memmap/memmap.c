@@ -245,7 +245,7 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	 /first_zero_offset/.
       */
       
-      uint32_t result;
+      result_t result;
       
       pState->was_access = false;
       
@@ -273,9 +273,10 @@ HandleSegmentFault(Message *pMsg, state *pState)
 				  subsegBlss, offsetBlss);
       
 	  /* Buy a new GPT to expand with: */
-	  if (capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_NEWOBJ)
-              != RC_OK)
-	    return RC_capros_key_NoMoreNodes;
+          result = capros_SpaceBank_alloc1(KR_BANK,
+                                           capros_Range_otGPT, KR_NEWOBJ);
+	  if (result != RC_OK)
+	    return result;
       
 	  /* Make that GPT have BLSS == subsegBlss+1: */
 	  capros_GPT_setL2v(KR_NEWOBJ, BlssToL2v(subsegBlss+1));

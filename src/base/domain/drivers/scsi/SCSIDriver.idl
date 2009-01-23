@@ -93,5 +93,6 @@ interface SCSIControl32 extends SCSIControl {
     DMA32.DMAAddress coherentDMAMask;
   };
 
+  // Raises SpaceBank.LimitReached.
   SCSIHost addHost(SCSIHostTemplate hostt, SCSIDevice dev);
 };
