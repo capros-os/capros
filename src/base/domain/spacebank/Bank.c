@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan Adams.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -814,13 +814,17 @@ BankDeallocObject(Bank * bank, uint32_t kr)
   return RC_OK;
 }
 
-uint32_t
+result_t
 BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
 {
   OID oid;
-  int retval = 0;
+  int retval;
   uint32_t retVal;
   uint64_t newFrame;
+
+  if (type >= capros_Range_otNUM_TYPES)
+    return RC_capros_key_RequestError;
+
   const uint8_t baseType = typeToBaseType[type];
 
   struct Bank_MOFrame * obj_frame = bank_getTypeFrame(bank, baseType);

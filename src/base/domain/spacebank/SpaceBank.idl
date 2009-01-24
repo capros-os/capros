@@ -29,6 +29,8 @@ interface SpaceBank extends key
   const unsigned byte precludeDestroy = 1;
   const unsigned byte precludeSetLimits = 2;
 
+  /* Raises key.RequestError if obTypeN is not valid.
+  Raises LimitReached if the object cannot be allocated. */
   void alloc1(Range.obType obType1,
               out capros.key k0);
 
