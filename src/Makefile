@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -29,7 +29,7 @@ EROS_SRC=.
 # DIRS are ordered:
 # build must be made before others. base and doc can be in either order.
 # Nothing depends on legal.
-DIRS=legal sys base doc tutorial
+DIRS=legal sys base doc tutorials $(CAPROS_LOCALDIR)
 CLEANDIRS=build $(DIRS)
 
 UPDATE_DIRS=$(DIRS)
