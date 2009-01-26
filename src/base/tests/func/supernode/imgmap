@@ -1,6 +1,6 @@
 /* -*- C -*- */
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -40,6 +40,7 @@ seg = seg with page at 0x1f000; /* for stack */
 test space = seg;
 test schedule = sched(8);   /* normal */
 
+test key reg KR_SELF = test;
 test key reg KR_BANK = primebank;
 test key reg KR_SCHED = sched(8);
 
