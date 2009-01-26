@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2008, Strawberry Development Group.
+# Copyright (C) 2006, 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -56,6 +56,7 @@ DIRS+=idltest
 DIRS+=ip
 DIRS+=keyset
 # DIRS+=linedisc # broken due to RETRY_SET_LIK
+DIRS+=logfile
 DIRS+=mutex
 DIRS+=nfile
 DIRS+=pipe
@@ -66,7 +67,7 @@ DIRS+=vcsk
 #DIRS+=displaymgr
 # DIRS+=winsys # broken due to RETRY_SET_WAKEINFO
 DIRS+=memmap
-DIRS+=net 
+# DIRS+=net # from EROS, not used in CapROS
 # DIRS+=eterm # broken due to RETRY_SET_LIK
 # DIRS+=rangeAl # broken, compilation errors
 DIRS+=timer

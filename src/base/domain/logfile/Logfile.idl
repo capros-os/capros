@@ -1,0 +1,120 @@
+package capros;
+
+/* An object for storing variable-length records in a log. */
+/* There is an implementation-defined maximum size of a log which is
+   architecture-dependent. On ARM it is about 2**25. */
+/* The record size is variable
+   and is limited by the size of data in a message. */
+interface Logfile extends key raises(OutOfSequence)
+{
+  exception OutOfSequence;
+  exception NoRecord;
+  exception Full;
+
+  typedef unsigned<64> RecordID;
+  const RecordID nullRecordID = 0;
+
+  /* Each record must have a recordHeader at the beginning,
+  followed by application-specific data,
+  followed by a trailer consisting of an unsigned long containing
+  another copy of the length (to facilitate searching backwards).
+
+  The length must be a multiple of sizeof(RecordID) (to ensure alignment).
+
+  The rtc field is available for any application data.
+  It is expected, but not required, that the rtc will be the
+  real time of the data.
+
+  The id field of all records must be different and increasing 
+    and not equal to nullRecordID.
+  It is expected, but not required, that the id will be
+  the persistent monotonic timestamp of the data. */
+  struct recordHeader {
+    unsigned long length;	// length of record in bytes
+				// (including header and trailer)
+    RTC.time_t rtc;		// RTC time of the data
+    RecordID id;		// monotonic unique ID
+  };
+
+  const unsigned long MaxRecordLength = 4096;
+
+  /* Append a record to the log.
+  Raises OutOfSequence if the record's id is less than or equal to
+    a previous record's, or equal to nullRecordID.
+  Raises RequestError if the length of the record (including header
+    and trailer) exceeds MaxRecordLength or does not match the length
+    in the header or trailer.
+  Raises Full if an implementation-defined limit would be exceeded.
+  Raises SpaceBank.LimitReached if no space is available from the space bank.
+    (In this case records may have been deleted according to the
+    value specified in setDeletionPolicyBySpace, as if the record
+    had been added.)
+  */
+  // Order code 1:
+  client
+  void appendRecord(unsigned long length,
+                    out unsigned<8> data /* really a ptr to the input data */ );
+
+  /* Delete the oldest record.
+  Raises NoRecord if there are no records. */
+  void deleteOldestRecord();
+
+  /* Get the record with the smallest RecordID greater than thisRL.
+  If thisRL is nullRecordID, get the oldest record.
+
+  The id of the returned record can be used on a subsequent call
+  to continue getting sequential records.
+
+  Raises NoRecord if there is no such record.
+  */
+  // Order code 2:
+  client
+  void getNextRecord(RecordID thisRL, unsigned long maxLenToReceive,
+                     out unsigned<8> data,
+                     out unsigned long lengthGotten);
+
+  /* Get the record with the largest RecordID less than thisRL.
+  If thisRL is nullRecordID, gets the newest record.
+
+  The id of the returned record can be used on a subsequent call
+  to continue getting sequential records.
+
+  Raises NoRecord if there is no such record.
+  */
+  // Order code 3:
+  client
+  void getPreviousRecord(RecordID thisRL, unsigned long maxLenToReceive,
+                 out unsigned<8> data,
+                 out unsigned long lengthGotten);
+
+  /* Similar to getNextRecord, but instead of getting one record, it gets
+  as many as will fit in maxLenToReceive. */
+  // Order code 4:
+  client
+  void getNextRecords(RecordID thisRL, unsigned long maxLenToReceive,
+                      out unsigned<8> data,
+                      out unsigned long lengthGotten);
+
+  /* Similar to getPreviousRecord, but instead of getting one record, it gets
+  as many as will fit in maxLenToReceive.
+  The returned string contains the returned records in the normal order,
+  that is, oldest first. */
+  // Order code 5:
+  client
+  void getPreviousRecords(RecordID thisRL, unsigned long maxLenToReceive,
+                  out unsigned<8> data,
+                  out unsigned long lengthGotten);
+
+  /* This operation instructs the log to automatically delete records
+  whose id is less than (the id of the newest record minus the specified age).
+  If record ids are a time value, this deletes records older than a
+  specified amount.
+  If record ids are consecutive serial numbers, this sets a maximum
+  number of records in the Logfile. */
+  void setDeletionPolicyByID(RecordID age);
+
+  /* This operation instructs the log to automatically delete records
+  when the space occupied by the records in the log
+  would exceed the specified number of bytes. */
+  void setDeletionPolicyBySpace(unsigned long size);
+};
