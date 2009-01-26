@@ -55,6 +55,7 @@ $(BUILDDIR)/serial: $(OBJECTS) $(DEVSTART) $(DRIVERDEPS)
 	$(DRIVERLINK) $(OBJECTS) $(DRIVERLIBS) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers
