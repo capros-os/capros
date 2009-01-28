@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -47,7 +47,7 @@ ip_cksum(uint16_t *buf, int len)
   uint16_t cksum=0;
   typedef char * caddr_t;
 
-  if ((uint32_t)buf & 0x01)
+  if ((size_t)buf & 0x01)
     {
       cksum=(*(uint8_t *)buf)<<8;
       buf=(uint16_t *)((caddr_t)buf+1);
