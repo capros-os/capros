@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, The EROS Group, LLC.
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -1292,6 +1292,7 @@ output_server_dispatch(FILE *out, Symbol *s, int indent)
 }
 #endif
 
+#if 0
 static void
 output_server_dispatch(FILE *out, Symbol *s, int indent)
 {
@@ -1341,7 +1342,6 @@ output_server_dispatch(FILE *out, Symbol *s, int indent)
   }
 }
 
-#if 0
 static void
 output_interface_dispatch(FILE *out, Symbol *s, int indent)
 {
