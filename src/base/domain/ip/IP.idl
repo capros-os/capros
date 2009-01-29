@@ -68,7 +68,7 @@ interface TCPSocket extends key {
 
   After the close operation:
   - No more sends are allowed.
-  - Existing sends will finish.
+  - Any send in progress will finish.
   - Receive is still allowed until the other end acknowledges the close.
 
   May raise NoMem, in which case the connection is not closed. 
@@ -80,6 +80,15 @@ interface TCPSocket extends key {
   */
   void close();
 
+  /** abort - Abort the connection.
+
+  An abort signal is sent to the other end of the connection.
+  After the abort operation:
+  - No more sends or receives are allowed.
+  - Any send or receive in progress will suffer a key.Void exception.
+  - Any queued data to or from the connection is discarded.
+  - The TCPSocket object is destroyed.
+  */
   void abort();
 
   /* The following two are not implemented in IDL because the IDL compiler
