@@ -34,9 +34,9 @@
             You must also have GRUB installed, because CapROS is
             loaded by GRUB using the Multiboot specification.
           </p>
-          <h3>2.1.2. For Fedora Core</h3>
+          <h3>2.1.2. For Fedora</h3>
             <ul>
-            <li>transfig
+            <li>Some versions need transfig.
             </ul>
           <h3>2.1.3. For Debian Sarge</h3>
             <ul>
@@ -53,7 +53,7 @@
             for hosting these tools. 
       <h3>2.2.1 Setting up on Linux/YUM Systems</h3>
       <p>
-	If you are running Fedora Core, you can add the YUM
+	If you are running Fedora, you can add the YUM
 	repository to your <tt>yum</tt> and
 	<tt>up2date</tt> configurations by executing:
       </p>
@@ -68,7 +68,7 @@ su -c 'rpm -ivh http://www.coyotos.org/YUM/coyotos/6/i386/Coyotos-Repository-3.2
 su -c 'yum install capros-i386-xenv'
 </pre>
       <p>
-	And you can then update the cross compilation
+	And you can later update the cross compilation
 	tools by running:
       </p>
       <pre>
@@ -93,7 +93,7 @@ email of 5/16/06</a>.)
         Coyotos build instructions</a>, substituting "capros" where
         appropriate.
       </p>
-      <h3>2.2.2 Setting up on Fedora core 8 using the GUI</h3>
+      <h3>2.2.2 Setting up on Fedora Core 8 using the GUI</h3>
 	  <p>
 	    If you are running on Fedora Core 8, you can add the build tools
 	    to your automatic software update list with the following procedure.
@@ -101,6 +101,9 @@ email of 5/16/06</a>.)
 	  <p>
 	    Under "Applications", open the "Add/Remove Software" and enter your
 	    root password when prompted.
+            (Fedora 10 has an tool under
+            System->Administration->Add/Remove Software, 
+            but it isn't capable of adding repositories.)
 	  </p>
 	  <p>
 	    Open up the "Edit" menu and select "Repositories".
@@ -375,7 +378,7 @@ make np
           Set up Redboot according to the instructions that came with
           the EDB9315. To install tftp, you will need to:
 <pre>
-su -c 'yum install tftp tftp-server'
+su -c 'yum install tftp-server'
 </pre>
           and then use the application at System->Administration->Services
           to enable tftp and restart xinetd. 
@@ -401,7 +404,7 @@ go
 <a href="http://sourceforge.net"><img src="http://sourceforge.net/sflogo.php?group_id=132228&amp;type=1" width="88" height="31" border="0" alt="SourceForge.net Logo" /></a>
   </td>
   <td>
-      <em>Copyright 2005, 2006, 2007, 2008 by Strawberry Development Group.  All rights reserved.
+      <em>Copyright 2005, 2006, 2007, 2008, 2009 by Strawberry Development Group.  All rights reserved.
       For terms of redistribution, see the <a
       href="../legal/license/GPL.html">GNU General Public License</a></em>
 This material is based upon work supported by the US Defense Advanced
