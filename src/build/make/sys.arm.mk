@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -65,8 +65,8 @@ np: $(BUILDDIR)/sysimg $(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata
 
 // Link kernel, non-persistent objects, and persistent objects:
 p: $(BUILDDIR)/sysimg $(BUILDDIR)/psysimg $(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata
-	$(EROS_ROOT)/host/bin/npgen -s $(NPRANGESIZE) $(BUILDDIR)/sysimg -p $(BUILDDIR)/imgdata
-	$(EROS_ROOT)/host/bin/npgen -s $(PRANGESIZE) -b 0x0100000000000000 $(BUILDDIR)/psysimg -a $(BUILDDIR)/imgdata
+	$(EROS_ROOT)/host/bin/npgen -m $(BUILDDIR)/sysimg.map -s $(NPRANGESIZE) $(BUILDDIR)/sysimg -p $(BUILDDIR)/imgdata
+	$(EROS_ROOT)/host/bin/npgen -m $(BUILDDIR)/psysimg.map -s $(PRANGESIZE) -b 0x0100000000000000 $(BUILDDIR)/psysimg -a $(BUILDDIR)/imgdata
 	cp $(BUILDDIR)/kerneltext $(BUILDDIR)/kerneldata $(BUILDDIR)/imgdata $(BOOTDIR)
 
 $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(KERNPATH) $(VOLMAP)
