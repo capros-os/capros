@@ -1,7 +1,7 @@
 %{
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -995,7 +995,7 @@ key:   NULLKEY {
         }
 
        | PHYSPAGE RO '(' arith_expr ')' {
-          OID oid = $4 / (EROS_PAGE_SIZE / EROS_OBJECTS_PER_FRAME)
+          OID oid = (OID)($4) / (EROS_PAGE_SIZE / EROS_OBJECTS_PER_FRAME)
                     + OID_RESERVED_PHYSRANGE;
 
 	  SHOWPARSE("=== key -> RO PHYSPAGE ( arith_expr )\n");
