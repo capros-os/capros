@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -65,6 +65,8 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   if (len == 0)
     return;
+  if (sndLen > capros_key_msgLimit)
+    fatal("Invalid sndLen: should fault the user"); // FIXME
 
   /* Make sure the string gets mapped if there is one: */
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -116,6 +116,8 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   uint32_t sndLen = inv->entry.len = thisPtr->trapFrame.r3;
   if (sndLen == 0)
     return;
+  if (sndLen > capros_key_msgLimit)
+    fatal("Invalid sndLen: should fault the user"); // FIXME
 
   /* Get user's snd_addr from his Message structure. */
   ula_t addr;
