@@ -2,7 +2,7 @@
 #define __EROSTYPES_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -26,9 +26,57 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 
+/* The target and host programs such as sysgen need to agree on the
+alignment and endianness of uint64_t.
+Use target_u64 when declaring uint64_t in a structure.
+The following works for targets that align uint64_t the same as uint32_t. */
+
+#ifdef __KERNEL__	// if compiling for target
+
+typedef uint64_t target_u64;
+
+INLINE uint64_t
+get_target_u64(const target_u64 * p)
+{
+  return *p;
+}
+
+INLINE void
+put_target_u64(target_u64 * p, uint64_t v)
+{
+  *p = v;
+}
+
+#else			// compiling for host
+
+#include <eros/endian.h>
+
+typedef struct {
+  uint32_t words[2];
+} target_u64;
+
+INLINE uint64_t
+get_target_u64(const target_u64 * p)
+{
+  return ((uint64_t)p->words[_QUAD_HIGHWORD] << 32) + p->words[_QUAD_LOWWORD];
+}
+
+INLINE void
+put_target_u64(target_u64 * p, uint64_t v)
+{
+  p->words[_QUAD_LOWWORD] = (uint32_t)v;
+  p->words[_QUAD_HIGHWORD] = v >> 32;
+}
+
+#endif
+
 typedef uint32_t ObCount;
 
 typedef uint64_t OID;
+typedef target_u64 OID_s;	// use this in structures
+#define get_target_oid(p) get_target_u64(p)
+#define put_target_oid(p, v) put_target_u64(p, v)
+
 typedef OID frame_t;	// (64 - 8) bits suffice
 
 // OIDs between 0 and FIRST_PERSISTENT_OID are for non-persistent objects.
@@ -78,6 +126,9 @@ FrameObIndexToOID(frame_t frame, unsigned int obindex)
 
 // An identifier of a location in the log:
 typedef uint64_t LID;
+typedef target_u64 LID_s;	// use this in structures
+#define get_target_lid(p) get_target_u64(p)
+#define put_target_lid(p, v) put_target_u64(p, v)
 #define UNUSED_LID ((LID)0)
 #define CONTENT_LID(x) ((x) != UNUSED_LID)
 	// LID is the location of contents

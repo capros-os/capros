@@ -2,7 +2,7 @@
 #define __DISK_KEYSTRUCT_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -36,7 +36,7 @@ typedef struct KeyBits KeyBits;
 struct KeyBits {
   union {
     struct {
-      OID     oid;
+      OID_s oid;
       ObCount count;
     } unprep;
 
@@ -70,8 +70,8 @@ struct KeyBits {
      */
 
     struct {			/* RANGE KEYS */
-      OID     oid;
-      uint32_t    count;
+      OID_s oid;
+      uint32_t count;
     } rk;      
     
     struct {			/* DEVICE KEYS */

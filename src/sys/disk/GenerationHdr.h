@@ -1,7 +1,7 @@
 #ifndef __GENERATIONHDR_H__
 #define __GENERATIONHDR_H__
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -27,7 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <disk/ErosTypes.h>
 
 struct GenDirHdr {
-  LID firstDirFrame;
+  LID_s firstDirFrame;
   uint32_t nDirFrames;
   uint32_t nDescriptors;	// number of descriptors in the header frame
 };
@@ -35,9 +35,9 @@ struct GenDirHdr {
 typedef struct DiskGenerationHdr {
   // Beware of alignment: this structure is used on both the host and target.
   uint32_t versionNumber;
-  uint64_t generationNumber;
-  LID firstLid;
-  LID lastLid;
+  target_u64 generationNumber;
+  LID_s firstLid;
+  LID_s lastLid;
   struct GenDirHdr objectDir;
 
   /* The following could be in the CkptRoot, but putting them here helps
@@ -45,14 +45,14 @@ typedef struct DiskGenerationHdr {
 
   struct GenDirHdr processDir;
 
-  uint64_t persistentTimeOfDemarc;	// in units of nanoseconds
+  target_u64 persistentTimeOfDemarc;	// in units of nanoseconds
 } DiskGenerationHdr;
 
 // struct DiskProcessDescriptor is packed because
 // (1) it needs to be the same on the host and target, and
 // (2) it saves space on disk.
 struct DiskProcessDescriptor {
-  OID oid;
+  OID_s oid;
   ObCount allocCount;
   uint8_t actHazard;
 } __attribute__ ((packed));
@@ -61,10 +61,10 @@ struct DiskProcessDescriptor {
 // (1) it needs to be the same on the host and target, and
 // (2) it saves space on disk.
 struct DiskObjectDescriptor {
-  OID oid;
+  OID_s oid;
   ObCount allocCount;
   ObCount callCount;
-  LID lid;
+  LID_s lid;
   uint8_t type;
 } __attribute__ ((packed));
 

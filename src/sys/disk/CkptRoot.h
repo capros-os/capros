@@ -1,7 +1,7 @@
 #ifndef __CKPTROOT_H__
 #define __CKPTROOT_H__
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -39,21 +39,21 @@ typedef struct CkptRoot {
 
   ObCount maxNPAllocCount;
 
-  uint64_t mostRecentGenerationNumber;
+  target_u64 mostRecentGenerationNumber;
 
   uint32_t numUnmigratedGenerations;
 
   // The last LID in the log + 1.
   // This tells us when the entire log is mounted.
   // Is this needed?
-  LID endLog;
+  LID_s endLog;
 
   /* The LIDs of the generation headers of all the unmigrated generations,
   plus the newest migrated generation,
   in order beginning with the most recent: */
-  LID generations[MaxUnmigratedGenerations+1];
+  LID_s generations[MaxUnmigratedGenerations+1];
 
-  uint64_t checkGenNum;	// a copy of mostRecentGenerationNumber,
+  target_u64 checkGenNum;	// a copy of mostRecentGenerationNumber,
 			// to check that the full structure was written
 			// (a checksum would be better...)
 

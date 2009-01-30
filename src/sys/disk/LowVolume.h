@@ -2,7 +2,7 @@
 #define __LOWVOLUME_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -50,8 +50,8 @@ typedef enum DivType DivType;
 
 struct Division {
   // Beware of alignment: this structure is used on both the host and target.
-  OID startOid;
-  OID endOid;
+  OID_s startOid;
+  OID_s endOid;
 
   uint32_t start;	// sector # within this volume
   uint32_t end;
@@ -74,10 +74,10 @@ extern const char *div_TypeName(uint8_t ty);
 INLINE bool
 div_contains(const struct Division *d, const OID oid)
 {
-  if (d->startOid > oid)
+  if (get_target_u64(&d->startOid) > oid)
     return false;
   
-  if (d->endOid <= oid)
+  if (get_target_u64(&d->endOid) <= oid)
     return false;
 
   return true;
@@ -108,7 +108,7 @@ struct VolHdr {
 				 * to this volume by the formatter.
 				 */
   uint32_t    zipLen;		/* unused */
-  uint64_t    iplSysId;		/* Unique system identifier */
+  target_u64  iplSysId;		/* Unique system identifier */
 
   uint8_t     signature[4];	/* 'E' 'R' 'O' 'S' */
 } ;

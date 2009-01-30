@@ -1,7 +1,7 @@
 #ifndef _DISKOBJDESCR_H
 #define _DISKOBJDESCR_H
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -30,10 +30,10 @@ Approved for public release, distribution unlimited. */
 // (2) it saves space on disk.
 
 struct DiskObjectDescriptor {
-  OID       oid;		/**<The Object ID of the object. */
+  OID_s     oid;		/**<The Object ID of the object. */
   ObCount   allocCount;		/**<The allocation count of the object. */
   ObCount   callCount;		/**<The call count of the object. */
-  LID       logLoc;		/**<The Log location ID where the object
+  LID_s     logLoc;		/**<The Log location ID where the object
 				   is stored in the log. */
   uint8_t   type;		/**<The type of the object. */
 } __attribute__ ((packed));

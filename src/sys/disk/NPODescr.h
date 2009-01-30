@@ -1,7 +1,7 @@
 #ifndef __NPODESCR_H__
 #define __NPODESCR_H__
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -75,8 +75,8 @@ struct NPObjectsDescriptor {
 		// + (numNodes + DISK_NODES_PER_PAGE - 1) / DISK_NODES_PER_PAGE
 		// This saves a computation in the boot code.
   uint32_t numFramesInRange;	// includes unallocated frames
-  OID OIDBase;		// The first OID of the non-persistent objects
-  OID IPLOID;		// The OID of the IPL process
+  OID_s OIDBase;	// The first OID of the non-persistent objects
+  OID_s IPLOID;		// The OID of the IPL process
   uint32_t numNodes;
   uint32_t numNonzeroPages;
   uint32_t numZeroPages;	// zero pages allocated in mkimage

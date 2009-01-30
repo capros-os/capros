@@ -2,7 +2,7 @@
 #define __DISK_DISKNODE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -38,7 +38,7 @@ Approved for public release, distribution unlimited. */
 #include "KeyStruct.h"
 
 typedef struct DiskNode {
-  OID oid;
+  OID_s oid;
   ObCount allocCount;
   ObCount callCount;
 
