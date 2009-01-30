@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -25,7 +25,7 @@ Approved for public release, distribution unlimited. */
 #include <stdio.h>
 #include <getopt.h>
 #include <stdlib.h>
-#include <stdio.h>
+//#include <stddef.h>
 #include <string.h>
 #include <assert.h>
 
@@ -42,32 +42,7 @@ FILE *map_file = 0;
 OID OIDBase = 0;
 unsigned long numFramesInRange = 0;
 
-void
-RelocateKey(KeyBits *key, OID nodeBase, OID pageBase,
-	    uint32_t nPages)
-{
-  if ( keyBits_IsType(key, KKT_Page) ) {
-    if (key->u.unprep.oid < OID_RESERVED_PHYSRANGE) {
-      OID oid = pageBase + (key->u.unprep.oid * EROS_OBJECTS_PER_FRAME);
-
-      if (keyBits_IsPrepared(key)) {
-        keyBits_SetUnprepared(key);
-        oid += (nPages * EROS_OBJECTS_PER_FRAME);
-      }
-
-      key->u.unprep.oid = oid;
-    }
-    // else oid is for a phys page, don't change it
-  }
-  else if (keyBits_IsNodeKeyType(key)) {
-    OID oid = key->u.unprep.oid;
-    OID frame = oid / DISK_NODES_PER_PAGE;
-    OID offset = oid % DISK_NODES_PER_PAGE;
-    oid = nodeBase + FrameObIndexToOID(frame, offset);
-
-    key->u.unprep.oid = oid;
-  }
-}
+#include "common.c"
 
 FILE * binfd;
 uint64_t buf[EROS_PAGE_SIZE / sizeof(uint64_t)];
@@ -225,16 +200,15 @@ main(int argc, char *argv[])
     KeyBits k;
     keyBits_InitToVoid(&k);
     if (ei_GetDirEnt(image, ":ipl:", &k)) {
-      OID oldOID = k.u.unprep.oid;
+      OID oldOID = get_target_oid(&k.u.unprep.oid);
 
       RelocateKey(&k, nodeBase, pageBase, nPages);
-      IPLOID = k.u.unprep.oid;
+      IPLOID = get_target_oid(&k.u.unprep.oid);
 
       if (map_file != NULL)
 	fprintf(map_file,
                 "image :ipl: node ndx 0x%08lx => disk node oid %#llx\n",
-		(uint32_t) oldOID,
-		k.u.unprep.oid);
+		(uint32_t) oldOID, IPLOID);
     }
     else
       diag_printf("Warning: no ipl process!\n");
@@ -252,8 +226,6 @@ main(int argc, char *argv[])
     char filler[EROS_PAGE_SIZE - sizeof(struct NPObjectsDescriptor)];
   } firstFrame = {
     .NPODescr = {
-      .OIDBase = OIDBase,
-      .IPLOID = IPLOID,
       .numFramesInRange = numFramesInRange,
       .numFrames = nPages + nNodeFrames,
       .numPreloadImages = 1,
@@ -263,6 +235,8 @@ main(int argc, char *argv[])
       .numSubmaps = numSubMapFrames
     }
   };
+  put_target_oid(&firstFrame.NPODescr.OIDBase, OIDBase);
+  put_target_oid(&firstFrame.NPODescr.IPLOID, IPLOID);
 
   cnt = fwrite(&firstFrame, EROS_PAGE_SIZE, 1, binfd);
   if (cnt != 1)
@@ -295,7 +269,7 @@ main(int argc, char *argv[])
     offset = ndx % DISK_NODES_PER_PAGE;
     OID oid = FrameObIndexToOID(frame, offset) + nodeBase;
 
-    node.oid = oid;
+    put_target_oid(&node.oid, oid);
     
     WriteNode(&node);
 

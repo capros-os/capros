@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -52,9 +52,9 @@ PrintDivTable(Volume *pVol)
 		   i, d->start, d->end, d->end - d->start, 
 		   div_TypeName(d->type), "",
 		   (d->type == dt_Log) ? "LID" : "OID");
-      diag_printOid(d->startOid);
+      diag_printOid(get_target_oid(&d->startOid));
       diag_printf(", ");
-      diag_printOid(d->endOid);
+      diag_printOid(get_target_oid(&d->endOid));
       diag_printf(")\n");
       if (d->flags) {
 	diag_printf("  [ ");

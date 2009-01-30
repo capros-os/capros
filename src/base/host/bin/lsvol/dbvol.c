@@ -69,6 +69,19 @@ ip_cksum(uint16_t *buf, int len)
   return ~cksum;
 }
 
+static void
+PrintNodeHeader(DiskNode * dn)
+{
+  diag_printf("Node OID=");
+  diag_printOid(get_target_oid(&dn->oid));
+  diag_printf(" allocCount=");
+  diag_printCount(dn->allocCount);
+  diag_printf(" callCount=");
+  diag_printCount(dn->callCount);
+  diag_printf(" cksum=0x%04x\n", 
+	      ip_cksum((uint16_t*)dn, sizeof(DiskNode)));
+}
+
 int
 ProcessCmd()
 {
@@ -94,17 +107,9 @@ ProcessCmd()
 
     DiskNode node;
     if (vol_ReadNode(pVol, oid, &node) ) {
+      PrintNodeHeader(&node);
+
       unsigned i;
-
-      diag_printf("Node OID=");
-      diag_printOid(node.oid);
-      diag_printf(" allocCount=");
-      diag_printCount(node.allocCount);
-      diag_printf(" callCount=");
-      diag_printCount(node.callCount);
-      diag_printf(" cksum=0x%04x\n", 
-		  ip_cksum((uint16_t*)&node, sizeof(DiskNode)));
-
       for (i = 0; i < EROS_NODE_SIZE; i++) {
 	diag_printf("  [%02d]  ",i);
 	PrintDiskKey(node.slot[i]);
@@ -120,18 +125,10 @@ ProcessCmd()
 
     DiskNode node;
     if ( vol_ReadNode(pVol, oid, &node) ) {
+      PrintNodeHeader(&node);
       unsigned i;
       uint32_t *wpNode = (uint32_t *) &node;
       uint32_t nWords = sizeof(DiskNode) / sizeof(uint32_t);
-
-      diag_printf("Node OID=");
-      diag_printOid(node.oid);
-      diag_printf(" allocCount=");
-      diag_printCount(node.allocCount);
-      diag_printf(" callCount=");
-      diag_printCount(node.callCount);
-      diag_printf(" cksum=0x%04x\n", 
-		  ip_cksum((uint16_t*)&node, sizeof(DiskNode)));
 
       for (i = 0; i < nWords;) {
 	unsigned j;

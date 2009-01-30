@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -46,7 +46,7 @@ static void
 PrintNodeKey(KeyBits key)
 {
   diag_printf("(OID=");
-  diag_printOid(key.u.unprep.oid);
+  diag_printOid(get_target_oid(&key.u.unprep.oid));
   if (keyBits_IsNoCall(&key))
     diag_printf(",NC");
   if (keyBits_IsReadOnly(&key))
@@ -66,7 +66,7 @@ PrintDiskKey(KeyBits key)
     break;
   case KKT_Page:
     diag_printf("KKT_Page(OID=");
-    diag_printOid(key.u.unprep.oid);
+    diag_printOid(get_target_oid(&key.u.unprep.oid));
     if (keyBits_IsPrepared(&key))
       diag_printf(",P");
     if (keyBits_IsReadOnly(&key))
@@ -87,7 +87,7 @@ PrintDiskKey(KeyBits key)
     break;
   case KKT_Process:
     diag_printf("KKT_Process(OID=");
-    diag_printOid(key.u.unprep.oid);
+    diag_printOid(get_target_oid(&key.u.unprep.oid));
     diag_printf(")");
     break;
   case KKT_Sched:
@@ -119,8 +119,8 @@ PrintDiskKey(KeyBits key)
     }
   case KKT_Range:
     {
-      OID start = key.u.rk.oid;
-      OID top = key.u.rk.oid + key.u.rk.count;
+      OID start = get_target_oid(&key.u.rk.oid);
+      OID top = start + key.u.rk.count;
       
       diag_printf("KKT_Range(OID=");
       diag_printOid(start);
@@ -134,12 +134,12 @@ PrintDiskKey(KeyBits key)
     break;
   case KKT_Start:
     diag_printf("KKT_Start(OID=");
-    diag_printOid(key.u.unprep.oid);
+    diag_printOid(get_target_oid(&key.u.unprep.oid));
     diag_printf(",data=%d)", key.keyData);
     break;
   case KKT_Resume:
     diag_printf("KKT_Resume(OID=");
-    diag_printOid(key.u.unprep.oid);
+    diag_printOid(get_target_oid(&key.u.unprep.oid));
     diag_printf(")");
     break;
   default:

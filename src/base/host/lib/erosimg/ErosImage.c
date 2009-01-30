@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -88,7 +88,7 @@ ei_GetNodeP(const ErosImage *ei, KeyBits nodeKey)
   if (keyBits_IsNodeKeyType(&nodeKey) == false)
     diag_fatal(5,"GetNodeP expects node key!\n");
 
-  return & ei->nodeImages[nodeKey.u.unprep.oid];
+  return & ei->nodeImages[get_target_oid(&nodeKey.u.unprep.oid)];
 }
 
 int
@@ -480,7 +480,7 @@ ei_AddNode(ErosImage *ei, bool readOnly)
   pNode = &ei->nodeImages[ei->hdr.nNodes];
   memset(pNode, 0, sizeof(DiskNode));
   oid = ei->hdr.nNodes++;
-  pNode->oid = oid;
+  put_target_oid(&pNode->oid, oid);
   init_DiskNodeKeys(pNode);
 
   {
@@ -1016,18 +1016,19 @@ static void
 ValidateSegKey(const ErosImage *ei, KeyBits segKey)
 {
   unsigned int type = keyBits_GetType(&segKey);
+  OID oid = get_target_oid(&segKey.u.unprep.oid);
   switch (type) {
   case KKT_GPT:
-    if (segKey.u.unprep.oid >= (OID)ei->hdr.nNodes)
+    if (oid >= (OID)ei->hdr.nNodes)
       diag_fatal(4, "Segment node not in image file\n");
     break;
 
   case KKT_Page:
     if (keyBits_IsPrepared(&segKey)) {
-      if (segKey.u.unprep.oid >= (OID)ei->hdr.nZeroPages)
+      if (oid >= (OID)ei->hdr.nZeroPages)
         diag_fatal(4, "Segment page not in image file\n");
     }
-    else if (segKey.u.unprep.oid >= (OID)ei->hdr.nPages)
+    else if (oid >= (OID)ei->hdr.nPages)
       diag_fatal(4, "Segment page not in image file\n");
     break;
 
@@ -1124,6 +1125,30 @@ ei_GetPageInSegment(ErosImage *ei, KeyBits segRoot,
   return ei_DoGetPageInSegment(ei, segRoot, segOffset, pageKey);
 }
 
+static void
+RelocateKey(KeyBits * key, KeyBits * pageKey, OID newOid)
+{
+  if (keyBits_IsType(key, KKT_Page) && keyBits_IsPrepared(key)) {
+    /* It's a zero page key.  May need relocation:  */
+    OID oldOid = get_target_oid(&pageKey->u.unprep.oid);
+    OID keyOid = get_target_oid(&key->u.unprep.oid);
+
+    if (keyOid == oldOid) {
+      /* This is a key to the old (zero) page.  Do an in-place
+       * swap for the new key, leaving all old attributes untouched.
+       */
+      put_target_oid(&key->u.unprep.oid, newOid);
+    } else {
+      if (keyOid > oldOid) {
+        /* This is a key to a zero page that is AFTER the one we are
+         * removing. Decrement it's oidLo by 1:
+         */
+        put_target_oid(&key->u.unprep.oid, keyOid-1);
+      }
+    }
+  }
+}
+
 uint8_t *
 ei_GetPageContentRef(ErosImage * ei, KeyBits * pageKey)
 {
@@ -1144,6 +1169,7 @@ ei_GetPageContentRef(ErosImage * ei, KeyBits * pageKey)
     memset(buf, 0, EROS_PAGE_SIZE);
     
     newPage = ei_AddDataPage(ei, buf, false);
+    OID newOid = get_target_oid(&newPage.u.unprep.oid);
 
     /* Relocate all of the keys in the image to reflect the removal of
      * this zero page.
@@ -1153,50 +1179,13 @@ ei_GetPageContentRef(ErosImage * ei, KeyBits * pageKey)
 
       for (keyNdx = 0; keyNdx < EROS_NODE_SIZE; keyNdx++) {
 	KeyBits *key = &ei->nodeImages[nodeNdx].slot[keyNdx];
-
-	if (! keyBits_IsType(key, KKT_Page) || ! keyBits_IsPrepared(key))
-	  continue;
-	
-	/* It's a zero page key.  May need relocation:  */
-
-	if (key->u.unprep.oid == pageKey->u.unprep.oid) {
-	  /* This is a key to the old (zero) page.  Do an in-place
-	   * swap for the new key, leaving all old attributes untouched.
-	   */
-	  key->u.unprep.oid = newPage.u.unprep.oid;
-	}
-
-	if (key->u.unprep.oid > pageKey->u.unprep.oid) {
-	  /* This is a key to a zero page that is AFTER the one we are
-	   * removing. Decrement it's oidLo by 1:
-	   */
-	  key->u.unprep.oid = key->u.unprep.oid-1;
-	}
+        RelocateKey(key, pageKey, newOid);
       }
     }
 
     for (dirNdx = 0; dirNdx < ei->hdr.nDirEnt; dirNdx++) {
-	KeyBits *key = &ei->dir[dirNdx].key;
-
-	if (! keyBits_IsType(key, KKT_Page) || 
-	    ! keyBits_IsPrepared(key) )
-	  continue;
-	
-	/* It's a zero page key.  May need relocation:  */
-
-	if (key->u.unprep.oid == pageKey->u.unprep.oid) {
-	  /* This is a key to the old (zero) page.  Do an in-place
-	   * swap for the new key, leaving all old attributes untouched.
-	   */
-	  key->u.unprep.oid = newPage.u.unprep.oid;
-	}
-
-	if (key->u.unprep.oid > pageKey->u.unprep.oid) {
-	  /* This is a key to a zero page that is AFTER the one we are
-	   * removing. Decrement it's oidLo by 1:
-	   */
-	  key->u.unprep.oid = key->u.unprep.oid-1;
-	}
+      KeyBits *key = &ei->dir[dirNdx].key;
+      RelocateKey(key, pageKey, newOid);
     }
     
     /* We have replaced a zero page with a nonZero page, and removed
@@ -1206,10 +1195,11 @@ ei_GetPageContentRef(ErosImage * ei, KeyBits * pageKey)
     ei->hdr.nZeroPages--;
 
     /* Finally, we need to relocate the page key we were handed too! */
-    pageKey->u.unprep.oid = newPage.u.unprep.oid;
+    put_target_oid(&pageKey->u.unprep.oid, newOid);
   }
   
-  return &ei->pageImages[pageKey->u.unprep.oid * EROS_PAGE_SIZE];
+  return &ei->pageImages[get_target_oid(&pageKey->u.unprep.oid)
+                         * EROS_PAGE_SIZE];
 }
 
 void
@@ -1233,18 +1223,19 @@ ei_PrintNode(const ErosImage *ei, KeyBits nodeKey)
 void
 ei_PrintPage(const ErosImage *ei, KeyBits pageKey)
 {
+  OID oid = get_target_oid(&pageKey.u.unprep.oid);
   if (keyBits_IsPrepared(&pageKey)) {
     diag_printf("Page OID=");
-    diag_printOid(pageKey.u.unprep.oid);
+    diag_printOid(oid);
     diag_printf(" flags=Z (zero page)\n");
   }
   else {
     uint8_t *bufp = 
-      &ei->pageImages[((uint32_t)pageKey.u.unprep.oid) * EROS_PAGE_SIZE];
+      &ei->pageImages[((uint32_t)oid) * EROS_PAGE_SIZE];
     int i;
 
     diag_printf("Page OID=");
-    diag_printOid(pageKey.u.unprep.oid);
+    diag_printOid(oid);
     diag_printf("\n");
 
     for (i = 0; i < 8; i++) {

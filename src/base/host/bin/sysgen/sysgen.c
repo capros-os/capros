@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -44,38 +44,7 @@ const char* erosimage;
 FILE *map_file = 0;
 OID OIDBase;
 
-void
-RelocateKey(KeyBits *key, OID nodeBase, OID pageBase,
-	    uint32_t nPages)
-{
-  if ( keyBits_IsType(key, KKT_Page) ) {
-    if (key->u.unprep.oid < OID_RESERVED_PHYSRANGE) {
-      OID oid = pageBase + (key->u.unprep.oid * EROS_OBJECTS_PER_FRAME);
-
-      if (keyBits_IsPrepared(key)) {
-        keyBits_SetUnprepared(key);
-        oid += (nPages * EROS_OBJECTS_PER_FRAME);
-      }
-
-      assert (oid < 0x100000000llu);
-    
-      key->u.unprep.oid = oid;
-    }
-    // else oid is for a phys page, don't change it
-  }
-  else if (keyBits_IsNodeKeyType(key)) {
-    OID oid = key->u.unprep.oid;
-    OID frame = oid / DISK_NODES_PER_PAGE;
-    OID offset = oid % DISK_NODES_PER_PAGE;
-    frame *= EROS_OBJECTS_PER_FRAME;
-    frame += nodeBase; /* JONADAMS: add in the node base */
-    oid = frame + offset;
-
-    assert (oid < 0x100000000llu);
-
-    key->u.unprep.oid = oid;
-  }
-}
+#include "common.c"
 
 int
 main(int argc, char *argv[])
@@ -169,13 +138,15 @@ main(int argc, char *argv[])
     if (d->type == dt_Object) {
       KeyBits rk;		/* range key */
       KeyBits nk;		/* node key to persistent volsize node */
+      OID startOid = get_target_oid(&d->startOid);
+      OID endOid = get_target_oid(&d->endOid);
 
-      init_RangeKey(&rk, d->startOid, d->endOid);
+      init_RangeKey(&rk, startOid, endOid);
       init_NodeKey(&nk, (OID) 0, 0);
 
-      if (d->startOid == FIRST_PERSISTENT_OID) {
+      if (startOid == FIRST_PERSISTENT_OID) {
         ei_SetNodeSlot(image, nk, volsize_range, rk);
-	if (d->endOid - d->startOid >= (uint64_t) UINT32_MAX)
+	if (endOid - startOid >= (uint64_t) UINT32_MAX)
 	  diag_fatal(1, "Object range too large for sysgen\n");
       } else {
         if (3 + nObjectRange >= volsize_range)
@@ -220,7 +191,7 @@ main(int argc, char *argv[])
     offset = ndx % DISK_NODES_PER_PAGE;
     OID oid = FrameObIndexToOID(frame, offset) + nodeBase;
 
-    node.oid = oid;
+    put_target_oid(&node.oid, oid);
     
     vol_WriteNode(pVol, oid, &node);
 

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -66,8 +66,7 @@ PrintVolHdr(Volume* pVol)
 	       vh->signature[2],
 	       vh->signature[3]
 	       );
-  diag_printf("  %-20s 0x%08x%08x\n", "IPL sysid:",
-	       (uint32_t) (vh->iplSysId >> 32), (uint32_t) vh->iplSysId);
+  diag_printf("  %-20s %#llx\n", "IPL sysid:", get_target_u64(&vh->iplSysId));
 
   diag_printf("\n\n");
 }

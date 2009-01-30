@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -77,79 +77,53 @@ init_RangeKey(KeyBits *dk, OID oidlo, OID oidhi)
   dk->keyPerms = 0;
   dk->keyData = 0;
 
-  dk->u.rk.oid = oidlo;
+  put_target_u64(&dk->u.rk.oid, oidlo);
   dk->u.rk.count = oidhi - oidlo;
+}
+
+void
+init_PrepObjKey(KeyBits *dk, OID oid, uint16_t keyData, int type)
+{
+  keyBits_InitToVoid(dk);
+  keyBits_InitType(dk, type);
+  keyBits_SetUnprepared(dk);
+  dk->keyFlags = 0;
+  dk->keyPerms = 0;
+  dk->keyData = keyData;
+  
+  put_target_oid(&dk->u.unprep.oid, oid);
+  dk->u.unprep.count = 0;
 }
 
 void
 init_NodeKey(KeyBits *dk, OID oid, uint16_t keyData)
 {
-  keyBits_InitToVoid(dk);
-  keyBits_InitType(dk, KKT_Node);
-  keyBits_SetUnprepared(dk);
-  dk->keyFlags = 0;
-  dk->keyPerms = 0;
-  dk->keyData = keyData;
-  
-  dk->u.unprep.oid = oid;
-  dk->u.unprep.count = 0;
+  init_PrepObjKey(dk, oid, keyData, KKT_Node);
 }
 
 void
 init_StartKey(KeyBits *dk, OID oid, uint16_t keyData)
 {
-  keyBits_InitToVoid(dk);
-  keyBits_InitType(dk, KKT_Start);
-  keyBits_SetUnprepared(dk);
-  dk->keyFlags = 0;
-  dk->keyPerms = 0;
-  dk->keyData = keyData;
-  
-  dk->u.unprep.oid = oid;
-  dk->u.unprep.count = 0;
+  init_PrepObjKey(dk, oid, keyData, KKT_Start);
 }
 
 void 
 init_ResumeKey(KeyBits *dk, OID oid)
 {
-  keyBits_InitToVoid(dk);
-  keyBits_InitType(dk, KKT_Resume);
-  keyBits_SetUnprepared(dk);
-  dk->keyFlags = 0;
-  dk->keyPerms = 0;
-  dk->keyData = 0;
-  
-  dk->u.unprep.oid = oid;
-  dk->u.unprep.count = 0;
+  init_PrepObjKey(dk, oid, 0, KKT_Resume);
 }
 
 void 
 init_ProcessKey(KeyBits *dk, OID oid)
 {
-  keyBits_InitToVoid(dk);
-  keyBits_InitType(dk, KKT_Process);
-  keyBits_SetUnprepared(dk);
-  dk->keyFlags = 0;
-  dk->keyPerms = 0;
-  dk->keyData = 0;
-  
-  dk->u.unprep.oid = oid;
-  dk->u.unprep.count = 0;
+  init_PrepObjKey(dk, oid, 0, KKT_Process);
 }
 
 void
 init_DataPageKey(KeyBits *dk, OID oid, bool readOnly)
 {
-  keyBits_InitToVoid(dk);
-  keyBits_InitType(dk, KKT_Page);
-  keyBits_SetUnprepared(dk);
-  dk->keyFlags = 0;
-  dk->keyPerms = 0;
-  dk->keyData = 0;
+  init_PrepObjKey(dk, oid, 0, KKT_Page);
   keyBits_SetL2g(dk, 64);
   if (readOnly)
     keyBits_SetReadOnly(dk);
-  
-  dk->u.unprep.oid = oid;
-  dk->u.unprep.count = 0;
 }

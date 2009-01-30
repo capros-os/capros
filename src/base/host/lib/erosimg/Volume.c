@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -56,15 +56,16 @@ static uint32_t
 vol_GetOidFrameVolOffset(Volume *pVol, int ndx, OID oid)
 {
   const Division *d = &pVol->divTable[ndx];
+  OID startOid = get_target_oid(&d->startOid);
   uint32_t relPage;
   uint32_t divStart;
   uint32_t pageOffset;
 
   assert(div_contains(d, oid));
 
-  assert ((d->startOid % EROS_OBJECTS_PER_FRAME) == 0);
+  assert ((startOid % EROS_OBJECTS_PER_FRAME) == 0);
 
-  relPage = FrameToRangeLoc(OIDToFrame(oid - d->startOid));
+  relPage = FrameToRangeLoc(OIDToFrame(oid - startOid));
 
   divStart = d->start * EROS_SECTOR_SIZE;
   pageOffset = relPage * EROS_PAGE_SIZE;
@@ -192,16 +193,16 @@ vol_AddDivisionWithOid(Volume *pVol, DivType type, uint32_t sz, OID oid)
     pVol->lastAvailLogLid = endOid;
   }
     
-  pVol->divTable[div].startOid = oid;
-  pVol->divTable[div].endOid = endOid;
+  put_target_oid(&pVol->divTable[div].startOid, oid);
+  put_target_oid(&pVol->divTable[div].endOid, endOid);
 
   diag_printf("Division %d: %6d %6d [%6s] %s=[",
 	       div, pVol->divTable[div].start, pVol->divTable[div].end,
 	       div_TypeName(pVol->divTable[div].type),
 	       (type == dt_Log) ? "LID" : "OID");
-  diag_printOid(pVol->divTable[div].startOid);
+  diag_printOid(oid);
   diag_printf(", ");
-  diag_printOid(pVol->divTable[div].endOid);
+  diag_printOid(endOid);
   diag_printf(")\n");
   
   return div;
@@ -268,8 +269,8 @@ vol_DoAddDivision(Volume *pVol, DivType type, uint32_t start, uint32_t sz)
   pVol->divTable[div].type = type;
   pVol->divTable[div].start = start;
   pVol->divTable[div].end = end;
-  pVol->divTable[div].startOid = 0;
-  pVol->divTable[div].endOid = 0;
+  put_target_oid(&pVol->divTable[div].startOid, 0);
+  put_target_oid(&pVol->divTable[div].endOid, 0);
   
   if (type == dt_DivTbl) {
     /* Perfectly okay to have lots of division tables, but only two
@@ -345,7 +346,9 @@ vol_FormatObjectDivision(Volume *pVol, int ndx)
   
   d = &pVol->divTable[ndx];
 
-  for (oid = d->startOid; oid < d->endOid; oid += EROS_OBJECTS_PER_FRAME) {
+  for (oid = get_target_oid(&d->startOid);
+       oid < get_target_oid(&d->endOid);
+       oid += EROS_OBJECTS_PER_FRAME) {
     VolPagePot pagePot;
     pagePot.type = FRM_TYPE_DPAGE;
     pagePot.isZero = TagIsZero;
@@ -363,11 +366,11 @@ InitCkptRoot(Volume * pVol, CkptRoot * root, LID lid)
 
   root->versionNumber = CkptRootVersion;
   root->maxNPAllocCount = 0;
-  root->checkGenNum = 
-    root->mostRecentGenerationNumber = 0;	// means no ckpt
-  root->endLog = UNUSED_LID;
+  put_target_u64(&root->checkGenNum, 0);	// means no ckpt
+  put_target_u64(&root->mostRecentGenerationNumber, 0);	// means no ckpt
+  put_target_lid(&root->endLog, UNUSED_LID);
   for (i = 0; i < MaxUnmigratedGenerations; i++) {
-    root->generations[i] = UNUSED_LID;
+    put_target_lid(&root->generations[i], UNUSED_LID);
   }
   root->integrityByte = IntegrityByteValue;
 
@@ -388,7 +391,7 @@ vol_FormatLogDivision(Volume *pVol, int ndx)
   
   d = &pVol->divTable[ndx];
   
-  if (d->startOid == 0) {
+  if (get_target_oid(&d->startOid) == 0) {
     InitCkptRoot(pVol, pVol->dskCkptHdr0, CKPT_ROOT_0);
     InitCkptRoot(pVol, pVol->dskCkptHdr1, CKPT_ROOT_1);
   }
@@ -436,7 +439,7 @@ vol_ClearVolFlag(Volume *pVol, VolHdrFlags flag)
 void
 vol_SetIplSysId(Volume *pVol, uint64_t dw)
 {
-  pVol->volHdr.iplSysId = dw;
+  put_target_u64(&pVol->volHdr.iplSysId, dw);
 
   pVol->needSyncHdr = 1;
 }
@@ -477,9 +480,9 @@ vol_WriteKernelImage(Volume *pVol, int div, const ExecImage *pImage)
   fileImage += er->offset;
   
   d = &pVol->divTable[div];
-  oid = d->startOid;
+  oid = get_target_oid(&d->startOid);
 
-  divPages = (d->endOid - d->startOid) / EROS_OBJECTS_PER_FRAME;
+  divPages = (get_target_oid(&d->endOid) - oid) / EROS_OBJECTS_PER_FRAME;
   if (divPages * EROS_PAGE_SIZE < er->filesz)
     diag_fatal(1, "Image \"%s\" (%d bytes) will not fit in division %d (%d pages)\n",
 		xi_GetName(pImage), bytes, div, divPages);
@@ -752,8 +755,8 @@ vol_LoadLogHeaders(Volume *pVol)
   vol_ReadLogPage(pVol, CKPT_ROOT_0, pVol->dskCkptHdr0);
   vol_ReadLogPage(pVol, CKPT_ROOT_1, pVol->dskCkptHdr1);
 
-  if (pVol->dskCkptHdr0->mostRecentGenerationNumber > 
-      pVol->dskCkptHdr1->mostRecentGenerationNumber) {
+  if (get_target_u64(&pVol->dskCkptHdr0->mostRecentGenerationNumber) > 
+      get_target_u64(&pVol->dskCkptHdr1->mostRecentGenerationNumber) ) {
     pVol->curDskCkpt = pVol->dskCkptHdr0;
     pVol->oldDskCkpt = pVol->dskCkptHdr1;
   }
@@ -899,7 +902,8 @@ vol_Create(const char* targname, const char* bootName)
   pVol->volHdr.BootFlags = 0;
   pVol->volHdr.BootSectors = DISK_BOOTSTRAP_SECTORS;
   pVol->volHdr.VolSectors = 0;
-  pVol->volHdr.iplSysId = time(NULL); /* get a random value, hopefully unique  */
+  vol_SetIplSysId(pVol, time(NULL));
+			/* get a random value, hopefully unique  */
   pVol->volHdr.signature[0] = 'E';
   pVol->volHdr.signature[1] = 'R';
   pVol->volHdr.signature[2] = 'O';
@@ -997,10 +1001,11 @@ vol_Open(const char* targname, bool rewriting,
       break;
     }
 
+    LID endLid = get_target_lid(&pVol->divTable[i].endOid);
     if (pVol->divTable[i].type == dt_Log &&
-	pVol->divTable[i].endOid > pVol->topLogLid) {
-      pVol->topLogLid = pVol->divTable[i].endOid;
-      pVol->lastAvailLogLid = pVol->divTable[i].endOid;
+	endLid > pVol->topLogLid) {
+      pVol->topLogLid = endLid;
+      pVol->lastAvailLogLid = endLid;
     }
   }
 
@@ -1269,7 +1274,7 @@ vol_GetLogFrameVolOffset(Volume *pVol, int ndx, OID loc)
 
   assert(div_contains(d, loc));
 
-  relPage = (uint32_t) (loc - d->startOid);
+  relPage = (uint32_t) (loc - get_target_oid(&d->startOid));
   relPage /= EROS_OBJECTS_PER_FRAME;
   divStart = d->start * EROS_SECTOR_SIZE;
   pageOffset = relPage * EROS_PAGE_SIZE;
@@ -1354,7 +1359,7 @@ vol_GetPagePotInfo(Volume *pVol, OID oid, VolPagePot *pPot)
   if (cpd) {
     pPot->count = cpd->allocCount;
     pPot->type = cpd->type;
-    pPot->isZero = CONTENT_LID(cpd->logLoc) ? 0 : TagIsZero;
+    pPot->isZero = CONTENT_LID(get_target_lid(&cpd->logLoc)) ? 0 : TagIsZero;
 
     return true;
   }
@@ -1395,8 +1400,9 @@ vol_ReadDataPage(Volume *pVol, OID oid, uint8_t *buf)
   cpd = vol_LookupObject(pVol, oid);
     
   if (cpd) {
-    assert (CONTENT_LID(cpd->logLoc));
-    return vol_ReadLogPage(pVol, cpd->logLoc, buf);
+    LID lid = get_target_lid(&cpd->logLoc);
+    assert (CONTENT_LID(lid));
+    return vol_ReadLogPage(pVol, lid, buf);
   }
 
   for (div = 0; div < pVol->topDiv; div++) {
@@ -1450,8 +1456,9 @@ vol_WriteDataPage(Volume *pVol, OID oid, const uint8_t *buf)
   /* If a location has already been fabricated, write it there even if
    * it is a zero page.
    */
-  if ( cpd && CONTENT_LID(cpd->logLoc) ) {
-    return vol_WriteLogPage(pVol, cpd->logLoc, buf);
+  LID lid = get_target_lid(&cpd->logLoc);
+  if ( cpd && CONTENT_LID(lid) ) {
+    return vol_WriteLogPage(pVol, lid, buf);
   }
   
   for (div = 0; div < pVol->topDiv; div++) {
@@ -1539,6 +1546,7 @@ static uint32_t
 vol_GetOidPagePotVolOffset(Volume *pVol, int ndx, OID oid)
 {
   const Division *d = &pVol->divTable[ndx];
+  OID startOid = get_target_oid(&d->startOid);
   uint32_t pagePotFrame;
   uint32_t pageOffset;
   uint32_t divStart;
@@ -1546,9 +1554,9 @@ vol_GetOidPagePotVolOffset(Volume *pVol, int ndx, OID oid)
   assert(d->type == dt_Object);
   assert(div_contains(d, oid));
   
-  assert(OIDToObIndex(d->startOid) == 0);
+  assert(OIDToObIndex(startOid) == 0);
   
-  pagePotFrame = FrameToCluster(OIDToFrame(oid - d->startOid))
+  pagePotFrame = FrameToCluster(OIDToFrame(oid - startOid))
                  * RangeLocsPerCluster;
 
   pageOffset = pagePotFrame * EROS_PAGE_SIZE;
@@ -1557,77 +1565,69 @@ vol_GetOidPagePotVolOffset(Volume *pVol, int ndx, OID oid)
   return divStart + pageOffset;
 }
 
-bool
-vol_ReadPagePotEntry(Volume *pVol, OID oid, VolPagePot *pPagePot)
+static int
+vol_FindPagePotEntry(Volume *pVol, OID oid,
+  uint8_t data[EROS_PAGE_SIZE], uint32_t * pOffset)
 {
   int div;
 
   for (div = 0; div < pVol->topDiv; div++) {
     Division *d = &pVol->divTable[div];
-    uint8_t data[EROS_PAGE_SIZE];
+    OID startOid = get_target_oid(&d->startOid);
     
     if ( d->type == dt_Object && div_contains(d, oid) ) {
-      bool result;
-      uint32_t offset;
+      assert((startOid % EROS_OBJECTS_PER_FRAME) == 0);
 
-      assert ((d->startOid % EROS_OBJECTS_PER_FRAME) == 0);
+      uint32_t offset = vol_GetOidPagePotVolOffset(pVol, div, oid);
 
-      offset = vol_GetOidPagePotVolOffset(pVol, div, oid);
+      bool result = vol_Read(pVol, offset, data, EROS_PAGE_SIZE);
+      if (! result)
+	return -1;
 
-      result = vol_Read(pVol, offset, data, EROS_PAGE_SIZE);
-      if (result == false)
-	return result;
-
-      TagPot * tp = (TagPot *) data;
-      unsigned int potEntry
-        = FrameIndexInCluster(OIDToFrame(oid - d->startOid));
-      pPagePot->type = tp->tags[potEntry] & TagTypeMask;
-      pPagePot->isZero = tp->tags[potEntry] & TagIsZero;
-      pPagePot->count = tp->count[potEntry];
-
-      return true;
+      *pOffset = offset;
+      return FrameIndexInCluster(OIDToFrame(oid - startOid));
     }
   }
 
-  return false;
+  return -1;
+}
+
+bool
+vol_ReadPagePotEntry(Volume *pVol, OID oid, VolPagePot *pPagePot)
+{
+  uint32_t offset;
+  uint8_t data[EROS_PAGE_SIZE];
+  int potEntry = vol_FindPagePotEntry(pVol, oid, data, &offset);
+  if (potEntry >= 0) {
+    TagPot * tp = (TagPot *)data;
+    pPagePot->type = tp->tags[potEntry] & TagTypeMask;
+    pPagePot->isZero = tp->tags[potEntry] & TagIsZero;
+    pPagePot->count = tp->count[potEntry];
+
+    return true;
+  } else {
+    return false;
+  }
 }
 
 bool
 vol_WritePagePotEntry(Volume *pVol, OID oid, const VolPagePot *pPagePot)
 {
-  int div;
+  uint32_t offset;
+  uint8_t data[EROS_PAGE_SIZE];
+  int potEntry = vol_FindPagePotEntry(pVol, oid, data, &offset);
+  if (potEntry >= 0) {
+    TagPot * tp = (TagPot *)data;
+    tp->tags[potEntry] = pPagePot->type | pPagePot->isZero;
+    tp->count[potEntry] = pPagePot->count;
 
-  for (div = 0; div < pVol->topDiv; div++) {
-    Division *d = &pVol->divTable[div];
-    uint8_t data[EROS_PAGE_SIZE];
-    
-    if ( d->type == dt_Object && div_contains(d, oid) ) {
-      bool result;
-      uint32_t offset;
+    if ( !vol_Write(pVol, offset, data, EROS_PAGE_SIZE) )
+      diag_fatal(5, "Volume write failed at offset %d.\n", offset);
 
-      assert ((d->startOid % EROS_OBJECTS_PER_FRAME) == 0);
-
-      offset = vol_GetOidPagePotVolOffset(pVol, div, oid);
-
-      result = vol_Read(pVol, offset, data, EROS_PAGE_SIZE);
-      if (result == false)
-	return result;
-
-      TagPot * tp = (TagPot *) data;
-      unsigned int potEntry
-        = FrameIndexInCluster(OIDToFrame(oid - d->startOid));
-      tp->tags[potEntry]
-        = pPagePot->type | pPagePot->isZero;
-      tp->count[potEntry] = pPagePot->count;
-
-      if ( !vol_Write(pVol, offset, data, EROS_PAGE_SIZE) )
-	diag_fatal(5, "Volume write failed at offset %d.\n", offset);
-
-      return true;
-    }
+    return true;
+  } else {
+    return false;
   }
-
-  return false;
 }
 
 bool
@@ -1635,19 +1635,20 @@ vol_ReadNode(Volume * pVol, OID oid, DiskNode * pNode)
 {
   int div;
   CkptDirent* ccd = vol_LookupObject(pVol, oid);
+  LID lid = get_target_lid(&ccd->logLoc);
     
   if (ccd && ccd->type == FRM_TYPE_NODE) {
     uint32_t i;
     uint8_t logPage[EROS_PAGE_SIZE];
     DiskNode * logPot = (DiskNode *) logPage;
 
-    assert (CONTENT_LID(ccd->logLoc));
+    assert(CONTENT_LID(lid));
     
-    if (vol_ReadLogPage(pVol, ccd->logLoc, logPage) == false)
+    if (vol_ReadLogPage(pVol, lid, logPage) == false)
       return false;
 
     for (i = 0; i < DISK_NODES_PER_PAGE; i++) {
-      if (logPot[i].oid == oid) {
+      if (get_target_oid(&logPot[i].oid) == oid) {
 	memcpy(pNode, &logPot[i], sizeof(DiskNode));
 	return true;
       }
@@ -1696,7 +1697,7 @@ vol_FormatNodeFrame(Volume *pVol, int div, OID frameOID)
 	
   for (nd = 0; nd < DISK_NODES_PER_PAGE; nd++) {
     init_DiskNodeKeys(&pdn[nd]);
-    pdn[nd].oid = frameOID + nd;
+    put_target_oid(&pdn[nd].oid, frameOID + nd);
   }
 
   offset = vol_GetOidVolOffset(pVol, div, frameOID);
@@ -1708,24 +1709,25 @@ bool
 vol_WriteNode(Volume *pVol, OID oid, const DiskNode * pNode)
 {
   CkptDirent* ccd = vol_LookupObject(pVol, oid);
+  LID lid = get_target_lid(&ccd->logLoc);
   int div;
     
   if (ccd && ccd->type != FRM_TYPE_NODE)
     return false;
   
-  if (ccd && CONTENT_LID(ccd->logLoc)) {
+  if (ccd && CONTENT_LID(lid)) {
     uint8_t logPage[EROS_PAGE_SIZE];
     DiskNode * logPot = (DiskNode *) logPage;
     uint32_t i;
 
-    if (vol_ReadLogPage(pVol, ccd->logLoc, logPage) == false)
+    if (vol_ReadLogPage(pVol, lid, logPage) == false)
       return false;
 
     for (i = 0; i < DISK_NODES_PER_PAGE; i++) {
-      if (logPot[i].oid == oid) {
+      if (get_target_oid(&logPot[i].oid) == oid) {
 	memcpy(&logPot[i], pNode, sizeof(DiskNode));
 
-	return vol_WriteLogPage(pVol, ccd->logLoc, logPage);
+	return vol_WriteLogPage(pVol, lid, logPage);
       }
     }
 
