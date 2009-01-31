@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -57,20 +57,11 @@ ReadLoad(unsigned int inverterNum)
 {
   result_t result;
   short amps;
-  capros_RTC_time_t tim;
 
-  while (1) {
-    result = capros_SWCA_getLoadAmps(KR_SWCA, inverterNum, &amps, &tim);
-    if (result != RC_capros_SWCA_noData)
-      break;
-    kprintf(KR_OSTREAM, "No data yet, rereading.\n");
-
-    result = capros_Sleep_sleep(KR_SLEEP, 2000);	// sleep 2 seconds
-    assert(result == RC_OK);
-  }
+  result = capros_SWCA_getLBCOVolts(KR_SWCA, inverterNum, &amps);
   ckOK
-  kprintf(KR_OSTREAM, "Inverter %d %d amps at %d\n",
-          inverterNum+1, amps, tim);
+  kprintf(KR_OSTREAM, "Inverter %d %d amps\n",
+          inverterNum+1, amps);
 }
 
 int

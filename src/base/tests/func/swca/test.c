@@ -42,6 +42,7 @@ Approved for public release, distribution unlimited. */
 #define KR_OSTREAM  KR_APP(1)
 #define KR_SLEEP    KR_APP(2)
 #define KR_SWCA     KR_APP(3)
+#define KR_LALOG    KR_APP(4)
 
 
 const uint32_t __rt_stack_pointer = 0x20000;
@@ -67,7 +68,6 @@ main(void)
 
   short value;
   capros_SWCA_GenMode genModeValue;
-  capros_RTC_time_t tim;
 
   result = capros_SWCA_getEqualizeTime(KR_SWCA, 1, &value);
   ckOK
@@ -149,18 +149,8 @@ main(void)
   kprintf(KR_OSTREAM, "Inverter %d bulk volts*10=%d\n",
           0+1, value);
 
-  while (1) {
-    result = capros_Sleep_sleep(KR_SLEEP, 2000);	// sleep 2 seconds
-    assert(result == RC_OK);
-
-    result = capros_SWCA_getLoadAmps(KR_SWCA, 0, &value, &tim);
-    if (result != RC_capros_SWCA_noData)
-      break;
-    kprintf(KR_OSTREAM, "No data yet, rereading.\n");
-  }
+  result = capros_SWCA_getLoadAmpsLogfile(KR_SWCA, 0, KR_LALOG);
   ckOK
-  kprintf(KR_OSTREAM, "Inverter %d %d amps at %d\n",
-          0+1, value, tim);
 
   kprintf(KR_OSTREAM, "Done.\n");
 
