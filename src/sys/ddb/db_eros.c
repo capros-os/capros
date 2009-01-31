@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -170,7 +170,7 @@ db_eros_print_key(Key* key /*@ not null @*/)
     db_print_node_key(key, "fwdr");
     break;
   case KKT_Node:
-    db_print_mem_key(key, "node");
+    db_print_node_key(key, "node");
     break;
   case KKT_GPT:
     db_print_mem_key(key, "GPT ");
