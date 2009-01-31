@@ -4,7 +4,6 @@ package capros;
 interface SWCA extends key 
 {
   exception noInverter;	// the specified inverter does not exist
-  exception noData;	// no data are available yet
   exception already;
 
   /* The following are sampled periodically,
