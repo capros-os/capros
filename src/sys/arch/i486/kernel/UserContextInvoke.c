@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <eros/Invoke.h>
 #include <arch-kerninc/Process.h>
+#include <idl/capros/key.h>
 #include "Process486.h"
 
 /* May Yield. */
@@ -65,7 +66,7 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   if (len == 0)
     return;
-  if (sndLen > capros_key_msgLimit)
+  if (sndLen > capros_key_messageLimit)
     fatal("Invalid sndLen: should fault the user"); // FIXME
 
   /* Make sure the string gets mapped if there is one: */
@@ -135,8 +136,8 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   inv->exit.rcvLen = thisPtr->trapFrame.ESI;
 
   /* Should this set a fault code? */
-  if (inv->exit.rcvLen > EROS_MESSAGE_LIMIT)
-    inv->exit.rcvLen = EROS_MESSAGE_LIMIT;
+  if (inv->exit.rcvLen > capros_key_messageLimit)
+    inv->exit.rcvLen = capros_key_messageLimit;
 
   assert( proc_IsRunnable(thisPtr) );
 }

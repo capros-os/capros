@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, Strawberry Development Group
+# Copyright (C) 2006, 2007, 2009, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -22,7 +22,7 @@
 # Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 # Approved for public release, distribution unlimited.
 
-default: package
+default: install
 
 EROS_SRC=../../..
 CROSS_BUILD=yes
@@ -51,5 +51,8 @@ nfile.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/nfile: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
 	$(CROSSLINK) -o $@ $(OBJECTS) $(SMALL_SPACE) -lforwarder $(CROSSLIBS)
+# and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 -include $(BUILDDIR)/.*.m

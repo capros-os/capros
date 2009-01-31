@@ -1,8 +1,9 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2009, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -18,7 +19,9 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
-
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
@@ -34,7 +37,7 @@
 
 #define ITERATIONS 400000
 
-uint8_t msgbuf[EROS_MESSAGE_LIMIT + EROS_PAGE_SIZE];
+uint8_t msgbuf[capros_key_messageLimit + EROS_PAGE_SIZE];
 
 /* It is intended that this should be a large space domain */
 const uint32_t __rt_stack_pages = 0;
@@ -87,7 +90,7 @@ void main()
   kprintf(KR_OSTREAM, "SENDER ALIGNED\n");
 
   i = 16;
-  while (i <= EROS_MESSAGE_LIMIT) {
+  while (i <= capros_key_messageLimit) {
     dotrace(i, 1);
     i *= 2;
   }

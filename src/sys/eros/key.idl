@@ -25,7 +25,8 @@ abstract interface key raises(Void, UnknownRequest, RequestError,
   exception BadBank;
   exception NotPersistent;
 
-  const unsigned long msgLimit = 65536;
+  // A data string may not have more than messageLimit bytes.
+  const unsigned long messageLimit = 65536;
 
   typedef unsigned long type;
   typedef unsigned long exceptionType;

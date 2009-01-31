@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2007, Strawberry Development Group.
+ * Copyright (C) 2005, 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -50,7 +50,6 @@ Approved for public release, distribution unlimited. */
 #define EROS_PAGE_ADDR_BITS     EROS_PAGE_LGSIZE
 #define EROS_PAGE_MASK          (EROS_PAGE_SIZE-1)
 
-#define EROS_MESSAGE_LIMIT	0x10000
 #define EROS_SECTOR_SIZE	512
 #define EROS_PAGE_SECTORS	8 /* Page_size / sector_size */
 

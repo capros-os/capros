@@ -29,6 +29,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/IRQ.h>
 #include <arch-kerninc/Process-inline.h>
 #include <arch-kerninc/PTE.h>
+#include <idl/capros/key.h>
 
 #define dbg_init	0x1u
 
@@ -116,7 +117,7 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   uint32_t sndLen = inv->entry.len = thisPtr->trapFrame.r3;
   if (sndLen == 0)
     return;
-  if (sndLen > capros_key_msgLimit)
+  if (sndLen > capros_key_messageLimit)
     fatal("Invalid sndLen: should fault the user"); // FIXME
 
   /* Get user's snd_addr from his Message structure. */
@@ -194,8 +195,8 @@ proc_SetupExitBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
   inv->exit.rcvLen = thisPtr->trapFrame.r12;	/* rcv_limit */
 
   /* Should this set a fault code? */
-  if (inv->exit.rcvLen > EROS_MESSAGE_LIMIT)
-    inv->exit.rcvLen = EROS_MESSAGE_LIMIT;
+  if (inv->exit.rcvLen > capros_key_messageLimit)
+    inv->exit.rcvLen = capros_key_messageLimit;
 
   assert( proc_IsRunnable(thisPtr) );
 }

@@ -1,7 +1,7 @@
 	.file	"interrupt.S"
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -39,6 +39,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/arch/i486/target-asm.h>
 #include "PTE486.h"
 #include <eros/Invoke.h>
+#include <idl/capros/key.h>
 #include <idl/capros/Process.h>
 
 #define SPURIOUS_CHECK
@@ -1001,7 +1002,7 @@ L_ipc_block_lo:
 	cmpl	$EROS_NODE_SIZE,FX_OFF_invKey(%ebp)
 	jae	bogus_ipc_arg_block
 
-	cmpl	$EROS_MESSAGE_LIMIT,%ecx
+	cmpl	$capros_key_messageLimit,%ecx
 	ja	bogus_ipc_arg_block
 	
 	testl	$0xe0e0e0e0,%edx

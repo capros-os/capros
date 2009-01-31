@@ -838,7 +838,7 @@ main(void)
     case 4:	// OC_capros_Logfile_getNextRecords
       id = Msg.rcv_w1 | ((uint64_t)Msg.rcv_w2 << 32);
       maxLenToReceive = Msg.rcv_w3;
-      minEquals(maxLenToReceive, capros_key_msgLimit);
+      minEquals(maxLenToReceive, capros_key_messageLimit);
       rec = GetNext(id);
       if (! rec)
         Msg.snd_code = RC_capros_Logfile_NoRecord;
@@ -860,7 +860,7 @@ main(void)
     case 5:	// OC_capros_Logfile_getPreviousRecords
       id = Msg.rcv_w1 | ((uint64_t)Msg.rcv_w2 << 32);
       maxLenToReceive = Msg.rcv_w3;
-      minEquals(maxLenToReceive, capros_key_msgLimit);
+      minEquals(maxLenToReceive, capros_key_messageLimit);
       rec = GetPrev(id);
       if (! rec)
         Msg.snd_code = RC_capros_Logfile_NoRecord;

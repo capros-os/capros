@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -25,6 +25,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <domain/NFileKey.h>
+#include <idl/capros/key.h>
 
 uint32_t
 nfile_read(uint32_t krFile, uint32_t at, uint32_t len,
@@ -53,8 +54,8 @@ nfile_read(uint32_t krFile, uint32_t at, uint32_t len,
   while (resid && result == RC_OK) {
     uint32_t rqLen = resid;
 
-    if (rqLen > EROS_MESSAGE_LIMIT)
-      rqLen = EROS_MESSAGE_LIMIT;
+    if (rqLen > capros_key_messageLimit)
+      rqLen = capros_key_messageLimit;
     
     /* msg.snd_w3 changes with each call. */  
     msg.snd_w1 = rqLen;

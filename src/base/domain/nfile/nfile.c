@@ -95,7 +95,7 @@ Approved for public release, distribution unlimited. */
 #ifdef FLIP_BUF
 #define BUF_SZ  EROS_PAGE_SIZE
 #else
-#define BUF_SZ  EROS_MESSAGE_LIMIT
+#define BUF_SZ  capros_key_messageLimit
 #endif
 #define BLOCK_SIZE 4096
 

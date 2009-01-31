@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2007, Strawberry Development Group
+ * Copyright (C) 2005, 2007, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -55,7 +55,7 @@ Approved for public release, distribution unlimited. */
 const uint32_t __rt_stack_pages = 0;
 const uint32_t __rt_stack_pointer = 0x20000;
 
-uint32_t buf[EROS_MESSAGE_LIMIT/sizeof(uint32_t)];
+uint32_t buf[capros_key_messageLimit/sizeof(uint32_t)];
 
 #define NPASS 3
 #define BENCHMARK
@@ -84,7 +84,7 @@ main()
   int i, pass, file;
   uint64_t startTime, endTime;
   
-  for (i = 0; i < EROS_MESSAGE_LIMIT/sizeof(uint32_t); i++)
+  for (i = 0; i < capros_key_messageLimit/sizeof(uint32_t); i++)
     buf[i] = 0xdeadbeef;
   
   DEBUG(init)
