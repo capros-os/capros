@@ -49,6 +49,7 @@ interface Logfile extends key raises(OutOfSequence)
     (In this case records may have been deleted according to the
     value specified in setDeletionPolicyBySpace, as if the record
     had been added.)
+  Raises key.NoAccess if the invoked capability is read-only.
   */
   // Order code 1:
   client
@@ -56,7 +57,9 @@ interface Logfile extends key raises(OutOfSequence)
                     out unsigned<8> data /* really a ptr to the input data */ );
 
   /* Delete the oldest record.
-  Raises NoRecord if there are no records. */
+  Raises NoRecord if there are no records.
+  Raises key.NoAccess if the invoked capability is read-only.
+  */
   void deleteOldestRecord();
 
   /* Get the record with the smallest RecordID greater than thisRL.
@@ -110,11 +113,22 @@ interface Logfile extends key raises(OutOfSequence)
   If record ids are a time value, this deletes records older than a
   specified amount.
   If record ids are consecutive serial numbers, this sets a maximum
-  number of records in the Logfile. */
+  number of records in the Logfile.
+  Raises key.NoAccess if the invoked capability is read-only.
+  */
   void setDeletionPolicyByID(RecordID age);
 
   /* This operation instructs the log to automatically delete records
   when the space occupied by the records in the log
-  would exceed the specified number of bytes. */
+  would exceed the specified number of bytes.
+  Raises key.NoAccess if the invoked capability is read-only.
+  */
   void setDeletionPolicyBySpace(unsigned long size);
+
+  /* Return a read-only capability to the Logfile. */
+  Logfile getReadOnlyCap();
+
+  /* This object obeys the key.destroy operation.
+  Raises key.NoAccess if the invoked capability is read-only.
+  */
 };

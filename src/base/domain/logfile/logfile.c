@@ -722,6 +722,12 @@ Sepuku(uint32_t finalResult)
   InterpreterDestroy(KR_TEMP0, KR_TEMP1, finalResult);
 }
 
+static inline bool
+IsReadOnly(Message * msg)
+{
+  return msg->rcv_keyInfo;
+}
+
 int
 main(void)
 {
@@ -781,14 +787,31 @@ main(void)
       break;
 
     case OC_capros_key_destroy:
+      if (IsReadOnly(&Msg)) {
+        Msg.snd_code = RC_capros_key_NoAccess;
+        break;
+      }
       Sepuku(RC_OK);
       break;
 
+    case OC_capros_Logfile_getReadOnlyCap:
+      capros_Process_makeStartKey(KR_SELF, 1, KR_TEMP0);
+      Msg.snd_key0 = KR_TEMP0;
+      break;
+
     case 1:	// OC_capros_Logfile_appendRecord
+      if (IsReadOnly(&Msg)) {
+        Msg.snd_code = RC_capros_key_NoAccess;
+        break;
+      }
       AppendRecord(&Msg);
       break;
 
     case OC_capros_Logfile_deleteOldestRecord:
+      if (IsReadOnly(&Msg)) {
+        Msg.snd_code = RC_capros_key_NoAccess;
+        break;
+      }
       if (! RecordsExist())
         Msg.snd_code = RC_capros_Logfile_NoRecord;
       else
@@ -801,9 +824,10 @@ main(void)
     returnOneRecord:
       if (! rec)
         Msg.snd_code = RC_capros_Logfile_NoRecord;
-      else
+      else {
         Msg.snd_data = rec;
         Msg.snd_len = RecToHdr(rec)->length;
+      }
       break;
 
     case 3:	// OC_capros_Logfile_getPreviousRecord
@@ -857,11 +881,19 @@ main(void)
       break;
 
     case OC_capros_Logfile_setDeletionPolicyByID:
+      if (IsReadOnly(&Msg)) {
+        Msg.snd_code = RC_capros_key_NoAccess;
+        break;
+      }
       deletionPolicyAge = Msg.rcv_w1 | ((uint64_t)Msg.rcv_w2 << 32);
       CheckDeletionByID();
       break;
 
     case OC_capros_Logfile_setDeletionPolicyBySpace:
+      if (IsReadOnly(&Msg)) {
+        Msg.snd_code = RC_capros_key_NoAccess;
+        break;
+      }
       deletionPolicySize = Msg.rcv_w1;
       CheckDeletionBySpace(0);
       break;

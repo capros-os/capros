@@ -35,17 +35,17 @@ interface SWCA extends key
     unsigned long trailer;
   };
 
-  /** Get the Logfile containing LogRecord16 records
+  /** Get a read-only capability to the Logfile containing LogRecord16 records
   in which the value field is the inverter/charger amps
   for the specified inverter.  inverterNum is zero-based. */
   Logfile getInvChgAmpsLogfile(unsigned byte inverterNum);
 
-  /** Get the Logfile containing LogRecord16 records
+  /** Get a read-only capability to the Logfile containing LogRecord16 records
   in which the value field is the load amps
   for the specified inverter.  inverterNum is zero-based. */
   Logfile getLoadAmpsLogfile(unsigned byte inverterNum);
 
-  /** Get the Logfile containing LEDLogRecord records
+  /** Get a read-only capability to the Logfile containing LEDLogRecord records
   for the specified inverter.  inverterNum is zero-based. */
   Logfile getLEDsLogfile(unsigned byte inverterNum);
 

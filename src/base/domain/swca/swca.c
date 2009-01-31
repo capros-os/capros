@@ -1547,6 +1547,7 @@ GetLogfile(Message * msg, capros_Node_extAddr_t ks_slot)
   } else {
     capros_Node_getSlotExtended(KR_KEYSTORE, ks_slot + msg->rcv_w1,
                   KR_ARG(0));
+    capros_Logfile_getReadOnlyCap(KR_ARG(0), KR_ARG(0));
     msg->snd_key0 = KR_ARG(0);
   }
 }
