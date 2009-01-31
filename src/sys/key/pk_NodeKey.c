@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -267,8 +267,8 @@ NodeKey(Invocation * inv)
   if (key_PrepareForInv(inv->key))
     return;
 
-  bool isSense = keyBits_IsWeak(inv->key);	// is this feature used?
-  bool isFetch = keyBits_IsReadOnly(inv->key);
+  const bool isSense = false;		// not currently used
+  bool isFetch = inv->key->keyPerms & capros_Node_readOnly;
   bool opaque = inv->key->keyPerms & capros_Node_opaque;
 
   Node * theNode = objH_ToNode(key_GetObjectPtr(inv->key));
