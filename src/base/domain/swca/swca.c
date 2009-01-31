@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <stdint.h>
 #include <string.h>
 #include <ctype.h>
+#include <limits.h>
 #include <domain/cmte.h>
 #include <domain/CMTESemaphore.h>
 #include <domain/CMTETimer.h>
@@ -49,6 +50,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SerialPort.h>
 #include <idl/capros/NPLinkee.h>
 #include <idl/capros/RTC.h>
+#include <idl/capros/Logfile.h>
 #include <idl/capros/SWCA.h>
 #include <idl/capros/SWCANotify.h>
 
@@ -68,7 +70,10 @@ Approved for public release, distribution unlimited. */
 #define dbg_flags   ( 0u | dbg_errors )
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-#define KC_RTC 0
+#define numAdapters 3	// up to 8
+
+#define KC_RTC      0
+#define KC_LOGFILEC 1
 
 #define KR_RTC     KR_CMTE(0)	// Input process only
 #define KR_SERIAL  KR_CMTE(1)
@@ -77,7 +82,10 @@ Approved for public release, distribution unlimited. */
 #define LKSN_SERIAL LKSN_CMTE	// holds the serial port key if we have one
 #define LKSN_NOTIFY (LKSN_SERIAL+1)
 #define LKSN_WAITER (LKSN_NOTIFY+1)
-#define LKSN_Last LKSN_WAITER
+#define LKSN_LEDLOGS (LKSN_WAITER+1)	// one for each adapter
+#define LKSN_InvChgLogs (LKSN_LEDLOGS + numAdapters)
+#define LKSN_LoadLogs (LKSN_InvChgLogs + numAdapters)
+#define LKSN_End (LKSN_LoadLogs + numAdapters)
 
 #define keyInfo_nplinkee 0xffff	// nplink has this key
 #define keyInfo_swca   0
@@ -100,29 +108,20 @@ struct InputPair {
 } __attribute__ ((packed))
 inBuf[inBufEntries];
 
-struct ValueAndTime {
-  int val;
-  RTC_time time;
-};
-
-#define numAdapters 8
 typedef struct AdapterState {
-  unsigned int num;	// 0 through numAdapters-1, fixed for this adapter
+  int num;		// 0 through numAdapters-1, fixed for this adapter
+			// -1 for dummyAdapter
   char lcd[2][16];	// the 2-line LCD display
   char * cursor;
   char * underscore;	// NULL if none
   uint8_t LEDs;
   uint8_t LEDsBlink;
-  RTC_time LEDsTime;
   mono_time LEDTimeChanged[8];	// time the LED last changed
   int menuNum;		// -1 if unknown
   int menuItemNum;
 
-  // Values read from the inverter with RTC:
-  // (Read under lock to ensure value and time match.)
-  struct ValueAndTime invChg;	// inverter/charger in amps AC
-  struct ValueAndTime load;	// load in amps AC
-  struct ValueAndTime battActV;	// battery actual volts DC * 10
+  int invChg;	// inverter/charger in amps AC
+  int load;	// load in amps AC
 } AdapterState;
 AdapterState adapterStates[numAdapters];
 int requestData;
@@ -231,7 +230,6 @@ GetMonoTime(void)
 
 // Sampling intervals:
 #define twoSec  2000000000LL
-#define tenSec 10000000000LL
 
 /* The LED blink period is about one second.
  * Sample every 1/3 second to make sure we catch transitions. */
@@ -254,14 +252,10 @@ struct Task {
 			we avoid selecting inverters every 1/3 second. */
   {twoSec,      1, 3, 1},
   {twoSec,      1, 3, 3},
-  // Sample the battery voltage occasionally so we can compare it to
-  // an independent reading:
-  {tenSec,      1, 3, 4},
   {twoSec,      2, -1},	// don't need to know if this inverter's LEDs are blinkg
   {twoSec,      2, 3, 1},
   {twoSec,      2, 3, 3},
 };
-#define numInverters 3
 #define numTasks (sizeof(taskList) / sizeof(struct Task))
 struct Task * currentTask = &taskList[numTasks - 1];
 
@@ -395,13 +389,38 @@ procYN(AdapterState * as)
 }
 
 bool
-procIntValue(AdapterState * as, struct ValueAndTime * vt)
+procLogIntValue(AdapterState * as, int * pv, capros_Node_extAddr_t ks_logs)
 {
   int value;
   if (ConvertInt(as, &value))
     return true;
-  vt->val = value;
-  vt->time = GetRTCTime();
+  if (value != *pv) {
+    // The value changed. Log the new value.
+    result_t result;
+    capros_SWCA_LogRecord16 rec16;
+    rec16.header.length = rec16.trailer = sizeof(rec16);
+    rec16.header.rtc = GetRTCTime();
+    rec16.header.id = monoNow;
+    rec16.value = value;
+    rec16.padding = 0;
+
+    result = capros_Node_getSlotExtended(KR_KEYSTORE,
+               ks_logs + as->num, KR_TEMP0);
+    assert(result == RC_OK);
+    result = capros_Logfile_appendRecord(KR_TEMP0,
+               sizeof(rec16), (uint8_t *)&rec16);
+    switch (result) {
+    default:
+      assert(false);
+    case RC_capros_Logfile_Full:
+    case RC_capros_SpaceBank_LimitReached:
+      break;	// Not much we can do but drop the record.
+
+    case RC_OK:
+      *pv = value;
+      break;
+    }
+  }
   return false;
 }
 
@@ -450,20 +469,9 @@ procHMRequest(AdapterState * as)
 }
 
 bool
-proc2p1ValueTime(AdapterState * as, struct ValueAndTime * vt)
-{
-  int value;
-  if (Convert2p1(as, &value))
-    return true;
-  vt->val = value;
-  vt->time = GetRTCTime();
-  return false;
-}
-
-bool
 procInvChg(AdapterState * as)
 {
-  return procIntValue(as, &as->invChg);
+  return procLogIntValue(as, &as->invChg, LKSN_InvChgLogs);
 }
 
 bool
@@ -479,13 +487,7 @@ procInputAmps(AdapterState * as)
 bool
 procLoad(AdapterState * as)
 {
-  return procIntValue(as, &as->load);
-}
-
-bool
-procBattAct(AdapterState * as)
-{
-  return proc2p1ValueTime(as, &as->battActV);
+  return procLogIntValue(as, &as->load, LKSN_LoadLogs);
 }
 
 bool
@@ -605,7 +607,7 @@ struct MenuItem {
   [3][1] = {{"Inverter/charger","Amps AC         "}, procInvChg, 2},
   [3][2] = {{"Input           ","amps AC         "}, procInputAmps, 2},
   [3][3] = {{"Load            ","amps AC         "}, procLoad, 2},
-  [3][4] = {{"Battery actual  ","volts DC        "}, procBattAct},
+  [3][4] = {{"Battery actual  ","volts DC        "}, proc2p1Request},
   [3][5] = {{"Battery TempComp","volts DC        "}, procBattTC},
   [3][6] = {{"Inverter        ","volts AC        "}, procInvVolts},
   [3][7] = {{"Grid (AC1)      ","volts AC        "}, procGridVolts},
@@ -792,10 +794,10 @@ CheckEndOfField(AdapterState * as)
       // We just received the last character of a value field.
       bool (*valueProc)(AdapterState *) = mi->valueProc;
       if (valueProc) {
+        GetMonoTime();
         if ((*valueProc)(as))
           ;	// invalid value: what to do here?
         else {		// successful
-          GetMonoTime();
           curMenuMonoTime = monoNow;
           CMTEMutex_unlock(&lock);
           InputNotifyServer();
@@ -944,11 +946,11 @@ InputProcedure(void * data /* unused */ )
         case nextIsLEDs:
           // c has the new LEDs state.
           {
-            as->LEDsTime = GetRTCTime();
             GetMonoTime();
             DEBUG(leds) kprintf(KR_OSTREAM, "Inv %d read LEDs=%#x getting=%d got=%d\n",
                           transmittingAdapterNum, c, gettingLEDs, gotLEDs);
             int i;
+            uint8_t blink = 0;
             for (i = 0; i < 8; i++) {	// process each bit
               unsigned int mask = 1 << i;
               // Determine whether the LED is blinking.
@@ -958,18 +960,48 @@ InputProcedure(void * data /* unused */ )
               bool steady = monoNow > as->LEDTimeChanged[i] + BlinkPeriod;
               if ((as->LEDs ^ c) & mask) {	// changed state
                 if (! steady) 
-                  as->LEDsBlink |= mask;	// it's blinking
+                  blink |= mask;	// it's blinking
                 // else it might be blinking; we won't know for a while.
                 as->LEDTimeChanged[i] = monoNow;
               } else {			// same state as before
                 if (steady)
-                  as->LEDsBlink &= ~mask;	// it's not blinking
+                  blink &= ~mask;	// it's not blinking
+              }
+            }
+            // Was there a change?
+            uint8_t steadyLEDs = c & ~ blink;
+            if ((steadyLEDs != (as->LEDs & ~ as->LEDsBlink)
+                 || blink != as->LEDsBlink )
+                && as->num >= 0 ) {
+              // yes, log the new data.
+              capros_SWCA_LEDLogRecord ledRec;
+              ledRec.header.length = ledRec.trailer = sizeof(ledRec);
+              ledRec.header.rtc = GetRTCTime();
+              ledRec.header.id = monoNow;
+              ledRec.LEDsSteady = steadyLEDs;
+              ledRec.LEDsBlink = blink;
+              ledRec.padding = 0;
+
+              result = capros_Node_getSlotExtended(KR_KEYSTORE,
+                         LKSN_LEDLOGS+as->num,
+                         KR_TEMP0);
+              assert(result == RC_OK);
+              result = capros_Logfile_appendRecord(KR_TEMP0,
+                         sizeof(ledRec), (uint8_t *)&ledRec);
+              switch (result) {
+              default:
+                assert(false);
+              case RC_capros_Logfile_Full:
+              case RC_capros_SpaceBank_LimitReached:
+                // Not much we can do but drop the record.
+              case RC_OK:
+                break;
               }
             }
             as->LEDs = c;
+            as->LEDsBlink = blink;
             gotLEDs = true;
             inputState = nextIsControl;
-            GetMonoTime();
             curMenuMonoTime = monoNow;
             CMTEMutex_unlock(&lock);
             InputNotifyServer();
@@ -1166,27 +1198,6 @@ SelectAdapter(unsigned int num)	// 0-7
   CMTETimer_setDuration(&tmr, selectTimeout);
   DEBUG(time) kprintf(KR_OSTREAM, "SelectAdapter set timeout\n");
   SendCommand(num + 1);
-}
-
-void
-DoGetValue(Message * msg, AdapterState * as, struct ValueAndTime * vt)
-{
-  if (msg->rcv_w1 >= numInverters) {
-    msg->snd_code = RC_capros_SWCA_noInverter;
-    return;
-  }
-  // Note, as and vt are not validated until this point.
-  // Don't use them before this point.
-  CMTEMutex_lock(&lock);
-  RTC_time t = vt->time;
-  int val = vt->val;
-  CMTEMutex_unlock(&lock);
-  if (t == 0) {
-    msg->snd_code = RC_capros_SWCA_noData;
-    return;
-  }
-  msg->snd_w1 = val;
-  msg->snd_w2 = t;
 }
 
 uint32_t MsgBuf[16/4];
@@ -1443,6 +1454,7 @@ DoRequest(void)
     default:
       assert(false);
 
+    case OC_capros_SWCA_getBatteryVolts:
     case OC_capros_SWCA_getLBCOVolts:
     case OC_capros_SWCA_getBulkVolts:
     case OC_capros_SWCA_getAbsorptionTime:
@@ -1527,6 +1539,35 @@ IntRequest(Message * msg, unsigned int menuNum, unsigned int menuItemNum,
     WaiterRequest(msg, menuNum, menuItemNum);
 }
 
+void
+GetLogfile(Message * msg, capros_Node_extAddr_t ks_slot)
+{
+  if (msg->rcv_w1 >= numAdapters) {
+    msg->snd_code = RC_capros_SWCA_noInverter;
+  } else {
+    capros_Node_getSlotExtended(KR_KEYSTORE, ks_slot + msg->rcv_w1,
+                  KR_ARG(0));
+    msg->snd_key0 = KR_ARG(0);
+  }
+}
+
+// Create a Logfile and put the cap in KEYSTORE slot ks_slot.
+// TEMP1 has the Logfile constructor.
+// Uses TEMP0.
+void
+CreateLog(capros_Node_extAddr_t ks_slot)
+{
+  result_t result;
+  result = capros_Constructor_request(KR_TEMP1, KR_BANK, KR_SCHED, KR_VOID,
+               KR_TEMP0);
+  assert(result == RC_OK);	// FIXME
+  // Save data 32 days:
+  capros_Logfile_setDeletionPolicyByID(KR_TEMP0, 32*24*60*60*1000000000ULL);
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE, ks_slot,
+               KR_TEMP0, KR_VOID);
+  assert(result == RC_OK);
+}
+
 int
 cmte_main(void)
 {
@@ -1561,11 +1602,29 @@ cmte_main(void)
 
   DEBUG(server) kprintf(KR_OSTREAM, "swca started\n");
 
-  // Allocate slot in KR_KEYSTORE:
+  // Allocate slots in KR_KEYSTORE:
   result = capros_SuperNode_allocateRange(KR_KEYSTORE,
-                                          LKSN_SERIAL, LKSN_Last);
+                                          LKSN_SERIAL, LKSN_End - 1);
   if (result != RC_OK) {
     assert(result == RC_OK);	// FIXME
+  }
+
+  for (i = 0; i < numAdapters; i++) {
+    AdapterState * as = &adapterStates[i];
+    as->num = i;
+    as->LEDsBlink = 0xff;	// ensure first log entry for these
+    as->invChg = INT_MAX;
+    as->load = INT_MAX;
+  }
+  ResetAdapterState(&dummyAdapter);
+  dummyAdapter.num = -1;
+
+  // Create logs.
+  capros_Node_getSlotExtended(KR_CONSTIT, KC_LOGFILEC, KR_TEMP1);
+  for (i = 0; i < numAdapters; i++) {
+    CreateLog(LKSN_LEDLOGS + i);
+    CreateLog(LKSN_InvChgLogs + i);
+    CreateLog(LKSN_LoadLogs + i);
   }
 
   // Create key for input process to call us:
@@ -1574,13 +1633,6 @@ cmte_main(void)
   result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_NOTIFY, KR_TEMP0,
                                         KR_VOID);
   assert(result == RC_OK);
-
-  for (i = 0; i < numAdapters; i++) {
-    AdapterState * as = &adapterStates[i];
-    as->num = i;
-  }
-  ResetAdapterState(&dummyAdapter);
-  dummyAdapter.num = -1;
 
   unsigned int inputThreadNum;
   result = CMTEThread_create(2048, &InputProcedure, 0, &inputThreadNum);
@@ -1658,6 +1710,7 @@ cmte_main(void)
     Msg.snd_w1 = 0;
     Msg.snd_w2 = 0;
     Msg.snd_w3 = 0;
+    Msg.snd_key0 = KR_VOID;
 
     switch (Msg.rcv_keyInfo) {
     case keyInfo_notify:
@@ -1697,7 +1750,6 @@ cmte_main(void)
 
     case keyInfo_swca:
     {
-      AdapterState * as;
       switch (Msg.rcv_code) {
       default:
         Msg.snd_code = RC_capros_key_UnknownRequest;
@@ -1707,43 +1759,24 @@ cmte_main(void)
         Msg.snd_w1 = IKT_capros_SWCA;
         break;
 
-      case OC_capros_SWCA_getLEDs:
-      {
-        if (Msg.rcv_w1 >= numInverters) {
-          Msg.snd_code = RC_capros_SWCA_noInverter;
-          break;;
-        }
-        as = &adapterStates[Msg.rcv_w1];
-        CMTEMutex_lock(&lock);
-        RTC_time t = as->LEDsTime;
-        uint8_t LEDs = as->LEDs;
-        uint8_t LEDsBlink = as->LEDsBlink;
-        CMTEMutex_unlock(&lock);
-        if (t == 0) {
-          Msg.snd_code = RC_capros_SWCA_noData;
-          break;
-        }
-        Msg.snd_w1 = LEDs;
-        Msg.snd_w2 = LEDsBlink;
-        break;
-      }
-
-      case OC_capros_SWCA_getInvChgAmps:
-        as = &adapterStates[Msg.rcv_w1];
-        DoGetValue(&Msg, as, &as->invChg);
+      case OC_capros_SWCA_getLEDsLogfile:
+        GetLogfile(&Msg, LKSN_LEDLOGS);
         break;
 
-      case OC_capros_SWCA_getLoadAmps:
-        as = &adapterStates[Msg.rcv_w1];
-        DoGetValue(&Msg, as, &as->load);
+      case OC_capros_SWCA_getInvChgAmpsLogfile:
+        GetLogfile(&Msg, LKSN_InvChgLogs);
         break;
 
-      case OC_capros_SWCA_getBatteryVolts:
-        as = &adapterStates[Msg.rcv_w1];
-        DoGetValue(&Msg, as, &as->battActV);
+      case OC_capros_SWCA_getLoadAmpsLogfile:
+        GetLogfile(&Msg, LKSN_LoadLogs);
         break;
 
       // Requests:
+
+      case OC_capros_SWCA_getBatteryVolts:
+        WaiterRequest(&Msg, 3, 4);
+        break;
+
       case OC_capros_SWCA_getGeneratorMode:
         WaiterRequest(&Msg, 1, 1);
         break;

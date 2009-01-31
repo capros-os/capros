@@ -7,18 +7,15 @@ interface SWCA extends key
   exception noData;	// no data are available yet
   exception already;
 
-  // The following are sampled periodically, and the latest sample is returned.
+  /* The following are sampled periodically,
+  and any changes are logged in Logfile objects. */
 
-  /* Get the latest data from the specified inverter.
-  inverterNum is zero-based. */
-  void getInvChgAmps(unsigned byte inverterNum,
-                   out short amps, out RTC.time_t time);
-  void getLoadAmps(unsigned byte inverterNum,
-                   out short amps, out RTC.time_t time);
-
-  /* Returns in v10 the voltage * 10. */
-  void getBatteryVolts(unsigned byte inverterNum,
-                   out short v10, out RTC.time_t time);
+  struct LogRecord16 {
+    Logfile.recordHeader header;
+    short value;
+    short padding;
+    unsigned long trailer;
+  };
 
   // LED masks: (are these correct?)
   const unsigned byte LEDOverCurrent = 1;
@@ -28,9 +25,29 @@ interface SWCA extends key
   const unsigned byte LEDError       = 16;
   const unsigned byte LEDBulk        = 128;	// verified correct
   //const unsigned byte LEDAC1In       = 64;
-  //const unsigned byte LEDLineTie     = 128;
-  void getLEDs(unsigned byte inverterNum,
-               out unsigned byte LEDs, out unsigned byte LEDsBlink);
+  //const unsigned byte LEDLineTie     = ?;
+
+  struct LEDLogRecord {
+    Logfile.recordHeader header;
+    unsigned byte LEDsSteady;
+    unsigned byte LEDsBlink;
+    short padding;
+    unsigned long trailer;
+  };
+
+  /** Get the Logfile containing LogRecord16 records
+  in which the value field is the inverter/charger amps
+  for the specified inverter.  inverterNum is zero-based. */
+  Logfile getInvChgAmpsLogfile(unsigned byte inverterNum);
+
+  /** Get the Logfile containing LogRecord16 records
+  in which the value field is the load amps
+  for the specified inverter.  inverterNum is zero-based. */
+  Logfile getLoadAmpsLogfile(unsigned byte inverterNum);
+
+  /** Get the Logfile containing LEDLogRecord records
+  for the specified inverter.  inverterNum is zero-based. */
+  Logfile getLEDsLogfile(unsigned byte inverterNum);
 
   // The following are executed on request.
   // All raise already if a request is already in progress.
@@ -39,6 +56,8 @@ interface SWCA extends key
   // All voltages in v10 are scaled as voltage * 10
   //   and must be a multiple of 0.2 volts.
   // All times in tm are in units of 10 minutes.
+
+  void getBatteryVolts(unsigned byte inverterNum, out short v10);
 
   unsigned byte enum GenMode {
     Off,

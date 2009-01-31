@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
  *********************************************************/
 
 #include <cmte.map>
+#include <logfile.map>
 
 swca_prog = program segtree LIBDIR "swca";
 swca_pc = symbol LIBDIR "swca" _start;
@@ -38,6 +39,7 @@ BOOT_DOMCRE(swca);
 
 swca_constit = new node; // this is shared
 swca_constit[0] = misc RTC;
+swca_constit[1] = logfilec;
 
 #define SWCA(name) \
 CMTE(name##swca, swca_prog, swca_pc, sched(8), swca_proccre) \
