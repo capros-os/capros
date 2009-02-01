@@ -1,0 +1,45 @@
+package capros;
+
+/* Explain This object . */
+interface File extends key 
+{
+  typedef unsigned<64> fileLocation;
+
+  /* maxLength is the largest length that can be read or written
+  by a non-Long operation: */
+  const unsigned long maxLength = 65536;
+
+  void read(fileLocation at, unsigned long length,
+            out unsigned byte data, // this is really an input string
+            out unsigned long lengthRead);
+
+  void write(fileLocation at, unsigned long length, 
+            out unsigned byte data,	// this is really an output string
+            out unsigned long lengthWritten);
+
+  client void readLong(fileLocation at, unsigned long length,
+            out unsigned byte data, // this is really an input string
+            out unsigned long lengthRead);
+
+  client void writeLong(fileLocation at, unsigned long length, 
+            out unsigned byte data,	// this is really an output string
+            out unsigned long lengthWritten);
+
+  /* Return 1 + the highest location that has ever been written. */
+  fileLocation getSize();
+
+  File getReadOnlyCap();
+
+  // File obeys key.destroy.
+};
+
+interface FileServer extends key
+{
+  exception TooManyFiles;
+
+  /* Raises TooManyFiles if an implementation limit would be exceeded.
+  */
+  File createFile(SpaceBank bank, key sched);
+
+  // key.destroy is not implemented yet for FileServer.
+};
