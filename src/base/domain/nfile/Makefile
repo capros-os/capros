@@ -47,6 +47,10 @@ install: all
 
 all: $(TARGETS)
 
+IDL=$(wildcard *.idl)
+interfaces: $(IDL)
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
+
 nfile.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/nfile: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
