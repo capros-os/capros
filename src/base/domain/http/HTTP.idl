@@ -1,0 +1,5 @@
+package capros;
+
+interface HTTP extends ConnectionHandler {
+
+};

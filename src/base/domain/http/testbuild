@@ -1,0 +1,3 @@
+#!/bin/sh
+gcc -DSELF_TEST -DSHORT_READ2 -IBUILD/arm-edb3915 -I/home/frantz/eros/include -I../openssl/include -Wall -lssl -g http.c
+
