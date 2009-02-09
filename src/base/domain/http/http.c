@@ -724,9 +724,9 @@ process_http(SSL *ssl, BIO *network_bio) {
 	  return 0;
 	}
 	len = rp.last - rp.first;
-	if (len > sizeof(cl-1) || len == 0) {
+	if (len > sizeof(cl)-1 || len == 0) {
 	  writeStatusLine(rs, 413);   /* Say the entity is too large */
-	  writeMessage(rs, "File too large for upload", methodIndex==1);
+	  writeMessage(rs, "File too long for upload", methodIndex==1);
 	  if (fileName) free(fileName);
 	  return 0;     /* Ignoring warnings in the RFC to make sure zapping
 			   the connection doesn't destroy the response */
@@ -1090,7 +1090,7 @@ readExtend(ReaderState *rs, ReadPtrs *rp) {
   }
   rs->last += rc;
   /* rc is the amount of data read from ssl - sanity check it */
-  if (rs->last > HTTP_BUFSIZE-1 || rc < 0) {
+  if (rs->last > HTTP_BUFSIZE || rc < 0) {
     DBGPRINT(DBGTARGET, "Read size error, read=%d, inBuffer=%d\n",
 	     rc, rs->last);
     print_SSL_error_queue();
