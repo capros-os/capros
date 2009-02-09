@@ -66,7 +66,7 @@ proc_SetupEntryBlock(Process* thisPtr, Invocation* inv /*@ not null @*/)
 
   if (len == 0)
     return;
-  if (sndLen > capros_key_messageLimit)
+  if (len > capros_key_messageLimit)
     fatal("Invalid sndLen: should fault the user"); // FIXME
 
   /* Make sure the string gets mapped if there is one: */
