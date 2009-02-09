@@ -29,8 +29,8 @@ EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=
-# The order of build among the subdirectories matters. Primordial domains
-# really do need to come first.
+# The order of build among the subdirectories matters.
+DIRS+=openssl	# openssl should probably be in base/lib instead of here.
 
 DIRS+=spacebank
 DIRS+=pcc
