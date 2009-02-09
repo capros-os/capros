@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, Strawberry Development Group
+# Copyright (C) 2007, 2009, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -44,7 +44,7 @@ install all: $(TARGETS)
 include ../../test.mk
 
 $(BUILDDIR)/test: $(BUILDDIR)/test.o $(DOMLIB) $(DOMCRT0)
-	$(CROSSLINK) -o $@ $(BUILDDIR)/test.o $(CROSSLIBS) -lcrypto
+	$(CROSSLINK) -o $@ $(BUILDDIR)/test.o $(CROSSLIBS) -lcaproscrypto
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 -include $(BUILDDIR)/.*.m

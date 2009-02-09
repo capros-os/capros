@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2003, Jonathan S. Shapiro.
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -32,7 +32,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 HEADERS=$(wildcard *.h)
 OBJECTS=$(patsubst %.c,$(BUILDDIR)/%.o,$(wildcard *.c))
-TARGETS=$(BUILDDIR)/libcrypto.a
+TARGETS=$(BUILDDIR)/libcaproscrypto.a
 
 INC=-I.. -I$(EROS_ROOT)/include
 

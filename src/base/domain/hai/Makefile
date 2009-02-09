@@ -42,7 +42,7 @@ interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
 $(BUILDDIR)/hai: $(OBJECTS) $(CMTEDEPS)
-	$(CMTELINK) $(OBJECTS) $(CMTELIBS) -o $@ -lcrypto
+	$(CMTELINK) $(OBJECTS) $(CMTELIBS) -o $@ -lcaproscrypto
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
