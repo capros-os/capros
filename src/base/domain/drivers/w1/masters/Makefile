@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -31,7 +31,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/ds2480b
 ifeq "$(EROS_TARGET)" "i486"	# drivers for i486 only
 else	# ARM-only drivers
-DRIVER_TARGETS+=$(BUILDDIR)/ds2490
+DRIVER_TARGETS=$(BUILDDIR)/ds2490
 endif
 
 DS2490_OBJECTS=$(BUILDDIR)/ds2490.o $(BUILDDIR)/ds2490_cap.o
@@ -45,10 +45,6 @@ INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
 include $(EROS_SRC)/build/make/makerules.mk
 
 all: $(TARGETS) $(DRIVER_TARGETS) $(BUILDDIR)/ds2490_ids.o
-
-IDL=$(wildcard *.idl)
-interfaces: $(IDL)
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
 $(BUILDDIR)/ds2490: $(DYNDRVSTART) $(DS2490_OBJECTS) $(LIBS) $(DRIVERDEPS)
 	$(DYNDRIVERLINK) $(DS2490_OBJECTS) $(LIBS) $(DRIVERLIBS) -o $@
