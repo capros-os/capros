@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -130,7 +130,9 @@ AssignSerialPort(Message * msg)
 
   result = capros_NPLinkee_registerNPCap(KR_TEMP0, KR_ARG(0),
                                          msg->rcv_w1, msg->rcv_w2);
-  assert(result == RC_OK);
+  if (result != RC_OK) {
+    kprintf(KR_OSTREAM, "No recipient for serial port %d cap.\n", msg->rcv_w2);
+  }
 
   DEBUG(run) kprintf(KR_OSTREAM, "nplink done.\n");
 }
