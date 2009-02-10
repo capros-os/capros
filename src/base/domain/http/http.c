@@ -1271,7 +1271,7 @@ openFile(char *name, int isRead) {
   for (i=0; i<strlen(name); i++) {
 
     if (NULL == 
-	strchr("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.",
+	strchr("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
 	       name[i])) {
       DBGPRINT(DBGTARGET, 
 	       "Bad character \"%c\" in filename \"%s\"\n", name[i], name);
