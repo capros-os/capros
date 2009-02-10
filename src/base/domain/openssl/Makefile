@@ -48,5 +48,5 @@ BUILDSSL/$(TARGETMACH)/libssl.a: BUILDSSL/$(TARGETMACH)
 install: BUILDSSL/$(TARGETMACH)/libssl.a
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
 
-clean:
-	rm -rf BUILDSSL/$(TARGETMACH)
+nonrecursiveClean:
+	rm -rf BUILDSSL/
