@@ -1411,7 +1411,7 @@ int raise(int signo) {
   return -1;
 }
 
-#if EROS_TARGET == arm
+#ifdef EROS_TARGET_arm
 int _isatty(int fd) {
 #else
 int isatty(int fd) {
@@ -1419,7 +1419,7 @@ int isatty(int fd) {
   DBGPRINT(DBGTARGET, "HTTP: isatty %d\n", fd);
   return 0;
 }
-#if EROS_TARGET == arm
+#if EROS_TARGET_arm
 int _stat(char *fn, int *stat) {
 #else
 int stat(char *fn, int *stat) {
@@ -1446,7 +1446,7 @@ int getpid() {
   return 55;
 }
 
-#if EROS_TARGET == arm
+#if EROS_TARGET_arm
 int _lseek(int fd, int offset, int whence) {
 #else
 int lseek(int fd, int offset, int whence) {
@@ -1463,7 +1463,7 @@ int fstat(int fd, int *stat) {
   return -1;
 }
 
-#if EROS_TARGET == arm
+#if EROS_TARGET_arm
 int _gettimeofday(int tv, int tz) {
 #else
 int gettimeofday(int tv, int tz) {
@@ -1473,7 +1473,7 @@ int gettimeofday(int tv, int tz) {
   return -1;
 }
 
-#if EROS_TARGET == arm
+#if EROS_TARGET_arm
 int _read(int fd, void *buf, size_t len) {
 #else
 int read(int fd, void *buf, size_t len) {
@@ -1482,7 +1482,7 @@ int read(int fd, void *buf, size_t len) {
   return 0;  // Signal EOF
 }
 
-#if EROS_TARGET == arm
+#if EROS_TARGET_arm
 int _write(int fd, void *buf, size_t len) {
 #else
 int write(int fd, void *buf, size_t len) {
@@ -1491,7 +1491,7 @@ int write(int fd, void *buf, size_t len) {
   return len;  // Say we wrote it
 }
 
-#if EROS_TARGET == arm
+#if EROS_TARGET_arm
 int _open(char *path, int flags, int mode) {
 #else
 int open(char *path, int flags, int mode) {
@@ -1501,7 +1501,7 @@ int open(char *path, int flags, int mode) {
   return -1;
 }
 
-#if EROS_TARGET == arm
+#if EROS_TARGET_arm
 int _close(int fd) {
 #else
 int close(int fd) {
