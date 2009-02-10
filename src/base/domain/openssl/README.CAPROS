@@ -16,11 +16,10 @@ The only make command known to successfully compile is:
 
 make build_libs
 
+The CapROS build process does all the above for you.
+
 Performance on the i486 architecture might improve significantly if no-asm is
 removed, but this has not been tried.
-
-There are some hints at the end of the INSTALL file on how to have object code for
-multiple architectures at the same time. I really don't understand it.
 
 Bill Frantz - January 9, 2009
 
