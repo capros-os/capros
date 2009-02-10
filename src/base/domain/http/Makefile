@@ -33,7 +33,9 @@ TARGETS=$(BUILDDIR)/$(COMPONENT)
 OBJECTS=$(BUILDDIR)/$(COMPONENT).o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I../openssl/include
 IMGMAP=$(COMPONENT).map
-LIBS=../openssl/libssl.a ../openssl/libcrypto.a
+LIBS=-lssl -lcrypto
+LIBDEP+=$(CAPROS_DOMAIN)/libssl.a
+LIBDEP+=$(CAPROS_DOMAIN)/libcrypto.a
 
 include $(EROS_SRC)/build/make/makerules.mk
 
@@ -45,8 +47,8 @@ interfaces: $(IDL)
 
 $(COMPONENT).c: $(BUILDDIR)/constituents.h
 
-$(BUILDDIR)/$(COMPONENT): $(OBJECTS) $(DOMLIB)
-	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) -L../openssl $(LIBS) $(CROSSLIBS) -o $@
+$(BUILDDIR)/$(COMPONENT): $(OBJECTS) $(LIBDEP)
+	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(LIBS) -o $@
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)

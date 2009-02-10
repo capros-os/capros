@@ -1,22 +1,9 @@
-Information current as of February 7, 2009
-
 Building http
 
-There are two ways of building the http server, one as a CapROS domain,
+There are two ways of building the http server, one as a CapROS process,
 and one as a Unix "main" program for self test. If the SELF_TEST switch
 is included in the compile command, it will build in self test mode and
 be runnable under unix (and gdb, recommended).
-
-Before building the CapROS domain, it is necessary to build the openssl
-directory for the target machine. See README.CAPROS in the openssl
-directory for instructions.
-
-It should be possible integrate the building of the openssl directory
-into the normal CapROS build, but I'm (Bill Frantz) not enough of a make
-hacker to pull it off. The http server needs two libraries from openssl,
-libssl.a and libcrypto.a. If they are moved to an appropriate link library
-directory, and the http makefile adjusted accordingly, building http
-will look a lot more like building the rest of the system.
 
 In addition, the SHORT_READ switch will limit network read lengths to 1,
 which allows testing for packet boundry bugs. This switch is effective
