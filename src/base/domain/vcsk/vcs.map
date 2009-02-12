@@ -1,5 +1,6 @@
+#ifndef _VCS_MAP_
+#define _VCS_MAP_
 /* -*- Mode: c -*- */
-
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
  * Copyright (C) 2006, 2007, Strawberry Development Group.
@@ -117,3 +118,5 @@ PROD_PC(zs_c) = vcsk.pc;
 
 #define MAKE_VIRTUAL_COPIER(name, progfile) \
    MAKE_VIRTUAL_COPIER_SEG(name, program segtree progfile)
+
+#endif _VCS_MAP_
