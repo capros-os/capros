@@ -67,10 +67,8 @@ ethread_new_thread1(cap_t kr_bank, uint32_t stack_pointer,
 
   /* Now just copy all key registers */
   for (kr = 0; kr < EROS_NODE_SIZE; kr++) {
-    result = capros_Process_getKeyReg(KR_SELF, kr, KR_TEMP0);
-    assert(result == RC_OK);
-
-    result = capros_Process_swapKeyReg(kr_new_thread, kr, KR_TEMP0, KR_VOID);
+    cap_t krToCopy = kr == KR_SELF ? kr_new_thread : kr;
+    result = capros_Process_swapKeyReg(kr_new_thread, kr, krToCopy, KR_VOID);
     assert(result == RC_OK);
   }
 

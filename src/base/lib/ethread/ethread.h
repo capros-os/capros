@@ -29,7 +29,12 @@ Approved for public release, distribution unlimited. */
    a space bank key,
    the stack pointer for the new thread,
    the address to which to set the program counter,
-   and the keyreg into which to store the process key to the new thread. */
+   and the keyreg into which to store the process key to the new thread.
+
+   The current process's key registers are copied to the new thread,
+   except that KR_SELF will be a process key to the new process,
+   and KR_TEMP0 is unspecified.
+ */
 /* Clobbers only KR_TEMP0. */
 /* Returns: an exception from capros_ProcCre_createProcess,
    RC_Ethread_Unexpected_Err, or RC_OK. */
@@ -48,7 +53,10 @@ void ethread_start(cap_t thread);
    a requested stack size for the new thread,
    the address to which to set the program counter,
    and the keyreg into which to store the start key to the new thread.
-   Starts the thread running. */
+
+   Similar to ethread_new_thread1, except allocates the stack using malloc,
+   starts the thread running, and creates a start key with keyInfo 0.
+ */
 /* Clobbers only KR_TEMP0. */
 /* Returns: an exception from capros_ProcCre_createProcess, RC_OK, or: */
 #define RC_Ethread_Unexpected_Err      13
