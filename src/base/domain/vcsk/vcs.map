@@ -3,7 +3,7 @@
 /* -*- Mode: c -*- */
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -105,7 +105,7 @@ PROD_CONSTIT(zs_c, KC_FROZEN_SEG, 2) = zero_pg;
 PROD_CONSTIT(zs_c, KC_PROTOSPC, 3) = protospace;
 PROD_SPACE(zs_c) = vcsk.seg;
 PROD_PC(zs_c) = vcsk.pc;
-/* no keeper, no symbol table */
+PROC_SYM(zs_c) = number("zs_c");
 
 #define MAKE_VIRTUAL_COPIER_SEG(name, memkey) \
    BOOT_CONSTRUCTOR(name##_c, name); \
