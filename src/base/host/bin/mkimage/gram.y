@@ -1802,10 +1802,10 @@ slot: NAME '[' slotno ']' {
 	 $$ = key;
 	 
 	 if ( !keyBits_IsNodeKeyType(&key) ) {
-	   diag_printf("%s:%d: LHS of '[slot]' must be segmode key\n"
-			"    You may need to say \"new [small] process with constituents\"\n"
-			"                                             ^^^^^^^^^^^^^^^^^\n",
-			current_file, current_line);
+	   diag_printf("%s:%d: LHS of '[slot]' must be segmode key, is %d\n"
+			"    You may need to say \"new process with constituents\"\n"
+			"                                     ^^^^^^^^^^^^^^^^^\n",
+			current_file, current_line, keyBits_GetType(&key));
 	   num_errors++;
 	   YYERROR;
 	 }
