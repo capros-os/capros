@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, 2008, Strawberry Development Group
+# Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -41,7 +41,9 @@ all: $(TARGETS)
 
 $(BUILDDIR)/proccre: $(BUILDDIR)/proccre.o $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) $(BUILDDIR)/proccre.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
-#	objdump --headers proccre
+# and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 $(BUILDDIR)/pcc: $(BUILDDIR)/pcc.o $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) $(BUILDDIR)/pcc.o $(SMALL_SPACE) $(CROSSLIBS) -o $@

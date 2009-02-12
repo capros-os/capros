@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -67,6 +67,7 @@ typedef struct {
 #define KR_DOMCRE_SEG	  KR_APP(5)	/* code seg for DomCre (RO) */
 #define KR_SCRATCH0	  KR_APP(6)
 #define KR_OURBRAND	  KR_APP(7)	/* distinguished start key to PCC */
+#define KR_ProcCreSym     KR_APP(8)
 #define KR_ARG0		  KR_ARG(0)	/* space bank */
 #define KR_ARG1		  KR_ARG(1)	/* schedule */
 #define KR_ARG2           KR_ARG(2)
@@ -255,6 +256,8 @@ create_new_domcre(uint32_t krBank, uint32_t krSched, uint32_t krDomKey,
   (void) capros_Process_swapSchedule(krDomKey, krSched, KR_VOID);
   
   DEBUG kdprintf(KR_OSTREAM, "Installed sched\n");
+
+  capros_Process_swapSymSpace(krDomKey, KR_ProcCreSym, KR_VOID);
 
   /* Populate the new domcre's key registers: */
   capros_Process_swapKeyReg(krDomKey, KR_CONSTIT, KR_DOMCRE_CONSTIT, KR_VOID);
