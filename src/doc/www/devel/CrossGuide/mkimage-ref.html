@@ -268,7 +268,7 @@
 	     <p>
 	     Returns a copy of the node <i>key</i> with the specified
 	     access restrictions,
-             which may include <b>RO</b> and/or <b>NC</b>
+             which may include <b>ro</b> and/or <b>nc</b>
              and/or <b>weak</b>.
 	     </p>
 	</dd>
@@ -286,7 +286,7 @@
 	     named by <i>key</i>.
 	     </p>
 	     <p>
-             The <i>qualifier</i> may include <b>RO</b> and/or <b>NC</b>
+             The <i>qualifier</i> may include <b>ro</b> and/or <b>nc</b>
              and/or <b>weak</b>, or may be <b>sense</b> which means
              all three restrictions. 
 	     </p>
@@ -348,8 +348,7 @@
 	     Fabricates a new forwarder and returns a key to it.
 	     </p>
 	     <p>
-             Setting the sendWord, sendNode, and Blocked flags
-             is not implemented.
+             Setting the Blocked flag is not implemented.
 	     </p>
 	</dd>
 	<dt>
@@ -586,7 +585,7 @@
       </p>
       <p>
       <i>qualified_key</i> is any key expression, optionally prepended with
-      access restrictions, which may include <b>RO</b> and/or <b>NC</b>
+      access restrictions, which may include <b>ro</b> and/or <b>nc</b>
       and/or <b>weak</b>, or may be <b>sense</b> which means
       all three restrictions. 
       </p>
@@ -831,7 +830,7 @@
   </td>
   <td>
       <em>Copyright 1998, 2001 by Jonathan Shapiro, 
-      2005, 2006, 2007 by Strawberry Development Group.  All rights reserved.
+      2005, 2006, 2007, 2009 by Strawberry Development Group.  All rights reserved.
       For terms of redistribution, see the <a
       href="../../legal/license/GPL.html">GNU General Public License</a></em>
 This material is based upon work supported by the US Defense Advanced
