@@ -83,6 +83,9 @@ uint32_t __rt_unkept = 1;
 #define XCON_SYMTAB     2
 #define XCON_PC         3
 
+#define keyInfo_builder 0
+#define keyInfo_requestor 1
+
 typedef struct {
   int frozen;
   int has_holes;
@@ -379,7 +382,7 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
 
       ci->frozen = 1;
 
-      capros_Process_makeStartKey(KR_SELF, 0, KR_NEWDOM);
+      capros_Process_makeStartKey(KR_SELF, keyInfo_requestor, KR_NEWDOM);
       msg->snd_key0 = KR_NEWDOM;
 
       break;
@@ -446,8 +449,7 @@ main()
   
   InitConstructor(&ci);
 
-  /* Recover our own process key from constit1 into slot 1 */
-  capros_Process_makeStartKey(KR_SELF, 1, KR_SCRATCH);
+  capros_Process_makeStartKey(KR_SELF, keyInfo_builder, KR_SCRATCH);
 
   msg->snd_key0 = KR_SCRATCH;
   msg->snd_key1 = KR_VOID;
@@ -484,7 +486,7 @@ main()
     msg->snd_w3 = 0;
     msg->snd_invKey = KR_RETURN;
 
-    if (msg->rcv_keyInfo == 0) {	// builder's key
+    if (msg->rcv_keyInfo == keyInfo_builder) {	// builder's key
       ProcessRequest(msg, &ci);
     } else {			// requestor's key
       switch (msg->rcv_code) {
