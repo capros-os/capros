@@ -315,43 +315,37 @@
             the kernel uses the ARM Fast Context Switch Extension. 
           <h3>2.3 Initialization using the Constructor</h3>
           <p> CapROS programs are usually built by Constructors.
-            To avoid having the Constructor busy longer than necessary,
-            the new process's address space is built by the process itself.
-	  <p>
-	    To accomplish this bootstrapping, process fabrication is done by a
-	    temporary program known as the <strong>protospace</strong>
-	    from within the new process itself.
-	  </p>
-	  <p>
 	    The first step in process construction is to allocate the new
-	    process and initialize its key registers (as described above)
-            and its schedule key.
-            The new process's address space is set to a read-only
-            immutable address space known as the <strong>protospace</strong>.
-            The protospace program is part of the constructor logic.
-            The constructor starts the new process running at the
-            beginning of the protospace program.
-	  </p>
-            The protospace program supports two types of address space
-            construction, depending on the nature of the key that was
-            specified (to the Constructor) as the address space
-            for new products. 
+	    process and initialize its key registers
+            to the default runtime environment defined above.
+	  <p>
+            The Constructor supports two types of address spaces.
           <ul>
-            <li> The specified address space key may be a constructor
-              for an address space. If that key responds to a getType call
-              by saying it is a constructor, then the protospace invokes
-              the constructor to get an address space. 
+            <li> If the address space key was specified with the
+              Constructor.insertVCSAddressSpace32 method,
+              the specified address space key is a constructor
+              for an address space.
+              To avoid having the Constructor busy longer than necessary,
+              the constructor for the new process's address space
+              is called by the process itself.
+	      To accomplish this bootstrapping, the process first executes a
+	      temporary program known as the <strong>protospace</strong>.
+              The protospace invokes the constructor to get an address space. 
               That address space is then installed
               as the process's address space, and the new program is started.
-            <li> Otherwise, the specified address space key
-              is installed directly
+              Usually, the new address space constructor is a VCS, and the
+              stack and data areas will be filled in as page faults occur.
+            <li><p> If the address space key was specified with the
+              Constructor.insertAddressSpace32 method,
+              the specified address space key is installed directly
               as the process's address space, and the new program is started.
               In this case the program has no per-instance storage
               and is responsible for any further population of its
               address space. There are two common ways to do so:
             <ul>
-              <li>The program can use the small-space runtime hook
-                described above.
+              <li> If the new program was linked as a small space,
+              it can create its own stack and data areas
+              as described above using the small-space runtime hook. 
               <li> To support construction of more complex address spaces,
               there is a means to build a read-only immutable program
               that can then build a more general address space.
@@ -363,16 +357,6 @@
               and related files.
             </ul>
           </ul>
-	  <p>
-	    On entry, the new process inherits the key register state
-	    that was left by the protospace.
-            This will be the default runtime environment defined above.
-	  <p>
-	    If the new program was linked as a small space,
-            it can then create its own stack and data areas
-            as described above for crt1. 
-            If the new address space was constructed from a VCS,
-            its stack and data areas will be filled in as page faults occur.
 	  <h2>3. Process Teardown</h2>
 	  <p>
 	    Just as the process must arrange to initialize itself, it
@@ -448,7 +432,7 @@
   </td>
   <td>
   <em>Copyright 2001 by Jonathan Shapiro & K. Johansen.
-      Copyright 2008, Strawberry Development Group.
+      Copyright 2008, 2009, Strawberry Development Group.
       All rights reserved.
       For terms of redistribution, see the <a
       href="../../legal/license/GPL.html">GNU General Public License</a></em>
