@@ -1,7 +1,7 @@
 	.file "protospace.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -107,19 +107,6 @@ ENTRY(start)
 	cmp r2,#0
 	bne sepuku	// presumably 1
  
-	/* The address space may be a constructor, in which case we need
-	   to invoke it to obtain the true process address space. Check the
-	   type of the address space key -- if it alleges to be a  
-	   constructor, believe it and invoke it to get the real thing. */
-	
-	simpleCall(kt_addr_space, PSKR_SPACE, OC_capros_key_getType, 0,
-		KR_VOID, KR_VOID, KR_VOID)
-	cmp r1,#RC_OK
-	bne perform_lobotomy	// didn't respond to getType?
-	ldr r0,=AKT_ConstructorRequestor
-	cmp r2,r0
-	bne perform_lobotomy
-
 	/* Run the constructor for the address space */
 	
 	simpleCall(fab_space, PSKR_SPACE, OC_capros_Constructor_request, 0,
@@ -127,7 +114,6 @@ ENTRY(start)
 	cmp r1,#RC_OK
 	bne delete_kept_space
 
-perform_lobotomy:
 	/* Fetch the program counter of this process out
 	   of the startup key that holds it.  If we had just
 	   one more register, we wouldn't have to get the #$)*^%

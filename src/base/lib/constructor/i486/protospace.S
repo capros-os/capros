@@ -1,7 +1,7 @@
 	.file "protospace.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -50,16 +50,6 @@ Approved for public release, distribution unlimited. */
 #define NO_KEYS KEYS(KR_VOID, KR_VOID, KR_VOID, KR_VOID)
 	
 	.section .rodata
-kt_addr_space:
-	.long	IT_Call
-	.long	PSKR_SPACE
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	NO_KEYS		/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	NO_KEYS		/* rcv keys */
-
 fab_space:
 	.long	IT_Call
 	.long	PSKR_SPACE
@@ -153,24 +143,6 @@ ENTRY(start)
 	testl	$0,%ebx
 	jnz	EXT(sepuku)
 	
-	/* The address space may be a constructor, in which case we need
-	   to invoke it to obtain the true process address space. Check the
-	   type of the address space key -- if it alleges to be a  
-	   constructor, believe it and invoke it to get the real thing. */
-	
-	movl	$kt_addr_space,%ebp	/* invocation descriptor */
-	
-	movl	$OC_capros_key_getType,%eax	/* r0 */
-	xorl	%ebx,%ebx		/* r1 */
-	xorl	%ecx,%ecx		/* r2 */
-	xorl	%edx,%edx		/* r3 */
-	
-	int	$0x31			/* invocation trap */
-
-	/* check the KT value */
-	cmpl	$AKT_ConstructorRequestor,%ebx
-	jnz	EXT(perform_lobotomy)
-
 	/* Run the constructor for the address space */
 	
 	movl	$fab_space,%ebp	/* invocation descriptor */
@@ -186,7 +158,6 @@ ENTRY(start)
 	testl	$0,%eax
 	jnz	EXT(delete_kept_space)
 
-LEXT(perform_lobotomy)
 	/* Fetch the program counter of this process out
 	   of the startup key that holds it.  If we had just
 	   one more register, we wouldn't have to get the #$)*^%
