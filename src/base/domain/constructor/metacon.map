@@ -114,6 +114,7 @@ CONSTIT(metacon, KC_PCC, 4) = pcc;
 CONSTIT(metacon, KC_CON_SEG, 5) = sense constructor.seg;
 CONSTIT(metacon, KC_CON_PC, 6) = constructor.pc;
 CONSTIT(metacon, KC_CON_CONSTIT, 7) = con_constit;
+CONSTIT(metacon, KC_CON_SYM, 8) = number("constructor");
 
 /* METACON registers: */
 metacon key reg KR_SELF = metacon;

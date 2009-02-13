@@ -57,7 +57,7 @@ uint32_t __rt_unkept = 1;
 #define KR_CON_SEG      KR_APP(3) /* constructor program segment */
 #define KR_OSTREAM      KR_APP(4) /* our mouth */
 #define KR_NEWDOM       KR_APP(5) /* where new constructor goes */
-#define KR_YIELDBITS    KR_APP(6)
+#define KR_CON_SYM      KR_APP(6)
 
 #define KR_ARG0    KR_ARG(0)
 #define KR_ARG1    KR_ARG(1)
@@ -80,6 +80,7 @@ InitMetaCon(MetaConInfo *mci)
   capros_Node_getSlot(KR_CONSTIT, KC_DISCRIM, KR_DISCRIM);
   capros_Node_getSlot(KR_CONSTIT, KC_YIELDCRE, KR_YIELDCRE);
   capros_Node_getSlot(KR_CONSTIT, KC_CON_SEG, KR_CON_SEG);
+  capros_Node_getSlot(KR_CONSTIT, KC_CON_SYM, KR_CON_SYM);
   /*   capros_Node_getSlot(KR_CONSTIT, KC_CON_CONSTIT, KR_CON_CONSTIT); */
 }
 
@@ -107,12 +108,11 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
   
   /* Install the schedule.  KR_ARG1 can be reused after this. */
   (void) capros_Process_swapSchedule(KR_NEWDOM, KR_ARG1, KR_VOID);
-  (void) capros_Process_swapKeyReg(KR_NEWDOM, 5, KR_ARG1, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SCHED, KR_ARG1, KR_VOID);
 
   /* The new constructor constituents are the same as ours, so just
      make a read-only key to the constituents node: */
   capros_Node_reduce(KR_CONSTIT, capros_Node_readOnly, KR_TEMP0);
-
   capros_Process_swapKeyReg(KR_NEWDOM, KR_CONSTIT, KR_TEMP0, KR_VOID);
 
   /* Install the address space of the new constructor */
@@ -125,7 +125,10 @@ MakeNewProduct(Message *msg, MetaConInfo *mci)
      the new constructor domain. */
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SELF, KR_NEWDOM, KR_VOID);
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_BANK, KR_ARG0, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_CREATOR, KR_YIELDCRE, KR_VOID);
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_RETURN, KR_RETURN, KR_VOID);
+
+  (void) capros_Process_swapSymSpace(KR_NEWDOM, KR_CON_SYM, KR_VOID);
   
   (void) capros_Process_makeResumeKey(KR_NEWDOM, KR_SCRATCH);
 

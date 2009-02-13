@@ -22,22 +22,10 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* A constructor is responsible for building program instances.  The
- * constructor holds copies of each entry of the constituents node. In
+/* A constructor builds program instances.  The
+ * constructor holds the constituents node. In
  * addition, it holds the target process' keeper key, address space
- * key, symbol table ke, and initial PC.
- *
- * BOOTSTRAP NOTE 1:
- * 
- * To simplify system image construction, the constructor does some
- * minimal analysis at startup time.  If KC_PROD_CON0 and KC_PROD_XCON
- * are not void, they are accepted as holding the product constituents,
- * and KC_DCC should hold the domain creator for the constituents.
- * 
- * If initial constituents are found, the factory startup code assumes
- * that the factory should be initially sealed, and that no holes beyond
- * those that are apparent from the initial constituents are present,
- * and that KC_DCC is the actual domain creator.
+ * key, symbol table key, and initial PC.
  */
 
 #include <string.h>
@@ -59,6 +47,7 @@ Approved for public release, distribution unlimited. */
 #include <domain/domdbg.h>
 #include <domain/ProtoSpace.h>
 #include <domain/Runtime.h>
+#include <domain/assert.h>
 
 #include "constituents.h"
 #include "debug.h"
@@ -81,13 +70,26 @@ uint32_t __rt_unkept = 1;
 #define XCON_KEEPER     0
 #define XCON_ADDRSPACE  1
 #define XCON_SYMTAB     2
-#define XCON_PC         3
+#define XCON_PC         3	/* If ci->addrSpaceType == addrSpace_vcs,
+		XCON_PC has a number key containing the PC. */
 
 #define keyInfo_builder 0
 #define keyInfo_requestor 1
 
 typedef struct {
-  int frozen;
+  /* If addrSpaceType is not addrSpace_none, pc has the initial PC for
+  the product.
+  If addrSpaceType is addrSpace_vcs, then KR_PROD_XCON.XCON_PC also has
+  a number key containing the PC. */
+  uint32_t pc;
+
+  enum {
+    addrSpace_none,
+    addrSpace_raw,
+    addrSpace_vcs
+  } addrSpaceType;
+
+  bool frozen;
   int has_holes;
 } ConstructorInfo;
 
@@ -127,40 +129,62 @@ InitConstructor(ConstructorInfo *ci)
   uint32_t result;
   uint32_t keyType;
 
-  ci->frozen = 0;
   ci->has_holes = 0;
   
   capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "constructor init\n");
+
+  /* There are two kinds of constructors.
+
+  Primordial constructors, created at the big bang using the
+  BOOT_CONSTRUCTOR macro, are initially frozen and have components
+  set up in KC_PROD_CON0, KC_PROD_XCON, and KC_YIELDCRE.
+
+  Other constructors are created by the metaconstructor,
+  are initially not frozen, and have void keys in
+  KC_PROD_CON0, KC_PROD_XCON, and KC_YIELDCRE.
+  */
   
   capros_Node_getSlot(KR_CONSTIT, KC_PROD_CON0, KR_PROD_CON0);
 
   result = capros_key_getType(KR_PROD_CON0, &keyType);
   if (result != RC_capros_key_Void) {
-    /* This is an initially frozen constructor.  Use the provided
+    /* This is a primordial constructor, initially frozen.  Use the provided
        constituents, and assume that KC_YIELDCRE already holds the
        proper domain creator. */
     capros_Node_getSlot(KR_CONSTIT, KC_YIELDCRE, KR_YIELDCRE);
-    capros_Node_getSlot(KR_CONSTIT, KC_PROD_CON0, KR_PROD_CON0);
     capros_Node_getSlot(KR_CONSTIT, KC_PROD_XCON, KR_PROD_XCON);
 
-    ci->frozen = 1;
-  }
-  else {
+    // Get pc:
+    capros_Node_getSlot(KR_PROD_XCON, XCON_PC, KR_TEMP0);
+    capros_Number_get32(KR_TEMP0, &ci->pc);
+
+    capros_Node_getSlot(KR_PROD_XCON, XCON_ADDRSPACE, KR_TEMP0);
+    unsigned long keyType;
+    result = capros_key_getType(KR_TEMP0, &keyType);
+    assert(result == RC_OK);
+    if (keyType == AKT_ConstructorRequestor)
+      ci->addrSpaceType = addrSpace_vcs;
+    else {
+      ci->addrSpaceType = addrSpace_raw;
+    }
+
+    ci->frozen = true;
+  } else {
     /* Build a new domain creator for use in crafting products */
-
-    /* use KR_YIELDCRE and KR_DISCRIM as scratch regs for a moment: */
     capros_Node_getSlot(KR_CONSTIT, KC_PCC, KR_YIELDCRE);
-    capros_Process_getSchedule(KR_SELF, KR_SCRATCH);
-
     result = capros_PCC_createProcessCreator(KR_YIELDCRE,
-               KR_BANK, KR_SCRATCH, KR_YIELDCRE);
+               KR_BANK, KR_SCHED, KR_YIELDCRE);
     DEBUG(init) kdprintf(KR_OSTREAM, "GOT DOMCRE Result is 0x%08x\n", result);
-  
+    assert(result == RC_OK);
+
     capros_SpaceBank_alloc2(KR_BANK,
                             capros_Range_otNode | (capros_Range_otNode << 8),
                             KR_PROD_CON0, KR_PROD_XCON);
+
+    ci->addrSpaceType = addrSpace_none;
+    ci->frozen = false;
   }
 }
 
@@ -184,10 +208,10 @@ Sepuku()
 		     KR_CREATOR, KR_BANK, 1);
 }
 
-uint32_t
-MakeNewProduct(Message *msg)
+result_t
+MakeNewProduct(Message * msg, ConstructorInfo * ci)
 {
-  uint32_t result;
+  result_t result;
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Making new product...\n");
 
@@ -197,23 +221,11 @@ MakeNewProduct(Message *msg)
     return result;
   }
 
-  /* NOTE that if capros_ProcCre_createProcess succeeded, we know it's a good
-     space bank. */
-  
   /* Make a read-only key to the constituents node: */
   capros_Node_reduce(KR_PROD_CON0, capros_Node_readOnly, KR_TEMP0);
-
   capros_Process_swapKeyReg(KR_NEWDOM, KR_CONSTIT, KR_TEMP0, KR_VOID);
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Populate new domain\n");
-
-  /* Install protospace into the domain root: */
-  (void) capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPACE, KR_SCRATCH);
-  (void) capros_Process_swapAddrSpaceAndPC32(KR_NEWDOM, KR_SCRATCH,
-           0, // protospace PC, well known to be zero
-           KR_VOID);
-
-  DEBUG(product) kdprintf(KR_OSTREAM, "Installed protospace\n");
 
   /* Install the schedule key into the domain: */
   (void) capros_Process_swapSchedule(KR_NEWDOM, KR_ARG1, KR_VOID);
@@ -231,14 +243,34 @@ MakeNewProduct(Message *msg)
 
   DEBUG(product) kdprintf(KR_OSTREAM, "Sched in target KR_SCHED\n");
 
-  (void) capros_Node_getSlot(KR_PROD_XCON, XCON_ADDRSPACE, KR_SCRATCH);
-  (void) capros_Process_swapKeyReg(KR_NEWDOM, PSKR_SPACE, KR_SCRATCH, KR_VOID);
-
   (void) capros_Node_getSlot(KR_PROD_XCON, XCON_SYMTAB, KR_SCRATCH);
   (void) capros_Process_swapSymSpace(KR_NEWDOM, KR_SCRATCH, KR_VOID);
 
-  (void) capros_Node_getSlot(KR_PROD_XCON, XCON_PC, KR_SCRATCH);
-  (void) capros_Process_swapKeyReg(KR_NEWDOM, PSKR_PROC_PC, KR_SCRATCH, KR_VOID);
+  // Set up the address space:
+  capros_Node_getSlot(KR_PROD_XCON, XCON_ADDRSPACE, KR_TEMP0);
+  switch (ci->addrSpaceType) {
+  default:
+    assert(false);
+
+  case addrSpace_vcs:
+    // Set up to use protospace:
+    capros_Process_swapKeyReg(KR_NEWDOM, PSKR_SPACE, KR_TEMP0, KR_VOID);
+
+    capros_Node_getSlot(KR_PROD_XCON, XCON_PC, KR_TEMP0);
+    capros_Process_swapKeyReg(KR_NEWDOM, PSKR_PROC_PC, KR_TEMP0, KR_VOID);
+
+    /* Install protospace into the domain root: */
+    capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPACE, KR_TEMP0);
+    capros_Process_swapAddrSpaceAndPC32(KR_NEWDOM, KR_TEMP0,
+           0, // protospace PC, well known to be zero
+           KR_VOID);
+    break;
+
+  case addrSpace_raw:
+    capros_Process_swapAddrSpaceAndPC32(KR_NEWDOM, KR_TEMP0,
+           ci->pc,
+           KR_VOID);
+  }
 
   /* User ARG2 to key arg slot 0 */
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_ARG(0), KR_ARG2, KR_VOID);
@@ -248,7 +280,6 @@ MakeNewProduct(Message *msg)
 
   /* Make up a fault key to the new process so we can set it in motion */
 
-  DEBUG(product) kdprintf(KR_OSTREAM, "About to call get fault key\n");
   (void) capros_Process_makeResumeKey(KR_NEWDOM, KR_SCRATCH);
 
   DEBUG(start) kdprintf(KR_OSTREAM, "Invoking fault key to yield...\n");
@@ -324,38 +355,22 @@ insert_constituent(uint32_t ndx, uint32_t kr, ConstructorInfo *ci)
   return RC_OK;
 }
 
-uint32_t
+void
 insert_xconstituent(uint32_t ndx, uint32_t kr, ConstructorInfo *ci)
 {
   DEBUG(build) kdprintf(KR_OSTREAM, "constructor: insert xconstituent %d\n", ndx);
 
-  if (ndx == XCON_PC) {
-    uint32_t obClass;
-    
-    /* This copy IS redundant with the one in is_not_discreet(), but
-       this path is not performance critical and clarity matters too. */
-    capros_Node_getSlot(KR_CONSTIT, KC_DISCRIM, KR_SCRATCH);
-  
-    capros_Discrim_classify(KR_SCRATCH, kr, &obClass);
-    if (obClass != capros_Discrim_clNumber)
-      return RC_capros_key_RequestError;
-  }
-
-  if (ndx > XCON_PC)
-    return RC_capros_key_RequestError;
-    
   if ( is_not_discreet(kr, ci) )
     add_new_hole(kr, ci);
   
   /* now insert the constituent in the proper constituents node: */
   capros_Node_swapSlot(KR_PROD_XCON, ndx, kr, KR_VOID);
-	    
-  return RC_OK;
 }
 
 void
 ProcessRequest(Message *msg, ConstructorInfo *ci)
 {
+  msg->snd_code = RC_OK;	// default
   switch (msg->rcv_code) {
   case OC_capros_Constructor_isDiscreet:
     {
@@ -363,7 +378,6 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
 	msg->snd_w1 = 1;
       else
 	msg->snd_w1 = 0;
-      msg->snd_code = RC_OK;
 
       break;
     }      
@@ -372,7 +386,7 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
     {
       DEBUG(product) kdprintf(KR_OSTREAM, "constructor: request product\n");
 
-      msg->snd_code = MakeNewProduct(msg);
+      msg->snd_code = MakeNewProduct(msg, ci);
       break;
     }      
     
@@ -380,11 +394,14 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
     {
       DEBUG(build) kdprintf(KR_OSTREAM, "constructor: seal\n");
 
-      ci->frozen = 1;
+      if (ci->addrSpaceType == addrSpace_none) {
+        msg->snd_code = RC_capros_key_RequestError;
+      } else {
+        ci->frozen = true;
 
-      capros_Process_makeStartKey(KR_SELF, keyInfo_requestor, KR_NEWDOM);
-      msg->snd_key0 = KR_NEWDOM;
-
+        capros_Process_makeStartKey(KR_SELF, keyInfo_requestor, KR_NEWDOM);
+        msg->snd_key0 = KR_NEWDOM;
+      }
       break;
     }      
 
@@ -397,28 +414,38 @@ ProcessRequest(Message *msg, ConstructorInfo *ci)
 
   case OC_capros_Constructor_insertKeeper:
     {
-      msg->snd_code = insert_xconstituent(XCON_KEEPER, KR_ARG0, ci);
+      insert_xconstituent(XCON_KEEPER, KR_ARG0, ci);
       
       break;
     }      
 
-  case OC_capros_Constructor_insertAddrSpace:
+  case OC_capros_Constructor_insertAddrSpace32:
     {
-      msg->snd_code = insert_xconstituent(XCON_ADDRSPACE, KR_ARG0, ci);
-      
+      ci->addrSpaceType = addrSpace_raw;
+      ci->pc = msg->rcv_w1;
+      insert_xconstituent(XCON_ADDRSPACE, KR_ARG0, ci);
       break;
-    }      
+    }
+
+  case OC_capros_Constructor_insertVCSAddrSpace32:
+    {
+      capros_Number_value val = {
+        .value = {
+          [0] = msg->rcv_w1,
+          [1] = 0,
+          [2] = 0
+        }
+      };
+      capros_Node_writeNumber(KR_PROD_XCON, XCON_PC, val);
+      ci->addrSpaceType = addrSpace_vcs;
+      ci->pc = msg->rcv_w1;
+      insert_xconstituent(XCON_ADDRSPACE, KR_ARG0, ci);
+      break;
+    }
 
   case OC_capros_Constructor_insertSymtab:
     {
-      msg->snd_code = insert_xconstituent(XCON_SYMTAB, KR_ARG0, ci);
-      
-      break;
-    }      
-
-  case OC_capros_Constructor_insertPC:
-    {
-      msg->snd_code = insert_xconstituent(XCON_PC, KR_ARG0, ci);
+      insert_xconstituent(XCON_SYMTAB, KR_ARG0, ci);
       
       break;
     }      
@@ -489,6 +516,7 @@ main()
     if (msg->rcv_keyInfo == keyInfo_builder) {	// builder's key
       ProcessRequest(msg, &ci);
     } else {			// requestor's key
+      assert(ci.frozen);
       switch (msg->rcv_code) {
         case OC_capros_key_getType:
           /* FIXME: This is wrong: each different constructor requestor should
@@ -497,7 +525,7 @@ main()
           break;
 
         default:
-          msg->snd_code = MakeNewProduct(msg);
+          msg->snd_code = MakeNewProduct(msg, &ci);
       }
     }
   }
