@@ -1,7 +1,9 @@
 /*
  * Copyright (C) 2001, The EROS Group, LLC.
+ * Copyright (C) 2009, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,11 +19,15 @@
  * along with this program; if not, write to the Free Software
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/NodeKey.h>
+#include <idl/capros/key.h>
 #include <idl/capros/Constructor.h>
+#include <idl/capros/Node.h>
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
 #include "constituents.h"
@@ -37,47 +43,54 @@
 const uint32_t __rt_stack_pages = 1;
 const uint32_t __rt_stack_pointer = 0x20000;
 
+#define ckOK \
+  if (result != RC_OK) { \
+    kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result); \
+  }
+
 int
 main()
 {
   uint32_t result;
-  uint32_t isDiscrete;
+  uint32_t isDiscreet;
   
-  node_copy(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  node_copy(KR_CONSTIT, KC_METACON, KR_METACON);
-  node_copy(KR_CONSTIT, KC_HELLO_SEG, KR_HELLO_SEG);
-  node_copy(KR_CONSTIT, KC_HELLO_PC, KR_HELLO_PC);
+  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
+  capros_Node_getSlot(KR_CONSTIT, KC_METACON, KR_METACON);
+  capros_Node_getSlot(KR_CONSTIT, KC_HELLO_SEG, KR_HELLO_SEG);
+  capros_Node_getSlot(KR_CONSTIT, KC_HELLO_PC, KR_HELLO_PC);
   
-  result = capros_Constructor_isDiscreet(KR_METACON, &isDiscrete);
-  
-  if ( result == RC_OK && isDiscrete )
+  result = capros_Constructor_isDiscreet(KR_METACON, &isDiscreet);
+  ckOK
+  if (isDiscreet)
     kprintf(KR_OSTREAM, "Metacon alleges discretion\n");
   
   result = capros_Constructor_request(KR_METACON, KR_BANK, KR_SCHED, KR_VOID,
 			 KR_NEWCON);
+  ckOK
 
-  if (result != RC_OK)
-    kdprintf(KR_OSTREAM, "Failed to get constructor, rc=%d\n", result);
+  kprintf(KR_OSTREAM, "Insert addr space\n");
 
-  kprintf(KR_OSTREAM, "Populate new constructor\n");
+  uint32_t pc;
+  result = capros_Number_get32(KR_HELLO_PC, &pc);
+  ckOK
+  result = capros_Constructor_insertAddrSpace32(KR_NEWCON, KR_HELLO_SEG, pc);
+  ckOK
 
-  capros_Constructor_insertAddrSpace(KR_NEWCON, KR_HELLO_SEG);
-  capros_Constructor_insertPC(KR_NEWCON, KR_HELLO_PC);
-  /* The hello address space wants it's output stream as the zeroth
-     constituent. The fact that we need to hard-code this relationship
-     is a good indication of a problem somewhere in here, but for
-     now... */
-  capros_Constructor_insertConstituent(KR_NEWCON, 0, KR_OSTREAM);
+  kprintf(KR_OSTREAM, "Insert constituent\n");
 
-  capros_Constructor_seal(KR_NEWCON, KR_CONREQ);
+  /* The hello address space wants its output stream as the zeroth
+     constituent. */
+  result = capros_Constructor_insertConstituent(KR_NEWCON, 0, KR_OSTREAM);
+  ckOK
+
+  result = capros_Constructor_seal(KR_NEWCON, KR_CONREQ);
+  ckOK
 
   kprintf(KR_OSTREAM, "Request product...\n");
 
   result = capros_Constructor_request(KR_CONREQ, KR_BANK, KR_SCHED, KR_VOID,
 	   	               KR_NEW_HELLO);
-
-  if (result != RC_OK)
-    kdprintf(KR_OSTREAM, "Failed to get product, rc=%d\n", result);
+  ckOK
 
   kprintf(KR_OSTREAM, "Got product!\n");
 
@@ -102,7 +115,9 @@ main()
   
   kprintf(KR_OSTREAM, "Destroying the constructor!\n");
 
-  key_destroy(KR_NEWCON);
+  capros_key_destroy(KR_NEWCON);
+  
+  kprintf(KR_OSTREAM, "\nDONE!\n");
 
   return 0;
 }

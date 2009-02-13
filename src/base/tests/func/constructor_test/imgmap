@@ -39,23 +39,18 @@
 
 contest = new process with constituents;
 
-/* add a page for the stack: */
 contest pc = symbol BUILDDIR "constructor_test" _start;
 contest space = small program BUILDDIR "constructor_test";
 contest schedule = sched(8);	/* normal */
 
 CONSTIT(contest, KC_METACON, 0) = metacon;
 CONSTIT(contest, KC_OSTREAM, 1) = misc Console;
-CONSTIT(contest, KC_HELLO_SEG, 2) = small program "/eros/domain/hello";
-CONSTIT(contest, KC_HELLO_PC, 3) = symbol "/eros/domain/hello" _start;
+CONSTIT(contest, KC_HELLO_SEG, 2) = small program BUILDDIR "hello";
+CONSTIT(contest, KC_HELLO_PC, 3) = symbol BUILDDIR "hello" _start;
 
 /* contest registers: */
 contest key reg KR_SELF = contest;
 contest key reg KR_BANK = primebank;
 contest key reg KR_SCHED = sched(8);
 
-/* print domain contest.dom */
-
 run contest;
-
-print directory;
