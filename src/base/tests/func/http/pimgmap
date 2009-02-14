@@ -1,0 +1,84 @@
+/* -*- C -*- */
+/*
+ * Copyright (C) 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2,
+ * or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+#include <primebank.map>
+#include <pcc.map>
+#include <metacon.map>
+#include <ipltool.map>
+#include <supernode.map>
+#include <vcs.map>
+
+//#include <ckptr.map>
+
+#include <ip.map>
+#define ip_notifyee ip_nplinkee
+
+#include <nplink.map>
+
+#include <netlistener.map>
+#include <directory.map>
+#include <nfile.map>
+
+#include <http.map>
+rsakey = segtree "/home/clandau/sdg/config/privkey.pem";
+certificate = segtree "/home/clandau/sdg/config/cacert.pem";
+
+TCPPort(443);	// http over TLS/SSL
+
+// Constituents for HTTP:
+#include <idl/capros/HTTP.h>
+httpconstits = new node;
+httpconstits[capros_HTTP_KC_ProgramVCS] = http_vcsk_c;
+httpconstits[capros_HTTP_KC_ProgramPC] = http_pc;
+httpconstits[capros_HTTP_KC_ProtoSpace] = httpprotospace;
+httpconstits[capros_HTTP_KC_OStream] = misc Console;
+httpconstits[capros_HTTP_KC_RSAKey] = rsakey;
+httpconstits[capros_HTTP_KC_Certificate] = certificate;
+httpconstits[capros_HTTP_KC_RTC] = misc RTC;
+
+/*
+ * Test domain
+ */ 
+test = new process;
+test pc = symbol BUILDDIR "test" _start;
+seg = small program BUILDDIR "test";
+seg = seg with page at 0x1f000; /* for stack */
+test space = seg;
+test schedule = sched(8);   /* normal */
+test symtab = number("test");
+
+test key reg KR_SELF = test;
+test key reg KR_BANK = primebank;
+test key reg KR_SCHED = sched(8);
+
+test key reg KR_APP(0) = misc Console;
+test key reg KR_APP(1) = httpconstits as ro node key;
+test key reg KR_APP(2) = netlistener_c;
+test key reg KR_APP(3) = TCPPort443;
+test key reg KR_APP(4) = metacon;
+test key reg KR_APP(5) = iks_c;
+test key reg KR_APP(6) = nfilec;
+test key reg KR_APP(7) = http_sym;
+
+run test;
