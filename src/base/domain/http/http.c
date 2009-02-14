@@ -109,17 +109,17 @@ char *certData = NULL;
 #define HTTP_BUFSIZE 4096
 
 /* DEBUG stuff */
-#define dbg_init	0x01u   /* debug initialization logic */
-#define dbg_sslinit     0x02u   /* debug SSL/TLS session set up */
-#define dbg_netio       0x04u   /* debug network I/O operations */
-#define dbg_http        0x08u   /* debug HTTP transactions */
-#define dbg_file        0x10u   /* debug "file" I/O */
+#define dbg_init	0x01   /* debug initialization logic */
+#define dbg_sslinit     0x02   /* debug SSL/TLS session set up */
+#define dbg_netio       0x04   /* debug network I/O operations */
+#define dbg_http        0x08   /* debug HTTP transactions */
+#define dbg_file        0x10   /* debug "file" I/O */
+#define dbg_errors      0x20
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_init | dbg_sslinit | dbg_netio| dbg_http | dbg_file )
+#define dbg_flags   ( 0u | dbg_init | dbg_sslinit | dbg_netio| dbg_http | dbg_file | dbg_errors )
 
 #define CND_DEBUG(x) (dbg_##x & dbg_flags)
 #define DEBUG(x) if (CND_DEBUG(x))
-#define DEBUG2(x,y) if (((dbg_##x|dbg_##y) & dbg_flags) == (dbg_##x|dbg_##y))
 
 /* Internal object interfaces */
 typedef struct {
@@ -314,8 +314,6 @@ connection(void)
   /* Copy the TCPSocket key */
 #ifndef SELF_TEST
   capros_Process_getKeyReg(KR_SELF, KR_ARG(0), KR_SOCKET);
-  capros_Process_getKeyReg(KR_SELF, KR_ARG(1), KR_DIRECTORY);
-  capros_Process_getKeyReg(KR_SELF, KR_ARG(2), KR_FILESERVER);
 #endif
 
   DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: received connection\n");
@@ -584,6 +582,7 @@ process_http(SSL *ssl, BIO *network_bio) {
   /* TODO skip leading blank lines */
   if (!readToken(rs, &rp, " \n")) return 0;
   if (*rp.last != ' ') {
+    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request format\n");
     writeStatusLine(rs, 400);  /* Return Bad Request */
     writeSSL(rs, "\r\n", 2);
     return 1;
@@ -615,6 +614,7 @@ process_http(SSL *ssl, BIO *network_bio) {
     return 0;//TODO remove this
     break;
   default:                                    /* Newline etc bad request */
+    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (newline etc)\n");
     writeStatusLine(rs, 400);  /* Return Bad Request */
     writeSSL(rs, "\r\n", 2);
     return 1;
@@ -624,6 +624,7 @@ process_http(SSL *ssl, BIO *network_bio) {
   if (!readToken(rs, &rp, " \n\r")) return 0;
   versionIndex = compareToken(&rp, versionList);
   if (-1 == versionIndex) {
+    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: version not supported\n");
     writeStatusLine(rs, 505);  /* Return HTTP Version Not Supported*/
     writeMessage(rs, "This server only supports HTTP/1.1", methodIndex==1);
     free(fileName);
@@ -1314,14 +1315,24 @@ openFile(char *name, int isRead) {
     return 0;
   }
   theFileCursor = 0;
+  rc = capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_Directory, KR_DIRECTORY);
+  assert(RC_OK == rc);
   rc = capros_IndexedKeyStore_get(KR_DIRECTORY, len, (uint8_t*)name, KR_FILE);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file key \"%s\" rc=%d\n",
+  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file key \"%s\" rc=%#x\n",
 		       name, rc);
-  if (RC_OK != rc) return 0;
+  if (RC_OK != rc) {
+    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: Directory returned %#x\n",
+                           rc);
+    return 0;
+  }
   rc = capros_File_getSize(KR_FILE, &theFileSize);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file size %d rc=%d\n",
+  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file size %lld rc=%#x\n",
 		       theFileSize, rc);
-  if (RC_OK != rc) return 0;
+  if (RC_OK != rc) {
+    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: File_getSize returned %#x\n",
+                           rc);
+    return 0;
+  }
   return 1;
 #endif
 }
