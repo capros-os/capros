@@ -14,6 +14,7 @@ interface Discrim extends key {
   // This should probably be returning a value of some enumeration
   unsigned long classify(capros.key k);
 
+  /* verify - Return true iff the key is discreet. */
   boolean verify(capros.key k);
 
   boolean compare(capros.key k1, capros.key k2);
