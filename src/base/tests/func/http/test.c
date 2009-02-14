@@ -30,6 +30,9 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Constructor.h>
+#include <idl/capros/IndexedKeyStore.h>
+#include <idl/capros/FileServer.h>
+#include <idl/capros/File.h>
 #include <idl/capros/NetListener.h>
 #include <idl/capros/HTTP.h>
 
@@ -52,6 +55,7 @@ Approved for public release, distribution unlimited. */
 #define KR_Directory  KR_APP(12)
 #define KR_HTTPB      KR_APP(13)	// unsealed constructor
 #define KR_HTTPC      KR_APP(14)	// sealed constructor
+#define KR_File       KR_APP(15)
 
 const uint32_t __rt_stack_pointer = 0x20000;
 const uint32_t __rt_unkept = 1;
@@ -60,6 +64,8 @@ const uint32_t __rt_unkept = 1;
   if (result != RC_OK) { \
     kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result); \
   }
+
+unsigned char fileContents[] = "hello, world";
 
 void
 InsertConstit(unsigned int slot)
@@ -103,11 +109,43 @@ main(void)
   InsertConstit(capros_HTTP_KC_Certificate);
   InsertConstit(capros_HTTP_KC_RTC);
 
-  result = capros_Constructor_insertConstituent(KR_HTTPB,
-             capros_HTTP_KC_Directory, KR_Directory);
+  // Create file server.
+  result = capros_Constructor_request(KR_NFILEC, KR_BANK, KR_SCHED, KR_VOID,
+             KR_FileServer);
   ckOK
   result = capros_Constructor_insertConstituent(KR_HTTPB,
              capros_HTTP_KC_FileServer, KR_FileServer);
+  ckOK
+
+  // Create file
+  result = capros_FileServer_createFile(KR_FileServer, KR_BANK, KR_SCHED,
+             KR_File);
+  ckOK
+  unsigned long lengthWritten;
+  result = capros_File_write(KR_File, 0, sizeof(fileContents), fileContents,
+             &lengthWritten);
+  ckOK
+  assert(lengthWritten == sizeof(fileContents));
+#if 0
+  // Check the data
+  unsigned char readbuf[80];
+  result = capros_File_read(KR_File, 0, sizeof(readbuf), readbuf,
+             &lengthWritten);
+  ckOK
+  assert(lengthWritten == sizeof(fileContents));
+  kprintf(KR_OSTREAM, "File contains %d %d %d\n", readbuf[0], readbuf[1], readbuf[2]);
+#endif
+  
+
+  // Create directory.
+  result = capros_Constructor_request(KR_IKSC, KR_BANK, KR_SCHED, KR_VOID,
+             KR_Directory);
+  ckOK
+  result = capros_IndexedKeyStore_put(KR_Directory, KR_File,
+             3, (unsigned char *)"bar");
+  ckOK
+  result = capros_Constructor_insertConstituent(KR_HTTPB,
+             capros_HTTP_KC_Directory, KR_Directory);
   ckOK
 
   kprintf(KR_OSTREAM, "Sealing constructor.\n");
