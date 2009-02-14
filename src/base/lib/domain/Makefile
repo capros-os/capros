@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2005, 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2005, 2007, 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -68,6 +68,7 @@ CAPROS_OBJECTS+=$(patsubst %.S,$(BUILDDIR)/%.o,$(notdir $(wildcard $(CAPSTUBDIR)
 CAPROS_OBJECTS+=$(BUILDDIR)/kprintf.o
 CAPROS_OBJECTS+=$(BUILDDIR)/wrstream.o
 CAPROS_OBJECTS+=$(BUILDDIR)/sbrk.o
+CAPROS_OBJECTS+=$(BUILDDIR)/showkey.o	# ShowKey is used in some tests
 # Selected files from key:
 # (Other stuff in key/ is not used and should be converted to IDL.)
 CAPROS_OBJECTS+=$(BUILDDIR)/protospace.o
