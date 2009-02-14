@@ -7,6 +7,9 @@ interface NetListener extends key {
 
   /**
    * Listen - Fork process to listen for connections on socket
+   *
+   * After constructing a NetListener, call listen once to specify
+   * the socket and handler.
    *  
    * @param[in] socket The TCPListenSocket to listen on
    * @param[in] handler A constructor for the process which will handle the
@@ -15,29 +18,8 @@ interface NetListener extends key {
    */
   void listen(TCPListenSocket socket, ConstructorRequestor handler);
 
-  /**
-   * Stop - Stop listening to the socket
-   *
-   * @exception NotListening if the listener isn't currently listening.
-   */
-  void stop();
-
   /* NetListener obeys key.destroy().
-     This releases the reserved local port and other resources. */
+     This stops listening on the local port and releases resources. */
+
   /* NetListener obeys key.getType(). */
-};
-
-interface ConnectionHandler extends key {
-
-  exception NoMem;	// server does not have enough memory for the operation
-  exception Already;    // There is already a listener on the socket
-
-  /**
-   * Connection - Handle a new connection. Set up TLS security, and
-   *              process HTTP format requests.
-   *  
-   * @param[in] socket The TCPSocket for the connection
-   * @exception - TBD
-   */
-  void connection(TCPSocket socket);
 };

@@ -33,6 +33,7 @@ OBJECTS=$(BUILDDIR)/netlistener.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
 IMGMAP=netlistener.map
 LIBS=-lethread
+LIBDEP+=$(CAPROS_DOMAIN)/libethread.a
 
 include $(EROS_SRC)/build/make/makerules.mk
 
@@ -44,8 +45,11 @@ interfaces: $(IDL)
 
 netlistener.c: $(BUILDDIR)/constituents.h
 
-$(BUILDDIR)/netlistener: $(OBJECTS) $(DOMLIB)
+$(BUILDDIR)/netlistener: $(OBJECTS) $(LIBDEP)
 	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(LIBS) $(CROSSLIBS) -o $@
+# and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)

@@ -31,5 +31,4 @@ PROD_PC(netlistener_c) = symbol LIBDIR "netlistener" _start;
 PROD_SYM(netlistener_c) = number("netlistener");
 PROD_CONSTIT(netlistener_c,KC_OSTREAM,3) = misc Console;
 PROD_CONSTIT(netlistener_c,KC_PROTOSPACE,4) = protospace;
-PROD_CONSTIT(netlistener_c,KC_DISCRIM,5 = misc Discrim;
 #endif // __NETLISTENER_MAP_
