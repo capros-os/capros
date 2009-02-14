@@ -685,6 +685,8 @@ CreateSocketCap(struct TCPSocket * sock)
   assert(result == RC_OK);
 }
 
+/* Complete a connection we initiated.
+ */
 static void
 CompleteConnection(struct TCPSocket * sock, err_t err)
 {
@@ -884,6 +886,7 @@ accept_tcp(void * arg, struct tcp_pcb *newpcb, err_t err)
     result = capros_Node_getSlotExtended(KR_KEYSTORE, slot+ls_accepter,
                                          KR_TEMP0);
     assert(result == RC_OK);
+    ls->listening = false;
 
     Message Msg = {
       .snd_invKey = KR_TEMP0,
@@ -1262,6 +1265,14 @@ driver_main(void)
       case OC_capros_key_getType:
         Msg.snd_w1 = IKT_capros_TCPSocket;
         break;
+  
+      case OC_capros_TCPSocket_getRemoteAddr:
+      {
+        struct TCPSocket * sock = (struct TCPSocket *)Msg.rcv_w3;
+        Msg.snd_w1 = ntohl(sock->pcb->remote_ip.addr);
+        Msg.snd_w2 = sock->pcb->remote_port;
+        break;
+      }
   
       case OC_capros_TCPSocket_close:
         TCPClose(&Msg);
