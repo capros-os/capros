@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -29,18 +29,13 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Node.h>
 #include <idl/capros/ProcCre.h>
 #include <idl/capros/PCC.h>
+#include <domain/Runtime.h>
 #include <domain/domdbg.h>
 
-#define KR_VOID 0
+#define DETAILED 0
 
-#define KR_CONSTIT     1
-#define KR_SELF        2
-#define KR_SPCBANK     4
-#define KR_SCHED       5
-
-#define KR_SCRATCH     6
 #define KR_NEWDOM      7	/* new domain */
-#define KR_PROCCRE      8	/* new domain creator */
+#define KR_PROCCRE     8	/* new domain creator */
 
 #define KR_KEYBITS     9
 #define KR_OSTREAM    10
@@ -50,17 +45,19 @@ Approved for public release, distribution unlimited. */
 #define KR_NEWSTART   16
 
 
-
 #define KC_OSTREAM   0
 #define KC_KEYBITS   1
 #define KC_DCC       2
 #define KC_HELLO_PC  3
 #define KC_HELLO_SEG 4
 
-void ShowKey(uint32_t krConsole, uint32_t krKeyBits, uint32_t kr);
-
 const uint32_t __rt_stack_pages = 1;
 const uint32_t __rt_stack_pointer = 0x20000;
+
+#define ckOK \
+  if (result != RC_OK) { \
+    kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result); \
+  }
 
 int
 main()
@@ -79,23 +76,21 @@ main()
   
   kdprintf(KR_OSTREAM, "About to invoke pcc\n");
 
-  result = capros_PCC_createProcessCreator(KR_DCC, KR_SPCBANK, KR_SCHED,
+  result = capros_PCC_createProcessCreator(KR_DCC, KR_BANK, KR_SCHED,
                KR_PROCCRE);
-    
+  ckOK
+#if DETAILED
   ShowKey(KR_OSTREAM, KR_KEYBITS, KR_PROCCRE);
-  kdprintf(KR_OSTREAM, "GOT PROCCRE Result is 0x%08x\n", result);
+#endif
 
   kdprintf(KR_OSTREAM, "About to invoke new proccre\n");
   
-  result = capros_ProcCre_createProcess(KR_PROCCRE, KR_SPCBANK, KR_NEWDOM);
+  result = capros_ProcCre_createProcess(KR_PROCCRE, KR_BANK, KR_NEWDOM);
+  ckOK
+#if DETAILED
   ShowKey(KR_OSTREAM, KR_KEYBITS, KR_PROCCRE);
   ShowKey(KR_OSTREAM, KR_KEYBITS, KR_NEWDOM);
-  kdprintf(KR_OSTREAM, "Result is 0x%08x\n", result);
-
-  if (result != RC_OK) {
-    kdprintf(KR_OSTREAM, "EXIT with 0x%08x\n", result);
-    return 0;
-  }
+#endif
 
   kdprintf(KR_OSTREAM, "Populate new process\n");
 
@@ -108,14 +103,17 @@ main()
 
   /* Install the bank and domain key for this domain: */
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SELF, KR_NEWDOM, KR_VOID);
-  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SPCBANK, KR_SPCBANK, KR_VOID);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_BANK, KR_BANK, KR_VOID);
   (void) capros_Process_swapKeyReg(KR_NEWDOM, 5, KR_OSTREAM, KR_VOID);
 
   kdprintf(KR_OSTREAM, "About to call get fault key\n");
 
   /* Make a resume key to start up the new domain creator: */
-  (void) capros_Process_makeResumeKey(KR_NEWDOM, KR_SCRATCH);
-  ShowKey(KR_OSTREAM, KR_KEYBITS, KR_SCRATCH);
+  result = capros_Process_makeResumeKey(KR_NEWDOM, KR_TEMP0);
+  ckOK
+#if DETAILED
+  ShowKey(KR_OSTREAM, KR_KEYBITS, KR_TEMP0);
+#endif
 
   msg.snd_key0 = KR_VOID;
   msg.snd_key1 = KR_VOID;
@@ -123,16 +121,19 @@ main()
   msg.snd_rsmkey = KR_VOID;
   msg.snd_code = 0;
   msg.snd_len = 0;
-  msg.snd_invKey = KR_SCRATCH;
+  msg.snd_invKey = KR_TEMP0;
 
   SEND(&msg);
 
   kdprintf(KR_OSTREAM, "About to mk start key\n");
 
-  /* Now make a NODESTROY start key to return: */
-  (void) capros_Process_makeStartKey(KR_NEWDOM, 0, KR_NEWSTART);
-
+  /* Now make a start key to call: */
+  result = capros_Process_makeStartKey(KR_NEWDOM, 0, KR_NEWSTART);
+  ckOK
+#if DETAILED
   ShowKey(KR_OSTREAM, KR_KEYBITS, KR_NEWSTART);
+#endif
+
   kdprintf(KR_OSTREAM, "Got start key. Invoke it:\n");
 
   msg.snd_key0 = KR_VOID;
@@ -154,8 +155,13 @@ main()
 
   kdprintf(KR_OSTREAM, "Result is 0x%08x\n", result);
 
-  result = capros_ProcCre_destroyProcess(KR_PROCCRE, KR_SPCBANK, KR_NEWDOM);
-  kdprintf(KR_OSTREAM, "Destroy process, result is 0x%08x\n", result);
+  uint32_t keyType, keyInfo;
+  result = capros_ProcCre_amplifyGateKey(KR_PROCCRE, KR_NEWSTART,
+             KR_TEMP0, &keyType, &keyInfo);
+  ckOK
+
+  result = capros_ProcCre_destroyProcess(KR_PROCCRE, KR_BANK, KR_NEWDOM);
+  ckOK
 
   kprintf(KR_OSTREAM, "DONE!!!\n");
   return 0;
