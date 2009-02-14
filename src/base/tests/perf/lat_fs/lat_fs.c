@@ -26,11 +26,11 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/File.h>
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
 #include <domain/assert.h>
 #include <domain/ConstructorKey.h>
-#include <domain/NFileKey.h>
 
 #define dbg_init    0x1
 #define dbg_passes  0x2
@@ -114,13 +114,14 @@ main()
 
       for (file = 0; file < NITER; file++)
 	{
-	  result = nfile_create(KR_NFILESRV, KR_FD0);
+	  result = capros_FileServer_createFile(KR_NFILESRV, KR_BANK, KR_SCHED,
+                     KR_FD0);
           assert(result == RC_OK);
 
           DEBUG(passes)
             kprintf(KR_OSTREAM, "Created nfile %d\n", file);
 
-	  result = nfile_write(KR_FD0, 0, sizes[i], buf, &len);
+	  result = capros_File_write(KR_FD0, 0, sizes[i], buf, &len);
           assert(result == RC_OK);
 
           DEBUG(passes)
@@ -154,18 +155,18 @@ main()
 #if 0
   for (i = 0; i < NITER; i++)
   {
-    nfile_create(KR_NFILESRV, KR_FD0);
+    capros_FileServer_createFile(KR_NFILESRV, KR_BANK, KR_SCHED, KR_FD0);
     capros_Node_swapSlot(KR_TMPNODE, i, KR_FD0, KR_VOID);
 
-    result = nfile_write(KR_FD0, 0, EROS_PAGE_SIZE, buf, &len);
+    result = capros_File_write(KR_FD0, 0, EROS_PAGE_SIZE, buf, &len);
     if (result != RC_OK || len != EROS_PAGE_SIZE)
       kdprintf(KR_OSTREAM, "nfile_rd: result 0x%x len %d\n", result, len);
 
-    result = nfile_write(KR_FD0, EROS_PAGE_SIZE, EROS_PAGE_SIZE*2, buf, &len);
+    result = capros_File_write(KR_FD0, EROS_PAGE_SIZE, EROS_PAGE_SIZE*2, buf, &len);
     if (result != RC_OK || len != EROS_PAGE_SIZE*2)
       kdprintf(KR_OSTREAM, "nfile_wr: result 0x%x len %d\n", result, len);
 
-    result = nfile_write(KR_FD0, EROS_PAGE_SIZE*2, EROS_PAGE_SIZE*2, buf, &len);
+    result = capros_File_write(KR_FD0, EROS_PAGE_SIZE*2, EROS_PAGE_SIZE*2, buf, &len);
     if (result != RC_OK || len != EROS_PAGE_SIZE*2)
       kdprintf(KR_OSTREAM, "nfile_rd: result 0x%x len %d\n", result, len);
 
@@ -173,7 +174,7 @@ main()
     
 #if 0
     /* Should be able to read 0 bytes from a new file: */
-    result = nfile_read(KR_FD0, 0, 0, buf, &len);
+    result = capros_File_read(KR_FD0, 0, 0, buf, &len);
     if (result != RC_OK || len != 0)
       kdprintf(KR_OSTREAM, "nfile_rd: result 0x%x len %d\n", result, len);
 #endif
