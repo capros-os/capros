@@ -61,8 +61,13 @@ ethread_new_thread1(cap_t kr_bank, uint32_t stack_pointer,
   /* Copy schedule key */
   result = capros_Process_getSchedule(KR_SELF, KR_TEMP0);
   assert(result == RC_OK);
-
   result = capros_Process_swapSchedule(kr_new_thread, KR_TEMP0, KR_VOID);
+  assert(result == RC_OK);
+  
+  /* Copy symspace key */
+  result = capros_Process_getSymSpace(KR_SELF, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_Process_swapSymSpace(kr_new_thread, KR_TEMP0, KR_VOID);
   assert(result == RC_OK);
 
   /* Now just copy all key registers */
