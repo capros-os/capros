@@ -41,8 +41,10 @@ Approved for public release, distribution unlimited. */
  */
 
 #include <stddef.h>
+#include <limits.h>
 #include <eros/target.h>
 #include <domain/Runtime.h>
+#include <domain/assert.h>
 #include <eros/Invoke.h>
 
 #include <idl/capros/key.h>
@@ -50,10 +52,11 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/File.h>
+#include <idl/capros/FileServer.h>
 
 #include <domain/VcskKey.h>
 #include <domain/ConstructorKey.h>
-#include <domain/NFileKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 #include <string.h>
@@ -77,15 +80,10 @@ Approved for public release, distribution unlimited. */
 #define dbg_fresh   0x200
 
 /* Following should be an OR of some of the above */
-#if 0
-#define dbg_flags   ( dbg_req )
-#else
-#define dbg_flags   ( 0u )
-#endif
+#define dbg_flags   ( 0x0 )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-#define KR_FILESTART  KR_APP(0)	/* start key for files */
 #define KR_CURFILE    KR_APP(1)
 #define KR_OSTREAM    KR_APP(2)
 #define KR_MYSPACE    KR_APP(3)
@@ -106,8 +104,8 @@ const uint32_t __rt_stack_pages = NSTACK;
 #define GROW        1
 #define NO_GROW     0
 
-/* Following is temporary!!! */
-typedef uint32_t f_size_t;
+typedef capros_File_fileLocation f_size_t;
+#define PS_FSIZE "%#llx"	// printf specification for f_size_t
 
 /* We divide the CAPROS_FAST_SPACE_LGSIZE space into two halves: */
 #define SUBSPACE_LGSIZE (CAPROS_FAST_SPACE_LGSIZE-1)
@@ -116,8 +114,21 @@ The second is for file storage, which grows upwards. */
 
 #define INO_NINDIR 11
 
+/* A file is defined by an inode aka struct ino.
+Inodes are allocated in the root file.
+Each inode has an inode ID which fits in 15 bits
+so it, with a read-only bit, can be used in the keyInfo field of a start key.
+(An alternative design would set the inode address as the dataWord
+of the forwarder, but then snd_w3 is not available for parameters
+from the client.)
+ */
+typedef uint16_t inoID_t;
+#define keyInfo_server 0x7fff
+#define keyInfo_readOnly 0x8000
+
 /* Following structure is of a size that evenly divides
-   BLOCK_SIZE, which is important to the implementation */
+   BLOCK_SIZE, which is important to the implementation
+   (not sure why - CRL) */
 typedef struct ino ino_s;
 struct ino {
   union {
@@ -127,26 +138,30 @@ struct ino {
   } u;
   uint64_t uuid;		/* unique ID */
   uint8_t  nLayer;
+  inoID_t id;
   uint32_t *indir[INO_NINDIR];
 } ;
+
+#define PtrsPerBlock (BLOCK_SIZE/sizeof(uint32_t *))
+#define inodesPerBlock (BLOCK_SIZE / sizeof(ino_s))
 
 /* Max of 5 indirection blocks */
 const uint64_t sizes_by_layers[] = {
   1llu * INO_NINDIR * BLOCK_SIZE,
   1llu * INO_NINDIR * BLOCK_SIZE
-    * (BLOCK_SIZE/sizeof(uint32_t *)),
+    * PtrsPerBlock,
   1llu * INO_NINDIR * BLOCK_SIZE 
-    * (BLOCK_SIZE/sizeof(uint32_t *))
-    * (BLOCK_SIZE/sizeof(uint32_t *)),
+    * PtrsPerBlock
+    * PtrsPerBlock,
   1llu * INO_NINDIR * BLOCK_SIZE 
-    * (BLOCK_SIZE/sizeof(uint32_t *))
-    * (BLOCK_SIZE/sizeof(uint32_t *))
-    * (BLOCK_SIZE/sizeof(uint32_t *)),
+    * PtrsPerBlock
+    * PtrsPerBlock
+    * PtrsPerBlock,
   1llu * INO_NINDIR * BLOCK_SIZE 
-    * (BLOCK_SIZE/sizeof(uint32_t *))
-    * (BLOCK_SIZE/sizeof(uint32_t *))
-    * (BLOCK_SIZE/sizeof(uint32_t *))
-    * (BLOCK_SIZE/sizeof(uint32_t *)),
+    * PtrsPerBlock
+    * PtrsPerBlock
+    * PtrsPerBlock
+    * PtrsPerBlock,
 };
 
 
@@ -220,6 +235,7 @@ init(server_state *ss)
   capros_Node_getSlot(KR_CONSTIT, KC_ZSF, KR_SCRATCH);
   result = constructor_request(KR_SCRATCH, KR_BANK, KR_SCHED,
 			       KR_VOID, KR_SCRATCH);
+  assert(result == RC_OK);
 
   /* plug in newly allocated ZSF */
   DEBUG(init) kdprintf(KR_OSTREAM, 
@@ -264,6 +280,8 @@ init(server_state *ss)
  *     new_page_ptr = *(find_file_page(...))
  *
  * This function does lazy file expansion!
+ *
+ * Returns NULL if the position is past the end and NO_GROW was specified.
  */
 uint32_t **
 find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
@@ -275,7 +293,7 @@ find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
   uint32_t **blockTable = ino->indir;
     
   DEBUG(findpg)
-    kdprintf(KR_OSTREAM, "find: ino: 0x%X sz 0x%X at: 0x%x, grow? %c\n",
+    kdprintf(KR_OSTREAM, "find: ino: %#llx sz %#llx at: "PS_FSIZE", grow? %c\n",
 	    ino->uuid, ino->u.sz, at, (wantGrow == GROW) ? 'y' : 'n');
   
   /* Grow the file upwards as necessary. */
@@ -284,7 +302,7 @@ find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
     uint32_t **newIndir;
       
     DEBUG(findpg)
-      kdprintf(KR_OSTREAM, "find: ino: 0x%X allocSz 0x%X nLayer %d (max 0x%x) => grow\n",
+      kdprintf(KR_OSTREAM, "find: ino: %#llx allocSz %#llx nLayer %d (max 0x%x) => grow\n",
 	      ino->uuid, allocSz, ino->nLayer,
 	      sizes_by_layers[ino->nLayer]);
   
@@ -299,25 +317,25 @@ find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
   }
 
   DEBUG(findpg)
-    kdprintf(KR_OSTREAM, "find: ino: 0x%X nLayer: %d\n",
+    kdprintf(KR_OSTREAM, "find: ino: %#llx nLayer: %d\n",
 	    ino->uuid, ino->nLayer);
   
   {
     uint32_t layer = ino->nLayer;
 
     while (layer > 0) {
-      ndx =
-	(atPg / (layer * (BLOCK_SIZE/sizeof(uint32_t *))));
+      ndx =	//// this looks wrong - CRL
+	(atPg / (layer * PtrsPerBlock));
       ndx %= (BLOCK_SIZE / sizeof(uint32_t));
     
       DEBUG(findpg)
-	kdprintf(KR_OSTREAM, "find: ino: 0x%X layer %d ndx %d\n",
+	kdprintf(KR_OSTREAM, "find: ino: %#llx layer %d ndx %d\n",
 		ino->uuid, layer, ndx);
 
       blockTable = (uint32_t **)blockTable[ndx];
 
       DEBUG(findpg)
-	kdprintf(KR_OSTREAM, "find: ino: 0x%X layer %d ndx %d ==> 0x%x\n",
+	kdprintf(KR_OSTREAM, "find: ino: %#llx layer %d ndx %d ==> 0x%x\n",
 		ino->uuid, layer, ndx, blockTable);
 
       if (blockTable == 0) {
@@ -328,7 +346,7 @@ find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
 	blockTable = (uint32_t **)blockTable[ndx];
 
 	DEBUG(findpg)
-	  kdprintf(KR_OSTREAM, "find: ino: 0x%X layer %d ndx %d: grow layer: 0x%x\n",
+	  kdprintf(KR_OSTREAM, "find: ino: %#llx layer %d ndx %d: grow layer: 0x%x\n",
 		  ino->uuid, layer, ndx, blockTable);
       }
     
@@ -338,12 +356,12 @@ find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
     ndx = atPg % (BLOCK_SIZE / sizeof(uint32_t));
 
     DEBUG(findpg)
-      kdprintf(KR_OSTREAM, "find: ino: 0x%X layer %d ndx %d: blockTbl 0x%x bt[ndx] 0x%x\n",
+      kdprintf(KR_OSTREAM, "find: ino: %#llx layer %d ndx %d: blockTbl 0x%x bt[ndx] 0x%x\n",
 	       ino->uuid, layer, ndx, blockTable, blockTable[ndx]);
 
     if (blockTable[ndx] == 0 && wantGrow != NO_GROW) {
       DEBUG(findpg)
-	kdprintf(KR_OSTREAM, "find: ino: 0x%X layer %d ndx %d: grow leaf: 0x%x\n",
+	kdprintf(KR_OSTREAM, "find: ino: %#llx layer %d ndx %d: grow leaf: 0x%x\n",
 		 ino->uuid, layer, ndx, blockTable[ndx]);
 
       if (wantGrow == GROW)
@@ -354,7 +372,7 @@ find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
   }
   
   DEBUG(findpg)
-    kdprintf(KR_OSTREAM, "find: ino: 0x%X return 0x%x contains 0x%x\n",
+    kdprintf(KR_OSTREAM, "find: ino: %#llx return 0x%x contains 0x%x\n",
 	    ino->uuid, &blockTable[ndx], blockTable[ndx]);
 
   return &blockTable[ndx];
@@ -362,12 +380,12 @@ find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
 
 /* Write /len/ bytes of data from /buf/ into /file/, starting at
    position /at/.  Extends the file as necessary. */
-uint32_t
+result_t
 write_to_file(server_state *ss, ino_s *ino, f_size_t at,
 	      uint32_t len, uint8_t *buf)
 {
   DEBUG(write)
-    kdprintf(KR_OSTREAM, "write: ino: 0x%X writing %d at 0x%x\n",
+    kdprintf(KR_OSTREAM, "write: ino: %#llx writing %d at "PS_FSIZE"\n",
 	    ino->uuid, len, at);
 
   /* The passed /buf/ is contiguous, but there is no guarantee that
@@ -376,12 +394,12 @@ write_to_file(server_state *ss, ino_s *ino, f_size_t at,
     uint32_t offset = at & (BLOCK_SIZE - 1);
     uint32_t nBytes = BLOCK_SIZE - offset;
 
-    DEBUG(write)
-      kdprintf(KR_OSTREAM, "write: ino: 0x%X bwrite %d at 0x%x\n",
-	       ino->uuid, nBytes, at);
-
     if (nBytes > len)
       nBytes = len;
+
+    DEBUG(write)
+      kdprintf(KR_OSTREAM, "write: ino: %#llx bwrite %d at "PS_FSIZE"\n",
+	       ino->uuid, nBytes, at);
 
     {
       uint32_t grow =
@@ -398,13 +416,12 @@ write_to_file(server_state *ss, ino_s *ino, f_size_t at,
       }
       else
 #endif
-#if 1
-	bcopy(buf, &pPage[offset], nBytes);
-#endif
+	memcpy(&pPage[offset], buf, nBytes);
 
       DEBUG(write)
-	kdprintf(KR_OSTREAM, "write: ino: 0x%X bwrote %d at 0x%x\n",
-		 ino->uuid, nBytes, at);
+	kdprintf(KR_OSTREAM,
+                 "write: ino: %#llx bwrote %d at "PS_FSIZE" to %#x %d\n",
+		 ino->uuid, nBytes, at, &pPage[offset], buf[0]);
 
       len -= nBytes;
       at += nBytes;
@@ -421,25 +438,25 @@ write_to_file(server_state *ss, ino_s *ino, f_size_t at,
 
 /* Write /len/ bytes of data from /buf/ into /file/, starting at
    position /at/.  Extends the file as necessary. */
-uint32_t
+result_t
 read_from_file(server_state *ss, ino_s *ino, f_size_t at,
 	       uint32_t *rqLen, uint8_t *buf)
 {
   uint32_t len = *rqLen;
   
   DEBUG(read)
-    kdprintf(KR_OSTREAM, "read: ino: 0x%X reading %d at 0x%x\n",
+    kdprintf(KR_OSTREAM, "read: ino: %#llx reading %d at "PS_FSIZE"\n",
 	    ino->uuid, len, at);
 
   if (at > ino->u.sz)
     return RC_capros_key_RequestError;
 
   if (at + len > ino->u.sz) {
-    len = ino->u.sz - at;
+    len = ino->u.sz - at;	// may be zero
     *rqLen = len;
 
     DEBUG(read)
-      kdprintf(KR_OSTREAM, "read: ino: 0x%X truncated to %d at 0x%x\n",
+      kdprintf(KR_OSTREAM, "read: ino: %#llx truncated to %d at "PS_FSIZE"\n",
 	       ino->uuid, len, at);
   }
   
@@ -452,16 +469,13 @@ read_from_file(server_state *ss, ino_s *ino, f_size_t at,
     if (nBytes > len)
       nBytes = len;
 
-    DEBUG(write)
-      kdprintf(KR_OSTREAM, "read: ino: 0x%X bread %d at 0x%x\n",
-	       ino->uuid, nBytes, at);
-
     {
       uint32_t **ppPage = find_file_page(ss, ino, at, NO_GROW);
 
       if (ppPage == 0) {
-	DEBUG(write)
-	  kdprintf(KR_OSTREAM, "read: ino: 0x%X bread %d at 0x%x -- lazy zero\n",
+	DEBUG(read)
+	  kdprintf(KR_OSTREAM,
+                   "read: ino: %#llx bread %d at "PS_FSIZE" -- lazy zero\n",
 		   ino->uuid, nBytes, at);
 
 	bzero(buf, nBytes);
@@ -469,12 +483,14 @@ read_from_file(server_state *ss, ino_s *ino, f_size_t at,
       else {
 	uint8_t *pPage = (uint8_t *) *ppPage;
 
-	bcopy(&pPage[offset], buf, nBytes);
+	memcpy(buf, &pPage[offset], nBytes);
+
+        DEBUG(read)
+          kdprintf(KR_OSTREAM,
+                   "read: ino: %#llx bread %d at "PS_FSIZE" from %#x %d\n",
+	           ino->uuid, nBytes, at, &pPage[offset], buf[0]);
       }
     }
-
-    DEBUG(write)
-      kdprintf(KR_OSTREAM, "read: ino: 0x%X got i\n", ino->uuid);
 
     /* blockTable now points to the start of the content page */
     len -= nBytes;
@@ -485,36 +501,64 @@ read_from_file(server_state *ss, ino_s *ino, f_size_t at,
   return RC_OK;
 }
 
-void
+ino_s *
+inodeIDToPtr(server_state * ss, inoID_t id)
+{
+  int blk = id / inodesPerBlock;
+  uint32_t ** ppPage = find_file_page(ss, &ss->root, blk * BLOCK_SIZE, NO_GROW);
+  ino_s * pIno = (ino_s *) *ppPage;
+  return &pIno[id - blk * inodesPerBlock];
+}
+
+result_t
 grow_inode_table(server_state *ss)
 {
   int i;
   
+  f_size_t oldRootSize = ss->root.u.sz;
+
   DEBUG(inogrow)
-    kdprintf(KR_OSTREAM, "ino: growing inode table\n");
+    kdprintf(KR_OSTREAM, "ino: growing inode table from "PS_FSIZE"\n",
+             oldRootSize);
+
+  f_size_t oldBlocks = oldRootSize / BLOCK_SIZE;
+  assert(oldBlocks <= ULONG_MAX);	// because keyInfo_server < ULONG_MAX
+  int newNumInodes = ((unsigned long)oldBlocks+1) * inodesPerBlock;
+  if (newNumInodes >= keyInfo_server)
+    // inode ID won't fit in keyInfo.
+    return RC_capros_FileServer_TooManyFiles;
   
-  /* Extends the file with a new zero page: */
-  uint32_t ** ppPage = find_file_page(ss, &ss->root, ss->root.u.sz, GROW);
+  /* Extend the file with a new zero block: */
+  uint32_t ** ppPage = find_file_page(ss, &ss->root, oldRootSize, GROW);
   ino_s * pIno = (ino_s *) *ppPage;
   
   DEBUG(inogrow)
     kdprintf(KR_OSTREAM, "ino: pIno=0x%x, %d, %d\n", pIno, BLOCK_SIZE, sizeof(ino_s));
 
-  for (i = 0; i < BLOCK_SIZE / sizeof(ino_s); i++)
+  int idBase = newNumInodes - inodesPerBlock;
+  for (i = 0; i < inodesPerBlock; i++) {
+    pIno[i].id = idBase + i;	// this inode's own id
     pIno[i].u.nxt_free = &pIno[i+1];
+  }
 
   pIno[i-1].u.nxt_free = 0;
 
   ss->first_free_inode = &pIno[0];
+  ss->root.u.sz += BLOCK_SIZE;
+  return RC_OK;
 }
 
-uint32_t
+result_t
 create_new_file(server_state *ss, ino_s** outFile)
 {
   ino_s    *newfile;
+  result_t result;
   
-  if (ss->first_free_inode == 0)
-    grow_inode_table(ss);
+  if (ss->first_free_inode == 0) {
+    result = grow_inode_table(ss);
+    if (result != RC_OK)
+      return result;
+  }
 
   /* Now have at least one free inode */
 
@@ -528,7 +572,7 @@ create_new_file(server_state *ss, ino_s** outFile)
   ss->nxt_uuid++;
   
   DEBUG(ino)
-    kdprintf(KR_OSTREAM, "ino: created new file ino=0x%x with uuid 0x%X\n",
+    kdprintf(KR_OSTREAM, "ino: created new file ino=0x%x with uuid %#llx\n",
 	     newfile, newfile->uuid);
   
   return RC_OK;
@@ -553,12 +597,13 @@ reclaim_ino_pages(server_state *ss, uint32_t lvl, uint32_t *blockTable)
   }
 }
 
-uint32_t
+result_t
 destroy_file(server_state *ss, ino_s *ino)
 {
   int i;
-  uint32_t result;
+  result_t result;
   
+  // Rescind and free the forwarder:
   result = capros_SpaceBank_free1(KR_BANK, KR_CURFILE);
   if (result != RC_OK)
     kdprintf(KR_OSTREAM, "NFILE: free(fwdr) returned 0x%x\n", result);
@@ -575,7 +620,7 @@ destroy_file(server_state *ss, ino_s *ino)
 int
 ProcessRequest(Message *msg, server_state *ss)
 {
-  uint32_t result = RC_OK;
+  result_t result = RC_OK;
   
   msg->snd_key0 = KR_VOID;
   msg->snd_len = 0;		/* until proven otherwise */
@@ -583,81 +628,103 @@ ProcessRequest(Message *msg, server_state *ss)
   msg->snd_w2 = 0;
   msg->snd_w3 = 0;
 
-  switch(msg->rcv_code) {
-  case OC_NFile_Create:
+  if (msg->rcv_keyInfo == keyInfo_server) {
+    switch(msg->rcv_code) {
+    default:
+      result = RC_capros_key_UnknownRequest;
+      break;
+
+    case OC_capros_key_getType:
+      msg->snd_w1 = IKT_capros_FileServer;
+      break;
+
+    case OC_capros_key_destroy:
+      assert(false);//// incomplete
+      break;
+
+    case OC_capros_FileServer_createFile:
     {
-      ino_s *newFile;
+      ino_s * ino;
 
       DEBUG(req)
 	kdprintf(KR_OSTREAM, "NFILE: create\n");
 
-      result = create_new_file(ss, &newFile);
+      result = create_new_file(ss, &ino);
       if (result != RC_OK)
 	break;
 
-      result = forwarder_create(KR_BANK, KR_CURFILE, KR_SCRATCH, KR_FILESTART,
-                 capros_Forwarder_sendCap | capros_Forwarder_sendWord,
-                 (uint32_t)newFile);
-      if (result != RC_OK)
+      result = capros_Process_makeStartKey(KR_SELF, ino->id, KR_TEMP0);
+      assert(result == RC_OK);
+
+      result = forwarder_create(KR_BANK, KR_CURFILE, KR_TEMP1, KR_TEMP0,
+                 capros_Forwarder_sendCap, 0);
+      if (result != RC_OK) {
+        destroy_file(ss, ino);
 	break;
+      }
 
       msg->snd_key0 = KR_CURFILE;
       break;
     }
-  case OC_capros_key_destroy:
-    {
-      ino_s *ino = (ino_s *)msg->rcv_w3;
+    }
+  } else {	// not the server; an individual file
+    ino_s * ino = inodeIDToPtr(ss, msg->rcv_keyInfo & 0x7fff);
+    switch(msg->rcv_code) {
+    default:
+      result = RC_capros_key_UnknownRequest;
+      break;
 
+    case OC_capros_key_getType:
+      msg->snd_w1 = IKT_capros_File;
+      break;
+
+    case OC_capros_key_destroy:
       DEBUG(req)
-	kdprintf(KR_OSTREAM, "NFILE: ino 0x%X destroy\n",
+	kdprintf(KR_OSTREAM, "NFILE: ino %#llx destroy\n",
 		 ino->uuid);
 
       result = destroy_file(ss, ino);
-
       break;
-    }
-    
-  case OC_NFile_Read:
+
+    case 0:	// OC_capros_File_read
     {
-      ino_s *ino = (ino_s *)msg->rcv_w3;
-      f_size_t len = msg->rcv_w1;
-      f_size_t at = msg->rcv_w2;
+      f_size_t at = msg->rcv_w1 | ((uint64_t)msg->rcv_w2 << 32);
+      uint32_t len = msg->rcv_w3;
       
       DEBUG(req)
-	kdprintf(KR_OSTREAM, "NFILE: ino 0x%X read %d at %d\n",
+	kdprintf(KR_OSTREAM, "NFILE: ino %#llx read %d at "PS_FSIZE"\n",
 		 ino->uuid, len, at);
 
       result = read_from_file(ss, ino,  at, &len, ss->buf);
-      msg->snd_data = &ss->buf;
+      msg->snd_data = ss->buf;
       msg->snd_len = len;
       break;
     }
 
-  case OC_NFile_Write:
+    case 1:	// OC_capros_File_write
     {
-      ino_s *ino = (ino_s *)msg->rcv_w3;
-      f_size_t len = min(msg->rcv_limit, msg->rcv_sent);
-      f_size_t at = msg->rcv_w2;
+      f_size_t at = msg->rcv_w1 | ((uint64_t)msg->rcv_w2 << 32);
+      uint32_t len = msg->rcv_w3;
       
       DEBUG(req)
-	kdprintf(KR_OSTREAM, "NFILE: ino 0x%X write %d at %d\n",
-		 ino->uuid, len, at);
+	kdprintf(KR_OSTREAM, "NFILE: ino %#llx write %d at "PS_FSIZE" %d\n",
+		 ino->uuid, len, at, ss->buf[0]);
 
-#if 1
       result = write_to_file(ss, ino,  at, len, ss->buf);
-#endif
 
       msg->snd_w1 = len;
       break;
     }
 
-  default:
-    DEBUG(req)
-      kdprintf(KR_OSTREAM, "NFILE: unknown request %x (%d)\n",
-	       msg->rcv_code, msg->rcv_code);
+    case OC_capros_File_getSize:
+      msg->snd_w1 = (uint32_t) ino->u.sz;
+      msg->snd_w2 = ino->u.sz >> 32;
+      break;
 
-    result = RC_capros_key_UnknownRequest;
-    break;
+    case OC_capros_File_getReadOnlyCap:
+      assert(false); // incomplete
+      break;
+    }
   }
 
   msg->snd_code = result;
@@ -672,8 +739,7 @@ main()
 
   init(&ss);
 
-  capros_Process_makeStartKey(KR_SELF, 0, KR_SCRATCH);
-  capros_Process_makeStartKey(KR_SELF, 1, KR_FILESTART);
+  capros_Process_makeStartKey(KR_SELF, keyInfo_server, KR_SCRATCH);
      
   msg.snd_invKey = KR_RETURN;
   msg.snd_key0 = KR_SCRATCH;

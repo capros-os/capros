@@ -9,10 +9,12 @@ interface File extends key
   by a non-Long operation: */
   const unsigned long maxLength = 65536;
 
+  client // because of inadequate support for passing strings in IDL compiler
   void read(fileLocation at, unsigned long length,
             out unsigned byte data, // this is really an input string
             out unsigned long lengthRead);
 
+  client // because of inadequate support for passing strings in IDL compiler
   void write(fileLocation at, unsigned long length, 
             out unsigned byte data,	// this is really an output string
             out unsigned long lengthWritten);

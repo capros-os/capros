@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -29,12 +29,8 @@ Approved for public release, distribution unlimited. */
 
 BOOT_CONSTRUCTOR(nfilec, nfile);
 
-/* mutex requires no special constituents */
-
 PROD_SPACE(nfilec) = small program LIBDIR "nfile";
 PROD_PC(nfilec) = symbol LIBDIR "nfile" _start;
 
 PROD_CONSTIT(nfilec, KC_ZSF, 1) = zs_c;
 PROD_CONSTIT(nfilec, KC_OSTREAM, 2) = misc Console;
-
-/* no keeper, no symbol table */
