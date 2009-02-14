@@ -3,7 +3,7 @@
 #define __IP_MAP_
 
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -65,7 +65,12 @@ ip_proc key reg KR_APP(0) = misc Console;
 ip_proc key reg KR_APP(2) = start ip2_proc 1;
 ip = start ip_proc 0;
 run ip_proc;
-// Need to define macros for local port keys.
+
+#define TCPPort(num) \
+TCPPortF##num = new forwarder; \
+TCPPortF##num[30] = number(num); \
+TCPPortF##num target = start ip_proc 2; /* keyInfo_TCPPortNum */ \
+TCPPort##num = TCPPortF##num as sendWord opaque forwarder key;
 
 // For use in constructing IP addresses:
 #define fourByteVal(a,b,c,d) ((((a)*256+(b))*256+(c))*256+(d))

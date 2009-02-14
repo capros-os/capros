@@ -64,6 +64,8 @@ interface TCPSocket extends key {
   exception NoMem;	// server does not have enough memory for the operation
   exception Already;
 
+  void getRemoteAddr(out IPDefs.ipv4Address ipaddr, out IPDefs.portNumber port);
+
   /** close - Close the connection.
 
   After the close operation:
@@ -117,9 +119,12 @@ interface TCPSocket extends key {
 				really an input array of bytes. */
 };
 
+/* A non-persistent capability to a local TCP port. */
 interface TCPListenSocket extends key {
   /** accept - wait for a connection on this local port.
   Raises Already if there is already a process waiting for a connection.
+  Raises key.Restart if the TCPListenSocket cap is rescinded
+  due to a system restart.
   */
   TCPSocket accept();
 
@@ -154,7 +159,8 @@ interface UDPPortNum extends key {
   UDPPort createUDPPort();
 };
 
-/* A capability with authority over a specific local TCP port number. */
+/* A persistent capability with authority over
+ a specific local TCP port number. */
 interface TCPPortNum extends key {
 
   /** listen - Open the local port for listening.
