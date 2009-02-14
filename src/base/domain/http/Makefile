@@ -31,6 +31,11 @@ include $(EROS_SRC)/build/make/makevars.mk
 GENERATED=$(BUILDDIR)/constituents.h
 TARGETS=$(BUILDDIR)/$(COMPONENT)
 OBJECTS=$(BUILDDIR)/$(COMPONENT).o
+
+TARGETS+=$(BUILDDIR)/httpprotospace
+PROTOOBJECTS=$(CAPROS_DOMAIN)/interpreter.o
+PROTOOBJECTS+=$(BUILDDIR)/httpprotospace.o
+
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I../openssl/include
 IMGMAP=$(COMPONENT).map
 LIBS=-lssl -lcrypto
@@ -48,7 +53,13 @@ interfaces: $(IDL)
 $(COMPONENT).c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/$(COMPONENT): $(OBJECTS) $(LIBDEP)
-	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(LIBS) -o $@
+	$(CROSSLINK) $(OBJECTS) $(LIBS) -o $@
+# and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+
+$(BUILDDIR)/httpprotospace: $(PROTOOBJECTS)
+	$(EROS_LD) -N -Ttext 0 -static -e _start $(PROTOOBJECTS) -o $@
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)

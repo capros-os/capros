@@ -25,31 +25,13 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#define W1Mult(name, rsakey, certificate)	 \
-name##http_proc = new process; \
-name##http.prog = small program LIBDIR "http"; \
-name##http_proc pc = symbol LIBDIR "http" _start; \
-name##http_proc.space = name##http.prog with page at 0x1d000; \
-name##http_proc.space = name##http.prog with page at 0x1e000; \
-name##http_proc.space[30] = certificate; \
-name##http_proc.space[31] = rsakey; \
-name##http_proc space = name##http_proc.space; \
-name##http_proc schedule = sched(8); \
-name##http_proc symtab = number("http"); \
-name##w1mult_proc key reg KR_CONSTIT = w1mult_constit; \
-name##w1mult_proc key reg KR_SELF = name##w1mult_proc; \
-name##w1mult_proc key reg KR_BANK = primebank; \
-name##w1mult_proc key reg KR_SCHED = sched(8); \
+MAKE_VIRTUAL_COPIER(http_vcsk, LIBDIR "http");
+http_pc = symbol LIBDIR "http" _start;
+http_sym = number("http");
 
+httpprotospace = ro small program LIBDIR "httpprotospace";
 
-/*BOOT_CONSTRUCTOR(netlistener_c, netlistener);
-PROD_SPACE(netlistener_c) = small program LIBDIR "netlistener";
-PROD_PC(netlistener_c) = symbol LIBDIR "netlistener" _start;
-PROD_SYM(netlistener_c) = number("netlistener");
-name##w1mult_proc.space = name##w1mult.prog with page at 0x1e000; \
-name##w1mult_proc.space[31] = configseg; \
-PROD_CONSTIT(netlistener_c,KC_OSTREAM,3) = misc Console;
-PROD_CONSTIT(netlistener_c,KC_PROTOSPACE,4) = protospace;
-PROD_CONSTIT(netlistener_c,KC_RTC,5) = misc RTC;
-*/
+/* Build a constructor with the above space and pc,
+   and the constituents listed in HTTP.idl. */
+
 #endif // __HTTP_MAP_

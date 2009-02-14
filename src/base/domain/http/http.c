@@ -26,9 +26,13 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <domain/Runtime.h>
+#include <domain/assert.h>
 #include <domain/ProtoSpaceDS.h>
 
 #include <idl/capros/Process.h>
+#include <idl/capros/GPT.h>
+#include <idl/capros/SpaceBank.h>
+#include <idl/capros/Range.h>
 #include <idl/capros/HTTP.h>
 #include <idl/capros/TCPSocket.h>
 //#include <idl/capros/Constructor.h>
@@ -61,9 +65,6 @@ Approved for public release, distribution unlimited. */
 #include <fcntl.h>
 //typedef unsigned long int uint32_t;
 typedef uint32_t capros_RTC_time_t;
-#define RC_OK 0;
-char *rsaKeyData = NULL;
-char *certData = NULL;
 #define DBGPRINT fprintf
 #define DBGTARGET stdout
 int listen_socket;
@@ -72,7 +73,7 @@ typedef struct {
   int snd_code;
 } Message;
 #else
-#define DBGPRINT kdprintf
+#define DBGPRINT kprintf
 #define DBGTARGET KR_OSTREAM
 
 /* Key registers */
@@ -81,13 +82,28 @@ typedef struct {
 #define KR_DIRECTORY  KR_APP(3) /* The IndexedKeyStore aka file directory */
 #define KR_FILESERVER KR_APP(4) /* The file creator object */
 #define KR_FILE       KR_APP(5) /* The "file" key */
-//#define KR_DISCRIM    KR_APP(6) /* The Discrim key to test for listener proc */
+#define KR_AddrSpace  KR_APP(8)	/* Our address space cap */
 #define KR_OSTREAM    KR_APP(9)	/* only used for debugging */
 
-/* Define pages in our address space */
-#define rsaKeyData (void*)0x1f000
-#define certData (void*)0x1e000
+/* Define locations in our address space */
+/* Our address space looks like:
+0 to 0x400000: a VCS containing our text, data, bss, and stack.
+0x400000 to 0x800000: area for mapping segments. */
+const uint32_t __rt_stack_pointer = 0x400000;
+#define mapAddress 0x400000
+
+void *
+MapSegment(cap_t seg)
+{
+  result_t result = capros_GPT_setSlot(KR_AddrSpace, mapAddress >> 22, seg);
+  assert(RC_OK == result);
+  return (void *)mapAddress;
+}
+
 #endif
+
+char *rsaKeyData = NULL;
+char *certData = NULL;
 
 /* Define sizes of stuff */
 #define HTTP_BUFSIZE 4096
@@ -121,7 +137,7 @@ typedef struct {
 
 /* Internal routine prototypes */
 static int processRequest(Message *argmsg);
-static uint32_t connection(Message *argmsg);
+static uint32_t connection(void);
 static int setUpContext(SSL_CTX *ctx);
 static void print_SSL_error_queue(void);
 static void push_ssl_data(BIO *network_bio);
@@ -155,22 +171,26 @@ main(void)
 #ifndef SELF_TEST
   char buff[256]; // Initial parameters
 
-  capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM); // for debug
-  capros_Node_getSlot(KR_CONSTIT, KC_RTC, KR_RTC); 
+  capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_OStream, KR_OSTREAM); // for debug
+  capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_RTC, KR_RTC); 
+  capros_Process_getAddrSpace(KR_SELF, KR_AddrSpace);
 
-  //  capros_Node_getSlot(KR_CONSTIT, KC_DISCRIM, KR_DISCRIM); 
-
-  msg.snd_invKey = KR_VOID;
+  msg.snd_invKey = KR_RETURN;
   msg.snd_key0 = KR_VOID;
   msg.snd_key1 = KR_VOID;
   msg.snd_key2 = KR_VOID;
   msg.snd_rsmkey = KR_VOID;
-  msg.snd_data = 0;
   msg.snd_len = 0;
-  msg.snd_code = 0;
+  msg.snd_code = RC_OK;
   msg.snd_w1 = 0;
   msg.snd_w2 = 0;
   msg.snd_w3 = 0;
+
+  SEND(&msg);
+
+  connection();
+
+  /* The following loop is bogus, as there is no start key to us: */
 
   msg.rcv_key0 = KR_ARG(0);
   msg.rcv_key1 = KR_ARG(1);
@@ -187,6 +207,8 @@ main(void)
     RETURN(&msg);
 
     msg.snd_invKey = KR_RETURN;
+    (void) processRequest(&msg);
+  }
 #else
     int fd = open("privkey.pem", O_RDONLY, 0);
     struct stat sb; 
@@ -233,19 +255,15 @@ main(void)
     }
     printf("Connection accepted\n");
 
-#endif
-    (void) processRequest(&msg);
-#ifndef SELF_TEST
-  }
-#endif
+    connection();
   return 0;
+#endif
 }
 
+#ifndef SELF_TEST
 static int
 processRequest(Message *argmsg)
 {
-  uint32_t result = RC_OK;
-#ifndef SELF_TEST
   uint32_t code = argmsg->rcv_code;
   // Message msg;
 
@@ -259,16 +277,6 @@ processRequest(Message *argmsg)
   argmsg->snd_code = RC_OK;
 
   switch (code) {
-  case OC_capros_ConnectionHandler_connection:
-    {
-      //      result_t ret;
-#endif  
-
-      result = connection(argmsg);
-#ifndef SELF_TEST
-      argmsg->snd_code = result;
-      break;
-    }
   case OC_capros_key_getType: /* Key type */
     {
       argmsg->snd_code = RC_OK;
@@ -277,7 +285,7 @@ processRequest(Message *argmsg)
     }
   case OC_capros_key_destroy:
     {
-      capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPACE, KR_TEMP0);
+      capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_ProtoSpace, KR_TEMP0);
       /* Invoke the protospace to destroy us and return. */
       protospace_destroy_small(KR_TEMP0, RC_OK);
       // Does not return here.
@@ -288,13 +296,13 @@ processRequest(Message *argmsg)
       break;
     }
   }
-#endif
   
   return 1;
 }
+#endif
 
 static uint32_t
-connection(Message *argmsg)
+connection(void)
 {
   SSL_CTX *sslContext;
   SSL *ssl;
@@ -410,6 +418,10 @@ setUpContext(SSL_CTX *ctx) {
 
   DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: SetUpContext\n");
   /* Read a private key from a BIO using the pass phrase "" */
+#ifndef SELF_TEST
+  capros_Node_getSlotExtended(KR_CONSTIT, capros_HTTP_KC_RSAKey, KR_TEMP0);
+  rsaKeyData = MapSegment(KR_TEMP0);
+#endif
   bio = BIO_new_mem_buf(rsaKeyData, -1); // new bio data len via strlen
   key = PEM_read_bio_RSAPrivateKey(bio, NULL, 0, NULL);
   BIO_free(bio);
@@ -439,6 +451,10 @@ setUpContext(SSL_CTX *ctx) {
   }
 
   /* Install the server certificate */
+#ifndef SELF_TEST
+  capros_Node_getSlotExtended(KR_CONSTIT, capros_HTTP_KC_Certificate, KR_TEMP0);
+  certData = MapSegment(KR_TEMP0);
+#endif
   bio = BIO_new_mem_buf(certData, -1); // new bio data len via strlen
   x509 = PEM_read_bio_X509(bio, NULL, 0, NULL);
   BIO_free(bio);
