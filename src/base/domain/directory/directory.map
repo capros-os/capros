@@ -1,7 +1,7 @@
 /* -*_ Mode:c -*- */
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -35,7 +35,6 @@ BOOT_CONSTRUCTOR(iks_c, iks);
 
 PROD_SPACE(iks_c) = ro small program LIBDIR "directory";
 PROD_PC(iks_c) = symbol LIBDIR "directory" _start;
-PROD_SYM(iks_c) = number("iks");
 
 PROD_CONSTIT(iks_c, KC_ZSF, 1) = zs_c;
 PROD_CONSTIT(iks_c, KC_PROTOSPC, 2) = protospace;

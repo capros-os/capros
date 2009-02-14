@@ -28,7 +28,6 @@ Approved for public release, distribution unlimited. */
 BOOT_CONSTRUCTOR(netlistener_c, netlistener);
 PROD_SPACE(netlistener_c) = small program LIBDIR "netlistener";
 PROD_PC(netlistener_c) = symbol LIBDIR "netlistener" _start;
-PROD_SYM(netlistener_c) = number("netlistener");
 PROD_CONSTIT(netlistener_c,KC_OSTREAM,3) = misc Console;
 PROD_CONSTIT(netlistener_c,KC_PROTOSPACE,4) = protospace;
 #endif // __NETLISTENER_MAP_

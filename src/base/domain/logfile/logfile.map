@@ -41,7 +41,6 @@ logfile_pc = symbol LIBDIR "logfile" _start;
 BOOT_CONSTRUCTOR(logfilec, logfile);
 PROD_SPACE(logfilec) = lfProtoSpace;
 PROD_PC(logfilec) = number(0); /* well-known */
-PROD_SYM(logfilec) = number("logfile");
 PROD_CONSTIT(logfilec, KC_TEXT, 0) = logfile_prog[0];
 PROD_CONSTIT(logfilec, KC_STARTADDR, 1) = logfile_pc;
 PROD_CONSTIT(logfilec, KC_DATASEG, 2) = logfile_prog[1][0];
