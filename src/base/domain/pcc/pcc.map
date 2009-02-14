@@ -48,7 +48,7 @@ pcc space = small program LIBDIR "pcc";
 pcc schedule = sched(8);	/* normal */
 pcc symtab = number("pcc");
 
-/* Note that on teardown a proccre does not destroy it's constituents. */
+/* ProcCre shares the consituents node with pcc. */
 proccre_constit = pcc[ProcGenKeys][KR_CONSTIT];
 
 proccre_brand = start pcc 65535;
