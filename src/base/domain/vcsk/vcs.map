@@ -105,7 +105,7 @@ PROD_CONSTIT(zs_c, KC_FROZEN_SEG, 2) = zero_pg;
 PROD_CONSTIT(zs_c, KC_PROTOSPC, 3) = protospace;
 PROD_SPACE(zs_c) = vcsk.seg;
 PROD_PC(zs_c) = vcsk.pc;
-PROC_SYM(zs_c) = number("zs_c");
+PROD_SYM(zs_c) = number("zs_c");
 
 #define MAKE_VIRTUAL_COPIER_SEG(name, memkey) \
    BOOT_CONSTRUCTOR(name##_c, name); \
@@ -119,4 +119,4 @@ PROC_SYM(zs_c) = number("zs_c");
 #define MAKE_VIRTUAL_COPIER(name, progfile) \
    MAKE_VIRTUAL_COPIER_SEG(name, program segtree progfile)
 
-#endif _VCS_MAP_
+#endif // _VCS_MAP_
