@@ -41,7 +41,7 @@ interface FileServer extends key
 
   /* Raises TooManyFiles if an implementation limit would be exceeded.
   */
-  File createFile(SpaceBank bank, key sched);
+  File createFile();
 
   // key.destroy is not implemented yet for FileServer.
 };

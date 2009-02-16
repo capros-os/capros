@@ -33,7 +33,7 @@ OBJECTS=$(BUILDDIR)/test.o
 INC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
 
 NPRANGESIZE=420
-PRANGESIZE=650
+PRANGESIZE=690
 
 VOLMAP=volmap
 

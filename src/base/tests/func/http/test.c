@@ -65,7 +65,8 @@ const uint32_t __rt_unkept = 1;
     kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result); \
   }
 
-unsigned char fileContents[] = "hello, world";
+unsigned char fileContents[] = "<html><title>CapROS demo</title>\r\n"
+  "<body>hello, world</body></html>";
 
 void
 InsertConstit(unsigned int slot)
@@ -118,8 +119,7 @@ main(void)
   ckOK
 
   // Create file
-  result = capros_FileServer_createFile(KR_FileServer, KR_BANK, KR_SCHED,
-             KR_File);
+  result = capros_FileServer_createFile(KR_FileServer, KR_File);
   ckOK
   unsigned long lengthWritten;
   result = capros_File_write(KR_File, 0, sizeof(fileContents), fileContents,
