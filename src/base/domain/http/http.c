@@ -135,19 +135,21 @@ typedef struct {
 } ReadPtrs;
 
 /* Internal routine prototypes */
+#ifndef SELF_TEST
 static int processRequest(Message *argmsg);
+#endif
 static uint32_t connection(void);
 static int setUpContext(SSL_CTX *ctx);
 static void print_SSL_error_queue(void);
 static void push_ssl_data(BIO *network_bio);
-static ReaderState *readInit(SSL *ssl, BIO *network_bio, ReadPtrs *rp);
+void readInit(SSL *ssl, BIO *network_bio, ReaderState *rs);
 static int readExtend(ReaderState *rs, ReadPtrs *rp);
 static void readConsume(ReaderState *rs, char *first);
 static int readConsumeSeps(ReaderState *rs, ReadPtrs *rp, char *first, 
 			   char *sepStr);
 static void readSkipDelim(ReaderState *rs, ReadPtrs *rp);
 static int readToken(ReaderState *rs, ReadPtrs *rp, char *sepStr);
-static int process_http(SSL *ssl, BIO *network_bio);
+static int process_http(SSL *ssl, BIO *network_bio, ReaderState *rs);
 static char *findSeparator(ReadPtrs *rp, char *sepStr);
 static int compareToken(ReadPtrs *rp, char *list[]);
 static int writeSSL(ReaderState *rs, void *data, int len);
@@ -166,9 +168,9 @@ static int writeFile(void *buf, int len);
 int
 main(void)
 {
+#ifndef SELF_TEST
   Message msg;
 
-#ifndef SELF_TEST
   char buff[256]; // Initial parameters
 
   capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_OStream, KR_OSTREAM); // for debug
@@ -310,6 +312,7 @@ connection(void)
   BIO *internal_bio;        /* Data to/from SSL/TLS */
   BIO *network_bio;         /* Mate of internal_bio, data to/from network */
   unsigned long rc;         /* To hold the return code from SSL calls */
+  ReaderState rs;
 
   /* Copy the TCPSocket key */
 #ifndef SELF_TEST
@@ -385,9 +388,9 @@ connection(void)
     DBGPRINT(DBGTARGET, "SSL description: %s\n", desc);
   }
 
+  readInit(ssl, network_bio, &rs);
 
-
-  while (process_http(ssl, network_bio)) { /* Process html until error */
+  while (process_http(ssl, network_bio, &rs)) { /* Process html until error */
     push_ssl_data(network_bio);
   }
 
@@ -556,12 +559,11 @@ void push_ssl_data(BIO *network_bio) {
  *      1 - Process another HTTP message
  */
 static int 
-process_http(SSL *ssl, BIO *network_bio) {
+process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   /* Parse the HTTP request. The request is terminated by a cr/lf/cr/lf
      sequence. */
   //  char *breakChars = "()<>@,;:\\\"/[]?={} \t\r\n";
-  ReadPtrs rp;
-  ReaderState *rs = readInit(ssl, network_bio, &rp);
+  ReadPtrs rp = {rs->buf, rs->buf};
   int mustClose = 0;    /* We must close the connection after response */
   int methodIndex;
   int versionIndex;
@@ -786,7 +788,7 @@ process_http(SSL *ssl, BIO *network_bio) {
       
       writeStatusLine(rs, 200);
       writeString(rs, cl);
-      writeString(rs, "Content-Type: text/text\r\n\r\n");
+      writeString(rs, "Content-Type: application/octet-stream\r\n\r\n");
       //      writeString(rs, "Content-Type: text/html\r\n\r\n");
       // TODO Consider what Cache-Control directives to issue, if any
       if (0 == methodIndex) {       /* GET, not HEAD - send message-body */
@@ -982,18 +984,14 @@ findSeparator(ReadPtrs *rp, char *sepStr) {
  * @param[in] ssl is the SSL object to read from
  * @param[in] network_bio is the BIO used to move data between the network
  *            and the SSL library.
- *
- * @return is a new ReaderState object for this connection.
+ * @param[in] is a ReaderState object for this connection.
  */
-static ReaderState *
-readInit(SSL *ssl, BIO *network_bio, ReadPtrs *rp) {
-  ReaderState *state = (ReaderState*)malloc(sizeof(ReaderState));
-  state->plain = ssl;
-  state->network = network_bio;
-  state->current = 0;
-  state->last = 0;
-  rp->first = rp->last = state->buf;
-  return state;
+void
+readInit(SSL *ssl, BIO *network_bio, ReaderState *rs) {
+  rs->plain = ssl;
+  rs->network = network_bio;
+  rs->current = 0;
+  rs->last = 0;
 }
 
 /**
