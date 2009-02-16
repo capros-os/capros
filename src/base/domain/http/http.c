@@ -35,13 +35,12 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Range.h>
 #include <idl/capros/HTTP.h>
 #include <idl/capros/TCPSocket.h>
-//#include <idl/capros/Constructor.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Discrim.h>
 #include <idl/capros/RTC.h>
 #include <idl/capros/IndexedKeyStore.h>
 #include <idl/capros/File.h>
-//#include <ethread/ethread.h>
+#include <idl/capros/FileServer.h>
 
 #include <domain/domdbg.h>
 
@@ -157,6 +156,7 @@ static int writeString(ReaderState *rs, char *str);
 static int writeMessage(ReaderState *rs, char *msg, int isHEAD);
 static int openFile(char *name, int isRead);
 static int closeFile(void);
+static void destroyFile(char * name);
 static uint64_t getFileLen(void);
 static int readFile(void *buf, int len);
 static int writeFile(void *buf, int len);
@@ -824,7 +824,8 @@ process_http(SSL *ssl, BIO *network_bio) {
       while ( contentLength > 0) {
 	if (!readExtend(rs, &rp)) {
 	  /* Network I/O error */
-	  if(fileName) free(fileName);
+          destroyFile(fileName);
+	  free(fileName);
 	  return 0; /* Kill the connection */
 	}
 	len = rp.last - rp.first;
@@ -833,14 +834,15 @@ process_http(SSL *ssl, BIO *network_bio) {
 	if (len < 0) {      /* File write error */
 	  writeStatusLine(rs, 500);
 	  writeMessage(rs, "File I/O error on write.", 0);
-	  if (fileName) free(fileName);
+          destroyFile(fileName);
+	  free(fileName);
 	  return 0;         /* Need to get back in sync with client */
 	}
 	contentLength -= len;
 	readConsume(rs, rp.first+len);
       }
       closeFile();
-      if(fileName) free(fileName);
+      free(fileName);
       fileName = NULL;
       writeStatusLine(rs, 200);
       writeString(rs, "Content-Length: 0\r\n");
@@ -1266,9 +1268,9 @@ writeSSL(ReaderState *rs, void *data, int len) {
 #ifdef SELF_TEST
 int theFile;
 #else
+// File is in KR_FILE.
 capros_File_fileLocation theFileCursor;
 capros_File_fileLocation theFileSize;
-
 #endif
 /**
  * openFile - Open a HTTP referenced file. Only one file at a time can be open.
@@ -1317,23 +1319,54 @@ openFile(char *name, int isRead) {
   theFileCursor = 0;
   rc = capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_Directory, KR_DIRECTORY);
   assert(RC_OK == rc);
-  rc = capros_IndexedKeyStore_get(KR_DIRECTORY, len, (uint8_t*)name, KR_FILE);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file key \"%s\" rc=%#x\n",
-		       name, rc);
-  if (RC_OK != rc) {
-    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: Directory returned %#x\n",
-                           rc);
-    return 0;
-  }
-  rc = capros_File_getSize(KR_FILE, &theFileSize);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file size %lld rc=%#x\n",
-		       theFileSize, rc);
-  if (RC_OK != rc) {
-    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: File_getSize returned %#x\n",
-                           rc);
-    return 0;
+  if (isRead) {
+    rc = capros_IndexedKeyStore_get(KR_DIRECTORY, len, (uint8_t*)name, KR_FILE);
+    DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file key \"%s\" rc=%#x\n",
+		         name, rc);
+    if (RC_OK != rc) {
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: Directory_get returned %#x\n",
+                             rc);
+      return 0;
+    }
+    rc = capros_File_getSize(KR_FILE, &theFileSize);
+    DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file size %lld rc=%#x\n",
+		         theFileSize, rc);
+    if (RC_OK != rc) {
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: File_getSize returned %#x\n",
+                             rc);
+      return 0;
+    }
+  } else {	// writing a file
+    rc = capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_FileServer, KR_TEMP0);
+    assert(RC_OK == rc);
+    rc = capros_FileServer_createFile(KR_TEMP0, KR_FILE);
+    if (RC_OK != rc) {
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: createFile returned %#x\n",
+                             rc);
+      return 0;
+    }
+    rc = capros_IndexedKeyStore_put(KR_DIRECTORY, KR_FILE, len, (uint8_t*)name);
+    if (RC_OK != rc) {
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: Directory_put returned %#x\n",
+                             rc);
+      return 0;
+    }
   }
   return 1;
+#endif
+}
+
+/**
+ * destroyFile - Destroy the file created for writing.
+ */
+static void
+destroyFile(char * name)
+{
+#ifdef SELF_TEST
+  // FIXME
+#else
+  capros_IndexedKeyStore_delete(KR_DIRECTORY, strlen(name), (uint8_t*)name);
+  capros_key_destroy(KR_FILE);
 #endif
 }
 
@@ -1353,7 +1386,7 @@ closeFile(void) {
 }
 
 /**
- * getFileLen - The the length of the open file.
+ * getFileLen - The length of the file opened for reading.
  *
  * @return is the length of the file.
  */
