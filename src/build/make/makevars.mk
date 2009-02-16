@@ -342,6 +342,7 @@ showme:
 	@echo "EROS_XENV: " $(EROS_XENV)
 	@echo "EROS_TARGET: " $(EROS_TARGET)
 	@echo "CAPROS_MACH: " $(CAPROS_MACH)
+	@echo "CAPROS_LOCALDIR: " $(CAPROS_LOCALDIR)
 	@echo "PKG_ROOT:" $(PKG_ROOT)
 	@echo "PKG_SRC:" $(PKG_SRC)
 	@echo "BUILDDIR:" $(BUILDDIR)
