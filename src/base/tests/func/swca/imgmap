@@ -36,10 +36,11 @@ Approved for public release, distribution unlimited. */
 SERIAL_DRIVER_AMBA(uart3, 3, SYSCONDeviceCfg_U3EN, APB_PA+UART3_APB_OFS)
 
 #include <drivers/lwip.map>
-ETH_DRIVER(fourByteVal(192,168,0,38),	// IP address
-           fourByteVal(255,255,255,0),	// mask
-           fourByteVal(192,168,0,1)	// gateway
-           );
+
+// Get local ethernet configuration, which is of the form:
+// ETH_DRIVER(...);
+#define LESS_THAN <
+#include LESS_THAN CAPROS_LOCALDIR/config/eth.map>
 
 #include <drivers/netser.map>
 NETSER(ns, 6, fourByteVal(192,168,0,37), 25, ethKey)
