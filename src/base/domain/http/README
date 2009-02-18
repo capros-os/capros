@@ -15,24 +15,71 @@ it has the SHORT_READ2 switch set, which does nothing, but is easy to
 change to SHORT_READ should that be wanted.
 
 
+Running http
+
+The current version of http only supports the secure mode using SSL/TLS.
+It requires a private key file and a certificate file. To generate a 
+private key using OpenSSL running in a *nix system and call it privkey.pem,
+use:
+
+  openssl genrsa -out privkey.pem 2048
+
+To generate a certificate called cacert.pem, use:
+
+  openssl req -new -x509 -key privkey.pem -out cacert.pem -days 1095
+
+It will prompt you for some additional information. Any of these fields may
+be left blank by entering a period '.'. You probably want to enter something
+in the Common Name field (see below). The fields are as follows:
+
+Country Name (2 letter code) [GB]:   
+     Enter your country code, e.g. US.
+
+State or Province Name (full name) [Berkshire]:
+     Enter your state/province/department name, e.g. California
+
+Locality Name (eg, city) [Newbury]:
+     Enter your town/city/village etc name, e.g. Los Gatos
+
+Organization Name (eg, company) [My Company Ltd]:
+     Enter your company name, e.g. Periwinkle
+
+Organizational Unit Name (eg, section) []:
+     Enter your company department, e.g. CapROS
+
+Common Name (eg, your name or your server's hostname) []:
+     Enter the name you will use as a host name in urls to access your 
+     server. These names MUST match or server authentication will fail.
+     Possible examples are:
+         Fully qualified DNS name, e.g. host.pwpconsult.com
+	 Name in the /etc/hosts file, e.g. mfc
+	 For single-machine testing: localhost
+
+Email Address []:
+     Enter your email address, e.g. frantz@pwpconsult.com
+
+
+
 The command:
 
-curl -kT test https://localhost:5001/notafile?4321
+  curl --cacert cacert.pem -T test https://localhost:5001/notafile?4321
 
-Will upload the local file "test" to the CapROS https serve where it will
-be stored in the directory as 4321.
+Will upload the local file "test" to the CapROS https server where it will
+be stored in the directory as 4321. Note that cacert.pem is a copy of the
+server's self-signed certificate.
 
 
-The command:
+Similarly, the command:
 
-curl -k -o local https://localhost:5001/notafile?1234
+  curl -cacert cacert.pem -o local https://localhost:5001/notafile?1234
 
 Will fetch the CapROS file 1234 and place it in "local".
 
-Note that the -k switch disables curl's check of the server's certificate
-against the available certificate authorities. A future investigation is
-how to build a CA certificate authorizing the server certificate we build
-and getting curl to use is.
+If there are problems authenticating the server, the -k switch will 
+disable curl's check of the server's certificate. Use of the -k switch
+is not recommended because it can reveal the Swiss number to an imposter.
+
+
 
 Files may also be downloaded using a https uri in Firefox:
 
