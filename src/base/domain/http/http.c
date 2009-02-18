@@ -563,7 +563,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   /* Parse the HTTP request. The request is terminated by a cr/lf/cr/lf
      sequence. */
   //  char *breakChars = "()<>@,;:\\\"/[]?={} \t\r\n";
-  ReadPtrs rp = {rs->buf, rs->buf};
+  ReadPtrs rp = {rs->buf + rs->current, rs->buf + rs->current};
   int mustClose = 0;    /* We must close the connection after response */
   int methodIndex;
   int versionIndex;
