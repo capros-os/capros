@@ -151,7 +151,8 @@ static void readSkipDelim(ReaderState *rs, ReadPtrs *rp);
 static int readToken(ReaderState *rs, ReadPtrs *rp, char *sepStr);
 static int process_http(SSL *ssl, BIO *network_bio, ReaderState *rs);
 static char *findSeparator(ReadPtrs *rp, char *sepStr);
-static int compareToken(ReadPtrs *rp, char *list[]);
+static int compareToken(ReadPtrs *rp, char *list[], int ci);
+static int memcmpci(const char *a, const char *b, int len);
 static int writeSSL(ReaderState *rs, void *data, int len);
 static int writeStatusLine(ReaderState *rs, int statusCode);
 static int writeString(ReaderState *rs, char *str);
@@ -589,7 +590,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     writeSSL(rs, "\r\n", 2);
     return 1;
   }
-  methodIndex = compareToken(&rp, requestList);
+  methodIndex = compareToken(&rp, requestList, 0);
   if (-1 == methodIndex) {
     DEBUG(http) DBGPRINT(DBGTARGET, "HTTP: request not recognized %.*s\n",
 			 rp.last - rp.first, rp.first);
@@ -624,7 +625,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 
   /* Get the http version */
   if (!readToken(rs, &rp, " \n\r")) return 0;
-  versionIndex = compareToken(&rp, versionList);
+  versionIndex = compareToken(&rp, versionList, 1);
   if (-1 == versionIndex) {
     DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: version not supported\n");
     writeStatusLine(rs, 505);  /* Return HTTP Version Not Supported*/
@@ -661,7 +662,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     /* A header may be continued by having a line starting with SP or HT all
        CRLF, HT, SP should be replaced with one SP before interpratation. */
     if ( !(*rp.first == ' ' || *rp.first =='\t')) {
-      headerIndex = compareToken(&rp, headerList);    
+      headerIndex = compareToken(&rp, headerList, 1);    
       readSkipDelim(rs, &rp);           /* Skip the : */
     }
     /* We are now pointed at either the character after the :, which may be
@@ -680,6 +681,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       // binary for all we know. Hope you like it.
       break;
     case 4:               /* "Accept-Encoding" */
+      /* Values are case insensitive */
       // We should check for "identity" with a q=0 saying it is unacceptable.
       // Hay, life is rough all over, so take the identity encoding, 'cus
       // that's all we know.
@@ -703,7 +705,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	  if (fileName) free(fileName);
 	  return 0;
 	}
-	i = compareToken(&rp, connectionList);
+	i = compareToken(&rp, connectionList, 1);
 	if (0==i) mustClose = 1;
 	if (*rp.last == '\r' || *rp.last == '\n') break;
       }
@@ -719,7 +721,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	  if (fileName) free(fileName);
 	  return 0;
 	}
-	i = compareToken(&rp, expectationList);
+	i = compareToken(&rp, expectationList, 1);
 	if (i == 0) {
 	  expect100 = 1;
 	} else {
@@ -730,6 +732,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       }
       break;
     case 10:              /* Content-Encoding */
+      /* Content-Encoding values are case insensitive */
       // We only accept "identity", so don't even look for it
       break;
     case 11:              /* Content-Length */
@@ -933,20 +936,53 @@ readToken(ReaderState *rs, ReadPtrs *rp, char *sepStr) {
  * 
  * @param[in] rp is a pointer to a ReadPtr structure defining the token
  * @param[in] list is an array of pointers to strings, the last is NULL
+ * @param[in] ci is non-zero (TRUE) to make the comparison case independent.
  * 
  * @return is the index in the list, or -1 if it is not in the list.
  */
 static int
-compareToken(ReadPtrs *rp, char *list[]) {
+compareToken(ReadPtrs *rp, char *list[], int ci) {
   int i;
   int len = rp->last - rp->first;
-
+  
   for (i=0; list[i]; i++) {
-    if (strlen(list[i]) == len && 0 == memcmp(rp->first, list[i], len)) {
-      return i;
+    if (strlen(list[i]) == len) {
+      if (ci) {
+	if (0 == memcmpci(rp->first, list[i], len)) return i;
+      } else {
+	if (0 == memcmp(rp->first, list[i], len)) return i;
+      }
     }
   }
   return -1;
+}
+
+
+/**
+ * memcmpci - Case independent memory field comparison. This routine 
+ *            assumes US-ASCII aka ANSI X3.4-1986.
+ *
+ * @param[in] a is a pointer to the first field to compare
+ * @param[in] b is a pointer to the second field to compare
+ * @param[in] len is the length to compare
+ *
+ * @return -1 if the first different character in a is < the corisponding one
+ *            in b, +1 if the first different character in a is > the 
+ *            corisponding one in b, or 0 if all characters are equal.
+ */
+static int
+memcmpci(const char *a, const char *b, int len) {
+  int i;
+  static const char tt[] = "abcdefghijklmnopqrstuvwxyz";
+  for (i=0; i<len; i++) {
+    char aa = a[i];
+    char bb = b[i];
+    if (aa>='A' && aa<='Z') aa = tt[aa-'A'];
+    if (bb>='A' && bb<='Z') bb = tt[bb-'A'];
+    if (aa<bb) return -1;
+    if (aa>bb) return 1;
+  }
+  return 0;
 }
 
 
