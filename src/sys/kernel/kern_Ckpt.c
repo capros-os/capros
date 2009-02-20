@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -25,6 +25,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/kernel.h>
 #include <disk/DiskNode.h>
 #include <disk/GenerationHdr.h>
+#include <disk/DiskObjDescr.h>
 #include <disk/CkptRoot.h>
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/ObjectCache.h>
@@ -732,7 +733,7 @@ WriteDirEntsToPage(struct DiskObjectDescriptor * dod)
     memcpy(&dod->oid, &od->oid, sizeof(OID));
     memcpy(&dod->allocCount, &od->allocCount, sizeof(ObCount));
     memcpy(&dod->callCount, &od->callCount, sizeof(ObCount));
-    memcpy(&dod->lid, &od->logLoc, sizeof(LID));
+    memcpy(&dod->logLoc, &od->logLoc, sizeof(LID));
     memcpy(&dod->type, &od->type, sizeof(uint8_t));
 
     dod++;

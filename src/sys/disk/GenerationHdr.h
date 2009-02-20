@@ -35,6 +35,7 @@ struct GenDirHdr {
 typedef struct DiskGenerationHdr {
   // Beware of alignment: this structure is used on both the host and target.
   uint32_t versionNumber;
+  //// uint32_t unused;	// for alignment
   target_u64 generationNumber;
   LID_s firstLid;
   LID_s lastLid;
@@ -55,17 +56,6 @@ struct DiskProcessDescriptor {
   OID_s oid;
   ObCount allocCount;
   uint8_t actHazard;
-} __attribute__ ((packed));
-
-// struct DiskObjectDescriptor is packed because
-// (1) it needs to be the same on the host and target, and
-// (2) it saves space on disk.
-struct DiskObjectDescriptor {
-  OID_s oid;
-  ObCount allocCount;
-  ObCount callCount;
-  LID_s lid;
-  uint8_t type;
 } __attribute__ ((packed));
 
 #endif // __GENERATIONHDR_H__

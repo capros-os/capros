@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -25,6 +25,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/kernel.h>
 #include <disk/DiskNode.h>
 #include <disk/GenerationHdr.h>
+#include <disk/DiskObjDescr.h>
 #include <disk/CkptRoot.h>
 #include <kerninc/ObjectHeader.h>
 #include <kerninc/ObjectCache.h>
@@ -315,7 +316,7 @@ AddObjDescriptor(struct DiskObjectDescriptor * dod)
   memcpy(&od.oid, &dod->oid, sizeof(OID));
   memcpy(&od.allocCount, &dod->allocCount, sizeof(ObCount));
   memcpy(&od.callCount, &dod->callCount, sizeof(ObCount));
-  memcpy(&od.logLoc, &dod->lid, sizeof(LID));
+  memcpy(&od.logLoc, &dod->logLoc, sizeof(LID));
   memcpy(&od.type, &dod->type, sizeof(uint8_t));
 
   ld_recordLocation(&od, workingGenerationNumber - genIndex);
