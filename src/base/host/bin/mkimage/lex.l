@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -194,8 +194,8 @@ sched	{ return SCHED; }
 
 .       { /* all else has failed */
           fflush(stdout);
-          diag_fatal(1, "Illegal input character '%c' at line %d\n",
-                          yytext[0], current_line);
+          diag_fatal(1, "Illegal input character '%c' at \'%s\' line %d\n",
+                          yytext[0], current_file, current_line);
         }
 
 <CPP_LINE>[ \t]+    { };
