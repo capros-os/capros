@@ -2,7 +2,7 @@
 #define __ACTIVITY_H__
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -155,7 +155,12 @@ extern Activity * allocatedActivity;
 
 extern unsigned int numFreeActivities;
 
-/* Prototypes for former member functions of Activity */
+#ifndef NDEBUG
+void act_ValidateActivity(Activity * thisPtr);
+void ValidateAllActivitys(void);
+#endif
+
+bool act_GetOIDAndCount(Activity * act, OID * oid, ObCount * count);
 
 Activity * kact_InitKernActivity(const char * name, 
 			     Priority prio,
@@ -240,10 +245,6 @@ void act_ForceResched(void);
 void ExitTheKernel(void) NORETURN;
 void ExitTheKernel_MD(Process *);		// architecture-dependent
 void resume_process(Process *) NORETURN;	// architecture-dependent
-
-#ifndef NDEBUG
-void act_ValidateActivity(Activity* thisPtr);
-#endif
 
 const char* act_Name(Activity* thisPtr);
 

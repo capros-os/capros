@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -85,6 +85,7 @@ check_DoConsistency(const char *msg)
 		  "\twhere: %s\n"
 		  "\tlast:  %s\n",
 		  msg, lastMsg);
+  ValidateAllActivitys();
   lastMsg = msg;
 }
 

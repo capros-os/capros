@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -752,10 +752,7 @@ return void keys in the rest, instead of pre-initializing inv.exit.key[n].)
 #endif
 
 #ifdef DBG_WILD_PTR
-  {
-    extern void ValidateAllActivitys();
-    ValidateAllActivitys();
-  }
+  ValidateAllActivitys();
 #endif
   
 #ifdef OPTION_KERN_TIMING_STATS

@@ -672,24 +672,10 @@ DoPhase1Work(void)
   for (i = 0; i < KTUNE_NACTIVITY; i++) {
     Activity * act = &act_ActivityTable[i];
     if (act->state != act_Free) {
-      OID procOid;
       ObCount procAllocCount;
-      if (act->context) {	// process info is in the Process structure
-        Process * proc = act->context;
-        if (proc_IsKernel(proc))
-          continue;
-        ObjectHeader * pObj = node_ToObj(proc->procRoot);
-#if 0
-        printf("P1 act=%#x proc=%#x root=%#x\n", act, proc, pObj);
-#endif
-        procOid = pObj->oid;
-        procAllocCount = pObj->allocCount;
-      } else {
-        if (! keyBits_IsType(&act->processKey, KKT_Process))
-          continue;	// process was rescinded
-        procOid = key_GetKeyOid(&act->processKey);
-        procAllocCount = key_GetAllocCount(&act->processKey);
-      }
+      OID procOid;
+      if (! act_GetOIDAndCount(act, &procOid, &procAllocCount))
+        continue;
       if (OIDIsPersistent(procOid)) {
         uint8_t hazToSave;
         if (act->state == act_Sleeping && act->actHazard == actHaz_None)
@@ -699,6 +685,11 @@ DoPhase1Work(void)
           hazToSave = act->actHazard;
 
         DEBUG(procs) printf("Saving proc oid=%#llx\n", procOid);
+#ifndef NDEBUG
+        if (ProcIsDuplicate(procOid, procAllocCount)) {
+          dprintf(true, "Duplicate proc act=%#x\n", act);
+        }
+#endif
         StoreProcessInfo(procOid, procAllocCount, hazToSave);
       }
     }

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -313,7 +313,7 @@ act_AllocActivityTable()
 
     link_Init(&t->q_link);
     keyBits_InitToVoid(&t->processKey);
-    act_SetContextNotCurrent(t, NULL);
+    t->context = NULL;
     t->readyQ = dispatchQueues[pr_Never];
 
     act_DeleteActivity(t);
@@ -829,15 +829,57 @@ sq_WakeAll(StallQueue * q)
   local_irq_restore(flags);
 }
 
+/* If the Activity has a user process, this procedure sets
+*oid and *count to its OID and ObCount, and returns true.
+Otherwise it returns false. */
+bool
+act_GetOIDAndCount(Activity * act, OID * oid, ObCount * count)
+{
+  if (act->context) {	// process info is in the Process structure
+    Process * proc = act->context;
+    if (proc_IsKernel(proc))
+      return false;
+    ObjectHeader * pObj = node_ToObj(proc->procRoot);
+    *count = pObj->allocCount;
+    *oid = pObj->oid;
+  } else {
+    if (! keyBits_IsType(&act->processKey, KKT_Process))
+      return false;	// process was rescinded
+    *count = key_GetAllocCount(&act->processKey);
+    *oid = key_GetKeyOid(&act->processKey);
+  }
+  return true;
+}
+
 #ifndef NDEBUG
 void
-ValidateAllActivitys()
+ValidateAllActivitys(void)
 {
-  int i = 0;
+  int i, j;
 
   for (i = 0; i < KTUNE_NACTIVITY; i++) {
-    if ( act_ActivityTable[i].state != act_Free )
-      act_ValidateActivity(&act_ActivityTable[i]);
+    Activity * act = &act_ActivityTable[i];
+    if (act->state != act_Free) {
+      act_ValidateActivity(act);
+      // There should not be more than one Activity per user process:
+      // Warning: this is O(n squared).
+      ObCount procAllocCount;
+      OID procOid;
+      if (act_GetOIDAndCount(act, &procOid, &procAllocCount)) {
+        for (j = 0; j < i; j++) {
+          Activity * otherAct = &act_ActivityTable[j];
+          if (otherAct->state != act_Free) {
+            ObCount otherProcAllocCount;
+            OID otherProcOid;
+            if (act_GetOIDAndCount(otherAct, &otherProcOid,
+                                   &otherProcAllocCount)) {
+              assert(procOid != otherProcOid
+                     || procAllocCount != otherProcAllocCount);
+            }
+          }
+        }
+      }
+    }
   }
 }
 
