@@ -275,17 +275,17 @@ ei_AddStartup(ErosImage *ei, const char *name, KeyBits key)
   keyBits_InitToVoid(&threadChain);
 
   if (keyBits_IsType(&key, KKT_Process) || keyBits_IsType(&key, KKT_Node)) {
-    if (ei_GetProcessState(ei, key) == RS_Waiting) {
+    if (ei_GetProcessState(ei, key) == RS_WaitingU) {
       diag_printf("Attempt to re-start process that is already started.\n");
       return false;
     }
 
-    ei_SetProcessState(ei, key, RS_Waiting);
+    ei_SetProcessState(ei, key, RS_WaitingU);
   }
   else if (keyBits_IsType(&key, KKT_Start)) {
     /* Arrangements should already have been made to get the target
        process running, in which case it will be in the waiting state: */
-    if (ei_GetProcessState(ei, key) != RS_Waiting) {
+    if (ei_GetProcessState(ei, key) != RS_WaitingU) {
       diag_printf("Attempt to invoke constructor that has not been started.\n");
       return false;
     }
