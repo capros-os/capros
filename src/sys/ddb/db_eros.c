@@ -349,15 +349,18 @@ void
 db_eros_print_context(Process *cc)
 {
   if (cc == 0)
-    db_printf("invokee=0x%08x\n", cc);
+    db_printf("invokee=%#x\n", cc);
   else {
     db_printf("proc=0x%08x (%s)", cc, proc_Name(cc));
-    db_printf(" (%s) ",
-	      ((cc->runState == RS_Running)
-	       ? "Running"
-	       : ((cc->runState == RS_Waiting)
-		  ? "Waiting"
-		  : "Avail")));
+    const char * stateName;
+    switch (cc->runState) {
+    default: stateName = "?"; break;
+    case RS_Available: stateName = "Avail"; break;
+    case RS_Running: stateName = "Running"; break;
+    case RS_WaitingU: stateName = "WaitingU"; break;
+    case RS_WaitingK: stateName = "WaitingK"; break;
+    }
+    db_printf(" (%s) ", stateName);
     db_printf("act=%#x ", cc->curActivity);
     if (cc->isUserContext) {
       db_printf("root=%#x  ", cc->procRoot);

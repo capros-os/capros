@@ -48,7 +48,7 @@ act_Ready: on a ReadyQueue.
   If it has a Process (without hz_DomRoot):
    If actHazard has actHaz_None, the Process's runState is RS_Running.
    If actHazard has actHaz_WakeOK or actHaz_WakeRestart,
-     the Process's runState is RS_Waiting.
+     the Process's runState is RS_WaitingK.
 
 act_Running: active on a processor, not on any queue.
   The activity is act_curActivity.
@@ -61,7 +61,8 @@ act_Stall: blocked on an event, on a StallQueue.
     the same as in the act_Ready state.
 
 act_Sleeping: blocked on a timer, on the SleepQueue.
- If it has a Process (without hz_DomRoot), the Process's runState is RS_Waiting.
+ If it has a Process (without hz_DomRoot),
+   the Process's runState is RS_WaitingK.
 
 act_Stall is used to block before an operation is committed
 (therefore the operation can be restarted when the block is removed).
@@ -84,9 +85,9 @@ but is more difficult to implement in the kernel,
 because it requires saving information about when and how to return.
 In particular, on a checkpoint we do not save timer information.
 It is particularly important to implement the Sleep key this way,
-because otherwise it is difficult to implement "wait for n minutes";
-if you restart the invoker after n minutes, it will simply wait for
-another n minutes.
+because otherwise it is difficult to implement "wait for n minutes"
+in the kernel; if you restart the invoker after n minutes,
+it will simply wait for another n minutes.
 */
 enum {
   act_Free,

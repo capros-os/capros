@@ -2,7 +2,7 @@
 #define __PROCESS_INLINE_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -43,6 +43,18 @@ act_CurContext()
   Process * p = proc_Current();
   assert(p);
   return p;
+}
+
+INLINE bool
+proc_IsWaiting(Process * proc)
+{
+  return proc->runState >= RS_WaitingU;	// RS_WaitingU or RS_WaitingK
+}
+
+INLINE bool
+proc_StateHasActivity(Process * proc)
+{
+  return proc->runState & 1;		// RS_Running or RS_WaitingK
 }
 
 INLINE bool 

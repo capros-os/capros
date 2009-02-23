@@ -1,7 +1,7 @@
 #ifndef __DISK_NODE_H__
 #define __DISK_NODE_H__
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -24,9 +24,18 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 // Values for the Process runState:
-#define RS_Available 0
-#define RS_Waiting   1
-#define RS_Running   2
+// NOTE: proc_IsWaiting() and proc_StateHasActivity() depend
+// on these values!
+#define RS_Available 0	/* The Process is Available, and there is no
+			Resume key to it. There is no Activity. */
+#define RS_Running   1	/* The Process is Running, and there is no
+			Resume key to it. There is an Activity
+			in state act_Ready, act_Running, or act_Stall. */
+#define RS_WaitingU  2	/* The Process is Waiting, and there may be a
+			Resume key to it. There is no Activity. */
+#define RS_WaitingK  3	/* The Process is Waiting, and there may be a
+			Resume key to it. There is an Activity
+			in state act_Ready or act_Sleeping. */
 
 /* For a node, the first byte of nodeData contains: */
 #define NODE_L2V_MASK 0x3f	// same as GPT_L2V_MASK

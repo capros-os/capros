@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -298,19 +298,16 @@ ProcessKeyCommon(Invocation * inv, Process * proc)
 
     COMMIT_POINT();
 
+    proc_ZapResumeKeys(proc);
+
     /* Clear any activity in the process. This must be done after commit,
     because commit may have cleared p->curActivity. */
     Activity * act = proc->curActivity;
     if (act) {
-      act_Dequeue(act);
-      act_SetContext(act, NULL);
-      proc_Deactivate(proc);
-      act_DeleteActivity(act);
+      proc_ClearActivity(proc);
     }
 
-    proc->runState = RS_Waiting;
-
-    keyR_ZapResumeKeys(&proc->keyRing);
+    proc->runState = RS_WaitingU;
 
     {
       Key * k = inv->exit.pKey[0];

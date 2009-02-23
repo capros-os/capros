@@ -84,14 +84,17 @@ sysT_AddSleeper(Activity * t, uint64_t wakeTime)
 {
   assert(link_isSingleton(&t->q_link));
   assert(t->context);
+  assert(t->context->curActivity == t);
   assert(! (t->context->hazards & hz_DomRoot));
-  assert(t->context->runState == RS_Waiting);
+  assert(t->context->runState == RS_WaitingU);
 
 #if 0
   uint64_t now = sysT_Now();
   dprintf(false, "AddSleeper act=%#x wakeTime=%#llu now %#llx dur=%lld\n",
      t, wakeTime, now, wakeTime - now);
 #endif
+
+  t->context->runState = RS_WaitingK;
 
   t->lastq = &SleepQueue;
   t->wakeTime = wakeTime;
@@ -139,18 +142,14 @@ sysT_BootInit()
 }
 
 void
-sysT_actWake(Activity * act, result_t rc)
+sysT_procWake(Process * invokee, result_t rc)
 {
-  Process * invokee = act->context;
   assert(! (invokee->hazards & hz_DomRoot));
-
-  // The process's state may have been changed, so revalidate:
-  if (invokee->runState != RS_Waiting)
-    return;
+  assert(invokee->runState == RS_WaitingK);
 
   invokee->runState = RS_Running;
 
-  keyR_ZapResumeKeys(&invokee->keyRing);
+  proc_ZapResumeKeys(invokee);
 
   if (proc_IsExpectingMsg(invokee)) {
     // We may be in an interrupt, so we can't use the global inv.
@@ -168,7 +167,8 @@ sysT_actWake(Activity * act, result_t rc)
 
 /* Perform all wakeups to be done at (or before) the specified time.
    After exit, caller must recalculate the wakeup time.
-   This procedure is called from the clock interrupt with IRQ disabled.  */
+   This procedure is called from HandleDeferredWork, so we know we
+   did not interrupt the kernel. */
 void
 sysT_WakeupAt(void)
 {
@@ -192,7 +192,7 @@ sysT_WakeupAt(void)
     Process * invokee = t->context;
     if (invokee && proc_IsRunnable(invokee)) {
       // Return from its Sleep invocation.
-      sysT_actWake(t, RC_OK);
+      sysT_procWake(invokee, RC_OK);
     } else {
       t->actHazard = actHaz_WakeOK;	// remember to do it later
     }

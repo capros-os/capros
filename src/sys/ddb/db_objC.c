@@ -193,7 +193,8 @@ objC_ddb_dump_procs(void)
           printf(": Available");
           break;
 
-        case RS_Waiting:
+        case RS_WaitingU:
+        case RS_WaitingK:
           printf(": Waiting");
           // Find the resume capability to this process.
           if (! link_isSingleton(&proc->keyRing)) {

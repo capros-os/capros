@@ -2,7 +2,7 @@
 #define __PROCESS_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -260,6 +260,9 @@ proc_Deactivate(Process* thisPtr)
   thisPtr->curActivity = 0;
 }
 
+void proc_ClearActivity(Process * proc);
+void proc_ZapResumeKeys(Process * proc);
+
 INLINE void 
 proc_SetActivity(Process* thisPtr, struct Activity *activity)
 {
@@ -336,6 +339,7 @@ void proc_FlushKeyRegs(Process* thisPtr);
 void proc_WriteDisableSmallSpaces();
 #endif
 
+bool check_Process(Process * p);
 bool check_Contexts(const char *);
 
 void proc_InitProcessMD(Process * proc);	//machine dependent

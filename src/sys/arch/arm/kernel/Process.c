@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -357,11 +357,11 @@ void
 proc_LoadFixRegs(Process* thisPtr)
 {
   uint32_t k;
-  uint8_t *rootkey0 = 0;
   assert(thisPtr->hazards & hz_DomRoot);
 
-  assert(thisPtr->procRoot);
-  node_EnsureWritable(thisPtr->procRoot);
+  Node * root = thisPtr->procRoot;
+  assert(root);
+  node_EnsureWritable(root);
 
 #ifdef ProcAltMsgBuf
 #error "Type checks need revision"
@@ -369,27 +369,25 @@ proc_LoadFixRegs(Process* thisPtr)
   
   /* Ensure slots containing fixed regs are number keys. */
   for (k = ProcFirstRootRegSlot; k <= ProcLastRootRegSlot; k++) {
-    if ( keyBits_IsType(node_GetKeyAtSlot(thisPtr->procRoot, k), KKT_Number) == false) {
+    if ( keyBits_IsType(node_GetKeyAtSlot(root, k), KKT_Number) == false) {
       proc_SetMalformed(thisPtr);
       return;
     }
 
-    assert ( keyBits_IsHazard(node_GetKeyAtSlot(thisPtr->procRoot, k)) == false );
+    assert ( keyBits_IsHazard(node_GetKeyAtSlot(root, k)) == false );
   }
 
   thisPtr->stats.pfCount = 0;
 
-  rootkey0 = (uint8_t *) node_GetKeyAtSlot(thisPtr->procRoot, 0);
+  uint8_t * rootkey0 = (uint8_t *) node_GetKeyAtSlot(root, 0);
 
   LOAD_FIX_REGS;
   
   for (k = ProcFirstRootRegSlot; k <= ProcLastRootRegSlot; k++)
-    keyBits_SetRwHazard(node_GetKeyAtSlot(thisPtr->procRoot, k));
+    keyBits_SetRwHazard(node_GetKeyAtSlot(root, k));
 
   // ProcIoSpace affects proc_HasDevicePrivileges which affects KF_IoPriv.
-  keyBits_SetWrHazard(node_GetKeyAtSlot(thisPtr->procRoot, ProcIoSpace));
-
-  thisPtr->hazards &= ~hz_DomRoot;
+  keyBits_SetWrHazard(node_GetKeyAtSlot(root, ProcIoSpace));
 
 #if 0
   dprintf(true, "Process root oid=0x%x to ctxt 0x%08x, eip 0x%08x hz 0x%08x\n",

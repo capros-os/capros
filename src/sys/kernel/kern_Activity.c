@@ -499,8 +499,10 @@ void
 act_DeleteCurrent(void)
 {
   Activity * thisPtr = act_Current();
-  if (thisPtr->context)
+  if (thisPtr->context) {
+    assert(! proc_StateHasActivity(thisPtr->context));
     proc_Deactivate(thisPtr->context);
+  }
   act_SetContextCurrent(thisPtr, NULL);
   act_DeleteActivity(thisPtr);
 }
@@ -745,7 +747,6 @@ HandleDeferredWork(void)
   if (deferredWork & dw_timer) {
     deferredWork &= ~dw_timer;
 
-    // FIXME: check that all variables are properly locked by irq
     sysT_WakeupAt();
   }
 
@@ -928,7 +929,7 @@ act_ValidateActivity(Activity* thisPtr)
 
       case actHaz_WakeOK:
       case actHaz_WakeRestart:
-        assert(proc->runState == RS_Waiting);
+        assert(proc->runState == RS_WaitingK);
         break;
       }
     }
@@ -936,7 +937,7 @@ act_ValidateActivity(Activity* thisPtr)
 
   case act_Sleeping:
     if (proc && ! (proc->hazards & hz_DomRoot)) {
-      assert(proc->runState == RS_Waiting);
+      assert(proc->runState == RS_WaitingK);
     }
   }
 }
@@ -1063,12 +1064,12 @@ PrepareCurrentActivity(void)
       fatal("");
 
     case actHaz_WakeOK:
-      sysT_actWake(thisPtr, RC_OK);
+      sysT_procWake(proc, RC_OK);
       thisPtr->actHazard = actHaz_None;
       break;
 
     case actHaz_WakeRestart:
-      sysT_actWake(thisPtr, RC_capros_key_Restart);
+      sysT_procWake(proc, RC_capros_key_Restart);
       thisPtr->actHazard = actHaz_None;
       break;
     }

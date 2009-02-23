@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/CpuReserve.h>
 #include <kerninc/Key-inline.h>
+#include <kerninc/Node-inline.h>
 #include <kerninc/IRQ.h>
 
 Process * proc_ContextCache = NULL;
@@ -41,12 +42,27 @@ void
 proc_ClearActivity(Process * proc)
 {
   Activity * act = proc->curActivity;
-  assert(act);
+  assertex(proc, act);
 
   act_Dequeue(act);
   act_SetContext(act, NULL);
   proc_Deactivate(proc);
   act_DeleteActivity(act);
+}
+
+void
+proc_ZapResumeKeys(Process * proc)
+{
+  // Zap any prepared Resume keys:
+  keyR_ZapResumeKeys(&proc->keyRing);
+  // Zap any unprepared Resume keys:
+  node_BumpCallCount(proc->procRoot);
+
+  if (proc->runState == RS_WaitingK) {
+    // WaitingK is similar to the kernel holding a Resume key. Zap it.
+    // Caller will change proc->runState.
+    proc_ClearActivity(proc);
+  }
 }
 
 void 
@@ -342,7 +358,8 @@ void
 proc_DoPrepare(Process * thisPtr)
 {
   bool check_disjoint;
-  assert(thisPtr->procRoot);
+  Node * root = thisPtr->procRoot;
+  assert(root);
   assert (thisPtr->isUserContext);
 
   objH_TransLock(proc_ToObj(thisPtr));
@@ -364,8 +381,36 @@ proc_DoPrepare(Process * thisPtr)
    * point bit set in the eflags register)
    */
 
-  if (thisPtr->hazards & hz_DomRoot)
+  if (thisPtr->hazards & hz_DomRoot) {
     proc_LoadFixRegs(thisPtr);
+
+    if (proc_StateHasActivity(thisPtr) && ! thisPtr->curActivity) {
+      // There should be an Activity for this Process. Find it.
+      // FIXME: this is a slow algorithm.
+      int i;
+      for (i = 0; i < KTUNE_NACTIVITY; i++) {
+        Activity * act = &act_ActivityTable[i];
+        if (act->state != act_Free) {
+          if (! act->context) {
+            if (keyBits_IsType(&act->processKey, KKT_Process)) {
+              // not rescinded
+              if (key_GetKeyOid(&act->processKey) == node_ToObj(root)->oid
+                  && key_GetAllocCount(&act->processKey)
+                     == node_ToObj(root)->allocCount ) {
+                // Found the matching Activity.
+                act_AssignTo(act, thisPtr);
+                goto found;
+              }
+            }
+          }
+        }
+      }
+      dprintf(true, "Process %#x has no Activity!\n", thisPtr);
+found: ;
+    }
+
+    thisPtr->hazards &= ~hz_DomRoot;
+  }
 
   if (thisPtr->faultCode == capros_Process_FC_MalformedProcess) {
     assert (thisPtr->processFlags & capros_Process_PF_FaultToProcessKeeper);
@@ -385,7 +430,7 @@ proc_DoPrepare(Process * thisPtr)
     proc_LoadKeyRegs(thisPtr);
 
   if (check_disjoint) {
-    if ( thisPtr->procRoot == thisPtr->keysNode ) {
+    if (root == thisPtr->keysNode) {
       proc_SetMalformed(thisPtr);
     }
   }
@@ -398,7 +443,7 @@ proc_DoPrepare(Process * thisPtr)
   if (thisPtr->hazards & hz_Schedule) {
     /* FIX: someday deal with schedule keys! */
     Priority pr;
-    Key* schedKey /*@ not null @*/ = node_GetKeyAtSlot(thisPtr->procRoot, ProcSched);
+    Key * schedKey = node_GetKeyAtSlot(root, ProcSched);
 
     assert(keyBits_IsHazard(schedKey) == false);
     
@@ -429,25 +474,20 @@ proc_DoPrepare(Process * thisPtr)
 
     /* If context is presently occupied by a activity, need to update the
        readyQ pointer in that activity: */
-    if (thisPtr->curActivity) {
-      Activity *t = thisPtr->curActivity;
-
+    Activity * t = thisPtr->curActivity;
+    if (t) {
       assert(t->context == thisPtr);
       t->readyQ = thisPtr->readyQ;
 
       switch(t->state) {
-      case act_Running:
-        act_ForceResched();
-        act_Wakeup(t);
-        break;
       case act_Ready:
         /* need to move the activity to the proper ready Q: */
         act_Dequeue(t);
+      case act_Running:
         act_ForceResched();
         act_Wakeup(t);
-        break;
       case act_Stall:
-        /* stalled needs no special action. */
+      case act_Sleeping:
 	break;
       default:
         assert(! "Rescheduling strange activity");
@@ -469,6 +509,80 @@ proc_DoPrepare(Process * thisPtr)
   sq_WakeAll(&thisPtr->stallQ);
 }
 
+bool
+check_Process(Process * p)
+{
+#ifndef NDEBUG
+  if (! keyR_IsValid(&p->keyRing, p)) {
+    return false;
+  }
+#endif
+    
+#ifndef NDEBUG
+  unsigned k;
+  for (k = 0; k < EROS_PROCESS_KEYREGS; k++) {
+    if (! key_IsValid(&p->keyReg[0])) {
+      return false;
+    }
+  }
+#endif
+
+  if (p->procRoot) {
+    if (node_ToObj(p->procRoot)->obType != ot_NtProcessRoot) {
+      dprintf(true, "Context %#x process root %#x has type %d\n",
+              p, p->procRoot, node_ToObj(p->procRoot)->obType);
+      return false;
+    }
+
+    if (! p->keysNode) {
+      if (! p->hazards & hz_KeyRegs)
+        return false;
+    } else {
+      if (node_ToObj(p->keysNode)->obType != ot_NtKeyRegs) {
+        dprintf(true, "Context %#x keysNode %#x has type %d\n",
+                p, p->keysNode, node_ToObj(p->keysNode)->obType);
+        return false;
+      }
+    }
+
+    if (! (p->hazards & hz_DomRoot)) {
+      bool statesOK = false;    // until proven otherwise
+      switch (p->runState) {
+      default:
+        break;
+
+      case RS_Running:
+        if (p->curActivity
+            && p->curActivity->state != act_Sleeping )
+          statesOK = true;
+        break;
+
+      case RS_WaitingU:
+        if (! p->curActivity)
+          statesOK = true;
+
+      case RS_WaitingK:
+        if (p->curActivity
+            && (p->curActivity->state == act_Sleeping
+                || p->curActivity->state == act_Ready ) )
+          statesOK = true;
+        break;
+
+      case RS_Available:
+        statesOK = ! p->curActivity;    // should have no activity
+        break;
+      }
+      if (! statesOK) {
+        dprintf(true, "Context %#x state %d has Activity %#x state %d\n",
+                p, p->runState, p->curActivity,
+                (p->curActivity ? p->curActivity->state : 0));
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 /* FIX: It is unfortunate that some of these checks require !NDEBUG.
  * Should they?
  */
@@ -477,9 +591,6 @@ bool
 check_Contexts(const char *c)
 {
   int i = 0;
-#ifndef NDEBUG
-  unsigned k = 0;
-#endif
   bool result = true;
   
   irqFlags_t flags = local_irq_save();
@@ -489,82 +600,9 @@ check_Contexts(const char *c)
    */
   if (proc_ContextCache) {
     for (i = 0; i < KTUNE_NCONTEXT; i++) {
-      Process *p = &proc_ContextCache[i];
-    
-#ifndef NDEBUG
-      if (! keyR_IsValid(&p->keyRing, p)) {
-	result = false;
-	break;
-      }
-#endif
-    
-#ifndef NDEBUG
-      for (k = 0; k < EROS_PROCESS_KEYREGS; k++) {
-	if (! key_IsValid(&p->keyReg[0])) {
-	  result = false;
-	  break;
-	}
-      }
-#endif
-
-      if (p->procRoot) {
-        if (node_ToObj(p->procRoot)->obType != ot_NtProcessRoot) {
-	  dprintf(true, "Context %#x process root %#x has type %d\n",
-			p, p->procRoot, node_ToObj(p->procRoot)->obType);
-	  result = false;
-        }
-
-        if (! p->keysNode) {
-          if (! p->hazards & hz_KeyRegs)
-	    result = false;
-        } else {
-          if (node_ToObj(p->keysNode)->obType != ot_NtKeyRegs) {
-	    dprintf(true, "Context %#x keysNode %#x has type %d\n",
-		  	  p, p->keysNode, node_ToObj(p->keysNode)->obType);
-	    result = false;
-          }
-        }
-
-        if (! (p->hazards & hz_DomRoot)) {
-          bool statesOK = false;	// until proven otherwise
-          switch (p->runState) {
-          default:
-            break;
-
-          case RS_Running:
-            if (p->curActivity
-                && p->curActivity->state != act_Sleeping )
-              statesOK = true;
-            break;
-
-          case RS_Waiting:
-            if (p->curActivity)
-              /* If it has an activity, it must be sleeping.
-              Exception: When a process calls a kernel key, it is treated
-              like a call to the kernel followed by a return,
-              so the process is RS_Waiting even though the Activity
-              is act_Running. */
-              statesOK = p->curActivity->state == act_Sleeping
-                         || p == proc_Current() ;
-            else
-              statesOK = true;
-            break;
-
-          case RS_Available:
-            statesOK = ! p->curActivity;	// should have no activity
-            break;
-          }
-          if (! statesOK) {
-	    dprintf(true, "Context %#x state %d has Activity %#x state %d\n",
-                    p, p->runState, p->curActivity,
-                    (p->curActivity ? p->curActivity->state : 0));
-	    result = false;
-          }
-        }
-      }
-
-      if (result == false)
-	break;
+      result = check_Process(&proc_ContextCache[i]);
+      if (! result)
+        break;
     }
   }
 

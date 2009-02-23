@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -69,7 +69,7 @@ GateKey(Invocation* inv /*@ not null @*/)
 
   // Check invokee's state.
   assert(! keyBits_IsType(invKey, KKT_Resume)
-         || invokee->runState == RS_Waiting );
+         || invokee->runState == RS_WaitingU );
 
   unsigned int invKeyType = keyBits_GetType(invKey);
 
@@ -106,7 +106,7 @@ GateKey(Invocation* inv /*@ not null @*/)
   /* We copy the message here, not calling ReturnMessage(). */
 
   if (invKeyType == KKT_Resume)
-    keyR_ZapResumeKeys(&invokee->keyRing);
+    proc_ZapResumeKeys(invokee);
   act_AssignTo(allocatedActivity, invokee);
 
   if (inv->invType == IT_Send) {

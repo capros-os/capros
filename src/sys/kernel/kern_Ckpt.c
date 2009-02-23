@@ -620,7 +620,7 @@ DoPhase1Work(void)
             structures. But unprepared keys still need to use
             the O(n squared) algorithm.
 
-            This process is in the RS_Waiting state,
+            This process is in the RS_WaitingU state,
             so it will never be a duplicate of a process identified
             by an Activity structure. Those are stored later. */
             if (! ProcIsDuplicate(procOid, procAllocCount))
@@ -672,8 +672,8 @@ DoPhase1Work(void)
   for (i = 0; i < KTUNE_NACTIVITY; i++) {
     Activity * act = &act_ActivityTable[i];
     if (act->state != act_Free) {
-      ObCount procAllocCount;
       OID procOid;
+      ObCount procAllocCount;
       if (! act_GetOIDAndCount(act, &procOid, &procAllocCount))
         continue;
       if (OIDIsPersistent(procOid)) {
