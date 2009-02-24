@@ -151,7 +151,7 @@ static void readSkipDelim(ReaderState *rs, ReadPtrs *rp);
 static int readToken(ReaderState *rs, ReadPtrs *rp, char *sepStr);
 static int process_http(SSL *ssl, BIO *network_bio, ReaderState *rs);
 static char *findSeparator(ReadPtrs *rp, char *sepStr);
-static int compareToken(ReadPtrs *rp, char *list[], int ci);
+static int compareToken(ReadPtrs *rp, const char *list[], int ci);
 static int memcmpci(const char *a, const char *b, int len);
 static int writeSSL(ReaderState *rs, void *data, int len);
 static int writeStatusLine(ReaderState *rs, int statusCode);
@@ -394,6 +394,7 @@ connection(void)
   while (process_http(ssl, network_bio, &rs)) { /* Process html until error */
     push_ssl_data(network_bio);
   }
+  push_ssl_data(network_bio);   /* Push out last messages */
 
   /* Termination logic */
   SSL_free(ssl);		/* implicitly frees internal_bio */
@@ -569,14 +570,19 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   int methodIndex;
   int versionIndex;
   int headerIndex = -1;
-  char *requestList[] = {"GET", "HEAD", "PUT", NULL};
-  char *versionList[] = {"HTTP/1.1", NULL};
-  char *headerList[] = {"User-Agent", "Host", "Accept", "Accept-Language",
-			"Accept-Encoding", "Accept-Charset", "Keep-Alive",
-			"Connection", "Cache-Control", "Expect",
-			"Content-Encoding", "Content-Length", NULL};
-  char *connectionList[] = {"close", NULL};
-  char *expectationList[] = {"100-continue", NULL};
+  static const
+    char *requestList[] = {"GET", "HEAD", "PUT", "POST", NULL};
+  static const
+    char *versionList[] = {"HTTP/1.1", NULL};
+  static const
+    char *headerList[] = {"User-Agent", "Host", "Accept", "Accept-Language",
+			  "Accept-Encoding", "Accept-Charset", "Keep-Alive",
+			  "Connection", "Cache-Control", "Expect",
+			  "Content-Encoding", "Content-Length", NULL};
+  static const
+    char *connectionList[] = {"close", NULL};
+  static const
+    char *expectationList[] = {"100-continue", NULL};
   char *fileName = NULL;
   long unsigned int contentLength = 0;
   int expect100 = 0;
@@ -584,19 +590,34 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 
   /* TODO skip leading blank lines */
   if (!readToken(rs, &rp, " \n")) return 0;
-  if (*rp.last != ' ') {
+  if (*rp.last != ' ' && *rp.last != '\t') {
     DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request format\n");
     writeStatusLine(rs, 400);  /* Return Bad Request */
-    writeSSL(rs, "\r\n", 2);
-    return 1;
+    writeMessage(rs, "Request not followed by space or tab", 0);
+    return 0;                  /* Must get back in sync with client */ 
   }
   methodIndex = compareToken(&rp, requestList, 0);
   if (-1 == methodIndex) {
+    char errMsg[120];
+    int i,j;
+
     DEBUG(http) DBGPRINT(DBGTARGET, "HTTP: request not recognized %.*s\n",
 			 rp.last - rp.first, rp.first);
     writeStatusLine(rs, 501); /* Return Not Implemented */
-    writeSSL(rs, "\r\n", 2);
-    return 1;
+    strcpy(errMsg, "Method ");
+    i = rp.last-rp.first;
+    j = strlen(errMsg);
+    if (i < 20) {
+      memcpy(errMsg+j, rp.first, i);
+      errMsg[j+i] = 0;
+    } else {
+      memcpy(errMsg+j, rp.first, 17);
+      errMsg[j+17] = 0;
+      strcat(errMsg, "...");
+    }
+    strcat(errMsg, " not implemented");    
+    writeMessage(rs,errMsg, 0);
+    return 0;                  /* Must get back in sync with client */ 
   }
 
   /* Get the URI part of the request */
@@ -614,13 +635,16 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     break;
   case ' ':                                   /* Found a space */
     // TODO serve a default page
-    return 0;//TODO remove this
+    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
+    writeStatusLine(rs, 400);  /* Return Bad Request */
+    writeMessage(rs, "URI query field missing.", methodIndex==1);
+    return 0;                  /* Must get back in sync with client */ 
     break;
   default:                                    /* Newline etc bad request */
     DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (newline etc)\n");
     writeStatusLine(rs, 400);  /* Return Bad Request */
-    writeSSL(rs, "\r\n", 2);
-    return 1;
+    writeMessage(rs, "HTTP version missing.", methodIndex==1);
+    return 0;                  /* Must get back in sync with client */ 
   }
 
   /* Get the http version */
@@ -631,19 +655,20 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     writeStatusLine(rs, 505);  /* Return HTTP Version Not Supported*/
     writeMessage(rs, "This server only supports HTTP/1.1", methodIndex==1);
     free(fileName);
-    return 1;
+    return 0;                  /* Must get back in sync with client */ 
   }
 
   /* We should now have a CRLF as the next item */
   if (!readToken(rs, &rp, "\n")) {
     if(fileName) free(fileName);
-    return 0;
+    return 0;                  /* Must get back in sync with client */ 
   }
   if (rp.last-rp.first > 1) {
     if (fileName) free(fileName);
     writeStatusLine(rs, 400);  /* Return Bad Request */
-    writeSSL(rs, "\r\n", 2);
-    return 1;
+    writeMessage(rs, "HTTP version not followed by CRLF on request line",
+		 methodIndex==1);
+    return 0;                  /* Must get back in sync with client */ 
   }
   readSkipDelim(rs, &rp);
 
@@ -727,7 +752,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	} else {
 	  writeStatusLine(rs, 417);
 	  writeSSL(rs, "\r\n", 2);
-	  return 1;
+	  return 0;                  /* Must get back in sync with client */ 
 	}
       }
       break;
@@ -791,9 +816,9 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       
       writeStatusLine(rs, 200);
       writeString(rs, cl);
-      writeString(rs, "Content-Type: application/octet-stream\r\n\r\n");
-      //      writeString(rs, "Content-Type: text/html\r\n\r\n");
       // TODO Consider what Cache-Control directives to issue, if any
+      // writeString(rs, "Content-Type: text/html\r\n\r\n");
+      writeString(rs, "Content-Type: application/octet-stream\r\n\r\n");
       if (0 == methodIndex) {       /* GET, not HEAD - send message-body */
 	/*  Actually send the file */
 	char buf[2048];
@@ -922,7 +947,7 @@ readToken(ReaderState *rs, ReadPtrs *rp, char *sepStr) {
     unsigned char c = *cp;
     if (!(c <= 0x7e && c>= 0x20) && (c!=0x0a && c!=0x0d)) { 
       writeStatusLine(rs, 200);
-      writeSSL(rs, "\r\n", 2);
+      writeMessage(rs, "Invalid character found in HTTP protocol data.", 0);
       DEBUG(http) DBGPRINT(DBGTARGET, "BadChar: %x\n", c);
       return 0;
     }
@@ -941,7 +966,7 @@ readToken(ReaderState *rs, ReadPtrs *rp, char *sepStr) {
  * @return is the index in the list, or -1 if it is not in the list.
  */
 static int
-compareToken(ReadPtrs *rp, char *list[], int ci) {
+compareToken(ReadPtrs *rp, const char *list[], int ci) {
   int i;
   int len = rp->last - rp->first;
   
