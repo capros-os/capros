@@ -145,7 +145,6 @@ void
 sysT_procWake(Process * invokee, result_t rc)
 {
   assert(! (invokee->hazards & hz_DomRoot));
-  assert(invokee->runState == RS_WaitingK);
 
   invokee->runState = RS_Running;
 
