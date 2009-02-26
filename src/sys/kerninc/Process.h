@@ -122,7 +122,8 @@ struct Process {
 
   StallQueue    stallQ;  /* procs waiting for this to be available */
   
-  Node      	*procRoot;
+  /* procRoot is NULL iff the Process structure is free. */
+  Node * procRoot;
 
   /* kernelFlags is at an address that is a multiple of 4,
      to save a cycle in ARM SWI_DisableIRQ_Handler. */

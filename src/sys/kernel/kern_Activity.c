@@ -278,6 +278,22 @@ act_AllocActivity(void)
   return act;
 }
 
+void 
+act_AssignTo(Activity * act, Process * proc)
+{
+  assert(proc);
+
+  act_SetContext(act, proc);
+  proc_SetActivity(proc, act);
+
+  // When act->context is non-NULL, act->processKey is Void.
+  // This is so (1) we don't have to keep updating processKey, and
+  // (2) a stale key in processKey won't unnecessarily cause the
+  // allocation count to be incremented.
+  assert(! keyBits_IsHazard(&act->processKey));	// never hazarded
+  key_NH_SetToVoid(&act->processKey);
+}
+
 void
 StartActivity(OID oid, ObCount count, uint8_t haz)
 {
@@ -1025,22 +1041,21 @@ PrepareCurrentActivity(void)
 #endif
 
   if (! proc) {
+    Key * key = &thisPtr->processKey;
     /* Domain root may have been rescinded.... */
+    key_Prepare(key);
 
-    key_Prepare(&thisPtr->processKey);
-
-    if (! keyBits_IsType(&thisPtr->processKey, KKT_Process)) {
+    if (! keyBits_IsType(key, KKT_Process)) {
       // Is this fatal, or should the activity simply go away quietly?
 	fatal("Rescinded activity %#x!\n", thisPtr);
 	return false;
     }
   
-    assert(! keyBits_IsHazard(&thisPtr->processKey));
+    assert(! keyBits_IsHazard(key));
 
-    proc = thisPtr->processKey.u.gk.pContext;
+    proc = key->u.gk.pContext;
   
-    act_SetContextCurrent(thisPtr, proc);
-    proc_SetActivity(proc, thisPtr);
+    act_AssignTo(thisPtr, proc);
   }
 
 #ifdef ACTIVITYDEBUG

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -81,7 +81,7 @@ key_GetAllocCount(const Key* thisPtr)
 }
 
 // May Yield.
-static bool
+bool
 CheckObjectType(OID oid, ObjectLocator * pObjLoc, unsigned int baseType)
 {
   *pObjLoc = GetObjectType(oid);

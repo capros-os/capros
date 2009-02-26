@@ -101,13 +101,12 @@ GateKey(Invocation* inv /*@ not null @*/)
 #endif
 
   assert(invokee);
-  assert(proc_IsRunnable(invokee));
 
   /* We copy the message here, not calling ReturnMessage(). */
 
   if (invKeyType == KKT_Resume)
     proc_ZapResumeKeys(invokee);
-  act_AssignTo(allocatedActivity, invokee);
+  act_AssignToRunnable(allocatedActivity, invokee);
 
   if (inv->invType == IT_Send) {
     act_Wakeup(allocatedActivity);

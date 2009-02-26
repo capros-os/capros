@@ -99,7 +99,16 @@ enum {
   act_NUM_STATES
 };
 
-// Values for actHazard:
+/* Values for actHazard:
+
+ actHaz_None: No special processing required.
+
+ actHaz_WakeOK: Before running the process, we must send it a message
+	with return code RC_OK.
+
+ actHaz_WakeRestart: Before running the process, we must send it a message
+	with return code RC_capros_key_Restart.
+ */
 enum {actHaz_None,
       actHaz_WakeOK,
       actHaz_WakeRestart,
@@ -125,7 +134,7 @@ struct Activity {
   Key processKey;
 	/* keyBits_GetType(&processKey) is always KKT_Process or KKT_Void. */
 	/* If Activity.context is non-NULL, it identifies the
-	associated process, and processKey is not meaningful.
+	associated process, and processKey is void.
 	Otherwise, processKey identifies the associated process or is void. */
 
   uint32_t unused;	/* keep until we fix assembler ofsets */
@@ -251,24 +260,17 @@ const char* act_Name(Activity* thisPtr);
 
 void act_DeleteActivity(Activity* t);
 void act_DeleteCurrent(void);
+void act_AssignTo(Activity * act, Process * proc);
 
-/*
- * It proves that the only activity migrations that occur in EROS are to
- * processs that are runnable.  If a process is runnable, we know that
- * it has a proper schedule key.  We can therefore assume that the
- * reserve slot of the destination context is populated, and we can
- * simply pick it up and go with it.
- */
 INLINE void 
-act_AssignTo(Activity * thisPtr, Process * dc)
+act_AssignToRunnable(Activity * act, Process * proc)
 {
-  assert(dc);
+  act_AssignTo(act, proc);
 
-  act_SetContext(thisPtr, dc);
-  proc_SetActivity(dc, thisPtr);
+  assert(proc_IsRunnable(proc));
 
   /* FIX: Check for preemption! */
-  thisPtr->readyQ = dc->readyQ;
+  act->readyQ = proc->readyQ;
 }
 
 /* Called by the activity when it wishes to yield the processor: */

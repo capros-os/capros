@@ -2,7 +2,7 @@
 #define __DISK_KEYINLINE_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -75,17 +75,21 @@ the actual value.
 Before fetching the key you must get the logical state from wherever it is
 and restore the actual value.
 The following cases occur:
-In a node prepared as a process root, slots for register values.
+In a node prepared as a process root, slots for register values
+  (these are all number keys).
+In a node prepared as a process key registers node, all slots.
 
 When KFL_WHAZARD is set, we say the key is "write-hazarded". 
 This means that there is state elsewhere that depends on the key.
 Before changing the key you must clear that other state. 
 The following cases occur:
-In a node prepared as a process root, slots for register values.
 In a node prepared as a process root, the ProcIoSpace slot.
 In a node prepared as a process root, the ProcSched slot.
 In a node prepared as a process root, the ProcGenKeys slot.
 In a node prepared as a process root, the ProcAddrSpace slot.
+In a node prepared as a process root, slots for register values
+  (these are all number keys).
+In a node prepared as a process key registers node, all slots.
 In a node prepared as a segment, a slot used to build a mapping table entry.
 
 node_ClearHazard() handles all these cases.

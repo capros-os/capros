@@ -1,7 +1,7 @@
 #ifndef __NODE_INLINE_H__
 #define __NODE_INLINE_H__
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -26,6 +26,33 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Node.h>
 #include <kerninc/ObjH-inline.h>
 #include <idl/capros/Range.h>
+
+/* If the specified slot (which may be hazarded) in the node
+ * is a Resume key, return a pointer to the Resume key,
+ * otherwise return NULL. */
+// Inline because there is only one caller.
+INLINE Key *
+node_SlotIsResume(Node * node, unsigned int slot)
+{
+  Key * pKey = node_GetKeyAtSlot(node, slot);
+  if (keyBits_IsRdHazard(pKey)) {
+    ObjectHeader * pObj = node_ToObj(node);
+    switch (pObj->obType) {
+    default:
+      assert(false);
+    case ot_NtProcessRoot:
+      // The only read-hazarded slots in the process root are register
+      // values, which are always number keys.
+      return NULL;
+    case ot_NtKeyRegs:
+      // The real key has been moved to the Process structure:
+      pKey = &pObj->prep_u.context->keyReg[slot];
+    }
+  }
+  if (! keyBits_IsType(pKey, KKT_Resume))
+    return NULL;
+  return pKey;
+}
 
 void node_DoBumpCallCount(Node * node);
 

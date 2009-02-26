@@ -504,10 +504,6 @@ ReturnMessage(Invocation * inv)
   
   if (invokee) {
     if (proc_IsNotRunnable(invokee)) {
-      if (invokee->procRoot == 0) {
-	goto bad_invokee;
-      }
-      
       proc_DoPrepare(invokee);
 
       if (proc_IsNotRunnable(invokee)) {
@@ -524,7 +520,7 @@ ReturnMessage(Invocation * inv)
         assert(proc_IsWaiting(invokee));
         proc_ZapResumeKeys(invokee);
       }
-      act_AssignTo(allocatedActivity, invokee);
+      act_AssignToRunnable(allocatedActivity, invokee);
 
       if (inv->invType == IT_Send) {
         act_Wakeup(allocatedActivity);

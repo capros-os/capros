@@ -36,6 +36,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/LogDirectory.h>
 #include <kerninc/Check.h>
 #include <kerninc/ObjH-inline.h>
+#include <kerninc/Node-inline.h>
 #include <idl/capros/Range.h>
 #include <idl/capros/MigratorTool.h>
 #include <eros/Invoke.h>
@@ -586,8 +587,8 @@ DoPhase1Work(void)
       }
     } else {	// a non-persistent node
       for (i = 0; i < EROS_NODE_SIZE; i++) {
-        Key * pKey = node_GetKeyAtSlot(pNode, i);
-        if (keyBits_IsType(pKey, KKT_Resume)) {
+        Key * pKey = node_SlotIsResume(pNode, i);
+        if (pKey) {
           OID procOid;
           ObCount procAllocCount;
           // This is similar to key_GetKeyOid.
@@ -624,6 +625,8 @@ DoPhase1Work(void)
             so it will never be a duplicate of a process identified
             by an Activity structure. Those are stored later. */
             if (! ProcIsDuplicate(procOid, procAllocCount))
+//// Should be call count!!
+            // AllocCntUsed doesn't matter because on restart all objs have it.
               StoreProcessInfo(procOid, procAllocCount, actHaz_WakeRestart);
           }
         }

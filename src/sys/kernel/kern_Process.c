@@ -225,10 +225,6 @@ proc_SetCommonRegs32(Process * thisPtr,
 void
 proc_Unload(Process * thisPtr)
 {
-  /* It might already be unloaded: */
-  if (thisPtr->procRoot == 0)
-    goto exit;
-  
 #if defined(DBG_WILD_PTR)
   if (dbg_wild_ptr)
     if (check_Contexts("before unload") == false)
@@ -280,7 +276,6 @@ proc_Unload(Process * thisPtr)
   // dprintf(false,  "Unload of context 0x%08x complete\n", thisPtr);
 
   sq_WakeAll(&thisPtr->stallQ);
-exit: ;
   assert(! thisPtr->curActivity);
 }
 
@@ -329,16 +324,15 @@ proc_allocate(bool isUser)
 	// because it should be user pinned
 
   /* wipe out current contents, if any */
-  proc_Unload(p);
+  if (p->procRoot)
+    proc_Unload(p);
 
 #if 0
   printf("  unloaded\n");
 #endif
   
-  assert(p->procRoot == 0
-         || p->procRoot->node_ObjHdr.obType == ot_NtProcessRoot);
+  assert(! p->procRoot);
 
-  p->procRoot = 0;		/* for kernel contexts */
   p->faultCode = capros_Process_FC_NoFault;
   p->faultInfo = 0;
   p->kernelFlags = 0;
@@ -386,7 +380,7 @@ proc_DoPrepare(Process * thisPtr)
 
     if (proc_StateHasActivity(thisPtr) && ! thisPtr->curActivity) {
       // There should be an Activity for this Process. Find it.
-      // FIXME: this is a slow algorithm.
+      // FIXME: this is an O(n) algorithm.
       int i;
       for (i = 0; i < KTUNE_NACTIVITY; i++) {
         Activity * act = &act_ActivityTable[i];
@@ -405,7 +399,7 @@ proc_DoPrepare(Process * thisPtr)
           }
         }
       }
-      dprintf(true, "Process %#x has no Activity!\n", thisPtr);
+      fatal("Process %#x has no Activity!\n", thisPtr);
 found: ;
     }
 
@@ -459,9 +453,8 @@ found: ;
       thisPtr->readyQ = &r->readyQ;
       r->isActive = true;
       printf("set real time key index = %d\n", r->index);
-    }
-    /* this is a priority key */
-    else {
+    } else {
+      /* this is a priority key */
       pr = min(schedKey->keyData, pr_High);
       thisPtr->readyQ = dispatchQueues[pr];
       if (pr == pr_Reserve) {

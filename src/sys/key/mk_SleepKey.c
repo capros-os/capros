@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -41,11 +41,10 @@ Approved for public release, distribution unlimited. */
 void
 SleepInvokee(Process * invokee, uint64_t wakeupTime)
 {
-  assert(proc_IsRunnable(invokee));
   assert(link_isSingleton(& act_Current()->q_link));
 
   if (invokee != proc_curProcess) {
-    act_AssignTo(allocatedActivity, invokee);
+    act_AssignToRunnable(allocatedActivity, invokee);
   }
 
   act_SleepUntilTick(invokee->curActivity, wakeupTime);
