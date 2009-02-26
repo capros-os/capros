@@ -53,13 +53,31 @@ struct SegWalk;
 
 #endif /* __ASSEMBLER__ */
 
-/* Every running activity has an associated process structure.  The
- * process structure for user activities has a lot more state.  Process
- * structures for kernel activities are dedicated to the activity.  Process
- * structures for user activities are caches of domain state.  A process
- * is in use if it has a non-zero procRoot pointer.
- * 
- * Every process has an associated save area pointer.
+/* Every process in memory has an associated process structure.
+ * Process structures for kernel activities are dedicated to the activity.
+ * Process structures for user activities are caches of state in nodes.
+ *
+ * Processes go through the following states:
+ *
+ * Free - procRoot is NULL and isUserContext is true.
+ *
+ * Allocated for a kernel process: procRoot is NULL and
+ *   isUserContext is false.
+ *
+ * Allocated for a user process: procRoot is non-NULL
+ *   and isUserContext is true
+ *   and hazards has hz_DomRoot, hz_KeyRegs, and hz_Sched.
+ *
+ * Fixed regs loaded: all the above,
+ *   except no hz_DomRoot.
+ *   runState is valid.
+ *   curActivity has any Activity.
+ *
+ * Key regs loaded: All the above,
+ *   except no hz_KeyRegs.
+ *
+ * Runnable: All the above, and no hazards.
+ *   readyQ is valid.
  * 
  * Processes are reallocated in round-robin order, which may well prove
  * to be a dumb thing to do.  Kernel processes are not reallocated.
