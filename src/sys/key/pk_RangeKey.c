@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -448,7 +448,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 
       inv->exit.w1 = t;
 
-      OID oid = key_GetKeyOid(key);
+      OID oid = key_GetObjectPtr(key)->oid;
       
       if ( oid < rngStart || oid >= rngEnd ) {
 	inv->exit.code = RC_capros_Range_RangeErr;
@@ -482,7 +482,7 @@ RangeKey(Invocation* inv /*@ not null @*/)
 	break;
       }
 
-      OID oid = key_GetKeyOid(key);
+      OID oid = key_GetObjectPtr(key)->oid;
       
 #ifdef DEBUG_PAGERANGEKEY
       dprintf(true, "Rescinding OID %#llx\n", oid);
