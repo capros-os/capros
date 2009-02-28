@@ -61,8 +61,9 @@ act_Stall: blocked on an event, on a StallQueue.
     the same as in the act_Ready state.
 
 act_Sleeping: blocked on a timer, on the SleepQueue.
- If it has a Process (without hz_DomRoot),
-   the Process's runState is RS_WaitingK.
+  actHazard is actHaz_None.
+  If it has a Process (without hz_DomRoot),
+    the Process's runState is RS_WaitingK.
 
 act_Stall is used to block before an operation is committed
 (therefore the operation can be restarted when the block is removed).

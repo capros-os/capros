@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -44,7 +44,6 @@ StartIdleActivity(void)
   Activity *idleActivity = 
     kact_InitKernActivity("Idler", pr_Idle, dispatchQueues[pr_Idle], 
 			&IdleActivity_Start, stack, &stack[StackSize]);
-  idleActivity->readyQ = dispatchQueues[pr_Idle];
 
   act_Wakeup(idleActivity);	/* let it initialize itself... */
 

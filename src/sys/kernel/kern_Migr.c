@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -106,7 +106,6 @@ CreateKernelThread(const char * name, Priority prio,
   Activity * act = kact_InitKernActivity(name, prio,
     dispatchQueues[prio], func,
     stack, &stack[StackSize]);
-  act->readyQ = dispatchQueues[prio];
 
   // Endow it with the migrator tool.
   Key * k = & act->context->keyReg[KR_MigrTool];

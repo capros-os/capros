@@ -233,12 +233,13 @@ inactivate: ;
       assert(t->context == invoker);
 
       proc_Deactivate(invoker);
-#ifndef NDEBUG
       /* Note, at this point we have: */
+      assert(t->state == act_Running);
       assert(act_Current() == t);
       assert(proc_curProcess == invoker);
       // but:
       assert(invoker->curActivity == NULL);
+#ifndef NDEBUG
       t->context = NULL;	// to guard against (mis)use
 #endif
       allocatedActivity = t;

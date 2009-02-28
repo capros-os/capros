@@ -257,6 +257,8 @@ kact_InitKernActivity(const char * name,
   act_SetContextNotCurrent(t, p);
   proc_SetActivity(p, t);
 
+  t->readyQ = rq;
+
   return t;
 }
 
