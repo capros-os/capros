@@ -265,6 +265,7 @@ act_AllocActivity(void)
 {
   if (sq_IsEmpty(&freeActivityList))
     fatal("Activitys exhausted\n");
+    // FIXME: is it feasible to wait for a free Activity?
 
   Activity * act = act_DequeueNext(&freeActivityList);
   assert(numFreeActivities);

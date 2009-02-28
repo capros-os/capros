@@ -24,14 +24,11 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* EROS activity list management.  For every process that is runnable
+/* CapROS activity list management.  For every process that is runnable
  * or stalled, an entry exists in the activity table list.  When one
- * process invokes another, it hands its entry to the invoked process.
- * When a process issues a SEND, it allocates a new activity.
- * Activities will block if their process performs a SEND and no free
- * Activity is available.  When a process returns to the kernel, or
- * when it becomes malformed in certain ways, its occupying Activity
- * is returned to the Activity free list.
+ * process calls or returns to another, we migrate the Activity from the
+ * invoker to the invokee (to save allocation and deallocation).
+ * When a process issues a SEND, it allocates a new Activity.
  */
 
 #include <eros/Link.h>
@@ -43,6 +40,9 @@ Approved for public release, distribution unlimited. */
 /* Values for Activity.state:
 
 act_Free: free, on the FreeActivityList.
+  Exception: the Activity, if any, that the variable allocatedActivity
+    points to, is free, but because it is reserved for use by the
+    current invocation, it isn't on the FreeActivityList.
 
 act_Ready: on a ReadyQueue.
   If it has a Process (without hz_DomRoot):
@@ -136,8 +136,6 @@ struct Activity {
 	/* If Activity.context is non-NULL, it identifies the
 	associated process, and processKey is void.
 	Otherwise, processKey identifies the associated process or is void. */
-
-  uint32_t unused;	/* keep until we fix assembler ofsets */
 
   struct ReadyQueue *readyQ;	/* readyQ info for this activity */  
 

@@ -1378,10 +1378,12 @@ L_done_keys:
 	movl	PR_OFF_curActivity-PR_OFF_FIXREGS(%ebp),%edx
 	movl	$0,PR_OFF_curActivity-PR_OFF_FIXREGS(%ebp)
 	movl	%edx,PR_OFF_curActivity(%eax)
-	movl	%eax,8(%edx)
+	movl	%eax,8(%edx)	/* 8 is offsetof(Activity, context) */
+#error Update Activity offsets!
 
 	movl	PR_OFF_readyQ(%eax),%ebx
-	movl	%ebx,36(%edx)	/* update readyQ */
+	movl	%ebx,36(%edx)	/* 36 is offsetof(Activity, readyQ) */
+#error Update Activity offsets!
 
 	/* Advance the recipient PC */
 	addl	$2,PR_OFF_EIP(%eax)	// proc_AdvancePostInvocationPC
