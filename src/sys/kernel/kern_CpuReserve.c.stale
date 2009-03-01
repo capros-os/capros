@@ -160,8 +160,8 @@ void
 cpuR_AddKernelThread(CpuReserve* thisPtr, Thread* t)
 {
   cpuR_AddUserThread(thisPtr, t);
-  assert (t->context);
-  t->context->cpuReserve = thisPtr;
+  assert(act_HasProcess(t));
+  act_GetProcess(t)->cpuReserve = thisPtr;
 }
 
 /* Reserve linkage not circular! */

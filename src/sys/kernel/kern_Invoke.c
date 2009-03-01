@@ -230,7 +230,7 @@ inactivate: ;
       Activity * t = invoker->curActivity;
 
       assert(t == act_Current());
-      assert(t->context == invoker);
+      assert(act_GetProcess(t) == invoker);
 
       proc_Deactivate(invoker);
       /* Note, at this point we have: */

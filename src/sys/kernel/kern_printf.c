@@ -29,7 +29,7 @@
  * MsgLog::printf(), this version is well tested and mature.
  */
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -569,7 +569,7 @@ fatal(const char *fmt, ...)
 #else
 #ifndef NDEBUG
   Activity * act = act_Current();
-  if (act) proc_DumpFixRegs(act->context);
+  if (act) proc_DumpFixRegs(act_GetProcess(act));
 #endif
 #if 0
   Debug::Backtrace(0, false);

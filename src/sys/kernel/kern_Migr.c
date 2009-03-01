@@ -108,7 +108,7 @@ CreateKernelThread(const char * name, Priority prio,
     stack, &stack[StackSize]);
 
   // Endow it with the migrator tool.
-  Key * k = & act->context->keyReg[KR_MigrTool];
+  Key * k = & act_GetProcess(act)->keyReg[KR_MigrTool];
   keyBits_InitType(k, KKT_MigratorTool);
 
   *ppAct = act;
@@ -120,12 +120,12 @@ CreateMigratorActivity(void)
   CreateKernelThread("Migr", pr_Normal, &MigratorStart,
                      &migratorActivity);
 
-  printf("Created migrator process at %#x\n", migratorActivity->context);
+  printf("Created migrator process at %#x\n", act_GetProcess(migratorActivity));
 
   void CheckpointThread(void);
   CreateKernelThread("Ckpt", pr_High, &CheckpointThread,
                      &checkpointActivity);
 
-  printf("Created checkpoint thread at %#x\n", checkpointActivity->context);
+  printf("Created checkpoint thread at %#x\n", act_GetProcess(checkpointActivity));
 }
 

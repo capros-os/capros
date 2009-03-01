@@ -73,9 +73,8 @@ StartIdleActivity(void)
 
   act_Wakeup(idleActivity);	/* let it initialize itself... */
 
-  
-  printf("Initialized IdleActivity (activity 0x%x,context 0x%x)\n",
-	 idleActivity, idleActivity->context );
+  printf("Initialized IdleActivity (activity %#x, process %#x)\n",
+	 idleActivity, act_GetProcess(idleActivity));
 
   return idleActivity;
 }

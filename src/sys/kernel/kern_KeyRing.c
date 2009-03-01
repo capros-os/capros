@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -142,9 +142,8 @@ keyR_RescindAll(KeyRing * thisPtr)
     if (act_IsActivityKey(pKey)) {
       Activity *containingActivity = act_ContainingActivity(pKey);
       assert(containingActivity);
-      Process * pContext = containingActivity->context;
 
-      if (! pContext)
+      if (! act_HasProcess(containingActivity))
 	act_Wakeup(containingActivity);
       /* else the key within the activity is not meaningful. */
     }

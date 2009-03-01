@@ -83,10 +83,11 @@ void
 sysT_AddSleeper(Activity * t, uint64_t wakeTime)
 {
   assert(link_isSingleton(&t->q_link));
-  assert(t->context);
-  assert(t->context->curActivity == t);
-  assert(! (t->context->hazards & hz_DomRoot));
-  assert(t->context->runState == RS_WaitingU);
+  assert(act_HasProcess(t));
+  Process * proc = act_GetProcess(t);
+  assert(proc->curActivity == t);
+  assert(! (proc->hazards & hz_DomRoot));
+  assert(proc->runState == RS_WaitingU);
 
 #if 0
   uint64_t now = sysT_Now();
@@ -94,7 +95,7 @@ sysT_AddSleeper(Activity * t, uint64_t wakeTime)
      t, wakeTime, now, wakeTime - now);
 #endif
 
-  t->context->runState = RS_WaitingK;
+  proc->runState = RS_WaitingK;
 
   t->lastq = &SleepQueue;
   t->wakeTime = wakeTime;
@@ -188,10 +189,9 @@ sysT_WakeupAt(void)
 
     // Complete this process's sleep invocation.
 
-    Process * invokee = t->context;
-    if (invokee && proc_IsRunnable(invokee)) {
+    if (act_HasProcess(t) && proc_IsRunnable(act_GetProcess(t))) {
       // Return from its Sleep invocation.
-      sysT_procWake(invokee, RC_OK);
+      sysT_procWake(act_GetProcess(t), RC_OK);
     } else {
       t->actHazard = actHaz_WakeOK;	// remember to do it later
     }

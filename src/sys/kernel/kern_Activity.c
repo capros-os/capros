@@ -68,9 +68,10 @@ uint32_t act_RunQueueMap = 0;
 INLINE bool 
 act_IsRunnable(Activity * thisPtr)
 {
-  return (thisPtr->context
-	  && proc_IsRunnable(thisPtr->context)
-	  && (thisPtr->context->processFlags & capros_Process_PF_FaultToProcessKeeper) == 0);
+  return (act_HasProcess(thisPtr)
+	  && proc_IsRunnable(act_GetProcess(thisPtr))
+	  && (act_GetProcess(thisPtr)->processFlags
+              & capros_Process_PF_FaultToProcessKeeper) == 0);
 }
 
 static void
@@ -345,7 +346,7 @@ act_AllocActivityTable()
 void
 act_DeleteActivity(Activity *t)
 {
-  assert(t->context == NULL);
+  assert(! act_HasProcess(t));
   assert(link_isSingleton(&t->q_link));
 
   /* dprintf(true, "Deleting activity 0x%08x\n", t); */
@@ -518,9 +519,9 @@ void
 act_DeleteCurrent(void)
 {
   Activity * thisPtr = act_Current();
-  if (thisPtr->context) {
-    assert(! proc_StateHasActivity(thisPtr->context));
-    proc_Deactivate(thisPtr->context);
+  if (act_HasProcess(thisPtr)) {
+    assert(! proc_StateHasActivity(act_GetProcess(thisPtr)));
+    proc_Deactivate(act_GetProcess(thisPtr));
   }
   act_SetContextCurrent(thisPtr, NULL);
   act_DeleteActivity(thisPtr);
@@ -705,11 +706,11 @@ act_DoReschedule(void)
       printf("schedloop: curActivity 0x%08x ctxt 0x%08x (%s) run?"
 		     " %c st %d fc 0x%x\n",
 		     curActivity,
-		     curActivity->context,
-		     curActivity->context->Name(),
-		     curActivity->context->IsRunnable() ? 'y' : 'n',
+		     act_GetProcess(curActivity),
+		     act_GetProcess(curActivity)->Name(),
+		     act_GetProcess(curActivity)->IsRunnable() ? 'y' : 'n',
 		     curActivity->state,
-		     curActivity->context->faultCode);
+		     act_GetProcess(curActivity)->faultCode);
     }
 #endif
 
@@ -855,8 +856,8 @@ Otherwise it returns false. */
 bool
 act_GetOIDAndCount(Activity * act, OID * oid, ObCount * count)
 {
-  if (act->context) {	// process info is in the Process structure
-    Process * proc = act->context;
+  if (act_HasProcess(act)) {	// process info is in the Process structure
+    Process * proc = act_GetProcess(act);
     if (proc_IsKernel(proc))
       return false;
     ObjectHeader * pObj = node_ToObj(proc->procRoot);
@@ -924,39 +925,40 @@ act_ValidateActivity(Activity* thisPtr)
       ! keyBits_IsVoidKey(&thisPtr->processKey))
     fatal("Activity 0x%08x has bad key type.\n", thisPtr);
 
-  Process * proc = thisPtr->context;
   switch (thisPtr->state) {
   default:
     assert(false);
 
   case act_Free:
-    assert(! proc);
+    assert(! act_HasProcess(thisPtr));
     break;
 
   case act_Running:
     assert(thisPtr == act_Current());
   case act_Ready:
   case act_Stall:
-    if (proc && ! (proc->hazards & hz_DomRoot)) {
+    if (act_HasProcess(thisPtr)
+        && ! (act_GetProcess(thisPtr)->hazards & hz_DomRoot)) {
       switch (thisPtr->actHazard) {
       default:
         assert(false);
 
       case actHaz_None:
-        assert(proc->runState == RS_Running);
+        assert(act_GetProcess(thisPtr)->runState == RS_Running);
         break;
 
       case actHaz_WakeOK:
       case actHaz_WakeRestart:
-        assert(proc->runState == RS_WaitingK);
+        assert(act_GetProcess(thisPtr)->runState == RS_WaitingK);
         break;
       }
     }
     break;
 
   case act_Sleeping:
-    if (proc && ! (proc->hazards & hz_DomRoot)) {
-      assert(proc->runState == RS_WaitingK);
+    if (act_HasProcess(thisPtr)
+        && ! (act_GetProcess(thisPtr)->hazards & hz_DomRoot)) {
+      assert(act_GetProcess(thisPtr)->runState == RS_WaitingK);
     }
   }
 }
@@ -970,8 +972,8 @@ act_Name(Activity* thisPtr)
   static char userActivityName[] = "userXXX\0";
   uint32_t ndx = 0;
 
-  if ( !act_IsUser(thisPtr) )
-    return proc_Name(thisPtr->context);
+  if (! act_IsUser(thisPtr))
+    return proc_Name(act_GetProcess(thisPtr));	// kernel process name
     
   ndx = thisPtr - &act_ActivityTable[0];
 
@@ -1036,14 +1038,13 @@ PrepareCurrentActivity(void)
   assert(thisPtr->state != act_Free);
   assert(act_Current() == thisPtr);
 
-  Process * proc = thisPtr->context;
-
   /* Try to prepare this activity to run: */
 #ifdef ACTIVITYDEBUG
   printf("Preparing user activity\n");
 #endif
 
-  if (! proc) {
+  Process * proc;
+  if (! act_HasProcess(thisPtr)) {
     Key * key = &thisPtr->processKey;
     /* Domain root may have been rescinded.... */
     key_Prepare(key);
@@ -1059,6 +1060,8 @@ PrepareCurrentActivity(void)
     proc = key->u.gk.pContext;
   
     act_AssignTo(thisPtr, proc);
+  } else {
+    proc = act_GetProcess(thisPtr);
   }
 
 #ifdef ACTIVITYDEBUG
@@ -1093,7 +1096,7 @@ PrepareCurrentActivity(void)
     }
   }
 
-  assert (thisPtr->readyQ = proc->readyQ);
+  assert(thisPtr->readyQ == proc->readyQ);
 
 #ifdef DBG_WILD_PTR
   if (dbg_wild_ptr && 0)

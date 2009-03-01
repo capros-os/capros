@@ -138,7 +138,13 @@ struct Activity {
 	associated process, and processKey is void.
 	Otherwise, processKey identifies the associated process or is void. */
 
-  struct ReadyQueue *readyQ;	/* readyQ info for this activity */  
+  struct ReadyQueue * readyQ;
+	/* If there is an associated Process,
+	  readyQ contains a copy of Process.readyQ.
+        If there is no associated Process,
+	  readyQ contains the last known readyQ of the Process.
+          If no Process was ever known, readyQ contains dispatchQueues[pr_High],
+          which is good enough to get the Activity scheduled. */
 
   /* Support for the per-activity timer structure.  The only user
    * activities that will use this are the ones invoking primary system
@@ -176,6 +182,19 @@ Activity * kact_InitKernActivity(const char * name,
                              struct ReadyQueue *rq,
 			     void (*pc)(void), 
 			     uint32_t *StackBottom, uint32_t *StackTop);
+
+INLINE bool
+act_HasProcess(Activity * act)
+{
+  return act->context;
+}
+
+INLINE Process *
+act_GetProcess(Activity * act)
+{
+  assert(act_HasProcess(act));
+  return act->context;
+}
 
 INLINE Activity* 
 act_Current() 
@@ -242,8 +261,7 @@ act_SetRunning(Activity* thisPtr)
 INLINE bool 
 act_IsUser(Activity* thisPtr)
 {
-  /* hack alert! */
-  return ( thisPtr->context == 0 || proc_IsUser(thisPtr->context) );
+  return (! act_HasProcess(thisPtr) || proc_IsUser(act_GetProcess(thisPtr)) );
 }
   
 void act_Wakeup(Activity* thisPtr);

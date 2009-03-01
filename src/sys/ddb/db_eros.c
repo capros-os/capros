@@ -487,8 +487,8 @@ db_eros_print_activity(Activity *t)
 
   if ( act_IsUser(t) ) {
 
-    if (t->context) {
-      oid = ((Process *) (t->context))->procRoot->node_ObjHdr.oid;
+    if (act_HasProcess(t)) {
+      oid = act_GetProcess(t)->procRoot->node_ObjHdr.oid;
       isGoodOid = 'u';
     }
     else if (keyBits_IsObjectKey(&t->processKey)) {
@@ -912,10 +912,11 @@ db_activity_print_cmd(db_expr_t addr, int have_addr,
               " haz=%d lastq=%#x\n",
 	      cur_str,
 	      t, act_stateNames[t->state], t->context,
-              (t->context ? (proc_IsUser(t->context) ? "user" : "kernel")
-                : "noCtxt"),
+              (act_HasProcess(t)
+                ? (proc_IsUser(act_GetProcess(t)) ? "user" : "kernel")
+                : "noProc"),
 	      /*t->priority*/t->readyQ->mask, t->actHazard, t->lastq);
-    if (! t->context) {
+    if (! act_HasProcess(t)) {
       db_printf("    (0x%08x): ", &t->processKey);
       db_eros_print_key(&t->processKey);
     }

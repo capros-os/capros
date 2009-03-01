@@ -190,7 +190,7 @@ proc_SyncActivity(Process * thisPtr)
 {
   assert(thisPtr->curActivity);
   assert(thisPtr->procRoot);
-  assert(thisPtr->curActivity->context == thisPtr);
+  assert(act_GetProcess(thisPtr->curActivity) == thisPtr);
   
   Key * procKey = &thisPtr->curActivity->processKey;
 
@@ -289,8 +289,8 @@ proc_allocate(bool isUser)
 
   /* Simple round-robin policy for now:  */
   for (;;) {
-    p = &proc_ContextCache[nextClobber++];
-    if (nextClobber >= KTUNE_NCONTEXT)
+    p = &proc_ContextCache[nextClobber];
+    if (++nextClobber >= KTUNE_NCONTEXT)
       nextClobber = 0;
 
     if (objH_IsUserPinned(proc_ToObj(p)))
@@ -385,7 +385,7 @@ proc_DoPrepare(Process * thisPtr)
       for (i = 0; i < KTUNE_NACTIVITY; i++) {
         Activity * act = &act_ActivityTable[i];
         if (act->state != act_Free) {
-          if (! act->context) {
+          if (! act_HasProcess(act)) {
             if (keyBits_IsType(&act->processKey, KKT_Process)) {
               // not rescinded
               if (key_GetKeyOid(&act->processKey) == node_ToObj(root)->oid
@@ -469,7 +469,7 @@ found: ;
        readyQ pointer in that activity: */
     Activity * t = thisPtr->curActivity;
     if (t) {
-      assert(t->context == thisPtr);
+      assert(act_GetProcess(t) == thisPtr);
       t->readyQ = thisPtr->readyQ;
 
       switch(t->state) {

@@ -31,8 +31,9 @@ Approved for public release, distribution unlimited. */
 INLINE Process *
 proc_Current(void)
 {
-  assert((act_Current() == NULL && proc_curProcess == NULL)
-         || (act_Current()->context == proc_curProcess));
+  assert((proc_curProcess == NULL && (act_Current() == NULL
+                                      || ! act_HasProcess(act_Current())))
+         || (act_GetProcess(act_Current()) == proc_curProcess));
   return proc_curProcess;	// could be NULL
 }
 
