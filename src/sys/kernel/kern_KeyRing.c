@@ -123,31 +123,6 @@ keyR_RescindAll(KeyRing * thisPtr)
 
     assert (nxt == thisPtr->next);
 
-    /* If the rescinded key is in a activity that is currently running,
-     * we cannot delete the activity.  The current domain may be
-     * committing sepuku, but it might be the case that the domain has
-     * contrived to return to someone else, and the *activity* will
-     * therefore survive. [See: there *is* an afterlife!] This can
-     * happen when the currently running domain calls "destroy this
-     * node and return to fred" where "this node" is the domain root
-     * of the currently running domain. Buggered completely, but in
-     * principle this can happen.
-     * 
-     * Rather than test for that case, which is not MP compatible,
-     * simply wake up the activity.  If the activity is already awake no
-     * harm will ensue.  If the activity was asleep, we will attempt to
-     * run it, discover its demise, and that will be the end of it.
-     */
-
-    if (act_IsActivityKey(pKey)) {
-      Activity *containingActivity = act_ContainingActivity(pKey);
-      assert(containingActivity);
-
-      if (! act_HasProcess(containingActivity))
-	act_Wakeup(containingActivity);
-      /* else the key within the activity is not meaningful. */
-    }
-
 #ifdef OPTION_OB_MOD_CHECK
     Node * pNode = node_ContainingNodeIfNodeKeyPtr(pKey);
     if (pNode) {

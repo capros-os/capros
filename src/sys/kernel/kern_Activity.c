@@ -377,6 +377,26 @@ act_DeleteActivity(Activity *t)
   numFreeActivities++;
 }
 
+Activity *
+act_FindByOid(OID oid)
+{
+  // FIXME: this is an O(n) algorithm.
+  int i;
+  for (i = 0; i < KTUNE_NACTIVITY; i++) {
+    Activity * act = &act_ActivityTable[i];
+    if (act->state != act_Free) {
+      if (! act_HasProcess(act)) {
+        if (keyBits_IsType(&act->processKey, KKT_Process)) {
+          // not rescinded
+          if (key_GetKeyOid(&act->processKey) == oid)
+            return act;
+        }
+      }
+    }
+  }
+  return NULL;
+}
+
 #ifndef NDEBUG
 Activity *
 act_ValidActivityKey(const Key * pKey)

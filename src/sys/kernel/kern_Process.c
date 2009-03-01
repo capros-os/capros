@@ -380,27 +380,10 @@ proc_DoPrepare(Process * thisPtr)
 
     if (proc_StateHasActivity(thisPtr) && ! thisPtr->curActivity) {
       // There should be an Activity for this Process. Find it.
-      // FIXME: this is an O(n) algorithm.
-      int i;
-      for (i = 0; i < KTUNE_NACTIVITY; i++) {
-        Activity * act = &act_ActivityTable[i];
-        if (act->state != act_Free) {
-          if (! act_HasProcess(act)) {
-            if (keyBits_IsType(&act->processKey, KKT_Process)) {
-              // not rescinded
-              if (key_GetKeyOid(&act->processKey) == node_ToObj(root)->oid
-                  && key_GetAllocCount(&act->processKey)
-                     == node_ToObj(root)->allocCount ) {
-                // Found the matching Activity.
-                act_AssignTo(act, thisPtr);
-                goto found;
-              }
-            }
-          }
-        }
-      }
-      fatal("Process %#x has no Activity!\n", thisPtr);
-found: ;
+      Activity * act = act_FindByOid(node_ToObj(root)->oid);
+      if (!act)
+        fatal("Process %#x has no Activity!\n", thisPtr);
+      act_AssignTo(act, thisPtr);
     }
 
     thisPtr->hazards &= ~hz_DomRoot;

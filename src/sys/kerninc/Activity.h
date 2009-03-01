@@ -182,6 +182,7 @@ Activity * kact_InitKernActivity(const char * name,
                              struct ReadyQueue *rq,
 			     void (*pc)(void), 
 			     uint32_t *StackBottom, uint32_t *StackTop);
+Activity * act_FindByOid(OID oid);
 
 INLINE bool
 act_HasProcess(Activity * act)
@@ -313,30 +314,6 @@ void act_HandleYieldEntry(void) NORETURN;
 #ifndef NDEBUG
 Activity * act_ValidActivityKey(const Key * pKey);
 #endif
-
-INLINE Activity* 
-act_ContainingActivity(void *vp)
-{
-  uint32_t wvp = (uint32_t) vp;
-  wvp -= (uint32_t) act_ActivityTable;
-  wvp /= sizeof(Activity);
-  return act_ActivityTable + wvp;
-}
-
-INLINE bool 
-act_IsActivityKey(const Key *pKey)
-{
-  /* This isn't quite right, as it will return TRUE for any random
-   * pointer in to the activity table, but that's good enough for all
-   * the places that we use it.
-   */
-    
-  if ( ((uint32_t) pKey >= (uint32_t) act_ActivityTable) &&
-       ((uint32_t) pKey < (uint32_t) &act_ActivityTable[KTUNE_NACTIVITY]) ) {
-    return true;
-  }
-  return false;
-}
 
 Activity * act_AllocActivity();
 void StartActivity(OID oid, ObCount count, uint8_t haz);

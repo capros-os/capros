@@ -312,18 +312,44 @@ objH_Rescind(ObjectHeader * thisPtr)
   keyR_RescindAll(&thisPtr->keyRing);
 
   if (objH_isNodeType(thisPtr)) {
+    // Rescind any unprepared Resume keys:
     node_BumpCallCount(objH_ToNode(thisPtr));
 
+    bool clearedActivity = false;
     if (thisPtr->obType == ot_NtProcessRoot) {
+      // Rescind any prepared Resume, Start, or Process keys:
       Process * proc = thisPtr->prep_u.context;
       keyR_RescindAll(&proc->keyRing);
+      if (! (proc->hazards & hz_DomRoot)	// runState is valid
+          && proc->runState == RS_WaitingK) {
+        // WaitingK is similar to the kernel holding a Resume key. Zap it.
+        // Caller will change proc->runState.
+        proc_ClearActivity(proc);
+        clearedActivity = true;
+      }
     }
+    if (! clearedActivity) {
+      /* The node could be a process root that is not yet prepared as
+      ot_NtProcessRoot or that has hz_DomRoot.
+      In these cases there could be an Activity with this OID.
+      We must find it and delete it: */
+      Activity * act = act_FindByOid(thisPtr->oid);
+      if (act) {
+        assert(! act_HasProcess(act));	// else we would have cleared it above
+        /* Note: only the SpaceBank rescinds, and it never rescinds itself: */
+        assert(act != act_Current());
+        act_Dequeue(act);
+        act_DeleteActivity(act);
+      }
+    }
+    
   }
 
   DEBUG(rescind)
     dprintf(true, "After 'RescindAll()'\n");
 
   if (objH_GetFlags(thisPtr, OFLG_AllocCntUsed)) {
+    // There are unprepared keys (other than Resume). Rescind them:
     thisPtr->allocCount++;
 
     // Track the maximum count of any nonpersistent object.
