@@ -1,7 +1,7 @@
 /* -*- C -*- */
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group
+ * Copyright (C) 2006, 2007, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -35,6 +35,7 @@ proc2 pc = proc2.pc;
 proc2 sp = 0x21000;
 proc2 space = proc2.seg;
 proc2 schedule = sched(8);	/* normal */
+proc2 symtab = number("proc2");
 
 proc1 = new process;
 proc1.seg = program segment BUILDDIR "proc1";
@@ -46,6 +47,7 @@ proc1 pc = proc1.pc;
 proc1 sp = 0x21000;
 proc1 space = proc1.seg;
 proc1 schedule = sched(8);	/* normal */
+proc1 symtab = number("proc1");
 
 proc2 key reg 9 = misc Sleep;
 proc2 key reg 10 = misc Console;
