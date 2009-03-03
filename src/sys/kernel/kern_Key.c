@@ -93,13 +93,9 @@ CheckObjectType(OID oid, ObjectLocator * pObjLoc, unsigned int baseType)
 }
 
 static void
-PrepareKeyToProcess(Key * key, Node * pNode)
+PrepareKeyToProcess(Key * key, Process * proc)
 {
-  assert(objC_ValidNodePtr(pNode));
-
   // Keys to a process are linked onto the Process structure.
-  Process * proc = node_GetProcess(pNode);
-
   key->u.gk.pContext = proc;
 
   // Link into process chain on left or right according to key type.
@@ -166,7 +162,8 @@ key_DoValidate(Key * thisPtr)
       if (objLoc.locType == objLoc_ObjectHeader) {
         ObjectHeader * pObj = objLoc.u.objH;
         assert(! objH_GetFlags(pObj, OFLG_Fetching));	// because its a node
-        PrepareKeyToProcess(thisPtr, objH_ToNode(pObj));
+
+        PrepareKeyToProcess(thisPtr, node_GetProcess(objH_ToNode(pObj)));
       }
 
       return false;	// key is valid
@@ -258,7 +255,10 @@ key_DoPrepare(Key* thisPtr)
       }
 
       pObj = GetObject(thisPtr->u.unprep.oid, &objLoc);
-      PrepareKeyToProcess(thisPtr, objH_ToNode(pObj));
+      Node * pNode = objH_ToNode(pObj);
+      assert(objC_ValidNodePtr(pNode));
+
+      PrepareKeyToProcess(thisPtr, node_GetProcess(pNode));
 
 #ifdef MEM_OB_CHECK
       assert(ck == thisPtr->CalcCheck());
@@ -714,19 +714,15 @@ key_IsValid(const Key* thisPtr)
  0 if pKey is not a valid key pointer,
  1 if it is a key in a Node,
  2 if it is a keyreg in a Process,
- 3 if it is a key in an Activity,
- 4 if it is a key in the Invocation structure. */
+ 3 if it is a key in the Invocation structure. */
 int
 key_ValidKeyPtr(const Key *pKey)
 {
   if (inv_IsInvocationKey(&inv, pKey))
-    return 4;
+    return 3;
 
   if (proc_ValidKeyReg(pKey))
     return 2;
-
-  if (act_ValidActivityKey(pKey))
-    return 3;
 
   if (node_ValidNodeKeyPtr(pKey))
     return 1;

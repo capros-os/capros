@@ -279,7 +279,7 @@ proc_Deactivate(Process* thisPtr)
   thisPtr->curActivity = 0;
 }
 
-void proc_ClearActivity(Process * proc);
+struct Activity * proc_ClearActivity(Process * proc);
 void proc_ZapResumeKeys(Process * proc);
 
 INLINE void 
@@ -371,8 +371,6 @@ void proc_ValidateRegValues(Process* thisPtr);
 void proc_SetFault(Process * thisPtr, uint32_t code, uint32_t info);
 
 void proc_FlushProcessSlot(Process * thisPtr, unsigned int whichKey);
-
-void proc_SyncActivity(Process* thisPtr);
 
 void proc_Unload(Process* thisPtr);
 

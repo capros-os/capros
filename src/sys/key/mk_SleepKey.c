@@ -44,7 +44,17 @@ SleepInvokee(Process * invokee, uint64_t wakeupTime)
   assert(link_isSingleton(& act_Current()->q_link));
 
   if (invokee != proc_curProcess) {
-    act_AssignToRunnable(allocatedActivity, invokee);
+    Activity * act = allocatedActivity;
+    if (act->state == act_Running) {
+      // allocatedActivity came from the invoker.
+      assert(act == act_Current());
+      assert(act_HasProcess(act));
+      proc_Deactivate(act_GetProcess(act));
+    } else {
+      // allocatedActivity is newly allocated.
+      assert(act->state == act_Free);
+    }
+    act_AssignToRunnable(act, invokee);
   }
 
   act_SleepUntilTick(invokee->curActivity, wakeupTime);

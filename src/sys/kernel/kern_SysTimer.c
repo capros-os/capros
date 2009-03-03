@@ -73,8 +73,8 @@ sysT_WakeupTime(void)
   if (! sq_IsEmpty(&SleepQueue)) {
     Activity * t = container_of(SleepQueue.q_head.next, Activity, q_link);
     assertex(t, t->state == act_Sleeping);
-    if (t->wakeTime < ret)
-      return t->wakeTime;
+    if (t->u.wakeTime < ret)
+      return t->u.wakeTime;
   }
   return ret;
 }
@@ -98,7 +98,7 @@ sysT_AddSleeper(Activity * t, uint64_t wakeTime)
   proc->runState = RS_WaitingK;
 
   t->lastq = &SleepQueue;
-  t->wakeTime = wakeTime;
+  t->u.wakeTime = wakeTime;
   t->state = act_Sleeping;
 
   irqFlags_t flags = local_irq_save();
@@ -107,7 +107,7 @@ sysT_AddSleeper(Activity * t, uint64_t wakeTime)
   Link * cur = &SleepQueue.q_head;
   Link * nxt;
   while (nxt = cur->next, nxt != &SleepQueue.q_head) {
-    if (container_of(nxt, Activity, q_link)->wakeTime >= wakeTime)
+    if (container_of(nxt, Activity, q_link)->u.wakeTime >= wakeTime)
       break;	// insert before nxt
     cur = nxt;
   }
@@ -181,7 +181,7 @@ sysT_WakeupAt(void)
   while (! sq_IsEmpty(&SleepQueue)) {
     Activity * t = container_of(SleepQueue.q_head.next, Activity, q_link);
     assert(t->state == act_Sleeping);
-    if (t->wakeTime > now)
+    if (t->u.wakeTime > now)
       break;
     // Wake up this Activity.
     link_Unlink(&t->q_link);

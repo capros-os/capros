@@ -196,6 +196,8 @@ inv_Commit(Invocation * thisPtr)
   switch (inv.invType) {
     // Note, prompt types have been converted to nonprompt by this time.
   case IT_Return:
+    // It's impossible to return to yourself:
+    assert(invoker != inv.invokee);
     invoker->runState = RS_Available;
 #if 0
     dprintf(false, "Wake up the waiters sleeping on dr=0x%08x\n", invoker);
@@ -204,13 +206,16 @@ inv_Commit(Invocation * thisPtr)
     goto inactivate;
 
   case IT_Send:
+    // It's impossible to send to yourself:
+    assert(invoker != inv.invokee);
     /* If this is a send, we will need a new Activity for the invokee.
        Allocate it now before the invocation is committed.
        Allocation failure is not currently handled, but when it is,
        we could Yield here before the invocation is committed. */
 
     allocatedActivity = act_AllocActivity();
-    allocatedActivity->state = act_Ready;
+    assert(allocatedActivity->state == act_Free);
+
 #ifdef GATEDEBUG
     dprintf(GATEDEBUG>2, "Built new activity for Send\n");
 #endif
@@ -225,24 +230,17 @@ inv_Commit(Invocation * thisPtr)
     if (invoker != inv.invokee) {
       // Call of a gate key, or call makeResumeKey(self)
 inactivate: ;
-      /* The invoker is losing its Activity.
-      Save it for use by the invokee. */
-      Activity * t = invoker->curActivity;
-
-      assert(t == act_Current());
-      assert(act_GetProcess(t) == invoker);
-
-      proc_Deactivate(invoker);
-      /* Note, at this point we have: */
-      assert(t->state == act_Running);
-      assert(act_Current() == t);
+      // The invoker is losing its Activity.
+      /* Save the invoker's Activity for use by the invokee.
+      (If there is no invokee, the Activity will be deleted in 
+      ReturnMessage.) */
+      Activity * act = invoker->curActivity;
+      assert(act == act_Current());
+      assert(act_GetProcess(act) == invoker);
       assert(proc_curProcess == invoker);
-      // but:
-      assert(invoker->curActivity == NULL);
-#ifndef NDEBUG
-      t->context = NULL;	// to guard against (mis)use
-#endif
-      allocatedActivity = t;
+
+      allocatedActivity = act;
+      assert(allocatedActivity->state == act_Running);
     }
     break;
 
@@ -517,18 +515,11 @@ ReturnMessage(Invocation * inv)
      * generated.
      */
     if (invokee != proc_curProcess) {
-      if (keyBits_GetType(inv->key)!= KKT_Start) {
+      if (keyBits_GetType(inv->key) != KKT_Start) {
         assert(proc_IsWaiting(invokee));
         proc_ZapResumeKeys(invokee);
       }
-      act_AssignToRunnable(allocatedActivity, invokee);
-
-      if (inv->invType == IT_Send) {
-        act_Wakeup(allocatedActivity);
-#ifdef GATEDEBUG
-        dprintf(GATEDEBUG>2, "Woke up forkee\n");
-#endif
-      }
+      MigrateAllocatedActivity(invokee);
     }
     invokee->runState = RS_Running;
 
@@ -543,10 +534,14 @@ ReturnMessage(Invocation * inv)
     if (dbg_wild_ptr)
       check_Consistency("DoKeyInvocation() after DeliverResult()");
 #endif
-  }
-  else {
+  } else {
  bad_invokee:
-    act_DeleteActivity(allocatedActivity);
+    if (allocatedActivity->state == act_Running) {
+      assert(allocatedActivity == act_Current());
+      act_DeleteCurrent();
+    } else {
+      act_DeleteActivity(allocatedActivity);
+    }
   }
 }
 
@@ -616,6 +611,7 @@ BeginInvocation(void)
 void 
 proc_DoKeyInvocation(Process* thisPtr)
 {
+  assert(proc_Current()->runState == RS_Running);
 #ifndef NDEBUG
   if (traceInvs) {
     /* logging mach_TicksToNanoseconds(sysT_Now()) is of little use,

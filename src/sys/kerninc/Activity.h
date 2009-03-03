@@ -109,10 +109,15 @@ enum {
 
  actHaz_WakeRestart: Before running the process, we must send it a message
 	with return code RC_capros_key_Restart.
+
+ actHaz_WakeResume: If u.callCount is stale, this Activity should be deleted.
+	Otherwise, Before running the process, we must send it a message
+	with return code RC_capros_key_Restart.
  */
 enum {actHaz_None,
       actHaz_WakeOK,
       actHaz_WakeRestart,
+      actHaz_WakeResume,
       actHaz_END};
  
 /* The activity structure captures the portion of a process's state
@@ -124,7 +129,17 @@ typedef struct Activity Activity;
 struct Activity {
   Link q_link;
 
-  Process *context;	/* zero if no context cache entry. */
+  union {
+    uint64_t wakeTime; /* if state == act_Sleeping, when to wake up, in ticks */
+
+    ObCount callCount;	// used if actHazard == actHaz_WakeResume
+  } u;
+
+  union {
+    OID oid;		// used if ! hasProcess
+
+    Process * actProcess;	// used if hasProcess
+  } id;
 
   StallQueue *lastq;
 
@@ -132,11 +147,7 @@ struct Activity {
 
   uint8_t actHazard;
 
-  Key processKey;
-	/* keyBits_GetType(&processKey) is always KKT_Process or KKT_Void. */
-	/* If Activity.context is non-NULL, it identifies the
-	associated process, and processKey is void.
-	Otherwise, processKey identifies the associated process or is void. */
+  bool hasProcess;	// valid if state != act_Free
 
   struct ReadyQueue * readyQ;
 	/* If there is an associated Process,
@@ -145,13 +156,6 @@ struct Activity {
 	  readyQ contains the last known readyQ of the Process.
           If no Process was ever known, readyQ contains dispatchQueues[pr_High],
           which is good enough to get the Activity scheduled. */
-
-  /* Support for the per-activity timer structure.  The only user
-   * activities that will use this are the ones invoking primary system
-   * timer keys.
-   */
-
-  uint64_t wakeTime; /* if state == act_Sleeping, when to wake up, in ticks */
 } ;
 
 extern const char *act_stateNames[act_NUM_STATES]; 
@@ -175,26 +179,27 @@ void act_ValidateActivity(Activity * thisPtr);
 void ValidateAllActivitys(void);
 #endif
 
-bool act_GetOIDAndCount(Activity * act, OID * oid, ObCount * count);
+bool act_GetOID(Activity * act, OID * oid);
 
 Activity * kact_InitKernActivity(const char * name, 
 			     Priority prio,
                              struct ReadyQueue *rq,
 			     void (*pc)(void), 
 			     uint32_t *StackBottom, uint32_t *StackTop);
-Activity * act_FindByOid(OID oid);
+Activity * act_FindByOid(Node * node);
+void act_UnloadProcess(Activity * act);
 
 INLINE bool
 act_HasProcess(Activity * act)
 {
-  return act->context;
+  return act->hasProcess;
 }
 
 INLINE Process *
 act_GetProcess(Activity * act)
 {
   assert(act_HasProcess(act));
-  return act->context;
+  return act->id.actProcess;
 }
 
 INLINE Activity* 
@@ -211,16 +216,6 @@ void act_Dequeue(Activity *t);
 Activity *act_DequeueNext(StallQueue *q);
 void act_SleepOn(StallQueue *);
 
-/* This relies on the fact that the context will overwrite our process
- * key slot if it is unloaded!
- */
-INLINE void 
-act_SetContextNotCurrent(Activity * thisPtr, Process * ctxt) 
-{
-  assert(thisPtr != act_Current());
-  thisPtr->context = ctxt;
-}
-
 INLINE void
 act_SetCurProcess(Process * proc)
 {
@@ -234,29 +229,13 @@ act_SetCurProcess(Process * proc)
 }
 
 INLINE void 
-act_SetContextCurrent(Activity * thisPtr, Process * ctxt) 
+act_SetProcess(Activity * act, Process * proc) 
 {
-  assert(thisPtr == act_Current());
-  thisPtr->context = ctxt;
-  act_SetCurProcess(ctxt);
-}
-
-INLINE void 
-act_SetContext(Activity * thisPtr, Process * ctxt) 
-{
-  thisPtr->context = ctxt;
-  if (thisPtr == act_Current())
-    act_SetCurProcess(ctxt);
-}
-
-/* Must be under irq_DISABLE */
-INLINE void 
-act_SetRunning(Activity* thisPtr)
-{
-  link_Unlink(&thisPtr->q_link);
-  act_curActivity = thisPtr;
-  act_SetCurProcess(thisPtr->context);
-  thisPtr->state = act_Running;
+  assert(proc);
+  assert(act->actHazard != actHaz_WakeResume);
+  act->hasProcess = true;
+  act->id.actProcess = proc;
+  proc_SetActivity(proc, act);
 }
 
 INLINE bool 
@@ -267,7 +246,6 @@ act_IsUser(Activity* thisPtr)
   
 void act_Wakeup(Activity* thisPtr);
 
-void act_DoReschedule();
 void act_ForceResched(void);
 
 void ExitTheKernel(void) NORETURN;
@@ -279,6 +257,7 @@ const char* act_Name(Activity* thisPtr);
 void act_DeleteActivity(Activity* t);
 void act_DeleteCurrent(void);
 void act_AssignTo(Activity * act, Process * proc);
+void MigrateAllocatedActivity(Process * proc);
 
 INLINE void 
 act_AssignToRunnable(Activity * act, Process * proc)
@@ -310,10 +289,6 @@ act_Yield(void)
 }
 
 void act_HandleYieldEntry(void) NORETURN;
-
-#ifndef NDEBUG
-Activity * act_ValidActivityKey(const Key * pKey);
-#endif
 
 Activity * act_AllocActivity();
 void StartActivity(OID oid, ObCount count, uint8_t haz);

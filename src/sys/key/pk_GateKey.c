@@ -106,11 +106,7 @@ GateKey(Invocation* inv /*@ not null @*/)
 
   if (invKeyType == KKT_Resume)
     proc_ZapResumeKeys(invokee);
-  act_AssignToRunnable(allocatedActivity, invokee);
-
-  if (inv->invType == IT_Send) {
-    act_Wakeup(allocatedActivity);
-  }
+  MigrateAllocatedActivity(invokee);
 
   invokee->runState = RS_Running;
 

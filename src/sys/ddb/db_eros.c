@@ -448,10 +448,6 @@ db_eros_print_keyring(KeyRing * kr)
       break;
     }
 
-    case 3:
-      db_printf("(in activity %#x): ", act_ValidActivityKey(k));
-      break;
-
     default:
       break;
     }
@@ -476,49 +472,32 @@ db_eros_print_context_keyregs(Process *cc)
 }
 
 void
-db_eros_print_activity(Activity *t)
+db_eros_print_activity(Activity * act)
 {
-  uint32_t ndx = t - act_ActivityTable;
-  OID oid = 0;
-  char isGoodOid = '?';
+  db_printf("%#x: %s q=%#x lnkd? %c readyQ %#x readyMask %#x\n",
+	    act,
+	    act_stateNames[act->state],
+	    act->lastq,
+	    (act->q_link.prev == &act->q_link) ? 'n' : 'y',
+	    act->readyQ,
+            act->readyQ->mask);
   
-  db_printf("activity 0x%08x:\n", t);
-
-
-  if ( act_IsUser(t) ) {
-
-    if (act_HasProcess(t)) {
-      oid = act_GetProcess(t)->procRoot->node_ObjHdr.oid;
-      isGoodOid = 'u';
+  if (act_IsUser(act)) {
+    if (act_HasProcess(act)) {
+      Process * proc = act_GetProcess(act);
+      db_printf("  proc=%#x (oid=%#llx)\n",
+               proc, node_ToObj(proc->procRoot)->oid);
+    } else {
+      db_printf("  oid=%#llx\n", act->id.oid);
     }
-    else if (keyBits_IsObjectKey(&t->processKey)) {
-
-      oid = key_GetKeyOid(&t->processKey);
-      isGoodOid = 'u';
-
-    }
+  } else {	// kernel Activity
+    db_printf("  (kernel)\n");
   }
-  else
-      isGoodOid = 'k';
-  
-  if (act_IsUser(t))
-    db_printf("[%4d] ", ndx);
-  else
-    db_printf("[kern] ", ndx);
-    
-  db_printf("0x%08x %c %s proc=0x%08x dr=%c%#llx\n"
-	    "       q=0x%08x lnkd? %c wake=%#llx shouldwake? %c\n"
-	    "       readyQ %d readyMask 0x%x\n",
-	    t,
-	    act_IsUser(t) ? 'u' : 'k',
-	    act_stateNames[t->state], t->context,
-	    isGoodOid, oid,
-	    t->lastq,
-	    (t->q_link.prev == &t->q_link) ? 'n' : 'y',
-	    t->wakeTime,
-	    t->wakeTime <= sysT_Now() ? 'y' : 'n',
-	    t->readyQ,
-            t->readyQ->mask);
+
+  if (act->state == act_Sleeping) {
+    db_printf("  sleeping for %d ticks\n",
+              act->u.wakeTime - sysT_Now() );
+  }
 }
 
 #ifdef DBG_WILD_PTR
@@ -745,9 +724,15 @@ void
 db_ctxt_print_cmd(db_expr_t addr, int have_addr,
 		  db_expr_t cnt/* count */, char * mdf/* modif */)
 {
-  Process *cc =
-    have_addr ? (Process *) addr : act_CurContext();
-  db_eros_print_context(cc);
+  if (have_addr)
+    db_eros_print_context((Process *) addr);
+  else {
+    Process * proc = proc_curProcess;
+    if (proc)
+      db_eros_print_context(proc);
+    else
+      db_printf("No current process.\n");
+  }
 }
 
 
@@ -908,17 +893,15 @@ db_activity_print_cmd(db_expr_t addr, int have_addr,
 
 //    db_eros_print_activity(t);
 
-    db_printf("%sactivity %#x (%s) proc %#x (%s) prio=%#x\n"
-              " haz=%d lastq=%#x\n",
+    db_printf("%sactivity %#x (%s) prio=%#x\n"
+              " haz=%d lastq=%#x",
 	      cur_str,
-	      t, act_stateNames[t->state], t->context,
-              (act_HasProcess(t)
-                ? (proc_IsUser(act_GetProcess(t)) ? "user" : "kernel")
-                : "noProc"),
+	      t, act_stateNames[t->state],
 	      /*t->priority*/t->readyQ->mask, t->actHazard, t->lastq);
-    if (! act_HasProcess(t)) {
-      db_printf("    (0x%08x): ", &t->processKey);
-      db_eros_print_key(&t->processKey);
+    if (act_HasProcess(t)) {
+      db_printf(" proc=%#x\n ", act_GetProcess(t));
+    } else {
+      db_printf(" oid=%#llx\n ", t->id.oid);
     }
 
   } 

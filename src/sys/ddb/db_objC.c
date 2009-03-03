@@ -220,7 +220,7 @@ objC_ddb_dump_procs(void)
                act, act_stateNames[act->state]);
         switch (act->state) {
         case act_Sleeping:
-          printf(" for %lld ticks", act->wakeTime - sysT_latestTime);
+          printf(" for %lld ticks", act->u.wakeTime - sysT_latestTime);
           break;
 
         case act_Stall: ;

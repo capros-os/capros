@@ -115,7 +115,7 @@ main(void)
   res_AllocReserves();
 
   extern Activity * StartIdleActivity(void);
-  Activity * idleActivity = StartIdleActivity();
+  StartIdleActivity();
   extern void CreateMigratorActivity(void);
   CreateMigratorActivity();
  
@@ -145,8 +145,6 @@ main(void)
 
   irq_DISABLE();
 
-  act_SetRunning(idleActivity);
-
   printf("IPL OID = %#llx\n", iplOid);
 
   /* is this wrong?*/
@@ -155,6 +153,7 @@ main(void)
 #endif
 
   StartActivity(iplOid, restartNPAllocCount, actHaz_None);
+  act_ForceResched();
   
   ExitTheKernel();		/* does not return. */
 }

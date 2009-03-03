@@ -246,7 +246,7 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
         case 4: printf("[Data abort exception]"); goto tryCurrent;
 tryCurrent:
           if (act_Current()) {
-            Process * p = proc_Current();
+            Process * p = proc_curProcess;
             if (p) {
               frame = p->trapFrame.r11;
               callpc = p->trapFrame.r15;

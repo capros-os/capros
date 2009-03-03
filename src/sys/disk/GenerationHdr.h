@@ -54,7 +54,7 @@ typedef struct DiskGenerationHdr {
 // (2) it saves space on disk.
 struct DiskProcessDescriptor {
   OID_s oid;
-  ObCount allocCount;
+  ObCount callCount;
   uint8_t actHazard;
 } __attribute__ ((packed));
 

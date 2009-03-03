@@ -304,7 +304,20 @@ ProcessKeyCommon(Invocation * inv, Process * proc)
     because commit may have cleared p->curActivity. */
     Activity * act = proc->curActivity;
     if (act) {
+      Process * invoker = proc_Current();
       proc_ClearActivity(proc);
+      if (invoker == proc) {
+        assert(invoker != inv->invokee);
+        // Don't delete allocatedActivity:
+        if (act != allocatedActivity) {
+          // Case A3
+          act_DeleteActivity(act);
+        } else {
+          // Cases A1 and A2.
+        }
+      } else {
+        act_DeleteActivity(act);
+      }
     }
 
     proc->runState = RS_WaitingU;

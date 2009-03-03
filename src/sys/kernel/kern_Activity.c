@@ -36,10 +36,12 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/PhysMem.h>
 #include <kerninc/CpuReserve.h>
 #include <kerninc/util.h>
+#include <kerninc/ObjectSource.h>
 #include <arch-kerninc/PTE.h>
 #include <kerninc/Ckpt.h>
 #include <kerninc/Key-inline.h>
 #include <idl/capros/Sleep.h>
+#include <idl/capros/Range.h>
 #include <eros/fls.h>
 
 /* #define THREADDEBUG */
@@ -70,8 +72,8 @@ act_IsRunnable(Activity * thisPtr)
 {
   return (act_HasProcess(thisPtr)
 	  && proc_IsRunnable(act_GetProcess(thisPtr))
-	  && (act_GetProcess(thisPtr)->processFlags
-              & capros_Process_PF_FaultToProcessKeeper) == 0);
+	  && ! (act_GetProcess(thisPtr)->processFlags
+                & capros_Process_PF_FaultToProcessKeeper) );
 }
 
 static void
@@ -250,17 +252,16 @@ kact_InitKernActivity(const char * name,
                     void (*pc)(void), uint32_t *StackBottom, 
                     uint32_t *StackTop)
 {
-  Activity *t = act_AllocActivity();
+  Activity * act = act_AllocActivity();
 
   /*t->priority = prio;*/
   Process * p = kproc_Init(name, prio, rq, pc,
                            StackBottom, StackTop);
-  act_SetContextNotCurrent(t, p);
-  proc_SetActivity(p, t);
+  act_SetProcess(act, p);
 
-  t->readyQ = rq;
+  act->readyQ = rq;
 
-  return t;
+  return act;
 }
 
 Activity *
@@ -276,26 +277,15 @@ act_AllocActivity(void)
 
   act->actHazard = actHaz_None;
 
-  assert(keyBits_IsUnprepared(&act->processKey));
-  assert(! keyBits_IsHazard(&act->processKey));
-
   return act;
 }
 
 void 
 act_AssignTo(Activity * act, Process * proc)
 {
-  assert(proc);
-
-  act_SetContext(act, proc);
-  proc_SetActivity(proc, act);
-
-  // When act->context is non-NULL, act->processKey is Void.
-  // This is so (1) we don't have to keep updating processKey, and
-  // (2) a stale key in processKey won't unnecessarily cause the
-  // allocation count to be incremented.
-  assert(! keyBits_IsHazard(&act->processKey));	// never hazarded
-  key_NH_SetToVoid(&act->processKey);
+  act_SetProcess(act, proc);
+  if (act == act_Current())
+    act_SetCurProcess(proc);
 }
 
 void
@@ -303,19 +293,14 @@ StartActivity(OID oid, ObCount count, uint8_t haz)
 {
   Activity * act = act_AllocActivity();
 
-  /* Forge a domain key for this activity: */
-  Key * k = &act->processKey;
-
-  keyBits_InitType(k, KKT_Process);
-  k->u.unprep.oid = oid;
-  k->u.unprep.count = count;
-
+  act->hasProcess = false;
+  act->id.oid = oid;
+  act->u.callCount = count;	// used only if haz == actHaz_WakeResume
   act->actHazard = haz;
 
   /* The process prepare logic will appropriately adjust this priority
      if it is wrong -- this guess only has to be good enough to get
      the activity scheduled. */
-
   act->readyQ = dispatchQueues[pr_High];
  
   act_Wakeup(act);
@@ -329,14 +314,12 @@ act_AllocActivityTable()
   act_ActivityTable = MALLOC(Activity, KTUNE_NACTIVITY);
 
   for (i = 0; i < KTUNE_NACTIVITY; i++) {
-    Activity * t = &act_ActivityTable[i];
+    Activity * act = &act_ActivityTable[i];
 
-    link_Init(&t->q_link);
-    keyBits_InitToVoid(&t->processKey);
-    t->context = NULL;
-    t->readyQ = dispatchQueues[pr_Never];
-
-    act_DeleteActivity(t);
+    link_Init(&act->q_link);
+    act->hasProcess = false;
+    act->readyQ = dispatchQueues[pr_Never];	// just for safety
+    act_DeleteActivity(act);
   }
 
   printf("Allocated User Activitys: 0x%x at 0x%08x\n",
@@ -346,12 +329,17 @@ act_AllocActivityTable()
 void
 act_DeleteActivity(Activity *t)
 {
-  assert(! act_HasProcess(t));
+  // printf("act_DeleteActivity(%#x)\n", t);
+
+  // No Process should point to this Activity:
+  assert(! act_HasProcess(t)
+         || ! act_GetProcess(t)->curActivity);
+
+  // This Activity should not be queued:
   assert(link_isSingleton(&t->q_link));
 
   /* dprintf(true, "Deleting activity 0x%08x\n", t); */
   /* not hazarded because activity key */
-  key_NH_SetToVoid(&t->processKey);
   t->state = act_Free;
   if (act_Current() == t) {
 #if 0
@@ -371,25 +359,38 @@ act_DeleteActivity(Activity *t)
            mach_TicksToMilliseconds(r->totalTimeAcc));
     res_SetInactive(r->index);
   }
-  t->readyQ = dispatchQueues[pr_Never];	// just in case
+  t->readyQ = dispatchQueues[pr_Never];	// just for safety
 
   act_Enqueue(t, &freeActivityList);
   numFreeActivities++;
 }
 
 Activity *
-act_FindByOid(OID oid)
+act_FindByOid(Node * node)
 {
   // FIXME: this is an O(n) algorithm.
+  OID oid = node_ToObj(node)->oid;
   int i;
   for (i = 0; i < KTUNE_NACTIVITY; i++) {
     Activity * act = &act_ActivityTable[i];
     if (act->state != act_Free) {
       if (! act_HasProcess(act)) {
-        if (keyBits_IsType(&act->processKey, KKT_Process)) {
-          // not rescinded
-          if (key_GetKeyOid(&act->processKey) == oid)
+        if (act->id.oid == oid) {	// Found the oid
+          if (act->actHazard == actHaz_WakeResume) {
+            if (act->u.callCount != node->callCount) {
+              // This activity's call count is stale.
+              assert(act != act_Current());
+              act_Dequeue(act);
+              act_DeleteActivity(act);
+              // There can be no other Activity with the same OID.
+              return NULL;
+            } else {
+              act->actHazard = actHaz_WakeRestart;
+              return act;
+            }
+          } else {
             return act;
+          }
         }
       }
     }
@@ -397,19 +398,20 @@ act_FindByOid(OID oid)
   return NULL;
 }
 
-#ifndef NDEBUG
-Activity *
-act_ValidActivityKey(const Key * pKey)
+void
+act_UnloadProcess(Activity * act)
 {
-  int i;
-  for (i = 0; i < KTUNE_NACTIVITY; i++) {
-    Activity * act = &act_ActivityTable[i];
-    if (&act->processKey == pKey)
-      return act;
+  Process * proc = act_GetProcess(act);
+  assert(proc->curActivity == act);
+  assert(act->actHazard == actHaz_None);
+
+  act->id.oid = node_ToObj(proc->procRoot)->oid;
+  act->hasProcess = false;
+  proc_Deactivate(proc);
+  if (act == act_Current()) {
+    act_SetCurProcess(NULL);
   }
-  return NULL;
 }
-#endif
 
 static void
 act_Enqueue(Activity * t, StallQueue * q)
@@ -457,7 +459,8 @@ act_DequeueNext(StallQueue *q)
 
   return t;
 }
- 
+
+// After calling act_SleepOn, the caller must call act_Yield().
 void 
 act_SleepOn(StallQueue * q /*@ not null @*/)
 {
@@ -535,16 +538,37 @@ act_Wakeup(Activity* thisPtr)
 
 }
 
+/* Migrate allocatedActivity to proc. */
+void
+MigrateAllocatedActivity(Process * proc)
+{
+  Activity * act = allocatedActivity;	// local copy
+  if (act->state == act_Running) {
+    // allocatedActivity came from the invoker.
+    assert(act == act_Current());
+    // The invocation might have caused the invoker to be unloaded.
+    if (act_HasProcess(act)) {
+      proc_Deactivate(act_GetProcess(act));
+    }
+    act_AssignToRunnable(act, proc);
+  } else {
+    // allocatedActivity is newly allocated.
+    assert(act->state == act_Free);
+    act_AssignToRunnable(act, proc);
+    act_Wakeup(act);
+  }
+}
+
 void
 act_DeleteCurrent(void)
 {
-  Activity * thisPtr = act_Current();
-  if (act_HasProcess(thisPtr)) {
-    assert(! proc_StateHasActivity(act_GetProcess(thisPtr)));
-    proc_Deactivate(act_GetProcess(thisPtr));
+  Activity * act = act_Current();
+  if (act_HasProcess(act)) {
+    assert(! proc_StateHasActivity(act_GetProcess(act)));
+    proc_Deactivate(act_GetProcess(act));
   }
-  act_SetContextCurrent(thisPtr, NULL);
-  act_DeleteActivity(thisPtr);
+  act_SetCurProcess(NULL);
+  act_DeleteActivity(act);
 }
 
 void 
@@ -602,7 +626,17 @@ act_ChooseNewCurrentActivity(void)
   assert(runQueueNdx > pr_Never);
 
   /* Now know we have the least non-empty queue. Yank the activity. */
-  act_SetRunning((Activity *)(dispatchQueues[runQueueNdx]->queue.q_head.next));
+  Activity * act = (Activity *)(dispatchQueues[runQueueNdx]->queue.q_head.next);
+
+  // Set it running.
+  /* Must be under irq_DISABLE */
+  link_Unlink(&act->q_link);
+  act_curActivity = act;
+  if (act_HasProcess(act))
+    act_SetCurProcess(act_GetProcess(act));
+  else
+    proc_curProcess = NULL;
+  act->state = act_Running;
 
   if (sq_IsEmpty(&dispatchQueues[runQueueNdx]->queue)) {
     /* watch out for the case where a activity from a reserve is chosen */
@@ -616,138 +650,58 @@ act_ChooseNewCurrentActivity(void)
   assert(local_irq_disabled());
 }
 
-/* DoReschedule() is called for a number of reasons:
- * 
- *     1. No current activity
- *     2. Current activity preempted
- *     3. Current activity not prepared
- *     4. Current activity's context not prepared
- *     5. Current activity has fault code (keeper invocation needed)
- * 
- * In the old logic, only activity prepare could Yield().  In the new
- * logic, the keeper invocation may also yield.  For this reason, both
- * the prepare logic and the keeper invocation logic are in separate
- * functions for now.  I am seriously contemplating integrating them
- * into the main code body and setting up a recovery block here.
- */
-
 // May Yield.
-void 
-act_DoReschedule(void)
+static void 
+act_EnsureRunnable(void)
 {
   assert(local_irq_disabled());
 
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr && 0)
-    check_Consistency("In DoReschedule()");
-#endif
-
-  /* On the way out of an invocation trap there may be no current
-   * activity, in which case we may need to choose a new one:
-   */
-  if (act_Current() == 0) {
-    //printf("in no current Activity case...calling ChooseNew\n");
-    act_ChooseNewCurrentActivity();
-    deferredWork &= ~dw_reschedule;
-  }
-  else if (deferredWork & dw_reschedule) {
-    /* Current activity may be stalled or dead; if so, don't stick it
-     * back on the run list!
-     */
-    if ( act_Current()->state == act_Running ) {
-      act_Current()->readyQ->doQuantaTimeout(act_Current()->readyQ,
-                                             act_Current());
-#ifdef ACTIVITYDEBUG
-      if ( act_Current()->IsUser() )
-	printf("Active activity goes to end of run queue\n");
-#endif
-    }
-
-    deferredWork &= ~dw_reschedule;
-    act_ChooseNewCurrentActivity();
-  }
-  
-  do {
-    /* Clear all previous user pins. 
-       Otherwise this loop could pin an unbounded number of objects. */
-    objH_BeginTransaction();
+  for (; ;
+       /* Clear all previous user pins. 
+          Otherwise this loop could pin an unbounded number of objects. */
+       objH_BeginTransaction(),
+       act_ChooseNewCurrentActivity() ) {
     
-#ifdef DBG_WILD_PTR
-    if (dbg_wild_ptr && 0)
-      check_Consistency("In DoReschedule() loop");
-#endif
-#if 0
-    printf("schedloop: curActivity 0x%08x proc 0x%08x fc 0x%x\n",
-		   act_Current(), proc_Current(),
-		   proc_Current() ? proc_Current()->faultCode : 0);
-#endif
-
-    assert(act_Current());
+    assert(act_Current()->state == act_Running);
     
     /* If activity cannot be successfully prepared, it cannot (ever) run,
      * and should be returned to the free activity list.  Do this even if
      * we are rescheduling, since we want the activity entry back promptly
      * and it doesn't take that long to test.
      */
-    if /* while? */ (! PrepareCurrentActivity()) {
+    if (! PrepareCurrentActivity()) {
       assert(act_IsUser(act_Current()));
 
       /* We shouldn't be having this happen YET */
       fatal("Current activity no longer runnable\n");
 
+      assert(link_isSingleton(&act_Current()->q_link));	// because act_Running
       act_DeleteActivity(act_Current());
-      assert(act_Current() == 0);
-      act_ChooseNewCurrentActivity();
+      continue;
     }
 
-    assert (act_Current());
-
-    /* Activity might have gone to sleep as a result of context being prepared. */
-    /* But in that case, wouldn't we have gone to act_Yield, not here? CRL */
-    if (act_Current()->state != act_Running)
-      act_ChooseNewCurrentActivity();
+    assert(act_Current()->state == act_Running);
 
     if (proc_Current()
-	&& proc_Current()->processFlags & capros_Process_PF_FaultToProcessKeeper) {
+	&& proc_Current()->processFlags
+           & capros_Process_PF_FaultToProcessKeeper ) {
       proc_InvokeProcessKeeper(proc_Current());
 
       /* Invoking the process keeper either stuck us on a sleep queue, in
        * which case we Yielded(), or migrated the current activity to a
        * new domain, in which case we will keep trying: */
-      if (act_Current() == 0 || act_Current()->state != act_Running)
-        act_ChooseNewCurrentActivity();
+      if (act_Current() == 0 || act_Current()->state != act_Running) {
+        continue;
+      }
     }
-
-#if 0
-    static count = 0;
-    count++;
-    if (count % 100 == 0) {
-      count = 0;
-      printf("schedloop: curActivity 0x%08x ctxt 0x%08x (%s) run?"
-		     " %c st %d fc 0x%x\n",
-		     curActivity,
-		     act_GetProcess(curActivity),
-		     act_GetProcess(curActivity)->Name(),
-		     act_GetProcess(curActivity)->IsRunnable() ? 'y' : 'n',
-		     curActivity->state,
-		     act_GetProcess(curActivity)->faultCode);
-    }
-#endif
-
-  } while (! act_IsRunnable(act_Current()));
-
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr)
-    check_Consistency("Bottom DoReschedule()");
-#endif
+    break;	// act_Current() is now Runnable
+  }
 
   assert (act_Current());
   assert (proc_Current());
 
   assert (act_Current()->readyQ == act_CurContext()->readyQ);
   assert(local_irq_disabled());
-
-  deferredWork &= ~dw_reschedule;	/* until proven otherwise */
 
   if (act_Current()->readyQ->mask & (1u<<pr_Reserve)) {
     Reserve * r = (Reserve *)act_Current()->readyQ->other;
@@ -790,7 +744,17 @@ HandleDeferredWork(void)
     sysT_WakeupAt();
   }
 
-  act_DoReschedule();
+  if (deferredWork & dw_reschedule) {
+    deferredWork &= ~dw_reschedule;
+
+    if (act_Current() && act_Current()->state == act_Running)
+      // Put current activity back on the run list.
+      act_Current()->readyQ->doQuantaTimeout(act_Current()->readyQ,
+                                             act_Current());
+    act_ChooseNewCurrentActivity();
+  }
+
+  act_EnsureRunnable();
 }
 
 // May Yield.
@@ -811,10 +775,11 @@ ExitTheKernel(void)
     HandleDeferredWork();
   }
   else if (! act_IsRunnable(act_Current())) {
-    act_DoReschedule();
+    act_EnsureRunnable();
   }
   
   assert(act_Current());
+  assert(act_CurContext()->runState == RS_Running);
 
   Process * thisPtr = act_CurContext();
 
@@ -827,11 +792,6 @@ ExitTheKernel(void)
 	       thisPtr, thisPtr - proc_ContextCache,
 		  act_Current(),
 		  act_Current() - act_ActivityTable);
-
-  if ( act_CurContext() != thisPtr )
-    fatal("Activity context 0x%08x not me 0x%08x\n",
-	       act_CurContext(), thisPtr);
-
 #endif
 
   // Call architecture-dependent C code for resuming a process.
@@ -874,20 +834,15 @@ sq_WakeAll(StallQueue * q)
 *oid and *count to its OID and ObCount, and returns true.
 Otherwise it returns false. */
 bool
-act_GetOIDAndCount(Activity * act, OID * oid, ObCount * count)
+act_GetOID(Activity * act, OID * oid)
 {
   if (act_HasProcess(act)) {	// process info is in the Process structure
     Process * proc = act_GetProcess(act);
     if (proc_IsKernel(proc))
       return false;
-    ObjectHeader * pObj = node_ToObj(proc->procRoot);
-    *count = pObj->allocCount;
-    *oid = pObj->oid;
+    *oid = node_ToObj(proc->procRoot)->oid;
   } else {
-    if (! keyBits_IsType(&act->processKey, KKT_Process))
-      return false;	// process was rescinded
-    *count = key_GetAllocCount(&act->processKey);
-    *oid = key_GetKeyOid(&act->processKey);
+    *oid = act->id.oid;
   }
   return true;
 }
@@ -904,18 +859,14 @@ ValidateAllActivitys(void)
       act_ValidateActivity(act);
       // There should not be more than one Activity per user process:
       // Warning: this is O(n squared).
-      ObCount procAllocCount;
       OID procOid;
-      if (act_GetOIDAndCount(act, &procOid, &procAllocCount)) {
+      if (act_GetOID(act, &procOid)) {
         for (j = 0; j < i; j++) {
           Activity * otherAct = &act_ActivityTable[j];
           if (otherAct->state != act_Free) {
-            ObCount otherProcAllocCount;
             OID otherProcOid;
-            if (act_GetOIDAndCount(otherAct, &otherProcOid,
-                                   &otherProcAllocCount)) {
-              assert(procOid != otherProcOid
-                     || procAllocCount != otherProcAllocCount);
+            if (act_GetOID(otherAct, &otherProcOid)) {
+              assert(procOid != otherProcOid);
             }
           }
         }
@@ -941,10 +892,6 @@ act_ValidateActivity(Activity* thisPtr)
   if ((wthis / sizeof(Activity)) >= KTUNE_NACTIVITY)
     fatal("Activity 'this' pointer too high.\n");
 
-  if (keyBits_GetType(&thisPtr->processKey) != KKT_Process &&
-      ! keyBits_IsVoidKey(&thisPtr->processKey))
-    fatal("Activity 0x%08x has bad key type.\n", thisPtr);
-
   switch (thisPtr->state) {
   default:
     assert(false);
@@ -959,17 +906,22 @@ act_ValidateActivity(Activity* thisPtr)
   case act_Stall:
     if (act_HasProcess(thisPtr)
         && ! (act_GetProcess(thisPtr)->hazards & hz_DomRoot)) {
+      Process * proc = act_GetProcess(thisPtr);
       switch (thisPtr->actHazard) {
       default:
+      case actHaz_WakeResume:
         assert(false);
 
       case actHaz_None:
-        assert(act_GetProcess(thisPtr)->runState == RS_Running);
+        assert(proc->runState == RS_Running
+               || (thisPtr->state == act_Running
+                   && proc->runState == RS_WaitingU) );
+		// RS_WaitingU and act_Running can happen during an invocation
         break;
 
       case actHaz_WakeOK:
       case actHaz_WakeRestart:
-        assert(act_GetProcess(thisPtr)->runState == RS_WaitingK);
+        assert(proc->runState == RS_WaitingK);
         break;
       }
     }
@@ -1019,70 +971,45 @@ act_Name(Activity* thisPtr)
   return userActivityName;
 }
 
-
-
-/* ALERT
- * 
- * There are four places to which a user activity Yield() can return:
- * 
- *    Activity::Prepare() -- called from the scheduler
- *    Activity::InvokeMyKeeper() -- called from the scheduler
- *    The page fault handler
- *    The gate jump path.
- * 
- * We would prefer a design in which there was only one recovery
- * point, but if Activity::Prepare() is being called, it is possible
- * likely that the activity's Context entry is gone, and even possible
- * that the domain root has gone out of memory.
- * 
- * Note that a activity's prepare routine must always be called by that
- * activity, and not by any other.  Activitys prepare themselves.
- * Contexts, by contrast, can be prepared by anyone.
- * 
- * That said, here's the good news: it is not possible for the uses to
- * conflict.  Any action taken as a result of a gate jump that causes
- * the activity to Yield() will have put the activity to sleep, in which
- * case it's not being prepared.
- */
-
 /* May Yield. */
 static bool 
 PrepareCurrentActivity(void)
 {
   Activity * thisPtr = act_Current();
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr && 0)
-    check_Consistency("Before ThrdPrepare()");
-#endif
-
-  assert(thisPtr->state != act_Free);
-  assert(act_Current() == thisPtr);
 
   /* Try to prepare this activity to run: */
-#ifdef ACTIVITYDEBUG
-  printf("Preparing user activity\n");
-#endif
 
   Process * proc;
   if (! act_HasProcess(thisPtr)) {
-    Key * key = &thisPtr->processKey;
-    /* Domain root may have been rescinded.... */
-    key_Prepare(key);
+    ObjectLocator objLoc;
 
-    if (! keyBits_IsType(key, KKT_Process)) {
-      // Is this fatal, or should the activity simply go away quietly?
-	fatal("Rescinded activity %#x!\n", thisPtr);
-	return false;
+    if (! CheckObjectType(thisPtr->id.oid, &objLoc, capros_Range_otNode)) {
+      assert(thisPtr->actHazard == actHaz_WakeResume);
+  noProc:
+      // Worth noting:
+      printf("Rescinded activity %#x!\n", thisPtr);
+      return false;
     }
-  
-    assert(! keyBits_IsHazard(key));
 
-    proc = key->u.gk.pContext;
-  
+    if (thisPtr->actHazard == actHaz_WakeResume) {
+      // We have a call count to be checked.
+      ObCount countToCompare = GetObjectCount(thisPtr->id.oid, &objLoc, true);
+      if (countToCompare != thisPtr->u.callCount)
+        goto noProc;	// call count is stale
+      thisPtr->actHazard = actHaz_WakeRestart;
+    }
+
+    ObjectHeader * pObj = GetObject(thisPtr->id.oid, &objLoc);
+    Node * pNode = objH_ToNode(pObj);
+    assert(objC_ValidNodePtr(pNode));
+    proc = node_GetProcess(pNode);
+
     act_AssignTo(thisPtr, proc);
   } else {
     proc = act_GetProcess(thisPtr);
   }
+
+  assert(act_Current()->state == act_Running);
 
 #ifdef ACTIVITYDEBUG
   printf("Preparing Process 0x%08x..\n", proc);
@@ -1099,10 +1026,13 @@ PrepareCurrentActivity(void)
 
   assert(proc_IsRunnable(proc));
 
+  assert(act_Current()->state == act_Running);
+
   if (thisPtr->actHazard != actHaz_None) {
     switch (thisPtr->actHazard) {
-    default: ;
-      fatal("");
+    default:
+    case actHaz_WakeResume:
+      assert(false);
 
     case actHaz_WakeOK:
       sysT_procWake(proc, RC_OK);
@@ -1116,12 +1046,9 @@ PrepareCurrentActivity(void)
     }
   }
 
+  assert(act_Current()->state == act_Running);
   assert(thisPtr->readyQ == proc->readyQ);
 
-#ifdef DBG_WILD_PTR
-  if (dbg_wild_ptr && 0)
-	check_Consistency("After ThrdPrepare()");
-#endif
   return true;
 }
 

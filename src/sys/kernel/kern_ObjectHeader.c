@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -324,7 +324,7 @@ objH_Rescind(ObjectHeader * thisPtr)
           && proc->runState == RS_WaitingK) {
         // WaitingK is similar to the kernel holding a Resume key. Zap it.
         // Caller will change proc->runState.
-        proc_ClearActivity(proc);
+        act_DeleteActivity(proc_ClearActivity(proc));
         clearedActivity = true;
       }
     }
@@ -333,7 +333,7 @@ objH_Rescind(ObjectHeader * thisPtr)
       ot_NtProcessRoot or that has hz_DomRoot.
       In these cases there could be an Activity with this OID.
       We must find it and delete it: */
-      Activity * act = act_FindByOid(thisPtr->oid);
+      Activity * act = act_FindByOid(objH_ToNode(thisPtr));
       if (act) {
         assert(! act_HasProcess(act));	// else we would have cleared it above
         /* Note: only the SpaceBank rescinds, and it never rescinds itself: */

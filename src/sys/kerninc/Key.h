@@ -2,7 +2,7 @@
 #define __KERNINC_KEY_H__
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -27,6 +27,8 @@ Approved for public release, distribution unlimited. */
 #include <disk/KeyStruct.h>
 #include <disk/Key-inline.h>
 #include <kerninc/ObjectHeader.h>
+
+struct ObjectLocator;
 
 /* 
  * Key.  A Key is a capability, in the sense of Hydra or the Sigma-7.
@@ -111,6 +113,8 @@ extern Key key_VoidKey;
 
 bool key_DoPrepare(Key* thisPtr);
 bool key_DoValidate(Key * thisPtr);
+bool CheckObjectType(OID oid, struct ObjectLocator * pObjLoc,
+                     unsigned int baseType);
 
 #ifndef NDEBUG
 bool key_IsValid(const Key* thisPtr);

@@ -336,9 +336,64 @@ uint32_t * numDpdsLoc;
 PageHeader * * nextProcDirFramePP;
 LID nextProcDirLid;
 
-static void
-StoreProcessInfo(OID procOid, ObCount procAllocCount, uint8_t hazToSave)
+static struct DiskProcessDescriptor *
+ProcFindDuplicate(OID procOid)
 {
+  struct DiskProcessDescriptor * dpdCursor = (struct DiskProcessDescriptor *)
+        ((char *)genHdr + sizeof(DiskGenerationHdr));
+  PageHeader * * nextProcDirFramePPCursor = &reservedPages;
+
+  while (dpdCursor != dpd) {
+    // Is there room for another DiskProcessDescriptor in this page?
+    kva_t roomInPage = (- (kva_t)dpdCursor) & EROS_PAGE_MASK;
+    if (roomInPage < sizeof(struct DiskProcessDescriptor)) {
+      // Go to the next page.
+      PageHeader * pageH = *nextProcDirFramePPCursor;
+      assert(pageH);
+      dpdCursor = (struct DiskProcessDescriptor *)
+            (pageH_GetPageVAddr(pageH) + sizeof(uint32_t));
+      // Follow the chain:
+      nextProcDirFramePPCursor = & pageH->kt_u.link.next;
+    }
+
+    OID dpdOid;
+    // Use memcpy, because dpd is unaligned and packed.
+    memcpy(&dpdOid, &dpdCursor->oid, sizeof(OID));
+
+    if (dpdOid == procOid) {	// OID matches
+      return dpdCursor;		// this is a duplicate
+    }
+
+    // Go on to the next saved DiskProcessDescriptor:
+    dpdCursor++;
+  }
+  return NULL;
+}
+
+static void
+StoreProcessInfo(OID procOid,
+  ObCount callCount,	// used only if hazToSave == actHaz_WakeResume
+  uint8_t hazToSave)
+{
+  struct DiskProcessDescriptor * dpdCursor = ProcFindDuplicate(procOid);
+  if (dpdCursor) {	// There is already an entry with this OID
+    assert(dpdCursor->actHazard == actHaz_WakeResume);
+	// because we store actHaz_WakeResume's first
+    ObCount dpdCallCount;
+    memcpy(&dpdCallCount, &dpdCursor->callCount, sizeof(ObCount));
+    if (hazToSave == actHaz_WakeResume) {
+      if (callCount > dpdCallCount) {
+        // The old call count is stale. Replace it.
+        memcpy(&dpdCursor->callCount, &callCount, sizeof(ObCount));
+      }
+    } else {
+      // Any other hazard trumps actHaz_WakeResume, because
+      // the callCount could be stale.
+      dpdCursor->actHazard = hazToSave;
+    }
+    return;
+  }
+
   // Is there room for another DiskProcessDescriptor in this page?
   kva_t roomInPage = (- (kva_t)dpd) & EROS_PAGE_MASK;
   if (roomInPage < sizeof(struct DiskProcessDescriptor)) {
@@ -363,50 +418,10 @@ StoreProcessInfo(OID procOid, ObCount procAllocCount, uint8_t hazToSave)
   }
   // Use memcpy, because dpd is unaligned and packed.
   memcpy(&dpd->oid, &procOid, sizeof(OID));
-  memcpy(&dpd->allocCount, &procAllocCount, sizeof(ObCount));
+  memcpy(&dpd->callCount, &callCount, sizeof(ObCount));
   memcpy(&dpd->actHazard, &hazToSave, sizeof(dpd->actHazard));
   dpd++;
   dpdsInCurrentPage++;
-}
-
-static bool
-ProcIsDuplicate(OID procOid, ObCount procAllocCount)
-{
-  struct DiskProcessDescriptor * dpdCursor = (struct DiskProcessDescriptor *)
-        ((char *)genHdr + sizeof(DiskGenerationHdr));
-  PageHeader * * nextProcDirFramePPCursor = &reservedPages;
-
-  while (dpdCursor != dpd) {
-    // Is there room for another DiskProcessDescriptor in this page?
-    kva_t roomInPage = (- (kva_t)dpdCursor) & EROS_PAGE_MASK;
-    if (roomInPage < sizeof(struct DiskProcessDescriptor)) {
-      // Go to the next page.
-      PageHeader * pageH = *nextProcDirFramePPCursor;
-      assert(pageH);
-      dpdCursor = (struct DiskProcessDescriptor *)
-            (pageH_GetPageVAddr(pageH) + sizeof(uint32_t));
-      // Follow the chain:
-      nextProcDirFramePPCursor = & pageH->kt_u.link.next;
-    }
-
-    OID dpdOid;
-    // Use memcpy, because dpd is unaligned and packed.
-    memcpy(&dpdOid, &dpdCursor->oid, sizeof(OID));
-
-    if (dpdOid == procOid) {	// OID matches
-      ObCount dpdAllocCount;
-      memcpy(&dpdAllocCount, &dpdCursor->allocCount, sizeof(ObCount));
-      if (procAllocCount > dpdAllocCount) {
-        // Save only the newest allocation count.
-        memcpy(&dpdCursor->allocCount, &procAllocCount, sizeof(ObCount));
-      }
-      return true;		// this is a duplicate
-    }
-
-    // Go on to the next saved DiskProcessDescriptor:
-    dpdCursor++;
-  }
-  return false;
 }
 
 static void
@@ -590,15 +605,16 @@ DoPhase1Work(void)
         Key * pKey = node_SlotIsResume(pNode, i);
         if (pKey) {
           OID procOid;
-          ObCount procAllocCount;
+          ObCount procCallCount;
           // This is similar to key_GetKeyOid.
           if (keyBits_IsPrepared(pKey)) {
-            ObjectHeader * pObj = node_ToObj(pKey->u.gk.pContext->procRoot);
+            Node * pNode = pKey->u.gk.pContext->procRoot;
+            ObjectHeader * pObj = node_ToObj(pNode);
             procOid = pObj->oid;
-            procAllocCount = pObj->allocCount;
+            procCallCount = pNode->callCount;
           } else {
             procOid = pKey->u.unprep.oid;
-            procAllocCount = pKey->u.unprep.count;
+            procCallCount = pKey->u.unprep.count;
           }
           if (OIDIsPersistent(procOid)) {
             DEBUG(procs) printf("Resume key to %#llx in NP node\n", procOid);
@@ -612,22 +628,10 @@ DoPhase1Work(void)
             it will see an error return from the resume key. */
 
             /* There could be more than one such resume key to the same
-            process, so ensure this is not a duplicate.
-            Yes, this is an O(n squared) algorithm,
-            but the number of such keys should be small.
-
-            An alternative would be to handle prepared keys by
-            marking the Process structure, then scanning all Process
-            structures. But unprepared keys still need to use
-            the O(n squared) algorithm.
-
-            This process is in the RS_WaitingU state,
-            so it will never be a duplicate of a process identified
-            by an Activity structure. Those are stored later. */
-            if (! ProcIsDuplicate(procOid, procAllocCount))
-//// Should be call count!!
-            // AllocCntUsed doesn't matter because on restart all objs have it.
-              StoreProcessInfo(procOid, procAllocCount, actHaz_WakeRestart);
+            process, so StoreProcessInfo will look for a duplicate
+            and use the more recent call count. */
+            // CallCntUsed doesn't matter because on restart all objs have it.
+            StoreProcessInfo(procOid, procCallCount, actHaz_WakeResume);
           }
         }
       }
@@ -676,24 +680,40 @@ DoPhase1Work(void)
     Activity * act = &act_ActivityTable[i];
     if (act->state != act_Free) {
       OID procOid;
-      ObCount procAllocCount;
-      if (! act_GetOIDAndCount(act, &procOid, &procAllocCount))
+      if (! act_GetOID(act, &procOid))
         continue;
       if (OIDIsPersistent(procOid)) {
         uint8_t hazToSave;
-        if (act->state == act_Sleeping && act->actHazard == actHaz_None)
+        if (act->state == act_Sleeping) {
+          assert(act->actHazard == actHaz_None);
           // On restart, wake sleepers with an error.
           hazToSave = actHaz_WakeRestart;
-        else
+        } else
           hazToSave = act->actHazard;
 
         DEBUG(procs) printf("Saving proc oid=%#llx\n", procOid);
-#ifndef NDEBUG
-        if (ProcIsDuplicate(procOid, procAllocCount)) {
-          dprintf(true, "Duplicate proc act=%#x\n", act);
-        }
-#endif
-        StoreProcessInfo(procOid, procAllocCount, hazToSave);
+        // If hazToSave is actHaz_WakeResume, act->u.callCount is correct.
+        // If not, act->u.callCount is ignored.
+        /* Note: It is possible for this OID to already be in the directory.
+        Suppose persistent process P calls nonpersistent process N.
+        Now P gets paged out, so N's key is unprepared.
+        Before N returns, another process rescinds P.
+        Now suppose another process P2 is created that happens to have
+        the same OID. 
+        In this case, information from P2's Activity should overwrite
+        the information we saved from N's stale Resume key to P.
+
+        In another example:
+        Suppose persistent process P calls nonpersistent process N.
+        Suppose another process Sends a message to the Sleep key,
+        passing a copy of the Resume key to P as the key to receive
+        the reply.
+        In this case, when we get here, N's Resume key has been saved
+        with actHaz_WakeResume. Because the Resume key might be stale,
+        we overwrite that entry with the data from P2's Sleeping Activity,
+        which is actHaz_WakeRestart.
+        */
+        StoreProcessInfo(procOid, act->u.callCount, hazToSave);
       }
     }
   }

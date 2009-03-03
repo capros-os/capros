@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -34,9 +34,12 @@ value in act_curActivity. */
 /* Eventually act_curActivity should be per-CPU. */
 struct Activity * act_curActivity = 0;
 
-/* proc_curProcess is always act_curActivity->context
-   (or NULL if act_curActivity is NULL). */
-struct Process * proc_curProcess = 0;
+/* We always have:
+  assert((proc_curProcess == NULL && (act_Current() == NULL
+                                      || ! act_HasProcess(act_Current())))
+         || (act_GetProcess(act_Current()) == proc_curProcess));
+*/
+struct Process * proc_curProcess = NULL;
 
 unsigned int deferredWork = 0;
 

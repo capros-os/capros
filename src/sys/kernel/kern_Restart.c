@@ -329,12 +329,12 @@ AddProcDescriptor(struct DiskProcessDescriptor * dpd)
   OID oid;
   ObCount count;
   memcpy(&oid, &dpd->oid, sizeof(OID));
-  memcpy(&count, &dpd->allocCount, sizeof(ObCount));
+  memcpy(&count, &dpd->callCount, sizeof(ObCount));
   uint8_t haz = dpd->actHazard;
 
   assert(haz < actHaz_END);
 
-  DEBUG(restart) printf("Starting proc at oid %#llx ac %#x haz %#x\n",
+  DEBUG(restart) printf("Starting proc at oid %#llx cc %#x haz %#x\n",
                    oid, count, haz);
 
   StartActivity(oid, count, haz);

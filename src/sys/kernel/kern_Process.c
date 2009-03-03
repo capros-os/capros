@@ -38,16 +38,18 @@ Approved for public release, distribution unlimited. */
 Process * proc_ContextCache = NULL;
 Process * proc_ContextCacheRegion = NULL;
 
-void
+// Returns the process's activity to be deleted.
+Activity *
 proc_ClearActivity(Process * proc)
 {
   Activity * act = proc->curActivity;
   assertex(proc, act);
 
   act_Dequeue(act);
-  act_SetContext(act, NULL);
   proc_Deactivate(proc);
-  act_DeleteActivity(act);
+  if (act == act_Current())
+    act_SetCurProcess(NULL);
+  return act;
 }
 
 void
@@ -61,7 +63,7 @@ proc_ZapResumeKeys(Process * proc)
   if (proc->runState == RS_WaitingK) {
     // WaitingK is similar to the kernel holding a Resume key. Zap it.
     // Caller will change proc->runState.
-    proc_ClearActivity(proc);
+    act_DeleteActivity(proc_ClearActivity(proc));
   }
 }
 
@@ -183,24 +185,6 @@ proc_LoadKeyRegs(Process * thisPtr)
   thisPtr->hazards &= ~hz_KeyRegs;
 }
 
-/* Rewrite the process key back to our current activity,
-   prior to clearing Activity.context. */
-void
-proc_SyncActivity(Process * thisPtr)
-{
-  assert(thisPtr->curActivity);
-  assert(thisPtr->procRoot);
-  assert(act_GetProcess(thisPtr->curActivity) == thisPtr);
-  
-  Key * procKey = &thisPtr->curActivity->processKey;
-
-  assert (keyBits_IsHazard(procKey) == false);
-  /* Not hazarded because activity key */
-  key_NH_Unchain(procKey);
-
-  key_SetToProcess(procKey, thisPtr, KKT_Process, 0);
-}
-
 void
 proc_SetCommonRegs32(Process * thisPtr,
   struct capros_Process_CommonRegisters32 * regs)
@@ -237,9 +221,7 @@ proc_Unload(Process * thisPtr)
 #endif
 
   if (thisPtr->curActivity) {
-    proc_SyncActivity(thisPtr);
-    act_SetContext(thisPtr->curActivity, NULL);
-    proc_Deactivate(thisPtr);
+    act_UnloadProcess(thisPtr->curActivity);
   }
 
 #if defined(DBG_WILD_PTR)
@@ -380,7 +362,7 @@ proc_DoPrepare(Process * thisPtr)
 
     if (proc_StateHasActivity(thisPtr) && ! thisPtr->curActivity) {
       // There should be an Activity for this Process. Find it.
-      Activity * act = act_FindByOid(node_ToObj(root)->oid);
+      Activity * act = act_FindByOid(root);
       if (!act)
         fatal("Process %#x has no Activity!\n", thisPtr);
       act_AssignTo(act, thisPtr);
@@ -450,24 +432,29 @@ proc_DoPrepare(Process * thisPtr)
 
     /* If context is presently occupied by a activity, need to update the
        readyQ pointer in that activity: */
-    Activity * t = thisPtr->curActivity;
-    if (t) {
-      assert(act_GetProcess(t) == thisPtr);
-      t->readyQ = thisPtr->readyQ;
+    Activity * act = thisPtr->curActivity;
+    if (act) {
+      assert(act_GetProcess(act) == thisPtr);
+      act->readyQ = thisPtr->readyQ;
 
-      switch(t->state) {
-      case act_Ready:
-        /* need to move the activity to the proper ready Q: */
-        act_Dequeue(t);
-      case act_Running:
-        act_ForceResched();
-        act_Wakeup(t);
-      case act_Stall:
-      case act_Sleeping:
+      if (act == act_Current()) {	// preparing onesself
+        assert(act->state == act_Running);
+      } else {			// preparing non-self
+        switch(act->state) {
+        case act_Ready:
+          /* need to move the activity to the proper ready Q: */
+          act_Dequeue(act);
+          act_ForceResched();
+          act_Wakeup(act);
+        case act_Stall:
+        case act_Sleeping:
 	break;
-      default:
-        assert(! "Rescheduling strange activity");
-        break;
+
+        case act_Running:
+        default:
+          assert(! "Rescheduling strange activity");
+          break;
+        }
       }
     }
   }
@@ -536,6 +523,13 @@ check_Process(Process * p)
       case RS_WaitingU:
         if (! p->curActivity)
           statesOK = true;
+        else {
+          /* While a process is executing a Call invocation,
+          after COMMIT_POINT, its state is RS_WaitingU,
+          but its Activity is still in state act_Running. */
+          if (p == act_CurContext() && p->curActivity->state == act_Running)
+            statesOK = true;
+        }
 
       case RS_WaitingK:
         if (p->curActivity
