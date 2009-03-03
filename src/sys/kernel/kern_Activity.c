@@ -664,13 +664,10 @@ act_EnsureRunnable(void)
     
     assert(act_Current()->state == act_Running);
     
-    /* If activity cannot be successfully prepared, it cannot (ever) run,
-     * and should be returned to the free activity list.  Do this even if
-     * we are rescheduling, since we want the activity entry back promptly
-     * and it doesn't take that long to test.
-     */
     if (! PrepareCurrentActivity()) {
       assert(act_IsUser(act_Current()));
+      /* If the activity cannot be successfully prepared, it cannot (ever) run,
+       * and should be returned to the free activity list. */
 
       /* We shouldn't be having this happen YET */
       fatal("Current activity no longer runnable\n");
