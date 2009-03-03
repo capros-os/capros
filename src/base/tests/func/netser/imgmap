@@ -36,8 +36,7 @@ Approved for public release, distribution unlimited. */
 
 // Get local ethernet configuration, which is of the form:
 // ETH_DRIVER(...);
-#define LESS_THAN <
-#include LESS_THAN CAPROS_LOCALDIR/config/eth.map>
+#include <config/eth.map>
 #include <drivers/netser.map>
 NETSER(ns, 6, fourByteVal(192,168,0,37), 25, ethKey)
 #endif

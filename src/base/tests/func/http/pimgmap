@@ -42,11 +42,8 @@ Approved for public release, distribution unlimited. */
 
 #include <http.map>
 
-// Get local http configuration, which is of the form:
-// rsakey = segtree "/home/clandau/sdg/" "config/privkey.pem";
-// certificate = segtree "/home/clandau/sdg/" "config/cacert.pem";
-#define LESS_THAN <
-#include LESS_THAN CAPROS_LOCALDIR/config/http.config>
+rsakey = segtree LIBDIR "config/privkey.pem";
+certificate = segtree LIBDIR "config/cacert.pem";
 
 TCPPort(443);	// http over TLS/SSL
 

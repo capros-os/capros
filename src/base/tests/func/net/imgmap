@@ -59,7 +59,6 @@ run test;
 
 // Get local ethernet configuration, which is of the form:
 // ETH_DRIVER(...);
-#define LESS_THAN <
-#include LESS_THAN CAPROS_LOCALDIR/config/eth.map>
+#include <config/eth.map>
 
 //print directory;
