@@ -49,6 +49,8 @@ Approved for public release, distribution unlimited. */
 #define dev_pool_DS18B20 4
 #define dev_pool_DS2450  5
 #define dev_attic_DS18B20 6
+#define dev_HVAC1_DS2450 17
+#define dev_HVAC2_DS2450 18
 #define dev_poolReturn_DS18B20 19
 #define dev_poolSolar_DS18B20 20
 
@@ -154,14 +156,16 @@ main(void)
   configureAD(dev_pool_DS2450);
   configureDevN(dev_attic_DS18B20);
  // configureDevN(13);
-  configureAD(17);
-  configureAD(18);
+  configureAD(dev_HVAC1_DS2450);
+  configureAD(dev_HVAC2_DS2450);
   configureDevN(dev_poolReturn_DS18B20);
   configureDevN(dev_poolSolar_DS18B20);
 
   // Give it a chance to get started:
   result = capros_Sleep_sleep(KR_SLEEP, 3000);	// sleep 3 seconds
-  assert(result == RC_OK);
+  assert(result == RC_OK || result == RC_capros_key_Restart);
+
+  kprintf(KR_OSTREAM, "Looping.\n");
 
   for (;;) {
     //PrintTempDevN(3);
@@ -169,13 +173,13 @@ main(void)
     PrintADDevN(dev_pool_DS2450);
     PrintTempDevN(dev_attic_DS18B20);
     //PrintTempDevN(13);
-//    PrintADDevN(17);
-//    PrintADDevN(18);
+//    PrintADDevN(dev_HVAC1_DS2450);
+//    PrintADDevN(dev_HVAC2_DS2450);
     PrintTempDevN(dev_poolReturn_DS18B20);
     PrintTempDevN(dev_poolSolar_DS18B20);
 
     result = capros_Sleep_sleep(KR_SLEEP, 2000);	// sleep 2 seconds
-    assert(result == RC_OK);
+    assert(result == RC_OK || result == RC_capros_key_Restart);
   }
 
   kprintf(KR_OSTREAM, "Done.\n");
