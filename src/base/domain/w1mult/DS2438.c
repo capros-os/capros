@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -83,7 +83,7 @@ WaitUntilNotBusy(void)
                 VEEExpiry/1000000,
                 wakeTime/1000000);
     result_t result = capros_Sleep_sleepTill(KR_SLEEP, wakeTime);
-    assert(result == RC_OK);
+    assert(result == RC_OK || result == RC_capros_key_Restart);
     currentTime = wakeTime;
   }
   // else no need to wait.
@@ -383,7 +383,8 @@ reqerr:
     if ((dev->u.bm.configReg & scr_AD) != vddBit) {	// changing AD bit
       dev->u.bm.configReg ^= scr_AD;
       dev->u.bm.vTime = 0;	// We don't have a reading for this voltage
-      SetConfigurationIfFound(dev);
+      int status = SetConfigurationIfFound(dev);
+      if (status) goto buserr;
     }
     break;
   }
@@ -406,7 +407,8 @@ reqerr:
                 dev->u.bm.configReg, newConfig);
     if (dev->u.bm.configReg != newConfig) {
       dev->u.bm.configReg = newConfig;
-      SetConfigurationIfFound(dev);
+      int status = SetConfigurationIfFound(dev);
+      if (status) goto buserr;
     }
     break;
   }
@@ -497,11 +499,14 @@ buserr:
   {
     if (dev->u.bm.configReg & scr_IAD) {	// current measuring is on
       dev->u.bm.configReg &= ~scr_IAD;	// disable it temporarily
-      SetConfigurationIfFound(dev);
+      int status = SetConfigurationIfFound(dev);
+      if (status) goto buserr;
       dev->u.bm.threshReg = msg->rcv_w1;
-      SetConfigurationIfFound(dev);
+      status = SetConfigurationIfFound(dev);
+      if (status) goto buserr;
       dev->u.bm.configReg |= scr_IAD;	// restore it
-      SetConfigurationIfFound(dev);
+      status = SetConfigurationIfFound(dev);
+      if (status) goto buserr;
     } else {
       dev->u.bm.threshReg = msg->rcv_w1;
     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -65,14 +65,55 @@ unsigned long __rt_stack_pointer = 0x1e000;
 
 #define KC_SNODEC 0
 
+static void ScanBus(void);
+
 bool haveBusKey = false;	// no key in KR_W1BUS yet (unused?)
+bool busNeedsReinit;
 
 capros_Sleep_nanoseconds_t latestConvertTTime = 0;
+
+#define maxDevices 50
+
+struct W1Device devices[maxDevices];
+
+unsigned int numDevices = 0;
+
+static uint8_t
+w1dev_getFamilyCode(struct W1Device * dev)
+{
+  return dev->rom & 0xff;
+}
+
+static bool
+w1dev_IsCoupler(struct W1Device * dev)
+{
+  return w1dev_getFamilyCode(dev) == famCode_DS2409;
+}
+
+#if 0 // if needed:
+static bool
+w1dev_IsThermom(struct W1Device * dev)
+{
+  return w1dev_getFamilyCode(dev) == famCode_DS18B20;
+}
+
+static bool
+w1dev_IsAD(struct W1Device * dev)
+{
+  return w1dev_getFamilyCode(dev) == famCode_DS2450;
+}
+
+static bool
+w1dev_IsBatt(struct W1Device * dev)
+{
+  return w1dev_getFamilyCode(dev) == famCode_DS2438;
+}
+#endif
 
 /*************************** Branch stuff ***************************/
 
 struct Branch root = {
-  .whichBranch = 0
+  .whichBranch = branchRoot
 };
 
 /* If we have programmed a reset for a branch, resetBranch identifies it,
@@ -95,12 +136,14 @@ struct W1Device *
 BranchToCoupler(struct Branch * br)
 {
   switch (br->whichBranch) {
-  case capros_W1Bus_stepCode_setPathMain:
+  case branchMain:
     return container_of(br, struct W1Device, u.coupler.mainBranch);
-  case capros_W1Bus_stepCode_setPathAux:
+  case branchAux:
     return container_of(br, struct W1Device, u.coupler.auxBranch);
-  default:	// root branch
-    return 0;
+  default:
+    assert(false);
+  case branchRoot:
+    return NULL;
   }
 }
 
@@ -273,10 +316,23 @@ WriteOneByte(uint8_t b)
   NotReset();
 }
 
+static void
+AllDevsNotFound(void)
+{
+  int i;
+  for (i = 0; i < numDevices; i++) {
+    struct W1Device * dev = &devices[i];
+    dev->found = false;
+    // We may have lost the state of the devices:
+    if (w1dev_IsCoupler(dev))
+        dev->u.coupler.activeBranch = branchUnknown;
+  }
+}
+
 /* Run the program from outBeg to outCursor.
 Returns:
   -1 if W1Bus cap is gone
-  else a StatusCode
+  else a W1Bus.StatusCode (but not capros_W1Bus_StatusCode_SysRestart).
  */
 int
 RunProgram(void)
@@ -286,6 +342,7 @@ RunProgram(void)
   result_t result = CALL(&RunPgmMsg);
   if (result == RC_capros_key_Restart || result == RC_capros_key_Void) {
     returnValue = -1;
+    AllDevsNotFound();
     goto exit;
   }
   assert(result == RC_OK);
@@ -306,14 +363,22 @@ RunProgram(void)
     errorLoc = outCursor - outBeg;
     goto doPP;
 
+  case capros_W1Bus_StatusCode_BusShorted:
+  case capros_W1Bus_StatusCode_BusError:
   default:
+    busNeedsReinit = true;
+  // The following are not too serious:
+  case capros_W1Bus_StatusCode_CRCError:
+  case capros_W1Bus_StatusCode_Timeout:
     DEBUG(errors)
       kprintf(KR_OSTREAM, "w1mult RunProgram got status %d", status);
     goto errPP;
 
   case capros_W1Bus_StatusCode_SysRestart:
     returnValue = -1;
+    AllDevsNotFound();
 errPP:
+  case capros_W1Bus_StatusCode_AlarmingPresencePulse:
   case capros_W1Bus_StatusCode_NoDevicePresent:
     errorLoc = RunPgmMsg.rcv_w2;	// # bytes successfully executed
 
@@ -340,8 +405,9 @@ exit:
 
 uint32_t heartbeatCount;
 capros_Sleep_nanoseconds_t lastHeartbeatTime;
+uint32_t heartbeatDisable = 0;
 
-void
+static void
 HeartbeatAction(void * arg)
 {
   RecordCurrentTime();
@@ -377,8 +443,6 @@ struct w1Timer heartbeatTimer = {
   .function = &HeartbeatAction
 };
 
-uint32_t heartbeatDisable = 0;
-
 void
 DisableHeartbeat(uint32_t bit)
 {
@@ -395,50 +459,17 @@ void
 EnableHeartbeat(uint32_t bit)
 {
   if ((heartbeatDisable &= ~bit) == 0) {
-    heartbeatTimer.expiration = lastHeartbeatTime + heartbeatInterval;
-    InsertTimer(&heartbeatTimer);
+    // Finished the current heartbeat.
+    if (busNeedsReinit) {
+      ScanBus();
+    } else {
+      heartbeatTimer.expiration = lastHeartbeatTime + heartbeatInterval;
+      InsertTimer(&heartbeatTimer);
+    }
   }
 }
 
-#define maxDevices 50
-
-struct W1Device devices[maxDevices];
-
-unsigned int numDevices = 0;
-
-static uint8_t
-w1dev_getFamilyCode(struct W1Device * dev)
-{
-  return dev->rom & 0xff;
-}
-
-static bool
-w1dev_IsCoupler(struct W1Device * dev)
-{
-  return w1dev_getFamilyCode(dev) == famCode_DS2409;
-}
-
-#if 0 // if needed:
-static bool
-w1dev_IsThermom(struct W1Device * dev)
-{
-  return w1dev_getFamilyCode(dev) == famCode_DS18B20;
-}
-
-static bool
-w1dev_IsAD(struct W1Device * dev)
-{
-  return w1dev_getFamilyCode(dev) == famCode_DS2450;
-}
-
-static bool
-w1dev_IsBatt(struct W1Device * dev)
-{
-  return w1dev_getFamilyCode(dev) == famCode_DS2438;
-}
-#endif
-
-void
+static void
 PPSmartOn(capros_W1Bus_StatusCode status, void * arg)
 {
   struct Branch * br = arg;
@@ -454,16 +485,13 @@ PPSmartOn(capros_W1Bus_StatusCode status, void * arg)
     if (coup->u.coupler.activeBranch == br->whichBranch)
       coup->u.coupler.activeBranch = branchUnknown;
     br->shorted = true;
-    kdprintf(KR_OSTREAM, "Coup %#llx br %#x is shorted!!\n",
+    kdprintf(KR_OSTREAM, "Coup %#.16llx br %#x is shorted!!\n",
              coup->rom, br->whichBranch);
     break;
 
   default:
-    kdprintf(KR_OSTREAM, "Smart-on coup %#llx br %#x got status %d\n",
-             coup->rom, br->whichBranch, status);
-  }
-  if (status == capros_W1Bus_StatusCode_OK) {
-  } else {
+    kprintf(KR_OSTREAM, "Smart-on coup %#.16llx br %#x got status %d\n",
+            coup->rom, br->whichBranch, status);
   }
 }
 
@@ -481,8 +509,8 @@ PPCouplerDirectOnMain(capros_W1Bus_StatusCode status, void * arg)
     }
   } else {
 error:
-    kdprintf(KR_OSTREAM, "Direct on main coup %#llx got status %d\n",
-             coup->rom, status);
+    kprintf(KR_OSTREAM, "Direct on main coup %#.16llx got status %d\n",
+            coup->rom, status);
   }
 }
 
@@ -611,7 +639,7 @@ MarkForSampling(uint32_t hbCount, Link * samplingQueue,
       struct W1Device * dev;
       for (lk = samplingQueue->next; lk != samplingQueue; lk = lk->next) {
         dev = container_of(lk, struct W1Device, samplingQueueLink);
-        DEBUG(doall) kprintf(KR_OSTREAM, "MFS i=%d dev %#llx found %d\n",
+        DEBUG(doall) kprintf(KR_OSTREAM, "MFS i=%d dev %#.16llx found %d\n",
                              i, dev->rom, dev->found);
         if (dev->found) {
           /* Link into the sampling list.
@@ -631,11 +659,36 @@ MarkForSampling(uint32_t hbCount, Link * samplingQueue,
 static struct Branch *
 GetActiveBranch(struct W1Device * coup)
 {
-  if (coup->u.coupler.activeBranch == branchMain)
+  switch (coup->u.coupler.activeBranch) {
+  case branchMain:
     return &coup->u.coupler.mainBranch;
-  if (coup->u.coupler.activeBranch == branchAux)
+
+  case branchAux:
     return &coup->u.coupler.auxBranch;
-  return NULL;
+
+  default:
+    assert(false);
+  case branchUnknown:
+    return NULL;
+  }
+}
+
+/* Report any errors, except those expected from a setPath command. */
+static void
+CheckSetPathErrors(int err)
+{
+  switch (err) {
+  default:
+    // Unexpected status
+    kdprintf(KR_OSTREAM,
+             "w1mult: unexpected status %d!\n", err);
+  case capros_W1Bus_StatusCode_BusShorted:
+  case capros_W1Bus_StatusCode_NoDevicePresent:
+  case capros_W1Bus_StatusCode_BusError:
+  case capros_W1Bus_StatusCode_OK:
+  case -1:	// system restart
+    break;
+  }
 }
 
 // br must be active
@@ -674,15 +727,20 @@ EnsureBranchSmartReset(struct Branch * br)
 }
 
 /* Switch child couplers if doing so helps and does no harm.
- * On entry, the branch is active. */
-void
+ * On entry, the branch is active.
+ * Returns:
+ *   -1 if W1Bus key is gone.
+ *    0 if OK
+ *   >0 if bus error */
+int
 ActivateNeededBranches(struct Branch * br)
 { 
   DEBUG(doall) kprintf(KR_OSTREAM, "ActivateNeededBranches br=%#x\n", br);
   struct W1Device * coup;
+  int err;
   // For all child couplers:
   for (coup = br->childCouplers; coup; coup = coup->nextChild) {
-    DEBUG(doall) kprintf(KR_OSTREAM, "ANB coup=%#llx main %c aux %c\n",
+    DEBUG(doall) kprintf(KR_OSTREAM, "ANB coup=%#.16llx main %c aux %c\n",
                          coup->rom,
                          coup->u.coupler.mainBranch.needsWork ? 'y' : 'n',
                          coup->u.coupler.auxBranch.needsWork ? 'y' : 'n');
@@ -691,26 +749,33 @@ ActivateNeededBranches(struct Branch * br)
           && coup->u.coupler.activeBranch != branchMain) {
         // Switch to main branch.
         DEBUG(doall) kprintf(KR_OSTREAM,
-          "ActivateNeededBranches switching to main of %#llx\n", coup->rom);
+          "ActivateNeededBranches switching to main of %#.16llx\n", coup->rom);
         EnsureBranchReset(coup->parentBranch);
         ProgramMatchROM(coup);
         WriteOneByte(0xa5);	// direct-on main
         wp(capros_W1Bus_stepCode_readBytes)
         wp(1)		// read confirmation byte
         AddPPItem(PPCouplerDirectOnMain, coup);
-        RunProgram();
+        err = RunProgram();
+        if (err) {
+          CheckSetPathErrors(err);
+          return err;
+        }
       }
     } else {
       if (coup->u.coupler.auxBranch.needsWork) {
         if (coup->u.coupler.activeBranch != branchAux) {
-        // Switch to aux branch.
-        DEBUG(doall) kprintf(KR_OSTREAM,
-          "ActivateNeededBranches switching to aux of %#llx\n", coup->rom);
-        EnsureBranchReset(coup->parentBranch);
-        // There is no direct-on for the aux branch.
-        ProgramSmartOn(coup, &coup->u.coupler.auxBranch);
-        RunProgram();//// check return
-      }
+          // Switch to aux branch.
+          DEBUG(doall) kprintf(KR_OSTREAM,
+            "ActivateNeededBranches switching to aux of %#.16llx\n", coup->rom);
+          EnsureBranchReset(coup->parentBranch);
+          // There is no direct-on for the aux branch.
+          ProgramSmartOn(coup, &coup->u.coupler.auxBranch);
+          err = RunProgram();
+          if (err)
+            CheckSetPathErrors(err);
+            return err;
+        }
       } else {
         // Neither branch needs work.
         continue;
@@ -719,28 +784,39 @@ ActivateNeededBranches(struct Branch * br)
     // Recurse on the active branch:
     struct Branch * activeBranch = GetActiveBranch(coup);
     if (activeBranch)
-      ActivateNeededBranches(activeBranch);
+      if (ActivateNeededBranches(activeBranch))
+        break;		// no point in going on
   }
+  return 0;
 }
 
 /* Work has been done on the active devices on this branch.
- * Do the work on the inactive devices. */
-void
+ * Do the work on the inactive devices.
+ * Recursive procedure. */
+static int
 FinishWork(struct Branch * br)
 {
   DEBUG(doall) kprintf(KR_OSTREAM, "FinishWork br=%#x\n", br);
   struct W1Device * coup;
+  int err;
+
+  assert(ProgramIsClear());
+
   // For all child couplers:
   for (coup = br->childCouplers; coup; coup = coup->nextChild) {
     struct Branch * activeBranch = GetActiveBranch(coup);
     if (! activeBranch) {
-      assert(! coup->u.coupler.mainBranch.needsWork);
-      assert(! coup->u.coupler.auxBranch.needsWork);
+      // These might not be true, if a bus error caused
+      //   the active branch to become unknown:
+      // assert(! coup->u.coupler.mainBranch.needsWork);
+      // assert(! coup->u.coupler.auxBranch.needsWork);
     } else {
       // Completely finish with the active branch before switching
       // away from it:
-      if (activeBranch->needsWork)
-        FinishWork(activeBranch);
+      if (activeBranch->needsWork) {
+        err = FinishWork(activeBranch);
+        if (err) goto exit;
+      }
       // Now deal with the other branch:
       struct Branch * otherBranch;
       uint32_t otherBranchCommand;
@@ -758,16 +834,20 @@ FinishWork(struct Branch * br)
         // Switch to the other branch with a smart-on:
         EnsureBranchReset(coup->parentBranch);
         ProgramSmartOn(coup, otherBranch);
-        int status = RunProgram();
-        if (status) {
-          kdprintf(KR_OSTREAM, "FinishWork smart-on got status %d\n", status);
-          // FIXME handle this
+        err = RunProgram();
+        if (err) {
+          CheckSetPathErrors(err);
+          goto exit;
         }
-        DoAll(otherBranch);
+        err = DoAll(otherBranch);
+        if (err) goto exit;
       }
     }
   }
+  err = 0;
+exit:
   br->needsWork = false;	// we finished the work on this branch
+  return err;
 }
 
 void (*DoEachWorkFunction)(struct W1Device * dev);
@@ -803,21 +883,28 @@ void (*DoAllWorkFunction)(struct Branch * br);
  * On entry, the branch is active.
  *
  * On exit, the action has been performed on all the marked devices. */
-void
+int
 DoAll(struct Branch * br)
 {
+  int err;
   DEBUG(doall) kprintf(KR_OSTREAM, "DoAll br=%#x\n", br);
   // First, see if any couplers serve just one branch and need to be switched.
-  ActivateNeededBranches(br);
+  err = ActivateNeededBranches(br);
+  if (err) return err;
   // Do the real work on the active tree:
-  DoAllWorkFunction(br);
+  (*DoAllWorkFunction)(br);
   // Now work on the inactive branches:
-  FinishWork(br);
+  return FinishWork(br);
 }
 
 /**********************************************************************/
 
-/* Returns -1 if W1Bus cap is gone, else 0 or capros_W1Bus_StatusCode_CRCError. */
+/* Returns one of:
+ *   -1 if W1Bus cap is gone
+ *   0
+ *   capros_W1Bus_StatusCode_BusError
+ *   capros_W1Bus_StatusCode_CRCError
+ */
 int
 SearchPath(struct Branch * br)
 {
@@ -827,6 +914,7 @@ SearchPath(struct Branch * br)
   uint64_t discrep;
 
   assert(ProgramIsClear());
+
   AddressPath(br, true);
 
   // Deactivate the branch lines of any couplers at this level,
@@ -839,21 +927,38 @@ SearchPath(struct Branch * br)
   // If there are any couplers, they will transmit a confirmation byte.
   // If there are none, this will read ones.
   statusCode = RunProgram();
-  if (statusCode < 0)
-    return statusCode;	// key went away due to reboot
+  if (statusCode) {
+    CheckSetPathErrors(statusCode);
+    switch (statusCode) {
+    case capros_W1Bus_StatusCode_BusError:
+    case -1:			// key went away due to reboot
+      return statusCode;
 
-  if (statusCode != capros_W1Bus_StatusCode_OK
-      || RunPgmMsg.rcv_sent != 1
-      || (inBuf[0] != 0x66 && inBuf[0] != 0xff) ) {
-    if (statusCode == capros_W1Bus_StatusCode_NoDevicePresent) {
+    case capros_W1Bus_StatusCode_BusShorted:
+    {
+      struct W1Device * dev = BranchToCoupler(br);
+      if (dev) {
+        kprintf(KR_OSTREAM, "w1mult: Branch %x of coupler %#.16llx shorted!\n",
+                br->whichBranch, dev->rom);
+      } else {
+        kprintf(KR_OSTREAM, "w1mult: Root branch shorted!\n");
+      }
+      return 0;		// nothing more we can do here
+    }
+
+    case capros_W1Bus_StatusCode_NoDevicePresent:
       // No devices on this branch. Nothing to do.
-    } else {
-      kprintf(KR_OSTREAM, "All lines off got status %d %d %d bytes=%d",
+      return 0;
+    }
+  }
+
+  if (RunPgmMsg.rcv_sent != 1
+      || (inBuf[0] != 0x66 && inBuf[0] != 0xff) ) {
+    kprintf(KR_OSTREAM, "All lines off got status %d %d %d bytes=%d",
         statusCode, RunPgmMsg.rcv_w2, RunPgmMsg.rcv_w3,
         RunPgmMsg.rcv_sent);
-      kprintf(KR_OSTREAM, "All lines off got byte %#x", inBuf[0]);
-      // FIXME recover; repeat?
-    }
+    kprintf(KR_OSTREAM, "All lines off got byte %#x", inBuf[0]);
+    return capros_W1Bus_StatusCode_BusError;
   }
   else	// there are devices, and all lines off did not fail
   {
@@ -866,12 +971,20 @@ SearchPath(struct Branch * br)
       CopyToProgram(&rom, 8);
       NotReset();
       statusCode = RunProgram();
-      if (statusCode < 0)
+      switch (statusCode) {
+      default:
+        kdprintf(KR_OSTREAM, "SearchROM got status $d!\n", statusCode);
+      case capros_W1Bus_StatusCode_BusError:
+      case -1:
         return statusCode;
 
-      if (statusCode == capros_W1Bus_StatusCode_NoDevicePresent)
-        break;	// no device
-      assert(statusCode == capros_W1Bus_StatusCode_OK);
+      case capros_W1Bus_StatusCode_NoDevicePresent:
+        goto endLoop;
+
+      case capros_W1Bus_StatusCode_OK:
+        break;
+      }
+
       if (RunPgmMsg.rcv_sent != 16)
         kdprintf(KR_OSTREAM, "SearchROM got %d bytes", RunPgmMsg.rcv_sent);
 
@@ -938,13 +1051,13 @@ SearchPath(struct Branch * br)
         DEBUG(search) kprintf(KR_OSTREAM, "ROM %#.16llx found.\n", rom);
 
         if (w1dev_IsCoupler(dev)) {	// recurse
-          DEBUG(search) kprintf(KR_OSTREAM, "Searching coupler %#llx\n",
+          DEBUG(search) kprintf(KR_OSTREAM, "Searching coupler %#.16llx\n",
                                 dev->rom);
           statusCode = SearchPath(&dev->u.coupler.mainBranch);
-          if (statusCode < 0)
+          if (statusCode != 0)
             return statusCode;
           statusCode = SearchPath(&dev->u.coupler.auxBranch);
-          if (statusCode < 0)
+          if (statusCode != 0)
             return statusCode;
         }
       }
@@ -966,6 +1079,7 @@ SearchPath(struct Branch * br)
       rom = mask | (rom & (mask - 1));
       DEBUG(search) kprintf(KR_OSTREAM, "nextrom %#.16llx\n", rom);
     }
+  endLoop: ;
   }
   return 0;
 }
@@ -977,19 +1091,22 @@ CheckRestart(result_t result)
     haveBusKey = false;
     return true;
   }
+  if (result != RC_OK)
+    DEBUG(errors) kprintf(KR_OSTREAM, "CheckRestart result=%#x\n", result);
   assert(result == RC_OK);
   return false;
 }
 
 /* We just got a new W1Bus cap.
  */
-void
+static void
 ScanBus(void)
 {
   result_t result;
   int statusCode;
   int i;
 
+rescan:
   // Set bus parameters:
   result = capros_W1Bus_setSpeed(KR_W1BUS, capros_W1Bus_W1Speed_flexible);
   if (CheckRestart(result)) return;
@@ -1015,28 +1132,22 @@ ScanBus(void)
     root.shorted = true;
     kdprintf(KR_OSTREAM, "Main bus is shorted!!\n");
   case capros_W1Bus_StatusCode_NoDevicePresent:
-    break;
+  case -1:	// W1Bus key went away already, probably due to restart
+    return;
   
   default:
     kdprintf(KR_OSTREAM, "Main bus reset got status %d!!\n", status);
-    break;
+    return;
 
   case capros_W1Bus_StatusCode_AlarmingPresencePulse:
   case capros_W1Bus_StatusCode_OK:
 
     // Search for all ROMs.
-    for (i = 0; i < numDevices; i++) {
-      struct W1Device * dev = &devices[i];
-      dev->found = false;	// FIXME should do this when the bus cap
-				// is lost, not now.
-      // We may have lost the state of the devices:
-      if (w1dev_IsCoupler(dev))
-          dev->u.coupler.activeBranch = branchUnknown;
-    }
-
     statusCode = SearchPath(&root);
     if (statusCode < 0)
       return;
+    if (statusCode > 0)
+      goto rescan;
 
     for (i = 0; i < numDevices; i++) {
       if (! devices[i].found) {
@@ -1048,8 +1159,10 @@ ScanBus(void)
     haveBusKey = true;
     heartbeatCount = 0;
     RecordCurrentTime();
-    HeartbeatAction(NULL);	// First heartbeat
+    if (heartbeatDisable == 0)
+      HeartbeatAction(NULL);	// start or restart heartbeat
   }
+  busNeedsReinit = false;
 }
 
 #define TimerKeyInfo 0xfffe
@@ -1058,7 +1171,6 @@ void
 TimerProcedure(void)
 {
   result_t result;
-  DEBUG(timer) kdprintf(KR_OSTREAM, "Timer process starting");
   
   Message Msg = {
     .snd_invKey = 31,	// a start key to the main process, keyInfo=TimerKeyInfo
@@ -1083,7 +1195,7 @@ TimerProcedure(void)
     DEBUG(timer) kprintf(KR_OSTREAM, "Timer waiting till %lld",
                          timeToWake/1000000);
     result = capros_Sleep_sleepTill(KR_SLEEP, timeToWake);
-    assert(result == RC_OK);
+    assert(result == RC_OK || result == RC_capros_key_Restart);
     CALL(&Msg);		// call the main process
   }
 }
@@ -1198,7 +1310,7 @@ main(void)
     }
     dev->rom = cfg->rom;
     link_Init(&dev->samplingQueueLink);
-    dev->found = false;
+    // dev->found = false; // part of AllDevsNotFound
     dev->callerWaiting = false;
     dev->onWorkList = false;
     // Do device-specific initialization:
@@ -1206,7 +1318,7 @@ main(void)
     case famCode_DS2409:
       dev->u.coupler.mainBranch.whichBranch = capros_W1Bus_stepCode_setPathMain;
       dev->u.coupler.auxBranch.whichBranch = capros_W1Bus_stepCode_setPathAux;
-      dev->u.coupler.activeBranch = branchUnknown;
+      // dev->u.coupler.activeBranch = branchUnknown; // part of AllDevsNotFound
       break;
     case famCode_DS18B20:
       DS18B20_InitStruct(dev);
@@ -1222,6 +1334,7 @@ main(void)
 
     numDevices++;
   }
+  AllDevsNotFound();
 
   // Create supernode.
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SNODEC, KR_TEMP0);
@@ -1257,7 +1370,7 @@ main(void)
     /* Before becoming Available, make sure we will be awoken
     when we need to be. */
     capros_Sleep_nanoseconds_t desiredWakeupTime = GetDesiredExpiration();
-    DEBUG(timer) kprintf(KR_OSTREAM, "About to wait, thead %#x dwut=%lld tr=%d ttw=%lld",
+    DEBUG(timer) kprintf(KR_OSTREAM, "About to wait, thead %#x dwut=%lld tr=%d ttw=%lld\n",
                    timerHead.next,
                    desiredWakeupTime/1000000,
                    timerRunning,

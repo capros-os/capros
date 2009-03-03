@@ -65,7 +65,8 @@ enum {
 struct W1Device;
 
 enum {
-  branchUnknown = 0,
+  branchRoot = 0,
+  branchUnknown = 1,
   branchMain = capros_W1Bus_stepCode_setPathMain,
   branchAux  = capros_W1Bus_stepCode_setPathAux
 };
@@ -73,7 +74,8 @@ enum {
 struct Branch {
   struct W1Device * childCouplers;
   struct W1Device * childDevices;	// other than couplers
-  capros_W1Bus_stepCode whichBranch;	// branchMain or branchAux, 0 for root
+  capros_W1Bus_stepCode whichBranch;	// One of:
+			// branchMain, branchAux, or branchRoot
   bool shorted;
   bool needsWork;
 };
@@ -91,7 +93,8 @@ struct W1Device {
   bool found;		// device has been found on the network
   union {	// data specific to the type of device
     struct {
-      capros_W1Bus_stepCode activeBranch;	// enumerated above
+      capros_W1Bus_stepCode activeBranch;	// One of:
+			// branchMain, branchAux, or branchUnknown
       struct Branch mainBranch;
       struct Branch auxBranch;
     } coupler;
@@ -207,7 +210,7 @@ void MarkForSampling(uint32_t hbCount, Link * samplingQueue,
 void MarkSamplingList(struct W1Device * dev);
 void UnmarkSamplingList(struct W1Device * dev);
 extern void (*DoAllWorkFunction)(struct Branch * br);
-void DoAll(struct Branch * br);
+int DoAll(struct Branch * br);
 extern void (*DoEachWorkFunction)(struct W1Device * dev);
 void DoEach(struct Branch * br);
 void EnsureBranchSmartReset(struct Branch * br);

@@ -23,6 +23,7 @@ interface DS2438 extends key
   time is zero and temperature is not valid.
 
   This operation can take up to 20 milliseconds or more.
+  May raise BusError.
   */
   void getTemperature(out short temperature, out RTC.time_t time);
 
@@ -32,6 +33,7 @@ interface DS2438 extends key
 
   The configured voltage will be sampled every 2**log2Seconds seconds.
   If log2Seconds is 255, the voltage will not be sampled.
+  May raise BusError.
   */
   void configureVoltage(boolean Vdd, unsigned byte log2Seconds);
 
@@ -47,10 +49,12 @@ interface DS2438 extends key
   time is zero and temperature is not valid.
 
   This operation can take up to 10 milliseconds or more.
+  May raise BusError.
   */
   void getVoltage(out unsigned short voltage, out RTC.time_t time);
 
   /* Configure current measurement. 
+  May raise BusError.
   */
   unsigned byte enum CurrentConfig {
     /* No current measurement. */
@@ -71,7 +75,9 @@ interface DS2438 extends key
   in the same units as capros.RTC.getTime.
 
   Raises Offline if the device is not on the network (or hasn't been
-    found yet). */
+    found yet).
+  May raise BusError.
+  */
   void getCurrent(out short current, out RTC.time_t time);
 
   unsigned byte readThreshold();
@@ -79,6 +85,7 @@ interface DS2438 extends key
   /* Write the threshold register.
   As required by the datasheet, this object disables current measurement
   while writing the register, and then restores the current measurement state.
+  May raise BusError.
   */
   void writeThreshold(unsigned byte threshold);
 
@@ -89,6 +96,7 @@ interface DS2438 extends key
   pageNum must not be zero and must not be more than 7.
 
   The page is recalled from EEPROM/SRAM and then read from the scratchpad.
+  May raise BusError.
   */
   Page readPage(unsigned byte pageNum);
 
@@ -102,6 +110,7 @@ interface DS2438 extends key
   the client is responsible for ensuring that current measurement is disabled.
   Note: when writing page 7, which contains the CCA and DCA,
   the client is responsible for ensuring that current accumulation is disabled.
+  May raise BusError.
   */
   void writePage(unsigned byte pageNum, Page data);
 };

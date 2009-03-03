@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -207,18 +207,17 @@ ReadMemPage(struct W1Device * dev, unsigned int addr)
     wp(addr)	// page 1
     wp(0)
     int status = RunProgram();
-    if (status == capros_W1Bus_StatusCode_CRCError) {
-      DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 ReadMemPage got status %d!\n",
-                            status);
-      if (++tries >= 4)
-        return status;
-      AddressDevice(dev);
-      continue; 	// try again
+    if (status != capros_W1Bus_StatusCode_CRCError) {
+      if (! status) {
+        assert(RunPgmMsg.rcv_sent == 8);
+      }
+      return status;
     }
-    if (! status) {
-      assert(RunPgmMsg.rcv_sent == 8);
-    }
-    return status;
+    DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 ReadMemPage got status %d!\n",
+                          status);
+    if (++tries >= 4)
+      return status;
+    AddressDevice(dev);
   }
 }
 
@@ -481,8 +480,9 @@ reqerr:
       link_insertAfter(&DS2450_samplingQueue[minLog2Seconds],
                        &dev->samplingQueueLink);
 
-      if (dev->found)
+      if (dev->found) {
         CheckConfigured(dev);
+      }
     }
     break;
   }

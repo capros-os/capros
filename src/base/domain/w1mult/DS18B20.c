@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -68,7 +68,7 @@ ReadSpad(struct W1Device * dev)
 }
 
 // Ensure that the desired configuration is set in SPAD.
-static int
+static void
 CheckConfigInSpad(struct W1Device * dev)
 {
   uint8_t desiredConfig = (dev->u.thermom.resolution - 1) << 5;
@@ -86,18 +86,24 @@ CheckConfigInSpad(struct W1Device * dev)
     // Read scratchpad back to verify.
     AddressDevice(dev);
     int status = ReadSpad(dev);
-    if (status) return status;
-    if ((inBuf[4] & 0x60) != desiredConfig) {
-      DEBUG(errors) kprintf(KR_OSTREAM, "DS18B20 config wrote %#.2x read %#.2x\n",
-                            desiredConfig, inBuf[4]);
-      return 101;
+    if (status) {
+      DEBUG(errors) kprintf(KR_OSTREAM, "DS18B20 status %d writing config\n",
+                            status);
+      dev->found = false;
+    } else {
+      if ((inBuf[4] & 0x60) != desiredConfig) {
+        DEBUG(errors) kprintf(KR_OSTREAM,
+                              "DS18B20 config wrote %#.2x read %#.2x\n",
+                              desiredConfig, inBuf[4]);
+        dev->found = false;
+      } else {
+        dev->u.thermom.spadConfig = desiredConfig;
+      }
     }
-    dev->u.thermom.spadConfig = desiredConfig;
   }
-  return 0;
 }
 
-static int // returns -1 if bus gone, 1 if error, 0 if OK
+static void
 CopyToEEPROM(struct W1Device * dev)
 {
   // Write the scratchpad to EEPROM
@@ -106,7 +112,6 @@ CopyToEEPROM(struct W1Device * dev)
   int status = RunProgram();
   if (!status)
     dev->u.thermom.eepromConfig = dev->u.thermom.spadConfig;
-  return status;
 }
 
 void
@@ -262,9 +267,10 @@ readTemperature(struct W1Device * dev)
   assert(ProgramIsClear());
   ProgramReset();
   ProgramMatchROM(dev);
-  ReadSpad(dev);//// check return
-  dev->u.thermom.time = sampledTime;
-  dev->u.thermom.temperature = inBuf[0] + (inBuf[1] << 8);
+  if (! ReadSpad(dev)) {
+    dev->u.thermom.time = sampledTime;
+    dev->u.thermom.temperature = inBuf[0] + (inBuf[1] << 8);
+  }
 }
 
 static void
@@ -379,8 +385,9 @@ DS18B20_ProcessRequest(struct W1Device * dev, Message * msg)
       link_insertAfter(&DS18B20_samplingQueue[log2Seconds],
                        &dev->samplingQueueLink);
 
-      if (dev->found)
+      if (dev->found) {
         CheckConfigured(dev);
+      }
     }
     break;
   }
