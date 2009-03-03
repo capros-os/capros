@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -108,7 +108,7 @@ msDelay(int len)
 {
   result_t result;
   result = capros_Sleep_sleepForNanoseconds(KR_SLEEP, len * 1000000UL);
-  assert(result == RC_OK);
+  assert(result == RC_OK || result == RC_capros_key_Restart);
 }
 
 void
@@ -832,7 +832,7 @@ execute: ;
     // In other cases it avoids polling the serial port getting partial results.
     startTime += duration * 60000;
     result = capros_Sleep_sleepTill(KR_SLEEP, startTime);
-    assert(result == RC_OK);
+    assert(result == RC_OK || result == RC_capros_key_Restart);
 
     while (pgm < segEnd) {	// process steps first pass
       unsigned char stepCode = *pgm++;
