@@ -52,7 +52,6 @@ interface W1Bus extends key {
   unsigned byte enum stepCode {
 
     /* Send a reset pulse.
-    No result data or status are produced.
 
     This step cannot be immediately preceded by another resetSimple,
     else program execution is terminated with status SequenceError.
@@ -60,6 +59,8 @@ interface W1Bus extends key {
     This step cannot be the last step of a program,
     else program execution is terminated with status SequenceError.
     Use resetNormal instead.
+
+    Otherwise, send a reset pulse. No result data or status are produced.
     */
     resetSimple = 2,
 
