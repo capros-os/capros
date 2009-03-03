@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -72,7 +72,7 @@ main(void)
   pd(time);
 
   result = capros_Sleep_sleep(KR_SLEEP, 2000);
-  ckOK
+  assert(result == RC_OK || result == RC_capros_key_Restart);
 
   result = capros_RTC_getTime(KR_RTC, &time);
   ckOK
@@ -106,7 +106,7 @@ main(void)
   pd(time);
 
   result = capros_Sleep_sleep(KR_SLEEP, 2000);
-  ckOK
+  assert(result == RC_OK || result == RC_capros_key_Restart);
 
   result = capros_RTC_getTime(KR_RTC, &time);
   ckOK

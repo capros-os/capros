@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -74,6 +74,8 @@ main(void)
     DEBUG(server) kprintf(KR_OSTREAM, "Checkpoint taken.\n");
 
     result = capros_Sleep_sleep(KR_SLEEP, CheckpointInterval*1000);
-    assert(result == RC_OK);
+    // RC_capros_key_Restart could occur if a checkpoint is taken by
+    // a different process.
+    assert(result == RC_OK || result == RC_capros_key_Restart);
   }
 }

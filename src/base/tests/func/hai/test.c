@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -86,6 +86,7 @@ main(void)
 
   result = capros_Sleep_sleep(KR_SLEEP, 60*1000);	// wait 1 minute
   // a checkpoint will be taken here.
+  assert(result == RC_OK || result == RC_capros_key_Restart);
 
   result = capros_HAI_setUnitStatus(KR_HAI, 261, capros_HAI_Command_UnitOffForSeconds, 8);
   ckOK

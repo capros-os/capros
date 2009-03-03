@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -195,7 +195,7 @@ main(void)
 
   // Give it a chance to get started.
   result = capros_Sleep_sleep(KR_SLEEP, 5000);	// sleep 5 seconds
-  assert(result == RC_OK);
+  assert(result == RC_OK || result == RC_capros_key_Restart);
 
   for (;;) {
 #ifdef all
@@ -211,7 +211,7 @@ main(void)
 #endif
 
     result = capros_Sleep_sleep(KR_SLEEP, 3000);	// sleep 3 seconds
-    assert(result == RC_OK);
+    assert(result == RC_OK || result == RC_capros_key_Restart);
   }
 
   kprintf(KR_OSTREAM, "Done.\n");

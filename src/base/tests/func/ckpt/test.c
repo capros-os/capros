@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -70,7 +70,7 @@ main(void)
 
   for (i = 0; i < 3; i++) {
     result = capros_Sleep_sleep(KR_SLEEP, 5*1000);	// sleep 5 seconds
-    ckOK
+    assert(result == RC_OK || result == RC_capros_key_Restart);
 
     result = capros_Sleep_getPersistentMonotonicTime(KR_SLEEP, &timeToSave);
     ckOK
