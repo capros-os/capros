@@ -1017,7 +1017,18 @@ execute:
     if (needStatus) {
       DEBUG(prog) printk("End of segment");
       err = waitStatus();
-      assert(err == 16);	// FIXME handle or report
+      if (err != 16) {
+      	// FIXME handle or report
+      	kdprintf(KR_OSTREAM, "ds2490.c: status = %d\n", err);
+        if (err > 16) {	// got a result register value
+          dump_status(err);
+          kdprintf(KR_OSTREAM, "Pgm is ");
+          uint8_t * p;
+          for (p = startPgm; p < pgm; p++) {
+            kdprintf(KR_OSTREAM, "%d ");
+          }
+        }
+      }
     }
     // Get any final data for this segment.
     int expected = (cmdNext - 1)->ep3Size - ep3Gotten;
