@@ -432,13 +432,14 @@ struct DiskGenerationHdr {
 	    directory frame consists of a single word describing the
 	    number of following entries, and then some number of
 	    process descriptors. With 8 byte OIDs and 4 byte ObCounts,
-	    a 4K process directory frame can describe 341 processes.
+	    a 4K process directory frame can describe 314 processes.
 	  </p>
 	  <ul>
 	      <pre>
-struct processDescriptor{
-  OID      oid;
-  ObCount  allocCount;
+struct DiskProcessDescriptor {
+  OID     oid;
+  ObCount callCount;
+  uint8_t actHazard;
 };
 	      </pre>
 	  </ul>
@@ -450,25 +451,37 @@ struct processDescriptor{
 	  </p>
 	  <p>
 	    The <tt>oid</tt> field identifies the root node of
-	    the process.  The
-	    <tt>allocCount</tt> field must match the allocation count
-	    of the node.  The allocation count is preserved to avoid
-	    the necessity of:
-	    <ol>
-	      <li>Checking if the node has been rescinded when the
-	      process directory is written (a rare case).</li>
-	      <li>Using special logic to recover the allocation count
-	      for root nodes from the node image during restart for
-	      use in the activity structure, instead of using the normal
-	      node read logic.</li>
-	    </ol>
+	    the process.
+            <tt>actHazard</tt> identifies some situations requiring
+            special handling:
 	  </p>
-	  <p>
-            Any processes that were sleeping until a specific time
-            (using the Sleep capability) will be awakened on restart,
+          <ul>
+          </ul>
+	    <li>
+            When a process that invoked the Sleep capability
+            is awakened due to expiration of the time,
+            but the process is not in memory at that time,
+            the value of <tt>actHaz_WakeOK</tt>
+            in the <tt>actHazard</tt> field indicates that
+            we need to give it the return code <tt>RC_OK</tt>.
+	    <li>
+            Any processes that were sleeping on the Sleep capability
+            at the time of checkpoint will be awakened on restart
+            with the return code <tt>RC_capros_key_Restart</tt>,
             because we do not store the wakeup time in the
             process directory.
-	  </p>
+            The value of <tt>actHaz_WakeRestart</tt>
+            in the <tt>actHazard</tt> field indicates this situation.
+	    <li>
+            On restart, we will restart any persistent processes for which
+            there was a Resume capability in a non-persistent node.
+            (See <a href="UserDrivers.html#Reset">details</a>.)
+            The process directory contains entries for these processes too.
+            We store in <tt>callCount</tt> the call count from the
+            Resume capability, because it might be stale, and we are not
+            in a position to check that when we take a checkpoint.
+            The value of <tt>actHaz_WakeResume</tt>
+            in the <tt>actHazard</tt> field indicates this situation.
 	  <p>
 	Note that on restart CapROS loads
 	the process list from the most recent generation header only.
@@ -1289,7 +1302,7 @@ struct CoreDirent {
   </td>
   <td>
       <em>Copyright 1998 by Jonathan Shapiro.
-Copyright 2008 by Strawberry Development Group.  All rights reserved.
+Copyright 2008, 2009 by Strawberry Development Group.  All rights reserved.
       For terms of redistribution, see the <a
       href="../legal/license/GPL.html">GNU General Public License</a></em>
 This material is based upon work supported by the US Defense Advanced

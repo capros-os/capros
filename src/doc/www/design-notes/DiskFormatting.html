@@ -271,7 +271,7 @@ rescinding can be done without incrementing the allocation count.
 With this optimization, it would take an extremely long time for a 32-bit
 allocation count to wear out.
 <p>The <em>allocCountUsed</em> bit is not stored on the disk.
-When an object is fetched from disk, it's <em>allocCountUsed</em> bit
+When an object is fetched from disk, its <em>allocCountUsed</em> bit
 is set to one.
 (If we did store the bit on the disk, then we would have to consider 
 the object dirty whenever the bit is set (or cleared).
