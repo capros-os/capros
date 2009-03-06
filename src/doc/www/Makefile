@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -26,7 +26,7 @@ default: package
 EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
-DOCS=capros.html
+DOCS=capros.html overview.html
 
 DIRS=project img design-notes dionysix devel essays legal faq CSS plan
 
