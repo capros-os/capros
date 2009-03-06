@@ -59,6 +59,17 @@ Email Address []:
      Enter your email address, e.g. frantz@pwpconsult.com
 
 
+For further information on the stinking pile which is X509v3, see
+<http://www.cs.auckland.ac.nz/~pgut001/pubs/x509guide.txt>, Note that
+the recommended technique for running curl bypasses most of the problems
+with the public PKI by having the client use a copy of the server's self-
+signed certificate to authenticate the server. It authenticates the server
+before sending any Swiss numbers. (Note that as of March 3, 2009, the 
+Baltimore certificate is still installed in Firefox. Baltimore went out 
+of business back in the dot-com crash in 2000. Does anyone know what 
+happened to its private key? Moral of the story: if security is important, 
+limit your certificate authorities.)
+
 
 The command:
 
@@ -71,7 +82,7 @@ server's self-signed certificate.
 
 Similarly, the command:
 
-  curl -cacert cacert.pem -o local https://localhost:5001/notafile?1234
+  curl --cacert cacert.pem -o local https://localhost:5001/notafile?1234
 
 Will fetch the CapROS file 1234 and place it in "local".
 

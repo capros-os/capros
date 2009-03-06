@@ -551,6 +551,7 @@ void push_ssl_data(BIO *network_bio) {
   }
 }
 
+
 /** process_http - Process the HTTP protocol available on the ssl connection 
  *
  * @param[in] ssl Is the ssl object
@@ -584,9 +585,11 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   static const
     char *expectationList[] = {"100-continue", NULL};
   char *fileName = NULL;
+  char c;
+
+  /* The following are results of parsing the HTTP headers */
   long unsigned int contentLength = 0;
   int expect100 = 0;
-  char c;
 
   /* TODO skip leading blank lines */
   if (!readToken(rs, &rp, " \n")) return 0;
@@ -695,15 +698,18 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
        continuation line. */
     switch (headerIndex) {
     case 0:               /* "User-Agent" */
+      break;
     case 1:               /* "Host" */
       break;
     case 2:               /* "Accept" */
-      // We really should make sure our text/text is acceptable - someday
-      // if we don't see text/text | text/* | */*, we should give 406
+      // We really should make sure our application/octet-stream is 
+      // acceptable - someday
+      // if we don't see application/octet-stream | text/* | */*, we 
+      // should give 406
       break;
     case 3:               /* "Accept-Language" */
       // We have no idea what human language the response is in. It may be
-      // binary for all we know. Hope you like it.
+      // binary for all we know. Ours are in English. Hope you like it.
       break;
     case 4:               /* "Accept-Encoding" */
       /* Values are case insensitive */
@@ -723,6 +729,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     case 7:               /* "Connection" */
       // We must handle Connection: close, and close the connection after 
       // our response.
+
       while (1) {
 	int i;
 	
@@ -810,12 +817,17 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     if (fileName && openFile(fileName, 1)) {
       unsigned long int len; /* The file length */
       char cl[128];
+      int isUsingChunked = 0;
       
       len = getFileLen();
-      sprintf(cl, "Content-Length: %ld\r\n", len);
-      
       writeStatusLine(rs, 200);
-      writeString(rs, cl);
+      if (len == 0) {      /* Length N/A, use chunked transfer encoding */
+	isUsingChunked = 1;
+	writeString(rs, "Transfer-Encoding: chunked\r\n");
+      } else {            /* Have length - use Content-length */
+	sprintf(cl, "Content-Length: %ld\r\n", len);
+	writeString(rs, cl);
+      }
       // TODO Consider what Cache-Control directives to issue, if any
       // writeString(rs, "Content-Type: text/html\r\n\r\n");
       writeString(rs, "Content-Type: application/octet-stream\r\n\r\n");
@@ -824,11 +836,26 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	char buf[2048];
 	int len;
 	
-	while ( (len=readFile(buf, sizeof(buf))) > 0) {
-	  if (!writeSSL(rs, buf, len)) {
-	    /* Write error */
-	    if(fileName) free(fileName);
-	    return 0; /* Kill the connection */
+	if (isUsingChunked) {
+	  do {
+	    len = readFile(buf, sizeof(buf));
+	    sprintf(cl, "%x\r\n", len);
+	    writeString(rs, cl);
+	    if (0 != len) {
+	      if (!writeSSL(rs, buf, len)) {
+		/* Write error */
+		if(fileName) free(fileName);
+		return 0; /* Kill the connection */
+	      }
+	    }
+	    writeString(rs, "\r\n");
+	  } while (0 != len);
+	} else {
+	  while ( (len=readFile(buf, sizeof(buf))) > 0) {
+	    if (!writeSSL(rs, buf, len)) {
+	      if (fileName) free(fileName);
+	      return 0;
+	    }
 	  }
 	}
 	closeFile();
@@ -1447,7 +1474,10 @@ closeFile(void) {
 /**
  * getFileLen - The length of the file opened for reading.
  *
- * @return is the length of the file.
+ * @return is the length of the file, or 0 if the data source doesn't
+ *         give a total length (e.g. for dynamicly generated data). This
+ *         choice for living with an unsigned result means that zero length
+ *         files will be transfered with "chunked" transfer-encoding.
  */
 static uint64_t
 getFileLen(void) {
@@ -1456,7 +1486,8 @@ getFileLen(void) {
   
   fstat(theFile, &sb);
   DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file size %d\n", (int)sb.st_size);
-  return sb.st_size;
+  return 0;
+  //  return sb.st_size;
 #else
   return theFileSize;
 #endif
