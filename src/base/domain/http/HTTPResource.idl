@@ -1,0 +1,104 @@
+package capros;
+
+interface HTTPResource extends key {
+  unsigned short enum Method {
+    OPTIONS = 0,
+    GET = 1,
+    HEAD = 2,
+    POST = 3,
+    PUT = 4,
+    DELETE = 5,
+    TRACE = 6,
+    CONNECT = 7
+  };
+
+  unsigned short enum RHType {
+    HTTPRequestHandler = 0,
+    File = 1
+  };
+
+  // HTTPVersion is (major number) * 65536 + (minor number).
+  typedef unsigned long HTTPVersion;
+
+  /*
+  If rhtype is HTTPRequestHandler, rh is an HTTPRequestHandler
+    and sendLimit is the maximum number of bytes that the
+    HTTPRequestHandler can receive in the first headers() call.
+  If rhtype is File, rh is a File and sendLimit is unused
+  */
+  void request(HTTPVersion httpVersion,
+               Method m,
+               unsigned long lengthOfPath,
+               unsigned long lengthOfPathAndQuery,
+	/* The following is really an input string: */
+               out unsigned byte pathAndQuery,
+	// Here are the real outputs:
+               out RHType rhtype,
+               out key rh,
+               out unsigned long sendLimit);
+};
+
+interface HTTPRequestHandler extends key {
+  /* HTTPRequestHandler methods can only be called in the order in which
+  they appear below, otherwise key.RequestError is raised. */
+
+  /* The header data consists of the following in order:
+    For each header:
+      one byte containing the length of the field name;
+      two bytes containing the length of the field value (without any
+        leading or trailing white space), in native endianness;
+      the field name;
+      the field value (without any leading or trailing white space)
+    One byte containing zero (indicating the end of the list).
+
+  sendLimit is the maximum number of bytes that this object can receive
+    in the next headers() call or, if this is the last headers() call,
+    the first body() call.
+  */
+  void headers(unsigned long lengthOfHeaderData,
+	/* The following is really an input string: */
+               out unsigned byte headerData,
+	// Here are the real outputs:
+               out unsigned long sendLimit);
+
+  /*
+  If lengthOfBodyData is zero, that indicates the end of the body,
+  and sendLimit is ignored.
+  */
+  void body(unsigned long lengthOfBodyData,
+	/* The following is really an input string: */
+            out unsigned byte bodyData,
+	// Here are the real outputs:
+            out unsigned long sendLimit);
+
+  void getResponseStatus(
+            out unsigned long /*HTTPVersion, compiler chokes*/ httpVersion,
+            out unsigned short statusCode,
+            out unsigned long lengthOfReasonPhrase,
+	/* The following is really an output string: */
+            out unsigned byte reasonPhrase);
+
+  /*
+  dataLimit is the maximum number of bytes that may be returned.
+  The response header data has the same format as the request header data.
+  */
+  void getResponseHeaderData(
+          unsigned long dataLimit,
+          out unsigned long lengthOfHeaderData,
+	/* The following is really an output string: */
+          out unsigned byte headerData);
+
+  /*
+  dataLimit is the maximum number of bytes that may be returned.
+
+  If lengthOfBodyData is zero, that indicates the end of the body.
+  After that, the only valid call is key.destroy.
+  */
+  void getResponseBody(
+          unsigned long dataLimit,
+          out unsigned long lengthOfBodyData,
+	/* The following is really an output string: */
+          out unsigned byte bodyData);
+
+  /* HTTPRequestHandler obeys key.destroy(). */
+};
