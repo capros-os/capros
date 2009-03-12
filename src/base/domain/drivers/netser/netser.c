@@ -238,7 +238,8 @@ readThread(void * data)
           }
           break;
         }
-        DEBUG(read) printk("Netser read got %d chars\n", netChars);
+        DEBUG(read) printk("Netser read got %d chars: %.2x %.2x\n",
+                           netChars, netReadBuf[0], netReadBuf[1]);
         // assert(netChars > 0 || ! isOpen); // disabled due to timing window
         firstChar = 0;
         mutex_lock(&lock);
