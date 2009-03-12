@@ -85,6 +85,7 @@ static int ds_usb_io(capros_USB_urb * urb,
   del_timer(&tim);
 
   if (result != RC_OK) {	// urb was not accepted
+    DEBUG(errors) kprintf(KR_OSTREAM, "submitUrb got rc=%#x\n", result);
     unsigned long errno = capros_Errno_ExceptionToErrno(result);
     if (errno) {
       return -errno;
@@ -181,7 +182,7 @@ static int ds_recv_status(void)
 
   err = ds_usb_io(&urb, (theDSDev.ep[EP_STATUS] << 15) | USB_DIR_IN,
           100, &count);
-  if (err < 0) {
+  if (err) {
 	printk(KERN_ERR "Failed to read 1-wire data from 0x%x: err=%d.\n", theDSDev.ep[EP_STATUS], err);
 	return err;
   }
@@ -264,7 +265,7 @@ ds_recv_data(dma_addr_t buf_dma, int len)
 	}
 	// Let's attempt some error recovery: retry once
 	int err2 = ds_usb_io(&urb, endpoint, USB_Timeout2, &count);
-	if (err2 < 0) {
+	if (err2) {
 		printk(KERN_INFO "%s second err=%d\n", __func__, err2);
 		return err;
 	} else {
@@ -930,7 +931,7 @@ execute:
         /* Documentation is wrong: data is the number of activated couplers * 9,
         not the number of activated couplers. */
         if (err2 != 9) {	// should have activated 1 coupler = 9 bytes
-          printk("path err2=%d", err2);
+          printk("ds2490: smart on conf byte=%#.2x\n", err2);
           assert(false);
         }
         break;
@@ -951,11 +952,11 @@ execute:
 	uint8_t resetResponse = *--resultNext;
         DEBUG(prog) printk("ResetResponse %#x.\n", resetResponse);
 	if (err2 != cmdNext->type) {	// confirmation byte mismatch
-          printk("path err2=%#.2x", err2);
           if (err2 == (cmdNext->type ^ 0xff)) {
             // Inverted confirmation byte indicates bus shorted.
             goto terminateBusShorted;
           } else {
+            printk("ds2490: smart on conf byte=%#.2x\n", err2);
             goto terminateBusError;
           }
 	}
