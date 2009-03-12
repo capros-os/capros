@@ -365,7 +365,7 @@ InitCkptRoot(Volume * pVol, CkptRoot * root, LID lid)
   memset(root, 0, EROS_PAGE_SIZE);	// clear out any cruft
 
   root->versionNumber = CkptRootVersion;
-  root->maxNPAllocCount = 0;
+  root->maxNPCount = 0;
   put_target_u64(&root->checkGenNum, 0);	// means no ckpt
   put_target_u64(&root->mostRecentGenerationNumber, 0);	// means no ckpt
   put_target_lid(&root->endLog, UNUSED_LID);

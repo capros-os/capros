@@ -63,8 +63,8 @@ PrintCkptDir(Volume* pVol)
 	       pVol->curDskCkpt->mostRecentGenerationNumber);
   diag_printf("  maxLogLid             0x%x\n",
 	       pVol->curDskCkpt->endLog);
-  diag_printf("  maxNPAllocCount       %#x\n",
-	       pVol->curDskCkpt->maxNPAllocCount);
+  diag_printf("  maxNPCount       %#x\n",
+	       pVol->curDskCkpt->maxNPCount);
 
   vol_ReadLogPage(pVol, get_target_lid(&pVol->curDskCkpt->generations[0]),
                   page);
