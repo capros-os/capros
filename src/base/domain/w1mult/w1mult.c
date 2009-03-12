@@ -67,7 +67,8 @@ unsigned long __rt_stack_pointer = 0x1e000;
 
 static void ScanBus(void);
 
-bool haveBusKey = false;	// no key in KR_W1BUS yet (unused?)
+bool haveBusKey = false;	// no key in KR_W1BUS
+bool haveNextBusKey = false;	// no key in KR_NEXTW1BUS
 bool busNeedsReinit;
 
 capros_Sleep_nanoseconds_t latestConvertTTime = 0;
@@ -329,6 +330,35 @@ AllDevsNotFound(void)
   }
 }
 
+static bool
+CheckRestart(result_t result)
+{
+  if (result == RC_capros_key_Restart || result == RC_capros_key_Void) {
+    // No bus key, so don't continue heartbeat:
+    if (haveBusKey) {
+      haveBusKey = false;
+      if (! haveNextBusKey)
+        DisableHeartbeat(hbBit_bus);
+    }
+    AllDevsNotFound();
+    return true;
+  }
+  if (result != RC_OK)
+    DEBUG(errors) kprintf(KR_OSTREAM, "CheckRestart result=%#x\n", result);
+  assert(result == RC_OK);
+  return false;
+}
+
+// If no exception, returns false.
+// If an expected exception, returns true.
+static bool
+CheckModeResult(result_t result)
+{
+  if (result == RC_capros_W1Bus_BusError)
+    return false;
+  return CheckRestart(result);
+}
+
 /* Run the program from outBeg to outCursor.
 Returns:
   -1 if W1Bus cap is gone
@@ -340,12 +370,10 @@ RunProgram(void)
   int returnValue;
   RunPgmMsg.snd_len = outCursor - outBeg;
   result_t result = CALL(&RunPgmMsg);
-  if (result == RC_capros_key_Restart || result == RC_capros_key_Void) {
+  if (CheckRestart(result)) {
     returnValue = -1;
-    AllDevsNotFound();
     goto exit;
   }
-  assert(result == RC_OK);
 
   uint32_t status = RunPgmMsg.rcv_w1;
   returnValue = status;	// default
@@ -353,8 +381,9 @@ RunProgram(void)
   switch (status) {
   case capros_W1Bus_StatusCode_ProgramError:
   case capros_W1Bus_StatusCode_SequenceError:
+  default:
     // These errors indicate a software bug.
-    kdprintf(KR_OSTREAM, "w1mult RunProgram got status %d!!", status);
+    kdprintf(KR_OSTREAM, "w1mult RunProgram got status %d!!\n", status);
     break;	// this is unrecoverable
 
   unsigned int errorLoc;
@@ -365,13 +394,12 @@ RunProgram(void)
 
   case capros_W1Bus_StatusCode_BusShorted:
   case capros_W1Bus_StatusCode_BusError:
-  default:
     busNeedsReinit = true;
   // The following are not too serious:
   case capros_W1Bus_StatusCode_CRCError:
   case capros_W1Bus_StatusCode_Timeout:
     DEBUG(errors)
-      kprintf(KR_OSTREAM, "w1mult RunProgram got status %d", status);
+      kprintf(KR_OSTREAM, "w1mult RunProgram got status %d\n", status);
     goto errPP;
 
   case capros_W1Bus_StatusCode_SysRestart:
@@ -398,6 +426,10 @@ doPP: ;
   }
 exit:
   ClearProgram();	// set up for the next program
+#if 0
+  if (returnValue)
+    kprintf(KR_OSTREAM, "w1mult: RunProgram returning %d.\n", returnValue);
+#endif
   return returnValue;
 }
 
@@ -405,14 +437,13 @@ exit:
 
 uint32_t heartbeatCount;
 capros_Sleep_nanoseconds_t lastHeartbeatTime;
-uint32_t heartbeatDisable = 0;
+uint32_t heartbeatDisable = hbBit_bus;	// no bus key yet
 
 static void
 HeartbeatAction(void * arg)
 {
   RecordCurrentTime();
   lastHeartbeatTime = currentTime;
-  DisableHeartbeat(hbBit_hb);
 
   // Let each type of device do its thing:
 /* DS18B20 and DS2438 both respond to Convert T (0x44).
@@ -435,7 +466,7 @@ HeartbeatAction(void * arg)
   DS2450_HeartbeatAction(heartbeatCount);
   heartbeatCount++;
 
-  EnableHeartbeat(hbBit_hb);	// Schedule next heartbeat if we can
+  EnableHeartbeat(hbBit_timer);	// Schedule next heartbeat if we can
 }
 
 struct w1Timer heartbeatTimer = {
@@ -446,6 +477,8 @@ struct w1Timer heartbeatTimer = {
 void
 DisableHeartbeat(uint32_t bit)
 {
+  assert(link_isSingleton(&heartbeatTimer.link));
+  assert(! (heartbeatDisable & bit));
   heartbeatDisable |= bit;
 }
 
@@ -458,12 +491,22 @@ DisableHeartbeat(uint32_t bit)
 void
 EnableHeartbeat(uint32_t bit)
 {
+  assert(heartbeatDisable & bit);
   if ((heartbeatDisable &= ~bit) == 0) {
     // Finished the current heartbeat.
+    if (haveNextBusKey) {
+      // Start using the new bus key.
+      COPY_KEYREG(KR_NEXTW1BUS, KR_W1BUS);
+      haveNextBusKey = false;
+      haveBusKey = true;
+      busNeedsReinit = true;
+    }
     if (busNeedsReinit) {
       ScanBus();
-    } else {
+    }
+    if (heartbeatDisable == 0) {	// ScanBus was successful
       heartbeatTimer.expiration = lastHeartbeatTime + heartbeatInterval;
+      DisableHeartbeat(hbBit_timer);
       InsertTimer(&heartbeatTimer);
     }
   }
@@ -1084,19 +1127,6 @@ SearchPath(struct Branch * br)
   return 0;
 }
 
-bool
-CheckRestart(result_t result)
-{
-  if (result == RC_capros_key_Restart || result == RC_capros_key_Void) {
-    haveBusKey = false;
-    return true;
-  }
-  if (result != RC_OK)
-    DEBUG(errors) kprintf(KR_OSTREAM, "CheckRestart result=%#x\n", result);
-  assert(result == RC_OK);
-  return false;
-}
-
 /* We just got a new W1Bus cap.
  */
 static void
@@ -1113,13 +1143,13 @@ rescan:
 
   result = capros_W1Bus_setPDSR(KR_W1BUS, capros_W1Bus_PDSR_PDSR137);
         // 1.37 V/us
-  if (CheckRestart(result)) return;
+  if (CheckModeResult(result)) return;
 
   result = capros_W1Bus_setW1LT(KR_W1BUS, capros_W1Bus_W1LT_W1LT11);    // 11 us
-  if (CheckRestart(result)) return;
+  if (CheckModeResult(result)) return;
 
   result = capros_W1Bus_setDSO(KR_W1BUS, capros_W1Bus_DSO_DSO10);  // 10 us
-  if (CheckRestart(result)) return;
+  if (CheckModeResult(result)) return;
 
   Branch_Init(&root);
 
@@ -1156,11 +1186,8 @@ rescan:
       }
     }
 
-    haveBusKey = true;
     heartbeatCount = 0;
     RecordCurrentTime();
-    if (heartbeatDisable == 0)
-      HeartbeatAction(NULL);	// start or restart heartbeat
   }
   busNeedsReinit = false;
 }
@@ -1194,7 +1221,7 @@ TimerProcedure(void)
   for (;;) {
     DEBUG(timer) kprintf(KR_OSTREAM, "Timer waiting till %lld",
                          timeToWake/1000000);
-    result = capros_Sleep_sleepTill(KR_SLEEP, timeToWake);
+    result = capros_Sleep_sleepTillPersistent(KR_SLEEP, timeToWake);
     assert(result == RC_OK || result == RC_capros_key_Restart);
     CALL(&Msg);		// call the main process
   }
@@ -1408,13 +1435,21 @@ main(void)
         break;
 
       case OC_capros_W1Mult_registerBus:
-        // We don't use the subtype in Msg.rcv_w1.
-        COPY_KEYREG(KR_ARG(0), KR_W1BUS);
         // Return to the caller before invoking the W1Bus cap,
         // to prevent deadlock.
         SEND(&Msg);
 
-        ScanBus();
+        // We don't use the subtype in Msg.rcv_w1.
+        COPY_KEYREG(KR_ARG(0), KR_NEXTW1BUS);
+
+        if (haveNextBusKey) {
+          DEBUG(errors)
+            kprintf(KR_OSTREAM, "W1mult: new bus cap replacing next.\n");
+        } else {
+          haveNextBusKey = true;
+          if (! haveBusKey)
+            EnableHeartbeat(hbBit_bus);
+        }
         break;
       }
       break;

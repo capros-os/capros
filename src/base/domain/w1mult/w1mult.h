@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -51,6 +51,7 @@ Approved for public release, distribution unlimited. */
 #define KR_W1BUS   KR_APP(4)
 #define KR_SNODE   KR_APP(5)
 #define KR_TIMRESUME KR_APP(6)
+#define KR_NEXTW1BUS KR_APP(7)
 
 // The family code is the low byte of the ROM ID.
 enum {
@@ -138,11 +139,11 @@ struct w1Timer {
 
 struct W1Device * BranchToCoupler(struct Branch * br);
 
-// Bits in heartbeatDisable:
-#define hbBit_hb      0x01
-#define hbBit_DS18B20 0x02
-#define hbBit_DS2450  0x04
-#define hbBit_All     0x07
+// Bits in heartbeatDisable (reasons not to initiate a heartbeat):
+#define hbBit_bus     0x01	// we have no bus key and no next busy key
+#define hbBit_timer   0x02	// heartbeatTimer is running
+#define hbBit_DS18B20 0x04
+#define hbBit_DS2450  0x08
 void DisableHeartbeat(uint32_t bit);
 void EnableHeartbeat(uint32_t bit);
 

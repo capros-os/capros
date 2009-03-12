@@ -82,7 +82,7 @@ WaitUntilNotBusy(void)
                 latestConvertTTime/1000000,
                 VEEExpiry/1000000,
                 wakeTime/1000000);
-    result_t result = capros_Sleep_sleepTill(KR_SLEEP, wakeTime);
+    result_t result = capros_Sleep_sleepTillPersistent(KR_SLEEP, wakeTime);
     assert(result == RC_OK || result == RC_capros_key_Restart);
     currentTime = wakeTime;
   }

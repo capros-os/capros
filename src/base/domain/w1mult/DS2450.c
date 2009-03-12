@@ -74,6 +74,8 @@ WriteDS2450MemoryFirst(struct W1Device * dev,
     if (! CheckCRC16()) {
       if (++tries < 4)
         continue;	// try again
+      DEBUG(errors) kprintf(KR_OSTREAM,
+                      "DS2450 write memory CRC error, giving up\n");
       return capros_W1Bus_StatusCode_CRCError;
     }
     if (inBuf[2] != data) {
