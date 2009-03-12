@@ -193,7 +193,9 @@ listen(void)
     case RC_capros_key_Restart:
       // There is no TCPListenSocket cap. Get one:
       DEBUG(init) kprintf(KR_OSTREAM, "NetListener: Getting TCPListenSocket\n");
-      rc = capros_TCPPortNum_listen(KR_TCPPortNum, KR_TCPListenSocket);
+      do {
+        rc = capros_TCPPortNum_listen(KR_TCPPortNum, KR_TCPListenSocket);
+      } while (rc == RC_capros_key_Restart);
       assert(rc == RC_OK);	// FIXME
       break;
 

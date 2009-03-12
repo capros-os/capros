@@ -247,19 +247,21 @@ CreatePort(void)
 #else	// TCP
   DEBUG(server) kprintf(KR_OSTREAM, "Connecting using TCP.\n");
 
+reconnect:
   result = capros_IP_TCPConnect(KR_IP, HAIIpAddr, HAIPort,
 			        KR_TCPSocket);
   switch (result) {
   default:
     kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result);
+  case RC_OK:
     break;
+  case RC_capros_key_Restart:
+    goto reconnect;
   case RC_capros_IPDefs_Aborted:
     kdprintf(KR_OSTREAM, "Connection aborted.\n");
     break;
   case RC_capros_IPDefs_Refused:
     kdprintf(KR_OSTREAM, "Connection refused.\n");
-    break;
-  case RC_OK:
     break;
   }
 
