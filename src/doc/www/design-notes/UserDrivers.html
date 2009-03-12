@@ -274,7 +274,8 @@ All normal user objects fall into this class.
     <p>
       We will solve this problem for resume keys. When the system
       takes a checkpoint, it will examine all non-persistent nodes. 
-      For each resume key it finds, it will save the state of the
+      For each resume key it finds to a persistent process,
+      it will save the state of the
       waiting process such that if restarted from that state,
       the process will find that the CALL has returned with a
       distinctive reply code (RC_capros_key_Restart).
@@ -340,11 +341,10 @@ All normal user objects fall into this class.
       non-persistent objects may be allocated and rescinded as normal,
       from a space bank that allocates from a non-persistent range.
       This may result in incrementing the object's allocation count.
-      We will keep track of the maximum allocation count of any
+      We will keep track of the maximum allocation count or call count of any
       non-persistent object, and save that on a checkpoint.
       On restart, all non-persistent objects are given an allocation count
-      equal to that maximum plus one.
-      The call count is treated similarly.
+      and call count equal to that maximum plus one.
       All capabilities in persistent objects
       to non-persistent objects will thus be rescinded.
       Capabilities to non-persistent objects in non-persistent objects
@@ -352,7 +352,7 @@ All normal user objects fall into this class.
       so those capabilities will be valid. 
     </p>
     <p>
-      There are two ways to calculate the maximum allocation count.
+      There are two ways to calculate the maximum allocation/call count.
     </p>
     <ul>
       <li>
@@ -371,7 +371,7 @@ All normal user objects fall into this class.
       The second method may increment the maximum count faster than
       the first, but only by the number of restarts.
       We will implement the second method, because the first method
-      requires more code, and therefore time, at the point when
+      requires more code, and therefore execution time, at the point when
       a capability is unprepared.
     <p>
       There is an implementation wrinkle. 
