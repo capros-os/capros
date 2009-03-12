@@ -88,8 +88,8 @@ Approved for public release, distribution unlimited. */
 #define LKSN_End (LKSN_LoadLogs + numAdapters)
 
 #define keyInfo_nplinkee 0xffff	// nplink has this key
-#define keyInfo_swca   0
-#define keyInfo_notify 1
+#define keyInfo_swca   0	// client has this key
+#define keyInfo_notify 1	// input thread has this key
 
 bool haveWaiter = false;	// LKSN_WAITER has a resume key
 uint32_t waiterCode;		// parameters from waiter
@@ -1312,6 +1312,7 @@ DoMenu(void)
         }
         CMTEMutex_unlock(&lock);
         // We're lost; retry a menu command
+        DEBUG(errors) kprintf(KR_OSTREAM, "SWCA: Unknown menu, moving up\n");
         cmd = 'U';	// menu item up
       } else {		// current menu is known
         CMTEMutex_unlock(&lock);
