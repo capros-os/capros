@@ -564,7 +564,6 @@ act_DeleteCurrent(void)
 {
   Activity * act = act_Current();
   if (act_HasProcess(act)) {
-    assert(! proc_StateHasActivity(act_GetProcess(act)));
     proc_Deactivate(act_GetProcess(act));
   }
   act_SetCurProcess(NULL);
@@ -907,18 +906,14 @@ act_ValidateActivity(Activity* thisPtr)
       switch (thisPtr->actHazard) {
       default:
       case actHaz_WakeResume:
+        /* If the activity has a Process, we've already checked u.callCount
+        and cleared actHaz_WakeResume. */
         assert(false);
 
       case actHaz_None:
-        assert(proc->runState == RS_Running
-               || (thisPtr->state == act_Running
-                   && proc->runState == RS_WaitingU) );
-		// RS_WaitingU and act_Running can happen during an invocation
-        break;
-
       case actHaz_WakeOK:
       case actHaz_WakeRestart:
-        assert(proc->runState == RS_WaitingK);
+        assert(proc->runState != RS_Available);
         break;
       }
     }
@@ -927,7 +922,7 @@ act_ValidateActivity(Activity* thisPtr)
   case act_Sleeping:
     if (act_HasProcess(thisPtr)
         && ! (act_GetProcess(thisPtr)->hazards & hz_DomRoot)) {
-      assert(act_GetProcess(thisPtr)->runState == RS_WaitingK);
+      assert(act_GetProcess(thisPtr)->runState == RS_Waiting);
     }
   }
 }
@@ -1031,18 +1026,20 @@ PrepareCurrentActivity(void)
     case actHaz_WakeResume:
       assert(false);
 
-    case actHaz_WakeOK:
-      sysT_procWake(proc, RC_OK);
-      thisPtr->actHazard = actHaz_None;
-      break;
+    case actHaz_WakeOK: ;
+      result_t rc = RC_OK;
+      goto returnResult;
 
     case actHaz_WakeRestart:
-      sysT_procWake(proc, RC_capros_key_Restart);
+      rc = RC_capros_key_Restart;
+    returnResult:
       thisPtr->actHazard = actHaz_None;
+      sysT_procWake(proc, rc);
       break;
     }
   }
 
+  assert(act_Current() == thisPtr);
   assert(act_Current()->state == act_Running);
   assert(thisPtr->readyQ == proc->readyQ);
 

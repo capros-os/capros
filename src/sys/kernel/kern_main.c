@@ -152,7 +152,7 @@ main(void)
   kstream_BeginUserActivities();
 #endif
 
-  StartActivity(iplOid, restartNPAllocCount, actHaz_None);
+  StartActivity(iplOid, restartNPCount, actHaz_None);
   act_ForceResched();
   
   ExitTheKernel();		/* does not return. */

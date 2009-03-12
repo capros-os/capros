@@ -46,18 +46,6 @@ act_CurContext()
   return p;
 }
 
-INLINE bool
-proc_IsWaiting(Process * proc)
-{
-  return proc->runState >= RS_WaitingU;	// RS_WaitingU or RS_WaitingK
-}
-
-INLINE bool
-proc_StateHasActivity(Process * proc)
-{
-  return proc->runState & 1;		// RS_Running or RS_WaitingK
-}
-
 INLINE bool 
 proc_IsWellFormed(Process* thisPtr)
 {

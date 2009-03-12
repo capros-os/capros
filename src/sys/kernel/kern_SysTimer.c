@@ -87,15 +87,13 @@ sysT_AddSleeper(Activity * t, uint64_t wakeTime)
   Process * proc = act_GetProcess(t);
   assert(proc->curActivity == t);
   assert(! (proc->hazards & hz_DomRoot));
-  assert(proc->runState == RS_WaitingU);
+  assert(proc->runState == RS_Waiting);
 
 #if 0
   uint64_t now = sysT_Now();
   dprintf(false, "AddSleeper act=%#x wakeTime=%#llu now %#llx dur=%lld\n",
      t, wakeTime, now, wakeTime - now);
 #endif
-
-  proc->runState = RS_WaitingK;
 
   t->lastq = &SleepQueue;
   t->u.wakeTime = wakeTime;

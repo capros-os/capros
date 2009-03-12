@@ -1005,7 +1005,7 @@ DoPhase4Work(void)
     = (CkptRoot *)pageH_GetPageVAddr(GenHdrPageH);
   // Initialize the checkpoint root:
   ckroot->versionNumber = CkptRootVersion;
-  ckroot->maxNPAllocCount = maxNPAllocCount;
+  ckroot->maxNPCount = maxNPCount;
   ckroot->checkGenNum
     = ckroot->mostRecentGenerationNumber = workingGenerationNumber;
   ckroot->endLog = logWrapPoint;
@@ -1098,8 +1098,8 @@ notActive:
   case ckpt_Phase1:
     DEBUG(ckpt) printf("DoCheckpointStep P1\n");
     DoPhase1Work();
+    DEBUG(ckpt) printf("DoCheckpointStep begin P2\n");
   case ckpt_Phase2:
-    DEBUG(ckpt) printf("DoCheckpointStep P2\n");
     DoPhase2Work();
   case ckpt_Phase3:
     DEBUG(ckpt) printf("DoCheckpointStep P3\n");

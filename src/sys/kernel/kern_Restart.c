@@ -136,14 +136,17 @@ static void
 AdjustNPCounts(void)
 {
   // Adjust allocation and call counts of non-persistent objects.
-  assert(restartNPAllocCount == 0);	// not updated yet
-  ObCount newRestartCount = curRoot->maxNPAllocCount + 1;
+  assert(restartNPCount == 0);	// not updated yet
+  ObCount newRestartCount = curRoot->maxNPCount + 1;
+#if 0
+  printf("AdjustNPCounts: new cnt = %d\n", newRestartCount);
+#endif
   // The +1 above ensures that capabilities to non-persistent objects
   // in persistent objects will be rescinded.
 
-  // restartNPAllocCount ensures that any new NP objects will
+  // restartNPCount ensures that any new NP objects will
   // have the correct count:
-  restartNPAllocCount = newRestartCount;
+  restartNPCount = newRestartCount;
 
   // Adjust the counts of existing objects.
   unsigned long objNum;
@@ -159,7 +162,11 @@ AdjustNPCounts(void)
 
     if (! OIDIsPersistent(pObj->oid)) {
       pObj->allocCount += newRestartCount;
+      if (pObj->allocCount > maxNPCount)
+        maxNPCount = pObj->allocCount;
       pNode->callCount += newRestartCount;
+      if (pNode->callCount > maxNPCount)
+        maxNPCount = pNode->callCount;
 
       for (i = 0; i < EROS_NODE_SIZE; i++) {
         Key * pKey = node_GetKeyAtSlot(pNode, i);
@@ -184,6 +191,8 @@ AdjustNPCounts(void)
     if ((pObj->obType == ot_PtDataPage || pObj->obType == ot_PtDevicePage)
         && ! OIDIsPersistent(pObj->oid) ) {
       pObj->allocCount += newRestartCount;
+      if (pObj->allocCount > maxNPCount)
+        maxNPCount = pObj->allocCount;
     }
   }
 }
@@ -286,7 +295,7 @@ DoRestartPhaseWaitingRoot1(void)
     // Start the persistent IPL process.
     DEBUG(restart) printf("Starting persistent IPL proc oid=%#llx\n",
                           PersistentIPLOID);
-    StartActivity(PersistentIPLOID, restartNPAllocCount, actHaz_None);
+    StartActivity(PersistentIPLOID, restartNPCount, actHaz_None);
 
     return;	// restart is done!
   }
@@ -334,8 +343,12 @@ AddProcDescriptor(struct DiskProcessDescriptor * dpd)
 
   assert(haz < actHaz_END);
 
-  DEBUG(restart) printf("Starting proc at oid %#llx cc %#x haz %#x\n",
-                   oid, count, haz);
+  DEBUG(restart) {
+    printf("Starting proc at oid %#llx haz %d", oid, haz);
+    if (haz == actHaz_WakeResume)
+      printf(" cc %#x", count);
+    printf("\n");
+  }
 
   StartActivity(oid, count, haz);
 }

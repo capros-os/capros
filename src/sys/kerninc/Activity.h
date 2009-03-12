@@ -46,9 +46,9 @@ act_Free: free, on the FreeActivityList.
 
 act_Ready: on a ReadyQueue.
   If it has a Process (without hz_DomRoot):
-   If actHazard has actHaz_None, the Process's runState is RS_Running.
-   If actHazard has actHaz_WakeOK or actHaz_WakeRestart,
-     the Process's runState is RS_WaitingK.
+    If actHazard has actHaz_None, the Process's runState is RS_Running.
+    If actHazard has actHaz_WakeOK or actHaz_WakeRestart,
+      the Process's runState is RS_Waiting.
 
 act_Running: active on a processor, not on any queue.
   The activity is act_curActivity.
@@ -63,7 +63,7 @@ act_Stall: blocked on an event, on a StallQueue.
 act_Sleeping: blocked on a timer, on the SleepQueue.
   actHazard is actHaz_None.
   If it has a Process (without hz_DomRoot),
-    the Process's runState is RS_WaitingK.
+    the Process's runState is RS_Waiting.
 
 act_Stall is used to block before an operation is committed
 (therefore the operation can be restarted when the block is removed).
@@ -133,6 +133,13 @@ struct Activity {
     uint64_t wakeTime; /* if state == act_Sleeping, when to wake up, in ticks */
 
     ObCount callCount;	// used if actHazard == actHaz_WakeResume
+    /* Note: if actHazard != actHaz_WakeResume, we do not need the callCount.
+    When a Resume key is rescinded (an act which invalidates any
+    Activity in the Process), the Process is in memory and its curActivity
+    field points to any Activity. 
+    When a Process is rescinded, either the Process is in memory,
+    or we explicitly look for any Activity for the Process and delete it.
+    (We have to do the latter to avoid leaving stale Activitys allocated.) */
   } u;
 
   union {

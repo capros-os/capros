@@ -357,8 +357,7 @@ db_eros_print_context(Process *cc)
     default: stateName = "?"; break;
     case RS_Available: stateName = "Avail"; break;
     case RS_Running: stateName = "Running"; break;
-    case RS_WaitingU: stateName = "WaitingU"; break;
-    case RS_WaitingK: stateName = "WaitingK"; break;
+    case RS_Waiting: stateName = "Waiting"; break;
     }
     db_printf(" (%s) ", stateName);
     db_printf("act=%#x ", cc->curActivity);

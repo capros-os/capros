@@ -37,7 +37,8 @@ typedef struct CkptRoot {
 
   uint32_t versionNumber;
 
-  ObCount maxNPAllocCount;
+  ObCount maxNPCount;	/* No key to a non-persistent object has an
+		allocation count or call count larger than this. */
 
   target_u64 mostRecentGenerationNumber;
 

@@ -153,9 +153,9 @@ preload_Init(void)
         Node * pNode = objC_GrabNodeFrame();
 
         node_SetEqualTo(pNode, dn + i);
-        pNode->callCount = restartNPAllocCount;
+        pNode->callCount = restartNPCount;
         objH_InitDirtyObj(node_ToObj(pNode), oid + i, capros_Range_otNode,
-                         restartNPAllocCount);
+                         restartNPCount);
       }
       oid += FrameToOID(1);
       pagePA += EROS_PAGE_SIZE;
@@ -172,7 +172,7 @@ preload_Init(void)
       pageH_MDInitDataPage(pageH);
       pageH_SetReferenced(pageH);
       objH_InitDirtyObj(pageH_ToObj(pageH), oid, capros_Range_otPage,
-                       restartNPAllocCount);
+                       restartNPCount);
 
       oid += FrameToOID(1);
       pagePA += EROS_PAGE_SIZE;
@@ -200,7 +200,7 @@ preload_Init(void)
 
     for (j = npod->numZeroPages + npod->numSubmaps;
          j > 0; j--) {
-      CreateNewNullObject(capros_Range_otPage, oid, restartNPAllocCount);
+      CreateNewNullObject(capros_Range_otPage, oid, restartNPCount);
       oid += FrameToOID(1);
     }
 
@@ -239,7 +239,7 @@ PreloadObSource_GetObjectCount(ObjectRange * rng, OID oid,
 {
   assert(rng->start <= oid && oid < rng->end);
 
-  return restartNPAllocCount;
+  return restartNPCount;
 }
 
 static ObjectHeader *
@@ -248,7 +248,7 @@ PreloadObSource_GetObject(ObjectRange * rng, OID oid,
 {
   assert(rng->start <= oid && oid < rng->end);
 
-  return CreateNewNullObject(pObjLoc->objType, oid, restartNPAllocCount);
+  return CreateNewNullObject(pObjLoc->objType, oid, restartNPCount);
 }
 
 static const ObjectSource PreloadObSource = {

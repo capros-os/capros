@@ -69,7 +69,7 @@ GateKey(Invocation* inv /*@ not null @*/)
 
   // Check invokee's state.
   assert(! keyBits_IsType(invKey, KKT_Resume)
-         || invokee->runState == RS_WaitingU );
+         || invokee->runState == RS_Waiting );
 
   unsigned int invKeyType = keyBits_GetType(invKey);
 

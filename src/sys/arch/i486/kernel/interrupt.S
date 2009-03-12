@@ -1117,7 +1117,7 @@ L_resume_key:
 	 * 2:	call
 	 */
 	movl	$RS_Available,%ecx
-	movl	$RS_WaitingU,%ebx
+	movl	$RS_Waiting,%ebx
 	cmpb	$IT_PReturn,FX_OFF_invType(%ebp)
 	cmova	%ebx,%ecx	/* CMOVA won't take immediates. Bother */
 	
@@ -1398,7 +1398,7 @@ L_done_keys:
 	 * 2:	call
 	 */
 	movl	$RS_Available,%ecx
-	movl	$RS_WaitingU,%ebx
+	movl	$RS_Waiting,%ebx
 	cmpb	$IT_PReturn,FX_OFF_invType(%ebp)
 	cmova	%ebx,%ecx	/* CMOVA won't take immediates. Bother */
 	movb	%cl,FX_OFF_runState(%ebp)

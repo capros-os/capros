@@ -51,11 +51,11 @@ Approved for public release, distribution unlimited. */
 
 uint16_t objH_CurrentTransaction = 1; /* guarantee nonzero! */
 
-// The maximum allocation count of any nonpersistent object.
-ObCount maxNPAllocCount = 0;
+// The maximum allocation count or call count of any nonpersistent object.
+ObCount maxNPCount = 0;
 
-// The allocation count of nonpersistent objects at restart.
-ObCount restartNPAllocCount = 0;
+// The allocation count and call count of nonpersistent objects at restart.
+ObCount restartNPCount = 0;
 
 // The following are initialized to zero by the loader.
 unsigned long numDirtyObjectsWorking[capros_Range_otNumBaseTypes];
@@ -320,10 +320,8 @@ objH_Rescind(ObjectHeader * thisPtr)
       // Rescind any prepared Resume, Start, or Process keys:
       Process * proc = thisPtr->prep_u.context;
       keyR_RescindAll(&proc->keyRing);
-      if (! (proc->hazards & hz_DomRoot)	// runState is valid
-          && proc->runState == RS_WaitingK) {
-        // WaitingK is similar to the kernel holding a Resume key. Zap it.
-        // Caller will change proc->runState.
+      if (proc->curActivity) {
+        // An Activity is similar to the kernel holding a Resume key. Zap it.
         act_DeleteActivity(proc_ClearActivity(proc));
         clearedActivity = true;
       }
@@ -354,8 +352,8 @@ objH_Rescind(ObjectHeader * thisPtr)
 
     // Track the maximum count of any nonpersistent object.
     if (! objH_GetFlags(thisPtr, OFLG_Cleanable)
-        && thisPtr->allocCount > maxNPAllocCount)
-      maxNPAllocCount = thisPtr->allocCount;
+        && thisPtr->allocCount > maxNPCount)
+      maxNPCount = thisPtr->allocCount;
 
     objH_ClearFlags(thisPtr, OFLG_AllocCntUsed);
 
@@ -371,8 +369,8 @@ node_DoBumpCallCount(Node * pNode)
 
   // Track the maximum count of any nonpersistent object.
   if (! objH_GetFlags(node_ToObj(pNode), OFLG_Cleanable)
-      && pNode->callCount > maxNPAllocCount)
-    maxNPAllocCount = pNode->callCount;
+      && pNode->callCount > maxNPCount)
+    maxNPCount = pNode->callCount;
 
   objH_ClearFlags(node_ToObj(pNode), OFLG_CallCntUsed);
 

@@ -24,18 +24,15 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 // Values for the Process runState:
-// NOTE: proc_IsWaiting() and proc_StateHasActivity() depend
-// on these values!
 #define RS_Available 0	/* The Process is Available, and there is no
 			Resume key to it. There is no Activity. */
 #define RS_Running   1	/* The Process is Running, and there is no
 			Resume key to it. There is an Activity
 			in state act_Ready, act_Running, or act_Stall. */
-#define RS_WaitingU  2	/* The Process is Waiting, and there may be a
-			Resume key to it. There is no Activity. */
-#define RS_WaitingK  3	/* The Process is Waiting, and there may be a
-			Resume key to it. There is an Activity
-			in state act_Ready or act_Sleeping. */
+#define RS_Waiting   2	/* The Process is Waiting.
+			There may be a Resume key to it, or
+			there may be an Activity for it.
+			Rarely, there may be both or neither. */
 
 /* For a node, the first byte of nodeData contains: */
 #define NODE_L2V_MASK 0x3f	// same as GPT_L2V_MASK

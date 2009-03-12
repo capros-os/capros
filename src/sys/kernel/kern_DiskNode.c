@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -56,6 +56,15 @@ node_CopyToDiskNode(Node * pNode, DiskNode * dn)
   for (i = 0; i < EROS_NODE_SIZE; i++) {
     node_ClearHazard(pNode, i);
     key_MakeUnpreparedCopy(&dn->slot[i], node_GetKeyAtSlot(pNode, i));
+#ifndef NDEBUG
+    Key * key = &dn->slot[i];
+    if (keyBits_IsObjectKey(key)
+        && ! OIDIsPersistent(key->u.unprep.oid)
+        && key->u.unprep.count > maxNPCount ) {
+      dprintf(true, "maxNPCount=%d, dnk=%#x, k=%#x\n",
+              maxNPCount, key, node_GetKeyAtSlot(pNode, i));
+    }
+#endif
   }
 }
 

@@ -60,11 +60,10 @@ proc_ZapResumeKeys(Process * proc)
   // Zap any unprepared Resume keys:
   node_BumpCallCount(proc->procRoot);
 
-  if (proc->runState == RS_WaitingK) {
-    // WaitingK is similar to the kernel holding a Resume key. Zap it.
-    // Caller will change proc->runState.
+  Activity * act = proc->curActivity;
+  if (act && act->actHazard != actHaz_None)
+    // actHazard is similar to the kernel holding a Resume key. Zap it.
     act_DeleteActivity(proc_ClearActivity(proc));
-  }
 }
 
 void 
@@ -360,12 +359,25 @@ proc_DoPrepare(Process * thisPtr)
   if (thisPtr->hazards & hz_DomRoot) {
     proc_LoadFixRegs(thisPtr);
 
-    if (proc_StateHasActivity(thisPtr) && ! thisPtr->curActivity) {
-      // There should be an Activity for this Process. Find it.
-      Activity * act = act_FindByOid(root);
-      if (!act)
-        fatal("Process %#x has no Activity!\n", thisPtr);
-      act_AssignTo(act, thisPtr);
+    if (! thisPtr->curActivity) {
+      /* If there could be an Activity associated with this Process,
+      find it now. 
+      There are two reasons why we don't do this earlier, when the
+      Process's root node is brought into memory.
+      1. If the Process.runState is RS_Available, there can be no Activity,
+      so we don't have to bother looking.
+      Process.runState is only just now valid.
+      2. If the Process is brought into memory by act_EnsureRunnable(),
+      by this time it has already set the Process's Activity. */
+      if (thisPtr->runState != RS_Available) {
+        // There could be an Activity for this Process. Find it.
+        Activity * act = act_FindByOid(root);
+        if (act) {
+          act_AssignTo(act, thisPtr);
+        } else {
+          assert(thisPtr->runState != RS_Running);
+        }
+      }
     }
 
     thisPtr->hazards &= ~hz_DomRoot;
@@ -520,22 +532,8 @@ check_Process(Process * p)
           statesOK = true;
         break;
 
-      case RS_WaitingU:
-        if (! p->curActivity)
-          statesOK = true;
-        else {
-          /* While a process is executing a Call invocation,
-          after COMMIT_POINT, its state is RS_WaitingU,
-          but its Activity is still in state act_Running. */
-          if (p == act_CurContext() && p->curActivity->state == act_Running)
-            statesOK = true;
-        }
-
-      case RS_WaitingK:
-        if (p->curActivity
-            && (p->curActivity->state == act_Sleeping
-                || p->curActivity->state == act_Ready ) )
-          statesOK = true;
+      case RS_Waiting:
+        statesOK = true;
         break;
 
       case RS_Available:

@@ -2,7 +2,7 @@
 #define __OBJECTHEADER_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -42,8 +42,8 @@ struct IORequest;
 
 #include <arch-kerninc/PageHeader.h>
 
-extern ObCount restartNPAllocCount;
-extern ObCount maxNPAllocCount;
+extern ObCount restartNPCount;
+extern ObCount maxNPCount;
 
 extern unsigned long numDirtyObjectsWorking[];
 extern unsigned long numDirtyObjectsNext[];

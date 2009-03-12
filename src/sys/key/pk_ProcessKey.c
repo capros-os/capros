@@ -320,7 +320,7 @@ ProcessKeyCommon(Invocation * inv, Process * proc)
       }
     }
 
-    proc->runState = RS_WaitingU;
+    proc->runState = RS_Waiting;
 
     {
       Key * k = inv->exit.pKey[0];

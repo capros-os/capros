@@ -225,7 +225,7 @@ inv_Commit(Invocation * thisPtr)
 
   case IT_Call:
   case IT_KeeperCall:
-    invoker->runState = RS_WaitingU;
+    invoker->runState = RS_Waiting;
 
     if (invoker != inv.invokee) {
       // Call of a gate key, or call makeResumeKey(self)
@@ -471,7 +471,7 @@ inv_GetReturnee(Invocation * inv)
         assert(proc_IsRunnable(p));
       }
       inv->invokee = p;
-      assert(proc_IsWaiting(p));
+      assert(p->runState == RS_Waiting);
     }
     else
 noInvokee:
@@ -516,7 +516,7 @@ ReturnMessage(Invocation * inv)
      */
     if (invokee != proc_curProcess) {
       if (keyBits_GetType(inv->key) != KKT_Start) {
-        assert(proc_IsWaiting(invokee));
+        assert(invokee->runState == RS_Waiting);
         proc_ZapResumeKeys(invokee);
       }
       MigrateAllocatedActivity(invokee);
