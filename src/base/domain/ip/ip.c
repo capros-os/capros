@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -233,7 +233,9 @@ main(void)
         do {
           result = capros_NPIP_createUDPPort(KR_NPIP,
                      capros_NPIP_LocalPortAny, KR_TEMP0);
-        } while (IPVoid(result));
+        /* createUDPPort doesn't perturb the remote host, so just
+        retry any Restart return code. */
+        } while (result == RC_capros_key_Restart || IPVoid(result));
         Msg.snd_key0 = KR_TEMP0;
         Msg.snd_code = result;
         break;
@@ -243,6 +245,9 @@ main(void)
           result = capros_NPIP_connect(KR_NPIP, Msg.rcv_w1, Msg.rcv_w2,
                                        KR_TEMP0);
         } while (IPVoid(result));
+        /* If result == RC_capros_key_Restart, the remote host might have
+        seen the connection opened. The caller might want to know that,
+        so return that result. */
         Msg.snd_key0 = KR_TEMP0;
         Msg.snd_code = result;
         break;
@@ -264,7 +269,9 @@ main(void)
       case OC_capros_UDPPortNum_createUDPPort:
         do {
           result = capros_NPIP_createUDPPort(KR_NPIP, localPort, KR_TEMP0);
-        } while (IPVoid(result));
+        /* createUDPPort doesn't perturb the remote host, so just
+        retry any Restart return code. */
+        } while (result == RC_capros_key_Restart || IPVoid(result));
         Msg.snd_key0 = KR_TEMP0;
         Msg.snd_code = result;
         break;
@@ -288,6 +295,9 @@ main(void)
         do {
           result = capros_NPIP_listen(KR_NPIP, localPort, KR_TEMP0);
         } while (IPVoid(result));
+        /* If result == RC_capros_key_Restart, we might have dropped a
+        connection request.
+        The caller might want to know that, so return that result. */
         Msg.snd_key0 = KR_TEMP0;
         Msg.snd_code = result;
         break;

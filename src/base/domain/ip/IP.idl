@@ -143,7 +143,7 @@ interface IP extends key {
   /** connect - Create a connection ("active open").
   Specify the remote ipaddr and port.
   An available local port number will be selected.
-  May raise IPDefs.Refused or IPDefs.Aborted.
+  May raise IPDefs.Refused or IPDefs.Aborted or key.Restart.
   Raises IPDefs.NoMem if cannot allocate resources.
   */
   TCPSocket TCPConnect(IPDefs.ipv4Address ipaddr, IPDefs.portNumber port);
@@ -166,6 +166,7 @@ interface TCPPortNum extends key {
   /** listen - Open the local port for listening.
   Raises IPDefs.NoMem if cannot allocate resources.
   Raises IPDefs.Already if the port is already open.
+  May raise key.Restart.
   */
   TCPListenSocket listen();
 };
