@@ -42,7 +42,9 @@ interface HTTPRequestHandler extends key {
   /* HTTPRequestHandler methods can only be called in the order in which
   they appear below, otherwise key.RequestError is raised. */
 
-  /* The header data consists of the following in order:
+  /** headers - transfer the header data
+
+  The header data consists of the following in order:
     For each header:
       one byte containing the length of the field name;
       two bytes containing the length of the field value (without any
@@ -50,6 +52,10 @@ interface HTTPRequestHandler extends key {
       the field name;
       the field value (without any leading or trailing white space)
     One byte containing zero (indicating the end of the list).
+
+  All headers present in the request are transferred (including
+  any Content-Length header), except:
+    Transfer-Encoding
 
   sendLimit is the maximum number of bytes that this object can receive
     in the next headers() call or, if this is the last headers() call,
@@ -61,7 +67,8 @@ interface HTTPRequestHandler extends key {
 	// Here are the real outputs:
                out unsigned long sendLimit);
 
-  /*
+  /** body - transfer the entity-body
+
   If lengthOfBodyData is zero, that indicates the end of the body,
   and sendLimit is ignored.
   */
@@ -78,9 +85,13 @@ interface HTTPRequestHandler extends key {
 	/* The following is really an output string: */
             out unsigned byte reasonPhrase);
 
-  /*
+  /** getResponseHeaderData - get the response headers
+
   dataLimit is the maximum number of bytes that may be returned.
   The response header data has the same format as the request header data.
+  The following headers MUST NOT be present:
+    Transfer-Encoding
+  (Content-Length: should it be a header, or specified as a number somewhere?)
   */
   void getResponseHeaderData(
           unsigned long dataLimit,
@@ -88,7 +99,8 @@ interface HTTPRequestHandler extends key {
 	/* The following is really an output string: */
           out unsigned byte headerData);
 
-  /*
+  /** getResponseBody - get the entity-body of the response
+
   dataLimit is the maximum number of bytes that may be returned.
 
   If lengthOfBodyData is zero, that indicates the end of the body.
