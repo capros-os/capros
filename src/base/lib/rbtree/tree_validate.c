@@ -33,24 +33,24 @@ tree_validate(TREENODE *root, TREENODE *node)
   if (node != 0) {
     if (node->parent == 0) {
       ERROR_PRINTF((ERR_FIL, "node 0x%08x parent is zero!\n",
-		    node));
+		    (unsigned int)node));
       return false;
     }
     if (node->left == 0) {
       ERROR_PRINTF((ERR_FIL, "node 0x%08x parent is zero!\n",
-		    node));
+		    (unsigned int)node));
       return false;
     }
     if (node->right == 0) {
       ERROR_PRINTF((ERR_FIL, "node 0x%08x parent is zero!\n",
-		    node));
+		    (unsigned int)node));
       return false;
     }
   }
 
   if (node == root && node->parent != TREE_NIL) {
     ERROR_PRINTF((ERR_FIL, "root 0x%08x parent 0x%08x not nil!\n",
-		  root, node->parent));
+		  (unsigned int)root, (unsigned int)node->parent));
     return false;
   }
   
@@ -66,7 +66,7 @@ tree_validate(TREENODE *root, TREENODE *node)
 
   if (node->left != TREE_NIL && tree_compare(node->left,node) >= 0) {
     ERROR_PRINTF((ERR_FIL, "left child's value. node 0x%08x nd->l 0x%08x!\n",
-	    node, node->left));
+	    (unsigned int)node, (unsigned int)node->left));
     return false;
   }
   
@@ -77,7 +77,7 @@ tree_validate(TREENODE *root, TREENODE *node)
 
   if (node->right != TREE_NIL && tree_compare(node->right, node) <= 0) {
     ERROR_PRINTF((ERR_FIL, "right child's value. node 0x%08x nd->r 0x%08x!\n",
-	    node, node->right));
+	    (unsigned int)node, (unsigned int)node->right));
     return false;
   }
 
