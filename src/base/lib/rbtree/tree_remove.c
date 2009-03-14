@@ -177,10 +177,11 @@ tree_remove(TREENODE * root, TREENODE *z)
 #ifndef NDEBUG
   {
     if ( tree_contains(root, y) ) {
-      VERB_PRINTF((VERB_FIL, "x=0x%08x, y=0x%08x, z=0x%08x root=0x%08x\n", x,
-	     y, z, root));
+      VERB_PRINTF((VERB_FIL, "x=0x%08x, y=0x%08x, z=0x%08x root=0x%08x\n", 
+		   (unsigned int)x, (unsigned int)y, (unsigned int)z, 
+		   (unsigned int)root));
       VERB_PRINTF((VERB_FIL, "Deleted node 0x%08x still referenced before fixup!\n",
-	     y));
+		   (unsigned int)y));
     }
   }
 #endif
@@ -202,7 +203,7 @@ tree_remove(TREENODE * root, TREENODE *z)
 #ifndef NDEBUG
     if ( tree_contains(root, (y!=z) ? y : z) )
       VERB_PRINTF((VERB_FIL, "Deleted znode 0x%08x still referenced by after fixup!\n",
-	     z));
+		   (unsigned int)z));
 
     if ( tree_validate(root, root) == false ) {
       ERROR_PRINTF((ERR_FIL, "Bad post-remove validation, case 0x%08x\n",
@@ -215,7 +216,7 @@ tree_remove(TREENODE * root, TREENODE *z)
 #ifndef NDEBUG
       if ( tree_contains(root, y) )
 	VERB_PRINTF((VERB_FIL, "Deleted ynode (post fixup) 0x%08x still referenced by after fixup!\n",
-	       z));
+		     (unsigned int)z));
 #endif
 
       /* The tree is now correct, but for the slight detail that we have
@@ -254,7 +255,7 @@ tree_remove(TREENODE * root, TREENODE *z)
 #ifndef NDEBUG
   if ( tree_contains(root, z) )
     VERB_PRINTF((VERB_FIL, "Deleted znode (post fixup) 0x%08x still referenced by after fixup!\n",
-	   z));
+		 (unsigned int)z));
 
   if ( tree_validate(root, root) == false ) {
     ERROR_PRINTF((ERR_FIL, "Bad post-remove validation, case 0x%08x\n",
