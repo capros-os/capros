@@ -120,6 +120,7 @@ char *certData = NULL;
 #define CND_DEBUG(x) (dbg_##x & dbg_flags)
 #define DEBUG(x) if (CND_DEBUG(x))
 
+
 /* Internal object interfaces */
 typedef struct {
   BIO *network;        /* The BIO to move data between ssl and the network */
@@ -163,6 +164,70 @@ static void destroyFile(char * name);
 static uint64_t getFileLen(void);
 static int readFile(void *buf, int len);
 static int writeFile(void *buf, int len);
+static void scanConsumeSeps(ReadPtrs *rp, char *sepStr);
+static void scanToken(ReadPtrs *rp, char *sepStr);
+
+
+/* RB Tree stuff */
+#define ERR_FIL DBGTARGET
+#define ERROR_PRINTF(x) DBGPRINT x
+#define VERB_FIL DBGTARGET
+#define VERB_PRINTF(x) DBGPRINT x
+#ifdef SELF_TEST
+typedef int bool;
+#define assert(expression)  \
+  ((void) ((expression) ? 0 : \
+   DBGPRINT(DBGTARGET, "%s:%d: failed assertion `" #expression "'\n", \
+            __FILE__, __LINE__ ) ))
+#define false 0
+#define true 1
+#else
+#include <domain/assert.h>
+#endif
+
+#define TREEKEY char*
+typedef struct Treenode {
+  struct Treenode *left;
+  struct Treenode *right;
+  struct Treenode *parent;
+  int color;
+  TREEKEY key;
+  char *value;
+} Treenode;
+#define TREENODE Treenode
+#define RB_TREE
+#include <rbtree/tree.h>
+int tree_compare(TREENODE *a, TREENODE *b) {
+  return tree_compare_key(a, b->key);
+}
+int tree_compare_key(TREENODE *a, TREEKEY b) {
+  int la = strlen(a->key);
+  int lb = strlen(b);
+  int cr =  memcmpci(a->key, b, (la<lb?la:lb));
+  if (cr) return cr;
+  if (la == lb) return 0;
+  if (la < lb) return -1;
+  return 1;
+}
+#include <rbtree/tree_validate.c>
+#include <rbtree/tree_util.c>
+#include <rbtree/tree_init.c>
+#include <rbtree/tree_insert.c>
+#include <rbtree/tree_find.c>
+//#include <rbtree/tree_min.c>
+//#include <rbtree/tree_remove.c>
+//#include <rbtree/tree_succ.c>
+//#include <rbtree/tree_contains.c>
+static TREENODE *
+free_tree(TREENODE *tree) {
+  if (TREE_NIL == tree) return TREE_NIL;
+  tree->left = free_tree(tree->left);
+  tree->right = free_tree(tree->right);
+  free(tree->key);
+  free(tree->value);
+  free(tree);
+  return TREE_NIL;
+}
 
 
 
@@ -570,27 +635,37 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   int mustClose = 0;    /* We must close the connection after response */
   int methodIndex;
   int versionIndex;
-  int headerIndex = -1;
+  //  int headerIndex = -1;
   static const
     char *requestList[] = {"GET", "HEAD", "PUT", "POST", NULL};
   static const
     char *versionList[] = {"HTTP/1.1", NULL};
-  static const
-    char *headerList[] = {"User-Agent", "Host", "Accept", "Accept-Language",
-			  "Accept-Encoding", "Accept-Charset", "Keep-Alive",
-			  "Connection", "Cache-Control", "Expect",
-			  "Content-Encoding", "Content-Length", NULL};
+  /* static const
+     char *headerList[] = {"User-Agent", "Host", "Accept", "Accept-Language",
+     "Accept-Encoding", "Accept-Charset", "Keep-Alive",
+     "Connection", "Cache-Control", "Expect",
+     "Content-Encoding", "Content-Length", NULL};
+  */
   static const
     char *connectionList[] = {"close", NULL};
   static const
     char *expectationList[] = {"100-continue", NULL};
   char *fileName = NULL;
   char c;
-
+  char *name;
+  char *value;
+  int namelen, valuelen;
+  TREENODE *existing = TREE_NIL;
+  TREENODE *node;
+  
+  
   /* The following are results of parsing the HTTP headers */
+#define MAX_HEADER_LENGTH 4096 /* Arbitrary maximum length for a header */
+  TREENODE *tree = TREE_NIL;   /* A rbtree to hold the headers and values */
+  TREENODE *last = TREE_NIL;   /* The last node used, for header continuation */
   long unsigned int contentLength = 0;
   int expect100 = 0;
-
+  
   /* TODO skip leading blank lines */
   if (!readToken(rs, &rp, " \n")) return 0;
   if (*rp.last != ' ' && *rp.last != '\t') {
@@ -675,9 +750,12 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   }
   readSkipDelim(rs, &rp);
 
+  tree_init();   /* Initialize the dummy RB tree node */
+
   /* Process the message headers */
   while (1) {
     if (!readToken(rs, &rp, ":\n")) {
+      tree = free_tree(tree);
       if (fileName) free(fileName);
       return 0;
     }
@@ -685,129 +763,332 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	|| (rp.last - rp.first == 1 && *rp.first == '\r')) {
       /* Clear out the LF from the blank line after the headers */
       readSkipDelim(rs, &rp);
-      break;
+      break;    /* Reached end of the headers */
     }
-    /* A header may be continued by having a line starting with SP or HT all
-       CRLF, HT, SP should be replaced with one SP before interpratation. */
-    if ( !(*rp.first == ' ' || *rp.first =='\t')) {
-      headerIndex = compareToken(&rp, headerList, 1);    
-      readSkipDelim(rs, &rp);           /* Skip the : */
+
+    /* A header may be continued by having a line starting with SP or HT. All
+       CRLF, HT, SP should be replaced with one SP before interpretation. */
+    if (*rp.first == ' ' || *rp.first =='\t') { /* Continued header */
+      if (TREE_NIL == last) {
+	/* Error */
+	tree = free_tree(tree);
+	if (fileName) free(fileName);
+	writeStatusLine(rs, 400);
+	writeMessage(rs, "Continuation line without header", methodIndex==1);
+	return 0;         /* Get back in sync with client */
+      }
+      existing = last;    /* Continue the last node processed */
     }
+
     /* We are now pointed at either the character after the :, which may be
        whitespace or a parameter, or at the leading whitespace in a 
        continuation line. */
-    switch (headerIndex) {
-    case 0:               /* "User-Agent" */
-      break;
-    case 1:               /* "Host" */
-      break;
-    case 2:               /* "Accept" */
-      // We really should make sure our application/octet-stream is 
-      // acceptable - someday
-      // if we don't see application/octet-stream | text/* | */*, we 
-      // should give 406
-      break;
-    case 3:               /* "Accept-Language" */
-      // We have no idea what human language the response is in. It may be
-      // binary for all we know. Ours are in English. Hope you like it.
-      break;
-    case 4:               /* "Accept-Encoding" */
-      /* Values are case insensitive */
-      // We should check for "identity" with a q=0 saying it is unacceptable.
-      // Hay, life is rough all over, so take the identity encoding, 'cus
-      // that's all we know.
-      break;
-    case 5:               /* "Accept-Charset" */
-      // We don't know character sets from adam. RFC2616 says we should send
-      // 406 if we don't have a response in an acceptable character set, 
-      // although sending some unacceptable character set is also allowed.
-      // So we'll send what we have.
-      break;
-    case 6:               /* "Keep-Alive" */
-      // This header is triggered by Connection: keep-alive.
-      break;
-    case 7:               /* "Connection" */
-      // We must handle Connection: close, and close the connection after 
-      // our response.
 
+    /* save the header name */
+    namelen = rp.last - rp.first;
+    if (namelen <= 0) {
+      tree = free_tree(tree);
+      if (fileName) free(fileName);
+      writeStatusLine(rs, 500);
+      writeMessage(rs, "Header name length negative or zero", methodIndex==1);
+      return 0;         /* Get back in sync with client */
+    }
+    name = malloc(namelen+1);
+    memcpy(name, rp.first, namelen); /* Don't copy the trailing : */
+    name[namelen] = 0;
+    readSkipDelim(rs, &rp);          /* Found a ':' - skip it */
+
+    /* save the header value */
+    if (!readToken(rs, &rp, "\r\n")) {
+      if (fileName) free(fileName);
+      free(name);
+      return 0;
+    }  // TODO truncate : and leading and trailing whitespace
+    while ((*rp.first == ' ' || *rp.first == '\t') && rp.first<rp.last) {
+      rp.first++;
+    }
+    valuelen = rp.last - rp.first;
+    if (valuelen <= 0 || valuelen > MAX_HEADER_LENGTH) {
+      writeStatusLine(rs, 413);   /* Say the entity is too large */
+      writeMessage(rs, "Header too long", methodIndex==1);
+      if (fileName) free(fileName);
+      tree = free_tree(tree);
+      free(name);
+      return 0;     /* Ignoring warnings in the RFC to make sure zapping
+		       the connection doesn't destroy the response */
+    }
+    value = malloc(valuelen+1);
+    memcpy(value, rp.first, valuelen);
+    value[valuelen] = 0;
+
+    if (TREE_NIL == existing) existing = tree_find(tree, name);
+    if (TREE_NIL == existing ) {
+      /* Insert the result into the RB tree */
+      node = malloc(sizeof(TREENODE));
+      node->left = TREE_NIL;
+      node->right = TREE_NIL;
+      node->parent = TREE_NIL;
+      node->color = TREE_BLACK;
+      
+      node->key = name;
+      node->value = value;
+      tree = tree_insert(tree, node);
+    } else {
+      /* Append the data to the existing entry */
+      char *newValue = malloc(strlen(existing->value)+strlen(value)+1);
+      strcpy(newValue, existing->value);
+      strcat(newValue, value);
+      free(existing->value);
+      existing->value = newValue;
+      free(value);
+      free(name);
+    }
+     /* clean out to next CRLF */
+    if (!readToken(rs, &rp, "\n")) { 
+      if (fileName) free(fileName);
+      tree = free_tree(tree);
+      return 0;
+    }
+    readSkipDelim(rs, &rp);
+  }     /* End of while(1) to read all the headers */
+  
+
+  /* We've collected all the headers, now parse the ones we need */
+
+  /* The general headers: */
+
+  /* "Cache-Control" */
+  // We don't do caching, so we can ignore any Cache-Control directives.
+
+  /* "Connection" */
+  // We must handle Connection: close, and close the connection after 
+  // our response.
+  {
+    TREENODE *node = tree_find(tree, "Connection");
+    ReadPtrs p;
+    
+    if (TREE_NIL != node) {
+      p.first = node->value;
+      p.last = p.first + strlen(p.first);
       while (1) {
 	int i;
 	
-	if (!readToken(rs, &rp, ", \t\r\n")) {
-	  if (fileName) free(fileName);
-	  return 0;
-	}
-	i = compareToken(&rp, connectionList, 1);
+	scanToken(&p, ", \t\r\n");
+	i = compareToken(&p, connectionList, 1);
 	if (0==i) mustClose = 1;
-	if (*rp.last == '\r' || *rp.last == '\n') break;
+	p.first = p.last;
+	p.last += strlen(p.last);
+	if (*p.first == 0) break;
       }
-    case 8:               /* "Cache-Control" */
-      // We don't do caching, so we can ignore any Cache-Control directives.
-      break;
-    case 9:               /* "Expect" */
-      {
-	// We need to send a interum response of 100 if we get 100-continue
+    }
+  }
+
+  /* "Date" */
+  // Only valid for POST and PUT, and then optional. It is for cache 
+  // control, and we MUST send date headers when we get a good clock.
+
+  /* "Pragma" */
+  // Kind of a fuzzily (by practice) defined HTTP 1.0 function for 
+  // specifing "no-cache". May be used by a client to request an
+  // uncached response. Doesn't effect servers.
+
+  /* "Trailer" */
+  // Indicates which headers may be included in the trailer portion of
+  // each chunk in chunked transfers.
+
+  /* "Transfer-Encoding" */
+  // Used to indicated "chunked" transfers.
+
+  /* "Upgrade" */
+  // Designed for changing protocols on the existing connection. We don't.
+
+  /* "Via" */
+  // Gives the path of proxys the request passed over. May be useful for
+  // debugging.
+
+  /* "Warning" */
+  // It looks like this header is server to client only.
+
+
+  /* The request headers: */
+
+  /* "Accept" */
+  // We really should make sure our application/octet-stream and 
+  // text/html are acceptable - someday
+  // if we don't see application/octet-stream | text/* | */*, we 
+  // should give 406
+
+  /* "Accept-Charset" */
+  // We don't know character sets from adam. RFC2616 says we should send
+  // 406 if we don't have a response in an acceptable character set, 
+  // although sending some unacceptable character set is also allowed.
+  // So we'll send what we have.
+ 
+  /* "Accept-Encoding" */
+  /* Values are case insensitive */
+  // We should check for "identity" with a q=0 saying it is unacceptable.
+  // Hey, life is rough all over, so take the identity encoding, 'cus
+  // that's all we know. We should be giving a 406.
+  
+  /* "Accept-Language" */
+  // We have no idea what human language the response is in. It may be
+  // binary for all we know. Our server responses are in English.
+  // Hope you like it.
+
+  /* "Authorization" */
+  // We don't do HTTP style client authorization. We use web keys.
+  // Since we don't issue 401 (unauthorized) we shouldn't see this
+  // header.
+
+  /* "Expect" */
+  // We need to send a interum response of 100 if we get 100-continue
+  {
+    TREENODE *node = tree_find(tree, "Expect");
+    ReadPtrs p;
+    
+    if (TREE_NIL != node) {
+      p.first = node->value;
+      p.last = p.first + strlen(p.first);
+      while (1) {
 	int i;
 	
-	if (!readToken(rs, &rp, ", \r\n")) {
-	  if (fileName) free(fileName);
-	  return 0;
-	}
-	i = compareToken(&rp, expectationList, 1);
+	scanToken(&p, ", \t\r\n");
+	i = compareToken(&p, expectationList, 1);
 	if (i == 0) {
 	  expect100 = 1;
 	} else {
 	  writeStatusLine(rs, 417);
 	  writeSSL(rs, "\r\n", 2);
+	  tree = free_tree(tree);
+	  if (fileName) free(fileName);
 	  return 0;                  /* Must get back in sync with client */ 
 	}
+	p.first = p.last;
+	p.last += strlen(p.last);
+	if (*p.first == 0) break;
       }
-      break;
-    case 10:              /* Content-Encoding */
-      /* Content-Encoding values are case insensitive */
-      // We only accept "identity", so don't even look for it
-      break;
-    case 11:              /* Content-Length */
-      {  
-	// We need this header for upload length
-	char cl[16];
-	int len;
-	
-	if (!readToken(rs, &rp, " \r\n")) {
-	  if (fileName) free(fileName);
-	  return 0;
-	}
-	len = rp.last - rp.first;
-	if (len > sizeof(cl)-1 || len == 0) {
-	  writeStatusLine(rs, 413);   /* Say the entity is too large */
-	  writeMessage(rs, "File too long for upload", methodIndex==1);
-	  if (fileName) free(fileName);
-	  return 0;     /* Ignoring warnings in the RFC to make sure zapping
-			   the connection doesn't destroy the response */
-	}
-	memcpy(cl, rp.first, len);
-	cl[len] = 0;
-	contentLength = atol(cl);
-      }
-      break;
-    default:
-      if (rp.last > rp.first) {
-	DBGPRINT(DBGTARGET, "Header %.*s not handled\n", 
-		 rp.last-rp.first, rp.first);
-      } else{
-	DBGPRINT(DBGTARGET, "Non-header line encountered\n");
-      }
-      break;
     }
-    /* clean out to next CRLF */
-    if (!readToken(rs, &rp, "\n")) { 
-      if (fileName) free(fileName);
-      return 0;
+  }
+
+  /* "From" */
+  // The user's email address -- A spammer's dream.
+
+  /* "Host" */
+  // Gives the host name from the URI requested. Used for multi-host
+  // on a single IP. TODO Servers MUST reject requests which do not
+  // have a host header with 400.
+
+  /* "If-Match" */
+  // This header is used with entity tags, which we do not yet support.
+  // Since there are a bunch of MUSTs included with IF-Match, we TODO
+  // need to support entity tags to avoid update based on stale data
+  // via PUT.
+
+  /* "If-Modified-Since" */
+  // Servers SHOULD give a not modified response, which we don't.
+
+  /* "If-None-Match" */
+  // See If-Match.
+
+  /* "If-Range" */
+  // We don't support sub-range operations so we MUST ignore this header.
+
+  /* "If-Unmodified-Since" */
+  // See If-Modified_Since.
+
+  /* "Max-Forwards" */
+  // Only used with TRACE and OPTIONS methods which we don't support.
+
+  /* "Proxy-Authorization" */
+  // Issued only in response to a Proxy-Authenticate header which we
+  // don't send.
+
+  /* "Range" */
+  // Used to request a sub-range of the resource. MAY be ignored by
+  // the server, which we do.
+
+  /* "Referer" */
+  // Allows the server to learn what URI contained the URI being 
+  // requested. WE SHOULD NOT LOG THIS HEADER, as we may be logging
+  // web keys.
+
+  /* "TE" */
+  // Used to request compression of the response. We don't.
+
+  /* "User-Agent" */
+  // Information about the client software.
+
+ 
+  /* The entity headers: */
+
+  /* "Allow" */
+  // The allow header may be used by a client to give a hint to usage
+  // of resources uploaded with a "PUT" request. Server's don't have
+  // to support those methods, so we do what we do and ignore "Allow".
+  
+  /* "Content-Encoding" */
+  // Content-Encoding values are case insensitive
+  // We only accept "identity", so don't even look for it
+  // TODO we should check for other than identity on PUT requests.
+
+  /* "Content-Language" */
+  // We might see one of these on a PUT or POST. Think about it if we
+  // ever grow up to understand that there are multiple natural languages.
+
+  /* "Content-Length" */
+  // We need this header for upload length
+  {  
+    int len;
+    TREENODE *node = tree_find(tree, "Content-length");
+    
+    if (TREE_NIL != node) {
+      len = strlen(node->value);
+      if (len > 15 || len == 0) {
+	writeStatusLine(rs, 413);   /* Say the entity is too large */
+	writeMessage(rs, "File too long for upload", methodIndex==1);
+	if (fileName) free(fileName);
+	tree = free_tree(tree);
+	return 0;     /* Ignoring warnings in the RFC to make sure zapping
+			 the connection doesn't destroy the response */
+      }
+      contentLength = atol(node->value);
     }
-    readSkipDelim(rs, &rp);
-  }     /* End of while(1) to read all the headers */
-  /* When we get here, the LF of the blank line at the end of the headers
-     should have been consumed */
+  }
+
+  /* "Content-Location" */
+  // I (wsf) am not entirely sure what this header is meant to do. It 
+  // looks like Barbie-Doll standards making where someone thought it
+  // would be useful and the rest of the standards committee rolled over
+  // and played dead to expidite the process. Since it goes with the
+  // resource, and is undefined in PUT or POST requests, we can safely
+  // ignore it.
+
+  /* "Content-MD5" */
+  // This header MAY be used as a checksum of the content of a PUT or
+  // POST request. We MAY check it, but we don't.
+
+  /* "Content-Range" */
+  // This header is used with sub-range requests which we don't now
+  // support. We MAY send the whole resource with a 200, which we do.
+
+  /* "Content-Type" */
+  // I suppose we could get one of these with a PUT request, but we
+  // ignore it.
+
+  /* "Expires" */
+  // It looks like this header is only server to client.
+
+  /* "Last-Modified" */
+  // It looks like this header is server to client only. We SHOULD be
+  // sending it.
+
+
+  /* extension headers encountered: */
+  
+  /* "Keep-Alive" */
+  // This header is triggered by "Connection: keep-alive" from Firefox.
+
+
 
     
   /* Now do the method */
@@ -845,6 +1126,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	      if (!writeSSL(rs, buf, len)) {
 		/* Write error */
 		if(fileName) free(fileName);
+		tree = free_tree(tree);
 		return 0; /* Kill the connection */
 	      }
 	    }
@@ -854,6 +1136,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	  while ( (len=readFile(buf, sizeof(buf))) > 0) {
 	    if (!writeSSL(rs, buf, len)) {
 	      if (fileName) free(fileName);
+	      tree = free_tree(tree);
 	      return 0;
 	    }
 	  }
@@ -861,6 +1144,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	closeFile();
 	if(fileName) free(fileName);
 	fileName = NULL;
+	tree = free_tree(tree);
 	if (0 != len) return 0;  /* Read error, kill the connection */
       }
     } else {
@@ -883,6 +1167,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	  /* Network I/O error */
           destroyFile(fileName);
 	  free(fileName);
+	  free_tree(tree);
 	  return 0; /* Kill the connection */
 	}
 	len = rp.last - rp.first;
@@ -893,6 +1178,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	  writeMessage(rs, "File I/O error on write.", 0);
           destroyFile(fileName);
 	  free(fileName);
+	  tree = free_tree(tree);
 	  return 0;         /* Need to get back in sync with client */
 	}
 	contentLength -= len;
@@ -922,6 +1208,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   }
   /* Push any queued data to the network */
   if(fileName) free(fileName);
+  tree = free_tree(tree);
   if (mustClose) return 0;
   return 1;
   
@@ -980,6 +1267,33 @@ readToken(ReaderState *rs, ReadPtrs *rp, char *sepStr) {
     }
   }
   return 1;
+}
+
+
+/**
+ * scanToken - Scan a token from a string
+ *
+ * @param[in] rp is a ReadPtrs. It is assumed that it points to a previous
+ *               token, which will be skipped over.
+ * @param[in] sepStr is a string of separator characters which delimit the
+ *            token. Leading separator characters will be skipped and consumed.
+ *            The NUL at end of string always stops the scan.
+ *
+ *         When scanToken returns, rp->first will point to the next token,
+ *         and rp->next will point to the next separator. The characters 
+ *         from rp->first to rp->last-1 inclusive are the token.
+ */
+static void
+scanToken(ReadPtrs *rp, char *sepStr) {
+  char *cp;
+
+  scanConsumeSeps(rp, sepStr);
+  cp = findSeparator(rp, sepStr);
+  if (!cp) {
+    rp->last = rp->first + strlen(rp->first);
+  } else {
+    rp->last = cp;
+  }
 }
 
 /**
@@ -1126,6 +1440,31 @@ readConsumeSeps(ReaderState *rs, ReadPtrs *rp, char *first, char *sepStr) {
     }
   } while (readExtend(rs, rp));
   return 0;
+}
+
+/**
+ * scanConsumeSeps - Skip over any leading separators.
+ * 
+ * @param[in] rp is a ReadPtrs.
+ * @param[in] first is the first byte in the buffer still needed.
+ * @param[in] sepStr is a string of separator characters to scan for
+ *
+ *         rp will be set to the first non-separator and the amount of 
+ *         available data in the string.
+ */
+
+static void
+scanConsumeSeps(ReadPtrs *rp, char *sepStr) {
+  char c;
+  
+  while (1) {
+    c = *rp->first;
+    if (0 == c || !strchr(sepStr, c)) {
+      rp->last = rp->first + strlen(rp->first);
+      return;
+    }
+    rp->first++;
+  }
 }
 
 /**
