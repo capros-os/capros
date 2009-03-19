@@ -106,12 +106,14 @@ interface HTTPRequestHandler extends key {
         // Here are the real outputs:
             out unsigned long sendLimit);
 
+  /* getResponseStatus
+
+  Get the status code of the resource's response to the request.
+  The server will supply an appropriate reason phrase to the client. 
+  The server will specify an HTTP version of 1.1 for the response.
+  */
   void getResponseStatus(
-            out unsigned long /*HTTPVersion, compiler chokes*/ httpVersion,
-            out unsigned short statusCode,
-            out unsigned long lengthOfReasonPhrase,
-	/* The following is really an output string: */
-            out unsigned byte reasonPhrase);
+            out unsigned short statusCode);
 
   /** getResponseHeaderData - get the response headers
 
