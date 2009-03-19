@@ -67,15 +67,43 @@ interface HTTPRequestHandler extends key {
 	// Here are the real outputs:
                out unsigned long sendLimit);
 
+  /*
+  If the request contained an Expect header with the "100-continue" expectation,
+  the server will call the getContinueStatus method.
+  If the returned statusCode is 100 (continue), the server sends that
+  status code to the client, and continues reading the body.
+  Otherwise, the status code is sent to the client, ending the request
+  and response. 
+
+  The "100-continue" expectation is consumed by the server and not passed
+  to HTTPRequestHandler.headers().
+  */
+  void getContinueStatus(out unsigned short statusCode);
+
   /** body - transfer the entity-body
 
   If lengthOfBodyData is zero, that indicates the end of the body,
-  and sendLimit is ignored.
+  and sendLimit is used as the limit for the transfer of trailers, if any.
   */
   void body(unsigned long lengthOfBodyData,
 	/* The following is really an input string: */
             out unsigned byte bodyData,
 	// Here are the real outputs:
+            out unsigned long sendLimit);
+
+  /** trailer - transfer the trailer headers
+
+  If the headers contained a Trailer header, the server calls trailer()
+  to deliver the trailer headers.
+  The trailer header data has the same format as the request header data.
+
+  If lengthOfTrailerData is zero, that indicates the end of the trailer,
+  and sendLimit is ignored.
+  */
+  void trailer(unsigned long lengthOfTrailerData,
+        /* The following is really an input string: */
+            out unsigned byte trailerData,
+        // Here are the real outputs:
             out unsigned long sendLimit);
 
   void getResponseStatus(
@@ -103,14 +131,30 @@ interface HTTPRequestHandler extends key {
 
   dataLimit is the maximum number of bytes that may be returned.
 
-  If lengthOfBodyData is zero, that indicates the end of the body.
-  After that, the only valid call is key.destroy.
+  If lengthOfBodyData is zero, that indicates the end of the body,
+  and dataLimit is the limit of trailer data if any.
   */
   void getResponseBody(
           unsigned long dataLimit,
           out unsigned long lengthOfBodyData,
 	/* The following is really an output string: */
           out unsigned byte bodyData);
+
+  /** getResponseTrailer - transfer the trailer headers
+
+  If the response headers contained a Trailer header, the server calls trailer()
+  to get the trailer headers.
+  The trailer header data has the same format as the request header data.
+
+  If lengthOfTrailerData is zero, that indicates the end of the trailer,
+  and sendLimit is ignored.
+  After this call, the only valid call is key.destroy.
+  */
+  void getResponseTrailer(unsigned long lengthOfTrailerData,
+        /* The following is really an input string: */
+            out unsigned byte trailerData,
+        // Here are the real outputs:
+            out unsigned long sendLimit);
 
   /* HTTPRequestHandler obeys key.destroy(). */
 };
