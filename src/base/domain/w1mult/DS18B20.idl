@@ -9,14 +9,14 @@ interface DS18B20 extends key
 
   The value will have res binary digits of fraction.
   res must be in the range 1 through 4.
-  */
-  void configure(unsigned byte log2Seconds, unsigned byte res);
 
-  /* Get the latest temperature available.
+  Temperature changes will not be logged unless they exceed the specified
+  hysteresis, which is in units of 1/16 degree Celsius.
 
-  Returns the temperature in units of 1/16 degree Celsius.
-  time is the time at which the temperature was sampled,
-  in the same units as capros.RTC.getTime.
+  Returns a read-only capability to the Logfile containing records
+  of type W1Mult.LogRecord16 
+  in which the value field is the temperature in units of 1/16 degree Celsius.
   */
-  void getTemperature(out short temperature, out RTC.time_t time);
+  Logfile configure(unsigned byte log2Seconds, unsigned byte res,
+            unsigned short hysteresis);
 };

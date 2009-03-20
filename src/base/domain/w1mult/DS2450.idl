@@ -14,6 +14,8 @@ interface DS2450 extends key
     The input value will have bitsToConvert bits of resolution
       (1 <= bitsToConvert <= 16).
       Note, the DS2450 has only 8 bits of accuracy.
+    Data changes will not be logged unless they exceed the specified
+      hysteresis.
   */
   /* This should be a union, but unions aren't quite working
   in the current version of capidl. */
@@ -22,20 +24,21 @@ interface DS2450 extends key
     boolean rangeOrOutput;
     unsigned byte log2Seconds;
     unsigned byte bitsToConvert;
+    unsigned short hysteresis;
   };
   struct portsConfiguration {
     array <portConfiguration, 4> port;
   };
-  void configurePorts(portsConfiguration config);
 
-  /* Get the latest data available.
+  /*
+  Returns, for each port configured for input,
+  a read-only capability to the port's Logfile,
+  containing records of type W1Mult.LogRecord16 
+  in which the value field is data for that port.
 
-  Returns the A/D data.
-  time is the time at which the data were sampled,
-  in the same units as capros.RTC.getTime.
+  May raise SpaceBank.LimitReached.
   */
-  struct portsData {
-    array <unsigned short, 4> data;
-  };
-  void getData(out portsData data, out RTC.time_t time);
+  void configurePorts(portsConfiguration config,
+         out Logfile port0Log, out Logfile port1Log,
+         out Logfile port2Log, out Logfile port3Log);
 };

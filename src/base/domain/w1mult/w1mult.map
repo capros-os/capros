@@ -3,7 +3,7 @@
 #define __W1MULT_MAP_
 
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -26,12 +26,15 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <logfile.map>
+
 /*********************************************************
  * W1Mult program.
  *********************************************************/
 
 w1mult_constit = new node; // this is shared
 w1mult_constit[0] = snode_c;
+w1mult_constit[1] = logfilec;
 
 #define W1Mult(name, configseg) \
 name##w1mult_proc = new process; \

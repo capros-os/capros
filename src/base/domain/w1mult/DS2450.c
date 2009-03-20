@@ -191,8 +191,13 @@ The device hasn't been located on the network yet. */
 void
 DS2450_InitStruct(struct W1Device * dev)
 {
-  dev->u.ad.time = 0;  // no data yet
+  int i;
+
+  link_Init(&dev->u.ad.samplingQueueLink);
   dev->u.ad.requestedCfg[0].cfglo = 0xff;  // not configured yet
+  for (i = 0; i < 4; i++) {
+    dev->u.ad.port[i].logSlot = -1;	// no log yet
+  }
 }
 
 // The device must be addressed before calling.
@@ -267,10 +272,16 @@ DS2450_InitDev(struct W1Device * dev)
       dev->u.ad.devCfg[i].cfghi &= ~ hi_POR;
     }
   }
+
   DEBUG(ad) kprintf(KR_OSTREAM, "DS2450 %#llx is found.\n",
                    dev->rom);
   if (dev->u.ad.requestedCfg[0].cfglo != 0xff) {	// if it's configured
     CheckConfigured(dev);
+  }
+
+  // Ensure we log the next readings:
+  for (i = 0; i < 4; i++) {
+    dev->u.ad.port[i].hysteresisLow = 0x20000;
   }
 }
 
@@ -342,8 +353,6 @@ Convert(struct Branch * br)
   }
 }
 
-capros_RTC_time_t sampledTime;
-
 static void
 readData(struct W1Device * dev)
 {
@@ -357,8 +366,24 @@ readData(struct W1Device * dev)
   }
   DEBUG(doall) kprintf(KR_OSTREAM, "DS2450 %#llx sampled at %u\n",
                        dev->rom, sampledTime);
-  dev->u.ad.time = sampledTime;
-  memcpy(&dev->u.ad.data, &inBuf, 8);
+  int i;
+  for (i = 0; i < 4; i++) {
+    if (! (dev->u.ad.requestedCfg[i].cfglo & lo_OE)) {	// input port
+      uint16_t data = inBuf[i*2] | (inBuf[i*2+1] << 8);
+      if (data < dev->u.ad.port[i].hysteresisLow
+          || data > dev->u.ad.port[i].hysteresisLow
+                           + dev->u.ad.port[i].hysteresis ) {
+        // Temperature changed sufficiently to log.
+        if (AddLogRecord16(dev->u.ad.port[i].logSlot, data, 0)) {
+          if (data < dev->u.ad.port[i].hysteresisLow)
+            dev->u.ad.port[i].hysteresisLow = data;
+          else
+            dev->u.ad.port[i].hysteresisLow = data
+                                          - dev->u.ad.port[i].hysteresis;
+        }
+      }
+    }
+  }
 }
 
 static void
@@ -401,7 +426,8 @@ DS2450_HeartbeatAction(uint32_t hbCount)
     thisCount = hbCount + heartbeatSeed;
   }
   MarkForSampling(thisCount, &DS2450_samplingQueue[0],
-                  &DS2450_samplingListHead);
+                  &DS2450_samplingListHead,
+                  offsetof(struct W1Device, u.ad.samplingQueueLink) );
 
   // Don't let the heart beat again until we are done with this round:
   DisableHeartbeat(hbBit_DS2450);
@@ -436,6 +462,20 @@ DS2450_HeartbeatAction(uint32_t hbCount)
   DEBUG(doall) kprintf(KR_OSTREAM, "DS2450_HeartbeatAction done\n");
 }
 
+static void
+ReturnLog(struct W1Device * dev,
+  unsigned int i, cap_t kr, uint8_t * sndkey)
+{
+  if (dev->u.ad.requestedCfg[i].cfglo & lo_OE) {	// output port
+    *sndkey = KR_VOID;		// no log needed for output
+  } else {		// input port
+    result_t result = capros_Node_getSlotExtended(KR_KEYSTORE,
+                        dev->u.ad.port[i].logSlot, kr);
+    assert(result == RC_OK);
+    *sndkey = kr;
+  }
+}
+
 void
 DS2450_ProcessRequest(struct W1Device * dev, Message * msg)
 {
@@ -453,15 +493,27 @@ DS2450_ProcessRequest(struct W1Device * dev, Message * msg)
     if (msg->rcv_sent < sizeof(capros_DS2450_portsConfiguration)) {
 reqerr:
       msg->snd_code = RC_capros_key_RequestError;
+err: ;
     } else {
       capros_DS2450_portConfiguration * portConfig = msg->rcv_data;
       int i;
-      // Validate all before setting requestedCfg.
+      // Validate all before creating logs.
       for (i = 0; i < 4; i++) {
         if (! portConfig[i].output
             && (portConfig[i].bitsToConvert <= 0
                 || portConfig[i].bitsToConvert > 16)) {
           goto reqerr;
+        }
+      }
+      // Create all logs before setting requestedCfg.
+      for (i = 0; i < 4; i++) {
+        if (! portConfig[i].output
+            && dev->u.ad.port[i].logSlot == -1) {
+          result_t result = CreateLog(&dev->u.ad.port[i].logSlot);
+          if (result != RC_OK) {
+            msg->snd_code = result;
+            goto err;
+          }
         }
       }
       struct portCfg * cfg = &dev->u.ad.requestedCfg[0];
@@ -476,27 +528,24 @@ reqerr:
           if (portConfig[i].log2Seconds < minLog2Seconds)
             minLog2Seconds = portConfig[i].log2Seconds;
         }
+        dev->u.ad.port[i].hysteresis = portConfig[i].hysteresis;
+        dev->u.ad.port[i].hysteresisLow = 0x20000;	// log the next reading
       }
 
-      link_Unlink(&dev->samplingQueueLink);
+      link_Unlink(&dev->u.ad.samplingQueueLink);
       link_insertAfter(&DS2450_samplingQueue[minLog2Seconds],
-                       &dev->samplingQueueLink);
+                       &dev->u.ad.samplingQueueLink);
 
       if (dev->found) {
         CheckConfigured(dev);
       }
+      // Return the relevant logs.
+      ReturnLog(dev, 0, KR_TEMP0, &msg->snd_key0);
+      ReturnLog(dev, 1, KR_TEMP1, &msg->snd_key1);
+      ReturnLog(dev, 2, KR_TEMP2, &msg->snd_key2);
+      ReturnLog(dev, 3, KR_TEMP3, &msg->snd_rsmkey);
     }
     break;
   }
-
-  case OC_capros_DS2450_getData:
-  {
-    //// wait if no data?
-    msg->snd_w1 = dev->u.ad.time;
-    msg->snd_data = &dev->u.ad.data;
-    msg->snd_len = 8;
-    break;
-  }
-
   }
 }

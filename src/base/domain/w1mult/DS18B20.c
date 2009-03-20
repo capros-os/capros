@@ -143,7 +143,10 @@ The device hasn't been located on the network yet. */
 void
 DS18B20_InitStruct(struct W1Device * dev)
 {
-  dev->u.thermom.time = 0;  // no temperature yet
+  result_t result;
+  link_Init(&dev->u.thermom.samplingQueueLink);
+  result = CreateLog(&dev->u.thermom.logSlot);
+  assert(result == RC_OK);
   dev->u.thermom.resolution = 255;  // not specified yet
 }
 
@@ -182,6 +185,10 @@ DS18B20_InitDev(struct W1Device * dev)
     dev->found = false;
     return;
   }
+
+  // Ensure we log the next readings:
+  dev->u.thermom.hysteresisLow = 16384;
+
   dev->u.thermom.spadConfig = inBuf[4] & 0x60;
   if (dev->u.thermom.resolution != 255) {	// if it's configured
     CheckConfigured(dev);
@@ -258,8 +265,6 @@ ConvertT(struct Branch * br)
   RunProgram();
 }
 
-capros_RTC_time_t sampledTime;
-
 static void
 readTemperature(struct W1Device * dev)
 {
@@ -268,8 +273,19 @@ readTemperature(struct W1Device * dev)
   ProgramReset();
   ProgramMatchROM(dev);
   if (! ReadSpad(dev)) {
-    dev->u.thermom.time = sampledTime;
-    dev->u.thermom.temperature = inBuf[0] + (inBuf[1] << 8);
+    int temperature = inBuf[0] + (inBuf[1] << 8);
+    if (temperature < dev->u.thermom.hysteresisLow
+        || temperature > dev->u.thermom.hysteresisLow
+                         + dev->u.thermom.hysteresis ) {
+      // Temperature changed sufficiently to log.
+      if (AddLogRecord16(dev->u.thermom.logSlot, temperature, 0)) {
+        if (temperature < dev->u.thermom.hysteresisLow)
+          dev->u.thermom.hysteresisLow = temperature;
+        else
+          dev->u.thermom.hysteresisLow = temperature
+                                        - dev->u.thermom.hysteresis;
+      }
+    }
   }
 }
 
@@ -320,7 +336,8 @@ DS18B20_HeartbeatAction(uint32_t hbCount)
     thisCount = hbCount + heartbeatSeed;
   }
   MarkForSampling(thisCount, &DS18B20_samplingQueue[0],
-                  &DS18B20_samplingListHead);
+                  &DS18B20_samplingListHead,
+                  offsetof(struct W1Device, u.thermom.samplingQueueLink) );
 
   // Don't let the heart beat again until we are done with this round:
   DisableHeartbeat(hbBit_DS18B20);
@@ -342,7 +359,8 @@ DS18B20_HeartbeatAction(uint32_t hbCount)
     // When all conversions are complete, read the results.
     RecordCurrentRTC();
     RecordCurrentTime();
-    sampledTime = currentRTC;
+    sampledRTC = currentRTC;
+    sampledTime = currentTime;
     latestConvertTTime = currentTime;
 
     // A resolution of 1 binary digit takes 93.75 milliseconds.
@@ -371,34 +389,33 @@ DS18B20_ProcessRequest(struct W1Device * dev, Message * msg)
 
   case OC_capros_DS18B20_configure:
   {
-    uint8_t log2Seconds = msg->rcv_w1;
-    uint8_t res = msg->rcv_w2;
+    unsigned int log2Seconds = msg->rcv_w1;
+    unsigned int res = msg->rcv_w2;
+    uint16_t hyst = msg->rcv_w3;
 
-    if (res < 1 || res > 4) {
+    if (log2Seconds > 255
+        || res > 4
+        || res < 1
+        || hyst >= 32768 ) {
       msg->snd_code = RC_capros_key_RequestError;
     } else {
       dev->u.thermom.resolution = res;
+      dev->u.thermom.hysteresis = hyst;
+      dev->u.thermom.hysteresisLow = 16384;	// log the next reading
 
       if (log2Seconds > maxLog2Seconds)
         log2Seconds = maxLog2Seconds;	// no harm in sampling more often
-      link_Unlink(&dev->samplingQueueLink);
+      link_Unlink(&dev->u.thermom.samplingQueueLink);
       link_insertAfter(&DS18B20_samplingQueue[log2Seconds],
-                       &dev->samplingQueueLink);
+                       &dev->u.thermom.samplingQueueLink);
 
       if (dev->found) {
         CheckConfigured(dev);
       }
+      GetLogfile(dev->u.thermom.logSlot);
+      msg->snd_key0 = KR_TEMP0;
     }
     break;
   }
-
-  case OC_capros_DS18B20_getTemperature:
-  {
-    //// wait if no data?
-    msg->snd_w1 = dev->u.thermom.temperature;
-    msg->snd_w2 = dev->u.thermom.time;
-  }
-    break;
-
   }
 }

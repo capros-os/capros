@@ -40,14 +40,16 @@ Approved for public release, distribution unlimited. */
  * a Convert V or Copy Scrachpad command. */
 capros_Sleep_nanoseconds_t VEEExpiry;
 
-Link DS2438_samplingQueue[maxLog2Seconds+1];
+Link DS2438_TSamplingQueue[maxLog2Seconds+1];
+Link DS2438_VSamplingQueue[maxLog2Seconds+1];
 
 void
 DS2438_Init(void)
 {
   int i;
   for (i = 0; i <= maxLog2Seconds; i++) {
-    link_Init(&DS2438_samplingQueue[i]);
+    link_Init(&DS2438_TSamplingQueue[i]);
+    link_Init(&DS2438_VSamplingQueue[i]);
   }
 }
 
@@ -57,10 +59,13 @@ The device hasn't been located on the network yet. */
 void
 DS2438_InitStruct(struct W1Device * dev)
 {
-  dev->u.bm.tTime = 0;  // no data yet
-  dev->u.bm.vTime = 0;  // no data yet
-  dev->u.bm.voltageIsRead = true;	// there is no converted unread data
-  dev->u.bm.tempLog2Sec = 255;	// don't sample temperature
+  result_t result;
+  link_Init(&dev->u.bm.tSamplingQueueLink);
+  link_Init(&dev->u.bm.vSamplingQueueLink);
+  result = CreateLog(&dev->u.bm.tempLogSlot);
+  assert(result == RC_OK);
+  result = CreateLog(&dev->u.bm.voltLogSlot);
+  assert(result == RC_OK);
   // Default configuration: accumEE, no Vad.
   dev->u.bm.configReg = scr_IAD | scr_CA | scr_EE | scr_AD;
   dev->u.bm.threshReg = 0;
@@ -68,7 +73,8 @@ DS2438_InitStruct(struct W1Device * dev)
 
 /* As far as I know, the device can't respond to other commands
  * while it is busy doing a conversion or copying to EEPROM.
- * Wait for those activities to be done. */
+ * Wait for those activities to be done.
+ * On entry, currentTime must be current. */
 void
 WaitUntilNotBusy(void)
 {
@@ -141,6 +147,27 @@ AddressRecallAndReadPage(struct W1Device * dev, unsigned int page)
   int tries = 0;
   while (1) {
     AddressDevice(dev);
+    int status = RecallAndReadPage(dev, 0);
+    if (status) {
+      if (status == capros_W1Bus_StatusCode_BusError
+          || status == capros_W1Bus_StatusCode_CRCError) {
+        if (++tries < 4) {
+          continue;	// try again
+        }
+      }
+    }
+    return status;
+  }
+}
+
+static int
+MatchRecallAndReadPage(struct W1Device * dev, unsigned int page)
+{
+  int tries = 0;
+  while (1) {
+    // The device is on active branches, so we can just address it:
+    ProgramReset();
+    ProgramMatchROM(dev);
     int status = RecallAndReadPage(dev, 0);
     if (status) {
       if (status == capros_W1Bus_StatusCode_BusError
@@ -267,6 +294,10 @@ DS2438_InitDev(struct W1Device * dev)
     }
   }
 
+  // Ensure we log the next readings:
+  dev->u.bm.tempHysteresisLow = 16384;
+  dev->u.bm.voltHysteresisLow = 16384;
+
   DEBUG(bm) kprintf(KR_OSTREAM, "DS2438 %#llx is found.\n",
                    dev->rom);
 }
@@ -276,6 +307,76 @@ from going off in sync. */
 #define heartbeatSeed 3
 
 struct W1Device * DS2438_samplingListHead;
+
+static void
+readTemp(struct W1Device * dev)
+{
+  RecordCurrentTime();
+  WaitUntilNotBusy();
+  // The device is on active branches, so we can just address it:
+  ProgramReset();
+  ProgramMatchROM(dev);
+  wp(capros_W1Bus_stepCode_writeBytes)
+  wp(1)
+  wp(0x44)	// Convert T
+  int status = RunProgram();
+  if (! status) {
+    RecordCurrentRTC();
+    RecordCurrentTime();
+    sampledRTC = currentRTC;
+    sampledTime = currentTime;
+    latestConvertTTime = currentTime;
+    WaitUntilNotBusy();	// wait for the convert T to finish
+    do {
+      int status = MatchRecallAndReadPage(dev, 0);
+      if (status)
+        goto buserr;
+    } while (inBuf[0] & scr_TB);	// if still busy, try again
+    int16_t temperature = (inBuf[1] | (inBuf[2] << 8)) >> 3;
+    temperature &= dev->u.bm.tempResolutionMask;
+    if (temperature < dev->u.bm.tempHysteresisLow
+        || temperature > dev->u.bm.tempHysteresisLow
+                         + dev->u.bm.tempHysteresis ) {
+      // Temperature changed sufficiently to log.
+      if (AddLogRecord16(dev->u.bm.tempLogSlot, temperature, 0)) {
+        if (temperature < dev->u.bm.tempHysteresisLow)
+          dev->u.bm.tempHysteresisLow = temperature;
+        else
+          dev->u.bm.tempHysteresisLow = temperature
+                                        - dev->u.bm.tempHysteresis;
+      }
+    }
+  buserr: ;
+  }
+  DEBUG(doall) kprintf(KR_OSTREAM, "DS2438 %#llx temp sampled at %u\n",
+                       dev->rom, sampledTime);
+}
+
+static void
+readVolts(struct W1Device * dev)
+{
+  do {
+    int status = MatchRecallAndReadPage(dev, 0);
+    if (status) return;
+  } while (inBuf[0] & scr_ADB);	// if still busy, try again
+  uint16_t voltage = inBuf[3] | (inBuf[4] << 8);
+  voltage &= dev->u.bm.voltResolutionMask;
+  if (voltage < dev->u.bm.voltHysteresisLow
+      || voltage > dev->u.bm.voltHysteresisLow
+                       + dev->u.bm.voltHysteresis ) {
+    // Temperature changed sufficiently to log.
+    if (AddLogRecord16(dev->u.bm.voltLogSlot, voltage,
+                       dev->u.bm.voltSelect )) {
+      if (voltage < dev->u.bm.voltHysteresisLow)
+        dev->u.bm.voltHysteresisLow = voltage;
+      else
+        dev->u.bm.voltHysteresisLow = voltage
+                                      - dev->u.bm.voltHysteresis;
+    }
+  }
+  DEBUG(doall) kprintf(KR_OSTREAM, "DS2438 %#llx volt sampled at %u\n",
+                       dev->rom, sampledTime);
+}
 
 /* We can save addressing each individual device
  * and just issue a Convert to all active devices.
@@ -300,8 +401,8 @@ DS2438_HeartbeatAction(uint32_t hbCount)
     kprintf(KR_OSTREAM, "DS2438_HeartbeatAction called at %llu ms "
                  "wq0=%#x wq1=%#x\n",
                  currentTime/1000000,
-                 DS2438_samplingQueue[0].next,
-                 DS2438_samplingQueue[1].next);
+                 DS2438_VSamplingQueue[0].next,
+                 DS2438_VSamplingQueue[1].next);
   }
 
   uint32_t thisCount;
@@ -311,32 +412,49 @@ DS2438_HeartbeatAction(uint32_t hbCount)
   } else {
     thisCount = hbCount + heartbeatSeed;
   }
-  MarkForSampling(thisCount, &DS2438_samplingQueue[0],
-                  &DS2438_samplingListHead);
+
+  // Sample temperature.
+  MarkForSampling(thisCount, &DS2438_TSamplingQueue[0],
+                  &DS2438_samplingListHead,
+                  offsetof(struct W1Device, u.bm.tSamplingQueueLink) );
+  /* We do not broadcast Convert T (that is, send with Skip ROM) for DS2438's
+  because that could trigger DS18B20's, which would make them busy
+  for up to 750 ms. Instead, we just read each device individually.
+  Convert T takes up to 10 ms. */
+  DoAllWorkFunction = &DoEach;
+  DoEachWorkFunction = &readTemp;
+  DoAll(&root);
+  UnmarkSamplingList(DS2438_samplingListHead);
+
+  // Sample voltage.
+  MarkForSampling(thisCount, &DS2438_VSamplingQueue[0],
+                  &DS2438_samplingListHead,
+                  offsetof(struct W1Device, u.bm.vSamplingQueueLink) );
 
   if (DS2438_samplingListHead) {	// if there are any this time
     DoAllWorkFunction = &ConvertV;
     DoAll(&root);
-    // We could be busy on the Convert V for 10 ms:
+
     RecordCurrentTime();
     RecordCurrentRTC();
+    sampledTime = currentTime;
+    sampledRTC = currentRTC;
+
+    // We could be busy on the Convert V for 10 ms:
     VEEExpiry = currentTime + 10000000;
     DEBUG(bm) kprintf(KR_OSTREAM, "Sampled at %llu ms", currentTime/1000000);
-
-    UnmarkSamplingList(DS2438_samplingListHead);
-
-    // Record the time sampled:
-    struct W1Device * dev;
-    for (dev = DS2438_samplingListHead; dev; dev = dev->nextInSamplingList) {
-      dev->u.bm.vTime = currentRTC;
-      dev->u.bm.voltageIsRead = false;	// converted, but not read
-    }
 
     /* Wait right now until the DS2438's aren't busy.
      * That way, when we continue to the DS18B20 heartbeat, which
      * broadcasts Convert T, which may inadvertently be seen by DS2438's,
      * those DS2438's won't be busy and so won't be confused. */
     WaitUntilNotBusy();
+
+    DoAllWorkFunction = &DoEach;
+    DoEachWorkFunction = &readVolts;
+    DoAll(&root);
+
+    UnmarkSamplingList(DS2438_samplingListHead);
   }
   DEBUG(doall) kprintf(KR_OSTREAM, "DS2438_HeartbeatAction done\n");
 }
@@ -355,37 +473,74 @@ DS2438_ProcessRequest(struct W1Device * dev, Message * msg)
 
   case OC_capros_DS2438_configureTemperature:
   {
-    if (msg->rcv_w1 > 255) {
+    unsigned int log2Seconds = msg->rcv_w1;
+    int resolution = msg->rcv_w2;
+    unsigned int hysteresis = msg->rcv_w3;
+    if (log2Seconds > 255
+        || resolution > 5
+        || resolution < -6
+        || hysteresis >= 32768 ) {
 reqerr:
       msg->snd_code = RC_capros_key_RequestError;
     } else {
-      dev->u.bm.tempLog2Sec = msg->rcv_w1;
+      dev->u.bm.tempResolutionMask = (-(1 << 11)) >> (resolution + 6);
+      dev->u.bm.tempHysteresis = hysteresis;
+      dev->u.bm.tempHysteresisLow = 16384;	// log the next reading
+
+      link_Unlink(&dev->u.bm.tSamplingQueueLink);
+      if (log2Seconds != 255) {
+        if (log2Seconds > maxLog2Seconds)
+          log2Seconds = maxLog2Seconds;	// no harm in sampling more often
+        link_insertAfter(&DS2438_TSamplingQueue[log2Seconds],
+                         &dev->u.bm.tSamplingQueueLink);
+      }
+      GetLogfile(dev->u.bm.tempLogSlot);
+      msg->snd_key0 = KR_TEMP0;
     }
     break;
   }
 
-  case OC_capros_DS2438_configureVoltage:
   {
-    unsigned int vddBit = msg->rcv_w1 ? scr_AD : 0;
-    unsigned int log2Seconds = msg->rcv_w2;
-    if (log2Seconds > 255)
+    int select;
+  case OC_capros_DS2438_configureVoltageVad:
+    select = 0;
+    goto configV;
+
+  case OC_capros_DS2438_configureVoltageVdd:
+    select = 1;
+  configV: ;
+    unsigned int log2Seconds = msg->rcv_w1;
+    int resolution = msg->rcv_w2;
+    unsigned int hysteresis = msg->rcv_w3;
+    if (log2Seconds > 255
+        || resolution > 0
+        || resolution < -9
+        || hysteresis >= 32768 )
       goto reqerr;
 
-    link_Unlink(&dev->samplingQueueLink);
-    if (log2Seconds != 255) {
-      if (log2Seconds > maxLog2Seconds)
-        log2Seconds = maxLog2Seconds;	// no harm in sampling more often
-      link_insertAfter(&DS2438_samplingQueue[log2Seconds],
-                       &dev->samplingQueueLink);
-    }
-
+    unsigned int vddBit = select ? scr_AD : 0;
     DEBUG(bm) kprintf(KR_OSTREAM, "configureV %d", vddBit);
     if ((dev->u.bm.configReg & scr_AD) != vddBit) {	// changing AD bit
       dev->u.bm.configReg ^= scr_AD;
-      dev->u.bm.vTime = 0;	// We don't have a reading for this voltage
       int status = SetConfigurationIfFound(dev);
       if (status) goto buserr;
     }
+
+    dev->u.bm.voltSelect = select;
+    dev->u.bm.voltResolutionMask = (-(1 << 9)) >> (resolution + 9);
+    dev->u.bm.voltHysteresis = hysteresis;
+    dev->u.bm.voltHysteresisLow = 16384;	// log the next reading
+
+    link_Unlink(&dev->u.bm.vSamplingQueueLink);
+    if (log2Seconds != 255) {
+      if (log2Seconds > maxLog2Seconds)
+        log2Seconds = maxLog2Seconds;	// no harm in sampling more often
+      link_insertAfter(&DS2438_VSamplingQueue[log2Seconds],
+                       &dev->u.bm.vSamplingQueueLink);
+    }
+
+    GetLogfile(dev->u.bm.voltLogSlot);
+    msg->snd_key0 = KR_TEMP0;
     break;
   }
 
@@ -408,71 +563,14 @@ reqerr:
     if (dev->u.bm.configReg != newConfig) {
       dev->u.bm.configReg = newConfig;
       int status = SetConfigurationIfFound(dev);
-      if (status) goto buserr;
-    }
-    break;
-  }
-
-  case OC_capros_DS2438_getTemperature:
-  {
-    /* We do not broadcast Convert T (that is, send with Skip ROM) for DS2438's
-    because that could trigger DS18B20's, which would make them busy
-    for up to 750 ms. Instead, we just read each device when we need to. */
-    RecordCurrentRTC();
-    // If the reading we have is too old, read again.
-    if ((dev->u.bm.tTime == 0
-         || currentRTC >= dev->u.bm.tTime + (1 << dev->u.bm.tempLog2Sec) )
-        && dev->found ) {
-      RecordCurrentTime();
-      WaitUntilNotBusy();
-      AddressDevice(dev);
-      wp(capros_W1Bus_stepCode_writeBytes)
-      wp(1)
-      wp(0x44)	// Convert T
-      int status = RunProgram();
       if (status) {
 buserr:
         msg->snd_code = RC_capros_DS2438_BusError;
         break;
       }
-      RecordCurrentRTC();
-      RecordCurrentTime();
-      latestConvertTTime = currentTime;
-      WaitUntilNotBusy();	// wait for the convert T to finish
-      do {
-        int status = AddressRecallAndReadPage(dev, 0);
-        if (status)
-          goto buserr;
-      } while (inBuf[0] & scr_TB);	// if still busy, try again
-      dev->u.bm.tTime = currentRTC;
-      dev->u.bm.temperature = inBuf[1] | (inBuf[2] << 8);
     }
-    msg->snd_w1 = dev->u.bm.temperature;
-    msg->snd_w2 = dev->u.bm.tTime;
     break;
   }
-
-  case OC_capros_DS2438_getVoltage:
-  {
-    /* We periodically issue Convert V commands.
-    If voltageIsRead, we have read the voltage and saved it in dev. */
-    if (! dev->u.bm.voltageIsRead
-        && dev->found ) {
-      /* Get the result from the device. */
-      WaitUntilNotBusy();
-      do {
-        int status = AddressRecallAndReadPage(dev, 0);
-        if (status)
-          goto buserr;
-      } while (inBuf[0] & scr_ADB);	// if still busy, try again
-      dev->u.bm.voltageIsRead = true;
-      dev->u.bm.voltage = inBuf[3] | (inBuf[4] << 8);
-    }
-    msg->snd_w1 = dev->u.bm.voltage;
-    msg->snd_w2 = dev->u.bm.vTime;
-    break;
-  }
-
   case OC_capros_DS2438_getCurrent:
   {
     if (! dev->found) {

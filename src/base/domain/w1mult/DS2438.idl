@@ -7,51 +7,60 @@ interface DS2438 extends key
   exception BusError;
   exception Offline;
 
-  /* Set the temperature sampling frequency.
+  /* Set the temperature sampling parameters.
 
   The temperature will be sampled every 2**log2Seconds seconds.
   If log2Seconds is 255, the temperature will not be sampled.
+
+  The sampled value will be truncated (not rounded)
+    to resolution binary bits of resolution.
+  resolution must be between 5 and -6 inclusive.
+  A resolution of 5 means there will be no truncation and values will
+  be reported to the full resolution of 1/32 degree Celsius.
+
+  Temperature changes will not be logged unless they exceed the specified
+  hysteresis, which is in units of 1/32 degree Celsius.
+
+  Returns a read-only capability to the Logfile containing records
+  of type W1Mult.LogRecord16 
+  in which the value field is the temperature in units of 1/32 degree Celsius.
   */
-  void configureTemperature(unsigned byte log2Seconds);
+  Logfile configureTemperature(unsigned byte log2Seconds,
+            byte resolution,
+            unsigned short hysteresis);
 
-  /* Get the latest temperature available.
+  /* Set the voltage sampling configuration.
 
-  Returns the temperature in units of 1/32 degree Celsius.
-  time is the time at which the temperature was sampled,
-  in the same units as capros.RTC.getTime.
-  If no temperature has ever been sampled,
-  time is zero and temperature is not valid.
-
-  This operation can take up to 20 milliseconds or more.
-  May raise BusError.
-  */
-  void getTemperature(out short temperature, out RTC.time_t time);
-
-  /* Set the voltage sampling frequency.
-
-  Vdd selects the Vdd voltage to be converted if true, Vad if false.
-
-  The configured voltage will be sampled every 2**log2Seconds seconds.
-  If log2Seconds is 255, the voltage will not be sampled.
-  May raise BusError.
-  */
-  void configureVoltage(boolean Vdd, unsigned byte log2Seconds);
-
-  /* Get the latest voltage available.
-
-  Returns the voltage in units of 10mV.
+  configureVoltageVdd specifies that only the Vdd voltage will be sampled.
+  configureVoltageVad specifies that only the Vad voltage will be sampled.
   Note that the DS2438 specs are that Vdd must be >= 2.4V, and
-  Vad is accurate for 1.5V < Vad < 2Vdd.
+  Vad is accurate for 1.5V < Vad < 2 * Vdd.
 
-  time is the time at which the voltage was sampled,
-  in the same units as capros.RTC.getTime.
-  If no voltage has ever been sampled,
-  time is zero and temperature is not valid.
+  The selected voltage will be sampled every 2**log2Seconds seconds.
+  If log2Seconds is 255, the voltage will not be sampled.
 
-  This operation can take up to 10 milliseconds or more.
+  The sampled value will be truncated to resolution binary bits of resolution.
+  resolution must be between 0 and -9 inclusive.
+  A resolution of 0 means there will be no truncation and values will
+  be reported to the full resolution of 10 mV.
+
+  Voltage changes will not be logged unless they exceed the specified
+  hysteresis, which is in units of 10 mV.
+
+  Returns a read-only capability to the Logfile containing records
+  of type W1Mult.LogRecord16 
+  in which the value field is the voltage in units of 10 mV
+  and the param field is 0 for Vad, 1 for Vdd.
+
   May raise BusError.
   */
-  void getVoltage(out unsigned short voltage, out RTC.time_t time);
+  Logfile configureVoltageVdd(unsigned byte log2Seconds,
+            byte resolution,
+            unsigned short hysteresis);
+
+  Logfile configureVoltageVad(unsigned byte log2Seconds,
+            byte resolution,
+            unsigned short hysteresis);
 
   /* Configure current measurement. 
   May raise BusError.

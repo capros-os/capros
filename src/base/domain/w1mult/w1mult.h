@@ -22,12 +22,15 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <stdint.h>
+#include <stddef.h>
 #include <string.h>
 #include <eros/Link.h>
 #include <eros/Invoke.h>
+#include <idl/capros/Node.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/W1Bus.h>
 #include <idl/capros/RTC.h>
+#include <idl/capros/Logfile.h>
 #include <domain/Runtime.h>
 
 #define dbg_errors 0x1
@@ -44,14 +47,16 @@ Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
+#define KC_SNODEC 0
+#define KC_LOGFILEC 1
+
 #define KR_OSTREAM KR_APP(0)
 #define KR_SLEEP   KR_APP(1)
 #define KR_RTC     KR_APP(2)
 #define KR_TIMPROC KR_APP(3)
 #define KR_W1BUS   KR_APP(4)
-#define KR_SNODE   KR_APP(5)
-#define KR_TIMRESUME KR_APP(6)
-#define KR_NEXTW1BUS KR_APP(7)
+#define KR_TIMRESUME KR_APP(5)
+#define KR_NEXTW1BUS KR_APP(6)
 
 // The family code is the low byte of the ROM ID.
 enum {
@@ -85,7 +90,6 @@ struct W1Device {
   uint64_t rom;
   struct Branch * parentBranch;	// branch this device is connected to
   struct W1Device * nextChild;
-  Link samplingQueueLink;
   struct W1Device * nextInSamplingList;
   struct W1Device * nextInWorkList;
   bool onWorkList;
@@ -100,31 +104,42 @@ struct W1Device {
       struct Branch auxBranch;
     } coupler;
     struct {
-      capros_RTC_time_t time;	// time at which temperature was sampled
-      int16_t temperature;	// in units of 1/16 degree Celsius
+      Link samplingQueueLink;
+      int32_t logSlot;	// slot in KR_KEYSTORE with Logfile
       uint8_t resolution;	// 1 through 4, bits after the binary point
 			// 255 means the resolution hasn't been specified yet
       uint8_t spadConfig;	// config register in SPAD
       uint8_t eepromConfig;	// config register in EEPROM
+      uint16_t hysteresis;
+      int hysteresisLow;
     } thermom;
     struct {
-      capros_RTC_time_t time;	// time at which data was sampled
+      Link samplingQueueLink;
       struct portCfg {
         uint8_t cfglo;
         uint8_t cfghi;
       } requestedCfg[4];
       struct portCfg devCfg[4];
-      uint16_t data[4];		// little-endian
+      struct {
+        int32_t logSlot;	// slot in KR_KEYSTORE with Logfile, -1 if none
+        uint16_t hysteresis;
+        unsigned long hysteresisLow;
+      } port[4];
     } ad;
     struct {		// DS2438 battery monitor
-      capros_RTC_time_t tTime;	// time at which temperature was sampled
-      capros_RTC_time_t vTime;	// time at which voltage was sampled
-      uint16_t temperature;
-      uint16_t voltage;
-      bool voltageIsRead;	// whether voltage has been read
+      Link tSamplingQueueLink;
+      Link vSamplingQueueLink;
+      int32_t tempLogSlot;	// slot in KR_KEYSTORE with temperature Logfile
+      int32_t voltLogSlot;	// slot in KR_KEYSTORE with voltage Logfile
       uint8_t configReg;
       uint8_t threshReg;
-      uint8_t tempLog2Sec;
+      int16_t tempResolutionMask;
+      uint16_t tempHysteresis;
+      int tempHysteresisLow;
+      uint16_t voltSelect;	// 0 for Vad, 1 for Vdd
+      int16_t voltResolutionMask;
+      uint16_t voltHysteresis;
+      unsigned int voltHysteresisLow;
     } bm;
   } u;
 };
@@ -136,6 +151,10 @@ struct w1Timer {
   void * arg;
   void (*function)(void * arg);	
 };
+
+result_t CreateLog(int32_t * pSlot);
+void GetLogfile(unsigned int slot);
+bool AddLogRecord16(unsigned int slot, int16_t value, int16_t param);
 
 struct W1Device * BranchToCoupler(struct Branch * br);
 
@@ -191,8 +210,10 @@ NotReset(void)
 }
 
 extern capros_Sleep_nanoseconds_t currentTime;
-void RecordCurrentTime(void);
 extern capros_RTC_time_t currentRTC;
+extern capros_Sleep_nanoseconds_t sampledTime;
+extern capros_RTC_time_t sampledRTC;
+void RecordCurrentTime(void);
 void RecordCurrentRTC(void);
 
 void InsertTimer(struct w1Timer * timer);
@@ -207,7 +228,8 @@ extern capros_Sleep_nanoseconds_t latestConvertTTime;
 extern struct Branch root;
 
 void MarkForSampling(uint32_t hbCount, Link * samplingQueue,
-  struct W1Device * * samplingListHead);
+  struct W1Device * * samplingListHead,
+  size_t devLinkOffset);
 void MarkSamplingList(struct W1Device * dev);
 void UnmarkSamplingList(struct W1Device * dev);
 extern void (*DoAllWorkFunction)(struct Branch * br);

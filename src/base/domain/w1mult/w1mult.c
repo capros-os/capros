@@ -40,6 +40,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Constructor.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/W1Mult.h>
+#include <idl/capros/DS2450.h>
 
 #include <domain/domdbg.h>
 #include <domain/assert.h>
@@ -62,8 +63,6 @@ unsigned long __rt_runtime_hook = 0;
 unsigned long __rt_stack_pointer = 0x1e000;
 #define timer_stack_pointer 0x1f000
 #define configFileAddr 0x1f000
-
-#define KC_SNODEC 0
 
 static void ScanBus(void);
 
@@ -111,6 +110,93 @@ w1dev_IsBatt(struct W1Device * dev)
 }
 #endif
 
+/*************************** SuperNode stuff ***************************/
+
+unsigned int nextSnodeSlot = 0;
+// Slots in the SuperNode are never deallocated.
+
+unsigned int
+AllocSuperNodeSlot(void)
+{
+  result_t result;
+  result = capros_SuperNode_allocateRange(KR_KEYSTORE,
+             nextSnodeSlot, nextSnodeSlot);
+  if (result != RC_OK) {
+    DEBUG(errors)
+      kprintf(KR_OSTREAM, "w1mult SuperNode_allocateRange got %#x!\n", result);
+    assert(result == RC_OK);	// FIXME
+  }
+  return nextSnodeSlot++;
+}
+
+result_t
+CreateLog(int32_t * pSlot)
+{
+  result_t result;
+
+  unsigned int slot = AllocSuperNodeSlot();
+  capros_Node_getSlotExtended(KR_CONSTIT, KC_LOGFILEC, KR_TEMP1);
+  result = capros_Constructor_request(KR_TEMP1, KR_BANK, KR_SCHED, KR_VOID,
+               KR_TEMP0);
+  if (result != RC_OK)
+    return result;
+  // Save data 32 days:
+  capros_Logfile_setDeletionPolicyByID(KR_TEMP0, 32*24*60*60*1000000000ULL);
+
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE, slot,
+               KR_TEMP0, KR_VOID);
+  assert(result == RC_OK);
+  *pSlot = slot;
+  return RC_OK;
+}
+
+void
+GetLogfile(unsigned int slot)
+{
+  result_t result;
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, slot, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_Logfile_getReadOnlyCap(KR_TEMP0, KR_TEMP0);
+  assert(result == RC_OK);
+}
+
+/* Add a log record.
+ * sampledRTC and sampledTime must be valid.
+ *
+ * Returns true iff record was successfully added.
+ */
+bool
+AddLogRecord16(unsigned int slot, int16_t value, int16_t param)
+{
+  result_t result;
+  capros_W1Mult_LogRecord16 rec16;
+
+  rec16.header.length = rec16.trailer = sizeof(rec16);
+  rec16.header.rtc = sampledRTC;
+  rec16.header.id = sampledTime;
+  rec16.value = value;
+  rec16.param = param;
+
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, slot, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_Logfile_appendRecord(KR_TEMP0,
+             sizeof(rec16), (uint8_t *)&rec16);
+  switch (result) {
+  default:
+    assert(false);
+  case RC_capros_Logfile_Full:
+    DEBUG(errors) kprintf(KR_OSTREAM, "W1Mult log %u full!\n", slot);
+    return false;	// Not much we can do but drop the record.
+
+  case RC_capros_SpaceBank_LimitReached:
+    DEBUG(errors) kprintf(KR_OSTREAM, "W1Mult log %u out of space!\n", slot);
+    return false;	// Not much we can do but drop the record.
+
+  case RC_OK:
+    return true;
+  }
+}
+
 /*************************** Branch stuff ***************************/
 
 struct Branch root = {
@@ -152,6 +238,8 @@ BranchToCoupler(struct Branch * br)
 
 capros_Sleep_nanoseconds_t currentTime;
 capros_RTC_time_t currentRTC;
+capros_Sleep_nanoseconds_t sampledTime;
+capros_RTC_time_t sampledRTC;
 
 volatile	// because shared between threads
 capros_Sleep_nanoseconds_t timeToWake = infiniteTime;
@@ -668,7 +756,8 @@ UnmarkSamplingList(struct W1Device * dev)
 // the first of an array of (maxLog2Seconds+1) Links.
 void
 MarkForSampling(uint32_t hbCount, Link * samplingQueue,
-  struct W1Device * * samplingListHead)
+  struct W1Device * * samplingListHead,
+  size_t devLinkOffset)
 {
   DEBUG(doall) kprintf(KR_OSTREAM, "MarkForSampling hbCount=%#x\n", hbCount);
   *samplingListHead = NULL;
@@ -681,7 +770,7 @@ MarkForSampling(uint32_t hbCount, Link * samplingQueue,
       Link * lk;
       struct W1Device * dev;
       for (lk = samplingQueue->next; lk != samplingQueue; lk = lk->next) {
-        dev = container_of(lk, struct W1Device, samplingQueueLink);
+        dev = (struct W1Device *) ((char *)lk - devLinkOffset);
         DEBUG(doall) kprintf(KR_OSTREAM, "MFS i=%d dev %#.16llx found %d\n",
                              i, dev->rom, dev->found);
         if (dev->found) {
@@ -695,7 +784,6 @@ MarkForSampling(uint32_t hbCount, Link * samplingQueue,
         }
       }
     }
-    
   }
 }
 
@@ -1164,6 +1252,10 @@ rescan:
   case capros_W1Bus_StatusCode_NoDevicePresent:
   case -1:	// W1Bus key went away already, probably due to restart
     return;
+
+  case capros_W1Bus_StatusCode_BusError:
+    // Should there be a limit on this loop? Or a delay?
+    goto rescan;
   
   default:
     kdprintf(KR_OSTREAM, "Main bus reset got status %d!!\n", status);
@@ -1270,7 +1362,8 @@ DeliverAnyMessage(Message * msg)
   }
 }
 
-uint32_t MsgBuf[16/4];
+// capros_DS2450_portsConfiguration is the largest string we receive.
+uint32_t MsgBuf[(sizeof(capros_DS2450_portsConfiguration)+3)/4];
 int
 main(void)
 {
@@ -1298,6 +1391,13 @@ main(void)
 
   link_Init(&timerHead);
   InitTimerProcess();
+
+  // Create supernode.
+  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SNODEC, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_Constructor_request(KR_TEMP0,
+             KR_BANK, KR_SCHED, KR_VOID, KR_KEYSTORE);
+  assert(result == RC_OK);	// FIXME
 
   // Let each device type initialize:
   DS18B20_Init();
@@ -1336,7 +1436,6 @@ main(void)
       }
     }
     dev->rom = cfg->rom;
-    link_Init(&dev->samplingQueueLink);
     // dev->found = false; // part of AllDevsNotFound
     dev->callerWaiting = false;
     dev->onWorkList = false;
@@ -1362,16 +1461,6 @@ main(void)
     numDevices++;
   }
   AllDevsNotFound();
-
-  // Create supernode.
-  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SNODEC, KR_TEMP0);
-  assert(result == RC_OK);
-  result = capros_Constructor_request(KR_TEMP0,
-             KR_BANK, KR_SCHED, KR_VOID, KR_SNODE);
-  assert(result == RC_OK);	// FIXME
-  // Slot i is for device i.
-  result = capros_SuperNode_allocateRange(KR_SNODE, 0, numDevices - 1);
-  assert(result == RC_OK);	// FIXME
   
   // kdprintf(KR_OSTREAM, "w1mult: accepting requests\n");
 
