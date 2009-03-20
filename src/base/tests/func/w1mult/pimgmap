@@ -71,6 +71,9 @@ devNode[27] = w1device(usb, 27);
 devNode[28] = w1device(usb, 28);
 devNode[29] = w1device(usb, 29);
 
+test_constit = new node;
+test_constit[0] = snode_c;
+
 /*
  * Test domain
  */ 
@@ -83,6 +86,7 @@ test space = seg;
 test schedule = sched(8);   /* normal */
 test symtab = number("test");
 
+test key reg KR_CONSTIT = test_constit;
 test key reg KR_BANK = primebank;
 test key reg KR_SCHED = sched(8);
 

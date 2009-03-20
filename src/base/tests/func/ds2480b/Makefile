@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, 2008, Strawberry Development Group
+# Copyright (C) 2007, 2008, 2009, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -34,7 +34,7 @@ OBJECTS=$(BUILDDIR)/test.o
 INC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
 
 NPRANGESIZE=380
-PRANGESIZE=165
+PRANGESIZE=200
 
 include $(EROS_SRC)/build/make/makerules.mk
 

@@ -32,16 +32,20 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/SuperNode.h>
+#include <idl/capros/Constructor.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/DevPrivs.h>
-#include <idl/capros/W1Bus.h>
+#include <idl/capros/W1Mult.h>
 #include <idl/capros/DS18B20.h>
 #include <idl/capros/DS2450.h>
 #include <idl/capros/DS2438.h>
+#include <idl/capros/Logfile.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
 #include <domain/assert.h>
+
+#define KC_SNODEC 0
 
 #define KR_OSTREAM  KR_APP(1)
 #define KR_SLEEP    KR_APP(2)
@@ -50,6 +54,8 @@ Approved for public release, distribution unlimited. */
 
 const uint32_t __rt_stack_pointer = 0x20000;
 const uint32_t __rt_unkept = 1;
+
+#define maxDevs 31
 
 #define ckOK \
   if (result != RC_OK) { \
@@ -65,13 +71,44 @@ GetDevN(int n, cap_t cap)
 }
 
 void
+GetLogN(int n, cap_t kr)
+{
+  result_t result;
+  uint32_t keyType;
+
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, n, kr);
+  ckOK
+  result = capros_key_getType(kr, &keyType);
+  ckOK
+  assert(keyType == IKT_capros_Logfile);
+}
+
+void
+SaveLog(int n, cap_t kr)
+{
+  result_t result;
+  uint32_t keyType;
+
+  result = capros_key_getType(kr, &keyType);
+  ckOK
+  assert(keyType == IKT_capros_Logfile);
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE, n, kr, KR_VOID);
+  ckOK
+}
+
+void
 configureTemp(int n)
 {
   result_t result;
+  uint32_t keyType;
+
   GetDevN(n, KR_TEMP0);
   // Sample every 2 seconds, 3 binary bits of resolution.
-  result = capros_DS18B20_configure(KR_TEMP0, 1, 3);
+  result = capros_DS18B20_configure(KR_TEMP0, 1, 3,
+             4 /* hysteresis */,
+             KR_TEMP1);
   ckOK
+  SaveLog(n, KR_TEMP1);
 }
 
 void
@@ -83,7 +120,8 @@ configureAD(int n)
     .output = 0, \
     .rangeOrOutput = 1, \
     .log2Seconds = 1,	/* 2 seconds */ \
-    .bitsToConvert = 8 \
+    .bitsToConvert = 8, \
+    .hysteresis = 512 \
   }
   capros_DS2450_portsConfiguration config = {
     .port = {
@@ -93,19 +131,38 @@ configureAD(int n)
       [3] = init_2450_port
     }
   };
-  result = capros_DS2450_configurePorts(KR_TEMP0, config);
+  result = capros_DS2450_configurePorts(KR_TEMP0, config,
+             KR_TEMP0, KR_TEMP1, KR_TEMP2, KR_TEMP3);
   ckOK
+  SaveLog(n, KR_TEMP0);
+  SaveLog(maxDev + n, KR_TEMP1);
+  SaveLog(maxDev*2 + n, KR_TEMP2);
+  SaveLog(maxDev*3 + n, KR_TEMP3);
 }
 
 void
 configureBM(int n, bool vdd)
 {
   result_t result;
+  uint32_t keyType;
+
   GetDevN(n, KR_TEMP0);
-  result = capros_DS2438_configureTemperature(KR_TEMP0, 3);	// every 8 sec
+  result = capros_DS2438_configureTemperature(KR_TEMP0,
+             3 /* every 8 sec */,
+             4 /* resolution 1/16 deg C */,
+             4 /* hysteresis */,
+             KR_TEMP1);
   ckOK
-  result = capros_DS2438_configureVoltage(KR_TEMP0, vdd, 0);	// every 1 sec
+  SaveLog(n, KR_TEMP1);
+
+  result = capros_DS2438_configureVoltageVdd(KR_TEMP0,
+             0 /* every 1 sec */,
+             0 /* full resolution */,
+             2 /* hysteresis */,
+             KR_TEMP1);
   ckOK
+  SaveLog(maxDevs + n, KR_TEMP1);
+
   result = capros_DS2438_configureCurrent(KR_TEMP0,
              capros_DS2438_CurrentConfig_AccumNoEE);
   ckOK
@@ -115,32 +172,50 @@ void
 PrintTempDevN(int n)
 {
   result_t result;
-  short temperature;
-  capros_RTC_time_t time;
+  capros_W1Mult_LogRecord16 rec16;
+  uint32_t len;
 
-  GetDevN(n, KR_TEMP0);
-  result = capros_DS18B20_getTemperature(KR_TEMP0,
-               &temperature, &time);
-  ckOK
-  if (time) {
-    kprintf(KR_OSTREAM, "Dev %d temperature is %d.%d Celsius at %#lx\n",
-            n, temperature/16, (temperature%16) >> 1, time);
+  GetLogN(n, KR_TEMP0);
+  result = capros_Logfile_getPreviousRecord(KR_TEMP0,
+             capros_Logfile_nullRecordID,
+             sizeof(rec16),
+             (uint8_t *)&rec16,
+             &len );
+  if (result != RC_capros_Logfile_NoRecord) {
+    ckOK
+    assert(len == sizeof(rec16));
+    short temperature = rec16.value;
+    kprintf(KR_OSTREAM, "Dev %d temperature is %d.%d Celsius at %#lu sec\n",
+            n, temperature/16, (temperature%16) >> 1, rec16.header.rtc);
   }
 }
 
 void
 PrintAD(int n)
 {
+  int i;
   result_t result;
-  capros_DS2450_portsData data;
-  capros_RTC_time_t time;
 
-  GetDevN(n, KR_TEMP0);
-  result = capros_DS2450_getData(KR_TEMP0, &data, &time);
-  ckOK
-  if (time) {
-    kprintf(KR_OSTREAM, "Dev %d data is %#.4x %#.4x %#.4x %#.4x at %#lx\n",
-            n, data.data[0], data.data[1], data.data[2], data.data[3], time);
+  kprintf(KR_OSTREAM, "Dev %d data is ", n);
+  for (i = 0; i < 4; i++) {
+    GetLogN(maxDevs * i + n, KR_TEMP0);
+    result = capros_Logfile_getPreviousRecord(KR_TEMP0,
+               capros_Logfile_nullRecordID,
+               sizeof(rec16),
+               (uint8_t *)&rec16,
+               &len );
+    if (result != RC_capros_Logfile_NoRecord) {
+      ckOK
+      assert(len == sizeof(rec16));
+      short temperature = rec16.value;
+#if 0
+      kprintf(KR_OSTREAM, "%#.4x ", rec16.value);
+#else
+      kprintf(KR_OSTREAM, "%u ", rec16.value);
+#endif
+    } else {
+      kprintf(KR_OSTREAM, ". ");
+    }
   }
 }
 
@@ -149,27 +224,44 @@ PrintBM(int n)
 {
   result_t result;
   capros_RTC_time_t time;
-  uint16_t datau16;
+  int16_t data16;
+  capros_W1Mult_LogRecord16 rec16;
+  uint32_t len;
 
-  GetDevN(n, KR_TEMP0);
-
-  result = capros_DS2438_getVoltage(KR_TEMP0, &datau16, &time);
-  ckOK
-  if (time) {
-    unsigned int v = datau16 * 674 / 1000;	// adj v, units 0.1V
-    kprintf(KR_OSTREAM, "Dev %d is %u mV or %u.%u V at %#lu sec\n",
-            n, datau16 * 10, v/10, v%10, time);
+  GetLogN(maxDevs+n, KR_TEMP0);
+  result = capros_Logfile_getPreviousRecord(KR_TEMP0,
+             capros_Logfile_nullRecordID,
+             sizeof(rec16),
+             (uint8_t *)&rec16,
+             &len );
+  if (result != RC_capros_Logfile_NoRecord) {
+    ckOK
+    assert(len == sizeof(rec16));
+    time = rec16.header.rtc;
+    data16 = rec16.value;
+    unsigned int v = data16 * 674 / 1000;	// adj v, units 0.1V
+    kprintf(KR_OSTREAM, "Dev %d is raw %d %u mV or %u.%u V at %#lu sec\n",
+            n, data16, data16 * 10, v/10, v%10, time);
   }
+
+#if 1
+  GetLogN(n, KR_TEMP0);
+  result = capros_Logfile_getPreviousRecord(KR_TEMP0,
+             capros_Logfile_nullRecordID,
+             sizeof(rec16),
+             (uint8_t *)&rec16,
+             &len );
+  if (result != RC_capros_Logfile_NoRecord) {
+    ckOK
+    assert(len == sizeof(rec16));
+    time = rec16.header.rtc;
+    data16 = rec16.value;
+    kprintf(KR_OSTREAM, "Dev %d temp is raw %d %d.%d at %#lu sec\n",
+            n, data16, data16 >> 5, ((data16 & 0x1f) << 3)/26, time);
+  }
+#endif
 
 #if 0
-  int16_t data16;
-  result = capros_DS2438_getTemperature(KR_TEMP0, &data16, &time);
-  ckOK
-  if (time) {
-    kprintf(KR_OSTREAM, "Dev %d temp is %d.%d at %#lu sec\n",
-            n, data16 >> 8, (data16 & 0xff)/26, time);
-  }
-
   result = capros_DS2438_getCurrent(KR_TEMP0, &data16);
   if (result != RC_capros_DS2438_Offline) {
     ckOK
@@ -184,11 +276,20 @@ main(void)
 {
   result_t result;
 
+  // Create SuperNode for holding Logfiles.
+  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SNODEC, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_Constructor_request(KR_TEMP0,
+             KR_BANK, KR_SCHED, KR_VOID, KR_KEYSTORE);
+  assert(result == RC_OK);
+  result = capros_SuperNode_allocateRange(KR_KEYSTORE, 0, maxDevs*4);
+  assert(result == RC_OK);
+
   kprintf(KR_OSTREAM, "Starting.\n");
 
   configureTemp(1);
   configureBM(2, true);
-#define all
+//#define all
 #ifdef all
   configureBM(5, true);
 #endif
@@ -202,7 +303,7 @@ main(void)
     configureBM(3, true);
     configureBM(4, true);
 #endif
-//    PrintTempDevN(1);
+    PrintTempDevN(1);
     PrintBM(2);
 #ifdef all
     PrintBM(3);
