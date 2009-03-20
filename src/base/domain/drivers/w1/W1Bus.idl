@@ -56,6 +56,8 @@ interface W1Bus extends key {
     This step cannot be immediately preceded by another resetSimple,
     else program execution is terminated with status SequenceError.
 
+    May terminate with status BusError.
+
     This step cannot be the last step of a program,
     else program execution is terminated with status SequenceError.
     Use resetNormal instead.
@@ -73,6 +75,7 @@ interface W1Bus extends key {
         AlarmingPresencePulse.
       Normal presence pulse - no result data is produced,
         and execution of the program continues.
+    May terminate with status BusError.
     This step cannot be immediately preceded by a resetSimple,
     else program execution is terminated with status SequenceError.
     */
@@ -87,6 +90,8 @@ interface W1Bus extends key {
         and execution of the program continues.
       Normal presence pulse - a result byte of 0 is produced,
         and execution of the program continues.
+    May terminate with status BusError.
+
     This step cannot be immediately preceded by a resetSimple,
     else program execution is terminated with status SequenceError.
     */

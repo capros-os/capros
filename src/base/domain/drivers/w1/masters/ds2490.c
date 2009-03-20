@@ -1020,15 +1020,16 @@ execute:
       err = waitStatus();
       if (err != 16) {
       	// FIXME handle or report
-      	kdprintf(KR_OSTREAM, "ds2490.c: status = %d\n", err);
+      	kprintf(KR_OSTREAM, "ds2490.c: status = %d\n", err);
         if (err > 16) {	// got a result register value
           dump_status(err);
-          kdprintf(KR_OSTREAM, "Pgm is ");
+          kprintf(KR_OSTREAM, "Pgm is ");
           uint8_t * p;
           for (p = startPgm; p < pgm; p++) {
-            kdprintf(KR_OSTREAM, "%d ");
+            kprintf(KR_OSTREAM, "%d ", *p);
           }
         }
+        kdprintf(KR_OSTREAM, "\n");
       }
     }
     // Get any final data for this segment.

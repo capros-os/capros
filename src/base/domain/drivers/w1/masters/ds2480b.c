@@ -850,7 +850,7 @@ execute: ;
           goto terminateGotRet;
         c = inBuf[numInputPairsProcessed++].data & 0xdf;
         if ((c & 0xfc) != 0xcc) {
-          DEBUG(errors) kprintf(KR_OSTREAM, "Sent reset got %#.2x!n", c);
+          DEBUG(errors) kprintf(KR_OSTREAM, "Sent reset got %#.2x!\n", c);
           goto terminateBusError;
         }
         if (stepCode == capros_W1Bus_stepCode_resetSimple)
