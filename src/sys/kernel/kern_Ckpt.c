@@ -37,6 +37,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Check.h>
 #include <kerninc/ObjH-inline.h>
 #include <kerninc/Node-inline.h>
+#include <kerninc/mach-rtc.h>
 #include <idl/capros/Range.h>
 #include <idl/capros/MigratorTool.h>
 #include <eros/Invoke.h>
@@ -563,6 +564,7 @@ DoPhase1Work(void)
   This must be atomic. */
 
   monotonicTimeOfLastDemarc = sysT_NowPersistent();
+  genHdr->RTCOfDemarc = RtcRead();
   genHdr->persistentTimeOfDemarc = monotonicTimeOfLastDemarc;
 
   // Don't checkpoint a broken system:

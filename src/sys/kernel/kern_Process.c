@@ -502,7 +502,7 @@ check_Process(Process * p)
   }
 #endif
 
-  if (p->procRoot) {
+  if (p->procRoot) {	// if not free
     if (node_ToObj(p->procRoot)->obType != ot_NtProcessRoot) {
       dprintf(true, "Context %#x process root %#x has type %d\n",
               p, p->procRoot, node_ToObj(p->procRoot)->obType);
@@ -547,6 +547,7 @@ check_Process(Process * p)
         return false;
       }
     }
+    return check_ProcessMD(p);
   }
   return true;
 }

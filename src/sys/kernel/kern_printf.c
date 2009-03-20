@@ -567,10 +567,6 @@ fatal(const char *fmt, ...)
 #ifdef OPTION_DDB
   Debugger();
 #else
-#ifndef NDEBUG
-  Activity * act = act_Current();
-  if (act) proc_DumpFixRegs(act_GetProcess(act));
-#endif
 #if 0
   Debug::Backtrace(0, false);
   

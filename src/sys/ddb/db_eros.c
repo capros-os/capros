@@ -348,9 +348,6 @@ db_eros_print_number_as_string(Key* k /*@ not null @*/)
 void
 db_eros_print_context(Process *cc)
 {
-  if (cc == 0)
-    db_printf("invokee=%#x\n", cc);
-  else {
     db_printf("proc=0x%08x (%s)", cc, proc_Name(cc));
     const char * stateName;
     switch (cc->runState) {
@@ -388,11 +385,12 @@ db_eros_print_context(Process *cc)
       db_printf("\n");
     }
 
+    if (proc_IsNotRunnable(cc))
+      printf("Note: process is NOT runnable\n");
     proc_DumpFixRegs(cc);
 #ifdef OPTION_PSEUDO_REGS
     proc_DumpPseudoRegs(cc);
 #endif
-  }
 }
 
 extern void DumpFixRegs(const savearea_t *fx);
@@ -1008,7 +1006,10 @@ db_invokee_print_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
     }
   }
 
-  db_eros_print_context(inv.invokee);
+  if (! inv.invokee)
+    db_printf("no invokee\n");
+  else
+    db_eros_print_context(inv.invokee);
 }
 
 static Process *

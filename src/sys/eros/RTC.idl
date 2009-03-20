@@ -8,7 +8,12 @@ interface RTC extends key raises (key.RequestError) {
   /** The GMT time in seconds since 1/1/1970. */
   typedef unsigned long time_t;
 
+  /** Get the current time. */
   time_t getTime();
+
+  /** Get the time of the checkpoint from which the system was restarted,
+  and the time of the restart. */
+  void getRestartTimes(out time_t checkpointTime, out time_t restartTime);
 };
 
 interface RTCSet extends RTC {

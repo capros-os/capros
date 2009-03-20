@@ -68,9 +68,6 @@ proc_InitProcessMD(Process * proc)
 void 
 proc_DumpFixRegs(Process* thisPtr)
 {
-  if (proc_IsNotRunnable(thisPtr))
-    printf("Note: process is NOT runnable\n");
-  printf("MappingTable = 0x%08x\n", thisPtr->md.MappingTable);
   DumpFixRegs(&thisPtr->trapFrame); 
 }
 
@@ -253,6 +250,12 @@ proc_Init_MD(Process * p, bool isUser)
    */
   p->hazards |= hz_FloatRegs;
 #endif
+}
+
+bool
+check_ProcessMD(Process * proc)
+{
+  return true;
 }
 
 /* ValidateRegValues() -- runs last to validate that the loaded context

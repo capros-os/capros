@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <kerninc/mach-rtc.h>
 #include <kerninc/SysTimer.h>
+#include <kerninc/Ckpt.h>
 #include <eros/Invoke.h>
 #include <idl/capros/key.h>
 #include <idl/capros/RTC.h>
@@ -54,6 +55,15 @@ RTCKey(Invocation * inv)
     inv->exit.w1 = RtcRead();
 
     DEBUG(get) printf("RTC_getTime %u\n", inv->exit.w1);
+    break;
+
+  case OC_capros_RTC_getRestartTimes:
+
+    COMMIT_POINT();
+
+    inv->exit.w1 = RTCOfRestartDemarc;
+    inv->exit.w2 = RTCOfRestart;
+
     break;
 
   case OC_capros_RTCSet_setTime:

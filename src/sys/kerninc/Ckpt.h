@@ -1,7 +1,7 @@
 #ifndef __CKPT_H__
 #define __CKPT_H__
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -40,6 +40,8 @@ extern unsigned int ckptState;
  * from which we restarted, in units of nanoseconds. */
 extern uint64_t monotonicTimeOfRestart;
 extern uint64_t monotonicTimeOfLastDemarc;
+extern unsigned long RTCOfRestartDemarc;
+extern unsigned long RTCOfRestart;
 
 extern struct StallQueue WaitForCkptInactive;
 extern struct StallQueue WaitForCkptNeeded;

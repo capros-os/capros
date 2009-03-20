@@ -159,10 +159,6 @@ DumpFixRegs(const savearea_t * sa)
 void 
 proc_DumpFixRegs(Process* thisPtr)
 {
-  if (proc_IsNotRunnable(thisPtr))
-    printf("Note: process is NOT runnable\n");
-  printf("Process = 0x%08x  PID   = 0x%08x\n",
-	 thisPtr, thisPtr->md.pid);
   DumpFixRegs(&thisPtr->trapFrame); 
 }
 

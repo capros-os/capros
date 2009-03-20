@@ -267,9 +267,8 @@ db_eros_print_context_md(Process * cc)
 #ifdef OPTION_SMALL_SPACES
   db_printf(" smallPTE=0x%08x bias=0x%08x lim=0x%08x\n",
             cc->md.smallPTE, cc->md.bias, cc->md.limit);
-#else
-  db_printf("\n");
 #endif
+  printf("MappingTable = %#x\n", cc->md.MappingTable);
 }
 
 void

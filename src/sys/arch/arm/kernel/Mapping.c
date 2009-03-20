@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -99,9 +99,9 @@ the following states are possible for SmallSpaces[i]
 Invariant: SmallSpaces[i].mth.tableCacheAddr == i << PID_SHIFT.
 */
 struct SmallSpace {
+  Link procs;		/* Processes using this small space */
   MapTabHeader mth;
   unsigned char domain;	/* the domain owned by this PID, 0 if none */
-  Link procs;		/* Processes using this small space */
 } SmallSpaces[NumSmallSpaces];
 
 
@@ -494,7 +494,9 @@ ReleaseSmallSpace(unsigned int pid)
   for (i = 0; i < KTUNE_NCONTEXT; i++) {
     Process * p = &proc_ContextCache[i];
     if (p->procRoot) {
-      assertex(p, p->md.pid != pid32);
+      assertex(p, p->md.pid != pid32
+                  || (pid32 == PID_IN_PROGRESS
+                      && p->md.firstLevelMappingTable == FLPT_NullPA));
     }
   }
 #endif
@@ -1017,6 +1019,37 @@ pageH_PrepareForDMAInput(PageHeader * pageH)
     break;
   }
   mach_DrainWriteBuffer();
+}
+
+bool
+check_ProcessMD(Process * proc)
+{
+  if (proc->md.firstLevelMappingTable == FLPT_FCSEPA) {	// small space
+    assert(proc->md.flmtProducer);
+    if (proc->md.firstLevelMappingTable != FLPT_FCSEPA) {
+      printf("proc %#x has pid but FMLT not FCSE!\n", proc);
+      return false;
+    }
+    // It should be on the small space list.
+    int ss = proc->md.pid >> 25;
+    Link * l;
+    for (l = SmallSpaces[ss].procs.next;
+         l != &SmallSpaces[ss].procs;
+         l = l->next) {
+      if (l == &proc->md.pidLink)
+        goto found;
+    }
+    printf("proc %#x not in pid list at %#x!\n", proc, &SmallSpaces[ss]);
+    return false;
+  found: ;
+  } else if (proc->md.firstLevelMappingTable == FLPT_NullPA) {	// no space
+    assert(! proc->md.pid
+           || proc->md.pid == PID_IN_PROGRESS);
+  } else {			// full space
+    assert(proc->md.flmtProducer);
+    assert(! proc->md.pid);
+  }
+  return true;
 }
 
 #ifdef OPTION_DDB

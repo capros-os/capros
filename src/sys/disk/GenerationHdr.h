@@ -47,6 +47,7 @@ typedef struct DiskGenerationHdr {
   struct GenDirHdr processDir;
 
   target_u64 persistentTimeOfDemarc;	// in units of nanoseconds
+  unsigned long RTCOfDemarc;	// see RTC.idl for units
 } DiskGenerationHdr;
 
 // struct DiskProcessDescriptor is packed because

@@ -358,6 +358,7 @@ void proc_FlushKeyRegs(Process* thisPtr);
 void proc_WriteDisableSmallSpaces();
 #endif
 
+bool check_ProcessMD(Process * p);	// machine dependent
 bool check_Process(Process * p);
 bool check_Contexts(const char *);
 

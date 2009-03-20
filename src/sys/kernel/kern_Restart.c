@@ -35,6 +35,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Ckpt.h>
 #include <kerninc/LogDirectory.h>
 #include <kerninc/Key-inline.h>
+#include <kerninc/mach-rtc.h>
 #include <eros/machine/IORQ.h>
 
 extern Activity * migratorActivity;
@@ -47,6 +48,11 @@ extern Activity * migratorActivity;
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
 uint64_t monotonicTimeOfRestart;
+
+// RTC of the time of the checkpoint from which we restarted:
+unsigned long RTCOfRestartDemarc = 0;
+// RTC of (re)start:
+unsigned long RTCOfRestart;
 bool IsPreloadedBigBang = false;
 // If IsPreloadedBigBang is true, then we have:
 OID PersistentIPLOID;
@@ -200,6 +206,8 @@ AdjustNPCounts(void)
 static void
 FinishRestart(void)
 {
+  RTCOfRestart = RtcRead();
+  /* Persistent monotonic time picks up where the checkpoint left off: */
   monotonicTimeOfRestart = monotonicTimeOfLastDemarc;
 
   nextRetiredGeneration = migratedGeneration;
@@ -289,6 +297,7 @@ DoRestartPhaseWaitingRoot1(void)
     GenNum 2 will be the first actual generation. */
     migratedGeneration = workingGenerationNumber = 1;
     monotonicTimeOfLastDemarc = 0;
+    // RTCOfRestartDemarc = 0;	// it's initialized that way
 
     FinishRestart();
 
@@ -413,7 +422,7 @@ FreePageAndIOReq(PageHeader * pageH)
 static void
 DoneProcessingProcDirFrames(void)
 {
-
+  RTCOfRestartDemarc = genHdr->RTCOfDemarc;
   monotonicTimeOfLastDemarc = genHdr->persistentTimeOfDemarc;
   monotonicTimeOfRestart = monotonicTimeOfLastDemarc;
 
