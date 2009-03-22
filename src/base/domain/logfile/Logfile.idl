@@ -116,7 +116,7 @@ interface Logfile extends key raises(OutOfSequence)
   number of records in the Logfile.
   Raises key.NoAccess if the invoked capability is read-only.
   */
-  void setDeletionPolicyByID(RecordID age);
+  void setDeletionPolicyByID(unsigned<64> /*RecordID*/ age);
 
   /* This operation instructs the log to automatically delete records
   when the space occupied by the records in the log

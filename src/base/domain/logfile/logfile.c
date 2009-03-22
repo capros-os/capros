@@ -446,6 +446,10 @@ CheckDeletionByID(void)
 {
   while (RecordsExist()
          && lastIDAdded - indexLo->id > deletionPolicyAge) {
+#if 0
+    kprintf(KR_OSTREAM, "Deleting for id %llu %llu %llu\n",
+            indexLo->id, lastIDAdded, deletionPolicyAge);
+#endif
     DeleteOldestRecord();
   }
 }
@@ -455,6 +459,10 @@ CheckDeletionBySpace(unsigned long newSpace)
 {
   while (RecordsExist()
          && totalLogSpace + newSpace > deletionPolicySize) {
+#if 0
+    kprintf(KR_OSTREAM, "Deleting for space %u %u %u\n",
+            totalLogSpace, newSpace, deletionPolicySize);
+#endif
     DeleteOldestRecord();
   }
 }
@@ -475,14 +483,15 @@ AppendRecord(Message * msg)
       || recordLength < sizeof(capros_Logfile_recordHeader)
                         + sizeof(unsigned long)
       || recordLength % sizeof(capros_Logfile_RecordID)
-      || recordLength != messageBuffer[0].length
-      // and check the length in the trailer:
-      || recordLength
-         != *(unsigned long *)((uint8_t *)messageBuffer + recordLength
-                               - sizeof(unsigned long)) ) {
+      || recordLength != messageBuffer[0].length ) {
     msg->snd_code = RC_capros_key_RequestError;
     return;
   }
+
+  // Ensure the trailer is correct:
+  *(unsigned long *)
+   ((uint8_t *)messageBuffer + recordLength - sizeof(unsigned long))
+     = recordLength;
 
   capros_Logfile_RecordID id = messageBuffer[0].id;
   if (id <= lastIDAdded) {
@@ -560,6 +569,8 @@ AppendRecord(Message * msg)
   // Whew! Everything is OK to add the record. Do it.
   memcpy(tentativeLoc, messageBuffer, recordLength);
   CBIn = tentativeLoc + recordLength;
+  cachedLocation.id = id;
+  cachedLocation.addr = tentativeLoc;
 
   // Now update the index:
   struct IndexRecord * ir;
@@ -625,8 +636,11 @@ SequentialSearchForNext(capros_Logfile_RecordID id, uint8_t * rec)
     if (nextRec == CBLast)
       nextRec = CBStart;	// wrap
     nextHdr = RecToHdr(nextRec);
-    if (nextHdr->id > id)
+    if (nextHdr->id > id) {
+      cachedLocation.id = nextHdr->id;
+      cachedLocation.addr = (uint8_t *)nextHdr;
       return (uint8_t *)nextHdr;
+    }
   }
 }
 
@@ -680,8 +694,11 @@ SequentialSearchForPrev(capros_Logfile_RecordID id, uint8_t * rec)
       rec = CBLast;	// wrap
     nextRec = GetPrevLogRecord(rec);
     capros_Logfile_recordHeader * hdr = RecToHdr(nextRec);
-    if (hdr->id < id)
+    if (hdr->id < id) {
+      cachedLocation.id = hdr->id;
+      cachedLocation.addr = (uint8_t *)hdr;
       return (uint8_t *)hdr;
+    }
   }
 }
 
