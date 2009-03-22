@@ -404,8 +404,8 @@ procLogIntValue(AdapterState * as, int * pv, capros_Node_extAddr_t ks_logs)
     rec16.value = value;
     rec16.padding = 0;
 
-    result = capros_Node_getSlotExtended(KR_KEYSTORE,
-               ks_logs + as->num, KR_TEMP0);
+    unsigned int slot = ks_logs + as->num;
+    result = capros_Node_getSlotExtended(KR_KEYSTORE, slot, KR_TEMP0);
     assert(result == RC_OK);
     result = capros_Logfile_appendRecord(KR_TEMP0,
                sizeof(rec16), (uint8_t *)&rec16);
@@ -413,13 +413,19 @@ procLogIntValue(AdapterState * as, int * pv, capros_Node_extAddr_t ks_logs)
     default:
       assert(false);
     case RC_capros_Logfile_Full:
+      DEBUG(errors) kprintf(KR_OSTREAM, "SWCA log %u full!\n", slot);
+      break;	// Not much we can do but drop the record.
+
     case RC_capros_SpaceBank_LimitReached:
+      DEBUG(errors) kprintf(KR_OSTREAM, "SWCA log %u out of space!\n", slot);
       break;	// Not much we can do but drop the record.
 
     case RC_OK:
       *pv = value;
       break;
     }
+  } else {
+    // kprintf(KR_OSTREAM, "Same data, not logged\n");
   }
   return false;
 }
@@ -1150,6 +1156,7 @@ InitSerialPort(void)
 {
   result_t result;
   uint32_t openErr;
+  int i;
 
   result = capros_SerialPort_open(KR_SERIAL, &openErr);
   if (result == RC_capros_key_Restart || result == RC_capros_key_Void)
@@ -1170,6 +1177,15 @@ InitSerialPort(void)
 
   ResetInputState();
   haveSerialKey = true;
+
+  /* After getting a new SerialPort, always log the next value
+  (it may be after a restart and time may have passed). */
+  for (i = 0; i < numAdapters; i++) {
+    AdapterState * as = &adapterStates[i];
+    as->LEDsBlink = 0xff;	// ensure first log entry for these
+    as->invChg = INT_MAX;
+    as->load = INT_MAX;
+  }
 }
 
 // monoNow must be current.
@@ -1312,7 +1328,9 @@ DoMenu(void)
         }
         CMTEMutex_unlock(&lock);
         // We're lost; retry a menu command
+#if 0	// this error is too common to note
         DEBUG(errors) kprintf(KR_OSTREAM, "SWCA: Unknown menu, moving up\n");
+#endif
         cmd = 'U';	// menu item up
       } else {		// current menu is known
         CMTEMutex_unlock(&lock);
@@ -1614,9 +1632,6 @@ cmte_main(void)
   for (i = 0; i < numAdapters; i++) {
     AdapterState * as = &adapterStates[i];
     as->num = i;
-    as->LEDsBlink = 0xff;	// ensure first log entry for these
-    as->invChg = INT_MAX;
-    as->load = INT_MAX;
   }
   ResetAdapterState(&dummyAdapter);
   dummyAdapter.num = -1;
