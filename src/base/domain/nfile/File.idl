@@ -33,6 +33,9 @@ interface File extends key
   File getReadOnlyCap();
 
   // File obeys key.destroy.
+
+  /* File obeys HTTPResource.request, ignoring all inputs,
+  and returning rhtype=File and a key to the file itself. */
 };
 
 interface FileServer extends key

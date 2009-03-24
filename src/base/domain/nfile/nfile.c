@@ -89,12 +89,7 @@ Approved for public release, distribution unlimited. */
 #define KR_MYSPACE    KR_APP(3)
 #define KR_SCRATCH    KR_APP(4)
 
-/* #define FLIP_BUF */
-#ifdef FLIP_BUF
-#define BUF_SZ  EROS_PAGE_SIZE
-#else
 #define BUF_SZ  capros_key_messageLimit
-#endif
 #define BLOCK_SIZE 4096
 
 #define NSTACK (BUF_SZ/EROS_PAGE_SIZE + 1)
@@ -408,15 +403,7 @@ write_to_file(server_state *ss, ino_s *ino, f_size_t at,
       uint32_t **ppPage = find_file_page(ss, ino, at, grow);
       uint8_t *pPage = (uint8_t *) *ppPage;
 
-#ifdef FLIP_BUF
-      if (offset == 0 && nBytes == BLOCK_SIZE) {
-	uint8_t *tmp = pPage;
-	*ppPage = (uint32_t *) ss->buf;
-	ss->buf = tmp;
-      }
-      else
-#endif
-	memcpy(&pPage[offset], buf, nBytes);
+      memcpy(&pPage[offset], buf, nBytes);
 
       DEBUG(write)
 	kdprintf(KR_OSTREAM,
@@ -766,9 +753,6 @@ main()
   msg.rcv_limit = BUF_SZ;
 
   do {
-#ifdef FLIP_BUF
-    msg.rcv_data = ss.buf;
-#endif
     RETURN(&msg);
     msg.snd_len = 0;	/* unless it's a read, in which case
 			   ProcessRequest() will reset this. */
