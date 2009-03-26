@@ -54,7 +54,7 @@ interfaces: $(IDL)
 nfile.c: $(BUILDDIR)/constituents.h
 
 $(BUILDDIR)/nfile: $(OBJECTS) $(DOMLIB) $(DOMCRT0)
-	$(CROSSLINK) -o $@ $(OBJECTS) $(SMALL_SPACE) -lforwarder $(CROSSLIBS)
+	$(CROSSLINK) -o $@ $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS)
 # and for debugging:
 	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled

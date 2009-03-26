@@ -14,6 +14,7 @@ interface File extends key
             out unsigned byte data, // this is really an input string
             out unsigned long lengthRead);
 
+  // Raises key.NoAccess if the invoked key is read-only.
   client // because of inadequate support for passing strings in IDL compiler
   void write(fileLocation at, unsigned long length, 
             out unsigned byte data,	// this is really an output string
@@ -23,6 +24,7 @@ interface File extends key
             out unsigned byte data, // this is really an input string
             out unsigned long lengthRead);
 
+  // Raises key.NoAccess if the invoked key is read-only.
   client void writeLong(fileLocation at, unsigned long length, 
             out unsigned byte data,	// this is really an output string
             out unsigned long lengthWritten);
@@ -33,6 +35,7 @@ interface File extends key
   File getReadOnlyCap();
 
   // File obeys key.destroy.
+  // Raises key.NoAccess if the invoked key is read-only.
 
   /* File obeys HTTPResource.request, ignoring all inputs,
   and returning rhtype=File and a key to the file itself. */

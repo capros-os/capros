@@ -54,6 +54,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <idl/capros/File.h>
 #include <idl/capros/FileServer.h>
+#include <idl/capros/Forwarder.h>
 
 #include <domain/VcskKey.h>
 #include <domain/ConstructorKey.h>
@@ -63,8 +64,6 @@ Approved for public release, distribution unlimited. */
 #include <stdlib.h>
 
 #include "constituents.h"
-
-#include <forwarder.h>
 
 #define min(a,b) ((a) <= (b) ? (a) : (b))
 
@@ -91,6 +90,8 @@ Approved for public release, distribution unlimited. */
 
 #define BUF_SZ  capros_key_messageLimit
 #define BLOCK_SIZE 4096
+#define PtrsPerBlock (BLOCK_SIZE/sizeof(uint32_t *))
+#define logPtrsPerBlock 10	// compute this manually, sigh
 
 #define NSTACK (BUF_SZ/EROS_PAGE_SIZE + 1)
 const uint32_t __rt_stack_pages = NSTACK;
@@ -128,16 +129,20 @@ typedef struct ino ino_s;
 struct ino {
   union {
     uint64_t sz;
-    /* 3 bytes available here */
     ino_s    *nxt_free;
   } u;
   uint64_t uuid;		/* unique ID */
-  uint8_t  nLayer;
-  inoID_t id;
+  uint8_t  nLayer;	// number of levels of indirection blocks
+  inoID_t id;		// this inode's own id
+
+  /* A level 0 pointer is a pointer to a block of file data.
+     A level n pointer (n > 0) is a pointer to an indirection block
+       consisting of an array of level (n-1) pointers. 
+     A level n pointer (n >= 0) is NULL if there is no data at that location.
+     indir[i] is a level nLayer pointer. */
   uint32_t *indir[INO_NINDIR];
 } ;
 
-#define PtrsPerBlock (BLOCK_SIZE/sizeof(uint32_t *))
 #define inodesPerBlock (BLOCK_SIZE / sizeof(ino_s))
 
 /* Max of 5 indirection blocks */
@@ -166,7 +171,7 @@ typedef struct server_state {
   ino_s    *first_free_inode;
   uint32_t *first_free_block;
   ino_s    root;
-  uint8_t *top_addr;
+  uint8_t * top_addr;	// highest allocated addr +1
   uint64_t nxt_uuid;
 } server_state;
 
@@ -281,9 +286,10 @@ init(server_state *ss)
 uint32_t **
 find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
 {
-  uint64_t allocSz = (ino->u.sz + (BLOCK_SIZE - 1)) & (BLOCK_SIZE-1);
-
   uint64_t atPg = (at / BLOCK_SIZE);
+
+  // Allocated size is the size including the block containing at.
+  uint64_t allocSz = (atPg + 1) * BLOCK_SIZE;
   uint32_t ndx;
   uint32_t **blockTable = ino->indir;
     
@@ -297,7 +303,7 @@ find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
     uint32_t **newIndir;
       
     DEBUG(findpg)
-      kdprintf(KR_OSTREAM, "find: ino: %#llx allocSz %#llx nLayer %d (max 0x%x) => grow\n",
+      kdprintf(KR_OSTREAM, "find: ino: %#llx allocSz %#llx nLayer %d (max %#llx) => grow\n",
 	      ino->uuid, allocSz, ino->nLayer,
 	      sizes_by_layers[ino->nLayer]);
   
@@ -319,9 +325,8 @@ find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
     uint32_t layer = ino->nLayer;
 
     while (layer > 0) {
-      ndx =	//// this looks wrong - CRL
-	(atPg / (layer * PtrsPerBlock));
-      ndx %= (BLOCK_SIZE / sizeof(uint32_t));
+      ndx = atPg >> (layer * logPtrsPerBlock);
+      ndx %= PtrsPerBlock;
     
       DEBUG(findpg)
 	kdprintf(KR_OSTREAM, "find: ino: %#llx layer %d ndx %d\n",
@@ -348,7 +353,7 @@ find_file_page(server_state *ss, ino_s *ino, f_size_t at, int wantGrow)
       layer--;
     }
 
-    ndx = atPg % (BLOCK_SIZE / sizeof(uint32_t));
+    ndx = atPg % PtrsPerBlock;
 
     DEBUG(findpg)
       kdprintf(KR_OSTREAM, "find: ino: %#llx layer %d ndx %d: blockTbl 0x%x bt[ndx] 0x%x\n",
@@ -505,8 +510,8 @@ grow_inode_table(server_state *ss)
   f_size_t oldRootSize = ss->root.u.sz;
 
   DEBUG(inogrow)
-    kdprintf(KR_OSTREAM, "ino: growing inode table from "PS_FSIZE"\n",
-             oldRootSize);
+    kdprintf(KR_OSTREAM, "ino: ss=%#x: growing inode table from "PS_FSIZE"\n",
+             ss, oldRootSize);
 
   f_size_t oldBlocks = oldRootSize / BLOCK_SIZE;
   assert(oldBlocks <= ULONG_MAX);	// because keyInfo_server < ULONG_MAX
@@ -538,7 +543,7 @@ grow_inode_table(server_state *ss)
 result_t
 create_new_file(server_state *ss, ino_s** outFile)
 {
-  ino_s    *newfile;
+  ino_s * ino;
   result_t result;
   
   if (ss->first_free_inode == 0) {
@@ -549,33 +554,36 @@ create_new_file(server_state *ss, ino_s** outFile)
 
   /* Now have at least one free inode */
 
-  newfile = ss->first_free_inode;
-  ss->first_free_inode = newfile->u.nxt_free;
+  ino = ss->first_free_inode;
+  ss->first_free_inode = ino->u.nxt_free;
 
-  bzero(newfile, sizeof(*newfile));
-  *outFile = newfile;
-  newfile->nLayer = 0;
-  newfile->uuid = ss->nxt_uuid;
+  int i;
+  for (i = 0; i < INO_NINDIR; i++) {
+    assert(ino->indir[i] == 0);
+  }
+  ino->u.sz = 0;
+  ino->nLayer = 0;
+  ino->uuid = ss->nxt_uuid;
   ss->nxt_uuid++;
   
   DEBUG(ino)
-    kdprintf(KR_OSTREAM, "ino: created new file ino=0x%x with uuid %#llx\n",
-	     newfile, newfile->uuid);
+    kprintf(KR_OSTREAM, "ino: created new file ino=0x%x with uuid %#llx\n",
+	     ino, ino->uuid);
   
+  *outFile = ino;
   return RC_OK;
 }
 
 void
 reclaim_ino_pages(server_state *ss, uint32_t lvl, uint32_t *blockTable)
 {
-  if (lvl) {
-    int i;
-    for (i = 0; i < BLOCK_SIZE/sizeof(uint32_t); i++)
-      reclaim_ino_pages(ss, lvl - 1, (uint32_t *) blockTable[i]);
-  }
-
-  
   if (blockTable) {
+    if (lvl) {
+      int i;
+      for (i = 0; i < BLOCK_SIZE/sizeof(uint32_t); i++)
+        reclaim_ino_pages(ss, lvl - 1, (uint32_t *) blockTable[i]);
+    }
+  
     DEBUG(free)
       kdprintf(KR_OSTREAM, "Freeing pg 0x%x\n", blockTable);
   
@@ -584,24 +592,22 @@ reclaim_ino_pages(server_state *ss, uint32_t lvl, uint32_t *blockTable)
   }
 }
 
-result_t
+void
 destroy_file(server_state *ss, ino_s *ino)
 {
   int i;
-  result_t result;
   
-  // Rescind and free the forwarder:
-  result = capros_SpaceBank_free1(KR_BANK, KR_CURFILE);
-  if (result != RC_OK)
-    kdprintf(KR_OSTREAM, "NFILE: free(fwdr) returned 0x%x\n", result);
+  DEBUG(ino)
+    kprintf(KR_OSTREAM, "ino: destroy file ino=0x%x with uuid %#llx\n",
+	     ino, ino->uuid);
 
-  for (i = 0; i < INO_NINDIR; i++)
+  for (i = 0; i < INO_NINDIR; i++) {
     reclaim_ino_pages(ss, ino->nLayer, ino->indir[i]);
+    ino->indir[i] = 0;
+  }
 
   ino->u.nxt_free = ss->first_free_inode;
   ss->first_free_inode = ino;
-  
-  return result;
 }
 
 int
@@ -640,23 +646,50 @@ ProcessRequest(Message *msg, server_state *ss)
       if (result != RC_OK)
 	break;
 
-      result = capros_Process_makeStartKey(KR_SELF, ino->id, KR_TEMP0);
-      assert(result == RC_OK);
-
-      result = forwarder_create(KR_BANK, KR_CURFILE, KR_TEMP1, KR_TEMP0,
-                 capros_Forwarder_sendCap, 0);
+      /* Each file has two forwarders; one read-only, one read-write. */
+      result = capros_SpaceBank_alloc2(KR_BANK, 
+                 capros_Range_otForwarder + (capros_Range_otForwarder << 8),
+                 KR_CURFILE, KR_TEMP1);
       if (result != RC_OK) {
         destroy_file(ss, ino);
 	break;
       }
 
-      msg->snd_key0 = KR_CURFILE;
+      // Set read-write target:
+      result = capros_Process_makeStartKey(KR_SELF, ino->id, KR_TEMP0);
+      assert(result == RC_OK);
+      result = capros_Forwarder_swapTarget(KR_CURFILE, KR_TEMP0, KR_VOID);
+      assert(result == RC_OK);
+
+      // Set read-only target:
+      result = capros_Process_makeStartKey(KR_SELF,
+                 ino->id | keyInfo_readOnly, KR_TEMP0);
+      assert(result == RC_OK);
+      result = capros_Forwarder_swapTarget(KR_TEMP1, KR_TEMP0, KR_VOID);
+      assert(result == RC_OK);
+
+/* Slot fwdr_roSlot of read-write forwarder has
+ * non-opaque key to read-only forwarder. */
+#define fwdr_roSlot 0
+      result = capros_Forwarder_swapSlot(KR_CURFILE, fwdr_roSlot, KR_TEMP1,
+                 KR_VOID);
+      assert(result == RC_OK);
+
+      result = capros_Forwarder_getOpaqueForwarder(KR_CURFILE,
+                 capros_Forwarder_sendCap, KR_TEMP0);
+      assert(result == RC_OK);
+
+      msg->snd_key0 = KR_TEMP0;	// return opaque read-write key
       break;
     }
     }
   } else {	// not the server; an individual file
     ino_s * ino = inodeIDToPtr(ss, msg->rcv_keyInfo & 0x7fff);
-    switch(msg->rcv_code) {
+
+#define checkRW if (msg->rcv_keyInfo & keyInfo_readOnly) { \
+                  result = RC_capros_key_NoAccess; break; }
+
+    switch (msg->rcv_code) {
     default:
       result = RC_capros_key_UnknownRequest;
       break;
@@ -666,12 +699,23 @@ ProcessRequest(Message *msg, server_state *ss)
       break;
 
     case OC_capros_key_destroy:
+    {
+      checkRW
+
       DEBUG(req)
 	kdprintf(KR_OSTREAM, "NFILE: ino %#llx destroy\n",
 		 ino->uuid);
 
-      result = destroy_file(ss, ino);
+      destroy_file(ss, ino);
+  
+      // Rescind and free the forwarders:
+      capros_Forwarder_getSlot(KR_CURFILE, fwdr_roSlot, KR_TEMP0);
+      result_t rez = capros_SpaceBank_free2(KR_BANK, KR_CURFILE, KR_TEMP0);
+      if (rez != RC_OK)
+        kdprintf(KR_OSTREAM, "NFILE: free(fwdr) returned %#x\n", rez);
+
       break;
+    }
 
     case 0:	// OC_capros_File_read
     {
@@ -690,6 +734,8 @@ ProcessRequest(Message *msg, server_state *ss)
 
     case 1:	// OC_capros_File_write
     {
+      checkRW
+
       f_size_t at = msg->rcv_w1 | ((uint64_t)msg->rcv_w2 << 32);
       uint32_t len = msg->rcv_w3;
       
@@ -709,9 +755,23 @@ ProcessRequest(Message *msg, server_state *ss)
       break;
 
     case OC_capros_File_getReadOnlyCap:
-      assert(false); // incomplete
+    {
+      cap_t k;
+      if (msg->rcv_keyInfo & keyInfo_readOnly) {
+        k = KR_CURFILE;		// non-opaque key to read-only forwarder
+      } else {
+        capros_Forwarder_getSlot(KR_CURFILE, fwdr_roSlot, KR_TEMP1);
+        k = KR_TEMP1;
+      }
+      result = capros_Forwarder_getOpaqueForwarder(k,
+                 capros_Forwarder_sendCap, KR_TEMP0);
+      assert(result == RC_OK);
+
+      msg->snd_key0 = KR_TEMP0;	// return opaque read-write key
       break;
     }
+    }
+#undef checkRW
   }
 
   msg->snd_code = result;
