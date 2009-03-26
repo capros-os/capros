@@ -142,7 +142,7 @@ enum TCPSk_state {
   TCPSk_state_Closed
 };
 
-#define maxRecvQPBufs 32
+#define maxRecvQPBufs 36
 
 struct TCPSocket {
   struct tcp_pcb * pcb;
@@ -760,13 +760,17 @@ err_tcp(void * arg, err_t err)
 {
   struct TCPSocket * sock = arg;
 
-  DEBUG(errors) printk("err_tcp %d sock %#x state %d\n",
-                  err, sock, sock->TCPSk_state);
+  DEBUG(errors) kprintf(KR_OSTREAM,
+                        "err_tcp %d sock %#x state %d rcvQNum %d\n",
+                         err, sock, sock->TCPSk_state, sock->recvQNum);
 
   switch (sock->TCPSk_state) {
   default:
     assert(false);
 
+  case TCPSk_state_Connect:
+    CompleteConnection(sock, err);
+    // Fall into TCPSk_state_None
   case TCPSk_state_None:
     switch (err) {
     default:
@@ -782,10 +786,6 @@ err_tcp(void * arg, err_t err)
       if (sock->recvQNum == 0)	// closed and no more data to deliver
         CloseAndDestroy(sock);
     }
-    break;
-
-  case TCPSk_state_Connect:
-    CompleteConnection(sock, err);
     break;
   }
 }

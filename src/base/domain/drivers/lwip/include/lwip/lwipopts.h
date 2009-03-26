@@ -1,7 +1,7 @@
 #ifndef __LWIP_LWIPOPTS_H__
 #define __LWIP_LWIPOPTS_H__
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,7 +32,7 @@ Approved for public release, distribution unlimited. */
 #define MEM_ALIGNMENT 4	// correct for ARM
 #define TCP_MSS 1024
 #define TCP_SND_BUF (TCP_MSS * 4)
-#define PBUF_POOL_SIZE 24
+#define PBUF_POOL_SIZE 36
 // I see no harm in making the following large:
 #define TCP_SND_QUEUELEN                (16 * (TCP_SND_BUF/TCP_MSS))
 #define MEMP_NUM_TCP_SEG                TCP_SND_QUEUELEN

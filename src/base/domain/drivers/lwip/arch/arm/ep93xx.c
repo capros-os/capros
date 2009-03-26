@@ -333,59 +333,61 @@ static void ep93xx_rx(void)
 		if (rstat0 & RSTAT0_CRCI)
 			length -= 4;
 
-		struct pbuf * p =  pbuf_alloc(PBUF_RAW, length, PBUF_POOL);
-		if (likely(p != NULL)) {
-			assert(p->tot_len == length);
-			struct pbuf * q;
-			char * b;
-			for (q = p, b = ep->rx_buf[entry];
-			     q != NULL; b += q->len, q = q->next) {
-			  memcpy(q->payload, b, q->len);
-			}
+    char * b = ep->rx_buf[entry];	// where the data is
+    unsigned int lenType = ntohs(((struct eth_hdr *)b)->type);
+    if (lenType <= 1500		// IEEE 802.3 length field
+        || lenType == 0x86dd	/* IPv6 */ ) {
+      // We don't support such packets. Just drop it.
+    } else {
+      struct pbuf * p =  pbuf_alloc(PBUF_RAW, length, PBUF_POOL);
+      if (likely(p != NULL)) {
+        assert(p->tot_len == length);
+        struct pbuf * q;
+        for (q = p; q != NULL; b += q->len, q = q->next) {
+          memcpy(q->payload, b, q->len);
+        }
 
-			struct eth_hdr * ethhdr = p->payload;
-			err_t errNum;
+        err_t errNum;
 
-			switch (ntohs(ethhdr->type)) {
-			  /* IP or ARP packet? */
-			  case ETHTYPE_IP:
-			  case ETHTYPE_ARP:
+        switch (lenType) {
+          /* IP or ARP packet? */
+          case ETHTYPE_IP:
+          case ETHTYPE_ARP:
 #if PPPOE_SUPPORT
-			  /* PPPoE packet? */
-			  case ETHTYPE_PPPOEDISC:
-			  case ETHTYPE_PPPOE:
+          /* PPPoE packet? */
+          case ETHTYPE_PPPOEDISC:
+          case ETHTYPE_PPPOE:
 #endif /* PPPOE_SUPPORT */
-			    /* full packet send to tcpip_thread to process */
-			    // Note, netif->input is ethernet_input().
-			    errNum = gNetif->input(p, gNetif);
-			    if (errNum != ERR_OK) {
-			      DEBUG(errors) kdprintf(KR_OSTREAM,
-                                "ethernet_input error %d\n", errNum);
-			      LWIP_DEBUGF(NETIF_DEBUG,
-			              ("ethernetif_input: IP input error\n"));
-			       pbuf_free(p);
-			       p = NULL;
-			    }
-			    break;
+            /* full packet send to tcpip_thread to process */
+            // Note, netif->input is ethernet_input().
+            errNum = gNetif->input(p, gNetif);
+            if (errNum != ERR_OK) {
+              DEBUG(errors) kdprintf(KR_OSTREAM,
+                                  "ethernet_input error %d\n", errNum);
+              LWIP_DEBUGF(NETIF_DEBUG,
+                      ("ethernetif_input: IP input error\n"));
+               pbuf_free(p);
+               p = NULL;
+            }
+            break;
 
-			  default:
-			    DEBUG(errors) {
-			      printPacket(length, entry, 60);
-			      kprintf(KR_OSTREAM,
-			        "Eth pkt type is %#x\n", ntohs(ethhdr->type));
-                            }
-			    pbuf_free(p);
-			    p = NULL;
-			    break;
-			}
+          default:
+            DEBUG(errors) {
+              printPacket(length, entry, 60);
+              kprintf(KR_OSTREAM, "Eth pkt type is %#x\n", lenType);
+                              }
+            pbuf_free(p);
+            p = NULL;
+            break;
+        }
 
-			LINK_STATS_INC(link.recv);
-		} else {
-			DEBUG(errors) kdprintf(KR_OSTREAM,
-                                        "Can't alloc pbuf!\n");
-			LINK_STATS_INC(link.memerr);
-			LINK_STATS_INC(link.drop);
-		}
+        LINK_STATS_INC(link.recv);
+      } else {
+      	DEBUG(errors) kdprintf(KR_OSTREAM, "Can't alloc pbuf!\n");
+      	LINK_STATS_INC(link.memerr);
+      	LINK_STATS_INC(link.drop);
+      }
+    }
 
 err:
 		ep->rx_pointer = (entry + 1) & (RX_QUEUE_ENTRIES - 1);
