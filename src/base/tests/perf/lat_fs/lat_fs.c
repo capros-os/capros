@@ -26,6 +26,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/FileServer.h>
 #include <idl/capros/File.h>
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -47,6 +48,7 @@ Approved for public release, distribution unlimited. */
 
 #define KR_NFILESRV KR_APP(4)
 #define KR_FD0      KR_APP(5)
+#define KR_FRO      KR_APP(6)
 
 #define NITER       20
 
@@ -76,6 +78,63 @@ static int sizes[] = { 0,
 		       10 * 1024
 };
 
+void
+CheckRO(cap_t k)
+{
+  result_t result;
+  uint32_t len;
+
+  result = capros_key_destroy(k);
+  assert(result == RC_capros_key_NoAccess);
+  result = capros_File_write(k, 0, 1, (uint8_t *)buf, &len);
+  assert(result == RC_capros_key_NoAccess);
+}
+
+void
+FunctionalTests(void)
+{
+  result_t result;
+
+  result = capros_FileServer_createFile(KR_NFILESRV, KR_FD0);
+  assert(result == RC_OK);
+  result = capros_File_getReadOnlyCap(KR_FD0, KR_FRO);
+  assert(result == RC_OK);
+  CheckRO(KR_FRO);
+
+  result = capros_File_getReadOnlyCap(KR_FRO, KR_TEMP0);
+  assert(result == RC_OK);
+  CheckRO(KR_TEMP0);
+
+  capros_File_fileLocation limit, p, v;
+  uint32_t len;
+#define BLK 4096
+  for (limit = 0; limit < 13*BLK; limit += BLK) {
+    // Write the block's address in the block.
+    // kprintf(KR_OSTREAM, "About to write block at %#x\n", limit);
+    result = capros_File_write(KR_FD0, limit, sizeof(limit), (uint8_t *)&limit,
+               &len);
+    assert(result == RC_OK);
+    assert(len == sizeof(limit));
+
+    // Verify length.
+    result = capros_File_getSize(KR_FD0, &p);
+    assert(result == RC_OK);
+    assert(p == limit + sizeof(limit));
+
+    // Verify contents.
+    for (p = 0; p <= limit; p += BLK) {
+      result = capros_File_read(KR_FD0, p, sizeof(v), (uint8_t *)&v, &len);
+      assert(result == RC_OK);
+      assert(len == sizeof(v));
+      if (v != p)
+        kdprintf(KR_OSTREAM, "Expecting %#x got %#x!\n", p, v);
+    }
+  }
+
+  result = capros_key_destroy(KR_FD0);
+  assert(result == RC_OK);
+}
+
 int
 main()
 {
@@ -94,6 +153,8 @@ main()
 			       KR_NFILESRV);
   DEBUG(init)
     kdprintf(KR_OSTREAM, "Constructor returned ok to reg %d\n", KR_NFILESRV);
+
+  FunctionalTests();
 
   kprintf(KR_OSTREAM, "Sleep a while\n");
   capros_Sleep_sleep(KR_SLEEP, 2000);
@@ -114,15 +175,15 @@ main()
 
       for (file = 0; file < NITER; file++)
 	{
-	  result = capros_FileServer_createFile(KR_NFILESRV, KR_BANK, KR_SCHED,
-                     KR_FD0);
+	  result = capros_FileServer_createFile(KR_NFILESRV, KR_FD0);
           assert(result == RC_OK);
 
           DEBUG(passes)
             kprintf(KR_OSTREAM, "Created nfile %d\n", file);
 
-	  result = capros_File_write(KR_FD0, 0, sizes[i], buf, &len);
+	  result = capros_File_write(KR_FD0, 0, sizes[i], (uint8_t *)buf, &len);
           assert(result == RC_OK);
+          assert(len == sizes[i]);
 
           DEBUG(passes)
             kprintf(KR_OSTREAM, "Wrote nfile\n");
