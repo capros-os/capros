@@ -127,6 +127,9 @@ static int ds_send_usb_control(u8 request, u16 value, u16 index)
   cm->ctrlreq.wValue = cpu_to_le16p(&value);
   cm->ctrlreq.wIndex = cpu_to_le16p(&index);
   cm->ctrlreq.wLength = 0;
+  if ((value & 0x00f0) == 0x0080) {	// read straight command
+    cm->ctrlreq.wLength = value >> 8;	// preamble size goes here too
+  }
 
   capros_USB_urb urb = {
     .transfer_buffer_length = 0,
@@ -204,6 +207,7 @@ dump_status(int count)
 	printk("0x%x: count=%d, results: ", theDSDev.ep[EP_STATUS], count);
 	for (i=0; i<count-16; ++i)
 		printk("%02x ", st->results[i]);
+        printk("\n");
 
 	if (count >= 16) {
 #if 0
@@ -1029,7 +1033,7 @@ execute:
             kprintf(KR_OSTREAM, "%d ", *p);
           }
         }
-        kdprintf(KR_OSTREAM, "\n");
+        kprintf(KR_OSTREAM, " Continuing\n");
       }
     }
     // Get any final data for this segment.
