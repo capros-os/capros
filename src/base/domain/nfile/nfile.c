@@ -52,6 +52,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/HTTPResource.h>
 #include <idl/capros/File.h>
 #include <idl/capros/FileServer.h>
 #include <idl/capros/Forwarder.h>
@@ -767,9 +768,18 @@ ProcessRequest(Message *msg, server_state *ss)
                  capros_Forwarder_sendCap, KR_TEMP0);
       assert(result == RC_OK);
 
-      msg->snd_key0 = KR_TEMP0;	// return opaque read-write key
+      msg->snd_key0 = KR_TEMP0;	// return opaque read-only key
       break;
     }
+
+    case 2:	// OC_capros_HTTPResource_request
+      result = capros_Forwarder_getOpaqueForwarder(KR_CURFILE,
+                 capros_Forwarder_sendCap, KR_TEMP0);
+      assert(result == RC_OK);
+
+      msg->snd_w1 = capros_HTTPResource_RHType_File;
+      msg->snd_key0 = KR_TEMP0;	// return opaque key
+      break;
     }
 #undef checkRW
   }

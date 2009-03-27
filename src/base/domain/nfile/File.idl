@@ -1,7 +1,7 @@
 package capros;
 
 /* Explain This object . */
-interface File extends key 
+interface File extends HTTPResource
 {
   typedef unsigned<64> fileLocation;
 
