@@ -1,6 +1,6 @@
 /* -*- C -*- */
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,9 +32,7 @@ proc2 sp = 0x21000;
 proc2 space = proc2.seg;
 proc2 schedule = sched(8);	/* normal */
 
-proc2 key reg 9 = misc Sleep;
 proc2 key reg 10 = misc Console;
-proc2 key reg 11 = misc SysTrace;
 
 fwd target = start proc2 0;
 
@@ -47,9 +45,7 @@ proc1 space = proc1.seg;
 proc1 schedule = sched(8);	/* normal */
 
 proc1 key reg 8 = misc Discrim;
-proc1 key reg 9 = misc Sleep;
 proc1 key reg 10 = misc Console;
-proc1 key reg 11 = misc SysTrace;
 proc1 key reg 12 = proc2;
 proc1 key reg 13 = fwd;
 proc1 key reg 14 = fwd as opaque forwarder key;

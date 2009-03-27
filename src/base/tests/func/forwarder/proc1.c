@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group
+ * Copyright (C) 2007, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -33,9 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_DISCRIM 8
-#define KR_SLEEP 9
 #define KR_OSTREAM 10
-#define KR_SYSTRACE 11
 #define KR_ECHO_PROCESS 12
 #define KR_FORWARDER 13
 #define KR_OP_FORWARDER 14	// opaque
