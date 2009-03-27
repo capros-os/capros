@@ -59,7 +59,8 @@ main(void)
 {
   result_t result;
   uint32_t isDiscrete;
-  uint32_t currentID = 0;
+  capros_Logfile_RecordID currentID = 0;
+#define IDIncrement 12345678901ULL
   uint32_t lengthGotten;
   int i, j;
 
@@ -71,7 +72,8 @@ main(void)
     kdprintf(KR_OSTREAM, "Line %d length is %d!\n", __LINE__, lengthGotten);
 #define ckID(goodid) \
   if (rcvrecord.hdr.id != goodid) \
-    kdprintf(KR_OSTREAM, "Line %d id is %d!\n", __LINE__, rcvrecord.hdr.id);
+    kdprintf(KR_OSTREAM, "Line %d id is %llu expecting %llu!\n", __LINE__, \
+             rcvrecord.hdr.id, goodid);
 
   result = capros_Constructor_isDiscreet(KR_LOGFILEC, &isDiscrete);
   ckOK
@@ -95,19 +97,69 @@ main(void)
   result = capros_Logfile_deleteOldestRecord(KR_LOGFILE);
   ckNoRecord
 
-  logrecord.hdr.id = ++currentID;
+  currentID += IDIncrement;
+  logrecord.hdr.id = currentID;
   kprintf(KR_OSTREAM, "About to appendRecord.\n");
   result = capros_Logfile_appendRecord(KR_LOGFILE,
                        sizeof(logrecord), (uint8_t *)&logrecord);
   ckOK
 
+  currentID += IDIncrement;
+  logrecord.hdr.id = currentID;
+  kprintf(KR_OSTREAM, "About to appendRecord.\n");
+  result = capros_Logfile_appendRecord(KR_LOGFILE,
+                       sizeof(logrecord), (uint8_t *)&logrecord);
+  ckOK
+
+  // Get from newest backwards - using cache
+  kprintf(KR_OSTREAM, "About to getPreviousRecord.\n");
+  result = capros_Logfile_getPreviousRecord(KR_LOGFILE,
+             capros_Logfile_nullRecordID, sizeof(rcvrecord),
+             (uint8_t *)&rcvrecord, &lengthGotten);
+  ckOK
+  ckLengthGotten
+  ckID(currentID);
+
+  kprintf(KR_OSTREAM, "About to getPreviousRecord.\n");
+  result = capros_Logfile_getPreviousRecord(KR_LOGFILE,
+             currentID, sizeof(rcvrecord),
+             (uint8_t *)&rcvrecord, &lengthGotten);
+  ckOK
+  ckLengthGotten
+  ckID(currentID-IDIncrement);
+
+  kprintf(KR_OSTREAM, "About to getPreviousRecord.\n");
+  result = capros_Logfile_getPreviousRecord(KR_LOGFILE,
+             currentID-IDIncrement, sizeof(rcvrecord),
+             (uint8_t *)&rcvrecord, &lengthGotten);
+  ckNoRecord
+
+  // Get from oldest forward
   kprintf(KR_OSTREAM, "About to getNextRecord.\n");
   result = capros_Logfile_getNextRecord(KR_LOGFILE,
              capros_Logfile_nullRecordID, sizeof(rcvrecord),
              (uint8_t *)&rcvrecord, &lengthGotten);
   ckOK
   ckLengthGotten
+  ckID(currentID-IDIncrement);
+
+  kprintf(KR_OSTREAM, "About to getNextRecord.\n");
+  result = capros_Logfile_getNextRecord(KR_LOGFILE,
+             currentID-IDIncrement, sizeof(rcvrecord),
+             (uint8_t *)&rcvrecord, &lengthGotten);
+  ckOK
+  ckLengthGotten
   ckID(currentID);
+
+  kprintf(KR_OSTREAM, "About to getNextRecord.\n");
+  result = capros_Logfile_getNextRecord(KR_LOGFILE,
+             currentID, sizeof(rcvrecord),
+             (uint8_t *)&rcvrecord, &lengthGotten);
+  ckNoRecord
+
+  kprintf(KR_OSTREAM, "About to deleteOldestRecord.\n");
+  result = capros_Logfile_deleteOldestRecord(KR_LOGFILE);
+  ckOK
 
   kprintf(KR_OSTREAM, "About to deleteOldestRecord.\n");
   result = capros_Logfile_deleteOldestRecord(KR_LOGFILE);
@@ -118,24 +170,26 @@ main(void)
   for (i = 0; i < numSizes; i++) {
     int records = sizes[i] / sizeof(logrecord);
 
-    result = capros_Logfile_setDeletionPolicyByID(KR_LOGFILE, records);
+    result = capros_Logfile_setDeletionPolicyByID(KR_LOGFILE,
+               records*IDIncrement);
     ckOK
 
     for (j = 0; j < records * 2; j++) {
-      logrecord.hdr.id = ++currentID;
+      currentID += IDIncrement;
+      logrecord.hdr.id = currentID;
       result = capros_Logfile_appendRecord(KR_LOGFILE,
                            sizeof(logrecord), (uint8_t *)&logrecord);
       ckOK
     }
 
-    capros_Logfile_RecordID testID = currentID - records/2;
+    capros_Logfile_RecordID testID = currentID - IDIncrement * (records/2);
     kprintf(KR_OSTREAM, "About to getNextRecord.\n");
     result = capros_Logfile_getNextRecord(KR_LOGFILE,
                testID, sizeof(rcvrecord),
                (uint8_t *)&rcvrecord, &lengthGotten);
     ckOK
     ckLengthGotten
-    ckID(testID+1);
+    ckID(testID+IDIncrement);
   }
 
   kprintf(KR_OSTREAM, "Destroying logfile.\n");
