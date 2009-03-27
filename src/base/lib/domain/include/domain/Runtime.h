@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -33,7 +33,7 @@ Approved for public release, distribution unlimited. */
 #define KR_VOID 0
 /* KR_VOID is also defined in eros/Invoke.h, as this is a kernel constraint. */
 #define KR_CONSTIT          1	  /* constituents node */
-//			    2	  /* used for KR_KEYSTORE */
+#define KR_KEYSTORE	    2	  /* handy supernode */
 
     /* A capability to the process creator who can created your
      * process. Without access to this process creator, a process
