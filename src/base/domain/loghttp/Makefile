@@ -31,6 +31,7 @@ GENERATED=$(BUILDDIR)/constituents.h
 
 IMGMAP=loghttp.map
 TARGETS=$(BUILDDIR)/loghttp
+TARGETS+=$(BUILDDIR)/lhresource
 OBJECTS=$(BUILDDIR)/loghttp.o
 
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
@@ -46,6 +47,12 @@ $(BUILDDIR)/loghttp: $(OBJECTS) $(DOMLIB)
 # and for debugging:
 	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+
+$(BUILDDIR)/lhresource: $(BUILDDIR)/lhresource.o $(DOMLIB)
+	$(CROSSLINK) $(BUILDDIR)/lhresource.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
+# and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/symslhr
+	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembledlhr
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

@@ -32,4 +32,18 @@ PROD_PC(loghttpc) = symbol LIBDIR "loghttp" _start;
 PROD_CONSTIT(loghttpc, KC_OSTREAM, 1) = misc Console;
 PROD_CONSTIT(loghttpc, KC_PROTOSPC, 2) = protospace;
 
+lhresource.space = small program LIBDIR "lhresource";
+lhresource.space = lhresource.space with page at 0x1f000;
+
+lhresource = new process;
+lhresource pc = symbol LIBDIR "lhresource" _start;
+lhresource space = lhresource.space;
+lhresource schedule = sched(8);
+lhresource symtab = number("lhresource");
+lhresource key reg KR_SELF = lhresource;
+lhresource key reg KR_BANK = primebank;
+lhresource key reg KR_SCHED = sched(8);
+lhresource key reg KR_APP(0) = misc Console;
+lhresource key reg KR_APP(1) = loghttpc;
+
 #endif
