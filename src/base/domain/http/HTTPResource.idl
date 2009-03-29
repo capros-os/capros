@@ -14,18 +14,44 @@ interface HTTPResource extends key {
 
   unsigned short enum RHType {
     HTTPRequestHandler = 0,
-    File = 1
+    MethodNotAllowed = 1,
+    File = 2
   };
 
   // HTTPVersion is (major number) * 65536 + (minor number).
   typedef unsigned long HTTPVersion;
 
-  /*
+  /** request - Begin processing of an HTTP 1.1 request.
+
+  HTTPVersion is the version in the request.
+  << What is the contract for HTTPVersion? Major # <= 1? >>
+
+  pathAndQuery is a string containing the path (which has length
+    lengthOfPath) followed by the query (which has length
+    lengthOfPathAndQuery - lengthOfPath).
+    The query does not begin with a question mark
+    and does not contain the information that led to this
+    HTTPResource.
+    Any percent-encoding (per RFC 3986 section 2.1) has been decoded.
+
+  lengthOfPathAndQuery will not be more than maxLengthOfPathAndQuery;
+    longer data is not supported.
+
   If rhtype is HTTPRequestHandler, rh is an HTTPRequestHandler
     and sendLimit is the maximum number of bytes that the
     HTTPRequestHandler can receive in the first headers() call.
-  If rhtype is File, rh is a File and sendLimit is unused
+  If rhtype is File, rh is a File and sendLimit is unused.
+  If rhtype is MethodNotAllowed,
+    the resource does not support the requested method m.
+    rh is unused.
+    sendLimit specifies the allowed methods:
+      bit i is 1 iff method i is supported.
+
+  May raise:
+    SpaceBank.LimitReached
   */
+  const unsigned long maxLengthOfPathAndQuery = 512;
+  client // order code 2
   void request(HTTPVersion httpVersion,
                Method m,
                unsigned long lengthOfPath,
@@ -48,7 +74,7 @@ interface HTTPRequestHandler extends key {
     For each header:
       one byte containing the length of the field name;
       two bytes containing the length of the field value (without any
-        leading or trailing white space), in native endianness;
+        leading or trailing white space), most significant byte first;
       the field name;
       the field value (without any leading or trailing white space)
     One byte containing zero (indicating the end of the list).
@@ -57,10 +83,13 @@ interface HTTPRequestHandler extends key {
   any Content-Length header), except:
     Transfer-Encoding
 
+  Header data is transferred via repeated calls to headers() until all
+    the data is transferred.
   sendLimit is the maximum number of bytes that this object can receive
     in the next headers() call or, if this is the last headers() call,
     the first body() call.
   */
+  client // order code 0
   void headers(unsigned long lengthOfHeaderData,
 	/* The following is really an input string: */
                out unsigned byte headerData,
@@ -77,6 +106,9 @@ interface HTTPRequestHandler extends key {
 
   The "100-continue" expectation is consumed by the server and not passed
   to HTTPRequestHandler.headers().
+
+  If the response to the getContinueStatus method call is a
+  key.UnknownRequest exception, the server will continue the request.
   */
   void getContinueStatus(out unsigned short statusCode);
 
@@ -85,6 +117,7 @@ interface HTTPRequestHandler extends key {
   If lengthOfBodyData is zero, that indicates the end of the body,
   and sendLimit is used as the limit for the transfer of trailers, if any.
   */
+  client // order code 1
   void body(unsigned long lengthOfBodyData,
 	/* The following is really an input string: */
             out unsigned byte bodyData,
@@ -100,29 +133,51 @@ interface HTTPRequestHandler extends key {
   If lengthOfTrailerData is zero, that indicates the end of the trailer,
   and sendLimit is ignored.
   */
+  client // order code 2
   void trailer(unsigned long lengthOfTrailerData,
         /* The following is really an input string: */
             out unsigned byte trailerData,
         // Here are the real outputs:
             out unsigned long sendLimit);
 
+  unsigned short enum TransferEncoding {
+    identity = 0,
+    chunked = 1
+    /* The following are not implemented yet:
+    , gzip = 2
+    , compress = 3
+    , deflate = 4
+    */
+  };
+
   /* getResponseStatus
 
   Get the status code of the resource's response to the request.
   The server will supply an appropriate reason phrase to the client. 
   The server will specify an HTTP version of 1.1 for the response.
+
+  bodyTransferEncoding will be used as the Transfer-Encoding for the
+  response body.
+  If bodyTransferEncoding is identity, contentLength is the size of the
+  response body.
+  For any other value of bodyTransferEncoding, contentLength is ignored.
   */
-  void getResponseStatus(
-            out unsigned short statusCode);
+  void getResponseStatus(out unsigned short statusCode,
+                         out TransferEncoding bodyTransferEncoding,
+                         out unsigned <64> contentLength);
 
   /** getResponseHeaderData - get the response headers
 
   dataLimit is the maximum number of bytes that may be returned.
   The response header data has the same format as the request header data.
   The following headers MUST NOT be present:
-    Transfer-Encoding
-  (Content-Length: should it be a header, or specified as a number somewhere?)
+    Date (will be generated by the server)
+    Transfer-Encoding (will be generated by the server if necessary)
+    Content-Length (this is specified with getResponseStatus)
+
+  If lengthOfHeaderData is zero, that indicates the end of the header data.
   */
+  client // order code 3
   void getResponseHeaderData(
           unsigned long dataLimit,
           out unsigned long lengthOfHeaderData,
@@ -133,9 +188,11 @@ interface HTTPRequestHandler extends key {
 
   dataLimit is the maximum number of bytes that may be returned.
 
-  If lengthOfBodyData is zero, that indicates the end of the body,
-  and dataLimit is the limit of trailer data if any.
+  If lengthOfBodyData is zero, that indicates the end of the body.
+
+  The server will not issue this call for a "HEAD" request.
   */
+  client // order code 4
   void getResponseBody(
           unsigned long dataLimit,
           out unsigned long lengthOfBodyData,
@@ -144,19 +201,24 @@ interface HTTPRequestHandler extends key {
 
   /** getResponseTrailer - transfer the trailer headers
 
-  If the response headers contained a Trailer header, the server calls trailer()
-  to get the trailer headers.
+  If the response headers contained a Trailer header, the server calls
+  getResponseTrailer() to get the trailer headers.
   The trailer header data has the same format as the request header data.
 
-  If lengthOfTrailerData is zero, that indicates the end of the trailer,
-  and sendLimit is ignored.
+  dataLimit is the maximum number of bytes that may be returned.
+
+  If lengthOfTrailerData is zero, that indicates the end of the trailer.
   After this call, the only valid call is key.destroy.
+
+  If the response to the getResponseTrailer method call is a
+  key.UnknownRequest exception, there is no trailer data.
   */
-  void getResponseTrailer(unsigned long lengthOfTrailerData,
-        /* The following is really an input string: */
-            out unsigned byte trailerData,
-        // Here are the real outputs:
-            out unsigned long sendLimit);
+  client // order code 5
+  void getResponseTrailer(
+          unsigned long dataLimit,
+          out unsigned long lengthOfTrailerData,
+        /* The following is really an output string: */
+          out unsigned byte trailerData);
 
   /* HTTPRequestHandler obeys key.destroy(). */
 };
