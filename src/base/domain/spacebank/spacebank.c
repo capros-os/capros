@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -34,7 +34,6 @@ Approved for public release, distribution unlimited. */
 #include <stddef.h>
 #include <eros/target.h>
 #include <disk/DiskNode.h>
-#include <eros/StdKeyType.h>	// get AKT_SpaceBank
 #include <eros/Invoke.h>
 
 #include <idl/capros/key.h>
@@ -340,10 +339,10 @@ freeExit:
     {
       /* destroy bank, returning space to parent */
 
-      if (BANKPREC_CAN_DESTROY(preclude))
-	argmsg->snd_code = BankDestroyBankAndStorage(bank, false);
-      else
+      if (preclude & capros_SpaceBank_precludeDestroy)
 	argmsg->snd_code = RC_capros_key_UnknownRequest;
+      else
+	argmsg->snd_code = BankDestroyBankAndStorage(bank, false);
 
       break;
     }
@@ -353,26 +352,22 @@ freeExit:
     {
       /* destroy bank, deallocating space */
 
-      if (BANKPREC_CAN_DESTROY(preclude))
-	argmsg->snd_code = BankDestroyBankAndStorage(bank, true);
-      else
+      if (preclude & capros_SpaceBank_precludeDestroy)
 	argmsg->snd_code = RC_capros_key_UnknownRequest;
+      else
+	argmsg->snd_code = BankDestroyBankAndStorage(bank, true);
 
       break;
     } 
       
-  case OC_capros_SpaceBank_setLimits:
+  case OC_capros_SpaceBank_setLimit:
     {
-      fixreg_t got = min(argmsg->rcv_limit, argmsg->rcv_sent);
-
-      if ( !BANKPREC_CAN_MOD_LIMIT(preclude) ) 
+      if (preclude & capros_SpaceBank_precludeSetLimit)
 	argmsg->snd_code = RC_capros_key_UnknownRequest;
-      else if (got != sizeof(capros_SpaceBank_limits))
-	argmsg->snd_code = RC_capros_key_RequestError;
       else {
-	capros_SpaceBank_limits * limPtr = (capros_SpaceBank_limits *)argmsg->rcv_data;
-
-	argmsg->snd_code = BankSetLimits(bank, limPtr);
+        uint64_t newLimit = argmsg->rcv_w1 + ((uint64_t)argmsg->rcv_w2 << 32);
+        bank->limit = newLimit;
+	argmsg->snd_code = RC_OK;
       }
 
       break;
@@ -421,29 +416,19 @@ freeExit:
       /* get the DomainTool key */
       capros_Node_getSlot(KR_CONSTIT, KC_DOMTOOL, KR_TMP2);
       
-      /* use it to replace the brand key with the forwarder key from
-       * KR_ARG0 (assuming KR_ARG0 is a valid spacebank key)
-       */
       result = capros_ProcTool_identForwarderTarget(KR_TMP2, KR_ARG0, KR_TMP, KR_TMP, 
 				  &keyType, 0);
-      if (result != RC_OK || keyType != 1) {
-	kpanic(KR_OSTREAM,
-	       "SpaceBank: IdentSegKpr failed to match brand key! (0x%08x, %d)\n", result, keyType);
-      }
-
-      /* Return RC_OK if the operation succeeded (i.e. this is a valid
-       * spacebank key), -1 otherwise
-       */
 
       argmsg->snd_code = RC_OK;
-      argmsg->snd_w1 = (result == RC_OK) ? 1 : 0;
+      // Return 1 if it is a valid spacebank key, 0 otherwise.
+      argmsg->snd_w1 = (result == RC_OK && keyType == 1) ? 1 : 0;
       
       break;
     }
   case OC_capros_key_getType: /* Key type */
     {
       argmsg->snd_code = RC_OK;
-      argmsg->snd_w1 = AKT_SpaceBank;
+      argmsg->snd_w1 = IKT_capros_SpaceBank;
       break;
     }
   default:

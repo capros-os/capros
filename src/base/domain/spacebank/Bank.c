@@ -77,10 +77,10 @@ struct premade_node_info {
 /* THIS MUST MATCH primebank.map!!! */
 static struct premade_node_info premade_keys[] =
 {
-  {KR_PRIMEBANK, &primebank,BANKPREC_NO_DESTROY|
-                       BANKPREC_NO_LIMITMODS},
-  {KR_VERIFIER, &verifybank,BANKPREC_NO_DESTROY|
-                        BANKPREC_NO_LIMITMODS},
+  {KR_PRIMEBANK, &primebank, capros_SpaceBank_precludeDestroy|
+                       capros_SpaceBank_precludeSetLimit},
+  {KR_VERIFIER, &verifybank, capros_SpaceBank_precludeDestroy|
+                        capros_SpaceBank_precludeSetLimit},
   /* end marker */
   {KR_VOID, NULL, 0u}
 };
@@ -355,11 +355,17 @@ BankSetLimits(Bank * bank, const capros_SpaceBank_limits * newLimits)
 uint32_t
 BankGetLimits(Bank * bank, /*OUT*/ capros_SpaceBank_limits * getLimits)
 {
+  int i;
   uint64_t effFrameLimit = UINT64_MAX;
   uint64_t effAllocLimit = UINT64_MAX;
 
   getLimits->frameLimit = bank->limit;
   getLimits->allocCount = bank->allocCount;
+
+  for (i = 0; i < capros_Range_otNUM_TYPES; i++) {
+    getLimits->allocs[i]   = bank->allocs[i];
+    getLimits->reclaims[i] = bank->deallocs[i];
+  }
 
   for ( ; bank != NULL; bank = bank->parent) {
     if (bank->limit < effFrameLimit) {
@@ -375,17 +381,15 @@ BankGetLimits(Bank * bank, /*OUT*/ capros_SpaceBank_limits * getLimits)
   getLimits->effFrameLimit = effFrameLimit;
   getLimits->effAllocLimit = effAllocLimit;
 
-  {
-    int i;
-    for (i = 0; i < capros_Range_otNUM_TYPES; i++) {
-      getLimits->allocs[i]   = bank->allocs[i];
-      getLimits->reclaims[i] = bank->deallocs[i];
-    }
-  }
-
   return RC_OK;
 }
 
+/*
+Returns:
+RC_capros_Range_RangeErr if offset is out of range (that's a bug)
+  or the range is not mounted.
+RC_OK if successful.
+ */
 result_t
 GetCapAndRetype(capros_Range_obType obType,
   OID offset, cap_t kr)
@@ -395,8 +399,10 @@ GetCapAndRetype(capros_Range_obType obType,
   capros_Range_obType currentType;
   retval = capros_Range_getCap(KR_SRANGE, obType, offset,
              &currentType, kr);
-  if (retval != RC_OK)
+  if (retval != RC_OK) {
+    assert(retval == RC_capros_Range_RangeErr);
     return retval;
+  }
   if (currentType != capros_Range_otNone) {
     assert(currentType <= capros_Range_otNode);
     // Need to retype this frame.
@@ -424,13 +430,21 @@ GetCapAndRetype(capros_Range_obType obType,
     // getCap should now succeed with the right type:
     retval = capros_Range_getCap(KR_SRANGE, obType, offset,
              &currentType, kr);
-    if (retval != RC_OK)
+    if (retval != RC_OK) {
+      assert(retval == RC_capros_Range_RangeErr);
       return retval;
+    }
     assert(currentType == capros_Range_otNone);
   }
   return RC_OK;
 }
 
+/*
+Returns:
+RC_capros_Range_RangeErr if the range is not mounted.
+RC_capros_SpaceBank_LimitReached if limit reached.
+RC_OK if successful.
+ */
 uint32_t
 BankCreateKey(Bank *bank, BankPrecludes limits, uint32_t kr)
 {
@@ -444,7 +458,10 @@ BankCreateKey(Bank *bank, BankPrecludes limits, uint32_t kr)
     retval = GetCapAndRetype(capros_Range_otForwarder,
 			       bank->limitedKey[limits],
 			       kr);
-    if (retval != RC_OK) return retval;
+    if (retval != RC_OK) {
+      assert(retval == RC_capros_Range_RangeErr);
+      return retval;
+    }
   }
   else {
     OID oid;
@@ -452,8 +469,10 @@ BankCreateKey(Bank *bank, BankPrecludes limits, uint32_t kr)
 
     retval = BankAllocObject(bank, capros_Range_otForwarder, kr, &oid);
 
-    if (retval != RC_OK)
+    if (retval != RC_OK) {
+      assert(retval == RC_capros_SpaceBank_LimitReached);
       return retval;
+    }
 
     retval = bank_initKeyNode(kr, bank, limits);
     assert("calling bank_initKeyNode on alloced forwarder"
@@ -814,6 +833,12 @@ BankDeallocObject(Bank * bank, uint32_t kr)
   return RC_OK;
 }
 
+/*
+Returns:
+RC_capros_key_RequestError if type is invalid.
+RC_capros_SpaceBank_LimitReached if limit reached.
+RC_OK if successful.
+ */
 result_t
 BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
 {

@@ -24,10 +24,10 @@ interface SpaceBank extends key
 
   /* unsigned byte bitset restrictions {
     precludeDestroy = 1,
-    precludeSetLimits = 2
+    precludeSetLimit = 2
   }; */
   const unsigned byte precludeDestroy = 1;
-  const unsigned byte precludeSetLimits = 2;
+  const unsigned byte precludeSetLimit = 2;
 
   /* Raises key.RequestError if obTypeN is not valid.
   Raises LimitReached if the object cannot be allocated. */
@@ -57,13 +57,29 @@ interface SpaceBank extends key
   // of the one use in protospace.S.
   void ReclaimDataPagesFromNode(capros.key node);
 
-  void setLimits(limits newLimits);
+  /* setLimit
+
+  frameLimit is the new value for the maximum number of frames
+    allocatable from this bank.
+
+  Raises key.UnknownRequest if this bank has the precludeSetLimits restriction.
+  */
+  void setLimit(unsigned <64> frameLimit);
+
   limits getLimits();
 
   /* Returns 1 if purportedBank is good, 0 otherwise. */
   unsigned long verify(capros.key purportedBank);
   capros.key createSubBank();
+
+  /* reduce
+  May raise:
+    LimitReached
+    Range.RangeErr if range is not mounted (not the client's problem?)
+  */
   capros.key reduce(unsigned byte /*restrictions*/ r);
+
   // void destroy();	// from capros.key
+
   void destroyBankAndSpace();
 };

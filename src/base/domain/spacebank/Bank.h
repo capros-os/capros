@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
  * Copyright (C) 2001, The EROS Group.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -35,17 +35,8 @@ typedef uint32_t BankPrecludes;
 /* note:  There can only be 15 distinct precludes, as all start keys >=
    0x8000 are reserved for other uses. (like the brand!) */
 
-#define BANKPREC_NO_DESTROY       (0x01u)
-#define BANKPREC_NO_LIMITMODS     (0x02u)
-
-#define BANKPREC_NUM_PRECLUDES    (0x04u)
-/* should be 2 * the maximum limit bit value */
-
-
 #define BANKPREC_MASK             (0x03u)
-
-#define BANKPREC_CAN_DESTROY(lim)     !((lim) & BANKPREC_NO_DESTROY  )
-#define BANKPREC_CAN_MOD_LIMIT(lim)   !((lim) & BANKPREC_NO_LIMITMODS)
+#define BANKPREC_NUM_PRECLUDES    (BANKPREC_MASK + 1)
 
 struct Bank_MOFrame {
   uint64_t frameOid;
