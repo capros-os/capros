@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -86,7 +86,6 @@ primary	Keyboard
 
 domain	PCC
 domain	MetaConstructor
-domain	SpaceBank
 domain	DomCre
 domain	VcskSeg
 domain	FreshSeg
