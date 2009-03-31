@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -24,11 +24,11 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <domain/ConstructorKey.h>
 #include <idl/capros/key.h>
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
+#include <idl/capros/Constructor.h>
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
 
@@ -82,7 +82,7 @@ setup()
 
   KPRINTF(init)(KR_OSTREAM, "Build new zero segment:\n");
 
-  result = constructor_request(KR_ZSF, KR_BANK, KR_SCHED, KR_VOID,
+  result = capros_Constructor_request(KR_ZSF, KR_BANK, KR_SCHED, KR_VOID,
 			 KR_SEG);
 
   KPRINTF(init)(KR_OSTREAM,
@@ -168,7 +168,7 @@ main()
 #endif
   
 
-  KPRINTF(test)(KR_OSTREAM, "About to destroy VCS: 0x%08x\n", value);
+  KPRINTF(test)(KR_OSTREAM, "About to destroy VCS:\n");
   value = capros_key_destroy(KR_SEG);
   KPRINTF(test)(KR_OSTREAM, "Return code is: 0x%08x\n", value);
 

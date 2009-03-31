@@ -1,7 +1,7 @@
 /* -*- Mode: c -*- */
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -37,17 +37,6 @@ Approved for public release, distribution unlimited. */
 #include <vcs.map>
 #include <ipltool.map>
 
-#if 0
-/********************************************************
- * A hand-constructed VCS for testing.
- ********************************************************/
-vcs = new node with lss 1;	/* red space node */
-vcs[15] = number( 0x3fe01 );	/* 1 init slot, pass node, kpr in e,
-				   no bg seg, lss=3 */
-vcs[14] = start vcsk 0;
-vcs[0] = zero_pg;
-
-#endif
 /********************************************************
  * Actual test case
  ********************************************************/
@@ -59,6 +48,7 @@ vcstest.seg = small program BUILDDIR "vcs_test";
 vcstest.seg = vcstest.seg with page at 0xf000;
 vcstest space = vcstest.seg;
 vcstest schedule = sched(8);	/* normal */
+vcstest symtab = number("test");
 
 /* vcstest registers: */
 vcstest key reg KR_SELF = vcstest;
