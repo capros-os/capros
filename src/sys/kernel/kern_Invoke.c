@@ -778,7 +778,7 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
                     uint32_t warg2,
                     uint32_t warg3,
                     Key *keeperKey,
-                    Key* keyArg2, uint8_t *data, uint32_t len)
+                    Key * keyArg, uint8_t * data, uint32_t len)
 {
   BeginInvocation();
   KernStats.nInvKpr++;
@@ -799,9 +799,9 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
   inv.entry.w2 = warg2;
   inv.entry.w3 = warg3;
 
-  inv.entry.key[0] = &key_VoidKey;
+  inv.entry.key[0] = keyArg;
   inv.entry.key[1] = &key_VoidKey;
-  inv.entry.key[2] = keyArg2;
+  inv.entry.key[2] = &key_VoidKey;
   inv.entry.key[3] = &key_VoidKey;
 
   inv.entry.len = len;

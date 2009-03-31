@@ -39,9 +39,9 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <arch-kerninc/Process.h>
 #include <arch-kerninc/PTE.h>
 #include <eros/Invoke.h>
-#include <eros/ProcessState.h>
 #include <kerninc/Invocation.h>
 #include <idl/capros/arch/arm/Process.h>
+#include <idl/capros/ProcessKeeper.h>
 #include "arm.h"
 
 #include "gen.REGMOVE.h"
@@ -342,7 +342,7 @@ proc_InvokeProcessKeeper(Process * thisPtr)
   key_SetToProcess(&inv.keeperArg, thisPtr, KKT_Process, 0);
   inv.flags |= INV_KEEPERARG;
 
-  proc_InvokeMyKeeper(thisPtr, OC_PROCFAULT, 0, 0, 0, kpr,
+  proc_InvokeMyKeeper(thisPtr, OC_capros_ProcessKeeper_fault, 0, 0, 0, kpr,
                       &inv.keeperArg, (uint8_t *) &regs, sizeof(regs));
 }
 

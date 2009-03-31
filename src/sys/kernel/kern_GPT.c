@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -30,7 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Invocation.h>
 #include <arch-kerninc/PTE.h>
 #include <idl/capros/GPT.h>
-#include <eros/ProcessState.h>
+#include <idl/capros/Memory.h>
 #include <kerninc/Key-inline.h>
 
 // #define WALK_DBG
@@ -365,7 +365,7 @@ proc_InvokeSegmentKeeper(
     keyBits_SetL2g(&inv.keeperArg, 64);	// disable guard
     inv.flags |= INV_KEEPERARG;
 
-    proc_InvokeMyKeeper(thisPtr, OC_SEGFAULT, wi->faultCode,
+    proc_InvokeMyKeeper(thisPtr, OC_capros_Memory_fault, wi->faultCode,
 		 (uint32_t) wi->keeperOffset, (uint32_t) (wi->keeperOffset>>32),
 		 keeperKey, &inv.keeperArg,
 		 0, 0);

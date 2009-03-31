@@ -27,4 +27,6 @@ interface Memory extends key {
   capros.key makeGuarded(addr_t guard);
 
   unsigned long getRestrictions();
+
+  void fault(unsigned long faultCode, unsigned <64> offset, key memObj);
 };

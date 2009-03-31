@@ -1,0 +1,10 @@
+package capros;
+
+/** Kernel interface to Process keeper.
+ *
+ */
+interface ProcessKeeper extends key {
+  /* Actually, the full set of registers is passed, not just the
+  CommonRegisters32. */
+  void fault(Process proc, Process.CommonRegisters32 regs);
+};
