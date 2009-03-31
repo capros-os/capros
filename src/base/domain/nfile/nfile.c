@@ -57,7 +57,6 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/FileServer.h>
 #include <idl/capros/Forwarder.h>
 
-#include <domain/VcskKey.h>
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
