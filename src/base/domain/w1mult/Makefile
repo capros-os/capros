@@ -50,6 +50,7 @@ $(BUILDDIR)/w1mult: $(OBJECTS) $(DOMCRT0) $(DOMLIB)
 	$(CROSSLINK) $(OBJECTS) $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 
 install: all
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)

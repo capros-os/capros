@@ -30,6 +30,8 @@ Approved for public release, distribution unlimited. */
 Link DS18B20_samplingQueue[maxLog2Seconds+1];
 
 struct W1Device * DS18B20_workList = NULL;
+capros_Sleep_nanoseconds_t DS18B20_sampledTime;
+capros_RTC_time_t DS18B20_sampledRTC;
 
 static void
 EnsureOnWorkList(struct W1Device * dev)
@@ -278,7 +280,9 @@ readTemperature(struct W1Device * dev)
         || temperature > dev->u.thermom.hysteresisLow
                          + dev->u.thermom.hysteresis ) {
       // Temperature changed sufficiently to log.
-      if (AddLogRecord16(dev->u.thermom.logSlot, temperature, 0)) {
+      if (AddLogRecord16(dev->u.thermom.logSlot,
+                         DS18B20_sampledRTC,
+                         DS18B20_sampledTime, temperature, 0)) {
         if (temperature < dev->u.thermom.hysteresisLow)
           dev->u.thermom.hysteresisLow = temperature;
         else
@@ -359,8 +363,8 @@ DS18B20_HeartbeatAction(uint32_t hbCount)
     // When all conversions are complete, read the results.
     RecordCurrentRTC();
     RecordCurrentTime();
-    sampledRTC = currentRTC;
-    sampledTime = currentTime;
+    DS18B20_sampledRTC = currentRTC;
+    DS18B20_sampledTime = currentTime;
     latestConvertTTime = currentTime;
 
     // A resolution of 1 binary digit takes 93.75 milliseconds.

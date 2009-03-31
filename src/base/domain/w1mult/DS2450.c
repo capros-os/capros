@@ -37,6 +37,8 @@ Link DS2450_samplingQueue[maxLog2Seconds+1];
 
 bool converting = false;
 struct W1Device * DS2450_workList = NULL;
+capros_Sleep_nanoseconds_t DS2450_sampledTime;
+capros_RTC_time_t DS2450_sampledRTC;
 
 static void
 EnsureOnWorkList(struct W1Device * dev)
@@ -364,8 +366,8 @@ readData(struct W1Device * dev)
     DEBUG(errors) kprintf(KR_OSTREAM, "DS2450 read data %d\n", status);
     return;
   }
-  DEBUG(doall) kprintf(KR_OSTREAM, "DS2450 %#llx sampled at %u\n",
-                       dev->rom, sampledTime);
+  DEBUG(doall) kprintf(KR_OSTREAM, "DS2450 %#llx sampled at %llu\n",
+                       dev->rom, DS2450_sampledTime);
   int i;
   for (i = 0; i < 4; i++) {
     if (! (dev->u.ad.requestedCfg[i].cfglo & lo_OE)) {	// input port
@@ -374,7 +376,9 @@ readData(struct W1Device * dev)
           || data > dev->u.ad.port[i].hysteresisLow
                            + dev->u.ad.port[i].hysteresis ) {
         // Temperature changed sufficiently to log.
-        if (AddLogRecord16(dev->u.ad.port[i].logSlot, data, 0)) {
+        if (AddLogRecord16(dev->u.ad.port[i].logSlot,
+                           DS2450_sampledRTC,
+                           DS2450_sampledTime, data, 0)) {
           if (data < dev->u.ad.port[i].hysteresisLow)
             dev->u.ad.port[i].hysteresisLow = data;
           else
@@ -414,7 +418,8 @@ static struct w1Timer readResultsTimer = {
 void
 DS2450_HeartbeatAction(uint32_t hbCount)
 {
-  DEBUG(doall) kprintf(KR_OSTREAM, "DS2450_HeartbeatAction called "
+  if ((dbg_doall | dbg_ad) & dbg_flags)
+    kprintf(KR_OSTREAM, "DS2450_HeartbeatAction called "
                  "wq0=%#x wq1=%#x\n", DS2450_samplingQueue[0].next,
                  DS2450_samplingQueue[1].next);
 
@@ -443,13 +448,14 @@ DS2450_HeartbeatAction(uint32_t hbCount)
       // When all conversions are complete, read the results.
       RecordCurrentRTC();
       RecordCurrentTime();
-      sampledTime = currentRTC;
+      DS2450_sampledRTC = currentRTC;
+      DS2450_sampledTime = currentTime;
       // Maximum conversion time is 5.12 ms.
       // There is no offset time because the device must be VCC powered.
       readResultsTimer.expiration = currentTime + 5120000ULL;
       DEBUG(doall) kprintf(KR_OSTREAM,
-                           "DS2450 sampledTime %u expiration %lld",
-                           sampledTime,
+                           "DS2450 sampledTime %llu expiration %lld",
+                           DS2450_sampledTime,
                            readResultsTimer.expiration/1000000);
       InsertTimer(&readResultsTimer);
       converting = true;

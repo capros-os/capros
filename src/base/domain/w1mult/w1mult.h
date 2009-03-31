@@ -154,7 +154,10 @@ struct w1Timer {
 
 result_t CreateLog(int32_t * pSlot);
 void GetLogfile(unsigned int slot);
-bool AddLogRecord16(unsigned int slot, int16_t value, int16_t param);
+bool AddLogRecord16(unsigned int slot,
+  capros_RTC_time_t sampledRTC,
+  capros_Sleep_nanoseconds_t sampledTime,
+  int16_t value, int16_t param);
 
 struct W1Device * BranchToCoupler(struct Branch * br);
 
@@ -211,8 +214,6 @@ NotReset(void)
 
 extern capros_Sleep_nanoseconds_t currentTime;
 extern capros_RTC_time_t currentRTC;
-extern capros_Sleep_nanoseconds_t sampledTime;
-extern capros_RTC_time_t sampledRTC;
 void RecordCurrentTime(void);
 void RecordCurrentRTC(void);
 

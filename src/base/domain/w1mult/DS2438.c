@@ -42,6 +42,8 @@ capros_Sleep_nanoseconds_t VEEExpiry;
 
 Link DS2438_TSamplingQueue[maxLog2Seconds+1];
 Link DS2438_VSamplingQueue[maxLog2Seconds+1];
+capros_Sleep_nanoseconds_t DS2438_sampledTime;
+capros_RTC_time_t DS2438_sampledRTC;
 
 void
 DS2438_Init(void)
@@ -323,8 +325,8 @@ readTemp(struct W1Device * dev)
   if (! status) {
     RecordCurrentRTC();
     RecordCurrentTime();
-    sampledRTC = currentRTC;
-    sampledTime = currentTime;
+    DS2438_sampledRTC = currentRTC;
+    DS2438_sampledTime = currentTime;
     latestConvertTTime = currentTime;
     WaitUntilNotBusy();	// wait for the convert T to finish
     do {
@@ -338,7 +340,9 @@ readTemp(struct W1Device * dev)
         || temperature > dev->u.bm.tempHysteresisLow
                          + dev->u.bm.tempHysteresis ) {
       // Temperature changed sufficiently to log.
-      if (AddLogRecord16(dev->u.bm.tempLogSlot, temperature, 0)) {
+      if (AddLogRecord16(dev->u.bm.tempLogSlot,
+                         DS2438_sampledRTC,
+                         DS2438_sampledTime, temperature, 0)) {
         if (temperature < dev->u.bm.tempHysteresisLow)
           dev->u.bm.tempHysteresisLow = temperature;
         else
@@ -348,8 +352,8 @@ readTemp(struct W1Device * dev)
     }
   buserr: ;
   }
-  DEBUG(doall) kprintf(KR_OSTREAM, "DS2438 %#llx temp sampled at %u\n",
-                       dev->rom, sampledTime);
+  DEBUG(doall) kprintf(KR_OSTREAM, "DS2438 %#llx temp sampled at %llu\n",
+                       dev->rom, DS2438_sampledTime);
 }
 
 static void
@@ -365,7 +369,9 @@ readVolts(struct W1Device * dev)
       || voltage > dev->u.bm.voltHysteresisLow
                        + dev->u.bm.voltHysteresis ) {
     // Temperature changed sufficiently to log.
-    if (AddLogRecord16(dev->u.bm.voltLogSlot, voltage,
+    if (AddLogRecord16(dev->u.bm.voltLogSlot,
+                       DS2438_sampledRTC,
+                       DS2438_sampledTime, voltage,
                        dev->u.bm.voltSelect )) {
       if (voltage < dev->u.bm.voltHysteresisLow)
         dev->u.bm.voltHysteresisLow = voltage;
@@ -374,8 +380,8 @@ readVolts(struct W1Device * dev)
                                       - dev->u.bm.voltHysteresis;
     }
   }
-  DEBUG(doall) kprintf(KR_OSTREAM, "DS2438 %#llx volt sampled at %u\n",
-                       dev->rom, sampledTime);
+  DEBUG(doall) kprintf(KR_OSTREAM, "DS2438 %#llx volt sampled at %llu\n",
+                       dev->rom, DS2438_sampledTime);
 }
 
 /* We can save addressing each individual device
@@ -437,8 +443,8 @@ DS2438_HeartbeatAction(uint32_t hbCount)
 
     RecordCurrentTime();
     RecordCurrentRTC();
-    sampledTime = currentTime;
-    sampledRTC = currentRTC;
+    DS2438_sampledTime = currentTime;
+    DS2438_sampledRTC = currentRTC;
 
     // We could be busy on the Convert V for 10 ms:
     VEEExpiry = currentTime + 10000000;

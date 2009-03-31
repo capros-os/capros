@@ -161,12 +161,13 @@ GetLogfile(unsigned int slot)
 }
 
 /* Add a log record.
- * sampledRTC and sampledTime must be valid.
- *
  * Returns true iff record was successfully added.
  */
 bool
-AddLogRecord16(unsigned int slot, int16_t value, int16_t param)
+AddLogRecord16(unsigned int slot,
+  capros_RTC_time_t sampledRTC,
+  capros_Sleep_nanoseconds_t sampledTime,
+  int16_t value, int16_t param)
 {
   result_t result;
   capros_W1Mult_LogRecord16 rec16;
@@ -182,8 +183,10 @@ AddLogRecord16(unsigned int slot, int16_t value, int16_t param)
   result = capros_Logfile_appendRecord(KR_TEMP0,
              sizeof(rec16), (uint8_t *)&rec16);
   switch (result) {
-  default:
-    assert(false);
+  default:	// should not happen
+    kdprintf(KR_OSTREAM, "%s:%d: result=%#x\n", __FILE__, __LINE__, result);
+    return false;	// Not much we can do but drop the record.
+
   case RC_capros_Logfile_Full:
     DEBUG(errors) kprintf(KR_OSTREAM, "W1Mult log %u full!\n", slot);
     return false;	// Not much we can do but drop the record.
@@ -238,8 +241,6 @@ BranchToCoupler(struct Branch * br)
 
 capros_Sleep_nanoseconds_t currentTime;
 capros_RTC_time_t currentRTC;
-capros_Sleep_nanoseconds_t sampledTime;
-capros_RTC_time_t sampledRTC;
 
 volatile	// because shared between threads
 capros_Sleep_nanoseconds_t timeToWake = infiniteTime;
