@@ -28,7 +28,7 @@ Approved for public release, distribution unlimited. */
 #include <ipltool.map>
 #include <supernode.map>
 #include <vcs.map>
-#include <ckptr.map>
+////#include <ckptr.map>
 
 #include <w1mult.map>
 

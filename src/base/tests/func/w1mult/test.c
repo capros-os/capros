@@ -105,7 +105,6 @@ void
 configureTemp(int n)
 {
   result_t result;
-  uint32_t keyType;
 
   GetDevN(n, KR_TEMP0);
   // Sample every 2 seconds, 3 binary bits of resolution.
@@ -140,9 +139,9 @@ configureAD(int n)
              KR_TEMP0, KR_TEMP1, KR_TEMP2, KR_TEMP3);
   ckOK
   SaveLog(n, KR_TEMP0);
-  SaveLog(maxDev + n, KR_TEMP1);
-  SaveLog(maxDev*2 + n, KR_TEMP2);
-  SaveLog(maxDev*3 + n, KR_TEMP3);
+  SaveLog(maxDevs + n, KR_TEMP1);
+  SaveLog(maxDevs*2 + n, KR_TEMP2);
+  SaveLog(maxDevs*3 + n, KR_TEMP3);
 }
 
 void
@@ -174,6 +173,8 @@ PrintADDevN(int n)
 {
   int i;
   result_t result;
+  capros_W1Mult_LogRecord16 rec16;
+  uint32_t len;
 
   kprintf(KR_OSTREAM, "Dev %d data is ", n);
   for (i = 0; i < 4; i++) {
@@ -186,7 +187,6 @@ PrintADDevN(int n)
     if (result != RC_capros_Logfile_NoRecord) {
       ckOK
       assert(len == sizeof(rec16));
-      short temperature = rec16.value;
 #if 0
       kprintf(KR_OSTREAM, "%#.4x ", rec16.value);
 #else
@@ -196,6 +196,8 @@ PrintADDevN(int n)
       kprintf(KR_OSTREAM, ". ");
     }
   }
+  // Print only the last rtc value.
+  kprintf(KR_OSTREAM, "at %#lu sec\n", rec16.header.rtc);
 }
 
 int
