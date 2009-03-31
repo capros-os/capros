@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,10 +32,10 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
-#include <eros/ProcessState.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Process.h>
+#include <idl/capros/ProcessKeeper.h>
 
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -43,9 +43,7 @@ Approved for public release, distribution unlimited. */
 #include "winsys-keeper.h"
 #include "constituents.h"
 
-#define KR_RK0         KR_ARG(0)
-#define KR_RK1         KR_ARG(1)
-#define KR_PROCESS     KR_ARG(2)
+#define KR_PROCESS     KR_ARG(0)
 
 #define KR_OSTREAM     KR_APP(0)
 #define KR_START       KR_APP(1)
@@ -73,7 +71,7 @@ ProcessRequest(Message *msg)
 	  msg->rcv_code, msg->rcv_code);
 
   switch(msg->rcv_code) {
-  case OC_PROCFAULT:
+  case OC_capros_ProcessKeeper_fault:
     {
       struct capros_Process_CommonRegisters32 * regs
         = (struct capros_Process_CommonRegisters32 *) msg->rcv_data;
@@ -150,9 +148,9 @@ main ()
   msg.snd_w2 = 0;
   msg.snd_w3 = 0;
      
-  msg.rcv_key0 = KR_RK0;
-  msg.rcv_key1 = KR_RK1;
-  msg.rcv_key2 = KR_PROCESS;
+  msg.rcv_key0 = KR_PROCESS;
+  msg.rcv_key1 = KR_VOID;
+  msg.rcv_key2 = KR_VOID;
   msg.rcv_data = &rcvData;
   msg.rcv_code = 0;
   msg.rcv_w1 = 0;

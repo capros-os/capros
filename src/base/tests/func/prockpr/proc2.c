@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group
+ * Copyright (C) 2007, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -94,7 +94,7 @@ main()
       increment = 0;
     }
     regs->pc += increment;
-    capros_Process_setRegisters32(KR_ARG(2), *regs);
+    capros_Process_setRegisters32(KR_ARG(0), *regs);
 
     kprintf(KR_OSTREAM, "Keeper returning.\n");
 
