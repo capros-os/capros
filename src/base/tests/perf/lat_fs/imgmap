@@ -58,7 +58,7 @@ lat_fs key reg KR_SELF = lat_fs;
 lat_fs key reg KR_BANK = primebank;
 lat_fs key reg KR_SCHED = sched(8);
 lat_fs key reg KR_APP(0) = misc Console;
-lat_fs key reg KR_APP(1) = nfilec;
+lat_fs key reg KR_APP(1) = FileSrvC;
 lat_fs key reg KR_APP(2) = misc Sleep;
 lat_fs key reg KR_APP(3) = new node;
 

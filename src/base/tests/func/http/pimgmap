@@ -79,7 +79,7 @@ test key reg KR_APP(2) = netlistener_c;
 test key reg KR_APP(3) = TCPPort443;
 test key reg KR_APP(4) = metacon;
 test key reg KR_APP(5) = iks_c;
-test key reg KR_APP(6) = nfilec;
+test key reg KR_APP(6) = FileSrvC;
 test key reg KR_APP(7) = http_sym;
 
 run test;
