@@ -38,7 +38,6 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
 
-#include <domain/VcskKey.h>
 #include <domain/MemmapKey.h>
 #include <domain/domdbg.h>
 #include <domain/ProtoSpace.h>
@@ -69,9 +68,8 @@ Approved for public release, distribution unlimited. */
 
 #define KR_NEWPAGE   KR_APP(7)
 
-#define KR_NEWOBJ    KR_ARG(0)
+#define KR_GPT       KR_ARG(0)
 #define KR_PHYSRANGE KR_ARG(1)
-#define KR_GPT   KR_ARG(2)
 
 /* If this was a direct invocation of our start key, the key parameters hold
    whatever the user passed.
@@ -80,8 +78,8 @@ Approved for public release, distribution unlimited. */
    hold what the user passed except that KR_GPT has been replaced
    by a non-opaque key to the segment GPT.
 
-   If this was a kernel-generated fault invocation, KR_ARG(0) and KR_PHYSRANGE
-   hold void keys, KR_GPT holds a non-opaque key to the segment GPT,
+   If this was a kernel-generated fault invocation,
+   KR_GPT holds a non-opaque key to the segment GPT,
    and KR_RETURN holds a fault key. */
 
 /* IMPORTANT optimization:
@@ -274,17 +272,17 @@ HandleSegmentFault(Message *pMsg, state *pState)
       
 	  /* Buy a new GPT to expand with: */
           result = capros_SpaceBank_alloc1(KR_BANK,
-                                           capros_Range_otGPT, KR_NEWOBJ);
+                                           capros_Range_otGPT, KR_TEMP0);
 	  if (result != RC_OK)
 	    return result;
       
 	  /* Make that GPT have BLSS == subsegBlss+1: */
-	  capros_GPT_setL2v(KR_NEWOBJ, BlssToL2v(subsegBlss+1));
+	  capros_GPT_setL2v(KR_TEMP0, BlssToL2v(subsegBlss+1));
 
 	  /* Insert the old subseg into slot 0: */
-	  capros_GPT_setSlot(KR_NEWOBJ, 0, KR_SCRATCH);
+	  capros_GPT_setSlot(KR_TEMP0, 0, KR_SCRATCH);
 
-	  COPY_KEYREG(KR_NEWOBJ, KR_SCRATCH);
+	  COPY_KEYREG(KR_TEMP0, KR_SCRATCH);
 
 	  /* Finally, insert the new subseg into the original GPT.*/
           // FIXME: only need to do this after the iteration
@@ -430,9 +428,7 @@ ProcessRequest(Message *argmsg, state *pState)
   
   switch(argmsg->rcv_code) {
 
-    /* This domain is an address space keeper, so it must implement
-       the VCSK interface as well: */
-  case OC_Vcsk_InvokeKeeper:
+  case OC_capros_Memory_fault:
     if (pState->frozen) {
       result = RC_capros_key_RequestError;
       break;
@@ -610,20 +606,20 @@ Initialize(state *mystate)
   
   DEBUG(init) kprintf(KR_OSTREAM, "Buy new GPT\n");
   
-  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_GPT);
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_TEMP1);
 
   DEBUG(init) kprintf(KR_OSTREAM, "Initialize it\n");
 
-  result = capros_GPT_setL2v(KR_GPT, BlssToL2v(segBlss));
+  result = capros_GPT_setL2v(KR_TEMP1, BlssToL2v(segBlss));
 
   /* write the immutable seg to slot 0 */
-  capros_GPT_setSlot(KR_GPT, 0, KR_ARG(0));
+  capros_GPT_setSlot(KR_TEMP1, 0, KR_ARG(0));
 
   /* Make a start key to ourself and set as keeper. */
-  capros_Process_makeStartKey(KR_SELF, 0, KR_ARG(0));
-  result = capros_GPT_setKeeper(KR_GPT, KR_ARG(0));
+  capros_Process_makeStartKey(KR_SELF, 0, KR_TEMP0);
+  result = capros_GPT_setKeeper(KR_TEMP1, KR_TEMP0);
 
-  result = capros_Memory_reduce(KR_GPT, capros_Memory_opaque, KR_GPT);
+  result = capros_Memory_reduce(KR_TEMP1, capros_Memory_opaque, KR_TEMP1);
 
   DEBUG(init) kprintf(KR_OSTREAM, "GPT now constructed... returning\n");
 }
@@ -640,7 +636,7 @@ main()
   DEBUG(init) kprintf(KR_OSTREAM, "Initialized memmap\n");
     
   msg.snd_invKey = KR_RETURN;
-  msg.snd_key0 = KR_GPT;	/* first return: GPT key */
+  msg.snd_key0 = KR_TEMP1;	/* first return: opaque GPT key */
   msg.snd_key1 = KR_VOID;
   msg.snd_key2 = KR_VOID;
   msg.snd_rsmkey = KR_VOID;
@@ -651,9 +647,9 @@ main()
   msg.snd_w2 = 0;
   msg.snd_w3 = 0;
 
-  msg.rcv_key0 = KR_ARG(0);
+  msg.rcv_key0 = KR_GPT;
   msg.rcv_key1 = KR_PHYSRANGE;
-  msg.rcv_key2 = KR_GPT;
+  msg.rcv_key2 = KR_VOID;
   msg.rcv_rsmkey = KR_RETURN;
   msg.rcv_code = 0;
   msg.rcv_w1 = 0;

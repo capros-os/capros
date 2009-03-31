@@ -98,8 +98,8 @@ L2v goes down by EROS_NODE_LGSIZE at each level - no levels are skipped.
 #include <idl/capros/Process.h>
 
 #include <domain/Runtime.h>
-#include <domain/VcskKey.h>
 #include <domain/domdbg.h>
+#include <domain/assert.h>
 #include <domain/ProtoSpaceDS.h>
 
 #include "constituents.h"
@@ -125,8 +125,7 @@ L2v goes down by EROS_NODE_LGSIZE at each level - no levels are skipped.
 #define KR_L1_NODE  KR_APP(5)		/* last L1 node we COW'd a page into */
 #define KR_PG_CACHE KR_APP(6)		/* really KR_APP(6, 7, 8) */
 
-#define KR_NEWOBJ  KR_ARG(0)
-#define KR_SEGMENT KR_ARG(2)
+#define KR_SEGMENT KR_ARG(0)
 
 /* POLICY NOTE:
 
@@ -146,8 +145,8 @@ L2v goes down by EROS_NODE_LGSIZE at each level - no levels are skipped.
    hold what the user passed except that KR_SEGMENT has been replaced
    by a non-opaque key to the segment GPT.
 
-   If this was a kernel-generated fault invocation, KR_ARG(0) and KR_ARG(1)
-   hold void keys, KR_SEGMENT holds a non-opaque key to the segment GPT,
+   If this was a kernel-generated fault invocation,
+   KR_SEGMENT holds a non-opaque key to the segment GPT,
    and KR_RETURN holds a fault key. */
 
 /* IMPORTANT optimization:
@@ -320,9 +319,9 @@ AllocPage(state * pState, result_t * resultp)
   }
   return KR_PG_CACHE + --pState->npage;
 #else
-  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_NEWOBJ);
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_TEMP0);
   if (result == RC_OK)
-    return KR_NEWOBJ;
+    return KR_TEMP0;
   else {
     DEBUG(returns) kprintf(KR_OSTREAM, "AllocPage failed\n");
     *resultp = result;
@@ -379,15 +378,15 @@ HandleSegmentFault(Message *pMsg, state *pState)
       
 	  /* Buy a new GPT to expand with: */
           result = capros_SpaceBank_alloc1(KR_BANK,
-                                           capros_Range_otGPT, KR_NEWOBJ);
+                                           capros_Range_otGPT, KR_TEMP0);
 	  if (result != RC_OK)
 	    return result;
       
 	  /* Make that node have BLSS == subsegBlss+1: */
-          capros_GPT_setL2v(KR_NEWOBJ, BlssToL2v(subsegBlss+1));
+          capros_GPT_setL2v(KR_TEMP0, BlssToL2v(subsegBlss+1));
 
 	  /* Insert the old subseg into slot 0: */
-	  capros_GPT_setSlot(KR_NEWOBJ, 0, KR_SCRATCH);
+	  capros_GPT_setSlot(KR_TEMP0, 0, KR_SCRATCH);
 
 	  /* Populate slots 1 and higher with suitable primordial zero
 	     subsegments. */
@@ -396,10 +395,10 @@ HandleSegmentFault(Message *pMsg, state *pState)
 	    int i;
 	
 	    for (i = 1; i < EROS_NODE_SIZE; i++)
-	      capros_GPT_setSlot(KR_NEWOBJ, i, KR_SCRATCH);
+	      capros_GPT_setSlot(KR_TEMP0, i, KR_SCRATCH);
 	  }
 
-	  COPY_KEYREG(KR_NEWOBJ, KR_SCRATCH);
+	  COPY_KEYREG(KR_TEMP0, KR_SCRATCH);
 
 	  /* Finally, insert the new subseg into the original GPT */
           // FIXME: only need to do this after the iteration
@@ -614,17 +613,17 @@ HandleSegmentFault(Message *pMsg, state *pState)
 
 	  /* Buy a new read-write GPT: */
           result = capros_SpaceBank_alloc1(KR_BANK,
-                                           capros_Range_otGPT, KR_NEWOBJ);
+                                           capros_Range_otGPT, KR_TEMP0);
 	  if (result != RC_OK)
 	    return result;
       
 	  /* Copy the slots and l2v from the old subseg into the new: */
-	  capros_GPT_clone(KR_NEWOBJ, KR_SCRATCH);
+	  capros_GPT_clone(KR_TEMP0, KR_SCRATCH);
 
 	  /* Replace the old subseg with the new */
-	  capros_GPT_setSlot(KR_SEGMENT, slot, KR_NEWOBJ);
+	  capros_GPT_setSlot(KR_SEGMENT, slot, KR_TEMP0);
 
-	  COPY_KEYREG(KR_NEWOBJ, KR_SEGMENT);
+	  COPY_KEYREG(KR_TEMP0, KR_SEGMENT);
 
 	  /* Now traverse downward in the tree: */
 	  slot = BlssSlotNdx(offset, subsegBlss);
@@ -727,8 +726,9 @@ ProcessRequest(Message *argmsg, state *pState)
     {
       argmsg->snd_w1 = AKT_VcskSeg;
       break;
-    }      
-  case OC_Vcsk_InvokeKeeper:
+    }
+
+  case OC_capros_Memory_fault:
     if (pState->frozen) {
       result = RC_capros_key_RequestError;
       break;
@@ -897,30 +897,25 @@ Initialize(state *mystate)
   
   DEBUG(init) kdprintf(KR_OSTREAM, "Buy new GPT\n");
   
-  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_SEGMENT);
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_TEMP1);
   if (result != RC_OK)	// failed to allocate a GPT
     Sepuku(result);	// return failure to caller
 
   DEBUG(init) kdprintf(KR_OSTREAM, "Initialize it\n");
 
-  result = capros_GPT_setL2v(KR_SEGMENT, BlssToL2v(segBlss));
-  if (result != RC_OK) {
-    kdprintf(KR_OSTREAM, "VCSK: capros_GPT_setL2v returned 0x%x\n", result);
-  }
+  result = capros_GPT_setL2v(KR_TEMP1, BlssToL2v(segBlss));
+  assert(result == RC_OK);
 
   /* write the immutable seg to slot 0 */
-  result = capros_GPT_setSlot(KR_SEGMENT, 0, KR_ARG(0));
+  result = capros_GPT_setSlot(KR_TEMP1, 0, KR_ARG(0));
 
   /* Make a start key to ourself and set as keeper. */
-  capros_Process_makeStartKey(KR_SELF, 0, KR_ARG(0));
-  result = capros_GPT_setKeeper(KR_SEGMENT, KR_ARG(0));
+  capros_Process_makeStartKey(KR_SELF, 0, KR_TEMP0);
+  result = capros_GPT_setKeeper(KR_TEMP1, KR_TEMP0);
 
-  result = capros_Memory_reduce(KR_SEGMENT, capros_Memory_opaque, KR_SEGMENT);
+  result = capros_Memory_reduce(KR_TEMP1, capros_Memory_opaque, KR_SEGMENT);
 
   DEBUG(init) kdprintf(KR_OSTREAM, "GPT now constructed... returning\n");
-  return;
-
-
 }
 
 int
@@ -946,9 +941,9 @@ main()
   msg.snd_w2 = 0;
   msg.snd_w3 = 0;
 
-  msg.rcv_key0 = KR_ARG(0);
-  msg.rcv_key1 = KR_ARG(1);
-  msg.rcv_key2 = KR_SEGMENT;
+  msg.rcv_key0 = KR_SEGMENT;
+  msg.rcv_key1 = KR_VOID;
+  msg.rcv_key2 = KR_VOID;
   msg.rcv_rsmkey = KR_RETURN;
   msg.rcv_limit = 0;
   msg.rcv_code = 0;
