@@ -141,12 +141,13 @@ interface HTTPRequestHandler extends key {
             out unsigned long sendLimit);
 
   unsigned short enum TransferEncoding {
-    identity = 0,
-    chunked = 1
+    none = 0,
+    identity = 1,
+    chunked = 2
     /* The following are not implemented yet:
-    , gzip = 2
-    , compress = 3
-    , deflate = 4
+    , gzip = 3
+    , compress = 4
+    , deflate = 5
     */
   };
 
@@ -158,6 +159,8 @@ interface HTTPRequestHandler extends key {
 
   bodyTransferEncoding will be used as the Transfer-Encoding for the
   response body.
+  If bodyTransferEncoding is none, there is no response body.
+    (In this case the statusCode should be 204 (No Content).)
   If bodyTransferEncoding is identity, contentLength is the size of the
   response body.
   For any other value of bodyTransferEncoding, contentLength is ignored.
