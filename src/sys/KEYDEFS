@@ -88,11 +88,6 @@ domain	PCC
 domain	MetaConstructor
 domain	DomCre
 domain	VcskSeg
-domain	FreshSeg
 
 /* This is wrong: each type of constructor should have its own type. */
 domain	ConstructorRequestor
-
-domain	Directory
-domain	File
-domain	SigMux
