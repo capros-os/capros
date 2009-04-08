@@ -162,7 +162,7 @@ check_Pages()
       continue;
 
     case ot_PtDevicePage:
-    case ot_PtDataPage:
+    case ot_PtDataPage: ;
 #ifndef NDEBUG
       if ( !keyR_IsValid(&pageH_ToObj(pPage)->keyRing, pPage) ) {
         goto fail;

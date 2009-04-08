@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -27,6 +27,31 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <idl/capros/SysTrace.h>
 
+//#define RESPONSE_TEST
+#ifdef RESPONSE_TEST
+
+#include <kerninc/SysTimer.h>
+#include <kerninc/IRQ.h>
+
+#define numSamples 20
+Process * waitProc;
+uint64_t startTime;
+uint64_t durations[numSamples];
+int durationsIndex = 0;
+
+void
+ClockWakeup(Process * proc)
+{
+  if (proc == waitProc) {
+    // Mark start of duration.
+    irqFlags_t flags = local_irq_save();
+    startTime = mach_TicksToNanoseconds(sysT_latestTime);
+    local_irq_restore(flags);
+  }
+}
+
+#endif // RESPONSE_TEST
+
 void
 SysTraceCommon(Invocation * inv, Process * proc)
 {
@@ -36,6 +61,15 @@ SysTraceCommon(Invocation * inv, Process * proc)
   case OC_capros_key_getType:
     inv->exit.code = RC_OK;
     inv->exit.w1 = AKT_SysTrace;
+#ifdef RESPONSE_TEST
+    // Mark end of duration.
+    if (durationsIndex >= numSamples)
+      inv->exit.code = (uint32_t)durations;
+    else {
+      durations[durationsIndex++] = mach_TicksToNanoseconds(sysT_Now())
+                  - startTime;
+    }
+#endif // RESPONSE_TEST
     break;
     
   default:
@@ -44,6 +78,9 @@ SysTraceCommon(Invocation * inv, Process * proc)
 
   case OC_capros_SysTrace_CheckConsistency:
     {
+#ifdef RESPONSE_TEST
+      waitProc = proc_Current();
+#endif // RESPONSE_TEST
       // Performance test of check.
       #include <kerninc/Check.h>
       check_Consistency("SysTrace");

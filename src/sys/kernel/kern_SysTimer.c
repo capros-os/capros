@@ -85,6 +85,7 @@ sysT_AddSleeper(Activity * t, uint64_t wakeTime)
   assert(link_isSingleton(&t->q_link));
   assert(act_HasProcess(t));
   Process * proc = act_GetProcess(t);
+  (void)proc;	// for the compiler
   assert(proc->curActivity == t);
   assert(! (proc->hazards & hz_DomRoot));
   assert(proc->runState == RS_Waiting);
@@ -184,6 +185,12 @@ sysT_WakeupAt(void)
     // Wake up this Activity.
     link_Unlink(&t->q_link);
     act_Wakeup(t);
+//#define RESPONSE_TEST
+#ifdef RESPONSE_TEST
+    assert(act_HasProcess(t));	// true?
+    extern void ClockWakeup(Process * proc);
+    ClockWakeup(act_GetProcess(t));
+#endif
 
     // Complete this process's sleep invocation.
 

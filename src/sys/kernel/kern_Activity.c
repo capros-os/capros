@@ -843,7 +843,6 @@ act_GetOID(Activity * act, OID * oid)
   return true;
 }
 
-#ifndef NDEBUG
 void
 ValidateAllActivitys(void)
 {
@@ -902,7 +901,6 @@ act_ValidateActivity(Activity* thisPtr)
   case act_Stall:
     if (act_HasProcess(thisPtr)
         && ! (act_GetProcess(thisPtr)->hazards & hz_DomRoot)) {
-      Process * proc = act_GetProcess(thisPtr);
       switch (thisPtr->actHazard) {
       default:
       case actHaz_WakeResume:
@@ -913,7 +911,7 @@ act_ValidateActivity(Activity* thisPtr)
       case actHaz_None:
       case actHaz_WakeOK:
       case actHaz_WakeRestart:
-        assert(proc->runState != RS_Available);
+        assert(act_GetProcess(thisPtr)->runState != RS_Available);
         break;
       }
     }
@@ -926,9 +924,6 @@ act_ValidateActivity(Activity* thisPtr)
     }
   }
 }
-
-
-#endif
 
 const char* 
 act_Name(Activity* thisPtr)

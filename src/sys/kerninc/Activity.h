@@ -181,10 +181,8 @@ extern Activity * allocatedActivity;
 
 extern unsigned int numFreeActivities;
 
-#ifndef NDEBUG
 void act_ValidateActivity(Activity * thisPtr);
 void ValidateAllActivitys(void);
-#endif
 
 bool act_GetOID(Activity * act, OID * oid);
 
