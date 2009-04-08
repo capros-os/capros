@@ -142,7 +142,7 @@ enum TCPSk_state {
   TCPSk_state_Closed
 };
 
-#define maxRecvQPBufs 36
+#define maxRecvQPBufs 48
 
 struct TCPSocket {
   struct tcp_pcb * pcb;
