@@ -3,6 +3,8 @@ package capros;
 /* Interface to a Home Automation Inc. (HAI) Omni controller. */
 interface HAI extends key 
 {
+  exception NACK;
+
   struct SystemStatus {
     unsigned byte timeDateValid;	// 0 or 1
     unsigned byte year;		// 0 through 99
@@ -74,6 +76,7 @@ interface HAI extends key
     /// param1 must be between 0 and 255 inclusive.
     UnitSet
   };
+  /* Raises NACK if the HAI responded with a Negative Acknowledge message. */
   void setUnitStatus(unsigned short unit, Command cmd, unsigned byte param1);
 
   /* for future: 

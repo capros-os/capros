@@ -66,10 +66,17 @@ Approved for public release, distribution unlimited. */
 #define KR_CONFIG2 KR_CMTE(2)
 #define KR_IP      KR_CMTE(3)
 
+//#define RESPONSE_TEST
+#ifdef RESPONSE_TEST
+#define KR_SysTrace KR_CMTE(4)	// also initialize this in hai.map
+#endif
+#ifdef RESPONSE_TEST
+#endif
+
 #if (PROTOCOL == 1)
-#define KR_UDPPort KR_CMTE(4)
+#define KR_UDPPort KR_CMTE(5)
 #else
-#define KR_TCPSocket KR_CMTE(4)
+#define KR_TCPSocket KR_CMTE(5)
 #endif
 
 #define LKSN_Socket LKSN_CMTE
@@ -127,9 +134,11 @@ enum {
 #if (PROTOCOL == 1)
 #define startCharacter 0x5a
 #define mtype_Ack 0x05
+#define mtype_NAck 0x06
 #else
 #define startCharacter 0x21
 #define mtype_Ack 0x01
+#define mtype_NAck 0x02
 enum objectType {
   ot_zone = 1,
   ot_unit,
@@ -291,7 +300,7 @@ NetSend(unsigned int len)
 #endif
   switch (result) {
   default: ;
-    assert(false);
+    kdprintf(KR_OSTREAM, "HAI: TCPSocket_send got %#x\n", result);
 
   case RC_capros_TCPSocket_Already:	// we closed it?
   case RC_capros_key_Void:	// very closed, or a system restart
@@ -315,7 +324,7 @@ TimerFunction(unsigned long data)
   capros_key_destroy(KR_TEMP0);
 }
 
-/* Receive a UDP packet into recvBuf.
+/* Receive a packet into recvBuf.
  * If the port capability is void, returns -1,
  * otherwise returns the number of bytes received. */
 int
@@ -525,21 +534,30 @@ OL2Send(unsigned int len)
 }
 
 /* If the session was terminated, this procedure creates a new session
- * and returns -1, but does not retry the operation.
- * The send may or may not have occurred.
+ *   and returns -1, but does not retry the operation.
+ *   The send may or may not have occurred.
+ * Otherwise, if a Negative Acknowledge is received,
+ *   this procedure returns -2.
  * Otherwise it returns the length of the data plus 1 for the message type
- * (the length excludes the start character, length byte, and CRC). */
+ *   (the length excludes the start character, length byte, and CRC).
+ */
 int
 OL2SendAndGetReply(unsigned int sendLen, unsigned int replyType,
                    unsigned int minReplyLen)
 {
   if (! OL2Send(sendLen))
     return -1;
+#ifdef RESPONSE_TEST
+  // Measure time to this point.
+  uint32_t keyType;
+  result_t result = capros_key_getType(KR_SysTrace, &keyType);
+  if (result) kdprintf(KR_OSTREAM, "SysTrace_getType got %#x.\n", result);
+#endif
   int receiveLen = EncryptedReceive();
   if (receiveLen < 0) {
     // The port is gone.
     CreateSession();
-    return receiveLen;
+    return -1;
   }
   receiveLen -= 4;
   assert(receiveLen >= 4);
@@ -558,10 +576,13 @@ OL2SendAndGetReply(unsigned int sendLen, unsigned int replyType,
     assert(recvMessage[2 + receiveLen + 1] == (CRC >> 8));
 
     // Check the expected reply:
-    assert(recvMessage[2] == replyType);
-    assert(receiveLen >= minReplyLen);
-    
-    return receiveLen;
+    if (recvMessage[2] == replyType) {
+      assert(receiveLen >= minReplyLen);
+      return receiveLen;
+    }
+    assert(recvMessage[2] == mtype_NAck);
+    DEBUG(errors) kprintf(KR_OSTREAM, "HAI got NACK\n");
+    return -2;
   }
 }
 
@@ -575,6 +596,7 @@ SimpleRequest(uint8_t typeCode,
     if (recvLen >= 0) {
       return;
     }
+    assert(recvLen == -1);	// NACK not handled yet
   }
 }
 
@@ -688,6 +710,7 @@ cmte_main(void)
           break;
         }
 #endif
+        assert(recvLen == -1);	// NACK not handled yet
       }
       Msg.snd_w1 = getRTC();
       break;
@@ -698,7 +721,7 @@ cmte_main(void)
       unsigned int unit = Msg.rcv_w1;
       unsigned int cmd = Msg.rcv_w2;
       unsigned int param1 = Msg.rcv_w3;
-      if (param1 > 99) {	// max value for any cmd
+      if (param1 > 255) {	// max value for any cmd
     invalid:
         Msg.snd_code = RC_capros_key_RequestError;
         break;
@@ -728,7 +751,7 @@ cmte_main(void)
       case capros_HAI_Command_UnitOnForSeconds:
         haiCmd = 1;
       forSeconds:
-        if (param1 == 0)
+        if (param1 == 0 || param1 > 99)
           goto invalid;
         haiParam1 = param1;
         break;
@@ -740,7 +763,7 @@ cmte_main(void)
       case capros_HAI_Command_UnitOnForMinutes:
         haiCmd = 1;
       forMinutes:
-        if (param1 == 0)
+        if (param1 == 0 || param1 > 99)
           goto invalid;
         haiParam1 = 100 + param1;
         break;
@@ -785,6 +808,10 @@ cmte_main(void)
         ShortToBE(unit, &sendMessage[5]);
         int recvLen = OL2SendAndGetReply(5, mtype_Ack, 1);
         if (recvLen >= 0) {
+          break;
+        }
+        if (recvLen == -2) {	// NACK
+          Msg.snd_code = RC_capros_HAI_NACK;
           break;
         }
       }
