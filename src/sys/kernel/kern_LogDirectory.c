@@ -350,7 +350,6 @@ static bool
 tree_validate(TreeHead *tree, TreeNode *node) {
 #if (dbg_flags & dbg_chain)
   assert(chains_validate());
-chains_validate();
 #endif
   return tree_validate_recurse(tree, node);
 }
@@ -928,7 +927,6 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
   }
 #elif (dbg_flags & dbg_chain)
   assert(chains_validate());
-chains_validate();
 #endif
   unchain_node(z);
   free_node(z);
@@ -969,9 +967,6 @@ find_node(TreeHead *directory, OID oid) {
 void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
   assert(TREE_NIL->color == TREE_BLACK);
   TreeHead *tree = &log_directory;
-#if (dbg_flags & dbg_chain)
-chains_validate();
-#endif
   
   if (generation > highest_generation) {
     if (0 == highest_generation) {
@@ -1032,7 +1027,6 @@ chains_validate();
   }
 #elif (dbg_flags & dbg_chain)
   assert(chains_validate());
-chains_validate();
 #endif
 }
 
