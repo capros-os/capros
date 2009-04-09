@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -86,7 +86,7 @@ typedef struct TreeNode {
   struct TreeNode *parent;
   int color;
 
-  /* Data for the doublely linked list */
+  /* Data for the doubly linked list */
   struct TreeNode *prev;
   struct TreeNode *next;
 } TreeNode;
@@ -193,12 +193,12 @@ static void
 chain_node(TreeNode *n) {
   int gti = get_generation_index(n->generation);
   generation_table[gti].count++;
-  if (NULL == generation_table[gti].head) {
+  TreeNode * t = generation_table[gti].head;
+  if (NULL == t) {	// add to an empty list
     generation_table[gti].head = n;
     n->next = n;
     n->prev = n;
   } else {
-    TreeNode *t = generation_table[gti].head;
     n->next = t->next;
     t->next->prev = n;
     n->prev = t;
@@ -213,27 +213,24 @@ chains_validate(void) {
   int total_count = 0;
   int gti;
   for (gti=0; gti<LD_MAX_GENERATIONS; gti++) {
-    int chain_count = 0;
-    if (NULL == generation_table[gti].head) {
-      assert(NULL == generation_table[gti].cursor);
-      continue;
-    }
-    TreeNode *cursor = generation_table[gti].cursor;
-    TreeNode *last = generation_table[gti].head;
-    TreeNode *x = last->next;
-    TreeNode *y = x->next;
+    TreeNode * last = generation_table[gti].head;
+    TreeNode * cursor = generation_table[gti].cursor;
     bool cursor_found = (NULL == cursor);
-    for (;;) {
-      if (!cursor_found) cursor_found = (x == cursor);
-      assert(y->prev == x);
-      assert(x->next == y);
-      chain_count++;
-      if (x == last) break;
-      x = y;
-      y = x->next;
+    if (NULL != last) {
+      int chain_count = 0;
+      TreeNode * x = last->next;
+      for (;;) {
+        if (!cursor_found) cursor_found = (x == cursor);
+        chain_count++;
+        TreeNode * y = x->next;
+        assert(y->prev == x);
+        if (x == last) break;
+        x = y;
+      }
+      assert(chain_count == generation_table[gti].count);
+      total_count += chain_count;
     }
-    assert(chain_count == generation_table[gti].count);
-    total_count += chain_count;
+    assert(cursor_found);
   }
   if (total_count == log_entry_count) return TRUE;
   printf("%d TreeNodes allocated, %d in chains\n",
@@ -250,7 +247,8 @@ chains_validate(void) {
 static void
 unchain_node(TreeNode *n) {
   int gti = get_generation_index(n->generation);
-  assert( (generation_table[gti].count--) > 0);
+  assert(generation_table[gti].count > 0);
+  generation_table[gti].count--;
   GT *gte = &generation_table[gti];
   if (gte->head == n) gte->head = n->prev;
   if (gte->head == n) gte->head = NULL;
@@ -352,6 +350,7 @@ static bool
 tree_validate(TreeHead *tree, TreeNode *node) {
 #if (dbg_flags & dbg_chain)
   assert(chains_validate());
+chains_validate();
 #endif
   return tree_validate_recurse(tree, node);
 }
@@ -929,6 +928,7 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
   }
 #elif (dbg_flags & dbg_chain)
   assert(chains_validate());
+chains_validate();
 #endif
   unchain_node(z);
   free_node(z);
@@ -969,6 +969,9 @@ find_node(TreeHead *directory, OID oid) {
 void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
   assert(TREE_NIL->color == TREE_BLACK);
   TreeHead *tree = &log_directory;
+#if (dbg_flags & dbg_chain)
+chains_validate();
+#endif
   
   if (generation > highest_generation) {
     if (0 == highest_generation) {
@@ -1029,6 +1032,7 @@ void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
   }
 #elif (dbg_flags & dbg_chain)
   assert(chains_validate());
+chains_validate();
 #endif
 }
 
