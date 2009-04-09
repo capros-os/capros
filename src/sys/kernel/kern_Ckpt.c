@@ -50,7 +50,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_procs       0x10
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_ckpt )
+#define dbg_flags   ( 0u )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -564,6 +564,9 @@ DoPhase1Work(void)
   This must be atomic. */
 
   monotonicTimeOfLastDemarc = sysT_NowPersistent();
+#ifdef OUTAGE_TEST
+  ckout_startTime = monotonicTimeOfLastDemarc;	// start of outage
+#endif
   genHdr->RTCOfDemarc = RtcRead();
   genHdr->persistentTimeOfDemarc = monotonicTimeOfLastDemarc;
 
@@ -581,6 +584,8 @@ DoPhase1Work(void)
   numDpdsLoc = &genHdr->processDir.nDescriptors;
   genHdr->processDir.firstDirFrame = 0;
   genHdr->processDir.nDirFrames = 0;	// so far
+
+  EndCkptOutageTime();
 
   // Scan all nodes.
   for (objNum = 0; objNum < objC_nNodes; objNum++) {
@@ -729,6 +734,8 @@ DoPhase1Work(void)
   DEBUG(ckpt) check_Consistency("after ckpt P1");
 
   ckptState = ckpt_Phase2;
+
+  // EndCkptOutageTime();
 }
 
 // Note, dod is not aligned!
@@ -1079,6 +1086,8 @@ DoPhase5Work(void)
   wkgUGHL = nextWkgUGHL;
 
   PostCheckpointProcessing();
+
+  printf("Checkpoint completed.\n");
 
   ckptState = ckpt_NotActive;
   sq_WakeAll(&WaitForCkptInactive);

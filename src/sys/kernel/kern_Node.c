@@ -96,7 +96,7 @@ node_ClearHazard(Node* thisPtr, uint32_t ndx)
 
   case ot_NtUnprepared:
   default:
-    fatal("Clear hazard on unknown type\n");
+    fatal("Clear hazard on unknown type node %#x\n", thisPtr);
     break;
   }
 
@@ -318,7 +318,7 @@ node_ContainingNodeIfNodeKeyPtr(const Key * pKey)
   return objC_nodeTable + ((wobj - wbase) / sizeof(Node));
 }
 
-#ifndef NDEBUG
+#ifdef OPTION_DDB
 /* If pKey is a valid pointer to a key in a node,
  * return a pointer to the node, else NULL. */
 Node *

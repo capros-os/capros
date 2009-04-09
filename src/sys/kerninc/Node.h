@@ -103,7 +103,7 @@ void node_SetEqualTo(Node *thisPtr, const struct DiskNode *);
 void node_CopyToDiskNode(Node * pNode, struct DiskNode * dn);
 
 Node * node_ContainingNodeIfNodeKeyPtr(const Key * pKey);
-#ifndef NDEBUG
+#ifdef OPTION_DDB
 Node * node_ValidNodeKeyPtr(const Key * pKey);
 #endif
 Node * node_ContainingNode(const Key * pKey);

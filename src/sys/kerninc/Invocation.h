@@ -144,9 +144,8 @@ void inv_RetryInvocation(Invocation* thisPtr) NORETURN;
 
 void inv_Commit(Invocation* thisPtr);
 
-#ifndef NDEBUG
+#ifdef OPTION_DDB
   bool inv_IsInvocationKey(Invocation * thisPtr, const Key *);
-  bool inv_IsCorrupted(Invocation* thisPtr);
 #endif
 
 void inv_Cleanup(Invocation* thisPtr);

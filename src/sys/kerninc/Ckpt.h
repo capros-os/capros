@@ -142,4 +142,28 @@ void DoCheckpointStep(void);
 
 void PostCheckpointProcessing(void);
 
+//#define OUTAGE_TEST
+#ifdef OUTAGE_TEST
+
+#define ckout_numSamples 12
+uint64_t ckout_startTime;
+uint64_t ckout_durations[ckout_numSamples];
+int ckout_durationsIndex;
+
+INLINE void
+EndCkptOutageTime(void)
+{
+  // Mark end of duration.
+  if (ckout_durationsIndex >= ckout_numSamples)
+    dprintf(true, "End ckpt test, %#x\n", (uint32_t)ckout_durations);
+  else {
+    ckout_durations[ckout_durationsIndex++]
+      = mach_TicksToNanoseconds(sysT_Now()) - ckout_startTime;
+  }
+}
+#else
+INLINE void
+EndCkptOutageTime(void) {}
+#endif
+
 #endif /* __CKPT_H__ */

@@ -653,7 +653,9 @@ ValidCtxtPtr(const Process *ctxt)
     return true;
   return false;
 }
+#endif	// NDEBUG
 
+#ifdef OPTION_DDB
 Process *
 proc_ValidKeyReg(const Key *pKey)
 {
@@ -683,7 +685,9 @@ proc_ValidKeyReg(const Key *pKey)
   
   return NULL;
 }
+#endif
 
+#ifndef NDEBUG
 bool
 ValidCtxtKeyRingPtr(const KeyRing * kr)
 {

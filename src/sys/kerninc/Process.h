@@ -243,6 +243,8 @@ void proc_DumpFloatRegs(Process* thisPtr);
 #ifndef NDEBUG
 bool ValidCtxtPtr(const Process * ctxt);
 bool ValidCtxtKeyRingPtr(const KeyRing* kr);
+#endif
+#ifdef OPTION_DDB
 Process * proc_ValidKeyReg(const Key * pKey);
 #endif
 

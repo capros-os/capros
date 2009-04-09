@@ -1158,7 +1158,7 @@ pageH_MitigateKRO(PageHeader * old)
   if (old->ioreq
       || objH_IsUserPinned(pageH_ToObj(old)) ) {
     // The old page has I/O, so it can't be moved.
-    printf("Moving KRO page with I/O, %#x\n", old);////
+    DEBUG(ckpt) printf("Moving KRO page with I/O, %#x\n", old);
 
     // The original page will be the working version, and
     // the new page will be the current version.

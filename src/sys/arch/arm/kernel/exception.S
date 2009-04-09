@@ -237,22 +237,48 @@ TransferTable:
 	.long 0		// end of table
 
 AbortError:
-	stmfd sp!,{r0,r2,r3,r12}	// save registers
+	stmfd sp!,{r2,r3,r12}	// save registers clobbered by procedure call
+
+	cmp r0,#prefetchAbort
+	ldreq r0,=PrefetchAbortMsg
+	ldrne r0,=DataAbortMsg
+	mov r1,r14	// exception pc
+	mov r2,r12	// SPSR
+	orr r12,r12,#MASK_CPSR_IRQDisable	// mode we will go to
+	msr cpsr_c,r12	// go to the previous mode
+	mov r3,sp	// pick up that sp
+	msr cpsr_c,#(MASK_CPSR_IRQDisable + CPSRMode_Abort)	// and back
+	bl printf
+
+	ldmfd sp!,{r2,r3,r12}	// restore registers
+	orr lr,r12,#MASK_CPSR_IRQDisable	// mode we will go to
+	ldmfd sp!,{r0-r1,r12}	// restore registers
+	add sp,sp,#4
+	// Abort stack is now empty.
+
+	// Go to the previous mode, so we can examine r13 and r14.
+	// The previous mode is most likely Supervisor.
+	msr cpsr_c,lr
+
+	/* If the abort is due to a bad stack pointer, the following
+	will crash in a loop. If that happens, try:
+		ldr sp,=(kstackBot-0x800)
+	*/
+	stmfd sp!,{r0-r3}
+	ldr r0,=AbortMsgR14
+	mov r1,r14
+	bl printf
+	ldmfd sp!,{r0-r3}
 
 	// Set up the stack like a procedure prolog.
 	/* If the abort was from supervisor mode, this might allow
-	tracing the stack.
-	Only trouble is, we are on the abort stack,
-	not the supervisor stack. */
+	tracing the stack. */
 	mov ip,sp		// note ip === r12
 	stmfd sp!,{fp,ip,lr,pc}
 	sub fp,ip,#4
 
-	ldr r0,=AbortMsg
-	mov r1,r14	// exception pc
-	bl printf
 0:
-#ifndef NDEBUG
+#ifdef OPTION_DDB
 	bl Debugger
 #endif
 	b 0b
@@ -295,7 +321,7 @@ When in Abort mode, IRQ is disabled or spsr_abt has no information.
 Thus we don't need to save that register. 
 However we DO need to save r14_abt.
 */
-#ifndef NDEBUG
+#ifdef OPTION_DDB
 /* For stack trace, we need the interrupted fp and pc, which are on
 the IRQ stack.
 Get a pointer to the saved fp (r11) into r0.
@@ -306,7 +332,7 @@ Coordinate any changes with db_stack_trace_cmd. */
 	msr cpsr_c,#(MASK_CPSR_IRQDisable + CPSRMode_Abort)
 	mov r10,r14	// save r14_abt
 
-#ifndef NDEBUG
+#ifdef OPTION_DDB
 	stmfd sp!,{r0,r11}
 	mov r11,#6	// for stack traceback
 #endif
@@ -342,7 +368,7 @@ regMsg:	.asciz "ISR not saving regs!\n"
 	bl traceLog
 #endif
 
-#ifndef NDEBUG
+#ifdef OPTION_DDB
 	ldmfd sp!,{r0, r11}
 #endif
 // r10 still has saved r14_abt
@@ -498,7 +524,7 @@ SWI_Invoke_Handler:
    r12 - rcv_limit
    user's r14 in Process block - rcv_keys
  */
-#ifndef NDEBUG
+#ifdef OPTION_DDB
 	mov r11,#2	// for stack tracebank.
 #endif
 /* Note: snd_w1 must be passed to the kernel in a register,
@@ -774,7 +800,9 @@ r0-r14
 ResetMsg:	.asciz "Reset Exception! at 0x%08x"
 UndefinedMsg:	.asciz "Undefined Exception! at 0x%08x\n"
 SWIMsg:	.asciz "SWI Exception! at 0x%08x\n"
-AbortMsg:	.asciz "Abort Exception! at 0x%08x\n"
+DataAbortMsg:	.asciz "Data Abort Exception! at %#x, SPSR=%#x\n sp=%#x, "
+PrefetchAbortMsg:	.asciz "Prefetch Abort Exception! at %#x, SPSR=%#x\n sp=%#x, "
+AbortMsgR14:	.asciz "R14=%#x\n"
 UnusedMsg:	.asciz "Unused Exception! at 0x%08x"
 FIQMsg:	.asciz "FIQ Exception! at 0x%08x"
 	.balign 4

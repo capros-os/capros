@@ -241,7 +241,7 @@ TLBMsg:	.asciz "Flushed TLB\n"
 #endif
 	b act_HandleYieldEntry
 
-#ifndef NDEBUG
+#ifdef OPTION_DDB
 	ENTRY(Debugger)
 	sub sp,sp,#80	// space for a register save area
 /*

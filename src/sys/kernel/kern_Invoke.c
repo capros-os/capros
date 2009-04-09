@@ -252,7 +252,7 @@ inactivate: ;
 #endif
 }
 
-#ifndef NDEBUG
+#ifdef OPTION_DDB
 bool 
 inv_IsInvocationKey(Invocation* thisPtr, const Key* pKey)
 {
@@ -334,23 +334,6 @@ inv_RetryInvocation(Invocation* thisPtr)
   prove the process will just reexecute its invocation. 
   Don't forget to do what this path does, such as calling UpdateTLB. */
 }
-
-#ifndef NDEBUG
-bool 
-inv_IsCorrupted(Invocation* thisPtr)
-{
-  int i = 0;
-  for (i = 0; i < 4; i++) {
-    if (thisPtr->entry.key[i])
-      return true;
-#if 0
-    if (exit.key[i].IsPrepared())
-      return true;
-#endif
-  }
-  return false;
-}
-#endif
 
 /* Copy at most COUNT bytes out to the process.  If the process
  * receive length is less than COUNT, silently truncate the outgoing

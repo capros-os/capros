@@ -30,6 +30,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/IRQ.h>
 #include <kerninc/PhysMem.h>
 #include <kerninc/ObjH-inline.h>
+#include <kerninc/Ckpt.h>
 
 void
 check_Consistency(const char *msg)
@@ -92,10 +93,11 @@ check_DoConsistency(const char *msg)
 bool
 check_Nodes()
 {
+  EndCkptOutageTime();
   uint32_t nd = 0;
   bool result = true;
   
-  irqFlags_t flags = local_irq_save();
+  irqFlags_t flags = local_irq_save();	// This may be unnecessary
 
   for (nd = 0; nd < objC_NumCoreNodeFrames(); nd++) {
     /* printf("CheckNode(%d)\n", frame); */
@@ -111,6 +113,7 @@ check_Nodes()
 
   local_irq_restore(flags);
 
+  EndCkptOutageTime();
   return result;
 }
 

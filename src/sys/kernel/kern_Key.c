@@ -709,7 +709,7 @@ key_IsValid(const Key* thisPtr)
 }
 #endif
 
-#ifndef NDEBUG
+#ifdef OPTION_DDB
 /* Returns:
  0 if pKey is not a valid key pointer,
  1 if it is a key in a Node,
