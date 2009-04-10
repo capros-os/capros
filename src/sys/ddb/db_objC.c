@@ -37,7 +37,7 @@ void
 objC_ddb_dump_pinned_objects()
 {
   uint32_t userPins = 0;
-  uint32_t nd, pg;
+  uint32_t nd;
 
   for (nd = 0; nd < objC_nNodes; nd++) {
     Node * pNode = objC_GetCoreNodeFrame(nd);
@@ -48,8 +48,11 @@ objC_ddb_dump_pinned_objects()
     }
   }
 
-  for (pg = 0; pg < objC_nPages; pg++) {
-    PageHeader * pageH = objC_GetCorePageFrame(pg);
+  struct CorePageIterator cpi;
+  CorePageIterator_Init(&cpi);
+
+  PageHeader * pageH;
+  while ((pageH = CorePageIterator_Next(&cpi))) {
     ObjectHeader * pObj = pageH_ToObj(pageH);
     if (objH_IsUserPinned(pObj)) {
       userPins++;
@@ -85,10 +88,12 @@ void
 objC_ddb_dump_pages()
 {
   uint32_t nFree = 0;
-  uint32_t pg;
   
-  for (pg = 0; pg < objC_nPages; pg++) {
-    PageHeader * pageH = objC_GetCorePageFrame(pg);
+  struct CorePageIterator cpi;
+  CorePageIterator_Init(&cpi);
+
+  PageHeader * pageH;
+  while ((pageH = CorePageIterator_Next(&cpi))) {
 
     switch (pageH_GetObType(pageH)) {
     case ot_PtFreeFrame:
@@ -113,8 +118,8 @@ objC_ddb_dump_pages()
     case ot_PtWorkingCopy:
     {
       ObjectHeader * pObj = pageH_ToObj(pageH);
-      printf("%#x(%d): %s oid %#llx\n",
-	 pObj, pg,
+      printf("%#x: %s oid %#llx\n",
+	 pObj,
 	 ddb_obtype_name(pObj->obType),
 	 pObj->oid);
       break;

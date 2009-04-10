@@ -2,7 +2,7 @@
 #define __OBJECTCACHE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -94,12 +94,6 @@ void objC_AddDevicePages(struct PmemInfo *);
 void objC_AddDMAPages(PageHeader * pageH, kpg_t nPages);
 
 INLINE uint32_t 
-objC_TotalPages()
-{
-  return objC_nPages;
-}
-
-INLINE uint32_t 
 objC_TotalNodes()
 {
   return objC_nNodes;
@@ -117,20 +111,23 @@ void ReleasePageFrame(PageHeader * pageH);
 void ReleaseObjPageFrame(PageHeader * pageH);
 void ReleaseNodeFrame(Node * pNode);
 
-/* For use by the consistency checker: */
-INLINE uint32_t 
-objC_NumCorePageFrames()
-{
-  return objC_nPages;
-}
-
 INLINE uint32_t 
 objC_NumCoreNodeFrames()
 {
   return objC_nNodes;
 }
 
-PageHeader * objC_GetCorePageFrame(uint32_t ndx);
+/* struct CorePageIterator is used when iterating over all pages
+ * in the page cache. */
+struct CorePageIterator {
+  struct PmemInfo * pmi;	// next region to examine
+  unsigned int regionsLeft;	// regions remaining to examine
+  uint32_t pagesLeft;		// pages remaining in the current region
+  PageHeader * pageH;		// next page in the current region
+};
+void CorePageIterator_Init(struct CorePageIterator * cpi);
+PageHeader * CorePageIterator_Next(struct CorePageIterator * cpi);
+
 Node *objC_GetCoreNodeFrame(uint32_t ndx);
 
 ObjectHeader *

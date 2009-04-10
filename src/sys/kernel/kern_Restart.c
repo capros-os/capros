@@ -190,8 +190,11 @@ AdjustNPCounts(void)
   }
 
   // Scan all pages:
-  for (objNum = 0; objNum < objC_nPages; objNum++) {
-    PageHeader * pageH = objC_GetCorePageFrame(objNum);
+  struct CorePageIterator cpi;
+  CorePageIterator_Init(&cpi);
+
+  PageHeader * pageH;
+  while ((pageH = CorePageIterator_Next(&cpi))) {
     ObjectHeader * pObj = pageH_ToObj(pageH);
 
     if ((pObj->obType == ot_PtDataPage || pObj->obType == ot_PtDevicePage)

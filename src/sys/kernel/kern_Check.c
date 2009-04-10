@@ -122,23 +122,23 @@ bool
 check_Pages()
 {
   int i;
-  uint32_t pg;
   unsigned int numFree = 0;
   unsigned int numMapTabFrames = 0;
 
-  irqFlags_t flags = local_irq_save();
+  irqFlags_t flags = local_irq_save();	// Needed??
 
-  for (pg = 0; pg < objC_NumCorePageFrames(); pg++) {
-    /*  printf("CheckPage(%d)\n", frame); */
+  struct CorePageIterator cpi;
+  CorePageIterator_Init(&cpi);
 
-    PageHeader * pPage = objC_GetCorePageFrame(pg);
+  PageHeader * pPage;
+  while ((pPage = CorePageIterator_Next(&cpi))) {
 
     switch (pageH_GetObType(pPage)) {
     case ot_PtFreeFrame:
     {
       unsigned int nPages = 1U << pPage->kt_u.free.log2Pages;
       for (i = nPages - 1; i > 0; i--) {
-        PageHeader * pPage2 = objC_GetCorePageFrame(++pg);
+        PageHeader * pPage2 = CorePageIterator_Next(&cpi);
         if (pageH_GetObType(pPage2) != ot_PtSecondary) {
           printf("Frame %#x free but %#x not secondary\n", pPage, pPage2);
           goto fail;

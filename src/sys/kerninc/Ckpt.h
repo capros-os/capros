@@ -81,7 +81,6 @@ extern PageHeader * reservedPages;
 extern unsigned int numReservedPages;
 void ReservePages(unsigned int numPagesWanted);
 
-extern unsigned int KROPageCleanCursor;
 extern unsigned int KRONodeCleanCursor;
 
 extern GenNum nextRetiredGeneration;

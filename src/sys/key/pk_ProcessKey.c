@@ -56,14 +56,17 @@ prockey_swapSlotCommitted(Invocation * inv, Node * theNode, uint32_t slot)
   Key k;		/* temporary in case send and receive */
 			/* slots are the same. */
   keyBits_InitToVoid(&k);
-        
-  key_NH_Set(&k, &theNode->slot[slot]);
 
-  key_NH_Set(node_GetKeyAtSlot(theNode, slot), inv->entry.key[0]);
+  Key * s = node_GetKeyAtSlot(theNode, slot);
+  key_NH_Set(&k, s);
+
+  key_NH_Set(s, inv->entry.key[0]);
   inv_SetExitKey(inv, 0, &k);
         
   /* Unchain, but do not unprepare -- the objects do not have
      on-disk keys. */
+  // The following gets over-optimized with -fstrict-aliasing.
+  // (It looks like a compiler bug to me.)
   key_NH_Unchain(&k);
 
   inv->exit.code = RC_OK;

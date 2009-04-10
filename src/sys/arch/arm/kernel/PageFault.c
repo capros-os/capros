@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -208,7 +208,6 @@ db_show_mappings_md(uint32_t spaceAddr, uint32_t base, uint32_t nPages)
 bool
 pte_ObIsNotWritable(PageHeader * pageH)
 {
-  uint32_t pf;
   uint32_t ent;
   
   /* Start by building a writable PTE for the page: */
@@ -226,9 +225,11 @@ pte_ObIsNotWritable(PageHeader * pageH)
   }
 #endif
 
-  for (pf = 0; pf < objC_TotalPages(); pf++) {
-    PageHeader * pHdr = objC_GetCorePageFrame(pf);
+  struct CorePageIterator cpi;
+  CorePageIterator_Init(&cpi);
 
+  PageHeader * pHdr;
+  while ((pHdr = CorePageIterator_Next(&cpi))) {
     if (pageH_GetObType(pHdr) != ot_PtMappingPage2)
       continue;
 

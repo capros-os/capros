@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -64,6 +64,9 @@ Node *objC_firstFreeNode;
 
 uint32_t objC_nPages;
 PageHeader * objC_coreTable;
+
+struct CorePageIterator cpi_Aging;
+struct CorePageIterator cpi_KROPageCleanCursor;
 
 static void
 objC_AllocateUserPages(void)
@@ -147,6 +150,9 @@ objC_AllocateUserPages(void)
     physMem_FreeAll(pmi);	// Free all the pages in this region.
   }
   assert(pObHdr == objC_coreTable + objC_nPages);
+
+  CorePageIterator_Init(&cpi_Aging);	// init aging cursor
+  CorePageIterator_Init(&cpi_KROPageCleanCursor);	// init KRO cursor
 }
 
 static void
@@ -210,22 +216,32 @@ objC_AddDMAPages(PageHeader * pageH, kpg_t nPages)
   pageH_ToObj(pageH)->obType = ot_PtDMABlock;
 }
 
-PageHeader *
-objC_GetCorePageFrame(uint32_t ndx)
+void
+CorePageIterator_Init(struct CorePageIterator * cpi)
 {
-  unsigned int rgn;
+  cpi->pmi = &physMem_pmemInfo[0];
+  cpi->regionsLeft = physMem_nPmemInfo;
+  cpi->pagesLeft = 0;
+}
 
-  for (rgn = 0; rgn < physMem_nPmemInfo; rgn++) {
-    PmemInfo *pmi= &physMem_pmemInfo[rgn];
-    if (pmi->type != MI_MEMORY)
-      continue;
-
-    if (ndx < pmi->nPages)
-      return &pmi->firstObHdr[ndx];
-    ndx -= pmi->nPages;
+PageHeader *
+CorePageIterator_Next(struct CorePageIterator * cpi)
+{
+  if (! cpi->pagesLeft) {
+    while (1) {
+      if (! cpi->regionsLeft)
+        return NULL;
+      cpi->regionsLeft--;
+      PmemInfo * pmi = cpi->pmi++;
+      if (pmi->type == MI_MEMORY) {
+        cpi->pagesLeft = pmi->nPages;
+        cpi->pageH = &pmi->firstObHdr[0];
+        break;
+      }
+    }
   }
-
-  return 0;
+  cpi->pagesLeft--;
+  return cpi->pageH++;
 }
 
 Node *
@@ -1053,10 +1069,14 @@ void
 CleanAKROPage(void)
 {
   assert(numKRODirtyPages);
-  unsigned int cursorAtEntry = KROPageCleanCursor;
 
-  do {
-    PageHeader * pageH = objC_GetCorePageFrame(KROPageCleanCursor);
+  int count;
+  for (count = objC_nPages; count-- > 0; ) {
+    PageHeader * pageH;
+    // The following iterates at most twice:
+    while (! (pageH = CorePageIterator_Next(&cpi_KROPageCleanCursor)))
+      CorePageIterator_Init(&cpi_KROPageCleanCursor);	// wrap around
+
     ObjectHeader * pObj = pageH_ToObj(pageH);
     switch (pObj->obType) {
     case ot_PtWorkingCopy:
@@ -1067,17 +1087,12 @@ CleanAKROPage(void)
         bool b = pageH_Clean(pageH);	// may Yield
         (void)b;
         assert(!b);	// PFH should never call this
-        // KROPageCleanCursor++ not necessary
         return;
       }
       break;
     default: ;
     }
-
-    // Advance the cursor
-    if (++KROPageCleanCursor >= objC_nPages)
-      KROPageCleanCursor = 0;	// wrap
-  } while (KROPageCleanCursor != cursorAtEntry);
+  }
 }
 
 /* This procedure is called when we want to mutate a page that is
@@ -1243,7 +1258,6 @@ pageH_MitigateKRO(PageHeader * old)
 void
 objC_AgePageFrames(void)
 {
-  static uint32_t curPage = 0;
   uint32_t nStuck = 0;
   uint32_t nPinned = 0;
   int pass;
@@ -1260,7 +1274,11 @@ objC_AgePageFrames(void)
     nStuck = 0;
     uint32_t count;
     for (count = 0; count < objC_nPages; count++) {
-      PageHeader * pageH = objC_GetCorePageFrame(curPage);
+      PageHeader * pageH;
+      struct CorePageIterator saved_cpi = cpi_Aging;
+      // The following iterates at most twice:
+      while (! (pageH = CorePageIterator_Next(&cpi_Aging)))
+        CorePageIterator_Init(&cpi_Aging);	// wrap around
       
       switch (pageH_GetObType(pageH)) {
       /* Some page types do not get aged: */
@@ -1273,7 +1291,7 @@ objC_AgePageFrames(void)
       case ot_PtFreeFrame:
       case ot_PtSecondary:
         nStuck++;
-        goto nextPage;
+        continue;
 
       case ot_PtTagPot:
       case ot_PtHomePot:
@@ -1282,14 +1300,14 @@ objC_AgePageFrames(void)
 
       case ot_PtDataPage:
         if (! objH_GetFlags(pageH_ToObj(pageH), OFLG_Cleanable))
-          goto nextPage;
+          continue;
   
         /* Pinned pages cannot be stolen. No point in aging them either,
         because they are recently used. */
         if (objH_IsUserPinned(pageH_ToObj(pageH))) {
           nPinned++;
           nStuck++;
-          goto nextPage;
+          continue;
         }
 
         /* Since the object isn't pinned, set its transaction ID to zero
@@ -1300,16 +1318,14 @@ objC_AgePageFrames(void)
 
       default:
         // It's a machine-dependent frame type.
-        if (pageH_mdType_Aging(pageH)) {
-          curPage++;	// it was freed
-          return;
-        }
-        goto nextPage;
+        if (pageH_mdType_Aging(pageH))
+          return;	// it was freed
+        continue;
       }
 
       if (objH_GetFlags(pageH_ToObj(pageH), OFLG_Fetching) ) {
         nStuck++;
-        goto nextPage;
+        continue;
       }
 
       switch (pageH_ToObj(pageH)->objAge) {
@@ -1338,11 +1354,11 @@ objC_AgePageFrames(void)
           if (ckptIsActive()
               && ! objH_IsKRO(pageH_ToObj(pageH)) ) {
             nStuck++;
-            goto nextPage;
+            continue;
           }
   
           if (pageH_Clean(pageH))
-            goto nextPage;	// couldn't clean it and we are the PFH
+            continue;	// couldn't clean it and we are the PFH
         }
         goto bumpAge;
 
@@ -1360,7 +1376,9 @@ objC_AgePageFrames(void)
           Otherwise, we would go on to preferentially steal clean pages,
           usually code pages. */
           if (proc_IsPFH(proc_Current()))
-            goto nextPage;	// we are the PFH, must find another page
+            continue;	// we are the PFH, must find another page
+          // Revisit this page next time:
+          cpi_Aging = saved_cpi;
           SleepOnPFHQueue(&pageH->ioreq->sq);
         }
 
@@ -1369,14 +1387,8 @@ objC_AgePageFrames(void)
         keyR_UnprepareAll(&pageH_ToObj(pageH)->keyRing);
         ReleaseObjPageFrame(pageH);
 
-        if (++curPage >= objC_nPages)
-          curPage = 0;
         return;
       }
-
-    nextPage:
-      if (++curPage >= objC_nPages)
-        curPage = 0;
     }
   }
 

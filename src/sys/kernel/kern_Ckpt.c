@@ -80,7 +80,6 @@ unsigned int ckptState = ckpt_NotActive;
 
 long numKRODirtyPages = 0;	// including pots
 long numKRONodes = 0;
-unsigned int KROPageCleanCursor = 0;	// next page to clean
 
 GenNum migratedGeneration = 0;	// the latest fully migrated generation
 
@@ -257,10 +256,12 @@ DoSync(void)
     SleepOnPFHQueue(&WaitForObjDirWritten);
   // All writes are now completed.
   DEBUG(numpages) {
-    unsigned int pageNum;
     // Scan all pages.
-    for (pageNum = 0; pageNum < objC_nPages; pageNum++) {
-      PageHeader * pageH = objC_GetCorePageFrame(pageNum);
+    struct CorePageIterator cpi;
+    CorePageIterator_Init(&cpi);
+
+    PageHeader * pageH;
+    while ((pageH = CorePageIterator_Next(&cpi))) {
       ObjectHeader * pObj = pageH_ToObj(pageH);
       (void)pObj;
       // Nothing should be being cleaned now.
@@ -478,11 +479,13 @@ ValidateNumKRONodes(void)
 static void
 ValidateNumKROPages(void)
 {
-  unsigned int pageNum;
   unsigned int calcKRO = 0;
   // Scan all pages.
-  for (pageNum = 0; pageNum < objC_nPages; pageNum++) {
-    PageHeader * pageH = objC_GetCorePageFrame(pageNum);
+  struct CorePageIterator cpi;
+  CorePageIterator_Init(&cpi);
+
+  PageHeader * pageH;
+  while ((pageH = CorePageIterator_Next(&cpi))) {
     ObjectHeader * pObj = pageH_ToObj(pageH);
     switch (pObj->obType) {
     default:
@@ -651,8 +654,11 @@ DoPhase1Work(void)
 #endif
 
   // Scan all pages.
-  for (objNum = 0; objNum < objC_nPages; objNum++) {
-    PageHeader * pageH = objC_GetCorePageFrame(objNum);
+  struct CorePageIterator cpi;
+  CorePageIterator_Init(&cpi);
+
+  PageHeader * pageH;
+  while ((pageH = CorePageIterator_Next(&cpi))) {
 
     switch (pageH_GetObType(pageH)) {
     default:
@@ -752,6 +758,9 @@ WriteDirEntsToPage(struct DiskObjectDescriptor * dod)
 
     const ObjectDescriptor * od = ld_findNextObject(workingGenerationNumber);
     assert(od);		// else ran out before count ran out
+#ifdef NDEBUG	// we want this check even with NDEBUG
+    if (!od) dprintf(true, "No od!\n");
+#endif
     // dod is unaligned and packed, so use memcpy.
     memcpy(&dod->oid, &od->oid, sizeof(OID));
     memcpy(&dod->allocCount, &od->allocCount, sizeof(ObCount));
