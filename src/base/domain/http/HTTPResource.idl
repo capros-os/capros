@@ -32,7 +32,7 @@ interface HTTPResource extends key {
     The query does not begin with a question mark
     and does not contain the information that led to this
     HTTPResource.
-    Any percent-encoding (per RFC 3986 section 2.1) has been decoded.
+    Percent-encoding (per RFC 3986 section 2.1) has not been performed.
 
   lengthOfPathAndQuery will not be more than maxLengthOfPathAndQuery;
     longer data is not supported.
