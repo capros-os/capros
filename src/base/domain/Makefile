@@ -57,6 +57,7 @@ DIRS+=ip
 DIRS+=keyset
 # DIRS+=linedisc # broken due to RETRY_SET_LIK
 DIRS+=logfile
+DIRS+=loghttp
 DIRS+=mutex
 DIRS+=nfile
 DIRS+=pipe
