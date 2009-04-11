@@ -763,7 +763,6 @@ ProcessRequest(Message *argmsg, state *pState)
       break;
     }
     
-    /* above not implemented yet */
   default:
     result = RC_capros_key_UnknownRequest;
     break;
