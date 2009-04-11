@@ -2,7 +2,7 @@
 #define __KERNTUNE_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -29,6 +29,12 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
  */
 
 /* THE FOLLOWING ARE USEFULLY TUNABLE */
+
+/* Maximum RAM to use.
+ If the hardware has more RAM than we really need, we waste time
+ dealing with the extra memory. 
+ */
+#define KTUNE_MaxRAMToUse 32*1024*1024
 
 /* Number of activities.  EROS is extremely activity-intensive, and
    activities don't take up any space worth measuring (like 48 bytes

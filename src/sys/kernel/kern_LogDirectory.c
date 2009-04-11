@@ -168,7 +168,8 @@ free_node(TreeNode *tn) {
   }
   tn->next = free_list;
   free_list = tn;
-  assert( (--log_entry_count) >= 0);
+  assert(log_entry_count > 0);
+  --log_entry_count;
 }
 
 
@@ -208,7 +209,7 @@ chain_node(TreeNode *n) {
 
 #if (dbg_flags & dbg_chain)
 /** Sanity check the generation chain. */
-static bool
+static void
 chains_validate(void) {
   int total_count = 0;
   int gti;
@@ -232,10 +233,10 @@ chains_validate(void) {
     }
     assert(cursor_found);
   }
-  if (total_count == log_entry_count) return TRUE;
-  printf("%d TreeNodes allocated, %d in chains\n",
-	 log_entry_count, total_count);
-  return FALSE;
+  if (total_count != log_entry_count) {
+    dprintf(true, "%d TreeNodes allocated, %d in chains\n",
+            log_entry_count, total_count);
+  }
 }
 #endif
 
@@ -349,7 +350,7 @@ tree_validate_recurse(TreeHead *tree, TreeNode *node) {
 static bool
 tree_validate(TreeHead *tree, TreeNode *node) {
 #if (dbg_flags & dbg_chain)
-  assert(chains_validate());
+  chains_validate();
 #endif
   return tree_validate_recurse(tree, node);
 }
@@ -926,7 +927,7 @@ tree_remove_node(TreeHead * tree, TreeNode *z) {
     assert(FALSE);
   }
 #elif (dbg_flags & dbg_chain)
-  assert(chains_validate());
+  chains_validate();
 #endif
   unchain_node(z);
   free_node(z);
@@ -1026,7 +1027,7 @@ void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
     assert(FALSE);
   }
 #elif (dbg_flags & dbg_chain)
-  assert(chains_validate());
+  chains_validate();
 #endif
 }
 

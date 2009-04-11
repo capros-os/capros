@@ -653,6 +653,8 @@ DoPhase1Work(void)
   DEBUG(numnodes) ValidateNumKRONodes();
 #endif
 
+  EndCkptOutageTime();
+
   // Scan all pages.
   struct CorePageIterator cpi;
   CorePageIterator_Init(&cpi);
@@ -741,7 +743,7 @@ DoPhase1Work(void)
 
   ckptState = ckpt_Phase2;
 
-  // EndCkptOutageTime();
+  EndCkptOutageTime();
 }
 
 // Note, dod is not aligned!

@@ -93,27 +93,20 @@ check_DoConsistency(const char *msg)
 bool
 check_Nodes()
 {
-  EndCkptOutageTime();
   uint32_t nd = 0;
   bool result = true;
   
-  irqFlags_t flags = local_irq_save();	// This may be unnecessary
-
   for (nd = 0; nd < objC_NumCoreNodeFrames(); nd++) {
     /* printf("CheckNode(%d)\n", frame); */
 
     Node *pNode = objC_GetCoreNodeFrame(nd);
 
-    if (node_Validate(pNode) == false)
+    if (! node_Validate(pNode)) {
       result = false;
-
-    if (result == false)
       break;
+    }
   }
 
-  local_irq_restore(flags);
-
-  EndCkptOutageTime();
   return result;
 }
 
@@ -124,8 +117,6 @@ check_Pages()
   int i;
   unsigned int numFree = 0;
   unsigned int numMapTabFrames = 0;
-
-  irqFlags_t flags = local_irq_save();	// Needed??
 
   struct CorePageIterator cpi;
   CorePageIterator_Init(&cpi);
@@ -214,10 +205,8 @@ check_Pages()
     goto fail;
   }
 
-  local_irq_restore(flags);
   return true;
 
 fail:
-  local_irq_restore(flags);
   return false;
 }

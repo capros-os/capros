@@ -24,14 +24,14 @@
 
 include("../../../config.common")
 
-##option("ddb")
+option("ddb")
 option("output_on_tty0")
 option("ndebug")
 # option("kern_profile")
 # option("kern_timing_stats")
-# option("kern_event_tracing")
 defoption("fast_ipc_stats")
 option("fast_ipc_stats")
+# option("kern_event_tracing")
 
 include("ALL")
 option("writeback")

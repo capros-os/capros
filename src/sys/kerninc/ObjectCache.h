@@ -93,12 +93,6 @@ void CleanAKROPage(void);
 void objC_AddDevicePages(struct PmemInfo *);
 void objC_AddDMAPages(PageHeader * pageH, kpg_t nPages);
 
-INLINE uint32_t 
-objC_TotalNodes()
-{
-  return objC_nNodes;
-}
-
 /* Evict the current resident of the page frame. This is called
  * when we need to claim a particular page frame in the object
  * cache. It is satisfactory to accomplish this by grabbing some

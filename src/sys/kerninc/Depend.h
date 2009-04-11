@@ -2,9 +2,10 @@
 #define __DEPEND_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, Strawberry Development Group.
+ * Copyright (C) 2006, 2009, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -215,6 +216,8 @@ void Depend_VisitEntries(Key * pKey, void (*func)(KeyDependEntry *));
 void Depend_InvalidateKey(Key * key);
 
 void Depend_InitKeyDependTable(uint32_t nNodes);
+unsigned long Depend_getSize(void);
+unsigned long Depend_getNumBuckets(void);
 
 #if 0
 void Depend_MarkAllForCOW();

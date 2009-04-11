@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, 2008, Strawberry Development Group
+ * Copyright (C) 2006, 2007, 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -73,6 +73,8 @@ uint32_t mach_ReadCacheType(void);
 
   DEBUG (init) printf("MultibootInfoPtr = %x\n", MultibootInfoPtr);
 
+  uint32_t totalRAM = 0;
+
   for (mmapLength = MultibootInfoPtr->mmap_length,
          mp = (struct grub_mmap *) MultibootInfoPtr->mmap_addr;
        mmapLength > 0;
@@ -93,10 +95,19 @@ uint32_t mach_ReadCacheType(void);
     kpsize_t bound = base + size;
 
     switch (mp->type) {
-    case 1:
-      (void) physMem_AddRegion(base, bound, MI_MEMORY, false);
-      physMem_TotalPhysicalPages += (bound - base) / EROS_PAGE_SIZE;
+    case 1:		// RAM
+    {
+      uint32_t regionSize = bound - base;
+      uint32_t limited = KTUNE_MaxRAMToUse - totalRAM;
+      if (limited > regionSize)
+        limited = regionSize;	// take min
+      totalRAM += regionSize;
+      if (limited) {
+        (void) physMem_AddRegion(base, base + limited, MI_MEMORY, false);
+        physMem_TotalPhysicalPages += limited / EROS_PAGE_SIZE;
+      }
       break;
+    }
 
     case 4567:	// this is a private convention, not part of multiboot
       (void) physMem_AddRegion(base, bound, MI_DEVICEMEM, false);
@@ -109,6 +120,11 @@ uint32_t mach_ReadCacheType(void);
     mmapLength -= (mp->size + 4);
     mp = (struct grub_mmap *) (((char *)mp) + (mp->size + 4));
   }
+
+  printf("Total RAM = %#x", totalRAM);
+  if (KTUNE_MaxRAMToUse < totalRAM)
+    printf(", using only %#x", KTUNE_MaxRAMToUse);
+  printf("\n");
 
   /* Preloaded modules are contained in mmap memory,
      so no need to add regions for them. */

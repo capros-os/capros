@@ -349,16 +349,15 @@ node_ContainingNode(const Key * pKey)
 bool
 node_Validate(Node* thisPtr)
 {
-  uint32_t i = 0;
   uint32_t k = 0;
 
   if ( thisPtr->node_ObjHdr.obType > ot_NtLAST_NODE_TYPE) {
     printf("Node 0x%08x has bad object type\n", thisPtr);
     return false;
   }
-  assert (thisPtr->node_ObjHdr.obType <= ot_NtLAST_NODE_TYPE);
-  
+
   if (thisPtr->node_ObjHdr.obType == ot_NtFreeFrame) {
+    uint32_t i;
     for (i = 0; i < EROS_NODE_SIZE; i++) {
       if (keyBits_IsUnprepared(&thisPtr->slot[i]) == false) {
 	dprintf(true, "Free node 0x%08x has prepared slot %d\n",

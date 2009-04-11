@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2007, Strawberry Development Group.
+# Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -21,8 +21,6 @@
 # This material is based upon work supported by the US Defense Advanced
 # Research Projects Agency under Contract Nos. W31P4Q-06-C-0040 and
 # W31P4Q-07-C-0070.  Approved for public release, distribution unlimited.
-
-# inherits DFLT_CONFIG from makefile in parent directory
 
 default: package
 

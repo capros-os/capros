@@ -45,6 +45,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Depend.h>
 #include <kerninc/ObjectSource.h>
 #include <kerninc/PhysMem.h>
+#include <kerninc/LogDirectory.h>
 #include <kerninc/KernStats.h>
 #include <kerninc/ObjH-inline.h>
 #include <kerninc/Node-inline.h>
@@ -413,12 +414,18 @@ db_show_sizes_cmd(db_expr_t adr/* addr */, int hadr/* have_addr */,
 {
   db_printf("sizeof(ObjectHeader) = 0x%x (%d)\n",
 	    sizeof(ObjectHeader), sizeof(ObjectHeader));
-  db_printf("sizeof(PageHeader) = 0x%x (%d)\n",
-            sizeof(PageHeader), sizeof(PageHeader));
-  db_printf("sizeof(Node) = 0x%x (%d)\n",
-	    sizeof(Node), sizeof(Node));
-  db_printf("sizeof(Process) = 0x%x (%d)\n",
-	    sizeof(Process), sizeof(Process));
+  db_printf("sizeof(PageHeader) = 0x%x (%d), num=%d\n",
+            sizeof(PageHeader), sizeof(PageHeader), objC_nPages);
+  db_printf("sizeof(Node) = 0x%x (%d), num=%d\n",
+	    sizeof(Node), sizeof(Node), objC_NumCoreNodeFrames());
+  db_printf("sizeof(Process) = %#x (%d), num=%d\n",
+	    sizeof(Process), sizeof(Process), KTUNE_NCONTEXT);
+  db_printf("sizeof(Activity) = %#x (%d), num=%d\n",
+	    sizeof(Activity), sizeof(Activity), KTUNE_NACTIVITY);
+  db_printf("sizeof(log dir entry) = %#x (%d), num=%d\n",
+	    ld_getDirEntrySize(), ld_getDirEntrySize(), numLogDirEntries);
+  db_printf("space for each Depend bucket = %#x (%d), num=%d\n",
+            Depend_getSize(), Depend_getSize(), Depend_getNumBuckets());
 }
 
 
