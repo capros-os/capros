@@ -11,22 +11,22 @@ interface File extends HTTPResource
 
   client // because of inadequate support for passing strings in IDL compiler
   void read(fileLocation at, unsigned long length,
-            out unsigned byte data, // this is really an input string
+            out unsigned byte data, // this is really an output string
             out unsigned long lengthRead);
 
   // Raises key.NoAccess if the invoked key is read-only.
   client // because of inadequate support for passing strings in IDL compiler
   void write(fileLocation at, unsigned long length, 
-            out unsigned byte data,	// this is really an output string
+            out unsigned byte data,	// this is really an input string
             out unsigned long lengthWritten);
 
   client void readLong(fileLocation at, unsigned long length,
-            out unsigned byte data, // this is really an input string
+            out unsigned byte data, // this is really an output string
             out unsigned long lengthRead);
 
   // Raises key.NoAccess if the invoked key is read-only.
   client void writeLong(fileLocation at, unsigned long length, 
-            out unsigned byte data,	// this is really an output string
+            out unsigned byte data,	// this is really an input string
             out unsigned long lengthWritten);
 
   /* Return 1 + the highest location that has ever been written. */
