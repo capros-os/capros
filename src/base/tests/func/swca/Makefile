@@ -33,7 +33,7 @@ OPTIM=-O
 OBJECTS=$(BUILDDIR)/test.o
 INC=-I$(EROS_ROOT)/include
 
-NPRANGESIZE=470
+NPRANGESIZE=480
 
 include $(EROS_SRC)/build/make/makerules.mk
 

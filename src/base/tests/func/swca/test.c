@@ -67,40 +67,16 @@ main(void)
     kdprintf(KR_OSTREAM, "Line %d type is 0x%08x!\n", __LINE__, typ);
 
   short value;
-  capros_SWCA_GenMode genModeValue;
-
-  result = capros_SWCA_getEqualizeTime(KR_SWCA, 1, &value);
-  ckOK
-  kprintf(KR_OSTREAM, "Inverter %d equalize time =%d\n",
-          0+1, value);
-
-  result = capros_SWCA_getLBCOVolts(KR_SWCA, 1, &value);
-  ckOK
-  kprintf(KR_OSTREAM, "Inverter %d LBCO volts*10=%d\n",
-          0+1, value);
-
-  result = capros_SWCA_getMaxChargeAmps(KR_SWCA, 1, &value);
-  ckOK
-  kprintf(KR_OSTREAM, "Inverter %d max charge amps =%d\n",
-          0+1, value);
-
-  result = capros_SWCA_getGenAmps(KR_SWCA, 1, &value);
-  ckOK
-  kprintf(KR_OSTREAM, "Inverter %d gen amps =%d\n",
-          0+1, value);
-
-  result = capros_SWCA_get15MinStartVolts(KR_SWCA, 1, &value);
-  ckOK
-  kprintf(KR_OSTREAM, "Inverter %d 15 min start volts*10=%d\n",
-          0+1, value);
 
   // Get generator mode.
+  capros_SWCA_GenMode genModeValue;
   result = capros_SWCA_getGeneratorMode(KR_SWCA, 1, &genModeValue);
   ckOK
   kprintf(KR_OSTREAM, "Inverter %d gen mode = %d\n",
           0+1, genModeValue);
-  capros_SWCA_GenMode originalMode = genModeValue;
 
+#if 1////
+  capros_SWCA_GenMode originalMode = genModeValue;
   // Set generator mode.
   result = capros_SWCA_setGeneratorMode(KR_SWCA, 1, capros_SWCA_GenMode_Off);
   ckOK
@@ -120,6 +96,7 @@ main(void)
   ckOK
   kprintf(KR_OSTREAM, "Inverter %d gen mode = %d\n",
           0+1, genModeValue);
+#endif
 
 
   // Get bulk volts.
@@ -147,6 +124,32 @@ main(void)
   result = capros_SWCA_getBulkVolts(KR_SWCA, 1, &value);
   ckOK
   kprintf(KR_OSTREAM, "Inverter %d bulk volts*10=%d\n",
+          0+1, value);
+
+
+  result = capros_SWCA_getEqualizeTime(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d equalize time =%d\n",
+          0+1, value);
+
+  result = capros_SWCA_getLBCOVolts(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d LBCO volts*10=%d\n",
+          0+1, value);
+
+  result = capros_SWCA_getMaxChargeAmps(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d max charge amps =%d\n",
+          0+1, value);
+
+  result = capros_SWCA_getGenAmps(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d gen amps =%d\n",
+          0+1, value);
+
+  result = capros_SWCA_get15MinStartVolts(KR_SWCA, 1, &value);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d 15 min start volts*10=%d\n",
           0+1, value);
 
   result = capros_SWCA_getLoadAmpsLogfile(KR_SWCA, 0, KR_LALOG);
