@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, Jonathan S. Shapiro.
-# Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -209,10 +209,15 @@ ifndef EROS_FD
 EROS_FD=$(HOST_FD)
 endif
 
+# strict aliasing breaks code in sys/key/pk_ProcessKey.c.
+EROS_GCC_OPTIM+= -O2 -fno-strict-aliasing
+
 ifeq "$(EROS_CONFIG)" "NDEBUG"
-EROS_GCC_OPTIM+= -O2
+### May want this for debugging under NDEBUG:
+# ifeq "$(EROS_TARGET)" "arm"
+# EROS_GCC_OPTIM+= -mapcs-frame # generate stack frames for debugging
+# endif
 else
-EROS_GCC_OPTIM+= -O1
 ifeq "$(EROS_TARGET)" "arm"
 EROS_GCC_OPTIM+= -mapcs-frame # generate stack frames for debugging
 endif
