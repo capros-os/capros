@@ -21,6 +21,12 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+/* Tuning parameters */
+
+/* Minimum size of buffer for headers from a HTTPRequestHandler */
+#define HEADER_BUF_SIZE 2048
+
+
 #include <stddef.h>
 #ifndef SELF_TEST
 #include <eros/target.h>
@@ -34,6 +40,8 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/SpaceBank.h>
 #include <idl/capros/Range.h>
 #include <idl/capros/HTTP.h>
+#include <idl/capros/HTTPResource.h>
+#include <idl/capros/HTTPRequestHandler.h>
 #include <idl/capros/TCPSocket.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Discrim.h>
@@ -158,14 +166,20 @@ static int writeSSL(ReaderState *rs, void *data, int len);
 static int writeStatusLine(ReaderState *rs, int statusCode);
 static int writeString(ReaderState *rs, char *str);
 static int writeMessage(ReaderState *rs, char *msg, int isHEAD);
-static int openFile(char *name, int isRead);
+static int lookUpSwissNumber(char *swissNumber, int methodCode,
+			     int lengthOfPath, char *pathAndQuery);
 static int closeFile(void);
-static void destroyFile(char * name);
+static void destroyFile(void);
 static uint64_t getFileLen(void);
 static int readFile(void *buf, int len);
 static int writeFile(void *buf, int len);
 static void scanConsumeSeps(ReadPtrs *rp, char *sepStr);
 static void scanToken(ReadPtrs *rp, char *sepStr);
+#ifndef SELF_TEST
+static int
+transferHeaders(ReaderState *rs, result_t (*getProc)(cap_t , uint32_t,
+						     uint32_t *, uint8_t *));
+#endif
 
 
 /* RB Tree stuff */
@@ -214,9 +228,9 @@ int tree_compare_key(TREENODE *a, TREEKEY b) {
 #include <rbtree/tree_init.c>
 #include <rbtree/tree_insert.c>
 #include <rbtree/tree_find.c>
-//#include <rbtree/tree_min.c>
+#include <rbtree/tree_min.c>
 //#include <rbtree/tree_remove.c>
-//#include <rbtree/tree_succ.c>
+#include <rbtree/tree_succ.c>
 //#include <rbtree/tree_contains.c>
 static TREENODE *
 free_tree(TREENODE *tree) {
@@ -616,6 +630,61 @@ void push_ssl_data(BIO *network_bio) {
   }
 }
 
+/* The following variables are used both by process_http and other routines */
+#ifdef SELF_TEST
+int theResourceType;
+
+#define capros_HTTPResource_RHType_HTTPRequestHandler 0
+#define capros_HTTPResource_RHType_MethodNotAllowed 1
+#define capros_HTTPResource_RHType_File 2
+
+#define capros_HTTPResource_maxLengthOfPathAndQuery 512
+
+int theFile;
+#else
+// File is in KR_FILE.
+capros_File_fileLocation theFileCursor;
+capros_File_fileLocation theFileSize;
+capros_HTTPResource_RHType theResourceType;
+uint32_t theSendLimit;
+#endif
+
+/* The following variables are used by process_http. They are defined outside
+   process_http so a common freeStorage routine may be called to free the
+   dynamically allocated data assigned to them. */
+char *authority = NULL;
+char *pathandquery = NULL;
+char *swissNumber = NULL;
+char *headerName = NULL;
+char *headerBuffer = NULL;
+int headerBufferLength = 0;
+TREENODE *tree = TREE_NIL;   /* A rbtree to hold the headers and values */
+
+static void
+freeStorage(void) {
+  if (authority) {
+    free(authority);
+    authority = NULL;
+  }
+  if (pathandquery) {
+    free(pathandquery);
+    pathandquery = NULL;
+  }
+  if (swissNumber) {
+    free(swissNumber); 
+    swissNumber = NULL;
+  }
+  if (headerName) {
+    free(headerName);
+    headerName = NULL;
+  }
+  if (headerBuffer) {
+    free(headerBuffer);
+    headerBuffer = NULL;
+  }
+  free_tree(tree);
+  tree = TREE_NIL;
+}
 
 /** process_http - Process the HTTP protocol available on the ssl connection 
  *
@@ -637,7 +706,44 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   int versionIndex;
   //  int headerIndex = -1;
   static const
-    char *requestList[] = {"GET", "HEAD", "PUT", "POST", NULL};
+    char *methodList[] = {"OPTIONS", "GET", "HEAD", "POST", "PUT", "DELETE",
+			   "TRACE", "CONNECT", NULL};
+#define Method_OPTIONS 0
+#define Method_GET 1
+#define Method_HEAD 2
+#define Method_POST 3
+#define Method_PUT 4
+#define Method_DELETE 5
+#define Method_TRACE 6
+#define Method_CONNECT 7
+
+#ifndef SELF_TEST
+#if capros_HTTPResource_Method_OPTIONS != Method_OPTIONS
+#error filename line-num methodIndex does not match HTTPResource header index
+#endif
+#if capros_HTTPResource_Method_GET != Method_GET
+#error filename line-num methodIndex does not match HTTPResource header index
+#endif
+#if capros_HTTPResource_Method_HEAD != Method_HEAD
+#error filename line-num methodIndex does not match HTTPResource header index
+#endif
+#if capros_HTTPResource_Method_POST != Method_POST
+#error filename line-num methodIndex does not match HTTPResource header index
+#endif
+#if capros_HTTPResource_Method_PUT != Method_PUT
+#error filename line-num methodIndex does not match HTTPResource header index
+#endif
+#if capros_HTTPResource_Method_DELETE != Method_DELETE
+#error filename line-num methodIndex does not match HTTPResource header index
+#endif
+#if capros_HTTPResource_Method_TRACE != Method_TRACE
+#error filename line-num methodIndex does not match HTTPResource header index
+#endif
+#if capros_HTTPResource_Method_CONNECT != Method_CONNECT
+#error filename line-num methodIndex does not match HTTPResource header index
+#endif
+#endif
+
   static const
     char *versionList[] = {"HTTP/1.1", NULL};
   /* static const
@@ -650,18 +756,16 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     char *connectionList[] = {"close", NULL};
   static const
     char *expectationList[] = {"100-continue", NULL};
-  char *fileName = NULL;
   char c;
-  char *name;
   char *value;
   int namelen, valuelen;
   TREENODE *existing = TREE_NIL;
   TREENODE *node;
-  
+  int pathLength;  
+  int headersLength = 0;
   
   /* The following are results of parsing the HTTP headers */
 #define MAX_HEADER_LENGTH 4096 /* Arbitrary maximum length for a header */
-  TREENODE *tree = TREE_NIL;   /* A rbtree to hold the headers and values */
   TREENODE *last = TREE_NIL;   /* The last node used, for header continuation */
   long unsigned int contentLength = 0;
   int expect100 = 0;
@@ -674,7 +778,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     writeMessage(rs, "Request not followed by space or tab", 0);
     return 0;                  /* Must get back in sync with client */ 
   }
-  methodIndex = compareToken(&rp, requestList, 0);
+  methodIndex = compareToken(&rp, methodList, 0);
   if (-1 == methodIndex) {
     char errMsg[120];
     int i,j;
@@ -698,31 +802,101 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     return 0;                  /* Must get back in sync with client */ 
   }
 
+  // TODO handle absolute URI format (no one sends it yet)
   /* Get the URI part of the request */
-  if (!readToken(rs, &rp, "? \n")) return 0; /* Read authority to '?' */
-  /* TODO handle % HEX HEX encoding in the request URI (1.1 must) */
+  if (!readToken(rs, &rp, " \n")) return 0; /* Read the authority */
   c = *rp.last;
   switch (c) {                       /* See what we found */
-  case '\?':       
-    readSkipDelim(rs, &rp);          /* Found a '?' - skip it */
-    if (!readToken(rs, &rp, " \n")) return 0;
-    fileName = malloc(rp.last - rp.first + 1);
-    memcpy(fileName, rp.first, rp.last - rp.first);
-    fileName[rp.last - rp.first] = 0;
-    /* TODO handle % HEX HEX encoding in the request URI (1.1 must) */
-    break;
-  case ' ':                                   /* Found a space */
-    // TODO serve a default page
-    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
-    writeStatusLine(rs, 400);  /* Return Bad Request */
-    writeMessage(rs, "URI query field missing.", methodIndex==1);
-    return 0;                  /* Must get back in sync with client */ 
+  case ' ':                          /* Found a space - save authority */
+    authority = malloc(rp.last - rp.first + 1);
+    memcpy(authority, rp.first, rp.last - rp.first);
+    authority[rp.last - rp.first] = 0;
     break;
   default:                                    /* Newline etc bad request */
     DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (newline etc)\n");
     writeStatusLine(rs, 400);  /* Return Bad Request */
     writeMessage(rs, "HTTP version missing.", methodIndex==1);
     return 0;                  /* Must get back in sync with client */ 
+  }
+
+  /* Break the authority into the components we need, which are the path,
+     the query (less question mark separator, the Swiss number portion, 
+     and the Swiss number. */
+  {
+    char *delim = strchr(authority, '?');
+    char *qstart;
+    char *swissstart;
+
+    if (!delim) {                /* query portion missing */
+      // TODO perhaps we want to serve a default page
+      freeStorage();
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
+      writeStatusLine(rs, 400);  /* Return Bad Request */
+      writeMessage(rs, "URI query field missing.", methodIndex==1);
+      return 0;                  /* Must get back in sync with client */ 
+    }
+    /* Save the path */
+    pathLength = delim - authority;
+    if (pathLength) {
+      pathandquery = malloc(strlen(authority)); /* maxlen < len(authority) */
+      memcpy(pathandquery, authority, pathLength);
+      pathandquery[pathLength] = 0;
+    } else {                     /* path is empty */
+      pathandquery = malloc(2+strlen(authority));
+      strcpy(pathandquery, "/");
+      pathLength = 1;
+    }
+
+    /* Extract the Swiss number from the query. The Swiss number will be
+       the s=number parameter. These keyword parameters are separated by
+       either the ampersand (&) character or the semicolon (;) character.
+       The Swiss number will be the first s= if there are more than one
+       s= in the query. */
+
+    qstart = delim+1;                 /* Point at the query */
+    if (!('s' == *qstart && '=' == *(qstart+1))) {
+      /* Swiss number not at start of query */
+      char *query = pathandquery+strlen(pathandquery);
+
+      /* Both & and ; terminate a keyword parm */
+      swissstart = strstr(delim+1, "&s=");
+      if (!swissstart) swissstart = strstr(delim+1, ";s=");
+      if (!swissstart) {           /* No Swiss number */
+	DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
+	writeStatusLine(rs, 400);  /* Return Bad Request */
+	writeMessage(rs, "URI query field missing.", methodIndex==1);
+	return 0;                  /* Must get back in sync with client */ 
+      }
+      memcpy(query, qstart, swissstart-qstart+1); /* Save first part of query */
+      query[swissstart-qstart+1] = 0;
+      swissstart++;                 /* Point at the s= */
+    } else {
+      swissstart = qstart;
+    }
+
+    /* When we get here, swissstart points to the beginning of the s= 
+       parameter and pathandquery holds the portion of the path concatenated
+       with the portion of the query that proceeded the s= parameter */
+    delim = strchr(swissstart, '&');
+    if (!delim) delim = strchr(swissstart, ';');
+    if (delim) {               /* More than just s= */
+      int len = delim - swissstart - 2;
+      swissNumber = malloc(len + 1);
+      memcpy(swissNumber, swissstart+2, len);
+      swissNumber[len] = 0;
+      
+      len = strlen(delim + 1); /* Length of rest of query w/o leading &/; */
+      if (len) {               /* If there is anything there */
+	strcat(pathandquery, delim+1);
+      } /* Else nothing else to add to query */
+    } else {                   /* s= is the only query */
+      swissNumber = malloc(strlen(swissstart+2) + 1);
+      strcpy(swissNumber, swissstart+2);
+      /* Don't add to query */
+    }
+    /* HTTP 1.1 must handle % encoding of the Swiss number, but we may
+       foil a few attacks by not handling that, and our Swiss numbers do
+       not include characters that need to be % encoded. */
   }
 
   /* Get the http version */
@@ -732,17 +906,17 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: version not supported\n");
     writeStatusLine(rs, 505);  /* Return HTTP Version Not Supported*/
     writeMessage(rs, "This server only supports HTTP/1.1", methodIndex==1);
-    free(fileName);
+    freeStorage();
     return 0;                  /* Must get back in sync with client */ 
   }
 
   /* We should now have a CRLF as the next item */
   if (!readToken(rs, &rp, "\n")) {
-    if(fileName) free(fileName);
+    freeStorage();
     return 0;                  /* Must get back in sync with client */ 
   }
   if (rp.last-rp.first > 1) {
-    if (fileName) free(fileName);
+    freeStorage();
     writeStatusLine(rs, 400);  /* Return Bad Request */
     writeMessage(rs, "HTTP version not followed by CRLF on request line",
 		 methodIndex==1);
@@ -755,8 +929,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   /* Process the message headers */
   while (1) {
     if (!readToken(rs, &rp, ":\n")) {
-      tree = free_tree(tree);
-      if (fileName) free(fileName);
+      freeStorage();
       return 0;
     }
     if ((rp.last - rp.first == 0) /* LF only, not kosher, but accepted */
@@ -771,8 +944,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     if (*rp.first == ' ' || *rp.first =='\t') { /* Continued header */
       if (TREE_NIL == last) {
 	/* Error */
-	tree = free_tree(tree);
-	if (fileName) free(fileName);
+	freeStorage();
 	writeStatusLine(rs, 400);
 	writeMessage(rs, "Continuation line without header", methodIndex==1);
 	return 0;         /* Get back in sync with client */
@@ -786,34 +958,35 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 
     /* save the header name */
     namelen = rp.last - rp.first;
-    if (namelen <= 0) {
-      tree = free_tree(tree);
-      if (fileName) free(fileName);
+    if (namelen <= 0 || namelen > 255) {
+      freeStorage();
       writeStatusLine(rs, 500);
-      writeMessage(rs, "Header name length negative or zero", methodIndex==1);
+      writeMessage(rs, "Header name length longer than 255 or is zero",
+		   methodIndex==1);
       return 0;         /* Get back in sync with client */
     }
-    name = malloc(namelen+1);
-    memcpy(name, rp.first, namelen); /* Don't copy the trailing : */
-    name[namelen] = 0;
+    headersLength += namelen+2;   /* Acculminate total length of headers */
+    headerName = malloc(namelen+1);
+    memcpy(headerName, rp.first, namelen); /* Don't copy the trailing : */
+    headerName[namelen] = 0;
     readSkipDelim(rs, &rp);          /* Found a ':' - skip it */
 
     /* save the header value */
     if (!readToken(rs, &rp, "\r\n")) {
-      if (fileName) free(fileName);
-      free(name);
+      freeStorage();
       return 0;
     }  // TODO truncate : and leading and trailing whitespace
     while ((*rp.first == ' ' || *rp.first == '\t') && rp.first<rp.last) {
       rp.first++;
     }
     valuelen = rp.last - rp.first;
-    if (valuelen <= 0 || valuelen > MAX_HEADER_LENGTH) {
+    headersLength += valuelen + 3;
+    if (valuelen <= 0
+	|| valuelen > MAX_HEADER_LENGTH
+	|| headersLength > 0xffff) {
       writeStatusLine(rs, 413);   /* Say the entity is too large */
       writeMessage(rs, "Header too long", methodIndex==1);
-      if (fileName) free(fileName);
-      tree = free_tree(tree);
-      free(name);
+      freeStorage();
       return 0;     /* Ignoring warnings in the RFC to make sure zapping
 		       the connection doesn't destroy the response */
     }
@@ -821,7 +994,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     memcpy(value, rp.first, valuelen);
     value[valuelen] = 0;
 
-    if (TREE_NIL == existing) existing = tree_find(tree, name);
+    if (TREE_NIL == existing) existing = tree_find(tree, headerName);
     if (TREE_NIL == existing ) {
       /* Insert the result into the RB tree */
       node = malloc(sizeof(TREENODE));
@@ -830,7 +1003,8 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       node->parent = TREE_NIL;
       node->color = TREE_BLACK;
       
-      node->key = name;
+      node->key = headerName;
+      headerName = NULL;       /* Don't free active entry */
       node->value = value;
       tree = tree_insert(tree, node);
     } else {
@@ -841,12 +1015,11 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       free(existing->value);
       existing->value = newValue;
       free(value);
-      free(name);
+      free(headerName);
     }
      /* clean out to next CRLF */
     if (!readToken(rs, &rp, "\n")) { 
-      if (fileName) free(fileName);
-      tree = free_tree(tree);
+      freeStorage();
       return 0;
     }
     readSkipDelim(rs, &rp);
@@ -959,8 +1132,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	} else {
 	  writeStatusLine(rs, 417);
 	  writeSSL(rs, "\r\n", 2);
-	  tree = free_tree(tree);
-	  if (fileName) free(fileName);
+	  freeStorage();
 	  return 0;                  /* Must get back in sync with client */ 
 	}
 	p.first = p.last;
@@ -1046,8 +1218,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       if (len > 15 || len == 0) {
 	writeStatusLine(rs, 413);   /* Say the entity is too large */
 	writeMessage(rs, "File too long for upload", methodIndex==1);
-	if (fileName) free(fileName);
-	tree = free_tree(tree);
+	freeStorage();
 	return 0;     /* Ignoring warnings in the RFC to make sure zapping
 			 the connection doesn't destroy the response */
       }
@@ -1089,126 +1260,315 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   // This header is triggered by "Connection: keep-alive" from Firefox.
 
 
+  /* Check that length of path and query is in range */
+  if (capros_HTTPResource_maxLengthOfPathAndQuery < strlen(pathandquery)) {
+    writeStatusLine(rs, 400);
+    writeMessage(rs, "Path + Query too long.", methodIndex==1);
+    freeStorage();
+    return 0;
+  }
+  
+  /* We've read all the headers and are ready to do the method. First
+     we look up the Swiss number and see if we are serving a file, or 
+     if some domain will handle the request */
+  
+  if (!lookUpSwissNumber(swissNumber, methodIndex, pathLength, pathandquery)) {
+    /* Swiss number not found or other error */
+    writeStatusLine(rs, 404);
+    writeMessage(rs, "File not found on server.", methodIndex==1);
+    freeStorage();
+    return 0;
+  }
+  
+  switch (theResourceType) {
+  case capros_HTTPResource_RHType_HTTPRequestHandler:
+    {
+#ifdef SELF_TEST
+      DBGPRINT(DBGTARGET, "lookUpSwissNumber gave HTTPRequestHandler");
+      writeStatusLine(rs, 500);
+      writeMessage(rs, "lookUpSwissNumber gave HTTPRequestHandler response",
+		   methodIndex==1);
+      freeStorage();
+      return 0;
+#else
+      result_t rc;
+      TREENODE *node;
+      /* headersLength is the total length of all headers + space for the
+	 lengths as per the HTTPRequestHandler protocol. Making the buffer
+	 this big means we don't have to check for buffer overrun. Since
+	 we use the buffer for output headers as well, we apply a minimum
+	 length as well. */
+      headerBufferLength = (headersLength+1 < HEADER_BUF_SIZE
+			    ? HEADER_BUF_SIZE
+			    : headersLength+1);
+      unsigned char *headerBuffer = malloc(headerBufferLength);
+      unsigned char *bp = headerBuffer;
+      unsigned char *bufend;
+      int kl, vl;
+      uint16_t statusCode;
+      capros_HTTPRequestHandler_TransferEncoding bodyTransferEncoding;      
+      uint64_t contentLength;
+      uint32_t lengthOfBodyData;
+      char cl[128];       /* For generating a content length header */
 
-    
-  /* Now do the method */
-  switch (methodIndex) {
-  case 0:          /* Handle a GET method */
-  case 1:          /* Handle a HEAD method */
-    if (fileName && openFile(fileName, 1)) {
-      unsigned long int len; /* The file length */
-      char cl[128];
-      int isUsingChunked = 0;
-      
-      len = getFileLen();
-      writeStatusLine(rs, 200);
-      if (len == 0) {      /* Length N/A, use chunked transfer encoding */
-	isUsingChunked = 1;
-	writeString(rs, "Transfer-Encoding: chunked\r\n");
-      } else {            /* Have length - use Content-length */
-	sprintf(cl, "Content-Length: %ld\r\n", len);
-	writeString(rs, cl);
-      }
-      // TODO Consider what Cache-Control directives to issue, if any
-      // writeString(rs, "Content-Type: text/html\r\n\r\n");
-      writeString(rs, "Content-Type: application/octet-stream\r\n\r\n");
-      if (0 == methodIndex) {       /* GET, not HEAD - send message-body */
-	/*  Actually send the file */
-	char buf[2048];
-	int len;
-	
-	if (isUsingChunked) {
-	  do {
-	    len = readFile(buf, sizeof(buf));
-	    sprintf(cl, "%x\r\n", len);
-	    writeString(rs, cl);
-	    if (0 != len) {
-	      if (!writeSSL(rs, buf, len)) {
-		/* Write error */
-		if(fileName) free(fileName);
-		tree = free_tree(tree);
-		return 0; /* Kill the connection */
-	      }
-	    }
-	    writeString(rs, "\r\n");
-	  } while (0 != len);
-	} else {
-	  while ( (len=readFile(buf, sizeof(buf))) > 0) {
-	    if (!writeSSL(rs, buf, len)) {
-	      if (fileName) free(fileName);
-	      tree = free_tree(tree);
-	      return 0;
-	    }
-	  }
+      for (node = tree_min(tree); 
+	   node != TREE_NIL; 
+	   node = tree_succ(node)) {
+	kl = strlen(node->key);
+	if ( (kl==17 && memcmpci(node->key, "Transfer Encoding", kl)==0)) {
+	  continue;      /* Skip the transfer encoding header */
 	}
-	closeFile();
-	if(fileName) free(fileName);
-	fileName = NULL;
-	tree = free_tree(tree);
-	if (0 != len) return 0;  /* Read error, kill the connection */
+	/* We checked the header name length was < 256 when building the tree */
+	*bp++ = kl & 0xff;
+	vl = strlen(node->value);
+	*bp++ = (vl >> 8) &0xff;
+	*bp++ = vl & 0xff;
+	memcpy(bp, node->key, kl);
+	bp += kl;
+	memcpy(bp, node->value, vl);
+	bp += kl;
       }
-    } else {
-      writeStatusLine(rs, 404);
-      writeMessage(rs, "File not found on server.", methodIndex==1);
-    }
-    break;
-  case 2:             /* Handle the PUT method */
-    if (fileName && openFile(fileName, 0)) {
-      int len;
+      *bp++ = 0;         /* Terminate with zero length header name */
+      bufend = bp;
 
-      if (expect100) {
-	writeStatusLine(rs, 100);
-	writeSSL(rs, "\r\n", 2);
+      /* Now send the headers to the handler */
+      bp = headerBuffer;
+      while (bufend - bp) {
+	uint32_t len = (bufend-bp < theSendLimit ? bufend-bp : theSendLimit);
+      	rc = capros_HTTPRequestHandler_headers(KR_FILE, len, bp, &theSendLimit);
+	if (RC_OK != rc) {
+	  writeStatusLine(rs, 500);
+	  writeMessage(rs, "Bad HTTPRequestHandler.headers response.",
+		       methodIndex==1);
+	  freeStorage();
+	  return 0;
+	}
       }
-      /*  Actually receive the file */
-      
+
+      /* If there is a 100-continue expectectation, get result from handler */
+      if (expect100) {
+	rc = capros_HTTPRequestHandler_getContinueStatus(KR_FILE, &statusCode);
+	if (RC_capros_key_UnknownRequest == rc) {
+	  statusCode = 100;
+	} else if (RC_OK != rc) {
+	  writeStatusLine(rs, 500);
+	  writeMessage(rs,
+		       "Bad HTTPRequestHandler.getContinueStatus response.",
+		       methodIndex==1);
+	  freeStorage();
+	  return 0;
+	}
+	writeStatusLine(rs, statusCode); 
+	if (statusCode != 100) {
+	  writeMessage(rs, "HTTPRequestHandler response for 100-continue.",
+		       methodIndex==1);
+	  freeStorage();
+	  return 0;
+	}
+      }
+
+      /* Now transfer the body of the request */
+      //TODO handle chunked transfers.
       while ( contentLength > 0) {
+	int len;
+
 	if (!readExtend(rs, &rp)) {
 	  /* Network I/O error */
-          destroyFile(fileName);
-	  free(fileName);
-	  free_tree(tree);
+	  //TODO Notify HTTPRequestHandler of error
+	  freeStorage();
 	  return 0; /* Kill the connection */
 	}
 	len = rp.last - rp.first;
 	if (contentLength < len) len = contentLength;
-	len = writeFile(rp.first, len);
-	if (len < 0) {      /* File write error */
+	if (len > theSendLimit) len = theSendLimit;
+	rc = capros_HTTPRequestHandler_body(KR_FILE, len, 
+					    (unsigned char *)rp.first,
+					    &theSendLimit);
+	if (RC_OK == rc) {      /* handler error */
 	  writeStatusLine(rs, 500);
-	  writeMessage(rs, "File I/O error on write.", 0);
-          destroyFile(fileName);
-	  free(fileName);
-	  tree = free_tree(tree);
+	  writeMessage(rs, "HTTPRequestHandler error on body.", 0);
+	  freeStorage();
 	  return 0;         /* Need to get back in sync with client */
 	}
 	contentLength -= len;
 	readConsume(rs, rp.first+len);
       }
-      closeFile();
-      free(fileName);
-      fileName = NULL;
-      writeStatusLine(rs, 200);
-      writeString(rs, "Content-Length: 0\r\n");
-      writeSSL(rs, "\r\n", 2);
-      //      writeMessage(rs, "File Received", 0);
-    } else {
-      writeStatusLine(rs, 404);
-      writeMessage(rs, "File not found on server.", 0);
+
+      /* Get the response status */
+      rc =  capros_HTTPRequestHandler_getResponseStatus(KR_FILE, &statusCode,
+							&bodyTransferEncoding,
+							&contentLength);
+      writeStatusLine(rs, statusCode);
+      switch (bodyTransferEncoding) {
+      case capros_HTTPRequestHandler_TransferEncoding_none:
+	freeStorage();
+	if (mustClose) return 0;
+	return 1;
+	break;
+      case capros_HTTPRequestHandler_TransferEncoding_identity:
+	sprintf(cl, "Content-Length: %ld\r\n", contentLength);
+	writeString(rs, cl);
+	break;
+      case capros_HTTPRequestHandler_TransferEncoding_chunked:
+	writeString(rs, "Transfer-Encoding: chunked\r\n");
+	break;
+      }
+      //TODO generate a date header
+
+      /* Get additional headers from the handler */
+      if (0 == transferHeaders(rs,
+		     capros_HTTPRequestHandler_getResponseHeaderData)) {
+      /* Error. We've already reported a status, so we can't give 500. 
+	 just zap the circuit */
+	freeStorage();
+	return 0;
+      }
+
+      /* Receive the data from the handler and send it to the connection */
+      if (Method_HEAD != methodIndex) {
+	while (1) {
+	  rc = capros_HTTPRequestHandler_getResponseBody(KR_FILE, 
+							 headerBufferLength,
+							 &lengthOfBodyData,
+							 headerBuffer);
+	  if (RC_OK != rc) {
+	    freeStorage();
+	    return 0;
+	  }
+	  if (0 == lengthOfBodyData) break;
+	  writeSSL(rs, headerBuffer, lengthOfBodyData); /* Write it */
+	}
+      }
+
+      /* Send out any trailer headers */
+      if (0 == transferHeaders(rs,
+		     capros_HTTPRequestHandler_getResponseTrailer)) {
+      /* Error. We've already reported a status, so we can't give 500. 
+	 just zap the circuit */
+	freeStorage();
+	return 0;
+      }
+#endif
     }
     break;
-  default: {
-    char msg[128];
+  case  capros_HTTPResource_RHType_MethodNotAllowed:
+    writeStatusLine(rs, 405); 
+    writeMessage(rs, "Method Not Allowed", methodIndex==1);
+    freeStorage();
+    break;
+      
+  case capros_HTTPResource_RHType_File:
+    /* The in non-self test mode, the HTTPResource has indicated the object
+       is a File and we should handle it. It has left the key to the file in
+       KR_FILE. In SELF_TEST mode, lookUpSwissNumber has opened the file and
+       left the handle in theFile. */
     
-    sprintf(msg, "Method %s not handled", requestList[methodIndex]);
-    DBGPRINT(DBGTARGET, "%s\n", msg);
-    writeStatusLine(rs, 500);    /* Internal server error */
-    writeMessage(rs, msg, methodIndex==1);
-
-  }
+    /* Now do the method */
+    switch (methodIndex) {
+    case Method_GET:          /* Handle a GET method */
+    case Method_HEAD:         /* Handle a HEAD method */
+      {
+	unsigned long int len; /* The file length */
+	char cl[128];
+	int isUsingChunked = 0;
+	
+	len = getFileLen();
+	writeStatusLine(rs, 200);
+	if (len == 0) {      /* Length N/A, use chunked transfer encoding */
+	  isUsingChunked = 1;
+	  writeString(rs, "Transfer-Encoding: chunked\r\n");
+	} else {            /* Have length - use Content-length */
+	  sprintf(cl, "Content-Length: %ld\r\n", len);
+	  writeString(rs, cl);
+	}
+	// TODO Consider what Cache-Control directives to issue, if any
+	// writeString(rs, "Content-Type: text/html\r\n\r\n");
+	writeString(rs, "Content-Type: application/octet-stream\r\n\r\n");
+	if (Method_GET == methodIndex) { /* GET, not HEAD - send message-body */
+	  /*  Actually send the file */
+	  char buf[2048];
+	  int len;
+	  
+	  if (isUsingChunked) {
+	    do {
+	      len = readFile(buf, sizeof(buf));
+	      sprintf(cl, "%x\r\n", len);
+	      writeString(rs, cl);
+	      if (0 != len) {
+		if (!writeSSL(rs, buf, len)) {
+		  /* Write error */
+		  freeStorage();
+		  return 0; /* Kill the connection */
+		}
+	      }
+	      writeString(rs, "\r\n");
+	    } while (0 != len);
+	  } else {
+	    while ( (len=readFile(buf, sizeof(buf))) > 0) {
+	      if (!writeSSL(rs, buf, len)) {
+		freeStorage();
+		return 0;
+	      }
+	    }
+	  }
+	  closeFile();
+	  freeStorage();
+	  if (0 != len) return 0;  /* Read error, kill the connection */
+	}
+      }
+      break;
+    case Method_PUT:             /* Handle the PUT method */
+      {
+	int len;
+	
+	if (expect100) {
+	  writeStatusLine(rs, 100);
+	  writeSSL(rs, "\r\n", 2);
+	}
+	/*  Actually receive the file */
+	
+	while ( contentLength > 0) {
+	  if (!readExtend(rs, &rp)) {
+	    /* Network I/O error */
+	    destroyFile();
+	    freeStorage();
+	    return 0; /* Kill the connection */
+	  }
+	  len = rp.last - rp.first;
+	  if (contentLength < len) len = contentLength;
+	  len = writeFile(rp.first, len);
+	  if (len < 0) {      /* File write error */
+	    writeStatusLine(rs, 500);
+	    writeMessage(rs, "File I/O error on write.", 0);
+	    destroyFile();
+	    freeStorage();
+	    return 0;         /* Need to get back in sync with client */
+	  }
+	  contentLength -= len;
+	  readConsume(rs, rp.first+len);
+	}
+	closeFile();
+	freeStorage();
+	writeStatusLine(rs, 200);
+	writeString(rs, "Content-Length: 0\r\n");
+	writeSSL(rs, "\r\n", 2);
+	//      writeMessage(rs, "File Received", 0);
+      }
+      break;
+    default: {
+      char msg[128];
+      
+      sprintf(msg, "Method %s not handled", methodList[methodIndex]);
+      DBGPRINT(DBGTARGET, "%s\n", msg);
+      writeStatusLine(rs, 500);    /* Internal server error */
+      writeMessage(rs, msg, methodIndex==1);
+      
+    }
+    }
+    break;
   }
   /* Push any queued data to the network */
-  if(fileName) free(fileName);
-  tree = free_tree(tree);
+  freeStorage();
   if (mustClose) return 0;
   return 1;
   
@@ -1671,7 +2031,7 @@ writeString(ReaderState *rs, char *str) {
 static int
 writeSSL(ReaderState *rs, void *data, int len) {
   int rc;
-
+  
   DEBUG(netio) DBGPRINT(DBGTARGET, "HTTP SSL write=%.*s\n", len, (char*)data);
   if (0 == len) return 1;  /* SSL_write behavior with length 0 is undefined */
   /* Write to the SSL connection */
@@ -1690,35 +2050,105 @@ writeSSL(ReaderState *rs, void *data, int len) {
   return 1;
 }
 
-#ifdef SELF_TEST
-int theFile;
-#else
-// File is in KR_FILE.
-capros_File_fileLocation theFileCursor;
-capros_File_fileLocation theFileSize;
-#endif
-/**
- * openFile - Open a HTTP referenced file. Only one file at a time can be open.
- *
- * @param[in] name is the name of the file
- * @param[in] isRead is true if the access will be read, false if write
- *
- * @return is 1 if the file is opened, 0 if there was an error.
+
+#ifndef SELF_TEST
+/** transferHeaders - Transfer headers from the HTTPRequestHandler to the 
+ *                    connection.
  */
 static int
-openFile(char *name, int isRead) {
-#ifdef SELF_TEST
-/* To keep from exposing the whole Unix file system, limit the character
-   set of name */
-  int i;
-  char fullname[strlen(name) + 256];
-  for (i=0; i<strlen(name); i++) {
+transferHeaders(ReaderState *rs, result_t (*getProc)(cap_t , uint32_t,
+						     uint32_t *, uint8_t *)) {
+/* Get additional headers from the handler */
+/* We have to stand on our heads and pat our tummies since we can't
+   just stream the data to the connection. There is not relation between
+   the headers and the chunks of data we get from the handler. Since I 
+   (wsf) can't really test this code, the way most likely to work is to
+   get all the data, and then format it and send it to the connection */
+  
+  char *b = headerBuffer;
+  int bl = headerBufferLength;
+  int ln, lv;
+  result_t rc;
+  uint32_t headerLength;
+ 
+  while (1) {
+    while (bl > 0) {
+      rc = getProc(KR_FILE, bl, &headerLength, (unsigned char *)b);
+      if (RC_OK != rc) {
+	/* Handler had problems, just die */
+	return 0;
+      }
+      if (0 == headerLength) break;
+      b += headerLength;
+      bl -= headerLength;
+    }
+    if (0 == headerLength) break;
+    bl = headerBufferLength - bl;    /* Amount in the buffer */
+    headerBufferLength *= 2;      /* Size of new buffer, twice old size */
+    b = malloc(headerBufferLength);
+    memcpy(b, headerBuffer, bl);  /* Copy what we have to new buffer */
+    free(headerBuffer);           /* Free old */
+    headerBuffer = (char *)b;     /* Point at start of all the headers */
+    b += bl;                      /* Place for next byte of header data */
+    bl = headerBufferLength - bl; /* Len left is (new len - what we got) */
+  }
+  /* Now put them out as headers */
+  bl = b - headerBuffer;
+  b = headerBuffer;
+  for (ln=(*b)&0xff; ln; ln=(*b)&0xff) {  /* Get length of next name */
+    if (!ln) break;                       /* Zero is end of headers */
+    
+    lv = ((*(b+1) & 0xff) << 8) + (*(b+2) & 0xff);
+    bl -= ln +lv + 3;
+    if (bl < 0) {
+      /* Error from handler, we've already reported a status, so we
+	 can't give 500. just zap the circuit */
+      return 0;         /* Need to get back in sync with client */
+    }
+    
+    writeSSL(rs, b+2, ln);                /* Write it to connection */
+    writeSSL(rs, ": ", 2);                /* Write colon and space */
+    writeSSL(rs, b+2+ln, lv);             /* Write the value */
+    writeSSL(rs, "\r\n", 2);              /* Finish with a CRLF */
+    b += ln + lv + 3;
+    if (!bl) break;
+  }
+  writeSSL(rs, "\r\n", 2);              /* Finish with blank line */
+  return 1;
+}
+#endif
 
+
+/**
+ * lookUpSwissNumber - Look up the Swiss number in the directory of servable
+ *                     objects.
+ *
+ * @param[in] swissNumber is the Swiss number
+ *
+ * @return is 1 if the Swiss number was found, else 0.
+ */
+static int
+lookUpSwissNumber(char *swissNumber, int methodCode, int lengthOfPath, 
+		  char *pathAndQuery) {
+  DEBUG(http) DBGPRINT(DBGTARGET,
+		       "HTTP lookUpSwissNumber pathlen=%d path+query= %s\n",
+		       lengthOfPath, pathAndQuery);
+#ifdef SELF_TEST
+  /* In SELF_TEST mode, we use the swiss number as a UNIX file name. To keep
+     from exposing the whole Unix file system, limit the character
+     set of name */
+  int i;
+  char fullname[strlen(swissNumber) + 256];
+  int isRead = (methodCode==Method_GET || methodCode==Method_HEAD);
+  
+  for (i=0; i<strlen(swissNumber); i++) {
+    
     if (NULL == 
 	strchr("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789",
-	       name[i])) {
+	       swissNumber[i])) {
       DBGPRINT(DBGTARGET, 
-	       "Bad character \"%c\" in filename \"%s\"\n", name[i], name);
+	       "Bad character \"%c\" in filename \"%s\"\n", swissNumber[i], 
+	       swissNumber);
       theFile = -1;
       return 0;
     }
@@ -1726,71 +2156,57 @@ openFile(char *name, int isRead) {
   strcpy(fullname, "/home/");
   strcat(fullname, getlogin());
   strcat(fullname, "/testdir/");
-  strcat(fullname, name);
+  strcat(fullname, swissNumber);
   theFile = open(fullname, (isRead ? O_RDONLY : O_WRONLY|O_CREAT),
 		 S_IRUSR | S_IWUSR);
   DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Open \"%s\" result %d\n",
 		       fullname, theFile);
   if (-1 == theFile) return 0;
+  theResourceType = capros_HTTPResource_RHType_File;
   return 1;
 #else
   result_t rc;
-  uint32_t len = strlen(name);
-  // TODO create file for write and handle existing file if any
+  uint32_t len = strlen(swissNumber);
+
   if (len > capros_IndexedKeyStore_maxNameLen) {
-    DBGPRINT(DBGTARGET, "Name %s too long, len=%d\n", name, len);
+    DBGPRINT(DBGTARGET, "Swissnumber too long, len=%d\n", len);
     return 0;
   }
   theFileCursor = 0;
   rc = capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_Directory, KR_DIRECTORY);
   assert(RC_OK == rc);
-  if (isRead) {
-    rc = capros_IndexedKeyStore_get(KR_DIRECTORY, len, (uint8_t*)name, KR_FILE);
-    DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file key \"%s\" rc=%#x\n",
-		         name, rc);
-    if (RC_OK != rc) {
-      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: Directory_get returned %#x\n",
-                             rc);
-      return 0;
-    }
-    rc = capros_File_getSize(KR_FILE, &theFileSize);
-    DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file size %lld rc=%#x\n",
-		         theFileSize, rc);
-    if (RC_OK != rc) {
-      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: File_getSize returned %#x\n",
-                             rc);
-      return 0;
-    }
-  } else {	// writing a file
-    rc = capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_FileServer, KR_TEMP0);
-    assert(RC_OK == rc);
-    rc = capros_FileServer_createFile(KR_TEMP0, KR_FILE);
-    if (RC_OK != rc) {
-      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: createFile returned %#x\n",
-                             rc);
-      return 0;
-    }
-    rc = capros_IndexedKeyStore_put(KR_DIRECTORY, KR_FILE, len, (uint8_t*)name);
-    if (RC_OK != rc) {
-      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: Directory_put returned %#x\n",
-                             rc);
-      return 0;
-    }
+
+  rc = capros_IndexedKeyStore_get(KR_DIRECTORY, len, (uint8_t*)swissNumber,
+				  KR_FILE);
+  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file key \"%s\" rc=%#x\n",
+		       swissNumber, rc);
+  if (RC_OK != rc) {
+    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: Directory_get returned %#x\n",
+			   rc);
+    return 0;
   }
+  rc = capros_HTTPResource_request(KR_FILE, (1) * 65536 + (1), methodCode,
+				   lengthOfPath, strlen(pathAndQuery),
+				   (unsigned char *)pathAndQuery,
+				   &theResourceType, KR_FILE, &theSendLimit);
+
+
   return 1;
 #endif
 }
+
 
 /**
  * destroyFile - Destroy the file created for writing.
  */
 static void
-destroyFile(char * name)
+destroyFile(void)
 {
 #ifdef SELF_TEST
   // FIXME
 #else
-  capros_IndexedKeyStore_delete(KR_DIRECTORY, strlen(name), (uint8_t*)name);
+  // FIXME
+  //  capros_IndexedKeyStore_delete(KR_DIRECTORY, strlen(name), (uint8_t*)name);
   capros_key_destroy(KR_FILE);
 #endif
 }
