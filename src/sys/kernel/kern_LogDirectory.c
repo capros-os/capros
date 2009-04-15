@@ -181,7 +181,8 @@ free_node(TreeNode *tn) {
 static int
 get_generation_index(GenNum generation) {
   GenNum gdelta = highest_generation - generation;
-  assert(gdelta < LD_MAX_GENERATIONS);
+  if (generation > highest_generation || gdelta >= LD_MAX_GENERATIONS)
+    fatal("Invalid generation %d\n", generation);
   return gdelta;
 }
 
@@ -993,7 +994,8 @@ void ld_recordLocation(const ObjectDescriptor *od, GenNum generation) {
       int i;
       for (i=LD_MAX_GENERATIONS-1; i>=LD_MAX_GENERATIONS-ms; i--) {
 	/* If there are any logDirNodes in these generations, it is an error */
-	assert(generation_table[i].head == NULL);
+        if (generation_table[i].head != NULL)
+          fatal("More than %d generations!\n", LD_MAX_GENERATIONS);
       }
       for (; i>=0; i--) {
 	/* These generations are kept lower in the table */
@@ -1114,7 +1116,8 @@ void ld_resetScan(GenNum generation) {
 const ObjectDescriptor *ld_findNextObject(GenNum generation) {
   int gti = get_generation_index(generation);
   GT *gte = &generation_table[gti];
-  if (NULL == gte->cursor) return NULL;
+  if (NULL == gte->cursor)
+    return NULL;
   ObjectDescriptor *od = &gte->cursor->od;
   if (gte->cursor->next == gte->head) {
     gte->cursor = NULL;
@@ -1124,7 +1127,8 @@ const ObjectDescriptor *ld_findNextObject(GenNum generation) {
   return od;
 }
 
-/** Remove all the objects in a generation from the Object Directory.
+/** Remove all the objects in a generation, and all earlier generations,
+    from the Object Directory.
 
     Note: This routine may need to be executed in smaller pieces to meet
     real-time requirements.
@@ -1132,8 +1136,6 @@ const ObjectDescriptor *ld_findNextObject(GenNum generation) {
     @param[in] generation The generation to clear.
 */
 void ld_clearGeneration(GenNum generation) {
-  assert (generation <= highest_generation);
-  
   int gti = get_generation_index(generation);
   for (; gti < LD_MAX_GENERATIONS; gti++) {
     TreeNode *tn = generation_table[gti].head;
@@ -1169,24 +1171,23 @@ ld_generationRetired(GenNum generation) {
 
 /** Return the number of available log directory entries.
 
-    A directory entry is considered available if it is either:
-      (a) On the free list, or
-      (b) Used to record a member of a generation as old or older than
+    A directory entry is considered available unless it is used
+          to record a member of a generation newer than
           the specified generation.
 
     @param[in] generation The youngest generation to include in the
                free count. All older generations will be included in the
-	       count. If generation is zero, all generations will be
-	       included in the count.
+	       count.
     @return The number of available directory entries.
 */
 unsigned long
 ld_numAvailableEntries(GenNum generation) {
-  unsigned long count = numLogDirEntries - log_entry_count;
-  if (0 == generation) return count;
-  int i = get_generation_index(generation);
-  for (; i<LD_MAX_GENERATIONS; i++) {
-    count += generation_table[i].count;
+  int i;
+  unsigned long count = numLogDirEntries;
+  for (i = 0; i < LD_MAX_GENERATIONS; i++) {
+    if (highest_generation - i <= generation)
+      break;
+    count -= generation_table[i].count;
   }
   return count;
 }

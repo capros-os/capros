@@ -188,14 +188,13 @@ ld_generationRetired(GenNum generation);
 
 /** Return the number of available log directory entries.
 
-    A directory entry is considered available if it is either:
-      (a) On the free list, or
-      (b) Used to record a member of a generation as old or older than
+    A directory entry is considered available unless it is used
+          to record a member of a generation newer than
           the specified generation.
 
-    @param[in] generation The youngest generation to count. All older 
-               generations will be included in the count. If generation
-	       is zero, all generations will be included in the count.
+    @param[in] generation The youngest generation to include in the
+               free count. All older generations will be included in the
+	       count.
     @return The number of available directory entries.
 */
 unsigned long
