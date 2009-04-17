@@ -1353,15 +1353,17 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	uint32_t len = (bufend-bp < theSendLimit ? bufend-bp : theSendLimit);
       	rc = capros_HTTPRequestHandler_headers(KR_FILE, len, bp, &theSendLimit);
 	if (RC_OK != rc) {
+          DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: RH_headers got rc=%#x\n", rc);
 	  writeStatusLine(rs, 500);
 	  writeMessage(rs, "Bad HTTPRequestHandler.headers response.",
 		       methodIndex==1);
 	  freeStorage();
 	  return 0;
 	}
+        bp += len;
       }
 
-      /* If there is a 100-continue expectectation, get result from handler */
+      /* If there is a 100-continue expectation, get result from handler */
       if (expect100) {
 	rc = capros_HTTPRequestHandler_getContinueStatus(KR_FILE, &statusCode);
 	if (RC_capros_key_UnknownRequest == rc) {
@@ -1400,7 +1402,9 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	rc = capros_HTTPRequestHandler_body(KR_FILE, len, 
 					    (unsigned char *)rp.first,
 					    &theSendLimit);
-	if (RC_OK == rc) {      /* handler error */
+        DEBUG(http) DBGPRINT(DBGTARGET,
+                             "HTTP: Sent body to Resource rc=%#x\n", rc);
+	if (RC_OK == /*??? FIXME*/ rc) {      /* handler error */
 	  writeStatusLine(rs, 500);
 	  writeMessage(rs, "HTTPRequestHandler error on body.", 0);
 	  freeStorage();
@@ -1434,8 +1438,8 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       /* Get additional headers from the handler */
       if (0 == transferHeaders(rs,
 		     capros_HTTPRequestHandler_getResponseHeaderData)) {
-      /* Error. We've already reported a status, so we can't give 500. 
-	 just zap the circuit */
+        /* Error. We've already reported a status, so we can't give 500. 
+	   just zap the circuit */
 	freeStorage();
 	return 0;
       }
@@ -1474,10 +1478,12 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     break;
       
   case capros_HTTPResource_RHType_File:
-    /* The in non-self test mode, the HTTPResource has indicated the object
-       is a File and we should handle it. It has left the key to the file in
-       KR_FILE. In SELF_TEST mode, lookUpSwissNumber has opened the file and
-       left the handle in theFile. */
+#ifdef SELF_TEST
+    // lookUpSwissNumber has opened the file and left the handle in theFile.
+#else
+    /* The HTTPResource has indicated the object is a File
+       and we should handle it. It has left the key to the file in KR_FILE. */
+#endif
     
     /* Now do the method */
     switch (methodIndex) {
@@ -1498,8 +1504,10 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	  writeString(rs, cl);
 	}
 	// TODO Consider what Cache-Control directives to issue, if any
-	// writeString(rs, "Content-Type: text/html\r\n\r\n");
-	writeString(rs, "Content-Type: application/octet-stream\r\n\r\n");
+	// Since we don't know the content type, let the client decide.
+	// writeString(rs, "Content-Type: text/html\r\n");
+	// writeString(rs, "Content-Type: application/octet-stream\r\n");
+	writeString(rs, "\r\n");	// end of headers
 	if (Method_GET == methodIndex) { /* GET, not HEAD - send message-body */
 	  /*  Actually send the file */
 	  char buf[2048];
@@ -2090,7 +2098,10 @@ transferHeaders(ReaderState *rs, result_t (*getProc)(cap_t , uint32_t,
   while (1) {
     while (bl > 0) {
       rc = getProc(KR_FILE, bl, &headerLength, (unsigned char *)b);
+      DEBUG(http) DBGPRINT(DBGTARGET, "HTTP: got headers rc=%#x hl=%d\n",
+                           rc, headerLength);
       if (RC_OK != rc) {
+        DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: getProc rc=%#x\n", rc);
 	/* Handler had problems, just die */
 	return 0;
       }
@@ -2111,12 +2122,14 @@ transferHeaders(ReaderState *rs, result_t (*getProc)(cap_t , uint32_t,
   /* Now put them out as headers */
   bl = b - headerBuffer;
   b = headerBuffer;
-  for (ln=(*b)&0xff; ln; ln=(*b)&0xff) {  /* Get length of next name */
+#define getByte(p) (*(unsigned char *)p)
+  for (ln=getByte(b); ln; ln=getByte(b)) {  /* Get length of next name */
     if (!ln) break;                       /* Zero is end of headers */
     
-    lv = ((*(b+1) & 0xff) << 8) + (*(b+2) & 0xff);
+    lv = (getByte(b+1) << 8) + getByte(b+2);
     bl -= ln +lv + 3;
     if (bl < 0) {
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bl=%d\n", bl);
       /* Error from handler, we've already reported a status, so we
 	 can't give 500. just zap the circuit */
       return 0;         /* Need to get back in sync with client */
@@ -2206,7 +2219,6 @@ lookUpSwissNumber(char *swissNumber, int methodCode, int lengthOfPath,
 				   (unsigned char *)pathAndQuery,
 				   &theResourceType, KR_FILE, &theSendLimit);
 
-
   return 1;
 #endif
 }
@@ -2260,6 +2272,12 @@ getFileLen(void) {
   return 0;
   //  return sb.st_size;
 #else
+  result_t rc;
+  rc = capros_File_getSize(KR_FILE, &theFileSize);
+  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Read file size rc=%d size=%llu\n",
+		       rc, theFileSize);
+  if (rc != RC_OK)
+    assert(false);	//TODO handle this
   return theFileSize;
 #endif
 }
