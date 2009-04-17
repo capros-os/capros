@@ -1,5 +1,5 @@
-#ifndef __DYNCMTE_MAP_
-#define __DYNCMTE_MAP_
+#ifndef __DYNCMME_MAP_
+#define __DYNCMME_MAP_
 /*
  * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
@@ -23,14 +23,25 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <dyncmme.map>
-#include <supernode.map>
+dynprotospace = ro small program LIBDIR "dyncmmeprotospace";
+
+/* CMME programs are loaded with code at 0x1000 and data at 0x00c00000.
+   Therefore the l2v of prog is 22,
+   the code is in prog[0], and data in prog[3]. */
 
 /* Set up a constructor for a program using the
-CapROS Multi-Threaded Environment. */
-#define DYNCMTE_CONSTRUCTOR(dname, prog) \
-DYNCMME_CONSTRUCTOR(dname, prog) \
-PROD_CONSTIT(dname##_c, , KC_SLEEP) = misc Sleep; \
-PROD_CONSTIT(dname##_c, , KC_SNODECONSTR) = snode_c;
+CapROS Memory-Mapping Environment. */
+#define DYNCMME_CONSTRUCTOR(dname, prog) \
+dname##_prog = program segtree LIBDIR #prog ; \
+dname##_pc = symbol LIBDIR #prog _start; \
+MAKE_VIRTUAL_COPIER_SEG(dname##vcsk, dname##_prog[3]); \
+BOOT_CONSTRUCTOR(dname##_c, dname) \
+PROD_SPACE(dname##_c) = dynprotospace; \
+PROD_PC(dname##_c) = number(0); /* well-known */ \
+PROD_CONSTIT(dname##_c, , KC_OSTREAM) = misc Console; \
+PROD_CONSTIT(dname##_c, , KC_TEXT) = ro dname##_prog[0]; \
+PROD_CONSTIT(dname##_c, , KC_DATAVCSK) = dname##vcsk_c; \
+PROD_CONSTIT(dname##_c, , KC_INTERPRETERSPACE) = dynprotospace; \
+PROD_CONSTIT(dname##_c, , KC_STARTADDR) = dname##_pc;
 
-#endif //__DYNCMTE_MAP_
+#endif //__DYNCMME_MAP_

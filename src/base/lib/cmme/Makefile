@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008, 2009, Strawberry Development Group.
+# Copyright (C) 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -23,51 +23,39 @@
 
 default: install
 
-HEADERS=cmte.h cmtesync.h \
-  CMTEMaps.h \
-  CMTESemaphore.h \
-  CMTERWSemaphore.h \
-  CMTEThread.h \
-  CMTETimer.h
+HEADERS=CMME.h CMMEMaps.h
 
 EROS_SRC=../../..
 CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-VPATH=arch/$(LINUX_TARGET)
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
-OPTIM=-O
-DIRS=
 OBJECTS=\
-  $(BUILDDIR)/cmtethread.o \
-  $(BUILDDIR)/maps.o \
-  $(BUILDDIR)/rwsem.o \
-  $(BUILDDIR)/semaphore.o \
-  $(BUILDDIR)/sync.o \
-  $(BUILDDIR)/threadnum.o \
-  $(BUILDDIR)/threadstart.o \
-  $(BUILDDIR)/timer.o
+  $(BUILDDIR)/cmmemaps.o
 
-TARGETS=$(BUILDDIR)/libcmte.a $(BUILDDIR)/cmtestart.o
-TARGETS+=$(BUILDDIR)/dyncmtestart.o
+TARGETS=$(BUILDDIR)/libcmme.a
+TARGETS+=$(BUILDDIR)/dyncmmeprotospace
+TARGETS+=$(BUILDDIR)/dyncmmestart.o
+
+DYNOBJECTS=$(CAPROS_DOMAIN)/interpreter.o
+DYNOBJECTS+=$(BUILDDIR)/dyncmmeprotospace.o
 
 include $(EROS_SRC)/build/make/makerules.mk
 
-$(BUILDDIR)/libcmte.a: $(OBJECTS) $(MAKE_BUILDDIR)
+$(BUILDDIR)/libcmme.a: $(OBJECTS) $(MAKE_BUILDDIR)
 	$(RM) $@
 	$(AR) -cr $@ $(OBJECTS)
 	$(RANLIB) $@
 
-IDL=$(wildcard *.idl)
-interfaces: $(IDL)
-	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
+$(BUILDDIR)/dyncmmeprotospace: $(DYNOBJECTS)
+	$(EROS_LD) -N -Ttext 0 -static -e _start $(DYNOBJECTS) -o $@
 
 install-headers:
 	$(INSTALL) -d $(EROS_ROOT)/include/domain
 	$(INSTALL) -m 644 $(HEADERS) $(EROS_ROOT)/include/domain
 	$(INSTALL) -d $(CAPROS_DOMAIN)
-	$(INSTALL) -m 644 cmte.map dyncmte.map $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 dyncmme.map $(CAPROS_DOMAIN)
 
 install: install-headers $(TARGETS)
 	$(INSTALL) -m 0644 $(TARGETS) $(CAPROS_DOMAIN)

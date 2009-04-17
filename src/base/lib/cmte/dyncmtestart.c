@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/LSync.h>
 #include <idl/capros/Sleep.h>
 #include <domain/cmtesync.h>
+#include <domain/CMME.h>
 #include <domain/CMTEThread.h>
 #include <domain/assert.h>
 #include <domain/InterpreterDestroy.h>
@@ -46,29 +47,20 @@ Approved for public release, distribution unlimited. */
 /* This is the first code to run in a CMTE process built using a constructor.
    It sets up the .data and .bss sections in a vcsk. */
 
-const uint32_t __rt_stack_pointer
-  = (LK_STACK_BASE + LK_STACK_AREA- sizeof(void *));
-
 extern result_t cmte_main(void);
 
-/* We run after dyncmteprotospace.
+/* We run after dyncmmestart.
    which leaves KR_TEMP3 as the GPT to our address space,
    and KR_TEMP2 as the GPT to our stacks space.
    The caller of the constructor passed a cap
    which is now in KR_ARG(0), and a resume key in KR_RETURN. */
 int
-main(void)
+cmme_main(void)
 {
   result_t result;
   result_t finalResult;
 
   // Unpack some caps.
-  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
-  if (result != RC_OK) {
-    /* This should not happen, but until KR_OSTREAM is there,
-    we can't use assert. */
-    *((int *)0) = 0xbadbad77;
-  }
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SLEEP, KR_SLEEP);
   assert(result == RC_OK);
 
@@ -120,8 +112,6 @@ main(void)
 
   /* Tear down everything. */
 
-  // Do we need to call the library to let it clean up?
-
   /* The following call has two purposes:
   It synchronizes with lsync, ensuring that if it was destroying threads,
   it has finished doing so;
@@ -133,19 +123,5 @@ noLsync:
   result = capros_key_destroy(KR_KEYSTORE);
   assert(result == RC_OK);
 noKeystore:
-  // Set up caps for destruction.
-  result = capros_Process_getAddrSpace(KR_SELF, KR_TEMP3);
-  assert(result == RC_OK);
-  result = capros_GPT_getSlot(KR_TEMP3, LK_STACK_BASE / 0x400000, KR_TEMP2);
-  assert(result == RC_OK);
-  result = capros_GPT_getSlot(KR_TEMP3, LK_DATA_BASE / 0x400000, KR_TEMP0);
-  assert(result == RC_OK);
-  result = capros_GPT_getSlot(KR_TEMP2, 0, KR_TEMP1);
-  assert(result == RC_OK);
-  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_INTERPRETERSPACE,
-             KR_ARG(0));
-  assert(result == RC_OK);
-  InterpreterDestroy(KR_ARG(0), KR_TEMP3, finalResult);
-  assert(false);	// InterpreterDestroy should not return!
-  return 0;
+  return finalResult;
 }

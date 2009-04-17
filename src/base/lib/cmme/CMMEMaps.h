@@ -1,5 +1,5 @@
-#ifndef __CMTEMAPS_H
-#define __CMTEMAPS_H
+#ifndef __CMMEMAPS_H
+#define __CMMEMAPS_H
 /*
  * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
@@ -24,18 +24,17 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>	// get result_t
-#include <domain/CMMEMaps.h>
 
-/* Inherited from CMME:
 result_t maps_init(void);
 void maps_fini(void);
+/* *_locked procedures are for single-threaded programs
+ * or while holding a lock that assures mutual exclusion. */
+long maps_reserve_locked(unsigned long pageSize /* size in pages */ );
+void maps_liberate_locked(unsigned long pgOffset,
+                          unsigned long pageSize /* size in pages */ );
 void * maps_pgOffsetToAddr(unsigned long pgOffset);
 unsigned long maps_addrToPgOffset(unsigned long addr);
+result_t maps_mapPage_locked(unsigned long pgOffset, cap_t pageCap);
 void maps_getCap(unsigned long pgOffset, cap_t pageCap);
-*/
-long maps_reserve(unsigned long pageSize /* size in pages */ );
-void maps_liberate(unsigned long pgOffset,
-                   unsigned long pageSize /* size in pages */ );
-result_t maps_mapPage(unsigned long pgOffset, cap_t pageCap);
 
-#endif // __CMTEMAPS_H
+#endif // __CMMEMAPS_H

@@ -35,7 +35,7 @@ DIRS+=idlstub
 DIRS+=domain
 DIRS+=rbtree util
 DIRS+=graphics forwarder addrspace xsprintf
-DIRS+= cmte linuxk
+DIRS+= cmme cmte linuxk
 DIRS+=ethread
 ifneq "$(EROS_TARGET)" "i486"	# not for i486 so far
 endif

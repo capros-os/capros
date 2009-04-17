@@ -25,40 +25,25 @@ Approved for public release, distribution unlimited. */
 
 /* Common declarations for the CapROS Multi-Threading Environment. */
 
+#include <domain/CMME.h>
 
-/* Memory layout: */
-
-/* 0x0: nothing. To catch misuse of NULL pointers.
-0x1000: beginning of code, read only */
-
-#define LK_STACK_BASE 0x00400000
 /* Thread stacks are allocated as follows:
-0x00400000 through 0x0041ffff: area for stack for thread 0
+0x00400000 (LK_STACK_BASE) through 0x0041ffff: area for stack for thread 0
   The actual stack is from 0x0041ffff down through whatever its size is.
 0x00420000 through 0x0043ffff: area for stack for thread 1
 etc. */
 /* The highest addresses in the stack contain the Linux
 thread_info structure, of which only preempt_count is used. */
-#define LK_LGSTACK_AREA 17
-#define LK_STACK_AREA (1ul << LK_LGSTACK_AREA)	// 0x00020000
 
 #define LK_MAX_THREADS 32
-
-#define LK_MAPS_BASE 0x00800000	// area for ioremap()
-
-#define LK_DATA_BASE 0x00c00000 // .data, .bss, and heap, backed by a VCSK
-// Limit of memory is 0x02000000, because that is the limit of an ARM
-// small space. 
 
 
 /* Key registers: */
 #include <domain/Runtime.h>
-#define KR_KEYSTORE 2
-#define KR_LSYNC      KR_APP(0)	// start key to lsync process
-#define KR_MAPS_GPT   KR_APP(1) // 
-#define KR_SLEEP      KR_APP(2) // to speed up getting jiffies
-#define KR_OSTREAM    KR_APP(3)
-#define KR_CMTE(i)    KR_APP(4+(i))	// first available key reg for program
+// #define KR_KEYSTORE 2	// in Runtime.h
+#define KR_LSYNC      KR_CMME(0)	// start key to lsync process
+#define KR_SLEEP      KR_CMME(1)	// to speed up getting jiffies
+#define KR_CMTE(i)    KR_CMME(2+(i))	// first available key reg for program
 
 
 /* Slots in the supernode KR_KEYSTORE: */
@@ -71,15 +56,11 @@ thread_info structure, of which only preempt_count is used. */
 #define LKSN_STACKS_GPT          (LKSN_THREAD_RESUME_KEYS+LK_MAX_THREADS)
 #define LKSN_CMTE                (LKSN_STACKS_GPT+1) // available for program
 
-/* Constituents of driver constructors: */
-#define KC_TEXT       0 // read-only portion of the program
-#define KC_DATAVCSK   1	// initial data of the program
-#define KC_INTERPRETERSPACE 2
-#define KC_SNODECONSTR 3
-#define KC_STARTADDR  4 // for dynamically-constructed drivers
-#define KC_SLEEP      5
-#define KC_OSTREAM    6
-#define KC_CMTE(i)    (7+(i))
+/* Required constituents of CMTE constructors:
+ * Those required by CMME, plus: */
+#define KC_SNODECONSTR	KC_CMME(0)
+#define KC_SLEEP     	KC_CMME(1)
+#define KC_CMTE(i)    	KC_CMME(2+(i))
 
 #ifndef __ASSEMBLER__
 #include <eros/machine/StackPtr.h>

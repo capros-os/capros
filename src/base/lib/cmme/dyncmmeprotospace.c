@@ -24,7 +24,7 @@ Approved for public release, distribution unlimited. */
 /* This table is used by an interpreter to construct the address space
 for a driver built by the constructor. */
 
-#include <domain/cmte.h>
+#include <domain/CMME.h>
 #include <InterpreterTable.h>
 
 struct InterpreterStep ConstructionTable[] = {
