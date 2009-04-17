@@ -825,7 +825,9 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   {
     char *delim = strchr(authority, '?');
     char *qstart;
-    char *swissstart;
+    char *swissstart = NULL;
+    char *ns;
+    char *query;
 
     if (!delim) {                /* query portion missing */
       // TODO perhaps we want to serve a default page
@@ -846,33 +848,47 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       strcpy(pathandquery, "/");
       pathLength = 1;
     }
+    query = pathandquery + pathLength; /* End of path */
 
     /* Extract the Swiss number from the query. The Swiss number will be
        the s=number parameter. These keyword parameters are separated by
        either the ampersand (&) character or the semicolon (;) character.
-       The Swiss number will be the first s= if there are more than one
+       The Swiss number will be the last s= if there are more than one
        s= in the query. */
 
     qstart = delim+1;                 /* Point at the query */
-    if (!('s' == *qstart && '=' == *(qstart+1))) {
-      /* Swiss number not at start of query */
-      char *query = pathandquery+strlen(pathandquery);
-
-      /* Both & and ; terminate a keyword parm */
-      swissstart = strstr(delim+1, "&s=");
-      if (!swissstart) swissstart = strstr(delim+1, ";s=");
-      if (!swissstart) {           /* No Swiss number */
-	DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
-	writeStatusLine(rs, 400);  /* Return Bad Request */
-	writeMessage(rs, "URI query field missing.", methodIndex==1);
-	return 0;                  /* Must get back in sync with client */ 
-      }
-      memcpy(query, qstart, swissstart-qstart+1); /* Save first part of query */
-      query[swissstart-qstart+1] = 0;
-      swissstart++;                 /* Point at the s= */
+    if (('s' == *qstart && '=' == *(qstart+1))) {
+      /* There is an s= which starts the query */
+      swissstart = qstart;            /* Save it as the first */
+      ns = qstart+2;
     } else {
-      swissstart = qstart;
+      swissstart = NULL;              /* No s= found yet */
+      ns = qstart;
     }
+
+    while (1) {
+      char *sand = strstr(ns, "&s=");
+      char *ssemi = strstr(ns, ";s=");
+      if (sand) {
+	swissstart = sand+1;
+	if (ssemi) if (sand < ssemi) swissstart = ssemi+1;
+	ns = swissstart+2;
+      } else if (ssemi) {
+	swissstart = ssemi+1;
+	ns = swissstart+2;
+      } else {
+	break;
+      }
+    }
+
+    if (!swissstart) {           /* No Swiss number */
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
+      writeStatusLine(rs, 400);  /* Return Bad Request */
+      writeMessage(rs, "URI query field missing.", methodIndex==1);
+      return 0;                  /* Must get back in sync with client */ 
+    }
+    memcpy(query, qstart, swissstart-qstart); /* Save first part of query */
+    query[swissstart-qstart] = 0;
 
     /* When we get here, swissstart points to the beginning of the s= 
        parameter and pathandquery holds the portion of the path concatenated
