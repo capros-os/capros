@@ -54,7 +54,6 @@ dname##_proc key reg KR_BANK    = primebank; \
 dname##_proc key reg KR_SCHED   = schedKey; \
 dname##_proc key reg KR_OSTREAM = misc Console; \
 dname##_proc key reg KR_SLEEP   = misc Sleep; \
-dname##_proc key reg KR_MAPS_GPT = dname##_maps; \
 dname##_proc key reg KR_TEMP1   = dname##data_c; \
 dname##_proc key reg KR_TEMP2   = dname##_space; \
 dname##_proc key reg KR_RETURN  = dname##_stacks; \

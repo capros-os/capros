@@ -69,16 +69,18 @@ cmte_main(void)
   assert(LKSN_APP == LKSN_CMTE);	// otherwise need to allocate
 		// range in KR_KEYSTORE
 
-  maps_init();
+  finalResult = maps_init();
+  if (finalResult == RC_OK) {
 
-  // Initialize delayCalibrationConstant.
-  result = capros_Sleep_getDelayCalibration(KR_SLEEP,
-             &delayCalibrationConstant);
-  assert(result == RC_OK);
+    // Initialize delayCalibrationConstant.
+    result = capros_Sleep_getDelayCalibration(KR_SLEEP,
+               &delayCalibrationConstant);
+    assert(result == RC_OK);
 
-  finalResult = driver_main();
+    finalResult = driver_main();
 
-  ////maps_fini();
+    maps_fini();
+  }
 
   return finalResult;
 }

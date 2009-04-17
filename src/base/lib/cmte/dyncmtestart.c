@@ -87,26 +87,13 @@ main(void)
                       LKSN_CMTE - 1);
   if (finalResult != RC_OK) {
     DEBUG(alloc) kprintf(KR_OSTREAM, "failed to expand keystore");
-    goto noMaps;
+    goto noLsync;
   }
   // Populate it.
   capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_THREAD_PROCESS_KEYS+0,
                                KR_SELF, KR_VOID);
   capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_STACKS_GPT,
                                KR_TEMP2, KR_VOID);
-
-  // Create the GPT for maps. 
-  finalResult = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT,
-                  KR_MAPS_GPT);
-  if (finalResult != RC_OK) {
-    DEBUG(alloc) kprintf(KR_OSTREAM, "failed to create MAPS_GPT");
-    goto noMaps;
-  }
-  result = capros_GPT_setL2v(KR_MAPS_GPT, 17);
-  assert(result == RC_OK);
-  // Map it.
-  result = capros_GPT_setSlot(KR_TEMP3, LK_MAPS_BASE / 0x400000, KR_MAPS_GPT);
-  assert(result == RC_OK);
 
   * CMTE_getThreadLocalDataAddr() = NULL;
 
@@ -143,9 +130,6 @@ main(void)
 
   CMTEThread_destroy(lsyncThreadNum);
 noLsync:
-  result = capros_SpaceBank_free1(KR_BANK, KR_MAPS_GPT);
-  assert(result == RC_OK);
-noMaps:
   result = capros_key_destroy(KR_KEYSTORE);
   assert(result == RC_OK);
 noKeystore:

@@ -49,7 +49,8 @@ cmte_main(void)
   assert(LKSN_APP == LKSN_CMTE);	// otherwise need to allocate
 		// range in KR_KEYSTORE
 
-  maps_init();
+  result = maps_init();
+  assert(result == RC_OK);	// FIXME
 
   // Initialize delayCalibrationConstant.
   result = capros_Sleep_getDelayCalibration(KR_SLEEP,

@@ -195,10 +195,24 @@ foundj: ;
   return block;
 }
 
-void
+result_t
 maps_init(void)
 {
+  result_t result;
   int i;
+
+  // Create the top-level GPT for maps. 
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_MAPS_GPT);
+  if (result != RC_OK)
+    return result;
+  result = capros_GPT_setL2v(KR_MAPS_GPT, 17);
+  assert(result == RC_OK);
+  // Map it.
+  result = capros_Process_getAddrSpace(KR_SELF, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_GPT_setSlot(KR_TEMP0, LK_MAPS_BASE / 0x400000, KR_MAPS_GPT);
+  assert(result == RC_OK);
+
   for (i=0; i <= logMaxBlockSize; i++) {
     link_Init(&avail_list[i]);
   }
@@ -206,6 +220,16 @@ maps_init(void)
   // Free all of the address space.
   // We are in initialization, so no need to lock.
   maps_liberate_locked(0, numpages);
+
+  return RC_OK;
+}
+
+void
+maps_fini(void)
+{
+  result_t result;
+  result = capros_SpaceBank_free1(KR_BANK, KR_MAPS_GPT);
+  assert(result == RC_OK);
 }
 
 // Uses KR_TEMP0 and KR_TEMP1.

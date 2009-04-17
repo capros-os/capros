@@ -1,7 +1,7 @@
 #ifndef __CMTEMAPS_H
 #define __CMTEMAPS_H
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -25,7 +25,8 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>	// get result_t
 
-void maps_init(void);
+result_t maps_init(void);
+void maps_fini(void);
 long maps_reserve(unsigned long pageSize /* size in pages */ );
 void maps_liberate(unsigned long pgOffset,
                    unsigned long pageSize /* size in pages */ );
