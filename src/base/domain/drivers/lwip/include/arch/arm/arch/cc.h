@@ -1,7 +1,7 @@
 #ifndef __ARCH_CC_H__
 #define __ARCH_CC_H__
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -51,8 +51,7 @@ typedef u32_t mem_ptr_t;
 #define LWIP_PROVIDE_ERRNO
 
 /* Plaform specific diagnostic output */
-#include <domain/Runtime.h>
-#define KR_OSTREAM KR_APP(3)	// all we need from cmte.h
+#include <domain/cmte.h>
 #include <domain/domdbg.h>
 #include <domain/assert.h>
 int printk(const char * fmt, ...);
