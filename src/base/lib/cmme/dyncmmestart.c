@@ -27,7 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <domain/Runtime.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/Node.h>
-//#include <idl/capros/Constructor.h>
+#include <idl/capros/SpaceBank.h>
 #include <idl/capros/Process.h>
 #include <domain/assert.h>
 #include <domain/CMME.h>
@@ -43,6 +43,8 @@ Approved for public release, distribution unlimited. */
 /* This is the first code to run in a CMTE process built using a constructor.
    It sets up the .data and .bss sections in a vcsk. */
 
+// Leave room at the top of the stack for a void *,
+// used by CMTE.
 const uint32_t __rt_stack_pointer
   = (LK_STACK_BASE + LK_STACK_AREA- sizeof(void *));
 
@@ -59,12 +61,47 @@ main(void)
   result_t result;
   result_t finalResult;
 
-  // Unpack some caps.
   result = capros_Node_getSlotExtended(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
   if (result != RC_OK) {
     /* This should not happen, but until KR_OSTREAM is there,
     we can't use assert. */
     *((int *)0) = 0xbadbad77;
+  }
+
+  // At this point we have a single-page-sized stack.
+  // Allocate any additional stack.
+  extern unsigned long __rt_stack_size;
+  if (__rt_stack_size > EROS_PAGE_SIZE) {
+    unsigned long stackSize = EROS_PAGE_SIZE;
+    // Get node with l2v==17.
+    result = capros_GPT_getSlot(KR_TEMP3, LK_STACK_BASE >> 22, KR_TEMP2);
+    assert(result == RC_OK);
+    // Get existing stack page:
+    result = capros_GPT_getSlot(KR_TEMP2, 0, KR_TEMP0);
+    assert(result == RC_OK);
+    result = capros_Memory_makeGuarded(KR_TEMP0, 0, KR_TEMP0);
+    assert(result == RC_OK);
+    // Insert a node to hold the page keys:
+    result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_TEMP1);
+    assert(result == RC_OK);	// TODO handle
+    result = capros_GPT_setL2v(KR_TEMP1, EROS_PAGE_LGSIZE);
+    assert(result == RC_OK);
+    result = capros_GPT_setSlot(KR_TEMP1,
+               (LK_STACK_AREA - stackSize) / EROS_PAGE_SIZE, KR_TEMP0);
+    assert(result == RC_OK);
+    result = capros_GPT_setSlot(KR_TEMP2, 0, KR_TEMP1);
+    assert(result == RC_OK);
+
+    if (__rt_stack_size > LK_STACK_AREA)
+      __rt_stack_size = LK_STACK_AREA;	// biggest we support
+    while (stackSize < __rt_stack_size) {
+      result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_TEMP0);
+      assert(result == RC_OK);	// TODO handle
+      stackSize += EROS_PAGE_SIZE;
+      result = capros_GPT_setSlot(KR_TEMP1,
+                 (LK_STACK_AREA - stackSize) / EROS_PAGE_SIZE, KR_TEMP0);
+      assert(result == RC_OK);
+    }
   }
 
   finalResult = cmme_main();
