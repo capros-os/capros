@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -49,7 +49,9 @@ capros_TCPSocket_receive(cap_t _self, uint32_t maxBytesToReceive,
   };
 
   CALL(&msg);
-  *bytesReceived = msg.rcv_sent;	// should be same as msg.rcv_w1
-  *flags = msg.rcv_w2;
+  if (bytesReceived)
+    *bytesReceived = msg.rcv_sent;	// should be same as msg.rcv_w1
+  if (flags)
+    *flags = msg.rcv_w2;
   return msg.rcv_code;
 }
