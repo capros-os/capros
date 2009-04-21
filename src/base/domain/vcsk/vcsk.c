@@ -409,7 +409,6 @@ HandleSegmentFault(Message *pMsg, state *pState)
 
       /* find out its BLSS: */
       uint8_t subsegBlss = GetBlss(KR_SCRATCH);
-
       uint32_t segBlss = subsegBlss + 1;
       
       DEBUG(invalid) kdprintf(KR_OSTREAM, "FC_SegInvalidAddr: segBlss %d offsetBlss %d\n", segBlss, offsetBlss);
@@ -461,6 +460,18 @@ HandleSegmentFault(Message *pMsg, state *pState)
 
 	segBlss = subsegBlss + 1;
         capros_GPT_setL2v(KR_SEGMENT, BlssToL2v(segBlss));
+
+        /* This might have been only a read reference, in which case
+        populating with primordial zeroes was enough. 
+        If it is a write (which is likely, actually),
+        the client will fault again with capros_Process_FC_AccessViolation.
+        We mustn't fall through to the code below, because it expects
+        to find an invalid key. */
+        DEBUG(returns)
+          kdprintf(KR_OSTREAM, 
+                   "Returning from capros_Process_FC_InvalidAddr after growing"
+                   " managed segment to blss=%d\n", subsegBlss);
+        return RC_OK;
       }
 
       /* Segment is now tall enough, but some portion was unpopulated. */
