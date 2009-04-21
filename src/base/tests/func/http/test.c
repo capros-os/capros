@@ -102,7 +102,8 @@ main(void)
   result = capros_Constructor_insertSymtab(KR_HTTPB, KR_HTTPSym);
   ckOK
 
-  InsertConstit(capros_HTTP_KC_ProgramVCS);
+  InsertConstit(capros_HTTP_KC_ProgramText);
+  InsertConstit(capros_HTTP_KC_ProgramDataVCS);
   InsertConstit(capros_HTTP_KC_ProgramPC);
   InsertConstit(capros_HTTP_KC_ProtoSpace);
   InsertConstit(capros_HTTP_KC_OStream);

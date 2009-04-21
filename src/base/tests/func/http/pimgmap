@@ -50,9 +50,10 @@ TCPPort(443);	// http over TLS/SSL
 // Constituents for HTTP:
 #include <idl/capros/HTTP.h>
 httpconstits = new node;
-httpconstits[capros_HTTP_KC_ProgramVCS] = http_vcsk_c;
+httpconstits[capros_HTTP_KC_ProgramText] = http_text;
+httpconstits[capros_HTTP_KC_ProgramDataVCS] = http_vcsk_c;
+httpconstits[capros_HTTP_KC_ProtoSpace] = dynprotospace;
 httpconstits[capros_HTTP_KC_ProgramPC] = http_pc;
-httpconstits[capros_HTTP_KC_ProtoSpace] = httpprotospace;
 httpconstits[capros_HTTP_KC_OStream] = misc Console;
 httpconstits[capros_HTTP_KC_RSAKey] = rsakey;
 httpconstits[capros_HTTP_KC_Certificate] = certificate;
