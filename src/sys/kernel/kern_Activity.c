@@ -341,6 +341,7 @@ act_DeleteActivity(Activity *t)
   /* dprintf(true, "Deleting activity 0x%08x\n", t); */
   /* not hazarded because activity key */
   t->state = act_Free;
+  t->hasProcess = false;
   if (act_Current() == t) {
 #if 0
     printf("curactivity 0x%08x is deleted\n", t);
@@ -911,7 +912,8 @@ act_ValidateActivity(Activity* thisPtr)
       case actHaz_None:
       case actHaz_WakeOK:
       case actHaz_WakeRestart:
-        assert(act_GetProcess(thisPtr)->runState != RS_Available);
+        assert(act_GetProcess(thisPtr)->runState != RS_Available
+               || thisPtr == allocatedActivity);
         break;
       }
     }

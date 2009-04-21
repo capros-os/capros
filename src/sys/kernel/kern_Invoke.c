@@ -519,6 +519,9 @@ ReturnMessage(Invocation * inv)
 #endif
   } else {
  bad_invokee:
+#ifndef NDEBUG
+    act_ValidateActivity(allocatedActivity);
+#endif
     if (allocatedActivity->state == act_Running) {
       assert(allocatedActivity == act_Current());
       act_DeleteCurrent();
