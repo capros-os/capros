@@ -111,6 +111,41 @@ MapSegment(cap_t seg)
 
 char *rsaKeyData = NULL;
 char *certData = NULL;
+char *defaultPageData = 
+"<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\"\r\n"
+"   \"http://www.w3.org/TR/html4/loose.dtd\">\r\n"
+"<html>\r\n"
+"<head>\r\n"
+"<meta http-equiv=\"content-type\" content=\"text/html; charset=UTF-8\">\r\n"
+"<title></title>\r\n"
+"</head>\r\n"
+"<body>\r\n"
+"<noscript>\r\n"
+"<h1>This page requires a Javascript enabled web browser.</h1>\r\n"
+"</noscript>\r\n"
+"<script type=\"text/javascript\">\r\n"
+"var urlref = /(.*)#(.*)/.exec(window.location.href);\r\n"
+"if (urlref) {\r\n"
+"    var fragment = /(.*)&=/.exec(urlref[2]);\r\n"
+"    if (fragment) {\r\n"
+"        urlref[2] = fragment[1];\r\n"
+"    }\r\n"
+"    var url = urlref[1] + (/\?/.test(urlref[1]) ? '&' : '?') + urlref[2];\r\n"
+"    var http;\r\n"
+"    if (window.XMLHttpRequest) {\r\n"
+"        http = new XMLHttpRequest();\r\n"
+"    } else {\r\n"
+"        http = new ActiveXObject('MSXML2.XMLHTTP.3.0');\r\n"
+"    }\r\n"
+"    http.open('GET', url, true);\r\n"
+"    http.onreadystatechange = function () {\r\n"
+"        if (4 !== http.readyState) { return; }\r\n"
+"\r\n"
+"        window.document.write(http.responseText);\r\n"
+"        window.document.close();\r\n"
+"    };\r\n"
+"    http.send(null);\r\n"
+"}\r\n";
 
 /* Define sizes of stuff */
 #define HTTP_BUFSIZE 4096
@@ -717,6 +752,11 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 #define Method_TRACE 6
 #define Method_CONNECT 7
 
+  /* Used internally to send a default page of Javascript when there is
+     no Swiss number in the query portion of the request */
+#define Method_GET_DEFAULT_PAGE 8
+#define Method_HEAD_DEFAULT_PAGE 9
+
 #ifndef SELF_TEST
 #if capros_HTTPResource_Method_OPTIONS != Method_OPTIONS
 #error filename line-num methodIndex does not match HTTPResource header index
@@ -830,17 +870,23 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     char *query;
 
     if (!delim) {                /* query portion missing */
-      // TODO perhaps we want to serve a default page
-      freeStorage();
-      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
-      writeStatusLine(rs, 400);  /* Return Bad Request */
-      writeMessage(rs, "URI query field missing.", methodIndex==1);
-      return 0;                  /* Must get back in sync with client */ 
+      /* Set up to serve a default page */
+      switch (methodIndex) {
+      case Method_GET:
+      case Method_HEAD:
+	break;
+      default:
+	DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
+	writeStatusLine(rs, 400);  /* Return Bad Request */
+	writeMessage(rs, "URI query field missing.", methodIndex==1);
+	return 0;                  /* Must get back in sync with client */ 
+      }
+      delim = authority+strlen(authority);
     }
     /* Save the path */
     pathLength = delim - authority;
     if (pathLength) {
-      pathandquery = malloc(strlen(authority)); /* maxlen < len(authority) */
+      pathandquery = malloc(strlen(authority)+1); /* maxlen <= len(authority) */
       memcpy(pathandquery, authority, pathLength);
       pathandquery[pathLength] = 0;
     } else {                     /* path is empty */
@@ -855,64 +901,75 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
        either the ampersand (&) character or the semicolon (;) character.
        The Swiss number will be the last s= if there are more than one
        s= in the query. */
-
-    qstart = delim+1;                 /* Point at the query */
-    if (('s' == *qstart && '=' == *(qstart+1))) {
-      /* There is an s= which starts the query */
-      swissstart = qstart;            /* Save it as the first */
-      ns = qstart+2;
-    } else {
-      swissstart = NULL;              /* No s= found yet */
-      ns = qstart;
-    }
-
-    while (1) {
-      char *sand = strstr(ns, "&s=");
-      char *ssemi = strstr(ns, ";s=");
-      if (sand) {
-	swissstart = sand+1;
-	if (ssemi) if (sand < ssemi) swissstart = ssemi+1;
-	ns = swissstart+2;
-      } else if (ssemi) {
-	swissstart = ssemi+1;
-	ns = swissstart+2;
+    if (*delim) {
+      qstart = delim+1;                 /* Point at the query */
+      if (('s' == *qstart && '=' == *(qstart+1))) {
+	/* There is an s= which starts the query */
+	swissstart = qstart;            /* Save it as the first */
+	ns = qstart+2;
       } else {
-	break;
+	swissstart = NULL;              /* No s= found yet */
+	ns = qstart;
+      }
+      
+      while (1) {
+	char *sand = strstr(ns, "&s=");
+	char *ssemi = strstr(ns, ";s=");
+	if (sand) {
+	  swissstart = sand+1;
+	  if (ssemi) if (sand < ssemi) swissstart = ssemi+1;
+	  ns = swissstart+2;
+	} else if (ssemi) {
+	  swissstart = ssemi+1;
+	  ns = swissstart+2;
+	} else {
+	  break;
+	}
       }
     }
 
     if (!swissstart) {           /* No Swiss number */
-      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
-      writeStatusLine(rs, 400);  /* Return Bad Request */
-      writeMessage(rs, "URI query field missing.", methodIndex==1);
-      return 0;                  /* Must get back in sync with client */ 
-    }
-    memcpy(query, qstart, swissstart-qstart); /* Save first part of query */
-    query[swissstart-qstart] = 0;
-
-    /* When we get here, swissstart points to the beginning of the s= 
-       parameter and pathandquery holds the portion of the path concatenated
-       with the portion of the query that proceeded the s= parameter */
-    delim = strchr(swissstart, '&');
-    if (!delim) delim = strchr(swissstart, ';');
-    if (delim) {               /* More than just s= */
-      int len = delim - swissstart - 2;
-      swissNumber = malloc(len + 1);
-      memcpy(swissNumber, swissstart+2, len);
-      swissNumber[len] = 0;
+      switch (methodIndex) {
+      case Method_GET:
+	methodIndex = Method_GET_DEFAULT_PAGE;
+	break;      
+      case Method_HEAD:
+	methodIndex = Method_HEAD_DEFAULT_PAGE;
+	break;
+      default:
+	DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
+	writeStatusLine(rs, 400);  /* Return Bad Request */
+	writeMessage(rs, "URI query field missing.", methodIndex==1);
+	return 0;                  /* Must get back in sync with client */ 
+      }
+    } else {
+      memcpy(query, qstart, swissstart-qstart); /* Save first part of query */
+      query[swissstart-qstart] = 0;
       
-      len = strlen(delim + 1); /* Length of rest of query w/o leading &/; */
-      if (len) {               /* If there is anything there */
-	strcat(pathandquery, delim+1);
-      } /* Else nothing else to add to query */
-    } else {                   /* s= is the only query */
-      swissNumber = malloc(strlen(swissstart+2) + 1);
-      strcpy(swissNumber, swissstart+2);
-      /* Don't add to query */
+      /* When we get here, swissstart points to the beginning of the s= 
+	 parameter and pathandquery holds the portion of the path concatenated
+	 with the portion of the query that proceeded the s= parameter */
+      delim = strchr(swissstart, '&');
+      if (!delim) delim = strchr(swissstart, ';');
+      if (delim) {               /* More than just s= */
+	int len = delim - swissstart - 2;
+	swissNumber = malloc(len + 1);
+	memcpy(swissNumber, swissstart+2, len);
+	swissNumber[len] = 0;
+	
+	len = strlen(delim + 1); /* Length of rest of query w/o leading &/; */
+	if (len) {               /* If there is anything there */
+	  strcat(pathandquery, delim+1);
+	} /* Else nothing else to add to query */
+      } else {                   /* s= is the only query */
+	swissNumber = malloc(strlen(swissstart+2) + 1);
+	strcpy(swissNumber, swissstart+2);
+	/* Don't add to query */
+      }
+      /* HTTP 1.1 must handle % encoding of the Swiss number, but we may
+	 foil a few attacks by not handling that, and our Swiss numbers do
+	 not include characters that need to be % encoded. */
     }
-    /* HTTP 1.1 must handle % encoding of the Swiss number, but we may
-       foil a few attacks by not handling that, and our Swiss numbers do
-       not include characters that need to be % encoded. */
   }
 
   /* Get the http version */
@@ -1287,36 +1344,42 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   /* We've read all the headers and are ready to do the method. First
      we look up the Swiss number and see if we are serving a file, or 
      if some domain will handle the request */
-  
-  if (!lookUpSwissNumber(swissNumber, methodIndex, pathLength, pathandquery)) {
-    /* Swiss number not found or other error */
-    writeStatusLine(rs, 404);
-    writeMessage(rs, "File not found on server.", methodIndex==1);
-    freeStorage();
-    return 0;
-  }
-  
-  switch (theResourceType) {
-  case capros_HTTPResource_RHType_HTTPRequestHandler:
-    {
-#ifdef SELF_TEST
-      DBGPRINT(DBGTARGET, "lookUpSwissNumber gave HTTPRequestHandler");
-      writeStatusLine(rs, 500);
-      writeMessage(rs, "lookUpSwissNumber gave HTTPRequestHandler response",
-		   methodIndex==1);
+
+  if (Method_GET_DEFAULT_PAGE != methodIndex
+      && Method_HEAD_DEFAULT_PAGE != methodIndex) {
+    if (!lookUpSwissNumber(swissNumber, methodIndex, 
+			   pathLength, pathandquery)) {
+      /* Swiss number not found or other error */
+      writeStatusLine(rs, 404);
+      writeMessage(rs, "File not found on server.", methodIndex==1);
       freeStorage();
       return 0;
+    }
+  } else {
+    theResourceType = capros_HTTPResource_RHType_File;
+  }
+  
+    switch (theResourceType) {
+    case capros_HTTPResource_RHType_HTTPRequestHandler:
+      {
+#ifdef SELF_TEST
+	DBGPRINT(DBGTARGET, "lookUpSwissNumber gave HTTPRequestHandler");
+	writeStatusLine(rs, 500);
+	writeMessage(rs, "lookUpSwissNumber gave HTTPRequestHandler response",
+		     methodIndex==1);
+	freeStorage();
+	return 0;
 #else
-      result_t rc;
-      TREENODE *node;
-      /* headersLength is the total length of all headers + space for the
-	 lengths as per the HTTPRequestHandler protocol. Making the buffer
-	 this big means we don't have to check for buffer overrun. Since
-	 we use the buffer for output headers as well, we apply a minimum
-	 length as well. */
-      headerBufferLength = (headersLength+1 < HEADER_BUF_SIZE
-			    ? HEADER_BUF_SIZE
-			    : headersLength+1);
+	result_t rc;
+	TREENODE *node;
+	/* headersLength is the total length of all headers + space for the
+	   lengths as per the HTTPRequestHandler protocol. Making the buffer
+	   this big means we don't have to check for buffer overrun. Since
+	   we use the buffer for output headers as well, we apply a minimum
+	   length as well. */
+	headerBufferLength = (headersLength+1 < HEADER_BUF_SIZE
+			      ? HEADER_BUF_SIZE
+			      : headersLength+1);
       unsigned char *headerBuffer = malloc(headerBufferLength);
       unsigned char *bp = headerBuffer;
       unsigned char *bufend;
@@ -1540,6 +1603,30 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	  if (0 != len) return 0;  /* Read error, kill the connection */
 	}
       }
+      break;
+    case Method_GET_DEFAULT_PAGE:
+    case Method_HEAD_DEFAULT_PAGE:
+      {
+	unsigned long int len; /* The file length */
+	char cl[128];
+	
+	len = strlen(defaultPageData);
+	writeStatusLine(rs, 200);
+	sprintf(cl, "Content-Length: %ld\r\n", len);
+	writeString(rs, cl);
+
+	// TODO Consider what Cache-Control directives to issue, if any
+	writeString(rs, "Content-Type: text/html\r\n\r\n");
+	if (Method_GET_DEFAULT_PAGE == methodIndex) { /* not HEAD - send body */
+	  /*  Actually send the file */
+	  if (!writeSSL(rs, defaultPageData, len)) {
+	    freeStorage();
+	    return 0;
+	  }
+	}
+	freeStorage();
+      }
+
       break;
     case Method_PUT:             /* Handle the PUT method */
       {
