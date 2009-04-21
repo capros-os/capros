@@ -618,6 +618,12 @@ assignDomain:
   return SmallSpaces[ssid].domain;
 }
 
+unsigned int
+PIDToDomain(unsigned int ssid)
+{
+  return SmallSpaces[ssid].domain;
+}
+
 /* mach_EnsureHeap() must find (or clear) an available physical page and
  * cause it to become mapped at the end of the physical memory map.
  */

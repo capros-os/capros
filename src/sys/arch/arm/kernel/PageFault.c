@@ -44,9 +44,11 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <arch-kerninc/PTE.h>
 #include <idl/capros/GPT.h>
 
+// Prototypes of procedures in Mapping.c:
 MapTabHeader * AllocateSmallSpace(void);
 unsigned int EnsureSSDomain(unsigned int ssid);
 void AssignSSToProc(Process * proc, unsigned int ssid);
+unsigned int PIDToDomain(unsigned int ssid);
 
 // #define WALK_LOUD
 
@@ -179,7 +181,7 @@ db_show_mappings_md(uint32_t spaceAddr, uint32_t base, uint32_t nPages)
       PTE * pte = KPAtoP(PTE *, l1d & L1D_COARSE_PT_ADDR);
       pte += lo;
 
-      db_printf("PTE ");
+      db_printf("PTE at %#x ", pte);
       pte_ddb_dump(pte);
 
       break;
@@ -776,6 +778,7 @@ GetCPT(MapTabHeader * mth1, SegWalk * pwi, ula_t mva, bool isWrite,
           DEBUG(pgflt) printf("Reassigning domain to L1D.\n");
           theFLPTEntry |= (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
         }
+        assert(theFLPTEntry & L1D_DOMAIN_MASK);	// must have a domain
         * theFLPTEntryP = theFLPTEntry;
       }
     } else {
@@ -783,8 +786,7 @@ GetCPT(MapTabHeader * mth1, SegWalk * pwi, ula_t mva, bool isWrite,
     }
   }
 
-  unsigned int domain = (theFLPTEntry & L1D_DOMAIN_MASK) >> L1D_DOMAIN_SHIFT;
-
+  unsigned int domain;
   if (! mth2) {
     // Need to find the needed CPT.
 
@@ -832,11 +834,16 @@ GetCPT(MapTabHeader * mth1, SegWalk * pwi, ula_t mva, bool isWrite,
 
     PTE * pTable = (PTE *) MapTabHeaderToKVA(mth2);
 
+    domain = EnsureSSDomain(mva >> PID_SHIFT);
+    assert(domain);
+
     /* Set the entry in the first-level page table to refer to
        the second-level table. */
     * theFLPTEntryP =
       VTOP((kva_t)pTable) + (domain << L1D_DOMAIN_SHIFT) + L1D_COARSE_PT;
   } else {	// already have the CPT
+    domain = (theFLPTEntry & L1D_DOMAIN_MASK) >> L1D_DOMAIN_SHIFT;
+    assert(domain != 0 && domain == PIDToDomain(mva >> PID_SHIFT));
     pwi->offset = (pwi->offset & ((1ul << L1D_ADDR_SHIFT) -1))
                 + (((uint32_t)mth2->producerNdx) << L1D_ADDR_SHIFT);
     SegWalk_InitFromMT(pwi, mth2);
