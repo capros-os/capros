@@ -2,13 +2,14 @@ package capros;
 
 interface HTTP extends Constructor {
   // Constituents:
-  const byte KC_ProgramVCS  = 0;
-  const byte KC_ProgramPC   = 1;
+  const byte KC_ProgramText = 0;
+  const byte KC_ProgramDataVCS = 1;
   const byte KC_ProtoSpace  = 2;
-  const byte KC_OStream     = 3;
-  const byte KC_RSAKey      = 4;
-  const byte KC_Certificate = 5;
-  const byte KC_RTC         = 6;
-  const byte KC_Directory   = 7;
-  const byte KC_FileServer  = 8;
+  const byte KC_ProgramPC   = 3;
+  const byte KC_OStream     = 4;
+  const byte KC_RSAKey      = 5;
+  const byte KC_Certificate = 6;
+  const byte KC_RTC         = 7;
+  const byte KC_Directory   = 8;
+  const byte KC_FileServer  = 9;
 };

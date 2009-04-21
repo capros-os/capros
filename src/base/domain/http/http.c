@@ -49,11 +49,12 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/IndexedKeyStore.h>
 #include <idl/capros/File.h>
 #include <idl/capros/FileServer.h>
+#include <domain/CMME.h>
+#include <domain/CMMEMaps.h>
 
 #include <domain/domdbg.h>
 
-/* Constituent node contents */
-#include "constituents.h"
+/* Constituent node contents are defined in HTTP.idl. */
 #endif
 
 /* OpenSSL stuff */
@@ -84,27 +85,22 @@ typedef struct {
 #define DBGTARGET KR_OSTREAM
 
 /* Key registers */
-#define KR_SOCKET     KR_APP(1) /* The socket for the connection */
-#define KR_RTC        KR_APP(2) /* The RealTime Clock key */
-#define KR_DIRECTORY  KR_APP(3) /* The IndexedKeyStore aka file directory */
-#define KR_FILESERVER KR_APP(4) /* The file creator object */
-#define KR_FILE       KR_APP(5) /* The "file" key */
-#define KR_AddrSpace  KR_APP(8)	/* Our address space cap */
-#define KR_OSTREAM    KR_APP(9)	/* only used for debugging */
+#define KR_SOCKET     KR_CMME(0) /* The socket for the connection */
+#define KR_RTC        KR_CMME(1) /* The RealTime Clock key */
+#define KR_DIRECTORY  KR_CMME(2) /* The IndexedKeyStore aka file directory */
+#define KR_FILESERVER KR_CMME(3) /* The file creator object */
+#define KR_FILE       KR_CMME(4) /* The "file" key */
 
-/* Define locations in our address space */
-/* Our address space looks like:
-0 to 0x400000: a VCS containing our text, data, bss, and stack.
-0x400000 to 0x800000: area for mapping segments. */
-const uint32_t __rt_stack_pointer = 0x400000;
-#define mapAddress 0x400000
+unsigned long __rt_stack_size = 3*4096;
 
+long mapReservation;
+/* Map a memory space up to one page in size. */
 void *
 MapSegment(cap_t seg)
 {
-  result_t result = capros_GPT_setSlot(KR_AddrSpace, mapAddress >> 22, seg);
+  result_t result = maps_mapPage_locked(mapReservation, seg);
   assert(RC_OK == result);
-  return (void *)mapAddress;
+  return maps_pgOffsetToAddr(mapReservation);
 }
 
 #endif
@@ -280,17 +276,22 @@ free_tree(TREENODE *tree) {
 
 
 
-int
-main(void)
-{
 #ifndef SELF_TEST
+int
+cmme_main(void)
+{
+  result_t rc;
   Message msg;
 
   char buff[256]; // Initial parameters
 
   capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_OStream, KR_OSTREAM); // for debug
+
+  rc = maps_init();
+  assert(rc == RC_OK);	// TODO handle
+  mapReservation = maps_reserve_locked(1);
+
   capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_RTC, KR_RTC); 
-  capros_Process_getAddrSpace(KR_SELF, KR_AddrSpace);
 
   msg.snd_invKey = KR_RETURN;
   msg.snd_key0 = KR_VOID;
@@ -326,7 +327,11 @@ main(void)
     msg.snd_invKey = KR_RETURN;
     (void) processRequest(&msg);
   }
+  maps_fini();
 #else
+int
+main(void)
+{
     int fd = open("privkey.pem", O_RDONLY, 0);
     struct stat sb; 
     struct sockaddr_in inad;
@@ -716,6 +721,7 @@ freeStorage(void) {
   if (headerBuffer) {
     free(headerBuffer);
     headerBuffer = NULL;
+    headerBufferLength = 0;
   }
   free_tree(tree);
   tree = TREE_NIL;
@@ -1380,9 +1386,9 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	headerBufferLength = (headersLength+1 < HEADER_BUF_SIZE
 			      ? HEADER_BUF_SIZE
 			      : headersLength+1);
-      unsigned char *headerBuffer = malloc(headerBufferLength);
-      unsigned char *bp = headerBuffer;
-      unsigned char *bufend;
+        headerBuffer = malloc(headerBufferLength);
+        unsigned char * bp = (unsigned char *)headerBuffer;
+        unsigned char * bufend;
       int kl, vl;
       uint16_t statusCode;
       capros_HTTPRequestHandler_TransferEncoding bodyTransferEncoding;      
@@ -1411,7 +1417,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       bufend = bp;
 
       /* Now send the headers to the handler */
-      bp = headerBuffer;
+      bp = (unsigned char *)headerBuffer;
       while (bufend - bp) {
 	uint32_t len = (bufend-bp < theSendLimit ? bufend-bp : theSendLimit);
       	rc = capros_HTTPRequestHandler_headers(KR_FILE, len, bp, &theSendLimit);
@@ -1511,9 +1517,9 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       if (Method_HEAD != methodIndex) {
 	while (1) {
 	  rc = capros_HTTPRequestHandler_getResponseBody(KR_FILE, 
-							 headerBufferLength,
-							 &lengthOfBodyData,
-							 headerBuffer);
+						 headerBufferLength,
+						 &lengthOfBodyData,
+						 (unsigned char *)headerBuffer);
 	  if (RC_OK != rc) {
 	    freeStorage();
 	    return 0;
@@ -2192,13 +2198,15 @@ transferHeaders(ReaderState *rs, result_t (*getProc)(cap_t , uint32_t,
 	/* Handler had problems, just die */
 	return 0;
       }
-      if (0 == headerLength) break;
+      if (0 == headerLength) goto gotHeaders;
       b += headerLength;
       bl -= headerLength;
     }
-    if (0 == headerLength) break;
     bl = headerBufferLength - bl;    /* Amount in the buffer */
-    headerBufferLength *= 2;      /* Size of new buffer, twice old size */
+    if (! headerBufferLength)
+      headerBufferLength = HEADER_BUF_SIZE;
+    else
+      headerBufferLength *= 2;      /* Size of new buffer, twice old size */
     b = malloc(headerBufferLength);
     memcpy(b, headerBuffer, bl);  /* Copy what we have to new buffer */
     free(headerBuffer);           /* Free old */
@@ -2206,6 +2214,8 @@ transferHeaders(ReaderState *rs, result_t (*getProc)(cap_t , uint32_t,
     b += bl;                      /* Place for next byte of header data */
     bl = headerBufferLength - bl; /* Len left is (new len - what we got) */
   }
+
+gotHeaders:
   /* Now put them out as headers */
   bl = b - headerBuffer;
   b = headerBuffer;

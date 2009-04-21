@@ -25,13 +25,14 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-MAKE_VIRTUAL_COPIER(http_vcsk, LIBDIR "http");
+#include <dyncmme.map>
+
+http_prog = program segtree LIBDIR "http";
 http_pc = symbol LIBDIR "http" _start;
 http_sym = number("http");
+MAKE_VIRTUAL_COPIER_SEG(http_vcsk, http_prog[3]);	// program data
+http_text = ro http_prog[0];	// program text
 
-httpprotospace = ro small program LIBDIR "httpprotospace";
-
-/* Build a constructor with the above space and pc,
-   and the constituents listed in HTTP.idl. */
+/* For building an http constructor, see dyncmme.map and HTTP.idl. */
 
 #endif // __HTTP_MAP_
