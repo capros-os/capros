@@ -77,7 +77,6 @@ interface HTTPRequestHandler extends key {
         leading or trailing white space), most significant byte first;
       the field name;
       the field value (without any leading or trailing white space)
-    One byte containing zero (indicating the end of the list).
 
   All headers present in the request are transferred (including
   any Content-Length header), except:

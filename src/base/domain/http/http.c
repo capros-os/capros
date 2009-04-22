@@ -35,6 +35,7 @@ Approved for public release, distribution unlimited. */
 #include <domain/assert.h>
 #include <domain/ProtoSpaceDS.h>
 
+#include <idl/capros/key.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/SpaceBank.h>
@@ -153,8 +154,9 @@ char *defaultPageData =
 #define dbg_http        0x08   /* debug HTTP transactions */
 #define dbg_file        0x10   /* debug "file" I/O */
 #define dbg_errors      0x20
+#define dbg_resource	0x40	// HTTPResource interactions
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_init | dbg_sslinit | dbg_netio| dbg_http | dbg_file | dbg_errors )
+#define dbg_flags   ( 0u | dbg_init | dbg_sslinit | dbg_netio| dbg_http | dbg_file | dbg_errors | dbg_resource )
 
 #define CND_DEBUG(x) (dbg_##x & dbg_flags)
 #define DEBUG(x) if (CND_DEBUG(x))
@@ -727,6 +729,58 @@ freeStorage(void) {
   tree = TREE_NIL;
 }
 
+int
+sendUnchunked(ReaderState * rs, int (*readProc)(void *, int))
+{
+  char buf[2048];
+  int len;
+
+  while ((len = (*readProc)(buf, sizeof(buf))) > 0) {
+    if (!writeSSL(rs, buf, len))
+      return false;
+  }
+  return len == 0;
+}
+
+bool	// returns true iff successful, false if write error
+sendChunked(ReaderState * rs, int (*readProc)(void *, int))
+{
+  char buf[2048];
+  int len;
+  char cl[19];
+
+  while (1) {
+    len = (*readProc)(buf, sizeof(buf));
+    if (len < 0)
+      return false;
+    sprintf(cl, "%x\r\n", len);
+    if (! writeString(rs, cl))
+      return false;
+    if (0 == len)
+      return true;
+    if (!writeSSL(rs, buf, len))
+      return false;
+    if (! writeString(rs, "\r\n"))
+      return false;
+  }
+}
+
+// @return is -1 if an error occured, 0 at EOF, otherwise length read.
+int
+readResponseBody(void * buf, int buflen)
+{
+  result_t rc;
+  uint32_t lengthOfBodyData;
+  rc = capros_HTTPRequestHandler_getResponseBody(KR_FILE, 
+		 buflen, &lengthOfBodyData,
+		 (unsigned char *)buf);
+  DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: got body rc=%#x len=%d\n",
+                           rc, lengthOfBodyData);
+  if (RC_OK != rc)
+    return -1;
+  return lengthOfBodyData;
+}
+
 /** process_http - Process the HTTP protocol available on the ssl connection 
  *
  * @param[in] ssl Is the ssl object
@@ -813,7 +867,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   /* The following are results of parsing the HTTP headers */
 #define MAX_HEADER_LENGTH 4096 /* Arbitrary maximum length for a header */
   TREENODE *last = TREE_NIL;   /* The last node used, for header continuation */
-  long unsigned int contentLength = 0;
+  unsigned long long contentLength = 0;
   int expect100 = 0;
   
   /* TODO skip leading blank lines */
@@ -1301,7 +1355,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	return 0;     /* Ignoring warnings in the RFC to make sure zapping
 			 the connection doesn't destroy the response */
       }
-      contentLength = atol(node->value);
+      contentLength = atoll(node->value);
     }
   }
 
@@ -1365,35 +1419,33 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     theResourceType = capros_HTTPResource_RHType_File;
   }
   
-    switch (theResourceType) {
-    case capros_HTTPResource_RHType_HTTPRequestHandler:
-      {
+  switch (theResourceType) {
+  case capros_HTTPResource_RHType_HTTPRequestHandler:
+    {
+      DBGPRINT(DBGTARGET, "lookUpSwissNumber gave HTTPRequestHandler\n");
 #ifdef SELF_TEST
-	DBGPRINT(DBGTARGET, "lookUpSwissNumber gave HTTPRequestHandler");
-	writeStatusLine(rs, 500);
-	writeMessage(rs, "lookUpSwissNumber gave HTTPRequestHandler response",
-		     methodIndex==1);
-	freeStorage();
-	return 0;
+      writeStatusLine(rs, 500);
+      writeMessage(rs, "lookUpSwissNumber gave HTTPRequestHandler response",
+		   methodIndex==1);
+      freeStorage();
+      return 0;
 #else
-	result_t rc;
-	TREENODE *node;
-	/* headersLength is the total length of all headers + space for the
-	   lengths as per the HTTPRequestHandler protocol. Making the buffer
-	   this big means we don't have to check for buffer overrun. Since
-	   we use the buffer for output headers as well, we apply a minimum
-	   length as well. */
-	headerBufferLength = (headersLength+1 < HEADER_BUF_SIZE
-			      ? HEADER_BUF_SIZE
-			      : headersLength+1);
-        headerBuffer = malloc(headerBufferLength);
-        unsigned char * bp = (unsigned char *)headerBuffer;
-        unsigned char * bufend;
+      result_t rc;
+      TREENODE *node;
+      /* headersLength is the total length of all headers + space for the
+         lengths as per the HTTPRequestHandler protocol. Making the buffer
+         this big means we don't have to check for buffer overrun. Since
+         we use the buffer for output headers as well, we apply a minimum
+         length as well. */
+      headerBufferLength = (headersLength+1 < HEADER_BUF_SIZE
+			    ? HEADER_BUF_SIZE
+			    : headersLength+1);
+      headerBuffer = malloc(headerBufferLength);
+      unsigned char * bp = (unsigned char *)headerBuffer;
+      unsigned char * bufend;
       int kl, vl;
       uint16_t statusCode;
       capros_HTTPRequestHandler_TransferEncoding bodyTransferEncoding;      
-      uint64_t contentLength;
-      uint32_t lengthOfBodyData;
       char cl[128];       /* For generating a content length header */
 
       for (node = tree_min(tree); 
@@ -1413,7 +1465,6 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	memcpy(bp, node->value, vl);
 	bp += kl;
       }
-      *bp++ = 0;         /* Terminate with zero length header name */
       bufend = bp;
 
       /* Now send the headers to the handler */
@@ -1489,6 +1540,9 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 							&contentLength);
       writeStatusLine(rs, statusCode);
       switch (bodyTransferEncoding) {
+      default:
+        DEBUG(errors) DBGPRINT(DBGTARGET,
+                        "HTTP: got xfer encoding %u\n", bodyTransferEncoding);
       case capros_HTTPRequestHandler_TransferEncoding_none:
 	freeStorage();
 	if (mustClose) return 0;
@@ -1512,30 +1566,42 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	freeStorage();
 	return 0;
       }
+      writeSSL(rs, "\r\n", 2);              /* Finish with blank line */
 
+      DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: getting body\n");
       /* Receive the data from the handler and send it to the connection */
       if (Method_HEAD != methodIndex) {
-	while (1) {
-	  rc = capros_HTTPRequestHandler_getResponseBody(KR_FILE, 
-						 headerBufferLength,
-						 &lengthOfBodyData,
-						 (unsigned char *)headerBuffer);
-	  if (RC_OK != rc) {
-	    freeStorage();
-	    return 0;
-	  }
-	  if (0 == lengthOfBodyData) break;
-	  writeSSL(rs, headerBuffer, lengthOfBodyData); /* Write it */
-	}
-      }
-
-      /* Send out any trailer headers */
-      if (0 == transferHeaders(rs,
+        switch (bodyTransferEncoding) {
+        case capros_HTTPRequestHandler_TransferEncoding_identity:
+          if (! sendUnchunked(rs, &readResponseBody)) {	// write error
+            freeStorage();
+            return 0; /* Kill the connection */
+          }
+          break;
+        case capros_HTTPRequestHandler_TransferEncoding_chunked:
+          // Send chunked data.
+          if (! sendChunked(rs, &readResponseBody)) {	// write error
+            freeStorage();
+            return 0; /* Kill the connection */
+          }
+          // Send trailers.
+          DEBUG(resource)
+            DBGPRINT(DBGTARGET, "HTTP: getting trailer headers\n");
+          /* Send out any trailer headers */
+          if (0 == transferHeaders(rs,
 		     capros_HTTPRequestHandler_getResponseTrailer)) {
-      /* Error. We've already reported a status, so we can't give 500. 
-	 just zap the circuit */
-	freeStorage();
-	return 0;
+            /* Error. We've already reported a status, so we can't give 500. 
+	       just zap the circuit */
+            freeStorage();
+            return 0;
+          }
+          // Send CRLF after chunked body and any trailer headers.
+          if (! writeString(rs, "\r\n") ) {	// write error
+            freeStorage();
+            return 0;
+          }
+          break;
+        }
       }
 #endif
     }
@@ -1579,30 +1645,18 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	writeString(rs, "\r\n");	// end of headers
 	if (Method_GET == methodIndex) { /* GET, not HEAD - send message-body */
 	  /*  Actually send the file */
-	  char buf[2048];
-	  int len;
-	  
 	  if (isUsingChunked) {
-	    do {
-	      len = readFile(buf, sizeof(buf));
-	      sprintf(cl, "%x\r\n", len);
-	      writeString(rs, cl);
-	      if (0 != len) {
-		if (!writeSSL(rs, buf, len)) {
-		  /* Write error */
-		  freeStorage();
-		  return 0; /* Kill the connection */
-		}
-	      }
-	      writeString(rs, "\r\n");
-	    } while (0 != len);
+            // Send chunked data, no trailers, and terminating CRLF
+            if (! sendChunked(rs, &readFile)
+                || ! writeString(rs, "\r\n") ) {	// write error
+	      freeStorage();
+	      return 0; /* Kill the connection */
+            }
 	  } else {
-	    while ( (len=readFile(buf, sizeof(buf))) > 0) {
-	      if (!writeSSL(rs, buf, len)) {
-		freeStorage();
-		return 0;
-	      }
-	    }
+            if (! sendUnchunked(rs, &readFile)) {		// write error
+	      freeStorage();
+	      return 0; /* Kill the connection */
+            }
 	  }
 	  closeFile();
 	  freeStorage();
@@ -2189,10 +2243,13 @@ transferHeaders(ReaderState *rs, result_t (*getProc)(cap_t , uint32_t,
   uint32_t headerLength;
  
   while (1) {
+    // bl has buffer space left.
     while (bl > 0) {
       rc = getProc(KR_FILE, bl, &headerLength, (unsigned char *)b);
       DEBUG(http) DBGPRINT(DBGTARGET, "HTTP: got headers rc=%#x hl=%d\n",
                            rc, headerLength);
+      if (RC_capros_key_UnknownRequest == rc)	// this means no headers
+        goto gotHeaders;
       if (RC_OK != rc) {
         DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: getProc rc=%#x\n", rc);
 	/* Handler had problems, just die */
@@ -2219,27 +2276,29 @@ gotHeaders:
   /* Now put them out as headers */
   bl = b - headerBuffer;
   b = headerBuffer;
-#define getByte(p) (*(unsigned char *)p)
-  for (ln=getByte(b); ln; ln=getByte(b)) {  /* Get length of next name */
-    if (!ln) break;                       /* Zero is end of headers */
-    
+#define getByte(p) (*(unsigned char *)(p))
+  while (bl) {
+    if (bl < 3) {		// too small even for the length bytes
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bl=%d b=%#x\n", bl, b);
+      return 0;
+    }
+    ln = getByte(b);
     lv = (getByte(b+1) << 8) + getByte(b+2);
     bl -= ln +lv + 3;
     if (bl < 0) {
-      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bl=%d\n", bl);
-      /* Error from handler, we've already reported a status, so we
-	 can't give 500. just zap the circuit */
-      return 0;         /* Need to get back in sync with client */
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bl=%d b=%#x ln=%d lv=%d\n",
+                             bl, b, ln, lv);
+      return 0;
     }
     
-    writeSSL(rs, b+2, ln);                /* Write it to connection */
+    b += 3;
+    writeSSL(rs, b, ln);	/* Write it to connection */
+    b += ln;
     writeSSL(rs, ": ", 2);                /* Write colon and space */
-    writeSSL(rs, b+2+ln, lv);             /* Write the value */
+    writeSSL(rs, b, lv);	/* Write the value */
+    b += lv;
     writeSSL(rs, "\r\n", 2);              /* Finish with a CRLF */
-    b += ln + lv + 3;
-    if (!bl) break;
   }
-  writeSSL(rs, "\r\n", 2);              /* Finish with blank line */
   return 1;
 }
 #endif
