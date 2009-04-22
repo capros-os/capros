@@ -177,9 +177,6 @@ typedef struct {
 } ReadPtrs;
 
 /* Internal routine prototypes */
-#ifndef SELF_TEST
-static int processRequest(Message *argmsg);
-#endif
 static uint32_t connection(void);
 static int setUpContext(SSL_CTX *ctx);
 static void print_SSL_error_queue(void);
@@ -285,9 +282,9 @@ cmme_main(void)
   result_t rc;
   Message msg;
 
-  char buff[256]; // Initial parameters
-
   capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_OStream, KR_OSTREAM); // for debug
+
+  DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Starting.\n");
 
   rc = maps_init();
   assert(rc == RC_OK);	// TODO handle
@@ -310,26 +307,10 @@ cmme_main(void)
 
   connection();
 
-  /* The following loop is bogus, as there is no start key to us: */
+  DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Exiting.\n");
 
-  msg.rcv_key0 = KR_ARG(0);
-  msg.rcv_key1 = KR_ARG(1);
-  msg.rcv_key2 = KR_ARG(2);
-  msg.rcv_rsmkey = KR_RETURN;
-  msg.rcv_limit = sizeof(buff);
-  msg.rcv_data = buff;
-  msg.rcv_code = 0;
-  msg.rcv_w1 = 0;
-  msg.rcv_w2 = 0;
-  msg.rcv_w3 = 0;
-
-  for(;;) {
-    RETURN(&msg);
-
-    msg.snd_invKey = KR_RETURN;
-    (void) processRequest(&msg);
-  }
   maps_fini();
+  return 0;
 #else
 int
 main(void)
@@ -383,47 +364,6 @@ main(void)
   return 0;
 #endif
 }
-
-#ifndef SELF_TEST
-static int
-processRequest(Message *argmsg)
-{
-  uint32_t code = argmsg->rcv_code;
-  // Message msg;
-
-  argmsg->snd_len = 0;
-  argmsg->snd_w1 = 0;
-  argmsg->snd_w2 = 0;
-  argmsg->snd_w3 = 0;
-  argmsg->snd_key0 = KR_VOID;
-  argmsg->snd_key1 = KR_VOID;
-  argmsg->snd_key2 = KR_VOID;
-  argmsg->snd_code = RC_OK;
-
-  switch (code) {
-  case OC_capros_key_getType: /* Key type */
-    {
-      argmsg->snd_code = RC_OK;
-      argmsg->snd_w1 = IKT_capros_HTTP;
-      break;
-    }
-  case OC_capros_key_destroy:
-    {
-      capros_Node_getSlot(KR_CONSTIT, capros_HTTP_KC_ProtoSpace, KR_TEMP0);
-      /* Invoke the protospace to destroy us and return. */
-      protospace_destroy_small(KR_TEMP0, RC_OK);
-      // Does not return here.
-    }
-  default:
-    {
-      argmsg->snd_code = RC_capros_key_UnknownRequest;
-      break;
-    }
-  }
-  
-  return 1;
-}
-#endif
 
 static uint32_t
 connection(void)
@@ -1662,8 +1602,8 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	  }
 	  closeFile();
 	  freeStorage();
-	  if (0 != len) return 0;  /* Read error, kill the connection */
 	}
+        DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: FILE GET/HEAD done.\n");
       }
       break;
     case Method_GET_DEFAULT_PAGE:
