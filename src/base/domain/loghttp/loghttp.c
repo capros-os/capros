@@ -23,7 +23,6 @@ Approved for public release, distribution unlimited. */
 
 /* LogHTTP: Handle a request from HTTP for a Logfile. */
 
-//#include <eros/target.h>
 #include <eros/Invoke.h>
 
 #include <idl/capros/Node.h>
@@ -74,11 +73,11 @@ main(void)
   capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
   static char responseHeader[] = 
-    "\015Cache-Control" "\0\010no-cache"
-    "\014Content-Type"  "\0\030application/octet-stream"
-    "\0";
+    "\015\0\010Cache-Control" "no-cache"
+    "\014\0\030Content-Type"  "application/octet-stream";
   char * responseHeaderCursor = responseHeader;
-  int responseHeaderLength = sizeof(responseHeader);
+  // Do not include the terminating NUL in the length:
+  int responseHeaderLength = sizeof(responseHeader) - 1;
   capros_Logfile_RecordID lastID = capros_Logfile_nullRecordID;
 
   DEBUG(init) kdprintf(KR_OSTREAM, "LogHTTP: initialized\n");

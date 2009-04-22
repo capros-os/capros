@@ -45,5 +45,6 @@ lhresource key reg KR_BANK = primebank;
 lhresource key reg KR_SCHED = sched(8);
 lhresource key reg KR_APP(0) = misc Console;
 lhresource key reg KR_APP(1) = loghttpc;
+run lhresource;
 
 #endif

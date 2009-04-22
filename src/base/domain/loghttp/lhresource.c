@@ -27,7 +27,6 @@ An HTTPResource that allows GETting Logfiles.
 A start key to this process is the target of a Forwarder.
 */
 
-//#include <string.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
 
@@ -44,10 +43,6 @@ unsigned long __rt_runtime_hook = 0;
 
 #define KR_OSTREAM    KR_APP(0)
 #define KR_LogHTTPC   KR_APP(1)
-#define KR_PRIMEBANK  KR_APP(2)
-#define KR_NEWSCHED   KR_APP(3)
-#define KR_THREADLIST KR_APP(4)
-#define KR_FAULT      KR_APP(5)
 
 #define dbg_init	0x1 
 
