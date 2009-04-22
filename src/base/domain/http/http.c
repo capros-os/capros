@@ -765,6 +765,7 @@ sendChunked(ReaderState * rs, int (*readProc)(void *, int))
   }
 }
 
+#ifndef SELF_TEST
 // @return is -1 if an error occured, 0 at EOF, otherwise length read.
 int
 readResponseBody(void * buf, int buflen)
@@ -780,6 +781,7 @@ readResponseBody(void * buf, int buflen)
     return -1;
   return lengthOfBodyData;
 }
+#endif
 
 /** process_http - Process the HTTP protocol available on the ssl connection 
  *
