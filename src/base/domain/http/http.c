@@ -724,6 +724,25 @@ readResponseBody(void * buf, int buflen)
 }
 #endif
 
+const char * methodList[] = {
+  "OPTIONS", "GET", "HEAD", "POST", "PUT", "DELETE",
+  "TRACE", "CONNECT", NULL};
+#define Method_OPTIONS 0
+#define Method_GET 1
+#define Method_HEAD 2
+#define Method_POST 3
+#define Method_PUT 4
+#define Method_DELETE 5
+#define Method_TRACE 6
+#define Method_CONNECT 7
+
+  /* Used internally to send a default page of Javascript when there is
+     no Swiss number in the query portion of the request */
+#define Method_GET_DEFAULT_PAGE 8
+#define Method_HEAD_DEFAULT_PAGE 9
+
+#include "hrh.c"////
+
 /** process_http - Process the HTTP protocol available on the ssl connection 
  *
  * @param[in] ssl Is the ssl object
@@ -743,22 +762,6 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   int methodIndex;
   int versionIndex;
   //  int headerIndex = -1;
-  static const
-    char *methodList[] = {"OPTIONS", "GET", "HEAD", "POST", "PUT", "DELETE",
-			   "TRACE", "CONNECT", NULL};
-#define Method_OPTIONS 0
-#define Method_GET 1
-#define Method_HEAD 2
-#define Method_POST 3
-#define Method_PUT 4
-#define Method_DELETE 5
-#define Method_TRACE 6
-#define Method_CONNECT 7
-
-  /* Used internally to send a default page of Javascript when there is
-     no Swiss number in the query portion of the request */
-#define Method_GET_DEFAULT_PAGE 8
-#define Method_HEAD_DEFAULT_PAGE 9
 
 #ifndef SELF_TEST
 #if capros_HTTPResource_Method_OPTIONS != Method_OPTIONS
@@ -1367,195 +1370,13 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     {
       DEBUG(resource) DBGPRINT(DBGTARGET,
                                "lookUpSwissNumber gave HTTPRequestHandler\n");
-#ifdef SELF_TEST
-      writeStatusLine(rs, 500);
-      writeMessage(rs, "lookUpSwissNumber gave HTTPRequestHandler response",
-		   methodIndex==1);
-#else
-      result_t rc;
-      TREENODE *node;
-      /* headersLength is the total length of all headers + space for the
-         lengths as per the HTTPRequestHandler protocol. Making the buffer
-         this big means we don't have to check for buffer overrun. Since
-         we use the buffer for output headers as well, we apply a minimum
-         length as well. */
-      headerBufferLength = (headersLength+1 < HEADER_BUF_SIZE
-			    ? HEADER_BUF_SIZE
-			    : headersLength+1);
-      headerBuffer = malloc(headerBufferLength);
-      unsigned char * bp = (unsigned char *)headerBuffer;
-      unsigned char * bufend;
-      int kl, vl;
-      uint16_t statusCode;
-      capros_HTTPRequestHandler_TransferEncoding bodyTransferEncoding;      
-      char cl[128];       /* For generating a content length header */
-
-      for (node = tree_min(tree); 
-	   node != TREE_NIL; 
-	   node = tree_succ(node)) {
-	kl = strlen(node->key);
-	if ( (kl==17 && memcmpci(node->key, "Transfer Encoding", kl)==0)) {
-	  continue;      /* Skip the transfer encoding header */
-	}
-	/* We checked the header name length was < 256 when building the tree */
-	*bp++ = kl & 0xff;
-	vl = strlen(node->value);
-	*bp++ = (vl >> 8) &0xff;
-	*bp++ = vl & 0xff;
-	memcpy(bp, node->key, kl);
-	bp += kl;
-	memcpy(bp, node->value, vl);
-	bp += kl;
+      int ok = handleHTTPRequestHandler(rs, &rp, methodIndex,
+                 headersLength, contentLength, expect100);
+      capros_key_destroy(KR_FILE);	// done with the HTTPRequestHandler
+      if (!ok) {
+        freeStorage();
+        return 0;
       }
-      bufend = bp;
-
-      /* Now send the headers to the handler */
-      DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: sending headers\n");
-      bp = (unsigned char *)headerBuffer;
-      while (bufend - bp) {
-	uint32_t len = (bufend-bp < theSendLimit ? bufend-bp : theSendLimit);
-      	rc = capros_HTTPRequestHandler_headers(KR_FILE, len, bp, &theSendLimit);
-	if (RC_OK != rc) {
-          DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: RH_headers got rc=%#x\n", rc);
-	  writeStatusLine(rs, 500);
-	  writeMessage(rs, "Bad HTTPRequestHandler.headers response.",
-		       methodIndex==1);
-	  freeStorage();
-	  return 0;
-	}
-        bp += len;
-      }
-
-      /* If there is a 100-continue expectation, get result from handler */
-      if (expect100) {
-        DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: expect 100\n");
-	rc = capros_HTTPRequestHandler_getContinueStatus(KR_FILE, &statusCode);
-	if (RC_capros_key_UnknownRequest == rc) {
-	  statusCode = 100;
-	} else if (RC_OK != rc) {
-	  writeStatusLine(rs, 500);
-	  writeMessage(rs,
-		       "Bad HTTPRequestHandler.getContinueStatus response.",
-		       methodIndex==1);
-	  freeStorage();
-	  return 0;
-	}
-	writeStatusLine(rs, statusCode); 
-	if (statusCode != 100) {
-	  writeMessage(rs, "HTTPRequestHandler response for 100-continue.",
-		       methodIndex==1);
-	  freeStorage();
-	  return 0;
-	}
-      }
-
-      /* Now transfer the body of the request */
-      DEBUG(resource)
-        DBGPRINT(DBGTARGET, "HTTP: sending body %lld\n", contentLength);
-      //TODO handle chunked transfers.
-      while ( contentLength > 0) {
-	int len;
-
-	if (!readExtend(rs, &rp)) {
-	  /* Network I/O error */
-          DEBUG(errors)
-            DBGPRINT(DBGTARGET, "HTTP:%d: readExtend failed\n", __LINE__);
-	  //TODO Notify HTTPRequestHandler of error
-	  freeStorage();
-	  return 0; /* Kill the connection */
-	}
-	len = rp.last - rp.first;
-	if (contentLength < len) len = contentLength;
-	if (len > theSendLimit) len = theSendLimit;
-	rc = capros_HTTPRequestHandler_body(KR_FILE, len, 
-					    (unsigned char *)rp.first,
-					    &theSendLimit);
-        DEBUG(http) DBGPRINT(DBGTARGET,
-                             "HTTP: Sent body to Resource rc=%#x\n", rc);
-	if (RC_OK != rc) {      /* handler error */
-	  writeStatusLine(rs, 500);
-	  writeMessage(rs, "HTTPRequestHandler error on body.", 0);
-	  freeStorage();
-	  return 0;         /* Need to get back in sync with client */
-	}
-	contentLength -= len;
-	readConsume(rs, rp.first+len);
-      }
-
-      /* Get the response status */
-      DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: getting response status\n");
-      rc =  capros_HTTPRequestHandler_getResponseStatus(KR_FILE, &statusCode,
-							&bodyTransferEncoding,
-							&contentLength);
-      assert(RC_OK == rc);	// FIXME
-      writeStatusLine(rs, statusCode);
-
-      // Generate response headers.
-      switch (bodyTransferEncoding) {
-      default:
-        DEBUG(errors) DBGPRINT(DBGTARGET,
-                        "HTTP: got xfer encoding %u\n", bodyTransferEncoding);
-      case capros_HTTPRequestHandler_TransferEncoding_identity:
-	sprintf(cl, "Content-Length: %ld\r\n", contentLength);
-	writeString(rs, cl);
-	break;
-      case capros_HTTPRequestHandler_TransferEncoding_chunked:
-	writeString(rs, "Transfer-Encoding: chunked\r\n");
-      case capros_HTTPRequestHandler_TransferEncoding_none:
-	break;
-      }
-      //TODO generate a date header
-
-      /* Get additional headers from the handler */
-      if (0 == transferHeaders(rs,
-		     capros_HTTPRequestHandler_getResponseHeaderData)) {
-        /* Error. We've already reported a status, so we can't give 500. 
-	   just zap the circuit */
-	freeStorage();
-	return 0;
-      }
-      writeSSL(rs, "\r\n", 2);              /* Finish with blank line */
-
-      // Transfer the response body.
-      DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: getting body, bte=%d\n",
-                               bodyTransferEncoding);
-      /* Receive the data from the handler and send it to the connection */
-      if (Method_HEAD != methodIndex) {
-        switch (bodyTransferEncoding) {
-        case capros_HTTPRequestHandler_TransferEncoding_identity:
-          if (! sendUnchunked(rs, &readResponseBody)) {	// write error
-            freeStorage();
-            return 0; /* Kill the connection */
-          }
-          break;
-        case capros_HTTPRequestHandler_TransferEncoding_chunked:
-          // Send chunked data.
-          if (! sendChunked(rs, &readResponseBody)) {	// write error
-            freeStorage();
-            return 0; /* Kill the connection */
-          }
-          // Send trailers.
-          DEBUG(resource)
-            DBGPRINT(DBGTARGET, "HTTP: getting trailer headers\n");
-          /* Send out any trailer headers */
-          if (0 == transferHeaders(rs,
-		     capros_HTTPRequestHandler_getResponseTrailer)) {
-            /* Error. We've already reported a status, so we can't give 500. 
-	       just zap the circuit */
-            freeStorage();
-            return 0;
-          }
-          // Send CRLF after chunked body and any trailer headers.
-          if (! writeString(rs, "\r\n") ) {	// write error
-            freeStorage();
-            return 0;
-          }
-        case capros_HTTPRequestHandler_TransferEncoding_none:
-          break;
-        }	// end of switch
-      }	// end of if not HEAD
-      DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: resource done\n");
-#endif
     }	// end of case capros_HTTPResource_RHType_HTTPRequestHandler
     break;
   case  capros_HTTPResource_RHType_MethodNotAllowed:
@@ -2330,7 +2151,7 @@ lookUpSwissNumber(char *swissNumber, int methodCode, int lengthOfPath,
 
   rc = capros_IndexedKeyStore_get(KR_DIRECTORY, len, (uint8_t*)swissNumber,
 				  KR_FILE);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file key \"%s\" rc=%#x\n",
+  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get resource key \"%s\" rc=%#x\n",
 		       swissNumber, rc);
   if (RC_OK != rc) {
     DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: Directory_get returned %#x\n",
