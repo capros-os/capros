@@ -1,7 +1,9 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
+ * Copyright (C) 2009, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -32,9 +34,47 @@
 #include "spacebank.h"
 #include "ObjSpace.h"
 #include "AllocTree.h"
-#include "AllocTree_Internals.h"
 #include "malloc.h"
 #include "Bank.h"
+
+#ifdef NDEBUG
+#define TREE_NO_TYPES
+#endif
+
+typedef uint64_t TREEKEY;
+typedef struct TREEBODY_s TREEBODY;
+
+struct TREEBODY_s {
+#ifndef TREE_NO_TYPES
+  uint8_t type[SB_FRAMES_PER_TREENODE];	// valid only if map[i] != 0
+#endif  
+  uint16_t map[SB_FRAMES_PER_TREENODE];  /* bitmap of
+					  * allocations in this frame */
+};
+#define MAP_BITS ((sizeof ((TREEBODY *)0)->map[0]) * 8)
+
+struct TREENODE_s {
+  TREENODE *left;
+  TREENODE *right;
+  TREENODE *parent;
+  int       color;
+
+  TREEKEY   value;
+  TREEBODY  body;
+};
+
+#define RB_TREE
+
+#include <rbtree/tree.h>
+
+#if 0
+extern int tree_compare(TREENODE *, TREENODE *);
+extern int tree_compare_key(TREENODE *, TREEKEY);
+extern int tree_body_copy(TREEBODY *to, TREEBODY *from);
+#endif
+
+TREENODE *tree_newNode(TREEKEY key);
+int tree_deleteNode(TREENODE *node);
 
 #if CND_DEBUG(tree)
 #define VERBOSE
@@ -112,9 +152,6 @@ tree_newNode(TREEKEY key)
     /* initialize body */
     for (x = 0; x < SB_FRAMES_PER_TREENODE; x++) {
       newNode->body.map[x] = 0u;
-#ifndef TREE_NO_TYPES
-      newNode->body.type[x] = SBOT_INVALID;
-#endif      
     }
   }
   return newNode;
@@ -222,12 +259,10 @@ allocTree_insertOIDs(TREE *tree, uint8_t type, OID oid, uint32_t count)
   tree->lastInsert = theNode; /* store it for next time */
   
 #ifndef TREE_NO_TYPES
-#ifndef NDEBUT
+#ifndef NDEBUG
   /* make sure the types match */
-  if (theNode->body.type[offset] != SBOT_INVALID
-      && (theNode->body.type[offset] != type
-	  && theNode->body.map[offset] != 0u
-         )) {
+  if (theNode->body.map[offset] != 0u
+      && theNode->body.type[offset] != type ) {
     debug_print_node(theNode);
     kpanic(KR_OSTREAM,
 	     "Spacebank: allocTree_insert at 0x"DW_HEX" got type "
@@ -275,11 +310,7 @@ allocTree_insertOIDs(TREE *tree, uint8_t type, OID oid, uint32_t count)
   /* muck with it */
 #ifndef TREE_NO_TYPES
   if (curMap == 0u) {
-    /* re-type the node */
     theNode->body.type[offset] = type;
-
-    curMap = 0u; /* currently redundant -- might change later */
-    /* could possibly be object_map_mask, but that makes tests slow */
   }
 #endif
 
@@ -421,6 +452,7 @@ allocTree_removeOID(TREE *tree, struct Bank *bank, uint8_t type, OID oid)
 	    curMap);
 
   curMap &= ~newMask;
+  theNode->body.map[offset] = curMap; // update map
   
   if (curMap == 0) {
     /* this part of the node is completely deallocated -- check if the
@@ -431,12 +463,6 @@ allocTree_removeOID(TREE *tree, struct Bank *bank, uint8_t type, OID oid)
     DEBUG(dealloc)
       kprintf(KR_OSTREAM,
 	      "Frame empty -- checking if everything is empty\n");
-
-    /* invalidate the offset */
-    theNode->body.map[offset] = 0u; 
-#ifndef TREE_NO_TYPES
-    theNode->body.type[offset] = SBOT_INVALID;
-#endif
 
     /* check if we are empty */
     x = SB_FRAMES_PER_TREENODE;
@@ -489,9 +515,6 @@ allocTree_removeOID(TREE *tree, struct Bank *bank, uint8_t type, OID oid)
     else
       ob_ReleasePageFrame(bank, EROS_FRAME_FROM_OID(oid));
   } else {
-    theNode->body.map[offset] = curMap; /*
-					 * put in the new map
-					 */
     DEBUG(dealloc)
       kprintf(KR_OSTREAM,
 	      "Wrote new map 0x%04x\n",curMap);
@@ -500,86 +523,32 @@ allocTree_removeOID(TREE *tree, struct Bank *bank, uint8_t type, OID oid)
   return 1; /* RETURN "success" */
 }
 
-#ifdef NEW_DESTROY_LOGIC
-uint32_t
-allocTree_findOID(TREE *tree, OID *pOID, uint8_t *obType)
+bool
+allocTree_findOID(TREE *tree, OID *pOID)
 {
   TREENODE *curNode = tree->root;
-  OID oid;
   uint32_t index;
 
   if (curNode == TREE_NIL)
-    return 0;			/* nothing left */
-
-  oid = curNode->value;
+    return false;			/* nothing left */
 
   for (index = 0; index < SB_FRAMES_PER_TREENODE; index++) {
-    if ((curNode->body.type[index] != SBOT_INVALID) &&
-	(curNode->body.map[index] != 0u)) {
+    if (curNode->body.map[index] != 0u) {
       unsigned subOb;
-
-#ifndef TREE_NO_TYPES
-      *obType = curNode->body.type[index];
-#endif
-
-      for (subOb = 0; subOb < EROS_OBJECTS_PER_FRAME; subOb++) {
+      for (subOb = 0; subOb < MAP_BITS; subOb++) {
 	uint8_t newMask = (1u << subOb);
-	if (curNode->body.map[index] & newMask)
+	if (curNode->body.map[index] & newMask) {
 	  *pOID = curNode->value + (index * EROS_OBJECTS_PER_FRAME) + subOb;
-	return 1;
+	  return true;
+        }
       }
     }
   }
 
-  kpanic(KR_OSTREAM,"Non-empty AllocTree has node with no allocations!\n",__LINE__);
-  return 0;
+  kpanic(KR_OSTREAM,
+         "Non-empty AllocTree has node with no allocations!\n",__LINE__);
+  return false;
 }
-#else
-uint32_t
-allocTree_IncrementalDestroy(TREE *toDie, OID *retFrame)
-{
-  if (toDie->root == TREE_NIL) {
-    toDie->lastInsert = TREE_NIL;
-    toDie->lastRemove = TREE_NIL;
-    
-    return 0; /* RETURN "there is no more left!" */
-  } else {
-    TREENODE *curNode = toDie->root;
-    OID oid;
-    uint32_t index;
-    
-    oid = curNode->value;
-    for (index = 0; index < SB_FRAMES_PER_TREENODE; index++) {
-      if (curNode->body.map[index] != 0u) {
-	if (retFrame) *retFrame = oid + index * EROS_OBJECTS_PER_FRAME;
-	oid++;
-#ifndef TREE_NO_TYPES
-	curNode->body.type[index] = SBOT_INVALID;
-#endif
-	curNode->body.map[index] = 0u;
-	index++; /* increment past this one, as we know it is zero */
-	break;
-      }
-    }
-
-    /* skip past any empty ones after this one */
-    while (index < SB_FRAMES_PER_TREENODE
-	   && curNode->body.map[index] == 0u) {
-      index++;
-    }
-    if (index == SB_FRAMES_PER_TREENODE) {
-      /* this node is finished */
-      /* we are going to be deleting */      
-      _allocTree_clearCachedInfo(toDie); 
-      toDie->root = tree_remove(toDie->root, curNode);
-
-      /* SHAP: and delete it */
-      tree_deleteNode(curNode);
-    }
-    return 1; /* RETURN "got some" */
-  }  
-}
-#endif
 
 uint32_t
 allocTree_mergeTrees(TREE *dest, TREE *src)
@@ -667,7 +636,10 @@ debug_print_node(TREENODE *node)
 	  "Type: ");
 
   for (i = 0; i < SB_FRAMES_PER_TREENODE; i++)
-    kprintf(KR_OSTREAM, "   %02x", (uint32_t)node->body.type[i]);
+    if (node->body.map[i])
+      kprintf(KR_OSTREAM, "   %02x", node->body.type[i]);
+    else
+      kprintf(KR_OSTREAM, "     ");
 
   kprintf(KR_OSTREAM,"\n");
 #endif	  

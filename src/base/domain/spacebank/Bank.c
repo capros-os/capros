@@ -385,6 +385,31 @@ BankGetLimits(Bank * bank, /*OUT*/ capros_SpaceBank_limits * getLimits)
 }
 
 /*
+Get into kr a capability to the object with the specified oid.
+It must have the specified obType.
+Returns:
+RC_capros_Range_RangeErr if offset is out of range (that's a bug)
+  or the range is not mounted.
+RC_OK if successful.
+ */
+static result_t
+GetCap(capros_Range_obType obType,
+  OID offset, cap_t kr)
+{
+  result_t retval;
+
+  capros_Range_obType currentType;
+  retval = capros_Range_getCap(KR_SRANGE, obType, offset,
+             &currentType, kr);
+  if (retval != RC_OK) {
+    assert(retval == RC_capros_Range_RangeErr);
+    return retval;
+  }
+  assert(currentType == capros_Range_otNone);
+  return RC_OK;
+}
+
+/*
 Returns:
 RC_capros_Range_RangeErr if offset is out of range (that's a bug)
   or the range is not mounted.
@@ -406,7 +431,7 @@ GetCapAndRetype(capros_Range_obType obType,
   if (currentType != capros_Range_otNone) {
     assert(currentType <= capros_Range_otNode);
     // Need to retype this frame.
-    DEBUG(retype) kprintf(KR_OSTREAM, "Retyping oidOfs=%#llx, old=%d new=%d",
+    DEBUG(retype) kprintf(KR_OSTREAM, "Retyping oidOfs=%#llx, old=%d new=%d\n",
                           offset, currentType, obType);
     OID firstOffset = FrameToOID(OIDToFrame(offset));
     OID curOffset;
@@ -437,6 +462,22 @@ GetCapAndRetype(capros_Range_obType obType,
     assert(currentType == capros_Range_otNone);
   }
   return RC_OK;
+}
+
+// Rescind the object whose key is in KR_TMP.
+static void
+RescindObject(Bank * bank, capros_Range_obType type, OID oid)
+{
+  uint32_t result;
+
+  kprintf(KR_OSTREAM, "Rescinding object (type %d) oid %#llx\n",
+	  type, oid);
+  
+  result = capros_Range_rescind(KR_SRANGE, KR_TMP);
+  assert(result == RC_OK);	// KR_TMP not a good key?
+
+  result = allocTree_removeOID(&bank->allocTree, bank, type, oid);
+  assert(result);
 }
 
 /*
@@ -543,116 +584,32 @@ FlushBankCache(Bank * bank)
 static void
 DestroyStorage(Bank * bank)
 {
-#ifdef NEW_DESTROY_LOGIC
+  result_t retval;
   OID oid;
-  uint8_t type;
 
-  while(allocTree_findOID(&bank->allocTree, &oid, &type)) {
-    uint32_t result;
+  while (allocTree_findOID(&bank->allocTree, &oid)) {
+    /* We need to find out the type of the object's frame.
+    Use capros_Range_otNode as a guess, since that is the type
+    with the most objects per frame, therefore the object-within-frame
+    count will always be valid.
+    If that type is wrong, the kernel will tell us the correct type. */
 
-    kprintf(KR_OSTREAM,
-	    "Rescinding object (type %d) "
-	    "oid 0x"DW_HEX"\n",
-	    type,
-	    DW_HEX_ARG(oid));
-
-    result = range_getobjectkey(KR_SRANGE,
-				type,
-				oid,
-				KR_TMP);
-
-    if (result != RC_OK) {
-      /* DEBUG(children) */
-      kprintf(KR_OSTREAM,
-	      "SpaceBank: Unable to create key to object "
-	      "oid 0x"DW_HEX" (0x%08x)\n",
-	      DW_HEX_ARG(oid),
-	      result);
+    capros_Range_obType type;
+    retval = capros_Range_getCap(KR_SRANGE, capros_Range_otNode,
+               oid, &type, KR_TMP);
+    if (retval != RC_OK) {
+      assert(retval == RC_capros_Range_RangeErr);
+      assert(false);	// invalid oid or unmounted range
     }
-	    
-    /* It will do no harm to rescind it if we didn't get it */
-    result = range_rescind(KR_SRANGE, KR_TMP);
-
-    if (result != RC_OK) {
-      /* DEBUG(children) */
-      kprintf(KR_OSTREAM,
-	      "SpaceBank: Unable to rescind key to object "
-	      "oid 0x"DW_HEX" (0x%08x)\n",
-	      DW_HEX_ARG(oid),
-	      result);
+    if (type == capros_Range_otNone)	// Node was correct
+      type = capros_Range_otNode;
+    else {
+      retval = GetCap(type, oid, KR_TMP);
+      assert(retval == RC_OK);	// unmounted range not handled
     }
-	    
-    result = allocTree_removeOID(&bank->allocTree,
-				 bank,
-				 type,
-				 oid);
 
-    if (result == 0) {
-      /* failed */
-      /* DEBUG(children) */
-      kprintf(KR_OSTREAM,
-	      "SpaceBank: Unable to remove allocTree entry of "
-	      "oid 0x"DW_HEX"\n",
-	      DW_HEX_ARG(oid));
-    }
+    RescindObject(bank, type, oid);
   }
-#else
-  /* blow it all away */
-  OID curFrame;
-
-  /* use the incrementalDestroy to remove one frame at a time from
-   * the tree
-       */
-  while (allocTree_IncrementalDestroy(&bank->allocTree,
-				      &curFrame)) {
-    uint32_t retVal;
-    
-    /* BIG UGLY HACK!
-     *
-     * This code takes advantage of the fact that if you ask for a key
-     * of a different type than is in the frame, all of the objects in
-     * the frame are rescinded.
-     *
-     * So by creating a key to the page for this frame, then
-     * rescinding it, the code guarentees that no matter what the
-     * frame was filled with, all of the objects in the frame are
-     * rescinded. */
-    // FIXME: the above is no longer true.
-    // Try getting a page key. If succeed, rescind it.
-    // If fail, we are told the type of the frame; rescind all objects in it.
-
-    DEBUG(children)
-      kprintf(KR_OSTREAM,
-	      "DestroyStorage: Destroying frame 0x"DW_HEX"\n",
-	      DW_HEX_ARG(curFrame));
-
-    retVal = GetCapAndRetype(capros_Range_otPage, curFrame, KR_TMP);
-    if (retVal != RC_OK) {
-      kdprintf(KR_OSTREAM,
-	       "DestroyStorage: Error getting page key to "
-	       "0x"DW_HEX"\n",
-	       DW_HEX_ARG(curFrame));
-    }
-    
-    retVal = capros_Range_rescind(KR_SRANGE, KR_TMP);
-    if (retVal != RC_OK) {
-      kdprintf(KR_OSTREAM,
-	       "DestroyStorage: Error rescinding page key to "
-	       "0x"DW_HEX"\n",
-	       DW_HEX_ARG(curFrame));
-    }
-
-    /* unreserve the frame */
-    bank_UnreserveFrames(bank, 1u);
-    /* now mark it free in the object space */
-
-    /* SHAP: this is correct, but inefficient -- the objects properly
-       ought to go back according to frame type, but the following
-       will suffice until I have time to figure out what to do about
-       that. */
-    ob_ReleasePageFrame(bank,curFrame);
-  }
-#endif
 }
 
 uint32_t
@@ -676,9 +633,9 @@ BankDestroyBankAndStorage(Bank *bank, bool andStorage)
 
   DEBUG(children)
     kprintf(KR_OSTREAM,
-	    "DestroyBank: Destroying bank 0x%08x%s\n",
+	    "DestroyBank: Destroying bank %#x and %s\n",
 	    bank,
-	    (andStorage)?" and storage":" and returning storage to parent");
+	    (andStorage)?"storage":"returning storage to parent");
 
   /* destroy this bank and all of its children */
   {
@@ -690,11 +647,15 @@ BankDestroyBankAndStorage(Bank *bank, bool andStorage)
       if (curBank == 0)
 	curBank = bank;
     
-      while (curBank->firstChild)
+      while (curBank->firstChild)	// go depth first
 	curBank = curBank->firstChild;
 
       /* curbank now points to a leftmost child */
       next = curBank->nextSibling;
+      DEBUG(children)
+        kprintf(KR_OSTREAM,
+                "Destroying childless bank %#x %#x %#x\n",
+                curBank, curBank->exists, curBank->limitedKey);
 
       FlushBankCache(curBank);
 
@@ -708,48 +669,12 @@ BankDestroyBankAndStorage(Bank *bank, bool andStorage)
 	int i;
 	for (i = 0; i < BANKPREC_NUM_PRECLUDES; i++) {
 	  if (curBank->exists[i]) {
-	    uint32_t result;
-	    result = GetCapAndRetype(capros_Range_otNode,
-				     curBank->limitedKey[i],
-				     KR_TMP);
+            OID oid = curBank->limitedKey[i];
 
-	    if (result != RC_OK) {
-	      DEBUG(children)
-		kprintf(KR_OSTREAM,
-			"SpaceBank: Unable to create key to limited "
-			"node %d oid 0x"DW_HEX" (0x%08x)\n",
-			i,
-			DW_HEX_ARG(curBank->limitedKey[i]),
-			result);
-	    }
-	    
-	    /* It will do no harm to rescind it if we didn't get it */
-	    result = capros_Range_rescind(KR_SRANGE, KR_TMP);
+            result_t result = GetCap(capros_Range_otNode, oid, KR_TMP);
+            assert(result == RC_OK);	// unmounted range not handled
 
-	    if (result != RC_OK) {
-	      DEBUG(children)
-		kprintf(KR_OSTREAM,
-			"SpaceBank: Unable to create key to limited "
-			"node %d oid 0x"DW_HEX" (0x%08x)\n",
-			i,
-			DW_HEX_ARG(curBank->limitedKey[i]),
-			result);
-	    }
-	    
-	    result = allocTree_removeOID(&curBank->allocTree,
-					 curBank,
-					 capros_Range_otNode,
-					 curBank->limitedKey[i]);
-
-	    if (result == 0) {
-	      /* failed */
-	      DEBUG(children)
-		kprintf(KR_OSTREAM,
-			"SpaceBank: Unable to remove allocTree entry of "
-			"node %d oid 0x"DW_HEX"\n",
-			i,
-			DW_HEX_ARG(curBank->limitedKey[i]));
-	    }
+            RescindObject(curBank, capros_Range_otNode, oid);
 	  }
 	}
       }

@@ -1,7 +1,9 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
+ * Copyright (C) 2009, Strawberry Development Group.
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -91,33 +93,12 @@ allocTree_mergeTrees(TREE *dest, TREE *source);
  *     returns 0 on success
  */
 
-#ifdef NEW_DESTROY_LOGIC
-uint32_t
-allocTree_findOID(TREE *tree, OID *pOID, uint8_t *obType);
+bool
+allocTree_findOID(TREE * tree, OID * pOID);
 /* allocTree_findOID: 
- *     find some OID (any OID) contained in this
- *   allocTree.
+ *     find some OID (any OID) contained in this allocTree.
  *
- *      Returns 1 if an OID is found, 0 if tree is empty. 
+ *      Returns true if an OID is found, false if tree is empty. 
  */
-#else
-uint32_t
-allocTree_IncrementalDestroy(TREE *toDie, OID *currentFrame);
-/* allocTree_IncrementalDestroy:
- *     Incrementally destroys /toDie/, by deallocating it a frame at a
- *   time. 
- * 
- *     Typically used:
- *
- *     OID curFrame;
- *     while (allocTree_IncrementalDestroy(tree,&curFrame)) {
- *       ... deallocate curFrame ...
- *     }
- *
- *     Returns 0 if called on empty tree, 1 if it deallocated a frame,
- *   with the frame's OID in *(/currentFrame/)
- */
-#endif
-  
 
 #endif /*ALLOCTREE_H__*/

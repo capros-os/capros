@@ -457,12 +457,10 @@ InitSpaceBank(void)
 
 
 #define SETUP_TYPE(type,perpage) \
-                             { \
-			       objects_per_frame[capros_Range_ot ## type] = perpage; \
-			       objects_map_mask[capros_Range_ot ## type] = \
- 					              (1u << (perpage)) - 1; \
-			       type_names[capros_Range_ot ## type] = #type; \
-			     }
+  assert(perpage <= 16); /* else TREEBODY.map must be bigger than uint16_t */ \
+  objects_per_frame[capros_Range_ot ## type] = perpage; \
+  objects_map_mask[capros_Range_ot ## type] = (1u << (perpage)) - 1; \
+  type_names[capros_Range_ot ## type] = #type;
 
   SETUP_TYPE(Page, 1u);
   SETUP_TYPE(Node, DISK_NODES_PER_PAGE);
