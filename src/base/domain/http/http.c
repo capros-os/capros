@@ -92,7 +92,7 @@ typedef struct {
 #define KR_FILESERVER KR_CMME(3) /* The file creator object */
 #define KR_FILE       KR_CMME(4) /* The "file" key */
 
-unsigned long __rt_stack_size = 3*4096;
+unsigned long __rt_stack_size = 6*4096;
 
 long mapReservation;
 /* Map a memory space up to one page in size. */
@@ -588,9 +588,10 @@ void push_ssl_data(BIO *network_bio) {
     }
     inBuf = BIO_ctrl_get_read_request(network_bio); /* Ask how big a read */
     if (inBuf > 0) {
+      DEBUG(netio) DBGPRINT(DBGTARGET, "HTTP: in req len=%d\n", inBuf);
+
       unsigned char buf[inBuf];
       
-      DEBUG(netio) DBGPRINT(DBGTARGET, "HTTP: in req len=%d\n", inBuf);
 #ifndef SELF_TEST
       rc = capros_TCPSocket_receive(KR_SOCKET, inBuf, &got, 0, buf);
       if (RC_OK != rc) {
@@ -1364,13 +1365,12 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   switch (theResourceType) {
   case capros_HTTPResource_RHType_HTTPRequestHandler:
     {
-      DBGPRINT(DBGTARGET, "lookUpSwissNumber gave HTTPRequestHandler\n");
+      DEBUG(resource) DBGPRINT(DBGTARGET,
+                               "lookUpSwissNumber gave HTTPRequestHandler\n");
 #ifdef SELF_TEST
       writeStatusLine(rs, 500);
       writeMessage(rs, "lookUpSwissNumber gave HTTPRequestHandler response",
 		   methodIndex==1);
-      freeStorage();
-      return 0;
 #else
       result_t rc;
       TREENODE *node;
@@ -1410,6 +1410,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       bufend = bp;
 
       /* Now send the headers to the handler */
+      DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: sending headers\n");
       bp = (unsigned char *)headerBuffer;
       while (bufend - bp) {
 	uint32_t len = (bufend-bp < theSendLimit ? bufend-bp : theSendLimit);
@@ -1427,6 +1428,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 
       /* If there is a 100-continue expectation, get result from handler */
       if (expect100) {
+        DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: expect 100\n");
 	rc = capros_HTTPRequestHandler_getContinueStatus(KR_FILE, &statusCode);
 	if (RC_capros_key_UnknownRequest == rc) {
 	  statusCode = 100;
@@ -1448,12 +1450,16 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       }
 
       /* Now transfer the body of the request */
+      DEBUG(resource)
+        DBGPRINT(DBGTARGET, "HTTP: sending body %lld\n", contentLength);
       //TODO handle chunked transfers.
       while ( contentLength > 0) {
 	int len;
 
 	if (!readExtend(rs, &rp)) {
 	  /* Network I/O error */
+          DEBUG(errors)
+            DBGPRINT(DBGTARGET, "HTTP:%d: readExtend failed\n", __LINE__);
 	  //TODO Notify HTTPRequestHandler of error
 	  freeStorage();
 	  return 0; /* Kill the connection */
@@ -1466,7 +1472,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 					    &theSendLimit);
         DEBUG(http) DBGPRINT(DBGTARGET,
                              "HTTP: Sent body to Resource rc=%#x\n", rc);
-	if (RC_OK == /*??? FIXME*/ rc) {      /* handler error */
+	if (RC_OK != rc) {      /* handler error */
 	  writeStatusLine(rs, 500);
 	  writeMessage(rs, "HTTPRequestHandler error on body.", 0);
 	  freeStorage();
@@ -1477,25 +1483,25 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       }
 
       /* Get the response status */
+      DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: getting response status\n");
       rc =  capros_HTTPRequestHandler_getResponseStatus(KR_FILE, &statusCode,
 							&bodyTransferEncoding,
 							&contentLength);
+      assert(RC_OK == rc);	// FIXME
       writeStatusLine(rs, statusCode);
+
+      // Generate response headers.
       switch (bodyTransferEncoding) {
       default:
         DEBUG(errors) DBGPRINT(DBGTARGET,
                         "HTTP: got xfer encoding %u\n", bodyTransferEncoding);
-      case capros_HTTPRequestHandler_TransferEncoding_none:
-	freeStorage();
-	if (mustClose) return 0;
-	return 1;
-	break;
       case capros_HTTPRequestHandler_TransferEncoding_identity:
 	sprintf(cl, "Content-Length: %ld\r\n", contentLength);
 	writeString(rs, cl);
 	break;
       case capros_HTTPRequestHandler_TransferEncoding_chunked:
 	writeString(rs, "Transfer-Encoding: chunked\r\n");
+      case capros_HTTPRequestHandler_TransferEncoding_none:
 	break;
       }
       //TODO generate a date header
@@ -1510,7 +1516,9 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       }
       writeSSL(rs, "\r\n", 2);              /* Finish with blank line */
 
-      DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: getting body\n");
+      // Transfer the response body.
+      DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: getting body, bte=%d\n",
+                               bodyTransferEncoding);
       /* Receive the data from the handler and send it to the connection */
       if (Method_HEAD != methodIndex) {
         switch (bodyTransferEncoding) {
@@ -1542,11 +1550,13 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
             freeStorage();
             return 0;
           }
+        case capros_HTTPRequestHandler_TransferEncoding_none:
           break;
-        }
-      }
+        }	// end of switch
+      }	// end of if not HEAD
+      DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: resource done\n");
 #endif
-    }
+    }	// end of case capros_HTTPResource_RHType_HTTPRequestHandler
     break;
   case  capros_HTTPResource_RHType_MethodNotAllowed:
     writeStatusLine(rs, 405); 
@@ -1725,7 +1735,11 @@ readToken(ReaderState *rs, ReadPtrs *rp, char *sepStr) {
   for (;;) {
     cp = findSeparator(rp, sepStr);
     if (cp) break;
-    if (!readExtend(rs, rp)) return 0;
+    if (!readExtend(rs, rp)) {
+      DEBUG(errors) DBGPRINT(DBGTARGET,
+                             "HTTP:readToken: readExtend failed.\n");
+      return 0;
+    }
   }
   rp->last = cp;
 
@@ -1991,17 +2005,28 @@ readExtend(ReaderState *rs, ReadPtrs *rp) {
     rc = SSL_read(rs->plain, rs->buf+rs->last, HTTP_BUFSIZE-rs->last);
 #endif
     err = SSL_get_error(rs->plain, rc);
-    if (SSL_ERROR_NONE == err) break;
-    else if (SSL_ERROR_WANT_WRITE == err || SSL_ERROR_WANT_READ == err) {
+    switch (err) {
+    default:
+      DEBUG(errors)
+        DBGPRINT(DBGTARGET, "HTTP:%d: SSL error %d rc %d\n", __LINE__, err, rc);
+      print_SSL_error_queue();
+      return 0;
+
+    case SSL_ERROR_WANT_WRITE:
+    case SSL_ERROR_WANT_READ:
       DEBUG(netio) DBGPRINT(DBGTARGET, "SSL_read netio needed\n");
       push_ssl_data(rs->network);
       continue;
-    } else {
-      print_SSL_error_queue();
-      return 0;
+
+    case SSL_ERROR_NONE:
+      break;
     }
+    break;
   }
-  if (0 == rc) return 0;   /* Connection shutdown */
+  if (0 == rc) {   /* Connection shutdown */
+    DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP:%d: SSL rc %d\n", __LINE__, rc);
+    return 0;
+  }
   if (rc > 0) {
     DEBUG(http) DBGPRINT(DBGTARGET, "Read: %.*s\n", rc, rs->buf+rs->last);
   }
