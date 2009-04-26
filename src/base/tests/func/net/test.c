@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -21,9 +21,17 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* USB test.
+/* TCP and UDP test.
+ *
+ * This test uses the echo service on another host.
+ * On that host, you must enable both UDP and TCP port 7 in the firewall, and
+ * enable the echo-dgram and echo-stream services.
+ *
+ * This test also waits for a connection on TCP port 7. To give it one,
+ * you can ...
 */
 
+#include <string.h>
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/SpaceBank.h>
@@ -59,6 +67,43 @@ const uint32_t __rt_unkept = 1;
   if (result != RC_OK) { \
     kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result); \
   }
+
+void
+EchoMessage(const uint8_t * m, unsigned int len)
+{
+  result_t result;
+  result = capros_TCPSocket_send(KR_TCPSocket, len,
+                                 capros_TCPSocket_flagPush, (uint8_t *)m);
+  ckOK
+
+  uint8_t r[len];
+  uint32_t lenRecvd;
+  uint8_t flagsRecvd;
+
+  result = capros_TCPSocket_receiveLong(KR_TCPSocket, sizeof(r),
+                                    &lenRecvd, &flagsRecvd, &r[0]);
+  ckOK
+  kprintf(KR_OSTREAM, "Received %d bytes at %#x: %#x %#x %#x %#x\n", lenRecvd,
+          &r[0], r[0], r[1], r[2], r[3]);
+  if (lenRecvd != len) {
+    kdprintf(KR_OSTREAM, "Sent %d bytes, received %d bytes.\n",
+             len, lenRecvd);
+  }
+
+  int d = memcmp(m, r, len);
+  if (d) {
+    // data differ; where do they differ?
+    int i;
+    for (i = 0; i < len; i++) {
+      if (m[i] != r[i]) {
+        kdprintf(KR_OSTREAM,
+                "Sent %d bytes at %#x, received at %#x, differ at byte %d\n",
+                len, m, r, i);
+        break;
+      }
+    }
+  }
+}
 
 int
 main(void)
@@ -99,7 +144,7 @@ main(void)
   kprintf(KR_OSTREAM, "Connecting.\n");
 
   // Connect to Linux echo port
-#define testIPAddr fourByteVal(192,168,0,32)
+#define testIPAddr fourByteVal(192,168,0,36)
 #define testIPPort 7	// echo port
   result = capros_NPIP_connect(KR_IP, testIPAddr, testIPPort,
 				KR_TCPSocket);
@@ -120,19 +165,26 @@ main(void)
 
   kprintf(KR_OSTREAM, "Connected.\n");
 
-  uint8_t m[] = "Test message";
-  result = capros_TCPSocket_send(KR_TCPSocket, sizeof(m),
-                                 capros_TCPSocket_flagPush, &m[0]);
-  ckOK
+  result = capros_TCPSocket_receive(KR_TCPSocket,
+             capros_TCPSocket_maxReceiveLength + 1,
+             0, 0, NULL);
+  assert(result == RC_capros_key_RequestError);
 
-  uint8_t r[sizeof(m)];
-  uint32_t lenRecvd;
-  uint8_t flagsRecvd;
-  result = capros_TCPSocket_receive(KR_TCPSocket, sizeof(r),
-                                    &lenRecvd, &flagsRecvd, &r[0]);
-  ckOK
-  kprintf(KR_OSTREAM, "Received %d bytes: %#x %#x %#x %#x\n", lenRecvd,
-          r[0], r[1], r[2], r[3]);
+  uint8_t m[] = "Test message";
+  EchoMessage(&m[0], sizeof(m));
+
+  uint8_t m2[] =
+"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-"
+"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-"
+"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-"
+"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-"
+"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-"
+"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-"
+"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-"
+"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-"
+"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-"
+;
+  EchoMessage(&m2[0], sizeof(m2));
 
   kprintf(KR_OSTREAM, "Closing.\n");
 
@@ -161,6 +213,8 @@ main(void)
 			sizeof(m), &m[0]);
   ckOK
 
+  uint8_t r[sizeof(m)];
+  uint32_t lenRecvd;
   kprintf(KR_OSTREAM, "UDP receive.\n");
   uint32_t sourceIPAddr;
   uint16_t sourceIPPort;
@@ -177,7 +231,7 @@ main(void)
   ckOK
 
   // Test Listen.
-  kprintf(KR_OSTREAM, "Starting Listen test on port 7.\n");
+  kprintf(KR_OSTREAM, "Starting Listen test on TCP port 7.\n");
 
   result = capros_NPIP_listen(KR_IP, 7,
 				KR_TCPListenSocket);
