@@ -93,11 +93,18 @@ interface TCPSocket extends key {
   */
   void abort();
 
-  /* The following two are not implemented in IDL because the IDL compiler
+  /* The following four are not implemented in IDL because the IDL compiler
   is not yet up to the task. */
 
   /* Order code 0:
+  Read up to maxBytesToReceive bytes of data.
   flags has flagUrgent if there remains urgent data to be received
+
+  bytesReceived may be less than maxBytesToReceive for several reasons:
+    - the data has the PUSH flag
+    - the TCP window is full, so data needs to be delivered
+
+  Raises key.RequestError if maxBytesToReceive is greater than maxReceiveLength.
   Raises Already if a receive is already in progress.
    */
   client void receive(unsigned long maxBytesToReceive,
@@ -106,14 +113,32 @@ interface TCPSocket extends key {
                       out unsigned byte data); /* this is a lie, the output
 				 is actually an array of bytes. */
 
+  /* receiveLong - same as receive except no length limit.
+  It is implemented by repeated calls to receive. */
+  client void receiveLong(unsigned long maxBytesToReceive,
+                      out unsigned long bytesReceived,
+                      out unsigned byte flags,
+                      out unsigned byte data); /* this is a lie, the output
+				 is actually an array of bytes. */
+
   /* Order code 1:
   flags may be any combination of flagsPush and flagsUrgent.
-  Raises Already if there is already a send or close in progress,
-  or a close has been done.
+
   This returns as soon as the data has been queued for transmission.
   It may not have been received yet at the other end.
+
+  Raises key.RequestError if len is greater than maxSendLength.
+  Raises Already if there is already a send or close in progress,
+  or a close has been done.
    */
   client void send(unsigned long len,
+                   unsigned byte flags,
+                   out unsigned byte data); /* this is a lie, this is
+				really an input array of bytes. */
+
+  /* sendLong - same as send except no length limit.
+  It is implemented by repeated calls to send. */
+  client void sendLong(unsigned long len,
                    unsigned byte flags,
                    out unsigned byte data); /* this is a lie, this is
 				really an input array of bytes. */
