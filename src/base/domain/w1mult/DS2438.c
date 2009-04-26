@@ -270,7 +270,7 @@ DS2438_InitDev(struct W1Device * dev)
   while (1) {
     status = RecallAndReadPage(dev, 0);	// read page 0
     if (status) {
-      DEBUG(errors) kdprintf(KR_OSTREAM,
+      DEBUG(errors) kprintf(KR_OSTREAM,
              "DS2438 read page 0 status=%d, bytes=%d data= %#.2x %#.2x %#.2x\n",
              status, RunPgmMsg.rcv_sent, inBuf[0], inBuf[1], inBuf[2]);
       if (status == capros_W1Bus_StatusCode_BusError
