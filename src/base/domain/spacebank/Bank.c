@@ -470,8 +470,8 @@ RescindObject(Bank * bank, capros_Range_obType type, OID oid)
 {
   uint32_t result;
 
-  kprintf(KR_OSTREAM, "Rescinding object (type %d) oid %#llx\n",
-	  type, oid);
+  DEBUG(destroy) kprintf(KR_OSTREAM, "Rescinding object (type %d) oid %#llx\n",
+                         type, oid);
   
   result = capros_Range_rescind(KR_SRANGE, KR_TMP);
   assert(result == RC_OK);	// KR_TMP not a good key?

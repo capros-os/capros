@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -35,6 +35,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_nospace    0x200	/* out of space errors */
 #define dbg_cache      0x400	/* caches */
 #define dbg_retype     0x800	/* changing the type of a frame */
+#define dbg_destroy   0x1000	/* destroying banks and space */
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u | dbg_nospace )
