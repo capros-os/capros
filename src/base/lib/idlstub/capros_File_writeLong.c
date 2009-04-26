@@ -39,8 +39,11 @@ capros_File_writeLong(uint32_t _self, uint64_t at, uint32_t length,
 
     uint32_t thisLengthWritten;
     result = capros_File_write(_self, at, rqLen, data, &thisLengthWritten);
-    if (result != RC_OK)
+    if (result != RC_OK) {
+      if (length - resid)	// if some data has been written
+        break;		// report it and ignore result
       return result;
+    }
 
     resid -= thisLengthWritten;
     data += thisLengthWritten;

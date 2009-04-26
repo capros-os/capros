@@ -39,8 +39,11 @@ capros_File_readLong(uint32_t _self, uint64_t at, uint32_t length,
     
     uint32_t thisLengthRead;
     result = capros_File_read(_self, at, rqLen, data, &thisLengthRead);
-    if (result != RC_OK)
-      return result;
+    if (result != RC_OK) {
+      if (length - resid == 0)	// haven't gotten any data
+        return result;
+      break;		// return the data we have and ignore result.
+    }
 
     resid -= thisLengthRead;
     if (thisLengthRead < rqLen)
