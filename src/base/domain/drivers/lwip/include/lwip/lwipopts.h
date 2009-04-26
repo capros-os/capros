@@ -30,18 +30,24 @@ Approved for public release, distribution unlimited. */
 #define MEM_LIBC_MALLOC 1 // use libc's malloc
 #include <stdlib.h>		// and declare it
 #define MEM_ALIGNMENT 4	// correct for ARM
-#define TCP_MSS 1024
+// IPv4 requires TCP_MSS be at least 576-20-20 = 536
+#define TCP_MSS 1500
 #define TCP_SND_BUF (TCP_MSS * 4)
-#define PBUF_POOL_SIZE 50
+#define TCP_WND 4096
+#define PBUF_POOL_SIZE 80
 // I see no harm in making the following large:
 #define TCP_SND_QUEUELEN                (16 * (TCP_SND_BUF/TCP_MSS))
 #define MEMP_NUM_TCP_SEG                TCP_SND_QUEUELEN
 
 #define LWIP_DEBUG
+#if 0
 //#define ETHARP_DEBUG LWIP_DBG_ON
 //#define IP_DEBUG    LWIP_DBG_ON
 //#define TCP_DEBUG   LWIP_DBG_ON
+//#define LWIP_DBG_MIN_LEVEL LWIP_DBG_LEVEL_SEVERE // leave this at the default
+#else	// normally, want to see severe errors
 #define TCP_OUTPUT_DEBUG LWIP_DBG_ON
 #define LWIP_DBG_MIN_LEVEL LWIP_DBG_LEVEL_SEVERE
+#endif
 
 #endif /* __LWIP_LWIPOPTS_H__ */

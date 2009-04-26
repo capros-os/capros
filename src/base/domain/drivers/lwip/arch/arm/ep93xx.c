@@ -8,7 +8,7 @@
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  *
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -290,7 +290,7 @@ static void ep93xx_rx(void)
 
 		// Both RFP bits are on.
 		DEBUG(rx) {
-#if 0	// show input data
+#if 1	// show input data
 		  printPacket(length, entry, 56);
 #endif
 		}

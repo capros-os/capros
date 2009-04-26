@@ -142,7 +142,7 @@ enum TCPSk_state {
   TCPSk_state_Closed
 };
 
-#define maxRecvQPBufs 48
+#define maxRecvQPBufs 64
 
 struct TCPSocket {
   struct tcp_pcb * pcb;
@@ -167,7 +167,9 @@ struct TCPSocket {
   unsigned int recvQNum;
   unsigned int receiverMaxLen;
   /* The receiving process can read as little as one byte at a time,
-   * so we must keep track of how much of the first pbuf chain has been read. */
+   * so we must keep track of how much of the first pbuf chain has been read.
+   * curRecvPbuf points to the same pbuf as recvQOut, or to a pbuf
+   * later in the same chain. */
   struct pbuf * curRecvPbuf;
   unsigned int curRecvBytesProcessed;	// number of bytes of curRecvPbuf
 		// that have already been delivered
@@ -210,15 +212,21 @@ DeliverDataNow(struct TCPSocket * sock, unsigned int maxLen)
       || sock->TCPSk_state == TCPSk_state_Closed)
     return true;	// deliver final data
 
+  // We must deliver the data if the receiver can receive no more.
+  // Also, we don't want to sit on more than about TCP_WND/2 bytes,
+  // lest transmission be slowed.
+  unsigned int deliveryLimit = maxLen < TCP_WND/2 ? maxLen : TCP_WND/2;
+
   struct pbuf * * pp = sock->recvQOut;
   unsigned long totLen = 0;
+
   int i;
   for (i = sock->recvQNum; i-- > 0; ) {
     struct pbuf * p = *pp;
     if (p->flags & PBUF_FLAG_PUSH)
       return true;
     totLen += p->tot_len;
-    if (totLen >= maxLen)
+    if (totLen >= deliveryLimit)
       return true;	// we have all the data he can take
 
     if (++pp >= &sock->recvQ[maxRecvQPBufs])
@@ -235,6 +243,7 @@ ConsumePbuf(struct TCPSocket * sock)
   pbuf_free(* sock->recvQOut);
   if (++sock->recvQOut >= &sock->recvQ[maxRecvQPBufs])
     sock->recvQOut = &sock->recvQ[0];	// wrap around
+  sock->curRecvPbuf = * sock->recvQOut;
   --sock->recvQNum;
 }
 
@@ -404,8 +413,8 @@ TCPReceive(Message * msg)
 
 /*************************** TCP Writing ******************************/
 
-/* The receive buffer size must be big enough for anything the main thread
- * could receive. */
+/* The receive buffer size must be big enough for both a UDP message and
+ * a TCP buffer. */
 #define rcvBufSize (capros_TCPSocket_maxSendLength > MMS_LIMIT ? \
                     capros_TCPSocket_maxSendLength : MMS_LIMIT)
 unsigned char * curRcvBuf;
@@ -515,12 +524,12 @@ TCPSend(Message * msg)
   struct TCPSocket * sock = (struct TCPSocket *)msg->rcv_w3;
 	// word from forwarder
 
-  uint32_t totalLen = LWIP_MIN(msg->rcv_limit, msg->rcv_sent);
-  if (totalLen > capros_TCPSocket_maxSendLength) {
+  if (msg->rcv_sent > capros_TCPSocket_maxSendLength) {
     msg->snd_code = RC_capros_key_RequestError;
     return;
   }
 
+  uint32_t totalLen = LWIP_MIN(msg->rcv_limit, msg->rcv_sent);
   uint8_t flags = msg->rcv_w1;
   if (flags & ~(capros_TCPSocket_flagPush | capros_TCPSocket_flagUrgent)) {
     // Invalid flag bits.
@@ -1283,7 +1292,7 @@ driver_main(void)
         TCPAbort(&Msg);
         break;
   
-      case 0:	// OC_capros_TCPSocket_read
+      case 0:	// OC_capros_TCPSocket_receive
         TCPReceive(&Msg);
         break;
   
