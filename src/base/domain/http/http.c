@@ -569,9 +569,11 @@ void push_ssl_data(BIO *network_bio) {
       BIO_read(network_bio, buf, inBuf);
 #ifndef SELF_TEST
       /* TODO set the push flag only if network_bio has no more to send */
-      rc = capros_TCPSocket_send(KR_SOCKET, inBuf, 
-				 capros_TCPSocket_flagPush, buf);
+      rc = capros_TCPSocket_sendLong(KR_SOCKET, inBuf, 
+   				     capros_TCPSocket_flagPush, buf);
       if (RC_OK != rc) {
+        DEBUG(errors) DBGPRINT(DBGTARGET,
+                               "HTTP: TCPSocket_send returned %#x\n", rc);
 	(void)BIO_shutdown_wr(network_bio);
 	break;
       }
@@ -593,8 +595,10 @@ void push_ssl_data(BIO *network_bio) {
       unsigned char buf[inBuf];
       
 #ifndef SELF_TEST
-      rc = capros_TCPSocket_receive(KR_SOCKET, inBuf, &got, 0, buf);
+      rc = capros_TCPSocket_receiveLong(KR_SOCKET, inBuf, &got, 0, buf);
       if (RC_OK != rc) {
+        DEBUG(errors) DBGPRINT(DBGTARGET,
+                               "HTTP: TCPSocket_receive returned %#x\n", rc);
 	(void)BIO_shutdown_wr(network_bio);
 	break;
       }
@@ -1849,7 +1853,9 @@ readExtend(ReaderState *rs, ReadPtrs *rp) {
     return 0;
   }
   if (rc > 0) {
-    DEBUG(http) DBGPRINT(DBGTARGET, "Read: %.*s\n", rc, rs->buf+rs->last);
+    int bytesToPrint = rc < 500 ? rc : 500;	// limit amount printed
+    DEBUG(http) DBGPRINT(DBGTARGET, "Read: %.*s\n",
+                         bytesToPrint, rs->buf+rs->last);
   }
   rs->last += rc;
   /* rc is the amount of data read from ssl - sanity check it */
