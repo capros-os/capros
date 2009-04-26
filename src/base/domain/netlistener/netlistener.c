@@ -77,7 +77,6 @@ int
 main(void)
 {
   Message msg;
-  char buff[256]; // Initial parameters
   
   capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM); // for debug
 
@@ -98,12 +97,7 @@ main(void)
   msg.rcv_key1 = KR_ARG(1);
   msg.rcv_key2 = KR_ARG(2);
   msg.rcv_rsmkey = KR_RETURN;
-  msg.rcv_limit = sizeof(buff);
-  msg.rcv_data = buff;
-  msg.rcv_code = 0;
-  msg.rcv_w1 = 0;
-  msg.rcv_w2 = 0;
-  msg.rcv_w3 = 0;
+  msg.rcv_limit = 0;
 
   for(;;) {
     RETURN(&msg);
