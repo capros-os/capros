@@ -26,6 +26,8 @@ Approved for public release, distribution unlimited. */
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
 #include <idl/capros/SpaceBank.h>
+#include <idl/capros/ProcCre.h>
+#include <idl/capros/Process.h>
 
 #define KR_OSTREAM KR_APP(0)
 #define KR_SB      KR_APP(1)
@@ -134,6 +136,21 @@ main(void)
   printLimits();
 
   result = capros_key_destroy(KR_SBNL);
+  ckOK
+
+  // Make a new sub-bank and test destroyBankAndSpace.
+  kprintf(KR_OSTREAM, "Creating sub bank 2.\n");
+  result = capros_SpaceBank_createSubBank(KR_BANK, KR_SB);
+  ckOK
+
+  result = capros_ProcCre_createProcess(KR_CREATOR, KR_SB, KR_TEMP0);
+  ckOK
+  // Ensure it's prepared.
+  result = capros_Process_swapKeyReg(KR_TEMP0, KR_SELF, KR_TEMP0, KR_VOID);
+  ckOK
+
+  kprintf(KR_OSTREAM, "Destroying sub bank 2 and space.\n");
+  result = capros_SpaceBank_destroyBankAndSpace(KR_SB);
   ckOK
 
   kprintf(KR_OSTREAM, "Done\n");
