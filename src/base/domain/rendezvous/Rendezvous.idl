@@ -1,0 +1,19 @@
+package capros;
+
+/*
+A Rendezvous object has two facets, RendezvousCall and RendezvousGetCaller.
+
+When RendezvousCall is called (with any order code),
+the Rendezvous object stores the order code, first passed key,
+and resume key to the caller. 
+
+When RendezvousGetCaller.get is called, the operation waits until
+RendezvousCall has been called, then returns the stored
+order code, first passed key, and resume key to the caller.
+
+RendezvousCall has no specific IDL because the values returned
+are under the control of the program that receives the resume key.
+ */
+interface RendezvousGetCaller extends key {
+  void get(out unsigned long code, out key passedCap, out key resumeCap);
+};

@@ -61,6 +61,7 @@ DIRS+=loghttp
 DIRS+=mutex
 DIRS+=nfile
 DIRS+=pipe
+DIRS+=rendezvous
 DIRS+=sigmux
 DIRS+=supernode
 DIRS+=swca
