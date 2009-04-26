@@ -421,6 +421,8 @@ driver_main(void)
 {
   result_t result;
 
+  assert(maxReadChars <= capros_TCPSocket_maxReceiveLength);
+
   result = capros_Number_get(KR_IPAddrPortNum, &serialPortNum, &TCPPortNum, &IPAddress);
   assert(result == RC_OK);
 
