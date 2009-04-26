@@ -23,6 +23,8 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include <domain/CMME.h>
+
 dynprotospace = ro small program LIBDIR "dyncmmeprotospace";
 
 /* CMME programs are loaded with code at 0x1000 and data at 0x00c00000.
@@ -31,17 +33,18 @@ dynprotospace = ro small program LIBDIR "dyncmmeprotospace";
 
 /* Set up a constructor for a program using the
 CapROS Memory-Mapping Environment. */
-#define DYNCMME_CONSTRUCTOR(dname, prog) \
-dname##_prog = program segtree LIBDIR #prog ; \
-dname##_pc = symbol LIBDIR #prog _start; \
+#define DYNCMME_CONSTRUCTOR(dname, progname, sym) \
+dname##_prog = program segtree progname ; \
+dname##_pc = symbol progname _start; \
 MAKE_VIRTUAL_COPIER_SEG(dname##vcsk, dname##_prog[3]); \
 BOOT_CONSTRUCTOR(dname##_c, dname) \
 PROD_SPACE(dname##_c) = dynprotospace; \
 PROD_PC(dname##_c) = number(0); /* well-known */ \
-PROD_CONSTIT(dname##_c, , KC_OSTREAM) = misc Console; \
+PROD_SYM(dname##_c) = number(sym); \
 PROD_CONSTIT(dname##_c, , KC_TEXT) = ro dname##_prog[0]; \
 PROD_CONSTIT(dname##_c, , KC_DATAVCSK) = dname##vcsk_c; \
 PROD_CONSTIT(dname##_c, , KC_INTERPRETERSPACE) = dynprotospace; \
-PROD_CONSTIT(dname##_c, , KC_STARTADDR) = dname##_pc;
+PROD_CONSTIT(dname##_c, , KC_STARTADDR) = dname##_pc; \
+PROD_CONSTIT(dname##_c, , KC_OSTREAM) = misc Console;
 
 #endif //__DYNCMME_MAP_
