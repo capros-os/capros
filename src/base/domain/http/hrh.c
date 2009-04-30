@@ -21,12 +21,143 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+#include "http.h"
+
+#include <stddef.h>
+#include <stdlib.h>
+#include <string.h>
+
+#ifndef SELF_TEST
+
+#include <eros/target.h>
+#include <idl/capros/key.h>
+#include <idl/capros/HTTPRequestHandler.h>
+
+#endif // SELF_TEST
+
+#ifndef SELF_TEST
+
+/* Tuning parameters */
+
+/* Minimum size of buffer for headers from a HTTPRequestHandler */
+#define HEADER_BUF_SIZE 2048
+
+char *headerBuffer = NULL;
+int headerBufferLength = 0;
+
+void
+freeBuffer(void)
+{
+  if (headerBuffer) {
+    free(headerBuffer);
+    headerBuffer = NULL;
+    headerBufferLength = 0;
+  }
+}
+
+/** transferHeaders - Transfer headers from the HTTPRequestHandler to the 
+ *                    connection.
+ */
 static int
+transferHeaders(ReaderState *rs, result_t (*getProc)(cap_t , uint32_t,
+						     uint32_t *, uint8_t *)) {
+/* Get additional headers from the handler */
+/* We have to stand on our heads and pat our tummies since we can't
+   just stream the data to the connection. There is not relation between
+   the headers and the chunks of data we get from the handler. Since I 
+   (wsf) can't really test this code, the way most likely to work is to
+   get all the data, and then format it and send it to the connection */
+  
+  char *b = headerBuffer;
+  int bl = headerBufferLength;
+  int ln, lv;
+  result_t rc;
+  uint32_t headerLength;
+ 
+  while (1) {
+    // bl has buffer space left.
+    while (bl > 0) {
+      rc = getProc(KR_FILE, bl, &headerLength, (unsigned char *)b);
+      DEBUG(http) DBGPRINT(DBGTARGET, "HTTP: got headers rc=%#x hl=%d\n",
+                           rc, headerLength);
+      if (RC_capros_key_UnknownRequest == rc)	// this means no headers
+        goto gotHeaders;
+      if (RC_OK != rc) {
+        DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: getProc rc=%#x\n", rc);
+	/* Handler had problems, just die */
+	return 0;
+      }
+      if (0 == headerLength) goto gotHeaders;
+      b += headerLength;
+      bl -= headerLength;
+    }
+    bl = headerBufferLength - bl;    /* Amount in the buffer */
+    if (! headerBufferLength)
+      headerBufferLength = HEADER_BUF_SIZE;
+    else
+      headerBufferLength *= 2;      /* Size of new buffer, twice old size */
+    b = malloc(headerBufferLength);
+    memcpy(b, headerBuffer, bl);  /* Copy what we have to new buffer */
+    free(headerBuffer);           /* Free old */
+    headerBuffer = (char *)b;     /* Point at start of all the headers */
+    b += bl;                      /* Place for next byte of header data */
+    bl = headerBufferLength - bl; /* Len left is (new len - what we got) */
+  }
+
+gotHeaders:
+  /* Now put them out as headers */
+  bl = b - headerBuffer;
+  b = headerBuffer;
+#define getByte(p) (*(unsigned char *)(p))
+  while (bl) {
+    if (bl < 3) {		// too small even for the length bytes
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bl=%d b=%#x\n", bl, b);
+      return 0;
+    }
+    ln = getByte(b);
+    lv = (getByte(b+1) << 8) + getByte(b+2);
+    bl -= ln +lv + 3;
+    if (bl < 0) {
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bl=%d b=%#x ln=%d lv=%d\n",
+                             bl, b, ln, lv);
+      return 0;
+    }
+    
+    b += 3;
+    writeSSL(rs, b, ln);	/* Write it to connection */
+    b += ln;
+    writeSSL(rs, ": ", 2);                /* Write colon and space */
+    writeSSL(rs, b, lv);	/* Write the value */
+    b += lv;
+    writeSSL(rs, "\r\n", 2);              /* Finish with a CRLF */
+  }
+  return 1;
+}
+
+// @return is -1 if an error occured, 0 at EOF, otherwise length read.
+static int
+readResponseBody(void * buf, int buflen)
+{
+  result_t rc;
+  uint32_t lengthOfBodyData;
+  rc = capros_HTTPRequestHandler_getResponseBody(KR_FILE, 
+		 buflen, &lengthOfBodyData,
+		 (unsigned char *)buf);
+  DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: got body rc=%#x len=%d\n",
+                           rc, lengthOfBodyData);
+  if (RC_OK != rc)
+    return -1;
+  return lengthOfBodyData;
+}
+#endif
+
+int
 handleHTTPRequestHandler(ReaderState * rs,
   ReadPtrs * rp,
   int methodIndex,
   int headersLength,
   unsigned long long contentLength,
+  unsigned long theSendLimit,
   int expect100
   )
 {
@@ -34,6 +165,7 @@ handleHTTPRequestHandler(ReaderState * rs,
   writeStatusLine(rs, 500);
   writeMessage(rs, "lookUpSwissNumber gave HTTPRequestHandler response",
 		   methodIndex==1);
+  return 1;
 #else
   result_t rc;
   TREENODE *node;
@@ -53,22 +185,22 @@ handleHTTPRequestHandler(ReaderState * rs,
   capros_HTTPRequestHandler_TransferEncoding bodyTransferEncoding;      
   char cl[128];       /* For generating a content length header */
 
-  for (node = tree_min(tree); 
-	   node != TREE_NIL; 
-	   node = tree_succ(node)) {
-	kl = strlen(node->key);
-	if ( (kl==17 && memcmpci(node->key, "Transfer Encoding", kl)==0)) {
-	  continue;  /* Skip the transfer encoding header */
-	}
-	/* We checked the header name length was < 256 when building the tree */
-	*bp++ = kl & 0xff;
-	vl = strlen(node->value);
-	*bp++ = (vl >> 8) &0xff;
-	*bp++ = vl & 0xff;
-	memcpy(bp, node->key, kl);
-	bp += kl;
-	memcpy(bp, node->value, vl);
-	bp += kl;
+  for (node = tree_min(rqHdrTree); 
+       node != TREE_NIL; 
+       node = tree_succ(node)) {
+    kl = strlen(node->key);
+    if ( (kl==17 && memcmpci(node->key, "Transfer Encoding", kl)==0)) {
+      continue;  /* Skip the transfer encoding header */
+    }
+    /* We checked the header name length was < 256 when building the tree */
+    *bp++ = kl & 0xff;
+    vl = strlen(node->value);
+    *bp++ = (vl >> 8) &0xff;
+    *bp++ = vl & 0xff;
+    memcpy(bp, node->key, kl);
+    bp += kl;
+    memcpy(bp, node->value, vl);
+    bp += kl;
   }
   bufend = bp;
 
@@ -76,15 +208,15 @@ handleHTTPRequestHandler(ReaderState * rs,
   DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: sending headers\n");
   bp = (unsigned char *)headerBuffer;
   while (bufend - bp) {
-	uint32_t len = (bufend-bp < theSendLimit ? bufend-bp : theSendLimit);
-  	rc = capros_HTTPRequestHandler_headers(KR_FILE, len, bp, &theSendLimit);
-	if (RC_OK != rc) {
+    uint32_t len = (bufend-bp < theSendLimit ? bufend-bp : theSendLimit);
+    rc = capros_HTTPRequestHandler_headers(KR_FILE, len, bp, &theSendLimit);
+    if (RC_OK != rc) {
       DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: RH_headers got rc=%#x\n", rc);
-	  writeStatusLine(rs, 500);
-	  writeMessage(rs, "Bad HTTPRequestHandler.headers response.",
-		   methodIndex==1);
-	  return 0;
-	}
+      writeStatusLine(rs, 500);
+      writeMessage(rs, "Bad HTTPRequestHandler.headers response.",
+                   methodIndex==1);
+      goto errorExit;
+    }
     bp += len;
   }
 
@@ -99,13 +231,13 @@ handleHTTPRequestHandler(ReaderState * rs,
 	  writeMessage(rs,
 		   "Bad HTTPRequestHandler.getContinueStatus response.",
 		   methodIndex==1);
-	  return 0;
+	  goto errorExit;
 	}
 	writeStatusLine(rs, statusCode); 
 	if (statusCode != 100) {
 	  writeMessage(rs, "HTTPRequestHandler response for 100-continue.",
 		   methodIndex==1);
-	  return 0;
+	  goto errorExit;
 	}
   }
 
@@ -120,7 +252,7 @@ handleHTTPRequestHandler(ReaderState * rs,
 	  /* Network I/O error */
           DEBUG(errors)
             DBGPRINT(DBGTARGET, "HTTP:%d: readExtend failed\n", __LINE__);
-	  return 0; /* Kill the connection */
+	  goto errorExit; /* Kill the connection */
 	}
 	len = rp->last - rp->first;
 	if (contentLength < len) len = contentLength;
@@ -133,7 +265,7 @@ handleHTTPRequestHandler(ReaderState * rs,
 	if (RC_OK != rc) {  /* handler error */
 	  writeStatusLine(rs, 500);
 	  writeMessage(rs, "HTTPRequestHandler error on body.", 0);
-	  return 0;     /* Need to get back in sync with client */
+	  goto errorExit;     /* Need to get back in sync with client */
 	}
 	contentLength -= len;
 	readConsume(rs, rp->first+len);
@@ -190,7 +322,7 @@ handleHTTPRequestHandler(ReaderState * rs,
 		     capros_HTTPRequestHandler_getResponseHeaderData))
     /* Error. We've already reported a status, so we can't give 500. 
 	   just zap the circuit */
-	return 0;
+	goto errorExit;
   writeSSL(rs, "\r\n", 2);              /* Finish headers with blank line */
 
   // Transfer the response body.
@@ -201,12 +333,12 @@ handleHTTPRequestHandler(ReaderState * rs,
     switch (bodyTransferEncoding) {
     case capros_HTTPRequestHandler_TransferEncoding_identity:
       if (! sendUnchunked(rs, &readResponseBody))	// write error
-        return 0; /* Kill the connection */
+        goto errorExit; /* Kill the connection */
       break;
     case capros_HTTPRequestHandler_TransferEncoding_chunked:
       // Send chunked data.
       if (! sendChunked(rs, &readResponseBody))	// write error
-        return 0; /* Kill the connection */
+        goto errorExit; /* Kill the connection */
       // Send trailers.
       DEBUG(resource)
         DBGPRINT(DBGTARGET, "HTTP: getting trailer headers\n");
@@ -215,15 +347,20 @@ handleHTTPRequestHandler(ReaderState * rs,
 		     capros_HTTPRequestHandler_getResponseTrailer))
         /* Error. We've already reported a status, so we can't give 500. 
 	   just zap the circuit */
-        return 0;
+        goto errorExit;
       // Send CRLF after chunked body and any trailer headers.
       if (! writeString(rs, "\r\n") )	// write error
-        return 0;
+        goto errorExit;
     case capros_HTTPRequestHandler_TransferEncoding_none:
       break;
     }	// end of switch
   }	// end of if not HEAD
   DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: resource done\n");
-#endif
+  freeBuffer();
   return 1;
+
+errorExit:
+  freeBuffer();
+  return 0;
+#endif
 }

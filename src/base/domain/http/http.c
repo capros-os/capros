@@ -21,17 +21,9 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-/* Tuning parameters */
-
-/* Minimum size of buffer for headers from a HTTPRequestHandler */
-#define HEADER_BUF_SIZE 2048
-
-
 #include <stddef.h>
 #ifndef SELF_TEST
 #include <eros/target.h>
-#include <eros/Invoke.h>
-#include <domain/Runtime.h>
 #include <domain/assert.h>
 #include <domain/ProtoSpaceDS.h>
 
@@ -42,7 +34,6 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Range.h>
 #include <idl/capros/HTTP.h>
 #include <idl/capros/HTTPResource.h>
-#include <idl/capros/HTTPRequestHandler.h>
 #include <idl/capros/TCPSocket.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Discrim.h>
@@ -53,10 +44,9 @@ Approved for public release, distribution unlimited. */
 #include <domain/CMME.h>
 #include <domain/CMMEMaps.h>
 
-#include <domain/domdbg.h>
-
 /* Constituent node contents are defined in HTTP.idl. */
 #endif
+#include "http.h"
 
 /* OpenSSL stuff */
 #include <openssl/ssl.h>
@@ -64,7 +54,6 @@ Approved for public release, distribution unlimited. */
 #include <openssl/err.h>
 
 #ifdef SELF_TEST
-#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
@@ -74,23 +63,12 @@ Approved for public release, distribution unlimited. */
 #include <fcntl.h>
 //typedef unsigned long int uint32_t;
 typedef uint32_t capros_RTC_time_t;
-#define DBGPRINT fprintf
-#define DBGTARGET stdout
 int listen_socket;
 int sock;
 typedef struct {
   int snd_code;
 } Message;
 #else
-#define DBGPRINT kprintf
-#define DBGTARGET KR_OSTREAM
-
-/* Key registers */
-#define KR_SOCKET     KR_CMME(0) /* The socket for the connection */
-#define KR_RTC        KR_CMME(1) /* The RealTime Clock key */
-#define KR_DIRECTORY  KR_CMME(2) /* The IndexedKeyStore aka file directory */
-#define KR_FILESERVER KR_CMME(3) /* The file creator object */
-#define KR_FILE       KR_CMME(4) /* The "file" key */
 
 unsigned long __rt_stack_size = 6*4096;
 
@@ -144,37 +122,6 @@ char *defaultPageData =
 "    http.send(null);\r\n"
 "}\r\n";
 
-/* Define sizes of stuff */
-#define HTTP_BUFSIZE 4096
-
-/* DEBUG stuff */
-#define dbg_init	0x01   /* debug initialization logic */
-#define dbg_sslinit     0x02   /* debug SSL/TLS session set up */
-#define dbg_netio       0x04   /* debug network I/O operations */
-#define dbg_http        0x08   /* debug HTTP transactions */
-#define dbg_file        0x10   /* debug "file" I/O */
-#define dbg_errors      0x20
-#define dbg_resource	0x40	// HTTPResource interactions
-/* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_init | dbg_sslinit | dbg_netio| dbg_http | dbg_file | dbg_errors | dbg_resource )
-
-#define CND_DEBUG(x) (dbg_##x & dbg_flags)
-#define DEBUG(x) if (CND_DEBUG(x))
-
-
-/* Internal object interfaces */
-typedef struct {
-  BIO *network;        /* The BIO to move data between ssl and the network */
-  SSL *plain;          /* The SSL object to pass plain text to/from */
-  int current;         /* Index of the current character in the buffer */
-  int last;            /* Index of the last character in the buffer+1 */
-  char buf[HTTP_BUFSIZE]; /* Buffered characters (if any) */
-} ReaderState;
-
-typedef struct {
-  char *first;         /* First available char from SSL */
-  char *last;          /* Last+1 available character from SSL */
-} ReadPtrs;
 
 /* Internal routine prototypes */
 static uint32_t connection(void);
@@ -182,8 +129,6 @@ static int setUpContext(SSL_CTX *ctx);
 static void print_SSL_error_queue(void);
 static void push_ssl_data(BIO *network_bio);
 void readInit(SSL *ssl, BIO *network_bio, ReaderState *rs);
-static int readExtend(ReaderState *rs, ReadPtrs *rp);
-static void readConsume(ReaderState *rs, char *first);
 static int readConsumeSeps(ReaderState *rs, ReadPtrs *rp, char *first, 
 			   char *sepStr);
 static void readSkipDelim(ReaderState *rs, ReadPtrs *rp);
@@ -191,11 +136,6 @@ static int readToken(ReaderState *rs, ReadPtrs *rp, char *sepStr);
 static int process_http(SSL *ssl, BIO *network_bio, ReaderState *rs);
 static char *findSeparator(ReadPtrs *rp, char *sepStr);
 static int compareToken(ReadPtrs *rp, const char *list[], int ci);
-static int memcmpci(const char *a, const char *b, int len);
-static int writeSSL(ReaderState *rs, void *data, int len);
-static int writeStatusLine(ReaderState *rs, int statusCode);
-static int writeString(ReaderState *rs, char *str);
-static int writeMessage(ReaderState *rs, char *msg, int isHEAD);
 static int lookUpSwissNumber(char *swissNumber, int methodCode,
 			     int lengthOfPath, char *pathAndQuery);
 static int closeFile(void);
@@ -205,11 +145,6 @@ static int readFile(void *buf, int len);
 static int writeFile(void *buf, int len);
 static void scanConsumeSeps(ReadPtrs *rp, char *sepStr);
 static void scanToken(ReadPtrs *rp, char *sepStr);
-#ifndef SELF_TEST
-static int
-transferHeaders(ReaderState *rs, result_t (*getProc)(cap_t , uint32_t,
-						     uint32_t *, uint8_t *));
-#endif
 
 
 /* RB Tree stuff */
@@ -229,18 +164,8 @@ typedef int bool;
 #include <domain/assert.h>
 #endif
 
-#define TREEKEY char*
-typedef struct Treenode {
-  struct Treenode *left;
-  struct Treenode *right;
-  struct Treenode *parent;
-  int color;
-  TREEKEY key;
-  char *value;
-} Treenode;
-#define TREENODE Treenode
-#define RB_TREE
-#include <rbtree/tree.h>
+TREENODE * rqHdrTree = TREE_NIL; // A rbtree with the request headers and values
+
 int tree_compare(TREENODE *a, TREENODE *b) {
   return tree_compare_key(a, b->key);
 }
@@ -643,9 +568,6 @@ char *authority = NULL;
 char *pathandquery = NULL;
 char *swissNumber = NULL;
 char *headerName = NULL;
-char *headerBuffer = NULL;
-int headerBufferLength = 0;
-TREENODE *tree = TREE_NIL;   /* A rbtree to hold the headers and values */
 
 static void
 freeStorage(void) {
@@ -665,13 +587,8 @@ freeStorage(void) {
     free(headerName);
     headerName = NULL;
   }
-  if (headerBuffer) {
-    free(headerBuffer);
-    headerBuffer = NULL;
-    headerBufferLength = 0;
-  }
-  free_tree(tree);
-  tree = TREE_NIL;
+  free_tree(rqHdrTree);
+  rqHdrTree = TREE_NIL;
 }
 
 int
@@ -710,42 +627,22 @@ sendChunked(ReaderState * rs, int (*readProc)(void *, int))
   }
 }
 
-#ifndef SELF_TEST
-// @return is -1 if an error occured, 0 at EOF, otherwise length read.
-int
-readResponseBody(void * buf, int buflen)
-{
-  result_t rc;
-  uint32_t lengthOfBodyData;
-  rc = capros_HTTPRequestHandler_getResponseBody(KR_FILE, 
-		 buflen, &lengthOfBodyData,
-		 (unsigned char *)buf);
-  DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: got body rc=%#x len=%d\n",
-                           rc, lengthOfBodyData);
-  if (RC_OK != rc)
-    return -1;
-  return lengthOfBodyData;
-}
-#endif
-
+#define MethodEntry(name) [Method_##name] = #name
 const char * methodList[] = {
-  "OPTIONS", "GET", "HEAD", "POST", "PUT", "DELETE",
-  "TRACE", "CONNECT", NULL};
-#define Method_OPTIONS 0
-#define Method_GET 1
-#define Method_HEAD 2
-#define Method_POST 3
-#define Method_PUT 4
-#define Method_DELETE 5
-#define Method_TRACE 6
-#define Method_CONNECT 7
+  MethodEntry(OPTIONS),
+  MethodEntry(GET),
+  MethodEntry(HEAD),
+  MethodEntry(POST),
+  MethodEntry(PUT),
+  MethodEntry(DELETE),
+  MethodEntry(TRACE),
+  MethodEntry(CONNECT),
+  NULL };
 
   /* Used internally to send a default page of Javascript when there is
      no Swiss number in the query portion of the request */
 #define Method_GET_DEFAULT_PAGE 8
 #define Method_HEAD_DEFAULT_PAGE 9
-
-#include "hrh.c"////
 
 /** process_http - Process the HTTP protocol available on the ssl connection 
  *
@@ -1077,7 +974,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
     memcpy(value, rp.first, valuelen);
     value[valuelen] = 0;
 
-    if (TREE_NIL == existing) existing = tree_find(tree, headerName);
+    if (TREE_NIL == existing) existing = tree_find(rqHdrTree, headerName);
     if (TREE_NIL == existing ) {
       /* Insert the result into the RB tree */
       node = malloc(sizeof(TREENODE));
@@ -1089,7 +986,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       node->key = headerName;
       headerName = NULL;       /* Don't free active entry */
       node->value = value;
-      tree = tree_insert(tree, node);
+      rqHdrTree = tree_insert(rqHdrTree, node);
     } else {
       /* Append the data to the existing entry */
       char *newValue = malloc(strlen(existing->value)+strlen(value)+1);
@@ -1120,7 +1017,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   // We must handle Connection: close, and close the connection after 
   // our response.
   {
-    TREENODE *node = tree_find(tree, "Connection");
+    TREENODE *node = tree_find(rqHdrTree, "Connection");
     ReadPtrs p;
     
     if (TREE_NIL != node) {
@@ -1199,7 +1096,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   /* "Expect" */
   // We need to send a interum response of 100 if we get 100-continue
   {
-    TREENODE *node = tree_find(tree, "Expect");
+    TREENODE *node = tree_find(rqHdrTree, "Expect");
     ReadPtrs p;
     
     if (TREE_NIL != node) {
@@ -1294,7 +1191,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   // We need this header for upload length
   {  
     int len;
-    TREENODE *node = tree_find(tree, "Content-length");
+    TREENODE *node = tree_find(rqHdrTree, "Content-length");
     
     if (TREE_NIL != node) {
       len = strlen(node->value);
@@ -1375,7 +1272,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       DEBUG(resource) DBGPRINT(DBGTARGET,
                                "lookUpSwissNumber gave HTTPRequestHandler\n");
       int ok = handleHTTPRequestHandler(rs, &rp, methodIndex,
-                 headersLength, contentLength, expect100);
+                 headersLength, contentLength, theSendLimit, expect100);
       capros_key_destroy(KR_FILE);	// done with the HTTPRequestHandler
       if (!ok) {
         freeStorage();
@@ -1648,7 +1545,7 @@ compareToken(ReadPtrs *rp, const char *list[], int ci) {
  *            in b, +1 if the first different character in a is > the 
  *            corisponding one in b, or 0 if all characters are equal.
  */
-static int
+int
 memcmpci(const char *a, const char *b, int len) {
   int i;
   static const char tt[] = "abcdefghijklmnopqrstuvwxyz";
@@ -1714,8 +1611,8 @@ readInit(SSL *ssl, BIO *network_bio, ReaderState *rs) {
  * @param[in] rs is the ReaderState for this connection.
  * @param[in] first is the first byte in the buffer still needed.
  */
-static void
-  readConsume(ReaderState *rs, char *first) {
+void
+readConsume(ReaderState *rs, char *first) {
   rs->current = first - rs->buf;
 }
 
@@ -1811,7 +1708,7 @@ readSkipDelim(ReaderState *rs, ReadPtrs *rp) {
  *     0 - An ssl read error has been detected. bail out
  *     1 - Data is available in ReadPtrs
  */
-static int
+int
 readExtend(ReaderState *rs, ReadPtrs *rp) {
   int rc;
   
@@ -1880,7 +1777,7 @@ readExtend(ReaderState *rs, ReadPtrs *rp) {
  *
  * @return is 0 if an error occured, otherwise 1
  */
-static int
+int
 writeMessage(ReaderState *rs, char *msg, int isHEAD) {
   char output[256];
   char cl[60];
@@ -1906,7 +1803,7 @@ writeMessage(ReaderState *rs, char *msg, int isHEAD) {
  *
  * @return is 0 if there was an error, otherwise 1
  */
-static int
+int
 writeStatusLine(ReaderState *rs, int statusCode) {
   char str[256];
   const char *reason = "Unknown";
@@ -1978,7 +1875,7 @@ writeStatusLine(ReaderState *rs, int statusCode) {
  *
  * @return is 0 if an error occured, 1 otherwise
  */
-static int
+int
 writeString(ReaderState *rs, char *str) {
   return writeSSL(rs, str, strlen(str));
 }
@@ -1993,7 +1890,7 @@ writeString(ReaderState *rs, char *str) {
  *
  * @return is 0 if an error occured, 1 otherwise
  */
-static int
+int
 writeSSL(ReaderState *rs, void *data, int len) {
   int rc;
   
@@ -2014,88 +1911,6 @@ writeSSL(ReaderState *rs, void *data, int len) {
   }
   return 1;
 }
-
-
-#ifndef SELF_TEST
-/** transferHeaders - Transfer headers from the HTTPRequestHandler to the 
- *                    connection.
- */
-static int
-transferHeaders(ReaderState *rs, result_t (*getProc)(cap_t , uint32_t,
-						     uint32_t *, uint8_t *)) {
-/* Get additional headers from the handler */
-/* We have to stand on our heads and pat our tummies since we can't
-   just stream the data to the connection. There is not relation between
-   the headers and the chunks of data we get from the handler. Since I 
-   (wsf) can't really test this code, the way most likely to work is to
-   get all the data, and then format it and send it to the connection */
-  
-  char *b = headerBuffer;
-  int bl = headerBufferLength;
-  int ln, lv;
-  result_t rc;
-  uint32_t headerLength;
- 
-  while (1) {
-    // bl has buffer space left.
-    while (bl > 0) {
-      rc = getProc(KR_FILE, bl, &headerLength, (unsigned char *)b);
-      DEBUG(http) DBGPRINT(DBGTARGET, "HTTP: got headers rc=%#x hl=%d\n",
-                           rc, headerLength);
-      if (RC_capros_key_UnknownRequest == rc)	// this means no headers
-        goto gotHeaders;
-      if (RC_OK != rc) {
-        DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: getProc rc=%#x\n", rc);
-	/* Handler had problems, just die */
-	return 0;
-      }
-      if (0 == headerLength) goto gotHeaders;
-      b += headerLength;
-      bl -= headerLength;
-    }
-    bl = headerBufferLength - bl;    /* Amount in the buffer */
-    if (! headerBufferLength)
-      headerBufferLength = HEADER_BUF_SIZE;
-    else
-      headerBufferLength *= 2;      /* Size of new buffer, twice old size */
-    b = malloc(headerBufferLength);
-    memcpy(b, headerBuffer, bl);  /* Copy what we have to new buffer */
-    free(headerBuffer);           /* Free old */
-    headerBuffer = (char *)b;     /* Point at start of all the headers */
-    b += bl;                      /* Place for next byte of header data */
-    bl = headerBufferLength - bl; /* Len left is (new len - what we got) */
-  }
-
-gotHeaders:
-  /* Now put them out as headers */
-  bl = b - headerBuffer;
-  b = headerBuffer;
-#define getByte(p) (*(unsigned char *)(p))
-  while (bl) {
-    if (bl < 3) {		// too small even for the length bytes
-      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bl=%d b=%#x\n", bl, b);
-      return 0;
-    }
-    ln = getByte(b);
-    lv = (getByte(b+1) << 8) + getByte(b+2);
-    bl -= ln +lv + 3;
-    if (bl < 0) {
-      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bl=%d b=%#x ln=%d lv=%d\n",
-                             bl, b, ln, lv);
-      return 0;
-    }
-    
-    b += 3;
-    writeSSL(rs, b, ln);	/* Write it to connection */
-    b += ln;
-    writeSSL(rs, ": ", 2);                /* Write colon and space */
-    writeSSL(rs, b, lv);	/* Write the value */
-    b += lv;
-    writeSSL(rs, "\r\n", 2);              /* Finish with a CRLF */
-  }
-  return 1;
-}
-#endif
 
 
 /**
