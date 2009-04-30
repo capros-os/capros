@@ -27,7 +27,19 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <arch-kerninc/IRQ-inline.h>
 #include "arm.h"
 
+//#define IdleTimeTest
+
 #define StackSize 256
+
+#ifdef IdleTimeTest // variables to measure idle time
+#include <kerninc/mach-rtc.h>
+#define IdleSlotTime 2	// seconds
+#define NumIdleTimeSlots 60
+// IdleTimeArray entries hold the number of idle iterations each IdleSlotTime.
+uint32_t IdleTimeArray[NumIdleTimeSlots];
+uint32_t * IdleTimeCursor = &IdleTimeArray[0];
+static uint32_t rtc;
+#endif
 
 void
 IdleActivity_Start(void)
@@ -41,6 +53,16 @@ IdleActivity_Start(void)
   // which is a Bad Thing.
 
   for(;;) {
+#ifdef IdleTimeTest // code to measure idle time
+
+    uint32_t expiration = rtc + IdleSlotTime;
+    while ((rtc = RtcRead()) < expiration)
+      (* IdleTimeCursor) ++;
+    if (++IdleTimeCursor >= &IdleTimeArray[NumIdleTimeSlots])
+      IdleTimeCursor = &IdleTimeArray[0];	// wrap
+  
+#else
+
 #ifndef NDEBUG
     extern void CheckExceptionHandlerStacks(void);
     CheckExceptionHandlerStacks();
@@ -58,6 +80,7 @@ IdleActivity_Start(void)
     printf("I\b");
 #else
     __asm__ ("mcr p15,0,r0,c7,c0,4");	// wait for interrupt
+#endif
 #endif
   }
 }

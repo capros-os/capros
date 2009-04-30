@@ -1077,58 +1077,51 @@ extern uint32_t *KernelProfileTable;
 
 
 #ifdef OPTION_KERN_STATS
-#define DB64(x) ((uint32_t)(x>>32)), (uint32_t)(x)
 
 void
 db_kstat_show_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 {
-  db_printf("nDepend   0x%08x%08x  "
-	    "nDepMerge 0x%08x%08x\n"
+  db_printf("nDepend   %7llu  "
+	    "nDepMerge %7llu  "
+	    "nDepInval %7llu  "
+	    "nDepMakRO %7llu\n"
+	    "nDepTrkRf %7llu  "
+	    "nDepTrkDr %7llu  "
+	    "nDepZap   %7llu\n"
 
-	    "nDepInval 0x%08x%08x  "
-	    "nDepMakRO %#16llx  "
-	    "nDepTrkRf %#16llx  "
-	    "nDepTrkDr %#16llx  "
-	    "nDepZap   0x%08x%08x\n"
+	    "nPfTraps  %7llu  "
+	    "nPfAccess %7llu  "
+	    "nWalkSeg  %7llu  "
+	    "nWalkLoop %7llu\n"
 
-	    "nInvoke   0x%08x%08x  "
-	    "nInvKpr   0x%08x%08x\n"
+	    "nKeyPrep  %7llu  "
+	    "nInter    %7llu\n"
 
-	    "nPfTraps  0x%08x%08x  "
-	    "nPfAccess 0x%08x%08x\n"
+	    "nInvoke   %7llu  "
+	    "nInvKpr   %7llu  "
+	    "nGateJmp  %7llu  "
+	    "nInvRetry %7llu\n",
 
-	    "nWalkSeg  0x%08x%08x  "
-	    "nWalkLoop 0x%08x%08x\n"
-
-	    "nKeyPrep  0x%08x%08d  "
-	    "nInter    0x%08x%08d\n"
-
-	    "nGateJmp  0x%08x%08x  "
-	    "nInvRetry 0x%08x%08x\n",
-
-	    DB64(KernStats.nDepend),
-	    DB64(KernStats.nDepMerge),
-
-	    DB64(KernStats.nDepInval),
+	    KernStats.nDepend,
+	    KernStats.nDepMerge,
+	    KernStats.nDepInval,
             KernStats.nDepMakeRO,
             KernStats.nDepTrackRef,
             KernStats.nDepTrackDirty,
-	    DB64(KernStats.nDepZap),
+	    KernStats.nDepZap,
 
-	    DB64(KernStats.nInvoke),
-	    DB64(KernStats.nInvKpr),
+	    KernStats.nPfTraps,
+	    KernStats.nPfAccess,
+	    KernStats.nWalkSeg,
+	    KernStats.nWalkLoop,
 
-	    DB64(KernStats.nPfTraps),
-	    DB64(KernStats.nPfAccess),
+	    KernStats.nKeyPrep,
+	    KernStats.nInter,
 
-	    DB64(KernStats.nWalkSeg),
-	    DB64(KernStats.nWalkLoop),
-
-	    DB64(KernStats.nKeyPrep),
-	    DB64(KernStats.nInter),
-
-	    DB64(KernStats.nGateJmp),
-	    DB64(KernStats.nInvRetry)
+	    KernStats.nInvoke,
+	    KernStats.nInvKpr,
+	    KernStats.nGateJmp,
+	    KernStats.nInvRetry
 	    );
   KernStats_PrintMD();
 }
