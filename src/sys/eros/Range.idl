@@ -45,6 +45,9 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
    * an object that was allocated from this range.
    * Also resets the state of the object to a null state
    * (zero data, void capabilities).
+
+     Raises RangeErr if key is not a Page, Node, Forwarder, or GPT key,
+     or it is opaque, or the object is not in this range.
    */
   void rescind(capros.key key);
 
