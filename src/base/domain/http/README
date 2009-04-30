@@ -71,9 +71,23 @@ happened to its private key? Moral of the story: if security is important,
 limit your certificate authorities.)
 
 
+Using http
+
+The client computer must have the Common Name of the server computer
+in its /etc/hosts file, otherwise curl will not work.
+
+When accessing the server from a browser for the first time, you may need
+to instruct the browser to accept the server's self-signed certificate. 
+
+Access a web page using a URL in the form:
+    https://serverCommonName[:serverPort]/foo.html?s=pageKey
+In the above, "foo" is ignored, but ".html" tells the browser to display
+as HTML.
+serverPort defaults to the normal SSL port, 443.
+
 The command:
 
-  curl --cacert cacert.pem -T test https://localhost:5001/notafile?4321
+  curl --cacert cacert.pem -T test https://serverCommonName[:serverPort]/notafile?4321
 
 Will upload the local file "test" to the CapROS https server where it will
 be stored in the directory as 4321. Note that cacert.pem is a copy of the
@@ -82,7 +96,7 @@ server's self-signed certificate.
 
 Similarly, the command:
 
-  curl --cacert cacert.pem -o local https://localhost:5001/notafile?1234
+  curl --cacert cacert.pem -o local https://serverCommonName[:serverPort]/notafile?1234
 
 Will fetch the CapROS file 1234 and place it in "local".
 
@@ -94,7 +108,7 @@ is not recommended because it can reveal the Swiss number to an imposter.
 
 Files may also be downloaded using a https uri in Firefox:
 
-https://localhost:5001/fubar?1234
+https://serverCommonName[:serverPort]/fubar?1234
 
 Will fetch the CapROS file 1234 and offer to store it locally under the
 name fubar.

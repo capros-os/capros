@@ -159,10 +159,13 @@ interface HTTPRequestHandler extends key {
   bodyTransferEncoding will be used as the Transfer-Encoding for the
   response body.
   If bodyTransferEncoding is none, there is no response body.
-    (In this case the statusCode should be 204 (No Content).)
+    (In this case the statusCode should be 1xx, 204 (No Content),
+    or 304(Not Modified).)
   If bodyTransferEncoding is identity, contentLength is the size of the
   response body.
   For any other value of bodyTransferEncoding, contentLength is ignored.
+
+  Set the bodyTransferEncoding regardless of whether the method is HEAD.
   */
   void getResponseStatus(out unsigned short statusCode,
                          out TransferEncoding bodyTransferEncoding,

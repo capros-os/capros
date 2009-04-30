@@ -145,6 +145,28 @@ handleHTTPRequestHandler(ReaderState * rs,
 							&bodyTransferEncoding,
 							&contentLength);
   assert(RC_OK == rc);	// FIXME
+  if (statusCode == 204		// no content
+      || statusCode == 304	// not modified
+      || statusCode < 200 ) {	// informational
+    // These MUST NOT have a body.
+    if (bodyTransferEncoding
+        != capros_HTTPRequestHandler_TransferEncoding_none) {
+      DEBUG(errors) DBGPRINT(DBGTARGET,
+                      "HTTP: Response status %d but xfer encoding=%d\n",
+                      statusCode, bodyTransferEncoding);
+      bodyTransferEncoding = capros_HTTPRequestHandler_TransferEncoding_none;
+    }
+  } else {
+    // These MUST have a body (not sent if HEAD)
+    if (bodyTransferEncoding 
+        == capros_HTTPRequestHandler_TransferEncoding_none) {
+      DEBUG(errors) DBGPRINT(DBGTARGET,
+                      "HTTP: Response xfer encoding is none but status=%d\n",
+                      statusCode);
+      bodyTransferEncoding = capros_HTTPRequestHandler_TransferEncoding_identity;
+      contentLength = 0;
+    }
+  }
   writeStatusLine(rs, statusCode);
 
   // Generate response headers.
@@ -153,13 +175,13 @@ handleHTTPRequestHandler(ReaderState * rs,
     DEBUG(errors) DBGPRINT(DBGTARGET,
                     "HTTP: got xfer encoding %u\n", bodyTransferEncoding);
   case capros_HTTPRequestHandler_TransferEncoding_identity:
-	sprintf(cl, "Content-Length: %ld\r\n", contentLength);
-	writeString(rs, cl);
-	break;
+    sprintf(cl, "Content-Length: %ld\r\n", contentLength);
+    writeString(rs, cl);
+    break;
   case capros_HTTPRequestHandler_TransferEncoding_chunked:
-	writeString(rs, "Transfer-Encoding: chunked\r\n");
+    writeString(rs, "Transfer-Encoding: chunked\r\n");
   case capros_HTTPRequestHandler_TransferEncoding_none:
-	break;
+    break;
   }
   //TODO generate a date header
 
@@ -169,7 +191,7 @@ handleHTTPRequestHandler(ReaderState * rs,
     /* Error. We've already reported a status, so we can't give 500. 
 	   just zap the circuit */
 	return 0;
-  writeSSL(rs, "\r\n", 2);              /* Finish with blank line */
+  writeSSL(rs, "\r\n", 2);              /* Finish headers with blank line */
 
   // Transfer the response body.
   DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: getting body, bte=%d\n",
