@@ -22,6 +22,7 @@
 /* This material is based upon work supported by the US Defense Advanced
    Research Projects Agency under Contract No. W31P4Q-06-C-0040. */
 
+#include <domain/Runtime.h>
 /*
 #include <primebank.map>
 #include <ipltool.map>
@@ -58,6 +59,7 @@ call space = call.seg;
 call schedule = sched(8);	/* normal */
 call symtab = number("call");
 
+call key reg KR_SELF = call;
 call key reg 8 = start echo 0;
 call key reg 9 = misc Sleep;
 call key reg 10 = misc Console;
