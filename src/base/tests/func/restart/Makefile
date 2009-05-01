@@ -33,7 +33,7 @@ OPTIM=-O
 INC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
 
 RESTART_CKPT=-p
-NPRANGESIZE=470
+NPRANGESIZE=520
 
 include $(EROS_SRC)/build/make/makerules.mk
 
