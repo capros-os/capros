@@ -46,7 +46,7 @@ include $(EROS_SRC)/build/make/makerules.mk
 
 all: $(TARGETS) $(DRIVER_TARGETS) $(BUILDDIR)/ds2490_ids.o
 
-$(BUILDDIR)/ds2490: $(DYNDRVSTART) $(DS2490_OBJECTS) $(LIBS) $(DRIVERDEPS)
+$(BUILDDIR)/ds2490: $(DS2490_OBJECTS) $(LIBS) $(DYNDRIVERDEPS)
 	$(DYNDRIVERLINK) $(DS2490_OBJECTS) $(LIBS) $(DRIVERLIBS) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled2490

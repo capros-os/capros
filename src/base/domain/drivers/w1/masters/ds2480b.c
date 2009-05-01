@@ -1114,7 +1114,10 @@ execute: ;
     }
     // Done postprocessing this segment.
     if (numInputPairsProcessed < numInputPairsInBuf) {
-      assert(!"implemented");	// extra characters in inBuf
+      DEBUG(errors) kprintf(KR_OSTREAM,
+        "%s:%d: %d extra characters in inBuf\n",
+        __FILE__, __LINE__, numInputPairsInBuf - numInputPairsProcessed);
+      goto terminateBusError;
     }
 
     continue;	// process any other segments
@@ -1215,7 +1218,7 @@ DS2480B_Init(void)
   while (triesLeft--) {
     if (! SerialOut_Init(4800))
       goto restarted;
-    // A NUL at 4800 baud is seen as a break at 9600 baud.
+    // A NUL at 4800 baud is seen as a break at 9600 baud or higher.
     wp(0);
     if (! serial_sendData())
       goto restarted;
