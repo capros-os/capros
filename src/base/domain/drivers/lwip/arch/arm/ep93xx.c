@@ -427,8 +427,9 @@ poll_some_more:
 static err_t
 low_level_output(struct netif *netif, struct pbuf *p)
 {
-  assert(p->tot_len <= netif->mtu);
-  assert(netif->mtu <= MAX_PKT_SIZE);
+  // mtu is the max payload size. It does not include the Ethernet header.
+  assert(p->tot_len <= netif->mtu + sizeof(struct eth_hdr));
+  assert(netif->mtu + sizeof(struct eth_hdr) <= MAX_PKT_SIZE);
 
   /* We are forced to copy the data here, because the data may be
   deallocated as soon as we return.
