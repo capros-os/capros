@@ -411,6 +411,17 @@ procLogIntValue(AdapterState * as, int * pv, capros_Node_extAddr_t ks_logs)
                sizeof(rec16), (uint8_t *)&rec16);
     switch (result) {
     default:
+      kprintf(KR_OSTREAM, "%#x\n", result);
+      assert(false);
+    case RC_capros_Logfile_OutOfSequence:	// this should not happen
+      kprintf(KR_OSTREAM, "OOS %#llx\n", rec16.header.id);
+      // Get newest record
+      uint32_t lenGotten;
+      result = capros_Logfile_getPreviousRecord(KR_TEMP0,
+                 capros_Logfile_nullRecordID, sizeof(rec16), (uint8_t *)&rec16,
+                 &lenGotten);
+      assert(result == RC_OK);
+      kprintf(KR_OSTREAM, "prev=%#llx\n", rec16.header.id);
       assert(false);
     case RC_capros_Logfile_Full:
       DEBUG(errors) kprintf(KR_OSTREAM, "SWCA log %u full!\n", slot);
@@ -1235,8 +1246,10 @@ DoMenu(void)
     // Have we timed out?
     int64_t timeToWait = selectTime + selectTimeout - monoNow;
     if (timeToWait <= 0) {	// timed out
+#if 0	// this error is too common to note
       DEBUG(errors) kprintf(KR_OSTREAM, "Selecting %d timed out\n",
                             wantedAdapterNum);
+#endif
       transmittingAdapterNum = ta_NeedFirstSelect;
       if (--selectRetries == 0) {		// too many retries
         DEBUG(errors)
