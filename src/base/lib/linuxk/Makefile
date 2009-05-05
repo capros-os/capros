@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -36,7 +36,6 @@ OPTIM=-O
 DIRS=
 OBJECTS=\
   $(BUILDDIR)/alloc.o \
-  $(BUILDDIR)/archstubs.o \
   $(BUILDDIR)/completion.o \
   $(BUILDDIR)/cpumask.o \
   $(BUILDDIR)/delay.o \
