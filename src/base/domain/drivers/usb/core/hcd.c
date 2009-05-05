@@ -6,7 +6,7 @@
  * (C) Copyright Deti Fliegl 1999
  * (C) Copyright Randy Dunlap 2000
  * (C) Copyright David Brownell 2000-2002
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -997,20 +997,10 @@ doit:
 	if (hcd->self.uses_dma) {
 		if (usb_pipecontrol (urb->pipe)
 			&& !(urb->transfer_flags & URB_NO_SETUP_DMA_MAP))
-			urb->setup_dma = dma_map_single (
-					hcd->self.controller,
-					urb->setup_packet,
-					sizeof (struct usb_ctrlrequest),
-					DMA_TO_DEVICE);
+			BUG();	// URB_NO_SETUP_DMA_MAP is required
 		if (urb->transfer_buffer_length != 0
 			&& !(urb->transfer_flags & URB_NO_TRANSFER_DMA_MAP))
-			urb->transfer_dma = dma_map_single (
-					hcd->self.controller,
-					urb->transfer_buffer,
-					urb->transfer_buffer_length,
-					usb_pipein (urb->pipe)
-					    ? DMA_FROM_DEVICE
-					    : DMA_TO_DEVICE);
+			BUG();	// URB_NO_TRANSFER_DMA_MAP is required
 	}
 
 	status = hcd->driver->urb_enqueue (hcd, ep, urb, mem_flags);
