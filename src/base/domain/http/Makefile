@@ -31,6 +31,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/$(COMPONENT)
 OBJECTS=$(BUILDDIR)/$(COMPONENT).o
 OBJECTS+=$(BUILDDIR)/hrh.o
+OBJECTS+=$(BUILDDIR)/stubs.o
 
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I../openssl/include
 IMGMAP=$(COMPONENT).map
