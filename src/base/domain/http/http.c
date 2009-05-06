@@ -22,7 +22,12 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 #include <stddef.h>
-#ifndef SELF_TEST
+#ifdef SELF_TEST
+typedef int bool;
+#define false 0
+#define true 1
+
+#else
 #include <eros/target.h>
 #include <domain/assert.h>
 #include <domain/ProtoSpaceDS.h>
@@ -156,13 +161,10 @@ static void scanToken(ReadPtrs *rp, char *sepStr);
 #define VERB_FIL DBGTARGET
 #define VERB_PRINTF(x) DBGPRINT x
 #ifdef SELF_TEST
-typedef int bool;
 #define assert(expression)  \
   ((void) ((expression) ? 0 : \
    DBGPRINT(DBGTARGET, "%s:%d: failed assertion `" #expression "'\n", \
             __FILE__, __LINE__ ) ))
-#define false 0
-#define true 1
 #else
 #include <domain/assert.h>
 #endif
@@ -1271,6 +1273,9 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   
   switch (theResourceType) {
   case capros_HTTPResource_RHType_HTTPRequestHandler:
+#ifdef SELF_TEST
+    DBGPRINT(DBGTARGET, "ERROR: RHType == HTTPRequestHandler found\n");
+#else
     {
       DEBUG(resource) DBGPRINT(DBGTARGET,
                                "lookUpSwissNumber gave HTTPRequestHandler\n");
@@ -1282,6 +1287,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
         return 0;
       }
     }	// end of case capros_HTTPResource_RHType_HTTPRequestHandler
+#endif
     break;
   case  capros_HTTPResource_RHType_MethodNotAllowed:
     writeStatusLine(rs, 405); 
