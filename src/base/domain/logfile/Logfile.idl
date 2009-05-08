@@ -36,6 +36,23 @@ interface Logfile extends key raises(OutOfSequence)
     RecordID id;		// monotonic unique ID
   };
 
+  /* For convenience we define here a structure for a log record
+     of 32-bit values. */
+  struct LogRecord32 {
+    Logfile.recordHeader header;
+    long value;
+    unsigned long trailer;
+  };
+
+  /* For convenience we define here a structure for a log record
+     of two 16-bit values. */
+  struct LogRecord16 {
+    Logfile.recordHeader header;
+    short value;
+    short param;
+    unsigned long trailer;
+  };
+
   const unsigned long MaxRecordLength = 4096;
 
   /* Append a record to the log.

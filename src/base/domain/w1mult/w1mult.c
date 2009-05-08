@@ -170,7 +170,7 @@ AddLogRecord16(unsigned int slot,
   int16_t value, int16_t param)
 {
   result_t result;
-  capros_W1Mult_LogRecord16 rec16;
+  capros_Logfile_LogRecord16 rec16;
 
   rec16.header.length = rec16.trailer = sizeof(rec16);
   rec16.header.rtc = sampledRTC;

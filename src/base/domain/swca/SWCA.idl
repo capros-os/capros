@@ -9,13 +9,6 @@ interface SWCA extends key
   /* The following are sampled periodically,
   and any changes are logged in Logfile objects. */
 
-  struct LogRecord16 {
-    Logfile.recordHeader header;
-    short value;
-    short padding;
-    unsigned long trailer;
-  };
-
   // LED masks: (are these correct?)
   const unsigned byte LEDOverCurrent = 1;
   const unsigned byte LEDFloat       = 2;
@@ -34,14 +27,18 @@ interface SWCA extends key
     unsigned long trailer;
   };
 
-  /** Get a read-only capability to the Logfile containing LogRecord16 records
+  /** Get a read-only capability to the Logfile containing records
+  in the format Logfile.LogRecord16
   in which the value field is the inverter/charger amps
-  for the specified inverter.  inverterNum is zero-based. */
+  for the specified inverter.
+  (The param field is unused.) inverterNum is zero-based. */
   Logfile getInvChgAmpsLogfile(unsigned byte inverterNum);
 
-  /** Get a read-only capability to the Logfile containing LogRecord16 records
+  /** Get a read-only capability to the Logfile containing records
+  in the format Logfile.LogRecord16
   in which the value field is the load amps
-  for the specified inverter.  inverterNum is zero-based. */
+  for the specified inverter.
+  (The param field is unused.) inverterNum is zero-based. */
   Logfile getLoadAmpsLogfile(unsigned byte inverterNum);
 
   /** Get a read-only capability to the Logfile containing LEDLogRecord records

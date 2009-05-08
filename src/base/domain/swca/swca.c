@@ -397,12 +397,12 @@ procLogIntValue(AdapterState * as, int * pv, capros_Node_extAddr_t ks_logs)
   if (value != *pv) {
     // The value changed. Log the new value.
     result_t result;
-    capros_SWCA_LogRecord16 rec16;
+    capros_Logfile_LogRecord16 rec16;
     rec16.header.length = rec16.trailer = sizeof(rec16);
     rec16.header.rtc = GetRTCTime();
     rec16.header.id = monoNow;
     rec16.value = value;
-    rec16.padding = 0;
+    rec16.param = 0;
 
     unsigned int slot = ks_logs + as->num;
     result = capros_Node_getSlotExtended(KR_KEYSTORE, slot, KR_TEMP0);
