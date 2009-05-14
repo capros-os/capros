@@ -44,7 +44,6 @@ typedef int bool;
 #include <idl/capros/Discrim.h>
 #include <idl/capros/RTC.h>
 #include <idl/capros/IndexedKeyStore.h>
-#include <idl/capros/File.h>
 #include <idl/capros/FileServer.h>
 #include <domain/CMME.h>
 #include <domain/CMMEMaps.h>
@@ -146,11 +145,6 @@ static char *findSeparator(ReadPtrs *rp, char *sepStr);
 static int compareToken(ReadPtrs *rp, const char *list[], int ci);
 static int lookUpSwissNumber(char *swissNumber, int methodCode,
 			     int lengthOfPath, char *pathAndQuery);
-static int closeFile(void);
-static void destroyFile(void);
-static uint64_t getFileLen(void);
-static int readFile(void *buf, int len);
-static int writeFile(void *buf, int len);
 static void scanConsumeSeps(ReadPtrs *rp, char *sepStr);
 static void scanToken(ReadPtrs *rp, char *sepStr);
 
@@ -645,11 +639,6 @@ const char * methodList[] = {
   MethodEntry(CONNECT),
   NULL };
 
-  /* Used internally to send a default page of Javascript when there is
-     no Swiss number in the query portion of the request */
-#define Method_GET_DEFAULT_PAGE 8
-#define Method_HEAD_DEFAULT_PAGE 9
-
 /** process_http - Process the HTTP protocol available on the ssl connection 
  *
  * @param[in] ssl Is the ssl object
@@ -841,21 +830,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       }
     }
 
-    if (!swissstart) {           /* No Swiss number */
-      switch (methodIndex) {
-      case Method_GET:
-	methodIndex = Method_GET_DEFAULT_PAGE;
-	break;      
-      case Method_HEAD:
-	methodIndex = Method_HEAD_DEFAULT_PAGE;
-	break;
-      default:
-	DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
-	writeStatusLine(rs, 400);  /* Return Bad Request */
-	writeMessage(rs, "URI query field missing.", methodIndex==1);
-	return 0;                  /* Must get back in sync with client */ 
-      }
-    } else {
+    if (swissstart) {
       memcpy(query, qstart, swissstart-qstart); /* Save first part of query */
       query[swissstart-qstart] = 0;
       
@@ -883,6 +858,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	 foil a few attacks by not handling that, and our Swiss numbers do
 	 not include characters that need to be % encoded. */
     }
+    // else leave swissNumber NULL
   }
 
   /* Get the http version */
@@ -1258,8 +1234,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
      we look up the Swiss number and see if we are serving a file, or 
      if some domain will handle the request */
 
-  if (Method_GET_DEFAULT_PAGE != methodIndex
-      && Method_HEAD_DEFAULT_PAGE != methodIndex) {
+  if (swissNumber) {
     if (!lookUpSwissNumber(swissNumber, methodIndex, 
 			   pathLength, pathandquery)) {
       /* Swiss number not found or other error */
@@ -1268,160 +1243,73 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
       freeStorage();
       return 0;
     }
-  } else {
-    theResourceType = capros_HTTPResource_RHType_File;
-  }
-  
-  switch (theResourceType) {
-  case capros_HTTPResource_RHType_HTTPRequestHandler:
+    
+    switch (theResourceType) {
+    case capros_HTTPResource_RHType_HTTPRequestHandler:
 #ifdef SELF_TEST
-    DBGPRINT(DBGTARGET, "ERROR: RHType == HTTPRequestHandler found\n");
+      DBGPRINT(DBGTARGET, "ERROR: RHType == HTTPRequestHandler found\n");
 #else
-    {
-      DEBUG(resource) DBGPRINT(DBGTARGET,
-                               "lookUpSwissNumber gave HTTPRequestHandler\n");
-      int ok = handleHTTPRequestHandler(rs, &rp, methodIndex,
-                 headersLength, contentLength, theSendLimit, expect100);
-      capros_key_destroy(KR_FILE);	// done with the HTTPRequestHandler
-      if (!ok) {
-        DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: hrh returned 0\n");
+      {
+        DEBUG(resource) DBGPRINT(DBGTARGET,
+                                 "lookUpSwissNumber gave HTTPRequestHandler\n");
+        int ok = handleHTTPRequestHandler(rs, &rp, methodIndex,
+                   headersLength, contentLength, theSendLimit, expect100);
+        capros_key_destroy(KR_FILE);	// done with the HTTPRequestHandler
+        if (!ok) {
+          DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: hrh returned 0\n");
+          freeStorage();
+          return 0;
+        }
+      }	// end of case capros_HTTPResource_RHType_HTTPRequestHandler
+#endif
+      break;
+
+    case  capros_HTTPResource_RHType_MethodNotAllowed:
+      writeStatusLine(rs, 405); 
+      writeMessage(rs, "Method Not Allowed", methodIndex==1);
+      freeStorage();
+      break;
+        
+    case capros_HTTPResource_RHType_File:
+      if (! handleFile(rs, &rp, methodIndex, contentLength, expect100)) {
+        DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: hfile returned 0\n");
         freeStorage();
         return 0;
       }
-    }	// end of case capros_HTTPResource_RHType_HTTPRequestHandler
-#endif
-    break;
-  case  capros_HTTPResource_RHType_MethodNotAllowed:
-    writeStatusLine(rs, 405); 
-    writeMessage(rs, "Method Not Allowed", methodIndex==1);
-    freeStorage();
-    break;
-      
-  case capros_HTTPResource_RHType_File:
-#ifdef SELF_TEST
-    // lookUpSwissNumber has opened the file and left the handle in theFile.
-#else
-    /* The HTTPResource has indicated the object is a File
-       and we should handle it. It has left the key to the file in KR_FILE. */
-#endif
-    
-    /* Now do the method */
+      break;
+    }
+  } else {
+    /* No Swiss number. Serve a default page. */
     switch (methodIndex) {
-    case Method_GET:          /* Handle a GET method */
-    case Method_HEAD:         /* Handle a HEAD method */
+    case Method_GET:
+    case Method_HEAD:
       {
-	unsigned long int len; /* The file length */
-	char cl[128];
-	int isUsingChunked = 0;
-	
-	len = getFileLen();
-	writeStatusLine(rs, 200);
-	if (len == 0) {      /* Length N/A, use chunked transfer encoding */
-	  isUsingChunked = 1;
-	  writeString(rs, "Transfer-Encoding: chunked\r\n");
-	} else {            /* Have length - use Content-length */
-	  sprintf(cl, "Content-Length: %ld\r\n", len);
-	  writeString(rs, cl);
-	}
-	// TODO Consider what Cache-Control directives to issue, if any
-	// Since we don't know the content type, let the client decide.
-	// writeString(rs, "Content-Type: text/html\r\n");
-	// writeString(rs, "Content-Type: application/octet-stream\r\n");
-	writeString(rs, "\r\n");	// end of headers
-	if (Method_GET == methodIndex) { /* GET, not HEAD - send message-body */
-	  /*  Actually send the file */
-	  if (isUsingChunked) {
-            // Send chunked data, no trailers, and terminating CRLF
-            if (! sendChunked(rs, &readFile)
-                || ! writeString(rs, "\r\n") ) {	// write error
-	      freeStorage();
-	      return 0; /* Kill the connection */
-            }
-	  } else {
-            if (! sendUnchunked(rs, &readFile)) {		// write error
-	      freeStorage();
-	      return 0; /* Kill the connection */
-            }
-	  }
-	  closeFile();
-	  freeStorage();
-	}
-        DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: FILE GET/HEAD done.\n");
-      }
-      break;
-    case Method_GET_DEFAULT_PAGE:
-    case Method_HEAD_DEFAULT_PAGE:
-      {
-	unsigned long int len; /* The file length */
-	char cl[128];
-	
-	len = strlen(defaultPageData);
-	writeStatusLine(rs, 200);
-	sprintf(cl, "Content-Length: %ld\r\n", len);
-	writeString(rs, cl);
+        unsigned long int len = strlen(defaultPageData);
+        char cl[32];
+        
+        writeStatusLine(rs, 200);
+        sprintf(cl, "Content-Length: %ld\r\n", len);
+        writeString(rs, cl);
 
-	// TODO Consider what Cache-Control directives to issue, if any
-	writeString(rs, "Content-Type: text/html\r\n\r\n");
-	if (Method_GET_DEFAULT_PAGE == methodIndex) { /* not HEAD - send body */
-	  /*  Actually send the file */
-	  if (!writeSSL(rs, defaultPageData, len)) {
-	    freeStorage();
-	    return 0;
-	  }
-	}
-	freeStorage();
-      }
-
-      break;
-    case Method_PUT:             /* Handle the PUT method */
-      {
-	int len;
-	
-	if (expect100) {
-	  writeStatusLine(rs, 100);
-	  writeSSL(rs, "\r\n", 2);
-	}
-	/*  Actually receive the file */
-	
-	while ( contentLength > 0) {
-	  if (!readExtend(rs, &rp)) {
-	    /* Network I/O error */
-	    destroyFile();
-	    freeStorage();
-	    return 0; /* Kill the connection */
-	  }
-	  len = rp.last - rp.first;
-	  if (contentLength < len) len = contentLength;
-	  len = writeFile(rp.first, len);
-	  if (len < 0) {      /* File write error */
-	    writeStatusLine(rs, 500);
-	    writeMessage(rs, "File I/O error on write.", 0);
-	    destroyFile();
-	    freeStorage();
-	    return 0;         /* Need to get back in sync with client */
-	  }
-	  contentLength -= len;
-	  readConsume(rs, rp.first+len);
-	}
-	closeFile();
-	writeStatusLine(rs, 200);
-	writeString(rs, "Content-Length: 0\r\n");
-	writeSSL(rs, "\r\n", 2);
-	//      writeMessage(rs, "File Received", 0);
+        // TODO Consider what Cache-Control directives to issue, if any
+        writeString(rs, "Content-Type: text/html\r\n\r\n");
+        if (Method_GET == methodIndex) { /* not HEAD - send body */
+          /*  Actually send the file */
+          if (!writeSSL(rs, defaultPageData, len)) {
+            freeStorage();
+            return 0;
+          }
+        }
       }
       break;
-    default: {
-      char msg[128];
-      
-      sprintf(msg, "Method %s not handled", methodList[methodIndex]);
-      DBGPRINT(DBGTARGET, "%s\n", msg);
-      writeStatusLine(rs, 500);    /* Internal server error */
-      writeMessage(rs, msg, methodIndex==1);
-      
+    default:
+      DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
+      writeStatusLine(rs, 400);  /* Return Bad Request */
+      writeMessage(rs, "URI query field missing.", methodIndex==1);
+      return 0;                /* Must get back in sync with client */ 
     }
-    }
-    break;
   }
+
   /* Push any queued data to the network */
   freeStorage();
   if (mustClose) return 0;
@@ -1995,119 +1883,5 @@ lookUpSwissNumber(char *swissNumber, int methodCode, int lengthOfPath,
 				   &theResourceType, KR_FILE, &theSendLimit);
 
   return 1;
-#endif
-}
-
-
-/**
- * destroyFile - Destroy the file created for writing.
- */
-static void
-destroyFile(void)
-{
-#ifdef SELF_TEST
-  // FIXME
-#else
-  // FIXME
-  //  capros_IndexedKeyStore_delete(KR_DIRECTORY, strlen(name), (uint8_t*)name);
-  capros_key_destroy(KR_FILE);
-#endif
-}
-
-/**
- * closeFile - Close the file. Only one file at a time can be open.
- *
- * @return is 1 if the file is closed, 0 if there was an error.
- */
-static int
-closeFile(void) {
-#ifdef SELF_TEST
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Close theFile\n");
-  return close(theFile);
-#else
-  return 1;
-#endif
-}
-
-/**
- * getFileLen - The length of the file opened for reading.
- *
- * @return is the length of the file, or 0 if the data source doesn't
- *         give a total length (e.g. for dynamicly generated data). This
- *         choice for living with an unsigned result means that zero length
- *         files will be transfered with "chunked" transfer-encoding.
- */
-static uint64_t
-getFileLen(void) {
-#ifdef SELF_TEST
-  struct stat sb; 
-  
-  fstat(theFile, &sb);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Get file size %d\n", (int)sb.st_size);
-  return 0;
-  //  return sb.st_size;
-#else
-  result_t rc;
-  rc = capros_File_getSize(KR_FILE, &theFileSize);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Read file size rc=%d size=%llu\n",
-		       rc, theFileSize);
-  if (rc != RC_OK)
-    assert(false);	//TODO handle this
-  return theFileSize;
-#endif
-}
-
-/**
- * readFile - Read the open file.
- *
- * @param[in] buf is a pointer to the read buffer
- * @param[in] len is the length to read;
- *
- * @return is -1 if an error occured, 0 at EOF, otherwise length read.
- */
-static int
-readFile(void *buf, int len) {
-#ifdef SELF_TEST
-  int rc = read(theFile, buf, len);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Read file rc=%d\n", rc);
-  return rc;
-#else
-  result_t rc;
-  uint32_t size = 0;
-
-  if (theFileCursor >= theFileSize) return 0;
-  rc = capros_File_read(KR_FILE, theFileCursor, len, buf, &size);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Read file rc=%d numRead=%d\n",
-		       rc, size);
-  theFileCursor += size;
-  if (RC_OK == rc) return size;
-  else return -1;
-#endif
-}
-
-/**
- * writeFile - Write the open file.
- *
- * @param[in] buf is a pointer to the write buffer
- * @param[in] len is the length to read;
- *
- * @return is -1 if an error occured, otherwise the number of bytes written.
- */
-static int
-writeFile(void *buf, int len) {
-#ifdef SELF_TEST
-  int rc = write(theFile, buf, len);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Write file rc=%d\n", rc);
-  return rc;
-#else
-  result_t rc;
-  uint32_t size = 0;
-
-  rc = capros_File_write(KR_FILE, theFileCursor, len, buf, &size);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Write file rc=%d numWritten=%d\n",
-		       rc, size);
-  theFileCursor += size;
-  if (RC_OK == rc) return size;
-  else return -1;
 #endif
 }

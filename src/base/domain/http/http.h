@@ -38,6 +38,7 @@ Approved for public release, distribution unlimited. */
 
 #include <domain/domdbg.h>
 #include <domain/assert.h>
+#include <idl/capros/File.h>
 
 #define DBGPRINT kprintf
 #define DBGTARGET KR_OSTREAM
@@ -108,6 +109,20 @@ typedef struct Treenode {
 
 extern TREENODE * rqHdrTree;
 
+extern const char * methodList[];
+
+#ifdef SELF_TEST
+
+extern int theFile;
+
+#else
+
+// File is in KR_FILE.
+extern capros_File_fileLocation theFileCursor;
+extern capros_File_fileLocation theFileSize;
+
+#endif
+
 int readExtend(ReaderState *rs, ReadPtrs *rp);
 void readConsume(ReaderState *rs, char *first);
 int memcmpci(const char *a, const char *b, int len);
@@ -117,6 +132,13 @@ int writeSSL(ReaderState *rs, void *data, int len);
 int writeMessage(ReaderState *rs, char *msg, int isHEAD);
 int sendUnchunked(ReaderState * rs, int (*readProc)(void *, int));
 bool sendChunked(ReaderState * rs, int (*readProc)(void *, int));
+
+int handleFile(ReaderState * rs,
+  ReadPtrs * rp,
+  int methodIndex,
+  unsigned long long contentLength,
+  int expect100
+  );
 
 int handleHTTPRequestHandler(ReaderState * rs,
   ReadPtrs * rp,
