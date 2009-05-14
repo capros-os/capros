@@ -238,6 +238,7 @@ cmme_main(void)
   connection();
 
   DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Exiting.\n");
+  capros_key_destroy(KR_SOCKET);
 
   maps_fini();
   return 0;
@@ -1283,6 +1284,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
                  headersLength, contentLength, theSendLimit, expect100);
       capros_key_destroy(KR_FILE);	// done with the HTTPRequestHandler
       if (!ok) {
+        DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: hrh returned 0\n");
         freeStorage();
         return 0;
       }
@@ -1402,7 +1404,6 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
 	  readConsume(rs, rp.first+len);
 	}
 	closeFile();
-	freeStorage();
 	writeStatusLine(rs, 200);
 	writeString(rs, "Content-Length: 0\r\n");
 	writeSSL(rs, "\r\n", 2);
@@ -2103,7 +2104,7 @@ writeFile(void *buf, int len) {
   uint32_t size = 0;
 
   rc = capros_File_write(KR_FILE, theFileCursor, len, buf, &size);
-  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Read file rc=%d numRead=%d\n",
+  DEBUG(file) DBGPRINT(DBGTARGET, "HTTP: Write file rc=%d numWritten=%d\n",
 		       rc, size);
   theFileCursor += size;
   if (RC_OK == rc) return size;

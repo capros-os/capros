@@ -66,7 +66,7 @@ int kill(int pid, int signo) {
 }
 
 int getpid() {
-  DBGPRINT(DBGTARGET, "HTTP: getpid\n");
+  //DBGPRINT(DBGTARGET, "HTTP: getpid\n");
   return 55;
 }
 

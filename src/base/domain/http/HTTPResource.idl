@@ -161,6 +161,7 @@ interface HTTPRequestHandler extends key {
   If bodyTransferEncoding is none, there is no response body.
     (In this case the statusCode should be 1xx, 204 (No Content),
     or 304(Not Modified).)
+    contentLength is ignored.
   If bodyTransferEncoding is identity, contentLength is the size of the
   response body.
   For any other value of bodyTransferEncoding, contentLength is ignored.

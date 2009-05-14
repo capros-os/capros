@@ -151,6 +151,7 @@ readResponseBody(void * buf, int buflen)
 }
 #endif
 
+// Returns 1 if OK, 0 if error.
 int
 handleHTTPRequestHandler(ReaderState * rs,
   ReadPtrs * rp,
@@ -223,22 +224,23 @@ handleHTTPRequestHandler(ReaderState * rs,
   /* If there is a 100-continue expectation, get result from handler */
   if (expect100) {
     DEBUG(resource) DBGPRINT(DBGTARGET, "HTTP: expect 100\n");
-	rc = capros_HTTPRequestHandler_getContinueStatus(KR_FILE, &statusCode);
-	if (RC_capros_key_UnknownRequest == rc) {
-	  statusCode = 100;
-	} else if (RC_OK != rc) {
-	  writeStatusLine(rs, 500);
-	  writeMessage(rs,
-		   "Bad HTTPRequestHandler.getContinueStatus response.",
-		   methodIndex==1);
-	  goto errorExit;
-	}
-	writeStatusLine(rs, statusCode); 
-	if (statusCode != 100) {
-	  writeMessage(rs, "HTTPRequestHandler response for 100-continue.",
-		   methodIndex==1);
-	  goto errorExit;
-	}
+    rc = capros_HTTPRequestHandler_getContinueStatus(KR_FILE, &statusCode);
+    if (RC_capros_key_UnknownRequest == rc) {
+      statusCode = 100;
+    } else if (RC_OK != rc) {
+      writeStatusLine(rs, 500);
+      writeMessage(rs,
+    	   "Bad HTTPRequestHandler.getContinueStatus response.",
+    	   methodIndex==1);
+      goto errorExit;
+    }
+    writeStatusLine(rs, statusCode); 
+    writeSSL(rs, "\r\n", 2);
+    if (statusCode != 100) {
+      writeMessage(rs, "HTTPRequestHandler response for 100-continue.",
+    	   methodIndex==1);
+      goto errorExit;
+    }
   }
 
   /* Now transfer the body of the request */
@@ -322,7 +324,7 @@ handleHTTPRequestHandler(ReaderState * rs,
 		     capros_HTTPRequestHandler_getResponseHeaderData))
     /* Error. We've already reported a status, so we can't give 500. 
 	   just zap the circuit */
-	goto errorExit;
+    goto errorExit;
   writeSSL(rs, "\r\n", 2);              /* Finish headers with blank line */
 
   // Transfer the response body.

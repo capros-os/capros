@@ -33,6 +33,8 @@ OBJECTS=$(BUILDDIR)/$(COMPONENT).o
 OBJECTS+=$(BUILDDIR)/hrh.o
 OBJECTS+=$(BUILDDIR)/stubs.o
 
+TARGETS+=$(BUILDDIR)/httprget
+
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include -I../openssl/include
 IMGMAP=$(COMPONENT).map
 LIBS=-lssl -lcrypto
@@ -47,15 +49,18 @@ IDL=$(wildcard *.idl)
 interfaces: $(IDL)
 	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
-$(BUILDDIR)/$(COMPONENT): $(OBJECTS) $(LIBS) $(DYNCMMEDEPS)
+$(BUILDDIR)/$(COMPONENT): $(OBJECTS) $(LIBDEP) $(DYNCMMEDEPS)
 	$(DYNCMMELINK) $(OBJECTS) $(LIBS) $(CMMELIBS) -o $@
 # and for debugging:
 	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
+$(BUILDDIR)/httprget: $(BUILDDIR)/httprget.o $(LIBDEP)
+	$(CROSSLINK) $(BUILDDIR)/httprget.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
+
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)
-	$(INSTALL) -m 644 $(IMGMAP) $(CAPROS_DOMAIN)
+	$(INSTALL) -m 644 $(IMGMAP) httprget.map $(CAPROS_DOMAIN)
 	$(INSTALL) -m 755 $(TARGETS) $(CAPROS_DOMAIN)
 
 -include $(BUILDDIR)/.*.m
