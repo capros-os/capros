@@ -276,16 +276,23 @@ DOMCRT0=
 DOMBASE=0x1000
 
 LINKOPT=-Wl,--section-start,.init=$(DOMBASE) -static -L$(CAPROS_DOMAIN) -e _start #-Wl,--verbose -v
-DOMLINKOPT=$(LINKOPT)
 
-CROSSLINK=$(EROS_GCC) $(DOMLINKOPT) #-v
+CROSSLINK=$(EROS_GCC) $(LINKOPT) #-v
+
+# Libraries given at the end of the link command:
+CROSSLIBS=
+
+# Workaround for bug in strstr:
+CROSSLIBS+=$(CAPROS_DOMAIN)/libworkaround.a
+
+LIBDEP+=$(CROSSLIBS)
 
 CMMESTART= # $(CAPROS_DOMAIN)/cmmestart.o # no such file yet
 # Put the read/write section at 0x00c00000:
 CMMELINKOPT=$(LINKOPT) -Wl,--section-start,.eh_frame=0x00c00000
 CMMELINK=$(EROS_GCC) $(CMMELINKOPT) $(CMMESTART)
 # libs given at the end of the link command:
-CMMELIBS=$(CAPROS_DOMAIN)/libcmme.a
+CMMELIBS=$(CAPROS_DOMAIN)/libcmme.a $(CROSSLIBS)
 CMMEDEPS=$(CMMELIBS) $(CMMESTART) $(LIBDEP)
 
 CMTESTART=$(CAPROS_DOMAIN)/cmtestart.o
@@ -312,7 +319,6 @@ DYNDRVSTART=$(CAPROS_DOMAIN)/dyndriverstart.o
 DYNDRIVERLINK=$(DYNCMTELINK) $(DYNDRVSTART)
 DYNDRIVERDEPS=$(DYNCMTEDEPS) $(DYNDRVSTART)
 
-CROSSLIBS=
 SMALL_SPACE=-small-space
 
 
@@ -341,9 +347,6 @@ ifeq "$(PACKAGE)" "doc"
 BUILDDIR=.
 endif
 ifeq "$(PACKAGE)" "legal"
-BUILDDIR=.
-endif
-ifeq "$(PACKAGE)" "build"
 BUILDDIR=.
 endif
 ifeq "$(BUILDDIR)" ""
