@@ -228,6 +228,8 @@ readThread(void * data)
           switch (result) {
           default:
             assert(false);
+          case RC_capros_TCPSocket_RemoteClosed:
+            capros_key_destroy(KR_TCPSocket);
           case RC_capros_key_Void:
             if (GetSocket(cs_ReadThreadHas))
               continue;		// try reading again

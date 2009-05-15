@@ -351,8 +351,16 @@ NetReceive(void)
   result = capros_TCPSocket_receive(KR_TCPSocket, sizeof(recvBuf),
                                     &lenRecvd, &flagsRecvd, recvBuf);
   CMTETimer_delete(&tmr);
-  if (result != RC_OK)
+  switch (result) {
+  default:
+    assert(false);
+  case RC_capros_TCPSocket_RemoteClosed:
+    capros_key_destroy(KR_TCPSocket);
+  case RC_capros_key_Void:
     return -1;
+  case RC_OK:
+    break;
+  }
   DEBUG(server) kprintf(KR_OSTREAM, "Received %d bytes\n", lenRecvd);
 #endif
 
