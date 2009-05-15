@@ -137,9 +137,18 @@ periodicTimer(tcp, (TCP_TMR_INTERVAL * 1000) / TICK_USEC)
 enum TCPSk_state {
   TCPSk_state_None,
   TCPSk_state_Connect,
-  TCPSk_state_Listen,
-  TCPSk_state_Closing,
-  TCPSk_state_Closed
+  TCPSk_state_Closing,	// we will send no more data,
+			// and have not successfully called tcp_close
+  TCPSk_state_Closed	// we will send no more data,
+			// and have successfully called tcp_close
+};
+
+enum {
+  TCPSk_rstate_Open,
+  TCPSk_rstate_Closed,	// other end will send no more data,
+			// and the pcb is still allocated
+  TCPSk_rstate_Gone	// other end will send no more data,
+			// and the pcb is freed.
 };
 
 #define maxRecvQPBufs 64
@@ -149,6 +158,8 @@ struct TCPSocket {
   int TCPSk_state;
   bool receiving;
   bool sending;
+  bool remoteCloseDelivered;
+  int TCPSk_remoteState;
 
   /* Each TCPSocket has a send buffer allocated. sendBuf points to it.
   If sending, sendBuf has the data.
@@ -193,7 +204,7 @@ struct TCPListenSocket {
   unsigned int acceptQNum;
 };
 
-static void CloseAndDestroy(struct TCPSocket * sock);
+static void DestroyTCPConnection(struct TCPSocket * sock);
 
 /*************************** TCP Receiving ******************************/
 
@@ -335,6 +346,32 @@ WakeAnyReceiver(struct TCPSocket * sock)
   }
 }
 
+static void
+CheckFullyClosed(struct TCPSocket * sock)
+{
+  if (sock->TCPSk_state == TCPSk_state_Closed	// we will send no more
+      && sock->remoteCloseDelivered) {	// we know they will send no more
+    // No more data will flow over this connection. Destroy it.
+    assert(! sock->sending);	// because of sock->TCPSk_state
+    assert(! sock->receiving);	// because of sock->remoteCloseDelivered
+    assert(sock->TCPSk_remoteState == TCPSk_rstate_Closed);
+    //// how is the pcb deallocated??
+    DestroyTCPConnection(sock);
+  }
+}
+
+// Call when the other end will send no more.
+static void
+RemoteClosed(struct TCPSocket * sock)
+{
+  assert(sock->TCPSk_remoteState != TCPSk_rstate_Open);
+  if (sock->receiving) {
+    assert(sock->recvQNum == 0);
+    ReturnToReceiver(sock, 0, RC_capros_TCPSocket_RemoteClosed);
+    sock->remoteCloseDelivered = true;
+  }
+}
+
 // recv_tcp is called when data is received from the network.
 // We are responsible for freeing the pbuf if we return ERR_OK.
 static err_t
@@ -347,8 +384,11 @@ recv_tcp(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 
   assert(err == ERR_OK);	// else how to handle it?
 
-  if (!p) {	// NULL means connection is closed
-    sock->TCPSk_state = TCPSk_state_Closed;	//??
+  if (!p) {	// NULL means other end will send no more data
+    assert(sock->TCPSk_remoteState == TCPSk_rstate_Open);
+    sock->TCPSk_remoteState = TCPSk_rstate_Closed;
+    RemoteClosed(sock);
+    CheckFullyClosed(sock);
   } else {
     if (sock->recvQNum >= maxRecvQPBufs) {	// queue is full
       DEBUG(errors) kdprintf(KR_OSTREAM, "Sock %#x recvQ full!\n", sock);
@@ -361,13 +401,7 @@ recv_tcp(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
       sock->curRecvPbuf = p;
       sock->curRecvBytesProcessed = 0;
     }
-  }
-
-  WakeAnyReceiver(sock);
-
-  if (sock->TCPSk_state == TCPSk_state_Closed
-      && sock->recvQNum == 0) {	// closed and no more data to deliver
-    CloseAndDestroy(sock);
+    WakeAnyReceiver(sock);
   }
   return ERR_OK;
 }
@@ -498,8 +532,9 @@ do_sendmore(struct TCPSocket * sock)
 
   case ERR_MEM:
     DEBUG(errors) kdprintf(KR_OSTREAM, "tcp_write ERR_MEM.\n", err);
-    /* ERR_MEM is a temporary error,
-     * so we wait for sent_tcp or poll_tcp to be called. */
+    /* ERR_MEM is a temporary error, or due to len > tcp_sndbuf(sock->pcb).
+       It must be the former,
+       so we wait for sent_tcp or poll_tcp to be called. */
     // Try tcp_output anyway:
     tcp_output(sock->pcb);
     break;
@@ -540,7 +575,8 @@ TCPSend(Message * msg)
   //// Urgent flag is not implemented yet:
   assert(!(flags & capros_TCPSocket_flagUrgent));
 
-  if (sock->sending || sock->TCPSk_state == TCPSk_state_Closed) {
+  if (sock->sending || sock->TCPSk_state == TCPSk_state_Closed
+      || sock->TCPSk_state == TCPSk_state_Closing) {
     msg->snd_code = RC_capros_TCPSocket_Already;
     return;
   }
@@ -567,19 +603,16 @@ TCPSend(Message * msg)
   do_sendmore(sock);
 }
 
-// recv buffer must be empty, and the pcb must be deallocated
+// The caller is responsible for deallocating the tcp_pcb
 static void
-CloseAndDestroy(struct TCPSocket * sock)
+DestroyTCPConnection(struct TCPSocket * sock)
 {
   result_t result;
 
-  if (sock->receiving) {
-    // Return to the receiver as though the capability is already gone:
-    ReturnToReceiver(sock, 0, RC_capros_key_Void);
-  }
-  if (sock->sending) {
-    sendFinished(sock, ERR_CLSD);
-  }
+  assert(sock->recvQNum == 0);
+  assert(! sock->receiving);
+  assert(! sock->sending);
+
   const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
   result = capros_Node_getSlotExtended(KR_KEYSTORE, slot+sco_forwarder,
                                        KR_TEMP0);
@@ -600,14 +633,7 @@ TCPAbort(Message * msg)
   struct TCPSocket * sock = (struct TCPSocket *)msg->rcv_w3;
 	// word from forwarder
 
-  sock->TCPSk_state = TCPSk_state_Closed;
-  tcp_abort(sock->pcb);
-
-  // Drain the recv queue.
-  while (sock->recvQNum) {
-    ConsumePbuf(sock);
-  }
-  CloseAndDestroy(sock);
+  tcp_abort(sock->pcb);	// this calls err_tcp(..., ERR_ABRT)
 }
 
 static bool	// returns true if succeeded
@@ -773,29 +799,31 @@ err_tcp(void * arg, err_t err)
                         "err_tcp %d sock %#x state %d rcvQNum %d\n",
                          err, sock, sock->TCPSk_state, sock->recvQNum);
 
-  switch (sock->TCPSk_state) {
+  switch (err) {
   default:
-    assert(false);
+    assert(false);	// unexpected error
 
-  case TCPSk_state_Connect:
-    CompleteConnection(sock, err);
-    // Fall into TCPSk_state_None
-  case TCPSk_state_None:
-    switch (err) {
+  case ERR_ABRT:
+  case ERR_RST:
+    switch (sock->TCPSk_state) {
+    case TCPSk_state_Connect:
+      CompleteConnection(sock, err);
+      // Fall into default
     default:
-      assert(false);
+      // Discard the recv queue.
+      while (sock->recvQNum) {
+        ConsumePbuf(sock);
+      }
 
-    case ERR_ABRT:
-    case ERR_RST:
-      sock->TCPSk_state = TCPSk_state_Closed;	//??
-      // Sometimes, the closing of the connection is delivered this way
-      // rather than with recv_tcp() with NULL pbuf. I don't know why.
-      WakeAnyReceiver(sock);
+      sock->TCPSk_remoteState = TCPSk_rstate_Gone;  // tcp_pcb will be freed
+      RemoteClosed(sock);
 
-      if (sock->recvQNum == 0)	// closed and no more data to deliver
-        CloseAndDestroy(sock);
+      if (sock->sending) {
+        sendFinished(sock, ERR_CLSD);
+      }
+      sock->TCPSk_state = TCPSk_state_Closed;
+      DestroyTCPConnection(sock);
     }
-    break;
   }
 }
 
@@ -840,6 +868,8 @@ CreateSocket(void)
   sock->TCPSk_state = TCPSk_state_None;
   sock->sending = false;
   sock->receiving = false;
+  sock->remoteCloseDelivered = false;
+  sock->TCPSk_remoteState = TCPSk_rstate_Open;
   sock->recvQIn = sock->recvQOut = &sock->recvQ[0];
   sock->recvQNum = 0;
   return sock;
