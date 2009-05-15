@@ -566,7 +566,6 @@ uint32_t theSendLimit;
    dynamically allocated data assigned to them. */
 char *authority = NULL;
 char *pathandquery = NULL;
-char *swissNumber = NULL;
 char *headerName = NULL;
 
 static void
@@ -578,10 +577,6 @@ freeStorage(void) {
   if (pathandquery) {
     free(pathandquery);
     pathandquery = NULL;
-  }
-  if (swissNumber) {
-    free(swissNumber); 
-    swissNumber = NULL;
   }
   if (headerName) {
     free(headerName);
@@ -657,6 +652,7 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
   int mustClose = 0;    /* We must close the connection after response */
   int methodIndex;
   int versionIndex;
+  char * swissNumber;
   //  int headerIndex = -1;
 
 #ifndef SELF_TEST
@@ -765,100 +761,84 @@ process_http(SSL *ssl, BIO *network_bio, ReaderState *rs) {
      the query (less question mark separator, the Swiss number portion, 
      and the Swiss number. */
   {
-    char *delim = strchr(authority, '?');
-    char *qstart;
-    char *swissstart = NULL;
-    char *ns;
-    char *query;
+    size_t authorityLen = strlen(authority);
+    char * queryEnd = authority + authorityLen;
 
-    if (!delim) {                /* query portion missing */
-      /* Set up to serve a default page */
-      switch (methodIndex) {
-      case Method_GET:
-      case Method_HEAD:
-	break;
-      default:
-	DEBUG(errors) DBGPRINT(DBGTARGET, "HTTP: bad request (no query)\n");
-	writeStatusLine(rs, 400);  /* Return Bad Request */
-	writeMessage(rs, "URI query field missing.", methodIndex==1);
-	return 0;                  /* Must get back in sync with client */ 
-      }
-      delim = authority+strlen(authority);
+    char *delim = strchr(authority, '?');
+    if (delim) {	// there is a '?'
+      pathLength = delim - authority;
+      delim++;		// skip over the '?'
+    } else {		// no query
+      pathLength = authorityLen;
+      delim = queryEnd;
     }
+
+    pathandquery = malloc(authorityLen + 2); /* max len <= len(authority)
+				+ perhaps "/" + terminating NUL */
     /* Save the path */
-    pathLength = delim - authority;
     if (pathLength) {
-      pathandquery = malloc(strlen(authority)+1); /* maxlen <= len(authority) */
       memcpy(pathandquery, authority, pathLength);
-      pathandquery[pathLength] = 0;
     } else {                     /* path is empty */
-      pathandquery = malloc(2+strlen(authority));
-      strcpy(pathandquery, "/");
+      pathandquery[0] = '/';
       pathLength = 1;
     }
-    query = pathandquery + pathLength; /* End of path */
+    pathandquery[pathLength] = 0;	// terminating NUL
 
     /* Extract the Swiss number from the query. The Swiss number will be
        the s=number parameter. These keyword parameters are separated by
        either the ampersand (&) character or the semicolon (;) character.
        The Swiss number will be the last s= if there are more than one
        s= in the query. */
-    if (*delim) {
-      qstart = delim+1;                 /* Point at the query */
-      if (('s' == *qstart && '=' == *(qstart+1))) {
-	/* There is an s= which starts the query */
-	swissstart = qstart;            /* Save it as the first */
-	ns = qstart+2;
-      } else {
-	swissstart = NULL;              /* No s= found yet */
-	ns = qstart;
-      }
-      
-      while (1) {
-	char *sand = strstr(ns, "&s=");
-	char *ssemi = strstr(ns, ";s=");
-	if (sand) {
-	  swissstart = sand+1;
-	  if (ssemi) if (sand < ssemi) swissstart = ssemi+1;
-	  ns = swissstart+2;
-	} else if (ssemi) {
-	  swissstart = ssemi+1;
-	  ns = swissstart+2;
-	} else {
-	  break;
-	}
-      }
-    }
+    swissNumber = NULL;		// default, if we don't find one
+    if (*delim) {		// there is a query
+      /* Replace the NUL at the end of the query with '&',
+         so that every keyword definition *ends* with '&'. */
+      *queryEnd++ = '&';
 
-    if (swissstart) {
-      memcpy(query, qstart, swissstart-qstart); /* Save first part of query */
-      query[swissstart-qstart] = 0;
-      
-      /* When we get here, swissstart points to the beginning of the s= 
-	 parameter and pathandquery holds the portion of the path concatenated
-	 with the portion of the query that proceeded the s= parameter */
-      delim = strchr(swissstart, '&');
-      if (!delim) delim = strchr(swissstart, ';');
-      if (delim) {               /* More than just s= */
-	int len = delim - swissstart - 2;
-	swissNumber = malloc(len + 1);
-	memcpy(swissNumber, swissstart+2, len);
-	swissNumber[len] = 0;
-	
-	len = strlen(delim + 1); /* Length of rest of query w/o leading &/; */
-	if (len) {               /* If there is anything there */
-	  strcat(pathandquery, delim+1);
-	} /* Else nothing else to add to query */
-      } else {                   /* s= is the only query */
-	swissNumber = malloc(strlen(swissstart+2) + 1);
-	strcpy(swissNumber, swissstart+2);
-	/* Don't add to query */
+      /* Search backwards until we find a s=value definition. */
+      char * tail = queryEnd;
+      char * p;
+      char * where;
+      while (1) {
+        p = tail;
+        where = tail - 1;	// skip '&'
+        assert(*where == '&' || *where == ';');
+        while (1) {		// scan backwards looking for '&'
+          if (where == delim)
+            break;		// at the beginning
+          char * prev = where - 1;
+          char c = *prev;
+          if (c == '&' || c == ';') {	// treat ';' like '&'
+            break;
+          }
+          where = prev;
+        }
+        // Found "name=value&" between where and tail.
+        if (*where == 's' && *(where+1) == '=') {
+          // Found "s=value&"
+          swissNumber = where+2;
+          *(tail-1) = 0;	// terminate with NUL (replacing '&')
+          break;
+        }
+        tail = where;
       }
+      /* Copy the query, minus the "s=value&", to pathandquery. */
+      char * query = pathandquery + pathLength; // end of path, beg of query
+      // Copy the part before "s=value&".
+      memcpy(query, delim, where - delim);
+      where = query + (where - delim);
+      // Copy the part after "s=value&".
+      memcpy(where, tail, queryEnd - tail);
+      where += queryEnd - tail;
+      if (where != pathandquery)	// if there are any "n=v&" left
+        where--;		// delete the final '&' we added
+      *where = 0;		// terminating NUL for pathandquery
+
       /* HTTP 1.1 must handle % encoding of the Swiss number, but we may
 	 foil a few attacks by not handling that, and our Swiss numbers do
 	 not include characters that need to be % encoded. */
     }
-    // else leave swissNumber NULL
+    // else no query, leave swissNumber NULL
   }
 
   /* Get the http version */
