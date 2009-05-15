@@ -31,6 +31,7 @@ Approved for public release, distribution unlimited. */
 #include <stdlib.h>		// and declare it
 #define MEM_ALIGNMENT 4	// correct for ARM
 // IPv4 requires TCP_MSS be at least 576-20-20 = 536
+#define MEMP_NUM_TCP_PCB 15
 #define TCP_MSS 1500
 #define TCP_SND_BUF (TCP_MSS * 4)
 #define TCP_WND 4096
