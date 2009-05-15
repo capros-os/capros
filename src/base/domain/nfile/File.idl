@@ -30,7 +30,8 @@ interface File extends HTTPResource
             out unsigned long lengthWritten);
 
   /* Return 1 + the highest location that has ever been written. */
-  fileLocation getSize();
+  /* fileLocation doesn't work due to bug in IDL compiler */
+  unsigned<64> getSize();
 
   File getReadOnlyCap();
 
