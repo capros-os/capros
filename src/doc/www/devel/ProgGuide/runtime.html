@@ -251,11 +251,6 @@
             In particular the address space can be represented in a single GPT.
             This option causes the linker to use the library 
             libcapros-small. 
-            <p> libcapros-small currently defines
-            <code>__rt_stack_pointer</code> as 0x20000.
-            If you define <code>__rt_stack_pointer</code>, the linker
-            will not load the definition in libcapros-small, so you can 
-            specify your own stack pointer instead of the above.
             <p> libcapros-small defines <code>__rt_runtime_hook</code>
             to point to a procedure that currently does the following:
             <ol>
@@ -272,8 +267,12 @@
               On the other hand, if <code>__rt_stack_pages</code> is zero,
               the stack must have been created already and
               <code>__rt_stack_pointer</code> must point to its bottom. 
+              <p> If you do not define <code>__rt_stack_pages</code>,
+              the library defines it to contain 1.</p>
               <li> The stack pointer is set to the value in 
               <code>__rt_stack_pointer</code>.
+              <p> If you do not define <code>__rt_stack_pointer</code>,
+              the library defines it to contain 0x20000.</p>
               <li> Pages for the .bss and .data sections are allocated
               and installed in the address space, and the .bss area
               is initialized. The .data area will be initially zero. 
@@ -372,8 +371,8 @@
 	  </p>
 	  <p>
             The answer is, we rely on the process creator for help.
-	    A process that wishes to honor the
-	    <strong>OC_Destroy</strong> order code must hang on to
+	    A process that wishes to support the
+	    <strong>capros_key_destroy</strong> method must hang on to
 	    its process creator key.  If the process runs in a kept
 	    address space, it must also retain access to the
 	    protospace address space.
@@ -384,7 +383,7 @@
 	    Then, how teardown is accomplished depends on the process
 	    address space.
           <ul>
-          <li> If it was built as a small process by the protospace,
+          <li> If it was built as a small process by the small runtime hook,
             it must undo that by calling <code>protospace_destroy_small</code>.
             <code>protospace_destroy_small</code> is declared and
             documented in <code>domain/ProtoSpaceDS.h</code>.
@@ -397,7 +396,8 @@
             and then invokes the <code>destroyCallerAndReturn</code>
             method on the process creator.
 	  <li>
-            <p>If the process's address space was built from a VCS,
+            <p>If the process's address space was built from a VCS
+            using the Constructor protospace,
             it can call <code>protospace_destroy</code>.
             However, there is a note that that procedure is obsolete. 
             This may not be working currently. 
