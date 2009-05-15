@@ -612,7 +612,7 @@ rangeGetWaitCap:
     ObjectLocator objLoc;
     objLoc = GetObjectType(oid);
 
-    assert(objLoc.objType != capros_Range_otNone);
+    // objLoc.objType can be capros_Range_otNone here.
 
     // Get the counts:
     ObCount allocCount = GetObjectCount(oid, &objLoc, false);
