@@ -63,6 +63,7 @@ interface TCPSocket extends key {
 
   exception NoMem;	// server does not have enough memory for the operation
   exception Already;
+  exception RemoteClosed;
 
   void getRemoteAddr(out IPDefs.ipv4Address ipaddr, out IPDefs.portNumber port);
 
@@ -106,6 +107,8 @@ interface TCPSocket extends key {
 
   Raises key.RequestError if maxBytesToReceive is greater than maxReceiveLength.
   Raises Already if a receive is already in progress.
+  Raises RemoteClosed if the other end of the connection has closed the
+    connection, in other words, indicated it will send no more data.
    */
   client void receive(unsigned long maxBytesToReceive,
                       out unsigned long bytesReceived,
