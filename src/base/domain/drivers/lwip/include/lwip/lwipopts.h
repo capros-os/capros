@@ -35,6 +35,11 @@ Approved for public release, distribution unlimited. */
 #define TCP_MSS 1500
 #define TCP_SND_BUF (TCP_MSS * 4)
 #define TCP_WND 4096
+/* Put retransmissions on a short leash.
+ * Otherwise, while waiting for acknowledgement, we can accumulate unsent data,
+ * exhausting pbufs.
+ * See also change to tcp_backoff. */
+#define TCP_MAXRTX 4
 #define PBUF_POOL_SIZE 80
 // I see no harm in making the following large:
 #define TCP_SND_QUEUELEN                (16 * (TCP_SND_BUF/TCP_MSS))

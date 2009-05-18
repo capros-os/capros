@@ -55,7 +55,8 @@
 /* Incremented every coarse grained timer shot (typically every 500 ms). */
 u32_t tcp_ticks;
 const u8_t tcp_backoff[13] =
-    { 1, 2, 3, 4, 5, 6, 7, 7, 7, 7, 7, 7, 7};
+//  { 1, 2, 3, 4, 5, 6, 7, 7, 7, 7, 7, 7, 7};
+    { 0, 0, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2};
  /* Times per slowtmr hits */
 const u8_t tcp_persist_backoff[7] = { 3, 6, 12, 24, 48, 96, 120 };
 
