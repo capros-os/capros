@@ -199,16 +199,18 @@ ensureHeight(GlobalState * mystate, extAddr_t last)
       result = capros_Node_makeGuarded(KR_TEMP0, 0, KR_TEMP0);
       assert(result == RC_OK);
 
-      /* Block callers while the state is inconsistent. */
-      result = capros_Node_setBlocked(KR_TREE);
-      assert(result == RC_OK);
-
       /* The client has a key to the top node, so we can't insert above there.
       Copy the root to the new node. */
       result = capros_Node_clone(KR_TEMP0, KR_TREE);
       assert(result == RC_OK);
 
+      /* Block callers while the state is inconsistent. */
+      result = capros_Node_setBlocked(KR_TREE);
+      assert(result == RC_OK);
+
       // We don't want the keeper:
+      result = capros_Node_clearKeeper(KR_TEMP0);
+      assert(result == RC_OK);
       result = capros_Node_swapSlot(KR_TEMP0, capros_Node_keeperSlot,
                  KR_VOID, KR_VOID);
       assert(result == RC_OK);
