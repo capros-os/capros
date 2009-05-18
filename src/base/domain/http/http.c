@@ -74,7 +74,9 @@ typedef struct {
 } Message;
 #else
 
-unsigned long __rt_stack_size = 6*4096;
+unsigned long __rt_stack_size = 7*4096;
+
+result_t sockRcvLastError = RC_OK;
 
 long mapReservation;
 /* Map a memory space up to one page in size. */
@@ -230,9 +232,26 @@ cmme_main(void)
   SEND(&msg);
 
   connection();
+  DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Exiting. Last sock err = %#x\n",
+                       sockRcvLastError);
 
-  DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Exiting.\n");
-  capros_key_destroy(KR_SOCKET);
+  // If sockRcvLastError == Void, the connection is already gone.
+  if (RC_capros_key_Void != sockRcvLastError) {
+    DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Closing socket.\n");
+    capros_TCPSocket_close(KR_SOCKET);
+    DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Closed socket\n");
+
+    /* Now we must wait until we receive RemoteClosed. 
+       Don't abort() or destroy(); that may cause data we've sent to be lost. */
+    while (RC_capros_TCPSocket_RemoteClosed != sockRcvLastError) {
+      uint32_t got;
+      uint8_t buf[8];
+      sockRcvLastError
+        = capros_TCPSocket_receiveLong(KR_SOCKET, 8, &got, 0, buf);
+      DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Final socket rc=%#x.\n",
+                           sockRcvLastError);
+    }
+  }
 
   maps_fini();
   return 0;
@@ -286,6 +305,7 @@ main(void)
     printf("Connection accepted\n");
 
     connection();
+  close(sock);
   return 0;
 #endif
 }
@@ -488,9 +508,10 @@ void push_ssl_data(BIO *network_bio) {
     tryAgain = 0;
     inBuf = BIO_ctrl_pending(network_bio);  /* Test for output */
     if (inBuf > 0) {
+      DEBUG(netio) DBGPRINT(DBGTARGET, "HTTP: out len=%d\n", inBuf);
+
       unsigned char buf[inBuf];
       
-      DEBUG(netio) DBGPRINT(DBGTARGET, "HTTP: out len=%d\n", inBuf);
       BIO_read(network_bio, buf, inBuf);
 #ifndef SELF_TEST
       /* TODO set the push flag only if network_bio has no more to send */
@@ -522,6 +543,7 @@ void push_ssl_data(BIO *network_bio) {
 #ifndef SELF_TEST
       rc = capros_TCPSocket_receiveLong(KR_SOCKET, inBuf, &got, 0, buf);
       if (RC_OK != rc) {
+        sockRcvLastError = rc;
         DEBUG(errors) DBGPRINT(DBGTARGET,
                                "HTTP: TCPSocket_receive returned %#x\n", rc);
 	(void)BIO_shutdown_wr(network_bio);
