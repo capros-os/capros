@@ -24,27 +24,36 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-BOOT_CONSTRUCTOR(loghttpc, loghttp);
-
-PROD_SPACE(loghttpc) = small program LIBDIR "loghttp";
-PROD_PC(loghttpc) = symbol LIBDIR "loghttp" _start;
-
-PROD_CONSTIT(loghttpc, KC_OSTREAM, 1) = misc Console;
-PROD_CONSTIT(loghttpc, KC_PROTOSPC, 2) = protospace;
+loghttp.space = small program LIBDIR "loghttp";
+loghttp.pc = symbol LIBDIR "loghttp" _start;
 
 lhresource.space = small program LIBDIR "lhresource";
-lhresource.space = lhresource.space with page at 0x1f000;
+lhresource.pc = symbol LIBDIR "lhresource" _start;
 
-lhresource = new process;
-lhresource pc = symbol LIBDIR "lhresource" _start;
-lhresource space = lhresource.space;
-lhresource schedule = sched(8);
-lhresource symtab = number("lhresource");
-lhresource key reg KR_SELF = lhresource;
-lhresource key reg KR_BANK = primebank;
-lhresource key reg KR_SCHED = sched(8);
-lhresource key reg KR_APP(0) = misc Console;
-lhresource key reg KR_APP(1) = loghttpc;
-run lhresource;
+#define LOGHTTP(name, type) \
+BOOT_CONSTRUCTOR(loghttpc##name, loghttp); \
+PROD_SPACE(loghttpc##name) = loghttp.space; \
+PROD_PC(loghttpc##name) = loghttp.pc; \
+PROD_CONSTIT(loghttpc##name, KC_OSTREAM, 1) = misc Console; \
+PROD_CONSTIT(loghttpc##name, KC_PROTOSPC, 2) = protospace; \
+PROD_CONSTIT(loghttpc##name, KC_FORMATTYPE, 3) = number(type); \
+lhresource##name = new process; \
+lhresource##name space = lhresource.space; \
+lhresource##name pc = lhresource.pc; \
+lhresource##name schedule = sched(8); \
+lhresource##name symtab = number("lhresource"); \
+lhresource##name key reg KR_SELF = lhresource##name; \
+lhresource##name key reg KR_BANK = primebank; \
+lhresource##name key reg KR_SCHED = sched(8); \
+lhresource##name key reg KR_APP(0) = misc Console; \
+lhresource##name key reg KR_APP(1) = loghttpc##name; \
+run lhresource##name;
+
+LOGHTTP(binary24, 0);
+LOGHTTP(32, 1);
+LOGHTTP(16, 2);
+LOGHTTP(u16, 3);
+LOGHTTP(16x2, 4);
+LOGHTTP(leds, 5);
 
 #endif

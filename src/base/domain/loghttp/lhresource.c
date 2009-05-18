@@ -38,9 +38,6 @@ A start key to this process is the target of a Forwarder.
 #include <domain/assert.h>
 #include <domain/Runtime.h>
 
-/* Bypass all the usual initialization. */
-unsigned long __rt_runtime_hook = 0;
-
 #define KR_OSTREAM    KR_APP(0)
 #define KR_LogHTTPC   KR_APP(1)
 

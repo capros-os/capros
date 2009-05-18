@@ -23,12 +23,15 @@ Approved for public release, distribution unlimited. */
 
 /* LogHTTP: Handle a request from HTTP for a Logfile. */
 
+#include <string.h>
+#include <time.h>
 #include <eros/Invoke.h>
 
 #include <idl/capros/Node.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/Logfile.h>
 #include <idl/capros/HTTPRequestHandler.h>
+#include <idl/capros/SWCA.h>
 
 #include <domain/domdbg.h>
 #include <domain/assert.h>
@@ -40,6 +43,12 @@ Approved for public release, distribution unlimited. */
 #define min(x,y) ((x) < (y) ? (x) : (y))
 #define max(x,y) ((x) > (y) ? (x) : (y))
 
+static inline void
+minEquals(unsigned long var, unsigned long val)
+{
+  if (var > val) var = val;
+}
+
 #define KR_OSTREAM	KR_APP(0)
 #define KR_Logfile      KR_ARG(0)	// from construction
 
@@ -49,6 +58,28 @@ Approved for public release, distribution unlimited. */
 #define dbg_flags   ( 0 )
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
+
+#define maxFormats 6
+enum {
+  ft_binary24,
+  ft_32,
+  ft_16,
+  ft_u16,
+  ft_16x2,
+  ft_leds
+};
+uint32_t formatType;
+
+// Format time as yyyy/mm/dd hh:mm:ss
+static void
+FormatTime(uint8_t * p, char * * forPP)
+{
+  time_t tim = ((capros_Logfile_recordHeader *)p)->rtc;
+  struct tm * rt = gmtime(&tim);
+  *forPP += sprintf(*forPP, "%.4d/%.2d/%.2d %.2d:%.2d:%.2d",
+             rt->tm_year+1900, rt->tm_mon+1, rt->tm_mday,
+             rt->tm_hour, rt->tm_min, rt->tm_sec);
+}
 
 void
 Sepuku(result_t retCode)
@@ -60,8 +91,26 @@ Sepuku(result_t retCode)
   // Does not return here.
 }
 
-#define bufSize 4096
-uint32_t buf[bufSize / sizeof(uint32_t)];
+#define rcvBufSize 4096
+uint32_t rcvBuf[rcvBufSize / sizeof(uint32_t)];
+#define sndBufSize 4096
+uint8_t sndBuf[sndBufSize+1];	// +1 for NUL from sprintf
+
+char responseHeader[80];
+char * responseHeaderCursor = responseHeader;
+void
+AddHeader(const char * name, const char * value)
+{
+  size_t nameLen = strlen(name);
+  size_t valueLen = strlen(value);
+  *responseHeaderCursor++ = strlen(name);
+  *responseHeaderCursor++ = valueLen >> 8;
+  *responseHeaderCursor++ = valueLen & 0xff;
+  memcpy(responseHeaderCursor, name, nameLen);
+  responseHeaderCursor += nameLen;
+  memcpy(responseHeaderCursor, value, valueLen);
+  responseHeaderCursor += valueLen;
+}
 
 int
 main(void)
@@ -72,12 +121,18 @@ main(void)
 
   capros_Node_getSlot(KR_CONSTIT, KC_OSTREAM, KR_OSTREAM);
 
-  static char responseHeader[] = 
-    "\015\0\010Cache-Control" "no-cache"
-    "\014\0\030Content-Type"  "application/octet-stream";
-  char * responseHeaderCursor = responseHeader;
-  // Do not include the terminating NUL in the length:
-  int responseHeaderLength = sizeof(responseHeader) - 1;
+  capros_Node_getSlot(KR_CONSTIT, KC_FORMATTYPE, KR_TEMP0);
+  result = capros_Number_get32(KR_TEMP0, &formatType);
+  assert(result == RC_OK);
+
+  // Build the appropriate response headers.
+  AddHeader("Cache-Control", "no-cache");
+  AddHeader("Content-Type",
+            formatType == ft_binary24 ? "application/octet-stream"
+                                      : "text/plain" );
+  int responseHeaderLength = responseHeaderCursor - responseHeader;
+  responseHeaderCursor = responseHeader;
+
   capros_Logfile_RecordID lastID = capros_Logfile_nullRecordID;
 
   DEBUG(init) kdprintf(KR_OSTREAM, "LogHTTP: initialized\n");
@@ -101,8 +156,8 @@ main(void)
   msg->rcv_key1 = KR_VOID;
   msg->rcv_key2 = KR_VOID;
   msg->rcv_rsmkey = KR_RETURN;
-  msg->rcv_data = buf;
-  msg->rcv_limit = bufSize;
+  msg->rcv_data = rcvBuf;
+  msg->rcv_limit = rcvBufSize;
 
   for(;;) {
     RETURN(msg);
@@ -141,7 +196,7 @@ main(void)
         break;
       }
       // Ignore the headers.
-      msg->snd_w1 = bufSize;
+      msg->snd_w1 = rcvBufSize;
       break;
 
     case 2:	// OC_capros_HTTPRequestHandler_trailer
@@ -150,7 +205,7 @@ main(void)
         break;
       }
       // Ignore the trailers.
-      msg->snd_w1 = bufSize;
+      msg->snd_w1 = rcvBufSize;
       break;
 
     case OC_capros_HTTPRequestHandler_getResponseStatus:
@@ -174,29 +229,109 @@ main(void)
     case 4:	// OC_capros_HTTPRequestHandler_getResponseBody
     {
       uint32_t lenGotten;
-      uint32_t dataLimit = msg->rcv_w1;
-      if (bufSize < dataLimit)	// take min
-        dataLimit = bufSize;
+      uint32_t formattedLimit = msg->rcv_w1;
+      // Take min of how much we can send and how much the caller can receive.
+      minEquals(formattedLimit, sndBufSize);
+      static unsigned int binarySize[maxFormats] = {24,24,24,24,24,24};
+#define ts 19	// max size of formatted time
+#define v32 11	// max size of formatted uint32_t
+#define v16 6	// max size of formatted uint16_t
+      static unsigned int formattedMaxSize[maxFormats] = {
+        24,
+        ts+1+v32+1,
+        ts+1+v16+1,
+        ts+1+v16+1,
+        ts+1+v16+1+v16+1,
+        ts+(1+1)*8+1
+      };
+#undef ts
+#undef v32
+#undef v16
+      unsigned int formattedRecs
+        = formattedLimit / formattedMaxSize[formatType];
+      assert(formattedRecs);	// else this algorithm won't work
+      unsigned int binSize = formattedRecs * binarySize[formatType];
+      minEquals(binSize, rcvBufSize);
+      uint8_t * rawP = (uint8_t *)rcvBuf;
       result = capros_Logfile_getNextRecords(KR_Logfile,
-                 lastID, dataLimit, (uint8_t *)buf, &lenGotten);
+                 lastID, binSize, rawP, &lenGotten);
       switch (result) {
       default:
       case RC_capros_Logfile_NoRecord:
-        lenGotten = 0;
         break;
+
       case RC_OK:
         assert(lenGotten);	// must have at least one record
+        uint8_t * endRaw = rawP + lenGotten;
         // Get length of last record.
-        uint32_t recLen = *(buf + (lenGotten / sizeof(uint32_t)) - 1);
+        uint32_t recLen = *((uint32_t *)endRaw - 1);
         // Get header of last record.
         capros_Logfile_recordHeader * rh = (capros_Logfile_recordHeader *)
-          (buf + ((lenGotten - recLen) / sizeof(uint32_t)));
+                                           (endRaw - recLen);
         // Get highest ID gotten.
         lastID = rh->id;
+
+        // Format the records.
+        char * forP = (char *)sndBuf;
+        while (rawP < endRaw) {
+          capros_Logfile_LogRecord16 * rec16;
+          capros_Logfile_LogRecord32 * rec32;
+          switch (formatType) {
+          case ft_binary24:
+            memcpy(forP, rawP, 24);
+            forP += 24;
+            rawP += 24;
+            break;
+
+          case ft_32:
+            FormatTime(rawP, &forP);
+            rec32 = (capros_Logfile_LogRecord32 *)rawP;
+            forP += sprintf(forP, "\t%d\n", rec32->value);
+            rawP += 24;
+            break;
+
+          case ft_16:
+            FormatTime(rawP, &forP);
+            rec16 = (capros_Logfile_LogRecord16 *)rawP;
+            forP += sprintf(forP, "\t%d\n", rec16->value);
+            rawP += 24;
+            break;
+
+          case ft_u16:
+            FormatTime(rawP, &forP);
+            rec16 = (capros_Logfile_LogRecord16 *)rawP;
+            forP += sprintf(forP, "\t%u\n", (uint16_t)rec16->value);
+            rawP += 24;
+            break;
+
+          case ft_16x2:
+            FormatTime(rawP, &forP);
+            rec16 = (capros_Logfile_LogRecord16 *)rawP;
+            forP += sprintf(forP, "\t%d\t%d\n", rec16->value, rec16->param);
+            rawP += 24;
+            break;
+
+          case ft_leds:
+          {
+            FormatTime(rawP, &forP);
+            capros_SWCA_LEDLogRecord * ledrec
+              = (capros_SWCA_LEDLogRecord *)rawP;
+            int i;
+            unsigned int leds = ledrec->LEDsSteady;
+            for (i = 0; i < 8; i++) {
+              forP += sprintf(forP, "\t%d", leds & 0x80);
+              leds <<= 1;
+            }
+            forP += sprintf(forP, "\n");
+            rawP += 24;
+            break;
+          }
+          }
+        }
+        msg->snd_len = forP - (char *)sndBuf;
+        msg->snd_data = sndBuf;
         break;
       }
-      msg->snd_len = lenGotten;
-      msg->snd_data = buf;
       break;
     }
     }
