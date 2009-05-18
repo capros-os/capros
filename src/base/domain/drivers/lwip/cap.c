@@ -54,12 +54,13 @@ Approved for public release, distribution unlimited. */
 
 #include "cap.h"
 
-#define dbg_tx 1
-#define dbg_rx 2
-#define dbg_conn 4
-#define dbg_cap  8
+#define dbg_tx     0x01
+#define dbg_rx     0x02
+#define dbg_conn   0x04
+#define dbg_cap    0x08
 #define dbg_listen 0x10
 #define dbg_errors 0x20
+#define dbg_alloc  0x40
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u | dbg_errors )
@@ -523,7 +524,10 @@ do_sendmore(struct TCPSocket * sock)
     push = 0;		// not the last data, don't push yet
   }
 
-  err = tcp_write(sock->pcb, sock->sendData, len, push);
+  /* Unfortunately, there is no way to find out when sent data has been
+     acknowledged, thus no way to find out when its space can be reused.
+     Thus we must copy the data by specifying TCP_WRITE_FLAG_COPY. */
+  err = tcp_write(sock->pcb, sock->sendData, len, push | TCP_WRITE_FLAG_COPY);
   switch (err) {
   default:
     kdprintf(KR_OSTREAM, "tcp_write err %d!\n", err);
@@ -621,6 +625,8 @@ DestroyTCPConnection(struct TCPSocket * sock)
   // Freeing the forwarder invalidates all the capabilities to it.
   result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
                                             slot, slot+sco_numSlots-1);
+  DEBUG(alloc) kprintf(KR_OSTREAM, "%s:%d: Free'ed sock %d and buffer.\n",
+                       __FILE__, __LINE__, sock);
   free(sock->sendBuf);
   free(sock);
 }
@@ -843,6 +849,8 @@ CreateSocket(void)
   unsigned char * buf = AllocRcvBuf();
   if (!buf)
     goto errExit1;
+  DEBUG(alloc) kprintf(KR_OSTREAM, "%s:%d: Alloc'ed sock %d and buffer.\n",
+                       __FILE__, __LINE__, sock);
 
   // Allocate capability slots for this connection.
   // They are addressed using the sock address.
@@ -1195,6 +1203,16 @@ driver_main(void)
   assert(result == RC_OK);
   result = capros_NPLink_RegisterNPCap(KR_TEMP0, KR_TEMP1,
              IKT_capros_NPIP, 0);
+  assert(result == RC_OK);
+
+  // Give the non-persistent prime space bank key to nplink.
+  /* According to the normal pattern, the non-persistent space bank
+     would do this itself.
+     That would result in deadlock, because the space bank is needed by
+     the disk driver which is needed to fetch nplink.
+     So we do it here. */
+  result = capros_NPLink_RegisterNPCap(KR_TEMP0, KR_BANK,
+             IKT_capros_SpaceBank, 0);
   assert(result == RC_OK);
 
   printk("EP93xx Ethernet driver started.\n");

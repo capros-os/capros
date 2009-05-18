@@ -38,6 +38,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/W1Mult.h>
 #include <idl/capros/SerialPort.h>
 #include <idl/capros/NPIP.h>
+#include <idl/capros/SpaceBank.h>
 
 #include <domain/domdbg.h>
 #include <domain/assert.h>
@@ -62,6 +63,7 @@ uint32_t __rt_unkept = 1;
 #define KC_IP      2
 #define KC_Serial3 3
 #define KC_Serial6 6
+#define KC_SB      10
 
 #define KR_OSTREAM KR_APP(0)
 
@@ -160,6 +162,20 @@ AssignIp(Message * msg)
   }
 }
 
+void
+AssignSB(Message * msg)
+{
+  result_t result;
+
+  result = capros_Node_getSlotExtended(KR_CONSTIT, KC_SB, KR_TEMP0);
+  assert(result == RC_OK);
+  result = capros_NPLinkee_registerNPCap(KR_TEMP0, KR_ARG(0),
+                                         msg->rcv_w1, 0);
+  if (result != RC_OK) {
+    kprintf(KR_OSTREAM, "No recipient for SB cap.\n");
+  }
+}
+
 int
 main(void)
 {
@@ -219,6 +235,9 @@ main(void)
         break;
       case IKT_capros_NPIP:
         AssignIp(&Msg);
+        break;
+      case IKT_capros_SpaceBank:
+        AssignSB(&Msg);
         break;
       }
       break;

@@ -61,6 +61,7 @@ DIRS+=loghttp
 DIRS+=mutex
 DIRS+=nfile
 DIRS+=pipe
+DIRS+=psb
 DIRS+=rendezvous
 DIRS+=sigmux
 DIRS+=supernode
