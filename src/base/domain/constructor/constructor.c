@@ -237,7 +237,10 @@ MakeNewProduct(Message * msg, ConstructorInfo * ci)
   (void) capros_Process_swapKeeper(KR_NEWDOM, KR_SCRATCH, KR_VOID);
 
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SELF, KR_NEWDOM, KR_VOID);
-  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_CREATOR, KR_YIELDCRE, KR_VOID);
+  // Give him his process creator, but without destroy rights.
+  capros_ProcCre_reduce(KR_YIELDCRE, capros_ProcCre_precludeDestroy, KR_TEMP0);
+  (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_CREATOR, KR_TEMP0, KR_VOID);
+
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_BANK, KR_ARG0, KR_VOID);
   (void) capros_Process_swapKeyReg(KR_NEWDOM, KR_SCHED, KR_ARG1, KR_VOID);
 
