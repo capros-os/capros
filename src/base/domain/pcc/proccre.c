@@ -87,10 +87,6 @@ uint32_t __rt_unkept = 1;
 #define KR_ARG1    KR_ARG(1)
 #define KR_ARG2    KR_ARG(2)
 
-
-#define FALSE 0
-#define TRUE 0
-
 uint32_t destroy_process(uint32_t bankKeyReg);
 uint32_t amplify_gate_key(uint32_t krStart, uint32_t krTo,
 			  uint32_t *capType, uint32_t *capInfo);
@@ -151,9 +147,13 @@ ProcessRequest(Message *argmsg)
     
   case OC_capros_ProcCre_reduce:
     {
-      capros_Process_makeStartKey(KR_SELF, 1, KR_OUTKEY0);
-      argmsg->snd_key0 = KR_OUTKEY0;
-      result = RC_OK;
+      uint32_t restrictions = argmsg->rcv_w1;
+      if (restrictions & ~(capros_ProcCre_precludeDestroy))
+        result = RC_capros_key_RequestError;	// has invalid bits
+      else {
+        capros_Process_makeStartKey(KR_SELF, restrictions, KR_OUTKEY0);
+        argmsg->snd_key0 = KR_OUTKEY0;
+      }
       break;
    }
     
@@ -187,6 +187,10 @@ ProcessRequest(Message *argmsg)
     break;
     
   case OC_capros_key_destroy:
+    if (argmsg->rcv_keyInfo & capros_ProcCre_precludeDestroy) {
+      result = RC_capros_key_NoAccess;
+      break;
+    }
     return false;
     
   default:

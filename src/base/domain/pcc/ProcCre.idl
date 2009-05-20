@@ -5,8 +5,6 @@ interface ProcCre extends key
   exception Paternity;
   exception WrongBank;
 
-  const unsigned byte precludeDestroy = 1;
-
   void createProcess(key Bank, out key newProc);
 
   void destroyProcess(key Bank, key proc);
@@ -20,5 +18,18 @@ interface ProcCre extends key
   void amplifyGPTKey(key gate, out key proc,
                    out unsigned long keyType, out unsigned long keyInfo);
 
-  void reduce(unsigned byte restrictions);
+  const unsigned byte precludeDestroy = 1;
+
+  /* reduce - return a capability with reduced permissions
+
+  If restrictions and'ed with precludeDestroy is nonzero,
+  this returns a ProcCre key that responds to key.destroy by
+  raising key.NoAccess.
+
+  If restrictions has any other bits, this operation raises key.RequestError.
+   */
+  ProcCre reduce(unsigned byte restrictions);
+
+  /* ProcCre obeys key.destroy, unless it has the precludeDestroy restriction,
+  in which case it raises key.NoAccess. */
 };
