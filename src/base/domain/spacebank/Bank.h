@@ -153,7 +153,7 @@ BankDeallocObject(Bank * bank, uint32_t kr);
  *   (read/write) key to the object. 
  */
 
-uint32_t
+bool
 bank_deallocOID(Bank * bank, uint8_t type, OID oid);
 /* bank_deallocOID:
  *     Returns the object described by /oid/ with type /type/ to the

@@ -120,10 +120,6 @@ main(void)
   msg.rcv_rsmkey = KR_RETURN;
   msg.rcv_limit = sizeof(buff);
   msg.rcv_data = buff;
-  msg.rcv_code = 0;
-  msg.rcv_w1 = 0;
-  msg.rcv_w2 = 0;
-  msg.rcv_w3 = 0;
 
   DEBUG(init) kdprintf(KR_OSTREAM, "spacebank: calling InitSpaceBank()\n");
   /* Initialization is not permitted to fail -- this would constitute
@@ -200,27 +196,32 @@ ProcessRequest(Message *argmsg)
       argmsg->snd_key0 = KR_ARG0;
     goto allocExit;
   case OC_capros_SpaceBank_alloc2:
-    result = BankAllocObject(bank, argmsg->rcv_w1 & 0xff, KR_ARG0, &oids[0]);
-    if (result == RC_OK) {
-      result = BankAllocObject(bank, argmsg->rcv_w1 >> 8, KR_ARG1, &oids[1]);
+    {
+      unsigned int type0 = argmsg->rcv_w1 & 0xff,
+                   type1 = argmsg->rcv_w1 >> 8;
+      result = BankAllocObject(bank, type0, KR_ARG0, &oids[0]);
       if (result == RC_OK) {
-        /* Got both objects. */
-        argmsg->snd_key0 = KR_ARG0;
-        argmsg->snd_key1 = KR_ARG1;
-        goto allocExit;
+        result = BankAllocObject(bank, type1, KR_ARG1, &oids[1]);
+        if (result == RC_OK) {
+          /* Got both objects. */
+          argmsg->snd_key0 = KR_ARG0;
+          argmsg->snd_key1 = KR_ARG1;
+          goto allocExit;
+        }
+        bank_deallocOID(bank, type0, oids[0]);
       }
-      bank_deallocOID(bank, argmsg->rcv_w1, oids[0]);
+      goto allocExit;
     }
-    goto allocExit;
   case OC_capros_SpaceBank_alloc3:
     {
-      result = BankAllocObject(bank, argmsg->rcv_w1 & 0xff, KR_ARG0, &oids[0]);
+      unsigned int type0 = argmsg->rcv_w1 & 0xff,
+                   type1 = (argmsg->rcv_w1 >> 8) & 0xff,
+                   type2 = argmsg->rcv_w1 >> 16;
+      result = BankAllocObject(bank, type0, KR_ARG0, &oids[0]);
       if (result == RC_OK) {
-        result = BankAllocObject(bank,
-                   (argmsg->rcv_w1 >> 8) & 0xff, KR_ARG1, &oids[1]);
+        result = BankAllocObject(bank, type1, KR_ARG1, &oids[1]);
         if (result == RC_OK) {
-          result = BankAllocObject(bank,
-                     argmsg->rcv_w1 >> 16, KR_ARG2, &oids[2]);
+          result = BankAllocObject(bank, type2, KR_ARG2, &oids[2]);
           if (result == RC_OK) {
             /* Got all three objects. */
             argmsg->snd_key0 = KR_ARG0;
@@ -229,9 +230,9 @@ ProcessRequest(Message *argmsg)
             goto allocExit;
           }
           // Didn't get them all. Deallocate the ones we got.
-          bank_deallocOID(bank, argmsg->rcv_w2, oids[1]);
+          bank_deallocOID(bank, type1, oids[1]);
         }
-        bank_deallocOID(bank, argmsg->rcv_w1, oids[0]);
+        bank_deallocOID(bank, type0, oids[0]);
       }
 
 allocExit:
@@ -276,6 +277,8 @@ freeExit:
       break;
     }
 
+  /* N.B.: ReclaimDataPagesFromNode is bogus, because it is always called
+     with a GPT not a node! FIXME */
   case OC_capros_SpaceBank_ReclaimDataPagesFromNode:
     {
       capros_Range_obType type;
@@ -288,33 +291,22 @@ freeExit:
       } else {
 	/* it's a node */
 	uint32_t slot;
-	uint32_t mask = 0;
 	
 	for (slot = 0; slot < EROS_NODE_SIZE; slot++) {
-	  uint32_t result;
+	  result_t result;
 	
 	  result = capros_Node_getSlot(KR_ARG0, slot, KR_ARG1);
-
 	  if (result != RC_OK) {
+            /* This could happen if the node contains a key to itself! */
 	    DEBUG(dealloc)
 	      kdprintf(KR_OSTREAM,
 		       "Spacebank: copy from slot %d failed (0x%1x)\n",
 		       slot,
 		       result);
-	    mask |= (1u << slot);
-	    continue;
-	  }
-	  result = BankDeallocObject(bank, KR_ARG1);
-
-	  if (result != RC_OK) {
-	    DEBUG(dealloc)
-	      kdprintf(KR_OSTREAM,
-		       "Spacebank: dealloc in slot %d failed (0x%1x)\n",
-		       slot,
-		       result);
-	    mask |= (1u << slot);
-	    continue;
-	  }
+	  } else {
+            result = BankDeallocObject(bank, KR_ARG1);
+            // Ignore any error here.
+          }
 	}
       
 	argmsg->snd_code = result;

@@ -719,9 +719,9 @@ BankDeallocObject(Bank * bank, uint32_t kr)
     return code;
   }
 
-  obType = typeToBaseType[obType];
+  const capros_Range_obType baseType = typeToBaseType[obType];
 
-  if (! bank_containsOID(bank, obType, oid)) {
+  if (! bank_containsOID(bank, baseType, oid)) {
     DEBUG (dealloc)
       kdprintf(KR_OSTREAM, "Bank does not contain %s 0x"DW_HEX"\n",
 	       type_name(obType),
@@ -864,7 +864,8 @@ BankAllocObject(Bank * bank, uint8_t type, uint32_t kr, OID * oidRet)
      * note that we don't need to rescind the key we made, since it
      * points to a zero object
      */
-    bank_deallocOID(bank, baseType, oid);
+    bank_deallocOID(bank, type, oid);
+    // FIXME: the above increments deallocs, but we won't increment allocs.
     DEBUG(nospace)
       kdprintf(KR_OSTREAM, "spacebank: Range cap error %#x.\n", retval);
     goto cleanup;
@@ -899,16 +900,17 @@ bank_containsOID(Bank *bank, uint8_t baseType, OID oid)
   return allocTree_checkForOID(&bank->allocTree,oid);
 }
 
-uint32_t
+bool
 bank_deallocOID(Bank *bank, uint8_t type, OID oid)
 {
   struct Bank_MOFrame *obj_frame;
+  const capros_Range_obType baseType = typeToBaseType[type];
 
   /* valid key slot */
   uint64_t frameOff = EROS_FRAME_FROM_OID(oid);
   uint8_t subObj = OIDToObIndex(oid);
 
-  obj_frame = bank_getTypeFrame(bank, type);
+  obj_frame = bank_getTypeFrame(bank, baseType);
   
   if (obj_frame) {
     if (obj_frame->frameMap != 0u && obj_frame->frameOid == frameOff) {
@@ -920,17 +922,17 @@ bank_deallocOID(Bank *bank, uint8_t type, OID oid)
 
       obj_frame->frameMap |= (1<<subObj); /* mark free */
 
-      if (obj_frame->frameMap == objects_map_mask[type]) {
+      if (obj_frame->frameMap == objects_map_mask[baseType]) {
 	/* now the frame is empty -- return it */
 	uint32_t x;
 
 	DEBUG(dealloc)
 	  kprintf(KR_OSTREAM, "Returning empty %s frame\n",type_name(type));
 
-	for (x = 0; x < objects_per_frame[type]; x++) {
+	for (x = 0; x < objects_per_frame[baseType]; x++) {
 	  allocTree_removeOID(&bank->allocTree,
 			      bank,
-			      type,
+			      baseType,
 			      obj_frame->frameOid | x);
 	  obj_frame->frameMap &= ~(1u << x);
 	}
@@ -945,7 +947,7 @@ bank_deallocOID(Bank *bank, uint8_t type, OID oid)
   } /* if (obj_frame) ... */
 
   /* not in the frame cache -- try the tree */
-  if (! allocTree_removeOID(&bank->allocTree, bank, type, oid) ) {
+  if (! allocTree_removeOID(&bank->allocTree, bank, baseType, oid) ) {
     /* failed */
     kprintf(KR_OSTREAM,
 	    "spacebank: oid 0x"DW_HEX" (%s) not in bank "
