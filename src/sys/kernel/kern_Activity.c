@@ -571,7 +571,7 @@ act_DeleteCurrent(void)
   act_DeleteActivity(act);
 }
 
-void 
+static void 
 act_ChooseNewCurrentActivity(void)
 {    
   int runQueueNdx;
@@ -1035,6 +1035,14 @@ PrepareCurrentActivity(void)
       break;
     }
   }
+
+#if 0	// 1 to enforce symtabs
+  if (proc_IsUser(proc)) {
+    // Every process should have a symtab:
+    Key * k = node_GetKeyAtSlot(proc->procRoot, ProcSymSpace);
+    assert(keyBits_IsType(k, KKT_Number));	// or at least not Void
+  }
+#endif
 
   assert(act_Current() == thisPtr);
   assert(act_Current()->state == act_Running);

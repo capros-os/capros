@@ -786,6 +786,8 @@ proc_InvokeMyKeeper(Process* thisPtr, uint32_t oc,
   inv.entry.w3 = warg3;
 
   inv.entry.key[0] = keyArg;
+  /* FIXME: When a GPT is called explicitly, the non-opaque key to the GPT
+     is passed as key[2], which is inconsistent and inconvenient. */
   inv.entry.key[1] = &key_VoidKey;
   inv.entry.key[2] = &key_VoidKey;
   inv.entry.key[3] = &key_VoidKey;

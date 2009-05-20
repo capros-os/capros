@@ -466,7 +466,7 @@ ReleaseSmallSpace(unsigned int pid)
     Link * l = ss->procs.next;
     link_Unlink(l);
     Process * proc = container_of(l, Process, md.pidLink);
-    assert(ValidCtxtPtr(proc));
+    assert(IsValidProcPtr(proc));
     proc_ResetMappingTable(proc);
   }
 

@@ -638,7 +638,7 @@ proc_AllocUserContexts(void)
 
 #ifndef NDEBUG
 bool
-ValidCtxtPtr(const Process *ctxt)
+IsValidProcPtr(const Process *ctxt)
 {
   uint32_t offset;
   if ( ((uint32_t) ctxt < (uint32_t) proc_ContextCache ) || 

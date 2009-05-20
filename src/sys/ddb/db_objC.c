@@ -66,28 +66,24 @@ objC_ddb_dump_pinned_objects()
 static void
 objC_ddb_dump_obj(ObjectHeader * pObj)
 {
-  char goodSum;
-#ifdef OPTION_OB_MOD_CHECK
-  goodSum = (pObj->check == objH_CalcCheck(pObj)) ? 'y' : 'n';
-#else
-  goodSum = '?';
-#endif
-  printf("%#x: %s oid %#llx up:%c drt:%c kro:%c sm:%c au:%c cu:%c\n",
+  printf("%#x: %s oid %#llx%s drt:%c%s%s\n",
 	 pObj,
 	 ddb_obtype_name(pObj->obType),
 	 pObj->oid,
-	 objH_IsUserPinned(pObj) ? 'y' : 'n',
+	 objH_IsUserPinned(pObj) ? "" : " pinned",
 	 objH_IsDirty(pObj) ? 'y' : 'n',
-	 objH_IsKRO(pObj) ? 'y' : 'n',
-	 goodSum,
-	 objH_GetFlags(pObj, OFLG_AllocCntUsed) ? 'y' : 'n',
-	 objH_GetFlags(pObj, OFLG_CallCntUsed) ? 'y' : 'n');
+	 objH_IsKRO(pObj) ? "" : " KRO",
+         ! objH_isNodeType(pObj) && objH_ToPage(pObj)->ioreq
+                ? (objH_GetFlags(pObj, OFLG_Fetching) ? " fetching"
+                                                      : " cleaning")
+                : "");
 }
 
 void
-objC_ddb_dump_pages()
+objC_ddb_dump_pages(OID first, OID last)
 {
   uint32_t nFree = 0;
+  unsigned long notDisplayed = 0;
   
   struct CorePageIterator cpi;
   CorePageIterator_Init(&cpi);
@@ -108,7 +104,10 @@ objC_ddb_dump_pages()
     case ot_PtDevicePage:
     {
       ObjectHeader * pObj = pageH_ToObj(pageH);
-      objC_ddb_dump_obj(pObj);
+      if (pObj->oid >= first && pObj->oid <= last)
+        objC_ddb_dump_obj(pObj);
+      else
+        notDisplayed++;
       break;
     }
 
@@ -118,37 +117,48 @@ objC_ddb_dump_pages()
     case ot_PtWorkingCopy:
     {
       ObjectHeader * pObj = pageH_ToObj(pageH);
-      printf("%#x: %s oid %#llx\n",
-	 pObj,
-	 ddb_obtype_name(pObj->obType),
-	 pObj->oid);
+      if (pObj->oid >= first && pObj->oid <= last)
+        printf("%#x: %s oid %#llx\n",
+               pObj,
+               ddb_obtype_name(pObj->obType),
+               pObj->oid);
+      else
+        notDisplayed++;
       break;
     }
 
     case ot_PtKernelUse:
     case ot_PtDMABlock:
     case ot_PtDMASecondary:
-      printf("%#x: %s\n",
-             pageH,
-             ddb_obtype_name(pageH_GetObType(pageH)) );
+      if (last >= OID_RESERVED_PHYSRANGE)	// only if "show pages all"
+        printf("%#x: %s\n",
+               pageH,
+               ddb_obtype_name(pageH_GetObType(pageH)) );
+      else
+        notDisplayed++;
       break;
       
     default:
-      printf("%#x: %s ",
-             pageH,
-             ddb_obtype_name(pageH_GetObType(pageH)) );
-      pageH_mdType_dump_pages(pageH);
+      if (last >= OID_RESERVED_PHYSRANGE) {	// only if "show pages all"
+        printf("%#x: %s ",
+               pageH,
+               ddb_obtype_name(pageH_GetObType(pageH)) );
+        pageH_mdType_dump_pages(pageH);
+      } else
+        notDisplayed++;
       break;
     }
   }
 
-  printf("Total of %d pages, of which %d are free\n", objC_nPages, nFree);
+  printf("Total of %d pages, of which %d are free, %d not displayed\n",
+         objC_nPages, nFree, notDisplayed);
 }
 
 void
-objC_ddb_dump_nodes()
+objC_ddb_dump_nodes(OID first, OID last)
 {
   uint32_t nFree = 0;
+  unsigned long notDisplayed = 0;
   uint32_t nd = 0;
   
   for (nd = 0; nd < objC_nNodes; nd++) {
@@ -162,10 +172,14 @@ objC_ddb_dump_nodes()
     if (pObj->obType > ot_NtLAST_NODE_TYPE)
       fatal("Node @0x%08x: object type %d is broken\n", pObj,
 		    pObj->obType); 
-    objC_ddb_dump_obj(pObj);
+    if (pObj->oid >= first && pObj->oid <= last)
+      objC_ddb_dump_obj(pObj);
+    else
+      notDisplayed++;
   }
 
-  printf("Total of %d nodes, of which %d are free\n", objC_nNodes, nFree);
+  printf("Total of %d nodes, of which %d are free, %d not displayed\n",
+         objC_nNodes, nFree, notDisplayed);
 }
 
 void

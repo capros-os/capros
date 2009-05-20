@@ -296,8 +296,10 @@ db_eros_print_node(Node *pNode)
 {
   uint32_t i;
 
-  db_printf("Node (0x%08x) oid=%#llx ac=0x%08x cc=0x%08x ot=%d data=0x%x\n",
-	    pNode, pNode->node_ObjHdr.oid,
+  // Print pNode separately, in case the address is invalid:
+  db_printf("Node (%#x) ", pNode);
+  db_printf("oid=%#llx ac=0x%08x cc=0x%08x ot=%d data=0x%x\n",
+	    pNode->node_ObjHdr.oid,
 	    objH_GetAllocCount(& pNode->node_ObjHdr),
 	    node_GetCallCount(pNode),
             pNode->node_ObjHdr.obType, pNode->nodeData);
@@ -349,7 +351,10 @@ db_eros_print_number_as_string(Key* k /*@ not null @*/)
 void
 db_eros_print_context(Process *cc)
 {
-    db_printf("proc=0x%08x (%s)", cc, proc_Name(cc));
+  if (! cc->procRoot && cc->isUserContext)
+    db_printf("Process is free\n");
+  else {
+    db_printf("proc=%#x (%s)", cc, proc_Name(cc));
     const char * stateName;
     switch (cc->runState) {
     default: stateName = "?"; break;
@@ -379,11 +384,13 @@ db_eros_print_context(Process *cc)
       db_printf(" prio=%d", /*cc->priority*/cc->readyQ->mask);
     db_eros_print_context_md(cc);
  
-    if (cc->procRoot && 
-	keyBits_IsType(&cc->procRoot->slot[ProcSymSpace], KKT_Number)) {
-      db_printf("Procname: ");
-      db_eros_print_number_as_string(&cc->procRoot->slot[ProcSymSpace]);
-      db_printf("\n");
+    if (cc->procRoot) {
+      Key * k = node_GetKeyAtSlot(cc->procRoot, ProcSymSpace);
+      if (keyBits_IsType(k, KKT_Number)) {
+        db_printf("Procname: ");
+        db_eros_print_number_as_string(k);
+        db_printf("\n");
+      }
     }
 
     if (proc_IsNotRunnable(cc))
@@ -392,6 +399,7 @@ db_eros_print_context(Process *cc)
 #ifdef OPTION_PSEUDO_REGS
     proc_DumpPseudoRegs(cc);
 #endif
+  }
 }
 
 extern void DumpFixRegs(const savearea_t *fx);
@@ -728,9 +736,12 @@ void
 db_ctxt_print_cmd(db_expr_t addr, int have_addr,
 		  db_expr_t cnt/* count */, char * mdf/* modif */)
 {
-  if (have_addr)
-    db_eros_print_context((Process *) addr);
-  else {
+  if (have_addr) {
+    if (IsValidProcPtr((Process *)addr))
+      db_eros_print_context((Process *)addr);
+    else
+      db_printf("Not a valid process pointer.\n");
+  } else {
     Process * proc = proc_curProcess;
     if (proc)
       db_eros_print_context(proc);
@@ -1546,13 +1557,37 @@ db_show_pte_cmd(db_expr_t addr, int have_addr, db_expr_t det, char* ch)
 void
 db_show_pages_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 {
-  objC_ddb_dump_pages();
+  objC_ddb_dump_pages(0, 0xffffffffffffffffull);
+}
+
+void
+db_show_pages_persistent_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
+{
+  objC_ddb_dump_pages(FIRST_PERSISTENT_OID, OID_RESERVED_PHYSRANGE-1);
+}
+
+void
+db_show_pages_nonpersistent_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
+{
+  objC_ddb_dump_pages(0, FIRST_PERSISTENT_OID-1);
 }
 
 void
 db_show_nodes_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
 {
-  objC_ddb_dump_nodes();
+  objC_ddb_dump_nodes(0, 0xffffffffffffffffull);
+}
+
+void
+db_show_nodes_persistent_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
+{
+  objC_ddb_dump_nodes(FIRST_PERSISTENT_OID, OID_RESERVED_PHYSRANGE-1);
+}
+
+void
+db_show_nodes_nonpersistent_cmd(db_expr_t dt, int it, db_expr_t det, char* ch)
+{
+  objC_ddb_dump_nodes(0, FIRST_PERSISTENT_OID-1);
 }
 
 void

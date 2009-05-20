@@ -134,8 +134,8 @@ bool objC_ValidPagePtr(const ObjectHeader *pObj);
 
 #ifdef OPTION_DDB
 void objC_ddb_dump_pinned_objects();
-void objC_ddb_dump_pages();
-void objC_ddb_dump_nodes();
+void objC_ddb_dump_pages(OID first, OID last);
+void objC_ddb_dump_nodes(OID first, OID last);
 void objC_ddb_dump_procs(void);
 #endif
 

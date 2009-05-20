@@ -366,7 +366,11 @@ extern void	db_show_reserves_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_kreserves_cmd(db_expr_t, int, db_expr_t, char*);
 #endif
 extern void	db_show_pages_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_show_pages_persistent_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_show_pages_nonpersistent_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_nodes_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_show_nodes_persistent_cmd(db_expr_t, int, db_expr_t, char*);
+extern void	db_show_nodes_nonpersistent_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_procs_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_counters_cmd(db_expr_t, int, db_expr_t, char*);
 extern void	db_show_key_cmd(db_expr_t, int, db_expr_t, char*);
@@ -384,6 +388,20 @@ struct db_command db_show_all_cmds[] = {
 	{ "procs",	db_show_all_procs,0,	0 },
 	{ "callout",	db_show_callout,0,	0 },
 #endif
+	{ (char *)0 }
+};
+
+struct db_command db_show_pages_cmds[] = {
+	{ "all",      db_show_pages_cmd,	0,	0 },
+	{ "persistent", db_show_pages_persistent_cmd,	0,	0 },
+	{ "nonpersistent", db_show_pages_nonpersistent_cmd,	0,	0 },
+	{ (char *)0 }
+};
+
+struct db_command db_show_nodes_cmds[] = {
+	{ "all",      db_show_nodes_cmd,	0,	0 },
+	{ "persistent", db_show_nodes_persistent_cmd,	0,	0 },
+	{ "nonpersistent", db_show_nodes_nonpersistent_cmd,	0,	0 },
 	{ (char *)0 }
 };
 
@@ -413,9 +431,9 @@ struct db_command db_show_cmds[] = {
 #endif
 	{ "mappings",   db_show_mappings_cmd,	CS_OWN,	0 },
 	{ "node",       db_show_node_cmd,	0,	0 },
-	{ "nodes",      db_show_nodes_cmd,	0,	0 },
+	{ "nodes",	0,			0,	db_show_nodes_cmds },
 	{ "obhdr",      db_show_obhdr_cmd,	0,	0 },
-	{ "pages",      db_show_pages_cmd,	0,	0 },
+	{ "pages",	0,			0,	db_show_pages_cmds },
 	{ "pins",       db_show_pins_cmd,	0,	0 },
 	{ "pmem",       db_show_pmem_cmd,	0,	0 },
 	{ "proc",       db_ctxt_print_cmd,	0,	0 },

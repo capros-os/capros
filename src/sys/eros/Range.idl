@@ -124,7 +124,7 @@ interface Range extends key raises(RangeErr, NotMounted, IoErr) {
   /** Get counts.
    *
    * offset specifies the OID of an object relative to this range.
-   * The offset must be withing this range, otherwise RangeErr is raised.
+   * The offset must be within this range, otherwise RangeErr is raised.
    * Returns the allocation count of the object.
    * If the object has a call count, the maximum of the allocation count
    * and call count is returned.

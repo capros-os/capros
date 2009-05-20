@@ -487,7 +487,7 @@ key_NH_Unprepare(Key* thisPtr)
   
     if (keyBits_IsProcessType(thisPtr)) {
 #ifndef NDEBUG
-      if (ValidCtxtPtr(thisPtr->u.gk.pContext) == false)
+      if (IsValidProcPtr(thisPtr->u.gk.pContext) == false)
 	fatal("Key 0x%08x Kt %d, 0x%08x not valid ctxt ptr\n",
               thisPtr, keyBits_GetType(thisPtr), thisPtr->u.gk.pContext);
 #endif
@@ -633,7 +633,7 @@ key_IsValid(const Key* thisPtr)
   if ( keyBits_IsPreparedObjectKey(thisPtr) ) {
     if ( keyBits_IsProcessType(thisPtr) ) {
       Process * proc = thisPtr->u.gk.pContext;
-      if (! ValidCtxtPtr(proc)) {
+      if (! IsValidProcPtr(proc)) {
 	printf("Key %#x has invalid proc ptr %#x\n", thisPtr, proc);
 	return false;
       }

@@ -107,6 +107,22 @@ const unsigned int objectsPerFrame[2] = {
 /* #define DEBUG_RANGEKEY */
 
 OID rngStart, rngEnd;
+
+//#define TRACE_ALLOC
+#ifdef TRACE_ALLOC
+#include <kerninc/Process.h>
+void
+LogOp(Invocation * inv, OID oid, const char * s)
+{
+  // inv->returnee is the space bank.
+  // Get space bank's caller.
+  Key * sbc = &inv->invokee->keyReg[31];
+  if (keyBits_IsPreparedResumeKey(sbc)) {
+    Process * proc = sbc->u.gk.pContext;
+    printf("Rng: %#llx %#x %s\n", oid, proc, s);
+  }
+}
+#endif
       
 // Returns object type or -1
 static int
@@ -500,6 +516,9 @@ RangeKey(Invocation* inv /*@ not null @*/)
       objH_EnsureWritable(pObject);	// does not reset the age
 
       COMMIT_POINT();
+#ifdef TRACE_ALLOC
+  LogOp(inv, oid, "rescind");
+#endif
       
       objH_Rescind(pObject);
 
@@ -553,6 +572,9 @@ rangeGetWaitCap:
 
       MakeObjectKey(inv, w2w3Offset(inv),
         waitFlag, baseType[ot], obKKT[ot]);
+#ifdef TRACE_ALLOC
+  LogOp(inv, w2w3Offset(inv), "get");
+#endif
 
       break;
     }
