@@ -1794,7 +1794,13 @@ int
 writeSSL(ReaderState *rs, void *data, int len) {
   int rc;
   
-  DEBUG(netio) DBGPRINT(DBGTARGET, "HTTP SSL write=%.*s\n", len, (char*)data);
+  DEBUG(netio) {
+    int prtlen = len;
+    if (prtlen > 40)	// limit the number of characters printed
+      prtlen = 40;
+    DBGPRINT(DBGTARGET, "HTTP SSL write len=%d data=%.*s\n",
+             len, prtlen, (char*)data);
+  }
   if (0 == len) return 1;  /* SSL_write behavior with length 0 is undefined */
   /* Write to the SSL connection */
   while ((rc = SSL_write(rs->plain, data, len))) {
