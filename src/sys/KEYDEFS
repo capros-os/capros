@@ -87,7 +87,6 @@ primary	Keyboard
 domain	PCC
 domain	MetaConstructor
 domain	DomCre
-domain	VcskSeg
 
 /* This is wrong: each type of constructor should have its own type. */
 domain	ConstructorRequestor
