@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2006, 2008, Strawberry Development Group
+# Copyright (C) 2006, 2008, 2009, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -38,6 +38,10 @@ IMGMAP=vcs.map
 include $(EROS_SRC)/build/make/makerules.mk
 
 all: $(TARGETS)
+
+IDL=$(wildcard *.idl)
+interfaces: $(IDL)
+	$(INSTALL) -m 644 $(IDL) $(EROS_ROOT)/idl/capros
 
 vcsk.c: $(BUILDDIR)/constituents.h
 

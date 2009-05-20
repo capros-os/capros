@@ -1,0 +1,6 @@
+package capros;
+
+/* The Virtual Copy Segment. */
+interface VCS extends Memory
+{
+};
