@@ -61,9 +61,10 @@ Approved for public release, distribution unlimited. */
 #define dbg_listen 0x10
 #define dbg_errors 0x20
 #define dbg_alloc  0x40
+#define dbg_mem    0x80
 
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_errors )
+#define dbg_flags   ( 0u | dbg_errors | dbg_mem)
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
@@ -168,7 +169,7 @@ struct TCPSocket {
   unsigned char * sendBuf;
   const unsigned char * sendData; // if sending == true, the next data to send
   unsigned int sendLen;   // if sending == true, the amount of data to send
-  u8_t sendPush;	// TCP_WRITE_FLAG_MORE or 0
+  u8_t sendPush;	// TCP_WRITE_FLAG_MORE or 0 to push
 
   /* recvQ is a circular buffer of pbufs of data received.
    * recvQIn is where the next pbuf will be put.
@@ -217,6 +218,9 @@ unsigned long sndBuf[sndBufWords];
 static bool
 DeliverDataNow(struct TCPSocket * sock, unsigned int maxLen)
 {
+  if (sock->TCPSk_remoteState != TCPSk_rstate_Open)
+    return true;	// deliver the final RemoteClosed
+
   if (sock->recvQNum == 0)
     return false;	// there is no data to deliver
 
@@ -262,7 +266,8 @@ ConsumePbuf(struct TCPSocket * sock)
 unsigned int
 GatherRecvData(struct TCPSocket * sock, unsigned int maxLen)
 {
-  assert(sock->recvQNum);
+  if (! sock->recvQNum)
+    return 0;		// No data. Delivering final RemoteClosed.
 
   uint8_t * outp = (uint8_t *)&sndBuf[0];
 
@@ -303,6 +308,7 @@ GatherRecvData(struct TCPSocket * sock, unsigned int maxLen)
     }
   }
   unsigned int totalLen = outp - (uint8_t *)&sndBuf[0];	// num of bytes copied
+  assert(totalLen);
   tcp_recved(sock->pcb, totalLen);	// let the sender send more
   return totalLen;
 }
@@ -336,13 +342,28 @@ ReturnToReceiver(struct TCPSocket * sock, unsigned int bytesReceived,
   DEBUG(rx) kprintf(KR_OSTREAM, "lwip woke rcvr\n");
 }
 
+// Call when the other end will send no more.
+static void
+RemoteClosed(struct TCPSocket * sock)
+{
+  assert(sock->TCPSk_remoteState != TCPSk_rstate_Open);
+  if (sock->receiving) {
+    assert(sock->recvQNum == 0);
+    ReturnToReceiver(sock, 0, RC_capros_TCPSocket_RemoteClosed);
+    sock->remoteCloseDelivered = true;
+  }
+}
+
 void
 WakeAnyReceiver(struct TCPSocket * sock)
 {
   if (sock->receiving) {
     if (DeliverDataNow(sock, sock->receiverMaxLen)) {
       unsigned int bytesReceived = GatherRecvData(sock, sock->receiverMaxLen);
-      ReturnToReceiver(sock, bytesReceived, RC_OK);
+      if (bytesReceived)
+        ReturnToReceiver(sock, bytesReceived, RC_OK);
+      else
+        RemoteClosed(sock);
     }
   }
 }
@@ -356,20 +377,8 @@ CheckFullyClosed(struct TCPSocket * sock)
     assert(! sock->sending);	// because of sock->TCPSk_state
     assert(! sock->receiving);	// because of sock->remoteCloseDelivered
     assert(sock->TCPSk_remoteState == TCPSk_rstate_Closed);
-    //// how is the pcb deallocated??
+    // how is the pcb deallocated??
     DestroyTCPConnection(sock);
-  }
-}
-
-// Call when the other end will send no more.
-static void
-RemoteClosed(struct TCPSocket * sock)
-{
-  assert(sock->TCPSk_remoteState != TCPSk_rstate_Open);
-  if (sock->receiving) {
-    assert(sock->recvQNum == 0);
-    ReturnToReceiver(sock, 0, RC_capros_TCPSocket_RemoteClosed);
-    sock->remoteCloseDelivered = true;
   }
 }
 
@@ -386,6 +395,8 @@ recv_tcp(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
   assert(err == ERR_OK);	// else how to handle it?
 
   if (!p) {	// NULL means other end will send no more data
+    DEBUG(conn) kprintf(KR_OSTREAM, "%s:%d: got NULL pbuf, rcvg=%d\n",
+                        __FILE__, __LINE__, sock->receiving);
     assert(sock->TCPSk_remoteState == TCPSk_rstate_Open);
     sock->TCPSk_remoteState = TCPSk_rstate_Closed;
     RemoteClosed(sock);
@@ -428,6 +439,11 @@ TCPReceive(Message * msg)
   if (DeliverDataNow(sock, maxLen)) {
     // Return data immediately.
     unsigned int bytesReceived = GatherRecvData(sock, maxLen);
+    if (! bytesReceived) {
+      msg->snd_code = RC_capros_TCPSocket_RemoteClosed;
+      sock->remoteCloseDelivered = true;
+      CheckFullyClosed(sock);
+    }
     msg->snd_data = sndBuf;
     msg->snd_len = bytesReceived;
     msg->snd_w1 = bytesReceived;
@@ -510,8 +526,7 @@ static void
 do_sendmore(struct TCPSocket * sock)
 {
   err_t err;
-  unsigned int push = sock->sendPush;
-  unsigned int len = sock->sendLen;
+  unsigned int len = sock->sendLen;	// could be zero
   unsigned int avail = tcp_sndbuf(sock->pcb);
 
   DEBUG(tx) printk("do_sendmore(%#x) len=%d avail=%d\n",
@@ -519,14 +534,17 @@ do_sendmore(struct TCPSocket * sock)
   if (avail == 0)
     DEBUG(errors) kdprintf(KR_OSTREAM, "tcp_sndbuf no space available!");
 
+  unsigned int push;
   if (len > avail) {
     len = avail;	// send no more than we can
-    push = 0;		// not the last data, don't push yet
+    push = TCP_WRITE_FLAG_MORE;	// not the last data, don't push yet
+  } else {
+    push = sock->sendPush;
   }
 
-  /* Unfortunately, there is no way to find out when sent data has been
-     acknowledged, thus no way to find out when its space can be reused.
-     Thus we must copy the data by specifying TCP_WRITE_FLAG_COPY. */
+  /* Unfortunately, there is no easy way to find out when sent data has been
+     acknowledged, and its space can be reused. Buffering would be complex.
+     Thus we copy the data by specifying TCP_WRITE_FLAG_COPY. */
   err = tcp_write(sock->pcb, sock->sendData, len, push | TCP_WRITE_FLAG_COPY);
   switch (err) {
   default:
@@ -625,7 +643,7 @@ DestroyTCPConnection(struct TCPSocket * sock)
   // Freeing the forwarder invalidates all the capabilities to it.
   result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
                                             slot, slot+sco_numSlots-1);
-  DEBUG(alloc) kprintf(KR_OSTREAM, "%s:%d: Free'ed sock %d and buffer.\n",
+  DEBUG(alloc) kprintf(KR_OSTREAM, "%s:%d: Free'ed sock %#x and buffer.\n",
                        __FILE__, __LINE__, sock);
   free(sock->sendBuf);
   free(sock);
@@ -680,31 +698,31 @@ TCPClose(Message * msg)
 /*************************** TCP Connecting ******************************/
 
 static err_t
-sent_tcp(void *arg, struct tcp_pcb *pcb, u16_t len)
+poll_tcp(void *arg, struct tcp_pcb *pcb)
 {
   struct TCPSocket * sock = arg;
 
-  if (sock->TCPSk_state == TCPSk_state_Closing && sock->sending) {
-    // We are trying to close. Try again.
-    if (TryClose(sock)) {	// succeeded in closing
-      sendFinished(sock, ERR_OK);
+  if (sock->sending) {
+    if (sock->TCPSk_state == TCPSk_state_Closing) {
+      DEBUG(mem) kprintf(KR_OSTREAM, "%s:%d: retry close\n",
+                         __FILE__, __LINE__);
+      // We are trying to close. Try again.
+      if (TryClose(sock)) {	// succeeded in closing
+        sendFinished(sock, ERR_OK);
+      }
+    } else {
+      DEBUG(mem) kprintf(KR_OSTREAM, "%s:%d: retry send\n",
+                         __FILE__, __LINE__);
+      do_sendmore(sock);
     }
   }
   return ERR_OK;
 }
 
 static err_t
-poll_tcp(void *arg, struct tcp_pcb *pcb)
+sent_tcp(void *arg, struct tcp_pcb *pcb, u16_t len)
 {
-  struct TCPSocket * sock = arg;
-
-  if (sock->TCPSk_state == TCPSk_state_Closing && sock->sending) {
-    // We are trying to close. Try again.
-    if (TryClose(sock)) {	// succeeded in closing
-      sendFinished(sock, ERR_OK);
-    }
-  }
-  return ERR_OK;
+  return poll_tcp(arg, pcb);
 }
 
 // On entry, KR_TEMP1 has forwarder cap.
@@ -849,7 +867,7 @@ CreateSocket(void)
   unsigned char * buf = AllocRcvBuf();
   if (!buf)
     goto errExit1;
-  DEBUG(alloc) kprintf(KR_OSTREAM, "%s:%d: Alloc'ed sock %d and buffer.\n",
+  DEBUG(alloc) kprintf(KR_OSTREAM, "%s:%d: Alloc'ed sock %#x and buffer.\n",
                        __FILE__, __LINE__, sock);
 
   // Allocate capability slots for this connection.
