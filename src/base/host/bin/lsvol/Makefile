@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -34,8 +34,6 @@ TARGETS=$(BUILDDIR)/lsvol $(BUILDDIR)/dbvol $(BUILDDIR)/setvol
 OPTIM=-g
 COMMON_OBJECTS=$(BUILDDIR)/prt_ckdir.o $(BUILDDIR)/prt_divtbl.o 
 COMMON_OBJECTS+=$(BUILDDIR)/prt_volhdr.o
-OTHER_OBJECTS=$(BUILDDIR)/lsvol.o $(BUILDDIR)/dbvol.o $(BUILDDIR)/setvol.o
-OBJECTS=$(OTHER_OBJECTS) $(COMMON_OBJECTS)
 DEF+=   -D_REVEAL_KERNEL_KEY_TYPES_
 INC=	-I$(EROS_ROOT)/host/include $(XENV_INCLUDE)
 LIBS=	$(EROS_ROOT)/host/lib/liberos.a $(EROS_ROOT)/host/lib/libdisk.a
