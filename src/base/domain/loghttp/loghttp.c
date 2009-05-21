@@ -40,6 +40,8 @@ Approved for public release, distribution unlimited. */
 
 #include "constituents.h"
 
+//#define BIGTEST 18000	// just generate a large amount of data
+
 #define min(x,y) ((x) < (y) ? (x) : (y))
 #define max(x,y) ((x) > (y) ? (x) : (y))
 
@@ -158,6 +160,9 @@ main(void)
   msg->rcv_rsmkey = KR_RETURN;
   msg->rcv_data = rcvBuf;
   msg->rcv_limit = rcvBufSize;
+#ifdef BIGTEST
+  int bytesSent = 0;
+#endif
 
   for(;;) {
     RETURN(msg);
@@ -255,6 +260,16 @@ main(void)
       uint8_t * rawP = (uint8_t *)rcvBuf;
       result = capros_Logfile_getNextRecords(KR_Logfile,
                  lastID, binSize, rawP, &lenGotten);
+#ifdef BIGTEST
+      int bytesWanted = BIGTEST - bytesSent;
+      if (bytesWanted > 0) {
+        lenGotten = binSize;
+        bytesSent += binSize;
+        result = RC_OK;
+      } else {
+        result = RC_capros_Logfile_NoRecord;
+      }
+#endif
       switch (result) {
       default:
       case RC_capros_Logfile_NoRecord:
@@ -319,7 +334,7 @@ main(void)
             int i;
             unsigned int leds = ledrec->LEDsSteady;
             for (i = 0; i < 8; i++) {
-              forP += sprintf(forP, "\t%d", leds & 0x80);
+              forP += sprintf(forP, "\t%d", (leds & 0x80) >> 7);
               leds <<= 1;
             }
             forP += sprintf(forP, "\n");
