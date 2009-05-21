@@ -270,7 +270,7 @@ find(char *name, state_t * state)
 }
 
 uint32_t
-lookup (char *name, uint32_t kr, state_t *state)
+lookup(char *name, uint32_t kr, state_t *state)
 {
   uint32_t result;
   
@@ -285,7 +285,8 @@ lookup (char *name, uint32_t kr, state_t *state)
   if ((result = capros_Node_getSlotExtended(KR_SNODE, dp->d_entno, kr))
       != RC_OK) {
     kdprintf(KR_OSTREAM,
-             "Result from capros_Node_getSlotExtended: 0x%08x\n", result);
+             "Result from capros_Node_getSlotExtended: %#x, %#x, %#x\n",
+             result, dp->d_entno, dp);
     return result;
   }
 
@@ -518,18 +519,18 @@ ProcessRequest(Message *msg, state_t *state)
     
   case 0:	// OC_capros_IndexedKeyStore_get
     DEBUG(op) kprintf(KR_OSTREAM, "DIR: lookup(\"%s\")\n", state->name);
-    msg->snd_code = lookup (state->name, KR_ARG0, state);
+    msg->snd_code = lookup(state->name, KR_ARG0, state);
     msg->snd_key0 = KR_ARG0;
     break;
 
   case 1:	// OC_capros_IndexedKeyStore_put
     DEBUG(op) kprintf(KR_OSTREAM, "DIR: link(\"%s\", <key>)\n", state->name);
-    msg->snd_code = link (state->name, msg->rcv_key0, state);
+    msg->snd_code = link(state->name, msg->rcv_key0, state);
     break;
 
   case 2:	// OC_capros_IndexedKeyStore_delete
     DEBUG(op) kprintf(KR_OSTREAM, "DIR: unlink(\"%s\") => <key>\n", state->name);
-    msg->snd_code = unlink (state->name, msg->rcv_key0, state);
+    msg->snd_code = unlink(state->name, msg->rcv_key0, state);
     break;
 
   case OC_capros_key_getType:			/* check alleged keytype */
