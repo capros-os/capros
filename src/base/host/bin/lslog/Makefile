@@ -1,6 +1,4 @@
-#
-# Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -24,11 +22,22 @@
 
 default: install
 
-EROS_SRC=../../..
+EROS_SRC=../../../..
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-TARGETS=
-DIRS=mkvol lsvol lslog segtest setboot lsimage mkimage sysgen # pci
+TARGETS=$(BUILDDIR)/lslog
+INC=-I$(EROS_ROOT)/include
 
 include $(EROS_SRC)/build/make/makerules.mk
+
+all: $(TARGETS)
+
+$(BUILDDIR)/lslog: $(BUILDDIR)/lslog.o
+	$(GCC) $(GCCFLAGS) -o $@ $(BUILDDIR)/lslog.o
+
+install: all
+	$(INSTALL) -d $(EROS_ROOT)/host
+	$(INSTALL) -m 755 $(TARGETS) $(EROS_ROOT)/host/bin
+
+-include $(BUILDDIR)/.*.m
