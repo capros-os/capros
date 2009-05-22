@@ -80,12 +80,18 @@ interface TCPSocket extends key {
   This returns as soon as the close has been queued for transmission.
   It may not have been received yet at the other end.
   You may continue to receive, but not send.
+
+  To terminate the connection without losing data, call close(),
+  then receive() until you get a RemoteClosed exception.
+  At that point the connection will be destroyed.
   */
   void close();
 
   /** abort - Abort the connection.
 
   An abort signal is sent to the other end of the connection.
+  Warning: data sent to the other end may be lost. 
+
   After the abort operation:
   - No more sends or receives are allowed.
   - Any send or receive in progress will suffer a key.Void exception.
@@ -93,6 +99,8 @@ interface TCPSocket extends key {
   - The TCPSocket object is destroyed.
   */
   void abort();
+
+  /* TCPSocked obeys key.destroy, which does the same thing as abort(). */
 
   /* The following four are not implemented in IDL because the IDL compiler
   is not yet up to the task. */
