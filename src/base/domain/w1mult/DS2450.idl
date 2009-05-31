@@ -34,7 +34,7 @@ interface DS2450 extends key
   Returns, for each port configured for input,
   a read-only capability to the port's Logfile,
   containing records of type Logfile.LogRecord16 
-  in which the value field is data for that port.
+  in which the value field is unsigned data for that port.
 
   May raise SpaceBank.LimitReached.
   */
