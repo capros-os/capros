@@ -636,7 +636,7 @@ proc_AllocUserContexts(void)
 		 proc_ContextCache);
 }
 
-#ifndef NDEBUG
+#if (! defined(NDEBUG)) || defined(OPTION_DDB)
 bool
 IsValidProcPtr(const Process *ctxt)
 {

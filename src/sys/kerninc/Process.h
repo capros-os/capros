@@ -240,8 +240,11 @@ void proc_LoadFPU(Process* thisPtr);
 void proc_DumpFloatRegs(Process* thisPtr);
 #endif
 
-#ifndef NDEBUG
+#if (! defined(NDEBUG)) || defined(OPTION_DDB)
 bool IsValidProcPtr(const Process * ctxt);
+#endif
+
+#ifndef NDEBUG
 bool ValidCtxtKeyRingPtr(const KeyRing* kr);
 #endif
 #ifdef OPTION_DDB
