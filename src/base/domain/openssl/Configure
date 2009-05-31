@@ -529,7 +529,8 @@ my %table=(
 "OS2-EMX", "gcc::::::::",
 
 ##### CapROS arm
-"CapROS-arm", "/capros/host/bin/arm-unknown-capros-gcc:-O -Wall -DOPENSSL_IMPLEMENTS_strncasecmp -DNO_SYSLOG -DOPENSSL_NO_DGRAM:::CAPROS::::",
+## use -mapcs-frame for debugging
+"CapROS-arm", "/capros/host/bin/arm-unknown-capros-gcc:-O -mapcs-frame -Wall -DOPENSSL_IMPLEMENTS_strncasecmp -DNO_SYSLOG -DOPENSSL_NO_DGRAM:::CAPROS::::",
 
 ##### CapROS i486
 "CapROS-i486", "/capros/host/bin/i386-unknown-capros-gcc:-O -Wall -DOPENSSL_IMPLEMENTS_strncasecmp -DNO_SYSLOG -DOPENSSL_NO_DGRAM:::CAPROS::::",
