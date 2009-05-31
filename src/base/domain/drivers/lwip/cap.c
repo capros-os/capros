@@ -256,11 +256,15 @@ DeliverDataNow(struct TCPSocket * sock, unsigned int maxLen)
 static void
 ConsumePbuf(struct TCPSocket * sock)
 {
+  assert(sock->recvQNum);
+  --sock->recvQNum;
   pbuf_free(* sock->recvQOut);
+#ifndef NDEBUG
+  * sock->recvQOut = NULL;	// for safety
+  sock->curRecvPbuf = NULL;
+#endif
   if (++sock->recvQOut >= &sock->recvQ[maxRecvQPBufs])
     sock->recvQOut = &sock->recvQ[0];	// wrap around
-  sock->curRecvPbuf = * sock->recvQOut;
-  --sock->recvQNum;
 }
 
 unsigned int
@@ -304,6 +308,7 @@ GatherRecvData(struct TCPSocket * sock, unsigned int maxLen)
         ConsumePbuf(sock);
         if (sock->recvQNum == 0)
           break;	// no more buffers
+        sock->curRecvPbuf = * sock->recvQOut;
       }
     }
   }
