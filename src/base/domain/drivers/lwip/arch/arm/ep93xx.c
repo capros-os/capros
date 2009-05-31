@@ -362,6 +362,7 @@ static void ep93xx_rx(void)
             // Note, netif->input is ethernet_input().
             errNum = gNetif->input(p, gNetif);
             if (errNum != ERR_OK) {
+              // ethernet_input doesn't return errors, so this never happens.
               DEBUG(errors) kdprintf(KR_OSTREAM,
                                   "ethernet_input error %d\n", errNum);
               LWIP_DEBUGF(NETIF_DEBUG,
