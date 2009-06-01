@@ -4,7 +4,8 @@
  * Copyright (C) 2003, Jonathan S. Shapiro.
  * Copyright (C) 2007, Strawberry Development Group.
  *
- * This file is part of the CapROS Operating System runtime distribution.
+ * This file is part of the CapROS Operating System runtime distribution,
+ * and is derived from the EROS Operating System runtime distribution.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License

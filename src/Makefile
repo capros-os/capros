@@ -2,7 +2,8 @@
 # Copyright (C) 2001, The EROS Group, LLC.
 # Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
 #
-# This file is part of the CapROS Operating System.
+# This file is part of the CapROS Operating System,
+# and is derived from the EROS Operating System.
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License

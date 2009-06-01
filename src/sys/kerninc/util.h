@@ -4,7 +4,8 @@
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
  * Copyright (C) 2005, 2008, Strawberry Development Group.
  *
- * This file is part of the CapROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
