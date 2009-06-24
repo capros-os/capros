@@ -1,8 +1,9 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, Strawberry Development Group
+ * Copyright (C) 2005, 2009, Strawberry Development Group
  *
- * This file is part of the EROS Operating System.
+ * This file is part of the CapROS Operating System,
+ * and is derived from the EROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -24,7 +25,6 @@
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
 #include <eros/NodeKey.h>
-#include <eros/KeyConst.h>
 #include <domain/domdbg.h>
 #include <domain/SpaceBankKey.h>
 #include <idl/capros/SysTrace.h>

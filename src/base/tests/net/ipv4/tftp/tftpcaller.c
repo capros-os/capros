@@ -2,7 +2,6 @@
 #include <eros/target.h>
 #include <eros/NodeKey.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
 #include <eros/endian.h>
 
 #include <idl/capros/Sleep.h>

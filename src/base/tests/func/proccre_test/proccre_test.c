@@ -25,7 +25,6 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/target.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/ProcCre.h>

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2007, Strawberry Development Group
+ * Copyright (C) 2005, 2007, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -27,7 +27,6 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
 #include <eros/NodeKey.h>
-#include <eros/KeyConst.h>
 #include <domain/domdbg.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/SysTrace.h>

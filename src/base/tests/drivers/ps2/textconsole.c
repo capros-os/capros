@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -26,7 +26,6 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/i486/io.h>
-#include <eros/KeyConst.h>
 #include <eros/NodeKey.h>
 
 #include <domain/Runtime.h>

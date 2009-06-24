@@ -24,7 +24,6 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <eros/NodeKey.h>
-#include <eros/KeyConst.h>
 
 #include <stdlib.h>
 #include <ctype.h>
