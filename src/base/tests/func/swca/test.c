@@ -87,6 +87,7 @@ main(void)
   kprintf(KR_OSTREAM, "Inverter %d gen mode = %d\n",
           0+1, genModeValue);
 
+#if 1////
   // Set generator mode back.
   result = capros_SWCA_setGeneratorMode(KR_SWCA, 1, originalMode);
   ckOK
@@ -96,6 +97,9 @@ main(void)
   ckOK
   kprintf(KR_OSTREAM, "Inverter %d gen mode = %d\n",
           0+1, genModeValue);
+#else
+  (void)originalMode;
+#endif
 #endif
 
 
