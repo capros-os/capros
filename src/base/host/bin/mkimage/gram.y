@@ -40,7 +40,6 @@ Approved for public release, distribution unlimited. */
 #include <erosimg/Parse.h>
 #include <erosimg/StrBuf.h>
 #include <erosimg/DiskKey.h>
-#include <eros/KeyConst.h>
 #include <disk/DiskLSS.h>
 #include <disk/DiskGPT.h>
 #include <disk/Node.h>
@@ -1718,8 +1717,8 @@ oid:   HEX {
 
 blss:  KW_LSS arith_expr {
          SHOWPARSE("=== lss -> arith_expr\n");
-	 if ($2 > (MAX_BLSS - EROS_PAGE_BLSS)) {
-	   diag_printf("%s:%d: lss value too large\n",
+	 if ($2 > (11 - EROS_PAGE_BLSS)) {
+	   diag_printf("%s:%d: lss value larger than 11\n",
 		       current_file, current_line);
 	   num_errors++;
 	   YYERROR;

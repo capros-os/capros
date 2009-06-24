@@ -31,8 +31,6 @@ Approved for public release, distribution unlimited. */
 #include <unistd.h>
 
 #include <eros/target.h>
-#include <eros/StdKeyType.h>
-#include <eros/KeyConst.h>
 #include <erosimg/DiskKey.h>
 #include <erosimg/Diag.h>
 

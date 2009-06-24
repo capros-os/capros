@@ -34,7 +34,6 @@
 #include <erosimg/ErosImage.h>
 #include <erosimg/ExecImage.h>
 #include <erosimg/Parse.h>
-#include <eros/KeyConst.h>
 
 extern void PrintDiskKey(KeyBits);
 

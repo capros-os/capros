@@ -39,7 +39,6 @@ Approved for public release, distribution unlimited. */
 #include <erosimg/App.h>
 #include <erosimg/DiskKey.h>
 
-#include <eros/KeyConst.h>
 #include <disk/DiskLSS.h>
 #include <disk/DiskGPT.h>
 #include <disk/Node.h>
