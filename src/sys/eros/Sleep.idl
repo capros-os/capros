@@ -53,8 +53,8 @@ interface Sleep extends key raises(key.Restart) {
   /** Sleep until either getPersistentMonotonicTime() >= ns
         or a restart occurs, whichever happens first.
   If a system restart occurs, the operation raises key.Restart at that time.
-  This operation waits if necessary until the restart procedure has completed,
-  therefore it should be used only by persistent processes. */
+  This operation waits if necessary until the system restart procedure has
+  completed, therefore it should be used only by persistent processes. */
   void sleepTillPersistentOrRestart(unsigned long long /* nanoseconds_t */ ns);
 
 

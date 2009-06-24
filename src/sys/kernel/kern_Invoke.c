@@ -41,7 +41,6 @@ Approved for public release, distribution unlimited. */
 
 #include <kerninc/Machine.h>
 #include <kerninc/KernStats.h>
-#include <eros/KeyConst.h>	// segment and wrapper defs
 #include <kerninc/Key-inline.h>
 #include <kerninc/Node-inline.h>
 

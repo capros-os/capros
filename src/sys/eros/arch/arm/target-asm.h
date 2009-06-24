@@ -74,10 +74,8 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 /* Following MUST be a power of 2!!! */
 #define EROS_OBJECTS_PER_FRAME  256
 
-/* This is for 32 slot nodes and 64 bit address spaces */
+/* This is for 32 slot nodes */
 /* EROS_PAGE_BLSS == 0 */
-#define MAX_BLSS       11	/* 2^96 byte space */
-#define MAX_RED_BLSS   12	/* above + keeper */
 #define EROS_ADDRESS_BLSS	4
 
 #define EROS_ADDRESS_LSS (EROS_ADDRESS_BLSS - EROS_PAGE_BLSS)

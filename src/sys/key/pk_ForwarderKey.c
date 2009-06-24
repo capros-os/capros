@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -29,7 +29,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Key-inline.h>
 #include <disk/Forwarder.h>
 #include <eros/Invoke.h>
-#include <eros/KeyConst.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/Forwarder.h>
