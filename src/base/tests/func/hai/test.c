@@ -88,7 +88,8 @@ main(void)
   // a checkpoint will be taken here.
   assert(result == RC_OK || result == RC_capros_key_Restart);
 
-  result = capros_HAI_setUnitStatus(KR_HAI, 261, capros_HAI_Command_UnitOffForSeconds, 8);
+  result = capros_HAI_setUnitStatus(KR_HAI, 261,
+                                    capros_HAI_Command_UnitOffForSeconds, 8);
   ckOK
 
   uint8_t cond;

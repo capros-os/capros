@@ -33,7 +33,7 @@ OPTIM=-O
 OBJECTS=$(BUILDDIR)/test.o
 INC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
 
-NPRANGESIZE=420
+NPRANGESIZE=450
 
 VOLMAP=volmap
 
