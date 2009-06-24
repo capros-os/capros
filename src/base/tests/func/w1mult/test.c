@@ -148,7 +148,7 @@ void
 PrintTempDevN(int n)
 {
   result_t result;
-  capros_W1Mult_LogRecord16 rec16;
+  capros_Logfile_LogRecord16 rec16;
   uint32_t len;
 
   GetLogN(n, KR_TEMP0);
@@ -173,7 +173,7 @@ PrintADDevN(int n)
 {
   int i;
   result_t result;
-  capros_W1Mult_LogRecord16 rec16;
+  capros_Logfile_LogRecord16 rec16;
   uint32_t len;
 
   kprintf(KR_OSTREAM, "Dev %d data is ", n);
