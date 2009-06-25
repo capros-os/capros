@@ -199,6 +199,37 @@ GetOldestNonNextRetiredGenLid(void)
   return GetOldestNonRetiredGenLid(GetNextRetiredGeneration());
 }
 
+#define numActivitiesPerPage (EROS_PAGE_SIZE / sizeof(struct DiskProcessDescriptor))
+
+/* Make this inline because the result is a constant. */
+INLINE long
+maxProcDirFrames(void)
+{
+  /* The number of process directory entries we need is:
+  - the number of Activity's allocated to persistent processes, plus
+  - the number of Resume keys to persistent processes in
+    non-persistent nodes. 
+
+  The latter number is unknown and potentially large.
+  However, note that when we restart from this checkpoint,
+  all the process directory entries must be loaded into
+  Activity structures. If there are more process directory entries
+  than there are Activity structures, we will be unable to restart.
+  Therefore the number of Activity structures is an upper bound
+  on the number of process directory entries we need to save,
+  if the checkpoint is to be restartable and the number of
+  Activity structures is the same on restart as it is now.
+  */
+  long numActivities = KTUNE_NACTIVITY;
+
+  // Some can go in the generation header:
+  numActivities -= (EROS_PAGE_SIZE - sizeof(DiskGenerationHdr))
+                   / sizeof(struct DiskProcessDescriptor);
+  maxEqualsL(&numActivities, 0);
+  // Number of frames we need for the rest:
+  return (numActivities + numActivitiesPerPage - 1) / numActivitiesPerPage;
+}
+
 /* Return the amount of log needed to checkpoint all the dirty objects. */
 unsigned long
 CalcLogReservation(unsigned long numDirtyObjects[],
@@ -216,11 +247,9 @@ CalcLogReservation(unsigned long numDirtyObjects[],
             + numDirtyObjects[capros_Range_otPage] + DirEntsPerPage - 1)
            / DirEntsPerPage;
   // Space to write out the maximum process directory:
-#define ProcEntsPerPage (EROS_PAGE_SIZE / sizeof(struct DiskProcessDescriptor))
-  total += (KTUNE_NCONTEXT + ProcEntsPerPage - 1) / ProcEntsPerPage;
+  total += maxProcDirFrames();
   total += 1;	// for the generation header frame
   return total;
-#undef ProcEntsPerPage
 #undef DirEntsPerPage
 }
 
@@ -525,31 +554,7 @@ DoPhase1Work(void)
     genHdr = (DiskGenerationHdr *)pageH_GetPageVAddr(GenHdrPageH);
   }
 
-  /* The number of process directory entries we need is:
-  - the number of Activity's allocated to persistent processes, plus
-  - the number of Resume keys to persistent processes in
-    non-persistent nodes. 
-
-  The latter number is unknown and potentially large.
-  However, note that when we restart from this checkpoint,
-  all the process directory entries must be loaded into
-  Activity structures. If there are more process directory entries
-  than there are Activity structures, we will be unable to restart.
-  Therefore the number of Activity structures is an upper bound
-  on the number of process directory entries we need to save,
-  if the checkpoint is to be restartable and the number of
-  Activity structures is the same on restart as it is now.
-  */
-  long numActivities = KTUNE_NACTIVITY;
-
-  // Some can go in the generation header:
-  numActivities -= (EROS_PAGE_SIZE - sizeof(DiskGenerationHdr))
-                   / sizeof(struct DiskProcessDescriptor);
-  minEqualsL(&numActivities, 0);
-  // Number of pages we need for the rest:
-#define numActivitiesPerPage (EROS_PAGE_SIZE / sizeof(struct DiskProcessDescriptor))
-  long pagesToReserve = (numActivities + numActivitiesPerPage - 1)
-                       / numActivitiesPerPage;
+  long pagesToReserve = maxProcDirFrames();
   // Reserve at least 2 for object directory frames.
   // We reserve them now rather than in phase 3, because at that time
   // no cleaning can be done, so pages might not be available.
