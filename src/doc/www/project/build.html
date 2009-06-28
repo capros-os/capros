@@ -191,41 +191,43 @@ make
           <li>clean - remove all generated files
           <li>distclean - clean, and also remove install directories under eros/
           </ul>
-	  <h2>2.4. Running a test program</h2>
+	  <h2>2.4. Running a non-persistent test program</h2>
 	  <p>
-            To run CapROS, you must have a boot partition with a file system 
-            where GRUB will find the files to load.
+            The <em>target system</em> is the IA32 computer on which you will
+            run CapROS. It could be the same as your development system
+            or it could be a separate computer. 
+	  </p>
+	  <p>
+            IA32 CapROS is loaded by <a href=http://www.gnu.org/software/grub/>
+            GRUB</a>.
+            To run CapROS, the target system must have a boot partition
+            with a file system where GRUB will find the file to load.
             Define CAPROS_BOOT_PARTITION as the name of this partition.
-            For example:
-	  </p>
-<pre>
-export CAPROS_BOOT_PARTITION=/boot
-</pre>
-	  <p> 
-            To run the persistent version (not yet implemented),
-            you must also have a hard disk partition formatted for CapROS. 
-	    Use your handy
-	    <tt>fdisk</tt> equivalent to create a partition, and give it
-	    type 0x95.
-            Define the shell variable EROS_HD as the device name
-            for this partition. For example:
-	  </p>
-<pre>
-export EROS_HD=/dev/hda1
-</pre>
-	  <p>
-            Before using the CapROS partition for the first time,
-            you must format it:
+            For example, if the target system is the same as the
+            development system:
 	  </p>
 	  <ul>
 <pre>
-cd somewhere/eros/src/tutorials/hello-large
-make init.hd
+export CAPROS_BOOT_PARTITION=/boot
 </pre>
 	  </ul>
 	  <p>
-            Then to compile and load the test program into the CapROS
-            system:
+            The CapROS file is copied to the target system using <tt>scp</tt>.
+            If the target system is a separate computer, you'll need to
+            boot Linux (or any system that responds to
+            <tt>scp</tt>) on that computer,
+            and you'll need to configure it to allow <tt>ssh</tt>
+            from the development computer.
+            CAPROS_BOOT_PARTITION can be any path acceptable to <tt>scp</tt>.
+            If the target system's host name is "target", you would define:
+	  </p>
+	  <ul>
+<pre>
+export CAPROS_BOOT_PARTITION=target:/boot
+</pre>
+	  </ul>
+	  <p>
+            To compile and load the test program into the target system:
 	  </p>
 	  <ul>
 <pre>
@@ -234,17 +236,71 @@ make np
 </pre>
 	  </ul>
 	  <p>
-            To run the test program, boot the computer, and type the
+            To run the test program, boot the target computer, and type the
             following commands to GRUB:
 	  </p>
+	  <ul>
 <pre>
 root (hd0,1)     # or the appropriate value for your boot partition
 kernel --type=multiboot /CapROS-kernimg
 </pre>
+	  </ul>
 	  <p>
             You may wish to add an item to your GRUB menu.lst file
             with these commands. 
 	  </p>
+	  <h2>2.5. Running a persistent test program</h2>
+	  <p>
+            You cannot currently run a persistent system on IA32,
+            because that platform does not yet have a disk driver.
+            When it does, these instructions will apply
+            (and they apply now to the ARM system).
+	  </p>
+	  <p> 
+            CapROS supports USB disks.
+            You must have a disk with a partition formatted for CapROS. 
+	    Use your handy
+	    <tt>fdisk</tt> equivalent to create a partition, and give it
+	    type 0x95.
+	  </p>
+	  <p>
+            Before using the CapROS partition for the first time,
+            you must format it. You do this on the development system
+            by defining the shell variable EROS_HD as the device name
+            for this partition. For example for a local disk:
+	  </p>
+	  <ul>
+<pre>
+export EROS_HD=/dev/hda1
+</pre>
+	  </ul>
+	  <p>
+            or, for example for a USB disk:
+	  </p>
+	  <ul>
+<pre>
+export EROS_HD=/dev/sdb1
+</pre>
+	  </ul>
+	  <p>
+            Then format the partition. You only need to do this once.
+            This may take a while. 
+	  </p>
+	  <ul>
+<pre>
+cd somewhere/eros/src/tutorials/hello-large
+make init.hd
+</pre>
+	  </ul>
+	  <p>
+            Then build and load the persistent system, for example:
+	  </p>
+	  <ul>
+<pre>
+cd somewhere/eros/src/base/tests/func/http
+make p
+</pre>
+	  </ul>
 	  <h1>3. Run-Time Requirements</h1>
 	  <p>
 	    CapROS has been tested on a Pentium II, a Mobile AMD Athlon,
