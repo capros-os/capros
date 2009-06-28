@@ -141,21 +141,23 @@ enum TCPSk_state {
   TCPSk_state_Connect,
   TCPSk_state_Closing,	// we will send no more data,
 			// and have not successfully called tcp_close
-  TCPSk_state_Closed	// we will send no more data,
+  TCPSk_state_Closed,	// we will send no more data,
 			// and have successfully called tcp_close
+  TCPSk_state_End
 };
 
-enum {
-  TCPSk_rstate_Open,
-  TCPSk_rstate_Closed,	// other end will send no more data,
-			// and the pcb is still allocated
-  TCPSk_rstate_Gone	// other end will send no more data,
-			// and the pcb is freed.
-};
+// Bits in TCPSk_remoteState:
+#define TCPSk_rstate_Closed 0x1	// other end will send no more data.
+#define TCPSk_rstate_Gone   0x2	// other end will send no more data,
+				// and the pcb is freed.
 
 #define maxRecvQPBufs 64
 
 struct TCPSocket {
+#ifdef MALLOC_DEBUG
+  void * poison0;
+  void * poison1;
+#endif
   struct tcp_pcb * pcb;
   int TCPSk_state;
   bool receiving;
@@ -194,7 +196,6 @@ struct TCPSocket {
 struct TCPListenSocket {
   struct tcp_pcb * pcb;
   bool listening;
-  // int TCPSk_state;
 
   /* acceptQ is a circular buffer of entries of connections received.
    * acceptQIn is where the next entry will be put.
@@ -205,6 +206,47 @@ struct TCPListenSocket {
   struct TCPSocket * * acceptQOut;
   unsigned int acceptQNum;
 };
+
+static inline bool
+IsValidPointer(void * p)
+{
+  return (size_t)p <= (((size_t)1) << CAPROS_FAST_SPACE_LGSIZE); // kludge
+}
+
+void
+ValidatePCB(struct tcp_pcb * pcb)
+{
+  assert(pcb->state <= TIME_WAIT);
+  assert(pcb->tos == 0);
+  assert(pcb->ttl == TCP_TTL);
+  assert(IsValidPointer(pcb->callback_arg));
+}
+
+static void
+ValidateSock(struct TCPSocket * sock)
+{
+#ifdef MALLOC_DEBUG
+  assert(sock->poison0 == POISON1);
+  assert(sock->poison1 == POISON1);
+#endif
+  assert(IsValidPointer(sock->sendBuf));
+  assert(sock->TCPSk_state < TCPSk_state_End);
+  assert((sock->TCPSk_remoteState & ~(TCPSk_rstate_Closed | TCPSk_rstate_Gone))
+         == 0);
+  if (sock->sending) {
+    assert((sock->sendPush & ~TCP_WRITE_FLAG_MORE) == 0);
+  }
+  assert(sock->pcb->callback_arg == sock);
+  ValidatePCB(sock->pcb);
+}
+
+static void
+ValidateListenSocket(struct TCPListenSocket * sock)
+{
+  assert((sock->listening & ~1) == 0);
+  assert(sock->pcb->callback_arg == sock);
+  ValidatePCB(sock->pcb);
+}
 
 static void DestroyTCPConnection(struct TCPSocket * sock);
 
@@ -218,7 +260,7 @@ unsigned long sndBuf[sndBufWords];
 static bool
 DeliverDataNow(struct TCPSocket * sock, unsigned int maxLen)
 {
-  if (sock->TCPSk_remoteState != TCPSk_rstate_Open)
+  if (sock->TCPSk_remoteState)
     return true;	// deliver the final RemoteClosed
 
   if (sock->recvQNum == 0)
@@ -351,7 +393,7 @@ ReturnToReceiver(struct TCPSocket * sock, unsigned int bytesReceived,
 static void
 RemoteClosed(struct TCPSocket * sock)
 {
-  assert(sock->TCPSk_remoteState != TCPSk_rstate_Open);
+  assert(sock->TCPSk_remoteState);
   if (sock->receiving) {
     assert(sock->recvQNum == 0);
     ReturnToReceiver(sock, 0, RC_capros_TCPSocket_RemoteClosed);
@@ -382,7 +424,21 @@ CheckFullyClosed(struct TCPSocket * sock)
     assert(! sock->sending);	// because of sock->TCPSk_state
     assert(! sock->receiving);	// because of sock->remoteCloseDelivered
     assert(sock->TCPSk_remoteState == TCPSk_rstate_Closed);
-    // how is the pcb deallocated??
+    /* Because we have successfully called tcp_close
+       (which we know because sock->TCPSk_state == TCPSk_state_Closed)
+       and the other end has closed
+       (which we know because sock->remoteCloseDelivered),
+       we know the lwip core will eventually free the pcb. */
+    /* To ensure we only call DestroyTCPConnection once, we must
+       ignore any calls to err_tcp etc.: */
+    tcp_err(sock->pcb, NULL);
+    tcp_sent(sock->pcb, NULL);
+    tcp_poll(sock->pcb, NULL, 4);
+#ifdef MALLOC_DEBUG
+    // We don't expect any calls to recv_tcp, but this will catch:
+    tcp_arg(sock->pcb, POISON4);
+    sock->pcb = POISON5;
+#endif
     DestroyTCPConnection(sock);
   }
 }
@@ -393,7 +449,7 @@ static err_t
 recv_tcp(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
 {
   struct TCPSocket * sock = arg;
-  assert(sock);
+  ValidateSock(sock);
 
   DEBUG(rx) kprintf(KR_OSTREAM, "recv_tcp err=%d\n", err);
 
@@ -402,8 +458,8 @@ recv_tcp(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err)
   if (!p) {	// NULL means other end will send no more data
     DEBUG(conn) kprintf(KR_OSTREAM, "%s:%d: got NULL pbuf, rcvg=%d\n",
                         __FILE__, __LINE__, sock->receiving);
-    assert(sock->TCPSk_remoteState == TCPSk_rstate_Open);
-    sock->TCPSk_remoteState = TCPSk_rstate_Closed;
+    assert(! sock->TCPSk_remoteState);
+    sock->TCPSk_remoteState |= TCPSk_rstate_Closed;
     RemoteClosed(sock);
     CheckFullyClosed(sock);
   } else {
@@ -429,6 +485,7 @@ TCPReceive(Message * msg)
 {
   struct TCPSocket * sock = (struct TCPSocket *)msg->rcv_w3;
 	// word from forwarder
+  ValidateSock(sock);
 
   uint32_t maxLen = msg->rcv_w1;
   if (maxLen <= 0 || maxLen > capros_TCPSocket_maxReceiveLength) {
@@ -481,6 +538,7 @@ AllocRcvBuf(void)
   unsigned char * buf = malloc(rcvBufSize);
   if (buf) {
     // Ensure the receive buffer is allocated by VCSK:
+    assert(rcvBufSize <= EROS_PAGE_SIZE);	// else need a loop below
     buf[0] = 0;
     buf[rcvBufSize-1] = 0;
   }
@@ -585,6 +643,7 @@ TCPSend(Message * msg)
 
   struct TCPSocket * sock = (struct TCPSocket *)msg->rcv_w3;
 	// word from forwarder
+  ValidateSock(sock);
 
   if (msg->rcv_sent > capros_TCPSocket_maxSendLength) {
     msg->snd_code = RC_capros_key_RequestError;
@@ -640,17 +699,25 @@ DestroyTCPConnection(struct TCPSocket * sock)
   assert(! sock->receiving);
   assert(! sock->sending);
 
+  // Free the associated forwarder.
   const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)sock;
   result = capros_Node_getSlotExtended(KR_KEYSTORE, slot+sco_forwarder,
                                        KR_TEMP0);
   assert(result == RC_OK);
   result = capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
   // Freeing the forwarder invalidates all the capabilities to it.
+
   result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
                                             slot, slot+sco_numSlots-1);
   DEBUG(alloc) kprintf(KR_OSTREAM, "%s:%d: Free'ed sock %#x and buffer.\n",
                        __FILE__, __LINE__, sock);
+
+  assert(sock->sendBuf != curRcvBuf);
   free(sock->sendBuf);
+#ifdef MALLOC_DEBUG
+  // Poison the sendBuf ptr.
+  sock->sendBuf = POISON2;
+#endif
   free(sock);
 }
 
@@ -661,6 +728,7 @@ TCPAbort(Message * msg)
 {
   struct TCPSocket * sock = (struct TCPSocket *)msg->rcv_w3;
 	// word from forwarder
+  ValidateSock(sock);
 
   tcp_abort(sock->pcb);	// this calls err_tcp(..., ERR_ABRT)
 }
@@ -681,6 +749,7 @@ TCPClose(Message * msg)
 {
   struct TCPSocket * sock = (struct TCPSocket *)msg->rcv_w3;
 	// word from forwarder
+  ValidateSock(sock);
 
   if (sock->sending || sock->TCPSk_state == TCPSk_state_Closed) {
     msg->snd_code = RC_capros_TCPSocket_Already;
@@ -706,6 +775,7 @@ static err_t
 poll_tcp(void *arg, struct tcp_pcb *pcb)
 {
   struct TCPSocket * sock = arg;
+  ValidateSock(sock);
 
   if (sock->sending) {
     if (sock->TCPSk_state == TCPSk_state_Closing) {
@@ -809,7 +879,7 @@ static err_t
 do_connected(void * arg, struct tcp_pcb *pcb, err_t err)
 {
   struct TCPSocket * sock = arg;
-  assert(sock);
+  ValidateSock(sock);
   assert(sock->TCPSk_state == TCPSk_state_Connect);
 
   DEBUG(conn) printk("do_connected %d\n", err);
@@ -823,6 +893,7 @@ static void
 err_tcp(void * arg, err_t err)
 {
   struct TCPSocket * sock = arg;
+  ValidateSock(sock);	// actually, the pcb may be freed by this time
 
   DEBUG(errors) kprintf(KR_OSTREAM,
                         "err_tcp %d sock %#x state %d rcvQNum %d\n",
@@ -844,7 +915,7 @@ err_tcp(void * arg, err_t err)
         ConsumePbuf(sock);
       }
 
-      sock->TCPSk_remoteState = TCPSk_rstate_Gone;  // tcp_pcb will be freed
+      sock->TCPSk_remoteState |= TCPSk_rstate_Gone;  // tcp_pcb will be freed
       RemoteClosed(sock);
 
       if (sock->sending) {
@@ -866,6 +937,9 @@ CreateSocket(void)
   struct TCPSocket * sock = malloc(sizeof(struct TCPSocket));
   if (!sock)
     goto errExit0;
+#ifdef MALLOC_DEBUG
+  sock->poison0 = sock->poison1 = POISON1;
+#endif
 
   /* buf must be malloc'ed separately from sock, because it may be
   traded away from this socket. */
@@ -900,7 +974,7 @@ CreateSocket(void)
   sock->sending = false;
   sock->receiving = false;
   sock->remoteCloseDelivered = false;
-  sock->TCPSk_remoteState = TCPSk_rstate_Open;
+  sock->TCPSk_remoteState = 0;
   sock->recvQIn = sock->recvQOut = &sock->recvQ[0];
   sock->recvQNum = 0;
   return sock;
@@ -934,6 +1008,7 @@ static err_t
 accept_tcp(void * arg, struct tcp_pcb *newpcb, err_t err)
 {
   struct TCPListenSocket * ls = arg;
+  ValidateListenSocket(ls);
 
   DEBUG(listen) printk("accept_tcp %#x\n", ls);
   if (ls->acceptQNum >= maxAcceptQEntries)
@@ -993,11 +1068,9 @@ kdprintf(KR_OSTREAM, "err_lstcp %d\n", err);////
 
 // Accept a connection.
 static void
-TCPAccept(Message * msg)
+TCPAccept(Message * msg, struct TCPListenSocket * ls)
 {
   result_t result;
-  struct TCPListenSocket * ls = (struct TCPListenSocket *)msg->rcv_w3;
-	// word from forwarder
 
   if (ls->listening) {
     msg->snd_code = RC_capros_TCPSocket_Already;
@@ -1007,6 +1080,7 @@ TCPAccept(Message * msg)
   if (ls->acceptQNum) {	// there is a connection queued
     DEBUG(listen) printk("TCPAccept immediate return\n");
     struct TCPSocket * sock = * ls->acceptQOut;
+    ValidateSock(sock);
     if (++ls->acceptQOut >= &ls->acceptQ[maxAcceptQEntries])
       ls->acceptQOut = &ls->acceptQ[0];	// wrap around
     ls->acceptQNum--;
@@ -1088,7 +1162,7 @@ TCPListen(Message * msg)
   struct tcp_pcb * listenPcb = tcp_listen(pcb);
   if (!listenPcb) {
     msg->snd_code = RC_capros_IPDefs_NoMem;
-    goto errExit3;
+    goto errExit4;
   }
   ls->pcb = listenPcb;
   // Set callbacks:
@@ -1113,9 +1187,10 @@ TCPListen(Message * msg)
   return;
 
 errExit4:
-  tcp_abort(pcb);
+  err = tcp_close(pcb);
+  assert(err == ERR_OK);	// this can't fail, because pcb was never used
 errExit3:
-  result = capros_SpaceBank_free1(KR_BANK, KR_TEMP0);
+  result = capros_SpaceBank_free1(KR_BANK, KR_TEMP1);
 errExit2:
   result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
                                             slot, slot+ls_numSlots-1);
@@ -1158,8 +1233,8 @@ TCPConnect(Message * msg)
   };
   err = tcp_connect(pcb, &ipa, portNum, &do_connected);
   if (err != ERR_OK) {
-    msg->snd_code = RC_capros_IPDefs_NoMem;	// bogus
-    //// clean up
+    assert(err == ERR_MEM);
+    msg->snd_code = RC_capros_IPDefs_NoMem;
     goto errExit;
   }
 
@@ -1171,12 +1246,10 @@ TCPConnect(Message * msg)
   return;
 
 errExit:
-  tcp_abort(pcb);
+  err = tcp_close(pcb);
+  assert(err == ERR_OK);	// should never fail
 errExit3:
-  result = capros_SpaceBank_free1(KR_BANK, KR_TEMP1);
-  result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
-                                            slot, slot+sco_numSlots-1);
-  free(sock);
+  DestroyTCPConnection(sock);
   return;
 }
 
@@ -1311,7 +1384,10 @@ driver_main(void)
       break;
 
     case keyInfo_ListenSocket:
+    {
       DEBUG(cap) kprintf(KR_OSTREAM, "Called LsnSk, oc=%#x\n", Msg.rcv_code);
+      struct TCPListenSocket * ls = (struct TCPListenSocket *)Msg.rcv_w3;
+      ValidateListenSocket(ls);
 
       switch (Msg.rcv_code) {
       default:
@@ -1323,16 +1399,28 @@ driver_main(void)
         break;
 
       case OC_capros_key_destroy:
-        kdprintf(KR_OSTREAM, "ListenSocket.destroy not implemented\n");
-		// because I don't know how yet
-        ////
+      {
+        err_t err = tcp_close(ls->pcb);
+        (void)err;
+        assert(err == ERR_OK);
+
+        const capros_Node_extAddr_t slot = (capros_Node_extAddr_t)ls;
+        result = capros_Node_getSlotExtended(KR_KEYSTORE, slot+ls_forwarder,
+                                             KR_TEMP1);
+        assert(result == RC_OK);
+        result = capros_SpaceBank_free1(KR_BANK, KR_TEMP1);
+        result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
+                                            slot, slot+ls_numSlots-1);
+        free(ls);
         break;
+      }
   
       case OC_capros_TCPListenSocket_accept:
-        TCPAccept(&Msg);
+        TCPAccept(&Msg, ls);
         break;
       }
       break;
+    }
 
     case keyInfo_Socket:
       DEBUG(cap) kprintf(KR_OSTREAM, "Called Sock, oc=%#x\n", Msg.rcv_code);
@@ -1349,6 +1437,7 @@ driver_main(void)
       case OC_capros_TCPSocket_getRemoteAddr:
       {
         struct TCPSocket * sock = (struct TCPSocket *)Msg.rcv_w3;
+        ValidateSock(sock);
         Msg.snd_w1 = ntohl(sock->pcb->remote_ip.addr);
         Msg.snd_w2 = sock->pcb->remote_port;
         break;

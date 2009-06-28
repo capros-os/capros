@@ -584,6 +584,7 @@ extern struct tcp_pcb *tcp_tmp_pcb;      /* Only used for temporary storage. */
    with a PCB list or removes a PCB from a list, respectively. */
 #if 0
 #define TCP_REG(pcbs, npcb) do {\
+	ValidatePCB(npcb); \
                             LWIP_DEBUGF(TCP_DEBUG, ("TCP_REG %p local port %d\n", npcb, npcb->local_port)); \
                             for(tcp_tmp_pcb = *pcbs; \
           tcp_tmp_pcb != NULL; \
@@ -598,6 +599,7 @@ extern struct tcp_pcb *tcp_tmp_pcb;      /* Only used for temporary storage. */
               tcp_timer_needed(); \
                             } while(0)
 #define TCP_RMV(pcbs, npcb) do { \
+	ValidatePCB(npcb); \
                             LWIP_ASSERT("TCP_RMV: pcbs != NULL", *pcbs != NULL); \
                             LWIP_DEBUGF(TCP_DEBUG, ("TCP_RMV: removing %p from %p\n", npcb, *pcbs)); \
                             if(*pcbs == npcb) { \

@@ -263,7 +263,7 @@ printPacket(unsigned int pktLength, int entry, unsigned int maxBytesToPrint)
             ((uint8_t *)ep->rx_buf[entry])[i]);
     printCursor += 3;
   }
-  printk("%s\n", printBuffer);
+  printk("%s +%dB\n", printBuffer, pktLength-printLength);
 }
 
 static void ep93xx_rx(void)

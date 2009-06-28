@@ -984,7 +984,7 @@ tcp_alloc(u8_t prio)
     }
   }
   if (pcb != NULL) {
-    memset(pcb, 0, sizeof(struct tcp_pcb));
+    memset(pcb, 0, sizeof(struct tcp_pcb));	// pcb->state = CLOSED;
     pcb->prio = TCP_PRIO_NORMAL;
     pcb->snd_buf = TCP_SND_BUF;
     pcb->snd_queuelen = 0;

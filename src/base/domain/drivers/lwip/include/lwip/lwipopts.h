@@ -23,6 +23,15 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
+//#define MALLOC_DEBUG
+#ifdef MALLOC_DEBUG
+#define POISON1 ((void*)0xbadbad01)
+#define POISON2 ((void*)0xbadbad02)
+#define POISON3 ((void*)0xbadbad03)
+#define POISON4 ((void*)0xbadbad04)
+#define POISON5 ((void*)0xbadbad05)
+#endif
+
 #define NO_SYS 1
 #define LWIP_SOCKET 0
 #define LWIP_NETCONN 0
@@ -55,5 +64,8 @@ Approved for public release, distribution unlimited. */
 #define TCP_OUTPUT_DEBUG LWIP_DBG_ON
 #define LWIP_DBG_MIN_LEVEL LWIP_DBG_LEVEL_SEVERE
 #endif
+
+struct tcp_pcb;
+void ValidatePCB(struct tcp_pcb * pcb);
 
 #endif /* __LWIP_LWIPOPTS_H__ */
