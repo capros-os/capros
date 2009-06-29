@@ -94,26 +94,14 @@ ENTRY(_start)
 #error
 ENTRY(start)
 #endif
-	/* On entry, if we came from the constructor, r2 has zero.
-	If we came from protospace_destroy(),
-	r2 (which is where rcv_w1 ends up) will have 
-	1 if destroying a large space, or
-	2 if destroying a small space.
-	(Not sure where 3 comes from.) */
+	/* On entry, if we came from the constructor, r2 has zero. */
 
-	cmp r2,#2
-	beq delete_small_space
-	cmp r2,#3
-	beq delete_kept_space
-	cmp r2,#0
-	bne sepuku	// presumably 1
- 
 	/* Run the constructor for the address space */
 	
 	simpleCall(fab_space, PSKR_SPACE, OC_capros_Constructor_request, 0,
 		KR_BANK, KR_SCHED, PSKR_SPACE)
 	cmp r1,#RC_OK
-	bne delete_kept_space
+	bne sepuku
 
 	/* Fetch the program counter of this process out
 	   of the startup key that holds it.  If we had just
@@ -141,22 +129,6 @@ ENTRY(start)
 	   APPLICATION'S CODE */
 	swi SWI_halt
 	
-delete_small_space:
-	simpleCall(sb_reclaim_pages_from_node, KR_BANK,
-                   OC_capros_SpaceBank_ReclaimDataPagesFromNode, 0,
-		   PSKR_SPACE, KR_VOID, KR_VOID)
-	
-	/* Sell back the node itself */
-	simpleCall(sb_reclaim_small_space_node, KR_BANK,
-		   OC_capros_SpaceBank_free1, 0,
-		   PSKR_SPACE, KR_VOID, KR_VOID)
-
-	b sepuku
-	
-delete_kept_space:
-	simpleCall(destroy_kept_space, PSKR_SPACE,
-		   OC_capros_key_destroy, 0,
-		   KR_VOID, KR_VOID, KR_VOID)
 sepuku:
 	/* construction of the address space failed.  Ask our process
 	   creator to blow us away and report failure to the user */

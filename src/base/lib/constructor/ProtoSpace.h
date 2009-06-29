@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -28,18 +28,6 @@ Approved for public release, distribution unlimited. */
 
 #define PSKR_SPACE    KR_APP(0)
 #define PSKR_PROC_PC  KR_APP(1)
-/* Following are used in the destroy logic: */
-#define PSKR_PROTO    KR_APP(2)
-#define PSKR_K0       KR_APP(3)
-#define PSKR_K1       KR_APP(4)
-#define PSKR_K2       KR_APP(5)
-
-#ifndef __ASSEMBLER__
-/* This is obsolete. Use protospace_destroy_small instead. */
-void protospace_destroy(uint32_t krReturner, uint32_t krProto, uint32_t krMyDom,
-			uint32_t krMyProcCre,
-			uint32_t krBank, int smallSpace);
-#endif
 
 #endif /* __PROTOSPACE_H__ */
 

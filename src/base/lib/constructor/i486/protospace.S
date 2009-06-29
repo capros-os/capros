@@ -83,36 +83,6 @@ swap_space_and_pc:
 	to clear that slot that we used temporarily. */
 	.long	KEYS(PSKR_SPACE,PSKR_PROC_PC,KR_VOID,KR_VOID)	/* rcv keys */
 	
-sb_reclaim_pages_from_node:	
-	.long	IT_Call
-	.long	KR_BANK
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	KEYS(PSKR_SPACE,KR_VOID,KR_VOID,KR_VOID)	/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	NO_KEYS		/* rcv keys */
-
-sb_reclaim_small_space_node:	
-	.long	IT_Call
-	.long	KR_BANK
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	KEYS(PSKR_SPACE,KR_VOID,KR_VOID,KR_VOID)	/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	NO_KEYS		/* rcv keys */
-
-destroy_kept_space:	
-	.long	IT_Call
-	.long	PSKR_SPACE
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	NO_KEYS		/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	NO_KEYS		/* rcv keys */
-	
 destroy_caller:	
 	.long	IT_Call
 	.long	KR_CREATOR
@@ -129,20 +99,7 @@ ENTRY(_start)
 #else
 ENTRY(start)
 #endif
-	/* On entry, if we came from the constructor, EBX has zero.
-	If we came from protospace_destroy(),
-	EBX (which is where rcv_w1 ends up) will have 
-	1 if destroying a ??, or
-	2 if destroying a small space.
-	(Not sure where 3 comes from.) */
-	cmpl	$2,%ebx
-	je	EXT(delete_small_space)
-	
-	cmpl	$3,%ebx
-	je	EXT(delete_kept_space)
-	
-	testl	$0,%ebx
-	jnz	EXT(sepuku)
+	/* On entry, if we came from the constructor, EBX has zero. */
 	
 	/* Run the constructor for the address space */
 	
@@ -157,7 +114,7 @@ ENTRY(start)
 
 	/* check return value */
 	testl	$0,%eax
-	jnz	EXT(delete_kept_space)
+	jnz	EXT(sepuku)
 
 	/* Fetch the program counter of this process out
 	   of the startup key that holds it.  If we had just
@@ -187,41 +144,6 @@ ENTRY(start)
 	/* THIS POINT SHOULD NOT BE REACHED -- WE ARE NOW RUNNING THE
 	   APPLICATION'S CODE */
 	hlt
-	
-LEXT(delete_small_space)
-	
-	movl	$sb_reclaim_pages_from_node,%ebp
-	
-	movl	$OC_capros_SpaceBank_ReclaimDataPagesFromNode,%eax	/* r0 */
-	xorl	%ebx,%ebx			/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
-	
-	int	$0x31			/* invocation trap */
-
-	/* Sell back the node itself */
-	movl	$sb_reclaim_small_space_node,%ebp
-	
-	movl	$OC_capros_SpaceBank_free1,%eax	/* r0 */
-	xorl	%ebx,%ebx			/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
-	
-	int	$0x31			/* invocation trap */
-
-	jmp	EXT(sepuku)
-	
-LEXT(delete_kept_space)
-	movl	$destroy_kept_space,%ebp
-	
-	movl	$OC_capros_key_destroy,%eax	/* r0 */
-	xorl	%ebx,%ebx			/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
-	
-	int	$0x31			/* invocation trap */
-
-	
 	
 LEXT(sepuku)
 	/* construction of the address space failed.  Ask our process
