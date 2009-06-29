@@ -50,20 +50,7 @@ No other data or keys may be returned.
 */
 
 #ifndef __ASSEMBLER__
-INLINE void protospace_destroy_small(uint32_t krProto, uint32_t retCode)
-{
-  uint32_t w1_out;
-
-  /* The following invocation replaces our own address space and
-  changes our PC, therefore the code after the invocation is never executed. 
-  w2_in is received in a register, and w1_out is never used. */
-  capros_Process_swapAddrSpaceAndPC32Proto(KR_SELF, krProto,
-    0x400,	// well known telospace address
-    retCode,	// w2_in
-    &w1_out,	// won't be used
-    PSKR_SPACE); 
-  /* NOTREACHED */
-}
+void protospace_destroy_small(uint32_t krProto, uint32_t retCode);
 #endif
 
 #endif /* __PROTOSPACEDS_H__ */
