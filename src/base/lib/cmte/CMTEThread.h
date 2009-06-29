@@ -1,7 +1,7 @@
 #ifndef __CMTETHREAD_H
 #define __CMTETHREAD_H
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -33,6 +33,9 @@ Approved for public release, distribution unlimited. */
  * If no more threads can be created (max is 32),
  *   returns RC_capros_CMTEThread_NoMoreThreads.
  * May return any exception from capros_ProcCre_createProcess().
+ *
+ * The return value from start_routine is not used.
+ * FIXME: Change it to return void.
  */
 #define RC_capros_CMTEThread_NoMoreThreads (-1)
 result_t
