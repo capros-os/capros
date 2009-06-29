@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -37,9 +37,10 @@ Approved for public release, distribution unlimited. */
 #if 0
 #include <memory.h>
 #endif
+#include <domain/Runtime.h>
 #include <domain/domdbg.h>
 #include <domain/PipeKey.h>
-#include <domain/ProtoSpace.h>
+#include <domain/ProtoSpaceDS.h>
 
 #define dbg_init	0x01u   /* requests */
 #define dbg_req		0x02u   /* requests */
@@ -56,13 +57,6 @@ Approved for public release, distribution unlimited. */
 
 const uint32_t __rt_stack_pointer = 0x20000;
 const uint32_t __rt_stack_pages = 1;
-
-#define KR_VOID        0
-#define KR_CONSTIT     1
-#define KR_SELF        2
-#define KR_DOMCRE      3
-#define KR_BANK        4
-#define KR_SCHED       5
 
 #if EROS_NODE_SIZE != 32
 #error "wrong node size!"
@@ -86,8 +80,7 @@ teardown(uint32_t caller)
   node_copy(KR_CONSTIT, KC_PROTOSPC, KR_PROTOSPC);
 
   /* destroy as small space. */
-  protospace_destroy(KR_VOID, KR_PROTOSPC, KR_SELF, KR_DOMCRE,
-		     KR_BANK, 1);
+  protospace_destroy_small(KR_PROTOSPC, RC_OK);
   /* NOTREACHED */
 }
 

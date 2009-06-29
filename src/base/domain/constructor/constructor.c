@@ -47,6 +47,7 @@ Approved for public release, distribution unlimited. */
 
 #include <domain/domdbg.h>
 #include <domain/ProtoSpace.h>
+#include <domain/ProtoSpaceDS.h>
 #include <domain/Runtime.h>
 #include <domain/assert.h>
 
@@ -203,10 +204,7 @@ Sepuku()
   /* capros_Node_getSlot(KR_CONSTIT, KC_MYDOMCRE, KR_DOMCRE); */
   capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPACE, KR_PROD_CON0);
 
-  /* Invoke the protospace with arguments indicating that we should be
-     demolished as a small space domain */
-  protospace_destroy(KR_VOID, KR_PROD_CON0, KR_SELF,
-		     KR_CREATOR, KR_BANK, 1);
+  protospace_destroy_small(KR_PROD_CON0, RC_OK);
 }
 
 result_t

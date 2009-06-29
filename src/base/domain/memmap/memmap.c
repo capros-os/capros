@@ -41,7 +41,7 @@ Approved for public release, distribution unlimited. */
 
 #include <domain/MemmapKey.h>
 #include <domain/domdbg.h>
-#include <domain/ProtoSpace.h>
+#include <domain/ProtoSpaceDS.h>
 #include <domain/Runtime.h>
 
 #define min(a,b) ((a) <= (b) ? (a) : (b))
@@ -484,17 +484,12 @@ ProcessRequest(Message *argmsg, state *pState)
   return 1;
 }
 
-/* In spite of unorthodox fabrication, the constructor self-destructs
-   in the usual way. */
 void
 Sepuku()
 {
   capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPC, KR_GPT);
 
-  /* Invoke the protospace with arguments indicating that we should be
-     demolished as a small space domain */
-  protospace_destroy(KR_VOID, KR_GPT, KR_SELF,
-		     KR_CREATOR, KR_BANK, 1);
+  protospace_destroy_small(KR_GPT, RC_OK);
 }
 
 /* Tree destruction is a little tricky.  We know the height of the

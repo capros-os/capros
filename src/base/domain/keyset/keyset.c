@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -57,7 +57,6 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <domain/Runtime.h>
-#include <eros/KeyConst.h>
 
 #include <idl/capros/key.h>
 #include <idl/capros/KeyBits.h>
@@ -68,7 +67,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <idl/capros/ProcCre.h>
 
-#include <domain/ProtoSpace.h>
+#include <domain/ProtoSpaceDS.h>
 #include <domain/ConstructorKey.h>
 #include <domain/KeySetKey.h>
 #include <domain/Runtime.h>
@@ -308,9 +307,7 @@ teardown(void)
   /* get the protospace */
   capros_Node_getSlot(KR_CONSTIT, KC_PROTOSPC, KR_SCRATCH);
 
-  /* destroy as small space. */
-  protospace_destroy(KR_VOID, KR_SCRATCH, KR_SELF, KR_CREATOR,
-		     KR_BANK, 1);
+  protospace_destroy_small(KR_SCRATCH, RC_OK);
   /* NOTREACHED */
 }
 
