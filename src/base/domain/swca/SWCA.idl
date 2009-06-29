@@ -11,10 +11,10 @@ interface SWCA extends key
 
   // LED masks: (are these correct?)
   const unsigned byte LEDOverCurrent = 1;
-  const unsigned byte LEDFloat       = 2;
+  const unsigned byte LEDFloat       = 2;	// verified correct
   const unsigned byte LEDAC2In       = 4;	// verified correct
   const unsigned byte LEDInverting   = 8;	// verified correct
-  const unsigned byte LEDError       = 16;
+  const unsigned byte LEDError       = 16;	// probably correct
   const unsigned byte LEDBulk        = 128;	// verified correct
   //const unsigned byte LEDAC1In       = 64;
   //const unsigned byte LEDLineTie     = ?;
@@ -55,7 +55,7 @@ interface SWCA extends key
 
   void getBatteryVolts(unsigned byte inverterNum, out short v10);
 
-  unsigned byte enum GenMode {
+  short enum GenMode {
     Off,
     Auto,
     On,
