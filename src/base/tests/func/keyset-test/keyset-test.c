@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan Adams.
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -306,6 +306,27 @@ main(void)
     kdprintf(KR_OSTREAM,"KeysetTest: EvenSet does not contain itself!\n");
   }
 #endif
+
+  result = capros_key_destroy(KR_ALLSET);
+  if (result != RC_OK) {
+    kdprintf(KR_OSTREAM,
+	     "Keyset-test: Error destroying set! (%#x)\n",
+	     result);
+  }
+
+  result = capros_key_destroy(KR_EVENSET);
+  if (result != RC_OK) {
+    kdprintf(KR_OSTREAM,
+	     "Keyset-test: Error destroying set! (%#x)\n",
+	     result);
+  }
+
+  result = capros_key_destroy(KR_ODDSET);
+  if (result != RC_OK) {
+    kdprintf(KR_OSTREAM,
+	     "Keyset-test: Error destroying set! (%#x)\n",
+	     result);
+  }
 
   kprintf(KR_OSTREAM, "Done.\n");
 
