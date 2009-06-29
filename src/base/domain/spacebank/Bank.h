@@ -91,7 +91,7 @@ bank_ReserveFrames(Bank *bank, uint32_t count);
  *     Returns RC_OK on success, -- /count/ frames are reserved, and
  *                                  you are responible for unreserving
  *                                  the frames when done with them.
- *             RC_SB_LimitReached on failure (always due to a
+ *             RC_capros_SpaceBank_LimitReached on failure (always due to a
  *                                limit somewhere) -- No frames are resered.
  */
 
@@ -177,9 +177,9 @@ BankCreateChild(Bank *bank, uint32_t kr);
  *   to it in /kr/.
  *
  *     Returns RC_OK on success,
- *     Returns RC_SB_LimitReached if the limits on /bank/ preclude
+ *     Returns RC_capros_SpaceBank_LimitReached if the limits on /bank/ preclude
  *   adding a child.
- *     Returns RC_SB_OutOfSpace if there is no more space on disk for
+ *     Returns ... if there is no more space on disk for
  *   the new child bank.
  */
 

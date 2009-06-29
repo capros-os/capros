@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2007, Strawberry Development Group
+ * Copyright (C) 2005, 2007, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -26,8 +26,8 @@ Approved for public release, distribution unlimited. */
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
+#include <idl/capros/SpaceBank.h>
 #include <eros/NodeKey.h>
-#include <domain/SpaceBankKey.h>
 #include <idl/capros/Constructor.h>
 #include <domain/domdbg.h>
 
@@ -79,7 +79,7 @@ void testSpaceBank( int BANK )
 
   kprintf( KR_OSTREAM, "Testing SpaceBank: ");
 
-  if ( spcbank_buy_nodes( BANK, 1, KR_TMP, KR_VOID, KR_VOID ) 
+  if (capros_SpaceBank_alloc1(BANK, capros_Range_otNode, KR_TMP) 
        != RC_OK ) {
     kprintf( KR_OSTREAM, "could not alloc a node; " ); 
   } else {
@@ -91,7 +91,7 @@ void testSpaceBank( int BANK )
     }
   }
 
-  if ( spcbank_buy_data_pages( BANK, 1, KR_TMP, KR_VOID, KR_VOID ) 
+  if (capros_SpaceBank_alloc1(BANK, capros_Range_otPage, KR_TMP) 
        != RC_OK ) {
     kprintf( KR_OSTREAM, "could not alloc data page!\n" ); 
   } else {
@@ -141,7 +141,7 @@ main()
     capros_Sleep_sleep( KR_SLEEP, 1000 );
     
     kprintf( KR_OSTREAM, "Creating SubBank: " );
-    if ( spcbank_create_subbank( KR_SPACEBANK, KR_SUBBANK ) != RC_OK ) {
+    if (capros_SpaceBank_createSubBank(KR_SPACEBANK, KR_SUBBANK) != RC_OK ) {
       kprintf( KR_OSTREAM, "Error create_subbank\n" );
       continue;
     };
@@ -185,7 +185,7 @@ main()
     capros_Sleep_sleep( KR_SLEEP, 2000 );
 
     kprintf( KR_OSTREAM, "Going to destroy SubBank...\n" );
-    if ( spcbank_destroy_bank( KR_SUBBANK, 1 ) == RC_OK ) {
+    if (capros_SpaceBank_destroyBankAndSpace(KR_SUBBANK) == RC_OK ) {
       kprintf( KR_OSTREAM, "Destroyed SubBank: OK\n" );
     } else {
       kprintf( KR_OSTREAM, "Destroy SubBank: Failed!\n" );

@@ -34,8 +34,8 @@ Approved for public release, distribution unlimited. */
 
 #include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
+#include <idl/capros/SpaceBank.h>
 
-#include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
 #include <domain/NetSysKey.h>
 #include <domain/domdbg.h>
@@ -101,7 +101,7 @@ main(void)
   addrspace_prep_for_mapping(KR_SELF, KR_BANK, KR_SCRATCH, KR_NEW_SUBSPACE);
 
   /* Create a subbank to use for window creation */
-  if (spcbank_create_subbank(KR_BANK, KR_SUB_BANK) != RC_OK) {
+  if (capros_SpaceBank_createSubBank(KR_BANK, KR_SUB_BANK) != RC_OK) {
     kprintf(KR_OSTREAM, "shared_ttcp failed to create sub bank.\n");
     return -1;
   }

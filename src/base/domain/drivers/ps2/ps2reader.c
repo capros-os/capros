@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System distribution,
  * and is derived from the EROS Operating System distribution.
@@ -43,10 +43,10 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Sleep.h>
 #include <idl/capros/Ps2.h>
 #include <idl/capros/Number.h>
+#include <idl/capros/SpaceBank.h>
 
 #include <domain/domdbg.h>
 #include <domain/ConstructorKey.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/Runtime.h>
 
 #include "constituents.h"
@@ -780,7 +780,7 @@ main(void)
    * clients can be redirected to wait. We can then selectively wake 
    * up these parked clients when the appropriate trigger fires */
   
-  result = spcbank_buy_nodes(KR_BANK, 1, KR_PARKNODE, KR_VOID, KR_VOID);
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otNode, KR_PARKNODE);
   if(result != RC_OK){
     kprintf(KR_OSTREAM,"Ps2reader:: Buying node ... [FAILED]");
     return 0;

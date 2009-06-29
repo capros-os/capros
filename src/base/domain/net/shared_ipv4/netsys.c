@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System distribution,
  * and is derived from the EROS Operating System distribution.
@@ -34,10 +34,10 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/key.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
+#include <idl/capros/SpaceBank.h>
 #include <idl/capros/net/shared_ipv4/netsys.h>
 #include <idl/capros/net/enet/enet.h>
 
-#include <domain/SpaceBankKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 #include <domain/ConstructorKey.h>
@@ -119,7 +119,7 @@ pass_enet_client_keys(cap_t key0,cap_t key1,cap_t key2,cap_t key3,int ssid)
   result_t result;
   
   /* Buy a node and stick these keys in. Then pass the node key */
-  result = spcbank_buy_nodes(KR_BANK, 1, KR_SCRATCH, KR_VOID, KR_VOID);
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otNode, KR_SCRATCH);
   if (result != RC_OK)
     return result;
   

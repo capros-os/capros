@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System distribution,
  * and is derived from the EROS Operating System distribution.
@@ -41,11 +41,11 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Number.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/ProcCre.h>
+#include <idl/capros/SpaceBank.h>
 
 #include <idl/capros/Ps2.h>
 #include <idl/console/keyclient.h>
 
-#include <domain/SpaceBankKey.h>
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
@@ -396,7 +396,7 @@ makeSharedProc(cap_t krNewProc,uint32_t sp)
   /* We buy a node from the spacebank to make a "park-node" on which 
    * clients can be redirected to wait. We can then selectively wake 
    * up these parked clients when the appropriate trigger fires */
-  result = spcbank_buy_nodes(KR_BANK, 1, KR_PARKNODE, KR_VOID, KR_VOID);
+  result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otNode, KR_PARKNODE);
   if(result != RC_OK)  kdprintf(KR_OSTREAM,"kclient Buying node ... [FAILED]");
   
   result = node_make_wrapper_key(KR_PARKNODE,0,0,KR_PARKWRAP);

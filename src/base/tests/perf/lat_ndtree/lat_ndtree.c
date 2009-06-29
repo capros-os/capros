@@ -24,9 +24,9 @@
 #include <eros/target.h>
 #include <eros/Invoke.h>
 #include <idl/capros/Sleep.h>
+#include <idl/capros/SpaceBank.h>
 #include <eros/NodeKey.h>
 #include <domain/domdbg.h>
-#include <domain/SpaceBankKey.h>
 #include <idl/capros/SysTrace.h>
 
 /* The purpose of this benchmark is to measure the cost of
@@ -62,7 +62,8 @@ void main()
   
   capros_Sleep_sleep(KR_SLEEP, 4000);
 
-  if (spcbank_buy_data_pages(KR_BANK, 1, KR_PAGE, KR_VOID, KR_VOID))
+  if (capros_SpaceBank_alloc1(KR_BANK, capros_Range_otPage, KR_PAGE) != RC_OK)
+    kdprintf(KR_OSTREAM, "Page alloc failed\n");
 
   /* Run a calibration pass: */
   /* Warm  up: */
@@ -131,6 +132,6 @@ void main()
   }
   kdprintf(KR_OSTREAM, "Done.  Last pass left valid kstats\n");
 
-  if (spcbank_return_data_page(KR_BANK, KR_PAGE))
+  if (capros_SpaceBank_free1(KR_BANK, KR_PAGE) != RC_OK)
     kdprintf(KR_OSTREAM, "Page return failed\n");
 }

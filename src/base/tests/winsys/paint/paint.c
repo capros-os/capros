@@ -36,11 +36,11 @@ Approved for public release, distribution unlimited. */
 
 #include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
+#include <idl/capros/SpaceBank.h>
 
 #include <stdlib.h>
 
 #include <domain/ConstructorKey.h>
-#include <domain/SpaceBankKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
 
@@ -270,7 +270,7 @@ main(void)
   addrspace_prep_for_mapping(KR_SELF, KR_BANK, KR_SCRATCH, KR_NEW_SUBSPACE);
 
   /* Create a subbank to use for window creation */
-  if (spcbank_create_subbank(KR_BANK, KR_SUB_BANK) != RC_OK) {
+  if (capros_SpaceBank_createSubBank(KR_BANK, KR_SUB_BANK) != RC_OK) {
     kprintf(KR_OSTREAM, "Test domain failed to create sub bank.\n");
     return -1;
   }
@@ -386,7 +386,7 @@ main(void)
 #ifdef SHAP
     kprintf(KR_OSTREAM, "Paint: about to destroy subbank...\n");
 
-    if (spcbank_destroy_bank(KR_SUB_BANK, 1) != RC_OK)
+    if (capros_SpaceBank_destroyBankAndSpace(KR_SUB_BANK) != RC_OK)
       kprintf(KR_OSTREAM, "** Couldn't destroy subbank...\n");
 
     /* Temporary call to test process keeper invocation */

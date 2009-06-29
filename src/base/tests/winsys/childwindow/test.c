@@ -29,13 +29,13 @@ Approved for public release, distribution unlimited. */
 
 #include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
+#include <idl/capros/SpaceBank.h>
 
 #include <stdlib.h>
 
 #include <domain/ConstructorKey.h>
 #include <domain/domdbg.h>
 #include <domain/Runtime.h>
-#include <domain/SpaceBankKey.h>
 
 /* Include the needed interfaces */
 #include <idl/capros/winsys/master.h>
@@ -209,7 +209,7 @@ main(void)
   /* Initialize the video subsystem */
   if (probe_and_init_video(KR_WINDOW_SYS, KR_PCI_PROBE) == RC_OK) {
 
-    spcbank_create_subbank(KR_BANK, KR_SUB_BANK);
+    capros_SpaceBank_createSubBank(KR_BANK, KR_SUB_BANK);
 
     /* Now try to create a new session */
     if (eros_domain_winsys_master_get_session_creators(KR_WINDOW_SYS, 
