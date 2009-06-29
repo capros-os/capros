@@ -29,6 +29,7 @@ Approved for public release, distribution unlimited. */
  *********************************************************/
 
 #include <cmte.map>
+#include <logfile.map>
 
 hai_prog = program segtree LIBDIR "hai";
 hai_pc = symbol LIBDIR "hai" _start;
@@ -43,6 +44,7 @@ name##hai_proc key reg KR_CMTE(0) = misc RTC; \
 name##hai_proc key reg KR_CMTE(1) = number(ipaddr, port, pk0); \
 name##hai_proc key reg KR_CMTE(2) = number(pk1, pk2, pk3); \
 name##hai_proc key reg KR_CMTE(3) = ip; \
+name##hai_proc key reg KR_CMTE(4) = logfilec; \
 name##hai = start name##hai_proc 0;
 
 #endif

@@ -83,6 +83,148 @@ interface HAI extends key
   execute button n
   get zone n status
   */
+
+  /* Notifications */
+
+  unsigned byte enum NotificationType {
+    Zone = 1,
+    Unit = 2,
+    Area = 5,
+    Thermostat = 6,
+    Message = 7,
+    AuxSensor = 8,
+    AudioZone = 10,
+    AccessControlReader = 14,
+    AccessControlReaderLock = 15,
+    OtherEvent = 255
+  };
+
+  struct ZoneNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte status;
+    unsigned short objectNumber;
+    unsigned byte loopReading;
+    unsigned byte padding1;
+    unsigned short padding2;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct UnitNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte status;
+    unsigned short objectNumber;
+    unsigned short time;
+    unsigned short padding2;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct AreaNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte mode;
+    unsigned short objectNumber;
+    unsigned byte alarms;
+    unsigned byte entryTimer;
+    unsigned byte exitTimer;
+    unsigned byte padding2;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct ThermostatNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte status;
+    unsigned short objectNumber;
+    unsigned byte temperature;
+    unsigned byte heatSetpoint;
+    unsigned byte coolSetpoint;
+    unsigned byte systemMode;
+    unsigned byte fanMode;
+    unsigned byte holdStatus;
+    unsigned short padding;
+    unsigned long trailer;
+  };
+
+  struct MessageNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte status;
+    unsigned short objectNumber;
+    unsigned long trailer;
+  };
+
+  struct AuxSensorNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte outputStatus;
+    unsigned short objectNumber;
+    unsigned byte value;
+    unsigned byte lowSetpoint;
+    unsigned byte highSetpoint;
+    unsigned byte padding1;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct AudioZoneNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte power;
+    unsigned short objectNumber;
+    unsigned byte source;
+    unsigned byte volume;
+    unsigned byte mute;
+    unsigned byte padding1;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct AccessControlReaderNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte denied;
+    unsigned short objectNumber;
+    unsigned byte lastUser;
+    unsigned byte padding1;
+    unsigned short padding2;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct AccessControlReaderLockNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte status;
+    unsigned short objectNumber;
+    unsigned short time;
+    unsigned short padding2;
+    unsigned long padding3;
+    unsigned long trailer;
+  };
+
+  struct OtherNotification {
+    Logfile.recordHeader header;
+    NotificationType type;
+    unsigned byte padding;
+    unsigned short event;
+    unsigned long trailer;
+  };
+
+  /* For a generic notification, use Notification to access the type field.
+     Since the size is unknown, do not access anything after the type field. */
+  typedef MessageNotification Notification;
+
+  /* GetNotifications
+     This operation waits (if necessary) until there is a record in the
+     notifications Logfile newer than id, and then returns a capability
+     to the Logfile.
+     Raises Already if a caller is already waiting. */
+  Logfile GetNotifications(Logfile.RecordID id);
 };
 
 /* Interface for internal use. */

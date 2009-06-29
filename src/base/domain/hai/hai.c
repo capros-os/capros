@@ -33,12 +33,17 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/key.h>
 #include <idl/capros/Number.h>
 #include <idl/capros/Node.h>
+#include <idl/capros/Process.h>
 #include <idl/capros/SuperNode.h>
 #include <idl/capros/HAI.h>
 #include <idl/capros/IP.h>
 #include <idl/capros/RTC.h>
+#include <idl/capros/Logfile.h>
+#include <idl/capros/Constructor.h>
 #include <domain/cmte.h>
 #include <domain/CMTETimer.h>
+#include <domain/CMTEThread.h>
+#include <domain/CMTESemaphore.h>
 
 #include <domain/Runtime.h>
 #include <domain/domdbg.h>
@@ -48,6 +53,7 @@ Approved for public release, distribution unlimited. */
 #define dbg_server 0x1
 #define dbg_data   0x2
 #define dbg_errors 0x4
+#define dbg_rcvr   0x8
 
 /* Following should be an OR of some of the above */
 #define dbg_flags   ( 0u | dbg_errors)
@@ -65,18 +71,13 @@ Approved for public release, distribution unlimited. */
 #define KR_CONFIG1 KR_CMTE(1)
 #define KR_CONFIG2 KR_CMTE(2)
 #define KR_IP      KR_CMTE(3)
-
+#define KR_LOGFILEC KR_CMTE(4)
+#define KR_Socket  KR_CMTE(5)	// UDP port or TCP socket
+#define KR_LOGFILE KR_CMTE(6)
+#define KR_LOGFILERO KR_CMTE(7)
 //#define RESPONSE_TEST
 #ifdef RESPONSE_TEST
-#define KR_SysTrace KR_CMTE(4)	// also initialize this in hai.map
-#endif
-#ifdef RESPONSE_TEST
-#endif
-
-#if (PROTOCOL == 1)
-#define KR_UDPPort KR_CMTE(5)
-#else
-#define KR_TCPSocket KR_CMTE(5)
+#define KR_SysTrace KR_CMTE(8)	// also initialize this in hai.map
 #endif
 
 #define LKSN_Socket LKSN_CMTE
@@ -157,19 +158,66 @@ enum objectType {
 
 #define ol2HeaderSize 4	// size of the Omni-Link II application header
 #define maxSendMsgLen 128 //// verify this
-#define maxRecvMsgLen 128 //// verify this
+/* Largest message we can receive on the OmniPro II is
+ * Object Status for all 512 units. 
+ * Its size is 4 + 2 + 5*512 which is 2566. 
+ * But the length field must fit in a byte, so the real max is 255.
+ * Round up to a multiple of 16 for whole encryption blocks. */
+#define maxRecvMsgLen 256
 /* The + 16 below is because we encrypt block 1 into block 0, etc. */
 #define sendBufSize (ol2HeaderSize + 16 + maxSendMsgLen)
 #define recvBufSize (ol2HeaderSize + 16 + maxRecvMsgLen)
 // Send and receive buffers, including the Omni-Link II application header.
 uint8_t sendBuf[sendBufSize];
 	// sendBuf[3] always remains zero
-uint8_t recvBuf[recvBufSize];
-
 // Where to put the unencrypted message to send:
 #define sendMessage (sendBuf + ol2HeaderSize + 16)
+
+uint8_t recvrBuf[recvBufSize];
 // Where to get the unencrypted received message:
-#define recvMessage (recvBuf + ol2HeaderSize + 16)
+#define recvrMessage (recvrBuf + ol2HeaderSize + 16)
+
+/************************ synchronization stuff ******************************/
+
+CMTEMutex_DECLARE_Locked(lock);	// initially locked by Receiver thread
+
+CMTESemaphore_DECLARE(mainWait, 0);
+
+enum {
+  mstate_Available,
+  mstate_NeedSession,
+  mstate_NeedResponse
+} mainState = mstate_Available;
+
+// When we are awakened from mstate_NeedResponse, we get back:
+int responseMessageLength;
+uint8_t responseMessage[maxRecvMsgLen];
+
+// Called by main thread.
+// Called holding the lock; releases the lock; gets the lock before returning.
+void
+WaitForSession(void)
+{
+  mainState = mstate_NeedSession;
+  CMTEMutex_unlock(&lock);
+  CMTESemaphore_down(&mainWait);
+  CMTEMutex_lock(&lock);
+}
+
+void
+TimerFunction(unsigned long data)
+{
+  result_t result;
+
+  DEBUG(errors) kprintf(KR_OSTREAM, "HAI receive timed out.\n");
+  /* Destroy the port/socket. This will abort any connection and
+  wake up the receiver with an exception. */
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_TEMP0);
+  assert(result == RC_OK);
+  capros_key_destroy(KR_TEMP0);
+}
+
+/************************ message stuff ******************************/
 
 uint16_t
 CalcCRC(uint8_t * data, unsigned int len)
@@ -199,12 +247,6 @@ SetSeqNo(uint16_t seqNo)
   sendBuf[1] = seqNo & 0xff;
 }
 
-static unsigned int
-GetSeqNo(void)
-{
-  return (recvBuf[0] << 8) | recvBuf[1];
-}
-
 void
 IncSeqNo(void)
 {
@@ -230,59 +272,6 @@ ShortToBE(unsigned short v, uint8_t * p)
   *p = v & 0xff;
 }
 
-// Create a port.
-void
-CreatePort(void)
-{
-  result_t result;
-
-#if (PROTOCOL == 1)
-  DEBUG(server) kprintf(KR_OSTREAM, "Creating UDP port.\n");
-  result = capros_IP_createUDPPort(KR_IP, KR_UDPPort);
-  assert(result == RC_OK);
-
-  uint32_t maxReceiveSize, maxSendSize;
-  result = capros_UDPPort_getMaxSizes(KR_UDPPort, HAIIpAddr,
-			&maxReceiveSize, &maxSendSize);
-  assert(result == RC_OK);
-  DEBUG(server) kprintf(KR_OSTREAM, "Max size rcv %d snd %d\n", maxReceiveSize, maxSendSize);
-  // We had better be able to send a message in a single packet:
-  assert(maxSendSize >= maxSendMsgLen + ol2HeaderSize);
-
-  // Save it where the timer thread can get it:
-  result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_UDPPort,
-             KR_VOID);
-  assert(result == RC_OK);
-#else	// TCP
-  DEBUG(server) kprintf(KR_OSTREAM, "Connecting using TCP.\n");
-
-reconnect:
-  result = capros_IP_TCPConnect(KR_IP, HAIIpAddr, HAIPort,
-			        KR_TCPSocket);
-  switch (result) {
-  default:
-    kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result);
-  case RC_OK:
-    break;
-  case RC_capros_key_Restart:
-    goto reconnect;
-  case RC_capros_IPDefs_Aborted:
-    kdprintf(KR_OSTREAM, "Connection aborted.\n");
-    break;
-  case RC_capros_IPDefs_Refused:
-    kdprintf(KR_OSTREAM, "Connection refused.\n");
-    break;
-  }
-
-  DEBUG(server) kprintf(KR_OSTREAM, "Connected.\n");
-
-  // Save it where the timer thread can get it:
-  result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_TCPSocket,
-             KR_VOID);
-  assert(result == RC_OK);
-#endif
-}
-
 // Send data that already has an Omni-Link II application header
 // and already has any necessary encryption.
 // The data is in sendBuf. len includes the Omni-Link II application header.
@@ -292,10 +281,10 @@ NetSend(unsigned int len)
 {
   result_t result;
 #if (PROTOCOL == 1)
-  result = capros_UDPPort_send(KR_UDPPort, HAIIpAddr, HAIPort,
+  result = capros_UDPPort_send(KR_Socket, HAIIpAddr, HAIPort,
              len, sendBuf);
 #else // TCP
-  result = capros_TCPSocket_send(KR_TCPSocket, len,
+  result = capros_TCPSocket_send(KR_Socket, len,
                                  capros_TCPSocket_flagPush, sendBuf);
 #endif
   switch (result) {
@@ -309,69 +298,6 @@ NetSend(unsigned int len)
   case RC_OK:
     return true;
   };
-}
-
-void
-TimerFunction(unsigned long data)
-{
-  result_t result;
-
-  DEBUG(errors) kprintf(KR_OSTREAM, "HAI receive timed out.\n");
-  /* Destroy the port/socket. This will abort any connection and
-  wake up the receiver with an exception. */
-  result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_TEMP0);
-  assert(result == RC_OK);
-  capros_key_destroy(KR_TEMP0);
-}
-
-/* Receive a packet into recvBuf.
- * If the port capability is void, returns -1,
- * otherwise returns the number of bytes received. */
-int
-NetReceive(void)
-{
-  result_t result;
-  uint32_t lenRecvd;
-
-  CMTETimer_Define(tmr, &TimerFunction, 0);
-  CMTETimer_setDuration(&tmr, 3000000000ULL);	// set timer for 3 seconds
-#if (PROTOCOL == 1)
-  uint32_t sourceIPAddr;
-  uint16_t sourceIPPort;
-  result = capros_UDPPort_receive(KR_UDPPort, sizeof(recvBuf),
-			&sourceIPAddr, &sourceIPPort,
-                        &lenRecvd, recvBuf);
-  CMTETimer_delete(&tmr);
-  if (result != RC_OK)
-    return -1;
-  DEBUG(server) kprintf(KR_OSTREAM, "Received %d bytes from %#x:%d:\n",
-          lenRecvd, sourceIPAddr, sourceIPPort);
-#else // TCP
-  uint8_t flagsRecvd;
-  result = capros_TCPSocket_receive(KR_TCPSocket, sizeof(recvBuf),
-                                    &lenRecvd, &flagsRecvd, recvBuf);
-  CMTETimer_delete(&tmr);
-  switch (result) {
-  default:
-    assert(false);
-  case RC_capros_TCPSocket_RemoteClosed:
-    capros_key_destroy(KR_TCPSocket);
-  case RC_capros_key_Void:
-    return -1;
-  case RC_OK:
-    break;
-  }
-  DEBUG(server) kprintf(KR_OSTREAM, "Received %d bytes\n", lenRecvd);
-#endif
-
-  DEBUG(data) {
-    int i;
-    for (i = 0; i < lenRecvd; i++) {
-      kprintf(KR_OSTREAM, " %#x", recvBuf[i]);
-    }
-    kprintf(KR_OSTREAM, "\n");
-  }
-  return lenRecvd;
 }
 
 /* sendMessage has a packet of length totalLen.
@@ -414,6 +340,7 @@ EncryptedSend(unsigned int totalLen)
     c = p;
   }
 
+#if 0
   DEBUG(data) {
     kprintf(KR_OSTREAM, "Encrypted");
     int i;
@@ -422,7 +349,83 @@ EncryptedSend(unsigned int totalLen)
     }
     kprintf(KR_OSTREAM, "\n");
   }
+#endif
   return NetSend(ol2HeaderSize + totalLen);
+}
+
+/* Send an Omni-Link II application data message. 
+ * The message is in sendMessage ff., except for the first two
+ * bytes and the CRC, which this procedure fills in.
+ * len is the value for the second byte of the message. */
+/* If the port capability is void, this procedure returns false.
+ * Otherwise it returns true. */
+bool
+OL2Send(unsigned int len)
+{
+  sendMessage[0] = startCharacter;
+  sendMessage[1] = len;
+
+  uint16_t CRC = CalcCRC(&sendMessage[1], len+1);
+  sendMessage[2 + len] = CRC & 0xff;
+  sendMessage[2 + len + 1] = CRC >> 8;
+
+  sendBuf[2] = ol2mtyp_dataMsg;
+
+  return EncryptedSend(len + 4);
+}
+
+/**************************** receiver thread *************************/
+
+static unsigned int
+GetSeqNo(void)
+{
+  return (recvrBuf[0] << 8) | recvrBuf[1];
+}
+
+/* Receive a packet into recvrBuf.
+ * If the port capability is void, returns -1,
+ * otherwise returns the number of bytes received. */
+int
+NetReceive(void)
+{
+  result_t result;
+  uint32_t lenRecvd;
+
+#if (PROTOCOL == 1)
+  uint32_t sourceIPAddr;
+  uint16_t sourceIPPort;
+  result = capros_UDPPort_receive(KR_Socket, sizeof(recvrBuf),
+			&sourceIPAddr, &sourceIPPort,
+                        &lenRecvd, recvrBuf);
+  if (result != RC_OK)
+    return -1;
+  DEBUG(server) kprintf(KR_OSTREAM, "Received %d bytes from %#x:%d:\n",
+          lenRecvd, sourceIPAddr, sourceIPPort);
+#else // TCP
+  uint8_t flagsRecvd;
+  result = capros_TCPSocket_receive(KR_Socket, sizeof(recvrBuf),
+                                    &lenRecvd, &flagsRecvd, recvrBuf);
+  switch (result) {
+  default:
+    assert(false);
+  case RC_capros_TCPSocket_RemoteClosed:
+    capros_key_destroy(KR_Socket);
+  case RC_capros_key_Void:
+    return -1;
+  case RC_OK:
+    break;
+  }
+  DEBUG(server) kprintf(KR_OSTREAM, "Received %d bytes\n", lenRecvd);
+#endif
+
+  DEBUG(data) {
+    int i;
+    for (i = 0; i < lenRecvd; i++) {
+      kprintf(KR_OSTREAM, " %#x", recvrBuf[i]);
+    }
+    kprintf(KR_OSTREAM, "\n");
+  }
+  return lenRecvd;
 }
 
 /* Receive and decrypt a packet.
@@ -438,15 +441,15 @@ retry: ;
   assert(len >= ol2HeaderSize);
   len -= ol2HeaderSize;		// length of payload
   unsigned int seqNo = GetSeqNo();
-  if (seqNo != sequenceNumber) {
+  if (seqNo != sequenceNumber && seqNo != 0) {
     DEBUG(server) kprintf(KR_OSTREAM, "Expecting seq no %d got %d, discarding\n",
             sequenceNumber, seqNo);
     goto retry;	// restructure this
   }
   assert(!(len & 0xf));		// should be a multiple of 16
 
-  // Decrypt all blocks, moving them up to recvMessage:
-  uint8_t * c = recvBuf + ol2HeaderSize + len;
+  // Decrypt all blocks, moving them up to recvrMessage:
+  uint8_t * c = recvrBuf + ol2HeaderSize + len;
   uint8_t * p;
   unsigned int blocks;
   for (blocks = len / 16; blocks > 0; blocks--) {
@@ -460,88 +463,234 @@ retry: ;
     kprintf(KR_OSTREAM, "Decrypted payload");
     int i;
     for (i = 0; i < len; i++) {
-      kprintf(KR_OSTREAM, " %#x", recvMessage[i]);
+      kprintf(KR_OSTREAM, " %#x", recvrMessage[i]);
     }
     kprintf(KR_OSTREAM, "\n");
   }
   return len;
 }
 
-// Create a session.
-void
-CreateSession(void)
+/* If the session was terminated, this procedure returns -1.
+ * Otherwise it returns the length of the data plus 1 for the message type
+ *   (the length excludes the start character, length byte, and CRC).
+ */
+int
+OL2Receive(void)
 {
-  while (1) {	// loop until successful
-    DEBUG(server) kprintf(KR_OSTREAM, "Requesting session.\n");
-    IncSeqNo();
-    SetSeqNo(sequenceNumber);
-    sendBuf[2] = ol2mtyp_requestNewSess;
-    if (NetSend(ol2HeaderSize)) {
-      int lenRecvd = NetReceive();
-      if (lenRecvd >= 0) {
-        assert(lenRecvd == ol2HeaderSize + 7);
-        assert(GetSeqNo() == sequenceNumber);
-        assert(recvBuf[2] == ol2mtyp_ackNewSess);
-        assert(BEToShort(&recvBuf[ol2HeaderSize]) == 1); // protocol version 1
-        memcpy(sessionID, &recvBuf[ol2HeaderSize + 2], 5);
-        memcpy(sessionKey, privateKey, 16);
-        int i;
-        for (i = 0; i < 5; i++) {
-          sessionKey[11+i] ^= sessionID[i];
-        }
+#ifdef RESPONSE_TEST
+  // Measure time to this point.
+  uint32_t keyType;
+  result_t result = capros_key_getType(KR_SysTrace, &keyType);
+  if (result) kdprintf(KR_OSTREAM, "SysTrace_getType got %#x.\n", result);
+#endif
+  int receiveLen = EncryptedReceive();
+  if (receiveLen < 0) {
+    return -1;
+  }
+  receiveLen -= 4;	// length without the start char, length byte, and CRC
+  assert(receiveLen >= 1);	// must have at least a type byte
+  switch (recvrBuf[2]) {		// message type in packet header
+  default: ;
+    assert(false);
 
-        // Set up crypto:
-        nrounds = rijndaelSetupEncrypt(rkEncrypt, sessionKey, keybits);
-        nrounds = rijndaelSetupDecrypt(rkDecrypt, sessionKey, keybits);
+  case ol2mtyp_contrSessTerm:	// the session is gone
+    DEBUG(rcvr) kdprintf(KR_OSTREAM, "HAI terminated session.\n");
+    return -1;
 
-        DEBUG(server) kprintf(KR_OSTREAM, "Requesting secure session.\n");
-        // This seems to have no purpose other than to verify the connection.
-        sendBuf[2] = ol2mtyp_reqSecConn;
-        memcpy(sendMessage, sessionID, 5);
-        if (EncryptedSend(5)) {
-          lenRecvd = EncryptedReceive();
-          if (lenRecvd >= 0) {
-            assert(lenRecvd >= 5);
-            assert(recvBuf[2] == ol2mtyp_ackSecConn);
-            assert(! memcmp(recvMessage, sessionID, 5));
-            return;
-          }
-        }
-      }
-    }
-    // The port is gone.
-    CreatePort();
+  case ol2mtyp_dataMsg:
+    assert(recvrMessage[0] == startCharacter);
+    uint16_t CRC = CalcCRC(&recvrMessage[1], receiveLen+1);
+    assert(recvrMessage[2 + receiveLen] == (CRC & 0xff));
+    assert(recvrMessage[2 + receiveLen + 1] == (CRC >> 8));
+    return receiveLen;
   }
 }
 
-/* Send an Omni-Link II application data message. 
- * The message is in sendMessage ff., except for the first two
- * bytes and the CRC, which this procedure fills in.
- * len is the value for the second byte of the message. */
-/* If the port capability is void, this procedure creates a new session
- * and returns false, but does not retry the send.
- * Otherwise it returns true. */
-bool
-OL2Send(unsigned int len)
+// Create a port.
+static void
+CreatePort(void)
 {
-  sendMessage[0] = startCharacter;
-  sendMessage[1] = len;
+  result_t result;
 
-  uint16_t CRC = CalcCRC(&sendMessage[1], len+1);
-  sendMessage[2 + len] = CRC & 0xff;
-  sendMessage[2 + len + 1] = CRC >> 8;
+#if (PROTOCOL == 1)
+  DEBUG(server) kprintf(KR_OSTREAM, "Creating UDP port.\n");
+  result = capros_IP_createUDPPort(KR_IP, KR_Socket);
+  assert(result == RC_OK);
 
-  sendBuf[2] = ol2mtyp_dataMsg;
+  uint32_t maxReceiveSize, maxSendSize;
+  result = capros_UDPPort_getMaxSizes(KR_Socket, HAIIpAddr,
+			&maxReceiveSize, &maxSendSize);
+  assert(result == RC_OK);
+  DEBUG(server) kprintf(KR_OSTREAM, "Max size rcv %d snd %d\n", maxReceiveSize, maxSendSize);
+  // We had better be able to send a message in a single packet:
+  assert(maxSendSize >= maxSendMsgLen + ol2HeaderSize);
+#else	// TCP
+  DEBUG(server) kprintf(KR_OSTREAM, "Connecting using TCP.\n");
 
-  if (EncryptedSend(len + 4))
-    return true;
+reconnect:
+  result = capros_IP_TCPConnect(KR_IP, HAIIpAddr, HAIPort,
+			        KR_Socket);
+  switch (result) {
+  default:
+    kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result);
+  case RC_OK:
+    break;
+  case RC_capros_key_Restart:
+    goto reconnect;
+  case RC_capros_IPDefs_Aborted:
+    kdprintf(KR_OSTREAM, "Connection aborted.\n");
+    break;
+  case RC_capros_IPDefs_Refused:
+    kdprintf(KR_OSTREAM, "Connection refused.\n");
+    break;
+  }
 
-  // The port is gone.
-  CreateSession();
-  return false;
+  DEBUG(server) kprintf(KR_OSTREAM, "Connected.\n");
+#endif
+
+  // Save it where the other threads can get it:
+  result = capros_Node_swapSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_Socket,
+             KR_VOID);
+  assert(result == RC_OK);
 }
 
-/* If the session was terminated, this procedure creates a new session
+unsigned int ReceiverThreadNum;
+void *
+ReceiverThread(void * arg)
+{
+  result_t result;
+  int recvLen;
+
+  // We hold the lock initially.
+  while (1) {
+    // There is no session.
+    if (mainState == mstate_NeedResponse) {
+      responseMessageLength = -1;
+      mainState = mstate_Available;	// no longer needing a response
+      CMTESemaphore_up(&mainWait);
+    }
+    // Create a session.
+    while (1) {	// loop until successful
+      DEBUG(rcvr) kprintf(KR_OSTREAM, "Requesting session.\n");
+      IncSeqNo();
+      SetSeqNo(sequenceNumber);
+      sendBuf[2] = ol2mtyp_requestNewSess;
+      if (NetSend(ol2HeaderSize)) {
+        CMTETimer_Define(tmr2, &TimerFunction, 0);
+
+        // Set a timeout for the response.
+        CMTETimer_setDuration(&tmr2, 3000000000ULL);	// 3 seconds
+        CMTETimer_delete(&tmr2);
+        int lenRecvd = NetReceive();
+        if (lenRecvd >= 0) {
+          assert(lenRecvd == ol2HeaderSize + 7);
+          assert(GetSeqNo() == sequenceNumber);
+          assert(recvrBuf[2] == ol2mtyp_ackNewSess);
+          assert(BEToShort(&recvrBuf[ol2HeaderSize]) == 1); // protocol version 1
+          memcpy(sessionID, &recvrBuf[ol2HeaderSize + 2], 5);
+          memcpy(sessionKey, privateKey, 16);
+          int i;
+          for (i = 0; i < 5; i++) {
+            sessionKey[11+i] ^= sessionID[i];
+          }
+
+          // Set up crypto:
+          nrounds = rijndaelSetupEncrypt(rkEncrypt, sessionKey, keybits);
+          nrounds = rijndaelSetupDecrypt(rkDecrypt, sessionKey, keybits);
+
+          DEBUG(server) kprintf(KR_OSTREAM, "Requesting secure session.\n");
+          // This seems to have no purpose other than to verify the connection.
+          sendBuf[2] = ol2mtyp_reqSecConn;
+          memcpy(sendMessage, sessionID, 5);
+          if (EncryptedSend(5)) {
+            // Set a timeout for the response.
+            CMTETimer_setDuration(&tmr2, 3000000000ULL);	// 3 seconds
+            lenRecvd = EncryptedReceive();
+            CMTETimer_delete(&tmr2);
+            if (lenRecvd >= 0) {
+              assert(lenRecvd >= 5);
+              assert(recvrBuf[2] == ol2mtyp_ackSecConn);
+              assert(! memcmp(recvrMessage, sessionID, 5));
+////#if (PROTOCOL == 1)
+#if 1	//// Firmware v. 2.16a has bugs in notifications.
+// We could read the firmware version and check. But really,
+// the rest of the system is depending on notifications. 
+// All we could do is complain.
+              break;
+#else
+              // Enable notifications.
+#if 0//// delay
+              RTC_time rt = getRTC() + 3;	// delay 3 seconds
+              while (getRTC() < rt) ;
+#endif
+              sendMessage[2] = 0x15;
+              sendMessage[3] = 1;
+              if (OL2Send(2)) {
+                // Set a timeout for the response.
+                CMTETimer_setDuration(&tmr2, 3000000000ULL);	// 3 seconds
+                recvLen = OL2Receive();
+                CMTETimer_delete(&tmr2);
+                if (recvLen >= 1 && recvrMessage[2] == mtype_Ack)
+                  break;
+                else
+                  DEBUG(errors) kprintf(KR_OSTREAM,
+                    "HAI respose to enable notif was msg type %#x.\n",
+                    recvrMessage[2] );
+              }
+#endif
+            }
+          }
+        }
+      }
+      // The port is gone, or we are creating a new session due to an error.
+      CreatePort();
+    }
+    // We now have a session.
+    DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI got session.\n");
+    // Push it to the main thread.
+    result = capros_Node_getSlotExtended(KR_KEYSTORE,
+               LKSN_THREAD_PROCESS_KEYS+0, KR_TEMP0);
+    assert(result == RC_OK);
+    result = capros_Process_swapKeyReg(KR_TEMP0, KR_Socket, KR_Socket, KR_VOID);
+    assert(result == RC_OK);
+    // Wake him up if waiting:
+    if (mainState == mstate_NeedSession) {
+      mainState = mstate_Available;	// no longer needing a session
+      CMTESemaphore_up(&mainWait);
+      DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr woke main for session.\n");
+    }
+
+    while (1) {		// loop reading from the session
+      CMTEMutex_unlock(&lock);
+      DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr receiving.\n");
+      recvLen = OL2Receive();
+      DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr received.\n");
+      CMTEMutex_lock(&lock);
+      if (recvLen < 0)
+        break;		// session is gone
+      if (GetSeqNo() == 0) {
+        unsigned int msgType = recvrMessage[2];
+        // It is a notification.
+        //if (msgType == 0x23 || msgType == 0x37)
+        kprintf(KR_OSTREAM, "++++HAI notif %#x\n", msgType);////
+////...
+      } else {
+        // It is a response.
+        if (mainState == mstate_NeedResponse) {
+          responseMessageLength = recvLen;
+          memcpy(responseMessage, recvrMessage, recvLen);
+          mainState = mstate_Available;	// no longer needing a response
+          CMTESemaphore_up(&mainWait);
+          DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr woke main for response.\n");
+        }
+      }
+    }
+  }
+}
+
+/************************* procedures for main thread ************************/
+
+/* If the session was terminated, this procedure waits for a new session
  *   and returns -1, but does not retry the operation.
  *   The send may or may not have occurred.
  * Otherwise, if a Negative Acknowledge is received,
@@ -553,48 +702,36 @@ int
 OL2SendAndGetReply(unsigned int sendLen, unsigned int replyType,
                    unsigned int minReplyLen)
 {
-  if (! OL2Send(sendLen))
-    return -1;
-#ifdef RESPONSE_TEST
-  // Measure time to this point.
-  uint32_t keyType;
-  result_t result = capros_key_getType(KR_SysTrace, &keyType);
-  if (result) kdprintf(KR_OSTREAM, "SysTrace_getType got %#x.\n", result);
-#endif
-  int receiveLen = EncryptedReceive();
-  if (receiveLen < 0) {
+  if (! OL2Send(sendLen)) {
     // The port is gone.
-    CreateSession();
+    WaitForSession();
     return -1;
   }
-  receiveLen -= 4;
-  assert(receiveLen >= 4);
-  switch (recvBuf[2]) {		// message type
-  default: ;
-    assert(false);
-
-  case ol2mtyp_contrSessTerm:	// the session is gone
-    CreateSession();
+  // Wait for the response.
+  mainState = mstate_NeedResponse;
+  CMTEMutex_unlock(&lock);
+  // Set a timeout for the response.
+  CMTETimer_Define(tmr, &TimerFunction, 0);
+  CMTETimer_setDuration(&tmr, 3000000000ULL);	// set timer for 3 seconds
+  CMTESemaphore_down(&mainWait);
+  CMTETimer_delete(&tmr);
+  CMTEMutex_lock(&lock);
+  if (responseMessageLength < 0) {
+    // The port is gone.
+    WaitForSession();
     return -1;
-
-  case ol2mtyp_dataMsg:
-    assert(recvMessage[0] == startCharacter);
-    uint16_t CRC = CalcCRC(&recvMessage[1], receiveLen+1);
-    assert(recvMessage[2 + receiveLen] == (CRC & 0xff));
-    assert(recvMessage[2 + receiveLen + 1] == (CRC >> 8));
-
-    // Check the expected reply:
-    if (recvMessage[2] == replyType) {
-      assert(receiveLen >= minReplyLen);
-      return receiveLen;
-    }
-    assert(recvMessage[2] == mtype_NAck);
-    DEBUG(errors) kprintf(KR_OSTREAM, "HAI got NACK\n");
-    return -2;
   }
+  // Check the expected reply:
+  if (responseMessage[2] == replyType) {
+    assert(responseMessageLength >= minReplyLen);	// FIXME depends on HAI
+    return responseMessageLength;
+  }
+  assert(responseMessage[2] == mtype_NAck);	// FIXME depends on HAI
+  DEBUG(errors) kprintf(KR_OSTREAM, "HAI got NACK\n");
+  return -2;
 }
 
-void
+static void
 SimpleRequest(uint8_t typeCode,
               unsigned int replyType, unsigned int minReplyLen)
 {
@@ -641,6 +778,18 @@ cmte_main(void)
                                           LKSN_Socket, LKSN_Socket);
   assert(result == RC_OK);	// FIXME
 
+  // Create Logfile:
+  result = capros_Constructor_request(KR_LOGFILEC, KR_BANK, KR_SCHED, KR_VOID,
+             KR_LOGFILE);
+  assert(result == RC_OK);	// FIXME
+  // Save data 32 days:
+  result = capros_Logfile_setDeletionPolicyByID(KR_LOGFILE,
+             32*24*60*60*1000000000ULL);
+  assert(result == RC_OK);
+  // Create read-only cap once now, since there is no shortage of cap regs.
+  result = capros_Logfile_getReadOnlyCap(KR_LOGFILE, KR_LOGFILERO);
+  assert(result == RC_OK);
+
   // Get configuration data:
   uint32_t pk0, pk1, pk2, pk3;	// bytes of the private key
   result = capros_Number_get(KR_CONFIG1, &HAIIpAddr, &HAIPort, &pk0);
@@ -652,8 +801,8 @@ cmte_main(void)
   UnpackPK(pk2, &privateKey[8]);
   UnpackPK(pk3, &privateKey[12]);
 
-  // Needed to ensure crypto is set up:
-  CreateSession();
+  result = CMTEThread_create(4096, &ReceiverThread, 0, &ReceiverThreadNum);
+  assert(result == RC_OK);	// FIXME
 
   for (;;) {
     RETURN(&Msg);
@@ -668,6 +817,7 @@ cmte_main(void)
     Msg.snd_w2 = 0;
     Msg.snd_w3 = 0;
 
+    CMTEMutex_lock(&lock);
     switch (Msg.rcv_code) {
     default:
       Msg.snd_code = RC_capros_key_UnknownRequest;
@@ -685,7 +835,7 @@ cmte_main(void)
       SimpleRequest(0x18, 0x19, 15+1);
 #endif
       Msg.snd_w1 = getRTC();
-      Msg.snd_data = &recvMessage[3];
+      Msg.snd_data = &responseMessage[3];
       Msg.snd_len = sizeof(capros_HAI_SystemStatus);
       break;
     }
@@ -700,8 +850,8 @@ cmte_main(void)
         ShortToBE(unit, &sendMessage[5]);
         int recvLen = OL2SendAndGetReply(5, 0x18, 4);
         if (recvLen >= 0) {
-          Msg.snd_w2 = recvMessage[3];
-          Msg.snd_w3 = BEToShort(&recvMessage[4]);
+          Msg.snd_w2 = responseMessage[3];
+          Msg.snd_w3 = BEToShort(&responseMessage[4]);
           break;
         }
 #else
@@ -711,10 +861,10 @@ cmte_main(void)
         ShortToBE(unit, &sendMessage[6]);
         int recvLen = OL2SendAndGetReply(6, 0x23, 7);
         if (recvLen >= 0
-            && recvMessage[3] == ot_unit
-            && BEToShort(&recvMessage[4]) == unit ) {
-          Msg.snd_w2 = recvMessage[6];
-          Msg.snd_w3 = BEToShort(&recvMessage[7]);
+            && responseMessage[3] == ot_unit
+            && BEToShort(&responseMessage[4]) == unit ) {
+          Msg.snd_w2 = responseMessage[6];
+          Msg.snd_w3 = BEToShort(&responseMessage[7]);
           break;
         }
 #endif
@@ -824,7 +974,9 @@ cmte_main(void)
         }
       }
       break;
-    }
-    }
+    }	// end of case OC_capros_HAI_setUnitStatus
+    }	// end of switch(Msg.rcv_code)
+    assert(mainState == mstate_Available);
+    CMTEMutex_unlock(&lock);
   }
 }
