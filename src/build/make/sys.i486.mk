@@ -1,6 +1,6 @@
 #
 # Copyright (C) 2001, The EROS Group, LLC.
-# Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -55,15 +55,17 @@ np: $(BUILDDIR)/sysimg $(KERNPATH).o
 	$(EROS_ROOT)/host/bin/npgen -s $(NPRANGESIZE) $(BUILDDIR)/sysimg $(RESTART_CKPT) $(BUILDDIR)/imgdata
 	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
 	$(LD) -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptImage -o $(BUILDDIR)/imgdata2.o $(BUILDDIR)/imgdata.o
-	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(CAPROS_BOOT_PARTITION)/CapROS-kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o
+	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(BUILDDIR)/kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o
+	scp $(BUILDDIR)/kernimg $(CAPROS_BOOT_PARTITION)/CapROS-kernimg
 
-// Link kernel and non-persistent objects:
+// Link kernel and non-persistent and persistent objects:
 p: $(BUILDDIR)/sysimg $(KERNPATH).o
 	$(EROS_ROOT)/host/bin/npgen -s $(NPRANGESIZE) $(BUILDDIR)/sysimg -p $(BUILDDIR)/imgdata
 	$(EROS_ROOT)/host/bin/npgen -s $(PRANGESIZE) -b 0x0100000000000000 $(BUILDDIR)/psysimg -a $(BUILDDIR)/imgdata
 	$(EROS_OBJCOPY) -I binary -O elf32-i386 -B i386 $(BUILDDIR)/imgdata $(BUILDDIR)/imgdata.o
 	$(LD) -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptImage -o $(BUILDDIR)/imgdata2.o $(BUILDDIR)/imgdata.o
-	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(CAPROS_BOOT_PARTITION)/CapROS-kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o
+	$(LD) -static -N -T $(EROS_SRC)/build/make/sys.$(EROS_TARGET).linkscriptKernel -o $(BUILDDIR)/kernimg $(KERNPATH).o $(BUILDDIR)/imgdata2.o
+	scp $(BUILDDIR)/kernimg $(CAPROS_BOOT_PARTITION)/CapROS-kernimg
 
 $(BUILDDIR)/sysvol: $(BUILDDIR)/sysimg $(KERNPATH) $(VOLMAP)
 	$(EROS_ROOT)/host/bin/mkvol -k $(KERNPATH) $(VOLMAP) $(BUILDDIR)/sysvol
