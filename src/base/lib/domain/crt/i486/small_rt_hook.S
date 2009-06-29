@@ -1,7 +1,7 @@
 	.file	"small_rt_hook.S"
 /*
  * Copyright (C) 2003, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2007, Strawberry Development Group.
+ * Copyright (C) 2006, 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -32,8 +32,6 @@ Approved for public release, distribution unlimited. */
 
 #include <eros/arch/i486/asm.h>
 #include <eros/arch/i486/target-asm.h>
-#include <eros/StdKeyType.h>
-#include <eros/KeyConst.h>
 #include <eros/Invoke.h>
 #include <domain/ProtoSpace.h>
 #include <idl/capros/SpaceBank.h>
