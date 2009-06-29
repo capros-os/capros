@@ -24,9 +24,7 @@ Approved for public release, distribution unlimited. */
 
 #include <string.h>
 #include <eros/target.h>
-#include <eros/KeyConst.h>
 #include <eros/Invoke.h>
-#include <eros/StdKeyType.h>
 
 #include <idl/capros/Process.h>
 #include <idl/capros/GPT.h>
