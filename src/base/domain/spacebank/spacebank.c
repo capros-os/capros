@@ -278,43 +278,6 @@ freeExit:
       break;
     }
 
-  /* N.B.: ReclaimDataPagesFromNode is bogus, because it is always called
-     with a GPT not a node! FIXME */
-  case OC_capros_SpaceBank_ReclaimDataPagesFromNode:
-    {
-      capros_Range_obType type;
-      
-      /* verify that they actually passed us a node key */
-      if (capros_Range_identify(KR_SRANGE, KR_ARG0, &type, NULL) != RC_OK
-          || type != capros_Range_otNode) {
-        argmsg->snd_code = RC_capros_key_RequestError;
-        break;
-      } else {
-	/* it's a node */
-	uint32_t slot;
-	
-	for (slot = 0; slot < EROS_NODE_SIZE; slot++) {
-	  result_t result;
-	
-	  result = capros_Node_getSlot(KR_ARG0, slot, KR_ARG1);
-	  if (result != RC_OK) {
-            /* This could happen if the node contains a key to itself! */
-	    DEBUG(dealloc)
-	      kdprintf(KR_OSTREAM,
-		       "Spacebank: copy from slot %d failed (0x%1x)\n",
-		       slot,
-		       result);
-	  } else {
-            result = BankDeallocObject(bank, KR_ARG1);
-            // Ignore any error here.
-          }
-	}
-      
-	argmsg->snd_code = result;
-	break;
-      }
-    }
-
   case OC_capros_SpaceBank_reduce:
     {
       preclude |= argmsg->rcv_w1;

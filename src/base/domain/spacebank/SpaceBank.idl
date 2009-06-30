@@ -51,10 +51,6 @@ interface SpaceBank extends key
   void free2(capros.key k1, capros.key k2);
   void free3(capros.key k1, capros.key k2, capros.key k3);
 
-  // ReclaimDataPagesFromNode should go away when we figure out how to get rid
-  // of the one use in protospace.S.
-  void ReclaimDataPagesFromNode(capros.key node);
-
   /* setLimit
 
   frameLimit is the new value for the maximum number of frames
