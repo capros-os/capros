@@ -128,6 +128,7 @@ main()
   KPRINTF(test)(KR_OSTREAM, "Destroy it:\n");
   result = capros_key_destroy(KR_SEG);
   ckOK
+  PrintBankSpace();
 
   KPRINTF(test)(KR_OSTREAM, "Build new zero segment:\n");
 
@@ -143,29 +144,29 @@ main()
   ckOK
   result = capros_key_getType(KR_TEMP0, &keyType);
   ckOK
-  assert(keyType == IKT_capros_VCS);
+  if (keyType != IKT_capros_GPT) {
+    kdprintf(KR_OSTREAM, "%s:%d: keyType = %#x\n",
+             __FILE__, __LINE__, keyType);
+  }
 
-  KPRINTF(init)(KR_OSTREAM,
-	   "result: 0x%08x. Insert result in new seg node:\n",
-	   result); 
   capros_GPT_setSlot(KR_AddrSpace, 1, KR_SEG);
   
   KPRINTF(test)(KR_OSTREAM, "About to read word from VCS:\n");
 
   value = *((uint32_t *) addr);
   
-  KPRINTF(test)(KR_OSTREAM, "Result was 0x%x\n", value);
+  if (value != 0)
+    KPRINTF(test)(KR_OSTREAM, "Result was 0x%x\n", value);
 
   KPRINTF(test)(KR_OSTREAM, "About to write word to VCS at 0x%08x:\n",
 		addr); 
 
   *((uint32_t *) addr) = 1;
   
-  KPRINTF(test)(KR_OSTREAM, "Reread word from VCS:\n");
+  value = *((uint32_t *) addr);
   
-  value = *((uint32_t *) TEST_ADDR);
-  
-  KPRINTF(test)(KR_OSTREAM, "New value is: 0x%08x\n", value);
+  if (value != 1)
+    kdprintf(KR_OSTREAM, "Reread value is: 0x%08x\n", value);
 
 
   addr = TEST_ADDR + EROS_PAGE_SIZE;
@@ -175,11 +176,10 @@ main()
 
   *((uint32_t *) addr) = 2;
   
-  KPRINTF(test)(KR_OSTREAM, "Reread word from VCS:\n");
-
-  value = *((uint32_t *) (TEST_ADDR + EROS_PAGE_SIZE));
+  value = *((uint32_t *) addr);
   
-  KPRINTF(test)(KR_OSTREAM, "New value is: 0x%08x\n", value);
+  if (value != 2)
+    kdprintf(KR_OSTREAM, "Reread value is: 0x%08x\n", value);
 
 
   /* following tests traversal suppression */
@@ -192,9 +192,10 @@ main()
   
   KPRINTF(test)(KR_OSTREAM, "Reread word from VCS:\n");
 
-  value = *((uint32_t *) (TEST_ADDR + 2 * EROS_PAGE_SIZE));
-  
-  KPRINTF(test)(KR_OSTREAM, "New value is: 0x%08x\n", value);
+  value = *((uint32_t *) addr);
+
+  if (value != 3)
+    kdprintf(KR_OSTREAM, "Reread value is: 0x%08x\n", value);
 
 
   addr = TEST_ADDR + (EROS_PAGE_SIZE * EROS_NODE_SIZE);
@@ -206,11 +207,10 @@ main()
 
   *((uint32_t *) addr) = 4;
   
-  KPRINTF(test)(KR_OSTREAM, "Reread word from VCS:\n");
-
   value = *((uint32_t *) addr);
   
-  KPRINTF(test)(KR_OSTREAM, "New value is: 0x%08x\n", value);
+  if (value != 4)
+    KPRINTF(test)(KR_OSTREAM, "Reread value is: 0x%08x\n", value);
 #endif
   
 
