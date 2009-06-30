@@ -9,15 +9,14 @@ interface SWCA extends key
   /* The following are sampled periodically,
   and any changes are logged in Logfile objects. */
 
-  // LED masks: (are these correct?)
-  const unsigned byte LEDOverCurrent = 1;
-  const unsigned byte LEDFloat       = 2;	// verified correct
-  const unsigned byte LEDAC2In       = 4;	// verified correct
-  const unsigned byte LEDInverting   = 8;	// verified correct
-  const unsigned byte LEDError       = 16;	// probably correct
-  const unsigned byte LEDBulk        = 128;	// verified correct
-  //const unsigned byte LEDAC1In       = 64;
+  //const unsigned byte LEDOverCurrent = ?;
+  const unsigned byte LEDFloat       = 2;
+  const unsigned byte LEDAC2In       = 4;
+  const unsigned byte LEDInverting   = 8;
+  const unsigned byte LEDError       = 16;
+  //const unsigned byte LEDAC1In       = ?;
   //const unsigned byte LEDLineTie     = ?;
+  const unsigned byte LEDBulk        = 128;
 
   struct LEDLogRecord {
     Logfile.recordHeader header;
@@ -61,8 +60,10 @@ interface SWCA extends key
     On,
     Eq	// equalize
   };
-  void getGeneratorMode(unsigned byte inverterNum, out GenMode mode);
-  void setGeneratorMode(unsigned byte inverterNum, GenMode mode);
+  // FIXME: the following two mode parameters should have type Genmode.
+  // Due to an IDL compiler bug, they have been changed to short.
+  void getGeneratorMode(unsigned byte inverterNum, out short mode);
+  void setGeneratorMode(unsigned byte inverterNum, short mode);
 
   void getLBCOVolts(unsigned byte inverterNum, out short v10);
   void setLBCOVolts(unsigned byte inverterNum, short v10);
