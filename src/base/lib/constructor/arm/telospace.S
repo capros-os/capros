@@ -61,12 +61,12 @@ messageStruct:
 	.section textSect
 
 #define InvConstants(label, snd_invKey, snd_code, snd_w1, \
-                     snd_key0, snd_key1, rcv_key0, rcv_key1) \
+                     snd_key0, snd_key1, snd_key2, rcv_key0, rcv_key1) \
 	.section rodataSect ;\
 	.balign 4 ;\
 /* Just declare the values to be loaded into registers. */ \
 label:	.byte snd_invKey, IT_Call, 0, 0 ;\
-	.byte snd_key0,snd_key1,KR_VOID,KR_VOID ;\
+	.byte snd_key0,snd_key1,snd_key2,KR_VOID ;\
 	.long 0		/* snd_len */ ;\
 	.long snd_code ;\
 	.long snd_w1 ;\
@@ -75,42 +75,37 @@ label:	.byte snd_invKey, IT_Call, 0, 0 ;\
 	.byte rcv_key0,rcv_key1,KR_VOID,KR_VOID ;\
 	.section textSect
 
-/* Can use simpleCall if not using w2-w3. */
-#define simpleCall(label, snd_invKey, snd_code, snd_w1, snd_key0, snd_key1, rcv_key0) \
-	InvConstants(label, snd_invKey, snd_code, snd_w1, snd_key0, snd_key1, rcv_key0, KR_VOID) ;\
-	ldr r0,=label ;\
-	ldmia r0,{r1-r5,r12,r14} ;\
-	ldr r0,=messageStruct	/* our constant Message structure */ ;\
-	swi SWI_Invoke
-
 	.section textSect
 ENTRY(_start)
 ENTRY(telospacestart)
 
-/* We get here from protospace_destroy_small(), which calls:
+/* We get here from protospace_destroy_small_2(), which calls:
   capros_Process_swapAddrSpaceAndPC32Proto(KR_SELF, PSKR_PROTO,
     0x400,      // well known telospace address
     finalResult,    // w2_in
     &w1_out,
-    PSKR_SPACE);
+    KR_TEMP2);
 
-  The passed finalResult is returned in w1, which is placed in r2. */
+  KR_TEMP2 has the address space GPT, which we will free.
+  KR_TEMP1 has the base page of the stack, which we will free.
+  KR_TEMP0 has the first page of the data/bss area, which we will free.
+ */
 
+//  The passed finalResult is returned in w1, which is placed in r2.
 	mov r7,r2	// save it
 
-	simpleCall(sb_reclaim_pages_from_node, KR_BANK,
-                   OC_capros_SpaceBank_ReclaimDataPagesFromNode, 0,
-		   PSKR_SPACE, KR_VOID, KR_VOID)
-	
-	/* Sell back the node itself */
-	simpleCall(sb_reclaim_small_space_node, KR_BANK,
-		   OC_capros_SpaceBank_free1, 0,
-		   PSKR_SPACE, KR_VOID, KR_VOID)
+	/* Free the pages and GPT: */
+	InvConstants(sb_reclaim_objects, KR_BANK, OC_capros_SpaceBank_free3,
+        	0, KR_TEMP0, KR_TEMP1, KR_TEMP2, KR_VOID, KR_VOID)
+	ldr r0,=sb_reclaim_objects
+	ldmia r0,{r1-r5,r12,r14}
+	ldr r0,=messageStruct	/* our constant Message structure */
+	swi SWI_Invoke
 
 	/* Ask our process to destroy this process and return to our caller. */
 	InvConstants(destroy_caller, KR_CREATOR,
 		     OC_capros_ProcCre_destroyCallerAndReturn, 0,
-		     KR_BANK, KR_RETURN, KR_VOID, KR_VOID)
+		     KR_BANK, KR_RETURN, KR_VOID, KR_VOID, KR_VOID)
 	ldr r0,=destroy_caller
 	ldmia r0,{r1-r5,r12,r14}
 	mov r5,r7	// snd_w1 has return code for KR_RETURN

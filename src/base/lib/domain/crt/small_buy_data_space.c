@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001 Jonathan S. Shapiro.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library,
  * and is derived from the EROS Operating System runtime library.
@@ -50,9 +50,9 @@ __rt_buy_data_space()
   
   /* Round the base down and the bound up to the nearest page
      boundary. */
-  base -= base % EROS_PAGE_SIZE;
+  base &= - EROS_PAGE_SIZE;
   bound += EROS_PAGE_SIZE - 1;
-  bound -= bound % EROS_PAGE_SIZE;
+  bound &= - EROS_PAGE_SIZE;
 
   result = capros_Process_getAddrSpace(KR_SELF, KR_MYSPACE);
 

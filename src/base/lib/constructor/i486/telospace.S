@@ -50,22 +50,12 @@ at a known address. */
 	
 	.section rodataSect
 	
-sb_reclaim_pages_from_node:	
+sb_reclaim_objects:	
 	.long	IT_Call
 	.long	KR_BANK
 	.long	0		/* snd len */
 	.long	0		/* snd ptr */
-	.long	KEYS(PSKR_SPACE,KR_VOID,KR_VOID,KR_VOID)	/* snd keys */
-	.long	0		/* rcv len */
-	.long	0		/* rcv data */
-	.long	NO_KEYS		/* rcv keys */
-
-sb_reclaim_small_space_node:	
-	.long	IT_Call
-	.long	KR_BANK
-	.long	0		/* snd len */
-	.long	0		/* snd ptr */
-	.long	KEYS(PSKR_SPACE,KR_VOID,KR_VOID,KR_VOID)	/* snd keys */
+	.long	KEYS(KR_TEMP0,KR_TEMP1,KR_TEMP2,KR_VOID)	/* snd keys */
 	.long	0		/* rcv len */
 	.long	0		/* rcv data */
 	.long	NO_KEYS		/* rcv keys */
@@ -84,31 +74,27 @@ destroy_caller:
 ENTRY(_start)
 ENTRY(telospacestart)
 
-/* We get here from protospace_destroy_small(), which calls:
+/* We get here from protospace_destroy_small_2(), which calls:
   capros_Process_swapAddrSpaceAndPC32Proto(KR_SELF, PSKR_PROTO,
     0x400,      // well known telospace address
     finalResult,    // w2_in
     &w1_out,
-    PSKR_SPACE);
+    KR_TEMP2);
 
-  The passed finalResult is returned in w1, which is placed in %ebx. */
+  KR_TEMP2 has the address space GPT, which we will free.
+  KR_TEMP1 has the base page of the stack, which we will free.
+  KR_TEMP0 has the first page of the data/bss area, which we will free.
+ */
+
+// The passed finalResult is returned in w1, which is placed in %ebx. */
 
 	/* We have no stack, so we can save the finalResult in %esp. */
 	movl	%ebx,%esp
 	
-	movl	$sb_reclaim_pages_from_node,%ebp
+	/* Free the pages and GPT: */
+	movl	$sb_reclaim_objects,%ebp
 	
-	movl	$OC_capros_SpaceBank_ReclaimDataPagesFromNode,%eax	/* r0 */
-	xorl	%ebx,%ebx			/* r1 */
-	xorl	%ecx,%ecx			/* r2 */
-	xorl	%edx,%edx			/* r3 */
-	
-	int	$0x31			/* invocation trap */
-
-	/* Sell back the node itself */
-	movl	$sb_reclaim_small_space_node,%ebp
-	
-	movl	$OC_capros_SpaceBank_free1,%eax	/* r0 */
+	movl	$OC_capros_SpaceBank_free3,%eax	/* r0 */
 	xorl	%ebx,%ebx			/* r1 */
 	xorl	%ecx,%ecx			/* r2 */
 	xorl	%edx,%edx			/* r3 */

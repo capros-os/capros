@@ -2,7 +2,7 @@
 #define __PROTOSPACEDS_H__
 
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -27,8 +27,6 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <domain/Runtime.h>
 
-#define PSKR_SPACE    KR_APP(0)
-
 /* protospace_destroy_small is used by a process with a "small" address
 space to destroy itself and its address space and return to a caller.
 
@@ -42,8 +40,6 @@ KR_CREATOR - this process's creator
 KR_RETURN  - the key to which to return
 
 krProto is the key register containing a key to the protospace address space.
-krProto must be different from the four keys above,
-but it may be equal to PSKR_SPACE.
 
 retCode is the return code to be passed to KR_RETURN.
 No other data or keys may be returned.
