@@ -76,8 +76,7 @@ main(void)
           0+1, genModeValue);
 
 #if 1////
-  capros_SWCA_GenMode originalMode = genModeValue;
-  // Set generator mode.
+  // Set generator mode Off.
   result = capros_SWCA_setGeneratorMode(KR_SWCA, 1, capros_SWCA_GenMode_Off);
   ckOK
 
@@ -88,8 +87,8 @@ main(void)
           0+1, genModeValue);
 
 #if 1////
-  // Set generator mode back.
-  result = capros_SWCA_setGeneratorMode(KR_SWCA, 1, originalMode);
+  // Set generator mode to Auto.
+  result = capros_SWCA_setGeneratorMode(KR_SWCA, 1, capros_SWCA_GenMode_Auto);
   ckOK
 
   // Get generator mode.
@@ -97,8 +96,6 @@ main(void)
   ckOK
   kprintf(KR_OSTREAM, "Inverter %d gen mode = %d\n",
           0+1, genModeValue);
-#else
-  (void)originalMode;
 #endif
 #endif
 
