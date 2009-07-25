@@ -44,6 +44,7 @@ interfaces: $(IDL)
 $(BUILDDIR)/hai: $(OBJECTS) $(CMTEDEPS)
 	$(CMTELINK) $(OBJECTS) $(CMTELIBS) -o $@ -lcaproscrypto
 # and for debugging:
+	$(EROS_OBJDUMP) --syms $@ | sort >$(BUILDDIR)/syms
 	$(EROS_OBJDUMP) --disassemble $@ >$(BUILDDIR)/disassembled
 
 install: all

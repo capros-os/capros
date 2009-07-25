@@ -85,6 +85,7 @@ Approved for public release, distribution unlimited. */
 typedef capros_RTC_time_t RTC_time;		// real time, seconds
 
 uint32_t HAIIpAddr, HAIPort;	// IP address and port of HAI
+				// constant after initialization
 
 RTC_time
 getRTC(void)
@@ -95,7 +96,12 @@ getRTC(void)
   return t;
 }
 
+CMTEMutex_DECLARE_Unlocked(messageLock);
+CMTEMutex_DECLARE_Locked(sendLock);	// initially locked by Receiver thread
+
 /************************ crypto stuff ******************************/
+
+// These global variables are accessed only under sendLock.
 
 #define keybits 128
 unsigned long rkEncrypt[RKLENGTH(keybits)];
@@ -166,56 +172,36 @@ enum objectType {
 #define maxRecvMsgLen 256
 /* The + 16 below is because we encrypt block 1 into block 0, etc. */
 #define sendBufSize (ol2HeaderSize + 16 + maxSendMsgLen)
-#define recvBufSize (ol2HeaderSize + 16 + maxRecvMsgLen)
-// Send and receive buffers, including the Omni-Link II application header.
+// Send buffer, including the Omni-Link II application header.
+// Protected by sendLock.
 uint8_t sendBuf[sendBufSize];
 	// sendBuf[3] always remains zero
 // Where to put the unencrypted message to send:
 #define sendMessage (sendBuf + ol2HeaderSize + 16)
 
-uint8_t recvrBuf[recvBufSize];
-// Where to get the unencrypted received message:
-#define recvrMessage (recvrBuf + ol2HeaderSize + 16)
-
 /************************ synchronization stuff ******************************/
 
-CMTEMutex_DECLARE_Locked(lock);	// initially locked by Receiver thread
+CMTESemaphore_DECLARE(messageSem, 0);
 
-CMTESemaphore_DECLARE(mainWait, 0);
-
+// sendState is protected by sendLock.
 enum {
   mstate_Available,
   mstate_NeedSession,
   mstate_NeedResponse
-} mainState = mstate_Available;
+} sendState = mstate_Available;
 
 // When we are awakened from mstate_NeedResponse, we get back:
 int responseMessageLength;
 uint8_t responseMessage[maxRecvMsgLen];
-
-// Called by main thread.
-// Called holding the lock; releases the lock; gets the lock before returning.
-void
-WaitForSession(void)
-{
-  mainState = mstate_NeedSession;
-  CMTEMutex_unlock(&lock);
-  CMTESemaphore_down(&mainWait);
-  CMTEMutex_lock(&lock);
-}
-
-void
-TimerFunction(unsigned long data)
-{
-  result_t result;
-
-  DEBUG(errors) kprintf(KR_OSTREAM, "HAI receive timed out.\n");
-  /* Destroy the port/socket. This will abort any connection and
-  wake up the receiver with an exception. */
-  result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_TEMP0);
-  assert(result == RC_OK);
-  capros_key_destroy(KR_TEMP0);
-}
+/* When sendState != mstate_Available,
+ *   responseMessage and responseMessageLength are written only by
+ *   the holder of sendLock.
+ *   The holder of sendLock is waiting on messageSem, and will be
+ *   awakened by the ReceiverThred.
+ * When sendState == mstate_Available,
+ *   responseMessage and responseMessageLength are written only by
+ *   the ReceiverThread.
+ */
 
 /************************ message stuff ******************************/
 
@@ -238,8 +224,10 @@ CalcCRC(uint8_t * data, unsigned int len)
   return CRC;
 }
 
+// sequenceNumber is protected by sendLock.
 unsigned int sequenceNumber = 0;	// incremented to 1 before first use
 
+// Must hold sendLock.
 static void
 SetSeqNo(uint16_t seqNo)
 {
@@ -247,6 +235,7 @@ SetSeqNo(uint16_t seqNo)
   sendBuf[1] = seqNo & 0xff;
 }
 
+// Must hold sendLock.
 void
 IncSeqNo(void)
 {
@@ -272,14 +261,21 @@ ShortToBE(unsigned short v, uint8_t * p)
   *p = v & 0xff;
 }
 
+void KeepAliveTimerFunction(unsigned long data);
+CMTETimer_Define(sendTmr, &KeepAliveTimerFunction, 0);
+
 // Send data that already has an Omni-Link II application header
 // and already has any necessary encryption.
 // The data is in sendBuf. len includes the Omni-Link II application header.
+// Must hold sendLock.
 // Returns false iff the port capability is void.
 bool
 NetSend(unsigned int len)
 {
   result_t result;
+
+  // Set timer for 4.5 minutes.
+  CMTETimer_setDuration(&sendTmr, 270000000000ULL);
 #if (PROTOCOL == 1)
   result = capros_UDPPort_send(KR_Socket, HAIIpAddr, HAIPort,
              len, sendBuf);
@@ -291,8 +287,8 @@ NetSend(unsigned int len)
   default: ;
     kdprintf(KR_OSTREAM, "HAI: TCPSocket_send got %#x\n", result);
 
-  case RC_capros_TCPSocket_Already:	// we closed it?
-  case RC_capros_key_Void:	// very closed, or a system restart
+  case RC_capros_key_Restart:
+  case RC_capros_key_Void:
     return false;
 
   case RC_OK:
@@ -303,6 +299,7 @@ NetSend(unsigned int len)
 /* sendMessage has a packet of length totalLen.
  * sendBuf[2] has the message type of the packet.
  * Send the packet. */
+// Must hold sendLock.
 // Returns false iff the port capability is void.
 static bool
 EncryptedSend(unsigned int totalLen)
@@ -357,6 +354,7 @@ EncryptedSend(unsigned int totalLen)
  * The message is in sendMessage ff., except for the first two
  * bytes and the CRC, which this procedure fills in.
  * len is the value for the second byte of the message. */
+// Must hold sendLock.
 /* If the port capability is void, this procedure returns false.
  * Otherwise it returns true. */
 bool
@@ -376,13 +374,20 @@ OL2Send(unsigned int len)
 
 /**************************** receiver thread *************************/
 
+/* The + 16 below is because we encrypt block 1 into block 0, etc. */
+#define recvBufSize (ol2HeaderSize + 16 + maxRecvMsgLen)
+// Receive buffer, including the Omni-Link II application header.
+uint8_t recvrBuf[recvBufSize];
+// Where to get the unencrypted received message:
+#define recvrMessage (recvrBuf + ol2HeaderSize + 16)
+
 static unsigned int
 GetSeqNo(void)
 {
   return (recvrBuf[0] << 8) | recvrBuf[1];
 }
 
-/* Receive a packet into recvrBuf.
+/* Receive data into recvrBuf.
  * If the port capability is void, returns -1,
  * otherwise returns the number of bytes received. */
 int
@@ -410,6 +415,7 @@ NetReceive(void)
     assert(false);
   case RC_capros_TCPSocket_RemoteClosed:
     capros_key_destroy(KR_Socket);
+  case RC_capros_key_Restart:
   case RC_capros_key_Void:
     return -1;
   case RC_OK:
@@ -429,6 +435,7 @@ NetReceive(void)
 }
 
 /* Receive and decrypt a packet.
+ * Must hold sendLock.
  * If the port capability is void, returns -1,
  * otherwise returns the number of bytes received excluding the header. */
 static int
@@ -470,7 +477,9 @@ retry: ;
   return len;
 }
 
-/* If the session was terminated, this procedure returns -1.
+/* 
+ * Must hold sendLock.
+ * If the session was terminated, this procedure returns -1.
  * Otherwise it returns the length of the data plus 1 for the message type
  *   (the length excludes the start character, length byte, and CRC).
  */
@@ -497,13 +506,29 @@ OL2Receive(void)
     DEBUG(rcvr) kdprintf(KR_OSTREAM, "HAI terminated session.\n");
     return -1;
 
-  case ol2mtyp_dataMsg:
+  case ol2mtyp_dataMsg: ;
+#if 0 //// temporary, due to bug in phone ring and off-hook notifications
     assert(recvrMessage[0] == startCharacter);
     uint16_t CRC = CalcCRC(&recvrMessage[1], receiveLen+1);
     assert(recvrMessage[2 + receiveLen] == (CRC & 0xff));
     assert(recvrMessage[2 + receiveLen + 1] == (CRC >> 8));
+#endif
     return receiveLen;
   }
+}
+
+void
+SessionTimerFunction(unsigned long data)
+{
+  result_t result;
+
+  DEBUG(errors) kprintf(KR_OSTREAM, "HAI timed out setting up session.\n");
+
+  /* Destroy the port/socket. This will abort any connection and
+  wake up the receiver with an exception. */
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_TEMP0);
+  assert(result == RC_OK);
+  capros_key_destroy(KR_TEMP0);
 }
 
 // Create a port.
@@ -532,7 +557,8 @@ reconnect:
 			        KR_Socket);
   switch (result) {
   default:
-    kdprintf(KR_OSTREAM, "Line %d result is 0x%08x!\n", __LINE__, result);
+    kdprintf(KR_OSTREAM, "%s:%d: result is %#x!\n",
+             __FILE__, __LINE__, result);
   case RC_OK:
     break;
   case RC_capros_key_Restart:
@@ -561,27 +587,31 @@ ReceiverThread(void * arg)
   result_t result;
   int recvLen;
 
-  // We hold the lock initially.
+  // We hold the sendLock initially.
   while (1) {
     // There is no session.
-    if (mainState == mstate_NeedResponse) {
+    if (sendState == mstate_NeedResponse) {
+      DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr: responding no session\n");
       responseMessageLength = -1;
-      mainState = mstate_Available;	// no longer needing a response
-      CMTESemaphore_up(&mainWait);
+      sendState = mstate_Available;	// no longer needing a response
+      CMTESemaphore_up(&messageSem);
+    } else {
+      DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr: no session, sendState=%d\n",
+                          sendState);
     }
     // Create a session.
     while (1) {	// loop until successful
-      DEBUG(rcvr) kprintf(KR_OSTREAM, "Requesting session.\n");
+      DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr: Requesting session.\n");
       IncSeqNo();
       SetSeqNo(sequenceNumber);
       sendBuf[2] = ol2mtyp_requestNewSess;
       if (NetSend(ol2HeaderSize)) {
-        CMTETimer_Define(tmr2, &TimerFunction, 0);
+        CMTETimer_Define(tmr2, &SessionTimerFunction, 0);
 
         // Set a timeout for the response.
         CMTETimer_setDuration(&tmr2, 3000000000ULL);	// 3 seconds
-        CMTETimer_delete(&tmr2);
         int lenRecvd = NetReceive();
+        CMTETimer_delete(&tmr2);
         if (lenRecvd >= 0) {
           assert(lenRecvd == ol2HeaderSize + 7);
           assert(GetSeqNo() == sequenceNumber);
@@ -611,18 +641,14 @@ ReceiverThread(void * arg)
               assert(lenRecvd >= 5);
               assert(recvrBuf[2] == ol2mtyp_ackSecConn);
               assert(! memcmp(recvrMessage, sessionID, 5));
-////#if (PROTOCOL == 1)
-#if 1	//// Firmware v. 2.16a has bugs in notifications.
+#if (PROTOCOL == 1) 
+              break;
+#else
+// Firmware v. 2.16a has bugs in notifications.
 // We could read the firmware version and check. But really,
 // the rest of the system is depending on notifications. 
 // All we could do is complain.
-              break;
-#else
               // Enable notifications.
-#if 0//// delay
-              RTC_time rt = getRTC() + 3;	// delay 3 seconds
-              while (getRTC() < rt) ;
-#endif
               sendMessage[2] = 0x15;
               sendMessage[3] = 1;
               if (OL2Send(2)) {
@@ -646,7 +672,7 @@ ReceiverThread(void * arg)
       CreatePort();
     }
     // We now have a session.
-    DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI got session.\n");
+    DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr: got session.\n");
     // Push it to the main thread.
     result = capros_Node_getSlotExtended(KR_KEYSTORE,
                LKSN_THREAD_PROCESS_KEYS+0, KR_TEMP0);
@@ -654,44 +680,185 @@ ReceiverThread(void * arg)
     result = capros_Process_swapKeyReg(KR_TEMP0, KR_Socket, KR_Socket, KR_VOID);
     assert(result == RC_OK);
     // Wake him up if waiting:
-    if (mainState == mstate_NeedSession) {
-      mainState = mstate_Available;	// no longer needing a session
-      CMTESemaphore_up(&mainWait);
-      DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr woke main for session.\n");
+    if (sendState == mstate_NeedSession) {
+      sendState = mstate_Available;	// no longer needing a session
+      CMTESemaphore_up(&messageSem);
+      DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr woke sender for session.\n");
     }
 
     while (1) {		// loop reading from the session
-      CMTEMutex_unlock(&lock);
+      CMTEMutex_unlock(&sendLock);
       DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr receiving.\n");
       recvLen = OL2Receive();
       DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr received.\n");
-      CMTEMutex_lock(&lock);
+      CMTEMutex_lock(&sendLock);
       if (recvLen < 0)
         break;		// session is gone
       if (GetSeqNo() == 0) {
-        unsigned int msgType = recvrMessage[2];
         // It is a notification.
-        //if (msgType == 0x23 || msgType == 0x37)
-        kprintf(KR_OSTREAM, "++++HAI notif %#x\n", msgType);////
+        assert(recvLen > 6);	// else HAI error FIXME
+#if 0
+        unsigned int msgType = recvrMessage[2];
+        unsigned int objType = recvrMessage[3];
+        unsigned int objNum = (recvrMessage[5] << 8) + recvrMessage[6];
+        kprintf(KR_OSTREAM, "++++HAI notif %#x %#x %d\n", msgType, objType, objNum);
+#endif
 ////...
       } else {
         // It is a response.
-        if (mainState == mstate_NeedResponse) {
+        if (sendState == mstate_NeedResponse) {
           responseMessageLength = recvLen;
           memcpy(responseMessage, recvrMessage, recvLen);
-          mainState = mstate_Available;	// no longer needing a response
-          CMTESemaphore_up(&mainWait);
-          DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr woke main for response.\n");
+          sendState = mstate_Available;	// no longer needing a response
+          CMTESemaphore_up(&messageSem);
+          DEBUG(rcvr) kprintf(KR_OSTREAM,
+                              "HAI rcvr woke sender for response.\n");
         }
       }
     }
   }
 }
 
+/************** procedures for main thread and keep-alive timer *************/
+
+static void
+GetLocks(void)
+{
+  // Note: locks must be gotten in this order.
+  CMTEMutex_lock(&messageLock);
+  CMTEMutex_lock(&sendLock);
+  assert(sendState == mstate_Available);
+}
+
+static void
+ReleaseLocks(void)
+{
+  assert(sendState == mstate_Available);
+  CMTEMutex_unlock(&sendLock);
+  CMTEMutex_unlock(&messageLock);
+}
+
+void
+TimerFunction(unsigned long data)
+{
+  result_t result;
+
+  DEBUG(errors) kprintf(KR_OSTREAM, "HAI receive timed out.\n");
+
+  /* Destroy the port/socket. This will abort any connection and
+  wake up the receiver with an exception.
+  Seeing sendState == mstate_NeedResponse, the receiver will wake up the
+  sending thread. */
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_TEMP0);
+  assert(result == RC_OK);
+  capros_key_destroy(KR_TEMP0);
+}
+
+/* This procedure is called under the messageLock and sendLock.
+ * (Note: get messageLock before sendLock.)
+ * It releases the sendLock internally.
+ *
+ * If the session was terminated, this procedure returns -1.
+ * Otherwise, if a Negative Acknowledge is received,
+ *   this procedure returns -2.
+ * Otherwise, if neither the expected replyType nor NAck was received,
+ *   or replyType was received but the message length is less than
+ *   minReplyLen,
+ *   this procedure returns -3 (HAI error).
+ * Otherwise it returns the length of the data plus 1 for the message type
+ *   (the length excludes the start character, length byte, and CRC).
+ */
+int
+OL2GetResponse(unsigned int replyType, unsigned int minReplyLen)
+{
+  // Wait for a response.
+  sendState = mstate_NeedResponse;
+  CMTEMutex_unlock(&sendLock);
+  // Set a timeout for the response.
+  CMTETimer_Define(tmr, &TimerFunction, 0);
+  CMTETimer_setDuration(&tmr, 3000000000ULL);	// set timer for 3 seconds
+  CMTESemaphore_down(&messageSem);
+  CMTETimer_delete(&tmr);
+  CMTEMutex_lock(&sendLock);
+  if (responseMessageLength < 0) {
+    return -1;
+  }
+  // Check the expected reply:
+  if (responseMessage[2] == replyType) {
+    if (responseMessageLength >= minReplyLen)
+      return responseMessageLength;
+    else {
+      DEBUG(errors) kprintf(KR_OSTREAM, "HAI: response %d got length %d!\n",
+                            replyType, responseMessageLength);
+    }
+  } else if (responseMessage[2] == mtype_NAck) {
+    DEBUG(errors) kprintf(KR_OSTREAM, "HAI got NACK\n");
+    return -2;
+  } else {
+    DEBUG(errors) kprintf(KR_OSTREAM, "HAI: response expected %d got %d!\n",
+                          replyType, responseMessage[2]);
+  }
+  return -3;
+}
+
+/**************************** keep-alive timer *************************/
+
+/* The HAI controller will stop responding if it does not receive a
+ * message for 5 minutes.
+ * So, if we haven't sent a message for 4.5 minutes, the sendTmr expires,
+ * and we will send a message - namely, an EnableNotifications command
+ * (simply because it responds with a simple Ack).
+ */
+
+void
+KeepAliveTimerFunction(unsigned long data)
+{
+  result_t result;
+
+  DEBUG(errors) kprintf(KR_OSTREAM, "HAI sending keep-alive.\n");
+
+  GetLocks();
+
+  // Get the current socket capability.
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, LKSN_Socket, KR_Socket);
+  assert(result == RC_OK);
+
+#if (PROTOCOL != 1)
+  // Send "enable notifications" message.
+  // We send this particular message simply because
+  // it responds with a simple Ack.
+  sendMessage[2] = 0x15;
+  sendMessage[3] = 1;
+  if (OL2Send(2)) {
+    OL2GetResponse(mtype_Ack, 1);
+    // We don't care if OL2GetResponse had a problem.
+    // We just succeeded in sending a message.
+  }
+  // else if OL2Send failed, we have worse problems than keeping alive;
+  // some other thread will take care of it.
+#endif
+  ReleaseLocks();
+}
+
 /************************* procedures for main thread ************************/
 
-/* If the session was terminated, this procedure waits for a new session
- *   and returns -1, but does not retry the operation.
+// Called holding the sendLock; temporarily releases the sendLock.
+static inline void
+WaitForSession(void)
+{
+  sendState = mstate_NeedSession;
+  CMTEMutex_unlock(&sendLock);
+  CMTESemaphore_down(&messageSem);
+  CMTEMutex_lock(&sendLock);
+}
+
+/* This procedure is called under messageLock and sendLock.
+ * It temporarily releases the sendLock internally.
+ *
+ * If the session was terminated, this procedure
+ *   waits for a new session if possible,
+ *   returns -1,
+ *   and does not retry the operation.
  *   The send may or may not have occurred.
  * Otherwise, if a Negative Acknowledge is received,
  *   this procedure returns -2.
@@ -707,28 +874,18 @@ OL2SendAndGetReply(unsigned int sendLen, unsigned int replyType,
     WaitForSession();
     return -1;
   }
-  // Wait for the response.
-  mainState = mstate_NeedResponse;
-  CMTEMutex_unlock(&lock);
-  // Set a timeout for the response.
-  CMTETimer_Define(tmr, &TimerFunction, 0);
-  CMTETimer_setDuration(&tmr, 3000000000ULL);	// set timer for 3 seconds
-  CMTESemaphore_down(&mainWait);
-  CMTETimer_delete(&tmr);
-  CMTEMutex_lock(&lock);
-  if (responseMessageLength < 0) {
-    // The port is gone.
+  int i = OL2GetResponse(replyType, minReplyLen);
+  if (i == -3) {
+    // Got an invalid response from the HAI. Reset the connection:
+    kprintf(KR_OSTREAM, "HAI: Closing connection due to error.\n");
+    capros_key_destroy(KR_Socket);
     WaitForSession();
     return -1;
   }
-  // Check the expected reply:
-  if (responseMessage[2] == replyType) {
-    assert(responseMessageLength >= minReplyLen);	// FIXME depends on HAI
-    return responseMessageLength;
-  }
-  assert(responseMessage[2] == mtype_NAck);	// FIXME depends on HAI
-  DEBUG(errors) kprintf(KR_OSTREAM, "HAI got NACK\n");
-  return -2;
+  /* If i == -1, the port was gone;
+     however it may have been recreated before we
+     reacquired sendLock. Therefore we mustn't call WaitForSession here. */
+  return i;
 }
 
 static void
@@ -736,8 +893,10 @@ SimpleRequest(uint8_t typeCode,
               unsigned int replyType, unsigned int minReplyLen)
 {
   while(1) {	// loop until successful
+    GetLocks();
     sendMessage[2] = typeCode;
     int recvLen = OL2SendAndGetReply(1, replyType, minReplyLen);
+    ReleaseLocks();
     if (recvLen >= 0) {
       return;
     }
@@ -817,7 +976,6 @@ cmte_main(void)
     Msg.snd_w2 = 0;
     Msg.snd_w3 = 0;
 
-    CMTEMutex_lock(&lock);
     switch (Msg.rcv_code) {
     default:
       Msg.snd_code = RC_capros_key_UnknownRequest;
@@ -834,8 +992,8 @@ cmte_main(void)
 #else
       SimpleRequest(0x18, 0x19, 15+1);
 #endif
-      Msg.snd_w1 = getRTC();
       Msg.snd_data = &responseMessage[3];
+      Msg.snd_w1 = getRTC();
       Msg.snd_len = sizeof(capros_HAI_SystemStatus);
       break;
     }
@@ -843,6 +1001,7 @@ cmte_main(void)
     case OC_capros_HAI_getUnitStatus:
     {
       unsigned int unit = Msg.rcv_w1;
+      GetLocks();
       while (1) {	// loop until successful
 #if (PROTOCOL == 1)
         sendMessage[2] = 0x17;
@@ -870,6 +1029,7 @@ cmte_main(void)
 #endif
         assert(recvLen == -1);	// NACK not handled yet
       }
+      ReleaseLocks();
       Msg.snd_w1 = getRTC();
       break;
     }
@@ -956,6 +1116,7 @@ cmte_main(void)
         break;
       }
       while (1) {	// loop until successful
+        GetLocks();
 #if (PROTOCOL == 1)
         sendMessage[2] = 0x0f;
 #else
@@ -965,6 +1126,7 @@ cmte_main(void)
         sendMessage[4] = haiParam1;
         ShortToBE(unit, &sendMessage[5]);
         int recvLen = OL2SendAndGetReply(5, mtype_Ack, 1);
+        ReleaseLocks();
         if (recvLen >= 0) {
           break;
         }
@@ -976,7 +1138,5 @@ cmte_main(void)
       break;
     }	// end of case OC_capros_HAI_setUnitStatus
     }	// end of switch(Msg.rcv_code)
-    assert(mainState == mstate_Available);
-    CMTEMutex_unlock(&lock);
   }
 }
