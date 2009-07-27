@@ -111,6 +111,13 @@ uint8_t privateKey[16];
 uint8_t sessionKey[16];
 uint8_t sessionID[5];
 
+// Encrypted data comes in blocks of 16 bytes.
+static inline unsigned int
+cryptoRoundUp(unsigned int n)
+{
+  return (n+15) & (-16);
+}
+
 static void
 UnpackPK(uint32_t pkn, uint8_t * p)
 {
@@ -190,7 +197,11 @@ enum {
   mstate_NeedResponse
 } sendState = mstate_Available;
 
-// When we are awakened from mstate_NeedResponse, we get back:
+// When we are awakened from mstate_NeedResponse, we get back
+// responseMessageLength and responseMessage.
+// responseMessageLength is the length of the application data message,
+// from the length byte, which includes 1 for the message type,
+// and excludes the start character, length byte, and CRC.
 int responseMessageLength;
 uint8_t responseMessage[maxRecvMsgLen];
 /* When sendState != mstate_Available,
@@ -378,106 +389,143 @@ OL2Send(unsigned int len)
 #define recvBufSize (ol2HeaderSize + 16 + maxRecvMsgLen)
 // Receive buffer, including the Omni-Link II application header.
 uint8_t recvrBuf[recvBufSize];
-// Where to get the unencrypted received message:
-#define recvrMessage (recvrBuf + ol2HeaderSize + 16)
 
-static unsigned int
-GetSeqNo(void)
+// Number of bytes of data in recvrBuf
+// (data starts at the beginning of the buffer):
+unsigned int recvrDataBytes = 0;
+
+// Number of bytes of data in the current message.
+unsigned int currentPacketBytes;
+
+// Where to get the unencrypted received message:
+#define recvrMessage (recvrBuf + ol2HeaderSize)
+
+void
+ConsumeMessage(void)
 {
-  return (recvrBuf[0] << 8) | recvrBuf[1];
+  assert(currentPacketBytes <= recvrDataBytes);
+
+  recvrDataBytes -= currentPacketBytes;
+  if (recvrDataBytes) {		// some data left
+    /* Move the data down to the beginning of the buffer.
+       This happens so rarely, we don't care that it's a little inefficient. */
+    memmove(recvrBuf, recvrBuf+currentPacketBytes, recvrDataBytes);
+  }
+  currentPacketBytes = 0;
 }
 
-/* Receive data into recvrBuf.
- * If the port capability is void, returns -1,
- * otherwise returns the number of bytes received. */
-int
-NetReceive(void)
+/* Ensure recvrBuf has at least minBytes bytes of data,
+ * reading data from the net if necessary.
+ * If the port capability is void, returns false, else true. */
+bool
+EnsureRecvData(unsigned int minBytes)
 {
   result_t result;
   uint32_t lenRecvd;
 
+  assert(minBytes <= recvBufSize);
+
+  while (recvrDataBytes < minBytes) {
+    unsigned int maxToReceive = recvBufSize - recvrDataBytes;
+    uint8_t * whereToReceive = recvrBuf + recvrDataBytes;
+
 #if (PROTOCOL == 1)
-  uint32_t sourceIPAddr;
-  uint16_t sourceIPPort;
-  result = capros_UDPPort_receive(KR_Socket, sizeof(recvrBuf),
+    uint32_t sourceIPAddr;
+    uint16_t sourceIPPort;
+    result = capros_UDPPort_receive(KR_Socket, maxToReceive,
 			&sourceIPAddr, &sourceIPPort,
-                        &lenRecvd, recvrBuf);
-  if (result != RC_OK)
-    return -1;
-  DEBUG(server) kprintf(KR_OSTREAM, "Received %d bytes from %#x:%d:\n",
-          lenRecvd, sourceIPAddr, sourceIPPort);
+                          &lenRecvd, whereToReceive);
+    if (result != RC_OK)
+      return false;
+    DEBUG(server) kprintf(KR_OSTREAM, "Received %d bytes from %#x:%d:\n",
+            lenRecvd, sourceIPAddr, sourceIPPort);
 #else // TCP
-  uint8_t flagsRecvd;
-  result = capros_TCPSocket_receive(KR_Socket, sizeof(recvrBuf),
-                                    &lenRecvd, &flagsRecvd, recvrBuf);
-  switch (result) {
-  default:
-    assert(false);
-  case RC_capros_TCPSocket_RemoteClosed:
-    capros_key_destroy(KR_Socket);
-  case RC_capros_key_Restart:
-  case RC_capros_key_Void:
-    return -1;
-  case RC_OK:
-    break;
-  }
-  DEBUG(server) kprintf(KR_OSTREAM, "Received %d bytes\n", lenRecvd);
+    uint8_t flagsRecvd;
+    result = capros_TCPSocket_receive(KR_Socket, maxToReceive,
+                                      &lenRecvd, &flagsRecvd, whereToReceive);
+    switch (result) {
+    default:
+      assert(false);
+    case RC_capros_TCPSocket_RemoteClosed:
+      capros_key_destroy(KR_Socket);
+    case RC_capros_key_Restart:
+    case RC_capros_key_Void:
+      return false;
+    case RC_OK:
+      break;
+    }
+    DEBUG(server) kprintf(KR_OSTREAM, "Received %d bytes\n", lenRecvd);
 #endif
 
-  DEBUG(data) {
-    int i;
-    for (i = 0; i < lenRecvd; i++) {
-      kprintf(KR_OSTREAM, " %#x", recvrBuf[i]);
+    DEBUG(data) {
+      int i;
+      for (i = 0; i < lenRecvd; i++) {
+        kprintf(KR_OSTREAM, " %#x", whereToReceive[i]);
+      }
+      kprintf(KR_OSTREAM, "\n");
     }
-    kprintf(KR_OSTREAM, "\n");
+    recvrDataBytes += lenRecvd;
   }
-  return lenRecvd;
+  currentPacketBytes = minBytes;
+  return true;
 }
 
-/* Receive and decrypt a packet.
- * Must hold sendLock.
- * If the port capability is void, returns -1,
- * otherwise returns the number of bytes received excluding the header. */
-static int
-EncryptedReceive(void)
-{
-retry: ;
-  int len = NetReceive();
-  if (len < 0)
-    return len;
-  assert(len >= ol2HeaderSize);
-  len -= ol2HeaderSize;		// length of payload
-  unsigned int seqNo = GetSeqNo();
-  if (seqNo != sequenceNumber && seqNo != 0) {
-    DEBUG(server) kprintf(KR_OSTREAM, "Expecting seq no %d got %d, discarding\n",
-            sequenceNumber, seqNo);
-    goto retry;	// restructure this
-  }
-  assert(!(len & 0xf));		// should be a multiple of 16
+unsigned int messageSeqNo;
 
-  // Decrypt all blocks, moving them up to recvrMessage:
-  uint8_t * c = recvrBuf + ol2HeaderSize + len;
-  uint8_t * p;
-  unsigned int blocks;
-  for (blocks = len / 16; blocks > 0; blocks--) {
-    p = c;
-    c -= 16;
-    rijndaelDecrypt(rkDecrypt, nrounds, c, p);
-    *p ^= seqNo >> 8;
-    *(p+1) ^= seqNo & 0xff; 
-  }
-  DEBUG(data) {
-    kprintf(KR_OSTREAM, "Decrypted payload");
-    int i;
-    for (i = 0; i < len; i++) {
-      kprintf(KR_OSTREAM, " %#x", recvrMessage[i]);
+static unsigned int
+GetSeqNo(void)
+{
+  messageSeqNo = (recvrBuf[0] << 8) | recvrBuf[1];
+  return messageSeqNo;
+}
+
+unsigned int decryptedBytes;
+
+// Decrypt data from ol2HeaderSize+decryptedBytes to currentPacketBytes.
+void
+DecryptData(void)
+{
+  unsigned int decryptableBytes = currentPacketBytes - ol2HeaderSize;
+  assert(! (decryptableBytes & (16-1)));	// must be a multiple of 16
+  while (decryptedBytes < decryptableBytes) {
+    // Decrypt one block.
+    uint8_t temp[16];
+    uint8_t * c = recvrBuf + ol2HeaderSize + decryptedBytes;
+    rijndaelDecrypt(rkDecrypt, nrounds, c, temp);
+    temp[0] ^= messageSeqNo >> 8;
+    temp[1] ^= messageSeqNo & 0xff; 
+    memcpy(c, temp, 16);
+    DEBUG(data) {
+      kprintf(KR_OSTREAM, "Decrypted block");
+      int i;
+      for (i = 0; i < 16; i++) {
+        kprintf(KR_OSTREAM, " %#x", c[i]);
+      }
+      kprintf(KR_OSTREAM, "\n");
     }
-    kprintf(KR_OSTREAM, "\n");
+    decryptedBytes += 16;
   }
-  return len;
+}
+
+bool
+GetSequencedHeader(void)
+{
+  while (1) {
+    if (! EnsureRecvData(ol2HeaderSize))
+      return false;
+    if (GetSeqNo() == sequenceNumber
+        || messageSeqNo == 0)
+      return true;
+    DEBUG(errors)
+      kprintf(KR_OSTREAM, "Expecting seq no %d got %d, discarding\n",
+              sequenceNumber, messageSeqNo);
+    assert(false);	// FIXME read and consume the discarded message
+			// this really shouldn't happen with TCP
+  }
 }
 
 /* 
+ * Receive an OmniLink II application message.
  * Must hold sendLock.
  * If the session was terminated, this procedure returns -1.
  * Otherwise it returns the length of the data plus 1 for the message type
@@ -492,29 +540,46 @@ OL2Receive(void)
   result_t result = capros_key_getType(KR_SysTrace, &keyType);
   if (result) kdprintf(KR_OSTREAM, "SysTrace_getType got %#x.\n", result);
 #endif
-  int receiveLen = EncryptedReceive();
-  if (receiveLen < 0) {
+  ConsumeMessage();	// consume the previous message if any
+  if (! GetSequencedHeader())
     return -1;
-  }
-  receiveLen -= 4;	// length without the start char, length byte, and CRC
-  assert(receiveLen >= 1);	// must have at least a type byte
   switch (recvrBuf[2]) {		// message type in packet header
   default: ;
-    assert(false);
-
+    DEBUG(errors)
+      kdprintf(KR_OSTREAM, "HAI: expecting app msg, got %d!\n", recvrBuf[2]);
+    // Fall into ol2mtyp_contrSessTerm
   case ol2mtyp_contrSessTerm:	// the session is gone
     DEBUG(rcvr) kdprintf(KR_OSTREAM, "HAI terminated session.\n");
+    capros_key_destroy(KR_Socket);
     return -1;
 
-  case ol2mtyp_dataMsg: ;
-#if 0 //// temporary, due to bug in phone ring and off-hook notifications
-    assert(recvrMessage[0] == startCharacter);
-    uint16_t CRC = CalcCRC(&recvrMessage[1], receiveLen+1);
-    assert(recvrMessage[2 + receiveLen] == (CRC & 0xff));
-    assert(recvrMessage[2 + receiveLen + 1] == (CRC >> 8));
-#endif
-    return receiveLen;
+  case ol2mtyp_dataMsg:
+    break;
   }
+  decryptedBytes = 0;
+  // Get the minimum application data message:
+  if (! EnsureRecvData(ol2HeaderSize + cryptoRoundUp(5)))
+    return -1;
+  DecryptData();
+
+  /* Notifications for phone ring and off-hook have a bug: no start char
+     and no CRC. */
+  bool workaround = recvrMessage[2] == 0x37;
+  if (! workaround) {
+    assert(recvrMessage[0] == startCharacter);
+  }
+  unsigned int appLen = recvrMessage[1];  // length of data + 1 for msg type
+  // Get the rest of this message:
+  // +4 below is for start char, length byte, and CRC:
+  if (! EnsureRecvData(ol2HeaderSize + cryptoRoundUp(appLen + 4)))
+    return -1;
+  DecryptData();
+  if (! workaround) {
+    uint16_t CRC = CalcCRC(&recvrMessage[1], appLen+1);
+    assert(recvrMessage[2 + appLen] == (CRC & 0xff));
+    assert(recvrMessage[2 + appLen + 1] == (CRC >> 8));
+  }
+  return appLen;
 }
 
 void
@@ -580,12 +645,82 @@ reconnect:
   assert(result == RC_OK);
 }
 
+// Inline because only called from one place.
+static inline bool
+SetUpSession2(void)
+{
+  memcpy(sessionKey, privateKey, 16);
+  int i;
+  for (i = 0; i < 5; i++) {
+    sessionKey[11+i] ^= sessionID[i];
+  }
+
+  // Set up crypto:
+  nrounds = rijndaelSetupEncrypt(rkEncrypt, sessionKey, keybits);
+  nrounds = rijndaelSetupDecrypt(rkDecrypt, sessionKey, keybits);
+
+  DEBUG(server) kprintf(KR_OSTREAM, "Requesting secure session.\n");
+  // This seems to have no purpose other than to verify the connection.
+  sendBuf[2] = ol2mtyp_reqSecConn;
+  memcpy(sendMessage, sessionID, 5);
+  if (! EncryptedSend(5))
+    return false;
+  CMTETimer_Define(tmr2, &SessionTimerFunction, 0);
+  // Set a timeout for the response.
+  CMTETimer_setDuration(&tmr2, 3000000000ULL);	// 3 seconds
+  if (! GetSequencedHeader()) {
+    CMTETimer_delete(&tmr2);
+    return false;
+  }
+  if (recvrBuf[2] != ol2mtyp_ackSecConn) {
+    DEBUG(server)
+      kprintf(KR_OSTREAM, "Expecting ackSecConn got %d!\n", recvrBuf[2]);
+    capros_key_destroy(KR_Socket);
+    return false;
+  }
+  bool b = EnsureRecvData(ol2HeaderSize + cryptoRoundUp(5));
+  CMTETimer_delete(&tmr2);
+  if (!b)
+    return false;
+  decryptedBytes = 0;
+  DecryptData();
+  if (memcmp(recvrMessage, sessionID, 5)) {
+    // Returned sessionID doesn't match.
+    DEBUG(server)
+      kdprintf(KR_OSTREAM, "Expecting sessID at %#x got at %#x!\n",
+               sessionID, recvrMessage);
+    capros_key_destroy(KR_Socket);
+    return false;
+  }
+#if (PROTOCOL > 1) 
+  // Enable notifications.
+  // Firmware v. 2.16a has bugs in notifications.
+  // We could read the firmware version and check. But really,
+  // the rest of the system is depending on notifications. 
+  // All we could do is complain.
+  sendMessage[2] = 0x15;
+  sendMessage[3] = 1;
+  if (! OL2Send(2))
+    return false;
+  // Set a timeout for the response.
+  CMTETimer_setDuration(&tmr2, 3000000000ULL);	// 3 seconds
+  int recvLen = OL2Receive();
+  CMTETimer_delete(&tmr2);
+  if (recvLen < 1 || recvrMessage[2] != mtype_Ack) {
+    DEBUG(errors) kprintf(KR_OSTREAM,
+      "HAI respose to enable notif was msg type %#x.\n",
+      recvrMessage[2] );
+    return false;	// some problem
+  }
+#endif
+  return true;
+}
+
 unsigned int ReceiverThreadNum;
 void *
 ReceiverThread(void * arg)
 {
   result_t result;
-  int recvLen;
 
   // We hold the sendLock initially.
   while (1) {
@@ -610,62 +745,36 @@ ReceiverThread(void * arg)
 
         // Set a timeout for the response.
         CMTETimer_setDuration(&tmr2, 3000000000ULL);	// 3 seconds
-        int lenRecvd = NetReceive();
-        CMTETimer_delete(&tmr2);
-        if (lenRecvd >= 0) {
-          assert(lenRecvd == ol2HeaderSize + 7);
-          assert(GetSeqNo() == sequenceNumber);
-          assert(recvrBuf[2] == ol2mtyp_ackNewSess);
-          assert(BEToShort(&recvrBuf[ol2HeaderSize]) == 1); // protocol version 1
-          memcpy(sessionID, &recvrBuf[ol2HeaderSize + 2], 5);
-          memcpy(sessionKey, privateKey, 16);
-          int i;
-          for (i = 0; i < 5; i++) {
-            sessionKey[11+i] ^= sessionID[i];
-          }
-
-          // Set up crypto:
-          nrounds = rijndaelSetupEncrypt(rkEncrypt, sessionKey, keybits);
-          nrounds = rijndaelSetupDecrypt(rkDecrypt, sessionKey, keybits);
-
-          DEBUG(server) kprintf(KR_OSTREAM, "Requesting secure session.\n");
-          // This seems to have no purpose other than to verify the connection.
-          sendBuf[2] = ol2mtyp_reqSecConn;
-          memcpy(sendMessage, sessionID, 5);
-          if (EncryptedSend(5)) {
-            // Set a timeout for the response.
-            CMTETimer_setDuration(&tmr2, 3000000000ULL);	// 3 seconds
-            lenRecvd = EncryptedReceive();
+        if (EnsureRecvData(ol2HeaderSize)) {
+          if (GetSeqNo() == sequenceNumber
+              && recvrBuf[2] == ol2mtyp_ackNewSess) {
+            bool b = EnsureRecvData(ol2HeaderSize + 7);
             CMTETimer_delete(&tmr2);
-            if (lenRecvd >= 0) {
-              assert(lenRecvd >= 5);
-              assert(recvrBuf[2] == ol2mtyp_ackSecConn);
-              assert(! memcmp(recvrMessage, sessionID, 5));
-#if (PROTOCOL == 1) 
-              break;
-#else
-// Firmware v. 2.16a has bugs in notifications.
-// We could read the firmware version and check. But really,
-// the rest of the system is depending on notifications. 
-// All we could do is complain.
-              // Enable notifications.
-              sendMessage[2] = 0x15;
-              sendMessage[3] = 1;
-              if (OL2Send(2)) {
-                // Set a timeout for the response.
-                CMTETimer_setDuration(&tmr2, 3000000000ULL);	// 3 seconds
-                recvLen = OL2Receive();
-                CMTETimer_delete(&tmr2);
-                if (recvLen >= 1 && recvrMessage[2] == mtype_Ack)
+            if (b) {
+              // Check protocol version:
+              unsigned short protVer = BEToShort(&recvrBuf[ol2HeaderSize]);
+              if (protVer == 1) {
+                memcpy(sessionID, &recvrBuf[ol2HeaderSize + 2], 5);
+                ConsumeMessage();
+                if (SetUpSession2())
                   break;
-                else
-                  DEBUG(errors) kprintf(KR_OSTREAM,
-                    "HAI respose to enable notif was msg type %#x.\n",
-                    recvrMessage[2] );
+              } else {
+                DEBUG(errors)
+                  kprintf(KR_OSTREAM, "HAI: got protocol version %d!\n",
+                          protVer);
+                ConsumeMessage();
               }
-#endif
+            } else {	// packet header is bad
+              DEBUG(errors)
+                kprintf(KR_OSTREAM, "HAI: expecting new sess, got %d %d!\n",
+                        GetSeqNo(), recvrBuf[2]);
+              capros_key_destroy(KR_Socket);
             }
+          } else {
+            CMTETimer_delete(&tmr2);
           }
+        } else {	// lost the connection
+          CMTETimer_delete(&tmr2);
         }
       }
       // The port is gone, or we are creating a new session due to an error.
@@ -689,7 +798,7 @@ ReceiverThread(void * arg)
     while (1) {		// loop reading from the session
       CMTEMutex_unlock(&sendLock);
       DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr receiving.\n");
-      recvLen = OL2Receive();
+      int recvLen = OL2Receive();
       DEBUG(rcvr) kprintf(KR_OSTREAM, "HAI rcvr received.\n");
       CMTEMutex_lock(&sendLock);
       if (recvLen < 0)
@@ -708,7 +817,8 @@ ReceiverThread(void * arg)
         // It is a response.
         if (sendState == mstate_NeedResponse) {
           responseMessageLength = recvLen;
-          memcpy(responseMessage, recvrMessage, recvLen);
+          // +4 below to include start char, length bytes, and CRC
+          memcpy(responseMessage, recvrMessage, recvLen+4);
           sendState = mstate_Available;	// no longer needing a response
           CMTESemaphore_up(&messageSem);
           DEBUG(rcvr) kprintf(KR_OSTREAM,
@@ -795,7 +905,7 @@ OL2GetResponse(unsigned int replyType, unsigned int minReplyLen)
     DEBUG(errors) kprintf(KR_OSTREAM, "HAI got NACK\n");
     return -2;
   } else {
-    DEBUG(errors) kprintf(KR_OSTREAM, "HAI: response expected %d got %d!\n",
+    DEBUG(errors) kdprintf(KR_OSTREAM, "HAI: response expected %d got %d!\n",
                           replyType, responseMessage[2]);
   }
   return -3;
@@ -877,7 +987,7 @@ OL2SendAndGetReply(unsigned int sendLen, unsigned int replyType,
   int i = OL2GetResponse(replyType, minReplyLen);
   if (i == -3) {
     // Got an invalid response from the HAI. Reset the connection:
-    kprintf(KR_OSTREAM, "HAI: Closing connection due to error.\n");
+    kdprintf(KR_OSTREAM, "HAI: Closing connection due to error.\n");
     capros_key_destroy(KR_Socket);
     WaitForSession();
     return -1;
@@ -988,9 +1098,9 @@ cmte_main(void)
     case OC_capros_HAI_getSystemStatus:
     {
 #if (PROTOCOL == 1)
-      SimpleRequest(0x13, 0x14, 15+1);
+      SimpleRequest(0x13, 0x14, 15);
 #else
-      SimpleRequest(0x18, 0x19, 15+1);
+      SimpleRequest(0x18, 0x19, 15);
 #endif
       Msg.snd_data = &responseMessage[3];
       Msg.snd_w1 = getRTC();
