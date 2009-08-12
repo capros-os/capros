@@ -38,43 +38,40 @@ Approved for public release, distribution unlimited. */
 
 #define IntStackSize 1024 // I have no idea what this should be
 
-struct interrupt_thread_params {
-  unsigned long irqNum;
+struct irqDesc {
+  struct irqDesc * next;
+  unsigned int irqNum;
   void * cookie;
   irq_handler_t handler;
-};
-
-struct interrupt_thread_args {
-  struct semaphore arglock;		// to pass the args safely
-  struct interrupt_thread_params params;
-};
+  CMTESemaphore sem;
+  unsigned int intThreadNum;
+} * descList = NULL;
+CMTEMutex_DECLARE_Unlocked(listLock);
 
 void *
-interrupt_thread_func(void * cookie)
+interrupt_thread_func(void * threadArg)
 {
   result_t result;
+  struct irqDesc * desc = (struct irqDesc *)threadArg;
 
   // Set the preempt_count so in_interrupt() will return true.
   add_preempt_count(HARDIRQ_OFFSET);	// compare with __irq_enter
 
-  struct interrupt_thread_args * args
-    = (struct interrupt_thread_args *)cookie;
-  struct interrupt_thread_params params = args->params;
-  up(&args->arglock);		// we are done with args
-
   for (;;) {
-    result = capros_DevPrivs_waitIRQ(KR_DEVPRIVS, params.irqNum);
-    if (result == RC_capros_DevPrivs_AllocFail)
+    result = capros_DevPrivs_waitIRQ(KR_DEVPRIVS, desc->irqNum);
+    if (result == RC_capros_DevPrivs_AllocFail) {
       // The irq has been deallocated. We will get no more interrupts.
       break;
+    }
     if (result != RC_OK) {
       printk("waitIRQ returned 0x%x!\n", result);
       assert(false);
     }
 
-    irqreturn_t irqret = (*params.handler)(params.irqNum, params.cookie);
+    irqreturn_t irqret = (*desc->handler)(desc->irqNum, desc->cookie);
     (void)irqret;	// irqret isn't used
   }
+  CMTESemaphore_up(&desc->sem);	// notify free_irq we are exiting
 
   return 0;
 }
@@ -117,27 +114,31 @@ int request_irq(unsigned int irq, irq_handler_t handler,
     return -EINVAL;
 
   result = capros_DevPrivs_allocIRQ(KR_DEVPRIVS, irq, 8 /* priority */);
-  if (result)
+  if (result)	// already allocated, or invalid irq number
     return -EINVAL;
 
-  struct interrupt_thread_args args = {
-    .arglock = __SEMAPHORE_INIT(args.arglock, 0),	// initially locked
-    .params = {
-      .irqNum = irq,
-      .cookie = dev_id,
-      .handler = handler
-    }
-  };
-  unsigned int newThreadNum;
+  struct irqDesc * desc
+    = (struct irqDesc *)kmalloc(sizeof(struct irqDesc), GFP_KERNEL);
+  if (!desc)
+    return -ENOMEM;
+
+  desc->irqNum = irq;
+  desc->cookie = dev_id;
+  desc->handler = handler;
+  CMTESemaphore_init(&desc->sem, 0);
 
   result_t lthres = CMTEThread_create(IntStackSize, interrupt_thread_func,
-             &args, &newThreadNum);
-  down(&args.arglock);
-
+             desc, &desc->intThreadNum);
   if (lthres != RC_OK) {
+    kfree(desc);
     capros_DevPrivs_releaseIRQ(KR_DEVPRIVS, irq);
     return -EINVAL;
   }
+
+  CMTEMutex_lock(&listLock);
+  desc->next = descList;	// chain into list
+  descList = desc;
+  CMTEMutex_unlock(&listLock);
 
   result = capros_DevPrivs_enableIRQ(KR_DEVPRIVS, irq);
   assert(result == RC_OK);
@@ -157,9 +158,33 @@ void free_irq(unsigned int irq, void *dev_id)
 {
   result_t result;
 
+  // Find the irqDesc.
+  // This list will rarely be longer than one element.
+  struct irqDesc * desc;
+  struct irqDesc * * descp= &descList;
+  CMTEMutex_lock(&listLock);
+  while (1) {
+    desc = *descp;
+    if (!desc) {	// reached end of list
+      CMTEMutex_unlock(&listLock);
+      return;		// nothing to free
+    }
+    if (desc->irqNum == irq)
+      break;		// found the one
+    descp = &(desc->next);
+  }
+  descList = desc->next;	// unchain
+  CMTEMutex_unlock(&listLock);
+
   result = capros_DevPrivs_releaseIRQ(KR_DEVPRIVS, irq);
 
-  /* When the IRQ is released, interrupt_thread_func will return,
-  which will cause that thread to exit. */
+  /* When the IRQ is released, the loop in interrupt_thread_func will terminate,
+  which will cause that thread to exit. 
+  Wait for it to commit to exiting.
+  (If we don't wait, the irq could be reassigned before the interrupt thread
+  notices.) */
+  CMTESemaphore_down(&desc->sem);
+
+  kfree(desc);
 }
 
