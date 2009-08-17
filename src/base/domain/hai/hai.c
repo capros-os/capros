@@ -805,7 +805,7 @@ ReceiverThread(void * arg)
         break;		// session is gone
       if (GetSeqNo() == 0) {
         // It is a notification.
-        assert(recvLen > 6);	// else HAI error FIXME
+        assert(recvLen >= 3);	// else HAI error FIXME
 #if 0
         unsigned int msgType = recvrMessage[2];
         unsigned int objType = recvrMessage[3];
