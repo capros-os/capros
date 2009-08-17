@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -259,6 +259,17 @@ main(void)
   // Reply to NPLink:
   Msg.snd_invKey = KR_RETURN;
   SEND(&Msg);
+
+  // Just open and close (use this to test for memory leaks)
+
+  result = capros_SerialPort_open(KR_SER, &err);
+  ckOK
+  kprintf(KR_OSTREAM, "Opened.\n");
+
+  result = capros_SerialPort_close(KR_SER);
+  ckOK
+
+  // Open for rest of test.
 
   result = capros_SerialPort_open(KR_SER, &err);
   ckOK
