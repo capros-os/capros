@@ -191,6 +191,7 @@ serial_sendData(void)
   return true;
 }
 
+// Returns true if successful, false if restarted.
 bool
 SerialOut_Flush(void)
 {
@@ -201,6 +202,7 @@ SerialOut_Flush(void)
   return true;
 }
 
+// Returns true if successful, false if restarted.
 bool
 SerialIn_Flush(void)
 {
@@ -507,6 +509,7 @@ nextIsSPU5(uint8_t * pgm, uint8_t * endPgm)
   return param;
 }
 
+// Return false if error.
 bool
 MatchDataByte(uint8_t c)
 {
@@ -517,6 +520,7 @@ MatchDataByte(uint8_t c)
   return ret;
 }
 
+// Return false if any error.
 bool
 MatchDataBytes(const uint8_t * p, unsigned int num)
 {
@@ -1186,7 +1190,9 @@ returnOK:
   return;
 }
 
-/* Returns one of:
+/* 
+On entry, the SerialPort must be closed.
+Returns one of:
 RC_OK
 RC_capros_key_Restart
 RC_capros_W1Bus_BusError
@@ -1364,7 +1370,22 @@ main(void)
         break;
   
       case OC_capros_W1Bus_resetDevice:
-        Msg.snd_code = DS2480B_Init();
+        if (haveSerial) {
+          result = capros_SerialPort_discardBufferedOutput(KR_Serial);
+          if (! CheckRestart(result)) {
+            if (SerialOut_Flush()) {
+              if (SerialIn_Flush()) {
+                result = capros_SerialPort_close(KR_Serial);
+                if (! CheckRestart(result)) {
+                  if (result != RC_OK)
+                    kprintf(KR_OSTREAM,
+                            "Serial: close returned %#x.\n", result);
+                  Msg.snd_code = DS2480B_Init();
+                }
+              }
+            }
+          }
+        }
         break;
   
       case OC_capros_W1Bus_setSpeed:

@@ -54,7 +54,7 @@ $(BUILDDIR)/ds2490: $(DS2490_OBJECTS) $(LIBS) $(DYNDRIVERDEPS)
 $(BUILDDIR)/ds2480b:  $(BUILDDIR)/ds2480b.o $(DOMLIB)
 	$(CROSSLINK) $(BUILDDIR)/ds2480b.o $(SMALL_SPACE) $(CROSSLIBS) -o $@
 # and for debugging:
-#	$(EROS_OBJDUMP) -t --disassemble $@ >$(BUILDDIR)/disassembled2480b
+	$(EROS_OBJDUMP) -t --disassemble $@ >$(BUILDDIR)/disassembled2480b
 
 install: all
 	$(INSTALL) -d $(CAPROS_DOMAIN)/drivers

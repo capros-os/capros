@@ -945,7 +945,8 @@ execute:
       case cmdType_checkSmartOnAux:
       {
         err = waitStatus();
-        assert(err == 16);	// FIXME handle or report
+        if (err != 16)
+          goto terminateBusError;
         int expected = cmdNext->ep3Size - ep3Gotten;
         assert(expected >= 2);
         int err2 = GetEP3Data(expected);
