@@ -652,7 +652,8 @@ driver_main(void)
       break;
 
     case OC_capros_SerialPort_discardBufferedOutput:
-      Msg.snd_code = RC_capros_key_RequestError;
+      /* We send data to the port as soon as we get it, so we have no
+         buffered data to discard. */
       break;
 
     case OC_capros_SerialPort_writeHighPriorityChar:
@@ -676,7 +677,7 @@ driver_main(void)
       break;
 
     case OC_capros_SerialPort_waitUntilSent:
-      Msg.snd_code = RC_capros_key_RequestError;
+      /* FIXME: this should wait until we are not writing to the TCPSocket. */
       break;
 
     case OC_capros_SerialPort_getModemStatus:
