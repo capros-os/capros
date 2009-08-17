@@ -65,6 +65,9 @@ interface TCPSocket extends key {
   exception Already;
   exception RemoteClosed;
 
+  /*
+  Raises key.Restart if the TCPSocket cap is rescinded due to a system restart.
+  */
   void getRemoteAddr(out IPDefs.ipv4Address ipaddr, out IPDefs.portNumber port);
 
   /** close - Close the connection.
@@ -74,6 +77,7 @@ interface TCPSocket extends key {
   - Any send in progress will finish.
   - Receive is still allowed until the other end acknowledges the close.
 
+  Raises key.Restart if the TCPSocket cap is rescinded due to a system restart.
   May raise NoMem, in which case the connection is not closed. 
   Raises Already if there is already a send or close in progress,
   or a close has already been done.
@@ -92,6 +96,8 @@ interface TCPSocket extends key {
   An abort signal is sent to the other end of the connection.
   Warning: data sent to the other end may be lost. 
 
+  Raises key.Restart if the TCPSocket cap is rescinded due to a system restart.
+
   After the abort operation:
   - No more sends or receives are allowed.
   - Any send or receive in progress will suffer a key.Void exception.
@@ -100,7 +106,7 @@ interface TCPSocket extends key {
   */
   void abort();
 
-  /* TCPSocked obeys key.destroy, which does the same thing as abort(). */
+  /* TCPSocket obeys key.destroy, which does the same thing as abort(). */
 
   /* The following four are not implemented in IDL because the IDL compiler
   is not yet up to the task. */
@@ -113,6 +119,7 @@ interface TCPSocket extends key {
     - the data has the PUSH flag
     - the TCP window is full, so data needs to be delivered
 
+  Raises key.Restart if the TCPSocket cap is rescinded due to a system restart.
   Raises key.RequestError if maxBytesToReceive is greater than maxReceiveLength.
   Raises Already if a receive is already in progress.
   Raises RemoteClosed if the other end of the connection has closed the
@@ -138,6 +145,7 @@ interface TCPSocket extends key {
   This returns as soon as the data has been queued for transmission.
   It may not have been received yet at the other end.
 
+  Raises key.Restart if the TCPSocket cap is rescinded due to a system restart.
   Raises key.RequestError if len is greater than maxSendLength.
   Raises Already if there is already a send or close in progress,
   or a close has been done.
