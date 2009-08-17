@@ -41,9 +41,9 @@ serialConstit = new node;	// shared by all instances
 serialConstit[0] = volsize;
 
 #define SERIAL_DRIVER_GENERIC(name, num, devcfgbit) \
-DRIVER(name##serial, serial_prog, serial_pc, serial_proccre, devcfgbit) \
-name##serial_proc key reg KR_APP2(0) /*KR_PortNum*/ = number(num); \
-name##serial_proc key reg KR_CONSTIT = serialConstit;
+DRIVER(name##ser, serial_prog, serial_pc, serial_proccre, devcfgbit) \
+name##ser_proc key reg KR_APP2(0) /*KR_PortNum*/ = number(num); \
+name##ser_proc key reg KR_CONSTIT = serialConstit;
 
 /* Define target-specific resources. */
 
@@ -67,18 +67,18 @@ serial_le_clocks[1] = uart_devclock;
 
 #define SERIAL_DRIVER_AMBA(name, num, devcfgbit, devRegsPhysAddr) \
 SERIAL_DRIVER_GENERIC(name, num, devcfgbit) \
-name##serialle_iomem = new node; \
-name##serialle_iomem[0] = number(1 /* one page */, devRegsPhysAddr, 0); \
-name##serialle_iomem[1] = physpage(devRegsPhysAddr); \
-name##serialle[LE_CLOCKS] = serial_le_clocks as ro node key; \
-name##serialle[LE_IOMEM] = name##serialle_iomem;
+name##serle_iomem = new node; \
+name##serle_iomem[0] = number(1 /* one page */, devRegsPhysAddr, 0); \
+name##serle_iomem[1] = physpage(devRegsPhysAddr); \
+name##serle[LE_CLOCKS] = serial_le_clocks as ro node key; \
+name##serle[LE_IOMEM] = name##serle_iomem;
 
 #elif defined(EROS_TARGET_i486)
 
 #define SERIAL_DRIVER_8250_PORT(name, num, baud_base, port, irq, flags) \
 SERIAL_DRIVER_GENERIC(name, num, 0) \
-name##serial_proc key reg KR_CONSTIT = serialConstit; \
-name##serial_proc key reg KR_APP2(1) /*KR_CONFIG*/ = number(baud_base, port + (irq * 65536), flags);
+name##ser_proc key reg KR_CONSTIT = serialConstit; \
+name##ser_proc key reg KR_APP2(1) /*KR_CONFIG*/ = number(baud_base, port + (irq * 65536), flags);
 
 #else
 #error "Unknown target"
