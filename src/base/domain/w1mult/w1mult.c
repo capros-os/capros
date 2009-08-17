@@ -1216,7 +1216,7 @@ SearchPath(struct Branch * br)
   return 0;
 }
 
-/* We just got a new W1Bus cap.
+/* We need to reinitialize the bus.
  */
 static void
 ScanBus(void)
@@ -1226,6 +1226,9 @@ ScanBus(void)
   int i;
 
 rescan:
+  result = capros_W1Bus_resetDevice(KR_W1BUS);
+  if (CheckRestart(result)) return;
+
   // Set bus parameters:
   result = capros_W1Bus_setSpeed(KR_W1BUS, capros_W1Bus_W1Speed_flexible);
   if (CheckRestart(result)) return;

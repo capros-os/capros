@@ -289,9 +289,9 @@ DS2438_InitDev(struct W1Device * dev)
       || inBuf[7] != dev->u.bm.threshReg) {	// need to set configuration
     status = SetConfiguration(dev);
     if (status) {
-      DEBUG(errors) kdprintf(KR_OSTREAM,
+      DEBUG(errors) kprintf(KR_OSTREAM,
              "DS2438 SetConfiguration status=%d\n", status);
-      dev->found = false;
+      dev->found = false;	// FIXME should search again, maybe later
       return;
     }
   }
