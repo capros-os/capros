@@ -116,6 +116,7 @@ typedef struct AdapterState {
   char * underscore;	// NULL if none
   uint8_t LEDs;
   uint8_t LEDsBlink;
+  uint8_t LEDsLogged;
   mono_time LEDTimeChanged[8];	// time the LED last changed
   int menuNum;		// -1 if unknown
   int menuItemNum;
@@ -356,7 +357,49 @@ ResetAdapterState(AdapterState * as)
 /********************** Menu item procedures *****************************/
 /* These are called by the Input process only. */
 
-// All return true iff input is invalid.
+bool
+AppendLogRecord(unsigned int slot, uint8_t * rec)
+{
+  result_t result;
+
+  result = capros_Node_getSlotExtended(KR_KEYSTORE, slot, KR_TEMP0);
+  assert(result == RC_OK);
+  assert(   sizeof(capros_Logfile_LogRecord16)
+         == sizeof(capros_SWCA_LEDLogRecord));	// else need more code
+  result = capros_Logfile_appendRecord(KR_TEMP0,
+             sizeof(capros_Logfile_LogRecord16), rec);
+  switch (result) {
+  default:
+    kprintf(KR_OSTREAM, "%#x\n", result);
+    assert(false);
+  case RC_capros_Logfile_OutOfSequence:	// this should not happen
+    kprintf(KR_OSTREAM, "OOS  %#llx\n",
+            ((capros_Logfile_recordHeader *)rec)->id);
+    // Get newest record
+    uint32_t lenGotten;
+    capros_Logfile_LogRecord16 rec16;
+    result = capros_Logfile_getPreviousRecord(KR_TEMP0,
+               capros_Logfile_nullRecordID, sizeof(rec16), (uint8_t *)&rec16,
+               &lenGotten);
+    assert(result == RC_OK);
+    kprintf(KR_OSTREAM, "prev=%#llx\n", rec16.header.id);
+    assert(false);
+  case RC_capros_Logfile_Full:
+    DEBUG(errors) kprintf(KR_OSTREAM, "SWCA log %u full!\n", slot);
+    break;	// Not much we can do but drop the record.
+
+  case RC_capros_SpaceBank_LimitReached:
+    DEBUG(errors) kprintf(KR_OSTREAM, "SWCA log %u out of space!\n", slot);
+    break;	// Not much we can do but drop the record.
+
+  case RC_OK:
+    return true;
+    break;
+  }
+  return false;
+}
+
+// The following all return true iff input is invalid.
 
 bool
 procInt(AdapterState * as)
@@ -396,7 +439,6 @@ procLogIntValue(AdapterState * as, int * pv, capros_Node_extAddr_t ks_logs)
     return true;
   if (value != *pv) {
     // The value changed. Log the new value.
-    result_t result;
     capros_Logfile_LogRecord16 rec16;
     rec16.header.length = rec16.trailer = sizeof(rec16);
     rec16.header.rtc = GetRTCTime();
@@ -404,36 +446,8 @@ procLogIntValue(AdapterState * as, int * pv, capros_Node_extAddr_t ks_logs)
     rec16.value = value;
     rec16.param = 0;
 
-    unsigned int slot = ks_logs + as->num;
-    result = capros_Node_getSlotExtended(KR_KEYSTORE, slot, KR_TEMP0);
-    assert(result == RC_OK);
-    result = capros_Logfile_appendRecord(KR_TEMP0,
-               sizeof(rec16), (uint8_t *)&rec16);
-    switch (result) {
-    default:
-      kprintf(KR_OSTREAM, "%#x\n", result);
-      assert(false);
-    case RC_capros_Logfile_OutOfSequence:	// this should not happen
-      kprintf(KR_OSTREAM, "OOS %#llx\n", rec16.header.id);
-      // Get newest record
-      uint32_t lenGotten;
-      result = capros_Logfile_getPreviousRecord(KR_TEMP0,
-                 capros_Logfile_nullRecordID, sizeof(rec16), (uint8_t *)&rec16,
-                 &lenGotten);
-      assert(result == RC_OK);
-      kprintf(KR_OSTREAM, "prev=%#llx\n", rec16.header.id);
-      assert(false);
-    case RC_capros_Logfile_Full:
-      DEBUG(errors) kprintf(KR_OSTREAM, "SWCA log %u full!\n", slot);
-      break;	// Not much we can do but drop the record.
-
-    case RC_capros_SpaceBank_LimitReached:
-      DEBUG(errors) kprintf(KR_OSTREAM, "SWCA log %u out of space!\n", slot);
-      break;	// Not much we can do but drop the record.
-
-    case RC_OK:
+    if (AppendLogRecord(ks_logs + as->num, (uint8_t *)&rec16)) {
       *pv = value;
-      break;
     }
   } else {
     // kprintf(KR_OSTREAM, "Same data, not logged\n");
@@ -987,7 +1001,7 @@ InputProcedure(void * data /* unused */ )
             }
             // Was there a change?
             uint8_t steadyLEDs = c & ~ blink;
-            if ((steadyLEDs != (as->LEDs & ~ as->LEDsBlink)
+            if ((steadyLEDs != as->LEDsLogged
                  || blink != as->LEDsBlink )
                 && as->num >= 0 ) {
               // yes, log the new data.
@@ -999,24 +1013,12 @@ InputProcedure(void * data /* unused */ )
               ledRec.LEDsBlink = blink;
               ledRec.padding = 0;
 
-              result = capros_Node_getSlotExtended(KR_KEYSTORE,
-                         LKSN_LEDLOGS+as->num,
-                         KR_TEMP0);
-              assert(result == RC_OK);
-              result = capros_Logfile_appendRecord(KR_TEMP0,
-                         sizeof(ledRec), (uint8_t *)&ledRec);
-              switch (result) {
-              default:
-                assert(false);
-              case RC_capros_Logfile_Full:
-              case RC_capros_SpaceBank_LimitReached:
-                // Not much we can do but drop the record.
-              case RC_OK:
-                break;
+              if (AppendLogRecord(LKSN_LEDLOGS + as->num, (uint8_t *)&ledRec)) {
+                as->LEDsLogged = steadyLEDs;
+                as->LEDsBlink = blink;
               }
             }
             as->LEDs = c;
-            as->LEDsBlink = blink;
             gotLEDs = true;
             inputState = nextIsControl;
             curMenuMonoTime = monoNow;

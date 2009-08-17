@@ -9,7 +9,7 @@ interface SWCA extends key
   /* The following are sampled periodically,
   and any changes are logged in Logfile objects. */
 
-  //const unsigned byte LEDOverCurrent = ?;
+  const unsigned byte LEDOverCurrent = 1;
   const unsigned byte LEDFloat       = 2;
   const unsigned byte LEDAC2In       = 4;
   const unsigned byte LEDInverting   = 8;
