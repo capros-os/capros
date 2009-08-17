@@ -64,7 +64,7 @@ struct ssl_st;	// from <openssl/err.h>
 #define dbg_errors      0x20
 #define dbg_resource	0x40	// HTTPResource interactions
 /* Following should be an OR of some of the above */
-#define dbg_flags   ( 0u | dbg_init | dbg_sslinit | dbg_netio| dbg_http | dbg_file | dbg_errors | dbg_resource )
+#define dbg_flags   ( 0u | dbg_errors)
 
 #define CND_DEBUG(x) (dbg_##x & dbg_flags)
 #define DEBUG(x) if (CND_DEBUG(x))
