@@ -69,7 +69,8 @@ main(void)
   short value;
 
   // Get generator mode.
-  capros_SWCA_GenMode genModeValue;
+  // capros_SWCA_GenMode genModeValue;
+  int16_t genModeValue;	//// workaround
   result = capros_SWCA_getGeneratorMode(KR_SWCA, 1, &genModeValue);
   ckOK
   kprintf(KR_OSTREAM, "Inverter %d gen mode = %d\n",
