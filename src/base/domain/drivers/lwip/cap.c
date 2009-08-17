@@ -590,12 +590,10 @@ do_sendmore(struct TCPSocket * sock)
 {
   err_t err;
   unsigned int len = sock->sendLen;	// could be zero
-  unsigned int avail = tcp_sndbuf(sock->pcb);
+  unsigned int avail = tcp_sndbuf(sock->pcb);	// could be zero
 
   DEBUG(tx) printk("do_sendmore(%#x) len=%d avail=%d\n",
                    sock, len, avail);
-  if (avail == 0)
-    DEBUG(errors) kdprintf(KR_OSTREAM, "tcp_sndbuf no space available!");
 
   unsigned int push;
   if (len > avail) {
