@@ -73,7 +73,7 @@ SleepKey(Invocation* inv /*@ not null @*/)
 
   switch (inv->entry.code) {
   case OC_capros_Sleep_getTimeMonotonic:
-    u64 = mach_TicksToNanoseconds(sysT_Now());
+    u64 = sysT_NowUniqueNS();
 
 returnu64:
     COMMIT_POINT();

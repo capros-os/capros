@@ -57,6 +57,21 @@ SpinWaitUs(uint32_t w)
     mach_Delay(w);
 }
 
+uint64_t lastUnique = 0;
+/* Return the current time in nanoseconds, but always a unique increasing value.
+ */
+uint64_t
+sysT_NowUniqueNS(void)
+{
+  uint64_t now = mach_TicksToNanoseconds(sysT_Now());
+  // printf("sysT_NowUniqueNS: now %llu last %llu\n", now, lastUnique);
+  if (now <= lastUnique) {
+    now = lastUnique + 1;
+  }
+  lastUnique = now;
+  return now;
+}
+
 // May Yield.
 uint64_t
 sysT_NowPersistent(void)
@@ -64,7 +79,7 @@ sysT_NowPersistent(void)
   // monotonicTimeOfRestart isn't valid until restart is done.
   WaitForRestartDone();
 
-  return mach_TicksToNanoseconds(sysT_Now()) + monotonicTimeOfRestart;
+  return sysT_NowUniqueNS() + monotonicTimeOfRestart;
 }
 
 uint64_t

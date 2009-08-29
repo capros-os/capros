@@ -11,14 +11,16 @@ interface Sleep extends key raises(key.Restart) {
   /* (Note: 2**64 nanoseconds is about 584 years.) */
 
   /* Returns the time in nanoseconds since some time in the past. 
-  The value returned is monotonic while the system remains up,
+  Never returns the same value twice.
+  The value returned is monotonic increasing while the system remains up,
   but is unrelated to values returned prior to the last restart. */
   unsigned long long
   // Due to a bug in capidl, it does not work to use nanoseconds_t here.
   getTimeMonotonic();
 
   /* Returns the time in nanoseconds since some time in the past. 
-  The value returned is monotonic over checkpoint/restart.
+  Never returns the same value twice.
+  The value returned is monotonic increasing over checkpoint/restart.
   This operation waits if necessary until the restart procedure has completed,
   therefore it should be used only by persistent processes. */
   unsigned long long

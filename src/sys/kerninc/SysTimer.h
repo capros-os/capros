@@ -34,6 +34,7 @@ extern uint64_t sysT_latestTime;
 
 extern struct Activity * ActivityChain;
 
+uint64_t sysT_NowUniqueNS(void);
 uint64_t sysT_NowPersistent(void);
 
 void sysT_ResetWakeTime();
