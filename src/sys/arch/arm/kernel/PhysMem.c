@@ -35,7 +35,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 
 #define DEBUG(x) if (dbg_##x & dbg_flags)
 
-kpsize_t physMem_TotalPhysicalPages = 0;	// approximate
+kpg_t physMem_TotalPhysicalPages = 0;	// approximate
 unsigned int logDataCacheLineLength;
 unsigned int logDataCacheAssociativity;	// rounded up to an integer
 unsigned int logDataCacheNSets;
@@ -105,7 +105,8 @@ uint32_t mach_ReadCacheType(void);
       totalRAM += regionSize;
       if (limited) {
         (void) physMem_AddRegion(base, base + limited, MI_MEMORY, false);
-        physMem_TotalPhysicalPages += limited / EROS_PAGE_SIZE;
+        kpg_t pgs = limited / EROS_PAGE_SIZE;
+        physMem_TotalPhysicalPages += pgs;
       }
       break;
     }

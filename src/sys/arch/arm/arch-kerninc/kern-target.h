@@ -3,7 +3,7 @@
 
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -36,6 +36,8 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #error "Wrong target file included"
 #endif
 
+#include <inttypes.h>
+
 extern const char _start,	/* start of kernel text section */
   _etext,			/* end of kernel (text and rodata) */
   __data_start,			/* start of kernel data section */
@@ -45,10 +47,12 @@ extern const char _start,	/* start of kernel text section */
 
 typedef uint32_t        kva_t;	/* kernel virtual address */
 typedef uint32_t	kpa_t;	/* physical address */
+#define PRIxkpa PRIx32
 typedef uint32_t	kpg_t;	/* a physical page number
 				(physical address / EROS_PAGE_SIZE) */
 typedef uint32_t	kpsize_t; /* kernel physical address range
 				   * size */
+#define PRIxkpsize PRIx32
 typedef uint32_t        uva_t;	/* user (unmodified) virtual address */
 typedef uint32_t        ula_t;	/* user modified virtual address */
 

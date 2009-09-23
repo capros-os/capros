@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2002, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -400,7 +400,7 @@ physMem_ReservePhysicalMemory()
 
   KernPageDir_pa = physMem_Alloc(EROS_PAGE_SIZE, &constraint);
   KernPageDir = KVAtoV(PTE *, KernPageDir_pa);
-  printf("Grabbed kernel directory at 0x%08x\n", (uint32_t) KernPageDir_pa);
+  printf("Grabbed kernel directory at %#x\n", KernPageDir_pa);
 }
 
 
@@ -537,13 +537,13 @@ mach_HeapInit(kpsize_t heap_size)
   /* The kernel mapping table must include all of the physical pages,
    * including the ramdisk if any.
    *
-   * FIX: This is broken, as the kernel will soon need to support
+   * FIX: This is broken, as the kernel needs to support
    * machines where there are more physical pages than there are
    * virtual pages.  The solution is to adopt a
    * bounded kernel heap, set up virtual mapping space for that, and
    * then use kmem_alloc to populate it.
    */
-  uint32_t physPages = physMem_PhysicalPageBound / EROS_PAGE_SIZE;
+  kpg_t physPages = physMem_PhysicalPageBound / EROS_PAGE_SIZE;
 
   /*  printf("pageDir: 0x%x\n", pageDir); */
 
@@ -658,7 +658,7 @@ mach_HeapInit(kpsize_t heap_size)
 
   heap_first_page = align_up_uint32(physPages, 1024);
 
-  printf("Last physpage at 0x%08x\n", EROS_PAGE_SIZE * physPages);
+  printf("Last physpage at %#" PRIxkpa "\n", EROS_PAGE_SIZE * (kpa_t)physPages);
 
   heap_start = PTOV(EROS_PAGE_SIZE * heap_first_page);
   assert((heap_start % EROS_PAGE_SIZE) == 0);

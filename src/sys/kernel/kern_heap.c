@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2001, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2008, Strawberry Development Group.
+ * Copyright (C) 2006, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -72,18 +72,18 @@ heap_init()
    * the heap.
    */
 
-  kpsize_t usablePages = physMem_TotalPhysicalPages; /* well, close */
+  kpg_t usablePages = physMem_TotalPhysicalPages; /* well, close */
 
   kpsize_t heap_size = 0;
 
   /* We will allocate one node per page: */
-  heap_size += usablePages * sizeof(Node);
+  heap_size += (kpsize_t)usablePages * sizeof(Node);
   
   /* We will allocate four depend entries per node: */
-  heap_size += usablePages * (4 * sizeof(KeyDependEntry));
+  heap_size += (kpsize_t)usablePages * (4 * sizeof(KeyDependEntry));
 
   /* We will allocate one ObjectHeader structure per page: */
-  heap_size += usablePages * (4 * sizeof(ObjectHeader));
+  heap_size += (kpsize_t)usablePages * (4 * sizeof(ObjectHeader));
 
   /* Oink oink oink: */
   heap_size += 1024 * 1024;
@@ -97,7 +97,8 @@ heap_init()
 
   assert((heap_size % EROS_PAGE_SIZE) == 0);
 
-  printf("Heap size is %#x bytes.\n", heap_size);
+  printf("Heap size is %#" PRIxkpsize " bytes out of %#x pages.\n",
+         heap_size, usablePages);
 
   mach_HeapInit(heap_size);
 

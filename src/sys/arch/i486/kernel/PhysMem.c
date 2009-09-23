@@ -37,7 +37,7 @@ Approved for public release, distribution unlimited. */
 
 
 kpa_t physMem_PhysicalPageBound = 0;	// highest physical address of RAM +1
-kpsize_t physMem_TotalPhysicalPages = 0;	// approximate
+kpg_t physMem_TotalPhysicalPages = 0;	// approximate
 
 /* The area we will reserve as ROM: */
 kpa_t ROMBase  =  0xc0000;
@@ -48,15 +48,15 @@ static void checkBounds(kpa_t base, kpa_t bound)
   if (bound > physMem_PhysicalPageBound) {        /* take max */
     physMem_PhysicalPageBound = align_up(bound, EROS_PAGE_SIZE);
   }
-  physMem_TotalPhysicalPages += (bound - base) / EROS_PAGE_SIZE;
+  kpg_t pgs = (bound - base) / EROS_PAGE_SIZE;
+  physMem_TotalPhysicalPages += pgs;
 
   /* Check if it overlaps ROM area. */
   if (   base < ROMBound
       && bound > ROMBase ) {
     /* We don't allow memory at 0xFFFFF, only ROM. */
     if (bound >= ROMBound) {
-      printf("base=0x%x, bound=0x%x\n",
-             (unsigned long)base, (unsigned long)bound);
+      printf("base=%#" PRIxkpa ", bound=%#" PRIxkpa "\n", base, bound);
       fatal("ROM conflict\n");
     } else {
       /* Truncate ROM area so as not to overlap. */

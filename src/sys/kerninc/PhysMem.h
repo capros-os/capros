@@ -2,7 +2,7 @@
 #define __PHYSMEM_H__
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -81,7 +81,7 @@ extern unsigned long physMem_nPmemInfo;
 #define MAX_PMEMINFO 128
 
 extern kpa_t physMem_PhysicalPageBound;
-extern kpsize_t physMem_TotalPhysicalPages;
+extern kpg_t physMem_TotalPhysicalPages;
 extern kpg_t physMem_numFreePageFrames;
 extern kpg_t physMem_numMapTabPageFrames;
 

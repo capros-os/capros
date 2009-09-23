@@ -655,13 +655,6 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
        If the address exceeds the small space limit, the fault seems 
        to come in as a General Protection fault. */
 
-#if 0
-    dprintf(true, "!! la=0x%08x va=0x%08x\n"
-		    "Switching process 0x%X to large space\n",
-		    la, va,
-		    procRoot->ob.oid);
-#endif
-
     proc_SwitchToLargeSpace(p);
     act_Yield();
   }

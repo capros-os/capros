@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -260,11 +260,6 @@ Machine::MapBuffer(kva_t va, kpa_t p0, kpa_t p1)
   PTE *pageTbl = (PTE*) PTOV(maptbl_paddr);
   pageTbl = (PTE*) PTOV( (pageTbl[ndx0].AsWord() & ~EROS_PAGE_MASK) );
 
-#ifdef MSGDEBUG
-  printf("MapBuffer: pg tb = 0x%08x p0=0x%08x\n",
-		 pageTbl, p0);
-#endif
-  
   PTE *pte = pageTbl + ndx1;
 
   /* These PTE's are already marked present, writable, etc. etc. by

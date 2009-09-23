@@ -449,10 +449,10 @@ physMem_Alloc(kpsize_t nBytes, PmemConstraint *mc)
   assert(((unsigned)nBytes & (mc->align - 1)) == 0);  
 
   DEBUG(alloc)
-     printf("PhysMem::Alloc: nBytes=0x%x, "
-                    "mc->base=0x%x, mc->bound=0x%x, mc->align=0x%x\n",
-                    (unsigned)nBytes, (unsigned)mc->base,
-                    (unsigned)mc->bound, mc->align);
+     printf("PhysMem::Alloc: nBytes=%#" PRIxkpsize
+                    ", mc->base=%#" PRIxkpa ", mc->bound=%#" PRIxkpa
+                    ", mc->align=%#x\n",
+                    nBytes, mc->base, mc->bound, mc->align);
 
   allocTarget = physMem_ChooseRegion(nBytes, mc);
 
@@ -516,12 +516,11 @@ physMem_Alloc(kpsize_t nBytes, PmemConstraint *mc)
     assert(where + nBytes <= bound);
       
     DEBUG(alloc)
-      printf("Alloc %u %% %u at 0x%08x. "
-		     "Rgn 0x%08x now [0x%08x,0x%08x)\n", 
-		     (uint32_t) nBytes, mc->align, (uint32_t) where, 
+      printf("Alloc %#" PRIxkpsize " %% %u at %#" PRIxkpa ". "
+		     "Rgn %#x now [%#" PRIxkpa ",%#" PRIxkpa ")\n", 
+		     nBytes, mc->align, where, 
 		     allocTarget, 
-		     (unsigned) allocTarget->allocBase, 
-		     (unsigned) allocTarget->allocBound);
+		     allocTarget->allocBase, allocTarget->allocBound);
 
     return where;
   }
@@ -547,7 +546,6 @@ void
 physMem_ddb_dump()
 {
   unsigned rgn = 0;
-  extern void db_printf(const char *fmt, ...);
 
   for (rgn = 0; rgn < physMem_nPmemInfo; rgn++) {
     PmemInfo *kmi = &physMem_pmemInfo[rgn];
@@ -557,17 +555,13 @@ physMem_ddb_dump()
     unsigned long unallocated = bound - base;
     unsigned long total = kmi->bound - kmi->base;
 
-    printf("Rgn 0x%08x ty=%d: [0x%08x,0x%08x) %u/%u bytes available\n", 
-	   kmi,
-	   kmi->type,
-	   (unsigned long) kmi->base,
-	   (unsigned long) kmi->bound,
-	   unallocated,
-	   total);
+    printf("Rgn %#x ty=%d: [%#" PRIxkpa ",%#" PRIxkpa
+           ") %u/%u bytes available\n", 
+	   kmi, kmi->type, kmi->base, kmi->bound,
+	   unallocated, total);
     if (kmi->firstObHdr) {
-      printf("  allocBase 0x%08x allocBound 0x%08x\n",
-	     (unsigned long) (kmi->allocBase),
-	     (unsigned long) (kmi->allocBound));
+      printf("  allocBase %#" PRIxkpa " allocBound %#" PRIxkpa "\n",
+	     kmi->allocBase, kmi->allocBound);
       printf("  nPages 0x%08x (%d) firstObPgAddr 0x%08x firstObHdr 0x%08x\n",
 	     kmi->nPages,
 	     kmi->nPages,
