@@ -520,6 +520,7 @@ mach_HeapInit()
 #endif
 }
 #else	/* not NEW_KMAP (this is the case) */
+// heap_size must be a multiple of EROS_PAGE_SIZE
 void
 mach_HeapInit(kpsize_t heap_size)
 {
@@ -705,23 +706,19 @@ mach_HeapInit(kpsize_t heap_size)
       don't want to "fix" that until I can think about it a bit. */
    cache_va = align_up(cache_va, EROS_PAGE_SIZE * 1024);
 
-   for (i = 0; i < nPage; i++) {
-     kpa_t pa = physMem_Alloc(EROS_PAGE_SIZE, &physMem_pages);
-     kva_t va = cache_va + (i * EROS_PAGE_SIZE);
-     MapKernelPage(va, pa, PTE_W|PTE_V|PTE_USER|GlobalPage);
-   }
+   /* Cannot just store this to proc_ContextCache, since the
+   checking logic tests that against NULL to see if it should run
+   consistency checks. */
+   extern Process * proc_ContextCacheRegion;
+   proc_ContextCacheRegion = (Process *)cache_va;
 
-   {
-     /* Cannot just store this to proc_ContextCache, since the
-	checking logic tests that against NULL to see if it should run
-	consistency checks. */
-     extern Process * proc_ContextCacheRegion;
-     proc_ContextCacheRegion = (Process *)cache_va;
+   for (i = 0; i < nPage; i++, cache_va += EROS_PAGE_SIZE) {
+     kpa_t pa = physMem_Alloc(EROS_PAGE_SIZE, &physMem_pages);
+     MapKernelPage(cache_va, pa, PTE_W|PTE_V|PTE_USER|GlobalPage);
    }
+   assert(cache_va <= KVA_TOSPACE);
  }
 #endif
-  /* Note that the kernel space does NOT have a FROMSPACE recursive
-     mapping! */
 
   /* BELOW THIS POINT we do not use the /GlobalPage/ bit, as
    * these mappings are per-IPC and MUST get flushed when a context
@@ -965,7 +962,7 @@ pageH_mdType_CheckPage(PageHeader * pPage, unsigned int * nmtf)
       kpa_t pageFrame = pte_PageFrame(thePTE);
       kva_t thePage = PTOV(pageFrame);
 
-      if (thePage >= KVTOL(KVA_FROMSPACE))
+      if (thePage > maxMappedPA)
 	continue;
 
       PageHeader * thePageHdr = objC_PhysPageToObHdr(pageFrame);

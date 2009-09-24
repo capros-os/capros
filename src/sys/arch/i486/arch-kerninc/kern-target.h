@@ -97,4 +97,6 @@ typedef uint32_t        kpmap_t; /* mapping table physical address */
 /* (Kernel) Physical Address to Pointer (typed kernel virtual address) */
 #define KPAtoP(ty,x) ((ty) (PTOV(x)))
 
+extern kpa_t maxMappedPA;
+
 #endif /* __KERN_TARGET_I486_H__ */

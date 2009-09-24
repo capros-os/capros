@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Machine.h>
 #include <kerninc/Node.h>
 #include <kerninc/Depend.h>
+#include <kerninc/heap.h>
      
 #define dbg_init	0x1u
 #define dbg_avail	0x2u
@@ -61,53 +62,17 @@ heap_init()
    * Every page directory needs to have these page tables mapped.
    * If we allocated them later, we would have to find all page
    * directories to update them.
-
-   * To do this, perform a conservative computation of the size of the
-   * heap that will be needed. This relies on the fact that PhysMem
-   * has already been initialized, so we know at this point how many
-   * total physical pages are present.
    *
-   * We compute below a generously conservative approximation to the
-   * largest likely heap so that we can preallocate page tables for
-   * the heap.
+   * The heap size is not dependent on the RAM size; if it were,
+   * the calculation of maxMappedPA in physMem_Init_MD would need to change.
    */
 
-  kpg_t usablePages = physMem_TotalPhysicalPages; /* well, close */
+  printf("Heap size is %#" PRIxkpsize " bytes.\n", (kpsize_t)heap_Size);
 
-  kpsize_t heap_size = 0;
-
-  /* We will allocate one node per page: */
-  heap_size += (kpsize_t)usablePages * sizeof(Node);
-  
-  /* We will allocate four depend entries per node: */
-  heap_size += (kpsize_t)usablePages * (4 * sizeof(KeyDependEntry));
-
-  /* We will allocate one ObjectHeader structure per page: */
-  heap_size += (kpsize_t)usablePages * (4 * sizeof(ObjectHeader));
-
-  /* Oink oink oink: */
-  heap_size += 1024 * 1024;
-
-  /* Finally, allow for the object headers we will need for card
-   * memory: */
-  heap_size += ((KTUNE_MAX_CARDMEM * 1024)/4096) * sizeof(ObjectHeader);
-
-  /* Round up to nearest page: */
-  heap_size = align_up_uint32(heap_size, EROS_PAGE_SIZE);
-
-  assert((heap_size % EROS_PAGE_SIZE) == 0);
-
-  printf("Heap size is %#" PRIxkpsize " bytes out of %#x pages.\n",
-         heap_size, usablePages);
-
-  mach_HeapInit(heap_size);
+  mach_HeapInit(heap_Size);
 
   /* Heap end should always be word aligned. */
   assert((heap_end & 0x3u) == 0);
-
-  /* Initialization of heap_defined, heap_bound, heap_end is handled
-     in the machine-specific MapKernel code, which is called very
-     early in mach_BootInit(). */
 
   dprintf(false, "heap_start, heap_bound = 0x%08x, 0x%08x\n",
 	  (unsigned)heap_start, (unsigned) heap_bound);

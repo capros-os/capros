@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/util.h>
 #include <kerninc/PhysMem.h>
 #include <kerninc/multiboot.h>
+#include <kerninc/heap.h>
 
 #define dbg_init	0x1u
 
@@ -65,11 +66,21 @@ static void checkBounds(kpa_t base, kpa_t bound)
   }
 }
 
+kpa_t maxMappedPA;
 void
 physMem_Init_MD()
 {
   uint32_t mmapLength;
   struct grub_mmap * mp;
+
+  /* Currently, all of physical memory needs to be mapped at KVA.
+  (Yes, this needs to be fixed.)
+  Compute the highest physical address we have room to map there. */
+  maxMappedPA = (KVA_TOSPACE
+                 - 2*1024*EROS_PAGE_SIZE // for two roundings
+                 - heap_Size
+                 - KTUNE_NCONTEXT * sizeof(Process) )
+                & ~ EROS_PAGE_MASK;
 
   DEBUG (init) printf("MultibootInfoPtr = %x\n", MultibootInfoPtr);
 
@@ -91,8 +102,13 @@ physMem_Init_MD()
        mp->type);
 
     if (mp->type == 1) {	/* available RAM */
-      (void) physMem_AddRegion(base, bound, MI_MEMORY, false);
-      checkBounds(base, bound);
+      // Don't accept more physical memory than we can map:
+      if (bound > maxMappedPA)
+        bound = maxMappedPA;
+      if (bound > base) {
+        (void) physMem_AddRegion(base, bound, MI_MEMORY, false);
+        checkBounds(base, bound);
+      }
     }
     /* On to the next. */
     /* mp->size does not include the size of the size field itself,

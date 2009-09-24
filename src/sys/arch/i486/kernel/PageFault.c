@@ -835,18 +835,6 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
       upgdir[i] = kpgdir[i];
   }    
 
- 
-  {
-    PTE *udir = (PTE *)tableAddr;
-    /* Set up fromspace recursive mapping. Note that this is a
-       supervisor-only mapping: */
-    /* Note, we are not using PAE or PSE-36, so can only use 
-       32-bit physical address. */
-    pte_set(&udir[KVTOL(KVA_FROMSPACE) >> 22],
-            ((uint32_t)(VTOP(udir)) & PTE_FRAMEBITS) );
-    pte_set(&udir[KVTOL(KVA_FROMSPACE) >> 22], PTE_W|PTE_V );
-  }
-
   objH_AddProduct(wi->memObj, &pTable->kt_u.mp);
 
   return pTable;
