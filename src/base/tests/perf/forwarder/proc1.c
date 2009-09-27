@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group
+ * Copyright (C) 2007, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -30,7 +30,6 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Discrim.h>
 #include <idl/capros/Forwarder.h>
 #include <domain/domdbg.h>
-#include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_DISCRIM 8
 #define KR_SLEEP 9

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -26,7 +26,6 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Process.h>
 #include <idl/capros/Sleep.h>
 #include <domain/domdbg.h>
-#include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_VOID 0
 #define KR_OSTREAM 10

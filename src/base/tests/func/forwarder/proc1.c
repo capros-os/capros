@@ -30,7 +30,6 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/Discrim.h>
 #include <idl/capros/Forwarder.h>
 #include <domain/domdbg.h>
-#include <idl/capros/arch/arm/SysTrace.h>
 
 #define KR_DISCRIM 8
 #define KR_OSTREAM 10
