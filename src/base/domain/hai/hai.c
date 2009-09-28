@@ -38,6 +38,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/HAI.h>
 #include <idl/capros/IP.h>
 #include <idl/capros/RTC.h>
+#include <idl/capros/Sleep.h>
 #include <idl/capros/Logfile.h>
 #include <idl/capros/Constructor.h>
 #include <domain/cmte.h>
@@ -94,6 +95,13 @@ getRTC(void)
   result_t result = capros_RTC_getTime(KR_RTC, &t);
   assert(result == RC_OK);
   return t;
+}
+
+static void
+SleepForNS(capros_Sleep_nanoseconds_t duration)
+{
+  result_t result = capros_Sleep_sleepForNanoseconds(KR_SLEEP, duration);
+  assert(result == RC_OK || result == RC_capros_key_Restart);
 }
 
 CMTEMutex_DECLARE_Unlocked(messageLock);
@@ -626,13 +634,15 @@ reconnect:
              __FILE__, __LINE__, result);
   case RC_OK:
     break;
+  case RC_capros_IPDefs_Aborted:
+    // This can happen if the network connection to the HAI
+    // is temporarily broken.
+    kprintf(KR_OSTREAM, "HAI: Connection aborted.\n");
+    SleepForNS(64UL << 30);	// Sleep about 1 minute
   case RC_capros_key_Restart:
     goto reconnect;
-  case RC_capros_IPDefs_Aborted:
-    kdprintf(KR_OSTREAM, "Connection aborted.\n");
-    break;
   case RC_capros_IPDefs_Refused:
-    kdprintf(KR_OSTREAM, "Connection refused.\n");
+    kdprintf(KR_OSTREAM, "HAI: Connection refused.\n");
     break;
   }
 
