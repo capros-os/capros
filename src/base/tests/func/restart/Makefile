@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008, Strawberry Development Group
+# Copyright (C) 2008, 2009, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -30,7 +30,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=
 OPTIM=-O
-INC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
+INC=-I$(EROS_ROOT)/include
 
 RESTART_CKPT=-p
 NPRANGESIZE=520

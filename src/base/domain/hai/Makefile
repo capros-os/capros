@@ -31,7 +31,6 @@ IMGMAP=hai.map
 TARGETS=$(BUILDDIR)/hai
 OBJECTS=$(BUILDDIR)/hai.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
-INC+= -I$(EROS_ROOT)/include/linux-headers
 
 include $(EROS_SRC)/build/make/makerules.mk
 

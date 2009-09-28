@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008, Strawberry Development Group
+# Copyright (C) 2008, 2009, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -31,7 +31,6 @@ IMGMAP=swca.map
 TARGETS=$(BUILDDIR)/swca
 OBJECTS=$(BUILDDIR)/swca.o
 INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
-INC+= -I$(EROS_ROOT)/include/linux-headers
 
 include $(EROS_SRC)/build/make/makerules.mk
 

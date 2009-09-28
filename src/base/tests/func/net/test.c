@@ -42,7 +42,6 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/NPIP.h>
 #include <idl/capros/NPLinkee.h>
 
-#include <linux/usb/ch9.h>
 
 #include <domain/Runtime.h>
 

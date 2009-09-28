@@ -30,7 +30,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/test
 OBJECTS=$(BUILDDIR)/test.o
-INC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
+INC=-I$(EROS_ROOT)/include
 
 NPRANGESIZE=420
 PRANGESIZE=690

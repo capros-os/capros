@@ -288,6 +288,8 @@ CROSSLIBS+=$(CAPROS_DOMAIN)/libworkaround.a
 
 LIBDEP+=$(CROSSLIBS)
 
+LINUXINC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
+
 CMMESTART= # $(CAPROS_DOMAIN)/cmmestart.o # no such file yet
 # Put the read/write section at 0x00c00000:
 CMMELINKOPT=$(LINKOPT) -Wl,--section-start,.eh_frame=0x00c00000
