@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -38,8 +38,7 @@ OBJECTS+= $(BUILDDIR)/debug.o
 
 LIBS=../lib/$(BUILDDIR)/libusbdev.a
 
-INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
-INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
+INC=$(DRIVERINC)
 
 include $(EROS_SRC)/build/make/makerules.mk
 

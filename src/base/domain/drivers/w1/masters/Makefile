@@ -38,9 +38,7 @@ DS2490_OBJECTS=$(BUILDDIR)/ds2490.o $(BUILDDIR)/ds2490_cap.o
 
 LIBS=../../usb/lib/$(BUILDDIR)/libusbdev.a
 
-INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
-INC+= -I$(EROS_ROOT)/host/include
-INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
+INC=$(DRIVERINC)
 
 include $(EROS_SRC)/build/make/makerules.mk
 

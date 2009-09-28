@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -34,8 +34,7 @@ OBJECTS=$(BUILDDIR)/main.o
 STORID_OBJECTS=../storage/$(BUILDDIR)/stor_ids.o
 STORID_OBJECTS+=../../w1/masters/$(BUILDDIR)/ds2490_ids.o
 
-INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
-INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
+INC=$(DRIVERINC)
 
 include $(EROS_SRC)/build/make/makerules.mk
 

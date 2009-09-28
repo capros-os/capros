@@ -30,7 +30,7 @@ endif
 # The following variables depend on things set in the makefile:
 GCCFLAGS=$(CFLAGS) $(OPTIM) $(GCC_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) -DCAPROS_MACH_$(CAPROS_MACH) $(DEF)
 GPLUSFLAGS=-fdefault-inline -fno-implicit-templates $(OPTIM) $(GPLUS_OPTIM) $(INC) -DEROS_TARGET_$(EROS_TARGET) $(DEF)
-MKIMAGEFLAGS=-a $(EROS_TARGET) -DBUILDDIR='"$(BUILDDIR)/"' -DEROS_TARGET_$(EROS_TARGET) -DLIBDIR=\"$(CAPROS_DOMAIN)/\" -DCAPROS_LOCALDIR=$(CAPROS_LOCALDIR) -I$(CAPROS_DOMAIN) -I$(EROS_ROOT)/host/include -I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
+MKIMAGEFLAGS=-a $(EROS_TARGET) -DBUILDDIR='"$(BUILDDIR)/"' -DEROS_TARGET_$(EROS_TARGET) -DLIBDIR=\"$(CAPROS_DOMAIN)/\" -DCAPROS_LOCALDIR=$(CAPROS_LOCALDIR) -I$(CAPROS_DOMAIN) -I$(EROS_ROOT)/host/include $(LINUXINC)
 
 # __ASSEMBLER__ gets defined automatically, but Linux requires:
 ASMFLAGS=-D__ASSEMBLY__

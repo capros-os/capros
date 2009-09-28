@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, Strawberry Development Group
+# Copyright (C) 2007, 2009, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -31,7 +31,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 TARGETS=$(BUILDDIR)/test
 OPTIM=-O
 OBJECTS=$(BUILDDIR)/test.o
-INC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
+INC=$(LINUXINC)
 
 VOLMAP=volmap
 

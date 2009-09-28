@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -26,10 +26,8 @@ default: install
 CROSS_BUILD=yes
 
 EROS_SRC=../../../../..
-INC=-I$(BUILDDIR) -I$(EROS_ROOT)/include
-INC+= -I$(EROS_ROOT)/include/linux-headers
-INC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
 include $(EROS_SRC)/build/make/makevars.mk
+INC=-I$(BUILDDIR) $(DRIVERINC)
 
 OBJECTS=
 OBJECTS+=$(BUILDDIR)/af_inet.o

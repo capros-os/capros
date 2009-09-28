@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2008, Strawberry Development Group.
+# Copyright (C) 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -30,7 +30,7 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 TARGETS=$(BUILDDIR)/netser
 OBJECTS=$(BUILDDIR)/netser.o
-INC=-I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include
+INC=$(LINUXINC)
 INC+= -I$(EROS_ROOT)/host/include
 
 include $(EROS_SRC)/build/make/makerules.mk

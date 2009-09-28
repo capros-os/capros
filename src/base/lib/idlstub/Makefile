@@ -1,6 +1,6 @@
 #
 # Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
-# Copyright (C) 2007, 2008, Strawberry Development Group.
+# Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System,
 # and is derived from the EROS Operating System.
@@ -37,7 +37,7 @@ OBJECTS=$(patsubst %.c,%.o,$(wildcard $(BUILDDIR)/*.c))
 OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(wildcard *.c))
 # Assembler client stubs are in arch/$(EROS_TARGET)/*.S
 OBJECTS+=$(patsubst %.S,$(BUILDDIR)/%.o,$(notdir $(wildcard arch/$(EROS_TARGET)/*.S)))
-INC= -I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
+INC=$(LINUXINC)
 
 all:	$(OBJECTS)
 #	$(MAKE) $(MAKERULES) $(TARGETS)

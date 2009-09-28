@@ -289,6 +289,8 @@ CROSSLIBS+=$(CAPROS_DOMAIN)/libworkaround.a
 LIBDEP+=$(CROSSLIBS)
 
 LINUXINC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
+DRIVERINC=$(LINUXINC) -I$(EROS_ROOT)/host/include # for disk/NPODescr.h
+DRIVERINC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
 
 CMMESTART= # $(CAPROS_DOMAIN)/cmmestart.o # no such file yet
 # Put the read/write section at 0x00c00000:
