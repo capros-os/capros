@@ -535,7 +535,7 @@ unsigned char * curRcvBuf;
 static unsigned char *
 AllocRcvBuf(void)
 {
-  unsigned char * buf = malloc(rcvBufSize);
+  unsigned char * buf = mem_malloc(rcvBufSize);
   if (buf) {
     // Ensure the receive buffer is allocated by VCSK:
     assert(rcvBufSize <= EROS_PAGE_SIZE);	// else need a loop below
@@ -711,12 +711,12 @@ DestroyTCPConnection(struct TCPSocket * sock)
                        __FILE__, __LINE__, sock);
 
   assert(sock->sendBuf != curRcvBuf);
-  free(sock->sendBuf);
+  mem_free(sock->sendBuf);
 #ifdef MALLOC_DEBUG
   // Poison the sendBuf ptr.
   sock->sendBuf = POISON2;
 #endif
-  free(sock);
+  mem_free(sock);
 }
 
 /*************************** TCP Closing ******************************/
@@ -932,14 +932,14 @@ CreateSocket(void)
 {
   result_t result;
 
-  struct TCPSocket * sock = malloc(sizeof(struct TCPSocket));
+  struct TCPSocket * sock = mem_malloc(sizeof(struct TCPSocket));
   if (!sock)
     goto errExit0;
 #ifdef MALLOC_DEBUG
   sock->poison0 = sock->poison1 = POISON1;
 #endif
 
-  /* buf must be malloc'ed separately from sock, because it may be
+  /* buf must be mem_malloc'ed separately from sock, because it may be
   traded away from this socket. */
   unsigned char * buf = AllocRcvBuf();
   if (!buf)
@@ -981,9 +981,9 @@ errExit3:
   result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
                                             slot, slot+sco_numSlots-1);
 errExit2:
-  free(buf);
+  mem_free(buf);
 errExit1:
-  free(sock);
+  mem_free(sock);
 errExit0:
   return NULL;
 }
@@ -1113,7 +1113,7 @@ TCPListen(Message * msg)
 
   unsigned int portNum = msg->rcv_w1;
 
-  struct TCPListenSocket * ls = malloc(sizeof(struct TCPListenSocket));
+  struct TCPListenSocket * ls = mem_malloc(sizeof(struct TCPListenSocket));
   if (!ls) {
     msg->snd_code = RC_capros_IPDefs_NoMem;
     return;
@@ -1193,7 +1193,7 @@ errExit2:
   result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
                                             slot, slot+ls_numSlots-1);
 errExit1:
-  free(ls);
+  mem_free(ls);
   return;
 }
 
@@ -1409,7 +1409,7 @@ driver_main(void)
         result = capros_SpaceBank_free1(KR_BANK, KR_TEMP1);
         result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
                                             slot, slot+ls_numSlots-1);
-        free(ls);
+        mem_free(ls);
         break;
       }
   

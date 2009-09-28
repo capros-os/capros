@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/UDPPort.h>
 #include <domain/assert.h>
 
+#include <lwip/mem.h>
 #include <lwip/pbuf.h>
 #include <lwip/udp.h>
 
@@ -172,7 +173,7 @@ UDPCreate(Message * msg)
 
   unsigned int localPort = msg->rcv_w1;
 
-  struct UDPPort * sock = malloc(sizeof(struct UDPPort));
+  struct UDPPort * sock = mem_malloc(sizeof(struct UDPPort));
   if (!sock) {
     msg->snd_code = RC_capros_IPDefs_NoMem;
     goto errExit0;
@@ -245,7 +246,7 @@ errExit3:
 errExit2:
   udp_remove(pcb);
 errExit1:
-  free(sock);
+  mem_free(sock);
 errExit0:
   return;
 }
@@ -280,7 +281,7 @@ UDPDestroy(Message * msg)
   result = capros_SuperNode_deallocateRange(KR_KEYSTORE,
                                             slot, slot+udp_numSlots-1);
   udp_remove(sock->pcb);
-  free(sock);
+  mem_free(sock);
 }
 
 void
