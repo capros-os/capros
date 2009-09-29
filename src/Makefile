@@ -99,14 +99,3 @@ ifeq "$(NEED_CROSS_BOOTSTRAP)" "yes"
 	$(MAKE) cross-bootstrap
 endif
 	$(MAKE) world
-
-# Following is a very temporary target placed here by shap until I
-# can get the test cases cleaned up enough to move this down into
-# the test directory where it belongs
-regress:
-	$(MAKE) -C tutorial/hello-large clean vmware
-	$(MAKE) -C tutorial/hello-large clean
-	$(MAKE) -C tutorial/triv-keeper clean vmware
-	$(MAKE) -C tutorial/triv-keeper clean
-	$(MAKE) -C base/tests/func/constructor_test clean vmware
-	$(MAKE) -C base/tests/func/constructor_test clean
