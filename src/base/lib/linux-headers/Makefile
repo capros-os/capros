@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, Strawberry Development Group.
+# Copyright (C) 2007, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -38,14 +38,7 @@ CROSS_BUILD=yes
 
 include $(EROS_SRC)/build/make/makevars.mk
 
-DIRS=asm
-
-# FIXME: Should be using ARCH_LIST to get the Linux name:
-ifeq "$(EROS_TARGET)" "i486"
-DIRS+=asm-i386
-else
-DIRS+=asm-$(EROS_TARGET)
-endif
+DIRS+=asm-$(LINUX_TARGET)
 
 include $(EROS_SRC)/build/make/makerules.mk
 

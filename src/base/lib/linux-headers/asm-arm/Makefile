@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2007, Strawberry Development Group.
+# Copyright (C) 2007, 2009, Strawberry Development Group.
 #
 # This file is part of the CapROS Operating System.
 #
@@ -31,8 +31,6 @@ ASM_HEADERS=$(wildcard *.h)
 ASMARCH_HEADERS=$(wildcard $(ASMARCH_DIR)/*.h)
 ASMMACH_HEADERS=$(wildcard mach/*.h)
 
-THISDIR=$(notdir $(shell pwd))
-
 EROS_SRC=../../../..
 CROSS_BUILD=yes
 
@@ -45,12 +43,11 @@ include $(EROS_SRC)/build/make/makerules.mk
 all:
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/$(THISDIR)/$(ASMARCH_DIR)/
-	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/$(THISDIR)/mach/
-	$(INSTALL) -m 644 $(ASM_HEADERS) $(EROS_ROOT)/include/linux-headers/$(THISDIR)/
-	$(INSTALL) -m 644 $(ASMARCH_HEADERS) $(EROS_ROOT)/include/linux-headers/$(THISDIR)/$(ASMARCH_DIR)/
-	$(INSTALL) -m 644 $(ASMMACH_HEADERS) $(EROS_ROOT)/include/linux-headers/$(THISDIR)/mach/
+	$(INSTALL) -d $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm/$(ASMARCH_DIR)
+	$(INSTALL) -d $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm/mach/
+	$(INSTALL) -m 644 $(ASM_HEADERS) $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm/
+	$(INSTALL) -m 644 $(ASMARCH_HEADERS) $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm/$(ASMARCH_DIR)/
+	$(INSTALL) -m 644 $(ASMMACH_HEADERS) $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm/mach/
 # arm is the only target that uses asm/arch/, and we only support one
 # architecture at a time, so the following kludge works:
-	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/asm/
-	ln --symbolic --force $(EROS_ROOT)/include/linux-headers/$(THISDIR)/$(ASMARCH_DIR)/ $(EROS_ROOT)/include/linux-headers/asm/arch
+	ln --symbolic --force $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm/$(ASMARCH_DIR)/ $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm/arch

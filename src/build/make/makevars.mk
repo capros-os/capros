@@ -71,10 +71,14 @@ endif
 
 # Sometimes we want i486 (for compatibility with EROS stuff),
 # sometimes i386 (for compatibility with Linux)
+# FIXME: Should be using ARCH_LIST to get the Linux names.
 ifeq "$(EROS_TARGET)" "i486"
 LINUX_TARGET=i386
+# LINUX2624_TARGET is the architecture name as of linux 2.6.24
+LINUX2624_TARGET=x86
 else
 LINUX_TARGET=$(EROS_TARGET)
+LINUX2624_TARGET=$(EROS_TARGET)
 endif
 
 ifndef EROS_ROOT
@@ -288,7 +292,7 @@ CROSSLIBS+=$(CAPROS_DOMAIN)/libworkaround.a
 
 LIBDEP+=$(CROSSLIBS)
 
-LINUXINC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers
+LINUXINC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)
 DRIVERINC=$(LINUXINC) -I$(EROS_ROOT)/host/include # for disk/NPODescr.h
 DRIVERINC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
 

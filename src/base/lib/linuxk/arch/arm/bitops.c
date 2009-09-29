@@ -4,7 +4,7 @@
  *  Linus Torvalds (test_bit).
  * Big endian support: Copyright 2001, Nicolas Pitre
  *  reworked by rmk.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -27,7 +27,7 @@ Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
 //#include <linuxk/linux-emul.h>
-#include <asm-arm/bitops.h>
+#include <asm/bitops.h>
 
 /*
  * bit 0 is the LSB of an "unsigned long" quantity.
