@@ -74,8 +74,6 @@ CAPROS_OBJECTS+=$(BUILDDIR)/showkey.o	# ShowKey is used in some tests
 # (Other stuff in key/ is not used and should be converted to IDL.)
 # keyset stuff should be converted to IDL, but until then:
 CAPROS_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard key/keyset*.c)))
-# nfile stuff should be converted to IDL, but until then:
-CAPROS_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(notdir $(wildcard key/nfile*.c)))
 # KEYSRC=$(notdir $(wildcard key/*.c))
 # CAPROS_OBJECTS+=$(patsubst %.c,$(BUILDDIR)/%.o,$(KEYSRC))
 CAPROS_OBJECTS+=$(wildcard ../idlstub/$(BUILDDIR)/*.o)
