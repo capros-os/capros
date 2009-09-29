@@ -66,8 +66,9 @@ OBJECTS+= $(BUILDDIR)/ip_frag.o
 # from netif:
 OBJECTS+= $(BUILDDIR)/etharp.o
 
-INC=-I./include -I ./include/ipv4 -I$(EROS_ROOT)/include
+INC=-I./include -I ./include/ipv4
 INC+=$(LINUXINC)
+INC+=-I$(EROS_ROOT)/host/include	# for disk/NPODescr.h
 INC+= -I./include/arch/$(EROS_TARGET)	# for arch/cc.h
 
 ifeq "$(EROS_TARGET)" "arm"
