@@ -48,7 +48,7 @@ const char *dev_driver_string(struct device *dev)
 void device_initialize(struct device *dev)
 {
         // kobj_set_kset_s(dev, devices_subsys);
-        kobject_init(&dev->kobj);
+        kobject_init(&dev->kobj, NULL);
         // klist_init(&dev->klist_children, klist_children_get,
         //            klist_children_put);
         INIT_LIST_HEAD(&dev->dma_pools);

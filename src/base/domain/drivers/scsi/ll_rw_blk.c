@@ -7,7 +7,7 @@
  * bio rewrite, highmem i/o, etc, Jens Axboe <axboe@suse.de> - may 2001
  */
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -1893,7 +1893,7 @@ request_queue_t *blk_alloc_queue_node(gfp_t gfp_mask, int node_id)
 	memset(q, 0, sizeof(*q));
 	init_timer(&q->unplug_timer);
 
-	snprintf(q->kobj.name, KOBJ_NAME_LEN, "%s", "queue");
+	snprintf(q->kobj.name, sizeof(q->kobj.name), "%s", "queue");
 	q->kobj.ktype = &queue_ktype;
 	kobject_init(&q->kobj);
 

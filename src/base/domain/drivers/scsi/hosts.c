@@ -21,7 +21,7 @@
  *  September 04, 2002 Mike Anderson (andmike@us.ibm.com)
  */
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -265,8 +265,8 @@ int scsi_add_host(struct Scsi_Host *shost, struct device *dev)
 		goto out_del_classdev;
 
 	if (shost->transportt->create_work_queue) {
-		snprintf(shost->work_q_name, KOBJ_NAME_LEN, "scsi_wq_%d",
-			shost->host_no);
+		snprintf(shost->work_q_name, sizeof(shost->work_q_name),
+			 "scsi_wq_%d", shost->host_no);
 		shost->work_q = create_singlethread_workqueue(
 					shost->work_q_name);
 		if (!shost->work_q)
