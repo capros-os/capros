@@ -46,7 +46,6 @@ HEADERS=\
 	Invoke.h \
 	IORQ32.h \
 	KeyboardKey.h \
-	KeyConst.h \
        	Link.h \
 	ProcStats.h \
 	Reserve.h \
