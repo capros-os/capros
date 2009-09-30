@@ -2,7 +2,7 @@
 #define _LINUX_SCHED_H
 
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -79,7 +79,7 @@ struct sched_param {
 #include <linux/nodemask.h>
 
 #include <asm/system.h>
-#include <asm/semaphore.h>
+#include <linux/semaphore.h>
 #include <asm/page.h>
 #include <asm/ptrace.h>
 #include <asm/mmu.h>

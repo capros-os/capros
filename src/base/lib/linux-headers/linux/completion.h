@@ -3,13 +3,13 @@
 
 /*
  * (C) Copyright 2001 Linus Torvalds
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * Atomic wait-for-completion handler data structures.
  * See kernel/sched.c for details.
  */
 
-#include <asm/semaphore.h>
+#include <linux/semaphore.h>
 
 /* done has the number of unacknowledged completions times 2,
    plus one if there is a timeout.

@@ -4,14 +4,14 @@
  * started by Ingo Molnar:
  *
  *  Copyright (C) 2004, 2005, 2006 Red Hat, Inc., Ingo Molnar <mingo@redhat.com>
- * Portions Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Portions Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file contains the main data structure and API definitions.
  */
 #ifndef __LINUX_MUTEX_H
 #define __LINUX_MUTEX_H
 
-#include <asm/semaphore.h>
+#include <linux/semaphore.h>
 
 /*
  * Simple, straightforward mutexes with strict semantics:

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -46,7 +46,7 @@ Approved for public release, distribution unlimited. */
 #include <linux/kthread.h>
 #include <linux/mutex.h>
 
-#include <asm/semaphore.h>
+#include <linux/semaphore.h>
 #include <asm/byteorder.h>
 
 #include "usb.h"

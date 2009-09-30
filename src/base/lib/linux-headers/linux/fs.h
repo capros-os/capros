@@ -285,7 +285,7 @@ extern int dir_notify_enable;
 #include <linux/mutex.h>
 
 #include <asm/atomic.h>
-#include <asm/semaphore.h>
+#include <linux/semaphore.h>
 #include <asm/byteorder.h>
 
 struct hd_geometry;

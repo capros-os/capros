@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -29,7 +29,7 @@ Approved for public release, distribution unlimited. */
 #include <linuxk/lsync.h>
 #include <linux/interrupt.h>
 #include <linux/err.h>
-#include <asm-generic/semaphore.h>
+#include <linux/semaphore.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/DevPrivs.h>
 #include <domain/assert.h>

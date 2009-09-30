@@ -1,7 +1,7 @@
 /*
  *  Copyright 1999 ARM Limited
  *  Copyright (C) 2000-2001 Deep Blue Solutions Ltd.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -32,7 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <linux/tty_flip.h>
 #include <linux/mutex.h>
 #include <linux/delay.h>
-#include <asm-generic/semaphore.h>
+#include <linux/semaphore.h>
 #include <asm/termios.h>
 #include <linux/thread_info.h>
 #include <eros/Invoke.h>	// get RC_OK

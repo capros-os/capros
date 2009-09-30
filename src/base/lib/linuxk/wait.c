@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -25,7 +25,7 @@ Approved for public release, distribution unlimited. */
 //#include <linuxk/lsync.h>
 #include <linux/kernel.h>
 #include <linux/wait.h>
-#include <asm/semaphore.h>
+#include <linux/semaphore.h>
 
 void init_waitqueue_head(wait_queue_head_t *q)
 {

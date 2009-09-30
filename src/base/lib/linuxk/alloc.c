@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -28,7 +28,7 @@ Approved for public release, distribution unlimited. */
 
 #include <linuxk/linux-emul.h>
 #include <linux/slab.h>
-#include <asm-generic/semaphore.h>
+#include <linux/semaphore.h>
 
 // malloc is protected by:
 DECLARE_MUTEX(mallocLock);
