@@ -32,7 +32,7 @@
  *	than the level indicated above to trigger output.	
  */
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -80,8 +80,8 @@ Approved for public release, distribution unlimited. */
 #include <scsi/scsi_host.h>
 #include <scsi/scsi_ioctl.h>
 //#include <scsi/scsicam.h>
-#include <scsi/sd.h>
 
+#include "sd.h"
 #include "scsi_logging.h"
 
 static int  sd_revalidate_disk(struct gendisk *disk);
