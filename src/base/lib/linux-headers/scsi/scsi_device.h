@@ -141,7 +141,6 @@ struct scsi_device {
 	int timeout;
 
 	struct device		sdev_gendev;
-	struct class_device	sdev_classdev;
 
 	struct execute_work	ew; /* used to get process context on put */
 

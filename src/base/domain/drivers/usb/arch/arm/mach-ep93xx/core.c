@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -50,6 +50,9 @@ static struct platform_device ep93xx_ohci_device = {
 	.name		= "ep93xx-ohci",
 	.id		= -1,
 	.dev		= {
+		.kobj		= {
+			.name		= "ep93xx-ohci-dev"
+		},
 		.dma_mask		= (void *)0xffffffff,
 		.coherent_dma_mask	= 0xffffffff,
 	},

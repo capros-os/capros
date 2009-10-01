@@ -1103,7 +1103,7 @@ void usb_disable_device(struct usb_device *dev, int skip_ep0)
 			if (!device_is_registered(&interface->dev))
 				continue;
 			dev_dbg (&dev->dev, "unregistering interface %s\n",
-				interface->dev.bus_id);
+				dev_name(&interface->dev));
 			//usb_remove_sysfs_intf_files(interface);
 			usb_unbind_interface(&interface->dev);
 		}
@@ -1643,9 +1643,9 @@ noArray:
 		intf->dev.dma_mask = dev->dev.dma_mask;
 		device_initialize (&intf->dev);
 		mark_quiesced(intf);
-		sprintf (&intf->dev.bus_id[0], "%d-%s:%d.%d",
-			 dev->bus->busnum, dev->devpath,
-			 configuration, alt->desc.bInterfaceNumber);
+		dev_set_name(&intf->dev, "%d-%s:%d.%d",
+			dev->bus->busnum, dev->devpath,
+			configuration, alt->desc.bInterfaceNumber);
 	}
 	kfree(new_interfaces);
 
@@ -1661,12 +1661,12 @@ noArray:
 	for (i = 0; i < nintf; ++i) {
 		struct usb_interface *intf = cp->interface[i];
 
-		dev_dbg (&dev->dev,
+		dev_dbg(&dev->dev,
 			"adding %s (config #%d, interface %d)\n",
-			intf->dev.bus_id, configuration,
+			dev_name(&intf->dev), configuration,
 			intf->cur_altsetting->desc.bInterfaceNumber);
 		// Instead of device_add:
-		intf->dev.is_registered = 1;
+		intf->dev.kobj.state_in_sysfs = 1;
 		// Is it a hub?
 		if (dev->descriptor.bDeviceClass == USB_CLASS_HUB
 		    || intf->cur_altsetting->desc.bInterfaceClass
@@ -1694,7 +1694,7 @@ noArray:
 		}
 		if (ret != 0) {
 			dev_err(&dev->dev, "device_add(%s) --> %d\n",
-				intf->dev.bus_id, ret);
+				dev_name(&intf->dev), ret);
 			continue;
 		}
 		//usb_create_sysfs_intf_files (intf);

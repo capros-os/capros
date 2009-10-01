@@ -419,8 +419,7 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 		goto fail_kfree;
 
 	device_initialize(&shost->shost_gendev);
-	snprintf(shost->shost_gendev.bus_id, BUS_ID_SIZE, "host%d",
-		shost->host_no);
+	dev_set_name(&shost->shost_gendev, "host%d", shost->host_no);
 	shost->shost_gendev.release = scsi_host_dev_release;
 
 #if 0 // CapROS

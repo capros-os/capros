@@ -244,6 +244,7 @@ int kobject_register(struct kobject * kobj)
 	}
 	return error;
 }
+#endif // CapROS
 
 /**
  * kobject_set_name_vargs - Set the name of an kobject
@@ -294,6 +295,7 @@ int kobject_set_name(struct kobject *kobj, const char *fmt, ...)
 }
 EXPORT_SYMBOL(kobject_set_name);
 
+#if 0 // CapROS
 /**
  *	kobject_rename - change the name of an object
  *	@kobj:	object in question.

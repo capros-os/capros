@@ -1019,9 +1019,8 @@ void scsi_sysfs_device_initialize(struct scsi_device *sdev)
 	device_initialize(&sdev->sdev_gendev);
 	sdev->sdev_gendev.bus = NULL;////&scsi_bus_type;
 	sdev->sdev_gendev.release = scsi_device_dev_release;
-	sprintf(sdev->sdev_gendev.bus_id,"%d:%d:%d:%d",
-		sdev->host->host_no, sdev->channel, sdev->id,
-		sdev->lun);
+	dev_set_name(&sdev->sdev_gendev, "%d:%d:%d:%d",
+		sdev->host->host_no, sdev->channel, sdev->id, sdev->lun);
 	
 #if 0 // CapROS
 	class_device_initialize(&sdev->sdev_classdev);

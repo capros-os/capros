@@ -256,17 +256,6 @@ void transport_destroy_device(struct device * dev)
 }
 #endif
 
-// linux/device.h
-void class_device_unregister(struct class_device * dev)
-{
-  BUG_ON("unimplemented");
-}
-
-void class_device_initialize(struct class_device * dev)
-{
-  BUG_ON("unimplemented");
-}
-
 int device_add(struct device * dev)
 {
   BUG_ON("unimplemented");

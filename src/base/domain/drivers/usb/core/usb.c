@@ -11,7 +11,7 @@
  * (C) Copyright Yggdrasil Computing, Inc. 2000
  *     (usb_device_id matching changes by Adam J. Richter)
  * (C) Copyright Greg Kroah-Hartman 2002-2003
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * NOTE! This is not actually a driver at all, rather this is
  * just a collection of helper routines that implement the
@@ -313,7 +313,7 @@ usb_alloc_dev(struct usb_device *parent, struct usb_bus *bus, unsigned port1)
 		dev->devpath[0] = '0';
 
 		dev->dev.parent = bus->controller;
-		sprintf(&dev->dev.bus_id[0], "usb%d", bus->busnum);
+		dev_set_name(&dev->dev, "usb%d", bus->busnum);
 	} else {
 		/* match any labeling on the hubs; it's one-based */
 		if (parent->devpath[0] == '0')
@@ -324,8 +324,7 @@ usb_alloc_dev(struct usb_device *parent, struct usb_bus *bus, unsigned port1)
 				"%s.%d", parent->devpath, port1);
 
 		dev->dev.parent = &parent->dev;
-		sprintf(&dev->dev.bus_id[0], "%d-%s",
-			bus->busnum, dev->devpath);
+		dev_set_name(&dev->dev, "%d-%s", bus->busnum, dev->devpath);
 
 		/* hub driver sets up TT records */
 	}

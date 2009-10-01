@@ -21,7 +21,7 @@
 #define to_platform_driver(drv)	(container_of((drv), struct platform_driver, driver))
 
 struct device platform_bus = {
-	.bus_id		= "platform",
+	.init_name	= "platform",
 };
 EXPORT_SYMBOL_GPL(platform_bus);
 
@@ -179,12 +179,6 @@ struct platform_device *platform_device_alloc(const char *name, unsigned int id)
 		pa->pdev.id = id;
 //		device_initialize(&pa->pdev.dev);
 		pa->pdev.dev.release = platform_device_release;
-
-		/* prevent hotplug "modprobe $(MODALIAS)" from causing trouble in
-		 * legacy probe-the-hardware drivers, which don't properly split
-		 * out device enumeration logic from drivers.
-		 */
-		pa->pdev.dev.uevent_suppress = 1;
 	}
 
 	return pa ? &pa->pdev : NULL;

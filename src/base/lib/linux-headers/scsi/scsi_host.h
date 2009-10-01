@@ -646,7 +646,6 @@ struct Scsi_Host {
 
 	/* ldm bits */
 	struct device		shost_gendev;
-	struct class_device	shost_classdev;
 
 	/*
 	 * List of hosts per template.

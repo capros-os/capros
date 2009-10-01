@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System.
  *
@@ -122,7 +122,7 @@ static struct amba_pl010_data ep93xx_uart_data3 = {
 
 static struct amba_device uart3_device = {
 	.dev		= {
-		.bus_id		= "apb:uart3",
+		.init_name	= "apb:uart3",
 		.platform_data	= &ep93xx_uart_data3,
 	},
 	.res		= {

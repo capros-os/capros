@@ -38,7 +38,7 @@ int (*platform_notify_remove)(struct device * dev) = NULL;
  * it is attached to.  If it is not attached to a bus either, an empty
  * string will be returned.
  */
-const char *dev_driver_string(struct device *dev)
+const char *dev_driver_string(const struct device *dev)
 {
 	return dev->driver ? dev->driver->name :
 			(dev->bus ? dev->bus->name :
@@ -52,10 +52,26 @@ void device_initialize(struct device *dev)
         // klist_init(&dev->klist_children, klist_children_get,
         //            klist_children_put);
         INIT_LIST_HEAD(&dev->dma_pools);
-        INIT_LIST_HEAD(&dev->node);
         init_MUTEX(&dev->sem);
         spin_lock_init(&dev->devres_lock);
         INIT_LIST_HEAD(&dev->devres_head);
         device_init_wakeup(dev, 0);
         set_dev_node(dev, -1);
 }
+
+/**
+ * dev_set_name - set a device name
+ * @dev: device
+ * @fmt: format string for the device's name
+ */
+int dev_set_name(struct device *dev, const char *fmt, ...)
+{
+	va_list vargs;
+	int err;
+
+	va_start(vargs, fmt);
+	err = kobject_set_name_vargs(&dev->kobj, fmt, vargs);
+	va_end(vargs);
+	return err;
+}
+EXPORT_SYMBOL_GPL(dev_set_name);
