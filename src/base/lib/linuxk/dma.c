@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -35,6 +35,19 @@ Approved for public release, distribution unlimited. */
 #include <idl/capros/DevPrivs.h>
 #include <domain/domdbg.h>
 #include <domain/assert.h>
+
+int
+dma_alloc_from_coherent(struct device *dev, ssize_t size,
+			dma_addr_t *dma_handle, void **ret)
+{
+  return 0;	// CapROS doesn't yet implement per-device DMA memory
+}
+
+int
+dma_release_from_coherent(struct device *dev, int order, void *vaddr)
+{
+  return 0;	// CapROS doesn't yet implement per-device DMA memory
+}
 
 void *
 capros_dma_alloc_coherent(dma_addr_t dma_mask,

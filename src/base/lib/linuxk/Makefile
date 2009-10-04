@@ -65,10 +65,9 @@ OBJECTS=\
   $(BUILDDIR)/workqueue.o
 ##  $(BUILDDIR)/page_alloc.o
 
-ifeq "$(EROS_TARGET)" "i386"
-OBJECTS+=$(BUILDDIR)/checksum.o
+ifeq "$(LINUX_TARGET)" "i386"
 else
-ifeq "$(EROS_TARGET)" "arm"
+ifeq "$(LINUX_TARGET)" "arm"
 OBJECTS+=$(BUILDDIR)/bitops.o
 OBJECTS+=$(BUILDDIR)/csumpartialcopy.o
 OBJECTS+=$(BUILDDIR)/devclock.o
