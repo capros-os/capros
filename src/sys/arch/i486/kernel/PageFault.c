@@ -810,21 +810,30 @@ proc_DoPageFault(Process * p, ula_t la, bool isWrite, bool prompt)
 
 /* May Yield. */
 static PageHeader *
-proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
+NewPageTableOrDir(void)
 {
   PageHeader * pTable = objC_GrabPageFrame2(true);
   physMem_numMapTabPageFrames++;
-
   pTable->kt_u.mp.obType = ot_PtMappingPage;
-  pTable->kt_u.mp.tableSize = 1;
   pTable->kt_u.mp.kernelPin = 0;
+
+  kva_t tableAddr = pageH_GetPageVAddr(pTable);
+  kzero((void *)tableAddr, EROS_PAGE_SIZE);
+
+  return pTable;
+}
+
+/* May Yield. */
+static PageHeader *
+proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
+{
+  PageHeader * pTable = NewPageTableOrDir();
+  pTable->kt_u.mp.tableSize = 1;
 
   pTable->kt_u.mp.backgroundGPT = wi->backgroundGPT;
   pTable->kt_u.mp.readOnly = BOOL(wi->restrictions & capros_Memory_readOnly);
 
   kva_t tableAddr = pageH_GetPageVAddr(pTable);
-
-  kzero((void *)tableAddr, EROS_PAGE_SIZE);
 
   {	// Copy the kernel address space from UMSGTOP up.
     uint32_t *kpgdir = (uint32_t *) KernPageDir;
@@ -844,20 +853,13 @@ proc_MakeNewPageDirectory(SegWalk* wi /*@ not null @*/)
 static PageHeader *
 MakeNewPageTable(SegWalk* wi /*@ not null @*/ )
 {
-  /* Need to make a new mapping table: */
-  PageHeader * pTable = objC_GrabPageFrame();
-  pTable->kt_u.mp.obType = ot_PtMappingPage;
+  PageHeader * pTable = NewPageTableOrDir();
   pTable->kt_u.mp.tableSize = 0;
-  pTable->kt_u.mp.kernelPin = 0;
   
   pTable->kt_u.mp.backgroundGPT = wi->backgroundGPT;
   /* All page tables have readOnly == 0. We use the readOnly protection
   in the page directory. */
   pTable->kt_u.mp.readOnly = 0;
-
-  kva_t tableAddr = pageH_GetPageVAddr(pTable);
-
-  kzero((void *)tableAddr, EROS_PAGE_SIZE);
 
 #if 0
   printf("0x%08x->MkPgTbl(blss=%d,ndx=%d,rw=%c,ca=%c,"
