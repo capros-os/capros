@@ -8,6 +8,20 @@
 #include <asm/scatterlist.h>
 
 /*
+ * Optional device DMA address remapping. Do _not_ use directly!
+ * We should really eliminate virt_to_bus() here - it's deprecated.
+ */
+#ifndef __arch_page_to_dma
+#define page_to_dma(dev, page)		((dma_addr_t)__virt_to_bus((unsigned long)page_address(page)))
+#define dma_to_virt(dev, addr)		((void *)__bus_to_virt(addr))
+#define virt_to_dma(dev, addr)		((dma_addr_t)__virt_to_bus((unsigned long)(addr)))
+#else
+#define page_to_dma(dev, page)		(__arch_page_to_dma(dev, page))
+#define dma_to_virt(dev, addr)		(__arch_dma_to_virt(dev, addr))
+#define virt_to_dma(dev, addr)		(__arch_virt_to_dma(dev, addr))
+#endif
+
+/*
  * DMA-consistent mapping functions.  These allocate/free a region of
  * uncached, unwrite-buffered mapped memory space for use with DMA
  * devices.  This is the "generic" version.  The PCI specific version

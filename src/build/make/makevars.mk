@@ -79,10 +79,12 @@ LINUX2624_TARGET=x86
 else
 LINUX_TARGET=$(EROS_TARGET)
 LINUX2624_TARGET=$(EROS_TARGET)
+ifeq "$(EROS_TARGET)" "arm"
+# For now, only ep93xx is supported.
+LINUX_MACH=ep93xx
+endif
 endif
 
-ifndef EROS_ROOT
-endif
 ifndef EROS_XENV
 EROS_XENV=/capros/host
 endif
@@ -293,6 +295,11 @@ CROSSLIBS+=$(CAPROS_DOMAIN)/libworkaround.a
 LIBDEP+=$(CROSSLIBS)
 
 LINUXINC=-I$(EROS_ROOT)/include -I$(EROS_ROOT)/include/linux-headers -I$(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)
+ifdef LINUX_MACH
+# and for <mach/*.h>:
+LINUXINC+= -I$(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/$(LINUX_MACH)
+endif
+
 DRIVERINC=$(LINUXINC) -I$(EROS_ROOT)/host/include # for disk/NPODescr.h
 DRIVERINC+= -include $(EROS_ROOT)/include/linuxk/linux-emul.h
 

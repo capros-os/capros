@@ -1,5 +1,4 @@
 /*
- * Automatically generated C config: don't edit
  * Linux kernel version: 2.6.22.6
  * Fri Sep 14 10:57:01 2007
  */
@@ -11,6 +10,7 @@
 #define CONFIG_DEBUG_SPINLOCK_SLEEP 1
 #endif
 
+#define CONFIG_PAGE_OFFSET 0xc0000000
 #define CONFIG_PREEMPT //
 #define CONFIG_LOCK_KERNEL //
 #define CONFIG_PREEMPT_BKL 1 //
@@ -475,6 +475,7 @@
 #define CONFIG_MARVELL_PHY_MODULE 1
 #define CONFIG_IP_NF_TARGET_REDIRECT_MODULE 1
 #define CONFIG_PM_DEBUG 1
+#define CONFIG_PHYS_ADDR_T_64BIT 1
 #define CONFIG_RESOURCES_64BIT 1
 #define CONFIG_DEFAULT_IOSCHED "cfq"
 #define CONFIG_CRYPTO_TWOFISH_MODULE 1

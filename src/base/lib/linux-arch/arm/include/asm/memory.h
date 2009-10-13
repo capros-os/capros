@@ -1,5 +1,5 @@
 /*
- *  linux/include/asm-arm/memory.h
+ *  arch/arm/include/asm/memory.h
  *
  *  Copyright (C) 2000-2002 Russell King
  *  modification for nommu, Hyok S. Choi, 2004
@@ -13,30 +13,27 @@
 #ifndef __ASM_ARM_MEMORY_H
 #define __ASM_ARM_MEMORY_H
 
+#include <linux/compiler.h>
+#include <linux/const.h>
+#include <mach/memory.h>
+#include <asm/sizes.h>
+
 /*
  * Allow for constants defined here to be used from assembly code
  * by prepending the UL suffix only with actual C code compilation.
  */
-#ifndef __ASSEMBLY__
-#define UL(x) (x##UL)
-#else
-#define UL(x) (x)
-#endif
-
-#include <linux/compiler.h>
-#include <asm/arch/memory.h>
-#include <asm/sizes.h>
+#define UL(x) _AC(x, UL)
 
 #ifdef CONFIG_MMU
 
-#ifndef TASK_SIZE
 /*
+ * PAGE_OFFSET - the virtual address of the start of the kernel image
  * TASK_SIZE - the maximum size of a user space task.
  * TASK_UNMAPPED_BASE - the lower boundary of the mmap VM area
  */
-#define TASK_SIZE		UL(0xbf000000)
-#define TASK_UNMAPPED_BASE	UL(0x40000000)
-#endif
+#define PAGE_OFFSET		UL(CONFIG_PAGE_OFFSET)
+#define TASK_SIZE		(UL(CONFIG_PAGE_OFFSET) - UL(0x01000000))
+#define TASK_UNMAPPED_BASE	(UL(CONFIG_PAGE_OFFSET) / 3)
 
 /*
  * The maximum size of a 26-bit user space task.
@@ -44,21 +41,21 @@
 #define TASK_SIZE_26		UL(0x04000000)
 
 /*
- * Page offset: 3GB
- */
-#ifndef PAGE_OFFSET
-#define PAGE_OFFSET		UL(0xc0000000)
-#endif
-
-/*
  * The module space lives between the addresses given by TASK_SIZE
  * and PAGE_OFFSET - it must be within 32MB of the kernel text.
  */
-#define MODULE_END		(PAGE_OFFSET)
-#define MODULE_START		(MODULE_END - 16*1048576)
-
-#if TASK_SIZE > MODULE_START
+#define MODULES_VADDR		(PAGE_OFFSET - 16*1024*1024)
+#if TASK_SIZE > MODULES_VADDR
 #error Top of user space clashes with start of module space
+#endif
+
+/*
+ * The highmem pkmap virtual space shares the end of the module area.
+ */
+#ifdef CONFIG_HIGHMEM
+#define MODULES_END		(PAGE_OFFSET - PMD_SIZE)
+#else
+#define MODULES_END		(PAGE_OFFSET)
 #endif
 
 /*
@@ -66,7 +63,7 @@
  * Since we use sections to map it, this macro replaces the physical address
  * with its virtual address while keeping offset from the base section.
  */
-#define XIP_VIRT_ADDR(physaddr)  (MODULE_START + ((physaddr) & 0x000fffff))
+#define XIP_VIRT_ADDR(physaddr)  (MODULES_VADDR + ((physaddr) & 0x000fffff))
 
 /*
  * Allow 16MB-aligned ioremap pages
@@ -104,8 +101,8 @@
 /*
  * The module can be at any place in ram in nommu mode.
  */
-#define MODULE_END		(END_MEM)
-#define MODULE_START		(PHYS_OFFSET)
+#define MODULES_END		(END_MEM)
+#define MODULES_VADDR		(PHYS_OFFSET)
 
 #endif /* !CONFIG_MMU */
 
@@ -122,10 +119,8 @@
  * private definitions which should NOT be used outside memory.h
  * files.  Use virt_to_phys/phys_to_virt/__pa/__va instead.
  */
-#ifndef __virt_to_phys
 #define __virt_to_phys(x)	((x) - PAGE_OFFSET + PHYS_OFFSET)
 #define __phys_to_virt(x)	((x) - PHYS_OFFSET + PAGE_OFFSET)
-#endif
 
 /*
  * Convert a physical address to a Page Frame Number and back
@@ -147,6 +142,8 @@
 
 #ifndef arch_adjust_zones
 #define arch_adjust_zones(node,size,holes) do { } while (0)
+#elif !defined(CONFIG_ZONE_DMA)
+#error "custom arch_adjust_zones() requires CONFIG_ZONE_DMA"
 #endif
 
 /*
@@ -188,6 +185,12 @@ static inline void *phys_to_virt(unsigned long x)
  * memory.  Use of these is *deprecated* (and that doesn't mean
  * use the __ prefixed forms instead.)  See dma-mapping.h.
  */
+#ifndef __virt_to_bus
+#define __virt_to_bus	__virt_to_phys
+#define __bus_to_virt	__phys_to_virt
+#define __pfn_to_bus(x)	((x) << PAGE_SHIFT)
+#endif
+
 static inline __deprecated unsigned long virt_to_bus(void *x)
 {
 	return __virt_to_bus((unsigned long)x);
@@ -217,7 +220,10 @@ static inline __deprecated void *bus_to_virt(unsigned long x)
 #ifndef CONFIG_DISCONTIGMEM
 
 #define ARCH_PFN_OFFSET		PHYS_PFN_OFFSET
+
+#ifndef CONFIG_SPARSEMEM
 #define pfn_valid(pfn)		((pfn) >= PHYS_PFN_OFFSET && (pfn) < (PHYS_PFN_OFFSET + max_mapnr))
+#endif
 
 #define virt_to_page(kaddr)	pfn_to_page(__pa(kaddr) >> PAGE_SHIFT)
 #define virt_addr_valid(kaddr)	((unsigned long)(kaddr) >= PAGE_OFFSET && (unsigned long)(kaddr) < (unsigned long)high_memory)
@@ -301,20 +307,6 @@ static inline __deprecated void *bus_to_virt(unsigned long x)
  * For BIO.  "will die".  Kill me when bio_to_phys() and bvec_to_phys() die.
  */
 #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
-
-/*
- * Optional device DMA address remapping. Do _not_ use directly!
- * We should really eliminate virt_to_bus() here - it's deprecated.
- */
-#ifndef __arch_page_to_dma
-#define page_to_dma(dev, page)		((dma_addr_t)__virt_to_bus((unsigned long)page_address(page)))
-#define dma_to_virt(dev, addr)		((void *)__bus_to_virt(addr))
-#define virt_to_dma(dev, addr)		((dma_addr_t)__virt_to_bus((unsigned long)(addr)))
-#else
-#define page_to_dma(dev, page)		(__arch_page_to_dma(dev, page))
-#define dma_to_virt(dev, addr)		(__arch_dma_to_virt(dev, addr))
-#define virt_to_dma(dev, addr)		(__arch_virt_to_dma(dev, addr))
-#endif
 
 /*
  * Optional coherency support.  Currently used only by selected

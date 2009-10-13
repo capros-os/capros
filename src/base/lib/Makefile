@@ -30,6 +30,7 @@ EROS_SRC=../..
 include $(EROS_SRC)/build/make/makevars.mk
 
 DIRS=linux-headers
+DIRS+=linux-arch
 DIRS+=crypto
 DIRS+=constructor
 DIRS+=idlstub

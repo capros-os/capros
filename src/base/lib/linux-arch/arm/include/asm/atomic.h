@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 1996 Russell King.
  *  Copyright (C) 2002 Deep Blue Solutions Ltd.
+ *  Copyright (C) 2009 Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -159,63 +160,36 @@ static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 
 #else /* ARM_ARCH_6 */
 
-#include <asm/system.h>
-
-#ifdef CONFIG_SMP
-#error SMP not supported on pre-ARMv6 CPUs
-#endif
+#include <eros/machine/atomic.h>
 
 #define atomic_set(v,i)	(((v)->counter) = (i))
 
 static inline int atomic_add_return(int i, atomic_t *v)
 {
-	unsigned long flags;
-	int val;
-
-	raw_local_irq_save(flags);
-	val = v->counter;
-	v->counter = val += i;
-	raw_local_irq_restore(flags);
-
-	return val;
+  return capros_atomic32_add_return((volatile uint32_t *)&v->counter, i);
 }
 #define atomic_add(i, v)	(void) atomic_add_return(i, v)
 
 static inline int atomic_sub_return(int i, atomic_t *v)
 {
-	unsigned long flags;
-	int val;
-
-	raw_local_irq_save(flags);
-	val = v->counter;
-	v->counter = val -= i;
-	raw_local_irq_restore(flags);
-
-	return val;
+  return atomic_add_return(-i, v);
 }
 #define atomic_sub(i, v)	(void) atomic_sub_return(i, v)
 
 static inline int atomic_cmpxchg(atomic_t *v, int old, int new)
 {
-	int ret;
-	unsigned long flags;
-
-	raw_local_irq_save(flags);
-	ret = v->counter;
-	if (likely(ret == old))
-		v->counter = new;
-	raw_local_irq_restore(flags);
-
-	return ret;
+  return capros_atomic32_cmpxchg((volatile uint32_t *)&v->counter, old, new);
 }
 
 static inline void atomic_clear_mask(unsigned long mask, unsigned long *addr)
 {
-	unsigned long flags;
-
-	raw_local_irq_save(flags);
-	*addr &= ~mask;
-	raw_local_irq_restore(flags);
+	int oldVal;
+	int val = *addr;
+	do {
+		oldVal = val;
+		val = capros_atomic32_cmpxchg((volatile uint32_t *)addr,
+                                              val, val & ~mask);
+	} while (val != oldVal);
 }
 
 #endif /* __LINUX_ARM_ARCH__ */
