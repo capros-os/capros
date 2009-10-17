@@ -215,7 +215,7 @@ maps_fini(void)
   assert(result == RC_OK);
 }
 
-// Uses KR_TEMP0 and KR_TEMP1.
+// Uses KR_TEMP0.
 result_t
 maps_mapPage_locked(unsigned long pgOffset, cap_t pageCap)
 {
@@ -225,24 +225,26 @@ maps_mapPage_locked(unsigned long pgOffset, cap_t pageCap)
 
   DEBUG(alloc) kprintf(KR_OSTREAM, "maps mapPage at 0x%x\n", pgOffset);
 
-  result = capros_GPT_getSlot(KR_MAPS_GPT, gpt17slot, KR_TEMP1);
+  assert(pageCap != KR_TEMP0);
+
+  result = capros_GPT_getSlot(KR_MAPS_GPT, gpt17slot, KR_TEMP0);
   assert(result == RC_OK);
 
   // Copy one key.
-  result = capros_GPT_setSlot(KR_TEMP1, gpt12slot, pageCap);
+  result = capros_GPT_setSlot(KR_TEMP0, gpt12slot, pageCap);
   if (result == RC_capros_key_Void) {
     // Need to create the l2v == 12 GPT
     // (We never free this GPT, even if all the space in it is unmapped.)
-    result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_TEMP1);
+    result = capros_SpaceBank_alloc1(KR_BANK, capros_Range_otGPT, KR_TEMP0);
     if (result != RC_OK)
       return result;
-    result = capros_GPT_setL2v(KR_TEMP1, EROS_PAGE_LGSIZE);
+    result = capros_GPT_setL2v(KR_TEMP0, EROS_PAGE_LGSIZE);
     assert(result == RC_OK);
-    result = capros_GPT_setSlot(KR_MAPS_GPT, gpt17slot, KR_TEMP1);
+    result = capros_GPT_setSlot(KR_MAPS_GPT, gpt17slot, KR_TEMP0);
     assert(result == RC_OK);
 
     // Now that the GPT12 is there, store pageCap again.
-    result = capros_GPT_setSlot(KR_TEMP1, gpt12slot, pageCap);
+    result = capros_GPT_setSlot(KR_TEMP0, gpt12slot, pageCap);
     assert(result == RC_OK);
   }
   else

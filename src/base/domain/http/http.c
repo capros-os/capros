@@ -80,7 +80,8 @@ result_t sockRcvLastError = RC_OK;
 
 long mapReservation;
 /* Map a memory space up to one page in size. */
-void *
+/* Uses KR_TEMP0. */
+static void *
 MapSegment(cap_t seg)
 {
   result_t result = maps_mapPage_locked(mapReservation, seg);
@@ -428,8 +429,8 @@ setUpContext(SSL_CTX *ctx) {
   DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: SetUpContext\n");
   /* Read a private key from a BIO using the pass phrase "" */
 #ifndef SELF_TEST
-  capros_Node_getSlotExtended(KR_CONSTIT, capros_HTTP_KC_RSAKey, KR_TEMP0);
-  rsaKeyData = MapSegment(KR_TEMP0);
+  capros_Node_getSlotExtended(KR_CONSTIT, capros_HTTP_KC_RSAKey, KR_TEMP1);
+  rsaKeyData = MapSegment(KR_TEMP1);
 #endif
   bio = BIO_new_mem_buf(rsaKeyData, -1); // new bio data len via strlen
   key = PEM_read_bio_RSAPrivateKey(bio, NULL, 0, NULL);
@@ -461,8 +462,8 @@ setUpContext(SSL_CTX *ctx) {
 
   /* Install the server certificate */
 #ifndef SELF_TEST
-  capros_Node_getSlotExtended(KR_CONSTIT, capros_HTTP_KC_Certificate, KR_TEMP0);
-  certData = MapSegment(KR_TEMP0);
+  capros_Node_getSlotExtended(KR_CONSTIT, capros_HTTP_KC_Certificate, KR_TEMP1);
+  certData = MapSegment(KR_TEMP1);
 #endif
   bio = BIO_new_mem_buf(certData, -1); // new bio data len via strlen
   x509 = PEM_read_bio_X509(bio, NULL, 0, NULL);

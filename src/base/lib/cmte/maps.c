@@ -52,7 +52,7 @@ maps_reserve(unsigned long numPages)
   return block;
 }
 
-// Uses KR_TEMP0 and KR_TEMP1.
+// Uses KR_TEMP0.
 result_t
 maps_mapPage(unsigned long pgOffset, cap_t pageCap)
 {

@@ -58,7 +58,7 @@ capros_dma_alloc_coherent(dma_addr_t dma_mask,
   // Allocate physical pages.
   capros_DevPrivs_addr_t physAddr;
   result = capros_DevPrivs_allocateDMAPages(KR_DEVPRIVS, nPages,
-             dma_mask, &physAddr, KR_TEMP0);
+             dma_mask, &physAddr, KR_TEMP2);
   if (result != RC_OK) {
     maps_liberate(blockStart, nPages);
     return NULL;
@@ -66,11 +66,11 @@ capros_dma_alloc_coherent(dma_addr_t dma_mask,
 
   // Map first page.
   unsigned long pgOffset = blockStart;
-  result = maps_mapPage(pgOffset++, KR_TEMP0);
+  result = maps_mapPage(pgOffset++, KR_TEMP2);
   assert(result == RC_OK);
   // Map other pages.
   for (i = 1; i < nPages; i++) {
-    result = capros_Page_getNthPage(KR_TEMP0, i, KR_TEMP1);
+    result = capros_Page_getNthPage(KR_TEMP2, i, KR_TEMP1);
     assert(result == RC_OK);
     result = maps_mapPage(pgOffset++, KR_TEMP1);
     assert(result == RC_OK);
