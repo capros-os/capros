@@ -23,7 +23,7 @@
 #include <linux/dma-debug.h>
 //#include <linux/dmar.h>
 #include <linux/bootmem.h>
-#include <linux/pci.h>
+//#include <linux/pci.h>
 
 //#include <asm/proto.h>
 #include <asm/dma.h>
