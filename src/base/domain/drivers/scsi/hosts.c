@@ -53,6 +53,7 @@ Approved for public release, distribution unlimited. */
 #include <linux/completion.h>
 #include <linux/transport_class.h>
 #include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 
 #include <scsi/scsi_device.h>
 #include <scsi/scsi_host.h>
@@ -419,6 +420,9 @@ struct Scsi_Host *scsi_host_alloc(struct scsi_host_template *sht, int privsize)
 		goto fail_kfree;
 
 	device_initialize(&shost->shost_gendev);
+	// dma_mask is maximal, because we share memory via DMA address.
+	shost->shost_gendev.dma_mask = (void *)(dma_addr_t)
+		(shost->shost_gendev.coherent_dma_mask = DMA_BIT_MASK(64));
 	dev_set_name(&shost->shost_gendev, "host%d", shost->host_no);
 	shost->shost_gendev.release = scsi_host_dev_release;
 

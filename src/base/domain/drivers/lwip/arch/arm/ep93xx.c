@@ -594,10 +594,9 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 {
 	int i;
 
-#define eth_dma_mask 0xffffffff
-	ep->descs = capros_dma_alloc_coherent(eth_dma_mask,
+	ep->descs = dma_alloc_coherent(NULL,
 				sizeof(struct ep93xx_descs),
-				&ep->descs_dma_addr);
+				&ep->descs_dma_addr, 0);
 	if (ep->descs == NULL)
 		return 1;
 	memset(ep->descs, 0, sizeof(struct ep93xx_descs));
@@ -617,7 +616,7 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 			goto err;
 		}
 #else
-		page = capros_dma_alloc_coherent(eth_dma_mask, PAGE_SIZE, &d);
+		page = dma_alloc_coherent(NULL, PAGE_SIZE, &d, 0);
 		if (page == NULL)
 			goto err;
 #endif
@@ -646,7 +645,7 @@ static int ep93xx_alloc_buffers(struct ep93xx_priv *ep)
 			goto err;
 		}
 #else
-		page = capros_dma_alloc_coherent(eth_dma_mask, PAGE_SIZE, &d);
+		page = dma_alloc_coherent(NULL, PAGE_SIZE, &d, 0);
 		if (page == NULL)
 			goto err;
 #endif

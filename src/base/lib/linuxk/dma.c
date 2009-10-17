@@ -36,18 +36,6 @@ Approved for public release, distribution unlimited. */
 #include <domain/domdbg.h>
 #include <domain/assert.h>
 
-int
-dma_alloc_from_coherent(struct device *dev, ssize_t size,
-			dma_addr_t *dma_handle, void **ret)
-{
-  return 0;	// CapROS doesn't yet implement per-device DMA memory
-}
-
-int
-dma_release_from_coherent(struct device *dev, int order, void *vaddr)
-{
-  return 0;	// CapROS doesn't yet implement per-device DMA memory
-}
 
 void *
 capros_dma_alloc_coherent(dma_addr_t dma_mask,
@@ -92,17 +80,8 @@ capros_dma_alloc_coherent(dma_addr_t dma_mask,
   return maps_pgOffsetToAddr(blockStart);
 }
 
-// Linux-compatible procedure:
-void *
-dma_alloc_coherent(struct device *dev,
-  size_t size, dma_addr_t *handle, gfp_t gfp)
-{
-  return capros_dma_alloc_coherent(dev->coherent_dma_mask, size, handle);
-}
-
 void
-dma_free_coherent(struct device *dev, size_t size, void *cpu_addr,
-                  dma_addr_t handle)
+capros_dma_free_coherent(size_t size, void *cpu_addr)
 {
   result_t result;
 

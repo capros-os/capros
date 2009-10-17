@@ -2,6 +2,7 @@
  *  linux/arch/arm/mm/dma-mapping.c
  *
  *  Copyright (C) 2000-2004 Russell King
+ *  Copyright (C) 2009 Strawberry Development Group
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -9,6 +10,7 @@
  *
  *  DMA uncached mapping support.
  */
+#include <linuxk/linux-emul.h>
 #include <linux/module.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
@@ -19,11 +21,18 @@
 #include <linux/dma-mapping.h>
 
 #include <asm/memory.h>
-#include <asm/highmem.h>
-#include <asm/cacheflush.h>
-#include <asm/tlbflush.h>
+//#include <asm/highmem.h>
+//#include <asm/cacheflush.h>
+//#include <asm/tlbflush.h>
 #include <asm/sizes.h>
 
+#include <eros/Invoke.h>	// get RC_OK
+#include <domain/CMTEMaps.h>
+#include <idl/capros/Page.h>
+#include <idl/capros/DevPrivs.h>
+#include <linuxk/dma.h>
+
+#if 0 // CapROS
 /* Sanity check size */
 #if (CONSISTENT_DMA_SIZE % SZ_2M)
 #error "CONSISTENT_DMA_SIZE must be multiple of 2MiB"
@@ -144,21 +153,21 @@ static struct arm_vm_region *arm_vm_region_find(struct arm_vm_region *head, unsi
 #ifdef CONFIG_HUGETLB_PAGE
 #error ARM Coherent DMA allocator does not (yet) support huge TLB
 #endif
+#endif // CapROS
 
 static void *
 __dma_alloc(struct device *dev, size_t size, dma_addr_t *handle, gfp_t gfp,
 	    pgprot_t prot)
 {
-	struct page *page;
-	struct arm_vm_region *c;
-	unsigned long order;
-	u64 mask = ISA_DMA_THRESHOLD, limit;
+	u64 mask = ISA_DMA_THRESHOLD;
 
+#if 0 // CapROS
 	if (!consistent_pte[0]) {
 		printk(KERN_ERR "%s: not initialised\n", __func__);
 		dump_stack();
 		return NULL;
 	}
+#endif // CapROS
 
 	if (dev) {
 		mask = dev->coherent_dma_mask;
@@ -180,10 +189,12 @@ __dma_alloc(struct device *dev, size_t size, dma_addr_t *handle, gfp_t gfp,
 		}
 	}
 
+#if 0 // CapROS
 	/*
 	 * Sanity check the allocation size.
 	 */
 	size = PAGE_ALIGN(size);
+	u64 limit;
 	limit = (mask + 1) & ~mask;
 	if ((limit && size >= limit) ||
 	    size >= (CONSISTENT_END - CONSISTENT_BASE)) {
@@ -192,11 +203,13 @@ __dma_alloc(struct device *dev, size_t size, dma_addr_t *handle, gfp_t gfp,
 		goto no_page;
 	}
 
+	unsigned long order;
 	order = get_order(size);
 
 	if (mask != 0xffffffff)
 		gfp |= GFP_DMA;
 
+	struct page *page;
 	page = alloc_pages(gfp, order);
 	if (!page)
 		goto no_page;
@@ -215,6 +228,7 @@ __dma_alloc(struct device *dev, size_t size, dma_addr_t *handle, gfp_t gfp,
 	/*
 	 * Allocate a virtual address in the consistent mapping region.
 	 */
+	struct arm_vm_region *c;
 	c = arm_vm_region_alloc(&consistent_head, size,
 			    gfp & ~(__GFP_DMA | __GFP_HIGHMEM));
 	if (c) {
@@ -263,6 +277,9 @@ __dma_alloc(struct device *dev, size_t size, dma_addr_t *handle, gfp_t gfp,
 
 	if (page)
 		__free_pages(page, order);
+#else // CapROS
+  return capros_dma_alloc_coherent(mask, size, handle);
+#endif // CapROS
  no_page:
 	*handle = ~0;
 	return NULL;
@@ -296,6 +313,7 @@ dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t gf
 }
 EXPORT_SYMBOL(dma_alloc_coherent);
 
+#if 0 // CapROS
 /*
  * Allocate a writecombining region, in much the same way as
  * dma_alloc_coherent above.
@@ -353,6 +371,7 @@ int dma_mmap_writecombine(struct device *dev, struct vm_area_struct *vma,
 	return dma_mmap(dev, vma, cpu_addr, dma_addr, size);
 }
 EXPORT_SYMBOL(dma_mmap_writecombine);
+#endif // CapROS
 
 /*
  * free a page as defined by the above mapping.
@@ -360,12 +379,6 @@ EXPORT_SYMBOL(dma_mmap_writecombine);
  */
 void dma_free_coherent(struct device *dev, size_t size, void *cpu_addr, dma_addr_t handle)
 {
-	struct arm_vm_region *c;
-	unsigned long flags, addr;
-	pte_t *ptep;
-	int idx;
-	u32 off;
-
 	WARN_ON(irqs_disabled());
 
 	if (dma_release_from_coherent(dev, get_order(size), cpu_addr))
@@ -375,6 +388,13 @@ void dma_free_coherent(struct device *dev, size_t size, void *cpu_addr, dma_addr
 		kfree(cpu_addr);
 		return;
 	}
+
+#if 0 // CapROS
+	struct arm_vm_region *c;
+	unsigned long flags, addr;
+	pte_t *ptep;
+	int idx;
+	u32 off;
 
 	size = PAGE_ALIGN(size);
 
@@ -443,9 +463,13 @@ void dma_free_coherent(struct device *dev, size_t size, void *cpu_addr, dma_addr
 	printk(KERN_ERR "%s: trying to free invalid coherent area: %p\n",
 	       __func__, cpu_addr);
 	dump_stack();
+#else // CapROS
+  capros_dma_free_coherent(size, cpu_addr);
+#endif // CapROS
 }
 EXPORT_SYMBOL(dma_free_coherent);
 
+#if 0 // CapROS
 /*
  * Initialise the consistent memory allocation.
  */
@@ -688,3 +712,4 @@ void dma_sync_sg_for_device(struct device *dev, struct scatterlist *sg,
 	}
 }
 EXPORT_SYMBOL(dma_sync_sg_for_device);
+#endif // CapROS

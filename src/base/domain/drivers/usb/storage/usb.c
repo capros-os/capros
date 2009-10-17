@@ -15,7 +15,7 @@
  * usb_device_id support by Adam J. Richter (adam@yggdrasil.com):
  *   (c) 2000 Yggdrasil Computing, Inc.
 
- * Copyright (C) 2008, Strawberry Development Group.
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
  *
  * This driver is based on the 'USB Mass Storage Class' document. This
  * describes in detail the protocol used to communicate with such
@@ -76,6 +76,7 @@ Approved for public release, distribution unlimited. */
 #include <asm/USBIntf.h>
 #include <asm/SCSIDev.h>
 #include <asm/SCSICtrl.h>
+#include <asm/DMA.h>
 #include <idl/capros/Process.h>
 #include <idl/capros/Node.h>
 #include <idl/capros/Errno.h>
@@ -138,7 +139,8 @@ capros_SCSIControl_SCSIHostTemplate capros_host_template = {
   .maxScatterGatherSegments = capros_SCSIControl_SG_ALL,
   .useClustering = true,
   .emulated = true,
-  .hostHandlesSettleDelay = true
+  .hostHandlesSettleDelay = true,
+  .coherentDMAMask = DMA_BIT_MASK(capros_DMA_DMAAddressBits)
 };
 
 /* We will only queue one command at a time, so we can statically allocate

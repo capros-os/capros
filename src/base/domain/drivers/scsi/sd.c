@@ -1581,8 +1581,7 @@ static int sd_revalidate_disk(struct gendisk *disk)
 		goto out;
 
 	dma_addr_t buffer_dma;
-	buffer = dma_alloc_coherent(&sdkp->device->sdev_gendev, // is this right?
-			 SD_BUF_SIZE, &buffer_dma, 0);
+	buffer = dma_alloc_coherent(NULL, SD_BUF_SIZE, &buffer_dma, 0);
 	if (!buffer) {
 		sd_printk(KERN_WARNING, sdkp, "sd_revalidate_disk: Memory "
 			  "allocation failure.\n");

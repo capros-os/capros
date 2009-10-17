@@ -23,7 +23,7 @@
 
 default: install
 
-HEADERS=linux-emul.h lsync.h
+HEADERS=linux-emul.h lsync.h dma.h
 
 EROS_SRC=../../..
 CROSS_BUILD=yes
@@ -40,6 +40,7 @@ OBJECTS=\
   $(BUILDDIR)/cpumask.o \
   $(BUILDDIR)/delay.o \
   $(BUILDDIR)/dma.o \
+  $(BUILDDIR)/dma-mapping.o \
   $(BUILDDIR)/dmapool.o \
   $(BUILDDIR)/driverCore.o \
   $(BUILDDIR)/ioremap.o \

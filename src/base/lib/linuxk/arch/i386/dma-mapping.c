@@ -1,21 +1,48 @@
+/*
+ * Copyright (C) 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+
+#include <linuxk/linux-emul.h>
 #include <linux/dma-mapping.h>
 #include <linux/dma-debug.h>
-#include <linux/dmar.h>
+//#include <linux/dmar.h>
 #include <linux/bootmem.h>
 #include <linux/pci.h>
 
-#include <asm/proto.h>
+//#include <asm/proto.h>
 #include <asm/dma.h>
+#include <linuxk/dma.h>
+#if 0 // CapROS
 #include <asm/iommu.h>
 #include <asm/gart.h>
 #include <asm/calgary.h>
 #include <asm/amd_iommu.h>
 
 static int forbid_dac __read_mostly;
+#endif // CapROS
 
-struct dma_map_ops *dma_ops;
+// iommu stuff will be handled in the kernel.
+extern struct dma_map_ops nommu_dma_ops;
+struct dma_map_ops *dma_ops = &nommu_dma_ops;
 EXPORT_SYMBOL(dma_ops);
 
+#if 0 // CapROS
 static int iommu_sac_force __read_mostly;
 
 #ifdef CONFIG_IOMMU_DEBUG
@@ -34,6 +61,7 @@ int iommu_detected __read_mostly = 0;
 
 dma_addr_t bad_dma_address __read_mostly = 0;
 EXPORT_SYMBOL(bad_dma_address);
+#endif // CapROS
 
 /* Dummy device used for NULL arguments (normally ISA). Better would
    be probably a smaller DMA mask, but this is bug-to-bug compatible
@@ -45,6 +73,7 @@ struct device x86_dma_fallback_dev = {
 };
 EXPORT_SYMBOL(x86_dma_fallback_dev);
 
+#if 0 // CapROS
 /* Number of entries preallocated for DMA-API debugging */
 #define PREALLOC_DMA_DEBUG_ENTRIES       32768
 
@@ -128,16 +157,15 @@ void __init pci_iommu_alloc(void)
 
 	pci_swiotlb_init();
 }
+#endif // CapROS
 
 void *dma_generic_alloc_coherent(struct device *dev, size_t size,
 				 dma_addr_t *dma_addr, gfp_t flag)
 {
 	unsigned long dma_mask;
-	struct page *page;
-	dma_addr_t addr;
-
 	dma_mask = dma_alloc_coherent_mask(dev, flag);
 
+#if 0 // CapROS
 	flag |= __GFP_ZERO;
 again:
 	page = alloc_pages_node(dev_to_node(dev), flag, get_order(size));
@@ -158,8 +186,25 @@ again:
 
 	*dma_addr = addr;
 	return page_address(page);
+#else // CapROS
+	return capros_dma_alloc_coherent(dma_mask, size, dma_addr);
+#endif // CapROS
 }
 
+static void
+nommu_free_coherent(struct device * dev, size_t size, void * vaddr,
+  dma_addr_t dma_addr)
+{
+  capros_dma_free_coherent(size, vaddr);
+}
+
+struct dma_map_ops nommu_dma_ops = {
+  .alloc_coherent = dma_generic_alloc_coherent,
+  .free_coherent  = nommu_free_coherent,
+  .is_phys        = 1,
+};
+
+#if 0 // CapROS
 /*
  * See <Documentation/x86_64/boot-options.txt> for the iommu kernel parameter
  * documentation.
@@ -306,3 +351,4 @@ static __devinit void via_no_dac(struct pci_dev *dev)
 }
 DECLARE_PCI_FIXUP_FINAL(PCI_VENDOR_ID_VIA, PCI_ANY_ID, via_no_dac);
 #endif
+#endif // CapROS

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -91,6 +91,7 @@ int usbdev_buffer_create(void)
   result_t result = capros_USBInterface_getDMAMask(KR_USBINTF, &mask);
   assert(result == RC_OK);
   deviceForDMA.dma_mask = (void *)mask;
+  deviceForDMA.coherent_dma_mask = mask;
 
 	for (i = 0; i < NUM_POOLS; i++) { 
 		size = pool_max[i];
