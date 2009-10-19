@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -26,6 +26,15 @@ Approved for public release, distribution unlimited. */
 #include <eros/Invoke.h>	// get RC_OK
 #include <idl/capros/Sleep.h>
 #include <domain/assert.h>
+
+// Delay in a spin loop for xloops/0x10c7 microseconds.
+void
+__const_udelay(unsigned long xloops)
+{
+  result_t result = capros_Sleep_delayMicroseconds(0, xloops/0x10c7,
+                      delayCalibrationConstant);
+  assert(result == RC_OK);
+}
 
 // Delay in a spin loop for usecs microseconds.
 void
