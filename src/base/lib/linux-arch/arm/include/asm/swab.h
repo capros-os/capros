@@ -1,5 +1,5 @@
 /*
- *  linux/include/asm-arm/byteorder.h
+ *  arch/arm/include/asm/byteorder.h
  *
  * ARM Endian-ness.  In little endian mode, the data bus is connected such
  * that byte accesses appear as:
@@ -12,13 +12,17 @@
  * and word accesses (data or instruction) appear as:
  *  d0...d31
  */
-#ifndef __ASM_ARM_BYTEORDER_H
-#define __ASM_ARM_BYTEORDER_H
+#ifndef __ASM_ARM_SWAB_H
+#define __ASM_ARM_SWAB_H
 
 #include <linux/compiler.h>
-#include <asm/types.h>
+#include <linux/types.h>
 
-static inline __attribute_const__ __u32 ___arch__swab32(__u32 x)
+#if !defined(__STRICT_ANSI__) || defined(__KERNEL__)
+#  define __SWAB_64_THRU_32__
+#endif
+
+static inline __attribute_const__ __u32 __arch_swab32(__u32 x)
 {
 	__u32 t;
 
@@ -40,19 +44,7 @@ static inline __attribute_const__ __u32 ___arch__swab32(__u32 x)
 
 	return x;
 }
-
-#define __arch__swab32(x) ___arch__swab32(x)
-
-#if !defined(__STRICT_ANSI__) || defined(__KERNEL__)
-#  define __BYTEORDER_HAS_U64__
-#  define __SWAB_64_THRU_32__
-#endif
-
-#ifdef __ARMEB__
-#include <linux/byteorder/big_endian.h>
-#else
-#include <linux/byteorder/little_endian.h>
-#endif
+#define __arch_swab32 __arch_swab32
 
 #endif
 
