@@ -1,6 +1,7 @@
 #ifndef _ASM_X86_PGTABLE_H
 #define _ASM_X86_PGTABLE_H
 
+#if 0 // CapROS
 #include <asm/page.h>
 
 #include <asm/pgtable_types.h>
@@ -613,4 +614,5 @@ static inline void clone_pgd_range(pgd_t *dst, pgd_t *src, int count)
 #include <asm-generic/pgtable.h>
 #endif	/* __ASSEMBLY__ */
 
+#endif // CapROS
 #endif /* _ASM_X86_PGTABLE_H */
