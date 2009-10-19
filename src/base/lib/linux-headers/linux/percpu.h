@@ -5,7 +5,6 @@
 #include <linux/slab.h> /* For kmalloc() */
 #include <linux/smp.h>
 #include <linux/cpumask.h>
-#include <linux/pfn.h>
 
 #include <asm/percpu.h>
 
@@ -35,6 +34,7 @@
 #ifdef CONFIG_SMP
 
 #ifdef CONFIG_HAVE_DYNAMIC_PER_CPU_AREA
+#include <linux/pfn.h>
 
 /* minimum unit size, also is the maximum supported allocation size */
 #define PCPU_MIN_UNIT_SIZE		PFN_ALIGN(64 << 10)
