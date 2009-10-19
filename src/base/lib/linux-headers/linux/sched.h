@@ -1293,6 +1293,7 @@ void yield(void);
  */
 extern struct exec_domain	default_exec_domain;
 
+#if 0 // CapROS
 union thread_union {
 	struct thread_info thread_info;
 	unsigned long stack[THREAD_SIZE/sizeof(long)];
@@ -1309,6 +1310,7 @@ static inline int kstack_end(void *addr)
 #endif
 
 extern union thread_union init_thread_union;
+#endif // CapROS
 extern struct task_struct init_task;
 
 extern struct   mm_struct init_mm;

@@ -267,6 +267,7 @@ static inline void native_load_tls(struct thread_struct *t, unsigned int cpu)
 #define LDT_empty(info) (_LDT_empty(info))
 #endif
 
+#if 0 // CapROS
 static inline void clear_LDT(void)
 {
 	set_ldt(NULL, 0);
@@ -286,6 +287,7 @@ static inline void load_LDT(mm_context_t *pc)
 	load_LDT_nolock(pc);
 	preempt_enable();
 }
+#endif // CapROS
 
 static inline unsigned long get_desc_base(const struct desc_struct *desc)
 {

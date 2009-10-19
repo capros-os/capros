@@ -2,6 +2,7 @@
  *
  * Copyright (C) 2002  David Howells (dhowells@redhat.com)
  * - Incorporating suggestions made by Linus Torvalds and Dave Miller
+ * Copyright (C) 2009, Strawberry Development Group
  */
 
 #ifndef _ASM_X86_THREAD_INFO_H
@@ -10,6 +11,7 @@
 #include <linux/compiler.h>
 #include <asm/page.h>
 #include <asm/types.h>
+#include <domain/cmte.h>
 
 /*
  * low level task data that entry.S needs immediate access to
@@ -20,17 +22,20 @@
 struct task_struct;
 struct exec_domain;
 #include <asm/processor.h>
-#include <asm/ftrace.h>
+//#include <asm/ftrace.h>
 #include <asm/atomic.h>
 
 struct thread_info {
+#if 0 // CapROS
 	struct task_struct	*task;		/* main task structure */
 	struct exec_domain	*exec_domain;	/* execution domain */
 	__u32			flags;		/* low level flags */
 	__u32			status;		/* thread synchronous flags */
 	__u32			cpu;		/* current CPU */
+#endif // CapROS
 	int			preempt_count;	/* 0 => preemptable,
 						   <0 => BUG */
+#if 0 // CapROS
 	mm_segment_t		addr_limit;
 	struct restart_block    restart_block;
 	void __user		*sysenter_return;
@@ -41,6 +46,7 @@ struct thread_info {
 	__u8			supervisor_stack[0];
 #endif
 	int			uaccess_err;
+#endif // CapROS
 };
 
 #define INIT_THREAD_INFO(tsk)			\
@@ -179,8 +185,8 @@ register unsigned long current_stack_pointer asm("esp") __used;
 /* how to get the thread information struct from C */
 static inline struct thread_info *current_thread_info(void)
 {
-	return (struct thread_info *)
-		(current_stack_pointer & ~(THREAD_SIZE - 1));
+  /* In CapROS the thread_info is the thread local data. */
+  return (struct thread_info *) CMTE_getThreadLocalDataAddr();
 }
 
 #else /* !__ASSEMBLY__ */
@@ -210,10 +216,8 @@ DECLARE_PER_CPU(unsigned long, kernel_stack);
 
 static inline struct thread_info *current_thread_info(void)
 {
-	struct thread_info *ti;
-	ti = (void *)(percpu_read(kernel_stack) +
-		      KERNEL_STACK_OFFSET - THREAD_SIZE);
-	return ti;
+  /* In CapROS the thread_info is the thread local data. */
+  return (struct thread_info *) CMTE_getThreadLocalDataAddr();
 }
 
 #else /* !__ASSEMBLY__ */
@@ -244,6 +248,7 @@ static inline struct thread_info *current_thread_info(void)
 
 #define tsk_is_polling(t) (task_thread_info(t)->status & TS_POLLING)
 
+#if 0 // CapROS
 #ifndef __ASSEMBLY__
 #define HAVE_SET_RESTORE_SIGMASK	1
 static inline void set_restore_sigmask(void)
@@ -253,6 +258,7 @@ static inline void set_restore_sigmask(void)
 	set_bit(TIF_SIGPENDING, (unsigned long *)&ti->flags);
 }
 #endif	/* !__ASSEMBLY__ */
+#endif // CapROS
 
 #ifndef __ASSEMBLY__
 extern void arch_task_cache_init(void);

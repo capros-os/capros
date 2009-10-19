@@ -12,18 +12,18 @@ struct mm_struct;
 #include <asm/segment.h>
 #include <asm/types.h>
 #include <asm/sigcontext.h>
-#include <asm/current.h>
+//#include <asm/current.h>
 #include <asm/cpufeature.h>
 #include <asm/system.h>
 #include <asm/page.h>
-#include <asm/pgtable_types.h>
+//#include <asm/pgtable_types.h>
 #include <asm/percpu.h>
 #include <asm/msr.h>
 #include <asm/desc_defs.h>
 #include <asm/nops.h>
-#include <asm/ds.h>
+//#include <asm/ds.h>
 
-#include <linux/personality.h>
+//#include <linux/personality.h>
 #include <linux/cpumask.h>
 #include <linux/cache.h>
 #include <linux/threads.h>
