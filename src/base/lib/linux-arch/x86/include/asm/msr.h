@@ -12,6 +12,7 @@
 
 #include <asm/asm.h>
 #include <asm/errno.h>
+#include <asm/linkage.h>
 
 static inline unsigned long long native_read_tscp(unsigned int *aux)
 {
