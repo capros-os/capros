@@ -28,7 +28,7 @@ C library, because the latter pulls in stdio, which we don't want. */
 #include <ctype.h>
 #include <linux/kernel.h>
 
-#include <asm/page.h>		/* for PAGE_SIZE */
+#include <eros/target-asm.h>		/* for EROS_PAGE_SIZE */
 #include <asm/div64.h>
 
 /**
@@ -394,7 +394,7 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args)
 
 			case 's':
 				s = va_arg(args, char *);
-				if ((unsigned long)s < PAGE_SIZE)
+				if ((unsigned long)s < EROS_PAGE_SIZE)
 					s = "<NULL>";
 
 				len = strnlen(s, precision);

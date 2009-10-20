@@ -298,6 +298,7 @@ dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t gf
 		return memory;
 
 	if (arch_is_coherent()) {
+#if 0 // CapROS
 		void *virt;
 
 		virt = kmalloc(size, gfp);
@@ -306,6 +307,9 @@ dma_alloc_coherent(struct device *dev, size_t size, dma_addr_t *handle, gfp_t gf
 		*handle =  virt_to_dma(dev, virt);
 
 		return virt;
+#else
+		BUG();
+#endif // CapROS
 	}
 
 	return __dma_alloc(dev, size, handle, gfp,

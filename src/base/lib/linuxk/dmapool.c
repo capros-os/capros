@@ -118,10 +118,10 @@ dma_pool_create (const char *name, struct device *dev,
 	// size is now a multiple of align.
 
 	if (allocation == 0) {
-		if (PAGE_SIZE < size)
+		if (EROS_PAGE_SIZE < size)
 			allocation = size;
 		else
-			allocation = PAGE_SIZE;
+			allocation = EROS_PAGE_SIZE;
 		// FIXME: round up for less fragmentation
 	} else if (allocation < size)
 		return NULL;
