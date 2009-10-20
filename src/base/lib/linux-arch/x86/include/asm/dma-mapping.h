@@ -52,6 +52,7 @@ extern int dma_set_mask(struct device *dev, u64 mask);
 extern void *dma_generic_alloc_coherent(struct device *dev, size_t size,
 					dma_addr_t *dma_addr, gfp_t flag);
 
+#if 0 // CapROS
 static inline dma_addr_t
 dma_map_single(struct device *hwdev, void *ptr, size_t size,
 	       enum dma_data_direction dir)
@@ -80,6 +81,7 @@ dma_unmap_single(struct device *dev, dma_addr_t addr, size_t size,
 		ops->unmap_page(dev, addr, size, dir, NULL);
 	debug_dma_unmap_page(dev, addr, size, dir, true);
 }
+#endif // CapROS
 
 static inline int
 dma_map_sg(struct device *hwdev, struct scatterlist *sg,

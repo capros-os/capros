@@ -16,7 +16,7 @@ struct mm_struct;
 #include <asm/cpufeature.h>
 #include <asm/system.h>
 #include <asm/page.h>
-//#include <asm/pgtable_types.h>
+#include <asm/pgtable_types.h>
 #include <asm/percpu.h>
 #include <asm/msr.h>
 #include <asm/desc_defs.h>
@@ -186,10 +186,12 @@ static inline void native_cpuid(unsigned int *eax, unsigned int *ebx,
 	    : "0" (*eax), "2" (*ecx));
 }
 
+#if 0 // CapROS
 static inline void load_cr3(pgd_t *pgdir)
 {
 	write_cr3(__pa(pgdir));
 }
+#endif // CapROS
 
 #ifdef CONFIG_X86_32
 /* This is the TSS defined by the hardware. */

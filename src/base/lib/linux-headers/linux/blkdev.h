@@ -847,10 +847,12 @@ typedef struct {struct page *v;} Sector;
 
 unsigned char *read_dev_sector(struct block_device *, sector_t, Sector *);
 
+#if 0 // CapROS
 static inline void put_dev_sector(Sector p)
 {
 	page_cache_release(p.v);
 }
+#endif // CapROS
 
 struct work_struct;
 int kblockd_schedule_work(struct work_struct *work);

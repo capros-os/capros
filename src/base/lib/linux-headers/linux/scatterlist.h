@@ -99,6 +99,7 @@ static inline struct page *sg_page(struct scatterlist *sg)
 	return (struct page *)((sg)->page_link & ~0x3);
 }
 
+#if 0 // CapROS
 /**
  * sg_set_buf - Set sg entry to point at given data
  * @sg:		 SG entry
@@ -198,6 +199,7 @@ static inline void *sg_virt(struct scatterlist *sg)
 {
 	return page_address(sg_page(sg)) + sg->offset;
 }
+#endif // CapROS
 
 struct scatterlist *sg_next(struct scatterlist *);
 struct scatterlist *sg_last(struct scatterlist *s, unsigned int);

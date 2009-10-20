@@ -19,6 +19,7 @@ static inline void flush_kernel_dcache_page(struct page *page)
 }
 #endif
 
+#if 0 // CapROS
 #ifdef CONFIG_HIGHMEM
 
 #include <asm/highmem.h>
@@ -144,5 +145,6 @@ static inline void copy_highpage(struct page *to, struct page *from)
 	kunmap_atomic(vfrom, KM_USER0);
 	kunmap_atomic(vto, KM_USER1);
 }
+#endif // CapROS
 
 #endif /* _LINUX_HIGHMEM_H */

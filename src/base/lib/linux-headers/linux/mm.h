@@ -286,6 +286,7 @@ static inline void get_page(struct page *page)
 	atomic_inc(&page->_count);
 }
 
+#if 0 // CapROS
 static inline struct page *virt_to_head_page(const void *x)
 {
 	struct page *page = virt_to_page(x);
@@ -584,6 +585,7 @@ void page_address_init(void);
 #define set_page_address(page, address)  do { } while(0)
 #define page_address_init()  do { } while(0)
 #endif
+#endif // CapROS
 
 /*
  * On an anonymous page mapped into a user virtual memory area,
@@ -617,6 +619,7 @@ static inline int PageAnon(struct page *page)
 	return ((unsigned long)page->mapping & PAGE_MAPPING_ANON) != 0;
 }
 
+#if 0 // CapROS
 /*
  * Return the pagecache index of the passed page.  Regular pagecache pages
  * use ->index whereas swapcache pages use ->private
@@ -1149,6 +1152,7 @@ static inline unsigned long vma_pages(struct vm_area_struct *vma)
 {
 	return (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
 }
+#endif // CapROS
 
 pgprot_t vm_get_page_prot(unsigned long vm_flags);
 struct vm_area_struct *find_extend_vma(struct mm_struct *, unsigned long addr);

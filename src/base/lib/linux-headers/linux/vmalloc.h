@@ -55,6 +55,7 @@ extern int remap_vmalloc_range(struct vm_area_struct *vma, void *addr,
 							unsigned long pgoff);
 void vmalloc_sync_all(void);
  
+#if 0 // CapROS
 /*
  *	Lowlevel-APIs (not for driver use!)
  */
@@ -86,5 +87,6 @@ extern void free_vm_area(struct vm_struct *area);
  */
 extern rwlock_t vmlist_lock;
 extern struct vm_struct *vmlist;
+#endif // CapROS
 
 #endif /* _LINUX_VMALLOC_H */

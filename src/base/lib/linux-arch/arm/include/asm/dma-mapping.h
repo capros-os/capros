@@ -9,6 +9,7 @@
 #include <asm-generic/dma-coherent.h>
 #include <asm/memory.h>
 
+#if 0 // CapROS
 /*
  * page_to_dma/dma_to_virt/virt_to_dma are architecture private functions
  * used internally by the DMA-mapping API to provide DMA addresses. They
@@ -55,6 +56,7 @@ static inline dma_addr_t virt_to_dma(struct device *dev, void *addr)
 	return __arch_virt_to_dma(dev, addr);
 }
 #endif
+#endif // CapROS
 
 /*
  * DMA-consistent mapping functions.  These allocate/free a region of
@@ -207,6 +209,7 @@ int dma_mmap_writecombine(struct device *, struct vm_area_struct *,
  *
  */
 
+#if 0 // CapROS
 /**
  * dmabounce_register_dev
  *
@@ -251,6 +254,7 @@ extern void dmabounce_unregister_dev(struct device *);
  *
  */
 extern int dma_needs_bounce(struct device*, dma_addr_t, size_t);
+#endif // CapROS
 
 /*
  * The DMA API, implemented by dmabounce.c.  See below for descriptions.
@@ -270,6 +274,7 @@ int dmabounce_sync_for_cpu(struct device *, dma_addr_t, unsigned long,
 int dmabounce_sync_for_device(struct device *, dma_addr_t, unsigned long,
 		size_t, enum dma_data_direction);
 #else
+#if 0 // CapROS
 static inline int dmabounce_sync_for_cpu(struct device *d, dma_addr_t addr,
 	unsigned long offset, size_t size, enum dma_data_direction dir)
 {
@@ -332,6 +337,7 @@ static inline dma_addr_t dma_map_page(struct device *dev, struct page *page,
 
 	return page_to_dma(dev, page) + offset;
 }
+#endif // CapROS
 
 /**
  * dma_unmap_single - unmap a single buffer previously mapped
@@ -354,6 +360,7 @@ static inline void dma_unmap_single(struct device *dev, dma_addr_t handle,
 }
 #endif /* CONFIG_DMABOUNCE */
 
+#if 0 // CapROS
 /**
  * dma_unmap_page - unmap a buffer previously mapped through dma_map_page()
  * @dev: valid struct device pointer, or NULL for ISA and EISA-like devices
@@ -425,6 +432,7 @@ static inline void dma_sync_single_for_device(struct device *dev,
 {
 	dma_sync_single_range_for_device(dev, handle, 0, size, dir);
 }
+#endif // CapROS
 
 /*
  * The scatter list versions of the above methods.

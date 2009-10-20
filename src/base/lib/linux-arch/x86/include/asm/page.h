@@ -5,6 +5,7 @@
 
 #ifdef __KERNEL__
 
+#if 0 // CapROS
 #include <asm/page_types.h>
 
 #ifdef CONFIG_X86_64
@@ -59,6 +60,7 @@ extern bool __virt_addr_valid(unsigned long kaddr);
 #include <asm-generic/page.h>
 
 #define __HAVE_ARCH_GATE_AREA 1
+#endif // CapROS
 
 #endif	/* __KERNEL__ */
 #endif /* _ASM_X86_PAGE_H */

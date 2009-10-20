@@ -34,6 +34,7 @@ static inline void fill_ldt(struct desc_struct *desc,
 extern struct desc_ptr idt_descr;
 extern gate_desc idt_table[];
 
+#if 0 // CapROS
 struct gdt_page {
 	struct desc_struct gdt[GDT_ENTRIES];
 } __attribute__((aligned(PAGE_SIZE)));
@@ -250,6 +251,7 @@ static inline void native_load_tls(struct thread_struct *t, unsigned int cpu)
 	for (i = 0; i < GDT_ENTRY_TLS_ENTRIES; i++)
 		gdt[GDT_ENTRY_TLS_MIN + i] = t->tls_array[i];
 }
+#endif // CapROS
 
 #define _LDT_empty(info)				\
 	((info)->base_addr		== 0	&&	\
@@ -287,7 +289,6 @@ static inline void load_LDT(mm_context_t *pc)
 	load_LDT_nolock(pc);
 	preempt_enable();
 }
-#endif // CapROS
 
 static inline unsigned long get_desc_base(const struct desc_struct *desc)
 {
@@ -381,6 +382,7 @@ static inline void set_system_intr_gate_ist(int n, void *addr, unsigned ist)
 	BUG_ON((unsigned)n > 0xFF);
 	_set_gate(n, GATE_INTERRUPT, addr, 0x3, ist, __KERNEL_CS);
 }
+#endif // CapROS
 
 #else
 /*

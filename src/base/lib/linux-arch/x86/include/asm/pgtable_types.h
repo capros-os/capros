@@ -1,8 +1,27 @@
 #ifndef _ASM_X86_PGTABLE_DEFS_H
 #define _ASM_X86_PGTABLE_DEFS_H
+/*
+ * Copyright (C) 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
 
 #include <linux/const.h>
-#include <asm/page_types.h>
+//#include <asm/page_types.h>
 
 #define FIRST_USER_ADDRESS	0
 
@@ -163,11 +182,25 @@
 #define PGD_IDENT_ATTR	 0x001		/* PRESENT (no other attributes) */
 #endif
 
+#if 0 // CapROS
 #ifdef CONFIG_X86_32
 # include "pgtable_32_types.h"
 #else
 # include "pgtable_64_types.h"
 #endif
+#else // CapROS
+// Bogus declarations to keep the compiler happy.
+typedef unsigned long pteval_t;
+typedef unsigned long pmdval_t;
+typedef unsigned long pudval_t;
+typedef unsigned long pgdval_t;
+typedef unsigned long pgprotval_t;
+typedef union {
+	pteval_t pte;
+	pteval_t pte_low;
+} pte_t;
+typedef struct { pudval_t pud; } pud_t;
+#endif // CapROS
 
 #ifndef __ASSEMBLY__
 
@@ -183,6 +216,7 @@ typedef struct pgprot { pgprotval_t pgprot; } pgprot_t;
 
 typedef struct { pgdval_t pgd; } pgd_t;
 
+#if 0 // CapROS
 static inline pgd_t native_make_pgd(pgdval_t val)
 {
 	return (pgd_t) { val };
@@ -325,5 +359,6 @@ static inline void update_page_count(int level, unsigned long pages) { }
 extern pte_t *lookup_address(unsigned long address, unsigned int *level);
 
 #endif	/* !__ASSEMBLY__ */
+#endif // CapROS
 
 #endif /* _ASM_X86_PGTABLE_DEFS_H */

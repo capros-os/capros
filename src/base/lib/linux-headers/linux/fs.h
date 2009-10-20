@@ -1962,6 +1962,7 @@ struct simple_transaction_argresp {
 	char data[0];
 };
 
+#if 0 // CapROS
 #define SIMPLE_TRANSACTION_LIMIT (PAGE_SIZE - sizeof(struct simple_transaction_argresp))
 
 char *simple_transaction_get(struct file *file, const char __user *buf,
@@ -1983,6 +1984,7 @@ static inline void simple_transaction_set(struct file *file, size_t n)
 	smp_mb();
 	ar->size = n;
 }
+#endif // CapROS
 
 /*
  * simple attribute files

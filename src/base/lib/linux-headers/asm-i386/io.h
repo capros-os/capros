@@ -59,6 +59,7 @@
  */
 #define xlate_dev_kmem_ptr(p)	p
 
+#if 0 // CapROS
 /**
  *	virt_to_phys	-	map virtual addresses to physical
  *	@address: address to remap
@@ -94,6 +95,7 @@ static inline void * phys_to_virt(unsigned long address)
 {
 	return __va(address);
 }
+#endif // CapROS
 
 /*
  * Change "struct page" to physical address.
