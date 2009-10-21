@@ -172,10 +172,12 @@ static inline int early_cpu_to_node(int cpu)
 	return 0;
 }
 
+#if 0 // CapROS
 static inline const struct cpumask *cpumask_of_node(int node)
 {
 	return cpu_online_mask;
 }
+#endif // CapROS
 
 static inline void setup_node_to_cpumask_map(void) { }
 
