@@ -15,8 +15,8 @@
 #include <linux/stringify.h>
 #include <linux/kobject.h>
 #include <linux/moduleparam.h>
-#include <linux/marker.h>
-#include <linux/tracepoint.h>
+//#include <linux/marker.h>
+//#include <linux/tracepoint.h>
 #include <asm/local.h>
 
 #include <asm/module.h>
@@ -442,6 +442,7 @@ static inline local_t *__module_ref_addr(struct module *mod, int cpu)
 #endif
 }
 
+#if 0 // CapROS
 /* Sometimes we know we already have a refcount, and it's easier not
    to handle the error case (which only happens with rmmod --wait). */
 static inline void __module_get(struct module *module)
@@ -466,6 +467,7 @@ static inline int try_module_get(struct module *module)
 	}
 	return ret;
 }
+#endif // CapROS
 
 extern void module_put(struct module *module);
 
@@ -514,8 +516,10 @@ extern void print_modules(void);
 
 extern void module_update_markers(void);
 
+#if 0 // CapROS
 extern void module_update_tracepoints(void);
 extern int module_get_iter_tracepoints(struct tracepoint_iter *iter);
+#endif // CapROS
 
 #else /* !CONFIG_MODULES... */
 #define EXPORT_SYMBOL(sym)
