@@ -1,17 +1,12 @@
 /*
- *  linux/include/asm-arm/thread_info.h
+ *  arch/arm/include/asm/thread_info.h
  *
  *  Copyright (C) 2002 Russell King.
- * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-/* This material is based upon work supported by the US Defense Advanced
-Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-Approved for public release, distribution unlimited. */
-
 #ifndef __ASM_ARM_THREAD_INFO_H
 #define __ASM_ARM_THREAD_INFO_H
 
@@ -19,7 +14,6 @@ Approved for public release, distribution unlimited. */
 
 #include <linux/compiler.h>
 #include <asm/fpstate.h>
-#include <domain/cmte.h>
 
 #define THREAD_SIZE_ORDER	1
 #define THREAD_SIZE		8192
@@ -30,7 +24,6 @@ Approved for public release, distribution unlimited. */
 struct task_struct;
 struct exec_domain;
 
-#include <asm/ptrace.h>
 #include <asm/types.h>
 #include <asm/domain.h>
 
@@ -55,12 +48,8 @@ struct cpu_context_save {
  * __switch_to() assumes cpu_context follows immediately after cpu_domain.
  */
 struct thread_info {
-#if 0 // CapROS
-	__u32	preempt_flags;	/* interrupt flags when preempt disabled */
-#endif // CapROS
-	int			preempt_count;	/* 0 => preemptable, <0 => bug */
-#if 0 // CapROS
 	unsigned long		flags;		/* low level flags */
+	int			preempt_count;	/* 0 => preemptable, <0 => bug */
 	mm_segment_t		addr_limit;	/* address limit */
 	struct task_struct	*task;		/* main task structure */
 	struct exec_domain	*exec_domain;	/* execution domain */
@@ -73,8 +62,10 @@ struct thread_info {
 	struct crunch_state	crunchstate;
 	union fp_state		fpstate __attribute__((aligned(8)));
 	union vfp_state		vfpstate;
+#ifdef CONFIG_ARM_THUMBEE
+	unsigned long		thumbee_state;	/* ThumbEE Handler Base register */
+#endif
 	struct restart_block	restart_block;
-#endif // CapROS
 };
 
 #define INIT_THREAD_INFO(tsk)						\
@@ -95,9 +86,6 @@ struct thread_info {
 #define init_thread_info	(init_thread_union.thread_info)
 #define init_stack		(init_thread_union.stack)
 
-/* how to get the current stack pointer from C */
-register unsigned long current_stack_pointer asm("sp") __attribute_used__;
-
 /*
  * how to get the thread information struct from C
  */
@@ -105,25 +93,14 @@ static inline struct thread_info *current_thread_info(void) __attribute_const__;
 
 static inline struct thread_info *current_thread_info(void)
 {
-	/* In CapROS the thread_info is the thread local data. */
-	return (struct thread_info *) CMTE_getThreadLocalDataAddr();
+	register unsigned long sp asm ("sp");
+	return (struct thread_info *)(sp & ~(THREAD_SIZE - 1));
 }
 
-/* thread information allocation */
-#ifdef CONFIG_DEBUG_STACK_USAGE
-#define alloc_thread_info(tsk) \
-	((struct thread_info *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, \
-		THREAD_SIZE_ORDER))
-#else
-#define alloc_thread_info(tsk) \
-	((struct thread_info *)__get_free_pages(GFP_KERNEL, THREAD_SIZE_ORDER))
-#endif
-
-#define free_thread_info(info) \
-	free_pages((unsigned long)info, THREAD_SIZE_ORDER);
-
 #define thread_saved_pc(tsk)	\
-	((unsigned long)(pc_pointer(task_thread_info(tsk)->cpu_context.pc)))
+	((unsigned long)(task_thread_info(tsk)->cpu_context.pc))
+#define thread_saved_sp(tsk)	\
+	((unsigned long)(task_thread_info(tsk)->cpu_context.sp))
 #define thread_saved_fp(tsk)	\
 	((unsigned long)(task_thread_info(tsk)->cpu_context.fp))
 
@@ -138,33 +115,32 @@ extern void iwmmxt_task_restore(struct thread_info *, void *);
 extern void iwmmxt_task_release(struct thread_info *);
 extern void iwmmxt_task_switch(struct thread_info *);
 
+extern void vfp_sync_state(struct thread_info *thread);
+
 #endif
 
 /*
  * We use bit 30 of the preempt_count to indicate that kernel
- * preemption is occurring.  See include/asm-arm/hardirq.h.
+ * preemption is occurring.  See <asm/hardirq.h>.
  */
 #define PREEMPT_ACTIVE	0x40000000
 
 /*
  * thread information flags:
  *  TIF_SYSCALL_TRACE	- syscall trace active
- *  TIF_NOTIFY_RESUME	- resumption notification requested
  *  TIF_SIGPENDING	- signal pending
  *  TIF_NEED_RESCHED	- rescheduling necessary
  *  TIF_USEDFPU		- FPU was used by this task this quantum (SMP)
  *  TIF_POLLING_NRFLAG	- true if poll_idle() is polling TIF_NEED_RESCHED
  */
-#define TIF_NOTIFY_RESUME	0
-#define TIF_SIGPENDING		1
-#define TIF_NEED_RESCHED	2
+#define TIF_SIGPENDING		0
+#define TIF_NEED_RESCHED	1
 #define TIF_SYSCALL_TRACE	8
 #define TIF_POLLING_NRFLAG	16
 #define TIF_USING_IWMMXT	17
 #define TIF_MEMDIE		18
 #define TIF_FREEZE		19
 
-#define _TIF_NOTIFY_RESUME	(1 << TIF_NOTIFY_RESUME)
 #define _TIF_SIGPENDING		(1 << TIF_SIGPENDING)
 #define _TIF_NEED_RESCHED	(1 << TIF_NEED_RESCHED)
 #define _TIF_SYSCALL_TRACE	(1 << TIF_SYSCALL_TRACE)
