@@ -37,9 +37,9 @@ Approved for public release, distribution unlimited. */
 #include <domain/CMTEMaps.h>
 
 void __iomem *
-__ioremap(unsigned long offset, unsigned long size, unsigned long flags)
+ioremap_nocache(resource_size_t offset, unsigned long size)
 {
-  kdprintf(KR_OSTREAM, "__ioremap called, not implemented!'\n");
+  kdprintf(KR_OSTREAM, "ioremap_nocache called, not implemented!'\n");
   return NULL;
 }
 

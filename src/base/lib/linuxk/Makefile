@@ -67,6 +67,7 @@ OBJECTS=\
 ##  $(BUILDDIR)/page_alloc.o
 
 ifeq "$(LINUX_TARGET)" "i386"
+OBJECTS+=$(BUILDDIR)/io_delay.o
 else
 ifeq "$(LINUX_TARGET)" "arm"
 OBJECTS+=$(BUILDDIR)/bitops.o

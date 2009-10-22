@@ -4,7 +4,7 @@
 #define ARCH_HAS_IOREMAP_WC
 
 #include <linux/compiler.h>
-#include <asm-generic/int-ll64.h>
+//#include <asm-generic/int-ll64.h>
 #include <asm/page.h>
 
 #define build_mmio_read(name, size, type, reg, barrier) \
@@ -81,6 +81,7 @@ static inline void writeq(__u64 val, volatile void __iomem *addr)
 #define readq			readq
 #define writeq			writeq
 
+#if 0 // CapROS
 /**
  *	virt_to_phys	-	map virtual addresses to physical
  *	@address: address to remap
@@ -131,6 +132,7 @@ static inline unsigned int isa_virt_to_bus(volatile void *address)
 {
 	return (unsigned int)virt_to_phys(address);
 }
+#endif // CapROS
 #define isa_page_to_bus(page)	((unsigned int)page_to_phys(page))
 #define isa_bus_to_virt		phys_to_virt
 
