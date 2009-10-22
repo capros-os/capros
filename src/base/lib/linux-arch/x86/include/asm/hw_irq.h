@@ -13,7 +13,7 @@
  * unified by tglx
  */
 
-#include <asm/irq_vectors.h>
+//#include <asm/irq_vectors.h>
 
 #ifndef __ASSEMBLY__
 
