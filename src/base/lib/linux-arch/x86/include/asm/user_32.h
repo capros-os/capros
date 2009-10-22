@@ -1,5 +1,5 @@
-#ifndef _I386_USER_H
-#define _I386_USER_H
+#ifndef _ASM_X86_USER_32_H
+#define _ASM_X86_USER_32_H
 
 #include <asm/page.h>
 /* Core file format: The core file is written in such a way that gdb
@@ -75,13 +75,23 @@ struct user_fxsr_struct {
  * doesn't use the extra segment registers)
  */
 struct user_regs_struct {
-	long ebx, ecx, edx, esi, edi, ebp, eax;
-	unsigned short ds, __ds, es, __es;
-	unsigned short fs, __fs, gs, __gs;
-	long orig_eax, eip;
-	unsigned short cs, __cs;
-	long eflags, esp;
-	unsigned short ss, __ss;
+	unsigned long	bx;
+	unsigned long	cx;
+	unsigned long	dx;
+	unsigned long	si;
+	unsigned long	di;
+	unsigned long	bp;
+	unsigned long	ax;
+	unsigned long	ds;
+	unsigned long	es;
+	unsigned long	fs;
+	unsigned long	gs;
+	unsigned long	orig_ax;
+	unsigned long	ip;
+	unsigned long	cs;
+	unsigned long	flags;
+	unsigned long	sp;
+	unsigned long	ss;
 };
 
 /* When the kernel dumps core, it starts by dumping the user struct -
@@ -90,10 +100,10 @@ struct user_regs_struct {
 struct user{
 /* We start with the registers, to mimic the way that "memory" is returned
    from the ptrace(3,...) function.  */
-  struct user_regs_struct regs;		/* Where the registers are actually stored */
+  struct user_regs_struct regs;	/* Where the registers are actually stored */
 /* ptrace does not yet supply these.  Someday.... */
   int u_fpvalid;		/* True if math co-processor being used. */
-                                /* for this mess. Not yet used. */
+				/* for this mess. Not yet used. */
   struct user_i387_struct i387;	/* Math Co-processor registers. */
 /* The rest of this junk is to help gdb figure out what goes where */
   unsigned long int u_tsize;	/* Text segment size (pages). */
@@ -106,9 +116,9 @@ struct user{
 				   esp register.  */
   long int signal;     		/* Signal that caused the core dump. */
   int reserved;			/* No longer used */
-  struct user_pt_regs * u_ar0;	/* Used by gdb to help find the values for */
+  unsigned long u_ar0;		/* Used by gdb to help find the values for */
 				/* the registers. */
-  struct user_i387_struct* u_fpstate;	/* Math Co-processor pointer. */
+  struct user_i387_struct *u_fpstate;	/* Math Co-processor pointer. */
   unsigned long magic;		/* To uniquely identify a core file */
   char u_comm[32];		/* User command that was responsible */
   int u_debugreg[8];
@@ -118,4 +128,4 @@ struct user{
 #define HOST_TEXT_START_ADDR (u.start_code)
 #define HOST_STACK_END_ADDR (u.start_stack + u.u_ssize * NBPG)
 
-#endif /* _I386_USER_H */
+#endif /* _ASM_X86_USER_32_H */
