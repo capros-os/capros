@@ -4,7 +4,7 @@
 #define ARCH_HAS_IOREMAP_WC
 
 #include <linux/compiler.h>
-//#include <asm-generic/int-ll64.h>
+#include <asm-generic/int-ll64.h>
 #include <asm/page.h>
 
 #define build_mmio_read(name, size, type, reg, barrier) \

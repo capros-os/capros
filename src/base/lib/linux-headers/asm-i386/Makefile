@@ -23,11 +23,7 @@
 
 default: all
 
-ASMARCH=default
-ASMARCH_DIR=mach-$(ASMARCH)
-
 ASM_HEADERS=$(wildcard *.h)
-ASMARCH_HEADERS=$(wildcard $(ASMARCH_DIR)/*.h)
 
 EROS_SRC=../../../..
 CROSS_BUILD=yes
@@ -41,6 +37,5 @@ include $(EROS_SRC)/build/make/makerules.mk
 all:
 
 install: all
-	$(INSTALL) -d $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm/$(ASMARCH_DIR)
+	$(INSTALL) -d $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm/
 	$(INSTALL) -m 644 $(ASM_HEADERS) $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm/
-	$(INSTALL) -m 644 $(ASMARCH_HEADERS) $(EROS_ROOT)/include/linux-arch/$(LINUX2624_TARGET)/asm/$(ASMARCH_DIR)/
