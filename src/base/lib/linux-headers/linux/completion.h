@@ -26,7 +26,7 @@ struct completion {
 };
 
 #define COMPLETION_INITIALIZER(work) \
-	{ ATOMIC_INIT(0), __SEMAPHORE_INIT((work).sem, 0) }
+	{ ATOMIC_INIT(0), __SEMAPHORE_INITIALIZER((work).sem, 0) }
 
 #define COMPLETION_INITIALIZER_ONSTACK(work) \
 	({ init_completion(&work); work; })
