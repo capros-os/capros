@@ -35,7 +35,7 @@ struct resource ioport_resource;	// contents are not used
 struct resource *
 __request_region(struct resource * parent,
                  resource_size_t start,
-                 resource_size_t n, const char *name)
+                 resource_size_t n, const char *name, int flags)
 {
   /* We want to return a non-NULL value to indicate success.
   We return a pointer to code, which at least is read-only. */
