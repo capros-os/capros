@@ -13,8 +13,6 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <linux/lockdep.h>
-
 #ifdef CONFIG_SPINLOCK_USES_IRQ
 
 #if defined(CONFIG_SMP)
@@ -22,6 +20,8 @@ Approved for public release, distribution unlimited. */
 #else
 # include <linux/spinlock_types_up.h>
 #endif
+
+#include <linux/lockdep.h>
 
 #else // CONFIG_SPINLOCK_USES_IRQ
 
@@ -44,7 +44,7 @@ typedef struct {
 
 typedef struct {
 	raw_spinlock_t raw_lock;
-#if defined(CONFIG_PREEMPT) && defined(CONFIG_SMP)
+#ifdef CONFIG_GENERIC_LOCKBREAK
 	unsigned int break_lock;
 #endif
 #ifdef CONFIG_DEBUG_SPINLOCK
@@ -60,7 +60,7 @@ typedef struct {
 
 typedef struct {
 	raw_rwlock_t raw_lock;
-#if defined(CONFIG_PREEMPT) && defined(CONFIG_SMP)
+#ifdef CONFIG_GENERIC_LOCKBREAK
 	unsigned int break_lock;
 #endif
 #ifdef CONFIG_DEBUG_SPINLOCK
