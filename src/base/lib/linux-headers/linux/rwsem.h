@@ -34,7 +34,7 @@ struct rw_semaphore {
 };
 
 #define __RWSEM_INITIALIZER(name) \
-  { .cmterwsem = CMTERWSemaphore_Initializer(name) }
+  { .cmterwsem = CMTERWSemaphore_Initializer(name.cmterwsem) }
 
 #define DECLARE_RWSEM(name) \
 	struct rw_semaphore name = __RWSEM_INITIALIZER(name)
