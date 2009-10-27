@@ -7,6 +7,7 @@
  * Arbitrary resource management.
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/ioport.h>
@@ -14,10 +15,10 @@
 #include <linux/slab.h>
 #include <linux/spinlock.h>
 #include <linux/fs.h>
-#include <linux/proc_fs.h>
+//#include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/device.h>
-#include <linux/pfn.h>
+//#include <linux/pfn.h>
 #include <asm/io.h>
 
 
@@ -39,6 +40,7 @@ EXPORT_SYMBOL(iomem_resource);
 
 static DEFINE_RWLOCK(resource_lock);
 
+#if 0 // CapROS
 static void *r_next(struct seq_file *m, void *v, loff_t *pos)
 {
 	struct resource *p = v;
@@ -49,6 +51,7 @@ static void *r_next(struct seq_file *m, void *v, loff_t *pos)
 		p = p->parent;
 	return p->sibling;
 }
+#endif // CapROS
 
 #ifdef CONFIG_PROC_FS
 
@@ -169,6 +172,7 @@ static struct resource * __request_resource(struct resource *root, struct resour
 	}
 }
 
+#if 0 // CapROS
 static int __release_resource(struct resource *old)
 {
 	struct resource *tmp, **p;
@@ -222,6 +226,7 @@ int release_resource(struct resource *old)
 }
 
 EXPORT_SYMBOL(release_resource);
+#endif // CapROS
 
 #if defined(CONFIG_MEMORY_HOTPLUG) && !defined(CONFIG_ARCH_HAS_WALK_MEMORY)
 /*
@@ -288,6 +293,7 @@ walk_memory_resource(unsigned long start_pfn, unsigned long nr_pages, void *arg,
 
 #endif
 
+#if 0 // CapROS
 /*
  * Find empty slot in the resource tree given range and alignment.
  */
@@ -362,6 +368,7 @@ int allocate_resource(struct resource *root, struct resource *new,
 }
 
 EXPORT_SYMBOL(allocate_resource);
+#endif // CapROS
 
 /*
  * Insert a resource into the resource tree. If successful, return NULL,
@@ -437,6 +444,7 @@ int insert_resource(struct resource *parent, struct resource *new)
 	return conflict ? -EBUSY : 0;
 }
 
+#if 0 // CapROS
 /**
  * insert_resource_expand_to_fit - Insert a resource into the resource tree
  * @root: root resource descriptor
@@ -517,6 +525,9 @@ int adjust_resource(struct resource *res, resource_size_t start, resource_size_t
 	return result;
 }
 
+EXPORT_SYMBOL(adjust_resource);
+#endif // CapROS
+
 static void __init __reserve_region_with_split(struct resource *root,
 		resource_size_t start, resource_size_t end,
 		const char *name)
@@ -558,8 +569,6 @@ void __init reserve_region_with_split(struct resource *root,
 	__reserve_region_with_split(root, start, end, name);
 	write_unlock(&resource_lock);
 }
-
-EXPORT_SYMBOL(adjust_resource);
 
 /**
  * resource_alignment - calculate resource's alignment
@@ -639,6 +648,7 @@ struct resource * __request_region(struct resource *parent,
 }
 EXPORT_SYMBOL(__request_region);
 
+#if 0 // CapROS
 /**
  * __check_region - check if a resource region is busy or free
  * @parent: parent resource descriptor
@@ -668,6 +678,7 @@ int __check_region(struct resource *parent, resource_size_t start,
 	return 0;
 }
 EXPORT_SYMBOL(__check_region);
+#endif // CapROS
 
 /**
  * __release_region - release a previously reserved resource region
@@ -716,6 +727,7 @@ void __release_region(struct resource *parent, resource_size_t start,
 }
 EXPORT_SYMBOL(__release_region);
 
+#if 0 // CapROS
 /*
  * Managed region resource
  */
@@ -856,6 +868,7 @@ int iomem_map_sanity_check(resource_size_t addr, unsigned long size)
 
 	return err;
 }
+#endif // CapROS
 
 #ifdef CONFIG_STRICT_DEVMEM
 static int strict_iomem_checks = 1;
@@ -863,6 +876,7 @@ static int strict_iomem_checks = 1;
 static int strict_iomem_checks;
 #endif
 
+#if 0 // CapROS
 /*
  * check if an address is reserved in the iomem resource tree
  * returns 1 if reserved, 0 if not reserved.
@@ -899,6 +913,7 @@ int iomem_is_exclusive(u64 addr)
 
 	return err;
 }
+#endif // CapROS
 
 static int __init strict_iomem(char *str)
 {
