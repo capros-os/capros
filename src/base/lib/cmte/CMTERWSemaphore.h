@@ -43,15 +43,34 @@ typedef struct CMTERWSemaphore {
 #endif
 } CMTERWSemaphore;
 
+#ifdef CONFIG_DEBUG_SEMAPHORE
+#define CMTERWSemaphore_DebugInitializer .locker = 0,
+#else
+#define CMTERWSemaphore_DebugInitializer
+#endif
+
 #define CMTERWSemaphore_Initializer(name) \
   { .activity = capros_atomic32_Initializer(0), \
     .contenders = capros_atomic32_Initializer(0), \
     .readWaiters = { &(name).readWaiters, &(name).readWaiters }, \
-    .writeWaiters = { &(name).writeWaiters, &(name).writeWaiters } \
+    .writeWaiters = { &(name).writeWaiters, &(name).writeWaiters }, \
+    CMTERWSemaphore_DebugInitializer \
   }
 
 #define CMTERWSemaphore_DECLARE(name) \
   CMTESemaphore name = CMTERWSemaphore_Initializer(name)
+
+static inline void
+CMTERWSemaphore_init(CMTERWSemaphore * sem)
+{
+  capros_atomic32_set(&sem->activity, 0);
+  capros_atomic32_set(&sem->contenders, 0);
+  link_Init(&sem->readWaiters);
+  link_Init(&sem->writeWaiters);
+#ifdef CONFIG_DEBUG_SEMAPHORE
+  sem->locker = 0;
+#endif
+}
 
 void CMTERWSemaphore_downRead(CMTERWSemaphore * sem);
 bool CMTERWSemaphore_tryDownRead(CMTERWSemaphore * sem);
@@ -60,5 +79,11 @@ void CMTERWSemaphore_downWrite(CMTERWSemaphore * sem);
 bool CMTERWSemaphore_tryDownWrite(CMTERWSemaphore * sem);
 void CMTERWSemaphore_upWrite(CMTERWSemaphore * sem);
 void CMTERWSemaphore_downgradeWrite(CMTERWSemaphore * sem);
+
+static inline bool
+CMTERWSemaphore_isLocked(CMTERWSemaphore * sem)
+{
+  return capros_atomic32_read(&sem->activity) != 0;
+}
 
 #endif // __CMTERWSEMAPHORE_H
