@@ -2,11 +2,16 @@
  *  arch/arm/include/asm/thread_info.h
  *
  *  Copyright (C) 2002 Russell King.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
 #ifndef __ASM_ARM_THREAD_INFO_H
 #define __ASM_ARM_THREAD_INFO_H
 
@@ -14,6 +19,7 @@
 
 #include <linux/compiler.h>
 #include <asm/fpstate.h>
+#include <domain/cmte.h>
 
 #define THREAD_SIZE_ORDER	1
 #define THREAD_SIZE		8192
@@ -48,8 +54,11 @@ struct cpu_context_save {
  * __switch_to() assumes cpu_context follows immediately after cpu_domain.
  */
 struct thread_info {
+#if 0 // CapROS
 	unsigned long		flags;		/* low level flags */
+#endif // CapROS
 	int			preempt_count;	/* 0 => preemptable, <0 => bug */
+#if 0 // CapROS
 	mm_segment_t		addr_limit;	/* address limit */
 	struct task_struct	*task;		/* main task structure */
 	struct exec_domain	*exec_domain;	/* execution domain */
@@ -66,6 +75,7 @@ struct thread_info {
 	unsigned long		thumbee_state;	/* ThumbEE Handler Base register */
 #endif
 	struct restart_block	restart_block;
+#endif // CapROS
 };
 
 #define INIT_THREAD_INFO(tsk)						\
@@ -93,8 +103,8 @@ static inline struct thread_info *current_thread_info(void) __attribute_const__;
 
 static inline struct thread_info *current_thread_info(void)
 {
-	register unsigned long sp asm ("sp");
-	return (struct thread_info *)(sp & ~(THREAD_SIZE - 1));
+	/* in CapROS the thread_info is the thread local data. */
+	return (struct thread_info *) CMTE_getThreadLocalDataAddr();
 }
 
 #define thread_saved_pc(tsk)	\
