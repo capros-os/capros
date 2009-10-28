@@ -56,6 +56,7 @@ struct bug_entry {
  * appear at runtime.  Use the versions with printk format strings
  * to provide better diagnostics.
  */
+#define __WARN() printk(KERN_WARNING "WARNING: at %s:%d\n", __FILE__, __LINE__)
 #ifndef __WARN
 #ifndef __ASSEMBLY__
 extern void warn_slowpath_fmt(const char *file, const int line,
