@@ -419,6 +419,7 @@ AllDevsNotFound(void)
   }
 }
 
+// Return true if Restart exception or void key, false if OK.
 static bool
 CheckRestart(result_t result)
 {
@@ -1227,7 +1228,7 @@ ScanBus(void)
 
 rescan:
   result = capros_W1Bus_resetDevice(KR_W1BUS);
-  if (CheckRestart(result)) return;
+  if (CheckModeResult(result)) return;
 
   // Set bus parameters:
   result = capros_W1Bus_setSpeed(KR_W1BUS, capros_W1Bus_W1Speed_flexible);
