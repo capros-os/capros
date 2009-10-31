@@ -40,8 +40,9 @@ BOOT_DOMCRE(serial);	// maybe each should have his own?
 serialConstit = new node;	// shared by all instances
 serialConstit[0] = volsize;
 
+/* Serial driver runs at higher priority (9) to avoid overrun errors. */
 #define SERIAL_DRIVER_GENERIC(name, num, devcfgbit) \
-DRIVER(name##ser, serial_prog, serial_pc, serial_proccre, devcfgbit) \
+DRIVER(name##ser, serial_prog, serial_pc, sched(9), serial_proccre, devcfgbit) \
 name##ser_proc key reg KR_APP2(0) /*KR_PortNum*/ = number(num); \
 name##ser_proc key reg KR_CONSTIT = serialConstit;
 
