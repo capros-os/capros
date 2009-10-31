@@ -47,6 +47,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/StdKeyType.h>
 #include <idl/capros/GPT.h>
 #include <idl/capros/Forwarder.h>
+#include <idl/capros/SchedC.h>
 #include "PtrMap.h"
 #include "../../../lib/domain/include/domain/Runtime.h"
 
@@ -715,6 +716,12 @@ key:   NULLKEY {
 	 }
        | SCHED '(' priority ')' {
 	  SHOWPARSE("=== key -> SCHED ( priority )\n");
+          if ($3 > capros_SchedC_Priority_Max) {
+	    diag_printf("%s:%d: priority too large\n",
+			 current_file, current_line);
+	    num_errors++;
+	    YYERROR;
+          }
 	  init_SchedKey(&$$, $3);
          }
 
@@ -1736,7 +1743,7 @@ blss:  KW_LSS arith_expr {
 
 priority:  arith_expr {
           SHOWPARSE("=== priority -> arith_expr\n");
-	 if ($1 > pr_High) {
+	 if ($1 > capros_SchedC_Priority_Max) {
 	   diag_printf("%s:%d: priority value too large\n",
 		       current_file, current_line);
 	   num_errors++;

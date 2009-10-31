@@ -52,7 +52,7 @@ init_MiscKey(KeyBits *dk, uint16_t ty, uint32_t n0)
   dk->u.nk.value[0] = n0;
 };
 
-
+// prio must be <= capros_SchedC_Priority_Max.
 void
 init_SchedKey(KeyBits *dk, uint16_t prio)
 {

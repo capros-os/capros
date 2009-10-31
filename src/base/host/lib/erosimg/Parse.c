@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, 2001, Jonathan S. Shapiro.
- * Copyright (C) 2007, Strawberry Development Group.
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -32,6 +32,7 @@ Approved for public release, distribution unlimited. */
 #include <erosimg/Parse.h>
 #include <erosimg/ArchDescrip.h>
 #include <eros/StdKeyType.h>
+#include <idl/capros/SchedC.h>
 
 #define __EROS_PRIMARY_KEYDEF(name, isValid, bindTo) { #name, isValid },
 /* OLD_MISCKEY(name) { #name, 0 }, */
@@ -656,7 +657,8 @@ parse_MatchKey(const char **txt, KeyBits *key)
       uint32_t prio;
       
       if (parse_MatchWord(&s, &prio) &&
-	  parse_Match(&s, ")") ) {
+	  parse_Match(&s, ")")
+          && prio <= capros_SchedC_Priority_Max ) {
 	init_SchedKey(key, prio);
 	*txt = s;
 	return true;
