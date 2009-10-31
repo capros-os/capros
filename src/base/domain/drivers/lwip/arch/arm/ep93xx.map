@@ -66,7 +66,7 @@ ETH_DRIVER(fourByteVal(192,168,0,38),	// IP address
 // KR_APP2(0) below is KR_IPAddrs.
 // ethle_iomem gets 16 pages of device registers.
 #define ETH_DRIVER(ip,mask,gw) \
-DRIVER(eth, eth_prog, eth_pc, eth_proccre, 0); \
+DRIVER(eth, eth_prog, eth_pc, sched(8), eth_proccre, 0); \
 eth_proc key reg KR_CONSTIT = ethConstit; \
 eth_proc key reg KR_APP2(0) = number(ip,mask,gw); \
 ethle_iomem = new node; \

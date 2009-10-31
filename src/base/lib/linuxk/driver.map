@@ -27,8 +27,8 @@ Approved for public release, distribution unlimited. */
 #include <cmte.map>
 
 /* Set up a driver with Linux emulation. */
-#define DRIVER(dname, prog, progpc, proccre, devcfgbit) \
-CMTE(dname, prog, progpc, sched(8 /* or higher? */), proccre) \
+#define DRIVER(dname, prog, progpc, schedCap, proccre, devcfgbit) \
+CMTE(dname, prog, progpc, schedCap, proccre) \
 dname##le = new node; \
 dname##_proc iospace = misc DevicePrivs devcfgbit; \
 dname##_proc key reg KR_DEVPRIVS = misc DevicePrivs devcfgbit; \

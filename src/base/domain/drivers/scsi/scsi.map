@@ -34,6 +34,6 @@ BOOT_DOMCRE(scsi);
 scsi_prog = program segtree LIBDIR "drivers/scsi";
 scsi_pc = symbol LIBDIR "drivers/scsi" _start;
 
-DRIVER(scsi, scsi_prog, scsi_pc, scsi_proccre, 0);
+DRIVER(scsi, scsi_prog, scsi_pc, sched(8), scsi_proccre, 0);
 
 #endif // __SCSI_MAP_

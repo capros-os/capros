@@ -47,7 +47,7 @@ usbhcd_pc = symbol LIBDIR "drivers/usbhcd" _start;
 BOOT_DOMCRE(usbhcd);	// maybe each should have his own??
 
 #define USBHCD_DRIVER_GENERIC(name, devcfgbit) \
-DRIVER(name##usbhcd, usbhcd_prog, usbhcd_pc, usbhcd_proccre, devcfgbit)
+DRIVER(name##usbhcd, usbhcd_prog, usbhcd_pc, sched(8), usbhcd_proccre, devcfgbit)
 
 /* Define target-specific resources. */
 
