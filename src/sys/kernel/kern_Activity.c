@@ -298,6 +298,7 @@ void
 act_FreeActivity(Activity * act)
 {
   act->readyQ = NULL;	// just for safety
+  act->hasProcess = false;
   act->state = act_Free;
   act_Enqueue(act, &freeActivityList);
   numFreeActivities++;
@@ -314,7 +315,6 @@ act_AllocActivityTable()
     Activity * act = &act_ActivityTable[i];
 
     link_Init(&act->q_link);
-    act->hasProcess = false;
     act_FreeActivity(act);
   }
 
