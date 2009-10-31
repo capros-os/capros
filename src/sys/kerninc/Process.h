@@ -216,7 +216,6 @@ extern Process *proc_ContextCache;
 /* End static members */
   
 Process *kproc_Init(const char * name,
-		    Priority prio,
                     struct ReadyQueue *rq,
 		    void (*pc)(void),
 		    uint32_t *StackBottom, uint32_t *StackTop);

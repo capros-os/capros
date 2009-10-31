@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -45,7 +45,6 @@ Approved for public release, distribution unlimited. */
 Process *
 kproc_Init(
            const char *myName,
-	   Priority prio,
            ReadyQueue *rq,
            void (*pc)(),
            uint32_t * stkBottom, uint32_t * stkTop)
@@ -63,14 +62,7 @@ kproc_Init(
   p->md.smallPTE = 0;	/* to satisfy logic in various places */
   p->md.bias = 0;
 #endif
-  /*p->priority = prio;*/
   p->readyQ = rq;
-  /*
-    p->prioQ.queue = rq->queue;
-    p->prioQ.mask = rq->mask;
-    p->prioQ.other = rq->other;
-    p->prioQ.enqueue = rq->enqueue;
-  */
   
   for (i = 0; i < 8; i++)
     p->name[i] = myName[i];

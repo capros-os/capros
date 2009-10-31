@@ -41,6 +41,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <kerninc/Node.h>
 #include <kerninc/IRQ.h>
+#include <idl/capros/SchedC.h>
 
 #ifdef STRESS_TEST
 #define DELAY 2ll
@@ -58,8 +59,9 @@ StartCheckActivity()
   fixreg_t *stack = MALLOC(fixreg_t, StackSize);
 
   Activity *checkActivity = 
-    kact_InitKernActivity("Checker", pr_Idle, dispatchQueues[pr_Idle], 
-			&CheckActivity_Start, stack, &stack[StackSize]);
+    kact_InitKernActivity("Checker",
+                          dispatchQueues[capros_SchedC_Priority_Idle], 
+			  &CheckActivity_Start, stack, &stack[StackSize]);
 
   act_Wakeup(checkActivity);	/* let it initialize itself... */
 

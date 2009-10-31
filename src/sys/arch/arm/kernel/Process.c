@@ -108,7 +108,6 @@ proc_Init_MD(Process * p, bool isUser)
 Process *
 kproc_Init(
            const char *myName,
-	   Priority prio,
            ReadyQueue *rq,
            void (*pc)(),
            uint32_t * stkBottom, uint32_t * stkTop)
@@ -117,14 +116,7 @@ kproc_Init(
   Process *p = proc_allocate(false);
 
   p->hazards = 0;
-  /*p->priority = prio;*/
   p->readyQ = rq;
-  /*
-    p->prioQ.queue = rq->queue;
-    p->prioQ.mask = rq->mask;
-    p->prioQ.other = rq->other;
-    p->prioQ.enqueue = rq->enqueue;
-  */
   
   for (i = 0; i < 8; i++)
     p->name[i] = myName[i];

@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/LogDirectory.h>
 #include <eros/Invoke.h>
 #include <idl/capros/MigratorTool.h>
+#include <idl/capros/SchedC.h>
 
 #define dbg_migr	0x1
 
@@ -98,12 +99,12 @@ MigratorStart(void)
 }
 
 static void
-CreateKernelThread(const char * name, Priority prio,
+CreateKernelThread(const char * name, capros_SchedC_Priority prio,
   void (*func)(void), Activity * * ppAct)
 {
   fixreg_t * stack = MALLOC(fixreg_t, StackSize);
 
-  Activity * act = kact_InitKernActivity(name, prio,
+  Activity * act = kact_InitKernActivity(name,
     dispatchQueues[prio], func,
     stack, &stack[StackSize]);
 
@@ -117,13 +118,13 @@ CreateKernelThread(const char * name, Priority prio,
 void
 CreateMigratorActivity(void)
 {
-  CreateKernelThread("Migr", pr_Normal, &MigratorStart,
+  CreateKernelThread("Migr", capros_SchedC_Priority_Normal, &MigratorStart,
                      &migratorActivity);
 
   printf("Created migrator process at %#x\n", act_GetProcess(migratorActivity));
 
   void CheckpointThread(void);
-  CreateKernelThread("Ckpt", pr_High, &CheckpointThread,
+  CreateKernelThread("Ckpt", capros_SchedC_Priority_Max, &CheckpointThread,
                      &checkpointActivity);
 
   printf("Created checkpoint thread at %#x\n", act_GetProcess(checkpointActivity));

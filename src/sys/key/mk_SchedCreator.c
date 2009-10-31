@@ -35,6 +35,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/StdKeyType.h>
 
 #include <idl/capros/key.h>
+#include <idl/capros/SchedC.h>
 
 /* May Yield. */
 void
@@ -92,7 +93,7 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
       duration = inv->entry.w2;
       period = inv->entry.w3;
 
-      if (ndx < 0 || ndx >= 32) {
+      if (ndx > capros_SchedC_MaxReserve) {
 	inv->exit.code = RC_capros_key_RequestError;
 	break;
       }
@@ -133,10 +134,10 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
         keyBits_InitType(&newSchedKey, KKT_Sched);
 	newSchedKey.keyData = ndx;
 
-        /* set the high bit so key can be identified
+        /* set a high bit so key can be identified
            as reserve key
         */
-        newSchedKey.keyData |= (1u<<pr_Reserve);
+        newSchedKey.keyData |= (1u<<capros_SchedC_Priority_Reserve);
         printf("in SchedCreator - returning key data = %d\n", newSchedKey.keyData);
         inv_SetExitKey(inv, 0, &newSchedKey);
       }
@@ -147,24 +148,26 @@ SchedCreatorKey(Invocation* inv /*@ not null @*/)
 
   case OC_SchedCre_MkPrio:
     {
+      uint32_t prio = inv->entry.w1;
+      if (prio > capros_SchedC_Priority_Max) {
+	inv->exit.code = RC_capros_key_RequestError;
+	break;
+      }
       if (inv->exit.pKey[0]) {
 	Key k;			/* temporary in case send and receive */
 				/* slots are the same. */
         
         keyBits_InitToVoid(&k);
 	keyBits_InitType(&k,  KKT_Sched);
-	k.keyData = inv->entry.w1;
+	k.keyData = prio;
 
 	inv_SetExitKey(inv, 0, &k);
 
 	/* Key /k/ not prepared, so no need to unwind it's link
 	   chain. */
       }
-
       inv->exit.code = RC_OK;
-      break;
     }
-
 
   case OC_capros_key_getType:
     {

@@ -42,8 +42,9 @@ Approved for public release, distribution unlimited. */
 
 act_Free: free, on the FreeActivityList.
   Exception: the Activity, if any, that the variable allocatedActivity
-    points to, is free, but because it is reserved for use by the
-    current invocation, it isn't on the FreeActivityList.
+    points to, may have state == act_Free, but it really isn't free;
+    it is reserved for use by the current invocation,
+    and it isn't on the FreeActivityList.
 
 act_Ready: on a ReadyQueue.
   If it has a Process (without hz_DomRoot):
@@ -158,11 +159,14 @@ struct Activity {
   bool hasProcess;	// valid if state != act_Free
 
   struct ReadyQueue * readyQ;
-	/* If there is an associated Process,
+	/*
+        If state == act_Free, readyQ has NULL.
+        If there is an associated Process,
 	  readyQ contains a copy of Process.readyQ.
         If there is no associated Process,
 	  readyQ contains the last known readyQ of the Process.
-          If no Process was ever known, readyQ contains dispatchQueues[pr_High],
+          If no Process was ever known,
+          readyQ contains dispatchQueues[capros_SchedC_Priority_Max],
           which is good enough to get the Activity scheduled. */
 } ;
 
@@ -188,7 +192,6 @@ void ValidateAllActivitys(void);
 bool act_GetOID(Activity * act, OID * oid);
 
 Activity * kact_InitKernActivity(const char * name, 
-			     Priority prio,
                              struct ReadyQueue *rq,
 			     void (*pc)(void), 
 			     uint32_t *StackBottom, uint32_t *StackTop);
@@ -297,6 +300,7 @@ act_Yield(void)
 void act_HandleYieldEntry(void) NORETURN;
 
 Activity * act_AllocActivity();
+void act_FreeActivity(Activity * act);
 void StartActivity(OID oid, ObCount count, uint8_t haz);
 void act_AllocActivityTable();
 

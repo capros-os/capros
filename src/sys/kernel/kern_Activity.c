@@ -43,10 +43,13 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Key-inline.h>
 #include <idl/capros/Sleep.h>
 #include <idl/capros/Range.h>
+#include <idl/capros/SchedC.h>
 #include <eros/fls.h>
 
 /* #define THREADDEBUG */
 /*#define RESERVE_DEBUG*/
+
+#define pr_Reserve capros_SchedC_Priority_Reserve // a shorter name
 
 static void act_Enqueue(Activity * t, StallQueue * q);
 static bool PrepareCurrentActivity(void);
@@ -62,7 +65,7 @@ const char *act_stateNames[act_NUM_STATES] = {
 Activity *act_ActivityTable = 0;
 
 /* During an invocation, we may allocate an Activity for later use: */
-Activity * allocatedActivity = 0;
+Activity * allocatedActivity = NULL;
 
 static DEFQUEUE(freeActivityList);
 unsigned int numFreeActivities = 0;
@@ -96,7 +99,7 @@ static void
 readyq_GenericWakeup(ReadyQueue *r, Activity *t)
 {
   assert(link_isSingleton(&t->q_link));
-  assertex(t, (r->mask <= (1u << pr_High)));
+  assertex(t, (r->mask <= (1u << capros_SchedC_Priority_Max)));
 
   act_RunQueueMap |= r->mask;
 
@@ -115,7 +118,7 @@ readyq_ReserveWakeup(ReadyQueue *r, Activity *t)
   Reserve *res = 0;
 
   assert(link_isSingleton(&t->q_link));
-  assertex(t, (r->mask <= (1u << pr_High)));
+  assertex(t, (r->mask <= (1u << capros_SchedC_Priority_Max)));
 
   irqFlags_t flags = local_irq_save();
 
@@ -170,7 +173,7 @@ readyq_ReserveTimeout(ReadyQueue *r, Activity *t)
      here because that will replenish the reserve. 
   */
   assert(link_isSingleton(&t->q_link));
-  assertex(t, (r->mask <= (1u << pr_High)));
+  assertex(t, (r->mask <= (1u << capros_SchedC_Priority_Max)));
 
   act_RunQueueMap |= r->mask;
   if (res->isActive == false) {
@@ -191,43 +194,30 @@ readyq_ReserveTimeout(ReadyQueue *r, Activity *t)
   local_irq_restore(flags);
 }
 
-#define pr_Seven 7
-ReadyQueue prioQueues[pr_High+1] = {
-  {{INITQUEUE(prioQueues[0].queue)}, (1u<<pr_Never), 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[1].queue)}, (1u<<pr_Idle), 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[2].queue)}, 0, 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[3].queue)}, 0, 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[4].queue)}, 0, 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[5].queue)}, 0, 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[6].queue)}, 0, 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[7].queue)}, (1u<<pr_Seven), 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[8].queue)}, (1u<<pr_Normal), 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[9].queue)}, 0, 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[10].queue)}, 0, 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[11].queue)}, 0, 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[12].queue)}, 0, 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[13].queue)}, 0, 0, 
-   readyq_GenericWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[14].queue)}, (1u<<pr_Reserve), 0, 
-   readyq_ReserveWakeup, readyq_Timeout},
-  {{INITQUEUE(prioQueues[15].queue)}, (1u<<pr_High), 0, 
-   readyq_GenericWakeup, readyq_Timeout},
+#define ipq(n) \
+  {{INITQUEUE(prioQueues[(n)].queue)}, (1u<<(n)), 0, \
+   readyq_GenericWakeup, readyq_Timeout}
+ReadyQueue prioQueues[capros_SchedC_Priority_Max+1] = {
+  ipq(0),
+  ipq(1),
+  ipq(2),
+  ipq(3),
+  ipq(4),
+  ipq(5),
+  ipq(6),
+  ipq(7),
+  ipq(8),
+  ipq(9),
+  ipq(10),
+  ipq(11),
+  ipq(12),
+  ipq(13),
+  ipq(14),
+  ipq(15),
 };
+#undef ipq
 
-ReadyQueue *dispatchQueues[pr_High+1] = {
+ReadyQueue *dispatchQueues[capros_SchedC_Priority_Max+1] = {
   &prioQueues[0],
   &prioQueues[1],
   &prioQueues[2],
@@ -242,22 +232,19 @@ ReadyQueue *dispatchQueues[pr_High+1] = {
   &prioQueues[11],
   &prioQueues[12],
   &prioQueues[13],
-  &prioQueues[14],
+  &prioQueues[14],	// will point to a Reserve ReadyQueue
   &prioQueues[15]
 };
 
 Activity *
 kact_InitKernActivity(const char * name, 
-		    Priority prio,
                     ReadyQueue *rq,
                     void (*pc)(void), uint32_t *StackBottom, 
                     uint32_t *StackTop)
 {
   Activity * act = act_AllocActivity();
 
-  /*t->priority = prio;*/
-  Process * p = kproc_Init(name, prio, rq, pc,
-                           StackBottom, StackTop);
+  Process * p = kproc_Init(name, rq, pc, StackBottom, StackTop);
   act_SetProcess(act, p);
 
   act->readyQ = rq;
@@ -302,9 +289,18 @@ StartActivity(OID oid, ObCount count, uint8_t haz)
   /* The process prepare logic will appropriately adjust this priority
      if it is wrong -- this guess only has to be good enough to get
      the activity scheduled. */
-  act->readyQ = dispatchQueues[pr_High];
+  act->readyQ = dispatchQueues[capros_SchedC_Priority_Max];
  
   act_Wakeup(act);
+}
+
+void
+act_FreeActivity(Activity * act)
+{
+  act->readyQ = NULL;	// just for safety
+  act->state = act_Free;
+  act_Enqueue(act, &freeActivityList);
+  numFreeActivities++;
 }
 
 void
@@ -319,9 +315,11 @@ act_AllocActivityTable()
 
     link_Init(&act->q_link);
     act->hasProcess = false;
-    act->readyQ = dispatchQueues[pr_Never];	// just for safety
-    act_DeleteActivity(act);
+    act_FreeActivity(act);
   }
+
+  // Adjust the reserve wakeup procedure:
+  prioQueues[pr_Reserve].doWakeup = readyq_ReserveWakeup;
 
   printf("Allocated User Activitys: 0x%x at 0x%08x\n",
 	 sizeof(Activity[KTUNE_NACTIVITY]), act_ActivityTable);
@@ -330,19 +328,11 @@ act_AllocActivityTable()
 void
 act_DeleteActivity(Activity *t)
 {
-  // printf("act_DeleteActivity(%#x)\n", t);
-
   // No Process should point to this Activity:
   assert(! act_HasProcess(t)
          || ! act_GetProcess(t)->curActivity);
 
-  // This Activity should not be queued:
-  assert(link_isSingleton(&t->q_link));
-
-  /* dprintf(true, "Deleting activity 0x%08x\n", t); */
   /* not hazarded because activity key */
-  t->state = act_Free;
-  t->hasProcess = false;
   if (act_Current() == t) {
 #if 0
     printf("curactivity 0x%08x is deleted\n", t);
@@ -361,10 +351,8 @@ act_DeleteActivity(Activity *t)
            mach_TicksToMilliseconds(r->totalTimeAcc));
     res_SetInactive(r->index);
   }
-  t->readyQ = dispatchQueues[pr_Never];	// just for safety
 
-  act_Enqueue(t, &freeActivityList);
-  numFreeActivities++;
+  act_FreeActivity(t);
 }
 
 Activity *
@@ -596,7 +584,7 @@ act_ChooseNewCurrentActivity(void)
       res = res_GetEarliestReserve();
       if (res == 0) {
         //printf("GetEarliest says there is no reserve...\n");
-        act_RunQueueMap &= ~(1u << runQueueNdx);
+        act_RunQueueMap &= ~(1u << pr_Reserve);
         continue;
       }
       else {
@@ -612,9 +600,6 @@ act_ChooseNewCurrentActivity(void)
     if (!sq_IsEmpty(&dispatchQueues[runQueueNdx]->queue))
       break;
 
-    /* if (runQueueNdx == pr_Reserve)
-       break;*/
-
     dprintf(true, "Run queue %d is empty\n", runQueueNdx);
 
     /* RunQueueMap is advisory. If there was nothing in the queue,
@@ -623,8 +608,8 @@ act_ChooseNewCurrentActivity(void)
     act_RunQueueMap &= ~ (1u << runQueueNdx);
   }
 
-  /* If we dispatch pr_Never, something is really wrong: */
-  assert(runQueueNdx > pr_Never);
+  // If we dispatch capros_SchedC_Priority_Never, something is really wrong:
+  assert(runQueueNdx > capros_SchedC_Priority_Never);
 
   /* Now know we have the least non-empty queue. Yank the activity. */
   Activity * act = (Activity *)(dispatchQueues[runQueueNdx]->queue.q_head.next);
@@ -1111,7 +1096,8 @@ db_show_readylist(void)
   int runQueueNdx;
 
   printf("RunQueueMap=%#.8x\n", act_RunQueueMap);
-  for (runQueueNdx = pr_High; runQueueNdx >= 0; runQueueNdx--) {
+  for (runQueueNdx = capros_SchedC_Priority_Max;
+       runQueueNdx >= 0; runQueueNdx--) {
     if (runQueueNdx == pr_Reserve) {
       int i;
       for (i = 0; i < 32; i++) {

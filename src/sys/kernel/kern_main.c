@@ -59,15 +59,6 @@ extern void UserIrqInit();
 extern void ddb_init();
 #endif
 
-#if 0
-ReadyQueue iplRQ = {
-  &prioQueues[pr_High],
-  (1u << pr_High),
-  0,
-  0
-};
-#endif
-
 // Does not return.
 int
 main(void)

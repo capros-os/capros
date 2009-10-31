@@ -1,0 +1,17 @@
+package capros;
+
+/** Interface to the Schedule Creator key.
+ *
+ */
+interface SchedC extends key {
+  // Priority values:
+  unsigned short enum Priority {
+    Never    = 0,
+    Idle     = 1,
+    Normal   = 8,
+    Reserve = 14,
+    Max     = 15
+  };
+
+  const unsigned short MaxReserve = 31;
+};

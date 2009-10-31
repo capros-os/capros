@@ -26,6 +26,7 @@ W31P4Q-07-C-0070.  Approved for public release, distribution unlimited. */
 #include <kerninc/kernel.h>
 #include <kerninc/Activity.h>
 #include <arch-kerninc/IRQ-inline.h>
+#include <idl/capros/SchedC.h>
 #include "arm.h"
 
 //#define IdleTimeTest
@@ -92,7 +93,7 @@ StartIdleActivity(void)
   fixreg_t *stack = MALLOC(fixreg_t, StackSize);
 
   Activity *idleActivity = 
-    kact_InitKernActivity("Idler", pr_Idle, dispatchQueues[pr_Idle], 
+    kact_InitKernActivity("Idler", dispatchQueues[capros_SchedC_Priority_Idle], 
 			&IdleActivity_Start, stack, &stack[StackSize]);
 
   act_Wakeup(idleActivity);	/* let it initialize itself... */

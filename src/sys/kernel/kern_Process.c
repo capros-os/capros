@@ -35,6 +35,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Key-inline.h>
 #include <kerninc/Node-inline.h>
 #include <kerninc/IRQ.h>
+#include <idl/capros/SchedC.h>
 
 Process * proc_ContextCache = NULL;
 Process * proc_ContextCacheRegion = NULL;
@@ -413,33 +414,44 @@ proc_DoPrepare(Process * thisPtr)
   }
   
   if (thisPtr->hazards & hz_Schedule) {
-    /* FIX: someday deal with schedule keys! */
-    Priority pr;
     Key * schedKey = node_GetKeyAtSlot(root, ProcSched);
 
     assert(keyBits_IsHazard(schedKey) == false);
-    
-    keyBits_SetWrHazard(schedKey);
 
-    if (schedKey->keyData & (1u<<pr_Reserve)) {
-      /* this is a reserve key */
-      int ndx = schedKey->keyData;
-      Reserve *r = 0;
-
-      ndx &= ~(1u<<pr_Reserve);
-      r = &res_ReserveTable[ndx];
-      thisPtr->readyQ = &r->readyQ;
-      r->isActive = true;
-      printf("set real time key index = %d\n", r->index);
+    /* A non-schedule key in slot ProcSched doesn't make the process
+       malformed; we might want to set key registers (which requires
+       preparing the process) before initializing ProcSched.
+       A non-schedule key just makes it unrunnable. */
+    if (! keyBits_IsType(schedKey, KKT_Sched)) {
+      thisPtr->readyQ = &prioQueues[capros_SchedC_Priority_Never];
     } else {
-      /* this is a priority key */
-      pr = min(schedKey->keyData, pr_High);
-      thisPtr->readyQ = dispatchQueues[pr];
-      if (pr == pr_Reserve) {
-        Reserve *r = res_GetNextReserve();
-        thisPtr->readyQ= &r->readyQ;
+      assert((1u << capros_SchedC_Priority_Reserve) > capros_SchedC_Priority_Max);
+	// else this strange encoding won't work
+
+      unsigned int pr = schedKey->keyData;
+      if (pr & (1u<<capros_SchedC_Priority_Reserve)) {
+        /* this is a reserve key */
+        Reserve *r = 0;
+
+        pr &= ~(1u<<capros_SchedC_Priority_Reserve);
+        r = &res_ReserveTable[pr];
+        thisPtr->readyQ = &r->readyQ;
+        r->isActive = true;
+        printf("set real time key index = %d\n", r->index);
+      } else {
+        /* this is a priority key */
+        if (pr > capros_SchedC_Priority_Max) {	// invalid priority key?
+          thisPtr->readyQ = &prioQueues[capros_SchedC_Priority_Never];
+        } else if (pr == capros_SchedC_Priority_Reserve) {
+          Reserve *r = res_GetNextReserve();
+          thisPtr->readyQ= &r->readyQ;
+        } else {
+          thisPtr->readyQ = &prioQueues[pr];
+        }
       }
     }
+    
+    keyBits_SetWrHazard(schedKey);
 
     thisPtr->hazards &= ~hz_Schedule;
 
@@ -608,7 +620,6 @@ proc_AllocUserContexts(void)
     p->procRoot = 0;
     p->keysNode = 0;
     p->isUserContext = true;		/* until proven otherwise */
-    /*p->priority = pr_Never;*/
     p->faultCode = capros_Process_FC_NoFault;
     p->faultInfo = 0;
     p->kernelFlags = 0;

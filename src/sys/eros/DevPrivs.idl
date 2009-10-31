@@ -82,7 +82,8 @@ interface DevPrivs extends key raises(AllocFail) {
   Allocate a block of nPages pages that have contiguous physical addresses.
   All the physical addresses p are such that (p &amp; addrMask) == p.
   They physical address of the first page is returned in physAddr.
-  A page key to the first page is returned; use ... to get subsequent pages. */
+  A page key to the first page is returned;
+    use Page.getNthPage to get subsequent pages. */
   capros.Page allocateDMAPages(unsigned short nPages,
                                addr_t addrMask, out addr_t physAddr);
 

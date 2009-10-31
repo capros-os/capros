@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Process-inline.h>
 #include <eros/ffs.h>
 #include <eros/fls.h>
+#include <idl/capros/SchedC.h>
 
 static void indexFixup(void);
 
@@ -120,7 +121,7 @@ static void
 res_InitReadyQ(Reserve *r)
 {
   sq_Init(&r->readyQ.queue);
-  r->readyQ.mask = (1u<<pr_Reserve);
+  r->readyQ.mask = (1u << capros_SchedC_Priority_Reserve);
   r->readyQ.other = r;
   r->readyQ.doWakeup = readyq_ReserveWakeup;
   r->readyQ.doQuantaTimeout = readyq_ReserveTimeout;

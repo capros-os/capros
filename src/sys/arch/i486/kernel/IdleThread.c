@@ -27,6 +27,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>
 #include <arch-kerninc/IRQ-inline.h>
+#include <idl/capros/SchedC.h>
 
 #define StackSize 256
 
@@ -43,7 +44,7 @@ StartIdleActivity(void)
   fixreg_t *stack = MALLOC(fixreg_t, StackSize);
 
   Activity *idleActivity = 
-    kact_InitKernActivity("Idler", pr_Idle, dispatchQueues[pr_Idle], 
+    kact_InitKernActivity("Idler", dispatchQueues[capros_SchedC_Priority_Idle], 
 			&IdleActivity_Start, stack, &stack[StackSize]);
 
   act_Wakeup(idleActivity);	/* let it initialize itself... */

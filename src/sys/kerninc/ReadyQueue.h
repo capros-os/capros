@@ -32,28 +32,37 @@ typedef struct ReadyQueue ReadyQueue;
 
 struct ReadyQueue {
   StallQueue queue;		/* queue of ready activities */  
-  uint32_t mask;                /* mask for prioQ */
-  void *other;                  /* misc. field. will hold pointer to reserve*/ 
-  /* make the other a void * ptr. This way, you
-     can make it point to a reserve table entry */
+
+  /* mask for act_RunQueueMap.
+     For ReadyQueues in prioQueues,
+       this field has 1 << (index of this queue in prioQueues).
+     For ReadyQueues in res_ReserveTable,
+       this field has 1 << capros_SchedC_Priority_Reserve. */
+  uint32_t mask;
+
+  void * other;                  /* misc. field. will hold pointer to reserve*/ 
 
   /* When an activity is waking up and needs to be placed on this ReadyQ, the
      per-ReadyQ doWakeup function is called to place the activity on the target
      readyQ. */
-  /* This field has readyq_GenericWakeup or readyq_ReserveWakeup. */
+  /* For ReadyQueues in prioQueues (except capros_SchedC_Priority_Reserve),
+       this field has readyq_GenericWakeup.
+     For ReadyQueues in res_ReserveTable,
+       and prioQueues[capros_SchedC_Priority_Reserve],
+       this field has readyq_ReserveWakeup. */
   void (*doWakeup)(ReadyQueue *, struct Activity *);
 
   /* When the quanta of a activity has run out, call this function to place the
      activity back on the readyQ */
+  /* For ReadyQueues in prioQueues,
+       this field has readyq_Timeout.
+     For ReadyQueues in res_ReserveTable,
+       this field has readyq_ReserveTimeout. */
   void (*doQuantaTimeout)(ReadyQueue *, struct Activity *);
 };
 
-
 extern ReadyQueue prioQueues[];
-extern ReadyQueue *dispatchQueues[];
-#define DeepSleepQ prioQueues[pr_Never].queue
-#define KernIdleQ prioQueues[pr_Idle].queue
-#define HighPriorityQ prioQueues[pr_High].queue
 
+extern ReadyQueue *dispatchQueues[];
 
 #endif /* __READYQUEUE_H__ */

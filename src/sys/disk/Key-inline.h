@@ -69,15 +69,6 @@ Approved for public release, distribution unlimited. */
 #define FIRST_MISC_KEYTYPE KKT_Void
 #endif
 
-enum Priority {
-  pr_Never = 0,			/* lower than idle, therefore never runs */
-  pr_Idle = 1,
-  pr_Normal = 8,
-  pr_Reserve = 14,              /* for reserve scheduler */
-  pr_High = 15
-};
-typedef enum Priority Priority;
-
 /*
 When KFL_RHAZARD is set, we say the key is "read-hazarded".
 This means that the logical value of the key is different from

@@ -526,7 +526,8 @@ ReturnMessage(Invocation * inv)
       assert(allocatedActivity == act_Current());
       act_DeleteCurrent();
     } else {
-      act_DeleteActivity(allocatedActivity);
+      assert(allocatedActivity->state == act_Free);
+      act_FreeActivity(allocatedActivity);
     }
   }
 }
