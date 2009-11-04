@@ -233,25 +233,38 @@ cmme_main(void)
   SEND(&msg);
 
   connection();
-  DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Exiting. Last sock err = %#x\n",
+
+  DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Closing socket. Last sock err = %#x\n",
                        sockRcvLastError);
 
-  // If sockRcvLastError == Void, the connection is already gone.
-  if (RC_capros_key_Void != sockRcvLastError) {
-    DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Closing socket.\n");
-    capros_TCPSocket_close(KR_SOCKET);
-    DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Closed socket\n");
+  // If sockRcvLastError == Void or Restart, the connection is already gone,
+  // but calling close is harmless.
+  capros_TCPSocket_close(KR_SOCKET);
+  DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Closed socket\n");
 
-    /* Now we must wait until we receive RemoteClosed. 
-       Don't abort() or destroy(); that may cause data we've sent to be lost. */
-    while (RC_capros_TCPSocket_RemoteClosed != sockRcvLastError) {
+  /* Now we must wait until we receive RemoteClosed. 
+     Don't abort() or destroy(); that may cause data we've sent to be lost. */
+  while (1) {
+    switch (sockRcvLastError) {
+    case RC_OK: ;
+      // Receive data until the other end closes.
       uint32_t got;
-      uint8_t buf[8];
+      uint8_t buf[40];
       sockRcvLastError
-        = capros_TCPSocket_receiveLong(KR_SOCKET, 8, &got, 0, buf);
-      DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Final socket rc=%#x.\n",
-                           sockRcvLastError);
+        = capros_TCPSocket_receiveLong(KR_SOCKET, 40, &got, 0, buf);
+      DEBUG(init) DBGPRINT(DBGTARGET, "HTTP: Final socket rc=%#x len=%u.\n",
+                           sockRcvLastError, got);
+      continue;
+ 
+    default:
+    case RC_capros_key_Void:
+      DEBUG(init) DBGPRINT(DBGTARGET,
+                           "HTTP: Receive did not get RemoteClosed\n");
+    case RC_capros_TCPSocket_RemoteClosed:
+    case RC_capros_key_Restart:
+      break;
     }
+    break;
   }
 
   maps_fini();
