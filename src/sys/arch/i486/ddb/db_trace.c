@@ -32,6 +32,7 @@
 #include <ddb/db_sym.h>
 #include <ddb/db_variables.h>
 #include <ddb/db_output.h>
+#include <kernel/Segment.h>
 
 /*#include <kerninc/util.h>*/
 
@@ -63,11 +64,6 @@ struct db_variable *db_eregs = db_regs + sizeof(db_regs)/sizeof(db_regs[0]);
 /*
  * Stack trace.
  */
-#define EIP_INBIOS(eip) (eip >= 0xe0000u && eip < 0xfffff)
-#define EIP_INKTEXT(eip) (eip >= (kva_t)&_start && eip < (kva_t)&etext)
-#define EIP_INKERNEL(eip) (EIP_INKTEXT(eip) || EIP_INBIOS(eip))
-#define KERNEL_TRAP(frame) EIP_INKERNEL(((savearea_t *)frame)->EIP)
-			 
 
 struct i386_frame {
 	struct i386_frame	*f_frame;
@@ -84,6 +80,7 @@ db_addr_t	db_trap_symbol_value = 0;
 db_addr_t	db_syscall_symbol_value = 0;
 db_addr_t	db_kdintr_symbol_value = 0;
 bool	db_trace_symbols_found = false;
+bool isUser;
 
 void
 db_find_trace_symbols()
@@ -138,39 +135,36 @@ db_numargs(struct i386_frame * fpp/* fp */)
  *   It might be possible to dig out from the next frame up the name
  *   of the function that faulted, but that could get hairy.
  */
-void
+static void
 db_nextframe(struct i386_frame **fp, /* in/out */
 	     db_addr_t *ip,	/* out */
 	     int *argp,		/* in */
 	     int is_trap	/* in */
 	     )
 {
-
+	uva_t offset = isUser ? KUVA : 0;
 	switch (is_trap) {
 	    case NONE:
 		*ip = (db_addr_t)
-			db_get_value((int) &(*fp)->f_retaddr, 4, false);
+			db_get_value((int) &(*fp)->f_retaddr + offset, 4, false);
 		*fp = (struct i386_frame *)
-			db_get_value((int) &(*fp)->f_frame, 4, false);
+			db_get_value((int) &(*fp)->f_frame + offset, 4, false);
 		break;
 
 	    default: {
 		savearea_t *tf; /* trap frame */
-                char *trap_mode = 0;
 
 		/* The only argument to trap() or syscall() is the trapframe. */
 		tf = * ((savearea_t **)argp);/* on EROS, the */
 						  /* trapframe ptr */
-		trap_mode = KERNEL_TRAP(tf) ? "kernel" : "user";
-		
 		switch (is_trap) {
 		case TRAP:
-		  db_printf("--- %s trap (EIP=0x%08x vector=0x%x sa=0x%08x) ---\n",
-			    trap_mode, tf->EIP, tf->ExceptNo, tf);
+		  db_printf("--- trap (EIP=0x%08x vector=0x%x sa=0x%08x) ---\n",
+			    tf->EIP, tf->ExceptNo, tf);
 		  break;
 		case SYSCALL:
-		  db_printf("--- %s IPC (EIP=0x%08x OC=%d sa=0x%08x) ---\n",
-			    trap_mode, tf->EIP, tf->EAX, tf);
+		  db_printf("--- IPC (EIP=0x%08x OC=%d sa=0x%08x) ---\n",
+			    tf->EIP, tf->EAX, tf);
 		  break;
 #if 0
 		case INTERRUPT:
@@ -181,8 +175,7 @@ db_nextframe(struct i386_frame **fp, /* in/out */
 		*fp = (struct i386_frame *)tf->EBP;
 		*ip = (db_addr_t)tf->EIP;
 
-		if ( !KERNEL_TRAP(tf) )
-		  *fp = 0;
+		isUser = (tf->DS == sel_DomainData);
 		    
 		break;
 	    }
@@ -199,8 +192,6 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
 #endif
   db_addr_t	callpc;
   int		is_trap = 0;
-  bool	kernel_only = true;
-  bool	trace_thread = false;
 
 #if 0
   if (!db_trace_symbols_found)
@@ -212,10 +203,7 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
     register char c;
 
     while ((c = *cp++) != 0) {
-      if (c == 't')
-	trace_thread = true;
-      if (c == 'u')
-	kernel_only = false;
+      // No modifiers are used.
     }
   }
 
@@ -225,12 +213,12 @@ db_stack_trace_cmd(db_expr_t addr, int have_addr,
   if (!have_addr) {
     frame = (struct i386_frame *)ddb_regs.EBP;
     callpc = (db_addr_t)ddb_regs.EIP;
-  } else if (trace_thread) {
-    db_printf ("db_trace.c: can't trace thread\n");
+    isUser = false;
   } else {
     frame = (struct i386_frame *)addr;
     callpc = (db_addr_t)
       db_get_value((int)&frame->f_retaddr, 4, false);
+    isUser = true;
   }
 
   lastframe = 0;
