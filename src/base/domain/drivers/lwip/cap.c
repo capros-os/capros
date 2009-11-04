@@ -160,7 +160,7 @@ struct TCPSocket {
 #endif
   struct tcp_pcb * pcb;
   int TCPSk_state;
-  bool receiving;
+  bool receiving;   // true if there is a process receiving (in sco_receiver)
   bool sending;
   bool remoteCloseDelivered;
   int TCPSk_remoteState;
@@ -504,7 +504,6 @@ TCPReceive(Message * msg)
     if (! bytesReceived) {
       msg->snd_code = RC_capros_TCPSocket_RemoteClosed;
       sock->remoteCloseDelivered = true;
-      CheckFullyClosed(sock);
     }
     msg->snd_data = sndBuf;
     msg->snd_len = bytesReceived;
