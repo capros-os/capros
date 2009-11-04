@@ -10,6 +10,7 @@
  *
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/init.h>
@@ -19,11 +20,12 @@
 #include <linux/kdev_t.h>
 #include <linux/notifier.h>
 #include <linux/genhd.h>
-#include <linux/kallsyms.h>
+//#include <linux/kallsyms.h>
 #include <linux/semaphore.h>
 #include <linux/mutex.h>
 
 #include "base.h"
+#if 0 // CapROS
 #include "power/power.h"
 
 int (*platform_notify)(struct device *dev) = NULL;
@@ -60,10 +62,12 @@ const char *dev_driver_string(const struct device *dev)
 			(dev->class ? dev->class->name : ""));
 }
 EXPORT_SYMBOL(dev_driver_string);
+#endif // CapROS
 
 #define to_dev(obj) container_of(obj, struct device, kobj)
 #define to_dev_attr(_attr) container_of(_attr, struct device_attribute, attr)
 
+#if 0 // CapROS
 static ssize_t dev_attr_show(struct kobject *kobj, struct attribute *attr,
 			     char *buf)
 {
@@ -1004,6 +1008,7 @@ int device_register(struct device *dev)
 	device_initialize(dev);
 	return device_add(dev);
 }
+#endif // CapROS
 
 /**
  * get_device - increment reference count for device.
@@ -1029,6 +1034,7 @@ void put_device(struct device *dev)
 		kobject_put(&dev->kobj);
 }
 
+#if 0 // CapROS
 /**
  * device_del - delete device from system.
  * @dev: device.
@@ -1666,3 +1672,4 @@ void device_shutdown(void)
 	kobject_put(sysfs_dev_block_kobj);
 	kobject_put(dev_kobj);
 }
+#endif // CapROS

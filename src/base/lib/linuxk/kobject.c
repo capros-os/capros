@@ -12,12 +12,14 @@
  * about using the kobject interface.
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/kobject.h>
 #include <linux/string.h>
 #include <linux/module.h>
 #include <linux/stat.h>
 #include <linux/slab.h>
 
+#if 0 // CapROS
 /*
  * populate_dir - populate directory with attributes.
  * @kobj: object we're working on.
@@ -117,6 +119,7 @@ char *kobject_get_path(struct kobject *kobj, gfp_t gfp_mask)
 	return path;
 }
 EXPORT_SYMBOL_GPL(kobject_get_path);
+#endif // CapROS
 
 /* add the kobject to its kset's list */
 static void kobj_kset_join(struct kobject *kobj)
@@ -184,6 +187,7 @@ static int kobject_add_internal(struct kobject *kobj)
 		 parent ? kobject_name(parent) : "<NULL>",
 		 kobj->kset ? kobject_name(&kobj->kset->kobj) : "<NULL>");
 
+#if 0 // CapROS
 	error = create_dir(kobj);
 	if (error) {
 		kobj_kset_leave(kobj);
@@ -202,6 +206,7 @@ static int kobject_add_internal(struct kobject *kobj)
 		dump_stack();
 	} else
 		kobj->state_in_sysfs = 1;
+#endif // CapROS
 
 	return error;
 }
@@ -386,6 +391,7 @@ int kobject_init_and_add(struct kobject *kobj, struct kobj_type *ktype,
 }
 EXPORT_SYMBOL_GPL(kobject_init_and_add);
 
+#if 0 // CapROS
 /**
  * kobject_rename - change the name of an object
  * @kobj: object in question.
@@ -503,6 +509,7 @@ out:
 	kfree(devpath);
 	return error;
 }
+#endif // CapROS
 
 /**
  * kobject_del - unlink kobject from hierarchy.
@@ -597,6 +604,7 @@ void kobject_put(struct kobject *kobj)
 	}
 }
 
+#if 0 // CapROS
 static void dynamic_kobj_release(struct kobject *kobj)
 {
 	pr_debug("kobject: (%p): %s\n", kobj, __func__);
@@ -663,6 +671,7 @@ struct kobject *kobject_create_and_add(const char *name, struct kobject *parent)
 	return kobj;
 }
 EXPORT_SYMBOL_GPL(kobject_create_and_add);
+#endif // CapROS
 
 /**
  * kset_init - initialize a kset for use
@@ -675,6 +684,7 @@ void kset_init(struct kset *k)
 	spin_lock_init(&k->list_lock);
 }
 
+#if 0 // CapROS
 /* default kobject attribute operations */
 static ssize_t kobj_attr_show(struct kobject *kobj, struct attribute *attr,
 			      char *buf)
@@ -704,6 +714,7 @@ struct sysfs_ops kobj_sysfs_ops = {
 	.show	= kobj_attr_show,
 	.store	= kobj_attr_store,
 };
+#endif // CapROS
 
 /**
  * kset_register - initialize and add a kset.
@@ -735,6 +746,7 @@ void kset_unregister(struct kset *k)
 	kobject_put(&k->kobj);
 }
 
+#if 0 // CapROS
 /**
  * kset_find_obj - search for object in kset.
  * @kset: kset we're looking in.
@@ -759,6 +771,7 @@ struct kobject *kset_find_obj(struct kset *kset, const char *name)
 	spin_unlock(&kset->list_lock);
 	return ret;
 }
+#endif // CapROS
 
 static void kset_release(struct kobject *kobj)
 {
@@ -769,7 +782,7 @@ static void kset_release(struct kobject *kobj)
 }
 
 static struct kobj_type kset_ktype = {
-	.sysfs_ops	= &kobj_sysfs_ops,
+	.sysfs_ops	= NULL, // &kobj_sysfs_ops,
 	.release = kset_release,
 };
 

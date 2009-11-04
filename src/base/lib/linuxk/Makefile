@@ -36,14 +36,17 @@ OPTIM=-O
 DIRS=
 OBJECTS=\
   $(BUILDDIR)/alloc.o \
+  $(BUILDDIR)/bus.o \
   $(BUILDDIR)/completion.o \
   $(BUILDDIR)/cpumask.o \
   $(BUILDDIR)/delay.o \
+  $(BUILDDIR)/drvcore.o \
   $(BUILDDIR)/dma.o \
   $(BUILDDIR)/dma-mapping.o \
   $(BUILDDIR)/dmapool.o \
   $(BUILDDIR)/driverCore.o \
   $(BUILDDIR)/ioremap.o \
+  $(BUILDDIR)/klist.o \
   $(BUILDDIR)/kmemdup.o \
   $(BUILDDIR)/kobject.o \
   $(BUILDDIR)/kref.o \

@@ -10,13 +10,14 @@
  *
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/errno.h>
 #include <linux/init.h>
 #include <linux/string.h>
 #include "base.h"
-#include "power/power.h"
+//#include "power/power.h"
 
 #define to_bus_attr(_attr) container_of(_attr, struct bus_attribute, attr)
 #define to_bus(obj) container_of(obj, struct bus_type_private, subsys.kobj)
@@ -27,9 +28,6 @@
 
 #define to_drv_attr(_attr) container_of(_attr, struct driver_attribute, attr)
 
-
-static int __must_check bus_rescan_devices_helper(struct device *dev,
-						void *data);
 
 static struct bus_type *bus_get(struct bus_type *bus)
 {
@@ -46,6 +44,7 @@ static void bus_put(struct bus_type *bus)
 		kset_put(&bus->p->subsys);
 }
 
+#if 0 // CapROS
 static ssize_t drv_attr_show(struct kobject *kobj, struct attribute *attr,
 			     char *buf)
 {
@@ -119,6 +118,7 @@ static struct sysfs_ops bus_sysfs_ops = {
 	.show	= bus_attr_show,
 	.store	= bus_attr_store,
 };
+#endif // CapROS
 
 int bus_create_file(struct bus_type *bus, struct bus_attribute *attr)
 {
@@ -142,9 +142,10 @@ void bus_remove_file(struct bus_type *bus, struct bus_attribute *attr)
 EXPORT_SYMBOL_GPL(bus_remove_file);
 
 static struct kobj_type bus_ktype = {
-	.sysfs_ops	= &bus_sysfs_ops,
+	.sysfs_ops	= NULL, // &bus_sysfs_ops,
 };
 
+#if 0 // CapROS
 static int bus_uevent_filter(struct kset *kset, struct kobject *kobj)
 {
 	struct kobj_type *ktype = get_ktype(kobj);
@@ -157,6 +158,7 @@ static int bus_uevent_filter(struct kset *kset, struct kobject *kobj)
 static struct kset_uevent_ops bus_uevent_ops = {
 	.filter = bus_uevent_filter,
 };
+#endif // CapROS
 
 static struct kset *bus_kset;
 
@@ -235,6 +237,9 @@ static ssize_t store_drivers_autoprobe(struct bus_type *bus,
 		bus->p->drivers_autoprobe = 1;
 	return count;
 }
+
+static int __must_check bus_rescan_devices_helper(struct device *dev,
+						void *data);
 
 static ssize_t store_drivers_probe(struct bus_type *bus,
 				   const char *buf, size_t count)
@@ -336,6 +341,7 @@ struct device *bus_find_device(struct bus_type *bus,
 }
 EXPORT_SYMBOL_GPL(bus_find_device);
 
+#if 0 // CapROS
 static int match_name(struct device *dev, void *data)
 {
 	const char *name = data;
@@ -576,6 +582,7 @@ static void driver_remove_attrs(struct bus_type *bus,
 			driver_remove_file(drv, &bus->drv_attrs[i]);
 	}
 }
+#endif // CapROS
 
 #ifdef CONFIG_HOTPLUG
 /*
@@ -632,6 +639,7 @@ static inline int add_probe_files(struct bus_type *bus) { return 0; }
 static inline void remove_probe_files(struct bus_type *bus) {}
 #endif
 
+#if 0 // CapROS
 static ssize_t driver_uevent_store(struct device_driver *drv,
 				   const char *buf, size_t count)
 {
@@ -838,6 +846,7 @@ static void bus_remove_attrs(struct bus_type *bus)
 			bus_remove_file(bus, &bus->bus_attrs[i]);
 	}
 }
+#endif // CapROS
 
 static void klist_devices_get(struct klist_node *n)
 {
@@ -855,6 +864,7 @@ static void klist_devices_put(struct klist_node *n)
 	put_device(dev);
 }
 
+#if 0 // CapROS
 static ssize_t bus_uevent_store(struct bus_type *bus,
 				const char *buf, size_t count)
 {
@@ -865,6 +875,7 @@ static ssize_t bus_uevent_store(struct bus_type *bus,
 	return count;
 }
 static BUS_ATTR(uevent, S_IWUSR, NULL, bus_uevent_store);
+#endif // CapROS
 
 /**
  * bus_register - register a bus with the system.
@@ -900,9 +911,11 @@ int bus_register(struct bus_type *bus)
 	if (retval)
 		goto out;
 
+#if 0 // CapROS
 	retval = bus_create_file(bus, &bus_attr_uevent);
 	if (retval)
 		goto bus_uevent_fail;
+#endif // CapROS
 
 	priv->devices_kset = kset_create_and_add("devices", NULL,
 						 &priv->subsys.kobj);
@@ -925,22 +938,28 @@ int bus_register(struct bus_type *bus)
 	if (retval)
 		goto bus_probe_files_fail;
 
+#if 0 // CapROS
 	retval = bus_add_attrs(bus);
 	if (retval)
 		goto bus_attrs_fail;
+#endif // CapROS
 
 	pr_debug("bus: '%s': registered\n", bus->name);
 	return 0;
 
+#if 0 // CapROS
 bus_attrs_fail:
 	remove_probe_files(bus);
+#endif // CapROS
 bus_probe_files_fail:
 	kset_unregister(bus->p->drivers_kset);
 bus_drivers_fail:
 	kset_unregister(bus->p->devices_kset);
 bus_devices_fail:
+#if 0 // CapROS
 	bus_remove_file(bus, &bus_attr_uevent);
 bus_uevent_fail:
+#endif // CapROS
 	kset_unregister(&bus->p->subsys);
 	kfree(bus->p);
 out:
@@ -949,6 +968,7 @@ out:
 }
 EXPORT_SYMBOL_GPL(bus_register);
 
+#if 0 // CapROS
 /**
  * bus_unregister - remove a bus from the system
  * @bus: bus.
@@ -1055,3 +1075,4 @@ int __init buses_init(void)
 		return -ENOMEM;
 	return 0;
 }
+#endif // CapROS

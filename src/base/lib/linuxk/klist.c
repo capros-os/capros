@@ -34,6 +34,7 @@
  * all accessors have finished).
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/klist.h>
 #include <linux/module.h>
 #include <linux/sched.h>
@@ -183,11 +184,12 @@ static LIST_HEAD(klist_remove_waiters);
 
 static void klist_release(struct kref *kref)
 {
-	struct klist_waiter *waiter, *tmp;
 	struct klist_node *n = container_of(kref, struct klist_node, n_ref);
 
 	WARN_ON(!knode_dead(n));
 	list_del(&n->n_node);
+#if 0 // CapROS
+	struct klist_waiter *waiter, *tmp;
 	spin_lock(&klist_remove_lock);
 	list_for_each_entry_safe(waiter, tmp, &klist_remove_waiters, list) {
 		if (waiter->node != n)
@@ -199,6 +201,7 @@ static void klist_release(struct kref *kref)
 		list_del(&waiter->list);
 	}
 	spin_unlock(&klist_remove_lock);
+#endif // CapROS
 	knode_set_klist(n, NULL);
 }
 
@@ -232,6 +235,7 @@ void klist_del(struct klist_node *n)
 }
 EXPORT_SYMBOL_GPL(klist_del);
 
+#if 0 // CapROS
 /**
  * klist_remove - Decrement the refcount of node and wait for it to go away.
  * @n: node we're removing.
@@ -258,6 +262,7 @@ void klist_remove(struct klist_node *n)
 	__set_current_state(TASK_RUNNING);
 }
 EXPORT_SYMBOL_GPL(klist_remove);
+#endif // CapROS
 
 /**
  * klist_node_attached - Say whether a node is bound to a list or not.
