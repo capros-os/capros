@@ -39,7 +39,7 @@ struct rw_semaphore {
 #define DECLARE_RWSEM(name) \
 	struct rw_semaphore name = __RWSEM_INITIALIZER(name)
 
-#define init_rwsem(sem) CMTERWSemaphore_init(&sem->cmterwsem)
+#define init_rwsem(sem) CMTERWSemaphore_init(&(sem)->cmterwsem)
 
 static inline int
 rwsem_is_locked(struct rw_semaphore *sem)
