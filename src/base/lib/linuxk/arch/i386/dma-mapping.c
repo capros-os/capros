@@ -33,18 +33,18 @@
 #include <asm/gart.h>
 #include <asm/calgary.h>
 #include <asm/amd_iommu.h>
+#endif // CapROS
 
 static int forbid_dac __read_mostly;
-#endif // CapROS
 
 // iommu stuff will be handled in the kernel.
 extern struct dma_map_ops nommu_dma_ops;
 struct dma_map_ops *dma_ops = &nommu_dma_ops;
 EXPORT_SYMBOL(dma_ops);
 
-#if 0 // CapROS
 static int iommu_sac_force __read_mostly;
 
+#if 0 // CapROS
 #ifdef CONFIG_IOMMU_DEBUG
 int panic_on_overflow __read_mostly = 1;
 int force_iommu __read_mostly = 1;
@@ -270,6 +270,7 @@ static __init int iommu_setup(char *p)
 	return 0;
 }
 early_param("iommu", iommu_setup);
+#endif // CapROS
 
 int dma_supported(struct device *dev, u64 mask)
 {
@@ -311,6 +312,7 @@ int dma_supported(struct device *dev, u64 mask)
 	return 1;
 }
 EXPORT_SYMBOL(dma_supported);
+#if 0 // CapROS
 
 static int __init pci_iommu_init(void)
 {
