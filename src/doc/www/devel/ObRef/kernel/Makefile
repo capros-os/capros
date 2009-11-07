@@ -29,7 +29,6 @@ include $(EROS_SRC)/build/make/makevars.mk
 
 DOCS= \
 	00Kernel.html \
-	DevCreator.html \
 	DevPrivs.html \
 	Discrim.html \
 	LogAppend.html \
