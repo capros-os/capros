@@ -40,7 +40,6 @@ OBJECTS=\
   $(BUILDDIR)/completion.o \
   $(BUILDDIR)/cpumask.o \
   $(BUILDDIR)/delay.o \
-  $(BUILDDIR)/drvcore.o \
   $(BUILDDIR)/dma.o \
   $(BUILDDIR)/dma-mapping.o \
   $(BUILDDIR)/dmapool.o \

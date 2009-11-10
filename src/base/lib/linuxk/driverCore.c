@@ -10,6 +10,7 @@
  *
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/init.h>
@@ -19,11 +20,12 @@
 #include <linux/kdev_t.h>
 #include <linux/notifier.h>
 #include <linux/genhd.h>
-#include <linux/kallsyms.h>
+//#include <linux/kallsyms.h>
 #include <linux/semaphore.h>
 #include <linux/mutex.h>
 
 #include "base.h"
+#if 0 // CapROS
 #include "power/power.h"
 
 int (*platform_notify)(struct device *dev) = NULL;
@@ -43,6 +45,7 @@ static inline int device_is_not_partition(struct device *dev)
 	return 1;
 }
 #endif
+#endif // CapROS
 
 /**
  * dev_driver_string - Return a device's driver name, if at all possible
@@ -64,6 +67,7 @@ EXPORT_SYMBOL(dev_driver_string);
 #define to_dev(obj) container_of(obj, struct device, kobj)
 #define to_dev_attr(_attr) container_of(_attr, struct device_attribute, attr)
 
+#if 0 // CapROS
 static ssize_t dev_attr_show(struct kobject *kobj, struct attribute *attr,
 			     char *buf)
 {
@@ -96,6 +100,7 @@ static struct sysfs_ops dev_sysfs_ops = {
 	.show	= dev_attr_show,
 	.store	= dev_attr_store,
 };
+#endif // CapROS
 
 
 /**
@@ -126,10 +131,11 @@ static void device_release(struct kobject *kobj)
 
 static struct kobj_type device_ktype = {
 	.release	= device_release,
-	.sysfs_ops	= &dev_sysfs_ops,
+	.sysfs_ops	= NULL, // &dev_sysfs_ops,
 };
 
 
+#if 0 // CapROS
 static int dev_uevent_filter(struct kset *kset, struct kobject *kobj)
 {
 	struct kobj_type *ktype = get_ktype(kobj);
@@ -520,6 +526,7 @@ static void klist_children_put(struct klist_node *n)
 
 	put_device(dev);
 }
+#endif // CapROS
 
 /**
  * device_initialize - init device structure.
@@ -538,17 +545,22 @@ static void klist_children_put(struct klist_node *n)
  */
 void device_initialize(struct device *dev)
 {
+#if 0 // CapROS
 	dev->kobj.kset = devices_kset;
+#endif // CapROS
 	kobject_init(&dev->kobj, &device_ktype);
 	INIT_LIST_HEAD(&dev->dma_pools);
 	init_MUTEX(&dev->sem);
 	spin_lock_init(&dev->devres_lock);
 	INIT_LIST_HEAD(&dev->devres_head);
 	device_init_wakeup(dev, 0);
+#if 0 // CapROS
 	device_pm_init(dev);
+#endif // CapROS
 	set_dev_node(dev, -1);
 }
 
+#if 0 // CapROS
 #ifdef CONFIG_SYSFS_DEPRECATED
 static struct kobject *get_device_parent(struct device *dev,
 					 struct device *parent)
@@ -768,6 +780,7 @@ static void device_remove_class_symlinks(struct device *dev)
 
 	sysfs_remove_link(&dev->kobj, "subsystem");
 }
+#endif // CapROS
 
 /**
  * dev_set_name - set a device name
@@ -786,6 +799,7 @@ int dev_set_name(struct device *dev, const char *fmt, ...)
 }
 EXPORT_SYMBOL_GPL(dev_set_name);
 
+#if 0 // CapROS
 /**
  * device_to_dev_kobj - select a /sys/dev/ directory for the device
  * @dev: device
@@ -1004,6 +1018,7 @@ int device_register(struct device *dev)
 	device_initialize(dev);
 	return device_add(dev);
 }
+#endif // CapROS
 
 /**
  * get_device - increment reference count for device.
@@ -1029,6 +1044,7 @@ void put_device(struct device *dev)
 		kobject_put(&dev->kobj);
 }
 
+#if 0 // CapROS
 /**
  * device_del - delete device from system.
  * @dev: device.
@@ -1666,3 +1682,4 @@ void device_shutdown(void)
 	kobject_put(sysfs_dev_block_kobj);
 	kobject_put(dev_kobj);
 }
+#endif // CapROS

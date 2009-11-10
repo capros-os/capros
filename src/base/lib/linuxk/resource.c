@@ -293,7 +293,6 @@ walk_memory_resource(unsigned long start_pfn, unsigned long nr_pages, void *arg,
 
 #endif
 
-#if 0 // CapROS
 /*
  * Find empty slot in the resource tree given range and alignment.
  */
@@ -368,7 +367,6 @@ int allocate_resource(struct resource *root, struct resource *new,
 }
 
 EXPORT_SYMBOL(allocate_resource);
-#endif // CapROS
 
 /*
  * Insert a resource into the resource tree. If successful, return NULL,
