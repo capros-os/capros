@@ -30,7 +30,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Process.h>
 #include <kerninc/IRQ.h>
 #include <eros/arch/i486/io.h>
-#include "lostart.h"
 #include "IDT.h"
 #include "GDT.h"
 #include "IRQ386.h"

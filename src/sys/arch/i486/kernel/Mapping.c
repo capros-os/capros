@@ -36,7 +36,7 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/PTE.h>
 #include "CpuFeatures.h"
 #include "Process486.h"
-#include "lostart.h"
+#include "Cpu.h"
 
 #define dbg_depend	0x1
 #define dbg_map		0x4	/* migration state machine */

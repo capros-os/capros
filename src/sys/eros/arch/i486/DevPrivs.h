@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -21,4 +21,5 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <eros/DevPrivs32.h>
+#include <idl/capros/arch/i386/DevPrivsX86.h>
+#include <eros/DevPrivs64.h>

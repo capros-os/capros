@@ -1,11 +1,9 @@
-#ifndef __LOSTART_H__
-#define __LOSTART_H__
+#ifndef __I486_CPU_H__
+#define __I486_CPU_H__
 /*
- * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2006, 2009, Strawberry Development Group.
+ * Copyright (C) 2009, Strawberry Development Group.
  *
- * This file is part of the CapROS Operating System,
- * and is derived from the EROS Operating System.
+ * This file is part of the CapROS Operating System.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -22,8 +20,11 @@
  * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  */
 
-uint64_t rdtsc();
-uint32_t rdcounter0();
-uint32_t rdcounter1();
+extern uint32_t CpuType;
+extern uint32_t CpuStepping;
+extern uint32_t CpuIdHi;
+extern uint32_t CpuFeatures;
+extern char CpuVendor[];
+extern unsigned int CpuVendorCode;
 
-#endif /* __LOSTART_H__ */
+#endif /* __I486_CPU_H__ */

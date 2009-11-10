@@ -34,7 +34,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/ObjectCache.h>
 #include <arch-kerninc/Process.h>
 #include "IDT.h"
-#include "lostart.h"
 
 #define pi_copy_cap  0		/* handled in fast path */
 #define pi_xchg_cap  1		/* handled in fast path */

@@ -36,9 +36,6 @@ HEADERS=\
 	ConsoleKey.h \
 	container_of.h \
 	DevCreKey.h \
-	Device.h \
-	DeviceDef.h \
-	DeviceKey.h \
 	DevPrivs32.h \
 	endian.h \
 	ffs.h \

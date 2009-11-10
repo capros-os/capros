@@ -21,4 +21,10 @@
 Research Projects Agency under Contract No. W31P4Q-07-C-0070.
 Approved for public release, distribution unlimited. */
 
-#include <eros/IORQ64.h>
+#include <idl/capros/IOReqQ64.h>
+
+typedef capros_IOReqQ64_IORequest capros_IOReqQ_IORequest;
+
+#define IKT_capros_IOReqQAny IKT_capros_IOReqQ64
+#define capros_IOReqQ_waitForRequest capros_IOReqQ64_waitForRequest
+#define OC_capros_IOReqQ_waitForRequest OC_capros_IOReqQ64_waitForRequest

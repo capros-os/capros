@@ -44,6 +44,7 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/PTE.h>
 #include "IDT.h"
 #include "lostart.h"
+#include "Cpu.h"
 #include "Segment.h"
 
 // #define WALK_LOUD
@@ -95,8 +96,6 @@ obj_IsDirectory(PageHeader * pageH) /* pageH->obType must be ot_PtMappingPage */
  * 2    0      Access was supervisor-mode
  * 2    1      Access was user-mode
  */
-
-extern uint32_t CpuType;
 
 static PageHeader *
 MakeNewPageTable(SegWalk* wi /*@ not null @*/ ); 

@@ -33,6 +33,7 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <eros/Invoke.h>
 #include <idl/capros/arch/i386/SysTrace.h>
+#include "lostart.h"
 
 const char *mach_ModeName(uint32_t mode);
 bool mach_SetCounterMode(uint32_t mode);
@@ -42,7 +43,6 @@ void mach_DisableCounters();
 uint64_t mach_ReadCounter(uint32_t which);
 
 extern void zapcounters();
-extern uint64_t rdtsc();
 uint32_t setup_value;
 
 #ifdef OPTION_KERN_STATS

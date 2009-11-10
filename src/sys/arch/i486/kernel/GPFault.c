@@ -36,7 +36,6 @@ Approved for public release, distribution unlimited. */
 #include <arch-kerninc/Process.h>
 #include "Segment.h"
 #include "IDT.h"
-#include "lostart.h"
 
 extern void halt(char);
 

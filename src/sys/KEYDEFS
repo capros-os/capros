@@ -34,7 +34,6 @@ primary Forwarder
 primary	Node
 primary	GPT /* last node key */
 primary	Page /* last object key (i.e. things from the disk) */
-primary	Device
 primary	Number
 akt Number 0x106a7e8f
 

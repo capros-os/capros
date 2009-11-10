@@ -58,3 +58,19 @@ interface IOReqQ32 extends IOReqQ {
    */
   IORequest waitForRequest() /* raises(waitingDisabled) */ ;
 };
+
+interface IOReqQ64 extends IOReqQ {
+
+  struct IORequest {
+    unsigned long long rangeStartOID;
+    unsigned long rangeOpaque;
+    unsigned long long rangeLoc;	/* page number in this range */
+    DMA64.DMAAddress bufferDMAAddr;
+    IOReqQ.RequestType requestType;
+    unsigned long requestID;
+  };
+
+  /** Wait for a request.
+   */
+  IORequest waitForRequest() /* raises(waitingDisabled) */ ;
+};

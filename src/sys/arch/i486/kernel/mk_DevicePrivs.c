@@ -38,6 +38,7 @@ Approved for public release, distribution unlimited. */
 #include <eros/machine/DevPrivs.h>
 #include <key/DevicePrivs.h>
 #include "IRQ386.h"
+#include "Cpu.h"
 
 #define dbg_alloc	0x2u
 #define dbg_sleep	0x4u
@@ -243,6 +244,21 @@ DevicePrivsKey(Invocation* inv /*@ not null @*/)
 
       break;
     }
+
+  case OC_capros_arch_i386_DevPrivsX86_getCPUInfo:
+    proc_SetupExitString(inv->invokee, inv,
+                         sizeof(capros_arch_i386_DevPrivsX86_CPUInfo));
+
+    COMMIT_POINT();
+
+    // printf("CpuVendor %s\n", CpuVendor);
+    capros_arch_i386_DevPrivsX86_CPUInfo cpui = {
+      .family = CpuType,
+      .vendorCode = CpuVendorCode
+    };
+    inv_CopyOut(inv, sizeof(capros_arch_i386_DevPrivsX86_CPUInfo), &cpui);
+    inv->exit.code = RC_OK;
+    break;
 
   case OC_capros_key_getType:
     COMMIT_POINT();

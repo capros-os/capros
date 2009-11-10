@@ -44,7 +44,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/KernStats.h>
 #include <kerninc/IRQ.h>
 #include <eros/arch/i486/io.h>
-#include "lostart.h"
 #include "IDT.h"
 #include "GDT.h"
 

@@ -154,7 +154,8 @@ db_more()
 	  return;
 	}
 
-	for (p = "--db_more--"; *p; p++)
+#define eraseSize 28 // length of the string below
+	for (p = "--db_more-- (1, space, or q)"; *p; p++)
 	    cnputc(*p);
 	switch(cngetc()) {
 	case ' ':
@@ -169,9 +170,10 @@ db_more()
 	    db_output_line--;
 	    break;
 	}
-	p = "\b\b\b\b\b\b\b\b\b\b\b           \b\b\b\b\b\b\b\b\b\b\b";
-	while (*p)
-	    cnputc(*p++);
+	int i;
+	for (i = 0; i<eraseSize; i++) cnputc('\b');
+	for (i = 0; i<eraseSize; i++) cnputc(' ');
+	for (i = 0; i<eraseSize; i++) cnputc('\b');
 	if (quit_output) {
 	    db_abort_output();
 	    /* NOTREACHED */

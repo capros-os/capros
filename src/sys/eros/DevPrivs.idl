@@ -111,3 +111,9 @@ interface DevPrivs32 extends DevPrivs raises(DevPrivs.AllocFail) {
    */
   capros.IOReqQ32 allocateIORQ();
 };
+
+interface DevPrivs64 extends DevPrivs raises(DevPrivs.AllocFail) {
+  /** Allocate an IOReqQ64.
+   */
+  capros.IOReqQ64 allocateIORQ();
+};

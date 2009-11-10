@@ -36,13 +36,14 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/PCI.h>
 #include <kerninc/IRQ.h>
 #include <idl/capros/arch/i386/SysTrace.h>
+#include <idl/capros/arch/i386/DevPrivsX86.h>
 #include <arch-kerninc/PTE.h>
 #include "CpuFeatures.h"
 #include <kerninc/Process.h>
 #include <kerninc/Depend.h>
 #include "Process486.h"
 #include "CMOS.h"
-#include "lostart.h"
+#include "Cpu.h"
 
 #include "GDT.h"
 #include "IDT.h"
@@ -52,10 +53,9 @@ uint32_t mach_BusArchitecture();
 
 void mach_EnableVirtualMapping();
 
-/* Machine::BootInit() -- first routine called by main() if we
- * came into the kernel via the bootstrap code.
- * 
- * On entry, we have a stack (created in lostart.S) and interrupts
+unsigned int CpuVendorCode = capros_arch_i386_DevPrivsX86_VendorCode_Unknown;
+
+/* On entry, we have a stack (created in lostart.S) and interrupts
  * are disabled.  Static constructors have been run.
  * 
  * Otherwise, the state of the machine is whatever environment
@@ -81,6 +81,20 @@ void mach_EnableVirtualMapping();
 void 
 mach_BootInit()
 {
+  // Determine CpuVendorCode from vendor string.
+#define vendor(vendorIDString, name) \
+  if (! strcmp(CpuVendor, vendorIDString)) \
+    CpuVendorCode = capros_arch_i386_DevPrivsX86_VendorCode_##name;
+  vendor("GenuineIntel", Intel)
+  else vendor("CyrixInstead", Cyrix)
+  else vendor("AuthenticAMD", AMD)
+  else vendor("UMC UMC UMC", UMC)
+  else vendor("CentaurHauls", Centaur)
+  else vendor("GenuineTMx86", Transmeta)
+  else vendor("TransmetaCPU", Transmeta)
+  else vendor("Geode by NSC", NSC)
+#undef vendor
+
   /* The kernel address space must, however, be constructed and
    * enabled before the GDT, IDT, and TSS descriptors are loaded,
    * because these descriptors reference linear addresses that change
@@ -338,22 +352,6 @@ mach_EnableFPU()
 		       : "ax" /* eax smashed */);
 }
 #endif
-
-extern uint32_t CpuType;
-extern const char CpuVendor[];
-
-
-const char *
-mach_GetCpuVendor()
-{
-  return CpuVendor;
-}
-
-uint32_t
-mach_GetCpuType()
-{
-  return CpuType;
-}
 
 /* Following probably would be easier to do in assembler, but updating
  * the mode table is a lot easier to do in C++.  Second argument says

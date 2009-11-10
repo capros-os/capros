@@ -30,7 +30,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <kerninc/Machine.h>
 #include <kerninc/ObjectSource.h>
-#include <eros/Device.h>
 #include <kerninc/PhysMem.h>	/* get MI_DEVICEMEM */
 #include <arch-kerninc/Page-inline.h>
 

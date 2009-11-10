@@ -1,7 +1,7 @@
 	.file	"lostart.S"
 /*
  * Copyright (C) 1998, 1999, Jonathan S. Shapiro.
- * Copyright (C) 2005, 2006, 2008, Strawberry Development Group.
+ * Copyright (C) 2005, 2006, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System,
  * and is derived from the EROS Operating System.
@@ -313,13 +313,7 @@ ENTRY(GetCpuType)
 
 	jnz	4f			/* if flags changed, Intel chip */
 
-#if 0
-	/* 
-	 * We don't set a special value for cyrix - just the 
-	 * vendor string 
-	 */
-	movl	$CPU_486DLC,_cpu-KERNBASE /* set CPU value for Cyrix */
-#endif
+	/* It's Cyrix. */
 	movl	$0x69727943,EXT(CpuVendor) /* store vendor string */
 	movw	$0x0078,EXT(CpuVendor)+4
 
@@ -360,18 +354,6 @@ use_cpuid:
 	rorl	$8,%eax
 	andl	$15,%eax
 	movl	%eax,EXT(CpuType)
-#if 0	
-	cmpl	$5,%eax
-	jae	1f
-
-	/* less than Pentium; must be 486 */
-	movl	$CPU_486,_cpu-KERNBASE
-	jmp	4f
-
-1:	movl	$CPU_586,_cpu-KERNBASE
-2:
-#endif
-	
 	
 4:	
 	popal

@@ -32,7 +32,6 @@ Approved for public release, distribution unlimited. */
 /*#include <kerninc/util.h>*/
 #include <kerninc/Process.h>
 #include "IDT.h"
-#include "lostart.h"
 
 #ifdef OPTION_DDB
 #include "Debug386.h"

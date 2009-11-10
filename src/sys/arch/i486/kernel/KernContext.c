@@ -29,7 +29,6 @@ Approved for public release, distribution unlimited. */
 #include <kerninc/Activity.h>
 #include <arch-kerninc/PTE.h>
 #include "Segment.h"
-#include "lostart.h"
 
 #if 1
 /* We need to allow I/O for at least the main() thread so that it can
