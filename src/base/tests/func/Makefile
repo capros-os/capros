@@ -37,7 +37,6 @@ DIRS+= extended_node
 DIRS+= forwarder
 DIRS+= gate
 DIRS+= hai
-# DIRS+= ipl_test
 DIRS+= keyset-test
 DIRS+= LocalWindow
 DIRS+= logfile
@@ -57,7 +56,7 @@ DIRS+= vcs_test
 DIRS+= w1
 DIRS+= w1mult
 
-CLEANDIRS=${DIRS} appstart constructor_test ipl_test
+CLEANDIRS=${DIRS} appstart constructor_test
 CLEANDIRS+= pcc_test proccre_test string
 
 include $(EROS_SRC)/build/make/makerules.mk

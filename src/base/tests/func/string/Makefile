@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2005, Strawberry Development Group
+# Copyright (C) 2005, 2009, Strawberry Development Group
 #
 # This file is part of the CapROS Operating System.
 #
@@ -33,7 +33,7 @@ INC=-I$(EROS_ROOT)/include
 
 VOLMAP=../test.volmap
 
-include ../test.mk
+include ../../test.mk
 
 include $(EROS_SRC)/build/make/makerules.mk
 
