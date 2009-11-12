@@ -168,15 +168,17 @@ install: all
 .FORCE:
 
 $(CONFIG).eros.o: $(BUILDDIR)/lostart.o $(OBJECTS) $(NODEBUG_OBJECTS)
-	$(LINK) --library-path==/usr/lib -r -o $(CONFIG).eros.o \
+	$(LINK) --library-path==/usr/lib -r -o $@ \
 		 lostart.o $(OBJECTS) $(NODEBUG_OBJECTS) $(LIBS)
 	#$(SIZE) $(CONFIG).eros
 
 $(CONFIG).eros.debug.o: $(BUILDDIR)/lostart.o $(OBJECTS) $(DEBUG_OBJECTS)
-	$(LINK) --library-path==/usr/lib -r -o $(CONFIG).eros.debug.o \
+	$(LINK) --library-path==/usr/lib -r -o $@ \
 		lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(LIBS)
-	#$(SIZE) $(CONFIG).eros
-	#$(SIZE) $(CONFIG).eros.debug
+	$(OBJDUMP) --syms --stabs $@ | sort > syms.debug ## debug
+	$(OBJDUMP) --disassemble $@ > disassembled ## debug
+	#$(SIZE) $(CONFIG).eros.o
+	#$(SIZE) $(CONFIG).eros.debug.o
 
 ifeq "$(OPT_MOPS)" "1"
 $(CONFIG).eros.cfg: $(CFGFILES)
