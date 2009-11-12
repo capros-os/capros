@@ -157,12 +157,20 @@ db_nextframe(struct i386_frame **fp, /* in/out */
 		/* The only argument to trap() or syscall() is the trapframe. */
 		tf = * ((savearea_t **)argp);/* on EROS, the */
 						  /* trapframe ptr */
+
+		*fp = (struct i386_frame *)tf->EBP;
+		*ip = (db_addr_t)tf->EIP;
 		switch (is_trap) {
 		case TRAP:
 		  db_printf("--- trap (EIP=0x%08x vector=0x%x sa=0x%08x) ---\n",
 			    tf->EIP, tf->ExceptNo, tf);
 		  break;
 		case SYSCALL:
+		  /* All syscalls do a pusha and then use ebp for other than
+		     the frame pointer.
+		     Get the saved ebp from the pusha frame. */
+		  *fp = (struct i386_frame *)
+			db_get_value(tf->ESP + 8 + KUVA, 4, false);
 		  db_printf("--- IPC (EIP=0x%08x OC=%d sa=0x%08x) ---\n",
 			    tf->EIP, tf->EAX, tf);
 		  break;
@@ -172,9 +180,6 @@ db_nextframe(struct i386_frame **fp, /* in/out */
 			break;
 #endif
 		}
-		*fp = (struct i386_frame *)tf->EBP;
-		*ip = (db_addr_t)tf->EIP;
-
 		isUser = (tf->DS == sel_DomainData);
 		    
 		break;
