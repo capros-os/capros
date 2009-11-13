@@ -82,7 +82,7 @@ struct sched_param {
 #include <linux/semaphore.h>
 #include <asm/page.h>
 #include <asm/ptrace.h>
-#include <asm/mmu.h>
+//#include <asm/mmu.h>
 #include <asm/cputime.h>
 
 #include <linux/smp.h>
@@ -343,6 +343,7 @@ typedef unsigned long mm_counter_t;
 		(mm)->hiwater_vm = (mm)->total_vm;	\
 } while (0)
 
+#if 0 // CapROS
 struct mm_struct {
 	struct vm_area_struct * mmap;		/* list of VMAs */
 	struct rb_root mm_rb;
@@ -410,6 +411,7 @@ struct mm_struct {
 	rwlock_t		ioctx_list_lock;
 	struct kioctx		*ioctx_list;
 };
+#endif // CapROS
 
 struct sighand_struct {
 	atomic_t		count;
@@ -1422,7 +1424,6 @@ static inline int sas_ss_flags(unsigned long sp)
 	return (current->sas_ss_size == 0 ? SS_DISABLE
 		: on_sig_stack(sp) ? SS_ONSTACK : 0);
 }
-#endif // CapROS
 
 /*
  * Routines for handling mm_structs
@@ -1443,6 +1444,7 @@ extern void mmput(struct mm_struct *);
 extern struct mm_struct *get_task_mm(struct task_struct *task);
 /* Remove the current tasks stale references to the old mm_struct */
 extern void mm_release(struct task_struct *, struct mm_struct *);
+#endif // CapROS
 
 extern int  copy_thread(int, unsigned long, unsigned long, unsigned long, struct task_struct *, struct pt_regs *);
 extern void flush_thread(void);
@@ -1685,6 +1687,7 @@ static inline void set_task_cpu(struct task_struct *p, unsigned int cpu)
 
 #endif /* CONFIG_SMP */
 
+#if 0 // CapROS
 #ifdef HAVE_ARCH_PICK_MMAP_LAYOUT
 extern void arch_pick_mmap_layout(struct mm_struct *mm);
 #else
@@ -1695,6 +1698,7 @@ static inline void arch_pick_mmap_layout(struct mm_struct *mm)
 	mm->unmap_area = arch_unmap_area;
 }
 #endif
+#endif // CapROS
 
 extern long sched_setaffinity(pid_t pid, cpumask_t new_mask);
 extern long sched_getaffinity(pid_t pid, cpumask_t *mask);

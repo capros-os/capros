@@ -317,6 +317,7 @@ static inline void outer_flush_range(unsigned long start, unsigned long end)
 		memcpy(dst, src, len);				\
 	} while (0)
 
+#if 0 // CapROS
 /*
  * Convert calls to our calling convention.
  */
@@ -363,6 +364,7 @@ extern void flush_ptrace_access(struct vm_area_struct *vma, struct page *page,
 				unsigned long uaddr, void *kaddr,
 				unsigned long len, int write);
 #endif
+#endif // CapROS
 
 #define flush_cache_dup_mm(mm) flush_cache_mm(mm)
 

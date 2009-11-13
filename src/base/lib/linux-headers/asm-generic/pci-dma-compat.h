@@ -29,6 +29,7 @@ pci_free_consistent(struct pci_dev *hwdev, size_t size,
 	dma_free_coherent(hwdev == NULL ? NULL : &hwdev->dev, size, vaddr, dma_handle);
 }
 
+#if 0 // CapROS
 static inline dma_addr_t
 pci_map_single(struct pci_dev *hwdev, void *ptr, size_t size, int direction)
 {
@@ -41,6 +42,7 @@ pci_unmap_single(struct pci_dev *hwdev, dma_addr_t dma_addr,
 {
 	dma_unmap_single(hwdev == NULL ? NULL : &hwdev->dev, dma_addr, size, (enum dma_data_direction)direction);
 }
+#endif // CapROS
 
 static inline dma_addr_t
 pci_map_page(struct pci_dev *hwdev, struct page *page,
