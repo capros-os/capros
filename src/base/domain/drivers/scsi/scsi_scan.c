@@ -25,7 +25,7 @@
  * 		or a LUN is seen that cannot have a device attached to it.
  */
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -497,7 +497,7 @@ static void scsi_target_reap_usercontext(struct work_struct *work)
 	unsigned long flags;
 
 	// transport_remove_device(&starget->dev);
-	device_del(&starget->dev);
+	// device_del(&starget->dev);
 	// transport_destroy_device(&starget->dev);
 	spin_lock_irqsave(shost->host_lock, flags);
 	if (shost->hostt->target_destroy)

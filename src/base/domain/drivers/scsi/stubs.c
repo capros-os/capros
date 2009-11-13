@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, Strawberry Development Group
+ * Copyright (C) 2008, 2009, Strawberry Development Group
  *
  * This file is part of the CapROS Operating System.
  *
@@ -254,18 +254,12 @@ void transport_configure_device(struct device * dev)
 void transport_destroy_device(struct device * dev)
 {
 }
-#endif
-
-int device_add(struct device * dev)
-{
-  BUG_ON("unimplemented");
-  return -1;
-}
 
 void device_del(struct device * dev)
 {
   BUG_ON("unimplemented");
 }
+#endif
 
 void set_disk_ro(struct gendisk * disk, int flag)
 {
