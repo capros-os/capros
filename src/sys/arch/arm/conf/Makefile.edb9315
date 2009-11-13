@@ -160,8 +160,8 @@ $(CONFIG).eros: $(BUILDDIR)/lostart.o $(OBJECTS) $(NODEBUG_OBJECTS) $(BUILDDIR)/
 $(CONFIG).eros.debug: $(BUILDDIR)/lostart.o $(OBJECTS) $(DEBUG_OBJECTS) $(BUILDDIR)/etext.o
 	$(LINK) -o $(CONFIG).eros.debug lostart.o $(OBJECTS) \
 		$(DEBUG_OBJECTS) $(LIBS) etext.o
-	$(OBJDUMP) --syms --stabs $(CONFIG).eros.debug | sort > syms.debug ## debug
-	$(OBJDUMP) --disassemble $(CONFIG).eros.debug > disassembled ## debug
+	$(OBJDUMP) --syms --stabs $@ | sort > syms.debug ## debug
+	$(OBJDUMP) --disassemble $@ > disassembled ## debug
 	$(SIZE) $(CONFIG).eros
 	$(SIZE) $(CONFIG).eros.debug
 
