@@ -45,7 +45,7 @@ extern void x86_quirk_time_init(void);
 
 #ifdef __i386__
 
-#include <linux/pfn.h>
+//#include <linux/pfn.h>
 /*
  * Reserved space for vmalloc and iomap - defined in asm/page.h
  */
@@ -61,7 +61,7 @@ extern void x86_quirk_time_init(void);
 #define NEW_CL_POINTER		0x228	/* Relative to real mode data */
 
 #ifndef __ASSEMBLY__
-#include <asm/bootparam.h>
+//#include <asm/bootparam.h>
 
 /* Interrupt control for vSMPowered x86_64 systems */
 #ifdef CONFIG_X86_64

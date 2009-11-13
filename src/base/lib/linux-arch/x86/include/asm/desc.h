@@ -4,7 +4,7 @@
 #ifndef __ASSEMBLY__
 #include <asm/desc_defs.h>
 #include <asm/ldt.h>
-#include <asm/mmu.h>
+//#include <asm/mmu.h>
 #include <linux/smp.h>
 
 static inline void fill_ldt(struct desc_struct *desc,
