@@ -510,6 +510,7 @@ int device_schedule_callback_owner(struct device *dev,
 			(void (*)(void *)) func, dev, owner);
 }
 EXPORT_SYMBOL_GPL(device_schedule_callback_owner);
+#endif // CapROS
 
 static void klist_children_get(struct klist_node *n)
 {
@@ -526,7 +527,6 @@ static void klist_children_put(struct klist_node *n)
 
 	put_device(dev);
 }
-#endif // CapROS
 
 /**
  * device_initialize - init device structure.
@@ -847,6 +847,7 @@ static void device_remove_sys_dev_entry(struct device *dev)
 		sysfs_remove_link(kobj, devt_str);
 	}
 }
+#endif // CapROS
 
 /**
  * device_add - add device to device hierarchy.
@@ -866,7 +867,6 @@ static void device_remove_sys_dev_entry(struct device *dev)
 int device_add(struct device *dev)
 {
 	struct device *parent = NULL;
-	struct class_interface *class_intf;
 	int error = -EINVAL;
 
 	dev = get_device(dev);
@@ -898,7 +898,9 @@ int device_add(struct device *dev)
 	pr_debug("device: '%s': %s\n", dev_name(dev), __func__);
 
 	parent = get_device(dev->parent);
+#if 0 // CapROS
 	setup_parent(dev, parent);
+#endif // CapROS
 
 	/* use parent numa_node */
 	if (parent)
@@ -910,6 +912,7 @@ int device_add(struct device *dev)
 	if (error)
 		goto Error;
 
+#if 0 // CapROS
 	/* notify platform of device entry */
 	if (platform_notify)
 		platform_notify(dev);
@@ -951,10 +954,12 @@ int device_add(struct device *dev)
 
 	kobject_uevent(&dev->kobj, KOBJ_ADD);
 	bus_attach_device(dev);
+#endif // CapROS
 	if (parent)
 		klist_add_tail(&dev->p->knode_parent,
 			       &parent->p->klist_children);
 
+#if 0 // CapROS
 	if (dev->class) {
 		mutex_lock(&dev->class->p->class_mutex);
 		/* tie the class to the device */
@@ -962,15 +967,19 @@ int device_add(struct device *dev)
 			       &dev->class->p->class_devices);
 
 		/* notify any interfaces that the device is here */
+		struct class_interface *class_intf;
 		list_for_each_entry(class_intf,
 				    &dev->class->p->class_interfaces, node)
 			if (class_intf->add_dev)
 				class_intf->add_dev(dev, class_intf);
 		mutex_unlock(&dev->class->p->class_mutex);
 	}
+#endif // CapROS
 done:
 	put_device(dev);
 	return error;
+
+#if 0 // CapROS
  DPMError:
 	bus_remove_device(dev);
  BusError:
@@ -988,8 +997,9 @@ done:
  attrError:
 	kobject_uevent(&dev->kobj, KOBJ_REMOVE);
 	kobject_del(&dev->kobj);
+#endif // CapROS
  Error:
-	cleanup_device_parent(dev);
+	// cleanup_device_parent(dev);
 	if (parent)
 		put_device(parent);
 name_error:
@@ -1018,7 +1028,6 @@ int device_register(struct device *dev)
 	device_initialize(dev);
 	return device_add(dev);
 }
-#endif // CapROS
 
 /**
  * get_device - increment reference count for device.

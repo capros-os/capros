@@ -191,6 +191,7 @@ static int __release_resource(struct resource *old)
 	}
 	return -EINVAL;
 }
+#endif // CapROS
 
 /**
  * request_resource - request and reserve an I/O or memory resource
@@ -211,6 +212,7 @@ int request_resource(struct resource *root, struct resource *new)
 
 EXPORT_SYMBOL(request_resource);
 
+#if 0 // CapROS
 /**
  * release_resource - release a previously reserved resource
  * @old: resource pointer
