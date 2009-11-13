@@ -389,7 +389,8 @@ result_t
 SendConfigCommand(uint8_t command)	// low bit of command is zero
 {
   EnsureCommandMode();
-  wp(command + 0x01);
+  uint8_t commandPlus1 = command + 0x01;
+  wp(commandPlus1);
   if (! serial_sendData()) {
     return RC_capros_key_Restart;
   }
@@ -400,7 +401,7 @@ SendConfigCommand(uint8_t command)	// low bit of command is zero
   uint8_t c = inBuf[0].data;
   if (c != command) {
     DEBUG(errors) kprintf(KR_OSTREAM, "Config command sent %#.2x got %#.2x\n",
-                          command, c);
+                          commandPlus1, c);
     return RC_capros_W1Bus_BusError;
   }
   return RC_OK;
@@ -513,10 +514,11 @@ nextIsSPU5(uint8_t * pgm, uint8_t * endPgm)
 bool
 MatchDataByte(uint8_t c)
 {
-  bool ret = c == inBuf[numInputPairsProcessed++].data;
+  bool ret = c == inBuf[numInputPairsProcessed].data;
   if (!ret)
     DEBUG(errors) kprintf(KR_OSTREAM, "Sent data byte %#.2x got %#.2x!\n",
-                          c, inBuf[numInputPairsProcessed++].data);
+                          c, inBuf[numInputPairsProcessed].data);
+  numInputPairsProcessed++;
   return ret;
 }
 
