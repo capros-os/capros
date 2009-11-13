@@ -128,9 +128,6 @@ PrintDiskKey(KeyBits key)
       diag_printf(")");
       break;
     }
-  case KKT_Device:
-    diag_printf("KKT_Device(ty=%d)", key.keyData);
-    break;
   case KKT_Start:
     diag_printf("KKT_Start(OID=");
     diag_printOid(get_target_oid(&key.u.unprep.oid));
