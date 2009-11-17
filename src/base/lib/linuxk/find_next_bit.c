@@ -9,6 +9,7 @@
  * 2 of the License, or (at your option) any later version.
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/bitops.h>
 #include <linux/module.h>
 #include <asm/types.h>

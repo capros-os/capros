@@ -44,6 +44,7 @@ OBJECTS=\
   $(BUILDDIR)/dma-mapping.o \
   $(BUILDDIR)/dmapool.o \
   $(BUILDDIR)/driverCore.o \
+  $(BUILDDIR)/find_next_bit.o \
   $(BUILDDIR)/ioremap.o \
   $(BUILDDIR)/klist.o \
   $(BUILDDIR)/kmemdup.o \
