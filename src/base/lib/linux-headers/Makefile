@@ -32,6 +32,7 @@ ASMGENERIC_HEADERS=$(wildcard asm-generic/*.h)
 ASMGENERICBITOPS_HEADERS=$(wildcard asm-generic/bitops/*.h)
 NET_HEADERS=$(wildcard net/*.h)
 SCSI_HEADERS=$(wildcard scsi/*.h)
+TRACE_HEADERS=$(wildcard trace/*.h)
 
 EROS_SRC=../../..
 CROSS_BUILD=yes
@@ -61,3 +62,5 @@ install:
 	$(INSTALL) -m 644 $(NET_HEADERS) $(EROS_ROOT)/include/linux-headers/net/
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/scsi/
 	$(INSTALL) -m 644 $(SCSI_HEADERS) $(EROS_ROOT)/include/linux-headers/scsi/
+	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/trace/
+	$(INSTALL) -m 644 $(TRACE_HEADERS) $(EROS_ROOT)/include/linux-headers/trace/

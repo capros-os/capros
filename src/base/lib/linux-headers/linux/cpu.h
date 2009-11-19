@@ -20,7 +20,7 @@
 #define _LINUX_CPU_H_
 
 #include <linux/sysdev.h>
-#include <linux/node.h>
+//#include <linux/node.h>
 #include <linux/compiler.h>
 #include <linux/cpumask.h>
 
