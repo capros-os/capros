@@ -1,6 +1,6 @@
 /*
  * Portions Copyright (C) 1991, 1992  Linus Torvalds
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -343,7 +343,8 @@ ensure_timer_thread(void)
 }
 
 void fastcall
-init_timer(struct timer_list * timer)
+init_timer_key(struct timer_list * timer,
+  const char *name, struct lock_class_key *key)
 {
   timer->entry.next = NULL;	// mark as not pending
 
@@ -561,6 +562,12 @@ timer_remaining_time(struct timer_list * timer)
   if (remaining > 0)
     return remaining;
   else return 0;
+}
+
+void add_timer(struct timer_list *timer)
+{
+  BUG_ON(timer_pending(timer));
+  mod_timer(timer, timer->expires);
 }
 
 void
