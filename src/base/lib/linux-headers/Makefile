@@ -27,6 +27,7 @@ LINUX_HEADERS=$(wildcard linux/*.h)
 LINUXAMBA_HEADERS=$(wildcard linux/amba/*.h)
 LINUXBYTEORDER_HEADERS=$(wildcard linux/byteorder/*.h)
 LINUXSUNRPC_HEADERS=$(wildcard linux/sunrpc/*.h)
+LINUXUNALIGNED_HEADERS=$(wildcard linux/unaligned/*.h)
 LINUXUSB_HEADERS=$(wildcard linux/usb/*.h)
 ASMGENERIC_HEADERS=$(wildcard asm-generic/*.h)
 ASMGENERICBITOPS_HEADERS=$(wildcard asm-generic/bitops/*.h)
@@ -52,6 +53,8 @@ install:
 	$(INSTALL) -m 644 $(LINUXBYTEORDER_HEADERS) $(EROS_ROOT)/include/linux-headers/linux/byteorder/
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/linux/sunrpc/
 	$(INSTALL) -m 644 $(LINUXSUNRPC_HEADERS) $(EROS_ROOT)/include/linux-headers/linux/sunrpc/
+	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/linux/unaligned/
+	$(INSTALL) -m 644 $(LINUXUNALIGNED_HEADERS) $(EROS_ROOT)/include/linux-headers/linux/unaligned/
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/linux/usb/
 	$(INSTALL) -m 644 $(LINUXUSB_HEADERS) $(EROS_ROOT)/include/linux-headers/linux/usb/
 	$(INSTALL) -d $(EROS_ROOT)/include/linux-headers/asm-generic/
