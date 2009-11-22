@@ -5,7 +5,7 @@
  *   Kai Petzke <wpp@marie.physik.tu-berlin.de>
  *   Theodore Ts'o <tytso@mit.edu>
  * Made to use alloc_percpu by Christoph Lameter.
- * Copyright (C) 2007, 2008, Strawberry Development Group.
+ * Copyright (C) 2007, 2008, 2009, Strawberry Development Group.
  *
  * This file is part of the CapROS Operating System runtime library.
  *
@@ -608,7 +608,6 @@ int cancel_work_sync(struct work_struct *work)
 }
 EXPORT_SYMBOL_GPL(cancel_work_sync);
 
-#if 0 // CapROS
 /**
  * cancel_delayed_work_sync - reliably kill off a delayed work.
  * @dwork: the delayed work struct
@@ -623,7 +622,6 @@ int cancel_delayed_work_sync(struct delayed_work *dwork)
 	return __cancel_work_timer(&dwork->work, &dwork->timer);
 }
 EXPORT_SYMBOL(cancel_delayed_work_sync);
-#endif // CapROS
 
 static struct workqueue_struct * keventd_wq __read_mostly;
 
