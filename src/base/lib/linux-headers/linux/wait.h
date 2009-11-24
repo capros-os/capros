@@ -1,5 +1,27 @@
 #ifndef _LINUX_WAIT_H
 #define _LINUX_WAIT_H
+/*
+ * Portions Copyright (C) 2007, 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
 
 #define WNOHANG		0x00000001
 #define WUNTRACED	0x00000002
@@ -21,9 +43,9 @@
 
 #include <linux/list.h>
 #include <linux/stddef.h>
-#include <linux/spinlock.h>
+#include <linux/mutex.h>
 #include <asm/system.h>
-#include <asm/current.h>
+//#include <asm/current.h>
 
 typedef struct __wait_queue wait_queue_t;
 typedef int (*wait_queue_func_t)(wait_queue_t *wait, unsigned mode, int sync, void *key);
@@ -33,6 +55,7 @@ struct __wait_queue {
 	unsigned int flags;
 #define WQ_FLAG_EXCLUSIVE	0x01
 	void *private;
+	unsigned int threadNum;
 	wait_queue_func_t func;
 	struct list_head task_list;
 };
@@ -48,7 +71,7 @@ struct wait_bit_queue {
 };
 
 struct __wait_queue_head {
-	spinlock_t lock;
+	struct mutex mutx;
 	struct list_head task_list;
 };
 typedef struct __wait_queue_head wait_queue_head_t;
@@ -68,7 +91,7 @@ struct task_struct;
 	wait_queue_t name = __WAITQUEUE_INITIALIZER(name, tsk)
 
 #define __WAIT_QUEUE_HEAD_INITIALIZER(name) {				\
-	.lock		= __SPIN_LOCK_UNLOCKED(name.lock),		\
+	.mutx = __MUTEX_INITIALIZER(name.mutx),				\
 	.task_list	= { &(name).task_list, &(name).task_list } }
 
 #define DECLARE_WAIT_QUEUE_HEAD(name) \
@@ -170,101 +193,92 @@ wait_queue_head_t *bit_waitqueue(void *, int);
 #define wake_up_interruptible_sync_poll(x, m)				\
 	__wake_up_sync_key((x), TASK_INTERRUPTIBLE, 1, (void *) (m))
 
-#define __wait_event(wq, condition) 					\
-do {									\
-	DEFINE_WAIT(__wait);						\
-									\
-	for (;;) {							\
-		prepare_to_wait(&wq, &__wait, TASK_UNINTERRUPTIBLE);	\
-		if (condition)						\
-			break;						\
-		schedule();						\
-	}								\
-	finish_wait(&wq, &__wait);					\
-} while (0)
+int wait_event_wake_function(wait_queue_t *wait, unsigned mode, int sync, void *key);
+void remove_wait_queue_if_on_it(wait_queue_head_t *q, wait_queue_t *wait);
 
 /**
  * wait_event - sleep until a condition gets true
  * @wq: the waitqueue to wait on
  * @condition: a C expression for the event to wait for
  *
- * The process is put to sleep (TASK_UNINTERRUPTIBLE) until the
+ * The process is put to sleep until the
  * @condition evaluates to true. The @condition is checked each time
  * the waitqueue @wq is woken up.
  *
  * wake_up() has to be called after changing any variable that could
- * change the result of the wait condition.
+ * cause the wait condition to become true.
  */
 #define wait_event(wq, condition) 					\
 do {									\
 	if (condition)	 						\
 		break;							\
-	__wait_event(wq, condition);					\
-} while (0)
-
-#define __wait_event_timeout(wq, condition, ret)			\
-do {									\
-	DEFINE_WAIT(__wait);						\
-									\
-	for (;;) {							\
-		prepare_to_wait(&wq, &__wait, TASK_UNINTERRUPTIBLE);	\
-		if (condition)						\
-			break;						\
-		ret = schedule_timeout(ret);				\
-		if (!ret)						\
-			break;						\
+	__DECLARE_SEMAPHORE_GENERIC(__sem, 0);				\
+	wait_queue_t __wait = {						\
+		.private	= &__sem,				\
+		.func		= wait_event_wake_function,		\
+		.task_list	= LIST_HEAD_INIT((__wait).task_list),	\
+	};								\
+	add_wait_queue(&wq, &__wait);					\
+	if (condition) {						\
+		remove_wait_queue_if_on_it(&wq, &__wait);		\
+		break;							\
+	} else {							\
+		down(&__sem);						\
 	}								\
-	finish_wait(&wq, &__wait);					\
-} while (0)
+} while (1)
+
+void wet_timer_function(unsigned long);
 
 /**
  * wait_event_timeout - sleep until a condition gets true or a timeout elapses
  * @wq: the waitqueue to wait on
  * @condition: a C expression for the event to wait for
- * @timeout: timeout, in jiffies
+ * @timeout: timeout, in jiffies, assumed > 0
  *
- * The process is put to sleep (TASK_UNINTERRUPTIBLE) until the
+ * The process is put to sleep until the
  * @condition evaluates to true. The @condition is checked each time
  * the waitqueue @wq is woken up.
  *
  * wake_up() has to be called after changing any variable that could
- * change the result of the wait condition.
+ * cause the wait condition to become true.
  *
  * The function returns 0 if the @timeout elapsed, and the remaining
  * jiffies if the condition evaluated to true before the timeout elapsed.
  */
 #define wait_event_timeout(wq, condition, timeout)			\
 ({									\
-	long __ret = timeout;						\
-	if (!(condition)) 						\
-		__wait_event_timeout(wq, condition, __ret);		\
+	__DECLARE_SEMAPHORE_GENERIC(__sem, 0);				\
+	DEFINE_TIMER(tim, wet_timer_function,				\
+			jiffies + timeout, (unsigned long)&__sem);	\
+	add_timer(&tim);						\
+do {									\
+	if (condition)	 						\
+		break;							\
+	wait_queue_t __wait = {						\
+		.private	= &__sem,				\
+		.func		= wait_event_wake_function,		\
+		.task_list	= LIST_HEAD_INIT((__wait).task_list),	\
+	};								\
+	add_wait_queue(&wq, &__wait);					\
+	if (!(condition)) {						\
+		down(&__sem);						\
+		if (timer_pending(&tim))				\
+			continue;					\
+	}								\
+	remove_wait_queue_if_on_it(&wq, &__wait);			\
+	break;								\
+} while (1);								\
+	unsigned long __ret = timer_remaining_time(&tim);		\
+	del_timer(&tim);						\
 	__ret;								\
 })
-
-#define __wait_event_interruptible(wq, condition, ret)			\
-do {									\
-	DEFINE_WAIT(__wait);						\
-									\
-	for (;;) {							\
-		prepare_to_wait(&wq, &__wait, TASK_INTERRUPTIBLE);	\
-		if (condition)						\
-			break;						\
-		if (!signal_pending(current)) {				\
-			schedule();					\
-			continue;					\
-		}							\
-		ret = -ERESTARTSYS;					\
-		break;							\
-	}								\
-	finish_wait(&wq, &__wait);					\
-} while (0)
 
 /**
  * wait_event_interruptible - sleep until a condition gets true
  * @wq: the waitqueue to wait on
  * @condition: a C expression for the event to wait for
  *
- * The process is put to sleep (TASK_INTERRUPTIBLE) until the
+ * The process is put to sleep until the
  * @condition evaluates to true or a signal is received.
  * The @condition is checked each time the waitqueue @wq is woken up.
  *
@@ -273,34 +287,13 @@ do {									\
  *
  * The function will return -ERESTARTSYS if it was interrupted by a
  * signal and 0 if @condition evaluated to true.
+ * Note: no signals in CapROS.
  */
 #define wait_event_interruptible(wq, condition)				\
 ({									\
-	int __ret = 0;							\
-	if (!(condition))						\
-		__wait_event_interruptible(wq, condition, __ret);	\
-	__ret;								\
+	wait_event(wq, condition);					\
+	0;								\
 })
-
-#define __wait_event_interruptible_timeout(wq, condition, ret)		\
-do {									\
-	DEFINE_WAIT(__wait);						\
-									\
-	for (;;) {							\
-		prepare_to_wait(&wq, &__wait, TASK_INTERRUPTIBLE);	\
-		if (condition)						\
-			break;						\
-		if (!signal_pending(current)) {				\
-			ret = schedule_timeout(ret);			\
-			if (!ret)					\
-				break;					\
-			continue;					\
-		}							\
-		ret = -ERESTARTSYS;					\
-		break;							\
-	}								\
-	finish_wait(&wq, &__wait);					\
-} while (0)
 
 /**
  * wait_event_interruptible_timeout - sleep until a condition gets true or a timeout elapses
@@ -318,14 +311,12 @@ do {									\
  * The function returns 0 if the @timeout elapsed, -ERESTARTSYS if it
  * was interrupted by a signal, and the remaining jiffies otherwise
  * if the condition evaluated to true before the timeout elapsed.
+ * Note: no signals in CapROS.
  */
 #define wait_event_interruptible_timeout(wq, condition, timeout)	\
-({									\
-	long __ret = timeout;						\
-	if (!(condition))						\
-		__wait_event_interruptible_timeout(wq, condition, __ret); \
-	__ret;								\
-})
+	wait_event_timeout(wq, condition, timeout)
+
+// The following are not fixed for CapROS:
 
 #define __wait_event_interruptible_exclusive(wq, condition, ret)	\
 do {									\
@@ -399,7 +390,7 @@ do {									\
 })
 
 /*
- * Must be called with the spinlock in the wait_queue_head_t held.
+ * Must be called with the lock in the wait_queue_head_t held.
  */
 static inline void add_wait_queue_exclusive_locked(wait_queue_head_t *q,
 						   wait_queue_t * wait)
@@ -409,7 +400,7 @@ static inline void add_wait_queue_exclusive_locked(wait_queue_head_t *q,
 }
 
 /*
- * Must be called with the spinlock in the wait_queue_head_t held.
+ * Must be called with the lock in the wait_queue_head_t held.
  */
 static inline void remove_wait_queue_locked(wait_queue_head_t *q,
 					    wait_queue_t * wait)
