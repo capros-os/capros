@@ -121,6 +121,7 @@ app_BuildPath(const char* path)
     strcpy(buf, path);
   }
   else {
+    /* path begins with "/eros/". Look for a suitable prefix. */
     const char *buildroot = getenv("EROS_ROOT");
     if (buildroot) {
       strcpy(buf, buildroot);
