@@ -2,6 +2,29 @@
 #define _LINUX_SCHED_H
 
 /*
+ * Copyright (C) 2008, 2009, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, 59 Temple Place - Suite 330 Boston, MA 02111-1307, USA.
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+
+/*
  * cloning flags:
  */
 #define CSIGNAL		0x000000ff	/* signal mask to be sent at exit */
@@ -68,13 +91,13 @@ struct sched_param {
 #include <linux/smp.h>
 #include <linux/sem.h>
 #include <linux/signal.h>
-#include <linux/path.h>
+//#include <linux/path.h>
 #include <linux/compiler.h>
 #include <linux/completion.h>
 #include <linux/pid.h>
 #include <linux/percpu.h>
 #include <linux/topology.h>
-#include <linux/proportions.h>
+//#include <linux/proportions.h>
 #include <linux/seccomp.h>
 #include <linux/rcupdate.h>
 #include <linux/rtmutex.h>
@@ -86,8 +109,8 @@ struct sched_param {
 #include <linux/hrtimer.h>
 #include <linux/task_io_accounting.h>
 #include <linux/kobject.h>
-#include <linux/latencytop.h>
-#include <linux/cred.h>
+//#include <linux/latencytop.h>
+//#include <linux/cred.h>
 
 #include <asm/processor.h>
 
@@ -398,6 +421,7 @@ extern void arch_unmap_area_topdown(struct mm_struct *, unsigned long);
 		(mm)->hiwater_vm = (mm)->total_vm;	\
 } while (0)
 
+#if 0 // CapROS
 static inline unsigned long get_mm_hiwater_rss(struct mm_struct *mm)
 {
 	return max(mm->hiwater_rss, get_mm_rss(mm));
@@ -407,6 +431,7 @@ static inline unsigned long get_mm_hiwater_vm(struct mm_struct *mm)
 {
 	return max(mm->hiwater_vm, mm->total_vm);
 }
+#endif // CapROS
 
 extern void set_dumpable(struct mm_struct *mm, int value);
 extern int get_dumpable(struct mm_struct *mm);
@@ -1397,7 +1422,9 @@ struct task_struct {
 #ifdef CONFIG_FAULT_INJECTION
 	int make_it_fail;
 #endif
+#if 0 // CapROS
 	struct prop_local_single dirties;
+#endif // CapROS
 #ifdef CONFIG_LATENCYTOP
 	int latency_record_count;
 	struct latency_record latency_record[LT_SAVECOUNT];
@@ -1532,10 +1559,12 @@ static inline pid_t task_tgid_nr(struct task_struct *tsk)
 
 pid_t task_tgid_nr_ns(struct task_struct *tsk, struct pid_namespace *ns);
 
+#if 0 // CapROS
 static inline pid_t task_tgid_vnr(struct task_struct *tsk)
 {
 	return pid_vnr(task_tgid(tsk));
 }
+#endif // CapROS
 
 
 static inline pid_t task_pgrp_nr_ns(struct task_struct *tsk,
@@ -1561,11 +1590,13 @@ static inline pid_t task_session_vnr(struct task_struct *tsk)
 	return __task_pid_nr_ns(tsk, PIDTYPE_SID, NULL);
 }
 
+#if 0 // CapROS
 /* obsolete, do not use */
 static inline pid_t task_pgrp_nr(struct task_struct *tsk)
 {
 	return task_pgrp_nr_ns(tsk, &init_pid_ns);
 }
+#endif // CapROS
 
 /**
  * pid_alive - check that a task structure is not stale
@@ -1813,6 +1844,7 @@ void yield(void);
  */
 extern struct exec_domain	default_exec_domain;
 
+#if 0 // CapROS
 union thread_union {
 	struct thread_info thread_info;
 	unsigned long stack[THREAD_SIZE/sizeof(long)];
@@ -1829,6 +1861,7 @@ static inline int kstack_end(void *addr)
 #endif
 
 extern union thread_union init_thread_union;
+#endif // CapROS
 extern struct task_struct init_task;
 
 extern struct   mm_struct init_mm;
@@ -1868,7 +1901,7 @@ static inline struct user_struct *get_uid(struct user_struct *u)
 extern void free_uid(struct user_struct *);
 extern void release_uids(struct user_namespace *ns);
 
-#include <asm/current.h>
+//#include <asm/current.h>
 
 extern void do_timer(unsigned long ticks);
 
@@ -1941,6 +1974,7 @@ static inline int is_si_special(const struct siginfo *info)
 	return info <= SEND_SIG_FORCED;
 }
 
+#if 0 // CapROS
 /* True if we are on the alternate signal stack.  */
 
 static inline int on_sig_stack(unsigned long sp)
@@ -1975,6 +2009,7 @@ extern struct mm_struct *get_task_mm(struct task_struct *task);
 extern void mm_release(struct task_struct *, struct mm_struct *);
 /* Allocate a new mm structure and copy contents from tsk->mm */
 extern struct mm_struct *dup_mm(struct task_struct *tsk);
+#endif // CapROS
 
 extern int copy_thread(unsigned long, unsigned long, unsigned long,
 			struct task_struct *, struct pt_regs *);
@@ -2096,6 +2131,7 @@ static inline void unlock_task_sighand(struct task_struct *tsk,
 	spin_unlock_irqrestore(&tsk->sighand->siglock, *flags);
 }
 
+#if 0 // CapROS
 #ifndef __HAVE_THREAD_FUNCTIONS
 
 #define task_thread_info(task)	((struct thread_info *)(task)->stack)
@@ -2262,6 +2298,7 @@ static inline void thread_group_cputime_init(struct signal_struct *sig)
 static inline void thread_group_cputime_free(struct signal_struct *sig)
 {
 }
+#endif // CapROS
 
 /*
  * Reevaluate whether the task has signals pending delivery.
@@ -2299,6 +2336,7 @@ static inline void set_task_cpu(struct task_struct *p, unsigned int cpu)
 
 #endif /* CONFIG_SMP */
 
+#if 0 // CapROS
 extern void arch_pick_mmap_layout(struct mm_struct *mm);
 
 #ifdef CONFIG_TRACING
@@ -2312,6 +2350,7 @@ __trace_special(void *__tr, void *__data,
 {
 }
 #endif
+#endif // CapROS
 
 extern long sched_setaffinity(pid_t pid, const struct cpumask *new_mask);
 extern long sched_getaffinity(pid_t pid, struct cpumask *mask);

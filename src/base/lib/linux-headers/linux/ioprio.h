@@ -2,7 +2,7 @@
 #define IOPRIO_H
 
 #include <linux/sched.h>
-#include <linux/iocontext.h>
+//#include <linux/iocontext.h>
 
 /*
  * Gives us 8 prio classes with 13-bits of data for each class
@@ -46,6 +46,7 @@ enum {
  * the cpu scheduler nice value to an io priority
  */
 #define IOPRIO_NORM	(4)
+#if 0 // CapROS
 static inline int task_ioprio(struct io_context *ioc)
 {
 	if (ioprio_valid(ioc->ioprio))
@@ -61,6 +62,7 @@ static inline int task_ioprio_class(struct io_context *ioc)
 
 	return IOPRIO_CLASS_BE;
 }
+#endif // CapROS
 
 static inline int task_nice_ioprio(struct task_struct *task)
 {

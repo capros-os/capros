@@ -4,11 +4,18 @@
  * Copyright 2001 David Brownell
  * Copyright 2007 Intel Corporation
  *   Author: Matthew Wilcox <willy@linux.intel.com>
+ * Copyright (C) 2008, Strawberry Development Group.
+ *
+ * This file is part of the CapROS Operating System runtime library.
  *
  * This software may be redistributed and/or modified under the terms of
  * the GNU General Public License ("GPL") version 2 as published by the
  * Free Software Foundation.
- *
+ */
+/* This material is based upon work supported by the US Defense Advanced
+Research Projects Agency under Contract No. W31P4Q-07-C-0070.
+Approved for public release, distribution unlimited. */
+/*
  * This allocator returns small blocks of a given size which are DMA-able by
  * the given device.  It uses the dma_alloc_coherent page allocator to get
  * new pages, then splits them up into blocks of the required size.
@@ -22,14 +29,15 @@
  * keep a count of how many are currently allocated from each page.
  */
 
+#include <linuxk/linux-emul.h>
 #include <linux/device.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmapool.h>
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/module.h>
-#include <linux/mutex.h>
-#include <linux/poison.h>
+//#include <linux/mutex.h>
+//#include <linux/poison.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
@@ -41,6 +49,14 @@
 #define DMAPOOL_DEBUG 1
 #endif
 
+#ifndef PAGE_SIZE
+#define PAGE_SIZE EROS_PAGE_SIZE
+#endif
+
+// Choice of lock:
+// Spinlock is required, because dma_pool_alloc is called from
+// under a spinlock (for example, in ed_get/ed_alloc in drivers/usb/host).
+
 struct dma_pool {		/* the pool */
 	struct list_head page_list;
 	spinlock_t lock;
@@ -50,7 +66,7 @@ struct dma_pool {		/* the pool */
 	size_t boundary;
 	char name[32];
 	wait_queue_head_t waitq;
-	struct list_head pools;
+	// struct list_head pools;
 };
 
 struct dma_page {		/* cacheable header for 'allocation' bytes */
@@ -63,6 +79,7 @@ struct dma_page {		/* cacheable header for 'allocation' bytes */
 
 #define	POOL_TIMEOUT_JIFFIES	((100 /* msec */ * HZ) / 1000)
 
+#if 0 // CapROS
 static DEFINE_MUTEX(pools_lock);
 
 static ssize_t
@@ -105,6 +122,7 @@ show_pools(struct device *dev, struct device_attribute *attr, char *buf)
 }
 
 static DEVICE_ATTR(pools, S_IRUGO, show_pools, NULL);
+#endif // CapROS
 
 /**
  * dma_pool_create - Creates a pool of consistent memory blocks, for dma.
@@ -171,6 +189,7 @@ struct dma_pool *dma_pool_create(const char *name, struct device *dev,
 	retval->allocation = allocation;
 	init_waitqueue_head(&retval->waitq);
 
+#if 0 // CapROS
 	if (dev) {
 		int ret;
 
@@ -190,6 +209,7 @@ struct dma_pool *dma_pool_create(const char *name, struct device *dev,
 	} else
 		INIT_LIST_HEAD(&retval->pools);
 
+#endif // CapROS
 	return retval;
 }
 EXPORT_SYMBOL(dma_pool_create);
@@ -261,22 +281,26 @@ static void pool_free_page(struct dma_pool *pool, struct dma_page *page)
  */
 void dma_pool_destroy(struct dma_pool *pool)
 {
+#if 0 // CapROS
 	mutex_lock(&pools_lock);
 	list_del(&pool->pools);
 	if (pool->dev && list_empty(&pool->dev->dma_pools))
 		device_remove_file(pool->dev, &dev_attr_pools);
 	mutex_unlock(&pools_lock);
+#endif // CapROS
 
 	while (!list_empty(&pool->page_list)) {
 		struct dma_page *page;
 		page = list_entry(pool->page_list.next,
 				  struct dma_page, page_list);
 		if (is_page_busy(page)) {
+#if 0 // CapROS
 			if (pool->dev)
 				dev_err(pool->dev,
 					"dma_pool_destroy %s, %p busy\n",
 					pool->name, page->vaddr);
 			else
+#endif // CapROS
 				printk(KERN_ERR
 				       "dma_pool_destroy %s, %p busy\n",
 				       pool->name, page->vaddr);
@@ -310,13 +334,13 @@ void *dma_pool_alloc(struct dma_pool *pool, gfp_t mem_flags,
 	void *retval;
 
 	spin_lock_irqsave(&pool->lock, flags);
- restart:
 	list_for_each_entry(page, &pool->page_list, page_list) {
 		if (page->offset < pool->allocation)
 			goto ready;
 	}
 	page = pool_alloc_page(pool, GFP_ATOMIC);
 	if (!page) {
+#if 0 // CapROS
 		if (mem_flags & __GFP_WAIT) {
 			DECLARE_WAITQUEUE(wait, current);
 
@@ -330,6 +354,7 @@ void *dma_pool_alloc(struct dma_pool *pool, gfp_t mem_flags,
 			__remove_wait_queue(&pool->waitq, &wait);
 			goto restart;
 		}
+#endif // CapROS
 		retval = NULL;
 		goto done;
 	}
@@ -384,11 +409,13 @@ void dma_pool_free(struct dma_pool *pool, void *vaddr, dma_addr_t dma)
 
 	page = pool_find_page(pool, dma);
 	if (!page) {
+#if 0 // CapROS
 		if (pool->dev)
 			dev_err(pool->dev,
 				"dma_pool_free %s, %p/%lx (bad dma)\n",
 				pool->name, vaddr, (unsigned long)dma);
 		else
+#endif // CapROS
 			printk(KERN_ERR "dma_pool_free %s, %p/%lx (bad dma)\n",
 			       pool->name, vaddr, (unsigned long)dma);
 		return;
@@ -397,11 +424,13 @@ void dma_pool_free(struct dma_pool *pool, void *vaddr, dma_addr_t dma)
 	offset = vaddr - page->vaddr;
 #ifdef	DMAPOOL_DEBUG
 	if ((dma - page->dma) != offset) {
+#if 0 // CapROS
 		if (pool->dev)
 			dev_err(pool->dev,
 				"dma_pool_free %s, %p (bad vaddr)/%Lx\n",
 				pool->name, vaddr, (unsigned long long)dma);
 		else
+#endif // CapROS
 			printk(KERN_ERR
 			       "dma_pool_free %s, %p (bad vaddr)/%Lx\n",
 			       pool->name, vaddr, (unsigned long long)dma);
@@ -414,11 +443,13 @@ void dma_pool_free(struct dma_pool *pool, void *vaddr, dma_addr_t dma)
 				chain = *(int *)(page->vaddr + chain);
 				continue;
 			}
+#if 0 // CapROS
 			if (pool->dev)
 				dev_err(pool->dev, "dma_pool_free %s, dma %Lx "
 					"already free\n", pool->name,
 					(unsigned long long)dma);
 			else
+#endif // CapROS
 				printk(KERN_ERR "dma_pool_free %s, dma %Lx "
 					"already free\n", pool->name,
 					(unsigned long long)dma);
@@ -443,6 +474,7 @@ void dma_pool_free(struct dma_pool *pool, void *vaddr, dma_addr_t dma)
 }
 EXPORT_SYMBOL(dma_pool_free);
 
+#if 0 // CapROS: don't need this
 /*
  * Managed DMA pool
  */
@@ -502,3 +534,4 @@ void dmam_pool_destroy(struct dma_pool *pool)
 	WARN_ON(devres_destroy(dev, dmam_pool_release, dmam_pool_match, pool));
 }
 EXPORT_SYMBOL(dmam_pool_destroy);
+#endif // CapROS
