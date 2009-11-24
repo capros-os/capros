@@ -3,12 +3,13 @@
 
 /*
  * (C) Copyright 2001 Linus Torvalds
+ * Copyright (C) 2007, 2009, Strawberry Development Group.
  *
  * Atomic wait-for-completion handler data structures.
  * See kernel/sched.c for details.
  */
 
-#include <linux/wait.h>
+#include <linux/semaphore.h>
 
 /**
  * struct completion - structure used to maintain state for a "completion"
@@ -22,13 +23,22 @@
  * and macros DECLARE_COMPLETION(), DECLARE_COMPLETION_ONSTACK(), and
  * INIT_COMPLETION().
  */
+/* done has the number of unacknowledged completions times 2,
+   plus one if there is a timeout.
+sem has:
+-1: a process is waiting and done is zero
+0: no process is waiting and done is zero
+1: no process is waiting and done is nonzero.
+*/
+#define compl_completed 0x2
+#define compl_timedout  0x1
 struct completion {
-	unsigned int done;
-	wait_queue_head_t wait;
+	atomic_t done;
+	struct semaphore sem;
 };
 
 #define COMPLETION_INITIALIZER(work) \
-	{ 0, __WAIT_QUEUE_HEAD_INITIALIZER((work).wait) }
+	{ ATOMIC_INIT(0), __SEMAPHORE_INITIALIZER((work).sem, 0) }
 
 #define COMPLETION_INITIALIZER_ONSTACK(work) \
 	({ init_completion(&work); work; })
@@ -72,23 +82,36 @@ struct completion {
  */
 static inline void init_completion(struct completion *x)
 {
-	x->done = 0;
-	init_waitqueue_head(&x->wait);
+	atomic_set(&x->done, 0);
+	sema_init(&x->sem, 0);
 }
 
 extern void wait_for_completion(struct completion *);
-extern int wait_for_completion_interruptible(struct completion *x);
+
+static inline int wait_for_completion_interruptible(struct completion * x)
+{
+  wait_for_completion(x);
+  return 0;	// no signals in CapROS
+}
+
 extern int wait_for_completion_killable(struct completion *x);
 extern unsigned long wait_for_completion_timeout(struct completion *x,
-						   unsigned long timeout);
-extern unsigned long wait_for_completion_interruptible_timeout(
-			struct completion *x, unsigned long timeout);
+					   unsigned long timeout);
+
+static inline unsigned long
+wait_for_completion_interruptible_timeout(struct completion *x,
+                                          unsigned long timeout)
+{
+  return wait_for_completion_timeout(x,timeout);
+}
+
 extern bool try_wait_for_completion(struct completion *x);
 extern bool completion_done(struct completion *x);
 
 extern void complete(struct completion *);
 extern void complete_all(struct completion *);
 
+#if 0 // CapROS
 /**
  * INIT_COMPLETION: - reinitialize a completion structure
  * @x:  completion structure to be reinitialized
@@ -97,6 +120,7 @@ extern void complete_all(struct completion *);
  * be reused. This is especially important after complete_all() is used.
  */
 #define INIT_COMPLETION(x)	((x).done = 0)
+#endif // CapROS
 
 
 #endif
