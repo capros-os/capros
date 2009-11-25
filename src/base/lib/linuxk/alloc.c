@@ -42,7 +42,7 @@ kfree(const void * p)
 }
 
 void *
-__kmalloc(size_t size, gfp_t flags)
+__kmalloc_node(size_t size, gfp_t flags, int node)
 {
   void * p = NULL;
 
@@ -61,19 +61,12 @@ and must not use the VCSK. */
     down(&mallocLock);
     p = malloc(size);	// allocate in heap
     up(&mallocLock);
+    if ((flags & __GFP_ZERO) && p)
+      memset(p, 0, size);
   }
   else {
     kprintf(KR_OSTREAM, "__kmalloc flags 0x%x\n", flags);
     assert(((void)"unimplemented malloc pool", false));
   }
-  return p;
-}
-
-void *
-__kzalloc(size_t size, gfp_t flags)
-{
-  void * p = __kmalloc(size, flags);
-  if (p)
-    memset(p, 0, size);
   return p;
 }
