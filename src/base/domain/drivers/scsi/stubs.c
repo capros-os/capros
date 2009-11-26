@@ -263,5 +263,5 @@ void device_del(struct device * dev)
 
 void set_disk_ro(struct gendisk * disk, int flag)
 {
-  disk->policy = flag;
+  // not implemented
 }
