@@ -68,6 +68,25 @@ main(void)
 
   short value;
 
+  // Get inverter mode.
+  int16_t invModeValue;	//// workaround
+  result = capros_SWCA_getInverterMode(KR_SWCA, 0, &invModeValue);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d inv mode = %d\n",
+          0+1, invModeValue);
+
+#if 1////
+  // Set inverter mode to Auto.
+  result = capros_SWCA_setInverterMode(KR_SWCA, 0, capros_SWCA_InvMode_On);
+  ckOK
+
+  // Get inverter mode.
+  result = capros_SWCA_getInverterMode(KR_SWCA, 0, &invModeValue);
+  ckOK
+  kprintf(KR_OSTREAM, "Inverter %d inv mode = %d\n",
+          0+1, invModeValue);
+#endif
+
   // Get generator mode.
   // capros_SWCA_GenMode genModeValue;
   int16_t genModeValue;	//// workaround
@@ -76,7 +95,7 @@ main(void)
   kprintf(KR_OSTREAM, "Inverter %d gen mode = %d\n",
           0+1, genModeValue);
 
-#if 1////
+#if 0////
   // Set generator mode Off.
   result = capros_SWCA_setGeneratorMode(KR_SWCA, 1, capros_SWCA_GenMode_Off);
   ckOK
