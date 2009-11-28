@@ -54,6 +54,17 @@ interface SWCA extends key
 
   void getBatteryVolts(unsigned byte inverterNum, out short v10);
 
+  short enum InvMode {
+    Off,
+    Search,
+    On,
+    Charge
+  };
+  // FIXME: the following two mode parameters should have type Genmode.
+  // Due to an IDL compiler bug, they have been changed to short.
+  void getInverterMode(unsigned byte inverterNum, out short mode);
+  void setInverterMode(unsigned byte inverterNum, short mode);
+
   short enum GenMode {
     Off,
     Auto,

@@ -115,9 +115,11 @@ typedef struct AdapterState {
   char * cursor;
   char * underscore;	// NULL if none
   uint8_t LEDs;
+  uint8_t LEDsProvisional;
   uint8_t LEDsBlink;
+  uint8_t LEDsBlinkLogged;
   uint8_t LEDsLogged;
-  mono_time LEDTimeChanged[8];	// time the LED last changed
+  mono_time LEDEndChange[8];	// time the LED last changed + BlinkPeriod
   int menuNum;		// -1 if unknown
   int menuItemNum;
 
@@ -350,7 +352,7 @@ ResetAdapterState(AdapterState * as)
   as->underscore = NULL;
   int i;
   for (i = 0; i < 8; i++) {
-    as->LEDTimeChanged[i] = 0;
+    as->LEDEndChange[i] = 0;
   }
 }
 
@@ -574,6 +576,7 @@ procReadFreq(AdapterState * as)
 // Returns -1 if underscore position is not valid.
 static int
 UnderscoreToGenMode(AdapterState * as)
+// Also works for Inverter mode.
 {
   assert(as->underscore);
   long underscorePosition = as->underscore - &as->lcd[0][0];
@@ -621,7 +624,7 @@ struct MenuItem {
   bool (*underscoreProc)(AdapterState * as);
 } menuItems[numMenus][13] = {
   [0][0] = {{"Inverter Mode   ","               1"}},
-  [0][1] = {{"Set Inverter    ","OFF SRCH  ON CHG"}},
+  [0][1] = {{"Set Inverter    ","OFF SRCH  ON CHG"}, 0, 0, 0, procGenMode},
 
   [1][0] = {{"Generator Mode  ","               2"}},
   [1][1] = {{"Set Generator   ","OFF AUTO  ON EQ "}, 0, 0, 0, procGenMode},
@@ -794,10 +797,10 @@ Convert2p1(AdapterState * as, int * value)
 void
 InputNotifyServer(void)
 {
-  DEBUG(input) kprintf(KR_OSTREAM, "Input notifying\n");
+  DEBUG(server) kprintf(KR_OSTREAM, "Input notifying\n");
   result_t result = capros_SWCANotify_notify(KR_NOTIFY);
   assert(result == RC_OK);
-  DEBUG(input) kprintf(KR_OSTREAM, "Input done notifying\n");
+  DEBUG(server) kprintf(KR_OSTREAM, "Input done notifying\n");
 }
 
 bool
@@ -980,42 +983,70 @@ InputProcedure(void * data /* unused */ )
             GetMonoTime();
             DEBUG(leds) kprintf(KR_OSTREAM, "Inv %d read LEDs=%#x getting=%d got=%d\n",
                           transmittingAdapterNum, c, gettingLEDs, gotLEDs);
+            // Determine whether the LEDs are blinking.
+            /* The LEDs blink with a period of about 1 second.
+             * A BlinkPeriod of 2 seconds is be reasonable.
+             * But note that when the serial port goes through
+             * a serial-to-ethernet adapter
+             * and we are sampling several data on several SWCAs,
+             * we can't actually sample that fast. */
+#define BlinkPeriod 2000000000ULL	// in ns
             int i;
-            uint8_t blink = 0;
+            uint8_t newSteady = as->LEDsLogged;
+            uint8_t newBlink = as->LEDsBlinkLogged;
             for (i = 0; i < 8; i++) {	// process each bit
               unsigned int mask = 1 << i;
-              // Determine whether the LED is blinking.
-/* The LEDs blink with a period of about 1 second.
- * We use 2 seconds here to be safe. */
-#define BlinkPeriod 2000000000LL	// in ns
-              bool steady = monoNow > as->LEDTimeChanged[i] + BlinkPeriod;
               if ((as->LEDs ^ c) & mask) {	// changed state
-                if (! steady) 
-                  blink |= mask;	// it's blinking
-                // else it might be blinking; we won't know for a while.
-                as->LEDTimeChanged[i] = monoNow;
+                as->LEDsProvisional &= ~ mask;
+                if (! (as->LEDsBlink & mask)) {	// was steady
+                  as->LEDsProvisional |= mask;	// now provisionally blinking
+                }
+                as->LEDsBlink |= mask;
+                as->LEDEndChange[i] = monoNow + BlinkPeriod;
               } else {			// same state as before
-                if (steady)
-                  blink &= ~mask;	// it's not blinking
+                if (monoNow > as->LEDEndChange[i]) {
+                  // Been the same for a little while.
+                  as->LEDsProvisional &= ~ mask;
+                  if (as->LEDsBlink & mask) {	// was blinking
+                    as->LEDsProvisional |= mask; // now provisionally steady
+                  }
+                  as->LEDsBlink &= ~ mask;
+                }
+              }
+              if (! (as->LEDsProvisional & mask)) {	// not provisional
+                if (as->LEDsBlink & mask) {	// blinking
+                  newSteady &= ~mask;
+                  newBlink |= mask;
+                } else {
+                  newSteady &= ~mask;
+                  newSteady |= (c & mask);
+                  newBlink &= ~mask;
+                }
               }
             }
+            DEBUG(leds)
+              kprintf(KR_OSTREAM,
+                      "LEDs logged %#x:%#x old %#x blink %#x prov %#x new %#x:%#x\n",
+                      as->LEDsLogged, as->LEDsBlinkLogged,
+                      as->LEDs, as->LEDsBlink, as->LEDsProvisional,
+                      newSteady, newBlink);
+
             // Was there a change?
-            uint8_t steadyLEDs = c & ~ blink;
-            if ((steadyLEDs != as->LEDsLogged
-                 || blink != as->LEDsBlink )
+            if ((newSteady != as->LEDsLogged
+                 || newBlink != as->LEDsBlinkLogged )
                 && as->num >= 0 ) {
               // yes, log the new data.
               capros_SWCA_LEDLogRecord ledRec;
               ledRec.header.length = ledRec.trailer = sizeof(ledRec);
               ledRec.header.rtc = GetRTCTime();
               ledRec.header.id = monoNow;
-              ledRec.LEDsSteady = steadyLEDs;
-              ledRec.LEDsBlink = blink;
+              ledRec.LEDsSteady = newSteady;
+              ledRec.LEDsBlink = newBlink;
               ledRec.padding = 0;
 
               if (AppendLogRecord(LKSN_LEDLOGS + as->num, (uint8_t *)&ledRec)) {
-                as->LEDsLogged = steadyLEDs;
-                as->LEDsBlink = blink;
+                as->LEDsLogged = newSteady;
+                as->LEDsBlinkLogged = newBlink;
               }
             }
             as->LEDs = c;
@@ -1195,7 +1226,7 @@ InitSerialPort(void)
   (it may be after a restart and time may have passed). */
   for (i = 0; i < numAdapters; i++) {
     AdapterState * as = &adapterStates[i];
-    as->LEDsBlink = 0xff;	// ensure first log entry for these
+    as->LEDs = 0xff;	// ensure first log entry for these
     as->invChg = INT_MAX;
     as->load = INT_MAX;
   }
@@ -1516,10 +1547,12 @@ DoRequest(void)
     case OC_capros_SWCA_set15MinStartVolts:
       return AdjustUpOrDown(waiterW2 - requestData);
 
+    case OC_capros_SWCA_getInverterMode:
     case OC_capros_SWCA_getGeneratorMode:
       CompleteRequest(requestData);
       return true;
 
+    case OC_capros_SWCA_setInverterMode:
     case OC_capros_SWCA_setGeneratorMode:
       return AdjustUnderscore(requestData, waiterW2, 4);
     }
@@ -1807,6 +1840,17 @@ cmte_main(void)
 
       case OC_capros_SWCA_getBatteryVolts:
         WaiterRequest(&Msg, 3, 4);
+        break;
+
+      case OC_capros_SWCA_getInverterMode:
+        WaiterRequest(&Msg, 0, 1);
+        break;
+
+      case OC_capros_SWCA_setInverterMode:
+        if (Msg.rcv_w2 > capros_SWCA_GenMode_Eq)
+          Msg.snd_code = RC_capros_key_RequestError;
+        else
+          WaiterRequest(&Msg, 0, 1);
         break;
 
       case OC_capros_SWCA_getGeneratorMode:
