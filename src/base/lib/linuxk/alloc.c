@@ -54,10 +54,11 @@ and must not use the VCSK. */
 #endif
   // Sorry, but since we are using malloc, we have to ignore SLAB_HWCACHE_ALIGN:
   flags &= ~SLAB_HWCACHE_ALIGN;
-  if (flags == GFP_KERNEL
-      || flags == GFP_ATOMIC
-      || flags == GFP_NOIO
-      || flags == 0) {
+  gfp_t flagsNotZero = flags & ~__GFP_ZERO;
+  if (flagsNotZero == GFP_KERNEL
+      || flagsNotZero == GFP_ATOMIC
+      || flagsNotZero == GFP_NOIO
+      || flagsNotZero == 0) {
     down(&mallocLock);
     p = malloc(size);	// allocate in heap
     up(&mallocLock);
