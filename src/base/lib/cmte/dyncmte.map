@@ -28,8 +28,8 @@ Approved for public release, distribution unlimited. */
 
 /* Set up a constructor for a program using the
 CapROS Multi-Threaded Environment. */
-#define DYNCMTE_CONSTRUCTOR(dname, prog) \
-DYNCMME_CONSTRUCTOR(dname, LIBDIR #prog, #prog) \
+#define DYNCMTE_CONSTRUCTOR(dname, prog, sym) \
+DYNCMME_CONSTRUCTOR(dname, LIBDIR #prog, sym) \
 PROD_CONSTIT(dname##_c, , KC_SLEEP) = misc Sleep; \
 PROD_CONSTIT(dname##_c, , KC_SNODECONSTR) = snode_c;
 
