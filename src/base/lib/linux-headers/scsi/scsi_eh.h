@@ -1,31 +1,9 @@
 #ifndef _SCSI_SCSI_EH_H
 #define _SCSI_SCSI_EH_H
-/*
- * Copyright (C) 2008, Strawberry Development Group
- *
- * This file is part of the CapROS Operating System.
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2,
- * or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
- */
-/* This material is based upon work supported by the US Defense Advanced
-Research Projects Agency under Contract No. W31P4Q-07-C-0070.
-Approved for public release, distribution unlimited. */
 
-#include <linux/list.h>
+#include <linux/scatterlist.h>
 
-struct scsi_cmnd;
+#include <scsi/scsi_cmnd.h>
 struct scsi_device;
 struct Scsi_Host;
 
@@ -79,14 +57,39 @@ extern const u8 * scsi_sense_desc_find(const u8 * sense_buffer, int sb_len,
 
 extern int scsi_get_sense_info_fld(const u8 * sense_buffer, int sb_len,
 				   u64 * info_out);
- 
+
+extern void scsi_build_sense_buffer(int desc, u8 *buf, u8 key, u8 asc, u8 ascq);
+
 /*
  * Reset request from external source
  */
 #define SCSI_TRY_RESET_DEVICE	1
 #define SCSI_TRY_RESET_BUS	2
 #define SCSI_TRY_RESET_HOST	3
+#define SCSI_TRY_RESET_TARGET	4
 
 extern int scsi_reset_provider(struct scsi_device *, int);
+
+struct scsi_eh_save {
+	/* saved state */
+	int result;
+	enum dma_data_direction data_direction;
+	unsigned underflow;
+	unsigned char cmd_len;
+	unsigned char prot_op;
+	unsigned char *cmnd;
+	struct scsi_data_buffer sdb;
+	struct request *next_rq;
+	/* new command support */
+	unsigned char eh_cmnd[BLK_MAX_CDB];
+	struct scatterlist sense_sgl;
+};
+
+extern void scsi_eh_prep_cmnd(struct scsi_cmnd *scmd,
+		struct scsi_eh_save *ses, unsigned char *cmnd,
+		int cmnd_size, unsigned sense_bytes);
+
+extern void scsi_eh_restore_cmnd(struct scsi_cmnd* scmd,
+		struct scsi_eh_save *ses);
 
 #endif /* _SCSI_SCSI_EH_H */
